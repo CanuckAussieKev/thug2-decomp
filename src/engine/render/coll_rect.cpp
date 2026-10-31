@@ -38,7 +38,7 @@ CollGrid** grids_along(const maths::Seg* line) { return get_coll_grids_on_line(l
 
 bool collide_with_rect(HitMesh* object, const CollRect* rect, const maths::BBox* box, RectHits* hits)
 {
-    return object->get_call<bool>(15, rect, box, hits);
+    return object->collide_with_rect(rect, box, hits);
 }
 
 // One face's crossing (points and kinds from rect_hits_triangle) added to the hits: the face's normal (v1 - v0) x
@@ -202,7 +202,7 @@ bool collide_rect_with_statics(const CollRect* rect, RectHits* hits, HitMeshCach
     if (use_cache) {
         for (int i = 0; i < cache->statics_; ++i) {
             const HitMeshCache::TableRow& entry = cache->entries_[i];
-            if (grown.intersects(*static_cast<const maths::BBox*>(entry.geometry)))
+            if (grown.intersects(*entry.bounds))
                 collide_with_rect(entry.object, rect, &grown, hits);
         }
         return hits->count > 0;
@@ -218,7 +218,7 @@ bool collide_rect_with_statics(const CollRect* rect, RectHits* hits, HitMeshCach
     for (; *grids; ++grids) {
         int count;
         for (HitMesh** objects = (*grids)->objects_along_line(&diagonal, &count); *objects; ++objects) {
-            if ((*objects)->get_call<bool>(13, &grown))
+            if ((*objects)->inside_bounds(&grown))
                 collide_with_rect(*objects, rect, &grown, hits);
         }
     }

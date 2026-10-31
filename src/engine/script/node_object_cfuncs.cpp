@@ -768,9 +768,8 @@ bool __cdecl shatter_node(uint32_t name)
     uint32_t section_id = 0;
     if (!node->read_hash_value(kName, &section_id, 0))
         return true;
-    uint8_t* sector = find_scene_sector(section_id); // (not checked for null)
-    reinterpret_cast<void(__thiscall*)(void*, int)>((*reinterpret_cast<void***>(sector))[1])(
-        sector, 1); // (0x004A1090: a jump to vtable +4)
+    uint8_t* sector = find_scene_sector(section_id);                      // (not checked for null)
+    reinterpret_cast<render::WorldCell*>(sector)->plat_set_shatter(true); // (0x004A1090: a jump to vtable +4)
     return true;
 }
 

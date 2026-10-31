@@ -29,7 +29,6 @@ namespace render {
 
 namespace {
 
-constexpr uint32_t kCollStaticSize = 0x18;
 extern void** const kSectorNodeVtable;
 extern void** const kSectorHeadVtable;
 void** const& g_coll_node_vtable = vt::kCollGridNode; // (the collision grid's lists')
@@ -59,16 +58,13 @@ bool scene_unload_collision(WorldScene* scene) { return scene->unload_collision(
 // The platform's new sector (slot 7), its geometry and collision cleared.
 WorldCell* alloc_sector(WorldScene* scene)
 {
-    auto* sector = static_cast<WorldCell*>(scene->plat_create_sector());
+    WorldCell* sector = scene->plat_create_sector();
     sector->geom_handle_ = nullptr;
     sector->hit_body_ = nullptr;
     return sector;
 }
 
-StaticCollider* coll_static_at(StaticCollider* statics, int index)
-{
-    return reinterpret_cast<StaticCollider*>(reinterpret_cast<uint8_t*>(statics) + index * kCollStaticSize);
-}
+StaticCollider* coll_static_at(StaticCollider* statics, int index) { return &statics[index]; }
 
 // The lists (lists::Foremost / Node): a head ends its list (its data is -1).
 bool is_head(const memory::ListNode* node) { return node->data == reinterpret_cast<void*>(-1); }
@@ -191,7 +187,7 @@ WorldScene::~WorldScene()
     if (sectors_) {
         for_each_sector(this, [](WorldCell* sector) {
             sector->clear_flags(kSectorInGrid);
-            Virtual<void*>(sector, 0, 1u);
+            delete sector;
         });
         if (lists::KeyMap* table = sectors_) {
             if (table->buckets_) {
@@ -288,7 +284,7 @@ bool WorldScene::add_collision_data(const uint8_t* data, int flag)
         }
         for (int i = 0; i < coll_static_count_; ++i) {
             StaticCollider* coll = coll_static_at(coll_statics_, i);
-            uint32_t name = reinterpret_cast<HitMesh*>(coll)->checksum_;
+            uint32_t name = coll->checksum_;
             auto* sector = static_cast<WorldCell*>(sectors_->fetch_entry(name));
             if (!sector) {
                 sector = alloc_sector(this);
@@ -296,7 +292,7 @@ bool WorldScene::add_collision_data(const uint8_t* data, int flag)
                 sector->change_live(true);
                 put_sector(this, sector);
             }
-            sector->set_coll_obj(reinterpret_cast<HitMesh*>(coll_static_at(coll_statics_, i)));
+            sector->set_coll_obj(coll_static_at(coll_statics_, i));
             sector->change_bits(kSectorInGrid);
         }
     }
@@ -373,8 +369,7 @@ void WorldScene::get_update_super_sectors(memory::ListNode* added)
         uint32_t key = sector->checksum_;
         sectors_->erase_entry(key);
         sector->clear_flags(kSectorInGrid);
-        if (sector)
-            Virtual<void*>(sector, 0, 1u);
+        delete sector;
         Virtual<void*>(node, 0, 1u);
         node = next;
     }
@@ -402,7 +397,7 @@ bool WorldScene::load_add_scene(const char* name)
         scene_load_collision_data(this, data, &add_coll_static_count_, &add_coll_statics_, &add_coll_objects_, &box, 0);
     if (add_coll_static_count_ > 0) {
         for (int i = 0; i < add_coll_static_count_; ++i) {
-            uint32_t section_id = reinterpret_cast<HitMesh*>(coll_static_at(add_coll_statics_, i))->checksum_;
+            uint32_t section_id = coll_static_at(add_coll_statics_, i)->checksum_;
             auto* sector = static_cast<WorldCell*>(sectors_->fetch_entry(section_id));
             if (!sector) {
                 sector = alloc_sector(this);
@@ -413,7 +408,7 @@ bool WorldScene::load_add_scene(const char* name)
                 put_sector(this, sector);
                 append_last(add_scene_sectors_, new_node(kSectorNodeVtable, sector));
             }
-            sector->set_coll_obj(reinterpret_cast<HitMesh*>(coll_static_at(add_coll_statics_, i)));
+            sector->set_coll_obj(coll_static_at(add_coll_statics_, i));
         }
         get_update_super_sectors(hidden_sectors_);
     }
@@ -458,13 +453,7 @@ bool WorldScene::unload_added_scene()
         flip_extra_scene();
     if (!unload_add_scene())
         return false;
-    if (StaticCollider* statics = add_coll_statics_) {
-        auto* array = reinterpret_cast<uint8_t*>(statics) - 4;
-        if (*reinterpret_cast<int*>(array))
-            Virtual<void*>(statics, 0, 3u); // (the vector deleting destructor)
-        else
-            memory::dealloc(array);
-    }
+    delete[] add_coll_statics_; // (the vector deleting destructor; the pointer kept, as the original)
     if (add_coll_objects_)
         packs::offload(add_pip_name_);
     if (hidden_sectors_)

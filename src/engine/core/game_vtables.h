@@ -5,10 +5,6 @@
 
 namespace vt {
 
-extern void** const kVtblCompoundColl;   // 0x00645AA8: front/level_editor_scale.cpp
-extern void** const kVtblMovingBoxColl;  // 0x00645BC0: front/level_editor_scale.cpp
-extern void** const kVtblMovingMeshColl; // 0x00645CE0: front/level_editor_scale.cpp
-extern void** const kVtblStaticColl;     // 0x00645C18: gfx/engine_scene.cpp
 extern void** const kCollGridNode;       // 0x00645D7C: gfx/engine_scene_sectors.cpp
 extern void** const kCollGridHead;       // 0x00645D80: gfx/engine_scene_sectors.cpp
 extern void** const kBlenderChannelNode; // 0x00645D84: gfx/anim_channel.cpp

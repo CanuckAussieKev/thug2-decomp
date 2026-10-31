@@ -167,12 +167,6 @@ namespace {
 constexpr float kMaxSectorExtent = 4000.0f; // (larger: the ground, a street, a building block - not moved)
 constexpr uint32_t kCluster = 0x1A3A966Bu;  // "Cluster" (the node's TrickObject Cluster=)
 
-template <typename F>
-F get_method(void* object, int offset)
-{
-    return reinterpret_cast<F>((*reinterpret_cast<void***>(object))[offset / 4]);
-}
-
 // The scenes (0x006FA7EC's list: nodes {?, scene +4, ?, next +0xC}, ended by a node whose scene is -1), skies left
 // out (+0x8D: drawn in the sky pass).
 struct SceneNode {
@@ -413,10 +407,11 @@ void apply_track(Track* track)
         V3 collision_moved = walls::on_grid(position - track->position0);
         uint8_t* coll = coll_of(track->sector);
         if (coll && !same_v3(collision_moved, track->collision_moved_)) {
-            const maths::Vec4* origin = get_method<const maths::Vec4*(__thiscall*)(void*)>(coll, 0x1C)(coll);
+            auto* object = reinterpret_cast<render::HitMesh*>(coll);
+            const maths::Vec4* origin = object->get_absolute_point();
             V3 change = collision_moved - track->collision_moved_;
             maths::Vec4 moved = {origin->x + change.x, origin->y + change.y, origin->z + change.z, origin->w};
-            get_method<void(__thiscall*)(void*, const maths::Vec4*)>(coll, 0x14)(coll, &moved);
+            object->place_at_absolute_point(&moved);
         }
         track->collision_moved_ = collision_moved;
         track->position = position;

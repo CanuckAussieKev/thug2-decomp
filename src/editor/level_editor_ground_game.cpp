@@ -33,14 +33,11 @@
 #include "engine/render/coll_static.h"
 #include "engine/render/coll_tri.h"
 #include "platform/run_log.h"
-#include "engine/core/game_vtables.h"
 #include "platform/crt.h"
 
 namespace frontend::level_editor::ground {
 
 namespace {
-
-void** const& g_coll_static_vtable = vt::kVtblStaticColl;
 
 uint8_t* geom_of(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x14); }
 uint8_t* coll_of(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x18); }
@@ -63,7 +60,7 @@ bool is_operative(uint8_t* sector) { return reinterpret_cast<render::WorldCell*>
 render::StaticCollider* static_of(uint8_t* sector)
 {
     uint8_t* coll = coll_of(sector);
-    if (!coll || *reinterpret_cast<void***>(coll) != g_coll_static_vtable)
+    if (!render::is_static_collider(coll))
         return nullptr;
     return reinterpret_cast<render::StaticCollider*>(coll);
 }

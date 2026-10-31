@@ -13,10 +13,10 @@
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_overlays.h"
 #include "editor/level_editor_scenery.h"
+#include "engine/render/coll_static.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/coll_tri.h"
 #include "engine/render/probe_ray.h"
-#include "engine/core/game_vtables.h"
 
 namespace frontend::level_editor::ruler {
 
@@ -58,8 +58,6 @@ std::string describe(const Measure& m)
 
 namespace {
 
-void** const& g_coll_static_vtable = vt::kVtblStaticColl; // (StaticCollider)
-
 bool g_armed;
 int g_ends; // (0, 1 or 2 ends placed)
 V3 g_a, g_b;
@@ -89,7 +87,7 @@ std::vector<V3> corners_near(uint32_t checksum, V3 near, float reach)
     if (!sector)
         return corners;
     uint8_t* coll = *reinterpret_cast<uint8_t**>(sector + 0x18);
-    if (!coll || *reinterpret_cast<void***>(coll) != g_coll_static_vtable)
+    if (!render::is_static_collider(coll))
         return corners;
     const auto* tri = *reinterpret_cast<const render::TriMeshSource* const*>(coll + 0x0C);
     if (!tri || !tri->vertices_)

@@ -50,7 +50,7 @@ struct WorldScene : public memory::HeapObject {
     virtual bool load_collision(const char* name); // 0x0049CAA0
     virtual bool add_collision(const char* name);  // 0x0049CAC0
     virtual bool unload_add_scene();               // 0x0049CAE0
-    virtual void* plat_create_sector();            // 0x0049CAF0 (not a Ghidra function)
+    virtual WorldCell* plat_create_sector();       // 0x0049CAF0 (not a Ghidra function)
     // 0x0049CF60 (slot 9): grey (0x80 each of RGBA) into `out`. Returns out.
     virtual uint8_t* get_default_colour(uint8_t* out);
     virtual void set_rendered(int rendered); // 0x0049CA60
@@ -90,7 +90,7 @@ struct WorldScene : public memory::HeapObject {
     // 0x0049C9F0: static collision object `index`.
     StaticCollider* fetch_static_collision(int index);
     // 0x0049CA10: a new sector (plat_create_sector) with +0x14 / +0x18 cleared (no null check, as the original).
-    void* spawn_sector();
+    WorldCell* spawn_sector();
     // 0x0049CB00: the sector named `name` (the hash table's lookup, inlined), or null.
     void* look_up_sector(uint32_t name);
     // 0x0049CB40: `sector` deleted (out of the table if it's the one there under its name) - true; a sector with

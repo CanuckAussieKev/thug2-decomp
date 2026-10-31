@@ -15,6 +15,7 @@
 #include <sstream>
 #include <vector>
 
+#include "engine/render/coll_static.h"
 #include "engine/core/checksums.h"
 #include "editor/level_editor_cameras.h"
 #include "editor/level_editor_chains.h"
@@ -45,7 +46,6 @@
 #include "game/skate/gap_checklist.h"
 #include "game/skate/skate_module.h"
 #include "platform/run_log.h"
-#include "engine/core/game_vtables.h"
 
 namespace frontend::level_editor::triggers {
 
@@ -957,7 +957,6 @@ std::vector<uint8_t> proxim_qb_file(const std::vector<ProximScript>& scripts)
 
 namespace {
 
-void** const& g_coll_static_vtable = vt::kVtblStaticColl;
 constexpr uint32_t kTriggerScript = 0x2CA8A299; // TriggerScript
 constexpr uint16_t kVolumeFlags = 0x50;         // a trigger face the skater passes through
 constexpr char kFileName[] = "editor\\thug2_decomp_triggers.qb";
@@ -1146,7 +1145,7 @@ Calls get_walk(uint32_t script)
 uint8_t* coll_of(uint8_t* sector)
 {
     uint8_t* coll = sector ? *reinterpret_cast<uint8_t**>(sector + 0x18) : nullptr;
-    return coll && *reinterpret_cast<void***>(coll) == g_coll_static_vtable ? coll : nullptr;
+    return render::is_static_collider(coll) ? coll : nullptr;
 }
 bool turned_off_by_us(uint32_t sector)
 {
@@ -1261,10 +1260,9 @@ void read_level_gaps()
 
 render::HitMovingBox* make_box(uint32_t name)
 {
-    void* memory = ::operator new(sizeof(render::HitMovingBox), std::nothrow);
-    if (!memory)
+    auto* box = new render::HitMovingBox();
+    if (!box)
         return nullptr;
-    render::HitMovingBox* box = static_cast<render::HitMovingBox*>(memory)->make_new();
     box->checksum_ = name;
     box->poly_attr_bits_ = kVolumeFlags;
     box->surface_type_ = 0;
@@ -1275,8 +1273,7 @@ render::HitMovingBox* make_box(uint32_t name)
 void free_box(render::HitMovingBox* box)
 {
     render::unregister_movable(box);
-    box->destruct(); // (out of the collision caches too)
-    ::operator delete(box);
+    delete box; // (out of the collision caches too)
 }
 
 void place_box(Cuboid* b, V3 pos, float yaw, V3 size)

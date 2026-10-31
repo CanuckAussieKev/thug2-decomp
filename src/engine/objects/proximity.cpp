@@ -9,6 +9,7 @@
 #include "engine/core/mem.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/sector.h"
+#include "engine/render/coll_obj.h"
 #include "engine/net/buddy_status.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity_hub.h"
@@ -43,15 +44,12 @@ Entity* entity_for_id(uint32_t id) { return entity_hub_handle()->look_up_entity(
 // A level sector's bounding box and world matrix (not rewritten yet).
 const maths::BBox* sector_box(void* sector) { return static_cast<render::WorldCell*>(sector)->fetch_bounds(); }
 const maths::Mat4* sector_world_matrix(void* sector) { return static_cast<render::WorldCell*>(sector)->fetch_facing(); }
-// The sector's collision (+0x18) asked whether `point` is inside (its vtable +0x48; `offset` gets the point from
-// the node, which it may use).
+// The sector's collision asked whether `point` is inside (the original's vtable +0x48, slot 18: is_point_behind_faces;
+// `offset` gets the point from the node, passed as its second argument).
 bool sector_contains(void* sector, const maths::Vec4* point, maths::Vec4* offset)
 {
-    // (the sector's +0x18, its collision, through the getter folded at 0x005480F0)
-    auto* collision = reinterpret_cast<void*>(static_cast<online::FoldedGetters*>(sector)->word18());
-    void** vtable = *reinterpret_cast<void***>(collision);
-    return reinterpret_cast<bool(__thiscall*)(void*, const maths::Vec4*, maths::Vec4*)>(vtable[0x48 / 4])(
-        collision, point, offset);
+    render::HitMesh* collision = static_cast<render::WorldCell*>(sector)->hit_body_;
+    return collision->is_point_behind_faces(point, reinterpret_cast<int>(offset));
 }
 // The level sector named `name` (null if none).
 void* look_up_sector(uint32_t name) { return render::engine::look_up_sector(name); }

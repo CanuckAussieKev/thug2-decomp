@@ -19,35 +19,24 @@
 #include "engine/render/coll_grid.h"
 #include "engine/render/coll_static.h"
 #include "engine/render/coll_tri.h"
-#include "engine/core/code_address.h"
-#include "engine/core/game_vtables.h"
 #include "engine/render/coll_capsule.h"
 #include "engine/render/coll_sphere.h"
 #include "engine/render/coll_rect.h"
 #include "engine/render/coll_line.h"
 #include "engine/render/coll_obj.h"
-#include "engine/core/stubs.h"
 
 namespace render {
 
 namespace {
 
-constexpr int kCollStaticSize = 0x18;
 constexpr int kTriDataSize = 0x40;
-
-template <typename R = void, typename... A>
-R Virtual(void* object, int slot, A... args)
-{
-    void** vtable = *static_cast<void***>(object);
-    return reinterpret_cast<R(__thiscall*)(void*, A...)>(vtable[slot])(object, args...);
-}
 
 // The engine's sector (not rewritten here; thiscall): its flags (+8) read / set / cleared, its name (+4 - the folded
 // getter 0x005480C0), its box, drawn and collided with or not.
 uint32_t sector_attribute_bits(void* sector) { return static_cast<WorldCell*>(sector)->fetch_bits(); }
 void apply_sector_bits(void* sector, uint32_t flags) { static_cast<WorldCell*>(sector)->change_bits(flags); }
 void reset_sector_bits(void* sector, uint32_t flags) { static_cast<WorldCell*>(sector)->clear_flags(flags); }
-uint32_t sector_key_from_spec(void* sector) { return static_cast<online::FoldedGetters*>(sector)->word04(); }
+uint32_t sector_key_from_spec(void* sector) { return static_cast<WorldCell*>(sector)->checksum_; }
 const maths::BBox* sector_box(void* sector) { return static_cast<WorldCell*>(sector)->fetch_bounds(); }
 // (0x0049E9B0 tests the argument's low byte only)
 void enable_sector(void* sector, uint32_t on)
@@ -107,17 +96,14 @@ void WorldScene::print_coll_statics()
 }
 
 // 0x0049C9F0
-StaticCollider* WorldScene::fetch_static_collision(int index)
-{
-    return reinterpret_cast<StaticCollider*>(reinterpret_cast<uint8_t*>(coll_statics_) + index * kCollStaticSize);
-}
+StaticCollider* WorldScene::fetch_static_collision(int index) { return &coll_statics_[index]; }
 
 // 0x0049CA10
-void* WorldScene::spawn_sector()
+WorldCell* WorldScene::spawn_sector()
 {
-    auto* sector = static_cast<uint8_t*>(plat_create_sector());
-    *reinterpret_cast<uint32_t*>(sector + 0x14) = 0;
-    *reinterpret_cast<uint32_t*>(sector + 0x18) = 0;
+    WorldCell* sector = plat_create_sector();
+    sector->geom_handle_ = nullptr;
+    sector->hit_body_ = nullptr;
     return sector;
 }
 
@@ -152,8 +138,7 @@ bool WorldScene::remove_scene_sector(void* sector)
         uint32_t name = sector_key_from_spec(sector);
         sectors_->erase_entry(name);
     }
-    if (sector)
-        Virtual<void*>(sector, 0, 1u);
+    delete static_cast<WorldCell*>(sector);
     return true;
 }
 
@@ -185,24 +170,15 @@ bool WorldScene::load_collision_data(const uint8_t* data, int* count, StaticColl
     uintptr_t face_lists = nodes + *reinterpret_cast<const uint32_t*>(faces + faces_size);
     bool any_vertices = false;
     // the static objects: an array new (the count before them)
-    int made = word(4);
-    auto* block = static_cast<int*>(memory::alloc(static_cast<unsigned int>(made) * kCollStaticSize + 4));
-    StaticCollider* array = nullptr;
-    if (block) {
-        *block = made;
-        array = reinterpret_cast<StaticCollider*>(block + 1);
-        for (int i = 0; i < made; ++i)
-            reinterpret_cast<StaticCollider*>(reinterpret_cast<uint8_t*>(array) + i * kCollStaticSize)->make_new();
-    }
-    *statics = array;
+    *statics = new StaticCollider[static_cast<unsigned int>(word(4))];
     for (int i = 0; i < word(4); ++i) {
         auto* geometry = reinterpret_cast<TriMeshSource*>(*objects + i * kTriDataSize);
         geometry->relocate(reinterpret_cast<uint32_t>(this), static_cast<uint32_t>(vertices),
                            static_cast<uint32_t>(vertex_bytes), static_cast<uint32_t>(faces),
                            static_cast<uint32_t>(nodes), static_cast<uint32_t>(face_lists));
         geometry->set_up_all_faces();
-        auto* object = reinterpret_cast<StaticCollider*>(reinterpret_cast<uint8_t*>(*statics) + i * kCollStaticSize);
-        Virtual(object, 4, geometry); // (assign_shape_data)
+        StaticCollider* object = &(*statics)[i];
+        object->assign_shape_data(geometry);
         buffer = reinterpret_cast<uintptr_t>(object->take_buffer(reinterpret_cast<uint8_t*>(buffer), geometry));
         auto* bytes = reinterpret_cast<uint8_t*>(geometry);
         if (*reinterpret_cast<uint16_t*>(bytes + 8) > 0) {
@@ -248,11 +224,7 @@ bool WorldScene::unload_collision()
         coll_grid_ = nullptr;
     }
     if (coll_statics_) {
-        int* block = reinterpret_cast<int*>(coll_statics_) - 1;
-        if (*block) // (the deleting destructor of the array, through the first's vtable: 0x0049CE00)
-            Virtual<void*>(coll_statics_, 0, 3u);
-        else
-            memory::dealloc(block);
+        delete[] coll_statics_; // (0x0049CE00, the array's deleting destructor)
         coll_statics_ = nullptr;
     }
     if (pip_name_[0]) {
@@ -270,7 +242,7 @@ void WorldScene::delete_marked_sectors()
     for_each_sector(sectors_, [](void* sector) {
         if (sector_attribute_bits(sector) & 8) {
             reset_sector_bits(sector, 0x40);
-            Virtual<void*>(sector, 0, 1u);
+            delete static_cast<WorldCell*>(sector);
         }
     });
     coll_grid_->get_clear();
@@ -320,7 +292,7 @@ bool WorldScene::unload_add_scene()
     return false;
 }
 // 0x0049CAF0
-void* WorldScene::plat_create_sector()
+WorldCell* WorldScene::plat_create_sector()
 {
     debug::printf("STUB: plat_create_sector\n");
     return nullptr;
@@ -333,64 +305,3 @@ uint8_t* WorldScene::get_default_colour(uint8_t* out)
 }
 
 } // namespace render
-
-namespace {
-
-// The collision's destructors (this scene's): the grid's body, and the static objects' vector deleting destructor.
-struct SceneCollisionAdapters {
-    // 0x0049C980: the grid's cells destroyed, last first (the compiler's array destructor).
-    void grid_destroy_body()
-    {
-        auto* grid = reinterpret_cast<render::CollGrid*>(this);
-        for (int i = render::CollGrid::kSize * render::CollGrid::kSize - 1; i >= 0; --i)
-            (&grid->cells_[0][0])[i].destruct();
-    }
-    // 0x0049CE00 (StaticCollider's vtable slot 0): flags & 2 - the array this starts (its count before it) destroyed
-    // last first, freed with flags & 1, the block returned; else this one destroyed and freed with flags & 1.
-    void* coll_static_delete(unsigned int flags)
-    {
-        auto* object = reinterpret_cast<render::StaticCollider*>(this);
-        if (flags & 2) {
-            int* block = reinterpret_cast<int*>(this) - 1;
-            for (int i = *block - 1; i >= 0; --i)
-                reinterpret_cast<render::StaticCollider*>(reinterpret_cast<uint8_t*>(object) + i * 0x18)->destruct();
-            if (flags & 1)
-                memory::dealloc(block);
-            return block;
-        }
-        object->destruct();
-        if (flags & 1)
-            memory::dealloc(object);
-        return object;
-    }
-};
-
-} // namespace
-
-namespace vt {
-static VtableSlot g_coll_static_slots[] = {&SceneCollisionAdapters::coll_static_delete,
-                                           stubs::return_true,
-                                           &render::CollFaceAccess::get_triangle_attrs,
-                                           &render::CollFaceAccess::get_face_terrain,
-                                           &render::HitMesh::assign_shape_data,
-                                           &render::StaticCollider::place_at_absolute_point,
-                                           stubs::ignore_argument,
-                                           &render::StaticCollider::get_absolute_point,
-                                           &render::StaticCollider::fetch_facing,
-                                           &render::StaticCollider::read_vertex_point,
-                                           stubs::return_zero,
-                                           stubs::ignore_argument,
-                                           &render::StaticCollider::replicate,
-                                           &render::StaticCollider::inside_bounds,
-                                           &render::StaticCollider::collide_with_line,
-                                           &render::StaticCollider::collide_with_rect,
-                                           &render::StaticCollider::collide_with_sphere,
-                                           &render::StaticCollider::collide_with_capsule,
-                                           &render::CollGeometryForwarders::is_point_behind_faces,
-                                           &render::CollGeometryForwarders::draw_diagnostic,
-                                           stubs::return_zero,
-                                           &render::StaticCollider::get_geometry_b_box,
-                                           &render::CollGeometryForwarders::rotate_y,
-                                           &render::CollGeometryForwarders::scale_tool};
-void** const kVtblStaticColl = reinterpret_cast<void**>(g_coll_static_slots);
-} // namespace vt

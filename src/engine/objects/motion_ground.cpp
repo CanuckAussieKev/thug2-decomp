@@ -36,14 +36,8 @@ constexpr uint32_t kModel = 0x286A8D26;        // the model component
 constexpr float kInchesPerMile = get_bits(0x47778000);
 constexpr float kHoursPerSecond = get_bits(0x3991A2B4);
 
-// A vertex of a collision object (its vtable slot 9).
-maths::Vec4 vertex_position3(render::HitMesh* object, int vertex)
-{
-    maths::Vec4 pos;
-    reinterpret_cast<maths::Vec4*(__thiscall*)(render::HitMesh*, maths::Vec4*, int)>(
-        (*reinterpret_cast<void***>(object))[9])(object, &pos, vertex);
-    return pos;
-}
+// A vertex of a collision object in the world.
+maths::Vec4 vertex_position3(render::HitMesh* object, int vertex) { return object->read_vertex_point(vertex); }
 
 } // namespace
 

@@ -74,7 +74,7 @@ bool report_hit(const maths::Seg& line, HitMesh* object, const FaceHit& face, fl
     if (!better)
         saved.copy_from(*hit);
     bool taken = false;
-    uint32_t flags = object->get_call<uint32_t>(2, face.face);
+    uint32_t flags = object->get_triangle_attrs(face.face);
     if (!(flags & hit->ignore_flags_) && !(~flags & hit->require_flags_)) {
         hit->hit = true;
         hit->normal = face.normal;
@@ -82,7 +82,7 @@ bool report_hit(const maths::Seg& line, HitMesh* object, const FaceHit& face, fl
         hit->distance = distance;
         hit->face = face.face;
         hit->face_flags_ = static_cast<uint16_t>(flags);
-        hit->terrain = static_cast<uint8_t>(object->get_call<uint32_t>(3, face.face));
+        hit->terrain = static_cast<uint8_t>(object->get_face_terrain(face.face));
         hit->object = object;
         hit->face_flag40_ = static_cast<uint8_t>(flags & 0x40);
         hit->object_checksum_ = object->checksum_;

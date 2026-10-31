@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/core/mem.h"
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
@@ -25,21 +26,23 @@ enum : uint32_t {
     kSectorInGrid = 0x40,         // its collision is in the scene's super sectors
 };
 
-// The sector (0x1C bytes of the engine's; vtable 0x00649A40 - PC 0x0064A718). Its virtual slots: [0] destroy, [1]
-// PlatSetShatter, [2] PlatGetShatter, [3] PlatClone (the platform's new sector).
-class WorldCell {
+// The sector (0x1C bytes of the engine's; the original's vtable 0x00649A40 - PC 0x0064A718). Its virtual functions:
+// the destructor, plat_set_shatter, plat_clone (the platform's new sector); slot 2, PlatGetShatter, the same in both
+// tables and never called, is a plain method.
+class WorldCell : public memory::HeapObject {
 public:
-    // 0x0049E900: construct - collidable, no geometry or collision, unturned, the default terrain 0xE3714DC1.
-    // Returns this.
-    WorldCell* make_new();
-    // 0x0049E630: the destructor's body - its collision object deleted if it's a clone's, its geometry deleted.
-    void destroy_body();
-    // 0x0049E930 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    WorldCell* teardown(unsigned int free_flags);
-    // 0x0049E8C0 / 0x0049E8D0 / 0x0049E8E0 (virtual [1] - [3], the engine's stubs: "STUB: Plat...").
-    void plat_set_shatter(bool on);
+    // 0x0049E900: collidable, no geometry or collision, unturned, the default terrain 0xE3714DC1.
+    WorldCell();
+    WorldCell(const WorldCell&) = delete;
+    WorldCell& operator=(const WorldCell&) = delete;
+    // 0x0049E630 (0x0049E930 the deleting destructor): its collision object deleted if it's a clone's, its geometry
+    // deleted.
+    virtual ~WorldCell();
+    // 0x0049E8C0 / 0x0049E8E0 (the engine's stubs: "STUB: Plat...").
+    virtual void plat_set_shatter(bool on);
+    virtual WorldCell* plat_clone(int instance, void* scene);
+    // 0x0049E8D0 ("STUB: PlatGetShatter").
     bool plat_get_shatter();
-    WorldCell* plat_clone(int instance, void* scene);
 
     // 0x0049EAD0: a clone - the platform's new sector with a new name (0x0048CA80), these flags and kSectorClone,
     // the turn, a clone of the geometry (for `scene`) and of the collision (named as the clone, out of the grid,
@@ -103,7 +106,6 @@ public:
     void start_texture_anim(bool reset);
     void stop_texture_anim();
 
-    void** vtable;
     uint32_t checksum_;     // +0x04: its name
     uint32_t flag_bits_;    // +0x08
     uint32_t surface_type_; // +0x0C: its terrain type (the node's TerrainType)

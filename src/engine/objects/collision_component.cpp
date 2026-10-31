@@ -61,16 +61,6 @@ const uint8_t* bone_of(uint8_t* model)
 
 void d3dx_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
-// The collision object's slots 5 / 6: its world position, its orientation.
-void place_at_absolute_point(render::HitMesh* collision, const maths::Vec4* position)
-{
-    collision->get_call<void>(5, position);
-}
-void change_facing(render::HitMesh* collision, const maths::Mat4* orientation)
-{
-    collision->get_call<void>(6, orientation);
-}
-
 } // namespace
 
 // 0x0041C920
@@ -91,8 +81,7 @@ void ContactShapeModule::destroy_body()
     vtable_ = kVtable;
     if (hit_shape_) {
         render::unregister_movable(hit_shape_);
-        if (hit_shape_)
-            hit_shape_->get_call<void*>(0, 1); // (its scalar deleting destructor)
+        delete hit_shape_;
     }
     ObjectModule::destroy_body();
 }
@@ -160,17 +149,17 @@ void ContactShapeModule::tick_frame()
     ObjectModule* model = entity_->fetch_module(kModelModuleName);
     const uint8_t* bone = model ? bone_of(model_of(model)) : nullptr;
     if (!bone) {
-        place_at_absolute_point(collision, &entity_->at_point_);
-        change_facing(collision, &entity_->display_matrix_);
+        collision->place_at_absolute_point(&entity_->at_point_);
+        collision->change_facing(&entity_->display_matrix_);
         return;
     }
     const auto* translation = reinterpret_cast<const float*>(bone + 0x40);
     const maths::Vec4& pos = entity_->at_point_;
     maths::Vec4 position = {translation[0] + pos.x, translation[1] + pos.y, translation[2] + pos.z, pos.w};
-    place_at_absolute_point(collision, &position);
+    collision->place_at_absolute_point(&position);
     maths::Mat4 orientation;
     d3dx_multiply(&orientation, reinterpret_cast<const maths::Mat4*>(bone + 0x10), &entity_->display_matrix_);
-    change_facing(collision, &orientation);
+    collision->change_facing(&orientation);
 }
 
 } // namespace objects

@@ -458,9 +458,8 @@ bool __cdecl create_texture_splat_at(const maths::Vec4* from, const maths::Vec4*
             continue;
         for (; *in_box; ++in_box) {
             HitMesh* object = *in_box;
-            // (slot 21: its geometry, a box first; NaN doesn't rule it out)
-            auto* bounds = reinterpret_cast<const maths::BBox*(__thiscall*)(HitMesh*)>(
-                (*reinterpret_cast<void***>(object))[21])(object);
+            // (its box in the world first; NaN doesn't rule it out)
+            const maths::BBox* bounds = object->get_world_bounds();
             if (!(bounds->min.x > box.max.x) && !(box.min.x > bounds->max.x) && !(bounds->min.z > box.max.z) &&
                 !(box.min.z > bounds->max.z) && !(bounds->min.y > box.max.y) && !(box.min.y > bounds->max.y)) {
                 void* sector = render::engine::look_up_sector(object->checksum_);

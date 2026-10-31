@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "engine/render/coll_static.h"
 #include "engine/gfx/engine_geom.h"
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_picking.h"
@@ -23,7 +24,6 @@
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
 #include "platform/run_log.h"
-#include "engine/core/game_vtables.h"
 
 namespace frontend::level_editor::view {
 
@@ -193,14 +193,6 @@ std::vector<uint32_t> isolate_others(const std::vector<uint32_t>& all, const std
 
 namespace {
 
-void** const& g_coll_static_vtable = vt::kVtblStaticColl;
-
-template <typename F>
-F get_method(void* object, int offset)
-{
-    return reinterpret_cast<F>((*reinterpret_cast<void***>(object))[offset / 4]);
-}
-
 uint8_t* geom_of(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x14); }
 uint8_t* coll_of(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x18); }
 
@@ -209,7 +201,7 @@ uint8_t* coll_of(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector +
 render::TriMeshSource* any_tri_data_of(uint8_t* sector, bool* off)
 {
     uint8_t* coll = coll_of(sector);
-    if (!coll || *reinterpret_cast<void***>(coll) != g_coll_static_vtable)
+    if (!render::is_static_collider(coll))
         return nullptr;
     if (off)
         *off = (coll[0x08] & 4) != 0;

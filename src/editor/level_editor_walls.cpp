@@ -9,11 +9,11 @@
 #include <vector>
 
 #include "editor/level_editor_scenery.h"
+#include "engine/render/coll_static.h"
 #include "engine/gfx/sector.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/coll_tri.h"
 #include "platform/run_log.h"
-#include "engine/core/game_vtables.h"
 #include "engine/gfx/engine_geom.h"
 
 namespace frontend::level_editor::walls {
@@ -85,15 +85,13 @@ int get_combined(const std::vector<bool>& offs)
 
 namespace {
 
-void** const& g_coll_static_vtable = vt::kVtblStaticColl;
-
 uint8_t* geom_of(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x14); }
 
 // The sector's level collision (StaticCollider) and its geometry, whether on or off.
 uint8_t* coll_of(uint8_t* sector)
 {
     uint8_t* coll = *reinterpret_cast<uint8_t**>(sector + 0x18);
-    return coll && *reinterpret_cast<void***>(coll) == g_coll_static_vtable ? coll : nullptr;
+    return render::is_static_collider(coll) ? coll : nullptr;
 }
 render::TriMeshSource* tri_of(uint8_t* coll) { return *reinterpret_cast<render::TriMeshSource**>(coll + 0x0C); }
 bool flag_off(uint8_t* coll) { return (coll[0x08] & 4) != 0; }

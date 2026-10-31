@@ -307,8 +307,7 @@ void face_geometry(const Face& face, const float* spot, Detail* detail)
     for (int k = 0; k < 3; ++k) {
         index[k] = geometry->face_vertex(face.index, k);
         raw[k] = geometry->read_stored_vertex(static_cast<int>(index[k]));
-        maths::Vec4 world;
-        object->get_call<maths::Vec4*>(9, &world, static_cast<int>(index[k])); // (slot 9: a vertex in the world)
+        maths::Vec4 world = object->read_vertex_point(static_cast<int>(index[k])); // (a vertex in the world)
         copy3(detail->corners[k], world);
     }
     detail->geometry = true;

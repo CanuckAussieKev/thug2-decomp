@@ -37,7 +37,7 @@ CollGrid** grids_along(const maths::Seg* line) { return get_coll_grids_on_line(l
 
 bool collide_with_sphere(HitMesh* object, const CollSphere* sphere, const maths::BBox* box, SphereHits* hits)
 {
-    return object->get_call<bool>(16, sphere, box, hits);
+    return object->collide_with_sphere(sphere, box, hits);
 }
 
 // Whether a value is a parameter along a segment (NaN isn't).
@@ -419,7 +419,7 @@ bool sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0, const
 }
 
 // 0x004110B0 (slot 16 of a sector and of an instance - the instance's faces taken as they are, unplaced)
-bool StaticCollider::collide_with_sphere(const CollSphere* sphere, const maths::BBox* box, SphereHits* hits)
+bool HitMesh::collide_faces_with_sphere(const CollSphere* sphere, const maths::BBox* box, SphereHits* hits)
 {
     int count;
     uint16_t buffer[0x800];
@@ -490,7 +490,7 @@ bool collide_sphere_with_statics(const CollSphere* sphere, SphereHits* hits, Hit
     if (use_cache) {
         for (int i = 0; i < cache->statics_; ++i) {
             const HitMeshCache::TableRow& entry = cache->entries_[i];
-            if (grown.intersects(*static_cast<const maths::BBox*>(entry.geometry)))
+            if (grown.intersects(*entry.bounds))
                 collide_with_sphere(entry.object, sphere, &grown, hits);
         }
         return hits->count > 0;
@@ -502,7 +502,7 @@ bool collide_sphere_with_statics(const CollSphere* sphere, SphereHits* hits, Hit
     for (; *grids; ++grids) {
         int count;
         for (HitMesh** objects = (*grids)->objects_along_line(&diagonal, &count); *objects; ++objects) {
-            if ((*objects)->get_call<bool>(13, &grown))
+            if ((*objects)->inside_bounds(&grown))
                 collide_with_sphere(*objects, sphere, &grown, hits);
         }
     }

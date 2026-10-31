@@ -142,8 +142,7 @@ Companion::Companion(uint32_t checksum, const std::vector<FaceCopy>& faces)
     geometry_.vertex_bytes_ = bytes_.data();
     geometry_.unknown3c_ = 0; // (the rejection scale 0.0f: no face rejected by distance)
 
-    entity_.make_new(); // (the sector collision's vtable, no flags)
-    entity_.checksum_ = checksum;
+    entity_.checksum_ = checksum; // (a sector's collision object, no flags)
     entity_.visit_stamp_ = 0;
     entity_.geometry_ = &geometry_;
     entity_.octets_ = rejection_.data();

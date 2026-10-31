@@ -229,7 +229,7 @@ void TextureProjection::tick_frame(objects::GameEntity* object)
         if (!objects)
             return; // (nothing projected - even what earlier grids found)
         for (HitMesh** found = objects; *found; ++found) {
-            const auto* bounds = (*found)->get_call<const maths::BBox*>(21);
+            const maths::BBox* bounds = (*found)->get_world_bounds();
             // (touching: no comparison says apart - NaNs count as touching)
             if (bounds->min.x > reach.max.x || reach.min.x > bounds->max.x || bounds->min.z > reach.max.z ||
                 reach.min.z > bounds->max.z || bounds->min.y > reach.max.y || reach.min.y > bounds->max.y)

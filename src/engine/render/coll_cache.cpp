@@ -2,6 +2,7 @@
 
 #include "engine/render/coll_cache.h"
 #include "engine/render/coll_grid.h"
+#include "engine/render/coll_obj.h"
 
 #include <cstdint>
 #include <new>
@@ -32,18 +33,6 @@ HitMesh** objects_along(void* list, maths::Seg* line)
 {
     return static_cast<CollGrid*>(list)->objects_along_line(line, nullptr);
 }
-
-// The collision objects' virtual methods the cache uses.
-bool touches_box(HitMesh* object, const maths::BBox* box)
-{
-    return reinterpret_cast<bool(__thiscall*)(HitMesh*, const maths::BBox*)>((*reinterpret_cast<void***>(object))[13])(
-        object, box);
-}
-void* get_geometry(HitMesh* object, int slot)
-{
-    return reinterpret_cast<void*(__thiscall*)(HitMesh*)>((*reinterpret_cast<void***>(object))[slot])(object);
-}
-uint32_t object_flags(HitMesh* object) { return reinterpret_cast<uint32_t*>(object)[2]; }
 
 void get_clear(HitMeshCache* cache)
 {
@@ -83,9 +72,9 @@ void HitMeshCache::tick_frame(const maths::BBox& box)
     grown.append_spot({box.min.x - 0.5f, box.min.y - 0.5f, box.min.z - 0.5f, box.min.w});
     for (; *lists; ++lists) {
         for (HitMesh** object = objects_along(*lists, &line); *object; ++object) {
-            if (!touches_box(*object, &grown))
+            if (!(*object)->inside_bounds(&grown))
                 continue;
-            entries_[num_].geometry = get_geometry(*object, 21);
+            entries_[num_].bounds = (*object)->get_world_bounds();
             entries_[num_].object = *object;
             ++num_;
             ++statics_;
@@ -94,9 +83,9 @@ void HitMeshCache::tick_frame(const maths::BBox& box)
     for (memory::ListNode* node = first_movable(); node->data != reinterpret_cast<void*>(-1) && node;
          node = node->next) {
         auto* object = static_cast<HitMesh*>(node->data);
-        if (!object || (object_flags(object) & 6) || !touches_box(object, &grown))
+        if (!object || (object->flag_bits_ & 6) || !object->inside_bounds(&grown))
             continue;
-        entries_[num_].geometry = get_geometry(object, 20);
+        entries_[num_].bounds = object->get_local_bounds();
         entries_[num_].object = object;
         ++num_;
         ++movables_;

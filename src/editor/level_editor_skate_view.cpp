@@ -14,11 +14,11 @@
 #include "editor/level_editor_scenery.h"
 #include "editor/level_editor_triggers.h"
 #include "editor/level_editor_view.h"
+#include "engine/render/coll_static.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/coll_tri.h"
 #include "engine/objects/rail_manager.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/game_vtables.h"
 #include "frontend/screen_constants.h"
 #include "imgui.h"
 #include "game/skate/skate_module.h"
@@ -109,7 +109,6 @@ float get_threshold(float angle, float factor)
 
 namespace {
 
-void** const& g_coll_static_vtable = vt::kVtblStaticColl;
 constexpr float kRadius = 3000.0f;
 constexpr int kMaxFaces = 12000;
 constexpr uint32_t kRail = 0xF040F0FF;
@@ -215,7 +214,7 @@ void add_overlay(const overlays::Painter& painter)
         [](void* context, uint32_t checksum, uint8_t* sector) {
             auto* w = static_cast<Walk*>(context);
             uint8_t* coll = *reinterpret_cast<uint8_t**>(sector + 0x18);
-            if (!coll || *reinterpret_cast<void***>(coll) != g_coll_static_vtable || (coll[0x08] & 4))
+            if (!render::is_static_collider(coll) || (coll[0x08] & 4))
                 return; // (no collision, or switched off)
             const auto* tri = *reinterpret_cast<const render::TriMeshSource* const*>(coll + 0x0C);
             if (!tri || !tri->tri_count_ || view::hidden_sector(checksum))

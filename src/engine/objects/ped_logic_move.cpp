@@ -605,10 +605,7 @@ bool PedestrianBrainModule::probe_ground(const maths::Vec4* start, const maths::
         uint32_t vertex = geometry->small_faces_
                               ? geometry->faces_[face * 8 + 4 + i]
                               : *reinterpret_cast<uint16_t*>(geometry->faces_ + face * 10 + 4 + 2 * i);
-        // (slot 9, read_vertex_point: the Vector returned through a pointer the caller passes)
-        maths::Vec4 corner;
-        triangle->corners[i] = *reinterpret_cast<maths::Vec4*(__thiscall*)(render::HitMesh*, maths::Vec4*, int)>(
-            object->vtable_[9])(object, &corner, static_cast<int>(static_cast<uint16_t>(vertex)));
+        triangle->corners[i] = object->read_vertex_point(static_cast<int>(static_cast<uint16_t>(vertex)));
     }
     *point = f->contact_pos_;
     set_sound_terrain(f->hit_.terrain);

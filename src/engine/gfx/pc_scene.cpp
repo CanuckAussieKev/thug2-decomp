@@ -25,16 +25,12 @@
 #include "engine/gfx/sub_mesh.h"
 #include "engine/gfx/mesh_list.h"
 #include "engine/lists/key_map.h"
-#include "engine/core/code_address.h"
 #include "engine/render/coll_movable.h"
-#include "engine/core/stubs.h"
 #include "engine/gfx/device.h"
 
 namespace render {
 
-namespace {
-extern void** const kCPcSectorVtable;
-} // namespace
+namespace {} // namespace
 
 uint32_t g_bloom_on;
 uint32_t g_screen_effect_unknown5724;
@@ -56,7 +52,7 @@ namespace {
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 PcGeom* geometry_of(void* sector)
 {
-    return static_cast<PcGeom*>(static_cast<PcSector*>(sector)->geom);
+    return static_cast<PcGeom*>(static_cast<PcSector*>(sector)->geom_handle_);
 } // (+0x14: the getter 0x004A2BA0, folded with others)
 
 // The first sector of a fresh iteration of the table (null if none).
@@ -79,44 +75,18 @@ void* next_sector(lists::KeyMap* table)
 
 // --- the sector ---
 
-// 0x004C6550
-PcSector* PcSector::make_new()
-{
-    reinterpret_cast<WorldCell*>(this)->WorldCell::make_new();
-    vtable = kCPcSectorVtable;
-    unknown20[0] = unknown20[1] = unknown20[2] = 0.0f;
-    unknown2c_ = 1.0f;
-    return this;
-}
-
-// 0x004C65B0
-void PcSector::destroy_body() { reinterpret_cast<WorldCell*>(this)->WorldCell::destroy_body(); }
-
-// 0x004C6580
-PcSector* PcSector::teardown(unsigned int free_flags)
-{
-    destroy_body();
-    if (free_flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
 // 0x004C6530
-void PcSector::change_live(bool on)
+void PcSector::plat_set_shatter(bool on)
 {
-    if (on && geom)
-        engine::shatter_geom(geom);
+    if (on && geom_handle_)
+        engine::shatter_geom(geom_handle_);
 }
 
 // 0x004C65C0
-PcSector* PcSector::replicate(int, int)
-{
-    void* memory = memory::alloc(sizeof(PcSector));
-    return memory ? static_cast<PcSector*>(memory)->make_new() : nullptr;
-}
+PcSector* PcSector::plat_clone(int, void*) { return new PcSector(); }
 
 // 0x004C64E0
-const maths::BBox* PcSector::fetch_bounds()
+const maths::BBox* PcSector::fetch_empty_bounds()
 {
     auto* empty = &g_empty_bounding_box; // (the game's, made the first time: its guard's bit 0)
     uint32_t& made = g_empty_bounding_box_guard;
@@ -130,11 +100,7 @@ const maths::BBox* PcSector::fetch_bounds()
 // --- the scene ---
 
 // 0x004C6190
-void* PcScene::plat_create_sector()
-{
-    void* memory = memory::alloc(sizeof(PcSector));
-    return memory ? static_cast<PcSector*>(memory)->make_new() : nullptr;
-}
+WorldCell* PcScene::plat_create_sector() { return new PcSector(); }
 
 // 0x004C6200
 void PcScene::unload_sectors()
@@ -203,7 +169,7 @@ namespace {
 // The engine and mesh code the loaders go through.
 void change_sector_key(PcSector* sector, uint32_t checksum)
 {
-    reinterpret_cast<assets::Resource*>(sector)->set_checksum(checksum); // (folded with Resource's)
+    sector->checksum_ = checksum; // (the original calls a setter folded with Resource::set_checksum)
 }
 MeshRef* new_mesh()
 {
@@ -248,7 +214,7 @@ uint32_t count_loaded_meshes(const PcGeom* geom)
 // 0x004C6650
 bool PcSector::read_from_ram_block(uint8_t** cursor)
 {
-    auto* geometry = static_cast<PcGeom*>(geom);
+    auto* geometry = static_cast<PcGeom*>(geom_handle_);
     auto* p = reinterpret_cast<const uint32_t*>(*cursor);
     change_sector_key(this, *p++);
     uint32_t light_group = *p++;
@@ -321,7 +287,7 @@ bool PcSector::read_from_ram_block(uint8_t** cursor)
 // 0x004C6B10
 bool PcSector::ingest_from_file(file::Hdl file, uint32_t unknown)
 {
-    auto* geometry = static_cast<PcGeom*>(geom);
+    auto* geometry = static_cast<PcGeom*>(geom_handle_);
     auto read = [file](void* into, int size, int count) { file::get_take_in(into, size, count, file); };
     uint32_t checksum;
     read(&checksum, 4, 1);
@@ -390,20 +356,5 @@ bool PcSector::ingest_from_file(file::Hdl file, uint32_t unknown)
     geometry->mesh_count_ = count_loaded_meshes(geometry);
     return true;
 }
-
-namespace {
-static VtableSlot g_c_pc_sector_vtable_slots[] = {&render::PcSector::teardown,
-                                                  &render::PcSector::change_live,
-                                                  &render::WorldCell::plat_get_shatter,
-                                                  &render::PcSector::replicate,
-                                                  stubs::ignore_argument,
-                                                  stubs::do_nothing,
-                                                  stubs::ignore_argument,
-                                                  stubs::ignore_argument,
-                                                  stubs::ignore_argument,
-                                                  &render::PcSector::fetch_bounds,
-                                                  &render::HitMovingMesh::fetch_facing};
-void** const kCPcSectorVtable = reinterpret_cast<void**>(g_c_pc_sector_vtable_slots);
-} // namespace
 
 } // namespace render

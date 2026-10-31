@@ -10,37 +10,11 @@
 #include "engine/render/coll_cache.h"
 #include "engine/render/coll_tri.h"
 #include "engine/core/stubs.h"
-#include "engine/core/game_vtables.h"
-#include "engine/core/code_address.h"
 #include "engine/render/coll_obj.h"
-#include "engine/render/probe_ray.h"
 
 namespace render {
 
 namespace {
-
-static VtableSlot g_movable_vtable_slots[] = {&render::HitMovingMesh::scalar_delete,
-                                              stubs::return_false,
-                                              &_purecall,
-                                              &_purecall,
-                                              &render::HitMesh::assign_shape_data,
-                                              &render::ProbeRay::change_finish,
-                                              &render::HitMovingMesh::change_facing,
-                                              &render::HitMovingMesh::get_absolute_point,
-                                              &render::HitMovingMesh::fetch_facing,
-                                              &render::HitMovingMesh::read_vertex_point,
-                                              &render::HitMovingMesh::get_value_a0,
-                                              &render::HitMovingMesh::set_value_a0,
-                                              &_purecall,
-                                              &_purecall,
-                                              &_purecall,
-                                              &_purecall,
-                                              &_purecall,
-                                              &_purecall,
-                                              &_purecall,
-                                              &_purecall,
-                                              stubs::return_zero};
-void** const kMovableVtable = reinterpret_cast<void**>(g_movable_vtable_slots);
 
 void set_identity(maths::Mat4& m)
 {
@@ -59,79 +33,21 @@ void draw_box(const maths::BBox* box, const maths::Mat4* transform, uint32_t col
 
 } // namespace
 
-static VtableSlot g_scaled_vtable_slots[] = {&render::CollScaled::scalar_delete,
-                                             stubs::return_false,
-                                             &_purecall,
-                                             &_purecall,
-                                             &render::HitMesh::assign_shape_data,
-                                             &render::CollScaled::place_at_absolute_point,
-                                             &render::CollScaled::change_facing,
-                                             &render::CollScaled::get_absolute_point,
-                                             &render::HitMovingMesh::fetch_facing,
-                                             &render::CollScaled::read_vertex_point,
-                                             stubs::return_zero,
-                                             stubs::ignore_argument,
-                                             &_purecall,
-                                             &_purecall,
-                                             &_purecall,
-                                             &_purecall,
-                                             &_purecall,
-                                             &_purecall,
-                                             &_purecall,
-                                             &_purecall,
-                                             stubs::return_zero,
-                                             &_purecall,
-                                             &_purecall,
-                                             &_purecall,
-                                             &render::CollScaled::change_scale,
-                                             &render::HitMovingMesh::get_absolute_point};
-void** const kScaledVtable = reinterpret_cast<void**>(g_scaled_vtable_slots);
-
 // 0x00411FA0
-HitMovingMesh* HitMovingMesh::make_new()
+HitMovingMesh::HitMovingMesh() : anchor_point_{0.0f, 0.0f, 0.0f, 1.0f}, owner_(0)
 {
-    vtable_ = kMovableVtable;
-    flag_bits_ = 0;
-    geometry_ = nullptr;
-    anchor_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    value_a0_ = 0;
     set_identity(orientation_);
     set_identity(inverse_);
-    return this;
 }
 
 // 0x00412660
-HitMovingMesh* HitMovingMesh::construct_copy(const HitMovingMesh* other)
-{
-    vtable_ = kCollObjVtable;
-    checksum_ = other->checksum_;
-    flag_bits_ = other->flag_bits_;
-    visit_stamp_ = other->visit_stamp_;
-    geometry_ = other->geometry_;
-    vtable_ = kMovableVtable;
-    anchor_point_ = other->anchor_point_;
-    orientation_ = other->orientation_;
-    inverse_ = other->inverse_;
-    value_a0_ = other->value_a0_;
-    return this;
-}
+HitMovingMesh::HitMovingMesh(const HitMovingMesh& other)
+    : HitMesh(other), anchor_point_(other.anchor_point_), orientation_(other.orientation_), inverse_(other.inverse_),
+      owner_(other.owner_)
+{}
 
 // 0x004121A0
-void HitMovingMesh::destruct()
-{
-    vtable_ = kMovableVtable;
-    remove_movable_from_caches(this);
-    destroy_base();
-}
-
-// 0x004135B0
-HitMovingMesh* HitMovingMesh::scalar_delete(uint8_t flags)
-{
-    destruct();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+HitMovingMesh::~HitMovingMesh() { remove_movable_from_caches(this); }
 
 // 0x00412070
 void HitMovingMesh::change_facing(const maths::Mat4* orientation)
@@ -176,12 +92,6 @@ void HitMovingMesh::box_to_local(const maths::BBox* box, maths::BBox* out) const
     out->max = inverse_.rotate_vector(turned, out->max);
 }
 
-// 0x0040AE50
-int HitMovingMesh::get_value_a0() const { return value_a0_; }
-
-// 0x0040AE40
-void HitMovingMesh::set_value_a0(int value) { value_a0_ = value; }
-
 // 0x004120D0
 maths::Mat4* MatrixTranspose::transpose_from(const maths::Mat4* source)
 {
@@ -209,45 +119,18 @@ void MatrixTranspose::transpose_in_place()
 }
 
 // 0x00412550
-HitMovingBox* HitMovingBox::make_new()
+HitMovingBox::HitMovingBox() : poly_attr_bits_(0), surface_type_(0)
 {
-    HitMovingMesh::make_new();
-    vtable_ = vt::kVtblMovingBoxColl;
-    new (&box_) maths::BBox();
-    poly_attr_bits_ = 0;
-    surface_type_ = 0;
     box_.min = {-50.0f, -20.0f, -90.0f, 1.0f};
     box_.max = {30.0f, 36.0f, 90.0f, 1.0f};
-    return this;
 }
 
 // 0x00413700
-HitMovingBox* HitMovingBox::construct_copy(const HitMovingBox* other)
+HitMovingBox::HitMovingBox(const HitMovingBox& other)
+    : HitMovingMesh(other), box_(other.box_), poly_attr_bits_(other.poly_attr_bits_), surface_type_(other.surface_type_)
 {
-    HitMovingMesh::construct_copy(other);
-    vtable_ = vt::kVtblMovingBoxColl;
-    box_ = other->box_;
-    poly_attr_bits_ = other->poly_attr_bits_;
-    surface_type_ = other->surface_type_;
     for (int i = 0; i < 4; ++i)
-        unknownca_[i] = other->unknownca_[i];
-    return this;
-}
-
-// 0x004125F0
-void HitMovingBox::destruct()
-{
-    vtable_ = vt::kVtblMovingBoxColl;
-    HitMovingMesh::destruct();
-}
-
-// 0x004136D0
-HitMovingBox* HitMovingBox::scalar_delete(uint8_t flags)
-{
-    destruct();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
+        unknownca_[i] = other.unknownca_[i];
 }
 
 // 0x00412600
@@ -269,8 +152,7 @@ uint16_t HitMovingBox::get_face_terrain(int /*face*/) const { return surface_typ
 // 0x00414BE0
 HitMovingBox* HitMovingBox::replicate(int)
 {
-    void* memory = memory::alloc(sizeof(HitMovingBox));
-    HitMovingBox* copy = memory ? static_cast<HitMovingBox*>(memory)->construct_copy(this) : nullptr;
+    auto* copy = new HitMovingBox(*this);
     copy->flag_bits_ |= 0x8000;
     copy->geometry_ = nullptr;
     return copy;
@@ -285,43 +167,16 @@ void HitMovingBox::draw_diagnostic(int /*a*/, int /*b*/)
 }
 
 // 0x004123C0
-CollScaled* CollScaled::make_new()
+CollScaled::CollScaled() : size_factor_{1.0f, 1.0f, 1.0f, 0.0f}
 {
-    vtable_ = kScaledVtable;
-    flag_bits_ = 0;
-    geometry_ = nullptr;
-    size_factor_ = {1.0f, 1.0f, 1.0f, 0.0f};
     set_identity(basis_frame_);
     set_identity(inverse_);
-    return this;
 }
 
 // 0x00413F80
-CollScaled* CollScaled::construct_copy(const CollScaled* other)
-{
-    vtable_ = kCollObjVtable;
-    checksum_ = other->checksum_;
-    flag_bits_ = other->flag_bits_;
-    visit_stamp_ = other->visit_stamp_;
-    geometry_ = other->geometry_;
-    vtable_ = kScaledVtable;
-    size_factor_ = other->size_factor_;
-    basis_frame_ = other->basis_frame_;
-    inverse_ = other->inverse_;
-    return this;
-}
-
-// 0x00412460 (only the base's body)
-void CollScaled::destruct() { destroy_base(); }
-
-// 0x004135E0
-CollScaled* CollScaled::scalar_delete(uint8_t flags)
-{
-    destruct();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+CollScaled::CollScaled(const CollScaled& other)
+    : HitMesh(other), size_factor_(other.size_factor_), basis_frame_(other.basis_frame_), inverse_(other.inverse_)
+{}
 
 // 0x00413610
 void CollScaled::place_at_absolute_point(const maths::Vec4* position)

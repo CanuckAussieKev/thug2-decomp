@@ -137,7 +137,7 @@ bool ProbeRay::is_hit_triangle_collision()
 {
     if (!hit_.hit)
         return true;
-    return hit_.object->get_call<bool>(1);
+    return hit_.object->is_triangle_hit();
 }
 
 // 0x00417140
@@ -171,8 +171,7 @@ double ProbeRay::get_hit_vertex_value() const
     float value[3];
     for (int k = 0; k < 3; ++k) {
         uint32_t vertex = geometry->face_vertex(static_cast<int>(hit_.face), k);
-        maths::Vec4 position;
-        object->get_call<maths::Vec4*>(9, &position, static_cast<int>(vertex)); // (slot 9 returns it through a pointer)
+        maths::Vec4 position = object->read_vertex_point(static_cast<int>(vertex));
         corner[k] = {get_difference(position.x, at.x), get_difference(position.y, at.y),
                      get_difference(position.z, at.z), 1.0f};
         value[k] = static_cast<float>(geometry->vertex_bytes_[vertex]) * kByteScale;

@@ -57,18 +57,15 @@ struct LineQuery {
 };
 
 // A cache entry's box (what the cache keeps for each object).
-const maths::BBox* entry_box(const HitMeshCache::TableRow& entry)
-{
-    return static_cast<const maths::BBox*>(entry.geometry);
-}
+const maths::BBox* entry_box(const HitMeshCache::TableRow& entry) { return entry.bounds; }
 
-bool may_touch(HitMesh* object, const maths::BBox* box) { return object->get_call<bool>(13, box); }
+bool may_touch(HitMesh* object, const maths::BBox* box) { return object->inside_bounds(box); }
 bool collide_with_line(HitMesh* object, const maths::Seg* line, maths::Vec4* direction, CollisionHit* hit,
                        maths::BBox* box)
 {
-    return object->get_call<bool>(14, line, direction, hit, box);
+    return object->collide_with_line(line, direction, hit, box);
 }
-objects::GameEntity* get_owner(HitMesh* object) { return object->get_call<objects::GameEntity*>(10); }
+objects::GameEntity* get_owner(HitMesh* object) { return reinterpret_cast<objects::GameEntity*>(object->get_owner()); }
 
 // A movable object tested: its owner noted on the hit while it is; the owner if it was hit, else `owner`.
 objects::GameEntity* test_movable(HitMesh* object, const maths::Seg* line, LineQuery& query, CollisionHit* hit,

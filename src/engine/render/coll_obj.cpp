@@ -9,9 +9,7 @@
 #include "engine/core/mem.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/coll_tri.h"
-#include "engine/core/game_vtables.h"
 #include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/render/coll_static.h"
 
 namespace render {
@@ -54,28 +52,6 @@ void for_each_child(memory::ListNode* head, F f)
 
 } // namespace
 
-static VtableSlot g_coll_obj_vtable_slots[] = {&render::HitMesh::scalar_delete,
-                                               stubs::return_false,
-                                               &_purecall,
-                                               &_purecall,
-                                               &render::HitMesh::assign_shape_data,
-                                               &_purecall,
-                                               &_purecall,
-                                               &_purecall,
-                                               &_purecall,
-                                               &_purecall,
-                                               stubs::return_zero,
-                                               stubs::ignore_argument,
-                                               &_purecall,
-                                               &_purecall,
-                                               &_purecall,
-                                               &_purecall,
-                                               &_purecall,
-                                               &_purecall,
-                                               &_purecall,
-                                               &_purecall,
-                                               stubs::return_zero};
-void** const kCollObjVtable = reinterpret_cast<void**>(g_coll_obj_vtable_slots);
 static VtableSlot g_node_vtable_slots[] = {&render::CollObjListNodes::destroy_node};
 void** const kNodeVtable = reinterpret_cast<void**>(g_node_vtable_slots); // lists::Elem<HitMesh>
 
@@ -87,23 +63,14 @@ void HitMesh::assign_shape_data(TriMeshSource* geometry)
         checksum_ = *reinterpret_cast<uint32_t*>(geometry);
 }
 
-void HitMesh::destroy_base()
+// 0x00413390 (the base's part of every deleting destructor)
+HitMesh::~HitMesh()
 {
     TriMeshSource* geometry = geometry_;
-    vtable_ = kCollObjVtable;
     if (geometry && (flag_bits_ & kOwnsGeometry) && !(flag_bits_ & kSharedGeometry)) {
         free_shape_data(geometry);
         memory::Hub::get_pull()->dealloc(geometry);
     }
-}
-
-// 0x00413390
-HitMesh* HitMesh::scalar_delete(uint8_t flags)
-{
-    destroy_base();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x004131D0
@@ -140,47 +107,23 @@ memory::ListNode* CollObjListNodes::destroy_head(uint8_t flags)
 }
 
 // 0x004133E0
-HitMeshGroup* HitMeshGroup::make_new()
-{
-    flag_bits_ = 0;
-    geometry_ = nullptr;
-    vtable_ = vt::kVtblCompoundColl;
-    new (&box_) maths::BBox();
-    memory::ListNode* head = new_head();
-    value38_ = 0;
-    sub_nodes_ = head;
-    dirty_ = true;
-    return this;
-}
+HitMeshGroup::HitMeshGroup() : sub_nodes_(new_head()), dirty_(true), owner_(0) {}
 
 // 0x00411D10
-HitMeshGroup* HitMeshGroup::construct_copy(const HitMeshGroup* other)
-{
-    vtable_ = kCollObjVtable;
-    checksum_ = other->checksum_;
-    flag_bits_ = other->flag_bits_;
-    visit_stamp_ = other->visit_stamp_;
-    geometry_ = other->geometry_;
-    vtable_ = vt::kVtblCompoundColl;
-    sub_nodes_ = other->sub_nodes_;
-    box_ = other->box_;
-    dirty_ = other->dirty_;
-    box_valid_ = other->box_valid_;
-    value38_ = other->value38_;
-    return this;
-}
+HitMeshGroup::HitMeshGroup(const HitMeshGroup& other)
+    : HitMesh(other), sub_nodes_(other.sub_nodes_), box_(other.box_), dirty_(other.dirty_),
+      box_valid_(other.box_valid_), owner_(other.owner_)
+{}
 
 // 0x00411B10
-void HitMeshGroup::destruct()
+HitMeshGroup::~HitMeshGroup()
 {
-    vtable_ = vt::kVtblCompoundColl;
     if (sub_nodes_) {
         memory::ListNode* node = sub_nodes_->next;
         if (node->data != kHeadData && node) {
             while (node) {
                 memory::ListNode* next = node->next->data == kHeadData ? nullptr : node->next;
-                if (auto* child = static_cast<HitMesh*>(node->data))
-                    child->get_call<void*>(0, 1);
+                delete static_cast<HitMesh*>(node->data);
                 reinterpret_cast<void(__thiscall*)(memory::ListNode*, int)>(node->vtable[0])(node, 1);
                 node = next;
             }
@@ -189,29 +132,18 @@ void HitMeshGroup::destruct()
             reinterpret_cast<void(__thiscall*)(memory::ListNode*, int)>(sub_nodes_->vtable[0])(sub_nodes_, 1);
     }
     remove_from_caches(this);
-    destroy_base();
-}
-
-// 0x00413460
-HitMeshGroup* HitMeshGroup::scalar_delete(uint8_t flags)
-{
-    destruct();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x00413490
 HitMeshGroup* HitMeshGroup::replicate(int argument)
 {
-    void* memory = memory::alloc(sizeof(HitMeshGroup));
-    HitMeshGroup* copy = memory ? static_cast<HitMeshGroup*>(memory)->construct_copy(this) : nullptr;
+    auto* copy = new HitMeshGroup(*this);
     copy->flag_bits_ |= kOwnsGeometry; // (a failed allocation crashes here, as in the original)
     copy->sub_nodes_ = new_head();
     for_each_child(sub_nodes_, [&](HitMesh* child) {
         auto* node = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
         if (node) {
-            void* clone = child->get_call<void*>(12, argument);
+            void* clone = child->replicate(argument);
             node->vtable = kNodeVtable;
             node->data = clone;
             node->priority = 0;
@@ -249,75 +181,71 @@ void HitMeshGroup::attach_child(HitMesh* child)
 bool HitMeshGroup::is_triangle_hit()
 {
     bool all = true;
-    for_each_child(sub_nodes_, [&](HitMesh* child) { all = all && child->get_call<bool>(1); });
+    for_each_child(sub_nodes_, [&](HitMesh* child) { all = all && child->is_triangle_hit(); });
     return all;
 }
 
 // 0x00411CC0
-void HitMeshGroup::set_geometry_all(void* value)
+void HitMeshGroup::assign_shape_data(TriMeshSource* geometry)
 {
-    for_each_child(sub_nodes_, [&](HitMesh* child) { child->get_call<void>(4, value); });
+    for_each_child(sub_nodes_, [&](HitMesh* child) { child->assign_shape_data(geometry); });
     dirty_ = true;
 }
 
 // 0x00411C30
-void HitMeshGroup::place_at_absolute_point(const void* position)
+void HitMeshGroup::place_at_absolute_point(const maths::Vec4* position)
 {
-    for_each_child(sub_nodes_, [&](HitMesh* child) { child->get_call<void>(5, position); });
+    for_each_child(sub_nodes_, [&](HitMesh* child) { child->place_at_absolute_point(position); });
     dirty_ = true;
 }
 
 // 0x00411C80
-void HitMeshGroup::change_facing(const void* orientation)
+void HitMeshGroup::change_facing(const maths::Mat4* orientation)
 {
-    for_each_child(sub_nodes_, [&](HitMesh* child) { child->get_call<void>(6, orientation); });
+    for_each_child(sub_nodes_, [&](HitMesh* child) { child->change_facing(orientation); });
 }
 
 // 0x00411F60
-void* HitMeshGroup::get_absolute_point()
+const maths::Vec4* HitMeshGroup::get_absolute_point()
 {
-    return static_cast<HitMesh*>(get_first(sub_nodes_)->data)->get_call<void*>(7);
+    return static_cast<HitMesh*>(get_first(sub_nodes_)->data)->get_absolute_point();
 }
 
 // 0x00411F80
-void* HitMeshGroup::fetch_facing() { return static_cast<HitMesh*>(get_first(sub_nodes_)->data)->get_call<void*>(8); }
+const maths::Mat4* HitMeshGroup::fetch_facing()
+{
+    return static_cast<HitMesh*>(get_first(sub_nodes_)->data)->fetch_facing();
+}
 
 // 0x00410960
-maths::Vec4 HitMeshGroup::read_vertex_point(int /*vertex*/) const { return {0.0f, 0.0f, 0.0f, 0.0f}; }
-
-// 0x0040AE20
-int HitMeshGroup::get_value38() const { return value38_; }
-
-// 0x0040AE10
-void HitMeshGroup::set_value38(int value) { value38_ = value; }
+maths::Vec4 HitMeshGroup::read_vertex_point(int /*index*/) const { return {0.0f, 0.0f, 0.0f, 0.0f}; }
 
 // 0x00411E80
-int HitMeshGroup::inside_bounds(const maths::BBox* box)
+bool HitMeshGroup::inside_bounds(const maths::BBox* box)
 {
     if (dirty_) {
         recompute_b_box();
         dirty_ = false;
     }
-    if (box_valid_ && !box->intersects(box_))
-        return 0;
-    return 1;
+    return !(box_valid_ && !box->intersects(box_));
 }
 
 // 0x00411EC0
-bool HitMeshGroup::collide_with_line(void* a, void* b, void* c, void* d)
+bool HitMeshGroup::collide_with_line(const maths::Seg* line, const maths::Vec4* direction, CollisionHit* hit,
+                                     const maths::BBox* line_box)
 {
-    bool hit = false;
+    bool any = false;
     for_each_child(sub_nodes_, [&](HitMesh* child) {
-        if (child->get_call<bool>(14, a, b, c, d) || hit)
-            hit = true;
+        if (child->collide_with_line(line, direction, hit, line_box) || any)
+            any = true;
     });
-    return hit;
+    return any;
 }
 
 // 0x00411F20
-void HitMeshGroup::pass_down(void* a, void* b)
+void HitMeshGroup::draw_diagnostic(int a, int b)
 {
-    for_each_child(sub_nodes_, [&](HitMesh* child) { child->get_call<void>(19, a, b); });
+    for_each_child(sub_nodes_, [&](HitMesh* child) { child->draw_diagnostic(a, b); });
 }
 
 // 0x00411E50
@@ -337,7 +265,7 @@ void HitMeshGroup::recompute_b_box()
     box_.min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
     box_.max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
     for (memory::ListNode* node = sub_nodes_->next; node->data != kHeadData && node; node = node->next) {
-        auto* box = static_cast<HitMesh*>(node->data)->get_call<maths::BBox*>(20);
+        const maths::BBox* box = static_cast<HitMesh*>(node->data)->get_local_bounds();
         if (!box) {
             box_valid_ = false;
             return;
@@ -346,8 +274,5 @@ void HitMeshGroup::recompute_b_box()
         box_.append_spot(box->max);
     }
 }
-
-// 0x0040AE30
-uint16_t CollObjStubs::no_terrain(int /*face*/) { return 0; }
 
 } // namespace render

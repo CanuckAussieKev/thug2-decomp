@@ -166,7 +166,7 @@ void PcTextureProjection::cast_onto(void** sectors, int /*unused*/)
     ProjectionBatch* batch = nullptr;
     uint8_t* batch_vertices = nullptr;
     for (; *sectors; ++sectors) {
-        auto* geom = static_cast<uint8_t*>(static_cast<PcSector*>(*sectors)->geom); // (the sector's geom)
+        auto* geom = static_cast<uint8_t*>(static_cast<PcSector*>(*sectors)->geom_handle_); // (the sector's geom)
         if (!geom)
             continue;
         auto** meshes = *reinterpret_cast<MeshRef***>(geom + 0x3C);

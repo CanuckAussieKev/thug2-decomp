@@ -38,8 +38,8 @@ int confine(int value, int size)
     return value >= size ? size - 1 : value;
 }
 
-// An object's box as the grid sees it (slot 21).
-const maths::BBox* cuboid(HitMesh* object) { return object->get_call<const maths::BBox*>(21); }
+// An object's box as the grid sees it.
+const maths::BBox* cuboid(HitMesh* object) { return object->get_world_bounds(); }
 
 bool listable(HitMesh* object) { return !(object->flag_bits_ & 6); }
 

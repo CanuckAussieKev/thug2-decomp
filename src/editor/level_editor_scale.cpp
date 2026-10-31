@@ -20,14 +20,9 @@
 #include "engine/render/coll_tri.h"
 #include "engine/objects/collision_component.h"
 #include "engine/objects/entity.h"
-#include "engine/core/code_address.h"
 #include "platform/run_log.h"
-#include "engine/core/game_vtables.h"
 #include "engine/render/coll_line.h"
-#include "game/save_cards/memcard.h"
-#include "engine/render/probe_ray.h"
 #include "engine/gfx/viewport.h"
-#include "engine/core/stubs.h"
 
 namespace frontend::level_editor::scale_tool {
 
@@ -499,9 +494,6 @@ V3 get_limit(uint8_t* sector, V3 world_scale)
 namespace {
 
 constexpr uint32_t kModelModuleName = 0x286A8D26;
-void** const& g_mov_tri_vtable = vt::kVtblMovingMeshColl;
-void** const& g_mov_b_box_vtable = vt::kVtblMovingBoxColl;
-void** const& g_multi_vtable = vt::kVtblCompoundColl;
 void* const kListHeadData = reinterpret_cast<void*>(-1);
 
 // A scaled object: its collision object then, its triangle objects' own geometries (copied, as they were unscaled)
@@ -587,14 +579,15 @@ bool take_collision(render::HitMesh* collision, ObjectEntry* entry)
 {
     if (!collision)
         return true;
-    if (collision->vtable_ == g_mov_tri_vtable)
+    render::HitMeshKind kind = collision->kind();
+    if (kind == render::HitMeshKind::kMovingTriangles)
         return take_tri(static_cast<render::HitMovingTriangles*>(collision), entry);
-    if (collision->vtable_ == g_mov_b_box_vtable) {
+    if (kind == render::HitMeshKind::kMovingBox) {
         auto* box = static_cast<render::HitMovingBox*>(collision);
         entry->boxes.push_back({box, box->box_});
         return true;
     }
-    if (collision->vtable_ == g_multi_vtable) {
+    if (kind == render::HitMeshKind::kGroup) {
         memory::ListNode* head = static_cast<render::HitMeshGroup*>(collision)->sub_nodes_;
         for (memory::ListNode* node = head ? head->next : nullptr; node && node != head && node->data != kListHeadData;
              node = node->next) {
@@ -603,8 +596,7 @@ bool take_collision(render::HitMesh* collision, ObjectEntry* entry)
         }
         return true;
     }
-    get_log("level editor: an object's collision of an unknown kind (vtable %p) isn't scaled",
-            static_cast<void*>(collision->vtable_));
+    get_log("level editor: an object's collision of an unknown kind (%d) isn't scaled", static_cast<int>(kind));
     return true;
 }
 
@@ -621,7 +613,7 @@ void apply_collision(ObjectEntry& entry)
         b.box->box_.min = {lo.x * entry.scale.x, lo.y * entry.scale.y, lo.z * entry.scale.z, lo.w};
         b.box->box_.max = {hi.x * entry.scale.x, hi.y * entry.scale.y, hi.z * entry.scale.z, hi.w};
     }
-    if (entry.collision && entry.collision->vtable_ == g_multi_vtable)
+    if (entry.collision && entry.collision->kind() == render::HitMeshKind::kGroup)
         static_cast<render::HitMeshGroup*>(entry.collision)->dirty_ = true;
 }
 
@@ -656,9 +648,9 @@ V3 object_limit(objects::GameEntity* object)
         pending.pop_back();
         if (!c)
             continue;
-        if (c->vtable_ == g_mov_tri_vtable && c->geometry_)
+        if (c->kind() == render::HitMeshKind::kMovingTriangles && c->geometry_)
             narrow(c->geometry_, get_uniform(1.0f));
-        if (c->vtable_ == g_multi_vtable) {
+        if (c->kind() == render::HitMeshKind::kGroup) {
             memory::ListNode* head = static_cast<render::HitMeshGroup*>(c)->sub_nodes_;
             for (memory::ListNode* node = head ? head->next : nullptr;
                  node && node != head && node->data != kListHeadData; node = node->next)
@@ -699,72 +691,3 @@ bool set_object_scale(objects::GameEntity* object, V3 scale)
 void forget_objects() { g_objects.clear(); }
 
 } // namespace frontend::level_editor::scale_tool
-
-namespace vt {
-static VtableSlot g_coll_multi_slots[] = {&render::HitMeshGroup::scalar_delete,
-                                          &render::HitMeshGroup::is_triangle_hit,
-                                          stubs::return_zero1,
-                                          &render::CollObjStubs::no_terrain,
-                                          &render::HitMeshGroup::set_geometry_all,
-                                          &render::HitMeshGroup::place_at_absolute_point,
-                                          &render::HitMeshGroup::change_facing,
-                                          &render::HitMeshGroup::get_absolute_point,
-                                          &render::HitMeshGroup::fetch_facing,
-                                          &render::HitMeshGroup::read_vertex_point,
-                                          &render::HitMeshGroup::get_value38,
-                                          &render::HitMeshGroup::set_value38,
-                                          &render::HitMeshGroup::replicate,
-                                          &render::HitMeshGroup::inside_bounds,
-                                          &render::HitMeshGroup::collide_with_line,
-                                          stubs::return_false3,
-                                          stubs::return_false3,
-                                          stubs::return_false3,
-                                          &render::CollGeometryForwarders::is_point_behind_faces,
-                                          &render::HitMeshGroup::pass_down,
-                                          &render::HitMeshGroup::get_local_bounds};
-void** const kVtblCompoundColl = reinterpret_cast<void**>(g_coll_multi_slots);
-static VtableSlot g_coll_mov_b_box_slots[] = {&render::HitMovingBox::scalar_delete,
-                                              stubs::return_false,
-                                              &render::HitMovingBox::get_triangle_attrs,
-                                              &render::HitMovingBox::get_face_terrain,
-                                              &render::HitMovingBox::assign_shape_data,
-                                              &render::ProbeRay::change_finish,
-                                              &render::HitMovingMesh::change_facing,
-                                              &render::HitMovingMesh::get_absolute_point,
-                                              &render::HitMovingMesh::fetch_facing,
-                                              &render::HitMovingMesh::read_vertex_point,
-                                              &render::HitMovingMesh::get_value_a0,
-                                              &render::HitMovingMesh::set_value_a0,
-                                              &render::HitMovingBox::replicate,
-                                              &save_cards::SaveCard::always_true,
-                                              &render::HitMovingBox::collide_with_line,
-                                              stubs::return_false3,
-                                              stubs::return_false3,
-                                              stubs::return_false3,
-                                              &render::CollGeometryForwarders::is_point_behind_faces,
-                                              &render::HitMovingBox::draw_diagnostic,
-                                              stubs::return_zero};
-void** const kVtblMovingBoxColl = reinterpret_cast<void**>(g_coll_mov_b_box_slots);
-static VtableSlot g_coll_mov_tri_slots[] = {&render::HitMovingTriangles::scalar_delete,
-                                            stubs::return_true,
-                                            &render::CollFaceAccess::get_triangle_attrs,
-                                            &render::CollFaceAccess::get_face_terrain,
-                                            &render::HitMovingTriangles::assign_shape_data,
-                                            &render::HitMovingTriangles::place_at_absolute_point,
-                                            &render::HitMovingMesh::change_facing,
-                                            &render::HitMovingMesh::get_absolute_point,
-                                            &render::HitMovingMesh::fetch_facing,
-                                            &render::HitMovingMesh::read_vertex_point,
-                                            &render::HitMovingMesh::get_value_a0,
-                                            &render::HitMovingMesh::set_value_a0,
-                                            &render::HitMovingTriangles::replicate,
-                                            &render::HitMovingTriangles::inside_bounds,
-                                            &render::HitMovingTriangles::collide_with_line,
-                                            stubs::return_false3,
-                                            stubs::return_false3,
-                                            stubs::return_false3,
-                                            &render::CollGeometryForwarders::is_point_behind_faces,
-                                            &render::HitMovingTriangles::draw_diagnostic,
-                                            &render::HitMovingTriangles::get_local_bounds};
-void** const kVtblMovingMeshColl = reinterpret_cast<void**>(g_coll_mov_tri_slots);
-} // namespace vt

@@ -5,6 +5,7 @@
 #include "engine/objects/trick_objects.h"
 #include "game/park_editing/rail_editor.h"
 #include "engine/gfx/engine.h"
+#include "engine/gfx/engine_geom.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/sector.h"
 #include "game/goals/goal_manager.h"
@@ -226,10 +227,10 @@ bool TrickSpot::set_graffiti_color(int index)
     rgba[1] = static_cast<uint8_t>(color->fetch_part(1));
     rgba[2] = static_cast<uint8_t>(color->fetch_part(2));
     rgba[3] = 0x80;
-    if (void** mesh = *reinterpret_cast<void***>(sector + 0x14)) {
+    if (auto* geom = static_cast<render::Geom*>(reinterpret_cast<render::WorldCell*>(sector)->geom_handle_)) {
         uint32_t packed;
         std::memcpy(&packed, rgba, 4);
-        reinterpret_cast<void(__thiscall*)(void*, uint32_t)>(static_cast<void**>(*mesh)[6])(mesh, packed);
+        geom->change_tint(packed);
     }
     return true;
 }

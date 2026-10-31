@@ -273,12 +273,9 @@ uint8_t* level_scene()
     uint32_t name = park_editing::ParkBuilderMode::get_shell_checksum();
     return reinterpret_cast<uint8_t*>(render::engine::find_scene(name));
 }
-// A scene's own colour (vtable +0x20).
-void set_scene_color_of(uint8_t* scene, uint32_t color)
-{
-    auto** vtable = *reinterpret_cast<void***>(scene);
-    reinterpret_cast<void(__thiscall*)(uint8_t*, uint32_t)>(vtable[8])(scene, color);
-}
+// A scene's own colour (the original's vtable +0x20: slot 8, the "ignore one argument" stub in both the engine's and
+// the PC scene's tables - nothing is done).
+void set_scene_color_of(uint8_t* /*scene*/, uint32_t /*color*/) {}
 // The sector named `name` in any scene (0x0048C510): +0x0C its light group.
 uint8_t* look_up_sector(uint32_t name) { return static_cast<uint8_t*>(render::engine::look_up_sector(name)); }
 // A model component's colour (0x00420700).

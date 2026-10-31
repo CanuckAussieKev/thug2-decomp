@@ -102,7 +102,7 @@ private:
     std::vector<uint8_t> bytes_;     // one per vertex
     std::vector<uint8_t> rejection_; // one per face (all 0: the rejection scale is 0)
     render::TriMeshSource geometry_{};
-    render::StaticCollider entity_{};
+    render::StaticCollider entity_;
 };
 
 // --- the game side ----------------------------------------------------------------------------------------------

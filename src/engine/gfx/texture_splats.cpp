@@ -474,7 +474,7 @@ TextureSplats* __cdecl create_texture_splat(void** sectors, int /*unused*/, Spla
     uint8_t* splat_vertices = nullptr;
     int slot = 0;
     for (; *sectors; ++sectors) {
-        auto* geom = static_cast<uint8_t*>(static_cast<PcSector*>(*sectors)->geom); // (the sector's geom)
+        auto* geom = static_cast<uint8_t*>(static_cast<PcSector*>(*sectors)->geom_handle_); // (the sector's geom)
         if (!geom)
             continue;
         auto** meshes = *reinterpret_cast<MeshRef***>(geom + 0x3C);

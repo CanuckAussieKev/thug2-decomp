@@ -86,7 +86,7 @@ bool capsule_hits_triangle(const maths::Capsule* capsule, const maths::Vec4* v0,
 }
 
 // 0x004114E0 (slot 17, an instance's too: its faces are taken unplaced)
-bool StaticCollider::collide_with_capsule(const maths::Capsule* capsule, const maths::BBox* box, CapsuleHits* hits)
+bool HitMesh::collide_faces_with_capsule(const maths::Capsule* capsule, const maths::BBox* box, CapsuleHits* hits)
 {
     int count;
     uint16_t buffer[0x800];

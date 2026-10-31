@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/gfx/engine_scene.h"
+#include "engine/gfx/sector.h"
 #include "engine/gfx/screen_effects.h"
 
 #include "engine/maths/shape_tests.h"
@@ -21,37 +22,34 @@ struct VertexArena {
     void* data;    // +0x0C: while locked
 };
 
-// The PC sector (0x34 bytes, vtable 0x0064A718; the engine's WorldCell - constructor 0x0049E900, destructor body
-// 0x0049E630 - for its first 0x20 bytes: +0x14 its geometry).
-struct PcSector {
-    void** vtable;
-    uint8_t engine04[0x10];
-    void* geom; // +0x14
-    uint8_t engine18[4];
-    uint32_t flags;     // +0x1C: 0x800000 billboards, 0x200000 the meshes' flag 0x200
-    float unknown20[3]; // +0x20 (zero)
-    float unknown2c_;   // +0x2C (1)
-    uint8_t engine30[4];
-
-    // 0x004C6550: construct. Returns this.
-    PcSector* make_new();
-    // 0x004C65B0: the destructor's body (a jump to the engine's).
-    void destroy_body();
-    // 0x004C6580 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    PcSector* teardown(unsigned int free_flags);
-    // 0x004C6530 (virtual [1]): with `on`, its geometry given to the engine's 0x00490DC0.
-    void change_live(bool on);
-    // 0x004C65C0 (virtual [3]): a new sector (the arguments unused). Null if no memory.
-    PcSector* replicate(int unused1, int unused2);
+// The PC sector (0x34 bytes, the original's vtable 0x0064A718; the engine's WorldCell for its first 0x1C bytes). Its
+// table's slots 4-10 (the shared stubs, fetch_empty_bounds and - folded - HitMovingMesh::fetch_facing, the floats at
+// +0x20) were never called.
+class PcSector final : public WorldCell {
+public:
+    // 0x004C6550
+    PcSector() : flags(0), unknown20{0.0f, 0.0f, 0.0f}, unknown2c_(1.0f) {}
+    // 0x004C65B0 (0x004C6580 the deleting destructor): a jump to the engine's.
+    ~PcSector() override = default;
+    // 0x004C6530 (slot 1): with `on`, its geometry given to the engine's 0x00490DC0.
+    void plat_set_shatter(bool on) override;
+    // 0x004C65C0 (slot 3): a new sector (the arguments unused). Null if no memory.
+    PcSector* plat_clone(int instance, void* scene) override;
     // 0x004C6650: loaded from a scene file in memory (moved past it): its checksum, flags, box, billboard and
     // meshes (each made, its vertices loaded by 0x004D5CC0, its index lists read and dropped). True.
     bool read_from_ram_block(uint8_t** cursor);
     // 0x004C6B10: the same from a file (the vertices by 0x004D6100, given `unknown` unless a billboard). True.
     bool ingest_from_file(void* file, uint32_t unknown);
-    // 0x004C64E0 (virtual [9]): an empty box (a static one, made the first time).
-    const maths::BBox* fetch_bounds();
+    // 0x004C64E0 (slot 9, never called): an empty box (a static one, made the first time).
+    static const maths::BBox* fetch_empty_bounds();
+
+    uint32_t flags;     // +0x1C: 0x800000 billboards, 0x200000 the meshes' flag 0x200
+    float unknown20[3]; // +0x20 (zero)
+    float unknown2c_;   // +0x2C (1)
+    uint8_t unknown30_[4];
 };
-static_assert(offsetof(PcSector, geom) == 0x14 && offsetof(PcSector, unknown20) == 0x20 && sizeof(PcSector) == 0x34,
+static_assert(offsetof(PcSector, geom_handle_) == 0x14 && offsetof(PcSector, unknown20) == 0x20 &&
+                  sizeof(PcSector) == 0x34,
               "layout must match the original");
 
 // The PC scene (0x284 bytes, vtable 0x0064A6B8; the engine's WorldScene - constructor 0x0049D390, destructor body
@@ -71,7 +69,7 @@ struct PcScene final : public WorldScene {
     // (Slot 6: a shared "false".)
     bool unload_add_scene() override { return false; }
     // 0x004C6190 (slot 7): a new sector. Null if no memory.
-    void* plat_create_sector() override;
+    WorldCell* plat_create_sector() override;
     // 0x004C6200: the sectors gone through (nothing done with them - stripped).
     void unload_sectors();
 

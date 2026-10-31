@@ -18,7 +18,7 @@ class HitMeshCache {
 public:
     struct TableRow {
         HitMesh* object;
-        void* geometry;
+        const maths::BBox* bounds; // (a static object's world box, a movable's own)
     };
 
     // 0x0040AB50: an empty box, no objects; registered (returns this).

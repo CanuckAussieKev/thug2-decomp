@@ -30,7 +30,7 @@ namespace {
 
 // The engine's scenes and sectors (not rewritten yet; thiscall).
 uint8_t* new_pc_scene(int hash_bits) { return reinterpret_cast<uint8_t*>(new PcScene(hash_bits)); }
-void* spawn_sector(uint8_t* scene) { return reinterpret_cast<WorldScene*>(scene)->spawn_sector(); }
+WorldCell* spawn_sector(uint8_t* scene) { return reinterpret_cast<WorldScene*>(scene)->spawn_sector(); }
 void choose_geom(void* sector, void* geom) { static_cast<WorldCell*>(sector)->choose_geom(geom); }
 void insert_sector(uint8_t* scene, void* sector)
 {
@@ -126,7 +126,7 @@ void* __cdecl load_scene_from_memory(const uint8_t* data, void* textures, bool w
     p += 4;
     uint8_t* scene = build_world_scene(sectors, with_super_sectors, flag_8d, list);
     for (int i = sectors; i > 0; --i) {
-        void* sector = spawn_sector(scene);
+        WorldCell* sector = spawn_sector(scene);
         uint8_t* geom = new_sector_geom(scene);
         choose_geom(sector, geom);
         prepare_geometry(geom);
@@ -164,7 +164,7 @@ void* __cdecl load_scene_from_file(const char* name, void* textures, bool with_s
     file::get_take_in(&sectors, 4, 1, file);
     uint8_t* scene = build_world_scene(sectors, with_super_sectors, flag_8d, list);
     for (int i = 0; i < sectors; ++i) {
-        void* sector = spawn_sector(scene);
+        WorldCell* sector = spawn_sector(scene);
         uint8_t* geom = new_sector_geom(scene);
         choose_geom(sector, geom);
         prepare_geometry(geom);

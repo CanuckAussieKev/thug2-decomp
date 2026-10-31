@@ -15,6 +15,7 @@
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_overlays.h"
 #include "editor/level_editor_scenery.h"
+#include "engine/render/coll_static.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/coll_tri.h"
 #include "engine/render/probe_ray.h"
@@ -22,7 +23,6 @@
 #include "engine/script/param_struct.h"
 #include "game/rider/rider.h"
 #include "platform/run_log.h"
-#include "engine/core/game_vtables.h"
 
 namespace frontend::level_editor::arcs {
 
@@ -270,18 +270,17 @@ std::string span_to(float units)
 
 namespace {
 
-constexpr uint32_t kSkater = 0x5B8AB877;                  // Skater (the local skater's alias)
-constexpr uint32_t kFallPull = 0xFAA40754;                // Physics_Air_Gravity
-constexpr uint32_t kAirHang = 0xC31CA696;                 // Physics_Air_hang_Stat
-constexpr uint32_t kVertHang = 0x441C38A0;                // Physics_Vert_hang_Stat
-constexpr uint32_t kJumpSpeed = 0x02ADE3AD;               // Physics_Jump_Speed_Stat
-constexpr uint32_t kKickSpeed = 0x92E0247C;               // Skater_Max_Crouched_Kick_Speed_Stat
-constexpr uint32_t kMaxSpeed = 0x2EACDDB3;                // Skater_Max_Speed_Stat
-constexpr uint32_t kSpeedCapStat = 0xCC5F87AA;            // Skater_Max_Max_Speed_Stat
-constexpr uint32_t kDefaultStats = 0x6357D57C;            // Skater_Default_Stats
-constexpr uint32_t kLimit = 0x8069179F;                   // limit
-void** const& g_coll_static_vtable = vt::kVtblStaticColl; // (StaticCollider)
-constexpr int kStatOllie = 2, kStatSpeed = 3;             // (STATS_OLLIE, STATS_SPEED)
+constexpr uint32_t kSkater = 0x5B8AB877;       // Skater (the local skater's alias)
+constexpr uint32_t kFallPull = 0xFAA40754;     // Physics_Air_Gravity
+constexpr uint32_t kAirHang = 0xC31CA696;      // Physics_Air_hang_Stat
+constexpr uint32_t kVertHang = 0x441C38A0;     // Physics_Vert_hang_Stat
+constexpr uint32_t kJumpSpeed = 0x02ADE3AD;    // Physics_Jump_Speed_Stat
+constexpr uint32_t kKickSpeed = 0x92E0247C;    // Skater_Max_Crouched_Kick_Speed_Stat
+constexpr uint32_t kMaxSpeed = 0x2EACDDB3;     // Skater_Max_Speed_Stat
+constexpr uint32_t kSpeedCapStat = 0xCC5F87AA; // Skater_Max_Max_Speed_Stat
+constexpr uint32_t kDefaultStats = 0x6357D57C; // Skater_Default_Stats
+constexpr uint32_t kLimit = 0x8069179F;        // limit
+constexpr int kStatOllie = 2, kStatSpeed = 3;  // (STATS_OLLIE, STATS_SPEED)
 
 Physics g_physics = arcs_fallback();
 bool g_have_read;
@@ -341,7 +340,7 @@ void sector_faces(uint32_t checksum, std::vector<Face>* out)
     if (!sector)
         return;
     uint8_t* coll = *reinterpret_cast<uint8_t**>(sector + 0x18);
-    if (!coll || *reinterpret_cast<void***>(coll) != g_coll_static_vtable || (coll[0x08] & 4))
+    if (!render::is_static_collider(coll) || (coll[0x08] & 4))
         return;
     const auto* tri = *reinterpret_cast<const render::TriMeshSource* const*>(coll + 0x0C);
     if (!tri || !tri->faces_ || !tri->vertices_)

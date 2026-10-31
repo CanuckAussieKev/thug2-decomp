@@ -16,9 +16,9 @@
 #include "editor/level_editor_scenery.h"
 #include "editor/level_editor_shared_coll.h"
 #include "editor/level_editor_view.h"
+#include "engine/render/coll_static.h"
 #include "engine/render/coll_tri.h"
 #include "platform/run_log.h"
-#include "engine/core/game_vtables.h"
 #include "imgui.h"
 
 namespace frontend::level_editor::faces {
@@ -173,7 +173,6 @@ std::vector<SectorFaces> group_set(const std::vector<Change>& changes)
 
 namespace {
 
-void** const& g_coll_static_vtable = vt::kVtblStaticColl;
 constexpr size_t kMostSelected = 8192;
 
 bool g_picking;
@@ -188,7 +187,7 @@ render::TriMeshSource* get_geometry(uint32_t checksum)
 {
     uint8_t* sector = scenery::sector_of(checksum);
     uint8_t* coll = sector ? *reinterpret_cast<uint8_t**>(sector + 0x18) : nullptr;
-    if (!coll || *reinterpret_cast<void***>(coll) != g_coll_static_vtable)
+    if (!render::is_static_collider(coll))
         return nullptr;
     auto* tri = *reinterpret_cast<render::TriMeshSource**>(coll + 0x0C);
     return tri && tri->faces_ ? tri : nullptr;
