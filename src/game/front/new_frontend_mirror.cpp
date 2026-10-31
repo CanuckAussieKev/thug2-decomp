@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 
 #include "game/core/crc.h"
 
@@ -239,6 +240,17 @@ View Build(const MenuRead& read, const Policy& policy)
                     row.value += (row.value.empty() ? "" : " \xC2\xB7 ") + texts[k];
             if (item.checkbox >= 0)
                 row.value += (row.value.empty() ? "" : " \xC2\xB7 ") + std::string(item.checkbox ? Text::kOn : Text::kOff);
+            row.adjustable = item.adjustable;
+            // A slider's bar isn't drawn here: its value is, as the marker stands on the bar (only the selected item's -
+            // the others' markers are moved when they are focused).
+            if (item.sliderAt >= 0.0f && static_cast<int>(i) == read.selectedIndex) {
+                char number[24];
+                if (item.sliderHue)
+                    std::snprintf(number, sizeof(number), "%d\xC2\xB0", static_cast<int>(item.sliderAt * 360.0f + 0.5f));
+                else
+                    std::snprintf(number, sizeof(number), "%d%%", static_cast<int>(item.sliderAt * 100.0f + 0.5f));
+                row.value += (row.value.empty() ? "" : " \xC2\xB7 ") + std::string(number);
+            }
             row.focusable = item.focusable;
             row.index = static_cast<int>(i);
             if (static_cast<int>(i) == read.selectedIndex)
