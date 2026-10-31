@@ -53,7 +53,7 @@ bool& viewer_launched() { return g_viewer_launched; }
 
 // The weather (0x006FA7C8) and the screen effects (0x006FA7CC).
 render::WeatherSystem* get_weather() { return render::g_weather; }
-void* screen_effects() { return render::g_screen_effects; }
+render::ScreenEffects* screen_effects() { return render::g_screen_effects; }
 using Setter = bool(__thiscall*)(void*, Struct*, Script*);
 
 } // namespace
@@ -252,17 +252,17 @@ bool __cdecl cfunc_weather_set_rain_active(Struct* params, Script* script)
 // 0x005A58F0
 bool __cdecl cfunc_set_screen_effects_on(Struct* params, Script* script)
 {
-    return static_cast<render::ScreenEffects*>(screen_effects())->set_on(params, script);
+    return screen_effects()->set_on(params, script);
 }
 // 0x005A5910
 bool __cdecl cfunc_set_screen_effects_off(Struct* params, Script* script)
 {
-    return static_cast<render::ScreenEffects*>(screen_effects())->set_off(params, script);
+    return screen_effects()->set_off(params, script);
 }
 // 0x005A5930
 bool __cdecl cfunc_set_screen_effects_dof_params(Struct* params, Script* script)
 {
-    return static_cast<render::ScreenEffects*>(screen_effects())->set_dof_params(params, script);
+    return screen_effects()->set_dof_params(params, script);
 }
 
 // 0x005A5950

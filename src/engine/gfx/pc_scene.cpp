@@ -6,6 +6,7 @@
 
 #include <d3d9.h>
 
+#include <bit>
 #include <cstdint>
 #include <cstring>
 #include <new>
@@ -27,14 +28,11 @@
 #include "engine/core/code_address.h"
 #include "engine/render/coll_movable.h"
 #include "engine/core/stubs.h"
-#include "game/save_cards/memcard.h"
 #include "engine/gfx/device.h"
 
 namespace render {
 
 namespace {
-extern void** const kCPcSceneVtable;
-extern void** const kCPcScreenEffectsVtable;
 extern void** const kCPcSectorVtable;
 } // namespace
 
@@ -131,28 +129,8 @@ const maths::BBox* PcSector::fetch_bounds()
 
 // --- the scene ---
 
-// 0x004C6130
-PcScene* PcScene::make_new(int arg)
-{
-    reinterpret_cast<WorldScene*>(this)->WorldScene::make_new(arg);
-    vtable = kCPcSceneVtable;
-    return this;
-}
-
-// 0x004C6180
-void PcScene::destroy_body() { reinterpret_cast<WorldScene*>(this)->WorldScene::destroy_body(); }
-
-// 0x004C6150
-PcScene* PcScene::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
 // 0x004C6190
-PcSector* PcScene::spawn_sector()
+void* PcScene::plat_create_sector()
 {
     void* memory = memory::alloc(sizeof(PcSector));
     return memory ? static_cast<PcSector*>(memory)->make_new() : nullptr;
@@ -161,15 +139,16 @@ PcSector* PcScene::spawn_sector()
 // 0x004C6200
 void PcScene::unload_sectors()
 {
-    auto* table = static_cast<lists::KeyMap*>(sectors);
+    lists::KeyMap* table = sectors_;
     for (void* sector = first_sector(table); sector; sector = next_sector(table)) {
     }
 }
 
 // 0x004C6270
-void PcScene::post_load(VertexArena* arena)
+void PcScene::post_load(void* arena_word)
 {
-    auto* table = static_cast<lists::KeyMap*>(sectors);
+    auto* arena = static_cast<VertexArena*>(arena_word);
+    lists::KeyMap* table = sectors_;
     void* sector = first_sector(table);
     if (arena) {
         input_port()->CreateVertexBuffer(arena->size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
@@ -196,52 +175,28 @@ void PcScene::post_load(VertexArena* arena)
 
 // --- the screen effects ---
 
-// 0x004C6480
-PcScreenEffects* PcScreenEffects::make_new()
-{
-    reinterpret_cast<ScreenEffects*>(this)->ScreenEffects::make_new();
-    vtable = kCPcScreenEffectsVtable;
-    return this;
-}
-
-// 0x004C64A0
-void PcScreenEffects::destroy_body()
-{
-    vtable = kCPcScreenEffectsVtable;
-    reinterpret_cast<ScreenEffects*>(this)->ScreenEffects::destroy_body();
-}
-
-// 0x004C64B0
-PcScreenEffects* PcScreenEffects::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
 // 0x004C63C0
 void PcScreenEffects::set_bloom(int on) { g_bloom_on = on != 0; }
 // 0x004C63E0
 void PcScreenEffects::set_bloom_cut_off(uint32_t colour) { g_bloom_cut_off = colour; }
 // 0x004C63F0
-void PcScreenEffects::set_bloom_alphas(uint32_t first, uint32_t second)
+void PcScreenEffects::set_bloom_alphas(int first, int second)
 {
-    g_bloom_alpha_first = first;
-    g_bloom_alpha_second = second;
+    g_bloom_alpha_first = static_cast<uint32_t>(first);
+    g_bloom_alpha_second = static_cast<uint32_t>(second);
 }
 // 0x004C6410
-void PcScreenEffects::set_unknown990(uint32_t value) { g_screen_effect_unknown990 = value; }
+void PcScreenEffects::set_bloom_colour(uint32_t colour) { g_screen_effect_unknown990 = colour; }
 // 0x004C6420
-void PcScreenEffects::set_unknown5724(int on) { g_screen_effect_unknown5724 = on != 0; }
+void PcScreenEffects::set_dof_on(int on) { g_screen_effect_unknown5724 = on != 0; }
 // 0x004C6460
-void PcScreenEffects::set_unknown994(uint32_t value) { g_screen_effect_unknown994 = value; }
+void PcScreenEffects::set_dof_colour_a(uint32_t colour) { g_screen_effect_unknown994 = colour; }
 // 0x004C6470
-void PcScreenEffects::set_unknown984(uint32_t value) { g_screen_effect_unknown984 = value; }
+void PcScreenEffects::set_dof_value_a(float value) { g_screen_effect_unknown984 = std::bit_cast<uint32_t>(value); }
 // 0x004C6440
-void PcScreenEffects::set_unknown988(uint32_t value) { g_screen_effect_unknown988 = value; }
+void PcScreenEffects::set_dof_value_c(float value) { g_screen_effect_unknown988 = std::bit_cast<uint32_t>(value); }
 // 0x004C6450
-void PcScreenEffects::set_unknown5728(uint32_t value) { g_screen_effect_unknown5728 = value; }
+void PcScreenEffects::set_dof_value_d(float value) { g_screen_effect_unknown5728 = std::bit_cast<uint32_t>(value); }
 
 namespace {
 
@@ -437,27 +392,6 @@ bool PcSector::ingest_from_file(file::Hdl file, uint32_t unknown)
 }
 
 namespace {
-static VtableSlot g_c_pc_scene_vtable_slots[] = {&render::PcScene::teardown,
-                                                 &render::PcScene::post_load,
-                                                 &render::WorldScene::post_add,
-                                                 &save_cards::SaveCard::always_true,
-                                                 &save_cards::SaveCard::always_true,
-                                                 &render::WorldScene::add_collision,
-                                                 stubs::return_false,
-                                                 &render::PcScene::spawn_sector,
-                                                 stubs::ignore_argument,
-                                                 &render::WorldScene::get_default_colour,
-                                                 &render::WorldScene::set_rendered};
-void** const kCPcSceneVtable = reinterpret_cast<void**>(g_c_pc_scene_vtable_slots);
-static VtableSlot g_c_pc_screen_effects_vtable_slots[] = {
-    &render::PcScreenEffects::teardown,         stubs::do_nothing,
-    &render::PcScreenEffects::set_bloom,        &render::PcScreenEffects::set_bloom_cut_off,
-    &render::PcScreenEffects::set_bloom_alphas, &render::PcScreenEffects::set_unknown990,
-    &render::PcScreenEffects::set_unknown5724,  stubs::ignore_argument,
-    &render::PcScreenEffects::set_unknown994,   stubs::ignore_argument,
-    &render::PcScreenEffects::set_unknown984,   &render::PcScreenEffects::set_unknown988,
-    &render::PcScreenEffects::set_unknown5728};
-void** const kCPcScreenEffectsVtable = reinterpret_cast<void**>(g_c_pc_screen_effects_vtable_slots);
 static VtableSlot g_c_pc_sector_vtable_slots[] = {&render::PcSector::teardown,
                                                   &render::PcSector::change_live,
                                                   &render::WorldCell::plat_get_shatter,

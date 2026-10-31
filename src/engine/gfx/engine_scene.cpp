@@ -85,7 +85,7 @@ void for_each_sector(lists::KeyMap* table, Body body)
 void WorldScene::finish_load(const char* name, void* arena)
 {
     copy_string(label_, name);
-    Virtual(this, 1, arena);
+    post_load(arena);
 }
 
 // 0x0049C940
@@ -94,7 +94,7 @@ void WorldScene::finish_add(const char* name, uint32_t data)
     copy_string(add_name_, name);
     add_data_ = data;
     added_ = true;
-    Virtual(this, 2);
+    post_add();
 }
 
 // 0x0049C9A0
@@ -115,7 +115,7 @@ StaticCollider* WorldScene::fetch_static_collision(int index)
 // 0x0049CA10
 void* WorldScene::spawn_sector()
 {
-    auto* sector = Virtual<uint8_t*>(this, 7);
+    auto* sector = static_cast<uint8_t*>(plat_create_sector());
     *reinterpret_cast<uint32_t*>(sector + 0x14) = 0;
     *reinterpret_cast<uint32_t*>(sector + 0x18) = 0;
     return sector;

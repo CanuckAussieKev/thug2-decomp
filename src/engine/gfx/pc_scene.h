@@ -3,6 +3,9 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/gfx/engine_scene.h"
+#include "engine/gfx/screen_effects.h"
+
 #include "engine/maths/shape_tests.h"
 
 // The PC scene and sector (Nx engine), and the PC screen effects object's setters.
@@ -53,61 +56,59 @@ static_assert(offsetof(PcSector, geom) == 0x14 && offsetof(PcSector, unknown20) 
 
 // The PC scene (0x284 bytes, vtable 0x0064A6B8; the engine's WorldScene - constructor 0x0049D390, destructor body
 // 0x0049DD10 - for its first 0x280 bytes: +0xD0 the sectors' hash table).
-struct PcScene {
-    void** vtable;
-    uint8_t engine04[0xCC];
-    void* sectors; // +0xD0: lists::KeyMap of the sectors
-    uint8_t engine_0d_4_[0x1AC];
-    SceneRef* meshes; // +0x280: its mesh list
-
-    // 0x004C6130: construct (`arg` for the engine's constructor). Returns this.
-    PcScene* make_new(int arg);
-    // 0x004C6180: the destructor's body (a jump to the engine's).
-    void destroy_body();
-    // 0x004C6150 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    PcScene* teardown(unsigned int flags);
-    // 0x004C6270 (virtual [1]): after loading: with `arena`, a write-only vertex buffer of its size made and locked
+struct PcScene final : public WorldScene {
+    // 0x004C6130: the engine's constructor (`bits` its sector table's).
+    explicit PcScene(int bits) : WorldScene(bits) {}
+    // 0x004C6180 (0x004C6150 the scalar deleting destructor): a jump to the engine's.
+    ~PcScene() override = default;
+    // 0x004C6270 (vtable slot 1): after loading: with `arena`, a write-only vertex buffer of its size made and locked
     // and the sectors' first vertex buffers moved into it; the sectors' meshes counted, the mesh list allocated, the
     // meshes added to it and sorted.
-    void post_load(VertexArena* arena);
-    // 0x004C6190 (virtual [7]): a new sector. Null if no memory.
-    PcSector* spawn_sector();
+    void post_load(void* arena) override;
+    // (Slots 3 and 4: a shared "true", folded with SaveCard::always_true.)
+    bool load_textures(const char*) override { return true; }
+    bool load_collision(const char*) override { return true; }
+    // (Slot 6: a shared "false".)
+    bool unload_add_scene() override { return false; }
+    // 0x004C6190 (slot 7): a new sector. Null if no memory.
+    void* plat_create_sector() override;
     // 0x004C6200: the sectors gone through (nothing done with them - stripped).
     void unload_sectors();
+
+    SceneRef* meshes; // +0x280: its mesh list
 };
-static_assert(offsetof(PcScene, sectors) == 0xD0 && offsetof(PcScene, meshes) == 0x280 && sizeof(PcScene) == 0x284,
+static_assert(offsetof(PcScene, sectors_) == 0xD0 && offsetof(PcScene, meshes) == 0x280 && sizeof(PcScene) == 0x284,
               "layout must match the original");
 
 // The PC screen effects (8 bytes, vtable 0x0064A6E4; the engine's 0x0049E2F0 - destructor body 0x0049E300): its
 // setters write the renderer's settings (screen_fx.cpp: the bloom).
-struct PcScreenEffects {
-    void** vtable;
-    uint8_t engine04[4];
-
-    // 0x004C6480: construct. Returns this.
-    PcScreenEffects* make_new();
-    // 0x004C64A0: the destructor's body.
-    void destroy_body();
-    // 0x004C64B0 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    PcScreenEffects* teardown(unsigned int flags);
-    // 0x004C63C0 (virtual [2]): the bloom on / off (0x00705720).
-    void set_bloom(int on);
-    // 0x004C63E0 (virtual [3]): the bloom's cut-off colour (0x0067E98C).
-    void set_bloom_cut_off(uint32_t colour);
-    // 0x004C63F0 (virtual [4]): the bloom passes' alphas (0x0067E97C, 0x0067E980).
-    void set_bloom_alphas(uint32_t first, uint32_t second);
-    // 0x004C6410 (virtual [5]): 0x0067E990.
-    void set_unknown990(uint32_t value);
-    // 0x004C6420 (virtual [6]): 0x00705724 on / off.
-    void set_unknown5724(int on);
-    // 0x004C6460 (virtual [8]): 0x0067E994.
-    void set_unknown994(uint32_t value);
-    // 0x004C6470 (virtual [10]): 0x0067E984.
-    void set_unknown984(uint32_t value);
-    // 0x004C6440 (virtual [11]): 0x0067E988.
-    void set_unknown988(uint32_t value);
-    // 0x004C6450 (virtual [12]): 0x00705728.
-    void set_unknown5728(uint32_t value);
+class PcScreenEffects final : public ScreenEffects {
+public:
+    // 0x004C6480: the engine's.
+    PcScreenEffects() = default;
+    // 0x004C64A0 (0x004C64B0 the scalar deleting destructor): the engine's.
+    ~PcScreenEffects() override = default;
+    // 0x004C63C0 (vtable slot 2): the bloom on / off (0x00705720).
+    void set_bloom(int on) override;
+    // 0x004C63E0 (slot 3): the bloom's cut-off colour (0x0067E98C).
+    void set_bloom_cut_off(uint32_t colour) override;
+    // 0x004C63F0 (slot 4): the bloom passes' alphas (0x0067E97C, 0x0067E980).
+    void set_bloom_alphas(int first, int second) override;
+    // 0x004C6410 (slot 5): 0x0067E990.
+    void set_bloom_colour(uint32_t colour) override;
+    // 0x004C6420 (slot 6): 0x00705724 on / off.
+    void set_dof_on(int on) override;
+    // (Slots 7 and 9: a shared function ignoring its argument.)
+    void set_dof_colour_b(uint32_t) override {}
+    void set_dof_value_b(float) override {}
+    // 0x004C6460 (slot 8): 0x0067E994.
+    void set_dof_colour_a(uint32_t colour) override;
+    // 0x004C6470 (slot 10): 0x0067E984 (the float's bits).
+    void set_dof_value_a(float value) override;
+    // 0x004C6440 (slot 11): 0x0067E988.
+    void set_dof_value_c(float value) override;
+    // 0x004C6450 (slot 12): 0x00705728.
+    void set_dof_value_d(float value) override;
 };
 
 extern uint32_t g_bloom_on;

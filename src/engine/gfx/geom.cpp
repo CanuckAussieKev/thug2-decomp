@@ -340,11 +340,10 @@ PcGeom* PcGeom::replicate(bool share, uint8_t* new_scene)
 // 0x004B5B80
 PcGeom* PcGeom::clone_instance(bool share, uint8_t* model)
 {
-    void* memory = memory::alloc(0x284);
-    uint8_t* temp_scene = memory ? reinterpret_cast<uint8_t*>(static_cast<PcScene*>(memory)->make_new(10)) : nullptr;
+    auto* temp_scene = reinterpret_cast<uint8_t*>(new PcScene(10));
     SceneRef* source_list = instance->scene;
     *reinterpret_cast<SceneRef**>(temp_scene + 0x280) = source_list;
-    memory = memory::alloc_zeroed(sizeof(PcGeom));
+    void* memory = memory::alloc_zeroed(sizeof(PcGeom));
     PcGeom* geom = memory ? static_cast<PcGeom*>(memory)->make_new() : nullptr;
     geom->scene = temp_scene;
     uint32_t count = static_cast<uint32_t>(instance->scene->mesh_count_);

@@ -22,14 +22,12 @@
 #include "engine/script/param_struct.h"
 #include "engine/core/code_address.h"
 #include "engine/core/game_vtables.h"
-#include "engine/core/stubs.h"
 #include "engine/gfx/weather.h"
 
 namespace render {
 
 namespace {
 
-extern void** const kSceneVtable;
 constexpr uint32_t kCollStaticSize = 0x18;
 extern void** const kSectorNodeVtable;
 extern void** const kSectorHeadVtable;
@@ -60,7 +58,7 @@ bool scene_unload_collision(WorldScene* scene) { return scene->unload_collision(
 // The platform's new sector (slot 7), its geometry and collision cleared.
 WorldCell* alloc_sector(WorldScene* scene)
 {
-    auto* sector = Virtual<WorldCell*>(scene, 7);
+    auto* sector = static_cast<WorldCell*>(scene->plat_create_sector());
     sector->geom_handle_ = nullptr;
     sector->hit_body_ = nullptr;
     return sector;
@@ -162,11 +160,8 @@ int geom_count_c_6f_0(void* geom) // (slot 35, through the jump 0x0049C6F0)
 } // namespace
 
 // 0x0049D390 (the original's SEH frame around the table's `new` left out)
-WorldScene* WorldScene::make_new(int bits)
+WorldScene::WorldScene(int bits)
 {
-    vtable_ = reinterpret_cast<void**>(kSceneVtable);
-    new (&unknown_box_) maths::BBox();
-    new (&collision_box_) maths::BBox();
     coll_grid_ = nullptr;
     void* memory = memory::alloc(sizeof(lists::KeyMap));
     sectors_ = memory ? new (memory) lists::KeyMap(bits) : nullptr;
@@ -187,13 +182,11 @@ WorldScene* WorldScene::make_new(int bits)
     add_scene_sectors_ = new_head();
     builds_collision_grid_ = false;
     is_sky_ = false;
-    return this;
 }
 
 // 0x0049DD10
-void WorldScene::destroy_body()
+WorldScene::~WorldScene()
 {
-    vtable_ = reinterpret_cast<void**>(kSceneVtable);
     if (sectors_) {
         for_each_sector(this, [](WorldCell* sector) {
             sector->clear_flags(kSectorInGrid);
@@ -215,15 +208,6 @@ void WorldScene::destroy_body()
         Virtual<void*>(add_scene_sectors_, 0, 1u);
     if (add_data_)
         unload_tex_dict(reinterpret_cast<TextureSet*>(add_data_));
-}
-
-// 0x0049E1D0
-WorldScene* WorldScene::teardown(unsigned int free_flags)
-{
-    destroy_body();
-    if (free_flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x0049D1A0 (the third count is added twice under the same name, as the original)
@@ -432,7 +416,7 @@ bool WorldScene::load_add_scene(const char* name)
         }
         get_update_super_sectors(hidden_sectors_);
     }
-    return Virtual<bool>(this, 5, name);
+    return add_collision(name);
 }
 
 // 0x0049DDE0
@@ -471,7 +455,7 @@ bool WorldScene::unload_added_scene()
 {
     if (added_)
         flip_extra_scene();
-    if (!Virtual<bool>(this, 6))
+    if (!unload_add_scene())
         return false;
     if (StaticCollider* statics = add_coll_statics_) {
         auto* array = reinterpret_cast<uint8_t*>(statics) - 4;
@@ -522,18 +506,6 @@ memory::ListNode* SectorListNodes::destroy_head(unsigned int flags)
 }
 
 namespace {
-static VtableSlot g_scene_vtable_slots[] = {&render::WorldScene::teardown,
-                                            &render::WorldScene::post_load,
-                                            &render::WorldScene::post_add,
-                                            &render::WorldScene::load_textures,
-                                            &render::WorldScene::load_collision,
-                                            &render::WorldScene::add_collision,
-                                            &render::WorldScene::unload_add_scene,
-                                            &render::WorldScene::plat_create_sector,
-                                            stubs::ignore_argument,
-                                            &render::WorldScene::get_default_colour,
-                                            &render::WorldScene::set_rendered};
-void** const kSceneVtable = reinterpret_cast<void**>(g_scene_vtable_slots);
 static VtableSlot g_sector_node_vtable_slots[] = {&render::SectorListNodes::destroy_node};
 void** const kSectorNodeVtable = reinterpret_cast<void**>(g_sector_node_vtable_slots);
 static VtableSlot g_sector_head_vtable_slots[] = {&render::SectorListNodes::destroy_head};

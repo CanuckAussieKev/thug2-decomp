@@ -243,10 +243,7 @@ void set_level_color(const float* color)
     static_cast<render::FlexibleParticleManager*>(render::g_flexible_particle_manager)->set_colour_scale(color);
     render::engine::set_level_color(color);
 }
-void set_bloom_structure(script::Struct* params)
-{
-    static_cast<render::ScreenEffects*>(render::g_screen_effects)->set_bloom_params(params, 0);
-}
+void set_bloom_structure(script::Struct* params) { render::g_screen_effects->set_bloom_params(params, 0); }
 // Whether this is a multiplayer game (a network game, or more than one local player): the lights stay as set.
 bool is_multiplayer() { return modules::Skate::is_multiplayer() & 1; }
 // The game mode's name (modules::Skate's game mode 0x007CE470).

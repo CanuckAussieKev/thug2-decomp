@@ -29,11 +29,7 @@ memory::PoolPair g_frame_source_pools;
 namespace {
 
 // The engine's scenes and sectors (not rewritten yet; thiscall).
-uint8_t* new_pc_scene(int hash_bits)
-{
-    void* memory = memory::alloc(0x284);
-    return memory ? reinterpret_cast<uint8_t*>(static_cast<PcScene*>(memory)->make_new(hash_bits)) : nullptr;
-}
+uint8_t* new_pc_scene(int hash_bits) { return reinterpret_cast<uint8_t*>(new PcScene(hash_bits)); }
 void* spawn_sector(uint8_t* scene) { return reinterpret_cast<WorldScene*>(scene)->spawn_sector(); }
 void choose_geom(void* sector, void* geom) { static_cast<WorldCell*>(sector)->choose_geom(geom); }
 void insert_sector(uint8_t* scene, void* sector)

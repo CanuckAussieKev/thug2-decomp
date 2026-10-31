@@ -44,7 +44,7 @@ namespace {} // namespace
 bool g_loading_screen_up; // the loading screen is up: it draws and presents on its own
 WeatherSystem* g_weather;
 
-void* g_screen_effects;
+ScreenEffects* g_screen_effects;
 uint32_t g_fog_colour;
 uint32_t g_screen_blur_frames;
 uint32_t g_screen_blur;
@@ -170,8 +170,7 @@ void __cdecl start_engine()
     init_direct_3d();
     objects::g_particle_hub = new PcParticleManager;
     g_weather = new PcWeather;
-    void* memory = memory::alloc(8);
-    g_screen_effects = memory ? static_cast<PcScreenEffects*>(memory)->make_new() : nullptr;
+    g_screen_effects = new PcScreenEffects;
 }
 
 // 0x004B2750
@@ -213,12 +212,11 @@ void __cdecl finish_rendering()
 // 0x004B28C0
 void* __cdecl make_empty_scene(const char* /*name*/, void* /*textures*/, bool with_super_sectors)
 {
-    void* memory = memory::alloc(0x284);
-    uint8_t* scene = memory ? reinterpret_cast<uint8_t*>(static_cast<PcScene*>(memory)->make_new(10)) : nullptr;
+    auto* scene = reinterpret_cast<uint8_t*>(new PcScene(10));
     // (no check: a failed allocation writes through null, as the original)
     scene[0x8C] = with_super_sectors;
     scene[0x8D] = 0;
-    memory = memory::alloc(sizeof(SceneRef));
+    void* memory = memory::alloc(sizeof(SceneRef));
     *reinterpret_cast<SceneRef**>(scene + 0x280) = memory ? static_cast<SceneRef*>(memory)->make_new() : nullptr;
     return scene;
 }

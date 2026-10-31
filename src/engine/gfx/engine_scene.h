@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/core/mem.h"
+
 #include "engine/core/arena_alloc.h"
 #include "engine/maths/shape_tests.h"
 
@@ -25,10 +27,34 @@ class StaticCollider;
 class WorldCell;
 class TextureSet;
 
-// (vtable 0x006499E0: 0 the destructor, 1 PostLoad, 2 PostAdd, 3 LoadTextures, 4 LoadCollision, 5 AddCollision,
-// 6 UnloadAddScene, 7 spawn_sector (the platform's), 8 -, 9 get_default_colour, 10 set_rendered.)
-struct WorldScene {
-    void** vtable_;
+// (vtable 0x006499E0; the PC's PcScene derives from it. Slot 8 - the same stub ignoring its argument in both tables,
+// never called - is left out.)
+struct WorldScene : public memory::HeapObject {
+    // 0x0049D390 (engine_scene_sectors.cpp; the original's SEH frame around the table's `new` left out): empty boxes,
+    // no grid, a sector table of 2^`bits` buckets (none without memory), no names, no collision, empty lists of hidden
+    // and added sectors (none without memory).
+    explicit WorldScene(int bits);
+    // 0x0049DD10 (0x0049E1D0 the scalar deleting destructor, vtable slot 0): every sector deleted (out of the grid
+    // first), the table emptied and freed, the collision let go of (0x0049CFB0), the two lists' heads deleted (their
+    // nodes left), the added scene's texture dictionary unloaded.
+    virtual ~WorldScene();
+    WorldScene(const WorldScene&) = delete;
+    WorldScene& operator=(const WorldScene&) = delete;
+
+    // The virtual functions (the base's bodies: STUB messages; false / null): slot 1 PostLoad, 2 PostAdd, 3
+    // LoadTextures, 4 LoadCollision, 5 AddCollision, 6 UnloadAddScene, 7 the platform's new sector, 9 the default
+    // colour, 10 set_rendered.
+    virtual void post_load(void* arena);           // 0x0049CA50
+    virtual void post_add();                       // 0x0049CA70
+    virtual bool load_textures(const char* name);  // 0x0049CA80
+    virtual bool load_collision(const char* name); // 0x0049CAA0
+    virtual bool add_collision(const char* name);  // 0x0049CAC0
+    virtual bool unload_add_scene();               // 0x0049CAE0
+    virtual void* plat_create_sector();            // 0x0049CAF0 (not a Ghidra function)
+    // 0x0049CF60 (slot 9): grey (0x80 each of RGBA) into `out`. Returns out.
+    virtual uint8_t* get_default_colour(uint8_t* out);
+    virtual void set_rendered(int rendered); // 0x0049CA60
+
     char label_[0x80];           // +0x04: the file it was loaded from
     uint32_t checksum_;          // +0x84: its name's
     TextureSet* texture_set_;    // +0x88
@@ -55,15 +81,15 @@ struct WorldScene {
     memory::ListNode* hidden_sectors_; // +0x278: lists::Foremost<WorldCell> - the base's sectors the added scene hides
     memory::ListNode* add_scene_sectors_; // +0x27C: lists::Foremost<WorldCell> - the sectors the added scene made
 
-    // 0x0049C910: the name kept, then PostLoad (vtable slot 1) with `arena`.
+    // 0x0049C910: the name kept, then post_load with `arena`.
     void finish_load(const char* name, void* arena);
-    // 0x0049C940: an added scene's name and data kept, marked added, then PostAdd (vtable slot 2).
+    // 0x0049C940: an added scene's name and data kept, marked added, then post_add.
     void finish_add(const char* name, uint32_t data);
     // 0x0049C9A0: the static collision objects listed (each "%4d/%d " - the object's own print compiled out).
     void print_coll_statics();
     // 0x0049C9F0: static collision object `index`.
     StaticCollider* fetch_static_collision(int index);
-    // 0x0049CA10: a new sector (vtable slot 7) with +0x14 / +0x18 cleared (no null check, as the original).
+    // 0x0049CA10: a new sector (plat_create_sector) with +0x14 / +0x18 cleared (no null check, as the original).
     void* spawn_sector();
     // 0x0049CB00: the sector named `name` (the hash table's lookup, inlined), or null.
     void* look_up_sector(uint32_t name);
@@ -89,28 +115,7 @@ struct WorldScene {
     // gap in the table.
     void set_sectors_in_box(const maths::Vec4* box, uint32_t on, int unused);
 
-    // The virtuals' base bodies (STUB messages; false / null).
-    void post_load(void* arena);           // 0x0049CA50
-    void set_rendered(int rendered);       // 0x0049CA60
-    void post_add();                       // 0x0049CA70
-    bool load_textures(const char* name);  // 0x0049CA80
-    bool load_collision(const char* name); // 0x0049CAA0
-    bool add_collision(const char* name);  // 0x0049CAC0
-    bool unload_add_scene();               // 0x0049CAE0
-    void* plat_create_sector();            // 0x0049CAF0 (not a Ghidra function)
-    // 0x0049CF60 (slot 9): grey (0x80 each of RGBA) into `out`. Returns out.
-    uint8_t* get_default_colour(uint8_t* out);
-
     // --- engine_scene_sectors.cpp ---
-    // 0x0049D390: construct - empty boxes, no grid, a sector table of 2^`bits` buckets (none without memory), no
-    // names, no collision, empty lists of hidden and added sectors (none without memory). Returns this.
-    WorldScene* make_new(int bits);
-    // 0x0049DD10: the destructor's body - every sector deleted (out of the grid first), the table emptied and freed,
-    // the collision let go of (0x0049CFB0), the two lists' heads deleted (their nodes left), the added scene's
-    // texture dictionary unloaded.
-    void destroy_body();
-    // 0x0049E1D0 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    WorldScene* teardown(unsigned int free_flags);
     // 0x0049D1A0: its statistics into `info` - name, sectors, collision objects, and its geometry's counts.
     void fetch_diagnostics(script::Struct* info);
     // 0x0049D4E0: `sector` put in the table under its name.
