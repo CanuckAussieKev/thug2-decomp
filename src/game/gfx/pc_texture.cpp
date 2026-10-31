@@ -23,6 +23,7 @@
 #include "hook/game_code.h"
 #include "game/core/stubs.h"
 #include "game/gfx/device.h"
+#include "game/sys/crt.h"
 
 namespace Nx {
 
@@ -290,7 +291,7 @@ bool CPcTexture::CopyFrom(const CPcTexture* source)
     fromTexture->GetLevelDesc(0, &desc);
     if (Device()->CreateTexture(desc.Width, desc.Height, levels, 0, desc.Format, D3DPOOL_MANAGED, into, nullptr) !=
         D3D_OK)
-        GameFunction<void(__cdecl*)(int)>(0x00624AFE)(0); // (the game's exit())
+        Crt::Exit(0); // (the game's exit())
     for (DWORD level = 0; level < levels; ++level) {
         static_cast<IDirect3DTexture9*>(from->texture)->GetLevelDesc(level, &desc);
         uint32_t rowBytes, rows = desc.Height;
@@ -797,7 +798,7 @@ bool CPcTexture::Offset(int dx, int dy, bool keepEdges, int /*unused*/)
     Mem::Manager* manager = Mem::Manager::Get();
     manager->PushContext(manager->m_topDownHeap);
     auto* part = static_cast<uint32_t*>(
-        GameFunction<void*(__cdecl*)(size_t)>(0x00624031)(partHeight * partWidth * 4)); // (the C runtime's malloc)
+        Crt::Malloc(partHeight * partWidth * 4)); // (the C runtime's malloc)
     Mem::Manager::Get()->PopContext();
     ReadRect(part, static_cast<uint16_t>(fromX), static_cast<uint16_t>(fromY), static_cast<uint16_t>(partWidth),
              static_cast<uint16_t>(partHeight));
@@ -822,7 +823,7 @@ bool CPcTexture::Offset(int dx, int dy, bool keepEdges, int /*unused*/)
             }
         }
     }
-    GameFunction<void(__cdecl*)(void*)>(0x0062411B)(part); // (the C runtime's free)
+    Crt::Free(part); // (the C runtime's free)
     return true;
 }
 
@@ -884,8 +885,8 @@ bool CPcTexture::Squash(uint16_t position, int vertical, int amount, bool fill, 
             intoY = static_cast<uint16_t>(amount);
         }
     }
-    auto crtMalloc = GameFunction<void*(__cdecl*)(size_t)>(0x00624031); // (the C runtime's)
-    auto crtFree = GameFunction<void(__cdecl*)(void*)>(0x0062411B);
+    auto crtMalloc = Crt::Malloc; // (the C runtime's)
+    auto crtFree = Crt::Free;
     Mem::Manager* manager = Mem::Manager::Get();
     manager->PushContext(manager->m_topDownHeap);
     int count = readHeight * readWidth;

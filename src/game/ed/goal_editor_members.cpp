@@ -13,6 +13,7 @@
 #include "game/ed/goal_editor_util.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/sys/crt.h"
 
 #pragma warning(disable : 4996) // (strcpy: the original's inline copies of the texts)
 
@@ -25,7 +26,7 @@ constexpr uint32_t kParkEditorGameplayLevel = 0xB664035D;
 template <typename... Args>
 int Sprintf(char* out, const char* format, Args... args)
 {
-    return GameFunction<int(__cdecl*)(char*, const char*, ...)>(0x006234FE)(out, format, args...);
+    return Crt::Sprintf(out, format, args...);
 }
 
 const char* Empty() { return GAME_TEXT(0x006469B4, ""); } // ""

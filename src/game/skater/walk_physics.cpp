@@ -34,6 +34,7 @@
 #include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 #include "hook/game_global.h"
+#include "game/sys/crt.h"
 
 namespace Obj {
 
@@ -95,7 +96,7 @@ CSkaterCareer* Career() { return At<CSkaterCareer*>(static_cast<void*>(Mdl::g_sk
 float AsinDegrees(double value, bool negate)
 {
     float result;
-    uint32_t function = 0x00623560;
+    void* function = Crt::AsinX87();
     float degrees = kDegrees;
     __asm {
         fld value

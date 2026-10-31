@@ -20,6 +20,7 @@
 #include "hook/hook.h"
 #include "game/skate/skate_module.h"
 #include "game/gfx/flexible_particle_manager.h"
+#include "game/sys/crt.h"
 
 namespace Nx {
 
@@ -30,7 +31,7 @@ constexpr float kPi = std::bit_cast<float>(0x40490FDBu);          // 0x006493C0
 constexpr float kDegrees = std::bit_cast<float>(0x3C8EFA35u);     // 0x00645464: pi / 180
 constexpr float kFarAway = 1024.0f;                                 // where a removed particle's positions go
 
-int Rand() { return GameFunction<int(__cdecl*)()>(0x00623BA3)(); } // (the game's C runtime's)
+int Rand() { return Crt::Rand(); } // (the game's C runtime's)
 // _ftol: truncated to a 64-bit integer, its low half.
 int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 // A random number in [-1, 1].

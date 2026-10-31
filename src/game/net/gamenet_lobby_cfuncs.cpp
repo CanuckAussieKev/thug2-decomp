@@ -33,6 +33,7 @@
 #include "game/net/server_list.h"
 #include "game/net/score_list.h"
 #include "game/net/stats_man.h"
+#include "game/sys/crt.h"
 
 namespace GameNet {
 
@@ -107,7 +108,7 @@ bool __cdecl CFunc_StartNatNegotiation(Script::CStruct* params, Script::CScript*
     client->SetForeignPacketHandler(reinterpret_cast<Net::ForeignPacketHandler>(&LobbyMan::QueuePacket));
     tasks->AddTask(lobby->m_hostingTask);
     for (int i = 0; i < QueuedCount(); ++i)
-        GameFunction<void(__cdecl*)(void*)>(0x0062411B)(Queue()[i].data); // (the game's C runtime free)
+        Crt::Free(Queue()[i].data); // (the game's C runtime free)
     QueuedCount() = 0;
     PopHeap();
     return true;

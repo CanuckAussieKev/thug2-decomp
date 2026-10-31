@@ -52,6 +52,7 @@
 #include "game/ed/goal_editor.h"
 #include "game/ed/rail_editor.h"
 #include "game/net/score_list.h"
+#include "game/sys/crt.h"
 
 #pragma warning(disable : 4996) // (strcpy / strncpy: the original's own copies into its fixed fields)
 
@@ -146,7 +147,7 @@ Tsk::Stack* LogicTasks()
 int MilliSeconds() { return static_cast<int>(Tmr::GetTime()); }
 uint32_t LocalAddress()
 {
-    return GameFunction<uint32_t(__stdcall*)(const char*)>(0x005BEAAE)(NetManager()->GetLocalIP()); // inet_addr
+    return Crt::InetAddr(NetManager()->GetLocalIP());
 }
 
 // Calls into code that isn't source yet (thiscall).
@@ -214,7 +215,7 @@ void AuthenticateUser(int localId, uint32_t ip, const char* challenge, const cha
 
 void Sprintf(char* out, const char* format, uint32_t a, uint32_t b, int c, const char* d, const char* e)
 {
-    GameFunction<int(__cdecl*)(char*, const char*, ...)>(0x006234FE)(out, format, a, b, c, d, e);
+    Crt::Sprintf(out, format, a, b, c, d, e);
 }
 
 MsgDesc NewDesc()

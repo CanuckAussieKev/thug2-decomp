@@ -31,6 +31,7 @@
 #include "hook/hook.h"
 #include "hook/game_code.h"
 #include "game/obj/movie_manager.h"
+#include "game/sys/crt.h"
 
 namespace Nx {
 
@@ -94,7 +95,7 @@ void Remove(Lst::HashTable* table, void* value)
 bool Paused() { return Obj::g_gamePaused; }
 
 // The game's C runtime's rand() and its scales (0x0064930C: 2 / 32767, 0x00646510: 1 / 32767).
-int Rand() { return GameFunction<int(__cdecl*)()>(0x00623BA3)(); }
+int Rand() { return Crt::Rand(); }
 constexpr double kPerRandTwice = std::bit_cast<float>(0x38800100u);
 constexpr double kPerRand = std::bit_cast<float>(0x38000100u);
 

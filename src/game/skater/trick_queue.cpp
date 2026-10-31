@@ -32,6 +32,7 @@
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/obj/camera_lookaround.h"
+#include "game/sys/crt.h"
 
 namespace Obj {
 
@@ -543,7 +544,7 @@ bool CTrickComponent::DoExtraGrindTrick(bool a, bool b, bool c, bool d)
         script = scripts->GetElement(which);
     } else {
         char name[100];
-        GameFunction<int(__cdecl*)(char*, const char*, ...)>(0x006234FE)(name, "%s%s", prefix,
+        Crt::Sprintf(name, "%s%s", prefix,
                                                                            templates->GetLocalString(which));
         script = Crc::GenerateCRCFromString(name);
     }

@@ -14,6 +14,7 @@
 #include "game/core/mem.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/sys/crt.h"
 
 namespace Nx {
 
@@ -37,7 +38,7 @@ uint8_t* Lock(sVertexBuffer* buffer, uint32_t flags)
 // An index buffer of `bytes` (constructor not rewritten yet; thiscall), from the C runtime's malloc.
 sIndexBuffer* NewIndexBuffer(uint32_t bytes)
 {
-    void* memory = GameFunction<void*(__cdecl*)(size_t)>(0x00624031)(0x18);
+    void* memory = Crt::Malloc(0x18);
     if (!memory)
         return nullptr;
     return static_cast<sIndexBuffer*>(memory)->Construct(bytes, 0, 0x65);
@@ -52,7 +53,7 @@ void UploadIndices(sIndexBuffer* buffer)
     std::memcpy(locked, buffer->indices, buffer->size);
     d3d->Unlock();
 }
-void* Malloc(size_t size) { return GameFunction<void*(__cdecl*)(size_t)>(0x00624031)(size); } // the game's C runtime
+void* Malloc(size_t size) { return Crt::Malloc(size); } // the game's C runtime
 
 // 0x00402550's maths (Mth::CrossProduct as the original computes it: each component in double precision).
 Mth::Vector Cross(const Mth::Vector& a, const Mth::Vector& b)

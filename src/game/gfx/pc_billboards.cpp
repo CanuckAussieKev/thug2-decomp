@@ -25,6 +25,7 @@
 #include "hook/game_code.h"
 #include "game/core/stubs.h"
 #include "game/gfx/device.h"
+#include "game/sys/crt.h"
 
 namespace Nx {
 
@@ -75,7 +76,7 @@ Mem::ListNode* NewHead()
 
 void SortBatches(sBillboardManager* manager)
 {
-    GameFunction<void(__cdecl*)(void*, uint32_t, uint32_t, int(__cdecl*)(const void*, const void*))>(0x006242A0)(
+    Crt::Qsort(
         manager->batches, static_cast<uint32_t>(manager->count), 4, CompareBatches); // (the C runtime's qsort)
 }
 

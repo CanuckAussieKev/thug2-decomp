@@ -26,6 +26,7 @@
 #include "game/skater/vehicle_sound.h"
 #include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
+#include "game/sys/crt.h"
 
 namespace Obj {
 
@@ -68,15 +69,14 @@ void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b
     GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(out, a, b);
 }
 
-// The game's C runtime asin (_CIasin, 0x00623560: the argument and result on the FPU stack; a library function, not
-// decompiled).
+// The game's C runtime asin (_CIasin: the argument and result on the FPU stack - game/sys/crt.h).
 double GameAsin(double value)
 {
     double result;
+    void* function = Crt::AsinX87();
     __asm {
         fld value
-        mov eax, 0x00623560
-        call eax
+        call function
         fstp result
     }
     return result;

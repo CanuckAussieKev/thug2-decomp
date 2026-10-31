@@ -18,6 +18,7 @@
 #include "game/net/stats_man.h"
 #include "game/net/vault_man.h"
 #include "game/script/preferences.h"
+#include "game/sys/crt.h"
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
@@ -154,10 +155,9 @@ Manager* Manager::Construct()
     m_statsMan = memory ? static_cast<StatsMan*>(memory)->Construct() : nullptr;
     GameFunction<int(__cdecl*)(int)>(0x005F9540)(kGameSpyGameId); // the CD-key SDK (gcd_init)
     // The CD-key challenge: eight random letters or digits (the game's C runtime srand(time(0)) / rand).
-    GameFunction<void(__cdecl*)(unsigned int)>(0x00623B96)(
-        static_cast<unsigned int>(GameFunction<int(__cdecl*)(void*)>(0x00625138)(nullptr)));
+    Crt::Srand(Crt::Time());
     for (int i = 0; i < kChallengeLength; ++i) {
-        int c = GameFunction<int(__cdecl*)()>(0x00623BA3)() % 62;
+        int c = Crt::Rand() % 62;
         m_challenge[i] = static_cast<char>(c < 10 ? '0' + c : c < 36 ? 'A' + c - 10 : 'a' + c - 36);
     }
     m_challenge[kChallengeLength] = '\0';

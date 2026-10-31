@@ -15,6 +15,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/sys/crt.h"
 
 namespace Pcm {
 
@@ -45,7 +46,7 @@ float SoundVolume() { return Sfx::GetMainVolume(); }
 
 void BinkGoto(Nx::Bink* bink, uint32_t frame, int flags)
 {
-    GameVariable<void(__stdcall*)(Nx::Bink*, uint32_t, int)>(0x006452F4)(bink, frame, flags);
+    GAME_DLL_IMPORT(0x006452F4, void(__stdcall*)(Nx::Bink*, uint32_t, int), "binkw32.dll", "_BinkGoto@12")(bink, frame, flags);
 }
 
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.

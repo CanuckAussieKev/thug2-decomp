@@ -13,6 +13,7 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/sys/crt.h"
 
 namespace Ed {
 
@@ -21,7 +22,7 @@ namespace {
 template <typename... Args>
 int Sprintf(char* out, const char* format, Args... args)
 {
-    return GameFunction<int(__cdecl*)(char*, const char*, ...)>(0x006234FE)(out, format, args...);
+    return Crt::Sprintf(out, format, args...);
 }
 
 } // namespace

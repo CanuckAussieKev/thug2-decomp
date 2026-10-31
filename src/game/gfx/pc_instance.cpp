@@ -25,6 +25,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/gfx/device.h"
+#include "game/sys/crt.h"
 
 namespace Nx {
 
@@ -285,8 +286,7 @@ void __cdecl RenderInstances(uint32_t flags, int viewport)
                 Visible()[count++] = instance;
         }
         if (count > 0) {
-            GameFunction<void(__cdecl*)(void*, uint32_t, uint32_t, int(__cdecl*)(const void*, const void*))>(
-                0x006242A0)(Visible(), static_cast<uint32_t>(count), 4, CompareInstances); // (the C runtime's qsort)
+            Crt::Qsort(Visible(), static_cast<uint32_t>(count), 4, CompareInstances); // (the C runtime's qsort)
             SetState(kStateLighting, 1);
             Device()->SetRenderState(D3DRS_COLORVERTEX, TRUE);
             Device()->LightEnable(0, TRUE);

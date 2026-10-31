@@ -2,12 +2,14 @@
 
 #include <cstdint>
 
+#include "game/sys/crt.h"
+
 // The x87 instructions and C runtime math the originals use (the maths library's rotations, the skater's and the
 // cameras' code...), so results round exactly as the original's do. FSIN / FCOS / FPATAN give 64-bit results whatever
 // the precision control (it only rounds + - * / and FSQRT to 53 bits): what the original computes from them in
 // registers is computed here in registers too, and only rounded where the original stores. The game's own C
-// runtime's _CIacos / _CIasin (0x00623630 / 0x00623560: the argument and the result in ST0) are called until the C
-// runtime is linked.
+// runtime's _CIacos / _CIasin (0x00623630 / 0x00623560: the argument and the result in ST0) are called in the hooked
+// build, ours of them (game/sys/crt.h) in the standalone build.
 namespace X87 {
 
 // FSQRT (53 bits: the same as a double square root).
@@ -211,7 +213,7 @@ inline double Atan2Difference(double y1, double x1, double y2, double x2)
 inline float AcosF(double value, float limit, bool* aboveLimit)
 {
     float result;
-    uint32_t function = 0x00623630;
+    void* function = Crt::AcosX87();
     uint16_t status;
     __asm {
         fld value
@@ -231,7 +233,7 @@ inline float NegAsinCos(double value, float limit, bool* above, double* inverse,
     float angle;
     double inv, negInv;
     uint16_t status;
-    uint32_t function = 0x00623560;
+    void* function = Crt::AsinX87();
     const float one = 1.0f, minusOne = -1.0f;
     __asm {
         fld value
@@ -261,7 +263,7 @@ inline float NegAsinCos(double value, float limit, bool* above, double* inverse,
 inline double Acos(double value)
 {
     double result;
-    uint32_t function = 0x00623630;
+    void* function = Crt::AcosX87();
     __asm {
         fld value
         call function
@@ -273,7 +275,7 @@ inline double Acos(double value)
 inline double Asin(double value)
 {
     double result;
-    uint32_t function = 0x00623560;
+    void* function = Crt::AsinX87();
     __asm {
         fld value
         call function

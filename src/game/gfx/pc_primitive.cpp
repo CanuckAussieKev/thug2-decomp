@@ -22,6 +22,7 @@
 #include "hook/game_code.h"
 #include "game/gfx/shader_slots.h"
 #include "game/gfx/device.h"
+#include "game/sys/crt.h"
 
 namespace Nx {
 
@@ -36,7 +37,7 @@ IDirect3DDevice9* Device() { return g_d3dDevice; }
 IDirect3DIndexBuffer9* QuadIndices() { return g_quadIndices; }
 uint32_t& DrawCalls() { return reinterpret_cast<uint32_t&>(g_drawCalls); }
 uint32_t& DrawnTriangles() { return reinterpret_cast<uint32_t&>(g_drawnTriangles); }
-int Rand() { return GameFunction<int(__cdecl*)()>(0x00623BA3)(); } // (the game's C runtime's)
+int Rand() { return Crt::Rand(); } // (the game's C runtime's)
 
 template <typename T>
 T& At(uint8_t* base, int offset)

@@ -19,6 +19,7 @@
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/sys/crt.h"
 
 namespace Obj {
 
@@ -59,7 +60,7 @@ constexpr float kDegrees = 57.2957763671875f;    // 0x00645468
 float AcosDegrees(float value)
 {
     float result;
-    uint32_t function = 0x00623630;
+    void* function = Crt::AcosX87();
     float degrees = kDegrees;
     __asm {
         fld value

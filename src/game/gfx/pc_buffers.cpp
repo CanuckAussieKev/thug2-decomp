@@ -17,6 +17,7 @@
 #include "hook/hook.h"
 #include "game/gfx/shader_slots.h"
 #include "game/gfx/device.h"
+#include "game/sys/crt.h"
 
 namespace Nx {
 
@@ -31,8 +32,8 @@ namespace {
 IDirect3DDevice9* Device() { return g_d3dDevice; }
 
 // The game's C runtime heap (the nodes and copies are freed by code that is still the game's).
-void* Malloc(size_t size) { return GameFunction<void*(__cdecl*)(size_t)>(0x00624031)(size); }
-void Free(void* memory) { GameFunction<void(__cdecl*)(void*)>(0x0062411B)(memory); }
+void* Malloc(size_t size) { return Crt::Malloc(size); }
+void Free(void* memory) { Crt::Free(memory); }
 
 // A node of the buffers' lists: the buffer, the previous and the next node.
 struct sBufferNode {

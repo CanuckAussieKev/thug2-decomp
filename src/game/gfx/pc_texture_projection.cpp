@@ -27,6 +27,7 @@
 #include "hook/hook.h"
 #include "hook/game_code.h"
 #include "game/gfx/device.h"
+#include "game/sys/crt.h"
 
 namespace Nx {
 
@@ -43,7 +44,7 @@ IDirect3DDevice9* Device() { return g_d3dDevice; }
 IDirect3DDevice9* DrawDevice() { return g_drawDevice; } // (the same device, kept twice)
 uint32_t& BatchCount() { return g_projectionBatchCount; }
 sProjectionBatch* Batches() { return g_projectionBatches; }
-int Rand() { return GameFunction<int(__cdecl*)()>(0x00623BA3)(); } // (the game's C runtime's)
+int Rand() { return Crt::Rand(); } // (the game's C runtime's)
 
 void TransformCoord(float* out, const float* v, const Mth::Matrix* m)
 {

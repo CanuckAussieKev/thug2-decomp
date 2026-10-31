@@ -28,6 +28,7 @@
 #include "game/core/stubs.h"
 #include "game/gfx/shader_slots.h"
 #include "game/gfx/device.h"
+#include "game/sys/crt.h"
 
 namespace Nx {
 
@@ -42,7 +43,7 @@ constexpr float kRandomScale = 1.0f / 16384.0f; // 0x006487C8
 
 IDirect3DDevice9* Device() { return g_d3dDevice; }
 IDirect3DIndexBuffer9* QuadIndices() { return g_quadIndices; }
-int Rand() { return GameFunction<int(__cdecl*)()>(0x00623BA3)(); } // (the game's C runtime's)
+int Rand() { return Crt::Rand(); } // (the game's C runtime's)
 
 // _ftol: truncated to a 64-bit integer, its low half.
 int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }

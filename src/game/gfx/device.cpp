@@ -6,6 +6,8 @@
 #include <windows.h>
 
 #include <d3d9.h>
+#include <mmsystem.h>
+#include <dsound.h>
 
 #include <bit>
 #include <cstddef>
@@ -26,6 +28,7 @@
 #include "hook/hook.h"
 #include "hook/game_code.h"
 #include "game/sys/game_config.h"
+#include "game/sys/crt.h"
 
 
 namespace Nx {
@@ -102,11 +105,11 @@ void InitDirect3D()
     //   if (g_showWindowFlag) ShowWindow(Window(), SW_MAXIMIZE);
 
     // (Direct3DCreate9 and MessageBoxA through the exe's imports)
-    IDirect3D9* d3d = GameFunction<IDirect3D9*(WINAPI*)(UINT)>(0x005BEB14)(31); // the game's D3D_SDK_VERSION
+    IDirect3D9* d3d = GAME_LIBRARY(0x005BEB14, IDirect3D9*(WINAPI*)(UINT), Direct3DCreate9)(31); // the game's D3D_SDK_VERSION
     Direct3D() = d3d;
     if (!d3d) {
         // (the text and the caption are the wrong way round)
-        GameVariable<decltype(&MessageBoxA)>(0x00645224)(nullptr, GAME_TEXT(0x0064A938, "Error") /* "Error" */,
+        GAME_IMPORT(0x00645224, decltype(&MessageBoxA), MessageBoxA)(nullptr, GAME_TEXT(0x0064A938, "Error") /* "Error" */,
                                                          GAME_TEXT(0x0064A940, "Direct3D could not initialize. Please download and install DirectX 9.0 or higher.")
                                                          /* "Direct3D could not initialize. Please download and install DirectX 9.0 or higher." */,
                                                          MB_OK);
@@ -164,7 +167,7 @@ void InitDirect3D()
         }
     }
     if (!created)
-        GameFunction<void(__cdecl*)(int)>(0x00624AFE)(0); // the game's exit()
+        Crt::Exit(0); // the game's exit()
     // Originally from PartyMod Fixes (its NOPs at 0x004D8891): the window is left where it is. The original:
     //   SetWindowPos(Window(), HWND_TOP, 0, 0, DeviceWidth(), DeviceHeight(), SWP_NOZORDER);
 
@@ -255,7 +258,7 @@ HRESULT __cdecl CreateDevice(int width, int height, bool hardwareVertices, bool 
     std::memset(&id, 0, sizeof(id));
     Direct3D()->GetAdapterIdentifier(D3DADAPTER_DEFAULT, 0, &id);
     // (through the exe's import of DirectSoundEnumerateA)
-    GameVariable<DirectSoundEnumerateFn>(0x0064502C)(&SoundDeviceFound, nullptr);
+    GAME_IMPORT(0x0064502C, DirectSoundEnumerateFn, DirectSoundEnumerateA)(&SoundDeviceFound, nullptr);
     // A Radeon 8500 (0x00786AB5)...
     g_radeon8500 = std::strstr(id.Description, "8500") != nullptr;
     // ... and an Intel 915G with Realtek HD audio's rear output: 0x0067DA40 off.
@@ -361,7 +364,7 @@ void __cdecl ShowDiscError()
 {
     uint32_t& timer = g_loadingBarTimer;
     if (timer) {
-        GameVariable<UINT(WINAPI*)(UINT)>(0x00645268)(timer); // timeKillEvent (the exe's import)
+        GAME_IMPORT(0x00645268, MMRESULT(WINAPI*)(UINT), timeKillEvent)(timer); // (the exe's import)
         timer = 0;
     }
     if (!g_drawDevice)

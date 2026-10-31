@@ -560,6 +560,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_obj_text_input.cpp
     src/hook/selftests_obj_lock_quat.cpp
     src/hook/selftests_mth_x87.cpp
+    src/hook/selftests_crt.cpp
     src/hook/selftests_obj_model.cpp
     src/hook/selftests_obj_model_init.cpp
     src/hook/selftests_obj_model_members.cpp
@@ -1167,6 +1168,7 @@ add_library(thug2_code OBJECT
     src/game/sys/platform_cfuncs.cpp
     src/game/sys/debug_mode.cpp
     src/game/sys/config.cpp
+    src/game/sys/crt.cpp
     src/game/sys/debug_log.cpp
     src/game/sys/pc_setup.cpp
     src/game/sys/sdl_events.cpp
@@ -1318,5 +1320,5 @@ target_compile_definitions(thug2_standalone PRIVATE THUG2_STANDALONE WIN32_LEAN_
 target_include_directories(thug2_standalone PRIVATE src "${stb_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/generated"
                                                     "${CMAKE_BINARY_DIR}/editor_fonts")
 add_dependencies(thug2_standalone editor_fonts build_info)
-target_link_libraries(thug2_standalone PRIVATE sdl2 ws2_32 dsound ole32 imgui lzham)
+target_link_libraries(thug2_standalone PRIVATE sdl2 ws2_32 dsound ole32 imgui lzham d3d9 winmm) # d3d9, winmm: game/sys/crt.h's imports
 target_compile_options(thug2_standalone PRIVATE /W3 /permissive- /utf-8)

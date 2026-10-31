@@ -18,6 +18,7 @@
 #include "hook/game_code.h"
 #include "game/core/game_vtables.h"
 #include "game/obj/movie_manager.h"
+#include "game/sys/crt.h"
 
 namespace Nx {
 
@@ -171,7 +172,7 @@ void CFlexibleParticleManager::RenderSystems(bool force)
     }
     if (!count)
         return;
-    GameFunction<void(__cdecl*)(void*, size_t, size_t, int(__cdecl*)(const void*, const void*))>(0x006242A0)(
+    Crt::Qsort(
         systems, static_cast<size_t>(count), sizeof(systems[0]), &CompareDistance); // (the game's qsort)
     bool always = force || GamePaused();
     for (int i = 0; i < count; ++i)

@@ -18,6 +18,7 @@
 #include "hook/hook.h"
 #include "hook/game_code.h"
 #include "game/core/game_vtables.h"
+#include "game/sys/crt.h"
 
 namespace Nx {
 
@@ -31,7 +32,7 @@ const char* const kModelExtension = GAME_TEXT(0x00646164, ".mdl"); // ".mdl"
 uint8_t AssertFlag() { return g_allocAssertFlag; }
 void* Allocate(unsigned int size) { return Mem::Manager::Get()->Allocate(size, AssertFlag(), nullptr); }
 void* AllocateZeroed(unsigned int size) { return Mem::Manager::Get()->AllocateZeroed(size, AssertFlag(), nullptr); }
-int Rand() { return GameFunction<int(__cdecl*)()>(0x00623BA3)(); } // (the game's C runtime's)
+int Rand() { return Crt::Rand(); } // (the game's C runtime's)
 CModel* NewModel(int) { return static_cast<CModel*>(Nx::CreateModel()); }
 // A model file's name with its extension (0x00487A70: name + `ext` into `out`).
 void ModelFileName(const char* name, const char* ext, char* out)

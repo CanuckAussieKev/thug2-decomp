@@ -37,6 +37,7 @@
 #include "game/net/server_list.h"
 #include "game/net/score_list.h"
 #include "game/net/stats_man.h"
+#include "game/sys/crt.h"
 
 #pragma warning(disable : 4996) // (sprintf / strcpy: the original's own)
 
@@ -101,8 +102,8 @@ void PushInternetBottomUpHeap()
 void PopHeap() { Mem::Manager::Get()->PopContext(); }
 
 // The game's C runtime (the queue's copies are freed by the original's code too).
-void* GameMalloc(size_t size) { return GameFunction<void*(__cdecl*)(size_t)>(0x00624031)(size); }
-void GameFree(void* memory) { GameFunction<void(__cdecl*)(void*)>(0x0062411B)(memory); }
+void* GameMalloc(size_t size) { return Crt::Malloc(size); }
+void GameFree(void* memory) { Crt::Free(memory); }
 
 // The queue emptied (its copies freed).
 void ClearQueue()

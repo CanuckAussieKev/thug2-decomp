@@ -28,6 +28,7 @@
 #include "hook/hook.h"
 #include "game/gfx/shader_slots.h"
 #include "game/gfx/device.h"
+#include "game/sys/crt.h"
 
 namespace Nx {
 
@@ -313,7 +314,7 @@ bool __cdecl SplitNextTriangle(uint8_t** out, const sSplitFormat* format)
 
 namespace {
 
-int Rand() { return GameFunction<int(__cdecl*)()>(0x00623BA3)(); } // (the game's C runtime's)
+int Rand() { return Crt::Rand(); } // (the game's C runtime's)
 const float* At(const uint8_t* vertex) { return reinterpret_cast<const float*>(vertex); }
 
 // The x87's sine and cosine (as the original: FSIN / FCOS of the unrounded value).
