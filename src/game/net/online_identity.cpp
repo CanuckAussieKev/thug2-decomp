@@ -14,9 +14,10 @@
 // MOTD URL), the product id 10368 (the MOTD), the CD key game id 1003, GP's "10thug211" location strings and the
 // stats path "thug2pc/%s".
 //
-// Until the GameSpy SDK is linked (library code: not decompiled) and the game code above
-// is source, this writes the key over the data (only when the setting differs from the game's own; the name needs no
-// write). tools/check_code_writes.ts checks none lands in a rewritten function.
+// In the hooked build (the exe's copy of the GameSpy SDK, its callers reading those copies) this writes the key over
+// the data (only when the setting differs from the game's own; the name needs no write). tools/check_code_writes.ts
+// checks none lands in a rewritten function. The standalone build (the SDK linked: src/game/net/gamespy.h) writes
+// nothing: its callers pass GameKey() to the SDK.
 
 #include "game/net/online_identity.h"
 
@@ -37,6 +38,7 @@ constexpr const char* kOwnKey = "AdLWaZ";
 constexpr size_t kMaxName = 31;
 constexpr size_t kKeyLength = 6;
 
+#ifndef THUG2_STANDALONE
 // 6 key bytes at `address`, stored bitwise-NOT or not.
 struct KeyUse {
     uint32_t address;
@@ -47,6 +49,7 @@ constexpr KeyUse kKeyUses[kGameKeySites] = {
     {0x0067F154, true},  // peerSetTitle's keys
     {0x0064D58C, false}, // the stats SDK's key (its NUL follows)
 };
+#endif
 
 bool ValidName(const char* name)
 {
@@ -79,6 +82,16 @@ const char* ReadGameName()
     return s_nameSetting[0] != '\0' && ValidName(s_nameSetting) ? s_nameSetting : kOwnName;
 }
 
+char s_keySetting[64];
+
+// OnlineGameKey, or the game's own (an invalid one too); never freed.
+const char* ReadGameKey()
+{
+    Config::Init();
+    Config::GetString(Config::kMiscellaneous, "OnlineGameKey", "", s_keySetting, sizeof(s_keySetting));
+    return s_keySetting[0] != '\0' && ValidKey(s_keySetting) ? s_keySetting : kOwnKey;
+}
+
 } // namespace
 
 const char* GameName()
@@ -87,6 +100,13 @@ const char* GameName()
     return name;
 }
 
+const char* GameKey()
+{
+    static const char* key = ReadGameKey();
+    return key;
+}
+
+#ifndef THUG2_STANDALONE
 bool WriteOnlineIdentity(const char* key)
 {
     if (key && std::strlen(key) != kKeyLength)
@@ -110,6 +130,7 @@ void GameKeyAt(int site, char out[7])
         out[i] = static_cast<char>(use.inverted ? static_cast<uint8_t>(~bytes[i]) : bytes[i]);
     out[kKeyLength] = '\0';
 }
+#endif
 
 void SetUpOnlineIdentity()
 {
@@ -128,10 +149,16 @@ void SetUpOnlineIdentity()
     }
     if (useKey && std::strcmp(useKey, kOwnKey) == 0)
         useKey = nullptr;
+#ifdef THUG2_STANDALONE
+    DebugLog::Printf(DebugLog::Level::kInfo, "ONLINE IDENTITY: game name %s%s, key %s\n", name,
+                     std::strcmp(name, kOwnName) == 0 ? "" : " (OnlineGameName)",
+                     useKey ? "OnlineGameKey" : "the game's own");
+#else
     WriteOnlineIdentity(useKey);
     DebugLog::Printf(DebugLog::Level::kInfo, "ONLINE IDENTITY: game name %s%s, key %s\n", name,
                      std::strcmp(name, kOwnName) == 0 ? "" : " (OnlineGameName)",
                      useKey ? "OnlineGameKey (written)" : "the game's own");
+#endif
 }
 
 } // namespace Net

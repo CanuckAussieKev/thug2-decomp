@@ -5,6 +5,7 @@
 // "thps6pc" and online_identity.cpp wrote the configured name over that push (0x0053F936), which this source replaces.
 
 #include "game/net/gamenet_lobby.h"
+#include "game/net/gamespy.h"
 
 #include <cstring>
 
@@ -56,9 +57,9 @@ constexpr uint32_t kUiString = 0x96875C0F;   // ui_string
 constexpr uint32_t kNetLobby = 0x1C471C60;   // netlobby
 constexpr uint16_t kHostPort = 0x1421;       // 5153
 
-void BufferAdd(void* buffer, const char* text) { GameFunction<void(__cdecl*)(void*, const char*)>(0x005FA010)(buffer, text); }
-void BufferAddInt(void* buffer, int value) { GameFunction<void(__cdecl*)(void*, int)>(0x005FB350)(buffer, value); }
-void KeyBufferAdd(void* keyBuffer, int key) { GameFunction<void(__cdecl*)(void*, int)>(0x005F9FE0)(keyBuffer, key); }
+void BufferAdd(void* buffer, const char* text) { GameSpy::Qr2BufferAdd(buffer, text); }
+void BufferAddInt(void* buffer, int value) { GameSpy::Qr2BufferAddInt(buffer, value); }
+void KeyBufferAdd(void* keyBuffer, int key) { GameSpy::Qr2KeyBufferAdd(keyBuffer, key); }
 
 } // namespace
 
@@ -66,7 +67,7 @@ void KeyBufferAdd(void* keyBuffer, int key) { GameFunction<void(__cdecl*)(void*,
 void LobbyMan::StopHosting()
 {
     if (m_peer) {
-        GameFunction<void(__cdecl*)(void*)>(0x005FCCA0)(m_peer); // peerStopGame
+        GameSpy::PeerStopGame(m_peer); // peerStopGame
         m_hostingTask->Remove();
     }
     m_hosting = false;

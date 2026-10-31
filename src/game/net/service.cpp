@@ -2,6 +2,7 @@
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
 #include "game/net/service.h"
+#include "game/net/gamespy.h"
 
 #include <windows.h>
 
@@ -113,11 +114,11 @@ void DeleteParams(Script::CStruct* params)
 void PauseStream(int pause) { Pcm::PauseStream(pause); }
 
 // GameSpy (library code, not decompiled).
-void GsiStartAvailableCheck(const char* game) { GameFunction<void(__cdecl*)(const char*)>(0x005F8690)(game); }
-int GsiAvailableCheckThink() { return GameFunction<int(__cdecl*)()>(0x005F8840)(); }
-void GhttpThink() { GameFunction<void(__cdecl*)()>(0x005FFB10)(); }
-void GhttpCancelRequest(int request) { GameFunction<void(__cdecl*)(int)>(0x005FFB20)(request); }
-void GhttpCleanup() { GameFunction<void(__cdecl*)()>(0x005FF860)(); }
+void GsiStartAvailableCheck(const char* game) { GameSpy::StartAvailableCheck(game); }
+int GsiAvailableCheckThink() { return GameSpy::AvailableCheckThink(); }
+void GhttpThink() { GameSpy::HttpThink(); }
+void GhttpCancelRequest(int request) { GameSpy::HttpCancelRequest(request); }
+void GhttpCleanup() { GameSpy::HttpCleanup(); }
 
 // A download thread, started suspended so that the manager knows its id first. (The handle is never closed.)
 void StartThread(uint8_t* manager, LPTHREAD_START_ROUTINE thread)

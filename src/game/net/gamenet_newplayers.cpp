@@ -6,6 +6,7 @@
 #include <cstring>
 
 #include "game/core/manager.h"
+#include "game/net/gamespy.h"
 #include "game/core/mem.h"
 #include "game/core/task.h"
 #include "game/ed/park_editor.h"
@@ -420,7 +421,7 @@ void __cdecl Manager::ServerAddNewPlayersTask(void* task)
     Manager* global = g_gameNetManager;
     global->UpdateLobbyServer();
     if (g_netEnabled && global->InNetGame() && g_queryReporting)
-        GameFunction<void(__cdecl*)(int)>(0x005FBAD0)(0); // qr2_send_statechanged
+        GameSpy::Qr2SendStateChanged(nullptr); // qr2_send_statechanged
 }
 
 } // namespace GameNet

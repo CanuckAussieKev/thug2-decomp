@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "game/core/manager.h"
+#include "game/net/gamespy.h"
 #include "game/core/mem.h"
 #include "game/core/task.h"
 #include "game/net/buddy_man.h"
@@ -153,7 +154,7 @@ Manager* Manager::Construct()
     m_buddyMan = memory ? static_cast<BuddyMan*>(memory)->Construct() : nullptr;
     memory = Allocate(0x200);
     m_statsMan = memory ? static_cast<StatsMan*>(memory)->Construct() : nullptr;
-    GameFunction<int(__cdecl*)(int)>(0x005F9540)(kGameSpyGameId); // the CD-key SDK (gcd_init)
+    GameSpy::CdKeyInit(kGameSpyGameId); // the CD-key SDK (gcd_init)
     // The CD-key challenge: eight random letters or digits (the game's C runtime srand(time(0)) / rand).
     Crt::Srand(Crt::Time());
     for (int i = 0; i < kChallengeLength; ++i) {

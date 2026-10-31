@@ -6,6 +6,7 @@
 #include "hook/game_code.h"
 
 #include "game/core/alloc.h"
+#include "game/net/gamespy.h"
 #include "game/core/task.h"
 #include "game/ed/park_editor.h"
 #include "game/net/gamenet_commands.h"
@@ -183,7 +184,7 @@ bool __cdecl CFunc_GetNumTeams(CStruct*, CScript* script)
 bool __cdecl CFunc_ConnectedToPeer(CStruct*, CScript*)
 {
     void* peer = LobbyPeer(Net());
-    return peer && GameFunction<int(__cdecl*)(void*)>(0x005FC730)(peer);
+    return peer && GameSpy::PeerIsConnected(peer);
 }
 
 // 0x00535EE0: InGroupRoom - the lobby's flag (+0x134).

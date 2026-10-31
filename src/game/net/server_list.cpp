@@ -13,6 +13,7 @@
 #include "game/core/task.h"
 #include "game/net/buddy_man.h"
 #include "game/net/gamenet_handler_util.h"
+#include "game/net/gamespy.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/gamenet_lobby.h"
 #include "game/net/net_app.h"
@@ -116,12 +117,6 @@ GAME_GLOBAL(uint32_t, g_listClock, 0x007CE450);
 uint32_t& LastRefresh() { return g_lastRefresh; }
 bool& ShowPending() { return g_showPending; }
 uint32_t& ListClock() { return g_listClock; }
-
-template <typename R = void, typename... A>
-R Sdk(uint32_t address, A... args)
-{
-    return GameFunction<R(__cdecl*)(A...)>(address)(args...);
-}
 
 // Walking a list as the original does: a node whose data is -1 is the head (checked before null).
 Mem::ListNode* FirstNode(Mem::ListNode* head)
@@ -356,8 +351,8 @@ void Manager::UpdateHostingStatus()
         char location[1024];
         LobbyMan* lobby = Lobby(this);
         if (lobby->m_peer) {
-            uint32_t publicIp = Sdk<uint32_t>(0x005FC950, lobby->m_peer); // (the peer's public address)
-            std::sprintf(location, "10thug211:%d:%d:%d:%s (%s)", net->GetLocalAddress(), publicIp, kPort, serverName,
+            uint32_t privateIp = GameSpy::PeerGetPrivateIp(lobby->m_peer); // (the peer's private address)
+            std::sprintf(location, "10thug211:%d:%d:%d:%s (%s)", net->GetLocalAddress(), privateIp, kPort, serverName,
                          lobby->m_roomName);
         } else {
             std::sprintf(location, "10thug211:0:0:0:%s (%s)", serverName, lobby->m_roomName);
@@ -391,7 +386,7 @@ void Manager::StopServerList()
     if (InInternetMode()) {
         Memory()->PushContext(Memory()->m_internetBottomUpHeap);
         if (Lobby(this)->m_peer)
-            Sdk(0x005FCA40, Lobby(this)->m_peer); // (the browsing stopped)
+            GameSpy::PeerStopListingGames(Lobby(this)->m_peer); // (the browsing stopped)
         Memory()->PopContext();
         return;
     }
@@ -529,7 +524,8 @@ void Manager::RefreshServerList(bool force)
     uint8_t keys[4] = {8, 10, 4, 6}; // (in the original: over its argument's slot)
     Memory()->PushContext(Memory()->m_internetBottomUpHeap);
     static_cast<LobbyMan*>(manager->m_lobbyMan)->ClearLostConnection();
-    Sdk(0x005FC9D0, Lobby(this)->m_peer, keys, 4, 0, 0x00547750u, this); // (the server browser updated)
+    GameSpy::PeerStartListingGames(Lobby(this)->m_peer, keys, 4, nullptr, GAME_CODE(0x00547750, ListingGamesCallback),
+                                   this); // (the games listed)
     Memory()->PopContext();
     Memory()->PopContext();
 }
@@ -556,7 +552,7 @@ unsigned long __stdcall NewsThread(void* argument)
 {
     auto* manager = static_cast<Manager*>(argument);
     Memory()->PushContext(Memory()->m_internetBottomUpHeap);
-    Sdk(0x005F8160, 100); // (GameSpy's set-up)
+    GameSpy::Msleep(100);
     Field<int>(manager, kServiceState) = kStateNews;
     Field<uint32_t>(manager, kRequestStart) = Tmr::GetTime();
     uint8_t* buffer = &Field<uint8_t>(manager, kNewsBuffer);
@@ -564,8 +560,9 @@ unsigned long __stdcall NewsThread(void* argument)
     char url[256];
     std::sprintf(url, CFuncs::g_textureFlagCe441 ? "http://www.thug2online.com/testmotd.dat"
                                                      : "http://www.thug2online.com/motd.dat");
-    Field<int>(manager, kRequest) = Sdk<int>(0x005FF8A0, url, 0, buffer, kNewsBufferSize, 0, 0, 0, reinterpret_cast<uint32_t>(GAME_CODE(0x005480A0, Stubs::DoNothing)),
-                                             &NewsCallback, manager); // (the download started)
+    Field<int>(manager, kRequest) =
+        GameSpy::HttpGetEx(url, nullptr, reinterpret_cast<char*>(buffer), static_cast<int>(kNewsBufferSize), nullptr, 0, 0,
+                           GAME_CODE(0x005480A0, Stubs::DoNothing), &NewsCallback, manager); // (the download started)
     Memory()->PopContext();
     return 0;
 }
@@ -578,7 +575,7 @@ unsigned long __stdcall MotdThread(void* argument)
     Memory()->PushContext(Memory()->m_internetBottomUpHeap);
     manager->GetNetworkPreferences()->GetPreference(kUniqueId)->GetString(kUiString, &uniqueId, 0); // (not used)
     Field<uint32_t>(manager, kRequestStart) = Tmr::GetTime();
-    Field<int>(manager, kRequest) = Sdk<int>(0x005FFCD0, 0, 10368, "1.0", 0, 0); // (the patch check)
+    Field<int>(manager, kRequest) = GameSpy::TrackUsage(0, 10368, "1.0", 0, 0); // (the usage report: the SDK's MOTD request)
     Field<int>(manager, kServiceState) = kStateMotd;
     Memory()->PopContext();
     return 0;

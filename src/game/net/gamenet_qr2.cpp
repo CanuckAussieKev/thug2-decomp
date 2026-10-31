@@ -8,6 +8,7 @@
 // writes it (0x0067F120, stored bitwise-NOT).
 
 #include "game/net/gamenet_qr2.h"
+#include "game/net/gamespy.h"
 
 #include <cstdint>
 #include <cstring>
@@ -73,20 +74,8 @@ constexpr uint16_t kHostPort = 0x1421;       // 5153 (reported)
 constexpr int kQueryPort = 0x1423;           // 5155 (qr2's own)
 
 // The SDK.
-void BufferAdd(void* buffer, const char* text) { GameFunction<void(__cdecl*)(void*, const char*)>(0x005FA010)(buffer, text); }
-void BufferAddInt(void* buffer, int value) { GameFunction<void(__cdecl*)(void*, int)>(0x005FB350)(buffer, value); }
-using KeyCallback = void(__cdecl*)(int, void*, void*);
-using PlayerKeyCallbackFn = void(__cdecl*)(int, int, void*, void*);
-using CountCallbackFn = int(__cdecl*)(int, void*);
-int Qr2Init(void* qrec, const char* ip, int basePort, const char* gameName, const char* secretKey, int isPublic,
-            int natNegotiate, KeyCallback serverKey, PlayerKeyCallbackFn playerKey, void* teamKey, void* keyList,
-            CountCallbackFn count, void* addError, void* userData)
-{
-    return GameFunction<int(__cdecl*)(void*, const char*, int, const char*, const char*, int, int, KeyCallback,
-                                      PlayerKeyCallbackFn, void*, void*, CountCallbackFn, void*, void*)>(0x005FB230)(
-        qrec, ip, basePort, gameName, secretKey, isPublic, natNegotiate, serverKey, playerKey, teamKey, keyList, count,
-        addError, userData);
-}
+void BufferAdd(void* buffer, const char* text) { GameSpy::Qr2BufferAdd(buffer, text); }
+void BufferAddInt(void* buffer, int value) { GameSpy::Qr2BufferAddInt(buffer, value); }
 
 Manager* NetManager() { return g_gameNetManager; }
 Prefs::Preferences* NetworkPreferences(Manager* m) { return reinterpret_cast<Prefs::Preferences*>(m->m_networkPreferences); }
@@ -215,12 +204,16 @@ void __cdecl StartQueryReporting(bool keepMapName)
     bool& reporting = g_queryReporting;
     if (reporting)
         return;
+#ifdef THUG2_STANDALONE
+    const char* key = Net::GameKey(); // (given to the SDK: nothing written into data)
+#else
     char key[7];
     const auto* stored = &GameVariable<uint8_t>(0x0067F120);
     for (int i = 0; i < 6; ++i)
         key[i] = static_cast<char>(~stored[i]);
     key[6] = '\0';
-    int error = Qr2Init(nullptr, nullptr, kQueryPort, Net::GameName(), key, 1, 0, &ServerKeyCallback, &PlayerKeyCallback,
+#endif
+    int error = GameSpy::Qr2Init(nullptr, nullptr, kQueryPort, Net::GameName(), key, 1, 0, &ServerKeyCallback, &PlayerKeyCallback,
                         GAME_CODE(0x00533400, GameNet::PlayerTeamKeyCallback), GAME_CODE(0x00533420, GameNet::KeyListCallback), &CountCallback,
                         GAME_CODE(0x005334B0, GameNet::AddErrorCallback), nullptr);
     if (error == 0)

@@ -2,6 +2,7 @@
 // GameSpy presence (GP) is library code, called by address.
 
 #include "game/net/buddy_status.h"
+#include "game/net/gamespy.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -41,12 +42,6 @@ Manager* TheManager() { return g_gameNetManager; }
 Mem::Manager* Memory() { return Mem::Manager::Get(); }
 BuddyMan* Buddies() { return static_cast<BuddyMan*>(TheManager()->m_buddyMan); }
 
-template <typename R = void, typename... A>
-R Gp(uint32_t address, A... args)
-{
-    return GameFunction<R(__cdecl*)(A...)>(address)(args...);
-}
-
 void UnlinkNode(Mem::ListNode* node)
 {
     node->prev->next = node->next;
@@ -65,7 +60,7 @@ void __cdecl BuddyMan::OnBuddyRequest(void* connection, const void* arg, BuddyMa
 {
     (void)connection;
     Memory()->PushContext(Memory()->m_internetTopDownHeap);
-    Gp(0x006001A0, man, *static_cast<const int*>(arg)); // (the request's profile accepted)
+    GameSpy::GpAuthBuddyRequest(man, *static_cast<const int*>(arg)); // (the request's profile accepted)
     Memory()->PopContext();
 }
 
@@ -89,7 +84,7 @@ unsigned long __stdcall BuddyMan::LoginThread(void* man)
         password = preferences->GetPreferenceString(Crc::GenerateCRCFromString("profile_password"),
                                                     Crc::GenerateCRCFromString("ui_string"));
     }
-    Gp(0x005FFDE0, man, "proskater", email, password, 1, 0, &BuddyMan::OnConnectNewUser, man); // (gpConnect)
+    GameSpy::GpConnect(man, "proskater", email, password, 1, 0, &BuddyMan::OnConnectNewUser, man); // (gpConnect)
     Memory()->PopContext();
     return 0;
 }
@@ -102,7 +97,7 @@ void BuddyMan::SendBuddyMessage(int profile, const char* text)
         kUiString, &nick, 1);
     char message[128];
     std::sprintf(message, "%s\n%s", nick, text);
-    Gp(0x006005D0, this, profile, message); // (gpSendBuddyMessage)
+    GameSpy::GpSendBuddyMessage(this, profile, message); // (gpSendBuddyMessage)
 }
 
 // 0x005482A0
@@ -114,7 +109,7 @@ void BuddyMan::SetLoggedIn(int profile)
     m_state = 4;
     Script::RunScript("profile_logged_in", nullptr, nullptr, false);
     const char* location = Script::GetString("homie_status_logging_in");
-    Gp(0x00600330, this, kStatusOnline, Script::GetString("homie_status_online"), location); // (gpSetStatus)
+    GameSpy::GpSetStatus(this, kStatusOnline, Script::GetString("homie_status_online"), location); // (gpSetStatus)
     Memory()->PopContext();
 }
 
@@ -122,7 +117,7 @@ void BuddyMan::SetLoggedIn(int profile)
 void BuddyMan::SetStatus(int status, const char* text, const char* location)
 {
     Memory()->PushContext(Memory()->m_internetTopDownHeap);
-    Gp(0x00600330, this, status, text, location); // (gpSetStatus)
+    GameSpy::GpSetStatus(this, status, text, location); // (gpSetStatus)
     Memory()->PopContext();
 }
 
@@ -217,7 +212,7 @@ bool __cdecl SetLobbyStatus(Script::CStruct* params, Script::CScript* script)
     const char* text = Script::GetString("homie_status_chatting");
     BuddyMan* buddies = static_cast<BuddyMan*>(manager->m_buddyMan);
     Memory()->PushContext(Memory()->m_internetTopDownHeap);
-    Gp(0x00600330, buddies, kStatusChatting, text, lobby); // (gpSetStatus)
+    GameSpy::GpSetStatus(buddies, kStatusChatting, text, lobby); // (gpSetStatus)
     Memory()->PopContext();
     return true;
 }

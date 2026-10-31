@@ -8,6 +8,7 @@
 #include <cstring>
 
 #include "game/core/crc.h"
+#include "game/net/gamespy.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/singleton.h"
@@ -204,12 +205,12 @@ char* LobbyPeerName(Manager* m) { return static_cast<char*>(m->m_lobbyMan) + 0x3
 // GameSpy's CD-key SDK (gcd) and THUG2's key.
 void ComputeCdKeyResponse(const char* key, const char* challenge, char* response)
 {
-    GameFunction<void(__cdecl*)(const char*, const char*, char*)>(0x005F8950)(key, challenge, response);
+    GameSpy::CdKeyComputeResponse(key, challenge, response);
 }
 void AuthenticateUser(int localId, uint32_t ip, const char* challenge, const char* response, void* instance)
 {
     using Callback = void(__cdecl*)(int, int, int, char*, void*);
-    GameFunction<void(__cdecl*)(int, int, uint32_t, const char*, const char*, Callback, void*)>(0x005F9620)(
+    GameSpy::CdKeyAuthenticateUser(
         kGameSpyGameId, localId, ip, challenge, response, &Manager::ClientAuthorized, instance);
 }
 

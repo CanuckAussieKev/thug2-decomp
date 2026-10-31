@@ -117,6 +117,9 @@ FetchContent_Declare(lzham
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     SOURCE_SUBDIR no-cmake) # sources only: the codec's own CMake files are for gcc
 FetchContent_MakeAvailable(lzham)
+
+# --- The GameSpy SDK (IGN's BSD-3 release; the standalone build links it, the hooked build calls the exe's copy) ---
+include(cmake/gamespy_sdk.cmake)
 file(GLOB LZHAM_DECOMP_SOURCES ${lzham_SOURCE_DIR}/lzhamdecomp/*.cpp)
 add_library(lzham STATIC
     ${LZHAM_DECOMP_SOURCES}
@@ -1015,6 +1018,7 @@ add_library(thug2_code OBJECT
     src/game/net/service.cpp
     src/game/net/online_hosts.cpp
     src/game/net/online_identity.cpp
+    src/game/net/gamespy.cpp
     src/game/net/thugpro_compat.cpp
     src/game/net/net_guards.cpp
     src/game/net/thugpro_join.cpp
@@ -1323,9 +1327,11 @@ endif()
 
 # thug2_check: the start-up checks and the early self-tests against the reference build's code, without starting the
 # game (see tools/check/main.cpp):  thug2_check [<path to the reference build>]  (default: local.json's referenceExe)
-add_executable(thug2_check tools/check/main.cpp)
+# (selftests_gamespy.cpp compares the exe's GameSpy SDK with the 2007 one the standalone build links: only here, the
+# DLL never links the SDK)
+add_executable(thug2_check tools/check/main.cpp src/hook/selftests_gamespy.cpp)
 target_compile_definitions(thug2_check PRIVATE THUG2_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
-target_link_libraries(thug2_check PRIVATE thug2_code minhook delayimp)
+target_link_libraries(thug2_check PRIVATE thug2_code minhook delayimp gamespy_sdk)
 # PartyMod's SDL code is linked (window, input: never run offline), so SDL2 is only loaded if used.
 target_link_options(thug2_check PRIVATE /DELAYLOAD:SDL2.dll)
 target_compile_options(thug2_check PRIVATE /W4 /permissive- /utf-8)
@@ -1343,7 +1349,7 @@ target_compile_definitions(thug2_standalone PRIVATE THUG2_STANDALONE WIN32_LEAN_
 target_include_directories(thug2_standalone PRIVATE src "${stb_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/generated"
                                                     "${CMAKE_BINARY_DIR}/editor_fonts")
 add_dependencies(thug2_standalone editor_fonts build_info)
-target_link_libraries(thug2_standalone PRIVATE sdl2 ws2_32 dsound ole32 imgui lzham d3dx9 d3d9 winmm) # d3d9, winmm: game/sys/crt.h's imports
+target_link_libraries(thug2_standalone PRIVATE sdl2 ws2_32 dsound ole32 imgui lzham gamespy_sdk d3dx9 d3d9 winmm) # d3d9, winmm: game/sys/crt.h's imports
 # d3dx9_43.dll next to the exe (the package's Microsoft-distributable runtime; see THIRD_PARTY_NOTICES.md)
 add_custom_command(TARGET thug2_standalone POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_D3DX9_NATIVE}/release/bin/x86/D3DX9_43.dll" "$<TARGET_FILE_DIR:thug2_standalone>"

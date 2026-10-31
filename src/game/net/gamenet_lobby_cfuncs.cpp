@@ -11,6 +11,7 @@
 #include "game/net/buddy_man.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_lobby.h"
+#include "game/net/gamespy.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/script/struct.h"
@@ -69,14 +70,9 @@ void PushInternetHeap()
     memory->PushContext(memory->m_internetTopDownHeap);
 }
 void PopHeap() { Mem::Manager::Get()->PopContext(); }
-template <typename R = void, typename... A>
-R Sdk(uint32_t address, A... args)
-{
-    return GameFunction<R(__cdecl*)(A...)>(address)(args...);
-}
-void NatCancel(int cookie) { Sdk(0x005FC130, cookie); }
-void NatThink() { Sdk(0x005FC660); }
-void NatFreeNegotiations() { Sdk(0x005FBCD0); }
+void NatCancel(int cookie) { GameSpy::NatCancel(cookie); }
+void NatThink() { GameSpy::NatThink(); }
+void NatFreeNegotiations() { GameSpy::NatFreeNegotiations(); }
 QueuedPacket* Queue() { return g_queuedPackets; }
 int& QueuedCount() { return g_queuedCount; }
 
@@ -95,10 +91,11 @@ bool __cdecl CFunc_StartNatNegotiation(Script::CStruct* params, Script::CScript*
     params->GetInteger(0u, &port, 0);
     params->GetChecksum(kCookie, reinterpret_cast<uint32_t*>(&lobby->m_natCookie), 0);
     Net::App* client = manager->SpawnClient(false, false, true, 0);
-    Sdk(0x005FC9A0, lobby->m_peer, static_cast<uint32_t>(inet_addr(address)), port, lobby->m_natCookie); // the cookie to the host
-    int error = Sdk<int>(0x005FC090, client->Socket(), lobby->m_natCookie, kClientNatIndex,
-                         GAME_CODE(0x005480A0, Stubs::DoNothing) /* no progress callback */,
-                         &LobbyMan::NatNegotiationCompleted, lobby->m_natCookie); // negotiation on the client's socket
+    GameSpy::PeerSendNatNegotiateCookie(lobby->m_peer, static_cast<uint32_t>(inet_addr(address)), port, lobby->m_natCookie); // the cookie to the host
+    int error = GameSpy::NatBeginWithSocket(client->Socket(), lobby->m_natCookie, kClientNatIndex,
+                                            GAME_CODE(0x005480A0, Stubs::DoNothing) /* no progress callback */,
+                                            &LobbyMan::NatNegotiationCompleted,
+                                            reinterpret_cast<void*>(static_cast<intptr_t>(lobby->m_natCookie))); // negotiation on the client's socket
     if (error) {
         NatFreeNegotiations();
         PopHeap();
@@ -133,14 +130,14 @@ bool __cdecl CFunc_LeaveLobby(Script::CStruct* params, Script::CScript*)
     Manager* manager = NetManager();
     auto* lobby = static_cast<LobbyMan*>(manager->m_lobbyMan);
     void* buddy = manager->m_buddyMan;
-    Sdk(0x005FD380, lobby->m_peer, kGroupRoom, static_cast<const char*>(nullptr)); // the group room left
+    GameSpy::PeerLeaveRoom(lobby->m_peer, kGroupRoom, nullptr); // the group room left
     lobby->m_inGroupRoom = false;
     if (Field<bool>(buddy, 0x10) && !params->ContainsComponentNamed(kPreserveStatus)) {
         const char* text = Script::GetString(kHomieStatusLoggingIn);
         const char* status = Script::GetString(kHomieStatusOnline);
         static_cast<BuddyMan*>(buddy)->SetStatus(kStatusOnline, status, text); // the presence's status (its text, location)
     }
-    Sdk(0x005FC9B0, lobby->m_peer, lobby->m_groupId);
+    GameSpy::PeerSetGroupId(lobby->m_peer, lobby->m_groupId);
     PopHeap();
     return true;
 }
@@ -159,7 +156,7 @@ bool __cdecl CFunc_SetQuietMode(Script::CStruct* params, Script::CScript*)
     PushInternetHeap();
     Manager* manager = NetManager();
     int quiet = params->ContainsFlag(kOff) ? 0 : 1;
-    Sdk(0x005FC960, static_cast<LobbyMan*>(manager->m_lobbyMan)->m_peer, quiet);
+    GameSpy::PeerSetQuietMode(static_cast<LobbyMan*>(manager->m_lobbyMan)->m_peer, quiet);
     PopHeap();
     return true;
 }

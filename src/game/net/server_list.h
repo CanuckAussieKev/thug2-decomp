@@ -88,8 +88,8 @@ void __cdecl ServerListTask(void* task);
 // The online service's download threads (stdcall, the manager as the argument; started by Net::ServiceTask).
 // 0x00545540: the news (state 7): motd.dat (testmotd.dat when 0x007CE441 is set) from www.thug2online.com into
 // the manager's buffer (+0x99F4, 25600 bytes cleared first), NewsCallback when done. 0x00545620: the message of the
-// day (state 9): GameSpy's patch check (0x005FFCD0: product 10368, version "1.0"; the unique_id preference is read
-// but not passed, as the original). Both note the request (+0xFE00) and the time (+0xFE04). 0.
+// day (state 9): GameSpy's usage report (ptTrackUsage, which asks motd.<domain>/motd/motd.asp: product 10368,
+// version "1.0"; the unique_id preference is read but not passed, as the original). Both note the request (+0xFE00) and the time (+0xFE04). 0.
 unsigned long __stdcall NewsThread(void* manager);
 unsigned long __stdcall MotdThread(void* manager);
 // 0x00545490 (GHTTP's completion callback, `param` the... not used: the manager is the singleton): a failed

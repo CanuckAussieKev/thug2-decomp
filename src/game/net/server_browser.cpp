@@ -15,6 +15,7 @@
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/gamenet_lobby.h"
+#include "game/net/gamespy.h"
 #include "game/net/net_conn.h"
 #include "game/net/net_dispatcher.h"
 #include "game/net/player_info.h"
@@ -84,12 +85,6 @@ Manager* TheManager() { return g_gameNetManager; }
 Mem::Manager* Memory() { return Mem::Manager::Get(); }
 LobbyMan* Lobby(Manager* manager) { return static_cast<LobbyMan*>(manager->m_lobbyMan); }
 
-template <typename R = void, typename... A>
-R Sdk(uint32_t address, A... args)
-{
-    return GameFunction<R(__cdecl*)(A...)>(address)(args...);
-}
-
 Mem::ListNode* Head(Manager* manager, uint32_t offset) { return &Field<Mem::ListNode>(manager, offset); }
 constexpr uint32_t kServers = 0x158;
 constexpr uint32_t kWaitingServers = 0x16C;
@@ -129,23 +124,23 @@ int RankOf(int rating)
 // A server's details from GameSpy (the add and update messages alike): level, mode, counts, flags, skill.
 void ReadServerKeys(ServerInfo* server, void* sb)
 {
-    std::strcpy(server->m_level, Sdk<const char*>(0x005FED50, sb, "mapname", "..."));  // (string keys)
-    std::strcpy(server->m_mode, Sdk<const char*>(0x005FED50, sb, "gametype", "..."));
-    server->m_numPlayers = Sdk<int>(0x005FF560, sb, "numplayers", 1);                   // (integer keys)
-    server->m_maxPlayers = Sdk<int>(0x005FF560, sb, "maxplayers", 8);
-    server->m_numObservers = Sdk<int>(0x005FF560, sb, "numobservers", 0);
-    server->m_maxObservers = Sdk<int>(0x005FF560, sb, "maxobservers", 1);
-    server->m_password = Sdk<int>(0x005FEDD0, sb, "password", 0) != 0;                 // (boolean keys)
-    server->m_started = Sdk<int>(0x005FEDD0, sb, "started", 0) != 0;
-    server->m_hostMode = Sdk<int>(0x005FF560, sb, "hostmode", 0);
-    server->m_ranked = Sdk<int>(0x005FF560, sb, "ranked", 0) != 0;
-    server->m_skillLevel = static_cast<int8_t>(Sdk<int>(0x005FF560, sb, "skilllevel", 2));
+    std::strcpy(server->m_level, GameSpy::ServerGetStringValue(sb, "mapname", "..."));  // (string keys)
+    std::strcpy(server->m_mode, GameSpy::ServerGetStringValue(sb, "gametype", "..."));
+    server->m_numPlayers = GameSpy::ServerGetIntValue(sb, "numplayers", 1);                   // (integer keys)
+    server->m_maxPlayers = GameSpy::ServerGetIntValue(sb, "maxplayers", 8);
+    server->m_numObservers = GameSpy::ServerGetIntValue(sb, "numobservers", 0);
+    server->m_maxObservers = GameSpy::ServerGetIntValue(sb, "maxobservers", 1);
+    server->m_password = GameSpy::ServerGetBoolValue(sb, "password", 0) != 0;                 // (boolean keys)
+    server->m_started = GameSpy::ServerGetBoolValue(sb, "started", 0) != 0;
+    server->m_hostMode = GameSpy::ServerGetIntValue(sb, "hostmode", 0);
+    server->m_ranked = GameSpy::ServerGetIntValue(sb, "ranked", 0) != 0;
+    server->m_skillLevel = static_cast<int8_t>(GameSpy::ServerGetIntValue(sb, "skilllevel", 2));
 }
 void ReadServerPlayers(ServerInfo* server, void* sb)
 {
     for (int i = 0; i < server->m_numPlayers; ++i) {
-        int rating = Sdk<int>(0x005FF5C0, sb, i, "rating", 0);                       // (a player's integer key)
-        const char* name = Sdk<const char*>(0x005FEE30, sb, i, "player", "...");     // (a player's string key)
+        int rating = GameSpy::ServerGetPlayerIntValue(sb, i, "rating", 0);                       // (a player's integer key)
+        const char* name = GameSpy::ServerGetPlayerStringValue(sb, i, "player", "...");     // (a player's string key)
         server->AddPlayer(name, rating);
     }
 }
@@ -280,7 +275,7 @@ bool __cdecl CFunc_ChooseServer(Script::CStruct* params, Script::CScript* script
     return true;
 }
 
-// 0x00547FA0: the chosen server's full details asked of GameSpy (0x005FCA60) unless they're here (true) or on the
+// 0x00547FA0: the chosen server's full details asked of GameSpy (peerUpdateGame) unless they're here (true) or on the
 // LAN (true); false while asking.
 bool __cdecl CFunc_RetrieveServerInfo(Script::CStruct* params, Script::CScript* script)
 {
@@ -296,7 +291,7 @@ bool __cdecl CFunc_RetrieveServerInfo(Script::CStruct* params, Script::CScript* 
     if (server->m_detailed)
         return true;
     Memory()->PushContext(Memory()->m_internetTopDownHeap);
-    Sdk(0x005FCA60, Lobby(manager)->m_peer, server->m_sbServer, 1); // (the game's details updated)
+    GameSpy::PeerUpdateGame(Lobby(manager)->m_peer, server->m_sbServer, 1); // (the game's details updated)
     Memory()->PopContext();
     return false;
 }
@@ -345,8 +340,8 @@ int __cdecl HandleServerResponse(Net::MsgHandlerContext* context)
 // 0x00547750 (GameSpy's game listing callback, `manager` its parameter): on failure the lobby's 0x0053F870; add - a new server
 // from the SBServer (its address: the private one when its public address is ours, else the public one and port -
 // unreachable without NAT negotiation when it has no private address; the keys, the players), listed, and shown once
-// it has its basic keys (0x005FEEC0); update - a listed one's name, ping (if reachable), keys and players again,
-// shown if not yet, and with its full keys (0x005FEEE0) the description asked for when it's the chosen one; remove -
+// it has its basic keys (SBServerHasBasicKeys); update - a listed one's name, ping (if reachable), keys and players again,
+// shown if not yet, and with its full keys (SBServerHasFullKeys) the description asked for when it's the chosen one; remove -
 // destroy_lobby_server and the server deleted; clear - "none found" and every server deleted. Each but a failure ends
 // with update_lobby_server_list (the update message only when it shows the server).
 void __cdecl ListingGamesCallback(void* peer, int success, const char* name, void* sb, int staging, int message,
@@ -366,20 +361,20 @@ void __cdecl ListingGamesCallback(void* peer, int success, const char* name, voi
         server->m_sbServer = sb;
         std::strncpy(server->m_name, name, 15);
         server->m_name[15] = '\0';
-        server->m_ping = Sdk<int>(0x005FF410, sb); // (its ping)
+        server->m_ping = GameSpy::ServerGetPing(sb); // (its ping)
         bool sameNetwork = false;
-        if (Sdk<int>(0x005FEF30, sb)) { // (it answered directly)
-            uint32_t ours = Sdk<uint32_t>(0x005FC940, peer); // (our public address)
-            if (Sdk<uint32_t>(0x00603360, sb) == ours) {      // (its public address)
-                server->m_ip = Sdk<uint32_t>(0x005FEF70, sb); // (its private address)
+        if (GameSpy::ServerDirectConnect(sb)) { // (it answered directly)
+            uint32_t ours = GameSpy::PeerGetPublicIp(peer); // (our public address)
+            if (GameSpy::ServerGetPublicAddress(sb) == ours) {      // (its public address)
+                server->m_ip = GameSpy::ServerGetPrivateAddress(sb); // (its private address)
                 server->m_port = kPort;
                 sameNetwork = true;
             }
         }
         if (!sameNetwork) {
-            bool hasPrivate = Sdk<int>(0x005FEF50, sb) != 0; // (it has a private address)
-            server->m_ip = Sdk<uint32_t>(0x00603360, sb);
-            uint16_t port = static_cast<uint16_t>(Sdk<uint32_t>(0x005FEF00, sb)); // (its public port)
+            bool hasPrivate = GameSpy::ServerHasPrivateAddress(sb) != 0; // (it has a private address)
+            server->m_ip = GameSpy::ServerGetPublicAddress(sb);
+            uint16_t port = static_cast<uint16_t>(GameSpy::ServerGetPublicQueryPort(sb)); // (its public port)
             if (!hasPrivate) {
                 server->m_canReach = false;
                 server->m_ping = kNoPing;
@@ -390,7 +385,7 @@ void __cdecl ListingGamesCallback(void* peer, int success, const char* name, voi
         ReadServerPlayers(server, sb);
         Mem::ListNode* list = Head(manager, kServers);
         Append(list, server);
-        if (Sdk<int>(0x005FEEC0, sb)) { // (it has its basic keys)
+        if (GameSpy::ServerHasBasicKeys(sb)) { // (it has its basic keys)
             int index = reinterpret_cast<Gfx::AnimListHead*>(list)->CountItems() - 1; // (the list's count)
             manager->AddServerToMenu(server, index);
             Run(kUpdateServerList);
@@ -415,23 +410,23 @@ void __cdecl ListingGamesCallback(void* peer, int success, const char* name, voi
         Run(kUpdateServerList);
         break;
     case kListingUpdate: {
-        Sdk<int>(0x005FEEE0, sb); // (asked whether it has its full keys: the answer unused here)
+        GameSpy::ServerHasFullKeys(sb); // (asked whether it has its full keys: the answer unused here)
         ServerInfo* server = FindBySb(manager, sb);
         if (!server)
             break;
         std::strncpy(server->m_name, name, 15);
         server->m_name[15] = '\0';
         if (server->m_canReach)
-            server->m_ping = Sdk<int>(0x005FF410, sb);
+            server->m_ping = GameSpy::ServerGetPing(sb);
         ReadServerKeys(server, sb);
         server->ClearPlayers();
         ReadServerPlayers(server, sb);
-        if (!server->m_inList && Sdk<int>(0x005FEEC0, sb)) {
+        if (!server->m_inList && GameSpy::ServerHasBasicKeys(sb)) {
             manager->AddServerToMenu(server, 0);
             Run(kUpdateServerList);
             server->m_inList = true;
         }
-        if (!server->m_detailed && Sdk<int>(0x005FEEE0, sb)) {
+        if (!server->m_detailed && GameSpy::ServerHasFullKeys(sb)) {
             server->m_detailed = true;
             if (server->m_chosen) {
                 Script::CStruct* params = NewParams();
