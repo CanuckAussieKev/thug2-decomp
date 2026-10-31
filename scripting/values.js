@@ -1,4 +1,4 @@
-// NOT ORIGINAL - proposed format-2 QB value helpers. Not wired into the runtime yet.
+// NOT ORIGINAL - format-2 QB value helpers embedded by the native Runtime.
 // Behavior: struct.cpp, parse.cpp, eval.cpp; API: docs/qb-js-contract.md.
 // Verified subset: value/reference operations, getters, scalar arithmetic,
 // string/container operators and coordinate +/-; compound coordinate dot/cross/

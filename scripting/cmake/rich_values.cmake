@@ -1,4 +1,4 @@
-# NOT ORIGINAL - rich by-value QB codec (issue #21).
+# NOT ORIGINAL - rich by-value QB codec.
 # Adds the codec sources to the scripting library and registers its own
 # QuickJS test target. Does not change existing target policies.
 # The library part must run regardless of BUILD_TESTING; the test part is

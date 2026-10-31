@@ -1,4 +1,4 @@
-// NOT ORIGINAL - QuickJS tests for the rich by-value QB codec (issue #21).
+// NOT ORIGINAL - QuickJS tests for the rich by-value QB codec.
 // Independent expected shapes/words: encode results are inspected directly
 // against the values.js representation instead of relying on round-trip only.
 #include "thug2/js_value.hpp"
@@ -648,7 +648,7 @@ void test_limits() {
     }
 }
 
-// --- review regressions (issue #21 review round 1) ---------------------------
+// --- review regressions (ownership/error handling) ---------------------------
 // Every failure must leave a reusable context: no stale pending exception.
 #define CHECK_DECODE_FAILS(code, needle) do { \
     JSValue owned_ = eval(rt.ctx, (code)); \

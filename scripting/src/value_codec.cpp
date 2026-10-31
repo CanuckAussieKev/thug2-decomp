@@ -1,5 +1,5 @@
 // NOT ORIGINAL - private QuickJS codec for the rich by-value QB model.
-// Phase 2, issue #21. See value_codec.hpp for the ownership contract.
+// See value_codec.hpp for the ownership contract.
 #include "value_codec.hpp"
 #include <quickjs.h>
 #include <cmath>
@@ -178,7 +178,7 @@ struct RichCodec::Impl {
     // --- preflight: model limits, before any QuickJS state ------------------
     // Walks the immutable model and charges the full budget so that the
     // encode walk itself can only fail through QuickJS allocations.
-    // Payload accounting is total (issue #21): every transported word counts,
+    // Payload accounting is total: every transported word counts,
     // including scalar bits and structure/parameter field-name CRCs.
     static constexpr std::size_t word_bytes = sizeof(std::uint32_t);
     void preflight(const RichValue& value) {

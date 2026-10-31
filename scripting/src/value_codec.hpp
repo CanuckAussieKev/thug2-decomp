@@ -1,5 +1,5 @@
 // NOT ORIGINAL - private QuickJS codec for the rich by-value QB model.
-// Phase 2, issue #21. This header is internal to the scripting library and
+// This header is internal to the scripting library and
 // may include QuickJS; the public model (js_value.hpp) must not.
 #pragma once
 #include "thug2/js_value.hpp"
@@ -18,7 +18,7 @@ public:
 private:
     bool resource_;
 };
-// Hard limits shared by every codec call (issue #21 contract).
+// Hard limits shared by every codec call.
 struct RichLimits {
     static constexpr std::size_t max_depth = 128;
     static constexpr std::size_t max_nodes = 250000;

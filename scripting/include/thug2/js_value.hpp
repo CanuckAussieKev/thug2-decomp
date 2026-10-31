@@ -1,5 +1,5 @@
 // NOT ORIGINAL - rich by-value QB data model for the optional QuickJS bridge.
-// Phase 2, issue #21: owning immutable acyclic containers and byte strings.
+// owning immutable acyclic containers and byte strings.
 // Reference tags 20/21 are deliberately not representable here; the codec
 // rejects them explicitly. This header must stay independent of QuickJS.
 #pragma once
