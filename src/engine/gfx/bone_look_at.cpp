@@ -25,7 +25,6 @@ namespace {
 
 using script::Struct;
 
-extern void** const kVtable;
 constexpr uint32_t kNoBone = 0xFFFFFFFF;
 constexpr uint32_t kSkeletonModuleName = 0x222756D5;
 // Member functions (names unknown)
@@ -164,12 +163,9 @@ maths::Vec4* __cdecl quat_to_euler(maths::Vec4* out, const maths::QuatRotation* 
 // --- the bones' look-at ------------------------------------------------------------------------------------------
 
 // 0x00488300
-BoneLookAt* BoneLookAt::make_new(void* owner, void* object)
+BoneLookAt::BoneLookAt(AnimTimeline* owner, void* object) : AnimDriver(owner)
 {
-    AnimDriver* base = reinterpret_cast<AnimDriver*>(this);
-    base->AnimDriver::make_new(static_cast<AnimTimeline*>(owner));
-    vtable = reinterpret_cast<void**>(kVtable);
-    owner_object_ = static_cast<uint8_t*>(owner ? static_cast<void*>(base->AnimDriver::fetch_subject()) : object);
+    owner_object_ = owner ? fetch_subject() : static_cast<objects::GameEntity*>(object);
     for (Bone& bone : bones_) {
         bone.active_ = false;
         bone.clamp_ = true;
@@ -183,23 +179,6 @@ BoneLookAt* BoneLookAt::make_new(void* owner, void* object)
         bone.pivot_dir_ = 0;
         bone.orientation_turn_ = {0.0f, 0.0f, 0.0f, 1.0f};
     }
-    return this;
-}
-
-// 0x00487D40
-void BoneLookAt::destroy_body()
-{
-    vtable = reinterpret_cast<void**>(kVtable);
-    reinterpret_cast<AnimDriver*>(this)->AnimDriver::destroy_body(); // (the base's)
-}
-
-// 0x004880D0
-BoneLookAt* BoneLookAt::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x00488100
@@ -222,8 +201,8 @@ void BoneLookAt::tick_frame()
 // 0x00488410
 bool BoneLookAt::get_apply(maths::QuatRotation* rotations)
 {
-    reinterpret_cast<void(__thiscall*)(BoneLookAt*)>(vtable[5])(this);
-    auto* object = reinterpret_cast<objects::GameEntity*>(owner_object_);
+    tick_frame();
+    objects::GameEntity* object = owner_object_;
     objects::ObjectModule* component = object->fetch_module(kSkeletonModuleName);
     auto* skeleton = component ? *reinterpret_cast<Rig**>(reinterpret_cast<uint8_t*>(component) + 0x18) : nullptr;
     for (Bone& bone : bones_) {
@@ -367,7 +346,7 @@ void BoneLookAt::configure(bool all, int index, Struct* params)
 // 0x00488B20
 void BoneLookAt::configure_from_data(Struct* params)
 {
-    reinterpret_cast<AnimDriver*>(this)->AnimDriver::configure_from_data(params); // (the base's: its id)
+    AnimDriver::configure_from_data(params); // (the base's: its id)
     configure(false, 0, params);
 }
 
@@ -454,16 +433,5 @@ void BoneLookAt::set_all_max(const maths::Vec4* max)
             bone.upper_limit_ = *max;
     }
 }
-
-namespace {
-static VtableSlot g_vtable_slots[] = {&gfx::BoneLookAt::teardown,
-                                      &gfx::BoneLookAt::get_apply,
-                                      stubs::ignore_argument,
-                                      &gfx::BoneLookAt::invoke_method_by_name,
-                                      &gfx::BoneLookAt::configure_from_data,
-                                      &gfx::BoneLookAt::tick_frame,
-                                      gfx::virtual_slot4_jump};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-} // namespace
 
 } // namespace gfx

@@ -32,14 +32,6 @@
 
 namespace gfx {
 
-namespace {
-extern void** const kCStandardAnimControllerVtable;
-extern void** const kCWeightedAnimControllerVtable;
-extern void** const kCWobbleControllerVtable;
-extern void** const kCPoseControllerVtable;
-extern void** const kCPartialAnimControllerVtable;
-} // namespace
-
 memory::PoolPair g_standard_pools; // (CBonedAnimController; script_startup.h)
 
 namespace {
@@ -82,8 +74,6 @@ double x87_sin(double angle)
 }
 
 // The base controller.
-void base_construct(AnimDriver* c, AnimTimeline* timeline) { c->AnimDriver::make_new(timeline); }
-void base_destroy_body(AnimDriver* c) { c->AnimDriver::destroy_body(); }
 void base_init(AnimDriver* c, Struct* params) { c->AnimDriver::configure_from_data(params); }
 // The object (the blend timeline's +0x64) and its skeleton (the Skeleton component's +0x18, or null).
 objects::GameEntity* object_of(AnimDriver* c) { return c->AnimDriver::fetch_subject(); }
@@ -173,13 +163,10 @@ memory::PoolPair& standard_pools() { return g_standard_pools; }
 
 } // namespace
 
-// 0x004A4610
-void AnimDriver::base_init_from_structure(script::Struct* params) { base_init(this, params); }
-
 // --- the standard controller ---------------------------------------------------------------------------------
 
 // 0x004A4F30
-void* StandardAnimController::operator new(size_t size, int)
+void* StandardAnimController::operator new(size_t size, int) noexcept
 {
     return standard_pools().carve(static_cast<unsigned int>(size));
 }
@@ -188,22 +175,18 @@ void* StandardAnimController::operator new(size_t size, int)
 void StandardAnimController::operator delete(void* item) { standard_pools().dealloc(item); }
 
 // 0x004A4500
-StandardAnimController* StandardAnimController::make_new(AnimTimeline* timeline)
+StandardAnimController::StandardAnimController(AnimTimeline* timeline) : AnimDriver(timeline)
 {
-    base_construct(this, timeline);
-    vtable_ = kCStandardAnimControllerVtable;
     blend_source_ = new_source();
     frame_source_ = source_frame(blend_source_, false);
     anim_set_ = current_anim_set(object_of(this));
     frame_source_ = nullptr;
     frame_index_ = -1;
-    return this;
 }
 
 // 0x004A4590
-void StandardAnimController::destroy_body()
+StandardAnimController::~StandardAnimController()
 {
-    vtable_ = kCStandardAnimControllerVtable;
     if (frame_source_)
         release_frame_index(frame_source_, frame_index_);
     if (blend_source_) {
@@ -211,16 +194,6 @@ void StandardAnimController::destroy_body()
         blend_source_ = nullptr;
     }
     frame_source_ = nullptr;
-    base_destroy_body(this);
-}
-
-// 0x004A55E0
-StandardAnimController* StandardAnimController::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        operator delete(this);
-    return this;
 }
 
 // 0x004A4F70
@@ -291,38 +264,25 @@ void StandardAnimController::tick_frame()
 // --- the weighted controller ---------------------------------------------------------------------------------
 
 // 0x004A5010
-WeightedAnimController* WeightedAnimController::make_new(AnimTimeline* timeline, objects::GameEntity* object)
+WeightedAnimController::WeightedAnimController(AnimTimeline* timeline, objects::GameEntity* object)
+    : AnimDriver(timeline)
 {
-    base_construct(this, timeline);
-    vtable_ = kCWeightedAnimControllerVtable;
     owner_object_ = timeline ? object_of(this) : object;
     blend_source_ = new_source();
     frame_source_ = source_frame(blend_source_, false);
     anim_set_ = current_anim_set(owner_object_);
     frame_source_ = nullptr;
     weight_ = 0.0f;
-    return this;
 }
 
 // 0x004A4820
-void WeightedAnimController::destroy_body()
+WeightedAnimController::~WeightedAnimController()
 {
-    vtable_ = kCWeightedAnimControllerVtable;
     if (blend_source_) {
         free_source(blend_source_);
         blend_source_ = nullptr;
     }
     frame_source_ = nullptr;
-    base_destroy_body(this);
-}
-
-// 0x004A50B0
-WeightedAnimController* WeightedAnimController::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x004A5660
@@ -390,38 +350,24 @@ int WeightedAnimController::invoke_method_by_name(uint32_t name, script::Struct*
 // --- the wobble controller -----------------------------------------------------------------------------------
 
 // 0x004A49F0
-WobbleDriver* WobbleDriver::make_new(AnimTimeline* timeline)
+WobbleDriver::WobbleDriver(AnimTimeline* timeline) : AnimDriver(timeline)
 {
-    base_construct(this, timeline);
-    vtable_ = kCWobbleControllerVtable;
     aim_point_ = 0.0f;
     amp_a_ = amp_b_ = k1_ = k2_ = spaz_factor_ = 0.0f;
     blend_source_ = new_source();
     frame_source_ = source_frame(blend_source_, false);
     anim_set_ = current_anim_set(object_of(this));
-    return this;
 }
 
 // 0x004A4A80
-void WobbleDriver::destroy_body()
+WobbleDriver::~WobbleDriver()
 {
-    vtable_ = kCWobbleControllerVtable;
     if (blend_source_) {
         free_source(blend_source_);
         blend_source_ = nullptr;
     }
     if (frame_source_)
         frame_source_ = nullptr;
-    base_destroy_body(this);
-}
-
-// 0x004A50E0
-WobbleDriver* WobbleDriver::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x004A5110
@@ -521,10 +467,8 @@ void WobbleDriver::tick_frame()
 // --- the pose controller -------------------------------------------------------------------------------------
 
 // 0x004A5730
-StanceDriver* StanceDriver::make_new(AnimTimeline* timeline)
+StanceDriver::StanceDriver(AnimTimeline* timeline) : AnimDriver(timeline)
 {
-    base_construct(this, timeline);
-    vtable_ = kCPoseControllerVtable;
     auto* rotations = reinterpret_cast<float*>(stance_);
     for (int i = 0; i < 64; ++i) {
         rotations[i * 4 + 0] = 0.0f;
@@ -532,24 +476,10 @@ StanceDriver* StanceDriver::make_new(AnimTimeline* timeline)
         rotations[i * 4 + 2] = 0.0f;
         rotations[i * 4 + 3] = 1.0f;
     }
-    return this;
 }
 
 // 0x004A4D20
-void StanceDriver::destroy_body()
-{
-    vtable_ = kCPoseControllerVtable;
-    base_destroy_body(this);
-}
-
-// 0x004A5320
-StanceDriver* StanceDriver::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
-}
+StanceDriver::~StanceDriver() {}
 
 // 0x004A4D30
 bool StanceDriver::fetch_pose(uint8_t* pose)
@@ -561,23 +491,19 @@ bool StanceDriver::fetch_pose(uint8_t* pose)
 // --- the partial animation controller ------------------------------------------------------------------------
 
 // 0x004A5350
-PartialClipDriver* PartialClipDriver::make_new(AnimTimeline* timeline)
+PartialClipDriver::PartialClipDriver(AnimTimeline* timeline) : AnimDriver(timeline)
 {
-    base_construct(this, timeline);
-    vtable_ = kCPartialAnimControllerVtable;
     blend_source_ = new_source();
     frame_source_ = source_frame(blend_source_, false);
     anim_set_ = current_anim_set(object_of(this));
     void* memory = memory::alloc_zeroed(sizeof(AnimTimeline));
     partial_ = memory ? static_cast<AnimTimeline*>(memory)->make_new() : nullptr;
     frame_source_ = nullptr;
-    return this;
 }
 
 // 0x004A4D50
-void PartialClipDriver::destroy_body()
+PartialClipDriver::~PartialClipDriver()
 {
-    vtable_ = kCPartialAnimControllerVtable;
     if (blend_source_) {
         free_source(blend_source_);
         blend_source_ = nullptr;
@@ -588,16 +514,6 @@ void PartialClipDriver::destroy_body()
     }
     if (frame_source_)
         frame_source_ = nullptr;
-    base_destroy_body(this);
-}
-
-// 0x004A5400
-PartialClipDriver* PartialClipDriver::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x004A5430
@@ -682,45 +598,6 @@ void PartialClipDriver::tick_frame()
     if (partial_->ongoing_ < before)
         frame_source_ = source_frame(blend_source_, false);
 }
-
-namespace {
-static VtableSlot g_c_standard_anim_controller_vtable_slots[] = {&StandardAnimController::teardown,
-                                                                 &StandardAnimController::fetch_pose,
-                                                                 stubs::ignore_argument,
-                                                                 &StandardAnimController::invoke_method_by_name,
-                                                                 &AnimDriver::base_init_from_structure,
-                                                                 &StandardAnimController::tick_frame};
-void** const kCStandardAnimControllerVtable = reinterpret_cast<void**>(g_c_standard_anim_controller_vtable_slots);
-static VtableSlot g_c_weighted_anim_controller_vtable_slots[] = {&WeightedAnimController::teardown,
-                                                                 &WeightedAnimController::fetch_pose,
-                                                                 stubs::ignore_argument,
-                                                                 &WeightedAnimController::invoke_method_by_name,
-                                                                 &AnimDriver::base_init_from_structure,
-                                                                 stubs::do_nothing};
-void** const kCWeightedAnimControllerVtable = reinterpret_cast<void**>(g_c_weighted_anim_controller_vtable_slots);
-static VtableSlot g_c_wobble_controller_vtable_slots[] = {&WobbleDriver::teardown,
-                                                          &WobbleDriver::fetch_pose,
-                                                          stubs::ignore_argument,
-                                                          &WobbleDriver::invoke_method_by_name,
-                                                          &AnimDriver::base_init_from_structure,
-                                                          &WobbleDriver::tick_frame};
-void** const kCWobbleControllerVtable = reinterpret_cast<void**>(g_c_wobble_controller_vtable_slots);
-static VtableSlot g_c_pose_controller_vtable_slots[] = {
-    &StanceDriver::teardown,
-    &StanceDriver::fetch_pose,
-    stubs::ignore_argument,
-    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name,
-    &AnimDriver::base_init_from_structure,
-    stubs::do_nothing};
-void** const kCPoseControllerVtable = reinterpret_cast<void**>(g_c_pose_controller_vtable_slots);
-static VtableSlot g_c_partial_anim_controller_vtable_slots[] = {&PartialClipDriver::teardown,
-                                                                &PartialClipDriver::fetch_pose,
-                                                                stubs::ignore_argument,
-                                                                &PartialClipDriver::invoke_method_by_name,
-                                                                &PartialClipDriver::configure_from_data,
-                                                                &PartialClipDriver::tick_frame};
-void** const kCPartialAnimControllerVtable = reinterpret_cast<void**>(g_c_partial_anim_controller_vtable_slots);
-} // namespace
 
 } // namespace gfx
 

@@ -17,9 +17,7 @@ class Struct;
 // derive from the base controller (AnimDriver: vtable 0x0064877C, constructed by 0x00481710; e.g. its
 // configure_from_data 0x00481740 reads `id`).
 //
-// Vtable slots: 0 the scalar deleting destructor, 1 fetch_pose(pose), 2 (0x005BAB90: ignores its argument),
-// 3 invoke_method_by_name(name, params, script) -> 0 false / 1 handled / 2 not its own, 4 configure_from_data(params),
-// 5 Update (once a frame).
+// Their tables' slot 2 is the shared 0x005BAB90 (ignores its argument) in every one: left out.
 namespace gfx {
 
 // The animation timeline a controller plays on (vtable 0x00648768; 0x00481650 constructs one): an animation
@@ -68,54 +66,63 @@ static_assert(offsetof(AnimTimeline, outset_) == 0x14 && offsetof(AnimTimeline, 
                   sizeof(AnimTimeline) == 0x34,
               "layout must match the original");
 
-// The base controller's fields.
-struct AnimDriver {
-    void** vtable_;
-    AnimTimeline* timeline_ptr_;        // +0x04 (the timeline of the blender channel it belongs to)
-    objects::GameEntity* owner_object_; // +0x08 (set by some controllers only; fetch_subject asks the channel)
-    int rank_;                          // +0x0C
-    uint32_t ident_;                    // +0x10
+// The base controller (vtable 0x0064877C). Zeroed memory from the current heap (the standard controller has pools
+// of its own).
+class AnimDriver {
+public:
+    static void* operator new(std::size_t size) noexcept;
+    static void operator delete(void* memory);
 
-    // 0x00481710: on `timeline`, no object, priority 0, id 0 (vtable 0x0064877C). Returns this.
-    AnimDriver* make_new(AnimTimeline* timeline);
-    // 0x00481730: the base's vtable back (its destructor body). 0x004817A0 (slot 0): that, then freed.
-    void destroy_body();
-    AnimDriver* teardown(uint8_t flags);
-    // 0x00481740 (slot 4): `id` (0x40C698AF) from the parameters (read_hash_value's result).
-    bool configure_from_data(script::Struct* params);
+    // 0x00481710: on `timeline`, no object, priority 0, id 0.
+    explicit AnimDriver(AnimTimeline* timeline);
+    // 0x00481730 / 0x004817A0: nothing to do.
+    virtual ~AnimDriver() = default;
+    AnimDriver(const AnimDriver&) = delete;
+    AnimDriver& operator=(const AnimDriver&) = delete;
+
+    // Slot 1: the controller's part of the pose (64 rotations at +0, 64 translations at +0x400). False in the base.
+    virtual bool fetch_pose(uint8_t* /*pose*/) { return false; }
+    // Slot 3: a script member function: 0 false / 1 handled / 2 not its own (the base's: 0x0051ADC0, every name not
+    // its own).
+    virtual int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    // 0x00481740 (slot 4; 0x004A4610 in most controllers' tables is a jump to it): `id` (0x40C698AF) from the
+    // parameters.
+    virtual void configure_from_data(script::Struct* params);
+    // Slot 5: once a frame (nothing in the base).
+    virtual void tick_frame() {}
+
     // 0x00481760: the object its timeline (a blend timeline) belongs to.
     objects::GameEntity* fetch_subject();
     // 0x00481770: the object's skeleton component (0x222756D5)'s skeleton (0x005480F0: its +0x18), or null.
     uint8_t* fetch_rig();
 
-    // 0x004A4610 (slot 4 of the controllers without one of their own): a jump to the base's configure_from_data
-    // (0x00481740).
-    void base_init_from_structure(script::Struct* params);
+    AnimTimeline* timeline_ptr_;        // +0x04 (the timeline of the blender channel it belongs to)
+    objects::GameEntity* owner_object_; // +0x08 (set by some controllers only; fetch_subject asks the channel)
+    int rank_;                          // +0x0C
+    uint32_t ident_;                    // +0x10
 };
 static_assert(sizeof(AnimDriver) == 0x14, "layout must match the original");
 
 // The standard controller (type 0xCB4533FF, vtable 0x00649F50, 0x28 bytes from its own item pools 0x00701430):
 // plays an animation of the object's anim set on the channel's timeline.
-class StandardAnimController : public AnimDriver {
+class StandardAnimController final : public AnimDriver {
 public:
     // 0x004A4500: on `timeline`; a frame source of its own (0x0048BFC0), the object's anim set (the blender's
-    // 0x00419AB0); no frame, no frame index (-1). Returns this.
-    StandardAnimController* make_new(AnimTimeline* timeline);
+    // 0x00419AB0); no frame, no frame index (-1).
+    explicit StandardAnimController(AnimTimeline* timeline);
     // 0x004A4590: the frame's index let go, the frame source freed, then the base's.
-    void destroy_body();
-    // 0x004A55E0 (slot 0): back to the item pools.
-    StandardAnimController* teardown(uint8_t flags);
+    ~StandardAnimController() override;
     // 0x004A4F70 (slot 1)
-    bool fetch_pose(uint8_t* pose);
+    bool fetch_pose(uint8_t* pose) override;
     // 0x004A4670 (slot 3): PlayAnim (0xAF2FAE19: AnimName, StartTime, EndTime, RepeatMode, BlendPeriod, Speed),
     // 0xC68365EB (a new frame source for Anim), 0x92267217 (0x00485270 with the global 0x006F92B0's +0xD4),
     // stale_cache (refetches, then 2).
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
     // 0x004A4620 (slot 5): the timeline steps; events between the two times; looping back refetches the frame.
-    void tick_frame();
+    void tick_frame() override;
 
     // 0x004A4F30 / 0x004A5600: the class's operator new / delete (its item pools).
-    static void* operator new(size_t size, int unused);
+    static void* operator new(size_t size, int unused) noexcept;
     static void operator delete(void* item);
     static void operator delete(void* item, int) { operator delete(item); }
 
@@ -129,19 +136,17 @@ static_assert(sizeof(StandardAnimController) == 0x28, "layout must match the ori
 
 // The 0x7E1940A1 controller (vtable 0x00649F68, 0x24 bytes): an animation of the object's anim set blended in
 // with a weight, without a timeline of its own.
-class WeightedAnimController : public AnimDriver {
+class WeightedAnimController final : public AnimDriver {
 public:
-    // 0x004A5010: on `timeline`; the object is the channel's (or `object` without a timeline). Returns this.
-    WeightedAnimController* make_new(AnimTimeline* timeline, objects::GameEntity* object);
+    // 0x004A5010: on `timeline`; the object is the channel's (or `object` without a timeline).
+    WeightedAnimController(AnimTimeline* timeline, objects::GameEntity* object);
     // 0x004A4820
-    void destroy_body();
-    // 0x004A50B0 (slot 0)
-    WeightedAnimController* teardown(uint8_t flags);
+    ~WeightedAnimController() override;
     // 0x004A5660 (slot 1): nothing (false) without a frame or with a weight of 0 or less.
-    bool fetch_pose(uint8_t* pose);
+    bool fetch_pose(uint8_t* pose) override;
     // 0x004A4890 (slot 3): 0xAF2FAE19 / 0x5E3F0F17 (the animation 0xD697A799 or AnimName, the weight
     // 0xC6AE16AC), 0xC68365EB, stale_cache.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     void* frame_source_; // +0x14
     void* blend_source_; // +0x18
@@ -152,21 +157,19 @@ static_assert(sizeof(WeightedAnimController) == 0x24, "layout must match the ori
 
 // The wobble controller (type "wobble", vtable 0x00649F80, 0x38 bytes): plays the timeline's animation around a
 // target time, swinging by two sines of the game clock (SetWobbleDetails).
-class WobbleDriver : public AnimDriver {
+class WobbleDriver final : public AnimDriver {
 public:
     // 0x004A49F0
-    WobbleDriver* make_new(AnimTimeline* timeline);
+    explicit WobbleDriver(AnimTimeline* timeline);
     // 0x004A4A80
-    void destroy_body();
-    // 0x004A50E0 (slot 0)
-    WobbleDriver* teardown(uint8_t flags);
+    ~WobbleDriver() override;
     // 0x004A5110 (slot 1)
-    bool fetch_pose(uint8_t* pose);
+    bool fetch_pose(uint8_t* pose) override;
     // 0x004A4AF0 (slot 3): PlayAnim, 0xD0209498 (the target as a fraction 0xD747FA0 of the timeline, 0..1),
     // SetWobbleDetails (all five or nothing), stale_cache.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
     // 0x004A52E0 (slot 5)
-    void tick_frame();
+    void tick_frame() override;
     // 0x004A5180: the time to show now (ST0).
     float wobble_time();
 
@@ -183,16 +186,14 @@ public:
 static_assert(sizeof(WobbleDriver) == 0x38, "layout must match the original");
 
 // The pose controller (type "pose", vtable 0x00649F98, 0x854 bytes): a fixed pose (identity rotations).
-class StanceDriver : public AnimDriver {
+class StanceDriver final : public AnimDriver {
 public:
     // 0x004A5730
-    StanceDriver* make_new(AnimTimeline* timeline);
+    explicit StanceDriver(AnimTimeline* timeline);
     // 0x004A4D20
-    void destroy_body();
-    // 0x004A5320 (slot 0)
-    StanceDriver* teardown(uint8_t flags);
+    ~StanceDriver() override;
     // 0x004A4D30 (slot 1): its pose copied out.
-    bool fetch_pose(uint8_t* pose);
+    bool fetch_pose(uint8_t* pose) override;
 
     uint8_t stance_[0x840]; // +0x14 (64 rotations, then the rest)
 };
@@ -200,23 +201,21 @@ static_assert(sizeof(StanceDriver) == 0x854, "layout must match the original");
 
 // The partial animation controller (type "partialAnim", vtable 0x00649FB0, 0x24 bytes): a second animation on a
 // timeline of its own.
-class PartialClipDriver : public AnimDriver {
+class PartialClipDriver final : public AnimDriver {
 public:
     // 0x004A5350
-    PartialClipDriver* make_new(AnimTimeline* timeline);
+    explicit PartialClipDriver(AnimTimeline* timeline);
     // 0x004A4D50
-    void destroy_body();
-    // 0x004A5400 (slot 0)
-    PartialClipDriver* teardown(uint8_t flags);
+    ~PartialClipDriver() override;
     // 0x004A5430 (slot 1)
-    bool fetch_pose(uint8_t* pose);
+    bool fetch_pose(uint8_t* pose) override;
     // 0x004A54A0 (slot 3): 0x6AAEB76F (a step of 0x06C9F278 frames), 0xBD4EDD44 (Speed), GetPartialAnimParams,
     // 0xF5E2B871 (reverses), stale_cache.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
     // 0x004A4DD0 (slot 4): the base's, then AnimName's times, loop type, Speed and Current on its timeline.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x004A4EF0 (slot 5)
-    void tick_frame();
+    void tick_frame() override;
 
     AnimTimeline* partial_; // +0x14 its own timeline
     void* blend_source_;    // +0x18

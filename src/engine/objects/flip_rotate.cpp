@@ -21,54 +21,22 @@ namespace objects {
 
 namespace {
 
-extern void** const kVtable;
-
-// The base component (no source yet).
-void construct_base(FlipRotateComponent* component, void* object)
-{
-    reinterpret_cast<gfx::AnimDriver*>(component)->make_new(static_cast<gfx::AnimTimeline*>(object));
-}
-void destroy_base(FlipRotateComponent* component) { reinterpret_cast<gfx::AnimDriver*>(component)->destroy_body(); }
-void init_base_from_structure(FlipRotateComponent* component, script::Struct* params)
-{
-    reinterpret_cast<gfx::AnimDriver*>(component)->configure_from_data(params);
-}
-
 constexpr uint32_t kFlipped = 0x0C7A712C; // "flipped"
 constexpr uint32_t kRotated = 0x6EA3704A; // "rotated"
 
 } // namespace
 
 // 0x004E2C50
-FlipRotateComponent* FlipRotateComponent::make_new(void* object)
+FlipRotateComponent::FlipRotateComponent(gfx::AnimTimeline* timeline) : AnimDriver(timeline)
 {
-    construct_base(this, object);
     mirrored_ = false;
     has_pivoted_ = false;
-    vtable_ = kVtable;
-    return this;
-}
-
-// 0x004E2C80
-void FlipRotateComponent::destroy_body()
-{
-    vtable_ = kVtable;
-    destroy_base(this);
-}
-
-// 0x004E2CF0
-FlipRotateComponent* FlipRotateComponent::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x004E2C90
 void FlipRotateComponent::configure_from_data(script::Struct* params)
 {
-    init_base_from_structure(this, params);
+    AnimDriver::configure_from_data(params);
     int value;
     if (params->fetch_int_value(kFlipped, &value, 0))
         mirrored_ = value != 0;
@@ -80,9 +48,9 @@ void FlipRotateComponent::configure_from_data(script::Struct* params)
 bool FlipRotateComponent::fetch_pose(uint8_t* pose)
 {
     // The controller's skeleton and object (the base controller's; not rewritten yet).
-    uint8_t* skeleton = reinterpret_cast<gfx::AnimDriver*>(this)->fetch_rig();
+    uint8_t* skeleton = fetch_rig();
     void* bones = *reinterpret_cast<void**>(skeleton + 8);
-    auto* object = reinterpret_cast<gfx::AnimDriver*>(this)->fetch_subject();
+    auto* object = fetch_subject();
     ObjectModule* flip_and_rotate = object->fetch_module(0x488AF07A);
     if (flip_and_rotate && reinterpret_cast<uint8_t*>(flip_and_rotate)[0x18]) {
         int bone = reinterpret_cast<gfx::Rig*>(skeleton)->fetch_bone_slot(0x98971FAF);
@@ -122,18 +90,4 @@ bool FlipRotateComponent::fetch_pose(uint8_t* pose)
     return true;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {&objects::FlipRotateComponent::teardown,
-                                      &objects::FlipRotateComponent::fetch_pose,
-                                      stubs::ignore_argument,
-                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name,
-                                      &objects::FlipRotateComponent::configure_from_data,
-                                      stubs::do_nothing};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

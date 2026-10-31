@@ -1,6 +1,7 @@
 // An animation's custom keys (see custom_anim_key.h). From the disassembly of 0x004860C0-0x00486875.
 
 #include <cstdint>
+#include <cstring>
 
 #include "engine/gfx/custom_anim_key.h"
 
@@ -11,22 +12,10 @@
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
-#include "engine/core/game_vtables.h"
-#include "game/save_cards/memcard.h"
 
 namespace gfx {
 
 namespace {
-
-void** const& g_base_vtable = vt::kAnimEventBase;
-void** const& g_script_key_vtable = vt::kVtblAnimCue;
-extern void** const kFovVtable;
-extern void** const kScriptVtable;
-extern void** const kMarkerVtable; // (kind 3: no data; its Process is the shared "true" 0x005BC7F0)
-extern void** const kStructureVtable;
-extern void** const kKillVtable;
-extern void** const kCameraVtable;
 
 constexpr uint32_t kDebugGlobal = 0x2F510F45;     // (a script global each Process reads - and ignores)
 constexpr uint32_t kSetHfovRadians = 0x44EA2B6D;  // the camera's member function (name unknown)
@@ -36,20 +25,12 @@ constexpr uint32_t kName = 0xA1DC81F9;            // name
 // Each Process reads the global 0x2F510F45 first (compiled-out debug output, presumably).
 void read_debug_global() { script::fetch_int_value(kDebugGlobal); }
 
-// A key of `size` bytes with its frame, inactive (from memory::alloc; null without memory).
-template <typename T>
-T* new_key(void** vtable, int frame, uint32_t size = sizeof(T))
-{
-    auto* key = static_cast<T*>(memory::alloc(size));
-    if (!key)
-        return nullptr;
-    key->tick_ = frame;
-    key->armed_ = false;
-    key->vtable_ = vtable;
-    return key;
-}
-
 } // namespace
+
+void* UserClipKey::operator new(std::size_t size) noexcept { return memory::alloc(static_cast<unsigned int>(size)); }
+void UserClipKey::operator delete(void* memory) { memory::dealloc(memory); }
+void* UserClipKey::operator new[](std::size_t size) noexcept { return memory::alloc(static_cast<unsigned int>(size)); }
+void UserClipKey::operator delete[](void* memory) { memory::dealloc(memory); }
 
 // 0x004860C0
 bool UserClipKey::inside_range(float start, float end, bool inclusive)
@@ -74,16 +55,7 @@ bool UserClipKey::process_if_active(void* object)
     if (!armed_)
         return false;
     armed_ = false;
-    return reinterpret_cast<bool(__thiscall*)(UserClipKey*, void*)>(vtable_[2])(this, object);
-}
-
-// 0x00486460
-UserClipKey* UserClipKey::teardown(unsigned int flags)
-{
-    reinterpret_cast<AnimEventBase*>(this)->destroy_body(); // (the base's destructor body: its vtable)
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
+    return work_on(object);
 }
 
 // 0x004868A0
@@ -136,11 +108,9 @@ bool KillObjectKey::work_on(void*)
 }
 
 // 0x00486490
-CameraKey* CameraKey::make_new(int frame, const maths::QuatRotation* rotation, const maths::Vec4* pos, bool cut)
+CameraKey::CameraKey(int frame, const maths::QuatRotation* rotation, const maths::Vec4* pos, bool cut)
+    : UserClipKey(frame)
 {
-    tick_ = frame;
-    armed_ = false;
-    vtable_ = kCameraVtable;
     orientation_turn_ = {0.0f, 0.0f, 0.0f, 1.0f};
     maths::Vec4 axis = {1.0f, 0.0f, 0.0f, 1.0f};
     maths::QuatRotation quarter_turn;
@@ -153,7 +123,6 @@ CameraKey* CameraKey::make_new(int frame, const maths::QuatRotation* rotation, c
     at_point_.z = -pos->y;
     at_point_.w = 1.0f;
     cut_ = cut;
-    return this;
 }
 
 // 0x004861D0
@@ -201,15 +170,13 @@ void AnimScriptKey::assign_value(int frame, uint32_t event, script::Struct* para
 }
 
 // 0x00486560
-void AnimScriptKey::destroy_body()
+AnimScriptKey::~AnimScriptKey()
 {
-    vtable_ = g_script_key_vtable;
     if (script::Struct* params = call_args_) {
         params->get_clear();
         script::delete_struct(params);
         call_args_ = nullptr;
     }
-    vtable_ = g_base_vtable;
 }
 
 // 0x00486440
@@ -232,11 +199,9 @@ UserClipKey* __cdecl create_custom_anim_key(const uint8_t** cursor)
     case 1: {
         uint32_t fov = *data;
         *cursor = reinterpret_cast<const uint8_t*>(data + 1);
-        auto* key = new_key<CameraFovKey>(kFovVtable, frame);
-        if (!key)
-            return nullptr;
-        *reinterpret_cast<uint32_t*>(&key->field_of_view_) = fov;
-        return key;
+        float field_of_view;
+        std::memcpy(&field_of_view, &fov, sizeof(field_of_view));
+        return new CameraFovKey(frame, field_of_view);
     }
     case 2:
     case 7: {
@@ -244,52 +209,28 @@ UserClipKey* __cdecl create_custom_anim_key(const uint8_t** cursor)
         *cursor = reinterpret_cast<const uint8_t*>(data + 4);
         maths::QuatRotation rotation = *reinterpret_cast<const maths::QuatRotation*>(data + 4);
         *cursor = reinterpret_cast<const uint8_t*>(data + 8);
-        auto* key = static_cast<CameraKey*>(memory::alloc(sizeof(CameraKey)));
-        if (!key)
-            return nullptr;
-        return key->make_new(frame, &rotation, &pos, kind == 7);
+        return new CameraKey(frame, &rotation, &pos, kind == 7);
     }
     case 3: {
         *cursor = reinterpret_cast<const uint8_t*>(data + 8); // (32 bytes skipped)
-        return new_key<UserClipKey>(kMarkerVtable, frame);
+        return new MarkerKey(frame);
     }
     case 4:
     case 5:
     case 6: {
         uint32_t value = *data;
         *cursor = reinterpret_cast<const uint8_t*>(data + 1);
-        void** vtables[] = {kScriptVtable, kStructureVtable, kKillVtable};
-        auto* key = new_key<ScriptKey>(vtables[kind - 4], frame);
-        if (!key)
-            return nullptr;
-        key->own_script_ = value; // (each kind's one word)
-        return key;
+        // (each kind's one word)
+        if (kind == 4)
+            return new ScriptKey(frame, value);
+        if (kind == 5)
+            return new StructureScriptKey(frame, value);
+        return new KillObjectKey(frame, value);
     }
     default:
         *cursor = reinterpret_cast<const uint8_t*>(data) + size;
         return nullptr;
     }
 }
-
-namespace {
-static VtableSlot g_fov_vtable_slots[] = {&gfx::UserClipKey::teardown, &gfx::UserClipKey::inside_range,
-                                          &gfx::CameraFovKey::work_on};
-void** const kFovVtable = reinterpret_cast<void**>(g_fov_vtable_slots);
-static VtableSlot g_script_vtable_slots[] = {&gfx::UserClipKey::teardown, &gfx::UserClipKey::inside_range,
-                                             &gfx::ScriptKey::work_on};
-void** const kScriptVtable = reinterpret_cast<void**>(g_script_vtable_slots);
-static VtableSlot g_marker_vtable_slots[] = {&gfx::UserClipKey::teardown, &gfx::UserClipKey::inside_range,
-                                             &save_cards::SaveCard::always_true};
-void** const kMarkerVtable = reinterpret_cast<void**>(g_marker_vtable_slots);
-static VtableSlot g_structure_vtable_slots[] = {&gfx::UserClipKey::teardown, &gfx::UserClipKey::inside_range,
-                                                &gfx::StructureScriptKey::work_on};
-void** const kStructureVtable = reinterpret_cast<void**>(g_structure_vtable_slots);
-static VtableSlot g_kill_vtable_slots[] = {&gfx::UserClipKey::teardown, &gfx::UserClipKey::inside_range,
-                                           &gfx::KillObjectKey::work_on};
-void** const kKillVtable = reinterpret_cast<void**>(g_kill_vtable_slots);
-static VtableSlot g_camera_vtable_slots[] = {&gfx::UserClipKey::teardown, &gfx::CameraKey::inside_range,
-                                             &gfx::CameraKey::work_on};
-void** const kCameraVtable = reinterpret_cast<void**>(g_camera_vtable_slots);
-} // namespace
 
 } // namespace gfx

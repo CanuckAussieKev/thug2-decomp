@@ -15,8 +15,6 @@ extern void** const kBlenderChannelNode; // 0x00645D84: gfx/anim_channel.cpp
 extern void** const kProjectionNode;     // 0x00646600: gfx/engine_texture_projection.cpp
 extern void** const kAnimListNode;       // 0x006486CC: gfx/anim_channel.cpp
 extern void** const kAnimTrack;          // 0x00648794: gfx/anim_track.cpp
-extern void** const kAnimEventBase;      // 0x006487B0: gfx/anim_track.cpp
-extern void** const kVtblAnimCue;        // 0x006487BC: gfx/anim_track.cpp
 extern void** const kEngineParticles;    // 0x00649380: gfx/particles.cpp
 extern void** const kParticleNode;       // 0x00649420: gfx/particle_system.cpp
 extern void** const kModelParticlesNode; // 0x0064949C: gfx/particle_system.cpp

@@ -69,18 +69,8 @@ void cache_release(void* cache, JointClipFrames* data, int index)
     static_cast<ClipStore*>(cache)->remove_user(reinterpret_cast<uint32_t>(data), index);
 }
 // The events' arming and firing.
-void arm_event(TimedClipEvent* e, bool armed) { reinterpret_cast<UserClipKey*>(e)->change_live(armed); }
-bool fire_event(TimedClipEvent* e, void* target)
-{
-    return reinterpret_cast<UserClipKey*>(e)->process_if_active(target);
-}
-
-template <typename R, typename... A>
-R Virtual(void* object, int slot, A... args)
-{
-    void** vtable = *static_cast<void***>(object);
-    return reinterpret_cast<R(__thiscall*)(void*, A...)>(vtable[slot])(object, args...);
-}
+void arm_event(UserClipKey* e, bool armed) { e->change_live(armed); }
+bool fire_event(UserClipKey* e, void* target) { return e->process_if_active(target); }
 
 uint16_t reference_bits(uint16_t bits, int change)
 {
@@ -444,8 +434,7 @@ JointClipFrames* JointClipFrames::make_new()
 void JointClipFrames::destroy_body()
 {
     for (int i = 0; i < event_count_; ++i) {
-        if (TimedClipEvent* event = events_ptr_[i])
-            Virtual<void*>(event, 0, 1);
+        delete events_ptr_[i];
     }
     if (events_ptr_)
         memory::free_malloc(events_ptr_);
@@ -498,8 +487,8 @@ bool JointClipFrames::fire_events(float from, float to, void* target, int flag)
     float to_frame = static_cast<float>(static_cast<double>(to) * 60.0);
     int count = event_count_;
     for (int i = 0; i < count; ++i) {
-        TimedClipEvent* event = events_ptr_[i];
-        if (Virtual<bool>(event, 1, from_frame, to_frame, flag))
+        UserClipKey* event = events_ptr_[i];
+        if (event->inside_range(from_frame, to_frame, flag != 0))
             fire_event(event, target);
     }
     return true;
@@ -795,10 +784,7 @@ uint8_t* past_bone_bits(uint8_t* p)
     return p + ((count - 1) / 32) * 4 + 8;
 }
 // An event made from the data at `*at` (0x00486680, not rewritten here), which it moves past.
-TimedClipEvent* read_event(uint8_t** at)
-{
-    return reinterpret_cast<TimedClipEvent*>(create_custom_anim_key(const_cast<const uint8_t**>(at)));
-}
+UserClipKey* read_event(uint8_t** at) { return create_custom_anim_key(const_cast<const uint8_t**>(at)); }
 
 } // namespace
 
@@ -810,9 +796,9 @@ bool JointClipFrames::read_events(const uint32_t* header, uint8_t* at)
         event_count_ = static_cast<int16_t>(header[3]);
         return true;
     }
-    events_ptr_ = static_cast<TimedClipEvent**>(memory::alloc_block(header[3] * 4));
+    events_ptr_ = static_cast<UserClipKey**>(memory::alloc_block(header[3] * 4));
     for (uint32_t i = 0; i < header[3]; ++i) {
-        TimedClipEvent* event = read_event(&at);
+        UserClipKey* event = read_event(&at);
         if (!event)
             return false;
         events_ptr_[i] = event;

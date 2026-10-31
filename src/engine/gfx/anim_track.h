@@ -13,6 +13,7 @@
 #include <cstdint>
 
 #include "engine/gfx/anim_controller.h"
+#include "engine/gfx/custom_anim_key.h"
 
 namespace memory {
 struct PoolPair;
@@ -27,39 +28,9 @@ class Struct;
 
 namespace gfx {
 
-// An animation event (0x14 bytes; vtable 0x006487BC, its base's 0x006487B0): at a frame of the animation, an event
-// type with parameters, sent to the object once the timeline passes it while armed. 0x00481A20 constructs one;
-// 0x004865D0 sets it up (frame, type, a copy of the parameters), 0x00486150 arms / disarms it, 0x00486160 fires it
-// (if armed: disarmed, then its slot 2 with the object), 0x00486560 is its destructor body; slot 1 (0x004860C0)
-// says whether it lies between two times.
-class TimedClipEvent {
-public:
-    // 0x00481A20: the event's vtable, no parameters. Returns this.
-    TimedClipEvent* make_new();
-    // 0x00481DB0 (slot 0): the vector deleting destructor - `flags` 2: the whole array this starts (its count in
-    // the word before it) destroyed last to first, 1: freed.
-    TimedClipEvent* teardown(uint8_t flags);
-
-    void** vtable_;
-    int tick_;   // +0x04
-    bool armed_; // +0x08
-    uint8_t pad09_[3];
-    uint32_t kind_tag_;         // +0x0C
-    script::Struct* call_args_; // +0x10
-};
-static_assert(sizeof(TimedClipEvent) == 0x14 && offsetof(TimedClipEvent, call_args_) == 0x10,
-              "layout must match the original");
-
-// The events' base (vtable 0x006487B0: slot 2 pure).
-class AnimEventBase {
-public:
-    // 0x004819F0 (slot 0): the base's vtable; freed with `flags` 1. Returns this.
-    AnimEventBase* teardown(uint8_t flags);
-    // 0x004819E0: the base's vtable back (its destructor body; UserClipKey's and TimedClipEvent's call it).
-    void destroy_body();
-
-    void** vtable_;
-};
+// An animation event: gfx::AnimScriptKey (custom_anim_key.h) - at a frame of the animation, an event type with
+// parameters, sent to the object once the timeline passes it while armed.
+using TimedClipEvent = AnimScriptKey;
 
 class AnimTrack : public AnimTimeline {
 public:

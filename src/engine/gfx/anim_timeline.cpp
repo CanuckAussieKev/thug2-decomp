@@ -25,8 +25,6 @@ namespace {
 extern void** const kTimelineVtable;
 void** const& g_list_node_vtable = vt::kAnimListNode; // (the channel list's node type)
 void** const& g_blend_timeline_vtable = vt::kAnimTrack;
-extern void** const kControllerVtable;
-void** const& g_event_vtable = vt::kAnimEventBase;
 constexpr uint32_t kNoAnim = 0xF60C9090;         // Unassigned
 constexpr uint32_t kId = 0x40C698AF;             // id
 constexpr uint32_t kSkeleton = 0x222756D5;       // skeleton
@@ -52,12 +50,6 @@ void get_clear(AnimTimeline* t)
     t->repeat_mode_ = AnimTimeline::kCycle;
     t->complete_ = false;
     t->anim_ = kNoAnim;
-}
-
-// A controller's scalar deleting destructor (slot 0) and pose (slot 1).
-void delete_controller(AnimDriver* controller)
-{
-    reinterpret_cast<void(__thiscall*)(AnimDriver*, int)>(controller->vtable_[0])(controller, 1);
 }
 
 } // namespace
@@ -220,8 +212,7 @@ void AnimTrack::get_reset()
 void AnimTrack::delete_controllers()
 {
     for (int i = 0; i < controller_count_; ++i) {
-        if (controller_list_[i])
-            delete_controller(controller_list_[i]);
+        delete controller_list_[i];
         controller_list_[i] = nullptr;
     }
     controller_count_ = 0;
@@ -237,8 +228,7 @@ void AnimTrack::detach_anim_driver(AnimDriver* controller)
         if (controller_list_[i] == controller)
             break;
     }
-    if (controller_list_[i])
-        delete_controller(controller_list_[i]);
+    delete controller_list_[i];
     controller_list_[i] = nullptr;
     for (; i < controller_count_ - 1; ++i)
         controller_list_[i] = controller_list_[i + 1];
@@ -250,7 +240,7 @@ bool AnimTrack::get_poses(void* pose)
 {
     for (int i = 0; i < controller_count_; ++i) {
         AnimDriver* controller = controller_list_[i];
-        reinterpret_cast<bool(__thiscall*)(AnimDriver*, void*)>(controller->vtable_[1])(controller, pose);
+        controller->fetch_pose(static_cast<uint8_t*>(pose));
     }
     return true;
 }
@@ -265,7 +255,7 @@ bool AnimTrack::is_fading() { return cur_phase_ == kFading; }
 void AnimTrack::arm_events()
 {
     for (uint32_t i = 0; i < event_count_; ++i)
-        reinterpret_cast<UserClipKey*>(&events_ptr_[i])->change_live(true);
+        events_ptr_[i].change_live(true);
 }
 
 // 0x004819D0
@@ -274,30 +264,25 @@ objects::GameEntity* AnimTrack::fetch_subject() { return owner_object_; }
 // --- the base controller ---
 
 // 0x00481710
-AnimDriver* AnimDriver::make_new(AnimTimeline* timeline)
+AnimDriver::AnimDriver(AnimTimeline* timeline)
 {
     timeline_ptr_ = timeline;
-    vtable_ = kControllerVtable;
     ident_ = 0;
     owner_object_ = nullptr;
     rank_ = 0;
-    return this;
 }
 
-// 0x00481730
-void AnimDriver::destroy_body() { vtable_ = kControllerVtable; }
-
-// 0x004817A0
-AnimDriver* AnimDriver::teardown(uint8_t flags)
+void* AnimDriver::operator new(std::size_t size) noexcept
 {
-    vtable_ = kControllerVtable;
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
+    return memory::alloc_zeroed(static_cast<unsigned int>(size));
 }
+void AnimDriver::operator delete(void* memory) { memory::dealloc(memory); }
+
+// 0x0051ADC0 (the base's slot 3, shared with components without member functions): not its own.
+int AnimDriver::invoke_method_by_name(uint32_t, script::Struct*, script::Script*) { return 2; }
 
 // 0x00481740
-bool AnimDriver::configure_from_data(script::Struct* params) { return params->read_hash_value(kId, &ident_, 0); }
+void AnimDriver::configure_from_data(script::Struct* params) { params->read_hash_value(kId, &ident_, 0); }
 
 // 0x00481760
 objects::GameEntity* AnimDriver::fetch_subject() { return static_cast<AnimTrack*>(timeline_ptr_)->fetch_subject(); }
@@ -309,23 +294,11 @@ uint8_t* AnimDriver::fetch_rig()
     return component ? static_cast<objects::BoneRigModule*>(component)->bone_rig_ : nullptr;
 }
 
-// --- the base event ---
-
-// 0x004819E0
-void AnimEventBase::destroy_body() { vtable_ = g_event_vtable; }
-
 namespace {
 static VtableSlot g_timeline_vtable_slots[] = {&gfx::AnimTimeline::teardown, &gfx::AnimTimeline::get_reset,
                                                &gfx::AnimTimeline::tick_frame, &gfx::AnimTimeline::play_anim,
                                                stubs::ignore_argument};
 void** const kTimelineVtable = reinterpret_cast<void**>(g_timeline_vtable_slots);
-static VtableSlot g_controller_vtable_slots[] = {&gfx::AnimDriver::teardown,
-                                                 stubs::return_false1,
-                                                 stubs::ignore_argument,
-                                                 &objects::ComponentWithoutMemberFunctions::invoke_method_by_name,
-                                                 &gfx::AnimDriver::configure_from_data,
-                                                 stubs::do_nothing};
-void** const kControllerVtable = reinterpret_cast<void**>(g_controller_vtable_slots);
 } // namespace
 
 } // namespace gfx

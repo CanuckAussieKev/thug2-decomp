@@ -5,6 +5,7 @@
 
 #include "engine/maths/quat_rotation.h"
 #include "engine/maths/vec4.h"
+#include "engine/gfx/anim_controller.h"
 
 namespace script {
 class Struct;
@@ -33,7 +34,7 @@ struct ClampVector : maths::Vec4 {
     maths::Vec4* confine(const maths::Vec4* min, const maths::Vec4* max);
 };
 
-class BoneLookAt {
+class BoneLookAt final : public AnimDriver {
 public:
     // One bone's look-at (0x64 bytes).
     struct Bone {
@@ -54,23 +55,22 @@ public:
     static_assert(sizeof(Bone) == 0x64, "layout must match the original");
 
     // 0x00488300: the base's constructor (0x00481710 with `owner`), no bones, the object: the owner's (0x00481760)
-    // or `object` without an owner. Returns this.
-    BoneLookAt* make_new(void* owner, void* object);
-    // 0x00487D40: the destructor's body (the base's, 0x00481730, after).
-    void destroy_body();
-    // 0x004880D0 (vtable slot 0): destroyed, and freed with flags & 1. Returns this.
-    BoneLookAt* teardown(unsigned int flags);
+    // or `object` without an owner.
+    BoneLookAt(AnimTimeline* owner, void* object);
+    // 0x00487D40 / 0x004880D0: nothing of its own. (Its table's slot 6, a jump to slot 4, is never called.)
+    ~BoneLookAt() override = default;
     // 0x00488410 (vtable slot 1): updated (slot 5), then each active bone with a name the skeleton has turned towards
     // its target in `rotations` (the pose's quaternions, one a bone) - and the turn kept. True.
     bool get_apply(maths::QuatRotation* rotations);
+    bool fetch_pose(uint8_t* pose) override { return get_apply(reinterpret_cast<maths::QuatRotation*>(pose)); }
     // 0x00488B40 (vtable slot 3): the script member functions 0x20D24E9A (on), 0x027B2B1C (whether on), 0x4599FB80
     // (off) and 0xB040E943 (settings) on the bone index=n, or id=<bone>, or all - else bone 0. 2: not one of these.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
     // 0x00488B20 (vtable slot 4): the base's settings (its id: 0x00481740), then bone 0's (Configure).
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x00488100 (vtable slot 5): each bone following an object (not fixed_pos_) gets its target position: the
     // object's position plus the offset (none: left as it was).
-    void tick_frame();
+    void tick_frame() override;
     // 0x00488950: settings of bone `index` (with `all`: on / off and the angle limits for every bone with a name).
     void configure(bool all, int index, script::Struct* params);
     // 0x00487D60: the index of the bone named `bone` (-1: none).
@@ -84,13 +84,9 @@ public:
     void set_all_min(const maths::Vec4* min);
     void set_all_max(const maths::Vec4* max);
 
-    void** vtable;
-    void* owner_ptr_;       // +0x04
-    uint8_t* owner_object_; // +0x08 (a composite object)
-    uint32_t unknownc_;     // +0x0C
-    uint32_t ident_;        // +0x10
-    Bone bones_[4];         // +0x14
+    // (the base's timeline +0x04, object +0x08 - a composite object -, priority +0x0C and id +0x10)
+    Bone bones_[4]; // +0x14
 };
-static_assert(offsetof(BoneLookAt, bones_) == 0x14 && sizeof(BoneLookAt) == 0x1A4, "layout must match the original");
+static_assert(offsetof(BoneLookAt, bones_) == 0x14 && sizeof(BoneLookAt) == 0x1A4, "the original's layout");
 
 } // namespace gfx
