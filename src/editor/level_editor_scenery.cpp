@@ -841,10 +841,10 @@ bool cast_static(V3 from, V3 to, V3* point, uint32_t* checksum)
     maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
-    const float* hit = reinterpret_cast<const float*>(feeler + 0x34);
+    const float* hit = &ray->hit_.point.x;
     *point = {hit[0], hit[1], hit[2]};
-    *checksum = *reinterpret_cast<const uint32_t*>(feeler + 0x58);
-    return *reinterpret_cast<void* const*>(feeler + 0x54) != nullptr;
+    *checksum = ray->hit_.object_checksum_;
+    return ray->hit_.object != nullptr;
 }
 
 } // namespace

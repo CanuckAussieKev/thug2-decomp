@@ -126,11 +126,11 @@ uint32_t first_hit(V3 from, V3 to, V3* point)
     maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return 0;
-    if (!*reinterpret_cast<void* const*>(feeler + 0x54))
+    if (!ray->hit_.object)
         return 0;
-    const float* hit = reinterpret_cast<const float*>(feeler + 0x34);
+    const float* hit = &ray->hit_.point.x;
     *point = {hit[0], hit[1], hit[2]};
-    return *reinterpret_cast<const uint32_t*>(feeler + 0x58);
+    return ray->hit_.object_checksum_;
 }
 
 script::Struct* look_up_node_params(uint32_t name, const nodes::Elem** out)

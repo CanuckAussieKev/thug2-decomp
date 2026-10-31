@@ -1773,7 +1773,7 @@ bool get_cast(V3 from, V3 to, V3* hit)
     maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
-    const float* point = reinterpret_cast<const float*>(feeler + 0x34);
+    const float* point = &ray->hit_.point.x;
     *hit = {point[0], point[1], point[2]};
     return true;
 }

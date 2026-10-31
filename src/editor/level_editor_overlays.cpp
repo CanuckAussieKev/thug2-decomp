@@ -213,7 +213,7 @@ bool get_ground_y(V3 from, float* y)
     maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {from.x, from.y - 5000.0f, from.z, 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
-    *y = reinterpret_cast<const float*>(feeler + 0x34)[1];
+    *y = ray->hit_.point.y;
     return true;
 }
 
