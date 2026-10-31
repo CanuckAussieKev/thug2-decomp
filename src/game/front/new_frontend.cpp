@@ -915,6 +915,8 @@ void ReadValueSprites(const CScreenElement* element, Mirror::ItemRead* item, int
                 item->adjustable = true;
                 item->sliderAt = std::clamp((e->m_target.x - left) / (right - left), 0.0f, 1.0f);
                 item->sliderHue = id == kHueArrow;
+                item->sliderKind = id == kColourArrows[0] ? 1 : id == kColourArrows[1] ? 2 : id == kColourArrows[2] ? 3
+                                   : id == kColourArrows[3] ? 4 : 0;
             }
             if (texture == kCheckbox && Visible(e)) {
                 item->checkbox = 0;
@@ -965,6 +967,7 @@ Mirror::MenuRead ReadMenu(CScreenElement* menu, bool inDialog)
     read.selectedIndex = MouseMenus::SelectedIndex(menu);
     read.inDialog = inDialog;
     read.inLevel = !InFrontEnd();
+    read.graphicEditor = Script::GetInteger("EG_in_create_a_graphic") == 1;
     static const uint32_t kSkaterMenu = Checksum("select_skater_hmenu");
     bool skaters = read.menuId == kSkaterMenu;
     int budget = 4096;

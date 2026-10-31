@@ -45,6 +45,7 @@ struct ItemRead {
     // place on the bar, 0 (left end) .. 1 (right end); -1 not a slider. `sliderHue`: the bar is the hue's (degrees).
     float sliderAt = -1.0f;
     bool sliderHue = false;
+    int sliderKind = 0;                 // which slider: 1 hue, 2 saturation, 3 value, 4 alpha (CAGR), 0 any other bar
     std::string display;                // (the skater select: the profile's display name)
 };
 
@@ -68,6 +69,7 @@ struct MenuRead {
     std::string skaterName;
     std::vector<std::pair<std::string, int>> stats; // (label, value 0-10)
     bool inLevel = false;               // (drawn over the game rather than over the front end)
+    bool graphicEditor = false;         // Create-A-Graphic is up (its value slider starts at 0, CAS's at 12)
     // The on-screen keyboard: its rows of keys (each key's words; the row's own label for a wide key), the key
     // selected (row, key; -1 none), the text typed so far.
     bool keyboard = false;
@@ -113,6 +115,9 @@ struct Row {
     bool focusable = true;
     int index = 0;                      // the menu's child index
     bool adjustable = false;            // Left / Right change its value (the mouse clicks its sides)
+    // A slider row's track: which (ItemRead::sliderKind, 0 none) and where the marker stands on it, 0 .. 1.
+    int track = 0;
+    float trackAt = 0.0f;
     // (Kind::Menu: the style table's - our id for the art, the line under the list, a note after the label)
     std::string art, blurb, tag;
 };
@@ -128,6 +133,10 @@ struct View {
     std::string bigName;                // the skater select's name; a list's selected label
     std::vector<std::pair<std::string, int>> stats;
     bool overGame = false;
+    // A colour menu (HUE / SAT. / VAL. all there): the colour's values as the game holds them - hue in degrees,
+    // saturation and value in percent (the markers' places turned back into the numbers).
+    bool hasColour = false;
+    float hue = 0.0f, sat = 0.0f, val = 0.0f;
     bool editor = false;                // (an editor's: drawn lighter over its view)
     // (Kind::Keyboard: the keys, the one selected, the text typed)
     std::vector<std::vector<std::string>> keys;
@@ -142,6 +151,11 @@ struct View {
     // be building it, so its elements stay hidden a few frames before it is left as it is - kFramesUnsettled)
     bool unsettled = false;
 };
+
+// The colour a HSV the game stores (hue degrees, saturation / value percent) shows on the skater: the game's HSV -> RGB
+// (the same sector formula as the texture code's), as the part's vertex colour - which multiplies the texture with 0.5
+// neutral, so shown doubled (clamped) as a colour on a white texture. rgb 0 .. 1.
+void SkaterColour(float hue, float satPercent, float valPercent, float rgb[3]);
 
 // The game's text escapes made plain: \n (a line end: a space, or kept with `newlines`), \c<x> (a colour) dropped,
 // \b<x> / \m<x> (a button) the key's name as the game spells it (ButtonNamer; dropped without one), \_ a space, \\ a
