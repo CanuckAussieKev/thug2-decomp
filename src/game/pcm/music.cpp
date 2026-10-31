@@ -13,6 +13,7 @@
 #include "game/core/crc.h"
 #include "game/core/dbg.h"
 #include "game/core/stubs.h"
+#include "game/gfx/movie.h"
 #include "game/mth/random.h"
 #include "game/pcm/music_api.h"
 #include "game/pcm/stream.h"
@@ -426,7 +427,9 @@ void __cdecl PlayNextTrack()
 
     int position;
     if (Reshuffle()) {
-        int last = Order()[OrderCount() - 1];
+        // (an empty order: the original reads the word before it, which is the movie frame dump counter - by name
+        // here, as the standalone build's globals aren't laid out as the original's)
+        int last = OrderCount() > 0 ? Order()[OrderCount() - 1] : Nx::g_movieDumpCount;
         OrderCount() = 0;
         int count = 0;
         for (int track = 0; track < list.count; ++track)

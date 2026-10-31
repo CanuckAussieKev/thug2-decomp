@@ -59,7 +59,7 @@ R TextureSlot(Nx::CTexture* texture, int slot, A... args)
                                                                                                              args...);
 }
 void BeginEdit(Nx::CTexture* texture) { TextureSlot<void>(texture, 8, 0, 0); }
-void EndEdit(Nx::CTexture* texture, bool generatePalette) { TextureSlot<void>(texture, 9, generatePalette, 0); }
+void EndEdit(Nx::CTexture* texture, uint8_t generatePalette) { TextureSlot<void>(texture, 9, generatePalette, 0); }
 void Offset(Nx::CTexture* texture, int x, int y, bool useColour, uint32_t colour)
 {
     TextureSlot<void>(texture, 18, x, y, useColour, colour);
@@ -74,7 +74,7 @@ void Push(Nx::CTexture* texture, int point, int axis, int amount, bool useColour
 void AdjustHSV(Nx::CTexture* texture, float h, float s, float v) { TextureSlot<void>(texture, 24, h, s, v, 0); }
 uint16_t Width(Nx::CTexture* texture) { return TextureSlot<uint16_t>(texture, 33); }
 uint16_t Height(Nx::CTexture* texture) { return TextureSlot<uint16_t>(texture, 34); }
-void DrawOver(Nx::CTexture* texture, Nx::CTexture* overlay, bool generatePalette)
+void DrawOver(Nx::CTexture* texture, Nx::CTexture* overlay, uint8_t generatePalette)
 {
     TextureSlot<void>(texture, 41, overlay, generatePalette);
 }
@@ -218,7 +218,7 @@ bool __cdecl FitFaceTexture(Nx::CTexture* texture, const SFacePoints* points, bo
 }
 
 // 0x00486F70
-bool __cdecl MassageFaceTexture(Nx::CTexture* texture, const SFacePoints* points, bool generatePalette, bool useColour,
+bool __cdecl MassageFaceTexture(Nx::CTexture* texture, const SFacePoints* points, uint8_t generatePalette, bool useColour,
                                 uint32_t colour)
 {
     Mem::Manager* manager = Mem::Manager::Get();

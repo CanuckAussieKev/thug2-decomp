@@ -52,6 +52,11 @@ CSfxManager*& Instance() { return g_sfxManager; }
 GAME_GLOBAL(float, g_voiceVolume, 0x0067DB08, 100.0f);
 GAME_GLOBAL(uint32_t, g_sfxReferences, 0x006F85AC);
 GAME_GLOBAL(void*, g_listener, 0x006F85C0);
+// DirectSound's GUIDs, as the exe's data has them (dsound.lib's): IID_IDirectSound3DBuffer, IID_IDirectSound3DListener,
+// and DS3DALG_DEFAULT (GUID_NULL: the default 3D algorithm).
+GAME_GLOBAL(GUID, g_iidSound3DBuffer, 0x00666B34, 0x279AFA86, 0x4981, 0x11CE, {0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60});
+GAME_GLOBAL(GUID, g_iidSound3DListener, 0x00666B44, 0x279AFA84, 0x4981, 0x11CE, {0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60});
+GAME_GLOBAL(GUID, g_default3DAlgorithm, 0x00669208);
 GAME_GLOBAL(Voice[48], g_voices, 0x006F85C8);
 GAME_GLOBAL(int, g_playingVoices, 0x006F8A48);
 GAME_GLOBAL(bool, g_has3D, 0x006F8A4C);
@@ -641,7 +646,7 @@ void InitVoices(CSfxManager* manager)
     desc[1] = 0x11; // DSBCAPS_PRIMARYBUFFER | DSBCAPS_CTRL3D
     void* primary = nullptr;
     Com<long>(Device(), 0xC, desc, &primary, nullptr); // CreateSoundBuffer
-    Com<long>(primary, 0, reinterpret_cast<const void*>(0x00666B44), &Listener()); // IDirectSound3DListener
+    Com<long>(primary, 0, &g_iidSound3DListener, &Listener()); // IDirectSound3DListener
     Com<long>(Listener(), 0x38, 0.0f, 0.0f, 0.0f, 0u); // SetPosition
     Com<long>(primary, 8); // Release
 }
@@ -879,11 +884,11 @@ int PlayVoice(PCWave** slot, sVolume* volume, float pitch)
         voice.wave = nullptr;
         bool threeD = Has3D() && volume->m_type == sVolume::TYPE_3D;
         wave->descFlags = threeD ? 0x400B0 : 0x400E0;
-        std::memcpy(wave->desc3DAlgorithm, reinterpret_cast<const void*>(0x00669208), 16);
+        std::memcpy(wave->desc3DAlgorithm, &g_default3DAlgorithm, 16);
         if (Com<long>(Device(), 0xC, &wave->descSize, &voice.buffer, nullptr) != 0) // CreateSoundBuffer
             return -1;
         if (Has3D() && volume->m_type == sVolume::TYPE_3D)
-            Com<long>(voice.buffer, 0, reinterpret_cast<const void*>(0x00666B34), &voice.buffer3D);
+            Com<long>(voice.buffer, 0, &g_iidSound3DBuffer, &voice.buffer3D);
         void* first;
         DWORD firstBytes;
         void* second;

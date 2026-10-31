@@ -34,6 +34,7 @@
 #include "hook/game_code.h"
 #include "game/core/game_vtables.h"
 #include "game/core/stubs.h"
+#include "game/sys/startup_init.h"
 
 namespace Gfx {
 
@@ -1232,3 +1233,25 @@ REPLACE(0x0047F470, &Gfx::CBlendChannel::PlayAnimFromScript);
 REPLACE(0x0047FA00, &Gfx::CBlendChannel::CallMemberFunction);
 REPLACE(0x004803D0, &Gfx::CBlendChannel::PlayAnimation);
 REPLACE(0x00480410, &Gfx::CBlendChannel::InitFromStructure);
+
+namespace Gfx {
+
+namespace {
+
+// 64 quaternions nothing reads (only their static initialiser writes them).
+GAME_GLOBAL(float[256], g_spareRotations, 0x006F8A70);
+
+} // namespace
+
+// 0x00640AA0 (a static initialiser): each (0, 0, 0, 1).
+void ConstructSpareRotations()
+{
+    for (int i = 0; i < 64; ++i) {
+        g_spareRotations[4 * i + 0] = 0.0f;
+        g_spareRotations[4 * i + 1] = 0.0f;
+        g_spareRotations[4 * i + 2] = 0.0f;
+        g_spareRotations[4 * i + 3] = 1.0f;
+    }
+}
+
+} // namespace Gfx

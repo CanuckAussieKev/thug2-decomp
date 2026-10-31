@@ -24,6 +24,8 @@
 #include "game/skater/vehicle_sound.h"
 #include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
+#include "game/nx/coll_cache.h"
+#include "game/sys/startup_init.h"
 
 namespace Obj {
 
@@ -781,4 +783,11 @@ GAME_VTABLE(kVtable, 0x006463F8,
     &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
 
 } // namespace
+} // namespace Obj
+
+namespace Obj {
+
+// 0x00640900 (a static initialiser): the rigid bodies' collision cache (registered among the caches, empty).
+void ConstructRigidBodyCache() { reinterpret_cast<Nx::CCollCache*>(&g_rigidBodyCache)->Construct(); }
+
 } // namespace Obj

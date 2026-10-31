@@ -34,4 +34,13 @@ void RegisterMemberFunctions(const char* const* names, uint32_t count);
 // checksum) a member-function symbol whose value is the record.
 void RegisterMemberFunctionTable(void* unused, const uint32_t* records, int stride);
 
+// The code half of a member-function table (0x18-byte records: name, component type, then a 16-byte member function
+// pointer), as the original's static initialisers write it: record i's function `code[i]` followed by three zero words,
+// and after the `count` records the terminator's {0, 0, 0, -1}. (NOT ORIGINAL as a function: each initialiser has
+// the stores written out.)
+void FillMemberFunctionCode(uint32_t* records, void* const* code, int count);
+// Every table's code, in the original's initialiser order (0x00640E30 - 0x006448C0; generated:
+// member_function_code.cpp). Standalone start-up only: the exe's own initialisers fill the hooked build's.
+void FillMemberFunctionTables();
+
 } // namespace Script

@@ -18,6 +18,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/sys/startup_init.h"
 
 namespace Terrain {
 
@@ -455,3 +456,11 @@ REPLACE(0x00444950, Terrain::LoadTableSounds);
 REPLACE(0x00444B10, Terrain::GetTerrainSound);
 REPLACE(0x00444BB0, Terrain::PlayTerrainSound);
 REPLACE(0x00444EB0, Terrain::LoadTerrainSounds);
+
+namespace Terrain {
+
+// 0x00640950, 0x00640970 (static initialisers): the terrain tables, 256 buckets each.
+void ConstructTerrainTypes() { new (&g_terrainTypes) Lst::HashTable(8); }
+void ConstructTerrainActions() { new (&g_terrainActions) Lst::HashTable(8); }
+
+} // namespace Terrain

@@ -18,6 +18,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/game_code.h"
+#include "game/sys/startup_init.h"
 
 namespace Gfx {
 
@@ -259,3 +260,10 @@ REPLACE(0x0048B430, &Gfx::CBoneVolumes::Fill);
 REPLACE(0x0048B580, &Gfx::CBoneVolumes::TestLine);
 REPLACE(0x0048BC40, &Gfx::CBoneVolumes::GetBoneVolume);
 REPLACE(0x0048BEA0, &Gfx::CBoneVolumes::Register);
+
+namespace Gfx {
+
+// 0x00640AE0 (a static initialiser): the bone volumes' table, 256 buckets.
+void ConstructBoneVolumeTable() { new (&g_boneVolumeTable) Lst::HashTable(8); }
+
+} // namespace Gfx

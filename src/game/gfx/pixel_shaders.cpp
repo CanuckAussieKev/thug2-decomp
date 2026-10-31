@@ -22,6 +22,7 @@
 #include "hook/hook.h"
 #include "game/gfx/shader_slots.h"
 #include "game/gfx/device.h"
+#include "game/sys/startup_init.h"
 
 namespace Nx {
 
@@ -268,3 +269,10 @@ void __cdecl MaterialPixelShader(const void* material, void** shader)
 REPLACE(0x004DD7F0, Nx::CreatePixelShaders);
 REPLACE(0x004DD2C0, Nx::GeneratedPixelShader);
 REPLACE(0x004DDC00, Nx::MaterialPixelShader);
+
+namespace Nx {
+
+// 0x00640DF0 (a static initialiser): the generated pixel shaders' cache, 256 buckets.
+void ConstructShaderCache() { new (&g_shaderCache) Lst::HashTable(8); }
+
+} // namespace Nx

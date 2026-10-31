@@ -13,6 +13,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/sys/startup_init.h"
 
 namespace CFuncs {
 
@@ -208,3 +209,10 @@ REPLACE(0x005B5320, CFuncs::CFunc_AddToCutsceneDestroyList);
 REPLACE(0x005B5450, CFuncs::CFunc_RemoveFromCutsceneDestroyList);
 REPLACE(0x005B5510, CFuncs::CFunc_Cutscene_SpawnScript);
 REPLACE(0x005B5BE0, CFuncs::CFunc_FlushCutsceneDestroyList);
+
+namespace CFuncs {
+
+// 0x00644A00 (a static initialiser): the cutscene destroy list, empty.
+void ConstructCutsceneDestroyList() { g_cutsceneDestroyList.Construct(); }
+
+} // namespace CFuncs

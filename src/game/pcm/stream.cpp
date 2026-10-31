@@ -13,6 +13,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/sys/startup_init.h"
 
 namespace Pcm {
 
@@ -406,3 +407,10 @@ REPLACE(0x00453940, Pcm::UpdateStreams);
 REPLACE(0x004542D0, Pcm::UserSoundtrackCount);
 REPLACE(0x00454300, Pcm::UserSoundtrackName);
 REPLACE(0x00454320, Pcm::UserSoundtrackTracks);
+
+namespace Pcm {
+
+// 0x006409D0 (a static initialiser): the streams' lock, a mutex nobody owns.
+void CreateStreamLock() { g_streamLock = CreateMutexA(nullptr, FALSE, nullptr); }
+
+} // namespace Pcm

@@ -181,6 +181,22 @@ void RegisterMemberFunctionTable(void*, const uint32_t* records, int stride)
     }
 }
 
+void FillMemberFunctionCode(uint32_t* records, void* const* code, int count)
+{
+    for (int i = 0; i < count; ++i) {
+        uint32_t* record = records + 6 * i;
+        record[2] = reinterpret_cast<uint32_t>(code[i]);
+        record[3] = 0;
+        record[4] = 0;
+        record[5] = 0;
+    }
+    uint32_t* terminator = records + 6 * count;
+    terminator[2] = 0;
+    terminator[3] = 0;
+    terminator[4] = 0;
+    terminator[5] = 0xFFFFFFFFu;
+}
+
 } // namespace Script
 
 REPLACE(0x0046CF00, Script::AllocateChecksumNameLookupTables);

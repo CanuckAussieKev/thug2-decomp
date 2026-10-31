@@ -13,6 +13,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/obj/camera_lookaround.h"
+#include "game/sys/startup_init.h"
 
 namespace Nx {
 
@@ -163,3 +164,10 @@ bool __cdecl CFunc_LoadFont(Script::CStruct* params, Script::CScript* /*script*/
 
 REPLACE(0x0048D7E0, Nx::LoadFont);
 REPLACE(0x0048D950, Nx::CFunc_LoadFont);
+
+namespace Nx {
+
+// 0x00640B40 (a static initialiser): the loaded fonts' table, 16 buckets.
+void ConstructFontTable() { new (&g_fontTable) Lst::HashTable(4); }
+
+} // namespace Nx

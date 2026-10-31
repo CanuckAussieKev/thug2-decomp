@@ -29,6 +29,7 @@
 #include "hook/game_code.h"
 #include "game/gfx/device.h"
 #include "game/sys/crt.h"
+#include "game/sys/startup_init.h"
 
 namespace Nx {
 
@@ -313,3 +314,14 @@ REPLACE(0x004C7520, Nx::DrawProjectionBatches);
 REPLACE(0x004C7E80, &Nx::CPcTextureProjection::Construct);
 REPLACE(0x004C7EA0, &Nx::CPcTextureProjection::Destroy);
 REPLACE(0x004C7620, &Nx::CPcTextureProjection::Project);
+
+namespace Nx {
+
+// 0x00640D30 (a static initialiser): the ten projection batches (their materials).
+void ConstructProjectionBatches()
+{
+    for (sProjectionBatch& batch : g_projectionBatches)
+        batch.Construct();
+}
+
+} // namespace Nx

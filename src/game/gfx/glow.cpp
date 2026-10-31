@@ -18,6 +18,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/gfx/shader_slots.h"
+#include "game/sys/startup_init.h"
 
 namespace Nx {
 
@@ -166,3 +167,10 @@ void __cdecl UpdateGlows(bool queries)
 } // namespace Nx
 
 REPLACE(0x004DCC70, Nx::UpdateGlows);
+
+namespace Nx {
+
+// 0x00640E10 (a static initialiser): the glows' table, 256 buckets.
+void ConstructGlowTable() { new (&g_glowTable) Lst::HashTable(8); }
+
+} // namespace Nx

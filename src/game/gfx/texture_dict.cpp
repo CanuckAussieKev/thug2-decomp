@@ -20,6 +20,7 @@
 #include "hook/hook.h"
 #include "hook/game_code.h"
 #include "game/core/stubs.h"
+#include "game/sys/startup_init.h"
 
 namespace Nx {
 
@@ -389,3 +390,37 @@ REPLACE(0x0049F180, Nx::LoadModelTextures);
 REPLACE(0x0049EFD0, Nx::UnloadTexDict);
 REPLACE(0x0049EF90, Nx::TexDictFileName);
 REPLACE(0x0049EFB0, Nx::FlushParticleTextures);
+
+namespace Nx {
+
+namespace {
+
+// A table (2 buckets) nothing uses but its static initialiser and exit function.
+GAME_GLOBAL(Lst::HashTable, g_spareTexDictTable, 0x00700F24, Lst::HashTable::Unconstructed{});
+
+// The loaded dictionary named `name` (one more use of it), or a new one, made and listed.
+CTexDict* SharedTexDict(const char* name)
+{
+    uint32_t checksum = Crc::GenerateCRCFromString(name);
+    if (CTexDict* dict = FindTexDict(checksum)) {
+        ++dict->m_refCount;
+        return dict;
+    }
+    auto* dict = reinterpret_cast<CTexDict*>(CreateTexDict(checksum));
+    LoadedTexDicts().PutItem(checksum, dict);
+    return dict;
+}
+
+} // namespace
+
+// 0x00640BF0 (a static initialiser): the loaded dictionaries' table, 16 buckets.
+void ConstructLoadedTexDicts() { new (&g_loadedTexDicts) Lst::HashTable(4); }
+
+// 0x00640C10, 0x00640C60 (static initialisers): the dictionaries of the sprites and the particles.
+void SetUpGameTextureDict() { g_gameTextureDict = SharedTexDict(GAME_TEXT(0x00649AD8, "sprite")); }
+void SetUpParticleTextureDict() { g_particleTextureDict = SharedTexDict(GAME_TEXT(0x00649AE0, "particle")); }
+
+// 0x00640CB0 (a static initialiser)
+void ConstructSpareTexDictTable() { new (&g_spareTexDictTable) Lst::HashTable(1); }
+
+} // namespace Nx

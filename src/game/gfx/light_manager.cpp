@@ -16,6 +16,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/game_code.h"
+#include "game/sys/startup_init.h"
 
 namespace Nx {
 
@@ -425,3 +426,17 @@ REPLACE(0x0048EA90, &Nx::CDynamicLightBase::InReach);
 REPLACE(0x0048EAB0, &Nx::CDynamicLightBase::Falloff);
 REPLACE_SOURCE_ONLY(0x0048E8E0, Nx::ResetLights);      // a jump to 0x004B6940
 REPLACE_SOURCE_ONLY(0x0048EA80, Nx::CreateModelLights); // a jump to 0x004B6B10
+
+namespace Nx {
+
+// 0x00640B60 (a static initialiser): the world lights' ambient colour (the rest of them is the image's data).
+void SetWorldLightsAmbient() { g_worldLights.ambient = 0x80484848; }
+
+// 0x00640B90 (a static initialiser): the four saved light sets.
+void ConstructWorldLightStack()
+{
+    for (sWorldLights& lights : g_worldLightStack)
+        lights.Construct();
+}
+
+} // namespace Nx
