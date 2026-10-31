@@ -19,8 +19,8 @@ extern "C" int __cdecl _purecall(void); // (the C runtime's: a pure virtual slot
 
 // One slot of a hand-built virtual table:
 //
-//   static VtableSlot g_region_vtable_slots[] = {&AllocAdapters::region_destroy, &_purecall};
-//   void** const kRegionVtable = reinterpret_cast<void**>(g_region_vtable_slots);
+//   static VtableSlot g_node_vtable_slots[] = {&AllocAdapters::node_destroy, &_purecall};
+//   void** const kNodeVtable = reinterpret_cast<void**>(g_node_vtable_slots);
 struct VtableSlot {
     void* code;
     template <typename F>

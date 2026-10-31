@@ -77,17 +77,9 @@ void launch_module(modules::Hub* mdl, modules::PartUnit* module) { mdl->launch_m
 void halt_every_module(modules::Hub* mdl) { mdl->halt_every_module(); }
 void remove_module(modules::Hub* mdl, modules::PartUnit* module) { mdl->remove_module(module); }
 
-// The bottom-up heap's virtual enter_heap_scope / leave_heap_scope (slots 0 and 1).
-void push_bottom_up_heap()
-{
-    memory::MemSource* heap = memory::Hub::get_pull()->bottom_up_heap_;
-    reinterpret_cast<void(__thiscall*)(memory::MemSource*)>(heap->vtable_[0])(heap);
-}
-void pop_bottom_up_heap()
-{
-    memory::MemSource* heap = memory::Hub::get_pull()->bottom_up_heap_;
-    reinterpret_cast<void(__thiscall*)(memory::MemSource*)>(heap->vtable_[1])(heap);
-}
+// The bottom-up heap's own context pushed / popped (its enter_heap_scope / leave_heap_scope).
+void push_bottom_up_heap() { memory::Hub::get_pull()->bottom_up_heap_->enter_heap_scope(); }
+void pop_bottom_up_heap() { memory::Hub::get_pull()->bottom_up_heap_->leave_heap_scope(); }
 
 bool quit_requested() { return render::g_quit_requested; }
 

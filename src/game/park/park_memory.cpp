@@ -226,8 +226,7 @@ void __cdecl power_down()
     delete_pool(clipboard_entry_pools());
     delete_pool(map_list_node_pools());
     memory::Hub::get_pull()->delete_heap(reinterpret_cast<memory::MemSource*>(park_heap()));
-    if (memory::Zone* region = park_region()) // its scalar deleting destructor (vtable slot 0)
-        reinterpret_cast<void(__thiscall*)(memory::Zone*, int)>(region->vtable_[0])(region, 1);
+    delete park_region();
     park_heap() = nullptr;
     park_region() = nullptr;
 }

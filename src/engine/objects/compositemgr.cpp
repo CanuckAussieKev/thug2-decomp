@@ -362,9 +362,7 @@ void destroy_coim_heap()
     }
     if (coim_heap()) {
         memory::Hub::get_pull()->delete_heap(coim_heap());
-        if (coim_region()) // (its scalar deleting destructor, through the vtable)
-            reinterpret_cast<void*(__thiscall*)(memory::Zone*, unsigned int)>(coim_region()->vtable_[0])(coim_region(),
-                                                                                                         1);
+        delete coim_region();
         coim_heap() = nullptr;
         coim_region() = nullptr;
     }
@@ -375,8 +373,7 @@ bool create_coim_heap(uint32_t size)
 {
     destroy_coim_heap();
     if (size) {
-        void* memory = memory::alloc_zeroed(sizeof(memory::MemoryArena));
-        coim_region() = memory ? new (memory) memory::MemoryArena(size) : nullptr;
+        coim_region() = new memory::MemoryArena(size);
         coim_heap() = memory::Hub::get_pull()->add_heap(coim_region(), 1, "COIMHeap");
         coim_heap()->unknown64_ = true;
         coim_heap()->unknown68_ = coim_b() - g_composite_mgr_block_header_size; // (16: a block header)

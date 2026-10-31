@@ -68,8 +68,7 @@ FlexibleParticleManager* FlexibleParticleManager::make_new()
     int size = script::fetch_int_value(kHeapSizeSymbol);
     if (!size)
         size = kDefaultHeapSize;
-    void* memory = memory::alloc_zeroed(sizeof(memory::MemoryArena));
-    zone_ = memory ? new (memory) memory::MemoryArena(static_cast<uint32_t>(size)) : nullptr;
+    zone_ = new memory::MemoryArena(static_cast<uint32_t>(size));
     arena_ = memory::Hub::get_pull()->add_heap(zone_, 1, kHeapName);
     temp_region_ = nullptr;
     temp_heap_ = nullptr;
@@ -98,8 +97,7 @@ void FlexibleParticleManager::destroy_body()
         delete_virtual(systems_ptr_);
     delete_temp_heap();
     memory::Hub::get_pull()->delete_heap(reinterpret_cast<memory::MemSource*>(arena_));
-    if (zone_)
-        delete_virtual(zone_);
+    delete zone_;
 }
 
 // 0x0049B040
@@ -117,8 +115,7 @@ void FlexibleParticleManager::delete_temp_heap()
     if (!temp_heap_)
         return;
     memory::Hub::get_pull()->delete_heap(reinterpret_cast<memory::MemSource*>(temp_heap_));
-    if (temp_region_)
-        delete_virtual(temp_region_);
+    delete temp_region_;
     temp_heap_ = nullptr;
     temp_region_ = nullptr;
 }
@@ -127,8 +124,7 @@ void FlexibleParticleManager::delete_temp_heap()
 bool FlexibleParticleManager::create_temp_heap(uint32_t size)
 {
     delete_temp_heap();
-    void* memory = memory::alloc_zeroed(sizeof(memory::MemoryArena));
-    temp_region_ = memory ? new (memory) memory::MemoryArena(size) : nullptr;
+    temp_region_ = new memory::MemoryArena(size);
     if (!temp_region_)
         return false;
     temp_heap_ = memory::Hub::get_pull()->add_heap(temp_region_, 1, kTempHeapName);

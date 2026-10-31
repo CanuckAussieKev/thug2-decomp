@@ -15,22 +15,12 @@ namespace memory {
 
 namespace {
 
-// Virtual calls on allocators and regions, by vtable slot.
-template <typename R, typename... A>
-R call_slot(void* object, int slot, A... args)
-{
-    void** vtable = *static_cast<void***>(object);
-    return reinterpret_cast<R(__thiscall*)(void*, A...)>(vtable[slot])(object, args...);
-}
-
 void* heap_allocate(MemSource* heap, uint32_t size, int halt_if_exhausted)
 {
-    return call_slot<void*>(heap, 3, size, halt_if_exhausted);
+    return heap->carve(size, halt_if_exhausted != 0);
 }
 
-// Delete a heap / region through its scalar deleting destructor.
-void delete_allocator(MemSource* heap) { call_slot<void*>(heap, 2, 1u); }
-void delete_region(Zone* region) { call_slot<void*>(region, 0, 1u); }
+void delete_region(Zone* region) { delete region; }
 
 MemSource* current_heap(Hub* manager) { return *manager->ongoing_; }
 
@@ -71,7 +61,7 @@ void* Hub::extend_block_upward(uint32_t size, void* block, MemSource* heap)
 {
     if (!heap)
         heap = current_heap(this);
-    void* result = call_slot<void*>(heap, 6, size, block);
+    void* result = heap->extend_block_upward(size, block);
     if (result)
         mark_block_in_use(result);
     return result;
@@ -82,7 +72,7 @@ void* Hub::trim_block_end(uint32_t size, void* block, MemSource* heap)
 {
     if (!heap)
         heap = current_heap(this);
-    void* result = call_slot<void*>(heap, 7, size, block);
+    void* result = heap->trim_block_end(size, block);
     if (result)
         mark_block_in_use(result);
     return result;
@@ -96,7 +86,7 @@ void Hub::dealloc(void* block)
 }
 
 // 0x005BB050
-uint32_t Hub::obtainable() { return call_slot<uint32_t>(current_heap(this), 4); }
+uint32_t Hub::obtainable() { return current_heap(this)->largest_free(); }
 
 // 0x005BB0E0
 void Hub::enter_heap_scope(MemSource* heap)
@@ -140,8 +130,7 @@ void Hub::delete_heap(MemSource* heap)
             break;
         }
     }
-    if (heap)
-        delete_allocator(heap);
+    delete heap;
 }
 
 // 0x005BAF00
@@ -390,9 +379,10 @@ void Hub::delete_standard_heaps()
 // 0x005BBE50
 void Hub::destroy_main_heaps()
 {
-    call_slot<void*>(top_down_heap_, 2, 0u);
-    call_slot<void*>(bottom_up_heap_, 2, 0u);
-    call_slot<void*>(primary_zone_, 0, 0u);
+    // (made in static storage: destroyed, not freed)
+    top_down_heap_->~Arena();
+    bottom_up_heap_->~Arena();
+    primary_zone_->~Zone();
 }
 
 // --- the global allocation functions (on the current heap) -------------------------------------------------
@@ -406,7 +396,7 @@ uint32_t malloc_available() { return Hub::get_pull()->obtainable(); }
 // 0x005BBB30
 void* trim_block_end(unsigned int size, void* memory)
 {
-    void* result = call_slot<void*>(current_heap(Hub::get_pull()), 7, size, memory);
+    void* result = current_heap(Hub::get_pull())->trim_block_end(size, memory);
     if (result)
         mark_block_in_use(result);
     return result;
@@ -464,11 +454,7 @@ bool& manager_ready() { return g_manager_ready; }
 // The game CRT's malloc (the main block comes from it).
 void* get_crt_malloc(size_t size) { return crt::alloc_block(size); }
 
-MemoryArena* new_alloc_region(uint32_t size)
-{
-    void* memory = alloc_zeroed(sizeof(MemoryArena));
-    return memory ? new (memory) MemoryArena(size) : nullptr;
-}
+MemoryArena* new_alloc_region(uint32_t size) { return new MemoryArena(size); }
 
 } // namespace
 
@@ -537,8 +523,7 @@ Hub* Hub::make_new()
 // 0x005BB4E0
 Arena* Hub::add_heap(Zone* region, int direction, const char* name)
 {
-    void* memory = alloc_zeroed(sizeof(Arena));
-    Arena* heap = memory ? new (memory) Arena(region, direction, name) : nullptr;
+    Arena* heap = new Arena(region, direction, name);
     heaps_[heap_count_++] = heap;
     return heap;
 }

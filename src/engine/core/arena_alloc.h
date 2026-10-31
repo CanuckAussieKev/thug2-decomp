@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 // The lowest layer of the memory manager: regions of memory, the allocators that carve them up from either
@@ -43,7 +44,18 @@ MemSource* free_block(void* block);
 
 class Zone {
 public:
+    // Zeroed memory from the current heap, given back to the memory manager (the main region is made in place).
+    static void* operator new(std::size_t size) noexcept;
+    static void operator delete(void* memory);
+    static void* operator new(std::size_t, void* place) noexcept { return place; }
+    static void operator delete(void*, void*) noexcept {}
+
+    // 0x005BC5F0
     Zone(uint8_t* start, uint8_t* end);
+    // 0x005BC4D0 / 0x005BC6D0 (vtable 0x00658A58): nothing - the memory isn't the region's.
+    virtual ~Zone() = default;
+    Zone(const Zone&) = delete;
+    Zone& operator=(const Zone&) = delete;
     // Attach / detach the allocator on its side (by its direction).
     void add_allocator(MemSource* allocator);
     void remove_allocator(MemSource* allocator);
@@ -52,10 +64,6 @@ public:
     // Move `allocator`'s top by `size` (in its direction). Returns the start of the claimed space - the old top
     // growing up, the new top growing down - or null if it would cross the other allocator.
     uint8_t* carve(MemSource* allocator, int size, int unused);
-    // The destructor's body (only the vtable to set back: the memory isn't the region's).
-    void destroy_body();
-
-    void** vtable_; // 0x00658A58
     uint8_t* outset_;
     int min_available_; // the least free_byte_count has been (starts as the whole region)
     uint8_t* finish_;
@@ -67,10 +75,12 @@ protected:
 static_assert(sizeof(Zone) == 0x18, "layout must match the original");
 
 // A region whose memory is itself allocated from the memory manager.
-class MemoryArena : public Zone {
+class MemoryArena final : public Zone {
 public:
-    explicit MemoryArena(uint32_t size); // rounded down to 16 bytes
-    void destroy_body();
+    // 0x005BC620: rounded down to 16 bytes.
+    explicit MemoryArena(uint32_t size);
+    // 0x005BC6B0: its memory given back.
+    ~MemoryArena() override;
 };
 
 // A node of the engine's intrusive lists (lists::Elem): `data` is the item (-1 marks a list's head).
@@ -96,24 +106,33 @@ public:
         ChunkPrefix* free_list_; // free blocks, in address order
     };
 
+    // Zeroed memory from the current heap, given back to the memory manager (the main heaps are made in place).
+    static void* operator new(std::size_t size) noexcept;
+    static void operator delete(void* memory);
+    static void* operator new(std::size_t, void* place) noexcept { return place; }
+    static void operator delete(void*, void*) noexcept {}
+
+    // 0x005BA260
     MemSource(Zone* region, int direction, const char* name);
-    void destroy_body();
-    // (virtual slots 0 and 1)
+    // 0x005BA140 (vtable 0x0065845C; the heap's 0x005BA560 adds nothing): off its region, the lists unlinked.
+    virtual ~MemSource();
+    MemSource(const MemSource&) = delete;
+    MemSource& operator=(const MemSource&) = delete;
+    // 0x005BA1E0 / 0x005BA360 (slots 0 and 1 of every allocator's table - the same functions: not virtual here).
     void enter_heap_scope();
     void leave_heap_scope();
 
-    // The virtual allocate (slot 3) and free (slot 8).
-    void* virtual_allocate(uint32_t size, bool halt_if_exhausted)
-    {
-        return reinterpret_cast<void*(__thiscall*)(MemSource*, uint32_t, bool)>(vtable_[3])(this, size,
-                                                                                            halt_if_exhausted);
-    }
-    void virtual_free(ChunkPrefix* header)
-    {
-        reinterpret_cast<void(__thiscall*)(MemSource*, ChunkPrefix*)>(vtable_[8])(this, header);
-    }
+    // Slot 3: `size` bytes (null if they can't be had - or a halt, if asked).
+    virtual void* carve(uint32_t size, bool halt_if_exhausted) = 0;
+    // Slot 4: the largest block that could be allocated (0 in the base).
+    virtual uint32_t largest_free() { return 0; }
+    // Slots 5-7: a block grown downwards / upwards, or its end given back (null in the base).
+    virtual void* extend_block_downward(uint32_t /*new_size*/, void* /*block*/) { return nullptr; }
+    virtual void* extend_block_upward(uint32_t /*new_size*/, void* /*block*/) { return nullptr; }
+    virtual void* trim_block_end(uint32_t /*new_size*/, void* /*block*/) { return nullptr; }
+    // Slot 8: a block given back.
+    virtual void dealloc(ChunkPrefix* header) = 0;
 
-    void** vtable_; // 0x0065845C (base), 0x0065848C (Heap)
     // Statistics: block counts and sizes in use and free, and the most there have been.
     int used_blocks_;
     int max_used_blocks_;
@@ -136,20 +155,21 @@ static_assert(sizeof(MemSource) == 0x64, "layout must match the original");
 // The general-purpose allocator: a free list per context (address ordered, neighbours merged), and more space
 // claimed from the region when no free block fits. A heap can fall back on up to five others when its region is
 // full (each kept `reserve` bytes clear).
-class Arena : public MemSource {
+class Arena final : public MemSource {
 public:
+    // 0x005BA520
     Arena(Zone* region, int direction, const char* name);
 
-    // The virtual methods (vtable 0x0065848C, slots 3 to 8).
-    void* carve(uint32_t size, bool halt_if_exhausted);
-    uint32_t largest_free();
+    // The heap's (vtable 0x0065848C, slots 3 to 8).
+    void* carve(uint32_t size, bool halt_if_exhausted) override;
+    uint32_t largest_free() override;
     // Grow a block downwards (a top-down heap: the new space is just below it); the data isn't moved.
-    void* extend_block_downward(uint32_t new_size, void* block);
+    void* extend_block_downward(uint32_t new_size, void* block) override;
     // Grow a block upwards in place, if the space just after it can be had; null if not.
-    void* extend_block_upward(uint32_t new_size, void* block);
+    void* extend_block_upward(uint32_t new_size, void* block) override;
     // Give back the end of a block.
-    void* trim_block_end(uint32_t new_size, void* block);
-    void dealloc(ChunkPrefix* header);
+    void* trim_block_end(uint32_t new_size, void* block) override;
+    void dealloc(ChunkPrefix* header) override;
 
     bool unknown64_;
     uint8_t pad65_[3];

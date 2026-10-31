@@ -8,19 +8,15 @@
 #include "engine/core/code_address.h"
 #include "engine/core/game_vtables.h"
 #include "game/save_cards/save_types.h"
-#include "engine/core/stubs.h"
 
 namespace memory {
 
-// The virtual tables of the list node, the region and the allocated region (defined after their functions, below).
+// The virtual table of the list node (defined after its functions, below).
 extern void** const kNodeVtable;
-extern void** const kRegionVtable;
-extern void** const kAllocRegionVtable;
 
 namespace {
 
 extern void** const kHeadVtable; // lists::Foremost<Context>
-extern void** const kAllocatorVtable;
 
 } // namespace
 
@@ -45,8 +41,7 @@ MemSource* free_block(void* block)
     ChunkPrefix* header = ChunkPrefix::get_of(block);
     MemSource* allocator = header->allocator;
     if (header->marker != ChunkPrefix::kBlockFreed) {
-        // The allocator's free (virtual slot 8).
-        reinterpret_cast<void(__thiscall*)(MemSource*, ChunkPrefix*)>(allocator->vtable_[8])(allocator, header);
+        allocator->dealloc(header);
         header->marker = ChunkPrefix::kBlockFreed;
     }
     return allocator;
@@ -54,12 +49,14 @@ MemSource* free_block(void* block)
 
 // --- regions -------------------------------------------------------------------------------------------
 
+void* Zone::operator new(std::size_t size) noexcept { return alloc_zeroed(static_cast<unsigned int>(size)); }
+void Zone::operator delete(void* memory) { memory::dealloc(memory); }
+
 // 0x005BC5F0
 Zone::Zone(uint8_t* start, uint8_t* end)
 {
     finish_ = end;
     min_available_ = static_cast<int>(end - start);
-    vtable_ = kRegionVtable;
     outset_ = start;
     allocators_[1] = nullptr;
     allocators_[0] = nullptr;
@@ -110,7 +107,6 @@ uint8_t* Zone::carve(MemSource* allocator, int size, int /*unused*/)
 // 0x005BC620
 MemoryArena::MemoryArena(uint32_t size)
 {
-    vtable_ = kAllocRegionVtable;
     if (size) {
         uint32_t rounded = size & ~0xFu;
         auto* start = static_cast<uint8_t*>(alloc(rounded)); // (New makes sure the memory system is set up)
@@ -123,12 +119,7 @@ MemoryArena::MemoryArena(uint32_t size)
 }
 
 // 0x005BC6B0
-void MemoryArena::destroy_body()
-{
-    vtable_ = kAllocRegionVtable;
-    dealloc(outset_);
-    vtable_ = kRegionVtable;
-}
+MemoryArena::~MemoryArena() { memory::dealloc(outset_); }
 
 // --- allocators ----------------------------------------------------------------------------------------
 
@@ -145,13 +136,12 @@ void ListNode::unlink_as(void** node_vtable)
     prev = this;
 }
 
-// 0x005BC4D0
-void Zone::destroy_body() { vtable_ = kRegionVtable; }
+void* MemSource::operator new(std::size_t size) noexcept { return alloc_zeroed(static_cast<unsigned int>(size)); }
+void MemSource::operator delete(void* memory) { memory::dealloc(memory); }
 
 // 0x005BA260
 MemSource::MemSource(Zone* region, int direction, const char* name)
 {
-    vtable_ = kAllocatorVtable;
     used_blocks_ = max_used_blocks_ = free_blocks_ = max_free_blocks_ = 0;
     used_size_ = max_used_size_ = free_size_ = max_free_size_ = 0;
     region_ = region;
@@ -171,9 +161,8 @@ MemSource::MemSource(Zone* region, int direction, const char* name)
 }
 
 // 0x005BA140
-void MemSource::destroy_body()
+MemSource::~MemSource()
 {
-    vtable_ = kAllocatorVtable;
     region_->remove_allocator(this);
     base_context_.node.uncouple();
     zone_chain_.uncouple();
@@ -199,7 +188,7 @@ void MemSource::leave_heap_scope()
 {
     if (CtxInfo* context = context_) {
         context->node.uncouple();
-        dealloc(context);
+        memory::dealloc(context);
     }
     ListNode* next = zone_chain_.next;
     context_ = next->data != reinterpret_cast<void*>(-1) && next ? static_cast<CtxInfo*>(next->data) : nullptr;
@@ -210,43 +199,9 @@ void MemSource::leave_heap_scope()
 namespace {
 
 using memory::ListNode;
-using memory::MemoryArena;
-using memory::MemSource;
-using memory::Zone;
 
-// Constructors and destructors through member functions (they return `this` in EAX).
+// The list nodes' destructors.
 struct AllocAdapters {
-    Zone* region_construct(uint8_t* start, uint8_t* end) { return new (this) Zone(start, end); }
-    MemoryArena* alloc_region_construct(uint32_t size) { return new (this) MemoryArena(size); }
-    // 0x005BC6D0 (Region's virtual [0]): destroyed, and freed with flags & 1.
-    Zone* region_destroy(unsigned int flags)
-    {
-        auto* region = reinterpret_cast<Zone*>(this);
-        region->destroy_body();
-        if (flags & 1)
-            memory::dealloc(region);
-        return region;
-    }
-    MemoryArena* alloc_region_destroy(unsigned int flags)
-    {
-        auto* region = reinterpret_cast<MemoryArena*>(this);
-        region->destroy_body();
-        if (flags & 1)
-            memory::dealloc(region);
-        return region;
-    }
-    MemSource* allocator_construct(Zone* region, int direction, const char* name)
-    {
-        return new (this) MemSource(region, direction, name);
-    }
-    MemSource* allocator_destroy(unsigned int flags)
-    {
-        auto* allocator = reinterpret_cast<MemSource*>(this);
-        allocator->destroy_body();
-        if (flags & 1)
-            memory::dealloc(allocator);
-        return allocator;
-    }
     // 0x005BA100 / 0x005BA230: the list node's and list head's scalar deleting destructors
     ListNode* node_destroy(unsigned int flags)
     {
@@ -271,24 +226,10 @@ namespace memory {
 namespace {
 static VtableSlot g_head_vtable_slots[] = {&AllocAdapters::node_destroy};
 void** const kHeadVtable = reinterpret_cast<void**>(g_head_vtable_slots);
-static VtableSlot g_allocator_vtable_slots[] = {&memory::MemSource::enter_heap_scope,
-                                                &memory::MemSource::leave_heap_scope,
-                                                &AllocAdapters::allocator_destroy,
-                                                &_purecall,
-                                                stubs::return_zero,
-                                                stubs::return_zero2,
-                                                stubs::return_zero2,
-                                                stubs::return_zero2,
-                                                &_purecall};
-void** const kAllocatorVtable = reinterpret_cast<void**>(g_allocator_vtable_slots);
 } // namespace
 
 static VtableSlot g_node_vtable_slots[] = {&AllocAdapters::node_destroy};
 void** const kNodeVtable = reinterpret_cast<void**>(g_node_vtable_slots); // lists::Elem<Context>
-static VtableSlot g_region_vtable_slots[] = {&AllocAdapters::region_destroy};
-void** const kRegionVtable = reinterpret_cast<void**>(g_region_vtable_slots);
-static VtableSlot g_alloc_region_vtable_slots[] = {&AllocAdapters::alloc_region_destroy};
-void** const kAllocRegionVtable = reinterpret_cast<void**>(g_alloc_region_vtable_slots);
 
 } // namespace memory
 

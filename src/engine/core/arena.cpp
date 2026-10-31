@@ -6,13 +6,10 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/script/cfuncs_engine.h"
-#include "engine/core/code_address.h"
 
 namespace memory {
 
 namespace {
-
-extern void** const kHeapVtable;
 
 int g_heap_busy;
 ChunkPrefix* g_forced_free_block;
@@ -44,7 +41,6 @@ Arena::Arena(Zone* region, int direction, const char* name) : MemSource(region, 
 {
     use_fallbacks_ = 0;
     unknown64_ = false;
-    vtable_ = kHeapVtable;
     unknown68_ = -1;
 }
 
@@ -85,7 +81,7 @@ void* Arena::carve(uint32_t size, bool halt_if_exhausted)
             tail->allocator = this;
             tail->size = static_cast<uint32_t>(rest);
             count_up(used_blocks_, max_used_blocks_, 1);
-            virtual_free(tail);
+            dealloc(tail);
         }
         return best->gate_off();
     }
@@ -99,7 +95,7 @@ void* Arena::carve(uint32_t size, bool halt_if_exhausted)
             for (int i = 0; i < 5; ++i) {
                 Arena* other = fallbacks_[i];
                 if (other && other->region_->free_byte_count() > fallback_reserve_[i] + static_cast<int>(size)) {
-                    if (void* block = other->virtual_allocate(size, false)) {
+                    if (void* block = other->carve(size, false)) {
                         heap_busy() = 0;
                         return block;
                     }
@@ -141,7 +137,7 @@ void* Arena::extend_block_downward(uint32_t new_size, void* block)
     ChunkPrefix* header = fetch_chunk_prefix(block);
     uint32_t rounded = round_up16(new_size);
     // The new space comes just below the block (with its own header, which becomes the block's).
-    ChunkPrefix* extended = fetch_chunk_prefix(virtual_allocate(rounded - header->size, true));
+    ChunkPrefix* extended = fetch_chunk_prefix(carve(rounded - header->size, true));
     debug_track_block(header);
     debug_track_block(extended);
     --used_blocks_;
@@ -161,11 +157,11 @@ void* Arena::extend_block_upward(uint32_t new_size, void* block)
         heap_busy() = 0;
         return block;
     }
-    ChunkPrefix* extra = fetch_chunk_prefix(virtual_allocate(rounded - header->size, true));
+    ChunkPrefix* extra = fetch_chunk_prefix(carve(rounded - header->size, true));
     if (static_cast<uint8_t*>(block) + header->size != reinterpret_cast<uint8_t*>(extra)) {
         // Not right after the block: give it back.
         heap_busy() = 0;
-        virtual_free(extra);
+        dealloc(extra);
         return nullptr;
     }
     debug_track_block(header);
@@ -193,7 +189,7 @@ void* Arena::trim_block_end(uint32_t new_size, void* block)
     tail->allocator = this;
     debug_track_block(tail);
     count_up(used_blocks_, max_used_blocks_, 1);
-    virtual_free(tail);
+    dealloc(tail);
     debug_track_block(header);
     header->size -= cut;
     debug_track_block(header);
@@ -264,39 +260,4 @@ void Arena::dealloc(ChunkPrefix* header)
     used_size_ -= kBlockHeaderSize;
 }
 
-} // namespace memory
-
-namespace {
-
-struct HeapAdapters {
-    memory::Arena* make_new(memory::Zone* region, int direction, const char* name)
-    {
-        return new (this) memory::Arena(region, direction, name);
-    }
-    // 0x005BA560 (scalar deleting destructor; the heap adds nothing to the allocator's destructor)
-    memory::Arena* teardown(unsigned int flags)
-    {
-        auto* heap = reinterpret_cast<memory::Arena*>(this);
-        heap->destroy_body();
-        if (flags & 1)
-            memory::dealloc(heap);
-        return heap;
-    }
-};
-
-} // namespace
-
-namespace memory {
-namespace {
-static VtableSlot g_heap_vtable_slots[] = {&memory::MemSource::enter_heap_scope,
-                                           &memory::MemSource::leave_heap_scope,
-                                           &HeapAdapters::teardown,
-                                           &memory::Arena::carve,
-                                           &memory::Arena::largest_free,
-                                           &memory::Arena::extend_block_downward,
-                                           &memory::Arena::extend_block_upward,
-                                           &memory::Arena::trim_block_end,
-                                           &memory::Arena::dealloc};
-void** const kHeapVtable = reinterpret_cast<void**>(g_heap_vtable_slots);
-} // namespace
 } // namespace memory
