@@ -7,7 +7,6 @@
 #include "game/park_editing/park_editor.h"
 
 #include "engine/core/mem.h"
-#include "engine/core/stubs.h"
 #include "engine/core/task_list.h"
 #include "game/park_editing/park.h"
 #include "game/park_editing/piece_menu.h"
@@ -15,8 +14,6 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/sys/model_viewer.h"
 
 namespace park_editing {
@@ -174,11 +171,8 @@ void __cdecl ParkBuilderMode::front_end_tick(ParkEditorTask* task)
     editor->logic_update();
 }
 
-ParkBuilderMode* ParkBuilderMode::make_new()
+ParkBuilderMode::ParkBuilderMode()
 {
-    modules::PartUnit::make_new();
-    new (&listener_) Listener;
-    vtable_ = kVtable;
     actions_ = 0;
     flag_bits_ = 0;
     // The logic task (priority 0), the display task (-1000: nothing to do) and the input handler.
@@ -197,15 +191,13 @@ ParkBuilderMode* ParkBuilderMode::make_new()
     action_finished_ = false;
     ParkLayout::spawn_occurrence();
     listener_.enter_wait_board(nullptr);
-    return this;
 }
 
 ParkBuilderMode* __cdecl ParkBuilderMode::fabricate(bool create)
 {
     if (!sole() && create) {
-        void* memory = memory::alloc_zeroed(sizeof(ParkBuilderMode), static_cast<memory::Arena*>(nullptr), 1);
-        if (memory) {
-            sole() = static_cast<ParkBuilderMode*>(memory)->make_new();
+        sole() = new ParkBuilderMode;
+        if (sole()) {
             ++ref_tally();
             return sole();
         }

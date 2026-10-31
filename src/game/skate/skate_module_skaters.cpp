@@ -991,10 +991,8 @@ void __cdecl Skate::front_end_tick(tasks::Task<Skate>* task)
 // --- made and destroyed ---------------------------------------------------------------------------------------------
 
 // 0x00568DE0
-Skate* Skate::make_new()
+Skate::Skate()
 {
-    PartUnit::make_new();
-    vtable_ = kSkateVtable;
     riders_.list_link_.data = reinterpret_cast<void*>(-1);
     riders_.list_link_.priority = 0;
     riders_.list_link_.next = &riders_.list_link_;
@@ -1039,13 +1037,11 @@ Skate* Skate::make_new()
             reinterpret_cast<uint8_t*>(skater->fetch_module(kSkaterCorePhysics))[0x2DA] = 0;
     }
     own_script_ = nullptr;
-    return this;
 }
 
 // 0x005663A0
-void Skate::destroy_body()
+Skate::~Skate()
 {
-    vtable_ = kSkateVtable;
     gfx::ClipStore::teardown();
     surface_kind::clear_terrain_types();
     script::launch_script(kUninitLightManager, nullptr, nullptr, false, nullptr);
@@ -1077,16 +1073,6 @@ void Skate::destroy_body()
         script::Script::operator delete(script);
     }
     skater_head_destroy_body(&riders_.list_link_);
-    PartUnit::destroy_body();
-}
-
-// 0x00567BA0
-Skate* Skate::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x00565750: the skater list's node's scalar deleting destructor (lists::Elem<Rider>, vtable 0x0064E544).

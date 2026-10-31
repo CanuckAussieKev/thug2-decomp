@@ -105,8 +105,7 @@ void __cdecl Skate::discard_occurrence()
         --get_refs();
         return;
     }
-    if (Skate* skate = sole())
-        reinterpret_cast<Skate*(__thiscall*)(Skate*, int)>(skate->vtable_[0])(skate, 1);
+    delete sole();
     g_skate_module = nullptr;
     get_refs() = 0;
 }
@@ -116,9 +115,8 @@ Skate* __cdecl Skate::spawn_occurrence(bool create)
 {
     Skate* skate = sole();
     if (!skate && create) {
-        void* memory = memory::alloc_zeroed(sizeof(Skate), nullptr, 1);
-        if (memory) {
-            skate = static_cast<Skate*>(memory)->make_new();
+        skate = new Skate;
+        if (skate) {
             int refs = get_refs() + 1;
             g_skate_module = skate;
             get_refs() = refs;
@@ -492,8 +490,6 @@ int __stdcall Skate::should_be_absent(script::Struct* params)
 // 0x00565730: the head's destructor body (the node's).
 void __fastcall skater_head_destroy_body(memory::ListNode* head) { head->unlink_as(kSkaterNodeVtable); }
 
-static VtableSlot g_skate_vtable_slots[] = {&Skate::teardown, &Skate::start_callback, &Skate::stop_callback};
-void** const kSkateVtable = reinterpret_cast<void**>(g_skate_vtable_slots);
 static VtableSlot g_skater_node_vtable_slots[] = {Skate::destroy_skater_node};
 void** const kSkaterNodeVtable = reinterpret_cast<void**>(g_skater_node_vtable_slots);
 static VtableSlot g_skater_head_vtable_slots[] = {Skate::destroy_skater_head};

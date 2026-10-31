@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <new>
 #include "engine/core/slab_bank.h"
+#include "engine/sys/game_module.h"
 
 namespace lists {
 class KeyMap;
@@ -35,15 +36,16 @@ struct ScriptCacheEntry {
 };
 static_assert(sizeof(ScriptCacheEntry) == 0x14, "allocated as 0x14 bytes by the original");
 
-// An engine module (modules::PartUnit: registered and started with the module manager, but its Start and Stop do
-// nothing).
-struct ScriptStore {
+// An engine module (vtable 0x00648468; registered and started with the module manager, but its start and stop do
+// nothing - the empty 0x005480A0).
+class ScriptStore final : public modules::PartUnit {
+public:
     // 0x00475DD0
-    ScriptStore* make_new();
-    // 0x00476090 (destructor body): every entry and its code is freed, then the table.
-    void destroy_body();
-    // 0x004761E0 (scalar deleting destructor, vtable slot 0)
-    ScriptStore* teardown(unsigned int flags);
+    ScriptStore();
+    // 0x00476090 / 0x004761E0: every entry and its code is freed, then the table.
+    ~ScriptStore() override;
+    void start_callback() override {}
+    void stop_callback() override {}
 
     // 0x00475E80: the code of script `name` (a name naming another symbol is followed), taking a use of it;
     // null if `name` isn't a script. Decompressed and pre-processed on first use.
@@ -67,9 +69,7 @@ struct ScriptStore {
     // unused.
     void make_room(int size, uint32_t name);
 
-    void** vtable_;                   // 0x00648468: {Destroy, Start, Stop}
-    uint8_t owning_module_[0x14 - 4]; // modules::PartUnit's fields
-    lists::KeyMap* entries_;          // 8 bits, from the script heap
+    lists::KeyMap* entries_; // 8 bits, from the script heap
     ScriptCacheEntry* newest_unused_;
     ScriptCacheEntry* oldest_unused_;
     bool delete_unused_; // never set in this game

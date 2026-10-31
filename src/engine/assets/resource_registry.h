@@ -26,15 +26,13 @@ namespace assets {
 // 0x006918E0).
 class ResourceRegistry : public modules::PartUnit {
 public:
-    // 0x00407F80: the hash table (10 bits) and the task running process_pending_assets (returns this).
-    ResourceRegistry* make_new();
-    // 0x00408930: every asset unloaded, the hash table and the task deleted.
-    void destruct();
-    // 0x00408A10 (scalar deleting)
-    ResourceRegistry* scalar_delete(uint8_t flags);
+    // 0x00407F80: the hash table (10 bits) and the task running process_pending_assets.
+    ResourceRegistry();
+    // 0x00408930 / 0x00408A10: every asset unloaded, the hash table and the task deleted.
+    ~ResourceRegistry() override;
     // 0x00407E90 / 0x00407AE0: the module's start and stop: the task into / out of the main loop's logic tasks.
-    void start_callback();
-    void stop_callback();
+    void start_callback() override;
+    void stop_callback() override;
 
     // 0x00408060: an asset of `type` from data in memory (load_from_buffer with `data`, `size`, `copy`, `params`,
     // `extra`); `group` is the checksum of an asset it depends on. Returns the asset's data, or null if it failed

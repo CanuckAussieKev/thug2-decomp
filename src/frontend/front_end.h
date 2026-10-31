@@ -22,6 +22,7 @@
 #include <cstdint>
 
 #include "engine/pad_input/input_hub.h"
+#include "engine/sys/game_module.h"
 
 namespace script {
 class Script;
@@ -36,7 +37,7 @@ struct FrontEnd;
 using FrontEndTask = tasks::Task<FrontEnd>;
 using FrontEndInputHandler = pad_input::Responder<FrontEnd>;
 
-struct FrontEnd {
+struct FrontEnd final : public PartUnit {
     // The menu's pad events.
     static constexpr uint32_t kPadStart = 0x2E6EF8E7;  // "pad_start"
     static constexpr uint32_t kPadBack = 0x7EE0FD2A;   // "pad_back"
@@ -59,10 +60,8 @@ struct FrontEnd {
     };
     static constexpr int kMaxButtonEvents = 32;
 
-    void** vtable_;
-    uint8_t owning_module_[0x14 - 4]; // modules::PartUnit's fields
-    FrontEndTask* update_job_;        // +0x14: front_end_tick, priority -2000
-    FrontEndTask* keyboard_task_;     // +0x18: keyboard_task, priority -1000 (added by register_key_listener)
+    FrontEndTask* update_job_;    // +0x14: front_end_tick, priority -2000
+    FrontEndTask* keyboard_task_; // +0x18: keyboard_task, priority -1000 (added by register_key_listener)
     uint32_t unknown1c_;
     FrontEndInputHandler* pad_listeners_[2];           // +0x20: input_logic, priority -1000
     int device_server_map_[2];                         // +0x28: which controller each handler listens to (0, 1)
@@ -77,19 +76,16 @@ struct FrontEnd {
     bool startup_script_on_;                           // +0x15D
     uint32_t startup_script_id_;                       // +0x160: the spawned script's unique id
 
-    // 0x0054FE00: the constructor (the module, its tasks and handlers; mappings active, 300/50 ms). Returns this.
-    FrontEnd* make_new();
-
-    // 0x0054EC20 (destructor body): the logic task and the input handlers deleted (the keyboard task isn't - an
+    // 0x0054FE00: the constructor (the module, its tasks and handlers; mappings active, 300/50 ms).
+    FrontEnd();
+    // 0x0054EC20 / 0x0054EE70: the logic task and the input handlers deleted (the keyboard task isn't - an
     // original leak), then the module's.
-    void destroy_body();
-    // 0x0054EE70 (scalar deleting destructor, vtable slot 0)
-    FrontEnd* teardown(unsigned int flags);
-    // 0x0054EEA0 (v_start_cb, vtable slot 1): the logic task joins the main loop's logic tasks and each input
-    // handler the handler list of the controller its own index names (not device_server_map_'s).
-    void kickoff();
-    // 0x0054EF30 (v_stop_cb, vtable slot 2): the logic task and the input handlers out of their lists.
-    void halt();
+    ~FrontEnd() override;
+    // 0x0054EEA0: the logic task joins the main loop's logic tasks and each input handler the handler list of the
+    // controller its own index names (not device_server_map_'s).
+    void start_callback() override;
+    // 0x0054EF30: the logic task and the input handlers out of their lists.
+    void stop_callback() override;
     // 0x0054ECA0: whether either handler's controller is plugged in (the script command PadsPluggedIn).
     bool pads_plugged_in();
     // 0x0054ECD0: no more typed keys (the keyboard task out of the logic tasks; StopKeyboardHandler).

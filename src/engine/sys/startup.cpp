@@ -71,12 +71,11 @@ void queue_job(tasks::PileUp& list, void* task) { list.queue_job(static_cast<tas
 void clear_job_list(tasks::PileUp& list) { list.clear_job_list(); }
 void get_main_loop(frame_loop::Hub* mlp) { mlp->get_main_loop(); }
 
-// The module manager (modules::Hub, 0x0044F6F0). (The modules are passed as they were made: not all of their types
-// derive from modules::PartUnit in our source yet.)
-void enrol_unit(modules::Hub* mdl, void* module) { mdl->enrol_unit(static_cast<modules::PartUnit*>(module)); }
-void launch_module(modules::Hub* mdl, void* module) { mdl->launch_module(static_cast<modules::PartUnit*>(module)); }
+// The module manager (modules::Hub, 0x0044F6F0).
+void enrol_unit(modules::Hub* mdl, modules::PartUnit* module) { mdl->enrol_unit(module); }
+void launch_module(modules::Hub* mdl, modules::PartUnit* module) { mdl->launch_module(module); }
 void halt_every_module(modules::Hub* mdl) { mdl->halt_every_module(); }
-void remove_module(modules::Hub* mdl, void* module) { mdl->remove_module(static_cast<modules::PartUnit*>(module)); }
+void remove_module(modules::Hub* mdl, modules::PartUnit* module) { mdl->remove_module(module); }
 
 // The bottom-up heap's virtual enter_heap_scope / leave_heap_scope (slots 0 and 1).
 void push_bottom_up_heap()
@@ -180,11 +179,11 @@ int __cdecl game_main(int argc, char** argv)
         goals::MatchRules::sole(true);
         objects::ProfileRoster::fabricate(true);
         highscores::BestResults::fabricate(true);
-        uint8_t* module_5691a_0 = reinterpret_cast<uint8_t*>(modules::Skate::spawn_occurrence(true));
-        auto* front_end = reinterpret_cast<uint8_t*>(modules::create_front_end(true));
+        modules::Skate* skate_module = modules::Skate::spawn_occurrence(true);
+        modules::FrontEnd* front_end = modules::create_front_end(true);
         online::Hub::fabricate(true);
         reinterpret_cast<void*&>(objects::g_online_hub) = online::g_online_hub; // (the network manager)
-        auto* park_editor = reinterpret_cast<uint8_t*>(park_editing::ParkBuilderMode::fabricate(true));
+        park_editing::ParkBuilderMode* park_editor = park_editing::ParkBuilderMode::fabricate(true);
         frontend::create_screen_element_manager(true);
         level_nodes::create_node_manager(true);
         gfx::create_tod_manager(true);
@@ -197,12 +196,12 @@ int __cdecl game_main(int argc, char** argv)
         enrol_unit(mdl, script_cache);
         enrol_unit(mdl, park_editor);
         enrol_unit(mdl, front_end);
-        enrol_unit(mdl, module_5691a_0);
+        enrol_unit(mdl, skate_module);
         enrol_unit(mdl, async_loader);
         enrol_unit(mdl, assets);
         launch_module(mdl, script_cache);
         launch_module(mdl, front_end);
-        launch_module(mdl, module_5691a_0);
+        launch_module(mdl, skate_module);
         launch_module(mdl, park_editor);
         launch_module(mdl, async_loader);
         launch_module(mdl, assets);
@@ -220,7 +219,7 @@ int __cdecl game_main(int argc, char** argv)
         fast_exit();
 
         halt_every_module(mdl);
-        remove_module(mdl, module_5691a_0); // (the script cache isn't unregistered)
+        remove_module(mdl, skate_module); // (the script cache isn't unregistered)
         remove_module(mdl, front_end);
         remove_module(mdl, park_editor);
         remove_module(mdl, async_loader);

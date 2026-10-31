@@ -35,7 +35,6 @@
 #include "engine/sys/mlp.h"
 #include "platform/stopwatch.h"
 #include "engine/sys/viewer_object.h"
-#include "engine/core/code_address.h"
 #include "engine/objects/movie_manager.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/script/cfuncs_scene.h"
@@ -51,8 +50,6 @@ constexpr uint32_t kUserViewerSquare = 0xAFB309AD;     // UserViewerSquare (scri
 constexpr uint32_t kUserViewerCircle = 0xB6E7047D;     // UserViewerCircle
 constexpr uint32_t kUserViewerTriangle = 0xC09789E2;   // UserViewerTriangle
 constexpr uint32_t kUserViewerX = 0xF440EC15;          // UserViewerX
-
-extern void** const kVtable;
 
 int& view_mode_value() { return objects::g_view_mode; }
 
@@ -183,9 +180,8 @@ void Viewer::stop_callback()
 }
 
 // 0x00576DC0
-void Viewer::destroy_body()
+Viewer::~Viewer()
 {
-    vtable_ = kVtable;
     if (net_handler_)
         erase_one(net_handler_, 0);
     delete pad_listener_;
@@ -193,16 +189,6 @@ void Viewer::destroy_body()
     delete task20_;
     delete shift_handler_;
     sole() = nullptr;
-    PartUnit::destroy_body();
-}
-
-// 0x00577230
-Viewer* Viewer::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x00576E60
@@ -554,10 +540,8 @@ void Viewer::start_callback()
 }
 
 // 0x00577F20
-Viewer* Viewer::make_new()
+Viewer::Viewer()
 {
-    PartUnit::make_new();
-    vtable_ = kVtable;
     actions_ = 0;
     shift_makes_ = 0;
     if (!debug_checks()) {
@@ -577,14 +561,6 @@ Viewer* Viewer::make_new()
     task20_ = new ViewerTask(&select_combo_task, this, 0);
     shift_handler_ = new ViewerInputHandler(&handle_viewer_shift, this, 1000, controller);
     sole() = this;
-    return this;
 }
-
-namespace {
-static VtableSlot g_vtable_slots[] = {&modules::Viewer::teardown, &modules::Viewer::start_callback,
-                                      &modules::Viewer::stop_callback};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 
 } // namespace modules

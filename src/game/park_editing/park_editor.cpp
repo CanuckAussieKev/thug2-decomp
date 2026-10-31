@@ -28,13 +28,8 @@
 #include "game/skate/skate_module.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/objects/compositemgr.h"
-#include "engine/core/code_address.h"
 
 namespace park_editing {
-
-static VtableSlot g_park_editor_vtable_slots[] = {&ParkBuilderMode::teardown, &ParkBuilderMode::start_callback,
-                                                  &ParkBuilderMode::stop_callback};
-void** const kParkEditorVtable = reinterpret_cast<void**>(g_park_editor_vtable_slots);
 
 namespace {
 
@@ -181,29 +176,13 @@ void ParkBuilderMode::get_release()
         --ref_tally();
         return;
     }
-    if (ParkBuilderMode* editor = sole())
-        reinterpret_cast<void(__thiscall*)(ParkBuilderMode*, int)>(editor->vtable_[0])(editor, 1);
+    delete sole();
     sole() = nullptr;
     ref_tally() = 0;
 }
 
 // 0x0058D2D0
-void ParkBuilderMode::destroy_body()
-{
-    vtable_ = kParkEditorVtable;
-    ParkLayout::discard_occurrence();
-    listener_.~Listener();
-    modules::PartUnit::destroy_body();
-}
-
-// 0x0058DAA0
-ParkBuilderMode* ParkBuilderMode::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+ParkBuilderMode::~ParkBuilderMode() { ParkLayout::discard_occurrence(); }
 
 // 0x0058DAD0
 void ParkBuilderMode::start_callback()

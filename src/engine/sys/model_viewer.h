@@ -34,7 +34,7 @@ struct Viewer;
 using ViewerInputHandler = pad_input::Responder<Viewer>;
 using ViewerTask = tasks::Task<Viewer>;
 
-struct Viewer : PartUnit {
+struct Viewer final : public PartUnit {
     // The commands the pad gives (actions_ bits).
     enum : uint32_t {
         kCommandShoulderA = 0x2,
@@ -61,21 +61,19 @@ struct Viewer : PartUnit {
     // the debug checks are on (0x00684FA8 - they are in this exe), the PC tool's app server "THUG2 Viewer" (port
     // 10000); the free camera task and the input handler, the speeds (move 400, turn 120), the Select combo task
     // and the shift handler (priority 1000) - the handlers on the controller the script integer 0x702247A5 names;
-    // the singleton. Returns this.
-    Viewer* make_new();
-    // 0x00577DA0: v_start_cb (vtable slot 1), in the front-end heap: the PC tool's message handlers (unless the
-    // debug checks are on), the tasks onto the main loop's list, the handlers onto their controller's.
-    void start_callback();
+    // the singleton.
+    Viewer();
+    // 0x00577DA0: in the front-end heap: the PC tool's message handlers (unless the debug checks are on), the tasks
+    // onto the main loop's list, the handlers onto their controller's.
+    void start_callback() override;
     // 0x00577740: with ResetCameraToViewerObject set, the camera object viewer_cam put back: identity orientation,
     // at ViewerObjPos (`params`) raised by (0, 35, 100) - (0, 35, 100) itself without one. Returns true.
     bool place_camera(script::Struct* params);
-    // 0x00576DC0: the destructor body: the handlers, tasks and net handler deleted, the singleton cleared, then
-    // Module's. 0x00577230: the scalar deleting destructor (vtable slot 0).
-    void destroy_body();
-    Viewer* teardown(uint8_t flags);
-    // 0x00576D70: v_stop_cb (vtable slot 2): the viewer object deleted, the handlers and tasks off their lists,
-    // the net handler's node off its list.
-    void stop_callback();
+    // 0x00576DC0 / 0x00577230: the handlers, tasks and net handler deleted, the singleton cleared.
+    ~Viewer() override;
+    // 0x00576D70: the viewer object deleted, the handlers and tasks off their lists, the net handler's node off its
+    // list.
+    void stop_callback() override;
     // 0x00576D40: the viewer object (if any) shut down (0x005897B0) and deleted.
     void drop_viewer_entity();
     // 0x00577170: a new viewer object (in the debug heap, or the bottom-up one), set up from `data`.

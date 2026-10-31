@@ -3,6 +3,8 @@
 #include <cstdint>
 
 #include "engine/core/mem.h"
+#include "engine/core/task_list.h"
+#include "engine/sys/game_module.h"
 
 namespace pre {
 class ArchiveFile;
@@ -80,9 +82,22 @@ public:
 // Whether overlapped I/O is used (chosen at start-up; Windows NT 6 and later).
 bool& async_use_overlapped_io();
 
-// The engine module whose per-frame task polls the handles and runs the callbacks: created (or another
-// reference taken) by create_async_loader_module, released by destroy_async_loader_module.
-struct AsyncLoaderModule;
+// The engine module whose per-frame task polls the handles and runs the callbacks (vtable 0x00658158): created (or
+// another reference taken) by create_async_loader_module, released by destroy_async_loader_module.
+class AsyncLoaderModule final : public modules::PartUnit {
+public:
+    // 0x005B6BC0
+    AsyncLoaderModule();
+    // 0x005B6660 / 0x005B6940
+    ~AsyncLoaderModule() override { delete task_; }
+    // 0x005B6970: the module starts - its task joins the logic tasks.
+    void start_callback() override;
+    // (the original's slot is the skate module's stop, 0x00564C50 - folded: the task at +0x14 out of its list)
+    void stop_callback() override { task_->drop_out(); }
+
+    tasks::Task<AsyncLoaderModule>* task_; // +0x14 running async_loader_task
+};
+static_assert(sizeof(AsyncLoaderModule) == 0x18, "allocated as 0x18 bytes by the original");
 AsyncLoaderModule* create_async_loader_module(bool create);
 void destroy_async_loader_module();
 void async_poll_handles();

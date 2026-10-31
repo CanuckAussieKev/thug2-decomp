@@ -13,7 +13,6 @@
 #include "engine/file/async.h"
 #include "engine/lists/key_map.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
 
 namespace assets {
 
@@ -22,11 +21,6 @@ int g_ass_man_references;
 frame_loop::Hub* g_main_loop_manager;
 
 namespace {
-
-static VtableSlot g_ass_man_vtable_slots[] = {&assets::ResourceRegistry::scalar_delete,
-                                              &assets::ResourceRegistry::start_callback,
-                                              &assets::ResourceRegistry::stop_callback};
-void** const kAssManVtable = reinterpret_cast<void**>(g_ass_man_vtable_slots);
 
 int& ref_tally() { return g_ass_man_references; }
 
@@ -140,10 +134,8 @@ void join_group(ResourceRegistry* manager, Resource* asset, uint32_t group)
 } // namespace
 
 // 0x00407F80
-ResourceRegistry* ResourceRegistry::make_new()
+ResourceRegistry::ResourceRegistry()
 {
-    modules::PartUnit::make_new();
-    vtable_ = kAssManVtable;
     void* memory = memory::alloc(sizeof(lists::KeyMap));
     assets_ = memory ? new (memory) lists::KeyMap(10) : nullptr;
     callback_ = nullptr;
@@ -152,13 +144,11 @@ ResourceRegistry* ResourceRegistry::make_new()
     ready_flag_ = nullptr;
     unknown15_ = false;
     task_ = new tasks::Task<ResourceRegistry>(&process_task, this, 0);
-    return this;
 }
 
 // 0x00408930
-void ResourceRegistry::destruct()
+ResourceRegistry::~ResourceRegistry()
 {
-    vtable_ = kAssManVtable;
     unload_assets_in_list(ready_flag_, true); // (inlined)
     unload_assets_in_list(pending_, true);
     if (lists::KeyMap* table = assets_) {
@@ -170,16 +160,6 @@ void ResourceRegistry::destruct()
         memory::Hub::get_pull()->dealloc(table);
     }
     delete task_;
-    modules::PartUnit::destroy_body();
-}
-
-// 0x00408A10
-ResourceRegistry* ResourceRegistry::scalar_delete(uint8_t flags)
-{
-    destruct();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x00407E90
@@ -484,9 +464,8 @@ ResourceRegistry* create_asset_manager(bool create)
 {
     ResourceRegistry* manager = asset_manager();
     if (!manager && create) {
-        void* memory = memory::alloc_zeroed(sizeof(ResourceRegistry), nullptr, 1);
-        if (memory) {
-            manager = static_cast<ResourceRegistry*>(memory)->make_new();
+        manager = new ResourceRegistry;
+        if (manager) {
             asset_manager() = manager;
             ++ref_tally();
             return manager;
@@ -505,8 +484,7 @@ void release_asset_manager()
         --ref_tally();
         return;
     }
-    if (ResourceRegistry* manager = asset_manager())
-        reinterpret_cast<void(__thiscall*)(ResourceRegistry*, int)>(manager->vtable_[0])(manager, 1);
+    delete asset_manager();
     asset_manager() = nullptr;
     ref_tally() = 0;
 }

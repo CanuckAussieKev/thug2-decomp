@@ -29,15 +29,10 @@
 #include "platform/game_clock.h"
 #include "engine/sys/game_module.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
 #include "engine/objects/movie_manager.h"
 #include "engine/assets/resource_registry.h"
 
 namespace modules {
-
-namespace {
-extern void** const kFrontEndVtable;
-} // namespace
 
 modules::FrontEnd* g_front_end_instance;
 
@@ -133,8 +128,7 @@ bool object_exists(script::Struct* params) // the script command ObjectExists
     return objects::cfunc_object_exists(params, nullptr);
 }
 // The module base, and the tasks (the logic and input handlers) in the main loop's / input manager's stacks.
-void construct_module(void* module) { static_cast<PartUnit*>(module)->make_new(); }
-void destroy_module(void* module) { static_cast<PartUnit*>(module)->destroy_body(); }
+
 void append_vertex(void* list, void* node)
 {
     static_cast<tasks::PileUp*>(list)->queue_job(static_cast<tasks::SchedulerTask*>(node));
@@ -185,23 +179,20 @@ void release_front_end()
         --front_end_refs();
         return;
     }
-    if (FrontEnd* front_end = front_end_instance())
-        reinterpret_cast<void(__thiscall*)(FrontEnd*, unsigned int)>(front_end->vtable_[0])(front_end, 1);
+    delete front_end_instance();
     front_end_instance() = nullptr;
     front_end_refs() = 0;
 }
 
 // 0x0054EC20
-void FrontEnd::destroy_body()
+FrontEnd::~FrontEnd()
 {
-    vtable_ = kFrontEndVtable;
     delete update_job_;
     // (keyboard_task_ is never deleted)
     for (FrontEndInputHandler*& handler : pad_listeners_) {
         delete handler;
         handler = nullptr;
     }
-    destroy_module(this);
 }
 
 // 0x0054ECA0
@@ -285,17 +276,8 @@ uint32_t FrontEnd::auto_repeat(uint32_t held, int device_index)
     return event;
 }
 
-// 0x0054EE70
-FrontEnd* FrontEnd::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
 // 0x0054EEA0
-void FrontEnd::kickoff()
+void FrontEnd::start_callback()
 {
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
     append_vertex(main_loop_manager() + 4, update_job_); // the logic tasks
@@ -311,7 +293,7 @@ void FrontEnd::kickoff()
 }
 
 // 0x0054EF30
-void FrontEnd::halt()
+void FrontEnd::stop_callback()
 {
     remove_node(update_job_);
     for (FrontEndInputHandler* handler : pad_listeners_)
@@ -670,10 +652,8 @@ bool __cdecl cfunc_set_analog_stick_active_for_menus(script::Struct* params, scr
 }
 
 // 0x0054FE00
-FrontEnd* FrontEnd::make_new()
+FrontEnd::FrontEnd()
 {
-    construct_module(this);
-    vtable_ = kFrontEndVtable;
     update_job_ = new FrontEndTask(&front_end_tick, this, -2000);
     keyboard_task_ = new FrontEndTask(&keyboard_task, this, -1000);
     for (int i = 0; i < 2; ++i) {
@@ -692,24 +672,16 @@ FrontEnd* FrontEnd::make_new()
         entry.incident_ = 0;
     device_server_map_[0] = 0;
     device_server_map_[1] = 1;
-    return this;
 }
 
 // 0x0054FF80
 FrontEnd* create_front_end(bool create)
 {
     if (!front_end_instance() && create) {
-        void* memory = memory::alloc_zeroed(sizeof(FrontEnd), nullptr, 1);
-        front_end_instance() = memory ? static_cast<FrontEnd*>(memory)->make_new() : nullptr;
+        front_end_instance() = new FrontEnd;
     }
     ++front_end_refs();
     return front_end_instance();
 }
-
-namespace {
-static VtableSlot g_front_end_vtable_slots[] = {&modules::FrontEnd::teardown, &modules::FrontEnd::kickoff,
-                                                &modules::FrontEnd::halt};
-void** const kFrontEndVtable = reinterpret_cast<void**>(g_front_end_vtable_slots);
-} // namespace
 
 } // namespace modules

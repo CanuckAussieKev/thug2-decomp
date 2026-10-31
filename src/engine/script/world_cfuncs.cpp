@@ -112,8 +112,7 @@ bool __cdecl cfunc_launch_viewer(Struct*, Script*)
     if (viewer_launched())
         return true;
     modules::Hub* modules = g_module_manager;
-    void* memory = memory::alloc_zeroed(sizeof(modules::Viewer));
-    modules::Viewer* viewer = memory ? static_cast<modules::Viewer*>(memory)->make_new() : nullptr;
+    auto* viewer = new modules::Viewer;
     modules->enrol_unit(viewer);
     modules->launch_module(viewer);
     viewer_launched() = true;

@@ -11,28 +11,34 @@
 // list; starting, stopping or restarting one is a command its task carries out at the start of the next frame.
 namespace modules {
 
-// The base of every module (0x14 bytes, vtable 0x0064728C: the scalar deleting destructor, then v_start_cb and
-// v_stop_cb, which each module overrides).
-struct PartUnit {
+// The base of every module (0x14 bytes, vtable 0x0064728C): started and stopped by the manager's task, each module
+// overriding what starting and stopping do. Zeroed memory from the current heap, as memory::HeapObject gives (declared
+// here, not inherited: an empty base under a polymorphic class gives MSVC multiple-inheritance member pointers, and
+// the network code still calls the skate module's methods by address).
+class PartUnit {
+public:
+    static void* operator new(std::size_t size) noexcept { return memory::HeapObject::operator new(size); }
+    static void operator delete(void* memory) { memory::HeapObject::operator delete(memory); }
+
     enum State : int { kStopped = 0, kRunning = 1 };
     enum OrderCode : int { kNone = 0, kStart = 1, kStop = 2, kRestart = 3 };
 
-    void** vtable_;
+    // 0x0044F7E0: stopped, unlocked, with a list node of its own (none if out of memory).
+    PartUnit();
+    // 0x0044F790 / 0x0044F7B0: the node deleted.
+    virtual ~PartUnit();
+    PartUnit(const PartUnit&) = delete;
+    PartUnit& operator=(const PartUnit&) = delete;
+
+    // v_start_cb / v_stop_cb (slots 1 and 2; pure in the base).
+    virtual void start_callback() = 0;
+    virtual void stop_callback() = 0;
+
     int cur_phase_; // +0x04
     int queued_op_; // +0x08 (not set by the constructor)
     bool locked_;   // +0x0C: the manager neither starts nor stops it
     uint8_t pad0d_[3];
     memory::ListNode* list_link_; // +0x10: in the manager's list (lists::Elem<Module>, vtable 0x00647284)
-
-    // 0x0044F7E0: stopped, unlocked, with a list node of its own (none if out of memory). Returns this.
-    PartUnit* make_new();
-    // 0x0044F790: the node deleted.
-    void destroy_body();
-    // 0x0044F7B0 (scalar deleting destructor)
-    PartUnit* teardown(unsigned int flags);
-
-    void start_callback() { reinterpret_cast<void(__thiscall*)(PartUnit*)>(vtable_[1])(this); }
-    void stop_callback() { reinterpret_cast<void(__thiscall*)(PartUnit*)>(vtable_[2])(this); }
 };
 static_assert(sizeof(PartUnit) == 0x14 && offsetof(PartUnit, locked_) == 0x0C &&
               offsetof(PartUnit, list_link_) == 0x10);

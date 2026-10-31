@@ -30,7 +30,6 @@ class Vec4;
 namespace park_editing {
 
 class ParkBuilderMode;
-extern void** const kParkEditorVtable; // 0x0064F234 (park_editor.cpp)
 
 // The editor's tasks and its input handler (on controller 0 at the start).
 using ParkEditorTask = tasks::Task<ParkBuilderMode>;
@@ -39,7 +38,8 @@ using ParkEditorInputHandler = pad_input::Responder<ParkBuilderMode>;
 extern ParkBuilderMode* g_park_editor;
 extern uint32_t g_park_editor_references;
 
-class ParkBuilderMode : public modules::PartUnit {
+// The park editor module (vtable 0x0064F234).
+class ParkBuilderMode final : public modules::PartUnit {
 public:
     // cur_phase_
     enum State : uint32_t {
@@ -76,15 +76,14 @@ public:
     // --- the module (park_editor.cpp) ---
     // 0x0058D290: single::LazyInstance<ParkBuilderMode>'s release: a reference dropped; the last deletes the instance.
     static void __cdecl get_release();
-    // 0x0058D2D0: the destructor body: the park manager deleted, the listener, the module (the tasks and the
-    // handler aren't deleted - as in the original). 0x0058DAA0: the scalar deleting destructor (vtable slot 0).
-    void destroy_body();
-    ParkBuilderMode* teardown(uint8_t flags);
-    // 0x0058DAD0 (v_start_cb): the logic task onto the main loop's logic tasks, the input handler onto its
-    // controller's handlers, the display task onto the display tasks.
-    void start_callback();
-    // 0x0058D340 (v_stop_cb): the logic task and the input handler off their lists (not the display task).
-    void stop_callback();
+    // 0x0058D2D0 / 0x0058DAA0: the park manager deleted, the listener, the module (the tasks and the handler aren't
+    // deleted - as in the original).
+    ~ParkBuilderMode() override;
+    // 0x0058DAD0: the logic task onto the main loop's logic tasks, the input handler onto its controller's
+    // handlers, the display task onto the display tasks.
+    void start_callback() override;
+    // 0x0058D340: the logic task and the input handler off their lists (not the display task).
+    void stop_callback() override;
     // 0x0058DB30: back to a normal level: state off; the cursor, the piece menu and the park taken down, the gap
     // manager's copy deleted, the park's node array gone (0x00592C90).
     void get_leave();
@@ -146,10 +145,9 @@ public:
     void change_phase(uint32_t state);
 
     // --- park_editor_state.cpp (0x0058FBD0-0x005901AA) ---
-    static inline const VtableRef kVtable{&kParkEditorVtable};
     // 0x0058FFF0: the constructor (state off; the logic task, the empty display task, the input handler, the
-    // listener; the park manager made). Returns this.
-    ParkBuilderMode* make_new();
+    // listener; the park manager made).
+    ParkBuilderMode();
     // 0x00590160: single::LazyInstance<ParkBuilderMode>'s Create: the first call with `create` makes the instance; every
     // call takes a reference and returns it (null if there is none).
     static ParkBuilderMode* __cdecl fabricate(bool create);

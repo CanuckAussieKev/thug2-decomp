@@ -14,14 +14,7 @@
 #include "engine/file/archive.h"
 #include "frontend/data_overlay.h"
 #include "engine/sys/game_module.h"
-#include "engine/core/code_address.h"
-#include "game/skate/skate_module.h"
-#include "engine/core/stubs.h"
 #include "engine/assets/resource_registry.h"
-
-namespace {
-extern void** const kAsyncLoaderModuleMethodsVtable;
-} // namespace
 
 namespace file {
 
@@ -602,21 +595,11 @@ bool& async_use_overlapped_io() { return use_overlapped_io(); }
 
 namespace file {
 
-struct AsyncLoaderModule {
-    void** vtable_;                        // 0x00658158
-    uint8_t owning_module_[0x14 - 4];      // modules::PartUnit's fields
-    tasks::Task<AsyncLoaderModule>* task_; // running async_loader_task
-};
-static_assert(sizeof(AsyncLoaderModule) == 0x18, "allocated as 0x18 bytes by the original");
-
 namespace {
 
 AsyncLoaderModule*& loader_module() { return g_loader_module; }
 uint32_t& loader_module_refs() { return g_loader_module_refs; }
 
-// Engine framework pieces.
-void construct_module(void* module) { static_cast<modules::PartUnit*>(module)->make_new(); }
-void destroy_module(void* module) { static_cast<modules::PartUnit*>(module)->destroy_body(); }
 void register_logic_task(tasks::SchedulerTask* task)
 {
     // The main loop manager's logic task list.
@@ -625,8 +608,6 @@ void register_logic_task(tasks::SchedulerTask* task)
 }
 
 } // namespace
-
-AsyncLoaderModule* construct_async_loader_module(void* memory);
 
 // 0x005B9780: give each busy handle the chance to complete (also done by the I/O thread)
 void async_poll_handles()
@@ -649,8 +630,7 @@ void __cdecl async_loader_task(tasks::Task<AsyncLoaderModule>* /*task*/)
 AsyncLoaderModule* create_async_loader_module(bool create)
 {
     if (!loader_module() && create) {
-        void* memory = memory::alloc_zeroed(sizeof(AsyncLoaderModule), nullptr, 1);
-        loader_module() = memory ? construct_async_loader_module(memory) : nullptr;
+        loader_module() = new AsyncLoaderModule;
     }
     ++loader_module_refs();
     return loader_module();
@@ -663,59 +643,15 @@ void destroy_async_loader_module()
         --loader_module_refs();
         return;
     }
-    if (AsyncLoaderModule* module = loader_module())
-        reinterpret_cast<void(__thiscall*)(AsyncLoaderModule*, unsigned int)>(module->vtable_[0])(module, 1);
+    delete loader_module();
     loader_module() = nullptr;
     loader_module_refs() = 0;
 }
 
+// 0x005B6BC0
+AsyncLoaderModule::AsyncLoaderModule() { task_ = new tasks::Task<AsyncLoaderModule>(&async_loader_task, this, 0); }
+
+// 0x005B6970
+void AsyncLoaderModule::start_callback() { register_logic_task(task_); }
+
 } // namespace file
-
-namespace {
-
-using file::AsyncLoaderModule;
-
-struct AsyncLoaderModuleMethods {
-    AsyncLoaderModule* get_self() { return reinterpret_cast<AsyncLoaderModule*>(this); }
-
-    // 0x005B6BC0
-    AsyncLoaderModule* make_new()
-    {
-        AsyncLoaderModule* module = get_self();
-        file::construct_module(module);
-        module->vtable_ = kAsyncLoaderModuleMethodsVtable;
-        module->task_ = new tasks::Task<AsyncLoaderModule>(&file::async_loader_task, module, 0);
-        return module;
-    }
-    // 0x005B6660 (destructor body)
-    void destroy_body()
-    {
-        AsyncLoaderModule* module = get_self();
-        module->vtable_ = kAsyncLoaderModuleMethodsVtable;
-        delete module->task_;
-        file::destroy_module(module);
-    }
-    // 0x005B6940 (scalar deleting destructor)
-    AsyncLoaderModule* teardown(unsigned int flags)
-    {
-        destroy_body();
-        if (flags & 1)
-            memory::dealloc(get_self());
-        return get_self();
-    }
-    // 0x005B6970 (virtual: the module starts - its task joins the logic tasks)
-    void kickoff() { file::register_logic_task(get_self()->task_); }
-};
-
-} // namespace
-
-file::AsyncLoaderModule* file::construct_async_loader_module(void* memory)
-{
-    return static_cast<AsyncLoaderModuleMethods*>(memory)->make_new();
-}
-
-namespace {
-static VtableSlot g_async_loader_module_methods_vtable_slots[] = {
-    &AsyncLoaderModuleMethods::teardown, &AsyncLoaderModuleMethods::kickoff, &modules::Skate::stop_callback};
-void** const kAsyncLoaderModuleMethodsVtable = reinterpret_cast<void**>(g_async_loader_module_methods_vtable_slots);
-} // namespace

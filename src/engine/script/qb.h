@@ -66,7 +66,7 @@ void log_script_pool_use(const char* when);
 void allocate_permanent_string_heap(uint32_t size, uint32_t count);
 
 // The script cache (null when there isn't one), and telling it a script has changed (call only with a cache).
-struct ScriptStore;
+class ScriptStore;
 ScriptStore* script_store_instance();
 void remove_from_script_cache(uint32_t name);
 

@@ -49,12 +49,12 @@ class LetterMatch;
 
 namespace modules {
 
-// The skate module's virtual tables: itself, and the skater list's node and head (defined in skate_module_state.cpp).
-extern void** const kSkateVtable;
+// The skater list's node and head tables (defined in skate_module_state.cpp).
+
 extern void** const kSkaterNodeVtable;
 extern void** const kSkaterHeadVtable;
 
-class Skate : public PartUnit {
+class Skate final : public PartUnit {
 public:
     // A skater slot's settings (+0x390, 8 of them).
     struct PlayerSettings {
@@ -81,18 +81,16 @@ public:
     // --- made and destroyed (skate_module_skaters.cpp) ---
     // 0x00568DE0: the constructor: the module, the empty skater list, the logic task, the network tasks, the
     // managers (game flow, goals, career, rails, checksums, split-screen preferences, competition, HORSE, two movie
-    // managers), the records' 21 levels, the players' settings. Returns this.
-    Skate* make_new();
-    // 0x005663A0: the destructor body (each manager deleted). 0x00567BA0: the scalar deleting destructor (vtable
-    // slot 0).
-    void destroy_body();
-    Skate* teardown(uint8_t flags);
-    // 0x00564DC0 / 0x00564C50 (vtable slots 1 / 2): the module started (the permanent assets loaded, the logic task
-    // added to the main loop's) / stopped (the logic task out).
-    void start_callback();
-    void stop_callback();
-    // 0x00564DB0 (tasks::Task<Skate>'s vtable slot 0): the task's code run with the task. 0x00568C90: the logic task's
-    // code - run_frame_logic, the skaters' collisions on the server, king of the hill's clock.
+    // managers), the records' 21 levels, the players' settings.
+    Skate();
+    // 0x005663A0 / 0x00567BA0: each manager deleted.
+    ~Skate() override;
+    // 0x00564DC0 / 0x00564C50: the module started (the permanent assets loaded, the logic task added to the main
+    // loop's) / stopped (the logic task out).
+    void start_callback() override;
+    void stop_callback() override;
+    // 0x00568C90: the logic task's code - run_frame_logic, the skaters' collisions on the server, king of the hill's
+    // clock.
     static void __cdecl front_end_tick(tasks::Task<Skate>* task);
     // 0x00565750 / 0x00565FC0: the skater list's node's / head's scalar deleting destructors (vtables 0x0064E544 /
     // 0x0064E5D4).

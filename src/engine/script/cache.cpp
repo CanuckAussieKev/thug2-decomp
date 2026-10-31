@@ -13,8 +13,6 @@
 #include "engine/script/param_struct.h"
 #include "engine/sys/game_module.h"
 #include "engine/util/lzss.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 
 namespace script {
 
@@ -34,10 +32,6 @@ ScriptStore*& the_cache() { return g_script_store; }
 uint32_t& cache_references() { return g_cache_references; }
 memory::PoolPair& entry_pools() { return g_cache_entry_pools; }
 
-// modules::PartUnit's constructor (0x0044F7E0) and destructor body (0x0044F790).
-void construct_module(void* module) { static_cast<modules::PartUnit*>(module)->make_new(); }
-void destroy_module(void* module) { static_cast<modules::PartUnit*>(module)->destroy_body(); }
-
 // Scripts in the symbol table: {checksum, size, stored size, code - LZSS-compressed when stored < size}.
 struct StoredScript {
     uint32_t checksum;
@@ -46,9 +40,6 @@ struct StoredScript {
     uint8_t code[1];
 };
 
-static VtableSlot g_script_cache_vtable_slots[] = {&script::ScriptStore::teardown, stubs::do_nothing,
-                                                   stubs::do_nothing};
-void** const kScriptCacheVtable = reinterpret_cast<void**>(g_script_cache_vtable_slots);
 } // namespace
 
 // 0x00475AC0
@@ -61,10 +52,8 @@ void* ScriptCacheEntry::operator new(size_t size) noexcept
 void ScriptCacheEntry::operator delete(void* entry) { entry_pools().dealloc(entry); }
 
 // 0x00475DD0
-ScriptStore* ScriptStore::make_new()
+ScriptStore::ScriptStore()
 {
-    construct_module(this);
-    vtable_ = kScriptCacheVtable;
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->script_heap_);
     void* memory = memory::alloc(sizeof(lists::KeyMap));
@@ -73,13 +62,11 @@ ScriptStore* ScriptStore::make_new()
     newest_unused_ = nullptr;
     oldest_unused_ = nullptr;
     delete_unused_ = false;
-    return this;
 }
 
 // 0x00476090
-void ScriptStore::destroy_body()
+ScriptStore::~ScriptStore()
 {
-    vtable_ = kScriptCacheVtable;
     // Every entry, by iterating the table (the iteration carries on from where it was after each removal).
     entries_->iter_bucket_ = -1;
     entries_->iter_item_ = nullptr;
@@ -99,16 +86,6 @@ void ScriptStore::destroy_body()
         entries->~KeyMap();
         memory::dealloc(entries);
     }
-    destroy_module(this);
-}
-
-// 0x004761E0
-ScriptStore* ScriptStore::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x00475A40
@@ -226,8 +203,7 @@ void ScriptStore::mark_stale(uint32_t name)
 ScriptStore* create_script_cache(bool create)
 {
     if (!the_cache() && create) {
-        void* memory = memory::alloc_zeroed(sizeof(ScriptStore), nullptr, 1);
-        the_cache() = memory ? static_cast<ScriptStore*>(memory)->make_new() : nullptr;
+        the_cache() = new ScriptStore;
     }
     ++cache_references();
     return the_cache();
@@ -240,8 +216,7 @@ void release_script_cache()
         --cache_references();
         return;
     }
-    if (ScriptStore* cache = the_cache())
-        reinterpret_cast<void(__thiscall*)(ScriptStore*, unsigned int)>(cache->vtable_[0])(cache, 1);
+    delete the_cache();
     the_cache() = nullptr;
     cache_references() = 0;
 }

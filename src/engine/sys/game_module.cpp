@@ -15,7 +15,6 @@ namespace modules {
 
 namespace {
 
-extern void** const kModuleVtable;
 extern void** const kNodeVtable;
 extern void** const kHeadVtable;
 
@@ -36,9 +35,8 @@ void unlink_list_node(memory::ListNode* node)
 } // namespace
 
 // 0x0044F7E0
-PartUnit* PartUnit::make_new()
+PartUnit::PartUnit()
 {
-    vtable_ = kModuleVtable;
     cur_phase_ = kStopped;
     locked_ = false;
     auto* node = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
@@ -50,24 +48,13 @@ PartUnit* PartUnit::make_new()
         node->prev = node;
     }
     list_link_ = node;
-    return this;
 }
 
 // 0x0044F790
-void PartUnit::destroy_body()
+PartUnit::~PartUnit()
 {
-    vtable_ = kModuleVtable;
     if (list_link_)
         unlink_list_node(list_link_);
-}
-
-// 0x0044F7B0
-PartUnit* PartUnit::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        free_memory(this);
-    return this;
 }
 
 // 0x0044F5E0
@@ -222,8 +209,7 @@ memory::ListNode* ModuleListDestructors::head_destroy(unsigned int flags)
 }
 
 namespace {
-static VtableSlot g_module_vtable_slots[] = {&modules::PartUnit::teardown, &_purecall, &_purecall};
-void** const kModuleVtable = reinterpret_cast<void**>(g_module_vtable_slots);
+
 static VtableSlot g_node_vtable_slots[] = {&modules::ModuleListDestructors::node_destroy};
 void** const kNodeVtable = reinterpret_cast<void**>(g_node_vtable_slots);
 static VtableSlot g_head_vtable_slots[] = {&modules::ModuleListDestructors::head_destroy};
