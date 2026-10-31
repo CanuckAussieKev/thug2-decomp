@@ -8,6 +8,7 @@
 
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_geom.h"
+#include "engine/gfx/engine_scene.h"
 #include "engine/gfx/model.h"
 #include "engine/gfx/pc_lights.h"
 #include "engine/gfx/rig.h"

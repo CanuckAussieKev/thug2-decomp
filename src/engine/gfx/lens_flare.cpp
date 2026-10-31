@@ -10,6 +10,7 @@
 #include "frontend/screen_element_manager.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/engine_primitive.h"
+#include "engine/gfx/engine_texture.h"
 #include "engine/gfx/pc_primitive.h"
 #include "engine/gfx/pc_viewport.h"
 #include "engine/gfx/texture_dict.h"
