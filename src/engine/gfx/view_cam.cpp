@@ -9,8 +9,6 @@
 #include "engine/gfx/screen.h"
 #include "engine/gfx/settings.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/entity.h"
 
 namespace gfx {
@@ -24,7 +22,6 @@ static_assert(offsetof(ViewCam, old_pos_) == 0x4C && offsetof(ViewCam, at_point_
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kSetHfovRadians = 0x44EA2B6D; // the member function (name unknown): the angle in radians
 
 float float_from_bits(uint32_t bits)
@@ -46,10 +43,8 @@ const float kDegreesPerRadian = float_from_bits(0x42652EE0);
 int g_draw_distance_setting;
 
 // 0x00485BA0
-ViewCam* ViewCam::make_new()
+ViewCam::ViewCam()
 {
-    objects::Entity::make_new();
-    *reinterpret_cast<void***>(this) = kVtable;
     unknownc0_ = 1.0f;
     h_fov_ = render::get_screen_angle();
     refresh_effective_h_fov();
@@ -71,23 +66,6 @@ ViewCam* ViewCam::make_new()
         render::graphics_options::get_scaled(far_clip_, render::graphics_options::get_pull().draw_distance_scale_);
     at_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
     old_pos_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    return this;
-}
-
-// 0x004859F0
-void ViewCam::destroy_body()
-{
-    *reinterpret_cast<void***>(this) = kVtable;
-    objects::Entity::destroy_body();
-}
-
-// 0x00485A20 (vtable slot 0)
-ViewCam* ViewCam::scalar_delete(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x00485AA0 (x87 as the original, so results round the same): the angle as drawn is the 4:3 one widened by the
@@ -184,19 +162,5 @@ void ViewCam::change_h_fov(float degrees)
     h_fov_ = degrees;
     refresh_effective_h_fov();
 }
-
-namespace {
-static VtableSlot g_vtable_slots[] = {
-    &gfx::ViewCam::scalar_delete,
-    &objects::Entity::change_traits,
-    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::Entity::invoke_method_by_name),
-    &gfx::ViewCam::invoke_method_by_name,
-    stubs::ignore_argument,
-    &objects::Entity::pass_event_to_script,
-    &objects::Entity::flag_as_dead,
-    stubs::return_true};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-} // namespace
 
 } // namespace gfx

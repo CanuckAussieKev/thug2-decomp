@@ -171,7 +171,7 @@ void FloatingTextComponent::tick_frame()
     frontend::UiWidget* element = found.get_pull();
     found.get_release();
     if (element)
-        reinterpret_cast<void(__thiscall*)(frontend::UiWidget*, script::Struct*)>(element->vtable_[1])(element, params);
+        element->change_traits(params);
     else
         script::launch_script(kCreateScript, params, nullptr, false, nullptr);
     delete_params(params);

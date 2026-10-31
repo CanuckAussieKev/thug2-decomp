@@ -56,32 +56,6 @@ UiTree* hub() { return UiTree::sole(); }
 
 uint32_t unassigned_id() { return g_unassigned_id; }
 
-// The element classes still in game code (thiscall constructors; the memory zeroed by Calloc).
-void* new_memory(unsigned int size) { return memory::alloc_zeroed(size); }
-template <typename T>
-UiWidget* get_made(T* element)
-{
-    return element;
-}
-
-void v_set_properties(UiWidget* e, Struct* params)
-{
-    reinterpret_cast<void(__thiscall*)(UiWidget*, Struct*)>(e->vtable_[1])(e, params);
-}
-bool v_call_member_function(UiWidget* e, uint32_t name, Struct* params, Script* script)
-{
-    return reinterpret_cast<bool(__thiscall*)(UiWidget*, uint32_t, Struct*, Script*)>(e->vtable_[3])(e, name, params,
-                                                                                                     script);
-}
-void v_get_properties(UiWidget* e, Struct* out)
-{
-    reinterpret_cast<void(__thiscall*)(UiWidget*, Struct*)>(e->vtable_[8])(e, out);
-}
-void v_set_morph(UiWidget* e, Struct* params)
-{
-    reinterpret_cast<void(__thiscall*)(UiWidget*, Struct*)>(e->vtable_[9])(e, params);
-}
-
 // The text elements' pieces.
 ParagraphWidget* text_block(UiWidget* e) { return static_cast<ParagraphWidget*>(e); }
 LabelWidget* text_tools(UiWidget* e) { return static_cast<LabelWidget*>(e); }
@@ -168,59 +142,47 @@ ElementPtr* UiTree::spawn_part(ElementPtr* out, uint32_t type, uint32_t id, scri
         memory->enter_heap_scope(chosen);
         heap_pushed = true;
     }
-    void* m;
     switch (type) {
     case kContainerElement:
-        m = new_memory(sizeof(GroupWidget));
-        element.assign_value(m ? static_cast<GroupWidget*>(m)->make_new() : nullptr);
+        element.assign_value(new GroupWidget);
         break;
     case kHScrollingMenu:
-        m = new_memory(sizeof(WindowedList));
-        element.assign_value(m ? static_cast<WindowedList*>(m)->construct_horizontal() : nullptr);
+        element.assign_value(new WindowedList(false));
         break;
     case kTextureElement:
-        m = new_memory(sizeof(TextureElement));
-        element.assign_value(m ? static_cast<TextureElement*>(m)->make_new() : nullptr);
+        element.assign_value(new TextureElement);
         break;
     case kVMenu:
-        m = new_memory(sizeof(MenuBase));
-        element.assign_value(m ? static_cast<MenuBase*>(m)->construct_v_menu() : nullptr);
+        element.assign_value(new MenuBase(true));
         break;
     case kTextBlockElement:
-        m = new_memory(0x1C4);
-        element.assign_value(m ? static_cast<ParagraphWidget*>(m)->make_new() : nullptr);
+        element.assign_value(new ParagraphWidget);
         break;
     case kTextElement:
-        m = new_memory(0x1B0);
-        element.assign_value(m ? static_cast<LabelWidget*>(m)->make_new() : nullptr);
+        element.assign_value(new LabelWidget);
         break;
     case kWindowElement:
-        m = new_memory(sizeof(PanelWidget));
-        element.assign_value(m ? static_cast<PanelWidget*>(m)->make_new() : nullptr);
+        element.assign_value(new PanelWidget);
         break;
     case kElement3d:
-        m = new_memory(sizeof(ModelWidget));
-        element.assign_value(m ? static_cast<ModelWidget*>(m)->make_new() : nullptr);
+        element.assign_value(new ModelWidget);
         break;
     case kVScrollingMenu:
-        m = new_memory(sizeof(WindowedList));
-        element.assign_value(m ? static_cast<WindowedList*>(m)->construct_vertical() : nullptr);
+        element.assign_value(new WindowedList(true));
         break;
     case kSpriteElement:
-        m = new_memory(sizeof(ImageWidget));
-        element.assign_value(m ? static_cast<ImageWidget*>(m)->make_new() : nullptr);
+        element.assign_value(new ImageWidget);
         break;
     case kHMenu:
-        m = new_memory(sizeof(MenuBase));
-        element.assign_value(m ? static_cast<MenuBase*>(m)->construct_h_menu() : nullptr);
+        element.assign_value(new MenuBase(false));
         break;
     default:
         break;
     }
     element->change_serial(id);
     enrol_subject(element.owner_object_);
-    v_set_properties(element.owner_object_, params);
-    v_set_morph(element.owner_object_, params);
+    element.owner_object_->change_traits(params);
+    element.owner_object_->blend_towards(params);
     int priority = 0;
     if (params->fetch_int_value(kPriority, &priority, 0))
         push_priority(id, static_cast<uint32_t>(priority));
@@ -239,8 +201,7 @@ bool __cdecl cfunc_screen_element_system_init(script::Struct*, script::Script*)
 {
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->front_end_heap_);
-    void* m = memory::alloc_zeroed(sizeof(PanelWidget));
-    UiWidget* root = m ? static_cast<PanelWidget*>(m)->make_new() : nullptr;
+    UiWidget* root = new PanelWidget;
     memory::Hub::get_pull()->leave_heap_scope();
     root->change_serial(kRootWindow);
     hub()->enrol_subject(root);
@@ -290,7 +251,7 @@ bool __cdecl cfunc_run_script_on_screen_element(script::Struct* params, script::
     params->read_sub_struct(kCallbackParams, &callback_params, 0);
     script::SymbolTableEntry* symbol = script::resolve_symbol(name);
     if (symbol && symbol->type == script::kQbvalNativeMethod) {
-        v_call_member_function(element.owner_object_, name, script_params, script);
+        element.owner_object_->invoke_method_by_name(name, script_params, script);
     } else if (Script* spawned = script::spawn_script(name, script_params, callback, callback_params, 0, 0, false,
                                                       false, false, false)) {
         spawned->entity_.assign_value(element.owner_object_);
@@ -305,7 +266,7 @@ bool __cdecl cfunc_set_screen_element_props(script::Struct* params, script::Scri
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
     if (element)
-        v_set_properties(element.owner_object_, params);
+        element.owner_object_->change_traits(params);
     return true;
 }
 
@@ -314,7 +275,7 @@ bool __cdecl cfunc_do_screen_element_morph(script::Struct* params, script::Scrip
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
-    v_set_morph(element.owner_object_, params);
+    element.owner_object_->blend_towards(params);
     return true;
 }
 
@@ -355,7 +316,7 @@ bool __cdecl cfunc_get_screen_element_props(script::Struct* params, script::Scri
         params->has_bare_flag(kDontAssert);
         return false;
     }
-    v_get_properties(element.owner_object_, script->args_);
+    element.owner_object_->get_properties(script->args_);
     if (element->kind_tag_ == kElement3d) {
         auto* e3d = static_cast<ModelWidget*>(objects::get_tracker()->look_up_object(id));
         script->args_->push_float(kAngleX, e3d->angle_[0]);

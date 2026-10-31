@@ -54,7 +54,7 @@ bool sector_contains(void* sector, const maths::Vec4* point, maths::Vec4* offset
 // The level sector named `name` (null if none).
 void* look_up_sector(uint32_t name) { return render::engine::look_up_sector(name); }
 
-void flag_as_dead(Entity* object) { reinterpret_cast<void(__thiscall*)(Entity*)>(object->vtable_[6])(object); }
+void flag_as_dead(Entity* object) { object->flag_as_dead(); }
 
 // The node's script, run for `object` (as a spawned script on it) or by itself; `entering` tells it which.
 void execute_node_script(ProximityRegistry* manager, ProximNode* node, Entity* object, bool entering)
@@ -357,7 +357,7 @@ void proximity_notify(uint32_t mask, Entity* object, const maths::Vec4* point, i
                 if (node->sector_)
                     params.put_name_key(kOwnerSectorKey, node->label_);
                 made->build_modules_from_list(script::fetch_list("proximobj_composite_structure"), &params);
-                reinterpret_cast<void(__thiscall*)(GameEntity*)>(made->vtable_[0x20 / 4])(made);
+                made->seal();
                 script::Struct script_params;
                 script_params.prepare_all();
                 made->replace_script(node->own_script_, &script_params);

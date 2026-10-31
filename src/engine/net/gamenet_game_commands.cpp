@@ -197,8 +197,7 @@ bool __cdecl cfunc_team_flag_taken(Struct* params, Script*)
 bool __cdecl cfunc_spawn_crown(Struct*, Script*)
 {
     Hub* manager = net_link();
-    void* memory = memory::alloc_zeroed(sizeof(objects::CrownObject));
-    auto* crown = memory ? static_cast<objects::CrownObject*>(memory)->make_new() : nullptr;
+    auto* crown = new objects::CrownObject;
     int spawn = prop<int>(manager, kCrownSpawn);
     prop<objects::CrownObject*>(manager, kCrown) = crown;
     uint32_t names[kMaxCrownSpawns];

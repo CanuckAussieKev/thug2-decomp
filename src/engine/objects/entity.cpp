@@ -13,7 +13,6 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/entity.h"
 
 namespace objects {
@@ -24,9 +23,6 @@ using script::Script;
 using script::Struct;
 
 namespace {
-
-extern void** const kObjectVtable;
-extern void** const kObjectRefVtable;
 
 // Names (checksums) the object uses.
 constexpr uint32_t kUnnamed = 0;                  // an unnamed component
@@ -53,13 +49,6 @@ void launch_event(uint32_t type, uint32_t target, uint32_t source, Struct* data,
 {
     get_tracker()->launch_event(type, target, source, data, broadcast, radius);
 }
-
-// The object's vtable: slot 1 change_traits, 6 flag_as_dead.
-void virtual_set_properties(Entity* object, Struct* params)
-{
-    reinterpret_cast<void(__thiscall*)(Entity*, Struct*)>(object->vtable_[1])(object, params);
-}
-void virtual_mark_as_dead(Entity* object) { reinterpret_cast<void(__thiscall*)(Entity*)>(object->vtable_[6])(object); }
 
 // How the original makes and frees a script: the pooled operator new and Construct; Destroy and the pooled
 // operator delete.
@@ -94,18 +83,6 @@ void add_copy(Struct* dest, Component* component)
 
 } // namespace
 
-// 0x00460920
-void ObjectRef::destroy_body() { destruct(); }
-
-// 0x00460AF0
-ObjectRef* ObjectRef::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
 // 0x00460B20
 void EntityListEntry::destroy_body() { unlink_as(kObjectNodeVtable); }
 
@@ -119,33 +96,18 @@ EntityListEntry* EntityListEntry::teardown(unsigned int flags)
 }
 
 // 0x00460B80
-Entity* Entity::make_new()
+Entity::Entity()
 {
-    SharedBase::make_new();
-    vtable_ = kObjectVtable;
     list_link_.vtable = kObjectNodeVtable;
     list_link_.data = this;
     list_link_.priority = 0;
     list_link_.next = &list_link_;
     list_link_.prev = &list_link_;
-    ref_.SharedBase::make_new();
-    ref_.owner_object_ = this;
-    ref_.vtable_ = kObjectRefVtable;
-    ident_ = kUnassignedId;
-    kind_tag_ = kNoObjectType;
-    tag_table_ = nullptr;
-    own_script_ = nullptr;
-    park_owner_ = nullptr;
-    object_flags_ = 0;
-    alias_count_ = 0;
-    visited_mask_ = 0;
-    return this;
 }
 
 // 0x004615D0
-void Entity::destroy_body()
+Entity::~Entity()
 {
-    vtable_ = kObjectVtable;
     if (tag_table_)
         free_struct(tag_table_); // (the pointer is left as it is)
     if (park_owner_)
@@ -157,25 +119,16 @@ void Entity::destroy_body()
         own_script_ = nullptr;
     }
     script::end_scripts_bound_to_entity(this);
-    ref_.destroy_body();
+    ref_.clear_smart_pointers(); // (ref_'s destructor, in the original's order)
     list_link_.unlink_as(kObjectNodeVtable);
-    destruct();
-}
-
-// 0x00461900
-Entity* Entity::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
+    // (then SharedBase's: the smart pointers to it cleared)
 }
 
 // 0x00460930
 void Entity::dispose_when_free()
 {
     if (!(object_flags_ & kObjectFlagLocked))
-        virtual_destroy(1);
+        delete this;
 }
 
 // 0x00461710
@@ -201,9 +154,9 @@ void Entity::change_traits(Struct* params)
 bool Entity::invoke_method_by_name(uint32_t name, Struct* params, Script* /*script*/)
 {
     if (name == kSetProps)
-        virtual_set_properties(this, params);
+        change_traits(params);
     else if (name == kDie)
-        virtual_mark_as_dead(this);
+        flag_as_dead();
     return true;
 }
 
@@ -619,30 +572,9 @@ void get_unlock(Entity* object, void* /*data*/) { object->object_flags_ &= ~kObj
 void dispose_when_free(Entity* object, void* /*data*/)
 {
     if (!(object->object_flags_ & kObjectFlagLocked))
-        object->virtual_destroy(1);
+        delete object;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_object_ref_vtable_slots[] = {&objects::ObjectRef::teardown};
-void** const kObjectRefVtable = reinterpret_cast<void**>(g_object_ref_vtable_slots);
-static VtableSlot g_object_vtable_slots[] = {
-    &objects::Entity::teardown,
-    &objects::Entity::change_traits,
-    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::Entity::invoke_method_by_name),
-    static_cast<bool (objects::Entity::*)(uint32_t, script::Struct*, script::Script*)>(
-        &objects::Entity::invoke_method_by_name),
-    stubs::ignore_argument,
-    &objects::Entity::pass_event_to_script,
-    &objects::Entity::flag_as_dead,
-    stubs::return_true};
-void** const kObjectVtable = reinterpret_cast<void**>(g_object_vtable_slots);
-
-} // namespace
 } // namespace objects
 
 namespace objects {

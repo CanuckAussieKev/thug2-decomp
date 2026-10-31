@@ -250,7 +250,7 @@ bool __cdecl cfunc_refresh_skater_model(script::Struct* params, script::Script*)
     if (skater->view_slot_ == 0) {
         auto* objects = reinterpret_cast<objects::MiscHub*>(objects::g_composite_registry);
         if (objects::Entity* board = objects->look_up_entity(kBailBoard)) {
-            reinterpret_cast<void(__thiscall*)(objects::Entity*)>(board->vtable_[6])(board); // (flag_as_dead)
+            board->flag_as_dead();
             objects->flush_dead_objects();
         }
     }

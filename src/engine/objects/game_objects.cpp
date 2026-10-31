@@ -48,8 +48,6 @@ constexpr uint32_t kCarAddComponents = 0xF1753591; // car_add_components (a scri
 constexpr uint32_t kObjectTypeCar = 0x5C0312EB;    // OBJECT_TYPE_CAR
 constexpr uint32_t kObjectTypeCrown = 0xD2156C50;
 
-extern void** const kCrownVtable;
-
 constexpr uint32_t kTriggerScript = 0x2CA8A299;    // TriggerScript
 constexpr uint32_t kParams = 0x7031F10C;           // params
 constexpr uint32_t kObjectTypePed = 0xD2DB7F97;    // OBJECT_TYPE_PED
@@ -72,12 +70,6 @@ void init_component_from_structure(ObjectModule* component, script::Struct* para
 }
 // The model component's update after the object is finished (0x00420480).
 void update_model(ObjectModule* model) { static_cast<MeshInstanceModule*>(model)->jump_to(); }
-// The composite object's Finalize (vtable +0x20).
-void virtual_finalize(GameEntity* object)
-{
-    reinterpret_cast<void(__thiscall*)(GameEntity*)>(object->vtable_[8])(object);
-}
-
 script::Struct* spawn_param_table()
 {
     script::Struct* memory = script::spawn_param_bag();
@@ -132,8 +124,7 @@ void add_node_components(GameEntity* object, script::Struct* node)
 // 0x0057B4E0
 void spawn_pedestrian(script::Struct* params)
 {
-    void* memory = memory::alloc_zeroed(sizeof(GameEntity));
-    auto* ped = memory ? static_cast<GameEntity*>(memory)->make_new() : nullptr;
+    auto* ped = new GameEntity;
     add_base_components(ped);
     add_motion_components(ped);
     ped->change_species(kObjectTypePed);
@@ -141,7 +132,7 @@ void spawn_pedestrian(script::Struct* params)
     level_nodes::fetch_place(params, &ped->at_point_);
     add_node_components(ped, params);
     script::launch_script(kPedAddComponents, params, ped, false, nullptr);
-    virtual_finalize(ped);
+    ped->seal();
     script::launch_script(kPedInitModel, params, ped, false, nullptr);
     auto* motion = reinterpret_cast<uint8_t*>(ped->fetch_module(kMotion));
     *reinterpret_cast<float*>(motion + 0x2C) = 44.0f;
@@ -170,15 +161,14 @@ void set_up_automobile(GameEntity* car, script::Struct* params)
     auto* extra = static_cast<uint8_t*>(reinterpret_cast<MotionPathMembers*>(motion)->get_path_follower());
     *reinterpret_cast<float*>(extra + 0x94) = 240.0f;
     script::launch_script(kCarAddComponents, params, car, false, nullptr);
-    virtual_finalize(car);
+    car->seal();
     update_model(car->fetch_module(kModel));
 }
 
 // 0x00578170
 void spawn_automobile(script::Struct* params)
 {
-    void* memory = memory::alloc_zeroed(sizeof(GameEntity));
-    auto* car = memory ? static_cast<GameEntity*>(memory)->make_new() : nullptr;
+    auto* car = new GameEntity;
     add_base_components(car);
     car->change_species(kObjectTypeCar);
     void* component = memory::alloc_zeroed(0x58);
@@ -189,15 +179,12 @@ void spawn_automobile(script::Struct* params)
 }
 
 // 0x00578240
-CrownObject* CrownObject::make_new()
+CrownObject::CrownObject()
 {
-    GameEntity::make_new();
-    vtable_ = kCrownVtable;
     add_base_components(this);
     kind_tag_ = kObjectTypeCrown;
     change_serial(kCrownObject);
     worn_ = false;
-    return this;
 }
 
 // 0x005782B0
@@ -214,12 +201,7 @@ void CrownObject::take_off() { worn_ = false; }
 bool CrownObject::is_worn() { return worn_; }
 
 // 0x005782F0
-void CrownObject::destroy_body()
-{
-    vtable_ = kCrownVtable;
-    worn_ = false;
-    GameEntity::destroy_body();
-}
+CrownObject::~CrownObject() { worn_ = false; }
 
 // 0x00578310
 void CrownObject::own_update()
@@ -246,15 +228,6 @@ void CrownObject::own_update()
     at_point_.w = static_cast<float>(static_cast<double>(at.w) + at_point_.w);
 }
 
-// 0x00578460
-CrownObject* CrownObject::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
 // 0x00578490
 void CrownObject::init_from_node(EntityHub* manager, script::Struct* node)
 {
@@ -262,7 +235,7 @@ void CrownObject::init_from_node(EntityHub* manager, script::Struct* node)
     add_motion_components(this);
     script::Struct* model = spawn_param_table();
     model->put_name_key(kComponent, kModel);
-    virtual_create_component_from_structure(model, nullptr);
+    create_component_from_structure(model, nullptr);
     delete_structure(model);
     add_node_components(this, node);
     change_serial(kCrownObject);
@@ -285,30 +258,8 @@ void CrownObject::init_from_node(EntityHub* manager, script::Struct* node)
     model_data = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(fetch_module(kModel)) + 0x208);
     static_cast<render::RenderModel*>(model_data)->change_live(1);
     level_nodes::fetch_place(node, &at_point_);
-    virtual_finalize(this);
+    seal();
     update_model(fetch_module(kModel));
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_crown_vtable_slots[] = {
-    &objects::CrownObject::teardown,
-    &objects::Entity::change_traits,
-    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::Entity::invoke_method_by_name),
-    static_cast<bool (objects::GameEntity::*)(uint32_t, script::Struct*, script::Script*)>(
-        &objects::GameEntity::invoke_method_by_name),
-    stubs::ignore_argument,
-    &objects::Entity::pass_event_to_script,
-    &objects::GameEntity::flag_as_dead,
-    &objects::GameEntity::should_update_scripts,
-    &objects::GameEntity::seal,
-    &objects::GameEntity::create_component_from_structure,
-    &objects::CrownObject::own_update};
-void** const kCrownVtable = reinterpret_cast<void**>(g_crown_vtable_slots);
-
-} // namespace
 } // namespace objects

@@ -107,16 +107,6 @@ void matching_options(uint32_t part, uint32_t filter, script::Struct** out, int*
     objects::get_matching_cas_options(part, filter, out, count);
 }
 
-// The appearance a pedestrian profile describes (gfx::ModelLook, 0x5C bytes: constructor 0x00488EA0,
-// set_appearance 0x00488F40, destructor body 0x004890F0) and the model builder (constructor 0x004897D0 with (1, 8),
-// its build 0x0048A2F0, destroyed as the Entity it is - 0x004615D0).
-struct Appearance {
-    alignas(4) uint8_t bytes_[0x5C];
-};
-struct ModelAssembler {
-    alignas(4) uint8_t bytes_[0x54];
-};
-
 script::Struct* get_element(script::Array* array, uint32_t index)
 {
     return reinterpret_cast<script::Struct*>(array->fetch_part(index));
@@ -247,17 +237,12 @@ bool __cdecl cfunc_preload_pedestrians(script::Struct* params, script::Script*)
         if (!profile)
             continue;
         render::RenderModel* nx_model = spawn_render_model(1);
-        Appearance appearance;
-        auto* gfx_appearance = reinterpret_cast<gfx::ModelLook*>(&appearance);
-        gfx_appearance->make_new();
-        gfx_appearance->read_in(profile, false);
-        ModelAssembler builder;
-        auto* gfx_builder = reinterpret_cast<gfx::ModelAssembler*>(&builder);
-        gfx_builder->make_new(true, 8);
-        gfx_builder->get_build(gfx_appearance, nx_model, nullptr, kPreloadModelFromAppearance);
+        // The pedestrian's appearance and a model builder (destroyed at the end of the loop: the builder first).
+        gfx::ModelLook appearance;
+        appearance.read_in(profile, false);
+        gfx::ModelAssembler builder(true, 8);
+        builder.get_build(&appearance, nx_model, nullptr, kPreloadModelFromAppearance);
         delete_model(nx_model);
-        reinterpret_cast<objects::Entity*>(&builder)->destroy_body();
-        gfx_appearance->destroy_body();
     }
     level_nodes::end_node_walk();
     memory::pop_mem_profile();

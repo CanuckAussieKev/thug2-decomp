@@ -346,7 +346,7 @@ void ObjectiveNpc::remove_objective_npc()
     if (!trigger)
         return;
     if (objects::Entity* object = objects::object_hub_slot()->look_up_entity(trigger))
-        reinterpret_cast<void(__thiscall*)(objects::Entity*)>(object->vtable_[6])(object); // (flag_as_dead)
+        object->flag_as_dead();
 }
 
 // 0x0055F420

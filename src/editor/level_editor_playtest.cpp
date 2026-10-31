@@ -1,5 +1,6 @@
 // NOT ORIGINAL - play testing from the level editor (ours). See level_editor_playtest.h.
 
+#include "game/rider/rider.h"
 #include "editor/level_editor_playtest.h"
 
 #include <SDL2/SDL.h>
@@ -740,9 +741,9 @@ void pause_skaters()
         ++count;
     for (uint32_t i = 0; i < count; ++i) {
         auto* skater =
-            reinterpret_cast<void***>(reinterpret_cast<modules::Skate*>(skate)->get_rider_at(static_cast<int>(i)));
+            static_cast<objects::Rider*>(reinterpret_cast<modules::Skate*>(skate)->get_rider_at(static_cast<int>(i)));
         if (skater)
-            reinterpret_cast<void(__thiscall*)(void*)>((*skater)[0x2C / 4])(skater);
+            skater->get_freeze();
     }
 }
 

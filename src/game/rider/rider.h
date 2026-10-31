@@ -26,7 +26,11 @@ namespace objects {
 struct RiderIdentity;
 class EntityHub;
 
-class Rider : public GameEntity {
+// The original's vtable (0x0064EF48) is GameEntity's with its own destructor and invoke_method_by_name and nine more
+// slots: +0x2C get_freeze, +0x30 unpause, +0x34 init_from_profile, +0x38 reset_input, +0x3C jump_to_spawn, +0x40
+// glide_to_node, +0x44 reset_state, +0x48 set_up_network, +0x4C run_state_script. Nothing derives from the skater:
+// those are plain methods here.
+class Rider final : public GameEntity {
 public:
     // 0x0057FE30: stat `index`'s override (+0x290), kept within 0-10 when 0x005A1180 says so.
     void set_stat_override(int index, float value);
@@ -70,7 +74,7 @@ public:
     // 0x005802C0: 0x0042BD60 with this and `value`.
     void set_42b_d60(float value);
     // 0x00580830: moved to a random restart (0-7, through the skate module; up to 20 tries for one other than the
-    // last), through its vtable (+0x3C: jump_to_spawn(node, walking)).
+    // last): jump_to_spawn(node, walking).
     void move_to_random_restart();
     // 0x005808A0: its pause state (0 running, 1 frozen, 2 physics paused): the game paused or the physics control
     // told.
@@ -83,8 +87,8 @@ public:
     // 0x00580EB0: its looks and identity from `profile` (in its skater heap): push style, stance, pro, display name,
     // male, skate style, first name, name; its stance flag set again and the flip-and-rotate component told.
     void update_from_profile(RiderIdentity* profile);
-    // 0x00580FF0: its score, a component (0x589E5FB3), its vtable +0x48 reset; the 24 input flags pressed then
-    // released; its +0x264's +0x20 reset; the script 0xAE5438AF.
+    // 0x00580FF0: its score, a component (0x589E5FB3), set_up_network; the 24 input flags pressed then released; its
+    // +0x264's +0x20 reset; the script 0xAE5438AF.
     void reset_input();
     // 0x005810E0: its state reset (physics control, flip and rotate, its +0x258's resets, the balance displays off,
     // the shadow placed, 0x21FC3301's +0x18 -1).
@@ -123,28 +127,28 @@ public:
     // proximity components within Physics_Projectile_Targeting_Dist / _Angle; peds not yet shot, at a bone they
     // choose) when there's one beyond 100.
     void launch_projectile();
-    // 0x00582D90: the constructor (vtable 0x0064EF48): its skater-list node, local or not, base components, type
-    // 0xBAF9B341, number and id (skaters 0 and 1 get tracker aliases), registered with `manager`, its viewport, and
-    // its components (a local skater's full set, a remote one's few). Returns this.
-    Rider* make_new(int viewport, EntityHub* manager, bool local, uint32_t id, int skater_number, int unused);
+    // 0x00582D90: its skater-list node, local or not, base components, type 0xBAF9B341, number and id (skaters 0 and 1
+    // get tracker aliases), registered with `manager` (list priority -500), its viewport, and its components (a local
+    // skater's full set, a remote one's few). The last argument isn't used.
+    Rider(int viewport, EntityHub* manager, bool local, uint32_t id, int skater_number, int unused);
     // 0x00583400: a local skater's +0x270 and 0x589E5FB3 reset, 0xF27A294D's, the anim blender's; its script deleted.
     void reset_components();
     // 0x00583470: restarted (a walking skater back to skating, the script's exit scripts, its physics, its camera,
-    // vtable +0x44, reset_components, +0x48, +0x4C with `a` and `b`, 0xB1D5A3E1 told).
+    // reset_state, reset_components, set_up_network, run_state_script with `a` and `b`, 0xB1D5A3E1 told).
     void relaunch(uint32_t a, uint32_t b);
     // 0x005835D0: its script member functions (KillSkater, AddSkaterToWorld, SkaterIsNamed, ShouldMongo, the
     // sparks, SetCustomRestart / SkipToCustomRestart, IsLocalSkater, GetCameraId, fetch_tally, GetScriptedStat,
     // MoveToRandomRestart, PlaceBeforeCamera, GetSkaterNumber...); the rest the composite object's.
-    bool invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    bool invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
     // (the code SkipToCustomRestart and SetCustomRestart share)
     void skip_to_custom_restart();
-    // 0x00583DA0 (vtable +0x3C): skipped to the restart node `node` (none: where it is), walking or not: a local
-    // skater's input and pad reset, vtable +0x40 with the node, Restart, the camera updated, the node's TriggerScript
-    // run; teleported; in three game modes the server told (message 0x57).
+    // 0x00583DA0: skipped to the restart node `node` (none: where it is), walking or not: a local skater's input and
+    // pad reset, glide_to_node with the node, Restart, the camera updated, the node's TriggerScript run; teleported;
+    // in three game modes the server told (message 0x57).
     void jump_to_spawn(uint32_t node, uint32_t walking);
-    // 0x00583FB0: the destructor body. 0x005840E0: the scalar deleting destructor.
-    void destroy_body();
-    Rider* teardown(unsigned int flags);
+    // 0x00583FB0 (0x005840E0 the deleting one): the pad's vibration stopped, its components reset, its exit script,
+    // its created tricks deleted, the second viewport's camera marked dead, out of the skater list, then GameEntity's.
+    ~Rider() override;
 
     uint32_t stroke_kind_; // +0x108 (the profile's pushstyle)
     uint32_t style_;       // +0x10C (skatestyle)

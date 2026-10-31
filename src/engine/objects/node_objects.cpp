@@ -43,7 +43,7 @@ constexpr uint32_t kGameObjectComponentType = 0x286A8D26;
 
 EntityHub* entity_hub_handle() { return g_composite_registry; }
 
-void seal(GameEntity* object) { reinterpret_cast<void(__thiscall*)(GameEntity*)>(object->vtable_[0x20 / 4])(object); }
+void seal(GameEntity* object) { object->seal(); }
 
 // The two components a game object gets after its array's (not rewritten yet).
 ObjectModule* new_game_object_component_a()
@@ -155,8 +155,7 @@ VideoEntry* VideoEntry::make_new()
     flag19_ = false;
     flag18_ = false;
     flag_1c_ = false;
-    void* memory = memory::alloc_zeroed(0xC4);
-    viewer_ = memory ? static_cast<gfx::ViewCam*>(memory)->make_new() : nullptr;
+    viewer_ = new gfx::ViewCam;
     return this;
 }
 
@@ -168,8 +167,8 @@ void VideoEntry::destroy_body()
         params->get_clear();
         script::delete_struct(params);
     }
-    if (viewer_ && !is_camera_in_use(viewer_) && viewer_)
-        viewer_->virtual_destroy(1);
+    if (viewer_ && !is_camera_in_use(viewer_))
+        delete viewer_;
     list_link_.unlink_as(get_node_vtable());
 }
 

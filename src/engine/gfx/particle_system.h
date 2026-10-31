@@ -34,10 +34,9 @@ struct FlexibleParticle {
 static_assert(sizeof(FlexibleParticle) == 0x30, "layout must match the original");
 
 // The base of every type (0x134 bytes; vtable 0x00649428). Smart pointers point at it (the flexible particle
-// component's): their list is its second word, where SharedBase keeps it - see SharedRefList. Its list node at +0x0C
-// (the particle manager's list) has a table of its own whose slot 0 destroys the system through the node; that table
-// is the node's (memory::ListNode's `vtable`), not a second C++ base.
-struct EmitterInstance {
+// component's): a SharedBase. Its list node at +0x0C (the particle manager's list) has a table of its own whose slot 0
+// destroys the system through the node; that table is the node's (memory::ListNode's `vtable`), not a second C++ base.
+struct EmitterInstance : objects::SharedBase {
     // On the current heap, zeroed, with the particle manager's assert flag (g_alloc_assert_flag); null when it's full.
     static void* operator new(std::size_t size) noexcept;
     static void operator delete(void* memory);
@@ -47,7 +46,7 @@ struct EmitterInstance {
     // 0x00498690 (0x00498F80 the scalar deleting destructor, vtable slot 0): the scripts, the parameters, the colours,
     // the positions and the particles freed; the particle manager told (0x0049AD60); the node unlinked; its smart
     // pointers cleared.
-    virtual ~EmitterInstance();
+    ~EmitterInstance() override;
     // Vtable slot 1: the particles drawn. The engine's (the types' too, but the model type's) prints "STUB:
     // plat_render" (0x004A1040, shared with the weather's).
     virtual void render();
@@ -60,7 +59,6 @@ struct EmitterInstance {
     // 0x0041D9C0 (thiscall; flexible_particle.cpp): flag bit `bit` of flag_bits_ set or cleared.
     void set_flag(int bit, bool on);
 
-    objects::SharedRefList smart_pointers_; // +0x04
     uint32_t unknown08;
     memory::ListNode list_link_;      // +0x0C: in the particle manager's list (data: the system)
     maths::Vec4 at_point_;            // +0x20: the emitter
@@ -184,11 +182,10 @@ struct EmitterInstance {
     // positions set far away (1024, 1024, 1024).
     void remove_particle(int index, bool through_accessors);
 };
-static_assert(offsetof(EmitterInstance, smart_pointers_) == offsetof(objects::SharedBase, smart_pointers_) &&
-                  offsetof(EmitterInstance, list_link_) == 0x0C && offsetof(EmitterInstance, at_point_) == 0x20 &&
-                  offsetof(EmitterInstance, align_to_) == 0x40 && offsetof(EmitterInstance, bounds_) == 0x50 &&
-                  offsetof(EmitterInstance, emit_rate_) == 0x70 && offsetof(EmitterInstance, unknown78_) == 0x78 &&
-                  offsetof(EmitterInstance, particle_count_) == 0x8C &&
+static_assert(offsetof(EmitterInstance, unknown08) == 0x08 && offsetof(EmitterInstance, list_link_) == 0x0C &&
+                  offsetof(EmitterInstance, at_point_) == 0x20 && offsetof(EmitterInstance, align_to_) == 0x40 &&
+                  offsetof(EmitterInstance, bounds_) == 0x50 && offsetof(EmitterInstance, emit_rate_) == 0x70 &&
+                  offsetof(EmitterInstance, unknown78_) == 0x78 && offsetof(EmitterInstance, particle_count_) == 0x8C &&
                   offsetof(EmitterInstance, emit_range_) == 0x98 && offsetof(EmitterInstance, force_) == 0xA8 &&
                   offsetof(EmitterInstance, extent_) == 0xB4 && offsetof(EmitterInstance, age_left_) == 0xC8 &&
                   offsetof(EmitterInstance, emit_target_) == 0xD0 && offsetof(EmitterInstance, xform_ref_) == 0xDC &&

@@ -536,13 +536,13 @@ void FrontEnd::get_pause_game(bool pause)
         ++count;
     for (uint32_t i = 0; i < count; ++i) {
         auto* skater =
-            reinterpret_cast<void***>(reinterpret_cast<modules::Skate*>(skate)->get_rider_at(static_cast<int>(i)));
+            static_cast<objects::Rider*>(reinterpret_cast<modules::Skate*>(skate)->get_rider_at(static_cast<int>(i)));
         if (!skater)
             continue;
         if (pause)
-            reinterpret_cast<void(__thiscall*)(void*)>((*skater)[0x2C / 4])(skater);
+            skater->get_freeze();
         else
-            reinterpret_cast<void(__thiscall*)(void*)>((*skater)[0x30 / 4])(skater);
+            skater->unpause();
     }
     objects::object_hub_slot()->get_freeze(pause);
     frame_clock::pause_game_clock(pause);

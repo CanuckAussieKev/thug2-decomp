@@ -83,8 +83,8 @@ modules::Skate* skate_module() { return modules::g_skate_module; }
 // The skate module's local skater (0x00566520, a register stub on our side).
 Rider* local_skater() { return skate_module()->get_home_rider(); }
 
-// The object dies (its vtable slot 6, flag_as_dead).
-void get_kill(GameEntity* object) { reinterpret_cast<void(__thiscall*)(GameEntity*)>(object->vtable_[6])(object); }
+// The object dies.
+void get_kill(GameEntity* object) { object->flag_as_dead(); }
 
 script::Struct* new_params()
 {

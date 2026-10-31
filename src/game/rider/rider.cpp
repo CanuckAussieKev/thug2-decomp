@@ -93,8 +93,6 @@ uint32_t g_skater_lights_made;
 
 namespace {
 
-extern void** const kSkaterVtable;
-
 // Names.
 constexpr uint32_t kIsPro = 0xD82F8AC8;               // is_pro
 constexpr uint32_t kIsCustom = 0x5A3264BB;            // (a flag: not a pro)
@@ -438,7 +436,7 @@ void Rider::move_to_random_restart()
     } while (restart == last_restart_ && tries < 20);
     last_restart_ = restart;
     if (restart)
-        reinterpret_cast<void(__thiscall*)(Rider*, uint32_t, int)>(vtable_[0x3C / 4])(this, restart, 0);
+        jump_to_spawn(restart, 0);
 }
 
 // 0x00580880
@@ -620,7 +618,7 @@ void Rider::reset_input()
 {
     reinterpret_cast<RiderPointKeeper*>(score_holder_)->reset_score();
     static_cast<RiderTeeterMoves*>(fetch_module(0x589E5FB3))->clear_best_times();
-    reinterpret_cast<void(__thiscall*)(Rider*)>(vtable_[0x48 / 4])(this);
+    set_up_network();
     for (int i = 0; i < 24; ++i) {
         set_input_flag(get_at<uint8_t*>(core_physics_, 0x1528) + 0x20 + 8 * i, 1);
         if (i == 7)
@@ -846,7 +844,7 @@ void add_component_from_structure(Rider* skater, Fill fill)
     script::Struct* memory = script::spawn_param_bag();
     script::Struct* params = memory ? memory->prepare_all() : nullptr;
     fill(params);
-    skater->virtual_create_component_from_structure(params, nullptr);
+    skater->create_component_from_structure(params, nullptr);
     if (params) {
         params->get_clear();
         script::delete_struct(params);
@@ -945,7 +943,7 @@ void Rider::prepare_all(RiderIdentity* profile)
         unknown268_ = fetch_module(0x187574FA);
         unknown26c_ = fetch_module(0x1859F772); // SkaterVehicleSound
     }
-    reinterpret_cast<void(__thiscall*)(Rider*)>(vtable_[0x20 / 4])(this); // Finalize
+    seal(); // (Finalize)
     if (unknownbc_) {
         // The pad's settings for its viewport (the skate module's, 8 bytes each from +0x394).
         get_at<uint8_t>(core_physics_, 0x2D9) = skate[0x395 + 8 * view_slot_];
@@ -1215,11 +1213,8 @@ void Rider::launch_projectile()
 }
 
 // 0x00582D90
-Rider* Rider::make_new(int viewport, EntityHub* manager, bool local, uint32_t id, int skater_number, int /*unused*/)
+Rider::Rider(int viewport, EntityHub* manager, bool local, uint32_t id, int skater_number, int /*unused*/)
 {
-    GameEntity::make_new();
-    vtable_ = kSkaterVtable;
-    new (&shown_name_) text::Chars();
     // Its node in the skater list (lists::Elem: vtable, data, priority, next, prev).
     auto* node = reinterpret_cast<uint32_t*>(block238_);
     node[0] = reinterpret_cast<uint32_t>(modules::kSkaterNodeVtable);
@@ -1237,7 +1232,7 @@ Rider* Rider::make_new(int viewport, EntityHub* manager, bool local, uint32_t id
         get_tracker()->register_nickname(0x5B8AB877, this);
     else if (skater_number == 1)
         get_tracker()->register_nickname(0x06ED3FA7, this);
-    get_at<int>(this, 0x30) = -500;
+    list_link_.priority = -500;
     manager->enrol_subject(this);
     view_slot_ = viewport;
     unknown31c_ = 0;
@@ -1323,7 +1318,6 @@ Rider* Rider::make_new(int viewport, EntityHub* manager, bool local, uint32_t id
         params->get_clear();
         script::delete_struct(params);
     }
-    return this;
 }
 
 // 0x00583400
@@ -1366,20 +1360,18 @@ void Rider::relaunch(uint32_t a, uint32_t b)
     auto* camera =
         static_cast<GameEntity*>(object_hub_slot()->look_up_entity(view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0));
     static_cast<RiderChaseView*>(camera->fetch_module(0x5E43A604))->restore_default_state();
-    reinterpret_cast<void(__thiscall*)(Rider*)>(vtable_[0x44 / 4])(this);
+    reset_state();
     reset_components();
-    reinterpret_cast<void(__thiscall*)(Rider*)>(vtable_[0x48 / 4])(this);
-    reinterpret_cast<void(__thiscall*)(Rider*, uint32_t, uint32_t)>(vtable_[0x4C / 4])(this, a, b);
+    set_up_network();
+    // (the flags as the original's callee reads its bool arguments: their low bytes)
+    run_state_script(static_cast<uint8_t>(a) != 0, static_cast<uint8_t>(b) != 0);
     static_cast<RiderSessionEnd*>(fetch_module(0xB1D5A3E1))->clear_forced();
 }
 
 namespace {
 
-// The restart (vtable +0x3C): skipped to the restart node `node`, walking or not.
-void skip_to_restart_virtual(Rider* skater, uint32_t node, uint32_t walking)
-{
-    reinterpret_cast<void(__thiscall*)(Rider*, uint32_t, uint32_t)>(skater->vtable_[0x3C / 4])(skater, node, walking);
-}
+// The restart: skipped to the restart node `node`, walking or not.
+void skip_to_restart_virtual(Rider* skater, uint32_t node, uint32_t walking) { skater->jump_to_spawn(node, walking); }
 
 // What the script gives back (its +0x14).
 script::Struct* script_results(script::Script* script) { return get_at<script::Struct*>(script, 0x14); }
@@ -1556,7 +1548,7 @@ void Rider::jump_to_spawn(uint32_t node, uint32_t walking)
     get_at<uint8_t>(fetch_module(kSkaterPhysicsControl), 0x26) = 1;
     if (unknownbc_) {
         unknown264_[0x498] = 0;
-        reinterpret_cast<void(__thiscall*)(Rider*)>(vtable_[0x30 / 4])(this);
+        unpause();
         if (void* list = list_28c_)
             get_at<uint8_t>(list, 0x18) = 1;
         if (net->in_net_game()) {
@@ -1571,7 +1563,7 @@ void Rider::jump_to_spawn(uint32_t node, uint32_t walking)
     if (unknown25c_)
         static_cast<PadRumbleModule*>(unknown25c_)->reset_device();
     if (node)
-        reinterpret_cast<void(__thiscall*)(Rider*, uint32_t)>(vtable_[0x40 / 4])(this, node);
+        glide_to_node(node);
     relaunch(walking, 0);
     if (unknownbc_) {
         static_cast<RiderSpinAndFlip*>(fetch_module(kSkaterFlipAndRotate))->apply_flip_to_anims();
@@ -1608,9 +1600,8 @@ void Rider::jump_to_spawn(uint32_t node, uint32_t walking)
 }
 
 // 0x00583FB0
-void Rider::destroy_body()
+Rider::~Rider()
 {
-    vtable_ = kSkaterVtable;
     if (is_halted_ && unknownbc_ && unknown264_) {
         get_at<sio::InputPort*>(get_at<uint8_t*>(unknown264_, 0x490), 0x1C)->unpause_actuators();
         get_at<sio::InputPort*>(get_at<uint8_t*>(unknown264_, 0x490), 0x1C)->stop_actuators();
@@ -1621,7 +1612,7 @@ void Rider::destroy_body()
         delete trick;
     if (unknownbc_ && view_slot_ == 1) {
         if (Entity* camera = object_hub_slot()->look_up_entity(kSkaterCam1))
-            reinterpret_cast<void(__thiscall*)(Entity*)>(camera->vtable_[0x18 / 4])(camera); // (marked dead)
+            camera->flag_as_dead();
     }
     // Out of the skater list.
     auto* node = reinterpret_cast<uint32_t*>(block238_);
@@ -1630,47 +1621,7 @@ void Rider::destroy_body()
     reinterpret_cast<uint32_t*>(node[3])[4] = node[4];
     node[3] = reinterpret_cast<uint32_t>(node);
     node[4] = reinterpret_cast<uint32_t>(node);
-    shown_name_.~Chars();
-    GameEntity::destroy_body();
+    // (then shown_name_'s destructor and GameEntity's)
 }
 
-// 0x005840E0
-Rider* Rider::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_skater_vtable_slots[] = {
-    &objects::Rider::teardown,
-    &objects::Entity::change_traits,
-    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::Entity::invoke_method_by_name),
-    &objects::Rider::invoke_method_by_name,
-    stubs::ignore_argument,
-    &objects::Entity::pass_event_to_script,
-    &objects::GameEntity::flag_as_dead,
-    &objects::GameEntity::should_update_scripts,
-    &objects::GameEntity::seal,
-    &objects::GameEntity::create_component_from_structure,
-    stubs::do_nothing,
-    &objects::Rider::get_freeze,
-    &objects::Rider::unpause,
-    &objects::Rider::init_from_profile,
-    &objects::Rider::reset_input,
-    &objects::Rider::jump_to_spawn,
-    &objects::Rider::glide_to_node,
-    &objects::Rider::reset_state,
-    &objects::Rider::set_up_network,
-    &objects::Rider::run_state_script};
-void** const kSkaterVtable = reinterpret_cast<void**>(g_skater_vtable_slots);
-
-} // namespace
 } // namespace objects

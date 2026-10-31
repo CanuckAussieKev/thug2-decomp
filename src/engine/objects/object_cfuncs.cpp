@@ -107,11 +107,7 @@ bool read_joint_matrix(void* skeleton, uint32_t bone, maths::Mat4* out)
     return static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(bone, out);
 }
 
-// The object's flag_as_dead (vtable slot 6).
-void flag_as_dead(objects::Entity* object)
-{
-    reinterpret_cast<void(__thiscall*)(objects::Entity*)>(object->vtable_[6])(object);
-}
+void flag_as_dead(objects::Entity* object) { object->flag_as_dead(); }
 
 } // namespace
 

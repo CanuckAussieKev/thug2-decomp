@@ -25,7 +25,7 @@ class PreviewEntity;
 // Its input handler (priority 0, on controller 0's stack of handler lists).
 using ViewerObjectInputHandler = pad_input::Responder<PreviewEntity>;
 
-class PreviewEntity : public GameEntity {
+class PreviewEntity final : public GameEntity {
 public:
     // The commands (actions_ bits) the input handler sets and own_update carries out.
     enum : uint32_t {
@@ -41,11 +41,10 @@ public:
         kCommandToggleMode = 0x20000, // its command 0x4000 (makes 0x200)
     };
 
-    // 0x0058ADB0: the constructor: a composite object (vtable 0x0064F138, no commands) with the base components, type
+    // 0x0058ADB0: a composite object (vtable 0x0064F138, no commands) with the base components, type
     // OBJECT_TYPE_COMPOSITE; its input handler on controller 0's list; speed 1 (none saved), the panel shown, not
     // paused, no skeleton loaded, identity orientation; with a net handler (`app`), its messages 0x25-0x29 and 0x2C.
-    // Returns this.
-    PreviewEntity* make_new(net::AppHost* app);
+    explicit PreviewEntity(net::AppHost* app);
     // 0x00589910: set up from `params`: registered, its motion and node components; then, with the debug heap or the
     // bottom-up heap pushed: for the model names model0-3 and modelname / model, a CAS artist's (cas_artist) cached
     // copies of their .skin, .col, .mdl and .tex files dropped (so edited files are read again); the skeleton
@@ -57,11 +56,9 @@ public:
     // 0x005897D0: animation `anim` played from the start (to its own length, looping, blend 0.3, speed 1), if the object
     // has an animation component that knows it.
     void play_animation(uint32_t anim);
-    // 0x00589860: the destructor body - its input handler taken off its list, the skeleton it loaded (if any) unloaded
-    // and forgotten, the handler deleted, then GameEntity's. 0x0058A2B0: the scalar deleting destructor (vtable
-    // slot 0).
-    void destroy_body();
-    PreviewEntity* teardown(unsigned int flags);
+    // 0x00589860 (0x0058A2B0 the deleting one): its input handler taken off its list, the skeleton it loaded (if any)
+    // unloaded and forgotten, the handler deleted, then GameEntity's.
+    ~PreviewEntity() override;
     // 0x00589FD0: with an animation component, animation `file` loaded again as `anim` (its anim set's) - the asset
     // (anim set + anim, or the file name's checksum with no anim) unloaded first if it's there - and played.
     void reload_animation(const char* file, uint32_t anim);
@@ -80,8 +77,8 @@ public:
     // 0x0058A8B0: with an animation component that knows its animation and the panel on: draw_viewer_object_panel
     // with its four lines (name, speed, time, frame); then, with a model that has bones, spin_wheels.
     void update_panel();
-    // 0x0058AB30 (vtable slot 10, its own update): the commands carried out, the panel updated, the commands cleared.
-    void own_update();
+    // 0x0058AB30 (its own update): the commands carried out, the panel updated, the commands cleared.
+    void own_update() override;
 
     ViewerObjectInputHandler* task_; // +0x108: its input handler (0x0058A060)
     uint32_t unknown10c_;

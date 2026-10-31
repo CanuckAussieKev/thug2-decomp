@@ -21,8 +21,6 @@ namespace gfx {
 
 namespace {
 
-extern void** const kVtable;
-
 constexpr uint32_t kAppearanceInitStructure = 0xFE54486D; // appearance_init_structure
 constexpr uint32_t kRandomizedDescId = 0xD81C03B0;        // randomized_desc_id
 constexpr uint32_t kShuffleIndex = 0x4B833E64;            // random_index
@@ -99,35 +97,21 @@ void delete_temp_struct(script::Struct* s)
 } // namespace
 
 // 0x00488EA0
-ModelLook* ModelLook::make_new()
+ModelLook::ModelLook()
 {
-    Entity::make_new();
-    vtable_ = kVtable;
     structure_.prepare_all();
     face_skin_ = nullptr;
     has_face_texture_ = false;
-    return this;
 }
 
 // 0x004890F0
-void ModelLook::destroy_body()
+ModelLook::~ModelLook()
 {
-    vtable_ = kVtable;
     if (face_skin_) {
         memory::Hub::get_pull()->dealloc(face_skin_);
         face_skin_ = nullptr;
     }
     structure_.get_clear();
-    Entity::destroy_body();
-}
-
-// 0x00489370
-ModelLook* ModelLook::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x00488F00
@@ -356,19 +340,5 @@ uint8_t* ModelLook::decode_from_bytes(uint8_t* buffer)
     has_face_texture_ = *end != 0;
     return end + 1;
 }
-
-namespace {
-static VtableSlot g_vtable_slots[] = {
-    &gfx::ModelLook::teardown,
-    &objects::Entity::change_traits,
-    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::Entity::invoke_method_by_name),
-    &gfx::ModelLook::invoke_method_by_name,
-    stubs::ignore_argument,
-    &objects::Entity::pass_event_to_script,
-    &objects::Entity::flag_as_dead,
-    stubs::return_true};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-} // namespace
 
 } // namespace gfx

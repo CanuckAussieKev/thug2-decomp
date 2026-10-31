@@ -148,8 +148,8 @@ bool suspend_should_update(uint8_t* suspend)
 }
 void suspend_start(uint8_t* suspend) { reinterpret_cast<DormancyModule*>(suspend)->disable_lod(); }
 
-// The object dies (its vtable slot 6, flag_as_dead).
-void get_kill(GameEntity* object) { reinterpret_cast<void(__thiscall*)(GameEntity*)>(object->vtable_[6])(object); }
+// The object dies.
+void get_kill(GameEntity* object) { object->flag_as_dead(); }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }

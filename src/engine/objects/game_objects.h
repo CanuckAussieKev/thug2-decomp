@@ -42,15 +42,12 @@ void spawn_automobile(script::Struct* params);
 
 // The King of the Hill crown (0x114 bytes, vtable 0x0064EC44: GameEntity's but for the destructor and its own
 // update).
-class CrownObject : public GameEntity {
+class CrownObject final : public GameEntity {
 public:
-    // 0x00578240: the constructor: its base components (0x0057B250), type 0xD2156C50, id crown_object, not worn.
-    // Returns this.
-    CrownObject* make_new();
-    // 0x005782F0: the destructor body (not worn, then GameEntity's). 0x00578460: the scalar deleting
-    // destructor (vtable slot 0).
-    void destroy_body();
-    CrownObject* teardown(unsigned int flags);
+    // 0x00578240: its base components (0x0057B250), type 0xD2156C50, id crown_object, not worn.
+    CrownObject();
+    // 0x005782F0 (0x00578460 the deleting one): not worn, then GameEntity's.
+    ~CrownObject() override;
     // 0x00578490: registered with `manager`, its components (the common ones, a model, the node's), id
     // crown_object, never suspended (the suspend component's distances 1000000-1000003), the model crown.mdl, at
     // the node's position, Finalize.
@@ -59,9 +56,9 @@ public:
     void put_on(GameEntity* skater);
     void take_off();
     bool is_worn();
-    // 0x00578310 (vtable +0x28, its own update): worn, it follows the skater's head bone: the bone's matrix turned
-    // 90 degrees about x, raised 18 above the head, in the skater's frame, at the skater's position.
-    void own_update();
+    // 0x00578310 (its own update): worn, it follows the skater's head bone: the bone's matrix turned 90 degrees about
+    // x, raised 18 above the head, in the skater's frame, at the skater's position.
+    void own_update() override;
 
     GameEntity* skater_; // +0x108
     uint32_t unknown10c_;

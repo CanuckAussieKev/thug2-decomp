@@ -23,10 +23,6 @@
 namespace frontend {
 
 namespace {
-extern void** const kCTextBlockElementVtable;
-} // namespace
-
-namespace {
 
 using script::Struct;
 
@@ -92,10 +88,8 @@ LabelWidget* as_text(UiWidget* e) { return static_cast<LabelWidget*>(e); }
 } // namespace
 
 // 0x004B0810
-ParagraphWidget* ParagraphWidget::make_new()
+ParagraphWidget::ParagraphWidget()
 {
-    UiWidget::make_new();
-    vtable_ = kCTextBlockElementVtable;
     shadow_rgba_[0] = shadow_rgba_[1] = shadow_rgba_[2] = 0;
     shadow_rgba_[3] = 0x80;
     internal_scale_ = 1.0f;
@@ -108,25 +102,10 @@ ParagraphWidget* ParagraphWidget::make_new()
     override_rgba_ = false;
     remembered_override_ = false;
     change_species(kTextBlockElement);
-    return this;
 }
 
 // 0x004B08B0
-void ParagraphWidget::destroy_body()
-{
-    vtable_ = kCTextBlockElementVtable;
-    delete_blur(blur_);
-    UiWidget::destroy_body();
-}
-
-// 0x004B0B30
-ParagraphWidget* ParagraphWidget::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
-}
+ParagraphWidget::~ParagraphWidget() { delete_blur(blur_); }
 
 // 0x004AF6C0 (a font with no height: a division by zero, as the original)
 void ParagraphWidget::change_typeface(uint32_t font)
@@ -237,8 +216,7 @@ void ParagraphWidget::change_caption(const char** texts, int count)
     for (int k = 0; k < rows_filled_; ++k) {
         memory = memory::Hub::get_pull();
         memory->enter_heap_scope(memory->front_end_heap_);
-        void* block = memory::alloc_zeroed(sizeof(LabelWidget));
-        LabelWidget* line = block ? static_cast<LabelWidget*>(block)->make_new() : nullptr;
+        LabelWidget* line = new LabelWidget;
         memory::Hub::get_pull()->leave_heap_scope();
         manager->enrol_subject(line);
         {
@@ -442,7 +420,7 @@ void ParagraphWidget::change_traits(Struct* params)
 void ParagraphWidget::blend_towards(Struct* params)
 {
     if (blur_) {
-        reinterpret_cast<void(__thiscall*)(ParagraphWidget*)>(vtable_[10])(this);
+        tick_frame();
         int ms;
         SmearEffect::Settings* target = blur_->set_from_params(params, &ms);
         ElementPtr child;
@@ -484,23 +462,6 @@ void ParagraphWidget::tick_frame()
     }
     update_lines();
 }
-
-namespace {
-static VtableSlot g_c_text_block_element_vtable_slots[] = {
-    &ParagraphWidget::teardown,
-    &ParagraphWidget::change_traits,
-    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::Entity::invoke_method_by_name),
-    &UiWidget::invoke_method_by_name,
-    stubs::ignore_argument,
-    &objects::Entity::pass_event_to_script,
-    &objects::Entity::flag_as_dead,
-    stubs::return_true,
-    &UiWidget::get_properties,
-    &ParagraphWidget::blend_towards,
-    &ParagraphWidget::tick_frame};
-void** const kCTextBlockElementVtable = reinterpret_cast<void**>(g_c_text_block_element_vtable_slots);
-} // namespace
 
 } // namespace frontend
 

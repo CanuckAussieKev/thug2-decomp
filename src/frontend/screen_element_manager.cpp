@@ -53,11 +53,6 @@ void set_event_consumed(objects::Signal* event, uint32_t how, uint32_t script)
     event->set_event_consumed(how, script);
 }
 
-void v_set_properties(UiWidget* e, Struct* params)
-{
-    reinterpret_cast<void(__thiscall*)(UiWidget*, Struct*)>(e->vtable_[1])(e, params);
-}
-
 // A structure with one flag, given to `element`'s change_traits (Hide / UnHide).
 void set_flag_property(UiWidget* element, uint32_t flag)
 {
@@ -65,7 +60,7 @@ void set_flag_property(UiWidget* element, uint32_t flag)
     if (params)
         params = params->prepare_all();
     params->put_name_key(0u, flag);
-    v_set_properties(element, params);
+    element->change_traits(params);
     if (params) {
         params->get_clear();
         script::delete_struct(params);
@@ -184,8 +179,7 @@ void UiTree::destroy_tree(int keep, ElementPtr* element, script::Script* script)
             change_owner(&none, element, 1);
         }
         drop_entity_registration(element->owner_object_);
-        if (element->owner_object_)
-            element->owner_object_->virtual_destroy(1);
+        delete element->owner_object_;
     }
 }
 
@@ -204,8 +198,7 @@ void UiTree::dismantle_part(uint32_t id, int recurse, int keep, script::Script* 
         if (script && element.owner_object_)
             script->object_destroyed(element.owner_object_);
         drop_entity_registration(element.owner_object_);
-        if (element.owner_object_)
-            element.owner_object_->virtual_destroy(1);
+        delete element.owner_object_;
     }
 }
 
@@ -607,9 +600,9 @@ bool UiTree::push_priority(uint32_t id, uint32_t priority)
             params = params->prepare_all();
         params->put_name_key(0u, kHide);
         if (priority > highest)
-            v_set_properties(priorities_[highest_slot].element.owner_object_, params);
+            priorities_[highest_slot].element.owner_object_->change_traits(params);
         else
-            v_set_properties(element.owner_object_, params);
+            element.owner_object_->change_traits(params);
         if (params) {
             params->get_clear();
             script::delete_struct(params);

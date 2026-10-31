@@ -8,10 +8,8 @@
 // The model builder (gfx::ModelAssembler, an GameObjects::Entity, 0x54 bytes, vtable 0x00648920): builds a model from an
 // appearance by running a build script on itself - the script's member functions (ModelAddGeom, GeomReplaceTexture,
 // ModelApplyBoneScale, ...) each do one step on the model, its skeleton and a copy of the appearance, which are held
-// in globals while Build runs. The original's table has the steps in slots 9-25 (the script's names go through
-// invoke_method_by_name); nothing derives from the builder, so they are plain methods here and its table
-// (model_builder.cpp) keeps only Entity's slots and get_build (slot 8). It becomes a C++ class with Entity's own
-// conversion.
+// in globals while Build runs. The original's table has get_build in slot 8 and the steps in slots 9-25 (the script's
+// names go through invoke_method_by_name); nothing derives from the builder, so they are plain methods here.
 // From the disassembly of 0x004897D0-0x0048B32D.
 namespace render {
 class RenderModel;
@@ -20,21 +18,20 @@ namespace gfx {
 class Rig;
 class ModelLook;
 
-class ModelAssembler : public objects::Entity {
+class ModelAssembler final : public objects::Entity {
 public:
-    // 0x004897D0: a Entity with its own vtable; `via_resource_store` and the texture dictionary offset its geoms are
-    // loaded with. Returns this.
-    ModelAssembler* make_new(bool via_resource_store, int tex_dict_offset);
-    // 0x0048A2C0: the scalar deleting destructor (vtable slot 0: Entity's destructor body - 0x00420060 - and freed
-    // with flags & 1). Returns this.
-    ModelAssembler* teardown(unsigned int flags);
+    // 0x004897D0: an Entity with its own vtable; `via_resource_store` and the texture dictionary offset its geoms are
+    // loaded with.
+    ModelAssembler(bool via_resource_store, int tex_dict_offset);
+    // (0x0048A2C0, the deleting destructor: Entity's destructor body - 0x00420060 - and freed with flags & 1)
+    ~ModelAssembler() override = default;
 
     // 0x0048A2F0 (slot 8): `model` (with `skeleton`) built from `appearance` by the build script `script`: a copy of
     // the appearance made on the top-down heap, the script run on the builder, the copy deleted.
     void get_build(ModelLook* appearance, render::RenderModel* model, Rig* skeleton, uint32_t script);
-    // 0x0048A3B0 (slot 3): the build script's member functions (their parameters read here, then the step's slot);
-    // anything else Entity's.
-    bool invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    // 0x0048A3B0: the build script's member functions (their parameters read here, then the step); anything else
+    // Entity's.
+    bool invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     // --- the steps (the original's vtable slots 9-25, in order; each returns whether it did what it was asked, mostly
     // true) ---

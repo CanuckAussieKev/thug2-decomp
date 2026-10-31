@@ -112,13 +112,6 @@ void update_lights_brightness(void* lights) { static_cast<render::ModelLights*>(
 // sized and registered (0x0048BEA0), filled from the skeleton's data (0x0048B430).
 void* find_bone_volumes(uint32_t name) { return gfx::find_bone_volumes(name); }
 
-// The model builder Gfx (an GameObjects::Entity, vtable 0x00648920, 0x54 bytes, constructor 0x004897D0: use the asset
-// manager, the texture dictionary offset) that builds a model from a profile with a build script (0x0048A2F0); its
-// destructor is the Entity's.
-struct ModelAssembler {
-    alignas(16) uint8_t bytes[0x60];
-};
-
 } // namespace
 
 // 0x00421490
@@ -251,11 +244,9 @@ void MeshInstanceModule::set_up_mesh_from_profile(void* profile, bool via_resour
     void* skeleton = nullptr;
     if (ObjectModule* component = entity_->fetch_module(kSkeleton))
         skeleton = skeleton_of(component);
-    ModelAssembler builder;
-    reinterpret_cast<gfx::ModelAssembler*>(&builder)->make_new(via_resource_store, tex_dict_offset);
-    reinterpret_cast<gfx::ModelAssembler*>(&builder)->get_build(static_cast<gfx::ModelLook*>(profile), model,
-                                                                static_cast<gfx::Rig*>(skeleton),
-                                                                build_script ? build_script : kDefaultBuildScript);
+    gfx::ModelAssembler builder(via_resource_store, tex_dict_offset); // (destroyed at the end)
+    builder.get_build(static_cast<gfx::ModelLook*>(profile), model, static_cast<gfx::Rig*>(skeleton),
+                      build_script ? build_script : kDefaultBuildScript);
     if (entity_->composite_flags_ & kCompositeFlagFinalized) {
         ObjectModule::tick_frame();
         if (mesh_instance_ && model_lights(mesh_instance_))
@@ -265,7 +256,6 @@ void MeshInstanceModule::set_up_mesh_from_profile(void* profile, bool via_resour
     enclosing_ball_ = *model->fetch_bound_sphere(&sphere);
     if (script::fetch_int_value(kBoneVolumesOn))
         init_bone_volumes();
-    reinterpret_cast<Entity*>(&builder)->destroy_body();
 }
 
 // 0x0041FFA0

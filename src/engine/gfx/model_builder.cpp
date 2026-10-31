@@ -26,8 +26,6 @@ namespace gfx {
 
 namespace {
 
-extern void** const kVtable;
-
 render::RenderModel* g_built_model;
 Rig* g_built_skeleton;
 ModelLook* g_built_appearance;
@@ -169,23 +167,9 @@ uint32_t get_slot_of(const void* argument) { return static_cast<uint32_t>(reinte
 } // namespace
 
 // 0x004897D0
-ModelAssembler* ModelAssembler::make_new(bool via_resource_store, int tex_dict_offset)
-{
-    Entity::make_new();
-    via_asset_store_ = via_resource_store;
-    vtable_ = kVtable;
-    dict_shift_ = tex_dict_offset;
-    return this;
-}
-
-// 0x0048A2C0
-ModelAssembler* ModelAssembler::teardown(unsigned int flags)
-{
-    Entity::destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+ModelAssembler::ModelAssembler(bool via_resource_store, int tex_dict_offset)
+    : via_asset_store_(via_resource_store), dict_shift_(tex_dict_offset)
+{}
 
 // 0x0048A2F0
 void ModelAssembler::get_build(ModelLook* appearance, render::RenderModel* model, Rig* skeleton, uint32_t script)
@@ -194,16 +178,15 @@ void ModelAssembler::get_build(ModelLook* appearance, render::RenderModel* model
     built_skeleton() = skeleton;
     memory::Hub* manager = memory::Hub::get_pull();
     void* memory = memory::alloc_zeroed(sizeof(ModelLook), manager->top_down_heap_, 1);
-    built_appearance() = memory ? static_cast<ModelLook*>(memory)->make_new() : nullptr;
-    built_appearance()->get_reset(); // (no memory: a crash, as the original)
+    built_appearance() = new (memory) ModelLook; // (null without memory)
+    built_appearance()->get_reset();             // (no memory: a crash, as the original)
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->top_down_heap_);
     built_appearance()->copy_from(appearance);
     memory::Hub::get_pull()->leave_heap_scope();
     script::launch_script(script, nullptr, this, false, nullptr);
     built_model() = nullptr;
     built_skeleton() = nullptr;
-    if (ModelLook* copy = built_appearance())
-        copy->teardown(1); // (its vtable slot 0: the deleting destructor)
+    delete built_appearance();
     built_appearance() = nullptr;
 }
 
@@ -732,20 +715,5 @@ bool ModelAssembler::launch_script(uint32_t part, uint32_t target)
     memory::Hub::get_pull()->dealloc(held);
     return true;
 }
-
-namespace {
-static VtableSlot g_vtable_slots[] = {
-    &gfx::ModelAssembler::teardown,
-    &objects::Entity::change_traits,
-    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::Entity::invoke_method_by_name),
-    &gfx::ModelAssembler::invoke_method_by_name,
-    stubs::ignore_argument,
-    &objects::Entity::pass_event_to_script,
-    &objects::Entity::flag_as_dead,
-    stubs::return_true,
-    &gfx::ModelAssembler::get_build};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-} // namespace
 
 } // namespace gfx

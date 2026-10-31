@@ -73,11 +73,10 @@ int get_trick_count(void* score, uint32_t trick)
 {
     return static_cast<modules::PointTally*>(score)->count_trick_after_taps(trick, 0, false, 1);
 }
-// An object's member function by name (vtable +0x0C).
+// An object's member function by name.
 bool call_object_member(objects::GameEntity* object, uint32_t name, script::Struct* params, script::Script* script)
 {
-    return reinterpret_cast<bool(__thiscall*)(void*, uint32_t, script::Struct*, script::Script*)>(
-        (*reinterpret_cast<void***>(object))[3])(object, name, params, script);
+    return object->invoke_method_by_name(name, params, script);
 }
 objects::RiderSessionEnd* end_run_of(objects::GameEntity* skater)
 {

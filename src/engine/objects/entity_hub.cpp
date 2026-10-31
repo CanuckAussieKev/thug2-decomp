@@ -187,8 +187,7 @@ void MiscHub::flush_dead_objects()
         node->next->prev = node->prev;
         node->next = node;
         node->prev = node;
-        if (auto* object = static_cast<Entity*>(node->data))
-            object->virtual_destroy(1);
+        delete static_cast<Entity*>(node->data);
         node = next;
     } while (node);
 }

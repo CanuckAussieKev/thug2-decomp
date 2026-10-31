@@ -23,12 +23,6 @@
 namespace frontend {
 
 namespace {
-extern void** const kCTextureElementVtable;
-extern void** const kCSpriteElementVtable;
-extern void** const kCWindowElementVtable;
-} // namespace
-
-namespace {
 
 using script::Struct;
 
@@ -82,31 +76,17 @@ void free_window2d(void* window) { render::free_window_2d(static_cast<render::Sc
 // --- TextureElement -------------------------------------------------------------------------------------------
 
 // 0x004AED90
-TextureElement* TextureElement::make_new()
+TextureElement::TextureElement()
 {
-    UiWidget::make_new();
-    vtable_ = kCTextureElementVtable;
     texture_ = 0;
     piece_ = new_textured_piece();
     change_species(kTextureElement);
-    return this;
 }
 
 // 0x004AEDF0
-void TextureElement::destroy_body()
+TextureElement::~TextureElement()
 {
-    vtable_ = kCTextureElementVtable;
     delete piece_; // (through its vtable in the original: 0x004B4E40's jump, folded)
-    UiWidget::destroy_body();
-}
-
-// 0x004AEE60
-TextureElement* TextureElement::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x004AEE90
@@ -156,32 +136,18 @@ void TextureElement::tick_frame()
 // --- SpriteElement --------------------------------------------------------------------------------------------
 
 // 0x004AF1A0
-ImageWidget* ImageWidget::make_new()
+ImageWidget::ImageWidget()
 {
-    UiWidget::make_new();
-    vtable_ = kCSpriteElementVtable;
     texture_ = 0;
     quad_ = new_sprite(0);
     z_write_ = true;
     change_species(kSpriteElement);
-    return this;
 }
 
 // 0x004AF0D0
-void ImageWidget::destroy_body()
+ImageWidget::~ImageWidget()
 {
-    vtable_ = kCSpriteElementVtable;
     delete quad_; // (through its vtable in the original: 0x004B4E40's jump, folded)
-    UiWidget::destroy_body();
-}
-
-// 0x004AF210
-ImageWidget* ImageWidget::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x004AF130 (no texture of that name: the original reads through null)
@@ -291,34 +257,17 @@ void ImageWidget::tick_frame()
 // --- WindowElement --------------------------------------------------------------------------------------------
 
 // 0x004B2060
-PanelWidget* PanelWidget::make_new()
+PanelWidget::PanelWidget()
 {
-    UiWidget::make_new();
-    vtable_ = kCWindowElementVtable;
     change_species(kWindowElement);
     screen_region_ = new_window2d(0, 0, 640, 448);
     change_alignment(-1.0f, -1.0f);
     change_location(0.0f, 0.0f, 1);
     fit_to_size(640.0f, 448.0f, 0);
-    return this;
 }
 
 // 0x004B2100
-void PanelWidget::destroy_body()
-{
-    vtable_ = kCWindowElementVtable;
-    free_window2d(screen_region_);
-    UiWidget::destroy_body();
-}
-
-// 0x004B2170
-PanelWidget* PanelWidget::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
-}
+PanelWidget::~PanelWidget() { free_window2d(screen_region_); }
 
 // 0x004B2160
 void* PanelWidget::fetch_screen_rect() const { return screen_region_; }
@@ -335,51 +284,6 @@ void PanelWidget::tick_frame()
     int width = get_truncated(span_);
     reinterpret_cast<render::ScreenWindow*>(screen_region_)->change_extent(width, height);
 }
-
-namespace {
-static VtableSlot g_c_texture_element_vtable_slots[] = {
-    &TextureElement::teardown,
-    &TextureElement::change_traits,
-    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::Entity::invoke_method_by_name),
-    &UiWidget::invoke_method_by_name,
-    stubs::ignore_argument,
-    &objects::Entity::pass_event_to_script,
-    &objects::Entity::flag_as_dead,
-    stubs::return_true,
-    &TextureElement::get_properties,
-    &UiWidget::blend_towards,
-    &TextureElement::tick_frame};
-void** const kCTextureElementVtable = reinterpret_cast<void**>(g_c_texture_element_vtable_slots);
-static VtableSlot g_c_sprite_element_vtable_slots[] = {
-    &ImageWidget::teardown,
-    &ImageWidget::change_traits,
-    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::Entity::invoke_method_by_name),
-    &UiWidget::invoke_method_by_name,
-    stubs::ignore_argument,
-    &objects::Entity::pass_event_to_script,
-    &objects::Entity::flag_as_dead,
-    stubs::return_true,
-    &ImageWidget::get_properties,
-    &ImageWidget::blend_towards,
-    &ImageWidget::tick_frame};
-void** const kCSpriteElementVtable = reinterpret_cast<void**>(g_c_sprite_element_vtable_slots);
-static VtableSlot g_c_window_element_vtable_slots[] = {
-    &PanelWidget::teardown,
-    &UiWidget::change_traits,
-    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::Entity::invoke_method_by_name),
-    &UiWidget::invoke_method_by_name,
-    stubs::ignore_argument,
-    &objects::Entity::pass_event_to_script,
-    &objects::Entity::flag_as_dead,
-    stubs::return_true,
-    &UiWidget::get_properties,
-    &UiWidget::blend_towards,
-    &PanelWidget::tick_frame};
-void** const kCWindowElementVtable = reinterpret_cast<void**>(g_c_window_element_vtable_slots);
-} // namespace
 
 } // namespace frontend
 

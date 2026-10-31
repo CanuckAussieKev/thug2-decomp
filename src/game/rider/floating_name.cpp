@@ -140,8 +140,8 @@ void RiderOverheadTag::tick_frame()
     params->append_word(kText, text);
     const maths::Vec4& pos = entity_->at_point_;
     params->put_vec3(kPos3d, pos.x, height + pos.y, pos.z);
-    if (label) // (its vtable's change_traits: whatever object has the id)
-        reinterpret_cast<void(__thiscall*)(frontend::UiWidget*, script::Struct*)>(label->vtable_[1])(label, params);
+    if (label) // (Entity's virtual change_traits: whatever object has the id)
+        label->change_traits(params);
     else
         script::launch_script(kCreateObjectLabel, params, nullptr, false, nullptr);
     if (params) {

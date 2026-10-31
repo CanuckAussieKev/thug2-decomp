@@ -211,7 +211,7 @@ objects::Rider* Skate::get_rider_by_number(uint32_t id)
 void Skate::drop_skater_from_roster(objects::Rider* skater)
 {
     if (objects::Entity* board = entity_hub_handle()->look_up_entity(skater->ident_ + kBailBoard)) {
-        reinterpret_cast<void(__thiscall*)(objects::Entity*)>(board->vtable_[0x18 / 4])(board); // (marked dead)
+        board->flag_as_dead();
         entity_hub_handle()->flush_dead_objects();
     }
     if (!skater->unknownbc_) {
@@ -238,7 +238,7 @@ void Skate::drop_skater_from_roster(objects::Rider* skater)
         skater->write_list_44b_66a_9f(stat_goal_params_ref());
     }
     unlink_skater_node(static_cast<memory::ListNode*>(skater->get_block238()));
-    reinterpret_cast<void(__thiscall*)(objects::Rider*, int)>(skater->vtable_[0])(skater, 1);
+    delete skater;
 }
 
 // 0x00567180
@@ -273,7 +273,7 @@ objects::Rider* Skate::spawn_skater_entity(objects::RiderIdentity* profile, bool
             }
         } else if (objects::Entity* camera = entity_hub_handle()->look_up_entity(kSkaterCam0)) {
             camera->object_flags_ &= ~2u;
-            reinterpret_cast<void(__thiscall*)(objects::Entity*, int)>(camera->vtable_[0])(camera, 1);
+            delete camera;
         }
     } else if (net->in_net_game()) {
         if (objects::Rider* skater = get_home_rider()) {
@@ -285,13 +285,9 @@ objects::Rider* Skate::spawn_skater_entity(objects::RiderIdentity* profile, bool
     memory::push_mem_profile("Skater"); // "Skater"
     int heap = find_free_rider_heap(local);
     memory::enter_heap_scope(rider_heap_at(heap));
-    void* memory = memory::alloc_zeroed(sizeof(objects::Rider));
-    objects::Rider* skater =
-        memory ? static_cast<objects::Rider*>(memory)->make_new(
-                     viewport, reinterpret_cast<objects::EntityHub*>(entity_hub_handle()), local, id, heap, 1)
-               : nullptr;
-    reinterpret_cast<void(__thiscall*)(objects::Rider*, objects::RiderIdentity*)>(skater->vtable_[0x34 / 4])(skater,
-                                                                                                             profile);
+    auto* skater =
+        new objects::Rider(viewport, reinterpret_cast<objects::EntityHub*>(entity_hub_handle()), local, id, heap, 1);
+    skater->init_from_profile(profile); // (no memory: a crash, as the original)
     if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr))) {
         script::Struct* params = spawn_param_table();
         params->put_int(kPlayer, 0);
@@ -453,8 +449,7 @@ void Skate::teleport_to_spawn(objects::Rider* skater, uint32_t node, uint32_t wa
         if (!node)
             return;
     }
-    reinterpret_cast<void(__thiscall*)(objects::Rider*, uint32_t, uint32_t)>(skater->vtable_[0x3C / 4])(skater, node,
-                                                                                                        walking);
+    skater->jump_to_spawn(node, walking);
 }
 
 // 0x00566980
@@ -465,8 +460,7 @@ void Skate::reset_skaters(uint32_t node, uint32_t walking)
         if (skater->unknownbc_) {
             uint32_t at = node ? node : warp_to_restart(skater->ident_);
             if (at)
-                reinterpret_cast<void(__thiscall*)(objects::Rider*, uint32_t, uint32_t)>(skater->vtable_[0x3C / 4])(
-                    skater, at, walking);
+                skater->jump_to_spawn(at, walking);
         }
         skater->reset_27c();
     }
@@ -870,14 +864,14 @@ void Skate::run_frame_logic()
                 render::choose_camera(0, static_cast<gfx::ViewCam*>(movies_->obtain_active_lens()));
             if (movie_camera_)
                 script::launch_script(kHideLoadingScreen, nullptr, nullptr, false, nullptr);
-            reinterpret_cast<void(__thiscall*)(objects::VideoHub*)>(movies_->vtable_[0x20 / 4])(movies_);
+            movies_->tick_frame();
             movie_camera_ = true;
         } else if (movie_camera_) {
             script::launch_script(kRestoreSkaterCamera, nullptr, nullptr, false, nullptr);
             movie_camera_ = false;
         }
         if (object_movies_->total_of())
-            reinterpret_cast<void(__thiscall*)(objects::VideoHub*)>(object_movies_->vtable_[0x20 / 4])(object_movies_);
+            object_movies_->tick_frame();
     }
     prepare_entity_update_data();
     script::launch_script(kGameUpdate, nullptr, nullptr, false, nullptr);
@@ -1019,10 +1013,8 @@ Skate::Skate()
     competition_ = memory ? static_cast<Contest*>(memory)->make_new(0) : nullptr;
     memory = memory::alloc_zeroed(0x438);
     horse_ = memory ? static_cast<LetterMatch*>(memory)->make_new() : nullptr;
-    memory = memory::alloc_zeroed(0x12C);
-    movies_ = memory ? static_cast<objects::VideoHub*>(memory)->make_new() : nullptr;
-    memory = memory::alloc_zeroed(0x12C);
-    object_movies_ = memory ? static_cast<objects::VideoHub*>(memory)->make_new() : nullptr;
+    movies_ = new objects::VideoHub;
+    object_movies_ = new objects::VideoHub;
     highscores::g_game_records->init_levels(0x15);
     for (uint32_t i = 0; i < 8; ++i) {
         participants_[i].unknown0_ = static_cast<int>(i); // (its index)
@@ -1048,10 +1040,8 @@ Skate::~Skate()
         memory::dealloc(competition);
     }
     memory::dealloc(horse_);
-    if (movies_)
-        reinterpret_cast<void(__thiscall*)(objects::VideoHub*, int)>(movies_->vtable_[0])(movies_, 1);
-    if (object_movies_)
-        reinterpret_cast<void(__thiscall*)(objects::VideoHub*, int)>(object_movies_->vtable_[0])(object_movies_, 1);
+    delete movies_;
+    delete object_movies_;
     if (objects::GrindRailHub* rails = rail_manager_) {
         rails->tidy_up();
         memory::dealloc(rails);

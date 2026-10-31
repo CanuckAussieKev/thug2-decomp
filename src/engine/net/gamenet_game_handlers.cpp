@@ -396,16 +396,13 @@ int __cdecl handle_goal_completed(net::InboundMsgCtx* context)
     uint8_t* current = get_call<uint8_t*>(code_address(&goals::GoalManager::get_engaged_objective), goals, 0);
     if (!goal)
         return kContinue;
-    auto virtual_call = [](uint8_t* object, uint32_t offset) {
-        return reinterpret_cast<void**>(prop<void**>(object, 0))[offset / 4];
-    };
     uint8_t* player = find_player_slot_by_obj(manager, msg);
     uint8_t* local = find_own_player_record(manager);
-    reinterpret_cast<void(__thiscall*)(uint8_t*, int)>(virtual_call(goal, 0x70))(goal, player_team(player));
+    auto* objective = reinterpret_cast<goals::Objective*>(goal);
+    objective->set_net_stage_flag(player_team(player)); // (the original's slot 0x70)
     if (!player_skater(player))
         return kContinue;
-    reinterpret_cast<void(__thiscall*)(uint8_t*, uint32_t)>(virtual_call(goal, 0x6C))(
-        goal, get_skater_id(player_skater(player)));
+    objective->set_stage_flag(static_cast<int>(get_skater_id(player_skater(player)))); // (slot 0x6C)
     if (local == player) {
         int total = get_call<int>(code_address(&goals::GoalManager::count_picked_objectives), goals);
         int done = get_call<int>(code_address(&goals::GoalManager::count_objectives_cleared), goals);
@@ -432,14 +429,14 @@ int __cdecl handle_goal_completed(net::InboundMsgCtx* context)
             last = get_goal(goals, *next);
             next = prop<uint32_t*>(last, 0x28);
         }
-        reinterpret_cast<void(__thiscall*)(uint8_t*)>(virtual_call(last, 0x3C))(last);
+        reinterpret_cast<goals::Objective*>(last)->get_win(); // (slot 0x3C)
         if (last != current)
-            reinterpret_cast<void(__thiscall*)(uint8_t*, int, int)>(virtual_call(current, 0x34))(current, 0, 1);
+            reinterpret_cast<goals::Objective*>(current)->disengage(false, true); // (slot 0x34)
     } else {
-        reinterpret_cast<void(__thiscall*)(uint8_t*)>(virtual_call(goal, 0x3C))(goal);
+        objective->get_win();
     }
     get_call(code_address(&goals::ObjectiveNpc::remove_objective_npc), prop<void*>(current, 0x14));
-    reinterpret_cast<void(__thiscall*)(uint8_t*)>(virtual_call(goal, 0x68))(goal);
+    objective->mark_won(); // (slot 0x68)
     int total = get_call<int>(code_address(&goals::GoalManager::count_picked_objectives), goals);
     int done = get_call<int>(code_address(&goals::GoalManager::count_objectives_cleared), goals);
     if (total > done) {

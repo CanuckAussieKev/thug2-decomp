@@ -42,7 +42,6 @@ float g_composite_feet_to_inches{12.0f};
 namespace {
 
 extern void** const kComponentVtable;
-extern void** const kCompositeObjectVtable;
 
 // Names (checksums).
 constexpr uint32_t kUnnamed = 0;
@@ -128,13 +127,6 @@ maths::Vec4 perpendicular(const maths::Vec4& a, const maths::Vec4& b)
             static_cast<float>(static_cast<double>(a.x) * b.y - static_cast<double>(a.y) * b.x), 0.0f};
 }
 
-// The object's vtable slot 3 (a member function by name).
-bool virtual_call_member_function(Entity* object, uint32_t name, Struct* params, Script* script)
-{
-    return reinterpret_cast<bool(__thiscall*)(Entity*, uint32_t, Struct*, Script*)>(object->vtable_[3])(object, name,
-                                                                                                        params, script);
-}
-
 // |v| as the original's x87 code works it out: (x*x + y*y) + z*z in double precision, not rounded to a float.
 double len_of(float x, float y, float z)
 {
@@ -184,13 +176,13 @@ float feet_as_inches() { return g_composite_feet_to_inches; } // 12
 // --- Entity: a member function table entry -------------------------------------------------------------------
 
 // 0x0045D850
-bool Entity::invoke_method_by_name(MemberFunctionEntry* entry, Struct* params, Script* script)
+bool Entity::invoke_method(MemberFunctionEntry* entry, Struct* params, Script* script)
 {
     if (entry->method_code_) {
         void* self = reinterpret_cast<uint8_t*>(this) + entry->this_adjustment_;
         return reinterpret_cast<bool(__thiscall*)(void*, Struct*, Script*)>(entry->method_code_)(self, params, script);
     }
-    return virtual_call_member_function(this, entry->callsign_, params, script);
+    return invoke_method_by_name(entry->callsign_, params, script);
 }
 
 // --- ObjectModule -------------------------------------------------------------------------------------------
@@ -238,10 +230,8 @@ int ObjectModule::invoke_method_by_name(MemberFunctionEntry* entry, Struct* para
 // --- GameEntity: life -----------------------------------------------------------------------------------
 
 // 0x0045E510
-GameEntity* GameEntity::make_new()
+GameEntity::GameEntity()
 {
-    Entity::make_new();
-    vtable_ = kCompositeObjectVtable;
     vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
     at_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
     basis_frame_.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
@@ -252,17 +242,12 @@ GameEntity* GameEntity::make_new()
     display_matrix_.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     display_matrix_.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
     display_matrix_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    attached_modules_ = nullptr;
-    composite_flags_ = 0;
-    unknownbc_ = 0;
     object_flags_ |= kObjectFlagHasPosition;
-    return this;
 }
 
 // 0x0045D890
-void GameEntity::destroy_body()
+GameEntity::~GameEntity()
 {
-    vtable_ = kCompositeObjectVtable;
     composite_flags_ |= kCompositeFlagDestroying;
     while (attached_modules_) {
         ObjectModule* component = attached_modules_;
@@ -270,16 +255,6 @@ void GameEntity::destroy_body()
         unregister_component(component);
         component->virtual_destroy(1);
     }
-    Entity::destroy_body();
-}
-
-// 0x0045E620
-GameEntity* GameEntity::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // --- GameEntity: the frame ------------------------------------------------------------------------------
@@ -294,7 +269,7 @@ void GameEntity::tick_frame()
             own_script_->tick_frame();
         if (object_flags_ & kObjectFlagDead)
             return;
-        virtual_own_update();
+        own_update();
     }
     for (ObjectModule* component = attached_modules_; component; component = component->following_) {
         if (component->flag_bits_ & kComponentFlagSuspended)
@@ -377,7 +352,7 @@ void GameEntity::build_modules_from_list(Array* components, Struct* extra)
     uint32_t* elements = components->find_array_value();
     int count = static_cast<int>(components->extent_);
     for (int i = 0; i < count; ++i)
-        virtual_create_component_from_structure(reinterpret_cast<Struct*>(elements[i]), extra);
+        create_component_from_structure(reinterpret_cast<Struct*>(elements[i]), extra);
 }
 
 // 0x0045EE20. With no component= the type looked up is `params`' own address [quirk]; a type the manager can't
@@ -460,10 +435,10 @@ bool GameEntity::obj_print_details(Struct* params, Script* /*script*/)
     return true;
 }
 
-// 0x0045D810: a component from the parameters (CreateComponentFromStructure, through the vtable).
+// 0x0045D810: a component from the parameters (CreateComponentFromStructure).
 bool GameEntity::obj_create_component(Struct* params, Script* /*script*/)
 {
-    virtual_create_component_from_structure(params, nullptr);
+    create_component_from_structure(params, nullptr);
     return true;
 }
 
@@ -860,21 +835,6 @@ static VtableSlot g_component_vtable_slots[] = {
         &objects::ObjectModule::invoke_method_by_name),
     &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kComponentVtable = reinterpret_cast<void**>(g_component_vtable_slots);
-static VtableSlot g_composite_object_vtable_slots[] = {
-    &objects::GameEntity::teardown,
-    &objects::Entity::change_traits,
-    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::Entity::invoke_method_by_name),
-    static_cast<bool (objects::GameEntity::*)(uint32_t, script::Struct*, script::Script*)>(
-        &objects::GameEntity::invoke_method_by_name),
-    stubs::ignore_argument,
-    &objects::Entity::pass_event_to_script,
-    &objects::GameEntity::flag_as_dead,
-    &objects::GameEntity::should_update_scripts,
-    &objects::GameEntity::seal,
-    &objects::GameEntity::create_component_from_structure,
-    stubs::do_nothing};
-void** const kCompositeObjectVtable = reinterpret_cast<void**>(g_composite_object_vtable_slots);
 
 } // namespace
 } // namespace objects

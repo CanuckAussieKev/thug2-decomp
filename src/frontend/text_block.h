@@ -11,25 +11,23 @@ struct SmearEffect;
 
 // TextBlockElement (vtable 0x0064A264, 0x1C4 bytes): text wrapped into lines that fit the element's width, each
 // line a text element child. Its blur, shadow and colour overrides are passed on to the lines.
-class ParagraphWidget : public UiWidget {
+class ParagraphWidget final : public UiWidget {
 public:
-    // 0x004B0810: the constructor (returns this): no font, internal_scale and line_spacing 1, shadow colour black at
+    // 0x004B0810: no font, internal_scale and line_spacing 1, shadow colour black at
     // half alpha, no blur, no lines; type TextBlockElement.
-    ParagraphWidget* make_new();
-    // 0x004B08B0: the destructor body: the blur freed, then UiWidget's.
-    void destroy_body();
-    // 0x004B0B30 (vtable slot 0)
-    ParagraphWidget* teardown(uint8_t flags);
+    ParagraphWidget();
+    // 0x004B08B0 (0x004B0B30 the deleting one): the blur freed, then UiWidget's.
+    ~ParagraphWidget() override;
     // 0x004B1B60 (slot 1): UiWidget's, then internal_scale, line_spacing, font, internal_just,
     // allow_expansion, text (a string or an array of them), blur_effect / no_blur_effect, blur_rgba, shadow_offs,
     // Shadow / no_shadow, shadow_rgba, the encoded colour overrides; then the lines take them.
-    void change_traits(script::Struct* params);
+    void change_traits(script::Struct* params) override;
     // 0x004B0B60 (slot 9): with the blur, the block's update, the blur's settings and each line's blur aimed at
     // the block's middle; then UiWidget's.
-    void blend_towards(script::Struct* params);
+    void blend_towards(script::Struct* params) override;
     // 0x004B1EC0 (slot 10): after a change, the lines placed one under another (internal_just), in its colour;
     // then they take the block's settings.
-    void tick_frame();
+    void tick_frame() override;
 
     // 0x004AF6C0: the font (by checksum) and how many lines fit the height.
     void change_typeface(uint32_t font);

@@ -77,12 +77,6 @@ ViewRegion* current_view_slot(int n)
     return nullptr;
 }
 
-// An object deleted through its virtual [0] (the scalar deleting destructor).
-void delete_through0(void* object)
-{
-    reinterpret_cast<void(__thiscall*)(void*, int)>((*static_cast<void***>(object))[0])(object, 1);
-}
-
 uint8_t* occlusion_slots() { return g_occlusion_slots; }
 OcclusionRequest* occlusion_requests() { return g_occlusion_requests; }
 uint32_t& occlusion_request_count() { return g_occlusion_request_count; }
@@ -156,8 +150,7 @@ void ViewRegion::remove_flagged_camera()
 {
     if (!(flag_bits_ & 1))
         return;
-    if (viewer_.get_pull())
-        delete_through0(viewer_.get_pull()); // (its destructor clears the pointer)
+    delete viewer_.get_pull(); // (its destructor clears the pointer)
     viewer_.get_release();
     viewer_.owner_object_ = nullptr;
     flag_bits_ &= ~1u;

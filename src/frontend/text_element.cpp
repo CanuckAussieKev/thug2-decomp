@@ -23,10 +23,6 @@
 namespace frontend {
 
 namespace {
-extern void** const kCTextElementVtable;
-} // namespace
-
-namespace {
 
 using script::Struct;
 
@@ -54,7 +50,7 @@ float get_degrees() { return ::commands::g_degree_to_radian_ratio; } // pi / 180
 float rotation_offset()
 {
     return ::goals::g_goal_life_seconds_per_millisecond;
-}                                                               // 0.001 (added to a rotation in radians)
+} // 0.001 (added to a rotation in radians)
 float minimum_alpha() { return ::modules::g_competition_tiny; } // 0.0001: below it, transparent
 float layout_top() { return frontend::g_layout_top; }           // -200: text whose top is above it is hidden
 float layout_bottom() { return frontend::g_layout_bottom; }     // 648: ... or below it
@@ -235,10 +231,8 @@ SmearEffect::Settings* SmearEffect::set_from_params(Struct* params, int* out_ms)
 // --- TextElement ----------------------------------------------------------------------------------------------
 
 // 0x004B0920
-LabelWidget* LabelWidget::make_new()
+LabelWidget::LabelWidget()
 {
-    UiWidget::make_new();
-    vtable_ = kCTextElementVtable;
     shadow_rgba_[0] = shadow_rgba_[1] = shadow_rgba_[2] = 0;
     shadow_rgba_[3] = 0x80;
     font_name_ = 0;
@@ -252,27 +246,15 @@ LabelWidget* LabelWidget::make_new()
     override_rgba_ = false;
     remembered_override_ = false;
     change_species(kTextElement);
-    return this;
 }
 
 // 0x004B1830
-void LabelWidget::destroy_body()
+LabelWidget::~LabelWidget()
 {
-    vtable_ = kCTextElementVtable;
     disable_blur();
     free_text_objects(false);
     if (chars_)
         memory::dealloc(chars_);
-    UiWidget::destroy_body();
-}
-
-// 0x004B2030
-LabelWidget* LabelWidget::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x004AF650
@@ -666,23 +648,6 @@ void LabelWidget::tick_frame()
         }
     }
 }
-
-namespace {
-static VtableSlot g_c_text_element_vtable_slots[] = {
-    &LabelWidget::teardown,
-    &LabelWidget::change_traits,
-    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::Entity::invoke_method_by_name),
-    &UiWidget::invoke_method_by_name,
-    stubs::ignore_argument,
-    &objects::Entity::pass_event_to_script,
-    &objects::Entity::flag_as_dead,
-    stubs::return_true,
-    &UiWidget::get_properties,
-    &LabelWidget::blend_towards,
-    &LabelWidget::tick_frame};
-void** const kCTextElementVtable = reinterpret_cast<void**>(g_c_text_element_vtable_slots);
-} // namespace
 
 } // namespace frontend
 

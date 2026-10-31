@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <initializer_list>
+#include <new>
 
 #include "engine/core/manager.h"
 #include "engine/core/stubs.h"
@@ -446,7 +447,7 @@ void RiderIdentity::write_to_save(script::Struct* save)
 // 0x00586D60
 RiderIdentity* RiderIdentity::make_new()
 {
-    reinterpret_cast<gfx::ModelLook*>(this)->make_new(); // the appearance
+    new (look_data_) gfx::ModelLook; // the appearance
     details_params()->prepare_all();
     get_reset(nullptr);
     return this;

@@ -102,7 +102,7 @@ bool KillObjectKey::work_on(void*)
         uint32_t name = 0; // (the original's is its own argument slot)
         structure->read_hash_value(kName, &name, 1);
         objects::Entity* object = objects::find_object(name);
-        reinterpret_cast<void(__thiscall*)(objects::Entity*)>((*reinterpret_cast<void***>(object))[6])(object);
+        object->flag_as_dead(); // (none: a crash, as the original)
     }
     return true;
 }

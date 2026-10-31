@@ -50,7 +50,7 @@ bool draw_details() { return g_rigid_body_draw_details; }
 void quat_multiply(maths::QuatRotation* quat, const maths::QuatRotation* other) { *quat *= *other; }
 void quat_to_matrix(const maths::QuatRotation* quat, maths::Mat4* matrix) { quat->fetch_mat(matrix); }
 
-void flag_as_dead(GameEntity* object) { reinterpret_cast<void(__thiscall*)(GameEntity*)>(object->vtable_[6])(object); }
+void flag_as_dead(GameEntity* object) { object->flag_as_dead(); }
 
 // The matrix's element at row `r`, column `c`.
 double get_at(const maths::Mat4& m, int r, int c) { return reinterpret_cast<const float*>(&m.row[r])[c]; }

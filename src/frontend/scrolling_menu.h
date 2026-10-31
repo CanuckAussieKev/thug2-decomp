@@ -10,35 +10,27 @@
 // its items, scrolling to keep the focused item in view (items outside the window get alpha 0).
 namespace frontend {
 
-class WindowedList : public UiWidget {
+class WindowedList final : public UiWidget {
 public:
-    // 0x004AE050: the constructor (returns this): vtables 0x0064A154 / 0x0064A14C (the listener, registered for
-    // the element), no menu yet, scroll_speed 10000, every item shown, no regular spacing (-1); type
-    // VScrollingMenu (also for the horizontal one: its constructor doesn't change it).
-    WindowedList* make_new();
-    // 0x004AE170 / 0x004AE1C0: vertical (vtables 0x0064A188 / 0x0064A180) / horizontal (0x0064A1BC / 0x0064A1B4).
-    WindowedList* construct_vertical();
-    WindowedList* construct_horizontal();
-    // 0x004AE110: the destructor body (the listener goes, then UiWidget's). 0x004AE1A0 / 0x004AE1F0: the
-    // vertical / horizontal one's (their vtables, then this).
-    void destroy_body();
-    void destroy_body_vertical();
-    void destroy_body_horizontal();
-    // 0x004AE240 / 0x004AE270 / 0x004AE2A0 (vtable slot 0 of each); 0x004AE210 / 0x004AE220 / 0x004AE230: the
-    // same from the listener (+0x178).
-    WindowedList* teardown(uint8_t flags);
-    WindowedList* destroy_vertical(uint8_t flags);
-    WindowedList* destroy_horizontal(uint8_t flags);
+    // 0x004AE050: vtables 0x0064A154 / 0x0064A14C (the listener, registered for the element), no menu yet,
+    // scroll_speed 10000, every item shown, no regular spacing (-1); type VScrollingMenu (also for the horizontal
+    // one: its constructor doesn't change it). 0x004AE170 / 0x004AE1C0: vertical (vtables 0x0064A188 / 0x0064A180)
+    // or horizontal (0x0064A1BC / 0x0064A1B4) - the original's three table pairs differ only in their destructors.
+    explicit WindowedList(bool vertical);
+    // 0x004AE110 (0x004AE1A0 / 0x004AE1F0 the vertical / horizontal one's; 0x004AE240 / 0x004AE270 / 0x004AE2A0
+    // the deleting ones; 0x004AE210 / 0x004AE220 / 0x004AE230 the same from the listener, +0x178): the listener
+    // goes, then UiWidget's.
+    ~WindowedList() override = default;
 
     // 0x004AE520 (slot 1): internal_just, scroll_speed (an integer), num_items_to_show, reset_window_top /
     // reset_window_bottom / 0xA1F3B8BB (a new arrangement); then UiWidget's.
-    void change_traits(script::Struct* params);
+    void change_traits(script::Struct* params) override;
     // 0x004AE6A0 (slot 5): the event for its script first (pad-event priorities as the menus'); the focus flag's
     // event finds the menu and arranges; focus / unfocus pass to the menu. True unless refused.
-    bool pass_event_to_script(objects::Signal* event);
+    bool pass_event_to_script(objects::Signal* event) override;
     // 0x004AE960 (slot 10): the window follows the selected item (by scroll_speed per frame), the menu moves
     // against it and the items outside the window are hidden.
-    void tick_frame();
+    void tick_frame() override;
     // 0x004AE7E0 (the listener's filter): the menu's focus flag event re-arranges; focus on one of the menu's items
     // selects it.
     void listener_receive(objects::Signal* event);

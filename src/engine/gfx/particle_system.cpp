@@ -228,7 +228,7 @@ EmitterInstance::~EmitterInstance()
     // the particle manager lets go of it
     static_cast<FlexibleParticleManager*>(particle_hub_handle())->remove_system(this);
     list_link_.unlink_as(g_node_vtable);
-    smart_pointers_.clear();
+    // (then SharedBase's: its smart pointers cleared)
 }
 
 // 0x004A1040 (the weather's "plat_render" stub, shared)

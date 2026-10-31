@@ -472,8 +472,7 @@ void EffectsEmitterModule::tick_frame()
     if (lifespan_ != 0) {
         uint32_t age = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + (g_clock_offset - start_time_));
         if (age > lifespan_) {
-            void** vtable = *reinterpret_cast<void***>(entity_);
-            reinterpret_cast<void(__thiscall*)(GameEntity*)>(vtable[6])(entity_); // (flag_as_dead)
+            entity_->flag_as_dead();
             return;
         }
     }

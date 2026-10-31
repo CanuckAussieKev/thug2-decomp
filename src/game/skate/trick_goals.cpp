@@ -170,16 +170,8 @@ frontend::UiWidget* element_by_id(void* manager, uint32_t id)
     return raw;
 }
 void change_opacity(frontend::UiWidget* element, float alpha) { element->change_opacity(alpha, 1); }
-void* new_container()
-{
-    void* memory = memory::alloc_zeroed(0x17C);
-    return memory ? static_cast<frontend::GroupWidget*>(memory)->make_new() : nullptr;
-}
-void* new_text()
-{
-    void* memory = memory::alloc_zeroed(0x1B0);
-    return memory ? static_cast<frontend::LabelWidget*>(memory)->make_new() : nullptr;
-}
+void* new_container() { return new frontend::GroupWidget; }
+void* new_text() { return new frontend::LabelWidget; }
 void set_id(void* element, uint32_t id) { static_cast<objects::Entity*>(element)->change_serial(id); }
 // The manager's +4 (adds an element) / an element's +4 (its properties from a structure).
 void add_to_manager(void* manager, void* element)
@@ -188,7 +180,7 @@ void add_to_manager(void* manager, void* element)
 }
 void change_traits(void* element, script::Struct* params)
 {
-    reinterpret_cast<void(__thiscall*)(void*, script::Struct*)>((*static_cast<void***>(element))[1])(element, params);
+    static_cast<objects::Entity*>(element)->change_traits(params);
 }
 // `child` under `parent` (0x004ABBE0, by smart pointers made for the call).
 void change_owner(void* manager, void* parent, void* child)

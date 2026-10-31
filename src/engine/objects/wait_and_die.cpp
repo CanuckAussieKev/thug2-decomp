@@ -28,8 +28,8 @@ const float kMilliseconds = 1000.0f; // 0x006453C0
 // The original's _ftol (0x006236FC): truncated towards zero (the low half of the 64-bit result).
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-// The object's vtable slot 6 (flag_as_dead), as the original's tail jump.
-void die(Entity* object) { reinterpret_cast<void(__thiscall*)(Entity*)>(object->vtable_[6])(object); }
+// The object's flag_as_dead, as the original's tail jump.
+void die(Entity* object) { object->flag_as_dead(); }
 
 } // namespace
 

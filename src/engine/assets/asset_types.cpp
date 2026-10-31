@@ -413,7 +413,7 @@ int NodeTableResource::offload()
         uint32_t id;
         reinterpret_cast<Struct*>(nodes->fetch_part(i))->read_hash_value(0xA1DC81F9u, &id, 0); // name
         if (objects::Entity* object = objects::find_object(id))
-            reinterpret_cast<void(__thiscall*)(objects::Entity*)>((*reinterpret_cast<void***>(object))[6])(object);
+            object->flag_as_dead();
         nodes = static_cast<script::Array*>(nodes_);
     }
     if (level_nodes::NodeManager* manager = level_nodes::node_manager_instance())

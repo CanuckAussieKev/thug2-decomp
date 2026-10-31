@@ -57,17 +57,9 @@ bool has_aliases(const Entity* object) { return static_cast<int>(object->alias_c
 bool has_position(const Entity* object) { return (object->object_flags_ & kObjectFlagHasPosition) != 0; }
 // The position: GameEntity's at_point_ (+0x4C, just after Entity's; read on any object).
 const float* get_position(Entity* object) { return &static_cast<GameEntity*>(object)->at_point_.x; }
-// Its vtable +0x04: take the properties in `params` (SetObjectProps). +0x14: an event targeted at it.
-void change_traits(Entity* object, script::Struct* params)
-{
-    void** vtable = *reinterpret_cast<void***>(object);
-    reinterpret_cast<void(__thiscall*)(Entity*, script::Struct*)>(vtable[1])(object, params);
-}
-void forward_trigger(Entity* object, Signal* event)
-{
-    void** vtable = *reinterpret_cast<void***>(object);
-    reinterpret_cast<void(__thiscall*)(Entity*, Signal*)>(vtable[5])(object, event);
-}
+// Take the properties in `params` (SetObjectProps); an event targeted at it.
+void change_traits(Entity* object, script::Struct* params) { object->change_traits(params); }
+void forward_trigger(Entity* object, Signal* event) { object->pass_event_to_script(event); }
 // The object with this id (the object manager 0x006F0FB8's look_up_entity).
 Entity* find_object_by_id(uint32_t id)
 {

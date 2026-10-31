@@ -62,19 +62,15 @@ constexpr uint32_t kQuietScriptName = 0xFB11E6CD;
 constexpr uint32_t kObjectComponentType = 0x57525413;
 constexpr uint32_t kObjectComponentType2 = 0x0ADA4E74;
 
-// The object's and its components' script member functions (virtual, not rewritten yet).
-// Entity vtable +0x08: invoke_method_by_name(entry, params, script); +0x0C: invoke_method_by_name(name, params, script).
+// The object's and its components' script member functions. The object's: Entity::invoke_method (the original's
+// slot 2) and Entity::invoke_method_by_name (slot 3).
 bool object_call_member_function(objects::Entity* object, MemberFunctionEntry* entry, Struct* params, Script* script)
 {
-    auto* vtable = *reinterpret_cast<void***>(object);
-    return reinterpret_cast<bool(__thiscall*)(objects::Entity*, MemberFunctionEntry*, Struct*, Script*)>(vtable[2])(
-        object, entry, params, script);
+    return object->invoke_method(entry, params, script);
 }
 bool object_call_member_function(objects::Entity* object, uint32_t name, Struct* params, Script* script)
 {
-    auto* vtable = *reinterpret_cast<void***>(object);
-    return reinterpret_cast<bool(__thiscall*)(objects::Entity*, uint32_t, Struct*, Script*)>(vtable[3])(object, name,
-                                                                                                        params, script);
+    return object->invoke_method_by_name(name, params, script);
 }
 // ObjectModule vtable +0x2C (the original tests the whole of EAX, not just AL).
 bool component_call_member_function(objects::ObjectModule* component, MemberFunctionEntry* entry, Struct* params,

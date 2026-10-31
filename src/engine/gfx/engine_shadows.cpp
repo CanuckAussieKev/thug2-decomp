@@ -21,11 +21,6 @@ namespace render {
 
 namespace {
 
-void delete_through0(void* object)
-{
-    reinterpret_cast<void(__thiscall*)(void*, int)>((*static_cast<void***>(object))[0])(object, 1);
-}
-
 ShadowVolume** shadow_volumes() { return g_shadow_volumes; }
 lists::KeyMap& edge_table() { return g_shadow_edge_table; }
 
@@ -45,8 +40,7 @@ void add_extension(const char* name, const char* extension, char* out)
 // (normalised) by look_along: rows (z, -x, -y), (y, -z, -x), the direction.
 gfx::ViewCam* new_shadow_camera()
 {
-    void* memory = memory::alloc_zeroed(0xC4);
-    gfx::ViewCam* camera = memory ? static_cast<gfx::ViewCam*>(memory)->make_new() : nullptr;
+    auto* camera = new gfx::ViewCam;
     camera->change_location(maths::Vec4{0.0f, 0.0f, 0.0f, 1.0f});
     return camera;
 }
@@ -91,8 +85,7 @@ FullShadow::~FullShadow()
 {
     remove_texture_shadow_caster(bitmap_);
     delete reinterpret_cast<BitmapTexture*>(bitmap_);
-    if (view_camera_)
-        delete_through0(view_camera_);
+    delete view_camera_;
 }
 
 // 0x004A1910
@@ -196,8 +189,7 @@ ShadowVolume::ShadowVolume(RenderModel*, maths::Vec4 direction, float distance) 
 // 0x004A2120
 ShadowVolume::~ShadowVolume()
 {
-    if (view_camera_)
-        delete_through0(view_camera_);
+    delete view_camera_;
     if (edges_) {
         if (edges_->count) {
             remove_shadow_volume(this);

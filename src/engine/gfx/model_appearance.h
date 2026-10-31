@@ -14,14 +14,12 @@
 // (SetPart, GetPart, ...). From the disassembly of 0x00488DB0-0x004897BE.
 namespace gfx {
 
-class ModelLook : public objects::Entity {
+class ModelLook final : public objects::Entity {
 public:
-    // 0x00488EA0: a Entity with its own vtable, an empty structure, no face texture. Returns this.
-    ModelLook* make_new();
-    // 0x004890F0: the destructor body: the face texture freed, the structure cleared, Entity's.
-    void destroy_body();
-    // 0x00489370: the scalar deleting destructor (vtable slot 0). Returns this.
-    ModelLook* teardown(unsigned int flags);
+    // 0x00488EA0: an Entity with its own vtable, an empty structure, no face texture.
+    ModelLook();
+    // 0x004890F0 (0x00489370 the deleting one): the face texture freed, the structure cleared, Entity's.
+    ~ModelLook() override;
 
     // 0x00488F00: back to the defaults: the global appearance_init_structure's slots (if there is one), the face
     // texture marked unused. True.
@@ -43,9 +41,9 @@ public:
     // 0x004891F0 (not a Ghidra function): the slot `part` (made if it isn't there) set to the part `descriptor_id`, with
     // the colour `params` gives (use_default_hsv, else h / s / v).
     void set_part(uint32_t part, uint32_t descriptor_id, script::Struct* params);
-    // 0x004894D0 (vtable slot 3): the member functions scripts call: SetPart, GetPart (into the script's
-    // parameters), ClearPart, GotPart, PartGotFlag, SetChecksum; anything else Entity's.
-    bool invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    // 0x004894D0: the member functions scripts call: SetPart, GetPart (into the script's parameters), ClearPart,
+    // GotPart, PartGotFlag, SetChecksum; anything else Entity's.
+    bool invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     // 0x00489160: a new face texture (null when out of memory). 0x004891D0: freed.
     void make_face_texture();

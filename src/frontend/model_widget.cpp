@@ -31,10 +31,6 @@
 
 namespace frontend {
 
-namespace {
-extern void** const kCElement3dVtable;
-} // namespace
-
 static_assert(offsetof(ModelWidget, models_) == 0x178 && offsetof(ModelWidget, model_total_) == 0x434 &&
                   offsetof(ModelWidget, camera_z_) == 0x438 && offsetof(ModelWidget, angle_) == 0x43C &&
                   offsetof(ModelWidget, angular_velocity_) == 0x448 && offsetof(ModelWidget, basis_frame_) == 0x454 &&
@@ -91,8 +87,6 @@ float get_degrees() { return ::commands::g_degree_to_radian_ratio; } // pi / 180
 float visible_alpha() { return ::modules::g_competition_tiny; }      // 0.0001
 
 // UiWidget's pieces.
-void base_construct(UiWidget* e) { e->UiWidget::make_new(); }
-void base_destroy_body(UiWidget* e) { e->UiWidget::destroy_body(); }
 void base_set_properties(UiWidget* e, Struct* params) { e->UiWidget::change_traits(params); }
 void base_set_morph(UiWidget* e, Struct* params) { e->UiWidget::blend_towards(params); }
 
@@ -138,12 +132,9 @@ void set_model_viewports(objects::ObjectModule* component, uint32_t mask)
 Struct* node_structure(uint32_t name) { return level_nodes::fetch_vertex(name, true); }
 void node_position(Struct* node, maths::Vec4* out) { level_nodes::fetch_place(node, out); }
 
-// The composite objects' vtable slots used here.
-void mark_object_dead(objects::GameEntity* object)
-{
-    reinterpret_cast<void(__thiscall*)(void*)>(object->vtable_[6])(object);
-}
-void seal(objects::GameEntity* object) { reinterpret_cast<void(__thiscall*)(void*)>(object->vtable_[8])(object); }
+// The composite objects' calls used here.
+void mark_object_dead(objects::GameEntity* object) { object->flag_as_dead(); }
+void seal(objects::GameEntity* object) { object->seal(); }
 
 // The original's _ftol (0x006236FC): truncated towards zero.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -169,16 +160,11 @@ float wrapped(double angle)
 
 } // namespace
 
-// 0x004A6060
-ModelWidget* ModelWidget::make_new()
+// 0x004A6060 (the models' smart pointers start empty: 0x0042B580)
+ModelWidget::ModelWidget()
 {
-    base_construct(this);
-    vtable_ = kCElement3dVtable;
-    for (ShapeMesh& model : models_) {
-        new (&model.object) objects::SharedRef<objects::GameEntity>(); // (0x0042B580: all three words cleared)
-        model.object.get_release();
+    for (ShapeMesh& model : models_)
         model.offset = {0.0f, 0.0f, 0.0f, 1.0f};
-    }
     model_total_ = 0;
     camera_z_ = -400.0f;
     angle_[0] = angle_[1] = angle_[2] = 0.0f;
@@ -200,28 +186,11 @@ ModelWidget* ModelWidget::make_new()
     pivot_ = {0.0f, 0.0f, 0.0f, 1.0f};
     centre_ = {0.0f, 0.0f, 0.0f, 1.0f};
     // (not set here: the hover, ParentParams' offset and node - change_traits sets them)
-    reinterpret_cast<objects::Entity*>(this)->change_species(kElement3d);
-    return this;
+    change_species(kElement3d);
 }
 
-// 0x004A6240
-void ModelWidget::destroy_body()
-{
-    vtable_ = kCElement3dVtable;
-    clear_models();
-    for (int i = kMaxModels - 1; i >= 0; --i) // (the array's destructor: last to first)
-        models_[i].object.get_release();
-    base_destroy_body(this);
-}
-
-// 0x004A6D00
-ModelWidget* ModelWidget::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x004A6240 (then the models' smart pointers - the array's destructor, last to first - and UiWidget's)
+ModelWidget::~ModelWidget() { clear_models(); }
 
 // 0x004A5E30
 void ModelWidget::clear_models()
@@ -725,22 +694,5 @@ void ModelWidget::tick_frame()
         component->tick_frame();
     }
 }
-
-namespace {
-static VtableSlot g_c_element3d_vtable_slots[] = {
-    &frontend::ModelWidget::teardown,
-    &frontend::ModelWidget::change_traits,
-    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::Entity::invoke_method_by_name),
-    &UiWidget::invoke_method_by_name,
-    stubs::ignore_argument,
-    &objects::Entity::pass_event_to_script,
-    &objects::Entity::flag_as_dead,
-    stubs::return_true,
-    &UiWidget::get_properties,
-    &frontend::ModelWidget::blend_towards,
-    &frontend::ModelWidget::tick_frame};
-void** const kCElement3dVtable = reinterpret_cast<void**>(g_c_element3d_vtable_slots);
-} // namespace
 
 } // namespace frontend

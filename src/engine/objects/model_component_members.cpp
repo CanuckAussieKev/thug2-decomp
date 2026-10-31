@@ -136,12 +136,6 @@ void set_light_direction(void* lights, int index, const maths::Vec4* direction)
     model_nx::set_lights_direction(lights, nullptr, index, direction);
 }
 
-// The model appearance a profile is read into (0x00488EA0 constructor, 0x00488F40 loaded from a structure, 0x004890F0
-// destructor).
-struct Appearance {
-    alignas(16) uint8_t bytes[0xB0];
-};
-
 } // namespace
 
 // 0x00421AE0
@@ -449,12 +443,10 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             params->read_sub_struct(kStruct, &profile, 1);
             uint32_t build_script = 0;
             params->read_hash_value(kBuildScript, &build_script, 0);
-            Appearance appearance;
-            reinterpret_cast<gfx::ModelLook*>(&appearance)->make_new();
-            reinterpret_cast<gfx::ModelLook*>(&appearance)->read_in(profile, 1 != 0);
+            gfx::ModelLook appearance; // (destroyed at the end of the block)
+            appearance.read_in(profile, true);
             reinterpret_cast<void(__thiscall*)(MeshInstanceModule*, void*, bool, int, uint32_t)>(vtable_[13])(
                 this, &appearance, via_resource_store != 0, tex_dict_offset, build_script);
-            reinterpret_cast<gfx::ModelLook*>(&appearance)->destroy_body();
         }
         break;
     case kObjReplaceTexture: {

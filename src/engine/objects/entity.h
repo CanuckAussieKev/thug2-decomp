@@ -19,7 +19,7 @@
 // From the disassembly of 0x004607A0-0x00461900 (methods: __thiscall, RET n = 4 * arguments; find_object and the
 // manager walk's callbacks: __cdecl). The member functions scripts call (Obj_SetFlag...) are entries of the member
 // function table at 0x00683550 (0x18 bytes each: the name, the component type 0x57525413 - "the object itself" - and
-// a member function pointer, filled in by 0x00642940); 0x0045D850 (the object's vtable +0x08) calls them as
+// a member function pointer, filled in by 0x00642940); 0x0045D850 (invoke_method) calls them as
 // `bool (Entity::*)(CStruct* params, CScript* script)`.
 namespace script {
 class Array;
@@ -38,14 +38,13 @@ struct Signal;
 // A second smart-pointer target in each object (SharedBase, vtable 0x006477E0, +0x08 the object): the pointers to
 // it are cleared as soon as the object is marked dead (flag_as_dead), the object's own (SharedBase) ones only when
 // it is deleted.
-class ObjectRef : public SharedBase {
+class ObjectRef final : public SharedBase {
 public:
-    // 0x00460920: the destructor body (a jump to ~SharedBase 0x00463870).
-    void destroy_body();
-    // 0x00460AF0: the scalar deleting destructor.
-    ObjectRef* teardown(unsigned int flags);
+    explicit ObjectRef(Entity* owner) : owner_object_(owner) {}
+    // 0x00460920 (0x00460AF0 the deleting one): SharedBase's (a jump to 0x00463870).
+    ~ObjectRef() override = default;
 
-    Entity* owner_object_;
+    Entity* owner_object_; // +0x08
 };
 static_assert(sizeof(ObjectRef) == 0xC, "layout must match the original");
 
@@ -71,39 +70,37 @@ constexpr uint32_t kNoObjectType = 0;
 
 class Entity : public SharedBase {
 public:
-    // 0x00460B80: the constructor (returns this): vtable 0x006477E8, no id, no type, no manager, no script, no tags.
-    // flag_bits_ (+0x24) is not initialised.
-    Entity* make_new();
-    // 0x004615D0: the destructor body: tags freed, unregistered from the manager, its script's on-exit scripts
-    // dropped and the script deleted, every script using the object stopped, then the smart pointers to it cleared.
-    void destroy_body();
-    // 0x00461900: the scalar deleting destructor (vtable slot 0).
-    Entity* teardown(unsigned int flags);
+    // 0x00460B80: vtable 0x006477E8, no id, no type, no manager, no script, no tags. flag_bits_ (+0x24) is not
+    // initialised.
+    Entity();
+    // 0x004615D0 (0x00461900 the deleting one): tags freed, unregistered from the manager, its script's on-exit
+    // scripts dropped and the script deleted, every script using the object stopped, then the smart pointers to it
+    // cleared.
+    ~Entity() override;
 
-    // --- the vtable's other slots (0x006477E8) ---
+    // --- the virtuals (vtable 0x006477E8: 0 the destructor, then these in the original's order; its slot 2 -
+    // invoke_method - and slot 4 - empty - are the same in every object's table: a plain method / left out) ---
     // 0x00461710 (slot 1, the member function SetProps): event_handlers (with replace_handlers), tags (added) and
     // remove_tags from `params`.
-    void change_traits(script::Struct* params);
-    // 0x004608F0 (slot 3): a member function by name: SetProps (0x6C63C7C5) runs slot 1, Die (0xC6870028) slot 6.
-    // Always true - also for names it doesn't know.
-    bool invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    virtual void change_traits(script::Struct* params);
+    // 0x004608F0 (slot 3): a member function by name: SetProps (0x6C63C7C5) runs change_traits, Die (0xC6870028)
+    // flag_as_dead. Always true - also for names it doesn't know.
+    virtual bool invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
     // 0x00461140 (slot 5): `event` for its script (receive_event; none: nothing). Returns whether the object
     // still exists afterwards (a smart pointer to it is held across the call).
-    bool pass_event_to_script(Signal* event);
+    virtual bool pass_event_to_script(Signal* event);
     // 0x00460A50 (slot 6): blocks its script for good, stops every script using it, unlocks it, unregisters it
-    // and gives it to the manager's dead list (slot 5); dead; the pointers to ref_ are cleared.
-    void flag_as_dead();
+    // and gives it to the manager's dead list (remove_entity); dead; the pointers to ref_ are cleared.
+    virtual void flag_as_dead();
+    // 0x005B9760 (slot 7): whether its PAUSE_WITH_OBJECT scripts may run (true: an Entity isn't paused).
+    virtual bool should_update_scripts() { return true; }
+
     // 0x0045D850 (slot 2): a member function table entry run on the object: its member function pointer (on `this`
-    // moved by the entry's adjustment), or, with none, slot 3 by the entry's name. Returns what that returns.
-    bool invoke_method_by_name(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script);
-    // (slot 4 0x005BAB90: empty; slot 7 0x005B9760: true)
+    // moved by the entry's adjustment), or, with none, invoke_method_by_name by the entry's name. Returns what that
+    // returns.
+    bool invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script);
     // 0x00460930: delete itself unless it is locked (no callers; the walks use the free dispose_when_free).
     void dispose_when_free();
-    // Slot 0 through the vtable (subclasses' destructors).
-    Entity* virtual_destroy(unsigned int flags)
-    {
-        return reinterpret_cast<Entity*(__thiscall*)(Entity*, unsigned int)>(vtable_[0])(this, flags);
-    }
 
     // --- script ---
     // 0x00461290: a script of its own if it has none (on the script heap), running empty_script (0x3F5CDB8A).
@@ -178,18 +175,18 @@ public:
     bool obj_spawn_script(script::Struct* params, script::Script* script);        // 0x004617E0
     bool obj_switch_script(script::Struct* params, script::Script* script);       // 0x004618A0
 
-    // --- fields (after SharedBase's vtable and smart pointer list) ---
-    uint32_t object_flags_;      // +0x08 OBJECT_FLAG_*
-    ObjectHubBase* park_owner_;  // +0x0C the manager it is registered with
-    script::Script* own_script_; // +0x10 its own script (made on demand)
-    uint32_t ident_;             // +0x14 kUnassignedId until registered
-    uint32_t kind_tag_;          // +0x18
-    uint32_t visited_mask_;      // +0x1C ObjectHubBase::for_each's bits (one per walk in progress)
-    script::Struct* tag_table_;  // +0x20 made on demand (front-end heap)
-    uint32_t flag_bits_;         // +0x24 the script flags (Obj_SetFlag...; never initialised here)
-    EntityListEntry list_link_;  // +0x28 in the manager's list (or its dead list)
-    uint32_t alias_count_;       // +0x3C the tracker's aliases of it (tracker.cpp)
-    ObjectRef ref_;              // +0x40
+    // --- fields (after SharedBase's vptr and smart pointer list) ---
+    uint32_t object_flags_ = 0;            // +0x08 OBJECT_FLAG_*
+    ObjectHubBase* park_owner_ = nullptr;  // +0x0C the manager it is registered with
+    script::Script* own_script_ = nullptr; // +0x10 its own script (made on demand)
+    uint32_t ident_ = kUnassignedId;       // +0x14 kUnassignedId until registered
+    uint32_t kind_tag_ = kNoObjectType;    // +0x18
+    uint32_t visited_mask_ = 0;            // +0x1C ObjectHubBase::for_each's bits (one per walk in progress)
+    script::Struct* tag_table_ = nullptr;  // +0x20 made on demand (front-end heap)
+    uint32_t flag_bits_;                   // +0x24 the script flags (Obj_SetFlag...; never initialised here)
+    EntityListEntry list_link_;            // +0x28 in the manager's list (or its dead list)
+    uint32_t alias_count_ = 0;             // +0x3C the tracker's aliases of it (tracker.cpp)
+    ObjectRef ref_{this};                  // +0x40
 };
 static_assert(offsetof(Entity, object_flags_) == 0x08 && offsetof(Entity, park_owner_) == 0x0C &&
                   offsetof(Entity, own_script_) == 0x10 && offsetof(Entity, ident_) == 0x14 &&
@@ -288,24 +285,22 @@ constexpr uint32_t kCompositeFlagDestroying = 0x80; // its destructor is running
 
 // An object made of components (GameObjects::GameEntity, vtable 0x00647650; composite.cpp): skaters, peds, cars,
 // level objects. It has a position, an orientation, a velocity and a display matrix; each frame its update runs
-// its own script, then its own update (vtable +0x28, for subclasses), then its components'.
+// its own script, then its own update (own_update, for subclasses), then its components'.
 //
-// Its vtable (11 slots): Entity's, with 0 Destroy, 3 invoke_method_by_name (components first), 6 flag_as_dead
-// (components told first), 7 should_update_scripts (not paused), and three more: +0x20 Finalize, +0x24
-// CreateComponentFromStructure, +0x28 its own update (empty here). Slot 5 (+0x14, pass_event_to_script) stays
-// Entity's - in its three subclasses' vtables too (0x0064EC44, 0x0064EF48, 0x0064F138).
+// The original's vtable (11 slots): Entity's, with 0 Destroy, 3 invoke_method_by_name (components first), 6
+// flag_as_dead (components told first), 7 should_update_scripts (not paused), and three more: +0x20 Finalize (seal),
+// +0x24 CreateComponentFromStructure, +0x28 its own update (empty here). Its subclasses (the crown 0x0064EC44, the
+// skater 0x0064EF48, the viewer object 0x0064F138) keep slots 5, 8 and 9 as they are.
 class GameEntity : public Entity {
 public:
-    // 0x0045E510: the constructor (returns this): at the origin (w = 1), identity matrices, no velocity, no
-    // components, no flags; kObjectFlagHasPosition. (old_pos_ isn't initialised.)
-    GameEntity* make_new();
-    // 0x0045D890: the destructor body: DESTROYING, each component (first to last) taken off the list, out of the
-    // manager's and deleted, then Entity's.
-    void destroy_body();
-    // 0x0045E620: the scalar deleting destructor (vtable slot 0).
-    GameEntity* teardown(unsigned int flags);
+    // 0x0045E510: at the origin (w = 1), identity matrices, no velocity, no components, no flags;
+    // kObjectFlagHasPosition. (old_pos_ isn't initialised.)
+    GameEntity();
+    // 0x0045D890 (0x0045E620 the deleting one): DESTROYING, each component (first to last) taken off the list, out
+    // of the manager's and deleted, then Entity's.
+    ~GameEntity() override;
 
-    // 0x0045D920: one frame: unless paused, its script's Update and its own update (vtable +0x28) - both skipped
+    // 0x0045D920: one frame: unless paused, its script's Update and its own update (own_update) - both skipped
     // while suspended, and nothing more if that killed the object - then the Update of each component that isn't
     // suspended (stopping if the object dies); then at_point_.w = 1 and TELEPORTED cleared.
     void tick_frame();
@@ -316,25 +311,27 @@ public:
     // 0x0045DA30: `component` added at the end of the list, its object set, and registered with the composite
     // object manager.
     void attach_module(ObjectModule* component);
-    // 0x0045DA90: CreateComponentFromStructure (vtable +0x24) for each structure in `components`, with `extra`.
+    // 0x0045DA90: create_component_from_structure for each structure in `components`, with `extra`.
     void build_modules_from_list(script::Array* components, script::Struct* extra);
     // 0x0045DAD0: name= (the id), the position and orientation (0x0045C050 / 0x0045C0B0), `permanent` (locked).
     void configure_from_data(script::Struct* params);
-    // 0x0045DB30 (vtable +0x20): every component's Finalize, FINALIZED, then every component's Teleport.
+    // 0x0045DB30 (the original's slot 8, Finalize - the same in every table): every component's Finalize,
+    // FINALIZED, then every component's Teleport.
     void seal();
     // 0x0045DB90: its component of `type`, or null.
     ObjectModule* fetch_module(uint32_t type);
-    // 0x0045E450 (vtable +0x0C): a member function by name: each component's (+0x30) in turn until one says 0
-    // (false) or 1 (true), then Entity's.
-    bool invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
-    // 0x0045D7C0 (vtable slot 6): each component's +0x10, then Entity::flag_as_dead.
-    void flag_as_dead();
+    // 0x0045E450: a member function by name: each component's (+0x30) in turn until one says 0 (false) or 1
+    // (true), then Entity's.
+    bool invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
+    // 0x0045D7C0: each component's +0x10, then Entity::flag_as_dead.
+    void flag_as_dead() override;
     // 0x0045E4C0: TELEPORTED; with `teleport_components`, each component's Teleport too.
     void mark_jumped_ahead(bool teleport_components);
-    // 0x0045E500 (vtable slot 7): whether its PAUSE_WITH_OBJECT scripts may run (it isn't paused).
-    bool should_update_scripts();
-    // 0x0045EE20 (vtable +0x24): a component of the type `params` names (component=), made by the composite object
-    // manager, added, and initialised from `params` (with `extra`, from a merged copy).
+    // 0x0045E500: whether its PAUSE_WITH_OBJECT scripts may run (it isn't paused).
+    bool should_update_scripts() override;
+    // 0x0045EE20 (the original's slot 9, the same in every table): a component of the type `params` names
+    // (component=), made by the composite object manager, added, and initialised from `params` (with `extra`, from a
+    // merged copy).
     void create_component_from_structure(script::Struct* params, script::Struct* extra);
 
     // --- the member functions scripts call (the table at 0x00683268, component type 0x0ADA4E74) ---
@@ -376,23 +373,18 @@ public:
     // than 5322672), or null.
     GameEntity* find_nearest_object_of_type(uint32_t type);
 
-    // --- its own vtable slots ---
-    void virtual_own_update() { reinterpret_cast<void(__thiscall*)(GameEntity*)>(vtable_[10])(this); }
-    void virtual_create_component_from_structure(script::Struct* params, script::Struct* extra)
-    {
-        reinterpret_cast<void(__thiscall*)(GameEntity*, script::Struct*, script::Struct*)>(vtable_[9])(this, params,
-                                                                                                       extra);
-    }
+    // (the original's slot 10, 0x005480A0 here) Its own update, each frame before its components': nothing here.
+    virtual void own_update() {}
 
     maths::Vec4 at_point_;    // +0x4C (w = 1 after every update)
     maths::Vec4 old_pos_;     // +0x5C (not initialised here; the skater's code sets it)
     maths::Mat4 basis_frame_; // +0x6C its orientation (rows: right, up, at, and a fourth)
     maths::Vec4 vel_;         // +0xAC
-    uint8_t unknownbc_;       // +0xBC (cleared by the constructor)
+    uint8_t unknownbc_ = 0;   // +0xBC
     uint8_t padbd_[3];
-    maths::Mat4 display_matrix_;     // +0xC0
-    ObjectModule* attached_modules_; // +0x100
-    uint32_t composite_flags_;       // +0x104 COMPOSITE_FLAG_*
+    maths::Mat4 display_matrix_;               // +0xC0
+    ObjectModule* attached_modules_ = nullptr; // +0x100
+    uint32_t composite_flags_ = 0;             // +0x104 COMPOSITE_FLAG_*
 };
 static_assert(offsetof(GameEntity, at_point_) == 0x4C && offsetof(GameEntity, old_pos_) == 0x5C &&
                   offsetof(GameEntity, basis_frame_) == 0x6C && offsetof(GameEntity, vel_) == 0xAC &&

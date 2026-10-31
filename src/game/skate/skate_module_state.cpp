@@ -135,10 +135,10 @@ void Skate::stop_callback() { update_job_->drop_out(); }
 void Skate::conceal_skater(objects::Rider* skater, bool hide)
 {
     if (hide) {
-        reinterpret_cast<void(__thiscall*)(objects::Rider*)>(skater->vtable_[0x2C / 4])(skater);
+        skater->get_freeze();
         skater->conceal(hide);
     } else {
-        reinterpret_cast<void(__thiscall*)(objects::Rider*)>(skater->vtable_[0x30 / 4])(skater);
+        skater->unpause();
         skater->conceal(hide);
     }
 }

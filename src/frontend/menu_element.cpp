@@ -19,11 +19,6 @@
 namespace frontend {
 
 namespace {
-extern void** const kCBaseMenuVtable;
-extern void** const kCContainerElementVtable;
-} // namespace
-
-namespace {
 
 using script::Struct;
 
@@ -73,10 +68,9 @@ void send_focus(uint32_t id, int controller, int grid_index)
 
 // --- the menu -------------------------------------------------------------------------------------------------
 
-// 0x004A74E0
-MenuBase* MenuBase::make_new()
+// 0x004A74E0 (0x004A75C0 / 0x004A7630 the vmenu's / hmenu's: then vertical_ and the type)
+MenuBase::MenuBase(bool vertical)
 {
-    UiWidget::make_new();
     chosen_item_id_ = 0;
     focused_ = false;
     controller_ = 0;
@@ -86,47 +80,11 @@ MenuBase* MenuBase::make_new()
     inner_align_v_ = 0.0f;
     pad_handling_ = true;
     cycles_around_ = true;
-    vtable_ = kCBaseMenuVtable;
     selected_index_ = -1;
     margin_factor_ = 1.0f;
     grid_index_ = -1;
-    return this;
-}
-
-// 0x004A75C0
-MenuBase* MenuBase::construct_v_menu()
-{
-    make_new();
-    vtable_ = kCBaseMenuVtable;
-    vertical_ = true;
-    change_species(kVMenu);
-    return this;
-}
-
-// 0x004A7630
-MenuBase* MenuBase::construct_h_menu()
-{
-    make_new();
-    vtable_ = kCBaseMenuVtable;
-    vertical_ = false;
-    change_species(kHMenu);
-    return this;
-}
-
-// 0x004A7620
-void MenuBase::destroy_body()
-{
-    vtable_ = kCBaseMenuVtable;
-    UiWidget::destroy_body();
-}
-
-// 0x004A76C0
-MenuBase* MenuBase::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
+    vertical_ = vertical;
+    change_species(vertical ? kVMenu : kHMenu);
 }
 
 // 0x004A7550
@@ -445,30 +403,14 @@ bool MenuBase::pass_event_to_script(objects::Signal* event)
 // --- the container element ------------------------------------------------------------------------------------
 
 // 0x004AAC20
-GroupWidget* GroupWidget::make_new()
+GroupWidget::GroupWidget()
 {
-    UiWidget::make_new();
-    vtable_ = kCContainerElementVtable;
     focusable_child_ = 0;
     change_species(kContainerElement);
-    return this;
 }
 
 // 0x004AAC80
-void GroupWidget::destroy_body()
-{
-    vtable_ = kCContainerElementVtable;
-    UiWidget::destroy_body();
-}
-
-// 0x004AACC0
-GroupWidget* GroupWidget::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
-}
+GroupWidget::~GroupWidget() {}
 
 // 0x004AA530
 void GroupWidget::change_traits(script::Struct* params)
@@ -499,37 +441,6 @@ bool GroupWidget::pass_event_to_script(objects::Signal* event)
     }
     return true;
 }
-
-namespace {
-static VtableSlot g_c_base_menu_vtable_slots[] = {
-    &MenuBase::teardown,
-    &MenuBase::change_traits,
-    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::Entity::invoke_method_by_name),
-    &UiWidget::invoke_method_by_name,
-    stubs::ignore_argument,
-    &MenuBase::pass_event_to_script,
-    &objects::Entity::flag_as_dead,
-    stubs::return_true,
-    &UiWidget::get_properties,
-    &UiWidget::blend_towards,
-    stubs::do_nothing};
-void** const kCBaseMenuVtable = reinterpret_cast<void**>(g_c_base_menu_vtable_slots);
-static VtableSlot g_c_container_element_vtable_slots[] = {
-    &GroupWidget::teardown,
-    &GroupWidget::change_traits,
-    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::Entity::invoke_method_by_name),
-    &UiWidget::invoke_method_by_name,
-    stubs::ignore_argument,
-    &GroupWidget::pass_event_to_script,
-    &objects::Entity::flag_as_dead,
-    stubs::return_true,
-    &UiWidget::get_properties,
-    &UiWidget::blend_towards,
-    stubs::do_nothing};
-void** const kCContainerElementVtable = reinterpret_cast<void**>(g_c_container_element_vtable_slots);
-} // namespace
 
 } // namespace frontend
 

@@ -56,8 +56,8 @@ Script* Script::make_new()
     entity_.preceding_ = nullptr;
     entity_.following_ = nullptr;
     entity_.owner_object_ = nullptr;
-    shared_base_.make_new();
-    // Then all of it is zeroed - shared_base_'s vtable too (an original quirk, kept).
+    new (&shared_base_) objects::SharedBase;
+    // Then all of it is zeroed - shared_base_'s vptr too (an original quirk, kept: nothing calls through it).
     std::memset(this, 0, sizeof(Script));
     following_ = script_list_head();
     if (script_list_head())
@@ -101,7 +101,7 @@ void Script::teardown()
         }
     }
     --script_count();
-    shared_base_.destruct();
+    shared_base_.clear_smart_pointers(); // (its destructor's body; the vptr was zeroed above)
     entity_.get_release();
 }
 

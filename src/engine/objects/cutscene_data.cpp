@@ -221,10 +221,7 @@ void CinematicTable::destroy_objects()
             model_set(model_of(stand_in), mine);
             std::memcpy(reinterpret_cast<uint8_t*>(original) + 0x4C, shade_, 16);
         }
-        if (entry.object) {
-            void** vtable = *reinterpret_cast<void***>(entry.object);
-            reinterpret_cast<void(__thiscall*)(void*, int)>(vtable[0])(entry.object, 1);
-        }
+        delete entry.object;
         entry.object = nullptr;
     }
     object_count_ = 0;
@@ -257,14 +254,12 @@ void CinematicTable::load_animation(uint32_t name, uint32_t a2, uint32_t a3)
 // 0x00464000
 GameEntity* CinematicTable::create_object(script::Struct* params)
 {
-    void* memory = memory::alloc_zeroed(0x108);
-    auto* object = memory ? static_cast<GameEntity*>(memory)->make_new() : nullptr;
+    auto* object = new GameEntity;
     object->change_species(kCutsceneObjectType);
-    void* objects = static_cast<void*>(g_composite_registry);
-    reinterpret_cast<void(__thiscall*)(void*, GameEntity*)>((*reinterpret_cast<void***>(objects))[1])(objects, object);
+    g_composite_registry->enrol_subject(object);
     params->put_int(kFlagParam, flag_34b_0_);
     script::launch_script(kCreateScript, params, object, false, nullptr);
-    reinterpret_cast<void(__thiscall*)(GameEntity*)>((*reinterpret_cast<void***>(object))[0x20 / 4])(object);
+    object->seal();
     script::launch_script(kInitScript, params, object, false, nullptr);
     auto* colour = reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(object) + 0x4C);
     colour[0] = 0.0f;

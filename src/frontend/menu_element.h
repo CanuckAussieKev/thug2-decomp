@@ -17,26 +17,21 @@ namespace frontend {
 // (hmenu); the focused menu moves its selection on the pad (pad_up / pad_down, or pad_left / pad_right), sending
 // unfocus / focus to the items. An item tagged as not focusable (`not_focusable`) or with block_events is
 // skipped.
-class MenuBase : public UiWidget {
+class MenuBase final : public UiWidget {
 public:
-    // 0x004A74E0: the constructor (returns this): nothing selected (-1), not focused, regular spacing off,
-    // padding_scale 1, pad handling and wrapping on, no grid index.
-    MenuBase* make_new();
-    // 0x004A75C0 / 0x004A7630: a vmenu / an hmenu (type VMenu / HMenu).
-    MenuBase* construct_v_menu();
-    MenuBase* construct_h_menu();
-    // 0x004A7620: the destructor body (UiWidget's).
-    void destroy_body();
-    // 0x004A76C0 (vtable slot 0)
-    MenuBase* teardown(uint8_t flags);
+    // 0x004A74E0: nothing selected (-1), not focused, regular spacing off, padding_scale 1, pad handling and wrapping
+    // on, no grid index. 0x004A75C0 / 0x004A7630: a vmenu / an hmenu (type VMenu / HMenu).
+    explicit MenuBase(bool vertical);
+    // 0x004A7620 (0x004A76C0 the deleting one): UiWidget's.
+    ~MenuBase() override = default;
     // 0x004A76F0 (slot 1): internal_just, regular_space_amount (an integer), padding_scale, spacing_between (an
     // integer), enable / disable_pad_handling, allow_wrap / dont_allow_wrap; then UiWidget's.
-    void change_traits(script::Struct* params);
+    void change_traits(script::Struct* params) override;
     // 0x004A8100 (slot 5): the event for its script first (false if it went - or, with the manager's pad-event
     // priorities, if this menu may not have it); then: the focus-sent event 0x3056434F re-finds the selection and
     // lays the items out; focus (grid_index / child_id pick the item) / unfocus pass to the selected item; the pad
     // moves the selection. True.
-    bool pass_event_to_script(objects::Signal* event);
+    bool pass_event_to_script(objects::Signal* event) override;
 
     // 0x004A7550: the regular spacing into `out`; whether it is used (> 0.0001).
     int get_regular_space(float* out) const;
@@ -77,19 +72,17 @@ static_assert(offsetof(MenuBase, selected_index_) == 0x178 && offsetof(MenuBase,
 
 // The container element (ContainerElement, vtable 0x0064A0BC, 0x17C bytes): passes focus / unfocus on to its
 // focusable_child.
-class GroupWidget : public UiWidget {
+class GroupWidget final : public UiWidget {
 public:
-    // 0x004AAC20: the constructor (returns this): no focusable child; type ContainerElement.
-    GroupWidget* make_new();
-    // 0x004AAC80: the destructor body (UiWidget's).
-    void destroy_body();
-    // 0x004AACC0 (vtable slot 0)
-    GroupWidget* teardown(uint8_t flags);
+    // 0x004AAC20: no focusable child; type ContainerElement.
+    GroupWidget();
+    // 0x004AAC80 (0x004AACC0 the deleting one): UiWidget's.
+    ~GroupWidget() override;
     // 0x004AA530 (slot 1): focusable_child, then UiWidget's.
-    void change_traits(script::Struct* params);
+    void change_traits(script::Struct* params) override;
     // 0x004AA560 (slot 5): the event for its script first (with pad-event priorities as the menu's); focus /
     // unfocus then go on to the focusable child (with the event's controller).
-    bool pass_event_to_script(objects::Signal* event);
+    bool pass_event_to_script(objects::Signal* event) override;
 
     uint32_t focusable_child_; // +0x178
 };

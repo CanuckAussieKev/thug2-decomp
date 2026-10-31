@@ -69,7 +69,7 @@ void delete_params(script::Struct* params)
 }
 
 // The object marked dead (its vtable +0x18: a composite object tells its components first).
-void flag_as_dead(GameEntity* object) { reinterpret_cast<void(__thiscall*)(GameEntity*)>(object->vtable_[6])(object); }
+void flag_as_dead(GameEntity* object) { object->flag_as_dead(); }
 
 // An object's model's data (its model component's +0x208), or null.
 uint8_t* get_model_data(GameEntity* object)

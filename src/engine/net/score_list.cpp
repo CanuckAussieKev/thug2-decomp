@@ -305,9 +305,8 @@ void __cdecl score_broadcast_tick(tasks::Task<Hub>* task)
             frontend::fetch_part(&found, id);
             element = found.owner_object_;
         }
-        if (element) // (change_traits, virtual slot 1)
-            reinterpret_cast<void(__thiscall*)(void*, script::Struct*)>((*reinterpret_cast<void***>(element))[1])(
-                element, params);
+        if (element)
+            element->change_traits(params);
         get_run(kUpdateScore, params);
         delete_params(params);
         reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(entry->vtable[0])(entry,

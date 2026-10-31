@@ -23,10 +23,6 @@
 
 namespace frontend {
 
-namespace {
-extern void** const kCScreenElementVtable;
-} // namespace
-
 float g_aspect_to_layout{0.75000006f};
 float g_wide_screen{0.9f};
 float g_minus_inv448{-0.002232143f};
@@ -138,21 +134,6 @@ void manager_destroy_element(void* manager, uint32_t id, int recurse, int unknow
     get_elements(manager)->dismantle_part(id, recurse, unknown, script);
 }
 
-// The element's vtable slots (0x0064A090).
-void v_set_properties(UiWidget* e, Struct* params)
-{
-    reinterpret_cast<void(__thiscall*)(UiWidget*, Struct*)>(e->vtable_[1])(e, params);
-}
-void v_get_properties(UiWidget* e, Struct* out)
-{
-    reinterpret_cast<void(__thiscall*)(UiWidget*, Struct*)>(e->vtable_[8])(e, out);
-}
-void v_set_morph(UiWidget* e, Struct* params)
-{
-    reinterpret_cast<void(__thiscall*)(UiWidget*, Struct*)>(e->vtable_[9])(e, params);
-}
-void v_update(UiWidget* e) { reinterpret_cast<void(__thiscall*)(UiWidget*)>(e->vtable_[10])(e); }
-
 // A state's top left from its position: the justification point (-1..1 across the size) at x, y. Two operand
 // orders occur in the original (the x87 products round differently): dims then scale, or scale then dims.
 void top_left_dims_first(const UiWidget* e, ElementState* s)
@@ -196,19 +177,9 @@ ElementState* ElementState::get_assign(const ElementState* other)
 
 // --- construction ---------------------------------------------------------------------------------------------
 
-// 0x004A8F90
-UiWidget* UiWidget::make_new()
+// 0x004A8F90 (the four smart pointers start empty)
+UiWidget::UiWidget()
 {
-    objects::Entity::make_new();
-    vtable_ = kCScreenElementVtable;
-    container_.preceding_ = container_.following_ = nullptr;
-    container_.owner_object_ = nullptr;
-    eldest_.preceding_ = eldest_.following_ = nullptr;
-    eldest_.owner_object_ = nullptr;
-    following_.preceding_ = following_.following_ = nullptr;
-    following_.owner_object_ = nullptr;
-    preceding_.preceding_ = preceding_.following_ = nullptr;
-    preceding_.owner_object_ = nullptr;
     morph_length_ = 0;
     shown_.scale_x_ = shown_.scale_y_ = 1.0f;
     shown_.base_scale_x_ = shown_.base_scale_y_ = 1.0f;
@@ -225,13 +196,11 @@ UiWidget* UiWidget::make_new()
     rank_ = 0;
     z_priority_ = 0.0f;
     remembered_alpha_ = 1.0f;
-    return this;
 }
 
 // 0x004AAB30
-void UiWidget::destroy_body()
+UiWidget::~UiWidget()
 {
-    vtable_ = kCScreenElementVtable;
     {
         ElementPtr none;
         change_owner(&none, 0);
@@ -241,16 +210,6 @@ void UiWidget::destroy_body()
     following_.get_release();
     eldest_.get_release();
     container_.get_release();
-    objects::Entity::destroy_body();
-}
-
-// 0x004AAC90
-UiWidget* UiWidget::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // --- simple accessors -----------------------------------------------------------------------------------------
@@ -760,7 +719,7 @@ void UiWidget::update_layout()
         }
         object_flags_ |= kChildrenDirty;
     }
-    v_update(this);
+    tick_frame();
     object_flags_ &= ~kVisibleNow;
     if (object_flags_ & kPauseAsked)
         object_flags_ |= kPaused;
@@ -934,14 +893,14 @@ void UiWidget::change_traits(script::Struct* params)
 bool UiWidget::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
 {
     if (name == kSetProps) {
-        v_set_properties(this, params);
+        change_traits(params);
         return true;
     }
     if (name == kDoMorph) {
         float seconds;
         if (params->fetch_float(kTime, &seconds, 0))
             script->lull(get_truncated(static_cast<double>(seconds) * 1000.0f));
-        v_set_morph(this, params);
+        blend_towards(params);
         return true;
     }
     if (name == kDie) {
@@ -961,7 +920,7 @@ bool UiWidget::invoke_method_by_name(uint32_t name, script::Struct* params, scri
         return true;
     }
     if (name == kGetProps) {
-        v_get_properties(this, script->args_);
+        get_properties(script->args_);
         return true;
     }
     return objects::Entity::invoke_method_by_name(name, params, script);
@@ -1056,23 +1015,6 @@ void UiWidget::blend_towards(script::Struct* params)
 }
 
 void fetch_part(ElementPtr* out, uint32_t id) { get_look_up(hub(), out, id, 0); }
-
-namespace {
-static VtableSlot g_c_screen_element_vtable_slots[] = {
-    &UiWidget::teardown,
-    &UiWidget::change_traits,
-    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::Entity::invoke_method_by_name),
-    &UiWidget::invoke_method_by_name,
-    stubs::ignore_argument,
-    &objects::Entity::pass_event_to_script,
-    &objects::Entity::flag_as_dead,
-    stubs::return_true,
-    &UiWidget::get_properties,
-    &UiWidget::blend_towards,
-    stubs::do_nothing};
-void** const kCScreenElementVtable = reinterpret_cast<void**>(g_c_screen_element_vtable_slots);
-} // namespace
 
 } // namespace frontend
 

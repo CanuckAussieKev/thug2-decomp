@@ -65,30 +65,29 @@ public:
         kPriority = 0x10000000,   // Priority > 0 (pad events with priorities)
     };
 
-    // 0x004A8F90: the constructor (returns this): vtable 0x0064A090, no parent / children / siblings, the three
-    // states alike (alpha 1, scale 1, rgba 0x80808080, at 0, 0), dirty and new.
-    UiWidget* make_new();
-    // 0x004AAB30: the destructor body: out of the tree (change_owner(null)), id 0xDEADBEEF, the links let go, then
-    // Entity's.
-    void destroy_body();
-    // 0x004AAC90 (vtable slot 0): the scalar deleting destructor.
-    UiWidget* teardown(uint8_t flags);
+    // 0x004A8F90: vtable 0x0064A090, no parent / children / siblings, the three states alike (alpha 1, scale 1, rgba
+    // 0x80808080, at 0, 0), dirty and new.
+    UiWidget();
+    // 0x004AAB30 (0x004AAC90 the deleting one): out of the tree (change_owner(null)), id 0xDEADBEEF, the links let
+    // go, then Entity's.
+    ~UiWidget() override;
 
-    // --- the vtable's slots (0x0064A090) ---
+    // --- the virtuals (vtable 0x0064A090: Entity's slots, then 8-10) ---
     // 0x004A96B0 (slot 1): Pos / pos3D, dims, parent, just, rgba, rot_angle, the flags, z_priority, (not_)focusable,
     // local_id, unpause, (un)block_events, Hide / UnHide, Priority; then Entity's.
-    void change_traits(script::Struct* params);
-    // 0x004A89B0 (slot 3): SetProps (slot 1), DoMorph (the script waits `time` seconds; slot 9), Die (the manager
-    // destroys it, its parent's focus event resent around it), GetProps (slot 8, into the script's parameters);
-    // others: Entity's.
-    bool invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    void change_traits(script::Struct* params) override;
+    // 0x004A89B0 (slot 3): SetProps (change_traits), DoMorph (the script waits `time` seconds; blend_towards), Die
+    // (the manager destroys it, its parent's focus event resent around it), GetProps (get_properties, into the
+    // script's parameters); others: Entity's.
+    bool invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
     // 0x004AA710 (slot 8): alpha, rgba (an array), scale (one or a pair), Pos, rot_angle (degrees),
     // events_blocked - added to `out`.
-    void get_properties(script::Struct* out);
+    virtual void get_properties(script::Struct* out);
     // 0x004A9AA0 (slot 9): Pos (relative / proportional), restore_alpha / alpha (remember_alpha), scale (one or a
     // pair, relative_scale), rot_angle, then a morph over `time` seconds with Anim's curve, rgba.
-    void blend_towards(script::Struct* params);
-    // (slot 10 0x005480A0: Update - empty here)
+    virtual void blend_towards(script::Struct* params);
+    // (slot 10, 0x005480A0 here) Update, each frame from the layout pass: nothing here.
+    virtual void tick_frame() {}
 
     // --- placement ---
     // 0x004A8610 / 0x004A87C0 / 0x004A87E0: the justification, the position morphed to, the top left morphed to.

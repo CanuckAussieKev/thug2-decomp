@@ -39,14 +39,13 @@ static_assert(offsetof(Movie, viewer_) == 0x14 && offsetof(Movie, can_skip_) == 
                   offsetof(Movie, end_script_) == 0x24 && offsetof(Movie, end_params_) == 0x28,
               "layout must match the original");
 
-class VideoHub : public Entity {
+class VideoHub final : public Entity {
 public:
-    // 0x0057A4B0: a Entity (vtable 0x0064ED34), the empty queue, the camera. Returns this.
-    VideoHub* make_new();
-    // 0x0057B1A0: the destructor body: the queue cleared, the camera's, the queue's head unlinked, Entity's.
-    // 0x0057B220: the scalar deleting destructor (vtable slot 0).
-    void destroy_body();
-    VideoHub* teardown(unsigned int flags);
+    // 0x0057A4B0: an Entity (vtable 0x0064ED34), the empty queue, the camera.
+    VideoHub();
+    // 0x0057B1A0 (0x0057B220 the deleting one): the queue cleared, the camera's destructor, the queue's head unlinked,
+    // Entity's.
+    ~VideoHub() override;
 
     // 0x0057A330: how many movies are queued. 0x0057B0B0: whether any is.
     int total_of();
@@ -83,12 +82,12 @@ public:
     // 0x0057A180: the game's camera this manager's own (0x004A0970).
     void use_kept_camera();
 
-    // 0x0057AE60 (vtable slot 8): the kept camera dropped once its frame is over; the playing movie's update (while
+    // 0x0057AE60 (the original's vtable slot 8; nothing derives from the manager): the kept camera dropped once its frame is over; the playing movie's update (while
     // paused only one that plays while paused, unless in the viewer's view mode); done: end_movies(false). Whether
     // any movie is left.
     bool tick_frame();
-    // 0x0057AFC0 (vtable slot 3): the playing movie's member function, else Entity's.
-    bool invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    // 0x0057AFC0: the playing movie's member function, else Entity's.
+    bool invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     // By name (0: the playing movie) - false with none queued:
     // 0x0057A940 / 0x0057A9B0: the movie's 0x00468F40 / 0x00468F50 with `value` (no such movie: nothing; true).

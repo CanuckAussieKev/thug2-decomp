@@ -41,8 +41,8 @@ constexpr uint32_t kLifetime = 10000; // milliseconds
 constexpr uint32_t kDyingTime = 1000; // milliseconds after the hit
 constexpr float kAbove = 24.0f;       // 0x00645EE8
 
-// The object dies (its vtable slot 6, flag_as_dead).
-void get_kill(GameEntity* object) { reinterpret_cast<void(__thiscall*)(GameEntity*)>(object->vtable_[6])(object); }
+// The object dies.
+void get_kill(GameEntity* object) { object->flag_as_dead(); }
 
 // The projectile collision component's 0x004F2F40 (no source yet): told of the hit.
 void projectile_hit(ObjectModule* projectile) { static_cast<ShotImpactModule*>(projectile)->mark_hit(); }

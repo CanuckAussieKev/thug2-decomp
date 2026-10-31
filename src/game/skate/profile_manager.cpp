@@ -73,12 +73,12 @@ void RiderIdentity::set_appearance(script::Struct* appearance, bool update)
 void RiderIdentity::destroy_body()
 {
     details_params()->get_clear();
-    reinterpret_cast<gfx::ModelLook*>(this)->destroy_body();
+    appearance()->~ModelLook();
 }
 void RiderIdentity::erase_one()
 {
     details_params()->get_clear();
-    reinterpret_cast<gfx::ModelLook*>(this)->destroy_body();
+    appearance()->~ModelLook();
     memory::Hub::get_pull()->dealloc(this);
 }
 

@@ -53,8 +53,7 @@ bool __cdecl cfunc_initialize_skaters(script::Struct*, script::Script*)
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
         objects::Rider* skater = get_skater_at(i);
         if (is_host_local(skater)) {
-            auto** vtable = *reinterpret_cast<void***>(skater);
-            reinterpret_cast<void(__thiscall*)(objects::Rider*)>(vtable[14])(skater);
+            skater->reset_input();
         }
         get_skate()->conceal_skater(skater, false);
     }

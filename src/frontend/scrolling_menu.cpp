@@ -20,12 +20,6 @@
 namespace frontend {
 
 namespace {
-extern void** const kCScrollingMenuVtable;
-extern void** const kCScrollingMenuVtableA188;
-extern void** const kCScrollingMenuVtableA1bC;
-} // namespace
-
-namespace {
 
 using script::Struct;
 
@@ -37,8 +31,6 @@ constexpr uint32_t kSystem = 0x36B2EE74, kFocus = 0x9D3FB516, kUnfocus = 0x4ADF0
 // The menus' type names, hashed at run time (the strings 0x0064A1F0 "vmenu" / 0x0064A1E8 "hmenu").
 uint32_t v_menu_type() { return checksums::hash_from_text("vmenu"); }
 uint32_t h_menu_type() { return checksums::hash_from_text("hmenu"); }
-
-void v_update(UiWidget* e) { reinterpret_cast<void(__thiscall*)(UiWidget*)>(e->vtable_[10])(e); }
 
 void set_event_consumed(objects::Signal* event, uint32_t how, uint32_t script)
 {
@@ -58,12 +50,9 @@ bool may_have(UiWidget* e, objects::Signal* event)
 
 } // namespace
 
-// 0x004AE050
-WindowedList* WindowedList::make_new()
+// 0x004AE050 (0x004AE170 / 0x004AE1C0 the vertical / horizontal one's: then vertical_)
+WindowedList::WindowedList(bool vertical)
 {
-    UiWidget::make_new();
-    new (&listener_) MenuListener;
-    vtable_ = kCScrollingMenuVtable;
     listener_.enter_wait_board(this);
     menu_ = nullptr;
     chosen_item_id_ = 0;
@@ -75,74 +64,7 @@ WindowedList* WindowedList::make_new()
     window_length_ = 0.0f;
     regular_space_ = -1.0f;
     change_species(kVScrollingMenu);
-    return this;
-}
-
-// 0x004AE170
-WindowedList* WindowedList::construct_vertical()
-{
-    make_new();
-    vtable_ = kCScrollingMenuVtableA188;
-    vertical_ = true;
-    return this;
-}
-
-// 0x004AE1C0
-WindowedList* WindowedList::construct_horizontal()
-{
-    make_new();
-    vtable_ = kCScrollingMenuVtableA1bC;
-    vertical_ = false;
-    return this;
-}
-
-// 0x004AE110
-void WindowedList::destroy_body()
-{
-    vtable_ = kCScrollingMenuVtable;
-    listener_.~MenuListener();
-    UiWidget::destroy_body();
-}
-
-// 0x004AE1A0
-void WindowedList::destroy_body_vertical()
-{
-    vtable_ = kCScrollingMenuVtableA188;
-    destroy_body();
-}
-
-// 0x004AE1F0
-void WindowedList::destroy_body_horizontal()
-{
-    vtable_ = kCScrollingMenuVtableA1bC;
-    destroy_body();
-}
-
-// 0x004AE240
-WindowedList* WindowedList::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
-}
-
-// 0x004AE270
-WindowedList* WindowedList::destroy_vertical(uint8_t flags)
-{
-    destroy_body_vertical();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
-}
-
-// 0x004AE2A0
-WindowedList* WindowedList::destroy_horizontal(uint8_t flags)
-{
-    destroy_body_horizontal();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
+    vertical_ = vertical;
 }
 
 // 0x004AE2D0
@@ -222,7 +144,7 @@ bool WindowedList::pass_event_to_script(objects::Signal* event)
     if (event->kind_tag_ == kFocusSentEvent) {
         find_menu();
         rearrange_ = true;
-        v_update(this);
+        tick_frame();
         event->set_event_handled(ident_, 0);
     }
     if (event->kind_tag_ == kFocus) {
@@ -259,7 +181,7 @@ void WindowedList::listener_receive(objects::Signal* event)
     if (event->kind_tag_ == kFocusSentEvent && self->menu_) {
         if (event->aim_point_ == self->menu_->ident_) {
             self->rearrange_ = true;
-            v_update(self);
+            self->tick_frame();
         }
         set_event_consumed(event, self->ident_, 0);
     }
@@ -365,49 +287,4 @@ void WindowedList::tick_frame()
 
 using frontend::WindowedList;
 
-namespace frontend {
-namespace {
-static VtableSlot g_c_scrolling_menu_vtable_slots[] = {
-    &WindowedList::teardown,
-    &WindowedList::change_traits,
-    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::Entity::invoke_method_by_name),
-    &UiWidget::invoke_method_by_name,
-    stubs::ignore_argument,
-    &WindowedList::pass_event_to_script,
-    &objects::Entity::flag_as_dead,
-    stubs::return_true,
-    &UiWidget::get_properties,
-    &UiWidget::blend_towards,
-    &WindowedList::tick_frame};
-void** const kCScrollingMenuVtable = reinterpret_cast<void**>(g_c_scrolling_menu_vtable_slots);
-static VtableSlot g_c_scrolling_menu_vtable_a188_slots[] = {
-    &WindowedList::destroy_vertical,
-    &WindowedList::change_traits,
-    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::Entity::invoke_method_by_name),
-    &UiWidget::invoke_method_by_name,
-    stubs::ignore_argument,
-    &WindowedList::pass_event_to_script,
-    &objects::Entity::flag_as_dead,
-    stubs::return_true,
-    &UiWidget::get_properties,
-    &UiWidget::blend_towards,
-    &WindowedList::tick_frame};
-void** const kCScrollingMenuVtableA188 = reinterpret_cast<void**>(g_c_scrolling_menu_vtable_a188_slots);
-static VtableSlot g_c_scrolling_menu_vtable_a_1b_c_slots[] = {
-    &WindowedList::destroy_horizontal,
-    &WindowedList::change_traits,
-    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::Entity::invoke_method_by_name),
-    &UiWidget::invoke_method_by_name,
-    stubs::ignore_argument,
-    &WindowedList::pass_event_to_script,
-    &objects::Entity::flag_as_dead,
-    stubs::return_true,
-    &UiWidget::get_properties,
-    &UiWidget::blend_towards,
-    &WindowedList::tick_frame};
-void** const kCScrollingMenuVtableA1bC = reinterpret_cast<void**>(g_c_scrolling_menu_vtable_a_1b_c_slots);
-} // namespace
-} // namespace frontend
+namespace frontend {} // namespace frontend

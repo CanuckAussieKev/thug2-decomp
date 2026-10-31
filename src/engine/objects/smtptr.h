@@ -1,6 +1,9 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
+
+#include "engine/core/mem.h"
 
 namespace objects {
 
@@ -9,8 +12,7 @@ class SharedRef;
 class SharedBase;
 
 // The list of the smart pointers to an object (one word), so they can be cleared when it dies instead of dangling.
-// SharedBase's second word; the flexible particle systems (render::EmitterInstance, polymorphic already) keep one
-// at the same place, after their vptr, so a SharedRef reaches it the same way.
+// SharedBase's second word (after the vptr).
 class SharedRefList {
 public:
     // 0x004637C0: onto the front of the list (the pointer's own `prev` isn't touched).
@@ -23,23 +25,35 @@ public:
     SharedRef<SharedBase>* head_ = nullptr;
 };
 
-// The base of objects that smart pointers point at: after the vtable, the list of the smart pointers to it.
+// The base of objects that smart pointers point at (vtable 0x006478E4): after the vptr, the list of the smart
+// pointers to it. Allocated zeroed from the current heap, as the game's objects are. (Not a memory::HeapObject: an
+// empty base would change the member-function-pointer form of the classes whose methods the scripts' member
+// function tables name.)
 class SharedBase {
 public:
-    // 0x004637B0: the constructor (vtable 0x006478E4, no smart pointers; returns this).
-    SharedBase* make_new();
-    // 0x00463870: the destructor: every smart pointer to it is cleared (0x00463820). 0x00463880: the scalar
-    // deleting destructor (vtable slot 0; returns this).
-    void destruct();
-    SharedBase* scalar_delete(uint8_t flags);
+    // 0x004637B0: no smart pointers.
+    SharedBase() = default;
+    // 0x00463870 (0x00463880 the deleting one): every smart pointer to it is cleared (0x00463820).
+    virtual ~SharedBase() { clear_smart_pointers(); }
+    SharedBase(const SharedBase&) = delete;
+    SharedBase& operator=(const SharedBase&) = delete;
+
+    static void* operator new(std::size_t size) noexcept
+    {
+        return memory::alloc_zeroed(static_cast<unsigned int>(size));
+    }
+    static void operator delete(void* memory) { memory::dealloc(memory); }
+    static void* operator new(std::size_t, void* place) noexcept { return place; }
+    static void operator delete(void*, void*) noexcept {}
+
     // Clear every smart pointer to it / attach / detach one (SharedRefList's).
     void clear_smart_pointers() { smart_pointers_.clear(); }
     void attach_shared_ref(SharedRef<SharedBase>* pointer) { smart_pointers_.attach(pointer); }
     void detach_shared_ref(SharedRef<SharedBase>* pointer) { smart_pointers_.detach(pointer); }
 
-    void** vtable_;
-    SharedRefList smart_pointers_;
+    SharedRefList smart_pointers_; // +0x04
 };
+static_assert(offsetof(SharedBase, smart_pointers_) == 4 && sizeof(SharedBase) == 8, "layout must match the original");
 
 // A pointer the object knows about (12 bytes).
 template <typename T>

@@ -57,23 +57,21 @@ static_assert(sizeof(SmearEffect::DupFrom) == 0x44 && offsetof(SmearEffect, aim_
 
 // TextElement (vtable 0x0064A290, 0x1B0 bytes): a line of text in a font, optionally with a shadow (a second
 // set of text objects behind it) and the blur effect (16 more text objects).
-class LabelWidget : public UiWidget {
+class LabelWidget final : public UiWidget {
 public:
-    // 0x004B0920: the constructor (returns this): no text / font / blur / shadow, shadow colour black at half
+    // 0x004B0920: no text / font / blur / shadow, shadow colour black at half
     // alpha, one text object; type TextElement.
-    LabelWidget* make_new();
-    // 0x004B1830: the destructor body: the blur, the text objects and the string freed, then UiWidget's.
-    void destroy_body();
-    // 0x004B2030 (vtable slot 0)
-    LabelWidget* teardown(uint8_t flags);
+    LabelWidget();
+    // 0x004B1830 (0x004B2030 the deleting one): the blur, the text objects and the string freed, then UiWidget's.
+    ~LabelWidget() override;
     // 0x004B18E0 (slot 1): UiWidget's, then font, rot_angle (at once), internal_just, text, blur_effect /
     // no_blur_effect, blur_rgba, shadow_offs, Shadow / no_shadow, shadow_rgba, the encoded colour overrides,
     // the per-character properties; the text objects go in the window's viewport.
-    void change_traits(script::Struct* params);
+    void change_traits(script::Struct* params) override;
     // 0x004B09D0 (slot 9): the blur's settings, UiWidget's, rot_angle (morphed to).
-    void blend_towards(script::Struct* params);
+    void blend_towards(script::Struct* params) override;
     // 0x004AFE70 (slot 10): the text objects (the text, the shadow, the blur copies) set from the element.
-    void tick_frame();
+    void tick_frame() override;
 
     // 0x004AF650: the text's length.
     int fetch_magnitude() const;

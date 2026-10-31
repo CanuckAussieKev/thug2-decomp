@@ -196,15 +196,13 @@ bool __cdecl cfunc_remember_temporary_appearance(Struct* params, Script*)
 {
     uint32_t name;
     params->read_hash_value(0xA1DC81F9u, &name, 1); // name
-    // a model appearance (gfx::ModelLook, 0x5C bytes: constructor 0x00488EA0, destructor body 0x004890F0)
-    alignas(4) uint8_t appearance[0x5C];
-    reinterpret_cast<gfx::ModelLook*>(appearance)->make_new();
+    gfx::ModelLook appearance;                      // (destroyed at the end)
     objects::ProfileRoster* profiles = get_profiles();
     uint8_t* source;
     Struct* structure = nullptr;
     if (params->read_sub_struct(0xEFC8944Cu, &structure, 0)) { // appearance_structure
-        reinterpret_cast<gfx::ModelLook*>(appearance)->read_in(structure, true);
-        source = appearance;
+        appearance.read_in(structure, true);
+        source = reinterpret_cast<uint8_t*>(&appearance);
     } else {
         int player;                                       // (asserted: used as it is)
         params->fetch_int_value(0x67E6859Au, &player, 1); // player
@@ -219,7 +217,6 @@ bool __cdecl cfunc_remember_temporary_appearance(Struct* params, Script*)
         reinterpret_cast<gfx::ModelLook*>(temporary)->copy_from(
             reinterpret_cast<gfx::ModelLook*>(source)); // the appearance copied
     }
-    reinterpret_cast<gfx::ModelLook*>(appearance)->destroy_body();
     return true;
 }
 

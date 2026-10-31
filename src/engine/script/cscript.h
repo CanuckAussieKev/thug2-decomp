@@ -124,7 +124,7 @@ class Script {
 public:
     // --- life (group A: cscript_core.cpp) ---
     // 0x004738E0: the constructor (returns this). Zeroes the whole object (after constructing shared_base_:
-    // its vtable ends up null - kept), takes the next unique id, goes to the head of the list.
+    // its vptr ends up null - kept), takes the next unique id, goes to the head of the list.
     Script* make_new();
     // 0x00474420: the destructor body: reset_script_state, report_stopped, frees the callback parameters, leaves the
     // list, forgets its stored randoms, lets go of the event handler table, ~shared_base_, ~entity_.

@@ -40,8 +40,7 @@ ViewpointModule* ViewpointModule::make_new()
     ObjectModule::make_new();
     vtable_ = kVtable;
     kind_tag_ = kType;
-    void* memory = memory::alloc_zeroed(sizeof(gfx::ViewCam));
-    view_camera_ = memory ? static_cast<gfx::ViewCam*>(memory)->make_new() : nullptr;
+    view_camera_ = new gfx::ViewCam;
     return this;
 }
 
@@ -49,8 +48,7 @@ ViewpointModule* ViewpointModule::make_new()
 void ViewpointModule::destroy_body()
 {
     vtable_ = kVtable;
-    if (view_camera_)
-        reinterpret_cast<void*(__thiscall*)(gfx::ViewCam*, unsigned int)>(view_camera_->vtable_[0])(view_camera_, 1);
+    delete view_camera_;
     ObjectModule::destroy_body();
 }
 

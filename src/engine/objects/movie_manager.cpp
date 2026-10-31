@@ -30,7 +30,6 @@ int g_view_mode;
 
 namespace {
 
-extern void** const kVtable;
 extern void** const kQueueVtable;     // lists::Foremost<Movie>
 extern void** const kMovieNodeVtable; // lists::Elem<Movie>
 
@@ -193,18 +192,14 @@ void VideoHub::keep_camera(Movie* movie)
 }
 
 // 0x0057A4B0
-VideoHub* VideoHub::make_new()
+VideoHub::VideoHub()
 {
-    Entity::make_new();
-    vtable_ = kVtable;
     movies_.data = reinterpret_cast<void*>(-1);
     movies_.priority = 0;
     movies_.next = &movies_;
     movies_.prev = &movies_;
     movies_.vtable = kQueueVtable;
-    viewer_.make_new();
     keep_camera_ = false;
-    return this;
 }
 
 // 0x0057A530
@@ -503,23 +498,12 @@ void VideoHub::playing34() { Virtual<void>(get_movie(0), 0x34); }
 // 0x0057A180
 void VideoHub::use_kept_camera() { set_game_camera(&viewer_); }
 
-// 0x0057B1A0
-void VideoHub::destroy_body()
+// 0x0057B1A0 (the camera's destructor - Entity's - runs with the members, after the queue's head is unlinked: the
+// original ran it before; the two don't touch each other)
+VideoHub::~VideoHub()
 {
-    vtable_ = kVtable;
     clear_movies();
-    viewer_.destroy_body();
     movies_.unlink_as(kMovieNodeVtable);
-    Entity::destroy_body();
-}
-
-// 0x0057B220
-VideoHub* VideoHub::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // (no address: the getter folded at 0x00543150 - movie_manager.h)
@@ -537,18 +521,6 @@ static VtableSlot g_movie_node_vtable_slots[] = {&objects::VideoEntry::destroy_n
 void** const kMovieNodeVtable = reinterpret_cast<void**>(g_movie_node_vtable_slots);
 static VtableSlot g_queue_vtable_slots[] = {&objects::MovieListNode::teardown};
 void** const kQueueVtable = reinterpret_cast<void**>(g_queue_vtable_slots);
-static VtableSlot g_vtable_slots[] = {
-    &objects::VideoHub::teardown,
-    &objects::Entity::change_traits,
-    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::Entity::invoke_method_by_name),
-    &objects::VideoHub::invoke_method_by_name,
-    stubs::ignore_argument,
-    &objects::Entity::pass_event_to_script,
-    &objects::Entity::flag_as_dead,
-    stubs::return_true,
-    &objects::VideoHub::tick_frame};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace objects

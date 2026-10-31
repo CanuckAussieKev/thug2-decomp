@@ -64,12 +64,7 @@ bool& run_now_loaded() { return g_pending_script; }
 
 // A task or input handler off its list (0x004068F0).
 void remove_node(tasks::SchedulerTask* node) { node->drop_out(); }
-// An object's scalar deleting destructor, through its vtable slot `slot`.
-void erase_one(void* object, int slot)
-{
-    reinterpret_cast<void*(__thiscall*)(void*, int)>((*static_cast<void***>(object))[slot])(object, 1);
-}
-void shut_down_object(void* object) { static_cast<objects::PreviewEntity*>(object)->power_down(); }
+void shut_down_object(objects::PreviewEntity* object) { object->power_down(); }
 
 void launch_script(uint32_t name) { script::launch_script(name, nullptr, nullptr, false, nullptr); }
 
@@ -161,18 +156,15 @@ void Viewer::drop_viewer_entity()
     if (!entity_)
         return;
     shut_down_object(entity_);
-    if (entity_)
-        erase_one(entity_, 0);
+    delete entity_;
     entity_ = nullptr;
 }
 
 // 0x00576D70
 void Viewer::stop_callback()
 {
-    if (entity_) {
-        erase_one(entity_, 0);
-        entity_ = nullptr;
-    }
+    delete entity_;
+    entity_ = nullptr;
     remove_node(pad_listener_);
     remove_node(task_1c_);
     remove_node(task20_);
@@ -301,9 +293,8 @@ void Viewer::create_viewer_object(void* data)
     manager->enter_heap_scope(commands::g_got_extra_memory ? static_cast<memory::MemSource*>(manager->debug_heap_)
                                                            : static_cast<memory::MemSource*>(manager->bottom_up_heap_));
     drop_viewer_entity();
-    void* memory = memory::alloc_zeroed(0x128);
-    entity_ = memory ? static_cast<objects::PreviewEntity*>(memory)->make_new(net_handler_) : nullptr;
-    static_cast<objects::PreviewEntity*>(entity_)->read_in(static_cast<script::Struct*>(data));
+    entity_ = new objects::PreviewEntity(net_handler_);
+    entity_->read_in(static_cast<script::Struct*>(data)); // (no memory: a crash, as the original)
     memory::Hub::get_pull()->leave_heap_scope();
 }
 
@@ -468,7 +459,7 @@ void __cdecl free_camera_task(ViewerTask* task)
                 camera->basis_frame_ = matrix;
             }
         } else if (viewer->mode_sel_ == 1) {
-            static_cast<objects::PreviewEntity*>(viewer->entity_)->change_spin(viewer->pad_lx_, viewer->pad_ly_);
+            viewer->entity_->change_spin(viewer->pad_lx_, viewer->pad_ly_);
         }
         if (viewer->pad_rx_ != 0.0f || viewer->pad_ry_ != 0.0f) {
             double step = static_cast<double>(movement_velocity()) * seconds;

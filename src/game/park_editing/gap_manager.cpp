@@ -59,12 +59,10 @@ GapRegistry::Gap* new_gap()
     return gap;
 }
 
-// GameObjects::Entity's vtable slot 3: a member function by name.
+// A member function by name.
 bool invoke_method_by_name(objects::Entity* object, uint32_t name, script::Struct* params, script::Script* script)
 {
-    auto** vtable = *reinterpret_cast<void***>(object);
-    return reinterpret_cast<bool(__thiscall*)(objects::Entity*, uint32_t, script::Struct*, script::Script*)>(vtable[3])(
-        object, name, params, script);
+    return object->invoke_method_by_name(name, params, script);
 }
 
 } // namespace

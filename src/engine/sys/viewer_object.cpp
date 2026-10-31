@@ -39,7 +39,6 @@ namespace objects {
 
 namespace {
 
-extern void** const kViewerObjectVtable;
 constexpr uint32_t kKillViewerObjectPanel = 0x9E65A71E; // kill_viewer_object_panel
 constexpr uint32_t kCasArtist = 0x2A648514;             // cas_artist
 constexpr uint32_t kModelName = 0xB974F2FC;             // modelname
@@ -196,9 +195,8 @@ void PreviewEntity::play_animation(uint32_t anim)
 }
 
 // 0x00589860
-void PreviewEntity::destroy_body()
+PreviewEntity::~PreviewEntity()
 {
-    vtable_ = kViewerObjectVtable;
     task_->drop_out(); // (its input handler; not null-checked: as the original)
     if (asset_) {
         assets::ResourceRegistry* assets = assets::asset_manager();
@@ -209,16 +207,6 @@ void PreviewEntity::destroy_body()
         asset_ = 0;
     }
     delete task_;
-    GameEntity::destroy_body();
-}
-
-// 0x0058A2B0
-PreviewEntity* PreviewEntity::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 maths::Vec4 g_origin_position{0.0f, 0.0f, 0.0f, 1.0f};
@@ -267,7 +255,7 @@ void PreviewEntity::read_in(script::Struct* params)
     static const float kIdentity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     std::memcpy(&basis_frame_, kIdentity, sizeof(kIdentity));
     script::launch_script(kAddComponents, params, this, false, nullptr);
-    reinterpret_cast<void(__thiscall*)(PreviewEntity*)>(vtable_[0x20 / 4])(this); // Finalize
+    seal(); // (Finalize)
     script::launch_script(kSetupModelScript, params, this, false, nullptr);
     play_animation(kIdle);
     memory::Hub::get_pull()->leave_heap_scope();
@@ -580,10 +568,8 @@ int __cdecl handle_run_anim_view_script(net::InboundMsgCtx* context)
 }
 
 // 0x0058ADB0
-PreviewEntity* PreviewEntity::make_new(net::AppHost* app)
+PreviewEntity::PreviewEntity(net::AppHost* app)
 {
-    GameEntity::make_new();
-    vtable_ = kViewerObjectVtable;
     actions_ = 0;
     add_base_components(this);
     change_species(kObjectTypeComposite);
@@ -612,25 +598,6 @@ PreviewEntity* PreviewEntity::make_new(net::AppHost* app)
         dispatcher.append_listener(0x29, &handle_reload_cam_animation, 3, this, 0x80);
         dispatcher.append_listener(0x2C, &handle_run_anim_view_script, 3, this, 0x80);
     }
-    return this;
 }
-
-namespace {
-static VtableSlot g_viewer_object_vtable_slots[] = {
-    &objects::PreviewEntity::teardown,
-    &objects::Entity::change_traits,
-    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::Entity::invoke_method_by_name),
-    static_cast<bool (objects::GameEntity::*)(uint32_t, script::Struct*, script::Script*)>(
-        &objects::GameEntity::invoke_method_by_name),
-    stubs::ignore_argument,
-    &objects::Entity::pass_event_to_script,
-    &objects::GameEntity::flag_as_dead,
-    &objects::GameEntity::should_update_scripts,
-    &objects::GameEntity::seal,
-    &objects::GameEntity::create_component_from_structure,
-    &objects::PreviewEntity::own_update};
-void** const kViewerObjectVtable = reinterpret_cast<void**>(g_viewer_object_vtable_slots);
-} // namespace
 
 } // namespace objects

@@ -20,10 +20,10 @@ class Struct;
 // (or following an object / a node: ParentParams), turned by angleX/Y/Z (spinning by AngVelX/Y/Z), optionally
 // pointed at a node or object, hovering, and scaled with their distance. They are ordinary world objects: drawn by
 // the 3D pass with the scene behind the menus (the network menu's backdrop panel UI_bg.mdl is one).
-// Vtable 0x00649FF4 (UiWidget's, with 0 the destructor, 1 change_traits, 9 blend_towards, 10 Update).
+// Vtable 0x00649FF4 (UiWidget's, with 0 the destructor, 1 change_traits, 9 blend_towards, 10 tick_frame).
 namespace frontend {
 
-class ModelWidget : public UiWidget {
+class ModelWidget final : public UiWidget {
 public:
     // A model's object and where it sits in the element (w = 1).
     struct ShapeMesh {
@@ -35,21 +35,19 @@ public:
     // point_at_
     enum { kPointAtNothing = 0, kPointAtNode = 1, kPointAtObject = 2 };
 
-    // 0x004A6060: the constructor (returns this): no models, CameraZ -400, the Y X Z angle order, the identity
+    // 0x004A6060: no models, CameraZ -400, the Y X Z angle order, the identity
     // orientation, scale 1, ScaleWithDistance's factor 0.002 up to 3; type Element3d (0x82C59D78).
-    ModelWidget* make_new();
-    // 0x004A6240: the destructor body: the models' objects die (clear_models), the pointers go, then
+    ModelWidget();
+    // 0x004A6240 (0x004A6D00 the deleting one): the models' objects die (clear_models), the pointers go, then
     // UiWidget's.
-    void destroy_body();
-    // 0x004A6D00 (vtable slot 0): the scalar deleting destructor.
-    ModelWidget* teardown(uint8_t flags);
+    ~ModelWidget() override;
 
     // 0x004A6630 (vtable slot 1): UiWidget's properties, then the models and everything listed above.
-    void change_traits(script::Struct* params);
+    void change_traits(script::Struct* params) override;
     // 0x004A6BA0 (vtable slot 9): UiWidget's morph; scale_to_screen_dims fits the models again.
-    void blend_towards(script::Struct* params);
+    void blend_towards(script::Struct* params) override;
     // 0x004A6D30 (vtable slot 10): one frame - places the models.
-    void tick_frame();
+    void tick_frame() override;
 
     // 0x004A5E30: every model's object hidden and killed (vtable +0x18); offsets back to (0, 0, 0, 1); none left.
     void clear_models();

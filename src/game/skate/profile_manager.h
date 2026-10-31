@@ -12,6 +12,9 @@
 namespace script {
 class Struct;
 }
+namespace gfx {
+class ModelLook;
+}
 
 namespace objects {
 
@@ -19,8 +22,8 @@ namespace objects {
 // info structure at +0x5C: name, display_name, is_pro, the stats, specials, ...). Its own code is in
 // skater_profile.cpp (0x00585ED0-0x005871A0); the appearance's (0x00488xxx-0x00489xxx) is called through the game.
 struct RiderIdentity {
-    uint8_t look_data_[0x5C];
-    uint8_t details_[8]; // +0x5C (a Scripts::CStruct)
+    alignas(4) uint8_t look_data_[0x5C]; // a gfx::ModelLook, made in place by make_new (appearance())
+    uint8_t details_[8];                 // +0x5C (a Scripts::CStruct)
 
     RiderIdentity* make_new();                                    // 0x00586D60
     uint32_t fetch_title();                                       // 0x00586150 (its info's name)
@@ -36,6 +39,7 @@ struct RiderIdentity {
     bool get_reset(script::Struct* params);                       // 0x00586810 (its defaults, then `params`; true)
     void set_appearance(script::Struct* appearance, bool update); // 0x00488F40
     script::Struct* details_params() { return reinterpret_cast<script::Struct*>(details_); }
+    gfx::ModelLook* appearance() { return reinterpret_cast<gfx::ModelLook*>(look_data_); }
     // The destructor (inlined by the manager): the info cleared, the appearance's destructor body, freed.
     void erase_one();
     // 0x00543010: the destructor body (Delete without the free): the info cleared, the appearance's destructor body.

@@ -10,6 +10,7 @@
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
+#include "game/rider/rider.h"
 #include "game/skate/skate_module.h"
 #include "engine/sys/game_module.h"
 #include "engine/sys/model_viewer.h"
@@ -38,15 +39,9 @@ bool node_command(Struct* params, Script* script, int command)
     return commands::node_command_by_name(params, script, command);
 }
 
-// The skater's own pause and unpause (its vtable +0x2C / +0x30).
-void pause_skater(objects::GameEntity* skater)
-{
-    reinterpret_cast<void(__thiscall*)(objects::GameEntity*)>(skater->vtable_[11])(skater);
-}
-void unpause_skater(objects::GameEntity* skater)
-{
-    reinterpret_cast<void(__thiscall*)(objects::GameEntity*)>(skater->vtable_[12])(skater);
-}
+// The skater's own pause and unpause (the original's vtable +0x2C / +0x30).
+void pause_skater(objects::GameEntity* skater) { static_cast<objects::Rider*>(skater)->get_freeze(); }
+void unpause_skater(objects::GameEntity* skater) { static_cast<objects::Rider*>(skater)->unpause(); }
 
 // Whether LaunchViewer has made the viewer (0x007CEBF0).
 bool& viewer_launched() { return g_viewer_launched; }

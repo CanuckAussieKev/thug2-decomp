@@ -28,6 +28,7 @@
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
+#include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/load.h"
 #include "engine/script/param_struct.h"
@@ -70,19 +71,13 @@ bool call_member_function_of(MemberFunctionEntry* entry, Struct* params, objects
 // A C function (the value of an kQbvalNativeFunc symbol).
 using Function = bool(__cdecl*)(Struct* params, Script* script);
 
-// Game objects (GameObjects::Entity, not decompiled yet): through their vtable.
-void** get_vtable(objects::Entity* object) { return *reinterpret_cast<void***>(object); }
-// vtable +0x0C: run the member function `name`.
+// Run the member function `name` on a game object.
 bool call_member_function_by_name(objects::Entity* object, uint32_t name, Struct* params, Script* script)
 {
-    return reinterpret_cast<bool(__thiscall*)(objects::Entity*, uint32_t, Struct*, Script*)>(get_vtable(object)[3])(
-        object, name, params, script);
+    return object->invoke_method_by_name(name, params, script);
 }
-// vtable +0x1C: false while the object is paused (its kScriptFlagPauseWithObject scripts wait).
-bool object_runs_scripts(objects::Entity* object)
-{
-    return reinterpret_cast<bool(__thiscall*)(objects::Entity*)>(get_vtable(object)[7])(object);
-}
+// False while the object is paused (its kScriptFlagPauseWithObject scripts wait).
+bool object_runs_scripts(objects::Entity* object) { return object->should_update_scripts(); }
 // +0x14: the object's id (sent to the other players).
 uint32_t current_object_id(objects::Entity* object)
 {

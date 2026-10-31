@@ -17,19 +17,17 @@ class Script;
 // fetch_mat / fetch_effective_h_fov.
 namespace gfx {
 
-class ViewCam : public objects::Entity {
+class ViewCam final : public objects::Entity {
 public:
-    // 0x00485BA0: the constructor (returns this): at the origin (w 1, the old position too), the identity
-    // orientation, the cameras' default angle (render::get_screen_angle), clip distances 12 / 12000 (the far one
-    // 30 x the distance-clipping setting when that's on).
-    ViewCam* make_new();
-    // 0x004859F0: the destructor's body (Entity's after).
-    void destroy_body();
-    // 0x00485A20 (vtable slot 0): the destructor, and the memory freed with flags & 1. Returns this.
-    ViewCam* scalar_delete(uint8_t flags);
-    // 0x00485B40 (vtable slot 3): the member function 0x44EA2B6D (its name unknown) sets the horizontal angle from
-    // radians (the unnamed float parameter); anything else goes to Entity's.
-    bool invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    // 0x00485BA0: at the origin (w 1, the old position too), the identity orientation, the cameras' default angle
+    // (render::get_screen_angle), clip distances 12 / 12000 (the far one 30 x the distance-clipping setting when
+    // that's on).
+    ViewCam();
+    // 0x004859F0 (0x00485A20 the deleting one): Entity's.
+    ~ViewCam() override = default;
+    // 0x00485B40: the member function 0x44EA2B6D (its name unknown) sets the horizontal angle from radians (the
+    // unnamed float parameter); anything else goes to Entity's.
+    bool invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     // 0x00485A00 / 0x00485A10 (4 bytes each: source only).
     maths::Vec4* fetch_location() { return &at_point_; }

@@ -76,17 +76,14 @@ ObjectModule*& next_of_type(ObjectModule* component) { return component->next_of
 uint32_t& composite_flags(GameEntity* object) { return object->composite_flags_; }
 
 // GameEntity's code (composite.cpp).
-GameEntity* construct_composite_object(void* memory) { return static_cast<GameEntity*>(memory)->make_new(); }
+
 void update_composite_object(GameEntity* object) { object->tick_frame(); }
 void configure_from_data(GameEntity* object, script::Struct* node_data) { object->configure_from_data(node_data); }
 void build_modules_from_list(GameEntity* object, script::Array* components, script::Struct* node_data)
 {
     object->build_modules_from_list(components, node_data);
 }
-void seal(GameEntity* object) // its vtable +0x20
-{
-    reinterpret_cast<void(__thiscall*)(GameEntity*)>(object->vtable_[0x20 / 4])(object);
-}
+void seal(GameEntity* object) { object->seal(); }
 
 // The task system (Tsk): a task's constructor (priority), its removal from its list, and the main loop's logic task
 // list's add.
@@ -225,9 +222,8 @@ void EntityHub::detach_module_of_kind(ObjectModule* component)
 // 0x0045F330
 GameEntity* EntityHub::create_composite_object()
 {
-    void* memory = memory::alloc_zeroed(0x108);
-    GameEntity* object = memory ? construct_composite_object(memory) : nullptr;
-    object->change_species(kCompositeObjectType);
+    auto* object = new GameEntity;
+    object->change_species(kCompositeObjectType); // (no memory: a crash, as the original)
     enrol_subject(object);
     return object;
 }
