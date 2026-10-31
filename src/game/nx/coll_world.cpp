@@ -12,6 +12,7 @@
 #include "game/gfx/engine.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/sys/startup_init.h"
 
 namespace Nx {
 
@@ -203,3 +204,10 @@ REPLACE(0x004106C0, Nx::CollideWithStatics);
 REPLACE(0x00410930, Nx::CollideWithStaticsFarthest);
 REPLACE(0x004118C0, Nx::CollideWithMovables);
 REPLACE(0x00411AE0, Nx::CollideWithMovablesFarthest);
+
+namespace Nx {
+
+// 0x00640880 (a static initialiser): the movables' list, an empty head.
+void ConstructMovables() { reinterpret_cast<CollObjListNodes*>(&g_movables)->ConstructHead(); }
+
+} // namespace Nx

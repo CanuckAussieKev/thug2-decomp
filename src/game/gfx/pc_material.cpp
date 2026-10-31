@@ -21,6 +21,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/gfx/device.h"
+#include "game/sys/startup_init.h"
 
 namespace Nx {
 
@@ -535,3 +536,17 @@ REPLACE(0x004D1DC0, &Nx::sMaterial::UpdateUVWibbles);
 REPLACE(0x004D1F00, &Nx::sMaterial::Submit);
 REPLACE(0x004D23E0, &Nx::sMaterial::SubmitStates);
 REPLACE(0x004D24D0, &Nx::sMaterial::SubmitPass);
+
+namespace Nx {
+
+namespace {
+
+// A material nothing uses but its static initialiser and exit function.
+GAME_GLOBAL(sMaterial, g_spareMaterial, 0x00782240);
+
+} // namespace
+
+// 0x00640D70 (a static initialiser)
+void ConstructSpareMaterial() { g_spareMaterial.Construct(); }
+
+} // namespace Nx

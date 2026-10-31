@@ -22,6 +22,8 @@
 #include "game/obj/objman.h"
 #include "game/front/screen_element_manager.h"
 #include "hook/game_code.h"
+#include "game/obj/cutscene_list_cfuncs.h"
+#include "game/sys/startup_init.h"
 
 namespace Obj {
 
@@ -494,4 +496,21 @@ GAME_VTABLE(kManagerVtable, 0x006476D4,
     &Front::CScreenElementManager::GetObjectList);
 
 } // namespace
+} // namespace Obj
+
+namespace Obj {
+
+namespace {
+
+// A list (std::list<T*>) nothing uses but its static initialiser and exit function: an empty head node.
+GAME_GLOBAL(CFuncs::PointerList, g_spareObjectList, 0x006F0DA8);
+
+} // namespace
+
+// 0x006409F0 (a static initialiser)
+void ConstructSpareObjectList() { g_spareObjectList.Construct(); }
+
+// 0x00640A10 (a static initialiser): the instance list (its head and the count after it), empty.
+void ConstructInstanceList() { reinterpret_cast<CFuncs::PointerList*>(&g_instanceListHead)->Construct(); }
+
 } // namespace Obj

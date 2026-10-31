@@ -123,7 +123,7 @@ void SDraw2D::SetZ(float newZ)
 }
 
 // 0x004DFB70
-void SDraw2D::SetHidden(bool newHidden)
+void SDraw2D::SetHidden(uint8_t newHidden)
 {
     if (hidden == newHidden)
         return;

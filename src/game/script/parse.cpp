@@ -15,6 +15,7 @@
 #include "hook/hook.h"
 #include "game/gfx/boned_anim_frame_data.h"
 #include "game/gfx/movie.h"
+#include "game/sys/startup_init.h"
 
 namespace Script {
 
@@ -1047,3 +1048,10 @@ REPLACE_UNCHECKED(0x0046F7A0, Script::FindStoredRandomStub);   // arguments in E
 REPLACE_UNCHECKED(0x0046FD60, Script::SkipValueStub);          // argument in EAX
 REPLACE_UNCHECKED(0x0046FBD0, Script::ParseRandomRangeStub);   // arguments in EAX, BL and on the stack
 REPLACE_UNCHECKED(0x00470130, Script::AddParameterStub);       // arguments in ECX, EDX and on the stack
+
+namespace Script {
+
+// 0x00640A70 (a static initialiser): the expression evaluator, cleared.
+void ConstructEvaluator() { g_evaluator.Init(); }
+
+} // namespace Script

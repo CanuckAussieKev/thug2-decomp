@@ -40,7 +40,7 @@ function cString(img: Image, address: number): string {
 
 // The namespaces open where a file's REPLACE line for `address` stands (a REPLACE line inside `namespace X {` names an
 // unqualified function; anonymous namespaces don't count).
-function enclosingNamespace(file: string, address: number): string {
+export function enclosingNamespace(file: string, address: number): string {
     const stack: string[] = [];
     const lines = fs.readFileSync(file, "utf-8").split(/\r?\n/);
     for (const line of lines) {
@@ -52,15 +52,14 @@ function enclosingNamespace(file: string, address: number): string {
     return stack.filter((s) => s !== "").join("::");
 }
 
-function main(): number {
-    const args = process.argv.slice(2);
-    const at = (flag: string): string | undefined => {
-        const i = args.indexOf(flag);
-        return i >= 0 ? args[i + 1] : undefined;
-    };
-    const exe = at("--exe") ?? REFERENCE_EXE;
-    const out = at("--out") ?? "src/game/script/script_tables.cpp";
-    const img = new Image(fs.readFileSync(exe));
+// For generated tables of code pointers: `functionOf(code, what)` is the C++ expression (`&Ns::Function`, or an
+// overload's static_cast) of the function our source REPLACEs at `code`; the headers declaring them are collected in
+// `includes`, functions no header declares in `undeclared`.
+export function functionNamer(): {
+    functionOf: (code: number, name: string) => string;
+    includes: Set<string>;
+    undeclared: string[];
+} {
     const files = [".cpp", ".h"].flatMap((s) => globRecursive("src/game", s)).map((f) => f.replaceAll("\\", "/"));
     const regs = registrations(files);
     const headers = files.filter((f) => f.endsWith(".h"));
@@ -73,7 +72,7 @@ function main(): number {
         if (!r) throw new Error(`${hex(code)} (${name}) has no REPLACE line`);
         const pick = r.find((x) => x.kind === "REPLACE") ?? r.find((x) => x.kind !== "REPLACE_SOURCE_ONLY") ?? r[0]!;
         // (the function's own name, to find the header that declares it: the last identifier of the qualified one)
-        const expr = pick.name;
+        const expr = pick.name.replace(/^&\s*/, ""); // (a member function's REPLACE line takes its address)
         const inner = /^static_cast<.*>\(\s*&?\s*([\w:]+)\s*\)$/.exec(expr)?.[1] ?? expr;
         const base = /([A-Za-z_]\w*)$/.exec(inner)?.[1];
         const re = base ? new RegExp(`\\b${base}\\s*\\(`) : undefined;
@@ -90,10 +89,35 @@ function main(): number {
         }
         if (!found) undeclared.push(`${hex(code)} ${expr} (${pick.file})`);
         const scope = enclosingNamespace(pick.file, code);
-        const qualified = (n: string): string => (scope && !n.includes("::") ? `${scope}::${n}` : n);
+        // (a class named through a using-declaration of the file: `using Obj::CMotionComponent;`)
+        const usings = new Map(
+            [...fs.readFileSync(pick.file, "utf-8").matchAll(/^using\s+((?:\w+::)+(\w+))\s*;/gm)].map((m) => [
+                m[2]!,
+                m[1]!,
+            ]),
+        );
+        const qualified = (n: string): string => {
+            if (scope && !n.includes("::")) return `${scope}::${n}`;
+            const first = /^(\w+)::/.exec(n)?.[1];
+            return first && usings.has(first) ? n.replace(first, usings.get(first)!) : n;
+        };
         if (expr.startsWith("static_cast")) return expr.replace(inner, qualified(inner));
         return `&${qualified(expr)}`;
     };
+
+    return { functionOf, includes, undeclared };
+}
+
+function main(): number {
+    const args = process.argv.slice(2);
+    const at = (flag: string): string | undefined => {
+        const i = args.indexOf(flag);
+        return i >= 0 ? args[i + 1] : undefined;
+    };
+    const exe = at("--exe") ?? REFERENCE_EXE;
+    const out = at("--out") ?? "src/game/script/script_tables.cpp";
+    const img = new Image(fs.readFileSync(exe));
+    const { functionOf, includes, undeclared } = functionNamer();
 
     const lines: string[] = [];
     for (let i = 0; i < CFUNCTION_COUNT; i++) {

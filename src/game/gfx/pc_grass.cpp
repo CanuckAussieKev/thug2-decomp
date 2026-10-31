@@ -26,6 +26,8 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/gfx/shader_slots.h"
+#include "game/gfx/texture.h"
+#include "game/sys/startup_init.h"
 
 namespace Nx {
 
@@ -179,3 +181,21 @@ bool __cdecl MakeGrass(CPcGeom* geom, sMesh* mesh)
 REPLACE(0x004D08A0, Nx::SetUpAnimatedGrassMaterial);
 REPLACE(0x004D0B60, Nx::MakeAnimatedGrass);
 REPLACE(0x004D0D30, Nx::MakeGrass);
+
+namespace Nx {
+
+// 0x00640D90 (a static initialiser): the grass materials' two textures (each listed among the textures).
+void ConstructGrassTextures()
+{
+    reinterpret_cast<sTexture*>(g_grassTexture0)->Construct();
+    reinterpret_cast<sTexture*>(g_grassTexture1)->Construct();
+}
+
+// 0x00640DC0 (a static initialiser): the grass animation's 17 textures.
+void ConstructGrassTextureAnimation()
+{
+    for (int i = 0; i < 17; ++i)
+        reinterpret_cast<sTexture*>(g_grassTextureAnimation + 0x20 * i)->Construct();
+}
+
+} // namespace Nx

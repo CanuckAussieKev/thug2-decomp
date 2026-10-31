@@ -18,6 +18,7 @@
 #include "game/nx/coll_movable.h"
 #include "hook/game_code.h"
 #include "hook/game_global.h"
+#include "game/sys/startup_init.h"
 
 namespace Nx {
 
@@ -538,3 +539,10 @@ REPLACE(0x0040AEA0, &Nx::CollGeometryForwarders::DebugRender);
 REPLACE(0x0040AEB0, &Nx::CollGeometryForwarders::AddOcclusionPolys);
 REPLACE(0x0040AEC0, &Nx::CollGeometryForwarders::IsPointBehindFaces);
 REPLACE(0x00414990, Nx::CreateMovableCollision);
+
+namespace Nx {
+
+// 0x00640860 (a static initialiser): the shared orientation starts as the rotation of no angles.
+void ConstructSharedOrientation() { g_sharedOrientation.SetFromEulerAngles(0.0f, 0.0f, 0.0f); }
+
+} // namespace Nx

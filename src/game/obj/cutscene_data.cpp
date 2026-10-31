@@ -28,6 +28,7 @@
 #include "hook/hook.h"
 #include "game/gfx/engine.h"
 #include "hook/game_code.h"
+#include "game/sys/startup_init.h"
 
 namespace Obj {
 
@@ -375,3 +376,18 @@ REPLACE(0x004640D0, Obj::SetUpCutsceneHeaps);
 REPLACE(0x004641A0, &Obj::CCutsceneData::ShowHiddenObjects);
 REPLACE(0x00464220, &Obj::CCutsceneData::UpdateCamera);
 REPLACE(0x00464360, &Obj::CCutsceneData::UpdateObjectPoses);
+
+namespace Obj {
+
+// 0x00640A30 (a static initialiser): the 128 cutscene bone rotations, each the quaternion (0, 0, 0, 1).
+void ConstructCutsceneRotations()
+{
+    for (int i = 0; i < 128; ++i) {
+        g_cutsceneRotations[4 * i + 0] = 0.0f;
+        g_cutsceneRotations[4 * i + 1] = 0.0f;
+        g_cutsceneRotations[4 * i + 2] = 0.0f;
+        g_cutsceneRotations[4 * i + 3] = 1.0f;
+    }
+}
+
+} // namespace Obj

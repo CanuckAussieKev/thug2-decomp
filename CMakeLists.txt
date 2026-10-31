@@ -607,6 +607,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_editor_ux8.cpp
     src/hook/selftests_pcmstream.cpp
     src/hook/selftests_pcmplay.cpp
+    src/hook/selftests_startup.cpp
     src/game/ass/asset.cpp
     src/game/ass/asset_types.cpp
     src/game/ass/assman.cpp
@@ -1207,6 +1208,7 @@ add_library(thug2_code OBJECT
     src/game/sys/system_cfuncs.cpp
     src/game/sys/module.cpp
     src/game/sys/winmain.cpp
+    src/game/sys/startup_init.cpp
     src/game/mc/memcard.cpp
     src/game/mc/memcard_cfuncs.cpp
     src/game/mc/save_types.cpp
@@ -1223,6 +1225,7 @@ add_library(thug2_code OBJECT
     src/game/script/cscript_wait.cpp
     src/game/script/cscript_exec.cpp
     src/game/script/script_tables.cpp
+    src/game/script/member_function_code.cpp
     src/game/script/load.cpp
     src/game/script/cscript_core.cpp
     src/game/script/names.cpp

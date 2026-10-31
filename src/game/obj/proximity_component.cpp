@@ -12,6 +12,10 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/core/crc.h"
+#include "game/script/names.h"
+#include "hook/game_code.h"
+#include "game/sys/startup_init.h"
 
 namespace Obj {
 
@@ -134,3 +138,34 @@ REPLACE(0x0042B590, &CProximityComponent::Proximity_SetActive);
 REPLACE(0x0042B570, &CProximityComponent::Proximity_EnterProximityNotHandled);
 // (the smart pointer's default constructor sits between them: the linker kept one copy for every type)
 REPLACE(0x0042B580, &Obj::CSmtPtr<Obj::CRefCounted>::Construct);
+
+namespace Obj {
+
+namespace {
+
+// The proximity component's script member functions (three records and the terminator; no table registers them).
+GAME_GLOBAL(uint32_t[24], g_proximityMemberFunctions, 0x007CEBF8);
+
+} // namespace
+
+// 0x00644910 (a static initialiser): every record's name (the CRC of its text, computed here), the component's type and
+// function - all of it code, unlike the other tables, whose names and types are data.
+void FillProximityMemberFunctions()
+{
+    constexpr uint32_t kProximityType = 0xE54DB2EE;
+    uint32_t* records = g_proximityMemberFunctions;
+    records[0] = Crc::GenerateCRCFromString(GAME_TEXT(0x0065766C, "Proximity_Init"));
+    records[6] = Crc::GenerateCRCFromString(GAME_TEXT(0x00657658, "Proximity_SetActive"));
+    records[12] = Crc::GenerateCRCFromString(GAME_TEXT(0x00657634, "Proximity_EnterProximityNotHandled"));
+    records[18] = 0;
+    for (int i = 0; i < 4; ++i)
+        records[6 * i + 1] = kProximityType;
+    void* const code[] = {
+        GAME_CODE(0x0042B850, &Obj::CProximityComponent::Proximity_Init),
+        GAME_CODE(0x0042B590, &Obj::CProximityComponent::Proximity_SetActive),
+        GAME_CODE(0x0042B570, &Obj::CProximityComponent::Proximity_EnterProximityNotHandled),
+    };
+    Script::FillMemberFunctionCode(records, code, 3);
+}
+
+} // namespace Obj

@@ -56,9 +56,7 @@ CPcSprite* CPcSprite::Destroy(unsigned int freeFlags)
 void CPcSprite::UpdateHidden()
 {
     // (the byte as it is: SetHidden compares and keeps what it's given, a 2 included - not normalised to 0 / 1)
-    bool raw;
-    std::memcpy(&raw, &hidden, 1);
-    AsDrawn(sprite)->SetHidden(raw);
+    AsDrawn(sprite)->SetHidden(hidden);
 }
 
 // 0x004C71B0

@@ -16,6 +16,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/sys/startup_init.h"
 
 namespace Nx {
 
@@ -178,3 +179,10 @@ void __stdcall DrawLoadingScreenFrame(unsigned int, unsigned int, unsigned long,
 
 REPLACE(0x004B6B80, Nx::UpdateLoadingBarColors);
 REPLACE(0x004B6FF0, Nx::DrawLoadingScreenFrame);
+
+namespace Nx {
+
+// 0x00640D10 (a static initialiser): the loading screen's lock, a mutex nobody owns.
+void CreateScreenMutex() { g_screenMutex = CreateMutexA(nullptr, FALSE, nullptr); }
+
+} // namespace Nx

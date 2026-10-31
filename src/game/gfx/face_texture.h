@@ -57,8 +57,9 @@ bool __cdecl WriteFacePoints(const SFacePoints* points, Script::CStruct* params)
 bool __cdecl FitFaceTexture(Nx::CTexture* texture, const SFacePoints* points, bool useColour, uint32_t colour);
 // 0x00486F70: the whole massage - the texture's image opened for editing (slot 8, on the bottom-up heap), fitted,
 // recoloured with the points' h / s / v when there are some (slot 24), the overlay drawn over it (slot 41 with
-// `generatePalette`) and closed again (slot 9). True.
-bool __cdecl MassageFaceTexture(Nx::CTexture* texture, const SFacePoints* points, bool generatePalette, bool useColour,
+// `generatePalette`) and closed again (slot 9). True. (`generatePalette` is a byte: ReplaceFaceTexture passes a
+// parameter byte as it is, not made 0 / 1; the PC texture's slots ignore it.)
+bool __cdecl MassageFaceTexture(Nx::CTexture* texture, const SFacePoints* points, uint8_t generatePalette, bool useColour,
                                 uint32_t colour);
 
 // The face texture a skater profile keeps (0x449C bytes; made by Mem::Calloc + Construct): a 128 x 128 8-bit image

@@ -21,7 +21,7 @@ public:
 
     explicit HashTable(int bits);
     // A table as the exe's static storage starts: all zero (no buckets). The exe's static initialiser then makes it
-    // with HashTable(bits); the standalone build does that once its start-up order is source (step 6).
+    // with HashTable(bits); the standalone build does it in Sys::RunStartupInitialisers (game/sys/startup_init.h).
     struct Unconstructed {};
     constexpr HashTable(Unconstructed) : m_bits(0), m_buckets(nullptr), m_size(0), m_iterBucket(0), m_iterItem(nullptr), m_flag(false) {}
     // Frees the buckets (after removing every item).

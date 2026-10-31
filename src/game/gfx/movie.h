@@ -69,4 +69,5 @@ GAME_GLOBAL_EXTERN(float, g_onePercent);
 GAME_GLOBAL_EXTERN(bool, g_quitRequested);
 GAME_GLOBAL_EXTERN(bool, g_moviePlaying);
 GAME_GLOBAL_EXTERN(bool, g_deviceLost);
+GAME_GLOBAL_EXTERN(int, g_movieDumpCount); // (also read by the music's shuffle: pcm/music.cpp)
 } // namespace Nx

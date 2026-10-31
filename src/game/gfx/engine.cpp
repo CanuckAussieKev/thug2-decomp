@@ -33,6 +33,7 @@
 #include "hook/game_code.h"
 #include "game/obj/particle_component.h"
 #include "game/skate/skate_module.h"
+#include "game/sys/startup_init.h"
 
 #pragma warning(disable : 4996) // (sprintf / strcpy: the original's file names, unbounded as it builds them)
 
@@ -369,3 +370,10 @@ REPLACE(0x0048C560, Nx::Engine::AddScene);
 REPLACE(0x0048C650, Nx::Engine::ToggleAddScenes);
 REPLACE(0x0048C690, Nx::Engine::UnloadScene);
 REPLACE(0x0048C700, Nx::Engine::FindScene);
+
+namespace Nx {
+
+// 0x00640B00 (a static initialiser): the scene list, an empty head.
+void ConstructSceneList() { reinterpret_cast<CSceneListHead*>(&g_sceneList)->Construct(); }
+
+} // namespace Nx

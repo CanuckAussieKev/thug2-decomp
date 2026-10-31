@@ -23,6 +23,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/obj/movie_manager.h"
+#include "game/sys/startup_init.h"
 
 namespace Nx {
 
@@ -527,3 +528,14 @@ REPLACE(0x004904E0, Nx::UpdateSceneLightQueue);
 REPLACE(0x004901D0, Nx::UpdateSceneLight);
 REPLACE(0x00490400, Nx::AddSceneLight);
 REPLACE(0x00490570, Nx::CreateLightFromNode);
+
+namespace Nx {
+
+// 0x00640BC0 (a static initialiser): the 150 scene lights (each with its table of sectors).
+void ConstructSceneLights()
+{
+    for (sSceneLight& light : g_sceneLights)
+        light.Construct();
+}
+
+} // namespace Nx

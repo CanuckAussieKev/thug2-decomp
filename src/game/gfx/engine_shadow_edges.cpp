@@ -11,6 +11,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#include "game/sys/startup_init.h"
 
 namespace Nx {
 
@@ -162,3 +163,10 @@ void CShadowVolume::SetModel(CModel*, uint8_t* assetData)
 } // namespace Nx
 
 REPLACE(0x004A22F0, &Nx::CShadowVolume::SetModel);
+
+namespace Nx {
+
+// 0x00640CD0 (a static initialiser): the shadow edges' table, 256 buckets.
+void ConstructShadowEdgeTable() { new (&g_shadowEdgeTable) Lst::HashTable(8); }
+
+} // namespace Nx
