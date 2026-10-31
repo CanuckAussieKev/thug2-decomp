@@ -9,6 +9,7 @@
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
 
 #include "game/core/crc.h"
+#include "game/net/gamespy.h"
 #include "game/core/manager.h"
 #include "game/core/task.h"
 #include "game/mth/random.h"
@@ -254,7 +255,7 @@ void Manager::DestroyServer()
     if (m_server) {
         if (!m_server->IsLocal() && (m_flags & kFlagsInternet)) {
             static_cast<LobbyMan*>(m_lobbyMan)->StopHosting(); // the lobby's reporting stopped
-            GameFunction<void(__cdecl*)()>(0x005FBCD0)();    // (GameSpy)
+            GameSpy::NatFreeNegotiations();    // (GameSpy)
         }
         net->DestroyApp(m_server);
         m_serverAddNewPlayersTask->Remove();
@@ -444,10 +445,10 @@ GAME_GLOBAL(bool, g_queryReporting, 0x007CCE1C);
 void Manager::DestroyBody()
 {
     // GameSpy shut down (the SDK's), its reporting if it's up.
-    GameFunction<void(__cdecl*)(int)>(0x005F9900)(1003);
-    GameFunction<void(__cdecl*)()>(0x005F9BE0)();
+    GameSpy::CdKeyDisconnectAll(1003);
+    GameSpy::CdKeyShutdown();
     if (g_queryReporting) {
-        GameFunction<void(__cdecl*)(int)>(0x005FBB20)(0);
+        GameSpy::Qr2Shutdown(nullptr);
         g_queryReporting = false;
     }
     // The lobby, the vault, the presence and the stats: each one's destructor, then freed.

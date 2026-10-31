@@ -11,6 +11,7 @@
 #include "game/net/buddy_man.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_lobby.h"
+#include "game/net/gamespy.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_manager.h"
@@ -112,24 +113,19 @@ void ClearQueue()
     QueuedCount() = 0;
 }
 
-// The SDKs.
-template <typename R = void, typename... A>
-R Sdk(uint32_t address, A... args)
+// The SDKs (gamespy.h).
+void BufferAdd(void* buffer, const char* text) { GameSpy::Qr2BufferAdd(buffer, text); }
+void BufferAddInt(void* buffer, int value) { GameSpy::Qr2BufferAddInt(buffer, value); }
+uint32_t PeerPrivateIp(void* peer) { return GameSpy::PeerGetPrivateIp(peer); }
+void PeerStateChanged(void* peer) { GameSpy::PeerStateChanged(peer); } // (the hosted game's details sent again)
+void NatThink() { GameSpy::NatThink(); }
+void NatCancel(int cookie) { GameSpy::NatCancel(cookie); }
+void NatFreeNegotiations() { GameSpy::NatFreeNegotiations(); }
+// (the cookie is the user data)
+int NatBegin(uint32_t socket, int cookie, int clientIndex, void* progress, GameSpy::Callback completed, int userData)
 {
-    return GameFunction<R(__cdecl*)(A...)>(address)(args...);
-}
-void BufferAdd(void* buffer, const char* text) { Sdk(0x005FA010, buffer, text); }
-void BufferAddInt(void* buffer, int value) { Sdk(0x005FB350, buffer, value); }
-uint32_t PeerPrivateIp(void* peer) { return Sdk<uint32_t>(0x005FC950, peer); }
-void PeerStateChanged(void* peer) { Sdk(0x005FCCF0, peer); } // (the hosted game's details sent again)
-void NatThink() { Sdk(0x005FC660); }
-void NatCancel(int cookie) { Sdk(0x005FC130, cookie); }
-void NatFreeNegotiations() { Sdk(0x005FBCD0); }
-using NatProgress = void(__cdecl*)();
-using NatCompleted = void(__cdecl*)(int, int, const void*, void*);
-int NatBegin(uint32_t socket, int cookie, int clientIndex, void* progress, NatCompleted completed, int userData)
-{
-    return Sdk<int>(0x005FC090, socket, cookie, clientIndex, progress, completed, userData);
+    return GameSpy::NatBeginWithSocket(socket, cookie, clientIndex, progress, completed,
+                                       reinterpret_cast<void*>(static_cast<intptr_t>(userData)));
 }
 void* const kNoProgress = GAME_CODE(0x005480A0, Stubs::DoNothing); // (an empty function: no progress callback)
 
@@ -256,11 +252,11 @@ void __cdecl LobbyMan::NickErrorCallback(void* peer, int type, const char* nick,
         const char* id = NetManager()->GetNetworkPreferences()->GetPreferenceString(kNetworkId, kUiString);
         Dbg::Printf("Nick Error. Nick %s In Use\n", nick);
         std::sprintf(retry, "a%d_%s", Tmr::GetTime(), id);
-        Sdk(0x005FC6F0, peer, static_cast<const char*>(retry)); // retried with that nick
+        GameSpy::PeerRetryWithNick(peer, static_cast<const char*>(retry)); // retried with that nick
     } else if (type == kNickInvalid) {
         Dbg::Printf("Nick Error. Nick %s is Invalid\n", nick);
-        Sdk(0x005FD9F0, static_cast<char*>(retry), nick); // the nick made valid
-        Sdk(0x005FC6F0, peer, static_cast<const char*>(retry));
+        GameSpy::PeerFixNick(static_cast<char*>(retry), nick); // the nick made valid
+        GameSpy::PeerRetryWithNick(peer, static_cast<const char*>(retry));
     }
     PopHeap();
 }
@@ -277,7 +273,7 @@ void __cdecl LobbyMan::ConnectCallback(void* peer, int success, int, void* param
     }
     Net::Manager* net = Net::Manager::Instance();
     Dbg::Printf("****** Connect Callback Successful\n");
-    net->SetLocalAddress(Sdk<uint32_t>(0x005FC940, peer)); // the peer's public address
+    net->SetLocalAddress(GameSpy::PeerGetPublicIp(peer)); // the peer's public address
     CFuncs::CFunc_StartLobbyList(nullptr, nullptr);
     lobby->m_expectingDisconnect = false;
     g_connectedTime = Tmr::GetTime(); // connected
@@ -288,8 +284,8 @@ void __cdecl LobbyMan::ThinkTask(void* task)
 {
     LobbyMan* lobby = TaskLobby(task);
     PushInternetHeap();
-    if (Sdk<int>(0x00603360, lobby->m_peer)) // (connected)
-        Sdk(0x005FD1F0, lobby->m_peer);     // the peer thinks
+    if (GameSpy::PeerHasChat(lobby->m_peer)) // (its chat connection made)
+        GameSpy::PeerThink(lobby->m_peer);
     if (lobby->m_lostConnection) {
         lobby->m_lostConnection = false;
         Run(kLostConnectionToGameSpy);
@@ -314,9 +310,9 @@ void __cdecl LobbyMan::QueryTask(void* task)
     for (int i = 0; i < QueuedCount(); ++i) {
         QueuedPacket& packet = Queue()[i];
         if (packet.type == kPacketQuery)
-            Sdk(0x005FC970, lobby->m_peer, static_cast<char*>(packet.data), packet.length, static_cast<void*>(packet.from));
+            GameSpy::PeerParseQuery(lobby->m_peer, static_cast<char*>(packet.data), packet.length, static_cast<void*>(packet.from));
         else if (packet.type == kPacketNatNegotiation)
-            Sdk(0x005FC3B0, static_cast<char*>(packet.data), packet.length, static_cast<void*>(packet.from));
+            GameSpy::NatProcessData(static_cast<char*>(packet.data), packet.length, static_cast<void*>(packet.from));
         GameFree(packet.data);
     }
     QueuedCount() = 0;
@@ -342,7 +338,7 @@ void LobbyMan::StartHosting()
     Net::App* server = NetManager()->m_server;
     server->SetForeignPacketHandler(reinterpret_cast<Net::ForeignPacketHandler>(&LobbyMan::QueuePacket));
     ClearQueue();
-    if (Sdk<int>(0x005FCC70, m_peer, server->Socket(), static_cast<int>(kHostPort)) == 1) // reporting on its socket
+    if (GameSpy::PeerStartReportingWithSocket(m_peer, server->Socket(), static_cast<int>(kHostPort)) == 1) // reporting on its socket
         PeerStateChanged(m_peer);
     uint32_t now = Tmr::GetTime();
     g_hostingSince = now; // hosting since
@@ -387,7 +383,7 @@ void LobbyMan::Disconnect()
     m_natTask->Remove();
     m_hostingTask->Remove();
     if (m_peer)
-        Sdk(0x005FD130, m_peer); // the peer shut down
+        GameSpy::PeerShutdown(m_peer); // the peer shut down
     m_peer = nullptr;
     PopHeap();
 }
@@ -404,8 +400,8 @@ unsigned long __stdcall LobbyMan::ConnectThread(void* lobbyData)
     lobby->m_connecting = true;
     auto nickError = &LobbyMan::NickErrorCallback;
     auto connected = &LobbyMan::ConnectCallback;
-    Sdk(0x005FD580, lobby->m_peer, static_cast<const char*>(nick), Field<int>(manager->m_buddyMan, 4) /* its profile */,
-        nickError, connected, lobbyData, 0); // peer connect (not blocking)
+    GameSpy::PeerConnect(lobby->m_peer, static_cast<const char*>(nick), Field<int>(manager->m_buddyMan, 4) /* its profile */,
+                         nickError, connected, lobbyData, 0); // peer connect (not blocking)
     Mem::Manager::Get()->PopContext();
     return 0;
 }

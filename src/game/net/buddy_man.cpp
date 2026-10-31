@@ -3,6 +3,7 @@
 #define _WINSOCK_DEPRECATED_NO_WARNINGS // inet_ntoa: what the game uses
 
 #include "game/net/buddy_man.h"
+#include "game/net/gamespy.h"
 
 #include <winsock2.h>
 #include <windows.h>
@@ -93,32 +94,31 @@ void Run(const char* script, Script::CStruct* params = nullptr) { Script::RunScr
 // The GameSpy presence SDK (library code, not decompiled; cdecl).
 void GpInitialize(void* connection, int productId, int namespaceId)
 {
-    GameFunction<int(__cdecl*)(void*, int, int)>(0x005FFD40)(connection, productId, namespaceId);
+    GameSpy::GpInitialize(connection, productId, namespaceId);
 }
 void GpSetCallback(void* connection, int type, const void* callback, void* param)
 {
-    GameFunction<int(__cdecl*)(void*, int, const void*, void*)>(0x005FFD90)(connection, type, callback, param);
+    GameSpy::GpSetCallback(connection, type, callback, param);
 }
-void GpProcess(void* connection) { GameFunction<int(__cdecl*)(void*)>(0x005FFD60)(connection); }
-void GpDisconnect(void* connection) { GameFunction<void(__cdecl*)(void*)>(0x00600020)(connection); }
+void GpProcess(void* connection) { GameSpy::GpProcess(connection); }
+void GpDisconnect(void* connection) { GameSpy::GpDisconnect(connection); }
 void GpSendBuddyRequest(void* connection, int profile, const char* reason)
 {
-    GameFunction<int(__cdecl*)(void*, int, const char*)>(0x00600050)(connection, profile, reason);
+    GameSpy::GpSendBuddyRequest(connection, profile, reason);
 }
 void GpDeleteBuddy(void* connection, int profile)
 {
-    GameFunction<int(__cdecl*)(void*, int)>(0x006002E0)(connection, profile);
+    GameSpy::GpDeleteBuddy(connection, profile);
 }
 void GpSetStatus(void* connection, int status, const char* text, const char* location)
 {
-    GameFunction<int(__cdecl*)(void*, int, const char*, const char*)>(0x00600330)(connection, status, text, location);
+    GameSpy::GpSetStatus(connection, status, text, location);
 }
 void GpConnectNewUser(void* connection, const char* nick, const char* uniqueNick, const char* email,
                       const char* password, const char* cdKey, int firewall, int blocking, const void* callback,
                       void* param)
 {
-    GameFunction<int(__cdecl*)(void*, const char*, const char*, const char*, const char*, const char*, int, int,
-                               const void*, void*)>(0x005FFEF0)(connection, nick, uniqueNick, email, password, cdKey,
+    GameSpy::GpConnectNewUser(connection, nick, uniqueNick, email, password, cdKey,
                                                                 firewall, blocking, callback, param);
 }
 
@@ -134,7 +134,7 @@ struct GpBuddyStatus {
 };
 void GpGetBuddyStatus(void* connection, int index, GpBuddyStatus* status)
 {
-    GameFunction<int(__cdecl*)(void*, int, GpBuddyStatus*)>(0x006001F0)(connection, index, status);
+    GameSpy::GpGetBuddyStatus(connection, index, status);
 }
 
 // The callbacks' arguments (the parts read).
@@ -170,7 +170,7 @@ const void* const kOnBuddyRequest = GAME_CODE(0x00548100, BuddyMan::OnBuddyReque
 const auto kLoginThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(GAME_CODE(0x00548140, BuddyMan::LoginThread));
 // The lobby (m_lobbyMan): its peer (0x0053F880), and the peer SDK's public address of this machine (0x005FC940).
 void* LobbyPeer(void* lobby) { return static_cast<LobbyMan*>(lobby)->GetPeer(); }
-uint32_t PeerPublicIp(void* peer) { return GameFunction<uint32_t(__cdecl*)(void*)>(0x005FC940)(peer); }
+uint32_t PeerPublicIp(void* peer) { return GameSpy::PeerGetPublicIp(peer); }
 
 // A node deleted through its vtable (the scalar deleting destructor, slot 0).
 void DeleteNode(void* node)

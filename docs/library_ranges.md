@@ -11,7 +11,7 @@ From chunk 3. The linker placed object files in order, so libraries sit in conti
 | 0x5f2e00-0x5f6640 | **Game code**: Win32 platform layer (and 31 C++ library template functions inside it: `data/library_functions.csv`) | ~70 (Ghidra missed 7) | ~14 KB | **Yes** |
 | 0x5f6640-0x5f8130 | Data in `.text` (a table of `.rdata` pointers, offsets and flags; Ghidra's "function" at 0x5F6640 is data) | - | ~7 KB | No |
 | 0x5f8130-0x5f8160 | Import thunks (`jmp [IAT]`, linker-generated) | 4 | - | No |
-| 0x5f8160-0x622e80 | **GameSpy SDK** (gsi platform, availability check, QR2, server browsing, peer/chat, GP presence, NAT negotiation, HTTP, file transfer) | 831 | ~145 KB | No - link the SDK or reimplement against OpenSpy later |
+| 0x5f8160-0x622e80 | **GameSpy SDK** (gsi platform, availability check, QR2, server browsing, peer/chat, GP presence, NAT negotiation, HTTP, file transfer) | 831 | ~145 KB | No - the standalone build links IGN's BSD-3 release of the SDK (docs/gamespy.md) |
 | 0x622e80-0x622f80 | STL `std::string` throw helpers ("string too long" etc.) | 5 | <1 KB | No - comes from the STL headers |
 | 0x622f80-0x640000 | **MSVC 7.1 C runtime** (Ghidra identified most of it by signature) | 2,293 | ~90 KB | No - modern CRT replaces it |
 | 0x640000-0x645000 | C++ exception-unwind funclets (compiler-generated) | 100 | ~1 KB | No - compiler regenerates them |

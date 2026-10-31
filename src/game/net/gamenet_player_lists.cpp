@@ -8,6 +8,7 @@
 #pragma warning(disable : 4996) // (strcpy / strcat: the original's own copies into its fixed buffers)
 
 #include "game/core/crc.h"
+#include "game/net/gamespy.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/task.h"
@@ -569,10 +570,10 @@ void Manager::DisconnectClients()
     }
     g_textEntry = 0;
     if (g_queryReporting) {
-        GameFunction<void(__cdecl*)(int)>(0x005FBB20)(0);
+        GameSpy::Qr2Shutdown(nullptr);
         g_queryReporting = false;
     }
-    GameFunction<void(__cdecl*)(int)>(0x005F9900)(1003);
+    GameSpy::CdKeyDisconnectAll(1003);
     Field<Tsk::BaseTask*>(this, 0xD4)->Remove();
     Field<Tsk::BaseTask*>(this, 0xC8)->Remove();
     Field<Tsk::BaseTask*>(this, 0xEC)->Remove();

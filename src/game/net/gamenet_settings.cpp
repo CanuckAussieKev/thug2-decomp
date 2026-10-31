@@ -9,6 +9,7 @@
 #pragma warning(disable : 4996) // (strcpy: the original's copies into its fixed fields)
 
 #include "game/core/task.h"
+#include "game/net/gamespy.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_lobby.h"
 #include "game/net/gamenet_manager.h"
@@ -399,10 +400,10 @@ void Manager::FindServerAt(uint32_t ip)
 // 0x00536640
 void __cdecl Manager::ServiceGameSpy()
 {
-    GameFunction<void(__cdecl*)()>(0x005F9C40)();
+    GameSpy::CdKeyThink();
     if (g_netEnabled && g_gameNetManager->InNetGame() &&
         g_queryReporting)
-        GameFunction<void(__cdecl*)(int)>(0x005FBBA0)(0);
+        GameSpy::Qr2Think(nullptr);
 }
 
 // 0x00536A40
@@ -430,13 +431,13 @@ void Manager::SetLevel(uint32_t level)
 {
     m_level = level;
     void* peer = static_cast<LobbyMan*>(m_lobbyMan)->GetPeer();
-    if (peer && GameFunction<int(__cdecl*)(void*)>(0x005FC730)(peer) && static_cast<LobbyMan*>(m_lobbyMan)->IsHosting())
-        GameFunction<void(__cdecl*)(void*)>(0x005FCCF0)(peer); // (the peer's state changed: the GameSpy SDK)
+    if (peer && GameSpy::PeerIsConnected(peer) && static_cast<LobbyMan*>(m_lobbyMan)->IsHosting())
+        GameSpy::PeerStateChanged(peer); // (the peer's state changed: the GameSpy SDK)
     // (cleared just before it's tested: the reporting's state-changed call below never happens)
     g_openWaiting = false;
     if (g_netEnabled && g_gameNetManager->InNetGame() &&
         g_queryReporting && g_openWaiting)
-        GameFunction<void(__cdecl*)(int)>(0x005FBAD0)(0);
+        GameSpy::Qr2SendStateChanged(nullptr);
 }
 
 REPLACE(0x00535040, &Manager::UseNetworkPreferences);

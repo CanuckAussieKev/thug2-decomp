@@ -14,6 +14,7 @@ from this repo include them, so keep these notices with any distributed `dinput8
 | Anton (The Anton Project Authors), IBM Plex Mono and IBM Plex Sans (IBM Corp.) - from https://github.com/google/fonts (ofl/anton, ofl/ibmplexmono, ofl/ibmplexsans), 2026-10-26 | tools/pipeline/fonts/*.ttf, copied into the data overlay's frontend\fonts by make_menu_level.ts (the new front end's display, mono and body faces; IBMPlexSans-Regular.ttf is the variable IBMPlexSans[wdth,wght].ttf renamed) | SIL Open Font License 1.1 - tools/pipeline/fonts/OFL-*.txt |
 | stb_image_write 1.16 and stb_image 2.27 (Sean Barrett) - https://github.com/nothings/stb, commit 1ee679c | downloaded at configure time (FetchContent); built into the DLL: the screenshot key's PNG writer, and the PNG reader for its self-test | public domain or MIT, at the user's choice - MIT below |
 | LZHAM 1.0 (Richard Geldreich, Jr.) - https://github.com/richgel999/lzham_codec, commit d379b1f | downloaded at configure time (FetchContent, SHA-256 checked); built into the DLL: THUGPRO's network compression (method 3, the THUGPRO peer mode) | public domain (dedicated by its author on 2020-09-15; releases before that were MIT) - below |
+| GameSpy SDK (December 2007 release, common 2.06; IGN Entertainment's 2011 open-source release) - https://github.com/nitrocaster/GameSpy, commit d1deb2d | downloaded at configure time (FetchContent, SHA-256 checked; `cmake/gamespy_sdk.cmake`, which makes one change: the peer SDK's chat server name a variable); the modules the game uses built into `thug2_standalone` (the game built from source) and `thug2_check` (its self-tests); not in the DLL | BSD 3-clause - below. Its MD5 (md5c.c) is "derived from the RSA Data Security, Inc. MD5 Message-Digest Algorithm" (RSA's notice, in md5.h) |
 | MinHook 1.3.3 (Tsuda Kageyu) | downloaded at configure time (FetchContent) | BSD 2-clause - https://github.com/TsudaKageyu/minhook/blob/v1.3.3/LICENSE.txt |
 | NeverScript (byxor), THUG2 fork by violetvandal - https://github.com/violetvandal/NeverScript, commit 73fe0f9 | downloaded at build time into `out/neverscript/src` by `tools/build_neverscript.ps1`, plus our patch `tools/neverscript.patch` (a tool, not part of the DLL; nothing of it is in this repo) | no licence; the original author's permission - below |
 | go-difflib 1.0.0 (Patrick Mezard) | downloaded by Go when building NeverScript (`tools/build_neverscript.ps1`) | BSD 3-clause - https://github.com/pmezard/go-difflib/blob/v1.0.0/LICENSE |
@@ -249,6 +250,42 @@ DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
 ```
+
+## GameSpy SDK (IGN Entertainment) (BSD 3-clause)
+
+Source: https://github.com/nitrocaster/GameSpy (commit d1deb2d1a951cf77933dda040b8d311cc09815a7, license.txt)
+
+```
+Copyright (c) 2011, IGN Entertainment, Inc. ("IGN")
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+- Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+- Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+- Neither the name of IGN nor the names of its contributors may be used to
+  endorse or promote products derived from this software without specific
+  prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+```
+
+Its MD5 implementation (md5c.c / md5.h) is RSA Data Security, Inc.'s reference: "derived from the RSA Data Security,
+Inc. MD5 Message-Digest Algorithm" (the notice is kept in md5.h).
 
 ## LZHAM 1.0 (Richard Geldreich, Jr.) (public domain)
 

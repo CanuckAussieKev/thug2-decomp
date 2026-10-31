@@ -3,6 +3,7 @@
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS // inet_addr, gethostbyname: what the game uses
 #include "game/sys/winmain.h"
+#include "game/net/gamespy.h"
 
 #include <winsock2.h>
 #include <windows.h>
@@ -93,9 +94,9 @@ long Number(const char* from)
 HWND GameWindow() { return Nx::g_gameWindow; }
 
 // GameSpy (library code, not decompiled): is the game's back end up?
-void GsiStartAvailableCheck(const char* game) { GameFunction<void(__cdecl*)(const char*)>(0x005F8690)(game); }
-int GsiAvailableCheckThink() { return GameFunction<int(__cdecl*)()>(0x005F8840)(); } // 0: still waiting, 1: up
-void Msleep(unsigned milliseconds) { GameFunction<void(__cdecl*)(unsigned)>(0x005F8160)(milliseconds); }
+void GsiStartAvailableCheck(const char* game) { GameSpy::StartAvailableCheck(game); }
+int GsiAvailableCheckThink() { return GameSpy::AvailableCheckThink(); } // 0: still waiting, 1: up
+void Msleep(unsigned milliseconds) { GameSpy::Msleep(milliseconds); }
 
 // The game's C runtime: its rand() is the one the game's code draws from, and its exit functions run the game's
 // own clean-up.

@@ -1,11 +1,11 @@
 // The online service's host names.
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md
 //
-// Until the GameSpy SDK is linked (it's library code: not decompiled - docs/library_ranges.md), its host names
-// are in the exe's copy of it, as the operands of the instructions that use them (and two data words). This
-// writes the names made for the domain over them. Once the SDK is linked, this becomes its configuration: the
-// same names, given to it instead of written into it. (tools/check_code_writes.ts checks the addresses below
-// stay outside rewritten functions.)
+// The hooked build calls the exe's copy of the GameSpy SDK (library code, not decompiled - docs/library_ranges.md):
+// its host names are there as the operands of the instructions that use them (and two data words), and this writes
+// the names made for the domain over them (tools/check_code_writes.ts checks the addresses below stay outside
+// rewritten functions). The standalone build links the SDK (src/game/net/gamespy.h): the domain is given to it
+// (GameSpy::SetOnlineDomain sets the SDK's host-name variables), nothing is written.
 
 #include "game/net/online_hosts.h"
 
@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "game/net/gamespy.h"
 #include "game/sys/config.h"
 #include "game/sys/debug_log.h"
 #include "hook/hook.h"
@@ -33,6 +34,8 @@ char* HostName(const char* format, const char* domain)
     DebugLog::Printf(DebugLog::Level::kTrace, "ALLOC'D STRING %s\n", name);
     return name;
 }
+
+#ifndef THUG2_STANDALONE
 
 // Where a name's address goes: an instruction at `address` whose 32-bit operand is `offset` bytes in (an offset
 // of 0: a data word).
@@ -65,6 +68,7 @@ void UseAll(const HostUse (&uses)[N], const char* name)
     for (const HostUse& use : uses)
         Use(use, name);
 }
+#endif
 
 } // namespace
 
@@ -78,6 +82,9 @@ void SetUpOnlineHosts()
     // gamestats: also the game's own top stats request (Net::RetrieveTopStats reads GamestatsHost)
     char* gamestats = HostName("gamestats.%s", domain);
     s_gamestatsHost = gamestats;
+#ifdef THUG2_STANDALONE
+    GameSpy::SetOnlineDomain(domain);
+#else
     UseAll(kGamestats, gamestats);
     UseAll(kAvailable, HostName("%%s.available.%s", domain));
     UseAll(kMaster, HostName("%%s.master.%s", domain));
@@ -90,6 +97,7 @@ void SetUpOnlineHosts()
     UseAll(kMasterServer, HostName("%%s.ms%%d.%s", domain));
     UseAll(kGpcm, HostName("gpcm.%s", domain));
     UseAll(kGpsp, HostName("gpsp.%s", domain));
+#endif
 }
 
 } // namespace Net

@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "game/core/manager.h"
+#include "game/net/gamespy.h"
 #include "game/core/mem.h"
 #include "game/core/task.h"
 #include "game/net/stats_man.h"
@@ -302,7 +303,7 @@ void Manager::DestroyPlayer(uint8_t* player)
     UpdateLobbyServer();
     if (g_netEnabled && g_gameNetManager->InNetGame() &&
         g_queryReporting) // (reported to GameSpy's qr2: the player count changed)
-        GameFunction<void(__cdecl*)(int)>(0x005FBAD0)(0); // qr2_send_statechanged
+        GameSpy::Qr2SendStateChanged(nullptr); // qr2_send_statechanged
 }
 
 // 0x0053CB70
@@ -317,7 +318,7 @@ void Manager::DropPlayer(uint8_t* player, int reason)
         return;
     }
     Net::Conn* conn = Field<Net::Conn*>(player, 0x18);
-    GameFunction<void(__cdecl*)(int, int)>(0x005F9860)(kGameSpyGameId, static_cast<int>(conn->m_id)); // gcd_disconnect_user
+    GameSpy::CdKeyDisconnectUser(kGameSpyGameId, static_cast<int>(conn->m_id)); // gcd_disconnect_user
     if (!IsObserver(player)) {
         PlayerSearch search;
         for (uint8_t* other = FirstPlayer(this, &search, true); other; other = NextPlayer(this, &search, true)) {
@@ -396,7 +397,7 @@ void Manager::ReAddPendingPlayers()
     g_openWaiting = true;
     if (g_netEnabled && g_gameNetManager->InNetGame() &&
         g_queryReporting && g_openWaiting != 1) // (just set: never)
-        GameFunction<void(__cdecl*)(int)>(0x005FBAD0)(0);
+        GameSpy::Qr2SendStateChanged(nullptr);
     int frames = 10;
     PlayerSearch search;
     uint8_t* player = FirstPlayer(this, &search, true);
@@ -486,8 +487,8 @@ void Manager::RemovePlayersAndApps()
 void Manager::UpdateLobbyServer()
 {
     void* peer = Field<void*>(m_lobbyMan, 0x140);
-    if (peer && GameFunction<int(__cdecl*)(void*)>(0x005FC730)(peer) && Field<bool>(m_lobbyMan, 0x139))
-        GameFunction<void(__cdecl*)(void*)>(0x005FCCF0)(peer); // (the hosted game's details to GameSpy's peer SDK)
+    if (peer && GameSpy::PeerIsConnected(peer) && Field<bool>(m_lobbyMan, 0x139))
+        GameSpy::PeerStateChanged(peer); // (the hosted game's details to GameSpy's peer SDK)
 }
 
 // (inline in DestroyPlayer / DropPlayer)

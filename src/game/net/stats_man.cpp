@@ -1,6 +1,7 @@
 // The online stats (GameNet::StatsMan). See stats_man.h.
 
 #include "game/net/stats_man.h"
+#include "game/net/gamespy.h"
 #include "hook/game_code.h"
 
 #include <windows.h>
@@ -91,52 +92,49 @@ uint32_t Crc(const char* name) { return Crc::GenerateCRCFromString(name); }
 void Run(uint32_t script, Script::CStruct* params = nullptr) { Script::RunScript(script, params, nullptr, false, nullptr); }
 
 // GameSpy's stats and persistent storage SDK (library code; cdecl).
-int IsStatsConnected() { return GameFunction<int(__cdecl*)()>(0x00600710)(); }
-void CloseStatsConnection() { GameFunction<void(__cdecl*)()>(0x00601280)(); }
-int InitStatsConnection(int port) { return GameFunction<int(__cdecl*)(int)>(0x00602550)(port); }
-int PersistThink() { return GameFunction<int(__cdecl*)()>(0x00602210)(); }
-void* NewGame(int usebuckets) { return GameFunction<void*(__cdecl*)(int)>(0x00601A70)(usebuckets); }
-void FreeGame(void* game) { GameFunction<void(__cdecl*)(void*)>(0x00600720)(game); }
-const char* GetChallenge(void* game) { return GameFunction<const char*(__cdecl*)(void*)>(0x006012E0)(game); }
+int IsStatsConnected() { return GameSpy::StatsIsConnected(); }
+void CloseStatsConnection() { GameSpy::StatsCloseConnection(); }
+int InitStatsConnection(int port) { return GameSpy::StatsInitConnection(port); }
+int PersistThink() { return GameSpy::StatsPersistThink(); }
+void* NewGame(int usebuckets) { return GameSpy::StatsNewGame(usebuckets); }
+void FreeGame(void* game) { GameSpy::StatsFreeGame(game); }
+const char* GetChallenge(void* game) { return GameSpy::StatsGetChallenge(game); }
 void NewPlayer(void* game, int number, const char* name)
 {
-    GameFunction<int(__cdecl*)(void*, int, const char*)>(0x00600780)(game, number, name);
+    GameSpy::StatsNewPlayer(game, number, name);
 }
-void RemovePlayerFromGame(void* game, int number) { GameFunction<int(__cdecl*)(void*, int)>(0x00600850)(game, number); }
+void RemovePlayerFromGame(void* game, int number) { GameSpy::StatsRemovePlayer(game, number); }
 void SendGameSnapShot(void* game, const char* snapshot, int final)
 {
-    GameFunction<int(__cdecl*)(void*, const char*, int)>(0x00601CE0)(game, snapshot, final);
+    GameSpy::StatsSendSnapShot(game, snapshot, final);
 }
 void GetPersistDataValues(int localId, int profile, int type, int index, const char* keys, const void* callback,
                           void* instance)
 {
-    GameFunction<int(__cdecl*)(int, int, int, int, const char*, const void*, void*)>(0x006021E0)(
+    GameSpy::StatsGetPersistDataValues(
         localId, profile, type, index, keys, callback, instance);
 }
-// The SDK's bucket operations, kept by it as function pointers (game / player keys, ints / strings), with its "set"
-// operator (also kept by it).
-using IntOp = void*(__cdecl*)(void*, const char*, void*, int, int);
-using StringOp = void*(__cdecl*)(void*, const char*, void*, const char*, int);
-void* SetOperator() { return GameVariable<void*>(0x0068E818); }
-void SetGameInt(void* game, const char* key, int value) { GameVariable<IntOp>(0x0068E834)(game, key, SetOperator(), value, 0); }
-void SetGameString(void* game, const char* key, const char* value)
-{
-    GameVariable<StringOp>(0x0068E83C)(game, key, SetOperator(), value, 0);
-}
+// The SDK's bucket "set" operations (game / player keys, ints / strings).
+void SetGameInt(void* game, const char* key, int value) { GameSpy::SetServerIntBucket(game, key, value); }
+void SetGameString(void* game, const char* key, const char* value) { GameSpy::SetServerStringBucket(game, key, value); }
 void SetPlayerInt(void* game, const char* key, int value, int player)
 {
-    GameVariable<IntOp>(0x0068E84C)(game, key, SetOperator(), value, player);
+    GameSpy::SetPlayerIntBucket(game, key, value, player);
 }
 void SetPlayerString(void* game, const char* key, const char* value, int player)
 {
-    GameVariable<StringOp>(0x0068E854)(game, key, SetOperator(), value, player);
+    GameSpy::SetPlayerStringBucket(game, key, value, player);
 }
-void GhttpCleanup() { GameFunction<void(__cdecl*)()>(0x005FF860)(); }
+void GhttpCleanup() { GameSpy::HttpCleanup(); }
 // The SDK's names for the stats connection (written before InitStatsConnection).
-char* GcdGameName() { return &GameVariable<char>(0x007D7A78); }
-char* GcdSecretKey() { return &GameVariable<char>(0x007D7B78); }
+char* GcdGameName() { return GameSpy::StatsGameName(); }
+char* GcdSecretKey() { return GameSpy::StatsSecretKey(); }
+#ifdef THUG2_STANDALONE
+const char* StatsKey() { return Net::GameKey(); } // (OnlineGameKey or the game's own)
+#else
 // The secret key (data the online identity writes over when OnlineGameKey is set: online_identity.cpp).
 const char* StatsKey() { return GAME_TEXT(0x0064D58C, "AdLWaZ"); }
+#endif
 
 // The manager's calls.
 const char* GameModeName(Manager* manager) { return manager->GetGameTypeName(); }
@@ -866,7 +864,7 @@ const char* __stdcall StatsMan::LevelName(uint32_t level)
 // 0x0054CA10
 void __stdcall StatsMan::GenerateAuth(const char* challenge, const char* password, char* response)
 {
-    GameFunction<void(__cdecl*)(const char*, const char*, char*)>(0x00600640)(challenge, password, response);
+    GameSpy::StatsGenerateAuth(challenge, password, response);
 }
 
 // --- the script commands ---

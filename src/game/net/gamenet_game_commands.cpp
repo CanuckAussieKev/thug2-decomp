@@ -6,6 +6,7 @@
 #include <cstring>
 
 #include "game/core/manager.h"
+#include "game/net/gamespy.h"
 #include "game/core/mem.h"
 #include "game/core/task.h"
 #include "game/mth/vector.h"
@@ -153,8 +154,8 @@ void ReportGameState(Manager* manager, bool on)
 {
     auto* lobby = static_cast<LobbyMan*>(manager->m_lobbyMan);
     void* peer = lobby->GetPeer();
-    if (peer && GameFunction<int(__cdecl*)(void*)>(0x005FC730)(peer) && lobby->IsHosting())
-        GameFunction<void(__cdecl*)(void*)>(0x005FCCF0)(peer);
+    if (peer && GameSpy::PeerIsConnected(peer) && lobby->IsHosting())
+        GameSpy::PeerStateChanged(peer);
     // (the byte compared with 1 when starting, tested for non-zero when ending, as in the original)
     uint8_t& reported = GameReported();
     if (on ? reported == 1 : reported == 0)
@@ -162,7 +163,7 @@ void ReportGameState(Manager* manager, bool on)
     reported = on ? 1 : 0;
     if (g_netEnabled && g_gameNetManager->InNetGame() &&
         g_queryReporting)
-        GameFunction<void(__cdecl*)(int)>(0x005FBAD0)(0);
+        GameSpy::Qr2SendStateChanged(nullptr);
 }
 
 // The GameSpy presence (+0x18): logged in (its flag at +0x10, through the getter folded at 0x005480B0), `profile` a

@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "game/core/crc.h"
+#include "game/net/gamespy.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/task.h"
@@ -160,7 +161,7 @@ bool __cdecl CFunc_SendMessage(Script::CStruct* params, Script::CScript*)
         return true;
     }
     PushInternetHeap();
-    GameFunction<void(__cdecl*)(void*, int, const char*, int)>(0x005FCA80)(
+    GameSpy::PeerMessageRoom(
         static_cast<LobbyMan*>(manager->m_lobbyMan)->m_peer, kGroupRoom, message, 0); // to the group room
     PopHeap();
     return true;
@@ -281,7 +282,7 @@ void __cdecl LobbyMan::GroupRoomCallback(void*, int success, int groupId, void* 
     if (numWaiting >= maxWaiting)
         room->m_full = true;
     auto serverInt = [server](const char* key, int fallback) {
-        return GameFunction<int(__cdecl*)(void*, const char*, int)>(0x005FF560)(server, key, fallback);
+        return GameSpy::ServerGetIntValue(server, key, fallback);
     };
     int lobby = serverInt("lobby_num", 0);
     if (lobby) {

@@ -1,6 +1,7 @@
 // The content vault and HTTP file transfers (GameNet::VaultMan). See vault_man.h.
 
 #include "game/net/vault_man.h"
+#include "game/net/gamespy.h"
 
 #include <windows.h>
 
@@ -81,38 +82,36 @@ HANDLE StartThread(LPTHREAD_START_ROUTINE thread, void* param)
 }
 
 // GameSpy's HTTP SDK (library code, not decompiled; cdecl).
-void GhttpThink() { GameFunction<void(__cdecl*)()>(0x005FFB10)(); }
-void GhttpCancelRequest(int request) { GameFunction<void(__cdecl*)(int)>(0x005FFB20)(request); }
-void GhttpCleanup() { GameFunction<void(__cdecl*)()>(0x005FF860)(); }
+void GhttpThink() { GameSpy::HttpThink(); }
+void GhttpCancelRequest(int request) { GameSpy::HttpCancelRequest(request); }
+void GhttpCleanup() { GameSpy::HttpCleanup(); }
 int GhttpGetEx(const char* url, const char* headers, char* buffer, uint32_t size, void* post, int throttle,
                int blocking, const void* progress, const void* completed, void* param)
 {
-    return GameFunction<int(__cdecl*)(const char*, const char*, char*, uint32_t, void*, int, int, const void*,
-                                      const void*, void*)>(0x005FF8A0)(url, headers, buffer, size, post, throttle,
+    return GameSpy::HttpGetEx(url, headers, buffer, size, post, throttle,
                                                                        blocking, progress, completed, param);
 }
-void* GhttpNewPost() { return GameFunction<void*(__cdecl*)()>(0x005FFB40)(); }
+void* GhttpNewPost() { return GameSpy::HttpNewPost(); }
 void GhttpPostAddString(void* post, const char* name, const char* value)
 {
-    GameFunction<int(__cdecl*)(void*, const char*, const char*)>(0x005FFB50)(post, name, value);
+    GameSpy::HttpPostAddString(post, name, value);
 }
 void GhttpPostAddFileFromMemory(void* post, const char* name, const char* buffer, uint32_t size,
                                 const char* reportName, const char* contentType)
 {
-    GameFunction<int(__cdecl*)(void*, const char*, const char*, uint32_t, const char*, const char*)>(0x005FFB90)(
+    GameSpy::HttpPostAddFileFromMemory(
         post, name, buffer, size, reportName, contentType);
 }
 int GhttpPostEx(const char* url, const char* headers, void* post, int throttle, int blocking, const void* progress,
                 const void* completed, void* param)
 {
-    return GameFunction<int(__cdecl*)(const char*, const char*, void*, int, int, const void*, const void*, void*)>(
-        0x005FFA10)(url, headers, post, throttle, blocking, progress, completed, param);
+    return GameSpy::HttpPostEx(url, headers, post, throttle, blocking, progress, completed, param);
 }
 // The GameSpy SDK's strdup (goastrdup, the game's C runtime malloc) and the game runtime's free for it.
-char* GameSpyStrdup(const char* text) { return GameFunction<char*(__cdecl*)(const char*)>(0x005F81C0)(text); }
+char* GameSpyStrdup(const char* text) { return GameSpy::Strdup(text); }
 void GameCrtFree(void* memory) { GameFunction<void(__cdecl*)(void*)>(0x0062411B)(memory); }
-// The GameSpy SDK's id of this machine (a function pointer it keeps at 0x0068E24C).
-const char* GameSpyUniqueId() { return GameVariable<const char*(__cdecl*)()>(0x0068E24C)(); }
+// The GameSpy SDK's id of this machine (GOAGetUniqueID).
+const char* GameSpyUniqueId() { return GameSpy::UniqueId(); }
 // 0x005A8EB0: a downloaded item loaded from `buffer` by the type's script (not rewritten yet).
 void LoadDownloadedItem(char* buffer, uint32_t script)
 {

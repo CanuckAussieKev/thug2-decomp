@@ -7,6 +7,7 @@
 #include <cstring>
 
 #include "game/core/dbg.h"
+#include "game/net/gamespy.h"
 #include "game/core/task.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_handlers.h"
@@ -204,13 +205,13 @@ void __cdecl JoinTimeoutTask(void* task)
 // 0x00533400
 void __cdecl PlayerTeamKeyCallback(int, int, void* buffer, void*)
 {
-    GameFunction<void(__cdecl*)(void*, const char*)>(0x005FA010)(buffer, GAME_TEXT(0x006469B4, ""));
+    GameSpy::Qr2BufferAdd(buffer, GAME_TEXT(0x006469B4, ""));
 }
 
 // 0x00533420
 void __cdecl KeyListCallback(int type, void* keys, void*)
 {
-    auto add = [keys](int key) { GameFunction<void(__cdecl*)(void*, int)>(0x005F9FE0)(keys, key); };
+    auto add = [keys](int key) { GameSpy::Qr2KeyBufferAdd(keys, key); };
     if (type == 0) { // the server's
         for (int key : {1, 2, 4, 5, 6, 8, 0x14, 0xA, 0xB, 0x13})
             add(key);
