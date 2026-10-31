@@ -4,7 +4,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
+#include <vector>
 
 #include "game/front/level_editor_arcs.h"
 #include "game/front/level_editor_modules.h"
@@ -13,7 +16,6 @@
 #include "game/mth/vector.h"
 #include "game/nx/coll_tri.h"
 #include "game/nx/feeler.h"
-#include "hook/game.h"
 #include "game/core/game_vtables.h"
 
 namespace Front::LevelEditor::Ruler {

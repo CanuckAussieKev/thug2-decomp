@@ -16,12 +16,10 @@
 #include "game/sys/timer.h"
 #include "game/ed/park_editor.h"
 #include "game/obj/control_pad.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 #include "game/skater/vehicle_sound.h"
 
@@ -362,36 +360,23 @@ void CVehicleSoundComponent::UpdateCollideSound()
 
 } // namespace Obj
 
-REPLACE(0x0043CFC0, Obj::CVehicleSoundComponent::Create);
-REPLACE(0x0043C590, &Obj::CVehicleSoundComponent::Construct);
-REPLACE(0x0043C5F0, &Obj::CVehicleSoundComponent::DestroyBody);
-REPLACE(0x0043D020, &Obj::CVehicleSoundComponent::Destroy);
-REPLACE(0x0043C670, &Obj::CVehicleSoundComponent::InitFromStructure);
-REPLACE(0x0043D050, &Obj::CVehicleSoundComponent::Finalize);
-REPLACE(0x0043D290, &Obj::CVehicleSoundComponent::Update);
-REPLACE(0x0043C540, &Obj::CVehicleSoundComponent::GetDebugInfo);
-REPLACE(0x0043CE70, &Obj::CVehicleSoundComponent::ReadSettings);
-REPLACE(0x0043C690, &Obj::CVehicleSoundComponent::UpdateEngine);
-REPLACE(0x0043CBC0, &Obj::CVehicleSoundComponent::UpdateSkid);
-REPLACE(0x0043D090, &Obj::CVehicleSoundComponent::UpdateCollideSound);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x006467F4,
-    &Obj::CVehicleSoundComponent::Destroy,
-    &Obj::CVehicleSoundComponent::Update,
-    &Obj::CVehicleSoundComponent::InitFromStructure,
-    &Obj::CVehicleSoundComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    &Obj::CVehicleSoundComponent::GetDebugInfo,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CVehicleSoundComponent::Destroy,
+         &Obj::CVehicleSoundComponent::Update,
+         &Obj::CVehicleSoundComponent::InitFromStructure,
+         &Obj::CVehicleSoundComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         &Obj::CVehicleSoundComponent::GetDebugInfo,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

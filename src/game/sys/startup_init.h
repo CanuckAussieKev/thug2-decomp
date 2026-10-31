@@ -1,19 +1,17 @@
 #pragma once
 
-// The original's start-up initialisers as source (standalone step 6). Before WinMain the original's C runtime start-up
+// The original's start-up initialisers as source. Before WinMain the original's C runtime start-up
 // (_cinit) runs two tables of initialisers: the C ones (only the C runtime's own: its atexit table, clock(), SSE2
 // detection, stdio, the multibyte tables, the C++ unhandled-exception filter) and the C++ ones - after the security
 // cookie, 77 game initialisers that construct globals (hash tables, list heads, lights, textures, the expression
-// evaluator...), fill the script member-function tables' code pointers and create two mutexes. In the hooked build all of
-// that has run in the exe (our GAME_GLOBALs are its variables); in the standalone build every global starts with the
-// image's bytes, before any initialiser, so RunStartupInitialisers does each one's work in the original's order.
+// evaluator...), fill the script member-function tables' code pointers and create two mutexes. Here every global starts
+// with its start value, before any initialiser, so RunStartupInitialisers does each one's work in the original's order.
 //
 // The pieces are defined next to the globals they make (the owners' files), each named after what it does, with the
-// original initialiser's address. Compiled in both builds: the start-up self-test (selftests_startup.cpp) runs the
-// original initialisers and ours from the same memory and compares every byte of the game's data.
+// original initialiser's address.
 namespace Sys {
 
-// Every effect of the original's start-up initialisers, in their order (the table at 0x0067C000). THUG2_STANDALONE:
+// Every effect of the original's start-up initialisers, in their order (the table at 0x0067C000):
 // called first thing in WinMain (by then the compiler's own dynamic initialisers have all run, as the original's CRT had
 // run its own). Once: it constructs, it doesn't reset.
 void RunStartupInitialisers();

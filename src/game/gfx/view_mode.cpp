@@ -8,12 +8,12 @@
 #include <d3d9.h>
 
 #include <cctype>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <unordered_map>
 
 #include "game/gfx/render_state.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 #include "game/gfx/device.h"
 #include "game/gfx/engine.h"

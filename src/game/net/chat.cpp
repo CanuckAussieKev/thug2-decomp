@@ -2,6 +2,7 @@
 
 #include "game/net/chat.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -24,9 +25,6 @@
 #include "game/sys/timer.h"
 #include "game/skate/skate_module.h"
 #include "game/skater/skater.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/sys/log.h"
 #include "game/gfx/render.h"
 
@@ -83,7 +81,7 @@ void SendToServer(Manager* manager, MsgDesc* desc)
 // Script::CStruct (8 bytes, from the current script struct pool when there is one).
 using ScriptStruct = Script::CStruct;
 
-GAME_GLOBAL(uint32_t, g_lastTauntTime, 0x007CCE20);
+uint32_t g_lastTauntTime;
 
 ScriptStruct* NewScriptStruct()
 {
@@ -381,8 +379,3 @@ struct ManagerAdapter {
 };
 
 } // namespace
-
-REPLACE(0x005A16B0, CFunc_SendChatMessage);
-REPLACE(0x00537BD0, &ManagerAdapter::SendChatMessage);
-REPLACE(0x005334D0, GameNet::KeyboardTask);
-REPLACE(0x00532050, GameNet::HandleChat);

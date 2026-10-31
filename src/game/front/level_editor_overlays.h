@@ -101,7 +101,7 @@ struct HelpRow {
 };
 const std::vector<HelpRow>& HelpRows();
 
-// --- the pieces (pure, self-tested: src/hook/selftests_editor_ux4.cpp) -------------------------------------------
+// --- the pieces (pure) -------------------------------------------------------------------------------------------
 
 // Grid lines on the plane y = `y` within `radius` of `centre` (x / z), every `spacing` units: each line's two ends,
 // every fifth (multiples of 5 x spacing) marked `major`.

@@ -5,7 +5,6 @@
 
 #include "game/ass/asset.h"
 #include "game/sys/module.h"
-#include "hook/game_global.h"
 
 namespace Mlp {
 struct Manager;
@@ -111,9 +110,9 @@ static_assert(sizeof(CAssMan) == 0x3C && offsetof(CAssMan, m_assets) == 0x1C && 
 CAssMan* CreateAssetManager(bool create);
 // 0x00407980: drops a reference; the last deletes it.
 void ReleaseAssetManager();
-GAME_GLOBAL_EXTERN(CAssMan*, g_assetManager);
+extern CAssMan* g_assetManager;
 inline CAssMan*& AssetManager() { return g_assetManager; }
 
-GAME_GLOBAL_EXTERN(Mlp::Manager*, g_mainLoopManager);
+extern Mlp::Manager* g_mainLoopManager;
 
 } // namespace Ass

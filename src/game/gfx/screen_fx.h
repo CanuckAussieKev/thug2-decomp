@@ -2,8 +2,6 @@
 
 #include <cstdint>
 
-#include "hook/game_global.h"
-
 // Full-screen effects (Nx engine, PC): the frame is drawn into one of the screen-copy render targets
 // (0x00786D1C, the current one 0x00786D68) instead of the back buffer, then downsampled, blurred (the motion blur,
 // render.h's DrawScreenBlur) and bloomed back.
@@ -25,6 +23,6 @@ void __cdecl CopyScreenQuarter();
 // added back over the frame.
 void __cdecl Bloom();
 
-GAME_GLOBAL_EXTERN(bool, g_screenCopyInUse);
+extern bool g_screenCopyInUse;
 
 } // namespace Nx

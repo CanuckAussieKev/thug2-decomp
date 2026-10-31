@@ -6,7 +6,6 @@
 #include "game/mth/matrix.h"
 #include "game/mth/quat.h"
 #include "game/mth/vector.h"
-#include "hook/hook.h"
 
 namespace Mth {
 
@@ -63,6 +62,3 @@ Matrix* Quat::GetMatrix(Matrix* out) const
 }
 
 } // namespace Mth
-
-REPLACE(0x0042BBF0, &Mth::Vector::SetLength);
-REPLACE(0x0042BC40, &Mth::Quat::GetMatrix);

@@ -4,7 +4,6 @@
 #include <cstdint>
 
 #include "game/core/alloc.h"
-#include "hook/game_global.h"
 
 namespace Script {
 class CScript;
@@ -219,6 +218,6 @@ bool __cdecl GetRank(Script::CStruct* params, Script::CScript* script);         
 bool __cdecl CleanUpTopStats(Script::CStruct* params, Script::CScript* script);      // 0x0054EA40
 bool __cdecl FillStatsArrays(Script::CStruct* params, Script::CScript* script);      // 0x0054EB00
 
-GAME_GLOBAL_EXTERN(float, g_rankScale);
+extern float g_rankScale;
 
 } // namespace GameNet

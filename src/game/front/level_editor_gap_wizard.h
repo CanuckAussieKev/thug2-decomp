@@ -28,7 +28,7 @@ struct Painter;
 // Skitch: no gap flag of THUG2's means a skitch - not offered. The flags can be changed in the Inspector afterwards.
 namespace Front::LevelEditor::GapWizard {
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_ux9.cpp) -------------------------------------------------
+// --- the pure parts --------------------------------------------------------------------------------------------------
 
 enum class SpotKind : uint8_t { Area, Lip, Wall, Rail };
 const char* SpotName(SpotKind kind);

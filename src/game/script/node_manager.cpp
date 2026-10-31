@@ -15,19 +15,16 @@
 #include "game/script/names.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/sys/log.h"
 
 namespace SkateScript {
 
-GAME_GLOBAL(SkateScript::CNodeManager*, g_nodeManager, 0x006F0D84);
+SkateScript::CNodeManager* g_nodeManager;
 
 using Script::CArray;
 using Script::CStruct;
 
-GAME_GLOBAL(uint32_t, g_nodeManagerReferences, 0x006F0D88);
+uint32_t g_nodeManagerReferences;
 
 namespace {
 
@@ -461,26 +458,3 @@ void ReleaseNodeManager()
 }
 
 } // namespace SkateScript
-
-REPLACE(0x0045CE60, &SkateScript::CNodeManager::HashNode);
-REPLACE(0x0045CEF0, &SkateScript::CNodeManager::UnhashNodeArray);
-REPLACE(0x0045CFC0, &SkateScript::CNodeManager::GetNode);
-REPLACE(0x0045D370, &SkateScript::CNodeManager::Construct);
-REPLACE(0x0045D050, &SkateScript::CNodeManager::StartWalk);
-REPLACE(0x0045D110, &SkateScript::CNodeManager::EndWalk);
-REPLACE(0x0045D3F0, &SkateScript::CNodeManager::NextNode);
-REPLACE(0x0045D120, &SkateScript::CNodeManager::GetLastNodeArray);
-REPLACE(0x0045D150, &SkateScript::CNodeManager::GetLastNodeArrayName);
-REPLACE(0x0045D140, &SkateScript::CNodeManager::SetOwner);
-REPLACE(0x0045D470, &SkateScript::CNodeManager::GetOwnerValue58);
-REPLACE(0x0045D270, &SkateScript::CNodeManager::HasNodeArray);
-REPLACE(0x0045D170, &SkateScript::CNodeManager::HashNodeIn);
-REPLACE(0x0045D3A0, &SkateScript::CNodeManager::HashNodes);
-REPLACE(0x0045D480, &SkateScript::CNodeManager::ResolveLinks);
-REPLACE(0x0045D520, &SkateScript::CNodeManager::AddNodeArray);
-REPLACE(0x0045D1C0, &SkateScript::CNodeManager::RemoveNodeArray);
-REPLACE(0x0045D670, &SkateScript::CNodeManager::RemoveNodeArrayOfFile);
-REPLACE(0x0045D2A0, SkateScript::MakeNodeArrayName);
-REPLACE(0x0045D310, SkateScript::NodeArrayChecksum);
-REPLACE(0x0045D690, SkateScript::CreateNodeManager);
-REPLACE(0x0045D6E0, SkateScript::ReleaseNodeManager);

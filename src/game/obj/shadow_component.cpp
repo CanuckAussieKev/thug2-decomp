@@ -11,14 +11,12 @@
 #include "game/gfx/model.h"
 #include "game/mth/matrix.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/gfx/weather.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
@@ -332,39 +330,23 @@ int CShadowComponent::CallMemberFunction(uint32_t name, Script::CStruct* params,
 
 } // namespace Obj
 
-REPLACE(0x00431800, Obj::CShadowComponent::Create);
-REPLACE(0x00431380, &Obj::CShadowComponent::Construct);
-REPLACE(0x00431300, &Obj::CShadowComponent::DestroyBody);
-REPLACE(0x004313D0, &Obj::CShadowComponent::Destroy);
-REPLACE(0x00431400, &Obj::CShadowComponent::Finalize);
-REPLACE(0x00431450, &Obj::CShadowComponent::RefreshShadow);
-REPLACE(0x00431570, &Obj::CShadowComponent::Hide);
-REPLACE(0x004315A0, &Obj::CShadowComponent::CreateShadow);
-REPLACE(0x00431780, &Obj::CShadowComponent::DestroyShadow);
-REPLACE(0x004317C0, &Obj::CShadowComponent::SetPosition);
-REPLACE(0x004317E0, &Obj::CShadowComponent::SetNormal);
-REPLACE(0x00431360, &Obj::CShadowComponent::SetLightDirection);
-REPLACE(0x00431860, &Obj::CShadowComponent::InitFromStructure);
-REPLACE(0x004319D0, &Obj::CShadowComponent::Update);
-REPLACE(0x00431B10, &Obj::CShadowComponent::CallMemberFunction);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x00646498,
-    &Obj::CShadowComponent::Destroy,
-    &Obj::CShadowComponent::Update,
-    &Obj::CShadowComponent::InitFromStructure,
-    &Obj::CShadowComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    &Obj::CShadowComponent::Hide,
-    Nx::VirtualSlot1Jump,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::CShadowComponent::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CShadowComponent::Destroy,
+         &Obj::CShadowComponent::Update,
+         &Obj::CShadowComponent::InitFromStructure,
+         &Obj::CShadowComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         &Obj::CShadowComponent::Hide,
+         Nx::VirtualSlot1Jump,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::CShadowComponent::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

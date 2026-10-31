@@ -4,7 +4,6 @@
 #include <cstdint>
 
 #include "game/mth/vector.h"
-#include "hook/game_global.h"
 
 // The PC viewport (Nx engine: the engine's CViewport - constructor 0x004A0DB0, destructor body 0x004A0E60 - over it;
 // the viewports at 0x00701350): a world point onto the 640 x 448 screen, and the occlusion queries the sun's
@@ -42,9 +41,9 @@ CPcViewport* __cdecl CreateViewport(uint32_t a1, uint32_t a2);
 // there's none (or on a Radeon 8500).
 uint32_t __cdecl OcclusionPixels();
 
-GAME_GLOBAL_EXTERN(uint8_t[1024], g_occlusionSlots);
-GAME_GLOBAL_EXTERN(float, g_scale2DIn3DNumerator);
-GAME_GLOBAL_EXTERN(float, g_scale2DIn3DMax);
-GAME_GLOBAL_EXTERN(float, g_scale2DIn3DMin);
+extern uint8_t g_occlusionSlots[1024];
+extern float g_scale2DIn3DNumerator;
+extern float g_scale2DIn3DMax;
+extern float g_scale2DIn3DMin;
 
 } // namespace Nx

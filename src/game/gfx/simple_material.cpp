@@ -10,8 +10,6 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/file/file.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/gfx/shader_slots.h"
 #include "game/sys/crt.h"
 
@@ -121,9 +119,3 @@ int __cdecl SkipMemoryChunk(uint8_t** data)
 }
 
 } // namespace Nx
-
-REPLACE(0x004D9CF0, Nx::BlendModeFromName);
-REPLACE(0x004D9B80, &Nx::sSimpleMaterial::Construct);
-REPLACE(0x004D9CD0, &Nx::sSimpleMaterial::DestroyBody);
-REPLACE(0x004DA6D0, Nx::SkipFileChunk);
-REPLACE(0x004DA710, Nx::SkipMemoryChunk);

@@ -30,13 +30,6 @@
 #include "game/sys/screenshot.h"
 #include "game/sys/timer.h"
 #include "game/sys/winmain.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#ifndef THUG2_STANDALONE
-#include "hook/selftest.h"
-#endif
-#include "hook/game_code.h"
 #include "game/obj/cutscene.h"
 #include "game/gfx/movie.h"
 #include "game/ass/assman.h"
@@ -63,9 +56,9 @@ bool& DeviceLost() { return Nx::g_deviceLost; }
 IDirect3DDevice9* Device() { return Nx::g_d3dDevice; }
 D3DPRESENT_PARAMETERS* PresentParameters() { return &Nx::g_presentParameters; }
 
-GAME_GLOBAL(uint32_t, g_mlpReferences, 0x00696D6C);
-GAME_GLOBAL(int, g_skippedTotal, 0x00696D70);
-GAME_GLOBAL(int, g_skippedInARow, 0x00696D74);
+uint32_t g_mlpReferences;
+int g_skippedTotal;
+int g_skippedInARow;
 
 // Frames in a row whose render was skipped (after four, one is drawn regardless), and in all.
 int& SkippedInARow() { return g_skippedInARow; }
@@ -207,9 +200,6 @@ void ReleaseManager()
 void Manager::MainLoop()
 {
     // The test runner's EngineStarted stage: every engine module exists, the first frame is next.
-#ifndef THUG2_STANDALONE
-    RunStageOnce(TestStage::EngineStarted);
-#endif
 
     uint8_t doneOnEntry = m_done;
     // The screen saver's timeout is set again every 201 frames, which restarts its idle time.
@@ -286,7 +276,7 @@ void Manager::MainLoop()
         Tmr::CountVblank();
         Tmr::OncePerRender();
         if (m_profileFrames) {
-            Dbg::Printf(GAME_TEXT(0x0064725C, "\nProfiling.....Start of main loop\n\n")); // "\nProfiling.....Start of main loop\n\n"
+            Dbg::Printf("\nProfiling.....Start of main loop\n\n"); // "\nProfiling.....Start of main loop\n\n"
             --m_profileFrames;
             m_profiling = 1;
         }
@@ -315,13 +305,3 @@ void Manager::MainLoop()
 }
 
 } // namespace Mlp
-
-REPLACE(0x0044EDC0, &Mlp::Manager::Construct);
-REPLACE(0x0044EE30, &Mlp::Manager::DestroyBody);
-REPLACE(0x0044EE90, Mlp::Manager::ResetDeviceIfLost);
-REPLACE_SOURCE_ONLY(0x0044F250, Mlp::Manager::ResetDeviceIfLost); // a jump to 0x0044EE90
-REPLACE(0x0044EEF0, &Mlp::Manager::MainLoop);
-REPLACE(0x0044F220, &Mlp::Manager::ProfileFrames);
-REPLACE_SOURCE_ONLY(0x0044F240, &Mlp::Manager::StopLoop); // (4 bytes: too short to hook)
-REPLACE(0x0044F260, Mlp::CreateManager);
-REPLACE(0x0044F2B0, Mlp::ReleaseManager);

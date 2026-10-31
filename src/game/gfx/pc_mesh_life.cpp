@@ -6,6 +6,7 @@
 
 #include <d3d9.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 
@@ -16,8 +17,6 @@
 #include "game/gfx/mesh_list.h"
 #include "game/gfx/pc_billboards.h"
 #include "game/gfx/pc_scene.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/gfx/device.h"
 #include "game/sys/crt.h"
 
@@ -352,16 +351,3 @@ void sMesh::DestroyBody()
 }
 
 } // namespace Nx
-
-REPLACE(0x004D4BE0, &Nx::sMesh::Construct);
-REPLACE(0x004D4CA0, &Nx::sMesh::ApplyVertexColors);
-REPLACE(0x004D4D30, &Nx::sMesh::GetPosition);
-REPLACE(0x004D5760, Nx::NewVertexBuffer);
-REPLACE(0x004D57D0, &Nx::sMesh::CleanStrip);
-REPLACE(0x004D5900, &Nx::sMesh::SetBoundingSphere);
-REPLACE(0x004D5C30, &Nx::sMesh::CreateVertexBuffer);
-REPLACE(0x004D6720, &Nx::sVertexBuffer::Destroy);
-REPLACE(0x004D6790, &Nx::sIndexBuffer::Destroy);
-REPLACE(0x004D67F0, Nx::ReleaseBuffers);
-REPLACE(0x004D68C0, Nx::RecreateBuffers);
-REPLACE(0x004D69E0, &Nx::sMesh::DestroyBody);

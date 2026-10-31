@@ -8,6 +8,7 @@
 
 #include <bit>
 #include <cstdint>
+#include <initializer_list>
 
 #include "game/gfx/device.h"
 #include "game/gfx/graphics_options.h"
@@ -17,50 +18,47 @@
 #include "game/gfx/pixel_shaders.h"
 #include "game/gfx/render.h"
 #include "game/gfx/view_mode.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/shader_slots.h"
 #include "game/gfx/engine_glue.h"
 
 namespace Nx {
 
-GAME_GLOBAL(bool, g_shadersAvailable, 0x00786AB8);
-GAME_GLOBAL(uint32_t, g_blendMode, 0x00786E30);
-GAME_GLOBAL(uint32_t, g_blendOp, 0x00786E34);
-GAME_GLOBAL(uint32_t, g_srcBlend, 0x00786E38);
-GAME_GLOBAL(uint32_t, g_destBlend, 0x00786E3C);
-GAME_GLOBAL(uint32_t, g_alphaBlend, 0x00786E40);
-GAME_GLOBAL(uint32_t, g_alphaTest, 0x00786E44);
-GAME_GLOBAL(uint32_t, g_alphaRef, 0x00786E48);
-GAME_GLOBAL(uint32_t, g_specular, 0x00786E4C);
-GAME_GLOBAL(uint8_t, g_dither, 0x00786E50);
-GAME_GLOBAL(uint8_t, g_zWrite, 0x00786E51);
-GAME_GLOBAL(uint8_t, g_zTest, 0x00786E52);
-GAME_GLOBAL(uint32_t, g_depthBias, 0x00786E54);
-GAME_GLOBAL(uint32_t, g_lighting, 0x00786E58);
-GAME_GLOBAL(uint32_t, g_cullMode, 0x00786E5C);
-GAME_GLOBAL(bool, g_nearCamera, 0x00786E60);
-GAME_GLOBAL(uint32_t[4], g_addressModes, 0x00786E64);
-GAME_GLOBAL(uint32_t[4], g_mipLodBiases, 0x00786E74);
-GAME_GLOBAL(uint32_t[4], g_filters, 0x00786E84);
-GAME_GLOBAL(void*[4], g_textures, 0x00786E94);
-GAME_GLOBAL(uint32_t[4], g_borderColours, 0x00786EA4);
-GAME_GLOBAL(uint32_t, g_vertexFormat, 0x00786EB8);
-GAME_GLOBAL(uint32_t, g_pixelShaderLocked, 0x00786EC4);
-GAME_GLOBAL(void*, g_currentPixelShader, 0x00786EC8);
-GAME_GLOBAL(float[20], g_pixelShaderConstants, 0x00786ECC);
-GAME_GLOBAL(uint32_t, g_instanceColourOn, 0x00786F1C);
-GAME_GLOBAL(uint8_t[4], g_instanceColour, 0x00786F20);
-GAME_GLOBAL(uint8_t, g_pixelShaderChanged, 0x00786F24);
-GAME_GLOBAL(uint32_t, g_vertexFormatLocked, 0x00786F28);
-GAME_GLOBAL(uint32_t, g_skippedPasses, 0x00786F2C);
-GAME_GLOBAL(uint32_t, g_submitLocked, 0x00786F30);
-GAME_GLOBAL(uint32_t, g_blendModeOverride, 0x00786F34);
-GAME_GLOBAL(uint32_t, g_fogEnabled, 0x00787338);
-GAME_GLOBAL(uint8_t, g_localViewer, 0x00787348);
-GAME_GLOBAL(const float*, g_worldTransform, 0x007CA968);
-GAME_GLOBAL(float[16], g_worldTransformCopy, 0x007CA980);
+bool g_shadersAvailable;
+uint32_t g_blendMode;
+uint32_t g_blendOp;
+uint32_t g_srcBlend;
+uint32_t g_destBlend;
+uint32_t g_alphaBlend;
+uint32_t g_alphaTest;
+uint32_t g_alphaRef;
+uint32_t g_specular;
+uint8_t g_dither;
+uint8_t g_zWrite;
+uint8_t g_zTest;
+uint32_t g_depthBias;
+uint32_t g_lighting;
+uint32_t g_cullMode;
+bool g_nearCamera;
+uint32_t g_addressModes[4];
+uint32_t g_mipLodBiases[4];
+uint32_t g_filters[4];
+void* g_textures[4];
+uint32_t g_borderColours[4];
+uint32_t g_vertexFormat;
+uint32_t g_pixelShaderLocked;
+void* g_currentPixelShader;
+float g_pixelShaderConstants[20];
+uint32_t g_instanceColourOn;
+uint8_t g_instanceColour[4];
+uint8_t g_pixelShaderChanged;
+uint32_t g_vertexFormatLocked;
+uint32_t g_skippedPasses;
+uint32_t g_submitLocked;
+uint32_t g_blendModeOverride;
+uint32_t g_fogEnabled;
+uint8_t g_localViewer;
+const float* g_worldTransform;
+float g_worldTransformCopy[16];
 
 namespace {
 
@@ -633,16 +631,3 @@ void __cdecl ApplyRenderState()
 }
 
 } // namespace Nx
-
-REPLACE(0x004DAB60, Nx::SetState);
-REPLACE(0x004D9DB0, Nx::SetVertexFormat);
-REPLACE(0x004DA730, Nx::SetTexture);
-REPLACE(0x004DA760, Nx::SetBlendMode);
-REPLACE(0x004D9DE0, Nx::SetFixedFunctionStages);
-REPLACE(0x004DAA10, Nx::SetFixedFunctionStagesForMaterial);
-REPLACE(0x004DAA80, Nx::SetPixelShader);
-REPLACE(0x004DAAF0, Nx::SetPixelShaderWithConstants);
-REPLACE(0x004DA0E0, Nx::LastSphereDistance);
-REPLACE(0x004DB620, Nx::SetWorldTransform);
-REPLACE(0x004D7D70, Nx::ResetRenderState);
-REPLACE(0x004D80D0, Nx::ApplyRenderState);

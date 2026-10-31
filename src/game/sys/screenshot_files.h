@@ -7,8 +7,7 @@
 #include <vector>
 
 // NOT ORIGINAL - the screenshot key's pure parts (ours; see game/sys/screenshot.h): the file names, the back buffer's
-// pixels made RGB, the PNG (stb_image_write) and the sidecar text. No game state, no renderer: self-tested
-// (src/hook/selftests_screenshot.cpp).
+// pixels made RGB, the PNG (stb_image_write) and the sidecar text. No game state, no renderer.
 namespace Sys::Screenshot {
 
 // --- the key -----------------------------------------------------------------------------------------------------

@@ -3,6 +3,8 @@
 // other abstract metapieces); a concrete one (placed in the park or held by the cursor) holds cloned pieces, which it
 // moves and turns with itself.
 
+#include <cstdint>
+
 #include "game/ed/park.h"
 #include "game/gfx/d3dx.h"
 
@@ -10,18 +12,19 @@
 #include "game/ed/park_nx.h"
 #include "game/mth/matrix.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Ed {
 
-GAME_VTABLE(kMetaPieceVtable, 0x0064F3BC, GAME_LIBRARY_SLOT(0x00623771), &CMetaPiece::Destroy,
-    GAME_LIBRARY_SLOT(0x00623771));
-GAME_VTABLE(kConcreteMetaPieceVtable, 0x0064F3D8, &CConcreteMetaPiece::GetPiece, &CConcreteMetaPiece::Destroy,
-    &CConcreteMetaPiece::AddPiece);
-GAME_VTABLE(kAbstractMetaPieceVtable, 0x0064F3E4, &CAbstractMetaPiece::GetPiece, &CConcreteMetaPiece::Destroy,
-    &CAbstractMetaPiece::AddPiece);
+static VtableSlot kMetaPieceVtable_slots[] = {&_purecall, &CMetaPiece::Destroy,
+        &_purecall};
+void** const kMetaPieceVtable = reinterpret_cast<void**>(kMetaPieceVtable_slots);
+static VtableSlot kConcreteMetaPieceVtable_slots[] = {&CConcreteMetaPiece::GetPiece, &CConcreteMetaPiece::Destroy,
+        &CConcreteMetaPiece::AddPiece};
+void** const kConcreteMetaPieceVtable = reinterpret_cast<void**>(kConcreteMetaPieceVtable_slots);
+static VtableSlot kAbstractMetaPieceVtable_slots[] = {&CAbstractMetaPiece::GetPiece, &CConcreteMetaPiece::Destroy,
+        &CAbstractMetaPiece::AddPiece};
+void** const kAbstractMetaPieceVtable = reinterpret_cast<void**>(kAbstractMetaPieceVtable_slots);
 
 namespace {
 
@@ -569,30 +572,3 @@ SMetaDescriptor* CAbstractMetaPiece::GetEntry(SMetaDescriptor* out, int index)
 using Ed::CAbstractMetaPiece;
 using Ed::CConcreteMetaPiece;
 using Ed::CMetaPiece;
-
-REPLACE_SOURCE_ONLY(0x005902E0, &CMetaPiece::Cast); // 3 bytes (folded with many empty constructors)
-REPLACE(0x005902F0, &CMetaPiece::IsRestartPiece);
-REPLACE(0x00590340, &CMetaPiece::GetDescriptor);
-REPLACE(0x00590360, &CConcreteMetaPiece::GetPiece);
-REPLACE(0x005903A0, &CMetaPiece::SetVisibility);
-REPLACE(0x00590400, &CMetaPiece::CountPieces);
-REPLACE(0x00590750, &CMetaPiece::IsCompletelyWithinArea);
-REPLACE(0x005907B0, &CMetaPiece::SetRot);
-REPLACE(0x005909C0, &CMetaPiece::GetRelativePosition);
-REPLACE(0x00590AD0, &CMetaPiece::Initialize);
-REPLACE(0x00590B60, &CConcreteMetaPiece::Construct);
-REPLACE(0x00590B90, &CMetaPiece::GetBounds);
-REPLACE(0x00590CE0, &CMetaPiece::Intersects);
-REPLACE(0x00590ED0, &CConcreteMetaPiece::AddPiece);
-REPLACE(0x00590FA0, &CAbstractMetaPiece::Construct);
-REPLACE(0x00590FD0, &CAbstractMetaPiece::GetPiece);
-REPLACE(0x00591020, &CAbstractMetaPiece::AddPiece);
-REPLACE(0x00591100, &CAbstractMetaPiece::AddMetaPiece);
-REPLACE(0x005911D0, &CAbstractMetaPiece::GetEntry);
-REPLACE(0x00591670, &CMetaPiece::Destroy);
-REPLACE(0x005916B0, &CMetaPiece::GetPieceList);
-REPLACE(0x005917E0, &CMetaPiece::DestroyBody);
-REPLACE(0x00591800, &CMetaPiece::SetPosition);
-REPLACE(0x00591A50, &CMetaPiece::Highlight);
-REPLACE(0x00591AB0, &CMetaPiece::FinishPieces);
-REPLACE(0x00591BB0, &CConcreteMetaPiece::Destroy);

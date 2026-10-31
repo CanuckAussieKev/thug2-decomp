@@ -5,7 +5,6 @@
 
 #include "game/mth/vector.h"
 #include "game/obj/smtptr.h"
-#include "hook/game_global.h"
 
 namespace Gfx {
 class Camera;
@@ -101,9 +100,9 @@ bool __cdecl CFunc_ScriptGetScreenMode(Script::CStruct* params, Script::CScript*
 // 0x004A0C20: SetScreenMode <mode name>: an unknown name changes nothing. Always true.
 bool __cdecl CFunc_SetScreenMode(Script::CStruct* params, Script::CScript* script);
 
-GAME_GLOBAL_EXTERN(OcclusionRequest[4], g_occlusionRequests);
-GAME_GLOBAL_EXTERN(int, g_screenMode);
-GAME_GLOBAL_EXTERN(CViewport*[10], g_viewports);
-GAME_GLOBAL_EXTERN(const int*, g_modeMap);
+extern OcclusionRequest g_occlusionRequests[4];
+extern int g_screenMode;
+extern CViewport* g_viewports[10];
+extern const int* g_modeMap;
 
 } // namespace Nx

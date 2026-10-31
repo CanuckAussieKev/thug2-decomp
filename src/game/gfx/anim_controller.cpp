@@ -3,7 +3,10 @@
 #include "game/gfx/anim_controller.h"
 
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
+#include <new>
 
 #include "game/core/mem.h"
 #include "game/core/pool.h"
@@ -20,11 +23,8 @@
 #include "game/script/struct.h"
 #include "game/script/names.h"
 #include "game/sys/game_clock.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/sys/log.h"
-#include "hook/game_code.h"
 #include "game/skater/vehicle_sound.h"
 #include "game/core/stubs.h"
 #include "game/front/screen_constants.h"
@@ -40,7 +40,7 @@ extern void** const kCPoseControllerVtable;
 extern void** const kCPartialAnimControllerVtable;
 } // namespace
 
-GAME_GLOBAL(Mem::PoolPair, g_standardPools, 0x00701430); // (CBonedAnimController; script_startup.h)
+Mem::PoolPair g_standardPools; // (CBonedAnimController; script_startup.h)
 
 namespace {
 
@@ -80,7 +80,6 @@ double X87Sin(double angle)
     }
     return result;
 }
-
 
 // The base controller.
 void BaseConstruct(CAnimController* c, CAnimTimeline* timeline) { c->CAnimController::Construct(timeline); }
@@ -683,56 +682,28 @@ void CPartialAnimController::Update()
 }
 
 namespace {
-GAME_VTABLE(kCStandardAnimControllerVtable, 0x00649F50, &CStandardAnimController::Destroy,
-            &CStandardAnimController::GetPose, Stubs::IgnoreArgument, &CStandardAnimController::CallMemberFunction,
-            &CAnimController::BaseInitFromStructure, &CStandardAnimController::Update);
-GAME_VTABLE(kCWeightedAnimControllerVtable, 0x00649F68, &CWeightedAnimController::Destroy,
-            &CWeightedAnimController::GetPose, Stubs::IgnoreArgument, &CWeightedAnimController::CallMemberFunction,
-            &CAnimController::BaseInitFromStructure, Stubs::DoNothing);
-GAME_VTABLE(kCWobbleControllerVtable, 0x00649F80, &CWobbleController::Destroy, &CWobbleController::GetPose,
-            Stubs::IgnoreArgument, &CWobbleController::CallMemberFunction, &CAnimController::BaseInitFromStructure,
-            &CWobbleController::Update);
-GAME_VTABLE(kCPoseControllerVtable, 0x00649F98, &CPoseController::Destroy, &CPoseController::GetPose,
-            Stubs::IgnoreArgument, &Obj::ComponentWithoutMemberFunctions::CallMemberFunction,
-            &CAnimController::BaseInitFromStructure, Stubs::DoNothing);
-GAME_VTABLE(kCPartialAnimControllerVtable, 0x00649FB0, &CPartialAnimController::Destroy,
-            &CPartialAnimController::GetPose, Stubs::IgnoreArgument, &CPartialAnimController::CallMemberFunction,
-            &CPartialAnimController::InitFromStructure, &CPartialAnimController::Update);
+static VtableSlot kCStandardAnimControllerVtable_slots[] = {&CStandardAnimController::Destroy,
+                &CStandardAnimController::GetPose, Stubs::IgnoreArgument, &CStandardAnimController::CallMemberFunction,
+                &CAnimController::BaseInitFromStructure, &CStandardAnimController::Update};
+void** const kCStandardAnimControllerVtable = reinterpret_cast<void**>(kCStandardAnimControllerVtable_slots);
+static VtableSlot kCWeightedAnimControllerVtable_slots[] = {&CWeightedAnimController::Destroy,
+                &CWeightedAnimController::GetPose, Stubs::IgnoreArgument, &CWeightedAnimController::CallMemberFunction,
+                &CAnimController::BaseInitFromStructure, Stubs::DoNothing};
+void** const kCWeightedAnimControllerVtable = reinterpret_cast<void**>(kCWeightedAnimControllerVtable_slots);
+static VtableSlot kCWobbleControllerVtable_slots[] = {&CWobbleController::Destroy, &CWobbleController::GetPose,
+                Stubs::IgnoreArgument, &CWobbleController::CallMemberFunction, &CAnimController::BaseInitFromStructure,
+                &CWobbleController::Update};
+void** const kCWobbleControllerVtable = reinterpret_cast<void**>(kCWobbleControllerVtable_slots);
+static VtableSlot kCPoseControllerVtable_slots[] = {&CPoseController::Destroy, &CPoseController::GetPose,
+                Stubs::IgnoreArgument, &Obj::ComponentWithoutMemberFunctions::CallMemberFunction,
+                &CAnimController::BaseInitFromStructure, Stubs::DoNothing};
+void** const kCPoseControllerVtable = reinterpret_cast<void**>(kCPoseControllerVtable_slots);
+static VtableSlot kCPartialAnimControllerVtable_slots[] = {&CPartialAnimController::Destroy,
+                &CPartialAnimController::GetPose, Stubs::IgnoreArgument, &CPartialAnimController::CallMemberFunction,
+                &CPartialAnimController::InitFromStructure, &CPartialAnimController::Update};
+void** const kCPartialAnimControllerVtable = reinterpret_cast<void**>(kCPartialAnimControllerVtable_slots);
 } // namespace
 
 } // namespace Gfx
 
 using namespace Gfx;
-
-REPLACE(0x004A4610, &CAnimController::BaseInitFromStructure);
-REPLACE(0x004A4F30, static_cast<void* (*)(size_t, int)>(&CStandardAnimController::operator new));
-REPLACE(0x004A5600, static_cast<void (*)(void*)>(&CStandardAnimController::operator delete));
-REPLACE(0x004A4500, &CStandardAnimController::Construct);
-REPLACE(0x004A4590, &CStandardAnimController::DestroyBody);
-REPLACE(0x004A55E0, &CStandardAnimController::Destroy);
-REPLACE(0x004A4F70, &CStandardAnimController::GetPose);
-REPLACE(0x004A4670, &CStandardAnimController::CallMemberFunction);
-REPLACE(0x004A4620, &CStandardAnimController::Update);
-REPLACE(0x004A5010, &CWeightedAnimController::Construct);
-REPLACE(0x004A4820, &CWeightedAnimController::DestroyBody);
-REPLACE(0x004A50B0, &CWeightedAnimController::Destroy);
-REPLACE(0x004A5660, &CWeightedAnimController::GetPose);
-REPLACE(0x004A4890, &CWeightedAnimController::CallMemberFunction);
-REPLACE(0x004A49F0, &CWobbleController::Construct);
-REPLACE(0x004A4A80, &CWobbleController::DestroyBody);
-REPLACE(0x004A50E0, &CWobbleController::Destroy);
-REPLACE(0x004A5110, &CWobbleController::GetPose);
-REPLACE(0x004A4AF0, &CWobbleController::CallMemberFunction);
-REPLACE(0x004A5180, &CWobbleController::WobbleTime);
-REPLACE(0x004A52E0, &CWobbleController::Update);
-REPLACE(0x004A5730, &CPoseController::Construct);
-REPLACE(0x004A4D20, &CPoseController::DestroyBody);
-REPLACE(0x004A5320, &CPoseController::Destroy);
-REPLACE(0x004A4D30, &CPoseController::GetPose);
-REPLACE(0x004A5350, &CPartialAnimController::Construct);
-REPLACE(0x004A4D50, &CPartialAnimController::DestroyBody);
-REPLACE(0x004A5400, &CPartialAnimController::Destroy);
-REPLACE(0x004A5430, &CPartialAnimController::GetPose);
-REPLACE(0x004A4DD0, &CPartialAnimController::InitFromStructure);
-REPLACE(0x004A54A0, &CPartialAnimController::CallMemberFunction);
-REPLACE(0x004A4EF0, &CPartialAnimController::Update);

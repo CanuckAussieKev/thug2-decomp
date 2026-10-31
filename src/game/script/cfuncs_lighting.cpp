@@ -17,8 +17,6 @@
 #include "game/gfx/light_manager.h"
 #include "game/gfx/sector.h"
 #include "game/sys/game_config.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/gfx/settings.h"
 
 namespace CFuncs {
@@ -368,25 +366,3 @@ bool __cdecl CFunc_ToggleRenderMode(CStruct*, CScript*)
 }
 
 } // namespace CFuncs
-
-REPLACE(0x00445B50, CFuncs::CFunc_HideLensFlare);
-REPLACE(0x00445B70, CFuncs::CFunc_UnhideLensFlare);
-REPLACE(0x00445B90, CFuncs::CFunc_GetTerrainTypeParam);
-REPLACE(0x00445C50, CFuncs::CFunc_SetSunProps);
-REPLACE(0x00445D50, CFuncs::CFunc_SetProgressive);
-REPLACE(0x00445D90, CFuncs::CFunc_SetColorBufferClear);
-REPLACE(0x00445DD0, CFuncs::WriteGamma);
-REPLACE(0x00445E60, CFuncs::CFunc_ApplyChangeGamma);
-REPLACE(0x00446000, CFuncs::CFunc_SetDynamicLightModulationFactor);
-REPLACE(0x004460B0, CFuncs::CFunc_EnableFog);
-REPLACE(0x004460D0, CFuncs::CFunc_DisableFog);
-REPLACE(0x004460F0, CFuncs::CFunc_SetFogExponent);
-REPLACE(0x00446130, CFuncs::CFunc_VCWibblePlayFromKeyframe);
-REPLACE(0x004461D0, CFuncs::CFunc_SetUVWibbleParams);
-REPLACE(0x004462D0, CFuncs::CFunc_EnableExplicitUVWibble);
-REPLACE(0x00446300, CFuncs::CFunc_DisableExplicitUVWibble);
-REPLACE(0x00446330, CFuncs::CFunc_SetUVWibbleOffsets);
-REPLACE(0x004463A0, CFuncs::CFunc_ResetTextureAnim);
-REPLACE(0x004463D0, CFuncs::CFunc_StartTextureAnim);
-REPLACE(0x00446420, CFuncs::CFunc_StopTextureAnim);
-REPLACE(0x00446450, CFuncs::CFunc_ToggleRenderMode);

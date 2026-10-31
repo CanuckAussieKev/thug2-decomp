@@ -3,6 +3,7 @@
 
 #include "game/net/net_messages.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
@@ -10,23 +11,31 @@
 #include "game/net/net_access_c.h"
 #include "game/net/net_app_view.h"
 #include "game/net/net_compress.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Net {
 
 // The queue links' and app lists' vtables (each holds only the scalar deleting destructor).
-GAME_VTABLE(kStreamLinkNodeVtable, 0x006474C8, &Net::StreamLinkNode::Destroy);
-GAME_VTABLE(kMsgNormalNodeVtable, 0x006474CC, &Net::MsgNormalNode::Destroy);
-GAME_VTABLE(kMsgImpNodeVtable, 0x006474D0, &Net::MsgImpNode::Destroy);
-GAME_VTABLE(kMsgSeqNodeVtable, 0x006474D4, &Net::MsgSeqNode::Destroy);
-GAME_VTABLE(kAppListNodeVtable, 0x006474D8, &Net::AppNode::Destroy);
-GAME_VTABLE(kAppListHeadVtable, 0x00647544, &Net::AppNode::DestroyHead);
-GAME_VTABLE(kMsgNormalLinkVtable, 0x00647578, &Net::MsgNormalLink::Destroy);
-GAME_VTABLE(kMsgImpLinkVtable, 0x0064757C, &Net::MsgImpLink::Destroy);
-GAME_VTABLE(kMsgSeqLinkVtable, 0x00647580, &Net::MsgSeqLink::Destroy);
-GAME_VTABLE(kStreamLinkVtable, 0x00647584, &Net::StreamLink::Destroy);
+static VtableSlot kStreamLinkNodeVtable_slots[] = {&Net::StreamLinkNode::Destroy};
+void** const kStreamLinkNodeVtable = reinterpret_cast<void**>(kStreamLinkNodeVtable_slots);
+static VtableSlot kMsgNormalNodeVtable_slots[] = {&Net::MsgNormalNode::Destroy};
+void** const kMsgNormalNodeVtable = reinterpret_cast<void**>(kMsgNormalNodeVtable_slots);
+static VtableSlot kMsgImpNodeVtable_slots[] = {&Net::MsgImpNode::Destroy};
+void** const kMsgImpNodeVtable = reinterpret_cast<void**>(kMsgImpNodeVtable_slots);
+static VtableSlot kMsgSeqNodeVtable_slots[] = {&Net::MsgSeqNode::Destroy};
+void** const kMsgSeqNodeVtable = reinterpret_cast<void**>(kMsgSeqNodeVtable_slots);
+static VtableSlot kAppListNodeVtable_slots[] = {&Net::AppNode::Destroy};
+void** const kAppListNodeVtable = reinterpret_cast<void**>(kAppListNodeVtable_slots);
+static VtableSlot kAppListHeadVtable_slots[] = {&Net::AppNode::DestroyHead};
+void** const kAppListHeadVtable = reinterpret_cast<void**>(kAppListHeadVtable_slots);
+static VtableSlot kMsgNormalLinkVtable_slots[] = {&Net::MsgNormalLink::Destroy};
+void** const kMsgNormalLinkVtable = reinterpret_cast<void**>(kMsgNormalLinkVtable_slots);
+static VtableSlot kMsgImpLinkVtable_slots[] = {&Net::MsgImpLink::Destroy};
+void** const kMsgImpLinkVtable = reinterpret_cast<void**>(kMsgImpLinkVtable_slots);
+static VtableSlot kMsgSeqLinkVtable_slots[] = {&Net::MsgSeqLink::Destroy};
+void** const kMsgSeqLinkVtable = reinterpret_cast<void**>(kMsgSeqLinkVtable_slots);
+static VtableSlot kStreamLinkVtable_slots[] = {&Net::StreamLink::Destroy};
+void** const kStreamLinkVtable = reinterpret_cast<void**>(kStreamLinkVtable_slots);
 
 namespace {
 
@@ -238,22 +247,3 @@ AppNode* AppNode::DestroyHead(unsigned int flags)
 }
 
 } // namespace Net
-
-REPLACE(0x00454FA0, &Net::QueuedMsg::Construct);
-REPLACE(0x00455040, &Net::SeqQueuedMsg::Construct);
-REPLACE(0x004550F0, &Net::QueuedMsg::DestroyBody);
-REPLACE(0x004555F0, &Net::MsgNormalLink::Construct);
-REPLACE(0x00455620, &Net::MsgImpLink::Construct);
-REPLACE(0x00455650, &Net::MsgSeqLink::Construct);
-REPLACE(0x00455680, &Net::StreamLink::Construct);
-REPLACE(0x004557C0, &Net::MsgNormalLink::Destroy);
-REPLACE(0x004557F0, &Net::MsgImpLink::Destroy);
-REPLACE(0x00455820, &Net::MsgSeqLink::Destroy);
-REPLACE(0x00455850, &Net::StreamLink::Destroy);
-REPLACE(0x00455130, &Net::StreamLinkNode::Destroy);
-REPLACE(0x00455170, &Net::MsgNormalNode::Destroy);
-REPLACE(0x004551B0, &Net::MsgImpNode::Destroy);
-REPLACE(0x004551F0, &Net::MsgSeqNode::Destroy);
-REPLACE(0x00455110, &Net::AppNode::DestroyBody);
-REPLACE(0x00455230, &Net::AppNode::Destroy);
-REPLACE(0x004556B0, &Net::AppNode::DestroyHead);

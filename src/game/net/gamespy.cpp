@@ -1,6 +1,6 @@
-// The GameSpy SDK in the standalone build: IGN's open-source release (December 2007; BSD-3, see
+// The GameSpy SDK: IGN's open-source release (December 2007; BSD-3, see
 // THIRD_PARTY_NOTICES.md), adapted to the calls the game makes (gamespy.h; what differs from the SDK version the game
-// was built with: docs/gamespy.md). The hooked build calls the exe's own copy (gamespy.h): only FixNick is built there.
+// was built with: docs/gamespy.md).
 
 #include "game/net/gamespy.h"
 
@@ -22,7 +22,6 @@ void FixNick(char* newNick, const char* oldNick)
 
 } // namespace GameSpy
 
-#ifdef THUG2_STANDALONE
 
 #pragma warning(push)
 #pragma warning(disable : 4005) // (gsPlatform.h defines WIN32_LEAN_AND_MEAN again)
@@ -128,7 +127,7 @@ void SetOnlineDomain(const char* domain)
     constexpr size_t kPtaUrlSize = 2048; // (PTA_MAX_STRING_SIZE)
     std::snprintf(gPTAMOTDURL, kPtaUrlSize, "http://motd.%s/motd/motd.asp", s_domain);
     std::snprintf(gPTAVercheckURL, kPtaUrlSize, "http://motd.%s/motd/vercheck.asp", s_domain);
-    // (gcd_hostname stays the SDK's key.gamespy.com, as in the hooked build: the game never changed it)
+    // (gcd_hostname stays the SDK's key.gamespy.com: the game never changed it)
 }
 
 // --- CD key ---
@@ -453,4 +452,3 @@ void SetPlayerStringBucket(void* game, const char* key, const char* value, int p
 
 } // namespace GameSpy
 
-#endif // THUG2_STANDALONE

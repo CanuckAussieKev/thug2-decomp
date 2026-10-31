@@ -3,6 +3,8 @@
 
 #include "game/gfx/face_texture.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
@@ -11,9 +13,6 @@
 #include "game/file/pip.h"
 #include "game/gfx/texture_dict.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Gfx {
 
@@ -38,9 +37,9 @@ constexpr uint32_t kFacePoints = 0xAC3CD84C; // face_points
 constexpr uint32_t kNoPaletteGen = 0x5905256B; // no_palette_gen
 constexpr uint32_t kNoColour = 0x80808080;
 
-GAME_GLOBAL(SFacePoints, g_defaultFacePoints, 0x0067DC14, {49, 54}, {76, 54}, {64, 75}, {64, 89}, false, {0, 0, 0}, 0.0f, 1.0f, 1.0f, 128, 128);
-GAME_GLOBAL(SFacePoints, g_modelFacePoints, 0x0067DC4C, {49, 54}, {76, 54}, {64, 75}, {64, 89}, false, {0, 0, 0}, 0.0f, 1.0f, 1.0f, 128, 128);
-GAME_GLOBAL(Nx::CTexture*, g_faceOverlay, 0x006FA2EC);
+SFacePoints g_defaultFacePoints{{49, 54}, {76, 54}, {64, 75}, {64, 89}, false, {0, 0, 0}, 0.0f, 1.0f, 1.0f, 128, 128};
+SFacePoints g_modelFacePoints{{49, 54}, {76, 54}, {64, 75}, {64, 89}, false, {0, 0, 0}, 0.0f, 1.0f, 1.0f, 128, 128};
+Nx::CTexture* g_faceOverlay;
 
 SFacePoints& DefaultFacePoints() { return g_defaultFacePoints; }
 SFacePoints& ModelFacePoints() { return g_modelFacePoints; }
@@ -426,31 +425,3 @@ bool __cdecl CFunc_MassageFaceTexture(CStruct* params, Script::CScript*)
 }
 
 } // namespace CFuncs
-
-REPLACE(0x00486980, Gfx::GetDefaultFacePoints);
-REPLACE(0x004869A0, Gfx::SetModelFacePoints);
-REPLACE(0x004869C0, Gfx::SetFaceOverlay);
-REPLACE(0x004869D0, Gfx::ReadFacePoints);
-REPLACE(0x00487000, Gfx::WriteFacePoints);
-REPLACE(0x00486C40, Gfx::FitFaceTexture);
-REPLACE(0x00486F70, Gfx::MassageFaceTexture);
-REPLACE(0x004875C0, &Gfx::CFaceTexture::Construct);
-REPLACE(0x00487380, &Gfx::CFaceTexture::LoadImageFile);
-REPLACE(0x00487420, &Gfx::CFaceTexture::SetImage);
-REPLACE(0x00487440, &Gfx::CFaceTexture::WriteTo);
-REPLACE(0x004874B0, &Gfx::CFaceTexture::ReadFrom);
-REPLACE_SOURCE_ONLY(0x00487510, &Gfx::CFaceTexture::IsValid); // 3 bytes
-REPLACE(0x00487520, &Gfx::CFaceTexture::SetValid);
-REPLACE_SOURCE_ONLY(0x00487530, &Gfx::CFaceTexture::GetImage); // 4 bytes
-REPLACE(0x00487540, &Gfx::CFaceTexture::GetImageSize);
-REPLACE(0x00487550, &Gfx::CFaceTexture::GetPoints);
-REPLACE(0x00487570, &Gfx::CFaceTexture::SetPoints);
-REPLACE(0x00487590, &Gfx::CFaceTexture::SetOverlayName);
-REPLACE(0x004875B0, &Gfx::CFaceTexture::GetOverlayName);
-REPLACE(0x004875F0, &Gfx::CFaceTexture::LoadFromStructure);
-REPLACE(0x00487680, &Gfx::CFaceTexture::SaveToStructure);
-REPLACE(0x00486B70, CFuncs::CFunc_SetModelFaceTexturePoints);
-REPLACE(0x00486BC0, CFuncs::CFunc_SetFaceMassageTextureOverlay);
-REPLACE(0x00486BF0, CFuncs::CFunc_CombineFaceTextureWithOverlay);
-REPLACE(0x00486EE0, CFuncs::CFunc_AdjustFaceTextureToModel);
-REPLACE(0x004872D0, CFuncs::CFunc_MassageFaceTexture);

@@ -9,7 +9,6 @@
 
 #include "game/core/alloc.h"
 #include "game/file/async.h"
-#include "hook/hook.h"
 
 namespace Stubs {
 
@@ -59,29 +58,3 @@ int __stdcall ReturnZero6(int, int, int, int, int, int) { return 0; }
 uint16_t ReturnZeroWord() { return 0; }
 
 } // namespace Stubs
-
-REPLACE_SOURCE_ONLY(0x005B9760, Stubs::ReturnTrue);         // 3 bytes
-REPLACE_SOURCE_ONLY(0x005B6570, Stubs::ReturnTrue);         // a jump to 0x005B9760
-REPLACE_SOURCE_ONLY(0x005B9E50, Stubs::ReturnFalse);        // 3 bytes
-REPLACE_SOURCE_ONLY(0x004504F0, Stubs::ReturnFalse);        // a jump to 0x005B9E50
-REPLACE_SOURCE_ONLY(0x005BA1D0, Stubs::ReturnZero);         // 3 bytes
-REPLACE_SOURCE_ONLY(0x0047AE10, Stubs::ReturnZero);         // a jump to 0x005BA1D0
-REPLACE_SOURCE_ONLY(0x005480A0, Stubs::DoNothing);          // 1 byte
-REPLACE_SOURCE_ONLY(0x0048C1B0, Stubs::DoNothing);          // a jump to 0x005480A0
-REPLACE_SOURCE_ONLY(0x005BAB90, Stubs::IgnoreArgument);     // 3 bytes
-REPLACE_SOURCE_ONLY(0x0048DCD0, Stubs::IgnoreArguments2);   // 3 bytes
-REPLACE_SOURCE_ONLY(0x0048D090, Stubs::IgnoreArguments3);   // 3 bytes
-REPLACE(0x0048DD50, Stubs::ReturnTrue2);
-REPLACE(0x0049F4B0, Stubs::ReturnFalse1);
-REPLACE(0x0049F470, Stubs::ReturnFalse2);
-REPLACE(0x0049F450, Stubs::ReturnFalse4);
-REPLACE(0x0049F440, Stubs::ReturnFalse5);
-REPLACE(0x0049F430, Stubs::ReturnFalse7);
-REPLACE(0x0049F4A0, Stubs::ReturnZero1);
-REPLACE(0x0049F4C0, Stubs::ReturnZero2);
-REPLACE(0x0049F480, Stubs::ReturnZero3);
-REPLACE(0x0049F490, Stubs::ReturnZero6);
-REPLACE_SOURCE_ONLY(0x0049F460, Stubs::ReturnZeroWord);     // 4 bytes
-REPLACE_SOURCE_ONLY(0x005144C0, Stubs::IgnoreArgument);     // a jump to 0x005BAB90
-REPLACE_SOURCE_ONLY(0x005B9DF0, File::AsyncInit);           // a jump to 0x005B6560
-REPLACE_SOURCE_ONLY(0x005BA590, &Mem::Allocator::DestroyBody); // a jump to 0x005BA140

@@ -9,6 +9,8 @@
 #include <windows.h>
 #include <dinput.h>
 
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -31,16 +33,12 @@
 #include "game/pcm/music_api.h"
 #include "game/script/cscript.h"
 #include "game/sio/sdl_input.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/game_vtables.h"
 #include "game/gfx/movie.h"
 #include "game/obj/cutscene.h"
 #include "game/ed/park_editor.h"
 #include "game/front/screen_element_manager.h"
-
 
 namespace Sio {
 
@@ -234,17 +232,17 @@ void Device::StopActuators()
 namespace {
 IDirectInputDevice8A*& KeyboardDevice() { return Platform::g_keyboardDevice; }
 
-GAME_GLOBAL(int, g_keyboardBuffer, 0x00684FC4, 2);
-GAME_GLOBAL(uint32_t, g_managerReferences, 0x007D1E24);
-GAME_GLOBAL(uint32_t, g_keyboardCharCount, 0x007D1E28);
+int g_keyboardBuffer{2};
+uint32_t g_managerReferences;
+uint32_t g_keyboardCharCount;
 
 // Which of the two state buffers is current (2 at start: clear both first).
 int& KeyboardBuffer() { return g_keyboardBuffer; }
 
-GAME_GLOBAL(char[256], g_keyNameResult, 0x007D19D8);
-GAME_GLOBAL(char[256], g_nameBuffer, 0x007D1AD8);
-GAME_GLOBAL(int[16], g_keyboardChars, 0x007D1BE0);
-GAME_GLOBAL(uint8_t[2][256], g_keyboardState, 0x007D1C20);
+char g_keyNameResult[256];
+char g_nameBuffer[256];
+int g_keyboardChars[16];
+uint8_t g_keyboardState[2][256];
 
 uint8_t (&KeyboardState())[2][256] { return g_keyboardState; }
 uint32_t& KeyboardCharCount() { return g_keyboardCharCount; }
@@ -286,7 +284,7 @@ void ClearKeyboardChars() { KeyboardCharCount() = 0; }
 
 // --- the manager's lifetime --------------------------------------------------------------------------------
 
-GAME_GLOBAL(Manager*, g_manager, 0x007D1E20);
+Manager* g_manager;
 
 Manager*& ManagerInstance() { return g_manager; }
 
@@ -543,7 +541,7 @@ void PumpWindowMessages() { Platform::ProcessWindowEvents(); }
 void ReadPadState(int port, PadState* state) { Platform::ReadPad(port + 1, state); }
 bool KeyDown(int code) { return Platform::KeyDown(code); }
 // The port the front end is taking input from (a getter, 0x00553E90, on the object at 0x007CE4B4).
-int MenuPort() { return reinterpret_cast<int(__thiscall*)(void*)>(GAME_CODE(0x00553E90, &Game::CGoal::GetParams))(reinterpret_cast<void*>(Obj::g_profileManager)); }
+int MenuPort() { return reinterpret_cast<int(__thiscall*)(void*)>(CodeAddress(&Game::CGoal::GetParams))(reinterpret_cast<void*>(Obj::g_profileManager)); }
 
 uint8_t IfAbove(uint8_t value, uint8_t threshold, uint8_t bit) { return value > threshold ? bit : 0; }
 uint8_t PressureOrZero(uint8_t value) { return value > 0x20 ? value : 0; }
@@ -859,8 +857,10 @@ void ReleaseManager()
 }
 
 namespace {
-GAME_VTABLE(kDeviceVtable, 0x00658A6C, &Sio::Device::Destroy);
-GAME_VTABLE(kManagerVtable, 0x00658AD4, &Sio::Manager::Destroy);
+static VtableSlot kDeviceVtable_slots[] = {&Sio::Device::Destroy};
+void** const kDeviceVtable = reinterpret_cast<void**>(kDeviceVtable_slots);
+static VtableSlot kManagerVtable_slots[] = {&Sio::Manager::Destroy};
+void** const kManagerVtable = reinterpret_cast<void**>(kManagerVtable_slots);
 } // namespace
 
 } // namespace Sio
@@ -876,41 +876,6 @@ struct DeviceAdapter {
 } // namespace
 
 namespace Vt {
-GAME_VTABLE(kDeviceNode, 0x00658A70, &DeviceAdapter::DestroyNode);
+static VtableSlot kDeviceNode_slots[] = {&DeviceAdapter::DestroyNode};
+void** const kDeviceNode = reinterpret_cast<void**>(kDeviceNode_slots);
 } // namespace Vt
-
-REPLACE(0x005BD920, &DeviceAdapter::Construct);
-REPLACE(0x005BCD00, &Sio::Device::Destroy);
-REPLACE(0x005BDCC0, &Sio::Device::Process);
-REPLACE(0x005BCC60, &Sio::Device::IsPluggedIn);
-REPLACE(0x005BCC70, &Sio::Device::Acquire);
-REPLACE(0x005BD8B0, &Sio::Device::Detect);
-REPLACE(0x005BCCC0, &Sio::Device::Settle);
-REPLACE(0x005BDA20, &Sio::Device::ActivateActuator);
-REPLACE(0x005BD200, &Sio::Device::ReadData); // (not run with PartyMod) // (PartyMod's patch inside it is past our jump)
-REPLACE(0x005BCCB0, &Sio::Device::EnableActuators);
-REPLACE(0x005BDAD0, &Sio::Device::DisableActuators);
-REPLACE(0x005BDB30, &Sio::Device::ResetActuators);
-REPLACE(0x005BDB60, &Sio::Device::PauseActuators);
-REPLACE(0x005BDBD0, &Sio::Device::UnpauseActuators);
-REPLACE(0x005BDC60, &Sio::Device::StopActuators);
-REPLACE(0x005BDD60, Sio::ReadKeyboard);
-REPLACE(0x005BDD30, Sio::GetKeyboardChars);
-REPLACE_SOURCE_ONLY(0x005BCC40, Sio::GetKeyboardChars); // a jump to 0x005BDD30
-REPLACE(0x005BDE20, Sio::ClearKeyboardChars);
-REPLACE_SOURCE_ONLY(0x005BCC50, Sio::ClearKeyboardChars); // a jump to 0x005BDE20
-REPLACE(0x005BE670, Sio::CreateManager);
-REPLACE(0x005BDCF0, Sio::ReleaseManager);
-REPLACE(0x005BDE70, Sio::KeyInput);
-REPLACE(0x005BDF30, Sio::SpecialKeyInput);
-REPLACE(0x005BCD50, Sio::GetButtonKeyName);
-REPLACE(0x005BE1F0, &DeviceAdapter::ConstructManager);
-REPLACE(0x005BE300, &Sio::Manager::DestroyBody);
-REPLACE(0x005BE6C0, &Sio::Manager::Destroy);
-REPLACE(0x005BE140, Sio::ProcessTask);
-REPLACE(0x005BE3F0, &Sio::Manager::ProcessDevices);
-REPLACE(0x005BE490, &Sio::Manager::GetDevice);
-REPLACE(0x005BE4F0, &Sio::Manager::GetDeviceByIndex);
-REPLACE(0x005BE550, &Sio::Manager::PauseDevices);
-REPLACE(0x005BE5E0, &Sio::Manager::UnpauseDevices);
-REPLACE(0x005BE110, &DeviceAdapter::DestroyNode);

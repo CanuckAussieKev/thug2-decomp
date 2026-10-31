@@ -6,8 +6,6 @@
 #include "game/core/manager.h"
 #include "game/gfx/pc_particles.h"
 #include "game/script/cscript.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/core/game_vtables.h"
 
 namespace Nx {
@@ -115,16 +113,3 @@ void CPcParticleSystem::SetColourMidPercent(float percent)
 }
 
 } // namespace Nx
-
-REPLACE(0x00494DF0, &Nx::CPcParticleSystem::EngineDestroyBody);
-REPLACE(0x00495230, &Nx::CPcParticleSystem::EngineDestroy);
-REPLACE(0x00494E00, &Nx::CPcParticleSystem::EngineRender);
-REPLACE(0x00494E20, &Nx::CPcParticleSystem::EngineUpdate);
-REPLACE(0x00494E40, &Nx::CPcParticleSystem::EngineRelease);
-REPLACE(0x00494E70, &Nx::CPcParticleSystem::Hide);
-REPLACE(0x00494E90, &Nx::CPcParticleSystem::SetRate);
-REPLACE(0x00494EA0, &Nx::CPcParticleSystem::SetLifetime);
-REPLACE(0x00494EB0, &Nx::CPcParticleSystem::SetSize);
-REPLACE(0x00494EC0, &Nx::CPcParticleSystem::SetColour);
-REPLACE(0x00494EE0, &Nx::CPcParticleSystem::SetValue38);
-REPLACE(0x00494EF0, &Nx::CPcParticleSystem::SetColourMidPercent);

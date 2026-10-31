@@ -1,20 +1,19 @@
 #include "game/file/asset_bundle.h"
 
+#include <cstdint>
 #include <cstring>
 #include <new>
 
 #include "game/core/mem.h"
 #include "game/file/async.h"
 #include "game/file/pip.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace File {
 
 namespace {
 extern void** const kAssetBundleVtable;
 } // namespace
-
 
 // 0x005B6CF0
 AssetBundle::AssetBundle()
@@ -169,7 +168,8 @@ bool AssetBundle::FreeAsset(uint32_t name, uint32_t type)
 }
 
 namespace {
-GAME_VTABLE(kAssetBundleVtable, 0x0065822C, &File::AssetBundle::Destroy);
+static VtableSlot kAssetBundleVtable_slots[] = {&File::AssetBundle::Destroy};
+void** const kAssetBundleVtable = reinterpret_cast<void**>(kAssetBundleVtable_slots);
 } // namespace
 
 } // namespace File
@@ -182,16 +182,3 @@ struct AssetBundleAdapter {
 };
 
 } // namespace
-
-REPLACE(0x005B6CF0, &AssetBundleAdapter::Construct);
-REPLACE(0x005B6EA0, &File::AssetBundle::Destroy);
-REPLACE(0x005B6D30, &File::AssetBundle::SetHeaps);
-REPLACE(0x005B7090, &File::AssetBundle::Load);
-REPLACE(0x005B6EF0, &File::AssetBundle::Split);
-REPLACE(0x005B6D50, &File::AssetBundle::IsLoaded);
-REPLACE(0x005B6D60, &File::AssetBundle::GetAsset);
-REPLACE(0x005B6D70, &File::AssetBundle::GetEntry);
-REPLACE(0x005B6D80, &File::AssetBundle::FindEntry);
-REPLACE(0x005B6DC0, &File::AssetBundle::FindAsset);
-REPLACE(0x005B6E60, &File::AssetBundle::HasAsset);
-REPLACE(0x005B6E00, &File::AssetBundle::FreeAsset);

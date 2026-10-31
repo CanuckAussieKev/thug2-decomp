@@ -2,10 +2,10 @@
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
 #include "game/pcm/music.h"
-#include "hook/game_code.h"
 
 #include <windows.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -21,27 +21,24 @@
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
 #include "game/sys/game_config.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Pcm {
 
-GAME_GLOBAL(bool, g_musicHeaderLoaded, 0x0067D7E0, true);
-GAME_GLOBAL(bool, g_streamsOn, 0x0067D7E1, true);
-GAME_GLOBAL(float, g_musicVolume, 0x0067D7E4, 50.0f);
-GAME_GLOBAL(float, g_musicStreamVolume, 0x0067D7E8, 100.0f);
-GAME_GLOBAL(int, g_musicStreamType, 0x0069BAAC);
-GAME_GLOBAL(bool, g_shuffleUser, 0x0069BABC);
-GAME_GLOBAL(void*, g_soundDevice, 0x007D6A38);
-GAME_GLOBAL(Playlist[2], g_playlists, 0x00698098);       // (the music's two playlists; 0 is the game's, 1 the script's)
-GAME_GLOBAL(char[80][100], g_trackTitles, 0x006999F8);
-GAME_GLOBAL(Stream[3], g_streams, 0x0069B938);
-GAME_GLOBAL(void*[3], g_streamOwners, 0x00698060);
-GAME_GLOBAL(int[600], g_userOrder, 0x00697700);
-GAME_GLOBAL(int[600], g_trackOrder, 0x00696DA0);          // the shuffled order (the word before it, 0x00696D9C, is read once)
-GAME_GLOBAL(char[44], g_specialTrack, 0x0069806C);
-GAME_GLOBAL(char[100], g_soundtrackName, 0x00701590);
+bool g_musicHeaderLoaded{true};
+bool g_streamsOn{true};
+float g_musicVolume{50.0f};
+float g_musicStreamVolume{100.0f};
+int g_musicStreamType;
+bool g_shuffleUser;
+void* g_soundDevice;
+Playlist g_playlists[2];       // (the music's two playlists; 0 is the game's, 1 the script's)
+char g_trackTitles[80][100];
+Stream g_streams[3];
+void* g_streamOwners[3];
+int g_userOrder[600];
+int g_trackOrder[600];          // the shuffled order (the word before it, 0x00696D9C, is read once)
+char g_specialTrack[44];
+char g_soundtrackName[100];
 
 namespace {
 
@@ -50,14 +47,14 @@ int& CurrentPlaylist() { return g_currentPlaylist; }
 // The track playing (40 bytes, just before the playlists) and whether it loops (SetMusicLooping).
 void* SpecialTrack() { return g_specialTrack; }
 
-GAME_GLOBAL(uint8_t, g_randomOrder, 0x0067D7EC, 1);
-GAME_GLOBAL(bool, g_reshuffle, 0x0067D7F4, true);
-GAME_GLOBAL(int, g_orderCount, 0x0067D7F8, 1);
-GAME_GLOBAL(bool, g_looping, 0x0069BAA0);
-GAME_GLOBAL(int, g_clearedByClearPlaylist, 0x0069BAA4);
-GAME_GLOBAL(bool, g_musicPaused, 0x0069BAA8);
-GAME_GLOBAL(int, g_orderPosition, 0x0069BAC4);
-GAME_GLOBAL(bool, g_musicPausedBefore, 0x0069CAD0);
+uint8_t g_randomOrder{1};
+bool g_reshuffle{true};
+int g_orderCount{1};
+bool g_looping;
+int g_clearedByClearPlaylist;
+bool g_musicPaused;
+int g_orderPosition;
+bool g_musicPausedBefore;
 
 bool& Looping() { return g_looping; }
 int& CurrentTrack() { return g_currentTrackIndex; }
@@ -225,7 +222,7 @@ void __cdecl AddTrackToPlaylist(const char* name, int list, const char* title)
             std::strncpy(slot, title, 100);
             slot[99] = 0;
         } else {
-            std::memcpy(slot, GAME_TEXT(0x006472FC, "No title provided"), 18); // "No title provided"
+            std::memcpy(slot, "No title provided", 18); // "No title provided"
         }
     }
     if (FileThere(track, 1)) {
@@ -302,7 +299,7 @@ const char* __cdecl GetTrackName(int track, int list)
 {
     if (!MusicOn()) {
         char* first = reinterpret_cast<char*>(Playlists()[0].tracks[0]);
-        std::memcpy(first, GAME_TEXT(0x00647310, "Empty."), 7); // "Empty."
+        std::memcpy(first, "Empty.", 7); // "Empty."
         return first;
     }
     const char* name = reinterpret_cast<const char*>(Playlists()[list].tracks[track]);
@@ -428,7 +425,7 @@ void __cdecl PlayNextTrack()
     int position;
     if (Reshuffle()) {
         // (an empty order: the original reads the word before it, which is the movie frame dump counter - by name
-        // here, as the standalone build's globals aren't laid out as the original's)
+        // here, as our globals aren't laid out as the original's)
         int last = OrderCount() > 0 ? Order()[OrderCount() - 1] : Nx::g_movieDumpCount;
         OrderCount() = 0;
         int count = 0;
@@ -436,7 +433,7 @@ void __cdecl PlayNextTrack()
             if (!IsOff(list, track))
                 Order()[count++] = track;
         OrderCount() = count;
-        Dbg::Printf(GAME_TEXT(0x00647318, "shuffling random song order num_songs=%i\n"), count); // "shuffling random song order num_songs=%i\n"
+        Dbg::Printf("shuffling random song order num_songs=%i\n", count); // "shuffling random song order num_songs=%i\n"
         // 2000 swaps of two random places. PartyMod draws them with ShuffleRandom; the original with
         // Mth::Rnd(OrderCount()).
         for (int i = 0; i < 2000; ++i) {
@@ -705,42 +702,3 @@ void __cdecl SetUserSoundtrackVolume(float volume)
 }
 
 } // namespace Pcm
-
-REPLACE(0x00452200, Pcm::PlayNextTrack);
-REPLACE(0x00452680, Pcm::PlayNextTrackInOrder);
-REPLACE(0x00452910, Pcm::Update);
-REPLACE(0x00450220, Pcm::StreamIdFinished);
-REPLACE(0x00450260, Pcm::FindPlayingStream);
-REPLACE(0x004502D0, Pcm::FreeStreamId);
-REPLACE(0x00450310, Pcm::ShuffleUserSoundtrack);
-REPLACE(0x004503D0, Pcm::UseUserSoundtrack);
-REPLACE(0x00450410, Pcm::UseStandardSoundtrack);
-REPLACE_SOURCE_ONLY(0x00450420, Pcm::StopUserSoundtrack); // a jump to 0x004531A0
-REPLACE(0x00450430, Pcm::MusicIsPaused);
-REPLACE_SOURCE_ONLY(0x0044D680, Pcm::MusicIsPaused); // the CFunction MusicIsPaused: a jump to 0x00450430 (its arguments unused)
-REPLACE(0x00450440, Pcm::GetMusicVolume);
-REPLACE(0x00450450, Pcm::GetSfxVolume);
-REPLACE(0x00450460, Pcm::RandomTrackOrder);
-REPLACE(0x00450470, Pcm::SetMusicLooping);
-REPLACE(0x00450480, Pcm::GetTracksOff);
-REPLACE(0x004504B0, Pcm::SetTracksOff);
-REPLACE(0x004504E0, Pcm::SetUserSoundtrackVolume);
-REPLACE_SOURCE_ONLY(0x004B2350, Pcm::GetNumSoundtracks); // a jump to 0x004542D0
-REPLACE_SOURCE_ONLY(0x0048C150, Pcm::GetNumSoundtracks); // a jump to 0x004B2350
-REPLACE(0x004B2360, Pcm::GetSoundtrackName);
-REPLACE_SOURCE_ONLY(0x0048C160, Pcm::GetSoundtrackName); // a jump to 0x004B2360
-REPLACE(0x00450F70, Pcm::PauseMusic);
-REPLACE(0x004510B0, Pcm::SetMusicVolume);
-REPLACE(0x00451130, Pcm::SetMusicStreamVolume);
-REPLACE(0x004511A0, Pcm::AddTrackToPlaylist);
-REPLACE(0x004512D0, Pcm::ClearPlaylist);
-REPLACE(0x00451350, Pcm::SkipMusicTrack);
-REPLACE(0x00451380, Pcm::SetRandomMode);
-REPLACE(0x00451400, Pcm::ApplyTrackVolume);
-REPLACE(0x00451450, Pcm::IsTrackPlaying);
-REPLACE(0x004514C0, Pcm::GetNumTracks);
-REPLACE(0x00451500, Pcm::GetTrackName);
-REPLACE(0x004515A0, Pcm::SetMusicMode);
-REPLACE(0x004515E0, Pcm::LoadMusicHeader);
-REPLACE(0x00451C70, Pcm::ChangeTrackState);
-REPLACE(0x004520D0, Pcm::PlayTrack);

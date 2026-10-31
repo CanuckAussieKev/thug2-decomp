@@ -8,6 +8,7 @@
 #include <d3d9.h>
 
 #include <bit>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
@@ -23,10 +24,7 @@
 #include "game/mth/vector.h"
 #include "game/mth/x87_math.h"
 #include "game/nx/feeler.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/gfx/device.h"
 
 namespace Nx {
@@ -35,7 +33,7 @@ namespace Nx {
 // columns' height indices (a 16-bit offset into them).
 // (the grid, then the rows' spans and their columns - no fixed bound: all the bytes up to the next thing the original
 // refers to, 0x00775B58)
-GAME_GLOBAL(uint8_t[0x11828], g_weatherGrid, 0x00764330);
+uint8_t g_weatherGrid[0x11828];
 
 namespace {
 
@@ -570,22 +568,10 @@ void CPcWeather::UpdateGrid()
 }
 
 namespace {
-GAME_VTABLE(kWeatherVtable, 0x0064A860, &Nx::CPcWeather::Destroy, &Nx::CPcWeather::UpdateGrid,
-            &Nx::CPcWeather::Update, &Nx::CPcWeather::Render, &Nx::CPcWeather::SetRainBlendMode,
-            &Nx::CPcWeather::SetSplashBlendMode, &Nx::CPcWeather::SetSnowBlendMode);
+static VtableSlot kWeatherVtable_slots[] = {&Nx::CPcWeather::Destroy, &Nx::CPcWeather::UpdateGrid,
+                &Nx::CPcWeather::Update, &Nx::CPcWeather::Render, &Nx::CPcWeather::SetRainBlendMode,
+                &Nx::CPcWeather::SetSplashBlendMode, &Nx::CPcWeather::SetSnowBlendMode};
+void** const kWeatherVtable = reinterpret_cast<void**>(kWeatherVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x004CC560, &Nx::CPcWeather::Construct);
-REPLACE(0x004CBDA0, &Nx::CPcWeather::DestroyBody);
-REPLACE(0x004CC600, &Nx::CPcWeather::Destroy);
-REPLACE(0x004CD1A0, &Nx::CPcWeather::UpdateGrid);
-REPLACE(0x004CBDB0, &Nx::CPcWeather::Update);
-REPLACE(0x004CD120, &Nx::CPcWeather::Render);
-REPLACE(0x004CC4D0, &Nx::CPcWeather::SetRainBlendMode);
-REPLACE(0x004CC500, &Nx::CPcWeather::SetSplashBlendMode);
-REPLACE(0x004CC530, &Nx::CPcWeather::SetSnowBlendMode);
-REPLACE(0x004CBFE0, &Nx::CPcWeather::RenderRain);
-REPLACE(0x004CC630, &Nx::CPcWeather::RenderSnow);
-REPLACE(0x004CCC00, &Nx::CPcWeather::RenderSplashes);

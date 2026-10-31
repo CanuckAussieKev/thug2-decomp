@@ -2,6 +2,7 @@
 
 #include "game/gfx/model_utils.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <new>
@@ -16,8 +17,6 @@
 #include "game/obj/model_component.h"
 #include "game/obj/object.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Gfx {
 
@@ -214,7 +213,7 @@ void SHiddenModels::Show()
 }
 
 // The models hidden for a cutscene (the original's one instance).
-GAME_GLOBAL(SHiddenModels, g_hiddenModels, 0x006FA2F0);
+SHiddenModels g_hiddenModels;
 
 // 0x00487D20
 void __cdecl HideModelsForCutscene() { g_hiddenModels.Hide(); }
@@ -232,15 +231,3 @@ __declspec(naked) void VirtualSlot4Jump()
 }
 
 } // namespace Gfx
-
-REPLACE(0x00487770, Gfx::GetAnimLoopType);
-REPLACE(0x004877E0, Gfx::GetAnimTimes);
-REPLACE(0x004879D0, Gfx::MakeModelPath);
-REPLACE(0x00487A70, Gfx::MakeModelFileName);
-REPLACE(0x00487AD0, Gfx::LeastOf);
-REPLACE(0x00487B00, Gfx::GetScaleFromParams);
-REPLACE(0x00487BD0, &Gfx::SHiddenModels::Hide);
-REPLACE(0x00487CB0, &Gfx::SHiddenModels::Show);
-REPLACE(0x00487D20, Gfx::HideModelsForCutscene);
-REPLACE(0x00487D30, Gfx::ShowModelsAfterCutscene);
-REPLACE_UNCHECKED(0x00487D50, Gfx::VirtualSlot4Jump); // (a tail jump: the arguments are the slot's)

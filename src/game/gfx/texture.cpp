@@ -12,9 +12,6 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/render_state.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/device.h"
 
 namespace Nx {
@@ -30,7 +27,7 @@ struct Node {
     Node* previous;
     Node* next;
 };
-GAME_GLOBAL(Node*, g_textureListHead, 0x007CC254);
+Node* g_textureListHead;
 Node*& Head() { return g_textureListHead; }
 
 // What the textures being drawn with are (the render state cache's).
@@ -221,15 +218,3 @@ void __cdecl RestoreRenderTargetTextures()
 }
 
 } // namespace Nx
-
-REPLACE(0x004E04B0, &Nx::sTexture::Construct);
-REPLACE(0x004E0500, &Nx::sTexture::ConstructCopy);
-REPLACE(0x004E06A0, &Nx::sTexture::DestroyBody);
-REPLACE(0x004E03F0, &Nx::sTexture::Unlist);
-REPLACE(0x004E0380, &Nx::sTexture::Set);
-REPLACE(0x004E03A0, &Nx::sTexture::Lock);
-REPLACE(0x004E03D0, &Nx::sTexture::Unlock);
-REPLACE(0x004E03E0, &Nx::sTexture::PaletteOwner);
-REPLACE(0x004E0700, &Nx::sTexture::CreateRenderTarget);
-REPLACE(0x004E0320, Nx::ReleaseRenderTargetTextures);
-REPLACE(0x004E0440, Nx::RestoreRenderTargetTextures);

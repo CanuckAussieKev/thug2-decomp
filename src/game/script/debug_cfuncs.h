@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include "hook/game_global.h"
 
 namespace Script {
 class CStruct;
@@ -33,6 +32,6 @@ bool __cdecl CFunc_ResetEngine(Script::CStruct* params, Script::CScript* script)
 uint32_t* LevelSpecificQbFiles();
 constexpr int kLevelSpecificQbFiles = 15;
 
-GAME_GLOBAL_EXTERN(uint32_t[15], g_levelQbFiles);
+extern uint32_t g_levelQbFiles[15];
 
 } // namespace CFuncs

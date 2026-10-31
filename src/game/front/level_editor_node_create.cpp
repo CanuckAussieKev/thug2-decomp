@@ -3,9 +3,12 @@
 #include "game/front/level_editor_node_create.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdio>
 #include <cstddef>
 #include <cstring>
+#include <initializer_list>
+#include <vector>
 
 #include "game/core/crc.h"
 #include "game/front/level_editor_entities.h"
@@ -21,8 +24,6 @@
 #include "game/script/nodes.h"
 #include "game/script/qb.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
 #include "game/sys/log.h"
 #include "game/gfx/light_manager.h"
 

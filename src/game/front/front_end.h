@@ -1,7 +1,5 @@
 #pragma once
 
-#include "hook/game_global.h"
-
 // The front end module (Mdl::FrontEnd, 0x164 bytes, vtable 0x0064D724): turns the controllers' presses into the
 // menus' pad events (pad_up, pad_choose, pad_back...), sent through the event tracker to the screen elements, and
 // the typed keys into the script handle_keyboard_input. It also pauses and unpauses the game, and once a frame
@@ -171,8 +169,8 @@ bool __cdecl CFunc_SetButtonEventMappings(Script::CStruct* params, Script::CScri
 // 0x0054FDC0: SetAnalogStickActiveForMenus (an integer, default 1).
 bool __cdecl CFunc_SetAnalogStickActiveForMenus(Script::CStruct* params, Script::CScript* script);
 
-GAME_GLOBAL_EXTERN(bool, g_menusActive);
-GAME_GLOBAL_EXTERN(bool, g_pendingScript);
+extern bool g_menusActive;
+extern bool g_pendingScript;
 
-GAME_GLOBAL_EXTERN(Mdl::FrontEnd*, g_frontEndInstance);
+extern Mdl::FrontEnd* g_frontEndInstance;
 } // namespace Mdl

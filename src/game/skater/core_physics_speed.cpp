@@ -13,8 +13,6 @@
 #include "game/skater/core_physics.h"
 #include "game/skater/core_physics_fields.h"
 #include "game/skater/thaw_bmx.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Skater {
 
@@ -161,8 +159,3 @@ void CorePhysicsComponent::StartRidingHitObject()
 }
 
 } // namespace Skater
-
-REPLACE(0x00501850, &Skater::CorePhysicsComponent::LimitSpeed);
-REPLACE(0x005019E0, &Skater::CorePhysicsComponent::Brake);
-REPLACE(0x00506DF0, &Skater::CorePhysicsComponent::ApplyGroundFriction);
-REPLACE(0x005021D0, &Skater::CorePhysicsComponent::StartRidingHitObject);

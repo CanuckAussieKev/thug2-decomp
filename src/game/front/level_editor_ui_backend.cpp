@@ -5,6 +5,8 @@
 
 #include <d3d9.h>
 
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 
 #include <SDL2/SDL.h>
@@ -12,7 +14,6 @@
 #include "backends/imgui_impl_dx9.h"
 #include "backends/imgui_impl_sdl2.h"
 #include "game/sys/sdl_window.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 #include "imgui.h"
 #include "game/gfx/device.h"

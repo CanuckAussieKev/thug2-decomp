@@ -36,10 +36,7 @@
 #include "game/sys/mlp.h"
 #include "game/sys/timer.h"
 #include "game/sys/viewer_object.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/obj/movie_manager.h"
 #include "game/ass/assman.h"
 #include "game/script/cfuncs_scene.h"
@@ -61,10 +58,10 @@ extern void** const kBaseHandlerVtable; // Inp::BaseHandler
 
 int& ViewModeValue() { return Obj::g_viewMode; }
 
-GAME_GLOBAL(float, g_rotateVelocity, 0x007CE498);
-GAME_GLOBAL(float, g_movementVelocity, 0x007CE49C);
-GAME_GLOBAL(Viewer*, g_viewer, 0x007CE4A8);
-GAME_GLOBAL(uint32_t, g_lastTime, 0x007CE4AC);
+float g_rotateVelocity;
+float g_movementVelocity;
+Viewer* g_viewer;
+uint32_t g_lastTime;
 
 Viewer*& Instance() { return g_viewer; }
 bool& RunNowLoaded() { return g_pendingScript; }
@@ -92,7 +89,6 @@ constexpr uint32_t kAddToScene = 0x89A0D75E;             // AddToScene (a script
 constexpr uint32_t kReloadScene = 0x179BB868;            // ReloadScene (a script)
 constexpr uint32_t kModelName = 0xB974F2FC;              // modelname
 constexpr uint32_t kSkeletonName = 0x09794932;           // skeletonName
-
 
 float& MovementVelocity() { return g_movementVelocity; }
 float& RotateVelocity() { return g_rotateVelocity; }
@@ -640,39 +636,10 @@ Viewer* Viewer::Construct()
 }
 
 namespace {
-GAME_VTABLE(kVtable, 0x0064EBC4, &Mdl::Viewer::Destroy, &Mdl::Viewer::StartCallback, &Mdl::Viewer::StopCallback);
-GAME_VTABLE(kBaseHandlerVtable, 0x00646090, GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), &Mdl::ViewerInputHandler::Destroy);
+static VtableSlot kVtable_slots[] = {&Mdl::Viewer::Destroy, &Mdl::Viewer::StartCallback, &Mdl::Viewer::StopCallback};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot kBaseHandlerVtable_slots[] = {&_purecall, &_purecall, &Mdl::ViewerInputHandler::Destroy};
+void** const kBaseHandlerVtable = reinterpret_cast<void**>(kBaseHandlerVtable_slots);
 } // namespace
 
 } // namespace Mdl
-
-REPLACE(0x00576CB0, Mdl::SpawnScriptIfExists);
-REPLACE(0x00576CF0, Mdl::ReloadScriptFile);
-REPLACE(0x00576D40, &Mdl::Viewer::RemoveViewerObject);
-REPLACE(0x00576D70, &Mdl::Viewer::StopCallback);
-REPLACE(0x00576DC0, &Mdl::Viewer::DestroyBody);
-REPLACE_SOURCE_ONLY(0x00576E60, &Mdl::Viewer::GetViewerObject); // 4 bytes
-REPLACE(0x00576E70, Mdl::SetViewMode);
-REPLACE(0x00576E80, Mdl::SetMovementVelocity);
-REPLACE(0x00576E90, Mdl::SetRotateVelocity);
-REPLACE(0x00576EA0, Mdl::GetViewer);
-REPLACE(0x00576EB0, Mdl::HandleViewerShift);
-REPLACE(0x00576F00, Mdl::HandleViewerInput);
-REPLACE(0x00577140, Mdl::HandleRemoveViewerObject);
-REPLACE(0x00577170, &Mdl::Viewer::CreateViewerObject);
-REPLACE(0x00577230, &Mdl::Viewer::Destroy);
-REPLACE(0x00577260, &Mdl::Viewer::AddCommands);
-REPLACE(0x00577270, &Mdl::ViewerInputHandler::Handle);
-REPLACE(0x00577280, &Mdl::ViewerInputHandler::DestroyBody);
-REPLACE(0x00577290, &Mdl::ViewerInputHandler::DestroyNode);
-REPLACE(0x00536670, &Mdl::ViewerInputHandler::Destroy);
-REPLACE(0x005772E0, Mdl::MoveObjectLocal);
-REPLACE(0x00577380, Mdl::SelectComboTask);
-REPLACE(0x005774C0, Mdl::HandleAddToScene);
-REPLACE(0x005775A0, Mdl::HandleCreateViewerObject);
-REPLACE(0x00577670, Mdl::HandleRunScript);
-REPLACE(0x00577740, &Mdl::Viewer::PlaceCamera);
-REPLACE(0x00577870, Mdl::FreeCameraTask);
-REPLACE(0x00577CD0, Mdl::HandleReloadScene);
-REPLACE(0x00577DA0, &Mdl::Viewer::StartCallback);
-REPLACE(0x00577F20, &Mdl::Viewer::Construct);

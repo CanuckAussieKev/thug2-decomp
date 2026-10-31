@@ -4,7 +4,6 @@
 #include <cstdint>
 
 #include "game/core/alloc.h"
-#include "hook/game_global.h"
 
 // The PC billboards (the manager at 0x00775B80): the billboard meshes gathered by material into batches, each with
 // three lists by how its meshes turn (0 towards the camera, 1 about the vertical, 2 about an axis of their own),
@@ -110,7 +109,7 @@ void __cdecl MarkBillboardsReady();
 void __cdecl SetFlag786EB4();
 void __cdecl ClearFlag786EB4();
 
-GAME_GLOBAL_EXTERN(uint8_t, g_billboardFlag);
-GAME_GLOBAL_EXTERN(sBillboardManager, g_billboardManager);
+extern uint8_t g_billboardFlag;
+extern sBillboardManager g_billboardManager;
 
 } // namespace Nx

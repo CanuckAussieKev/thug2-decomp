@@ -3,7 +3,10 @@
 
 #include "game/net/net_app.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
+#include <initializer_list>
 
 #include "game/core/crc.h"
 #include "game/core/manager.h"
@@ -15,26 +18,25 @@
 #include "game/net/net_metrics.h"
 #include "game/net/net_messages.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/net/task_vtable.h"
-#include "hook/game_code.h"
 #include "game/skate/skate_module.h"
 #include "game/net/buddy_status.h"
 #include "game/net/gamenet_lobby.h"
 
 namespace GameCode {
 
-GAME_VTABLE(kTaskVtable, 0x006476F0, Mdl::Skate::RunTask, &GameNet::FoldedGetters::Word18,
-            &GameNet::TaskDeleter::Destroy);
+static VtableSlot kTaskVtable_slots[] = {Mdl::Skate::RunTask, &GameNet::FoldedGetters::Word18,
+                &GameNet::TaskDeleter::Destroy};
+void** const kTaskVtable = reinterpret_cast<void**>(kTaskVtable_slots);
 
 } // namespace GameCode
 
 namespace Net {
 
-GAME_VTABLE(kAppVtable, 0x006475B4, &App::Destroy, &App::ProcessData, GAME_LIBRARY_SLOT(0x00623771),
-            GAME_LIBRARY_SLOT(0x00623771), &App::Init, &App::Deinit);
+static VtableSlot kAppVtable_slots[] = {&App::Destroy, &App::ProcessData, &_purecall,
+                &_purecall, &App::Init, &App::Deinit};
+void** const kAppVtable = reinterpret_cast<void**>(kAppVtable_slots);
 
 namespace {
 
@@ -239,7 +241,7 @@ void InitHead(ListNode* head, void** vtable)
 
 } // namespace
 
-GAME_GLOBAL(double, g_doubleZero, 0x006453A0);
+double g_doubleZero;
 
 // 0x004594C0
 App* App::Construct(int flags)
@@ -737,24 +739,3 @@ Conn* App::NewConnection(int ip, uint16_t port, int flags)
 }
 
 } // namespace Net
-
-REPLACE(0x00457EB0, &Net::App::EnqueueMessage);
-REPLACE(0x00458740, &Net::App::StreamMessageToConn);
-REPLACE(0x00458AB0, &Net::App::StreamMessage);
-REPLACE(0x00458BE0, &Net::App::FirstConnection);
-REPLACE(0x00458C10, &Net::App::SendEnqueuedMessages);
-REPLACE(0x00458CA0, &Net::App::SendData);
-REPLACE(0x00458D50, &Net::App::IsConnectionBanned);
-REPLACE(0x00458DB0, &Net::App::GetBandwidthUsed);
-REPLACE(0x00458E60, &Net::App::BandwidthExceeded);
-REPLACE(0x00458F80, &Net::App::GetFreeHandle);
-REPLACE(0x00458FB0, &Net::App::TerminateInvalidConnections);
-REPLACE(0x004590C0, &Net::App::ProcessStreamMessages);
-REPLACE(0x00456CA0, Net::App::ProcessNetworkData);
-REPLACE(0x004593C0, Net::App::ReceiveNetworkData);
-REPLACE(0x004593E0, Net::App::NetworkMetrics);
-REPLACE(0x004594A0, Net::App::SendNetworkData);
-REPLACE(0x004594C0, &Net::App::Construct);
-REPLACE(0x00459660, &Net::App::Destroy);
-REPLACE(0x00459690, &Net::App::ProcessData);
-REPLACE(0x004597C0, &Net::App::NewConnection);

@@ -13,14 +13,12 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/gfx/model.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/skater/skitch.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
@@ -247,31 +245,23 @@ int CSpecialItemComponent::CallMemberFunction(uint32_t name, Script::CStruct* pa
 
 } // namespace Obj
 
-REPLACE(0x0051BD80, Obj::CSpecialItemComponent::Create);
-REPLACE(0x0051BF20, &Obj::CSpecialItemComponent::DestroyBody);
-REPLACE(0x0051C130, &Obj::CSpecialItemComponent::Destroy);
-REPLACE(0x0051BE00, &Obj::CSpecialItemComponent::DestroyItem);
-REPLACE(0x0051BF00, &Obj::CSpecialItemComponent::DestroyItems);
-REPLACE(0x0051BF80, &Obj::CSpecialItemComponent::CreateItem);
-REPLACE(0x0051C160, &Obj::CSpecialItemComponent::CallMemberFunction);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064C250,
-    &Obj::CSpecialItemComponent::Destroy,
-    &Obj::ComponentWithoutUpdate::Update,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::CSpecialItemComponent::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CSpecialItemComponent::Destroy,
+         &Obj::ComponentWithoutUpdate::Update,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::CSpecialItemComponent::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

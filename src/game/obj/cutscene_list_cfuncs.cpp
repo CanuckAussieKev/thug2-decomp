@@ -10,15 +10,12 @@
 #include "game/obj/pager_message.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/sys/startup_init.h"
 
 namespace CFuncs {
 
-GAME_GLOBAL(bool, g_cutsceneListFlushing, 0x007CED50);
-GAME_GLOBAL(PointerList, g_cutsceneDestroyList, 0x007CEDD8);
+bool g_cutsceneListFlushing;
+PointerList g_cutsceneDestroyList;
 
 namespace {
 
@@ -203,12 +200,6 @@ bool __cdecl CFunc_FlushCutsceneDestroyList(Script::CStruct*, Script::CScript*)
 }
 
 } // namespace CFuncs
-
-REPLACE(0x005B4650, &CFuncs::PointerList::Construct);
-REPLACE(0x005B5320, CFuncs::CFunc_AddToCutsceneDestroyList);
-REPLACE(0x005B5450, CFuncs::CFunc_RemoveFromCutsceneDestroyList);
-REPLACE(0x005B5510, CFuncs::CFunc_Cutscene_SpawnScript);
-REPLACE(0x005B5BE0, CFuncs::CFunc_FlushCutsceneDestroyList);
 
 namespace CFuncs {
 

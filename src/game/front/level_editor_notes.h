@@ -23,7 +23,7 @@ struct ImFont;
 // line is %0A) - everything else as typed (UTF-8). At most kMaxText bytes; text= comes last.
 namespace Front::LevelEditor::Notes {
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_ux5.cpp) -------------------------------------------------
+// --- the pure parts --------------------------------------------------------------------------------------------------
 
 constexpr size_t kMaxText = 500;
 constexpr const char* kStem = "ed_note";

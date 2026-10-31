@@ -2,6 +2,7 @@
 // park - their records, copying the manager, removing gaps, the trigger pieces' lengths, the gap checklist and
 // firing a gap's StartGap / EndGap on the skater. (The rest of the class, 0x0058C990-0x0058CD40, is next to it.)
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
@@ -15,8 +16,6 @@
 #include "game/skate/gap_checklist.h"
 #include "game/ed/goal_editor.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 #pragma warning(disable : 4996) // (sprintf / strcpy: the original's copies of the gap names)
 
@@ -214,13 +213,3 @@ void CGapManager::FireGap(int index, Script::CScript* script)
 } // namespace Ed
 
 using Ed::CGapManager;
-
-REPLACE(0x0058CD40, &CGapManager::UpdateChecklist);
-REPLACE(0x0058CDA0, &CGapManager::SetGapInfo);
-REPLACE(0x0058CDF0, &CGapManager::RemoveGap);
-REPLACE(0x0058CE90, &CGapManager::RemoveAllGaps);
-REPLACE(0x0058CEC0, &CGapManager::SetTriggerLength);
-REPLACE(0x0058CF20, &CGapManager::Destroy);
-REPLACE(0x0058CF30, &CGapManager::CopyFrom);
-REPLACE(0x0058D070, &CGapManager::StartGap);
-REPLACE(0x0058D120, &CGapManager::FireGap);

@@ -26,14 +26,12 @@
 #include "game/skater/skater.h"
 #include "game/skater/skater_score.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/obj/collide_and_die.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/skater/vehicle_sound.h"
 #include "game/obj/node_components.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
@@ -336,50 +334,37 @@ void CProjectileProximityComponent::Update()
 
 } // namespace Obj
 
-REPLACE(0x004F3010, Obj::CProjectileCollisionComponent::Create);
-REPLACE(0x004F2F10, &Obj::CProjectileCollisionComponent::DestroyBody);
-REPLACE(0x004F2F50, &Obj::CProjectileCollisionComponent::Destroy);
-REPLACE(0x004F2F80, &Obj::CProjectileCollisionComponent::InitFromStructure);
-REPLACE(0x004F2F40, &Obj::CProjectileCollisionComponent::MarkHit);
-REPLACE(0x004F2F20, &Obj::CProjectileCollisionComponent::ScoreTaken);
-REPLACE(0x004F3090, &Obj::CProjectileCollisionComponent::Update);
-REPLACE(0x004F3550, Obj::CProjectileProximityComponent::Create);
-REPLACE(0x004F34E0, &Obj::CProjectileProximityComponent::DestroyBody);
-REPLACE(0x004F34F0, &Obj::CProjectileProximityComponent::Destroy);
-REPLACE(0x004F3520, &Obj::CProjectileProximityComponent::InitFromStructure);
-REPLACE(0x004F35B0, &Obj::CProjectileProximityComponent::Update);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kCollisionVtable, 0x0064B830,
-    &Obj::CProjectileCollisionComponent::Destroy,
-    &Obj::CProjectileCollisionComponent::Update,
-    &Obj::CProjectileCollisionComponent::InitFromStructure,
-    &Obj::CCollideAndDieComponent::Finalize,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
-GAME_VTABLE(kProximityVtable, 0x0064B864,
-    &Obj::CProjectileProximityComponent::Destroy,
-    &Obj::CProjectileProximityComponent::Update,
-    &Obj::CProjectileProximityComponent::InitFromStructure,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kCollisionVtable_slots[] = {&Obj::CProjectileCollisionComponent::Destroy,
+         &Obj::CProjectileCollisionComponent::Update,
+         &Obj::CProjectileCollisionComponent::InitFromStructure,
+         &Obj::CCollideAndDieComponent::Finalize,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kCollisionVtable = reinterpret_cast<void**>(kCollisionVtable_slots);
+static VtableSlot kProximityVtable_slots[] = {&Obj::CProjectileProximityComponent::Destroy,
+         &Obj::CProjectileProximityComponent::Update,
+         &Obj::CProjectileProximityComponent::InitFromStructure,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kProximityVtable = reinterpret_cast<void**>(kProximityVtable_slots);
 
 } // namespace
 } // namespace Obj

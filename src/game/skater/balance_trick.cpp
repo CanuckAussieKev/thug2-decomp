@@ -13,21 +13,18 @@
 #include "game/script/struct.h"
 #include "game/skate/score.h"
 #include "game/skater/skater.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/skater/skitch.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
-#include "hook/game_global.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[12], g_balanceTrickMemberFunctions, 0x00683238,
+uint32_t g_balanceTrickMemberFunctions[12]{
     0x6DF82E70, 0x589E5FB3, 0, 0, 0, 0,
-    0, 0x589E5FB3, 0, 0, 0, 0);
+    0, 0x589E5FB3, 0, 0, 0, 0};
 
 namespace {
 
@@ -375,43 +372,23 @@ int CSkaterBalanceTrickComponent::CallMemberFunction(uint32_t name, Script::CStr
 
 } // namespace Obj
 
-REPLACE(0x004F9170, Obj::CSkaterBalanceTrickComponent::Create);
-REPLACE(0x004F8CD0, Obj::CSkaterBalanceTrickComponent::RegisterMemberFunctions);
-REPLACE(0x004F8F80, &Obj::CSkaterBalanceTrickComponent::Construct);
-REPLACE(0x004F8CF0, &Obj::CSkaterBalanceTrickComponent::DestroyBody);
-REPLACE(0x004F9010, &Obj::CSkaterBalanceTrickComponent::Destroy);
-REPLACE(0x004F9040, &Obj::CSkaterBalanceTrickComponent::InitFromStructure);
-REPLACE(0x004F9080, &Obj::CSkaterBalanceTrickComponent::Finalize);
-REPLACE(0x004F9420, &Obj::CSkaterBalanceTrickComponent::CallMemberFunction);
-REPLACE(0x004F8D70, &Obj::CSkaterBalanceTrickComponent::DoingBalanceTrick);
-REPLACE(0x004F8D80, &Obj::CSkaterBalanceTrickComponent::ClearBestTimes);
-REPLACE(0x004F8DB0, &Obj::CSkaterBalanceTrickComponent::KeepBestTimes);
-REPLACE(0x004F8DE0, &Obj::CSkaterBalanceTrickComponent::Reset);
-REPLACE(0x004F8EE0, &Obj::CSkaterBalanceTrickComponent::Stop);
-REPLACE(0x004F8E20, &Obj::CSkaterBalanceTrickComponent::GetButtons);
-REPLACE(0x004F8F20, &Obj::CSkaterBalanceTrickComponent::GetLean);
-REPLACE(0x004F90A0, &Obj::CSkaterBalanceTrickComponent::GetPhysicsValue);
-REPLACE(0x004F91D0, &Obj::CSkaterBalanceTrickComponent::ClearParams);
-REPLACE(0x004F9370, &Obj::CSkaterBalanceTrickComponent::SetParams);
-REPLACE(0x004F9200, &Obj::CSkaterBalanceTrickComponent::SetWobble);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064BA30,
-    &Obj::CSkaterBalanceTrickComponent::Destroy,
-    &Obj::ComponentWithoutUpdate::Update,
-    &Obj::CSkaterBalanceTrickComponent::InitFromStructure,
-    &Obj::CSkaterBalanceTrickComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::CSkaterBalanceTrickComponent::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CSkaterBalanceTrickComponent::Destroy,
+         &Obj::ComponentWithoutUpdate::Update,
+         &Obj::CSkaterBalanceTrickComponent::InitFromStructure,
+         &Obj::CSkaterBalanceTrickComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::CSkaterBalanceTrickComponent::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

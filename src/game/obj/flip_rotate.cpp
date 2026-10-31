@@ -4,6 +4,7 @@
 #include "game/gfx/anim_controller.h"
 #include "game/gfx/skeleton.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
@@ -11,12 +12,10 @@
 #include "game/obj/object.h"
 #include "game/obj/vehicle_component.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/skater/vehicle_sound.h"
 #include "game/obj/car_physics.h"
-#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -109,7 +108,7 @@ bool CFlipRotateComponent::GetPose(uint8_t* pose)
         r[0] = r[1] = r[2] = 0.0f;
         r[3] = 1.0f;
     }
-    int count = reinterpret_cast<int(__thiscall*)(void*)>(GAME_CODE(0x004A2BA0, &Gfx::CSkeleton::GetNumBones))(skeleton);
+    int count = reinterpret_cast<int(__thiscall*)(void*)>(CodeAddress(&Gfx::CSkeleton::GetNumBones))(skeleton);
     std::memcpy(rotations, pose, 0x10 * (count > 0 ? count : 0));
     std::memcpy(translations, pose + 0x400, 0x10 * (count > 0 ? count : 0));
     for (int i = 0; i < count; ++i) {
@@ -128,22 +127,16 @@ bool CFlipRotateComponent::GetPose(uint8_t* pose)
 
 } // namespace Obj
 
-REPLACE(0x004E2C50, &Obj::CFlipRotateComponent::Construct);
-REPLACE(0x004E2C80, &Obj::CFlipRotateComponent::DestroyBody);
-REPLACE(0x004E2CF0, &Obj::CFlipRotateComponent::Destroy);
-REPLACE(0x004E2C90, &Obj::CFlipRotateComponent::InitFromStructure);
-REPLACE(0x004E2D20, &Obj::CFlipRotateComponent::GetPose);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064B1D4,
-    &Obj::CFlipRotateComponent::Destroy,
-    &Obj::CFlipRotateComponent::GetPose,
-    Stubs::IgnoreArgument,
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction,
-    &Obj::CFlipRotateComponent::InitFromStructure,
-    Stubs::DoNothing);
+static VtableSlot kVtable_slots[] = {&Obj::CFlipRotateComponent::Destroy,
+         &Obj::CFlipRotateComponent::GetPose,
+         Stubs::IgnoreArgument,
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction,
+         &Obj::CFlipRotateComponent::InitFromStructure,
+         Stubs::DoNothing};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

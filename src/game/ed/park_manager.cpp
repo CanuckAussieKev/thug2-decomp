@@ -2,6 +2,7 @@
 
 #include "game/ed/park.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
@@ -10,7 +11,6 @@
 #include "game/core/mem.h"
 #include "game/park/park_memory.h"
 #include "game/ed/park_editor.h"
-#include "hook/hook.h"
 
 namespace Ed {
 
@@ -290,14 +290,3 @@ void CParkManager::Destroy(int keepRails)
 }
 
 } // namespace Ed
-
-REPLACE(0x00598E00, &Ed::CParkManager::Construct);
-REPLACE(0x00599BF0, &Ed::CParkManager::CreateInstance);
-REPLACE(0x00599C70, &Ed::CParkManager::DeleteInstance);
-REPLACE(0x00599A20, &Ed::CParkManager::AddMetaPieceToPark);
-REPLACE(0x0059B020, &Ed::CParkManager::DestroyConcreteMetas);
-REPLACE(0x0059B090, &Ed::CParkManager::RelocateMetaPiece);
-REPLACE(0x0059BD40, &Ed::CParkManager::Destroy);
-REPLACE(0x00599880, &Ed::CParkManager::DestroyMetasInArea);
-REPLACE(0x00599960, &Ed::CParkManager::HighlightMetasWithinArea);
-REPLACE(0x0059AE90, &Ed::CParkManager::DestroyConcreteMeta);

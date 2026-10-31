@@ -1,9 +1,10 @@
 // Net::Conn's communication times (the last ones below Conn's own range, 0x00455970 on: net_conn.cpp). See
 // net_conn.h.
 
+#include <cstdint>
+
 #include "game/net/net_conn.h"
 #include "game/sys/timer.h"
-#include "hook/hook.h"
 
 namespace Net {
 
@@ -25,7 +26,3 @@ uint32_t Conn::GetTimeElapsedSinceCommunication()
 }
 
 } // namespace Net
-
-REPLACE(0x00455920, &Net::Conn::UpdateCommTime);
-REPLACE(0x00455940, &Net::Conn::GetTimeElapsedSinceCommunication);
-REPLACE(0x00455960, &Net::Conn::SetSendInterval);

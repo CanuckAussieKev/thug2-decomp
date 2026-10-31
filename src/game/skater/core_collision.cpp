@@ -14,8 +14,6 @@
 #include "game/skater/core_physics.h"
 #include "game/skater/skater.h"
 #include "game/skater/skater_sound.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/obj/trigger_events.h"
 
 namespace Skater {
@@ -348,7 +346,3 @@ void CorePhysicsComponent::CheckSideCollisions()
 }
 
 } // namespace Skater
-
-REPLACE(0x00508780, &Skater::CorePhysicsComponent::CheckAirForwardCollision);
-REPLACE(0x0050A2C0, &Skater::CorePhysicsComponent::CheckSideCollision);
-REPLACE(0x0050C930, &Skater::CorePhysicsComponent::CheckSideCollisions);

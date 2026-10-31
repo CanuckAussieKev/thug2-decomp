@@ -11,26 +11,23 @@
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/skater/vehicle_sound.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[36], g_pagerMessageMemberFunctions, 0x006831A8,
+uint32_t g_pagerMessageMemberFunctions[36]{
             0x4824484A, 0xD1515392, 0, 0, 0, 0,
             0xD65B2BB5, 0xD1515392, 0, 0, 0, 0,
             0x5B64BFEC, 0xD1515392, 0, 0, 0, 0,
             0xAF88BE7A, 0xD1515392, 0, 0, 0, 0,
             0xE7DF996D, 0xD1515392, 0, 0, 0, 0,
-            0, 0xD1515392, 0, 0, 0, 0);
+            0, 0xD1515392, 0, 0, 0, 0};
 
 namespace {
 
@@ -227,36 +224,23 @@ bool CPagerMessageComponent::ClearPagerMessages(Script::CStruct* params, Script:
 
 } // namespace Obj
 
-REPLACE(0x004ECC30, &Obj::PointerList::Erase);
-REPLACE(0x004ECF20, Obj::CPagerMessageComponent::Create);
-REPLACE(0x004EC960, Obj::CPagerMessageComponent::RegisterMemberFunctions);
-REPLACE(0x004ECE10, &Obj::CPagerMessageComponent::Construct);
-REPLACE(0x004ECE90, &Obj::CPagerMessageComponent::DestroyBody);
-REPLACE(0x004ECF80, &Obj::CPagerMessageComponent::Destroy);
-REPLACE(0x004ECC80, &Obj::CPagerMessageComponent::ClearMessages);
-REPLACE(0x004EC9A0, &Obj::CPagerMessageComponent::SendPagerMessage);
-REPLACE(0x004ECB50, &Obj::CPagerMessageComponent::GetPagerMessage);
-REPLACE(0x004EC980, &Obj::CPagerMessageComponent::GetPagerMessageCount);
-REPLACE(0x004ECBD0, &Obj::CPagerMessageComponent::GetFirstUnreadMessageNum);
-REPLACE(0x004ECDF0, &Obj::CPagerMessageComponent::ClearPagerMessages);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064B6FC,
-    &Obj::CPagerMessageComponent::Destroy,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CPagerMessageComponent::Destroy,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

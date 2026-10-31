@@ -4,7 +4,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
+#include <vector>
 
 #include "game/core/alloc.h"
 #include "game/core/crc.h"
@@ -22,7 +25,6 @@
 #include "game/gfx/screen.h"
 #include "game/obj/object.h"
 #include "game/script/node_manager.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 #include "game/script/struct.h"
 #include "game/script/cscript.h"

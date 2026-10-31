@@ -3,6 +3,7 @@
 #include "game/net/player_info.h"
 
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 
 #include "game/core/manager.h"
@@ -13,10 +14,8 @@
 #include "game/obj/object.h"
 #include "game/skate/profile_manager.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/net/gamenet_lists.h"
-#include "hook/game_code.h"
 #include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
@@ -46,9 +45,12 @@ constexpr uint32_t kNetFirefight = 0xBFF33600; // netfirefight
 
 constexpr uint32_t kHitWindow = 5000; // ms
 
-GAME_VTABLE(kPlayerVtable, 0x0064CCF4, &PlayerInfo::Destroy); // PlayerInfo
-GAME_VTABLE(kScoreSearchVtable, 0x0064CCE0, &GameNet::ScoreSearch::Destroy);
-GAME_VTABLE(kScoreNodeVtable, 0x0064CCE4, &GameNet::ScoreNode::Destroy);
+static VtableSlot kPlayerVtable_slots[] = {&PlayerInfo::Destroy};
+void** const kPlayerVtable = reinterpret_cast<void**>(kPlayerVtable_slots); // PlayerInfo
+static VtableSlot kScoreSearchVtable_slots[] = {&GameNet::ScoreSearch::Destroy};
+void** const kScoreSearchVtable = reinterpret_cast<void**>(kScoreSearchVtable_slots);
+static VtableSlot kScoreNodeVtable_slots[] = {&GameNet::ScoreNode::Destroy};
+void** const kScoreNodeVtable = reinterpret_cast<void**>(kScoreNodeVtable_slots);
 
 Manager* TheManager() { return g_gameNetManager; }
 
@@ -305,7 +307,7 @@ int PlayerInfo::GetFlagTeam()
 void PlayerInfo::ClearFlags() { m_flags &= ~kPlayerCarryingFlags; }
 void PlayerInfo::MarkEliminated()
 {
-    m_eliminatedTime = Call<uint32_t>(GAME_CODE(0x00553270, &Game::CGameMode::GetRound), GameMode());
+    m_eliminatedTime = Call<uint32_t>(CodeAddress(&Game::CGameMode::GetRound), GameMode());
     m_flags |= kPlayerEliminated;
 }
 bool PlayerInfo::IsEliminated()
@@ -315,7 +317,7 @@ bool PlayerInfo::IsEliminated()
     if (GameType() != kNetFirefight || !m_skater)
         return false;
     Obj::CBaseComponent* score = SkaterComponent(m_skater, kSkaterScore);
-    return score && Call<int>(GAME_CODE(0x00561B40, &Mdl::Score::GetTotalScore), Field<void*>(score, 0x18)) == 0; // (its score's lives)
+    return score && Call<int>(CodeAddress(&Mdl::Score::GetTotalScore), Field<void*>(score, 0x18)) == 0; // (its score's lives)
 }
 int PlayerInfo::IsKing() { return (m_flags >> 7) & 1; }
 int PlayerInfo::GetConnHandle() { return m_conn ? Field<int>(m_conn, 0x3C) : 0; }
@@ -360,51 +362,3 @@ ScoreNode* ScoreNode::DestroyCalling(unsigned int flags)
 
 using GameNet::NewPlayerInfo;
 using GameNet::PlayerInfo;
-REPLACE(0x005434D0, &NewPlayerInfo::Construct);
-REPLACE(0x00543560, &NewPlayerInfo::DestroyBody);
-REPLACE(0x00543180, GameNet::ClearUpdateRecords);
-REPLACE(0x00543740, &PlayerInfo::Construct);
-REPLACE(0x00543810, &PlayerInfo::DestroyBody);
-REPLACE(0x00544750, &PlayerInfo::Destroy);
-REPLACE(0x005438D0, &PlayerInfo::SetSkater);
-REPLACE(0x00543270, &PlayerInfo::SetProfile);
-REPLACE(0x005431F0, &PlayerInfo::SetFaceTextureData);
-REPLACE(0x00543060, &PlayerInfo::GetFaceTextureData);
-REPLACE(0x00543070, &PlayerInfo::SetCustomTag);
-REPLACE(0x00543090, &PlayerInfo::HasCustomTag);
-REPLACE(0x005430B0, &PlayerInfo::GetGraffitiTexture);
-REPLACE(0x005430D0, &PlayerInfo::SetReadyQueryOwed);
-REPLACE(0x00544670, &PlayerInfo::AwaitReadyResponse);
-REPLACE(0x005446C0, &PlayerInfo::ReceiveReadyResponse);
-REPLACE(0x00543110, &PlayerInfo::SetLastHitTime); // (not a Ghidra function: between 0x00543100 and 0x00543120)
-REPLACE(0x00543100, &PlayerInfo::ClearLastHitTime);
-REPLACE(0x005430E0, &PlayerInfo::CanBeHitAgain);
-REPLACE(0x00543120, &PlayerInfo::GetLastSentSkater);
-REPLACE(0x00543130, &PlayerInfo::SetLastSentSkater);
-REPLACE(0x00543140, &PlayerInfo::GetSkatersPerUpdate);
-REPLACE_SOURCE_ONLY(0x00543150, &PlayerInfo::GetAccumulatedScore); // 4 bytes
-REPLACE(0x00543160, &PlayerInfo::AddToAccumulatedScore);
-REPLACE(0x00543300, &PlayerInfo::IsLocalPlayer);
-REPLACE(0x00543310, &PlayerInfo::IsServerPlayer);
-REPLACE(0x00543320, &PlayerInfo::IsObserver);
-REPLACE(0x00543330, &PlayerInfo::IsSurveying);
-REPLACE(0x00543340, &PlayerInfo::MarkFaceTextureSent);
-REPLACE(0x00543350, &PlayerInfo::MarkJustJoined);
-REPLACE(0x00543370, &PlayerInfo::ClearJustJoined);
-REPLACE(0x00543380, &PlayerInfo::IsFullyIn);
-REPLACE(0x00543390, &PlayerInfo::MarkAsServerPlayer);
-REPLACE(0x005433A0, &PlayerInfo::ClearServerPlayer);
-REPLACE(0x005433B0, &PlayerInfo::IsCarryingFlag);
-REPLACE(0x005433D0, &PlayerInfo::GetFlagTeam);
-REPLACE(0x00543410, &PlayerInfo::ClearFlags);
-REPLACE(0x00543420, &PlayerInfo::MarkEliminated);
-REPLACE(0x00543440, &PlayerInfo::IsEliminated);
-REPLACE(0x00543490, &PlayerInfo::IsKing);
-REPLACE(0x005434A0, &PlayerInfo::GetConnHandle);
-REPLACE(0x005434B0, &PlayerInfo::GetSkaterValue2BC);
-REPLACE(0x005434C0, &PlayerInfo::IsPendingObserver);
-REPLACE(0x00543170, &GameNet::ScoreSearch::DestroyBody);
-REPLACE(0x00543580, &GameNet::ScoreSearch::Destroy);
-REPLACE(0x00544700, &GameNet::ScoreNode::DestroyBody);
-REPLACE(0x005435B0, &GameNet::ScoreNode::Destroy);
-REPLACE(0x00544720, &GameNet::ScoreNode::DestroyCalling);

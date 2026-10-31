@@ -16,14 +16,11 @@
 #include "game/gfx/render_state.h"
 #include "game/gfx/shadow.h"
 #include "game/gfx/view_mode.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/sys/crt.h"
 
 namespace Nx {
 
-GAME_GLOBAL(uint8_t*[4096], g_drawnMeshes, 0x00792640);
+uint8_t* g_drawnMeshes[4096];
 
 namespace {
 
@@ -39,7 +36,7 @@ struct SortedMesh {
     float depth;
     uint32_t unused;
 };
-GAME_GLOBAL(SortedMesh[1000], g_sortedMeshes, 0x007B7640);
+SortedMesh g_sortedMeshes[1000];
 SortedMesh* Sorted() { return g_sortedMeshes; }
 
 // A mesh's fields and calls (not rewritten yet; thiscall).
@@ -224,6 +221,3 @@ void __cdecl RenderScene(sScene* scene, uint32_t flags, int viewport)
 }
 
 } // namespace Nx
-
-REPLACE(0x004DA690, Nx::CompareDistances);
-REPLACE(0x004DC700, Nx::RenderScene);

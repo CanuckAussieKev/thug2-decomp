@@ -2,7 +2,6 @@
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
 #include "game/mc/memcard_cfuncs.h"
-#include "hook/game_code.h"
 
 #include <windows.h>
 
@@ -23,9 +22,6 @@
 #include "game/script/struct.h"
 #include "game/script/struct_buffer.h"
 #include "game/sys/game_config.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Mc {
 
@@ -120,11 +116,11 @@ constexpr uint32_t kAlsoApplyType = 0x61A1BC57;  // applied even when kept
 
 } // namespace
 
-GAME_GLOBAL(bool, g_outOfSpace, 0x007CECD0);
-GAME_GLOBAL(Script::CStruct*, g_keptParams, 0x007CECD4);
-GAME_GLOBAL(uint32_t, g_keptType, 0x007CECD8);
-GAME_GLOBAL(uint32_t, g_sectionsToApplyWhenLoading, 0x007CECDC);
-GAME_GLOBAL(bool, g_loadedCustomSkater, 0x007CECE0);
+bool g_outOfSpace;
+Script::CStruct* g_keptParams;
+uint32_t g_keptType;
+uint32_t g_sectionsToApplyWhenLoading;
+bool g_loadedCustomSkater;
 
 // 0x005A8730. LoadFromMemoryCard Name=<string> Type=<checksum> [<kNoApply>=<integer>]: reads the save file and
 // applies it (or keeps its contents in 0x007CECD4 and its type in 0x007CECD8 when kNoApply is non-zero). True if
@@ -138,7 +134,7 @@ bool LoadFromMemoryCard(Script::CStruct* params, Script::CScript* script)
     }
     Script::CStruct* header = NewParams();   // the file's first structure (read, then dropped)
     Script::CStruct* contents = NewParams(); // the second: what's loaded
-    const char* name = GAME_TEXT(0x006469B4, ""); // ""
+    const char* name = ""; // ""
     uint32_t type = 0;
     uint8_t* data = nullptr;
     bool loaded = false;
@@ -245,7 +241,7 @@ bool SaveFailedDueToInsufficientSpace(Script::CStruct*, Script::CScript*) { retu
 // 0x005A6560
 bool SetSectionsToApplyWhenLoading(Script::CStruct* params, Script::CScript*)
 {
-    Dbg::Printf(GAME_TEXT(0x00657848, "ScriptSetSectionsToApplyWhenLoading was called.........................\n")); // "ScriptSetSectionsToApplyWhenLoading was called..."
+    Dbg::Printf("ScriptSetSectionsToApplyWhenLoading was called.........................\n"); // "ScriptSetSectionsToApplyWhenLoading was called..."
     uint32_t& sections = SectionsToApplyWhenLoading();
     sections = 0;
     if (params->ContainsFlag(0x16B506C0u)) // ApplyCustomSkater
@@ -393,19 +389,3 @@ bool SwitchToRegularPools(Script::CStruct*, Script::CScript*)
 }
 
 } // namespace Mc
-
-REPLACE(0x005A6D30, Mc::GetMostRecentSave);
-REPLACE(0x005A7210, Mc::FormatCard);
-REPLACE(0x005A7260, Mc::CardIsInSlot);
-REPLACE(0x005A7280, Mc::CardIsFormatted);
-REPLACE(0x005A72A0, Mc::GetSummaryInfo);
-REPLACE(0x005A7430, Mc::GetMemCardDataForUpload);
-REPLACE(0x005A7450, Mc::GetMaxTHPS4FilesAllowed);
-REPLACE(0x005A7470, Mc::SwitchToTempPoolsIfTheyExist);
-REPLACE(0x005A74F0, Mc::SwitchToRegularPools);
-
-REPLACE(0x005A6550, Mc::SaveFailedDueToInsufficientSpace);
-REPLACE(0x005A6560, Mc::SetSectionsToApplyWhenLoading);
-REPLACE(0x005A6600, Mc::LoadedCustomSkater);
-REPLACE(0x005A6E40, Mc::GetMemCardSpaceAvailable);
-REPLACE(0x005A8730, Mc::LoadFromMemoryCard);

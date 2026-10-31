@@ -14,7 +14,7 @@
 // (groups, labels, locks of its Outliner: level_editor_organize.h) aren't changes to the level: not listed.
 namespace Front::LevelEditor::Changes {
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_ux3.cpp) -------------------------------------------------
+// --- the pure parts --------------------------------------------------------------------------------------------------
 
 struct Entry {
     int line = -1;          // the record's line in the layout's text (0 = the first)

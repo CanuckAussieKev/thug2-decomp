@@ -44,9 +44,6 @@ namespace Gfx::LoadingConsole {
 
 // [features] loading_console (read once).
 bool Enabled();
-// Off while the self-tests run (hook/selftest_runner.cpp): they call the script commands with the game's screen code
-// stood in.
-bool& SuspendedForSelfTests();
 // Whether a loading screen is up and the console runs (lines are kept only then).
 bool Active();
 

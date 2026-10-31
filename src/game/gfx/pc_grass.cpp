@@ -22,21 +22,18 @@
 #include "game/gfx/mesh_list.h"
 #include "game/gfx/pixel_shaders.h"
 #include "game/gfx/texture_dict.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/shader_slots.h"
 #include "game/gfx/texture.h"
 #include "game/sys/startup_init.h"
 
 namespace Nx {
 
-GAME_GLOBAL(float, g_grassDetailUvScale, 0x0064A8C0, 0.010416667f);
-GAME_GLOBAL(float, g_grassUvScale, 0x0064A8C4, 0.0052083335f);
-GAME_GLOBAL(float, g_grassCopyUvScale, 0x0064A8C8, 0.020833334f);
-GAME_GLOBAL(uint8_t[0x20], g_grassTexture0, 0x00782350); // the grass materials' texture slots (0x20 bytes each)
-GAME_GLOBAL(uint8_t[0x20], g_grassTexture1, 0x00782370);
-GAME_GLOBAL(uint8_t[17 * 0x20], g_grassTextureAnimation, 0x00782390); // (17 slots of 0x20)
+float g_grassDetailUvScale{0.010416667f};
+float g_grassUvScale{0.0052083335f};
+float g_grassCopyUvScale{0.020833334f};
+uint8_t g_grassTexture0[0x20]; // the grass materials' texture slots (0x20 bytes each)
+uint8_t g_grassTexture1[0x20];
+uint8_t g_grassTextureAnimation[17 * 0x20]; // (17 slots of 0x20)
 
 namespace {
 
@@ -177,10 +174,6 @@ bool __cdecl MakeGrass(CPcGeom* geom, sMesh* mesh)
 }
 
 } // namespace Nx
-
-REPLACE(0x004D08A0, Nx::SetUpAnimatedGrassMaterial);
-REPLACE(0x004D0B60, Nx::MakeAnimatedGrass);
-REPLACE(0x004D0D30, Nx::MakeGrass);
 
 namespace Nx {
 

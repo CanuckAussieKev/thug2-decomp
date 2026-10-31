@@ -6,6 +6,7 @@
 
 #include <windows.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -52,22 +53,18 @@
 #include "game/gfx/viewport.h"
 #include "game/gfx/engine_scene_list.h"
 #include "game/gfx/face_texture.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/sys/winmain.h"
 #include "game/gfx/movie.h"
-#include "hook/game_code.h"
 #include "game/sys/crt.h"
 
 namespace CFuncs {
 
-GAME_GLOBAL(bool, g_tryingToJoin, 0x007CCA81);
-GAME_GLOBAL(char[128], g_nodeArrayName, 0x007CE6D8);
-GAME_GLOBAL(void*, g_secondControllerCheck, 0x007CEBC4);
-GAME_GLOBAL(int, g_viewModeCfunc, 0x007CEBCC);
-GAME_GLOBAL(char[32], g_passwordStars, 0x007CEBD0);
-GAME_GLOBAL(bool, g_gotExtraMemory, 0x007CEFAC);
+bool g_tryingToJoin;
+char g_nodeArrayName[128];
+void* g_secondControllerCheck;
+int g_viewModeCfunc;
+char g_passwordStars[32];
+bool g_gotExtraMemory;
 
 namespace {
 
@@ -213,7 +210,7 @@ bool __cdecl CFunc_IsInternetGameHost(Script::CStruct*, Script::CScript*) { retu
 // 0x0059F780: IsJoiningInternetGame (logged).
 bool __cdecl CFunc_IsJoiningInternetGame(Script::CStruct*, Script::CScript*)
 {
-    Dbg::Printf(GAME_TEXT(0x0064FB04, "ScriptIsJoiningInternetGame %d\n"), JoiningInternetGame()); // "ScriptIsJoiningInternetGame %d\n"
+    Dbg::Printf("ScriptIsJoiningInternetGame %d\n", JoiningInternetGame()); // "ScriptIsJoiningInternetGame %d\n"
     return JoiningInternetGame();
 }
 
@@ -225,7 +222,7 @@ bool __cdecl CFunc_TryJoinServerIPSuccess(Script::CStruct*, Script::CScript*)
 {
     if (!TryingToJoin())
         JoinServerIPSucceeded() = false;
-    Dbg::Printf(GAME_TEXT(0x0064FB24, "ScriptTryJoinServerIPSuccess %d\n"), JoinServerIPSucceeded()); // "ScriptTryJoinServerIPSuccess %d\n"
+    Dbg::Printf("ScriptTryJoinServerIPSuccess %d\n", JoinServerIPSucceeded()); // "ScriptTryJoinServerIPSuccess %d\n"
     return JoinServerIPSucceeded();
 }
 
@@ -293,7 +290,7 @@ bool __cdecl CFunc_GetCustomSkaterFilename(Script::CStruct*, Script::CScript* sc
 bool __cdecl CFunc_SetCustomSkaterFilename(Script::CStruct* params, Script::CScript*)
 {
     Obj::CSkaterProfile* profile = GetProfile(0);
-    const char* name = GAME_TEXT(0x0064EFD8, "Unimplemented"); // "Unimplemented"
+    const char* name = "Unimplemented"; // "Unimplemented"
     params->GetString(0u, &name, 0);
     profile->SetStringF36C1878(name);
     return true;
@@ -355,7 +352,7 @@ bool __cdecl CFunc_NodeArrayManLoad(Script::CStruct* params, Script::CScript*)
     for (const char* in = file; (*out++ = *in++) != '\0';) {
     }
     Ass::AssetManager()->LoadAsset(file, 11, 0, 0, false, false, false, nullptr, 0);
-    Dbg::Printf(GAME_TEXT(0x0064FB48, "p_file = %s\n"), file); // "p_file = %s\n"
+    Dbg::Printf("p_file = %s\n", file); // "p_file = %s\n"
     return true;
 }
 
@@ -394,16 +391,16 @@ bool __cdecl CFunc_GetPreferencePassword(Script::CStruct* params, Script::CScrip
     uint32_t field = 0;
     params->GetChecksum(0u, &field, 0);
     uint32_t type = reinterpret_cast<uint32_t>(script); // (the slot the original reads back: the argument's)
-    params->GetChecksum(GAME_TEXT(0x0064FB68, "pref_type"), &type, 0); // "pref_type"
+    params->GetChecksum("pref_type", &type, 0); // "pref_type"
     Script::CStruct* preference = GetPreferencesOfType(type)->GetPreference(field);
     const char* password = nullptr; // (unset in the original when missing)
-    preference->GetString(GAME_TEXT(0x0064C830, "ui_string"), &password, 0); // "ui_string"
+    preference->GetString("ui_string", &password, 0); // "ui_string"
     char* stars = PasswordStars();
     size_t length = std::strlen(password);
     for (size_t i = 0; i < length; ++i)
         stars[i] = '*';
     stars[length] = '\0';
-    results->AddString(GAME_TEXT(0x0064FB58, "password_string"), stars); // "password_string"
+    results->AddString("password_string", stars); // "password_string"
     return true;
 }
 
@@ -414,7 +411,7 @@ bool __cdecl CFunc_GetPreferenceChecksum(Script::CStruct* params, Script::CScrip
     uint32_t field = 0;
     params->GetChecksum(0u, &field, 0);
     uint32_t type = reinterpret_cast<uint32_t>(script); // (the slot the original reads back: the argument's)
-    params->GetChecksum(GAME_TEXT(0x0064FB68, "pref_type"), &type, 0); // "pref_type"
+    params->GetChecksum("pref_type", &type, 0); // "pref_type"
     Script::CStruct* preference = GetPreferencesOfType(type)->GetPreference(field);
     uint32_t value = 0; // (unset in the original when missing)
     preference->GetChecksum(kChecksum, &value, 0);
@@ -500,7 +497,7 @@ bool __cdecl CFunc_ReloadAnim(Script::CStruct* params, Script::CScript*)
     params->GetChecksum(0x52A864B0u, &anim, 0);
     uint32_t base = 0;
     params->GetChecksum(0x98549BA4u, &base, 0);
-    const char* file = GAME_TEXT(0x006469B4, ""); // ""
+    const char* file = ""; // ""
     params->GetString(0xC3F4169Au, &file, 0);
     Ass::CAssMan* assets = Ass::AssetManager();
     uint32_t name = Crc::GenerateCRCFromString(file);
@@ -630,7 +627,7 @@ bool __cdecl CFunc_MoveNode(Script::CStruct* params, Script::CScript*)
 {
     uint32_t name;
     if (!params->GetChecksum(0xA1DC81F9u, &name, 0)) { // "name"
-        Dbg::Printf(GAME_TEXT(0x0064FF04, "Missing Name\n")); // "Missing Name\n"
+        Dbg::Printf("Missing Name\n"); // "Missing Name\n"
         return false;
     }
     Script::CStruct* node = SkateScript::GetNode(name, false);
@@ -638,12 +635,12 @@ bool __cdecl CFunc_MoveNode(Script::CStruct* params, Script::CScript*)
         return false;
     Script::VectorValue position;
     if (!GetPosition(params, &position)) {
-        Dbg::Printf(GAME_TEXT(0x0064FEDC, "Missing position parameter in MoveNode\n")); // "Missing position parameter in MoveNode\n"
+        Dbg::Printf("Missing position parameter in MoveNode\n"); // "Missing position parameter in MoveNode\n"
         return false;
     }
     Script::VectorValue old;
     if (!GetPosition(node, &old)) {
-        Dbg::Printf(GAME_TEXT(0x0064FEC0, "node is missing position\n")); // "node is missing position\n"
+        Dbg::Printf("node is missing position\n"); // "node is missing position\n"
         return false;
     }
     node->AddVector(kPos, position.x, position.y, position.z);
@@ -698,19 +695,19 @@ bool __cdecl CFunc_ShowTracking(Script::CStruct* params, Script::CScript*)
     bool show4 = params->ContainsFlag(0xB0FE7369u);
     if (!show1 && !show2 && !show3 && !show4)
         show1 = show2 = show3 = show4 = true;
-    const char* file = GAME_TEXT(0x006469B4, ""); // ""
+    const char* file = ""; // ""
     params->GetString(0u, &file, 0);
     if (file[1] == ':') {
-        Dbg::Printf(GAME_TEXT(0x0064FF80, "WARNING: stripped drive name off file\n")); // "WARNING: stripped drive name off file\n"
+        Dbg::Printf("WARNING: stripped drive name off file\n"); // "WARNING: stripped drive name off file\n"
         file += 2;
     }
     int size = 0;
     if (!File::Exist(file)) {
-        Dbg::Printf(GAME_TEXT(0x0064FF14, "Can't find file: %s\n"), file); // "Can't find file: %s\n"
+        Dbg::Printf("Can't find file: %s\n", file); // "Can't find file: %s\n"
         return false; // (as in the original, the debug heap stays pushed)
     }
     auto* data = static_cast<uint8_t*>(Pip::LoadFileInto(file, &size, nullptr));
-    Dbg::Printf(GAME_TEXT(0x0064FF60, "Loaded %s, size = %d, at %p\n"), file, size, data); // "Loaded %s, size = %d, at %p\n"
+    Dbg::Printf("Loaded %s, size = %d, at %p\n", file, size, data); // "Loaded %s, size = %d, at %p\n"
     Mem::Manager::Get()->PopContext();
     int count1 = 0;
     int count2 = 0;
@@ -770,7 +767,7 @@ bool __cdecl CFunc_ShowTracking(Script::CStruct* params, Script::CScript*)
         }
         DrawDebugLine(&from, &to, colour, colour, 0);
     }
-    Dbg::Printf(GAME_TEXT(0x0064FF2C, "Bonks = %d,  Grinds = %d, verts= %d, lines = %d\n"), count1, count2, count3, count4); // "Bonks = %d, ..."
+    Dbg::Printf("Bonks = %d,  Grinds = %d, verts= %d, lines = %d\n", count1, count2, count3, count4); // "Bonks = %d, ..."
     Mem::FreeMalloc(data);
     return true;
 }
@@ -781,11 +778,11 @@ bool __cdecl CFunc_ChooseFaceForFacemap(Script::CStruct* params, Script::CScript
 {
     void* face = Word54(GetProfile(0));
     const char* name = nullptr; // (unset in the original when missing - an asserted parameter)
-    params->GetString(GAME_TEXT(0x0064D2B0, "string"), &name, 1); // "string"
+    params->GetString("string", &name, 1); // "string"
     char path[0x80];
 #pragma warning(suppress : 4996) // (unbounded: as in the original)
-    std::sprintf(path, GAME_TEXT(0x0064D2A4, "faces\\%s"), name); // "faces\%s"
-    void* file = GameFopen(path, GAME_TEXT(0x00647344, "rb")); // "rb"
+    std::sprintf(path, "faces\\%s", name); // "faces\%s"
+    void* file = GameFopen(path, "rb"); // "rb"
     if (!file)
         return false;
     GameFseek(file, 0, SEEK_END);
@@ -859,8 +856,8 @@ bool __cdecl CFunc_AddRestartsToMenu(Script::CStruct* params, Script::CScript*)
     while ((restart = Obj::GetRestartNode(0, 0, restart)) != 0) {
         Script::CStruct* node = SkateScript::GetNode(restart, true);
         const char* name;
-        if (!node->GetString(GAME_TEXT(0x00650230, "RestartName"), &name, 0)) // "RestartName"
-            name = GAME_TEXT(0x00650220, "Unnamed restart");                       // "Unnamed restart"
+        if (!node->GetString("RestartName", &name, 0)) // "RestartName"
+            name = "Unnamed restart";                       // "Unnamed restart"
         Script::CStruct* item = NewStructure();
         item->AddString(kMenuText, name);
         item->AddChecksum(kMenuId, kFirstRestartId + count);
@@ -878,7 +875,7 @@ bool __cdecl CFunc_AddRestartsToMenu(Script::CStruct* params, Script::CScript*)
     }
     if (!count) {
         Script::CStruct* item = NewStructure();
-        item->AddString(kMenuText, GAME_TEXT(0x00650208, "No restarts in level")); // "No restarts in level"
+        item->AddString(kMenuText, "No restarts in level"); // "No restarts in level"
         item->AddChecksum(kMenuId, kFirstRestartId);
         AddRestartItemFlags(item);
         Script::RunScript(0xC16BF7BD, item, nullptr, false, nullptr);
@@ -899,7 +896,7 @@ bool __cdecl CFunc_AddWarpPointsToMenu(Script::CStruct* params, Script::CScript*
         Script::CStruct* node = SkateScript::GetNode(nodes->GetElement(i), true);
         const char* name;
         if (!node->GetString(0xFCD206E1u, &name, 0))
-            name = GAME_TEXT(0x00650220, "Unnamed restart"); // "Unnamed restart"
+            name = "Unnamed restart"; // "Unnamed restart"
         item->AddString(kMenuText, name);
         item->AddChecksum(kMenuScript, 0x54523C62);
         Script::CStruct* choose = NewStructure();
@@ -916,7 +913,7 @@ bool __cdecl CFunc_AddWarpPointsToMenu(Script::CStruct* params, Script::CScript*
 bool __cdecl CFunc_AddFacesToMenu(Script::CStruct*, Script::CScript*)
 {
     WIN32_FIND_DATAA found;
-    HANDLE search = FindFirstFileA(GAME_TEXT(0x00650254, "Faces\\*.img"), &found); // "Faces\*.img"
+    HANDLE search = FindFirstFileA("Faces\\*.img", &found); // "Faces\*.img"
     if (search == INVALID_HANDLE_VALUE)
         return false;
     int count = 0;
@@ -929,9 +926,9 @@ bool __cdecl CFunc_AddFacesToMenu(Script::CStruct*, Script::CScript*)
             if (std::strlen(name) > 4)
                 name[std::strlen(name) - 4] = '\0';
             Script::CStruct* item = NewStructure();
-            item->AddString(GAME_TEXT(0x0064D0C4, "name"), name); // "name"
-            item->AddString(GAME_TEXT(0x0064D2B8, "file"), file); // "file"
-            Script::RunScript(GAME_TEXT(0x0065023C, "add_item_to_face_menu"), item, nullptr, false); // "add_item_to_face_menu"
+            item->AddString("name", name); // "name"
+            item->AddString("file", file); // "file"
+            Script::RunScript("add_item_to_face_menu", item, nullptr, false); // "add_item_to_face_menu"
             ++count;
             DeleteStructure(item);
         }
@@ -941,47 +938,3 @@ bool __cdecl CFunc_AddFacesToMenu(Script::CStruct*, Script::CScript*)
 }
 
 } // namespace CFuncs
-
-REPLACE(0x0059F610, CFuncs::CFunc_SetViewerAnim);
-REPLACE(0x0059F650, CFuncs::CFunc_SetViewerLODDist);
-REPLACE(0x0059F6C0, CFuncs::CFunc_ReloadViewerAnim);
-REPLACE(0x0059F730, CFuncs::CFunc_CheckForHoles);
-REPLACE(0x0059F740, CFuncs::CFunc_StopSecondControllerCheck);
-REPLACE(0x0059F760, CFuncs::CFunc_QuitGame);
-REPLACE(0x0059F770, CFuncs::CFunc_IsInternetGameHost);
-REPLACE(0x0059F780, CFuncs::CFunc_IsJoiningInternetGame);
-REPLACE(0x0059F7A0, CFuncs::CFunc_TryingToJoinGame);
-REPLACE(0x0059F7B0, CFuncs::CFunc_TryJoinServerIPSuccess);
-REPLACE(0x0059F7E0, CFuncs::CFunc_GSEnableNet);
-REPLACE(0x0059F7F0, CFuncs::CFunc_GSDisableNet);
-REPLACE(0x0059F800, CFuncs::CFunc_WaitForAsyncLoadToFinish);
-REPLACE(0x0059F820, CFuncs::SecondControllerCheckTask);
-REPLACE(0x0059F890, CFuncs::MakeCameraActive);
-REPLACE(0x0059F930, CFuncs::CFunc_GetCustomSkaterFilename);
-REPLACE(0x0059F960, CFuncs::CFunc_SetCustomSkaterFilename);
-REPLACE(0x0059F9A0, CFuncs::CFunc_ControllerPressed);
-REPLACE(0x0059FA40, CFuncs::CFunc_GetAnalogueInfo);
-REPLACE(0x0059FB10, CFuncs::DestroyObjectWithId);
-REPLACE(0x0059FB30, CFuncs::CFunc_NodeArrayManLoad);
-REPLACE(0x0059FB90, CFuncs::CFunc_NodeArrayManUnload);
-REPLACE(0x0059FBC0, CFuncs::CFunc_GetPreferenceString);
-REPLACE(0x0059FC40, CFuncs::CFunc_GetPreferencePassword);
-REPLACE(0x0059FD00, CFuncs::CFunc_GetPreferenceChecksum);
-REPLACE(0x0059FD80, CFuncs::CFunc_ToggleNetMetrics);
-REPLACE(0x0059FD90, CFuncs::CFunc_SetViewMode);
-REPLACE(0x005A1C80, CFuncs::CFunc_SetViewerModel);
-REPLACE(0x005A1D40, CFuncs::CFunc_GetViewerObjectID);
-REPLACE(0x005A1D80, CFuncs::CFunc_ReloadAnim);
-REPLACE(0x005A1E70, CFuncs::CFunc_Debounce);
-REPLACE(0x005A2050, CFuncs::CFunc_StartKeyboardHandler);
-REPLACE(0x005A2080, CFuncs::CFunc_StopKeyboardHandler);
-REPLACE(0x005A2100, CFuncs::CFunc_SpawnSecondControllerCheck);
-REPLACE(0x005A21C0, CFuncs::CFunc_MoveNode);
-REPLACE(0x005A2370, CFuncs::CFunc_SetActiveCamera);
-REPLACE(0x005A23E0, CFuncs::CFunc_ShowTracking);
-REPLACE(0x005A2790, CFuncs::CFunc_ChooseFaceForFacemap);
-REPLACE(0x005A29A0, CFuncs::CFunc_SkaterIsCustom);
-REPLACE(0x005A29E0, CFuncs::CFunc_SetSceneColor);
-REPLACE(0x005A4260, CFuncs::CFunc_AddRestartsToMenu);
-REPLACE(0x005A4560, CFuncs::CFunc_AddWarpPointsToMenu);
-REPLACE(0x005A4730, CFuncs::CFunc_AddFacesToMenu);

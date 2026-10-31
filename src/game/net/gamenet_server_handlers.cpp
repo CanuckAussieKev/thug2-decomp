@@ -17,9 +17,7 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "game/ed/rail_editor.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
@@ -113,7 +111,7 @@ int __cdecl HandleObserveRequest(Net::MsgHandlerContext* context)
     if (!IsLocalPlayer(player)) {
         Obj::CObject* skater = PlayerSkater(player);
         manager->DropPlayer(player, 2);         // the player out of the game (2: to observe)
-        Call(GAME_CODE(0x00565790, &Mdl::Skate::RemoveSkater), skate, skater);        // its skater gone
+        Call(CodeAddress(&Mdl::Skate::RemoveSkater), skate, skater);        // its skater gone
         Field<uint32_t>(player, 0x1D0) |= 4;    // an observer now
         Field<Obj::CObject*>(player, 0x14) = nullptr;
         if (AsPlayer(player)->IsServerPlayer()) {
@@ -145,7 +143,7 @@ int __cdecl HandleRequestGameData(Net::MsgHandlerContext* context)
     handle = context->m_Conn->m_handle;
     auto railEditor = [] { return Ed::CRailEditorComponent::Instance(); };
     railEditor(); // (looked up once for nothing)
-    void* rails = Call<void*>(GAME_CODE(0x004F45B0, &Ed::CRailEditorComponent::GetPacked), railEditor());
+    void* rails = Call<void*>(CodeAddress(&Ed::CRailEditorComponent::GetPacked), railEditor());
     app->StreamMessage(handle, kMsgRailsData, kRailDataSize, rails, "rail data", kGroupGame, false, true);
     if (manager->HasCreatedGoals()) {
         manager->PrepareCreatedGoals(Field<uint32_t>(msg, 0));
@@ -320,7 +318,7 @@ int __cdecl HandleDisconnect(Net::MsgHandlerContext* context)
             bool observer = IsObserver(player);
             manager->DropPlayer(player, 0); // the player out of the game
             if (!observer)
-                Call(GAME_CODE(0x00565790, &Mdl::Skate::RemoveSkater), skate, skater);
+                Call(CodeAddress(&Mdl::Skate::RemoveSkater), skate, skater);
         }
         return kKeep;
     }
@@ -419,13 +417,3 @@ int __cdecl HandleChecksumResponse(Net::MsgHandlerContext* context)
 }
 
 } // namespace GameNet
-
-REPLACE(0x0052E060, GameNet::HandleObserveRequest);
-REPLACE(0x0052E9E0, GameNet::HandleRequestGameData);
-REPLACE(0x0052EC40, GameNet::HandleGameEndedReport);
-REPLACE(0x0052EE10, GameNet::HandleTeamChangeRequest);
-REPLACE(0x0052EF40, GameNet::HandleGoalCompletedReport);
-REPLACE(0x0052F1A0, GameNet::HandleGoalStartedReport);
-REPLACE(0x0052FCC0, GameNet::HandleDisconnect);
-REPLACE(0x0052FDA0, GameNet::HandleDropCarried);
-REPLACE(0x00532170, GameNet::HandleChecksumResponse);

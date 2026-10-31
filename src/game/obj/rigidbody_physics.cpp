@@ -17,14 +17,11 @@
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Obj {
 
-GAME_GLOBAL(bool, g_rigidBodyDrawShape, 0x006939D4);
-GAME_GLOBAL(bool, g_rigidBodyDrawDetails, 0x006939D5);
+bool g_rigidBodyDrawShape;
+bool g_rigidBodyDrawDetails;
 
 namespace {
 
@@ -542,12 +539,3 @@ void CRigidBodyComponent::Update()
 }
 
 } // namespace Obj
-
-REPLACE(0x0042CEE0, &Obj::CRigidBodyComponent::ImpulseScale);
-REPLACE(0x0042CF90, &Obj::CRigidBodyComponent::ApplySprings);
-REPLACE(0x0042D9D0, &Obj::CRigidBodyComponent::DebugDraw);
-REPLACE(0x0042E540, &Obj::CRigidBodyComponent::Integrate);
-REPLACE(0x0042E980, &Obj::CRigidBodyComponent::OnBounce);
-REPLACE(0x00430140, &Obj::CRigidBodyComponent::ResolveContacts);
-REPLACE(0x00430BE0, &Obj::CRigidBodyComponent::Collide);
-REPLACE(0x00430E20, &Obj::CRigidBodyComponent::Update);

@@ -3,6 +3,8 @@
 
 #include "game/gfx/flexible_particle_manager.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <new>
 
 #include "game/core/manager.h"
@@ -12,30 +14,26 @@
 #include "game/gfx/viewport.h"
 #include "game/gfx/pc_flexible_particles.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/game_vtables.h"
 #include "game/obj/movie_manager.h"
 #include "game/sys/crt.h"
 
 namespace Nx {
 
-GAME_GLOBAL(float, g_frameTimeScale, 0x00700EF4);
-GAME_GLOBAL(int, g_drawnViewport, 0x006FA7B8);
+float g_frameTimeScale;
+int g_drawnViewport;
 namespace {
 
 extern void** const kManagerVtable;
 extern void** const kHeadVtable;
 void** const& kNodeVtable = Vt::kParticleNode; // (Lst::Node<CParticleSystem>'s own)
-const char* const kHeapName = GAME_TEXT(0x006494C8, "FlxParticles");     // "FlxParticles"
-const char* const kTempHeapName = GAME_TEXT(0x006494B4, "TEMPFlxPrtcl"); // "TEMPFlxPrtcl"
+const char* const kHeapName = "FlxParticles";     // "FlxParticles"
+const char* const kTempHeapName = "TEMPFlxPrtcl"; // "TEMPFlxPrtcl"
 constexpr uint32_t kHeapSizeSymbol = 0x91CB7552;
 constexpr uint32_t kFrameRateSymbol = 0x3214C818;
 constexpr int kDefaultHeapSize = 0x5000;
 constexpr float kFramesPerSecond = 60.0f; // 0x00645EA0
-
 
 float& FrameTimeScale() { return g_frameTimeScale; }
 bool GamePaused() { return Obj::g_gamePaused; }
@@ -298,26 +296,10 @@ Mem::ListNode* CParticleSystemListHead::Destroy(unsigned int flags)
 }
 
 namespace {
-GAME_VTABLE(kManagerVtable, 0x006494B0, &Nx::CFlexibleParticleManager::Destroy);
-GAME_VTABLE(kHeadVtable, 0x006494C4, &Nx::CParticleSystemListHead::Destroy);
+static VtableSlot kManagerVtable_slots[] = {&Nx::CFlexibleParticleManager::Destroy};
+void** const kManagerVtable = reinterpret_cast<void**>(kManagerVtable_slots);
+static VtableSlot kHeadVtable_slots[] = {&Nx::CParticleSystemListHead::Destroy};
+void** const kHeadVtable = reinterpret_cast<void**>(kHeadVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x0049AF20, &Nx::CFlexibleParticleManager::Construct);
-REPLACE(0x0049AA10, &Nx::CFlexibleParticleManager::DestroyBody);
-REPLACE(0x0049B040, &Nx::CFlexibleParticleManager::Destroy);
-REPLACE(0x0049A9D0, &Nx::CFlexibleParticleManager::DeleteTempHeap);
-REPLACE(0x0049AA80, &Nx::CFlexibleParticleManager::CreateTempHeap);
-REPLACE(0x0049A8E0, &Nx::CFlexibleParticleManager::HasTempHeap);
-REPLACE(0x0049A8F0, Nx::CFlexibleParticleManager::CompareDistance);
-REPLACE(0x0049AB50, &Nx::CFlexibleParticleManager::RenderSystems);
-REPLACE(0x0049AC20, &Nx::CFlexibleParticleManager::FindSystem);
-REPLACE(0x0049AC60, &Nx::CFlexibleParticleManager::CreateSystem);
-REPLACE(0x0049AD60, &Nx::CFlexibleParticleManager::RemoveSystem);
-REPLACE(0x0049AD90, &Nx::CFlexibleParticleManager::DestroySystemNow);
-REPLACE(0x0049ADB0, &Nx::CFlexibleParticleManager::DestroySystemWhenEmpty);
-REPLACE(0x0049ADE0, &Nx::CFlexibleParticleManager::DestroyGroup);
-REPLACE(0x0049AE30, &Nx::CFlexibleParticleManager::DestroyNonPersistent);
-REPLACE(0x0049AE80, &Nx::CFlexibleParticleManager::SetColourScale);
-REPLACE(0x0049AEF0, &Nx::CParticleSystemListHead::Destroy);

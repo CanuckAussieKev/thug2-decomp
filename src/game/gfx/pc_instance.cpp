@@ -22,28 +22,25 @@
 #include "game/mth/matrix.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/device.h"
 #include "game/sys/crt.h"
 
 namespace Nx {
 
-GAME_GLOBAL(D3DLIGHT9, g_deviceLight1, 0x0067E9D8, D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f});
-GAME_GLOBAL(D3DLIGHT9, g_deviceLight0, 0x0067EA40,
-    D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 0.0f});
-GAME_GLOBAL(Mth::Matrix*, g_boneMatrices, 0x007825B0);
-GAME_GLOBAL(int, g_boneCount, 0x007825B4);
-GAME_GLOBAL(sInstance*, g_currentInstance, 0x007825B8);
-GAME_GLOBAL(const Mth::Matrix*, g_lastBones, 0x007825BC);
-GAME_GLOBAL(sInstance*, g_instances, 0x007825C0);
+D3DLIGHT9 g_deviceLight1{D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f}};
+D3DLIGHT9 g_deviceLight0{
+    D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 0.0f}};
+Mth::Matrix* g_boneMatrices;
+int g_boneCount;
+sInstance* g_currentInstance;
+const Mth::Matrix* g_lastBones;
+sInstance* g_instances;
 
 namespace {
 
 IDirect3DDevice9* Device() { return g_d3dDevice; }
 sInstance*& Instances() { return g_instances; }
-GAME_GLOBAL(sInstance*[4096], g_visibleInstances, 0x007825C8); // RenderInstances' list
+sInstance* g_visibleInstances[4096]; // RenderInstances' list
 sInstance** Visible() { return g_visibleInstances; }
 const Mth::Matrix* LastBones() { return g_lastBones; }
 void SetLastBones(const Mth::Matrix* bones) { g_lastBones = bones; }
@@ -376,12 +373,3 @@ sUVWibble* sUVWibble::Construct()
 void sTextureAnim::Restart() { startTime = Tmr::GetTime(); }
 
 } // namespace Nx
-
-REPLACE(0x004D1030, &Nx::sInstance::Construct);
-REPLACE(0x004D10C0, &Nx::sInstance::DestroyBody);
-REPLACE(0x004D1130, &Nx::sInstance::Render);
-REPLACE(0x004D16B0, Nx::RenderInstance);
-REPLACE(0x004D1760, Nx::RenderInstances);
-REPLACE(0x004D0F40, Nx::CompareInstances);
-REPLACE(0x004D1A60, &Nx::sUVWibble::Construct);
-REPLACE(0x004D1A80, &Nx::sTextureAnim::Restart);

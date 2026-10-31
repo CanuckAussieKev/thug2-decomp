@@ -3,8 +3,6 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "hook/game_global.h"
-
 // The time-of-day manager (the TODManager_* script commands): a career level's day passing through four states -
 // morning, afternoon, evening, night - each a set of lighting parameters (the level's light colour, sky, fog,
 // ambient and the two directional lights, the sun, bloom) that the manager blends between while time passes, and
@@ -26,7 +24,7 @@ class HashTable;
 
 namespace Gfx {
 
-GAME_GLOBAL_EXTERN(float, g_half);
+extern float g_half;
 
 // One state's lighting (the parameters of a state's structure in the level's script, by the names below): 0xA4
 // bytes, passed by value between the manager's methods.
@@ -285,7 +283,7 @@ bool __cdecl CFunc_TODManager_EnableBloom(Script::CStruct* params, Script::CScri
 bool __cdecl CFunc_TODManager_SetTODInstant(Script::CStruct* params, Script::CScript* script);
 bool __cdecl CFunc_TODManager_AdvanceTODState(Script::CStruct* params, Script::CScript* script);
 
-GAME_GLOBAL_EXTERN(float, g_thousand);
-GAME_GLOBAL_EXTERN(float, g_hundred);
-GAME_GLOBAL_EXTERN(float, g_twoTo32);
+extern float g_thousand;
+extern float g_hundred;
+extern float g_twoTo32;
 } // namespace Gfx

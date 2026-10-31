@@ -27,8 +27,6 @@
 #include "game/sys/crt.h"
 #include "game/sys/timer.h"
 #include "game/gfx/anim_blend.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/gfx/loading_bar.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf / strcpy / strncpy, kept)
@@ -443,9 +441,3 @@ void __cdecl ListingGamesCallback(void* peer, int success, const char* name, voi
 }
 
 } // namespace GameNet
-
-REPLACE(0x00546790, GameNet::CFunc_DescribeServer);
-REPLACE(0x005470D0, GameNet::CFunc_ChooseServer);
-REPLACE(0x00547FA0, GameNet::CFunc_RetrieveServerInfo);
-REPLACE(0x005475C0, GameNet::HandleServerResponse);  // (not a Ghidra function)
-REPLACE(0x00547750, GameNet::ListingGamesCallback);  // (not a Ghidra function)

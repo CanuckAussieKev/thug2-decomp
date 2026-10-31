@@ -15,23 +15,20 @@
 #include "game/sys/timer.h"
 #include "game/ed/park_editor.h"
 #include "game/obj/control_pad.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[24], g_vehicleSoundMemberFunctions, 0x00684648,
+uint32_t g_vehicleSoundMemberFunctions[24]{
             0xB8451886, 0x1859F772, 0, 0, 0, 0,
             0x0F6E8120, 0x1859F772, 0, 0, 0, 0,
             0xF876FAE9, 0x1859F772, 0, 0, 0, 0,
-            0, 0x1859F772, 0, 0, 0, 0);
+            0, 0x1859F772, 0, 0, 0, 0};
 
 namespace {
 
@@ -371,40 +368,23 @@ bool CSkaterVehicleSoundComponent::StopSkaterVehicleSounds(Script::CStruct*, Scr
 
 } // namespace Obj
 
-REPLACE(0x0051ADC0, &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
-REPLACE(0x0051B880, Obj::CSkaterVehicleSoundComponent::Create);
-REPLACE(0x0051AD90, Obj::CSkaterVehicleSoundComponent::RegisterMemberFunctions);
-REPLACE(0x0051ADD0, &Obj::CSkaterVehicleSoundComponent::Construct);
-REPLACE(0x0051ADB0, &Obj::CSkaterVehicleSoundComponent::DestroyBody);
-REPLACE(0x0051AE30, &Obj::CSkaterVehicleSoundComponent::Destroy);
-REPLACE(0x0051AE60, &Obj::CSkaterVehicleSoundComponent::InitFromStructure);
-REPLACE(0x0051B8E0, &Obj::CSkaterVehicleSoundComponent::Finalize);
-REPLACE(0x0051B920, &Obj::CSkaterVehicleSoundComponent::Update);
-REPLACE(0x0051B670, &Obj::CSkaterVehicleSoundComponent::ReadSettings);
-REPLACE(0x0051AE80, &Obj::CSkaterVehicleSoundComponent::UpdateEngine);
-REPLACE(0x0051B3E0, &Obj::CSkaterVehicleSoundComponent::UpdateSkid);
-REPLACE(0x0051B3B0, &Obj::CSkaterVehicleSoundComponent::UpdateUnused);
-REPLACE(0x0051B7C0, &Obj::CSkaterVehicleSoundComponent::SetSkaterVehicleSounds);
-REPLACE(0x0051B820, &Obj::CSkaterVehicleSoundComponent::NoSkaterVehicleSounds);
-REPLACE(0x0051B860, &Obj::CSkaterVehicleSoundComponent::StopSkaterVehicleSounds);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064C1E4,
-    &Obj::CSkaterVehicleSoundComponent::Destroy,
-    &Obj::CSkaterVehicleSoundComponent::Update,
-    &Obj::CSkaterVehicleSoundComponent::InitFromStructure,
-    &Obj::CSkaterVehicleSoundComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CSkaterVehicleSoundComponent::Destroy,
+         &Obj::CSkaterVehicleSoundComponent::Update,
+         &Obj::CSkaterVehicleSoundComponent::InitFromStructure,
+         &Obj::CSkaterVehicleSoundComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

@@ -2,6 +2,7 @@
 
 #include "game/script/script_cfuncs.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -14,19 +15,16 @@
 #include "game/script/parse.h"
 #include "game/script/qb.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/tod_manager.h"
 
 namespace CFuncs {
 
-GAME_GLOBAL(float, g_scriptFrameMilliseconds, 0x006460DC, 16.666666f);
-GAME_GLOBAL(bool, g_scriptPrintfEnabled, 0x0067D6D4, true);
-GAME_GLOBAL(bool, g_firstTimeNotCalled, 0x0067D6D5, true);
-GAME_GLOBAL(char[1004], g_formatTextBuffer, 0x00696940);
-GAME_GLOBAL(Script::CComponent, g_formatTextValue, 0x00696D2C);
-GAME_GLOBAL(int, g_scriptWarningLevel, 0x006F3534);
+float g_scriptFrameMilliseconds{16.666666f};
+bool g_scriptPrintfEnabled{true};
+bool g_firstTimeNotCalled{true};
+char g_formatTextBuffer[1004];
+Script::CComponent g_formatTextValue;
+int g_scriptWarningLevel;
 
 namespace {
 
@@ -650,37 +648,3 @@ bool __cdecl CFunc_GetScriptString(Script::CStruct* params, Script::CScript* scr
 }
 
 } // namespace CFuncs
-
-REPLACE(0x00449D00, CFuncs::CFunc_Change);
-REPLACE(0x0044A0D0, CFuncs::CFunc_Wait);
-REPLACE(0x0044A200, CFuncs::CFunc_IntegerEquals);
-REPLACE(0x0044A260, CFuncs::CFunc_ChecksumEquals);
-REPLACE(0x0044A2C0, CFuncs::CFunc_StringEquals);
-REPLACE(0x0044A320, CFuncs::CFunc_SetScriptString);
-REPLACE(0x0044A380, CFuncs::CFunc_GlobalExists);
-REPLACE(0x0044A480, CFuncs::FormatText);
-REPLACE(0x0044A900, CFuncs::CFunc_EnableScriptPrintf);
-REPLACE(0x0044A930, CFuncs::CFunc_IfDebugOn);
-REPLACE(0x0044A940, CFuncs::CFunc_StructureContains);
-REPLACE(0x0044A9B0, CFuncs::CFunc_ClearStruct);
-REPLACE(0x0044A9E0, CFuncs::CFunc_ScriptExists);
-REPLACE(0x0044AA20, CFuncs::CFunc_IsArray);
-REPLACE(0x0044AA50, CFuncs::CFunc_Block);
-REPLACE(0x0044AAB0, CFuncs::CFunc_IsTrue);
-REPLACE(0x0044AAE0, CFuncs::CFunc_CleanUpAndRemoveSymbol);
-REPLACE(0x0044AB20, CFuncs::CFunc_SetEventHandler);
-REPLACE(0x0044ABD0, CFuncs::CFunc_SetExceptionHandler);
-REPLACE(0x0044AC70, CFuncs::CFunc_ResetEventHandlersFromTable);
-REPLACE(0x0044ACD0, CFuncs::CFunc_ClearEventHandler);
-REPLACE(0x0044AD00, CFuncs::CFunc_ClearEventHandlerGroup);
-REPLACE(0x0044AD30, CFuncs::CFunc_OnExceptionRun);
-REPLACE(0x0044AD60, CFuncs::CFunc_OnExitRun);
-REPLACE(0x0044AD90, CFuncs::CFunc_PrintEventHandlerTable);
-REPLACE(0x0044ADA0, CFuncs::CFunc_StopAllScripts);
-REPLACE(0x0044ADB0, CFuncs::CFunc_FirstTimeThisIsCalled);
-REPLACE(0x0044ADD0, CFuncs::CFunc_SetScriptWarningLevel);
-REPLACE(0x0044AE30, CFuncs::CFunc_CastToInteger);
-REPLACE(0x0044AEB0, CFuncs::CFunc_StringToInteger);
-REPLACE(0x0044B720, CFuncs::CFunc_AddParams);
-REPLACE(0x0044B740, CFuncs::CFunc_RemoveComponent);
-REPLACE(0x0044B790, CFuncs::CFunc_GetScriptString);

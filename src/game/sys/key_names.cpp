@@ -6,8 +6,6 @@
 #include <cstdint>
 
 #include "game/sys/platform_input.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Sys {
 
@@ -70,6 +68,3 @@ void __cdecl SetGermanKeyNames()
 }
 
 } // namespace Sys
-
-REPLACE(0x004E0DA0, Sys::SetKeyNames);
-REPLACE(0x004E0FE0, Sys::SetGermanKeyNames);

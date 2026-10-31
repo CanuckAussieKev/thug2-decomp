@@ -17,8 +17,6 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sio/device.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace CFuncs {
 
@@ -326,15 +324,3 @@ bool __cdecl CFunc_BroadcastProjectile(Script::CStruct* params, Script::CScript*
 }
 
 } // namespace CFuncs
-
-REPLACE(0x005B1EE0, CFuncs::CFunc_PlaceObject);
-REPLACE(0x005B1F70, CFuncs::CFunc_AnnounceHuntStarted);
-REPLACE(0x005B2030, CFuncs::CFunc_AnnounceNeedToPlaceObjects);
-REPLACE(0x005B20E0, CFuncs::CFunc_AtLeastOneObjectPlaced);
-REPLACE(0x005B2170, CFuncs::CFunc_ReportObjectPickup);
-REPLACE(0x005B2210, CFuncs::CFunc_PlacedLessThan);
-REPLACE(0x005B2260, CFuncs::CFunc_BroadcastEnterVehicle);
-REPLACE(0x005B2300, CFuncs::CFunc_LobbyCheckKeyboard);
-REPLACE(0x005B4F80, CFuncs::CFunc_BroadcastObjectPlacements);
-REPLACE(0x005B50F0, CFuncs::CFunc_ReportObjectPlacement);
-REPLACE(0x005B51B0, CFuncs::CFunc_BroadcastProjectile);

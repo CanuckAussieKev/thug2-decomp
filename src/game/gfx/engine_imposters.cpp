@@ -2,12 +2,12 @@
 
 #include "game/gfx/engine_imposters.h"
 
+#include <cstdint>
 #include <new>
 
 #include "game/core/mem.h"
 #include "game/gfx/primitive_states.h"
 #include "game/lst/hashtable.h"
-#include "hook/hook.h"
 
 namespace Nx {
 
@@ -94,8 +94,3 @@ void CImposterManager::Render()
 }
 
 } // namespace Nx
-
-REPLACE(0x0048E3E0, &Nx::CImposterManager::Construct);
-REPLACE(0x0048E260, &Nx::CImposterManager::DeleteAll);
-REPLACE(0x0048E2D0, &Nx::CImposterManager::Update);
-REPLACE(0x0048E370, &Nx::CImposterManager::Render);

@@ -3,14 +3,12 @@
 #include "game/nx/coll_tri.h"
 
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/engine_glue.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Nx {
 
@@ -20,12 +18,12 @@ constexpr float kSixteenth = 0.0625f;
 constexpr float kSixteen = 16.0f;
 
 // The shared index table every face of a geometry is listed by when there's no tree to narrow them down.
-GAME_GLOBAL(uint16_t[2048], g_allFaces, 0x0067C6B8, 0xFFFF);
+uint16_t g_allFaces[2048]{0xFFFF};
 uint16_t* AllFaces() { return g_allFaces; }
 
-GAME_GLOBAL(uint16_t*, g_faceBuffer, 0x00691968);
-GAME_GLOBAL(int, g_faceCount, 0x0069196C);
-GAME_GLOBAL(int, g_faceBufferSize, 0x00691970);
+uint16_t* g_faceBuffer;
+int g_faceCount;
+int g_faceBufferSize;
 
 // GetFacesInBox's / IsPointBehindFaces' state while walking the tree.
 uint16_t*& s_faceBuffer = g_faceBuffer;
@@ -644,35 +642,3 @@ CCollBSPNode* CCollBSPNode::Clone(int) const
 }
 
 } // namespace Nx
-
-REPLACE(0x0040B230, static_cast<Mth::Vector (Nx::CCollObjTriData::*)(int) const>(&Nx::CCollObjTriData::GetRawVertexPos));
-REPLACE(0x0040B2D0,
-        static_cast<void (Nx::CCollObjTriData::*)(int, Mth::Vector*) const>(&Nx::CCollObjTriData::GetRawVertexPos));
-REPLACE(0x00414EE0, &Nx::CCollObjTriData::SetRawVertexPos);
-REPLACE(0x00414F90, &Nx::CCollObjTriData::GetRawVertices);
-REPLACE_SOURCE_ONLY(0x00415C00, &Nx::CCollObjTriData::GetRawVertices); // 5 bytes: JMP 0x00414F90
-REPLACE(0x00415C10, &Nx::CCollObjTriData::SetRawVertices);
-REPLACE(0x00414D80, &Nx::CCollObjTriData::GetFaceNormal);
-REPLACE(0x00415B70, &Nx::CCollObjTriData::CopyFrom);
-REPLACE(0x00416BF0, &Nx::CCollObjTriData::Clone);
-REPLACE(0x00416970, &Nx::CCollObjTriData::Destruct);
-REPLACE(0x00416080, &Nx::CCollObjTriData::DeleteBSP);
-REPLACE(0x004169C0, &Nx::CCollObjTriData::Relocate);
-REPLACE(0x00416400, &Nx::CCollObjTriData::Translate);
-REPLACE(0x00416320, &Nx::CCollObjTriData::GetFacesInBox);
-REPLACE(0x004164F0, &Nx::CCollObjTriData::RotateY);
-REPLACE(0x00416730, &Nx::CCollObjTriData::Scale);
-REPLACE(0x00414D30, &Nx::CCollObjTriData::SetUpAllFaces);
-REPLACE(0x00414FE0, &Nx::CCollObjTriData::AddOcclusionPolys);
-REPLACE(0x004160E0, &Nx::CCollObjTriData::GatherFaces);
-REPLACE(0x004163B0, &Nx::CCollObjTriData::IsPointBehindFaces);
-REPLACE(0x004161D0, &Nx::CCollObjTriData::CountFacesBehind);
-REPLACE(0x00414D70, &Nx::CCollBSPNode::Construct);
-REPLACE(0x00415C90, &Nx::CCollBSPNode::CountNodes);
-REPLACE(0x00415CE0, &Nx::CCollBSPNode::CountFaces);
-REPLACE(0x00415D30, &Nx::CCollBSPNode::FirstFaceList);
-REPLACE(0x00415D80, &Nx::CCollBSPNode::Translate);
-REPLACE(0x00415E00, &Nx::CCollBSPNode::RotateY);
-REPLACE(0x00415F30, &Nx::CCollBSPNode::Scale);
-REPLACE(0x00416000, &Nx::CCollBSPNode::Relocate);
-REPLACE(0x00416A10, &Nx::CCollBSPNode::Clone);

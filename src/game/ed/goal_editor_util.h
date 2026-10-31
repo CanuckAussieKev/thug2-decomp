@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include "hook/game_global.h"
 
 namespace Script {
 class CStruct;
@@ -34,7 +33,7 @@ void __fastcall InitEditedGoal(uint8_t* goal);
 // 0x004E6AE0: GoalEditorMarkerObject<index> passed to the script 0xDCF3A25E as 0xA1DC81F9.
 void __stdcall RunMarkerObjectScript(int index);
 
-GAME_GLOBAL_EXTERN(char[24], g_createdGoalName);
-GAME_GLOBAL_EXTERN(char[104], g_goalNameBuffer);
+extern char g_createdGoalName[24];
+extern char g_goalNameBuffer[104];
 
 } // namespace Ed

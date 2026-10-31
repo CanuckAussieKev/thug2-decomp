@@ -8,14 +8,12 @@
 #include "game/script/struct.h"
 #include "game/sys/game_clock.h"
 #include "game/obj/control_pad.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/skater/vehicle_sound.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 #include "game/obj/wait_and_die.h"
 
@@ -78,33 +76,27 @@ void CWaitAndDieComponent::Update()
 
 } // namespace Obj
 
-REPLACE(0x0043D840, &Obj::CWaitAndDieComponent::DestroyBody);
-REPLACE(0x0043D850, &Obj::CWaitAndDieComponent::Destroy);
-REPLACE(0x0043D880, &Obj::CWaitAndDieComponent::InitFromStructure);
-REPLACE(0x0043D8E0, &Obj::CWaitAndDieComponent::Update);
-
 namespace Obj {
 namespace {
-
 
 } // namespace
 } // namespace Obj
 
 namespace Obj {
 
-GAME_VTABLE(g_waitAndDieVtable, 0x00646898,
-    &Obj::CWaitAndDieComponent::Destroy,
-    &Obj::CWaitAndDieComponent::Update,
-    &Obj::CWaitAndDieComponent::InitFromStructure,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot g_waitAndDieVtable_slots[] = {&Obj::CWaitAndDieComponent::Destroy,
+         &Obj::CWaitAndDieComponent::Update,
+         &Obj::CWaitAndDieComponent::InitFromStructure,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const g_waitAndDieVtable = reinterpret_cast<void**>(g_waitAndDieVtable_slots);
 
 } // namespace Obj

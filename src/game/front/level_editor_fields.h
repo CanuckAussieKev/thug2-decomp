@@ -47,7 +47,7 @@ class CStruct;
 // keys (it already skipped unknown key=value fields). tools/pipeline/game/apply_layout.ts reads them the same way.
 namespace Front::LevelEditor::Fields {
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_fields.cpp) -------------------------------------------
+// --- the pure parts -----------------------------------------------------------------------------------------------
 
 enum class Kind : uint8_t {
     Integer,

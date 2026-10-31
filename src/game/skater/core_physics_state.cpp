@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <new>
 
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
@@ -26,9 +27,7 @@
 #include "game/skater/skater.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/skater/physics_control.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/camera_lookaround.h"
@@ -57,9 +56,9 @@ constexpr uint32_t kMotoskateboardGrind = 0xF7CA3F78; // Trick_Motoskateboard_Gr
 constexpr uint32_t kMotoGrind = 0x302;                 // (on the motoskateboard)
 
 // The free revert's message: the game's own format, file name and text.
-const char* const kMessageFormat = GAME_TEXT(0x006466B0, "M:%s:%i: %s\n"); // "M:%s:%i: %s\n"
-const char* const kSourceFile = GAME_TEXT(0x0064BCE0, "mponents\\SkaterCorePhysicsComponent.cpp"); // (the component's source file)
-const char* const kFreeRevertText = GAME_TEXT(0x0064BD08, "You earned a free revert!!!!"); // "You earned a free revert!!!!"
+const char* const kMessageFormat = "M:%s:%i: %s\n"; // "M:%s:%i: %s\n"
+const char* const kSourceFile = "mponents\\SkaterCorePhysicsComponent.cpp"; // (the component's source file)
+const char* const kFreeRevertText = "You earned a free revert!!!!"; // "You earned a free revert!!!!"
 
 // The fields used here.
 constexpr uint32_t kFreeRevertsPending = 0x318;
@@ -405,45 +404,27 @@ void CorePhysicsComponent::StartGrindTrick(uint32_t railType, bool trick1, bool 
 
 } // namespace Skater
 
-REPLACE(0x005004B0, &Skater::CorePhysicsComponent::StartGrindTrick);
-REPLACE(0x00505440, Skater::CorePhysicsComponent::Create);
-REPLACE(0x00500CA0, &Skater::CorePhysicsComponent::Construct);
-REPLACE(0x00500DB0, &Skater::CorePhysicsComponent::Destroy);
-REPLACE(0x00506BE0, &Skater::CorePhysicsComponent::Reset);
-REPLACE(0x00506BA0, &Skater::CorePhysicsComponent::SetLastGroundFeeler);
-REPLACE(0x00506BD0, &Skater::CorePhysicsComponent::CancelRotateDisplayandUpdateMatrix);
-REPLACE(0x00500670, &Skater::CorePhysicsComponent::UpdateCollisionCache);
-REPLACE(0x00500710, &Skater::CorePhysicsComponent::UpdateFreeRevert);
-REPLACE(0x005007A0, &Skater::CorePhysicsComponent::UpdateFocusButton);
-REPLACE(0x00500820, &Skater::CorePhysicsComponent::UpdateProjectiles);
-REPLACE(0x00500900, &Skater::CorePhysicsComponent::UpdateModelRotation);
-REPLACE(0x00500BC0, &Skater::CorePhysicsComponent::UpdateSpecialTime);
-REPLACE(0x00500DE0, &Skater::CorePhysicsComponent::GetAirTimeLeft);
-REPLACE(0x00500E80, &Skater::CorePhysicsComponent::CanKick);
-REPLACE(0x00500E90, &Skater::CorePhysicsComponent::OrientToNormal);
-
 namespace Skater {
 namespace {
-
 
 } // namespace
 } // namespace Skater
 
 namespace Skater {
 
-GAME_VTABLE(g_corePhysicsVtable, 0x0064BC48,
-    &Skater::CorePhysicsComponent::Destroy,
-    &Skater::CorePhysicsComponent::Update,
-    &CorePhysicsComponent::InitFromStructure,
-    &CorePhysicsComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Skater::CorePhysicsComponent::CallMemberFunction);
+static VtableSlot g_corePhysicsVtable_slots[] = {&Skater::CorePhysicsComponent::Destroy,
+         &Skater::CorePhysicsComponent::Update,
+         &CorePhysicsComponent::InitFromStructure,
+         &CorePhysicsComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Skater::CorePhysicsComponent::CallMemberFunction};
+void** const g_corePhysicsVtable = reinterpret_cast<void**>(g_corePhysicsVtable_slots);
 
 } // namespace Skater

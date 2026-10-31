@@ -9,6 +9,8 @@
 
 #include <d3d9.h>
 
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <new>
 
@@ -18,9 +20,7 @@
 #include "game/file/file.h"
 #include "game/lst/hashtable.h"
 #include "game/mth/math.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/gfx/device.h"
 #include "game/sys/crt.h"
@@ -1362,75 +1362,23 @@ void __cdecl HsvToRgb(float* r, float* g, float* b, float h, float s, float v)
 }
 
 namespace {
-GAME_VTABLE(kTextureVtable, 0x0064A770, &Nx::CPcTexture::Destroy, &Nx::CPcTexture::LoadFile,
-            &Nx::CPcTexture::LoadMemory, &Nx::CPcTexture::Create, &Nx::CPcTexture::CopyFrom, Stubs::ReturnFalse4,
-            Stubs::ReturnFalse1, Stubs::ReturnFalse1, &Nx::CPcTexture::BeginEdit, &Nx::CPcTexture::WriteBack,
-            &Nx::CPcTexture::EndEdit, Stubs::ReturnFalse5, &Nx::CPcTexture::Modulate, &Nx::CPcTexture::Mirror,
-            Stubs::ReturnFalse, &Nx::CPcTexture::ResizeFrom, &Nx::CPcTexture::Zoom, &Nx::CPcTexture::Rotate,
-            &Nx::CPcTexture::Offset, &Nx::CPcTexture::Border, Stubs::ReturnFalse7, &Nx::CPcTexture::Stretch,
-            &Nx::CPcTexture::Squash, Stubs::ReturnFalse2, &Nx::CPcTexture::AdjustHsv, Stubs::ReturnZero,
-            Stubs::ReturnZero, Stubs::ReturnZero, Stubs::ReturnZero, Stubs::IgnoreArguments2, Stubs::ReturnFalse1,
-            Stubs::ReturnFalse, Stubs::ReturnFalse, &Nx::CPcTexture::GetWidth, &Nx::CPcTexture::GetHeight,
-            &Nx::CPcTexture::GetDepth, Stubs::ReturnZero, Stubs::IgnoreArgument, &Nx::CPcTexture::GetUnknownE,
-            &Nx::CPcTexture::GetUnknownC, &Nx::CPcTexture::GetUnknownD, &Nx::CPcTexture::Overlay);
-GAME_VTABLE(kTexDictVtable, 0x0064A824, &Nx::CPcTexDict::Destroy, &Nx::CPcTexDict::LoadTexture,
-            &Nx::CPcTexDict::CreateTexture, &Nx::CPcTexDict::ReloadTexture, Stubs::ReturnZero1,
-            &Nx::CPcTexDict::UnloadTexture, Stubs::IgnoreArgument, Stubs::ReturnFalse1,
-            &Nx::CPcTexDict::CopyTexture);
+static VtableSlot kTextureVtable_slots[] = {&Nx::CPcTexture::Destroy, &Nx::CPcTexture::LoadFile,
+                &Nx::CPcTexture::LoadMemory, &Nx::CPcTexture::Create, &Nx::CPcTexture::CopyFrom, Stubs::ReturnFalse4,
+                Stubs::ReturnFalse1, Stubs::ReturnFalse1, &Nx::CPcTexture::BeginEdit, &Nx::CPcTexture::WriteBack,
+                &Nx::CPcTexture::EndEdit, Stubs::ReturnFalse5, &Nx::CPcTexture::Modulate, &Nx::CPcTexture::Mirror,
+                Stubs::ReturnFalse, &Nx::CPcTexture::ResizeFrom, &Nx::CPcTexture::Zoom, &Nx::CPcTexture::Rotate,
+                &Nx::CPcTexture::Offset, &Nx::CPcTexture::Border, Stubs::ReturnFalse7, &Nx::CPcTexture::Stretch,
+                &Nx::CPcTexture::Squash, Stubs::ReturnFalse2, &Nx::CPcTexture::AdjustHsv, Stubs::ReturnZero,
+                Stubs::ReturnZero, Stubs::ReturnZero, Stubs::ReturnZero, Stubs::IgnoreArguments2, Stubs::ReturnFalse1,
+                Stubs::ReturnFalse, Stubs::ReturnFalse, &Nx::CPcTexture::GetWidth, &Nx::CPcTexture::GetHeight,
+                &Nx::CPcTexture::GetDepth, Stubs::ReturnZero, Stubs::IgnoreArgument, &Nx::CPcTexture::GetUnknownE,
+                &Nx::CPcTexture::GetUnknownC, &Nx::CPcTexture::GetUnknownD, &Nx::CPcTexture::Overlay};
+void** const kTextureVtable = reinterpret_cast<void**>(kTextureVtable_slots);
+static VtableSlot kTexDictVtable_slots[] = {&Nx::CPcTexDict::Destroy, &Nx::CPcTexDict::LoadTexture,
+                &Nx::CPcTexDict::CreateTexture, &Nx::CPcTexDict::ReloadTexture, Stubs::ReturnZero1,
+                &Nx::CPcTexDict::UnloadTexture, Stubs::IgnoreArgument, Stubs::ReturnFalse1,
+                &Nx::CPcTexDict::CopyTexture};
+void** const kTexDictVtable = reinterpret_cast<void**>(kTexDictVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x004C7ED0, &Nx::CPcTexture::Construct);
-REPLACE(0x004C7EF0, &Nx::CPcTexture::SetTexture);
-REPLACE(0x004C9D00, &Nx::CPcTexture::DestroyBody);
-REPLACE(0x004C8450, &Nx::CPcTexture::ConstructCopy);
-REPLACE(0x004C8830, &Nx::CPcTexture::Create);
-REPLACE(0x004C86A0, &Nx::CPcTexture::CopyFrom);
-REPLACE(0x004C8A60, &Nx::CPcTexture::BeginEdit);
-REPLACE(0x004CAE60, &Nx::CPcTexture::Destroy);
-REPLACE(0x004C7F00, &Nx::CPcTexture::LoadFile);
-REPLACE(0x004C7F80, &Nx::CPcTexture::LoadMemory);
-REPLACE(0x004C9EC0, &Nx::CPcTexture::WriteBack);
-REPLACE(0x004C98B0, &Nx::CPcTexture::EndEdit);
-REPLACE(0x004C7FB0, &Nx::CPcTexture::GetWidth);
-REPLACE(0x004C7FE0, &Nx::CPcTexture::GetHeight);
-REPLACE(0x004C8010, &Nx::CPcTexture::GetDepth);
-REPLACE(0x004C8030, &Nx::CPcTexture::GetUnknownE);
-REPLACE_SOURCE_ONLY(0x004C8050, &Nx::CPcTexture::GetUnknownC); // (4 bytes)
-REPLACE_SOURCE_ONLY(0x004C8060, &Nx::CPcTexture::GetUnknownD); // (4 bytes)
-REPLACE(0x004C8070, &Nx::CPcTexDict::Construct);
-REPLACE(0x004C9AF0, &Nx::CPcTexDict::DestroyBody);
-REPLACE(0x004C9F60, &Nx::CPcTexDict::Destroy);
-REPLACE(0x004C9B00, &Nx::CPcTexDict::LoadTexture);
-REPLACE(0x004C89B0, &Nx::CPcTexDict::CreateTexture);
-REPLACE(0x004C9BA0, &Nx::CPcTexDict::ReloadTexture);
-REPLACE(0x004C8090, &Nx::CPcTexDict::UnloadTexture);
-REPLACE(0x004C9C80, &Nx::CPcTexDict::CopyTexture);
-REPLACE(0x004C7270, Nx::LoadTexDictFile);
-REPLACE(0x004C72E0, Nx::LoadTexDictMemory);
-REPLACE(0x004C7360, Nx::CreateTexDict);
-REPLACE(0x004C80B0, Nx::CopySubImage);
-REPLACE(0x004C8180, Nx::RgbToHsv);
-REPLACE(0x004C82D0, Nx::HsvToRgb);
-REPLACE(0x004C9200, Nx::ResizeImage);
-REPLACE(0x004C9520, Nx::ZoomImage);
-REPLACE(0x004C97D0, &Nx::CPcTexture::NearestPaletteIndex);
-REPLACE(0x004C9950, &Nx::CPcTexture::Modulate);
-REPLACE(0x004C9D80, &Nx::CPcTexture::ResizeFrom);
-REPLACE(0x004C9DE0, &Nx::CPcTexture::Zoom);
-REPLACE(0x004C9F90, &Nx::CPcTexture::ReadRect);
-REPLACE(0x004CA0D0, &Nx::CPcTexture::WriteRect);
-REPLACE(0x004CA220, &Nx::CPcTexture::Stretch);
-REPLACE(0x004CA410, &Nx::CPcTexture::Squash);
-REPLACE(0x004CA7B0, &Nx::CPcTexture::Mirror);
-REPLACE(0x004CA8E0, &Nx::CPcTexture::Overlay);
-REPLACE(0x004CAA20, &Nx::CPcTexture::AdjustHsv);
-REPLACE(0x004CABE0, &Nx::CPcTexture::Offset);
-REPLACE(0x004CADC0, &Nx::CPcTexture::Border);
-REPLACE(0x004C8D30, &Nx::CPcTexture::Rotate);
-REPLACE(0x004CAE90, Nx::LoadTexturesFromFile);
-REPLACE(0x004CB420, Nx::LoadTexturesFromMemory);
-REPLACE(0x004CB380, &Nx::CPcTexDict::LoadFile);
-REPLACE(0x004CB7C0, &Nx::CPcTexDict::LoadMemory);
-REPLACE(0x004CB760, &Nx::CPcTexDict::ConstructFromFile);

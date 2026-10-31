@@ -4,6 +4,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <unordered_map>
 #include <vector>
@@ -16,7 +18,6 @@
 #include "game/nx/coll_tri.h"
 #include "game/obj/rail_manager.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
 #include "game/core/game_vtables.h"
 #include "game/front/screen_constants.h"
 #include "imgui.h"

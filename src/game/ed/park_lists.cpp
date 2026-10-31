@@ -1,18 +1,17 @@
 // The park editor's map of metapieces: the lists of metapieces, the bucket of each cell, what stands in an
 // area, the floor slide, and the floor under placed pieces.
 
+#include <cstdint>
+
 #include "game/ed/park.h"
 
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/park/park_memory.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Ed {
 
-GAME_GLOBAL(Mem::PoolPair, g_nodePools, 0x007CE5F0);
+Mem::PoolPair g_nodePools;
 
 namespace {
 
@@ -72,7 +71,6 @@ void CMapListNode::VerifyIntegrity(const CMapListNode* list)
         }
     }
 }
-
 
 // --- CParkManager ------------------------------------------------------------------------------------------------
 
@@ -366,16 +364,3 @@ void CParkManager::SetMetaInCells(CMetaPiece* meta, int add)
 } // namespace Ed
 
 using Ed::CParkManager;
-
-REPLACE(0x00595670, &CParkManager::CreateConcreteMeta);
-REPLACE(0x005958B0, &CParkManager::HasPiecesOutside);
-REPLACE(0x00595DF0, &CParkManager::AddMetaToList);
-REPLACE(0x00595E80, &CParkManager::RemoveMetaFromList);
-REPLACE(0x00595EE0, &CParkManager::AddMetaToCells);
-REPLACE(0x00595FC0, &CParkManager::RemoveMetaFromCells);
-REPLACE(0x00597740, &CParkManager::GetIntersectingMetas);
-REPLACE(0x00597A00, &CParkManager::GetAreaMetaPieces);
-REPLACE(0x00597AC0, &CParkManager::GetGapInfo);
-REPLACE(0x005983D0, &CParkManager::HasFloorLockedMeta);
-REPLACE(0x005984A0, &CParkManager::BuildRiserList);
-REPLACE(0x00598150, &CParkManager::SetMetaInCells);

@@ -17,8 +17,6 @@
 #include "game/sys/timer.h"
 #include "game/core/crc.h"
 #include "game/obj/control_pad.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/gfx/engine_geom.h"
 
 namespace Obj {
@@ -523,5 +521,3 @@ void __fastcall ModelNx::SetLightsDirection(void* lights, void*, int index, cons
 }
 
 } // namespace Obj
-
-REPLACE(0x00421AE0, &Obj::CModelComponent::CallMemberFunction);

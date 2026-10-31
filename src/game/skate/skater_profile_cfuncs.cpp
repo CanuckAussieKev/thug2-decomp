@@ -14,8 +14,6 @@
 #include "game/gfx/model_appearance.h"
 #include "game/skate/skate_module.h"
 #include "game/goals/goal_manager.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace CFuncs {
 
@@ -574,41 +572,3 @@ bool __cdecl CFunc_UnlockSkater(Script::CStruct* params, Script::CScript*)
 }
 
 } // namespace CFuncs
-
-REPLACE(0x005AF950, CFuncs::CFunc_AwardStatPoint);
-REPLACE(0x005AF9F0, CFuncs::CFunc_AwardSpecialTrickSlot);
-REPLACE(0x005AFAA0, CFuncs::CFunc_UpdateSkaterStats);
-REPLACE(0x005AFFE0, CFuncs::CFunc_GetCurrentSkaterProfileIndex);
-REPLACE(0x005B0000, CFuncs::CFunc_GetCustomSkaterName);
-REPLACE(0x005B0030, CFuncs::CFunc_GetCurrentPedProName);
-REPLACE(0x005B0280, CFuncs::CFunc_GetStatValue);
-REPLACE(0x005B0360, CFuncs::CFunc_GetNumStatPointsAvailable);
-REPLACE(0x005B03B0, CFuncs::CFunc_UnlockSkater);
-REPLACE(0x005AE370, CFuncs::CFunc_VibrationIsOn);
-REPLACE(0x005AE3A0, CFuncs::CFunc_VibrationOn);
-REPLACE(0x005AE3D0, CFuncs::CFunc_VibrationOff);
-REPLACE(0x005AE400, CFuncs::CFunc_AutoKickIsOn);
-REPLACE(0x005AE430, CFuncs::CFunc_AutoKickOn);
-REPLACE(0x005AE460, CFuncs::CFunc_AutoKickOff);
-REPLACE(0x005AE490, CFuncs::CFunc_SpinTapsAreOn);
-REPLACE(0x005AE4C0, CFuncs::CFunc_SpinTapsOn);
-REPLACE(0x005AE4F0, CFuncs::CFunc_SpinTapsOff);
-REPLACE(0x005AE520, CFuncs::CFunc_GetCurrentProDisplayInfo);
-REPLACE(0x005AE900, CFuncs::CFunc_SelectCurrentSkater);
-REPLACE(0x005ABBF0, CFuncs::CFunc_ResetAllToDefaultStats);
-REPLACE(0x005ABE30, CFuncs::CFunc_ResetToDefaultProfile);
-REPLACE(0x005ABF00, CFuncs::CFunc_ResetAllToDefaultProfile);
-REPLACE(0x005ABF70, CFuncs::CFunc_ForEachSkaterName);
-REPLACE(0x005AC0C0, CFuncs::CFunc_ForEachSkaterProfile);
-REPLACE(0x005AC1F0, CFuncs::CFunc_GetSkaterProfileInfoByName);
-REPLACE(0x005AC280, CFuncs::CFunc_SetSkaterProfileInfoByName);
-REPLACE(0x005AC320, CFuncs::CFunc_PrintCurrentAppearance);
-REPLACE(0x005AC340, CFuncs::CFunc_SetNeversoftSkater);
-REPLACE(0x005AC3B0, CFuncs::CFunc_ResetSkaters);
-REPLACE(0x005AC410, CFuncs::CFunc_SetSkaterProfileInfo);
-REPLACE(0x005AC470, CFuncs::CFunc_GetSkaterProfileInfo);
-REPLACE(0x005AC4B0, CFuncs::CFunc_SetSkaterProfileProperty);
-REPLACE(0x005AC520, CFuncs::CFunc_SetClassicStat);
-REPLACE(0x005AC570, CFuncs::CFunc_ToggleAlwaysSpecial);
-REPLACE(0x005AAEF0, CFuncs::CFunc_RestoreTemporaryAppearance);
-REPLACE(0x005AAF90, CFuncs::CFunc_SyncPlayer2Profile);

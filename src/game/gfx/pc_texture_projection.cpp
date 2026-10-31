@@ -8,6 +8,7 @@
 
 #include <d3d9.h>
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/dbg.h"
@@ -23,18 +24,15 @@
 #include "game/gfx/render_state.h"
 #include "game/gfx/simple_material.h"
 #include "game/gfx/texture_splats.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/gfx/device.h"
 #include "game/sys/crt.h"
 #include "game/sys/startup_init.h"
 
 namespace Nx {
 
-GAME_GLOBAL(uint32_t, g_projectionBatchCount, 0x00705750);
-GAME_GLOBAL(sProjectionBatch[10], g_projectionBatches, 0x00705758); // (kBatchLimit)
+uint32_t g_projectionBatchCount;
+sProjectionBatch g_projectionBatches[10]; // (kBatchLimit)
 
 namespace {
 
@@ -302,18 +300,11 @@ void CPcTextureProjection::Project(void** sectors, int /*unused*/)
 }
 
 namespace {
-GAME_VTABLE(kProjectionVtable, 0x0064A764, &Nx::CPcTextureProjection::Destroy, &Nx::CPcTextureProjection::Project);
+static VtableSlot kProjectionVtable_slots[] = {&Nx::CPcTextureProjection::Destroy, &Nx::CPcTextureProjection::Project};
+void** const kProjectionVtable = reinterpret_cast<void**>(kProjectionVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x004C7610, &Nx::sProjectionBatch::Construct);
-REPLACE(0x004C73D0, &Nx::sProjectionBatch::Destroy);
-REPLACE(0x004C73E0, Nx::GetProjectionBatch);
-REPLACE(0x004C7520, Nx::DrawProjectionBatches);
-REPLACE(0x004C7E80, &Nx::CPcTextureProjection::Construct);
-REPLACE(0x004C7EA0, &Nx::CPcTextureProjection::Destroy);
-REPLACE(0x004C7620, &Nx::CPcTextureProjection::Project);
 
 namespace Nx {
 

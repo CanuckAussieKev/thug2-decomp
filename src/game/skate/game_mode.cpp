@@ -1,5 +1,9 @@
 // Game::CGameMode and Game::CGameFlow: 0x00552E10-0x00553DF9 (see game_mode.h).
 
+#include <cstdint>
+#include <initializer_list>
+#include <new>
+
 #include "game/skate/game_mode.h"
 
 #include "game/core/crc.h"
@@ -12,15 +16,12 @@
 #include "game/skate/skate_module_calls.h"
 #include "game/skate/victory_conditions.h"
 #include "game/goals/goal_manager.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Game {
 
-GAME_GLOBAL(Game::CGameMode*, g_gameMode, 0x007CE470);
-GAME_GLOBAL(uint32_t, g_gameModeReferences, 0x007CE474);
+Game::CGameMode* g_gameMode;
+uint32_t g_gameModeReferences;
 
 namespace {
 
@@ -63,10 +64,14 @@ constexpr uint32_t kModeInfo = 0xCA5F7FFB;          // mode_info
 constexpr uint32_t kDefinition = 0x97CFD027;        // definition
 constexpr uint32_t kFreeskate = 0x34861A16;         // freeskate
 
-GAME_VTABLE(kGameFlowVtable, 0x0064DD50, &Game::CGameFlow::Destroy);
-GAME_VTABLE(kGameModeVtable, 0x0064DD58, &Game::CGameMode::Destroy);
-GAME_VTABLE(kConditionHeadVtable, 0x0064DD90, &Game::CGameMode::ConditionNode::DestroyHead);
-GAME_VTABLE(kConditionNodeVtable, 0x0064DD54, &Game::CGameMode::ConditionNode::Destroy);
+static VtableSlot kGameFlowVtable_slots[] = {&Game::CGameFlow::Destroy};
+void** const kGameFlowVtable = reinterpret_cast<void**>(kGameFlowVtable_slots);
+static VtableSlot kGameModeVtable_slots[] = {&Game::CGameMode::Destroy};
+void** const kGameModeVtable = reinterpret_cast<void**>(kGameModeVtable_slots);
+static VtableSlot kConditionHeadVtable_slots[] = {&Game::CGameMode::ConditionNode::DestroyHead};
+void** const kConditionHeadVtable = reinterpret_cast<void**>(kConditionHeadVtable_slots);
+static VtableSlot kConditionNodeVtable_slots[] = {&Game::CGameMode::ConditionNode::Destroy};
+void** const kConditionNodeVtable = reinterpret_cast<void**>(kConditionNodeVtable_slots);
 CVictoryCondition* const kHeadMarker = reinterpret_cast<CVictoryCondition*>(-1);
 
 // (the getters' local when an asserted integer isn't there: the original's is the pushed `this`)
@@ -397,9 +402,9 @@ bool CGameMode::LoadGameType(uint32_t type)
 // 0x00553BE0
 bool CGameMode::OverrideOptions(Script::CStruct* options)
 {
-    for (const char* name : {GAME_TEXT(0x0064DD80, "time_limit_type"),   // "time_limit_type"
-                             GAME_TEXT(0x0064DD68, "victory_condition_type"),   // "victory_condition_type"
-                             GAME_TEXT(0x0064DD5C, "screenmode")}) { // "screenmode"
+    for (const char* name : {"time_limit_type",   // "time_limit_type"
+                             "victory_condition_type",   // "victory_condition_type"
+                             "screenmode"}) { // "screenmode"
         if (options->ContainsComponentNamed(name))
             m_params.RemoveComponent(Crc::GenerateCRCFromString(name));
     }
@@ -684,57 +689,3 @@ bool __cdecl CFunc_OverrideGameModeOptions(Script::CStruct* params, Script::CScr
 }
 
 } // namespace Game
-
-REPLACE(0x00552E10, &Game::CGameFlow::Construct);
-REPLACE(0x00552E30, &Game::CGameFlow::Request);
-REPLACE(0x00552E40, &Game::CGameFlow::Update);
-REPLACE(0x00552F30, &Game::CGameFlow::Destroy);
-REPLACE(0x00552F70, Game::CGameMode::Release);
-REPLACE(0x00552FB0, &Game::CGameMode::ShouldAccumulateScore);
-REPLACE(0x00552FD0, &Game::CGameMode::ShouldTrackBestCombo);
-REPLACE(0x00553000, &Game::CGameMode::SetScoreAccumulation);
-REPLACE(0x00553020, &Game::CGameMode::SetScoreFrozen);
-REPLACE(0x00553040, &Game::CGameMode::SetScoreDegradation);
-REPLACE(0x00553060, &Game::CGameMode::SetTrickScoreTracking);
-REPLACE(0x00553080, &Game::CGameMode::SetTeamGraffitiMode);
-REPLACE(0x005530A0, &Game::CGameMode::SetGoalsMode);
-REPLACE(0x005530C0, &Game::CGameMode::IsScoreFrozen);
-REPLACE(0x005530F0, &Game::CGameMode::ShouldTrackTrickScore);
-REPLACE(0x00553110, &Game::CGameMode::ShouldDegradeScore);
-REPLACE(0x00553130, &Game::CGameMode::NumTeams);
-REPLACE(0x00553150, &Game::CGameMode::ShouldTimerBeep);
-REPLACE(0x00553170, &Game::CGameMode::GetTimeLimit);
-REPLACE(0x00553190, &Game::CGameMode::GetInitialNumberOfPlayers);
-REPLACE(0x005531B0, &Game::CGameMode::SetMaximumNumberOfPlayers);
-REPLACE(0x005531D0, &Game::CGameMode::GetMaximumNumberOfPlayers);
-REPLACE(0x005531F0, &Game::CGameMode::GetFireballLevel);
-REPLACE(0x00553220, &Game::CGameMode::IsTrue);
-REPLACE(0x00553250, &Game::CGameMode::SetRound);
-REPLACE(0x00553270, &Game::CGameMode::GetRound);
-REPLACE(0x005532A0, &Game::CGameMode::GetNameChecksum);
-REPLACE(0x005532D0, &Game::CGameMode::GetGoalsMode);
-REPLACE(0x00553300, &Game::CGameMode::GetTeamGraffitiMode);
-REPLACE(0x00553330, &Game::CGameMode::ConvertNetNameChecksum);
-REPLACE(0x005533B0, &Game::CGameMode::GetGoalTimeLeft);
-REPLACE(0x00553400, &Game::CGameMode::SetGoalTimeLeft);
-REPLACE(0x00553460, &Game::CGameMode::ShouldUseClock);
-REPLACE(0x00553550, &Game::CGameMode::ShouldStopAtZero);
-REPLACE(0x005535A0, &Game::CGameMode::SetNumTeams);
-REPLACE(0x005535F0, &Game::CGameMode::IsTeamGame);
-REPLACE(0x00553630, &Game::CGameMode::GetScreenMode);
-REPLACE(0x005536D0, &Game::CGameMode::IncrementRound);
-REPLACE(0x00553710, &Game::CGameMode::ConditionNode::DestroyBody);
-REPLACE(0x00553730, &Game::CGameMode::ConditionNode::Destroy);
-REPLACE(0x00553770, &Game::CGameMode::ClearVictoryConditions);
-REPLACE(0x005537D0, &Game::CGameMode::BuildVictoryConditions);
-REPLACE(0x00553890, &Game::CGameMode::DestroyBody);
-REPLACE(0x00553910, &Game::CGameMode::EndConditionsMet);
-REPLACE(0x00553A60, &Game::CGameMode::GetFirstConditionValue);
-REPLACE(0x00553AD0, &Game::CGameMode::LoadGameType);
-REPLACE(0x00553BE0, &Game::CGameMode::OverrideOptions);
-REPLACE(0x00553C90, Game::CFunc_OverrideGameModeOptions);
-REPLACE(0x00553CB0, &Game::CGameMode::ConditionNode::DestroyHead);
-REPLACE(0x00553CE0, &Game::CGameMode::Destroy);
-REPLACE(0x00553D10, &Game::CGameMode::Reset);
-REPLACE(0x00553D30, &Game::CGameMode::Construct);
-REPLACE(0x00553DB0, Game::CGameMode::Instance);

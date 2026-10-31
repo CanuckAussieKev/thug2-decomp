@@ -2,7 +2,6 @@
 // the console versions (WadStream).
 
 #include "game/pcm/stream.h"
-#include "hook/game_code.h"
 
 #include <windows.h>
 
@@ -15,9 +14,6 @@
 #include "game/pcm/music.h"
 #include "game/sfx/mute_audio.h"
 #include "game/sys/winmain.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/pcm/stream_files.h"
 #include "game/sys/crt.h"
 
@@ -27,26 +23,26 @@ namespace {
 
 // The Bink SDK (binkw32.dll), through the game's import table.
 using Nx::Bink;
-Bink* BinkOpen(const void* name, uint32_t flags) { return GAME_DLL_IMPORT(0x006452E8, Bink*(__stdcall*)(const void*, uint32_t), "binkw32.dll", "_BinkOpen@8")(name, flags); }
-void BinkDoFrame(Bink* bink) { GAME_DLL_IMPORT(0x006452EC, int(__stdcall*)(Bink*), "binkw32.dll", "_BinkDoFrame@4")(bink); }
-void BinkSetPan(Bink* bink, uint32_t track, int pan) { GAME_DLL_IMPORT(0x006452F0, void(__stdcall*)(Bink*, uint32_t, int), "binkw32.dll", "_BinkSetPan@12")(bink, track, pan); }
-void BinkGoto(Bink* bink, uint32_t frame, int flags) { GAME_DLL_IMPORT(0x006452F4, void(__stdcall*)(Bink*, uint32_t, int), "binkw32.dll", "_BinkGoto@12")(bink, frame, flags); }
-void BinkSetIOSize(uint32_t size) { GAME_DLL_IMPORT(0x006452F8, void(__stdcall*)(uint32_t), "binkw32.dll", "_BinkSetIOSize@4")(size); }
-void BinkSetVideoOnOff(Bink* bink, int on) { GAME_DLL_IMPORT(0x006452FC, int(__stdcall*)(Bink*, int), "binkw32.dll", "_BinkSetVideoOnOff@8")(bink, on); }
-void* BinkOpenDirectSound() { return GAME_DLL_IMPORT(0x00645300, void*, "binkw32.dll", "_BinkOpenDirectSound@4"); } // the function, passed to the next
-int BinkSetSoundSystem(void* open, void* param) { return GAME_DLL_IMPORT(0x00645304, int(__stdcall*)(void*, void*), "binkw32.dll", "_BinkSetSoundSystem@8")(open, param); }
-void BinkSetVolume(Bink* bink, uint32_t track, int volume) { GAME_DLL_IMPORT(0x00645310, void(__stdcall*)(Bink*, uint32_t, int), "binkw32.dll", "_BinkSetVolume@12")(bink, track, Sfx::OutputBinkVolume(volume)); } // (NOT ORIGINAL: mute_audio)
-int BinkWait(Bink* bink) { return GAME_DLL_IMPORT(0x00645318, int(__stdcall*)(Bink*), "binkw32.dll", "_BinkWait@4")(bink); }
-void BinkClose(Bink* bink) { GAME_DLL_IMPORT(0x0064531C, void(__stdcall*)(Bink*), "binkw32.dll", "_BinkClose@4")(bink); }
-void BinkNextFrame(Bink* bink) { GAME_DLL_IMPORT(0x00645320, void(__stdcall*)(Bink*), "binkw32.dll", "_BinkNextFrame@4")(bink); }
+Bink* BinkOpen(const void* name, uint32_t flags) { return reinterpret_cast<Bink*(__stdcall*)(const void*, uint32_t)>(Crt::LibraryFunction("binkw32.dll", "_BinkOpen@8"))(name, flags); }
+void BinkDoFrame(Bink* bink) { reinterpret_cast<int(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkDoFrame@4"))(bink); }
+void BinkSetPan(Bink* bink, uint32_t track, int pan) { reinterpret_cast<void(__stdcall*)(Bink*, uint32_t, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetPan@12"))(bink, track, pan); }
+void BinkGoto(Bink* bink, uint32_t frame, int flags) { reinterpret_cast<void(__stdcall*)(Bink*, uint32_t, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkGoto@12"))(bink, frame, flags); }
+void BinkSetIOSize(uint32_t size) { reinterpret_cast<void(__stdcall*)(uint32_t)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetIOSize@4"))(size); }
+void BinkSetVideoOnOff(Bink* bink, int on) { reinterpret_cast<int(__stdcall*)(Bink*, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetVideoOnOff@8"))(bink, on); }
+void* BinkOpenDirectSound() { return reinterpret_cast<void*>(Crt::LibraryFunction("binkw32.dll", "_BinkOpenDirectSound@4")); } // the function, passed to the next
+int BinkSetSoundSystem(void* open, void* param) { return reinterpret_cast<int(__stdcall*)(void*, void*)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetSoundSystem@8"))(open, param); }
+void BinkSetVolume(Bink* bink, uint32_t track, int volume) { reinterpret_cast<void(__stdcall*)(Bink*, uint32_t, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetVolume@12"))(bink, track, Sfx::OutputBinkVolume(volume)); } // (NOT ORIGINAL: mute_audio)
+int BinkWait(Bink* bink) { return reinterpret_cast<int(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkWait@4"))(bink); }
+void BinkClose(Bink* bink) { reinterpret_cast<void(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkClose@4"))(bink); }
+void BinkNextFrame(Bink* bink) { reinterpret_cast<void(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkNextFrame@4"))(bink); }
 
 constexpr uint32_t kBinkIoSize = 0x01000000;     // BinkOpen: use the I/O buffer size set (BinkSetIOSize)
 constexpr uint32_t kBinkFileHandle = 0x04000000; // BinkOpen: the name is (the address of) an open file handle
 constexpr uint32_t kIoSize = 0x40000;
 constexpr Result kInvalidArgument = static_cast<Result>(0x80070057);
 
-GAME_GLOBAL(bool, g_pauseLocked, 0x0069CB98);
-GAME_GLOBAL(uint32_t, g_ioSize, 0x0069CBA4);
+bool g_pauseLocked;
+uint32_t g_ioSize;
 
 bool& SoundSystemSet() { return g_binkSoundSet; } // also set by 0x00452C60
 uint32_t& IoSize() { return g_ioSize; }
@@ -84,7 +80,7 @@ Result BinkStream::Open(const char* path)
 {
     if (!SoundSystemSet()) {
         if (!BinkSetSoundSystem(BinkOpenDirectSound(), SoundDevice()))
-            Dbg::Printf(GAME_TEXT(0x006472D4, "Bink can't use DSound\n")); // "Bink can't use DSound\n"
+            Dbg::Printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
         SoundSystemSet() = true;
     }
     if (IoSize() != kIoSize) {
@@ -285,17 +281,3 @@ void WadStream::Pause(int pause)
 void WadStream::SetChannelVolumes(float, float, float, float, float) {}
 
 } // namespace Pcm
-
-REPLACE(0x00452D20, &Pcm::BinkStream::Open);
-REPLACE(0x00452DC0, &Pcm::BinkStream::Pause);
-REPLACE(0x00452DE0, &Pcm::BinkStream::SetVolume);
-REPLACE(0x00452FC0, &Pcm::BinkStream::SetVolumeAndPan);
-REPLACE(0x00452E30, &Pcm::BinkStream::Destruct);
-REPLACE(0x00452EA0, &Pcm::BinkStream::Update);
-REPLACE(0x00454340, &Pcm::WadStream::Construct);
-REPLACE(0x00454370, &Pcm::WadStream::StartRead);
-REPLACE(0x00454450, &Pcm::WadStream::OpenFromWad);
-REPLACE(0x00454490, &Pcm::WadStream::Open);
-REPLACE(0x004543F0, &Pcm::WadStream::PreloadDone);
-REPLACE(0x00454430, &Pcm::WadStream::Pause);
-REPLACE_SOURCE_ONLY(0x00454440, &Pcm::WadStream::SetChannelVolumes); // 3 bytes

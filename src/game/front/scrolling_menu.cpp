@@ -1,5 +1,8 @@
 // The scrolling menus: see scrolling_menu.h.
 
+#include <cstddef>
+#include <cstdint>
+
 #include "game/front/scrolling_menu.h"
 
 #include "game/core/crc.h"
@@ -8,9 +11,7 @@
 #include "game/front/screen_element_manager.h"
 #include "game/obj/tracker.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/obj/object.h"
 #include "game/core/stubs.h"
 #include "game/front/screen_element.h"
@@ -26,7 +27,6 @@ extern void** const kListenerAdapterVtableA1B4;
 extern void** const kCScrollingMenuVtableA1BC;
 } // namespace
 
-
 namespace {
 
 using Script::CStruct;
@@ -36,10 +36,9 @@ constexpr uint32_t kInternalJust = 0x67E093E4, kScrollSpeed = 0x9020A1D1, kNumIt
 constexpr uint32_t kResetWindowTop = 0xED889E1F, kResetWindowBottom = 0xC3A894F6, kRearrange = 0xA1F3B8BB;
 constexpr uint32_t kSystem = 0x36B2EE74, kFocus = 0x9D3FB516, kUnfocus = 0x4ADF0CD3, kFocusSentEvent = 0x3056434F;
 
-
 // The menus' type names, hashed at run time (the strings 0x0064A1F0 "vmenu" / 0x0064A1E8 "hmenu").
-uint32_t VMenuType() { return Crc::GenerateCRCFromString(GAME_TEXT(0x0064A1F0, "vmenu")); }
-uint32_t HMenuType() { return Crc::GenerateCRCFromString(GAME_TEXT(0x0064A1E8, "hmenu")); }
+uint32_t VMenuType() { return Crc::GenerateCRCFromString("vmenu"); }
+uint32_t HMenuType() { return Crc::GenerateCRCFromString("hmenu"); }
 
 void VUpdate(CScreenElement* e) { reinterpret_cast<void(__thiscall*)(CScreenElement*)>(e->m_vtable[10])(e); }
 
@@ -377,48 +376,34 @@ struct ListenerAdapter {
 
 using Front::CScrollingMenu;
 
-
 namespace Front {
 namespace {
-GAME_VTABLE(kListenerAdapterVtable, 0x0064A14C, &ListenerAdapter::Destroy, &CScrollingMenu::ListenerReceive);
-GAME_VTABLE(kCScrollingMenuVtable, 0x0064A154, &CScrollingMenu::Destroy, &CScrollingMenu::SetProperties,
-            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-            &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &CScrollingMenu::PassEventToScript,
-            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CScreenElement::SetMorph,
-            &CScrollingMenu::Update);
-GAME_VTABLE(kListenerAdapterVtableA180, 0x0064A180, &ListenerAdapter::DestroyVertical,
-            &CScrollingMenu::ListenerReceive);
-GAME_VTABLE(kCScrollingMenuVtableA188, 0x0064A188, &CScrollingMenu::DestroyVertical, &CScrollingMenu::SetProperties,
-            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-            &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &CScrollingMenu::PassEventToScript,
-            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CScreenElement::SetMorph,
-            &CScrollingMenu::Update);
-GAME_VTABLE(kListenerAdapterVtableA1B4, 0x0064A1B4, &ListenerAdapter::DestroyHorizontal,
-            &CScrollingMenu::ListenerReceive);
-GAME_VTABLE(kCScrollingMenuVtableA1BC, 0x0064A1BC, &CScrollingMenu::DestroyHorizontal,
-            &CScrollingMenu::SetProperties,
-            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-            &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &CScrollingMenu::PassEventToScript,
-            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CScreenElement::SetMorph,
-            &CScrollingMenu::Update);
+static VtableSlot kListenerAdapterVtable_slots[] = {&ListenerAdapter::Destroy, &CScrollingMenu::ListenerReceive};
+void** const kListenerAdapterVtable = reinterpret_cast<void**>(kListenerAdapterVtable_slots);
+static VtableSlot kCScrollingMenuVtable_slots[] = {&CScrollingMenu::Destroy, &CScrollingMenu::SetProperties,
+                static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+                &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &CScrollingMenu::PassEventToScript,
+                &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CScreenElement::SetMorph,
+                &CScrollingMenu::Update};
+void** const kCScrollingMenuVtable = reinterpret_cast<void**>(kCScrollingMenuVtable_slots);
+static VtableSlot kListenerAdapterVtableA180_slots[] = {&ListenerAdapter::DestroyVertical,
+                &CScrollingMenu::ListenerReceive};
+void** const kListenerAdapterVtableA180 = reinterpret_cast<void**>(kListenerAdapterVtableA180_slots);
+static VtableSlot kCScrollingMenuVtableA188_slots[] = {&CScrollingMenu::DestroyVertical, &CScrollingMenu::SetProperties,
+                static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+                &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &CScrollingMenu::PassEventToScript,
+                &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CScreenElement::SetMorph,
+                &CScrollingMenu::Update};
+void** const kCScrollingMenuVtableA188 = reinterpret_cast<void**>(kCScrollingMenuVtableA188_slots);
+static VtableSlot kListenerAdapterVtableA1B4_slots[] = {&ListenerAdapter::DestroyHorizontal,
+                &CScrollingMenu::ListenerReceive};
+void** const kListenerAdapterVtableA1B4 = reinterpret_cast<void**>(kListenerAdapterVtableA1B4_slots);
+static VtableSlot kCScrollingMenuVtableA1BC_slots[] = {&CScrollingMenu::DestroyHorizontal,
+                &CScrollingMenu::SetProperties,
+                static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+                &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &CScrollingMenu::PassEventToScript,
+                &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CScreenElement::SetMorph,
+                &CScrollingMenu::Update};
+void** const kCScrollingMenuVtableA1BC = reinterpret_cast<void**>(kCScrollingMenuVtableA1BC_slots);
 } // namespace
 } // namespace Front
-
-REPLACE(0x004AE050, &CScrollingMenu::Construct);
-REPLACE(0x004AE170, &CScrollingMenu::ConstructVertical);
-REPLACE(0x004AE1C0, &CScrollingMenu::ConstructHorizontal);
-REPLACE(0x004AE110, &CScrollingMenu::DestroyBody);
-REPLACE(0x004AE1A0, &CScrollingMenu::DestroyBodyVertical);
-REPLACE(0x004AE1F0, &CScrollingMenu::DestroyBodyHorizontal);
-REPLACE(0x004AE240, &CScrollingMenu::Destroy);
-REPLACE(0x004AE270, &CScrollingMenu::DestroyVertical);
-REPLACE(0x004AE2A0, &CScrollingMenu::DestroyHorizontal);
-REPLACE(0x004AE210, &ListenerAdapter::Destroy);
-REPLACE(0x004AE220, &ListenerAdapter::DestroyVertical);
-REPLACE(0x004AE230, &ListenerAdapter::DestroyHorizontal);
-REPLACE(0x004AE520, &CScrollingMenu::SetProperties);
-REPLACE(0x004AE6A0, &CScrollingMenu::PassEventToScript);
-REPLACE(0x004AE960, &CScrollingMenu::Update);
-REPLACE(0x004AE7E0, &CScrollingMenu::ListenerReceive);
-REPLACE(0x004AE2D0, &CScrollingMenu::FindMenu);
-REPLACE(0x004AE450, &CScrollingMenu::ItemPlace);

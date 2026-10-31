@@ -1,8 +1,8 @@
 // A connection's traffic counts (Net::Metrics). See net_metrics.h.
 
-#include "game/net/net_metrics.h"
+#include <cstdint>
 
-#include "hook/hook.h"
+#include "game/net/net_metrics.h"
 
 namespace Net {
 
@@ -49,11 +49,3 @@ void Metrics::CalculateUsage(int time)
 }
 
 } // namespace Net
-
-REPLACE(0x004544E0, &Net::Metrics::Construct);
-REPLACE(0x00454520, &Net::Metrics::GetBytesPerSec);
-REPLACE(0x00454530, &Net::Metrics::GetTotalMessageData);
-REPLACE(0x00454540, &Net::Metrics::GetTotalNumMessagesOfId);
-REPLACE(0x00454550, &Net::Metrics::AddMessage);
-REPLACE(0x00454D00, &Net::Metrics::CalculateUsage);
-REPLACE(0x00454D90, &Net::Metrics::AddPacket);

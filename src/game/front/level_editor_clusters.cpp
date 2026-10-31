@@ -4,11 +4,13 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <functional>
 #include <map>
 #include <memory>
+#include <vector>
 
 #include "game/core/crc.h"
 #include "game/front/level_editor_fields.h"
@@ -22,7 +24,6 @@
 #include "game/script/struct.h"
 #include "game/skate/skate_module.h"
 #include "game/sys/game_config.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 #include "imgui.h"
 

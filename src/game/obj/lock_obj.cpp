@@ -3,6 +3,7 @@
 
 #include "game/obj/lock_obj.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/mth/matrix.h"
@@ -12,14 +13,11 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/front/screen_element_cfuncs.h"
 
 namespace Obj {
 
-GAME_GLOBAL(float, g_lockObjWobbleStep, 0x00646118, 0.006135923f);
+float g_lockObjWobbleStep{0.006135923f};
 
 namespace {
 
@@ -151,7 +149,3 @@ int CLockObjComponent::CallMemberFunction(uint32_t name, Script::CStruct* params
 }
 
 } // namespace Obj
-
-REPLACE(0x0041F520, &Obj::CLockObjComponent::InitFromStructure);
-REPLACE(0x0041FF90, &Obj::CLockObjComponent::Update);
-REPLACE(0x0041F410, &Obj::CLockObjComponent::CallMemberFunction);

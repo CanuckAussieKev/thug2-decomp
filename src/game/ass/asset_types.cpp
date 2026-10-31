@@ -1,6 +1,8 @@
 // The asset types: animations, cutscenes, node arrays, scenes, scene collision, skeletons, skinned models, skin
 // collision and texture dictionaries - how each is read and turned into the engine's data.
 
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
@@ -26,14 +28,10 @@
 #include "game/script/qb.h"
 #include "game/script/script_startup.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 
 namespace Ass {
 
-GAME_GLOBAL(uint32_t, g_paramsInUse, 0x006918D8);
+uint32_t g_paramsInUse;
 
 namespace {
 
@@ -109,7 +107,7 @@ void* MakeTexDict(uint32_t checksum, void* buffer, uint32_t size, uint8_t a, int
 void UnloadTexDict(void* textures) { Nx::UnloadTexDict(static_cast<Nx::CTexDict*>(textures)); }
 
 // --- shared steps ---------------------------------------------------------------------------------------------
-GAME_GLOBAL(uint8_t[0x180], g_paramsPool, 0x00691758); // 4 blocks of 0x60 bytes
+uint8_t g_paramsPool[0x180]; // 4 blocks of 0x60 bytes
 uint8_t* ParamsPool() { return g_paramsPool; }
 uint32_t& ParamsInUse() { return g_paramsInUse; }
 
@@ -737,7 +735,7 @@ int CSkinAsset::Load(const char* name, bool async, bool useArchive, void* params
     Str::LowerCase(base);
     m_params->onHeap = 0;
     // (0x00645904 / 0x00645900: "skin" for a model with a .cas file, else "mdl")
-    const char* kind = hasCas ? GAME_TEXT(0x00645904, "skin") : GAME_TEXT(0x00645900, "mdl");
+    const char* kind = hasCas ? "skin" : "mdl";
     char file[512];
     std::snprintf(file, sizeof(file), "%s.%s.%s", base, kind, Nx::PlatformExtension());
     m_params->hasCas = hasCas;
@@ -992,68 +990,3 @@ int CTexDictAsset::Unload()
 }
 
 } // namespace Ass
-
-REPLACE(0x00407730, Ass::AllocLoadParams);
-REPLACE(0x00407770, Ass::FreeLoadParams);
-REPLACE(0x00408A70, &Ass::ReloadAdapter::Reload);
-REPLACE(0x004072E0, &Ass::CAnimAsset::GetType);
-REPLACE(0x004072D0, &Ass::CAnimAsset::GetName);
-REPLACE(0x004071C0, &Ass::CAnimAsset::LoadFromBuffer);
-REPLACE(0x00407300, &Ass::CAnimAsset::Load);
-REPLACE(0x004074F0, &Ass::CAnimAsset::FinishLoading);
-REPLACE(0x004074A0, &Ass::CAnimAsset::Unload);
-REPLACE(0x00407290, &Ass::CAnimAsset::FreeBuffer);
-REPLACE(0x00408AC0, &Ass::CCutsceneAsset::GetType);
-REPLACE(0x00408AB0, &Ass::CCutsceneAsset::GetName);
-REPLACE(0x00408AD0, &Ass::CCutsceneAsset::Load);
-REPLACE(0x00408A40, &Ass::CCutsceneAsset::Unload);
-REPLACE(0x00408AA0, &Ass::CCutsceneAsset::IsLoaded);
-REPLACE(0x00408BE0, &Ass::CNodeArrayAsset::GetType);
-REPLACE(0x00408BD0, &Ass::CNodeArrayAsset::GetName);
-REPLACE(0x00408EA0, &Ass::CNodeArrayAsset::LoadFromBuffer);
-REPLACE(0x00408D10, &Ass::CNodeArrayAsset::Load);
-REPLACE(0x00408C10, &Ass::CNodeArrayAsset::FinishLoading);
-REPLACE(0x00408F00, &Ass::CNodeArrayAsset::Unload);
-REPLACE(0x004090D0, &Ass::CNodeArrayAsset::CreateNodeArray);
-REPLACE(0x004093D0, &Ass::CSceneAsset::GetName);
-REPLACE(0x004092D0, &Ass::CSceneAsset::SetUpParams);
-REPLACE(0x00409520, &Ass::CSceneAsset::LoadFromBuffer);
-REPLACE(0x004093F0, &Ass::CSceneAsset::Load);
-REPLACE(0x00409240, &Ass::CSceneAsset::FinishLoading);
-REPLACE(0x00409380, &Ass::CSceneAsset::Unload);
-REPLACE(0x00409750, &Ass::CSceneCollisionAsset::GetName);
-REPLACE(0x00409690, &Ass::CSceneCollisionAsset::SetUpParams);
-REPLACE(0x00409890, &Ass::CSceneCollisionAsset::LoadFromBuffer);
-REPLACE(0x00409760, &Ass::CSceneCollisionAsset::Load);
-REPLACE(0x00409610, &Ass::CSceneCollisionAsset::FinishLoading);
-REPLACE(0x00409700, &Ass::CSceneCollisionAsset::Unload);
-REPLACE(0x00409A40, &Ass::CSkeletonAsset::GetType);
-REPLACE(0x00409A30, &Ass::CSkeletonAsset::GetName);
-REPLACE(0x00409990, &Ass::CSkeletonAsset::LoadFromBuffer);
-REPLACE(0x00409A50, &Ass::CSkeletonAsset::Load);
-REPLACE(0x00409B80, &Ass::CSkeletonAsset::FinishLoading);
-REPLACE(0x004099E0, &Ass::CSkeletonAsset::Unload);
-REPLACE(0x00409A10, &Ass::CSkeletonAsset::FreeBuffer);
-REPLACE(0x00409E90, &Ass::SkinParams::Clear);
-REPLACE(0x00409E00, &Ass::CSkinAsset::GetType);
-REPLACE(0x00409DF0, &Ass::CSkinAsset::GetName);
-REPLACE(0x00409E10, &Ass::CSkinAsset::SetUpParams);
-REPLACE(0x0040A140, &Ass::CSkinAsset::LoadFromBuffer);
-REPLACE(0x00409EB0, &Ass::CSkinAsset::Load);
-REPLACE(0x00409C70, &Ass::CSkinAsset::FinishLoading);
-REPLACE(0x00409D30, &Ass::CSkinAsset::Unload);
-REPLACE(0x00409D70, &Ass::CSkinAsset::Abort);
-REPLACE(0x00409DA0, &Ass::CSkinAsset::FreeBuffer);
-REPLACE(0x00409C60, &Ass::CSkinAsset::SetRead);
-REPLACE(0x0040A290, &Ass::CSkinCollisionAsset::GetType);
-REPLACE(0x0040A280, &Ass::CSkinCollisionAsset::GetName);
-REPLACE(0x0040A400, &Ass::CSkinCollisionAsset::LoadFromBuffer);
-REPLACE(0x0040A2A0, &Ass::CSkinCollisionAsset::Load);
-REPLACE(0x0040A510, &Ass::CSkinCollisionAsset::FinishLoading);
-REPLACE(0x0040A230, &Ass::CSkinCollisionAsset::Unload);
-REPLACE(0x0040A710, &Ass::CTexDictAsset::GetName);
-REPLACE(0x0040A620, &Ass::CTexDictAsset::SetUpParams);
-REPLACE(0x0040A840, &Ass::CTexDictAsset::LoadFromBuffer);
-REPLACE(0x0040A720, &Ass::CTexDictAsset::Load);
-REPLACE(0x0040A5A0, &Ass::CTexDictAsset::FinishLoading);
-REPLACE(0x0040A6C0, &Ass::CTexDictAsset::Unload);

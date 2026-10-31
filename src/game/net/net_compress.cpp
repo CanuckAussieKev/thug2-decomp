@@ -2,6 +2,8 @@
 
 #include "game/net/net_compress.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/dbg.h"
@@ -9,7 +11,6 @@
 #include "game/net/net_lzham.h"
 #include "game/net/thugpro_peer.h"
 #include "game/util/lzss.h"
-#include "hook/hook.h"
 
 namespace Net {
 
@@ -180,7 +181,3 @@ uint8_t* CompressMessage(uint8_t* msgId, uint16_t* length, const void* data, cha
 }
 
 } // namespace Net
-
-REPLACE(0x00454A60, Net::RleCompress);
-REPLACE(0x00454C20, Net::RleDecompress);
-REPLACE(0x00454E30, Net::CompressMessage);

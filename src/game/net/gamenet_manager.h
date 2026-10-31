@@ -1,7 +1,5 @@
 #pragma once
 
-#include "hook/game_global.h"
-
 #include <cstddef>
 #include <cstdint>
 
@@ -676,25 +674,25 @@ void __cdecl CarriedFlagsTask(void* task);
 // 0x005395C0: the manager released (its reference count 0x007CCE18; the last one destroys it).
 void __cdecl ReleaseManager();
 
-GAME_GLOBAL_EXTERN(uint32_t, g_networkTeamMode);
-GAME_GLOBAL_EXTERN(int, g_netSkillLevel);
-GAME_GLOBAL_EXTERN(int, g_netMaxPlayers);
-GAME_GLOBAL_EXTERN(uint32_t, g_commandLineServer);
-GAME_GLOBAL_EXTERN(bool, g_netEnabled);
-GAME_GLOBAL_EXTERN(uint32_t, g_askedFor);
-GAME_GLOBAL_EXTERN(bool, g_joinServerIPSucceeded);
-GAME_GLOBAL_EXTERN(uint32_t, g_levelChangeTime);
-GAME_GLOBAL_EXTERN(uint32_t, g_autoServeStart);
-GAME_GLOBAL_EXTERN(Manager*, g_gameNetManager);
-GAME_GLOBAL_EXTERN(uint32_t, g_gameNetReferences);
-GAME_GLOBAL_EXTERN(bool, g_queryReporting);
-GAME_GLOBAL_EXTERN(bool, g_openWaiting);
-GAME_GLOBAL_EXTERN(uint8_t, g_gameReported);
-GAME_GLOBAL_EXTERN(bool, g_listingAsked);
-GAME_GLOBAL_EXTERN(bool, g_listingFound);
-GAME_GLOBAL_EXTERN(uint32_t, g_connectionTimer);
-GAME_GLOBAL_EXTERN(bool, g_gamePosted);
-GAME_GLOBAL_EXTERN(int, g_queuedCount);
-GAME_GLOBAL_EXTERN(bool, g_cheatFlag);
+extern uint32_t g_networkTeamMode;
+extern int g_netSkillLevel;
+extern int g_netMaxPlayers;
+extern uint32_t g_commandLineServer;
+extern bool g_netEnabled;
+extern uint32_t g_askedFor;
+extern bool g_joinServerIPSucceeded;
+extern uint32_t g_levelChangeTime;
+extern uint32_t g_autoServeStart;
+extern Manager* g_gameNetManager;
+extern uint32_t g_gameNetReferences;
+extern bool g_queryReporting;
+extern bool g_openWaiting;
+extern uint8_t g_gameReported;
+extern bool g_listingAsked;
+extern bool g_listingFound;
+extern uint32_t g_connectionTimer;
+extern bool g_gamePosted;
+extern int g_queuedCount;
+extern bool g_cheatFlag;
 
 } // namespace GameNet

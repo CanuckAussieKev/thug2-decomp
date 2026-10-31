@@ -5,6 +5,7 @@
 
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <new>
 
@@ -20,10 +21,8 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/sys/log.h"
-#include "hook/game_code.h"
 #include "game/core/stubs.h"
 #include "game/front/screen_element.h"
 #include "game/front/screen_constants.h"
@@ -35,7 +34,6 @@ namespace Front {
 namespace {
 extern void** const kCElement3dVtable;
 } // namespace
-
 
 static_assert(offsetof(CElement3d, m_models) == 0x178 && offsetof(CElement3d, m_numModels) == 0x434 &&
                   offsetof(CElement3d, m_cameraZ) == 0x438 && offsetof(CElement3d, m_angle) == 0x43C &&
@@ -751,24 +749,12 @@ void CElement3d::Update()
 }
 
 namespace {
-GAME_VTABLE(kCElement3dVtable, 0x00649FF4, &Front::CElement3d::Destroy, &Front::CElement3d::SetProperties,
-            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-            &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
-            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties,
-            &Front::CElement3d::SetMorph, &Front::CElement3d::Update);
+static VtableSlot kCElement3dVtable_slots[] = {&Front::CElement3d::Destroy, &Front::CElement3d::SetProperties,
+                static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+                &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
+                &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties,
+                &Front::CElement3d::SetMorph, &Front::CElement3d::Update};
+void** const kCElement3dVtable = reinterpret_cast<void**>(kCElement3dVtable_slots);
 } // namespace
 
 } // namespace Front
-
-REPLACE(0x004A6060, &Front::CElement3d::Construct);
-REPLACE(0x004A6240, &Front::CElement3d::DestroyBody);
-REPLACE(0x004A6D00, &Front::CElement3d::Destroy);
-REPLACE(0x004A6630, &Front::CElement3d::SetProperties);
-REPLACE(0x004A6BA0, &Front::CElement3d::SetMorph);
-REPLACE(0x004A6D30, &Front::CElement3d::Update);
-REPLACE(0x004A5E30, &Front::CElement3d::ClearModels);
-REPLACE(0x004A5E80, &Front::CElement3d::ApplyViewport);
-REPLACE(0x004A6540, &Front::CElement3d::AddModel);
-REPLACE(0x004A62B0, &Front::CElement3d::ScaleToScreenDims);
-REPLACE(0x004A6BD0, Front::ApplyAngles);
-REPLACE_UNCHECKED(0x004A5EE0, Front::ScreenToWorldStub);

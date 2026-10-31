@@ -11,15 +11,13 @@
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 #include "game/obj/control_pad.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/skater/skitch.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/skater/vehicle_sound.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
@@ -221,34 +219,23 @@ void CMovableContactComponent::UpdateContactPoint()
 
 using Obj::CMovableContactComponent;
 
-REPLACE(0x00427AB0, CMovableContactComponent::Create);
-REPLACE(0x004276C0, &CMovableContactComponent::DestroyBody);
-REPLACE(0x004276D0, &CMovableContactComponent::Destroy);
-REPLACE(0x00427700, &CMovableContactComponent::FindContact);
-REPLACE(0x00427B30, &CMovableContactComponent::FindContactAhead);
-REPLACE(0x00427A00, &CMovableContactComponent::GetContactPoint);
-REPLACE(0x00427C70, &CMovableContactComponent::StopRiding);
-REPLACE(0x00427CB0, &CMovableContactComponent::IsRiding);
-REPLACE(0x00427CD0, &CMovableContactComponent::StartRiding);
-REPLACE(0x00427DD0, &CMovableContactComponent::UpdateContactPoint);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x00646250,
-    &CMovableContactComponent::Destroy,
-    &Obj::ComponentWithoutUpdate::Update,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&CMovableContactComponent::Destroy,
+         &Obj::ComponentWithoutUpdate::Update,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

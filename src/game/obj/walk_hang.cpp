@@ -29,8 +29,7 @@
 #include "game/sys/game_clock.h"
 #include "game/obj/control_pad.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/obj/trigger_events.h"
 #include "game/obj/wait_and_die.h"
 
@@ -80,7 +79,6 @@ constexpr uint32_t kStartHeightOffset = 0x1914; // the height offset at an anima
 constexpr uint32_t kEndHeightOffset = 0x1918;   // ... and end
 constexpr uint32_t kAnimWaiting = 0x1944;   // an animation is playing: the callback waits
 constexpr uint32_t kAnimDone = 0x1948;      // the callback (a member function pointer: the code, then 3 words)
-
 
 // The events the rail scripts and triggers get (const int[3]).
 
@@ -1643,7 +1641,6 @@ void Walk::MovableContact::StartRiding(Obj::CCompositeObject* object)
     At<Obj::CRideTracker*>(this, 0x18) = memory ? static_cast<Obj::CRideTracker*>(memory)->Construct(object) : nullptr;
 }
 
-
 namespace Obj {
 
 // 0x0043D930
@@ -1660,42 +1657,3 @@ CBaseComponent* __cdecl CreateWaitAndDieComponent()
 }
 
 } // namespace Obj
-
-REPLACE(0x0043D930, Obj::CreateWaitAndDieComponent);
-REPLACE(0x0043D990, Walk::Lerp);
-REPLACE(0x0043DA20, &Walk::SkaterTurn::TurnedRound);
-REPLACE(0x0043DA70, Obj::CWalkComponent::Param);
-REPLACE(0x0043DAA0, &Obj::CWalkComponent::RunSpeed);
-REPLACE(0x0043DB00, &Obj::CWalkComponent::EndPullUp);
-REPLACE(0x0043DB90, &Obj::CWalkComponent::EndDropFromHang);
-REPLACE(0x0043DC00, &Obj::CWalkComponent::HangHeightOffset);
-REPLACE(0x0043DC60, &Obj::CWalkComponent::CriticalPointUp);
-REPLACE(0x0043DCF0, &Obj::CWalkComponent::EndDropToHang);
-REPLACE(0x0043DDD0, &Obj::CWalkComponent::SideClear);
-REPLACE(0x0043DFC0, &Obj::CWalkComponent::FaceHangRail);
-REPLACE(0x0043E230, &Obj::CWalkComponent::NextHangRail);
-REPLACE(0x0043EB80, &Walk::MovableContact::StartRiding);
-REPLACE(0x0043E530, &Obj::CWalkComponent::PullUp);
-REPLACE(0x0043EC40, &Obj::CWalkComponent::DropToHang);
-REPLACE(0x0043F030, &Obj::CWalkComponent::GrabRail);
-REPLACE(0x0043F3A0, &Obj::CWalkComponent::ShimmyBlocked);
-REPLACE(0x0043FC70, &Obj::CWalkComponent::PlaceOnHang);
-REPLACE(0x0043FE30, &Obj::CWalkComponent::HangClear);
-REPLACE(0x00440130, &Obj::CWalkComponent::Shimmy);
-REPLACE(0x00440690, &Obj::CWalkComponent::CheckRail);
-REPLACE(0x00440BF0, &Obj::CWalkComponent::UpdateHang);
-REPLACE(0x00441020, &Obj::CWalkComponent::EndLadderOffBottom);
-REPLACE(0x00441070, &Obj::CWalkComponent::EndLadderOffTop);
-REPLACE(0x004410C0, &Obj::CWalkComponent::EndOntoLadderBottom);
-REPLACE(0x00441190, &Obj::CWalkComponent::EndOntoLadderTop);
-REPLACE(0x00441260, &Obj::CWalkComponent::CheckLadderTop);
-REPLACE(0x004413E0, &Obj::CWalkComponent::CheckLadderLine);
-REPLACE(0x00441680, &Obj::CWalkComponent::ClimbOffBottom);
-REPLACE(0x00441860, &Obj::CWalkComponent::EndLadderOffTopToAir);
-REPLACE(0x004418B0, &Obj::CWalkComponent::CheckLadderBottom);
-REPLACE(0x00441B80, &Obj::CWalkComponent::ClimbOffTop);
-REPLACE(0x00441DE0, &Obj::CWalkComponent::ClimbOntoBottom);
-REPLACE(0x00441FC0, &Obj::CWalkComponent::ClimbOntoTop);
-REPLACE(0x00442170, &Obj::CWalkComponent::GrabLadder);
-REPLACE(0x00442280, &Obj::CWalkComponent::ClimbLadder);
-REPLACE(0x004425B0, &Obj::CWalkComponent::UpdateLadder);

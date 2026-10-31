@@ -15,7 +15,7 @@
 // them, as the same undo step: the step it made is put back (without a redo) and the action made again from where it
 // started (the copies from their source; a placed thing just moved / turned - its step is its existence). Only while
 // that action's step is still the newest on the undo stack (another action, an undo or a redo: the panel says so).
-// F4 hides / shows the panel. Pure parts self-tested: src/hook/selftests_editor_arrange.cpp.
+// F4 hides / shows the panel.
 namespace Front::LevelEditor::Adjust {
 
 enum class Kind : uint8_t { None, Move, Turn, Scale, Duplicate, Align, Distribute, Place };

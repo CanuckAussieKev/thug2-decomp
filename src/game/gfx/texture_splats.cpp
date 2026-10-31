@@ -10,7 +10,9 @@
 
 #include <bit>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
+#include <initializer_list>
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -24,24 +26,21 @@
 #include "game/lst/hashtable.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/shader_slots.h"
 #include "game/gfx/device.h"
 #include "game/sys/crt.h"
 
 namespace Nx {
 
-GAME_GLOBAL(sVertexStack, g_vertexStack, 0x006FC4A0);
-GAME_GLOBAL(uint8_t[128], g_splatMiddle20, 0x007052C0);
-GAME_GLOBAL(uint8_t[128], g_splatMiddle12, 0x00705340);
-GAME_GLOBAL(uint8_t[128], g_splatMiddle01, 0x007053C0);
-GAME_GLOBAL(uint8_t[128], g_splatVertex0, 0x00705440);
-GAME_GLOBAL(uint8_t[128], g_splatVertex1, 0x007054C0);
-GAME_GLOBAL(uint8_t[128], g_splatVertex2, 0x00705540);
+sVertexStack g_vertexStack;
+uint8_t g_splatMiddle20[128];
+uint8_t g_splatMiddle12[128];
+uint8_t g_splatMiddle01[128];
+uint8_t g_splatVertex0[128];
+uint8_t g_splatVertex1[128];
+uint8_t g_splatVertex2[128];
 
-GAME_GLOBAL(float, g_splitAreaLimit, 0x0067DDF0, 82944.0f);
+float g_splitAreaLimit{82944.0f};
 
 namespace {
 
@@ -643,16 +642,3 @@ sTextureSplats* __cdecl CreateTextureSplat(void** sectors, int /*unused*/, sSpla
 }
 
 } // namespace Nx
-
-REPLACE(0x004B9A60, Nx::GetTextureSplats);
-REPLACE(0x004B9C30, Nx::CreateTextureSplat);
-REPLACE(0x004B7F30, Nx::CollapseSplatTriangle);
-REPLACE(0x004B87B0, Nx::LightTextureSplats);
-REPLACE(0x004B9200, Nx::KillAllTextureSplats);
-REPLACE(0x004B92A0, Nx::KillTextureSplatsInBox);
-REPLACE(0x004B9380, Nx::DrawTextureSplats);
-REPLACE(0x004B7FA0, Nx::SegmentsIntersect);
-REPLACE(0x004B88D0, Nx::TriangleOverlapsScreen);
-REPLACE_SOURCE_ONLY(0x004B8E30, Nx::TriangleOverlapsScreen); // a jump to 0x004B88D0
-REPLACE(0x004B8220, Nx::SplitNextTriangle);
-REPLACE_SOURCE_ONLY(0x004B8232, Nx::SplitNextTriangle); // (the rest of 0x004B8220, Ghidra's split)

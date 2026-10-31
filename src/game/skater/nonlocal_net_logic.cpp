@@ -25,14 +25,12 @@
 #include "game/gfx/engine_model_lights.h"
 #include "game/gfx/light_manager.h"
 #include "game/skate/game_mode.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/skater/vehicle_sound.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
@@ -104,7 +102,6 @@ double X87Acos(double x)
     }
     return result;
 }
-
 
 } // namespace
 
@@ -527,35 +524,23 @@ void CSkaterNonLocalNetLogicComponent::Update()
 
 } // namespace Obj
 
-REPLACE(0x005147F0, Obj::CSkaterNonLocalNetLogicComponent::Create);
-REPLACE(0x005144E0, &Obj::CSkaterNonLocalNetLogicComponent::Construct);
-REPLACE(0x005144B0, &Obj::CSkaterNonLocalNetLogicComponent::DestroyBody);
-REPLACE(0x00514550, &Obj::CSkaterNonLocalNetLogicComponent::Destroy);
-REPLACE(0x00514580, &Obj::CSkaterNonLocalNetLogicComponent::Finalize);
-REPLACE(0x005144D0, &Obj::CSkaterNonLocalNetLogicComponent::ResetPlayback);
-REPLACE(0x00514610, &Obj::CSkaterNonLocalNetLogicComponent::UpdateGroundLighting);
-REPLACE(0x00514850, &Obj::CSkaterNonLocalNetLogicComponent::SnapToGround);
-REPLACE(0x00514D10, &Obj::CSkaterNonLocalNetLogicComponent::TurnTowards);
-REPLACE(0x00514E20, &Obj::CSkaterNonLocalNetLogicComponent::BounceOffWall);
-REPLACE(0x00517270, &Obj::CSkaterNonLocalNetLogicComponent::Update);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064BFAC,
-    &Obj::CSkaterNonLocalNetLogicComponent::Destroy,
-    &Obj::CSkaterNonLocalNetLogicComponent::Update,
-    Stubs::IgnoreArgument,
-    &Obj::CSkaterNonLocalNetLogicComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CSkaterNonLocalNetLogicComponent::Destroy,
+         &Obj::CSkaterNonLocalNetLogicComponent::Update,
+         Stubs::IgnoreArgument,
+         &Obj::CSkaterNonLocalNetLogicComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

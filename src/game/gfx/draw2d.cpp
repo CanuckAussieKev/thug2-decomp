@@ -6,10 +6,7 @@
 
 #include "game/core/manager.h"
 #include "game/gfx/render_state.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Nx {
 
@@ -17,11 +14,10 @@ namespace {
 extern void** const kSDraw2DVtable;
 } // namespace
 
-
 namespace {
 
-GAME_GLOBAL(SDraw2D*, g_draw2dHead, 0x007CC248);
-GAME_GLOBAL(uint32_t, g_draw2dZTestNextFrame, 0x007CC24C);
+SDraw2D* g_draw2dHead;
+uint32_t g_draw2dZTestNextFrame;
 
 SDraw2D*& Head() { return g_draw2dHead; }
 uint32_t& ZTestNextFrame() { return g_draw2dZTestNextFrame; }
@@ -160,18 +156,9 @@ void __cdecl Draw2D()
 }
 
 namespace {
-GAME_VTABLE(kSDraw2DVtable, 0x0064AD18, &Nx::SDraw2D::Destroy, GAME_LIBRARY_SLOT(0x00623771),
-            GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771));
+static VtableSlot kSDraw2DVtable_slots[] = {&Nx::SDraw2D::Destroy, &_purecall,
+                &_purecall, &_purecall};
+void** const kSDraw2DVtable = reinterpret_cast<void**>(kSDraw2DVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x004DF900, &Nx::SDraw2D::Insert);
-REPLACE(0x004DF950, &Nx::SDraw2D::Remove);
-REPLACE(0x004DFA70, &Nx::SDraw2D::Construct);
-REPLACE(0x004DFAA0, &Nx::SDraw2D::DestroyBody);
-REPLACE(0x004DFC90, &Nx::SDraw2D::Destroy);
-REPLACE(0x004DFAE0, &Nx::SDraw2D::SetPriority);
-REPLACE(0x004DFB20, &Nx::SDraw2D::SetZ);
-REPLACE(0x004DFB70, &Nx::SDraw2D::SetHidden);
-REPLACE(0x004DFB90, Nx::Draw2D);

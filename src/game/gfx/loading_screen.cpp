@@ -9,8 +9,11 @@
 #include <d3d9.h>
 #include <mmsystem.h>
 
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <initializer_list>
 
 #include "game/core/mem.h"
 #include "game/gfx/engine_texture.h"
@@ -19,16 +22,13 @@
 #include "game/gfx/pc_texture.h"
 #include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/sys/crt.h"
 #include "game/sys/log.h"
 #include "game/sys/game_config.h"
 
 namespace Nx {
 
-GAME_GLOBAL(uint8_t*, g_loadingScreenPicture, 0x007052B4);
+uint8_t* g_loadingScreenPicture;
 
 namespace {
 
@@ -39,16 +39,16 @@ uint32_t& BarTimer() { return g_loadingBarTimer; }
 uint32_t FogEnabled() { return g_fogEnabled; } // (the renderer's cached D3DRS_FOGENABLE)
 
 // The Windows calls, through the exe's imports (as device.cpp's timer: so a test can stand in for them alone).
-void Lock() { GAME_IMPORT(0x006450BC, decltype(&WaitForSingleObject), WaitForSingleObject)(ScreenMutex(), INFINITE); }
-void Unlock() { GAME_IMPORT(0x006450C0, decltype(&ReleaseMutex), ReleaseMutex)(ScreenMutex()); }
+void Lock() { WaitForSingleObject(ScreenMutex(), INFINITE); }
+void Unlock() { ReleaseMutex(ScreenMutex()); }
 UINT StartTimer(UINT delay, LPTIMECALLBACK callback)
 {
-    return GAME_IMPORT(0x00645264, decltype(&timeSetEvent), timeSetEvent)(delay, 0, callback, 0, TIME_PERIODIC);
+    return timeSetEvent(delay, 0, callback, 0, TIME_PERIODIC);
 }
-void StopTimer(UINT timer) { GAME_IMPORT(0x00645268, decltype(&timeKillEvent), timeKillEvent)(timer); }
+void StopTimer(UINT timer) { timeKillEvent(timer); }
 
-GAME_GLOBAL(void*, g_loadingScreenSprite, 0x007052B0);
-GAME_GLOBAL(uint32_t[7], g_pictureName, 0x0067E958, 0, 0, 0, 0, 0, 0, 0x0F); // (a std::string: empty, its capacity 15)
+void* g_loadingScreenSprite;
+uint32_t g_pictureName[7]{0, 0, 0, 0, 0, 0, 0x0F}; // (a std::string: empty, its capacity 15)
 
 // The picture (a texture holder, 0x14 bytes: 0x004C7ED0; its texture at +0x10, through one more pointer with flag 1
 // of +0x08) and the loading screen's other sprite.
@@ -300,9 +300,3 @@ void __cdecl ShowLoadingScreen(const char* name, bool keep, bool black)
 bool SelectPictureUp() { return s_selectPicture; }
 
 } // namespace Nx
-
-REPLACE(0x004B6CD0, Nx::DrawLoadingScreenPicture);
-REPLACE(0x004B6F10, Nx::HideLoadingScreen);
-REPLACE(0x004B6F70, Nx::FreeLoadingScreenSprite);
-REPLACE(0x004B7400, Nx::StartLoadingBar);
-REPLACE(0x004B78B0, Nx::ShowLoadingScreen);

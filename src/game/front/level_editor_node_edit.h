@@ -37,7 +37,7 @@ struct Values {
 };
 bool Same(const Values& a, const Values& b);
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_nodes.cpp) ----------------------------------------------
+// --- the pure parts -------------------------------------------------------------------------------------------------
 
 // An angle in radians brought into (-pi, pi].
 float WrapAngle(float radians);

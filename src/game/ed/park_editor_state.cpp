@@ -1,6 +1,8 @@
 // The park editor module's state commands (SetParkEditorState, SetParkEditorPauseMode), its constructor, its
 // singleton's Create and its logic task's code (Ed::CParkEditor, park_editor.h; 0x0058FBD0-0x005901AA).
 
+#include <cstdint>
+
 #include "game/ed/park_editor.h"
 
 #include "game/core/mem.h"
@@ -12,25 +14,23 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/net/task_vtable.h"
 #include "game/core/stubs.h"
 #include "game/sys/viewer.h"
-#include "hook/game_code.h"
 
 namespace GameCode {
 
 // Inp::Handler<T>'s vtable, shared by the park editor's, the viewer's and the observer's input handlers.
-GAME_VTABLE(kInputHandlerVtable, 0x0064D7D8, &Mdl::ViewerInputHandler::Handle, Stubs::ReturnZero, &Mdl::ViewerInputHandler::Destroy);
+static VtableSlot kInputHandlerVtable_slots[] = {&Mdl::ViewerInputHandler::Handle, Stubs::ReturnZero, &Mdl::ViewerInputHandler::Destroy};
+void** const kInputHandlerVtable = reinterpret_cast<void**>(kInputHandlerVtable_slots);
 
 } // namespace GameCode
 
 namespace Ed {
 
-GAME_GLOBAL(uint32_t, g_parkEditorReferences, 0x007CE5DC);
-GAME_GLOBAL(uint32_t, g_editorClock, 0x007CE5EC);
+uint32_t g_parkEditorReferences;
+uint32_t g_editorClock;
 
 namespace {
 
@@ -247,9 +247,3 @@ CParkEditor* __cdecl CParkEditor::Create(bool create)
 }
 
 } // namespace Ed
-
-REPLACE(0x0058FBD0, Ed::CFunc_SetParkEditorState);
-REPLACE(0x0058FED0, Ed::CFunc_SetParkEditorPauseMode);
-REPLACE(0x0058FFC0, Ed::CParkEditor::LogicTask);
-REPLACE(0x0058FFF0, &Ed::CParkEditor::Construct);
-REPLACE(0x00590160, Ed::CParkEditor::Create);

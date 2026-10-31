@@ -7,7 +7,6 @@
 
 #include "game/front/level_editor.h"
 #include "game/front/level_editor_nodes.h"
-#include "hook/game_global.h"
 
 // NOT ORIGINAL - the level editor's added and hidden nodes (ours; see level_editor.h - phase 3 of the plan).
 //
@@ -34,7 +33,7 @@
 // order kept).
 namespace Front::LevelEditor::NodeCreate {
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_create.cpp) -------------------------------------------
+// --- the pure parts -----------------------------------------------------------------------------------------------
 
 enum class Kind : uint8_t { Spawn, TeamSpawn, Crown, FlagSet, Light, Sound, Proxim };
 constexpr int kKinds = 7;

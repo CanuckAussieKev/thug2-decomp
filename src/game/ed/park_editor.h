@@ -18,7 +18,6 @@
 #include "game/ed/park.h"
 #include "game/obj/event.h"
 #include "game/sys/module.h"
-#include "hook/game_global.h"
 
 namespace Inp {
 struct Data;
@@ -52,8 +51,8 @@ struct ParkEditorInputHandler {
 };
 static_assert(sizeof(ParkEditorInputHandler) == 0x2C && offsetof(ParkEditorInputHandler, m_code) == 0x24);
 
-GAME_GLOBAL_EXTERN(CParkEditor*, g_parkEditor);
-GAME_GLOBAL_EXTERN(uint32_t, g_parkEditorReferences);
+extern CParkEditor* g_parkEditor;
+extern uint32_t g_parkEditorReferences;
 
 class CParkEditor : public Mdl::Module {
 public:
@@ -267,6 +266,6 @@ bool __cdecl CFunc_SetParkEditorState(Script::CStruct* params, Script::CScript* 
 // 0x0058FED0 SetParkEditorPauseMode pause | unpause: the editor paused (its menu and cursor hidden) or not.
 bool __cdecl CFunc_SetParkEditorPauseMode(Script::CStruct* params, Script::CScript* script);
 
-GAME_GLOBAL_EXTERN(bool, g_collisionAllowed);
+extern bool g_collisionAllowed;
 
 } // namespace Ed

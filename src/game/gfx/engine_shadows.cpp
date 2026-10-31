@@ -3,6 +3,7 @@
 
 #include "game/gfx/engine_shadows.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
@@ -14,9 +15,7 @@
 #include "game/gfx/model.h"
 #include "game/gfx/model_utils.h"
 #include "game/lst/hashtable.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/nx/coll_static.h"
 
@@ -344,44 +343,22 @@ void __cdecl ReleaseShadowEdges(uint32_t key)
 }
 
 namespace {
-GAME_VTABLE(kShadowVtable, 0x00649E78, &Nx::CShadow::Destroy, &Nx::CShadow::Update,
-            &Nx::CollGeometryStubs::DebugRender, Stubs::IgnoreArgument, Stubs::IgnoreArgument, Stubs::DoNothing,
-            Stubs::DoNothing, Stubs::IgnoreArguments2);
-GAME_VTABLE(kDetailedShadowVtable, 0x00649E98, &Nx::CDetailedShadow::Destroy, &Nx::CShadow::Update,
-            &Nx::CDetailedShadow::SetPosition, &Nx::CDetailedShadow::SetLightDirection, Stubs::IgnoreArgument,
-            Stubs::DoNothing, Stubs::DoNothing, Stubs::IgnoreArguments2);
-GAME_VTABLE(kSimpleShadowVtable, 0x00649EB8, &Nx::CSimpleShadow::Destroy, &Nx::CSimpleShadow::Update,
-            &Nx::CollGeometryStubs::DebugRender, Stubs::IgnoreArgument, Stubs::IgnoreArgument,
-            &Nx::CSimpleShadow::Hide, &Nx::CSimpleShadow::Show, Stubs::IgnoreArguments2);
-GAME_VTABLE(kShadowVolumeVtable, 0x00649ED8, &Nx::CShadowVolume::Destroy, &Nx::CShadow::Update,
-            &Nx::CShadowVolume::SetPosition, &Nx::CShadowVolume::SetLightDirection, &Nx::CShadowVolume::SetMatrix,
-            Stubs::DoNothing, Stubs::DoNothing, &Nx::CShadowVolume::SetModel);
+static VtableSlot kShadowVtable_slots[] = {&Nx::CShadow::Destroy, &Nx::CShadow::Update,
+                &Nx::CollGeometryStubs::DebugRender, Stubs::IgnoreArgument, Stubs::IgnoreArgument, Stubs::DoNothing,
+                Stubs::DoNothing, Stubs::IgnoreArguments2};
+void** const kShadowVtable = reinterpret_cast<void**>(kShadowVtable_slots);
+static VtableSlot kDetailedShadowVtable_slots[] = {&Nx::CDetailedShadow::Destroy, &Nx::CShadow::Update,
+                &Nx::CDetailedShadow::SetPosition, &Nx::CDetailedShadow::SetLightDirection, Stubs::IgnoreArgument,
+                Stubs::DoNothing, Stubs::DoNothing, Stubs::IgnoreArguments2};
+void** const kDetailedShadowVtable = reinterpret_cast<void**>(kDetailedShadowVtable_slots);
+static VtableSlot kSimpleShadowVtable_slots[] = {&Nx::CSimpleShadow::Destroy, &Nx::CSimpleShadow::Update,
+                &Nx::CollGeometryStubs::DebugRender, Stubs::IgnoreArgument, Stubs::IgnoreArgument,
+                &Nx::CSimpleShadow::Hide, &Nx::CSimpleShadow::Show, Stubs::IgnoreArguments2};
+void** const kSimpleShadowVtable = reinterpret_cast<void**>(kSimpleShadowVtable_slots);
+static VtableSlot kShadowVolumeVtable_slots[] = {&Nx::CShadowVolume::Destroy, &Nx::CShadow::Update,
+                &Nx::CShadowVolume::SetPosition, &Nx::CShadowVolume::SetLightDirection, &Nx::CShadowVolume::SetMatrix,
+                Stubs::DoNothing, Stubs::DoNothing, &Nx::CShadowVolume::SetModel};
+void** const kShadowVolumeVtable = reinterpret_cast<void**>(kShadowVolumeVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x004A16C0, &Nx::CShadow::Construct);
-REPLACE(0x004A16D0, &Nx::CShadow::DestroyBody);
-REPLACE(0x004A18B0, &Nx::CShadow::Destroy);
-REPLACE_SOURCE_ONLY(0x004A18A0, &Nx::CShadow::Update); // 3 bytes (RET 0x18)
-REPLACE(0x004A19C0, &Nx::CDetailedShadow::Construct);
-REPLACE(0x004A16E0, &Nx::CDetailedShadow::DestroyBody);
-REPLACE(0x004A18E0, &Nx::CDetailedShadow::Destroy);
-REPLACE(0x004A1910, &Nx::CDetailedShadow::SetPosition);
-REPLACE(0x004A1BA0, &Nx::CDetailedShadow::SetLightDirection);
-REPLACE(0x004A1750, &Nx::CSimpleShadow::Construct);
-REPLACE(0x004A1780, &Nx::CSimpleShadow::DestroyBody);
-REPLACE(0x004A1990, &Nx::CSimpleShadow::Destroy);
-REPLACE(0x004A17E0, &Nx::CSimpleShadow::SetModel);
-REPLACE(0x004A1CD0, &Nx::CSimpleShadow::Update);
-REPLACE(0x004A1880, &Nx::CSimpleShadow::Hide);
-REPLACE(0x004A1890, &Nx::CSimpleShadow::Show);
-REPLACE(0x004A1F80, &Nx::CShadowVolume::Construct);
-REPLACE(0x004A2120, &Nx::CShadowVolume::DestroyBody);
-REPLACE(0x004A22C0, &Nx::CShadowVolume::Destroy);
-REPLACE(0x004A1E70, &Nx::CShadowVolume::SetPosition);
-REPLACE(0x004A21A0, &Nx::CShadowVolume::SetLightDirection);
-REPLACE(0x004A1EE0, &Nx::CShadowVolume::SetMatrix);
-REPLACE(0x004A1E40, Nx::RemoveShadowVolume);
-REPLACE(0x004A1EF0, Nx::FindShadowEdges);
-REPLACE(0x004A1F30, Nx::ReleaseShadowEdges);

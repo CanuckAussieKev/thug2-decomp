@@ -20,9 +20,7 @@
 #include "game/skate/profile_cfuncs.h"
 #include "game/skate/skate_module.h"
 #include "game/skater/skater.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace CFuncs {
 
@@ -39,7 +37,7 @@ constexpr uint32_t kShadow = 0x8A897DD2;            // "shadow"
 constexpr uint32_t kSkeleton = 0x222756D5;          // "skeleton"
 constexpr uint32_t kSuspend = 0xCE0CA665;           // "suspend"
 constexpr uint32_t kSkater = 0x5B8AB877;            // "Skater"
-const char* const kPedShadow = GAME_TEXT(0x006464CC, "Ped_Shadow"); // "Ped_Shadow"
+const char* const kPedShadow = "Ped_Shadow"; // "Ped_Shadow"
 
 // The swaps made (0x007CEDE0, five entries): each object's id and the id of the object whose model it wears now.
 struct SwapEntry {
@@ -66,7 +64,7 @@ void CopySkeleton(uint8_t* to, uint8_t* from)
 
 // A model's +0xC (0x00492E50 / 0x00493460: the setter tells the model's parts) and its lights (+0x2C), whose
 // position follows a pointer (0x0048E4D0).
-uint32_t ModelGet(Nx::CModel* model) { return reinterpret_cast<uint32_t(__thiscall*)(Nx::CModel*)>(GAME_CODE(0x00492E50, &Nx::CModel::GetBoneMatrices))(model); }
+uint32_t ModelGet(Nx::CModel* model) { return reinterpret_cast<uint32_t(__thiscall*)(Nx::CModel*)>(CodeAddress(&Nx::CModel::GetBoneMatrices))(model); }
 void ModelSet(Nx::CModel* model, uint32_t value)
 {
     model->SetBoneMatrices(reinterpret_cast<uint8_t*>(value));
@@ -231,7 +229,3 @@ bool __cdecl CFunc_GetSkaterModelIsSwapped(Script::CStruct* params, Script::CScr
 }
 
 } // namespace CFuncs
-
-REPLACE(0x005B34A0, CFuncs::CFunc_SwapObjectModels);
-REPLACE(0x005B3890, CFuncs::CFunc_RestoreAllSwappedObjectModels);
-REPLACE(0x005B3A30, CFuncs::CFunc_GetSkaterModelIsSwapped);

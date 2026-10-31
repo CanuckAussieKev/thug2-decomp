@@ -3,7 +3,10 @@
 #include "game/front/level_editor_node_edit.h"
 
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <unordered_map>
+#include <vector>
 
 #include "game/front/level_editor_chains.h"
 #include "game/front/level_editor_entities.h"
@@ -17,7 +20,6 @@
 #include "game/script/node_manager.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 #include "game/gfx/light_manager.h"
 #include "game/gfx/scene_lights.h"

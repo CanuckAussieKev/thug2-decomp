@@ -6,6 +6,7 @@
 
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/mem.h"
@@ -14,9 +15,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/obj/object.h"
 #include "game/core/stubs.h"
 #include "game/front/screen_constants.h"
@@ -28,21 +27,20 @@ namespace {
 extern void** const kCScreenElementVtable;
 } // namespace
 
-
-GAME_GLOBAL(float, g_aspectToLayout, 0x00649FEC, 0.75000006f);
-GAME_GLOBAL(float, g_wideScreen, 0x00649FE4, 0.9f);
-GAME_GLOBAL(float, g_minusInv448, 0x00649FE0, -0.002232143f);
-GAME_GLOBAL(float, g_inv448, 0x00649FDC, 0.002232143f);
-GAME_GLOBAL(float, g_inv896, 0x00649FD0, 0.0011160715f);
-GAME_GLOBAL(float, g_inv1280, 0x00649FD8, 0.00078125f);
-GAME_GLOBAL(float, g_invTwoPi, 0x0064A044, 0.15915494f);
-GAME_GLOBAL(float, g_twoPi, 0x0064545C, 6.2831855f);
-GAME_GLOBAL(float, g_pi, 0x00649FC8, 3.1415927f);
-GAME_GLOBAL(float, g_layoutTop, 0x0064A258, -2e+02f);
-GAME_GLOBAL(float, g_layoutBottom, 0x0064A254, 648.0f);
-GAME_GLOBAL(float, g_shadowBehind, 0x0064541C, 0.005f);
-GAME_GLOBAL(float, g_sixteenth, 0x00645A84, 0.0625f);
-GAME_GLOBAL(float, g_framesPerSecond, 0x00645EA0, 6e+01f);
+float g_aspectToLayout{0.75000006f};
+float g_wideScreen{0.9f};
+float g_minusInv448{-0.002232143f};
+float g_inv448{0.002232143f};
+float g_inv896{0.0011160715f};
+float g_inv1280{0.00078125f};
+float g_invTwoPi{0.15915494f};
+float g_twoPi{6.2831855f};
+float g_pi{3.1415927f};
+float g_layoutTop{-2e+02f};
+float g_layoutBottom{648.0f};
+float g_shadowBehind{0.005f};
+float g_sixteenth{0.0625f};
+float g_framesPerSecond{6e+01f};
 
 static_assert(offsetof(SElementState, pos3d) == 0x04 && offsetof(SElementState, x) == 0x14 &&
                   offsetof(SElementState, z) == 0x1C && offsetof(SElementState, left) == 0x20 &&
@@ -1054,60 +1052,15 @@ void CScreenElement::SetMorph(Script::CStruct* params)
 void GetElement(ElementPtr* out, uint32_t id) { LookUp(Manager(), out, id, 0); }
 
 namespace {
-GAME_VTABLE(kCScreenElementVtable, 0x0064A090, &CScreenElement::Destroy, &CScreenElement::SetProperties,
-            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-            &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
-            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CScreenElement::SetMorph,
-            Stubs::DoNothing);
+static VtableSlot kCScreenElementVtable_slots[] = {&CScreenElement::Destroy, &CScreenElement::SetProperties,
+                static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+                &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
+                &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CScreenElement::SetMorph,
+                Stubs::DoNothing};
+void** const kCScreenElementVtable = reinterpret_cast<void**>(kCScreenElementVtable_slots);
 } // namespace
 
 } // namespace Front
 
 using Front::CScreenElement;
 using Front::SElementState;
-
-REPLACE(0x004A8730, &SElementState::Assign);
-REPLACE(0x004A8F90, &CScreenElement::Construct);
-REPLACE(0x004AAB30, &CScreenElement::DestroyBody);
-REPLACE(0x004AAC90, &CScreenElement::Destroy);
-REPLACE(0x004A8610, &CScreenElement::GetJust);
-REPLACE(0x004A87C0, &CScreenElement::GetPos);
-REPLACE(0x004A87E0, &CScreenElement::GetTopLeft);
-REPLACE_SOURCE_ONLY(0x004A86C0, &CScreenElement::GetPriority); // 7 bytes
-REPLACE(0x004A86B0, &CScreenElement::ManagerUsesPriorities);
-REPLACE(0x004A87A0, &CScreenElement::GetLayoutWidth);
-REPLACE(0x004A87B0, &CScreenElement::GetLayoutHeight);
-REPLACE(0x004A8F00, &CScreenElement::EventsBlocked);
-REPLACE(0x004A8F20, &CScreenElement::HasPriority);
-REPLACE(0x004A8F40, &CScreenElement::IsHidden);
-REPLACE(0x004A8680, &CScreenElement::SetPaused);
-REPLACE(0x004A8940, &CScreenElement::SetFocusSent);
-REPLACE(0x004A8C30, &CScreenElement::PlaceTopLeft);
-REPLACE(0x004A9100, &CScreenElement::SetPos);
-REPLACE(0x004A91F0, &CScreenElement::SetPos3d);
-REPLACE(0x004A92D0, &CScreenElement::SetDims);
-REPLACE(0x004A9390, &CScreenElement::SetJust);
-REPLACE(0x004A94A0, &CScreenElement::SetScale);
-REPLACE(0x004A8630, &CScreenElement::SetAlpha);
-REPLACE(0x004A8800, &CScreenElement::SetRotation);
-REPLACE(0x004A88C0, &CScreenElement::SetRGBA);
-REPLACE(0x004A8870, &CScreenElement::StartMorph);
-REPLACE(0x004AA390, &CScreenElement::SetZPriority);
-REPLACE(0x004AA470, &CScreenElement::SetChildrenPriority);
-REPLACE(0x004A8B80, &CScreenElement::GetParent);
-REPLACE(0x004A8BB0, &CScreenElement::GetWindow);
-REPLACE(0x004A95E0, &CScreenElement::GetLastChild);
-REPLACE(0x004A9600, &CScreenElement::CountChildren);
-REPLACE(0x004AA2A0, &CScreenElement::GetChild);
-REPLACE(0x004AA690, &CScreenElement::GetChildById);
-REPLACE(0x004AA6D0, &CScreenElement::GetChildByIndex);
-REPLACE(0x004AA8E0, &CScreenElement::SetParent);
-REPLACE(0x004A9D30, &CScreenElement::UpdateLayout);
-REPLACE(0x004A8C80, &CScreenElement::ResolvePos);
-REPLACE(0x004A8DC0, &CScreenElement::ResolveJust);
-REPLACE(0x004A8E90, &CScreenElement::ResolveRGBA);
-REPLACE(0x004A96B0, &CScreenElement::SetProperties);
-REPLACE(0x004A89B0, &CScreenElement::CallMemberFunction);
-REPLACE(0x004AA710, &CScreenElement::GetProperties);
-REPLACE(0x004A9AA0, &CScreenElement::SetMorph);
-REPLACE_SOURCE_ONLY(0x004AEE50, &CScreenElement::SetMorph); // a jump to 0x004A9AA0 (the texture element's slot 9)

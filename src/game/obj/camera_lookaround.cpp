@@ -13,13 +13,11 @@
 #include "game/script/struct.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
-#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -207,34 +205,23 @@ __declspec(naked) void RefreshFromStructure()
 
 } // namespace Obj
 
-REPLACE(0x004E42E0, Obj::CCameraLookAroundComponent::Create);
-REPLACE(0x004E3F60, &Obj::CCameraLookAroundComponent::DestroyBody);
-REPLACE(0x004E4010, &Obj::CCameraLookAroundComponent::Destroy);
-REPLACE(0x004E3F70, &Obj::CCameraLookAroundComponent::InitFromStructure);
-REPLACE(0x004E4040, &Obj::CCameraLookAroundComponent::Finalize);
-REPLACE(0x004E4000, &Obj::CCameraLookAroundComponent::SetLocked);
-REPLACE(0x004E3FA0, &Obj::CCameraLookAroundComponent::TurnTo);
-REPLACE(0x004E4060, &Obj::CCameraLookAroundComponent::Update);
-REPLACE(0x004E4220, &Obj::CCameraLookAroundComponent::CallMemberFunction);
-REPLACE_UNCHECKED(0x004E3F90, Obj::RefreshFromStructure); // (a tail jump: the arguments are slot 2's)
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064B28C,
-    &Obj::CCameraLookAroundComponent::Destroy,
-    &Obj::CCameraLookAroundComponent::Update,
-    &Obj::CCameraLookAroundComponent::InitFromStructure,
-    &Obj::CCameraLookAroundComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::CCameraLookAroundComponent::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CCameraLookAroundComponent::Destroy,
+         &Obj::CCameraLookAroundComponent::Update,
+         &Obj::CCameraLookAroundComponent::InitFromStructure,
+         &Obj::CCameraLookAroundComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::CCameraLookAroundComponent::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

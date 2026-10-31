@@ -3,12 +3,12 @@
 #include "game/gfx/engine_sprite.h"
 
 #include <bit>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/mem.h"
 #include "game/gfx/engine_texture.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 
 namespace Nx {
@@ -248,36 +248,13 @@ void CTexturedQuad::SetRGBA(uint32_t rgba)
 }
 
 namespace {
-GAME_VTABLE(kSpriteVtable, 0x00649A80, &Nx::CSprite::Destroy, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing,
-            Stubs::DoNothing, Stubs::DoNothing);
-GAME_VTABLE(kQuadVtable, 0x00649A98, &Nx::CTexturedQuad::Destroy, &Nx::CTexturedQuad::Create, Stubs::DoNothing,
-            Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing,
-            Stubs::IgnoreArgument, Stubs::IgnoreArgument);
+static VtableSlot kSpriteVtable_slots[] = {&Nx::CSprite::Destroy, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing,
+                Stubs::DoNothing, Stubs::DoNothing};
+void** const kSpriteVtable = reinterpret_cast<void**>(kSpriteVtable_slots);
+static VtableSlot kQuadVtable_slots[] = {&Nx::CTexturedQuad::Destroy, &Nx::CTexturedQuad::Create, Stubs::DoNothing,
+                Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing,
+                Stubs::IgnoreArgument, Stubs::IgnoreArgument};
+void** const kQuadVtable = reinterpret_cast<void**>(kQuadVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x0049ED60, &Nx::CSprite::Construct);
-REPLACE(0x0049EBA0, &Nx::CSprite::DestroyBody);
-REPLACE(0x0049EDD0, &Nx::CSprite::Destroy);
-REPLACE(0x0049EBB0, &Nx::CSprite::SetHidden);
-REPLACE(0x0049EBC0, &Nx::CSprite::SetTexture);
-REPLACE(0x0049EC00, &Nx::CSprite::SetBlendMode);
-REPLACE(0x0049EC10, &Nx::CSprite::SetPos);
-REPLACE(0x0049EC30, &Nx::CSprite::SetSize);
-REPLACE(0x0049EE00, &Nx::CSprite::SetScale);
-REPLACE(0x0049EC50, &Nx::CSprite::SetFlip);
-REPLACE(0x0049EC70, &Nx::CSprite::SetHotSpot);
-REPLACE(0x0049EC90, &Nx::CSprite::SetRotation);
-REPLACE(0x0049ECA0, &Nx::CSprite::SetPriority);
-REPLACE(0x0049ECC0, &Nx::CSprite::SetDepth);
-REPLACE(0x0049ECE0, &Nx::CSprite::SetZWrite);
-REPLACE(0x0049ECF0, &Nx::CSprite::SetRGBA);
-REPLACE(0x0049EED0, &Nx::CTexturedQuad::Construct);
-REPLACE(0x0049EF00, &Nx::CTexturedQuad::Destroy);
-REPLACE(0x0049EF30, &Nx::CTexturedQuad::Create);
-REPLACE(0x0049ED10, &Nx::CTexturedQuad::SetHidden);
-REPLACE(0x0049ED40, &Nx::CTexturedQuad::SetTexture);
-REPLACE(0x0049ED00, &Nx::CTexturedQuad::SetBlendMode);
-REPLACE(0x0049ED20, &Nx::CTexturedQuad::SetPriority);
-REPLACE(0x0049ED50, &Nx::CTexturedQuad::SetRGBA);

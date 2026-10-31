@@ -17,24 +17,11 @@ namespace Net {
 // check).
 const char* GameName();
 
-// The secret key: OnlineGameKey, or "AdLWaZ". Read once. (The standalone build gives it to the SDK; the hooked build's
-// SDK callers read the copies SetUpOnlineIdentity writes.)
+// The secret key: OnlineGameKey, or "AdLWaZ". Read once (given to the SDK).
 const char* GameKey();
 
-// Write the identity into the GameSpy SDK's callers when the settings differ from the game's own (once, at
-// start-up; nothing is written for the defaults). In the standalone build it only reports the identity.
+// Report the identity when the settings differ from the game's own (once, at start-up).
 void SetUpOnlineIdentity();
 
-#ifndef THUG2_STANDALONE
-
-// What SetUpOnlineIdentity writes: `key` (exactly 6 characters; null = leave the key) - the name needs no write: every
-// use of it is source and asks GameName(). Returns false (and writes nothing) for a key of another length.
-bool WriteOnlineIdentity(const char* key);
-
-// The key the game's code uses now (read back from where WriteOnlineIdentity writes; for the self-tests): 0 qr2,
-// 1 peer, 2 stats (7 bytes out, decoded).
-void GameKeyAt(int site, char out[7]);
-constexpr int kGameKeySites = 3;
-#endif
 
 } // namespace Net

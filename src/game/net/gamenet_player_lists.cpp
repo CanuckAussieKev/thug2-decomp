@@ -2,7 +2,8 @@
 // lists - walking, finding and removing them.
 
 #include <cstdint>
-#include "hook/game_code.h"
+#include <initializer_list>
+#include "game/core/code_address.h"
 #include "game/gfx/d3dx.h"
 #include <cstring>
 
@@ -32,9 +33,6 @@
 #include "game/net/net_app.h"
 #include "game/net/net_conn.h"
 #include "game/skate/cas_options.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/obj/compositemgr.h"
 #include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
@@ -80,7 +78,7 @@ constexpr uint32_t kCreateNetPanelMessage = 0xD9BB372E; // create_net_panel_mess
 constexpr uint32_t kPreRunQueuedScripts = 0xD4DAFEB2;   // PreRunQueuedScripts
 constexpr uint32_t kPostRunQueuedScripts = 0xE1BDBE73;  // PostRunQueuedScripts
 
-const char* const kStringSlot = GAME_TEXT(0x0064CA08, "%s0"); // "%s0"
+const char* const kStringSlot = "%s0"; // "%s0"
 
 // The panel message (message 0x3F, 44 bytes).
 struct PanelMessage {
@@ -120,14 +118,14 @@ constexpr uint32_t kPlayerFace = 0x1E8;        // PlayerInfo: its face texture d
 constexpr uint16_t kFaceSize = 0x4498;
 constexpr uint8_t kMsgFace = 0x7E;
 constexpr uint8_t kGroupFace = 9;
-const char* const kFaceDesc = GAME_TEXT(0x0064CA2C, "Face Data"); // "Face Data"
+const char* const kFaceDesc = "Face Data"; // "Face Data"
 constexpr uint8_t kMsgTagOwner = 0x96;
 constexpr uint8_t kMsgTagTexture = 0x97;
 constexpr uint8_t kMsgTagPalette = 0x98;
 constexpr uint8_t kMsgTagLogos = 0x9A;
 constexpr uint8_t kGroupTag = 10;
-const char* const kTagPaletteDesc = GAME_TEXT(0x0064C974, "CAG Palette"); // "CAG Palette"
-const char* const kTagTextureDesc = GAME_TEXT(0x0064C968, "CAG Texture"); // "CAG Texture"
+const char* const kTagPaletteDesc = "CAG Palette"; // "CAG Palette"
+const char* const kTagTextureDesc = "CAG Texture"; // "CAG Texture"
 constexpr uint32_t kHatLogo = 0x5B288E0B;      // hat_logo
 constexpr uint32_t kFrontLogo = 0x23A1DF80;    // front_logo
 constexpr uint32_t kBackLogo = 0xD0C656A2;     // back_logo
@@ -306,7 +304,7 @@ void Manager::SetReadyToPlay(bool ready)
     uint8_t* skate = Detail::Skate();
     unsigned int count = CountNodes(Field<Mem::ListNode*>(skate, kSkaterListFirst));
     for (unsigned int i = 0; i < count; ++i) {
-        auto* skater = Call<void***>(GAME_CODE(0x005665C0, &Mdl::Skate::GetSkater), skate, i);
+        auto* skater = Call<void***>(CodeAddress(&Mdl::Skate::GetSkater), skate, i);
         if (skater) // (the skater's slot 12 when ready, 11 when not)
             reinterpret_cast<void(__thiscall*)(void*)>((*skater)[ready ? 12 : 11])(skater);
     }
@@ -345,7 +343,7 @@ void Manager::ResetPlayers()
         if (skater) {
             auto* score = skater->GetComponent(kSkaterScore); // (not checked for null, as in the original)
             if (Field<void*>(score, 0x18))
-                Call(GAME_CODE(0x00564A10, &Mdl::Score::Reset), Field<void*>(score, 0x18));
+                Call(CodeAddress(&Mdl::Score::Reset), Field<void*>(score, 0x18));
         }
     }
 }
@@ -447,7 +445,7 @@ void Manager::LaunchQueuedScripts()
     auto* sound = Sfx::g_sfxManager;
     uint8_t* skate = Detail::Skate();
     memory->PushContext(memory->m_bottomUpHeap);
-    Call(GAME_CODE(0x00569580, &Mdl::Skate::BeginQueuedScripts), skate);
+    Call(CodeAddress(&Mdl::Skate::BeginQueuedScripts), skate);
     float volume = Sfx::GetMainVolume();
     sound->SetMainVolume(0.0f);
     Run(kPreRunQueuedScripts);
@@ -467,7 +465,7 @@ void Manager::LaunchQueuedScripts()
     }
     Run(kPostRunQueuedScripts);
     sound->SetMainVolume(volume);
-    Call(GAME_CODE(0x00569590, &Mdl::Skate::EndQueuedScripts), skate);
+    Call(CodeAddress(&Mdl::Skate::EndQueuedScripts), skate);
     Mem::Manager::Get()->PopContext();
 }
 
@@ -584,7 +582,7 @@ void Manager::DisconnectClients()
         uint8_t* skate = Detail::Skate();
         unsigned int count = CountNodes(Field<Mem::ListNode*>(skate, kSkaterListFirst));
         for (unsigned int i = 0; i < count; ++i) {
-            auto* skater = Call<void***>(GAME_CODE(0x005665C0, &Mdl::Skate::GetSkater), skate, i);
+            auto* skater = Call<void***>(CodeAddress(&Mdl::Skate::GetSkater), skate, i);
             if (skater)
                 reinterpret_cast<void(__thiscall*)(void*)>((*skater)[11])(skater);
         }
@@ -641,9 +639,9 @@ bool Manager::PrepareLocalFace()
 {
     if (Net::Manager::Instance()->GetConnectionType() == Net::Manager::kConnectionModem)
         return false;
-    void* profile = Call<void*>(GAME_CODE(0x00564FC0, static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(int)>(&Mdl::Skate::GetProfile)), Detail::Skate(), 0);
+    void* profile = Call<void*>(CodeAddress(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(int)>(&Mdl::Skate::GetProfile)), Detail::Skate(), 0);
     void* face = Field<void*>(profile, 0x54); // its face texture (0x00576E60)
-    if (!face || !Call<bool>(GAME_CODE(0x00487510, &Gfx::CFaceTexture::IsValid), face))
+    if (!face || !Call<bool>(CodeAddress(&Gfx::CFaceTexture::IsValid), face))
         return false;
     Mem::Manager* memory = Mem::Manager::Get();
     if (m_flags & 1) {
@@ -652,7 +650,7 @@ bool Manager::PrepareLocalFace()
         Field<uint8_t*>(local, kPlayerFace) = static_cast<uint8_t*>(Mem::New(kFaceSize + 1));
         Mem::Manager::Get()->PopContext();
         Field<uint8_t*>(local, kPlayerFace)[0] = 0;
-        Call(GAME_CODE(0x00487440, &Gfx::CFaceTexture::WriteTo), face, Field<uint8_t*>(local, kPlayerFace) + 1, kFaceSize);
+        Call(CodeAddress(&Gfx::CFaceTexture::WriteTo), face, Field<uint8_t*>(local, kPlayerFace) + 1, kFaceSize);
     } else {
         Net::ConnSearch search;
         search.m_vtable = Net::kConnSearchVtable;
@@ -662,7 +660,7 @@ bool Manager::PrepareLocalFace()
         memory->PushContext(memory->m_networkHeap);
         void* data = Mem::New(kFaceSize);
         Mem::Manager::Get()->PopContext();
-        Call(GAME_CODE(0x00487440, &Gfx::CFaceTexture::WriteTo), face, data, kFaceSize);
+        Call(CodeAddress(&Gfx::CFaceTexture::WriteTo), face, data, kFaceSize);
         static_cast<Net::Client*>(m_client)->StreamMessageToServer(kMsgFace, kFaceSize, data, kFaceDesc, kGroupFace,
                                                                     false, false);
         Mem::Free(data);
@@ -776,7 +774,7 @@ void* Manager::NextCamPlayer()
     return nullptr;
 }
 
-GAME_GLOBAL(Manager*, g_gameNetManager, 0x007CCE14);
+Manager* g_gameNetManager;
 
 // 0x00539610 (a task's code: the manager's flag task): in capture the flag, each flag a player (no observers)
 // carries (flags 0x7800) put on the carrier's head - the flag object of the team it belongs to (TRG_CTF_Red / Blue /
@@ -807,11 +805,11 @@ void __cdecl CarriedFlagsTask(void*)
         // (the component's +0x18, CSkeletonComponent::mp_skeleton, through the getter folded at 0x005480F0)
         auto* skeleton = reinterpret_cast<void*>(reinterpret_cast<FoldedGetters*>(skater->GetComponent(kSkeleton))->Word18());
         auto* matrix = reinterpret_cast<Mth::Matrix*>(flag + 0x6C);
-        Call(GAME_CODE(0x004A36E0, &Gfx::CSkeleton::GetBoneMatrix), skeleton, kBoneHead, matrix); // the head bone's matrix
+        Call(CodeAddress(&Gfx::CSkeleton::GetBoneMatrix), skeleton, kBoneHead, matrix); // the head bone's matrix
         Mth::Matrix turn;
         D3DXMatrixMultiply(matrix, &Mth::CreateRotateXMatrix(turn, kQuarterTurn), matrix);
         float raise[4] = {0.0f, 12.0f, 0.0f, 0.0f};
-        Call(GAME_CODE(0x0048A260, &Mth::Matrix::TranslateLocal), matrix, raise); // (moved along its own axes)
+        Call(CodeAddress(&Mth::Matrix::TranslateLocal), matrix, raise); // (moved along its own axes)
         float offset[4];
         std::memcpy(offset, flag + 0x9C, sizeof(offset)); // its translation row, taken out
         float identityRow[4] = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -844,34 +842,5 @@ void __cdecl ReleaseManager()
     g_gameNetManager = nullptr;
     references = 0;
 }
-
-REPLACE(0x00539880, &Manager::CountTeamPlayers);
-REPLACE(0x00539B00, &Manager::CountPlayers);
-REPLACE(0x00539C70, &Manager::CountObservers);
-REPLACE(0x005399F0, &Manager::DisconnectClients);
-REPLACE(0x00539DA0, &Manager::SendTagTexturesTo);
-REPLACE(0x0053A040, &Manager::PrepareLocalFace);
-REPLACE(0x0053A1B0, &Manager::SendFacesTo);
-REPLACE(0x0053A310, &Manager::AddJoiningPlayer);
-REPLACE(0x0053A580, &Manager::NextCamPlayer);
-REPLACE(0x00539610, CarriedFlagsTask);
-REPLACE(0x005395C0, ReleaseManager);
-REPLACE(0x00536820, &Manager::RemoveAllNewPlayers);
-REPLACE(0x00536B10, &Manager::RemoveNewPlayer);
-REPLACE(0x00537010, &Manager::NextPlayerInfo);
-REPLACE(0x005372C0, &Manager::FirstPlayerInfo);
-REPLACE(0x00537070, &Manager::FirstNewPlayerInfo);
-REPLACE(0x005370A0, &Manager::GetNewPlayerInfoByObjectId);
-REPLACE(0x00537140, &Manager::SetReadyToPlay);
-REPLACE(0x00537320, &Manager::GetLocalPlayer);
-REPLACE(0x005373D0, &Manager::GetServerPlayer);
-REPLACE(0x00537480, &Manager::GetKingOfTheHill);
-REPLACE(0x00537530, &Manager::CountOtherPlayers);
-REPLACE(0x00537620, &Manager::ResetPlayers);
-REPLACE(0x005376F0, &Manager::CreateNetPanelMessage);
-REPLACE(0x00537A10, &Manager::QueueScript);
-REPLACE(0x00537B30, &Manager::ClearQueuedScripts);
-REPLACE(0x00537D90, &Manager::LaunchQueuedScripts);
-REPLACE(0x00537F40, &Manager::ToggleProSet);
 
 } // namespace GameNet

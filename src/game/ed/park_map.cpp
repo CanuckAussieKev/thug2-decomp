@@ -4,6 +4,7 @@
 #include "game/ed/park.h"
 #include "game/ed/park_editor.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
@@ -15,11 +16,10 @@
 #include "game/script/struct_buffer.h"
 #include "game/ed/rail_editor.h"
 #include "game/ed/goal_editor.h"
-#include "hook/hook.h"
 
 namespace Ed {
 
-GAME_GLOBAL(bool, g_railEditorFlag, 0x0067F000, true);
+bool g_railEditorFlag{true};
 
 namespace {
 
@@ -272,9 +272,3 @@ void CParkManager::ResetPark()
 }
 
 } // namespace Ed
-
-REPLACE(0x00598FC0, &Ed::CParkManager::ReadFromStructure);
-REPLACE(0x00599140, &Ed::CParkManager::AccessDisk);
-REPLACE(0x00599EB0, &Ed::CParkManager::ReadFromOldCompressedMap);
-REPLACE(0x0059B750, &Ed::CParkManager::ReadFromCompressedMap);
-REPLACE(0x0059BE20, &Ed::CParkManager::ResetPark);

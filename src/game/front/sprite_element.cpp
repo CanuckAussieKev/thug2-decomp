@@ -2,6 +2,7 @@
 
 #include "game/front/sprite_element.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/mem.h"
@@ -12,9 +13,7 @@
 #include "game/gfx/texture_dict.h"
 #include "game/gfx/window2d.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/obj/object.h"
 #include "game/core/stubs.h"
 #include "game/front/screen_element.h"
@@ -28,7 +27,6 @@ extern void** const kCTextureElementVtable;
 extern void** const kCSpriteElementVtable;
 extern void** const kCWindowElementVtable;
 } // namespace
-
 
 namespace {
 
@@ -347,21 +345,24 @@ void CWindowElement::Update()
 }
 
 namespace {
-GAME_VTABLE(kCTextureElementVtable, 0x0064A1F8, &CTextureElement::Destroy, &CTextureElement::SetProperties,
-            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-            &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
-            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CTextureElement::GetProperties,
-            &CScreenElement::SetMorph, &CTextureElement::Update);
-GAME_VTABLE(kCSpriteElementVtable, 0x0064A228, &CSpriteElement::Destroy, &CSpriteElement::SetProperties,
-            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-            &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
-            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CSpriteElement::GetProperties, &CSpriteElement::SetMorph,
-            &CSpriteElement::Update);
-GAME_VTABLE(kCWindowElementVtable, 0x0064A2C0, &CWindowElement::Destroy, &CScreenElement::SetProperties,
-            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-            &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
-            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CScreenElement::SetMorph,
-            &CWindowElement::Update);
+static VtableSlot kCTextureElementVtable_slots[] = {&CTextureElement::Destroy, &CTextureElement::SetProperties,
+                static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+                &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
+                &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CTextureElement::GetProperties,
+                &CScreenElement::SetMorph, &CTextureElement::Update};
+void** const kCTextureElementVtable = reinterpret_cast<void**>(kCTextureElementVtable_slots);
+static VtableSlot kCSpriteElementVtable_slots[] = {&CSpriteElement::Destroy, &CSpriteElement::SetProperties,
+                static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+                &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
+                &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CSpriteElement::GetProperties, &CSpriteElement::SetMorph,
+                &CSpriteElement::Update};
+void** const kCSpriteElementVtable = reinterpret_cast<void**>(kCSpriteElementVtable_slots);
+static VtableSlot kCWindowElementVtable_slots[] = {&CWindowElement::Destroy, &CScreenElement::SetProperties,
+                static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+                &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
+                &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CScreenElement::SetMorph,
+                &CWindowElement::Update};
+void** const kCWindowElementVtable = reinterpret_cast<void**>(kCWindowElementVtable_slots);
 } // namespace
 
 } // namespace Front
@@ -369,24 +370,3 @@ GAME_VTABLE(kCWindowElementVtable, 0x0064A2C0, &CWindowElement::Destroy, &CScree
 using Front::CSpriteElement;
 using Front::CTextureElement;
 using Front::CWindowElement;
-
-REPLACE(0x004AED90, &CTextureElement::Construct);
-REPLACE(0x004AEDF0, &CTextureElement::DestroyBody);
-REPLACE(0x004AEE60, &CTextureElement::Destroy);
-REPLACE(0x004AEE90, &CTextureElement::SetProperties);
-REPLACE(0x004AEFD0, &CTextureElement::GetProperties);
-REPLACE(0x004AEF40, &CTextureElement::Update);
-REPLACE(0x004AF1A0, &CSpriteElement::Construct);
-REPLACE(0x004AF0D0, &CSpriteElement::DestroyBody);
-REPLACE(0x004AF210, &CSpriteElement::Destroy);
-REPLACE(0x004AF130, &CSpriteElement::SetTexture);
-REPLACE(0x004AF240, &CSpriteElement::SetSpriteRotation);
-REPLACE(0x004AF520, &CSpriteElement::SetProperties);
-REPLACE(0x004AF4E0, &CSpriteElement::GetProperties);
-REPLACE(0x004AF5E0, &CSpriteElement::SetMorph);
-REPLACE(0x004AF2C0, &CSpriteElement::Update);
-REPLACE(0x004B2060, &CWindowElement::Construct);
-REPLACE(0x004B2100, &CWindowElement::DestroyBody);
-REPLACE(0x004B2170, &CWindowElement::Destroy);
-REPLACE(0x004B2160, &CWindowElement::GetWindow2d);
-REPLACE(0x004B21A0, &CWindowElement::Update);

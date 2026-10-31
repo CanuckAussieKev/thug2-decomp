@@ -1,4 +1,0 @@
-address,name,why
-0x51b9d8,(inside 0x51B9D0 Obj::CSkitchComponent::CallMemberFunction),Ghidra's split after the function's first compare (no call or jump lands there: the code after 0x51B9D0's CMP); the whole function is rewritten in game/skater/skitch.cpp
-0x5480a1,(PartyMod's code cave: LoadLibraryA),PartyMod's exe patch in the reference build's padding after 0x5480A0 (THUG2.exe has INT3 padding there): loads PartyMod's DLL from the WinMain call at 0x4E26A0; PartyMod is built into our source and our WinMain doesn't run it (game/sys/winmain.cpp)
-0x5480b4,(PartyMod's code cave: the call and the jump on to 0x5F8690),the second half of the same cave (CALL ESI = LoadLibraryA; JMP 0x5F8690 = the call it replaced)

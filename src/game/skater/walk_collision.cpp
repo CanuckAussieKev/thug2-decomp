@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <initializer_list>
 
 #include "game/core/dbg.h"
 #include "game/mth/matrix.h"
@@ -25,9 +26,6 @@
 #include "game/skater/walk_physics.h"
 #include "game/sys/game_clock.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 #include "game/obj/trigger_events.h"
 
 namespace Obj {
@@ -66,14 +64,14 @@ constexpr float kAdjustClearance = 0.1f;   // the bad critical point's adjustmen
 constexpr float kGrindClearance = 36.0f;   // 0x0064B9CC: a wall this close (squared) to the rail's point is fine
 
 // The game's own messages (Dbg::Printf): "M:%s:%i: %s", the source file's name, and the texts.
-const char* const kMessageFormat = GAME_TEXT(0x006466B0, "M:%s:%i: %s\n");
-const char* const kSourceFile = GAME_TEXT(0x0064C69C, "mponents\\WalkComponent.cpp");
-const char* const kSlapMessage = GAME_TEXT(0x0064C66C, "walking sticker slap...........\n");
-const char* const kUberFrigMessage = GAME_TEXT(0x0064C6B8, "applying uber frig");
-const char* const kBadPointMessage = GAME_TEXT(0x0064C72C, "adjusting position due to bad critical point");
-const char* const kAdjustmentFormat = GAME_TEXT(0x0064C6FC, "D:%s:%i: required_pos_adjustment = %g, %g, %g\n");
-const char* const kOffsetFormat = GAME_TEXT(0x0064C6CC, "D:%s:%i: m_critical_point_offset = %g, %g, %g\n");
-const char* const kTrackingFormat = GAME_TEXT(0x0064B998, "Tracking%d %.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n");
+const char* const kMessageFormat = "M:%s:%i: %s\n";
+const char* const kSourceFile = "mponents\\WalkComponent.cpp";
+const char* const kSlapMessage = "walking sticker slap...........\n";
+const char* const kUberFrigMessage = "applying uber frig";
+const char* const kBadPointMessage = "adjusting position due to bad critical point";
+const char* const kAdjustmentFormat = "D:%s:%i: required_pos_adjustment = %g, %g, %g\n";
+const char* const kOffsetFormat = "D:%s:%i: m_critical_point_offset = %g, %g, %g\n";
+const char* const kTrackingFormat = "Tracking%d %.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n";
 
 double FrameLength(void* walk) { return At<float>(walk, kFrameLength); }
 
@@ -518,12 +516,3 @@ bool CWalkComponent::TryGrind()
 }
 
 } // namespace Obj
-
-REPLACE(0x00529160, &Obj::CWalkComponent::PlanJumpOverObstruction);
-REPLACE(0x005293F0, &Obj::CWalkComponent::TryWallplant);
-REPLACE(0x005299F0, &Obj::CWalkComponent::TryGrind);
-REPLACE(0x005264F0, &Obj::CWalkComponent::UpdateCurbFloat);
-REPLACE(0x00526BA0, &Obj::CWalkComponent::CheckCeiling);
-REPLACE(0x00526E00, &Obj::CWalkComponent::CheckStickerSlap);
-REPLACE(0x00527080, &Obj::CWalkComponent::UpdateGroundBelow);
-REPLACE(0x005278D0, &Obj::CWalkComponent::EaseCriticalPointOffset);

@@ -5,7 +5,12 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
+#include <cstring>
+#include <initializer_list>
+#include <vector>
 
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_overlays.h"
@@ -16,7 +21,6 @@
 #include "game/obj/object.h"
 #include "game/script/struct.h"
 #include "game/skater/skater.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 #include "game/core/game_vtables.h"
 

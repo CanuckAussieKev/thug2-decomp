@@ -18,9 +18,6 @@
 #include "game/sys/game_config.h"
 #include "game/sys/timer.h"
 #include "game/gfx/viewport.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Pcm {
 
@@ -30,10 +27,10 @@ bool SoundOn() { return g_soundDevice && GameConfig::g_platform != 2; }
 bool& StreamHeaderLoaded() { return g_streamsOn; }
 bool StreamsOn() { return SoundOn() && StreamHeaderLoaded(); }
 
-GAME_GLOBAL(int, g_lastStream, 0x0069BA94);
-GAME_GLOBAL(bool, g_streamsPaused, 0x0069BAA9);
-GAME_GLOBAL(bool, g_streamsBlocked, 0x0069BAAA);
-GAME_GLOBAL(bool, g_streamsPausedBefore, 0x0069CAD1);
+int g_lastStream;
+bool g_streamsPaused;
+bool g_streamsBlocked;
+bool g_streamsPausedBefore;
 
 bool& StreamsPaused() { return g_streamsPaused; }
 bool& StreamsPausedBefore() { return g_streamsPausedBefore; }
@@ -48,7 +45,7 @@ uint32_t& OwnerId(void* owner, int stream) { return *reinterpret_cast<uint32_t*>
 // The stream PlayStream started last.
 int& LastStream() { return g_lastStream; }
 
-GAME_GLOBAL(FrameAmp[1], g_frameAmps, 0x0069BAC8); // (one slot; a checksum of 0 marks it free)
+FrameAmp g_frameAmps[1]; // (one slot; a checksum of 0 marks it free)
 FrameAmp* FrameAmps() { return g_frameAmps; }
 constexpr int kFrameAmps = 1;
 
@@ -356,16 +353,3 @@ uint32_t __cdecl PlayStreamFromObject(void* component, uint32_t checksum, float 
 }
 
 } // namespace Pcm
-
-REPLACE(0x00451010, Pcm::PauseStream);
-REPLACE(0x00451620, Pcm::LoadStreamHeader);
-REPLACE(0x00451660, Pcm::IsStreamPlaying);
-REPLACE(0x004516A0, Pcm::LoadStreamFrameAmp);
-REPLACE(0x004516E0, Pcm::GetStreamFrameAmp);
-REPLACE(0x00451720, Pcm::FreeStreamFrameAmp);
-REPLACE(0x00451770, Pcm::StartStream);
-REPLACE(0x00451960, static_cast<uint32_t(__cdecl*)(uint32_t, const void*, float, int, int, uint32_t)>(Pcm::PlayStream));
-REPLACE(0x00451A50, Pcm::PreLoadStream);
-REPLACE(0x00451B80, Pcm::AddStream);
-REPLACE(0x00451E20, Pcm::PlayStreamFromObject);
-REPLACE_SOURCE_ONLY(0x00451E7D, Pcm::PlayStreamFromObject); // (not a function: the rest of 0x00451E20's body)

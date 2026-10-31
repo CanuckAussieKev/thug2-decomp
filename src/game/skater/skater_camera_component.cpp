@@ -25,9 +25,7 @@
 #include "game/skater/walk_camera.h"
 #include "game/sys/timer.h"
 #include "game/obj/compositemgr.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
@@ -52,11 +50,11 @@ constexpr uint32_t kSetMode = 0xD7867FFE;             // (the camera mode member
 constexpr uint32_t kMode = 0x6835B854;                // (its parameter; name not recovered)
 
 // The shake's parameters (the game's strings).
-const char* const kDuration = GAME_TEXT(0x0064BB34, "duration");  // "duration"
-const char* const kVertAmp = GAME_TEXT(0x0064BB28, "vert_amp");   // "vert_amp"
-const char* const kHorizAmp = GAME_TEXT(0x0064BB1C, "horiz_amp");  // "horiz_amp"
-const char* const kVertVel = GAME_TEXT(0x0064BB10, "vert_vel");   // "vert_vel"
-const char* const kHorizVel = GAME_TEXT(0x0064BB04, "horiz_vel"); // "horiz_vel"
+const char* const kDuration = "duration";  // "duration"
+const char* const kVertAmp = "vert_amp";   // "vert_amp"
+const char* const kHorizAmp = "horiz_amp";  // "horiz_amp"
+const char* const kVertVel = "vert_vel";   // "vert_vel"
+const char* const kHorizVel = "horiz_vel"; // "horiz_vel"
 
 // The game's constants.
 constexpr float kTwoPi = 6.2831854820251465f;   // 0x0064545C
@@ -376,62 +374,43 @@ CBaseComponent* __cdecl CSkaterCleanupStateComponent::Create()
 
 using Obj::CSkaterCameraComponent;
 using Obj::CSkaterCleanupStateComponent;
-REPLACE(0x004F9EB0, &CSkaterCameraComponent::LookDown);
-REPLACE(0x004F9F00, &CSkaterCameraComponent::ApplyShake);
-REPLACE(0x004FA020, &CSkaterCameraComponent::GetTarget);
-REPLACE(0x004FA230, &CSkaterCameraComponent::GetZoomedOffsets);
-REPLACE(0x004FA3C0, &CSkaterCameraComponent::SetSkater);
-REPLACE(0x004FA420, &CSkaterCameraComponent::SaveState);
-REPLACE(0x004FA4B0, &CSkaterCameraComponent::Construct);
-REPLACE(0x004FA590, &CSkaterCameraComponent::Destroy);
-REPLACE(0x004FA5C0, &CSkaterCameraComponent::InitFromStructure);
-REPLACE(0x004FA680, &CSkaterCameraComponent::CallMemberFunction);
-REPLACE(0x004FA7C0, &CSkaterCameraComponent::ResetMode);
-REPLACE(0x004FA7D0, &CSkaterCameraComponent::NextMode);
-REPLACE(0x004FA800, CSkaterCameraComponent::Create);
-REPLACE(0x004FBD90, &CSkaterCleanupStateComponent::DestroyBody);
-REPLACE(0x004FBDA0, &CSkaterCleanupStateComponent::InitFromStructure);
-REPLACE(0x004FBDB0, &CSkaterCleanupStateComponent::Destroy);
-REPLACE(0x004FBDE0, &CSkaterCleanupStateComponent::Finalize);
-REPLACE(0x004FBE00, &CSkaterCleanupStateComponent::Update);
-REPLACE(0x004FBE20, CSkaterCleanupStateComponent::Create);
 
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kCleanupVtable, 0x0064BB48,
-    &CSkaterCleanupStateComponent::Destroy,
-    &CSkaterCleanupStateComponent::Update,
-    &CSkaterCleanupStateComponent::InitFromStructure,
-    &CSkaterCleanupStateComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kCleanupVtable_slots[] = {&CSkaterCleanupStateComponent::Destroy,
+         &CSkaterCleanupStateComponent::Update,
+         &CSkaterCleanupStateComponent::InitFromStructure,
+         &CSkaterCleanupStateComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kCleanupVtable = reinterpret_cast<void**>(kCleanupVtable_slots);
 
 } // namespace
 } // namespace Obj
 
 namespace Obj {
 
-GAME_VTABLE(g_skaterCameraVtable, 0x0064BA74,
-    &CSkaterCameraComponent::Destroy,
-    &Obj::CSkaterCameraComponent::Update,
-    &CSkaterCameraComponent::InitFromStructure,
-    &Obj::CSkaterCameraComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &CSkaterCameraComponent::CallMemberFunction);
+static VtableSlot g_skaterCameraVtable_slots[] = {&CSkaterCameraComponent::Destroy,
+         &Obj::CSkaterCameraComponent::Update,
+         &CSkaterCameraComponent::InitFromStructure,
+         &Obj::CSkaterCameraComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &CSkaterCameraComponent::CallMemberFunction};
+void** const g_skaterCameraVtable = reinterpret_cast<void**>(g_skaterCameraVtable_slots);
 
 } // namespace Obj

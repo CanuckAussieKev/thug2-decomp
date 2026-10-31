@@ -26,7 +26,7 @@ struct FrontEnd;
 //   bikes aren't); the walk is ThawBmx_WalkToBike below, a frame at a time.
 namespace Skater::ThawBmx {
 
-// --- the pieces (pure, self-tested) -----------------------------------------------------------------------------
+// --- the pieces (pure) ------------------------------------------------------------------------------------------
 
 struct Point {
     float x, y, z;

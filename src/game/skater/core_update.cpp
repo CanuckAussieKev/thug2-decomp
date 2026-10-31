@@ -9,8 +9,6 @@
 #include "game/skater/core_physics.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/nx/feeler.h"
 
 namespace Skater {
@@ -108,5 +106,3 @@ void CorePhysicsComponent::Update()
 }
 
 } // namespace Skater
-
-REPLACE(0x00510830, &Skater::CorePhysicsComponent::Update);

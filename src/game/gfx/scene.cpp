@@ -10,8 +10,6 @@
 #include "game/core/str.h"
 #include "game/front/level_editor_layout.h"
 #include "game/script/params.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Nx {
 
@@ -85,5 +83,3 @@ bool __cdecl CFunc_LoadScene(Script::CStruct* params, Script::CScript* /*script*
 }
 
 } // namespace Nx
-
-REPLACE(0x00445130, Nx::CFunc_LoadScene);

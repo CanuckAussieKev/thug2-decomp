@@ -2,7 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
-#include "hook/game_global.h"
+#include <new>
 #include "game/core/pool.h"
 
 namespace Lst {
@@ -81,7 +81,7 @@ CScriptCache* CreateScriptCache(bool create);
 // 0x00475A00: give back a reference; the last one destroys the cache.
 void ReleaseScriptCache();
 
-GAME_GLOBAL_EXTERN(Script::CScriptCache*, g_scriptCache);
-GAME_GLOBAL_EXTERN(Mem::PoolPair, g_cacheEntryPools);
+extern Script::CScriptCache* g_scriptCache;
+extern Mem::PoolPair g_cacheEntryPools;
 
 } // namespace Script

@@ -3,12 +3,12 @@
 #include "game/front/level_editor_career.h"
 
 #include <algorithm>
+#include <vector>
 
 #include "game/front/level_editor_triggers.h"
 #include "game/mth/vector.h"
 #include "game/skate/gap_checklist.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 
 namespace Front::LevelEditor::Career {

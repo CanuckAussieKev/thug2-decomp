@@ -4,8 +4,7 @@
 
 #include <cstddef>
 
-// The PC settings: thug2-decomp.ini next to the exe (the file the hook DLL reads its own [replacements],
-// [selftests] and [features] from). Window, graphics, input, glyph, online and logging options are read from its
+// The PC settings: thug2-decomp.ini next to the exe ([features] and the others). Window, graphics, input, glyph, online and logging options are read from its
 // sections below at start-up. (Not the game's own registry settings.)
 namespace Config {
 

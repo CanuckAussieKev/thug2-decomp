@@ -34,7 +34,7 @@
 // it is approximate - "about").
 namespace Front::LevelEditor::Budget {
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_ux5.cpp) -------------------------------------------------
+// --- the pure parts --------------------------------------------------------------------------------------------------
 
 // How full a meter is: Ok below 80 %, Near from 80 %, Over above the limit (at the limit exactly: Near - full, not
 // over: 10 crowns are allowed).

@@ -14,8 +14,6 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skater/skater.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Game {
 
@@ -409,11 +407,3 @@ bool CGoal::AwardSpecialTrick()
 }
 
 } // namespace Game
-
-REPLACE(0x00555A60, &Game::CGoal::RemoveRewardTrick);
-REPLACE(0x00555B50, Game::CGoal::BuildTrickTexts);
-REPLACE(0x00555D40, &Game::CGoal::ColorTrickObjects);
-REPLACE(0x005565C0, &Game::CGoal::NoValidKeyCombos);
-REPLACE(0x005568B0, &Game::CGoal::PickKeyCombo);
-REPLACE(0x00556A00, &Game::CGoal::ReplaceTrickText);
-REPLACE(0x00557AC0, &Game::CGoal::AwardSpecialTrick);

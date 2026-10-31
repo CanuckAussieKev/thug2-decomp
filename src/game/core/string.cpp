@@ -4,15 +4,12 @@
 #include <new>
 
 #include "game/core/mem.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Str {
 
 namespace {
 
-GAME_GLOBAL(int, g_liveStrings, 0x00690FA0);
+int g_liveStrings;
 
 int& LiveStrings() { return g_liveStrings; }
 
@@ -131,13 +128,3 @@ struct StringCopyRange : String {
 };
 
 } // namespace
-
-// No self-tests: these need the game's memory manager, which doesn't exist yet when self-tests run.
-REPLACE(0x00401D80, &StringAdapter::Construct);
-REPLACE(0x00401DA0, &StringAdapter::Destroy);
-REPLACE_SOURCE_ONLY(0x0054FFE0, &StringAdapter::Destroy); // a jump to 0x00401DA0
-REPLACE(0x00401DD0, &StringCopyRange::Call);
-REPLACE(0x00401ED0, static_cast<String& (String::*)(const char*)>(&String::operator=));
-REPLACE(0x00401F10, static_cast<String& (String::*)(const String&)>(&String::operator=));
-REPLACE(0x00401F50, &StringAdapter::ConstructFromText);
-REPLACE(0x00401FA0, &StringAdapter::ConstructCopy);

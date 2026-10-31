@@ -11,14 +11,12 @@
 #include "game/mth/vector.h"
 #include "game/skater/looping_sound.h"
 #include "game/skater/skater.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/skater/vehicle_sound.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
@@ -147,29 +145,23 @@ void CSkaterFinalizePhysicsComponent::Update()
 
 } // namespace Obj
 
-REPLACE(0x00511280, Obj::CSkaterFinalizePhysicsComponent::Create);
-REPLACE(0x00511010, &Obj::CSkaterFinalizePhysicsComponent::DestroyBody);
-REPLACE(0x00511020, &Obj::CSkaterFinalizePhysicsComponent::Destroy);
-REPLACE(0x00511050, &Obj::CSkaterFinalizePhysicsComponent::Finalize);
-REPLACE(0x00511080, &Obj::CSkaterFinalizePhysicsComponent::Update);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064BDEC,
-    &Obj::CSkaterFinalizePhysicsComponent::Destroy,
-    &Obj::CSkaterFinalizePhysicsComponent::Update,
-    Stubs::IgnoreArgument,
-    &Obj::CSkaterFinalizePhysicsComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CSkaterFinalizePhysicsComponent::Destroy,
+         &Obj::CSkaterFinalizePhysicsComponent::Update,
+         Stubs::IgnoreArgument,
+         &Obj::CSkaterFinalizePhysicsComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

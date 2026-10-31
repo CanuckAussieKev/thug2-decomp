@@ -23,16 +23,13 @@
 #include "game/skater/skater.h"
 #include "game/skater/skater_camera_component.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Obj {
 
-GAME_GLOBAL(float, g_balanceRollScale, 0x0067F004, -0.00012783174f);
-GAME_GLOBAL(float, g_airTiltRate, 0x0067F008, 0.011635667f);
-GAME_GLOBAL(float, g_tiltRecovery, 0x0067F010, 0.046542667f);
-GAME_GLOBAL(float, g_lipTurn, 0x007CCDB4);
+float g_balanceRollScale{-0.00012783174f};
+float g_airTiltRate{0.011635667f};
+float g_tiltRecovery{0.046542667f};
+float g_lipTurn;
 
 namespace {
 
@@ -503,5 +500,3 @@ void CSkaterCameraComponent::Update()
 }
 
 } // namespace Obj
-
-REPLACE(0x004FA860, &Obj::CSkaterCameraComponent::Update);

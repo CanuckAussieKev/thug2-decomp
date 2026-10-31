@@ -20,7 +20,7 @@ struct Painter;
 // kTransferReach of its ends (a transfer the skater can make by an ollie).
 namespace Front::LevelEditor::GrindPreview {
 
-// --- the pieces (pure, self-tested: src/hook/selftests_editor_ux4.cpp) -------------------------------------------
+// --- the pieces (pure) -------------------------------------------------------------------------------------------
 
 // Rail points (indices 0..count-1) and their links (from -> to).
 struct Graph {

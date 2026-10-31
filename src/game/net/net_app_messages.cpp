@@ -2,6 +2,8 @@
 
 #include "game/net/net_app_messages.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/crc.h"
@@ -12,12 +14,10 @@
 #include "game/net/net_compress.h"
 #include "game/net/net_lzham.h"
 #include "game/util/lzss.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Net {
 
-GAME_GLOBAL(uint32_t, g_maxLatency, 0x00647588, 2000);
+uint32_t g_maxLatency{2000};
 
 namespace {
 
@@ -518,11 +518,3 @@ int App::HandleStreamMessages(MsgHandlerContext* context)
 }
 
 } // namespace Net
-
-REPLACE(0x004598C0, &Net::App::BundleMessages);
-REPLACE(0x0045AB60, Net::App::HandleLatencyResponse);
-REPLACE(0x0045AD60, Net::App::HandleLatencyTest);
-REPLACE(0x0045ABF0, Net::App::HandleCompressedMessages);
-REPLACE(0x0045AF10, Net::App::HandleSequencedMessages);
-REPLACE(0x0045B0B0, Net::App::HandleAck);
-REPLACE(0x0045B2F0, Net::App::HandleStreamMessages);

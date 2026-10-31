@@ -2,8 +2,6 @@
 
 #include <cstdint>
 
-#include "hook/game.h"
-
 namespace Pre {
 class PreFile;
 }

@@ -11,8 +11,6 @@
 #include "game/nx/coll_sphere.h"
 #include "game/nx/feeler.h"
 #include "game/obj/rigidbody_component.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Obj {
 
@@ -135,5 +133,3 @@ bool CRigidBodyComponent::FindContacts()
 }
 
 } // namespace Obj
-
-REPLACE(0x0042C950, &Obj::CRigidBodyComponent::FindContacts);

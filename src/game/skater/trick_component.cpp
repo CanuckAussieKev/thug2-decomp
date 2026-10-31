@@ -2,6 +2,7 @@
 
 #include "game/skater/trick_component.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 
@@ -14,18 +15,14 @@
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 #include "game/obj/control_pad.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[24], g_trickComponentMemberFunctions, 0x00683148,
+uint32_t g_trickComponentMemberFunctions[24]{
             0xE4AB4785, 0x270F56E1, 0, 0, 0, 0,
             0x46D49242, 0x270F56E1, 0, 0, 0, 0,
             0x1FC98415, 0x270F56E1, 0, 0, 0, 0,
-            0, 0x270F56E1, 0, 0, 0, 0);
+            0, 0x270F56E1, 0, 0, 0, 0};
 
 namespace {
 
@@ -58,7 +55,6 @@ void ForEachEvent(CTrickComponent* trick, Visit visit)
 }
 
 uint32_t Now() { return Tmr::GetTime(); }
-
 
 // _stricmp (0x00626EFB) in the C locale.
 int CompareNoCase(const char* a, const char* b)
@@ -560,45 +556,45 @@ bool CTrickComponent::TrickNamed(Script::CStruct* trick, const char* name)
 // 0x0051F010
 void CTrickComponent::DumpEventBuffer()
 {
-    Dbg::Printf(GAME_TEXT(0x0064C4F4, "Event buffer:\n"));
+    Dbg::Printf("Event buffer:\n");
     int count = m_eventCount > 10 ? 10 : m_eventCount;
     int index = m_eventHead;
     for (int n = 0; n < count; ++n) {
         const TrickEvent& e = m_events[index];
-        Dbg::Printf(GAME_TEXT(0x0064C4D8, "T=%d Used=0x%08x Button="), e.time, e.flags);
+        Dbg::Printf("T=%d Used=0x%08x Button=", e.time, e.flags);
         const char* text = nullptr;
         switch (e.button) {
-        case 0x00000000: text = GAME_TEXT(0x0064C4C4, "Nothing"); break;
-        case 0x20689278: text = GAME_TEXT(0x0064C4CC, "Triangle"); break;
-        case 0x26B0C991: text = GAME_TEXT(0x00647AE4, "L1"); break;
-        case 0x2B489A86: text = GAME_TEXT(0x0064C4BC, "Circle"); break;
-        case 0x321C9756: text = GAME_TEXT(0x0064C4B4, "Square"); break;
-        case 0x4B358AEB: text = GAME_TEXT(0x0064C4AC, "Right"); break;
-        case 0x6BF8A7F4: text = GAME_TEXT(0x00647AD4, "R2"); break;
-        case 0x7323E97C: text = GAME_TEXT(0x00647AE8, "X"); break;
-        case 0x767A45D7: text = GAME_TEXT(0x0064C4A4, "Black"); break;
-        case 0x786B8B68: text = GAME_TEXT(0x0064C498, "DownRight"); break;
-        case 0x85981897: text = GAME_TEXT(0x0064C488, "Left"); break;
-        case 0xA50950C5: text = GAME_TEXT(0x0064C490, "UpRight"); break;
-        case 0xB7231A95: text = GAME_TEXT(0x0064C480, "UpLeft"); break;
-        case 0xBC6B118F: text = GAME_TEXT(0x0064C47C, "Up"); break;
-        case 0xBD30325B: text = GAME_TEXT(0x0064C474, "White"); break;
-        case 0xBFB9982B: text = GAME_TEXT(0x00647AE0, "L2"); break;
-        case 0xD8847EFA: text = GAME_TEXT(0x0064C468, "DownLeft"); break;
-        case 0xE3006FC4: text = GAME_TEXT(0x0064C460, "Down"); break;
-        case 0xF2F1F64E: text = GAME_TEXT(0x00647AD8, "R1"); break;
+        case 0x00000000: text = "Nothing"; break;
+        case 0x20689278: text = "Triangle"; break;
+        case 0x26B0C991: text = "L1"; break;
+        case 0x2B489A86: text = "Circle"; break;
+        case 0x321C9756: text = "Square"; break;
+        case 0x4B358AEB: text = "Right"; break;
+        case 0x6BF8A7F4: text = "R2"; break;
+        case 0x7323E97C: text = "X"; break;
+        case 0x767A45D7: text = "Black"; break;
+        case 0x786B8B68: text = "DownRight"; break;
+        case 0x85981897: text = "Left"; break;
+        case 0xA50950C5: text = "UpRight"; break;
+        case 0xB7231A95: text = "UpLeft"; break;
+        case 0xBC6B118F: text = "Up"; break;
+        case 0xBD30325B: text = "White"; break;
+        case 0xBFB9982B: text = "L2"; break;
+        case 0xD8847EFA: text = "DownLeft"; break;
+        case 0xE3006FC4: text = "Down"; break;
+        case 0xF2F1F64E: text = "R1"; break;
         default: break;
         }
         if (text)
             Dbg::Printf(text);
-        Dbg::Printf(GAME_TEXT(0x0064C458, " Event="));
+        Dbg::Printf(" Event=");
         switch (e.type) {
-        case 0: Dbg::Printf(GAME_TEXT(0x0064C43C, "None")); break;
-        case 1: Dbg::Printf(GAME_TEXT(0x0064C444, "Pressed")); break;
-        case 2: Dbg::Printf(GAME_TEXT(0x0064C44C, "Released")); break;
+        case 0: Dbg::Printf("None"); break;
+        case 1: Dbg::Printf("Pressed"); break;
+        case 2: Dbg::Printf("Released"); break;
         default: break;
         }
-        Dbg::Printf(GAME_TEXT(0x00646AC0, "\n"));
+        Dbg::Printf("\n");
         if (--index < 0)
             index += kEvents;
     }
@@ -1119,36 +1115,3 @@ bool CTrickComponent::SetCurrentBailEndpose(Script::CStruct* params, Script::CSc
 }
 
 } // namespace Obj
-
-REPLACE_UNCHECKED(0x0051EA40, Obj::IsDirectionStub);
-REPLACE(0x0051EA90, Obj::CTrickComponent::RegisterMemberFunctions);
-REPLACE(0x0051F2B0, &Obj::CTrickComponent::Finalize);
-REPLACE(0x0051F320, &Obj::CTrickComponent::Reset);
-REPLACE(0x0051EAB0, &Obj::CTrickComponent::ClearExtraTricks);
-REPLACE(0x0051EB30, &Obj::CTrickComponent::ClearBlock1238);
-REPLACE(0x0051EF00, &Obj::CTrickComponent::ClearBlock1280);
-REPLACE(0x0051EB00, &Obj::CTrickComponent::ClearEventBuffer);
-REPLACE(0x0051EB80, &Obj::CTrickComponent::ClearUsed);
-REPLACE_UNCHECKED(0x0051EBD0, Obj::MarkUsedStub);
-REPLACE(0x0051F570, &Obj::CTrickComponent::AddEvent);
-REPLACE(0x0051F610, &Obj::CTrickComponent::ExpireButton);
-REPLACE(0x0051F6B0, &Obj::CTrickComponent::FindPress);
-REPLACE(0x0051F7A0, &Obj::CTrickComponent::FindPressBoth);
-REPLACE(0x0051F8F0, &Obj::CTrickComponent::UpdateButton);
-REPLACE(0x0051F290, &Obj::CTrickComponent::HoldOffButton);
-REPLACE(0x0051F9B0, &Obj::CTrickComponent::CheckSpinSequence);
-REPLACE(0x0051FB90, &Obj::CTrickComponent::CheckReleasePress);
-REPLACE(0x0051EC40, &Obj::CTrickComponent::ReadTrigger);
-REPLACE(0x0051ECC0, &Obj::CTrickComponent::SetButtonMap);
-REPLACE(0x0051ECF0, &Obj::CTrickComponent::IsButtonDown);
-REPLACE(0x0051ED10, &Obj::CTrickComponent::ClearQueue);
-REPLACE(0x0051ED20, &Obj::CTrickComponent::QueueTrick);
-REPLACE(0x0051ED90, &Obj::CTrickComponent::RemoveTrickList);
-REPLACE(0x0051EE10, &Obj::CTrickComponent::IsTrickEntry);
-REPLACE(0x0051EF50, &Obj::CTrickComponent::TrickNamed);
-REPLACE(0x0051F010, &Obj::CTrickComponent::DumpEventBuffer);
-REPLACE(0x0051FDA0, &Obj::CTrickComponent::CheckTrigger);
-REPLACE(0x00521930, &Obj::CTrickComponent::QueueDoneTricks);
-REPLACE(0x00521A10, &Obj::CTrickComponent::QueueAllDoneTricks);
-REPLACE(0x00521A80, &Obj::CTrickComponent::SetPendingTrick);
-REPLACE(0x0051F260, &Obj::CTrickComponent::SetCurrentBailEndpose);

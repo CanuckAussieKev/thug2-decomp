@@ -24,9 +24,7 @@
 #include "game/skater/trick_component.h"
 #include "game/skate/score.h"
 #include "game/obj/compositemgr.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/goals/goal_manager.h"
 
 namespace CFuncs {
@@ -129,7 +127,7 @@ CArray* NewArray()
 int TemplateCount(Obj::CPlayerProfileManager* manager) { return static_cast<int>(manager->m_templates.m_count); }
 CSkaterProfile* TemplateAt(Obj::CPlayerProfileManager* manager, int index)
 {
-    return reinterpret_cast<CSkaterProfile*(__thiscall*)(Obj::CPlayerProfileManager*, int)>(GAME_CODE(0x00557FB0, &Game::CGoalManager::GetGoalByIndex))(manager, index);
+    return reinterpret_cast<CSkaterProfile*(__thiscall*)(Obj::CPlayerProfileManager*, int)>(CodeAddress(&Game::CGoalManager::GetGoalByIndex))(manager, index);
 }
 
 // A trick structure's type: its trickType, else its scr, else GrindTrick.
@@ -239,7 +237,7 @@ bool __cdecl CFunc_GetKeyComboBoundToTrick(Script::CStruct* params, Script::CScr
                 if (special.trick == trick)
                     break;
             }
-            Dbg::Printf(GAME_TEXT(0x00657C60, "GetKeyComboBoundToTrick found a special trick\n")); // "GetKeyComboBoundToTrick found a special trick\n"
+            Dbg::Printf("GetKeyComboBoundToTrick found a special trick\n"); // "GetKeyComboBoundToTrick found a special trick\n"
             keyCombo = special.keys;
             foundSpecial = true;
         }
@@ -251,7 +249,7 @@ bool __cdecl CFunc_GetKeyComboBoundToTrick(Script::CStruct* params, Script::CScr
         return false;
     script->m_params->AddChecksum("current_key_combo", keyCombo);
     if (foundSpecial) {
-        Dbg::Printf(GAME_TEXT(0x00657C38, "current_index: %i\n"), slot); // "current_index: %i\n"
+        Dbg::Printf("current_index: %i\n", slot); // "current_index: %i\n"
         script->m_params->AddInteger("current_index", slot);
     }
     return true;
@@ -538,7 +536,7 @@ bool __cdecl CFunc_BindFrontEndToController(Script::CStruct* params, Script::CSc
     int pad;
     params->GetInteger(kFrontEndPad, &pad, 1);
     // "attempting to bind front end %i to controller %i\n"
-    Dbg::Printf(GAME_TEXT(0x00657C90, "attempting to bind front end %i to controller %i\n"), pad, controller);
+    Dbg::Printf("attempting to bind front end %i to controller %i\n", pad, controller);
     Mdl::FrontEnd* frontEnd = Mdl::FrontEndInstance();
     int* map = frontEnd->m_deviceServerMap;
     int old = map[pad];
@@ -669,28 +667,3 @@ bool __cdecl CFunc_SetSpecialTrickInfo(Script::CStruct* params, Script::CScript*
 }
 
 } // namespace CFuncs
-
-REPLACE(0x005B0A40, CFuncs::CFunc_FlushDeadObjects);
-REPLACE(0x005B0A50, CFuncs::CFunc_BindTrickToKeyCombo);
-REPLACE(0x005B0C00, CFuncs::CFunc_GetKeyComboBoundToTrick);
-REPLACE(0x005B0DA0, CFuncs::CFunc_UpdateTrickMappings);
-REPLACE(0x005B0E30, CFuncs::CFunc_GetConfigurableTricksFromType);
-REPLACE(0x005B1140, CFuncs::CFunc_TrickIsLocked);
-REPLACE(0x005B1250, CFuncs::CFunc_GetTrickDisplayText);
-REPLACE(0x005B1380, CFuncs::CFunc_GetSpecialTrickInfo);
-REPLACE(0x005B1420, CFuncs::CFunc_GetTrickType);
-REPLACE(0x005B14A0, CFuncs::CFunc_GetIndexOfItemContaining);
-REPLACE(0x005B1590, CFuncs::CFunc_GetLevelRecords);
-REPLACE(0x005B15F0, CFuncs::CFunc_ResetComboRecords);
-REPLACE(0x005B1610, CFuncs::CFunc_GetNumberOfTrickOccurrences);
-REPLACE(0x005B1670, CFuncs::CFunc_GetNumSoundtracks);
-REPLACE(0x005B1690, CFuncs::CFunc_GetSoundtrackName);
-REPLACE(0x005B16D0, CFuncs::CFunc_BindControllerToSkater);
-REPLACE(0x005B1730, CFuncs::CFunc_BindFrontEndToController);
-REPLACE(0x005B17C0, CFuncs::CFunc_ControllerBoundToDifferentSkater);
-REPLACE(0x005B1840, CFuncs::CFunc_ControllerBoundToSkater);
-REPLACE(0x005B1890, CFuncs::CFunc_GetKeyComboArrayFromTrickArray);
-REPLACE(0x005B1A00, CFuncs::CFunc_FirstInputReceived);
-REPLACE(0x005B1A10, CFuncs::CFunc_VibrateController);
-REPLACE(0x005B1A90, CFuncs::CFunc_LockCurrentSkaterProfileIndex);
-REPLACE(0x005B1AD0, CFuncs::CFunc_SetSpecialTrickInfo);

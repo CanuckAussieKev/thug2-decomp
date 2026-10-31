@@ -5,6 +5,7 @@
 #include "game/ed/park_editor.h"
 #include "game/gfx/d3dx.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
@@ -27,16 +28,16 @@
 #include "game/skate/skate_module.h"
 #include "game/ass/assman.h"
 #include "game/obj/compositemgr.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Ed {
 
-GAME_VTABLE(kParkEditorListenerVtable, 0x0064F22C, &CParkEditor::Listener::DestroyEditor,
-    &CParkEditor::Listener::ListenTo);
-GAME_VTABLE(kParkEditorVtable, 0x0064F234, &CParkEditor::Destroy, &CParkEditor::StartCallback,
-    &CParkEditor::StopCallback);
+static VtableSlot kParkEditorListenerVtable_slots[] = {&CParkEditor::Listener::DestroyEditor,
+        &CParkEditor::Listener::ListenTo};
+void** const kParkEditorListenerVtable = reinterpret_cast<void**>(kParkEditorListenerVtable_slots);
+static VtableSlot kParkEditorVtable_slots[] = {&CParkEditor::Destroy, &CParkEditor::StartCallback,
+        &CParkEditor::StopCallback};
+void** const kParkEditorVtable = reinterpret_cast<void**>(kParkEditorVtable_slots);
 
 namespace {
 
@@ -105,7 +106,6 @@ CGapManager* GapManager() { return CGapManager::sInstance(); }
 // The rail editor (0x004F4970 looks it up) and the goal editor (0x004E8470).
 CRailEditorComponent* RailEditor() { return CRailEditorComponent::Instance(); }
 CGoalEditorComponent* GoalEditor() { return CGoalEditorComponent::Get(); }
-
 
 // The level changed to load_sk5ed again (the park's shell changed).
 void ReloadParkLevel()
@@ -735,39 +735,3 @@ void CParkEditor::SetState(uint32_t state)
 } // namespace Ed
 
 using Ed::CParkEditor;
-
-REPLACE(0x0058D290, CParkEditor::Release);
-REPLACE(0x0058D2D0, &CParkEditor::DestroyBody);
-REPLACE(0x0058D340, &CParkEditor::StopCallback);
-REPLACE(0x0058D360, &CParkEditor::AccessDisk);
-REPLACE(0x0058D4E0, &CParkEditor::ApplyMap);
-REPLACE(0x0058D600, &CParkEditor::WriteIntoStructure);
-REPLACE(0x0058D620, &CParkEditor::ReadFromStructure);
-REPLACE(0x0058D640, &CParkEditor::GetMapInfo);
-REPLACE(0x0058D680, &CParkEditor::WriteCompressedMapIfBuilt);
-REPLACE(0x0058D690, &CParkEditor::GetCompressedMapBuffer);
-REPLACE(0x0058D6B0, &CParkEditor::SetCompressedMapBuffer);
-REPLACE(0x0058D6D0, &CParkEditor::MainHeapHasRoom);
-REPLACE(0x0058D6F0, &CParkEditor::GetCursorPos);
-REPLACE(0x0058D700, &CParkEditor::SetTimeOfDayScript);
-REPLACE(0x0058D710, CParkEditor::GetShellChecksum);
-REPLACE(0x0058D720, CParkEditor::GetParkName);
-REPLACE(0x0058DA90, &CParkEditor::Listener::DestroyEditor);
-REPLACE(0x0058DAA0, &CParkEditor::Destroy);
-REPLACE(0x0058DAD0, &CParkEditor::StartCallback);
-REPLACE(0x0058DB30, &CParkEditor::Leave);
-REPLACE(0x0058DB70, Ed::HandleInput);
-REPLACE(0x0058DCB0, &CParkEditor::ShowEditorView);
-REPLACE(0x0058DD70, CParkEditor::SwitchCamera);
-REPLACE(0x0058DDC0, &CParkEditor::IsParkFull);
-REPLACE(0x0058DDE0, &CParkEditor::RefreshPieceMenu);
-REPLACE(0x0058DE40, &CParkEditor::Listener::ListenTo);
-REPLACE(0x0058DEC0, CParkEditor::IsInsidePark);
-REPLACE(0x0058DF80, CParkEditor::FindRestart);
-REPLACE(0x0058DFA0, CParkEditor::GetMaxPlayers);
-REPLACE(0x0058EBE0, &CParkEditor::ChangeSelection);
-REPLACE(0x0058ED50, &CParkEditor::Update);
-REPLACE(0x0058F640, &CParkEditor::UpdateMenuStick);
-REPLACE(0x0058F6C0, &CParkEditor::BindToController);
-REPLACE(0x0058F8A0, &CParkEditor::LogicUpdate);
-REPLACE(0x0058FA50, &CParkEditor::SetState);

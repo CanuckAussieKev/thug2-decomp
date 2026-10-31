@@ -5,8 +5,6 @@
 
 #include "game/core/dbg.h"
 #include "game/mth/x87_math.h"
-#include "hook/hook.h"
-#include "hook/shadow.h"
 
 namespace Mth {
 
@@ -434,41 +432,3 @@ struct LineAdapter {
 };
 
 } // namespace
-
-REPLACE(0x004022F0, &VectorAdapter::ConstructPoint);
-REPLACE(0x00402310, &Vector::operator[]);
-REPLACE(0x00402320, &Vector::operator=);
-REPLACE(0x00402340, &Vector::operator+=);
-REPLACE(0x00402370, &Vector::operator*=);
-REPLACE(0x004A86D0, &Vector::operator!=);
-REPLACE(0x00405EB0, &Vector::RotateY90);
-REPLACE(0x00405EF0, &Vector::DegreesToRadians);
-REPLACE(0x00405F20, &Vector::RadiansToDegrees);
-REPLACE(0x00405F50, &Vector::FeetToInches);
-REPLACE(0x00405F80, &Vector::NegateXRotateX90);
-REPLACE(0x00406050, &Vector::operator-=);
-REPLACE(0x00406460, Mth::GetAngle);
-REPLACE(0x00406560, Mth::IsAngleBeyond);
-REPLACE(0x0040AED0, &Vector::operator==);
-REPLACE(0x0040AF20, static_cast<Mth::Vector (*)(const Mth::Vector&, float)>(&Mth::operator/));
-REPLACE(0x00406630, Mth::GetAngleAbout);
-REPLACE(0x00423650, &Vector::operator/=);
-REPLACE_SHADOW(0x00423680, Mth::GetDistance);
-REPLACE(0x00406080, &Vector::ProjectToPlane);
-REPLACE(0x004060F0, &Vector::RotateToPlane);
-REPLACE(0x004061A0, &Vector::SetDirection);
-REPLACE(0x00406200, &Vector::ProjectOnto);
-REPLACE(0x00406260, &Vector::GetMaxAxis);
-REPLACE(0x00405FA0, &Vector::Print);
-REPLACE_SHADOW(0x004023A0, &Vector::LengthSqr);
-REPLACE_SHADOW(0x004023C0, &Vector::Length);
-REPLACE(0x004023F0, &Vector::Normalize);
-REPLACE(0x00402440, static_cast<Vector (*)(const Vector&, const Vector&)>(&Mth::operator+));
-REPLACE(0x00402470, static_cast<Vector (*)(const Vector&, const Vector&)>(&Mth::operator-));
-REPLACE(0x004024A0, static_cast<Vector (*)(const Vector&, float)>(&Mth::operator*));
-REPLACE(0x004024D0, static_cast<Vector (*)(float, const Vector&)>(&Mth::operator*));
-REPLACE(0x00402500, static_cast<Vector (*)(const Vector&)>(&Mth::operator-));
-REPLACE_SHADOW(0x00402530, Mth::DotProduct);
-REPLACE(0x00402550, Mth::CrossProduct);
-REPLACE(0x00402600, &LineAdapter::Construct);
-REPLACE(0x0041A820, Mth::DistanceSquared);

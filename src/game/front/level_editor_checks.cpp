@@ -7,12 +7,18 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <functional>
+#include <initializer_list>
 #include <memory>
 #include <set>
 #include <sstream>
+#include <type_traits>
 #include <unordered_set>
+#include <vector>
 
 #include "game/core/crc.h"
 #include "game/front/level_editor_budget.h"
@@ -33,7 +39,6 @@
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 #include "imgui.h"
 

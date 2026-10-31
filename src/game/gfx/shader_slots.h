@@ -2,8 +2,6 @@
 
 #include <cstdint>
 
-#include "hook/game_global.h"
-
 // The pixel shader handles the pixel shader maker fills in (the original's table of 18 words at 0x007CA920; a slot is
 // named by its offset from it), and the vertex-format ids of the mesh loader (6 words at 0x00775B64).
 
@@ -31,9 +29,9 @@ enum PixelShaderSlot : int {
     kPixelShaderCount,
 };
 
-GAME_GLOBAL_EXTERN(void*[kPixelShaderCount], g_pixelShaders);
+extern void* g_pixelShaders[kPixelShaderCount];
 
 // The vertex-format ids, in address order (0x00775B64 + 4 * index; a mesh's type t is index 6 - t).
-GAME_GLOBAL_EXTERN(uint32_t[6], g_vertexShaders);
+extern uint32_t g_vertexShaders[6];
 
 } // namespace Nx

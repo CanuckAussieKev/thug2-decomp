@@ -8,6 +8,7 @@
 
 #include <bit>
 #include <cmath>
+#include <cstdint>
 
 #include "game/mth/math.h"
 #include "game/mth/matrix.h"
@@ -18,8 +19,6 @@
 #include "game/skater/thaw_bmx.h"
 #include "game/sys/game_clock.h"
 #include "game/skate/score.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Skater {
 
@@ -350,6 +349,3 @@ void CorePhysicsComponent::BreakVert(bool force)
 }
 
 } // namespace Skater
-
-REPLACE(0x00504060, &Skater::CorePhysicsComponent::Spin);
-REPLACE(0x00507120, &Skater::CorePhysicsComponent::BreakVert);

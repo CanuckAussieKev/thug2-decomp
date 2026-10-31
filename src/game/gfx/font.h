@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include "game/lst/hashtable.h"
-#include "hook/game_global.h"
 
 namespace Script {
 class CStruct;
@@ -66,9 +65,9 @@ bool __cdecl CFunc_UnloadFont(Script::CStruct* params, Script::CScript* script);
 // 0x0048D6A0: the button glyph's character for the meta button a hex digit names (through the meta button map).
 char __cdecl ButtonGlyph(const char* digit);
 
-GAME_GLOBAL_EXTERN(char[32], g_metaButtonMap);
+extern char g_metaButtonMap[32];
 
-GAME_GLOBAL_EXTERN(FontSlot[16], g_fontSlots);
-GAME_GLOBAL_EXTERN(Lst::HashTable, g_fontTable); // 0x006FA9F0: the fonts by name
+extern FontSlot g_fontSlots[16];
+extern Lst::HashTable g_fontTable; // 0x006FA9F0: the fonts by name
 
 } // namespace Nx

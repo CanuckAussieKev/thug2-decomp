@@ -8,13 +8,10 @@
 #include "game/gfx/loading_bar.h"
 #include "game/gfx/loading_screen.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Nx {
 
-GAME_GLOBAL(uint8_t, g_loadingScreenShown, 0x006FC49C);
+uint8_t g_loadingScreenShown;
 
 namespace {
 
@@ -47,7 +44,7 @@ bool& LoadingScreenShown() { return reinterpret_cast<bool&>(g_loadingScreenShown
 
 } // namespace
 
-GAME_GLOBAL(float, g_loadingBarSeconds, 0x006FC498);
+float g_loadingBarSeconds;
 
 // 0x00490770
 void __cdecl SetLoadingBarTime(float seconds)
@@ -112,13 +109,3 @@ void __cdecl RemoveLoadingScreen()
 }
 
 } // namespace Nx
-
-REPLACE(0x00490770, Nx::SetLoadingBarTime);
-REPLACE(0x004907A0, Nx::CFunc_SetLoadingBarPos);
-REPLACE(0x004907F0, Nx::CFunc_SetLoadingBarSize);
-REPLACE(0x00490840, Nx::CFunc_SetLoadingBarBorder);
-REPLACE(0x004908E0, Nx::CFunc_SetLoadingBarStartColor);
-REPLACE(0x00490960, Nx::CFunc_SetLoadingBarEndColor);
-REPLACE(0x004909E0, Nx::CFunc_SetLoadingBarBorderColor);
-REPLACE(0x00490890, Nx::DisplayLoadingScreen);
-REPLACE(0x004908C0, Nx::RemoveLoadingScreen);

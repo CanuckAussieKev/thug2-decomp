@@ -1,18 +1,18 @@
 cmake_minimum_required(VERSION 3.25)
 project(thug2_decomp LANGUAGES C CXX)
 
-# The game is a 32-bit exe, so everything that loads into it must be 32-bit.
+# The game is a 32-bit exe (its data, the GameSpy SDK and Bink are 32-bit).
 if(NOT CMAKE_SIZEOF_VOID_P EQUAL 4)
     message(FATAL_ERROR "Build with the x86 preset: the game is 32-bit.")
 endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-# Static CRT so the DLL doesn't need a separate runtime installed next to the game.
+# Static CRT so the exe doesn't need a separate runtime installed next to the game.
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 set(THUG2_GAME_DIR "C:/Games/THUG2/Game" CACHE PATH
-    "The folder holding THUG2's exe, which the built dinput8.dll is copied into (an install root steps into its Game folder)")
+    "The game folder of a THUG2 install (its Data folder) the built exe is copied into, if it exists (an install root steps into its Game folder)")
 
 # --- SDL2 (PartyMod's window and input: src/game/sys/sdl_*.cpp, src/game/sio/sdl_input.cpp) --------------
 # The official 2.30.9 Visual C++ development package: the same version as the SDL2.dll PartyMod ships with (the
@@ -31,7 +31,7 @@ set_target_properties(sdl2 PROPERTIES
     IMPORTED_LOCATION "${sdl2_SOURCE_DIR}/lib/x86/SDL2.dll"
     INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/sdl2-include")
 # The package's SDL2.dll is byte-for-byte the one PartyMod ships (SHA-256 921e4c99...): copied into the game folder
-# with dinput8.dll (below), so a game folder needs no PartyMod files. SDL's controller mappings, the same way: the
+# with the exe (below), so a game folder needs no PartyMod files. SDL's controller mappings, the same way: the
 # gamecontrollerdb.txt PartyMod ships is SDL_GameControllerDB's at commit 8b2d1a7 (2022-09-06), zlib.
 set(THUG2_CONTROLLER_DB "${CMAKE_BINARY_DIR}/gamecontrollerdb.txt")
 if(NOT EXISTS "${THUG2_CONTROLLER_DB}")
@@ -41,12 +41,10 @@ if(NOT EXISTS "${THUG2_CONTROLLER_DB}")
         EXPECTED_HASH SHA256=ada0fe3998a5c7914b57ee15a3900f8b43acb604bf8314abca92231ebea057eb)
 endif()
 
-# --- D3DX9 (the standalone build, and the self-tests that compare the exe's D3DX9 with it) ----------------
+# --- D3DX9 --------------------------------------------------------------------------------------------------
 # Microsoft's NuGet package Microsoft.DXSDK.D3DX 9.29.952.8 (the DirectX SDK June 2010's d3dx9_43.dll, import library
 # and headers; its licence is summarised in THIRD_PARTY_NOTICES.md). A .nupkg is a zip: downloaded under a .zip name
-# and checked against its SHA-256. Only thug2_standalone links it (src/game/gfx/d3dx.h is the one place that calls
-# it); the hooked build (dinput8.dll, thug2_check) calls the exe's own D3DX9 and only looks for d3dx9_43.dll at run
-# time, for the self-tests that compare the two.
+# and checked against its SHA-256. src/game/gfx/d3dx.cpp is the one place that calls it.
 FetchContent_Declare(d3dx9
     URL https://www.nuget.org/api/v2/package/Microsoft.DXSDK.D3DX/9.29.952.8
     URL_HASH SHA256=ead0906ae8a26c18a7525da7490127a2110f7c58f18293738283e30e97c6ea4b
@@ -59,23 +57,6 @@ set_target_properties(d3dx9 PROPERTIES
     IMPORTED_IMPLIB "${THUG2_D3DX9_NATIVE}/release/lib/x86/d3dx9.lib"
     IMPORTED_LOCATION "${THUG2_D3DX9_NATIVE}/release/bin/x86/D3DX9_43.dll"
     INTERFACE_INCLUDE_DIRECTORIES "${THUG2_D3DX9_NATIVE}/include")
-
-# --- MinHook (BSD 2-clause, see THIRD_PARTY_NOTICES.md) --------------------------------------------------
-# Installs the replacement jumps and builds trampolines, so the original code of a replaced function can
-# still be called (self-tests, shadow checks) from any thread. Only the 32-bit parts are built.
-FetchContent_Declare(minhook
-    URL https://github.com/TsudaKageyu/minhook/archive/refs/tags/v1.3.3.tar.gz
-    URL_HASH SHA256=5bec16358ec9086d4593124bf558635e89135abea2c76e5761ecaf09f4546b19
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-    SOURCE_SUBDIR no-cmake) # download only: built below with just the 32-bit sources
-FetchContent_MakeAvailable(minhook)
-add_library(minhook STATIC
-    ${minhook_SOURCE_DIR}/src/buffer.c
-    ${minhook_SOURCE_DIR}/src/hook.c
-    ${minhook_SOURCE_DIR}/src/trampoline.c
-    ${minhook_SOURCE_DIR}/src/hde/hde32.c)
-target_include_directories(minhook PUBLIC ${minhook_SOURCE_DIR}/include)
-target_compile_options(minhook PRIVATE /W0)
 
 # --- Dear ImGui 1.91.9b (MIT, see THIRD_PARTY_NOTICES.md) -----------------------------------------------
 # The level editor's UI layer (src/game/front/level_editor_ui*.cpp): the core, the official SDL2 platform backend
@@ -98,9 +79,8 @@ target_compile_definitions(imgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS IMGUI_D
 target_link_libraries(imgui PRIVATE sdl2)
 target_compile_options(imgui PRIVATE /W0)
 
-# --- stb_image_write 1.16 / stb_image 2.27 (Sean Barrett, public domain or MIT, see THIRD_PARTY_NOTICES.md) ---------
-# The screenshot key's PNG writer (src/game/sys/screenshot_files.cpp) and, for its self-test only, the PNG reader:
-# the stb repository at commit 1ee679c (2021-07-12, stb_image_write's last change), headers only.
+# --- stb_image_write 1.16 (Sean Barrett, public domain or MIT, see THIRD_PARTY_NOTICES.md) ---------
+# The screenshot key's PNG writer (src/game/sys/screenshot_files.cpp): the stb repository at commit 1ee679c (2021-07-12, stb_image_write's last change), headers only.
 FetchContent_Declare(stb
     URL https://github.com/nothings/stb/archive/1ee679ca2ef753a528db5ba6801e1067b40481b8.tar.gz
     URL_HASH SHA256=be9842d207353c89c0b970d618030fe98a944ab3fe1374534cba1b8e934bfdd7
@@ -118,7 +98,7 @@ FetchContent_Declare(lzham
     SOURCE_SUBDIR no-cmake) # sources only: the codec's own CMake files are for gcc
 FetchContent_MakeAvailable(lzham)
 
-# --- The GameSpy SDK (IGN's BSD-3 release; the standalone build links it, the hooked build calls the exe's copy) ---
+# --- The GameSpy SDK (IGN's BSD-3 release) ---------------------------------------------------------------------
 include(cmake/gamespy_sdk.cmake)
 file(GLOB LZHAM_DECOMP_SOURCES ${lzham_SOURCE_DIR}/lzhamdecomp/*.cpp)
 add_library(lzham STATIC
@@ -134,7 +114,7 @@ target_include_directories(lzham PUBLIC ${lzham_SOURCE_DIR}/include
     PRIVATE ${lzham_SOURCE_DIR}/lzhamdecomp ${lzham_SOURCE_DIR}/lzhamcomp)
 target_compile_options(lzham PRIVATE /W0)
 
-# --- The build's commit (the screenshot sidecar names the DLL's source) -------------------------------------------
+# --- The build's commit (the screenshot sidecar names the exe's source) -------------------------------------------
 set(THUG2_BUILD_INFO "${CMAKE_BINARY_DIR}/generated/build_info.h")
 add_custom_target(build_info
     COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${CMAKE_SOURCE_DIR} -DOUTPUT=${THUG2_BUILD_INFO}
@@ -144,7 +124,7 @@ add_custom_target(build_info
 
 # --- The editor's fonts (SIL Open Font License 1.1, see THIRD_PARTY_NOTICES.md) ---------------------------
 # Inter 4.1 (the UI) and JetBrains Mono 2.304 (numbers, names, checksums): the official release archives, checked
-# against their SHA-256. The TTFs are compressed into the DLL at build time with ImGui's own binary_to_compressed_c
+# against their SHA-256. The TTFs are compressed into the exe at build time with ImGui's own binary_to_compressed_c
 # (stb compression; ImGui decompresses them at start-up) - nothing is added to the game folder.
 FetchContent_Declare(font_inter
     URL https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip
@@ -172,443 +152,18 @@ foreach(font IN LISTS THUG2_EDITOR_FONTS)
         COMMAND ${CMAKE_COMMAND} -DTOOL=$<TARGET_FILE:imgui_binary_to_compressed> -DINPUT=${ttf} -DSYMBOL=${symbol}
                 -DOUTPUT=${out} -P "${CMAKE_SOURCE_DIR}/cmake/compress_font.cmake"
         DEPENDS imgui_binary_to_compressed "${ttf}" "${CMAKE_SOURCE_DIR}/cmake/compress_font.cmake"
-        COMMENT "Compressing ${symbol} into the DLL")
+        COMMENT "Compressing ${symbol} into the exe")
     list(APPEND THUG2_EDITOR_FONT_INCLUDES "${out}")
 endforeach()
 add_custom_target(editor_fonts DEPENDS ${THUG2_EDITOR_FONT_INCLUDES})
 
-# The rewritten game code and the hook machinery, shared by the DLL and the check tool.
-add_library(thug2_code OBJECT
-    src/hook/hook.cpp
+# --- The game ----------------------------------------------------------------------------------------------------
+# thug2-decomp.exe: the game built from this source. It runs from the game folder of the player's own THUG2 install
+# (its Data folder, binkw32.dll): README.md "Building and running".
+add_executable(thug2 WIN32
+    src/main.cpp
     src/game/sys/log.cpp
-    src/hook/game_global.cpp
-    src/hook/game_code.cpp
-    src/hook/vtable_extents.cpp
     src/game/sys/crash.cpp
-    src/hook/crash_game.cpp
-    src/hook/shadow.cpp
-    src/hook/selftest.cpp
-    src/hook/selftest_runner.cpp
-    src/hook/selftests_skaterB.cpp
-    src/hook/sk5_testkit.cpp
-    src/hook/selftests_skater_vehicle_camera.cpp
-    src/hook/selftests_skater_walk_camera.cpp
-    src/hook/selftests_skater_trick_queue.cpp
-    src/hook/selftests_skater_walk_pieces.cpp
-    src/hook/selftests_skater_walk_collision.cpp
-    src/hook/selftests_menu.cpp
-    src/hook/selftests_left.cpp
-    src/hook/selftests_gfx.cpp
-    src/hook/selftests_platform.cpp
-    src/hook/selftests_platform_d3d.cpp
-    src/hook/selftests_platform_input.cpp
-    src/hook/selftests_pc.cpp
-    src/hook/selftests_glyph.cpp
-    src/hook/selftests_skaterA.cpp
-    src/hook/selftests_skater_jump.cpp
-    src/hook/selftests_skater_core_members.cpp
-    src/hook/selftests_skater_core_life.cpp
-    src/hook/selftests_skater_core_ground.cpp
-    src/hook/selftests_skater_core_moves.cpp
-    src/hook/selftests_skater_camera.cpp
-    src/hook/selftests_skater_collision.cpp
-    src/hook/selftests_skater_grind.cpp
-    src/hook/selftests_skater_states.cpp
-    src/hook/selftests_skater_rail.cpp
-    src/hook/selftests_skater_ground.cpp
-    src/hook/selftests_skater_wallride.cpp
-    src/hook/selftests_skater_physics_harness.cpp
-    src/hook/selftests_skater_state.cpp
-    src/hook/selftests_leftovers.cpp
-    src/hook/selftests_byte_scan.cpp
-    src/hook/selftests_skater_feelers.cpp
-    src/hook/selftests_skater_turning.cpp
-    src/hook/selftests_skater_walls.cpp
-    src/hook/selftests_collision_events.cpp
-    src/hook/selftests_skater_wallplant.cpp
-    src/hook/selftests_skater_acid_drop.cpp
-    src/hook/selftests_skater_state_history.cpp
-    src/hook/selftests_skater_vehicle_sound.cpp
-    src/hook/selftests_skater_skitch_items.cpp
-    src/hook/selftests_skater_stats.cpp
-    src/hook/selftests_skater_tagging.cpp
-    src/hook/selftests_thaw_bmx.cpp
-    src/hook/selftests_thaw_bmx_parked.cpp
-    src/hook/selftests_skater_adjust.cpp
-    src/hook/selftests_skater_adjust_frame.cpp
-    src/hook/selftests_balance_trick.cpp
-    src/hook/selftests_skater_camera_modes.cpp
-    src/hook/selftests_projectile.cpp
-    src/hook/selftests_rail_editor.cpp
-    src/hook/selftests_rail_editor_draw.cpp
-    src/hook/selftests_rail_editor_script.cpp
-    src/hook/selftests_obj_small_components.cpp
-    src/hook/selftests_obj_vehicle_sound.cpp
-    src/hook/selftests_obj_vehicle.cpp
-    src/hook/selftests_skater_trick.cpp
-    src/hook/selftests_gfx2.cpp
-    src/hook/selftests_d3dx.cpp
-    src/hook/selftests_el3d.cpp
-    src/hook/selftests_fe_anim.cpp
-    src/hook/selftests_fe_element.cpp
-    src/hook/selftests_fe_menu.cpp
-    src/hook/selftests_fe_manager.cpp
-    src/hook/selftests_fe_scroll.cpp
-    src/hook/selftests_fe_sprite.cpp
-    src/hook/selftests_hd_ui.cpp
-    src/hook/selftests_mute_audio.cpp
-    src/hook/selftests_graphics_options.cpp
-    src/hook/selftests_fe_cfuncs.cpp
-    src/hook/selftests_fe_text.cpp
-    src/hook/selftests_tod.cpp
-    src/hook/selftests_tod2.cpp
-    src/hook/selftests_viewer.cpp
-    src/hook/selftests_viewer2.cpp
-    src/hook/selftests_viewer3.cpp
-    src/hook/selftests_viewer4.cpp
-    src/hook/selftests_viewer5.cpp
-    src/hook/selftests_viewer6.cpp
-    src/hook/selftests_viewer7.cpp
-    src/hook/selftests_viewer8.cpp
-    src/hook/selftests_viewer9.cpp
-    src/hook/selftests_viewer10.cpp
-    src/hook/selftests_viewer11.cpp
-    src/hook/selftests_viewer12.cpp
-    src/hook/selftests_viewer13.cpp
-    src/hook/selftests_viewer14.cpp
-    src/hook/selftests_viewer15.cpp
-    src/hook/selftests_viewer16.cpp
-    src/hook/selftests_viewer17.cpp
-    src/hook/selftests_viewer18.cpp
-    src/hook/selftests_viewer19.cpp
-    src/hook/selftests_viewer20.cpp
-    src/hook/selftests_park_graffiti.cpp
-    src/hook/selftests_park_scene.cpp
-    src/hook/selftests_viewer_object.cpp
-    src/hook/selftests_park_pieces.cpp
-    src/hook/selftests_park_metapieces.cpp
-    src/hook/selftests_park_generator.cpp
-    src/hook/selftests_park_editor_state.cpp
-    src/hook/selftests_park_rails.cpp
-    src/hook/selftests_park_clipboard.cpp
-    src/hook/selftests_park_gaps.cpp
-    src/hook/selftests_viewer21.cpp
-    src/hook/selftests_tod3.cpp
-    src/hook/selftests_tod4.cpp
-    src/hook/selftests_thugpro_guards.cpp
-    src/hook/selftests_skater_end_run.cpp
-    src/hook/selftests_skater_flip_name.cpp
-    src/hook/selftests_skater_gap.cpp
-    src/hook/selftests_skater_sound_net.cpp
-    src/hook/selftests_skater_nonlocal.cpp
-    src/hook/selftests_skater_core_update.cpp
-    src/hook/selftests_skater_nonlocal_playback.cpp
-    src/hook/selftests_skater_queries.cpp
-    src/hook/selftests_skater_physics_control.cpp
-    src/hook/selftests_skater_timers.cpp
-    src/hook/selftests_skater_state_component.cpp
-    src/hook/selftests_mouse.cpp
-    src/hook/selftests_automation.cpp
-    src/hook/selftests_crash.cpp
-    src/hook/selftests_screenshot.cpp
-    src/hook/selftests_sprite.cpp
-    src/hook/selftests_loading.cpp
-    src/hook/selftests_netB.cpp
-    src/hook/selftests_mainloop.cpp
-    src/hook/selftests_memory_sizes.cpp
-    src/hook/selftests_misc.cpp
-    src/hook/selftests_ec3.cpp
-    src/hook/selftests_gs4_tricks.cpp
-    src/hook/selftests_gs4_hunt.cpp
-    src/hook/selftests_gs4_texture.cpp
-    src/hook/selftests_gs4_models.cpp
-    src/hook/selftests_gs4_skater.cpp
-    src/hook/selftests_gs4_lists.cpp
-    src/hook/selftests_gs4_config.cpp
-    src/hook/selftests_career_cfuncs.cpp
-    src/hook/selftests_competition_cfuncs.cpp
-    src/hook/selftests_goals_competition.cpp
-    src/hook/selftests_goals_goal.cpp
-    src/hook/selftests_goals_game_mode.cpp
-    src/hook/selftests_goals_cat.cpp
-    src/hook/selftests_goals_manager.cpp
-    src/hook/selftests_goals_horse.cpp
-    src/hook/selftests_score.cpp
-    src/hook/selftests_skate_module.cpp
-    src/hook/selftests_skater_query_cfuncs.cpp
-    src/hook/selftests_movie_cfuncs.cpp
-    src/hook/selftests_skater_profile_cfuncs.cpp
-    src/hook/selftests_appearance_cfuncs.cpp
-    src/hook/selftests_cas3_face.cpp
-    src/hook/selftests_cas3_keys.cpp
-    src/hook/selftests_cas3_options.cpp
-    src/hook/selftests_cas3_lookat.cpp
-    src/hook/selftests_cas3_frames.cpp
-    src/hook/selftests_profile_list_cfuncs.cpp
-    src/hook/selftests_preload_cfuncs.cpp
-    src/hook/selftests_lfxc.cpp
-    src/hook/selftests_lfxc2.cpp
-    src/hook/selftests_lfxc3.cpp
-    src/hook/selftests_gs2_world.cpp
-    src/hook/selftests_gs2_startup.cpp
-    src/hook/selftests_gs2_save.cpp
-    src/hook/selftests_gs2_files.cpp
-    src/hook/selftests_gs2_contents.cpp
-    src/hook/selftests_gs2_textures.cpp
-    src/hook/selftests_gs2_saving.cpp
-    src/hook/selftests_gs1.cpp
-    src/hook/selftests_ec2.cpp
-    src/hook/selftests_engcmd1.cpp
-    src/hook/selftests_obj_scene_cmds.cpp
-    src/hook/selftests_obj_terrain.cpp
-    src/hook/selftests_obj_lens_flare.cpp
-    src/hook/selftests_obj_walk_hang.cpp
-    src/hook/selftests_engcmd2.cpp
-    src/hook/selftests_engcmd3.cpp
-    src/hook/selftests_engcmd4.cpp
-    src/hook/selftests_park.cpp
-    src/hook/selftests_park_editor.cpp
-    src/hook/selftests_scache.cpp
-    src/hook/selftests_text.cpp
-    src/hook/selftests_winmain.cpp
-    src/hook/selftests_appmain.cpp
-    src/hook/selftests_appmain2.cpp
-    src/hook/selftests_appmain3.cpp
-    src/hook/selftests_appmain4.cpp
-    src/hook/selftests_appmain5.cpp
-    src/hook/selftests_appmain6.cpp
-    src/hook/selftests_appmain7.cpp
-    src/hook/selftests_anim.cpp
-    src/hook/selftests_anim2.cpp
-    src/hook/selftests_anim3.cpp
-    src/hook/selftests_anim4.cpp
-    src/hook/selftests_anim5.cpp
-    src/hook/selftests_anim6.cpp
-    src/hook/selftests_anim7.cpp
-    src/hook/selftests_anim8.cpp
-    src/hook/selftests_anim9.cpp
-    src/hook/selftests_anim10.cpp
-    src/hook/selftests_pole_tunnel.cpp
-    src/hook/selftests_anim11.cpp
-    src/hook/selftests_anim12.cpp
-    src/hook/selftests_anim13.cpp
-    src/hook/selftests_anim14.cpp
-    src/hook/selftests_anim15.cpp
-    src/hook/selftests_anim16.cpp
-    src/hook/selftests_anim17.cpp
-    src/hook/selftests_anim18.cpp
-    src/hook/selftests_anim19.cpp
-    src/hook/selftests_appmain8.cpp
-    src/hook/selftests_appmain9.cpp
-    src/hook/selftests_appmain10.cpp
-    src/hook/selftests_ped_logic.cpp
-    src/hook/selftests_appmain12.cpp
-    src/hook/selftests_appmain11.cpp
-    src/hook/selftests_objsys1.cpp
-    src/hook/selftests_objsys2.cpp
-    src/hook/selftests_objsys3.cpp
-    src/hook/selftests_objsys4.cpp
-    src/hook/selftests_objsys5.cpp
-    src/hook/selftests_objsys6.cpp
-    src/hook/selftests_objsys7.cpp
-    src/hook/selftests_objsys8.cpp
-    src/hook/selftests_objsys9.cpp
-    src/hook/selftests_objsys10.cpp
-    src/hook/selftests_objsys11.cpp
-    src/hook/selftests_gapsB.cpp
-    src/hook/selftests_mva.cpp
-    src/hook/selftests_mva2.cpp
-    src/hook/selftests_mva3.cpp
-    src/hook/selftests_qb.cpp
-    src/hook/selftests_gapsA.cpp
-    src/hook/selftests_mvb.cpp
-    src/hook/selftests_csD.cpp
-    src/hook/selftests_cobj.cpp
-    src/hook/selftests_nodes.cpp
-    src/hook/selftests_coim.cpp
-    src/hook/selftests_obj.cpp
-    src/hook/selftests_evt.cpp
-    src/hook/selftests_trk.cpp
-    src/hook/selftests_csA.cpp
-    src/hook/selftests_csC.cpp
-    src/hook/selftests_csB.cpp
-    src/hook/selftests_parkedA.cpp
-    src/hook/selftests_parkmax.cpp
-    src/hook/selftests_netC.cpp
-    src/hook/selftests_netD.cpp
-    src/hook/selftests_netF.cpp
-    src/hook/selftests_net_buddies.cpp
-    src/hook/selftests_net_vault.cpp
-    src/hook/selftests_net_stats.cpp
-    src/hook/selftests_netA.cpp
-    src/hook/selftests_netE.cpp
-    src/hook/selftests_menulvl.cpp
-    src/hook/selftests_motion.cpp
-    src/hook/selftests_obj_motion1.cpp
-    src/hook/selftests_obj_motion2.cpp
-    src/hook/selftests_obj_motion3.cpp
-    src/hook/selftests_obj_motion4.cpp
-    src/hook/selftests_obj_contact.cpp
-    src/hook/selftests_obj_particle.cpp
-    src/hook/selftests_gamenet.cpp
-    src/hook/selftests_skater_gamenet.cpp
-    src/hook/selftests_skater_gamenet2.cpp
-    src/hook/selftests_skater_gamenet3.cpp
-    src/hook/selftests_skater_gamenet4.cpp
-    src/hook/selftests_skater_gamenet5.cpp
-    src/hook/selftests_skater_gamenet6.cpp
-    src/hook/selftests_net3_players.cpp
-    src/hook/selftests_net_scores.cpp
-    src/hook/selftests_net3_lobby.cpp
-    src/hook/selftests_net_servers.cpp
-    src/hook/selftests_net_buddy_status.cpp
-    src/hook/selftests_skater_walk.cpp
-    src/hook/selftests_skater_walk2.cpp
-    src/hook/selftests_thugpro.cpp
-    src/hook/selftests_thugpro_join.cpp
-    src/hook/selftests_gamenet_join.cpp
-    src/hook/selftests_net_players.cpp
-    src/hook/selftests_net_flow.cpp
-    src/hook/selftests_net_qr2.cpp
-    src/hook/selftests_net_lobby.cpp
-    src/hook/selftests_net_menus.cpp
-    src/hook/selftests_net_newplayers.cpp
-    src/hook/selftests_net_commands.cpp
-    src/hook/selftests_net_counts.cpp
-    src/hook/selftests_net_game_commands.cpp
-    src/hook/selftests_net_lists.cpp
-    src/hook/selftests_net_members.cpp
-    src/hook/selftests_net_player_lists.cpp
-    src/hook/selftests_net_settings.cpp
-    src/hook/selftests_trigger.cpp
-    src/hook/selftests_obj_trigger.cpp
-    src/hook/selftests_obj_shadow.cpp
-    src/hook/selftests_obj_skeleton.cpp
-    src/hook/selftests_obj_sound.cpp
-    src/hook/selftests_obj_stream.cpp
-    src/hook/selftests_obj_suspend.cpp
-    src/hook/selftests_obj_rigidbody.cpp
-    src/hook/selftests_obj_rigidbody_physics.cpp
-    src/hook/selftests_obj_rigidbody_support.cpp
-    src/hook/selftests_editor.cpp
-    src/hook/selftests_engine_glue.cpp
-    src/hook/selftests_scene_load.cpp
-    src/hook/selftests_pc_font.cpp
-    src/hook/selftests_geom.cpp
-    src/hook/selftests_pc_lights.cpp
-    src/hook/selftests_loading_screen.cpp
-    src/hook/selftests_pc_mesh.cpp
-    src/hook/selftests_pc_mesh_life.cpp
-    src/hook/selftests_pc_mesh_load.cpp
-    src/hook/selftests_pc_mesh_render.cpp
-    src/hook/selftests_splats.cpp
-    src/hook/selftests_splats2.cpp
-    src/hook/selftests_particle_system.cpp
-    src/hook/selftests_particles.cpp
-    src/hook/selftests_rnd3_particle_types.cpp
-    src/hook/selftests_rnd3_particle_manager.cpp
-    src/hook/selftests_rnd3_model_particles.cpp
-    src/hook/selftests_cas4_appearance.cpp
-    src/hook/selftests_cas4_builder.cpp
-    src/hook/selftests_cas4_bone_volumes.cpp
-    src/hook/selftests_cas4_engine.cpp
-    src/hook/selftests_rnd3_primitive.cpp
-    src/hook/selftests_rnd3_scene.cpp
-    src/hook/selftests_cas1_timeline.cpp
-    src/hook/selftests_cas1_anim_cache.cpp
-    src/hook/selftests_cas1_channel.cpp
-    src/hook/selftests_rnd1_model.cpp
-    src/hook/selftests_rnd1_model_geoms.cpp
-    src/hook/selftests_rnd1_effects.cpp
-    src/hook/selftests_rnd1_particles.cpp
-    src/hook/selftests_rnd1_polys.cpp
-    src/hook/selftests_rnd4_sector.cpp
-    src/hook/selftests_rnd4_sprite.cpp
-    src/hook/selftests_rnd4_texture.cpp
-    src/hook/selftests_rnd4_texdict.cpp
-    src/hook/selftests_rnd4_scene.cpp
-    src/hook/selftests_rnd4_projection.cpp
-    src/hook/selftests_rnd5_viewport.cpp
-    src/hook/selftests_rnd5_weather.cpp
-    src/hook/selftests_rnd5_shadows.cpp
-    src/hook/selftests_rnd5_skeleton.cpp
-    src/hook/selftests_cas2_frames.cpp
-    src/hook/selftests_cas2_poses.cpp
-    src/hook/selftests_cas2_track.cpp
-    src/hook/selftests_cas5_scene_list.cpp
-    src/hook/selftests_cas5_text.cpp
-    src/hook/selftests_cas5_geom.cpp
-    src/hook/selftests_cas5_lights.cpp
-    src/hook/selftests_cas5_light_manager.cpp
-    src/hook/selftests_cas5_scene_lights.cpp
-    src/hook/selftests_cas5_mesh.cpp
-    src/hook/selftests_pc_particles.cpp
-    src/hook/selftests_flexible_particles.cpp
-    src/hook/selftests_pc_primitive.cpp
-    src/hook/selftests_pc_scene.cpp
-    src/hook/selftests_pc_sprite.cpp
-    src/hook/selftests_pc_texture.cpp
-    src/hook/selftests_pc_viewport.cpp
-    src/hook/selftests_pc_weather.cpp
-    src/hook/selftests_pc_billboards.cpp
-    src/hook/selftests_pc_buffers.cpp
-    src/hook/selftests_pc_gamma.cpp
-    src/hook/selftests_pc_grass.cpp
-    src/hook/selftests_pc_instance.cpp
-    src/hook/selftests_pc_material.cpp
-    src/hook/selftests_pc_material_load.cpp
-    src/hook/selftests_editor_ui.cpp
-    src/hook/selftests_frontend.cpp
-    src/hook/selftests_editor_nodes.cpp
-    src/hook/selftests_editor_create.cpp
-    src/hook/selftests_editor_preview.cpp
-    src/hook/selftests_editor_ux4.cpp
-    src/hook/selftests_editor_levels.cpp
-    src/hook/selftests_editor_picking.cpp
-    src/hook/selftests_editor_view.cpp
-    src/hook/selftests_editor_triggers.cpp
-    src/hook/selftests_editor_map1.cpp
-    src/hook/selftests_editor_walls.cpp
-    src/hook/selftests_editor_map3.cpp
-    src/hook/selftests_editor_map4.cpp
-    src/hook/selftests_editor_goals.cpp
-    src/hook/selftests_goal_editor.cpp
-    src/hook/selftests_goal_editor_component.cpp
-    src/hook/selftests_editor_scale.cpp
-    src/hook/selftests_collision_component.cpp
-    src/hook/selftests_lock_obj.cpp
-    src/hook/selftests_obj_bbox.cpp
-    src/hook/selftests_obj_color_camera.cpp
-    src/hook/selftests_obj_car_physics.cpp
-    src/hook/selftests_obj_collide_light.cpp
-    src/hook/selftests_obj_fam_particle.cpp
-    src/hook/selftests_obj_text_input.cpp
-    src/hook/selftests_obj_lock_quat.cpp
-    src/hook/selftests_mth_x87.cpp
-    src/hook/selftests_crt.cpp
-    src/hook/selftests_obj_model.cpp
-    src/hook/selftests_obj_model_init.cpp
-    src/hook/selftests_obj_model_members.cpp
-    src/hook/selftests_obj_light_motion.cpp
-    src/hook/selftests_editor_shared_coll.cpp
-    src/hook/selftests_editor_chains.cpp
-    src/hook/selftests_editor_fields.cpp
-    src/hook/selftests_editor_shadows.cpp
-    src/hook/selftests_editor_career.cpp
-    src/hook/selftests_editor_carry.cpp
-    src/hook/selftests_editor_entities.cpp
-    src/hook/selftests_editor_modes.cpp
-    src/hook/selftests_editor_ux3.cpp
-    src/hook/selftests_editor_ux5.cpp
-    src/hook/selftests_editor_ux9.cpp
-    src/hook/selftests_editor_transform.cpp
-    src/hook/selftests_editor_arrange.cpp
-    src/hook/selftests_editor_ux1.cpp
-    src/hook/selftests_editor_ux6.cpp
-    src/hook/selftests_editor_ux8.cpp
-    src/hook/selftests_pcmstream.cpp
-    src/hook/selftests_pcmplay.cpp
-    src/hook/selftests_startup.cpp
     src/game/ass/asset.cpp
     src/game/ass/asset_types.cpp
     src/game/ass/assman.cpp
@@ -1283,32 +838,27 @@ add_library(thug2_code OBJECT
     src/game/util/lzss.cpp
     src/game/util/bps.cpp
 )
-target_include_directories(thug2_code PUBLIC src PRIVATE ${minhook_SOURCE_DIR}/src) # MinHook's hde32 decoder
-target_link_libraries(thug2_code PUBLIC minhook sdl2 ws2_32 dsound ole32 imgui lzham) # ws2_32: the command line's server address;
-# dsound: DirectSoundCreate8 (game/sys/platform_system.cpp)
-# (the editor's fonts, compressed at build time: level_editor_ui_fonts.cpp includes them)
-add_dependencies(thug2_code editor_fonts)
-target_include_directories(thug2_code PRIVATE "${CMAKE_BINARY_DIR}/editor_fonts")
-# (stb's headers; the generated build_info.h)
-add_dependencies(thug2_code build_info)
-target_include_directories(thug2_code PRIVATE "${stb_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/generated")
-target_compile_definitions(thug2_code PUBLIC WIN32_LEAN_AND_MEAN NOMINMAX)
-# (the self-tests that compare the exe's D3DX9 with Microsoft's load this DLL at run time, if it is there)
-target_compile_definitions(thug2_code PRIVATE THUG2_D3DX9_DLL="${THUG2_D3DX9_NATIVE}/release/bin/x86/D3DX9_43.dll")
-target_compile_options(thug2_code PRIVATE /W4 /permissive- /utf-8)
-
-add_library(thug2_decomp SHARED
-    src/proxy/dinput8.cpp
-    src/proxy/dinput8.def
-)
-target_link_libraries(thug2_decomp PRIVATE thug2_code minhook)
-target_compile_options(thug2_decomp PRIVATE /W4 /permissive- /utf-8)
-# The proxy has to be called dinput8.dll for Windows to load it instead of the system one.
-set_target_properties(thug2_decomp PROPERTIES OUTPUT_NAME dinput8)
+set_target_properties(thug2 PROPERTIES OUTPUT_NAME thug2-decomp)
+target_compile_definitions(thug2 PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_include_directories(thug2 PRIVATE src "${stb_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/generated"
+                                         "${CMAKE_BINARY_DIR}/editor_fonts")
+# (the editor's fonts, compressed at build time: level_editor_ui_fonts.cpp includes them; the generated build_info.h)
+add_dependencies(thug2 editor_fonts build_info)
+# ws2_32: Winsock; dsound: DirectSoundCreate8 (game/sys/platform_system.cpp); d3d9, winmm: game/sys/crt.h's imports
+target_link_libraries(thug2 PRIVATE sdl2 ws2_32 dsound ole32 imgui lzham gamespy_sdk d3dx9 d3d9 winmm)
+target_compile_options(thug2 PRIVATE /W3 /permissive- /utf-8)
+# The DLLs the exe needs, next to it: d3dx9_43.dll (the package's Microsoft-distributable runtime; see
+# THIRD_PARTY_NOTICES.md), SDL2.dll and SDL's controller mappings.
+add_custom_command(TARGET thug2 POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_D3DX9_NATIVE}/release/bin/x86/D3DX9_43.dll" "$<TARGET_FILE_DIR:thug2>/d3dx9_43.dll"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${sdl2_SOURCE_DIR}/lib/x86/SDL2.dll" "$<TARGET_FILE_DIR:thug2>"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_CONTROLLER_DB}" "$<TARGET_FILE_DIR:thug2>"
+    COMMENT "Copying d3dx9_43.dll, SDL2.dll and gamecontrollerdb.txt next to thug2-decomp.exe")
 
 # THUG2_GAME_DIR is the folder holding the game. A stock install keeps the game in a Game subfolder
 # (C:/Games/THUG2/Game) - some players delete what's around it and keep Game's contents at the top: a cached
 # install root (C:/Games/THUG2) steps into its Game folder when the game isn't at the top (as tools/pipeline/lib/install.ts).
+# When it exists, every build copies the exe, its PDB and the DLLs above into it.
 set(THUG2_DEPLOY_DIR "${THUG2_GAME_DIR}")
 function(thug2_is_game_folder dir out)
     if(EXISTS "${dir}/THUG2.exe" OR EXISTS "${dir}/Data/pre/qb_scripts.prx")
@@ -1323,40 +873,10 @@ if(NOT THUG2_AT_TOP AND THUG2_IN_GAME)
     set(THUG2_DEPLOY_DIR "${THUG2_DEPLOY_DIR}/Game")
 endif()
 if(EXISTS "${THUG2_DEPLOY_DIR}")
-    add_custom_command(TARGET thug2_decomp POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:thug2_decomp> "${THUG2_DEPLOY_DIR}"
+    add_custom_command(TARGET thug2 POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:thug2> $<TARGET_PDB_FILE:thug2> "${THUG2_DEPLOY_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_D3DX9_NATIVE}/release/bin/x86/D3DX9_43.dll" "${THUG2_DEPLOY_DIR}/d3dx9_43.dll"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "${sdl2_SOURCE_DIR}/lib/x86/SDL2.dll" "${THUG2_DEPLOY_DIR}"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_CONTROLLER_DB}" "${THUG2_DEPLOY_DIR}"
-        COMMENT "Copying dinput8.dll, SDL2.dll and gamecontrollerdb.txt into ${THUG2_DEPLOY_DIR}")
+        COMMENT "Copying thug2-decomp.exe and its DLLs into ${THUG2_DEPLOY_DIR}")
 endif()
-
-# thug2_check: the start-up checks and the early self-tests against the reference build's code, without starting the
-# game (see tools/check/main.cpp):  thug2_check [<path to the reference build>]  (default: local.json's referenceExe)
-# (selftests_gamespy.cpp compares the exe's GameSpy SDK with the 2007 one the standalone build links: only here, the
-# DLL never links the SDK)
-add_executable(thug2_check tools/check/main.cpp src/hook/selftests_gamespy.cpp)
-target_compile_definitions(thug2_check PRIVATE THUG2_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
-target_link_libraries(thug2_check PRIVATE thug2_code minhook delayimp gamespy_sdk)
-# PartyMod's SDL code is linked (window, input: never run offline), so SDL2 is only loaded if used.
-target_link_options(thug2_check PRIVATE /DELAYLOAD:SDL2.dll)
-target_compile_options(thug2_check PRIVATE /W4 /permissive- /utf-8)
-# Keep the tool itself away from 0x400000: its child process loads the game image there.
-target_link_options(thug2_check PRIVATE /BASE:0x20000000 /DYNAMICBASE:NO)
-
-# thug2_standalone: the game built from source alone - no hook DLL, no original exe. It doesn't link yet: every
-# GameFunction / GameVariable left, every hook / self-test call from game code and every library not linked yet is an
-# unresolved symbol. Not part of a normal build; `node tools/standalone_report.ts` builds it and sorts what's missing.
-get_target_property(THUG2_CODE_SOURCES thug2_code SOURCES)
-set(THUG2_GAME_SOURCES ${THUG2_CODE_SOURCES})
-list(FILTER THUG2_GAME_SOURCES EXCLUDE REGEX "^src/hook/")
-add_executable(thug2_standalone WIN32 EXCLUDE_FROM_ALL src/standalone/main.cpp ${THUG2_GAME_SOURCES})
-target_compile_definitions(thug2_standalone PRIVATE THUG2_STANDALONE WIN32_LEAN_AND_MEAN NOMINMAX)
-target_include_directories(thug2_standalone PRIVATE src "${stb_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/generated"
-                                                    "${CMAKE_BINARY_DIR}/editor_fonts")
-add_dependencies(thug2_standalone editor_fonts build_info)
-target_link_libraries(thug2_standalone PRIVATE sdl2 ws2_32 dsound ole32 imgui lzham gamespy_sdk d3dx9 d3d9 winmm) # d3d9, winmm: game/sys/crt.h's imports
-# d3dx9_43.dll next to the exe (the package's Microsoft-distributable runtime; see THIRD_PARTY_NOTICES.md)
-add_custom_command(TARGET thug2_standalone POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_D3DX9_NATIVE}/release/bin/x86/D3DX9_43.dll" "$<TARGET_FILE_DIR:thug2_standalone>"
-    COMMENT "Copying d3dx9_43.dll next to thug2_standalone")
-target_compile_options(thug2_standalone PRIVATE /W3 /permissive- /utf-8)

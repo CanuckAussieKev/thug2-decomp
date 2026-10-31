@@ -1,5 +1,6 @@
 // The engine's font (CFont, the base of the PC font) and the loaded fonts' table: see font.h.
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/crc.h"
@@ -10,16 +11,13 @@
 #include "game/gfx/pc_font.h"
 #include "game/lst/hashtable.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 
 namespace Nx {
 
-GAME_GLOBAL(char[32], g_metaButtonMap, 0x006FA808);
-GAME_GLOBAL(FontSlot[16], g_fontSlots, 0x006FA830);
+char g_metaButtonMap[32];
+FontSlot g_fontSlots[16];
 
 namespace {
 
@@ -70,13 +68,13 @@ void CFont::Unload()
 // 0x0048D070
 void CFont::PlatSetSpacings(int /*charSpacing*/, int /*spaceSpacing*/)
 {
-    Dbg::Printf(GAME_TEXT(0x00648A90, "STUB A DUB DUB")); // "STUB A DUB DUB"
+    Dbg::Printf("STUB A DUB DUB"); // "STUB A DUB DUB"
 }
 
 // 0x0048D080
 void CFont::PlatSetColors(const uint32_t* /*colors*/)
 {
-    Dbg::Printf(GAME_TEXT(0x00648A90, "STUB A DUB DUB")); // "STUB A DUB DUB"
+    Dbg::Printf("STUB A DUB DUB"); // "STUB A DUB DUB"
 }
 
 // 0x0048D6A0
@@ -117,20 +115,10 @@ bool __cdecl CFunc_UnloadFont(Script::CStruct* params, Script::CScript* /*script
 }
 
 namespace {
-GAME_VTABLE(kFontVtable, 0x00648A6C, &Nx::CFont::Destroy, Stubs::ReturnFalse1, &Nx::CFont::PlatSetSpacings,
-            &Nx::CFont::PlatSetColors, &Nx::CFont::PlatSetColors, Stubs::DoNothing, Stubs::ReturnZero,
-            Stubs::ReturnZero, Stubs::IgnoreArguments3);
+static VtableSlot kFontVtable_slots[] = {&Nx::CFont::Destroy, Stubs::ReturnFalse1, &Nx::CFont::PlatSetSpacings,
+                &Nx::CFont::PlatSetColors, &Nx::CFont::PlatSetColors, Stubs::DoNothing, Stubs::ReturnZero,
+                Stubs::ReturnZero, Stubs::IgnoreArguments3};
+void** const kFontVtable = reinterpret_cast<void**>(kFontVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x0048D020, &Nx::CFont::Construct);
-REPLACE(0x0048D030, &Nx::CFont::DestroyBody);
-REPLACE(0x0048D1F0, &Nx::CFont::Destroy);
-REPLACE(0x0048D040, &Nx::CFont::Unload);
-REPLACE(0x0048D070, &Nx::CFont::PlatSetSpacings);
-REPLACE(0x0048D080, &Nx::CFont::PlatSetColors);
-REPLACE(0x0048D6A0, Nx::ButtonGlyph);
-REPLACE(0x0048D6C0, Nx::UnloadFont);
-REPLACE(0x0048D760, Nx::GetFont);
-REPLACE(0x0048D7B0, Nx::CFunc_UnloadFont);

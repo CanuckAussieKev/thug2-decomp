@@ -2,6 +2,7 @@
 // member functions - storing positions and nodes, constant height, random links, hovering, speed, jumping.
 
 #include <cmath>
+#include <cstdint>
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -17,13 +18,11 @@
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 #include "game/obj/control_pad.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
@@ -342,41 +341,23 @@ bool CMotionComponent::Obj_Jump(Script::CStruct* params, Script::CScript*)
 
 using Obj::CMotionComponent;
 
-REPLACE(0x00426650, CMotionComponent::Create);
-REPLACE(0x00424AA0, &CMotionComponent::Construct);
-REPLACE(0x00424AE0, &CMotionComponent::DestroyBody);
-REPLACE(0x004266F0, &CMotionComponent::Destroy);
-REPLACE(0x00423D00, &CMotionComponent::Reset);
-REPLACE(0x00423C90, &CMotionComponent::InitPathFollower);
-REPLACE(0x00426720, &CMotionComponent::InitFromStructure);
-REPLACE(0x004236C0, &CMotionComponent::ProcessWait);
-REPLACE(0x004274D0, &CMotionComponent::CallMemberFunction);
-REPLACE(0x00423740, &CMotionComponent::UpdateHover);
-REPLACE(0x004237D0, &CMotionComponent::Obj_StorePos);
-REPLACE(0x00423810, &CMotionComponent::Obj_StoreNode);
-REPLACE(0x00423830, &CMotionComponent::Obj_SetConstantHeight);
-REPLACE(0x00423890, &CMotionComponent::Obj_GetRandomLink);
-REPLACE(0x004238D0, &CMotionComponent::Obj_Hover);
-REPLACE(0x004239F0, &CMotionComponent::Obj_GetSpeed);
-REPLACE(0x00423B30, &CMotionComponent::Obj_Jump);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064620C,
-    &CMotionComponent::Destroy,
-    &CMotionComponent::Update,
-    &CMotionComponent::InitFromStructure,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    &CMotionComponent::ProcessWait,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &CMotionComponent::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&CMotionComponent::Destroy,
+         &CMotionComponent::Update,
+         &CMotionComponent::InitFromStructure,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         &CMotionComponent::ProcessWait,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &CMotionComponent::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

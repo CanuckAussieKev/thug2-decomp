@@ -2,12 +2,8 @@
 
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
-
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 
 namespace Script {
 
@@ -19,20 +15,20 @@ static_assert(offsetof(CExpressionEvaluator, m_token) == 0x1EC, "layout must mat
 static_assert(offsetof(CExpressionEvaluator, m_error) == 0x1F0, "layout must match the original");
 static_assert(offsetof(CExpressionEvaluator, m_unknown1F4) == 0x1F4, "layout must match the original");
 
-GAME_GLOBAL(float, g_evalDivisorMinimum, 0x00647DDC, 0.000001f);
-GAME_GLOBAL(CComponent, g_evalResult, 0x006F2348);
+float g_evalDivisorMinimum{0.000001f};
+CComponent g_evalResult;
 
 namespace {
 
 // The operators' precedences, by operator.
-GAME_GLOBAL(int[74], g_operatorPrecedence, 0x0067D908,
+int g_operatorPrecedence[74]{
     -1, -1, -1, -1, -1, 100, -1, 76, 100, -1, 98, 98,
     99, 100, -1, -1, -1, -1, 80, 79, 78, 77, -1, -1,
     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
     -1, -1, 58, 60, 59, 90, 89, -1, -1, -1, -1, -1,
     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1);
+    -1, -1};
 int Precedence(int op) { return g_operatorPrecedence[op]; }
 
 // Where an operation's result is built (a global component: only its type and value are taken).
@@ -335,7 +331,7 @@ void CExpressionEvaluator::PushOperator(int op)
 {
     if (++m_operatorTop >= 20) {
         Clear();
-        m_error = GAME_TEXT(0x00647B50, "Operator stack overflow"); // "Operator stack overflow"
+        m_error = "Operator stack overflow"; // "Operator stack overflow"
         return;
     }
     m_operators[m_operatorTop].op = op;
@@ -350,7 +346,7 @@ void CExpressionEvaluator::Input(const CComponent* value)
     if (m_valueTop || (m_values[0].typeAndFlag & 0xFE)) {
         if (++m_valueTop >= 20) {
             Clear();
-            m_error = GAME_TEXT(0x00647B68, "Value stack overflow"); // "Value stack overflow"
+            m_error = "Value stack overflow"; // "Value stack overflow"
             return;
         }
     }
@@ -397,7 +393,7 @@ bool CExpressionEvaluator::GetResult(CComponent* result)
         if (m_valueTop == 0) {
             if (m_operators[0].op != OPERATOR_NONE || m_operatorTop != 0) {
                 Clear();
-                m_error = GAME_TEXT(0x006482F8, "Too many operators in expression"); // "Too many operators in expression"
+                m_error = "Too many operators in expression"; // "Too many operators in expression"
                 return false;
             }
             // A reference result is copied as what it refers to.
@@ -416,7 +412,7 @@ bool CExpressionEvaluator::GetResult(CComponent* result)
             return false;
     }
     Clear();
-    m_error = GAME_TEXT(0x0064831C, "Not enough close parentheses"); // "Not enough close parentheses"
+    m_error = "Not enough close parentheses"; // "Not enough close parentheses"
     return false;
 }
 
@@ -425,18 +421,18 @@ void CExpressionEvaluator::Execute()
 {
     if (m_valueTop < 1) {
         Clear();
-        m_error = GAME_TEXT(0x006482C8, "Not enough values in stack to execute operation"); // "Not enough values in stack to execute operation"
+        m_error = "Not enough values in stack to execute operation"; // "Not enough values in stack to execute operation"
         return;
     }
     if (m_operators[m_operatorTop].openParentheses != 0) {
         Clear();
-        m_error = GAME_TEXT(0x006482AC, "Non-zero parentheses count"); // "Non-zero parentheses count"
+        m_error = "Non-zero parentheses count"; // "Non-zero parentheses count"
         return;
     }
     int op = m_operators[m_operatorTop].op;
     if (op == OPERATOR_NONE) {
         Clear();
-        m_error = GAME_TEXT(0x00648288, "Tried to execute with no operator"); // "Tried to execute with no operator"
+        m_error = "Tried to execute with no operator"; // "Tried to execute with no operator"
         return;
     }
 
@@ -479,7 +475,7 @@ void CExpressionEvaluator::Execute()
             else if (typeB == ESYMBOLTYPE_FLOAT)
                 SetResultFloat(AsDouble(a->integer) + AsDouble(b->floatValue));
             else
-                error(GAME_TEXT(0x0064825C, "Second arg cannot be added to an integer")); // "Second arg cannot be added to an integer"
+                error("Second arg cannot be added to an integer"); // "Second arg cannot be added to an integer"
             break;
         case ESYMBOLTYPE_FLOAT:
             if (typeB == ESYMBOLTYPE_INTEGER)
@@ -487,7 +483,7 @@ void CExpressionEvaluator::Execute()
             else if (typeB == ESYMBOLTYPE_FLOAT)
                 SetResultFloat(AsDouble(a->floatValue) + AsDouble(b->floatValue));
             else
-                error(GAME_TEXT(0x00648234, "Second arg cannot be added to a float")); // "Second arg cannot be added to a float"
+                error("Second arg cannot be added to a float"); // "Second arg cannot be added to a float"
             break;
         case ESYMBOLTYPE_NAME:
             // A checksum plus an integer or checksum is a checksum.
@@ -495,7 +491,7 @@ void CExpressionEvaluator::Execute()
                 SetResultType(ESYMBOLTYPE_NAME);
                 result.raw = b->raw + a->raw;
             } else {
-                error(GAME_TEXT(0x00648208, "Second arg cannot be added to a checksum")); // "Second arg cannot be added to a checksum"
+                error("Second arg cannot be added to a checksum"); // "Second arg cannot be added to a checksum"
             }
             break;
         case ESYMBOLTYPE_VECTOR:
@@ -505,7 +501,7 @@ void CExpressionEvaluator::Execute()
                 result.vector->y = a->vector->y + b->vector->y;
                 result.vector->z = a->vector->z + b->vector->z;
             } else {
-                error(GAME_TEXT(0x006481E0, "Second arg cannot be added to a vector")); // "Second arg cannot be added to a vector"
+                error("Second arg cannot be added to a vector"); // "Second arg cannot be added to a vector"
             }
             break;
         case ESYMBOLTYPE_PAIR:
@@ -514,20 +510,20 @@ void CExpressionEvaluator::Execute()
                 pair->x = a->pair->x + b->pair->x;
                 result.pair->y = a->pair->y + b->pair->y;
             } else {
-                error(GAME_TEXT(0x006481B8, "Second arg cannot be added to a pair")); // "Second arg cannot be added to a pair"
+                error("Second arg cannot be added to a pair"); // "Second arg cannot be added to a pair"
             }
             break;
         case ESYMBOLTYPE_STRING:
             if (typeB != ESYMBOLTYPE_STRING)
-                error(GAME_TEXT(0x0064816C, "Second arg cannot be added to a string")); // "Second arg cannot be added to a string"
+                error("Second arg cannot be added to a string"); // "Second arg cannot be added to a string"
             else if (!JoinStrings(a->string, b->string, ESYMBOLTYPE_STRING))
-                error(GAME_TEXT(0x00648194, "Result of string addition too long")); // "Result of string addition too long"
+                error("Result of string addition too long"); // "Result of string addition too long"
             break;
         case ESYMBOLTYPE_LOCALSTRING:
             if (typeB != ESYMBOLTYPE_LOCALSTRING)
-                error(GAME_TEXT(0x00648110, "Second arg cannot be added to a local-string")); // "Second arg cannot be added to a local-string"
+                error("Second arg cannot be added to a local-string"); // "Second arg cannot be added to a local-string"
             else if (!JoinStrings(a->string, b->string, ESYMBOLTYPE_LOCALSTRING))
-                error(GAME_TEXT(0x00648140, "Result of local-string addition too long")); // "Result of local-string addition too long"
+                error("Result of local-string addition too long"); // "Result of local-string addition too long"
             break;
         case ESYMBOLTYPE_STRUCTURE:
         case ESYMBOLTYPE_STRUCTUREPOINTER:
@@ -536,13 +532,13 @@ void CExpressionEvaluator::Execute()
                 structure->AppendStructureIfAny(a->structure);
                 result.structure->AppendStructureIfAny(b->structure);
             } else {
-                error(GAME_TEXT(0x006480D4, "Structure add operator requires 2nd arg to be a structure")); // "Structure add operator requires 2nd arg to be a structure"
+                error("Structure add operator requires 2nd arg to be a structure"); // "Structure add operator requires 2nd arg to be a structure"
             }
             break;
         case ESYMBOLTYPE_ARRAY:
         case ESYMBOLTYPE_ARRAYPOINTER: {
             if (!IsArray(typeB)) {
-                error(GAME_TEXT(0x00648098, "Array add operator requires 2nd arg to be an array as well")); // "Array add operator requires 2nd arg to be an array as well"
+                error("Array add operator requires 2nd arg to be an array as well"); // "Array add operator requires 2nd arg to be an array as well"
                 break;
             }
             CArray* array = NewArray();
@@ -565,7 +561,7 @@ void CExpressionEvaluator::Execute()
             break;
         }
         default:
-            error(GAME_TEXT(0x00648070, "Addition not supported for this type")); // "Addition not supported for this type"
+            error("Addition not supported for this type"); // "Addition not supported for this type"
             break;
         }
         break;
@@ -578,7 +574,7 @@ void CExpressionEvaluator::Execute()
             else if (typeB == ESYMBOLTYPE_FLOAT)
                 SetResultFloat(AsDouble(a->integer) - AsDouble(b->floatValue));
             else
-                error(GAME_TEXT(0x00648040, "Second arg cannot be subtracted from an integer")); // "Second arg cannot be subtracted from an integer"
+                error("Second arg cannot be subtracted from an integer"); // "Second arg cannot be subtracted from an integer"
             break;
         case ESYMBOLTYPE_FLOAT:
             if (typeB == ESYMBOLTYPE_INTEGER)
@@ -586,7 +582,7 @@ void CExpressionEvaluator::Execute()
             else if (typeB == ESYMBOLTYPE_FLOAT)
                 SetResultFloat(AsDouble(a->floatValue) - AsDouble(b->floatValue));
             else
-                error(GAME_TEXT(0x00648010, "Second arg cannot be subtracted from a float")); // "Second arg cannot be subtracted from a float"
+                error("Second arg cannot be subtracted from a float"); // "Second arg cannot be subtracted from a float"
             break;
         case ESYMBOLTYPE_PAIR:
             if (typeB == ESYMBOLTYPE_PAIR) {
@@ -594,7 +590,7 @@ void CExpressionEvaluator::Execute()
                 pair->x = a->pair->x - b->pair->x;
                 result.pair->y = a->pair->y - b->pair->y;
             } else {
-                error(GAME_TEXT(0x00647FB4, "Second arg cannot be subtracted from a pair")); // "Second arg cannot be subtracted from a pair"
+                error("Second arg cannot be subtracted from a pair"); // "Second arg cannot be subtracted from a pair"
             }
             break;
         case ESYMBOLTYPE_VECTOR:
@@ -604,7 +600,7 @@ void CExpressionEvaluator::Execute()
                 result.vector->y = a->vector->y - b->vector->y;
                 result.vector->z = a->vector->z - b->vector->z;
             } else {
-                error(GAME_TEXT(0x00647FE0, "Second arg cannot be subtracted from a vector")); // "Second arg cannot be subtracted from a vector"
+                error("Second arg cannot be subtracted from a vector"); // "Second arg cannot be subtracted from a vector"
             }
             break;
         case ESYMBOLTYPE_STRUCTURE:
@@ -620,7 +616,7 @@ void CExpressionEvaluator::Execute()
                 CArray* names = b->array;
                 if (names->m_type != ESYMBOLTYPE_NAME && names->m_type != ESYMBOLTYPE_NONE) {
                     // "Subtracting an array from a structure requires the array to be an array of names"
-                    error(GAME_TEXT(0x00647F00, "Subtracting an array from a structure requires the array to be an array of names"));
+                    error("Subtracting an array from a structure requires the array to be an array of names");
                     break;
                 }
                 CStruct* structure = NewResultStructure();
@@ -644,11 +640,11 @@ void CExpressionEvaluator::Execute()
                 }
             } else {
                 // "Structure minus operator requires 2nd arg to be a name, an array of names, or a structure"
-                error(GAME_TEXT(0x00647F58, "Structure minus operator requires 2nd arg to be a name, an array of names, or a structure"));
+                error("Structure minus operator requires 2nd arg to be a name, an array of names, or a structure");
             }
             break;
         default:
-            error(GAME_TEXT(0x00647ED8, "Subtraction not supported for this type")); // "Subtraction not supported for this type"
+            error("Subtraction not supported for this type"); // "Subtraction not supported for this type"
             break;
         }
         break;
@@ -677,7 +673,7 @@ void CExpressionEvaluator::Execute()
                 break;
             }
             default:
-                error(GAME_TEXT(0x00647EA8, "Second arg cannot be multiplied by an integer")); // "Second arg cannot be multiplied by an integer"
+                error("Second arg cannot be multiplied by an integer"); // "Second arg cannot be multiplied by an integer"
                 break;
             }
             break;
@@ -703,7 +699,7 @@ void CExpressionEvaluator::Execute()
                 break;
             }
             default:
-                error(GAME_TEXT(0x00647E7C, "Second arg cannot be multiplied by a float")); // "Second arg cannot be multiplied by a float"
+                error("Second arg cannot be multiplied by a float"); // "Second arg cannot be multiplied by a float"
                 break;
             }
             break;
@@ -717,7 +713,7 @@ void CExpressionEvaluator::Execute()
                 pair->x = a->pair->x * b->floatValue;
                 result.pair->y = a->pair->y * b->floatValue;
             } else {
-                error(GAME_TEXT(0x00647E28, "Pair cannot be multiplied by second arg")); // "Pair cannot be multiplied by second arg"
+                error("Pair cannot be multiplied by second arg"); // "Pair cannot be multiplied by second arg"
             }
             break;
         case ESYMBOLTYPE_VECTOR:
@@ -740,11 +736,11 @@ void CExpressionEvaluator::Execute()
                 result.vector->y = Rounded(AsDouble(v->x) * u->z - AsDouble(v->z) * u->x);
                 result.vector->z = Rounded(AsDouble(v->y) * u->x - AsDouble(v->x) * u->y);
             } else {
-                error(GAME_TEXT(0x00647E50, "Vector cannot be multiplied by second arg")); // "Vector cannot be multiplied by second arg"
+                error("Vector cannot be multiplied by second arg"); // "Vector cannot be multiplied by second arg"
             }
             break;
         default:
-            error(GAME_TEXT(0x00647DFC, "Multiplication not supported for this type")); // "Multiplication not supported for this type"
+            error("Multiplication not supported for this type"); // "Multiplication not supported for this type"
             break;
         }
         break;
@@ -752,12 +748,12 @@ void CExpressionEvaluator::Execute()
     case OPERATOR_DIVIDE:
         if (typeB == ESYMBOLTYPE_INTEGER) {
             if (b->integer == 0) {
-                error(GAME_TEXT(0x00647DE0, "Integer division by zero")); // "Integer division by zero"
+                error("Integer division by zero"); // "Integer division by zero"
                 break;
             }
         } else if (typeB == ESYMBOLTYPE_FLOAT) {
             if (std::fabs(b->floatValue) < g_evalDivisorMinimum) {
-                error(GAME_TEXT(0x00647DC4, "Float division by zero")); // "Float division by zero"
+                error("Float division by zero"); // "Float division by zero"
                 break;
             }
         }
@@ -768,7 +764,7 @@ void CExpressionEvaluator::Execute()
             else if (typeB == ESYMBOLTYPE_FLOAT)
                 SetResultFloat(AsDouble(a->integer) / AsDouble(b->floatValue));
             else
-                error(GAME_TEXT(0x00647D9C, "Integer cannot be divided by second arg")); // "Integer cannot be divided by second arg"
+                error("Integer cannot be divided by second arg"); // "Integer cannot be divided by second arg"
             break;
         case ESYMBOLTYPE_FLOAT:
             if (typeB == ESYMBOLTYPE_INTEGER)
@@ -776,7 +772,7 @@ void CExpressionEvaluator::Execute()
             else if (typeB == ESYMBOLTYPE_FLOAT)
                 SetResultFloat(AsDouble(a->floatValue) / AsDouble(b->floatValue));
             else
-                error(GAME_TEXT(0x00647D74, "Float cannot be divided by second arg")); // "Float cannot be divided by second arg"
+                error("Float cannot be divided by second arg"); // "Float cannot be divided by second arg"
             break;
         case ESYMBOLTYPE_PAIR:
             if (typeB == ESYMBOLTYPE_INTEGER) {
@@ -788,7 +784,7 @@ void CExpressionEvaluator::Execute()
                 pair->x = a->pair->x / b->floatValue;
                 result.pair->y = a->pair->y / b->floatValue;
             } else {
-                error(GAME_TEXT(0x00647D24, "Pair cannot be divided by second arg")); // "Pair cannot be divided by second arg"
+                error("Pair cannot be divided by second arg"); // "Pair cannot be divided by second arg"
             }
             break;
         case ESYMBOLTYPE_VECTOR:
@@ -803,11 +799,11 @@ void CExpressionEvaluator::Execute()
                 result.vector->y = a->vector->y / b->floatValue;
                 result.vector->z = a->vector->z / b->floatValue;
             } else {
-                error(GAME_TEXT(0x00647D4C, "Vector cannot be divided by second arg")); // "Vector cannot be divided by second arg"
+                error("Vector cannot be divided by second arg"); // "Vector cannot be divided by second arg"
             }
             break;
         default:
-            error(GAME_TEXT(0x00647CFC, "Division not supported for this type")); // "Division not supported for this type"
+            error("Division not supported for this type"); // "Division not supported for this type"
             break;
         }
         break;
@@ -820,7 +816,7 @@ void CExpressionEvaluator::Execute()
                 const CVector* v = b->vector;
                 SetResultFloat(AsDouble(v->z) * u->z + AsDouble(v->y) * u->y + AsDouble(v->x) * u->x);
             } else {
-                error(GAME_TEXT(0x00647CC4, "Vector can only be dot producted with another vector")); // "Vector can only be dot producted with another vector"
+                error("Vector can only be dot producted with another vector"); // "Vector can only be dot producted with another vector"
             }
             break;
         case ESYMBOLTYPE_PAIR:
@@ -829,7 +825,7 @@ void CExpressionEvaluator::Execute()
                 const CPair* v = b->pair;
                 SetResultFloat(AsDouble(v->y) * u->y + AsDouble(v->x) * u->x);
             } else {
-                error(GAME_TEXT(0x00647C90, "Pair can only be dot producted with another pair")); // "Pair can only be dot producted with another pair"
+                error("Pair can only be dot producted with another pair"); // "Pair can only be dot producted with another pair"
             }
             break;
         case ESYMBOLTYPE_STRUCTURE:
@@ -839,32 +835,32 @@ void CExpressionEvaluator::Execute()
                 if (CComponent* member = a->structure->FindLastComponent(b->checksum))
                     CopyComponent(&result, member, typeA == ESYMBOLTYPE_STRUCTUREPOINTER);
             } else {
-                error(GAME_TEXT(0x00647C58, "Structure dot operator requires 2nd arg to be a name")); // "Structure dot operator requires 2nd arg to be a name"
+                error("Structure dot operator requires 2nd arg to be a name"); // "Structure dot operator requires 2nd arg to be a name"
             }
             break;
         default:
-            error(GAME_TEXT(0x00647C30, "Dot product not supported for this type")); // "Dot product not supported for this type"
+            error("Dot product not supported for this type"); // "Dot product not supported for this type"
             break;
         }
         break;
 
     case OPERATOR_ARRAY_ELEMENT:
         if (!IsArray(typeA)) {
-            error(GAME_TEXT(0x00647BFC, "Array element operator not supported for this type")); // "Array element operator not supported for this type"
+            error("Array element operator not supported for this type"); // "Array element operator not supported for this type"
         } else if (typeB != ESYMBOLTYPE_INTEGER) {
-            error(GAME_TEXT(0x00647BE0, "[] index must be an integer")); // "[] index must be an integer"
+            error("[] index must be an integer"); // "[] index must be an integer"
         } else if (b->raw >= a->array->m_size) {
-            error(GAME_TEXT(0x00647BC8, "[] index out of range")); // "[] index out of range"
+            error("[] index out of range"); // "[] index out of range"
         } else {
             CopyArrayElementToComponent(a->array, b->raw, &result, typeA == ESYMBOLTYPE_ARRAYPOINTER);
             if ((result.typeAndFlag & 0xFE) == 0)
-                error(GAME_TEXT(0x00647B98, "Array type cannot be accessed using [] yet ...")); // "Array type cannot be accessed using [] yet ..."
+                error("Array type cannot be accessed using [] yet ..."); // "Array type cannot be accessed using [] yet ..."
         }
         break;
 
     default:
         Clear();
-        m_error = GAME_TEXT(0x00647B80, "Operator not supported"); // "Operator not supported"
+        m_error = "Operator not supported"; // "Operator not supported"
         break;
     }
 
@@ -902,24 +898,3 @@ struct ComponentAdapters {
 };
 
 } // namespace
-
-REPLACE(0x0046D160, &ComponentAdapters::IsReference);
-REPLACE(0x0046D180, &ComponentAdapters::MakeReference);
-REPLACE(0x0046D1A0, &ComponentAdapters::MakeOwning);
-REPLACE(0x0046D280, &ComponentAdapters::GetBool);
-REPLACE(0x0046D380, &CExpressionEvaluator::Init);
-REPLACE(0x0046D1C0, &CExpressionEvaluator::Clear);
-REPLACE_SOURCE_ONLY(0x0046D3C0, &CExpressionEvaluator::Clear); // the destructor (the static evaluator's, at exit): a jump to 0x0046D1C0
-REPLACE(0x0046D220, &CExpressionEvaluator::ClearIfNeeded);
-REPLACE(0x0046D250, &CExpressionEvaluator::SetTokenPointer);
-REPLACE(0x0046D260, &CExpressionEvaluator::SetError);
-REPLACE(0x0046D2B0, &CExpressionEvaluator::PushOperator);
-REPLACE(0x0046D310, static_cast<void (CExpressionEvaluator::*)(const Script::CComponent*)>(&CExpressionEvaluator::Input));
-REPLACE(0x0046D370, &CExpressionEvaluator::OpenParenthesis);
-REPLACE(0x0046EB70, static_cast<void (CExpressionEvaluator::*)(int)>(&CExpressionEvaluator::Input));
-REPLACE(0x0046EBF0, &CExpressionEvaluator::CloseParenthesis);
-REPLACE(0x0046EC40, &CExpressionEvaluator::GetResult);
-REPLACE(0x0046D450, &CExpressionEvaluator::Execute);
-REPLACE(0x00479410, &ComponentAdapters::LessThan);
-REPLACE(0x004795A0, &ComponentAdapters::GreaterThan);
-REPLACE(0x0047A910, Script::CopyArrayElementToComponent);

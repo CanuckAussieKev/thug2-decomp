@@ -19,8 +19,6 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/sfx/terrain.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Obj {
 
@@ -716,26 +714,3 @@ bool CPedLogicComponent::Ped_GetJumpToNextNode(Script::CStruct* params, Script::
 }
 
 } // namespace Obj
-
-REPLACE(0x004ED080, &Obj::CPedLogicComponent::IsVertNode);
-REPLACE(0x004ED0E0, &Obj::CPedLogicComponent::Chance);
-REPLACE(0x004ED8A0, &Obj::CPedLogicComponent::ChooseNodeAfter);
-REPLACE(0x004EEFA0, &Obj::CPedLogicComponent::RunWaypointActions);
-REPLACE(0x004EFD50, &Obj::CPedLogicComponent::JumpParams);
-REPLACE(0x004EFBC0, &Obj::CPedLogicComponent::LipTrickUpdate);
-REPLACE(0x004F1A90, &Obj::CPedLogicComponent::StartGrind);
-REPLACE(0x004F1B10, &Obj::CPedLogicComponent::EndGrind);
-REPLACE(0x004F1B40, &Obj::CPedLogicComponent::Jump);
-REPLACE(0x004F1BF0, &Obj::CPedLogicComponent::LipTrick);
-REPLACE(0x004F1C40, &Obj::CPedLogicComponent::Manual);
-REPLACE(0x004F1C90, &Obj::CPedLogicComponent::ManualDown);
-REPLACE(0x004F1CE0, &Obj::CPedLogicComponent::GrabTrick);
-REPLACE(0x004F1DC0, &Obj::CPedLogicComponent::Stop);
-REPLACE(0x004F1F30, &Obj::CPedLogicComponent::RollOff);
-REPLACE(0x004F1F50, &Obj::CPedLogicComponent::FlipTrick);
-REPLACE(0x004F1E80, &Obj::CPedLogicComponent::BailFromGrind);
-REPLACE(0x004F2340, &Obj::CPedLogicComponent::DoSkateAction);
-REPLACE(0x004F2570, &Obj::CPedLogicComponent::HitWaypoint);
-REPLACE(0x004F0740, &Obj::CPedLogicComponent::Ped_InitPath);
-REPLACE(0x004F2770, &Obj::CPedLogicComponent::Ped_HitWaypoint);
-REPLACE(0x004EDEC0, &Obj::CPedLogicComponent::Ped_GetJumpToNextNode);

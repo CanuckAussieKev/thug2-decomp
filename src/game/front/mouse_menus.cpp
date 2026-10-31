@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 
 #include <SDL2/SDL.h>
 
@@ -29,7 +30,6 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sys/sdl_events.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 #include "game/gfx/render.h"
 #include "game/gfx/device.h"

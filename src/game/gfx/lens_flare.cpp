@@ -20,9 +20,6 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sys/game_clock.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Sun {
 
@@ -51,24 +48,24 @@ constexpr uint32_t kMaybeHideLensFlare = 0xD4F107CB; // "MaybeHideLensFlare"
 constexpr uint32_t kBlend = 0x54628ED7;             // "blend"
 constexpr uint32_t kAdd = 0x02E58C18;               // "Add"
 
-GAME_GLOBAL(float, g_flareTheta, 0x00696878);
-GAME_GLOBAL(float, g_flarePhi, 0x0069687C);
-GAME_GLOBAL(float, g_flareRadius, 0x00696880);
-GAME_GLOBAL(float, g_flareSize, 0x00696884);
-GAME_GLOBAL(float, g_flareMorphInTime, 0x00696888);
-GAME_GLOBAL(float, g_flareMorphOutTime, 0x0069688C);
-GAME_GLOBAL(float, g_flareSunBurstOutTime, 0x00696890);
-GAME_GLOBAL(uint8_t, g_flareQuery, 0x00696894);
-GAME_GLOBAL(bool, g_flareShown, 0x00696895);
-GAME_GLOBAL(bool, g_flareHidden, 0x00696896);
-GAME_GLOBAL(void*, g_flareSunTexture, 0x00696898);
-GAME_GLOBAL(void*, g_flareCoronaTexture, 0x0069689C);
-GAME_GLOBAL(FlareElement*, g_flareElements, 0x006968A0);
-GAME_GLOBAL(uint32_t, g_flareElementCount, 0x006968A4);
-GAME_GLOBAL(uint32_t, g_flareVisibleTime, 0x006968A8);
-GAME_GLOBAL(uint32_t, g_flareHiddenTime, 0x006968AC);
-GAME_GLOBAL(Mth::Vector, g_flareColor, 0x006968B0);
-GAME_GLOBAL(Mth::Vector, g_flarePosition, 0x006968C0);
+float g_flareTheta;
+float g_flarePhi;
+float g_flareRadius;
+float g_flareSize;
+float g_flareMorphInTime;
+float g_flareMorphOutTime;
+float g_flareSunBurstOutTime;
+uint8_t g_flareQuery;
+bool g_flareShown;
+bool g_flareHidden;
+void* g_flareSunTexture;
+void* g_flareCoronaTexture;
+FlareElement* g_flareElements;
+uint32_t g_flareElementCount;
+uint32_t g_flareVisibleTime;
+uint32_t g_flareHiddenTime;
+Mth::Vector g_flareColor;
+Mth::Vector g_flarePosition;
 
 // The sun's state.
 float& Theta() { return g_flareTheta; }
@@ -567,18 +564,3 @@ struct CameraFactor {
 };
 
 } // namespace
-
-REPLACE(0x00442670, &Obj::CSmtPtr<Obj::CRefCounted>::IsNull);
-REPLACE(0x00442680, Sun::ClampToRange);
-REPLACE(0x004426B0, &CameraFactor::Get);
-REPLACE(0x004426C0, &Sun::QueryRequest::Init);
-REPLACE(0x004426D0, Sun::SetSun);
-REPLACE(0x00442810, Sun::QuerySunVisibility);
-REPLACE(0x004428F0, Sun::PlaceFlareElements);
-REPLACE(0x004429D0, Sun::Init);
-REPLACE(0x00442D70, Sun::UpdateFlare);
-REPLACE(0x00442DF0, Sun::HideFlare);
-REPLACE(0x00443030, Sun::UnhideFlare);
-REPLACE(0x00443180, Sun::BuildSunQuad);
-REPLACE(0x00443780, Sun::ShowFlare);
-REPLACE(0x00443870, Sun::Render);

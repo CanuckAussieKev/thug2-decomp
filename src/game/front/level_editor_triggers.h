@@ -68,7 +68,7 @@ class CGapChecklist;
 //     editor's gaps taken out of that level's checklist.
 namespace Front::LevelEditor::Triggers {
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_triggers.cpp) -----------------------------------------
+// --- the pure parts -----------------------------------------------------------------------------------------------
 
 // (the feature map added Boost and Break after Other: the record words of the older kinds keep their places)
 enum class Kind : uint8_t { Kill, Teleport, Script, GapStart, GapEnd, Other, Boost, Break, Camera };

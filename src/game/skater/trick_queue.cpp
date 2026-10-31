@@ -24,9 +24,7 @@
 #include "game/sys/timer.h"
 #include "game/goals/goal_manager.h"
 #include "game/skater/balance_trick.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
@@ -732,7 +730,7 @@ void CTrickComponent::SetExtraTricks(Script::CStruct* params, Script::CScript* /
     for (int i = 0; i < 10; ++i)
         At<uint32_t>(this, kExtraMasks + 4 * i) = 0;
     At<uint32_t>(this, kExtraSpecialMask) = 0;
-    const char* ignore = GAME_TEXT(0x006469B4, ""); // ("")
+    const char* ignore = ""; // ("")
     if (params->GetString(kIgnore, &ignore, 0)) {
         IgnoreTricks(reinterpret_cast<uint32_t>(ignore)); // (the string's address as a name, as the original)
         return;
@@ -763,7 +761,7 @@ void CTrickComponent::UpdateBash()
         }
         Script::RunScript(kTantrumOff, nullptr, m_object, false, nullptr);
         if (At<uint32_t>(this, kBailEndpose) && !At<bool>(this, kQuickGetupDone)) {
-            Dbg::Printf(GAME_TEXT(0x0064C53C, "ButtonMash - trigger quick getup..........................\n")); // "ButtonMash - trigger quick getup..."
+            Dbg::Printf("ButtonMash - trigger quick getup..........................\n"); // "ButtonMash - trigger quick getup..."
             At<bool>(this, kQuickGetupDone) = true;
             Script::RunScript(kBailQuickGetup, nullptr, m_object, false, nullptr);
             return;
@@ -827,54 +825,23 @@ bool __cdecl CFunc_DoNextTrick(Script::CStruct* params, Script::CScript* script)
 
 } // namespace Obj
 
-REPLACE(0x00523490, Obj::CTrickComponent::Create);
-REPLACE(0x00522390, &Obj::CTrickComponent::Construct);
-REPLACE(0x005234F0, &Obj::CTrickComponent::DestroyBody);
-REPLACE(0x005243F0, &Obj::CTrickComponent::Destroy);
-REPLACE(0x005231D0, &Obj::CTrickComponent::Update);
-REPLACE(0x00522410, &Obj::CTrickComponent::SetTrickMappings);
-REPLACE(0x00521E50, &Obj::CTrickComponent::UpdateButtons);
-REPLACE(0x00522030, &Obj::CTrickComponent::GetBashSpeed);
-REPLACE(0x00522170, &Obj::CTrickComponent::CountTriangleBashes);
-REPLACE(0x00522280, &Obj::CTrickComponent::Pressed);
-REPLACE(0x005222F0, &Obj::CTrickComponent::GetCurrentBailEndpose);
-REPLACE(0x00522340, &Obj::CTrickComponent::CountTrick);
-REPLACE(0x00522370, &Obj::CTrickComponent::PassToTrickObjects);
-REPLACE(0x005232A0, &Obj::CTrickComponent::SetTrickObjects);
-REPLACE(0x005232E0, &Obj::CTrickComponent::ResetTrickObjects);
-REPLACE(0x00523310, &Obj::CTrickComponent::EndTrickObjects);
-REPLACE(0x00522520, &Obj::CTrickComponent::TryTrick);
-REPLACE(0x00522670, &Obj::CTrickComponent::DoNextTrick);
-REPLACE(0x005228B0, &Obj::CTrickComponent::DoNextManualTrick);
-REPLACE(0x00522E80, &Obj::CTrickComponent::DoExtraGrindTrick);
-REPLACE(0x00521BA0, &Obj::CTrickComponent::UpdateManualTricks);
-REPLACE(0x00521C10, &Obj::CTrickComponent::CheckExtraGrindTricks);
-REPLACE(0x00521D20, &Obj::CTrickComponent::UpdateExtraGrindTricks);
-REPLACE(0x00521D80, &Obj::CTrickComponent::GetIgnoreMask);
-REPLACE(0x00521DF0, &Obj::CTrickComponent::IgnoreTricks);
-REPLACE(0x00522AA0, &Obj::CTrickComponent::TryExtraTricks);
-REPLACE(0x00522C00, &Obj::CTrickComponent::UpdateExtraTricks);
-REPLACE(0x00522CD0, &Obj::CTrickComponent::SetExtraTricks);
-REPLACE(0x005230E0, &Obj::CTrickComponent::UpdateBash);
-REPLACE(0x00523350, Obj::CFunc_DoNextTrick);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064C508,
-    &Obj::CTrickComponent::Destroy,
-    &Obj::CTrickComponent::Update,
-    Stubs::IgnoreArgument,
-    &Obj::CTrickComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::CTrickComponent::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CTrickComponent::Destroy,
+         &Obj::CTrickComponent::Update,
+         Stubs::IgnoreArgument,
+         &Obj::CTrickComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::CTrickComponent::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

@@ -2,6 +2,8 @@
 
 #include "game/front/text_element.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
@@ -12,9 +14,7 @@
 #include "game/gfx/font.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/obj/object.h"
 #include "game/front/screen_element.h"
 #include "game/front/screen_constants.h"
@@ -25,7 +25,6 @@ namespace Front {
 namespace {
 extern void** const kCTextElementVtable;
 } // namespace
-
 
 namespace {
 
@@ -656,37 +655,15 @@ void CTextElement::Update()
 }
 
 namespace {
-GAME_VTABLE(kCTextElementVtable, 0x0064A290, &CTextElement::Destroy, &CTextElement::SetProperties,
-            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-            &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
-            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CTextElement::SetMorph,
-            &CTextElement::Update);
+static VtableSlot kCTextElementVtable_slots[] = {&CTextElement::Destroy, &CTextElement::SetProperties,
+                static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+                &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
+                &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CTextElement::SetMorph,
+                &CTextElement::Update};
+void** const kCTextElementVtable = reinterpret_cast<void**>(kCTextElementVtable_slots);
 } // namespace
 
 } // namespace Front
 
 using Front::CBlurEffect;
 using Front::CTextElement;
-
-REPLACE(0x004A5770, &CBlurEffect::GetCopy);
-REPLACE(0x004A5780, &CBlurEffect::StartMorph);
-REPLACE(0x004A57D0, &CBlurEffect::Update);
-REPLACE(0x004A5CF0, &CBlurEffect::SetTarget);
-REPLACE(0x004A5D30, &CBlurEffect::SetFromParams);
-REPLACE(0x004B0920, &CTextElement::Construct);
-REPLACE(0x004B1830, &CTextElement::DestroyBody);
-REPLACE(0x004B2030, &CTextElement::Destroy);
-REPLACE(0x004B18E0, &CTextElement::SetProperties);
-REPLACE(0x004B09D0, &CTextElement::SetMorph);
-REPLACE(0x004AFE70, &CTextElement::Update);
-REPLACE(0x004AF650, &CTextElement::GetLength);
-REPLACE(0x004AF670, &CTextElement::SetViewports);
-REPLACE(0x004AF8C0, &CTextElement::SetText);
-REPLACE(0x004AFA00, &CTextElement::SetTextRotation);
-REPLACE(0x004AFBB0, &CTextElement::SetCharProperties);
-REPLACE(0x004AFD00, &CTextElement::Concatenate);
-REPLACE(0x004AFDD0, &CTextElement::Backspace);
-REPLACE(0x004B0620, &CTextElement::MakeTextObjects);
-REPLACE(0x004B0760, &CTextElement::FreeTextObjects);
-REPLACE(0x004B0A20, &CTextElement::EnableBlur);
-REPLACE(0x004B0AE0, &CTextElement::DisableBlur);

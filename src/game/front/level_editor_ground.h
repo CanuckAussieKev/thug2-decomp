@@ -45,7 +45,7 @@ struct Painter;
 // measured on the donor when the piece was made, so the bake gives the same piece). hides: the floor tiles a pit hides.
 namespace Front::LevelEditor::Ground {
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_ux9.cpp; tools/pipeline/game/ground_pieces.ts is their port) -------
+// --- the pure parts (tools/pipeline/game/ground_pieces.ts is their port) -------------------------------------------------------
 
 enum class Ramp : uint8_t { None, Kicker, Quarter };
 enum Side { kMinusX, kPlusX, kMinusZ, kPlusZ };

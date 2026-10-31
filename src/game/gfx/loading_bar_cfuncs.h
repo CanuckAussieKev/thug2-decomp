@@ -1,6 +1,6 @@
 #pragma once
 
-#include "hook/game_global.h"
+#include <cstdint>
 
 namespace Script {
 class CScript;
@@ -28,5 +28,5 @@ void __cdecl DisplayLoadingScreen(const char* name, bool keep, bool black);
 // 0x004908C0: the loading screen hidden and its sprite freed (0x006FC49C cleared).
 void __cdecl RemoveLoadingScreen();
 
-GAME_GLOBAL_EXTERN(uint8_t, g_loadingScreenShown);
+extern uint8_t g_loadingScreenShown;
 } // namespace Nx

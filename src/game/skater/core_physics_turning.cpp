@@ -22,10 +22,8 @@
 #include "game/skater/balance_trick.h"
 #include "game/skate/score.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/net/gamenet_manager.h"
-#include "hook/game_code.h"
 
 namespace Skater {
 
@@ -229,7 +227,7 @@ void CorePhysicsComponent::NatasSpin()
     At<Obj::CBalance>(At<void*>(this, kBalance), 0xD4).Update();
     float factor = Script::GetFloat(kNatasSpinFactor);
     // (read as a double - the unrounded x87 result: GetLean 0x004F8F20 isn't called as a float function)
-    double balance = std::fabs(reinterpret_cast<double(__thiscall*)(void*)>(GAME_CODE(0x004F8F20, &Obj::CSkaterBalanceTrickComponent::GetLean))(At<void*>(this, kBalance)));
+    double balance = std::fabs(reinterpret_cast<double(__thiscall*)(void*)>(CodeAddress(&Obj::CSkaterBalanceTrickComponent::GetLean))(At<void*>(this, kBalance)));
     // The spin slows the further off balance.
     double rate = factor - balance / (kNatasSpinScale / static_cast<double>(factor)) + kNatasSpinBase;
     if (At<uint8_t>(this, kNatasCounterClockwise))
@@ -375,13 +373,3 @@ void CorePhysicsComponent::KeepUpright()
 }
 
 } // namespace Skater
-
-REPLACE(0x005002D0, &Skater::CorePhysicsComponent::TurnForRailJump);
-REPLACE(0x00503560, &Skater::CorePhysicsComponent::TurnOnGround);
-REPLACE(0x005039F0, &Skater::CorePhysicsComponent::BounceOffWall);
-REPLACE(0x00501B00, &Skater::CorePhysicsComponent::TurnDownSlope);
-REPLACE(0x00504730, &Skater::CorePhysicsComponent::NatasSpin);
-REPLACE(0x00504910, &Skater::CorePhysicsComponent::LeanInAir);
-REPLACE(0x00504A60, &Skater::CorePhysicsComponent::RotateInAcidDrop);
-REPLACE(0x00504B40, &Skater::CorePhysicsComponent::RecoverInAir);
-REPLACE(0x00504DF0, &Skater::CorePhysicsComponent::KeepUpright);

@@ -17,25 +17,22 @@
 #include "game/gfx/render_state.h"
 #include "game/gfx/view_mode.h"
 #include "game/lst/hashtable.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/shader_slots.h"
 #include "game/gfx/device.h"
 #include "game/sys/startup_init.h"
 
 namespace Nx {
 
-GAME_GLOBAL(Lst::HashTable*, g_shadowCasters, 0x007CA970);
-GAME_GLOBAL(bool, g_pixelShadersMade, 0x007CAA30);
-GAME_GLOBAL(void*[kPixelShaderCount], g_pixelShaders, 0x007CA920);
+Lst::HashTable* g_shadowCasters;
+bool g_pixelShadersMade;
+void* g_pixelShaders[kPixelShaderCount];
 
 namespace {
 
 IDirect3DDevice9* Device() { return g_d3dDevice; }
 void*& Handle(int slot) { return g_pixelShaders[slot]; }
 // The cache of generated shaders (a hash table kept in place at 0x007CA9C0), by configuration key.
-GAME_GLOBAL(Lst::HashTable, g_shaderCache, 0x007CA9C0, Lst::HashTable::Unconstructed{}); // (the exe makes it with HashTable(8) at start-up)
+Lst::HashTable g_shaderCache{Lst::HashTable::Unconstructed{}}; // (the exe makes it with HashTable(8) at start-up)
 Lst::HashTable& Cache() { return g_shaderCache; }
 
 // An ID3DXBuffer (COM, through its vtable): [2] Release, [3] GetBufferPointer.
@@ -265,10 +262,6 @@ void __cdecl MaterialPixelShader(const void* material, void** shader)
 }
 
 } // namespace Nx
-
-REPLACE(0x004DD7F0, Nx::CreatePixelShaders);
-REPLACE(0x004DD2C0, Nx::GeneratedPixelShader);
-REPLACE(0x004DDC00, Nx::MaterialPixelShader);
 
 namespace Nx {
 

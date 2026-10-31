@@ -14,7 +14,7 @@
 
 namespace Sfx {
 
-// The switch (read from the ini once; self-tests change it for their run).
+// The switch (read from the ini once).
 bool& AudioMuted();
 
 // What reaches DirectSound / Bink: the level as computed, or silence when muted (-10000 = DSBVOLUME_MIN; Bink 0).

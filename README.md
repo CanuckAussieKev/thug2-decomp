@@ -13,8 +13,8 @@ this repository.
 
 A game that builds from readable source and keeps getting better, not a byte-for-byte copy of the original program.
 The code is rewritten to do what the original does, in C++ you can read, change and debug; how it compiles doesn't
-matter. While the decompilation is under way, each rewritten function is checked against the original's behaviour,
-so the source stays a trustworthy base. On top of that base:
+matter. During the decompilation each rewritten function was checked against the original's behaviour, so the
+source is a trustworthy base. On top of that base:
 
 - **Bugs get fixed.** Crashes, hangs, memory limits and other faults found in the original are fixed in the source.
 - **The game gets better:** PartyMod's fixes are part of it, plus a level editor, a new front end, graphics options,
@@ -38,15 +38,13 @@ so the source stays a trustworthy base. On top of that base:
 
 ## Status
 
-The decompilation isn't finished: about 91% of the game's code (by bytes) is rewritten - 7,444 of 8,482 functions
-(`docs/PROGRESS.md` has the figure by subsystem). Until it is, development builds run as a DLL inside the game process: each rewritten function
-replaces the original and is checked against it by self-tests, and everything not yet rewritten still runs the
-original code, so the game stays playable at every step. Those builds are tied to the one build of `THUG2.exe` the
-code's addresses come from (the "reference build"); the retail CD build isn't supported.
+The whole game builds from this source: `thug2-decomp.exe` is compiled from `src/` alone, links the libraries the
+original linked (D3DX9, the GameSpy SDK, the C runtime) instead of decompiling them, and runs on your copy's data
+files - no part of the original program is used. It boots to the main menu and into free skate; it is new, so expect
+rough edges in the parts nobody has played through yet, and report them (Tracking down a problem, below).
 
-When the decompilation is complete, the game builds as a standalone program from this source and needs only your
-copy's data files. The libraries (D3DX9, GameSpy, the C runtime) will be linked rather than decompiled, and the QB
-script interpreter is planned to be replaced by JavaScript (QuickJS) with the scripts decompiled to readable JS.
+Next: the QB script interpreter is planned to be replaced by JavaScript (QuickJS) with the scripts decompiled to
+readable JS, and the renderer to move off Direct3D 9 one day.
 
 ## What you need
 
@@ -71,42 +69,47 @@ may be the install root, with the game in a `Game` subfolder, or the game folder
 
 | Tool | Version | Used for |
 |---|---|---|
-| Visual Studio | 2026 (MSVC 14.51) with "Desktop development with C++", x86 tools, CMake and Ninja | The game code and `thug2_check.exe` |
+| Visual Studio | 2026 (MSVC 14.51) with "Desktop development with C++", x86 tools, CMake and Ninja | The game |
 | Node.js | 24 or later | Every tool in `tools/` (TypeScript, run directly: `node tools/<x>.ts`) |
 | Git | any | Clone with `--recurse-submodules` (`tools/pipeline`, `tools/anteara`) |
 | NeverScript | downloaded and built by `tools\build_neverscript.ps1` (docs/neverscript.md) | Compiling / decompiling QB scripts for the level converters |
-| Ghidra | 12.1.4 | Decompiling |
-| Python + uv | Python 3.13 via uv | The Ghidra scripts in `tools/ghidra` (pyghidra) and `tools/capstone_disasm.py` |
+| Python | 3.13 or later | The crash tools in `tools/standalone` (optional) |
 
 The build downloads its libraries itself at configure time, each pinned and checked against a SHA-256: SDL2 2.30.9,
-MinHook 1.3.3, Dear ImGui 1.91.9b, stb, and the Inter 4.1 and JetBrains Mono 2.304 fonts (the level editor's UI).
-
-**Antivirus:** the self-test runner loads the game's code into its own process and patches it in memory, which
-behaviour-based antivirus can flag. Add exceptions for the repo folder and the game folder (keep build scripts inside
-the repo, e.g. `out\scripts`, so the repo's exception covers them).
+Microsoft's D3DX9 (the Microsoft.DXSDK.D3DX package), IGN's GameSpy SDK, Dear ImGui 1.91.9b, stb, LZHAM, and the
+Inter 4.1 and JetBrains Mono 2.304 fonts (the level editor's UI).
 
 ## Build
 
 1. In Visual Studio: **File > Open > Folder...** and pick this folder.
 2. Choose the **x86 Debug** configuration in the toolbar.
-3. **Build > Build All**. The output (with `SDL2.dll` and `gamecontrollerdb.txt`) is copied to `C:\Games\THUG2\Game`;
-   change `THUG2_GAME_DIR` in `CMakeLists.txt` or the CMake cache if your game is elsewhere.
-4. Run the game and read `thug2-decomp.log` in the game folder.
+3. **Build > Build All**. The build makes `thug2-decomp.exe` and puts `d3dx9_43.dll`, `SDL2.dll` and
+   `gamecontrollerdb.txt` next to it; when `THUG2_GAME_DIR` (in `CMakeLists.txt` or the CMake cache, default
+   `C:\Games\THUG2\Game`) is a game folder, all of them and the PDB are copied there too.
 
 From the command line:
 
 ```
 npm install                          (once: the TypeScript tools' dependencies)
 tools\build_neverscript.ps1          (once: out\neverscript\ns.exe)
-tools\verify_build.cmd               (builds out\build\verify; nothing copied)
-out\build\verify\thug2_check.exe     (argument-size checks + the early self-tests, offline)
-node tools\check_code_writes.ts      (must say "No overlaps")
+tools\verify_build.cmd               (builds out\build\verify\thug2-decomp.exe; nothing copied)
 npm run typecheck && npm run lint && npm test
 ```
 
 Prefer a solution file? `cmake -S . -B out/vs -G "Visual Studio 18 2026" -A Win32`, then open `out\vs\thug2_decomp.slnx`
 and build **Debug | Win32**. Builds are Debug: debug-CRT reports and run-time check failures go to `thug2-decomp.log`
 with a call stack.
+
+## Running
+
+The game runs from the game folder of your THUG2 install - the folder with `THUG2.exe`, its `Data` folder and
+`binkw32.dll` (the movie player, from your copy of the game; nothing of it is in this repository):
+
+1. Copy `thug2-decomp.exe`, `d3dx9_43.dll`, `SDL2.dll` and `gamecontrollerdb.txt` from the build folder into the game
+   folder (the build does it when `THUG2_GAME_DIR` points there). Keep `thug2-decomp.pdb` with them for readable crash
+   reports. `THUG2.exe` stays as it is: nothing of yours is changed.
+2. Optional: a `thug2-decomp.ini` in the same folder (Settings, below; every key has a default).
+3. Start `thug2-decomp.exe`. It writes `thug2-decomp.log` next to itself - read it when something goes wrong.
 
 ## Playing
 
@@ -283,17 +286,6 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `node_hash_slots` | 65536 | Slots in the node-name hash table |
 | `original_sizes` | 0 | 1 puts every pool back to THUG2's size |
 
-**`[replacements]`** and **`[selftests]`** - development builds
-
-| Key | Default | Effect |
-|---|---|---|
-| `[replacements] disable=` | (empty) | Leaves these as the original code: parts of source file names (`matrix.cpp`), function names (`Mth::FastSin`) or exact addresses (`0x00402640`), comma-separated; `*` disables everything |
-| `[selftests] enabled` | 1 | 0 skips every self-test and shadow check |
-| `[selftests] early` | 1 | 0 skips the early self-tests in the game (`thug2_check.exe` runs them offline) |
-| `[selftests] shadow_calls` | 100 | For each REPLACE_SHADOW function, how many of the game's own calls also run the original to compare |
-| `[selftests] filter=` | (empty) | Runs only the self-tests whose names contain one of these words |
-| `[selftests] trace` | 0 | Logs each self-test as it starts (to find one that hangs) |
-
 ## Online play
 
 Online goes through OpenSpy (`OnlineDomain=openspy.net`), the community replacement for the closed GameSpy service. By
@@ -311,9 +303,8 @@ hosts or enters a lobby.
    full` means one of the game's fixed pools ran out (usually a converted level that's too big; see `[memory]`).
 2. **Name the functions:** `node tools/symbolize.ts --pdb-dir <build folder> <path to thug2-decomp.log>` turns the
    last crash's addresses into function names and source lines. The PDB must come from the same build.
-3. **Bisect** (development builds): list suspect source files, functions or addresses under `[replacements] disable=`
-   and the original code runs instead. If the problem goes away, our version is at fault; if not, it's elsewhere
-   (often converted data).
+3. **Without a log line:** `python tools/standalone/first_fault.py <exe> <game folder>` runs the game under the
+   debugger API and reports its first fault with registers, the stack and symbol names.
 4. **Report it with the screenshot key:** it saves a PNG and a `.txt` with the level, mode, skater and camera
    positions, the editor's state and the log's last lines.
 
@@ -321,61 +312,29 @@ A level that crashes on load in only one ported game is usually a converter prob
 
 ## Contributing
 
-### Decompiling
+Our code comes only from our own decompilation of the game: never read, reference or copy leaked Neversoft /
+Activision source code. Code from Morten1337's THUGPRO repositories is used with his permission for insight only,
+never copied as is, and each borrowed idea is credited where it's used.
 
-1. Load the reference build of `THUG2.exe` into a Ghidra project (base 0x400000) and let it analyse;
-   `tools\ghidra\snapshot_project.ps1` makes the read-only copy the scripts use. Your machine's paths go in a
-   `local.json` at the repo root (gitignored):
-
-   ```json
-   {
-     "referenceExe": "D:\\path\\to\\THUG2.exe",
-     "exeNames": [],
-     "ghidraProject": "THUG2",
-     "ghidraProgram": "/THUG2.exe"
-   }
-   ```
-
-   `referenceExe` is the default for `thug2_check.exe` and the tools that read the original code; `exeNames` lists
-   other exe names a game folder may have besides `THUG2.exe`; the Ghidra scripts open `ghidraProject` /
-   `ghidraProgram`.
-2. Regenerate `data\derived\` (not committed): `tools\ghidra\export_functions.py` (via pyghidra) for the function list,
-   `node tools\extract_cfuncs.ts <exe> data\derived\cfuncs.csv` for the script command table.
-3. Rewrite functions in batches (10-40 functions, or one feature, per commit). Our code comes only from our own
-   decompilation of the game: never read, reference or copy leaked Neversoft / Activision source code.
-
-### Adding a function
-
-1. Decompile it in Ghidra and check its calling convention in the disassembly (some functions take arguments in
-   registers: those get naked assembly stubs). Never trust Ghidra's return types or parameter counts.
-2. Write it in the matching `src/game/<subsystem>/` file with a `// 0xADDRESS` comment.
-3. Add `REPLACE(0xADDRESS, Namespace::Function);` - or `REPLACE_SHADOW(...)` if the function is pure, so the game's
-   own calls get compared with the original (`src/hook/shadow.h`). Functions too small to hook are still written and
-   registered with `REPLACE_SOURCE_ONLY`. These lines stay in the standalone build as the map from our code back to
-   the original's addresses.
-4. Add a self-test comparing it with `Original<Fn>(0xADDRESS)`, registered with `SELFTEST(Early|Late|EngineStarted, Name)`
-   for the earliest stage where what it needs exists (`src/hook/selftest.h`), and prove the test catches mistakes with
-   `node tools/mutate.ts` (deliberate bugs that must fail it).
-5. Build and run the checks: `thug2_check.exe` (argument sizes against the original's `RET n`, and the early
-   self-tests, offline), `node tools/check_code_writes.ts`, `npm run typecheck`, `npm run lint`, `npm test`.
-
-### Tools
-
-Tools are TypeScript (Node 24, no build step; conventions in `docs/typescript.md`); Python only for the Ghidra
-scripts. Code from Morten1337's THUGPRO repositories is used with his permission for insight only, never copied as
-is, and each borrowed idea is credited where it's used.
+- **Changing the game:** the original's behaviour is the default. A change that differs from it carries a
+  `NOT ORIGINAL` comment saying what it does and why, and an ini switch where a player might want the original back.
+  The `// 0x...` comment above a function is the original's address it was decompiled from - handy with a
+  disassembler open on your own copy of `THUG2.exe`.
+- **Checks before a commit:** the game builds (`tools\verify_build.cmd`), `npm run typecheck`, `npm run lint`,
+  `npm test`.
+- **Tools** are TypeScript (Node 24, no build step; conventions in `docs/typescript.md`); Python only for the crash
+  tools.
 
 ## Layout
 
 | Path | Contents |
 |---|---|
-| `src/game/` | The game's code, by subsystem (see `docs/subsystems.md`) |
-| `src/hook/` | Development builds: the replacement mechanism, logging, self-tests |
-| `src/proxy/` | Development builds: loading into the game process |
-| `tools/` | Checks, progress report, Ghidra / pyghidra scripts |
+| `src/main.cpp` | The program's entry point |
+| `src/game/` | The game's code, by subsystem: engine (`gfx`, `nx`), scripts (`script`), objects and skater (`obj`, `skater`), goals, park editor (`ed`), networking (`net`), front end (`front`)... |
+| `tools/` | The crash tools, symbolize, NeverScript's build, the script-table extractors |
 | `tools/pipeline/` | Submodule: level converters, menus, test runs, layouts, the THUGPRO compatibility register |
 | `tools/anteara/` | Submodule: Anteara Mod, stored as edits to the game's scripts |
-| `docs/` | Progress, the exe's map (`subsystems.md`, `library_ranges.md`), the script runtime, tool conventions |
+| `docs/` | The script runtime, the GameSpy SDK notes, the level ports, tool conventions, the front end's design |
 
 ## Glossary
 
@@ -389,8 +348,7 @@ is, and each borrowed idea is credited where it's used.
 | `.pre` / `.prx` | Neversoft's packed archives (LZSS) |
 | Data overlay | `Game\thug2-decomp-data`: our menus and ported levels, read before the game's own `Data` folder |
 | Edited copy | A level with a level editor layout on top, offered separately as "<LEVEL> (EDITED)"; offline only |
-| REPLACE / REPLACE_SOURCE_ONLY | A rewritten function and the original address it stands for (installed / not installed in development builds) |
-| Reference build | The build of `THUG2.exe` whose addresses the code and tools use |
+| Reference build | The build of `THUG2.exe` whose addresses the `// 0x...` comments give |
 | TP-n / TPN-&lt;game&gt;-n / PC-&lt;game&gt;-n | The THUGPRO register's entries: THUGPRO's hand edits, THUGPRO's own content, our own deviations |
 
 ## Legal and credits

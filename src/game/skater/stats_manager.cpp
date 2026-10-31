@@ -19,10 +19,7 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/score.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
@@ -32,7 +29,7 @@
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[60], g_statsManagerMemberFunctions, 0x00684180,
+uint32_t g_statsManagerMemberFunctions[60]{
             0x82CE30CE, 0x4FF8DAC6, 0, 0, 0, 0,
             0x57879C96, 0x4FF8DAC6, 0, 0, 0, 0,
             0xEE59073C, 0x4FF8DAC6, 0, 0, 0, 0,
@@ -42,7 +39,7 @@ GAME_GLOBAL(uint32_t[60], g_statsManagerMemberFunctions, 0x00684180,
             0xB7FAC894, 0x4FF8DAC6, 0, 0, 0, 0,
             0x629D29FA, 0x4FF8DAC6, 0, 0, 0, 0,
             0xB1652DEC, 0x4FF8DAC6, 0, 0, 0, 0,
-            0, 0x4FF8DAC6, 0, 0, 0, 0);
+            0, 0x4FF8DAC6, 0, 0, 0, 0};
 
 namespace {
 
@@ -214,7 +211,7 @@ void CStatsManagerComponent::InitFromStructure(Script::CStruct*)
         m_physicsControl = m_skater->GetComponent(kSkaterPhysicsControl);
     }
     m_difficulty = static_cast<Game::CGoalManager*>(GameFlow())->GetDifficultyLevel(true);
-    Dbg::Printf(GAME_TEXT(0x0064C2C8, "STATSManager: difficulty ====================== %i\n"), m_difficulty); // "STATSManager: difficulty ... %i"
+    Dbg::Printf("STATSManager: difficulty ====================== %i\n", m_difficulty); // "STATSManager: difficulty ... %i"
     if (Script::GetInteger(0xB8688A8Au) == 1)
         m_raiseStats = true;
 
@@ -244,7 +241,7 @@ void CStatsManagerComponent::InitFromStructure(Script::CStruct*)
             goal.m_text = byDifficulty->GetLocalString(static_cast<uint32_t>(m_difficulty));
         }
         if (source->ContainsComponentNamed(0xC4745838u)) {
-            const char* name = GAME_TEXT(0x006469B4, ""); // ""
+            const char* name = ""; // ""
             source->GetString(0xC4745838u, &name, 1);
             goal.m_name = name;
         }
@@ -365,7 +362,7 @@ void CStatsManagerComponent::AnnounceMetGoals()
             profile->SetStat(stat, profile->GetStat(stat) + 1);
     }
     if (announced) {
-        Dbg::Printf(GAME_TEXT(0x0064C2FC, "updating skater stats\n")); // "updating skater stats"
+        Dbg::Printf("updating skater stats\n"); // "updating skater stats"
         reinterpret_cast<CSkater*>(m_skater)->SetStatsFromProfile(profile);
         if (!m_goalDone && static_cast<Game::CGoalManager*>(GameFlow())->CanStartGoal()) {
             RunScript(0xEF3A4EE5);
@@ -425,7 +422,7 @@ void CStatsManagerComponent::Update()
                 m_airStart = pos;
                 m_airStartPoints = m_points;
                 m_airStartMultiplier = m_multiplier;
-                Dbg::Printf(GAME_TEXT(0x0064C314, "vert_start_score = %i\n"), m_score); // "vert_start_score = %i"
+                Dbg::Printf("vert_start_score = %i\n", m_score); // "vert_start_score = %i"
                 m_airBest = 0;
             } else {
                 double height = static_cast<double>(pos.y) - m_airStart.y;
@@ -667,50 +664,23 @@ bool CStatsManagerComponent::ClearLastAirComboScore(Script::CStruct*, Script::CS
 
 } // namespace Obj
 
-REPLACE(0x0051CB90, Obj::CStatsManagerComponent::Create);
-REPLACE(0x0051C440, Obj::CStatsManagerComponent::RegisterMemberFunctions);
-REPLACE(0x0051C5A0, &Obj::CStatsManagerComponent::Construct);
-REPLACE(0x0051C460, &Obj::CStatsManagerComponent::DestroyBody);
-REPLACE(0x0051C640, &Obj::CStatsManagerComponent::Destroy);
-REPLACE(0x0051C470, &Obj::CStatsManagerComponent::GetGoalStatus);
-REPLACE(0x0051C480, &Obj::CStatsManagerComponent::SetGoalStatus);
-REPLACE(0x0051C670, &Obj::CStatsManagerComponent::InitFromStructure);
-REPLACE(0x0051C950, &Obj::CStatsManagerComponent::IsActive);
-REPLACE(0x0051C9D0, &Obj::CStatsManagerComponent::Set10);
-REPLACE(0x0051CA00, &Obj::CStatsManagerComponent::Reset);
-REPLACE(0x0051CAC0, &Obj::CStatsManagerComponent::SetValue58);
-REPLACE(0x0051CAE0, &Obj::CStatsManagerComponent::Count);
-REPLACE(0x0051CBF0, &Obj::CStatsManagerComponent::AnnounceMetGoals);
-REPLACE(0x0051CE80, &Obj::CStatsManagerComponent::MeetGoal);
-REPLACE(0x0051CF90, &Obj::CStatsManagerComponent::Update);
-REPLACE(0x0051D6A0, &Obj::CStatsManagerComponent::CheckBalanceTime);
-REPLACE(0x0051C4A0, &Obj::CStatsManagerComponent::ReInit);
-REPLACE(0x0051CB20, &Obj::CStatsManagerComponent::ResetGoals);
-REPLACE(0x0051C4C0, &Obj::CStatsManagerComponent::ActivateGoals);
-REPLACE(0x0051C4F0, &Obj::CStatsManagerComponent::DeactivateGoals);
-REPLACE(0x0051CB30, &Obj::CStatsManagerComponent::GetGoalStatusMember);
-REPLACE(0x0051C520, &Obj::CStatsManagerComponent::UnlockAmGoals);
-REPLACE(0x0051C550, &Obj::CStatsManagerComponent::UnlockProGoals);
-REPLACE(0x0051CB70, &Obj::CStatsManagerComponent::GetLastAirComboScore);
-REPLACE(0x0051C580, &Obj::CStatsManagerComponent::ClearLastAirComboScore);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064C294,
-    &Obj::CStatsManagerComponent::Destroy,
-    &Obj::CStatsManagerComponent::Update,
-    &Obj::CStatsManagerComponent::InitFromStructure,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CStatsManagerComponent::Destroy,
+         &Obj::CStatsManagerComponent::Update,
+         &Obj::CStatsManagerComponent::InitFromStructure,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

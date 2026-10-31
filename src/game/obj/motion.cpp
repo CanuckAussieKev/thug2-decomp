@@ -1,11 +1,11 @@
+#include <cstdint>
+
 #include "game/obj/motion.h"
 
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/obj/object.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Obj {
 
@@ -49,5 +49,3 @@ void CMotionComponent::RotateTo(Script::CStruct* params)
 }
 
 } // namespace Obj
-
-REPLACE(0x00425600, &Obj::CMotionComponent::RotateTo);

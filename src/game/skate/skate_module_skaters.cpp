@@ -5,7 +5,9 @@
 #include "game/skate/skate_module.h"
 #include "game/net/task_vtable.h"
 
+#include <cstdint>
 #include <cstring>
+#include <new>
 
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
@@ -61,17 +63,13 @@
 #include "game/gfx/particles.h"
 #include "game/gfx/viewport.h"
 #include "game/obj/particle_component.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/settings.h"
-#include "hook/game_code.h"
 
 namespace Mdl {
 
-GAME_GLOBAL(int, g_viewportCount, 0x00701378);
-GAME_GLOBAL(Script::CStruct*, g_catInfo, 0x007CE480);
-GAME_GLOBAL(Script::CStruct*, g_statGoalInfo, 0x007CE484);
+int g_viewportCount;
+Script::CStruct* g_catInfo;
+Script::CStruct* g_statGoalInfo;
 
 namespace {
 
@@ -259,14 +257,14 @@ void Skate::RemoveSkater(Obj::CSkater* skater)
             DeleteStructure(CatInfo());
             CatInfo() = nullptr;
         }
-        Dbg::Printf(GAME_TEXT(0x0064E568, "CAT: Storing Created Trick data\n")); // "CAT: Storing Created Trick data\n"
+        Dbg::Printf("CAT: Storing Created Trick data\n"); // "CAT: Storing Created Trick data\n"
         CatInfo() = NewStructure();
         skater->WriteCATInfo(CatInfo());
         if (StatGoalInfo()) {
             DeleteStructure(StatGoalInfo());
             StatGoalInfo() = nullptr;
         }
-        Dbg::Printf(GAME_TEXT(0x0064E548, "CAT: Storing Stat Goal data\n")); // "CAT: Storing Stat Goal data\n"
+        Dbg::Printf("CAT: Storing Stat Goal data\n"); // "CAT: Storing Stat Goal data\n"
         StatGoalInfo() = NewStructure();
         skater->WriteList44B66A9F(StatGoalInfo());
     }
@@ -315,7 +313,7 @@ Obj::CSkater* Skate::AddSkater(Obj::CSkaterProfile* profile, bool local, uint32_
         }
     }
     net->InNetGame(); // (its answer unused, as the original)
-    Mem::PushMemProfile(GAME_TEXT(0x0064E724, "Skater")); // "Skater"
+    Mem::PushMemProfile("Skater"); // "Skater"
     int heap = GetNextUnusedSkaterHeapIndex(local);
     Mem::PushContext(SkaterHeap(heap));
     void* memory = Mem::Calloc(sizeof(Obj::CSkater));
@@ -338,13 +336,13 @@ Obj::CSkater* Skate::AddSkater(Obj::CSkaterProfile* profile, bool local, uint32_
     BindControllers();
     if (skater->m_unknownBC && skater->m_viewport == 0) {
         if (CatInfo()) {
-            Dbg::Printf(GAME_TEXT(0x0064E704, "CAT: Restoring Created Tricks\n")); // "CAT: Restoring Created Tricks\n"
+            Dbg::Printf("CAT: Restoring Created Tricks\n"); // "CAT: Restoring Created Tricks\n"
             skater->LoadCATInfo(CatInfo());
             DeleteStructure(CatInfo());
             CatInfo() = nullptr;
         }
         if (StatGoalInfo()) {
-            Dbg::Printf(GAME_TEXT(0x0064E6E4, "CAT: Restoring Stat Goal data\n")); // "CAT: Restoring Stat Goal data\n"
+            Dbg::Printf("CAT: Restoring Stat Goal data\n"); // "CAT: Restoring Stat Goal data\n"
             skater->LoadList44B66A9F(StatGoalInfo());
             DeleteStructure(StatGoalInfo());
             StatGoalInfo() = nullptr;
@@ -392,11 +390,11 @@ void Skate::SetSkaterShadow(Obj::CSkater* skater)
         type = 2;
     Script::CStruct* params = NewStructure();
     params->AddFloat(kShadowScale, 1.0f);
-    params->AddString(kShadowModel, GAME_TEXT(0x006464CC, "Ped_Shadow")); // "Ped_Shadow"
+    params->AddString(kShadowModel, "Ped_Shadow"); // "Ped_Shadow"
     reinterpret_cast<void(__thiscall*)(Obj::CShadowComponent*, Script::CStruct*)>(shadow->m_vtable[2])(shadow, params);
     DeleteStructure(params);
     shadow->DestroyShadow();
-    shadow->CreateShadow(type, GAME_TEXT(0x006464CC, "Ped_Shadow"));
+    shadow->CreateShadow(type, "Ped_Shadow");
     Mem::PopContext();
 }
 
@@ -425,10 +423,10 @@ uint32_t Skate::SkipToRestartPoint(uint32_t skaterId)
 {
     GameNet::Manager* net = NetManager();
     auto generic = [] {
-        Dbg::Printf(GAME_TEXT(0x0064E600, "\n\nWARNING - no Player1 restart point, trying Generic\n\n")); // "WARNING - no Player1 restart point, trying Generic"
+        Dbg::Printf("\n\nWARNING - no Player1 restart point, trying Generic\n\n"); // "WARNING - no Player1 restart point, trying Generic"
         uint32_t node = Obj::GetRestartNode(0, 0, 0);
         if (!node)
-            Dbg::Printf(GAME_TEXT(0x0064E5D8, "\n\nWARNING - No restart points found\n\n")); // "WARNING - No restart points found"
+            Dbg::Printf("\n\nWARNING - No restart points found\n\n"); // "WARNING - No restart points found"
         return node;
     };
     auto found = [&](uint32_t node) { return node ? node : generic(); };
@@ -436,7 +434,7 @@ uint32_t Skate::SkipToRestartPoint(uint32_t skaterId)
         uint32_t node = Obj::GetRestartNode(kMultiplayer, static_cast<int>(net->GetStartInfoWord(static_cast<int>(start))), 0);
         if (node)
             return node;
-        Dbg::Printf(GAME_TEXT(0x0064E638, "\n\nWARNING - no multiplayer restart point, trying player1\n\n")); // "WARNING - no multiplayer restart point, trying player1"
+        Dbg::Printf("\n\nWARNING - no multiplayer restart point, trying player1\n\n"); // "WARNING - no multiplayer restart point, trying player1"
         return found(Obj::GetRestartNode(kPlayer1, 0, 0));
     };
     if (!net->InNetGame() && GameMode()->GetInitialNumberOfPlayers() <= 1)
@@ -511,7 +509,7 @@ namespace Mdl {
 // 0x005666A0
 void Skate::Cleanup()
 {
-    Dbg::Printf(GAME_TEXT(0x0064E680, "Skate::Cleanup() - Deleting all session specific objects\n")); // "Skate::Cleanup() - Deleting all session specific objects\n"
+    Dbg::Printf("Skate::Cleanup() - Deleting all session specific objects\n"); // "Skate::Cleanup() - Deleting all session specific objects\n"
     for (uint32_t i = 0; i < static_cast<uint32_t>(GetNumSkaters()); ++i) {
         Obj::CSkater* skater = SkaterAt(i);
         if (!skater)
@@ -551,7 +549,7 @@ void Skate::Cleanup()
 // 0x00565A00
 void Skate::ChangeLevel(uint32_t level)
 {
-    Dbg::Printf(GAME_TEXT(0x0064E590, "-----------------------------------------Skate::ChangeLevel(%d)\n"), level); // "-----...Skate::ChangeLevel(%d)\n"
+    Dbg::Printf("-----------------------------------------Skate::ChangeLevel(%d)\n", level); // "-----...Skate::ChangeLevel(%d)\n"
     Mem::PushContext(Mem::Manager::Get()->m_skaterInfoHeap);
     Script::CStruct* params = NewStructure();
     params->Clear();
@@ -605,7 +603,7 @@ void Skate::LaunchGame()
     GameNet::Manager* net = NetManager();
     g_frontEndInstance->PauseGame(false);
     Mem::PushContext(Mem::BottomUpHeap());
-    Dbg::Printf(GAME_TEXT(0x0064E6BC, "\nLAUNCH GAME CALLED with %d skaters \n\n"), GetNumSkaters()); // "\nLAUNCH GAME CALLED with %d skaters \n\n"
+    Dbg::Printf("\nLAUNCH GAME CALLED with %d skaters \n\n", GetNumSkaters()); // "\nLAUNCH GAME CALLED with %d skaters \n\n"
     if (!net->GetLocalPlayer()) {
         if (static_cast<uint32_t>(GameMode()->GetMaximumNumberOfPlayers()) > 1)
             Mem::Manager::Get()->InitExtraSkaterHeaps(GameMode()->GetMaximumNumberOfPlayers());
@@ -1004,7 +1002,7 @@ void __cdecl Skate::LogicTask(Tsk::BaseTask* task)
     int target = GameMode()->GetFirstConditionValue();
     int current = static_cast<uint8_t>(GameMode()->IsTeamGame()) ? net->GetTeamScore(king->m_team) : score->GetTotalScore();
     skate->TimerBeep(static_cast<float>(static_cast<double>(target - current) * static_cast<double>(0.001f)), 10.0f,
-                     10.0f, GAME_TEXT(0x0064E774, "timer_runout_beep")); // "timer_runout_beep"
+                     10.0f, "timer_runout_beep"); // "timer_runout_beep"
 }
 
 // --- made and destroyed ---------------------------------------------------------------------------------------------
@@ -1158,45 +1156,3 @@ uint32_t Skate::GetCheats()
 }
 
 } // namespace Mdl
-
-REPLACE(0x005665C0, &Mdl::Skate::GetSkater);
-REPLACE_UNCHECKED(0x00566520, Mdl::Skate::GetLocalSkaterStub); // ECX kept
-REPLACE_UNCHECKED(0x00566600, Mdl::Skate::GetSkaterByIdStub); // ECX kept
-REPLACE(0x00565790, &Mdl::Skate::RemoveSkater);
-REPLACE(0x00567180, &Mdl::Skate::AddSkater);
-REPLACE(0x00565FF0, &Mdl::Skate::GetNextUnusedSkaterHeapIndex);
-REPLACE(0x00565BF0, &Mdl::Skate::SetSkaterShadow);
-REPLACE(0x00567090, &Mdl::Skate::BindControllers);
-REPLACE(0x00566100, &Mdl::Skate::SkipToRestartPoint);
-REPLACE(0x00566370, &Mdl::Skate::MoveToRestart);
-REPLACE(0x00566980, &Mdl::Skate::ResetSkaters);
-REPLACE(0x00565A00, &Mdl::Skate::ChangeLevel);
-REPLACE(0x005666A0, &Mdl::Skate::Cleanup);
-REPLACE(0x005668A0, &Mdl::Skate::RestartLevel);
-REPLACE(0x00566900, &Mdl::Skate::ResetLevel);
-REPLACE(0x00566A60, &Mdl::Skate::LaunchGame);
-REPLACE(0x00566BE0, &Mdl::Skate::CheckSkaterCollisions);
-REPLACE(0x00566E70, Mdl::Skate::CFunc_Retry);
-REPLACE(0x00566EA0, Mdl::Skate::CFunc_LaunchGame);
-REPLACE(0x00566ED0, Mdl::Skate::CFunc_ResetLevel);
-REPLACE(0x00566F40, &Mdl::Skate::UpdateRecords);
-REPLACE(0x00567580, &Mdl::Skate::AllSkatersIdle);
-REPLACE(0x00567690, &Mdl::Skate::FirstTrickStarted);
-REPLACE(0x005676E0, &Mdl::Skate::FirstTrickCompleted);
-REPLACE(0x00567BD0, &Mdl::Skate::SetSpinTaps);
-REPLACE(0x00567C00, &Mdl::Skate::SetAutoKick);
-REPLACE(0x00567C30, &Mdl::Skate::SetVibration);
-REPLACE(0x00565ED0, &Mdl::Skate::RunScript);
-REPLACE(0x00565F80, &Mdl::Skate::KillScript);
-REPLACE(0x00565DA0, Mdl::Skate::DebugRails);
-REPLACE(0x00564D30, Mdl::Skate::UpdateSuspendVisibility);
-REPLACE(0x00567710, &Mdl::Skate::DoUpdate);
-REPLACE(0x00568C90, Mdl::Skate::LogicTask);
-REPLACE(0x00568DE0, &Mdl::Skate::Construct);
-REPLACE(0x005663A0, &Mdl::Skate::DestroyBody);
-REPLACE(0x00567BA0, &Mdl::Skate::Destroy);
-REPLACE(0x00565750, Mdl::Skate::DestroySkaterNode);
-REPLACE(0x00565FC0, Mdl::Skate::DestroySkaterHead);
-REPLACE(0x00569580, &Mdl::Skate::BeginQueuedScripts);
-REPLACE(0x00569590, &Mdl::Skate::EndQueuedScripts);
-REPLACE(0x005695A0, &Mdl::Skate::GetCheats);

@@ -4,10 +4,6 @@
 #include <cstring>
 
 #include "game/sys/game_config.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/shadow.h"
 
 namespace Str {
 
@@ -56,7 +52,7 @@ const char* FindCaseless(const char* haystack, const char* needle)
     return nullptr;
 }
 
-GAME_GLOBAL(char[16], g_separatedNumber, 0x00690FA4);
+char g_separatedNumber[16];
 
 // 0x00402200
 const char* FormatWithSeparators(int value)
@@ -162,11 +158,3 @@ int NextWord(char* out, const char*& cursor)
 }
 
 } // namespace Str
-
-REPLACE_SHADOW(0x00401FF0, Str::FindCaseless);
-REPLACE_SHADOW(0x00402120, Str::CompareCaseless);
-REPLACE_SHADOW(0x004020E0, Str::DehexifyDigit);
-REPLACE(0x00402170, Str::NextWord);
-REPLACE(0x00402200, Str::FormatWithSeparators);
-REPLACE(0x00402080, Str::LowerCase);
-REPLACE(0x004020B0, Str::UpperCase);

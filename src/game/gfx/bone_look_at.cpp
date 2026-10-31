@@ -3,6 +3,7 @@
 #include "game/gfx/bone_look_at.h"
 
 #include <cmath>
+#include <cstdint>
 
 #include "game/core/mem.h"
 #include "game/gfx/anim_blend.h"
@@ -13,9 +14,7 @@
 #include "game/obj/object.h"
 #include "game/obj/objman.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/gfx/model_utils.h"
 #include "game/core/stubs.h"
 #include "game/obj/anim_movies.h"
@@ -457,28 +456,10 @@ void CBoneLookAt::SetAllMax(const Mth::Vector* max)
 }
 
 namespace {
-GAME_VTABLE(kVtable, 0x006488D8, &Gfx::CBoneLookAt::Destroy, &Gfx::CBoneLookAt::Apply, Stubs::IgnoreArgument,
-            &Gfx::CBoneLookAt::CallMemberFunction, &Gfx::CBoneLookAt::InitFromStructure, &Gfx::CBoneLookAt::Update,
-            Gfx::VirtualSlot4Jump);
+static VtableSlot kVtable_slots[] = {&Gfx::CBoneLookAt::Destroy, &Gfx::CBoneLookAt::Apply, Stubs::IgnoreArgument,
+                &Gfx::CBoneLookAt::CallMemberFunction, &Gfx::CBoneLookAt::InitFromStructure, &Gfx::CBoneLookAt::Update,
+                Gfx::VirtualSlot4Jump};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 } // namespace
 
 } // namespace Gfx
-
-REPLACE(0x00487E00, &Gfx::SClampVector::Clamp);
-REPLACE(0x00487EE0, Gfx::ClampedVector);
-REPLACE(0x00487F40, Gfx::EulerToQuat);
-REPLACE(0x00488020, Gfx::QuatToEuler);
-REPLACE(0x00488300, &Gfx::CBoneLookAt::Construct);
-REPLACE(0x00487D40, &Gfx::CBoneLookAt::DestroyBody);
-REPLACE(0x004880D0, &Gfx::CBoneLookAt::Destroy);
-REPLACE(0x00488100, &Gfx::CBoneLookAt::Update);
-REPLACE(0x00488410, &Gfx::CBoneLookAt::Apply);
-REPLACE(0x00488950, &Gfx::CBoneLookAt::Configure);
-REPLACE(0x00488B20, &Gfx::CBoneLookAt::InitFromStructure);
-REPLACE(0x00488B40, &Gfx::CBoneLookAt::CallMemberFunction);
-REPLACE(0x00487D60, &Gfx::CBoneLookAt::FindBone);
-REPLACE(0x00487D90, &Gfx::CBoneLookAt::AllActive);
-REPLACE(0x00487DC0, &Gfx::CBoneLookAt::ActivateAll);
-REPLACE(0x00487DE0, &Gfx::CBoneLookAt::DeactivateAll);
-REPLACE(0x00488170, &Gfx::CBoneLookAt::SetAllMin);
-REPLACE(0x00488220, &Gfx::CBoneLookAt::SetAllMax);

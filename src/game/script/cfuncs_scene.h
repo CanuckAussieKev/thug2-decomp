@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include "hook/game_global.h"
 
 namespace Script {
 class CStruct;
@@ -62,7 +61,7 @@ bool __cdecl CFunc_InitSun(Script::CStruct* params, Script::CScript* script);
 // true.
 bool __cdecl CFunc_UpdateLensFlare(Script::CStruct* params, Script::CScript* script);
 
-GAME_GLOBAL_EXTERN(bool, g_gotExtraMemory);
+extern bool g_gotExtraMemory;
 
-GAME_GLOBAL_EXTERN(int, g_configNtsc);
+extern int g_configNtsc;
 } // namespace CFuncs

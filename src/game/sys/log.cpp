@@ -69,22 +69,13 @@ void LogOpen()
                 g_log = nullptr;
         }
     }
-    // (crashes, CRT reports, run-time check failures... logged, the process ended, never a dialog - hook/crash.h)
+    // (crashes, CRT reports, run-time check failures... logged, the process ended, never a dialog - game/sys/crash.h)
     InstallCrashHandling(false);
-    InstallGameCrtHandlers();
 }
 
 void* LogFileHandle()
 {
     return g_log ? reinterpret_cast<void*>(_get_osfhandle(_fileno(g_log))) : INVALID_HANDLE_VALUE;
-}
-
-void LogToConsole()
-{
-    g_console = true;
-    // No dialogs in tools: CRT reports and run-time check failures are printed and end the run (exit code 3), crashes
-    // and abort() exit without the Windows error box (hook/crash.h).
-    InstallCrashHandling(true);
 }
 
 void Log(const char* fmt, ...)

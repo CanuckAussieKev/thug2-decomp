@@ -8,10 +8,14 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdarg>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <initializer_list>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <vector>
 
@@ -75,7 +79,6 @@
 #include "game/script/qb.h"
 #include "game/script/struct.h"
 #include "game/sys/sdl_events.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 #include "game/gfx/device.h"
 

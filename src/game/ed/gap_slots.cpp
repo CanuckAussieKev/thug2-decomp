@@ -14,8 +14,6 @@
 #include "game/core/dbg.h"
 #include "game/ed/park.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Ed {
 
@@ -153,14 +151,3 @@ float GapInfo::GetLength(int half)
 }
 
 } // namespace Ed
-
-REPLACE(0x0058C990, &Ed::CGapManager::GetFreeGapIndex);
-REPLACE(0x0058C9B0, &Ed::CGapManager::EndGap);
-REPLACE(0x0058CA10, &Ed::CGapManager::GetGapIndex);
-REPLACE(0x0058CA60, &Ed::CGapManager::GetGapTriggerName);
-REPLACE(0x0058CB20, &Ed::CGapManager::GetGapInfo);
-REPLACE(0x0058CB70, &Ed::CGapManager::SetCurrentGap);
-REPLACE(0x0058CBB0, Ed::CGapManager::sInstance);
-REPLACE(0x0058CBC0, &Ed::GapInfo::Construct);
-REPLACE(0x0058CBF0, &Ed::GapInfo::GetLength);
-REPLACE(0x0058CCC0, &Ed::CGapManager::Construct);

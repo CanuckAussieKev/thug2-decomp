@@ -3,6 +3,7 @@
 #include "game/nx/coll_rect.h"
 
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 
 #include "game/gfx/debug_lines.h"
@@ -15,15 +16,12 @@
 #include "game/nx/coll_static.h"
 #include "game/nx/coll_tri.h"
 #include "game/gfx/engine_scene_list.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Nx {
 
 namespace {
 
-GAME_GLOBAL(CCollCache*, g_rectCache, 0x0069198C);
+CCollCache* g_rectCache;
 
 // The cache the rect feelers use when they have none (0x0069198C).
 CCollCache*& s_rectCache = g_rectCache;
@@ -400,17 +398,3 @@ void CRectFeeler::DebugDraw(uint32_t r, uint32_t g, uint32_t b, int frames)
 }
 
 } // namespace Nx
-
-REPLACE(0x00417AD0, &Nx::RectHit::CopyFrom);
-REPLACE(0x00417B60, &Nx::RectHit::Assign);
-REPLACE(0x0040FEE0, Nx::CollideRectWithStatics);
-REPLACE(0x00410C90, &Nx::CCollStatic::CollideWithRect);
-REPLACE(0x004128B0, &Nx::CCollStaticInstance::CollideWithRect);
-REPLACE(0x00410AA0, &Nx::CCollScaled::RectToLocal);
-REPLACE(0x00411840, &Nx::VectorTurn::TurnBy);
-REPLACE(0x0040FEC0, &Nx::CCollObj::SetChecksum);
-REPLACE(0x00410BC0, &Nx::CCollStatic::TakeBuffer);
-REPLACE(0x004182D0, &Nx::CRectFeeler::Construct);
-REPLACE(0x00417840, &Nx::CRectFeeler::Query);
-REPLACE(0x00417C00, &Nx::CRectFeeler::JoinHits);
-REPLACE(0x00417860, &Nx::CRectFeeler::DebugDraw);

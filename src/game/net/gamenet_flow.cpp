@@ -2,6 +2,7 @@
 // and the manager's tasks for the observer, auto-serve, the join's state and the server's start of a game
 // (0x0053AF90, 0x0053B0D0, 0x0053BED0-0x0053C320, 0x0053C6E0). See gamenet_manager.h.
 
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 
@@ -23,11 +24,8 @@
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/ass/assman.h"
-#include "hook/game_code.h"
 #include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
@@ -149,7 +147,7 @@ Prefs::Preferences* NetworkPreferences(Manager* m) { return reinterpret_cast<Pre
 // The preferences of the game being set up: the network game's, else the skate module's (split screen, 0x00564D80).
 Prefs::Preferences* GamePreferences(Manager* m)
 {
-    return m->InNetGame() ? NetworkPreferences(m) : Call<Prefs::Preferences*>(GAME_CODE(0x00564D80, &Mdl::Skate::GetSplitScreenPreferences), Skate());
+    return m->InNetGame() ? NetworkPreferences(m) : Call<Prefs::Preferences*>(CodeAddress(&Mdl::Skate::GetSplitScreenPreferences), Skate());
 }
 uint32_t PreferenceChecksum(Prefs::Preferences* prefs, uint32_t name, uint32_t field)
 {
@@ -169,11 +167,11 @@ void Manager::ResetToLobby()
         m_level = PreferenceChecksum(NetworkPreferences(this), kLevel, kChecksum);
         teams = GetNumTeams();
     } else {
-        teams = Call<int>(GAME_CODE(0x00553130, &Game::CGameMode::NumTeams), GameMode());
+        teams = Call<int>(CodeAddress(&Game::CGameMode::NumTeams), GameMode());
     }
     Field<uint32_t>(this, 0x30) = kNetLobby;
-    Call(GAME_CODE(0x00553AD0, &Game::CGameMode::LoadGameType), GameMode(), kNetLobby); // the game mode
-    Call(GAME_CODE(0x005535A0, &Game::CGameMode::SetNumTeams), GameMode(), teams);
+    Call(CodeAddress(&Game::CGameMode::LoadGameType), GameMode(), kNetLobby); // the game mode
+    Call(CodeAddress(&Game::CGameMode::SetNumTeams), GameMode(), teams);
     m_gameOver = false;
     ResetPlayers();
     if (uint8_t* king = KingOfTheHill(this))
@@ -185,10 +183,10 @@ void Manager::ResetToLobby()
     Field<uint32_t>(this, 0x1B0) = Tmr::GetTime(); // (back in the lobby: auto-serve waits from here)
 }
 
-GAME_GLOBAL(uint32_t, g_autoServeStart, 0x007CCDEC);
-GAME_GLOBAL(bool, g_waitingShown, 0x007CCE2C);
-GAME_GLOBAL(uint32_t, g_autoServeChecked, 0x007CCE30);
-GAME_GLOBAL(bool, g_cheatFlag, 0x007CE4FD);
+uint32_t g_autoServeStart;
+bool g_waitingShown;
+uint32_t g_autoServeChecked;
+bool g_cheatFlag;
 
 // 0x0053B0D0
 void Manager::StartNetworkGame()
@@ -341,7 +339,7 @@ void __cdecl Manager::JoinStateTask(void* task)
         for (; info && !(Field<uint32_t>(info, 0x20) & kNewPlayerLocal); info = NextNewPlayer(manager, &search)) {
         }
         if (info && (Field<uint32_t>(info, 0x20) & kNewPlayerObserver)) { // the local player joined to observe
-            Call(GAME_CODE(0x00565790, &Mdl::Skate::RemoveSkater), Skate(), Call<void*>(GAME_CODE(0x00566520, Mdl::Skate::GetLocalSkaterStub), Skate())); // the local skater removed
+            Call(CodeAddress(&Mdl::Skate::RemoveSkater), Skate(), Call<void*>(CodeAddress(Mdl::Skate::GetLocalSkaterStub), Skate())); // the local skater removed
             manager->ObservePlayer(nullptr);
         }
         Run(kEnteredNetworkGame);
@@ -440,7 +438,7 @@ void __cdecl Manager::ConnectionTask(void* task)
                     bool observer = IsObserver(player);
                     manager->DropPlayer(player, reason);
                     if (!observer)
-                        Call(GAME_CODE(0x00565790, &Mdl::Skate::RemoveSkater), skate, skater);
+                        Call(CodeAddress(&Mdl::Skate::RemoveSkater), skate, skater);
                 }
             }
             player = next;
@@ -469,13 +467,3 @@ void __cdecl Manager::ConnectionTask(void* task)
 }
 
 } // namespace GameNet
-
-REPLACE(0x0053EB70, GameNet::Manager::ConnectionTask);
-REPLACE(0x0053AF90, &GameNet::Manager::ResetToLobby);
-REPLACE(0x0053B0D0, &GameNet::Manager::StartNetworkGame);
-REPLACE(0x0053C6E0, &GameNet::Manager::CancelJoin);
-REPLACE(0x0053BED0, GameNet::Manager::ObserverTask);
-REPLACE(0x00536890, GameNet::Manager::ObserverInput);
-REPLACE(0x0053BF00, GameNet::Manager::AutoServeTask);
-REPLACE(0x0053BF90, GameNet::Manager::JoinStateTask);
-REPLACE(0x0053C1F0, GameNet::Manager::StartGameTask);

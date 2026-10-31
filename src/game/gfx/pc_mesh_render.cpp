@@ -19,8 +19,6 @@
 #include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/settings.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/engine_glue.h"
 
@@ -234,8 +232,3 @@ void sMesh::Render()
 }
 
 } // namespace Nx
-
-REPLACE(0x004D4D70, &Nx::sMesh::SkinOneBone);
-REPLACE(0x004D4E50, &Nx::sMesh::SkinTwoBones);
-REPLACE(0x004D5020, &Nx::sMesh::SkinThreeBones);
-REPLACE(0x004D5290, &Nx::sMesh::Render);

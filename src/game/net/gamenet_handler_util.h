@@ -15,10 +15,9 @@
 #include "game/net/player_info.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
+#include "game/core/code_address.h"
 #include "game/skate/skate_module.h"
 #include "game/skate/game_mode.h"
-#include "hook/game_code.h"
 
 namespace Obj {
 class CObject;
@@ -74,10 +73,10 @@ inline void Run(uint32_t name, Script::CStruct* params = nullptr, Obj::CObject* 
 // The singletons (not rewritten): the skate module, the game mode, the goal manager.
 inline uint8_t* Skate() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
 inline uint8_t* GameMode() { return reinterpret_cast<uint8_t*>(Game::g_gameMode); }
-inline bool IsTeamGame() { return Call<bool>(GAME_CODE(0x005535F0, &Game::CGameMode::IsTeamGame), GameMode()); }
-inline uint32_t GameType() { return Call<uint32_t>(GAME_CODE(0x005532A0, &Game::CGameMode::GetNameChecksum), GameMode()); }
+inline bool IsTeamGame() { return Call<bool>(CodeAddress(&Game::CGameMode::IsTeamGame), GameMode()); }
+inline uint32_t GameType() { return Call<uint32_t>(CodeAddress(&Game::CGameMode::GetNameChecksum), GameMode()); }
 inline uint8_t* GoalManager() { return reinterpret_cast<uint8_t*>(Game::GetGoalManager()); }
-inline uint8_t* GetGoal(uint8_t* goals, uint32_t name) { return Call<uint8_t*>(GAME_CODE(0x00557F90, &Game::CGoalManager::GetGoal), goals, name, 1); }
+inline uint8_t* GetGoal(uint8_t* goals, uint32_t name) { return Call<uint8_t*>(CodeAddress(&Game::CGoalManager::GetGoal), goals, name, 1); }
 
 // The manager's players (GameNet::PlayerInfo, player_info.h; reached as bytes here): +0x14 the skater, +0x18 the
 // connection, +0x30 the team, +0x38 the name, +0x1D0 flags.

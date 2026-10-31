@@ -56,12 +56,8 @@
 #include "game/sys/timer.h"
 #include "game/script/node_manager.h"
 #include "game/sys/game_config.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/movie.h"
 #include "game/obj/collide_and_die.h"
-
 
 namespace Sys {
 
@@ -98,7 +94,7 @@ bool QuitRequested() { return Nx::g_quitRequested; }
 
 } // namespace
 
-GAME_GLOBAL(bool, g_demoMode, 0x007CC978);
+bool g_demoMode;
 
 // 0x004E1EF0
 int __cdecl Main(int argc, char** argv)
@@ -262,5 +258,3 @@ int __cdecl Main(int argc, char** argv)
 }
 
 } // namespace Sys
-
-REPLACE(0x004E1EF0, Sys::Main);

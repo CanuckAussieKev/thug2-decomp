@@ -1,7 +1,5 @@
 #pragma once
 
-#include "hook/game_global.h"
-
 #include <cstdint>
 
 namespace Script {
@@ -78,6 +76,6 @@ struct StartGameRequest {
 };
 static_assert(sizeof(StartGameRequest) == 0x34, "layout must match the original");
 
-GAME_GLOBAL_EXTERN(uint32_t, g_netGameStartTime);
+extern uint32_t g_netGameStartTime;
 
 } // namespace GameNet

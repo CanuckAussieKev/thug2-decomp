@@ -7,6 +7,7 @@
 #include <d3d9.h>
 
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
@@ -19,10 +20,7 @@
 #include "game/gfx/simple_material.h"
 #include "game/mth/x87_math.h"
 #include "game/sys/platform_d3d.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/net/gamenet_handlers.h"
 #include "game/gfx/shader_slots.h"
 #include "game/gfx/device.h"
@@ -57,8 +55,7 @@ extern void** const kCPcStarParticlesSecondaryVtable;
 extern void** const kCPcStarParticlesVtable;
 } // namespace
 
-
-GAME_GLOBAL(IDirect3DIndexBuffer9*, g_quadIndices, 0x007D69E8);
+IDirect3DIndexBuffer9* g_quadIndices;
 
 namespace {
 
@@ -2181,109 +2178,69 @@ void CPcGlowRibbonTrailParticles::Render()
 }
 
 namespace {
-GAME_VTABLE(kCPcNewFlatParticlesSecondaryVtable, 0x0064A510, Nx::DestroyNewFlatSecondary);
-GAME_VTABLE(kCPcNewFlatParticlesVtable, 0x0064A514, &Nx::CPcNewFlatParticles::Destroy,
-            &Nx::CPcNewFlatParticles::Render, GameNet::HandleNothing, GameNet::HandleNothing);
-GAME_VTABLE(kCPcFlatRibbonParticlesSecondaryVtable, 0x0064A524, Nx::DestroyFlatRibbonSecondary);
-GAME_VTABLE(kCPcFlatRibbonParticlesVtable, 0x0064A528, &Nx::CPcFlatRibbonParticles::Destroy,
-            &Nx::CPcFlatRibbonParticles::Render, &Nx::CParticleCounts::Field134,
-            &Nx::CFlatRibbonParticles::GetNumColours);
-GAME_VTABLE(kCPcGlowParticlesSecondaryVtable, 0x0064A53C, Nx::DestroyGlowSecondary);
-GAME_VTABLE(kCPcGlowParticlesVtable, 0x0064A540, &Nx::CPcGlowParticles::Destroy, &Nx::CPcGlowParticles::Render,
-            GameNet::HandleNothing, &Nx::CParticleCounts::ThreeColours);
-GAME_VTABLE(kCPcGlowRibbonTrailParticlesSecondaryVtable, 0x0064A554, Nx::DestroyGlowRibbonTrailSecondary);
-GAME_VTABLE(kCPcGlowRibbonTrailParticlesVtable, 0x0064A558, &Nx::CPcGlowRibbonTrailParticles::Destroy,
-            &Nx::CPcGlowRibbonTrailParticles::Render, &Nx::CGlowRibbonTrailParticles::GetNumVertexLists,
-            &Nx::CGlowRibbonTrailParticles::GetNumColours);
-GAME_VTABLE(kCPcLineParticlesSecondaryVtable, 0x0064A56C, Nx::DestroyLineSecondary);
-GAME_VTABLE(kCPcLineParticlesVtable, 0x0064A570, &Nx::CPcLineParticles::Destroy, &Nx::CPcLineParticles::Render,
-            &Nx::CParticleCounts::Field134, &Nx::CParticleCounts::TwoColours);
-GAME_VTABLE(kCPcRibbonParticlesSecondaryVtable, 0x0064A580, Nx::DestroyRibbonSecondary);
-GAME_VTABLE(kCPcRibbonParticlesVtable, 0x0064A584, &Nx::CPcRibbonParticles::Destroy,
-            &Nx::CPcRibbonParticles::Render, &Nx::CParticleCounts::Field134, &Nx::CParticleCounts::TwoColours);
-GAME_VTABLE(kCPcRibbonTrailParticlesSecondaryVtable, 0x0064A594, Nx::DestroyRibbonTrailSecondary);
-GAME_VTABLE(kCPcRibbonTrailParticlesVtable, 0x0064A598, &Nx::CPcRibbonTrailParticles::Destroy,
-            &Nx::CPcRibbonTrailParticles::Render, &Nx::CParticleCounts::Field134, &Nx::CParticleCounts::Field134);
-GAME_VTABLE(kCPcShadedParticlesSecondaryVtable, 0x0064A5A8, Nx::DestroyShadedSecondary);
-GAME_VTABLE(kCPcShadedParticlesVtable, 0x0064A5AC, &Nx::CPcShadedParticles::Destroy,
-            &Nx::CPcShadedParticles::Render, GameNet::HandleNothing, &Nx::CParticleCounts::FourColours);
-GAME_VTABLE(kCPcSmoothParticlesSecondaryVtable, 0x0064A5BC, Nx::DestroySmoothSecondary);
-GAME_VTABLE(kCPcSmoothParticlesVtable, 0x0064A5C0, &Nx::CPcSmoothParticles::Destroy,
-            &Nx::CPcSmoothParticles::Render, GameNet::HandleNothing, &Nx::CParticleCounts::TwoColours);
-GAME_VTABLE(kCPcSmoothRibbonParticlesSecondaryVtable, 0x0064A5D0, Nx::DestroySmoothRibbonSecondary);
-GAME_VTABLE(kCPcSmoothRibbonParticlesVtable, 0x0064A5D4, &Nx::CPcSmoothRibbonParticles::Destroy,
-            &Nx::CPcSmoothRibbonParticles::Render, &Nx::CPcSmoothRibbonParticles::GetSegments,
-            &Nx::CParticleCounts::FourColours);
-GAME_VTABLE(kCPcSmoothStarParticlesSecondaryVtable, 0x0064A5E8, Nx::DestroySmoothStarSecondary);
-GAME_VTABLE(kCPcSmoothStarParticlesVtable, 0x0064A5EC, &Nx::CPcSmoothStarParticles::Destroy,
-            &Nx::CPcSmoothStarParticles::Render, GameNet::HandleNothing, &Nx::CParticleCounts::ThreeColours);
-GAME_VTABLE(kCPcStarParticlesSecondaryVtable, 0x0064A600, Nx::DestroyStarSecondary);
-GAME_VTABLE(kCPcStarParticlesVtable, 0x0064A604, &Nx::CPcStarParticles::Destroy, &Nx::CPcStarParticles::Render,
-            GameNet::HandleNothing, &Nx::CParticleCounts::ThreeColours);
+static VtableSlot kCPcNewFlatParticlesSecondaryVtable_slots[] = {Nx::DestroyNewFlatSecondary};
+void** const kCPcNewFlatParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcNewFlatParticlesSecondaryVtable_slots);
+static VtableSlot kCPcNewFlatParticlesVtable_slots[] = {&Nx::CPcNewFlatParticles::Destroy,
+                &Nx::CPcNewFlatParticles::Render, GameNet::HandleNothing, GameNet::HandleNothing};
+void** const kCPcNewFlatParticlesVtable = reinterpret_cast<void**>(kCPcNewFlatParticlesVtable_slots);
+static VtableSlot kCPcFlatRibbonParticlesSecondaryVtable_slots[] = {Nx::DestroyFlatRibbonSecondary};
+void** const kCPcFlatRibbonParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcFlatRibbonParticlesSecondaryVtable_slots);
+static VtableSlot kCPcFlatRibbonParticlesVtable_slots[] = {&Nx::CPcFlatRibbonParticles::Destroy,
+                &Nx::CPcFlatRibbonParticles::Render, &Nx::CParticleCounts::Field134,
+                &Nx::CFlatRibbonParticles::GetNumColours};
+void** const kCPcFlatRibbonParticlesVtable = reinterpret_cast<void**>(kCPcFlatRibbonParticlesVtable_slots);
+static VtableSlot kCPcGlowParticlesSecondaryVtable_slots[] = {Nx::DestroyGlowSecondary};
+void** const kCPcGlowParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcGlowParticlesSecondaryVtable_slots);
+static VtableSlot kCPcGlowParticlesVtable_slots[] = {&Nx::CPcGlowParticles::Destroy, &Nx::CPcGlowParticles::Render,
+                GameNet::HandleNothing, &Nx::CParticleCounts::ThreeColours};
+void** const kCPcGlowParticlesVtable = reinterpret_cast<void**>(kCPcGlowParticlesVtable_slots);
+static VtableSlot kCPcGlowRibbonTrailParticlesSecondaryVtable_slots[] = {Nx::DestroyGlowRibbonTrailSecondary};
+void** const kCPcGlowRibbonTrailParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcGlowRibbonTrailParticlesSecondaryVtable_slots);
+static VtableSlot kCPcGlowRibbonTrailParticlesVtable_slots[] = {&Nx::CPcGlowRibbonTrailParticles::Destroy,
+                &Nx::CPcGlowRibbonTrailParticles::Render, &Nx::CGlowRibbonTrailParticles::GetNumVertexLists,
+                &Nx::CGlowRibbonTrailParticles::GetNumColours};
+void** const kCPcGlowRibbonTrailParticlesVtable = reinterpret_cast<void**>(kCPcGlowRibbonTrailParticlesVtable_slots);
+static VtableSlot kCPcLineParticlesSecondaryVtable_slots[] = {Nx::DestroyLineSecondary};
+void** const kCPcLineParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcLineParticlesSecondaryVtable_slots);
+static VtableSlot kCPcLineParticlesVtable_slots[] = {&Nx::CPcLineParticles::Destroy, &Nx::CPcLineParticles::Render,
+                &Nx::CParticleCounts::Field134, &Nx::CParticleCounts::TwoColours};
+void** const kCPcLineParticlesVtable = reinterpret_cast<void**>(kCPcLineParticlesVtable_slots);
+static VtableSlot kCPcRibbonParticlesSecondaryVtable_slots[] = {Nx::DestroyRibbonSecondary};
+void** const kCPcRibbonParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcRibbonParticlesSecondaryVtable_slots);
+static VtableSlot kCPcRibbonParticlesVtable_slots[] = {&Nx::CPcRibbonParticles::Destroy,
+                &Nx::CPcRibbonParticles::Render, &Nx::CParticleCounts::Field134, &Nx::CParticleCounts::TwoColours};
+void** const kCPcRibbonParticlesVtable = reinterpret_cast<void**>(kCPcRibbonParticlesVtable_slots);
+static VtableSlot kCPcRibbonTrailParticlesSecondaryVtable_slots[] = {Nx::DestroyRibbonTrailSecondary};
+void** const kCPcRibbonTrailParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcRibbonTrailParticlesSecondaryVtable_slots);
+static VtableSlot kCPcRibbonTrailParticlesVtable_slots[] = {&Nx::CPcRibbonTrailParticles::Destroy,
+                &Nx::CPcRibbonTrailParticles::Render, &Nx::CParticleCounts::Field134, &Nx::CParticleCounts::Field134};
+void** const kCPcRibbonTrailParticlesVtable = reinterpret_cast<void**>(kCPcRibbonTrailParticlesVtable_slots);
+static VtableSlot kCPcShadedParticlesSecondaryVtable_slots[] = {Nx::DestroyShadedSecondary};
+void** const kCPcShadedParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcShadedParticlesSecondaryVtable_slots);
+static VtableSlot kCPcShadedParticlesVtable_slots[] = {&Nx::CPcShadedParticles::Destroy,
+                &Nx::CPcShadedParticles::Render, GameNet::HandleNothing, &Nx::CParticleCounts::FourColours};
+void** const kCPcShadedParticlesVtable = reinterpret_cast<void**>(kCPcShadedParticlesVtable_slots);
+static VtableSlot kCPcSmoothParticlesSecondaryVtable_slots[] = {Nx::DestroySmoothSecondary};
+void** const kCPcSmoothParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcSmoothParticlesSecondaryVtable_slots);
+static VtableSlot kCPcSmoothParticlesVtable_slots[] = {&Nx::CPcSmoothParticles::Destroy,
+                &Nx::CPcSmoothParticles::Render, GameNet::HandleNothing, &Nx::CParticleCounts::TwoColours};
+void** const kCPcSmoothParticlesVtable = reinterpret_cast<void**>(kCPcSmoothParticlesVtable_slots);
+static VtableSlot kCPcSmoothRibbonParticlesSecondaryVtable_slots[] = {Nx::DestroySmoothRibbonSecondary};
+void** const kCPcSmoothRibbonParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcSmoothRibbonParticlesSecondaryVtable_slots);
+static VtableSlot kCPcSmoothRibbonParticlesVtable_slots[] = {&Nx::CPcSmoothRibbonParticles::Destroy,
+                &Nx::CPcSmoothRibbonParticles::Render, &Nx::CPcSmoothRibbonParticles::GetSegments,
+                &Nx::CParticleCounts::FourColours};
+void** const kCPcSmoothRibbonParticlesVtable = reinterpret_cast<void**>(kCPcSmoothRibbonParticlesVtable_slots);
+static VtableSlot kCPcSmoothStarParticlesSecondaryVtable_slots[] = {Nx::DestroySmoothStarSecondary};
+void** const kCPcSmoothStarParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcSmoothStarParticlesSecondaryVtable_slots);
+static VtableSlot kCPcSmoothStarParticlesVtable_slots[] = {&Nx::CPcSmoothStarParticles::Destroy,
+                &Nx::CPcSmoothStarParticles::Render, GameNet::HandleNothing, &Nx::CParticleCounts::ThreeColours};
+void** const kCPcSmoothStarParticlesVtable = reinterpret_cast<void**>(kCPcSmoothStarParticlesVtable_slots);
+static VtableSlot kCPcStarParticlesSecondaryVtable_slots[] = {Nx::DestroyStarSecondary};
+void** const kCPcStarParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcStarParticlesSecondaryVtable_slots);
+static VtableSlot kCPcStarParticlesVtable_slots[] = {&Nx::CPcStarParticles::Destroy, &Nx::CPcStarParticles::Render,
+                GameNet::HandleNothing, &Nx::CParticleCounts::ThreeColours};
+void** const kCPcStarParticlesVtable = reinterpret_cast<void**>(kCPcStarParticlesVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x004BD470, &Nx::CPcFlexibleParticles::LerpColour);
-REPLACE(0x004BCEF0, Nx::CreateFlexibleParticles);
-REPLACE(0x004BD3A0, &Nx::CPcNewFlatParticles::Construct);
-REPLACE(0x004BD610, &Nx::CPcNewFlatParticles::DestroyBody);
-REPLACE(0x004BDC40, &Nx::CPcNewFlatParticles::Destroy);
-REPLACE(0x004BD390, Nx::DestroyNewFlatSecondary);
-REPLACE(0x004BD680, &Nx::CPcNewFlatParticles::Render);
-REPLACE(0x004BDC80, &Nx::CPcFlatRibbonParticles::Construct);
-REPLACE(0x004BDD60, &Nx::CPcFlatRibbonParticles::DestroyBody);
-REPLACE(0x004BECD0, &Nx::CPcFlatRibbonParticles::Destroy);
-REPLACE(0x004BDC70, Nx::DestroyFlatRibbonSecondary);
-REPLACE(0x004BDDD0, &Nx::CPcFlatRibbonParticles::Render);
-REPLACE(0x004BED10, &Nx::CPcGlowParticles::Construct);
-REPLACE(0x004BEDE0, &Nx::CPcGlowParticles::DestroyBody);
-REPLACE(0x004BF6E0, &Nx::CPcGlowParticles::Destroy);
-REPLACE(0x004BED00, Nx::DestroyGlowSecondary);
-REPLACE(0x004BEE50, &Nx::CPcGlowParticles::Render);
-REPLACE(0x004C09F0, &Nx::CPcLineParticles::Construct);
-REPLACE(0x004C0AC0, &Nx::CPcLineParticles::DestroyBody);
-REPLACE(0x004C0E70, &Nx::CPcLineParticles::Destroy);
-REPLACE(0x004C09E0, Nx::DestroyLineSecondary);
-REPLACE(0x004C0B30, &Nx::CPcLineParticles::Render);
-REPLACE(0x004C0EB0, &Nx::CPcRibbonParticles::Construct);
-REPLACE(0x004C0F80, &Nx::CPcRibbonParticles::DestroyBody);
-REPLACE(0x004C16E0, &Nx::CPcRibbonParticles::Destroy);
-REPLACE(0x004C0EA0, Nx::DestroyRibbonSecondary);
-REPLACE(0x004C0FF0, &Nx::CPcRibbonParticles::Render);
-REPLACE(0x004C1720, &Nx::CPcRibbonTrailParticles::Construct);
-REPLACE(0x004C17F0, &Nx::CPcRibbonTrailParticles::DestroyBody);
-REPLACE(0x004C2160, &Nx::CPcRibbonTrailParticles::Destroy);
-REPLACE(0x004C1710, Nx::DestroyRibbonTrailSecondary);
-REPLACE(0x004C1860, &Nx::CPcRibbonTrailParticles::Render);
-REPLACE(0x004C21A0, &Nx::CPcShadedParticles::Construct);
-REPLACE(0x004C2260, &Nx::CPcShadedParticles::DestroyBody);
-REPLACE(0x004C2AF0, &Nx::CPcShadedParticles::Destroy);
-REPLACE(0x004C2190, Nx::DestroyShadedSecondary);
-REPLACE(0x004C22D0, &Nx::CPcShadedParticles::Render);
-REPLACE(0x004C2B30, &Nx::CPcSmoothParticles::Construct);
-REPLACE(0x004C2C00, &Nx::CPcSmoothParticles::DestroyBody);
-REPLACE(0x004C3500, &Nx::CPcSmoothParticles::Destroy);
-REPLACE(0x004C2B20, Nx::DestroySmoothSecondary);
-REPLACE(0x004C2C70, &Nx::CPcSmoothParticles::Render);
-REPLACE(0x004C3550, &Nx::CPcSmoothRibbonParticles::Construct);
-REPLACE(0x004C3620, &Nx::CPcSmoothRibbonParticles::DestroyBody);
-REPLACE(0x004C3D40, &Nx::CPcSmoothRibbonParticles::Destroy);
-REPLACE(0x004C3540, Nx::DestroySmoothRibbonSecondary);
-REPLACE(0x004C3690, &Nx::CPcSmoothRibbonParticles::Render);
-REPLACE(0x004C3D80, &Nx::CPcSmoothStarParticles::Construct);
-REPLACE(0x004C3E50, &Nx::CPcSmoothStarParticles::DestroyBody);
-REPLACE(0x004C4880, &Nx::CPcSmoothStarParticles::Destroy);
-REPLACE(0x004C3D70, Nx::DestroySmoothStarSecondary);
-REPLACE(0x004C3EC0, &Nx::CPcSmoothStarParticles::Render);
-REPLACE(0x004C48C0, &Nx::CPcStarParticles::Construct);
-REPLACE(0x004C4990, &Nx::CPcStarParticles::DestroyBody);
-REPLACE(0x004C5200, &Nx::CPcStarParticles::Destroy);
-REPLACE(0x004C48B0, Nx::DestroyStarSecondary);
-REPLACE(0x004C4A00, &Nx::CPcStarParticles::Render);
-REPLACE(0x004C3530, &Nx::CPcSmoothRibbonParticles::GetSegments);
-REPLACE(0x004BF720, &Nx::CPcGlowRibbonTrailParticles::Construct);
-REPLACE(0x004C0940, &Nx::CPcGlowRibbonTrailParticles::DestroyBody);
-REPLACE(0x004C09B0, &Nx::CPcGlowRibbonTrailParticles::Destroy);
-REPLACE(0x004BF710, Nx::DestroyGlowRibbonTrailSecondary);
-REPLACE(0x004BF7F0, &Nx::CPcGlowRibbonTrailParticles::Render);

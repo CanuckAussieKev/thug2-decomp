@@ -1,12 +1,12 @@
 // The CAS option lists (see cas_options.h). From the disassembly of 0x00485CB0-0x004860BD.
 
+#include <cstdint>
+
 #include "game/skate/cas_options.h"
 
 #include "game/mth/random.h"
 #include "game/script/struct.h"
 #include "game/gfx/model_appearance.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Obj {
 
@@ -161,9 +161,3 @@ CStruct* __cdecl GetCasOptionByIndex(uint32_t part, int index, uint32_t filter)
 }
 
 } // namespace Obj
-
-REPLACE(0x00485CB0, Obj::PartIsCreatedGraphic);
-REPLACE(0x00485CF0, Obj::FindCasOption);
-REPLACE(0x00485D70, Obj::GetMatchingCasOptions);
-REPLACE(0x00485E20, Obj::PickRandomCasOption);
-REPLACE(0x00485FC0, Obj::GetCasOptionByIndex);

@@ -30,10 +30,7 @@
 #include "game/sys/game_clock.h"
 #include "game/sys/module.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/obj/movie_manager.h"
 #include "game/ass/assman.h"
 
@@ -43,11 +40,10 @@ namespace {
 extern void** const kFrontEndVtable;
 } // namespace
 
+Mdl::FrontEnd* g_frontEndInstance;
 
-GAME_GLOBAL(Mdl::FrontEnd*, g_frontEndInstance, 0x007CE464);
-
-GAME_GLOBAL(bool, g_menusActive, 0x007CE46C);
-GAME_GLOBAL(bool, g_pendingScript, 0x007CE4A0);
+bool g_menusActive;
+bool g_pendingScript;
 
 namespace {
 
@@ -81,8 +77,8 @@ const char* const kXboxButtonNames[18] = {
     "back", "left_stick_button", "right_stick_button", "null", "null", "null", "null", "null", "black", "white",
 };
 
-GAME_GLOBAL(uint32_t, g_frontEndRefs, 0x007CE468);
-GAME_GLOBAL(bool, g_skateshopOverride, 0x007CE46D);
+uint32_t g_frontEndRefs;
+bool g_skateshopOverride;
 
 uint32_t& FrontEndRefs() { return g_frontEndRefs; }
 // Set each frame by Update.
@@ -640,11 +636,11 @@ void FrontEnd::UpdateInputMappings()
 {
     InputManagerRef input;
     for (int i = 0; i < 2; ++i) {
-        Dbg::Printf(GAME_TEXT(0x0064D82C, "m_device_server_map[%i] = %i\n"), i, m_deviceServerMap[i]); // "m_device_server_map[%i] = %i\n"
+        Dbg::Printf("m_device_server_map[%i] = %i\n", i, m_deviceServerMap[i]); // "m_device_server_map[%i] = %i\n"
         FrontEndInputHandler* handler = m_inputHandlers[i];
         if (!handler)
             continue;
-        Dbg::Printf(GAME_TEXT(0x0064D81C, "got a handler\n")); // "got a handler\n"
+        Dbg::Printf("got a handler\n"); // "got a handler\n"
         RemoveNode(handler);
         // The controller's place in the input manager: its device, its handler list, its control data.
         uint8_t* server = input.m_manager + m_deviceServerMap[i] * 0x84;
@@ -723,32 +719,8 @@ FrontEnd* CreateFrontEnd(bool create)
 }
 
 namespace {
-GAME_VTABLE(kFrontEndVtable, 0x0064D724, &Mdl::FrontEnd::Destroy, &Mdl::FrontEnd::Start, &Mdl::FrontEnd::Stop);
+static VtableSlot kFrontEndVtable_slots[] = {&Mdl::FrontEnd::Destroy, &Mdl::FrontEnd::Start, &Mdl::FrontEnd::Stop};
+void** const kFrontEndVtable = reinterpret_cast<void**>(kFrontEndVtable_slots);
 } // namespace
 
 } // namespace Mdl
-
-REPLACE(0x0054EBE0, Mdl::ReleaseFrontEnd);
-REPLACE(0x0054EC20, &Mdl::FrontEnd::DestroyBody);
-REPLACE(0x0054ECA0, &Mdl::FrontEnd::PadsPluggedIn);
-REPLACE(0x0054ECD0, &Mdl::FrontEnd::RemoveKeyboardHandler);
-REPLACE(0x0054ECE0, &Mdl::FrontEnd::AutoRepeat);
-REPLACE(0x0054EE70, &Mdl::FrontEnd::Destroy);
-REPLACE(0x0054EEA0, &Mdl::FrontEnd::Start);
-REPLACE(0x0054EF30, &Mdl::FrontEnd::Stop);
-REPLACE(0x0054EF60, &Mdl::FrontEnd::AddKeyboardHandler);
-REPLACE(0x0054EF80, &Mdl::FrontEnd::UpdateButtonEventMappings);
-REPLACE(0x0054F0F0, Mdl::CFunc_SetMenuAutoRepeatTimes);
-REPLACE(0x0054F150, Mdl::CFunc_SetMenuPadMappings);
-REPLACE(0x0054F1B0, Mdl::CFunc_SetButtonEventMappings);
-REPLACE(0x0054F200, Mdl::FrontEnd::KeyboardTask);
-REPLACE(0x0054F380, &Mdl::FrontEnd::Update);
-REPLACE(0x0054F600, &Mdl::FrontEnd::GrabControlEvent);
-REPLACE(0x0054F900, &Mdl::FrontEnd::SetAnalogStickActiveForMenus);
-REPLACE(0x0054F960, &Mdl::FrontEnd::PauseGame);
-REPLACE(0x0054FB40, Mdl::FrontEnd::InputLogic);
-REPLACE(0x0054FCC0, Mdl::FrontEnd::LogicTask);
-REPLACE(0x0054FD00, &Mdl::FrontEnd::UpdateInputMappings);
-REPLACE(0x0054FDC0, Mdl::CFunc_SetAnalogStickActiveForMenus);
-REPLACE(0x0054FE00, &Mdl::FrontEnd::Construct);
-REPLACE(0x0054FF80, Mdl::CreateFrontEnd);

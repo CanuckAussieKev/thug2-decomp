@@ -82,7 +82,7 @@ void EndFrame(void* component);
 // between which two the velocity turned round (flipped=<before>><after>).
 void Checkpoint(void* component, const char* label);
 
-// --- the decisions (pure; self-tested) ---
+// --- the decisions (pure) ----------------
 
 // A frame as the detector sees it.
 struct Motion {
@@ -98,7 +98,7 @@ constexpr float kSlopeNormalY = 0.9962f;
 // turned round). `path`: the strongest path's name (null: none).
 const char* ChooseReason(bool uberFrig, const char* path, float groundMinY);
 
-// --- the lines' text (pure; self-tested) ---
+// --- the lines' text (pure) ----------------
 
 struct Face {
     bool hit = false;

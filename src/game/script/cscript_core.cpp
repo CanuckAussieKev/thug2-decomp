@@ -3,7 +3,10 @@
 
 #include "game/script/cscript.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
+#include <new>
 
 #include "game/core/crc.h"
 #include "game/core/manager.h"
@@ -15,20 +18,17 @@
 #include "game/script/parse.h"
 #include "game/script/qb.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Script {
 
-GAME_GLOBAL(CScript*, g_currentScript, 0x006F3530);
-GAME_GLOBAL(CScript*, g_scriptListHead, 0x006F3538);
-GAME_GLOBAL(bool, g_onePerFrameReleased, 0x006F352C);
-GAME_GLOBAL(int, g_scriptCount, 0x006F353C);
-GAME_GLOBAL(uint32_t, g_nextScriptUniqueId, 0x006F3540);
-GAME_GLOBAL(bool, g_updatingSpawnedScripts, 0x006F3544);
-GAME_GLOBAL(bool, g_deleteSpawnedScriptsPending, 0x006F3545);
-GAME_GLOBAL(Mem::PoolPair, g_scriptPools, 0x006F3548);
+CScript* g_currentScript;
+CScript* g_scriptListHead;
+bool g_onePerFrameReleased;
+int g_scriptCount;
+uint32_t g_nextScriptUniqueId;
+bool g_updatingSpawnedScripts;
+bool g_deleteSpawnedScriptsPending;
+Mem::PoolPair g_scriptPools;
 
 namespace {
 
@@ -335,30 +335,3 @@ CScript* FindScriptWithUniqueId(uint32_t id)
 }
 
 } // namespace Script
-
-REPLACE(0x004738E0, &Script::CScript::Construct);
-REPLACE(0x00474420, &Script::CScript::Destroy);
-REPLACE(0x00449970, static_cast<void* (*)(size_t)>(&Script::CScript::operator new));
-REPLACE(0x004499B0, static_cast<void (*)(void*)>(&Script::CScript::operator delete)); // (noexcept stripped)
-REPLACE(0x00473A80, &Script::CScript::ClearScript);
-REPLACE(0x00473880, &Script::CScript::RunOnExitScripts);
-REPLACE(0x00473010, &Script::CScript::ReportStopped);
-REPLACE(0x004739D0, &Script::CScript::CopyParamsIfOwned);
-REPLACE(0x00474540,
-        static_cast<void (Script::CScript::*)(uint32_t, const uint8_t*, Script::CStruct*, Obj::CObject*)>(
-            &Script::CScript::SetScript));
-REPLACE(0x004747A0, static_cast<void (Script::CScript::*)(uint32_t, Script::CStruct*, Obj::CObject*)>(
-                        &Script::CScript::SetScript));
-REPLACE(0x004747C0, static_cast<void (Script::CScript::*)(const char*, Script::CStruct*, Obj::CObject*)>(
-                        &Script::CScript::SetScript));
-REPLACE(0x00474720, &Script::CScript::SetScriptCopy);
-REPLACE(0x004747F0, &Script::CScript::Restart);
-REPLACE(0x00472C90, &Script::CScript::AllScriptsStillDefined);
-REPLACE(0x00472940, &Script::CScript::GotScript);
-REPLACE(0x00472F90, &Script::CScript::SetSpawnerFile);
-REPLACE(0x00473BE0, &Script::CScript::ObjectDestroyed);
-REPLACE(0x00472ED0, &Script::CScript::SetOnExceptionScript);
-REPLACE(0x00472EE0, &Script::CScript::GetOnExceptionScript);
-REPLACE(0x00472EF0, &Script::CScript::SetOnExitScript);
-REPLACE(0x00472F00, &Script::CScript::ClearOnExitScripts);
-REPLACE(0x004734B0, Script::FindScriptWithUniqueId);

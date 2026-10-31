@@ -31,7 +31,7 @@ struct ImFont;
 //   camera <name> pos=x,y,z angles=x,y,z dist=d
 namespace Front::LevelEditor::Cameras {
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_map3.cpp) ----------------------------------------------
+// --- the pure parts ------------------------------------------------------------------------------------------------
 
 constexpr float kDefaultDistance = 1000.0f;
 constexpr float kMinDistance = 50.0f, kMaxDistance = 20000.0f;

@@ -2,11 +2,10 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <new>
 
 #include "game/obj/smtptr.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
 #include "game/core/pool.h"
 
 // A running script (Script::CScript, 0xF4 bytes, pool 0x006F3548 of 300 - ours 1200, game/core/memory_sizes.h) and the list of all of them.
@@ -313,14 +312,14 @@ constexpr uint8_t SCRIPT_FLAG_PAUSE_WITH_OBJECT = 0x08;    // not updated while 
 constexpr uint8_t SCRIPT_FLAG_TRACKER_BLOCKED = 0x10;      // Block registered it with the tracker
 
 // The globals.
-GAME_GLOBAL_EXTERN(CScript*, g_scriptListHead);
-GAME_GLOBAL_EXTERN(CScript*, g_currentScript);
-GAME_GLOBAL_EXTERN(int, g_scriptCount);
-GAME_GLOBAL_EXTERN(uint32_t, g_nextScriptUniqueId);
-GAME_GLOBAL_EXTERN(bool, g_updatingSpawnedScripts);
-GAME_GLOBAL_EXTERN(bool, g_deleteSpawnedScriptsPending);
-GAME_GLOBAL_EXTERN(bool, g_onePerFrameReleased); // WAIT_TYPE_ONE_PER_FRAME
-GAME_GLOBAL_EXTERN(Mem::PoolPair, g_scriptPools);
+extern CScript* g_scriptListHead;
+extern CScript* g_currentScript;
+extern int g_scriptCount;
+extern uint32_t g_nextScriptUniqueId;
+extern bool g_updatingSpawnedScripts;
+extern bool g_deleteSpawnedScriptsPending;
+extern bool g_onePerFrameReleased; // WAIT_TYPE_ONE_PER_FRAME
+extern Mem::PoolPair g_scriptPools;
 inline CScript*& ScriptListHead() { return g_scriptListHead; }
 inline CScript*& CurrentScriptVar() { return g_currentScript; } // GetCurrentScript 0x004728C0
 inline int& ScriptCount() { return g_scriptCount; }

@@ -3,6 +3,8 @@
 
 #include "game/net/thugpro_peer.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -22,11 +24,10 @@
 #include "game/skate/skate_net.h"
 #include "game/sys/config.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
+#include "game/core/code_address.h"
 #include "game/sys/log.h"
 #include "game/gfx/engine_glue.h"
 #include "game/skate/skate_module.h"
-#include "hook/game_code.h"
 #include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
@@ -338,9 +339,9 @@ public:
         DeleteParams(params);
         return true;
     }
-    void KillPrefix(const char* prefix) override { ObjectCommand(reinterpret_cast<uint32_t>(GAME_CODE(0x005A5030, CFuncs::CFunc_Kill)), kPrefix, prefix, 0); }
-    void CreatePrefix(const char* prefix) override { ObjectCommand(reinterpret_cast<uint32_t>(GAME_CODE(0x005A4FF0, CFuncs::CFunc_Create)), kPrefix, prefix, 0); }
-    void KillName(uint32_t name) override { ObjectCommand(reinterpret_cast<uint32_t>(GAME_CODE(0x005A5030, CFuncs::CFunc_Kill)), kName, nullptr, name); }
+    void KillPrefix(const char* prefix) override { ObjectCommand(reinterpret_cast<uint32_t>(CodeAddress(CFuncs::CFunc_Kill)), kPrefix, prefix, 0); }
+    void CreatePrefix(const char* prefix) override { ObjectCommand(reinterpret_cast<uint32_t>(CodeAddress(CFuncs::CFunc_Create)), kPrefix, prefix, 0); }
+    void KillName(uint32_t name) override { ObjectCommand(reinterpret_cast<uint32_t>(CodeAddress(CFuncs::CFunc_Kill)), kName, nullptr, name); }
 
 private:
     static Script::CStruct* NewParams()

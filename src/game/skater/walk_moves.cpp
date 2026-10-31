@@ -6,6 +6,7 @@
 
 #include <bit>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 
@@ -34,14 +35,12 @@
 #include "game/skater/core_physics.h"
 #include "game/skater/skater_state.h"
 #include "game/skater/walk_camera.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/camera_lookaround.h"
 #include "game/obj/node_components.h"
 #include "game/skater/vehicle_sound.h"
-#include "hook/game_code.h"
 #include "game/obj/trigger_events.h"
 
 namespace Obj {
@@ -1573,46 +1572,24 @@ bool CWalkComponent::UpdateContacts()
 } // namespace Obj
 
 using Obj::CWalkComponent;
-REPLACE(0x0052A5C0, CWalkComponent::Create);
-REPLACE(0x0052A190, &CWalkComponent::Construct);
-REPLACE(0x0052A290, &CWalkComponent::Destroy);
-REPLACE(0x00529F80, &CWalkComponent::UpdateCameraOverride);
-REPLACE(0x0052A2C0, &CWalkComponent::UpdateAnimSpeed);
-REPLACE(0x0052A620, &CWalkComponent::UpdateRide);
-REPLACE(0x0052AB90, &CWalkComponent::LeaveRide);
-REPLACE(0x0052B2D0, &CWalkComponent::GoToAir);
-REPLACE(0x0052A180, &CWalkComponent::AnimWaitComplete);
-REPLACE(0x0052C280, &CWalkComponent::ReleaseHang);
-REPLACE(0x0052C290, &CWalkComponent::ForceToAirFromHang);
-REPLACE(0x0052C2B0, &CWalkComponent::GoToAirFor);
-REPLACE(0x0052D4B0, &CWalkComponent::Update);
-REPLACE(0x0052D300, &CWalkComponent::UpdateGround);
-REPLACE(0x0052CEF0, &CWalkComponent::UpdateAir);
-REPLACE(0x0052AD10, &CWalkComponent::UpdateAnimWait);
-REPLACE(0x0052A700, &CWalkComponent::CollideAirMove);
-REPLACE(0x0052B370, &CWalkComponent::SnapToGround);
-REPLACE(0x0052AF40, &CWalkComponent::Begin);
-REPLACE(0x0052B7D0, &CWalkComponent::Jump);
-REPLACE(0x0052BC70, &CWalkComponent::TryBarrierJump);
-REPLACE(0x0052C2C0, &CWalkComponent::UpdateContacts);
 
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kWalkVtable, 0x0064C75C,
-    &CWalkComponent::Destroy,
-    &CWalkComponent::Update,
-    &Obj::CWalkComponent::InitFromStructure,
-    &Obj::CWalkComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kWalkVtable_slots[] = {&CWalkComponent::Destroy,
+         &CWalkComponent::Update,
+         &Obj::CWalkComponent::InitFromStructure,
+         &Obj::CWalkComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kWalkVtable = reinterpret_cast<void**>(kWalkVtable_slots);
 
 } // namespace
 } // namespace Obj

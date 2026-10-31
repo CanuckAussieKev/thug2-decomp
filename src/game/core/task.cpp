@@ -1,12 +1,13 @@
 // Tasks, task lists and task list stacks (Tsk).
 
+#include <cstdint>
+
 #include "game/core/task.h"
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/lst/head.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Tsk {
 
@@ -375,44 +376,19 @@ void Stack::DeletePoppedLists()
 }
 
 namespace {
-GAME_VTABLE(kBaseTaskVtable, 0x0064548C, GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771),
-            &Tsk::BaseTask::ScalarDelete);
-GAME_VTABLE(kTaskNodeVtable, 0x0064549C, &Tsk::TaskNode::Destroy);
-GAME_VTABLE(kTaskSearchVtable, 0x00645498, &Tsk::Search::DestroyTaskSearch);
-GAME_VTABLE(kStackListSearchVtable, 0x006454A0, &Tsk::Search::DestroyStackListSearch);
-GAME_VTABLE(kStackListNodeVtable, 0x006454A4, &Tsk::StackListNode::Destroy);
-GAME_VTABLE(kStackListHeadVtable, 0x006454A8, &Tsk::StackListNode::DestroyHead);
+static VtableSlot kBaseTaskVtable_slots[] = {&_purecall, &_purecall,
+                &Tsk::BaseTask::ScalarDelete};
+void** const kBaseTaskVtable = reinterpret_cast<void**>(kBaseTaskVtable_slots);
+static VtableSlot kTaskNodeVtable_slots[] = {&Tsk::TaskNode::Destroy};
+void** const kTaskNodeVtable = reinterpret_cast<void**>(kTaskNodeVtable_slots);
+static VtableSlot kTaskSearchVtable_slots[] = {&Tsk::Search::DestroyTaskSearch};
+void** const kTaskSearchVtable = reinterpret_cast<void**>(kTaskSearchVtable_slots);
+static VtableSlot kStackListSearchVtable_slots[] = {&Tsk::Search::DestroyStackListSearch};
+void** const kStackListSearchVtable = reinterpret_cast<void**>(kStackListSearchVtable_slots);
+static VtableSlot kStackListNodeVtable_slots[] = {&Tsk::StackListNode::Destroy};
+void** const kStackListNodeVtable = reinterpret_cast<void**>(kStackListNodeVtable_slots);
+static VtableSlot kStackListHeadVtable_slots[] = {&Tsk::StackListNode::DestroyHead};
+void** const kStackListHeadVtable = reinterpret_cast<void**>(kStackListHeadVtable_slots);
 } // namespace
 
 } // namespace Tsk
-
-REPLACE(0x00406850, &Tsk::BaseTask::InList);
-REPLACE(0x00406860, &Tsk::TaskNode::Destroy);
-REPLACE(0x00406890, &Tsk::BaseTask::Construct);
-REPLACE(0x004068F0, &Tsk::BaseTask::Remove);
-REPLACE(0x00406930, &Tsk::BaseTask::Destruct);
-REPLACE(0x00406980, &Tsk::BaseTask::ScalarDelete);
-REPLACE(0x004069B0, &Tsk::List::MarkChanged);
-REPLACE(0x004069C0, &Tsk::Search::DestroyTaskSearchBody);
-REPLACE(0x004069D0, &Tsk::Search::DestroyTaskSearch);
-REPLACE(0x00406A00, &Tsk::TaskNode::DestroyBody);
-REPLACE(0x00406A20, &Tsk::List::Destruct);
-REPLACE(0x00406A50, &Tsk::List::Construct);
-REPLACE(0x00406A80, &Tsk::List::AddTask);
-REPLACE(0x00406AC0, &Tsk::List::Process);
-REPLACE(0x00406BB0, &Tsk::List::RemoveAllTasks);
-REPLACE(0x00406C30, &Tsk::StackList::Destruct);
-REPLACE(0x00406C90, &Tsk::Stack::AddTask);
-REPLACE(0x00406CA0, &Tsk::Search::DestroyStackListSearchBody);
-REPLACE(0x00406CB0, &Tsk::Stack::RemoveAllTasks);
-REPLACE(0x00406CD0, &Tsk::Search::DestroyStackListSearch);
-REPLACE(0x00406D00, &Tsk::StackListNode::DestroyBody);
-REPLACE(0x00406D20, &Tsk::StackListNode::Destroy);
-REPLACE(0x00406D60, &Tsk::StackList::Construct);
-REPLACE(0x00406DE0, &Tsk::Stack::Push);
-REPLACE(0x00406E50, &Tsk::StackListNode::DestroyHead);
-REPLACE(0x00406E80, &Tsk::Stack::Construct);
-REPLACE(0x00406F10, &Tsk::Stack::DeletePoppedLists);
-REPLACE(0x00406FB0, &Tsk::Stack::Pop);
-REPLACE(0x004070A0, &Tsk::Stack::Process);
-REPLACE(0x004070E0, &Tsk::Stack::Destruct);

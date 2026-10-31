@@ -1,5 +1,7 @@
 // The network library's server (Net::Server). See net_server.h.
 
+#include <cstdint>
+
 #include "game/net/net_server.h"
 
 #include <winsock2.h>
@@ -7,8 +9,7 @@
 #include "game/core/manager.h"
 #include "game/net/net_access_c.h"
 #include "game/sys/timer.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/net/net_client.h"
 
 namespace Net {
@@ -17,15 +18,15 @@ void ConstructAppTask(App* app); // net_client.cpp
 
 namespace {
 
-GAME_VTABLE(kServerVtable, 0x006475EC, &Net::Client::Destroy, &Net::App::ProcessData, &Net::Server::ReceiveData,
-    &Net::Server::SendData, &Net::Server::Init, &Net::Client::Deinit);
+static VtableSlot kServerVtable_slots[] = {&Net::Client::Destroy, &Net::App::ProcessData, &Net::Server::ReceiveData,
+        &Net::Server::SendData, &Net::Server::Init, &Net::Client::Deinit};
+void** const kServerVtable = reinterpret_cast<void**>(kServerVtable_slots);
 constexpr int kBandwidthStep = 500;      // less when messages pile up
 constexpr int kMinBandwidth = 0x530;
 constexpr int kIdleBandwidthStep = 1000; // more when nothing waits for an ack
 
 uint32_t& Timestamp(App* app) { return app->m_time; }
 Dispatcher* GetDispatcher(App* app) { return &app->m_dispatcher; }
-
 
 } // namespace
 
@@ -230,11 +231,3 @@ int Server::HandleTimestamp(MsgHandlerContext* context)
 }
 
 } // namespace Net
-
-REPLACE(0x0045B830, &Net::Server::Construct);
-REPLACE(0x0045B7A0, &Net::Server::Init);
-REPLACE(0x0045BBD0, &Net::Server::ReceiveData);
-REPLACE(0x0045B920, &Net::Server::SendData);
-REPLACE(0x0045ADB0, Net::Server::HandleConnectionRequest);
-REPLACE(0x0045AE50, Net::Server::HandleDisconnRequest);
-REPLACE(0x0045AA30, Net::Server::HandleTimestamp);

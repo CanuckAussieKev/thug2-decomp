@@ -16,16 +16,13 @@
 #include "game/gfx/weather.h"
 #include "game/gfx/screen_effects.h"
 #include "game/script/game_cfuncs.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/engine_glue.h"
 #include "game/sys/game_config.h"
 
 namespace CFuncs {
 
-GAME_GLOBAL(Mdl::Manager*, g_moduleManager, 0x00696D78);
-GAME_GLOBAL(bool, g_viewerLaunched, 0x007CEBF0);
+Mdl::Manager* g_moduleManager;
+bool g_viewerLaunched;
 
 namespace {
 
@@ -273,35 +270,3 @@ bool __cdecl CFunc_SetScreenEffectsDOFParams(CStruct* params, CScript* script)
 bool __cdecl CFunc_IsPal(CStruct*, CScript*) { return GameConfig::g_language != 2; }
 
 } // namespace CFuncs
-
-REPLACE(0x005A5360, CFuncs::CFunc_SetLightGroup);
-REPLACE(0x005A5380, CFuncs::CFunc_IsAlive);
-REPLACE(0x005A53A0, CFuncs::CFunc_PauseSkaters);
-REPLACE(0x005A5420, CFuncs::CFunc_UnPauseSkaters);
-REPLACE(0x005A5480, CFuncs::CFunc_SkatersAreReady);
-REPLACE(0x005A54E0, CFuncs::CFunc_LaunchViewer);
-REPLACE(0x005A5610, CFuncs::CFunc_AddSkaterEarly);
-REPLACE(0x005A5680, CFuncs::CFunc_WeatherUpdateGrid);
-REPLACE(0x005A5690, CFuncs::CFunc_WeatherSetRainHeight);
-REPLACE(0x005A56B0, CFuncs::CFunc_WeatherSetRainFrames);
-REPLACE(0x005A56D0, CFuncs::CFunc_WeatherSetRainLength);
-REPLACE(0x005A56F0, CFuncs::CFunc_WeatherSetRainBlendMode);
-REPLACE(0x005A5710, CFuncs::CFunc_WeatherSetRainRate);
-REPLACE(0x005A5730, CFuncs::CFunc_WeatherSetRainColor);
-REPLACE(0x005A5750, CFuncs::CFunc_WeatherSetSplashRate);
-REPLACE(0x005A5770, CFuncs::CFunc_WeatherSetSplashLife);
-REPLACE(0x005A5790, CFuncs::CFunc_WeatherSetSplashSize);
-REPLACE(0x005A57B0, CFuncs::CFunc_WeatherSetSplashColor);
-REPLACE(0x005A57D0, CFuncs::CFunc_WeatherSetSplashBlendMode);
-REPLACE(0x005A57F0, CFuncs::CFunc_WeatherSetSnowHeight);
-REPLACE(0x005A5810, CFuncs::CFunc_WeatherSetSnowFrames);
-REPLACE(0x005A5830, CFuncs::CFunc_WeatherSetSnowSize);
-REPLACE(0x005A5850, CFuncs::CFunc_WeatherSetSnowBlendMode);
-REPLACE(0x005A5870, CFuncs::CFunc_WeatherSetSnowRate);
-REPLACE(0x005A5890, CFuncs::CFunc_WeatherSetSnowColor);
-REPLACE(0x005A58B0, CFuncs::CFunc_WeatherSetSnowActive);
-REPLACE(0x005A58D0, CFuncs::CFunc_WeatherSetRainActive);
-REPLACE(0x005A58F0, CFuncs::CFunc_SetScreenEffectsOn);
-REPLACE(0x005A5910, CFuncs::CFunc_SetScreenEffectsOff);
-REPLACE(0x005A5930, CFuncs::CFunc_SetScreenEffectsDOFParams);
-REPLACE(0x005A5950, CFuncs::CFunc_IsPal);

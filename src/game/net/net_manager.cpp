@@ -6,13 +6,12 @@
 
 #include <winsock2.h>
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/task.h"
 #include "game/net/net_app.h"
 #include "game/sys/mlp.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/ass/assman.h"
 
 namespace Net {
@@ -177,34 +176,3 @@ const char* Manager::GetDialupNumber()
 }
 
 } // namespace Net
-
-REPLACE(0x00454580, &Net::Manager::ConnectToInternet);
-REPLACE(0x00454590, &Net::Manager::DisconnectFromInternet);
-REPLACE(0x004545A0, &Net::Manager::GetModemBaudRate);
-REPLACE(0x004545B0, &Net::Manager::GetBandwidth);
-REPLACE(0x004545C0, &Net::Manager::IsOnline);
-REPLACE(0x004545D0, &Net::Manager::SetDialupNumber);
-REPLACE(0x00454600, &Net::Manager::SetDialupUserName);
-REPLACE(0x00454620, &Net::Manager::SetDialupPassword);
-REPLACE(0x00454640, &Net::Manager::SetGateway);
-REPLACE(0x004546A0, &Net::Manager::SetSubnetMask);
-REPLACE(0x00454700, &Net::Manager::SetLocalAddress);
-REPLACE(0x00454710, &Net::Manager::SetLocalIP);
-REPLACE(0x00454770, &Net::Manager::SetConnectionType);
-REPLACE(0x004547D0, &Net::Manager::SetDeviceType);
-REPLACE(0x004547F0, &Net::Manager::SetDHCP);
-REPLACE(0x00454810, &Net::Manager::SetFlag2E6);
-REPLACE(0x00454820, &Net::Manager::SetDNSServer);
-REPLACE(0x00454890, &Net::Manager::SetHostName);
-REPLACE(0x004548C0, &Net::Manager::SetDomainName);
-REPLACE(0x004548F0, &Net::Manager::GetLocalAddress);
-REPLACE(0x00454910, &Net::Manager::GetLocalIP);
-REPLACE(0x00454960, &Net::Manager::GetConnectionType);
-REPLACE(0x00454970, &Net::Manager::GetLastError);
-REPLACE(0x00454980, &Net::Manager::GetMessageFlags);
-REPLACE(0x00454990, &Net::Manager::SetMessageFlags);
-REPLACE(0x004549A0, &Net::Manager::GetModemState);
-REPLACE(0x004549B0, &Net::Manager::SetModemState);
-REPLACE(0x004549C0, &Net::Manager::LoadNetworkDrivers);
-REPLACE(0x00454CB0, &Net::Manager::AddAppTasks);
-REPLACE(0x00454DE0, &Net::Manager::GetDialupNumber);

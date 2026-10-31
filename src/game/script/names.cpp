@@ -1,5 +1,6 @@
 #include "game/script/names.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
@@ -9,15 +10,12 @@
 #include "game/file/pip.h"
 #include "game/script/struct.h"
 #include "game/script/cfuncs_scene.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Script {
 
-GAME_GLOBAL(char[100], g_checksumNameBuffer, 0x006F22C8);
-GAME_GLOBAL(char*, g_namesStart, 0x006F2330);
-GAME_GLOBAL(char*, g_namesNext, 0x006F2334);
+char g_checksumNameBuffer[100];
+char* g_namesStart;
+char* g_namesNext;
 
 namespace {
 
@@ -27,7 +25,7 @@ struct ChecksumName {
 };
 constexpr uint32_t kBucketSize = 10;
 
-GAME_GLOBAL(ChecksumName*, g_checksumNameTable, 0x006F232C);
+ChecksumName* g_checksumNameTable;
 ChecksumName*& NameTable() { return g_checksumNameTable; }
 char*& NamesStart() { return g_namesStart; }
 char*& NamesNext() { return g_namesNext; }
@@ -198,13 +196,3 @@ void FillMemberFunctionCode(uint32_t* records, void* const* code, int count)
 }
 
 } // namespace Script
-
-REPLACE(0x0046CF00, Script::AllocateChecksumNameLookupTables);
-REPLACE(0x0046CF60, Script::AddChecksumName);
-REPLACE(0x0046D0C0, Script::FindChecksumName);
-REPLACE(0x0046D110, Script::FindChecksumNameOrUnknown);
-REPLACE(0x0046CD90, Script::ParseChecksumNames);
-REPLACE(0x0046CFE0, Script::LoadChecksumNames);
-REPLACE(0x0046EFD0, Script::RegisterCFunctions);
-REPLACE(0x0046F020, Script::RegisterMemberFunctions);
-REPLACE(0x0046F060, Script::RegisterMemberFunctionTable);

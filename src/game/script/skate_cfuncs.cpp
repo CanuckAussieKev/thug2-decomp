@@ -22,15 +22,11 @@
 #include "game/gfx/viewport.h"
 #include "game/gfx/loading_bar_cfuncs.h"
 #include "game/script/game_cfuncs.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 
 namespace CFuncs {
 
-GAME_GLOBAL(char[64], g_levelName, 0x007CE698);
-GAME_GLOBAL(uint32_t[22], g_debounceTimes, 0x007CE758);
+char g_levelName[64];
+uint32_t g_debounceTimes[22];
 
 namespace {
 
@@ -165,7 +161,7 @@ bool __cdecl CFunc_NodeExists(Script::CStruct* params, Script::CScript*)
 // unchecked), load the .qb file (0x005A5960) and set up the node array (0x0045C210).
 bool __cdecl CFunc_LoadNodeArray(Script::CStruct* params, Script::CScript*)
 {
-    Mem::PushMemProfile(GAME_TEXT(0x0064FA9C, "LoadNodeArray")); // "LoadNodeArray"
+    Mem::PushMemProfile("LoadNodeArray"); // "LoadNodeArray"
     Script::DeleteSpawnedScripts();
     const char* name = nullptr;
     params->GetString(0u, &name, 0);
@@ -184,7 +180,7 @@ bool __cdecl CFunc_ResetCamera(Script::CStruct*, Script::CScript*)
 {
     for (int viewport = 0; viewport < 2; ++viewport) {
         if (Nx::GetCamera(viewport))
-            Dbg::Printf(GAME_TEXT(0x0064FAAC, "TODO: ScriptResetCamera not implemented\n")); // "TODO: ScriptResetCamera not implemented\n"
+            Dbg::Printf("TODO: ScriptResetCamera not implemented\n"); // "TODO: ScriptResetCamera not implemented\n"
     }
     return true;
 }
@@ -218,7 +214,7 @@ bool __cdecl CFunc_ClearViewerObject(Script::CStruct*, Script::CScript*)
 // 0x0059F310: CasArtist: whether the global integer cas_artist is set.
 bool __cdecl CFunc_CasArtist(Script::CStruct*, Script::CScript*)
 {
-    return Script::GetInteger(GAME_TEXT(0x0064FAD8, "cas_artist")) != 0; // "cas_artist"
+    return Script::GetInteger("cas_artist") != 0; // "cas_artist"
 }
 
 // 0x0059F330: SpawnScript <name> [params={...}] [id=n] [callback=<script>] [callbackparams={...}]
@@ -261,12 +257,12 @@ bool __cdecl CFunc_UnBlockInterruptedScript(Script::CStruct*, Script::CScript* s
 bool __cdecl CFunc_KillSpawnedScript(Script::CStruct* params, Script::CScript*)
 {
     uint32_t name = 0;
-    if (params->GetChecksum(GAME_TEXT(0x0064B5D4, "Name"), &name, 0)) { // "Name"
+    if (params->GetChecksum("Name", &name, 0)) { // "Name"
         Script::KillSpawnedScriptsThatReferTo(name);
         return true;
     }
     uint32_t id = 0;
-    if (params->GetChecksum(GAME_TEXT(0x0064FAE4, "Id"), &id, 0)) // "Id"
+    if (params->GetChecksum("Id", &id, 0)) // "Id"
         Script::KillSpawnedScriptsWithId(id);
     return true;
 }
@@ -288,7 +284,7 @@ bool __cdecl CFunc_UnPauseSpawnedScripts(Script::CStruct*, Script::CScript*)
 // screen (0x00490890); with a number, the loading bar's time (0x00490770). Always true.
 bool __cdecl CFunc_DisplayLoadingScreen(Script::CStruct* params, Script::CScript*)
 {
-    const char* image = GAME_TEXT(0x0064FAE8, "images\\xxxxx"); // "images\xxxxx"
+    const char* image = "images\\xxxxx"; // "images\xxxxx"
     params->GetString(0u, &image, 0);
     bool blank = params->ContainsFlag(kBlank);
     bool freeze = params->ContainsFlag(kFreeze);
@@ -338,32 +334,9 @@ bool __cdecl CFunc_SetLevelName(Script::CStruct* params, Script::CScript*)
 // 0x0059F5E0: DumpScripts [just_stack]: the script list dump is compiled out of this build. Always true.
 bool __cdecl CFunc_DumpScripts(Script::CStruct* params, Script::CScript*)
 {
-    if (!params->ContainsFlag(GAME_TEXT(0x0064FAF8, "just_stack"))) // "just_stack"
+    if (!params->ContainsFlag("just_stack")) // "just_stack"
         DumpScriptsList(params->ContainsFlag(kDumpScriptsFlag));
     return true;
 }
 
 } // namespace CFuncs
-
-REPLACE(0x0059EE80, CFuncs::ControllerPressed);
-REPLACE(0x0059EDF0, CFuncs::CFunc_ControllerDebounce);
-REPLACE(0x0059F0F0, CFuncs::CFunc_FakeLights);
-REPLACE(0x0059F1B0, CFuncs::CFunc_UpdateFxLighting);
-REPLACE(0x0059F1C0, CFuncs::CFunc_NodeExists);
-REPLACE(0x0059F1F0, CFuncs::CFunc_LoadNodeArray);
-REPLACE(0x0059F260, CFuncs::CFunc_ResetCamera);
-REPLACE(0x0059F290, CFuncs::CFunc_SetMovementVelocity);
-REPLACE(0x0059F2C0, CFuncs::CFunc_SetRotateVelocity);
-REPLACE(0x0059F2F0, CFuncs::CFunc_ClearViewerObject);
-REPLACE(0x0059F310, CFuncs::CFunc_CasArtist);
-REPLACE(0x0059F330, CFuncs::CFunc_SpawnScript);
-REPLACE(0x0059F440, CFuncs::CFunc_UnBlockInterruptedScript);
-REPLACE(0x0059F450, CFuncs::CFunc_KillSpawnedScript);
-REPLACE(0x0059F4C0, CFuncs::CFunc_PauseSpawnedScripts);
-REPLACE(0x0059F4D0, CFuncs::CFunc_UnPauseSpawnedScripts);
-REPLACE(0x0059F4E0, CFuncs::CFunc_DisplayLoadingScreen);
-REPLACE(0x0059F550, CFuncs::CFunc_HideLoadingScreen);
-REPLACE(0x0059F560, CFuncs::CFunc_LastBroadcastedOmnigonWas);
-REPLACE(0x0059F590, CFuncs::CFunc_OmnigonAllowed);
-REPLACE(0x0059F5B0, CFuncs::CFunc_SetLevelName);
-REPLACE(0x0059F5E0, CFuncs::CFunc_DumpScripts);

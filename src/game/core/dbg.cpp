@@ -5,8 +5,6 @@
 #include <cstdarg>
 #include <cstdio>
 
-#include "hook/hook.h"
-
 namespace Dbg {
 
 // 0x00401C30
@@ -23,5 +21,3 @@ int Printf(const char* format, ...)
 }
 
 } // namespace Dbg
-
-REPLACE(0x00401C30, Dbg::Printf);

@@ -1,6 +1,9 @@
 // Script-loaded fonts (LoadFont), with PartyMod's button glyph style (game/gfx/glyphs.h) built in.
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
+#include <cstdint>
+#include <new>
+
 #include "game/gfx/font.h"
 
 #include "game/core/crc.h"
@@ -9,15 +12,12 @@
 #include "game/lst/hashtable.h"
 #include "game/script/params.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/obj/camera_lookaround.h"
 #include "game/sys/startup_init.h"
 
 namespace Nx {
 
-GAME_GLOBAL(Lst::HashTable, g_fontTable, 0x006FA9F0, Lst::HashTable::Unconstructed{}); // (the exe makes it with HashTable(4) at start-up)
+Lst::HashTable g_fontTable{Lst::HashTable::Unconstructed{}}; // (the exe makes it with HashTable(4) at start-up)
 
 namespace {
 
@@ -25,7 +25,7 @@ FontSlot* Slots() { return g_fontSlots; }
 Lst::HashTable& FontTable() { return g_fontTable; }
 // The meta button map: for each meta button (0-31) the digit of the button it stands for.
 char* MetaButtonMap() { return g_metaButtonMap; }
-GAME_GLOBAL(bool, g_metaButtonMapLoaded, 0x006FA828);
+bool g_metaButtonMapLoaded;
 
 bool& MetaButtonMapLoaded() { return g_metaButtonMapLoaded; }
 
@@ -161,9 +161,6 @@ bool __cdecl CFunc_LoadFont(Script::CStruct* params, Script::CScript* /*script*/
 }
 
 } // namespace Nx
-
-REPLACE(0x0048D7E0, Nx::LoadFont);
-REPLACE(0x0048D950, Nx::CFunc_LoadFont);
 
 namespace Nx {
 

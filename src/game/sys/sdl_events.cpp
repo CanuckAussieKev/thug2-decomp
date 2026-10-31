@@ -7,7 +7,6 @@
 
 #include <SDL2/SDL.h>
 
-#include "hook/game.h"
 #include "game/gfx/movie.h"
 
 namespace Platform {

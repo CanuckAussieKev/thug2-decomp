@@ -14,8 +14,6 @@
 
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Ed {
 
@@ -36,6 +34,3 @@ bool __cdecl CFunc_GetParkEditorMaxPlayersPossible(Script::CStruct*, Script::CSc
 }
 
 } // namespace Ed
-
-REPLACE(0x0058E120, Ed::CFunc_GetParkEditorMaxPlayers);
-REPLACE(0x0058E140, Ed::CFunc_GetParkEditorMaxPlayersPossible);

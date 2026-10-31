@@ -11,28 +11,25 @@
 #include "game/core/mem.h"
 #include "game/core/task.h"
 #include "game/sio/device.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Inp {
 
-GAME_GLOBAL(Inp::Manager*, g_inputManager, 0x00696D40);
+Inp::Manager* g_inputManager;
 
 namespace {
 
 Manager*& Instance() { return g_inputManager; }
 
-GAME_GLOBAL(unsigned int, g_inputManagerReferences, 0x00696D44);
+unsigned int g_inputManagerReferences;
 // The buttons' name checksums (index 0: none).
-GAME_GLOBAL(uint32_t[22], g_buttonChecksums, 0x0067D6D8, 0x00000000, 0xBC6B118F, 0xE3006FC4, 0x85981897, 0x4B358AEB, 0xB7231A95, 0xA50950C5, 0xD8847EFA, 0x786B8B68, 0x2B489A86, 0x321C9756, 0x7323E97C, 0x20689278, 0x26B0C991, 0xBFB9982B, 0xC8BEA8BD, 0xF2F1F64E, 0x6BF8A7F4, 0x1CFF9762, 0x767A45D7, 0xBD30325B, 0x9D2D8850);
+uint32_t g_buttonChecksums[22]{0x00000000, 0xBC6B118F, 0xE3006FC4, 0x85981897, 0x4B358AEB, 0xB7231A95, 0xA50950C5, 0xD8847EFA, 0x786B8B68, 0x2B489A86, 0x321C9756, 0x7323E97C, 0x20689278, 0x26B0C991, 0xBFB9982B, 0xC8BEA8BD, 0xF2F1F64E, 0x6BF8A7F4, 0x1CFF9762, 0x767A45D7, 0xBD30325B, 0x9D2D8850};
 
 unsigned int& References() { return g_inputManagerReferences; }
 
 // Each device index's buttons this frame: down, pressed, released (two of each).
-GAME_GLOBAL(uint32_t[2], g_deviceMakes, 0x00696D48);
-GAME_GLOBAL(uint32_t[2], g_deviceBreaks, 0x00696D50);
-GAME_GLOBAL(uint32_t[2], g_deviceButtons, 0x00696D58);
+uint32_t g_deviceMakes[2];
+uint32_t g_deviceBreaks[2];
+uint32_t g_deviceButtons[2];
 uint32_t* DeviceMakes() { return g_deviceMakes; }
 uint32_t* DeviceBreaks() { return g_deviceBreaks; }
 uint32_t* DeviceButtons() { return g_deviceButtons; }
@@ -43,7 +40,7 @@ struct DigitalToAnalog {
     int event;
 };
 // (pairs of {mask, event} up to and including the first with a mask of 0 or less)
-GAME_GLOBAL(DigitalToAnalog[18], g_digitalToAnalog, 0x0067D730, {0x200, 16}, {0x400, 17}, {0x1, 14}, {0x2, 15}, {0x4, 12}, {0x8, 13}, {0x10, 8}, {0x20, 9}, {0x40, 10}, {0x80, 11}, {0x1000, 6}, {0x2000, 4}, {0x4000, 7}, {0x8000, 5}, {0x10000, 22}, {0x20000, 23}, {0x40000, 24}, {0x0, 0});
+DigitalToAnalog g_digitalToAnalog[18]{{0x200, 16}, {0x400, 17}, {0x1, 14}, {0x2, 15}, {0x4, 12}, {0x8, 13}, {0x10, 8}, {0x20, 9}, {0x40, 10}, {0x80, 11}, {0x1000, 6}, {0x2000, 4}, {0x4000, 7}, {0x8000, 5}, {0x10000, 22}, {0x20000, 23}, {0x40000, 24}, {0x0, 0}};
 const DigitalToAnalog* DigitalToAnalogTable() { return g_digitalToAnalog; }
 
 void ConstructTaskList(uint8_t* list) { reinterpret_cast<Tsk::Stack*>(list)->Construct(); }
@@ -330,25 +327,3 @@ int __cdecl ButtonIndex(uint32_t checksum)
 }
 
 } // namespace Inp
-
-REPLACE(0x0044E520, &Inp::Server::Destruct);
-REPLACE(0x0044E530, &Inp::Manager::Destruct);
-REPLACE(0x0044E5D0, &Inp::Manager::DisableActuators);
-REPLACE(0x0044E5F0, &Inp::Manager::EnableActuators);
-REPLACE(0x0044E610, &Inp::Manager::SetOverridePadWithStick);
-REPLACE(0x0044E620, &Inp::Manager::OverridePadWithStick);
-REPLACE(0x0044E630, &Inp::Manager::GetPlayerController);
-REPLACE(0x0044E640, &Inp::Manager::SetPlayerController);
-REPLACE(0x0044E660, Inp::Manager::ServiceTask);
-REPLACE(0x0044E590, Inp::ButtonChecksum);
-REPLACE(0x0044E5A0, Inp::ButtonIndex);
-REPLACE(0x0044E840, &Inp::Data::MaskDigitalInput);
-REPLACE(0x0044E860, &Inp::Data::MaskAnalogInput);
-REPLACE(0x0044E8C0, &Inp::Data::ConvertDigitalToAnalog);
-REPLACE(0x0044E900, &Inp::Data::HandleAnalogTolerance);
-REPLACE(0x0044EA30, &Inp::Data::OverridePadWithStick);
-REPLACE(0x0044E9E0, &Inp::Server::Construct);
-REPLACE(0x0044EAA0, &Inp::Server::ServiceHandlers);
-REPLACE(0x0044E700, &Inp::Manager::Construct);
-REPLACE(0x0044E7F0, Inp::CreateManager);
-REPLACE(0x0044E6B0, Inp::ReleaseManager);

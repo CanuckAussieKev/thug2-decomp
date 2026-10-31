@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include "hook/game_global.h"
 
 namespace Gfx {
 class CTODManager;
@@ -236,8 +235,8 @@ void __cdecl ApplyFlagCommandToObject(Obj::CObject* object, void* data);
 void ApplyFlagCommandStub();
 void __cdecl ApplyFlagCommandRegisters(void* data, Obj::CObject* object);
 
-GAME_GLOBAL_EXTERN(bool, g_tryingToJoin);
-GAME_GLOBAL_EXTERN(Gfx::CTODManager*, g_todManager);
-GAME_GLOBAL_EXTERN(uint32_t, g_lastBroadcastedOmnigon);
+extern bool g_tryingToJoin;
+extern Gfx::CTODManager* g_todManager;
+extern uint32_t g_lastBroadcastedOmnigon;
 
 } // namespace CFuncs

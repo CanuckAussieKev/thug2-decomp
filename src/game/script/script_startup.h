@@ -5,18 +5,17 @@
 #include "game/core/pool.h"
 #include "game/gfx/scene_load.h"
 #include "game/gfx/spawned_polys.h"
-#include "hook/game_global.h"
 
 // The script system's start-up, 0x005A5660-0x005A5F6F: the counts of the script functions, loading and unloading
 // .qb files by name, loading every start-up .qb file (scripts\qdir.txt from qb_scripts.pre), and the pools of the
 // animation and object classes made with the script pools, before the script functions are registered.
 namespace Gfx {
-GAME_GLOBAL_EXTERN(Mem::PoolPair, g_animSlotPools);   // 0x006F92B8 (CAnimCachePredictor, anim_cache.cpp)
-GAME_GLOBAL_EXTERN(Mem::PoolPair, g_standardPools);   // 0x00701430 (CBonedAnimController, anim_controller.cpp)
-GAME_GLOBAL_EXTERN(Mem::PoolPair, g_animTrackPools);  // 0x006F92C8 (CBlendChannel, anim_track.cpp)
+extern Mem::PoolPair g_animSlotPools;   // 0x006F92B8 (CAnimCachePredictor, anim_cache.cpp)
+extern Mem::PoolPair g_standardPools;   // 0x00701430 (CBonedAnimController, anim_controller.cpp)
+extern Mem::PoolPair g_animTrackPools;  // 0x006F92C8 (CBlendChannel, anim_track.cpp)
 } // namespace Gfx
 namespace Obj {
-GAME_GLOBAL_EXTERN(Mem::PoolPair, g_scriptListPools); // 0x006F0FC8 (CEventReceiverList, tracker.cpp)
+extern Mem::PoolPair g_scriptListPools; // 0x006F0FC8 (CEventReceiverList, tracker.cpp)
 } // namespace Obj
 
 namespace Script {

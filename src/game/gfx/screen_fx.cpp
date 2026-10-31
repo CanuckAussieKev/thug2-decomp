@@ -15,19 +15,16 @@
 #include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/settings.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/shader_slots.h"
 #include "game/gfx/device.h"
 #include "game/gfx/engine_glue.h"
 
 namespace Nx {
 
-GAME_GLOBAL(bool, g_screenCopyInUse, 0x007CC244);
-GAME_GLOBAL(bool, g_blurSecondPass, 0x0067EF68, 1);
-GAME_GLOBAL(float[4], g_blurTapWeights, 0x0067EF88, 0.16666667f, 0.33333334f, 0.33333334f, 0.16666667f);
-GAME_GLOBAL(float[4], g_blurTapOffsets, 0x0067EF98, -0.022857143f, -0.005714286f, 0.005714286f, 0.022857143f);
+bool g_screenCopyInUse;
+bool g_blurSecondPass{1};
+float g_blurTapWeights[4]{0.16666667f, 0.33333334f, 0.33333334f, 0.16666667f};
+float g_blurTapOffsets[4]{-0.022857143f, -0.005714286f, 0.005714286f, 0.022857143f};
 
 namespace {
 
@@ -286,8 +283,3 @@ void __cdecl Bloom()
 }
 
 } // namespace Nx
-
-REPLACE(0x004DE5E0, Nx::DrawScreenQuad);
-REPLACE(0x004DEA80, Nx::BeginScreenEffects);
-REPLACE(0x004DE980, Nx::CopyScreenQuarter);
-REPLACE(0x004DEB70, Nx::Bloom);

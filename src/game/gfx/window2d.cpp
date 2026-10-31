@@ -5,14 +5,11 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/gfx/pc_billboards.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Nx {
 
-GAME_GLOBAL(CWindow2D*, g_freeWindows, 0x007013D0);
+CWindow2D* g_freeWindows;
 
 namespace {
 
@@ -98,17 +95,8 @@ void __cdecl FreeWindow2D(CWindow2D* window)
 }
 
 namespace {
-GAME_VTABLE(kWindowVtable, 0x00649E58, &Nx::CWindow2D::Destroy, &Nx::CWindow2D::UpdateEngine);
+static VtableSlot kWindowVtable_slots[] = {&Nx::CWindow2D::Destroy, &Nx::CWindow2D::UpdateEngine};
+void** const kWindowVtable = reinterpret_cast<void**>(kWindowVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x004A1580, &Nx::CWindow2D::Construct);
-REPLACE(0x004A15B0, &Nx::CWindow2D::DestroyBody);
-REPLACE(0x004A1690, &Nx::CWindow2D::Destroy);
-REPLACE(0x004A1600, &Nx::CWindow2D::UpdateEngine);
-REPLACE(0x004A15C0, &Nx::CWindow2D::SetPos);
-REPLACE(0x004A15E0, &Nx::CWindow2D::SetSize);
-REPLACE(0x004A1620, Nx::AllocateWindow2D);
-REPLACE(0x004A1670, Nx::FreeWindow2D);
-REPLACE_SOURCE_ONLY(0x004A1610, Nx::CreateWindowPool); // a jump to 0x004CD8A0

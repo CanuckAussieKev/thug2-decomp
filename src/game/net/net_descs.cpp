@@ -1,13 +1,13 @@
 // The network library's small message structures: MsgDesc (net_app.h), StreamDesc (net_app.h) and
 // MsgHandlerContext (net_dispatcher.h) - their constructors and StreamDesc's destructor.
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/dbg.h"
 #include "game/core/mem.h"
 #include "game/net/net_app.h"
 #include "game/net/net_dispatcher.h"
-#include "hook/hook.h"
 
 namespace Net {
 
@@ -66,8 +66,3 @@ MsgHandlerContext* MsgHandlerContext::Construct()
 }
 
 } // namespace Net
-
-REPLACE(0x004549D0, &Net::StreamDesc::Construct);
-REPLACE(0x004549F0, &Net::MsgDesc::Construct);
-REPLACE(0x00454A20, &Net::MsgHandlerContext::Construct);
-REPLACE(0x00454E00, &Net::StreamDesc::DestroyBody);

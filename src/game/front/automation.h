@@ -1,7 +1,5 @@
 #pragma once
 
-#include "hook/game_global.h"
-
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -21,7 +19,7 @@ class CStruct;
 //
 // thug2-decomp.ini [features] automation=1 turns it on (default 0: off - the main install never has it on;
 // tools/pipeline/game/make_workspace.ps1 turns it on in the workspaces). While it's on, once a frame (the front end's input
-// logic, also paused and in a level) the DLL looks at <game folder>\thug2-decomp-commands.txt (its size and time
+// logic, also paused and in a level) the game looks at <game folder>\thug2-decomp-commands.txt (its size and time
 // first) and runs the lines added since, in order; each command and its result go to the log and to
 // <game folder>\thug2-decomp-status.json (rewritten when something in it changes, readable while the game runs).
 // A command file written more than 10 s before the game started (a last run's) is ignored; tools delete it before
@@ -117,7 +115,7 @@ class CStruct;
 // - keys and controllers keep working as ever: commands only add to them.
 namespace Front::Automation {
 
-// [features] automation (read once; self-tests may set it).
+// [features] automation (read once).
 bool& Enabled();
 // Once a frame from the front end's input logic (MouseMenus::Update): the command file, the running command, the
 // status file; and the -run script.
@@ -126,7 +124,7 @@ void Update(Mdl::FrontEnd* frontEnd);
 // are inverted: a set bit is a button down).
 void AddPadButtons(int port, uint8_t* data);
 
-// --- the pieces (pure, self-tested) -----------------------------------------------------------------------------
+// --- the pieces (pure) ------------------------------------------------------------------------------------------
 
 enum class Op { Run, Choose, Focus, Press, Hold, Wait, WaitFor, Level, Echo, Quit, Teleport, Camera, Capture, LogTricks, Crash, Trace, Frontend };
 enum class Condition { None, Ready, FrontEnd, InGame, Level, Menu, Focus, NewFrontend };

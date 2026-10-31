@@ -4,6 +4,7 @@
 #include "game/obj/particle_component.h"
 #include "game/gfx/d3dx.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
@@ -21,17 +22,14 @@
 #include "game/sys/game_clock.h"
 #include "game/obj/control_pad.h"
 #include "game/obj/collide_and_die.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/object.h"
-#include "hook/game_code.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[126], g_particleComponentMemberFunctions, 0x00683D30,
+uint32_t g_particleComponentMemberFunctions[126]{
             0x88BE2262, 0xA9DB601E, 0, 0, 0, 0,
             0xBB6018F4, 0xA9DB601E, 0, 0, 0, 0,
             0xE5134689, 0xA9DB601E, 0, 0, 0, 0,
@@ -52,8 +50,8 @@ GAME_GLOBAL(uint32_t[126], g_particleComponentMemberFunctions, 0x00683D30,
             0x5446AF14, 0xA9DB601E, 0, 0, 0, 0,
             0x55835CF2, 0xA9DB601E, 0, 0, 0, 0,
             0x3D05AFE0, 0xA9DB601E, 0, 0, 0, 0,
-            0, 0xA9DB601E, 0, 0, 0, 0);
-GAME_GLOBAL(Nx::CParticleManager*, g_particleManager, 0x006FA7C4);
+            0, 0xA9DB601E, 0, 0, 0, 0};
+Nx::CParticleManager* g_particleManager;
 
 namespace {
 
@@ -575,54 +573,23 @@ void __fastcall SetParticleValue34(void* particle, float value)
 
 using Obj::CParticleComponent;
 
-REPLACE(0x0042A000, CParticleComponent::Create);
-REPLACE(0x00429940, CParticleComponent::RegisterMemberFunctions);
-REPLACE(0x00429B20, &CParticleComponent::Construct);
-REPLACE(0x00429B90, &CParticleComponent::DestroyBody);
-REPLACE(0x0042A060, &CParticleComponent::Destroy);
-REPLACE(0x00429BF0, &CParticleComponent::Finalize);
-REPLACE(0x00429960, &CParticleComponent::Hide);
-REPLACE(0x00429970, &CParticleComponent::SetEmitRate);
-REPLACE(0x004299A0, &CParticleComponent::SetLifetime);
-REPLACE(0x004299E0, &CParticleComponent::SetFloat19AF74D1);
-REPLACE(0x00429A20, &CParticleComponent::SetMidPointPct);
-REPLACE(0x00429A60, &CParticleComponent::SetStartRadius);
-REPLACE(0x00429AA0, &CParticleComponent::SetMidRadius);
-REPLACE(0x00429AE0, &CParticleComponent::SetEndRadius);
-REPLACE(0x00429C10, &CParticleComponent::SetStartPos);
-REPLACE(0x00429C50, &CParticleComponent::SetMidPos);
-REPLACE(0x00429C90, &CParticleComponent::SetEndPos);
-REPLACE(0x00429CD0, &CParticleComponent::SetStartBox);
-REPLACE(0x00429D10, &CParticleComponent::SetMidBox);
-REPLACE(0x00429D50, &CParticleComponent::SetEndBox);
-REPLACE(0x00429D90, &CParticleComponent::SetEmitTarget);
-REPLACE(0x00429DD0, &CParticleComponent::SetStartColor);
-REPLACE(0x00429E50, &CParticleComponent::SetMidColor);
-REPLACE(0x00429ED0, &CParticleComponent::SetEndColor);
-REPLACE(0x00429F50, &CParticleComponent::SetFlag5446AF14);
-REPLACE(0x00429F90, &CParticleComponent::SetColor55835CF2);
-REPLACE(0x0042A090, &CParticleComponent::InitFromStructure);
-REPLACE(0x0042AD90, &CParticleComponent::Update);
-REPLACE(0x0042AEE0, &CParticleComponent::CallMemberFunction);
-REPLACE(0x0042B040, &CParticleComponent::GetParticleParams);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x00646340,
-    &CParticleComponent::Destroy,
-    &CParticleComponent::Update,
-    &CParticleComponent::InitFromStructure,
-    &CParticleComponent::Finalize,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    &CParticleComponent::Hide,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &CParticleComponent::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&CParticleComponent::Destroy,
+         &CParticleComponent::Update,
+         &CParticleComponent::InitFromStructure,
+         &CParticleComponent::Finalize,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         &CParticleComponent::Hide,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &CParticleComponent::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

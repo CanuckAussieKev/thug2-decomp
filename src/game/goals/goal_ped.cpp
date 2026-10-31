@@ -2,6 +2,8 @@
 
 #include "game/goals/goal_ped.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
@@ -22,9 +24,6 @@
 #include "game/script/struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module_calls.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 
 namespace Game {
 
@@ -65,13 +64,13 @@ constexpr uint32_t kVO = 0x1A4E4FB9;             // VO
 constexpr uint32_t kMidgoal = 0x1623B689;        // (the midgoal type)
 constexpr uint32_t kWait = 0x82117C1A;           // wait
 
-const char* const kFormatTwo = GAME_TEXT(0x00647994, "%s_%s");  // "%s_%s"
-const char* const kSuccess = GAME_TEXT(0x0064DFCC, "%s_success");    // "%s_success"
-const char* const kFemale = GAME_TEXT(0x0064DFE0, "%s_f");     // "%s_f"
-const char* const kCamAnim = GAME_TEXT(0x0064DFFC, "%s_camAnim%02i");    // "%s_camAnim%02i"
-const char* const kCamAnimSuffix = GAME_TEXT(0x0064DFE8, "%s_camAnim%02i_%s"); // "%s_camAnim%02i_%s"
-const char* const kLip = GAME_TEXT(0x0064DFD8, "%s_lip");        // "%s_lip"
-const char* const kFar = GAME_TEXT(0x00646B94, "Far");        // "Far"
+const char* const kFormatTwo = "%s_%s";  // "%s_%s"
+const char* const kSuccess = "%s_success";    // "%s_success"
+const char* const kFemale = "%s_f";     // "%s_f"
+const char* const kCamAnim = "%s_camAnim%02i";    // "%s_camAnim%02i"
+const char* const kCamAnimSuffix = "%s_camAnim%02i_%s"; // "%s_camAnim%02i_%s"
+const char* const kLip = "%s_lip";        // "%s_lip"
+const char* const kFar = "Far";        // "Far"
 
 CGoalManager* Manager() { return GetGoalManager(); }
 Script::CStruct* GoalParams(uint32_t id) { return Manager()->GetGoalParams(id); }
@@ -151,7 +150,7 @@ CGoalPed* CGoalPed::Construct(Script::CStruct* params)
 // 0x0055EB70
 void CGoalPed::ParseFirstName(char* out, const char** name, int)
 {
-    if (!std::strstr(*name, GAME_TEXT(0x0064A2BC, " "))) { // " "
+    if (!std::strstr(*name, " ")) { // " "
         for (const char* from = *name; (*out++ = *from++) != 0;) {
         }
         return;
@@ -201,9 +200,9 @@ bool CGoalPed::GetStreamChecksum(uint32_t* out, int index, bool success, const c
     std::snprintf(base, sizeof(base), kFormatTwo, pro, goalName);
     const char* difficulty;
     switch (Manager()->GetDifficultyLevel(false)) {
-    case 0: difficulty = GAME_TEXT(0x0064E00C, "easy"); break; // "easy"
-    case 1: difficulty = GAME_TEXT(0x0064E014, "medium"); break; // "medium"
-    case 2: difficulty = GAME_TEXT(0x0064E01C, "hard"); break; // "hard"
+    case 0: difficulty = "easy"; break; // "easy"
+    case 1: difficulty = "medium"; break; // "medium"
+    case 2: difficulty = "hard"; break; // "hard"
     default: return false;
     }
     bool female = false;
@@ -323,11 +322,11 @@ uint32_t CGoalPed::GetGoalAnimations(const char* type)
     if (!type)
         return 0;
     char proName[0x80];
-    std::snprintf(proName, sizeof(proName), GAME_TEXT(0x0064E03C, "%s_goal_%s"), GetProFirstName(), type); // "%s_goal_%s"
+    std::snprintf(proName, sizeof(proName), "%s_goal_%s", GetProFirstName(), type); // "%s_goal_%s"
     if (Script::GetArray(proName))
         return Crc::GenerateCRCFromString(proName);
     char generic[0x80];
-    std::snprintf(generic, sizeof(generic), GAME_TEXT(0x0064E024, "generic_pro_anims_%s"), type); // "generic_pro_anims_%s"
+    std::snprintf(generic, sizeof(generic), "generic_pro_anims_%s", type); // "generic_pro_anims_%s"
     Script::GetArray(generic);
     return Crc::GenerateCRCFromString(generic);
 }
@@ -404,7 +403,7 @@ void CGoalPed::LoadFam(uint32_t stream, uint32_t animSet)
 {
     UnloadLastFam();
     char path[0x20];
-    std::snprintf(path, sizeof(path), GAME_TEXT(0x00645FD4, "fam\\%08x.fam"), stream); // "fam\%08x.fam"
+    std::snprintf(path, sizeof(path), "fam\\%08x.fam", stream); // "fam\%08x.fam"
     Ass::CAssMan* assets = Ass::AssetManager();
     int previous = static_cast<int>(reinterpret_cast<GameNet::FoldedGetters*>(assets)->Word18());
     if (assets->LoadAnim(path, stream, animSet, false, false))
@@ -501,9 +500,9 @@ void CGoalPed::PlayGoalProStream(const char* kind, int count, bool callByName, b
         if (n > count) {
             if (!profile->IsPro())
                 continue;
-            std::snprintf(name, sizeof(name), GAME_TEXT(0x0064E054, "%s_%s%s%02i"), pro, kind, player, n - count); // "%s_%s%s%02i"
+            std::snprintf(name, sizeof(name), "%s_%s%s%02i", pro, kind, player, n - count); // "%s_%s%s%02i"
         } else {
-            std::snprintf(name, sizeof(name), GAME_TEXT(0x0064E048, "%s_%s%02i"), pro, kind, n); // "%s_%s%02i"
+            std::snprintf(name, sizeof(name), "%s_%s%02i", pro, kind, n); // "%s_%s%02i"
         }
         if (Pcm::StreamExists(Crc::GenerateCRCFromString(name))) {
             PlayStream(Crc::GenerateCRCFromString(name), noAnim, 0, false);
@@ -542,7 +541,7 @@ void CGoalPed::PlayGoalStream(const char* type, Script::CStruct* params)
         bool played = false;
         for (int n = 1; n <= 5; ++n) {
             char name[0x80];
-            std::snprintf(name, sizeof(name), GAME_TEXT(0x0064E068, "%s_Far%s%02i"), pro, player, n); // "%s_Far%s%02i"
+            std::snprintf(name, sizeof(name), "%s_Far%s%02i", pro, player, n); // "%s_Far%s%02i"
             if (Pcm::StreamExists(Crc::GenerateCRCFromString(name))) {
                 played = true;
                 PlayStream(Crc::GenerateCRCFromString(name), true, 0, false);
@@ -556,7 +555,7 @@ void CGoalPed::PlayGoalStream(const char* type, Script::CStruct* params)
     switch (Crc::GenerateCRCFromString(type)) {
     case kMidgoal:
         if (!m_suspended)
-            PlayGoalProStream(GAME_TEXT(0x0064E060, "Midgoal"), 10, false, true); // "Midgoal"
+            PlayGoalProStream("Midgoal", 10, false, true); // "Midgoal"
         break;
     case kWait:
         if (!m_suspended)
@@ -567,24 +566,3 @@ void CGoalPed::PlayGoalStream(const char* type, Script::CStruct* params)
 }
 
 } // namespace Game
-
-REPLACE(0x0055EB40, &Game::CGoalPed::Construct);
-REPLACE(0x0055EB70, Game::CGoalPed::ParseFirstName);
-REPLACE(0x0055EBC0, Game::CGoalPed::AddSuccessSuffix);
-REPLACE(0x0055EBF0, &Game::CGoalPed::GetProFirstName);
-REPLACE(0x0055ED00, &Game::CGoalPed::GetStreamChecksum);
-REPLACE(0x0055F170, &Game::CGoalPed::GetPlayerFirstName);
-REPLACE(0x0055F1B0, &Game::CGoalPed::StopLastStream);
-REPLACE(0x0055F210, &Game::CGoalPed::StopCurrentStream);
-REPLACE(0x0055F270, &Game::CGoalPed::GetGoalAnimations);
-REPLACE(0x0055F3D0, &Game::CGoalPed::DestroyGoalPed);
-REPLACE(0x0055F420, &Game::CGoalPed::SuspendGoalLogic);
-REPLACE(0x0055F460, &Game::CGoalPed::UnloadLastFam);
-REPLACE(0x0055F5B0, &Game::CGoalPed::Hide);
-REPLACE(0x0055F710, &Game::CGoalPed::LoadFam);
-REPLACE(0x0055F7A0, &Game::CGoalPed::PlayStream);
-REPLACE(0x0055F960, &Game::CGoalPed::PlayGoalStartStream);
-REPLACE(0x0055FA60, &Game::CGoalPed::PlayGoalWinStream);
-REPLACE(0x0055FB00, &Game::CGoalPed::PlayGoalProStream);
-REPLACE(0x0055FDF0, &Game::CGoalPed::PlayGoalWaitStream);
-REPLACE(0x0055FE10, &Game::CGoalPed::PlayGoalStream);

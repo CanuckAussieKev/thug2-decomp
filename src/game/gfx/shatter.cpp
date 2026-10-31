@@ -9,6 +9,7 @@
 
 #include <bit>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
@@ -20,16 +21,13 @@
 #include "game/gfx/render_state.h"
 #include "game/gfx/texture_splats.h"
 #include "game/lst/hashtable.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/gfx/device.h"
 #include "game/sys/crt.h"
 
 namespace Nx {
 
-GAME_GLOBAL(Lst::HashTable*, g_shatters, 0x007004B8);
+Lst::HashTable* g_shatters;
 
 namespace {
 
@@ -320,15 +318,8 @@ void __cdecl ShatterGeom(uint8_t* geom)
 }
 
 namespace {
-GAME_VTABLE(kShatterVtable, 0x0064A4AC, &Nx::CPcShatter::Destroy);
+static VtableSlot kShatterVtable_slots[] = {&Nx::CPcShatter::Destroy};
+void** const kShatterVtable = reinterpret_cast<void**>(kShatterVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x004B95E0, Nx::UpdateShatter);
-REPLACE(0x004BA7A0, Nx::ShatterGeom);
-REPLACE(0x004B8120, &Nx::CPcShatter::Construct);
-REPLACE(0x004B8FA0, &Nx::CPcShatter::DestroyBody);
-REPLACE(0x004B9A30, &Nx::CPcShatter::Destroy);
-REPLACE(0x004B80B0, Nx::DrawShatter);
-REPLACE(0x004B9550, Nx::KillAllShatters);

@@ -1,6 +1,7 @@
 #include "game/script/parse.h"
 
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
@@ -10,22 +11,19 @@
 #include "game/script/eval.h"
 #include "game/script/qb.h"
 #include "game/script/cscript.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/boned_anim_frame_data.h"
 #include "game/gfx/movie.h"
 #include "game/sys/startup_init.h"
 
 namespace Script {
 
-GAME_GLOBAL(float, g_parseNudge, 0x00645D74, 0.1f);
-GAME_GLOBAL(float, g_parseRandomScale, 0x0064840C, 0.000030525032f);
-GAME_GLOBAL(CStoredRandom*, g_storedRandomsNewest, 0x006F2358);
-GAME_GLOBAL(CStoredRandom*, g_storedRandomsOldest, 0x006F235C);
-GAME_GLOBAL(int, g_storedRandomCount, 0x006F2360);
-GAME_GLOBAL(CExpressionEvaluator, g_evaluator, 0x006F2370);
-GAME_GLOBAL(CComponent, g_parseScratch, 0x006F2568);
+float g_parseNudge{0.1f};
+float g_parseRandomScale{0.000030525032f};
+CStoredRandom* g_storedRandomsNewest;
+CStoredRandom* g_storedRandomsOldest;
+int g_storedRandomCount;
+CExpressionEvaluator g_evaluator;
+CComponent g_parseScratch;
 
 namespace {
 
@@ -1033,21 +1031,6 @@ __declspec(naked) void Script::AddParameterStub()
         ret
     }
 }
-
-REPLACE(0x004728C0, Script::GetCurrentScript);
-REPLACE(0x004728D0, Script::GetNextScript);
-REPLACE(0x00470BB0, Script::NewStoredRandom);
-REPLACE(0x00470C60, Script::ResolveRandomJumps);
-REPLACE(0x00479730, Script::ResolveNameComponent);
-REPLACE(0x004706F0, Script::ParseValue);
-REPLACE(0x00470F30, Script::ParseArguments);
-REPLACE(0x00471860, Script::ParseStructure);
-REPLACE(0x00471B00, Script::ParseArray);
-REPLACE(0x004712B0, Script::ParseExpression);
-REPLACE_UNCHECKED(0x0046F7A0, Script::FindStoredRandomStub);   // arguments in EBX, EDI, ESI
-REPLACE_UNCHECKED(0x0046FD60, Script::SkipValueStub);          // argument in EAX
-REPLACE_UNCHECKED(0x0046FBD0, Script::ParseRandomRangeStub);   // arguments in EAX, BL and on the stack
-REPLACE_UNCHECKED(0x00470130, Script::AddParameterStub);       // arguments in ECX, EDX and on the stack
 
 namespace Script {
 

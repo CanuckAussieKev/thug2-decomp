@@ -6,6 +6,7 @@
 
 #include <winsock2.h>
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/dbg.h"
@@ -13,13 +14,10 @@
 #include "game/core/mem.h"
 #include "game/net/net_client.h"
 #include "game/net/net_server.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Net {
 
-GAME_GLOBAL(Manager*, g_netManager, 0x006EFDD8);
+Manager* g_netManager;
 
 namespace {
 
@@ -36,7 +34,7 @@ constexpr uint32_t kClientSize = 0x1F18;
 
 Manager*& Instance() { return g_netManager; }
 
-GAME_GLOBAL(uint32_t, g_netManagerReferences, 0x006EFDDC);
+uint32_t g_netManagerReferences;
 
 uint32_t& References() { return g_netManagerReferences; }
 
@@ -205,11 +203,3 @@ void ReleaseManager()
 }
 
 } // namespace Net
-
-REPLACE(0x004556E0, &Net::Manager::Construct);
-REPLACE(0x004555A0, &Net::Manager::DestroyBody);
-REPLACE(0x00455270, &Net::Manager::CreateNewAppServer);
-REPLACE(0x004553F0, &Net::Manager::CreateNewAppClient);
-REPLACE(0x00455550, &Net::Manager::DestroyApp);
-REPLACE(0x00455880, Net::CreateManager);
-REPLACE(0x004558D0, Net::ReleaseManager);

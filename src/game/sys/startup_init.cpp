@@ -1,6 +1,5 @@
 // The original's start-up initialisers, in their order (see startup_init.h). The table of the C++ initialisers
-// (0x0067C000 - 0x0067C13C, run by _cinit 0x006249D1 before WinMain) entry by entry; data/startup_initialisers.csv lists
-// every entry with what it does and where its work is done here.
+// (0x0067C000 - 0x0067C13C, run by _cinit 0x006249D1 before WinMain) entry by entry.
 //
 // Not reproduced, and why:
 // - The C initialisers (0x0067C144 - 0x0067C160) and entry 1 (0x00628777, the security cookie): the C runtime's own,
@@ -20,14 +19,13 @@
 #include <cstdint>
 
 #include "game/script/names.h"
-#include "hook/game_global.h"
 
 namespace Sys {
 
 namespace {
 
 // 16 bytes nothing reads, set to a null (virtual-inheritance) member function pointer by 0x006408A0.
-GAME_GLOBAL(uint32_t[4], g_nullMemberFunction67D6C0, 0x0067D6C0);
+uint32_t g_nullMemberFunction67D6C0[4];
 
 // 0x006408A0
 void SetNullMemberFunction()

@@ -16,14 +16,12 @@
 #include "game/sys/game_clock.h"
 #include "game/skater/core_physics.h"
 #include "game/obj/control_pad.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/skater/skitch.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
@@ -242,34 +240,23 @@ int CSkaterFlipAndRotateComponent::CallMemberFunction(uint32_t name, Script::CSt
 
 } // namespace Obj
 
-REPLACE(0x00511470, Obj::CSkaterFlipAndRotateComponent::Create);
-REPLACE(0x00511300, &Obj::CSkaterFlipAndRotateComponent::DestroyBody);
-REPLACE(0x00511320, &Obj::CSkaterFlipAndRotateComponent::Destroy);
-REPLACE(0x00511350, &Obj::CSkaterFlipAndRotateComponent::Finalize);
-REPLACE(0x00511390, &Obj::CSkaterFlipAndRotateComponent::SetBoardRotated);
-REPLACE(0x00511310, &Obj::CSkaterFlipAndRotateComponent::ClearAfterFlags);
-REPLACE(0x00511420, &Obj::CSkaterFlipAndRotateComponent::ApplyFlipToAnims);
-REPLACE(0x005114F0, &Obj::CSkaterFlipAndRotateComponent::Flip);
-REPLACE(0x00511570, &Obj::CSkaterFlipAndRotateComponent::DoAfterAnim);
-REPLACE(0x00511600, &Obj::CSkaterFlipAndRotateComponent::CallMemberFunction);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064BE20,
-    &Obj::CSkaterFlipAndRotateComponent::Destroy,
-    &Obj::ComponentWithoutUpdate::Update,
-    Stubs::IgnoreArgument,
-    &Obj::CSkaterFlipAndRotateComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::CSkaterFlipAndRotateComponent::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CSkaterFlipAndRotateComponent::Destroy,
+         &Obj::ComponentWithoutUpdate::Update,
+         Stubs::IgnoreArgument,
+         &Obj::CSkaterFlipAndRotateComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::CSkaterFlipAndRotateComponent::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

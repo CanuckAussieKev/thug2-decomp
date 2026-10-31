@@ -8,7 +8,10 @@
 #include <winsock2.h>
 #include <windows.h>
 
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 #include "game/core/crc.h"
@@ -29,12 +32,9 @@
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/ass/assman.h"
 #include "game/net/task_vtable.h"
-#include "hook/game_code.h"
 #include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
@@ -55,8 +55,10 @@ namespace {
 using Detail::DeleteParams;
 using Detail::NewParams;
 
-GAME_VTABLE(kBuddyVtable, 0x0064D140, &GameNet::Buddy::Destroy); // Lst::Node<Buddy> (Buddy)
-GAME_VTABLE(kMessageVtable, 0x0064D14C, &GameNet::BuddyMessage::Destroy); // Lst::Node<BuddyMessage>
+static VtableSlot kBuddyVtable_slots[] = {&GameNet::Buddy::Destroy};
+void** const kBuddyVtable = reinterpret_cast<void**>(kBuddyVtable_slots); // Lst::Node<Buddy> (Buddy)
+static VtableSlot kMessageVtable_slots[] = {&GameNet::BuddyMessage::Destroy};
+void** const kMessageVtable = reinterpret_cast<void**>(kMessageVtable_slots); // Lst::Node<BuddyMessage>
 
 constexpr int kMaxBuddies = 30;          // BuddyListFull
 constexpr int kMaxMessages = 20;         // more than this waiting: new ones are dropped
@@ -71,9 +73,9 @@ constexpr int kErrorNewUserNick = 0x201;
 constexpr int kErrorPassword = 0x202;
 constexpr int kErrorAlreadyBuddy = 0x603;
 
-GAME_GLOBAL(bool, g_creatingProfile, 0x007CE454);
-GAME_GLOBAL(uint32_t, g_buddyLoginStart, 0x007CE458);
-GAME_GLOBAL(uint32_t, g_lastProcess, 0x007CE45C);
+bool g_creatingProfile;
+uint32_t g_buddyLoginStart;
+uint32_t g_lastProcess;
 
 // The login's start (the task's 10 s limit), when GP was last processed once logged in, and "a new profile is being
 // made" (its gpConnectNewUser answer "nick taken" logs in instead).
@@ -166,8 +168,8 @@ void LoggedIn(BuddyMan* man, int profile) { man->SetLoggedIn(profile); }
 void DestroyBuddyNode(Buddy* buddy) { static_cast<BuddyNode*>(&buddy->m_node)->DestroyBody(); }
 void DestroyMessageNode(BuddyMessage* message) { static_cast<BuddyMessageNode*>(&message->m_node)->DestroyBody(); }
 // 0x00548100: GP's buddy request callback (the request accepted); 0x00548140: the login thread.
-const void* const kOnBuddyRequest = GAME_CODE(0x00548100, BuddyMan::OnBuddyRequest);
-const auto kLoginThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(GAME_CODE(0x00548140, BuddyMan::LoginThread));
+const void* const kOnBuddyRequest = CodeAddress(BuddyMan::OnBuddyRequest);
+const auto kLoginThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(CodeAddress(BuddyMan::LoginThread));
 // The lobby (m_lobbyMan): its peer (0x0053F880), and the peer SDK's public address of this machine (0x005FC940).
 void* LobbyPeer(void* lobby) { return static_cast<LobbyMan*>(lobby)->GetPeer(); }
 uint32_t PeerPublicIp(void* peer) { return GameSpy::PeerGetPublicIp(peer); }
@@ -897,40 +899,3 @@ bool __cdecl CreateProfile(Script::CStruct*, Script::CScript*)
 } // namespace GameNet
 
 using GameNet::BuddyMan;
-REPLACE(0x00548560, BuddyMan::ShowBuddy);
-REPLACE(0x005488B0, &BuddyMan::DestroyBody);
-REPLACE(0x00548940, GameNet::SetUniqueId);
-REPLACE(0x00548A40, GameNet::JoinBuddy);
-REPLACE(0x00548CB0, &GameNet::BuddyMessage::Construct);
-REPLACE(0x00548CF0, &GameNet::Buddy::Destroy);
-REPLACE(0x00548D20, &GameNet::BuddyMessage::Destroy);
-REPLACE(0x00548D50, &BuddyMan::AddBuddy);
-REPLACE(0x00548E10, &BuddyMan::CountBuddies);
-REPLACE(0x00548E40, GameNet::AddBuddy);
-REPLACE(0x00548E90, GameNet::HasBuddies);
-REPLACE(0x00548ED0, GameNet::BuddyListFull);
-REPLACE(0x00548F10, GameNet::AnyBuddyMessagesLeft);
-REPLACE(0x00548F50, BuddyMan::OnBuddyStatus);
-REPLACE(0x005496F0, BuddyMan::OnBuddyMessage);
-REPLACE(0x005498E0, &BuddyMan::FillBuddyList);
-REPLACE(0x005499A0, &BuddyMan::CancelAddBuddy);
-REPLACE(0x00549A50, &BuddyMan::RemoveBuddy);
-REPLACE(0x00549B90, &BuddyMan::LogOff);
-REPLACE(0x00549CB0, &BuddyMan::IsBuddy);
-REPLACE(0x00549D10, GameNet::ProfileLogOff);
-REPLACE(0x00549D20, GameNet::FillBuddyList);
-REPLACE(0x00549D80, GameNet::CancelAddBuddy);
-REPLACE(0x00549D90, GameNet::RemoveBuddy);
-REPLACE(0x00549DC0, GameNet::ShowNextBuddyMessage);
-REPLACE(0x00549EA0, GameNet::IsAlreadyMyBuddy);
-REPLACE(0x00549ED0, BuddyMan::OnError);
-REPLACE(0x00549F50, &BuddyMan::FillProspectiveBuddyList);
-REPLACE(0x0054A1A0, &BuddyMan::LogIn);
-REPLACE(0x0054A250, GameNet::ProfileLogIn);
-REPLACE(0x0054A2B0, GameNet::FillProspectiveBuddyList);
-REPLACE(0x0054A2C0, BuddyMan::OnConnectNewUser);
-REPLACE(0x0054A300, BuddyMan::BuddyTask);
-REPLACE(0x0054A3D0, BuddyMan::CreateProfileThread);
-REPLACE(0x0054A480, &BuddyMan::Construct);
-REPLACE(0x0054A5C0, &BuddyMan::CreateProfile);
-REPLACE(0x0054A650, GameNet::CreateProfile);

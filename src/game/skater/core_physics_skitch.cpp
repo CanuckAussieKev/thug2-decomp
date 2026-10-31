@@ -17,8 +17,6 @@
 #include "game/skater/core_physics_fields.h"
 #include "game/skater/skitch.h"
 #include "game/skater/thaw_bmx.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Skater {
 
@@ -204,6 +202,3 @@ void CorePhysicsComponent::Skitch()
 }
 
 } // namespace Skater
-
-REPLACE(0x00503EC0, &Skater::CorePhysicsComponent::TryStartSkitch);
-REPLACE(0x00501DB0, &Skater::CorePhysicsComponent::Skitch);

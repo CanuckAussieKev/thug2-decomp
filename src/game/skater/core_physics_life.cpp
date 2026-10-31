@@ -17,9 +17,6 @@
 #include "game/skater/physics_control.h"
 #include "game/skater/skater_state.h"
 #include "game/skater/trick_component.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 
 namespace Skater {
 
@@ -31,7 +28,7 @@ constexpr uint32_t kRollingFriction = 0x78F80EC4;   // Physics_Rolling_Friction
 constexpr uint32_t kGetOffEvent = 0x5E27200A;       // (broadcast when the skater gets off its board; name not recovered)
 constexpr uint32_t kRailWaitName = 0xE4412EB7;      // (a script value: the rail wait, ms; name not recovered)
 constexpr uint32_t kTrackingName = 0x19FB78FA;      // (a script value: the tracking printout on; name not recovered)
-const char* const kProjectileControl = GAME_TEXT(0x0064BC34, "projectile_control"); // "projectile_control"
+const char* const kProjectileControl = "projectile_control"; // "projectile_control"
 
 // The components it finds in Finalize (each one's type, then where it's kept).
 constexpr struct {
@@ -105,7 +102,7 @@ void __cdecl TrackingPrint(int index, const Mth::Vector* a, const Mth::Vector* b
 {
     if (!Script::GetInteger(kTrackingName))
         return;
-    Dbg::Printf(GAME_TEXT(0x0064B998, "Tracking%d %.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n"), index, static_cast<double>(a->x),
+    Dbg::Printf("Tracking%d %.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n", index, static_cast<double>(a->x),
                 static_cast<double>(a->y), static_cast<double>(a->z), static_cast<double>(b->x),
                 static_cast<double>(b->y), static_cast<double>(b->z));
 }
@@ -301,18 +298,3 @@ bool CSkaterPhysicsControlComponent::IsWalking()
 } // namespace Obj
 
 using Skater::CorePhysicsComponent;
-REPLACE(0x004FC370, &Mth::Vector::ZeroIfShorterThan);
-REPLACE(0x004FC3C0, &CorePhysicsComponent::ProjectileButtonPressed);
-REPLACE(0x004FC400, &Obj::CMovableContactComponent::TimeSinceStop);
-REPLACE(0x004FC420, &Obj::CSkaterPhysicsControlComponent::IsWalking);
-REPLACE(0x004FC440, &CorePhysicsComponent::IsSwitched);
-REPLACE(0x004FC470, &CorePhysicsComponent::SetTerrain);
-REPLACE(0x004FC4A0, Skater::TrackingPrint);
-REPLACE(0x004FC500, &CorePhysicsComponent::DestroyBody);
-REPLACE(0x004FC5C0, &CorePhysicsComponent::InitFromStructure);
-REPLACE(0x004FC690, &CorePhysicsComponent::Finalize);
-REPLACE(0x004FDD50, &CorePhysicsComponent::LeaveSkating);
-REPLACE(0x004FDE40, &CorePhysicsComponent::ClearFlags);
-REPLACE(0x004FDED0, &CorePhysicsComponent::SetPhysicsState);
-REPLACE(0x004FE120, &CorePhysicsComponent::TurnAround);
-REPLACE(0x004FE1D0, &CorePhysicsComponent::ResetToAir);

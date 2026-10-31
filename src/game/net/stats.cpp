@@ -2,7 +2,7 @@
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
 #include "game/net/stats.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -12,8 +12,6 @@
 #include "game/net/online_hosts.h"
 #include "game/net/vault_man.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
@@ -49,11 +47,11 @@ static_assert(sizeof(StatsRequest) == 0x118, "built in the original's stack fram
 const char* StatsFile(int index)
 {
     switch (index) {
-    case 0: return GAME_TEXT(0x0067F2A0, "hs_at.txt");
-    case 1: return GAME_TEXT(0x0067F2C0, "bc_at.txt");
-    case 2: return GAME_TEXT(0x0067F2E0, "hs_mo.txt");
-    case 3: return GAME_TEXT(0x0067F300, "bc_mo.txt");
-    default: return GAME_TEXT(0x0067F320, "ratings.txt");
+    case 0: return "hs_at.txt";
+    case 1: return "bc_at.txt";
+    case 2: return "hs_mo.txt";
+    case 3: return "bc_mo.txt";
+    default: return "ratings.txt";
     }
 }
 
@@ -73,13 +71,13 @@ bool __cdecl RetrieveTopStats(Script::CStruct* params, Script::CScript*)
     StatsRequest request;
     // Originally from PartyMod Fixes: gamestats.<OnlineDomain> in place of gamestats.gamespy.com (0x0064D670; PartyMod's DWord at
     // 0x0054DD14)
-    const char* host = GamestatsHost() ? GamestatsHost() : GAME_TEXT(0x0064D670, "gamestats.gamespy.com");
+    const char* host = GamestatsHost() ? GamestatsHost() : "gamestats.gamespy.com";
     std::snprintf(request.url, sizeof(request.url), "http://%s/thug2pc/%s", host, StatsFile(current));
     request.unknown114 = 0x1C049404;
     request.unknown108 = 0x1C049404;
     request.unknown110 = 0x74E0CD35;
     request.timeout = 0x25800;
-    request.callback = reinterpret_cast<uint32_t>(GAME_CODE(0x0054DB20, GameNet::StatsMan::OnTopStats));
+    request.callback = reinterpret_cast<uint32_t>(CodeAddress(GameNet::StatsMan::OnTopStats));
     request.unknown10C = current == 4 ? 0x7346E8E7 : 0xD932B07B;
     // (the vault, +0x14; the request is its DownloadRequest - the same 0x118 bytes)
     static_cast<GameNet::VaultMan*>(*reinterpret_cast<void**>(manager + 0x14))
@@ -89,5 +87,3 @@ bool __cdecl RetrieveTopStats(Script::CStruct* params, Script::CScript*)
 }
 
 } // namespace Net
-
-REPLACE(0x0054DCB0, Net::RetrieveTopStats);

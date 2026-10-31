@@ -1,6 +1,7 @@
 // Cutscenes: starting and ending one (the details' InitFromStructure / End), the data's assets from the loaded
 // bundle and its destructor (0x00466620-0x00467707). See cutscene.h.
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
@@ -30,17 +31,14 @@
 #include "game/script/struct.h"
 #include "game/script/struct_buffer.h"
 #include "game/gfx/loading_console.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/gfx/engine.h"
 #include "game/obj/cutscene.h"
-#include "hook/game_code.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint8_t[80], g_skinColourTable, 0x0067D810, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 239, 226, 125, 59, 80, 171, 108, 64, 205, 4, 143, 63, 0, 0, 128, 63, 239, 226, 125, 59, 180, 212, 5, 65, 87, 207, 247, 63, 0, 0, 128, 63, 153, 71, 126, 59, 185, 169, 157, 64, 74, 151, 190, 64, 0, 0, 128, 63, 153, 71, 126, 59, 46, 84, 117, 64, 72, 24, 102, 64, 0, 0, 128, 63);
-GAME_GLOBAL(float[20], g_skinColours, 0x0067D860, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
+uint8_t g_skinColourTable[80]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 239, 226, 125, 59, 80, 171, 108, 64, 205, 4, 143, 63, 0, 0, 128, 63, 239, 226, 125, 59, 180, 212, 5, 65, 87, 207, 247, 63, 0, 0, 128, 63, 153, 71, 126, 59, 185, 169, 157, 64, 74, 151, 190, 64, 0, 0, 128, 63, 153, 71, 126, 59, 46, 84, 117, 64, 72, 24, 102, 64, 0, 0, 128, 63};
+float g_skinColours[20]{1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
 
 namespace {
 
@@ -451,7 +449,7 @@ void CCutsceneData::LoadModel(int index, File::AssetBundle::Entry* entry, void* 
             hasFace = false;
         }
         void* face = AppearanceFace(m_unknown34A8);
-        int skaterFace = face && reinterpret_cast<bool(__thiscall*)(void*)>(GAME_CODE(0x00487510, &Gfx::CFaceTexture::IsValid))(face) ? 1 : 0;
+        int skaterFace = face && reinterpret_cast<bool(__thiscall*)(void*)>(CodeAddress(&Gfx::CFaceTexture::IsValid))(face) ? 1 : 0;
         int skaterMale;
         static_cast<Script::CStruct*>(m_unknown34AC)->GetInteger(0x3F813177, &skaterMale, 1);
         load = static_cast<int>(hasFace) == skaterFace && static_cast<int>(male) == skaterMale;
@@ -478,8 +476,3 @@ void CCutsceneData::LoadModel(int index, File::AssetBundle::Entry* entry, void* 
 }
 
 } // namespace Obj
-
-REPLACE(0x00466620, &Obj::CCutsceneDetails::InitFromStructure);
-REPLACE(0x00466A10, &Obj::CCutsceneDetails::End);
-REPLACE(0x00466C20, &Obj::CCutsceneData::DestroyBody);
-REPLACE(0x00466DD0, &Obj::CCutsceneData::LoadFromBundle);

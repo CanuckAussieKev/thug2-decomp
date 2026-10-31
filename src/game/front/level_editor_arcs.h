@@ -33,7 +33,7 @@ struct Painter;
 // 0x00580400) each time the selection changes; ArcsFallback below when there is no level.
 namespace Front::LevelEditor::Arcs {
 
-// --- the pieces (pure, self-tested: src/hook/selftests_editor_ux4.cpp) -------------------------------------------
+// --- the pieces (pure) -------------------------------------------------------------------------------------------
 
 struct Face {
     V3 a, b, c;

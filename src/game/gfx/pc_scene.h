@@ -4,7 +4,6 @@
 #include <cstdint>
 
 #include "game/mth/geometry.h"
-#include "hook/game_global.h"
 
 // The PC scene and sector (Nx engine), and the PC screen effects object's setters.
 namespace Nx {
@@ -112,9 +111,9 @@ struct CPcScreenEffects {
     void SetUnknown5728(uint32_t value);
 };
 
-GAME_GLOBAL_EXTERN(uint32_t, g_bloomOn);
-GAME_GLOBAL_EXTERN(uint32_t, g_bloomAlphaFirst);
-GAME_GLOBAL_EXTERN(uint32_t, g_bloomAlphaSecond);
-GAME_GLOBAL_EXTERN(uint32_t, g_bloomCutOff);
+extern uint32_t g_bloomOn;
+extern uint32_t g_bloomAlphaFirst;
+extern uint32_t g_bloomAlphaSecond;
+extern uint32_t g_bloomCutOff;
 
 } // namespace Nx

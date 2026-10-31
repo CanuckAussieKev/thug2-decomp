@@ -21,8 +21,6 @@
 #include "game/skater/skater.h"
 #include "game/skater/trick_component.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/net/gamenet_manager.h"
 #include "game/obj/trigger_events.h"
 
@@ -160,6 +158,3 @@ void CorePhysicsComponent::ResumeSkating(bool onGround, const uint8_t* grind, vo
 }
 
 } // namespace Skater
-
-REPLACE(0x0050BF50, &Skater::CorePhysicsComponent::DoLipPhysics);
-REPLACE(0x0050C670, &Skater::CorePhysicsComponent::ResumeSkating);

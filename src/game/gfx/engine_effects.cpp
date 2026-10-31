@@ -5,6 +5,7 @@
 #include "game/gfx/d3dx.h"
 
 #include <bit>
+#include <cstdint>
 #include <cstring>
 #include <new>
 
@@ -27,44 +28,41 @@
 #include "game/nx/coll_obj.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/obj/movie_manager.h"
 #include "game/sys/crt.h"
 
 namespace Nx {
 
-GAME_GLOBAL(Mth::Vector, g_shatterVelocity, 0x007004D0);
-GAME_GLOBAL(float, g_shatterSpeed, 0x007004CC);
-GAME_GLOBAL(Lst::HashTable*, g_splatSets, 0x007004B0);
-GAME_GLOBAL(Lst::HashTable*, g_spawnedPolys, 0x007004AC);
-GAME_GLOBAL(float, g_shatterVelocityScale, 0x0067DDF4, 1.0f);
+Mth::Vector g_shatterVelocity;
+float g_shatterSpeed;
+Lst::HashTable* g_splatSets;
+Lst::HashTable* g_spawnedPolys;
+float g_shatterVelocityScale{1.0f};
 namespace {
 
 extern void** const kShatterVtable;
 
-GAME_GLOBAL(float, g_shatterValue2E1C, 0x0067DDD8, 1.0f);
-GAME_GLOBAL(float, g_shatterValueC483Squared, 0x0067DDDC, 360.0f);
-GAME_GLOBAL(int, g_splatReserve, 0x0067DDE0, 128);
-GAME_GLOBAL(int, g_splatFade, 0x0067DDE4, 8);
-GAME_GLOBAL(float, g_fogDistance, 0x0067DDE8, 3000.0f);
-GAME_GLOBAL(float, g_fogExponent, 0x0067DDEC, 10.0f);
-GAME_GLOBAL(float, g_shatterLifetime, 0x0067DDF8, 4.0f);
-GAME_GLOBAL(float, g_shatterFloor, 0x0067DDFC, -10000.0f);
-GAME_GLOBAL(float, g_shatterBounce, 0x0067DE00, 0.8f);
-GAME_GLOBAL(uint32_t, g_fogColor, 0x0067DE04, 0x66806060);
-GAME_GLOBAL(Lst::HashTable*, g_flashes, 0x007004A8);
-GAME_GLOBAL(Lst::HashTable*, g_recentSplats, 0x007004B4);
-GAME_GLOBAL(uint32_t, g_shatterTexture, 0x007004BC);
-GAME_GLOBAL(uint32_t, g_shatterValueAF1A, 0x007004C0);
-GAME_GLOBAL(int, g_shatterValue33DF, 0x007004C4);
-GAME_GLOBAL(bool, g_fogEnabled, 0x007004C8);
-GAME_GLOBAL(Mth::Vector, g_shatterVector210E, 0x007004E0);
-GAME_GLOBAL(float[4], g_levelColor, 0x007004F0);
-GAME_GLOBAL(void*[128], g_lineSectors, 0x00700510);
-GAME_GLOBAL(CCollObj*[128], g_lineObjects, 0x00700710);
+float g_shatterValue2E1C{1.0f};
+float g_shatterValueC483Squared{360.0f};
+int g_splatReserve{128};
+int g_splatFade{8};
+float g_fogDistance{3000.0f};
+float g_fogExponent{10.0f};
+float g_shatterLifetime{4.0f};
+float g_shatterFloor{-10000.0f};
+float g_shatterBounce{0.8f};
+uint32_t g_fogColor{0x66806060};
+Lst::HashTable* g_flashes;
+Lst::HashTable* g_recentSplats;
+uint32_t g_shatterTexture;
+uint32_t g_shatterValueAF1A;
+int g_shatterValue33DF;
+bool g_fogEnabled;
+Mth::Vector g_shatterVector210E;
+float g_levelColor[4];
+void* g_lineSectors[128];
+CCollObj* g_lineObjects[128];
 
 // The tables.
 Lst::HashTable*& Flashes() { return g_flashes; }
@@ -669,36 +667,8 @@ void __cdecl KillAllEffects()
 } // namespace Engine
 
 namespace {
-GAME_VTABLE(kShatterVtable, 0x00649308, &Nx::CShatter::Destroy);
+static VtableSlot kShatterVtable_slots[] = {&Nx::CShatter::Destroy};
+void** const kShatterVtable = reinterpret_cast<void**>(kShatterVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x00490D80, &Nx::sVertexStack::Pop);
-REPLACE_SOURCE_ONLY(0x00490DB0, Nx::DrawTextureSplats); // a jump to 0x004B9380
-REPLACE(0x00490DC0, Nx::Engine::ShatterGeom);
-REPLACE(0x00490DE0, Nx::Engine::EnableFog);
-REPLACE(0x00490E00, Nx::Engine::SetFogDistance);
-REPLACE(0x00490E10, Nx::Engine::SetFogExponent);
-REPLACE(0x00490E20, Nx::Engine::SetFogColor);
-REPLACE(0x00490E40, &Nx::sSplatParams::Construct);
-REPLACE(0x00490E80, &Nx::CShatter::DestroyBody);
-REPLACE_UNCHECKED(0x00490EC0, Nx::Engine::AgeTextureSplatsStub);
-REPLACE(0x00491110, Nx::Engine::SetShatterParams);
-REPLACE(0x00491290, Nx::Engine::SetLevelColor);
-REPLACE(0x004912C0, &Nx::CShatter::Construct);
-REPLACE(0x00491380, &Nx::CShatter::Destroy);
-REPLACE(0x004913D0, &Nx::CShatter::Step);
-REPLACE(0x004915A0, Nx::Engine::KillAllTextureSplats);
-REPLACE(0x00491630, Nx::Engine::KillTextureSplatsInBox);
-REPLACE(0x004916F0, Nx::Engine::KillTextureSplatsOfTexture);
-REPLACE(0x00491790, Nx::Engine::UpdateFlashes);
-REPLACE(0x00491910, Nx::Engine::DrawFlashes);
-REPLACE(0x00491F10, Nx::Engine::LightAllTextureSplats);
-REPLACE(0x00491F70, Nx::Engine::AgeAllTextureSplats);
-REPLACE(0x00492000, Nx::Engine::UpdateShatters);
-REPLACE(0x004920E0, Nx::Engine::DrawShatters);
-REPLACE(0x00492150, Nx::Engine::InitEffects);
-REPLACE(0x00492340, Nx::Engine::KillAllEffects);
-REPLACE(0x004923E0, Nx::Engine::AddFlash);
-REPLACE(0x004928A0, Nx::Engine::CreateTextureSplatAt);

@@ -1,7 +1,5 @@
 #pragma once
 
-#include "hook/game_global.h"
-
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md
 
 #include <cstdint>
@@ -43,7 +41,7 @@ void ProcessSdlDevice(Device* device);
 // 0-65535.
 void __cdecl SetSdlActuators(int port, uint16_t high, uint16_t low);
 
-GAME_GLOBAL_EXTERN(bool, g_keyboardOnScreen);
-GAME_GLOBAL_EXTERN(bool, g_inMenuFlag);
+extern bool g_keyboardOnScreen;
+extern bool g_inMenuFlag;
 
 } // namespace Sio

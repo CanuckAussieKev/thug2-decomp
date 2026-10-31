@@ -16,18 +16,15 @@
 #include "game/script/struct.h"
 #include "game/sys/mlp.h"
 #include "game/ass/assman.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/obj/objman.h"
 #include "game/front/screen_element_manager.h"
-#include "hook/game_code.h"
 #include "game/obj/cutscene_list_cfuncs.h"
 #include "game/sys/startup_init.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[186], g_compositeObjectMemberFunctions, 0x00683268,
+uint32_t g_compositeObjectMemberFunctions[186]{
     0xE90AAD2D, 0x0ADA4E74, 0, 0, 0, 0,
     0xC2404947, 0x0ADA4E74, 0, 0, 0, 0,
     0x406998A5, 0x0ADA4E74, 0, 0, 0, 0,
@@ -58,9 +55,9 @@ GAME_GLOBAL(uint32_t[186], g_compositeObjectMemberFunctions, 0x00683268,
     0x37185D8A, 0x0ADA4E74, 0, 0, 0, 0,
     0x70ED3048, 0x0ADA4E74, 0, 0, 0, 0,
     0x33CAC5FF, 0x0ADA4E74, 0, 0, 0, 0,
-    0, 0x0ADA4E74, 0, 0, 0, 0);
+    0, 0x0ADA4E74, 0, 0, 0, 0};
 
-GAME_GLOBAL(uint32_t[102], g_objectMemberFunctions, 0x00683550,
+uint32_t g_objectMemberFunctions[102]{
     0x3611C136, 0x57525413, 0, 0, 0, 0,
     0x62C11CB9, 0x57525413, 0, 0, 0, 0,
     0xEEEB7220, 0x57525413, 0, 0, 0, 0,
@@ -77,21 +74,21 @@ GAME_GLOBAL(uint32_t[102], g_objectMemberFunctions, 0x00683550,
     0x714937C7, 0x57525413, 0, 0, 0, 0,
     0x20D125D7, 0x57525413, 0, 0, 0, 0,
     0x3578E5A9, 0x57525413, 0, 0, 0, 0,
-    0, 0x57525413, 0, 0, 0, 0);
+    0, 0x57525413, 0, 0, 0, 0};
 
-GAME_GLOBAL(int, g_compositeMgrBlockHeaderSize, 0x00658454, 16);
-GAME_GLOBAL(int, g_coimInteger0, 0x0067D804, 4);
-GAME_GLOBAL(int, g_coimInteger1, 0x0067D808, 2);
-GAME_GLOBAL(int, g_coimA, 0x006F0D8C);
-GAME_GLOBAL(int, g_coimB, 0x006F0D90);
-GAME_GLOBAL(int, g_coimC, 0x006F0D98);
-GAME_GLOBAL(Mem::Region*, g_coimRegion, 0x006F0DA0);
-GAME_GLOBAL(Mem::Heap*, g_coimHeap, 0x006F0DA4);
-GAME_GLOBAL(uint32_t, g_instanceCount, 0x006F0DB4);
+int g_compositeMgrBlockHeaderSize{16};
+int g_coimInteger0{4};
+int g_coimInteger1{2};
+int g_coimA;
+int g_coimB;
+int g_coimC;
+Mem::Region* g_coimRegion;
+Mem::Heap* g_coimHeap;
+uint32_t g_instanceCount;
 // (one list per registered type: up to kMaxComponentTypes, the manager pointer follows at 0x006F0FB8)
-GAME_GLOBAL(CBaseComponent*[Obj::CCompositeObjectManager::kMaxComponentTypes], g_componentList, 0x006F0DB8);
-GAME_GLOBAL(Obj::CCompositeObjectManager*, g_compositeObjectManager, 0x006F0FB8);
-GAME_GLOBAL(uint32_t, g_compositeMgrReferences, 0x006F0FBC);
+CBaseComponent* g_componentList[Obj::CCompositeObjectManager::kMaxComponentTypes];
+Obj::CCompositeObjectManager* g_compositeObjectManager;
+uint32_t g_compositeMgrReferences;
 
 namespace {
 
@@ -368,7 +365,7 @@ struct InstanceNode {
     InstanceNode* next;
     InstanceNode* prev;
 };
-GAME_GLOBAL(InstanceNode*, g_instanceListHead, 0x006F0DB0);
+InstanceNode* g_instanceListHead;
 InstanceNode*& InstanceListHead() { return g_instanceListHead; }
 uint32_t& InstanceCount() { return g_instanceCount; }
 // std::list::erase(first, last) (0x004ECC30; the result iterator in `result`).
@@ -464,37 +461,17 @@ void ResizeCoimHeap(uint32_t size)
 
 } // namespace Obj
 
-REPLACE(0x0045F6E0, &Obj::CCompositeObjectManager::Construct);
-REPLACE(0x0045F200, &Obj::CCompositeObjectManager::DestroyBody);
-REPLACE(0x0045F300, &Obj::CCompositeObjectManager::Destroy);
-REPLACE(0x0045F270, &Obj::CCompositeObjectManager::RegisterComponent);
-REPLACE(0x0045F2A0, &Obj::CCompositeObjectManager::CreateComponent);
-REPLACE(0x0045F2D0, &Obj::CCompositeObjectManager::GetFirstComponentByType);
-REPLACE(0x0045F3E0, &Obj::CCompositeObjectManager::AddComponentByType);
-REPLACE(0x0045F420, &Obj::CCompositeObjectManager::RemoveComponentByType);
-REPLACE(0x0045F330, &Obj::CCompositeObjectManager::CreateCompositeObject);
-REPLACE(0x0045F3A0, &Obj::CCompositeObjectManager::CreateCompositeObjectFromNode);
-REPLACE(0x0045F4A0, &Obj::CCompositeObjectManager::Update);
-REPLACE(0x0045F5D0, &Obj::CCompositeObjectManager::Pause);
-REPLACE(0x0045F6D0, Obj::CompositeObjectManagerTask);
-REPLACE(0x0045F1E0, Obj::ReleaseCompositeObjectManager);
-REPLACE(0x0045EFD0, Obj::DestroyCoimHeap);
-REPLACE(0x0045F7A0, Obj::CreateCompositeObjectManager);
-REPLACE(0x0045F0B0, Obj::CreateCoimHeap);
-REPLACE(0x0045F160, Obj::InitCoim);
-REPLACE(0x0045F1C0, Obj::ResizeCoimHeap);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kManagerVtable, 0x006476D4,
-    &Obj::CCompositeObjectManager::Destroy,
-    &Obj::CBaseManager::RegisterObject,
-    &Obj::CBaseManager::UnregisterObject,
-    &Obj::CBaseManager::ReassignObjectId,
-    &Obj::CBaseManager::SetObjectPriority,
-    &Obj::CGeneralManager::KillObject,
-    &Front::CScreenElementManager::GetObjectList);
+static VtableSlot kManagerVtable_slots[] = {&Obj::CCompositeObjectManager::Destroy,
+         &Obj::CBaseManager::RegisterObject,
+         &Obj::CBaseManager::UnregisterObject,
+         &Obj::CBaseManager::ReassignObjectId,
+         &Obj::CBaseManager::SetObjectPriority,
+         &Obj::CGeneralManager::KillObject,
+         &Front::CScreenElementManager::GetObjectList};
+void** const kManagerVtable = reinterpret_cast<void**>(kManagerVtable_slots);
 
 } // namespace
 } // namespace Obj
@@ -504,7 +481,7 @@ namespace Obj {
 namespace {
 
 // A list (std::list<T*>) nothing uses but its static initialiser and exit function: an empty head node.
-GAME_GLOBAL(CFuncs::PointerList, g_spareObjectList, 0x006F0DA8);
+CFuncs::PointerList g_spareObjectList;
 
 } // namespace
 

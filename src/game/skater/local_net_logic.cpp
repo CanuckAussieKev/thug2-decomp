@@ -23,10 +23,7 @@
 #include "game/skater/skater.h"
 #include "game/util/bitstream.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/camera_lookaround.h"
 #include "game/skater/vehicle_sound.h"
@@ -34,8 +31,8 @@
 
 namespace Obj {
 
-GAME_GLOBAL(Mth::Vector, g_localNetPosition, 0x007CCDD0);
-GAME_GLOBAL(uint32_t, g_localNetGuard, 0x007CCDE0);
+Mth::Vector g_localNetPosition;
+uint32_t g_localNetGuard;
 
 namespace {
 
@@ -316,32 +313,23 @@ int __cdecl CSkaterLocalNetLogicComponent::HandleGraffitiSteal(Net::MsgHandlerCo
 
 } // namespace Obj
 
-REPLACE(0x00513630, Obj::CSkaterLocalNetLogicComponent::Create);
-REPLACE(0x00512E30, &Obj::CSkaterLocalNetLogicComponent::DestroyBody);
-REPLACE(0x00512E40, &Obj::CSkaterLocalNetLogicComponent::Destroy);
-REPLACE(0x00512E70, &Obj::CSkaterLocalNetLogicComponent::Finalize);
-REPLACE(0x005136C0, &Obj::CSkaterLocalNetLogicComponent::Update);
-REPLACE(0x005136F0, Obj::CSkaterLocalNetLogicComponent::HandleGraffitiSteal);
-REPLACE(0x00512EA0, &Obj::CSkaterLocalNetLogicComponent::GetUpdateFlags);
-REPLACE(0x005131A0, &Obj::CSkaterLocalNetLogicComponent::SendUpdate);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064BEF0,
-    &Obj::CSkaterLocalNetLogicComponent::Destroy,
-    &Obj::CSkaterLocalNetLogicComponent::Update,
-    &CSkaterCleanupStateComponent::InitFromStructure,
-    &Obj::CSkaterLocalNetLogicComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CSkaterLocalNetLogicComponent::Destroy,
+         &Obj::CSkaterLocalNetLogicComponent::Update,
+         &CSkaterCleanupStateComponent::InitFromStructure,
+         &Obj::CSkaterLocalNetLogicComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

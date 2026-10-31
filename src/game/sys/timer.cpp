@@ -5,43 +5,41 @@
 
 #include <intrin.h>
 
+#include <cstdint>
 #include <cstring>
 #include <ctime>
 
 #include "game/sys/game_config.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Tmr {
 
 namespace {
 
-GAME_GLOBAL(float, g_slomo, 0x00684FC8, 1.0f);
-GAME_GLOBAL(float, g_nextSlomo, 0x00684FCC, 1.0f);
-GAME_GLOBAL(float, g_vblanksPerSecond, 0x00684FD0, 60.0f);
-GAME_GLOBAL(float, g_frameLength, 0x007D1E68);
-GAME_GLOBAL(double, g_uncappedFrameLength, 0x007D1E70);
-GAME_GLOBAL(uint64_t, g_lastFrameVblank, 0x007D1E88);
-GAME_GLOBAL(uint64_t, g_previousFrameVblank, 0x007D1E90);
-GAME_GLOBAL(int, g_historyIndex, 0x007D1E98);
-GAME_GLOBAL(uint64_t, g_startTimeStamp, 0x007D1EA0);
-GAME_GLOBAL(uint64_t, g_unknown1EA8, 0x007D1EA8);
-GAME_GLOBAL(uint64_t, g_startClock, 0x007D1EB0);
-GAME_GLOBAL(uint64_t, g_unknown1EB8, 0x007D1EB8);
-GAME_GLOBAL(uint64_t, g_vblanks, 0x007D1EC8);
-GAME_GLOBAL(uint64_t, g_totalVblanks, 0x007D1ED0);
-GAME_GLOBAL(uint64_t, g_renderFrame, 0x007D1ED8);
-GAME_GLOBAL(uint64_t, g_unknown1EE0, 0x007D1EE0);
-GAME_GLOBAL(bool, g_flag1EE8, 0x007D1EE8);
-GAME_GLOBAL(bool, g_flag1EE9, 0x007D1EE9);
-GAME_GLOBAL(bool, g_rateSet, 0x007D1EEA);
+float g_slomo{1.0f};
+float g_nextSlomo{1.0f};
+float g_vblanksPerSecond{60.0f};
+float g_frameLength;
+double g_uncappedFrameLength;
+uint64_t g_lastFrameVblank;
+uint64_t g_previousFrameVblank;
+int g_historyIndex;
+uint64_t g_startTimeStamp;
+uint64_t g_unknown1EA8;
+uint64_t g_startClock;
+uint64_t g_unknown1EB8;
+uint64_t g_vblanks;
+uint64_t g_totalVblanks;
+uint64_t g_renderFrame;
+uint64_t g_unknown1EE0;
+bool g_flag1EE8;
+bool g_flag1EE9;
+bool g_rateSet;
 
 // The timing block (0x007D1E68), saved whole by Reset.
 float& FrameLength() { return g_frameLength; }
 double& UncappedFrameLength() { return g_uncappedFrameLength; }
 
-GAME_GLOBAL(int[4], g_history, 0x007D1E78);
+int g_history[4];
 
 int (&History())[4] { return g_history; }
 uint64_t& LastFrameVblank() { return g_lastFrameVblank; }
@@ -58,7 +56,7 @@ struct TimingBlock {
     int historyIndex;
 };
 static_assert(sizeof(TimingBlock) == 0x38, "the timing block's size");
-GAME_GLOBAL(TimingBlock, g_savedTimingBlock, 0x007D1E30);
+TimingBlock g_savedTimingBlock;
 
 uint64_t& StartTimeStamp() { return g_startTimeStamp; }
 uint64_t& Unknown1EA8() { return g_unknown1EA8; }
@@ -202,19 +200,3 @@ void SetFlags()
 }
 
 } // namespace Tmr
-
-REPLACE_SOURCE_ONLY(0x005BE6F0, Tmr::ReadCpuTimeStamp); // 3 bytes
-REPLACE(0x005BE9B0, Tmr::Reset);
-REPLACE(0x005BEA50, Tmr::Init);
-REPLACE(0x005BE700, Tmr::CountVblank);
-REPLACE(0x005BE740, Tmr::OncePerRender);
-REPLACE(0x005BE7F0, Tmr::UpdateFrameLength);
-REPLACE(0x005BE920, Tmr::WaitForVblank);
-REPLACE(0x005BE8E0, Tmr::GetVblanks);
-REPLACE(0x005BE8D0, Tmr::GetRenderFrame);
-REPLACE(0x005BE970, Tmr::GetTime);
-REPLACE(0x005BE910, Tmr::GetFrameSeconds);
-REPLACE(0x005BEAA0, Tmr::GetSlomoFrameSeconds);
-REPLACE(0x005BE8F0, Tmr::GetSlomo);
-REPLACE(0x005BE900, Tmr::SetSlomo);
-REPLACE(0x005BE7C0, Tmr::SetFlags);

@@ -7,8 +7,8 @@
 #include "game/front/new_frontend_text.h"
 
 // NOT ORIGINAL - the new front end's pure parts (ours; see new_frontend.h): its data file, its small state file, the
-// layout's frame, and the menus' state machine with their animation - no game, no renderer, so the self-tests run them
-// offline (src/hook/selftests_frontend.cpp).
+// layout's frame, and the menus' state machine with their animation - no game, no renderer: they run
+// offline.
 namespace Front::NewFrontend {
 
 // --- the data: <overlay>\frontend\levels.json (tools/pipeline/menu_level/frontend_levels.ts) ----------------------------

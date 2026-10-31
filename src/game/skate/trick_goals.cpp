@@ -29,20 +29,17 @@
 #include "game/goals/goal.h"
 #include "game/obj/control_pad.h"
 #include "game/ed/piece_menu.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/gfx/tod_manager.h"
 #include "game/core/stubs.h"
 #include "game/gfx/weather.h"
-#include "hook/game_code.h"
 
 #pragma warning(disable : 4996) // (the original's strcpy / strcat / sprintf into its fixed buffers, kept)
 
 namespace Game {
 
-GAME_GLOBAL(double, g_trickGoalsThreeQuarters, 0x0064E918, 0.75);
-GAME_GLOBAL(float, g_trickGoalsBeatMilliseconds, 0x0064E9B4, 15000.0f);
+double g_trickGoalsThreeQuarters{0.75};
+float g_trickGoalsBeatMilliseconds{15000.0f};
 
 namespace {
 
@@ -128,48 +125,48 @@ constexpr uint32_t kFlag = 0x2E0B1465;                 // flag
 constexpr uint32_t kSkaterState = 0x43686585;          // SkaterState (the component)
 constexpr uint32_t kSkaterScore = 0xD262802F;          // SkaterScore (the component)
 
-GAME_VTABLE(kTetrisVtable, 0x0064E8A0,
-            &Game::CTetrisGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
-            &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CTetrisGoal::Expire, &Game::CGoal::LoadSaveData,
-            &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
-            &Game::CGoal::HasComponentA302D7CD, &Game::CTetrisGoal::Activate, &Game::CGoal::SetActive,
-            &Game::CTetrisGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CTetrisGoal::Win,
-            &Game::CGoal::Lose, &Game::CTetrisGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag,
-            &Game::CGoal::StageFlagSet, &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet,
-            &Game::CGoal::HasWonGoalOrChild, &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry,
-            &Game::CGoal::MarkWon, &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag,
-            &Game::CGoal::UnBeat);
-GAME_VTABLE(kTimedScoreRunVtable, 0x0064E938,
-            &Game::CTimedScoreRunGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
-            &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData,
-            &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
-            &Game::CTimedScoreRunGoal::IsRunning, &Game::CGoal::Activate, &Game::CGoal::SetActive,
-            &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
-            &Game::CGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
-            &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
-            &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
-            &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat);
-GAME_VTABLE(kTrickBeatVtable, 0x0064E9B8,
-            &Game::CTrickBeatGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
-            &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData,
-            &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
-            &Game::CGoal::HasComponentA302D7CD, &Game::CTrickBeatGoal::Activate, &Game::CGoal::SetActive,
-            &Game::CTrickBeatGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CTetrisGoal::Win,
-            &Game::CGoal::Lose, &Game::CTrickBeatGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag,
-            &Game::CGoal::StageFlagSet, &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet,
-            &Game::CGoal::HasWonGoalOrChild, &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry,
-            &Game::CGoal::MarkWon, &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag,
-            &Game::CGoal::UnBeat);
-GAME_VTABLE(kTrickObjectsVtable, 0x0064EA30,
-            &Game::CTrickObjectsGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
-            &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData,
-            &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
-            &Game::CGoal::HasComponentA302D7CD, &Game::CGoal::Activate, &Game::CGoal::SetActive,
-            &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
-            &Game::CGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
-            &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
-            &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
-            &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat);
+static VtableSlot kTetrisVtable_slots[] = {&Game::CTetrisGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
+                 &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CTetrisGoal::Expire, &Game::CGoal::LoadSaveData,
+                 &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
+                 &Game::CGoal::HasComponentA302D7CD, &Game::CTetrisGoal::Activate, &Game::CGoal::SetActive,
+                 &Game::CTetrisGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CTetrisGoal::Win,
+                 &Game::CGoal::Lose, &Game::CTetrisGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag,
+                 &Game::CGoal::StageFlagSet, &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet,
+                 &Game::CGoal::HasWonGoalOrChild, &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry,
+                 &Game::CGoal::MarkWon, &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag,
+                 &Game::CGoal::UnBeat};
+void** const kTetrisVtable = reinterpret_cast<void**>(kTetrisVtable_slots);
+static VtableSlot kTimedScoreRunVtable_slots[] = {&Game::CTimedScoreRunGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
+                 &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData,
+                 &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
+                 &Game::CTimedScoreRunGoal::IsRunning, &Game::CGoal::Activate, &Game::CGoal::SetActive,
+                 &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
+                 &Game::CGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
+                 &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
+                 &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
+                 &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat};
+void** const kTimedScoreRunVtable = reinterpret_cast<void**>(kTimedScoreRunVtable_slots);
+static VtableSlot kTrickBeatVtable_slots[] = {&Game::CTrickBeatGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
+                 &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData,
+                 &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
+                 &Game::CGoal::HasComponentA302D7CD, &Game::CTrickBeatGoal::Activate, &Game::CGoal::SetActive,
+                 &Game::CTrickBeatGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CTetrisGoal::Win,
+                 &Game::CGoal::Lose, &Game::CTrickBeatGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag,
+                 &Game::CGoal::StageFlagSet, &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet,
+                 &Game::CGoal::HasWonGoalOrChild, &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry,
+                 &Game::CGoal::MarkWon, &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag,
+                 &Game::CGoal::UnBeat};
+void** const kTrickBeatVtable = reinterpret_cast<void**>(kTrickBeatVtable_slots);
+static VtableSlot kTrickObjectsVtable_slots[] = {&Game::CTrickObjectsGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
+                 &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData,
+                 &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
+                 &Game::CGoal::HasComponentA302D7CD, &Game::CGoal::Activate, &Game::CGoal::SetActive,
+                 &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
+                 &Game::CGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
+                 &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
+                 &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
+                 &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat};
+void** const kTrickObjectsVtable = reinterpret_cast<void**>(kTrickObjectsVtable_slots);
 
 // The red-tricks threshold (0x0064E918): three quarters of max_tricks.
 double ThreeQuarters() { return g_trickGoalsThreeQuarters; }
@@ -1485,51 +1482,3 @@ void CTrickObjectsGoal::ObjectHit(uint32_t cluster)
 }
 
 } // namespace Game
-
-REPLACE(0x0056F090, &Game::CTetrisGoal::Construct);
-REPLACE(0x0056F0B0, &Game::CTetrisGoal::DestroyBody);
-REPLACE(0x0056F0C0, &Game::CTetrisGoal::Win);
-REPLACE(0x0056F130, &Game::CTetrisGoal::ClearTricks);
-REPLACE(0x0056F180, &Game::CTetrisGoal::AllFree);
-REPLACE(0x0056F1A0, &Game::CTetrisGoal::IsCombo);
-REPLACE(0x0056F1F0, &Game::CTetrisGoal::IsSingleCombo);
-REPLACE(0x0056F240, &Game::CTetrisGoal::IsTrickTris);
-REPLACE(0x0056F290, &Game::CTetrisGoal::Destroy);
-REPLACE(0x0056F2C0, &Game::CTetrisGoal::Deactivate);
-REPLACE(0x0056F2E0, &Game::CTetrisGoal::Init);
-REPLACE(0x0056F3B0, &Game::CTetrisGoal::UpdateAlphas);
-REPLACE(0x0056F500, &Game::CTetrisGoal::Expire);
-REPLACE(0x0056F5B0, &Game::CTetrisGoal::ClearTricksAndMenu);
-REPLACE(0x0056F610, &Game::CTetrisGoal::Activate);
-REPLACE(0x0056F630, &Game::CTetrisGoal::RemoveTrick);
-REPLACE(0x0056FA30, &Game::CTetrisGoal::AddTricks);
-REPLACE(0x00570A70, &Game::CTetrisGoal::CheckCombos);
-REPLACE(0x00570C40, &Game::CTetrisGoal::Update);
-REPLACE(0x00570F60, &Game::CTetrisGoal::CheckTricks);
-REPLACE(0x005710B0, &Game::CTimedScoreRunGoal::Construct);
-REPLACE(0x005710D0, &Game::CTimedScoreRunGoal::DestroyBody);
-REPLACE(0x005710E0, &Game::CTimedScoreRunGoal::IsRunning);
-REPLACE(0x00571110, &Game::CTimedScoreRunGoal::Destroy);
-REPLACE(0x00574960, &Game::CTrickBeatGoal::SetBeatPattern);
-REPLACE(0x00574990, &Game::CTrickBeatGoal::ClearTricks);
-REPLACE(0x005749F0, &Game::CTrickBeatGoal::Deactivate);
-REPLACE(0x00574A10, &Game::CTrickBeatGoal::Init);
-REPLACE(0x00574AB0, &Game::CTrickBeatGoal::TrickLanded);
-REPLACE(0x00574B90, &Game::CTrickBeatGoal::ClearLanded);
-REPLACE(0x00574C20, &Game::CTrickBeatGoal::ResetClock);
-REPLACE(0x00574C40, &Game::CTrickBeatGoal::Construct);
-REPLACE(0x00574D50, &Game::CTrickBeatGoal::Activate);
-REPLACE(0x00574D80, &Game::CTrickBeatGoal::PulseTricks);
-REPLACE(0x00574F00, &Game::CTrickBeatGoal::RemoveTrick);
-REPLACE(0x00575140, &Game::CTrickBeatGoal::DestroyBody);
-REPLACE(0x005751C0, &Game::CTrickBeatGoal::UpdateBeat);
-REPLACE(0x00575450, &Game::CTrickBeatGoal::AddTricks);
-REPLACE(0x005761D0, &Game::CTrickBeatGoal::RemoveLandedTricks);
-REPLACE(0x00576210, &Game::CTrickBeatGoal::Destroy);
-REPLACE(0x00576240, &Game::CTrickBeatGoal::Update);
-REPLACE(0x005763A0, &Game::CTrickObjectsGoal::Construct);
-REPLACE(0x005763C0, &Game::CTrickObjectsGoal::DestroyBody);
-REPLACE(0x005763D0, &Game::CTrickObjectsGoal::Destroy);
-REPLACE(0x00576400, &Game::CTrickObjectsGoal::CheckScore);
-REPLACE(0x005764B0, &Game::CTrickObjectsGoal::GetObjectByCluster);
-REPLACE(0x00576520, &Game::CTrickObjectsGoal::ObjectHit);

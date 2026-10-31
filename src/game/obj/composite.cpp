@@ -16,31 +16,28 @@
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/skater/vehicle_sound.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 #include "game/obj/objman.h"
 
 namespace Obj {
 
-GAME_GLOBAL(float, g_pi, 0x006453D8, 3.1415927f);
+float g_pi{3.1415927f};
 
 using Script::CArray;
 using Script::CMemberFunctionEntry;
 using Script::CScript;
 using Script::CStruct;
 
-GAME_GLOBAL(float, g_compositeAcosA0, 0x006453DC, 1.5707288f);
-GAME_GLOBAL(float, g_compositeAcosA1, 0x006453E0, 0.2121144f);
-GAME_GLOBAL(float, g_compositeAcosA2, 0x006453E4, 0.074261f);
-GAME_GLOBAL(float, g_compositeAcosA3, 0x006453E8, -0.0187293f);
-GAME_GLOBAL(float, g_compositeFeetToInches, 0x0064546C, 12.0f);
+float g_compositeAcosA0{1.5707288f};
+float g_compositeAcosA1{0.2121144f};
+float g_compositeAcosA2{0.074261f};
+float g_compositeAcosA3{-0.0187293f};
+float g_compositeFeetToInches{12.0f};
 
 namespace {
 
@@ -848,92 +845,35 @@ bool CCompositeObject::Obj_NearestOutsideAngle(CStruct* params, CScript* /*scrip
 
 } // namespace Obj
 
-REPLACE(0x0045D850, static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*,
-                                                       Script::CScript*)>(&Obj::CObject::CallMemberFunction));
-REPLACE(0x0045D730, &Obj::CBaseComponent::Construct);
-REPLACE(0x0045D740, &Obj::CBaseComponent::DestroyBody);
-REPLACE(0x0045D780, &Obj::CBaseComponent::Destroy);
-REPLACE(0x0045D760, &Obj::CBaseComponent::Suspend);
-REPLACE(0x0045D720, static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*,
-                                                            Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction));
-REPLACE(0x0045E510, &Obj::CCompositeObject::Construct);
-REPLACE(0x0045D890, &Obj::CCompositeObject::DestroyBody);
-REPLACE(0x0045E620, &Obj::CCompositeObject::Destroy);
-REPLACE(0x0045D920, &Obj::CCompositeObject::Update);
-REPLACE(0x0045D990, &Obj::CCompositeObject::Hide);
-REPLACE(0x0045D9E0, &Obj::CCompositeObject::Suspend);
-REPLACE(0x0045E4C0, &Obj::CCompositeObject::SetTeleported);
-REPLACE(0x0045E500, &Obj::CCompositeObject::ShouldUpdateScripts);
-REPLACE(0x0045D7C0, &Obj::CCompositeObject::MarkAsDead);
-REPLACE(0x0045DA30, &Obj::CCompositeObject::AddComponent);
-REPLACE(0x0045DA90, &Obj::CCompositeObject::CreateComponentsFromArray);
-REPLACE(0x0045EE20, &Obj::CCompositeObject::CreateComponentFromStructure);
-REPLACE(0x0045DAD0, &Obj::CCompositeObject::InitFromStructure);
-REPLACE(0x0045DB30, &Obj::CCompositeObject::Finalize);
-REPLACE(0x0045DB90, &Obj::CCompositeObject::GetComponent);
-REPLACE(0x0045E450, static_cast<bool (Obj::CCompositeObject::*)(uint32_t, Script::CStruct*, Script::CScript*)>(
-                        &Obj::CCompositeObject::CallMemberFunction));
-REPLACE(0x0045D7F0, &Obj::CCompositeObject::Obj_PrintDetails);
-REPLACE(0x0045D810, &Obj::CCompositeObject::Obj_CreateComponent);
-REPLACE(0x0045D830, &Obj::CCompositeObject::Obj_SetPosition);
-REPLACE(0x0045DBC0, &Obj::CCompositeObject::Obj_GetPosition);
-REPLACE(0x0045DBF0, &Obj::CCompositeObject::Obj_ComponentExists);
-REPLACE(0x0045DC40, &Obj::CCompositeObject::Obj_ForceUpdate);
-REPLACE(0x0045DC50, &Obj::CCompositeObject::Obj_GetVelocity);
-REPLACE(0x0045DC80, &Obj::CCompositeObject::GetSpeed);
-REPLACE(0x0045DCD0, &Obj::CCompositeObject::Obj_Hide);
-REPLACE(0x0045DD20, &Obj::CCompositeObject::Obj_Unhide);
-REPLACE(0x0045DD70, &Obj::CCompositeObject::Obj_IsHidden);
-REPLACE(0x0045DD80, &Obj::CCompositeObject::Obj_MoveLocal);
-REPLACE(0x0045DED0, &Obj::CCompositeObject::Obj_Suspend);
-REPLACE(0x0045DF20, &Obj::CCompositeObject::Obj_Unsuspend);
-REPLACE(0x0045E0B0, &Obj::CCompositeObject::Obj_GetDistanceToObject);
-REPLACE(0x0045E260, &Obj::CCompositeObject::Obj_MovingBackward);
-REPLACE(0x0045E2A0, &Obj::CCompositeObject::Obj_SpeedNear);
-REPLACE(0x0045E310, &Obj::CCompositeObject::Obj_SpeedAbove);
-REPLACE(0x0045E380, &Obj::CCompositeObject::Obj_SpeedBelow);
-REPLACE(0x0045E3F0, &Obj::CCompositeObject::Obj_GetType);
-REPLACE(0x0045E410, &Obj::CCompositeObject::Obj_HasComponent);
-REPLACE(0x0045E9B0, &Obj::CCompositeObject::Obj_Pause);
-REPLACE(0x0045E9E0, &Obj::CCompositeObject::Obj_GetCollision);
-REPLACE(0x0045E9D0, &Obj::CCompositeObject::Obj_Unpause);
-REPLACE(0x0045DF70, &Obj::CCompositeObject::Obj_GetOrientation);
-REPLACE(0x0045E020, &Obj::CCompositeObject::Obj_GetDistToNode);
-REPLACE(0x0045E140, &Obj::CCompositeObject::Obj_GetOrientationToObject);
-REPLACE(0x0045E650, &Obj::CCompositeObject::Obj_SetOrientation);
-REPLACE(0x0045E940, &Obj::CCompositeObject::Obj_GetQuat);
-REPLACE(0x0045ED30, &Obj::CCompositeObject::FindNearestObjectOfType);
-REPLACE(0x0045EF30, &Obj::CCompositeObject::Obj_NearestOutsideAngle);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kComponentVtable, 0x00647618,
-    &Obj::CBaseComponent::Destroy,
-    GAME_LIBRARY_SLOT(0x00623771),
-    GAME_LIBRARY_SLOT(0x00623771),
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
-GAME_VTABLE(kCompositeObjectVtable, 0x00647650,
-    &Obj::CCompositeObject::Destroy,
-    &Obj::CObject::SetProperties,
-    static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-    static_cast<bool (Obj::CCompositeObject::*)(uint32_t, Script::CStruct*, Script::CScript*)>(&Obj::CCompositeObject::CallMemberFunction),
-    Stubs::IgnoreArgument,
-    &Obj::CObject::PassEventToScript,
-    &Obj::CCompositeObject::MarkAsDead,
-    &Obj::CCompositeObject::ShouldUpdateScripts,
-    &Obj::CCompositeObject::Finalize,
-    &Obj::CCompositeObject::CreateComponentFromStructure,
-    Stubs::DoNothing);
+static VtableSlot kComponentVtable_slots[] = {&Obj::CBaseComponent::Destroy,
+         &_purecall,
+         &_purecall,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kComponentVtable = reinterpret_cast<void**>(kComponentVtable_slots);
+static VtableSlot kCompositeObjectVtable_slots[] = {&Obj::CCompositeObject::Destroy,
+         &Obj::CObject::SetProperties,
+         static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+         static_cast<bool (Obj::CCompositeObject::*)(uint32_t, Script::CStruct*, Script::CScript*)>(&Obj::CCompositeObject::CallMemberFunction),
+         Stubs::IgnoreArgument,
+         &Obj::CObject::PassEventToScript,
+         &Obj::CCompositeObject::MarkAsDead,
+         &Obj::CCompositeObject::ShouldUpdateScripts,
+         &Obj::CCompositeObject::Finalize,
+         &Obj::CCompositeObject::CreateComponentFromStructure,
+         Stubs::DoNothing};
+void** const kCompositeObjectVtable = reinterpret_cast<void**>(kCompositeObjectVtable_slots);
 
 } // namespace
 } // namespace Obj

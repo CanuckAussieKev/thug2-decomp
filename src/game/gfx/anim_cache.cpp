@@ -4,6 +4,7 @@
 
 #include <intrin.h>
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/dbg.h"
@@ -11,14 +12,10 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 
 namespace Gfx {
 
-GAME_GLOBAL(Mem::PoolPair, g_animSlotPools, 0x006F92B8); // (CAnimCachePredictor; script_startup.h)
+Mem::PoolPair g_animSlotPools; // (CAnimCachePredictor; script_startup.h)
 
 namespace {
 
@@ -26,7 +23,7 @@ constexpr uint32_t kAnimHeap = 0x8F21A798; // AnimHeap
 constexpr int kEntries = 50;
 constexpr int kSlots = 18;
 
-GAME_GLOBAL(CAnimCache*, g_animCache, 0x006F92B0);
+CAnimCache* g_animCache;
 
 CAnimCache*& Cache() { return g_animCache; }
 Mem::PoolPair& SlotPools() { return g_animSlotPools; }
@@ -284,8 +281,8 @@ void __cdecl CAnimCache::Create(uint32_t heapSize, uint32_t granularity, int typ
 {
     if (Cache())
         return;
-    Manager()->InitNamedHeap(kAnimHeap, heapSize, GAME_TEXT(0x0064875C, "AnimHeap"), 0); // "AnimHeap"
-    Dbg::Printf(GAME_TEXT(0x00648734, "Initializing CAnimCacheManager at %dk\n"), heapSize >> 10); // "Initializing CAnimCacheManager at %dk\n"
+    Manager()->InitNamedHeap(kAnimHeap, heapSize, "AnimHeap", 0); // "AnimHeap"
+    Dbg::Printf("Initializing CAnimCacheManager at %dk\n", heapSize >> 10); // "Initializing CAnimCacheManager at %dk\n"
     auto* cache = static_cast<CAnimCache*>(Mem::Calloc(sizeof(CAnimCache)));
     if (cache) {
         std::memset(cache->mp_entries, 0, sizeof(cache->mp_entries));
@@ -525,34 +522,3 @@ int CAnimCache::Defragment()
 }
 
 } // namespace Gfx
-
-REPLACE(0x00480590, &Gfx::CAnimCacheEntry::SetSlotTime);
-REPLACE_SOURCE_ONLY(0x004805E0, &Gfx::CAnimCacheEntry::GetRotationKeySize);    // 4 bytes
-REPLACE_SOURCE_ONLY(0x004805F0, &Gfx::CAnimCacheEntry::GetTranslationKeySize); // 4 bytes
-REPLACE(0x00480600, &Gfx::CAnimCacheEntry::GetRotationKeys);
-REPLACE(0x00480610, &Gfx::CAnimCacheEntry::GetTranslationKeys);
-REPLACE_SOURCE_ONLY(0x00480620, &Gfx::CAnimCacheEntry::GetRotationOffsets);    // 4 bytes
-REPLACE(0x00480630, &Gfx::CAnimCacheEntry::GetTranslationOffsets);
-REPLACE(0x00480640, &Gfx::CAnimCacheEntry::SetReleaseCallback);
-REPLACE(0x00480660, Gfx::CAnimCache::Get);
-REPLACE(0x00480670, &Gfx::CAnimCache::GetEntrySize);
-REPLACE(0x004806C0, &Gfx::CAnimCache::FindOldest);
-REPLACE(0x00480800, &Gfx::CAnimCache::GetType);
-REPLACE(0x00480810, &Gfx::CAnimCacheEntry::Allocate);
-REPLACE(0x00480940, Gfx::CAnimCache::HeapAvailable);
-REPLACE(0x00480980, &Gfx::CAnimCache::AddEntry);
-REPLACE(0x004809F0, &Gfx::CAnimCache::Init);
-REPLACE(0x00480A70, Gfx::CAnimCacheSlot::Free);
-REPLACE(0x00480AD0, &Gfx::CAnimCacheEntry::Release);
-REPLACE(0x00480BF0, &Gfx::CAnimCacheEntry::NewSlot);
-REPLACE(0x00480C90, &Gfx::CAnimCacheEntry::FreeSlot);
-REPLACE(0x00480D10, Gfx::CAnimCache::Create);
-REPLACE(0x00480DB0, &Gfx::CAnimCache::Flush);
-REPLACE(0x00480DF0, &Gfx::CAnimCache::Remove);
-REPLACE(0x00480E30, &Gfx::CAnimCache::AddUser);
-REPLACE(0x00480E80, &Gfx::CAnimCache::RemoveUser);
-REPLACE(0x00480ED0, &Gfx::CAnimCache::FreeOldest);
-REPLACE(0x00480F20, &Gfx::CAnimCache::Defragment);
-REPLACE(0x00481200, &Gfx::CAnimCacheEntry::DestroyBody);
-REPLACE(0x004812F0, &Gfx::CAnimCache::DestroyBody);
-REPLACE(0x00481340, Gfx::CAnimCache::Destroy);

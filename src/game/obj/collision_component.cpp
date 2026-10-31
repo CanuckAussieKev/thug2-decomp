@@ -1,6 +1,8 @@
 // The collision component (Obj::CCollisionComponent): an object's own movable collision object, made from its node's
 // CollisionMode and its model's (or its level sector's) collision, placed where the object is.
 
+#include <cstdint>
+
 #include "game/obj/collision_component.h"
 #include "game/gfx/d3dx.h"
 #include "game/gfx/model.h"
@@ -16,15 +18,13 @@
 #include "game/nx/coll_static.h"
 #include "game/nx/coll_world.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/gfx/weather.h"
 #include "game/skater/vehicle_sound.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
@@ -164,31 +164,24 @@ void CCollisionComponent::Update()
 
 } // namespace Obj
 
-REPLACE(0x0041C920, Obj::CCollisionComponent::Create);
-REPLACE(0x0041C710, &Obj::CCollisionComponent::DestroyBody);
-REPLACE(0x0041C780, &Obj::CCollisionComponent::Destroy);
-REPLACE(0x0041C7B0, &Obj::CCollisionComponent::InitFromStructure);
-REPLACE(0x0041C890, &Obj::CCollisionComponent::InitCollision);
-REPLACE(0x0041C980, &Obj::CCollisionComponent::Update);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x00645EEC,
-    &Obj::CCollisionComponent::Destroy,
-    &Obj::CCollisionComponent::Update,
-    &Obj::CCollisionComponent::InitFromStructure,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Nx::VirtualSlot1Jump,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction,
-    &Obj::CCollisionComponent::InitCollision);
+static VtableSlot kVtable_slots[] = {&Obj::CCollisionComponent::Destroy,
+         &Obj::CCollisionComponent::Update,
+         &Obj::CCollisionComponent::InitFromStructure,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Nx::VirtualSlot1Jump,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction,
+         &Obj::CCollisionComponent::InitCollision};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

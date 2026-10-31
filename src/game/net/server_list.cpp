@@ -4,7 +4,9 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <initializer_list>
 
 #include "game/core/crc.h"
 #include "game/core/dbg.h"
@@ -23,13 +25,10 @@
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/ass/assman.h"
 #include "game/gfx/texture_cfuncs.h"
 #include "game/net/gamenet_lists.h"
-#include "hook/game_code.h"
 #include "game/core/stubs.h"
 #include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
@@ -88,7 +87,8 @@ constexpr uint32_t kListClock = 3000;         // ms
 constexpr uint32_t kShowDelay = 500;          // ms
 constexpr uint32_t kNewsBufferSize = 0x6400;  // bytes
 
-GAME_VTABLE(kServerVtable, 0x0064CDFC, &ServerInfo::Destroy); // ServerInfo
+static VtableSlot kServerVtable_slots[] = {&ServerInfo::Destroy};
+void** const kServerVtable = reinterpret_cast<void**>(kServerVtable_slots); // ServerInfo
 
 // The manager's fields not named in gamenet_manager.h yet.
 constexpr uint32_t kServiceTask = 0xE0;     // Tsk::BaseTask*: the online service task
@@ -110,9 +110,9 @@ Mem::Manager* Memory() { return Mem::Manager::Get(); }
 Tsk::Stack* LogicTasks() { return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager) + 0x04); }
 LobbyMan* Lobby(Manager* manager) { return static_cast<LobbyMan*>(manager->m_lobbyMan); }
 
-GAME_GLOBAL(uint32_t, g_lastRefresh, 0x007CE448);
-GAME_GLOBAL(bool, g_showPending, 0x007CE44C);
-GAME_GLOBAL(uint32_t, g_listClock, 0x007CE450);
+uint32_t g_lastRefresh;
+bool g_showPending;
+uint32_t g_listClock;
 
 uint32_t& LastRefresh() { return g_lastRefresh; }
 bool& ShowPending() { return g_showPending; }
@@ -307,7 +307,8 @@ int ServerInfo::GetPlayerRating(int index)
 }
 
 // 0x005451D0 / 0x00545460
-GAME_VTABLE(kServerSearchVtable, 0x0064CD70, &GameNet::ServerSearch::Destroy);
+static VtableSlot kServerSearchVtable_slots[] = {&GameNet::ServerSearch::Destroy};
+void** const kServerSearchVtable = reinterpret_cast<void**>(kServerSearchVtable_slots);
 
 void ServerSearch::DestroyBody() { m_vtable = kServerSearchVtable; }
 ServerSearch* ServerSearch::Destroy(unsigned int flags)
@@ -324,7 +325,7 @@ ServerSearch* ServerSearch::Destroy(unsigned int flags)
 void Manager::SetNextServiceState(int state) { Field<int>(this, kNextServiceState) = state; }
 int Manager::GetServiceState() { return Field<int>(this, kServiceState); }
 
-GAME_GLOBAL(uint32_t, g_newsMessageCount, 0x007CE444);
+uint32_t g_newsMessageCount;
 
 // 0x005453E0
 void Manager::SetServiceState(int state)
@@ -524,7 +525,7 @@ void Manager::RefreshServerList(bool force)
     uint8_t keys[4] = {8, 10, 4, 6}; // (in the original: over its argument's slot)
     Memory()->PushContext(Memory()->m_internetBottomUpHeap);
     static_cast<LobbyMan*>(manager->m_lobbyMan)->ClearLostConnection();
-    GameSpy::PeerStartListingGames(Lobby(this)->m_peer, keys, 4, nullptr, GAME_CODE(0x00547750, ListingGamesCallback),
+    GameSpy::PeerStartListingGames(Lobby(this)->m_peer, keys, 4, nullptr, CodeAddress(ListingGamesCallback),
                                    this); // (the games listed)
     Memory()->PopContext();
     Memory()->PopContext();
@@ -562,7 +563,7 @@ unsigned long __stdcall NewsThread(void* argument)
                                                      : "http://www.thug2online.com/motd.dat");
     Field<int>(manager, kRequest) =
         GameSpy::HttpGetEx(url, nullptr, reinterpret_cast<char*>(buffer), static_cast<int>(kNewsBufferSize), nullptr, 0, 0,
-                           GAME_CODE(0x005480A0, Stubs::DoNothing), &NewsCallback, manager); // (the download started)
+                           CodeAddress(Stubs::DoNothing), &NewsCallback, manager); // (the download started)
     Memory()->PopContext();
     return 0;
 }
@@ -643,34 +644,3 @@ bool __cdecl CFunc_NumServersInLobby(Script::CStruct* params, Script::CScript* s
 
 using GameNet::Manager;
 using GameNet::ServerInfo;
-REPLACE(0x00545F60, &ServerInfo::Construct);
-REPLACE(0x00546640, &ServerInfo::DestroyBody);
-REPLACE(0x00547F70, &ServerInfo::Destroy);
-REPLACE(0x00545790, &ServerInfo::AddPlayer);
-REPLACE(0x005465A0, &ServerInfo::ClearPlayers);
-REPLACE(0x005466D0, &ServerInfo::GetPlayerName);
-REPLACE(0x00546730, &ServerInfo::GetPlayerRating);
-REPLACE(0x005451D0, &GameNet::ServerSearch::DestroyBody);
-REPLACE(0x00545460, &GameNet::ServerSearch::Destroy);
-REPLACE(0x005451B0, &Manager::SetNextServiceState);
-REPLACE(0x005451C0, &Manager::GetServiceState);
-REPLACE(0x005453E0, &Manager::SetServiceState);
-REPLACE(0x005451E0, &Manager::UpdateHostingStatus);
-REPLACE(0x00545300, &Manager::StartServerList);
-REPLACE(0x00545370, &Manager::StopServerList);
-REPLACE(0x005456B0, &Manager::ShowNoServersFound);
-REPLACE(0x00546010, &Manager::ClearChosenServers);
-REPLACE(0x00546070, &Manager::NumServersInMenu);
-REPLACE(0x005460D0, &Manager::AddServerToMenu);
-REPLACE(0x005462F0, &Manager::ClearServerList);
-REPLACE(0x00546400, &Manager::HasServer);
-REPLACE(0x005464D0, &Manager::GetServer);
-REPLACE(0x00547320, &Manager::ShowFoundServers);
-REPLACE(0x00547E80, &Manager::RefreshServerList);
-REPLACE(0x00547440, GameNet::ServerListTask);
-REPLACE(0x00545540, GameNet::NewsThread);   // (not a Ghidra function)
-REPLACE(0x00545620, GameNet::MotdThread);   // (not a Ghidra function)
-REPLACE(0x00545490, GameNet::NewsCallback); // (not a Ghidra function)
-REPLACE(0x00548040, GameNet::IsThug2Location);
-REPLACE(0x00545440, GameNet::CFunc_PostGame);
-REPLACE(0x00545F20, GameNet::CFunc_NumServersInLobby);

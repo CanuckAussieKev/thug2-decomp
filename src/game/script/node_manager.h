@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include "hook/game_global.h"
 
 // The node arrays the level's objects come from (SkateScript::CNodeManager, a reference-counted singleton at
 // 0x006F0D84 / 0x006F0D88): up to 20 named script arrays of node structures, and a hash from every node's name
@@ -120,7 +119,7 @@ void SetNodeArrayRemovedHook(NodeArrayRemovedHook hook);
 using NodeArrayAddedHook = void (*)(uint32_t name);
 void SetNodeArrayAddedHook(NodeArrayAddedHook hook);
 
-GAME_GLOBAL_EXTERN(SkateScript::CNodeManager*, g_nodeManager);
+extern SkateScript::CNodeManager* g_nodeManager;
 inline CNodeManager*& NodeManagerInstance() { return g_nodeManager; }
 void ReleaseNodeManager();
 } // namespace SkateScript

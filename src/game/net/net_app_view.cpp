@@ -6,8 +6,10 @@
 #include <winsock2.h>
 #include <windows.h>
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <initializer_list>
 
 #include "game/core/crc.h"
 #include "game/core/manager.h"
@@ -16,14 +18,11 @@
 #include "game/net/net_access_c.h"
 #include "game/net/net_app_messages.h"
 #include "game/net/net_dispatcher.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/net/net_messages.h"
 
 namespace Net {
 
 namespace {
-
 
 // (The message ids and handler results: net_access_c.h, net_dispatcher.h.)
 
@@ -481,36 +480,3 @@ void App::FreeMessages(Conn* conn, int queue, uint8_t id)
 }
 
 } // namespace Net
-
-REPLACE(0x00456910, &Net::App::Encrypt);
-REPLACE(0x00456CC0, &Net::App::Decrypt);
-REPLACE(0x00456A50, &Net::App::SendTask);
-REPLACE(0x00456A60, &Net::App::ReceiveTask);
-REPLACE(0x00456A70, &Net::App::ProcessTask);
-REPLACE(0x00456A80, &Net::App::MetricsTask);
-REPLACE(0x00456AF0, &Net::App::NetManager);
-REPLACE(0x00456B60, &Net::App::Socket);
-REPLACE(0x00456B70, &Net::App::SetForeignPacketHandler);
-REPLACE(0x00456F90, &Net::App::IsLocal);
-REPLACE(0x00456FA0, &Net::App::AcceptsForeignConnections);
-REPLACE(0x00456A90, &Net::App::ReportError);
-REPLACE(0x00456B00, &Net::App::IsSendDue);
-REPLACE_UNCHECKED(0x00456B30, Net::VirtualSlot5Jump);
-REPLACE(0x00456B40, &Net::App::AliasConnections);
-REPLACE(0x00456BA0, &Net::App::Bind);
-REPLACE(0x00456D90, &Net::App::NewQueuedMsg);
-REPLACE(0x00456E20, &Net::App::SendTo);
-REPLACE(0x00456F10, &Net::App::Send);
-REPLACE(0x00457110, &Net::App::Init);
-REPLACE(0x00457280, &Net::App::SendMessageTo);
-REPLACE(0x00457300, &Net::App::TerminateConnection);
-REPLACE(0x004573D0, &Net::App::NextConnection);
-REPLACE(0x00457400, &Net::App::BanConnection);
-REPLACE(0x00457490, &Net::App::Deinit);
-REPLACE(0x00457560, &Net::App::DispatchQueuedSequencedMessages);
-REPLACE(0x00457710, &Net::App::DestroyBody);
-REPLACE(0x004578B0, &Net::App::GetConnectionByAddress);
-REPLACE(0x00457910, &Net::App::GetConnectionByHandle);
-REPLACE(0x00457970, &Net::App::ImportantMessagesDue);
-REPLACE(0x00457AC0, &Net::App::MessagesDue);
-REPLACE(0x00457C80, &Net::App::FreeMessages);

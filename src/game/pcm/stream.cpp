@@ -10,28 +10,25 @@
 
 #include "game/core/mem.h"
 #include "game/pcm/stream_commands.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/sys/startup_init.h"
 
 namespace Pcm {
 
-GAME_GLOBAL(void*, g_wadFile, 0x0067D7FC, INVALID_HANDLE_VALUE);
-GAME_GLOBAL(WadEntry*, g_wadEntries, 0x006EE00C);
-GAME_GLOBAL(void*, g_streamLock, 0x006EE01C); // a mutex (HANDLE), made at start-up
+void* g_wadFile{INVALID_HANDLE_VALUE};
+WadEntry* g_wadEntries;
+void* g_streamLock; // a mutex (HANDLE), made at start-up
 
 namespace {
 
 // The lock the game thread and the stream thread take around the streams (a mutex made at start-up).
 HANDLE StreamLock() { return g_streamLock; }
 
-GAME_GLOBAL(int, g_nextOverlapped, 0x006EE008);
-GAME_GLOBAL(uint32_t, g_wadEntryCount, 0x006EE010);
-GAME_GLOBAL(HANDLE, g_threadHandle, 0x006EE014);
-GAME_GLOBAL(bool, g_stopThread, 0x006EE018);
-GAME_GLOBAL(bool, g_soundtracksCounted, 0x006EFDD0);
-GAME_GLOBAL(int, g_soundtrackCount, 0x006EFDD4);
+int g_nextOverlapped;
+uint32_t g_wadEntryCount;
+HANDLE g_threadHandle;
+bool g_stopThread;
+bool g_soundtracksCounted;
+int g_soundtrackCount;
 
 HANDLE& ThreadHandle() { return g_threadHandle; }
 bool& StopThread() { return g_stopThread; }
@@ -42,7 +39,7 @@ WadEntry*& WadEntries() { return g_wadEntries; }
 uint32_t& WadEntryCount() { return g_wadEntryCount; }
 
 // The ring of OVERLAPPED blocks streams read with, and the next one to try.
-GAME_GLOBAL(OVERLAPPED[256], g_overlapped, 0x0069CBB8);
+OVERLAPPED g_overlapped[256];
 OVERLAPPED* Overlapped() { return g_overlapped; }
 constexpr int kNumOverlapped = 256;
 int& NextOverlapped() { return g_nextOverlapped; }
@@ -52,7 +49,7 @@ bool& SoundtracksCounted() { return g_soundtracksCounted; }
 int& SoundtrackCount() { return g_soundtrackCount; }
 // (Never filled on PC - the count stays 0 - so the slots are only the original's room: 99 of them before the next variable.)
 constexpr int kSoundtrackSize = 0x4C, kSoundtrackSlots = 99;
-GAME_GLOBAL(uint8_t[kSoundtrackSlots * kSoundtrackSize], g_soundtracks, 0x006EE024);
+uint8_t g_soundtracks[kSoundtrackSlots * kSoundtrackSize];
 uint8_t* Soundtrack(int index) { return g_soundtracks + index * kSoundtrackSize; }
 
 constexpr uint32_t kPending = 0x8000000Au; // E_PENDING
@@ -105,11 +102,11 @@ bool PreloadDone(const StreamSlot& slot)
 
 } // namespace
 
-GAME_GLOBAL(StreamSlot[3], g_streamSlots, 0x006EDFB8);
+StreamSlot g_streamSlots[3];
 
 StreamSlot* StreamSlots() { return g_streamSlots; }
 
-GAME_GLOBAL(StreamSlot, g_musicSlot, 0x006EDFF4);
+StreamSlot g_musicSlot;
 
 StreamSlot& MusicSlot() { return g_musicSlot; }
 
@@ -387,26 +384,6 @@ int __cdecl UserSoundtrackTracks(int index)
 }
 
 } // namespace Pcm
-
-REPLACE(0x00453500, &Pcm::StreamSlot::Create);
-REPLACE(0x00453090, &Pcm::StreamSlot::Open);
-REPLACE(0x004530E0, &Pcm::StreamSlot::SetVolumeAndPan);
-REPLACE(0x004538F0, &Pcm::StreamSlot::Free);
-REPLACE(0x00453100, Pcm::StreamThread);
-REPLACE(0x004531A0, Pcm::StopStreamThread);
-REPLACE(0x004535E0, Pcm::NewOverlapped);
-REPLACE(0x00453670, Pcm::InitPlatform);
-REPLACE_UNCHECKED(0x004533A0, Pcm::FindWadEntryStub);
-REPLACE(0x004533E0, Pcm::StreamExists);
-REPLACE(0x00453250, Pcm::MusicStatus);
-REPLACE(0x00453270, Pcm::StreamStatus);
-REPLACE(0x00453220, Pcm::MusicPreloadDone);
-REPLACE(0x004531D0, Pcm::StreamPreloadDone);
-REPLACE(0x004532C0, Pcm::PauseStreams);
-REPLACE(0x00453940, Pcm::UpdateStreams);
-REPLACE(0x004542D0, Pcm::UserSoundtrackCount);
-REPLACE(0x00454300, Pcm::UserSoundtrackName);
-REPLACE(0x00454320, Pcm::UserSoundtrackTracks);
 
 namespace Pcm {
 

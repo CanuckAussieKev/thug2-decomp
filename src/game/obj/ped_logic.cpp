@@ -6,6 +6,7 @@
 #include "game/obj/ped_logic.h"
 
 #include <cstdint>
+#include <new>
 
 #include "game/core/crc.h"
 #include "game/core/dbg.h"
@@ -21,19 +22,16 @@
 #include "game/skate/profile_manager.h"
 #include "game/skater/looping_sound.h"
 #include "game/skater/skater_sound.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[174], g_pedLogicMemberFunctions, 0x00683730,
+uint32_t g_pedLogicMemberFunctions[174]{
             0x3685B765, 0x6EFDDFB8, 0, 0, 0, 0,
             0x423B7B29, 0x6EFDDFB8, 0, 0, 0, 0,
             0xE9906815, 0x6EFDDFB8, 0, 0, 0, 0,
@@ -62,7 +60,7 @@ GAME_GLOBAL(uint32_t[174], g_pedLogicMemberFunctions, 0x00683730,
             0x9C209251, 0x6EFDDFB8, 0, 0, 0, 0,
             0xC33754F7, 0x6EFDDFB8, 0, 0, 0, 0,
             0x5F041C7D, 0x6EFDDFB8, 0, 0, 0, 0,
-            0, 0x6EFDDFB8, 0, 0, 0, 0);
+            0, 0x6EFDDFB8, 0, 0, 0, 0};
 
 namespace {
 
@@ -729,71 +727,26 @@ bool CPedLogicComponent::Ped_GetVoicePrefix(Script::CStruct*, Script::CScript* s
 
 } // namespace Obj
 
-REPLACE(0x004F0B10, Obj::CPedLogicComponent::Create);
-REPLACE(0x004ECFB0, Obj::CPedLogicComponent::RegisterMemberFunctions);
-REPLACE(0x004ECFD0, &Obj::CPedLogicComponent::CallMemberFunction);
-REPLACE(0x004EE4F0, &Obj::CPedLogicComponent::Construct);
-REPLACE(0x004F2120, &Obj::CPedLogicComponent::DestroyBody);
-REPLACE(0x004F2540, &Obj::CPedLogicComponent::Destroy);
-REPLACE(0x004ED2C0, &Obj::CPedLogicComponent::InitFromStructure);
-REPLACE_SOURCE_ONLY(0x004ED140, &Obj::CPedLogicComponent::GetLogicState);
-REPLACE(0x004ED460, &Obj::CPedLogicComponent::InitializeMovement);
-REPLACE(0x004ED4A0, &Obj::CPedLogicComponent::NoMoveUpdate);
-REPLACE(0x004ED4F0, &Obj::CPedLogicComponent::PushPosition);
-REPLACE(0x004EDC10, &Obj::GroundTriangle::Assign);
-REPLACE(0x004EDC60, &Obj::CPedLogicComponent::SetSoundState);
-REPLACE(0x004EDCB0, &Obj::CPedLogicComponent::SetSoundTerrain);
-REPLACE(0x004EDD00, &Obj::CPedLogicComponent::HideBoard);
-REPLACE(0x004EFB10, &Obj::CPedLogicComponent::StateParams);
-REPLACE(0x004F0B70, &Obj::CPedLogicComponent::SetState);
-REPLACE(0x004F2240, &Obj::CPedLogicComponent::ActivateAuxScript);
-REPLACE(0x004F1E10, &Obj::CPedLogicComponent::Bail);
-REPLACE(0x004EE2C0, Obj::ProfileVoice);
-REPLACE(0x004F2040, &Obj::CPedLogicComponent::Ped_SetLogicState);
-REPLACE(0x004EDD80, &Obj::CPedLogicComponent::Ped_GetLogicState);
-REPLACE(0x004F24B0, &Obj::CPedLogicComponent::Ped_StartMoving);
-REPLACE(0x004ED150, &Obj::CPedLogicComponent::Ped_StopMoving);
-REPLACE(0x004ED160, &Obj::CPedLogicComponent::Ped_IsMoving);
-REPLACE(0x004ED170, &Obj::CPedLogicComponent::Ped_SetStickDistances);
-REPLACE(0x004ED1D0, &Obj::CPedLogicComponent::Ped_SetIsGrinding);
-REPLACE(0x004ED220, &Obj::CPedLogicComponent::Ped_SetIsBailing);
-REPLACE(0x004ED2A0, &Obj::CPedLogicComponent::Ped_NearVertNode);
-REPLACE(0x004EDDA0, &Obj::CPedLogicComponent::Ped_GetCurrentVelocity);
-REPLACE(0x004EDDD0, &Obj::CPedLogicComponent::Ped_StoreMaxVelocity);
-REPLACE(0x004EDE00, &Obj::CPedLogicComponent::Ped_GetOriginalMaxVelocity);
-REPLACE(0x004EDE20, &Obj::CPedLogicComponent::Ped_ApplySpeedBoost);
-REPLACE(0x004EDEA0, &Obj::CPedLogicComponent::Ped_RemoveSpeedBoost);
-REPLACE(0x004EE100, &Obj::CPedLogicComponent::Ped_SetIsSkater);
-REPLACE(0x004EE180, &Obj::CPedLogicComponent::Ped_PlayJumpSound);
-REPLACE(0x004EE1B0, &Obj::CPedLogicComponent::Ped_PlayLandSound);
-REPLACE(0x004EE1E0, &Obj::CPedLogicComponent::Ped_GetCurrentNodeNames);
-REPLACE(0x004EE230, &Obj::CPedLogicComponent::Ped_GetGender);
-REPLACE(0x004F24E0, &Obj::CPedLogicComponent::Ped_ActivateAuxScript);
-REPLACE(0x004F20F0, &Obj::CPedLogicComponent::Ped_DeactivateAuxScript);
-REPLACE(0x004EE280, &Obj::CPedLogicComponent::Ped_HideBoard);
-REPLACE(0x004F20E0, &Obj::CPedLogicComponent::Ped_Bail);
-REPLACE(0x004EE3A0, &Obj::CPedLogicComponent::Ped_GetVoicePrefix);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064B7A8,
-    &Obj::CPedLogicComponent::Destroy,
-    &Obj::CPedLogicComponent::Update,
-    &Obj::CPedLogicComponent::InitFromStructure,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::CPedLogicComponent::CallMemberFunction,
-    &Obj::CPedLogicComponent::GenericMoveUpdate,
-    &Obj::CPedLogicComponent::SkaterMoveUpdate,
-    &Obj::CPedLogicComponent::NoMoveUpdate);
+static VtableSlot kVtable_slots[] = {&Obj::CPedLogicComponent::Destroy,
+         &Obj::CPedLogicComponent::Update,
+         &Obj::CPedLogicComponent::InitFromStructure,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::CPedLogicComponent::CallMemberFunction,
+         &Obj::CPedLogicComponent::GenericMoveUpdate,
+         &Obj::CPedLogicComponent::SkaterMoveUpdate,
+         &Obj::CPedLogicComponent::NoMoveUpdate};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

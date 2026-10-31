@@ -1,12 +1,12 @@
-// NOT ORIGINAL - turns the DINPUT8.dll+0x... offsets of a crash report in thug2-decomp.log into function names and
+// NOT ORIGINAL - turns the thug2-decomp.exe+0x... offsets of a crash report in thug2-decomp.log into function names and
 // source lines.
 //
 //     node tools/symbolize.ts [--pdb-dir out/build/verify] [log or offsets...]
 //
-// With a log file: symbolizes every "DINPUT8.dll+0x..." in its last crash report (EXCEPTION, RUN-TIME CHECK FAILURE,
-// ... - src/hook/crash.h; also tools/pipeline/game/read_dump.ts's output saved to a file). With hex offsets (or
-// "dinput8.dll+0x..."): those.
-// The PDB must come from the same build as the DLL that crashed (compare the deployed DLL's timestamp).
+// With a log file: symbolizes every "thug2-decomp.exe+0x..." in its last crash report (EXCEPTION, RUN-TIME CHECK
+// FAILURE, ... - src/game/sys/crash.h; also tools/pipeline/game/read_dump.ts's output saved to a file). With hex
+// offsets (or "thug2-decomp.exe+0x..."): those.
+// The PDB must come from the same build as the exe that crashed (compare the deployed exe's timestamp).
 // Uses Windows' dbghelp.dll - through Windows PowerShell's Add-Type (C# P/Invoke), as Node has no FFI.
 
 import { spawnSync } from "node:child_process";
@@ -19,14 +19,18 @@ const USAGE = "usage: symbolize.ts [--pdb-dir PDB_DIR] [items ...]";
 
 const BASE = 0x10000000; // any base: offsets are relative
 
+// The game's module in a report: the exe (an older build's thug2_standalone.exe too).
+const EXE = "thug2-decomp.exe";
+const MODULE_OFFSET = /(?:thug2-decomp|thug2_standalone)\.exe\+0x([0-9A-Fa-f]+)/gi;
+
 // A report's first line: EXCEPTION, RUN-TIME CHECK FAILURE, DEBUG CRT REPORT, INVALID PARAMETER, PURE VIRTUAL CALL,
-// ABORT, BUFFER OVERRUN DETECTED, GAME CRT MESSAGE (src/hook/crash.h).
+// ABORT, BUFFER OVERRUN DETECTED, GAME CRT MESSAGE (src/game/sys/crash.h).
 export const REPORT_START =
     /^(?:EXCEPTION |RUN-TIME CHECK FAILURE|DEBUG CRT REPORT|INVALID PARAMETER|PURE VIRTUAL CALL|ABORT|BUFFER OVERRUN|GAME CRT MESSAGE)/gm;
 
 export function offsetsFromLog(file: string): number[] {
     const text = readTextPy(file, "replace");
-    // (the last report of any kind - src/hook/crash.h; read_dump.ts's output too)
+    // (the last report of any kind - src/game/sys/crash.h; read_dump.ts's output too)
     const starts = [...text.matchAll(REPORT_START)];
     const start = starts.length ? starts[starts.length - 1]!.index! : -1;
     if (start < 0) pyExit(`no EXCEPTION (or other crash) report in ${file}`);
@@ -36,7 +40,7 @@ export function offsetsFromLog(file: string): number[] {
     const end = /\n(?! )/.exec(report.slice(first));
     if (end) report = report.slice(0, first + end.index);
     print(pySplitlines(report)[0]);
-    return [...report.matchAll(/DINPUT8\.dll\+0x([0-9A-Fa-f]+)/gi)].map((m) => Number.parseInt(m[1]!, 16));
+    return [...report.matchAll(MODULE_OFFSET)].map((m) => Number.parseInt(m[1]!, 16));
 }
 
 // dbghelp's SymFromAddr / SymGetLineFromAddr64 for each offset (a 64-bit PowerShell: SYMBOL_INFO is 88 bytes, its
@@ -114,10 +118,10 @@ function main(): number {
     const offsets: number[] = [];
     for (const item of items) {
         if (fs.statSync(item, { throwIfNoEntry: false })?.isFile()) offsets.push(...offsetsFromLog(item));
-        else offsets.push(pyIntHex(item.replace(/^dinput8\.dll\+/i, ""))); // "DINPUT8.dll+0x..." as read_dump prints it
+        else offsets.push(pyIntHex(item.replace(/^(?:thug2-decomp|thug2_standalone)\.exe\+/i, ""))); // as read_dump prints it
     }
 
-    const dll = path.resolve(values["pdb-dir"], "dinput8.dll");
+    const dll = path.resolve(values["pdb-dir"], EXE);
     const size = fs.statSync(dll).size;
     const script =
         `$args_dll = ${psString(dll)}; $args_dir = ${psString(path.dirname(dll))}; $args_size = ${size}; ` +

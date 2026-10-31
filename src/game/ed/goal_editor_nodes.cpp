@@ -2,7 +2,6 @@
 // disassembly of 0x004E8F50-0x004E93B7.
 
 #include <cstdint>
-#include "hook/game_code.h"
 
 #include "game/core/crc.h"
 #include "game/core/dbg.h"
@@ -11,8 +10,6 @@
 #include "game/script/node_manager.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/sys/crt.h"
 
 namespace Ed {
@@ -30,7 +27,7 @@ int Sprintf(char* out, const char* format, Args... args)
 // 0x004E8F50
 void __cdecl AddGoalEditorNodes(Script::CArray* nodes, int* index, Mem::Heap* heap)
 {
-    Dbg::Printf("M:%s:%i: %s\n", GAME_TEXT(0x0064B5E8, "mponents\\GoalEditorComponent.cpp"), 0x152, "Inserting Goal Editor Nodes");
+    Dbg::Printf("M:%s:%i: %s\n", "mponents\\GoalEditorComponent.cpp", 0x152, "Inserting Goal Editor Nodes");
     bool inPlace = true;
     uint32_t arrayName = 0;
     SkateScript::CNodeManager* manager = nullptr;
@@ -82,5 +79,3 @@ void __cdecl AddGoalEditorNodes(Script::CArray* nodes, int* index, Mem::Heap* he
 }
 
 } // namespace Ed
-
-REPLACE(0x004E8F50, Ed::AddGoalEditorNodes);

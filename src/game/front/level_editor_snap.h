@@ -18,7 +18,7 @@
 // Alt alone still leaves what scenery carries (level_editor_carry.h); Shift alone still drags up / down.
 namespace Front::LevelEditor::Snap {
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_transform.cpp) -------------------------------------------
+// --- the pure parts --------------------------------------------------------------------------------------------------
 
 // The index of the point nearest `to` (-1: none).
 int Nearest(const std::vector<V3>& points, V3 to);

@@ -7,6 +7,7 @@
 #include "game/gfx/d3dx.h"
 
 #include <cmath>
+#include <cstdint>
 
 #include "game/core/manager.h"
 #include "game/obj/motion.h"
@@ -14,11 +15,9 @@
 #include "game/obj/object.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/mth/random.h"
 #include "game/core/stubs.h"
-#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -457,26 +456,12 @@ void CPathFollower::GetHeading(Mth::Vector* out)
 
 } // namespace Obj
 
-REPLACE(0x00469B00, &Obj::CPathFollower::ReadNodePosition);
-REPLACE(0x00469B50, &Obj::CPathFollower::Destroy);
-REPLACE(0x00469B80, &Obj::CPathFollower::ComputeArc);
-REPLACE(0x00469F60, &Obj::CPathFollower::UpdatePosition);
-REPLACE(0x0046A000, &Obj::CPathFollower::CheckCorner);
-REPLACE(0x0046A120, &Obj::CPathFollower::NextNode);
-REPLACE(0x0046A1B0, &Obj::CPathFollower::GetHeading);
-REPLACE(0x0046A1D0, &Obj::CPathFollower::Construct);
-REPLACE(0x0046A250, &Obj::CPathFollower::StartSegment);
-REPLACE(0x0046A320, &Obj::CPathFollower::ArcStep);
-REPLACE(0x0046A3F0, &Obj::CPathFollower::Start);
-REPLACE(0x0046A550, &Obj::CPathFollower::StartCorner);
-REPLACE(0x0046A640, &Obj::CPathFollower::Update);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kPathFollowerVtable, 0x00647A84,
-    &Obj::CPathFollower::Destroy,
-    Stubs::IgnoreArgument);
+static VtableSlot kPathFollowerVtable_slots[] = {&Obj::CPathFollower::Destroy,
+         Stubs::IgnoreArgument};
+void** const kPathFollowerVtable = reinterpret_cast<void**>(kPathFollowerVtable_slots);
 
 } // namespace
 } // namespace Obj

@@ -22,7 +22,7 @@
 //     Paste fields: on every selected node, one undo step).
 namespace Front::LevelEditor::Clip {
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_ux3.cpp) -------------------------------------------------
+// --- the pure parts --------------------------------------------------------------------------------------------------
 
 // The first line of the clipboard's text (a layout comment: the text still reads as a layout).
 extern const char* const kHeaderComment;

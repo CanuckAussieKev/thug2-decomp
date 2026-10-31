@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <initializer_list>
 
 #include "game/core/mem.h"
 #include "game/ed/park.h"
@@ -20,16 +21,13 @@
 #include "game/gfx/engine.h"
 #include "game/gfx/sector.h"
 #include "game/gfx/engine_geom.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Ed {
 
 using namespace RailEditorInternal;
 using Mth::Vector;
 
-GAME_GLOBAL(int, g_railFlashCounter, 0x007CCD2C);
+int g_railFlashCounter;
 
 namespace {
 
@@ -860,26 +858,3 @@ __declspec(naked) void StretchRailSectorStub()
 }
 
 } // namespace Ed
-
-REPLACE(0x004F3E00, Ed::CloneRailSector);
-REPLACE_UNCHECKED(0x004F3D80, Ed::TransformRailPointStub);
-REPLACE_UNCHECKED(0x004F3E40, Ed::RailCornerOkStub);
-REPLACE_UNCHECKED(0x004F3F30, Ed::RailTooFarStub);
-REPLACE_UNCHECKED(0x004F3F70, Ed::RailOutOfReachStub);
-REPLACE_UNCHECKED(0x004F3FB0, Ed::RailSegmentValidStub);
-REPLACE_UNCHECKED(0x004F4B90, Ed::OrientRailVerticesStub);
-REPLACE_UNCHECKED(0x004F4E70, Ed::StretchRailSectorStub);
-REPLACE(0x004F5460, &Ed::CEditedRailPoint::DrawSegment);
-REPLACE(0x004F56D0, &Ed::CEditedRailPoint::DrawPost);
-REPLACE(0x004F5D10, Ed::CEditedRailPoint::GroundHeight);
-REPLACE(0x004F5E30, &Ed::CEditedRailPoint::Highlight);
-REPLACE(0x004F4370, &Ed::CEditedRail::Transform);
-REPLACE(0x004F61C0, &Ed::CEditedRail::DrawSegments);
-REPLACE(0x004F6210, &Ed::CEditedRail::DrawPosts);
-REPLACE(0x004F63B0, &Ed::CEditedRail::MovePoint);
-REPLACE(0x004F6510, &Ed::CRailEditorComponent::RestoreHeights);
-REPLACE(0x004F6560, &Ed::CRailEditorComponent::StoreHeights);
-REPLACE(0x004F65A0, &Ed::CRailEditorComponent::DrawAllSegments);
-REPLACE(0x004F6600, &Ed::CRailEditorComponent::DrawAllPosts);
-REPLACE(0x004F6650, &Ed::CRailEditorComponent::Rebuild);
-REPLACE(0x004F6AF0, &Ed::CRailEditorComponent::DrawDottedLine);

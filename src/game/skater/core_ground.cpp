@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <initializer_list>
 
 #include "game/mth/math.h"
 #include "game/gfx/d3dx.h"
@@ -19,8 +20,6 @@
 #include "game/skater/thaw_bmx.h"
 #include "game/skater/trick_component.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/net/gamenet_manager.h"
 
 namespace Skater {
@@ -281,5 +280,3 @@ void CorePhysicsComponent::MoveOnGround(Mth::Vector step)
 }
 
 } // namespace Skater
-
-REPLACE(0x0050EE70, &Skater::CorePhysicsComponent::DoGroundPhysics);

@@ -1,6 +1,8 @@
 // Game::CGoalManager: its goals made from the level's scripts, restarted, saved at the level's end, listed for the
 // menus (0x0055BA10-0x0055BE8F, 0x0055BF40-0x0055C7D6; see goal_manager.h).
 
+#include <cstdint>
+
 #include "game/core/mem.h"
 #include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
@@ -15,9 +17,6 @@
 #include "game/script/struct.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/trick_goals.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 
 namespace Game {
 
@@ -64,7 +63,7 @@ constexpr uint32_t kTrickName = 0x5B077CE1;       // trickname
 constexpr uint32_t kKeyCombos = 0x79704516;       // key_combos
 constexpr uint32_t kAttempts = 0xD023ADBE;        // (name unknown: the times the beaten goals were started)
 
-const char* const kNetJudge = GAME_TEXT(0x0064DEEC, "NetJudge"); // "NetJudge"
+const char* const kNetJudge = "NetJudge"; // "NetJudge"
 
 CGameMode* GameMode() { return g_gameMode; }
 GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
@@ -196,7 +195,7 @@ void CGoalManager::RestartLastGoal()
     Script::RunScript(kKillBlur, nullptr, nullptr, false, nullptr);
     if (!Virtual<bool>(goal, CGoal::kVtHasWon) || goal->GetParams()->ContainsFlag(kDontKillTriggerOnSuccess)) {
         Script::CStruct* params = NewStructure();
-        params->AddChecksum(GAME_TEXT(0x0064B5CC, "goal_id"), goal->GetGoalId()); // "goal_id"
+        params->AddChecksum("goal_id", goal->GetGoalId()); // "goal_id"
         Script::RunScript(kResetGoalTrigger, params, nullptr, false, nullptr);
         DeleteStructure(params);
     }
@@ -313,11 +312,3 @@ Script::CStruct* CGoalManager::GetGoalAttemptInfo()
 }
 
 } // namespace Game
-
-REPLACE(0x0055BA10, &Game::CGoalManager::AddGoal);
-REPLACE(0x0055BF40, &Game::CGoalManager::RestartLastGoal);
-REPLACE(0x0055C090, &Game::CGoalManager::LevelUnload);
-REPLACE(0x0055C250, &Game::CGoalManager::NumGoalsBeatenInLevel);
-REPLACE(0x0055C2F0, &Game::CGoalManager::AddGoalChoices);
-REPLACE(0x0055C4D0, &Game::CGoalManager::ReplaceTrickText);
-REPLACE(0x0055C6E0, &Game::CGoalManager::GetGoalAttemptInfo);

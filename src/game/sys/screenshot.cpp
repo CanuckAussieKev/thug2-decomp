@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <ctime>
@@ -40,7 +42,6 @@
 #include "game/sys/screenshot_files.h"
 #include "game/sys/sdl_events.h"
 #include "game/sys/sdl_window.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 #include "game/gfx/loading_bar_cfuncs.h"
 #include "game/gfx/device.h"

@@ -1,8 +1,6 @@
-// The D3DX9 calls the game makes (see d3dx.h). Only the standalone build has code here: Microsoft's D3DX9 through its
-// standard API. The hooked build calls the exe's own copy (inline in the header).
+// The D3DX9 calls the game makes (see d3dx.h): Microsoft's D3DX9 through its standard API.
 #include "game/gfx/d3dx.h"
 
-#ifdef THUG2_STANDALONE
 
 #include <windows.h>
 
@@ -66,4 +64,3 @@ long AssembleShader(const char* source, uint32_t length, void** shader, void** e
 
 } // namespace D3dx
 
-#endif

@@ -17,7 +17,7 @@ struct Fonts;
 
 // NOT ORIGINAL - the level editor's UI (ours; see level_editor.h): Dear ImGui panels over the game's view, in place of
 // the HUD made of the game's screen elements (level_editor_hud.h - hard to read, no tables or fields, 90 characters a
-// line). Inter for the UI, JetBrains Mono for numbers, names and checksums, both compressed into the DLL
+// line). Inter for the UI, JetBrains Mono for numbers, names and checksums, both compressed into the exe
 // (level_editor_ui_fonts.h) and sized for the window (1280 x 720 up to 4K: level_editor_ui_layout.h).
 //   - A menu bar across the top (File, Edit, View, Tools, Help - level_editor_ui_menus.cpp) over a tool strip of the
 //     core controls (level_editor_ui_strip.h: the mode, the transform tool, Snap, the pick filter, the level, Problems),

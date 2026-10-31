@@ -1,6 +1,8 @@
 // Game::CGoal's life: made, initialized, started, stopped, won, unlocked, rewarded, destroyed; its goal flags set
 // (0x00555DF0-0x00556109, 0x00556110-0x0055632F, 0x005566A0-0x005568AF, 0x00556F90-0x00557ABF; see goal.h).
 
+#include <cstdint>
+
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/goals/goal.h"
@@ -19,14 +21,11 @@
 #include "game/skate/score.h"
 #include "game/core/stubs.h"
 #include "game/gfx/weather.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Game {
 
-GAME_GLOBAL(float, g_goalLifeSecondsPerMillisecond, 0x006461D8, 0.001f);
+float g_goalLifeSecondsPerMillisecond{0.001f};
 
 namespace {
 
@@ -79,16 +78,16 @@ constexpr uint32_t kGaps = 0xD76C173E;                 // Gaps
 constexpr uint32_t kNoGapMessages = 0x5BC07EAA;        // No_Gap_Messages
 constexpr uint32_t kGoalGapsGotGap = 0x96DE9A0C;       // goal_gaps_got_gap
 
-GAME_VTABLE(kGoalVtable, 0x0064DDD0,
-            &Game::CGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired, &Game::CGoal::IsActive,
-            Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData, &Game::CGoal::GetSaveData,
-            &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue, &Game::CGoal::HasComponentA302D7CD,
-            &Game::CGoal::Activate, &Game::CGoal::SetActive, &Game::CGoal::Deactivate, &Game::CGoal::SetInactive,
-            &Game::CGoal::Win, &Game::CGoal::Lose, &Game::CGoal::Update, &Game::CGoal::IsPaused,
-            &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet, &Game::CGoal::HasWon,
-            &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild, &Game::CGoal::IsInitialized,
-            &Game::CGoal::CanRetry, &Game::CGoal::MarkWon, &Game::CGoal::SetStageFlag,
-            &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat);
+static VtableSlot kGoalVtable_slots[] = {&Game::CGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired, &Game::CGoal::IsActive,
+                 Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData, &Game::CGoal::GetSaveData,
+                 &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue, &Game::CGoal::HasComponentA302D7CD,
+                 &Game::CGoal::Activate, &Game::CGoal::SetActive, &Game::CGoal::Deactivate, &Game::CGoal::SetInactive,
+                 &Game::CGoal::Win, &Game::CGoal::Lose, &Game::CGoal::Update, &Game::CGoal::IsPaused,
+                 &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet, &Game::CGoal::HasWon,
+                 &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild, &Game::CGoal::IsInitialized,
+                 &Game::CGoal::CanRetry, &Game::CGoal::MarkWon, &Game::CGoal::SetStageFlag,
+                 &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat};
+void** const kGoalVtable = reinterpret_cast<void**>(kGoalVtable_slots);
 
 // The x87 code's float to int conversion (_ftol): truncation.
 int Truncate(double value) { return static_cast<int>(value); }
@@ -163,7 +162,8 @@ CGoal* RootOf(void* manager, GoalLink* parents)
 
 } // namespace
 
-GAME_VTABLE(kGoalNodeVtable, 0x0064DDCC, &Game::CGoal::DestroyNode); // (also used by goal_manager.cpp)
+static VtableSlot kGoalNodeVtable_slots[] = {&Game::CGoal::DestroyNode};
+void** const kGoalNodeVtable = reinterpret_cast<void**>(kGoalNodeVtable_slots); // (also used by goal_manager.cpp)
 // 0x00556FE0
 CGoal* CGoal::Construct(Script::CStruct* params)
 {
@@ -675,20 +675,3 @@ bool CGoal::AllSkatersRunDone()
 }
 
 } // namespace Game
-
-REPLACE(0x00555DF0, &Game::CGoal::GetRewardsStructure);
-REPLACE(0x00555FB0, &Game::CGoal::UnlockRewardGoals);
-REPLACE(0x00556050, &Game::CGoal::GetRewardPoints);
-REPLACE(0x005560D0, &Game::CGoal::DestroyNode);
-REPLACE(0x00556110, &Game::CGoal::DestroyBody);
-REPLACE(0x00556240, &Game::CGoal::AllSkatersRunDone);
-REPLACE(0x00556330, &Game::CGoal::SetFlag);
-REPLACE(0x005566A0, &Game::CGoal::Destroy);
-REPLACE(0x005566D0, &Game::CGoal::CreateGoalFlags);
-REPLACE(0x00556F90, &Game::CGoal::AppendDifficultyLevelParams);
-REPLACE(0x00556FE0, &Game::CGoal::Construct);
-REPLACE(0x00557270, &Game::CGoal::Init);
-REPLACE(0x00557360, &Game::CGoal::Activate);
-REPLACE(0x00557560, &Game::CGoal::Deactivate);
-REPLACE(0x005576D0, &Game::CGoal::Win);
-REPLACE(0x00557A40, &Game::CGoal::Unlock);

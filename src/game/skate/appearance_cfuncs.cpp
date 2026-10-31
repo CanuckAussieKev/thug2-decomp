@@ -19,8 +19,6 @@
 #include "game/gfx/model_appearance.h"
 #include "game/skate/cas_options.h"
 #include "game/obj/compositemgr.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace CFuncs {
 
@@ -419,24 +417,3 @@ bool __cdecl CFunc_SetPlayerAppearanceUV(Script::CStruct* params, Script::CScrip
 }
 
 } // namespace CFuncs
-
-REPLACE(0x005AF750, CFuncs::CFunc_RefreshSkaterColors);
-REPLACE(0x005AF7D0, CFuncs::CFunc_RefreshSkaterScale);
-REPLACE(0x005AF850, CFuncs::CFunc_RefreshSkaterVisibility);
-REPLACE(0x005AF8D0, CFuncs::CFunc_RefreshSkaterUV);
-REPLACE(0x005AFD80, CFuncs::CFunc_RefreshSkaterModel);
-REPLACE(0x005AFF30, CFuncs::CFunc_EditPlayerAppearance);
-REPLACE(0x005B0420, CFuncs::CFunc_GetActualCASOptionStruct);
-REPLACE(0x005B0480, CFuncs::CFunc_GetActualPlayerAppearancePart);
-REPLACE(0x005B0500, CFuncs::CFunc_GetPlayerAppearancePart);
-REPLACE(0x005B0580, CFuncs::CFunc_GetPlayerAppearance);
-REPLACE(0x005B0670, CFuncs::CFunc_SetPlayerAppearanceColor);
-REPLACE(0x005B0780, CFuncs::CFunc_SetPlayerAppearanceScale);
-REPLACE(0x005B0920, CFuncs::CFunc_SetPlayerAppearanceUV);
-REPLACE(0x005AE550, CFuncs::CFunc_SetPlayerAppearance);
-REPLACE(0x005AE5B0, CFuncs::CFunc_GetPlayerFacePoints);
-REPLACE(0x005AE710, CFuncs::CFunc_SetPlayerFacePoints);
-REPLACE(0x005AE7A0, CFuncs::CFunc_SetPlayerFaceTexture);
-REPLACE(0x005AE820, CFuncs::CFunc_SetPlayerFaceOverlayTexture);
-REPLACE(0x005AE880, CFuncs::CFunc_ClearPlayerFaceTexture);
-REPLACE(0x005AE8C0, CFuncs::CFunc_PlayerFaceIsValid);

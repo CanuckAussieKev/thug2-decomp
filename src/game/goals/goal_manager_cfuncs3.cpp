@@ -3,6 +3,7 @@
 // reset, the difficulty level, the stubbed stage commands, filming, the sponsor and the team, the trick beat goals,
 // the reward points, the collect goals.
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/dbg.h"
@@ -21,9 +22,6 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skate/trick_goals.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 
 namespace Game {
 
@@ -95,7 +93,6 @@ CGoal* OptionalGoal(CGoalManager* manager, Script::CStruct* params)
     params->GetChecksum(kName, &name, true);
     return name ? manager->m_goals.Get(name) : nullptr;
 }
-
 
 } // namespace
 
@@ -416,19 +413,19 @@ bool __cdecl CFunc_GoalManager_GetDifficultyLevel(Script::CStruct*, Script::CScr
 bool __cdecl CFunc_GoalManager_RestartStage(Script::CStruct*, Script::CScript*)
 {
     GetGoalManager();
-    Dbg::Printf(GAME_TEXT(0x0064DE78, "STUBBED\n")); // "STUBBED\n"
+    Dbg::Printf("STUBBED\n"); // "STUBBED\n"
     return true;
 }
 bool __cdecl CFunc_GoalManager_CanRestartStage(Script::CStruct*, Script::CScript*)
 {
     GetGoalManager();
-    Dbg::Printf(GAME_TEXT(0x0064DE78, "STUBBED\n")); // "STUBBED\n"
+    Dbg::Printf("STUBBED\n"); // "STUBBED\n"
     return false;
 }
 bool __cdecl CFunc_GoalManager_SetGoalChaptersAndStages(Script::CStruct*, Script::CScript*)
 {
     GetGoalManager();
-    Dbg::Printf(GAME_TEXT(0x0064DE84, "CGoalManager::SetGoalChaptersAndStages() Stubbed\n")); // "CGoalManager::SetGoalChaptersAndStages() Stubbed\n"
+    Dbg::Printf("CGoalManager::SetGoalChaptersAndStages() Stubbed\n"); // "CGoalManager::SetGoalChaptersAndStages() Stubbed\n"
     return true;
 }
 
@@ -439,7 +436,7 @@ bool __cdecl CFunc_GoalManager_AdvanceStage(Script::CStruct* params, Script::CSc
     uint32_t stage = 0;
     params->GetChecksum(kStage, &stage, 0);
     params->ContainsFlag(kForce);
-    Dbg::Printf(GAME_TEXT(0x0064DEC4, "STUBBED!\n")); // "STUBBED!\n"
+    Dbg::Printf("STUBBED!\n"); // "STUBBED!\n"
     return false;
 }
 
@@ -624,52 +621,3 @@ bool __cdecl CFunc_Goal_CollectActive(Script::CStruct* params, Script::CScript*)
 }
 
 } // namespace Game
-
-REPLACE(0x0055A700, Game::CFunc_GoalManager_GetTrickFromKeyCombo);
-REPLACE(0x0055A9F0, Game::CFunc_GoalManager_UnlockGoal);
-REPLACE(0x0055AA40, Game::CFunc_GoalManager_QuickStartGoal);
-REPLACE(0x0055AAA0, Game::CFunc_GoalManager_InitializeGoal);
-REPLACE(0x0055AAF0, Game::CFunc_GoalManager_GoalIsExpired);
-REPLACE(0x0055AB40, Game::CFunc_GoalManager_ExpireGoal);
-REPLACE(0x0055AB90, Game::CFunc_GoalManager_AddTime);
-REPLACE(0x0055ABF0, Game::CFunc_GoalManager_GetNumberCollected);
-REPLACE(0x0055AC50, Game::CFunc_GoalManager_GetNumberOfFlags);
-REPLACE(0x0055ACB0, Game::CFunc_GoalManager_IsPro);
-REPLACE(0x0055ACC0, Game::CFunc_GoalManager_ResetGoalFlags);
-REPLACE(0x0055AD10, Game::CFunc_GoalManager_ColorTrickObjects);
-REPLACE(0x0055AD90, Game::CFunc_GoalManager_GetNumberOfTimesGoalStarted);
-REPLACE(0x0055ADF0, Game::CFunc_GoalManager_GoalExists);
-REPLACE(0x0055AE30, Game::CFunc_GoalManager_SetCanStartGoal);
-REPLACE(0x0055AE70, Game::CFunc_GoalManager_GetLastGoalId);
-REPLACE(0x0055AEA0, Game::CFunc_GoalManager_ClearTetrisTricks);
-REPLACE(0x0055AEF0, Game::CFunc_GoalManager_AnnounceGoalStarted);
-REPLACE(0x0055AFB0, Game::CFunc_GoalManager_SetEndRunType);
-REPLACE(0x0055B040, Game::CFunc_GoalManager_SetShouldDeactivateOnExpire);
-REPLACE(0x0055B0B0, Game::CFunc_GoalManager_ResetCareer);
-REPLACE(0x0055B0F0, Game::CFunc_GoalManager_UpdateFamilyTrees);
-REPLACE(0x0055B110, Game::CFunc_GoalManager_SuspendGoalPedLogic);
-REPLACE(0x0055B1A0, Game::CFunc_GoalManager_SetDifficultyLevel);
-REPLACE(0x0055B1F0, Game::CFunc_GoalManager_GetDifficultyLevel);
-REPLACE(0x0055B260, Game::CFunc_GoalManager_RestartStage);
-REPLACE(0x0055B280, Game::CFunc_GoalManager_CanRestartStage);
-REPLACE(0x0055B2A0, Game::CFunc_GoalManager_SetGoalChaptersAndStages);
-REPLACE(0x0055B2C0, Game::CFunc_GoalManager_AdvanceStage);
-REPLACE(0x0055B310, Game::CFunc_GoalManager_FilmGoalCheckpoint);
-REPLACE(0x0055B370, Game::CFunc_GoalManager_StartFilming);
-REPLACE(0x0055B3D0, Game::CFunc_GoalManager_SetSponsor);
-REPLACE(0x0055B400, Game::CFunc_GoalManager_GetSponsor);
-REPLACE(0x0055B430, Game::CFunc_GoalManager_GetTeam);
-REPLACE(0x0055B490, Game::CFunc_GoalManager_SetTeamMember);
-REPLACE(0x0055B520, Game::CFunc_GoalManager_KillTeamMembers);
-REPLACE(0x0055B540, Game::CFunc_GoalManager_SetTeamName);
-REPLACE(0x0055B580, Game::CFunc_GoalManager_RunLastStageScript);
-REPLACE(0x0055B590, Game::CFunc_GoalManager_GoalInitialized);
-REPLACE(0x0055B5E0, Game::CFunc_GoalManager_UnloadLastFam);
-REPLACE(0x0055B630, Game::CFunc_GoalManager_StopLastStream);
-REPLACE(0x0055B680, Game::CFunc_GoalManager_HideAllGoalPeds);
-REPLACE(0x0055B6C0, Game::CFunc_GoalManager_SetTrickBeatPattern);
-REPLACE(0x0055B740, Game::CFunc_GoalManager_ResetTrickBeatTimer);
-REPLACE(0x0055B790, Game::CFunc_GoalManager_GetGoalManagerParams);
-REPLACE(0x0055B7C0, Game::CFunc_GoalManager_GetActiveRewardPoints);
-REPLACE(0x0055B8B0, Game::CFunc_GoalManager_GetGoalRewardPoints);
-REPLACE(0x0055B930, Game::CFunc_Goal_CollectActive);

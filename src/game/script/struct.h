@@ -1,11 +1,9 @@
 #pragma once
 
 #include <cstdint>
-#include "hook/game_global.h"
 #include "game/core/pool.h"
 
 #include "game/core/pool.h"
-#include "hook/game_global.h"
 
 // The script system's data: structures of named components (Script::CStruct - also every script function's
 // parameters), and the global symbol table they can refer to.
@@ -317,17 +315,17 @@ public:
 static_assert(sizeof(CStruct) == 8, "layout must match the original");
 
 // The CStruct pool pair (script/struct.cpp).
-GAME_GLOBAL_EXTERN(Mem::PoolPair, g_structPools);
-GAME_GLOBAL_EXTERN(Mem::PoolPair, g_arrayPools);
-GAME_GLOBAL_EXTERN(Mem::PoolPair, g_componentPools);
-GAME_GLOBAL_EXTERN(char*, g_permanentStringsStart);
-GAME_GLOBAL_EXTERN(char*, g_permanentStringsNext);
-GAME_GLOBAL_EXTERN(uint32_t, g_permanentStringsSize);
-GAME_GLOBAL_EXTERN(uint32_t, g_permanentStringCount);
-GAME_GLOBAL_EXTERN(Mem::PoolPair, g_symbolPools);
-GAME_GLOBAL_EXTERN(Mem::PoolPair, g_pairPools);
-GAME_GLOBAL_EXTERN(Mem::PoolPair, g_vectorPools);
+extern Mem::PoolPair g_structPools;
+extern Mem::PoolPair g_arrayPools;
+extern Mem::PoolPair g_componentPools;
+extern char* g_permanentStringsStart;
+extern char* g_permanentStringsNext;
+extern uint32_t g_permanentStringsSize;
+extern uint32_t g_permanentStringCount;
+extern Mem::PoolPair g_symbolPools;
+extern Mem::PoolPair g_pairPools;
+extern Mem::PoolPair g_vectorPools;
 
 struct PermanentString;
-GAME_GLOBAL_EXTERN(PermanentString*, g_permanentStringTable);
+extern PermanentString* g_permanentStringTable;
 } // namespace Script

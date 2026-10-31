@@ -1,6 +1,7 @@
 #include "game/gfx/camera.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/mem.h"
@@ -8,10 +9,7 @@
 #include "game/gfx/screen.h"
 #include "game/gfx/settings.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/object.h"
 
@@ -45,7 +43,7 @@ const float kRadiansToDegrees = FloatFromBits(0x42652EE0);
 
 } // namespace
 
-GAME_GLOBAL(int, g_drawDistanceSetting, 0x007D6444);
+int g_drawDistanceSetting;
 
 // 0x00485BA0
 Camera* Camera::Construct()
@@ -187,23 +185,11 @@ void Camera::SetHFOV(float degrees)
 }
 
 namespace {
-GAME_VTABLE(kVtable, 0x006487E0, &Gfx::Camera::ScalarDelete, &Obj::CObject::SetProperties,
-            static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-            &Gfx::Camera::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
-            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue);
+static VtableSlot kVtable_slots[] = {&Gfx::Camera::ScalarDelete, &Obj::CObject::SetProperties,
+                static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+                &Gfx::Camera::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
+                &Obj::CObject::MarkAsDead, Stubs::ReturnTrue};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 } // namespace
 
 } // namespace Gfx
-
-REPLACE(0x00485BA0, &Gfx::Camera::Construct);
-REPLACE(0x004859F0, &Gfx::Camera::DestroyBody);
-REPLACE(0x00485A20, &Gfx::Camera::ScalarDelete);
-REPLACE(0x00485B40, &Gfx::Camera::CallMemberFunction);
-REPLACE_SOURCE_ONLY(0x00485A00, &Gfx::Camera::GetPos);    // 4 bytes
-REPLACE_SOURCE_ONLY(0x00485A10, &Gfx::Camera::GetMatrix); // 4 bytes
-REPLACE(0x00485A50, &Gfx::Camera::StoreOldPos);
-REPLACE(0x00485A70, &Gfx::Camera::SetPos);
-REPLACE(0x00485A90, &Gfx::Camera::SetMatrix);
-REPLACE(0x00485AA0, &Gfx::Camera::UpdateAdjustedHFOV);
-REPLACE(0x00485B10, &Gfx::Camera::GetAdjustedHFOV);
-REPLACE(0x00485B20, &Gfx::Camera::SetHFOV);

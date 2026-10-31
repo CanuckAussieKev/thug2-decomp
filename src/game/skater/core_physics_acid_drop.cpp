@@ -22,8 +22,6 @@
 #include "game/skater/thaw_bmx.h"
 #include "game/skater/core_physics_fields.h"
 #include "game/skater/walk_physics.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Skater {
 
@@ -609,7 +607,3 @@ bool CorePhysicsComponent::TrySpineTransfer()
 }
 
 } // namespace Skater
-
-REPLACE(0x00505F70, &Skater::CorePhysicsComponent::TrySpineTransfer);
-REPLACE(0x00502240, &Skater::CorePhysicsComponent::FindAcidDrop);
-REPLACE(0x00502F20, &Skater::CorePhysicsComponent::StartAcidDrop);

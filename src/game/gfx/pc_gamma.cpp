@@ -9,15 +9,12 @@
 #include <cmath>
 #include <cstdint>
 
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/device.h"
 
 namespace Nx {
 
-GAME_GLOBAL(float[3], g_gammas, 0x0067E9C8, 1.0f, 1.0f, 1.0f);
-GAME_GLOBAL(uint16_t[768], g_gammaRamp, 0x00781BF8);
+float g_gammas[3]{1.0f, 1.0f, 1.0f};
+uint16_t g_gammaRamp[768];
 
 namespace {
 
@@ -70,7 +67,3 @@ void __cdecl SetDeviceGamma(float r, float g, float b)
 }
 
 } // namespace Nx
-
-REPLACE(0x004D06A0, Nx::GetDeviceGamma);
-REPLACE(0x004D06F0, Nx::BuildGammaRamp);
-REPLACE(0x004D07B0, Nx::SetDeviceGamma);

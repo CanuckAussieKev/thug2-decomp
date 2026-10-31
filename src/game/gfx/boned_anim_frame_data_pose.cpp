@@ -2,6 +2,7 @@
 
 #include "game/gfx/boned_anim_frame_data.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/gfx/anim_blend.h"
@@ -11,9 +12,6 @@
 #include "game/mth/x87_math.h"
 #include "game/obj/walk_hang.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Gfx {
 
@@ -56,8 +54,8 @@ void RotationToQuatB(void* out, const void* key)
     ExpandQuatKeyWithW(static_cast<CFloatKey*>(out), static_cast<const CShortKey*>(key));
 }
 
-GAME_GLOBAL(uint32_t, g_cachesBuilt, 0x006FA2D8);
-GAME_GLOBAL(uint64_t, g_lastCacheVblank, 0x006FA2E0);
+uint32_t g_cachesBuilt;
+uint64_t g_lastCacheVblank;
 
 // The vblank count when caches were last built (0x006FA2E0) and how many have been since (0x006FA2D8).
 uint64_t& LastCacheVblank() { return g_lastCacheVblank; }
@@ -357,9 +355,3 @@ bool CBonedAnimFrameData::GetFrames(Mth::Quat* rotations, Mth::Vector* translati
 }
 
 } // namespace Gfx
-
-REPLACE(0x00484EB0, &Gfx::CBonedAnimFrameData::ApplyAdditive);
-REPLACE(0x00485250, &Gfx::CBonedAnimFrameData::ApplyAdditiveIfCompressed);
-REPLACE(0x00485270, &Gfx::CBonedAnimFrameData::BuildCache);
-REPLACE(0x004856C0, &Gfx::CBonedAnimFrameData::Load);
-REPLACE(0x00485730, &Gfx::CBonedAnimFrameData::GetFrames);

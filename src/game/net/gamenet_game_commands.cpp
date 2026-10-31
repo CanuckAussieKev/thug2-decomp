@@ -2,7 +2,7 @@
 // starting and ending a network game, teams, the host, readiness, and the player list menu with its options dialog.
 
 #include <cstdint>
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include <cstring>
 
 #include "game/core/manager.h"
@@ -26,9 +26,6 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/ass/assman.h"
 #include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
@@ -50,7 +47,7 @@ using namespace Detail;
 using Script::CScript;
 using Script::CStruct;
 
-GAME_GLOBAL(uint8_t, g_gameReported, 0x007CCE1E);
+uint8_t g_gameReported;
 
 namespace {
 
@@ -104,11 +101,11 @@ constexpr uint32_t kPadChooseParams = 0xB8437568;     // pad_choose_params
 constexpr uint32_t kThemeMenuAddItem = 0xC16BF7BD;    // theme_menu_add_item
 constexpr uint32_t kCrownSpawnType = 0xAF86421B;      // (a node's Type: the crown's starting point; the name isn't known)
 
-const char* const kTeam = GAME_TEXT(0x0064CA14, "team");           // "team"
-const char* const kNetStatusProps = GAME_TEXT(0x0064CA1C, "netstatusprops"); // "netstatusprops"
-const char* const kType = GAME_TEXT(0x0064654C, "Type");           // "Type"
-const char* const kBit = GAME_TEXT(0x0064C9CC, "bit");            // "bit"
-const char* const kParamId = GAME_TEXT(0x0064C9C0, "param_id");        // "param_id"
+const char* const kTeam = "team";           // "team"
+const char* const kNetStatusProps = "netstatusprops"; // "netstatusprops"
+const char* const kType = "Type";           // "Type"
+const char* const kBit = "bit";            // "bit"
+const char* const kParamId = "param_id";        // "param_id"
 
 constexpr int kPlayerMenuIdBase = 123456;  // the menu items' ids: this plus the player's place in the list
 constexpr uint32_t kJoinTeamInterval = 150; // ms between team requests
@@ -117,7 +114,7 @@ constexpr int kMaxCrownSpawns = 10;
 Manager* Net() { return g_gameNetManager; }
 Tsk::Stack* LogicTasks() { return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager) + 4); }
 
-GAME_GLOBAL(uint32_t, g_lastTeamRequest, 0x007CCE28);
+uint32_t g_lastTeamRequest;
 
 uint32_t& LastTeamRequest() { return g_lastTeamRequest; }
 uint32_t& NetGameStartTime() { return g_netGameStartTime; }
@@ -263,10 +260,10 @@ bool __cdecl CFunc_StartNetworkGame(CStruct*, CScript*)
         uint8_t* end = buffer + 1;
         int count = Field<int>(goals, 0); // (its first word, read by the getter folded at 0x00469490)
         for (int i = 0; i < count; ++i) {
-            uint8_t* goal = Call<uint8_t*>(GAME_CODE(0x00557FB0, &Game::CGoalManager::GetGoalByIndex), goals, i);
-            if (Call<bool>(GAME_CODE(0x005542F0, &Game::CGoal::IsSelected), goal)) {
+            uint8_t* goal = Call<uint8_t*>(CodeAddress(&Game::CGoalManager::GetGoalByIndex), goals, i);
+            if (Call<bool>(CodeAddress(&Game::CGoal::IsSelected), goal)) {
                 reinterpret_cast<void(__thiscall*)(void*)>((*reinterpret_cast<void***>(goal))[29])(goal);
-                uint32_t id = Call<uint32_t>(GAME_CODE(0x00554280, &Game::CGoal::GetGoalId), goal);
+                uint32_t id = Call<uint32_t>(CodeAddress(&Game::CGoal::GetGoalId), goal);
                 std::memcpy(end, &id, 4);
                 end += 4;
             }
@@ -350,12 +347,12 @@ bool __cdecl CFunc_SetNumTeams(CStruct* params, CScript*)
         return true;
     }
     if (teams < 1 || IsTeamGame()) {
-        Call(GAME_CODE(0x005535A0, &Game::CGameMode::SetNumTeams), GameMode(), teams);
+        Call(CodeAddress(&Game::CGameMode::SetNumTeams), GameMode(), teams);
     } else {
-        Call(GAME_CODE(0x005535A0, &Game::CGameMode::SetNumTeams), GameMode(), teams);
-        if (Call<Obj::CObject*>(GAME_CODE(0x00566520, Mdl::Skate::GetLocalSkaterStub), skate)) { // the local skater
-            Run(kPrepareSkaterForMove, nullptr, Call<Obj::CObject*>(GAME_CODE(0x00566520, Mdl::Skate::GetLocalSkaterStub), skate));
-            Call(GAME_CODE(0x00566370, &Mdl::Skate::MoveToRestart), skate, Call<Obj::CObject*>(GAME_CODE(0x00566520, Mdl::Skate::GetLocalSkaterStub), skate), 0, 0);
+        Call(CodeAddress(&Game::CGameMode::SetNumTeams), GameMode(), teams);
+        if (Call<Obj::CObject*>(CodeAddress(Mdl::Skate::GetLocalSkaterStub), skate)) { // the local skater
+            Run(kPrepareSkaterForMove, nullptr, Call<Obj::CObject*>(CodeAddress(Mdl::Skate::GetLocalSkaterStub), skate));
+            Call(CodeAddress(&Mdl::Skate::MoveToRestart), skate, Call<Obj::CObject*>(CodeAddress(Mdl::Skate::GetLocalSkaterStub), skate), 0, 0);
         }
     }
     Net::App* server = manager->m_server;
@@ -567,21 +564,5 @@ bool __cdecl CFunc_ToggleProSet(CStruct* params, CScript*)
     manager->ToggleProSet(static_cast<uint8_t>(bit), id);
     return true;
 }
-
-REPLACE(0x00538050, CFunc_TeamFlagTaken);
-REPLACE(0x00538170, CFunc_SpawnCrown);
-REPLACE(0x00538280, CFunc_StartNetworkGame);
-REPLACE(0x00538620, CFunc_SendGameOverToObservers);
-REPLACE(0x00538720, CFunc_EndNetworkGame);
-REPLACE(0x005388C0, CFunc_GetMyTeam);
-REPLACE(0x005388F0, CFunc_SetNumTeams);
-REPLACE(0x00538C90, CFunc_JoinTeam);
-REPLACE(0x00538D70, CFunc_IsHost);
-REPLACE(0x00538DC0, CFunc_AllPlayersAreReady);
-REPLACE(0x00538E70, CFunc_CreatePlayerOptions);
-REPLACE(0x00539080, CFunc_FillPlayerListMenu);
-REPLACE(0x00539470, CFunc_RemovePlayer);
-REPLACE(0x00539480, CFunc_CancelRemovePlayer);
-REPLACE(0x00539570, CFunc_ToggleProSet);
 
 } // namespace GameNet

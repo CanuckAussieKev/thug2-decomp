@@ -18,9 +18,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
@@ -69,8 +67,8 @@ constexpr uint32_t kMotdTimeout = 15000;
 constexpr uint32_t kText = 0x4942CF80; // "text"
 
 // The two download threads (stdcall, the manager as their argument).
-const auto kNewsThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(GAME_CODE(0x00545540, GameNet::NewsThread));
-const auto kMotdThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(GAME_CODE(0x00545620, GameNet::MotdThread));
+const auto kNewsThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(CodeAddress(GameNet::NewsThread));
+const auto kMotdThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(CodeAddress(GameNet::MotdThread));
 
 void SetState(uint8_t* manager, int state)
 {
@@ -288,5 +286,3 @@ void __cdecl ServiceTask(const uint8_t* task)
 }
 
 } // namespace Net
-
-REPLACE(0x00545880, Net::ServiceTask);

@@ -23,8 +23,6 @@
 #include "game/skater/skater_sound.h"
 #include "game/skater/tagging.h"
 #include "game/skater/trick_component.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/obj/trigger_events.h"
 
 namespace Skater {
@@ -488,10 +486,3 @@ void CorePhysicsComponent::BounceOffWallAhead(const Mth::Vector* normal)
 }
 
 } // namespace Skater
-
-REPLACE(0x00503710, &Skater::CorePhysicsComponent::VertWallplant);
-REPLACE(0x00503B30, &Skater::CorePhysicsComponent::LeanPushOffWall);
-REPLACE(0x00504EE0, &Skater::CorePhysicsComponent::KeepOffCeiling);
-REPLACE(0x005051B0, &Skater::CorePhysicsComponent::KeepOffCeilingAtWall);
-REPLACE(0x00506E50, &Skater::CorePhysicsComponent::CheckWallAhead);
-REPLACE(0x005059D0, &Skater::CorePhysicsComponent::BounceOffWallAhead);

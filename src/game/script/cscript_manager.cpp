@@ -21,6 +21,7 @@
 //   this call. The one-per-frame wait's "a script was released this frame" flag is cleared at the start.
 #include <cstddef>
 #include <cstdint>
+#include <new>
 
 #include "game/core/crc.h"
 #include "game/core/manager.h"
@@ -31,8 +32,6 @@
 #include "game/script/load.h"
 #include "game/script/struct.h"
 #include "game/script/struct_buffer.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Script {
 
@@ -451,30 +450,3 @@ void StopScriptsUsingObjectThatReferTo(Obj::CObject* object, uint32_t name)
 }
 
 } // namespace Script
-
-REPLACE(0x00475920, Script::UpdateSpawnedScripts);
-REPLACE(0x004753C0, Script::DeleteSpawnedScripts);
-REPLACE(0x00475420, static_cast<Script::CScript* (*)(uint32_t, Script::CStruct*, uint32_t, Script::CStruct*, int, uint32_t,
-                                                      bool, bool, bool, bool)>(&Script::SpawnScript));
-REPLACE(0x00475670, static_cast<Script::CScript* (*)(const char*, Script::CStruct*, uint32_t, Script::CStruct*, int,
-                                                      uint32_t, bool, bool, bool, bool)>(&Script::SpawnScript));
-REPLACE(0x004756C0, Script::KillSpawnedScript);
-REPLACE(0x004756F0, Script::StopAllScriptsUsingThisObject);
-REPLACE(0x00475700, Script::DeleteFinishedScripts);
-REPLACE(0x00475790, static_cast<void (*)(uint32_t, Script::CStruct*, Obj::CObject*, bool, const char*)>(&Script::RunScript));
-REPLACE(0x004758F0, static_cast<void (*)(const char*, Script::CStruct*, Obj::CObject*, bool)>(&Script::RunScript));
-REPLACE(0x004752F0, Script::RunScriptOnce);
-REPLACE(0x00473350, Script::SendRunScriptMessage);
-REPLACE(0x00473420, Script::SendSpawnScriptMessage);
-REPLACE(0x00472D80, Script::PauseSpawnedScripts);
-REPLACE(0x00472DC0, Script::UnpauseSpawnedScript);
-REPLACE(0x00472DE0, Script::ScriptExists);
-REPLACE(0x00472E00, Script::GetSpawnId);
-REPLACE(0x00472E20, Script::FindSpawnedScriptWithId);
-REPLACE(0x00473FA0, Script::KillSpawnedScriptsThatReferTo);
-REPLACE(0x00474040, Script::KillSpawnedScriptsWithId);
-REPLACE(0x004740D0, Script::KillSpawnedScriptsWithObjectAndId);
-REPLACE(0x00474190, Script::KillSpawnedScriptsWithObjectAndName);
-REPLACE(0x00474250, Script::StopAllScripts);
-REPLACE(0x004742B0, Script::StopScriptsUsingObject);
-REPLACE(0x00474350, Script::StopScriptsUsingObjectThatReferTo);

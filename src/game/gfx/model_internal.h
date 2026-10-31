@@ -13,7 +13,6 @@
 #include "game/gfx/skeleton.h"
 #include "game/gfx/texture_dict.h"
 #include "game/net/buddy_status.h"
-#include "hook/game.h"
 
 namespace Nx::ModelGeoms {
 

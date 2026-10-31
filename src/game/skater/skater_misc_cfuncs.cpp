@@ -20,10 +20,7 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
 #include "game/skater/skater.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/gfx/cag_cfuncs.h"
-#include "hook/game_code.h"
 
 namespace CFuncs {
 
@@ -212,7 +209,7 @@ bool __cdecl CFunc_PlaySkaterStream(Script::CStruct* params, Script::CScript* sc
 
     for (int i = 0; i < count; ++i) {
         // "%s_%s%02i" (the original's sprintf is unbounded)
-        std::snprintf(stream, sizeof(stream), GAME_TEXT(0x0064E048, "%s_%s%02i"), voice, type,
+        std::snprintf(stream, sizeof(stream), "%s_%s%02i", voice, type,
                       static_cast<int>(order->GetElement(i)));
         if (!Pcm::StreamExists(Crc::GenerateCRCFromString(stream)))
             continue;
@@ -237,7 +234,3 @@ bool __cdecl CFunc_PlaySkaterStream(Script::CStruct* params, Script::CScript* sc
 }
 
 } // namespace CFuncs
-
-REPLACE(0x005B45F0, CFuncs::CFunc_ApplyCustomLogoToPart);
-REPLACE(0x005B4890, CFuncs::CFunc_GetSkaterVelocity);
-REPLACE(0x005B4AF0, CFuncs::CFunc_PlaySkaterStream);

@@ -17,10 +17,7 @@
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
 #include "game/sys/winmain.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
 
@@ -35,8 +32,10 @@ constexpr uint32_t kString = 0x61414D56;   // string
 constexpr int kStatusOnline = 1;
 constexpr int kStatusChatting = 4;
 
-GAME_VTABLE(kBuddySearchVtable, 0x0064CECC, &GameNet::BuddySearch::Destroy);
-GAME_VTABLE(kMessageSearchVtable, 0x0064CED0, &GameNet::BuddyMessageSearch::Destroy);
+static VtableSlot kBuddySearchVtable_slots[] = {&GameNet::BuddySearch::Destroy};
+void** const kBuddySearchVtable = reinterpret_cast<void**>(kBuddySearchVtable_slots);
+static VtableSlot kMessageSearchVtable_slots[] = {&GameNet::BuddyMessageSearch::Destroy};
+void** const kMessageSearchVtable = reinterpret_cast<void**>(kMessageSearchVtable_slots);
 
 Manager* TheManager() { return g_gameNetManager; }
 Mem::Manager* Memory() { return Mem::Manager::Get(); }
@@ -52,8 +51,10 @@ void UnlinkNode(Mem::ListNode* node)
 
 } // namespace
 
-GAME_VTABLE(kBuddyNodeVtable, 0x0064CF60, &GameNet::BuddyNode::Destroy);
-GAME_VTABLE(kMessageNodeVtable, 0x0064CF64, &GameNet::BuddyMessageNode::Destroy);
+static VtableSlot kBuddyNodeVtable_slots[] = {&GameNet::BuddyNode::Destroy};
+void** const kBuddyNodeVtable = reinterpret_cast<void**>(kBuddyNodeVtable_slots);
+static VtableSlot kMessageNodeVtable_slots[] = {&GameNet::BuddyMessageNode::Destroy};
+void** const kMessageNodeVtable = reinterpret_cast<void**>(kMessageNodeVtable_slots);
 
 // 0x00548100
 void __cdecl BuddyMan::OnBuddyRequest(void* connection, const void* arg, BuddyMan* man)
@@ -64,8 +65,8 @@ void __cdecl BuddyMan::OnBuddyRequest(void* connection, const void* arg, BuddyMa
     Memory()->PopContext();
 }
 
-GAME_GLOBAL(char[256], g_commandLineEmail, 0x007CCA90);
-GAME_GLOBAL(char[16], g_commandLinePassword, 0x007CCB90);
+char g_commandLineEmail[256];
+char g_commandLinePassword[16];
 
 // 0x00548140
 unsigned long __stdcall BuddyMan::LoginThread(void* man)
@@ -220,22 +221,3 @@ bool __cdecl SetLobbyStatus(Script::CStruct* params, Script::CScript* script)
 } // namespace GameNet
 
 using GameNet::BuddyMan;
-REPLACE(0x00548100, BuddyMan::OnBuddyRequest); // (not a Ghidra function)
-REPLACE(0x00548140, BuddyMan::LoginThread);    // (not a Ghidra function)
-REPLACE(0x00548200, &BuddyMan::SendBuddyMessage);
-REPLACE(0x005482A0, &BuddyMan::SetLoggedIn);
-REPLACE(0x00548320, &BuddyMan::SetStatus);
-REPLACE(0x005480D0, &GameNet::BuddySearch::DestroyBody);
-REPLACE(0x00548440, &GameNet::BuddySearch::Destroy);
-REPLACE(0x005480E0, &GameNet::BuddyMessageSearch::DestroyBody);
-REPLACE(0x00548470, &GameNet::BuddyMessageSearch::Destroy);
-REPLACE(0x005484A0, &GameNet::BuddyNode::DestroyBody);
-REPLACE(0x005484E0, &GameNet::BuddyNode::Destroy);
-REPLACE(0x005484C0, &GameNet::BuddyMessageNode::DestroyBody);
-REPLACE(0x00548520, &GameNet::BuddyMessageNode::Destroy);
-REPLACE_SOURCE_ONLY(0x005480B0, &GameNet::FoldedGetters::Byte10); // 4 bytes
-REPLACE_SOURCE_ONLY(0x005480C0, &GameNet::FoldedGetters::Word04); // 4 bytes
-REPLACE_SOURCE_ONLY(0x005480F0, &GameNet::FoldedGetters::Word18); // 4 bytes
-REPLACE(0x00548360, GameNet::ProfileLoggedIn);
-REPLACE(0x00548370, GameNet::SendBuddyMessage);
-REPLACE(0x005483E0, GameNet::SetLobbyStatus);

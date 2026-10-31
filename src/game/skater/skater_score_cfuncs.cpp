@@ -16,9 +16,6 @@
 #include "game/skater/skater.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/score.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 
 namespace CFuncs {
 
@@ -88,9 +85,9 @@ bool __cdecl CFunc_ResetScore(Script::CStruct* params, Script::CScript*)
             continue;
         static_cast<Mdl::Score*>(ScoreOf(skater))->Reset();
         if (GameModeName() == kNetKing || GameModeName() == kKing)
-            Front::SetScoreText(GAME_TEXT(0x00657D18, "0:00"), skater->GetSkaterNumber()); // "0:00"
+            Front::SetScoreText("0:00", skater->GetSkaterNumber()); // "0:00"
         else
-            Front::SetScoreText(GAME_TEXT(0x00657D20, "0"), skater->GetSkaterNumber()); // "0"
+            Front::SetScoreText("0", skater->GetSkaterNumber()); // "0"
     }
     return true;
 }
@@ -166,10 +163,3 @@ bool __cdecl CFunc_GetCollidingPlayerAndTeam(Script::CStruct* params, Script::CS
 }
 
 } // namespace CFuncs
-
-REPLACE(0x005B5770, CFuncs::CFunc_InitializeSkaters);
-REPLACE(0x005B57E0, CFuncs::CFunc_ReinsertSkaters);
-REPLACE(0x005B5860, CFuncs::CFunc_ResetScore);
-REPLACE(0x005B5950, CFuncs::CFunc_UpdateScore);
-REPLACE(0x005B59C0, CFuncs::CFunc_ResetScorePot);
-REPLACE(0x005B5A40, CFuncs::CFunc_GetCollidingPlayerAndTeam);

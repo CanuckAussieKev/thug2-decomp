@@ -3,9 +3,11 @@
 #include "game/skate/skate_net.h"
 #include "game/net/task_vtable.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <initializer_list>
 
 #include "game/core/crc.h"
 #include "game/core/dbg.h"
@@ -35,13 +37,11 @@
 #include "game/script/game_cfuncs.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/score.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/skate/skate_module.h"
 #include "game/ass/assman.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/movie_manager.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/sys/game_config.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf into its fixed buffers, kept)
@@ -251,8 +251,8 @@ void AddHandler(Net::App* app, int id, uint32_t code, uint32_t flags, void* data
 void SkateNet::CreateNetworkTasks()
 {
     auto* skate = reinterpret_cast<uint8_t*>(this);
-    Field<uint8_t*>(skate, 0x18) = NewTask(skate, reinterpret_cast<uint32_t>(GAME_CODE(0x00569BB0, SkateNet::ServerTask)));
-    Field<uint8_t*>(skate, 0x1C) = NewTask(skate, reinterpret_cast<uint32_t>(GAME_CODE(0x0056BE10, SkateNet::ScoreTask)));
+    Field<uint8_t*>(skate, 0x18) = NewTask(skate, reinterpret_cast<uint32_t>(CodeAddress(SkateNet::ServerTask)));
+    Field<uint8_t*>(skate, 0x1C) = NewTask(skate, reinterpret_cast<uint32_t>(CodeAddress(SkateNet::ScoreTask)));
 }
 
 // 0x00569530
@@ -361,7 +361,7 @@ void SkateNet::AddClientHandlers(Net::App* client, int index)
         uint8_t* skater = reinterpret_cast<uint8_t*>(reinterpret_cast<Mdl::Skate*>(this)->GetSkater(static_cast<int>(i)));
         if (!skater || !Field<bool>(skater, 0xBC) || Skater(skater)->GetSkaterNumber() != index)
             continue;
-        AddHandler(client, 0x3B, reinterpret_cast<Net::MsgHandlerCode>(GAME_CODE(0x005626F0, Mdl::Score::HandleScoreMessage)), 0, skater);
+        AddHandler(client, 0x3B, reinterpret_cast<Net::MsgHandlerCode>(CodeAddress(Mdl::Score::HandleScoreMessage)), 0, skater);
         AddHandler(client, 0x44, &Obj::CSkaterStateHistoryComponent::HandleCollisionMessages, 0, skater);
         AddHandler(client, 0x43, &Obj::CSkaterStateHistoryComponent::HandleCollisionMessages, 0, skater);
         AddHandler(client, 0x85, &Obj::CSkaterStateHistoryComponent::HandleHitMessages, 0, skater);
@@ -1131,20 +1131,3 @@ int SkateNet::HandleClientObjectUpdate(Net::MsgHandlerContext* context)
 }
 
 } // namespace Mdl
-
-REPLACE(0x0056C920, Mdl::SkateNet::HandleServerRemovedYou);
-REPLACE(0x0056CA70, Mdl::SkateNet::HandleScavengerHunt);
-REPLACE(0x0056CDF0, Mdl::SkateNet::HandleScavengerKillObject);
-REPLACE(0x0056CEC0, Mdl::SkateNet::HandleScavengerDropObjects);
-REPLACE(0x0056D030, Mdl::SkateNet::HandleGraffitiColors);
-REPLACE(0x0056D250, Mdl::SkateNet::HandleScores);
-REPLACE(0x0056D810, Mdl::SkateNet::HandleStartInfo);
-REPLACE(0x0056DEE0, &Mdl::SkateNet::StartServer);
-REPLACE(0x0056E2B0, &Mdl::SkateNet::CreateNetworkTasks);
-REPLACE(0x00569530, &Mdl::SkateNet::DeleteNetworkTasks);
-REPLACE(0x0056E380, Mdl::SkateNet::HandleRunScript);
-REPLACE(0x0056E470, Mdl::SkateNet::HandleObjectUpdates);
-REPLACE(0x005696C0, Mdl::SkateNet::GetRelayFlags);
-REPLACE(0x005698F0, Mdl::SkateNet::WriteObjectUpdate);
-REPLACE(0x0056BE60, Mdl::SkateNet::HandleClientObjectUpdate);
-REPLACE(0x0056EB50, &Mdl::SkateNet::AddClientHandlers);

@@ -17,21 +17,18 @@
 #include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/device.h"
 #include "game/sys/startup_init.h"
 
 namespace Nx {
 
-GAME_GLOBAL(float[8], g_billboardUvMatrix, 0x0067EAA8, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
-GAME_GLOBAL(float[16], g_wibbleMatrixPass, 0x0067EAC8, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
-GAME_GLOBAL(float[16], g_environmentMatrixPass, 0x0067EB08,
-    0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.5f);
-GAME_GLOBAL(float[16], g_wibbleMatrix, 0x0067EB48, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
-GAME_GLOBAL(float[16], g_environmentMatrix, 0x0067EB88,
-    0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.5f);
+float g_billboardUvMatrix[8]{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
+float g_wibbleMatrixPass[16]{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
+float g_environmentMatrixPass[16]{
+    0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.5f};
+float g_wibbleMatrix[16]{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
+float g_environmentMatrix[16]{
+    0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.5f};
 
 namespace {
 
@@ -527,22 +524,12 @@ void sMaterial::SubmitPass(uint32_t pass, const float* color)
 
 } // namespace Nx
 
-REPLACE(0x004D1A90, &Nx::sMaterial::Construct);
-REPLACE(0x004D2BD0, &Nx::sMaterial::DestroyBody);
-REPLACE(0x004D1D90, &Nx::sMaterial::TextureAlphaPasses);
-REPLACE(0x004D1B40, &Nx::sMaterial::UpdateColorAnims);
-REPLACE(0x004D1CC0, &Nx::sMaterial::UpdateTextureAnims);
-REPLACE(0x004D1DC0, &Nx::sMaterial::UpdateUVWibbles);
-REPLACE(0x004D1F00, &Nx::sMaterial::Submit);
-REPLACE(0x004D23E0, &Nx::sMaterial::SubmitStates);
-REPLACE(0x004D24D0, &Nx::sMaterial::SubmitPass);
-
 namespace Nx {
 
 namespace {
 
 // A material nothing uses but its static initialiser and exit function.
-GAME_GLOBAL(sMaterial, g_spareMaterial, 0x00782240);
+sMaterial g_spareMaterial;
 
 } // namespace
 

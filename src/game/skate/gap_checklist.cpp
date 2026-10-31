@@ -16,14 +16,11 @@
 #include "game/skate/career.h"
 #include "game/goals/goal_manager.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Game {
 
-GAME_GLOBAL(CGapChecklist*, g_buildingGapChecklist, 0x007CE4B0);
+CGapChecklist* g_buildingGapChecklist;
 
 namespace {
 
@@ -54,9 +51,12 @@ constexpr uint32_t kMultipleNewGaps = 0xD2E7D353;    // multiple_new_gaps
 constexpr uint32_t kGapText = 0xC69CE365;            // gap_text
 constexpr uint32_t kGotGapForFirstTime = 0x318EAF64; // got_gap_for_first_time (a script)
 
-GAME_VTABLE(kGapVtable, 0x0064EC7C, &Game::CGapCheck::Destroy);
-GAME_VTABLE(kGapNodeVtable, 0x0064EC78, &Game::CGapCheckNode::Destroy);  // Lst::Node<CGapCheck>
-GAME_VTABLE(kGapHeadVtable, 0x0064ED20, &Game::CGapCheckNode::Destroy2);  // Lst::Head<CGapCheck>
+static VtableSlot kGapVtable_slots[] = {&Game::CGapCheck::Destroy};
+void** const kGapVtable = reinterpret_cast<void**>(kGapVtable_slots);
+static VtableSlot kGapNodeVtable_slots[] = {&Game::CGapCheckNode::Destroy};
+void** const kGapNodeVtable = reinterpret_cast<void**>(kGapNodeVtable_slots);  // Lst::Node<CGapCheck>
+static VtableSlot kGapHeadVtable_slots[] = {&Game::CGapCheckNode::Destroy2};
+void** const kGapHeadVtable = reinterpret_cast<void**>(kGapHeadVtable_slots);  // Lst::Head<CGapCheck>
 
 CGapChecklist*& Building() { return g_buildingGapChecklist; }
 
@@ -463,37 +463,3 @@ bool __cdecl CFunc_GiveAllGaps(Script::CStruct* params, Script::CScript* /*scrip
 void CGapChecklist::DestroyBody() { m_gaps.UnlinkAs(kGapNodeVtable); }
 
 } // namespace Game
-
-REPLACE(0x00578680, &Game::CGapCheckNode::DestroyBody);
-REPLACE(0x005786A0, &Game::CGapCheckNode::Destroy);
-REPLACE(0x005786E0, &Game::CGapCheck::Construct);
-REPLACE(0x00578840, &Game::CGapChecklist::Clear);
-REPLACE(0x00578880, &Game::CGapChecklist::AddGap);
-REPLACE(0x00578A00, &Game::CGapChecklist::AddGapFromNode);
-REPLACE(0x00578AA0, Game::AddGapFromNodeCallback);
-REPLACE(0x00578AC0, &Game::CGapChecklist::Build);
-REPLACE(0x00578B30, &Game::CGapChecklist::FindGap);
-REPLACE(0x00578BC0, &Game::CGapChecklist::SetGapPositions);
-REPLACE(0x00578C70, &Game::CGapChecklist::GotGap);
-REPLACE(0x00578CF0, &Game::CGapChecklist::ClearPending);
-REPLACE(0x00578D20, &Game::CGapChecklist::Count);
-REPLACE(0x00578D50, &Game::CGapChecklist::AllGot);
-REPLACE(0x00578D90, &Game::CGapChecklist::Reset);
-REPLACE(0x00578DD0, &Game::CGapChecklist::GetGapTotals);
-REPLACE(0x00578E40, &Game::CGapChecklist::AddGapsToMenu);
-REPLACE(0x00579080, &Game::CGapChecklist::CreateGapList);
-REPLACE(0x005792E0, Game::CFunc_AddGapsToMenu);
-REPLACE(0x00579300, Game::CFunc_CreateGapList);
-REPLACE(0x00579320, Game::CFunc_GetLevelGapTotals);
-REPLACE(0x00579360, Game::CFunc_GiveAllGaps);
-REPLACE(0x005793D0, &Game::CGapChecklist::GetGap);
-REPLACE(0x00579420, &Game::CGapChecklist::GetGapName);
-REPLACE(0x00579440, &Game::CGapChecklist::GetGapCount);
-REPLACE(0x00579450, &Game::CGapChecklist::GetGapScore);
-REPLACE(0x00579460, &Game::CGapChecklist::GetGapPositions);
-REPLACE(0x005794B0, &Game::CGapCheckNode::Destroy2);
-REPLACE(0x005794E0, &Game::CGapCheck::Destroy);
-REPLACE(0x00579510, &Game::CGapCheck::DestroyBody);
-REPLACE(0x00579690, &Game::CGapChecklist::Construct);
-REPLACE(0x005796C0, &Game::CGapChecklist::AwardPendingGaps);
-REPLACE(0x00585520, &Game::CGapChecklist::DestroyBody);

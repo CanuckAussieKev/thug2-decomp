@@ -5,6 +5,7 @@
 #include <intrin.h>
 
 #include <cmath>
+#include <cstdint>
 
 #include "game/gfx/debug_lines.h"
 #include "game/mth/geometry.h"
@@ -13,15 +14,11 @@
 #include "game/nx/coll_world.h"
 #include "game/obj/object.h"
 #include "game/skater/debug_collision.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Nx {
 
-GAME_GLOBAL(CCollCache*, g_currentCache, 0x00691974);
+CCollCache* g_currentCache;
 namespace {
-
 
 // The cache queries use when the feeler has none.
 CCollCache*& s_currentCache = g_currentCache;
@@ -247,23 +244,3 @@ CFeeler* CFeeler::Assign(const CFeeler& other)
 }
 
 } // namespace Nx
-
-REPLACE(0x00417760, static_cast<Nx::CFeeler* (Nx::CFeeler::*)()>(&Nx::CFeeler::Construct));
-REPLACE(0x00417250,
-        static_cast<Nx::CFeeler* (Nx::CFeeler::*)(const Mth::Vector*, const Mth::Vector*)>(&Nx::CFeeler::Construct));
-REPLACE(0x004170F0, &Nx::CFeeler::SetIgnore);
-REPLACE(0x0041C350, &Nx::CFeeler::Destruct);
-REPLACE(0x00417190, &Nx::CFeeler::SetStart);
-REPLACE(0x004171B0, &Nx::CFeeler::SetEnd);
-REPLACE(0x004171D0, &Nx::CFeeler::SetLine);
-REPLACE(0x00417110, Nx::CFeeler::CallbackRelay);
-REPLACE(0x004172F0, &Nx::CFeeler::GetCollision);
-REPLACE(0x00417710, &Nx::CFeeler::GetCollisionAlong);
-REPLACE(0x00417120, &Nx::CFeeler::IsHitTriangleCollision);
-REPLACE(0x00417140, &Nx::CFeeler::GetTestedOwner);
-REPLACE(0x00417210, &Nx::CFeeler::HitObjectAlive);
-REPLACE(0x00417240, &Nx::CFeeler::GetHitObject);
-REPLACE(0x00417150, &Nx::CFeeler::DebugDraw);
-REPLACE(0x004174A0, &Nx::CFeeler::GetHitVertexValue);
-REPLACE(0x0043A930, &Nx::CFeeler::Assign);
-REPLACE(0x004F8200, &Nx::CFeeler::CopyConstruct);

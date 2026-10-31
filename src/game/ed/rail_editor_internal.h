@@ -7,7 +7,6 @@
 #include "game/core/pool.h"
 #include "game/gfx/sector.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
 
 namespace Ed {
 namespace RailEditorInternal {

@@ -54,7 +54,7 @@ struct ImFont;
 // Never in a network session or a refused mode (Layout::Refused); [features] level_editor=0 turns it all off.
 namespace Front::LevelEditor::PlayTest {
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_ux6.cpp) ----------------------------------------------
+// --- the pure parts -----------------------------------------------------------------------------------------------
 
 // What the skater was doing.
 enum class Motion : uint8_t { Ground, Air, Grind, Lip, Wall, Manual, Bail, Walk, Drive };

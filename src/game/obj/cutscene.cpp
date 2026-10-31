@@ -2,6 +2,7 @@
 
 #include "game/obj/cutscene.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
@@ -11,13 +12,10 @@
 #include "game/script/struct.h"
 #include "game/sio/device.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Obj {
 
-GAME_GLOBAL(char[256], g_cutsceneNameBuffer, 0x006F2160);
+char g_cutsceneNameBuffer[256];
 
 namespace {
 
@@ -162,14 +160,3 @@ bool CCutsceneDetails::IsSkippable()
 }
 
 } // namespace Obj
-
-REPLACE_UNCHECKED(0x004638B0, Obj::CutsceneNameFromPathStub);
-REPLACE(0x00463910, &Obj::CCutsceneData::NameChecksum);
-REPLACE(0x004639A0, &Obj::CCutsceneData::IsDone);
-REPLACE(0x004639C0, &Obj::CCutsceneData::UpdateVblanks);
-REPLACE(0x00463A10, &Obj::CCutsceneData::SetSubtitles);
-REPLACE(0x00463A50, &Obj::CCutsceneDetails::CallSlot12WithNotFlag5D);
-REPLACE(0x00463A60, &Obj::CCutsceneDetails::UpdateSlot12);
-REPLACE(0x00464120, &Obj::CCutsceneData::CheckSkip);
-REPLACE(0x004644A0, &Obj::CCutsceneData::UpdateSubtitles);
-REPLACE(0x00464580, &Obj::CCutsceneDetails::IsSkippable);

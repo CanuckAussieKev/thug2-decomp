@@ -1,12 +1,10 @@
 #include "game/util/lzss.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/dbg.h"
 #include "game/core/mem.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Lzss {
 
@@ -17,16 +15,16 @@ constexpr int F = 18;        // longest match
 constexpr int THRESHOLD = 2; // matches this short or shorter are stored as literals
 constexpr int NIL = N;       // "no node" in the search tree
 
-GAME_GLOBAL(uint8_t[4096], g_decodeWindow, 0x0068FF68);
-GAME_GLOBAL(int*, g_treeParent, 0x00690F7C);
-GAME_GLOBAL(int*, g_treeRight, 0x00690F80);
-GAME_GLOBAL(int*, g_treeLeft, 0x00690F84);
-GAME_GLOBAL(uint8_t*, g_window, 0x00690F88);
-GAME_GLOBAL(int, g_matchLength, 0x00690F8C);
-GAME_GLOBAL(int, g_matchPosition, 0x00690F90);
-GAME_GLOBAL(uint32_t, g_bytesIn, 0x00690F94);
-GAME_GLOBAL(uint32_t, g_bytesOut, 0x00690F98);
-GAME_GLOBAL(uint32_t, g_printCount, 0x00690F9C);
+uint8_t g_decodeWindow[4096];
+int* g_treeParent;
+int* g_treeRight;
+int* g_treeLeft;
+uint8_t* g_window;
+int g_matchLength;
+int g_matchPosition;
+uint32_t g_bytesIn;
+uint32_t g_bytesOut;
+uint32_t g_printCount;
 
 // Encoder state, kept in the exe's globals.
 uint8_t*& Window() { return g_window; }  // N + F - 1 bytes
@@ -302,10 +300,3 @@ uint8_t* Decode(const uint8_t* in, uint8_t* out, int size)
 }
 
 } // namespace Lzss
-
-// All cdecl, as in the original.
-REPLACE(0x00401290, Lzss::InsertNode);
-REPLACE(0x004013E0, Lzss::DeleteNode);
-REPLACE(0x004014F0, Lzss::Decode);
-REPLACE(0x00401600, Lzss::InitTree);
-REPLACE(0x00401700, Lzss::Encode);

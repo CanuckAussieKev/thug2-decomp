@@ -2,7 +2,7 @@
 // The sectors drawn for them: rail_editor_draw.cpp; the script side: rail_editor_script.cpp.
 
 #include "game/ed/rail_editor.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/skater/vehicle_sound.h"
 #include "game/obj/camera_lookaround.h"
 #include "game/core/stubs.h"
@@ -21,13 +21,10 @@
 #include "game/obj/objman.h"
 #include "game/park/park_memory.h"
 #include "game/obj/compositemgr.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Ed {
 
-GAME_GLOBAL(Mem::PoolPair, g_railPointPools, 0x007CCD50);
+Mem::PoolPair g_railPointPools;
 
 namespace RailEditorInternal {
 
@@ -51,25 +48,25 @@ void DeleteSector(uint8_t*& sector)
 
 using namespace RailEditorInternal;
 
-GAME_GLOBAL(uint32_t, g_nextRailId, 0x0067EFFC, 1);
+uint32_t g_nextRailId{1};
 
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064B918,
-    &Ed::CRailEditorComponent::Destroy,
-    &Ed::CRailEditorComponent::Update,
-    Stubs::IgnoreArgument,
-    &Ed::CRailEditorComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    &Ed::CRailEditorComponent::Hide,
-    Stubs::DoNothing,
-    &Ed::CRailEditorComponent::GetDebugInfo,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(
-        &Obj::CBaseComponent::CallMemberFunction),
-    &Ed::CRailEditorComponent::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Ed::CRailEditorComponent::Destroy,
+         &Ed::CRailEditorComponent::Update,
+         Stubs::IgnoreArgument,
+         &Ed::CRailEditorComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         &Ed::CRailEditorComponent::Hide,
+         Stubs::DoNothing,
+         &Ed::CRailEditorComponent::GetDebugInfo,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(
+             &Obj::CBaseComponent::CallMemberFunction),
+         &Ed::CRailEditorComponent::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 uint32_t& NextRailId() { return g_nextRailId; }
 
 constexpr uint32_t kInput = 0x27D7CD28, kEditorCamera = 0xAC8946E2;
@@ -827,62 +824,3 @@ CEditedRail* CRailEditorComponent::CopyRailsInside(float x0, float z0, float x1,
 }
 
 } // namespace Ed
-
-REPLACE(0x004F3AD0, &Ed::CEditedRailPoint::UnHighlight);
-REPLACE(0x004F40A0, &Ed::CEditedRailPoint::DeleteSegment);
-REPLACE(0x004F40F0, &Ed::CEditedRailPoint::DeletePost);
-REPLACE(0x004F4140, &Ed::CEditedRailPoint::Pack);
-REPLACE(0x004F70C0, &Ed::CEditedRail::Construct);
-REPLACE(0x004F6E20, &Ed::CEditedRail::Clear);
-REPLACE_SOURCE_ONLY(0x004F70F0, &Ed::CEditedRail::Clear); // the destructor: a jump to 0x004F6E20 (5 bytes)
-REPLACE(0x004F3B90, &Ed::CEditedRail::CountPoints);
-REPLACE(0x004F3BB0, &Ed::CEditedRail::GetPoint);
-REPLACE(0x004F3BD0, &Ed::CEditedRail::ClearColours);
-REPLACE(0x004F41C0, &Ed::CEditedRail::DeleteSegments);
-REPLACE(0x004F4220, &Ed::CEditedRail::DeletePosts);
-REPLACE(0x004F4280, &Ed::CEditedRail::FindNearestPoint);
-REPLACE(0x004F4310, &Ed::CEditedRail::CountPointsInside);
-REPLACE(0x004F4420, &Ed::CEditedRail::SetColour);
-REPLACE(0x004F44B0, &Ed::CEditedRail::AnyPointOutside);
-REPLACE(0x004F6240, &Ed::CEditedRail::NewPoint);
-REPLACE(0x004F62D0, &Ed::CEditedRail::AddPointCopy);
-REPLACE(0x004F6300, &Ed::CEditedRail::CutAt);
-REPLACE(0x004F6F40, &Ed::CEditedRail::CopyFrom);
-REPLACE(0x004F7100, &Ed::CEditedRail::CopyInside);
-REPLACE(0x004F4970, Ed::CRailEditorComponent::Instance);
-REPLACE(0x004F7FB0, Ed::CRailEditorComponent::Create);
-REPLACE(0x004F7C90, &Ed::CRailEditorComponent::Construct);
-REPLACE(0x004F7D20, &Ed::CRailEditorComponent::DestroyBody);
-REPLACE(0x004F8010, &Ed::CRailEditorComponent::Destroy);
-REPLACE(0x004F47E0, &Ed::CRailEditorComponent::Finalize);
-REPLACE(0x004F4990, Ed::CRailEditorComponent::MakePointPool);
-REPLACE(0x004F4A70, Ed::CRailEditorComponent::MakeRailPool);
-REPLACE(0x004F4AF0, Ed::CRailEditorComponent::NewRailMemory);
-REPLACE(0x004F4B30, Ed::CRailEditorComponent::FreeRail);
-REPLACE(0x004F4A10, Ed::CRailEditorComponent::FreePoint);
-REPLACE(0x004F6BF0, Ed::CRailEditorComponent::FreePoints);
-REPLACE(0x004F7550, &Ed::CRailEditorComponent::Clear);
-REPLACE(0x004F72C0, &Ed::CRailEditorComponent::NewRail);
-REPLACE(0x004F7270, &Ed::CRailEditorComponent::DeleteRail);
-REPLACE(0x004F7370, &Ed::CRailEditorComponent::DeleteShortRails);
-REPLACE(0x004F73E0, &Ed::CRailEditorComponent::CutRail);
-REPLACE(0x004F7410, &Ed::CRailEditorComponent::CutPointInOrOut);
-REPLACE(0x004F74B0, &Ed::CRailEditorComponent::DeletePoints);
-REPLACE(0x004F3C50, &Ed::CRailEditorComponent::FindRail);
-REPLACE(0x004F3CA0, &Ed::CRailEditorComponent::FindRailByCluster);
-REPLACE(0x004F3D10, &Ed::CRailEditorComponent::ClearClusterColours);
-REPLACE(0x004F4950, &Ed::CRailEditorComponent::SetClusterColour);
-REPLACE(0x004F3C70, &Ed::CRailEditorComponent::CountPoints);
-REPLACE(0x004F3C20, &Ed::CRailEditorComponent::UnHighlightAll);
-REPLACE(0x004F3D30, &Ed::CRailEditorComponent::SetActive);
-REPLACE(0x004F45C0, &Ed::CRailEditorComponent::DeleteAllSegments);
-REPLACE(0x004F45E0, &Ed::CRailEditorComponent::DeleteAllPosts);
-REPLACE(0x004F4600, &Ed::CRailEditorComponent::AnyPointOutside);
-REPLACE(0x004F4690, &Ed::CRailEditorComponent::CountPointsInside);
-REPLACE(0x004F4710, &Ed::CRailEditorComponent::FindNearestPoint);
-REPLACE(0x004F48F0, &Ed::CRailEditorComponent::DeleteDottedLine);
-REPLACE(0x004F4500, &Ed::CRailEditorComponent::Pack);
-REPLACE(0x004F45B0, &Ed::CRailEditorComponent::GetPacked);
-REPLACE(0x004F3C00, &Ed::CRailEditorComponent::SetPacked);
-REPLACE(0x004F7DF0, &Ed::CRailEditorComponent::Unpack);
-REPLACE(0x004F7230, &Ed::CRailEditorComponent::CopyRailsInside);

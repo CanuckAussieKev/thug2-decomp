@@ -1,7 +1,5 @@
 #pragma once
 
-#include "hook/game_global.h"
-
 #include <cstdint>
 
 namespace Script {
@@ -53,9 +51,9 @@ bool SwitchToRegularPools(Script::CStruct* params, Script::CScript* script);
 // 0x005A8730: script function LoadFromMemoryCard (Originally from PartyMod Fixes: without the save checksum test).
 bool LoadFromMemoryCard(Script::CStruct* params, Script::CScript* script);
 
-GAME_GLOBAL_EXTERN(bool, g_outOfSpace);
-GAME_GLOBAL_EXTERN(Script::CStruct*, g_keptParams);
-GAME_GLOBAL_EXTERN(uint32_t, g_keptType);
-GAME_GLOBAL_EXTERN(bool, g_loadedCustomSkater);
+extern bool g_outOfSpace;
+extern Script::CStruct* g_keptParams;
+extern uint32_t g_keptType;
+extern bool g_loadedCustomSkater;
 
 } // namespace Mc

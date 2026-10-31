@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include "hook/game_global.h"
 
 // The player profile manager (0x0057B620-0x0057C165): the skater profiles the game knows (the pros and the custom
 // skaters, made by the init_pro_skaters script through AddTemplate), keyed by name in a lookup table, and the
@@ -182,6 +181,6 @@ static_assert(offsetof(CPlayerProfileManager, m_profiles) == 0x14 &&
                   offsetof(CPlayerProfileManager, m_extraProfiles) == 0x34 && sizeof(CPlayerProfileManager) == 0x40,
               "layout must match the original");
 
-GAME_GLOBAL_EXTERN(Obj::CPlayerProfileManager*, g_profileManager);
+extern Obj::CPlayerProfileManager* g_profileManager;
 
 } // namespace Obj

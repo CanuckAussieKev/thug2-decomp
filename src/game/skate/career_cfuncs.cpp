@@ -11,8 +11,6 @@
 #include "game/skate/career.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skater/skater.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace CFuncs {
 
@@ -300,33 +298,3 @@ bool __cdecl CFunc_CalculateFinalScores(Script::CStruct*, Script::CScript*)
 }
 
 } // namespace CFuncs
-
-REPLACE(0x005AE990, CFuncs::CFunc_CareerStartLevel);
-REPLACE(0x005AE9C0, CFuncs::CFunc_CareerLevelIs);
-REPLACE(0x005AE9F0, CFuncs::CFunc_GetCareerLevelScore);
-REPLACE(0x005AEAA0, CFuncs::CFunc_SetLevelTotalPoints);
-REPLACE(0x005AEAE0, CFuncs::CFunc_GetClassicLevelGoalCount);
-REPLACE(0x005AEB80, CFuncs::CFunc_SetClassicTotalGoals);
-REPLACE(0x005AEC20, CFuncs::CFunc_GetCurrentChapter);
-REPLACE(0x005AEC50, CFuncs::CFunc_SetCurrentChapter);
-REPLACE(0x005AEC80, CFuncs::CFunc_CareerReset);
-REPLACE(0x005AECC0, CFuncs::CFunc_SetGoal);
-REPLACE(0x005AED10, CFuncs::CFunc_UnSetGoal);
-REPLACE(0x005AED40, CFuncs::CFunc_GetGoal);
-REPLACE(0x005AED70, CFuncs::CFunc_JustGotGoal);
-REPLACE(0x005AEDA0, CFuncs::CFunc_SetFlag);
-REPLACE(0x005AEDD0, CFuncs::CFunc_UnSetFlag);
-REPLACE(0x005AEE30, CFuncs::CFunc_GetFlag);
-REPLACE(0x005AEEA0, CFuncs::CFunc_JustGotFlag);
-REPLACE(0x005AEED0, CFuncs::CFunc_SetGlobalFlag);
-REPLACE(0x005AEF00, CFuncs::CFunc_UnSetGlobalFlag);
-REPLACE(0x005AEF30, CFuncs::CFunc_GetGlobalFlag);
-REPLACE(0x005AEF60, CFuncs::CFunc_ProfileEquals);
-REPLACE(0x005AEFC0, CFuncs::CFunc_IsCareerMode);
-REPLACE(0x005AEFE0, CFuncs::CFunc_EndRun);
-REPLACE(0x005AEFF0, CFuncs::CFunc_ShouldEndRun);
-REPLACE(0x005AF020, CFuncs::CFunc_EndRunSelected);
-REPLACE(0x005AF030, CFuncs::CFunc_AllSkatersAreIdle);
-REPLACE(0x005AF040, CFuncs::CFunc_FirstTrickStarted);
-REPLACE(0x005AF050, CFuncs::CFunc_FirstTrickCompleted);
-REPLACE(0x005AF060, CFuncs::CFunc_CalculateFinalScores);

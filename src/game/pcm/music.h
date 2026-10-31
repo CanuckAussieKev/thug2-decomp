@@ -1,7 +1,5 @@
 #pragma once
 
-#include "hook/game_global.h"
-
 #include <cstdint>
 
 // Music: playlists of streamed tracks.
@@ -70,11 +68,11 @@ static_assert(sizeof(Stream) == 0x74, "layout must match the original");
 
 // The music's data (music.cpp): the playlists and their track titles (100 characters per track, those of playlist 0),
 // the three streams and the objects that started them, and the user soundtrack's shuffled order.
-GAME_GLOBAL_EXTERN(Playlist[2], g_playlists);
-GAME_GLOBAL_EXTERN(char[80][100], g_trackTitles);
-GAME_GLOBAL_EXTERN(Stream[3], g_streams);
-GAME_GLOBAL_EXTERN(void*[3], g_streamOwners);
-GAME_GLOBAL_EXTERN(int[600], g_userOrder);
+extern Playlist g_playlists[2];
+extern char g_trackTitles[80][100];
+extern Stream g_streams[3];
+extern void* g_streamOwners[3];
+extern int g_userOrder[600];
 static_assert(sizeof(Stream) == 0x74, "layout must match the original");
 
 // 0x00450220: whether no stream with this id is playing.
@@ -161,12 +159,12 @@ void __cdecl ChangeTrackState(int track, bool off, int list);
 // start is switched off in the current playlist (unless the debug checks are on). Not while a music stream plays.
 void __cdecl PlayTrack(const char* name, bool loop);
 
-GAME_GLOBAL_EXTERN(bool, g_musicHeaderLoaded);
-GAME_GLOBAL_EXTERN(bool, g_streamsOn);
-GAME_GLOBAL_EXTERN(float, g_musicVolume);
-GAME_GLOBAL_EXTERN(float, g_musicStreamVolume);
-GAME_GLOBAL_EXTERN(int, g_musicStreamType);
-GAME_GLOBAL_EXTERN(bool, g_shuffleUser);
-GAME_GLOBAL_EXTERN(void*, g_soundDevice);
+extern bool g_musicHeaderLoaded;
+extern bool g_streamsOn;
+extern float g_musicVolume;
+extern float g_musicStreamVolume;
+extern int g_musicStreamType;
+extern bool g_shuffleUser;
+extern void* g_soundDevice;
 
 } // namespace Pcm

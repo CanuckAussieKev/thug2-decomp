@@ -7,9 +7,8 @@
 // The x87 instructions and C runtime math the originals use (the maths library's rotations, the skater's and the
 // cameras' code...), so results round exactly as the original's do. FSIN / FCOS / FPATAN give 64-bit results whatever
 // the precision control (it only rounds + - * / and FSQRT to 53 bits): what the original computes from them in
-// registers is computed here in registers too, and only rounded where the original stores. The game's own C
-// runtime's _CIacos / _CIasin (0x00623630 / 0x00623560: the argument and the result in ST0) are called in the hooked
-// build, ours of them (game/sys/crt.h) in the standalone build.
+// registers is computed here in registers too, and only rounded where the original stores. The game's C runtime's
+// _CIacos / _CIasin (0x00623630 / 0x00623560: the argument and the result in ST0) are ours (game/sys/crt.h).
 namespace X87 {
 
 // FSQRT (53 bits: the same as a double square root).

@@ -18,23 +18,20 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/skater/vehicle_sound.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 #include "game/sys/crt.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[18], g_carPhysicsMemberFunctions, 0x006846A8,
+uint32_t g_carPhysicsMemberFunctions[18]{
             0xA2331896, 0xC695136D, 0, 0, 0, 0,
             0xC9F0DB4B, 0xC695136D, 0, 0, 0, 0,
-            0, 0xC695136D, 0, 0, 0, 0);
+            0, 0xC695136D, 0, 0, 0, 0};
 
 namespace {
 
@@ -333,37 +330,23 @@ int CCarPhysicsComponent::DoNothing(Script::CStruct*, Script::CScript*) { return
 
 } // namespace Obj
 
-REPLACE(0x0041BD90, Obj::CCarPhysicsComponent::Create);
-REPLACE(0x0041B910, Obj::CCarPhysicsComponent::RegisterMemberFunctions);
-REPLACE(0x0041BAD0, &Obj::CCarPhysicsComponent::Construct);
-REPLACE(0x0041B930, &Obj::CCarPhysicsComponent::DestroyBody);
-REPLACE(0x0041BB00, &Obj::CCarPhysicsComponent::Destroy);
-REPLACE(0x0041B940, &Obj::CCarPhysicsComponent::InitFromStructure);
-REPLACE(0x0041BE10, &Obj::CCarPhysicsComponent::Finalize);
-REPLACE(0x0041C1B0, &Obj::CCarPhysicsComponent::Update);
-REPLACE(0x0041BB30, &Obj::CCarPhysicsComponent::UpdateAngles);
-REPLACE(0x0041C0B0, &Obj::CCarPhysicsComponent::UpdateBones);
-REPLACE(0x0041BF00, Obj::CCarPhysicsComponent::UpdateSkeleton);
-REPLACE(0x0041B9E0, &Obj::CCarPhysicsComponent::ShowBody);
-REPLACE(0x0041BA20, &Obj::CCarPhysicsComponent::DoNothing);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x00645E6C,
-    &Obj::CCarPhysicsComponent::Destroy,
-    &Obj::CCarPhysicsComponent::Update,
-    &Obj::CCarPhysicsComponent::InitFromStructure,
-    &Obj::CCarPhysicsComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CCarPhysicsComponent::Destroy,
+         &Obj::CCarPhysicsComponent::Update,
+         &Obj::CCarPhysicsComponent::InitFromStructure,
+         &Obj::CCarPhysicsComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

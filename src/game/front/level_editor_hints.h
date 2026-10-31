@@ -18,7 +18,7 @@
 // "RB", "DPad", "Back", "R3", "L3"). The UI (level_editor_ux8_ui.cpp) draws each as its glyph.
 namespace Front::LevelEditor::Hints {
 
-// --- the pieces (pure, self-tested: src/hook/selftests_editor_ux8.cpp) ---------------------------------------------
+// --- the pieces (pure) ---------------------------------------------------------------------------------------------
 
 enum class Selection : uint8_t { None, Objects, Scenery, PointNode, OtherNode, Wall };
 enum class Drag : uint8_t { None, Move, MoveAxis, Rotate, Scale };

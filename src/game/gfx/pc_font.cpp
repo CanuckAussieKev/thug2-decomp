@@ -2,6 +2,7 @@
 
 #include "game/gfx/pc_font.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
@@ -10,9 +11,7 @@
 #include "game/gfx/engine_text.h"
 #include "game/gfx/font.h"
 #include "game/gfx/text.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 
 namespace Nx {
@@ -221,34 +220,13 @@ CPcFont* __cdecl CreatePcFont(const char* name)
 }
 
 namespace {
-GAME_VTABLE(kPcFontVtable, 0x0064A328, &Nx::CPcFont::Destroy, &Nx::CPcFont::Load, &Nx::CPcFont::SetSpacings,
-            &Nx::CPcFont::SetColors, &Nx::CPcFont::MarkAsButtonFont, &Nx::CPcFont::Unload, &Nx::CPcFont::GetHeight,
-            &Nx::CPcFont::GetBase, &Nx::CPcFont::QueryString);
-GAME_VTABLE(kPcTextVtable, 0x0064A34C, &Nx::CPcText::Destroy, &Nx::CPcText::Update, &Nx::CPcText::UpdateHidden,
-            &Nx::CPcText::UpdateProperties, &Nx::CPcText::UpdatePriority, Stubs::DoNothing);
+static VtableSlot kPcFontVtable_slots[] = {&Nx::CPcFont::Destroy, &Nx::CPcFont::Load, &Nx::CPcFont::SetSpacings,
+                &Nx::CPcFont::SetColors, &Nx::CPcFont::MarkAsButtonFont, &Nx::CPcFont::Unload, &Nx::CPcFont::GetHeight,
+                &Nx::CPcFont::GetBase, &Nx::CPcFont::QueryString};
+void** const kPcFontVtable = reinterpret_cast<void**>(kPcFontVtable_slots);
+static VtableSlot kPcTextVtable_slots[] = {&Nx::CPcText::Destroy, &Nx::CPcText::Update, &Nx::CPcText::UpdateHidden,
+                &Nx::CPcText::UpdateProperties, &Nx::CPcText::UpdatePriority, Stubs::DoNothing};
+void** const kPcTextVtable = reinterpret_cast<void**>(kPcTextVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x004B3BB0, &Nx::CPcFont::Construct);
-REPLACE(0x004B3E00, &Nx::CPcFont::DestroyBody);
-REPLACE(0x004B4060, &Nx::CPcFont::Destroy);
-REPLACE(0x004B3BD0, &Nx::CPcFont::Load);
-REPLACE(0x004B3C00, &Nx::CPcFont::SetSpacings);
-REPLACE(0x004B3C30, &Nx::CPcFont::SetColors);
-REPLACE(0x004B3CB0, &Nx::CPcFont::MarkAsButtonFont);
-REPLACE(0x004B3CD0, &Nx::CPcFont::Unload);
-REPLACE(0x004B3CF0, &Nx::CPcFont::GetHeight); // a jump to 0x00469490 with the font
-REPLACE(0x004B3D00, &Nx::CPcFont::GetBase); // a jump to 0x005480C0 with the font
-REPLACE(0x004B3D10, &Nx::CPcFont::QueryString); // a jump to 0x004CECB0 with the font
-REPLACE(0x004B3E70, &Nx::CPcText::Construct);
-REPLACE(0x004B3D20, &Nx::CPcText::DestroyBody);
-REPLACE(0x004B3F20, &Nx::CPcText::Destroy);
-REPLACE(0x004B3D80, &Nx::CPcText::Update);
-REPLACE(0x004B3DA0, &Nx::CPcText::UpdateHidden);
-REPLACE(0x004B3F50, &Nx::CPcText::UpdateProperties);
-REPLACE(0x004B3DB0, &Nx::CPcText::UpdatePriority);
-REPLACE(0x004B3FD0, Nx::AllocateTextPool);
-REPLACE(0x004B4090, Nx::UnloadPcFont);
-REPLACE(0x004B40A0, Nx::CreatePcFont);
-REPLACE_SOURCE_ONLY(0x0048D1C0, Nx::AllocateTextPool); // a jump to 0x004B3FD0

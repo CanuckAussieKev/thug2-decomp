@@ -1,7 +1,5 @@
 #pragma once
 
-#include "hook/game_global.h"
-
 #define DIRECTINPUT_VERSION 0x0800
 #include <windows.h>
 #include <dinput.h>
@@ -32,7 +30,7 @@ struct PortControls {
 static_assert(offsetof(PortControls, joystick) == 0x60 && offsetof(PortControls, gamepad) == 0x70 &&
                   offsetof(PortControls, mouse) == 0xD0 && sizeof(PortControls) == 0x130,
               "layout must match the original");
-GAME_GLOBAL_EXTERN(int32_t[0x98], g_keyBindings);
+extern int32_t g_keyBindings[0x98];
 inline PortControls* Controls() { return reinterpret_cast<PortControls*>(g_keyBindings); }
 
 // The graphics options (0x007D6434; the registry's "options", "distance" and "resolution" - PartyMod's
@@ -119,18 +117,18 @@ void SetPadMode(int mode);
 void SetDefaultEnterControl(int control);
 void SetDefaultEscapeControl(int control);
 
-GAME_GLOBAL_EXTERN(IDirectInput8A*, g_directInput);
-GAME_GLOBAL_EXTERN(IDirectInputDevice8A*, g_keyboardDevice);
-GAME_GLOBAL_EXTERN(int32_t[0x98], g_keyBindings);
-GAME_GLOBAL_EXTERN(DIJOYSTATE2[2], g_joystickStates);
-GAME_GLOBAL_EXTERN(DIJOYSTATE2[2], g_lastJoystickStates);
-GAME_GLOBAL_EXTERN(IDirectInputDevice8A*[kPorts], g_joysticks);
-GAME_GLOBAL_EXTERN(IDirectInputEffect*[kPorts], g_effects);
-GAME_GLOBAL_EXTERN(uint32_t[kPorts], g_forceAxisCounts);
-GAME_GLOBAL_EXTERN(uint32_t[2 * kPorts], g_forceResolutions);
-GAME_GLOBAL_EXTERN(uint8_t, g_option37); // the graphics options' other bytes (the named ones are in gfx/settings.h)
-GAME_GLOBAL_EXTERN(uint16_t, g_options38And39);
-GAME_GLOBAL_EXTERN(uint8_t, g_unknown643B);
-GAME_GLOBAL_EXTERN(uint32_t, g_distanceSetting);
+extern IDirectInput8A* g_directInput;
+extern IDirectInputDevice8A* g_keyboardDevice;
+extern int32_t g_keyBindings[0x98];
+extern DIJOYSTATE2 g_joystickStates[2];
+extern DIJOYSTATE2 g_lastJoystickStates[2];
+extern IDirectInputDevice8A* g_joysticks[kPorts];
+extern IDirectInputEffect* g_effects[kPorts];
+extern uint32_t g_forceAxisCounts[kPorts];
+extern uint32_t g_forceResolutions[2 * kPorts];
+extern uint8_t g_option37; // the graphics options' other bytes (the named ones are in gfx/settings.h)
+extern uint16_t g_options38And39;
+extern uint8_t g_unknown643B;
+extern uint32_t g_distanceSetting;
 
 } // namespace Platform

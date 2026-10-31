@@ -4,6 +4,7 @@
 #include "game/ed/park.h"
 #include "game/ed/park_editor.h"
 
+#include <cstdint>
 #include <new>
 
 #include "game/core/manager.h"
@@ -11,7 +12,6 @@
 #include "game/core/pool.h"
 #include "game/park/park_memory.h"
 #include "game/ed/rail_editor.h"
-#include "hook/hook.h"
 
 namespace Ed {
 
@@ -463,17 +463,3 @@ void CCursor::CreateInstance()
 }
 
 } // namespace Ed
-
-REPLACE(0x00598A60, &Ed::CCursor::HighlightIntersectingMetas);
-REPLACE(0x00598B40, &Ed::CCursor::IsOverGap);
-REPLACE(0x00598B60, &Ed::CCursor::Move);
-REPLACE(0x0059A1F0, &Ed::CCursor::Update);
-REPLACE(0x0059A5A0, &Ed::CCursor::ClearAreaSelection);
-REPLACE(0x0059A610, &Ed::CCursor::IsAreaSelectionInvalid);
-REPLACE(0x0059A6D0, &Ed::CCursor::CopyAreaToClipboard);
-REPLACE(0x0059A8D0, &Ed::CCursor::UpdateAreaSelectionHighlight);
-REPLACE(0x0059BAC0, &Ed::CCursor::DestroyCursorMeta);
-REPLACE(0x0059BAF0, &Ed::CCursor::SwitchToClipboard);
-REPLACE(0x0059BC00, &Ed::CCursor::ChangePiece);
-REPLACE(0x0059C7A0, &Ed::CCursor::Construct);
-REPLACE(0x0059C860, &Ed::CCursor::CreateInstance);

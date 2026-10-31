@@ -17,7 +17,7 @@ struct Painter;
 // stays). While armed, clicks measure instead of selecting. Shown with the Overlays menu's Ruler.
 namespace Front::LevelEditor::Ruler {
 
-// --- the pieces (pure, self-tested: src/hook/selftests_editor_ux4.cpp) -------------------------------------------
+// --- the pieces (pure) -------------------------------------------------------------------------------------------
 
 struct Measure {
     float distance = 0.0f;   // straight

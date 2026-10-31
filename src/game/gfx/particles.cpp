@@ -5,6 +5,8 @@
 #include "game/gfx/pc_particles.h"
 
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <new>
 
@@ -13,9 +15,7 @@
 #include "game/core/mem.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/gfx/particle_maths.h"
 #include "game/core/game_vtables.h"
 #include "game/core/stubs.h"
@@ -66,11 +66,11 @@ Mth::Vector* CallMinOrMax(uint32_t code, const Mth::Vector* a, const Mth::Vector
 }
 Mth::Vector* MinOf(const Mth::Vector* a, const Mth::Vector* b, Mth::Vector* out)
 {
-    return CallMinOrMax(reinterpret_cast<uint32_t>(GAME_CODE(0x00495130, &MinVectorStub)), a, b, out);
+    return CallMinOrMax(reinterpret_cast<uint32_t>(CodeAddress(&MinVectorStub)), a, b, out);
 }
 Mth::Vector* MaxOf(const Mth::Vector* a, const Mth::Vector* b, Mth::Vector* out)
 {
-    return CallMinOrMax(reinterpret_cast<uint32_t>(GAME_CODE(0x004951B0, &MaxVectorStub)), a, b, out);
+    return CallMinOrMax(reinterpret_cast<uint32_t>(CodeAddress(&MaxVectorStub)), a, b, out);
 }
 // 0x00494F10 (thiscall on `out`, the 14 words of arguments popped by the caller): per component, the extreme of the
 // quadratic through `start` (at 0), `mid` (at `midTime`) and `end` (at `life`); w 0. Returns out.
@@ -84,7 +84,7 @@ Mth::Vector* CurveExtremes(Mth::Vector* destination, const Mth::Vector& start, c
     std::memcpy(args + 12, &midTime, 4);
     std::memcpy(args + 13, &life, 4);
     uint32_t* words = args;
-    void* code = GAME_CODE(0x00494F10, &QuadraticLowestStub);
+    void* code = CodeAddress(&QuadraticLowestStub);
     Mth::Vector* result;
     __asm {
         sub esp, 0x38
@@ -430,7 +430,8 @@ void CParticleManager::DestroyAllParticles()
 }
 
 namespace {
-GAME_VTABLE(kManagerVtable, 0x006493A0, &Nx::CParticleManager::Destroy, Stubs::ReturnZero);
+static VtableSlot kManagerVtable_slots[] = {&Nx::CParticleManager::Destroy, Stubs::ReturnZero};
+void** const kManagerVtable = reinterpret_cast<void**>(kManagerVtable_slots);
 } // namespace
 
 } // namespace Nx
@@ -454,28 +455,7 @@ void PointerList::Insert(PointerListNode* position, void* const* value)
 } // namespace Obj
 
 namespace Vt {
-GAME_VTABLE(kEngineParticles, 0x00649380, &Nx::CPcParticleSystem::EngineDestroy, Stubs::DoNothing, Stubs::DoNothing,
-            Stubs::IgnoreArgument, Stubs::IgnoreArgument, Stubs::DoNothing, Stubs::DoNothing, Stubs::ReturnTrue);
+static VtableSlot kEngineParticles_slots[] = {&Nx::CPcParticleSystem::EngineDestroy, Stubs::DoNothing, Stubs::DoNothing,
+                Stubs::IgnoreArgument, Stubs::IgnoreArgument, Stubs::DoNothing, Stubs::DoNothing, Stubs::ReturnTrue};
+void** const kEngineParticles = reinterpret_cast<void**>(kEngineParticles_slots);
 } // namespace Vt
-
-REPLACE(0x00495260, &Nx::CParticle::UpdateBounds);
-REPLACE(0x00496240, &Nx::CParticleParams::Construct);
-REPLACE(0x00495C80, &Nx::CParticleParams::Assign);
-REPLACE(0x00496360, &Nx::CParticle::Construct);
-REPLACE(0x00496380, &Nx::CParticle::Init);
-REPLACE(0x00496030, &Nx::CParticle::SetPosition);
-REPLACE(0x00496160, &Nx::CParticle::SetBox);
-REPLACE(0x00496060, &Nx::CParticle::Rotate);
-REPLACE(0x00496190, &Nx::CParticle::SetColour);
-REPLACE(0x00496210, &Nx::CParticle::SetColourScale);
-REPLACE(0x004963B0, &Nx::CParticle::SetEmitScript);
-REPLACE(0x00496770, &Nx::CParticleManager::Construct);
-REPLACE(0x004967D0, &Nx::CParticleManager::DestroyBody);
-REPLACE(0x00496860, &Nx::CParticleManager::Destroy);
-REPLACE(0x00496510, &Nx::CParticleManager::CreateParticle);
-REPLACE(0x00496590, &Nx::CParticleManager::DestroyParticle);
-REPLACE(0x00496640, &Nx::CParticleManager::RenderParticles);
-REPLACE(0x00496680, &Nx::CParticleManager::UpdateParticles);
-REPLACE(0x004966B0, &Nx::CParticleManager::SetColour);
-REPLACE(0x00496700, &Nx::CParticleManager::DestroyAllParticles);
-REPLACE(0x004964A0, &Obj::PointerList::Insert);

@@ -14,7 +14,6 @@ class CArray;
 class CStruct;
 }
 #include "game/file/asset_bundle.h"
-#include "hook/game_global.h"
 
 namespace Obj {
 
@@ -300,11 +299,11 @@ static_assert(offsetof(CCutsceneDetails, m_data) == 0x2C && offsetof(CCutsceneDe
                   offsetof(CCutsceneDetails, m_unknown60) == 0x60,
               "layout must match the original");
 
-GAME_GLOBAL_EXTERN(uint8_t[5], g_cutsceneCameraSlot);
-GAME_GLOBAL_EXTERN(bool, g_cutscenePlaying);
-GAME_GLOBAL_EXTERN(int, g_cutsceneFixedFrame);
-GAME_GLOBAL_EXTERN(float[512], g_cutsceneRotations);
-GAME_GLOBAL_EXTERN(float[512], g_cutsceneTranslations);
+extern uint8_t g_cutsceneCameraSlot[5];
+extern bool g_cutscenePlaying;
+extern int g_cutsceneFixedFrame;
+extern float g_cutsceneRotations[512];
+extern float g_cutsceneTranslations[512];
 
 // 0x00647908: cutsceneDataVtable (defined where the class's functions are).
 extern void** const g_cutsceneDataVtable;

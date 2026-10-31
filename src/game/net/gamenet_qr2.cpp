@@ -20,10 +20,7 @@
 #include "game/net/online_identity.h"
 #include "game/script/preferences.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
@@ -80,14 +77,14 @@ void BufferAddInt(void* buffer, int value) { GameSpy::Qr2BufferAddInt(buffer, va
 Manager* NetManager() { return g_gameNetManager; }
 Prefs::Preferences* NetworkPreferences(Manager* m) { return reinterpret_cast<Prefs::Preferences*>(m->m_networkPreferences); }
 
-GAME_GLOBAL(char[128], g_fallbackMapName, 0x0067F0A0, "Boston");
+char g_fallbackMapName[128]{"Boston"};
 
 // The level's name for qr2's mapname when the level select has none (0x0067F0A0, "Boston" until set up).
 char* FallbackMapName() { return g_fallbackMapName; }
 
 } // namespace
 
-GAME_GLOBAL(int, g_lobbyGroupId, 0x007CC264);
+int g_lobbyGroupId;
 
 // 0x0053B9C0
 void __cdecl ServerKeyCallback(int key, void* buffer, void*)
@@ -204,25 +201,12 @@ void __cdecl StartQueryReporting(bool keepMapName)
     bool& reporting = g_queryReporting;
     if (reporting)
         return;
-#ifdef THUG2_STANDALONE
     const char* key = Net::GameKey(); // (given to the SDK: nothing written into data)
-#else
-    char key[7];
-    const auto* stored = &GameVariable<uint8_t>(0x0067F120);
-    for (int i = 0; i < 6; ++i)
-        key[i] = static_cast<char>(~stored[i]);
-    key[6] = '\0';
-#endif
     int error = GameSpy::Qr2Init(nullptr, nullptr, kQueryPort, Net::GameName(), key, 1, 0, &ServerKeyCallback, &PlayerKeyCallback,
-                        GAME_CODE(0x00533400, GameNet::PlayerTeamKeyCallback), GAME_CODE(0x00533420, GameNet::KeyListCallback), &CountCallback,
-                        GAME_CODE(0x005334B0, GameNet::AddErrorCallback), nullptr);
+                        CodeAddress(GameNet::PlayerTeamKeyCallback), CodeAddress(GameNet::KeyListCallback), &CountCallback,
+                        CodeAddress(GameNet::AddErrorCallback), nullptr);
     if (error == 0)
         reporting = true;
 }
 
 } // namespace GameNet
-
-REPLACE(0x0053B9C0, GameNet::ServerKeyCallback);
-REPLACE(0x0053BBC0, GameNet::PlayerKeyCallback);
-REPLACE(0x0053BD90, GameNet::CountCallback);
-REPLACE(0x0053BDC0, GameNet::StartQueryReporting);

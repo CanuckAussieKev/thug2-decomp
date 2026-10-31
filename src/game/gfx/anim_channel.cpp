@@ -4,7 +4,11 @@
 #include "game/gfx/anim_blend.h"
 
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
 #include <cstring>
+#include <new>
 
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
@@ -28,19 +32,16 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/game_vtables.h"
 #include "game/core/stubs.h"
 #include "game/sys/startup_init.h"
 
 namespace Gfx {
 
-GAME_GLOBAL(CPose*, g_blendBuffer, 0x006F8A60);
-GAME_GLOBAL(float*, g_blendWeights, 0x006F8A5C);
-GAME_GLOBAL(uint32_t*, g_blendSets, 0x006F8A58);
+CPose* g_blendBuffer;
+float* g_blendWeights;
+uint32_t* g_blendSets;
 namespace {
 
 using Script::CStruct;
@@ -73,12 +74,12 @@ constexpr float kFixedPoint = 4096.0f;              // 0x00648730
 enum : uint8_t { kMsgPlayAnim = 0x29, kMsgWobbleTarget = 0x2B, kMsgFlip = 0x2C, kMsgWobbleDetails = 0x3C,
                  kMsgLoopType = 0x3D, kMsgSpeed = 0x41 };
 
-GAME_GLOBAL(uint8_t, g_lastWobbleTarget, 0x0067DC10, 0xFF);
-GAME_GLOBAL(uint8_t, g_lastWobbleDetails, 0x0067DC11, 0xFF);
-GAME_GLOBAL(int8_t, g_lastLoopType, 0x0067DC12, -1);
-GAME_GLOBAL(CPose*, g_poses, 0x006F8A64);
-GAME_GLOBAL(int, g_maxBlends, 0x006F8A68);
-GAME_GLOBAL(int, g_subsets, 0x006F8A6C);
+uint8_t g_lastWobbleTarget{0xFF};
+uint8_t g_lastWobbleDetails{0xFF};
+int8_t g_lastLoopType{-1};
+CPose* g_poses;
+int g_maxBlends;
+int g_subsets;
 
 // What was last sent (all start 0xFF).
 uint8_t& LastWobbleTarget() { return g_lastWobbleTarget; }
@@ -749,10 +750,10 @@ void __cdecl CBlendChannel::InitBuffers(int blends, int subsets)
 {
     MaxBlends() = blends;
     Subsets() = subsets;
-    Dbg::Printf(GAME_TEXT(0x006486DC, "D:%s:%i: size = %i\n"), GAME_TEXT(0x006486FC, "nimblendsubset.cpp"), 0x963, 0);
+    Dbg::Printf("D:%s:%i: size = %i\n", "nimblendsubset.cpp", 0x963, 0);
     Mem::Manager* manager = Mem::Manager::Get();
     manager->InitNamedHeap(kAnimScratch, Subsets() * 0x840 + 0x90 + MaxBlends() * 0x848,
-                           GAME_TEXT(0x006486D0, "AnimScratch"), 0); // "AnimScratch"
+                           "AnimScratch", 0); // "AnimScratch"
     manager->PushContext(manager->GetNamedHeap(kAnimScratch, 1));
     // (each pose's rotations made the identity by the vector constructor iterator 0x00401020 with 0x00464340; its
     // translations' constructor 0x005902E0 does nothing)
@@ -1183,63 +1184,30 @@ int CBlendChannel::PassAnimToTimeline(CStruct* params, Script::CScript* script)
 }
 
 namespace {
-GAME_VTABLE(kChannelVtable, 0x00648714, &Gfx::CBlendChannel::Destroy, &Gfx::CBlendChannel::Update,
-            &Gfx::CBlendChannel::Finalize, &Gfx::CBlendChannel::InitFromStructure,
-            &Gfx::CBlendChannel::CallMemberFunction, Stubs::IgnoreArgument,
-            &Gfx::CBlendChannel::ReleaseWaitingScript);
-GAME_VTABLE(kHeadVtable, 0x00648710, &Gfx::CAnimTimeline::Destroy);
+static VtableSlot kChannelVtable_slots[] = {&Gfx::CBlendChannel::Destroy, &Gfx::CBlendChannel::Update,
+                &Gfx::CBlendChannel::Finalize, &Gfx::CBlendChannel::InitFromStructure,
+                &Gfx::CBlendChannel::CallMemberFunction, Stubs::IgnoreArgument,
+                &Gfx::CBlendChannel::ReleaseWaitingScript};
+void** const kChannelVtable = reinterpret_cast<void**>(kChannelVtable_slots);
+static VtableSlot kHeadVtable_slots[] = {&Gfx::CAnimTimeline::Destroy};
+void** const kHeadVtable = reinterpret_cast<void**>(kHeadVtable_slots);
 } // namespace
 
 } // namespace Gfx
 
 namespace Vt {
-GAME_VTABLE(kBlenderChannelNode, 0x00645D84, &Obj::BlendChannelLinks::DestroyNode);
-GAME_VTABLE(kAnimListNode, 0x006486CC, &Gfx::AnimListNode::Destroy);
+static VtableSlot kBlenderChannelNode_slots[] = {&Obj::BlendChannelLinks::DestroyNode};
+void** const kBlenderChannelNode = reinterpret_cast<void**>(kBlenderChannelNode_slots);
+static VtableSlot kAnimListNode_slots[] = {&Gfx::AnimListNode::Destroy};
+void** const kAnimListNode = reinterpret_cast<void**>(kAnimListNode_slots);
 } // namespace Vt
-
-REPLACE(0x0047DC40, &Gfx::CBlendChannel::SetFlipped);
-REPLACE(0x0047DCF0, &Gfx::CBlendChannel::Finalize);
-REPLACE(0x0047DD10, &Gfx::AnimListHead::CountItems);
-REPLACE(0x0047DD40, &Gfx::AnimListNode::Destroy);
-REPLACE(0x0047DD80, &Gfx::CBlendChannel::ToggleFlipped);
-REPLACE(0x0047DDC0, &Gfx::CBlendChannel::RemoveDoneTimelines);
-REPLACE(0x0047DE20, &Gfx::CBlendChannel::PushTimeline);
-REPLACE(0x0047DF50, &Gfx::CBlendChannel::IsAnimOneOf);
-REPLACE(0x0047E010, &Gfx::CBlendChannel::AddTime);
-REPLACE(0x0047E030, &Gfx::CBlendChannel::UpdateBlend);
-REPLACE(0x0047E1B0, &Gfx::CBlendChannel::UpdateTimelines);
-REPLACE(0x0047E210, &Gfx::CBlendChannel::IsAnimComplete);
-REPLACE(0x0047E240, &Gfx::CBlendChannel::IsCycling);
-REPLACE(0x0047E280, &Gfx::CBlendChannel::SetWobbleTarget);
-REPLACE(0x0047E450, &Gfx::CBlendChannel::SetWobbleDetails);
-REPLACE(0x0047E740, &Gfx::CBlendChannel::SetLoopType);
-REPLACE(0x0047E810, &Gfx::CBlendChannel::Reverse);
-REPLACE(0x0047E850, &Gfx::CBlendChannel::SetSpeed);
-REPLACE(0x0047EA40, &Gfx::CBlendChannel::GetSpeed);
-REPLACE(0x0047EA80, &Gfx::CBlendChannel::SetEventsOn);
-REPLACE(0x0047EAA0, &Gfx::CBlendChannel::GetPose);
-REPLACE(0x0047EB30, Gfx::CBlendChannel::InitBuffers);
-REPLACE(0x0047ED60, &Gfx::CBlendChannel::BlendPose);
-REPLACE(0x0047EE90, &Gfx::CBlendChannel::DestroyBody);
-REPLACE(0x0047EF20, &Gfx::CBlendChannel::Reset);
-REPLACE(0x0047EF60, &Gfx::CBlendChannel::ReleaseWaitingScript);
-REPLACE(0x0047EFB0, &Gfx::CBlendChannel::Update);
-REPLACE(0x0047EFF0, &Gfx::CBlendChannel::BlendFirstPose);
-REPLACE(0x0047F000, &Gfx::CBlendChannel::SetAnimTags);
-REPLACE(0x0047F150, &Gfx::CBlendChannel::Construct);
-REPLACE(0x0047F230, &Gfx::CBlendChannel::Destroy);
-REPLACE(0x0047F260, &Gfx::CBlendChannel::PlayAnim);
-REPLACE(0x0047F470, &Gfx::CBlendChannel::PlayAnimFromScript);
-REPLACE(0x0047FA00, &Gfx::CBlendChannel::CallMemberFunction);
-REPLACE(0x004803D0, &Gfx::CBlendChannel::PlayAnimation);
-REPLACE(0x00480410, &Gfx::CBlendChannel::InitFromStructure);
 
 namespace Gfx {
 
 namespace {
 
 // 64 quaternions nothing reads (only their static initialiser writes them).
-GAME_GLOBAL(float[256], g_spareRotations, 0x006F8A70);
+float g_spareRotations[256];
 
 } // namespace
 

@@ -2,6 +2,7 @@
 
 #include "game/gfx/engine.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
@@ -27,10 +28,7 @@
 #include "game/gfx/viewport.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/obj/particle_component.h"
 #include "game/skate/skate_module.h"
 #include "game/sys/startup_init.h"
@@ -39,13 +37,13 @@
 
 namespace Nx {
 
-GAME_GLOBAL(bool, g_skipRender, 0x007D1EC0); // rendering skipped (frames not drawn or shown)
+bool g_skipRender; // rendering skipped (frames not drawn or shown)
 
-GAME_GLOBAL(void*, g_flexibleParticleManager, 0x006FA7C0);
-GAME_GLOBAL(void*, g_imposterManager, 0x006FA7BC);
-GAME_GLOBAL(int, g_renderMode, 0x006FA734);
+void* g_flexibleParticleManager;
+void* g_imposterManager;
+int g_renderMode;
 // The scenes' list (its head: data -1 once made; its first node, the head's next, is at +0xC, the last at +0x10).
-GAME_GLOBAL(Mem::ListNode, g_sceneList, 0x006FA7E0);
+Mem::ListNode g_sceneList;
 namespace {
 
 extern void** const kSceneNodeVtable;
@@ -73,11 +71,11 @@ CSceneNode* FirstScene()
 }
 CScene* SceneOf(Mem::ListNode* node) { return static_cast<CScene*>(node->data); }
 
-GAME_GLOBAL(void*, g_objectManager, 0x006FA720);
-GAME_GLOBAL(int, g_renderIgnore0, 0x006FA724);
-GAME_GLOBAL(int, g_renderIgnore1, 0x006FA728);
-GAME_GLOBAL(bool, g_metricsOn, 0x006FA7D6);
-GAME_GLOBAL(Engine::IdleFunction, g_idleFunction, 0x006FA7D8);
+void* g_objectManager;
+int g_renderIgnore0;
+int g_renderIgnore1;
+bool g_metricsOn;
+Engine::IdleFunction g_idleFunction;
 
 // The engine's managers: the flexible particle manager (0x006FA7C0), the imposter manager (0x006FA7BC, 8 bytes:
 // constructor 0x0048E3E0, its frame 0x0048E2D0 - not rewritten yet), the particle manager and the weather (made by
@@ -341,35 +339,11 @@ CScene* __cdecl FindScene(uint32_t checksum)
 } // namespace Engine
 
 namespace {
-GAME_VTABLE(kSceneNodeVtable, 0x00648A38, &Nx::CSceneNode::Destroy);
+static VtableSlot kSceneNodeVtable_slots[] = {&Nx::CSceneNode::Destroy};
+void** const kSceneNodeVtable = reinterpret_cast<void**>(kSceneNodeVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x0048BF20, Nx::Engine::EndRender);
-REPLACE_SOURCE_ONLY(0x0048BFC0, Nx::CreateFrameSource);  // a jump to 0x004B3990
-REPLACE(0x0048BFE0, Nx::Engine::SplitSkinName);
-REPLACE(0x0048C030, Nx::Engine::LoadModelFromMemory);
-REPLACE_SOURCE_ONLY(0x0048C080, Nx::DeleteModelLights); // a jump to 0x004B6920
-REPLACE(0x0048C0A0, Nx::Engine::SetObjectManager);
-REPLACE(0x0048C0B0, Nx::Engine::GetCollisionScenes);
-REPLACE(0x0048C0D0, Nx::Engine::ToggleRenderMode);
-REPLACE(0x0048C0F0, Nx::Engine::ToggleMetrics);
-REPLACE(0x0048C110, Nx::Engine::SetRenderIgnore);
-REPLACE(0x0048C1C0, Nx::Engine::GetIdleFunction);
-REPLACE(0x0048C1D0, Nx::Engine::Init);
-REPLACE(0x0048C330, Nx::Engine::RenderFrame);
-REPLACE(0x0048C390, Nx::Engine::SceneFileName);
-REPLACE(0x0048C3C0, Nx::Engine::DeleteGeomObject);
-REPLACE(0x0048C3D0, Nx::Engine::LoadModelFile);
-REPLACE(0x0048C490, Nx::Engine::SphereVisibleInOneViewport);
-REPLACE(0x0048C4B0, &Nx::CSceneNode::DestroyBody);
-REPLACE(0x0048C4D0, &Nx::CSceneNode::Destroy);
-REPLACE(0x0048C510, Nx::Engine::GetSector);
-REPLACE(0x0048C560, Nx::Engine::AddScene);
-REPLACE(0x0048C650, Nx::Engine::ToggleAddScenes);
-REPLACE(0x0048C690, Nx::Engine::UnloadScene);
-REPLACE(0x0048C700, Nx::Engine::FindScene);
 
 namespace Nx {
 

@@ -8,8 +8,6 @@
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/sys/log.h"
 
 namespace CFuncs {
@@ -192,9 +190,3 @@ bool __cdecl CFunc_GetNDArrayData(CStruct* params, Script::CScript* script)
 }
 
 } // namespace CFuncs
-
-REPLACE(0x0044AF50, CFuncs::CFunc_ArrayContains);
-REPLACE(0x0044B030, CFuncs::CFunc_GetArraySize);
-REPLACE(0x0044B0F0, CFuncs::CFunc_Get2DArrayData);
-REPLACE(0x0044B300, CFuncs::CFunc_Get3DArrayData);
-REPLACE(0x0044B530, CFuncs::CFunc_GetNDArrayData);

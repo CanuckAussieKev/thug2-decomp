@@ -13,7 +13,6 @@
 #include "game/skater/skater.h"
 #include "game/sys/game_clock.h"
 #include "game/skater/core_physics.h"
-#include "hook/game.h"
 
 namespace Skater::Physics {
 

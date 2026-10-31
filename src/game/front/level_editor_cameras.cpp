@@ -5,11 +5,15 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <functional>
 #include <map>
 #include <memory>
+#include <vector>
 
 #include "game/front/level_editor_fields.h"
 #include "game/front/level_editor_hud.h"
@@ -22,7 +26,6 @@
 #include "game/script/node_manager.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 #include "imgui.h"
 

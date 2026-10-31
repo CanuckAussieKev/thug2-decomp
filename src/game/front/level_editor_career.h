@@ -46,7 +46,7 @@ struct Checklist {
     std::vector<Gap> gaps;
 };
 
-// The pure part (self-tested: src/hook/selftests_editor_career.cpp).
+// The pure part.
 // What the save writes for a checklist: the baseline when there is one, else the checklist as it is (`live`) - either
 // way without the editor's gaps (a name of `editorGaps` that isn't one of `levelGaps`).
 Checklist ForSave(const Checklist& live, const Checklist* baseline, const std::vector<std::string>& editorGaps,

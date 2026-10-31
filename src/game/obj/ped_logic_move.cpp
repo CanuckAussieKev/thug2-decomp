@@ -30,8 +30,6 @@
 #include "game/skate/skate_module.h"
 #include "game/skater/looping_sound.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/obj/objman.h"
 
 namespace Obj {
@@ -1193,29 +1191,3 @@ bool CPedLogicComponent::Ped_TurnToCurrentWaypointOrientation(Script::CStruct* p
 }
 
 } // namespace Obj
-
-REPLACE(0x004ECFF0, &Obj::CPedLogicComponent::DecayBias);
-REPLACE(0x004ED5E0, &Obj::CPedLogicComponent::AddAvoidance);
-REPLACE(0x004ED680, &Obj::CPedLogicComponent::AddSteer);
-REPLACE(0x004ED710, &Obj::CPedLogicComponent::SteerSideways);
-REPLACE(0x004ED7D0, &Obj::CPedLogicComponent::SteerForward);
-REPLACE(0x004EE650, &Obj::CPedLogicComponent::FaceAlong);
-REPLACE(0x004EE7D0, &Obj::CPedLogicComponent::AvoidPeds);
-REPLACE(0x004EEAC0, &Obj::CPedLogicComponent::KeepToPath);
-REPLACE(0x004EEDC0, &Obj::CPedLogicComponent::MoveSteered);
-REPLACE(0x004EEEC0, &Obj::CPedLogicComponent::SteerTowards);
-REPLACE(0x004F2780, &Obj::CPedLogicComponent::TurnTowardsNodeAfter);
-REPLACE(0x004EF350, &Obj::CPedLogicComponent::FaceMovement);
-REPLACE(0x004EF740, &Obj::CPedLogicComponent::ProbeGround);
-REPLACE(0x004EF930, &Obj::CPedLogicComponent::StickToGroundPed);
-REPLACE(0x004EF090, &Obj::CPedLogicComponent::AlignToGround);
-REPLACE(0x004F01C0, &Obj::CPedLogicComponent::SpinUpdate);
-REPLACE(0x004F03C0, &Obj::CPedLogicComponent::ProbeAhead);
-REPLACE(0x004F2A10, &Obj::CPedLogicComponent::GenericMoveUpdate);
-REPLACE(0x004F2AD0, &Obj::CPedLogicComponent::SkaterMoveUpdate);
-REPLACE(0x004F1890, &Obj::CPedLogicComponent::BailMoveUpdate);
-REPLACE(0x004F1780, &Obj::CPedLogicComponent::GoHomeUpdate);
-REPLACE(0x004F1480, &Obj::CPedLogicComponent::ChaseUpdate);
-REPLACE(0x004F0DD0, &Obj::CPedLogicComponent::BlockerUpdate);
-REPLACE(0x004F2190, &Obj::CPedLogicComponent::Update);
-REPLACE(0x004F0950, &Obj::CPedLogicComponent::Ped_TurnToCurrentWaypointOrientation);

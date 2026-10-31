@@ -33,7 +33,7 @@
 //     ones off again every frame) - their collision and logic untouched.
 namespace Front::LevelEditor::View {
 
-// --- the pieces (pure, self-tested: src/hook/selftests_editor_view.cpp) -------------------------------------------
+// --- the pieces (pure) --------------------------------------------------------------------------------------------
 
 // What a collision face is for the skater, from its face flags (CCollObjTriData face +0: u16) - in this order (the
 // first that applies):

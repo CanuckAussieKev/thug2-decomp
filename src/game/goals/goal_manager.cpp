@@ -4,7 +4,9 @@
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
 
+#include <cstdint>
 #include <cstring>
+#include <initializer_list>
 
 #include "game/core/mem.h"
 #include "game/core/stubs.h"
@@ -26,9 +28,7 @@
 #include "game/obj/trick_objects.h"
 #include "game/skate/profile_manager.h"
 #include "game/skater/skater.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Game {
 
@@ -52,9 +52,10 @@ constexpr uint32_t kTrickObjects = 0xEFC35592;              // TrickObjects
 constexpr uint8_t kMsgGoalWon = 0x6E;      // to the server: a goal (the chain's first) won
 constexpr uint8_t kGroupGoals = 8;         // (its message group)
 
-GAME_VTABLE(kGoalListHeadVtable, 0x0064DF78, &Game::GoalListHead::Destroy);
+static VtableSlot kGoalListHeadVtable_slots[] = {&Game::GoalListHead::Destroy};
+void** const kGoalListHeadVtable = reinterpret_cast<void**>(kGoalListHeadVtable_slots);
 
-const char* const kSpecialGap = GAME_TEXT(0x0064DEB8, "special_gap"); // "special_gap"
+const char* const kSpecialGap = "special_gap"; // "special_gap"
 
 GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 CGameMode* GameMode() { return g_gameMode; }
@@ -771,63 +772,3 @@ CGoalManager* GetGoalManager()
 }
 
 } // namespace Game
-
-REPLACE(0x0055B9F0, &Game::GoalListHead::DestroyBody);
-REPLACE(0x0055D960, &Game::GoalListHead::Destroy);
-REPLACE(0x0055D9C0, &Game::CGoalManager::Construct);
-REPLACE(0x0055DB50, &Game::CGoalManager::DestroyBody);
-REPLACE_SOURCE_ONLY(0x00557E30, &Game::CGoalManager::CanStartGoal); // (4 bytes)
-REPLACE(0x00557E40, &Game::CGoalManager::ShowGoalPoints);
-REPLACE(0x00557E70, &Game::CGoalManager::ResetGoalData);
-REPLACE(0x00557F90, &Game::CGoalManager::GetGoal);
-REPLACE(0x00557FB0, &Game::CGoalManager::GetGoalByIndex);
-REPLACE(0x00557FC0, &Game::CGoalManager::ActivateGoal);
-REPLACE(0x00558030, &Game::CGoalManager::WinGoal);
-REPLACE(0x00558180, &Game::CGoalManager::LoseGoal);
-REPLACE(0x00558200, &Game::CGoalManager::GetNumSelectedGoals);
-REPLACE(0x00558250, &Game::CGoalManager::DeactivateAllGoals);
-REPLACE(0x005582B0, &Game::CGoalManager::ActivateAllGoals);
-REPLACE(0x00558320, &Game::CGoalManager::UninitializeGoalTree);
-REPLACE(0x00558380, &Game::CGoalManager::UninitializeAllGoals);
-REPLACE(0x005583C0, &Game::CGoalManager::InitializeAllGoals);
-REPLACE(0x005584C0, &Game::CGoalManager::InitializeAllSelectedGoals);
-REPLACE(0x00558530, &Game::CGoalManager::ActivateAllSelectedGoals);
-REPLACE(0x00558580, &Game::CGoalManager::DeselectAllGoals);
-REPLACE(0x005585C0, &Game::CGoalManager::PauseAllGoals);
-REPLACE(0x00558600, &Game::CGoalManager::UnPauseAllGoals);
-REPLACE(0x00558640, &Game::CGoalManager::QuickStartGoal);
-REPLACE(0x005586A0, &Game::CGoalManager::SetGoalFlag);
-REPLACE(0x005586E0, &Game::CGoalManager::GotGap);
-REPLACE(0x00558730, &Game::CGoalManager::GetGoalParams);
-REPLACE(0x00558750, &Game::CGoalManager::NextWaypoint);
-REPLACE(0x00558770, &Game::CGoalManager::KillCluster);
-REPLACE(0x005587F0, &Game::CGoalManager::CheckTrickGoals);
-REPLACE(0x005588D0, &Game::CGoalManager::UnlockGoal);
-REPLACE(0x005588F0, &Game::CGoalManager::HasBeatenGoal);
-REPLACE(0x00558960, &Game::CGoalManager::ToggleGoalSelection);
-REPLACE(0x005589A0, &Game::CGoalManager::HasWonProsetGoal);
-REPLACE(0x00558A00, &Game::CGoalManager::RestoreGoalData);
-REPLACE(0x00558AB0, &Game::CGoalManager::NumGoalsBeatenBy);
-REPLACE(0x00558B10, &Game::CGoalManager::NumGoalsNetBeatenBy);
-REPLACE(0x00558B70, &Game::CGoalManager::NumGoalsBeaten);
-REPLACE(0x00558BC0, &Game::CGoalManager::UnlockAllGoals);
-REPLACE(0x00558C00, &Game::CGoalManager::UnlockAllProGoals);
-REPLACE(0x00558C70, &Game::CGoalManager::PlayGoalStream);
-REPLACE(0x00558D20, &Game::CGoalManager::IsGoalLocked);
-REPLACE(0x00558D90, &Game::CGoalManager::GetActiveCompetition);
-REPLACE(0x00558DF0, &Game::CGoalManager::ReplaceTrickTextAll);
-REPLACE(0x00558E30, &Game::CGoalManager::GoalExists);
-REPLACE(0x00558E50, &Game::CGoalManager::CheckTrickObjects);
-REPLACE(0x00558ED0, &Game::CGoalManager::BuildGoalTree);
-REPLACE(0x00558FD0, &Game::CGoalManager::CreateGoalLevelObjects);
-REPLACE(0x00559050, &Game::CGoalManager::GetDifficultyLevel);
-REPLACE(0x005590C0, &Game::CGoalManager::HideAllGoalPeds);
-REPLACE(0x00559110, &Game::CGoalManager::IsGroupLocked);
-REPLACE(0x00559150, &Game::CGoalManager::TrickObjectHit);
-REPLACE(0x005591B0, Game::GetGoalManager);
-REPLACE(0x0055BEA0, &Game::CGoalManager::RemoveGoal);
-REPLACE(0x0055BEF0, &Game::CGoalManager::RemoveAllGoals);
-REPLACE(0x0055D990, &Game::GoalListHead::NodeAt);
-REPLACE(0x0055DBE0, &Game::CGoalManager::AddActiveGoal);
-REPLACE(0x0055DBF0, &Game::CGoalManager::GetActiveGoal);
-REPLACE(0x0055DC30, &Game::CGoalManager::NumActiveGoals);

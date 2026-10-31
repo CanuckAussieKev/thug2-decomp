@@ -2,14 +2,12 @@
 #include "game/gfx/d3dx.h"
 
 #include <cmath>
+#include <initializer_list>
 #include <utility>
 
 #include "game/core/dbg.h"
 #include "game/mth/math.h"
 #include "game/mth/x87_math.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/shadow.h"
 
 namespace Mth {
 
@@ -668,49 +666,3 @@ Vector& Matrix::GetEulerAngles(Vector& out) const
 }
 
 } // namespace Mth
-
-REPLACE_SHADOW(0x004041E0, &Mth::Matrix::Determinant);
-REPLACE(0x004043A0, &Mth::Matrix::Adjugate);
-REPLACE(0x00404AB0, &Mth::Matrix::GetEulerAngles);
-REPLACE(0x00405600, &Mth::Matrix::Invert);
-REPLACE(0x00404120, &Mth::Matrix::operator*=);
-REPLACE(0x004048D0, &Mth::Matrix::SetFromEulerAngles);
-REPLACE(0x00404C60, static_cast<Mth::Matrix& (*)(Mth::Matrix&, const Mth::Vector&, float)>(&Mth::CreateRotateMatrix));
-REPLACE(0x00404100, static_cast<Mth::Matrix& (Mth::Matrix::*)(const Mth::MatrixProduct&)>(&Mth::Matrix::operator=));
-REPLACE(0x00405170, &Mth::Matrix::OrthoNormalizeAbout);
-REPLACE(0x00405480, &Mth::Matrix::PatchOrthogonality);
-REPLACE(0x00405310, &Mth::Matrix::GetRotationAxisAngle);
-REPLACE_SHADOW(0x004062D0, Mth::GetAngleInPlane);
-REPLACE(0x00405850, static_cast<void (Mth::Matrix::*)(const Mth::Vector&)>(&Mth::Matrix::RotateLocal));
-REPLACE(0x005772A0, static_cast<Mth::Matrix& (Mth::Matrix::*)(const Mth::Vector&, float)>(&Mth::Matrix::RotateLocal));
-REPLACE(0x00404BA0, &Mth::Matrix::Print);
-REPLACE(0x00404EC0,static_cast<Mth::Matrix& (*)(Mth::Matrix&, int, float)>(&Mth::CreateRotateMatrix));
-REPLACE(0x00404F50, Mth::CreateLookAtMatrix);
-REPLACE(0x00405080, Mth::CreateOrthographicMatrix);
-REPLACE(0x004050F0, Mth::CreatePerspectiveMatrix);
-REPLACE(0x00405950, &Mth::Matrix::Rotate);
-REPLACE(0x00405670, &Mth::Matrix::RotateXLocal);
-REPLACE(0x00405710, &Mth::Matrix::RotateYLocal);
-REPLACE(0x004057B0, &Mth::Matrix::RotateZLocal);
-REPLACE(0x0041A6A0, &Mth::Matrix::RotateX);
-REPLACE(0x0041A6D0, &Mth::Matrix::RotateY);
-REPLACE(0x0041A700, &Mth::Matrix::RotateZ);
-REPLACE(0x0041A640, &Mth::Matrix::Ident);
-REPLACE(0x0041A730, &Mth::Matrix::InitFromAngles);
-REPLACE(0x0040AF60, &Mth::Matrix::Transform);
-REPLACE(0x0040B000, &Mth::Matrix::TransformAsPos);
-REPLACE(0x0040B090, &Mth::Matrix::RotateVector);
-REPLACE(0x0040B100, &Mth::Matrix::ScaleRows);
-REPLACE(0x00416D80, &Mth::Matrix::operator==);
-REPLACE(0x00416DF0, &Mth::Matrix::InvertOrthonormal);
-REPLACE(0x0041BA30, &Mth::Matrix::Scale);
-REPLACE(0x0048A230, &Mth::Matrix::Translate);
-REPLACE(0x0048A260, &Mth::Matrix::TranslateLocal);
-REPLACE(0x0041F470, static_cast<Mth::Vector (*)(const Mth::Vector&, const Mth::Matrix&)>(&Mth::operator*));
-
-// operator= is __thiscall returning `this`; the rotation builders are cdecl and return the matrix pointer.
-REPLACE(0x00404080, &Mth::Matrix::operator[]);
-REPLACE(0x00404090, static_cast<Mth::Matrix& (Mth::Matrix::*)(const Mth::Matrix&)>(&Mth::Matrix::operator=));
-REPLACE(0x00404DD0, Mth::CreateRotateXMatrix);
-REPLACE(0x00404E20, Mth::CreateRotateYMatrix);
-REPLACE(0x00404E70, Mth::CreateRotateZMatrix);

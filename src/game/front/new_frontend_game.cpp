@@ -2,6 +2,7 @@
 
 #include "game/front/new_frontend_game.h"
 
+#include <cstdint>
 #include <cstdio>
 
 #include "game/core/crc.h"
@@ -17,7 +18,6 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/skate/game_mode.h"
-#include "hook/game.h"
 #include "game/skate/skate_module.h"
 
 namespace Front::NewFrontend::GameScreens {

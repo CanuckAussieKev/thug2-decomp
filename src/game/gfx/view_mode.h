@@ -39,7 +39,7 @@ void NoteShaderSource(void* shader, const char* source);
 // The device's shaders were made again (CreatePixelShaders after a reset): the twins forgotten (and released).
 void ForgetShaders();
 
-// --- the pieces (pure, self-tested: src/hook/selftests_editor_ux4.cpp) -------------------------------------------
+// --- the pieces (pure) -------------------------------------------------------------------------------------------
 
 // A ps.1.1 shader's text with its vertex colour's rgb (v0 used whole, not v0.a) read from a constant of 0.5 instead:
 // a `def` of that constant after the version line, and v0 replaced where it is a whole operand. Empty when the text

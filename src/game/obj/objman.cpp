@@ -12,16 +12,13 @@
 #include "game/lst/head.h"
 #include "game/sys/mlp.h"
 #include "game/ass/assman.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/front/screen_element_manager.h"
-#include "hook/game_code.h"
 #include "game/obj/object.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t, g_trackerReferences, 0x006F0FC4);
+uint32_t g_trackerReferences;
 
 namespace {
 
@@ -356,52 +353,27 @@ void CTracker::RegisterEventListener(CEventListener* listener)
 
 } // namespace Obj
 
-REPLACE(0x00461B20, &Obj::CObjectListHead::Destroy);
-REPLACE(0x00461BC0, &Obj::CBaseManager::Construct);
-REPLACE(0x00461B50, &Obj::CBaseManager::DestroyBody);
-REPLACE(0x00461B80, &Obj::CBaseManager::Destroy);
-REPLACE(0x00461A00, &Obj::CBaseManager::RegisterObject);
-REPLACE_SOURCE_ONLY(0x004AAD30, &Obj::CBaseManager::RegisterObject); // a jump to 0x00461A00
-REPLACE(0x00461A50, &Obj::CBaseManager::UnregisterObject);
-REPLACE(0x004619A0, &Obj::CBaseManager::ReassignObjectId);
-REPLACE(0x004619D0, &Obj::CBaseManager::SetObjectPriority);
-REPLACE(0x004619F0, &Obj::CBaseManager::GetObjectByID);
-REPLACE(0x00461CC0, &Obj::CBaseManager::ForEach);
-REPLACE(0x00461BF0, &Obj::CGeneralManager::Construct);
-REPLACE(0x00461DF0, &Obj::CGeneralManager::DestroyBody);
-REPLACE(0x00461EA0, &Obj::CGeneralManager::Destroy);
-REPLACE(0x00461B00, &Obj::CGeneralManager::KillObject);
-REPLACE(0x00461AB0, &Obj::CGeneralManager::FlushDeadObjects);
-REPLACE(0x00461BB0, Obj::FlushDeadObjectsTask);
-REPLACE(0x00461F30, &Obj::CObjectSearch::FirstItemOfType);
-REPLACE(0x00461ED0, &Obj::CObjectSearch::NextItemOfType);
-REPLACE(0x0041AA90, &Obj::CObjectSearch::DestroyBody);
-REPLACE(0x0041AAA0, &Obj::CObjectSearch::Destroy);
-REPLACE(0x0041A850, &Obj::CObjectSearch::DestroyAsBase);
-REPLACE(0x00461FA0, Obj::ReleaseTracker);
-REPLACE(0x00461FE0, &Obj::CTracker::RegisterEventListener);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kListHeadVtable, 0x00647814,
-    &Obj::CObjectListHead::Destroy);
-GAME_VTABLE(kManagerVtable, 0x00647818,
-    &Obj::CBaseManager::Destroy,
-    &Obj::CBaseManager::RegisterObject,
-    &Obj::CBaseManager::UnregisterObject,
-    &Obj::CBaseManager::ReassignObjectId,
-    &Obj::CBaseManager::SetObjectPriority,
-    GAME_LIBRARY_SLOT(0x00623771),
-    GAME_LIBRARY_SLOT(0x00623771));
-GAME_VTABLE(kGeneralManagerVtable, 0x00647834,
-    &Obj::CGeneralManager::Destroy,
-    &Obj::CBaseManager::RegisterObject,
-    &Obj::CBaseManager::UnregisterObject,
-    &Obj::CBaseManager::ReassignObjectId,
-    &Obj::CBaseManager::SetObjectPriority,
-    &Obj::CGeneralManager::KillObject,
-    &Front::CScreenElementManager::GetObjectList);
+static VtableSlot kListHeadVtable_slots[] = {&Obj::CObjectListHead::Destroy};
+void** const kListHeadVtable = reinterpret_cast<void**>(kListHeadVtable_slots);
+static VtableSlot kManagerVtable_slots[] = {&Obj::CBaseManager::Destroy,
+         &Obj::CBaseManager::RegisterObject,
+         &Obj::CBaseManager::UnregisterObject,
+         &Obj::CBaseManager::ReassignObjectId,
+         &Obj::CBaseManager::SetObjectPriority,
+         &_purecall,
+         &_purecall};
+void** const kManagerVtable = reinterpret_cast<void**>(kManagerVtable_slots);
+static VtableSlot kGeneralManagerVtable_slots[] = {&Obj::CGeneralManager::Destroy,
+         &Obj::CBaseManager::RegisterObject,
+         &Obj::CBaseManager::UnregisterObject,
+         &Obj::CBaseManager::ReassignObjectId,
+         &Obj::CBaseManager::SetObjectPriority,
+         &Obj::CGeneralManager::KillObject,
+         &Front::CScreenElementManager::GetObjectList};
+void** const kGeneralManagerVtable = reinterpret_cast<void**>(kGeneralManagerVtable_slots);
 
 } // namespace
 } // namespace Obj
@@ -409,8 +381,8 @@ GAME_VTABLE(kGeneralManagerVtable, 0x00647834,
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kObjectSearchBaseVtable, 0x00645DF8,
-    &Obj::CObjectSearch::DestroyAsBase);
+static VtableSlot kObjectSearchBaseVtable_slots[] = {&Obj::CObjectSearch::DestroyAsBase};
+void** const kObjectSearchBaseVtable = reinterpret_cast<void**>(kObjectSearchBaseVtable_slots);
 
 } // namespace
 } // namespace Obj

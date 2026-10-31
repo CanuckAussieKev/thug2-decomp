@@ -1,6 +1,6 @@
 #pragma once
 
-// NOT ORIGINAL - the level editor's fonts, compressed into the DLL (level_editor_ui_fonts.cpp).
+// NOT ORIGINAL - the level editor's fonts, compressed into the exe (level_editor_ui_fonts.cpp).
 namespace Front::LevelEditor::UiFonts {
 
 // A TTF compressed by ImGui's binary_to_compressed_c (for ImFontAtlas::AddFontFromMemoryCompressedTTF).

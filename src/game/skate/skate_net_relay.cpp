@@ -49,19 +49,16 @@
 #include "game/gfx/model.h"
 #include "game/gfx/anim_blend.h"
 #include "game/obj/compositemgr.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Gfx {
-GAME_GLOBAL_EXTERN(float, g_oneOver255); // 0x00645D70 (defined in tod_manager.cpp)
+extern float g_oneOver255; // 0x00645D70 (defined in tod_manager.cpp)
 } // namespace Gfx
 
 namespace Mdl {
 
-GAME_GLOBAL(uint8_t, g_netRelayObjectId, 0x007CE48C);
-GAME_GLOBAL(float, g_relayTimeScale, 0x0064A568, 0.000244140625f);   // (2^-12: the relayed times and positions)
+uint8_t g_netRelayObjectId;
+float g_relayTimeScale{0.000244140625f};   // (2^-12: the relayed times and positions)
 
 namespace {
 
@@ -643,14 +640,14 @@ int SkateNet::HandleGraffitiTexture(Net::MsgHandlerContext* context)
             desc.m_length = 1;
             Sequence(desc, 10);
             Enqueue(app, other, &desc);
-            void* palette = Call<void*>(reinterpret_cast<uint32_t>(GAME_CODE(0x0048DF20, Nx::VirtualSlot27Jump)), texture);
-            uint32_t paletteSize = Call<uint32_t>(reinterpret_cast<uint32_t>(GAME_CODE(0x0048DF30, Nx::VirtualSlot28Jump)), texture);
+            void* palette = Call<void*>(reinterpret_cast<uint32_t>(CodeAddress(Nx::VirtualSlot27Jump)), texture);
+            uint32_t paletteSize = Call<uint32_t>(reinterpret_cast<uint32_t>(CodeAddress(Nx::VirtualSlot28Jump)), texture);
             app->StreamMessageToConn(other->m_conn, 0x98, static_cast<uint16_t>(paletteSize), palette,
-                                     GAME_TEXT(0x0064C974, "CAG Palette"), 10, false, true); // "CAG Palette"
-            void* pixels = Call<void*>(reinterpret_cast<uint32_t>(GAME_CODE(0x0048DF00, Nx::VirtualSlot25Jump)), texture);
-            uint32_t pixelsSize = Call<uint32_t>(reinterpret_cast<uint32_t>(GAME_CODE(0x0049F3A0, Nx::VirtualSlot26Jump)), texture);
+                                     "CAG Palette", 10, false, true); // "CAG Palette"
+            void* pixels = Call<void*>(reinterpret_cast<uint32_t>(CodeAddress(Nx::VirtualSlot25Jump)), texture);
+            uint32_t pixelsSize = Call<uint32_t>(reinterpret_cast<uint32_t>(CodeAddress(Nx::VirtualSlot26Jump)), texture);
             app->StreamMessageToConn(other->m_conn, 0x97, static_cast<uint16_t>(pixelsSize), pixels,
-                                     GAME_TEXT(0x0064C968, "CAG Texture"), 10, false, true); // "CAG Texture"
+                                     "CAG Texture", 10, false, true); // "CAG Texture"
             uint32_t sentParts = parts;
             desc.m_data = &sentParts;
             desc.m_id = 0x9A;
@@ -692,7 +689,7 @@ int SkateNet::HandleFaceTexture(Net::MsgHandlerContext* context)
     static_cast<Gfx::CFaceTexture*>(texture)->ReadFrom(data, static_cast<int>(size));
     static_cast<Gfx::CFaceTexture*>(texture)->SetValid(true);
     auto* model = skater->GetComponent(kModel);
-    static_cast<Nx::CModel*>(Field<void*>(model, 0x208))->ReplaceFaceTexture(texture, GAME_TEXT(0x0064E820, "CS_NSN_facemap.png"), kAll);
+    static_cast<Nx::CModel*>(Field<void*>(model, 0x208))->ReplaceFaceTexture(texture, "CS_NSN_facemap.png", kAll);
     if (net->OnServer()) {
         // the server keeps the face and streams it to the others
         PlayerSearch search;
@@ -703,7 +700,7 @@ int SkateNet::HandleFaceTexture(Net::MsgHandlerContext* context)
             if (other->IsLocalPlayer() || other == sender)
                 continue;
             app->StreamMessageToConn(other->m_conn, 0x7E, 0x4499, sender->GetFaceTextureData(),
-                                     GAME_TEXT(0x0064CA2C, "Face Data"), 9, false, true); // "Face Data"
+                                     "Face Data", 9, false, true); // "Face Data"
         }
     }
     // (freed without its destructor, as the original)
@@ -1227,36 +1224,3 @@ void Skate::SendScoreUpdates(bool final)
 }
 
 } // namespace Mdl
-
-REPLACE(0x00569BB0, Mdl::SkateNet::ServerTask);
-REPLACE(0x0056BE10, Mdl::SkateNet::ScoreTask);
-REPLACE(0x00569E20, Mdl::SkateNet::HandleTrickObjects);
-REPLACE(0x00569E90, Mdl::SkateNet::HandleGameStats);
-REPLACE(0x00569EF0, Mdl::SkateNet::HandleComboScore);
-REPLACE(0x00569FD0, Mdl::SkateNet::HandlePlayerValue48);
-REPLACE(0x0056A000, Mdl::SkateNet::HandleRelay);
-REPLACE(0x0056A170, Mdl::SkateNet::HandleRelayNearby);
-REPLACE(0x0056A2D0, Mdl::SkateNet::HandleRelaySequenced);
-REPLACE(0x0056A3E0, Mdl::SkateNet::HandleJoined);
-REPLACE(0x0056AD10, Mdl::SkateNet::HandleScavengerCollected);
-REPLACE(0x0056B0B0, Mdl::SkateNet::HandleScavengerDropped);
-REPLACE(0x0056B2B0, Mdl::SkateNet::HandleGraffitiTexture);
-REPLACE(0x0056B5D0, Mdl::SkateNet::HandleFaceTexture);
-REPLACE(0x00569560, Mdl::SkateNet::HandleChangeLevel);
-REPLACE(0x0056A410, Mdl::SkateNet::HandleHistoryValue);
-REPLACE(0x0056A450, Mdl::SkateNet::HandleSkaterMessages);
-REPLACE(0x0056ABD0, Mdl::SkateNet::HandlePlayerLeft);
-REPLACE(0x0056AC50, Mdl::SkateNet::HandleServerQuit);
-REPLACE(0x0056AC90, Mdl::SkateNet::HandleGraffitiObjects);
-REPLACE(0x0056B220, Mdl::SkateNet::HandlePlaceTag);
-REPLACE(0x0056B7A0, Mdl::SkateNet::HandleSparks);
-REPLACE(0x0056B7E0, Mdl::SkateNet::HandleLookUpObject);
-REPLACE(0x0056B800, Mdl::SkateNet::HandleTerrainSound);
-REPLACE(0x0056C330, Mdl::SkateNet::HandleRunScriptNow);
-REPLACE(0x0056C3D0, Mdl::SkateNet::HandleProjectile);
-REPLACE(0x0056C6E0, Mdl::SkateNet::HandleCheats);
-REPLACE(0x0056C7E0, Mdl::SkateNet::HandleToggleCheat);
-REPLACE(0x0056C8C0, Mdl::SkateNet::HandleSkaterChannel);
-REPLACE(0x0056B890, &Mdl::Skate::LeaveServer);
-REPLACE(0x0056B990, &Mdl::Skate::SendCheats);
-REPLACE(0x0056BB70, &Mdl::Skate::SendScoreUpdates);

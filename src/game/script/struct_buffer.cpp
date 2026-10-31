@@ -2,14 +2,13 @@
 
 #include "game/script/struct_buffer.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/script/qb.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Script {
 
@@ -583,14 +582,3 @@ const uint8_t* ReadArrayFromBuffer(CArray* array, const uint8_t* buffer)
 }
 
 } // namespace Script
-
-REPLACE(0x00479840, Script::WriteNameAndType);
-REPLACE_UNCHECKED(0x004798F0, Script::WriteIntegerStub);
-REPLACE_UNCHECKED(0x00479A50, Script::WriteFloatStub);
-REPLACE_UNCHECKED(0x00479AC0, Script::WriteStringStub);
-REPLACE_UNCHECKED(0x00479B20, Script::WriteLocalStringStub);
-REPLACE(0x00479B80, Script::WriteArrayToBuffer);
-REPLACE(0x00479E20, Script::WriteToBuffer);
-REPLACE(0x0047A070, Script::CalculateBufferSize);
-REPLACE(0x0047A0C0, Script::ReadFromBuffer);
-REPLACE(0x0047A440, Script::ReadArrayFromBuffer);

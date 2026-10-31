@@ -14,9 +14,7 @@
 #include "game/script/struct.h"
 #include "game/skater/skater.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
@@ -110,7 +108,7 @@ bool PlayerInfo::IsInvulnerable()
         return true;
     if (GameType() == kNetFirefight) {
         auto* skater = reinterpret_cast<Obj::CCompositeObject*>(m_skater);
-        if (Call<int>(GAME_CODE(0x00561B40, &Mdl::Score::GetTotalScore), Field<void*>(skater->GetComponent(kSkaterScore), 0x18)) <= 0)
+        if (Call<int>(CodeAddress(&Mdl::Score::GetTotalScore), Field<void*>(skater->GetComponent(kSkaterScore), 0x18)) <= 0)
             return true;
     }
     if (IsEliminated() || (Field<uint32_t>(m_skater, 0x104) >> 2) & 1)
@@ -299,10 +297,3 @@ void PlayerInfo::MarkAsKing(bool king)
 } // namespace GameNet
 
 using GameNet::PlayerInfo;
-REPLACE(0x00543910, &PlayerInfo::IsInvulnerable);
-REPLACE(0x005439D0, &PlayerInfo::MarkAsFullyIn);
-REPLACE(0x00543A90, &PlayerInfo::CapturedFlag);
-REPLACE(0x00543C70, &PlayerInfo::StoleFlag);
-REPLACE(0x00543F00, &PlayerInfo::TookFlag);
-REPLACE(0x00544110, &PlayerInfo::RetrievedFlag);
-REPLACE(0x00544340, &PlayerInfo::MarkAsKing);

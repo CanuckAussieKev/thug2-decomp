@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <initializer_list>
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -21,24 +22,21 @@
 #include "game/script/struct.h"
 #include "game/ed/park_editor.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/sys/game_config.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[4], g_editorCameraSkipNames, 0x0067EFD8, 0x0B38ED6B, 0xDEA3057B, 0x9FBBD5F0, 0x8F308205);
-GAME_GLOBAL(uint32_t, g_editorCameraName, 0x0067EFE8, 0x43BFAB74);
-GAME_GLOBAL(uint32_t[20], g_editorCameraSeen, 0x007CCBE8);
-GAME_GLOBAL(uint8_t, g_editorCameraFlagged, 0x007CCC38);
-GAME_GLOBAL(int, g_editorCameraSeenCount, 0x007CCC3C);
+uint32_t g_editorCameraSkipNames[4]{0x0B38ED6B, 0xDEA3057B, 0x9FBBD5F0, 0x8F308205};
+uint32_t g_editorCameraName{0x43BFAB74};
+uint32_t g_editorCameraSeen[20];
+uint8_t g_editorCameraFlagged;
+int g_editorCameraSeenCount;
 
 namespace {
 
@@ -619,40 +617,23 @@ __declspec(naked) void FlaggedObjectBetweenStub()
 
 } // namespace Obj
 
-REPLACE(0x004E5940, Obj::CEditorCameraComponent::Create);
-REPLACE(0x004E5060, &Obj::CEditorCameraComponent::Construct);
-REPLACE(0x004E5100, &Obj::CEditorCameraComponent::DestroyBody);
-REPLACE(0x004E59A0, &Obj::CEditorCameraComponent::Destroy);
-REPLACE(0x004E4ED0, &Obj::CEditorCameraComponent::InitFromStructure);
-REPLACE(0x004E51F0, &Obj::CEditorCameraComponent::Finalize);
-REPLACE(0x004E59D0, &Obj::CEditorCameraComponent::Hide);
-REPLACE(0x004E5210, &Obj::CEditorCameraComponent::CallMemberFunction);
-REPLACE(0x004E5C20, &Obj::CEditorCameraComponent::Update);
-REPLACE(0x004E5170, &Obj::CEditorCameraComponent::CreateShadow);
-REPLACE(0x004E5A10, &Obj::CEditorCameraComponent::UpdateShadow);
-REPLACE(0x004E5460, &Obj::CEditorCameraComponent::GroundHeight);
-REPLACE(0x004E5640, &Obj::CEditorCameraComponent::PlaceCursor);
-REPLACE(0x004E4F50, Obj::ScriptFlagged);
-REPLACE(0x004E5320, Obj::FlagScriptedHit);
-REPLACE_UNCHECKED(0x004E5390, Obj::FlaggedObjectBetweenStub);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064B2D0,
-    &Obj::CEditorCameraComponent::Destroy,
-    &Obj::CEditorCameraComponent::Update,
-    &Obj::CEditorCameraComponent::InitFromStructure,
-    &Obj::CEditorCameraComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    &Obj::CEditorCameraComponent::Hide,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::CEditorCameraComponent::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CEditorCameraComponent::Destroy,
+         &Obj::CEditorCameraComponent::Update,
+         &Obj::CEditorCameraComponent::InitFromStructure,
+         &Obj::CEditorCameraComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         &Obj::CEditorCameraComponent::Hide,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::CEditorCameraComponent::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

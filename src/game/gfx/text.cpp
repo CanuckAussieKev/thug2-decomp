@@ -21,10 +21,7 @@
 #include "game/gfx/render_state.h"
 #include "game/sio/device.h"
 #include "game/sys/platform_d3d.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/gfx/device.h"
 #include "game/gfx/engine.h"
 
@@ -34,17 +31,16 @@ namespace {
 extern void** const kSTextVtable;
 } // namespace
 
-
 // The vertices' store (0x7000 bytes, as words) and the quads' triangle indices (256 quads of six).
-GAME_GLOBAL(uint32_t[0x1C00], g_textVertexStore, 0x00779FD8);
-GAME_GLOBAL(uint16_t[0x100 * 6], g_textQuadIndices, 0x00780FF0);
+uint32_t g_textVertexStore[0x1C00];
+uint16_t g_textQuadIndices[0x100 * 6];
 
-GAME_GLOBAL(SFont*, g_fontList, 0x00780FD8);
-GAME_GLOBAL(SFont*, g_buttonFont, 0x00780FDC);
-GAME_GLOBAL(SFont*, g_textureFont, 0x00780FE0);
-GAME_GLOBAL(uint32_t, g_textVertexCount, 0x00780FE4);
-GAME_GLOBAL(TextVertex*, g_textVertexBuffer, 0x00780FE8);
-GAME_GLOBAL(bool, g_quadIndicesMade, 0x00781BF0);
+SFont* g_fontList;
+SFont* g_buttonFont;
+SFont* g_textureFont;
+uint32_t g_textVertexCount;
+TextVertex* g_textVertexBuffer;
+bool g_quadIndicesMade;
 
 namespace {
 
@@ -700,19 +696,9 @@ void SFont::Unload(SFont* font)
 }
 
 namespace {
-GAME_VTABLE(kSTextVtable, 0x0064A89C, &Nx::SText::Destroy, &Nx::SText::ResetVertices, &Nx::SText::Draw,
-            &Nx::SText::DrawVertices);
+static VtableSlot kSTextVtable_slots[] = {&Nx::SText::Destroy, &Nx::SText::ResetVertices, &Nx::SText::Draw,
+                &Nx::SText::DrawVertices};
+void** const kSTextVtable = reinterpret_cast<void**>(kSTextVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x004CECB0, &Nx::SFont::QueryString);
-REPLACE(0x004CFB20, &Nx::SText::DrawKeyChar);
-REPLACE(0x004CFD00, &Nx::SText::Draw);
-REPLACE(0x004CEED0, &Nx::SText::Construct);
-REPLACE(0x004CEEF0, &Nx::SText::DestroyBody);
-REPLACE(0x004CFAF0, &Nx::SText::Destroy);
-REPLACE(0x004CEF00, &Nx::SText::ResetVertices);
-REPLACE(0x004CEF10, &Nx::SText::DrawVertices);
-REPLACE(0x004CF0F0, Nx::SFont::Load);
-REPLACE(0x004CFA80, Nx::SFont::Unload);

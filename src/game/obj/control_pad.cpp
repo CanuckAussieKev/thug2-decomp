@@ -3,19 +3,17 @@
 #include "game/obj/control_pad.h"
 
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/crc.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Obj {
 
-GAME_GLOBAL(int, g_clockOffset, 0x00696D60);
+int g_clockOffset;
 
 namespace {
 
@@ -361,19 +359,3 @@ double __stdcall StickLength(float x, float y, float angle)
 }
 
 } // namespace Obj
-
-REPLACE(0x0046B7E0, &Obj::CControlButton::ClearTrigger);
-REPLACE(0x0046B7F0, &Obj::CControlButton::ClearRelease);
-REPLACE(0x0046B800, &Obj::CControlButton::SetName);
-REPLACE(0x0046B820, &Obj::CControlButton::Update);
-REPLACE(0x0046B8B0, &Obj::CControlButton::SetPressed);
-REPLACE(0x0046B900, &Obj::CControlButton::GetReleasedTime);
-REPLACE(0x0046B920, &Obj::CControlButton::GetPressedTime);
-REPLACE(0x0046B940, &Obj::CControlPad::Init);
-REPLACE(0x0046BA50, Obj::DPadDirection);
-REPLACE(0x0046BA80, Obj::DPadAngle);
-REPLACE(0x0046BB50, &Obj::CControlPad::Reset);
-REPLACE(0x0046BC60, &Obj::CControlPad::Clear);
-REPLACE(0x0046BDA0, &Obj::CControlPad::Update);
-REPLACE(0x0046C270, &Obj::CControlPad::GetButton);
-REPLACE(0x0046C370, Obj::StickLength);

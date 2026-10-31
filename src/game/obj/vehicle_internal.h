@@ -14,16 +14,14 @@
 #include "game/nx/feeler.h"
 #include "game/obj/object.h"
 #include "game/obj/trigger_component.h"
-#include "hook/game.h"
-#include "hook/game_code.h"
 
 namespace Obj::Vehicle {
 
 inline const float kGravity = std::bit_cast<float>(0x43C13333u); // 0x006466A4: 386.4 (inches a second squared)
 
 // The debug messages' format and file.
-inline const char* const kDebugFormat = GAME_TEXT(0x006466B0, "M:%s:%i: %s\n"); // "M:%s:%i: %s\n"
-inline const char* const kDebugFile = GAME_TEXT(0x006466CC, "omponents\\vehiclecomponent.cpp");   // "omponents\vehiclecomponent.cpp"
+inline const char* const kDebugFormat = "M:%s:%i: %s\n"; // "M:%s:%i: %s\n"
+inline const char* const kDebugFile = "omponents\\vehiclecomponent.cpp";   // "omponents\vehiclecomponent.cpp"
 
 // The trigger component's 0x00434BF0 / 0x00434CE0: a feeler / a rect feeler reported for
 // `events` (const int[3]).

@@ -15,10 +15,10 @@
 // status bar elides its hints and its right-hand text with "…" the same way.
 //
 // Only ImGui's own API and plain state here: the UI fills a State from the editor and its modules and applies the
-// Events; the self-test (src/hook/selftests_editor_ui.cpp) lays both out headless at several window sizes and scales.
+// Events; both can be laid out headless at any window size and scale.
 namespace Front::LevelEditor::UiStrip {
 
-// --- the pure placement (self-tested) --------------------------------------------------------------------------------
+// --- the pure placement ----------------------------------------------------------------------------------------------
 
 // A control on the strip: its width, the space before it, whether it sits at the strip's right end, and how important
 // it is (the lowest goes into the overflow menu first; ties: the later one).

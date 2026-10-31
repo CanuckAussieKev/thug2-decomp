@@ -4,7 +4,6 @@
 #include <cstdint>
 
 #include "game/mth/vector.h"
-#include "hook/game_global.h"
 
 // A scene mesh (Nx engine, PC): what its vertex and index buffers hold and the operations on it that live here -
 // moving and turning it in place, copying it, making it a billboard. Most of its code (drawing, the buffers
@@ -209,6 +208,6 @@ sVertexBuffer* __cdecl NewVertexBuffer(uint32_t bytes, uint32_t usage, uint32_t 
 void __cdecl ReleaseBuffers();
 void __cdecl RecreateBuffers();
 
-GAME_GLOBAL_EXTERN(void*, g_vertexBufferList);
-GAME_GLOBAL_EXTERN(void*, g_indexBufferList);
+extern void* g_vertexBufferList;
+extern void* g_indexBufferList;
 } // namespace Nx

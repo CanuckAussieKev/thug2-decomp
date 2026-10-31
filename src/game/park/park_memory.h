@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include "hook/game_global.h"
 
 namespace Mem {
 class Heap;
@@ -94,6 +93,6 @@ bool __cdecl PiecesFit(int first, int last);
 // else in the bottom-up one) and the three pools in it; figures cleared.
 void __cdecl Init(uint32_t level);
 
-GAME_GLOBAL_EXTERN(Mem::Heap*, g_parkHeap);
+extern Mem::Heap* g_parkHeap;
 
 } // namespace Ed

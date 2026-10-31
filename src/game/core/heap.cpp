@@ -6,10 +6,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/script/cfuncs_engine.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Mem {
 
@@ -17,8 +14,8 @@ namespace {
 
 extern void** const kHeapVtable;
 
-GAME_GLOBAL(int, g_heapBusy, 0x007D0FDC);
-GAME_GLOBAL(BlockHeader*, g_forcedFreeBlock, 0x007D0FE0);
+int g_heapBusy;
+BlockHeader* g_forcedFreeBlock;
 
 // Set while a heap is falling back on others or resizing a block, so a fallback heap doesn't fall back in turn.
 int& HeapBusy() { return g_heapBusy; }
@@ -298,20 +295,11 @@ struct HeapAdapters {
 
 } // namespace
 
-
 namespace Mem {
 namespace {
-GAME_VTABLE(kHeapVtable, 0x0065848C, &Mem::Allocator::PushContext, &Mem::Allocator::PopContext,
-            &HeapAdapters::Destroy, &Mem::Heap::Allocate, &Mem::Heap::LargestFree, &Mem::Heap::ReallocateDown,
-            &Mem::Heap::ReallocateUp, &Mem::Heap::ReallocateShrink, &Mem::Heap::Free);
+static VtableSlot kHeapVtable_slots[] = {&Mem::Allocator::PushContext, &Mem::Allocator::PopContext,
+                &HeapAdapters::Destroy, &Mem::Heap::Allocate, &Mem::Heap::LargestFree, &Mem::Heap::ReallocateDown,
+                &Mem::Heap::ReallocateUp, &Mem::Heap::ReallocateShrink, &Mem::Heap::Free};
+void** const kHeapVtable = reinterpret_cast<void**>(kHeapVtable_slots);
 } // namespace
 } // namespace Mem
-
-REPLACE(0x005BA520, &HeapAdapters::Construct);
-REPLACE(0x005BA560, &HeapAdapters::Destroy);
-REPLACE(0x005BA780, &Mem::Heap::Allocate);
-REPLACE(0x005BA4F0, &Mem::Heap::LargestFree);
-REPLACE(0x005BA9A0, &Mem::Heap::ReallocateDown);
-REPLACE(0x005BAA20, &Mem::Heap::ReallocateUp);
-REPLACE(0x005BAAE0, &Mem::Heap::ReallocateShrink);
-REPLACE(0x005BA5A0, &Mem::Heap::Free);

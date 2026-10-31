@@ -23,40 +23,35 @@
 #include "game/sys/platform_d3d.h"
 #include "game/sys/sdl_window.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 #include "game/sys/game_config.h"
 #include "game/sys/crt.h"
 
-
 namespace Nx {
 
-GAME_GLOBAL(IDirect3DDevice9*, g_d3dDevice, 0x007D69E0);
-GAME_GLOBAL(D3DPRESENT_PARAMETERS, g_presentParameters, 0x00786A7C);
-GAME_GLOBAL(bool, g_streamOffsetSupported, 0x00786AB6);
-GAME_GLOBAL(bool, g_showWindowFlag, 0x00786AB7); // (the original showed the window maximised / minimised by it)
-GAME_GLOBAL(uint32_t, g_loadingBarTimer, 0x00786D08); // the timer's id (timeSetEvent)
-GAME_GLOBAL(float, g_screenScaleX, 0x00786D80); // 640x480 -> back buffer scale
-GAME_GLOBAL(IDirect3DDevice9*, g_drawDevice, 0x00786D0C); // the same device, kept twice
-GAME_GLOBAL(IDirect3DTexture9*[9], g_screenTextures, 0x00786D1C);
+IDirect3DDevice9* g_d3dDevice;
+D3DPRESENT_PARAMETERS g_presentParameters;
+bool g_streamOffsetSupported;
+bool g_showWindowFlag; // (the original showed the window maximised / minimised by it)
+uint32_t g_loadingBarTimer; // the timer's id (timeSetEvent)
+float g_screenScaleX; // 640x480 -> back buffer scale
+IDirect3DDevice9* g_drawDevice; // the same device, kept twice
+IDirect3DTexture9* g_screenTextures[9];
 
-GAME_GLOBAL(uint8_t, g_setFrequencyAllowed, 0x0067DA40, 1);
-GAME_GLOBAL(int, g_resolutionSetting, 0x007D643C);
-GAME_GLOBAL(bool, g_antialiasing, 0x007D6434);
-GAME_GLOBAL(int, g_screenOffsetY, 0x00786D8C);
-GAME_GLOBAL(int, g_screenOffsetX, 0x00786D88);
-GAME_GLOBAL(float, g_screenScaleY, 0x00786D84);
-GAME_GLOBAL(IDirect3DSurface9*, g_depthSurface, 0x00786D64);
-GAME_GLOBAL(IDirect3DSurface9*[9], g_screenSurfaces, 0x00786D40); // their level 0
-GAME_GLOBAL(IDirect3DSurface9*, g_backDepth, 0x00786D14);
-GAME_GLOBAL(IDirect3DSurface9*, g_backBuffer, 0x00786D10);
-GAME_GLOBAL(bool, g_blendFactorSupported, 0x00786AC1);
-GAME_GLOBAL(bool, g_borderAddressingSupported, 0x00786AC0);
-GAME_GLOBAL(uint32_t, g_maxAnisotropy, 0x00786ABC);
-GAME_GLOBAL(HWND, g_gameWindow, 0x007D6A28);
-GAME_GLOBAL(IDirect3D9*, g_direct3D, 0x007D69DC);
+uint8_t g_setFrequencyAllowed{1};
+int g_resolutionSetting;
+bool g_antialiasing;
+int g_screenOffsetY;
+int g_screenOffsetX;
+float g_screenScaleY;
+IDirect3DSurface9* g_depthSurface;
+IDirect3DSurface9* g_screenSurfaces[9]; // their level 0
+IDirect3DSurface9* g_backDepth;
+IDirect3DSurface9* g_backBuffer;
+bool g_blendFactorSupported;
+bool g_borderAddressingSupported;
+uint32_t g_maxAnisotropy;
+HWND g_gameWindow;
+IDirect3D9* g_direct3D;
 namespace {
 
 constexpr float Bits(uint32_t bits) { return std::bit_cast<float>(bits); }
@@ -64,22 +59,22 @@ constexpr float kPer640 = Bits(0x3ACCCCCD); // 0x0064A474, 1 / 640
 constexpr float kPer480 = Bits(0x3B088889); // 0x0064A47C, 1 / 480
 constexpr float kOffsetLines = 16.0f;       // 0x00645D68
 
-GAME_GLOBAL(int, g_deviceWidth, 0x0067EBCC, 640);
-GAME_GLOBAL(int, g_deviceHeight, 0x0067EBD0, 480);
-GAME_GLOBAL_UNCHECKED(const char*, g_discErrorFrench1, 0x0067EBD4, "Le disque utilis\xE9 pr\xE9sente une anomalie.");
-GAME_GLOBAL_UNCHECKED(const char*, g_discErrorFrench2, 0x0067EBD8, "Il est peut-\xEAtre sale ou endommag\xE9.");
-GAME_GLOBAL_UNCHECKED(const char*, g_discErrorGerman1, 0x0067EBDC, "Bei der benutzten CD ist ein Problem aufgetreten.");
-GAME_GLOBAL_UNCHECKED(const char*, g_discErrorGerman2, 0x0067EBE0, "M\xF6glicherweise ist sie verschmutzt oder besch\xE4" "digt.");
-GAME_GLOBAL_UNCHECKED(const char*, g_discErrorEnglish1, 0x0067EBE4, "There's a problem with the disc you're using.");
-GAME_GLOBAL_UNCHECKED(const char*, g_discErrorEnglish2, 0x0067EBE8, "It may be dirty or damaged.");
-GAME_GLOBAL(D3DADAPTER_IDENTIFIER9, g_adapterIdentifier, 0x00786630);
-GAME_GLOBAL(bool, g_depthTexturesSupported, 0x00786AB9);
-GAME_GLOBAL(char[200], g_soundDeviceName, 0x00786AC8); // the description of the last sound device DirectSound listed
-GAME_GLOBAL(IDirect3DSurface9*, g_depthTextureTarget, 0x00786D18);
-GAME_GLOBAL(uint32_t, g_backBufferFormat, 0x00786D74);
-GAME_GLOBAL(uint32_t, g_screenSurfaceFormat, 0x00786D78);
-GAME_GLOBAL(uint32_t, g_depthBits, 0x00786D7C);
-GAME_GLOBAL(SFont*, g_debugFont, 0x00786D90);
+int g_deviceWidth{640};
+int g_deviceHeight{480};
+const char* g_discErrorFrench1{"Le disque utilis\xE9 pr\xE9sente une anomalie."};
+const char* g_discErrorFrench2{"Il est peut-\xEAtre sale ou endommag\xE9."};
+const char* g_discErrorGerman1{"Bei der benutzten CD ist ein Problem aufgetreten."};
+const char* g_discErrorGerman2{"M\xF6glicherweise ist sie verschmutzt oder besch\xE4" "digt."};
+const char* g_discErrorEnglish1{"There's a problem with the disc you're using."};
+const char* g_discErrorEnglish2{"It may be dirty or damaged."};
+D3DADAPTER_IDENTIFIER9 g_adapterIdentifier;
+bool g_depthTexturesSupported;
+char g_soundDeviceName[200]; // the description of the last sound device DirectSound listed
+IDirect3DSurface9* g_depthTextureTarget;
+uint32_t g_backBufferFormat;
+uint32_t g_screenSurfaceFormat;
+uint32_t g_depthBits;
+SFont* g_debugFont;
 
 IDirect3D9*& Direct3D() { return g_direct3D; }
 IDirect3DDevice9*& Device() { return g_d3dDevice; }
@@ -105,12 +100,12 @@ void InitDirect3D()
     //   if (g_showWindowFlag) ShowWindow(Window(), SW_MAXIMIZE);
 
     // (Direct3DCreate9 and MessageBoxA through the exe's imports)
-    IDirect3D9* d3d = GAME_LIBRARY(0x005BEB14, IDirect3D9*(WINAPI*)(UINT), Direct3DCreate9)(31); // the game's D3D_SDK_VERSION
+    IDirect3D9* d3d = Direct3DCreate9(31); // the game's D3D_SDK_VERSION
     Direct3D() = d3d;
     if (!d3d) {
         // (the text and the caption are the wrong way round)
-        GAME_IMPORT(0x00645224, decltype(&MessageBoxA), MessageBoxA)(nullptr, GAME_TEXT(0x0064A938, "Error") /* "Error" */,
-                                                         GAME_TEXT(0x0064A940, "Direct3D could not initialize. Please download and install DirectX 9.0 or higher.")
+        MessageBoxA(nullptr, "Error" /* "Error" */,
+                                                         "Direct3D could not initialize. Please download and install DirectX 9.0 or higher."
                                                          /* "Direct3D could not initialize. Please download and install DirectX 9.0 or higher." */,
                                                          MB_OK);
         return;
@@ -258,7 +253,7 @@ HRESULT __cdecl CreateDevice(int width, int height, bool hardwareVertices, bool 
     std::memset(&id, 0, sizeof(id));
     Direct3D()->GetAdapterIdentifier(D3DADAPTER_DEFAULT, 0, &id);
     // (through the exe's import of DirectSoundEnumerateA)
-    GAME_IMPORT(0x0064502C, DirectSoundEnumerateFn, DirectSoundEnumerateA)(&SoundDeviceFound, nullptr);
+    DirectSoundEnumerateA(&SoundDeviceFound, nullptr);
     // A Radeon 8500 (0x00786AB5)...
     g_radeon8500 = std::strstr(id.Description, "8500") != nullptr;
     // ... and an Intel 915G with Realtek HD audio's rear output: 0x0067DA40 off.
@@ -364,7 +359,7 @@ void __cdecl ShowDiscError()
 {
     uint32_t& timer = g_loadingBarTimer;
     if (timer) {
-        GAME_IMPORT(0x00645268, MMRESULT(WINAPI*)(UINT), timeKillEvent)(timer); // (the exe's import)
+        timeKillEvent(timer); // (the exe's import)
         timer = 0;
     }
     if (!g_drawDevice)
@@ -438,13 +433,3 @@ long __cdecl ClearDevice(uint32_t rectCount, const void* rects, uint32_t flags, 
 }
 
 } // namespace Nx
-
-REPLACE(0x004D8650, Nx::InitDirect3D);
-REPLACE(0x0044F870, Nx::SetRenderState);
-REPLACE(0x0044F890, Nx::ClearDevice);
-REPLACE(0x004D7C20, Nx::SoundDeviceFound);
-REPLACE(0x004D7C80, Nx::CreateDevice);
-REPLACE(0x004D7AF0, Nx::ReleaseRenderTargets);
-REPLACE(0x004D8420, Nx::CreateRenderTargets);
-REPLACE(0x004D7B60, Nx::LoadGamma);
-REPLACE(0x004D89C0, Nx::ShowDiscError);

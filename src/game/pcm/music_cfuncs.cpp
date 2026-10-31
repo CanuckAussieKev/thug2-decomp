@@ -1,7 +1,6 @@
 // The script commands of the music and streams, 0x0044D100-0x0044D7C7 (see music_cfuncs.h).
 
 #include "game/pcm/music_cfuncs.h"
-#include "hook/game_code.h"
 
 #include <cstdint>
 
@@ -14,8 +13,6 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/sys/crt.h"
 
 namespace CFuncs {
@@ -125,12 +122,12 @@ bool __cdecl CFunc_PlayTrack(CStruct* params, CScript*)
     if (!params->GetString(0u, &name, 0)) {
         params->GetInteger(0u, &track, 0);
         name = Pcm::GetTrackName(track, 0);
-        Sprintf(path, GAME_TEXT(0x00647244, "MUSIC\\VAG\\SONGS\\%s"), name); // "MUSIC\VAG\SONGS\%s"
+        Sprintf(path, "MUSIC\\VAG\\SONGS\\%s", name); // "MUSIC\VAG\SONGS\%s"
         name = path;
     }
     params->GetInteger(kLoop, &loop, 0);
     if (name) {
-        Dbg::Printf(GAME_TEXT(0x00647214, "PlayTrack songName ===================== %s\n"), name); // "PlayTrack songName ==... %s"
+        Dbg::Printf("PlayTrack songName ===================== %s\n", name); // "PlayTrack songName ==... %s"
         Pcm::StopMusic();
         Pcm::PlayTrack(name, loop != 0);
         Pcm::SetCurrentTrack(track);
@@ -230,7 +227,7 @@ bool __cdecl CFunc_ChangeTrackState(CStruct* params, CScript*)
 {
     int track = 0;
     params->GetInteger(0u, &track, 0);
-    bool off = params->ContainsFlag(GAME_TEXT(0x00647258, "Off")); // "Off"
+    bool off = params->ContainsFlag("Off"); // "Off"
     Pcm::ChangeTrackState(track, off, 0);
     return true;
 }
@@ -439,35 +436,3 @@ bool __cdecl CFunc_StartPreLoadedStream(CStruct* params, CScript*)
 }
 
 } // namespace CFuncs
-
-REPLACE(0x0044D100, CFuncs::CFunc_StreamExists);
-REPLACE(0x0044D140, CFuncs::CFunc_AddStream);
-REPLACE(0x0044D1B0, CFuncs::CFunc_RemoveStream);
-REPLACE(0x0044D220, CFuncs::CFunc_StopStream);
-REPLACE(0x0044D260, CFuncs::CFunc_IsStreamPlaying);
-REPLACE(0x0044D2A0, CFuncs::CFunc_PlayTrack);
-REPLACE(0x0044D380, CFuncs::CFunc_PlayMusicStream);
-REPLACE(0x0044D3E0, CFuncs::CFunc_LoadStreamFrameAmp);
-REPLACE(0x0044D420, CFuncs::CFunc_FreeStreamFrameAmp);
-REPLACE(0x0044D460, CFuncs::CFunc_SetMusicVolume);
-REPLACE(0x0044D490, CFuncs::CFunc_SetMusicStreamVolume);
-REPLACE(0x0044D4C0, CFuncs::CFunc_StopMusic);
-REPLACE(0x0044D4D0, CFuncs::CFunc_PauseMusic);
-REPLACE(0x0044D500, CFuncs::CFunc_PauseStream);
-REPLACE(0x0044D530, CFuncs::CFunc_AddMusicTrack);
-REPLACE(0x0044D5B0, CFuncs::CFunc_ChangeTrackState);
-REPLACE(0x0044D5F0, CFuncs::CFunc_TrackEnabled);
-REPLACE(0x0044D690, CFuncs::CFunc_ClearMusicTrackList);
-REPLACE(0x0044D6C0, CFuncs::CFunc_SkipMusicTrack);
-REPLACE(0x0044D6D0, CFuncs::CFunc_SetMusicMode);
-REPLACE(0x0044D710, CFuncs::CFunc_SetRandomMode);
-REPLACE(0x0044D740, CFuncs::CFunc_SetMusicLooping);
-REPLACE(0x0044D770, CFuncs::CFunc_PreLoadStreamDone);
-REPLACE(0x0044D790, CFuncs::CFunc_UseUserSoundtrack);
-REPLACE(0x0044D7C0, CFuncs::CFunc_UseStandardSoundtrack);
-REPLACE(0x0044D8F0, CFuncs::CFunc_PlayStream);
-REPLACE(0x0044DAA0, CFuncs::CFunc_SetStreamParams);
-REPLACE(0x0044E120, CFuncs::CFunc_LoadMusicHeader);
-REPLACE(0x0044E180, CFuncs::CFunc_LoadStreamHeader);
-REPLACE(0x0044E1E0, CFuncs::CFunc_GetCurrentTrack);
-REPLACE(0x0044E2C0, CFuncs::CFunc_StartPreLoadedStream);

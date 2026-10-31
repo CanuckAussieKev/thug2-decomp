@@ -2,6 +2,7 @@
 
 #include "game/skate/career.h"
 
+#include <cstddef>
 #include <cstdint>
 
 #include "game/core/manager.h"
@@ -13,16 +14,13 @@
 #include "game/skate/gap_checklist.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/net/gamenet_manager.h"
-#include "hook/game_code.h"
 
 namespace Obj {
 
 // Levels left out of the totals (a byte each, up to the cheat flag at 0x007CE4FD).
-GAME_GLOBAL(bool[CSkaterCareer::kLevels], g_careerLeftOut, 0x007CE4E8);
+bool g_careerLeftOut[CSkaterCareer::kLevels];
 
 namespace {
 
@@ -323,7 +321,8 @@ constexpr uint32_t kValue634 = 0xF884773C;
 constexpr uint32_t kMaxValue634 = 0x1C6CF075;
 constexpr uint32_t kInfoStructure = 0x55D761CF;
 
-GAME_VTABLE(kCareerVtable, 0x0064EFD4, &Obj::CSkaterCareer::Destroy);
+static VtableSlot kCareerVtable_slots[] = {&Obj::CSkaterCareer::Destroy};
+void** const kCareerVtable = reinterpret_cast<void**>(kCareerVtable_slots);
 
 Script::CArray* NewArray(uint32_t size, Script::ESymbolType type)
 {
@@ -585,40 +584,3 @@ bool __cdecl CFunc_GetCareerSaveInfo(Script::CStruct* /*params*/, Script::CScrip
 }
 
 } // namespace Obj
-
-REPLACE(0x00584110, &Obj::CSkaterCareer::GetGapChecklist);
-REPLACE(0x00584130, &Obj::CSkaterCareer::GetLevel);
-REPLACE(0x00584140, &Obj::CSkaterCareer::SetGoal);
-REPLACE(0x00584180, &Obj::CSkaterCareer::UnSetGoal);
-REPLACE(0x005841D0, &Obj::CSkaterCareer::GetGoal);
-REPLACE(0x00584210, &Obj::CSkaterCareer::JustGotGoal);
-REPLACE(0x00584250, &Obj::CSkaterCareer::CountGoals);
-REPLACE(0x005842A0, &Obj::CSkaterCareer::CountTotalGoals);
-REPLACE(0x00584320, &Obj::CSkaterCareer::CountLevelsWithGoals);
-REPLACE(0x005843A0, &Obj::CSkaterCareer::SetGlobalFlag);
-REPLACE(0x005843D0, &Obj::CSkaterCareer::UnSetGlobalFlag);
-REPLACE(0x00584400, &Obj::CSkaterCareer::GetGlobalFlag);
-REPLACE(0x00584430, &Obj::CSkaterCareer::SetFlag);
-REPLACE(0x00584470, &Obj::CSkaterCareer::UnSetFlag);
-REPLACE(0x005844C0, &Obj::CSkaterCareer::GetFlag);
-REPLACE(0x00584500, &Obj::CSkaterCareer::JustGotFlag);
-REPLACE(0x00584540, &Obj::CSkaterCareer::GetInfoInteger);
-REPLACE(0x00584560, &Obj::CSkaterCareer::SetInfoInteger);
-REPLACE(0x00584580, &Obj::CSkaterCareer::AddToInfo471FC4DD);
-REPLACE(0x005845C0, &Obj::CSkaterCareer::AddCash);
-REPLACE(0x005845F0, &Obj::CSkaterCareer::SetLevelAmount);
-REPLACE(0x00584620, &Obj::CSkaterCareer::IncrementCounter);
-REPLACE(0x00584640, &Obj::CSkaterCareer::GetCounter);
-REPLACE(0x00584650, &Obj::CSkaterCareer::SetFlag5EF);
-REPLACE(0x00584660, &Obj::CSkaterCareer::SetValue634);
-REPLACE(0x00584680, &Obj::CSkaterCareer::Reset);
-REPLACE(0x00584BA0, &Obj::CSkaterCareer::ResetPart);
-REPLACE(0x00584BC0, &Obj::CSkaterCareer::AllGapsGot);
-REPLACE(0x00584C60, &Obj::CSkaterCareer::StartLevel);
-REPLACE(0x00584CC0, &Obj::CSkaterCareer::GetCheat);
-REPLACE(0x00584D00, &Obj::CSkaterCareer::ReadFromStructure);
-REPLACE(0x00585270, &Obj::CSkaterCareer::Construct);
-REPLACE(0x00585550, &Obj::CSkaterCareer::WriteToStructure);
-REPLACE(0x00585E20, Obj::CFunc_GetCareerSaveInfo);
-REPLACE(0x00585E40, &Obj::CSkaterCareer::DestroyBody);
-REPLACE(0x00585EA0, &Obj::CSkaterCareer::Destroy);

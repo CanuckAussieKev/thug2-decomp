@@ -9,8 +9,6 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace CFuncs {
 
@@ -275,19 +273,3 @@ bool __cdecl CFunc_SetPositionalSoundSilenceOverrideMode(CStruct* params, CScrip
 }
 
 } // namespace CFuncs
-
-REPLACE(0x0044D7D0, CFuncs::CFunc_LoadSound);
-REPLACE(0x0044DC10, CFuncs::CFunc_PlaySound);
-REPLACE(0x0044DD50, CFuncs::CFunc_StopSound);
-REPLACE(0x0044DDA0, CFuncs::CFunc_StopAllSounds);
-REPLACE(0x0044DDB0, CFuncs::CFunc_SetSoundParams);
-REPLACE(0x0044DED0, CFuncs::CFunc_IsSoundPlaying);
-REPLACE(0x0044DF10, CFuncs::CFunc_AddSoundBanks);
-REPLACE(0x0044DF70, CFuncs::CFunc_ClearSoundBank);
-REPLACE(0x0044DFA0, CFuncs::CFunc_RemoveAllSoundBanks);
-REPLACE(0x0044DFB0, CFuncs::CFunc_SetSfxReverb);
-REPLACE(0x0044E040, CFuncs::CFunc_SetSfxDropoff);
-REPLACE(0x0044E090, CFuncs::CFunc_SetSfxVolume);
-REPLACE(0x0044E0C0, CFuncs::CFunc_SetGlobalPitchModulation);
-REPLACE(0x0044E200, CFuncs::CFunc_GetValueFromVolume);
-REPLACE(0x0044E290, CFuncs::CFunc_SetPositionalSoundSilenceOverrideMode);

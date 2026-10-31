@@ -2,6 +2,7 @@
 
 #include "game/obj/path_manager.h"
 
+#include <cstdint>
 #include <new>
 
 #include "game/core/manager.h"
@@ -9,13 +10,10 @@
 #include "game/obj/object.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Obj {
 
-GAME_GLOBAL(CPathManager*, g_pathManager, 0x006F2264);
+CPathManager* g_pathManager;
 
 namespace {
 
@@ -243,16 +241,3 @@ bool CFunc_AllocatePathManMemory(Script::CStruct* params, Script::CScript* /*scr
 }
 
 } // namespace Obj
-
-REPLACE(0x004694A0, &Obj::CObjectGroup::Destruct);
-REPLACE(0x004694E0, Obj::CPathManager::Instance);
-REPLACE(0x00469540, &Obj::CObjectGroup::ReleaseAll);
-REPLACE(0x00469580, &Obj::CObjectGroup::Remove);
-REPLACE(0x004695D0, &Obj::CObjectGroup::Add);
-REPLACE(0x00469620, &Obj::CPathManager::AddToPath);
-REPLACE(0x00469670, &Obj::CPathManager::AddToExtraGroup);
-REPLACE(0x004696C0, &Obj::CPathManager::NumberPaths);
-REPLACE(0x00469820, &Obj::CPathManager::Free);
-REPLACE(0x004698C0, &Obj::CObjectGroup::Init);
-REPLACE(0x00469960, &Obj::CPathManager::Allocate);
-REPLACE(0x00469A80, Obj::CFunc_AllocatePathManMemory);

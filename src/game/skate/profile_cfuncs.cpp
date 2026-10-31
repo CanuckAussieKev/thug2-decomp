@@ -17,13 +17,10 @@
 #include "game/gfx/engine_glue.h"
 #include "game/gfx/model.h"
 #include "game/gfx/model_appearance.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 
 namespace CFuncs {
 
-GAME_GLOBAL(SwapSlot[5], g_swapTable, 0x007CEDE0);
+SwapSlot g_swapTable[5];
 
 namespace {
 
@@ -43,7 +40,7 @@ CStruct* ResultParams(CScript* script) { return *reinterpret_cast<CStruct**>(rei
 // The skate module's profile `params`' skater names (0x00564F80).
 Obj::CSkaterProfile* SkateProfile(CStruct* params) { return Mdl::Skate::Instance()->GetProfile(params); }
 
-const char* const kNoText = GAME_TEXT(0x0064F7B4, "---"); // "---"
+const char* const kNoText = "---"; // "---"
 
 } // namespace
 
@@ -240,14 +237,3 @@ bool __cdecl CFunc_RememberTemporaryAppearance(CStruct* params, CScript*)
 }
 
 } // namespace CFuncs
-
-REPLACE(0x005AA930, CFuncs::SwapMapping);
-REPLACE(0x005AAA80, CFuncs::CFunc_AddGoalEditorNodesToLevelNodeArray);
-REPLACE_UNCHECKED(0x005AAAA0, CFuncs::PreloadMeshesStub); // the array's name in EAX
-REPLACE(0x005AAB50, CFuncs::CFunc_CurrentSkaterIsPro);
-REPLACE(0x005AAB80, CFuncs::CFunc_GetGoalsCompleted);
-REPLACE(0x005AAC10, CFuncs::CFunc_GetNextLevelRequirements);
-REPLACE(0x005AAD70, CFuncs::CFunc_SetCurrentSkaterProfile);
-REPLACE(0x005AADA0, CFuncs::CFunc_AddSkaterProfile);
-REPLACE(0x005AADC0, CFuncs::CFunc_AddTemporaryProfile);
-REPLACE(0x005AADF0, CFuncs::CFunc_RememberTemporaryAppearance);

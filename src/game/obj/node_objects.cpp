@@ -3,6 +3,7 @@
 
 #include "game/obj/node_objects.h"
 
+#include <cstdint>
 #include <new>
 
 #include "game/core/manager.h"
@@ -17,12 +18,10 @@
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/gfx/viewport.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
-#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -330,49 +329,26 @@ void CClassNodeList::SetNodes(Script::CArray* nodes)
 
 } // namespace Obj
 
-REPLACE(0x00468B00, Obj::CreateParticleObject);
-REPLACE(0x00468B60, Obj::StartNodeObject);
-REPLACE(0x00468CB0, Obj::CreateGameObject);
-REPLACE(0x00468EB0, Obj::CreateGameObjectFromNode);
-REPLACE(0x00468EC0, Obj::CreateNodeObject);
-REPLACE(0x00468F20, &Obj::CMovieDetails::CheckDone);
-REPLACE(0x00468F40, &Obj::CMovieDetails::SetFlag19);
-REPLACE(0x00468F50, &Obj::CMovieDetails::SetFlag1B);
-REPLACE(0x00468F60, &Obj::CMovieDetails::SetValue20);
-REPLACE(0x00468F70, &Obj::CMovieDetails::DestroyNode);
-REPLACE(0x00468FB0, &Obj::CMovieDetails::Construct);
-REPLACE(0x00469050, &Obj::CMovieDetails::InitFromStructure);
-REPLACE(0x00469180, &Obj::CMovieDetails::GetSettings);
-REPLACE(0x00469230, &Obj::CMovieDetails::DestroyBody);
-REPLACE(0x004692D0, &Obj::CMovieDetails::Destroy);
-REPLACE(0x00469300, &Obj::CClassNodeList::Clear);
-REPLACE_SOURCE_ONLY(0x004693D0, &Obj::CClassNodeList::Clear); // a jump to 0x00469300
-REPLACE(0x00469340, &Obj::CClassNodeList::SetTransform);
-REPLACE(0x00469350, &Obj::CClassNodeList::Transform);
-REPLACE(0x004693C0, &Obj::CClassNodeList::Init);
-REPLACE(0x004693E0, &Obj::CClassNodeList::AddEntry);
-REPLACE(0x00469430, &Obj::CClassNodeList::SetNodes);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kMovieDetailsVtable, 0x00647A4C,
-    &Obj::CMovieDetails::Destroy,
-    GAME_LIBRARY_SLOT(0x00623771),
-    GAME_LIBRARY_SLOT(0x00623771),
-    GAME_LIBRARY_SLOT(0x00623771),
-    &Nx::CViewport::QueryPoint,
-    GAME_LIBRARY_SLOT(0x00623771),
-    GAME_LIBRARY_SLOT(0x00623771),
-    GAME_LIBRARY_SLOT(0x00623771),
-    Stubs::DoNothing,
-    GAME_LIBRARY_SLOT(0x00623771),
-    Stubs::ReturnFalse,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing);
-GAME_VTABLE(kMovieNodeVtable, 0x00647A48,
-    &Obj::CMovieDetails::DestroyNode);
+static VtableSlot kMovieDetailsVtable_slots[] = {&Obj::CMovieDetails::Destroy,
+         &_purecall,
+         &_purecall,
+         &_purecall,
+         &Nx::CViewport::QueryPoint,
+         &_purecall,
+         &_purecall,
+         &_purecall,
+         Stubs::DoNothing,
+         &_purecall,
+         Stubs::ReturnFalse,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing};
+void** const kMovieDetailsVtable = reinterpret_cast<void**>(kMovieDetailsVtable_slots);
+static VtableSlot kMovieNodeVtable_slots[] = {&Obj::CMovieDetails::DestroyNode};
+void** const kMovieNodeVtable = reinterpret_cast<void**>(kMovieNodeVtable_slots);
 
 } // namespace
 } // namespace Obj

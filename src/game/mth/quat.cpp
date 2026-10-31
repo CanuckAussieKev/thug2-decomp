@@ -8,7 +8,6 @@
 
 #include "game/mth/matrix.h"
 #include "game/mth/x87_math.h"
-#include "hook/hook.h"
 
 namespace Mth {
 
@@ -140,12 +139,3 @@ Quat* Quat::Normalize(float length)
 }
 
 } // namespace Mth
-
-REPLACE(0x0042E1F0, &Mth::Quat::FromMatrix);
-REPLACE(0x0042E310, &Mth::Quat::Normalize);
-REPLACE(0x00420AC0, &Mth::Quat::InitFromAxisAngle);
-REPLACE(0x00420140, &Mth::Quat::operator*=);
-REPLACE(0x00420B50, &Mth::Quat::Rotate);
-REPLACE(0x00420A50, &Mth::Vector::RotateAboutX);
-REPLACE(0x00420A90, &Mth::Vector::RotateAboutY);
-REPLACE(0x00421440, &Mth::Vector::RotateAboutAxis);

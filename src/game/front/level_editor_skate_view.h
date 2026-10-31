@@ -25,7 +25,7 @@ struct Painter;
 // faces drawn, under the lines (ImGui's background list) - and the collision view (C) can be on with it.
 namespace Front::LevelEditor::SkateView {
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_ux9.cpp) -------------------------------------------------
+// --- the pure parts --------------------------------------------------------------------------------------------------
 
 enum class Kind : uint8_t { None, Floor, Bank, Vert, Wallride, NotSkatable, Kill, Water, kCount };
 constexpr int kKinds = static_cast<int>(Kind::kCount);

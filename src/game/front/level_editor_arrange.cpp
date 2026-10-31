@@ -6,10 +6,15 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <initializer_list>
 #include <map>
 #include <tuple>
+#include <type_traits>
+#include <vector>
 
 #include "game/core/crc.h"
 #include "game/front/level_editor_actions.h"
@@ -30,7 +35,6 @@
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 
 namespace Front::LevelEditor::Arrange {

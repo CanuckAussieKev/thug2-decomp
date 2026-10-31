@@ -5,7 +5,6 @@
 
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
-#include "hook/game_global.h"
 
 namespace Lst {
 class HashTable;
@@ -91,6 +90,6 @@ void __cdecl UpdateShatter(CPcShatter* shatter, float step);
 // the table.
 void __cdecl ShatterGeom(uint8_t* geom);
 
-GAME_GLOBAL_EXTERN(Lst::HashTable*, g_shatters);
+extern Lst::HashTable* g_shatters;
 
 } // namespace Nx

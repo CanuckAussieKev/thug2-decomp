@@ -9,8 +9,6 @@
 #include "game/gfx/render.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/viewport_list.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Nx {
 
@@ -76,5 +74,3 @@ void DrawFlash(const Flash* flash)
 }
 
 } // namespace Nx
-
-REPLACE(0x004B9030, Nx::DrawFlash);

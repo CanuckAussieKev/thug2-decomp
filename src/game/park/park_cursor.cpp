@@ -2,8 +2,8 @@
 // floor; and the park manager's set-up (0x0059D120-0x0059E0F7, see park_editor.h).
 
 #include "game/park/park_editor.h"
-#include "hook/game_code.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
@@ -16,8 +16,6 @@
 #include "game/ed/park_editor.h"
 #include "game/park/park_memory.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Ed {
 
@@ -110,7 +108,7 @@ bool CCursor::PlacePiece()
     for (int slot = 1; slot < 9; ++slot) {
         if (type == manager->At<uint32_t>(0x177A4 + (slot - 1) * 4)) {
             if (!AsGenerator(manager->Generator())->HasFreeRestartSlot(slot)) {
-                Dbg::Printf(GAME_TEXT(0x0064F85C, "No free slots exist for this type of restart point\n")); // "No free slots exist for this type of restart point\n"
+                Dbg::Printf("No free slots exist for this type of restart point\n"); // "No free slots exist for this type of restart point\n"
                 return false;
             }
             break;
@@ -123,7 +121,7 @@ bool CCursor::PlacePiece()
     manager->AddMetaPieceToPark(Area(), piece);
     SetDefaultHeap(GetMainHeap());
     manager->RebuildArea(&Area(), false);
-    MemoryMarker(GAME_TEXT(0x0064F890, "After placing a piece")); // "After placing a piece"
+    MemoryMarker("After placing a piece"); // "After placing a piece"
     return true;
 }
 
@@ -173,7 +171,7 @@ bool CCursor::AddGapHalf()
                 // The gap's name: "gap", then "gap2", "gap3"...
                 if (GapCounter() > 1)
 #pragma warning(suppress : 4996)
-                    std::sprintf(gap.m_text, GAME_TEXT(0x0064F8A8, "gap%d"), GapCounter()); // "gap%d"
+                    std::sprintf(gap.m_text, "gap%d", GapCounter()); // "gap%d"
                 else
                     std::memcpy(gap.m_text, "gap", 4);
                 ++GapCounter();
@@ -299,7 +297,7 @@ bool CCursor::DestroySelection()
     GridDims area = {};
     SelectedArea(this, &area);
     bool destroyed = Manager()->DestroyMetasInAreaAndRebuild(area, true, true, false);
-    MemoryMarker(GAME_TEXT(0x0064F8B0, "After Area deletion")); // "After Area deletion"
+    MemoryMarker("After Area deletion"); // "After Area deletion"
     Selecting() = true;
     At<bool>(0x55) = false;
     return destroyed;
@@ -416,20 +414,20 @@ void CParkManager::Initialize(uint32_t level)
 
     // The palette's sets (Ed_piece_sets): each a run of the standard meta pieces (Ed_standard_metapieces) from its
     // `first` up to the next set's, or the clipboards.
-    Script::CArray* sets = Script::GetArray(GAME_TEXT(0x0064F8E4, "Ed_piece_sets")); // "Ed_piece_sets"
+    Script::CArray* sets = Script::GetArray("Ed_piece_sets"); // "Ed_piece_sets"
     NumSets() = static_cast<int>(sets->m_size);
-    Script::CArray* standard = Script::GetArray(GAME_TEXT(0x0064F690, "Ed_standard_metapieces")); // "Ed_standard_metapieces"
+    Script::CArray* standard = Script::GetArray("Ed_standard_metapieces"); // "Ed_standard_metapieces"
     int end = static_cast<int>(standard->m_size);
     for (int i = NumSets() - 1; i >= 0; --i) {
         PieceSet& set = Sets(this)[i];
         auto* description = reinterpret_cast<Script::CStruct*>(sets->GetElement(static_cast<uint32_t>(i)));
         set.m_name = nullptr;
-        description->GetString(GAME_TEXT(0x0064D0C4, "name"), &set.m_name, 1); // "name"
+        description->GetString("name", &set.m_name, 1); // "name"
         set.m_nameChecksum = Crc::GenerateCRCFromString(set.m_name);
         set.m_selected = 0;
         set.m_numEntries = 0;
         uint32_t first = 0;
-        if (description->GetChecksum(GAME_TEXT(0x0064A144, "first"), &first, 0)) { // "first"
+        if (description->GetChecksum("first", &first, 0)) { // "first"
             // `first`'s place in the standard pieces (the manager's list runs from the last to the first).
             int index = 0;
             int position = At<int>(0x88) - 1;
@@ -455,7 +453,7 @@ void CParkManager::Initialize(uint32_t level)
                 set.m_entries[entry].checksum = MetaType(meta); // (no check for a missing piece, as in the original)
                 auto* pieceDescription =
                     reinterpret_cast<Script::CStruct*>(standard->GetElement(static_cast<uint32_t>(piece)));
-                if (!pieceDescription->GetString(GAME_TEXT(0x0064F8D8, "text_name"), // "text_name"
+                if (!pieceDescription->GetString("text_name", // "text_name"
                                                  &set.m_entries[entry].name, 0))
                     set.m_entries[entry].name = nullptr;
             }
@@ -467,25 +465,13 @@ void CParkManager::Initialize(uint32_t level)
             const char* text = Script::GetString(0x4E677220u);
             for (int k = 0; k < 6; ++k) {
                 char name[100];
-                std::snprintf(name, sizeof(name), GAME_TEXT(0x0064F8CC, "Clipboard%d"), k); // "Clipboard%d"
+                std::snprintf(name, sizeof(name), "Clipboard%d", k); // "Clipboard%d"
                 set.m_entries[k].name = text;
                 set.m_entries[k].checksum = Crc::GenerateCRCFromString(name);
             }
         }
-        set.m_visible = !description->ContainsFlag(GAME_TEXT(0x0064F8C4, "hidden")); // "hidden"
+        set.m_visible = !description->ContainsFlag("hidden"); // "hidden"
     }
 }
 
 } // namespace Ed
-
-REPLACE(0x0059D120, &Ed::CCursor::RemoveClipboardsTooBig);
-REPLACE(0x0059D240, &Ed::CCursor::PlacePiece);
-REPLACE(0x0059D380, &Ed::CCursor::DestroyUnderCursor);
-REPLACE(0x0059D410, &Ed::CCursor::AddGapHalf);
-REPLACE(0x0059D600, &Ed::CCursor::RemoveGapHalf);
-REPLACE(0x0059D6B0, &Ed::CCursor::ChangeGap);
-REPLACE(0x0059D8E0, &Ed::CCursor::DestroySelection);
-REPLACE(0x0059D980, &Ed::CCursor::FlattenSelection);
-REPLACE(0x0059D9F0, &Ed::CCursor::RaiseArea);
-REPLACE(0x0059DAA0, &Ed::CCursor::RaiseLower);
-REPLACE(0x0059DCD0, &Ed::CParkManager::Initialize);

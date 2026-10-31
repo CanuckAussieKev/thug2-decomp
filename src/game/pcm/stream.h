@@ -1,7 +1,5 @@
 #pragma once
 
-#include "hook/game_global.h"
-
 #include <cstddef>
 #include <cstdint>
 
@@ -296,10 +294,10 @@ const wchar_t* __cdecl UserSoundtrackName(int index);
 // 0x00454320: how many tracks soundtrack `index` has, 0 past the count.
 int __cdecl UserSoundtrackTracks(int index);
 
-GAME_GLOBAL_EXTERN(void*, g_wadFile);
-GAME_GLOBAL_EXTERN(bool, g_binkSoundSet);
-GAME_GLOBAL_EXTERN(uint32_t, g_streamFileUses);
-GAME_GLOBAL_EXTERN(WadEntry*, g_wadEntries);
-GAME_GLOBAL_EXTERN(void*, g_streamLock);
+extern void* g_wadFile;
+extern bool g_binkSoundSet;
+extern uint32_t g_streamFileUses;
+extern WadEntry* g_wadEntries;
+extern void* g_streamLock;
 
 } // namespace Pcm

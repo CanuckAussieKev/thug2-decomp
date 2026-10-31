@@ -8,14 +8,13 @@
 // from its script commands and its update.
 //
 // Not C++ virtual: the vtable pointer is the game's (CGoal's own 0x0064DDD0, a type's another), called through the
-// table (Virtual below) - the engine calls the same entries, and each is REPLACEd at its address. Every slot returns
+// table (Virtual below) - the engine calls the same entries. Every slot returns
 // what the callers read (AL for the bool ones; the setters' EAX is left unread - checked at the callers).
 
 #include <cstddef>
 #include <cstdint>
 
 #include "game/core/alloc.h"
-#include "hook/game_global.h"
 
 namespace Script {
 class CArray;
@@ -382,6 +381,6 @@ R Virtual(CGoal* goal, uint32_t slot, A... args)
     return reinterpret_cast<R(__thiscall*)(CGoal*, A...)>(goal->Vtable()[slot / 4])(goal, args...);
 }
 
-GAME_GLOBAL_EXTERN(float, g_goalLifeSecondsPerMillisecond);
+extern float g_goalLifeSecondsPerMillisecond;
 
 } // namespace Game

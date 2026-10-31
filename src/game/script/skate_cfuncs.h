@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include "hook/game_global.h"
 
 namespace Script {
 class CStruct;
@@ -65,6 +64,6 @@ bool __cdecl CFunc_OmnigonAllowed(Script::CStruct* params, Script::CScript* scri
 bool __cdecl CFunc_SetLevelName(Script::CStruct* params, Script::CScript* script);         // 0x0059F5B0
 bool __cdecl CFunc_DumpScripts(Script::CStruct* params, Script::CScript* script);          // 0x0059F5E0
 
-GAME_GLOBAL_EXTERN(char[128], g_nodeArrayName);
+extern char g_nodeArrayName[128];
 
 } // namespace CFuncs

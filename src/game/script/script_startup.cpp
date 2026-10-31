@@ -15,12 +15,8 @@
 #include "game/script/qb.h"
 #include "game/script/script_tables.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Script {
-
 
 namespace {
 
@@ -53,12 +49,7 @@ CFunctionEntry* FindCFunction(const char* name)
 
 void SetCFunction(CFunctionEntry& entry, void* function)
 {
-#ifdef THUG2_STANDALONE
     entry.function = function;
-#else
-    // (the table is the exe's .data: written the way every run-time patch of the exe is)
-    WriteGameCode(reinterpret_cast<uint32_t>(&entry.function), &function, sizeof(function));
-#endif
 }
 
 // 0x005A5960
@@ -169,18 +160,3 @@ void AllocatePools()
 }
 
 } // namespace Script
-
-REPLACE(0x005A5660, Script::GetNumCFunctions);
-REPLACE(0x005A5670, Script::GetNumMemberFunctions);
-REPLACE(0x005A5960, Script::LoadQBFile);
-REPLACE(0x005A5990, Script::LoadQBFileData);
-REPLACE(0x005A59B0, Script::UnloadQBFile);
-REPLACE(0x005A59D0, Script::LoadStartupQBFiles);
-REPLACE(0x005A5B20, Script::LoadAllStartupQBFiles);
-REPLACE(0x005A5B40, Script::CreateAnimCachePredictorPool);
-REPLACE(0x005A5BD0, Script::CreateBlendChannelPool);
-REPLACE(0x005A5C50, Script::CreateBonedAnimControllerPool);
-REPLACE(0x005A5CD0, Script::CreateAnimLookupPool);
-REPLACE(0x005A5D60, Script::CreateSpawnedPolyDetailsPool);
-REPLACE(0x005A5DF0, Script::CreateEventReceiverListPool);
-REPLACE(0x005A5E70, Script::AllocatePools);

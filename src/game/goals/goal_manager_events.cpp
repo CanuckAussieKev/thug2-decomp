@@ -2,6 +2,8 @@
 // (0x0055C7E0-0x0055D3E2), and the goal manager's script commands 0x0055D3F0-0x0055D954 (see goal_manager.h,
 // goal_manager_cfuncs.h).
 
+#include <cstdint>
+
 #include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_skate_line.h"
@@ -14,9 +16,6 @@
 #include "game/skate/trick_goals.h"
 #include "game/skater/skater.h"
 #include "game/skate/score.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 
 namespace Game {
 
@@ -59,7 +58,7 @@ constexpr uint32_t kTrickText = 0x3EAFA520;             // tricktext
 constexpr uint32_t kAttemptInfo = 0xD23AD129;           // (name unknown: GetGoalAttemptInfo's structure)
 constexpr uint32_t kSkater = 0x5B8AB877;                // skater
 
-const char* const kNoDescription = GAME_TEXT(0x0064DEF8, "Define <goal_description> for this goal and it will appear here....If you'd like, also define <view_goals_tip>, it's optional."); // "Define <goal_description> ..."
+const char* const kNoDescription = "Define <goal_description> for this goal and it will appear here....If you'd like, also define <view_goals_tip>, it's optional."; // "Define <goal_description> ..."
 
 Script::CStruct* NewStructure()
 {
@@ -399,18 +398,3 @@ bool __cdecl CFunc_GoalManager_GetViewGoalsInfo(Script::CStruct* params, Script:
 }
 
 } // namespace Game
-
-REPLACE(0x0055C7E0, &Game::CGoalManager::Land);
-REPLACE(0x0055CBB0, &Game::CGoalManager::Bail);
-REPLACE(0x0055CD70, &Game::CGoalManager::GetViewGoalsInfo);
-REPLACE(0x0055D3F0, Game::CFunc_GoalManager_AddGoal);
-REPLACE(0x0055D450, Game::CFunc_GoalManager_RemoveGoal);
-REPLACE(0x0055D4D0, Game::CFunc_GoalManager_RemoveAllGoals);
-REPLACE(0x0055D4F0, Game::CFunc_GoalManager_RestartLastGoal);
-REPLACE(0x0055D510, Game::CFunc_GoalManager_LevelUnload);
-REPLACE(0x0055D530, Game::CFunc_GoalManager_NumGoalsBeatenInLevel);
-REPLACE(0x0055D590, Game::CFunc_GoalManager_AddGoalChoices);
-REPLACE(0x0055D600, Game::CFunc_GoalManager_GetGoalList);
-REPLACE(0x0055D7D0, Game::CFunc_GoalManager_ReplaceTrickText);
-REPLACE(0x0055D8E0, Game::CFunc_GoalManager_GetGoalAttemptInfo);
-REPLACE(0x0055D910, Game::CFunc_GoalManager_GetViewGoalsInfo);

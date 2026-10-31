@@ -1,6 +1,7 @@
 // The network manager's message handlers about the game itself (GameNet::Manager): new players, the crown, CTF teams,
 // goal attack goals, the created rails and goals arriving, eliminations, join refusals. See gamenet_handlers.h.
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -20,11 +21,8 @@
 #include "game/skate/profile_manager.h"
 #include "game/ed/rail_editor.h"
 #include "game/ed/goal_editor.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/ed/park.h"
-#include "hook/game_code.h"
 #include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
@@ -235,7 +233,6 @@ int __cdecl HandleFlagReturned(Net::MsgHandlerContext* context)
     return kContinue;
 }
 
-
 // 0x00530E50
 int __cdecl HandleRailsData(Net::MsgHandlerContext* context)
 {
@@ -244,9 +241,9 @@ int __cdecl HandleRailsData(Net::MsgHandlerContext* context)
     if (!(context->m_PacketFlags & Net::kPacketChecksumMismatch)) {
         Mem::Manager* memory = Mem::Manager::Get();
         memory->PushContext(Field<Mem::Allocator*>(memory, 0x114));
-        Call(GAME_CODE(0x004F3C00, &Ed::CRailEditorComponent::SetPacked), RailEditor(), context->m_Msg); // the rails read
+        Call(CodeAddress(&Ed::CRailEditorComponent::SetPacked), RailEditor(), context->m_Msg); // the rails read
         Ed::g_railEditorFlag = false;
-        Call(GAME_CODE(0x004F7DF0, &Ed::CRailEditorComponent::Unpack), RailEditor());
+        Call(CodeAddress(&Ed::CRailEditorComponent::Unpack), RailEditor());
         Ed::g_railEditorFlag = true;
         Mem::Manager::Get()->PopContext();
         return kContinue;
@@ -272,7 +269,7 @@ int __cdecl HandleGoalsData(Net::MsgHandlerContext* context)
     Manager* manager = ManagerOf(context);
     if (!(context->m_PacketFlags & Net::kPacketChecksumMismatch)) {
         const char* msg = context->m_Msg;
-        Call(GAME_CODE(0x004EA2C0, &Ed::CGoalEditorComponent::ReadLevelGoalsFromBuffer), GoalEditor(), Field<uint32_t>(msg, 0), msg + 4); // the level's goals read
+        Call(CodeAddress(&Ed::CGoalEditorComponent::ReadLevelGoalsFromBuffer), GoalEditor(), Field<uint32_t>(msg, 0), msg + 4); // the level's goals read
         Script::CStruct* params = NewParams();
         params->AddChecksum(0u, kDoNotCreateGoalPeds);
         Run(kInitialiseCreatedGoals, params);
@@ -326,14 +323,14 @@ int __cdecl HandleSelectedGoals(Net::MsgHandlerContext* context)
 {
     const uint8_t* msg = Message(context);
     uint8_t* goals = GoalManager();
-    Call(GAME_CODE(0x00558580, &Game::CGoalManager::DeselectAllGoals), goals);
+    Call(CodeAddress(&Game::CGoalManager::DeselectAllGoals), goals);
     uint8_t show = msg[0];
     const uint8_t* name = msg + 1;
     for (uint32_t goal = Field<uint32_t>(name, 0); goal; goal = Field<uint32_t>(name, 0)) {
         name += 4;
         uint8_t* entry = GetGoal(goals, goal);
         reinterpret_cast<void(__thiscall*)(uint8_t*)>(Field<void**>(entry, 0)[0x74 / 4])(entry); // select it
-        Call(GAME_CODE(0x00554440, &Game::CGoal::Select), entry);
+        Call(CodeAddress(&Game::CGoal::Select), entry);
     }
     if (show == 1) {
         Script::CStruct* params = NewParams();
@@ -378,7 +375,7 @@ int __cdecl HandleJoinedTeam(Net::MsgHandlerContext* context)
         if (static_cast<int8_t>(msg[1]) != PlayerTeam(other))
             sameTeam = false;
     }
-    if (sameTeam && others > 0 && Call<int>(GAME_CODE(0x00553130, &Game::CGameMode::NumTeams), GameMode()) > 0)
+    if (sameTeam && others > 0 && Call<int>(CodeAddress(&Game::CGameMode::NumTeams), GameMode()) > 0)
         Run(kWarnAllSameTeam);
     return kContinue;
 }
@@ -390,7 +387,7 @@ int __cdecl HandleGoalCompleted(Net::MsgHandlerContext* context)
     Manager* manager = ManagerOf(context);
     uint8_t* goals = GoalManager();
     uint8_t* goal = GetGoal(goals, Field<uint32_t>(msg, 4));
-    uint8_t* current = Call<uint8_t*>(GAME_CODE(0x0055DBF0, &Game::CGoalManager::GetActiveGoal), goals, 0);
+    uint8_t* current = Call<uint8_t*>(CodeAddress(&Game::CGoalManager::GetActiveGoal), goals, 0);
     if (!goal)
         return kContinue;
     auto virtualCall = [](uint8_t* object, uint32_t offset) {
@@ -403,20 +400,20 @@ int __cdecl HandleGoalCompleted(Net::MsgHandlerContext* context)
         return kContinue;
     reinterpret_cast<void(__thiscall*)(uint8_t*, uint32_t)>(virtualCall(goal, 0x6C))(goal, SkaterId(PlayerSkater(player)));
     if (local == player) {
-        int total = Call<int>(GAME_CODE(0x00558200, &Game::CGoalManager::GetNumSelectedGoals), goals);
-        int done = Call<int>(GAME_CODE(0x00558B70, &Game::CGoalManager::NumGoalsBeaten), goals);
+        int total = Call<int>(CodeAddress(&Game::CGoalManager::GetNumSelectedGoals), goals);
+        int done = Call<int>(CodeAddress(&Game::CGoalManager::NumGoalsBeaten), goals);
         if (total > done) {
             Script::CStruct* params = NewParams();
             params->AddInteger(kNumGoalsLeft, total - done);
             Run(kCompletedGoal, params);
             DeleteParams(params);
         }
-        Call(GAME_CODE(0x0055F3D0, &Game::CGoalPed::DestroyGoalPed), Field<void*>(goal, 0x14));
+        Call(CodeAddress(&Game::CGoalPed::DestroyGoalPed), Field<void*>(goal, 0x14));
         return kContinue;
     }
     if (current) {
-        Call(GAME_CODE(0x00555540, &Game::CGoal::GetRootGoalId), current);
-        Call(GAME_CODE(0x00555540, &Game::CGoal::GetRootGoalId), goal);
+        Call(CodeAddress(&Game::CGoal::GetRootGoalId), current);
+        Call(CodeAddress(&Game::CGoal::GetRootGoalId), goal);
     }
     if (!IsTeamGame() || PlayerTeam(local) != PlayerTeam(player))
         return kContinue;
@@ -434,13 +431,13 @@ int __cdecl HandleGoalCompleted(Net::MsgHandlerContext* context)
     } else {
         reinterpret_cast<void(__thiscall*)(uint8_t*)>(virtualCall(goal, 0x3C))(goal);
     }
-    Call(GAME_CODE(0x0055F3D0, &Game::CGoalPed::DestroyGoalPed), Field<void*>(current, 0x14));
+    Call(CodeAddress(&Game::CGoalPed::DestroyGoalPed), Field<void*>(current, 0x14));
     reinterpret_cast<void(__thiscall*)(uint8_t*)>(virtualCall(goal, 0x68))(goal);
-    int total = Call<int>(GAME_CODE(0x00558200, &Game::CGoalManager::GetNumSelectedGoals), goals);
-    int done = Call<int>(GAME_CODE(0x00558B70, &Game::CGoalManager::NumGoalsBeaten), goals);
+    int total = Call<int>(CodeAddress(&Game::CGoalManager::GetNumSelectedGoals), goals);
+    int done = Call<int>(CodeAddress(&Game::CGoalManager::NumGoalsBeaten), goals);
     if (total > done) {
         const char* text = nullptr;
-        Call(GAME_CODE(0x00554570, &Game::CGoal::GetViewGoalsText), goal, &text);
+        Call(CodeAddress(&Game::CGoal::GetViewGoalsText), goal, &text);
         Script::CStruct* params = NewParams();
         params->AddInteger(kNumGoalsLeft, total - done);
         params->AddString(kPlayerName, PlayerName(player));
@@ -463,7 +460,7 @@ int __cdecl HandleGoalStarted(Net::MsgHandlerContext* context)
     uint8_t* player = PlayerByObjectId(manager, msg);
     if (PlayerTeam(LocalPlayer(manager)) != PlayerTeam(player))
         return kContinue;
-    Call(GAME_CODE(0x00554570, &Game::CGoal::GetViewGoalsText), goal, &text);
+    Call(CodeAddress(&Game::CGoal::GetViewGoalsText), goal, &text);
     Script::CStruct* params = NewParams();
     params->AddString(kPlayerName, PlayerName(player));
     params->AddString(kGoalText, text);
@@ -487,7 +484,7 @@ int __cdecl HandleEliminated(Net::MsgHandlerContext* context)
         return kContinue;
     uint8_t* skate = Skate();
     AsPlayer(player)->MarkEliminated();
-    Call(GAME_CODE(0x00564C60, &Mdl::Skate::HideSkater), skate, PlayerSkater(player), 1);
+    Call(CodeAddress(&Mdl::Skate::HideSkater), skate, PlayerSkater(player), 1);
     if (IsLocalPlayer(player)) {
         Run(kEliminatedYou);
         return kContinue;
@@ -511,17 +508,3 @@ int __cdecl HandleObserversFull(Net::MsgHandlerContext*)
 }
 
 } // namespace GameNet
-
-REPLACE(0x0052DB80, GameNet::HandleNewPlayer);
-REPLACE(0x0052E760, GameNet::HandleNewKing);
-REPLACE(0x0052E870, GameNet::HandleCrownSpawn);
-REPLACE(0x005300C0, GameNet::HandleFcfsNotice);
-REPLACE(0x00530CB0, GameNet::HandleFlagReturned);
-REPLACE(0x00530E50, GameNet::HandleRailsData);
-REPLACE(0x00530FF0, GameNet::HandleGoalsData);
-REPLACE(0x00531950, GameNet::HandleSelectedGoals);
-REPLACE(0x00531A80, GameNet::HandleJoinedTeam);
-REPLACE(0x00531C80, GameNet::HandleGoalCompleted);
-REPLACE(0x00531F10, GameNet::HandleGoalStarted);
-REPLACE(0x00532280, GameNet::HandleEliminated);
-REPLACE(0x00532390, GameNet::HandleObserversFull);

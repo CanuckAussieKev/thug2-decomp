@@ -3,23 +3,20 @@
 #include "game/gfx/engine_text.h"
 
 #include <bit>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 
 namespace Nx {
 
-GAME_GLOBAL(CText*, g_freeTexts, 0x006FA804);
+CText* g_freeTexts;
 namespace {
 
 extern void** const kTextVtable;
-
 
 CText*& FreeList() { return g_freeTexts; }
 
@@ -267,30 +264,9 @@ void __cdecl FreeText(CText* text)
 }
 
 namespace {
-GAME_VTABLE(kTextVtable, 0x00648AA0, &Nx::CText::Destroy, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing,
-            Stubs::DoNothing, Stubs::DoNothing);
+static VtableSlot kTextVtable_slots[] = {&Nx::CText::Destroy, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing,
+                Stubs::DoNothing, Stubs::DoNothing};
+void** const kTextVtable = reinterpret_cast<void**>(kTextVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x0048D0A0, &Nx::sCharEffect::Construct); // (the array constructor's callback)
-REPLACE(0x0048D220, &Nx::CText::Construct);
-REPLACE(0x0048D620, &Nx::CText::DestroyBody);
-REPLACE(0x0048D670, &Nx::CText::Destroy);
-REPLACE(0x0048D5A0, &Nx::CText::FreeBuffers);
-REPLACE(0x0048D0C0, &Nx::CText::SetHidden);
-REPLACE(0x0048D0D0, &Nx::CText::SetFont);
-REPLACE(0x0048D0E0, &Nx::CText::SetPos);
-REPLACE(0x0048D100, &Nx::CText::SetScale);
-REPLACE(0x0048D120, &Nx::CText::SetRotation);
-REPLACE(0x0048D140, &Nx::CText::SetPriority);
-REPLACE(0x0048D160, &Nx::CText::SetDepth);
-REPLACE(0x0048D180, &Nx::CText::SetColour);
-REPLACE(0x0048D1A0, &Nx::CText::SetOverrideAlpha);
-REPLACE(0x0048D1B0, &Nx::CText::SetWindow);
-REPLACE(0x0048D530, &Nx::CText::SetString);
-REPLACE(0x0048D280, &Nx::CText::SetCharOffset);
-REPLACE(0x0048D360, &Nx::CText::SetCharScale);
-REPLACE(0x0048D450, &Nx::CText::SetCharRotation);
-REPLACE(0x0048D1D0, Nx::NewText);
-REPLACE(0x0048D5F0, Nx::FreeText);

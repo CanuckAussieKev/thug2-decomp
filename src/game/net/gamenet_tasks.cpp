@@ -2,7 +2,8 @@
 // callbacks. See gamenet_handlers.h.
 
 #include <cstdint>
-#include "hook/game_code.h"
+#include <initializer_list>
+#include "game/core/code_address.h"
 #include <cstdio>
 #include <cstring>
 
@@ -20,9 +21,6 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
@@ -105,7 +103,7 @@ void __cdecl LevelChangeTask(void* task)
     Manager* manager = TaskManager(task);
     if (Tmr::GetTime() < g_levelChangeTime)
         return;
-    Call(GAME_CODE(0x00565A00, &Mdl::Skate::ChangeLevel), Skate(), manager->m_level); // the level changed
+    Call(CodeAddress(&Mdl::Skate::ChangeLevel), Skate(), manager->m_level); // the level changed
     if (uint8_t* king = KingOfTheHill(manager))
         AsPlayer(king)->MarkAsKing(false);
     for (uint8_t* p = FirstPlayer(manager, &search, true); p; p = NextPlayer(manager, &search, true))
@@ -113,7 +111,7 @@ void __cdecl LevelChangeTask(void* task)
     Field<Tsk::BaseTask*>(manager, 0xEC)->Remove();
 }
 
-GAME_GLOBAL(uint32_t, g_modemDialogEnd, 0x007CCDF0);
+uint32_t g_modemDialogEnd;
 
 // 0x00533810
 void __cdecl ModemStateTask(void* task)
@@ -205,7 +203,7 @@ void __cdecl JoinTimeoutTask(void* task)
 // 0x00533400
 void __cdecl PlayerTeamKeyCallback(int, int, void* buffer, void*)
 {
-    GameSpy::Qr2BufferAdd(buffer, GAME_TEXT(0x006469B4, ""));
+    GameSpy::Qr2BufferAdd(buffer, "");
 }
 
 // 0x00533420
@@ -228,11 +226,3 @@ void __cdecl AddErrorCallback(int error, const char* message, void*)
 }
 
 } // namespace GameNet
-
-REPLACE(0x0052F4A0, GameNet::LevelChangeTask);
-REPLACE(0x00533810, GameNet::ModemStateTask);
-REPLACE(0x00533B50, GameNet::NetMetricsTask);
-REPLACE(0x00533ED0, GameNet::JoinTimeoutTask);
-REPLACE(0x00533400, GameNet::PlayerTeamKeyCallback);
-REPLACE(0x00533420, GameNet::KeyListCallback);
-REPLACE(0x005334B0, GameNet::AddErrorCallback);

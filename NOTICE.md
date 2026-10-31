@@ -22,7 +22,7 @@ non-commercial; nothing here is sold.
 - **The reconstructed game code** in `src/game` was written by this project's contributors from their own analysis of
   the original program; it contains no leaked or otherwise unofficially obtained source code. Its copyright belongs to
   the game's owners and no licence is granted for it (see `LICENSE`).
-- **Original work** (the tools, the hook and test framework, the code marked NOT ORIGINAL, the documentation) is MIT
+- **Original work** (the tools, the code marked NOT ORIGINAL, the documentation) is MIT
   licensed (see `LICENSE`); third-party components keep their own licences (`THIRD_PARTY_NOTICES.md`).
 
 ## Rights holders

@@ -3,6 +3,7 @@
 
 #include "game/obj/floating_text.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -15,13 +16,11 @@
 #include "game/script/struct.h"
 #include "game/sys/game_clock.h"
 #include "game/obj/control_pad.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Front {
@@ -189,32 +188,23 @@ int CFloatingTextComponent::CallMemberFunction(uint32_t name, Script::CStruct* p
 
 } // namespace Obj
 
-REPLACE(0x0041E2A0, Front::GetScreenElementManager);
-REPLACE(0x0041E3C0, Obj::CFloatingTextComponent::Create);
-REPLACE(0x0041E5E0, &Obj::CFloatingTextComponent::DestroyBody);
-REPLACE(0x0041E6C0, &Obj::CFloatingTextComponent::Destroy);
-REPLACE(0x0041E2B0, &Obj::CFloatingTextComponent::InitFromStructure);
-REPLACE(0x0041E3A0, &Obj::CFloatingTextComponent::Finalize);
-REPLACE(0x0041E450, &Obj::CFloatingTextComponent::Update);
-REPLACE(0x0041E270, &Obj::CFloatingTextComponent::CallMemberFunction);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x00646018,
-    &Obj::CFloatingTextComponent::Destroy,
-    &Obj::CFloatingTextComponent::Update,
-    &Obj::CFloatingTextComponent::InitFromStructure,
-    &Obj::CFloatingTextComponent::Finalize,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::CFloatingTextComponent::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CFloatingTextComponent::Destroy,
+         &Obj::CFloatingTextComponent::Update,
+         &Obj::CFloatingTextComponent::InitFromStructure,
+         &Obj::CFloatingTextComponent::Finalize,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::CFloatingTextComponent::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj

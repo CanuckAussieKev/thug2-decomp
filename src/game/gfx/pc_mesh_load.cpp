@@ -6,6 +6,7 @@
 
 #include <d3d9.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 
@@ -20,18 +21,15 @@
 #include "game/gfx/pixel_shaders.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/simple_material.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/shader_slots.h"
 #include "game/sys/crt.h"
 
 namespace Nx {
 
-GAME_GLOBAL(float, g_unpackZScale, 0x0064A8E4, 0.0019569471f);
-GAME_GLOBAL(float, g_unpack11Scale, 0x0064A8E8, 0.0009775171f);
-GAME_GLOBAL(uint32_t[5], g_fvfBySetCount, 0x0064A8F4, 0, 0x100, 0x200, 0x300, 0x400);
-GAME_GLOBAL(uint32_t[6], g_vertexShaders, 0x00775B64);
+float g_unpackZScale{0.0019569471f};
+float g_unpack11Scale{0.0009775171f};
+uint32_t g_fvfBySetCount[5]{0, 0x100, 0x200, 0x300, 0x400};
+uint32_t g_vertexShaders[6];
 
 namespace {
 
@@ -588,10 +586,3 @@ void sMesh::BuildCollision()
 }
 
 } // namespace Nx
-
-REPLACE(0x004D47F0, Nx::LoadScaledPositionsFromMemory);
-REPLACE(0x004D4350, Nx::LoadScaledPositionsFromFile);
-REPLACE(0x004D5940, &Nx::sMesh::SetUpSkinning);
-REPLACE(0x004D5CC0, &Nx::sMesh::LoadFromMemory);
-REPLACE(0x004D6100, &Nx::sMesh::LoadFromFile);
-REPLACE(0x004D6530, &Nx::sMesh::BuildCollision);

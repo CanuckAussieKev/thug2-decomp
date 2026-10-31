@@ -19,8 +19,6 @@
 #include "game/skate/horse.h"
 #include "game/skate/score.h"
 #include "game/skate/game_mode.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/sys/game_config.h"
 
 namespace CFuncs {
@@ -361,28 +359,3 @@ bool __cdecl CFunc_GetBonusValue(Script::CStruct* params, Script::CScript* scrip
 bool __cdecl CFunc_LocalSkaterExists(Script::CStruct*, Script::CScript*) { return GetLocalSkater() != nullptr; }
 
 } // namespace CFuncs
-
-REPLACE(0x005AF090, CFuncs::CFunc_ApplySplitScreenOptions);
-REPLACE(0x005AF200, CFuncs::CFunc_StartCompetition);
-REPLACE(0x005AF320, CFuncs::CFunc_StartCompetitionRun);
-REPLACE(0x005AF340, CFuncs::CFunc_EndCompetitionRun);
-REPLACE(0x005AF3A0, CFuncs::CFunc_PlaceIs);
-REPLACE(0x005AF3D0, CFuncs::CFunc_RoundIs);
-REPLACE(0x005AF400, CFuncs::CFunc_EndCompetition);
-REPLACE(0x005AF440, CFuncs::CFunc_CompetitionEnded);
-REPLACE(0x005AF450, CFuncs::CFunc_StartHorse);
-REPLACE(0x005AF470, CFuncs::CFunc_HorseEnded);
-REPLACE(0x005AF480, CFuncs::CFunc_HorseStatusEquals);
-REPLACE(0x005AF4A0, CFuncs::CFunc_StartHorseRun);
-REPLACE(0x005AF4C0, CFuncs::CFunc_EndHorseRun);
-REPLACE(0x005AF4E0, CFuncs::CFunc_SwitchHorsePlayers);
-REPLACE(0x005AF500, CFuncs::CFunc_ApplyToHorsePanelString);
-REPLACE(0x005AF660, CFuncs::CFunc_GetHorseString);
-REPLACE(0x005AF700, CFuncs::CFunc_IsCurrentHorseSkater);
-REPLACE(0x005AFB40, CFuncs::CFunc_TrickOffAllObjects);
-REPLACE(0x005AFB80, CFuncs::CFunc_SetScoreDegradation);
-REPLACE(0x005AFBC0, CFuncs::CFunc_SetTrickScoreTracking);
-REPLACE(0x005AFC00, CFuncs::CFunc_SetScoreAccumulation);
-REPLACE(0x005AFC70, CFuncs::CFunc_AddBonus);
-REPLACE(0x005AFCF0, CFuncs::CFunc_GetBonusValue);
-REPLACE(0x005AFD60, CFuncs::CFunc_LocalSkaterExists);

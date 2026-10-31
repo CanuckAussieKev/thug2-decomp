@@ -1,6 +1,8 @@
 #include "game/script/struct.h"
 #include "game/script/cscript.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
@@ -8,28 +10,24 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/pool.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 
 namespace Script {
 
-GAME_GLOBAL(int, g_structCopyPeak, 0x0067DA30, 18000);
-GAME_GLOBAL(Mem::PoolPair, g_arrayPools, 0x006F22B4);
-GAME_GLOBAL(Mem::PoolPair, g_componentPools, 0x006F2338);
-GAME_GLOBAL(bool, g_usePermanentStrings, 0x006F3570);
-GAME_GLOBAL(char*, g_permanentStringsStart, 0x006F3574);
-GAME_GLOBAL(char*, g_permanentStringsNext, 0x006F3578);
-GAME_GLOBAL(uint32_t, g_permanentStringsSize, 0x006F357C);
-GAME_GLOBAL(uint32_t, g_permanentStringCount, 0x006F3584);
-GAME_GLOBAL(int, g_structCopyCount, 0x006F3610);
-GAME_GLOBAL(CSymbolTableEntry**, g_symbolTable, 0x006F3624);
-GAME_GLOBAL(Mem::PoolPair, g_symbolPools, 0x006F362C);
-GAME_GLOBAL(CSymbolTableEntry*, g_iteratorEntry, 0x006F363C);
-GAME_GLOBAL(uint32_t, g_iteratorBucket, 0x006F3640);
-GAME_GLOBAL(Mem::PoolPair, g_pairPools, 0x006F3644);
-GAME_GLOBAL(Mem::PoolPair, g_vectorPools, 0x006F3654);
+int g_structCopyPeak{18000};
+Mem::PoolPair g_arrayPools;
+Mem::PoolPair g_componentPools;
+bool g_usePermanentStrings;
+char* g_permanentStringsStart;
+char* g_permanentStringsNext;
+uint32_t g_permanentStringsSize;
+uint32_t g_permanentStringCount;
+int g_structCopyCount;
+CSymbolTableEntry** g_symbolTable;
+Mem::PoolPair g_symbolPools;
+CSymbolTableEntry* g_iteratorEntry;
+uint32_t g_iteratorBucket;
+Mem::PoolPair g_pairPools;
+Mem::PoolPair g_vectorPools;
 
 namespace {
 
@@ -461,66 +459,19 @@ using Method = R (CStruct::*)(A...);
 
 } // namespace
 
-REPLACE(0x00478CF0, Script::LookUpSymbol);
-REPLACE(0x00476410, &CStruct::Init);
-REPLACE(0x00476420, &CStruct::IsEmpty);
-REPLACE(0x00476490, &CStruct::GetNextComponent);
-REPLACE(0x00476430, &CStruct::FindLastComponent);
-REPLACE(0x00476A90, &CStruct::FindComponent);
-REPLACE(0x004764B0, &CStruct::Search);
-REPLACE(0x00476AF0, static_cast<Method<bool, uint32_t>>(&CStruct::ContainsComponentNamed));
-REPLACE(0x00476B10, static_cast<Method<bool, const char*>>(&CStruct::ContainsComponentNamed));
-REPLACE(0x00476B40, static_cast<Method<bool, uint32_t>>(&CStruct::ContainsFlag));
-REPLACE(0x00476BA0, static_cast<Method<bool, const char*>>(&CStruct::ContainsFlag));
-REPLACE(0x00476BC0, &CStruct::References);
-REPLACE(0x00476C10, &CStruct::IsSubsetOf);
-REPLACE(0x00476590, static_cast<Method<bool, uint32_t, const char**, int>>(&CStruct::GetString));
-// (a jump to 0x00476590: a function of its own in the source whose body is just that call)
-REPLACE_SOURCE_ONLY(0x00476620, static_cast<Method<bool, uint32_t, const char**, int>>(&CStruct::GetString));
-REPLACE(0x004765F0, static_cast<Method<bool, const char*, const char**, int>>(&CStruct::GetString));
-REPLACE(0x00476630, static_cast<Method<bool, uint32_t, int*, int>>(&CStruct::GetInteger));
-REPLACE(0x00476680, static_cast<Method<bool, const char*, int*, int>>(&CStruct::GetInteger));
-REPLACE(0x004766D0, static_cast<Method<bool, uint32_t, float*, int>>(&CStruct::GetFloat));
-REPLACE(0x00476720, static_cast<Method<bool, const char*, float*, int>>(&CStruct::GetFloat));
-REPLACE(0x00476770, static_cast<Method<bool, uint32_t, float*, float*, int>>(&CStruct::GetPair));
-REPLACE(0x00476DF0, static_cast<Method<bool, uint32_t, Script::CPair*, bool>>(&CStruct::GetPair));
-REPLACE(0x004767C0, static_cast<Method<bool, uint32_t, CStruct**, int>>(&CStruct::GetStructure));
-REPLACE(0x00476810, static_cast<Method<bool, const char*, CStruct**, int>>(&CStruct::GetStructure));
-REPLACE(0x00476860, static_cast<Method<bool, uint32_t, CArray**, int>>(&CStruct::GetArray));
-REPLACE(0x004768B0, static_cast<Method<bool, const char*, CArray**, int>>(&CStruct::GetArray));
-REPLACE(0x00476900, &CStruct::GetScript);
-REPLACE(0x00476950, static_cast<Method<bool, uint32_t, uint32_t*, int>>(&CStruct::GetChecksum));
-REPLACE(0x00476A00, static_cast<Method<bool, const char*, uint32_t*, int>>(&CStruct::GetChecksum));
-REPLACE(0x00476A30, &CStruct::GetChecksumOrStringChecksum);
-REPLACE(0x00476FB0, static_cast<Method<bool, uint32_t, VectorValue*, int>>(&CStruct::GetVector));
-REPLACE(0x00477010, static_cast<Method<bool, const char*, VectorValue*, int>>(&CStruct::GetVector));
-REPLACE(0x00476C60, &BoolAssertGetters::GetString);
-REPLACE(0x00476C80, &BoolAssertGetters::GetStringNamed);
-REPLACE(0x00476CB0, &BoolAssertGetters::GetInteger);
-REPLACE(0x00476D00, &BoolAssertGetters::GetIntegerNamed);
-REPLACE(0x00476D50, &BoolAssertGetters::GetFloat);
-REPLACE(0x00476DA0, &BoolAssertGetters::GetFloatNamed);
-REPLACE(0x00476E70, &BoolAssertGetters::GetStructure);
-REPLACE(0x00476EC0, &BoolAssertGetters::GetChecksum);
-REPLACE(0x00476EE0, &BoolAssertGetters::GetChecksumNamed);
-REPLACE(0x00476F10, &BoolAssertGetters::GetArray);
-REPLACE(0x00476F60, &BoolAssertGetters::GetArrayNamed);
-REPLACE(0x00477040, &BoolAssertGetters::GetVector);
-REPLACE(0x00477060, &BoolAssertGetters::GetVectorNamed);
-
 // --- owning values: strings, pooled objects, cleaning up and copying ------------------------------------------
 
 namespace Script {
 
 // The CStruct pool pair (the current pool's index, then the two pools).
-GAME_GLOBAL(Mem::PoolPair, g_structPools, 0x006F3614);
+Mem::PoolPair g_structPools;
 
 // A permanent string table entry: the string's checksum and the string.
 struct PermanentString {
     uint32_t checksum;
     char* string;
 };
-GAME_GLOBAL(PermanentString*, g_permanentStringTable, 0x006F3580);
+PermanentString* g_permanentStringTable;
 namespace {
 
 // The pool pairs of the script's value objects.
@@ -590,7 +541,7 @@ void EndPermanentStrings()
 }
 
 namespace {
-GAME_GLOBAL(char[128], g_scriptStrings, 0x006F3590); // (the strings SetScriptString / GetScriptString use, 128 bytes each, indexed from here)
+char g_scriptStrings[128]; // (the strings SetScriptString / GetScriptString use, 128 bytes each, indexed from here)
 char (&ScriptStringSlot(int index))[128] { return reinterpret_cast<char(*)[128]>(&g_scriptStrings)[index]; }
 } // namespace
 
@@ -897,30 +848,6 @@ void CStruct::RemoveComponentOfType(uint32_t name, uint8_t type)
 }
 
 } // namespace Script
-
-REPLACE(0x004763A0, Script::CreateString);
-REPLACE(0x00476340, Script::FreeString);
-REPLACE_SOURCE_ONLY(0x00476260, Script::CreatePermanentString); // the string in EAX
-REPLACE(0x00476300, Script::BeginPermanentStrings);
-REPLACE(0x00476310, Script::EndPermanentStrings);
-REPLACE(0x00476370, Script::SetScriptString);
-REPLACE(0x00476390, Script::GetScriptString);
-REPLACE(0x0046CAF0, &Script::CArray::SetType);
-REPLACE(0x00409030, Script::NewStruct);
-REPLACE(0x00409070, Script::DeleteStruct);
-REPLACE(0x00408F90, Script::NewArray);
-REPLACE(0x00408FD0, Script::DeleteArray);
-REPLACE(0x0046CAA0, &Script::CArray::Init);
-REPLACE(0x0046CAB0, &Script::CArray::Clear);
-REPLACE(0x0046CB00, &Script::CArray::GetArrayPointer);
-REPLACE(0x00477140, Script::CleanUpArray);
-REPLACE(0x004772A0, Script::CleanUpComponent);
-REPLACE(0x004773E0, Script::CopyComponent);
-REPLACE(0x00477090, &Script::CStruct::Clear);
-REPLACE_SOURCE_ONLY(0x00477130, &Script::CStruct::Clear); // a jump to 0x00477090
-REPLACE(0x004776B0, static_cast<void (Script::CStruct::*)(uint32_t)>(&Script::CStruct::RemoveComponent));
-REPLACE(0x00477770, static_cast<void (Script::CStruct::*)(const char*)>(&Script::CStruct::RemoveComponent));
-REPLACE(0x00477790, &Script::CStruct::RemoveComponentOfType);
 
 // --- adding components ---------------------------------------------------------------------------------------
 
@@ -1291,41 +1218,6 @@ struct ComponentAdapter {
 
 } // namespace
 
-REPLACE(0x0046D140, &ComponentAdapter::Construct);
-REPLACE(0x0044C130, NewComponentMemory);
-REPLACE(0x0044C170, DeleteComponentAdapter);
-REPLACE(0x00477860, &CStruct::RemoveFlag);
-REPLACE(0x00477920, &CStruct::AddComponent);
-REPLACE(0x004779D0, static_cast<AddMethod<uint32_t, const char*>>(&CStruct::AddString));
-REPLACE(0x00477A90, static_cast<AddMethod<const char*, const char*>>(&CStruct::AddString));
-REPLACE(0x00477AC0, &CStruct::AddLocalString);
-REPLACE(0x00478390, static_cast<AddMethod<uint32_t, uint32_t, const char*>>(&CStruct::AddString));
-REPLACE(0x00477B80, static_cast<AddMethod<uint32_t, int>>(&CStruct::AddInteger));
-REPLACE(0x00477C30, static_cast<AddMethod<const char*, int>>(&CStruct::AddInteger));
-REPLACE(0x00477C60, static_cast<AddMethod<uint32_t, float>>(&CStruct::AddFloat));
-REPLACE(0x00477D10, static_cast<AddMethod<const char*, float>>(&CStruct::AddFloat));
-REPLACE(0x00477D40, static_cast<AddMethod<uint32_t, uint32_t>>(&CStruct::AddChecksum));
-REPLACE(0x00477DF0, static_cast<AddMethod<const char*, uint32_t>>(&CStruct::AddChecksum));
-REPLACE(0x00477E20, static_cast<AddMethod<uint32_t, float, float, float>>(&CStruct::AddVector));
-REPLACE_SOURCE_ONLY(0x00478460, static_cast<AddMethod<uint32_t, float, float, float>>(&CStruct::AddVector)); // a jump
-REPLACE(0x00477F40, static_cast<AddMethod<const char*, float, float, float>>(&CStruct::AddVector));
-REPLACE(0x00477F70, static_cast<AddMethod<uint32_t, VectorValue>>(&CStruct::AddVector));
-REPLACE(0x00477F90, static_cast<AddMethod<const char*, VectorValue>>(&CStruct::AddVector));
-REPLACE(0x00477FC0, &CStruct::AddPair);
-REPLACE_SOURCE_ONLY(0x00478470, &CStruct::AddPair); // a jump to 0x00477FC0
-REPLACE(0x004780D0, static_cast<AddMethod<uint32_t, CArray*>>(&CStruct::AddArrayPointer));
-REPLACE(0x00478180, static_cast<AddMethod<const char*, CArray*>>(&CStruct::AddArrayPointer));
-REPLACE(0x004781B0, static_cast<AddMethod<uint32_t, CStruct*>>(&CStruct::AddStructurePointer));
-REPLACE(0x00478260, static_cast<AddMethod<const char*, CStruct*>>(&CStruct::AddStructurePointer));
-REPLACE(0x00478670, static_cast<AddMethod<uint32_t, CStruct*>>(&CStruct::AddStructure));
-REPLACE(0x00478770, static_cast<AddMethod<const char*, CStruct*>>(&CStruct::AddStructure));
-REPLACE(0x00478290, &CStruct::AddScript);
-REPLACE(0x004783C0, &CStruct::AddComponentOfType);
-REPLACE(0x00478480, &CStruct::AppendStructure);
-REPLACE(0x00478540, &CStruct::AppendStructureIfAny);
-REPLACE(0x00478650, &CStruct::Assign);
-REPLACE(0x00478560, &CStruct::ExpandInto);
-
 // --- arrays: sizing, elements, copying ------------------------------------------------------------------------
 
 namespace Script {
@@ -1566,23 +1458,6 @@ void* NewVectorMemory(unsigned int) { return Script::NewVector(); }
 
 } // namespace
 
-REPLACE(0x0046D410, NewPairMemory);
-REPLACE(0x0046D3D0, NewVectorMemory);
-REPLACE(0x0047AC00, &Script::CPair::Init);
-REPLACE(0x0047ABF0, &Script::CVector::Init);
-REPLACE(0x0046CC50, &CArray::SetSizeAndType);
-REPLACE(0x0046CCF0, &CArray::Resize);
-REPLACE(0x0046CB10, &CArray::SetElement);
-REPLACE(0x0046CB40, &CArray::SetFloat);
-REPLACE(0x0046CC30, &CArray::GetElement);
-REPLACE_SOURCE_ONLY(0x0041CB80, &CArray::GetElement); // a jump to 0x0046CC30
-REPLACE(0x0046CBB0, &CArray::GetString);
-REPLACE(0x0046CB70, &CArray::GetLocalString);
-REPLACE(0x0046CBF0, &CArray::GetFloat);
-REPLACE(0x004787A0, Script::CopyArrayElements);
-REPLACE(0x00478A60, Script::CopyArray);
-REPLACE(0x00478AB0, &Script::CStruct::InitCopy);
-
 // --- the symbol table and global values; comparing components; adding array copies --------------------------
 
 namespace Script {
@@ -1620,7 +1495,7 @@ uint32_t SymbolValueOfType(CSymbolTableEntry* entry, ESymbolType type)
 }
 
 // The game's empty string (what the string getters give for missing symbols).
-const char* EmptyString() { return GAME_TEXT(0x006469B4, ""); }
+const char* EmptyString() { return ""; }
 
 } // namespace
 
@@ -1824,7 +1699,7 @@ namespace {
 using Script::CStruct;
 
 // 0x00479190: the type-name lookup was compiled out: it gives a "(Hey, don't use this...)" message.
-const char* GetTypeName() { return GAME_TEXT(0x00648474, "(Hey, don't use GetTypeName on the CD!)"); }
+const char* GetTypeName() { return "(Hey, don't use GetTypeName on the CD!)"; }
 
 // ComponentsEqual is a member of the first component in the game.
 struct ComponentEqualsAdapter {
@@ -1838,28 +1713,3 @@ template <typename R, typename... A>
 using Function = R (*)(A...);
 
 } // namespace
-
-REPLACE(0x00478C90, Script::CreateSymbolTable);
-REPLACE(0x00478CC0, Script::FindSymbol);
-REPLACE(0x004790F0, &Script::CSymbolTableEntry::Init);
-REPLACE(0x00479110, Script::CreateSymbol);
-REPLACE(0x00478DC0, Script::LinkSymbol);
-REPLACE(0x00478D60, Script::UnlinkSymbol);
-REPLACE(0x00478E50, Script::GetNextSymbol);
-REPLACE(0x00478F60, static_cast<Function<int, uint32_t>>(Script::GetInteger));
-REPLACE(0x004790C0, static_cast<Function<int, const char*>>(Script::GetInteger));
-REPLACE(0x00478F00, static_cast<Function<float, uint32_t>>(Script::GetFloat));
-REPLACE(0x00478F30, static_cast<Function<float, const char*>>(Script::GetFloat));
-REPLACE(0x00478F90, static_cast<Function<uint32_t, uint32_t>>(Script::GetSymbolValue));
-REPLACE(0x00478FB0, static_cast<Function<uint32_t, const char*>>(Script::GetSymbolValue));
-REPLACE(0x00478FD0, static_cast<Function<const char*, uint32_t>>(Script::GetString));
-REPLACE(0x00478FF0, static_cast<Function<const char*, const char*>>(Script::GetString));
-REPLACE(0x00479020, static_cast<Function<Script::CStruct*, uint32_t>>(Script::GetStructure));
-REPLACE(0x00479040, static_cast<Function<Script::CStruct*, const char*>>(Script::GetStructure));
-REPLACE(0x00479070, static_cast<Function<Script::CArray*, uint32_t>>(Script::GetArray));
-REPLACE(0x00479090, static_cast<Function<Script::CArray*, const char*>>(Script::GetArray));
-REPLACE(0x004791A0, &ComponentEqualsAdapter::Equals);
-REPLACE(0x00478B00, static_cast<void (CStruct::*)(uint32_t, Script::CArray*)>(&CStruct::AddArray));
-REPLACE_SOURCE_ONLY(0x00478C80, static_cast<void (CStruct::*)(uint32_t, Script::CArray*)>(&CStruct::AddArray)); // a jump
-REPLACE(0x00478C50, static_cast<void (CStruct::*)(const char*, Script::CArray*)>(&CStruct::AddArray));
-REPLACE(0x00479190, GetTypeName);

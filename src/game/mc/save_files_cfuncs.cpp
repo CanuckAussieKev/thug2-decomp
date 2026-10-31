@@ -1,8 +1,8 @@
 // Script functions (CFuncs) for the save files on the memory card (see save_files_cfuncs.h).
 
 #include "game/mc/save_files_cfuncs.h"
-#include "hook/game_code.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -26,8 +26,6 @@
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
 #include "game/sys/game_config.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Mc {
 
@@ -101,7 +99,7 @@ bool DeleteMemCardFile(CStruct* params, CScript*)
     params->GetString("CardFileName", &cardFileName, 0);
     uint32_t type = 0;
     params->GetChecksum("Type", &type, 0);
-    const char* userFileName = GAME_TEXT(0x006469B4, ""); // ""
+    const char* userFileName = ""; // ""
     params->GetString("UserFileName", &userFileName, 0);
 
     bool removed = false;
@@ -337,7 +335,7 @@ struct ListedFile {
     SaveFileHeader header;
     uint8_t summary[0x78 - sizeof(SaveFileHeader)]; // (0x007CEC6C)
 };
-GAME_GLOBAL(ListedFile, g_listedFile, 0x007CEC58);
+ListedFile g_listedFile;
 SaveFileHeader& ListedHeader() { return g_listedFile.header; }
 const uint8_t* ListedSummary() { return g_listedFile.summary; }
 
@@ -432,7 +430,7 @@ bool GetMemCardDirectoryListing(CStruct* params, CScript* script)
     int fileCount = 0;
     for (Mem::ListNode* node = head.next; reinterpret_cast<intptr_t>(node->data) != -1 && node; node = node->next)
         ++fileCount;
-    Dbg::Printf(GAME_TEXT(0x00657AA4, "ScriptGetMemCardDirectoryListing: DirList Start\n")); // "ScriptGetMemCardDirectoryListing: DirList Start\n"
+    Dbg::Printf("ScriptGetMemCardDirectoryListing: DirList Start\n"); // "ScriptGetMemCardDirectoryListing: DirList Start\n"
     int gameFiles = 0;
     for (int i = 0; i < fileCount; ++i) {
         File* file = ListEntry(&head, i);
@@ -553,7 +551,7 @@ bool SaveToMemoryCard(CStruct* params, CScript*)
     }
     bool& outOfSpace = g_outOfSpace;
     outOfSpace = false;
-    const char* name = GAME_TEXT(0x006469B4, ""); // ""
+    const char* name = ""; // ""
     params->GetString("Name", &name, 0);
     uint32_t type = 0;
     params->GetChecksum("Type", &type, 0);
@@ -696,14 +694,3 @@ bool SaveToMemoryCard(CStruct* params, CScript*)
 }
 
 } // namespace Mc
-
-REPLACE(0x005A8F70, Mc::GetMemCardDirectoryListing);
-REPLACE(0x005A7420, Mc::KeepSoundGoing);
-REPLACE(0x005A97E0, Mc::SaveToMemoryCard);
-REPLACE(0x005A8BF0, Mc::GetSaveInfo);
-REPLACE(0x005A6EA0, Mc::DeleteMemCardFile);
-REPLACE(0x005A8500, Mc::GetMemCardSpaceRequired);
-REPLACE(0x005A8550, Mc::MemCardFileExists);
-REPLACE(0x005A8BB0, Mc::ClearMemCardDataForUpload);
-REPLACE(0x005A8DA0, Mc::CreateTemporaryMemCardPools);
-REPLACE(0x005A9700, Mc::RemoveTemporaryMemCardPools);

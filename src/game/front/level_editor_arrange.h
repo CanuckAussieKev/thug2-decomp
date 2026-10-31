@@ -33,7 +33,7 @@ struct Overlay;
 //   - Auto-rail along this edge (Alt+R, a scenery piece selected): the piece's top outline - the edges of its upward
 //     faces where the surface falls away (convex lips), from its meshes' triangles - drawn; a click on one lays a grind
 //     rail exactly along it (level_editor_chains.h's points: one undo step).
-// The window: F2 (the command search: "Arrange"); the keys are in the action registry (level_editor_actions.h). Pure parts self-tested: src/hook/selftests_editor_arrange.cpp.
+// The window: F2 (the command search: "Arrange"); the keys are in the action registry (level_editor_actions.h).
 namespace Front::LevelEditor::Arrange {
 
 // --- the pure parts ---------------------------------------------------------------------------------------------

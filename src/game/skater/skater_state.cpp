@@ -11,23 +11,20 @@
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/skater/skitch.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 #include "game/skater/vehicle_sound.h"
-#include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
 #include "game/skater/state_history.h"
 
 namespace Obj {
 
-GAME_GLOBAL(uint32_t[1], g_powerupNames, 0x0067F09C, 0xD039432C);
-GAME_GLOBAL(uint32_t[114], g_skaterStateMemberFunctions, 0x00684A80,
+uint32_t g_powerupNames[1]{0xD039432C};
+uint32_t g_skaterStateMemberFunctions[114]{
             0x5EA287F2, 0x43686585, 0, 0, 0, 0,
             0x3527FC07, 0x43686585, 0, 0, 0, 0,
             0xA32C1A15, 0x43686585, 0, 0, 0, 0,
@@ -46,7 +43,7 @@ GAME_GLOBAL(uint32_t[114], g_skaterStateMemberFunctions, 0x00684A80,
             0x44BA5FCE, 0x43686585, 0, 0, 0, 0,
             0xE0645004, 0x43686585, 0, 0, 0, 0,
             0xEF7A8687, 0x43686585, 0, 0, 0, 0,
-            0, 0x43686585, 0, 0, 0, 0);
+            0, 0x43686585, 0, 0, 0, 0};
 
 namespace {
 
@@ -249,73 +246,42 @@ void CSkaterStateHistoryComponent::DestroyBody()
 
 } // namespace Obj
 
-REPLACE(0x00519740, Obj::CSkaterStateComponent::Create);
-REPLACE(0x00519430, Obj::CSkaterStateComponent::RegisterMemberFunctions);
-REPLACE(0x00519450, &Obj::CSkaterStateComponent::DestroyBody);
-REPLACE(0x00519620, &Obj::CSkaterStateComponent::Destroy);
-REPLACE(0x00519460, &Obj::CSkaterStateComponent::InitFromStructure);
-REPLACE(0x00519660, &Obj::CSkaterStateComponent::SetState);
-REPLACE(0x00519680, &Obj::CSkaterStateComponent::SetPhysicsMode);
-REPLACE(0x005196A0, &Obj::CSkaterStateComponent::SetTerrain);
-REPLACE(0x00519470, &Obj::CSkaterStateComponent::ClearPowerups);
-REPLACE(0x00519650, &Obj::CSkaterStateComponent::ClearDoingTrick);
-REPLACE(0x00519480, &Obj::CSkaterStateComponent::InAir);
-REPLACE(0x00519490, &Obj::CSkaterStateComponent::OnWall);
-REPLACE(0x005194A0, &Obj::CSkaterStateComponent::OnLip);
-REPLACE(0x005194B0, &Obj::CSkaterStateComponent::OnRail);
-REPLACE(0x005194C0, &Obj::CSkaterStateComponent::InWallplant);
-REPLACE(0x005196D0, &Obj::CSkaterStateComponent::InBailState);
-REPLACE(0x005194D0, &Obj::CSkaterStateComponent::Walking);
-REPLACE(0x005194F0, &Obj::CSkaterStateComponent::Skating);
-REPLACE(0x00519510, &Obj::CSkaterStateComponent::Driving);
-REPLACE(0x00519520, &Obj::CSkaterStateComponent::SetDriving);
-REPLACE(0x00519530, &Obj::CSkaterStateComponent::UnsetDriving);
-REPLACE(0x005196E0, &Obj::CSkaterStateComponent::DoingTrick);
-REPLACE(0x00519540, &Obj::CSkaterStateComponent::HasPowerup);
-REPLACE(0x005195B0, &Obj::CSkaterStateComponent::PickedUpPowerup);
-REPLACE(0x005196F0, &Obj::CSkaterStateComponent::GetTerrain);
-REPLACE(0x00519720, &Obj::CSkaterStateComponent::GetSparksPos);
-REPLACE(0x00519600, &Obj::CSkaterStateComponent::SetSparksPos);
-REPLACE(0x005197D0, &Obj::SkaterStateHistoryFrame::GetTime);
-REPLACE(0x005197E0, &Obj::SkaterStateHistoryFrame::SetTime);
-REPLACE(0x005197C0, &Obj::CSkaterStateHistoryComponent::DestroyBody);
-
 namespace Obj {
 namespace {
 
-GAME_VTABLE(kVtable, 0x0064C140,
-    &Obj::CSkaterStateComponent::Destroy,
-    &Obj::ComponentWithoutUpdate::Update,
-    &Obj::CSkaterStateComponent::InitFromStructure,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    &Obj::CBaseComponent::RunMemberFunction,
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot kVtable_slots[] = {&Obj::CSkaterStateComponent::Destroy,
+         &Obj::ComponentWithoutUpdate::Update,
+         &Obj::CSkaterStateComponent::InitFromStructure,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         &Obj::CBaseComponent::RunMemberFunction,
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj
 
 namespace Obj {
 
-GAME_VTABLE(g_stateHistoryVtable, 0x0064C174,
-    &Obj::CSkaterStateHistoryComponent::Destroy,
-    &Obj::ComponentWithoutUpdate::Update,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::DoNothing,
-    Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2,
-    &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument,
-    Stubs::DoNothing,
-    Stubs::IgnoreArgument,
-    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
+static VtableSlot g_stateHistoryVtable_slots[] = {&Obj::CSkaterStateHistoryComponent::Destroy,
+         &Obj::ComponentWithoutUpdate::Update,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::DoNothing,
+         Obj::RefreshFromStructure,
+         Stubs::IgnoreArguments2,
+         &Obj::CBaseComponent::Suspend,
+         Stubs::IgnoreArgument,
+         Stubs::DoNothing,
+         Stubs::IgnoreArgument,
+         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+void** const g_stateHistoryVtable = reinterpret_cast<void**>(g_stateHistoryVtable_slots);
 
 } // namespace Obj

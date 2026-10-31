@@ -8,12 +8,11 @@
 #include <d3d9.h>
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 
 #include "game/core/mem.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/sys/crt.h"
 
 namespace Nx {
@@ -346,10 +345,3 @@ void sMesh::MakeBillboard(int type, const Mth::Vector* pivot, const Mth::Vector*
 }
 
 } // namespace Nx
-
-REPLACE(0x004D6D40, &Nx::sMesh::AddVertexBuffers);
-REPLACE(0x004D6E00, &Nx::sMesh::MoveTo);
-REPLACE(0x004D6FB0, &Nx::sMesh::TurnY);
-REPLACE_SOURCE_ONLY(0x004D6FBA, &Nx::sMesh::TurnY); // (not a function: Ghidra's start 10 bytes into 0x004D6FB0)
-REPLACE(0x004D71F0, &Nx::sMesh::Clone);
-REPLACE(0x004D7580, &Nx::sMesh::MakeBillboard);

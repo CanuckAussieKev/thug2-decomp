@@ -4,8 +4,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <unordered_map>
+#include <vector>
 
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_picking.h"
@@ -18,7 +21,6 @@
 #include "game/nx/coll_tri.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 #include "game/core/game_vtables.h"
 

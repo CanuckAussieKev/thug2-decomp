@@ -3,6 +3,7 @@
 #include "game/goals/goal_types.h"
 
 #include <cmath>
+#include <cstdint>
 
 #include "game/core/mem.h"
 #include "game/goals/goal_calls.h"
@@ -20,12 +21,10 @@
 #include "game/gfx/model.h"
 #include "game/gfx/engine.h"
 #include "game/skate/score.h"
-#include "hook/game.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/gfx/tod_manager.h"
 #include "game/core/stubs.h"
 #include "game/gfx/weather.h"
-#include "hook/game_code.h"
 
 namespace Game {
 
@@ -49,45 +48,45 @@ constexpr uint32_t kNumGapsFound = 0xF1E59083;         // num_gaps_found
 constexpr uint32_t kNumGapsToFind = 0xE75C4BBF;        // num_gaps_to_find
 constexpr uint32_t kFindGapsFoundGap = 0x851AA6B8;     // goal_find_gaps_found_gap
 
-const char* const kGotBronze = GAME_TEXT(0x0064DA98, "gotBronze");    // "gotBronze"
-const char* const kGotSilver = GAME_TEXT(0x0064DA8C, "gotSilver");    // "gotSilver"
-const char* const kGotGold = GAME_TEXT(0x0064DA84, "gotGold");      // "gotGold"
-const char* const kRewardGiven = GAME_TEXT(0x0064DA74, "reward_given");  // "reward_given"
-const char* const kWinRecordName = GAME_TEXT(0x0064DA68, "win_record"); // "win_record"
-const char* const kRewardParams = GAME_TEXT(0x0064DAA4, "reward_params"); // "reward_params"
+const char* const kGotBronze = "gotBronze";    // "gotBronze"
+const char* const kGotSilver = "gotSilver";    // "gotSilver"
+const char* const kGotGold = "gotGold";      // "gotGold"
+const char* const kRewardGiven = "reward_given";  // "reward_given"
+const char* const kWinRecordName = "win_record"; // "win_record"
+const char* const kRewardParams = "reward_params"; // "reward_params"
 
-GAME_VTABLE(kCompetitionGoalVtable, 0x0064D9F0,
-            &Game::CCompetitionGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
-            &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CCompetitionGoal::Expire,
-            &Game::CCompetitionGoal::LoadSaveData, &Game::CCompetitionGoal::GetSaveData,
-            &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue, &Game::CGoal::HasComponentA302D7CD,
-            &Game::CGoal::Activate, &Game::CCompetitionGoal::SetActive, &Game::CGoal::Deactivate,
-            &Game::CCompetitionGoal::SetInactive, &Game::CCompetitionGoal::Win, &Game::CGoal::Lose,
-            &Game::CGoal::Update, &Game::CCompetitionGoal::IsPaused, &Game::CGoal::SetFlag,
-            &Game::CGoal::StageFlagSet, &Game::CCompetitionGoal::HasWon, &Game::CGoal::NetStageFlagSet,
-            &Game::CGoal::HasWonGoalOrChild, &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry,
-            &Game::CCompetitionGoal::MarkWon, &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag,
-            &Game::CCompetitionGoal::UnBeat);
-GAME_VTABLE(kFilmGoalVtable, 0x0064DC60,
-            &Game::CFilmGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
-            &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData,
-            &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
-            &Game::CGoal::HasComponentA302D7CD, &Game::CFilmGoal::Activate, &Game::CGoal::SetActive,
-            &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
-            &Game::CFilmGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
-            &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
-            &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
-            &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat);
-GAME_VTABLE(kFindGapsGoalVtable, 0x0064DCD8,
-            &Game::CFindGapsGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
-            &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData,
-            &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
-            &Game::CGoal::HasComponentA302D7CD, &Game::CFindGapsGoal::Activate, &Game::CGoal::SetActive,
-            &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
-            &Game::CGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
-            &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
-            &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
-            &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat);
+static VtableSlot kCompetitionGoalVtable_slots[] = {&Game::CCompetitionGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
+                 &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CCompetitionGoal::Expire,
+                 &Game::CCompetitionGoal::LoadSaveData, &Game::CCompetitionGoal::GetSaveData,
+                 &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue, &Game::CGoal::HasComponentA302D7CD,
+                 &Game::CGoal::Activate, &Game::CCompetitionGoal::SetActive, &Game::CGoal::Deactivate,
+                 &Game::CCompetitionGoal::SetInactive, &Game::CCompetitionGoal::Win, &Game::CGoal::Lose,
+                 &Game::CGoal::Update, &Game::CCompetitionGoal::IsPaused, &Game::CGoal::SetFlag,
+                 &Game::CGoal::StageFlagSet, &Game::CCompetitionGoal::HasWon, &Game::CGoal::NetStageFlagSet,
+                 &Game::CGoal::HasWonGoalOrChild, &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry,
+                 &Game::CCompetitionGoal::MarkWon, &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag,
+                 &Game::CCompetitionGoal::UnBeat};
+void** const kCompetitionGoalVtable = reinterpret_cast<void**>(kCompetitionGoalVtable_slots);
+static VtableSlot kFilmGoalVtable_slots[] = {&Game::CFilmGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
+                 &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData,
+                 &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
+                 &Game::CGoal::HasComponentA302D7CD, &Game::CFilmGoal::Activate, &Game::CGoal::SetActive,
+                 &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
+                 &Game::CFilmGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
+                 &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
+                 &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
+                 &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat};
+void** const kFilmGoalVtable = reinterpret_cast<void**>(kFilmGoalVtable_slots);
+static VtableSlot kFindGapsGoalVtable_slots[] = {&Game::CFindGapsGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
+                 &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData,
+                 &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
+                 &Game::CGoal::HasComponentA302D7CD, &Game::CFindGapsGoal::Activate, &Game::CGoal::SetActive,
+                 &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
+                 &Game::CGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
+                 &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
+                 &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
+                 &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat};
+void** const kFindGapsGoalVtable = reinterpret_cast<void**>(kFindGapsGoalVtable_slots);
 
 int Truncate(double value) { return static_cast<int>(value); }
 
@@ -472,31 +471,3 @@ bool CFindGapsGoal::Activate()
 }
 
 } // namespace Game
-
-REPLACE(0x005517C0, &Game::CCompetitionGoal::Construct);
-REPLACE(0x00551800, &Game::CCompetitionGoal::DestroyBody);
-REPLACE(0x00551810, &Game::CCompetitionGoal::Expire);
-REPLACE(0x00551820, &Game::CCompetitionGoal::SetActive);
-REPLACE(0x00551830, &Game::CCompetitionGoal::SetInactive);
-REPLACE(0x00551840, &Game::CCompetitionGoal::HasWon);
-REPLACE(0x00551850, &Game::CCompetitionGoal::UnBeat);
-REPLACE(0x00551880, &Game::CCompetitionGoal::PauseCompetition);
-REPLACE(0x00551890, &Game::CCompetitionGoal::UnPauseCompetition);
-REPLACE(0x005518A0, &Game::CCompetitionGoal::IsPaused);
-REPLACE(0x005518C0, &Game::CCompetitionGoal::LoadSaveData);
-REPLACE(0x00551970, &Game::CCompetitionGoal::GetSaveData);
-REPLACE(0x00551A00, &Game::CCompetitionGoal::Destroy);
-REPLACE(0x00551A30, &Game::CCompetitionGoal::MarkWon);
-REPLACE(0x00551A90, &Game::CCompetitionGoal::Win);
-REPLACE(0x005527D0, &Game::CFilmGoal::Construct);
-REPLACE(0x005527F0, &Game::CFilmGoal::DestroyBody);
-REPLACE(0x00552800, &Game::CFilmGoal::Activate);
-REPLACE(0x005528A0, &Game::CFilmGoal::Destroy);
-REPLACE(0x005528D0, &Game::CFilmGoal::TargetInView);
-REPLACE(0x00552A10, &Game::CFilmGoal::Update);
-REPLACE(0x00552AF0, &Game::CFilmGoal::Checkpoint);
-REPLACE(0x00552B30, &Game::CFindGapsGoal::Construct);
-REPLACE(0x00552B50, &Game::CFindGapsGoal::DestroyBody);
-REPLACE(0x00552B60, &Game::CFindGapsGoal::Destroy);
-REPLACE(0x00552B90, &Game::CFindGapsGoal::CheckGaps);
-REPLACE(0x00552D20, &Game::CFindGapsGoal::Activate);

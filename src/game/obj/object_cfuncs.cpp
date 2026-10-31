@@ -4,6 +4,7 @@
 #include "game/gfx/d3dx.h"
 
 #include <cstdint>
+#include <new>
 
 #include "game/gfx/flexible_particle_manager.h"
 #include "game/gfx/skeleton.h"
@@ -16,8 +17,6 @@
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/cag_cfuncs.h"
 #include "game/gfx/weather.h"
@@ -367,19 +366,3 @@ bool __cdecl CFunc_SetEventHandlerOnObject(Script::CStruct* params, Script::CScr
 }
 
 } // namespace CFuncs
-
-REPLACE(0x00449280, CFuncs::CFunc_AppendNodeParams);
-REPLACE(0x004492E0, CFuncs::CFunc_InitCOIM);
-REPLACE(0x00449380, CFuncs::CFunc_ResizeCOIMHeap);
-REPLACE(0x00449540, CFuncs::CFunc_CreateCompositeObject);
-REPLACE(0x004495A0, CFuncs::CFunc_GetUniqueCompositeObjectID);
-REPLACE(0x00449610, CFuncs::CFunc_GetObjScreenCoords);
-REPLACE(0x004496B0, CFuncs::CFunc_RunScriptOnComponentType);
-REPLACE(0x00449740, CFuncs::CFunc_TransformLocalToWorld);
-REPLACE(0x004497D0, CFuncs::CFunc_DestroyParticlesByGroupID);
-REPLACE(0x00449850, CFuncs::CFunc_GetNode);
-REPLACE(0x00449890, CFuncs::CFunc_GetNodeName);
-REPLACE(0x004498C0, CFuncs::CFunc_GetTriggerNodeName);
-REPLACE(0x00449A10, CFuncs::CFunc_RunScriptOnObject);
-REPLACE(0x00449AC0, CFuncs::CFunc_Orient);
-REPLACE(0x00449F80, CFuncs::CFunc_SetEventHandlerOnObject);

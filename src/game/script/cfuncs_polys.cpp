@@ -17,8 +17,6 @@
 #include "game/gfx/sector.h"
 #include "game/gfx/spawned_polys.h"
 #include "game/gfx/texture_dict.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace CFuncs {
 
@@ -412,12 +410,3 @@ bool __cdecl CFunc_GetMetrics(CStruct*, CScript* script)
 }
 
 } // namespace CFuncs
-
-REPLACE(0x004472D0, CFuncs::FreeSpawnedPolyDetails);
-REPLACE(0x00447330, CFuncs::CFunc_SpawnPoly);
-REPLACE(0x00447710, CFuncs::CompressSceneVertexColours);
-REPLACE(0x00447980, CFuncs::CFunc_CompressVC);
-REPLACE(0x00447A60, CFuncs::NudgeSceneVertexColours);
-REPLACE(0x00447D90, CFuncs::CFunc_NudgeVC);
-REPLACE(0x00447E00, CFuncs::CFunc_SetLightDirection);
-REPLACE(0x00447F30, CFuncs::CFunc_GetMetrics);

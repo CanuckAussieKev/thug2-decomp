@@ -1,15 +1,14 @@
 // The engine's primitive (Nx::CPrimitive) and its lists: see engine_primitive.h. From the disassembly of
 // 0x0049C390-0x0049C906.
 
+#include <cstdint>
+
 #include "game/gfx/engine_primitive.h"
 
 #include "game/core/dbg.h"
 #include "game/core/mem.h"
 #include "game/gfx/pc_primitive.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Nx {
 
@@ -19,9 +18,9 @@ extern void** const kVtable;
 constexpr uint32_t kDefaultBlendMode = 0x54628ED7;
 constexpr uint32_t kNewFlag = 0x100;
 
-GAME_GLOBAL(uint32_t, g_primitiveStates, 0x00700EF8);
-GAME_GLOBAL(CPrimitive*, g_drawnPrimitives, 0x00700EFC);
-GAME_GLOBAL(CPrimitive*, g_newPrimitives, 0x00700F00);
+uint32_t g_primitiveStates;
+CPrimitive* g_drawnPrimitives;
+CPrimitive* g_newPrimitives;
 
 CPrimitive*& NewPrimitives() { return g_newPrimitives; }
 CPrimitive*& DrawnPrimitives() { return g_drawnPrimitives; }
@@ -246,64 +245,18 @@ void __cdecl SetPrimitiveState(int state, int value)
 }
 
 namespace {
-GAME_VTABLE(kVtable, 0x00649878, &Nx::CPrimitive::Destroy, &Nx::CPrimitive::SetTexture, &Nx::CPrimitive::SetColour,
-            &Nx::CPrimitive::Init, &Nx::CPrimitive::End, &Nx::CPrimitive::Render, &Nx::CPrimitive::Draw,
-            &Nx::CPrimitive::SetPosition, &Nx::CPrimitive::SetX, &Nx::CPrimitive::SetY, &Nx::CPrimitive::SetZ,
-            &Nx::CPrimitive::SetNormal, &Nx::CPrimitive::SetNormalX, &Nx::CPrimitive::SetNormalY,
-            &Nx::CPrimitive::SetNormalZ, &Nx::CPrimitive::SetVertexColour, &Nx::CPrimitive::SetUV,
-            &Nx::CPrimitive::SetU, &Nx::CPrimitive::SetV, &Nx::CPrimitive::GetX, &Nx::CPrimitive::GetY,
-            &Nx::CPrimitive::GetZ, &Nx::CPrimitive::GetNormalX, &Nx::CPrimitive::GetNormalY,
-            &Nx::CPrimitive::GetNormalZ, &Nx::CPrimitive::GetVertexColour, &Nx::CPrimitive::GetU,
-            &Nx::CPrimitive::GetV, &Nx::CPrimitive::Translate, &Nx::CPrimitive::TranslateX,
-            &Nx::CPrimitive::TranslateY, &Nx::CPrimitive::TranslateZ, &Nx::CPrimitive::ScrollUV,
-            &Nx::CPrimitive::ScrollU, &Nx::CPrimitive::ScrollV, &Nx::CPrimitive::Compare);
+static VtableSlot kVtable_slots[] = {&Nx::CPrimitive::Destroy, &Nx::CPrimitive::SetTexture, &Nx::CPrimitive::SetColour,
+                &Nx::CPrimitive::Init, &Nx::CPrimitive::End, &Nx::CPrimitive::Render, &Nx::CPrimitive::Draw,
+                &Nx::CPrimitive::SetPosition, &Nx::CPrimitive::SetX, &Nx::CPrimitive::SetY, &Nx::CPrimitive::SetZ,
+                &Nx::CPrimitive::SetNormal, &Nx::CPrimitive::SetNormalX, &Nx::CPrimitive::SetNormalY,
+                &Nx::CPrimitive::SetNormalZ, &Nx::CPrimitive::SetVertexColour, &Nx::CPrimitive::SetUV,
+                &Nx::CPrimitive::SetU, &Nx::CPrimitive::SetV, &Nx::CPrimitive::GetX, &Nx::CPrimitive::GetY,
+                &Nx::CPrimitive::GetZ, &Nx::CPrimitive::GetNormalX, &Nx::CPrimitive::GetNormalY,
+                &Nx::CPrimitive::GetNormalZ, &Nx::CPrimitive::GetVertexColour, &Nx::CPrimitive::GetU,
+                &Nx::CPrimitive::GetV, &Nx::CPrimitive::Translate, &Nx::CPrimitive::TranslateX,
+                &Nx::CPrimitive::TranslateY, &Nx::CPrimitive::TranslateZ, &Nx::CPrimitive::ScrollUV,
+                &Nx::CPrimitive::ScrollU, &Nx::CPrimitive::ScrollV, &Nx::CPrimitive::Compare};
+void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x0049C660, &Nx::CPrimitive::Construct);
-REPLACE(0x0049C6A0, &Nx::CPrimitive::DestroyBody);
-REPLACE(0x0049C790, &Nx::CPrimitive::Destroy);
-REPLACE(0x0049C6C0, &Nx::CPrimitive::Ready);
-REPLACE(0x0049C6D0, &Nx::CPrimitive::RenderIfReady);
-REPLACE(0x0049C6E0, &Nx::CPrimitive::DrawIfReady);
-REPLACE_UNCHECKED(0x0049C6F0, Nx::CallVirtual35Stub);
-REPLACE(0x0049C7D0, Nx::LinkPrimitive);
-REPLACE(0x0049C7F0, Nx::UnlinkPrimitive);
-REPLACE(0x0049C840, Nx::RenderPrimitives);
-REPLACE(0x0049C700, Nx::SetPrimitiveState);
-REPLACE(0x0049C390, &Nx::CPrimitive::SetTexture);
-REPLACE(0x0049C3A0, &Nx::CPrimitive::SetColour);
-REPLACE(0x0049C3B0, &Nx::CPrimitive::Init);
-REPLACE(0x0049C3C0, &Nx::CPrimitive::End);
-REPLACE(0x0049C3D0, &Nx::CPrimitive::Render);
-REPLACE(0x0049C3E0, &Nx::CPrimitive::Draw);
-REPLACE(0x0049C3F0, &Nx::CPrimitive::SetPosition);
-REPLACE(0x0049C400, &Nx::CPrimitive::SetX);
-REPLACE(0x0049C410, &Nx::CPrimitive::SetY);
-REPLACE(0x0049C420, &Nx::CPrimitive::SetZ);
-REPLACE(0x0049C430, &Nx::CPrimitive::SetNormal);
-REPLACE(0x0049C440, &Nx::CPrimitive::SetNormalX);
-REPLACE(0x0049C450, &Nx::CPrimitive::SetNormalY);
-REPLACE(0x0049C460, &Nx::CPrimitive::SetNormalZ);
-REPLACE(0x0049C470, &Nx::CPrimitive::SetVertexColour);
-REPLACE(0x0049C480, &Nx::CPrimitive::SetUV);
-REPLACE(0x0049C490, &Nx::CPrimitive::SetU);
-REPLACE(0x0049C4A0, &Nx::CPrimitive::SetV);
-REPLACE(0x0049C4B0, &Nx::CPrimitive::GetX);
-REPLACE(0x0049C4D0, &Nx::CPrimitive::GetY);
-REPLACE(0x0049C4F0, &Nx::CPrimitive::GetZ);
-REPLACE(0x0049C510, &Nx::CPrimitive::GetNormalX);
-REPLACE(0x0049C530, &Nx::CPrimitive::GetNormalY);
-REPLACE(0x0049C550, &Nx::CPrimitive::GetNormalZ);
-REPLACE(0x0049C570, &Nx::CPrimitive::GetVertexColour);
-REPLACE(0x0049C590, &Nx::CPrimitive::GetU);
-REPLACE(0x0049C5B0, &Nx::CPrimitive::GetV);
-REPLACE(0x0049C5D0, &Nx::CPrimitive::Translate);
-REPLACE(0x0049C5E0, &Nx::CPrimitive::TranslateX);
-REPLACE(0x0049C5F0, &Nx::CPrimitive::TranslateY);
-REPLACE(0x0049C600, &Nx::CPrimitive::TranslateZ);
-REPLACE(0x0049C610, &Nx::CPrimitive::ScrollUV);
-REPLACE(0x0049C620, &Nx::CPrimitive::ScrollU);
-REPLACE(0x0049C630, &Nx::CPrimitive::ScrollV);
-REPLACE(0x0049C640, &Nx::CPrimitive::Compare);

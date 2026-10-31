@@ -3,6 +3,7 @@
 #include "game/nx/coll_grid.h"
 
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <new>
 
@@ -12,21 +13,17 @@
 #include "game/nx/coll_static.h"
 #include "game/nx/coll_tri.h"
 #include "game/core/game_vtables.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Nx {
 
 namespace {
 
-
 // The queries' shared answer (2048 entries, null-terminated) and the mark of the current query (objects keep the
 // last one that listed them, so each is listed once).
-GAME_GLOBAL(CCollObj*[2048], g_found, 0x00691998);
+CCollObj* g_found[2048];
 CCollObj** const s_found = g_found;
 
-GAME_GLOBAL(uint8_t, g_stamp, 0x00693998);
+uint8_t g_stamp;
 
 uint8_t& s_stamp = g_stamp;
 constexpr int kMostFound = 0x7FF;
@@ -441,15 +438,3 @@ Mem::ListNode* CollGridListNodes::DestroyHead(uint8_t flags)
 }
 
 } // namespace Nx
-
-REPLACE(0x004183B0, &Nx::CollGridCell::Construct);
-REPLACE(0x00418410, &Nx::CollGridCell::Destruct);
-REPLACE(0x00418440, &Nx::CCollGrid::Init);
-REPLACE(0x004183D0, &Nx::CCollGrid::Clear);
-REPLACE(0x00418BD0, &Nx::CCollGrid::Fill);
-REPLACE(0x00418F60, &Nx::CCollGrid::Update);
-REPLACE(0x00418710, &Nx::CCollGrid::ObjectsInBox);
-REPLACE(0x004188C0, &Nx::CCollGrid::ObjectsAlongLine);
-REPLACE(0x00418ED0, &Nx::CollGridListNodes::DestroyNodeBody);
-REPLACE(0x00418EF0, &Nx::CollGridListNodes::DestroyNode);
-REPLACE(0x00418F30, &Nx::CollGridListNodes::DestroyHead);

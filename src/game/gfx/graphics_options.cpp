@@ -8,10 +8,11 @@
 #include <d3d9.h>
 
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
+#include <cstring>
 
 #include "game/sys/config.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 
 namespace Nx::GraphicsOptions {

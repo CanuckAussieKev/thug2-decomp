@@ -2,7 +2,6 @@
 // goal_editor.h. From the disassembly of 0x004E93D0-0x004EB7E2.
 
 #include <cstdint>
-#include "hook/game_code.h"
 #include <cstring>
 
 #include "game/core/crc.h"
@@ -14,17 +13,14 @@
 #include "game/nx/feeler.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/sys/crt.h"
 
 #pragma warning(disable : 4996) // (strcpy: the original's inline copies of the texts)
 
 namespace Ed {
 
-GAME_GLOBAL(char[24], g_createdGoalName, 0x007CCC40);
-GAME_GLOBAL(char[100], g_goalIoNameBuffer, 0x007CCCC0);
+char g_createdGoalName[24];
+char g_goalIoNameBuffer[100];
 
 namespace {
 
@@ -146,7 +142,7 @@ void CEditedGoal::ReadFromStructure(Script::CStruct* params)
     params->GetInteger(0xCD66C8AE, &m_score, 0);
     params->GetInteger(0xC51BF6E3, &m_timeLimit, 0);
     params->GetChecksum(0x81CFF663, &m_controlType, 0);
-    const char* empty = GAME_TEXT(0x006469B4, ""); // ""
+    const char* empty = ""; // ""
     const char* text = empty;
     params->GetString(0x4BC5229D, &text, 0);
     std::strcpy(m_name, text);
@@ -465,15 +461,3 @@ void CEditedGoal::AddToGoalManager(bool unwin)
 }
 
 } // namespace Ed
-
-REPLACE(0x004E93D0, &Ed::CEditedGoal::DropPointToGround);
-REPLACE(0x004E9590, &Ed::CEditedGoal::PlacePointsOnGround);
-REPLACE(0x004EB550, &Ed::CEditedGoal::PlacePointAndStepBack);
-REPLACE(0x004E96D0, &Ed::CEditedGoal::ReadFromStructure);
-REPLACE(0x004EB260, &Ed::CEditedGoal::WriteIntoStructure);
-REPLACE(0x004E9BC0, &Ed::CEditedGoal::WriteKeyComboSets);
-REPLACE(0x004E98F0, &Ed::CEditedGoal::WriteGoalKeyCombos);
-REPLACE(0x004E9D60, &Ed::CEditedGoal::WriteTrickSettings);
-REPLACE(0x004E9E00, &Ed::CEditedGoal::WriteSpecificParams);
-REPLACE(0x004EA850, &Ed::CEditedGoal::WriteGoalManagerParams);
-REPLACE(0x004EB6B0, &Ed::CEditedGoal::AddToGoalManager);

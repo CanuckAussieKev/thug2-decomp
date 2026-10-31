@@ -40,7 +40,7 @@ void RegisterMemberFunctionTable(void* unused, const uint32_t* records, int stri
 // the stores written out.)
 void FillMemberFunctionCode(uint32_t* records, void* const* code, int count);
 // Every table's code, in the original's initialiser order (0x00640E30 - 0x006448C0; generated:
-// member_function_code.cpp). Standalone start-up only: the exe's own initialisers fill the hooked build's.
+// member_function_code.cpp). Run at start-up.
 void FillMemberFunctionTables();
 
 } // namespace Script

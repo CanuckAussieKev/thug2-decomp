@@ -1,9 +1,10 @@
 // Lst::LookupTable's code (see lookup_table.h): 0x00557F10, 0x00561430, 0x005628B0, 0x00562970, 0x0055B990.
 
+#include <cstdint>
+
 #include "game/lst/lookup_table.h"
 
 #include "game/core/mem.h"
-#include "hook/hook.h"
 
 namespace Lst {
 
@@ -112,9 +113,3 @@ void LookupTableDestroyer::DeleteTableContents()
 }
 
 } // namespace Lst
-
-REPLACE(0x00557F10, &Lst::LookupTable::GetItemByIndex);
-REPLACE(0x00561430, &Lst::LookupTable::GetItem);
-REPLACE(0x005628B0, &Lst::LookupTable::PutItem);
-REPLACE(0x00562970, &Lst::LookupTable::FlushItem);
-REPLACE(0x0055B990, &Lst::LookupTableDestroyer::DeleteTableContents);

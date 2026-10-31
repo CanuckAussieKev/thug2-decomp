@@ -10,15 +10,12 @@
 #include "game/ed/park_editor.h"
 #include "game/ed/rail_editor.h"
 #include "game/mth/x87_math.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Ed {
 
-GAME_GLOBAL(Mth::Vector, g_railOrigin, 0x007CCD30);
-GAME_GLOBAL(Mem::PoolPair, g_railPools, 0x007CCD40);
-GAME_GLOBAL(Mem::PoolPair, g_clipboardEntryPools, 0x007CE5C4);
+Mth::Vector g_railOrigin;
+Mem::PoolPair g_railPools;
+Mem::PoolPair g_clipboardEntryPools;
 
 namespace {
 
@@ -539,23 +536,3 @@ bool CClipboard::ShowAt(CCursor* cursor)
 }
 
 } // namespace Ed
-
-REPLACE(0x0058B800, &Ed::CClipboardEntry::GetArea);
-REPLACE(0x0058B940, &Ed::CClipboardEntry::CanPlace);
-REPLACE(0x0058B9C0, &Ed::CClipboardEntry::Paste);
-REPLACE(0x0058BB20, &Ed::CClipboardEntry::GetHeight);
-REPLACE(0x0058BBA0, &Ed::CClipboardEntry::HighlightIntersectingMetas);
-REPLACE(0x0058BCA0, &Ed::CClipboardEntry::ShowPreview);
-REPLACE(0x0058B7E0, &Ed::CClipboard::IsEmpty);
-REPLACE(0x0058BDF0, &Ed::CClipboard::Construct);
-REPLACE(0x0058BE30, &Ed::CClipboard::GetHeight);
-REPLACE(0x0058BEB0, &Ed::CClipboard::HighlightIntersectingMetas);
-REPLACE(0x0058BF10, &Ed::CClipboard::GetArea);
-REPLACE(0x0058C050, &Ed::CClipboard::GetCentre);
-REPLACE(0x0058C130, &Ed::CClipboard::ShowMetas);
-REPLACE(0x0058C200, &Ed::CClipboard::DestroyMetas);
-REPLACE(0x0058C270, &Ed::CClipboard::AddEntry);
-REPLACE(0x0058C430, &Ed::CClipboard::Destroy);
-REPLACE_SOURCE_ONLY(0x0058C980, &Ed::CClipboard::Destroy); // a jump to 0x0058C430
-REPLACE(0x0058C590, &Ed::CClipboard::CopySelectionToClipboard);
-REPLACE(0x0058C780, &Ed::CClipboard::ShowAt);

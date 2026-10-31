@@ -1,14 +1,12 @@
 // The skate module (Mdl::Skate): the singleton and its skater count (skate_module.h).
 
-#include "game/skate/skate_module.h"
+#include <cstdint>
 
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/skate/skate_module.h"
 
 namespace Mdl {
 
-GAME_GLOBAL(Skate*, g_skateModule, 0x007CE478);
+Skate* g_skateModule;
 
 Skate* Skate::Instance() { return g_skateModule; }
 
@@ -25,5 +23,3 @@ int Skate::GetNumSkaters()
 }
 
 } // namespace Mdl
-
-REPLACE(0x0041AD90, &Mdl::Skate::GetNumSkaters);

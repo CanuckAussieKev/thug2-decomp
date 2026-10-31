@@ -6,7 +6,10 @@
 #include "game/gfx/particle_system_internal.h"
 
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
+#include <new>
 
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
@@ -17,10 +20,7 @@
 #include "game/gfx/viewport.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/game_vtables.h"
 #include "game/gfx/particle_types.h"
 #include "game/net/gamenet_handlers.h"
@@ -42,8 +42,7 @@ extern void** const kCLineParticlesNodeVtable;
 extern void** const kCLineParticlesVtable;
 } // namespace
 
-
-GAME_GLOBAL(uint8_t, g_allocAssertFlag, 0x00658555);
+uint8_t g_allocAssertFlag;
 
 namespace {
 
@@ -722,86 +721,48 @@ struct NodeAdapters {
 
 } // namespace
 
-
 namespace Nx {
 namespace {
-GAME_VTABLE(kSystemVtable, 0x00649428, &Nx::CParticleSystem::Destroy, &Nx::CWeather::Render,
-            Nx::CParticleSystem::GetNumVertexListsStub, Nx::CParticleSystem::GetNumColoursStub);
-GAME_VTABLE(kSystemNodeVtable, 0x00649424, &NodeAdapters::DestroySystem);
-GAME_VTABLE(kCNewFlatParticlesNodeVtable, 0x00649438, &NodeAdapters::DestroyNewFlat);
-GAME_VTABLE(kCNewFlatParticlesVtable, 0x0064943C, &Nx::CNewFlatParticles::Destroy, &Nx::CWeather::Render,
-            GameNet::HandleNothing, GameNet::HandleNothing);
-GAME_VTABLE(kCFlatRibbonParticlesNodeVtable, 0x0064944C, &NodeAdapters::DestroyFlatRibbon);
-GAME_VTABLE(kCFlatRibbonParticlesVtable, 0x00649450, &Nx::CFlatRibbonParticles::Destroy, &Nx::CWeather::Render,
-            &Nx::CParticleCounts::Field134, &Nx::CFlatRibbonParticles::GetNumColours);
-GAME_VTABLE(kCGlowParticlesNodeVtable, 0x00649460, &NodeAdapters::DestroyGlow);
-GAME_VTABLE(kCGlowParticlesVtable, 0x00649464, &Nx::CGlowParticles::Destroy, &Nx::CWeather::Render,
-            GameNet::HandleNothing, &Nx::CParticleCounts::ThreeColours);
-GAME_VTABLE(kCGlowRibbonTrailParticlesNodeVtable, 0x00649474, &NodeAdapters::DestroyGlowRibbonTrail);
-GAME_VTABLE(kCGlowRibbonTrailParticlesVtable, 0x00649478, &Nx::CGlowRibbonTrailParticles::Destroy,
-            &Nx::CWeather::Render, &Nx::CGlowRibbonTrailParticles::GetNumVertexLists,
-            &Nx::CGlowRibbonTrailParticles::GetNumColours);
-GAME_VTABLE(kCLineParticlesNodeVtable, 0x00649488, &NodeAdapters::DestroyLine);
-GAME_VTABLE(kCLineParticlesVtable, 0x0064948C, &Nx::CLineParticles::Destroy, &Nx::CWeather::Render,
-            &Nx::CParticleCounts::Field134, &Nx::CParticleCounts::TwoColours);
+static VtableSlot kSystemVtable_slots[] = {&Nx::CParticleSystem::Destroy, &Nx::CWeather::Render,
+                Nx::CParticleSystem::GetNumVertexListsStub, Nx::CParticleSystem::GetNumColoursStub};
+void** const kSystemVtable = reinterpret_cast<void**>(kSystemVtable_slots);
+static VtableSlot kSystemNodeVtable_slots[] = {&NodeAdapters::DestroySystem};
+void** const kSystemNodeVtable = reinterpret_cast<void**>(kSystemNodeVtable_slots);
+static VtableSlot kCNewFlatParticlesNodeVtable_slots[] = {&NodeAdapters::DestroyNewFlat};
+void** const kCNewFlatParticlesNodeVtable = reinterpret_cast<void**>(kCNewFlatParticlesNodeVtable_slots);
+static VtableSlot kCNewFlatParticlesVtable_slots[] = {&Nx::CNewFlatParticles::Destroy, &Nx::CWeather::Render,
+                GameNet::HandleNothing, GameNet::HandleNothing};
+void** const kCNewFlatParticlesVtable = reinterpret_cast<void**>(kCNewFlatParticlesVtable_slots);
+static VtableSlot kCFlatRibbonParticlesNodeVtable_slots[] = {&NodeAdapters::DestroyFlatRibbon};
+void** const kCFlatRibbonParticlesNodeVtable = reinterpret_cast<void**>(kCFlatRibbonParticlesNodeVtable_slots);
+static VtableSlot kCFlatRibbonParticlesVtable_slots[] = {&Nx::CFlatRibbonParticles::Destroy, &Nx::CWeather::Render,
+                &Nx::CParticleCounts::Field134, &Nx::CFlatRibbonParticles::GetNumColours};
+void** const kCFlatRibbonParticlesVtable = reinterpret_cast<void**>(kCFlatRibbonParticlesVtable_slots);
+static VtableSlot kCGlowParticlesNodeVtable_slots[] = {&NodeAdapters::DestroyGlow};
+void** const kCGlowParticlesNodeVtable = reinterpret_cast<void**>(kCGlowParticlesNodeVtable_slots);
+static VtableSlot kCGlowParticlesVtable_slots[] = {&Nx::CGlowParticles::Destroy, &Nx::CWeather::Render,
+                GameNet::HandleNothing, &Nx::CParticleCounts::ThreeColours};
+void** const kCGlowParticlesVtable = reinterpret_cast<void**>(kCGlowParticlesVtable_slots);
+static VtableSlot kCGlowRibbonTrailParticlesNodeVtable_slots[] = {&NodeAdapters::DestroyGlowRibbonTrail};
+void** const kCGlowRibbonTrailParticlesNodeVtable = reinterpret_cast<void**>(kCGlowRibbonTrailParticlesNodeVtable_slots);
+static VtableSlot kCGlowRibbonTrailParticlesVtable_slots[] = {&Nx::CGlowRibbonTrailParticles::Destroy,
+                &Nx::CWeather::Render, &Nx::CGlowRibbonTrailParticles::GetNumVertexLists,
+                &Nx::CGlowRibbonTrailParticles::GetNumColours};
+void** const kCGlowRibbonTrailParticlesVtable = reinterpret_cast<void**>(kCGlowRibbonTrailParticlesVtable_slots);
+static VtableSlot kCLineParticlesNodeVtable_slots[] = {&NodeAdapters::DestroyLine};
+void** const kCLineParticlesNodeVtable = reinterpret_cast<void**>(kCLineParticlesNodeVtable_slots);
+static VtableSlot kCLineParticlesVtable_slots[] = {&Nx::CLineParticles::Destroy, &Nx::CWeather::Render,
+                &Nx::CParticleCounts::Field134, &Nx::CParticleCounts::TwoColours};
+void** const kCLineParticlesVtable = reinterpret_cast<void**>(kCLineParticlesVtable_slots);
 } // namespace
 } // namespace Nx
 
 namespace Vt {
-GAME_VTABLE(kParticleNode, 0x00649420, &NodeAdapters::NodeDestroy);
-GAME_VTABLE(kModelParticlesNode, 0x0064949C, &NodeAdapters::DestroyModel);
-GAME_VTABLE(kModelParticles, 0x006494A0, &Nx::CModelParticles::Destroy, &Nx::CModelParticles::Render,
-            GameNet::HandleNothing, GameNet::HandleNothing);
+static VtableSlot kParticleNode_slots[] = {&NodeAdapters::NodeDestroy};
+void** const kParticleNode = reinterpret_cast<void**>(kParticleNode_slots);
+static VtableSlot kModelParticlesNode_slots[] = {&NodeAdapters::DestroyModel};
+void** const kModelParticlesNode = reinterpret_cast<void**>(kModelParticlesNode_slots);
+static VtableSlot kModelParticles_slots[] = {&Nx::CModelParticles::Destroy, &Nx::CModelParticles::Render,
+                GameNet::HandleNothing, GameNet::HandleNothing};
+void** const kModelParticles = reinterpret_cast<void**>(kModelParticles_slots);
 } // namespace Vt
-
-REPLACE(0x00496F10, &Nx::CParticleSystem::Construct);
-REPLACE(0x00496D70, &Nx::CParticleSystem::Reset);
-REPLACE(0x00498690, &Nx::CParticleSystem::DestroyBody);
-REPLACE(0x00498F80, &Nx::CParticleSystem::Destroy);
-REPLACE(0x00496F50, &NodeAdapters::DestroySystem);
-REPLACE(0x00496D10, &NodeAdapters::NodeDestroyBody);
-REPLACE(0x00496D30, &NodeAdapters::NodeDestroy);
-REPLACE(0x004968B0, &Nx::CParticleSystem::SetEmitRange);
-REPLACE(0x004968E0, &Nx::CParticleSystem::SetForce);
-REPLACE(0x00496910, &Nx::CParticleSystem::SetEmitTarget);
-REPLACE(0x00496940, &Nx::CParticleSystem::SetRotation);
-REPLACE(0x00496970, &Nx::CParticleSystem::GetPosition);
-REPLACE(0x004969B0, &Nx::CParticleSystem::SetPosition);
-REPLACE(0x004969F0, &Nx::CParticleSystem::GetEmitMatrix);
-REPLACE(0x00496B40, &Nx::CParticleSystem::LodParticleCount);
-REPLACE(0x00496C30, &Nx::CParticleSystem::UpdateBounds);
-REPLACE(0x00496CE0, &Nx::CParticleSystem::SetColourScale);
-REPLACE(0x00496F60, &Nx::CParticleSystem::RunEmitScript);
-REPLACE(0x00496FA0, &Nx::CParticleSystem::RenderIfVisible);
-REPLACE(0x00497790, &Nx::CParticleSystem::SetEmitScript);
-REPLACE(0x00497900, &Nx::CParticleSystem::SetUpdateScript);
-REPLACE(0x00497A70, &Nx::CParticleSystem::SetWantsTime);
-REPLACE(0x00497AB0, &Nx::CParticleSystem::GetRotationMatrix);
-REPLACE(0x00496890, Nx::CParticleSystem::GetNumColoursStub);
-REPLACE(0x004968A0, Nx::CParticleSystem::GetNumVertexListsStub);
-REPLACE(0x00499010, &Nx::CNewFlatParticles::Construct);
-REPLACE(0x00498FB0, &Nx::CNewFlatParticles::DestroyBody);
-REPLACE(0x00498FE0, &Nx::CNewFlatParticles::Destroy);
-REPLACE(0x00498FD0, &NodeAdapters::DestroyNewFlat);
-REPLACE(0x004992C0, &Nx::CFlatRibbonParticles::Construct);
-REPLACE(0x00499200, &Nx::CFlatRibbonParticles::DestroyBody);
-REPLACE(0x00499290, &Nx::CFlatRibbonParticles::Destroy);
-REPLACE(0x004991F0, &NodeAdapters::DestroyFlatRibbon);
-REPLACE(0x004991E0, &Nx::CFlatRibbonParticles::GetNumColours);
-REPLACE(0x004995B0, &Nx::CGlowParticles::Construct);
-REPLACE(0x00499550, &Nx::CGlowParticles::DestroyBody);
-REPLACE(0x00499580, &Nx::CGlowParticles::Destroy);
-REPLACE(0x00499570, &NodeAdapters::DestroyGlow);
-REPLACE(0x00499880, &Nx::CGlowRibbonTrailParticles::Construct);
-REPLACE(0x00499800, &Nx::CGlowRibbonTrailParticles::DestroyBody);
-REPLACE(0x00499850, &Nx::CGlowRibbonTrailParticles::Destroy);
-REPLACE(0x00499840, &NodeAdapters::DestroyGlowRibbonTrail);
-REPLACE(0x00499820, &Nx::CGlowRibbonTrailParticles::GetNumColours);
-REPLACE(0x00499830, &Nx::CGlowRibbonTrailParticles::GetNumVertexLists);
-REPLACE(0x00499B80, &Nx::CLineParticles::Construct);
-REPLACE(0x00499B20, &Nx::CLineParticles::DestroyBody);
-REPLACE(0x00499B50, &Nx::CLineParticles::Destroy);
-REPLACE(0x00499B40, &NodeAdapters::DestroyLine);
-REPLACE(0x00499E10, &Nx::CModelParticles::DestroyBody);
-REPLACE(0x0049A090, &Nx::CModelParticles::Destroy);
-REPLACE(0x00499E00, &NodeAdapters::DestroyModel);

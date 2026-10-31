@@ -5,6 +5,7 @@
 #include "game/script/game_cfuncs.h"
 
 #include <cstdint>
+#include <initializer_list>
 
 #include "game/core/crc.h"
 #include "game/core/dbg.h"
@@ -32,17 +33,13 @@
 #include "game/skate/skate_module.h"
 #include "game/skate/game_mode.h"
 #include "game/ass/assman.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 
 namespace CFuncs {
 
-GAME_GLOBAL(char[16], g_networkId, 0x007CCBC4);
-GAME_GLOBAL(char[12], g_networkPassword, 0x007CCBD4);
+char g_networkId[16];
+char g_networkPassword[12];
 // The hosted game's name: "Beenox" unless -HOSTNAME gives another (winmain.cpp).
-GAME_GLOBAL(char[16], g_hostedGameName, 0x0067EFBC, "Beenox");
+char g_hostedGameName[16]{"Beenox"};
 
 namespace {
 
@@ -148,7 +145,7 @@ bool __cdecl CFunc_ProfileTasks(Script::CStruct* params, Script::CScript*)
     auto* mainLoop = Ass::g_mainLoopManager;
     int frames = 1;
     params->GetInteger(0u, &frames, 0);
-    Dbg::Printf(GAME_TEXT(0x0064FD00, "\n\nProfiling task for %d frames:\n"), frames);
+    Dbg::Printf("\n\nProfiling task for %d frames:\n", frames);
     mainLoop->ProfileFrames(frames);
     return true;
 }
@@ -169,25 +166,25 @@ bool __cdecl CFunc_TestNetSetup(Script::CStruct* params, Script::CScript*)
     bool ok = Stubs::ReturnTrue(); // (the net manager's setup test, a shared stub)
     if (ok) {
         uint32_t script = 0; // (unset in the original when missing - an asserted parameter)
-        params->GetChecksum(GAME_TEXT(0x0064FD24, "success_script"), &script, true); // "success_script"
+        params->GetChecksum("success_script", &script, true); // "success_script"
         Script::RunScript(script, params, nullptr, false, nullptr);
         return ok;
     }
     const char* text;
     if (net->GetLastError() == 5)
-        text = GAME_TEXT(0x0064FDC8, "net_error_not_connected");
+        text = "net_error_not_connected";
     else if (net->GetLastError() == 4)
-        text = GAME_TEXT(0x0064FDB0, "net_error_device_error");
+        text = "net_error_device_error";
     else if (net->GetLastError() == 2)
-        text = GAME_TEXT(0x0064FD98, "net_error_not_detected");
+        text = "net_error_not_detected";
     else if (net->GetLastError() == 6)
-        text = GAME_TEXT(0x0064FD80, "net_error_dhcp_error");
+        text = "net_error_dhcp_error";
     else if (net->GetLastError() == 7)
-        text = GAME_TEXT(0x0064FD64, "net_error_changed_device");
+        text = "net_error_changed_device";
     else if (net->GetLastError() == 3)
-        text = GAME_TEXT(0x0064FD4C, "net_error_invalid_irx");
+        text = "net_error_invalid_irx";
     else
-        text = GAME_TEXT(0x0064FD34, "net_error_general_error");
+        text = "net_error_general_error";
     params->AddString(kNetSetupError, Script::ESYMBOLTYPE_STRING, Script::GetString(text));
     Script::RunScript(kNetSetupFailedScript, params, nullptr, false, nullptr);
     return ok;
@@ -202,12 +199,12 @@ bool __cdecl CFunc_CanChangeDevices(Script::CStruct*, Script::CScript*) { return
 bool __cdecl CFunc_LoadNetworkDrivers(Script::CStruct*, Script::CScript*)
 {
     Net::Manager* net = NetManager();
-    const char* use = Script::GetString(GAME_TEXT(0x0064FE0C, "use_deci2"));
+    const char* use = Script::GetString("use_deci2");
     if (!use || !*use)
         return net->LoadNetworkDrivers(nullptr, nullptr, nullptr);
-    const char* ip = Script::GetString(GAME_TEXT(0x0064FE00, "viewer_ip"));
-    const char* gateway = Script::GetString(GAME_TEXT(0x0064FDF0, "viewer_gateway"));
-    const char* subnetMask = Script::GetString(GAME_TEXT(0x0064FDE0, "viewer_subnet"));
+    const char* ip = Script::GetString("viewer_ip");
+    const char* gateway = Script::GetString("viewer_gateway");
+    const char* subnetMask = Script::GetString("viewer_subnet");
     return net->LoadNetworkDrivers(ip, subnetMask, gateway);
 }
 
@@ -344,7 +341,7 @@ bool __cdecl CFunc_DumpNetMessageStats(Script::CStruct*, Script::CScript*)
 bool __cdecl CFunc_SetServerMode(Script::CStruct* params, Script::CScript*)
 {
     GameNet::Manager* gameNet = GameNetManager();
-    gameNet->SetServerMode(!params->ContainsFlag(GAME_TEXT(0x0064C24C, "off"))); // "off"
+    gameNet->SetServerMode(!params->ContainsFlag("off")); // "off"
     return true;
 }
 
@@ -387,7 +384,7 @@ bool __cdecl CFunc_ObserveNextSkater(Script::CStruct*, Script::CScript*)
 bool __cdecl CFunc_RefreshServerList(Script::CStruct* params, Script::CScript*)
 {
     GameNet::Manager* gameNet = GameNetManager();
-    gameNet->RefreshServerList(params->ContainsFlag(GAME_TEXT(0x0064FE18, "force_refresh"))); // "force_refresh"
+    gameNet->RefreshServerList(params->ContainsFlag("force_refresh")); // "force_refresh"
     return true;
 }
 
@@ -541,7 +538,7 @@ bool __cdecl CFunc_TryJoinInternetGame(Script::CStruct*, Script::CScript*)
     if (server != 0xFFFFFFFF)
         GameNetManager()->FindServerAt(server);
     TryingToJoin() = true;
-    Dbg::Printf(GAME_TEXT(0x0064FFA8, "ScriptTryJoinInternetGame\n")); // "ScriptTryJoinInternetGame\n"
+    Dbg::Printf("ScriptTryJoinInternetGame\n"); // "ScriptTryJoinInternetGame\n"
     return true;
 }
 
@@ -550,7 +547,7 @@ bool __cdecl CFunc_TryJoinInternetGame(Script::CStruct*, Script::CScript*)
 bool __cdecl CFunc_TryJoinServerIP(Script::CStruct* params, Script::CScript*)
 {
     const char* address = nullptr; // (unset in the original when missing - an asserted parameter)
-    params->GetString(GAME_TEXT(0x0064D2B0, "string"), &address, true); // "string"
+    params->GetString("string", &address, true); // "string"
     uint32_t ip = InetAddr(address);
     if (ip == 0xFFFFFFFF) {
         auto* host = static_cast<uint8_t*>(GetHostByName(address));
@@ -564,7 +561,7 @@ bool __cdecl CFunc_TryJoinServerIP(Script::CStruct* params, Script::CScript*)
         TryingToJoin() = true;
         GameNetManager()->FindServerAt(ip);
     }
-    Dbg::Printf(GAME_TEXT(0x0064FFC4, "ScriptTryJoinServerIP\n")); // "ScriptTryJoinServerIP\n"
+    Dbg::Printf("ScriptTryJoinServerIP\n"); // "ScriptTryJoinServerIP\n"
     return true;
 }
 
@@ -573,7 +570,7 @@ bool __cdecl CFunc_TryJoinServerIPCancel(Script::CStruct*, Script::CScript*)
 {
     GameNetManager()->FindServerAt(0);
     TryingToJoin() = false;
-    Dbg::Printf(GAME_TEXT(0x0064FFDC, "ScriptTryJoinServerIPCancel\n")); // "ScriptTryJoinServerIPCancel\n"
+    Dbg::Printf("ScriptTryJoinServerIPCancel\n"); // "ScriptTryJoinServerIPCancel\n"
     return true;
 }
 
@@ -604,15 +601,15 @@ uint32_t Crc(const char* name) { return Crc::GenerateCRCFromString(name); }
 void SetStringPreference(Prefs::Preferences* prefs, const char* name, const char* text)
 {
     Script::CStruct* preference = NewPreference();
-    preference->AddString(Crc(GAME_TEXT(0x0064C830, "ui_string")), Script::ESYMBOLTYPE_STRING, text); // "ui_string"
+    preference->AddString(Crc("ui_string"), Script::ESYMBOLTYPE_STRING, text); // "ui_string"
     prefs->SetPreference(Crc(name), preference);
     DeletePreference(preference);
 }
 // ... set to {ui_string="<text>" checksum=<the checksum of `value`>}.
 void SetChoicePreference(Script::CStruct* preference, const char* text, const char* value)
 {
-    preference->AddString(GAME_TEXT(0x0064C830, "ui_string"), reinterpret_cast<const char*>(text)); // "ui_string"
-    preference->AddChecksum(GAME_TEXT(0x0064C9A8, "checksum"), Crc(value));                        // "checksum"
+    preference->AddString("ui_string", reinterpret_cast<const char*>(text)); // "ui_string"
+    preference->AddChecksum("checksum", Crc(value));                        // "checksum"
 }
 
 } // namespace
@@ -624,31 +621,31 @@ void __cdecl InitBeenoxPreferences()
 {
     GameNet::Manager* gameNet = GameNetManager();
     Prefs::Preferences* prefs = gameNet->GetNetworkPreferences();
-    SetStringPreference(prefs, GAME_TEXT(0x00650324, "server_name"), g_hostedGameName); // "server_name"
-    SetStringPreference(prefs, GAME_TEXT(0x0064CE50, "password"), g_networkPassword);           // "password"
+    SetStringPreference(prefs, "server_name", g_hostedGameName); // "server_name"
+    SetStringPreference(prefs, "password", g_networkPassword);           // "password"
     if (g_networkId[0] != '\0')
-        SetStringPreference(prefs, GAME_TEXT(0x0064CF0C, "network_id"), g_networkId); // "network_id"
+        SetStringPreference(prefs, "network_id", g_networkId); // "network_id"
     gameNet->SetMaxPlayersPreference(GameNet::g_netMaxPlayers);
     Script::CStruct* teams = NewPreference();
     switch (GameNet::g_networkTeamMode) {
-    case 0: SetChoicePreference(teams, GAME_TEXT(0x0064C43C, "None"), GAME_TEXT(0x00650318, "teams_none")); break; // "None", teams_none
-    case 2: SetChoicePreference(teams, GAME_TEXT(0x0064C8A8, "2"), GAME_TEXT(0x0065030C, "teams_two")); break; // "2", teams_two
-    case 3: SetChoicePreference(teams, GAME_TEXT(0x0064C8A4, "3"), GAME_TEXT(0x00650300, "teams_three")); break; // "3", teams_three
-    case 4: SetChoicePreference(teams, GAME_TEXT(0x0064C8A0, "4"), GAME_TEXT(0x006502F4, "teams_four")); break; // "4", teams_four
+    case 0: SetChoicePreference(teams, "None", "teams_none"); break; // "None", teams_none
+    case 2: SetChoicePreference(teams, "2", "teams_two"); break; // "2", teams_two
+    case 3: SetChoicePreference(teams, "3", "teams_three"); break; // "3", teams_three
+    case 4: SetChoicePreference(teams, "4", "teams_four"); break; // "4", teams_four
     default: break;
     }
-    prefs->SetPreference(Crc(GAME_TEXT(0x006502E8, "team_mode")), teams); // "team_mode"
+    prefs->SetPreference(Crc("team_mode"), teams); // "team_mode"
     DeletePreference(teams);
     Script::CStruct* skill = NewPreference();
     switch (GameNet::g_netSkillLevel) {
-    case 1: SetChoicePreference(skill, GAME_TEXT(0x006502D8, "1: Baby Steps"), GAME_TEXT(0x006502D0, "num_1")); break; // "1: Baby Steps", num_1
-    case 2: SetChoicePreference(skill, GAME_TEXT(0x006502C0, "2: I Can Crawl!"), GAME_TEXT(0x006502B8, "num_2")); break; // "2: I Can Crawl!", num_2
-    case 3: SetChoicePreference(skill, GAME_TEXT(0x006502A8, "3: Hold My Own"), GAME_TEXT(0x006502A0, "num_3")); break; // "3: Hold My Own", num_3
-    case 4: SetChoicePreference(skill, GAME_TEXT(0x0065028C, "4: Let's Do This"), GAME_TEXT(0x00650284, "num_4")); break; // "4: Let's Do This", num_4
-    case 5: SetChoicePreference(skill, GAME_TEXT(0x00650274, "5: Bring It On!"), GAME_TEXT(0x0065026C, "num_5")); break; // "5: Bring It On!", num_5
+    case 1: SetChoicePreference(skill, "1: Baby Steps", "num_1"); break; // "1: Baby Steps", num_1
+    case 2: SetChoicePreference(skill, "2: I Can Crawl!", "num_2"); break; // "2: I Can Crawl!", num_2
+    case 3: SetChoicePreference(skill, "3: Hold My Own", "num_3"); break; // "3: Hold My Own", num_3
+    case 4: SetChoicePreference(skill, "4: Let's Do This", "num_4"); break; // "4: Let's Do This", num_4
+    case 5: SetChoicePreference(skill, "5: Bring It On!", "num_5"); break; // "5: Bring It On!", num_5
     default: break;
     }
-    prefs->SetPreference(Crc(GAME_TEXT(0x00650260, "skill_level")), skill); // "skill_level"
+    prefs->SetPreference(Crc("skill_level"), skill); // "skill_level"
     DeletePreference(skill);
 }
 
@@ -660,57 +657,3 @@ bool __cdecl CFunc_InitPrefsBeenox(Script::CStruct*, Script::CScript*)
 }
 
 } // namespace CFuncs
-
-REPLACE(0x005A0880, CFuncs::CFunc_StartServer);
-REPLACE(0x005A08D0, CFuncs::CFunc_LeaveServer);
-REPLACE(0x005A08E0, CFuncs::CFunc_JoinServer);
-REPLACE(0x005A0A00, CFuncs::CFunc_SetNetworkMode);
-REPLACE(0x005A0A60, CFuncs::CFunc_ProfileTasks);
-REPLACE(0x005A0AB0, CFuncs::CFunc_UseNetworkPreferences);
-REPLACE(0x005A0AC0, CFuncs::CFunc_TestNetSetup);
-REPLACE(0x005A0BD0, CFuncs::CFunc_NeedToTestNetSetup);
-REPLACE(0x005A0BE0, CFuncs::CFunc_CanChangeDevices);
-REPLACE(0x005A0BF0, CFuncs::CFunc_LoadNetworkDrivers);
-REPLACE(0x005A0C60, CFuncs::CFunc_ConnectToInternet);
-REPLACE(0x005A0CC0, CFuncs::CFunc_CancelConnectToInternet);
-REPLACE(0x005A0CD0, CFuncs::CFunc_IsOnline);
-REPLACE(0x005A0CE0, CFuncs::CFunc_DisconnectFromInternet);
-REPLACE(0x005A0D20, CFuncs::CFunc_EnableActuators);
-REPLACE(0x005A0D80, CFuncs::CFunc_InNetGame);
-REPLACE(0x005A0D90, CFuncs::CFunc_IsObserving);
-REPLACE(0x005A0E50, CFuncs::CFunc_SetSlomo);
-REPLACE(0x005A0EB0, CFuncs::CFunc_TogglePlayerNames);
-REPLACE(0x005A0EF0, CFuncs::CFunc_SetCurrentGameType);
-REPLACE(0x005A0F00, CFuncs::CFunc_DumpNetMessageStats);
-REPLACE(0x005A1020, CFuncs::CFunc_SetServerMode);
-REPLACE(0x005A1050, CFuncs::CFunc_NotifyBailDone);
-REPLACE(0x005A10D0, CFuncs::CFunc_EnterObserverMode);
-REPLACE(0x005A10E0, CFuncs::CFunc_ObserveNextSkater);
-REPLACE(0x005A10F0, CFuncs::CFunc_RefreshServerList);
-REPLACE(0x005A1120, CFuncs::CFunc_StartServerList);
-REPLACE(0x005A1130, CFuncs::CFunc_StartLobbyList);
-REPLACE(0x005A1160, CFuncs::CFunc_StopServerList);
-REPLACE(0x005A1170, CFuncs::CFunc_FreeServerList);
-REPLACE(0x005A1180, CFuncs::CFunc_InSplitScreenGame);
-REPLACE(0x005A11B0, CFuncs::CFunc_InMultiplayerGame);
-REPLACE(0x005A1220, CFuncs::CFunc_OnServer);
-REPLACE(0x005A12D0, CFuncs::CFunc_ToggleScores);
-REPLACE(0x005A1680, CFuncs::CFunc_JoinWithPassword);
-REPLACE(0x005A1820, CFuncs::CFunc_LoadPendingPlayers);
-REPLACE(0x005A1830, CFuncs::CFunc_LaunchQueuedScripts);
-REPLACE(0x005A1AC0, CFuncs::CFunc_StartNetworkLobby);
-REPLACE(0x005A1AD0, CFuncs::CFunc_ObserversAllowed);
-REPLACE(0x005A1AF0, CFuncs::CFunc_NumPlayersAllowed);
-REPLACE(0x005A1B30, CFuncs::CFunc_AutoDNS);
-REPLACE(0x005A1B70, CFuncs::CFunc_UsingDefaultMasterServers);
-REPLACE(0x005A1BB0, CFuncs::CFunc_UsingDHCP);
-REPLACE(0x005A1BF0, CFuncs::CFunc_InInternetMode);
-REPLACE(0x005A1C00, CFuncs::CFunc_EnteringNetGame);
-REPLACE(0x005A1C30, CFuncs::CFunc_DeviceChosen);
-REPLACE(0x005A1C70, CFuncs::CFunc_GameIsOver);
-REPLACE(0x005A28A0, CFuncs::CFunc_TryJoinInternetGame);
-REPLACE(0x005A28D0, CFuncs::CFunc_TryJoinServerIP);
-REPLACE(0x005A2960, CFuncs::CFunc_TryJoinServerIPCancel);
-REPLACE(0x005A2990, CFuncs::CFunc_ForceServerListRefresh);
-REPLACE(0x005A4900, CFuncs::InitBeenoxPreferences);
-REPLACE(0x005A4D90, CFuncs::CFunc_InitPrefsBeenox);

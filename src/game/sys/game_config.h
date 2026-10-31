@@ -1,12 +1,10 @@
 #pragma once
 
-#include "hook/game_global.h"
-
 #include <cstdint>
 
 // The game's own configuration (0x005B5C90-0x005B6370): the command line's options (CD / NotCD, NoExtraMem,
 // Bootstrap, Pal / NTSC, FrameRate=50|60), the language from the registry (HKCU, then HKLM, ...\Install\language),
-// and the names of the language, territory, hardware, display type and platform. (Not the hook's thug2-decomp.ini
+// and the names of the language, territory, hardware, display type and platform. (Not thug2-decomp.ini
 // settings: those are sys/config.h.)
 namespace GameConfig {
 
@@ -52,10 +50,10 @@ const char* __cdecl GetBootstrapPrefix();
 // arguments aren't used.
 void __cdecl ReadRegistry(int argc, char** argv);
 
-GAME_GLOBAL_EXTERN(bool, g_fromCD);
-GAME_GLOBAL_EXTERN(int, g_frameRate);
-GAME_GLOBAL_EXTERN(int, g_language);
-GAME_GLOBAL_EXTERN(int, g_platform);
-GAME_GLOBAL_EXTERN(bool, g_configBootstrap);
+extern bool g_fromCD;
+extern int g_frameRate;
+extern int g_language;
+extern int g_platform;
+extern bool g_configBootstrap;
 
 } // namespace GameConfig

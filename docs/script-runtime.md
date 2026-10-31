@@ -17,7 +17,7 @@ Conventions in this document:
 - **[quirk]** means original behaviour a faithful port must reproduce. **[bug]** means a crash, hang or
   use-after-free in the original. A port should not reproduce these, but it must not change what happens in
   the cases that work.
-- "(test)" means an offline self-test compared original against ours for that case. "(code)" means it was read
+- "(test)" means an offline self-test compared original against ours for that case (during the decompilation). "(code)" means it was read
   from the disassembly only, with no test.
 
 ## 1. The object and its state

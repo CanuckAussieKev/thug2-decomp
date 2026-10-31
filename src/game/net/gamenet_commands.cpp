@@ -3,7 +3,7 @@
 // client sends the server (start the game, change the level, toggle a pro set flag or a goal).
 
 #include <cstdint>
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 #include "game/core/alloc.h"
 #include "game/net/gamespy.h"
@@ -20,9 +20,6 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "game/ed/rail_editor.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/ass/assman.h"
 #include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
@@ -44,7 +41,7 @@ using namespace Detail;
 using Script::CScript;
 using Script::CStruct;
 
-GAME_GLOBAL(uint32_t, g_netGameStartTime, 0x007CCDF4);
+uint32_t g_netGameStartTime;
 
 namespace {
 
@@ -88,18 +85,18 @@ constexpr uint32_t kSetFlag = 0x1BC80657;             // SetFlag
 constexpr uint32_t kUnSetFlag = 0x1FF8F994;           // UnSetFlag
 constexpr uint32_t kSignedDisclaimer = 0x633A324E;    // signed_disclaimer
 
-const char* const kNumTeams = GAME_TEXT(0x0064C9B4, "num_teams");     // "num_teams"
-const char* const kParkMapDesc = GAME_TEXT(0x0064C884, "level data");  // "level data"
-const char* const kRailsDesc = GAME_TEXT(0x0064C878, "rail data");    // "rail data"
-const char* const kBit = GAME_TEXT(0x0064C9CC, "bit");          // "bit"
-const char* const kParamId = GAME_TEXT(0x0064C9C0, "param_id");      // "param_id"
-const char* const kFirstProSetFlag = GAME_TEXT(0x0064C9D0, "FLAG_PROSET1_GEO_ON"); // "FLAG_PROSET1_GEO_ON"
+const char* const kNumTeams = "num_teams";     // "num_teams"
+const char* const kParkMapDesc = "level data";  // "level data"
+const char* const kRailsDesc = "rail data";    // "rail data"
+const char* const kBit = "bit";          // "bit"
+const char* const kParamId = "param_id";      // "param_id"
+const char* const kFirstProSetFlag = "FLAG_PROSET1_GEO_ON"; // "FLAG_PROSET1_GEO_ON"
 
 constexpr int kProSetCount = 7;
 constexpr uint32_t kFlagBaseWarningInterval = 3000; // ms
 constexpr uint32_t kJustStartedTime = 5000;         // ms
 
-GAME_GLOBAL(uint32_t, g_lastFlagBaseWarning, 0x007CCE24);
+uint32_t g_lastFlagBaseWarning;
 
 uint32_t& LastFlagBaseWarning() { return g_lastFlagBaseWarning; }
 uint32_t& NetGameStartTime() { return g_netGameStartTime; }
@@ -176,7 +173,7 @@ bool __cdecl CFunc_SetJoinMode(CStruct* params, CScript*)
 // 0x00535E90: GetNumTeams - the game mode's team count into the script's num_teams.
 bool __cdecl CFunc_GetNumTeams(CStruct*, CScript* script)
 {
-    script->m_params->AddInteger(kNumTeams, Call<int>(GAME_CODE(0x00553130, &Game::CGameMode::NumTeams), GameMode()));
+    script->m_params->AddInteger(kNumTeams, Call<int>(CodeAddress(&Game::CGameMode::NumTeams), GameMode()));
     return true;
 }
 
@@ -287,7 +284,7 @@ bool __cdecl CFunc_FCFSRequestChangeLevel(CStruct* params, CScript*)
         void* map = Ed::CParkEditor::Instance()->GetCompressedMapBuffer(false);
         client->StreamMessageToServer(kMsgParkMap, kParkMapSize, map, kParkMapDesc, kGroupGame, true, false);
         Ed::CRailEditorComponent::Instance(); // (the rail editor looked up once for nothing)
-        void* rails = Call<void*>(GAME_CODE(0x004F45B0, &Ed::CRailEditorComponent::GetPacked), Ed::CRailEditorComponent::Instance());
+        void* rails = Call<void*>(CodeAddress(&Ed::CRailEditorComponent::GetPacked), Ed::CRailEditorComponent::Instance());
         client->StreamMessageToServer(kMsgRailsData, kRailsDataSize, rails, kRailsDesc, kGroupGame, true, false);
     }
     SendRequest(manager, kMsgChangeLevelRequest, &level, 4);
@@ -362,31 +359,5 @@ bool __cdecl CFunc_FoundServers(CStruct*, CScript*)
     }
     return count != 0;
 }
-
-REPLACE(0x00537100, CFunc_FoundServers);
-REPLACE(0x00535DA0, CFunc_StartCTFGame);
-REPLACE(0x00535DC0, CFunc_EndCTFGame);
-REPLACE(0x00535DE0, CFunc_DisplayFlagBaseWarning);
-REPLACE(0x00535E20, CFunc_NetworkGamePending);
-REPLACE(0x00535E30, CFunc_MarkGameOver);
-REPLACE(0x00535E40, CFunc_SetJoinMode);
-REPLACE(0x00535E90, CFunc_GetNumTeams);
-REPLACE(0x00535EB0, CFunc_ConnectedToPeer);
-REPLACE(0x00535EE0, CFunc_InGroupRoom);
-REPLACE(0x00535EF0, CFunc_IsAutoServing);
-REPLACE(0x00535F20, CFunc_ChangeLevelPending);
-REPLACE(0x00535F30, CFunc_CancelMotdDownload);
-REPLACE(0x00535F40, CFunc_DownloadMotd);
-REPLACE(0x00535F50, CFunc_ServicesAreAvailable);
-REPLACE(0x00535FA0, CFunc_AlreadyGotMotd);
-REPLACE(0x00535FB0, CFunc_JoinServerComplete);
-REPLACE(0x00535FC0, CFunc_JustStartedNetGame);
-REPLACE(0x00535FE0, CFunc_FCFSRequestStartGame);
-REPLACE(0x00536170, CFunc_FCFSRequestChangeLevel);
-REPLACE(0x00536240, CFunc_ReattemptJoinServer);
-REPLACE(0x00536260, CFunc_FCFSRequestToggleProSet);
-REPLACE(0x005362F0, CFunc_FCFSRequestToggleGoalSelection);
-REPLACE(0x00536360, CFunc_ResetProSetFlags);
-REPLACE(0x00536460, CFunc_HasSignedDisclaimer);
 
 } // namespace GameNet

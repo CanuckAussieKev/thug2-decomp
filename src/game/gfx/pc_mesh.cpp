@@ -2,6 +2,7 @@
 
 #include "game/gfx/pc_mesh.h"
 
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 
@@ -12,9 +13,7 @@
 #include "game/gfx/engine.h"
 #include "game/gfx/engine_mesh.h"
 #include "game/gfx/mesh_list.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Nx {
 
@@ -149,17 +148,8 @@ void CPcMesh::SetScene(uint8_t* newScene)
 }
 
 namespace {
-GAME_VTABLE(kPcMeshVtable, 0x0064A490, &Nx::CPcMesh::Destroy);
+static VtableSlot kPcMeshVtable_slots[] = {&Nx::CPcMesh::Destroy};
+void** const kPcMeshVtable = reinterpret_cast<void**>(kPcMeshVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x004B7AF0, Nx::CompareStripBreaks); // (qsort's; Ghidra never made it)
-REPLACE(0x004B7B30, &Nx::CPcMesh::Construct);
-REPLACE(0x004B7D50, &Nx::CPcMesh::ConstructFromFile);
-REPLACE(0x004B7E30, &Nx::CPcMesh::DestroyBody);
-REPLACE(0x004B7F00, &Nx::CPcMesh::Destroy);
-REPLACE(0x004B7B50, &Nx::CPcMesh::LoadSkinFile);
-REPLACE(0x004B7C60, &Nx::CPcMesh::LoadSkinFromMemory);
-REPLACE(0x004B7EB0, &Nx::CPcMesh::LoadSkin);
-REPLACE(0x004B7ED0, &Nx::CPcMesh::SetScene);

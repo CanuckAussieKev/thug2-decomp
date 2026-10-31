@@ -1,6 +1,6 @@
 #pragma once
 
-#include "hook/game_global.h"
+#include <cstdint>
 
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md
 
@@ -18,8 +18,8 @@ void WriteGraphicsSettings();
 // The DisableBlur setting (see SetScreenBlur).
 bool& BlurDisabled();
 
-GAME_GLOBAL_EXTERN(bool, g_fogSetting);
-GAME_GLOBAL_EXTERN(bool, g_distanceClipping);
+extern bool g_fogSetting;
+extern bool g_distanceClipping;
 
-GAME_GLOBAL_EXTERN(uint8_t, g_hqShadows);
+extern uint8_t g_hqShadows;
 } // namespace Nx

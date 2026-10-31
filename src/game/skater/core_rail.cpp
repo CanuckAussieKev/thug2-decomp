@@ -24,8 +24,6 @@
 #include "game/skate/score.h"
 #include "game/ed/park_editor.h"
 #include "game/skate/skate_module.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/net/gamenet_manager.h"
 #include "game/obj/trigger_events.h"
 
@@ -46,7 +44,6 @@ constexpr uint32_t kPerfectRail = 0xCD09E062;      // CHEAT_PERFECT_RAIL
 constexpr uint32_t kOffRail = 0xAFAA46BA;          // OffRail (event)
 constexpr uint32_t kName = 0xA1DC81F9;
 constexpr uint32_t kParkEditorLevel = 0xD443A2BC;
-
 
 constexpr float kDegrees = 0.0174532924f;
 constexpr float kRaise = 6.0f;      // 0x00646284: the transfer line's start raised
@@ -602,6 +599,3 @@ void CorePhysicsComponent::DoBikeStallPhysics()
 }
 
 } // namespace Skater
-
-REPLACE(0x0050C200, &Skater::CorePhysicsComponent::TransferOrLeaveRail);
-REPLACE(0x0050DDF0, &Skater::CorePhysicsComponent::DoRailPhysics);

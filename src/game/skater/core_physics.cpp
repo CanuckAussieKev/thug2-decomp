@@ -5,6 +5,7 @@
 
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/crc.h"
@@ -26,8 +27,6 @@
 #include "game/skater/thaw_bmx.h"
 #include "game/skater/trick_component.h"
 #include "game/sys/game_clock.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 #include "game/sys/log.h"
 #include "game/obj/trigger_events.h"
 
@@ -847,8 +846,3 @@ void CorePhysicsComponent::LandFromAir()
 }
 
 } // namespace Skater
-
-REPLACE(0x004FCBA0, &Skater::CorePhysicsComponent::LipPushOff);
-REPLACE(0x004FCE90, &Skater::CorePhysicsComponent::SetSpeed);
-REPLACE(0x00509BD0, &Skater::CorePhysicsComponent::CheckForGround);
-REPLACE(0x0050CA00, &Skater::CorePhysicsComponent::DoAirPhysics);

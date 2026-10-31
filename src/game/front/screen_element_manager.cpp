@@ -2,6 +2,8 @@
 
 #include "game/front/screen_element_manager.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
@@ -13,10 +15,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sio/inpman.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/objman.h"
 
@@ -27,8 +26,7 @@ extern void** const kCScreenElementManagerVtable;
 extern void** const kListenerAdapterVtable;
 } // namespace
 
-
-GAME_GLOBAL(CScreenElementManager*, g_screenElementManager, 0x00701440);
+CScreenElementManager* g_screenElementManager;
 
 static_assert(offsetof(CScreenElementManager, m_listener) == 0x28 && offsetof(CScreenElementManager, mp_root) == 0x44 &&
                   offsetof(CScreenElementManager, mp_resolving) == 0x50 &&
@@ -53,8 +51,7 @@ constexpr uint32_t kDeviceNum = 0xC9428A08, kTheScore = 0x675ADBAA;
 constexpr uint32_t kSystem = 0x36B2EE74, kFocus = 0x9D3FB516, kUnfocus = 0x4ADF0CD3;
 constexpr uint32_t kFocusSentEvent = 0x3056434F, kFocusClearedEvent = 0x4A57316B;
 // The script array of the pad event types ("pad_event_types").
-const char* PadEventTypesName() { return GAME_TEXT(0x0064A10C, "pad_event_types"); }
-
+const char* PadEventTypesName() { return "pad_event_types"; }
 
 CScreenElement* AsElement(Obj::CObject* object) { return static_cast<CScreenElement*>(object); }
 
@@ -688,7 +685,7 @@ void CScreenElementManager::UpdatePriorities()
 
 // --- the singleton --------------------------------------------------------------------------------------------
 
-GAME_GLOBAL(uint32_t, g_screenElementManagerUses, 0x00701444);
+uint32_t g_screenElementManagerUses;
 
 // 0x004ACAF0
 void CreateScreenElementManager(bool create)
@@ -746,43 +743,14 @@ struct ListenerAdapter {
 
 using Front::CScreenElementManager;
 
-
 namespace Front {
 namespace {
-GAME_VTABLE(kCScreenElementManagerVtable, 0x0064A0E8, &CScreenElementManager::Destroy,
-            &Obj::CBaseManager::RegisterObject, &CScreenElementManager::UnregisterObject,
-            &Obj::CBaseManager::ReassignObjectId, &Obj::CBaseManager::SetObjectPriority, Stubs::IgnoreArgument,
-            &CScreenElementManager::GetObjectList);
-GAME_VTABLE(kListenerAdapterVtable, 0x0064A104, &ListenerAdapter::Destroy, &CScreenElementManager::ListenerReceive);
+static VtableSlot kCScreenElementManagerVtable_slots[] = {&CScreenElementManager::Destroy,
+                &Obj::CBaseManager::RegisterObject, &CScreenElementManager::UnregisterObject,
+                &Obj::CBaseManager::ReassignObjectId, &Obj::CBaseManager::SetObjectPriority, Stubs::IgnoreArgument,
+                &CScreenElementManager::GetObjectList};
+void** const kCScreenElementManagerVtable = reinterpret_cast<void**>(kCScreenElementManagerVtable_slots);
+static VtableSlot kListenerAdapterVtable_slots[] = {&ListenerAdapter::Destroy, &CScreenElementManager::ListenerReceive};
+void** const kListenerAdapterVtable = reinterpret_cast<void**>(kListenerAdapterVtable_slots);
 } // namespace
 } // namespace Front
-
-REPLACE(0x004AB990, &CScreenElementManager::Construct);
-REPLACE(0x004ABB00, &CScreenElementManager::DestroyBody);
-REPLACE(0x004ACB40, &CScreenElementManager::Destroy);
-REPLACE(0x004ABAF0, &ListenerAdapter::Destroy);
-REPLACE(0x004AAFF0, &CScreenElementManager::UnregisterObject);
-REPLACE_SOURCE_ONLY(0x004AAD40, &CScreenElementManager::GetObjectList); // 4 bytes
-REPLACE(0x004AAE20, &CScreenElementManager::GetElement);
-REPLACE(0x004AB730, &CScreenElementManager::SetRoot);
-REPLACE(0x004ABBE0, &CScreenElementManager::SetParent);
-REPLACE(0x004AC400, &CScreenElementManager::DestroyTree);
-REPLACE(0x004AD100, &CScreenElementManager::DestroyElement);
-REPLACE(0x004AB130, &CScreenElementManager::FindByLocalId);
-REPLACE(0x004AC120, &CScreenElementManager::ResolveId);
-REPLACE(0x004AD1E0, &CScreenElementManager::ResolveElement);
-REPLACE(0x004ABD00, &CScreenElementManager::Update);
-REPLACE(0x004AAF90, &CScreenElementManager::LockTree);
-REPLACE(0x004AAEE0, &CScreenElementManager::SetPausedAll);
-REPLACE(0x004AB250, &CScreenElementManager::AddFocusEntry);
-REPLACE(0x004AB330, &CScreenElementManager::RemoveFocusEntries);
-REPLACE(0x004AB4D0, &CScreenElementManager::ClearMarks);
-REPLACE(0x004ABD40, &CScreenElementManager::ListenerReceive);
-REPLACE(0x004AAD80, &CScreenElementManager::HasPriorities);
-REPLACE(0x004AAD50, &CScreenElementManager::IsPadEvent);
-REPLACE(0x004AB7C0, &CScreenElementManager::IsTopPriority);
-REPLACE(0x004AC570, &CScreenElementManager::PushPriority);
-REPLACE(0x004AB5D0, &CScreenElementManager::UpdatePriorities);
-REPLACE(0x004ACAF0, Front::CreateScreenElementManager);
-REPLACE(0x004AACF0, Front::DeleteScreenElementManager);
-REPLACE(0x004AB910, Front::SetScoreText);

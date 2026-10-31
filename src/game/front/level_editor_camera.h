@@ -24,7 +24,7 @@
 // Flying's acceleration ([editor] fly_accel_ms) is FlyRamp's.
 namespace Front::LevelEditor::Camera {
 
-// --- the pieces (pure, self-tested) -----------------------------------------------------------------------------
+// --- the pieces (pure) ------------------------------------------------------------------------------------------
 
 // A camera pose: the editor's place, yaw and pitch (FrameFromYawPitch's).
 struct Pose {

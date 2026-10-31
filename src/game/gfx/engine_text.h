@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include "hook/game_global.h"
 
 // The engine's text (Nx::CText - the platform-independent part of the PC text, CPcText in pc_font.h, its first 0x48
 // bytes): a string drawn in a font, its position, pivot, scale, rotation, priority or depth, colour and per-character
@@ -97,5 +96,5 @@ CText* __cdecl NewText();
 // 0x0048D5F0: a text hidden, its buffers freed, and put back on the free list.
 void __cdecl FreeText(CText* text);
 
-GAME_GLOBAL_EXTERN(CText*, g_freeTexts);
+extern CText* g_freeTexts;
 } // namespace Nx

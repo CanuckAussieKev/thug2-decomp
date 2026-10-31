@@ -57,7 +57,7 @@ struct TODParams;
 // <text> and <scene> %-escaped (level_editor_fields.h); <node> 8 hex digits.
 namespace Front::LevelEditor::LevelProps {
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_fields.cpp) -------------------------------------------
+// --- the pure parts -----------------------------------------------------------------------------------------------
 
 constexpr int kStates = 4;
 // "morning", "afternoon", "evening", "night" (0..3); null otherwise.

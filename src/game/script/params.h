@@ -4,7 +4,6 @@
 
 #include "game/script/names.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
 
 // The parts of a script's parameter structure (Script::CStruct) script functions (CFuncs) use. Parameter names
 // are checksums of the names used in the scripts; 0 means the unnamed (first) parameter.

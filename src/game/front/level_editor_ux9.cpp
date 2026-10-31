@@ -6,7 +6,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <functional>
 #include <vector>
 
@@ -21,7 +23,6 @@
 #include "game/front/level_editor_skate_view.h"
 #include "game/mth/vector.h"
 #include "game/nx/feeler.h"
-#include "hook/game.h"
 #include "game/sys/log.h"
 #include "imgui.h"
 

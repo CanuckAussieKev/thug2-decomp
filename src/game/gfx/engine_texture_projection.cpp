@@ -4,6 +4,7 @@
 #include "game/gfx/engine_texture_projection.h"
 #include "game/gfx/d3dx.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "game/core/dbg.h"
@@ -17,10 +18,7 @@
 #include "game/nx/coll_obj.h"
 #include "game/obj/object.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 #include "game/core/game_vtables.h"
 #include "game/obj/texture_projection_component.h"
 #include "game/gfx/pc_texture_projection.h"
@@ -54,8 +52,8 @@ CCollGrid** GridsAlongLine(const Mth::Line* line)
 }
 void* FindSector(uint32_t name) { return Engine::GetSector(name); }
 
-GAME_GLOBAL(void*[128], g_projectedSectors, 0x00700F40);
-GAME_GLOBAL(void*[128], g_projectedCollision, 0x00701140);
+void* g_projectedSectors[128];
+void* g_projectedCollision[128];
 
 // The sectors and collision objects a projection reaches (0x00700F40 / 0x00701140, null-terminated).
 void** ProjectedSectors() { return g_projectedSectors; }
@@ -100,7 +98,7 @@ void CTextureProjection::DestroyBody() { reinterpret_cast<Mem::ListNode*>(this)-
 // 0x0049FE10
 void CTextureProjection::PlatProject(void**, void**)
 {
-    Dbg::Printf(GAME_TEXT(0x00649C00, "STUB: plat_update\n")); // "STUB: plat_update..."
+    Dbg::Printf("STUB: plat_update\n"); // "STUB: plat_update..."
 }
 
 // 0x004A04C0
@@ -256,18 +254,13 @@ void CTextureProjection::Update(Obj::CCompositeObject* object)
 }
 
 namespace {
-GAME_VTABLE(kProjectionVtable, 0x00649C14, &Nx::CPcTextureProjection::Destroy, &Nx::CTextureProjection::PlatProject);
+static VtableSlot kProjectionVtable_slots[] = {&Nx::CPcTextureProjection::Destroy, &Nx::CTextureProjection::PlatProject};
+void** const kProjectionVtable = reinterpret_cast<void**>(kProjectionVtable_slots);
 } // namespace
 
 } // namespace Nx
 
 namespace Vt {
-GAME_VTABLE(kProjectionNode, 0x00646600, &Obj::CTextureProjectionComponent::ProjectionList::Destroy);
+static VtableSlot kProjectionNode_slots[] = {&Obj::CTextureProjectionComponent::ProjectionList::Destroy};
+void** const kProjectionNode = reinterpret_cast<void**>(kProjectionNode_slots);
 } // namespace Vt
-
-REPLACE(0x0049FE20, &Nx::CTextureProjection::Construct);
-REPLACE(0x004A04A0, &Nx::CTextureProjection::DestroyBody);
-REPLACE(0x0049FE10, &Nx::CTextureProjection::PlatProject);
-REPLACE(0x004A04C0, &Nx::CTextureProjection::InitFromStructure);
-REPLACE(0x0049FEF0, &Nx::CTextureProjection::UpdateMatrix);
-REPLACE(0x0049FFE0, &Nx::CTextureProjection::Update);

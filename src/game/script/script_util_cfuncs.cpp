@@ -2,6 +2,7 @@
 
 #include "game/script/script_util_cfuncs.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 
@@ -15,9 +16,6 @@
 #include "game/script/qb.h"
 #include "game/script/script_cfuncs.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
 #include "game/sys/crt.h"
 
 namespace CFuncs {
@@ -78,7 +76,7 @@ void CopyText(char* out, const char* text)
 }
 
 // 0x00479190: the type-name lookup, compiled out (its "(Hey, don't use this...)" text; the type is ignored).
-const char* TypeName(Script::ESymbolType /*type*/) { return GAME_TEXT(0x00648474, "(Hey, don't use GetTypeName on the CD!)"); }
+const char* TypeName(Script::ESymbolType /*type*/) { return "(Hey, don't use GetTypeName on the CD!)"; }
 
 // 0x0044A480 (script_cfuncs.cpp): FormatText's work - the text put together from `params` into `out`.
 int FormatTextInto(CStruct* out, CStruct* params) { return FormatText(out, params); }
@@ -200,7 +198,7 @@ bool __cdecl CFunc_GetNextArrayElement(CStruct* params, CScript* script)
         own->AddChecksum(kElement, array->GetElement(index));
         break;
     default:
-        Dbg::Printf(GAME_TEXT(0x00647094, "GetNextArrayElement does not support arrays of type '%s'\n"), TypeName(array->m_type)); // "... does not support ..."
+        Dbg::Printf("GetNextArrayElement does not support arrays of type '%s'\n", TypeName(array->m_type)); // "... does not support ..."
         break;
     }
     return true;
@@ -237,7 +235,7 @@ bool __cdecl CFunc_GetRandomArrayElement(CStruct* params, CScript* script)
         own->AddChecksum(kElement, array->GetElement(index));
         break;
     default:
-        Dbg::Printf(GAME_TEXT(0x006470D0, "GetRandomArrayElement does not support arrays of type '%s'\n"), TypeName(array->m_type)); // "... does not support ..."
+        Dbg::Printf("GetRandomArrayElement does not support arrays of type '%s'\n", TypeName(array->m_type)); // "... does not support ..."
         break;
     }
     return true;
@@ -342,7 +340,7 @@ bool __cdecl CFunc_AddFlag(CStruct* params, CScript* script)
 // which lies just before it, as here.)
 bool __cdecl CFunc_AppendSuffix(CStruct* params, CScript* script)
 {
-    const char* text = GAME_TEXT(0x006469B4, ""); // ""
+    const char* text = ""; // ""
     params->GetString(kText, &text, 0);
     size_t textLength = std::strlen(text);
     struct {
@@ -354,7 +352,7 @@ bool __cdecl CFunc_AppendSuffix(CStruct* params, CScript* script)
     params->GetInteger(kMaxLength, &maxLength, 0);
     int suffix = 1;
     params->GetInteger(kSuffix, &suffix, 0);
-    Sprintf(buffers.number, GAME_TEXT(0x0064710C, " %d"), suffix); // " %d"
+    Sprintf(buffers.number, " %d", suffix); // " %d"
     int numberLength = static_cast<int>(std::strlen(buffers.number));
     if (numberLength + static_cast<int>(textLength) > maxLength)
         reinterpret_cast<char*>(&buffers)[sizeof(buffers.number) + maxLength - numberLength] = '\0';
@@ -412,7 +410,7 @@ bool __cdecl CFunc_GetElement(CStruct* params, CScript* script)
     CArray* array = nullptr;
     params->GetArray(0u, &array, 0);
     int index = 0;
-    params->GetInteger(GAME_TEXT(0x00647178, "Index"), &index, 0); // "Index"
+    params->GetInteger("Index", &index, 0); // "Index"
     script->m_params->RemoveComponent(kElement);
     if (!array)
         return true;
@@ -434,7 +432,7 @@ bool __cdecl CFunc_GetElement(CStruct* params, CScript* script)
         script->m_params->AddArray(kElement, reinterpret_cast<CArray*>(array->GetElement(index)));
         break;
     default:
-        Dbg::Printf(GAME_TEXT(0x00647110, "GetElement currently only supports arrays of structures, arrays or integers ... \n(Requested type=%d)\n"), array->m_type); // "... only supports ..."
+        Dbg::Printf("GetElement currently only supports arrays of structures, arrays or integers ... \n(Requested type=%d)\n", array->m_type); // "... only supports ..."
         break;
     }
     return true;
@@ -447,15 +445,15 @@ bool __cdecl CFunc_GetElement(CStruct* params, CScript* script)
 bool __cdecl CFunc_PermuteArray(CStruct* params, CScript* script)
 {
     CArray* source = nullptr;
-    params->GetArray(GAME_TEXT(0x006471C0, "Array"), &source, 0); // "Array"
+    params->GetArray("Array", &source, 0); // "Array"
     if (!source)
         return false;
-    bool makeCopy = !params->ContainsFlag(GAME_TEXT(0x006471B0, "PermuteSource")); // "PermuteSource"
+    bool makeCopy = !params->ContainsFlag("PermuteSource"); // "PermuteSource"
     uint32_t newName = 0;
     CArray* copy = nullptr;
     CArray* array = source;
     if (makeCopy) {
-        params->GetChecksum(GAME_TEXT(0x006471A0, "NewArrayName"), &newName, 0); // "NewArrayName"
+        params->GetChecksum("NewArrayName", &newName, 0); // "NewArrayName"
         if (!newName)
             return false;
         array = Script::NewArray();
@@ -475,7 +473,7 @@ bool __cdecl CFunc_PermuteArray(CStruct* params, CScript* script)
             elements[a] = elements[b];
             elements[b] = swap;
         }
-        if (params->ContainsFlag(GAME_TEXT(0x00647180, "MakeNewFirstDifferFromOldLast")) && size > 1 && elements[0] == oldLast) {
+        if (params->ContainsFlag("MakeNewFirstDifferFromOldLast") && size > 1 && elements[0] == oldLast) {
             // "MakeNewFirstDifferFromOldLast"
             int other = Mth::Rnd(size - 1) + 1;
             uint32_t swap = elements[0];
@@ -512,7 +510,7 @@ bool __cdecl CFunc_GotoPreserveParams(CStruct* params, CScript* script)
 // 0x0044C840
 bool __cdecl FormatPrintfText(char* out, CStruct* params, CScript*)
 {
-    const char* text = GAME_TEXT(0x006471DC, "Default printf text"); // "Default printf text"
+    const char* text = "Default printf text"; // "Default printf text"
     if (params->GetString(0u, &text, 0)) {
         CStruct* format = Script::NewStruct();
         if (format)
@@ -520,10 +518,10 @@ bool __cdecl FormatPrintfText(char* out, CStruct* params, CScript*)
         format->AddChecksum(kTextName, kPrintfText);
         format->AppendStructureIfAny(params);
         if (FormatTextInto(format, format))
-            format->GetString(GAME_TEXT(0x006471D0, "PrintfText"), &text, 0); // "PrintfText"
+            format->GetString("PrintfText", &text, 0); // "PrintfText"
         else
-            text = GAME_TEXT(0x006469B4, ""); // ""
-        Sprintf(out, GAME_TEXT(0x006471CC, "%s\n"), text); // "%s\n"
+            text = ""; // ""
+        Sprintf(out, "%s\n", text); // "%s\n"
         if (format) {
             format->Clear();
             Script::DeleteStruct(format);
@@ -532,7 +530,7 @@ bool __cdecl FormatPrintfText(char* out, CStruct* params, CScript*)
     }
     int value = 0;
     if (params->GetInteger(0u, &value, 0))
-        Sprintf(out, GAME_TEXT(0x006471C8, "%d\n"), value); // "%d\n"
+        Sprintf(out, "%d\n", value); // "%d\n"
     return true;
 }
 
@@ -549,9 +547,9 @@ bool __cdecl CFunc_Dump(CStruct* params, CScript* script)
     char text[0x400];
     CComponent* component = script->m_params->FindComponent(name);
     if (!component) {
-        Sprintf(text, GAME_TEXT(0x006471F8, "%s=[!! DOES NOT EXIST !!]"), Script::FindChecksumNameOrUnknown(name));
+        Sprintf(text, "%s=[!! DOES NOT EXIST !!]", Script::FindChecksumNameOrUnknown(name));
     } else {
-        Sprintf(text, GAME_TEXT(0x006471F0, "%s=%%a"), Script::FindChecksumNameOrUnknown(name)); // "%s=%%a"
+        Sprintf(text, "%s=%%a", Script::FindChecksumNameOrUnknown(name)); // "%s=%%a"
         CComponent* value = Script::NewComponent();
         Script::CopyComponent(value, component, 0);
         value->name = kA;
@@ -703,31 +701,3 @@ bool __cdecl CFunc_SetArrayElement(CStruct* params, CScript* script)
 }
 
 } // namespace CFuncs
-
-REPLACE(0x0044B7E0, CFuncs::CFunc_RemoveParameter);
-REPLACE(0x0044B820, CFuncs::CFunc_RemoveFlag);
-REPLACE(0x0044B850, CFuncs::CFunc_GetRandomValue);
-REPLACE(0x0044B9A0, CFuncs::CFunc_SizeOf);
-REPLACE(0x0044B9E0, CFuncs::CFunc_GetNextArrayElement);
-REPLACE(0x0044BBD0, CFuncs::CFunc_GetRandomArrayElement);
-REPLACE(0x0044BD30, CFuncs::CFunc_GotParam);
-REPLACE(0x0044BD60, CFuncs::CFunc_Goto);
-REPLACE(0x0044BDC0, CFuncs::CFunc_GotoRandomScript);
-REPLACE(0x0044BE20, CFuncs::CFunc_FormatText);
-REPLACE(0x0044BE40, CFuncs::CFunc_MangleChecksums);
-REPLACE(0x0044BEC0, CFuncs::CFunc_AppendSuffixToChecksum);
-REPLACE(0x0044BF20, CFuncs::CFunc_GetUpperCaseString);
-REPLACE(0x0044BFA0, CFuncs::CFunc_AddFlag);
-REPLACE(0x0044BFD0, CFuncs::CFunc_AppendSuffix);
-REPLACE(0x0044C120, CFuncs::CFunc_IsObjectScript);
-REPLACE(0x0044C290, CFuncs::CFunc_ForEachIn);
-REPLACE(0x0044C430, CFuncs::CFunc_GetElement);
-REPLACE(0x0044C5A0, CFuncs::CFunc_PermuteArray);
-REPLACE(0x0044C730, CFuncs::CFunc_GotoPreserveParams);
-REPLACE(0x0044C840, CFuncs::FormatPrintfText);
-REPLACE(0x0044C9B0, CFuncs::CFunc_Dump);
-REPLACE(0x0044CB70, CFuncs::CFunc_ScriptAssert);
-REPLACE(0x0044CBC0, CFuncs::CFunc_CreateIndexArray);
-REPLACE(0x0044CCC0, CFuncs::CFunc_AppendStruct);
-REPLACE(0x0044CDB0, CFuncs::CFunc_StringToCharArray);
-REPLACE(0x0044CEC0, CFuncs::CFunc_SetArrayElement);

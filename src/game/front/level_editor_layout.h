@@ -253,7 +253,7 @@ bool SavedProps(uint32_t scene, LevelProps::Props* props);
 
 // --- the edited copy (see the top) ---------------------------------------------------------------------------------
 
-// The pure parts (self-tested: src/hook/selftests_editor_levels.cpp).
+// The pure parts.
 // Whether the level that came up (`levelLoad`: its load script's checksum) gets its layout: it was picked as the
 // edited copy (`request`: that load script; 0 none) and no network session is on.
 bool ApplyEditedCopy(uint32_t request, uint32_t levelLoad, bool network);

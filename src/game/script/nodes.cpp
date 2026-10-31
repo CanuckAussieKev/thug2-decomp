@@ -16,9 +16,7 @@
 #include "game/script/qb.h"
 #include "game/script/script_cfuncs.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/game_code.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 
 namespace SkateScript {
 
@@ -38,7 +36,7 @@ constexpr uint32_t kScr = 0xA6D2D890;         // scr (SetEventHandler's script)
 constexpr uint32_t kEndGap = 0xE5399FB2;      // EndGap
 constexpr uint32_t kGapScript = 0x7C9E51AB;   // gapscript
 // SetEventHandler (the C function, as tokens 0x43 hold it: the game's address)
-const uint32_t kSetEventHandler = reinterpret_cast<uintptr_t>(GAME_CODE(0x0044AB20, &CFuncs::CFunc_SetEventHandler));
+const uint32_t kSetEventHandler = reinterpret_cast<uintptr_t>(CodeAddress(&CFuncs::CFunc_SetEventHandler));
 constexpr int kMaxDepth = 5;
 
 // Script tokens (qb.h).
@@ -338,29 +336,3 @@ uint32_t GetNodeOwnerValue58() { return Manager()->GetOwnerValue58(); }
 uint32_t GetLastNodeArrayName() { return Manager()->GetLastNodeArrayName(); }
 
 } // namespace SkateScript
-
-REPLACE(0x0045BE40, SkateScript::GetNodeName);
-REPLACE(0x0045C020, static_cast<uint32_t (*)(Script::CStruct*)>(SkateScript::GetLinkCount));
-REPLACE(0x0045BE10, static_cast<uint32_t (*)(Script::CStruct*, int)>(SkateScript::GetLink));
-REPLACE(0x0045C420, static_cast<Script::CStruct* (*)(Script::CStruct*, int)>(SkateScript::GetLinkedNode));
-REPLACE(0x0045C4B0, static_cast<bool (*)(Script::CStruct*, Script::CStruct*)>(SkateScript::IsLinkedTo));
-REPLACE(0x0045C050, static_cast<bool (*)(Script::CStruct*, Mth::Vector*)>(SkateScript::GetPosition));
-REPLACE(0x0045C180, static_cast<bool (*)(Script::CStruct*, Mth::Vector*)>(SkateScript::GetAngles));
-REPLACE(0x0045C0B0, SkateScript::GetOrientation);
-REPLACE(0x0045C1B0, SkateScript::GetNode);
-REPLACE(0x0045BE70, SkateScript::NodeExists);
-REPLACE(0x0045C3A0, static_cast<uint32_t (*)(uint32_t)>(SkateScript::GetLinkCount));
-REPLACE(0x0045C3E0, static_cast<uint32_t (*)(uint32_t, int)>(SkateScript::GetLink));
-REPLACE(0x0045C460, static_cast<Script::CStruct* (*)(uint32_t, int)>(SkateScript::GetLinkedNode));
-REPLACE(0x0045C560, static_cast<bool (*)(uint32_t, Mth::Vector*)>(SkateScript::GetPosition));
-REPLACE(0x0045C590, static_cast<bool (*)(uint32_t, Mth::Vector*)>(SkateScript::GetAngles));
-REPLACE(0x0045C520, static_cast<bool (*)(uint32_t, uint32_t)>(SkateScript::IsLinkedTo));
-REPLACE(0x0045C2D0, SkateScript::GetNearestNodeByPrefix);
-REPLACE(0x0045C1D0, SkateScript::StartNodeWalk);
-REPLACE(0x0045C1F0, SkateScript::NextNode);
-REPLACE(0x0045C200, SkateScript::EndNodeWalk);
-REPLACE(0x0045C210, SkateScript::GetLastNodeArray);
-REPLACE(0x0045C220, SkateScript::GetNodeOwnerValue58);
-REPLACE(0x0045C230, SkateScript::GetLastNodeArrayName);
-REPLACE(0x0045C950, SkateScript::ForEachScriptCall);
-REPLACE(0x0045CCA0, SkateScript::ForEachNodeScriptCall);

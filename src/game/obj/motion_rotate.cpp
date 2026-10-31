@@ -3,6 +3,7 @@
 // to its node's angles.
 
 #include <cmath>
+#include <cstdint>
 
 #include "game/core/manager.h"
 #include "game/gfx/d3dx.h"
@@ -14,8 +15,6 @@
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
-#include "hook/game.h"
-#include "hook/hook.h"
 
 namespace Obj {
 
@@ -521,28 +520,3 @@ bool CMotionComponent::Obj_LookAtObject(Script::CStruct* params, Script::CScript
 } // namespace Obj
 
 using Obj::CMotionComponent;
-
-REPLACE(0x00423F10, &CMotionComponent::SetRotationDirection);
-REPLACE(0x00424B90, &CMotionComponent::Obj_RotX);
-REPLACE(0x00424D50, &CMotionComponent::Obj_RotY);
-REPLACE(0x00424F50, &CMotionComponent::Obj_RotZ);
-REPLACE(0x004258B0, &CMotionComponent::RotateAboutAxis);
-REPLACE(0x00425A80, &CMotionComponent::UpdateAxisRotation);
-REPLACE(0x00425C70, &CMotionComponent::UpdateRotations);
-REPLACE(0x00425520, &CMotionComponent::StartRotation);
-REPLACE(0x00424440, &CMotionComponent::UpdateTurn);
-REPLACE(0x004240E0, &CMotionComponent::SetupLookAxis);
-REPLACE(0x004252E0, &CMotionComponent::LookAt);
-REPLACE(0x00425710, &CMotionComponent::LookAtNodeLinked);
-REPLACE(0x004257A0, &CMotionComponent::LookAtNode);
-REPLACE(0x00425800, &CMotionComponent::LookAtPosition);
-REPLACE(0x00427500, &CMotionComponent::LookAtObject);
-REPLACE(0x00425970, &CMotionComponent::OrientToNode);
-REPLACE(0x00426770, &CMotionComponent::Obj_Rotate);
-REPLACE(0x00426790, &CMotionComponent::Obj_LookAtNode);
-REPLACE(0x004267B0, &CMotionComponent::Obj_LookAtNodeLinked);
-REPLACE(0x004267D0, &CMotionComponent::Obj_LookAtNodeStored);
-REPLACE(0x00426810, &CMotionComponent::Obj_LookAtPos);
-REPLACE(0x00426880, &CMotionComponent::Obj_LookAtPosStored);
-REPLACE(0x004268A0, &CMotionComponent::Obj_LookAtRelPos);
-REPLACE(0x004276A0, &CMotionComponent::Obj_LookAtObject);

@@ -1,11 +1,12 @@
 // The engine's screen effects (see screen_effects.h).
 
+#include <cstdint>
+
 #include "game/gfx/screen_effects.h"
 
 #include "game/core/mem.h"
 #include "game/script/struct.h"
-#include "hook/hook.h"
-#include "hook/game_code.h"
+#include "game/core/code_address.h"
 
 namespace Nx {
 
@@ -120,19 +121,12 @@ bool CScreenEffects::SetDOFParams(Script::CStruct* params, Script::CScript*)
 }
 
 namespace {
-GAME_VTABLE(kScreenEffectsVtable, 0x00649A0C, &Nx::CScreenEffects::Destroy, GAME_LIBRARY_SLOT(0x00623771),
-            GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771),
-            GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771),
-            GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771),
-            GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771));
+static VtableSlot kScreenEffectsVtable_slots[] = {&Nx::CScreenEffects::Destroy, &_purecall,
+                &_purecall, &_purecall, &_purecall,
+                &_purecall, &_purecall, &_purecall,
+                &_purecall, &_purecall, &_purecall,
+                &_purecall, &_purecall};
+void** const kScreenEffectsVtable = reinterpret_cast<void**>(kScreenEffectsVtable_slots);
 } // namespace
 
 } // namespace Nx
-
-REPLACE(0x0049E2F0, &Nx::CScreenEffects::Construct);
-REPLACE(0x0049E300, &Nx::CScreenEffects::DestroyBody);
-REPLACE(0x0049E330, &Nx::CScreenEffects::Destroy);
-REPLACE(0x0049E320, &Nx::CScreenEffects::SetOn);
-REPLACE(0x0049E310, &Nx::CScreenEffects::SetOff);
-REPLACE(0x0049E360, &Nx::CScreenEffects::SetBloomParams);
-REPLACE(0x0049E4B0, &Nx::CScreenEffects::SetDOFParams);

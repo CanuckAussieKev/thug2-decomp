@@ -2,15 +2,13 @@
 
 #include "game/sys/platform_input.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <cwchar>
 
 #include "game/sio/device.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/settings.h"
 #include "game/gfx/camera.h"
 #include "game/gfx/device.h"
@@ -19,22 +17,22 @@
 
 namespace Platform {
 
-GAME_GLOBAL(IDirectInput8A*, g_directInput, 0x007D69D0);
-GAME_GLOBAL(IDirectInputDevice8A*, g_keyboardDevice, 0x007D69D4);
+IDirectInput8A* g_directInput;
+IDirectInputDevice8A* g_keyboardDevice;
 
 // The key bindings (0x98 actions: -1 for none; the menus' hints and the pads' keyboard actions read them).
-GAME_GLOBAL(int32_t[0x98], g_keyBindings, 0x007D6770);
-GAME_GLOBAL(IDirectInputDevice8A*[kPorts], g_joysticks, 0x007D6318);
-GAME_GLOBAL(IDirectInputEffect*[kPorts], g_effects, 0x007D6668); // each joystick's constant-force effect (rumble)
-GAME_GLOBAL(uint32_t[kPorts], g_forceAxisCounts, 0x007D42C8);
-GAME_GLOBAL(uint32_t[2 * kPorts], g_forceResolutions, 0x007D42D0);
+int32_t g_keyBindings[0x98];
+IDirectInputDevice8A* g_joysticks[kPorts];
+IDirectInputEffect* g_effects[kPorts]; // each joystick's constant-force effect (rumble)
+uint32_t g_forceAxisCounts[kPorts];
+uint32_t g_forceResolutions[2 * kPorts];
 constexpr int kKeyNameLength = 15;
-GAME_GLOBAL(wchar_t[256][kKeyNameLength], g_keyNames, 0x007D42F8);
-GAME_GLOBAL(uint8_t[256], g_keys, 0x007D6670);
-GAME_GLOBAL(uint8_t[256], g_lastKeys, 0x007D6320);
+wchar_t g_keyNames[256][kKeyNameLength];
+uint8_t g_keys[256];
+uint8_t g_lastKeys[256];
 // The joysticks' states: this frame's and the last.
-GAME_GLOBAL(DIJOYSTATE2[2], g_joystickStates, 0x007D60F8);
-GAME_GLOBAL(DIJOYSTATE2[2], g_lastJoystickStates, 0x007D6448);
+DIJOYSTATE2 g_joystickStates[2];
+DIJOYSTATE2 g_lastJoystickStates[2];
 
 namespace {
 
@@ -42,14 +40,14 @@ namespace {
 IDirectInput8A*& DirectInput() { return g_directInput; }
 IDirectInputDevice8A*& Keyboard() { return g_keyboardDevice; }
 
-GAME_GLOBAL(int, g_defaultEscapeControl, 0x0068E244, 1);
-GAME_GLOBAL(DIMOUSESTATE2, g_lastMouseState, 0x007D42E0);
-GAME_GLOBAL(DIMOUSESTATE2, g_mouseState, 0x007D6420);
-GAME_GLOBAL(IDirectInputDevice8A*, g_mouse, 0x007D69D8);
-GAME_GLOBAL(int, g_padModeSetting, 0x007D6A3C);
-GAME_GLOBAL(int, g_defaultEnterControl, 0x007D6A40);
-GAME_GLOBAL(uint8_t, g_mouseInvertX, 0x007D6A44);
-GAME_GLOBAL(uint8_t, g_mouseInvertY, 0x007D6A45);
+int g_defaultEscapeControl{1};
+DIMOUSESTATE2 g_lastMouseState;
+DIMOUSESTATE2 g_mouseState;
+IDirectInputDevice8A* g_mouse;
+int g_padModeSetting;
+int g_defaultEnterControl;
+uint8_t g_mouseInvertX;
+uint8_t g_mouseInvertY;
 
 IDirectInputDevice8A*& Mouse() { return g_mouse; }
 IDirectInputDevice8A** Joysticks() { return g_joysticks; }
@@ -797,27 +795,3 @@ void SetDefaultEscapeControl(int control)
 }
 
 } // namespace Platform
-
-REPLACE(0x005F2E00, Platform::ReadJoystick);
-REPLACE(0x005F2E90, Platform::ReadMouse);
-REPLACE(0x005F2F80, Platform::HasKeyBindings);
-REPLACE(0x005F2FC0, Platform::HasMouseBindings);
-REPLACE(0x005F3000, Platform::JoystickAxis);
-REPLACE(0x005F30E0, Platform::KeyDown);
-REPLACE(0x005F3120, Platform::KeyName);
-REPLACE(0x005F3130, Platform::AddJoystickAxis);
-REPLACE(0x005F31D0, Platform::AddInputDevice);
-REPLACE(0x005F3400, Platform::ReadKeyboard);
-REPLACE(0x005F3470, Platform::ParseHex);
-REPLACE(0x005F34D0, Platform::LoadRegistryOptions);
-REPLACE(0x005F39E0, Platform::ReleaseInput);
-REPLACE(0x005F3BF0, Platform::SetKeyName);
-REPLACE(0x005F3C10, Platform::InitKeyNames);
-REPLACE(0x005F4280, Platform::JoystickControlDown);
-REPLACE(0x005F42D0, Platform::MouseControlDown);
-REPLACE(0x005F4330, Platform::MouseStickValue);
-REPLACE(0x005F4450, Platform::JoystickStickValue);
-REPLACE(0x005F5BC0, Platform::ReadPad);
-REPLACE(0x005F6610, Platform::SetPadMode);
-REPLACE(0x005F6620, Platform::SetDefaultEnterControl);
-REPLACE(0x005F6630, Platform::SetDefaultEscapeControl);

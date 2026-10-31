@@ -42,9 +42,6 @@
 #include "game/gfx/viewport_list.h"
 #include "game/sys/screenshot.h"
 #include "game/sys/timer.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 #include "game/gfx/engine_glue.h"
 #include "game/gfx/engine_scene_list.h"
 #include "game/gfx/engine.h"
@@ -53,24 +50,24 @@
 
 namespace Nx {
 
-GAME_GLOBAL(DeviceViewport, g_deviceViewport, 0x00786C90);
-GAME_GLOBAL(RenderCamera, g_camera, 0x00786CA8);
-GAME_GLOBAL(ViewShape, g_viewShape, 0x00786E18);
+DeviceViewport g_deviceViewport;
+RenderCamera g_camera;
+ViewShape g_viewShape;
 
-GAME_GLOBAL(bool, g_radeon8500, 0x00786AB5);
-GAME_GLOBAL(int, g_framesRendered, 0x00786AC4);
-GAME_GLOBAL(Mth::Matrix, g_worldMatrix, 0x00786B90);
-GAME_GLOBAL(Mth::Matrix, g_viewMatrix, 0x00786BD0);
-GAME_GLOBAL(Mth::Matrix, g_projectionMatrix, 0x00786C10);
-GAME_GLOBAL(Mth::Matrix, g_headingMatrix, 0x00786C50);
-GAME_GLOBAL(int, g_frameTime, 0x00786D00);
-GAME_GLOBAL(int, g_screenCopyIndex, 0x00786D68);
-GAME_GLOBAL(int, g_backBufferWidth, 0x00786D6C);
-GAME_GLOBAL(int, g_backBufferHeight, 0x00786D70);
-GAME_GLOBAL(int, g_drawCalls, 0x00786EBC);
-GAME_GLOBAL(int, g_drawnTriangles, 0x00786EC0);
-GAME_GLOBAL(float, g_fogStart, 0x00787340);
-GAME_GLOBAL(float, g_fogEnd, 0x00787344);
+bool g_radeon8500;
+int g_framesRendered;
+Mth::Matrix g_worldMatrix;
+Mth::Matrix g_viewMatrix;
+Mth::Matrix g_projectionMatrix;
+Mth::Matrix g_headingMatrix;
+int g_frameTime;
+int g_screenCopyIndex;
+int g_backBufferWidth;
+int g_backBufferHeight;
+int g_drawCalls;
+int g_drawnTriangles;
+float g_fogStart;
+float g_fogEnd;
 
 namespace {
 
@@ -186,8 +183,6 @@ float FloatFromBits(uint32_t bits)
     std::memcpy(&f, &bits, 4);
     return f;
 }
-
-
 
 } // namespace
 
@@ -461,7 +456,6 @@ struct Viewport {
     void* camera;              // +0x18 (null: nothing to draw)
 };
 static_assert(offsetof(Viewport, camera) == 0x18, "viewport layout");
-
 
 // A world scene's mesh group: flagged 0x100 once its meshes are prepared.
 struct MeshGroup {
@@ -752,7 +746,3 @@ void RenderWorld()
 }
 
 } // namespace Nx
-
-REPLACE(0x004DB200, static_cast<void (*)(const Mth::Matrix*, const Mth::Vector*, float, float, float, bool)>(Nx::SetCamera));
-REPLACE(0x004DF390, Nx::DrawScreenBlur);
-REPLACE(0x004B2D80, Nx::RenderWorld);

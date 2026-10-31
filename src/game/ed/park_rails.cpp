@@ -3,20 +3,19 @@
 #include "game/ed/park_rails.h"
 
 #include <bit>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <new>
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
 
 namespace Ed {
 
-GAME_GLOBAL(Mem::PoolPair, g_parkStringPools, 0x007CE594);
-GAME_GLOBAL(Mem::PoolPair, g_parkPointPools, 0x007CE5A4);
+Mem::PoolPair g_parkStringPools;
+Mem::PoolPair g_parkPointPools;
 
 namespace {
 
@@ -284,19 +283,3 @@ void CParkRailSet::Clear()
 }
 
 } // namespace Ed
-
-REPLACE(0x0058AFC0, &Ed::CParkRailString::AddPoint);
-REPLACE(0x0058AFF0, &Ed::CParkRailSet::Construct);
-REPLACE(0x0058B010, &Ed::CParkRailSet::AddRail);
-REPLACE(0x0058B040, &Ed::CParkRailString::CountSegments);
-REPLACE(0x0058B070, &Ed::CParkRailSet::CountPoints);
-REPLACE(0x0058B090, &Ed::CParkRailSet::FindRail);
-REPLACE(0x0058B0C0, &Ed::CParkRailSet::Init);
-REPLACE(0x0058B220, Ed::CParkRailString::Free);
-REPLACE(0x0058B280, &Ed::CParkRailSet::FreePools);
-REPLACE(0x0058B2D0, &Ed::CParkRailSet::NewPoint);
-REPLACE(0x0058B370, &Ed::CParkRailSet::NewRail);
-REPLACE(0x0058B420, &Ed::CParkRailString::CopyFrom);
-REPLACE(0x0058B5B0, &Ed::CParkRailSet::FreeRail);
-REPLACE(0x0058B620, &Ed::CParkRailString::DeletePoints);
-REPLACE(0x0058B700, &Ed::CParkRailSet::Clear);

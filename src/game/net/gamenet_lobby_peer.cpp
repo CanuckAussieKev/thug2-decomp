@@ -2,6 +2,8 @@
 // SDK's callbacks, the lobby's tasks and the packet queue they share. The peer and NAT negotiation SDKs are library
 // code, called by address. See gamenet_lobby.h.
 
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
@@ -19,11 +21,8 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "game/script/game_cfuncs.h"
-#include "hook/game.h"
-#include "hook/game_global.h"
-#include "hook/hook.h"
+#include "game/core/code_address.h"
 #include "game/ass/assman.h"
-#include "hook/game_code.h"
 #include "game/core/stubs.h"
 #include "game/goals/goal.h"
 #include "game/goals/goal_manager.h"
@@ -128,16 +127,16 @@ int NatBegin(uint32_t socket, int cookie, int clientIndex, void* progress, GameS
     return GameSpy::NatBeginWithSocket(socket, cookie, clientIndex, progress, completed,
                                        reinterpret_cast<void*>(static_cast<intptr_t>(userData)));
 }
-void* const kNoProgress = GAME_CODE(0x005480A0, Stubs::DoNothing); // (an empty function: no progress callback)
+void* const kNoProgress = CodeAddress(Stubs::DoNothing); // (an empty function: no progress callback)
 
 } // namespace
 
-GAME_GLOBAL(bool, g_notPostedShown, 0x007CCE3A);
-GAME_GLOBAL(uint32_t, g_connectionTimer, 0x007CCE3C);
-GAME_GLOBAL(uint32_t, g_lastReportTime, 0x007CCE40);
-GAME_GLOBAL(uint32_t, g_hostingSince, 0x007CCE44);
-GAME_GLOBAL(bool, g_gamePosted, 0x007CCE48);
-GAME_GLOBAL(uint32_t, g_connectedTime, 0x007CE434);
+bool g_notPostedShown;
+uint32_t g_connectionTimer;
+uint32_t g_lastReportTime;
+uint32_t g_hostingSince;
+bool g_gamePosted;
+uint32_t g_connectedTime;
 
 // 0x0053F570
 void __cdecl LobbyMan::DisconnectedCallback(void*, const char* reason, void* param)
@@ -430,18 +429,3 @@ void __cdecl LobbyMan::NatNegotiateCallback(void*, int cookie, void*)
 }
 
 } // namespace GameNet
-
-REPLACE(0x0053F570, GameNet::LobbyMan::DisconnectedCallback);
-REPLACE(0x0053F6C0, GameNet::LobbyMan::QueuePacket);
-REPLACE(0x0053FB80, GameNet::LobbyMan::PlayerKeyCallback);
-REPLACE(0x0053FDA0, GameNet::LobbyMan::PublicAddressCallback);
-REPLACE(0x0053FEE0, GameNet::LobbyMan::NickErrorCallback);
-REPLACE(0x0053FFC0, GameNet::LobbyMan::ConnectCallback);
-REPLACE(0x00540040, GameNet::LobbyMan::ThinkTask);
-REPLACE(0x005400B0, GameNet::LobbyMan::NatNegotiationTask);
-REPLACE(0x005400E0, GameNet::LobbyMan::QueryTask);
-REPLACE(0x00540220, &GameNet::LobbyMan::StartHosting);
-REPLACE(0x00540300, GameNet::LobbyMan::NatNegotiationCompleted);
-REPLACE(0x00540750, &GameNet::LobbyMan::Disconnect);
-REPLACE(0x00540AB0, GameNet::LobbyMan::ConnectThread);
-REPLACE(0x00540C90, GameNet::LobbyMan::NatNegotiateCallback);

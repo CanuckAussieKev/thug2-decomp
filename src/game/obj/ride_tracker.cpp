@@ -3,9 +3,6 @@
 #include "game/obj/ride_tracker.h"
 #include "game/gfx/d3dx.h"
 
-#include "hook/game.h"
-#include "hook/hook.h"
-
 namespace Obj {
 
 namespace {
@@ -75,6 +72,3 @@ bool CRideTracker::Update(const Mth::Vector* point)
 }
 
 } // namespace Obj
-
-REPLACE(0x00416E70, &Obj::CRideTracker::Construct);
-REPLACE(0x00416F00, &Obj::CRideTracker::Update);

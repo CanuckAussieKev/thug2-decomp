@@ -56,11 +56,11 @@ void Update(Mdl::FrontEnd* frontEnd);
 // `level` command - game/front/automation.h.)
 bool Load(const char* name, std::string* why);
 
-// The command line's option (pure, self-tested): the word after `-<option> `, `--<option> ` or `--<option>=` in
+// The command line's option (pure): the word after `-<option> `, `--<option> ` or `--<option>=` in
 // `line` ("" if none; a quoted value keeps what is inside the quotes).
 std::string OptionValue(const std::string& line, const char* option);
 
-// -at / start_at (pure, self-tested): three or four numbers separated by commas and / or spaces (optionally in
+// -at / start_at (pure): three or four numbers separated by commas and / or spaces (optionally in
 // parentheses, as the screenshot sidecar writes a position). False for anything else: fewer than three or more than
 // four, a word, an empty field ("1,,2,3"), a number that isn't finite.
 struct Spot {
