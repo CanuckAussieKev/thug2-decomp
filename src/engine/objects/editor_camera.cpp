@@ -21,6 +21,7 @@
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
 #include "game/park_editing/park_editor.h"
+#include "engine/objects/input_component.h"
 #include "game/skate/skate_module.h"
 #include "engine/sys/game_config.h"
 #include "engine/objects/car_physics.h"
@@ -57,12 +58,12 @@ uint8_t& get_flagged() { return g_editor_camera_flagged; }
 int& get_seen_count() { return g_editor_camera_seen_count; }
 uint32_t* get_seen() { return g_editor_camera_seen; }
 
-// The collision feeler (Nx's ray, 0xB0 bytes; not rewritten yet): its line from +0x00 to +0x10, a hit callback at
-// +0x20, the hit's point at +0x78 and normal at +0x88; what it hit held by a smart pointer at +0x98.
+// The collision feeler (render::ProbeRay): its line, a hit callback, the hit's point and normal; what it hit held by
+// a smart pointer (let go of by its destructor).
 class Feeler {
 public:
-    Feeler() { as_feeler()->make_new(); }
-    ~Feeler() { reinterpret_cast<SharedRef<SharedBase>*>(bytes_ + 0x98)->~SharedRef(); }
+    Feeler() { ray_.make_new(); }
+    ~Feeler() = default;
     Feeler(const Feeler&) = delete;
     Feeler& operator=(const Feeler&) = delete;
     void set_excluded(uint32_t skip, uint32_t need)
@@ -72,16 +73,15 @@ public:
     void change_origin(const maths::Vec4& v) { as_feeler()->change_origin(&v); }
     void change_finish(const maths::Vec4& v) { as_feeler()->change_finish(&v); }
     bool get_hit_shape(int a, int b) { return as_feeler()->get_hit_shape(a != 0, b != 0) != 0; }
-    render::ProbeRay* as_feeler() { return reinterpret_cast<render::ProbeRay*>(bytes_); }
-    maths::Vec4& kickoff() { return *reinterpret_cast<maths::Vec4*>(bytes_); }
-    maths::Vec4& get_end() { return *reinterpret_cast<maths::Vec4*>(bytes_ + 0x10); }
-    void*& hook_fn() { return *reinterpret_cast<void**>(bytes_ + 0x20); }
-    const maths::Vec4& get_point() const { return *reinterpret_cast<const maths::Vec4*>(bytes_ + 0x78); }
-    const maths::Vec4& get_normal() const { return *reinterpret_cast<const maths::Vec4*>(bytes_ + 0x88); }
-    uint8_t* get_bytes() { return bytes_; }
+    render::ProbeRay* as_feeler() { return &ray_; }
+    maths::Vec4& kickoff() { return ray_.line_.start; }
+    maths::Vec4& get_end() { return ray_.line_.end; }
+    render::FeelerCallback& hook_fn() { return ray_.callback_; }
+    const maths::Vec4& get_point() const { return ray_.contact_pos_; }
+    const maths::Vec4& get_normal() const { return ray_.surface_dir_; }
 
 private:
-    alignas(16) uint8_t bytes_[0xB0];
+    render::ProbeRay ray_;
 };
 
 // The rail editor's 0x004F3D30 (thiscall; the editor from 0x004F4970), around the cursor's move in the park editor.
@@ -146,12 +146,11 @@ bool __cdecl script_flagged(uint32_t name)
 }
 
 // 0x004E5320
-void __cdecl flag_scripted_hit(void* feeler)
+void __cdecl flag_scripted_hit(render::ProbeRay* feeler)
 {
-    auto* bytes = static_cast<uint8_t*>(feeler);
-    if (!bytes[0x6D])
+    if (!feeler->hit_.face_flag40_)
         return;
-    uint32_t node_name = *reinterpret_cast<uint32_t*>(bytes + 0x58);
+    uint32_t node_name = feeler->hit_.object_checksum_;
     if (!node_name)
         return;
     script::Struct* node = level_nodes::fetch_vertex(node_name, false);
@@ -174,7 +173,7 @@ bool flagged_object_between(const maths::Vec4& start, const maths::Vec4& end)
     feeler.kickoff() = start;
     feeler.get_end() = end;
     feeler.set_excluded(0, 0x50);
-    feeler.hook_fn() = reinterpret_cast<void*>(&flag_scripted_hit);
+    feeler.hook_fn() = &flag_scripted_hit;
     feeler.get_hit_shape(1, 0);
     return get_flagged() != 0;
 }
@@ -216,7 +215,7 @@ void EditorViewModule::configure_from_data(script::Struct* params)
 }
 
 // 0x004E51F0
-void EditorViewModule::seal() { input_ptr_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kInput)); }
+void EditorViewModule::seal() { input_ptr_ = static_cast<PadInputModule*>(entity_->fetch_module(kInput)); }
 
 // 0x004E5170
 void EditorViewModule::build_blob_shadow()
@@ -273,7 +272,7 @@ bool EditorViewModule::ground_height(maths::Vec4 start, maths::Vec4 end, float* 
         *height = feeler.get_point().y;
         return true;
     }
-    flag_scripted_hit(feeler.get_bytes());
+    flag_scripted_hit(feeler.as_feeler());
     if (get_flagged())
         return false;
     if (feeler.get_normal().y < kMaxSlope)
@@ -359,11 +358,10 @@ void EditorViewModule::tick_frame()
 {
     min_tilt_ = get_global(0x7D16D113);
     max_tilt_ = get_global(0x411BEE4A);
-    uint8_t* pad = input_ptr_ + 0x20;
-    auto stick = [pad](uint32_t offset) { return *reinterpret_cast<float*>(pad + offset); };
+    const PadSnapshot& pad = input_ptr_->pad_primary_;
 
     // Heading, wrapped into 0..2 pi (the comparison on the unrounded sum, as the original).
-    double heading = static_cast<double>(get_global(0x8242D878)) * stick(0x210) + heading_;
+    double heading = static_cast<double>(get_global(0x8242D878)) * pad.scaled_stick_[0] + heading_;
     heading_ = static_cast<float>(heading);
     if (heading > kTwoPi) {
         double h = heading_;
@@ -380,7 +378,7 @@ void EditorViewModule::tick_frame()
         heading_ = static_cast<float>(h);
     }
     // Tilt, within the globals' range.
-    double tilt = -(static_cast<double>(get_global(0x3CFA3A72)) * stick(0x214)) + lean_angle_;
+    double tilt = -(static_cast<double>(get_global(0x3CFA3A72)) * pad.scaled_stick_[1]) + lean_angle_;
     lean_angle_ = static_cast<float>(tilt);
     if (tilt > max_tilt_)
         lean_angle_ = max_tilt_;
@@ -390,7 +388,7 @@ void EditorViewModule::tick_frame()
     // The zoom and height buttons by controller type.
     bool zoom_in = false, zoom_out = false, raise = false, lower = false;
     int controller = game_config::g_platform;
-    uint32_t buttons = *reinterpret_cast<uint32_t*>(input_ptr_ + 0x1C);
+    uint32_t buttons = input_ptr_->events_;
     if (controller == 4 || controller == 7) {
         zoom_in = (buttons & 0x400000) != 0;
         zoom_out = (buttons & 0x800000) != 0;
@@ -410,10 +408,10 @@ void EditorViewModule::tick_frame()
             raise = (buttons & 0x1000) != 0;
         }
     } else {
-        zoom_in = pad[0xE0] != 0;
-        zoom_out = pad[0x100] != 0;
-        raise = pad[0x80] != 0;
-        lower = pad[0xA0] != 0;
+        zoom_in = pad.shoulder_right_a_.held_down_ != 0;
+        zoom_out = pad.shoulder_right_b_.held_down_ != 0;
+        raise = pad.shoulder_left_a_.held_down_ != 0;
+        lower = pad.shoulder_left_b_.held_down_ != 0;
     }
     double zoom_rate = get_global(0x4E58F829);
     if (!zoom_in)
@@ -458,7 +456,7 @@ void EditorViewModule::tick_frame()
     }
     level_y_ = rise + level_y_;
 
-    uint8_t* skate = reinterpret_cast<uint8_t*>(modules::g_skate_module);
+    modules::Skate* skate = modules::g_skate_module;
     if (in_park_editor())
         rail_editor_moving(0);
 
@@ -499,18 +497,18 @@ void EditorViewModule::tick_frame()
         speed = 1.0f;
 
     // The left stick (or the d-pad) moves the cursor along the axes.
-    float side = static_cast<float>(static_cast<double>(stick(0x208)) * kStickScale);
-    double ahead = static_cast<double>(stick(0x20C)) * kStickScale;
+    float side = static_cast<float>(static_cast<double>(pad.stick_[2]) * kStickScale);
+    double ahead = static_cast<double>(pad.stick_[3]) * kStickScale;
     if (std::fabs(side) < kDeadZone) {
-        if (pad[0x40])
+        if (pad.left_side_.held_down_)
             side = -0.5f;
-        if (pad[0x60])
+        if (pad.right_side_.held_down_)
             side = 0.5f;
     }
     if (std::fabs(ahead) < kDeadZone) {
-        if (pad[0])
+        if (pad.up_dir_.held_down_)
             ahead = -0.5f;
-        if (pad[0x20])
+        if (pad.btn_down_.held_down_)
             ahead = 0.5f;
     }
     float a1 = static_cast<float>(ahead * forward_.w);
@@ -530,7 +528,7 @@ void EditorViewModule::tick_frame()
     cursor_.w = static_cast<float>((static_cast<double>(d1) + b1) + cursor_.w);
     if (!place_cursor(previous, get_global(0xC7210318)))
         cursor_ = previous;
-    if (*reinterpret_cast<uint32_t*>(skate + 0x378) == 0xE8B4B836)
+    if (skate->level_ == 0xE8B4B836)
         rail_editor_moving(1);
 
     // The camera: the focus follows the cursor (its height eased), the camera at the zoom along the tilt.

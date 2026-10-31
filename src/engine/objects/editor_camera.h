@@ -13,9 +13,12 @@ class Struct;
 
 namespace render {
 class BlobShadow;
-}
+class ProbeRay;
+} // namespace render
 
 namespace objects {
+
+class PadInputModule;
 
 // The editor camera component (type 0xAC8946E2, vtable 0x0064B2D0, 0x9C bytes; made by 0x004E5940): the
 // create-a-goal / park editor camera. A cursor point is walked over the ground with the left stick (kept on it
@@ -74,7 +77,7 @@ public:
     bool simple_collision_;     // +0x90
     bool no_wall_check_;        // +0x91 (0xF5680DEF)
     uint8_t pad92[2];
-    uint8_t* input_ptr_;                // +0x94 the Input component
+    PadInputModule* input_ptr_;         // +0x94 the Input component
     render::BlobShadow* shadow_handle_; // +0x98
 };
 static_assert(offsetof(EditorViewModule, focus_) == 0x1C, "m_focus");
@@ -89,7 +92,7 @@ static_assert(sizeof(EditorViewModule) == 0x9C, "size");
 // false.
 bool __cdecl script_flagged(uint32_t name);
 // 0x004E5320: a feeler's hit callback: an object whose node's TriggerScript is flagged sets 0x007CCC38.
-void __cdecl flag_scripted_hit(void* feeler);
+void __cdecl flag_scripted_hit(render::ProbeRay* feeler);
 // 0x004E5390 (`end` in ESI, `start` in EDI): whether a line from `start` to `end` hits a flagged object (faces
 // with 0x50 only).
 bool flagged_object_between(const maths::Vec4& start, const maths::Vec4& end);

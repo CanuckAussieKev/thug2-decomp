@@ -406,10 +406,7 @@ const double kTwoTo32 = 4294967296.0;                            // 0x006453B4
 double Unsigned(int value) { return value < 0 ? value + kTwoTo32 : value; }
 
 // 0x00434F20 (the previous range; stdcall): a wheel's parameters from a structure.
-void read_wheel(DrivableModule::Wheel* wheel, script::Struct* params)
-{
-    read_wheel_settings(reinterpret_cast<uint8_t*>(wheel), params);
-}
+void read_wheel(DrivableModule::Wheel* wheel, script::Struct* params) { read_wheel_settings(wheel, params); }
 // The skate module's local skater (0x00566520) and a restart node's name (0x00566100).
 GameEntity* local_skater() { return static_cast<GameEntity*>(modules::Skate::sole()->get_home_rider()); }
 uint32_t skate_restart(int index) { return modules::Skate::sole()->warp_to_restart(static_cast<uint32_t>(index)); }

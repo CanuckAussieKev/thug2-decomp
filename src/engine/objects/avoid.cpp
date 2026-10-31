@@ -92,23 +92,19 @@ void d3dx_multiply(maths::Mat4& out, const maths::Mat4& a, const maths::Mat4& b)
     d3dx::matrix_multiply(&out, &a, &b);
 }
 
-// The collision feeler (Nx's ray, 0xB0 bytes): constructed by 0x00417760, its line from +0x00 to +0x10, tested
-// by 0x004172F0; what it hit is held by a smart pointer at +0x98.
+// The collision feeler (render::ProbeRay): constructed by 0x00417760, its line tested by 0x004172F0; what it hit is
+// held by a smart pointer, let go of by its destructor.
 class Feeler {
 public:
-    Feeler() { reinterpret_cast<render::ProbeRay*>(bytes_)->make_new(); }
-    ~Feeler() { reinterpret_cast<SharedRef<SharedBase>*>(bytes_ + 0x98)->~SharedRef(); }
+    Feeler() { ray_.make_new(); }
     Feeler(const Feeler&) = delete;
     Feeler& operator=(const Feeler&) = delete;
-    maths::Vec4& kickoff() { return *reinterpret_cast<maths::Vec4*>(bytes_); }
-    maths::Vec4& get_end() { return *reinterpret_cast<maths::Vec4*>(bytes_ + 0x10); }
-    bool get_hit_shape(int a, int b)
-    {
-        return reinterpret_cast<render::ProbeRay*>(bytes_)->get_hit_shape(a != 0, b != 0) != 0;
-    }
+    maths::Vec4& kickoff() { return ray_.line_.start; }
+    maths::Vec4& get_end() { return ray_.line_.end; }
+    bool get_hit_shape(int a, int b) { return ray_.get_hit_shape(a != 0, b != 0) != 0; }
 
 private:
-    alignas(16) uint8_t bytes_[0xB0];
+    render::ProbeRay ray_;
 };
 
 // The angle of `v` about the y row of `m` from its at row, in the original's degrees or radians.

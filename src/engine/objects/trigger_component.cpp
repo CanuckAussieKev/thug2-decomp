@@ -7,6 +7,7 @@
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
+#include "engine/render/coll_rect.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
 #include "engine/script/nodes.h"
@@ -68,12 +69,6 @@ constexpr uint16_t kTriggerFaces = 0x50;
 
 // No events (0x0064663C: three zeros).
 const int kNoEvents[3] = {0, 0, 0};
-
-template <typename T>
-T& get_at(void* object, uint32_t offset)
-{
-    return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
-}
 
 // The node array of `object`'s nodearray component (the original's slot 13), or null without one.
 script::Array* node_array_of(GameEntity* object)
@@ -153,8 +148,7 @@ int ActivationZoneModule::invoke_method_by_name(uint32_t name, script::Struct* p
 }
 
 // 0x00434A60
-bool ActivationZoneModule::get_trigger_node(const int* events, uint32_t name, script::Array* nodes,
-                                            const uint8_t* other)
+bool ActivationZoneModule::get_trigger_node(const int* events, uint32_t name, script::Array* nodes, const Entity* other)
 {
     script::Struct* node = nullptr;
     if (!nodes) {
@@ -169,8 +163,7 @@ bool ActivationZoneModule::get_trigger_node(const int* events, uint32_t name, sc
     }
     script::Struct* params = nullptr;
     if (other) {
-        if (script::Struct* other_node =
-                level_nodes::fetch_vertex(*reinterpret_cast<const uint32_t*>(other + 0x14), false))
+        if (script::Struct* other_node = level_nodes::fetch_vertex(other->ident_, false))
             other_node->read_sub_struct(kParams, &params, 0);
     }
     // Not original - a trigger face whose object has no node (a level's collision with another level's node array:
@@ -200,7 +193,7 @@ bool ActivationZoneModule::get_trigger_node(const int* events, uint32_t name, sc
         recorded += 1u << (events[1] & 31);
     if (events[2])
         recorded += 1u << (events[2] & 31);
-    Entity* object = get_at<Entity*>(this, 0x0C);
+    Entity* object = entity_;
     bool permanent = node->has_bare_flag(kPermanent);
     bool replicate_flag = node->has_bare_flag(kOnlineFlag);
     object->start_script_task(script, static_cast<int>(name), replicate_flag, permanent, params);
@@ -217,7 +210,7 @@ bool ActivationZoneModule::probe_touches_zone(const int* events, render::ProbeRa
         auto* owner = reinterpret_cast<GameEntity*>(feeler->get_tested_owner());
         script::Array* nodes = node_array_of(owner);
         uint32_t name = feeler->hit_.object_checksum_;
-        return get_trigger_node(events, name, nodes, reinterpret_cast<const uint8_t*>(feeler->get_tested_owner()));
+        return get_trigger_node(events, name, nodes, owner);
     }
     if (!feeler->hit_object_alive()) // (which clears the name when the object is gone)
         return get_trigger_node(events, feeler->hit_.object_checksum_, nullptr, nullptr);
@@ -225,22 +218,22 @@ bool ActivationZoneModule::probe_touches_zone(const int* events, render::ProbeRa
         return false;
     script::Array* nodes = node_array_of(feeler->get_hit_object());
     uint32_t name = feeler->hit_.object_checksum_;
-    return get_trigger_node(events, name, nodes, reinterpret_cast<const uint8_t*>(feeler->get_hit_object()));
+    return get_trigger_node(events, name, nodes, feeler->get_hit_object());
 }
 
 // 0x00434CE0
-void ActivationZoneModule::trigger_hits(const int* events, const uint8_t* hits)
+void ActivationZoneModule::trigger_hits(const int* events, const render::BoxProbe* feeler)
 {
-    const int count = *reinterpret_cast<const int*>(hits + 0xC30);
-    auto entry = [hits](int i) { return hits + 0x88 + 0x60 * i; };
+    const render::RectHits& hits = feeler->hits_;
+    const int count = hits.count;
     for (int i = count - 1; i >= 0; --i) {
-        if (!entry(i)[4])
+        if (!hits.hits[i].face_flag40_)
             continue;
-        uint32_t name = *reinterpret_cast<const uint32_t*>(entry(i));
+        uint32_t name = hits.hits[i].checksum;
         // (the count is read again: get_trigger_node may run scripts)
-        int total = *reinterpret_cast<const int*>(hits + 0xC30);
+        int total = hits.count;
         int later = i + 1;
-        while (later < total && name != *reinterpret_cast<const uint32_t*>(entry(later)))
+        while (later < total && name != hits.hits[later].checksum)
             ++later;
         if (later == total)
             get_trigger_node(events, name, nullptr, nullptr);

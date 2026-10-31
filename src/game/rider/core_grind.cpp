@@ -110,11 +110,11 @@ void play_land_sound(void* component)
 // The rail node's TriggerScript run for `events` (with what the skater rides on, if anything still there).
 void trigger_rail_node(void* component, const int* events)
 {
-    const uint8_t* ride_object = nullptr;
+    const objects::Entity* ride_object = nullptr;
     void* ride = get_component(component, kRide);
     if (auto* tracker = get_at<objects::RideTracker*>(ride, 0x18)) {
         if (tracker->entity_.owner_object_)
-            ride_object = reinterpret_cast<const uint8_t*>(tracker->entity_.owner_object_);
+            ride_object = tracker->entity_.owner_object_;
         else
             static_cast<objects::MovingSurfaceModule*>(ride)->stop_riding();
     }

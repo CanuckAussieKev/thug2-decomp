@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "engine/objects/vehicle_component.h"
+
 namespace script {
 class Struct;
 } // namespace script
@@ -14,12 +16,11 @@ namespace objects {
 // script member functions (the table at 0x00684060) registered.
 void __cdecl register_vehicle_member_functions();
 
-// 0x00434F20 (stdcall): a wheel's settings from `params`, each only if given: steering (left 1 / right 2 / fixed 0,
-// +0xB0), drive (yes / no, +0xB4), spring_rate (+0xC8), damping_rate (+0xCC), radius (+0xC0), moment (kept as
-// 386.4 / moment - gravity in inches per second squared over it, +0xC4), 0xD87D0183 (+0xBC), static_friction
-// (+0xDC), dynamic_friction (+0xE0), handbrake_throttle_friction (+0xE4), handbrake_locked_friction (+0xE8), the
-// grip velocities min_static / max_static / min_dynamic_grip_velocity (miles an hour, kept in inches a second:
-// +0xD0 / +0xD4 / +0xD8), and 0x3BCCBADC / 0x9439D144 (feet, kept in inches: +0xF0 / +0xF4).
-void __stdcall read_wheel_settings(uint8_t* wheel, script::Struct* params);
+// 0x00434F20 (stdcall): a wheel's settings from `params`, each only if given: steering (left 1 / right 2 / fixed 0),
+// drive (yes / no), spring_rate, damping_rate, radius, moment (kept as 386.4 / moment - gravity in inches per second
+// squared over it), 0xD87D0183 (the lowest drawn), static_friction, dynamic_friction, handbrake_throttle_friction,
+// handbrake_locked_friction, the grip velocities min_static / max_static / min_dynamic_grip_velocity (miles an
+// hour, kept in inches a second), and 0x3BCCBADC / 0x9439D144 (the brake / handbrake torques: feet, kept in inches).
+void __stdcall read_wheel_settings(DrivableModule::Wheel* wheel, script::Struct* params);
 
 } // namespace objects

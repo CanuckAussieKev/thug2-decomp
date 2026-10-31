@@ -112,10 +112,10 @@ void SkaterPhysicsModule::trigger_rail_script(const int* events)
     set_flag(this, 0xC8, name != get_at<uint32_t>(this, kLastRailScript));
     get_at<uint32_t>(this, kRailScriptNode) = name;
     get_at<uint32_t>(this, kLastRailScript) = name;
-    const uint8_t* ride_object = nullptr;
+    const objects::Entity* ride_object = nullptr;
     if (objects::RideTracker* tracker = get_tracker(this)) {
         if (tracker->entity_.owner_object_)
-            ride_object = reinterpret_cast<const uint8_t*>(tracker->entity_.owner_object_);
+            ride_object = tracker->entity_.owner_object_;
         else
             stop_riding(this);
     }

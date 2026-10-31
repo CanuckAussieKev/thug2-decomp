@@ -149,20 +149,19 @@ void add_scaled(maths::Vec4& pos, const maths::Vec4& row, float scale)
 // Debug output of an object's details: compiled out of this build (the text is still read).
 inline void print_object_details(const char* /*text*/) {}
 
-// The collision feeler (Nx's ray, 0xB0 bytes; its code isn't in this file): constructed by 0x00417760, its line
-// from +0x00 to +0x10, tested by 0x004172F0; what it hit is held by a smart pointer at +0x98, its only destructor.
+// The collision feeler (render::ProbeRay): constructed by 0x00417760, its line tested by 0x004172F0; what it hit is
+// held by a smart pointer, let go of by its destructor.
 class CollisionFeeler {
 public:
-    CollisionFeeler() { reinterpret_cast<render::ProbeRay*>(bytes_)->make_new(); }
-    ~CollisionFeeler() { reinterpret_cast<objects::SharedRef<objects::SharedBase>*>(bytes_ + 0x98)->~SharedRef(); }
+    CollisionFeeler() { ray_.make_new(); }
     CollisionFeeler(const CollisionFeeler&) = delete;
     CollisionFeeler& operator=(const CollisionFeeler&) = delete;
-    maths::Vec4& kickoff() { return *reinterpret_cast<maths::Vec4*>(bytes_); }
-    maths::Vec4& get_end() { return *reinterpret_cast<maths::Vec4*>(bytes_ + 0x10); }
-    bool get_hit_shape(bool a, bool b) { return reinterpret_cast<render::ProbeRay*>(bytes_)->get_hit_shape(a, b) != 0; }
+    maths::Vec4& kickoff() { return ray_.line_.start; }
+    maths::Vec4& get_end() { return ray_.line_.end; }
+    bool get_hit_shape(bool a, bool b) { return ray_.get_hit_shape(a, b) != 0; }
 
 private:
-    alignas(16) uint8_t bytes_[0xB0];
+    render::ProbeRay ray_;
 };
 
 float feet_as_inches() { return g_composite_feet_to_inches; } // 12

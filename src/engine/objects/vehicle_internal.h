@@ -31,8 +31,7 @@ inline void trigger_feeler(ObjectModule* trigger, const int* events, render::Pro
 }
 inline void trigger_rect(ObjectModule* trigger, const int* events, render::BoxProbe* feeler)
 {
-    // (trigger_hits reads the rect feeler's hit flags)
-    static_cast<ActivationZoneModule*>(trigger)->trigger_hits(events, reinterpret_cast<const uint8_t*>(feeler));
+    static_cast<ActivationZoneModule*>(trigger)->trigger_hits(events, feeler);
 }
 
 // Quaternions: 0x0042BC40 a quaternion's rotation matrix (its 3x3), 0x0042E1F0 a matrix's

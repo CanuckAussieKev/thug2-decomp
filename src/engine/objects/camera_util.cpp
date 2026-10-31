@@ -12,12 +12,12 @@ namespace objects {
 
 namespace {
 
-// The collision feeler (Nx's ray, 0xB0 bytes; not rewritten yet): its line from +0x00 to +0x10, the hit's
-// fraction of it at +0x74 and point at +0x78; what it hit held by a smart pointer at +0x98.
+// The collision feeler (render::ProbeRay): its line, the hit's fraction of it and point; what it hit held by a smart
+// pointer (let go of by its destructor).
 class Feeler {
 public:
-    Feeler() { as_feeler()->make_new(); }
-    ~Feeler() { reinterpret_cast<SharedRef<SharedBase>*>(bytes_ + 0x98)->~SharedRef(); }
+    Feeler() { ray_.make_new(); }
+    ~Feeler() = default;
     Feeler(const Feeler&) = delete;
     Feeler& operator=(const Feeler&) = delete;
     // 0x004170F0: faces with any of `skip` (or without all of `need`) are passed through.
@@ -34,14 +34,14 @@ public:
     {
         return as_feeler()->get_collision_along(&start, &end, a != 0) != 0;
     }
-    const maths::Vec4& kickoff() const { return *reinterpret_cast<const maths::Vec4*>(bytes_); }
-    const maths::Vec4& get_end() const { return *reinterpret_cast<const maths::Vec4*>(bytes_ + 0x10); }
-    float get_fraction() const { return *reinterpret_cast<const float*>(bytes_ + 0x74); }
-    const maths::Vec4& get_point() const { return *reinterpret_cast<const maths::Vec4*>(bytes_ + 0x78); }
+    const maths::Vec4& kickoff() const { return ray_.line_.start; }
+    const maths::Vec4& get_end() const { return ray_.line_.end; }
+    float get_fraction() const { return ray_.reach_; }
+    const maths::Vec4& get_point() const { return ray_.contact_pos_; }
 
 private:
-    render::ProbeRay* as_feeler() { return reinterpret_cast<render::ProbeRay*>(bytes_); }
-    alignas(16) uint8_t bytes_[0xB0];
+    render::ProbeRay* as_feeler() { return &ray_; }
+    render::ProbeRay ray_;
 };
 
 // 0x0042BBF0: x, y and z scaled to `length` (left alone at length 0).
