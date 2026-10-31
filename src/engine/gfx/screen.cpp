@@ -13,6 +13,7 @@
 #include "platform/run_log.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/device.h"
+#include "game/skate/career.h"
 #include "game/skate/skate_module.h"
 
 namespace render {
@@ -48,10 +49,10 @@ uint32_t get_back_buffer_height() { return reinterpret_cast<uint32_t&>(g_back_bu
 
 uint8_t current_level()
 {
-    uint8_t* skate = reinterpret_cast<uint8_t*>(modules::g_skate_module);
+    modules::Skate* skate = modules::g_skate_module;
     if (!skate)
         return 0;
-    return (*reinterpret_cast<uint8_t**>(skate + 0x20))[0x630];
+    return static_cast<uint8_t>(skate->career_->level_); // (its low byte, as the original reads it)
 }
 
 float desired_aspect_ratio()

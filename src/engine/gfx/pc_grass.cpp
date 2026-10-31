@@ -109,7 +109,7 @@ bool __cdecl make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
         mesh->stride = static_cast<uint8_t>(mesh->stride + 8);
         mesh->fvf = (mesh->fvf & ~0x100u) | 0x200; // (D3DFVF_TEX1 -> TEX2)
     }
-    set_up_animated_grass_material(reinterpret_cast<MaterialRef*>(mesh->material));
+    set_up_animated_grass_material(mesh->material);
     mesh->flags |= 0x402;
     mesh->pixel_shader_ = g_pixel_shaders[kPixelShader924];
     uint8_t* vertices = nullptr;
@@ -129,7 +129,7 @@ bool __cdecl make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
 // 0x004D0D30
 bool __cdecl make_grass(PcGeom* geom, MeshRef* mesh)
 {
-    auto* m = reinterpret_cast<MaterialRef*>(mesh->material);
+    MaterialRef* m = mesh->material;
     if (!m)
         return false;
     if (m->pass_flags_[0] & kAnimatedGrass)
@@ -150,7 +150,7 @@ bool __cdecl make_grass(PcGeom* geom, MeshRef* mesh)
         uint32_t checksum = checksums::generate_crc_from_buffer(name, static_cast<int>(std::strlen(name)));
         auto* scene = *reinterpret_cast<SceneRef**>(geom->scene + 0x280);
         auto* material = static_cast<MaterialRef*>(scene->find_material(checksum));
-        copy->material = reinterpret_cast<uint8_t*>(material);
+        copy->material = material;
         material_pixel_shader(material, &copy->pixel_shader_);
         float height = static_cast<float>(layer * 0.1f + 1100.0f); // (drawn after the ground, in order)
         material->pass_flags_[0] |= 0x40;

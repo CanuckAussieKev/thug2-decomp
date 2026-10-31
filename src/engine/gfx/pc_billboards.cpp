@@ -57,10 +57,7 @@ void order_batches(BillboardSet* manager)
                    compare_batches); // (the C runtime's qsort)
 }
 
-float sort_depth_of_batch(const BillboardBatch* batch)
-{
-    return batch->material ? *reinterpret_cast<const float*>(batch->material + 0x1C) : 0.0f;
-}
+float sort_depth_of_batch(const BillboardBatch* batch) { return batch->material ? batch->material->sort_key_ : 0.0f; }
 
 void draw_list(const memory::ListNode* head, const float* y_axis, const float* x_axis, const float* z_axis)
 {
@@ -151,7 +148,7 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
     uint32_t rest = mesh->stride - 0xC;
     const uint32_t* table = nullptr;
     if (mesh->per_vertex_bytes_) { // (a value per vertex from the material's table)
-        table = *reinterpret_cast<const uint32_t* const*>(mesh->material + 0xF8);
+        table = mesh->material->anim_colors_;
         rest -= 4;
     }
     for (uint32_t i = 0; i < mesh->vertex_count_; ++i) {
@@ -202,8 +199,8 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
     if (vertex_shaders()) {
         input_port()->DrawIndexedPrimitive(type, 0, 0, mesh->vertex_count_, 0, primitives);
     } else {
-        for (uint32_t pass = 0; pass < *reinterpret_cast<uint32_t*>(mesh->material + 8); ++pass) {
-            reinterpret_cast<MaterialRef*>(mesh->material)->submit_pass(pass, mesh->flags & 4 ? mesh->color : nullptr);
+        for (uint32_t pass = 0; pass < mesh->material->pass_count_; ++pass) {
+            mesh->material->submit_pass(pass, mesh->flags & 4 ? mesh->color : nullptr);
             input_port()->DrawIndexedPrimitive(type, 0, 0, mesh->vertex_count_, 0, primitives);
         }
     }
@@ -221,7 +218,7 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
 }
 
 // 0x004CDA60
-BillboardBatch* BillboardSet::get_find(const uint8_t* material)
+BillboardBatch* BillboardSet::get_find(const MaterialRef* material)
 {
     for (int i = 0; i < count; ++i) {
         if (batches[i]->material == material)
@@ -296,14 +293,14 @@ void BillboardSet::setup_axes()
 }
 
 // 0x004CEB30
-BillboardBatch* BillboardBatch::make_new(uint8_t* new_material)
+BillboardBatch* BillboardBatch::make_new(MaterialRef* new_material)
 {
     material = new_material;
     lists[0] = new_head();
     lists[1] = new_head();
     lists[2] = new_head();
     vertex_bytes_ = 0x40;
-    vertex_bytes_ = (*reinterpret_cast<uint32_t*>(new_material + 8) + 2) * 0x20;
+    vertex_bytes_ = (new_material->pass_count_ + 2) * 0x20;
     return this;
 }
 
@@ -350,9 +347,9 @@ void BillboardBatch::render()
     if (!material)
         return;
     if (vertex_shaders())
-        reinterpret_cast<MaterialRef*>(material)->hand_in();
+        material->hand_in();
     else
-        reinterpret_cast<MaterialRef*>(material)->submit_states();
+        material->submit_states();
     for (int i = 0; i < 3; ++i) { // (the first shown list's first mesh's pixel shader)
         memory::ListNode* first = lists[i]->next;
         if (is_head(first) || !first)
@@ -440,7 +437,7 @@ void BillboardBatch::render()
 // 0x004CEBE0
 void BillboardSet::append_mesh(MeshRef* mesh)
 {
-    if (!mesh->material || !*reinterpret_cast<uint32_t*>(mesh->material + 0x30))
+    if (!mesh->material || !mesh->material->textures[0])
         return;
     BillboardBatch* batch = get_find(mesh->material);
     if (!batch) {
@@ -485,13 +482,13 @@ void BillboardSet::render(unsigned int which)
 {
     if (which & 1) {
         for (int i = 0; i < count; ++i) {
-            if (!(batches[i]->material[0x20] & 0x40))
+            if (!(batches[i]->material->pass_flags_[0] & 0x40))
                 batches[i]->render();
         }
     }
     if (which & 2) {
         for (int i = 0; i < count; ++i) {
-            if (batches[i]->material[0x20] & 0x40)
+            if (batches[i]->material->pass_flags_[0] & 0x40)
                 batches[i]->render();
         }
     }

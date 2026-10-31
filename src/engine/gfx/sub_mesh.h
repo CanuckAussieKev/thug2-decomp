@@ -48,6 +48,7 @@ static_assert(offsetof(VertexBuffer, data) == 0xC && offsetof(VertexBuffer, lock
 
 struct VertexArena; // (pc_scene.h)
 struct SceneRef;    // (mesh_list.h)
+struct MaterialRef; // (surface_material.h)
 
 // An index buffer (0x18 bytes, constructor 0x004D4270): the size, the Direct3D buffer and a copy of the indices in
 // memory, written to the card when unlocked; on a list (0x007865E8) as the vertex buffers are.
@@ -83,7 +84,7 @@ struct MeshRef {
     uint32_t flags;  // 1: shares another mesh's buffers; 0x10: a billboard
     float centre[3]; // the bounding sphere
     float radius;
-    uint8_t* material;
+    MaterialRef* material;
     uint8_t stride;                 // bytes per vertex
     uint8_t current_vertex_buffer_; // +0x19
     uint8_t vertex_buffer_count_;   // +0x1A

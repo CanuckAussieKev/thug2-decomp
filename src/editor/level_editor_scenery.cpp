@@ -891,7 +891,7 @@ bool geom_see_through(render::PcGeom* geom)
     if (!meshes || count == 0 || count > 4096)
         return false;
     for (uint32_t i = 0; i < count; ++i) {
-        const auto* material = meshes[i] ? reinterpret_cast<const render::MaterialRef*>(meshes[i]->material) : nullptr;
+        const render::MaterialRef* material = meshes[i] ? meshes[i]->material : nullptr;
         if (!material || !picking::material_see_through(material->pass_flags_[0], material->blend_modes_[0]))
             return false;
     }
@@ -1181,7 +1181,7 @@ void log_meshes()
     uint32_t count = geom ? geom->mesh_count_ : 0;
     for (uint32_t i = 0; meshes && i < count && i < 4; ++i) {
         const render::MeshRef* mesh = meshes[i];
-        const auto* material = reinterpret_cast<const render::MaterialRef*>(mesh->material);
+        const render::MaterialRef* material = mesh->material;
         const float* colour = mesh->color;
         get_log("level editor:   mesh %u: flags %08X, colour (%.2f, %.2f, %.2f), fvf %08X, material %p: passes %u, "
                 "pass flags %08X %08X, colour 0 %08X %08X %08X; renderer 786AB8 %d",

@@ -51,12 +51,12 @@ void send_negated(float* out, const maths::Vec4& v)
 }
 
 // A dynamic light's falloff at `distance` (its vtable's slot 2).
-double get_falloff(void* light, float distance) { return static_cast<DynamicLightBase*>(light)->get_falloff(distance); }
+double get_falloff(DynamicLightBase* light, float distance) { return light->get_falloff(distance); }
 
 // The dynamic lights within `radius` of `position` (the engine's 0x0048EF90): their count, pointers into `out`.
-uint32_t find_dynamic_lights(const maths::Vec4* position, uint32_t radius, uint8_t** out)
+uint32_t find_dynamic_lights(const maths::Vec4* position, uint32_t radius, DynamicLightBase** out)
 {
-    return get_dynamic_lights_near(position, radius, reinterpret_cast<DynamicLightBase**>(out));
+    return get_dynamic_lights_near(position, radius, out);
 }
 
 } // namespace
@@ -152,7 +152,7 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
     }
     if (!radius)
         return;
-    uint8_t* dynamic[32];
+    DynamicLightBase* dynamic[32];
     uint32_t count = find_dynamic_lights(position, radius, dynamic);
     if (!count) {
         float* off = light_color_constant(first_dynamic_);
@@ -160,8 +160,8 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
         return;
     }
     for (uint32_t j = 0; j < count; ++j) {
-        uint8_t* light = dynamic[j];
-        const float* at = reinterpret_cast<const float*>(light + 4);
+        DynamicLightBase* light = dynamic[j];
+        const float* at = light->pos;
         double dx = static_cast<double>(position->x) - at[0];
         double dy = static_cast<double>(position->y) - at[1];
         double dz = static_cast<double>(position->z) - at[2];
@@ -182,11 +182,12 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
         direction[0] = static_cast<float>(dx);
         direction[1] = static_cast<float>(dy);
         direction[2] = zf;
-        if (*reinterpret_cast<int*>(light + 0x14) == 1) {
-            double factor = (1.0 - falloff) * *reinterpret_cast<const float*>(light + 0x20) * kPer255;
+        if (light->type == 1) {
+            double factor = (1.0 - falloff) * light->intensity * kPer255;
             float* out = light_color_constant(first_dynamic_ + j);
+            const auto* colour = reinterpret_cast<const uint8_t*>(&light->colour); // (its r, g, b bytes)
             for (int k = 0; k < 3; ++k)
-                out[k] = static_cast<float>(light[0x24 + k] * factor);
+                out[k] = static_cast<float>(colour[k] * factor);
         }
     }
 }

@@ -14,11 +14,13 @@ class KeyMap;
 // transparent (flag 0x40) - and the materials by checksum.
 namespace render {
 
+struct MeshRef;
+
 struct SceneRef {
     uint32_t flags; // 0x100 once its meshes are prepared
     uint8_t unknown4[0x14];
     lists::KeyMap* materials; // +0x18, by checksum
-    uint8_t** meshes;         // +0x1C
+    MeshRef** meshes;         // +0x1C
     int mesh_count_;          // +0x20
     int transparent_count_;   // +0x24: meshes with a transparent material
     int filled;               // +0x28: where append_meshes puts the next
@@ -46,15 +48,15 @@ struct SceneRef {
     // 0x004DE3E0: room for meshCount meshes.
     void allocate_mesh_list();
     // 0x004DDDF0: count meshes to be added (and the transparent ones).
-    void mesh_total(int count, uint8_t* const* list);
+    void mesh_total(int count, MeshRef* const* list);
     // 0x004DDE20: add meshes to the list.
-    void append_meshes(int count, uint8_t* const* list);
+    void append_meshes(int count, MeshRef* const* list);
     // 0x004DDE60: take meshes out of the list (closing the gaps) and count again.
-    void detach_meshes(int count, uint8_t* const* list);
+    void detach_meshes(int count, MeshRef* const* list);
     // 0x004DDFA0: sort the list (compare_meshes) and count again.
     void order_meshes();
     // 0x004DE020: the mesh with this load index (+0x20), or null.
-    uint8_t* find_mesh(uint32_t index) const;
+    MeshRef* find_mesh(uint32_t index) const;
     // 0x004DE420: the material with this checksum (its first field), or null.
     void* find_material(uint32_t checksum) const;
     // 0x004DE060: break the meshes' triangle strips where the records (mask, mesh << 16 | a, c << 16 | b, the strip

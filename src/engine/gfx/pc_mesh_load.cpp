@@ -416,7 +416,7 @@ void read_mesh_from_file(MeshRef* mesh, Reader& reader, uint32_t material_checks
         reader.TakeIn(mesh->unknown48, 4, levels);
     }
     auto* material = static_cast<MaterialRef*>(scene->find_material(material_checksum));
-    mesh->material = reinterpret_cast<uint8_t*>(material);
+    mesh->material = material;
     if (material && (material->pass_flags_[0] & 0x10))
         mesh->flags |= 0x100;
     mesh->vertex_buffer_count_ = 1;

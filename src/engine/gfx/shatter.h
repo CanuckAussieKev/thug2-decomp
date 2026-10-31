@@ -17,6 +17,7 @@ class KeyMap;
 namespace render {
 
 struct MeshRef;
+class PcGeom;
 
 // The engine's shatter (0x2C bytes, vtable 0x00649308; PcShatter extends it): per triangle its centre, velocity
 // and turn a step; the settings the Shatter command gave when it was made (engine_effects.h, change_breakup_settings).
@@ -81,7 +82,7 @@ void __cdecl update_shatter(PcShatter* shatter, float step);
 // shatter centre (0x007004D0 and its scale 0x0067DDF4: their velocities from it at a random speed of up to
 // 0x007004CC more), each turning about a random axis by a random angle up to 0.1 a step - each mesh a shatter put in
 // the table.
-void __cdecl shatter_geom(uint8_t* geom);
+void __cdecl shatter_geom(PcGeom* geom);
 
 extern lists::KeyMap* g_shatters;
 

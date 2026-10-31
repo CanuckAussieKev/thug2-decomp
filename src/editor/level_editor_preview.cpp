@@ -149,7 +149,7 @@ void draw_meshes(render::PcGeom* geom)
             uint32_t flags = mesh->flags;
             if (!(flags & 0x40) || (flags & 0x210))
                 continue;
-            auto* material = reinterpret_cast<render::MaterialRef*>(mesh->material);
+            render::MaterialRef* material = mesh->material;
             bool transparent = material && (material->pass_flags_[0] & 0x40);
             if (transparent != (pass == 1))
                 continue;

@@ -6,8 +6,10 @@
 // checksum and a blend mode by name; and two chunk-skipping helpers of the scene loaders.
 namespace render {
 
+struct MaterialRef;
+
 struct SimpleMaterial {
-    uint8_t* material; // 0x110 bytes (constructor 0x004D1A90)
+    MaterialRef* material; // (made by make_new 0x004D1A90)
     void* shader;
 
     // 0x004D9B80: one pass with the texture `texture_checksum` (from the texture dictionary 0x00700F20, if there),

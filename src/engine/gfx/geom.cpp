@@ -45,7 +45,7 @@ constexpr uint32_t kReadOnly = 0x10; // D3DLOCK_READONLY
 // A mesh's per-vertex colour's offset in a vertex, and the position its transform says (0x004D4D30).
 uint8_t color_offset(const MeshRef* mesh) { return mesh->unknown1c_[0]; }
 void mesh_position(MeshRef* mesh, maths::Vec4* out) { mesh->fetch_place(reinterpret_cast<float*>(out)); }
-MaterialRef* material_of(MeshRef* mesh) { return reinterpret_cast<MaterialRef*>(mesh->material); }
+MaterialRef* material_of(MeshRef* mesh) { return mesh->material; }
 // A mesh's colour (flag 4) and its vertex shader (its vertex format's place).
 float* mesh_tint_ptr(MeshRef* mesh) { return mesh->color; }
 uint32_t& mesh_vertex_shader(MeshRef* mesh) { return mesh->fvf; }
@@ -186,7 +186,7 @@ void PcGeom::free_mesh_table()
         return;
     if (scene) {
         if (auto* list = *reinterpret_cast<SceneRef**>(scene + 0x280))
-            list->detach_meshes(static_cast<int>(mesh_count_), reinterpret_cast<uint8_t* const*>(meshes));
+            list->detach_meshes(static_cast<int>(mesh_count_), meshes);
     }
     for (uint32_t i = 0; i < mesh_count_; ++i) {
         if (MeshRef* mesh = meshes[i]) {
@@ -203,9 +203,9 @@ bool PcGeom::add_to_mesh_list(bool count)
 {
     auto* list = *reinterpret_cast<SceneRef**>(scene + 0x280);
     if (count)
-        list->mesh_total(static_cast<int>(mesh_count_), reinterpret_cast<uint8_t* const*>(meshes));
+        list->mesh_total(static_cast<int>(mesh_count_), meshes);
     else
-        list->append_meshes(static_cast<int>(mesh_count_), reinterpret_cast<uint8_t* const*>(meshes));
+        list->append_meshes(static_cast<int>(mesh_count_), meshes);
     return true;
 }
 
@@ -214,9 +214,9 @@ SceneRef* PcGeom::create_mesh_list()
 {
     void* memory = memory::alloc(sizeof(SceneRef));
     SceneRef* list = memory ? static_cast<SceneRef*>(memory)->make_new() : nullptr;
-    list->mesh_total(static_cast<int>(mesh_count_), reinterpret_cast<uint8_t* const*>(meshes));
+    list->mesh_total(static_cast<int>(mesh_count_), meshes);
     list->allocate_mesh_list();
-    list->append_meshes(static_cast<int>(mesh_count_), reinterpret_cast<uint8_t* const*>(meshes));
+    list->append_meshes(static_cast<int>(mesh_count_), meshes);
     list->order_meshes();
     std::memcpy(&list->bounds, &bounds, sizeof(bounds));
     list->update_sphere();
@@ -238,19 +238,19 @@ Geom* PcGeom::plat_replicate(int instance_flag, void* scene_bytes)
         geom->change_live(true);
         // into the scene's mesh list: its meshes kept aside, room made for these ones too, all added back
         auto* list = *reinterpret_cast<SceneRef**>(new_scene + 0x280);
-        uint8_t** kept = list->mesh_count_ > 0 ? static_cast<uint8_t**>(memory::alloc(4 * list->mesh_count_)) : nullptr;
+        MeshRef** kept = list->mesh_count_ > 0 ? static_cast<MeshRef**>(memory::alloc(4 * list->mesh_count_)) : nullptr;
         geom->scene = new_scene;
         for (int i = 0; i < list->mesh_count_; ++i)
             kept[i] = list->meshes[i];
         int kept_count = list->mesh_count_;
         memory::Hub::get_pull()->dealloc(list->meshes);
         list->meshes = nullptr;
-        list->mesh_total(static_cast<int>(mesh_count_), reinterpret_cast<uint8_t* const*>(meshes)); // (this one's)
+        list->mesh_total(static_cast<int>(mesh_count_), meshes); // (this one's)
         list->allocate_mesh_list();
         for (int i = 0; i < kept_count; ++i)
             list->meshes[i] = kept[i];
         memory::Hub::get_pull()->dealloc(kept);
-        list->append_meshes(static_cast<int>(geom->mesh_count_), reinterpret_cast<uint8_t* const*>(geom->meshes));
+        list->append_meshes(static_cast<int>(geom->mesh_count_), geom->meshes);
         list->order_meshes();
     } else {
         std::memcpy(&geom->bounds, &bounds, sizeof(bounds));

@@ -106,12 +106,12 @@ public:
     void start_texture_anim(bool reset);
     void stop_texture_anim();
 
-    uint32_t checksum_;     // +0x04: its name
-    uint32_t flag_bits_;    // +0x08
-    uint32_t surface_type_; // +0x0C: its terrain type (the node's TerrainType)
-    int rot_y_;             // +0x10: quarter turns about y
-    void* geom_handle_;     // +0x14: CGeom (on PC a PcGeom), or null
-    HitMesh* hit_body_;     // +0x18: or null
+    uint32_t checksum_;    // +0x04: its name
+    uint32_t flag_bits_;   // +0x08
+    uint32_t light_group_; // +0x0C: its light group (the time of day's; outdoor by default)
+    int rot_y_;            // +0x10: quarter turns about y
+    void* geom_handle_;    // +0x14: CGeom (on PC a PcGeom), or null
+    HitMesh* hit_body_;    // +0x18: or null
 };
 static_assert(offsetof(WorldCell, rot_y_) == 0x10 && offsetof(WorldCell, hit_body_) == 0x18 &&
                   sizeof(WorldCell) == 0x1C,

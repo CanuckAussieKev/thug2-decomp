@@ -40,7 +40,7 @@ uint32_t& drawn_triangles() { return reinterpret_cast<uint32_t&>(g_drawn_triangl
 // _ftol: truncated to a 64-bit integer, its low half.
 int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-void set_material(uint8_t* material) { reinterpret_cast<MaterialRef*>(material)->hand_in(); } // (its set-up)
+void set_material(MaterialRef* material) { material->hand_in(); } // (its set-up)
 
 // The camera's across and up directions from the view matrix's third column (a, b, c): r = (a, b, c) x (0, 1, 0)
 // and u = r x (a, b, c), then normalised (maths::Vec4::make_unit).
@@ -829,7 +829,7 @@ void PcRibbonParticles::render()
     double a = g_view_matrix.row[0].z;
     double b = g_view_matrix.row[1].z;
     double c = g_view_matrix.row[2].z;
-    bool textured = *reinterpret_cast<const uint32_t*>(material->material + 0x30) != 0;
+    bool textured = material->material->textures[0] != nullptr;
     uint32_t stride = textured ? sizeof(QuadVertex) : sizeof(TrailVertex);
     set_material(material->material);
     if (textured) {

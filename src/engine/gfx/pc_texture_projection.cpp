@@ -2,6 +2,7 @@
 // where it keeps values in registers, floats where it stores them.
 
 #include "engine/gfx/pc_texture_projection.h"
+#include "engine/gfx/geom.h"
 #include "engine/gfx/d3dx.h"
 
 #include <windows.h>
@@ -80,12 +81,12 @@ void copy_triangle(uint8_t* into, uint8_t* from)
 // 0x004C7610
 ProjectionBatch* ProjectionBatch::make_new()
 {
-    reinterpret_cast<MaterialRef*>(material)->make_new();
+    material.make_new();
     return this;
 }
 
 // 0x004C73D0
-void ProjectionBatch::teardown() { reinterpret_cast<MaterialRef*>(material)->destroy_body(); }
+void ProjectionBatch::teardown() { material.destroy_body(); }
 
 // 0x004C73E0
 ProjectionBatch* __cdecl get_projection_batch(uint32_t texture, uint32_t blend_name)
@@ -100,21 +101,21 @@ ProjectionBatch* __cdecl get_projection_batch(uint32_t texture, uint32_t blend_n
         return nullptr;
     }
     ProjectionBatch* batch = &get_batches()[count];
-    uint8_t* material = batch->material;
-    *reinterpret_cast<uint32_t*>(material + 0x20) = 0x44; // (the pass's flags)
+    MaterialRef* material = &batch->material;
+    material->pass_flags_[0] = 0x44; // (the pass's flags)
     int a = get_rand();
     int b = get_rand();
-    *reinterpret_cast<int*>(material) = a * b;         // a random checksum
-    *reinterpret_cast<uint32_t*>(material + 0x08) = 1; // one pass
-    *reinterpret_cast<uint32_t*>(material + 0x30) = texture;
-    material[0x0D] = 1;
-    material[0x11] = 4;
-    *reinterpret_cast<uint32_t*>(material + 0x80) = blend_mode_from_name(blend_name);
+    material->checksum = a * b;                                  // a random checksum
+    material->pass_count_ = 1;                                   // one pass
+    material->textures[0] = reinterpret_cast<uint8_t*>(texture); // (the texture's key: its PC texture's address)
+    material->two_sided_ = 1;
+    material->depth_bias_ = 4;
+    material->blend_modes_[0] = blend_mode_from_name(blend_name);
     for (int k = 0; k < 3; ++k)
-        reinterpret_cast<float*>(material + 0x40)[k] = 128.0f; // its colour
-    *reinterpret_cast<uint32_t*>(material + 0x90) = 0x20002;
-    *reinterpret_cast<uint32_t*>(material + 0xE0) = 0;
-    material[0x10] = 1;
+        material->pass_color_[0][k] = 128.0f; // its colour
+    material->address_modes_[0] = 0x20002;
+    material->mip_lod_bias_[0] = 0;
+    material->alpha_ref_ = 1;
     material_pixel_shader(material, &batch->pixel_shader_);
     batch->texture = texture;
     batch->triangle_count_ = 0;
@@ -132,8 +133,8 @@ void __cdecl draw_projection_batches()
     input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
     for (uint32_t i = 0; i < batch_count(); ++i) {
         ProjectionBatch* batch = &get_batches()[i];
-        reinterpret_cast<MaterialRef*>(batch->material)->hand_in(); // (the material's set-up)
-        set_pixel_shader(batch->pixel_shader_, batch->material);
+        batch->material.hand_in(); // (the material's set-up)
+        set_pixel_shader(batch->pixel_shader_, &batch->material);
         draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, batch->triangle_count_, batch->vertices, 0x18);
         ++reinterpret_cast<uint32_t&>(g_draw_calls);                              // (the frame's draw calls)
         reinterpret_cast<uint32_t&>(g_drawn_triangles) += batch->triangle_count_; // (and triangles)
@@ -148,11 +149,11 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
     ProjectionBatch* batch = nullptr;
     uint8_t* batch_vertices = nullptr;
     for (; *sectors; ++sectors) {
-        auto* geom = static_cast<uint8_t*>(static_cast<PcSector*>(*sectors)->geom_handle_); // (the sector's geom)
+        auto* geom = static_cast<PcGeom*>(static_cast<PcSector*>(*sectors)->geom_handle_); // (the sector's geom)
         if (!geom)
             continue;
-        auto** meshes = *reinterpret_cast<MeshRef***>(geom + 0x3C);
-        for (uint32_t m = 0; m < *reinterpret_cast<uint32_t*>(geom + 0x40); ++m) {
+        MeshRef** meshes = geom->meshes;
+        for (uint32_t m = 0; m < geom->mesh_count_; ++m) {
             MeshRef* mesh = meshes[m];
             if (mesh->flags & 2)
                 continue;

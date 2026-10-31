@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/gfx/surface_material.h"
 #include "engine/maths/mat4.h"
 
 // Texture projections on PC (Nx engine: the engine's TextureProjection - constructor 0x0049FE20, destructor body
@@ -18,7 +19,7 @@ struct ProjectionBatch {
     uint32_t texture;              // +0x00: its key
     uint32_t blend_name_;          // +0x04: the projection's last (a checksum)
     uint32_t triangle_count_;      // +0x08
-    uint8_t material[0x110];       // +0x0C (constructor 0x004D1A90)
+    MaterialRef material;          // +0x0C (made by make_new 0x004D1A90)
     void* pixel_shader_;           // +0x11C (material_pixel_shader's)
     uint8_t vertices[0x600][0x18]; // +0x120: position, ARGB colour, u, v
 

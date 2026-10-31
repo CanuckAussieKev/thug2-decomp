@@ -260,7 +260,7 @@ void __cdecl shatter_geom(void* geom)
 {
     // (the PC's shatter_geom - shatter.cpp - only reads the geom: the original also looked up the particles' texture
     // 0x007004BC and passed it, unused)
-    render::shatter_geom(static_cast<uint8_t*>(geom));
+    render::shatter_geom(static_cast<render::PcGeom*>(geom));
 }
 
 // --- texture splats ---

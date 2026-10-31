@@ -177,7 +177,7 @@ void LevelLamp::find_sectors(script::Array* excluded)
         return;
     for (auto* sector = static_cast<WorldCell*>(get_first_value(sectors)); sector;
          sector = static_cast<WorldCell*>(next_value(sectors))) {
-        if (sector->surface_type_ == 0xED82767B || sector->surface_type_ == 0xEC6542D3 || !sector->geom_handle_)
+        if (sector->light_group_ == 0xED82767B || sector->light_group_ == 0xEC6542D3 || !sector->geom_handle_)
             continue;
         const maths::BBox* box = sector->fetch_bounds();
         // The box's centre (x and y rounded to floats, z not), its half-diagonal, the distance to the light (its z

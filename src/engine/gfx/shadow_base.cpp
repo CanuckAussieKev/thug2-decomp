@@ -17,6 +17,7 @@
 #include "engine/core/mem.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/geom.h"
+#include "engine/gfx/mesh_list.h"
 #include "engine/gfx/sub_mesh.h"
 #include "engine/gfx/model.h"
 #include "engine/gfx/occlusion.h"
@@ -227,14 +228,14 @@ void __cdecl draw_shadow_volumes(const void* scene, int /*viewport*/)
     change_phase(kPhaseAlphaTest, 0);
     if (!two_sided_stencil())
         input_port()->SetRenderState(D3DRS_ZFUNC, D3DCMP_GREATEREQUAL);
-    const auto* bytes = static_cast<const uint8_t*>(scene);
-    void* const* meshes = *reinterpret_cast<void* const* const*>(bytes + 0x1C);
-    for (int i = 0; i < *reinterpret_cast<const int*>(bytes + 0x20); ++i) {
-        auto* mesh = static_cast<uint8_t*>(meshes[i]);
-        uint32_t flags = *reinterpret_cast<uint32_t*>(mesh);
+    const auto* list = static_cast<const SceneRef*>(scene);
+    MeshRef* const* meshes = list->meshes;
+    for (int i = 0; i < list->mesh_count_; ++i) {
+        MeshRef* mesh = meshes[i];
+        uint32_t flags = mesh->flags;
         if (!(flags & 0x40) || !(flags & 0x200))
             continue;
-        if (!sphere_in_view(reinterpret_cast<const maths::Vec4*>(mesh + 4), *reinterpret_cast<float*>(mesh + 0x10)))
+        if (!sphere_in_view(reinterpret_cast<const maths::Vec4*>(mesh->centre), mesh->radius))
             continue;
         if (!two_sided_stencil()) {
             // One side's faces, then the other's.
@@ -289,16 +290,14 @@ void __cdecl render_shadow_textures()
         auto draw_model = [](void* model) {
             int count = get_mesh_count(model);
             for (int i = 0; i < count; ++i) {
-                auto* mesh = *reinterpret_cast<uint8_t**>(static_cast<uint8_t*>(get_mesh(model, i)) + 0x4C);
-                if (!mesh[0x4C])
+                // (the geom's instance: drawn when active, its mesh list flagged as a shadow meanwhile)
+                Singleton* instance = static_cast<PcGeom*>(get_mesh(model, i))->instance;
+                if (!instance->active)
                     continue;
-                uint32_t* flags = *reinterpret_cast<uint32_t**>(mesh + 0x58);
-                *flags |= 0x80; // (drawn as a shadow)
-                draw_mesh(mesh, 8);
-                flags = *reinterpret_cast<uint32_t**>(mesh + 0x58);
-                *flags &= ~0x80u;
-                flags = *reinterpret_cast<uint32_t**>(mesh + 0x58);
-                *flags |= 0x200;
+                instance->scene->flags |= 0x80; // (drawn as a shadow)
+                draw_mesh(instance, 8);
+                instance->scene->flags &= ~0x80u;
+                instance->scene->flags |= 0x200;
             }
         };
         draw_model(caster->model);
@@ -385,16 +384,14 @@ void __cdecl draw_shadows(const void* /*unused*/, void* const* meshes, int count
             input_port()->SetRenderState(D3DRS_DEPTHBIAS, 0xB7DA1A93);
         }
         for (int i = 0; i < count; ++i) {
-            auto* mesh = static_cast<uint8_t*>(meshes[i]);
-            if (mesh[0] & 2)
+            auto* mesh = static_cast<const MeshRef*>(meshes[i]);
+            if (mesh->flags & 2)
                 continue;
-            if (!sphere_in_view(reinterpret_cast<const maths::Vec4*>(mesh + 4), *reinterpret_cast<float*>(mesh + 0x10)))
+            if (!sphere_in_view(reinterpret_cast<const maths::Vec4*>(mesh->centre), mesh->radius))
                 continue;
             set_vertex_format(D3DFVF_XYZ | D3DFVF_TEX1);
-            project_shadow_vertices(*reinterpret_cast<const float**>(mesh + 0xB0),
-                                    *reinterpret_cast<uint32_t*>(mesh + 0xAC), to_texture);
-            int triangles = clip_shadow_triangles(*reinterpret_cast<const uint16_t**>(mesh + 0xB8),
-                                                  *reinterpret_cast<uint32_t*>(mesh + 0xB4));
+            project_shadow_vertices(mesh->positions, mesh->position_count_, to_texture);
+            int triangles = clip_shadow_triangles(mesh->triangles, mesh->triangle_count_);
             if (triangles) {
                 input_port()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, shadow_triangles(),
                                               sizeof(ShadowCornerPoint));

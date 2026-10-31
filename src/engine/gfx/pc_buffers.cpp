@@ -11,6 +11,7 @@
 #include <cstring>
 
 #include "engine/gfx/sub_mesh.h"
+#include "engine/gfx/surface_material.h"
 #include "engine/gfx/pc_scene.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/shader_slots.h"
@@ -214,8 +215,7 @@ void MeshRef::move_into_arena(VertexArena* arena)
 // 0x004D3D10
 void MeshRef::set_pixel_shader_colored()
 {
-    uint8_t* mat = material;
-    uint32_t bytes = *reinterpret_cast<uint32_t*>(mat + 8) << 4; // 16 a pass
+    uint32_t bytes = material->pass_count_ << 4; // 16 a pass
     auto* constants = g_ps_constant_bank;
     auto* saved = g_saved_pixel_shader_constants;
     std::memcpy(saved, constants, bytes);
@@ -229,8 +229,8 @@ void MeshRef::set_pixel_shader_colored()
         g = static_cast<double>(color[1]) + color[1];
         b = static_cast<double>(color[2]) + color[2];
     }
-    for (uint32_t pass = 0; pass < *reinterpret_cast<uint32_t*>(material + 8); ++pass) {
-        if (static_cast<int8_t>(material[0x20 + 4 * pass]) < 0)
+    for (uint32_t pass = 0; pass < material->pass_count_; ++pass) {
+        if (material->pass_flags_[pass] & 0x80) // (the colour isn't to be changed)
             continue;
         float* c = constants + 4 * pass;
         c[0] = static_cast<float>(r * c[0]);
@@ -238,7 +238,7 @@ void MeshRef::set_pixel_shader_colored()
         c[2] = static_cast<float>(b * c[2]);
     }
     g_pixel_shader_changed = 1; // (the constants changed)
-    set_pixel_shader_with_constants(pixel_shader_, *reinterpret_cast<uint32_t*>(material + 8));
+    set_pixel_shader_with_constants(pixel_shader_, material->pass_count_);
     std::memcpy(constants, saved, bytes);
     g_pixel_shader_changed = 1;
 }

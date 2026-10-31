@@ -13,6 +13,8 @@
 // end (or a straight line from start to end), colours from start through mid to end.
 namespace render {
 
+struct MaterialRef;
+
 // A burst of particles (0x1C bytes).
 struct ParticleBurst {
     int count;        // +0x00: particles in it
@@ -66,9 +68,9 @@ struct PcParticleSystem final : Sparkle {
     ParticleBurst* oldest; // +0x1A4
     maths::Mat4 matrix;    // +0x1A8 (the identity)
     uint8_t unknown1e8_[0x40];
-    uint8_t* material;    // +0x228: its own (0x110 bytes)
-    ParticleCurve spread; // +0x22C: the boxes and radii through time
-    ParticleCurve path;   // +0x25C: the positions and sizes through time, less 1.5 times the spread
+    MaterialRef* material; // +0x228: its own
+    ParticleCurve spread;  // +0x22C: the boxes and radii through time
+    ParticleCurve path;    // +0x25C: the positions and sizes through time, less 1.5 times the spread
 };
 static_assert(offsetof(PcParticleSystem, capacity) == 0x194 && offsetof(PcParticleSystem, matrix) == 0x1A8 &&
                   offsetof(PcParticleSystem, material) == 0x228 && offsetof(PcParticleSystem, spread) == 0x22C &&

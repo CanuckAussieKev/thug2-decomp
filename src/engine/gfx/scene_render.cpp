@@ -20,7 +20,7 @@
 
 namespace render {
 
-uint8_t* g_drawn_meshes[4096];
+MeshRef* g_drawn_meshes[4096];
 
 namespace {
 
@@ -30,9 +30,9 @@ float sphere_depth() { return g_last_sphere_distance; }
 constexpr float kNear = 600.0f; // 0x0064AA98
 
 // The meshes drawn (or to be drawn) this pass, for the shadows (0x00792640, 4096 at most - the last slot reused).
-uint8_t** get_drawn() { return g_drawn_meshes; }
+MeshRef** get_drawn() { return g_drawn_meshes; }
 struct DepthOrderedMesh {
-    uint8_t* mesh;
+    MeshRef* mesh;
     float depth;
     uint32_t unused;
 };
@@ -40,10 +40,10 @@ DepthOrderedMesh g_sorted_meshes[1000];
 DepthOrderedMesh* get_sorted() { return g_sorted_meshes; }
 
 // A mesh's fields and calls (not rewritten yet; thiscall).
-uint32_t mesh_traits(const uint8_t* mesh) { return *reinterpret_cast<const uint32_t*>(mesh); }
-uint8_t* get_mesh_material(const uint8_t* mesh) { return *reinterpret_cast<uint8_t* const*>(mesh + 0x14); }
-void set_material(uint8_t* material) { reinterpret_cast<MaterialRef*>(material)->hand_in(); }
-void draw_mesh(uint8_t* mesh) { reinterpret_cast<MeshRef*>(mesh)->render(); }
+uint32_t mesh_traits(const MeshRef* mesh) { return mesh->flags; }
+MaterialRef* get_mesh_material(const MeshRef* mesh) { return mesh->material; }
+void set_material(MaterialRef* material) { material->hand_in(); }
+void draw_mesh(MeshRef* mesh) { mesh->render(); }
 // The render statistics (0x00775B80; thiscall).
 void count_pass(int which) { g_billboard_pool.render(which); }
 
@@ -58,38 +58,38 @@ struct Lap {
     uint32_t flags;
     uint8_t viewport_bit_;
     bool no_culling_;
-    uint8_t* material = nullptr; // the current one
+    MaterialRef* material = nullptr; // the current one
     int drawn = 0;
 
     // Whether a mesh is drawn this pass: shown (0x40) and not hidden (0x210); unless culling is off, in this
     // viewport, in view and (with occlusion) not hidden by an occluder.
-    bool get_visible(uint8_t* mesh) const
+    bool get_visible(MeshRef* mesh) const
     {
         uint32_t mesh_flags = mesh_traits(mesh);
         if (!(mesh_flags & 0x40) || (mesh_flags & 0x210))
             return false;
         if (no_culling_)
             return true;
-        if (!(mesh[0x1B] & viewport_bit_))
+        if (!(mesh->viewports & viewport_bit_))
             return false;
-        auto* centre = reinterpret_cast<const maths::Vec4*>(mesh + 4);
-        float radius = *reinterpret_cast<const float*>(mesh + 0x10);
+        auto* centre = reinterpret_cast<const maths::Vec4*>(mesh->centre); // (the sphere: centre and radius)
+        float radius = mesh->radius;
         if (!sphere_in_view(centre, radius))
             return false;
         if ((flags & kRenderOcclusion) && sphere_occluded(centre, radius, 1))
             return false;
         return true;
     }
-    void blit(uint8_t* mesh)
+    void blit(MeshRef* mesh)
     {
-        uint8_t* mesh_material = get_mesh_material(mesh);
+        MaterialRef* mesh_material = get_mesh_material(mesh);
         if (mesh_material != material) {
             material = mesh_material;
             set_material(material);
         }
         draw_mesh(mesh);
     }
-    void remember(uint8_t* mesh)
+    void remember(MeshRef* mesh)
     {
         get_drawn()[drawn] = mesh;
         if (drawn < 0xFFF)
@@ -131,7 +131,7 @@ void __cdecl draw_scene(SceneRef* scene, uint32_t flags, int viewport)
 
     if (flags & kRenderOpaque) {
         for (int i = 0; i < scene->first_transparent_; ++i) {
-            uint8_t* mesh = scene->meshes[i];
+            MeshRef* mesh = scene->meshes[i];
             if (!pass.get_visible(mesh))
                 continue;
             if (!(flags & kRenderNearFirst)) {
@@ -141,15 +141,15 @@ void __cdecl draw_scene(SceneRef* scene, uint32_t flags, int viewport)
                 float depth = sphere_depth();
                 if (depth < kNear || depth == kNear)
                     pass.blit(mesh);
-                *reinterpret_cast<float*>(mesh + 0x7C) = sphere_depth();
+                mesh->depth = sphere_depth();
             }
             pass.remember(mesh);
         }
         if (flags & kRenderNearFirst) {
             int count = pass.drawn;
             for (int j = 0; j < count; ++j) {
-                uint8_t* mesh = get_drawn()[j];
-                if (*reinterpret_cast<float*>(mesh + 0x7C) > kNear)
+                MeshRef* mesh = get_drawn()[j];
+                if (mesh->depth > kNear)
                     pass.blit(mesh);
             }
         }
@@ -180,7 +180,7 @@ void __cdecl draw_scene(SceneRef* scene, uint32_t flags, int viewport)
     // The transparent meshes up to the flagged ones.
     int i = scene->first_transparent_;
     for (; i < scene->first_flagged_; ++i) {
-        uint8_t* mesh = scene->meshes[i];
+        MeshRef* mesh = scene->meshes[i];
         if (!pass.get_visible(mesh))
             continue;
         pass.blit(mesh);
@@ -191,7 +191,7 @@ void __cdecl draw_scene(SceneRef* scene, uint32_t flags, int viewport)
         int end = scene->first_flagged_ + scene->flagged_count_;
         int sorted = 0;
         for (; i < end; ++i) {
-            uint8_t* mesh = scene->meshes[i];
+            MeshRef* mesh = scene->meshes[i];
             if (!pass.get_visible(mesh))
                 continue;
             pass.remember(mesh);
@@ -206,7 +206,7 @@ void __cdecl draw_scene(SceneRef* scene, uint32_t flags, int viewport)
         }
         // Then the rest.
         for (; i < scene->mesh_count_; ++i) {
-            uint8_t* mesh = scene->meshes[i];
+            MeshRef* mesh = scene->meshes[i];
             if (!pass.get_visible(mesh))
                 continue;
             pass.blit(mesh);

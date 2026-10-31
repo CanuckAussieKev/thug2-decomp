@@ -410,7 +410,7 @@ const char* why_not_donor(uint32_t checksum)
         return "its vertex buffers";
     if (first->per_vertex_data_)
         return "per-vertex data the editor can't make";
-    const auto* material = reinterpret_cast<const render::MaterialRef*>(first->material);
+    const render::MaterialRef* material = first->material;
     if (!material || picking::material_see_through(material->pass_flags_[0], material->blend_modes_[0]))
         return "a see-through material";
     render::StaticCollider* coll = static_of(sector);

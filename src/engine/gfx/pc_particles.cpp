@@ -45,16 +45,12 @@ int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
 int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // The materials' code (0x004D1A90-0x004D3390).
-uint8_t* construct_material(void* memory)
+MaterialRef* construct_material(void* memory) { return static_cast<MaterialRef*>(memory)->make_new(); }
+void destroy_material(MaterialRef* material) { material->destroy_body(); }
+void set_material_states(MaterialRef* material) { material->submit_states(); }
+void change_material_layer(MaterialRef* material, int pass, int flags)
 {
-    return reinterpret_cast<uint8_t*>(static_cast<MaterialRef*>(memory)->make_new());
-}
-void destroy_material(uint8_t* material) { reinterpret_cast<MaterialRef*>(material)->destroy_body(); }
-void set_material_states(uint8_t* material) { reinterpret_cast<MaterialRef*>(material)->submit_states(); }
-void change_material_layer(uint8_t* material, int pass, int flags)
-{
-    reinterpret_cast<MaterialRef*>(material)->submit_pass(pass,
-                                                          reinterpret_cast<const float*>(static_cast<intptr_t>(flags)));
+    material->submit_pass(pass, reinterpret_cast<const float*>(static_cast<intptr_t>(flags)));
 }
 // The skater's texture dictionary's texture by checksum, its key (+0x10, through one more pointer with flag 1 of +0x08).
 const uint8_t* find_texture(uint32_t checksum)
@@ -62,10 +58,11 @@ const uint8_t* find_texture(uint32_t checksum)
     return reinterpret_cast<const uint8_t*>(
         static_cast<TextureSet*>(reinterpret_cast<void*>(g_particle_texture_dict))->fetch_skin(checksum));
 }
-uint32_t texture_key(const uint8_t* texture)
+// (the texture entry's +0x10: its PC texture, or with flag 1 a pointer to it)
+uint8_t* texture_key(const uint8_t* texture)
 {
-    const uint32_t* key = reinterpret_cast<const uint32_t*>(texture + 0x10);
-    return texture[8] & 1 ? *reinterpret_cast<const uint32_t*>(*key) : *key;
+    uint8_t* const* key = reinterpret_cast<uint8_t* const*>(texture + 0x10);
+    return texture[8] & 1 ? *reinterpret_cast<uint8_t* const*>(*key) : *key;
 }
 
 // The random sequence the particles' spreads come from (three words; four numbers a particle).
@@ -237,23 +234,22 @@ void PcParticleSystem::initialise()
     oldest = bursts;
     emitting = false;
 
-    void* memory = memory::alloc(0x110);
+    void* memory = memory::alloc(sizeof(MaterialRef));
     material = memory ? construct_material(memory) : nullptr;
-    std::memset(material, 0, 0x110);
-    *reinterpret_cast<uint32_t*>(material + 0x20) = 0x44; // (its flags)
-    *reinterpret_cast<uint32_t*>(material + 0x08) = 1;    // (a pass)
-    material[0x10] = 1;
-    material[0x0D] = 1;
+    std::memset(material, 0, sizeof(MaterialRef));
+    material->pass_flags_[0] = 0x44; // (its flags)
+    material->pass_count_ = 1;       // (a pass)
+    material->alpha_ref_ = 1;
+    material->two_sided_ = 1;
     for (int k = 0; k < 3; ++k)
-        *reinterpret_cast<float*>(material + 0x40 + 4 * k) = 0.5f;
-    *reinterpret_cast<float*>(material + 0x4C) =
-        static_cast<float>(static_cast<double>(args_.alpha_cut_off_) * (1.0f / 128.0f));
-    *reinterpret_cast<uint32_t*>(material + 0x90) = 0x10001;
-    *reinterpret_cast<uint32_t*>(material + 0xC0) = 0x10001;
-    *reinterpret_cast<uint32_t*>(material + 0x80) = blend_mode_from_name(args_.blend_mode_);
-    *reinterpret_cast<uint32_t*>(material + 0x30) = 0;
+        material->pass_color_[0][k] = 0.5f;
+    material->pass_color_[0][3] = static_cast<float>(static_cast<double>(args_.alpha_cut_off_) * (1.0f / 128.0f));
+    material->address_modes_[0] = 0x10001;
+    material->unknownc0_[0] = 0x10001;
+    material->blend_modes_[0] = blend_mode_from_name(args_.blend_mode_);
+    material->textures[0] = nullptr;
     if (const uint8_t* found = find_texture(args_.texture_))
-        *reinterpret_cast<uint32_t*>(material + 0x30) = texture_key(found);
+        material->textures[0] = texture_key(found);
 
     // The spread: the boxes and their radii.
     float start[4] = {args_.box_[0].x, args_.box_[0].y, args_.box_[0].z, args_.radius_[0]};
@@ -304,7 +300,7 @@ void PcParticleSystem::free_resources()
 {
     if (bursts)
         memory::Hub::get_pull()->dealloc(bursts);
-    if (uint8_t* own = material) {
+    if (MaterialRef* own = material) {
         destroy_material(own);
         memory::Hub::get_pull()->dealloc(own);
     }

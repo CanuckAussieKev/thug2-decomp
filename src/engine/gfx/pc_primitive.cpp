@@ -35,10 +35,36 @@ uint32_t& draw_calls() { return reinterpret_cast<uint32_t&>(g_draw_calls); }
 uint32_t& drawn_triangles() { return reinterpret_cast<uint32_t&>(g_drawn_triangles); }
 int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
 
-template <typename T>
-T& get_at(uint8_t* base, int offset)
+// The vertex layouts by flexible vertex format (D3DFVF): XYZ (0x2) and XYZ | DIFFUSE (0x42) - positions and colours -,
+// XYZ | TEX1 (0x102), XYZ | DIFFUSE | TEX1 (0x142) and XYZ | NORMAL | DIFFUSE | TEX1 (0x152). Every layout starts with
+// the position.
+struct VertexColour {
+    float pos[3];
+    uint32_t colour; // BGRA
+};
+struct VertexColourUv {
+    float pos[3];
+    uint32_t colour;
+    float u, v;
+};
+struct VertexNormalColourUv {
+    float pos[3];
+    float normal[3];
+    uint32_t colour;
+    float u, v;
+};
+static_assert(sizeof(VertexColour) == 0x10 && sizeof(VertexColourUv) == 0x18 && sizeof(VertexNormalColourUv) == 0x24,
+              "the Direct3D vertex layouts");
+
+// The vertex `index` in the layout V / its position (any layout, by the stride).
+template <typename V>
+V& vertex_at(uint8_t* vertices, int index)
 {
-    return *reinterpret_cast<T*>(base + offset);
+    return reinterpret_cast<V*>(vertices)[index];
+}
+float* position_at(uint8_t* vertices, int stride, int index)
+{
+    return reinterpret_cast<float*>(vertices + stride * index);
 }
 
 // RGBA with red and blue swapped (d_3d's BGRA).
@@ -49,26 +75,26 @@ uint32_t get_swapped(uint32_t rgba) { return (rgba & 0xFF00FF00u) | (rgba & 0xFF
 // 0x004C5230
 PcPrimitive::PcPrimitive(int own) : Primitive(own)
 {
-    reinterpret_cast<MaterialRef*>(material_)->make_new();
+    material_.make_new();
     uint32_t made = flag_bits_ | 1;
     vertex_format_ = 2;
     vertices_ = nullptr;
     vertex_count_ = 0;
     colour_ = 0x80808080;
     flag_bits_ = made;
-    get_at<uint32_t>(material_, 0x20) = 0;
+    material_.pass_flags_[0] = 0;
     int r = get_rand();
-    get_at<int>(material_, 0x00) = r * get_rand(); // (a sort key)
-    get_at<uint32_t>(material_, 0x08) = 1;
-    get_at<uint32_t>(material_, 0x30) = 0;
-    material_[0x0D] = 1;
-    material_[0x11] = 4;
-    get_at<uint32_t>(material_, 0x80) = blend_mode_from_name(0x54628ED7);
-    get_at<float>(material_, 0x40) = get_at<float>(material_, 0x44) = get_at<float>(material_, 0x48) = 0.5f;
-    get_at<uint32_t>(material_, 0x90) = 0;
-    get_at<uint32_t>(material_, 0xE0) = 0;
-    material_[0x0E] = 0;
-    material_[0x10] = 1;
+    material_.checksum = static_cast<uint32_t>(r * get_rand()); // (a sort key)
+    material_.pass_count_ = 1;
+    material_.textures[0] = nullptr;
+    material_.two_sided_ = 1;
+    material_.depth_bias_ = 4;
+    material_.blend_modes_[0] = blend_mode_from_name(0x54628ED7);
+    material_.pass_color_[0][0] = material_.pass_color_[0][1] = material_.pass_color_[0][2] = 0.5f;
+    material_.address_modes_[0] = 0;
+    material_.mip_lod_bias_[0] = 0;
+    material_.has_uv_wibble_ = false;
+    material_.alpha_ref_ = 1;
 }
 
 // 0x004C5A20
@@ -76,27 +102,28 @@ PcPrimitive::~PcPrimitive()
 {
     if (owns_vertices_ == 1 && vertices_)
         memory::Hub::get_pull()->dealloc(vertices_);
-    reinterpret_cast<MaterialRef*>(material_)->destroy_body();
+    material_.destroy_body();
 }
 
 // 0x004C5A90
 void PcPrimitive::set_texture(const uint8_t* texture, int, int)
 {
-    uint32_t key = texture[8] & 1 ? **reinterpret_cast<uint32_t* const*>(texture + 0x10)
-                                  : *reinterpret_cast<const uint32_t*>(texture + 0x10);
-    get_at<uint32_t>(material_, 0x20) = key ? 4 : 0;
+    // (the engine texture's +0x10: its PC texture, or with flag 1 a pointer to it)
+    uint8_t* pc_texture = texture[8] & 1 ? **reinterpret_cast<uint8_t** const*>(texture + 0x10)
+                                         : *reinterpret_cast<uint8_t* const*>(texture + 0x10);
+    material_.pass_flags_[0] = pc_texture ? 4 : 0;
     int r = get_rand();
-    get_at<int>(material_, 0x00) = r * get_rand();
-    get_at<uint32_t>(material_, 0x08) = 1;
-    get_at<uint32_t>(material_, 0x30) = key;
-    material_[0x0D] = 1;
-    material_[0x11] = 4;
-    get_at<uint32_t>(material_, 0x80) = blend_mode_from_name(blend_mode_);
-    get_at<float>(material_, 0x40) = get_at<float>(material_, 0x44) = get_at<float>(material_, 0x48) = 0.5f;
-    material_[0x10] = 1;
-    get_at<uint32_t>(material_, 0x90) = 0;
-    get_at<uint32_t>(material_, 0xE0) = 0;
-    material_[0x0E] = 0;
+    material_.checksum = static_cast<uint32_t>(r * get_rand());
+    material_.pass_count_ = 1;
+    material_.textures[0] = pc_texture;
+    material_.two_sided_ = 1;
+    material_.depth_bias_ = 4;
+    material_.blend_modes_[0] = blend_mode_from_name(blend_mode_);
+    material_.pass_color_[0][0] = material_.pass_color_[0][1] = material_.pass_color_[0][2] = 0.5f;
+    material_.alpha_ref_ = 1;
+    material_.address_modes_[0] = 0;
+    material_.mip_lod_bias_[0] = 0;
+    material_.has_uv_wibble_ = false;
 }
 
 // 0x004C5310
@@ -148,15 +175,15 @@ void PcPrimitive::prepare_all(uint32_t layout_flags, int primitive_type, int cou
 // 0x004C5320
 void PcPrimitive::end_setup()
 {
-    if (!(vertex_format_ & 0x100) || get_at<uint32_t>(material_, 0x30) != 0)
+    if (!(vertex_format_ & 0x100) || material_.textures[0] != nullptr)
         flag_bits_ = (flag_bits_ & ~2u) | 4;
 }
 
 // 0x004C5370
 void PcPrimitive::render()
 {
-    get_at<uint32_t>(material_, 0x80) = blend_mode_from_name(blend_mode_);
-    reinterpret_cast<MaterialRef*>(material_)->hand_in(); // (its set-up)
+    material_.blend_modes_[0] = blend_mode_from_name(blend_mode_);
+    material_.hand_in(); // (its set-up)
     IDirect3DVertexBuffer9* buffer = nullptr;
     uint32_t first_vertex = 0, room = 0;
     set_vertex_format(vertex_format_);
@@ -226,111 +253,111 @@ void PcPrimitive::blit(const float* positions, const uint32_t* colours, const fl
 // 0x004C5B20
 void PcPrimitive::change_place(int index, float x, float y, float z)
 {
-    get_at<float>(vertices_, stride_ * index) = x;
-    get_at<float>(vertices_, stride_ * index + 4) = y;
-    get_at<float>(vertices_, stride_ * index + 8) = z;
+    position_at(vertices_, stride_, index)[0] = x;
+    position_at(vertices_, stride_, index)[1] = y;
+    position_at(vertices_, stride_, index)[2] = z;
 }
 // 0x004C5B60
-void PcPrimitive::set_x(int index, float x) { get_at<float>(vertices_, stride_ * index) = x; }
+void PcPrimitive::set_x(int index, float x) { position_at(vertices_, stride_, index)[0] = x; }
 // 0x004C5B80
-void PcPrimitive::set_y(int index, float y) { get_at<float>(vertices_, stride_ * index + 4) = y; }
+void PcPrimitive::set_y(int index, float y) { position_at(vertices_, stride_, index)[1] = y; }
 // 0x004C5BA0
-void PcPrimitive::set_z(int index, float z) { get_at<float>(vertices_, stride_ * index + 8) = z; }
+void PcPrimitive::set_z(int index, float z) { position_at(vertices_, stride_, index)[2] = z; }
 
 // 0x004C5BC0
 void PcPrimitive::set_normal(int index, float x, float y, float z)
 {
-    get_at<float>(vertices_, index * 0x24 + 0xC) = x;
-    get_at<float>(vertices_, index * 0x24 + 0x10) = y;
-    get_at<float>(vertices_, index * 0x24 + 0x14) = z;
+    vertex_at<VertexNormalColourUv>(vertices_, index).normal[0] = x;
+    vertex_at<VertexNormalColourUv>(vertices_, index).normal[1] = y;
+    vertex_at<VertexNormalColourUv>(vertices_, index).normal[2] = z;
 }
 // 0x004C5BF0
-void PcPrimitive::set_normal_x(int index, float x) { get_at<float>(vertices_, index * 0x24 + 0xC) = x; }
+void PcPrimitive::set_normal_x(int index, float x) { vertex_at<VertexNormalColourUv>(vertices_, index).normal[0] = x; }
 // 0x004C5C10
-void PcPrimitive::set_normal_y(int index, float y) { get_at<float>(vertices_, index * 0x24 + 0x10) = y; }
+void PcPrimitive::set_normal_y(int index, float y) { vertex_at<VertexNormalColourUv>(vertices_, index).normal[1] = y; }
 // 0x004C5C30
-void PcPrimitive::set_normal_z(int index, float z) { get_at<float>(vertices_, index * 0x24 + 0x14) = z; }
+void PcPrimitive::set_normal_z(int index, float z) { vertex_at<VertexNormalColourUv>(vertices_, index).normal[2] = z; }
 
 // 0x004C56E0
 void PcPrimitive::set_vertex_colour(int index, uint32_t rgba)
 {
     uint32_t bgra = get_swapped(rgba);
     if (vertex_format_ == 0x42)
-        get_at<uint32_t>(vertices_, index * 0x10 + 0xC) = bgra;
+        vertex_at<VertexColour>(vertices_, index).colour = bgra;
     else if (vertex_format_ == 0x142)
-        get_at<uint32_t>(vertices_, index * 0x18 + 0xC) = (bgra & 0xFFFFFF) | 0x80000000;
+        vertex_at<VertexColourUv>(vertices_, index).colour = (bgra & 0xFFFFFF) | 0x80000000;
     else if (vertex_format_ == 0x152)
-        get_at<uint32_t>(vertices_, index * 0x24 + 0x18) = bgra;
+        vertex_at<VertexNormalColourUv>(vertices_, index).colour = bgra;
 }
 
 // 0x004C5760
 void PcPrimitive::set_uv(int index, float u, float v)
 {
     if (vertex_format_ == 0x142) {
-        get_at<float>(vertices_, index * 0x18 + 0x10) = u;
-        get_at<float>(vertices_, index * 0x18 + 0x14) = v;
+        vertex_at<VertexColourUv>(vertices_, index).u = u;
+        vertex_at<VertexColourUv>(vertices_, index).v = v;
     } else if (vertex_format_ == 0x152) {
-        get_at<float>(vertices_, index * 0x24 + 0x1C) = u;
-        get_at<float>(vertices_, index * 0x24 + 0x20) = v;
+        vertex_at<VertexNormalColourUv>(vertices_, index).u = u;
+        vertex_at<VertexNormalColourUv>(vertices_, index).v = v;
     }
 }
 // 0x004C57C0
 void PcPrimitive::choose_u(int index, float u)
 {
     if (vertex_format_ == 0x142)
-        get_at<float>(vertices_, index * 0x18 + 0x10) = u;
+        vertex_at<VertexColourUv>(vertices_, index).u = u;
     else if (vertex_format_ == 0x152)
-        get_at<float>(vertices_, index * 0x24 + 0x1C) = u;
+        vertex_at<VertexNormalColourUv>(vertices_, index).u = u;
 }
 // 0x004C5800
 void PcPrimitive::choose_v(int index, float v)
 {
     if (vertex_format_ == 0x142)
-        get_at<float>(vertices_, index * 0x18 + 0x14) = v;
+        vertex_at<VertexColourUv>(vertices_, index).v = v;
     else if (vertex_format_ == 0x152)
-        get_at<float>(vertices_, index * 0x24 + 0x20) = v;
+        vertex_at<VertexNormalColourUv>(vertices_, index).v = v;
 }
 
 // 0x004C5C50
-float PcPrimitive::fetch_pos_x(int index) { return get_at<float>(vertices_, stride_ * index); }
+float PcPrimitive::fetch_pos_x(int index) { return position_at(vertices_, stride_, index)[0]; }
 // 0x004C5C70
-float PcPrimitive::fetch_pos_y(int index) { return get_at<float>(vertices_, stride_ * index + 4); }
+float PcPrimitive::fetch_pos_y(int index) { return position_at(vertices_, stride_, index)[1]; }
 // 0x004C5C90
-float PcPrimitive::fetch_pos_z(int index) { return get_at<float>(vertices_, stride_ * index + 8); }
+float PcPrimitive::fetch_pos_z(int index) { return position_at(vertices_, stride_, index)[2]; }
 // 0x004C5CB0
-float PcPrimitive::get_normal_x(int index) { return get_at<float>(vertices_, index * 0x24 + 0xC); }
+float PcPrimitive::get_normal_x(int index) { return vertex_at<VertexNormalColourUv>(vertices_, index).normal[0]; }
 // 0x004C5CD0
-float PcPrimitive::get_normal_y(int index) { return get_at<float>(vertices_, index * 0x24 + 0x10); }
+float PcPrimitive::get_normal_y(int index) { return vertex_at<VertexNormalColourUv>(vertices_, index).normal[1]; }
 // 0x004C5CF0
-float PcPrimitive::get_normal_z(int index) { return get_at<float>(vertices_, index * 0x24 + 0x14); }
+float PcPrimitive::get_normal_z(int index) { return vertex_at<VertexNormalColourUv>(vertices_, index).normal[2]; }
 
 // 0x004C5840
 uint32_t PcPrimitive::get_vertex_colour(int index)
 {
     if (vertex_format_ == 0x42)
-        return get_at<uint32_t>(vertices_, index * 0x10 + 0xC);
+        return vertex_at<VertexColour>(vertices_, index).colour;
     if (vertex_format_ == 0x142)
-        return get_at<uint32_t>(vertices_, index * 0x18 + 0xC);
+        return vertex_at<VertexColourUv>(vertices_, index).colour;
     if (vertex_format_ == 0x152)
-        return get_at<uint32_t>(vertices_, index * 0x24 + 0x18);
+        return vertex_at<VertexNormalColourUv>(vertices_, index).colour;
     return 0;
 }
 // 0x004C5890
 float PcPrimitive::get_u(int index)
 {
     if (vertex_format_ == 0x142)
-        return get_at<float>(vertices_, index * 0x18 + 0x10);
+        return vertex_at<VertexColourUv>(vertices_, index).u;
     if (vertex_format_ == 0x152)
-        return get_at<float>(vertices_, index * 0x24 + 0x1C);
+        return vertex_at<VertexNormalColourUv>(vertices_, index).u;
     return 0.0f;
 }
 // 0x004C58D0
 float PcPrimitive::get_v(int index)
 {
     if (vertex_format_ == 0x142)
-        return get_at<float>(vertices_, index * 0x18 + 0x14);
+        return vertex_at<VertexColourUv>(vertices_, index).v;
     if (vertex_format_ == 0x152)
-        return get_at<float>(vertices_, index * 0x24 + 0x20);
+        return vertex_at<VertexNormalColourUv>(vertices_, index).v;
     return 0.0f;
 }
 
@@ -338,28 +365,28 @@ float PcPrimitive::get_v(int index)
 void PcPrimitive::get_slide(float x, float y, float z)
 {
     for (int i = 0; i < vertex_count_; ++i) {
-        get_at<float>(vertices_, stride_ * i) = x + get_at<float>(vertices_, stride_ * i);
-        get_at<float>(vertices_, stride_ * i + 4) = y + get_at<float>(vertices_, stride_ * i + 4);
-        get_at<float>(vertices_, stride_ * i + 8) = z + get_at<float>(vertices_, stride_ * i + 8);
+        position_at(vertices_, stride_, i)[0] = x + position_at(vertices_, stride_, i)[0];
+        position_at(vertices_, stride_, i)[1] = y + position_at(vertices_, stride_, i)[1];
+        position_at(vertices_, stride_, i)[2] = z + position_at(vertices_, stride_, i)[2];
     }
 }
 // 0x004C5D80
 void PcPrimitive::translate_x(float x)
 {
     for (int i = 0; i < vertex_count_; ++i)
-        get_at<float>(vertices_, stride_ * i) = x + get_at<float>(vertices_, stride_ * i);
+        position_at(vertices_, stride_, i)[0] = x + position_at(vertices_, stride_, i)[0];
 }
 // 0x004C5DC0
 void PcPrimitive::translate_y(float y)
 {
     for (int i = 0; i < vertex_count_; ++i)
-        get_at<float>(vertices_, stride_ * i + 4) = y + get_at<float>(vertices_, stride_ * i + 4);
+        position_at(vertices_, stride_, i)[1] = y + position_at(vertices_, stride_, i)[1];
 }
 // 0x004C5E00
 void PcPrimitive::translate_z(float z)
 {
     for (int i = 0; i < vertex_count_; ++i)
-        get_at<float>(vertices_, stride_ * i + 8) = z + get_at<float>(vertices_, stride_ * i + 8);
+        position_at(vertices_, stride_, i)[2] = z + position_at(vertices_, stride_, i)[2];
 }
 
 // 0x004C5910
@@ -367,11 +394,11 @@ void PcPrimitive::scroll_uv(float u, float v)
 {
     for (int i = 0; i < vertex_count_; ++i) {
         if (vertex_format_ == 0x142) {
-            get_at<float>(vertices_, i * 0x18 + 0x10) = u + get_at<float>(vertices_, i * 0x18 + 0x10);
-            get_at<float>(vertices_, i * 0x18 + 0x14) = v + get_at<float>(vertices_, i * 0x18 + 0x14);
+            vertex_at<VertexColourUv>(vertices_, i).u = u + vertex_at<VertexColourUv>(vertices_, i).u;
+            vertex_at<VertexColourUv>(vertices_, i).v = v + vertex_at<VertexColourUv>(vertices_, i).v;
         } else if (vertex_format_ == 0x152) {
-            get_at<float>(vertices_, i * 0x24 + 0x1C) = u + get_at<float>(vertices_, i * 0x24 + 0x1C);
-            get_at<float>(vertices_, i * 0x24 + 0x20) = v + get_at<float>(vertices_, i * 0x24 + 0x20);
+            vertex_at<VertexNormalColourUv>(vertices_, i).u = u + vertex_at<VertexNormalColourUv>(vertices_, i).u;
+            vertex_at<VertexNormalColourUv>(vertices_, i).v = v + vertex_at<VertexNormalColourUv>(vertices_, i).v;
         }
     }
 }
@@ -380,9 +407,9 @@ void PcPrimitive::scroll_u(float u)
 {
     for (int i = 0; i < vertex_count_; ++i) {
         if (vertex_format_ == 0x142)
-            get_at<float>(vertices_, i * 0x18 + 0x10) = u + get_at<float>(vertices_, i * 0x18 + 0x10);
+            vertex_at<VertexColourUv>(vertices_, i).u = u + vertex_at<VertexColourUv>(vertices_, i).u;
         else if (vertex_format_ == 0x152)
-            get_at<float>(vertices_, i * 0x24 + 0x1C) = u + get_at<float>(vertices_, i * 0x24 + 0x1C);
+            vertex_at<VertexNormalColourUv>(vertices_, i).u = u + vertex_at<VertexNormalColourUv>(vertices_, i).u;
     }
 }
 // 0x004C59D0
@@ -390,9 +417,9 @@ void PcPrimitive::scroll_v(float v)
 {
     for (int i = 0; i < vertex_count_; ++i) {
         if (vertex_format_ == 0x142)
-            get_at<float>(vertices_, i * 0x18 + 0x14) = v + get_at<float>(vertices_, i * 0x18 + 0x14);
+            vertex_at<VertexColourUv>(vertices_, i).v = v + vertex_at<VertexColourUv>(vertices_, i).v;
         else if (vertex_format_ == 0x152)
-            get_at<float>(vertices_, i * 0x24 + 0x20) = v + get_at<float>(vertices_, i * 0x24 + 0x20);
+            vertex_at<VertexNormalColourUv>(vertices_, i).v = v + vertex_at<VertexNormalColourUv>(vertices_, i).v;
     }
 }
 

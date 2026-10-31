@@ -8,6 +8,8 @@
 #include <new>
 
 #include "engine/gfx/engine_geom.h"
+#include "engine/gfx/engine_scene.h"
+#include "engine/gfx/sector.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "game/park_editing/park_editor.h"
@@ -259,25 +261,28 @@ void create_from_node(uint32_t name) { commands::create_from_node_name(name); }
 
 // The scenes (render::CEngine's list 0x006FA7EC): nodes (memory::ListNode) {scene +0, priority, next +8}, ended by a node whose scene is -1.
 struct SceneNode {
-    uint8_t* scene;
+    render::WorldScene* scene;
     int priority;
     SceneNode* next;
 };
 static_assert(sizeof(SceneNode) == 0x0C, "memory::ListNode's data, priority and next");
 bool is_end(const SceneNode* node) { return reinterpret_cast<intptr_t>(node->scene) == -1; }
 SceneNode* first_scene() { return reinterpret_cast<SceneNode*>(render::first_scene_node()); }
-uint8_t* sky_scene() { return reinterpret_cast<uint8_t*>(render::get_sky_scene()); }
+render::WorldScene* sky_scene() { return render::get_sky_scene(); }
 // The scene of the level being played (the park editor's shell checksum, looked up by 0x0048C700).
-uint8_t* level_scene()
+render::WorldScene* level_scene()
 {
     uint32_t name = park_editing::ParkBuilderMode::get_shell_checksum();
-    return reinterpret_cast<uint8_t*>(render::engine::find_scene(name));
+    return static_cast<render::WorldScene*>(render::engine::find_scene(name));
 }
 // A scene's own colour (the original's vtable +0x20: slot 8, the "ignore one argument" stub in both the engine's and
 // the PC scene's tables - nothing is done).
-void set_scene_color_of(uint8_t* /*scene*/, uint32_t /*color*/) {}
-// The sector named `name` in any scene (0x0048C510): +0x0C its light group.
-uint8_t* look_up_sector(uint32_t name) { return static_cast<uint8_t*>(render::engine::look_up_sector(name)); }
+void set_scene_color_of(render::WorldScene* /*scene*/, uint32_t /*color*/) {}
+// The sector named `name` in any scene (0x0048C510).
+render::WorldCell* look_up_sector(uint32_t name)
+{
+    return static_cast<render::WorldCell*>(render::engine::look_up_sector(name));
+}
 // A model component's colour (0x00420700).
 void set_model_color(objects::ObjectModule* model, uint32_t color)
 {
@@ -633,29 +638,29 @@ void CtodManager::update_sun()
 }
 
 // 0x005725F0
-void apply_color_to_scene(uint8_t* scene, uint32_t color, uint32_t light_group, uint32_t reset_light_group,
+void apply_color_to_scene(render::WorldScene* scene, uint32_t color, uint32_t light_group, uint32_t reset_light_group,
                           int start_percent, int end_percent)
 {
-    // The scene's sectors: +0x0C the light group, +0x14 the geometry (vtable +0x18: its colour).
-    auto* table = *reinterpret_cast<lists::KeyMap**>(scene + 0xD0);
+    // The scene's sectors: their light group and geometry (change_tint: its colour).
+    lists::KeyMap* table = scene->sectors_;
     if (!table)
         return;
-    auto colour = [](uint8_t* sector, uint32_t value) {
-        void* geometry = *reinterpret_cast<void**>(sector + 0x14);
+    auto colour = [](render::WorldCell* sector, uint32_t value) {
+        void* geometry = sector->geom_handle_;
         if (geometry) {
             static_cast<render::Geom*>(geometry)->change_tint(value);
         }
     };
-    auto next = [table]() -> uint8_t* {
+    auto next = [table]() -> render::WorldCell* {
         if (!table->step_iterator() || !table->iter_item_)
             return nullptr;
-        return static_cast<uint8_t*>(table->iter_item_->value);
+        return static_cast<render::WorldCell*>(table->iter_item_->value);
     };
     table->iter_bucket_ = -1;
     table->iter_item_ = nullptr;
-    uint8_t* sector = nullptr;
+    render::WorldCell* sector = nullptr;
     if (table->step_iterator() && table->iter_item_)
-        sector = static_cast<uint8_t*>(table->iter_item_->value);
+        sector = static_cast<render::WorldCell*>(table->iter_item_->value);
     int count = table->extent_;
     int remaining = count;
     if (start_percent >= 0) {
@@ -681,14 +686,14 @@ void apply_color_to_scene(uint8_t* scene, uint32_t color, uint32_t light_group, 
         do {
             if (remaining-- == 0)
                 return;
-            if (*reinterpret_cast<uint32_t*>(sector + 0xC) == light_group)
+            if (sector->light_group_ == light_group)
                 colour(sector, color);
         } while ((sector = next()) != nullptr);
     } else {
         do {
             if (remaining-- == 0)
                 return;
-            uint32_t group = *reinterpret_cast<uint32_t*>(sector + 0xC);
+            uint32_t group = sector->light_group_;
             if (group == light_group)
                 colour(sector, color);
             else if (group == reset_light_group)
@@ -702,7 +707,7 @@ void CtodManager::apply_color(uint32_t color, uint32_t sky_color, bool sky, uint
                               uint32_t reset_light_group, bool part_only, int start_percent, int end_percent)
 {
     if (sky) {
-        uint8_t* scene = sky_scene();
+        render::WorldScene* scene = sky_scene();
         if (scene)
             apply_color_to_scene(scene, sky_color, light_group, 0, -1, -1);
         return;
@@ -710,15 +715,15 @@ void CtodManager::apply_color(uint32_t color, uint32_t sky_color, bool sky, uint
     bool whole_level = light_group == kOutdoor || light_group == 0;
     for (SceneNode* node = first_scene(); node;) {
         SceneNode* next = is_end(node->next) ? nullptr : node->next;
-        uint8_t* scene = node->scene;
-        if (!scene[0x8D]) { // (skies: +0x8D)
+        render::WorldScene* scene = node->scene;
+        if (!scene->is_sky_) {
             apply_color_to_scene(scene, color, light_group, reset_light_group, start_percent, end_percent);
             if (whole_level && !part_only)
                 set_scene_color_of(scene, color);
         }
         node = next;
     }
-    uint8_t* level = level_scene();
+    render::WorldScene* level = level_scene();
     if (level) {
         apply_color_to_scene(level, color, light_group, reset_light_group, start_percent, end_percent);
         if (whole_level && !part_only)
@@ -728,10 +733,10 @@ void CtodManager::apply_color(uint32_t color, uint32_t sky_color, bool sky, uint
         // The models: those of objects without a sector of their name, or an outdoor one, get the colour.
         for (objects::ObjectModule* model = objects::object_hub_slot()->find_first_module_of_kind(kModel); model;
              model = model->next_of_type_) {
-            uint8_t* sector = look_up_sector(model->entity_->ident_);
-            if (!sector || *reinterpret_cast<uint32_t*>(sector + 0xC) == kOutdoor)
+            render::WorldCell* sector = look_up_sector(model->entity_->ident_);
+            if (!sector || sector->light_group_ == kOutdoor)
                 set_model_color(model, color);
-            if (reset_light_group && sector && *reinterpret_cast<uint32_t*>(sector + 0xC) == reset_light_group)
+            if (reset_light_group && sector && sector->light_group_ == reset_light_group)
                 set_model_color(model, kNeutralColor);
         }
     }

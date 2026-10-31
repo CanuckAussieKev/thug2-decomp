@@ -12,6 +12,7 @@
 // windows' pool, the device flags, a primitive count by type.
 namespace render {
 
+struct MaterialRef;
 struct MeshRef;
 
 // A batched billboard (8 bytes): how it turns (its billboard's type) and its mesh.
@@ -23,11 +24,11 @@ struct BillboardRec {
 // A material's batch (0x14 bytes).
 struct BillboardBatch {
     uint32_t vertex_bytes_; // (the material's passes + 2) x 0x20
-    uint8_t* material;
+    MaterialRef* material;
     memory::ListNode* lists[3]; // heads (data -1) of nodes over entries
 
     // 0x004CEB30: construct for a material: three empty lists. Returns this.
-    BillboardBatch* make_new(uint8_t* material);
+    BillboardBatch* make_new(MaterialRef* material);
     // 0x004CE1D0: a mesh added to the list of its billboard's type (at the end).
     void add_row(MeshRef* mesh);
     // 0x004CE250: a mesh's entry taken out (its node destroyed, the entry freed).
@@ -50,7 +51,7 @@ struct BillboardSet {
     float flat_right_[4];           // +0x444 and right
 
     // 0x004CDA60: the batch of a material, or null.
-    BillboardBatch* get_find(const uint8_t* material);
+    BillboardBatch* get_find(const MaterialRef* material);
     // 0x004CDAA0 (choose_camera's): the axes from the view matrix (0x00786BD0).
     void setup_axes();
     // 0x004CEBE0: a billboard mesh added (a mesh with a textured material only), its batch made if new.

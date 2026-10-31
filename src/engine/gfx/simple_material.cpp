@@ -24,19 +24,9 @@ uint8_t* find_texture(uint32_t checksum)
         static_cast<TextureSet*>(reinterpret_cast<void*>(g_particle_texture_dict))->fetch_skin(checksum));
 }
 // A material's constructor and destructor body (not rewritten yet; thiscall).
-uint8_t* construct_material(void* memory)
-{
-    return reinterpret_cast<uint8_t*>(static_cast<MaterialRef*>(memory)->make_new());
-}
-void destroy_material(void* material) { static_cast<MaterialRef*>(material)->destroy_body(); }
+MaterialRef* construct_material(void* memory) { return static_cast<MaterialRef*>(memory)->make_new(); }
 // The C runtime's rand (the game's: its sequence).
 int get_rand() { return crt::get_rand(); }
-
-template <typename T>
-T& get_at(uint8_t* p, uint32_t offset)
-{
-    return *reinterpret_cast<T*>(p + offset);
-}
 
 } // namespace
 
@@ -79,28 +69,30 @@ SimpleMaterial* SimpleMaterial::make_new(uint32_t /*unused0*/, uint32_t /*unused
                                          uint32_t blend_checksum, int fixed_alpha, uint32_t /*unused5*/,
                                          uint32_t /*unused6*/)
 {
-    uint32_t texture = 0;
+    // (the texture entry's +0x10: its PC texture, or with flag 1 a pointer to it)
+    uint8_t* texture = nullptr;
     if (uint8_t* entry = find_texture(texture_checksum))
-        texture = (entry[8] & 1) ? **reinterpret_cast<uint32_t**>(entry + 0x10) : get_at<uint32_t>(entry, 0x10);
-    void* memory = memory::alloc(0x110);
-    uint8_t* m = memory ? construct_material(memory) : nullptr; // (a failed allocation would crash below)
-    get_at<uint32_t>(m, 0x20) = (texture ? 4 : 0) | 0x40;
+        texture =
+            (entry[8] & 1) ? **reinterpret_cast<uint8_t***>(entry + 0x10) : *reinterpret_cast<uint8_t**>(entry + 0x10);
+    void* memory = memory::alloc(sizeof(MaterialRef));
+    MaterialRef* m = memory ? construct_material(memory) : nullptr; // (a failed allocation would crash below)
+    m->pass_flags_[0] = (texture ? 4 : 0) | 0x40;
     int first = get_rand();
-    get_at<int>(m, 0) = first * get_rand(); // the sort key
-    get_at<uint32_t>(m, 8) = 1;             // one pass
-    get_at<uint32_t>(m, 0x30) = texture;
-    get_at<uint32_t>(m, 0x80) = blend_mode_from_name(blend_checksum) | static_cast<uint32_t>(fixed_alpha) << 24;
-    get_at<float>(m, 0x40) = 0.5f; // the colour
-    get_at<float>(m, 0x44) = 0.5f;
-    get_at<float>(m, 0x48) = 0.5f;
-    get_at<float>(m, 0x4C) = static_cast<float>(static_cast<double>(fixed_alpha) * (1.0 / 128)); // 0x0064A2FC
-    get_at<uint32_t>(m, 0x90) = 0;
-    get_at<uint32_t>(m, 0xE0) = 0;
-    get_at<uint8_t>(m, 0x10) = 1;
-    get_at<uint8_t>(m, 0xD) = 1;
-    get_at<uint8_t>(m, 0xE) = 0;
+    m->checksum = static_cast<uint32_t>(first * get_rand()); // the sort key
+    m->pass_count_ = 1;                                      // one pass
+    m->textures[0] = texture;
+    m->blend_modes_[0] = blend_mode_from_name(blend_checksum) | static_cast<uint32_t>(fixed_alpha) << 24;
+    m->pass_color_[0][0] = 0.5f; // the colour
+    m->pass_color_[0][1] = 0.5f;
+    m->pass_color_[0][2] = 0.5f;
+    m->pass_color_[0][3] = static_cast<float>(static_cast<double>(fixed_alpha) * (1.0 / 128)); // 0x0064A2FC
+    m->address_modes_[0] = 0;
+    m->mip_lod_bias_[0] = 0;
+    m->alpha_ref_ = 1;
+    m->two_sided_ = 1;
+    m->has_uv_wibble_ = false;
     material = m;
-    uint32_t mode = get_at<uint32_t>(m, 0x80) & 0xFFFFFF;
+    uint32_t mode = m->blend_modes_[0] & 0xFFFFFF;
     shader = g_pixel_shaders[mode == 9 || mode == 10 ? kPixelShader944 : kPixelShader964];
     return this;
 }
@@ -108,8 +100,8 @@ SimpleMaterial* SimpleMaterial::make_new(uint32_t /*unused0*/, uint32_t /*unused
 // 0x004D9CD0
 void SimpleMaterial::destroy_body()
 {
-    if (uint8_t* m = material) {
-        destroy_material(m);
+    if (MaterialRef* m = material) {
+        m->destroy_body();
         memory::Hub::sole()->dealloc(m);
     }
 }

@@ -10,6 +10,8 @@
 // big (a stack of vertices at 0x006FC4A0).
 namespace render {
 
+struct MaterialRef;
+
 // A splat set (laid out as the original: arrays of 256).
 struct TextureSplats {
     uint32_t alive[0x100];           // +0x0000: 0 once a triangle is killed
@@ -20,7 +22,7 @@ struct TextureSplats {
     int last;                        // +0x1C00: the last vertex / triangle in use (-1: none)
     uint32_t texture;                // +0x1C04: the texture's checksum (set by the engine's splat maker)
     uint8_t unknown1c08_[4];
-    uint8_t* material;                // +0x1C0C
+    MaterialRef* material;            // +0x1C0C
     float uvs[0x300][2];              // +0x1C10: each vertex's texture coordinates before the correction
     uint8_t vertices[0x100][3][0x18]; // +0x3410: position, ARGB colour, u, v
 };

@@ -2,6 +2,7 @@
 // x87 code: double precision where it keeps values in registers, floats where it stores them.
 
 #include "engine/gfx/texture_splats.h"
+#include "engine/gfx/geom.h"
 #include "engine/gfx/d3dx.h"
 
 #include <windows.h>
@@ -112,8 +113,8 @@ void __cdecl kill_all_texture_splats()
 {
     TextureSplats* splats = first_splats(get_splats());
     while (splats) {
-        if (uint8_t* material = splats->material) {
-            reinterpret_cast<MaterialRef*>(material)->destroy_body(); // (the destructor's body)
+        if (MaterialRef* material = splats->material) {
+            material->destroy_body(); // (the destructor's body)
             memory::Hub::get_pull()->dealloc(material);
         }
         TextureSplats* next = next_splats(get_splats());
@@ -163,7 +164,7 @@ void __cdecl draw_texture_splats()
             uv[0] = static_cast<float>((static_cast<double>(splats->uvs[j][0]) - 0.5f) * factor + 0.5f);
             uv[1] = static_cast<float>((static_cast<double>(splats->uvs[j][1]) - 0.5f) * factor + 0.5f);
         }
-        reinterpret_cast<MaterialRef*>(splats->material)->hand_in(); // (the material's set-up)
+        splats->material->hand_in(); // (the material's set-up)
         set_pixel_shader(g_pixel_shaders[kPixelShader964], splats->material);
         draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, splats->last + 1, splats->vertices, 0x18);
     }
@@ -372,26 +373,26 @@ uint32_t& get_color(uint8_t* vertex) { return *reinterpret_cast<uint32_t*>(verte
 TextureSplats* __cdecl get_texture_splats(uint32_t texture)
 {
     for (TextureSplats* splats = first_splats(get_splats()); splats; splats = next_splats(get_splats())) {
-        if (*reinterpret_cast<uint32_t*>(splats->material + 0x30) == texture)
+        if (reinterpret_cast<uint32_t>(splats->material->textures[0]) == texture)
             return splats;
     }
-    void* memory = memory::alloc(0x110);
-    auto* material = memory ? reinterpret_cast<uint8_t*>(static_cast<MaterialRef*>(memory)->make_new()) : nullptr;
+    void* memory = memory::alloc(sizeof(MaterialRef));
+    MaterialRef* material = memory ? static_cast<MaterialRef*>(memory)->make_new() : nullptr;
     // (no check: a failed allocation writes through null, as the original)
-    *reinterpret_cast<uint32_t*>(material + 0x20) = texture ? 4 : 0; // (the pass's flags)
+    material->pass_flags_[0] = texture ? 4 : 0; // (the pass's flags)
     int a = get_rand();
     int b = get_rand();
-    *reinterpret_cast<int*>(material) = a * b; // a random checksum
-    *reinterpret_cast<uint32_t*>(material + 0x30) = texture;
-    *reinterpret_cast<uint32_t*>(material + 0x08) = 1; // one pass
-    material[0x0D] = 1;
-    material[0x11] = 0x14;
-    *reinterpret_cast<uint32_t*>(material + 0x80) = 5; // its blend mode
+    material->checksum = a * b;                                  // a random checksum
+    material->textures[0] = reinterpret_cast<uint8_t*>(texture); // (the texture's key: its PC texture's address)
+    material->pass_count_ = 1;                                   // one pass
+    material->two_sided_ = 1;
+    material->depth_bias_ = 0x14;
+    material->blend_modes_[0] = 5; // its blend mode
     for (int k = 0; k < 3; ++k)
-        reinterpret_cast<float*>(material + 0x40)[k] = 0.5f; // its colour
-    *reinterpret_cast<uint32_t*>(material + 0x90) = 0x20002;
-    *reinterpret_cast<uint32_t*>(material + 0xE0) = 0;
-    material[0x10] = 1;
+        material->pass_color_[0][k] = 0.5f; // its colour
+    material->address_modes_[0] = 0x20002;
+    material->mip_lod_bias_[0] = 0;
+    material->alpha_ref_ = 1;
     auto* splats = static_cast<TextureSplats*>(memory::alloc(sizeof(TextureSplats)));
     splats->last = 0;
     splats->material = material;
@@ -474,11 +475,11 @@ TextureSplats* __cdecl create_texture_splat(void** sectors, int /*unused*/, Spla
     uint8_t* splat_vertices = nullptr;
     int slot = 0;
     for (; *sectors; ++sectors) {
-        auto* geom = static_cast<uint8_t*>(static_cast<PcSector*>(*sectors)->geom_handle_); // (the sector's geom)
+        auto* geom = static_cast<PcGeom*>(static_cast<PcSector*>(*sectors)->geom_handle_); // (the sector's geom)
         if (!geom)
             continue;
-        auto** meshes = *reinterpret_cast<MeshRef***>(geom + 0x3C);
-        uint32_t mesh_count = *reinterpret_cast<uint32_t*>(geom + 0x40);
+        MeshRef** meshes = geom->meshes;
+        uint32_t mesh_count = geom->mesh_count_;
         for (uint32_t m = 0; m < mesh_count; ++m) {
             MeshRef* mesh = meshes[m];
             if (mesh->flags & 2)

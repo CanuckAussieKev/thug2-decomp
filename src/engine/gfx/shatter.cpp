@@ -1,6 +1,7 @@
 // Shattering on PC: see shatter.h.
 
 #include "engine/gfx/shatter.h"
+#include "engine/gfx/geom.h"
 #include "engine/gfx/d3dx.h"
 
 #include <windows.h>
@@ -72,7 +73,7 @@ PcShatter::~PcShatter()
 void __cdecl draw_shatter(PcShatter* shatter)
 {
     MeshRef* mesh = shatter->mesh;
-    reinterpret_cast<MaterialRef*>(mesh->material)->hand_in(); // (the material's set-up)
+    mesh->material->hand_in(); // (the material's set-up)
     set_pixel_shader(mesh_pixel_shader(mesh), mesh->material);
     set_vertex_format(mesh_vertex_format(mesh));
     ++g_draw_calls; // the frame's draw calls and triangles
@@ -180,10 +181,10 @@ void __cdecl update_shatter(PcShatter* shatter, float step)
 }
 
 // 0x004BA7A0
-void __cdecl shatter_geom(uint8_t* geom)
+void __cdecl shatter_geom(PcGeom* geom)
 {
-    auto** meshes = *reinterpret_cast<MeshRef***>(geom + 0x3C);
-    uint32_t mesh_count = *reinterpret_cast<uint32_t*>(geom + 0x40);
+    MeshRef** meshes = geom->meshes;
+    uint32_t mesh_count = geom->mesh_count_;
     for (uint32_t m = 0; m < mesh_count; ++m) {
         MeshRef* mesh = meshes[m];
         if (mesh->index_counts_[0] < 3)

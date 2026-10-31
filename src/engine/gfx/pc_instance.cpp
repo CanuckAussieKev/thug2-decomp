@@ -11,6 +11,8 @@
 #include "engine/gfx/d3dx.h"
 #include "engine/gfx/pc_instance.h"
 #include "engine/gfx/geom.h"
+#include "engine/gfx/sub_mesh.h"
+#include "engine/gfx/surface_material.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/mesh_list.h"
 #include "engine/gfx/occlusion.h"
@@ -60,8 +62,8 @@ bool skinned_by_shader(const Singleton* instance) { return instance->bones && bo
 // The scene's first byte's top bit: drawn unlit.
 bool scene_unlit(const SceneRef* scene) { return static_cast<int8_t>(scene->flags & 0xFF) < 0; }
 
-uint32_t mesh_traits(const uint8_t* mesh) { return *reinterpret_cast<const uint32_t*>(mesh); }
-uint32_t& mesh_flags_ref(uint8_t* mesh) { return *reinterpret_cast<uint32_t*>(mesh); }
+uint32_t mesh_traits(const MeshRef* mesh) { return mesh->flags; }
+uint32_t& mesh_flags_ref(MeshRef* mesh) { return mesh->flags; }
 
 const maths::Vec4* get_position(const Singleton* instance)
 {
@@ -133,8 +135,8 @@ Singleton* Singleton::make_new(SceneRef* list, const maths::Mat4* matrix, int co
     if (bones && bones_on_device(scene) <= 0)
         return this;
     for (int i = 0; i < scene->mesh_count_; ++i) {
-        uint8_t* mesh = scene->meshes[i];
-        if (!(*reinterpret_cast<uint32_t*>(mesh + 0x38) & kMeshLit) || (mesh_traits(mesh) & kMeshNotLit))
+        MeshRef* mesh = scene->meshes[i];
+        if (!(mesh->fvf & kMeshLit) || (mesh_traits(mesh) & kMeshNotLit))
             return this;
     }
     flags |= 2;
@@ -221,8 +223,8 @@ void Singleton::render(uint32_t draw_bits)
                 set_world_transform(reinterpret_cast<const float*>(&world));
                 input_port()->SetTransform(D3DTS_WORLD, reinterpret_cast<const D3DMATRIX*>(&world));
                 for (int i = 0; i < scene->mesh_count_; ++i) {
-                    uint8_t* mesh = scene->meshes[i];
-                    if (static_cast<int8_t>(mesh[0x1F]) == bone)
+                    MeshRef* mesh = scene->meshes[i];
+                    if (static_cast<int8_t>(mesh->unknown1c_[3]) == bone) // (its bone)
                         mesh_flags_ref(mesh) |= kMeshShown;
                     else
                         mesh_flags_ref(mesh) &= ~kMeshShown;
@@ -345,13 +347,11 @@ int __cdecl compare_instances(const void* a, const void* b)
         return x > y ? 1 : -1;
     if (x <= 0)
         return 0;
-    const uint8_t* m1 =
-        *reinterpret_cast<uint8_t* const*>(first->scene->meshes[first->scene->first_transparent_] + 0x14);
-    const uint8_t* m2 =
-        *reinterpret_cast<uint8_t* const*>(second->scene->meshes[second->scene->first_transparent_] + 0x14);
+    const MaterialRef* m1 = first->scene->meshes[first->scene->first_transparent_]->material;
+    const MaterialRef* m2 = second->scene->meshes[second->scene->first_transparent_]->material;
     if (!m1 || !m2)
         return 0;
-    float k1 = *reinterpret_cast<const float*>(m1 + 0x1C), k2 = *reinterpret_cast<const float*>(m2 + 0x1C);
+    float k1 = m1->sort_key_, k2 = m2->sort_key_;
     if (k1 > k2)
         return 1;
     return k1 < k2 ? -1 : 0;
