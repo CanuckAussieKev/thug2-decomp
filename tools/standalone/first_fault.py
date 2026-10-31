@@ -1,4 +1,4 @@
-"""NOT ORIGINAL - run a 32-bit exe under the Win32 debug API and report its first fault: the exception, the registers,
+r"""NOT ORIGINAL - run a 32-bit exe under the Win32 debug API and report its first fault: the exception, the registers,
 the frame-pointer chain and a scan of the stack for return addresses (words just after a call instruction in a loaded
 module), each resolved offline against the module's PDB (addr2sym.py). Also prints the program's OutputDebugString
 text and its exit code. No cdb / WinDbg needed.
@@ -8,6 +8,8 @@ text and its exit code. No cdb / WinDbg needed.
 --seconds N      stop the program (and say so) when nothing went wrong in N seconds (default 120)
 --watch <rva>    a hardware breakpoint on writes to the 4 bytes at the exe's base + rva (addr2sym.py name=<symbol>
                  finds it): every write is printed with its caller chain, and the run goes on
+--monitor N      as soon as the program's window exists, centre it on \\.\DISPLAYN without activating it (e.g. 2
+                 when the primary monitor is busy)
 --second-chance  report only exceptions the program doesn't handle itself (default: the first chance of an access
                  violation, illegal instruction, divide by zero, stack overflow, stack-cookie / fast-fail)
 The program is always ended when this returns.
@@ -23,6 +25,57 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from addr2sym import Resolver  # noqa: E402
 
 k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+u32 = ctypes.WinDLL("user32", use_last_error=True)
+
+
+class MONITORINFOEX(ctypes.Structure):
+    _fields_ = [("cbSize", W.DWORD), ("rcMonitor", W.RECT), ("rcWork", W.RECT), ("dwFlags", W.DWORD),
+                ("szDevice", ctypes.c_wchar * 32)]
+
+
+def monitor_rect(number):
+    """The rectangle of \\\\.\\DISPLAY<number> (left, top, right, bottom), or None."""
+    found = []
+    proc = ctypes.WINFUNCTYPE(W.BOOL, W.HMONITOR, W.HDC, ctypes.POINTER(W.RECT), W.LPARAM)
+
+    def each(handle, _dc, _rect, _data):
+        info = MONITORINFOEX()
+        info.cbSize = ctypes.sizeof(info)
+        if u32.GetMonitorInfoW(handle, ctypes.byref(info)) and info.szDevice.upper().endswith(f"DISPLAY{number}"):
+            r = info.rcMonitor
+            found.append((r.left, r.top, r.right, r.bottom))
+        return True
+
+    u32.EnumDisplayMonitors(None, None, proc(each), 0)
+    return found[0] if found else None
+
+
+def process_window(pid):
+    """The process's visible top-level window, or None."""
+    found = []
+    proc = ctypes.WINFUNCTYPE(W.BOOL, W.HWND, W.LPARAM)
+
+    def each(hwnd, _data):
+        owner = W.DWORD()
+        u32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
+        if owner.value == pid and u32.IsWindowVisible(hwnd) and not u32.GetWindow(hwnd, 4):  # GW_OWNER
+            found.append(hwnd)
+        return True
+
+    u32.EnumWindows(proc(each), 0)
+    return found[0] if found else None
+
+
+def move_to_monitor(hwnd, rect):
+    """Centres the window on the monitor without activating it (SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS)."""
+    r = W.RECT()
+    u32.GetWindowRect(hwnd, ctypes.byref(r))
+    width, height = r.right - r.left, r.bottom - r.top
+    x = rect[0] + max(0, (rect[2] - rect[0] - width) // 2)
+    y = rect[1] + max(0, (rect[3] - rect[1] - height) // 2)
+    # (SWP_ASYNCWINDOWPOS: the window's thread may be stopped at a debug event - never wait for it)
+    u32.SetWindowPos(hwnd, None, x, y, 0, 0, 0x0001 | 0x0004 | 0x0010 | 0x4000)
+    return x, y
 
 DEBUG_ONLY_THIS_PROCESS = 2
 EXCEPTION_DEBUG_EVENT, CREATE_THREAD_DEBUG_EVENT, CREATE_PROCESS_DEBUG_EVENT, EXIT_PROCESS_DEBUG_EVENT = 1, 2, 3, 5
@@ -131,6 +184,13 @@ def main():
     if "--watch" in args:
         i = args.index("--watch")
         watch = int(args[i + 1], 16)
+        del args[i:i + 2]
+    monitor = None
+    if "--monitor" in args:
+        i = args.index("--monitor")
+        monitor = monitor_rect(int(args[i + 1]))
+        if monitor is None:
+            raise SystemExit(f"no monitor DISPLAY{args[i + 1]}")
         del args[i:i + 2]
     second_chance_only = "--second-chance" in args
     args = [a for a in args if a != "--second-chance"]
@@ -252,11 +312,20 @@ def main():
     started = time.time()
     seen_initial_break = False
     done = False
+    moved = monitor is None
     while not done:
         left = seconds - (time.time() - started)
-        if left <= 0 or not k32.WaitForDebugEvent(ctypes.byref(ev), int(max(left, 0) * 1000)):
+        if left <= 0:
             print(f"no fault within {seconds:g} s: stopping the program")
             break
+        if not moved:
+            hwnd = process_window(pi.dwProcessId)
+            if hwnd:
+                x, y = move_to_monitor(hwnd, monitor)
+                print(f"window moved to ({x}, {y})")
+                moved = True
+        if not k32.WaitForDebugEvent(ctypes.byref(ev), int(min(left, 0.2 if not moved else left) * 1000)):
+            continue
         code, cont = ev.dwDebugEventCode, DBG_CONTINUE
         if code == CREATE_PROCESS_DEBUG_EVENT:
             base = ev.u.CreateProcessInfo.lpBaseOfImage
