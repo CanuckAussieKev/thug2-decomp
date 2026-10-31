@@ -260,11 +260,11 @@ bool __cdecl cfunc_is_observing(script::Struct*, script::Script*)
 {
     online::Hub* game_net = online_hub_handle();
     online::detail::NewPlayerSearch search;
-    if (void* player = game_net->get_own_player())
-        return static_cast<online::PlayerRecord*>(player)->is_observer() != 0;
-    for (auto* player = static_cast<uint8_t*>(game_net->begin_joiner_walk(&search)); player;
-         player = static_cast<uint8_t*>(game_net->step_joiner_walk(&search))) {
-        uint32_t flags = *reinterpret_cast<uint32_t*>(player + 0x20);
+    if (online::PlayerRecord* player = game_net->get_own_player())
+        return player->is_observer() != 0;
+    for (online::JoinerRecord* player = game_net->begin_joiner_walk(&search); player;
+         player = game_net->step_joiner_walk(&search)) {
+        uint32_t flags = player->flag_bits_;
         if ((flags & 1) && (flags & 4))
             return true;
     }
@@ -347,7 +347,7 @@ bool __cdecl cfunc_notify_bail_done(script::Struct*, script::Script* script)
     if (!object || object->kind_tag_ != kSkaterType)
         return true;
     auto* skater = static_cast<objects::Rider*>(object);
-    if (!skater->unknownbc_)
+    if (!skater->is_local_skater_)
         return true;
     if (net::AppHost* client = game_net->fetch_patron(skater->view_slot_)) {
         net::NetMessageInfo desc;

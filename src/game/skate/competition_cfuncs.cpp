@@ -329,7 +329,7 @@ bool __cdecl cfunc_add_bonus(script::Struct* params, script::Script*)
     int index = 0;
     params->fetch_int_value(kSkater, &index, 1);
     objects::GameEntity* skater = get_rider_at(index);
-    if (skater->unknownbc_) {
+    if (skater->is_local_skater_) {
         uint8_t* score = get_score_of(skater);
         int bonus = 0;
         params->fetch_int_value(0u, &bonus, 0);
@@ -344,7 +344,7 @@ bool __cdecl cfunc_get_bonus_value(script::Struct* params, script::Script* scrip
     int index = 0;
     params->fetch_int_value(kSkater, &index, 1);
     objects::GameEntity* skater = get_rider_at(index);
-    if (skater->unknownbc_)
+    if (skater->is_local_skater_)
         script->args_->put_int(kBonus, get_bonus(get_score_of(skater)));
     return true;
 }

@@ -104,7 +104,7 @@ void* find_player_slot_by_obj(uint32_t id)
 bool is_own_player(void* player) { return static_cast<online::PlayerRecord*>(player)->is_own_player() != 0; }
 int player_skater_index(void* player)
 {
-    return static_cast<int>(static_cast<online::PlayerRecord*>(player)->get_skater_value_2b_c());
+    return static_cast<int>(static_cast<online::PlayerRecord*>(player)->get_skater_view_slot());
 }
 net::Guest* client_app(void* manager, int index)
 {

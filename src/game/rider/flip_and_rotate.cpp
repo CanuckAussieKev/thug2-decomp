@@ -54,7 +54,7 @@ online::PlayerRecord* find_player_slot_by_obj(uint32_t id)
         net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id)));
 }
 bool is_own_player(online::PlayerRecord* player) { return player->is_own_player() != 0; }
-int player_skater_index(online::PlayerRecord* player) { return static_cast<int>(player->get_skater_value_2b_c()); }
+int player_skater_index(online::PlayerRecord* player) { return static_cast<int>(player->get_skater_view_slot()); }
 net::Guest* client_app(int index) { return static_cast<net::Guest*>(net_session_slot()->fetch_patron(index)); }
 // A client app's +0x08 (passed to the animation blender and to apply_board_turned, which doesn't use it).
 uint32_t app_value8(net::Guest* app) { return prop<uint32_t>(app, 0x08); }

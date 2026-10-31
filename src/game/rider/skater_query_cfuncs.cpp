@@ -521,7 +521,7 @@ bool __cdecl cfunc_get_skater_id(script::Struct* params, script::Script* script)
 {
     int index = 0;
     objects::GameEntity* skater = params->fetch_int_value(kSkater, &index, 0) ? get_rider_at(index) : get_home_rider();
-    if (!skater || !skater->unknownbc_)
+    if (!skater || !skater->is_local_skater_)
         return false;
     script->args_->put_name_key(kObjId, skater->ident_);
     return true;
@@ -557,7 +557,7 @@ bool __cdecl cfunc_get_skater_sex(script::Struct* params, script::Script* script
 bool __cdecl cfunc_get_current_skater_id(script::Struct*, script::Script* script)
 {
     auto* object = static_cast<objects::GameEntity*>(script->entity_.get_pull());
-    if (!object || !object->unknownbc_)
+    if (!object || !object->is_local_skater_)
         return false;
     uint32_t id = object->ident_;
     script->args_->put_name_key(kObjId, id);

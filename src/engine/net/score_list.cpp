@@ -32,6 +32,7 @@
 #include "engine/net/server_list.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
+#include "game/rider/skater_score.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
 
@@ -68,18 +69,12 @@ uint32_t& score_sync_stamp_slot() { return g_score_refresh_stamp; }
 void* get_score_of(PlayerRecord* player)
 {
     auto* skater = reinterpret_cast<objects::GameEntity*>(player->skater_);
-    return prop<void*>(skater->fetch_module(kSkaterScore), 0x18);
+    return static_cast<objects::RiderPointKeeper*>(skater->fetch_module(kSkaterScore))->points_held_;
 }
 int points_of(void* score) { return get_call<int>(code_address(&modules::PointTally::get_total_score), score); }
 
-PlayerRecord* get_first(Hub* manager, PlayerSearch* search)
-{
-    return reinterpret_cast<PlayerRecord*>(start_roster_sweep(manager, search, false));
-}
-PlayerRecord* get_next(Hub* manager, PlayerSearch* search)
-{
-    return reinterpret_cast<PlayerRecord*>(step_roster_sweep(manager, search, false));
-}
+PlayerRecord* get_first(Hub* manager, PlayerSearch* search) { return start_roster_sweep(manager, search, false); }
+PlayerRecord* get_next(Hub* manager, PlayerSearch* search) { return step_roster_sweep(manager, search, false); }
 
 // A player that gets a score line: fully in (or local), not eliminated, and in netfirefight not out of lives.
 bool has_score_line(PlayerRecord* p)
@@ -89,7 +84,7 @@ bool has_score_line(PlayerRecord* p)
     if (get_game_type() != kNetFirefight || !p->skater_)
         return true;
     objects::ObjectModule* score = reinterpret_cast<objects::GameEntity*>(p->skater_)->fetch_module(kSkaterScore);
-    return !score || points_of(prop<void*>(score, 0x18)) != 0;
+    return !score || points_of(static_cast<objects::RiderPointKeeper*>(score)->points_held_) != 0;
 }
 
 // A new line (null if out of memory: then used anyway, as the original).
@@ -120,7 +115,7 @@ int Hub::get_squad_points(int team)
 {
     PlayerSearch search;
     int total = 0;
-    PlayerRecord* local = reinterpret_cast<PlayerRecord*>(find_own_player_record(this));
+    PlayerRecord* local = find_own_player_record(this);
     bool goal_attack = get_game_type() == kNetGoalAttack;
     for (PlayerRecord* p = get_first(this, &search); p; p = get_next(this, &search)) {
         if (!(p->flag_bits_ & (kPlayerFullyIn | kPlayerLocal)) || p->team_ != team)
@@ -135,10 +130,10 @@ int Hub::get_squad_points(int team)
 // 0x005436E0
 int Hub::get_entrant_points(uint32_t id)
 {
-    PlayerRecord* local = reinterpret_cast<PlayerRecord*>(find_own_player_record(this));
+    PlayerRecord* local = find_own_player_record(this);
     if (get_game_type() == kNetGoalAttack && !(local->flag_bits_ & kPlayerObserver))
         return get_call<int>(code_address(&goals::GoalManager::count_cleared_by_player), objective_board(), id);
-    auto* player = reinterpret_cast<PlayerRecord*>(find_player_slot_by_obj(static_cast<uint16_t>(id)));
+    auto* player = find_player_slot_by_obj(static_cast<uint16_t>(id));
     return points_of(get_score_of(player));
 }
 
@@ -236,7 +231,7 @@ void __cdecl score_broadcast_tick(tasks::Task<Hub>* task)
                 get_append(&list, entry);
             } else {
                 entry->priority =
-                    scavenger_hunt ? 5 - p->unknown34_ : manager->get_entrant_points(get_skater_id(p->skater_));
+                    scavenger_hunt ? 5 - p->num_placed_ : manager->get_entrant_points(get_skater_id(p->skater_));
                 list.append_vertex(entry);
             }
         }

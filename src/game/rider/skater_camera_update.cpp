@@ -128,14 +128,14 @@ void RiderChaseView::tick_frame()
     if (physics_state != 2 && (!core || !core[0x2EC])) {
         wall_ride_frames_ = 0;
         skater = rider_ref_;
-        orient = skater->unknownbc_ ? *skater_display_matrix(skater) : skater->display_matrix_;
+        orient = skater->is_local_skater_ ? *skater_display_matrix(skater) : skater->display_matrix_;
         skater_matrix_ = orient;
     } else {
         orient = skater_matrix_;
         if (physics_state == 2) {
             skater = rider_ref_;
             const maths::Vec4& facing =
-                skater->unknownbc_ ? skater_display_matrix(skater)->row[2] : skater->display_matrix_.row[2];
+                skater->is_local_skater_ ? skater_display_matrix(skater)->row[2] : skater->display_matrix_.row[2];
             if (wall_ride_frames_ == 0) {
                 maths::Vec4& wall = wall_facing_;
                 wall = facing;
@@ -160,7 +160,7 @@ void RiderChaseView::tick_frame()
 
     // The roll: on a rail on the skater's model, the balance's lean.
     double roll = 0.0;
-    if (physics_state == 4 && rider_ref_->unknownbc_) {
+    if (physics_state == 4 && rider_ref_->is_local_skater_) {
         auto* balance = reinterpret_cast<uint8_t*>(rider_ref_->fetch_module(kBalanceTrick));
         roll = static_cast<double>(balance_roll_scale()) * get_at<float>(balance, 0xAC);
     }
@@ -246,7 +246,7 @@ void RiderChaseView::tick_frame()
             up_row.make_unit();
         }
     }
-    if (rider_ref_->unknownbc_ && state_ref_[0xA8]) {
+    if (rider_ref_->is_local_skater_ && state_ref_[0xA8]) {
         auto* physics = reinterpret_cast<uint8_t*>(rider_ref_->fetch_module(kCorePhysics));
         orient = get_at<maths::Mat4>(physics, 0x3B0);
     }
@@ -479,7 +479,7 @@ void RiderChaseView::tick_frame()
 
     // Kept clear of the world (unless riding something on a lip).
     bool avoid = true;
-    if (rider_ref_->unknownbc_) {
+    if (rider_ref_->is_local_skater_) {
         auto* physics = reinterpret_cast<uint8_t*>(rider_ref_->fetch_module(kCorePhysics));
         if (get_at<void*>(get_at<uint8_t*>(physics, 0x152C), 0x18) && physics_state == 3)
             avoid = false;

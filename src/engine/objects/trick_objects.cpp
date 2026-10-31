@@ -49,26 +49,21 @@ constexpr uint32_t kGraffitiTeamScoring = 0xAB80CC2F; // graffiti_team_scoring (
 // Morten1337's thugpro_proxy, written here as our own buffer) - a list longer than the mask is cut to its size.
 uint8_t s_dirty_clusters[TrickSpotHub::kMaxLoggedClusters];
 
-// The game mode (0x007CE470) and the network manager's players (0x007CCE14): PlayerRecord +0x14 its skater (+0x14 the
-// skater's object id), +0x30 its team. Walked with a lists::Hunt<PlayerRecord> (vtable 0x0064C1A8).
+// The game mode (0x007CE470) and the network manager's players (0x007CCE14), walked with a lists::Hunt<PlayerRecord>
+// (vtable 0x0064C1A8).
 void* get_game_mode() { return static_cast<void*>(goals::g_game_mode); }
-void* net_session_slot() { return reinterpret_cast<void*>(online::g_online_hub); }
+online::Hub* net_session_slot() { return online::g_online_hub; }
 using PlayerSearch = online::PlayerSearch;
-uint8_t* start_roster_sweep(PlayerSearch* search)
+using online::PlayerRecord;
+PlayerRecord* start_roster_sweep(PlayerSearch* search) { return net_session_slot()->begin_player_walk(search, false); }
+PlayerRecord* step_roster_sweep(PlayerSearch* search) { return net_session_slot()->step_player_walk(search, false); }
+PlayerRecord* find_player_slot_by_obj(int id)
 {
-    return static_cast<uint8_t*>(static_cast<online::Hub*>(net_session_slot())->begin_player_walk(search, false));
+    return net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id));
 }
-uint8_t* step_roster_sweep(PlayerSearch* search)
-{
-    return static_cast<uint8_t*>(static_cast<online::Hub*>(net_session_slot())->step_player_walk(search, false));
-}
-uint8_t* find_player_slot_by_obj(int id)
-{
-    return static_cast<online::Hub*>(net_session_slot())->find_player_slot_by_obj(static_cast<uint16_t>(id));
-}
-int get_team(uint8_t* player) { return *reinterpret_cast<int*>(player + 0x30); }
-uint8_t* skater_of(uint8_t* player) { return *reinterpret_cast<uint8_t**>(player + 0x14); }
-int current_object_id(uint8_t* skater) { return *reinterpret_cast<int*>(skater + 0x14); }
+int get_team(PlayerRecord* player) { return player->team_; }
+objects::Rider* skater_of(PlayerRecord* player) { return player->skater_; }
+int current_object_id(objects::Entity* skater) { return static_cast<int>(skater->ident_); }
 
 // Team graffiti scored by team: the game mode netgraffiti, a team game, team_graffiti_mode graffiti_team_scoring.
 bool team_scoring()
@@ -140,12 +135,12 @@ uint32_t TrickSpotHub::log_trick_objects(uint32_t count, uint32_t* objects, uint
             cluster->scores_[player] = score;
         uint32_t total = score;
         if (team_scoring()) {
-            if (uint8_t* me = find_player_slot_by_obj(player)) {
+            if (PlayerRecord* me = find_player_slot_by_obj(player)) {
                 // The team's score: each of its players' best on this cluster.
                 int team = get_team(me);
                 total = 0;
                 PlayerSearch search;
-                for (uint8_t* other = start_roster_sweep(&search); other; other = step_roster_sweep(&search)) {
+                for (PlayerRecord* other = start_roster_sweep(&search); other; other = step_roster_sweep(&search)) {
                     if (skater_of(other) && get_team(other) == team)
                         total += cluster->scores_[current_object_id(skater_of(other))];
                 }
@@ -156,12 +151,12 @@ uint32_t TrickSpotHub::log_trick_objects(uint32_t count, uint32_t* objects, uint
         bool changed = cluster->owner_ != player;
         if (changed && team_scoring()) {
             // Taken from a team mate: only if the player beat one of the team's own best scores on it.
-            uint8_t* holder = find_player_slot_by_obj(static_cast<uint16_t>(cluster->owner_));
+            PlayerRecord* holder = find_player_slot_by_obj(static_cast<uint16_t>(cluster->owner_));
             int team = get_team(find_player_slot_by_obj(player));
             if (get_team(holder) == team) {
                 changed = false;
                 PlayerSearch search;
-                for (uint8_t* other = start_roster_sweep(&search); other; other = step_roster_sweep(&search)) {
+                for (PlayerRecord* other = start_roster_sweep(&search); other; other = step_roster_sweep(&search)) {
                     if (skater_of(other) && get_team(other) == team &&
                         score > cluster->scores_[current_object_id(skater_of(other))]) {
                         changed = true;
@@ -616,16 +611,10 @@ bool TrickSpotHub::release_player_clusters(int player)
     return true;
 }
 
-namespace {
-
-online::PlayerRecord* as_player(void* player) { return static_cast<online::PlayerRecord*>(player); }
-
-} // namespace
-
 // 0x005892C0
 void __cdecl score_trick_objects(int player, uint32_t score, uint32_t count, uint32_t* objects, bool send)
 {
-    auto* net = static_cast<online::Hub*>(net_session_slot());
+    online::Hub* net = net_session_slot();
     void* skate = static_cast<void*>(modules::g_skate_module);
     net::NetMessageInfo desc;
     desc.make_new();
@@ -633,11 +622,10 @@ void __cdecl score_trick_objects(int player, uint32_t score, uint32_t count, uin
     if (send) {
         net::AppHost* server = net->host_;
         net::Conn* conn = nullptr;
-        if (auto* skater = reinterpret_cast<uint8_t*>(
-                reinterpret_cast<modules::Skate*>(skate)->get_rider_by_number(static_cast<uint32_t>(player)))) {
-            if (uint8_t* info =
-                    net->find_player_slot_by_obj(static_cast<uint16_t>(*reinterpret_cast<uint32_t*>(skater + 0x14))))
-                conn = *reinterpret_cast<net::Conn**>(info + 0x18);
+        if (objects::Entity* skater =
+                reinterpret_cast<modules::Skate*>(skate)->get_rider_by_number(static_cast<uint32_t>(player))) {
+            if (online::PlayerRecord* info = net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)))
+                conn = info->conn_;
         }
         uint8_t stolen[8] = {};
         count = g_trick_spot_hub->log_trick_objects(count, objects, stolen, player, score);
@@ -652,16 +640,16 @@ void __cdecl score_trick_objects(int player, uint32_t score, uint32_t count, uin
             message.thief = player;
             message.victim = victim;
             message.game_id_ = net->get_game_id();
-            uint8_t* thief = net->find_player_slot_by_obj(static_cast<uint16_t>(player));
+            online::PlayerRecord* thief = net->find_player_slot_by_obj(static_cast<uint16_t>(player));
             stolen_desc.content_ = &message;
             stolen_desc.byte_count_ = sizeof(message);
             stolen_desc.ident_ = kMsgTagStolen;
-            server->put_on_outbox(as_player(thief)->get_link_handle(), &stolen_desc);
+            server->put_on_outbox(thief->get_link_handle(), &stolen_desc);
             message.thief = player;
             message.victim = victim;
             message.game_id_ = net->get_game_id();
-            if (uint8_t* info = net->find_player_slot_by_obj(static_cast<uint16_t>(victim)))
-                server->put_on_outbox(as_player(info)->get_link_handle(), &desc); // (not stolen_desc: as the original)
+            if (online::PlayerRecord* info = net->find_player_slot_by_obj(static_cast<uint16_t>(victim)))
+                server->put_on_outbox(info->get_link_handle(), &desc); // (not stolen_desc: as the original)
         }
 
         TrickObjectsMessage all = {};
@@ -676,8 +664,9 @@ void __cdecl score_trick_objects(int player, uint32_t score, uint32_t count, uin
         desc.ident_ = kMsgTrickObjects;
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
         desc.group_id_ = kGroupGame;
-        for (void* info = net->begin_player_walk(&search, false); info; info = net->step_player_walk(&search, false))
-            server->send_bulk_message(as_player(info)->get_link_handle(), desc.ident_, desc.byte_count_, desc.content_,
+        for (online::PlayerRecord* info = net->begin_player_walk(&search, false); info;
+             info = net->step_player_walk(&search, false))
+            server->send_bulk_message(info->get_link_handle(), desc.ident_, desc.byte_count_, desc.content_,
                                       "TrickObj Buffer", kGroupGame, true, false);
 
         ObserverTrickObjectsMessage observed = {};
@@ -688,10 +677,11 @@ void __cdecl score_trick_objects(int player, uint32_t score, uint32_t count, uin
         desc.content_ = &observed;
         desc.byte_count_ = static_cast<uint16_t>(count * 4 + offsetof(ObserverTrickObjectsMessage, objects));
         desc.ident_ = kMsgObserverTrickObjects;
-        for (void* info = net->begin_player_walk(&search, true); info; info = net->step_player_walk(&search, true)) {
-            if (as_player(info)->is_observer())
-                server->send_bulk_message(as_player(info)->get_link_handle(), desc.ident_, desc.byte_count_,
-                                          desc.content_, "TrickObj Buffer", kGroupGame, true, false);
+        for (online::PlayerRecord* info = net->begin_player_walk(&search, true); info;
+             info = net->step_player_walk(&search, true)) {
+            if (info->is_observer())
+                server->send_bulk_message(info->get_link_handle(), desc.ident_, desc.byte_count_, desc.content_,
+                                          "TrickObj Buffer", kGroupGame, true, false);
         }
         reinterpret_cast<modules::Skate*>(skate)->broadcast_points(false);
         if (conn->is_host_local()) // (no null check: as the original)

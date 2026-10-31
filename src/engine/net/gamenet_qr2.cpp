@@ -154,7 +154,7 @@ void __cdecl player_key_callback(int key, int index, void* buffer, void*)
     // QUIRK kept: the original never counts `index` down - only player 0 is found; for the others the walk runs off
     // the end and they're reported empty.
     PlayerSearch search;
-    uint8_t* player = start_roster_sweep(manager, &search, false);
+    PlayerRecord* player = start_roster_sweep(manager, &search, false);
     if (index != 0)
         while (player)
             player = step_roster_sweep(manager, &search, false);
@@ -167,7 +167,7 @@ void __cdecl player_key_callback(int key, int index, void* buffer, void*)
         buffer_add(buffer, player_name(player));
         return;
     case kKeyPing: {
-        net::Conn* conn = prop<net::Conn*>(player, 0x18);
+        net::Conn* conn = player->conn_;
         buffer_add_int(buffer, conn->is_host_local() ? 0 : conn->ping_probe_.average_latency_);
         return;
     }

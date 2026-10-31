@@ -135,12 +135,8 @@ R get_call(uint32_t address, const void* object, A... args)
     return reinterpret_cast<R(__thiscall*)(const void*, A...)>(address)(object, args...);
 }
 
-PlayerRecord* details_of(uint8_t* player) { return reinterpret_cast<PlayerRecord*>(player); }
-PlayerRecord* by_connection(net::Conn* conn) { return details_of(net_link()->find_player_by_sender(conn)); }
-PlayerRecord* by_object_id(int id)
-{
-    return details_of(net_link()->find_player_slot_by_obj(static_cast<uint16_t>(id)));
-}
+PlayerRecord* by_connection(net::Conn* conn) { return net_link()->find_player_by_sender(conn); }
+PlayerRecord* by_object_id(int id) { return net_link()->find_player_slot_by_obj(static_cast<uint16_t>(id)); }
 // An object id from a message byte (signed, as the original reads it).
 int id_byte(const uint8_t* data, int offset) { return static_cast<int8_t>(data[offset]); }
 
@@ -315,7 +311,7 @@ int SkateNet::handle_game_stats(net::InboundMsgCtx* context)
     auto* data = reinterpret_cast<uint8_t*>(context->body_);
     if (get_game_mode()->get_name_key() == kNetLobby || net->get_game_id() != data[0])
         return 4;
-    player->unknown24_ = prop<uint32_t>(data, 4);
+    player->best_combo_ = prop<uint32_t>(data, 4);
     return 1;
 }
 
@@ -351,7 +347,7 @@ int SkateNet::handle_player_value48(net::InboundMsgCtx* context)
     PlayerRecord* player = by_connection(context->sender_conn_);
     if (!player)
         return 4;
-    player->unknown48_ = prop<uint32_t>(context->body_, 4);
+    player->drive_control_mode_ = prop<uint32_t>(context->body_, 4);
     return 1;
 }
 
@@ -477,7 +473,7 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
             score->set_grand_total(score->get_total_score() + 1);
         int total = 0;
         for (PlayerRecord* player = search.get_first(false); player; player = search.get_next(false))
-            total += player->unknown34_;
+            total += player->num_placed_;
         goals::MatchRules* mode = get_game_mode();
         int collected = mode->is_squad_match() ? net->get_squad_points(collector->team_) : score->get_total_score();
         net::NetMessageInfo desc;
@@ -542,20 +538,18 @@ int SkateNet::handle_scavenger_dropped(net::InboundMsgCtx* context)
     PlayerRecord* dropper = by_connection(context->sender_conn_);
     if (!dropper)
         return 4;
-    if (dropper->unknown34_ > 5 || (dropper->unknown34_ == 5 && !dropper->is_own_player()))
+    if (dropper->num_placed_ > 5 || (dropper->num_placed_ == 5 && !dropper->is_own_player()))
         return 4;
     auto* position = reinterpret_cast<const uint32_t*>(context->body_);
     if (!dropper->is_own_player()) {
-        auto* to = &prop<uint32_t>(dropper, static_cast<uint32_t>((dropper->unknown34_ + 0x18) * 0x10));
-        for (int i = 0; i < 4; ++i)
-            to[i] = position[i];
+        std::memcpy(&dropper->placed_[dropper->num_placed_], position, sizeof(script::VectorValue));
     }
     if (!dropper->is_own_player())
-        ++dropper->unknown34_;
+        ++dropper->num_placed_;
     int dropped = 0;
     int players = 0;
     for (PlayerRecord* player = search.get_first(false); player; player = search.get_next(false)) {
-        dropped += player->unknown34_;
+        dropped += player->num_placed_;
         ++players;
     }
     if (dropped == players * 5) {
@@ -766,8 +760,8 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
         online::Hub* net = net_link();
         if (net->in_net_game()) {
             // (only the camera's own player's)
-            uint8_t* player = net->find_player_slot_by_obj(static_cast<uint16_t>(target->ident_));
-            void* camera = net->fetch_viewed_player();
+            PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(target->ident_));
+            PlayerRecord* camera = net->fetch_viewed_player();
             if (!camera || player != camera)
                 scaled_time = 0.0f;
         }
@@ -909,14 +903,14 @@ int SkateNet::handle_player_left(net::InboundMsgCtx* context)
     auto* skate = static_cast<Skate*>(context->content_);
     online::Hub* net = net_link();
     auto* data = reinterpret_cast<uint8_t*>(context->body_);
-    uint8_t* player = net->find_player_slot_by_obj(static_cast<uint16_t>(id_byte(data, 0)));
+    PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(id_byte(data, 0)));
     if (player) {
-        objects::Rider* skater = details_of(player)->skater_;
+        objects::Rider* skater = player->skater_;
         net->evict_player(player, id_byte(data, 1));
         skate->drop_skater_from_roster(skater);
     } else {
         // (one still joining)
-        void* joining = net->fetch_incoming_player_by_obj(static_cast<uint16_t>(id_byte(data, 0)));
+        online::JoinerRecord* joining = net->fetch_incoming_player_by_obj(static_cast<uint16_t>(id_byte(data, 0)));
         if (joining)
             net->remove_new_player(joining);
     }
@@ -943,7 +937,7 @@ int SkateNet::handle_graffiti_objects(net::InboundMsgCtx* context)
         return 4;
     int owner;
     if (get_game_mode()->is_squad_match())
-        owner = details_of(net->find_player_slot_by_obj(prop<uint16_t>(data, 4)))->team_;
+        owner = net->find_player_slot_by_obj(prop<uint16_t>(data, 4))->team_;
     else
         owner = prop<int>(data, 4);
     auto* names = reinterpret_cast<const uint32_t*>(data + 0xC);

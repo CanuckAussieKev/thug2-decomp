@@ -29,6 +29,7 @@
 #include "engine/net/score_list.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
+#include "game/rider/skater_score.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
 
@@ -71,7 +72,7 @@ constexpr uint32_t kJoinSettleTime = 1000; // ms
 constexpr uint32_t kJustJoinedTime = 5000; // ms
 
 Hub* the_manager() { return g_online_hub; }
-PlayerRecord* get_local(Hub* manager) { return reinterpret_cast<PlayerRecord*>(find_own_player_record(manager)); }
+PlayerRecord* get_local(Hub* manager) { return find_own_player_record(manager); }
 uint32_t flag_of(int team) { return kPlayerCarryingFlag0 << (static_cast<uint32_t>(team) & 31); }
 
 // "team_<team + 1>_name" (the original's sprintf).
@@ -82,8 +83,7 @@ const char* get_team_name(const char* key) { return script::fetch_text(key); }
 void take_flag_from_carriers(Hub* manager, int team, bool stop_at_first)
 {
     PlayerSearch search;
-    for (auto* p = reinterpret_cast<PlayerRecord*>(start_roster_sweep(manager, &search, false)); p;
-         p = reinterpret_cast<PlayerRecord*>(step_roster_sweep(manager, &search, false))) {
+    for (auto* p = start_roster_sweep(manager, &search, false); p; p = step_roster_sweep(manager, &search, false)) {
         if (p->get_flag_team() != team)
             continue;
         if (stop_at_first) {
@@ -109,10 +109,11 @@ bool PlayerRecord::is_invulnerable()
     if (get_game_type() == kNetFirefight) {
         auto* skater = reinterpret_cast<objects::GameEntity*>(skater_);
         if (get_call<int>(code_address(&modules::PointTally::get_total_score),
-                          prop<void*>(skater->fetch_module(kSkaterScore), 0x18)) <= 0)
+                          static_cast<objects::RiderPointKeeper*>(skater->fetch_module(kSkaterScore))->points_held_) <=
+            0)
             return true;
     }
-    if (is_eliminated() || (prop<uint32_t>(skater_, 0x104) >> 2) & 1)
+    if (is_eliminated() || (skater_->composite_flags_ >> 2) & 1)
         return true;
     if (frame_clock::get_time() - join_time_ <= kJustJoinedTime)
         return (flag_bits_ >> 1) & 1;
@@ -135,7 +136,7 @@ void PlayerRecord::set_finished_joining()
         desc.ident_ = kMsgPlayerFullyIn;
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
         desc.group_id_ = kGroupGame;
-        server->put_on_outbox(conn_ ? prop<int>(conn_, 0x3C) : 0, &desc);
+        server->put_on_outbox(conn_ ? conn_->hdl_ : 0, &desc);
         break;
     }
     case 2:
@@ -262,7 +263,7 @@ void PlayerRecord::give_crown(bool king)
         flag_bits_ &= ~kPlayerKing;
         return;
     }
-    if (auto* previous = reinterpret_cast<PlayerRecord*>(is_crown_rule_active(manager)))
+    if (auto* previous = is_crown_rule_active(manager))
         previous->give_crown(false);
     if (!(flag_bits_ & kPlayerKing)) {
         flag_bits_ |= kPlayerKing;

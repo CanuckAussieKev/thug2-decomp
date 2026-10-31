@@ -69,14 +69,14 @@ void* carve(uint32_t size)
 // 0x0053EE90
 Hub* Hub::make_new()
 {
-    prop<uint32_t>(this, 0) = 0; // the flags
+    flag_bits_ = 0; // the flags (a word in the original: the three bytes after them are zero already)
     new (net_options_) prefs::Preferences;
-    auto* taunts = new (&prop<prefs::Preferences>(this, 0x110)) prefs::Preferences;
-    setup_list_sentinel(&prop<memory::ListNode>(this, 0x11C)); // the players
-    setup_list_sentinel(&prop<memory::ListNode>(this, 0x130)); // the joining players
-    setup_list_sentinel(&prop<memory::ListNode>(this, 0x144)); // the queued scripts
-    setup_list_sentinel(&prop<memory::ListNode>(this, 0x158)); // the servers
-    setup_list_sentinel(&prop<memory::ListNode>(this, 0x16C));
+    auto* taunts = new (taunt_options_) prefs::Preferences;
+    setup_list_sentinel(&players_);        // the players
+    setup_list_sentinel(&joiners_);        // the joining players
+    setup_list_sentinel(&queued_scripts_); // the queued scripts
+    setup_list_sentinel(&servers_);        // the servers
+    setup_list_sentinel(&waiting_servers_);
     script_flag_bits_ = 0;
     tasks::PileUp* tasks = (&assets::g_main_loop_manager->logic_tasks_);
     net::Hub::sole()->set_msg_options(0x23, 1); // (the object update message's)
@@ -84,37 +84,37 @@ Hub* Hub::make_new()
     client1_ = nullptr;
     browser_client_ = nullptr;
     host_ = nullptr;
-    prop<bool>(this, 0x45) = false;
-    prop<bool>(this, 0x46) = false;
-    prop<bool>(this, 0x3B) = false;
-    prop<bool>(this, 0x47) = true; // the players' names shown
-    prop<uint32_t>(this, 0x180) = 0;
+    show_metrics_ = false;
+    show_scores_ = false;
+    cheating_noted_ = false;
+    show_names_ = true; // the players' names shown
+    unknown180_ = 0;
     host_mode_ = 0;
-    prop<int>(this, 0x1B8) = 2;
-    prop<int>(this, 0x1BC) = 2;
+    service_state_ = 2;
+    next_service_state_ = 2;
     reinterpret_cast<prefs::Preferences*>(net_options_)->read_in(kNetSettingsKey);
     taunts->read_in(kTauntSettingsKey);
-    prop<tasks::SchedulerTask*>(this, 0xC0) = new_task(this, &Hub::connection_task, -2000);
-    prop<tasks::SchedulerTask*>(this, 0xC4) = new_task(this, &net_metrics_task, 0);
-    prop<tasks::SchedulerTask*>(this, 0xF0) = new_task(this, &online::server_list_task, 0);
-    prop<tasks::SchedulerTask*>(this, 0xF4) = new_task(this, &Hub::auto_serve_task, 0);
-    prop<tasks::SchedulerTask*>(this, 0xC8) = new_task(this, &online::score_broadcast_tick, 0);
+    connection_job_ = new_task(this, &Hub::connection_task, -2000);
+    metrics_job_ = new_task(this, &net_metrics_task, 0);
+    server_list_job_ = new_task(this, &online::server_list_task, 0);
+    auto_serve_job_ = new_task(this, &Hub::auto_serve_task, 0);
+    score_broadcast_job_ = new_task(this, &online::score_broadcast_tick, 0);
     guest_admit_job_ = new_task(this, &Hub::guest_player_intake_tick, -2000);
     host_admit_job_ = new_task(this, &Hub::host_player_intake_tick, -2000);
-    prop<tasks::SchedulerTask*>(this, 0xD4) = new_task(this, &keyboard_task, 0);
-    prop<tasks::SchedulerTask*>(this, 0xD8) = new_task(this, &dialup_progress_tick, 0);
+    keyboard_job_ = new_task(this, &keyboard_task, 0);
+    dialup_job_ = new_task(this, &dialup_progress_tick, 0);
     join_expiry_job_ = new_task(this, &join_deadline_tick, 0);
-    prop<tasks::SchedulerTask*>(this, 0xE0) = new_task(this, &net::service_task, 0);
+    service_job_ = new_task(this, &net::service_task, 0);
     join_phase_job_ = new_task(this, &Hub::join_progress_tick, 0);
-    prop<tasks::SchedulerTask*>(this, 0xE8) = new_task(this, &Hub::start_game_task, 0);
-    prop<tasks::SchedulerTask*>(this, 0xEC) = new_task(this, &level_change_task, 0);
-    prop<tasks::SchedulerTask*>(this, 0xF8) = new_task(this, &carried_flags_task, 0);
-    tasks->queue_job(prop<tasks::SchedulerTask*>(this, 0xC0));
-    prop<int>(this, 0x1A8) = 5;       // the modem state shown last
-    prop<uint32_t>(this, 0x1948) = 0; // the created goals' message
-    prop<uint32_t>(this, 0x194C) = 0;
+    start_game_job_ = new_task(this, &Hub::start_game_task, 0);
+    level_change_job_ = new_task(this, &level_change_task, 0);
+    flag_carry_job_ = new_task(this, &carried_flags_task, 0);
+    tasks->queue_job(connection_job_);
+    modem_state_shown_ = 5;  // the modem state shown last
+    created_goals_size_ = 0; // the created goals' message
+    created_goals_level_ = 0;
     join_mode_ = 0;
-    prop<bool>(this, 0xFE09) = false;
+    motd_received_ = false;
     void* memory = carve(0x154);
     lobby_service_ = memory ? static_cast<RoomManager*>(memory)->make_new() : nullptr;
     memory = carve(sizeof(VaultMan)); // (the original's is 0x3C8 bytes: its search has a vtable)

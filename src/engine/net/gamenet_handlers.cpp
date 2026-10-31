@@ -115,8 +115,8 @@ int __cdecl on_ready_ask_msg(net::InboundMsgCtx* context)
 int __cdecl on_ready_reply_msg(net::InboundMsgCtx* context)
 {
     context->acknowledge_ = true;
-    if (uint8_t* player = find_player_by_sender(manager_of(context), context->sender_conn_))
-        as_player(player)->receive_ready_response(message_word(context, 0));
+    if (PlayerRecord* player = find_player_by_sender(manager_of(context), context->sender_conn_))
+        player->receive_ready_response(message_word(context, 0));
     return kContinue;
 }
 
@@ -142,8 +142,8 @@ namespace {
 int flag_handler(net::InboundMsgCtx* context, void (PlayerRecord::*method)(int))
 {
     const uint8_t* msg = get_message(context);
-    if (uint8_t* player = find_player_slot_by_obj(manager_of(context), msg))
-        (as_player(player)->*method)(static_cast<int>(static_cast<int8_t>(msg[1])));
+    if (PlayerRecord* player = find_player_slot_by_obj(manager_of(context), msg))
+        (player->*method)(static_cast<int>(static_cast<int8_t>(msg[1])));
     return kContinue;
 }
 } // namespace
@@ -165,8 +165,8 @@ int __cdecl on_flag_scored_msg(net::InboundMsgCtx* context)
 // 0x0052D8E0
 int __cdecl on_flag_returned_msg(net::InboundMsgCtx* context)
 {
-    if (uint8_t* player = find_player_slot_by_obj(manager_of(context), get_message(context)))
-        as_player(player)->note_flag_returned();
+    if (PlayerRecord* player = find_player_slot_by_obj(manager_of(context), get_message(context)))
+        player->note_flag_returned();
     return kContinue;
 }
 
@@ -277,8 +277,7 @@ int __cdecl on_admitted_msg(net::InboundMsgCtx* context)
 // 0x0052E1A0
 int __cdecl handle_ready_to_play(net::InboundMsgCtx* context)
 {
-    auto* logic_tasks =
-        (&assets::g_main_loop_manager->logic_tasks_);
+    auto* logic_tasks = (&assets::g_main_loop_manager->logic_tasks_);
     Hub* manager = manager_of(context);
     manager->set_ready_state(true); // (cleared_to_start_ set, the skaters told)
     if (!context->receiver_app_->is_host_local())
@@ -357,11 +356,11 @@ int __cdecl handle_team_object(net::InboundMsgCtx* context)
     Hub* manager = manager_of(context);
     if (!is_squad_match())
         return kContinue;
-    uint8_t* player = find_player_by_sender(manager, context->sender_conn_);
+    PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
     if (!player)
         return kDone;
     uint32_t object = message_word(context, 0);
-    auto* objects = &prop<uint32_t>(manager, 0x70 + 0x14 * prop<int>(player, 0x30)); // five per team
+    uint32_t* objects = manager->team_objects_[player->team_]; // five per team
     for (int i = 0; i < 5; ++i) {
         if (!objects[i]) {
             objects[i] = object;
@@ -377,9 +376,9 @@ int __cdecl handle_team_object(net::InboundMsgCtx* context)
 int __cdecl handle_cd_key_answer(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
-    uint8_t* player = find_player_by_sender(manager, context->sender_conn_);
-    uint32_t id = prop<uint32_t>(prop<void*>(player, 0x14), 0x14); // its skater's id
-    prop<RankingsManager*>(manager, 0x1C)->set_player_auth(static_cast<int>(id), context->body_);
+    PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
+    uint32_t id = player->skater_->ident_; // its skater's id
+    manager->rating_service_->set_player_auth(static_cast<int>(id), context->body_);
     return kContinue;
 }
 

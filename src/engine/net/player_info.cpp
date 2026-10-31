@@ -2,9 +2,11 @@
 
 #include "engine/net/player_info.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <iterator>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -30,6 +32,8 @@
 #include "engine/net/score_list.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
+#include "game/rider/skater_score.h"
+#include "game/rider/tagging.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
 
@@ -78,10 +82,10 @@ void unlink_node(memory::ListNode* node)
 JoinerRecord* JoinerRecord::make_new()
 {
     account_ = new_profile();
-    unknown24_ = 0;
+    rejoin_group_ = 0;
     profile_id_ = 0;
     skill_points_ = 0;
-    unknown38_ = 0;
+    accumulated_score_ = 0;
     drive_control_mode_ = 0;
     memory::Hub::get_pull()->leave_heap_scope();
     return this;
@@ -99,17 +103,17 @@ void JoinerRecord::destroy_body()
 // --- PlayerRecord ---
 
 // 0x00543180
-void* clear_update_records(void* records)
+void clear_update_records(PlayerRecord* player)
 {
-    std::memset(static_cast<uint8_t*>(records) + 0xB8, 0, 16 * sizeof(uint32_t));
-    return records;
+    std::fill(std::begin(player->sent_updates_), std::end(player->sent_updates_), 0);
+    std::fill(std::begin(player->sent_updates2_), std::end(player->sent_updates2_), 0);
 }
 
 // 0x00543740
 PlayerRecord* PlayerRecord::make_new(uint32_t flags)
 {
     make_node(this);
-    clear_update_records(unknown50_);
+    clear_update_records(this);
     flag_bits_ = 0;
     std::sprintf(label_, "<No Name>"); // (0x0064CCE8)
     for (int i = 0; i < kMaxPlayers; ++i) {
@@ -123,18 +127,18 @@ PlayerRecord* PlayerRecord::make_new(uint32_t flags)
     }
     flag_bits_ = flags;
     observer_task_ = nullptr;
-    unknown1d8_ = 0;
+    rejoin_group_ = 0;
     face_texture_data_ = nullptr;
     skater_ = nullptr;
     account_ = nullptr;
     join_time_ = 0;
     last_impact_at_ = 0;
     team_ = 0;
-    unknown28_ = 0;
+    profile_id_ = 0;
     skill_points_ = 0;
-    unknown48_ = 0;
+    drive_control_mode_ = 0;
     eliminated_time_ = 0;
-    unknown34_ = 0;
+    num_placed_ = 0;
     last_sent_skater_ = 7;
     return this;
 }
@@ -169,7 +173,7 @@ void PlayerRecord::bind_rider(objects::Rider* skater)
     Hub* manager = the_manager();
     skater_ = skater;
     if (!(flag_bits_ & kPlayerLocal) && manager->fetch_viewed_player() == this)
-        manager->spectate_player(reinterpret_cast<uint8_t*>(this)); // (the camera follows it again)
+        manager->spectate_player(this); // (the camera follows it again)
 }
 
 // 0x00543270
@@ -186,7 +190,7 @@ void PlayerRecord::set_face_texture_data(const uint8_t* bytes, uint32_t size)
 {
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->net_misc_heap_);
-    uint8_t id = prop<uint8_t>(skater_, 0x14); // (the skater's object id)
+    uint8_t id = static_cast<uint8_t>(skater_->ident_); // (the skater's object id)
     face_texture_data_ = static_cast<uint8_t*>(memory::alloc(size + 1));
     face_texture_data_[0] = id;
     std::memcpy(face_texture_data_ + 1, bytes, size);
@@ -202,7 +206,7 @@ void PlayerRecord::set_custom_tag(bool custom)
     if (!skater_)
         return;
     if (objects::ObjectModule* tagging = skater_component(skater_, kTagging))
-        prop<bool>(tagging, 0x18) = custom; // (0x004E4000, a setter folded there)
+        static_cast<objects::TaggingComponent*>(tagging)->custom_tag_ = custom; // (0x004E4000, a setter folded there)
 }
 
 // 0x00543090
@@ -211,7 +215,7 @@ bool PlayerRecord::has_custom_tag()
     if (!skater_)
         return false;
     objects::ObjectModule* tagging = skater_component(skater_, kTagging);
-    return tagging ? prop<bool>(tagging, 0x18) : false; // (0x0051D850)
+    return tagging ? static_cast<objects::TaggingComponent*>(tagging)->custom_tag_ : false; // (0x0051D850)
 }
 
 // 0x005430B0
@@ -220,7 +224,8 @@ void* PlayerRecord::get_graffiti_texture()
     if (!skater_)
         return nullptr;
     objects::ObjectModule* tagging = skater_component(skater_, kTagging);
-    return tagging ? prop<void*>(tagging, 0x1C) : nullptr; // (0x00553E90, a getter folded there)
+    return tagging ? static_cast<objects::TaggingComponent*>(tagging)->graffiti_
+                   : nullptr; // (0x00553E90, a getter folded there)
 }
 
 // 0x005430D0
@@ -301,12 +306,13 @@ bool PlayerRecord::is_eliminated()
     if (get_game_type() != kNetFirefight || !skater_)
         return false;
     objects::ObjectModule* score = skater_component(skater_, kSkaterScore);
-    return score && get_call<int>(code_address(&modules::PointTally::get_total_score), prop<void*>(score, 0x18)) ==
-                        0; // (its score's lives)
+    return score &&
+           get_call<int>(code_address(&modules::PointTally::get_total_score),
+                         static_cast<objects::RiderPointKeeper*>(score)->points_held_) == 0; // (its score's lives)
 }
 int PlayerRecord::holds_crown() { return (flag_bits_ >> 7) & 1; }
-int PlayerRecord::get_link_handle() { return conn_ ? prop<int>(conn_, 0x3C) : 0; }
-uint32_t PlayerRecord::get_skater_value_2b_c() { return prop<uint32_t>(skater_, 0x2BC); }
+int PlayerRecord::get_link_handle() { return conn_ ? conn_->hdl_ : 0; }
+uint32_t PlayerRecord::get_skater_view_slot() { return static_cast<uint32_t>(skater_->view_slot_); }
 int PlayerRecord::is_pending_observer() { return (flag_bits_ >> 3) & 1; }
 
 // --- The score lines' list types ---

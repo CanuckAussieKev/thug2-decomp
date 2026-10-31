@@ -311,9 +311,9 @@ bool __cdecl cfunc_make_skater_goto(script::Struct* params, script::Script* scri
     }
     // Not original - THAW's BMX (game/rider/thaw_bmx.h skater_script): on the bike THAW's PedKnockDown takes its bike
     // branch. Original behaviour: the skater goes to `name` as given.
-    if (skater && skater->unknownbc_)
+    if (skater && skater->is_local_skater_)
         name = skater::thaw_bmx::skater_script(skater, name, script);
-    if (skater && skater->unknownbc_ && name)
+    if (skater && skater->is_local_skater_ && name)
         skater->switch_to_script(name, script_params);
     return true;
 }
@@ -656,7 +656,7 @@ bool __cdecl cfunc_set_screen_mode_from_game_mode(script::Struct*, script::Scrip
 {
     for (uint32_t i = 0; i < 8; ++i) {
         objects::Rider* skater = get_rider_at(static_cast<int>(i));
-        if (skater && skater->unknownbc_)
+        if (skater && skater->is_local_skater_)
             debug::printf("cfuncs %d: SUTUBBBEDDDDDDDDDDDDDDDDDDDDDDDD\n", 0x16C0); // "cfuncs %d: SUTUBBBED..."
     }
     int mode = game_mode_object()->get_view_layout();
@@ -665,7 +665,7 @@ bool __cdecl cfunc_set_screen_mode_from_game_mode(script::Struct*, script::Scrip
         render::set_screen_mode(mode);
     for (uint32_t i = 0; i < 8; ++i) {
         objects::Rider* skater = get_rider_at(static_cast<int>(i));
-        if (skater && skater->unknownbc_)
+        if (skater && skater->is_local_skater_)
             update_score_display(skater);
     }
     return true;

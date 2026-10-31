@@ -121,33 +121,33 @@ int __cdecl on_player_added_msg(net::InboundMsgCtx* context)
 {
     const uint8_t* msg = get_message(context);
     Hub* manager = manager_of(context);
-    alignas(4) uint8_t info[0x44];                     // a JoinerRecord
-    reinterpret_cast<JoinerRecord*>(info)->make_new(); // (its constructor: a skater profile at +0x1C)
+    JoinerRecord record; // (on the stack)
+    JoinerRecord* info = &record;
+    info->make_new(); // (its constructor: a skater profile)
     // (strncpy: 15 characters at most, the rest of the 15 zeroed)
     size_t length = strnlen(reinterpret_cast<const char*>(msg + 0x20), 15);
-    std::memcpy(info, msg + 0x20, length);
-    std::memset(info + length, 0, 15 - length);
-    info[0x0F] = 0;
-    info[0x10] = msg[0x18];                                 // the object id
-    prop<uint32_t>(info, 0x14) = 0;                         // the connection
-    prop<uint32_t>(info, 0x20) = prop<uint32_t>(msg, 0x08); // flags
-    prop<int>(info, 0x28) = static_cast<int8_t>(msg[0x19]); // the team
-    prop<uint32_t>(info, 0x2C) = prop<uint32_t>(msg, 0x00);
-    prop<uint32_t>(info, 0x30) = prop<uint32_t>(msg, 0x04);
-    prop<uint32_t>(info, 0x38) = prop<uint32_t>(msg, 0x14);
-    prop<uint32_t>(info, 0x40) = prop<uint32_t>(msg, 0x1C);
-    prop<uint32_t>(info, 0x34) = prop<uint32_t>(msg, 0x0C);
-    if (!(prop<uint32_t>(info, 0x20) & 5))
-        prop<objects::RiderIdentity*>(info, 0x1C)
-            ->decode_from_bytes(const_cast<uint8_t*>(msg + 0x30)); // the appearance into its profile
+    std::memcpy(info->label_, msg + 0x20, length);
+    std::memset(info->label_ + length, 0, 15 - length);
+    info->label_[0x0F] = 0;
+    info->entity_key_ = msg[0x18];                // the object id
+    info->conn_ = nullptr;                        // the connection
+    info->flag_bits_ = prop<uint32_t>(msg, 0x08); // flags
+    info->team_ = static_cast<int8_t>(msg[0x19]); // the team
+    info->profile_id_ = prop<uint32_t>(msg, 0x00);
+    info->skill_points_ = prop<uint32_t>(msg, 0x04);
+    info->accumulated_score_ = prop<uint32_t>(msg, 0x14);
+    info->drive_control_mode_ = prop<uint32_t>(msg, 0x1C);
+    info->score_ = prop<uint32_t>(msg, 0x0C);
+    if (!(info->flag_bits_ & 5))
+        info->account_->decode_from_bytes(const_cast<uint8_t*>(msg + 0x30)); // the appearance into its profile
     int delay = 0;
     if (manager->cleared_to_start_) {
-        manager->build_net_notice(false, kNetMessageNewPlayer, reinterpret_cast<const char*>(info), nullptr, nullptr,
-                                  nullptr, false, kPanelTime);
+        manager->build_net_notice(false, kNetMessageNewPlayer, info->label_, nullptr, nullptr, nullptr, false,
+                                  kPanelTime);
         delay = 10;
     }
-    manager->add_joining_player(info, delay);              // the new player (added in `delay` frames)
-    reinterpret_cast<JoinerRecord*>(info)->destroy_body(); // (its destructor)
+    manager->add_joining_player(info, delay); // the new player (added in `delay` frames)
+    info->destroy_body();                     // (its destructor)
     return kContinue;
 }
 
@@ -155,10 +155,10 @@ int __cdecl on_player_added_msg(net::InboundMsgCtx* context)
 int __cdecl handle_crown_spawn(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
-    uint8_t* king = is_crown_rule_active(manager);
+    PlayerRecord* king = is_crown_rule_active(manager);
     char spot = static_cast<char>(get_message(context)[0]);
     if (king) {
-        as_player(king)->give_crown(false); // no longer the king
+        king->give_crown(false); // no longer the king
     }
     if (king && is_own_player(king)) {
         panel_message(manager, kDroppedCrownYou, nullptr, player_skater(king));
@@ -166,7 +166,7 @@ int __cdecl handle_crown_spawn(net::InboundMsgCtx* context)
         panel_message(manager, kDroppedCrownOther, nullptr, nullptr);
     } else if (king && player_skater(king)) {
         // the other local player (id 1 if this one's is 0, else 0)
-        uint8_t* other =
+        PlayerRecord* other =
             find_player_slot_by_obj(manager, static_cast<uint16_t>(get_skater_id(player_skater(king)) == 0));
         if (other)
             panel_message(manager, kDroppedCrownOther, nullptr, player_skater(other));
@@ -201,9 +201,9 @@ int __cdecl handle_crown_spawn(net::InboundMsgCtx* context)
 // 0x005300C0
 int __cdecl handle_fcfs_notice(net::InboundMsgCtx* context)
 {
-    uint8_t* local = find_own_player_record(manager_of(context));
+    PlayerRecord* local = find_own_player_record(manager_of(context));
     const uint8_t* msg = get_message(context);
-    as_player(local)->set_host_player(); // (its flag 0x200 set)
+    local->set_host_player(); // (its flag 0x200 set)
     script::Struct* params = new_params();
     params->put_name_key(kChecksum, prop<uint32_t>(msg, 0));
     get_run(kLaunchFcfsNotification, params);
@@ -215,10 +215,10 @@ int __cdecl handle_fcfs_notice(net::InboundMsgCtx* context)
 int __cdecl handle_flag_returned(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
-    uint8_t* player = find_player_slot_by_obj(manager, get_message(context));
-    if (!player || !as_player(player)->is_carrying_flag()) // (carrying a flag: 0 / 1)
+    PlayerRecord* player = find_player_slot_by_obj(manager, get_message(context));
+    if (!player || !player->is_carrying_flag()) // (carrying a flag: 0 / 1)
         return kContinue;
-    int team = as_player(player)->get_flag_team(); // the flag's team
+    int team = player->get_flag_team(); // the flag's team
     char name[64];
     team_name_key(name, team);
     script::Struct* params = new_params();
@@ -228,10 +228,10 @@ int __cdecl handle_flag_returned(net::InboundMsgCtx* context)
     delete_params(params);
     if (is_own_player(player))
         get_run(kDestroyCtfPanelMessage);
-    uint8_t* local = find_own_player_record(manager);
+    PlayerRecord* local = find_own_player_record(manager);
     if (local && !is_observer(local) && player_team(local) == team)
         get_run(kHideCtfArrow);
-    as_player(player)->clear_flags(); // carries no flag
+    player->clear_flags(); // carries no flag
     return kContinue;
 }
 
@@ -253,7 +253,7 @@ int __cdecl handle_rails_data(net::InboundMsgCtx* context)
     }
     net::NetMessageInfo desc;
     desc.make_new();
-    if (prop<uint32_t>(skate, 0x378) == kLoadMainMenu) {
+    if (reinterpret_cast<modules::Skate*>(skate)->level_ == kLoadMainMenu) {
         cancel_join(manager, true);
         return kKeep;
     }
@@ -280,7 +280,7 @@ int __cdecl on_goal_sync_msg(net::InboundMsgCtx* context)
         delete_params(params);
         return kContinue;
     }
-    if (prop<uint32_t>(get_skate(), 0x378) == kLoadMainMenu) {
+    if (modules::g_skate_module->level_ == kLoadMainMenu) {
         cancel_join(manager, false);
         return kKeep;
     }
@@ -298,24 +298,25 @@ int __cdecl on_crown_change_msg(net::InboundMsgCtx* context)
     Hub* manager = manager_of(context);
     NewPlayerSearch search;
     // The crown off the old king - or off a new player waiting to be added.
-    if (uint8_t* king = is_crown_rule_active(manager)) {
-        as_player(king)->give_crown(false);
+    if (PlayerRecord* king = is_crown_rule_active(manager)) {
+        king->give_crown(false);
     } else {
-        for (uint8_t* added = first_new_player(manager, &search); added; added = next_new_player(manager, &search)) {
-            if (prop<uint32_t>(added, 0x20) & 0x80) {
-                prop<uint32_t>(added, 0x20) &= ~0x80u;
+        for (JoinerRecord* added = first_new_player(manager, &search); added;
+             added = next_new_player(manager, &search)) {
+            if (added->flag_bits_ & 0x80) {
+                added->flag_bits_ &= ~0x80u;
                 break;
             }
         }
     }
     // Onto the player of object id msg[0] - or the new player of that id.
-    if (uint8_t* player = find_player_slot_by_obj(manager, msg)) {
-        as_player(player)->give_crown(true);
+    if (PlayerRecord* player = find_player_slot_by_obj(manager, msg)) {
+        player->give_crown(true);
         return kContinue;
     }
-    for (uint8_t* added = first_new_player(manager, &search); added; added = next_new_player(manager, &search)) {
-        if (added[0x10] == msg[0]) {
-            prop<uint32_t>(added, 0x20) |= 0x80;
+    for (JoinerRecord* added = first_new_player(manager, &search); added; added = next_new_player(manager, &search)) {
+        if (added->entity_key_ == msg[0]) {
+            added->flag_bits_ |= 0x80;
             break;
         }
     }
@@ -351,10 +352,10 @@ int __cdecl handle_joined_team(net::InboundMsgCtx* context)
     PlayerSearch search;
     Hub* manager = manager_of(context);
     const uint8_t* msg = get_message(context);
-    uint8_t* player = find_player_slot_by_obj(manager, msg);
+    PlayerRecord* player = find_player_slot_by_obj(manager, msg);
     if (!player)
         return kContinue;
-    prop<int>(player, 0x30) = static_cast<int8_t>(msg[1]);
+    player->team_ = static_cast<int8_t>(msg[1]);
     char name[64];
     team_name_key(name, static_cast<int8_t>(msg[1]));
     script::Struct* params = new_params();
@@ -372,7 +373,7 @@ int __cdecl handle_joined_team(net::InboundMsgCtx* context)
     // Everyone else on the same team: a warning.
     int others = 0;
     bool same_team = true;
-    for (uint8_t* other = start_roster_sweep(manager, &search, false); other;
+    for (PlayerRecord* other = start_roster_sweep(manager, &search, false); other;
          other = step_roster_sweep(manager, &search, false)) {
         if (other == player)
             continue;
@@ -396,8 +397,8 @@ int __cdecl handle_goal_completed(net::InboundMsgCtx* context)
     uint8_t* current = get_call<uint8_t*>(code_address(&goals::GoalManager::get_engaged_objective), goals, 0);
     if (!goal)
         return kContinue;
-    uint8_t* player = find_player_slot_by_obj(manager, msg);
-    uint8_t* local = find_own_player_record(manager);
+    PlayerRecord* player = find_player_slot_by_obj(manager, msg);
+    PlayerRecord* local = find_own_player_record(manager);
     auto* objective = reinterpret_cast<goals::Objective*>(goal);
     objective->set_net_stage_flag(player_team(player)); // (the original's slot 0x70)
     if (!player_skater(player))
@@ -412,7 +413,8 @@ int __cdecl handle_goal_completed(net::InboundMsgCtx* context)
             get_run(kCompletedGoal, params);
             delete_params(params);
         }
-        get_call(code_address(&goals::ObjectiveNpc::remove_objective_npc), prop<void*>(goal, 0x14));
+        get_call(code_address(&goals::ObjectiveNpc::remove_objective_npc),
+                 reinterpret_cast<goals::Objective*>(goal)->ped_);
         return kContinue;
     }
     if (current) {
@@ -422,12 +424,12 @@ int __cdecl handle_goal_completed(net::InboundMsgCtx* context)
     if (!is_squad_match() || player_team(local) != player_team(player))
         return kContinue;
     // A teammate's: the goal (or the last of its chain) ended here too.
-    uint32_t* next = prop<uint32_t*>(goal, 0x28);
-    if (*next) {
+    goals::GoalEdge* next = reinterpret_cast<goals::Objective*>(goal)->sub_nodes_;
+    if (next->objective_key_) {
         uint8_t* last = goal;
-        while (next && *next) {
-            last = get_goal(goals, *next);
-            next = prop<uint32_t*>(last, 0x28);
+        while (next && next->objective_key_) {
+            last = get_goal(goals, next->objective_key_);
+            next = reinterpret_cast<goals::Objective*>(last)->sub_nodes_;
         }
         reinterpret_cast<goals::Objective*>(last)->get_win(); // (slot 0x3C)
         if (last != current)
@@ -435,7 +437,8 @@ int __cdecl handle_goal_completed(net::InboundMsgCtx* context)
     } else {
         objective->get_win();
     }
-    get_call(code_address(&goals::ObjectiveNpc::remove_objective_npc), prop<void*>(current, 0x14));
+    get_call(code_address(&goals::ObjectiveNpc::remove_objective_npc),
+             reinterpret_cast<goals::Objective*>(current)->ped_);
     objective->mark_won(); // (slot 0x68)
     int total = get_call<int>(code_address(&goals::GoalManager::count_picked_objectives), goals);
     int done = get_call<int>(code_address(&goals::GoalManager::count_objectives_cleared), goals);
@@ -461,7 +464,7 @@ int __cdecl handle_goal_started(net::InboundMsgCtx* context)
     if (!goal)
         return kContinue;
     const char* text = nullptr;
-    uint8_t* player = find_player_slot_by_obj(manager, msg);
+    PlayerRecord* player = find_player_slot_by_obj(manager, msg);
     if (player_team(find_own_player_record(manager)) != player_team(player))
         return kContinue;
     reinterpret_cast<goals::Objective*>(goal)->get_objective_list_caption(&text);
@@ -483,11 +486,11 @@ int __cdecl handle_eliminated(net::InboundMsgCtx* context)
         get_run(kEliminatedNone);
         return kContinue;
     }
-    uint8_t* player = find_player_slot_by_obj(manager_of(context), static_cast<uint16_t>(id));
+    PlayerRecord* player = find_player_slot_by_obj(manager_of(context), static_cast<uint16_t>(id));
     if (!player)
         return kContinue;
     uint8_t* skate = get_skate();
-    as_player(player)->mark_eliminated();
+    player->mark_eliminated();
     get_call(code_address(&modules::Skate::conceal_skater), skate, player_skater(player), 1);
     if (is_own_player(player)) {
         get_run(kEliminatedYou);

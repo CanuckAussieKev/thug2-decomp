@@ -604,7 +604,7 @@ void Rider::update_from_profile(RiderIdentity* profile)
     for (int i = 0; (given_name_[i] = first_name[i]) != 0; ++i) { // (copied inline, unchecked)
     }
     label_ = profile->fetch_title();
-    if (unknownbc_) {
+    if (is_local_skater_) {
         uint8_t* stance_flag = get_at<uint8_t*>(core_physics_, 0x1528) + 0x28;
         set_input_flag(stance_flag, goofy_ ? 0 : 1);
         static_cast<RiderSpinAndFlip*>(fetch_module(kSkaterFlipAndRotate))->apply_flip_to_anims();
@@ -659,9 +659,9 @@ void Rider::set_up_network()
 {
     auto* client = reinterpret_cast<uint8_t*>(net_link()->fetch_patron(skater_number_));
     auto* flip_and_rotate = static_cast<RiderSpinAndFlip*>(fetch_module(kSkaterFlipAndRotate));
-    flip_and_rotate->apply_board_turned(ident_, false, get_at<uint32_t>(client, 8), unknownbc_ != 0);
+    flip_and_rotate->apply_board_turned(ident_, false, get_at<uint32_t>(client, 8), is_local_skater_ != 0);
     flip_and_rotate->apply_flip_to_anims();
-    reinterpret_cast<MeshInstanceModule*>(unknown250_)->conceal_mesh(0xA7A9D4B8, false, unknownbc_ != 0);
+    reinterpret_cast<MeshInstanceModule*>(unknown250_)->conceal_mesh(0xA7A9D4B8, false, is_local_skater_ != 0);
     static_cast<AnimBlenderComponent*>(unknown24c_)->reset_channels();
 }
 
@@ -742,7 +742,7 @@ void Rider::show_board_element(uint32_t type)
 // 0x005814D0
 void Rider::reset_27c()
 {
-    if (!unknownbc_)
+    if (!is_local_skater_)
         static_cast<RiderRemoteSync*>(fetch_module(0x850EEF66))->reset_playback();
     get_at<uint32_t>(unknown27c_, 0x18) = 0;
 }
@@ -750,7 +750,7 @@ void Rider::reset_27c()
 // 0x00581510
 void Rider::conceal_skater()
 {
-    if (unknownbc_)
+    if (is_local_skater_)
         static_cast<RiderRollingAudio*>(fetch_module(0xB5F1E9D2))->stop_sound();
     static_cast<GroundShadowModule*>(shadow_)->destroy_shadow();
     conceal(true);
@@ -805,7 +805,7 @@ void Rider::glide_to_node(uint32_t name)
 // 0x00581760
 void Rider::get_freeze()
 {
-    if (is_halted_ || !unknownbc_)
+    if (is_halted_ || !is_local_skater_)
         return;
     is_halted_ = true;
     composite_flags_ |= 1;
@@ -819,7 +819,7 @@ void Rider::get_freeze()
 // 0x005817F0
 void Rider::unpause()
 {
-    if (!is_halted_ || !unknownbc_)
+    if (!is_halted_ || !is_local_skater_)
         return;
     is_halted_ = false;
     composite_flags_ &= ~1u;
@@ -857,7 +857,7 @@ void Rider::prepare_all(RiderIdentity* profile)
 {
     uint8_t* skate = get_skate();
     memory::Hub* manager = memory::Hub::get_pull();
-    if (unknownbc_) {
+    if (is_local_skater_) {
         // Its camera: found, or made from skatercam_composite_structure.
         manager->enter_heap_scope(manager->skater_info_heap_);
         uint32_t camera_name = view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0;
@@ -904,7 +904,7 @@ void Rider::prepare_all(RiderIdentity* profile)
         params->put_int(0xD3982061, 0); // max_bone_skip_lod
     });
     static_cast<AnimBlenderComponent*>(unknown24c_)->set_flag_4c(true);
-    bool local = unknownbc_ != 0;
+    bool local = is_local_skater_ != 0;
     add_component_from_structure(this, [local](script::Struct* params) {
         params->put_name_key(0u, 0x10079F2D); // UseModelLights
         params->put_int(0xD223B8BD, 1);       // max_scene_lights
@@ -926,7 +926,7 @@ void Rider::prepare_all(RiderIdentity* profile)
     });
     shadow_ = fetch_module(0x8A897DD2);
     get_at<uint8_t>(shadow_, 0x44) = 0;
-    if (unknownbc_) {
+    if (is_local_skater_) {
         add_component_from_structure(
             this, [](script::Struct* params) { params->put_name_key(kPartHash, 0x404EB936); }); // vibration
         unknown25c_ = fetch_module(0x404EB936);
@@ -935,24 +935,24 @@ void Rider::prepare_all(RiderIdentity* profile)
     } else {
         unknown25c_ = nullptr;
     }
-    if (unknownbc_) {
+    if (is_local_skater_) {
         add_component_from_structure(
             this, [](script::Struct* params) { params->put_name_key(kPartHash, 0x187574FA); }); // skatersound
         unknown268_ = fetch_module(0x187574FA);
         unknown26c_ = fetch_module(0x1859F772); // SkaterVehicleSound
     }
     seal(); // (Finalize)
-    if (unknownbc_) {
+    if (is_local_skater_) {
         // The pad's settings for its viewport (the skate module's, 8 bytes each from +0x394).
         get_at<uint8_t>(core_physics_, 0x2D9) = skate[0x395 + 8 * view_slot_];
         get_at<uint8_t>(core_physics_, 0x2DA) = skate[0x396 + 8 * view_slot_];
         static_cast<PadRumbleModule*>(unknown25c_)->change_live(skate[0x394 + 8 * view_slot_] != 0);
-        if (unknownbc_)
+        if (is_local_skater_)
             own_script_->bind_script("SkaterInit", nullptr, this);
     }
     update_from_profile(profile);
     set_stats_from_profile(profile);
-    if (unknownbc_) {
+    if (is_local_skater_) {
         float max_speed = get_scaled_physics(0xCC5F87AA); // Skater_Max_Max_Speed_Stat
         get_at<float>(fetch_module(0x187574FA), 0x20) = max_speed;
     }
@@ -976,7 +976,7 @@ void Rider::prepare_all(RiderIdentity* profile)
     script::launch_script(0xAE5438AF, nullptr, this, false, nullptr);
     static_cast<AnimBlenderComponent*>(unknown24c_)
         ->play_animation(0x1CA1FF20, std::bit_cast<uint32_t>(0.3f)); // default
-    if (unknownbc_) {
+    if (is_local_skater_) {
         for (goals::CreateATrick*& trick : trick_slots_)
             trick = new goals::CreateATrick;
         script::launch_script(0x0BDC1C89, nullptr, this, false, nullptr); // spawn_add_premade_cats_to_skater
@@ -1014,7 +1014,7 @@ void Rider::init_from_profile(RiderIdentity* profile)
 {
     prepare_all(profile);
     online::Hub* net = net_link();
-    if (unknownbc_ && static_cast<uint8_t>(commands::cfunc_in_multiplayer_game(nullptr, nullptr)) != 0) {
+    if (is_local_skater_ && static_cast<uint8_t>(commands::cfunc_in_multiplayer_game(nullptr, nullptr)) != 0) {
         // Its network messages.
         auto* client = reinterpret_cast<uint8_t*>(net->fetch_patron(view_slot_));
         auto* dispatcher = reinterpret_cast<net::Router*>(client + 0xC);
@@ -1057,7 +1057,7 @@ void Rider::run_state_script(bool walk, bool other)
             params->put_name_key(0u, 0x7B738580);
     }
     own_script_->bind_script(0xE740F458, params, this);
-    if (unknownbc_)
+    if (is_local_skater_)
         own_script_->tick_frame();
     if (params) {
         params->get_clear();
@@ -1215,7 +1215,7 @@ Rider::Rider(int viewport, EntityHub* manager, bool local, uint32_t id, int skat
 {
     // Its node in the skater list (lists::Elem<Rider>).
     skater_link_.make_node(this);
-    unknownbc_ = local;
+    is_local_skater_ = local;
     add_base_components(this);
     kind_tag_ = 0xBAF9B341;
     flag_2c_4_ = false;
@@ -1253,7 +1253,7 @@ Rider::Rider(int viewport, EntityHub* manager, bool local, uint32_t id, int skat
     };
     add(0x43686585);
     add(0xF27A294D);
-    if (unknownbc_) {
+    if (is_local_skater_) {
         add(0x27D7CD28);
         unknown264_ = reinterpret_cast<uint8_t*>(fetch_module(0x27D7CD28));
         add(0xD262802F);
@@ -1316,7 +1316,7 @@ Rider::Rider(int viewport, EntityHub* manager, bool local, uint32_t id, int skat
 // 0x00583400
 void Rider::reset_components()
 {
-    if (unknownbc_) {
+    if (is_local_skater_) {
         reinterpret_cast<RiderGapTracker*>(unknown270_)->clear_gaps();
         static_cast<RiderTeeterMoves*>(fetch_module(0x589E5FB3))->clear_params();
     }
@@ -1437,7 +1437,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         return named == label_;
     }
     case 0x3E8EB713: // ShouldMongo
-        if (!unknownbc_)
+        if (!is_local_skater_)
             return false;
         if (stroke_kind_ == 0x0CDBA4F9) // mongo_when_switch
             return (reinterpret_cast<skater::SkaterPhysicsModule*>(core_physics_)->is_sides_swapped() & 0xFF) != 0;
@@ -1473,7 +1473,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         skip_to_custom_restart();
         return true;
     case 0x7015BC33: // IsLocalSkater
-        return unknownbc_ != 0;
+        return is_local_skater_ != 0;
     case 0x72AECFC0: // ResetRigidBodyCollisionRadiusBoost
         set_rigid_body_pusher_reach(this, 0.0f);
         return true;
@@ -1539,7 +1539,7 @@ void Rider::jump_to_spawn(uint32_t node, uint32_t walking)
 {
     online::Hub* net = net_link();
     get_at<uint8_t>(fetch_module(kSkaterPhysicsControl), 0x26) = 1;
-    if (unknownbc_) {
+    if (is_local_skater_) {
         unknown264_[0x498] = 0;
         unpause();
         if (void* list = list_28c_)
@@ -1558,9 +1558,9 @@ void Rider::jump_to_spawn(uint32_t node, uint32_t walking)
     if (node)
         glide_to_node(node);
     relaunch(walking, 0);
-    if (unknownbc_) {
+    if (is_local_skater_) {
         static_cast<RiderSpinAndFlip*>(fetch_module(kSkaterFlipAndRotate))->apply_flip_to_anims();
-        if (unknownbc_) {
+        if (is_local_skater_) {
             if (pause_state_ == 0) {
                 mark_jumped_ahead(false);
                 auto* camera = static_cast<GameEntity*>(
@@ -1583,8 +1583,8 @@ void Rider::jump_to_spawn(uint32_t node, uint32_t walking)
         net::NetMessageInfo message;
         message.make_new();
         auto* client = static_cast<net::Guest*>(net->fetch_patron(view_slot_));
-        if (uint8_t* player = net->find_player_slot_by_obj(static_cast<uint16_t>(ident_)))
-            reinterpret_cast<online::PlayerRecord*>(player)->mark_face_texture_sent();
+        if (online::PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(ident_)))
+            player->mark_face_texture_sent();
         message.ident_ = 0x57;
         message.queue_ = net::NetMessageInfo::kLaneOrdered;
         message.group_id_ = 8;
@@ -1595,7 +1595,7 @@ void Rider::jump_to_spawn(uint32_t node, uint32_t walking)
 // 0x00583FB0
 Rider::~Rider()
 {
-    if (is_halted_ && unknownbc_ && unknown264_) {
+    if (is_halted_ && is_local_skater_ && unknown264_) {
         get_at<sio::InputPort*>(get_at<uint8_t*>(unknown264_, 0x490), 0x1C)->unpause_actuators();
         get_at<sio::InputPort*>(get_at<uint8_t*>(unknown264_, 0x490), 0x1C)->stop_actuators();
     }
@@ -1603,7 +1603,7 @@ Rider::~Rider()
     script::launch_script(0xF429E0AC, nullptr, this, false, nullptr);
     for (goals::CreateATrick* trick : trick_slots_)
         delete trick;
-    if (unknownbc_ && view_slot_ == 1) {
+    if (is_local_skater_ && view_slot_ == 1) {
         if (Entity* camera = object_hub_slot()->look_up_entity(kSkaterCam1))
             camera->flag_as_dead();
     }

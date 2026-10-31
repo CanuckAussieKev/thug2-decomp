@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/core/arena_alloc.h"
+#include "engine/script/param_struct.h"
 
 namespace net {
 struct Conn;
@@ -46,18 +47,18 @@ struct JoinerRecord {
     char label_[16];     // +0x00
     uint8_t entity_key_; // +0x10
     uint8_t pad11[3];
-    net::Conn* conn_; // +0x14
-    uint32_t unknown18_;
+    net::Conn* conn_;                 // +0x14
+    int add_at_frame_;                // +0x18 the server app's frame from which it may be added
     objects::RiderIdentity* account_; // +0x1C
     uint32_t flag_bits_;              // +0x20 PlayerFlag
-    uint32_t unknown24_;
-    int team_;             // +0x28
-    int32_t profile_id_;   // +0x2C the GameSpy profile
-    int32_t skill_points_; // +0x30
-    uint32_t unknown34_;
-    uint32_t unknown38_;
-    uint32_t unknown3c_;
-    int32_t drive_control_mode_; // +0x40
+    int rejoin_group_;                // +0x24 (a player joining again: the server app's frame when it was listed)
+    int team_;                        // +0x28
+    int32_t profile_id_;              // +0x2C the GameSpy profile
+    int32_t skill_points_;            // +0x30
+    int score_;                       // +0x34 (its score component's grand total)
+    uint32_t accumulated_score_;      // +0x38 (the player's accumulated_score_)
+    uint32_t eliminated_time_;        // +0x3C (the player's eliminated_time_)
+    int32_t drive_control_mode_;      // +0x40
 
     // 0x005434D0: a new skater profile (made on the skater info heap; null if out of memory) and the numbers +0x24,
     // +0x2C (profile id), +0x30 (rating), +0x38, +0x40 zeroed (the rest is left). Returns this.
@@ -66,7 +67,7 @@ struct JoinerRecord {
     void destroy_body();
 };
 static_assert(offsetof(JoinerRecord, account_) == 0x1C && offsetof(JoinerRecord, team_) == 0x28 &&
-                  sizeof(JoinerRecord) == 0x44,
+                  offsetof(JoinerRecord, drive_control_mode_) == 0x40 && sizeof(JoinerRecord) == 0x44,
               "layout must match the original");
 
 // A player (0x1F0 bytes; a node of the manager's player list - lists::Elem<PlayerRecord>, its data itself - whose node
@@ -150,8 +151,8 @@ public:
     int holds_crown(); // 0x00543490
     // 0x005434A0: its connection's handle (AppHost::put_on_outbox's), 0 without a connection.
     int get_link_handle();
-    // 0x005434B0: the skater's +0x2BC (one of the getters folded there: no null check).
-    uint32_t get_skater_value_2b_c();
+    // 0x005434B0: the skater's view slot (one of the getters folded there: no null check).
+    uint32_t get_skater_view_slot();
     int is_pending_observer(); // 0x005434C0
 
     // --- player_flags.cpp: the game's announcements about the player ---
@@ -177,17 +178,17 @@ public:
     // player's crown arrow shown again in netking / king).
     void give_crown(bool king);
 
-    objects::Rider* skater_;   // +0x14
-    net::Conn* conn_;          // +0x18
-    uint32_t eliminated_time_; // +0x1C
-    int accumulated_score_;    // +0x20
-    uint32_t unknown24_;
-    uint32_t unknown28_;
-    int skill_points_; // +0x2C (a server list's player: its rating)
-    int team_;         // +0x30
-    int unknown34_;    // +0x34 (scavenger hunt: 5 minus it is its score line's number)
-    char label_[16];   // +0x38 ("<No Name>" until named)
-    uint32_t unknown48_;
+    objects::Rider* skater_;     // +0x14
+    net::Conn* conn_;            // +0x18
+    uint32_t eliminated_time_;   // +0x1C
+    int accumulated_score_;      // +0x20
+    int best_combo_;             // +0x24 the game stats' best combo (zeroed when a game starts)
+    int32_t profile_id_;         // +0x28 the GameSpy profile
+    int skill_points_;           // +0x2C (a server list's player: its rating)
+    int team_;                   // +0x30
+    int num_placed_;             // +0x34 scavenger hunt: its objects placed (5 minus it is its score line's number)
+    char label_[16];             // +0x38 ("<No Name>" until named)
+    int32_t drive_control_mode_; // +0x48 its vehicle control type
     objects::RiderIdentity* account_; // +0x4C
     uint8_t unknown50_[0x58];
     uint16_t update_records_a_[kMaxPlayers][3]; // +0xA8 (-1 each)
@@ -196,10 +197,11 @@ public:
     int sent_updates2_[kMaxPlayers];            // +0x128
     uint8_t update_bytes_a_[kMaxPlayers];       // +0x148 (-1 each)
     uint8_t update_bytes_b_[kMaxPlayers];       // +0x150 (-1 each)
-    uint8_t unknown158_[0x78];
-    uint32_t flag_bits_;        // +0x1D0 PlayerFlag
-    uint32_t ready_query_owed_; // +0x1D4
-    uint32_t unknown1d8_;
+    uint8_t unknown158_[0x28];
+    script::VectorValue placed_[5];       // +0x180 scavenger hunt: where its objects were placed (num_placed_)
+    uint32_t flag_bits_;                  // +0x1D0 PlayerFlag
+    uint32_t ready_query_owed_;           // +0x1D4
+    int rejoin_group_;                    // +0x1D8 (JoinerRecord::rejoin_group_)
     uint32_t join_time_;                  // +0x1DC (mark_just_joined)
     uint32_t last_impact_at_;             // +0x1E0
     int last_sent_skater_;                // +0x1E4
@@ -209,13 +211,14 @@ public:
 static_assert(offsetof(PlayerRecord, skater_) == 0x14 && offsetof(PlayerRecord, team_) == 0x30 &&
                   offsetof(PlayerRecord, label_) == 0x38 && offsetof(PlayerRecord, account_) == 0x4C &&
                   offsetof(PlayerRecord, update_records_a_) == 0xA8 && offsetof(PlayerRecord, sent_updates_) == 0x108 &&
-                  offsetof(PlayerRecord, update_bytes_a_) == 0x148 && offsetof(PlayerRecord, flag_bits_) == 0x1D0 &&
+                  offsetof(PlayerRecord, update_bytes_a_) == 0x148 && offsetof(PlayerRecord, placed_) == 0x180 &&
+                  offsetof(PlayerRecord, flag_bits_) == 0x1D0 && offsetof(PlayerRecord, rejoin_group_) == 0x1D8 &&
                   offsetof(PlayerRecord, face_texture_data_) == 0x1E8 && sizeof(PlayerRecord) == 0x1F0,
               "layout must match the original");
 
-// The update records at +0x50 (0x00543180, called by the constructor on this + 0x50): its 16 words at +0xB8 (the
-// player's +0x108 - +0x147) zeroed. Returns the records.
-void* clear_update_records(void* records);
+// 0x00543180 (called by the constructor on the player's +0x50, returning it): the sent update records zeroed (the
+// 16 words at +0xB8 of it: the player's +0x108 - +0x147).
+void clear_update_records(PlayerRecord* player);
 
 // (The score lines' list types (score_list.cpp): lists::Hunt<ScoreEntry>'s destructors 0x00543170 / 0x00543580 only
 // reset its table - not kept; lists::Elem<ScoreEntry>'s 0x00544700 (out of its list) and 0x005435B0 / 0x00544720 are

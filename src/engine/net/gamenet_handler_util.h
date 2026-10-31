@@ -18,6 +18,8 @@
 #include "engine/core/code_address.h"
 #include "game/skate/skate_module.h"
 #include "game/skate/game_mode.h"
+#include "game/rider/rider.h"
+#include "engine/objects/entity.h"
 
 namespace objects {
 class Entity;
@@ -86,48 +88,46 @@ inline uint8_t* get_goal(uint8_t* goals, uint32_t name)
     return get_call<uint8_t*>(code_address(&goals::GoalManager::get_goal), goals, name, 1);
 }
 
-// The manager's players (online::PlayerRecord, player_info.h; reached as bytes here): +0x14 the skater, +0x18 the
-// connection, +0x30 the team, +0x38 the name, +0x1D0 flags.
-inline PlayerRecord* as_player(const uint8_t* player)
+// The manager's players (online::PlayerRecord, player_info.h) and joining players (JoinerRecord).
+inline PlayerRecord* find_player_by_sender(Hub* manager, net::Conn* conn)
 {
-    return reinterpret_cast<PlayerRecord*>(const_cast<uint8_t*>(player));
+    return manager->find_player_by_sender(conn);
 }
-inline uint8_t* find_player_by_sender(Hub* manager, net::Conn* conn) { return manager->find_player_by_sender(conn); }
 // (the original pushes the id as 16 bits)
-inline uint8_t* find_player_slot_by_obj(Hub* manager, uint16_t id) { return manager->find_player_slot_by_obj(id); }
-inline uint8_t* find_player_slot_by_obj(Hub* manager, const uint8_t* id) // a signed byte, widened
+inline PlayerRecord* find_player_slot_by_obj(Hub* manager, uint16_t id) { return manager->find_player_slot_by_obj(id); }
+inline PlayerRecord* find_player_slot_by_obj(Hub* manager, const uint8_t* id) // a signed byte, widened
 {
     return find_player_slot_by_obj(manager, static_cast<uint16_t>(static_cast<int8_t>(*id)));
 }
-inline uint8_t* find_own_player_record(Hub* manager) { return static_cast<uint8_t*>(manager->get_own_player()); }
-inline uint8_t* is_crown_rule_active(Hub* manager) { return static_cast<uint8_t*>(manager->get_hill_ruler()); }
+inline PlayerRecord* find_own_player_record(Hub* manager) { return manager->get_own_player(); }
+inline PlayerRecord* is_crown_rule_active(Hub* manager) { return manager->get_hill_ruler(); }
 // (0 or 1 in EAX: the original's callers test AL)
-inline bool is_own_player(const uint8_t* player) { return as_player(player)->is_own_player() != 0; }
-inline bool is_observer(const uint8_t* player) { return as_player(player)->is_observer() != 0; }
-inline objects::Entity* player_skater(const uint8_t* player) { return prop<objects::Entity*>(player, 0x14); }
-inline uint32_t get_skater_id(const void* skater) { return prop<uint32_t>(skater, 0x14); }
-inline const char* player_name(uint8_t* player) { return reinterpret_cast<const char*>(player + 0x38); }
-inline int player_team(const uint8_t* player) { return prop<int>(player, 0x30); }
+inline bool is_own_player(PlayerRecord* player) { return player->is_own_player() != 0; }
+inline bool is_observer(PlayerRecord* player) { return player->is_observer() != 0; }
+inline objects::Entity* player_skater(const PlayerRecord* player) { return player->skater_; }
+inline uint32_t get_skater_id(const objects::Entity* skater) { return skater->ident_; }
+inline const char* player_name(const PlayerRecord* player) { return player->label_; }
+inline int player_team(const PlayerRecord* player) { return player->team_; }
 
-inline uint8_t* start_roster_sweep(Hub* manager, PlayerSearch* search, bool observers)
+inline PlayerRecord* start_roster_sweep(Hub* manager, PlayerSearch* search, bool observers)
 {
-    return static_cast<uint8_t*>(manager->begin_player_walk(search, observers));
+    return manager->begin_player_walk(search, observers);
 }
-inline uint8_t* step_roster_sweep(Hub* manager, PlayerSearch* search, bool observers)
+inline PlayerRecord* step_roster_sweep(Hub* manager, PlayerSearch* search, bool observers)
 {
-    return static_cast<uint8_t*>(manager->step_player_walk(search, observers));
+    return manager->step_player_walk(search, observers);
 }
-inline uint8_t* first_new_player(Hub* manager, NewPlayerSearch* search)
+inline JoinerRecord* first_new_player(Hub* manager, NewPlayerSearch* search)
 {
-    return static_cast<uint8_t*>(manager->begin_joiner_walk(search));
+    return manager->begin_joiner_walk(search);
 }
-inline uint8_t* next_new_player(Hub* manager, NewPlayerSearch* search)
+inline JoinerRecord* next_new_player(Hub* manager, NewPlayerSearch* search)
 {
-    return static_cast<uint8_t*>(manager->step_joiner_walk(search));
+    return manager->step_joiner_walk(search);
 }
 
 // A player's connection's handle, for AppHost::put_on_outbox (0x005434A0: 0 without a connection).
-inline int player_handle(uint8_t* player) { return as_player(player)->get_link_handle(); }
+inline int player_handle(PlayerRecord* player) { return player->get_link_handle(); }
 
 // A message for the server through `app` (a client).
 inline void send_to_server(net::AppHost* app, net::NetMessageInfo* desc)

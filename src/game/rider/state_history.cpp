@@ -15,6 +15,7 @@
 #include "engine/net/net_app.h"
 #include "engine/net/net_dispatcher.h"
 #include "engine/net/player_info.h"
+#include "engine/objects/game_objects.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/rider.h"
@@ -71,17 +72,17 @@ online::Hub* net_session_slot() { return online::g_online_hub; }
 void* get_game_mode() { return static_cast<void*>(goals::g_game_mode); }
 void* skater_manager() { return static_cast<void*>(modules::g_skate_module); }
 
-uint8_t* find_player_slot_by_obj(int id)
+online::PlayerRecord* find_player_slot_by_obj(int id)
 {
     return net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id));
 }
-uint8_t* start_roster_sweep(online::PlayerSearch* search)
+online::PlayerRecord* start_roster_sweep(online::PlayerSearch* search)
 {
-    return static_cast<uint8_t*>(net_session_slot()->begin_player_walk(search, true));
+    return net_session_slot()->begin_player_walk(search, true);
 }
-uint8_t* step_roster_sweep(online::PlayerSearch* search)
+online::PlayerRecord* step_roster_sweep(online::PlayerSearch* search)
 {
-    return static_cast<uint8_t*>(net_session_slot()->step_player_walk(search, true));
+    return net_session_slot()->step_player_walk(search, true);
 }
 bool get_on_server() { return net_session_slot()->get_on_server(); }
 bool manager_flag4() { return net_session_slot()->in_internet_mode(); }
@@ -95,18 +96,18 @@ net::AppHost* manager_app() { return net_session_slot()->host_; }
 // A player (PlayerRecord): its object (+0x14), team field (+0x30) and flags (+0x1D0: 0x1 local, 0x80 "it" - holds_crown,
 // 0x7800 a team - is_carrying_flag / get_flag_team). Its announcements: give_crown makes it "it", note_flag_returned tags it
 // on its own team, note_flag_steal converts it to another.
-online::PlayerRecord* details_of(uint8_t* player) { return reinterpret_cast<online::PlayerRecord*>(player); }
-GameEntity* player_object(uint8_t* player) { return prop<GameEntity*>(player, 0x14); }
-bool is_observing(uint8_t* player) { return details_of(player)->is_invulnerable(); }
-bool is_it(uint8_t* player) { return details_of(player)->holds_crown() != 0; }
-bool on_a_team(uint8_t* player) { return details_of(player)->is_carrying_flag() != 0; }
-int get_team(uint8_t* player) { return details_of(player)->get_flag_team(); }
-bool is_host_local(uint8_t* player) { return details_of(player)->is_own_player() != 0; }
-int get_connection(uint8_t* player) { return details_of(player)->get_link_handle(); }
-void mark_tag_time(uint8_t* player) { details_of(player)->mark_just_joined(); }
-void make_it(uint8_t* player, bool it) { details_of(player)->give_crown(it); }
-void tag_on_team(uint8_t* player) { details_of(player)->note_flag_returned(); }
-void convert_to_team(uint8_t* player, int team) { details_of(player)->note_flag_steal(team); }
+online::PlayerRecord* details_of(online::PlayerRecord* player) { return player; }
+GameEntity* player_object(online::PlayerRecord* player) { return player->skater_; }
+bool is_observing(online::PlayerRecord* player) { return details_of(player)->is_invulnerable(); }
+bool is_it(online::PlayerRecord* player) { return details_of(player)->holds_crown() != 0; }
+bool on_a_team(online::PlayerRecord* player) { return details_of(player)->is_carrying_flag() != 0; }
+int get_team(online::PlayerRecord* player) { return details_of(player)->get_flag_team(); }
+bool is_host_local(online::PlayerRecord* player) { return details_of(player)->is_own_player() != 0; }
+int get_connection(online::PlayerRecord* player) { return details_of(player)->get_link_handle(); }
+void mark_tag_time(online::PlayerRecord* player) { details_of(player)->mark_just_joined(); }
+void make_it(online::PlayerRecord* player, bool it) { details_of(player)->give_crown(it); }
+void tag_on_team(online::PlayerRecord* player) { details_of(player)->note_flag_returned(); }
+void convert_to_team(online::PlayerRecord* player, int team) { details_of(player)->note_flag_steal(team); }
 
 uint32_t get_game_type() { return static_cast<goals::MatchRules*>(get_game_mode())->get_name_key(); }
 bool is_squad_play() { return static_cast<goals::MatchRules*>(get_game_mode())->is_squad_match() != 0; }
@@ -218,7 +219,7 @@ void RiderFrameLog::fetch_place(maths::Vec4* out) { *out = entity_->at_point_; }
 // 0x0051A020
 double RiderFrameLog::get_collision_reach(bool driving)
 {
-    float reach = script::fetch_float(entity_->unknownbc_ ? 0x0D24273Bu : 0x25F78481u);
+    float reach = script::fetch_float(entity_->is_local_skater_ ? 0x0D24273Bu : 0x25F78481u);
     if (!driving)
         return reach;
     return (script::fetch_float(0x0A49FF23u) + 1.0) * reach;
@@ -228,7 +229,7 @@ double RiderFrameLog::get_collision_reach(bool driving)
 double RiderFrameLog::fetch_hit_radius(bool my_driving, bool their_driving)
 {
     uint32_t name;
-    if (entity_->unknownbc_)
+    if (entity_->is_local_skater_)
         name = manager_flag4() ? 0xF2E35FA3u : 0xECB41860u;
     else
         name = manager_flag4() ? 0xDBD6D58Au : 0xC5819249u;
@@ -254,7 +255,7 @@ bool RiderFrameLog::is_near_local_skater()
 // 0x0051A1C0
 void RiderFrameLog::check_for_collisions(int first)
 {
-    uint8_t* me = find_player_slot_by_obj(static_cast<int>(entity_->ident_));
+    online::PlayerRecord* me = find_player_slot_by_obj(static_cast<int>(entity_->ident_));
     if (!me || is_observing(me))
         return;
     if (!manager_may_collide() && !is_it(me) && !on_a_team(me))
@@ -285,7 +286,7 @@ void RiderFrameLog::check_for_collisions(int first)
         ObjectModule* their_state = skater->fetch_module(kSkaterState);
         if (prop<bool>(their_state, 0x70))
             continue;
-        uint8_t* them = find_player_slot_by_obj(static_cast<int>(skater->ident_));
+        online::PlayerRecord* them = find_player_slot_by_obj(static_cast<int>(skater->ident_));
         if (is_observing(them) || is_it(them))
             continue;
         if (on_a_team(me) && on_a_team(them) && get_team(me) != prop<int>(them, 0x30))
@@ -387,7 +388,8 @@ void RiderFrameLog::check_for_collisions(int first)
                 continue;
             make_it(them, true);
             online::PlayerSearch search;
-            for (uint8_t* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search)) {
+            for (online::PlayerRecord* player = start_roster_sweep(&search); player;
+                 player = step_roster_sweep(&search)) {
                 if (is_host_local(player))
                     continue;
                 net::NetMessageInfo msg;
@@ -412,7 +414,8 @@ void RiderFrameLog::check_for_collisions(int first)
             tagged[1] = static_cast<uint8_t>(get_team(me));
             bool same_team = get_team(me) == prop<int>(them, 0x30);
             online::PlayerSearch search;
-            for (uint8_t* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search)) {
+            for (online::PlayerRecord* player = start_roster_sweep(&search); player;
+                 player = step_roster_sweep(&search)) {
                 if (is_host_local(player)) {
                     if (same_team)
                         tag_on_team(them);
@@ -440,7 +443,7 @@ int __cdecl RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
     char name[0x20] = {};
     std::memcpy(name, kSomeone, 8);
     if (context->type_code_ == kMsgHit) {
-        if (uint8_t* player = find_player_slot_by_obj(static_cast<int8_t>(msg[0]))) {
+        if (online::PlayerRecord* player = find_player_slot_by_obj(static_cast<int8_t>(msg[0]))) {
             GameEntity* other = player_object(player);
             // Away from the other skater (straight along x and z if they're on top of each other).
             double dx = static_cast<double>(skater->at_point_.x) - other->at_point_.x;
@@ -483,7 +486,7 @@ int __cdecl RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
         }
         send_event(skater, 0x915E5E39, name, other_driving ? 0xD039432Cu : 0xC304BD92u, true, nullptr);
     } else if (context->type_code_ == kMsgHitAck) {
-        if (uint8_t* player = find_player_slot_by_obj(static_cast<int8_t>(msg[0])))
+        if (online::PlayerRecord* player = find_player_slot_by_obj(static_cast<int8_t>(msg[0])))
             copy_name(name, get_skater_name(player_object(player)));
         send_event(skater, 0xA1021AF0, name, other_driving ? 0xD039432Cu : 0xC304BD92u, true, nullptr);
     }
@@ -502,7 +505,7 @@ int __cdecl RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context
     std::memcpy(name, kSomeone, 8);
     bool other_driving = (msg[0] >> 7) & 1;
     msg[0] &= 0x7F;
-    uint8_t* player = find_player_slot_by_obj(static_cast<int8_t>(msg[0]));
+    online::PlayerRecord* player = find_player_slot_by_obj(static_cast<int8_t>(msg[0]));
     if (id == kMsgRanIntoAck) {
         if (player)
             copy_name(name, get_skater_name(player_object(player)));

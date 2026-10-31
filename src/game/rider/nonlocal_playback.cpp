@@ -95,8 +95,8 @@ float connection_lag(uint8_t* app, GameEntity* skater, int frame_ms)
     online::Hub* net = net_session_slot();
     net::Conn* conn;
     if (net->get_on_server()) {
-        uint8_t* player = net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_));
-        conn = prop<net::Conn*>(player, 0x18);
+        online::PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_));
+        conn = player->conn_;
     } else {
         net::ConnSearch search;
         conn = reinterpret_cast<net::AppHost*>(app)->begin_conn_walk(&search);
@@ -265,9 +265,9 @@ void RiderRemoteSync::get_extrapolate()
     float dir_x = dx, dir_z = dz;
     // How well the move lines up with this machine's skater's (0 to 1; 0 without one).
     double alignment = 0.0;
-    auto* local = static_cast<uint8_t*>(net->get_own_player());
-    if (local && prop<GameEntity*>(local, 0x14)) {
-        maths::Vec4 theirs = prop<GameEntity*>(local, 0x14)->vel_;
+    online::PlayerRecord* local = net->get_own_player();
+    if (local && local->skater_) {
+        maths::Vec4 theirs = local->skater_->vel_;
         maths::Vec4 mine = {dx, dy, dz, dw};
         theirs.make_unit();
         mine.make_unit();
@@ -488,9 +488,9 @@ void RiderRemoteSync::extrapolate_on_rail()
     float dz = play_pos_.z - last_play_pos_.z;
     float dw = play_pos_.w - last_play_pos_.w;
     double alignment = 0.0;
-    auto* local = static_cast<uint8_t*>(net->get_own_player());
+    online::PlayerRecord* local = net->get_own_player();
     if (local) { // (its skater isn't checked here)
-        maths::Vec4 theirs = prop<GameEntity*>(local, 0x14)->vel_;
+        maths::Vec4 theirs = local->skater_->vel_;
         maths::Vec4 mine = {dx, dy, dz, dw};
         theirs.make_unit();
         mine.make_unit();

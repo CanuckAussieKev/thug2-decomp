@@ -53,14 +53,11 @@ constexpr uint8_t kGroupGame = 8;
 Hub* net_session_slot() { return online::g_online_hub; }
 
 // A hunt player's placed objects: how many (+0x34) and where (+0x180, 16 bytes each).
-int& placed_count(uint8_t* player) { return online::detail::as_player(player)->unknown34_; }
-script::VectorValue* placed_positions(uint8_t* player)
-{
-    return reinterpret_cast<script::VectorValue*>(player + 0x180);
-}
+int& placed_count(online::PlayerRecord* player) { return player->num_placed_; }
+script::VectorValue* placed_positions(online::PlayerRecord* player) { return player->placed_; }
 
 // The player whose skater the script runs on (null without an object or a player).
-uint8_t* script_player(script::Script* script)
+online::PlayerRecord* script_player(script::Script* script)
 {
     objects::Entity* object = script->entity_.owner_object_;
     if (!object)
@@ -76,7 +73,7 @@ void announce_to_players(uint8_t id, bool remote_only)
     desc.make_new();
     net::AppHost* server = manager->host_;
     online::detail::PlayerSearch search;
-    for (uint8_t* player = online::detail::start_roster_sweep(manager, &search, true); player;
+    for (online::PlayerRecord* player = online::detail::start_roster_sweep(manager, &search, true); player;
          player = online::detail::step_roster_sweep(manager, &search, true)) {
         if (remote_only && online::detail::is_own_player(player))
             continue;
@@ -93,7 +90,7 @@ void announce_to_players(uint8_t id, bool remote_only)
 // before, and the position kept. False without an object or a player.
 bool __cdecl cfunc_place_object(script::Struct* params, script::Script* script)
 {
-    uint8_t* player = script_player(script);
+    online::PlayerRecord* player = script_player(script);
     if (!player)
         return false;
     script->args_->put_int(kIndex, placed_count(player));
@@ -122,7 +119,7 @@ bool __cdecl cfunc_at_least_one_object_placed(script::Struct*, script::Script*)
 {
     Hub* manager = net_session_slot();
     online::detail::PlayerSearch search;
-    for (uint8_t* player = online::detail::start_roster_sweep(manager, &search, false); player;
+    for (online::PlayerRecord* player = online::detail::start_roster_sweep(manager, &search, false); player;
          player = online::detail::step_roster_sweep(manager, &search, false)) {
         if (placed_count(player) > 0)
             return true;
@@ -158,7 +155,7 @@ bool __cdecl cfunc_placed_less_than(script::Struct* params, script::Script* scri
 {
     int count = 0; // (uninitialised in the original without n)
     params->fetch_int_value(0u, &count, 0);
-    uint8_t* player = script_player(script);
+    online::PlayerRecord* player = script_player(script);
     if (!player)
         return false;
     return placed_count(player) < count;
@@ -234,13 +231,13 @@ bool __cdecl cfunc_broadcast_object_placements(script::Struct*, script::Script*)
     desc.byte_count_ = sizeof(msg);
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
-    for (uint8_t* receiver = online::detail::start_roster_sweep(manager, &receivers, true); receiver;
+    for (online::PlayerRecord* receiver = online::detail::start_roster_sweep(manager, &receivers, true); receiver;
          receiver = online::detail::step_roster_sweep(manager, &receivers, true)) {
-        for (uint8_t* player = online::detail::start_roster_sweep(manager, &others, false); player;
+        for (online::PlayerRecord* player = online::detail::start_roster_sweep(manager, &others, false); player;
              player = online::detail::step_roster_sweep(manager, &others, false)) {
             if (player == receiver)
                 continue;
-            msg.id = static_cast<uint8_t>(online::detail::as_player(player)->skater_->ident_);
+            msg.id = static_cast<uint8_t>(player->skater_->ident_);
             msg.count = placed_count(player);
             for (int i = 0; i < placed_count(player); ++i)
                 msg.positions[i] = placed_positions(player)[i];

@@ -88,28 +88,10 @@ constexpr uint32_t kListClock = 3000;        // ms
 constexpr uint32_t kShowDelay = 500;         // ms
 constexpr uint32_t kNewsBufferSize = 0x6400; // bytes
 
-// The manager's fields not named in gamenet_manager.h yet.
-constexpr uint32_t kServiceTask = 0xE0; // tasks::SchedulerTask*: the online service task
-constexpr uint32_t kMatchTask = 0xF0;   // tasks::SchedulerTask*: the server-list client's task
-constexpr uint32_t kServiceState = 0x1B8;
-constexpr uint32_t kNextServiceState = 0x1BC;
-constexpr uint32_t kServers = 0x158;        // lists::Foremost<HostListing>: the listed servers
-constexpr uint32_t kWaitingServers = 0x16C; // lists::Foremost<HostListing>: found, not shown yet
-constexpr uint32_t kNewsBuffer = 0x99F4;
-constexpr uint32_t kNewsText = 0xFDF4;
-constexpr uint32_t kNewsRest = 0xFDF8;
-constexpr uint32_t kNewsRestSize = 0xFDFC;
-constexpr uint32_t kRequest = 0xFE00;
-constexpr uint32_t kRequestStart = 0xFE04;
-constexpr uint32_t kNewsOk = 0xFE09;
-
 Hub* the_manager() { return g_online_hub; }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
-tasks::PileUp* get_logic_tasks()
-{
-    return (&assets::g_main_loop_manager->logic_tasks_);
-}
-RoomManager* current_lobby(Hub* manager) { return static_cast<RoomManager*>(manager->lobby_service_); }
+tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
+RoomManager* current_lobby(Hub* manager) { return manager->lobby_service_; }
 
 uint32_t g_last_refresh;
 bool g_show_pending;
@@ -135,7 +117,6 @@ T* data_of(memory::ListNode* node)
 {
     return node ? static_cast<T*>(node->data) : nullptr;
 }
-memory::ListNode* foremost(Hub* manager, uint32_t offset) { return &prop<memory::ListNode>(manager, offset); }
 
 // The nodes counted (the original's inlined count: data -1 checked before null).
 int total_of(memory::ListNode* head)
@@ -185,13 +166,13 @@ uint32_t server_id(Hub* manager, HostListing* server)
 void move_waiting_servers(Hub* manager)
 {
     manager->show_no_servers_found(true);
-    memory::ListNode* node = head_of_scene_list(foremost(manager, kWaitingServers));
+    memory::ListNode* node = head_of_scene_list(&manager->waiting_servers_);
     auto* server = data_of<HostListing>(node);
     while (server) {
         node = get_next_node(node);
         auto* following = data_of<HostListing>(node);
         unlink_node(server);
-        memory::ListNode* list = foremost(manager, kServers);
+        memory::ListNode* list = &manager->servers_;
         manager->show_server_in_menu(server, total_of(list));
         get_append(list, server);
         server = following;
@@ -268,7 +249,7 @@ void HostListing::clear_players()
     while (player) {
         node = get_next_node(node);
         auto* following = data_of<PlayerRecord>(node);
-        manager->remove_player_record(reinterpret_cast<uint8_t*>(player)); // (the player destroyed)
+        manager->remove_player_record(player); // (the player destroyed)
         player = following;
     }
 }
@@ -302,21 +283,21 @@ int HostListing::get_entrant_rank(int index)
 // --- The manager's server list ---
 
 // 0x005451B0 / 0x005451C0
-void Hub::set_next_service_state(int state) { prop<int>(this, kNextServiceState) = state; }
-int Hub::get_service_state() { return prop<int>(this, kServiceState); }
+void Hub::set_next_service_state(int state) { next_service_state_ = state; }
+int Hub::get_service_state() { return service_state_; }
 
 uint32_t g_news_message_count;
 
 // 0x005453E0
 void Hub::set_service_state(int state)
 {
-    prop<int>(this, kServiceState) = state;
+    service_state_ = state;
     if (state == kStateWake) {
-        get_logic_tasks()->queue_job(prop<tasks::SchedulerTask*>(this, kServiceTask));
-        set_service_state(prop<int>(this, kNextServiceState));
+        get_logic_tasks()->queue_job(service_job_);
+        set_service_state(next_service_state_);
         g_news_message_count = 0;
     } else if (state == kStateStopped) {
-        prop<tasks::SchedulerTask*>(this, kServiceTask)->drop_out();
+        service_job_->drop_out();
     }
 }
 
@@ -325,8 +306,8 @@ void Hub::update_hosting_status()
 {
     net::Hub* net = net::g_net_core;
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
-    static_cast<RoomManager*>(lobby_service_)->start_hosting();
-    if (prop<bool>(presence_service_, 0x10)) { // (0x005480B0: logged in to presence)
+    lobby_service_->start_hosting();
+    if (presence_service_->authenticated_) { // (0x005480B0: logged in to presence)
         const char* server_name;
         get_online_settings()->fetch_setting(kServerName)->fetch_text(kUiString, &server_name, 1);
         char location[1024];
@@ -338,8 +319,7 @@ void Hub::update_hosting_status()
         } else {
             std::sprintf(location, "10thug211:0:0:0:%s (%s)", server_name, lobby->room_name_);
         }
-        static_cast<FriendsManager*>(presence_service_)
-            ->change_standing(2, script::fetch_text(kHostingStatus), location);
+        presence_service_->change_standing(2, script::fetch_text(kHostingStatus), location);
     }
     ram_stats()->leave_heap_scope();
 }
@@ -356,7 +336,7 @@ bool Hub::start_server_list()
     ram_stats()->leave_heap_scope();
     if (!client)
         return false;
-    tasks::SchedulerTask* task = prop<tasks::SchedulerTask*>(this, kMatchTask);
+    tasks::SchedulerTask* task = server_list_job_;
     if (!task->is_on_task_list())
         logic->queue_job(task);
     return true;
@@ -374,7 +354,7 @@ void Hub::stop_server_list()
     }
     if (net::AppHost* client = get_matchmaking_client())
         client->dispatcher_.tear_down_state();
-    prop<tasks::SchedulerTask*>(this, kMatchTask)->drop_out();
+    server_list_job_->drop_out();
 }
 
 // 0x005456B0
@@ -391,7 +371,7 @@ void Hub::show_no_servers_found(bool refocus)
 // 0x00546010
 void Hub::clear_chosen_servers()
 {
-    for (memory::ListNode* node = head_of_scene_list(foremost(this, kServers)); node; node = get_next_node(node)) {
+    for (memory::ListNode* node = head_of_scene_list(&servers_); node; node = get_next_node(node)) {
         auto* server = static_cast<HostListing*>(node->data);
         if (!server)
             break;
@@ -403,7 +383,7 @@ void Hub::clear_chosen_servers()
 int Hub::num_servers_in_menu()
 {
     int count = 0;
-    for (memory::ListNode* node = head_of_scene_list(foremost(this, kServers)); node; node = get_next_node(node)) {
+    for (memory::ListNode* node = head_of_scene_list(&servers_); node; node = get_next_node(node)) {
         auto* server = static_cast<HostListing*>(node->data);
         if (!server)
             break;
@@ -445,8 +425,8 @@ void Hub::show_server_in_menu(void* item, int index)
 // 0x005462F0
 void Hub::empty_server_listing()
 {
-    delete_all(foremost(this, kWaitingServers));
-    delete_all(foremost(this, kServers));
+    delete_all(&waiting_servers_);
+    delete_all(&servers_);
     if (is_local_network_play())
         destroy_match_client();
 }
@@ -454,8 +434,9 @@ void Hub::empty_server_listing()
 // 0x00546400
 bool Hub::has_server(const char* name, uint32_t ip)
 {
-    for (uint32_t list : {kServers, kWaitingServers}) {
-        for (memory::ListNode* node = head_of_scene_list(foremost(this, list)); node; node = get_next_node(node)) {
+    for (memory::ListNode* list :
+         {static_cast<memory::ListNode*>(&servers_), static_cast<memory::ListNode*>(&waiting_servers_)}) {
+        for (memory::ListNode* node = head_of_scene_list(list); node; node = get_next_node(node)) {
             auto* server = static_cast<HostListing*>(node->data);
             if (!server)
                 break;
@@ -469,7 +450,7 @@ bool Hub::has_server(const char* name, uint32_t ip)
 // 0x005464D0
 void* Hub::fetch_host(uint32_t id)
 {
-    for (memory::ListNode* node = head_of_scene_list(foremost(this, kServers)); node; node = get_next_node(node)) {
+    for (memory::ListNode* node = head_of_scene_list(&servers_); node; node = get_next_node(node)) {
         auto* server = static_cast<HostListing*>(node->data);
         if (!server)
             return nullptr;
@@ -505,7 +486,7 @@ void Hub::refresh_server_list(bool force)
     Hub* manager = the_manager();
     uint8_t keys[4] = {8, 10, 4, 6}; // (in the original: over its argument's slot)
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
-    static_cast<RoomManager*>(manager->lobby_service_)->clear_lost_connection();
+    manager->lobby_service_->clear_lost_connection();
     game_spy::peer_start_listing_games(current_lobby(this)->remote_, keys, 4, nullptr,
                                        code_address(listing_games_callback),
                                        this); // (the games listed)
@@ -536,14 +517,14 @@ unsigned long __stdcall news_thread(void* argument)
     auto* manager = static_cast<Hub*>(argument);
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
     game_spy::get_msleep(100);
-    prop<int>(manager, kServiceState) = kStateNews;
-    prop<uint32_t>(manager, kRequestStart) = frame_clock::get_time();
-    uint8_t* buffer = &prop<uint8_t>(manager, kNewsBuffer);
+    manager->service_state_ = kStateNews;
+    manager->request_started_at_ = frame_clock::get_time();
+    uint8_t* buffer = manager->news_buffer_;
     std::memset(buffer, 0, 0x1900 * 4);
     char url[256];
     std::sprintf(url, commands::g_texture_flag_ce441 ? "http://www.thug2online.com/testmotd.dat"
                                                      : "http://www.thug2online.com/motd.dat");
-    prop<int>(manager, kRequest) =
+    manager->request_ =
         game_spy::http_get_ex(url, nullptr, reinterpret_cast<char*>(buffer), static_cast<int>(kNewsBufferSize), nullptr,
                               0, 0, code_address(stubs::do_nothing), &news_callback, manager); // (the download started)
     ram_stats()->leave_heap_scope();
@@ -557,10 +538,9 @@ unsigned long __stdcall motd_thread(void* argument)
     const char* unique_id = "123456789";
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
     manager->get_online_settings()->fetch_setting(kUniqueId)->fetch_text(kUiString, &unique_id, 0); // (not used)
-    prop<uint32_t>(manager, kRequestStart) = frame_clock::get_time();
-    prop<int>(manager, kRequest) =
-        game_spy::track_usage(0, 10368, "1.0", 0, 0); // (the usage report: the SDK's MOTD request)
-    prop<int>(manager, kServiceState) = kStateMotd;
+    manager->request_started_at_ = frame_clock::get_time();
+    manager->request_ = game_spy::track_usage(0, 10368, "1.0", 0, 0); // (the usage report: the SDK's MOTD request)
+    manager->service_state_ = kStateMotd;
     ram_stats()->leave_heap_scope();
     return 0;
 }
@@ -572,7 +552,7 @@ int __cdecl news_callback(void* request, int result, uint8_t* buffer, uint32_t s
     (void)param;
     Hub* manager = the_manager();
     if (result != 0) {
-        prop<int>(manager, kServiceState) = kStateNewsFailed;
+        manager->service_state_ = kStateNewsFailed;
         return 1;
     }
     int64_t size = (static_cast<int64_t>(size_high) << 32) | size_low;
@@ -582,16 +562,16 @@ int __cdecl news_callback(void* request, int result, uint8_t* buffer, uint32_t s
     int remaining = *reinterpret_cast<int*>(buffer + 4);
     uint8_t* text = buffer + 8;
     if (checksum != checksums::generate_crc_caseless(reinterpret_cast<const char*>(text), remaining)) {
-        prop<int>(manager, kServiceState) = kStateNewsFailed;
+        manager->service_state_ = kStateNewsFailed;
         return 1;
     }
-    prop<uint8_t*>(manager, kNewsText) = text;
+    manager->motd_text_ = text;
     int length =
         (static_cast<int>(std::strlen(reinterpret_cast<const char*>(text))) + 4) & ~3; // (with its NUL, a word)
-    prop<int>(manager, kNewsRestSize) = remaining - length;
-    prop<uint8_t*>(manager, kNewsRest) = text + length;
-    prop<bool>(manager, kNewsOk) = true;
-    prop<int>(manager, kServiceState) = kStateNewsDone;
+    manager->pending_data_size_ = remaining - length;
+    manager->pending_data_ = text + length;
+    manager->motd_received_ = true;
+    manager->service_state_ = kStateNewsDone;
     return 1;
 }
 
@@ -620,7 +600,7 @@ bool __cdecl cfunc_post_game(script::Struct* params, script::Script* script)
 bool __cdecl cfunc_num_servers_in_lobby(script::Struct* params, script::Script* script)
 {
     (void)params;
-    script->args_->put_int(kNumServers, total_of(foremost(the_manager(), kServers)));
+    script->args_->put_int(kNumServers, total_of(&the_manager()->servers_));
     return true;
 }
 

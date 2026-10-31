@@ -709,7 +709,7 @@ void PointTally::get_reset()
     reset_score_pot();
     lists::TableItemEraser destroyer{&seen_};
     destroyer.free_table_contents();
-    if (skater && skater->unknownbc_) {
+    if (skater && skater->is_local_skater_) {
         dispatch_trick_sequence(false);
         dispatch_score_pot(0, 0.0f);
     }
@@ -724,7 +724,7 @@ void PointTally::get_reset()
     pot_state_ = 0;
     set_special_bar_colors();
     skater = rider_for_slot(rider_no_);
-    if (skater && skater->unknownbc_)
+    if (skater && skater->is_local_skater_)
         static_cast<objects::RiderRunClock*>(skater->fetch_module(kSkaterRunTimer))->halt();
 }
 

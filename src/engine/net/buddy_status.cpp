@@ -34,7 +34,7 @@ constexpr int kStatusChatting = 4;
 
 Hub* the_manager() { return g_online_hub; }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
-FriendsManager* get_buddies() { return static_cast<FriendsManager*>(the_manager()->presence_service_); }
+FriendsManager* get_buddies() { return the_manager()->presence_service_; }
 
 void unlink_node(memory::ListNode* node)
 {
@@ -144,7 +144,7 @@ bool __cdecl send_buddy_message(script::Struct* params, script::Script* script)
         return false;
     int profile;
     params->fetch_int_value("profile", &profile, 1);
-    static_cast<FriendsManager*>(manager->presence_service_)->send_buddy_message(profile, text);
+    manager->presence_service_->send_buddy_message(profile, text);
     return true;
 }
 
@@ -154,9 +154,9 @@ bool __cdecl set_lobby_status(script::Struct* params, script::Script* script)
     (void)params;
     (void)script;
     Hub* manager = the_manager();
-    const char* lobby = static_cast<RoomManager*>(manager->lobby_service_)->room_name_; // (0x0053F820)
+    const char* lobby = manager->lobby_service_->room_name_; // (0x0053F820)
     const char* text = script::fetch_text("homie_status_chatting");
-    FriendsManager* buddies = static_cast<FriendsManager*>(manager->presence_service_);
+    FriendsManager* buddies = manager->presence_service_;
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
     game_spy::gp_set_status(buddies, kStatusChatting, text, lobby); // (gpSetStatus)
     ram_stats()->leave_heap_scope();

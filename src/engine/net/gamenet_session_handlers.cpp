@@ -38,6 +38,8 @@
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
 #include "engine/sys/mlp.h"
+#include "game/rider/skater_score.h"
+#include "engine/net/gamenet_lists.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
 
@@ -196,7 +198,7 @@ int __cdecl on_server_query_msg(net::InboundMsgCtx* context)
     info.password = *manager->fetch_secret() != '\0';
     info.in_game_ = get_game_type() != kNetLobby;
     info.host_mode_ = static_cast<uint8_t>(manager->get_hosting_role());
-    info.logged_in_ = manager->in_internet_mode() && prop<bool>(manager->presence_service_, 0x10);
+    info.logged_in_ = manager->in_internet_mode() && manager->presence_service_->authenticated_;
     copy_name(info.name, name);
     std::sprintf(info.level, "%s", manager->get_map_name(true));
     std::sprintf(info.mode, "%s", manager->get_game_type_name());
@@ -205,9 +207,9 @@ int __cdecl on_server_query_msg(net::InboundMsgCtx* context)
     int id_count = 0;
     info.time = prop<uint32_t>(msg, 0);
     int named = 0;
-    for (uint8_t* player = start_roster_sweep(manager, &players, true); player;
+    for (PlayerRecord* player = start_roster_sweep(manager, &players, true); player;
          player = step_roster_sweep(manager, &players, true)) {
-        if (is_observer(player) && !as_player(player)->is_pending_observer())
+        if (is_observer(player) && !player->is_pending_observer())
             continue;
         if (player_skater(player))
             ids[id_count++] = static_cast<uint8_t>(get_skater_id(player_skater(player)));
@@ -215,14 +217,14 @@ int __cdecl on_server_query_msg(net::InboundMsgCtx* context)
         ++named;
     }
     char* slot = info.players[named];
-    for (uint8_t* added = first_new_player(manager, &new_players); added;
+    for (JoinerRecord* added = first_new_player(manager, &new_players); added;
          added = next_new_player(manager, &new_players)) {
-        uint32_t flags = prop<uint32_t>(added, 0x20);
+        uint32_t flags = added->flag_bits_;
         if (!(flags & 0x18) && (flags & 4))
             continue;
         bool known = false;
         for (int i = 0; i < id_count; ++i) {
-            if (ids[i] == added[0x10])
+            if (ids[i] == added->entity_key_)
                 known = true;
         }
         if (known)
@@ -239,8 +241,8 @@ int __cdecl on_server_query_msg(net::InboundMsgCtx* context)
 int __cdecl handle_host_options(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
-    auto* host = static_cast<uint8_t*>(manager->get_host_player()); // (the host's own player)
-    if (!host || prop<net::Conn*>(host, 0x18) != context->sender_conn_)
+    auto* host = manager->get_host_player(); // (the host's own player)
+    if (!host || host->conn_ != context->sender_conn_)
         return kDone;
     const uint8_t* msg = get_message(context);
     auto word = [msg](uint32_t offset) { return prop<uint32_t>(msg, offset); };
@@ -309,7 +311,7 @@ int __cdecl handle_host_options(net::InboundMsgCtx* context)
         // Kick (msg[0] = 1) or ban the msg[1]'th player, whose name must be msg + 2.
         PlayerSearch search;
         int index = 0;
-        uint8_t* player = start_roster_sweep(manager, &search, true);
+        PlayerRecord* player = start_roster_sweep(manager, &search, true);
         for (; player; player = step_roster_sweep(manager, &search, true), ++index) {
             if (static_cast<int8_t>(msg[1]) == index)
                 break;
@@ -347,7 +349,7 @@ int __cdecl handle_host_options(net::InboundMsgCtx* context)
         desc.ident_ = kMsgGameEnded;
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
         desc.group_id_ = kGroupGame;
-        for (uint8_t* p = start_roster_sweep(manager, &search, true); p;
+        for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p;
              p = step_roster_sweep(manager, &search, true)) {
             if (!is_own_player(p))
                 server->put_on_outbox(player_handle(p), &desc);
@@ -391,9 +393,8 @@ int __cdecl on_level_switch_msg(net::InboundMsgCtx* context)
     manager->match_ended_ = false;
     if (!msg[4])
         return kContinue;
-    auto* logic_tasks =
-        (&assets::g_main_loop_manager->logic_tasks_);
-    auto* change_task = prop<tasks::SchedulerTask*>(manager, 0xEC);
+    auto* logic_tasks = (&assets::g_main_loop_manager->logic_tasks_);
+    auto* change_task = manager->level_change_job_;
     if (change_task->is_on_task_list()) {
         if (!manager->get_on_server())
             manager->level_ = prop<uint32_t>(msg, 0);
@@ -431,9 +432,10 @@ int __cdecl handle_start_game(net::InboundMsgCtx* context)
     Hub* manager = manager_of(context);
     auto word = [msg](uint32_t offset) { return prop<uint32_t>(msg, offset); };
     manager->set_start_info_words(reinterpret_cast<const uint32_t*>(msg + 0x28));
-    prop<int>(manager, 0x68) = static_cast<int8_t>(msg[0x24]); // the crown's spawn point
-    prop<bool>(manager, 0x1B5) = false;
-    for (uint8_t* p = start_roster_sweep(manager, &search, false); p; p = step_roster_sweep(manager, &search, false)) {
+    manager->crown_start_ = static_cast<int8_t>(msg[0x24]); // the crown's spawn point
+    manager->awaiting_start_ = false;
+    for (PlayerRecord* p = start_roster_sweep(manager, &search, false); p;
+         p = step_roster_sweep(manager, &search, false)) {
         if (!is_own_player(p)) {
             static_cast<objects::Rider*>(player_skater(p))->conceal_skater();
             static_cast<objects::Rider*>(player_skater(p))->reset_27c();
@@ -478,30 +480,31 @@ int __cdecl handle_start_game(net::InboundMsgCtx* context)
     get_run(kStartingNewNetGame);
     get_call(code_address(&modules::Skate::launch_game), skate);
     manager->clear_roster();
-    prop<bool>(manager, 0x1B4) = false;
-    prop<bool>(manager, 0x3B) = false;
+    manager->match_being_set_up_ = false;
+    manager->cheating_noted_ = false;
     manager->set_final_scores_received(false);
     manager->set_last_leader(nullptr);
     // The last leading team (+0x1D4) none: the original calls the setter folded at 0x005430D0 (PlayerRecord's
     // set_ready_query_owed, the same offset) on the manager.
-    prop<int>(manager, 0x1D4) = -1;
+    manager->last_leading_team_ = -1;
     manager->set_game_id(msg[0x16]);
     if (word(0) == kNetGoalAttack)
         get_run(kInitSelectedGoals);
     manager->match_ended_ = false;
     // Every player's flags and score reset.
-    for (uint8_t* p = start_roster_sweep(manager, &search, true); p; p = step_roster_sweep(manager, &search, true)) {
-        as_player(p)->clear_flags();
-        as_player(p)->clear_last_hit_time();
+    for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p;
+         p = step_roster_sweep(manager, &search, true)) {
+        p->clear_flags();
+        p->clear_last_hit_time();
         if (objects::Entity* skater = player_skater(p)) {
-            auto* score = reinterpret_cast<uint8_t*>(
+            auto* score = static_cast<objects::RiderPointKeeper*>(
                 static_cast<objects::GameEntity*>(skater)->fetch_module(kSkaterScore)); // its score component
-            if (prop<void*>(score, 0x18))
-                get_call(code_address(&modules::PointTally::get_reset), prop<void*>(score, 0x18));
+            if (score->points_held_)
+                score->points_held_->get_reset();
         }
     }
-    if (uint8_t* king = is_crown_rule_active(manager))
-        as_player(king)->give_crown(false);
+    if (PlayerRecord* king = is_crown_rule_active(manager))
+        king->give_crown(false);
     // The mode's goal script. (The original reads each type's checksum into its argument's slot, holding the type
     // info array at first: a type without one compares that - or the previous type's checksum.)
     auto checksum = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(types));
@@ -531,13 +534,13 @@ int __cdecl handle_send_game_state(net::InboundMsgCtx* context)
     net::Hub* net = net::Hub::sole();
     uint8_t* skate = get_skate();
     Hub* manager = manager_of(context);
-    uint8_t* player = find_player_by_sender(manager, context->sender_conn_);
-    if (!player || (prop<uint32_t>(player, 0x1D0) & 0x40))
+    PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
+    if (!player || (player->flag_bits_ & 0x40))
         return kContinue;
     net::NetMessageInfo desc;
     desc.make_new();
-    frame_clock::get_time();               // (not used)
-    prop<uint32_t>(player, 0x1D0) |= 0x40; // told
+    frame_clock::get_time();    // (not used)
+    player->flag_bits_ |= 0x40; // told
     GameInfo info;
     std::memset(&info, 0, sizeof(info));
     info.max_players_ = static_cast<uint8_t>(manager->get_player_limit());
@@ -575,9 +578,9 @@ int __cdecl handle_send_game_state(net::InboundMsgCtx* context)
         info.teams = get_call<uint32_t>(code_address(&goals::MatchRules::current_num_teams), get_game_mode());
         info.value18 = manager->get_goals_preference();
         info.value_1c_ = manager->get_team_graffiti_mode();
-        info.pro_option_bits_ = prop<uint8_t>(manager, 0x194);
-        info.crown_start_slot_ = prop<uint8_t>(manager, 0x68);
-        std::memcpy(info.start_info_, &prop<uint32_t>(manager, 0x48), sizeof(info.start_info_));
+        info.pro_option_bits_ = static_cast<uint8_t>(manager->script_flag_bits_);
+        info.crown_start_slot_ = static_cast<uint8_t>(manager->crown_start_);
+        std::memcpy(info.start_info_, manager->start_points_, sizeof(info.start_info_));
         info.not_lan_ = net->get_net_link_kind() != 1;
         desc.content_ = &info;
         desc.byte_count_ = sizeof(info);
@@ -593,12 +596,11 @@ int __cdecl handle_send_game_state(net::InboundMsgCtx* context)
                                       false, true);
         }
         // The scripts spawned so far (the list at +0x144): 0x49 each.
-        auto* node = prop<memory::ListNode>(manager, 0x144).next; // (the queued scripts' first node)
+        auto* node = manager->queued_scripts_.next; // (the queued scripts' first node)
         node = node->data == reinterpret_cast<void*>(-1) ? nullptr : node;
-        for (auto* item = node ? static_cast<uint8_t*>(node->data) : nullptr; item;) {
+        for (auto* item = node ? static_cast<PendingScriptItem*>(node->data) : nullptr; item;) {
             desc.make_new();
-            uint32_t spawned[4] = {prop<uint32_t>(item, 0x1C), prop<uint32_t>(item, 0x18), prop<uint32_t>(item, 0x14),
-                                   0};
+            uint32_t spawned[4] = {item->own_script_, item->entity_key_, static_cast<uint32_t>(item->list_link_), 0};
             desc.content_ = spawned;
             desc.byte_count_ = sizeof(spawned);
             desc.ident_ = kMsgSpawnedScript;
@@ -608,7 +610,7 @@ int __cdecl handle_send_game_state(net::InboundMsgCtx* context)
             node = node->next->data == reinterpret_cast<void*>(-1) ? nullptr : node->next;
             if (!node)
                 break;
-            item = static_cast<uint8_t*>(node->data);
+            item = static_cast<PendingScriptItem*>(node->data);
         }
         if (!is_own_player(player))
             get_call(code_address(&modules::Skate::send_cheats), skate, player);
@@ -626,7 +628,8 @@ int __cdecl handle_send_game_state(net::InboundMsgCtx* context)
         static uint8_t selected[0x1000];
         selected[0] = 0;
         uint8_t* out = selected + 1;
-        int count = prop<int>(goals, 0); // (its first word, read by the getter folded at 0x00469490)
+        int count = reinterpret_cast<goals::GoalManager*>(goals)
+                        ->goals_.num_; // (its first word, read by the getter folded at 0x00469490)
         for (int i = 0; i < count; ++i) {
             uint8_t* goal = get_call<uint8_t*>(code_address(&goals::GoalManager::get_objective_at), goals, i);
             if (reinterpret_cast<goals::Objective*>(goal)->is_picked()) {
@@ -642,7 +645,7 @@ int __cdecl handle_send_game_state(net::InboundMsgCtx* context)
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
         desc.group_id_ = kGroupGame;
         server->put_on_outbox(player_handle(player), &desc);
-        if (uint8_t* king = is_crown_rule_active(manager)) {
+        if (PlayerRecord* king = is_crown_rule_active(manager)) {
             desc.make_new();
             uint8_t id = static_cast<uint8_t>(get_skater_id(player_skater(king)));
             desc.content_ = &id;

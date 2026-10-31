@@ -102,11 +102,11 @@ void __cdecl level_change_task(tasks::Task<Hub>* task)
     if (frame_clock::get_time() < g_level_change_time)
         return;
     get_call(code_address(&modules::Skate::change_level), get_skate(), manager->level_); // the level changed
-    if (uint8_t* king = is_crown_rule_active(manager))
-        as_player(king)->give_crown(false);
-    for (uint8_t* p = start_roster_sweep(manager, &search, true); p; p = step_roster_sweep(manager, &search, true))
-        as_player(p)->clear_flags(); // carries no flag
-    prop<tasks::SchedulerTask*>(manager, 0xEC)->drop_out();
+    if (PlayerRecord* king = is_crown_rule_active(manager))
+        king->give_crown(false);
+    for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p; p = step_roster_sweep(manager, &search, true))
+        p->clear_flags(); // carries no flag
+    manager->level_change_job_->drop_out();
 }
 
 uint32_t g_modem_dialog_end;
@@ -117,7 +117,7 @@ void __cdecl dialup_progress_tick(tasks::Task<Hub>* task)
     Hub* manager = task_manager(task);
     net::Hub* net = net::Hub::sole();
     int state = net->get_dialup_status();
-    int& shown = prop<int>(manager, 0x1A8); // the state shown last
+    int& shown = manager->modem_state_shown_; // the state shown last
     if (state == shown && state != 8) {
         shown = state;
         return;

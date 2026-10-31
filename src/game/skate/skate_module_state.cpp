@@ -291,7 +291,7 @@ void Skate::enter_stage(uint32_t level)
 void __cdecl Skate::observe_next_skater()
 {
     online::Hub* net = net_session_slot();
-    net->spectate_player(static_cast<uint8_t*>(net->next_cam_player()));
+    net->spectate_player(net->next_cam_player());
 }
 
 // 0x005651F0

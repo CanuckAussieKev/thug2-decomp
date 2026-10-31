@@ -525,7 +525,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
         }
         gap_tally_ref()->set_gap_positions(text, gap_start_pos(gap), gap_start_dir(gap));
         int points = 0;
-        if (params->fetch_int_value(kScore, &points, 0) && entity_->unknownbc_) {
+        if (params->fetch_int_value(kScore, &points, 0) && entity_->is_local_skater_) {
             add_gap_score(points_held_, coloured, points, 0x10);
             prop<uint8_t>(entity_->fetch_module(kTrick), 0x13A8) = 1;
             gap_tally_ref()->register_gap_hit(text);

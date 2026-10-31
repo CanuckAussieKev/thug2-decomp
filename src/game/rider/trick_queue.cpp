@@ -751,7 +751,7 @@ void MoveExecutor::update_bash()
 // 0x005231D0
 void MoveExecutor::tick_frame()
 {
-    if (!reinterpret_cast<GameEntity*>(entity_)->unknownbc_) {
+    if (!reinterpret_cast<GameEntity*>(entity_)->is_local_skater_) {
         hold_off(true);
         return;
     }

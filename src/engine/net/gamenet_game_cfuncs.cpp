@@ -35,6 +35,7 @@
 #include "engine/net/score_list.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
+#include "game/rider/skater_score.h"
 
 #pragma warning(disable : 4996) // (strcpy: the original's copy of the player's name)
 
@@ -63,10 +64,7 @@ constexpr int kDropBanned = 3;
 constexpr int kDropKicked = 4;
 
 Hub* net_session_slot() { return g_online_hub; }
-tasks::PileUp* get_logic_tasks()
-{
-    return (&assets::g_main_loop_manager->logic_tasks_);
-}
+tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
 
 // The flag message (took / captured): the player's object id and the team, to every remote player through the server;
 // `local` for this machine's.
@@ -83,7 +81,7 @@ void send_flag_message(Hub* manager, uint8_t id, int player, int team, Local loc
     desc.group_id_ = kGroupGame;
     net::AppHost* server = manager->host_;
     PlayerSearch search;
-    for (uint8_t* other = start_roster_sweep(manager, &search, true); other;
+    for (PlayerRecord* other = start_roster_sweep(manager, &search, true); other;
          other = step_roster_sweep(manager, &search, true)) {
         if (is_own_player(other))
             local();
@@ -97,9 +95,8 @@ void kick_or_ban(Hub* manager, int drop, uint8_t request)
 {
     PlayerSearch search;
     int index = 0;
-    uint8_t* player = start_roster_sweep(manager, &search, true);
-    for (; player && !(prop<uint32_t>(player, 0x1D0) & kPlayerMarked);
-         player = step_roster_sweep(manager, &search, true))
+    PlayerRecord* player = start_roster_sweep(manager, &search, true);
+    for (; player && !(player->flag_bits_ & kPlayerMarked); player = step_roster_sweep(manager, &search, true))
         ++index;
     if (!player)
         return;
@@ -140,9 +137,9 @@ bool __cdecl cfunc_player_took_flag(script::Struct* params, script::Script*)
     int team = 0;
     params->fetch_int_value(kPlayer, &player, 0);
     params->fetch_int_value(kFlagTeam, &team, 0);
-    uint8_t* taker = manager->find_player_slot_by_obj(static_cast<uint16_t>(player));
+    PlayerRecord* taker = manager->find_player_slot_by_obj(static_cast<uint16_t>(player));
     if (taker)
-        send_flag_message(manager, kMsgTookFlag, player, team, [&] { as_player(taker)->note_flag_pickup(team); });
+        send_flag_message(manager, kMsgTookFlag, player, team, [&] { taker->note_flag_pickup(team); });
     return true;
 }
 
@@ -152,16 +149,16 @@ bool __cdecl cfunc_player_captured_flag(script::Struct* params, script::Script*)
     Hub* manager = net_session_slot();
     int player = 0;
     params->fetch_int_value(kPlayer, &player, 0);
-    uint8_t* capturer = manager->find_player_slot_by_obj(static_cast<uint16_t>(player));
-    if (!capturer || (prop<uint32_t>(capturer, 0x1D0) & kPlayerCaptureBlocked))
+    PlayerRecord* capturer = manager->find_player_slot_by_obj(static_cast<uint16_t>(player));
+    if (!capturer || (capturer->flag_bits_ & kPlayerCaptureBlocked))
         return true;
-    int team = as_player(capturer)->get_flag_team(); // the flag it carries
+    int team = capturer->get_flag_team(); // the flag it carries
     send_flag_message(manager, kMsgCapturedFlag, player, team, [&] {
         auto* skater = reinterpret_cast<objects::GameEntity*>(player_skater(capturer));
-        uint8_t* score = prop<uint8_t*>(skater->fetch_module(kSkaterScore), 0x18);
-        get_call(code_address(&modules::PointTally::set_grand_total), score,
-                 get_call<int>(code_address(&modules::PointTally::get_total_score), score) + 1); // its captures
-        as_player(capturer)->score_flag_capture(team);
+        modules::PointTally* score =
+            static_cast<objects::RiderPointKeeper*>(skater->fetch_module(kSkaterScore))->points_held_;
+        score->set_grand_total(score->get_total_score() + 1); // its captures
+        capturer->score_flag_capture(team);
     });
     return true;
 }
@@ -174,10 +171,9 @@ bool __cdecl cfunc_player_retrieved_flag(script::Struct* params, script::Script*
     int team = 0;
     params->fetch_int_value("player", &player, 0);
     params->fetch_int_value("flag_team", &team, 0);
-    uint8_t* retriever = manager->find_player_slot_by_obj(static_cast<uint16_t>(player));
+    PlayerRecord* retriever = manager->find_player_slot_by_obj(static_cast<uint16_t>(player));
     if (retriever) // (as a capture: message 0x72 and 0x00543A90 - not 0x73 / 0x00544110, the retrieve's)
-        send_flag_message(manager, kMsgCapturedFlag, player, team,
-                          [&] { as_player(retriever)->score_flag_capture(team); });
+        send_flag_message(manager, kMsgCapturedFlag, player, team, [&] { retriever->score_flag_capture(team); });
     return true;
 }
 
@@ -186,10 +182,10 @@ bool __cdecl cfunc_player_has_flag(script::Struct* params, script::Script*)
 {
     int player = 0;
     params->fetch_int_value("player", &player, 0);
-    uint8_t* found = net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(player));
+    PlayerRecord* found = net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(player));
     if (!found)
         return true;
-    return as_player(found)->is_carrying_flag() != 0; // (flags 0x7800: a team's flag)
+    return found->is_carrying_flag() != 0; // (flags 0x7800: a team's flag)
 }
 
 // 0x0053B8A0
@@ -207,7 +203,7 @@ bool __cdecl cfunc_get_players_team(script::Struct* params, script::Script* scri
 {
     int id = 0;
     params->fetch_int_value(kObjId, &id, 0);
-    uint8_t* player = net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id));
+    PlayerRecord* player = net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id));
     if (player)
         script->args_->put_int("team", player_team(player));
     return true;
@@ -217,16 +213,16 @@ bool __cdecl cfunc_get_players_team(script::Struct* params, script::Script* scri
 bool __cdecl cfunc_exit_surveyor_mode(script::Struct*, script::Script*)
 {
     Hub* manager = net_session_slot();
-    uint8_t* local = find_own_player_record(manager);
+    PlayerRecord* local = find_own_player_record(manager);
     if (!local)
         return false;
-    if (prop<uint32_t>(local, 0x1D0) & kPlayerSurveying) {
+    if (local->flag_bits_ & kPlayerSurveying) {
         manager->spectate_player(local);
-        delete prop<tasks::SchedulerTask*>(local, 0x1EC); // the observer task
-        prop<tasks::SchedulerTask*>(local, 0x1EC) = nullptr;
+        delete local->observer_task_; // the observer task
+        local->observer_task_ = nullptr;
         delete manager->spectator_pad_listener_;
         manager->spectator_pad_listener_ = nullptr;
-        prop<uint32_t>(local, 0x1D0) &= ~kPlayerSurveying;
+        local->flag_bits_ &= ~kPlayerSurveying;
     }
     return true;
 }
@@ -249,10 +245,10 @@ bool __cdecl cfunc_entered_network_game(script::Struct*, script::Script*)
     if (g_online_active) // (on the internet: the server's GameSpy reporting)
         start_query_reporting(false);
     tasks::PileUp* tasks = get_logic_tasks();
-    tasks->queue_job(prop<tasks::SchedulerTask*>(manager, 0xD4));
+    tasks->queue_job(manager->keyboard_job_);
     g_text_entry = true;
-    tasks->queue_job(prop<tasks::SchedulerTask*>(manager, 0xC8));
-    prop<bool>(manager, 0x46) = true;
+    tasks->queue_job(manager->score_broadcast_job_);
+    manager->show_scores_ = true;
     return true;
 }
 
@@ -288,13 +284,13 @@ bool __cdecl cfunc_enter_surveyor_mode(script::Struct*, script::Script*)
     tasks::PileUp* tasks = get_logic_tasks();
     Hub* manager = net_session_slot();
     pad_input::Hub* input = pad_input::g_input_manager;
-    uint8_t* local = find_own_player_record(manager);
-    if (is_observer(local) || (prop<uint32_t>(local, 0x1D0) & kPlayerSurveying))
+    PlayerRecord* local = find_own_player_record(manager);
+    if (is_observer(local) || (local->flag_bits_ & kPlayerSurveying))
         return false;
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->network_heap_);
     add_observer_controls(manager, local, tasks, input);
-    prop<uint32_t>(local, 0x1D0) |= kPlayerSurveying;
+    local->flag_bits_ |= kPlayerSurveying;
     memory::Hub::get_pull()->leave_heap_scope();
     return true;
 }

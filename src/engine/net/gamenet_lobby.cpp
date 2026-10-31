@@ -14,6 +14,7 @@
 #include "engine/core/task_list.h"
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_manager.h"
+#include "engine/net/buddy_man.h"
 #include "engine/net/online_identity.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
@@ -150,7 +151,7 @@ void __cdecl RoomManager::server_key_callback(void*, int key, void* buffer, void
         buffer_add_int(buffer, manager->get_hosting_role());
         break;
     case kKeyLoggedIn:
-        buffer_add_int(buffer, prop<bool>(manager->presence_service_, 0x10) ? 1 : 0); // (the presence)
+        buffer_add_int(buffer, manager->presence_service_->authenticated_ ? 1 : 0); // (the presence)
         break;
     default:
         buffer_add(buffer, "");

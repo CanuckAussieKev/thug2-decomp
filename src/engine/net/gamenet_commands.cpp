@@ -46,12 +46,6 @@ uint32_t g_net_game_start_time;
 
 namespace {
 
-constexpr uint32_t kCtfTask = 0xF8;         // tasks::SchedulerTask*: capture the flag's
-constexpr uint32_t kLevelSwitchJob = 0xEC;  // tasks::SchedulerTask*: the level change's
-constexpr uint32_t kMotdCancelled = 0xFE08; // bool
-constexpr uint32_t kMotdReceived = 0xFE09;  // bool
-constexpr uint32_t kServicesState = 0xFE0A; // uint8_t (1: available)
-
 // Messages to the server.
 constexpr uint8_t kMsgBeginMatchAsk = 0x60;
 constexpr uint8_t kMsgChangeLevelRequest = 0x62;
@@ -102,16 +96,13 @@ uint32_t g_last_flag_base_warning;
 uint32_t& last_flag_base_warning() { return g_last_flag_base_warning; }
 uint32_t& net_game_start_time() { return g_net_game_start_time; }
 
-tasks::PileUp* get_logic_tasks()
-{
-    return (&assets::g_main_loop_manager->logic_tasks_);
-}
+tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
 Hub* net_link() { return g_online_hub; }
 
 // The lobby (online's GameSpy peer side): its peer, whether it's in a group room; the lobby's state (the manager's
 // set_service_state, 0x005453E0) and services state (set_next_service_state, 0x005451B0).
-void* lobby_peer(Hub* manager) { return static_cast<RoomManager*>(manager->lobby_service_)->get_lobby_handle(); }
-bool in_group_room(Hub* manager) { return static_cast<RoomManager*>(manager->lobby_service_)->in_group_room(); }
+void* lobby_peer(Hub* manager) { return manager->lobby_service_->get_lobby_handle(); }
+bool in_group_room(Hub* manager) { return manager->lobby_service_->in_group_room(); }
 void set_lobby_state(Hub* manager, int state) { manager->set_service_state(state); }
 void set_services_state(Hub* manager, int state) { manager->set_next_service_state(state); }
 
@@ -133,14 +124,14 @@ void send_request(Hub* manager, uint8_t id, void* data, uint16_t length)
 // 0x00535DA0: StartCTFGame - capture the flag's task into the logic tasks.
 bool __cdecl cfunc_start_ctf_game(Struct*, Script*)
 {
-    get_logic_tasks()->queue_job(prop<tasks::SchedulerTask*>(net_link(), kCtfTask));
+    get_logic_tasks()->queue_job(net_link()->flag_carry_job_);
     return true;
 }
 
 // 0x00535DC0: EndCTFGame - its task removed.
 bool __cdecl cfunc_end_ctf_game(Struct*, Script*)
 {
-    prop<tasks::SchedulerTask*>(net_link(), kCtfTask)->drop_out();
+    net_link()->flag_carry_job_->drop_out();
     return true;
 }
 
@@ -202,15 +193,12 @@ bool __cdecl cfunc_is_auto_serving(Struct*, Script*)
 }
 
 // 0x00535F20: ChangeLevelPending - the level change's task is in a list.
-bool __cdecl cfunc_change_level_pending(Struct*, Script*)
-{
-    return prop<tasks::SchedulerTask*>(net_link(), kLevelSwitchJob)->is_on_task_list();
-}
+bool __cdecl cfunc_change_level_pending(Struct*, Script*) { return net_link()->level_change_job_->is_on_task_list(); }
 
 // 0x00535F30: CancelMotdDownload.
 bool __cdecl cfunc_cancel_motd_download(Struct*, Script*)
 {
-    prop<bool>(net_link(), kMotdCancelled) = true;
+    net_link()->download_done_ = true;
     return true;
 }
 
@@ -226,8 +214,8 @@ bool __cdecl cfunc_download_motd(Struct*, Script*)
 bool __cdecl cfunc_services_are_available(Struct*, Script*)
 {
     Hub* manager = net_link();
-    if (prop<uint8_t>(manager, kServicesState) == 1) {
-        if (!prop<bool>(manager, kMotdReceived)) {
+    if (manager->services_available_ == 1) {
+        if (!manager->motd_received_) {
             set_services_state(manager, 0);
             set_lobby_state(manager, 1);
         }
@@ -239,7 +227,7 @@ bool __cdecl cfunc_services_are_available(Struct*, Script*)
 }
 
 // 0x00535FA0: AlreadyGotMotd.
-bool __cdecl cfunc_already_got_motd(Struct*, Script*) { return prop<bool>(net_link(), kMotdReceived); }
+bool __cdecl cfunc_already_got_motd(Struct*, Script*) { return net_link()->motd_received_; }
 
 // 0x00535FB0: JoinServerComplete - ready to play.
 bool __cdecl cfunc_join_server_complete(Struct*, Script*) { return net_link()->cleared_to_start_; }
@@ -356,7 +344,7 @@ bool __cdecl cfunc_has_signed_disclaimer(Struct*, Script*)
 // 0x00537100: FoundServers - the server list (+0x158) has an entry.
 bool __cdecl cfunc_found_servers(Struct*, Script*)
 {
-    const memory::ListNode* node = prop<memory::ListNode>(net_link(), 0x158).next; // (the list's first node)
+    const memory::ListNode* node = net_link()->servers_.next; // (the list's first node)
     int count = 0;
     // (the head's mark tested before a null node, as in the original)
     while (reinterpret_cast<intptr_t>(node->data) != -1 && node) {

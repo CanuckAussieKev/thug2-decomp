@@ -14,6 +14,7 @@
 #include "engine/maths/random.h"
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_manager.h"
+#include "engine/net/buddy_man.h"
 #include "engine/net/gamenet_lobby.h"
 #include "engine/net/gamespy.h"
 #include "engine/net/net_conn.h"
@@ -81,11 +82,7 @@ enum ListingMessage : int { kListingAdd = 0, kListingUpdate = 1, kListingRemove 
 
 Hub* the_manager() { return g_online_hub; }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
-RoomManager* current_lobby(Hub* manager) { return static_cast<RoomManager*>(manager->lobby_service_); }
-
-memory::ListNode* foremost(Hub* manager, uint32_t offset) { return &prop<memory::ListNode>(manager, offset); }
-constexpr uint32_t kServers = 0x158;
-constexpr uint32_t kWaitingServers = 0x16C;
+RoomManager* current_lobby(Hub* manager) { return manager->lobby_service_; }
 
 void get_append(memory::ListNode* head, memory::ListNode* node)
 {
@@ -148,7 +145,7 @@ void read_server_players(HostListing* server, void* sb)
 HostListing* find_by_sb(Hub* manager, void* sb)
 {
     VaultSearch search;
-    auto* server = static_cast<HostListing*>(search.head_element(foremost(manager, kServers))); // (the first)
+    auto* server = static_cast<HostListing*>(search.head_element(&manager->servers_)); // (the first)
     while (server) {
         memory::ListNode* next = search.list_link_->next;
         memory::ListNode* node = next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
@@ -256,8 +253,8 @@ bool __cdecl cfunc_choose_server(script::Struct* params, script::Script* script)
         manager->join_phase_job_->drop_out();
         get_run(kJoinRefusedDialog, reply);
     } else {
-        if (prop<bool>(manager->presence_service_, 0x10)) // (0x005480B0: logged in to presence)
-            static_cast<RoomManager*>(manager->lobby_service_)->change_host_name(server->label_);
+        if (manager->presence_service_->authenticated_) // (0x005480B0: logged in to presence)
+            manager->lobby_service_->change_host_name(server->label_);
         const char* ip = crt::get_inet_ntoa(server->remote_ip_);
         if (!server->can_reach_)
             reply->add_component_of_type(kCookie, script::kQbvalName, maths::rnd(0x7FFF) * maths::rnd(0x7FFF));
@@ -327,7 +324,7 @@ int __cdecl on_server_reply_msg(net::InboundMsgCtx* context)
     server->port_no_ = kPort;
     for (int i = 0; i < server->num_players_; ++i)
         server->enroll_player(reply + 0x60 + 0x10 * i, 0);
-    get_append(foremost(manager, kWaitingServers), server);
+    get_append(&manager->waiting_servers_, server);
     ram_stats()->leave_heap_scope();
     return kContinue;
 }
@@ -345,8 +342,7 @@ void __cdecl listing_games_callback(void* peer, int success, const char* name, v
     (void)staging;
     (void)progress;
     if (!success) {
-        static_cast<RoomManager*>(the_manager()->lobby_service_)
-            ->set_lost_connection(); // (the lobby told the listing failed)
+        the_manager()->lobby_service_->set_lost_connection(); // (the lobby told the listing failed)
         return;
     }
     switch (message) {
@@ -379,7 +375,7 @@ void __cdecl listing_games_callback(void* peer, int success, const char* name, v
         }
         read_server_keys(server, sb);
         read_server_players(server, sb);
-        memory::ListNode* list = foremost(manager, kServers);
+        memory::ListNode* list = &manager->servers_;
         get_append(list, server);
         if (game_spy::server_has_basic_keys(sb)) {                                       // (it has its basic keys)
             int index = reinterpret_cast<gfx::AnimListHead*>(list)->tally_entries() - 1; // (the list's count)

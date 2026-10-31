@@ -57,11 +57,8 @@ constexpr int kHostProfiles[] = {0x01A7665B, 0x01A76689, 0x01A766AB, 0x01A76701,
                                  0x01A7672E, 0x01A7675B, 0x01A76773, 0x01A76794, 0x01A767B1};
 
 Hub* net_session_slot() { return g_online_hub; }
-RoomManager* current_lobby() { return static_cast<RoomManager*>(net_session_slot()->lobby_service_); }
-tasks::PileUp* get_logic_tasks()
-{
-    return (&assets::g_main_loop_manager->logic_tasks_);
-}
+RoomManager* current_lobby() { return net_session_slot()->lobby_service_; }
+tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
 void push_internet_heap()
 {
     memory::Hub* memory = memory::Hub::get_pull();
@@ -84,7 +81,7 @@ bool __cdecl cfunc_start_nat_negotiation(script::Struct* params, script::Script*
     const char* address = nullptr;
     int port = 0;
     push_internet_heap();
-    auto* lobby = static_cast<RoomManager*>(manager->lobby_service_);
+    auto* lobby = manager->lobby_service_;
     params->fetch_text(0u, &address, 0);
     params->fetch_int_value(0u, &port, 0);
     params->read_hash_value(kCookie, reinterpret_cast<uint32_t*>(&lobby->nat_cookie_), 0);
@@ -127,11 +124,11 @@ bool __cdecl cfunc_leave_lobby(script::Struct* params, script::Script*)
 {
     push_internet_heap();
     Hub* manager = net_session_slot();
-    auto* lobby = static_cast<RoomManager*>(manager->lobby_service_);
-    void* buddy = manager->presence_service_;
+    auto* lobby = manager->lobby_service_;
+    FriendsManager* buddy = manager->presence_service_;
     game_spy::peer_leave_room(lobby->remote_, kRoomGroupKind, nullptr); // the group room left
     lobby->in_group_room_ = false;
-    if (prop<bool>(buddy, 0x10) && !params->has_entry_named(kPreserveStatus)) {
+    if (buddy->authenticated_ && !params->has_entry_named(kPreserveStatus)) {
         const char* text = script::fetch_text(kHomieStatusLoggingIn);
         const char* status = script::fetch_text(kHomieStatusOnline);
         static_cast<FriendsManager*>(buddy)->change_standing(kStatusOnline, status,
@@ -156,7 +153,7 @@ bool __cdecl cfunc_set_quiet_mode(script::Struct* params, script::Script*)
     push_internet_heap();
     Hub* manager = net_session_slot();
     int quiet = params->has_bare_flag(kOff) ? 0 : 1;
-    game_spy::peer_set_quiet_mode(static_cast<RoomManager*>(manager->lobby_service_)->remote_, quiet);
+    game_spy::peer_set_quiet_mode(manager->lobby_service_->remote_, quiet);
     pop_heap();
     return true;
 }
@@ -165,12 +162,12 @@ bool __cdecl cfunc_set_quiet_mode(script::Struct* params, script::Script*)
 bool __cdecl cfunc_can_host_game(script::Struct*, script::Script*)
 {
     Hub* manager = net_session_slot();
-    RoomManager* lobby = static_cast<RoomManager*>(manager->lobby_service_);
+    RoomManager* lobby = manager->lobby_service_;
     if (!lobby->restricted_hosting_)
         return lobby->unknown30_ < lobby->unknown2c_;
-    if (!prop<bool>(manager->presence_service_, 0x10)) // (logged in to the presence)
+    if (!manager->presence_service_->authenticated_) // (logged in to the presence)
         return false;
-    int profile = prop<int>(manager->presence_service_, 4);
+    int profile = manager->presence_service_->account_;
     for (int allowed : kHostProfiles)
         if (profile == allowed)
             return true;

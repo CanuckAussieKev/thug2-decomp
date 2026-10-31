@@ -75,7 +75,7 @@ constexpr int kRoomGroupKind = 1; // (GameSpy's RoomType)
 constexpr int kMaxRank = 10;
 
 Hub* the_manager() { return g_online_hub; }
-RoomManager* the_lobby() { return static_cast<RoomManager*>(the_manager()->lobby_service_); }
+RoomManager* the_lobby() { return the_manager()->lobby_service_; }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 
 // Walking a list as the original does: a node whose data is -1 is the head (checked before null).
@@ -337,9 +337,9 @@ void RoomManager::fill_prospective_buddy_list()
         if (!player)
             break;
         int profile = player->account_;
-        if (profile != prop<int>(manager->presence_service_, 0x04) && profile > 0 && // (0x005480C0: our own profile)
-            !static_cast<FriendsManager*>(manager->presence_service_)->is_buddy(profile)) // (a buddy already)
-            add_buddy_menu_item(player);                                                  // (a prospective buddy)
+        if (profile != manager->presence_service_->account_ && profile > 0 && // (0x005480C0: our own profile)
+            !manager->presence_service_->is_buddy(profile))                   // (a buddy already)
+            add_buddy_menu_item(player);                                      // (a prospective buddy)
     }
 }
 
@@ -474,16 +474,15 @@ void __cdecl RoomManager::join_room_callback(void* peer, int success, int result
     get_run(kCreateSelectGamesMenu);
     lobby->in_group_room_ = true;
     lobby->request_player_list();
-    if (!prop<bool>(manager->presence_service_, 0x10)) // (0x005480B0: logged in to GameSpy presence)
+    if (!manager->presence_service_->authenticated_) // (0x005480B0: logged in to GameSpy presence)
         return;
     // Our status: chatting in the lobby (0x00548320).
-    static_cast<FriendsManager*>(manager->presence_service_)
-        ->change_standing(4, script::fetch_text("homie_status_chatting"), lobby->room_name_);
+    manager->presence_service_->change_standing(4, script::fetch_text("homie_status_chatting"), lobby->room_name_);
     // Our room key b_rating: the stats' rating (0x0054CA80 of the stats manager, read through its pointer).
     char key[64];
     char value[64];
     std::sprintf(key, "b_rating");
-    int* rating = &static_cast<RankingsManager*>(manager->rating_service_)->get_personal_stats()->skill_points_;
+    int* rating = &manager->rating_service_->get_personal_stats()->skill_points_;
     std::sprintf(value, "%d", *rating);
     const char* keys[1] = {key};
     const char* values[1] = {value};
@@ -514,16 +513,16 @@ bool __cdecl cfunc_lobby_disconnect(script::Struct* params, script::Script* scri
     (void)script;
     Hub* manager = the_manager();
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
-    RoomManager* lobby = static_cast<RoomManager*>(manager->lobby_service_);
+    RoomManager* lobby = manager->lobby_service_;
     while (lobby->negotiations_) { // (counted down one at a time, as the original - a negative count takes long)
         --lobby->negotiations_;
-        lobby = static_cast<RoomManager*>(manager->lobby_service_);
+        lobby = manager->lobby_service_;
     }
-    static_cast<RoomManager*>(manager->lobby_service_)->clear_lobbies();
-    static_cast<RoomManager*>(manager->lobby_service_)->clear_players();
-    static_cast<tasks::SchedulerTask*>(static_cast<RoomManager*>(manager->lobby_service_)->think_task_)->drop_out();
-    static_cast<tasks::SchedulerTask*>(static_cast<RoomManager*>(manager->lobby_service_)->nat_task_)->drop_out();
-    lobby = static_cast<RoomManager*>(manager->lobby_service_);
+    manager->lobby_service_->clear_lobbies();
+    manager->lobby_service_->clear_players();
+    static_cast<tasks::SchedulerTask*>(manager->lobby_service_->think_task_)->drop_out();
+    static_cast<tasks::SchedulerTask*>(manager->lobby_service_->nat_task_)->drop_out();
+    lobby = manager->lobby_service_;
     lobby->in_group_room_ = false;
     lobby->drop_is_expected_ = true;
     if (lobby->remote_) {
@@ -531,7 +530,7 @@ bool __cdecl cfunc_lobby_disconnect(script::Struct* params, script::Script* scri
         game_spy::peer_clear_title(lobby->remote_);
         game_spy::peer_disconnect(lobby->remote_);
     }
-    static_cast<RoomManager*>(manager->lobby_service_)->hangup();
+    manager->lobby_service_->hangup();
     ram_stats()->leave_heap_scope();
     return true;
 }
@@ -543,7 +542,7 @@ bool __cdecl cfunc_fill_player_list(script::Struct* params, script::Script* scri
     (void)params;
     (void)script;
     Hub* manager = Hub::fabricate(false);
-    static_cast<RoomManager*>(manager->lobby_service_)->fill_player_list();
+    manager->lobby_service_->fill_player_list();
     release_manager();
     return true;
 }
@@ -564,7 +563,7 @@ bool __cdecl cfunc_rejoin_lobby(script::Struct* params, script::Script* script)
     (void)script;
     Hub* manager = the_manager();
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
-    RoomManager* lobby = static_cast<RoomManager*>(manager->lobby_service_);
+    RoomManager* lobby = manager->lobby_service_;
     if (lobby->group_id_)
         game_spy::peer_join_group_room(lobby->remote_, lobby->group_id_, &RoomManager::join_room_callback, lobby, 0);
     ram_stats()->leave_heap_scope();
@@ -580,7 +579,7 @@ bool __cdecl cfunc_choose_lobby(script::Struct* params, script::Script* script)
     int index = 0;
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
     params->fetch_int_value(kIndex, &index, 0);
-    RoomManager* lobby = static_cast<RoomManager*>(manager->lobby_service_);
+    RoomManager* lobby = manager->lobby_service_;
     LobbyRoom* chosen = lobby->get_lobby(index);
     lobby->group_id_ = chosen->group_id_;
     lobby->unknown30_ = chosen->num_players_;
@@ -610,19 +609,18 @@ bool __cdecl cfunc_lobby_connect(script::Struct* params, script::Script* script)
     BOOL ping_rooms[3] = {FALSE, TRUE, FALSE};
     BOOL cross_ping_rooms[3] = {FALSE, FALSE, FALSE};
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
-    RoomManager* lobby = static_cast<RoomManager*>(manager->lobby_service_);
+    RoomManager* lobby = manager->lobby_service_;
     lobby->init_peer();
     const char* key = net::game_key(); // (given to the SDK: nothing written into data)
     const char* name = net::get_game_name();
-    game_spy::peer_set_title(static_cast<RoomManager*>(manager->lobby_service_)->remote_, name, key, name, key, 6, 15,
-                             1, ping_rooms, cross_ping_rooms);
+    game_spy::peer_set_title(manager->lobby_service_->remote_, name, key, name, key, 6, 15, 1, ping_rooms,
+                             cross_ping_rooms);
     HANDLE thread = CreateThread(
         nullptr, 0x8000, reinterpret_cast<LPTHREAD_START_ROUTINE>(code_address(online::RoomManager::connect_thread)),
         manager->lobby_service_, CREATE_SUSPENDED, &thread_id);
     manager->set_room_id(thread_id);
     ResumeThread(thread);
-    logic->queue_job(
-        static_cast<tasks::SchedulerTask*>(static_cast<RoomManager*>(manager->lobby_service_)->think_task_));
+    logic->queue_job(static_cast<tasks::SchedulerTask*>(manager->lobby_service_->think_task_));
     ram_stats()->leave_heap_scope();
     return true;
 }

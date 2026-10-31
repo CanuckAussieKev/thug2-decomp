@@ -10,17 +10,18 @@
 #include "engine/core/mem.h"
 #include "engine/core/task_list.h"
 #include "engine/net/gamenet_manager.h"
+#include "engine/net/player_info.h"
 #include "engine/pad_input/input_hub.h"
 
 namespace online::detail {
 
 // `tasks`: the logic tasks; `input`: the input manager (0x00696D40), both read by the callers before anything else.
 // The handler's priority: -1000 (EnterSurveyorMode, NewPlayer), -1 (enter_observe_mode).
-inline void add_observer_controls(Hub* manager, uint8_t* player, tasks::PileUp* tasks, pad_input::Hub* input,
+inline void add_observer_controls(Hub* manager, PlayerRecord* player, tasks::PileUp* tasks, pad_input::Hub* input,
                                   int handler_priority = -1000)
 {
-    auto* task = new tasks::Task<uint8_t>(&Hub::observer_task, player, 0);
-    *reinterpret_cast<tasks::SchedulerTask**>(player + 0x1EC) = task;
+    auto* task = new tasks::Task<PlayerRecord>(&Hub::observer_task, player, 0);
+    player->observer_task_ = task;
     tasks->queue_job(task);
     auto* handler = new pad_input::Responder<Hub>(&Hub::observer_input, manager, handler_priority, 0);
     manager->spectator_pad_listener_ = handler;

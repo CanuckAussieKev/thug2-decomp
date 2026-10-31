@@ -383,7 +383,7 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
         return;
     feeler.change_strand(&from, &to);
     feeler.set_excluded(0x10, 0);
-    if (!feeler.get_hit_shape(true, false) || !skater->unknownbc_)
+    if (!feeler.get_hit_shape(true, false) || !skater->is_local_skater_)
         return;
     // Another wall: turned round by what's left of a half turn, and halved.
     double around = static_cast<double>(kPi) - turn;

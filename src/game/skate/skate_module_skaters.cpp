@@ -188,7 +188,7 @@ objects::Rider* Skate::get_home_rider()
 {
     for (uint32_t i = 0; i < static_cast<uint32_t>(count_riders()); ++i) {
         auto* skater = static_cast<objects::Rider*>(skater_node(i)->data); // (no check: as the original)
-        if (skater->unknownbc_)
+        if (skater->is_local_skater_)
             return skater;
     }
     return nullptr;
@@ -214,13 +214,13 @@ void Skate::drop_skater_from_roster(objects::Rider* skater)
         board->flag_as_dead();
         entity_hub_handle()->flush_dead_objects();
     }
-    if (!skater->unknownbc_) {
+    if (!skater->is_local_skater_) {
         script::Struct* params = spawn_param_table();
         params->put_name_key(kSkaterId, skater->ident_);
         script::launch_script(kRemoveClientSkater, params, nullptr, false, nullptr);
         delete_structure(params);
     }
-    if (skater->unknownbc_ && skater->view_slot_ == 0) {
+    if (skater->is_local_skater_ && skater->view_slot_ == 0) {
         // The local player's created tricks and stat goals kept for the skater that replaces it.
         if (cat_info()) {
             delete_structure(cat_info());
@@ -294,13 +294,13 @@ objects::Rider* Skate::spawn_skater_entity(objects::RiderIdentity* profile, bool
         script::launch_script(kModelApplyCustomLogos, params, nullptr, false, nullptr);
         delete_structure(params);
     }
-    if (!skater->unknownbc_)
+    if (!skater->is_local_skater_)
         script::launch_script(kClientSkaterInit, nullptr, skater, false, nullptr);
     auto* node = skater->get_skater_link();
     node->priority = static_cast<int>(skater->ident_);
     reinterpret_cast<lists::Foremost*>(&riders_)->insert_by_unique_order(node);
     bind_controllers();
-    if (skater->unknownbc_ && skater->view_slot_ == 0) {
+    if (skater->is_local_skater_ && skater->view_slot_ == 0) {
         if (cat_info()) {
             debug::printf("CAT: Restoring Created Tricks\n"); // "CAT: Restoring Created Tricks\n"
             skater->load_cat_info(cat_info());
@@ -352,7 +352,7 @@ void Skate::set_skater_shadow(objects::Rider* skater)
     memory::enter_heap_scope(rider_heap_at(skater->get_skater_number()));
     if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)))
         type = 2;
-    if (!skater->unknownbc_)
+    if (!skater->is_local_skater_)
         type = 2;
     script::Struct* params = spawn_param_table();
     params->push_float(kBlobSizeFactor, 1.0f);
@@ -369,7 +369,7 @@ void Skate::bind_controllers()
 {
     for (uint32_t i = 0; i < 8; ++i) {
         objects::Rider* skater = get_skater_at(i);
-        if (!skater || !skater->unknownbc_)
+        if (!skater || !skater->is_local_skater_)
             continue;
         int number = skater->get_skater_number();
         auto* input = pad_input::g_input_manager;
@@ -456,7 +456,7 @@ void Skate::reset_skaters(uint32_t node, uint32_t walking)
 {
     for (uint32_t i = 0; i < static_cast<uint32_t>(count_riders()); ++i) {
         objects::Rider* skater = get_skater_at(i); // (no check: as the original)
-        if (skater->unknownbc_) {
+        if (skater->is_local_skater_) {
             uint32_t at = node ? node : warp_to_restart(skater->ident_);
             if (at)
                 skater->jump_to_spawn(at, walking);
@@ -482,7 +482,7 @@ void Skate::tidy_up()
         if (!skater)
             continue;
         skater->object_flags_ |= 2; // (kept through the flush below)
-        if (skater->unknownbc_) {
+        if (skater->is_local_skater_) {
             skater->relaunch(0, 1);
             movies_->clear_movies();
         }
@@ -709,7 +709,7 @@ bool Skate::all_skaters_idle()
         if (end_run->run_done())
             continue;
         idle = false;
-        if (skater->unknownbc_)
+        if (skater->is_local_skater_)
             end_run->end_run(false);
     }
     return idle;
@@ -913,7 +913,7 @@ void Skate::run_frame_logic()
     uint8_t* device = nullptr;
     for (int i = 0; i < 8; ++i) {
         auto* skater = static_cast<objects::Rider*>(get_rider_at(i));
-        if (!skater || !skater->unknownbc_)
+        if (!skater || !skater->is_local_skater_)
             continue;
         device = *reinterpret_cast<uint8_t**>(skater->unknown264_ + 0x490);
         if (reinterpret_cast<sio::InputPort*>(*reinterpret_cast<void**>(device + 0x1C))->is_attached())

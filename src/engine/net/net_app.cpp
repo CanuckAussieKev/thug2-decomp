@@ -2,6 +2,7 @@
 // connection list and the app's tasks.
 
 #include "engine/net/net_app.h"
+#include "engine/net/net_lists.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -459,9 +460,9 @@ void AppHost::transmit(bool send_in_frame)
 // 0x00458D50
 bool AppHost::is_conn_blocked(Conn* conn)
 {
-    lists::Hunt<uint8_t> search;
-    for (uint8_t* banned = search.head_element(&banned_); banned; banned = search.following_item()) {
-        if (*reinterpret_cast<uint32_t*>(banned + 0x14) == conn->remote_ip_)
+    lists::Hunt<BlockedConnEntry> search;
+    for (BlockedConnEntry* banned = search.head_element(&banned_); banned; banned = search.following_item()) {
+        if (banned->remote_ip_ == conn->remote_ip_)
             return true;
     }
     return false;

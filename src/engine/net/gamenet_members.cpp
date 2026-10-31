@@ -56,16 +56,8 @@ using namespace detail;
 namespace {
 
 constexpr uint32_t kFlagsServer = 1;   // flag_bits_ bit 0
-constexpr uint32_t kFlagsClient = 2;   // bit 1
 constexpr uint32_t kFlagsInternet = 4; // bit 2
 constexpr uint32_t kFlagsLan = 8;      // bit 3
-
-constexpr uint32_t kServerTask2 = 0xE8;   // tasks::SchedulerTask* (removed with the server)
-constexpr uint32_t kInitialScores = 0x48; // int[8]: the starting points
-constexpr uint32_t kCrownStart = 0x68;    // int: the crown's
-constexpr uint32_t kShowMetrics = 0x45;   // bool
-constexpr uint32_t kShowScores = 0x46;    // bool
-constexpr uint32_t kMetricsTask = 0xC4;   // tasks::SchedulerTask*
 
 // Checksums.
 constexpr uint32_t kKillTeamFlags = 0xEBB3642E;   // Kill_Team_Flags
@@ -126,10 +118,7 @@ bool mode_is_true(uint32_t property)
     return get_call<bool>(code_address(&goals::MatchRules::is_true), get_game_mode(), property);
 }
 
-tasks::PileUp* get_logic_tasks()
-{
-    return (&assets::g_main_loop_manager->logic_tasks_);
-}
+tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
 
 // The Function InSplitScreenGame (0x005A1180), called with no parameters.
 bool in_split_screen_game() { return commands::cfunc_in_split_screen_game(nullptr, nullptr) != 0; }
@@ -260,12 +249,12 @@ void Hub::destroy_server()
     net::Hub* net = net::Hub::sole();
     if (host_) {
         if (!host_->is_host_local() && (flag_bits_ & kFlagsInternet)) {
-            static_cast<RoomManager*>(lobby_service_)->stop_hosting(); // the lobby's reporting stopped
-            game_spy::nat_free_negotiations();                         // (GameSpy)
+            lobby_service_->stop_hosting();    // the lobby's reporting stopped
+            game_spy::nat_free_negotiations(); // (GameSpy)
         }
         net->release_app(host_);
         host_admit_job_->drop_out();
-        prop<tasks::SchedulerTask*>(this, kServerTask2)->drop_out();
+        start_game_job_->drop_out();
         host_ = nullptr;
     }
     flag_bits_ &= ~kFlagsServer;
@@ -367,15 +356,14 @@ int Hub::get_choice_integer(uint32_t list, uint32_t choice, uint32_t field)
 // 0x005359F0
 void Hub::choose_start_points()
 {
-    int* points = &prop<int>(this, kInitialScores);
+    int* points = reinterpret_cast<int*>(start_points_);
     int offset = maths::rnd(256);
     int count;
     if (in_net_game()) {
         count = 8;
     } else {
         count = mode_max_players();
-        if (prop<uint32_t>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor), 0x40) != kOff &&
-            !mode_is_true(kIsHorse)) {
+        if (park_editing::g_park_editor->cur_phase_ != kOff && !mode_is_true(kIsHorse)) {
             count = 2;
             offset = 0;
         }
@@ -395,26 +383,25 @@ void Hub::choose_start_points()
     }
     for (int i = 0; i < count; ++i)
         points[i] += offset;
-    prop<int>(this, kCrownStart) = maths::rnd(10);
+    crown_start_ = maths::rnd(10);
 }
 
 // 0x00535BC0
 void Hub::toggle_net_metrics()
 {
     tasks::PileUp* tasks = get_logic_tasks();
-    uint8_t& show = prop<uint8_t>(this, kShowMetrics); // (a byte flipped by its bit 0, as in the original)
-    show ^= 1;
-    if (show)
-        tasks->queue_job(prop<tasks::SchedulerTask*>(this, kMetricsTask));
+    show_metrics_ = !show_metrics_;
+    if (show_metrics_)
+        tasks->queue_job(metrics_job_);
     else
-        prop<tasks::SchedulerTask*>(this, kMetricsTask)->drop_out();
+        metrics_job_->drop_out();
 }
 
 // 0x00535BF0
 void Hub::toggle_scores()
 {
     accumulates_score(); // (asked and not used)
-    prop<uint8_t>(this, kShowScores) ^= 1;
+    show_scores_ = !show_scores_;
 }
 
 // 0x00535D00
@@ -459,32 +446,34 @@ void Hub::destroy_body()
         g_query_reporting = false;
     }
     // The lobby, the vault, the presence and the stats: each one's destructor, then freed.
-    if (auto* lobby = static_cast<RoomManager*>(lobby_service_)) {
+    if (auto* lobby = lobby_service_) {
         lobby->destroy_body();
         memory::Hub::get_pull()->dealloc(lobby);
     }
-    if (auto* vault = static_cast<VaultMan*>(vault_man_)) {
+    if (auto* vault = vault_man_) {
         vault->destroy_body();
         memory::Hub::get_pull()->dealloc(vault);
     }
-    if (auto* buddies = static_cast<FriendsManager*>(presence_service_)) {
+    if (auto* buddies = presence_service_) {
         buddies->destroy_body();
         memory::Hub::get_pull()->dealloc(buddies);
     }
-    if (auto* stats = static_cast<RankingsManager*>(rating_service_)) {
+    if (auto* stats = rating_service_) {
         stats->destroy_body();
         memory::Hub::get_pull()->dealloc(stats);
     }
     // The tasks, in the original's order.
-    for (uint32_t offset : {0xD0u, 0xCCu, 0xC0u, 0xC4u, 0xD4u, 0xE0u, 0xE4u, 0xE8u, 0xECu, 0xF0u})
-        delete prop<tasks::SchedulerTask*>(this, offset);
+    for (tasks::SchedulerTask* job :
+         {guest_admit_job_, host_admit_job_, connection_job_, metrics_job_, keyboard_job_, service_job_,
+          join_phase_job_, start_game_job_, level_change_job_, server_list_job_})
+        delete job;
     // The lists: the players' nodes unlinked, then each head's destructor.
-    unlink_all_nodes(&prop<memory::ListNode>(this, 0x11C));
-    prop<memory::ListNode>(this, 0x16C).uncouple();
-    prop<memory::ListNode>(this, 0x158).uncouple();
-    prop<memory::ListNode>(this, 0x144).uncouple();
-    prop<memory::ListNode>(this, 0x130).uncouple();
-    prop<memory::ListNode>(this, 0x11C).uncouple();
+    unlink_all_nodes(&players_);
+    waiting_servers_.uncouple();
+    servers_.uncouple();
+    queued_scripts_.uncouple();
+    joiners_.uncouple();
+    players_.uncouple();
     get_taunt_settings()->~Preferences();
     get_online_settings()->~Preferences();
 }

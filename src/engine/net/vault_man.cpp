@@ -50,15 +50,12 @@ constexpr uint32_t kProgressScript = 0x4B85EE64;
 constexpr uint32_t kErrorScript = 0xCF040665;
 
 Hub* net_session_slot() { return g_online_hub; }
-VaultMan* get_vault() { return reinterpret_cast<VaultMan*>(net_session_slot()->vault_man_); }
+VaultMan* get_vault() { return net_session_slot()->vault_man_; }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 void push_top_down() { ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_); }
 void push_bottom_up() { ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_); }
 void pop_heap() { ram_stats()->leave_heap_scope(); }
-tasks::PileUp* get_logic_tasks()
-{
-    return (&assets::g_main_loop_manager->logic_tasks_);
-}
+tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
 
 uint32_t get_checksums(const char* name) { return checksums::hash_from_text(name); }
 void get_run(const char* script, script::Struct* params = nullptr)
@@ -555,9 +552,9 @@ unsigned long __stdcall VaultMan::download_thread(void* url)
     vault->octets_ = buffer;
     int request = ghttp_get_ex(static_cast<const char*>(url), nullptr, buffer, size, nullptr, 0, 0,
                                reinterpret_cast<const void*>(&on_progress), vault->callback_, vault);
-    reinterpret_cast<VaultMan*>(manager->vault_man_)->req_ = request;
+    manager->vault_man_->req_ = request;
     pop_heap();
-    get_release(reinterpret_cast<VaultMan*>(manager->vault_man_)->semaphore_);
+    get_release(manager->vault_man_->semaphore_);
     game_crt_free(url);
     return 0;
 }
@@ -767,8 +764,8 @@ bool __cdecl cancel_file_transfer(script::Struct*, script::Script*)
 bool __cdecl download_directory_list(script::Struct* params, script::Script*)
 {
     Hub* manager = net_session_slot();
-    VaultMan* vault = reinterpret_cast<VaultMan*>(manager->vault_man_);
-    FriendsManager* buddies = static_cast<FriendsManager*>(manager->presence_service_);
+    VaultMan* vault = manager->vault_man_;
+    FriendsManager* buddies = manager->presence_service_;
     params->read_hash_value(0u, &vault->kind_tag_, 1);
     if (const char* folder = type_folder(vault->kind_tag_)) // (an unknown type keeps the folder)
         std::snprintf(vault->folder_, sizeof(vault->folder_), "%s", folder);

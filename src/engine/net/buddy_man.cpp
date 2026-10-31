@@ -83,10 +83,7 @@ memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 void push_top_down() { ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_); }
 void push_bottom_up() { ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_); }
 void pop_heap() { ram_stats()->leave_heap_scope(); }
-tasks::PileUp* get_logic_tasks()
-{
-    return (&assets::g_main_loop_manager->logic_tasks_);
-}
+tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
 
 uint32_t get_checksums(const char* name) { return checksums::hash_from_text(name); }
 void get_run(const char* script, script::Struct* params = nullptr)
@@ -423,9 +420,9 @@ void FriendsManager::fill_prospective_buddy_list()
     Hub* manager = net_session_slot();
     detail::PlayerSearch search;
     push_top_down();
-    for (uint8_t* player = detail::start_roster_sweep(manager, &search, true); player;
+    for (PlayerRecord* player = detail::start_roster_sweep(manager, &search, true); player;
          player = detail::step_roster_sweep(manager, &search, true)) {
-        int profile = detail::prop<int>(player, 0x28);
+        int profile = player->profile_id_;
         if (detail::is_own_player(player) || profile == 0 || is_buddy(profile))
             continue;
         const char* name = detail::player_name(player);
@@ -752,7 +749,7 @@ bool __cdecl join_buddy(script::Struct* params, script::Script*)
         manager->set_join_mode(0);
         text = script::fetch_text("homie_status_playing");
     }
-    FriendsManager* man = static_cast<FriendsManager*>(manager->presence_service_);
+    FriendsManager* man = manager->presence_service_;
     push_top_down();
     gp_set_status(man, kStatusPlaying, text, status);
     pop_heap();
@@ -770,7 +767,7 @@ bool __cdecl join_buddy(script::Struct* params, script::Script*)
 }
 
 namespace {
-FriendsManager* get_buddies() { return static_cast<FriendsManager*>(net_session_slot()->presence_service_); }
+FriendsManager* get_buddies() { return net_session_slot()->presence_service_; }
 } // namespace
 
 // 0x00548E40: AddBuddy profile nick

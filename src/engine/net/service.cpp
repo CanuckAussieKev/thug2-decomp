@@ -37,25 +37,6 @@ namespace net {
 
 namespace {
 
-// The manager's fields this task uses (the network manager isn't decompiled yet: reached by offset).
-constexpr uint32_t kLobbyList = 0x10;        // an object: the lobby (server) list
-constexpr uint32_t kServiceTaskField = 0xE0; // the task running this function
-constexpr uint32_t kState = 0x1B8;
-constexpr uint32_t kNextState = 0x1BC;     // state 0 moves on to it at the wake time
-constexpr uint32_t kWakeTime = 0x1C0;      // frame_clock::GetTime() milliseconds; 0 = none
-constexpr uint32_t kMotdText = 0xFDF4;     // char*: the downloaded message of the day
-constexpr uint32_t kRequest = 0xFE00;      // the current ghttp request
-constexpr uint32_t kRequestStart = 0xFE04; // when it was started
-constexpr uint32_t kNewsFinished = 0xFE08; // bool: the news download has finished
-constexpr uint32_t kNewsOk = 0xFE09;       // bool (PartyMod sets it; meaning not known beyond that)
-constexpr uint32_t kAvailable = 0xFE0A;    // bool: the GameSpy services are available
-
-template <typename T>
-T& prop(uint8_t* manager, uint32_t offset)
-{
-    return *reinterpret_cast<T*>(manager + offset);
-}
-
 // PartyMod's MOTD fix (its patchMotdFix): the news download's time limit (original: 15000 ms)
 // and the script run when it ends, with the "news ok" flag set (original: 0xD4E84C8D with the flag cleared).
 constexpr uint32_t kNewsTimeout = 500;
@@ -70,10 +51,10 @@ constexpr uint32_t kText = 0x4942CF80; // "text"
 const auto kNewsThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(code_address(online::news_thread));
 const auto kMotdThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(code_address(online::motd_thread));
 
-void change_phase(uint8_t* manager, int state) { reinterpret_cast<online::Hub*>(manager)->set_service_state(state); }
+void change_phase(online::Hub* manager, int state) { manager->set_service_state(state); }
 // Take this task out of the task list (tasks::SchedulerTask::drop_out).
-void remove_service_task(uint8_t* manager) { prop<tasks::SchedulerTask*>(manager, kServiceTaskField)->drop_out(); }
-online::RoomManager* lobby_list(uint8_t* manager) { return prop<online::RoomManager*>(manager, kLobbyList); }
+void remove_service_task(online::Hub* manager) { manager->service_job_->drop_out(); }
+online::RoomManager* lobby_list(online::Hub* manager) { return manager->lobby_service_; }
 
 void push_internet_heap()
 {
@@ -113,7 +94,7 @@ void ghttp_cancel_request(int request) { game_spy::http_cancel_request(request);
 void ghttp_cleanup() { game_spy::http_cleanup(); }
 
 // A download thread, started suspended so that the manager knows its id first. (The handle is never closed.)
-void start_thread(uint8_t* manager, LPTHREAD_START_ROUTINE thread)
+void start_thread(online::Hub* manager, LPTHREAD_START_ROUTINE thread)
 {
     DWORD id;
     HANDLE handle = CreateThread(nullptr, 0x8000, thread, manager, CREATE_SUSPENDED, &id);
@@ -131,9 +112,9 @@ void show_no_servers()
 }
 
 // Done: state 2, and this task stops.
-void get_finish(uint8_t* manager)
+void get_finish(online::Hub* manager)
 {
-    prop<int>(manager, kState) = 2;
+    manager->service_state_ = 2;
     remove_service_task(manager);
 }
 
@@ -142,40 +123,40 @@ void get_finish(uint8_t* manager)
 // 0x00545880
 void __cdecl service_task(tasks::Task<online::Hub>* task)
 {
-    auto* manager = reinterpret_cast<uint8_t*>(task->content_);
-    switch (prop<int>(manager, kState)) {
+    auto* manager = static_cast<online::Hub*>(task->content_);
+    switch (manager->service_state_) {
     case 0: // waiting
-        if (prop<uint32_t>(manager, kWakeTime) != 0 && frame_clock::get_time() > prop<uint32_t>(manager, kWakeTime))
-            change_phase(manager, prop<int>(manager, kNextState));
+        if (manager->service_wake_at_ != 0 && frame_clock::get_time() > manager->service_wake_at_)
+            change_phase(manager, manager->next_service_state_);
         break;
     case 3: // start: a script, then the availability check a moment later
         push_internet_heap();
         launch_script(0x15EC44CF);
-        prop<int>(manager, kState) = 0;
-        prop<int>(manager, kNextState) = 4;
-        prop<uint32_t>(manager, kWakeTime) = 100;
+        manager->service_state_ = 0;
+        manager->next_service_state_ = 4;
+        manager->service_wake_at_ = 100;
         pop_heap();
         break;
     case 4:
-        prop<int>(manager, kState) = 5;
+        manager->service_state_ = 5;
         gsi_start_available_check("mototrax");
         break;
     case 5: // the availability check's answer
         push_internet_heap();
         switch (gsi_available_check_think()) {
         case 1: // available
-            prop<bool>(manager, kAvailable) = true;
+            manager->services_available_ = true;
             launch_script(0xA8D71FCC);
             break;
         case 2: // unavailable
             launch_script(0xAA290EB3);
             get_finish(manager);
-            prop<uint32_t>(manager, kWakeTime) = 0;
+            manager->service_wake_at_ = 0;
             break;
         case 3: // temporarily unavailable
             launch_script(0xCB856AF7);
             get_finish(manager);
-            prop<uint32_t>(manager, kWakeTime) = 0;
+            manager->service_wake_at_ = 0;
             break;
         default: // still waiting
             break;
@@ -196,19 +177,18 @@ void __cdecl service_task(tasks::Task<online::Hub>* task)
             spawn_script(0xC072AC4E, params);
             delete_params(params);
         }
-        prop<int>(manager, kState) = 0;
-        prop<uint32_t>(manager, kWakeTime) = 0;
-        prop<bool>(manager, kNewsFinished) = false;
+        manager->service_state_ = 0;
+        manager->service_wake_at_ = 0;
+        manager->download_done_ = false;
         start_thread(manager, kNewsThread); // (it sets state 7)
         break;
     }
     case 7: // the news download
         push_internet_heap();
         // (PartyMod's time limit; the original's was 15000 ms)
-        if (frame_clock::get_time() - prop<uint32_t>(manager, kRequestStart) > kNewsTimeout ||
-            prop<bool>(manager, kNewsFinished)) {
-            ghttp_cancel_request(prop<int>(manager, kRequest));
-            prop<int>(manager, kState) = 0xB;
+        if (frame_clock::get_time() - manager->request_started_at_ > kNewsTimeout || manager->download_done_) {
+            ghttp_cancel_request(manager->request_);
+            manager->service_state_ = 0xB;
         } else {
             ghttp_think();
         }
@@ -221,9 +201,9 @@ void __cdecl service_task(tasks::Task<online::Hub>* task)
         break;
     case 0xC: // the message of the day's download
         push_internet_heap();
-        if (frame_clock::get_time() - prop<uint32_t>(manager, kRequestStart) > kMotdTimeout) {
-            ghttp_cancel_request(prop<int>(manager, kRequest));
-            prop<int>(manager, kState) = 9;
+        if (frame_clock::get_time() - manager->request_started_at_ > kMotdTimeout) {
+            ghttp_cancel_request(manager->request_);
+            manager->service_state_ = 9;
         } else {
             ghttp_think();
         }
@@ -232,20 +212,20 @@ void __cdecl service_task(tasks::Task<online::Hub>* task)
     case 9: { // show the message of the day
         ghttp_cleanup();
         script::Struct* params = new_params();
-        params->append_word(kText, prop<const char*>(manager, kMotdText));
+        params->append_word(kText, reinterpret_cast<const char*>(manager->motd_text_));
         launch_script(0xF17B894C, params);
         delete_params(params);
-        prop<int>(manager, kState) = 0;
-        prop<uint32_t>(manager, kWakeTime) = 0;
+        manager->service_state_ = 0;
+        manager->service_wake_at_ = 0;
         break;
     }
     case 0xB: // the news download has ended
         ghttp_cleanup();
         // Originally from PartyMod Fixes: the flag set and script 0x588ED87C (original: flag cleared, script 0xD4E84C8D)
-        prop<bool>(manager, kNewsOk) = kNewsOkValue;
+        manager->motd_received_ = kNewsOkValue;
         launch_script(kNewsDoneScript);
         get_finish(manager);
-        prop<uint32_t>(manager, kWakeTime) = 0;
+        manager->service_wake_at_ = 0;
         break;
     case 0xD:
         launch_script(0xF68F8A86);
@@ -253,15 +233,15 @@ void __cdecl service_task(tasks::Task<online::Hub>* task)
         lobby_list(manager)->start_listing_games();
         break;
     case 0xE:
-        prop<int>(manager, kState) = 0;
-        prop<uint32_t>(manager, kWakeTime) = 0;
+        manager->service_state_ = 0;
+        manager->service_wake_at_ = 0;
         break;
     case 0xF: // the lobby list: empty or not
         if (!lobby_list(manager)->get_lobby(0)) {
             show_no_servers();
             get_finish(manager);
         } else {
-            prop<int>(manager, kState) = 0x11;
+            manager->service_state_ = 0x11;
         }
         freeze_stream(0);
         break;

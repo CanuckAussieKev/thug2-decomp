@@ -65,9 +65,9 @@ const char* stats_file(int index)
 // 0x0054DCB0
 bool __cdecl retrieve_top_stats(script::Struct* params, script::Script*)
 {
-    uint8_t* manager = reinterpret_cast<uint8_t*>(online::g_online_hub);
-    uint8_t* stats = *reinterpret_cast<uint8_t**>(manager + 0x1C);
-    int& current = *reinterpret_cast<int*>(stats + 0x90);
+    online::Hub* manager = online::g_online_hub;
+    online::RankingsManager* stats = manager->rating_service_;
+    int& current = stats->top_file_;
     int index = 0;
     if (params->fetch_int_value(0x7360C9EF, &index, 0))
         current = index;
@@ -85,9 +85,9 @@ bool __cdecl retrieve_top_stats(script::Struct* params, script::Script*)
     request.callback = reinterpret_cast<uint32_t>(code_address(online::RankingsManager::on_top_stats));
     request.unknown10c_ = current == 4 ? 0x7346E8E7 : 0xD932B07B;
     // (the vault, +0x14; the request is its DownloadRequest - the same 0x118 bytes)
-    static_cast<online::VaultMan*>(*reinterpret_cast<void**>(manager + 0x14))
-        ->download(reinterpret_cast<const online::DownloadRequest*>(&request));
-    stats[0x1FC] = 0;
+    manager->vault_man_->download(reinterpret_cast<const online::DownloadRequest*>(&request));
+    // (the original's +0x1FC: need_top_stats_ - this cleared a byte past it, our layout lacking the lists' table words)
+    stats->need_top_stats_ = false;
     return true;
 }
 

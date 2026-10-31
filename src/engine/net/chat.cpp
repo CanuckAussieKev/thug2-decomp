@@ -15,6 +15,7 @@
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
 #include "engine/net/net_dispatcher.h"
+#include "engine/net/player_info.h"
 #include "engine/net/thugpro_peer.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/tracker.h"
@@ -55,19 +56,11 @@ static_assert(sizeof(ChatPacket) == 0x94);
 using ::net::NetMessageInfo;
 void init_msg_desc(NetMessageInfo* desc) { desc->make_new(); }
 
-// The local player's info (online::PlayerRecord, declared by the skate module's header): name at +0x38, flags at
-// +0x1D0, team at [+0x14]+0x14.
-PlayerRecord* find_own_player_record(Hub* manager) { return static_cast<PlayerRecord*>(manager->get_own_player()); }
-const char* player_name(PlayerRecord* player) { return reinterpret_cast<const char*>(player) + 0x38; }
-bool is_observer(PlayerRecord* player)
-{
-    return (*reinterpret_cast<uint32_t*>(reinterpret_cast<char*>(player) + 0x1D0) >> 2) & 1;
-}
-uint8_t team_color(PlayerRecord* player)
-{
-    auto* team = *reinterpret_cast<char**>(reinterpret_cast<char*>(player) + 0x14);
-    return static_cast<uint8_t>(*reinterpret_cast<uint32_t*>(team + 0x14));
-}
+// The local player (online::PlayerRecord): its name, whether it observes, its colour (its skater's object id).
+PlayerRecord* find_own_player_record(Hub* manager) { return manager->get_own_player(); }
+const char* player_name(PlayerRecord* player) { return player->label_; }
+bool is_observer(PlayerRecord* player) { return (player->flag_bits_ >> 2) & 1; }
+uint8_t team_color(PlayerRecord* player) { return static_cast<uint8_t>(player->skater_->ident_); }
 
 // The manager's client connection (+0x08) queues a message for the server.
 void send_to_server(Hub* manager, NetMessageInfo* desc)

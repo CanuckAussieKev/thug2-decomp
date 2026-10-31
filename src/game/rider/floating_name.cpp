@@ -9,6 +9,7 @@
 #include "engine/core/mem.h"
 #include "frontend/screen_element_manager.h"
 #include "engine/net/gamenet_manager.h"
+#include "engine/net/player_info.h"
 #include "engine/objects/smtptr.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
@@ -40,11 +41,11 @@ constexpr float kOtherHeight = 120.0f; // above the others'
 online::Hub* net_session_slot() { return online::g_online_hub; }
 bool in_net_game() { return net_session_slot()->in_net_game(); }
 bool show_names() { return net_session_slot()->wants_name_tags(); }
-uint8_t* find_player_slot_by_obj(uint32_t id)
+online::PlayerRecord* find_player_slot_by_obj(uint32_t id)
 {
     return net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id));
 }
-uint8_t* find_own_player_record() { return static_cast<uint8_t*>(net_session_slot()->fetch_viewed_player()); }
+online::PlayerRecord* find_own_player_record() { return net_session_slot()->fetch_viewed_player(); }
 // The game mode (0x007CE470)'s 0x005535F0: a team game. Not rewritten yet.
 bool is_squad_match()
 {
@@ -97,7 +98,7 @@ void RiderOverheadTag::tick_frame()
         frontend::UiTree::sole()->fetch_part(&found, label_id_, 0);
         label = found.get_pull();
     }
-    uint8_t* player = find_player_slot_by_obj(entity_->ident_);
+    online::PlayerRecord* player = find_player_slot_by_obj(entity_->ident_);
     auto* skater = static_cast<Rider*>(entity_);
     if (!skater->get_flag_2c_4() || (entity_->composite_flags_ & kCompositeFlagHidden)) {
         if (label)
@@ -109,8 +110,8 @@ void RiderOverheadTag::tick_frame()
     if (params)
         params->prepare_all();
     params->put_name_key(kId, label_id_);
-    // The text's colour: the team's (+0x30 of the player) in a team game, else the skater's own.
-    uint32_t colour = is_squad_match() ? *reinterpret_cast<uint32_t*>(player + 0x30) : entity_->ident_;
+    // The text's colour: the player's team's in a team game, else the skater's own.
+    uint32_t colour = is_squad_match() ? static_cast<uint32_t>(player->team_) : entity_->ident_;
     char text[64];
     std::snprintf(text, sizeof(text), "\\c%d%s", static_cast<int>(colour + 2), skater->fetch_shown_name());
     params->append_word(kText, text);

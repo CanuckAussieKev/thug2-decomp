@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/core/arena_alloc.h"
+
 namespace net {
 struct AppHost;
 struct Conn;
@@ -23,9 +25,6 @@ class InputHandler;
 template <typename Owner>
 class Responder;
 } // namespace pad_input
-namespace memory {
-struct ListNode;
-}
 
 // The game's network manager online::Hub (0x00533F20-0x0054EF60; the singleton at 0x007CCE14): the network
 // game itself - the players, the levels and modes the server picks, the lobby. Partly rewritten: the join path
@@ -34,7 +33,17 @@ namespace tasks {
 template <typename Owner>
 class Task;
 } // namespace tasks
+namespace objects {
+class CrownObject;
+} // namespace objects
 namespace online {
+
+class RoomManager;
+class VaultMan;
+class FriendsManager;
+class RankingsManager;
+class PlayerRecord;
+struct JoinerRecord;
 
 // --- The join messages (THUG2's) ---
 
@@ -183,7 +192,7 @@ public:
     // 0x00532EB0: the server list's client (browser_client_).
     net::AppHost* get_matchmaking_client();
     // 0x00532EC0: viewed_player_.
-    void* fetch_viewed_player();
+    PlayerRecord* fetch_viewed_player();
     // 0x00532ED0: ask for servers on the LAN: message 0x11 (the time now, 12 bytes) through the lobby client to the
     // address asked for (0x007CCA84, once), else broadcast on port 5153 and to the address from the command line.
     void scan_local_network();
@@ -209,8 +218,8 @@ public:
     bool cheating_noted();
     void note_cheating();
     // 0x00533180 / 0x00533190 / 0x005331A0: the last player (+0x1D0) / team (+0x1D4) announced as the leader.
-    void set_last_leader(void* player);
-    void* get_last_leader();
+    void set_last_leader(PlayerRecord* player);
+    PlayerRecord* get_last_leader();
     int get_last_leading_team();
     // 0x005331B0 / 0x005331C0: score_synced_at_.
     void change_score_sync_stamp(uint32_t time);
@@ -222,7 +231,7 @@ public:
     void set_entry_phase(int state);
     int get_entry_phase();
     // 0x00533210 / 0x00533220: the crown of king of the hill (+0x6C) / forgotten.
-    void* get_crown_holder();
+    objects::CrownObject* get_crown_holder();
     void clear_crown();
     // 0x00533230: the crown's restart point (+0x68), a signed byte.
     void set_crown_start_spot(char point);
@@ -337,26 +346,26 @@ public:
     void remove_all_new_players();
     // 0x00536B10: the joining player `player` removed (its connection terminated on the server, or on client 0 if it
     // has one).
-    void remove_new_player(void* player);
+    void remove_new_player(JoinerRecord* player);
     // 0x005372C0 / 0x00537010: the first / next player of the list (+0x11C) through `search`; without `observers`,
     // observers are skipped. Null at the end.
-    void* begin_player_walk(PlayerSearch* search, bool observers);
-    void* step_player_walk(PlayerSearch* search, bool observers);
+    PlayerRecord* begin_player_walk(PlayerSearch* search, bool observers);
+    PlayerRecord* step_player_walk(PlayerSearch* search, bool observers);
     // 0x00537070: the first joining player (+0x130) through `search` (then the lists' generic next, 0x004573D0).
-    void* begin_joiner_walk(NewPlayerSearch* search);
+    JoinerRecord* begin_joiner_walk(NewPlayerSearch* search);
     // The next joining player through `search` (null at the end). No address of its own: the original calls the lists'
     // generic next, folded at 0x004573D0 (NetLink::AppHost::step_conn_walk), with the manager as its unused `this`.
-    void* step_joiner_walk(NewPlayerSearch* search);
+    JoinerRecord* step_joiner_walk(NewPlayerSearch* search);
     // 0x005370A0: the joining player whose object id (+0x10, a signed byte) is `id`.
-    void* fetch_incoming_player_by_obj(uint16_t id);
+    JoinerRecord* fetch_incoming_player_by_obj(uint16_t id);
     // 0x00537140: ready to play (cleared_to_start_) or not; when it changes, every skater of the skate module (+0x28's
     // list) told - its virtual slot 12 when ready, 11 when not.
     void set_ready_state(bool ready);
     // 0x00537320 / 0x005373D0 / 0x00537480: the first player (observers too) that is local (flags bit 0) / the server's
     // (bit 9) / has the crown (0x00543490). Null if none.
-    void* get_own_player();
-    void* get_host_player();
-    void* get_hill_ruler();
+    PlayerRecord* get_own_player();
+    PlayerRecord* get_host_player();
+    PlayerRecord* get_hill_ruler();
     // 0x00537530: the players (no observers) with neither flag 0x21 (bit 0 local; bit 5) set.
     int count_other_players();
     // 0x00537620: every player's flags 0x100 / 0x20000 and +0x1C, +0x20, +0x34 cleared, its skater's score reset
@@ -397,22 +406,22 @@ public:
     // 0x00539DA0: `player`'s custom tag texture (and its CAS logos: 0x96 its skater id, 0x98 the palette, 0x97 the
     // pixels, 0x9A the logos - group 10) streamed through the server to every other remote player who has one... (not
     // on a modem; nothing when `player` is local) - see the source for the exact conditions.
-    void send_tag_textures_to(void* player);
+    void send_tag_textures_to(PlayerRecord* player);
     // 0x0053A040: the local skater's face texture (the profile's +0x54, if it has one - 0x00487510): on the server
     // kept on the local player (+0x1E8: a byte 0, then 0x4498 bytes); on a broadband client streamed to the server
     // (0x7E "Face Data", 0x4498 bytes). False on a modem, without a face, or a narrowband client.
     bool prepare_local_face();
     // 0x0053A1B0: every other player's face (+0x1E8; the local one's prepared first) streamed to `player` through the
     // server (0x7E, 0x4499 bytes), unless `player` is on a modem connection.
-    void send_faces_to(void* player);
+    void send_faces_to(PlayerRecord* player);
     // 0x0053A310: a joining player's record made from `info` (unless one with its object id is listed): copied (the
     // appearance through a 0x1000-byte buffer for those who will play), its time-out base (+0x18) the app's time plus
     // `timeout`; on the server the join announced (net_message_joining locally, or net_message_observing /
     // net_message_join_pending to everyone); listed (+0x130), in the network heap.
-    void add_joining_player(void* info, int timeout);
+    void add_joining_player(JoinerRecord* info, int timeout);
     // 0x0053A580: the next player the observer camera can follow after viewed_player_ (from the start if there's none or
     // it's gone; wrapping round), skipping those with 0x00543330 / 0x00543440 set. Null if none.
-    void* next_cam_player();
+    PlayerRecord* next_cam_player();
 
     // 0x00536D70: the destructor body: GameSpy shut down (0x005F9900 with 1003, 0x005F9BE0, its reporting if up), the
     // lobby, +0x14, the presence and the stats deleted, the tasks (+0xC0 ... +0xF0) deleted, the lists emptied, the
@@ -520,7 +529,7 @@ public:
 
     // 0x0053A910: the observer's camera onto `player`'s skater (viewed_player_): someone else's - the skater camera; the
     // local skater - the walk camera while it walks, else the skater camera; none (or no skater) - neither.
-    void spectate_player(uint8_t* player);
+    void spectate_player(PlayerRecord* player);
     // 0x0053AA70: message 0x4A (observe) to the server, unless the local player observes already.
     void send_observe_request();
     // 0x0053AAC0: the first remote player with flag 0x20 gets "first come, first served" (flag 0x200 and message 0x5F
@@ -530,9 +539,9 @@ public:
     // given; 16 if none.
     int reserve_obj_id_for_player();
     // 0x0053AE10: the player (observers too) of connection `conn`, or null.
-    uint8_t* find_player_by_sender(net::Conn* conn);
+    PlayerRecord* find_player_by_sender(net::Conn* conn);
     // 0x0053AEA0: the player (not an observer) whose skater has object id `id`, or null.
-    uint8_t* find_player_slot_by_obj(uint16_t id);
+    PlayerRecord* find_player_slot_by_obj(uint16_t id);
     // 0x0053C320: the host mode (kHostMode*): auto-serve observes (message 0x4A) and starts its task (+0xF4) with
     // the time noted (0x007CCDEC); first come first served observes and chooses who serves. Unchanged: nothing.
     void set_host_mode(int mode);
@@ -543,10 +552,10 @@ public:
     // of `skater` and `conn`. A local observer gets the observer's controls (hide_panel_stuff, the camera onto the
     // first player); a local player clears viewed_player_; a remote one is watched if the local player observes and
     // watches nobody. Returns it.
-    uint8_t* new_player(objects::Entity* skater, net::Conn* conn, uint32_t flags);
+    PlayerRecord* new_player(objects::Entity* skater, net::Conn* conn, uint32_t flags);
     // 0x0053C950: `player` deleted: the camera moved off it, its crown taken off, its flag returned (flag_returned,
     // hide_ctf_arrow for the local team); the lobby's server details and qr2 told.
-    void remove_player_record(uint8_t* player);
+    void remove_player_record(PlayerRecord* player);
     // 0x0053CB70: `player` out of the game for `reason` (0 quit, 1 timed out, 2 to observe, 3 banned, 4 kicked,
     // 5 dropped, 6 left out). A client only destroys it. The server: its GameSpy CD key released, message 0x2D to
     // the remote players, the stats told of an early leave, 'Q' (banned / kicked; banned: its address banned) or 'V'
@@ -554,7 +563,7 @@ public:
     // (net_message_player_*); observing: crown and flag given up; otherwise destroyed - and who serves next chosen
     // again if it was that one (network_end_game_selected when nobody is left to). Then, when every playing player's
     // game has ended, message 0x5A (game over) to all.
-    void evict_player(uint8_t* player, int reason);
+    void evict_player(PlayerRecord* player, int reason);
     // 0x0053D120: the players who joined during the game (flag 8) added back as joining players (20, 30 ... frames
     // on), their skaters' appearance kept; the remote skaters hidden and reset. The lobby's server details told.
     void re_add_pending_players();
@@ -573,13 +582,13 @@ public:
     // 0x0053E440 (gamenet_newplayers.cpp): a client's joining player (a JoinerRecord) made real: its skater (none for
     // an observer; the local one / a remote one / split screen's), the player (an existing one kept; with flag 0x10
     // the old one destroyed and the players resynced), its score.
-    void add_new_player(uint8_t* info);
+    void add_new_player(JoinerRecord* info);
     // NOT ORIGINAL (inlined in remove_player_record / re_add_pending_players): the lobby's peer, when hosting, told the game's
     // details changed (0x005FCCF0).
     void update_lobby_server();
     // NOT ORIGINAL (inlined in remove_player_record / evict_player): `player`'s flag returned (flag_returned with its team,
     // hide_ctf_arrow when it's the local player's team), the flag bits cleared.
-    void flag_returned(uint8_t* player);
+    void flag_returned(PlayerRecord* player);
 
     // --- The game's course and the manager's tasks (gamenet_flow.cpp) ---
 
@@ -595,7 +604,7 @@ public:
     void cancel_join();
     // Tasks (tasks::Task code, cdecl; the task's +0x1C is the manager - the observer's is the player's, unused).
     // 0x0053BED0: the observer asked for the next player (spectate_request_ 1): the camera onto it.
-    static void __cdecl observer_task(tasks::Task<uint8_t>* task);
+    static void __cdecl observer_task(tasks::Task<PlayerRecord>* task);
     // 0x00536890 (the observer's input handler's code, given the handler - Detail::SpectatorInputSink): the next
     // player asked for (spectate_request_ 1) on a press of the controller's button 0x40 (+0x20 of its place in the
     // input manager) - unless the root window's menu_state tag is on.
@@ -634,57 +643,116 @@ public:
 
     uint8_t flag_bits_; // +0x00 (bit 0: on the server; bit 2: internet; bits 2-3: network mode)
     uint8_t unknown1_[3];
-    net::AppHost* host_;           // +0x04
-    net::AppHost* client_app_;     // +0x08 client 0 (the game's)
-    net::AppHost* client1_;        // +0x0C client 1
-    void* lobby_service_;          // +0x10 the GameSpy lobby (its server name +0xB4, its peer +0x34)
-    void* vault_man_;              // +0x14 the content vault and HTTP transfers (VaultMan)
-    void* presence_service_;       // +0x18 the GameSpy presence (logged in: +0x10)
-    void* rating_service_;         // +0x1C the player's rating (+0x14)
-    char challenge_[12];           // +0x20 the host's CD-key challenge
-    net::AppHost* browser_client_; // +0x2C the server list's client
-    uint32_t unknown30_;
-    uint32_t level_; // +0x34 the level's load script
-    uint16_t unknown38_;
-    bool match_ended_; // +0x3A
-    uint8_t unknown3b_;
-    int join_mode_; // +0x3C (1: observe)
-    int host_mode_; // +0x40 (0: serve)
-    uint8_t unknown44_[0x88];
-    tasks::SchedulerTask* host_admit_job_;  // +0xCC
-    tasks::SchedulerTask* guest_admit_job_; // +0xD0
-    uint8_t unknownd4_[8];
-    tasks::SchedulerTask* join_expiry_job_; // +0xDC
-    uint32_t unknowne0_;
-    tasks::SchedulerTask* join_phase_job_; // +0xE4
-    uint8_t unknowne8_[0x14];
+    net::AppHost* host_;                   // +0x04
+    net::AppHost* client_app_;             // +0x08 client 0 (the game's)
+    net::AppHost* client1_;                // +0x0C client 1
+    RoomManager* lobby_service_;           // +0x10 the GameSpy lobby
+    VaultMan* vault_man_;                  // +0x14 the content vault and HTTP transfers
+    FriendsManager* presence_service_;     // +0x18 the GameSpy presence
+    RankingsManager* rating_service_;      // +0x1C the player's rating and stats
+    char challenge_[12];                   // +0x20 the host's CD-key challenge
+    net::AppHost* browser_client_;         // +0x2C the server list's client
+    uint32_t game_type_;                   // +0x30 the game_type preference's checksum when the game started
+    uint32_t level_;                       // +0x34 the level's load script
+    uint8_t game_id_;                      // +0x38 the current game's number (the start info's)
+    uint8_t ended_game_id_;                // +0x39 the game whose end was last reported (message 0x59)
+    bool match_ended_;                     // +0x3A
+    bool cheating_noted_;                  // +0x3B
+    int join_mode_;                        // +0x3C (1: observe)
+    int host_mode_;                        // +0x40 (0: serve)
+    bool final_scores_received_;           // +0x44
+    bool show_metrics_;                    // +0x45 the net metrics shown (toggle_net_metrics)
+    bool show_scores_;                     // +0x46 the scores shown (toggle_scores)
+    bool show_names_;                      // +0x47 the players' names shown (toggle_player_names)
+    uint32_t start_points_[8];             // +0x48 the skaters' starting points (choose_start_points; the start info's)
+    int crown_start_;                      // +0x68 the crown's starting point (sent as a signed byte)
+    objects::CrownObject* crown_;          // +0x6C king of the hill's crown
+    uint32_t team_objects_[4][5];          // +0x70 each team's objects (handle_team_object; zeroed when a game starts)
+    tasks::SchedulerTask* connection_job_; // +0xC0 connection_task
+    tasks::SchedulerTask* metrics_job_;    // +0xC4 the net metrics' task
+    tasks::SchedulerTask* score_broadcast_job_;       // +0xC8 score_broadcast_tick
+    tasks::SchedulerTask* host_admit_job_;            // +0xCC
+    tasks::SchedulerTask* guest_admit_job_;           // +0xD0
+    tasks::SchedulerTask* keyboard_job_;              // +0xD4 the chat keyboard's task
+    tasks::SchedulerTask* dialup_job_;                // +0xD8 the online state task (dialup_progress_tick)
+    tasks::SchedulerTask* join_expiry_job_;           // +0xDC
+    tasks::SchedulerTask* service_job_;               // +0xE0 the online service task (net::service_task)
+    tasks::SchedulerTask* join_phase_job_;            // +0xE4
+    tasks::SchedulerTask* start_game_job_;            // +0xE8 start_game_task
+    tasks::SchedulerTask* level_change_job_;          // +0xEC level_change_task
+    tasks::SchedulerTask* server_list_job_;           // +0xF0 server_list_task (the server-list client's)
+    tasks::SchedulerTask* auto_serve_job_;            // +0xF4 auto_serve_task
+    tasks::SchedulerTask* flag_carry_job_;            // +0xF8 carried_flags_task
     pad_input::InputHandler* spectator_pad_listener_; // +0xFC
     int spectate_request_;                            // +0x100
-    uint8_t net_options_[0x80];                       // +0x104 (prefs::Preferences)
-    uint32_t refused_reason_;      // +0x184 a global text's name (CreateJoinRefusedDialog's `reason`)
-    uint32_t last_ready_probe_id_; // +0x188
-    bool cleared_to_start_;        // +0x18C
+    // The network / taunt preferences (prefs::Preferences, made in place by make_new; 0xC bytes each as in the
+    // original, whose sets had a table): get_online_settings / get_taunt_settings.
+    alignas(4) uint8_t net_options_[0xC];    // +0x104
+    alignas(4) uint8_t taunt_options_[0xC];  // +0x110
+    memory::PaddedListNode players_;         // +0x11C lists::Foremost<PlayerRecord>
+    memory::PaddedListNode joiners_;         // +0x130 lists::Foremost<JoinerRecord>: the joining players
+    memory::PaddedListNode queued_scripts_;  // +0x144 the scripts to run once the level is up
+    memory::PaddedListNode servers_;         // +0x158 lists::Foremost<HostListing>: the listed servers
+    memory::PaddedListNode waiting_servers_; // +0x16C lists::Foremost<HostListing>: found, not shown yet
+    uint32_t unknown180_;                    // +0x180 (zeroed by make_new)
+    uint32_t refused_reason_;                // +0x184 a global text's name (CreateJoinRefusedDialog's `reason`)
+    uint32_t last_ready_probe_id_;           // +0x188
+    bool cleared_to_start_;                  // +0x18C
     uint8_t unknown18d_[3];
     uint32_t score_synced_at_;  // +0x190
-    uint32_t script_flag_bits_; // +0x194
+    uint32_t script_flag_bits_; // +0x194 the pro set's bits (sent as a byte)
     int join_phase_;            // +0x198 EntryPhase
     uint32_t join_ip_;          // +0x19C
     uint32_t join_private_ip_;  // +0x1A0
     int join_port_;             // +0x1A4
-    uint32_t unknown1a8_;
-    int join_began_at_; // +0x1AC
-    uint8_t unknown1b0_[4];
-    bool match_being_set_up_; // +0x1B4
-    bool awaiting_start_;     // +0x1B5
-    uint8_t unknown1b6_[0x16];
-    void* viewed_player_; // +0x1CC
+    int modem_state_shown_;     // +0x1A8 the net library's modem state the online state task showed last
+    int join_began_at_;         // +0x1AC
+    uint32_t lobby_since_;      // +0x1B0 when the lobby began (reset_to_lobby)
+    bool match_being_set_up_;   // +0x1B4
+    bool awaiting_start_;       // +0x1B5
+    uint8_t unknown1b6_[2];
+    int service_state_;           // +0x1B8 the online service's state (service_task)
+    int next_service_state_;      // +0x1BC state 0 moves on to it at the wake time
+    uint32_t service_wake_at_;    // +0x1C0 frame_clock::get_time() milliseconds; 0: none
+    uint32_t online_script_;      // +0x1C4 run once online (connect_to_internet)
+    uint32_t online_fail_script_; // +0x1C8 run if going online fails
+    PlayerRecord* viewed_player_; // +0x1CC
+    PlayerRecord* last_leader_;   // +0x1D0 the player last announced as the leader
+    int last_leading_team_;       // +0x1D4
+    // The created goals' message (prepare_created_goals): the level, then the goals. The goal editor is given 6000
+    // bytes after the level - 4 more than the buffer holds, as in the original (they would reach the size, which is
+    // written after).
+    uint8_t created_goals_[0x1770]; // +0x1D8
+    uint32_t created_goals_size_;   // +0x1948
+    uint32_t created_goals_level_;  // +0x194C
+    uint8_t unknown1950_[0x8000];   // +0x1950
+    uint32_t room_id_;              // +0x9950 (set_room_id)
+    char master_servers_[10][16];   // +0x9954 the master servers' names (use_network_preferences)
+    uint8_t news_buffer_[0x6400];   // +0x99F4 the news / message of the day downloaded
+    uint8_t* motd_text_;            // +0xFDF4 the message of the day in news_buffer_
+    uint8_t* pending_data_;         // +0xFDF8 the rest of the download after it
+    uint32_t pending_data_size_;    // +0xFDFC
+    int request_;                   // +0xFE00 the current ghttp request
+    uint32_t request_started_at_;   // +0xFE04
+    bool download_done_;            // +0xFE08 the news download has ended (or the MOTD was cancelled)
+    bool motd_received_;            // +0xFE09
+    bool services_available_;       // +0xFE0A the GameSpy services are available
+    uint8_t unknownfe0b_;
 };
 static_assert(offsetof(Hub, level_) == 0x34 && offsetof(Hub, join_mode_) == 0x3C &&
+                  offsetof(Hub, final_scores_received_) == 0x44 && offsetof(Hub, start_points_) == 0x48 &&
+                  offsetof(Hub, crown_) == 0x6C && offsetof(Hub, connection_job_) == 0xC0 &&
                   offsetof(Hub, host_admit_job_) == 0xCC && offsetof(Hub, join_expiry_job_) == 0xDC &&
-                  offsetof(Hub, join_phase_job_) == 0xE4 && offsetof(Hub, spectate_request_) == 0x100 &&
+                  offsetof(Hub, join_phase_job_) == 0xE4 && offsetof(Hub, flag_carry_job_) == 0xF8 &&
+                  offsetof(Hub, spectate_request_) == 0x100 && offsetof(Hub, taunt_options_) == 0x110 &&
+                  offsetof(Hub, players_) == 0x11C && offsetof(Hub, waiting_servers_) == 0x16C &&
                   offsetof(Hub, refused_reason_) == 0x184 && offsetof(Hub, join_phase_) == 0x198 &&
                   offsetof(Hub, join_began_at_) == 0x1AC && offsetof(Hub, match_being_set_up_) == 0x1B4 &&
-                  offsetof(Hub, viewed_player_) == 0x1CC,
+                  offsetof(Hub, service_state_) == 0x1B8 && offsetof(Hub, viewed_player_) == 0x1CC &&
+                  offsetof(Hub, created_goals_) == 0x1D8 && offsetof(Hub, created_goals_size_) == 0x1948 &&
+                  offsetof(Hub, room_id_) == 0x9950 && offsetof(Hub, news_buffer_) == 0x99F4 &&
+                  offsetof(Hub, motd_text_) == 0xFDF4 && offsetof(Hub, request_) == 0xFE00 &&
+                  offsetof(Hub, services_available_) == 0xFE0A && sizeof(Hub) == 0xFE0C,
               "layout must match the original");
 
 // --- gamenet_players.cpp: outside the class ---

@@ -31,11 +31,11 @@ constexpr uint32_t kElimination = 0xA6B8D7B0;       // elimination
 constexpr uint32_t kCollectAllObjects = 0x72068889; // collect_all_objects
 
 // The skate module (modules::Skate, 0x007CE478) and its skaters (not rewritten yet).
-uint8_t* get_skate() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
+modules::Skate* get_skate() { return modules::g_skate_module; }
 // How many skaters there are: the skate module's skater list (memory::ListNode: data the skater, -1 at the head).
-uint32_t skater_count(uint8_t* skate)
+uint32_t skater_count(modules::Skate* skate)
 {
-    const memory::ListNode* node = reinterpret_cast<modules::Skate*>(skate)->riders_.list_link_.next;
+    const memory::ListNode* node = skate->riders_.list_link_.next;
     uint32_t count = 0;
     if (node->is_head() || !node) // (read before the null check, as in the original)
         return 0;
@@ -45,36 +45,30 @@ uint32_t skater_count(uint8_t* skate)
     } while (!node->is_head() && node);
     return count;
 }
-uint8_t* get_rider_at(uint8_t* skate, uint32_t index)
+objects::Rider* get_rider_at(modules::Skate* skate, uint32_t index)
 {
-    return reinterpret_cast<uint8_t*>(reinterpret_cast<modules::Skate*>(skate)->get_rider_at(static_cast<int>(index)));
+    return static_cast<objects::Rider*>(skate->get_rider_at(static_cast<int>(index)));
 }
 // A skater's score object (modules::PointTally) and its total.
-uint8_t* get_score_of(uint8_t* skater)
+modules::PointTally* get_score_of(objects::Rider* skater)
 {
-    return static_cast<uint8_t*>(reinterpret_cast<objects::Rider*>(skater)->get_points_total());
+    return static_cast<modules::PointTally*>(skater->get_points_total());
 }
-int total_score(uint8_t* score) { return reinterpret_cast<modules::PointTally*>(score)->get_total_score(); }
+int total_score(modules::PointTally* score) { return score->get_total_score(); }
 
 // The game mode (0x007CE470).
 void* get_game_mode() { return static_cast<void*>(g_game_mode); }
 bool is_squad_match() { return static_cast<MatchRules*>(get_game_mode())->is_squad_match() != 0; }
 int current_num_teams() { return static_cast<MatchRules*>(get_game_mode())->current_num_teams(); }
 
-// The network manager's players (0x007CCE14): PlayerRecord +0x14 the skater, +0x30 the team, +0x34 the objects
-// collected. Walked with a lists::Hunt<PlayerRecord> (vtable 0x0064C1A8).
+// The network manager's players (0x007CCE14), walked with a lists::Hunt<PlayerRecord> (vtable 0x0064C1A8).
 online::Hub* net_session_slot() { return online::g_online_hub; }
 using PlayerSearch = online::PlayerSearch;
-uint8_t* start_roster_sweep(PlayerSearch* search)
-{
-    return static_cast<uint8_t*>(net_session_slot()->begin_player_walk(search, false));
-}
-uint8_t* step_roster_sweep(PlayerSearch* search)
-{
-    return static_cast<uint8_t*>(net_session_slot()->step_player_walk(search, false));
-}
-uint8_t* find_own_player_record() { return static_cast<uint8_t*>(net_session_slot()->get_own_player()); }
-bool is_eliminated(uint8_t* player) { return reinterpret_cast<online::PlayerRecord*>(player)->is_eliminated(); }
+using online::PlayerRecord;
+PlayerRecord* start_roster_sweep(PlayerSearch* search) { return net_session_slot()->begin_player_walk(search, false); }
+PlayerRecord* step_roster_sweep(PlayerSearch* search) { return net_session_slot()->step_player_walk(search, false); }
+PlayerRecord* find_own_player_record() { return net_session_slot()->get_own_player(); }
+bool is_eliminated(PlayerRecord* player) { return player->is_eliminated(); }
 
 } // namespace
 
@@ -85,12 +79,12 @@ int WinRule::target_value() const { return 0; }
 // 0x005769B0
 bool WinRule::is_highest_score(uint32_t player)
 {
-    uint8_t* skate = get_skate();
+    modules::Skate* skate = get_skate();
     for (uint32_t i = 0; i < skater_count(skate); ++i) {
         if (i == player)
             continue;
-        uint8_t* mine = get_score_of(get_rider_at(skate, player));
-        uint8_t* theirs = get_score_of(get_rider_at(skate, i));
+        auto* mine = get_score_of(get_rider_at(skate, player));
+        auto* theirs = get_score_of(get_rider_at(skate, i));
         int their_score = total_score(theirs);
         if (total_score(mine) < their_score)
             return false;
@@ -101,13 +95,13 @@ bool WinRule::is_highest_score(uint32_t player)
 // 0x00576A40
 bool ScoreReachedVictoryCondition::rule_satisfied()
 {
-    uint8_t* skate = get_skate();
+    modules::Skate* skate = get_skate();
     if (is_squad_match()) {
         int totals[4] = {};
         PlayerSearch search;
-        for (uint8_t* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search)) {
-            uint8_t* score = get_score_of(*reinterpret_cast<uint8_t**>(player + 0x14));
-            int team = *reinterpret_cast<int*>(player + 0x30);
+        for (PlayerRecord* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search)) {
+            modules::PointTally* score = get_score_of(player->skater_);
+            int team = player->team_;
             totals[team] += total_score(score);
         }
         for (int total : totals) {
@@ -141,7 +135,7 @@ bool BestComboVictoryCondition::echo_out()
 bool CompleteGoalsVictoryCondition::all_goals_complete()
 {
     online::Hub* net = net_session_slot();
-    uint8_t* skate = get_skate();
+    modules::Skate* skate = get_skate();
     GoalManager* goals = get_objective_board(); // the skate module's goal manager
     if (is_squad_match()) {
         int needed = goals->count_picked_objectives();
@@ -154,7 +148,7 @@ bool CompleteGoalsVictoryCondition::all_goals_complete()
     uint32_t count =
         *reinterpret_cast<uint32_t*>(goals); // (the goals there are: its first word - 0x00469490, a folded getter)
     for (uint32_t i = 0; i < skater_count(skate); ++i) {
-        uint8_t* skater = get_rider_at(skate, i);
+        auto* skater = get_rider_at(skate, i);
         if (count == 0)
             return true;
         bool missing = false;
@@ -178,9 +172,9 @@ bool CompleteGoalsVictoryCondition::all_goals_complete()
 // 0x00576680
 bool SoleSurvivorWin::rule_satisfied()
 {
-    uint8_t* player = find_own_player_record();
+    PlayerRecord* player = find_own_player_record();
     if (player) {
-        uint8_t* skater = *reinterpret_cast<uint8_t**>(player + 0x14);
+        objects::Rider* skater = player->skater_;
         if (skater && total_score(get_score_of(skater)) <= 0)
             return true;
     }
@@ -190,14 +184,14 @@ bool SoleSurvivorWin::rule_satisfied()
 // 0x005766B0
 bool SoleSurvivorWin::has_won_match(uint32_t player)
 {
-    uint8_t* score = get_score_of(get_rider_at(get_skate(), player));
+    auto* score = get_score_of(get_rider_at(get_skate(), player));
     return score && total_score(score) > 0;
 }
 
 // 0x005766E0
 bool EliminationVictoryCondition::rule_satisfied()
 {
-    uint8_t* player = find_own_player_record();
+    PlayerRecord* player = find_own_player_record();
     return player && is_eliminated(player);
 }
 
@@ -205,11 +199,10 @@ bool EliminationVictoryCondition::rule_satisfied()
 bool EliminationVictoryCondition::has_won_match(uint32_t player)
 {
     online::Hub* net = net_session_slot();
-    uint8_t* skater = get_rider_at(get_skate(), player);
+    objects::Rider* skater = get_rider_at(get_skate(), player);
     if (!skater)
         return false;
-    uint8_t* info = net->find_player_slot_by_obj(
-        static_cast<uint16_t>(*reinterpret_cast<uint32_t*>(skater + 0x14))); // the player with the skater's id
+    PlayerRecord* info = net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)); // the skater's player
     return !is_eliminated(info);
 }
 
@@ -218,12 +211,12 @@ bool CollectAllObjectsVictoryCondition::rule_satisfied()
 {
     int total = 0;
     PlayerSearch search;
-    for (uint8_t* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search))
-        total += *reinterpret_cast<int*>(player + 0x34);
+    for (PlayerRecord* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search))
+        total += player->num_placed_;
     if (!total)
         return false;
-    for (uint8_t* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search)) {
-        if (total_score(get_score_of(*reinterpret_cast<uint8_t**>(player + 0x14))) == total)
+    for (PlayerRecord* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search)) {
+        if (total_score(get_score_of(player->skater_)) == total)
             return true;
     }
     return false;

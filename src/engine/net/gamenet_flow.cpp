@@ -15,6 +15,7 @@
 #include "engine/net/gamenet_commands.h"
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_manager.h"
+#include "engine/net/gamenet_lobby.h"
 #include "engine/net/gamenet_observer.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"
@@ -141,10 +142,7 @@ struct StartGameInfo {
 static_assert(sizeof(StartGameInfo) == 0x48 && offsetof(StartGameInfo, stop_at_zero_) == 0x14 &&
               offsetof(StartGameInfo, teams) == 0x18 && offsetof(StartGameInfo, start_info_) == 0x28);
 
-tasks::PileUp* get_logic_tasks()
-{
-    return (&assets::g_main_loop_manager->logic_tasks_);
-}
+tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
 prefs::Preferences* net_game_options(Hub* m) { return reinterpret_cast<prefs::Preferences*>(m->net_options_); }
 // The preferences of the game being set up: the network game's, else the skate module's (split screen, 0x00564D80).
 prefs::Preferences* game_preferences(Hub* m)
@@ -173,18 +171,18 @@ void Hub::reset_to_lobby()
     } else {
         teams = get_call<int>(code_address(&goals::MatchRules::current_num_teams), get_game_mode());
     }
-    prop<uint32_t>(this, 0x30) = kNetLobby;
+    game_type_ = kNetLobby;
     get_call(code_address(&goals::MatchRules::apply_match_style), get_game_mode(), kNetLobby); // the game mode
     get_call(code_address(&goals::MatchRules::set_num_teams), get_game_mode(), teams);
     match_ended_ = false;
     clear_roster();
-    if (uint8_t* king = is_crown_rule_active(this))
-        as_player(king)->give_crown(false);
+    if (PlayerRecord* king = is_crown_rule_active(this))
+        king->give_crown(false);
     PlayerSearch search;
-    for (uint8_t* p = start_roster_sweep(this, &search, true); p; p = step_roster_sweep(this, &search, true))
-        as_player(p)->clear_flags(); // carries no flag
+    for (PlayerRecord* p = start_roster_sweep(this, &search, true); p; p = step_roster_sweep(this, &search, true))
+        p->clear_flags(); // carries no flag
     clear_queued_scripts();
-    prop<uint32_t>(this, 0x1B0) = frame_clock::get_time(); // (back in the lobby: auto-serve waits from here)
+    lobby_since_ = frame_clock::get_time(); // (back in the lobby: auto-serve waits from here)
 }
 
 uint32_t g_auto_serve_start;
@@ -201,14 +199,14 @@ void Hub::start_network_game()
     prefs::Preferences* prefs = game_preferences(this);
     net::AppHost* server = host_;
     remove_all_new_players();
-    prop<uint32_t>(this, 0x30) = preference_checksum(game_preferences(this), kGameType, kChecksum);
+    game_type_ = preference_checksum(game_preferences(this), kGameType, kChecksum);
     choose_start_points(); // the skaters' starting points shuffled
-    std::memset(&prop<uint8_t>(this, 0x70), 0, 0x50);
-    uint32_t game_type = prop<uint32_t>(this, 0x30);
+    std::memset(team_objects_, 0, sizeof(team_objects_));
+    uint32_t game_type = game_type_;
     uint32_t time_limit = prefs->get_setting_value(game_type == kHorse ? kHorseTimeLimit : kTimeLimit, kTime);
     level_ = preference_checksum(net_game_options(this), kLevel, kChecksum);
     StartGameInfo info;
-    info.game_type_ = prop<uint32_t>(this, 0x30);
+    info.game_type_ = game_type_;
     info.fireball_level_ = static_cast<uint32_t>(get_fireball_level());
     bool untimed = false;
     for (uint32_t type : kUntimedTypes)
@@ -229,31 +227,31 @@ void Hub::start_network_game()
     info.value20 = get_team_graffiti_mode();
     do
         info.game_id_ = static_cast<uint8_t>(maths::rnd(0xFF) + 1);
-    while (info.game_id_ == prop<uint8_t>(this, 0x39));
-    info.crown_start_slot_ = prop<int8_t>(this, 0x68);
-    std::memcpy(info.start_info_, &prop<uint32_t>(this, 0x48), sizeof(info.start_info_));
+    while (info.game_id_ == ended_game_id_);
+    info.crown_start_slot_ = static_cast<int8_t>(crown_start_);
+    std::memcpy(info.start_info_, start_points_, sizeof(info.start_info_));
     desc.content_ = &info;
     desc.byte_count_ = sizeof(info);
     desc.ident_ = kMsgStartGame;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
-    for (uint8_t* p = start_roster_sweep(this, &search, true); p; p = step_roster_sweep(this, &search, true)) {
-        prop<uint32_t>(p, 0x24) = 0;
-        as_player(p)->clear_flags(); // carries no flag
-        prop<uint32_t>(p, 0x1D0) &= ~kPlayerCaptureBlocked;
+    for (PlayerRecord* p = start_roster_sweep(this, &search, true); p; p = step_roster_sweep(this, &search, true)) {
+        p->best_combo_ = 0;
+        p->clear_flags(); // carries no flag
+        p->flag_bits_ &= ~kPlayerCaptureBlocked;
         server->put_on_outbox(player_handle(p), &desc);
         if (!in_net_game())
             break; // (split screen: the first player only)
     }
-    if (uint8_t* king = is_crown_rule_active(this))
-        as_player(king)->give_crown(false);
-    prop<void*>(this, 0x1D0) = nullptr; // the last leader
-    prop<int>(this, 0x1D4) = -1;        // the last leading team
+    if (PlayerRecord* king = is_crown_rule_active(this))
+        king->give_crown(false);
+    last_leader_ = nullptr;  // the last leader
+    last_leading_team_ = -1; // the last leading team
     clear_queued_scripts();
     clear_roster();
     g_cheat_flag = false;
-    if (static_cast<RankingsManager*>(rating_service_)->update_logged_in())
-        static_cast<RankingsManager*>(rating_service_)->start_game();
+    if (rating_service_->update_logged_in())
+        rating_service_->start_game();
 }
 
 // 0x0053C6E0
@@ -270,18 +268,17 @@ void Hub::cancel_join()
     disconnect_clients();
     join_expiry_job_->drop_out();
     remove_all_new_players();
-    if (prop<bool>(presence_service_, 0x10)) // (logged in to the presence)
-        static_cast<FriendsManager*>(presence_service_)
-            ->change_standing(kHomieStatusChatting, script::fetch_text("homie_status_chatting"),
-                              static_cast<char*>(lobby_service_) + 0x34);
+    if (presence_service_->authenticated_) // (logged in to the presence)
+        presence_service_->change_standing(kHomieStatusChatting, script::fetch_text("homie_status_chatting"),
+                                           lobby_service_->room_name_);
 }
 
 // 0x0053BED0
-void __cdecl Hub::observer_task(tasks::Task<uint8_t>*)
+void __cdecl Hub::observer_task(tasks::Task<PlayerRecord>*)
 {
     Hub* manager = g_online_hub;
     if (manager->spectate_request_ == 1) { // (the next player asked for)
-        manager->spectate_player(static_cast<uint8_t*>(manager->next_cam_player()));
+        manager->spectate_player(manager->next_cam_player());
         manager->spectate_request_ = 0;
     }
 }
@@ -311,7 +308,7 @@ void __cdecl Hub::auto_serve_task(tasks::Task<Hub>* task)
     Hub* manager = task_manager(task);
     if (frame_clock::get_time() - g_auto_serve_start < kAutoServeWait || get_game_type() != kNetLobby ||
         manager->count_players() < 2 || manager->awaiting_start_ ||
-        frame_clock::get_time() - prop<uint32_t>(manager, 0x1B0) <= kAutoServeIdle)
+        frame_clock::get_time() - manager->lobby_since_ <= kAutoServeIdle)
         return;
     get_run(kLoadPendingPlayers);
     get_run(kStartNetworkGame);
@@ -338,10 +335,10 @@ void __cdecl Hub::join_progress_tick(tasks::Task<Hub>* task)
         break;
     case 6: { // joined
         NewPlayerSearch search;
-        uint8_t* info = first_new_player(manager, &search);
-        for (; info && !(prop<uint32_t>(info, 0x20) & kNewPlayerLocal); info = next_new_player(manager, &search)) {
+        JoinerRecord* info = first_new_player(manager, &search);
+        for (; info && !(info->flag_bits_ & kNewPlayerLocal); info = next_new_player(manager, &search)) {
         }
-        if (info && (prop<uint32_t>(info, 0x20) & kNewPlayerObserver)) { // the local player joined to observe
+        if (info && (info->flag_bits_ & kNewPlayerObserver)) { // the local player joined to observe
             get_call(code_address(&modules::Skate::drop_skater_from_roster), get_skate(),
                      reinterpret_cast<modules::Skate*>(get_skate())->get_home_rider()); // the local skater removed
             manager->spectate_player(nullptr);
@@ -397,7 +394,7 @@ void __cdecl Hub::start_game_task(tasks::Task<Hub>* task)
         frame_clock::get_time() >= g_net_game_start_time) { // every one ready, and the time has come
         waiting_shown = false;
         manager->start_network_game();
-        prop<tasks::SchedulerTask*>(manager, 0xE8)->drop_out();
+        manager->start_game_job_->drop_out();
     }
 }
 
@@ -423,10 +420,10 @@ void __cdecl Hub::connection_task(tasks::Task<Hub>* task)
     }
     if (manager->get_on_server()) { // the players' connections watched
         PlayerSearch search;
-        uint8_t* player = start_roster_sweep(manager, &search, true);
+        PlayerRecord* player = start_roster_sweep(manager, &search, true);
         while (player) {
-            uint8_t* next = step_roster_sweep(manager, &search, true);
-            net::Conn* conn = prop<net::Conn*>(player, 0x18);
+            PlayerRecord* next = step_roster_sweep(manager, &search, true);
+            net::Conn* conn = player->conn_;
             if (!conn->is_host_local()) {
                 int reason = -1;
                 if (conn->cur_standing_ & 1) { // (in the game)
@@ -458,7 +455,7 @@ void __cdecl Hub::connection_task(tasks::Task<Hub>* task)
     if (!conn || !(manager->join_phase_ == 8 || manager->join_phase_ == 7 || manager->join_phase_ == 6) ||
         conn->get_silence_duration() <= kSilentTimeout)
         return;
-    if (prop<uint32_t>(skate, 0x378) == kLoadMainMenu) {
+    if (reinterpret_cast<modules::Skate*>(skate)->level_ == kLoadMainMenu) {
         get_run(kShowJoinTimeoutNotice);
         manager->join_phase_job_->drop_out();
         manager->join_phase_ = 10;

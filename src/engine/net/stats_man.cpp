@@ -67,15 +67,12 @@ uint32_t& login_start() { return g_stats_login_start; }
 bool cheat_flag() { return g_cheat_flag; }
 
 Hub* net_session_slot() { return g_online_hub; }
-RankingsManager* get_attributes() { return static_cast<RankingsManager*>(net_session_slot()->rating_service_); }
+RankingsManager* get_attributes() { return net_session_slot()->rating_service_; }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 void push_top_down() { ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_); }
 void push_bottom_up() { ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_); }
 void pop_heap() { ram_stats()->leave_heap_scope(); }
-tasks::PileUp* get_logic_tasks()
-{
-    return (&assets::g_main_loop_manager->logic_tasks_);
-}
+tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
 
 uint32_t get_checksums(const char* name) { return checksums::hash_from_text(name); }
 void get_run(uint32_t script, script::Struct* params = nullptr)
@@ -466,7 +463,7 @@ void RankingsManager::start_game()
     set_game_int(game_, "maxplayers", manager->get_player_limit());
     set_game_int(game_, "timelimit", time_limit);
     set_game_int(game_, "fraglimit", frag_limit);
-    for (uint8_t* player = detail::start_roster_sweep(manager, &search, false); player;
+    for (PlayerRecord* player = detail::start_roster_sweep(manager, &search, false); player;
          player = detail::step_roster_sweep(manager, &search, false)) {
         net::NetMessageInfo desc;
         desc.make_new();
@@ -477,7 +474,7 @@ void RankingsManager::start_game()
         std::snprintf(key, sizeof(key), "%s", "player");
         set_player_string(game_, key, name, id);
         std::snprintf(key, sizeof(key), "%s", "pid");
-        int profile = detail::prop<int>(player, 0x28);
+        int profile = player->profile_id_;
         set_player_int(game_, key, profile, id);
         if (profile > 0) {
             // The player's client answers with its response to the challenge.
@@ -500,13 +497,13 @@ void RankingsManager::raise_tallies(bool final)
     if (!game_)
         return;
     push_bottom_up();
-    for (uint8_t* player = detail::start_roster_sweep(manager, &search, false); player;
+    for (PlayerRecord* player = detail::start_roster_sweep(manager, &search, false); player;
          player = detail::step_roster_sweep(manager, &search, false)) {
         auto* skater = reinterpret_cast<objects::GameEntity*>(detail::player_skater(player));
         skater->fetch_module(0xD262802F); // (unused)
         int id = static_cast<int>(detail::get_skater_id(skater));
         set_player_int(game_, "score", player_points(manager, id), id);
-        set_player_int(game_, "combo", detail::prop<int>(player, 0x24), id);
+        set_player_int(game_, "combo", player->best_combo_, id);
     }
     set_game_int(game_, "highscore", manager->cheating_noted() | cheat_flag());
     send_game_snap_shot(game_, nullptr, final);
@@ -776,13 +773,13 @@ bool __cdecl retrieve_personal_stats(script::Struct*, script::Script*)
 {
     Hub* manager = net_session_slot();
     const void* callback = reinterpret_cast<const void*>(&RankingsManager::on_personal_stats);
-    int profile = static_cast<FriendsManager*>(manager->presence_service_)->account_;
+    int profile = manager->presence_service_->account_;
     get_persist_data_values(0, profile, 2, 0, "\\THUG2Rating", callback, nullptr);
     for (int index = 1; index <= kPersonalStatsLevels; ++index) { // (1-15: the answer to 14 ends the wait)
-        profile = static_cast<FriendsManager*>(manager->presence_service_)->account_;
+        profile = manager->presence_service_->account_;
         get_persist_data_values(0, profile, 2, index, "\\THUG2HighScore\\THUG2HighCombo", callback, nullptr);
     }
-    static_cast<RankingsManager*>(manager->rating_service_)->cur_phase_ = RankingsManager::kGettingStats;
+    manager->rating_service_->cur_phase_ = RankingsManager::kGettingStats;
     return true;
 }
 

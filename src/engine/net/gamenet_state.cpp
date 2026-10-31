@@ -18,34 +18,6 @@ namespace online {
 
 namespace {
 
-// The manager's fields not declared yet (reached by offset until the class is laid out).
-template <typename T>
-T& prop(Hub* manager, uint32_t offset)
-{
-    return *reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(manager) + offset);
-}
-
-constexpr uint32_t kGameMode = 0x30;
-constexpr uint32_t kGameId = 0x38;         // uint8_t: the current game's number (the start info's)
-constexpr uint32_t kEndedGameId = 0x39;    // uint8_t: the game whose end was last reported
-constexpr uint32_t kCheatingNoted = 0x3B;  // bool
-constexpr uint32_t kFinalScores = 0x44;    // bool
-constexpr uint32_t kDrawNames = 0x47;      // bool
-constexpr uint32_t kStartInfoWords = 0x48; // 8 words
-constexpr uint32_t kCrownStartField = 0x68;
-constexpr uint32_t kCrown = 0x6C;
-constexpr uint32_t kHostTask = 0xF4;      // tasks::SchedulerTask*
-constexpr uint32_t kNetworkPrefs = 0x104; // prefs::Preferences
-constexpr uint32_t kTauntPrefs = 0x110;   // prefs::Preferences
-constexpr uint32_t kLastLeader = 0x1D0;
-constexpr uint32_t kLastLeadingTeam = 0x1D4;
-constexpr uint32_t kGoalsMessage = 0x1D8; // the level, then the goals (6000 bytes)
-constexpr uint32_t kGoalsSize = 0x1948;
-constexpr uint32_t kGoalSetField = 0x194C;
-constexpr uint32_t kLobbyId = 0x9950;
-constexpr uint32_t kPendingData = 0xFDF8;
-constexpr uint32_t kPendingDataSize = 0xFDFC;
-
 constexpr int kGoalsBufferSize = 6000;
 constexpr uint16_t kLanPort = 5153; // the LAN lobby's port
 
@@ -159,7 +131,7 @@ int Hub::get_num_teams()
 int Hub::get_spectator_limit() { return number_of(preference_checksum(this, kNumObservers), 0, 8, 0, 2); }
 
 // 0x00532E30
-void Hub::remove_host_task() { prop<tasks::SchedulerTask*>(this, kHostTask)->drop_out(); }
+void Hub::remove_host_task() { auto_serve_job_->drop_out(); }
 
 // 0x00532E40 / 0x00532E50 / 0x00532E60 / 0x00532E70 / 0x00532E80 / 0x00532E90
 uint32_t Hub::get_join_ip() { return join_ip_; }
@@ -176,7 +148,7 @@ net::AppHost* Hub::fetch_patron(int index) { return client_slot(index); }
 net::AppHost* Hub::get_matchmaking_client() { return browser_client_; }
 
 // 0x00532EC0
-void* Hub::fetch_viewed_player() { return viewed_player_; }
+PlayerRecord* Hub::fetch_viewed_player() { return viewed_player_; }
 
 uint32_t g_command_line_server{0xFFFFFFFF};
 
@@ -200,22 +172,19 @@ void Hub::scan_local_network()
 }
 
 // 0x00532F70 / 0x00532F80
-prefs::Preferences* Hub::get_online_settings() { return &prop<prefs::Preferences>(this, kNetworkPrefs); }
-prefs::Preferences* Hub::get_taunt_settings() { return &prop<prefs::Preferences>(this, kTauntPrefs); }
+prefs::Preferences* Hub::get_online_settings() { return reinterpret_cast<prefs::Preferences*>(net_options_); }
+prefs::Preferences* Hub::get_taunt_settings() { return reinterpret_cast<prefs::Preferences*>(taunt_options_); }
 
 // 0x00532F90
-void Hub::set_start_info_words(const uint32_t* words)
-{
-    std::memcpy(&prop<uint32_t>(this, kStartInfoWords), words, 8 * sizeof(uint32_t));
-}
+void Hub::set_start_info_words(const uint32_t* words) { std::memcpy(start_points_, words, 8 * sizeof(uint32_t)); }
 
 // 0x00532FD0
-uint32_t Hub::get_start_info_word(int index) { return (&prop<uint32_t>(this, kStartInfoWords))[index]; }
+uint32_t Hub::get_start_info_word(int index) { return (start_points_)[index]; }
 
 // 0x00532FE0
 bool Hub::is_untimed_game()
 {
-    uint32_t mode = prop<uint32_t>(this, kGameMode);
+    uint32_t mode = game_type_;
     if (mode == kNetGoalAttack || mode == kKing || mode == kNetKing || mode == kNetScoreChallenge ||
         mode == kScoreChallenge)
         return true;
@@ -228,8 +197,8 @@ bool Hub::is_untimed_game()
 }
 
 // 0x00533060 / 0x00533070
-void Hub::set_game_id(uint8_t id) { prop<uint8_t>(this, kGameId) = id; }
-uint8_t Hub::get_game_id() { return prop<uint8_t>(this, kGameId); }
+void Hub::set_game_id(uint8_t id) { game_id_ = id; }
+uint8_t Hub::get_game_id() { return game_id_; }
 
 // 0x00533080 (on a miss: the manager's address, the uninitialised local's slot)
 uint32_t Hub::get_level_preference() { return preference_checksum(this, kLevel); }
@@ -238,7 +207,7 @@ uint32_t Hub::get_level_preference() { return preference_checksum(this, kLevel);
 int Hub::get_fireball_level() { return number_of(preference_checksum(this, kFireballDifficulty), 1, 5, 0, 3); }
 
 // 0x00533130
-void Hub::toggle_player_names() { prop<uint8_t>(this, kDrawNames) ^= 1; }
+void Hub::toggle_player_names() { show_names_ = !show_names_; }
 
 // 0x00533140
 bool Hub::wants_name_tags()
@@ -249,48 +218,48 @@ bool Hub::wants_name_tags()
 }
 
 // 0x00533180 / 0x00533190 / 0x005331A0
-void Hub::set_last_leader(void* player) { prop<void*>(this, kLastLeader) = player; }
-void* Hub::get_last_leader() { return prop<void*>(this, kLastLeader); }
-int Hub::get_last_leading_team() { return prop<int>(this, kLastLeadingTeam); }
+void Hub::set_last_leader(PlayerRecord* player) { last_leader_ = player; }
+PlayerRecord* Hub::get_last_leader() { return last_leader_; }
+int Hub::get_last_leading_team() { return last_leading_team_; }
 
 // 0x005331B0 / 0x005331C0
 void Hub::change_score_sync_stamp(uint32_t time) { score_synced_at_ = time; }
 uint32_t Hub::fetch_score_sync_stamp() { return score_synced_at_; }
 
 // 0x005331D0 / 0x005331E0
-void Hub::set_final_scores_received(bool received) { prop<bool>(this, kFinalScores) = received; }
-bool Hub::final_scores_received() { return prop<bool>(this, kFinalScores); }
+void Hub::set_final_scores_received(bool received) { final_scores_received_ = received; }
+bool Hub::final_scores_received() { return final_scores_received_; }
 
 // 0x005331F0 / 0x00533200
 void Hub::set_entry_phase(int state) { join_phase_ = state; }
 int Hub::get_entry_phase() { return join_phase_; }
 
 // 0x00533210 / 0x00533220
-void* Hub::get_crown_holder() { return prop<void*>(this, kCrown); }
-void Hub::clear_crown() { prop<void*>(this, kCrown) = nullptr; }
+objects::CrownObject* Hub::get_crown_holder() { return crown_; }
+void Hub::clear_crown() { crown_ = nullptr; }
 
 // 0x00533230
-void Hub::set_crown_start_spot(char point) { prop<int>(this, kCrownStartField) = point; }
+void Hub::set_crown_start_spot(char point) { crown_start_ = point; }
 
 // 0x00533240
-void Hub::set_room_id(uint32_t id) { prop<uint32_t>(this, kLobbyId) = id; }
+void Hub::set_room_id(uint32_t id) { room_id_ = id; }
 
 // 0x00533250
 void Hub::send_game_ended()
 {
     net::NetMessageInfo desc;
     desc.make_new();
-    desc.content_ = &prop<uint8_t>(this, kGameId);
+    desc.content_ = &game_id_;
     desc.byte_count_ = 1;
     desc.ident_ = kMsgGameEnded;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
     static_cast<net::Guest*>(client_app_)->send_to_host(&desc);
-    prop<uint8_t>(this, kEndedGameId) = prop<uint8_t>(this, kGameId);
+    ended_game_id_ = game_id_;
 }
 
 // 0x005332A0
-bool Hub::game_ended_sent() { return prop<uint8_t>(this, kEndedGameId) == prop<uint8_t>(this, kGameId); }
+bool Hub::game_ended_sent() { return ended_game_id_ == game_id_; }
 
 // 0x005332B0 / 0x005332C0 / 0x005332D0
 bool Hub::has_match_ended() { return match_ended_; }
@@ -298,8 +267,8 @@ void Hub::mark_match_ended() { match_ended_ = true; }
 void Hub::reset_match_ended() { match_ended_ = false; }
 
 // 0x005332E0 / 0x005332F0
-bool Hub::cheating_noted() { return prop<bool>(this, kCheatingNoted); }
-void Hub::note_cheating() { prop<bool>(this, kCheatingNoted) = true; }
+bool Hub::cheating_noted() { return cheating_noted_; }
+void Hub::note_cheating() { cheating_noted_ = true; }
 
 // 0x00533300
 void Hub::send_ready_response()
@@ -320,8 +289,8 @@ void Hub::send_ready_response()
 // 0x00533360
 void* Hub::get_pending_data(uint32_t* size)
 {
-    *size = prop<uint32_t>(this, kPendingDataSize);
-    return prop<void*>(this, kPendingData);
+    *size = pending_data_size_;
+    return pending_data_;
 }
 
 // 0x00533380
@@ -330,17 +299,17 @@ bool Hub::has_created_goals() { return get_goal_editor()->count_complete_goals(0
 // 0x005333A0
 void Hub::prepare_created_goals(uint32_t level)
 {
-    prop<uint32_t>(this, kGoalSetField) = level;
-    prop<uint32_t>(this, kGoalsMessage) = level;
+    created_goals_level_ = level;
+    std::memcpy(created_goals_, &level, sizeof(level));
     park_editing::ObjectiveAuthoring* editor = get_goal_editor();
-    int size = static_cast<int>(editor->write_level_goals_to_buffer(level, &prop<uint8_t>(this, kGoalsMessage + 4),
+    int size = static_cast<int>(editor->write_level_goals_to_buffer(level, created_goals_ + sizeof(level),
                                                                     static_cast<uint32_t>(kGoalsBufferSize)));
-    prop<int>(this, kGoalsSize) = size + 4;
+    created_goals_size_ = size + 4;
 }
 
 // 0x005333E0 / 0x005333F0
-void* Hub::get_created_goals_message() { return &prop<uint8_t>(this, kGoalsMessage); }
-uint32_t Hub::get_created_goals_size() { return prop<uint32_t>(this, kGoalsSize); }
+void* Hub::get_created_goals_message() { return created_goals_; }
+uint32_t Hub::get_created_goals_size() { return created_goals_size_; }
 
 } // namespace online
 

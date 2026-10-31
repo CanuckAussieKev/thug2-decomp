@@ -67,7 +67,7 @@ bool __cdecl cfunc_pause_skaters(Struct* params, Script*)
     uint32_t count = static_cast<uint32_t>(skate->count_riders());
     for (uint32_t i = 0; i < count; ++i) {
         objects::GameEntity* skater = skate->get_rider_at(static_cast<int>(i));
-        if (skater && skater->unknownbc_) {
+        if (skater && skater->is_local_skater_) {
             pause_skater(skater);
             skater->conceal(hide);
         }

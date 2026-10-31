@@ -48,12 +48,7 @@ using namespace detail;
 
 namespace {
 
-constexpr uint32_t kMasterHostTable = 0x9954; // char[10][16]: the master servers' names
 constexpr int kMasterServerCount = 10;
-constexpr uint32_t kConnectTask = 0xD8;    // tasks::SchedulerTask* (the online state's)
-constexpr uint32_t kOnlineState = 0x1A8;   // int (-1: starting)
-constexpr uint32_t kOnlineScript = 0x1C4;  // uint32_t: run once online
-constexpr uint32_t kOfflineScript = 0x1C8; // uint32_t: run when connecting fails / after disconnecting
 constexpr uint8_t kMsgServerQuery = 0x11;
 constexpr uint16_t kLanPort = 5153; // the LAN lobby's port
 
@@ -108,10 +103,7 @@ const char* const kDefaultDns2 = "205.147.0.102"; // "205.147.0.102"
 const char* const kEmpty = "";                    // ""
 const char* const kHashFieldName = "checksum";    // "checksum"
 
-tasks::PileUp* get_logic_tasks()
-{
-    return (&assets::g_main_loop_manager->logic_tasks_);
-}
+tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
 
 bool get_filled(const char* text) { return text && *text; }
 
@@ -130,7 +122,7 @@ void set_preference_text(prefs::Preferences* preferences, uint32_t name, const c
 void Hub::use_network_preferences()
 {
     net::Hub* net = net::Hub::sole();
-    char (*servers)[16] = reinterpret_cast<char (*)[16]>(reinterpret_cast<uint8_t*>(this) + kMasterHostTable);
+    char (*servers)[16] = master_servers_;
     for (int i = 0; i < kMasterServerCount; ++i)
         servers[i][0] = 0;
     prefs::Preferences* preferences = get_online_settings();
@@ -310,23 +302,23 @@ bool Hub::connect_to_internet(uint32_t online_script, uint32_t fail_script)
 {
     tasks::PileUp* tasks = get_logic_tasks();
     net::Hub* net = net::Hub::sole();
-    prop<uint32_t>(this, kOfflineScript) = fail_script;
-    prop<uint32_t>(this, kOnlineScript) = online_script;
+    online_fail_script_ = fail_script;
+    online_script_ = online_script;
     bool online;
     if (net->is_online()) {
         online = true;
     } else {
-        prop<int>(this, kOnlineState) = -1;
+        modem_state_shown_ = -1;
         online = net->connect_to_internet();
         if (!online) {
             // A modem or a PPPoE connection carries on in the online state's task.
             if (net->get_net_link_kind() == 1 || net->get_net_link_kind() == 3)
-                tasks->queue_job(prop<tasks::SchedulerTask*>(this, kConnectTask));
+                tasks->queue_job(dialup_job_);
             return online;
         }
     }
-    if (prop<uint32_t>(this, kOnlineScript))
-        get_run(prop<uint32_t>(this, kOnlineScript));
+    if (online_script_)
+        get_run(online_script_);
     return online;
 }
 
@@ -335,10 +327,10 @@ void Hub::disconnect_from_internet(uint32_t script)
 {
     tasks::PileUp* tasks = get_logic_tasks();
     net::Hub* net = net::Hub::sole();
-    prop<int>(this, kOnlineState) = -1;
+    modem_state_shown_ = -1;
     if (script)
-        prop<uint32_t>(this, kOfflineScript) = script;
-    tasks->queue_job(prop<tasks::SchedulerTask*>(this, kConnectTask));
+        online_fail_script_ = script;
+    tasks->queue_job(dialup_job_);
     set_service_state(2);
     net->disconnect_from_internet();
 }
@@ -348,13 +340,13 @@ void __cdecl Hub::cancel_connect_to_internet()
 {
     Hub* manager = g_online_hub;
     net::Hub* net = net::Hub::sole();
-    tasks::SchedulerTask* task = prop<tasks::SchedulerTask*>(manager, kConnectTask);
+    tasks::SchedulerTask* task = manager->dialup_job_;
     switch (net->get_dialup_status()) {
     case 0:
     case 1:
         task->drop_out();
-        prop<int>(manager, kOnlineState) = -1;
-        get_logic_tasks()->queue_job(prop<tasks::SchedulerTask*>(manager, kConnectTask));
+        manager->modem_state_shown_ = -1;
+        get_logic_tasks()->queue_job(manager->dialup_job_);
         manager->set_service_state(2);
         net::Hub::sole()->disconnect_from_internet();
         break;
@@ -363,7 +355,7 @@ void __cdecl Hub::cancel_connect_to_internet()
         break;
     case 5:
         task->drop_out();
-        get_run(prop<uint32_t>(manager, kOfflineScript));
+        get_run(manager->online_fail_script_);
         break;
     case 9:
         task->drop_out();
@@ -430,8 +422,8 @@ const char* Hub::get_game_type_name()
 void Hub::change_arena(uint32_t level)
 {
     level_ = level;
-    void* peer = static_cast<RoomManager*>(lobby_service_)->get_lobby_handle();
-    if (peer && game_spy::peer_is_connected(peer) && static_cast<RoomManager*>(lobby_service_)->is_hosting())
+    void* peer = lobby_service_->get_lobby_handle();
+    if (peer && game_spy::peer_is_connected(peer) && lobby_service_->is_hosting())
         game_spy::peer_state_changed(peer); // (the peer's state changed: the GameSpy SDK)
     // (cleared just before it's tested: the reporting's state-changed call below never happens)
     g_open_waiting = false;

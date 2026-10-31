@@ -147,8 +147,7 @@ online::PlayerRecord* find_own_player_record(uint32_t object_id)
 }
 net::Guest* client_of(online::PlayerRecord* player)
 {
-    return static_cast<net::Guest*>(
-        net_session_slot()->fetch_patron(static_cast<int>(player->get_skater_value_2b_c())));
+    return static_cast<net::Guest*>(net_session_slot()->fetch_patron(static_cast<int>(player->get_skater_view_slot())));
 }
 
 void post_out(net::Guest* app, net::NetMessageInfo& message, uint8_t id, void* data, uint16_t length, bool singular)

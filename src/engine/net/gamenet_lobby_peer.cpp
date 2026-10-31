@@ -81,10 +81,7 @@ constexpr uint32_t kNewPlayerCounted = 0x18;
 constexpr uint32_t kNewPlayerObserver = 0x04;
 
 Hub* net_session_slot() { return g_online_hub; }
-tasks::PileUp* get_logic_tasks()
-{
-    return (&assets::g_main_loop_manager->logic_tasks_);
-}
+tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
 QueuedPacket* get_queue() { return g_queued_packets; }
 int& queued_count() { return g_queued_count; }
 RoomManager* task_lobby(tasks::Task<RoomManager>* task) { return task->content_; }
@@ -195,27 +192,29 @@ void __cdecl RoomManager::player_key_callback(void*, int key, int index, void* b
     int count = 0;
     PlayerSearch search;
     NewPlayerSearch new_search;
-    for (uint8_t* p = start_roster_sweep(manager, &search, true); p; p = step_roster_sweep(manager, &search, true)) {
-        if (is_observer(p) && !(prop<uint32_t>(p, 0x1D0) & kPlayerObserverCounted))
+    for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p;
+         p = step_roster_sweep(manager, &search, true)) {
+        if (is_observer(p) && !(p->flag_bits_ & kPlayerObserverCounted))
             continue;
         if (count == index) {
             if (key == kKeyForPlayer)
                 buffer_add(buffer, player_name(p));
             else
-                buffer_add_int(buffer, prop<int>(p, 0x2C)); // its rating
+                buffer_add_int(buffer, p->skill_points_); // its rating
             return;
         }
         ++count;
     }
-    for (uint8_t* info = first_new_player(manager, &new_search); info; info = next_new_player(manager, &new_search)) {
-        uint32_t flags = prop<uint32_t>(info, 0x20);
+    for (JoinerRecord* info = first_new_player(manager, &new_search); info;
+         info = next_new_player(manager, &new_search)) {
+        uint32_t flags = info->flag_bits_;
         if (!(flags & kNewPlayerCounted) && (flags & kNewPlayerObserver))
             continue;
         if (count == index) {
             if (key == kKeyForPlayer)
                 buffer_add(buffer, reinterpret_cast<const char*>(info)); // (its name, at +0)
             else
-                buffer_add_int(buffer, prop<int>(info, 0x30));
+                buffer_add_int(buffer, info->skill_points_);
             return;
         }
         ++count;
@@ -227,7 +226,7 @@ void __cdecl RoomManager::player_key_callback(void*, int key, int index, void* b
 void __cdecl RoomManager::public_address_callback(void*, uint32_t ip, uint16_t port, void* param)
 {
     Hub* manager = net_session_slot();
-    void* buddy = manager->presence_service_;
+    FriendsManager* buddy = manager->presence_service_;
     if (!manager->get_on_server())
         return;
     auto* lobby = static_cast<RoomManager*>(param);
@@ -241,7 +240,7 @@ void __cdecl RoomManager::public_address_callback(void*, uint32_t ip, uint16_t p
     char location[1024];
     std::sprintf(location, "10thug211:%d:%d:%d:%s (%s)", ip, peer_private_ip(lobby->remote_), port, name,
                  lobby->room_name_);
-    if (prop<bool>(buddy, 0x10)) // (logged in to the presence)
+    if (buddy->authenticated_) // (logged in to the presence)
         static_cast<FriendsManager*>(buddy)->change_standing(kStatusHosting, script::fetch_text(kHomieStatusHosting),
                                                              location);
 }
@@ -364,7 +363,7 @@ void __cdecl RoomManager::nat_negotiation_completed(int result, int, const void*
         uint16_t port = static_cast<uint16_t>(sockaddr[2] << 8 | sockaddr[3]); // (ntohs)
         manager->join_server(*reinterpret_cast<const uint32_t*>(sockaddr + 4), port, 0);
     }
-    auto* lobby = static_cast<RoomManager*>(manager->lobby_service_);
+    auto* lobby = manager->lobby_service_;
     if (manager->get_on_server()) {
         if (--lobby->negotiations_ == 0)
             lobby->nat_task_->drop_out();
@@ -406,8 +405,8 @@ unsigned long __stdcall RoomManager::connect_thread(void* lobby_data)
     auto nick_error = &RoomManager::get_nick_error_callback;
     auto connected = &RoomManager::get_connect_callback;
     game_spy::peer_connect(lobby->remote_, static_cast<const char*>(nick),
-                           prop<int>(manager->presence_service_, 4) /* its profile */, nick_error, connected,
-                           lobby_data, 0); // peer connect (not blocking)
+                           manager->presence_service_->account_ /* its profile */, nick_error, connected, lobby_data,
+                           0); // peer connect (not blocking)
     memory::Hub::get_pull()->leave_heap_scope();
     return 0;
 }
@@ -417,7 +416,7 @@ void __cdecl RoomManager::hole_punch_result_fn(void*, int cookie, void*)
 {
     tasks::PileUp* tasks = get_logic_tasks();
     Hub* manager = net_session_slot();
-    if (static_cast<RoomManager*>(manager->lobby_service_)->negotiations_ != 0)
+    if (manager->lobby_service_->negotiations_ != 0)
         return; // (one at a time)
     net::AppHost* server = manager->host_;
     push_internet_heap();
@@ -427,7 +426,7 @@ void __cdecl RoomManager::hole_punch_result_fn(void*, int cookie, void*)
         pop_heap();
         return;
     }
-    auto* lobby = static_cast<RoomManager*>(manager->lobby_service_);
+    auto* lobby = manager->lobby_service_;
     if (lobby->negotiations_ == 0)
         tasks->queue_job(lobby->nat_task_);
     ++lobby->negotiations_;

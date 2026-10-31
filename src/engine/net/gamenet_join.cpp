@@ -19,6 +19,7 @@
 #include "engine/net/chat.h"
 #include "engine/net/gamenet_handlers.h"
 #include "engine/net/gamenet_manager.h"
+#include "engine/net/gamenet_lobby.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
 #include "engine/net/net_conn.h"
@@ -140,10 +141,7 @@ char* pending_password() { return g_pending_password; }
 char* join_password() { return g_join_password; }
 
 net::Hub* net_session_slot() { return net::Hub::sole(); }
-tasks::PileUp* get_logic_tasks()
-{
-    return (&assets::g_main_loop_manager->logic_tasks_);
-}
+tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
 int milli_seconds() { return static_cast<int>(frame_clock::get_time()); }
 uint32_t current_local_address() { return crt::get_inet_addr(net_session_slot()->fetch_own_address()); }
 
@@ -180,15 +178,12 @@ void set_maximum_players(int count)
     get_call<void>(code_address(&goals::MatchRules::set_rider_ceiling), reinterpret_cast<void*>(goals::g_game_mode),
                    count);
 }
-int8_t current_rank(Hub* m)
-{
-    return static_cast<int8_t>(static_cast<RankingsManager*>(m->rating_service_)->get_rank());
-}
+int8_t current_rank(Hub* m) { return static_cast<int8_t>(m->rating_service_->get_rank()); }
 int32_t get_rating(Hub* m)
 {
     // (the original reads the stats' first word, the rating, through the folded getter 0x00469490 -
     // single::PointerMember::get_pull)
-    return static_cast<RankingsManager*>(m->rating_service_)->get_personal_stats()->skill_points_;
+    return m->rating_service_->get_personal_stats()->skill_points_;
 }
 bool match_underway(Hub* m) { return active_ruleset_label() != kNetLobby && !m->match_ended_; }
 
@@ -201,13 +196,13 @@ const char* preference_text(Hub* m, uint32_t name)
 }
 
 // The presence (GameSpy) and the lobby (not source yet).
-bool presence_logged_in(Hub* m) { return *(static_cast<uint8_t*>(m->presence_service_) + 0x10) != 0; }
+bool presence_logged_in(Hub* m) { return m->presence_service_->authenticated_; }
 void set_presence(Hub* m, int status, const char* text, const char* location)
 {
-    static_cast<FriendsManager*>(m->presence_service_)->change_standing(status, text, location);
+    m->presence_service_->change_standing(status, text, location);
 }
-char* lobby_server_name(Hub* m) { return static_cast<char*>(m->lobby_service_) + 0xB4; }
-char* lobby_peer_name(Hub* m) { return static_cast<char*>(m->lobby_service_) + 0x34; }
+char* lobby_server_name(Hub* m) { return m->lobby_service_->server_name_; }
+char* lobby_peer_name(Hub* m) { return m->lobby_service_->room_name_; }
 
 // GameSpy's CD-key SDK (gcd) and THUG2's key.
 void compute_cd_key_response(const char* key, const char* challenge, char* response)
@@ -772,7 +767,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
     player->profile_id_ = msg->profile;
     player->skill_points_ = msg->rating;
     player->drive_control_mode_ = msg->drive_scheme_;
-    player->unknown34_ = 0;
+    player->score_ = 0;
     if (msg->observer)
         player->flag_bits_ = kPlayerObserver;
     else if (match_underway(manager))
@@ -849,9 +844,8 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
     JoinRequestBlock* info = &g_join_scratch; // (the original's is on its stack: 4 KB)
     std::memset(info, 0, kJoinInfoHeaderSize);
     // NOT ORIGINAL: in the THUGPRO peer mode the profile is our machine id, as THUGPRO's client sends it (TP-R12).
-    info->profile = thugpro::peer_mode()
-                        ? static_cast<int32_t>(thugpro::get_machine_id())
-                        : *reinterpret_cast<int32_t*>(static_cast<uint8_t*>(manager->presence_service_) + 4);
+    info->profile =
+        thugpro::peer_mode() ? static_cast<int32_t>(thugpro::get_machine_id()) : manager->presence_service_->account_;
     info->rating = get_rating(manager);
     info->observer = manager->join_mode_ == kJoinModeObserve;
     info->version = kVersion;

@@ -172,7 +172,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         return 1;
     case kClearPanelLanded: {
         void* score = get_component(this, kScore);
-        if (reinterpret_cast<GameEntity*>(entity_)->unknownbc_) {
+        if (reinterpret_cast<GameEntity*>(entity_)->is_local_skater_) {
             char* deferred = &get_at<char>(this, kDeferredName);
             if (*deferred) {
                 bool on_rail = get_at<bool>(get_component(this, kCorePhysics), 0x374);
@@ -338,7 +338,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         return 1;
     }
     case kClearPanelBailed: {
-        if (reinterpret_cast<GameEntity*>(entity_)->unknownbc_) {
+        if (reinterpret_cast<GameEntity*>(entity_)->is_local_skater_) {
             exit_combo(this);
             static_cast<modules::PointTally*>(get_component(this, kScore))->get_bail(false);
         }
@@ -432,7 +432,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         } else if (params->fetch_int_value(kAddSpin, &add_spin, 0) && same_trick_shown(this, score)) {
             double spin = static_cast<double>(add_spin) + get_at<float>(this, kSpinTotal);
             get_at<float>(this, kSpinTotal) = static_cast<float>(spin);
-            if (reinterpret_cast<GameEntity*>(entity_)->unknownbc_)
+            if (reinterpret_cast<GameEntity*>(entity_)->is_local_skater_)
                 static_cast<modules::PointTally*>(score)->advance_turn(truncate(spin));
         } else {
             uint32_t flags = 0;
@@ -456,7 +456,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
                 flags |= 0x200;
             if (params->has_bare_flag(kNoSwitch))
                 flags |= 0x400;
-            if (reinterpret_cast<GameEntity*>(entity_)->unknownbc_) {
+            if (reinterpret_cast<GameEntity*>(entity_)->is_local_skater_) {
                 uint8_t* core = static_cast<uint8_t*>(get_component(this, kCorePhysics));
                 if (get_at<int>(get_at<uint8_t*>(core, 0x1528), 0x18) == 4) {
                     int trick_score = get_at<int>(this, kTrickScore);
