@@ -80,7 +80,7 @@ class CStruct;
 //                                         shown and still.
 //   echo <text>                           logged and shown as the result (a marker for tools)
 //   quit                                  the game closes (as its window's close button)
-//   crash <kind>                          a deliberate fault, to check the crash handling (hook/crash.h): access, rtc,
+//   crash <kind>                          a deliberate fault, to check the crash handling (game/sys/crash.h): access, rtc,
 //                                         crterror, invalidparam, purecall, abort, overrun (the game's /GS box),
 //                                         crtbox (the game's CRT message box) - each logged, then the game ends
 //                                         without a dialog -, fastfail (ends at once, nothing logged), hang (the

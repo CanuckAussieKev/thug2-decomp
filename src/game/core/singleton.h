@@ -11,7 +11,7 @@
 //
 //   struct Something {
 //       using Type = ...;                          // what the pointer points to
-//       static void** Vtable();                    // the instance's vtable (GAME_VTABLE)
+//       static void** Vtable();                    // the instance's vtable
 //       static Type* Create(bool create);
 //       static void Release();
 //   };

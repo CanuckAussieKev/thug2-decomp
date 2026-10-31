@@ -1,7 +1,7 @@
 #pragma once
 
 // The virtual tables (and node / member tables) of the exe that several files use, by name. Each is defined once, with
-// the functions it holds (GAME_VTABLE, hook/game_code.h), in the file given here.
+// the functions it holds (a plain table of the functions), in the file given here.
 
 namespace Vt {
 

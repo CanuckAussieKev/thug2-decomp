@@ -378,7 +378,7 @@ void MarkUnsaved()
     ++g_changes;
 }
 
-// The crash logger's hook (hook/log.h): what the editor was doing, and its unsaved changes autosaved.
+// The crash logger's hook (game/sys/log.h): what the editor was doing, and its unsaved changes autosaved.
 void OnCrash()
 {
     static int logged = 0;

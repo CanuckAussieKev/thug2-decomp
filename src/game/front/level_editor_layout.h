@@ -206,7 +206,7 @@ bool Read(const std::string& text, File* file, int* line);
 //
 // While the editor has unsaved changes, the level's layout as it is now is also kept in
 // thug2-decomp-layouts\<scene>.autosave.txt (the same format): written every 60 s and on leaving the editor, and from
-// the crash logger (hook/log.h SetCrashHook - a text made after each change, written with no allocation). Never over
+// the crash logger (game/sys/log.h SetCrashHook - a text made after each change, written with no allocation). Never over
 // <scene>.txt: Ctrl+S saves there and deletes the autosave. Entering the editor with an autosave newer than the saved
 // layout that this run didn't write (a crash, or the game closed without saving) offers it: Ctrl+R puts it in place of
 // the current layout, Ctrl+Shift+R deletes it. While it is offered, nothing is autosaved over it.
