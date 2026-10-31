@@ -146,9 +146,9 @@ void** const kRaceGoalVtable = reinterpret_cast<void**>(g_race_goal_vtable_slots
 
 online::Hub* net_session_slot() { return online::g_online_hub; }
 uint32_t active_ruleset_label() { return g_game_mode->get_name_key(); }
-// Whether every goal is completed (a goal attack's victory condition). CompleteGoalsVictoryCondition::rule_satisfied
-// doesn't use its object: the original calls it with whatever ECX holds, the game mode just asked for its name.
-bool goals_completed() { return reinterpret_cast<CompleteGoalsVictoryCondition*>(g_game_mode)->rule_satisfied(); }
+// Whether every goal is completed (a goal attack's victory condition; the original calls the condition's check with
+// whatever ECX holds - it doesn't use its object).
+bool goals_completed() { return CompleteGoalsVictoryCondition::all_goals_complete(); }
 
 struct PlayerSearch {
     void** vtable_ = modules::kPlayerSearchVtable;

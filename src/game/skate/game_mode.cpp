@@ -16,7 +16,6 @@
 #include "game/skate/skate_module_calls.h"
 #include "game/skate/victory_conditions.h"
 #include "game/goals/goal_manager.h"
-#include "engine/core/code_address.h"
 
 namespace goals {
 
@@ -64,14 +63,6 @@ constexpr uint32_t kModeInfo = 0xCA5F7FFB;           // mode_info
 constexpr uint32_t kDefinition = 0x97CFD027;         // definition
 constexpr uint32_t kFreeskate = 0x34861A16;          // freeskate
 
-static VtableSlot g_game_flow_vtable_slots[] = {&goals::MatchFlow::teardown};
-void** const kGameFlowVtable = reinterpret_cast<void**>(g_game_flow_vtable_slots);
-static VtableSlot g_game_mode_vtable_slots[] = {&goals::MatchRules::teardown};
-void** const kGameModeVtable = reinterpret_cast<void**>(g_game_mode_vtable_slots);
-static VtableSlot g_condition_head_vtable_slots[] = {&goals::MatchRules::ConditionNode::destroy_head};
-void** const kConditionHeadVtable = reinterpret_cast<void**>(g_condition_head_vtable_slots);
-static VtableSlot g_condition_node_vtable_slots[] = {&goals::MatchRules::ConditionNode::teardown};
-void** const kConditionNodeVtable = reinterpret_cast<void**>(g_condition_node_vtable_slots);
 WinRule* const kHeadMarker = reinterpret_cast<WinRule*>(-1);
 
 // (the getters' local when an asserted integer isn't there: the original's is the pushed `this`)
@@ -80,13 +71,6 @@ int unset(const void* mode) { return static_cast<int>(reinterpret_cast<uintptr_t
 MatchRules*& the_game_mode() { return g_game_mode; }
 uint32_t& ref_tally() { return g_game_mode_references; }
 online::Hub* net_session_slot() { return online::g_online_hub; }
-
-// A virtual function of an object with a game vtable.
-template <typename R, typename... A>
-R get_virtual_call(void* object, uint32_t slot, A... args)
-{
-    return reinterpret_cast<R(__thiscall*)(void*, A...)>((*static_cast<void***>(object))[slot / 4])(object, args...);
-}
 
 // The goal manager (0x005591B0): 0x0055DC30 how many goals (`active`...) and 0x0055E980 its current net goal.
 void* objective_board() { return get_objective_board(); }
@@ -128,27 +112,13 @@ MatchRules::ConditionNode* condition_at(MatchRules::ConditionNode* head, uint32_
 
 // --- The game flow -------------------------------------------------------------------------------------------
 
-// 0x00552E10
-MatchFlow* MatchFlow::make_new()
-{
-    vtable_ = kGameFlowVtable;
-    own_script_ = nullptr;
-    label_ = 0;
-    pending_ = false;
-    return this;
-}
-
 // 0x00552F30
-MatchFlow* MatchFlow::teardown(uint8_t flags)
+MatchFlow::~MatchFlow()
 {
-    vtable_ = kGameFlowVtable;
     if (script::Script* script = own_script_) {
         script->teardown();
         script::Script::operator delete(script);
     }
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x00552E30
@@ -188,8 +158,7 @@ MatchRules* MatchRules::sole(bool create)
 {
     MatchRules* mode = the_game_mode();
     if (!mode && create) {
-        void* memory = memory::alloc_zeroed(sizeof(MatchRules), nullptr, 1);
-        mode = memory ? static_cast<MatchRules*>(memory)->make_new() : nullptr;
+        mode = new MatchRules;
         the_game_mode() = mode;
     }
     ++ref_tally();
@@ -203,76 +172,38 @@ void MatchRules::get_release()
         --ref_tally();
         return;
     }
-    if (MatchRules* mode = the_game_mode())
-        get_virtual_call<MatchRules*>(mode, 0, static_cast<uint8_t>(1));
+    delete the_game_mode();
     the_game_mode() = nullptr;
     ref_tally() = 0;
 }
 
 // 0x00553D30
-MatchRules* MatchRules::make_new()
+MatchRules::MatchRules()
 {
-    vtable_ = kGameModeVtable;
     args_.prepare_all();
     conditions_.condition_ = kHeadMarker;
     conditions_.rank_ = 0;
     conditions_.succ_ = &conditions_;
     conditions_.last_value_ = &conditions_;
-    conditions_.vtable_ = kConditionHeadVtable;
     clear_victory_conditions();
     apply_match_style(kFreeskate);
-    return this;
 }
 
-// 0x00553890
-void MatchRules::destroy_body()
+// 0x00553890 / 0x00553CE0
+MatchRules::~MatchRules()
 {
-    vtable_ = kGameModeVtable;
     clear_victory_conditions();
-    // (the head's destructor: lists::Elem's, inlined)
-    conditions_.vtable_ = kConditionNodeVtable;
-    conditions_.last_value_->succ_ = conditions_.succ_;
-    conditions_.succ_->last_value_ = conditions_.last_value_;
-    conditions_.succ_ = &conditions_;
-    conditions_.last_value_ = &conditions_;
+    conditions_.unlink();
     args_.get_clear();
 }
 
-// 0x00553CE0
-MatchRules* MatchRules::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
-}
-
 // 0x00553710
-void MatchRules::ConditionNode::destroy_body()
+void MatchRules::ConditionNode::unlink()
 {
-    vtable_ = kConditionNodeVtable;
     last_value_->succ_ = succ_;
     succ_->last_value_ = last_value_;
     succ_ = this;
     last_value_ = this;
-}
-
-// 0x00553730
-MatchRules::ConditionNode* MatchRules::ConditionNode::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
-}
-
-// 0x00553CB0
-MatchRules::ConditionNode* MatchRules::ConditionNode::destroy_head(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x00553D10
@@ -294,9 +225,8 @@ void MatchRules::clear_victory_conditions()
         node->succ_->last_value_ = node->last_value_;
         node->succ_ = node;
         node->last_value_ = node;
-        if (node->condition_)
-            get_virtual_call<void*>(node->condition_, 0, static_cast<uint8_t>(1));
-        get_virtual_call<void*>(node, 0, static_cast<uint8_t>(1));
+        delete node->condition_;
+        memory::dealloc(node); // (its destructor only unlinks it again)
         node = next;
     }
 }
@@ -314,7 +244,6 @@ void MatchRules::build_victory_conditions()
         WinRule* condition = create_victory_condition(reinterpret_cast<script::Struct*>(conditions->fetch_part(i)));
         auto* node = static_cast<ConditionNode*>(memory::alloc_zeroed(sizeof(ConditionNode)));
         if (node) {
-            node->vtable_ = kConditionNodeVtable;
             node->condition_ = condition;
             node->rank_ = 0;
             node->succ_ = node;
@@ -351,9 +280,9 @@ bool MatchRules::finish_rules_reached()
     for (uint32_t i = 0; i < count_conditions(&conditions_); ++i) {
         // (a node past the list would be read through null, as the original)
         WinRule* condition = condition_at(&conditions_, i)->condition_;
-        if (get_virtual_call<bool>(condition, 0x08)) {
+        if (condition->is_terminal()) {
             ++terminal;
-            if (get_virtual_call<bool>(condition, 0x0C))
+            if (condition->rule_satisfied())
                 ++complete;
         }
     }
@@ -366,7 +295,7 @@ int MatchRules::get_first_condition_value()
     for (uint32_t i = 0; i < count_conditions(&conditions_); ++i) {
         WinRule* condition = condition_at(&conditions_, i)->condition_;
         if (condition)
-            return *reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(condition) + 4);
+            return condition->target_value();
     }
     return 0;
 }

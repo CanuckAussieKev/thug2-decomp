@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+
 namespace memory {
 
 class Arena;
@@ -19,6 +21,14 @@ void dealloc(void* memory);
 void* alloc_zeroed(unsigned int size);
 void* alloc_zeroed(unsigned int size, int mode);
 void* alloc_zeroed(unsigned int size, Arena* heap, int mode);
+
+// A base that gives a class the game heaps' operator new / delete: zeroed memory from the current heap (as the game
+// allocates most of its objects) and back to it. `new` gives null when the heap is full - operator new is noexcept,
+// so no constructor runs then.
+struct HeapObject {
+    static void* operator new(std::size_t size) noexcept { return alloc_zeroed(static_cast<unsigned int>(size)); }
+    static void operator delete(void* memory) { dealloc(memory); }
+};
 
 // Memory profiling: the game brackets allocations with these, naming what is allocated. Compiled out of this
 // build - both calls go to the empty function at 0x005480A0 (see stubs::do_nothing) - so they do nothing here

@@ -16,44 +16,10 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/point_tally.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/stubs.h"
-#include "engine/core/code_address.h"
 
 namespace goals {
 
 namespace {
-
-// The vtables.
-static VtableSlot g_base_vtable_slots[] = {&goals::WinRule::destroy_base, stubs::return_false1, &_purecall, &_purecall,
-                                           &_purecall};
-void** const kBaseVtable = reinterpret_cast<void**>(g_base_vtable_slots);
-static VtableSlot g_highest_score_vtable_slots[] = {&goals::WinRule::teardown, &goals::WinRule::is_highest_score,
-                                                    stubs::return_false, stubs::return_false, stubs::return_true};
-void** const kHighestScoreVtable = reinterpret_cast<void**>(g_highest_score_vtable_slots);
-static VtableSlot g_score_reached_vtable_slots[] = {
-    &goals::WinRule::teardown, &goals::WinRule::is_highest_score, stubs::return_true,
-    &goals::ScoreReachedVictoryCondition::rule_satisfied, &goals::ScoreReachedVictoryCondition::echo_out};
-void** const kScoreReachedVtable = reinterpret_cast<void**>(g_score_reached_vtable_slots);
-static VtableSlot g_complete_goals_vtable_slots[] = {
-    &goals::WinRule::teardown, stubs::return_false1, stubs::return_true,
-    &goals::CompleteGoalsVictoryCondition::rule_satisfied, stubs::return_true};
-void** const kCompleteGoalsVtable = reinterpret_cast<void**>(g_complete_goals_vtable_slots);
-static VtableSlot g_best_combo_vtable_slots[] = {&goals::WinRule::teardown, &goals::WinRule::is_highest_score,
-                                                 stubs::return_false, stubs::return_false,
-                                                 &goals::BestComboVictoryCondition::echo_out};
-void** const kBestComboVtable = reinterpret_cast<void**>(g_best_combo_vtable_slots);
-static VtableSlot g_last_man_standing_vtable_slots[] = {&goals::WinRule::teardown,
-                                                        &goals::SoleSurvivorWin::has_won_match, stubs::return_true,
-                                                        &goals::SoleSurvivorWin::rule_satisfied, stubs::return_true};
-void** const kLastManStandingVtable = reinterpret_cast<void**>(g_last_man_standing_vtable_slots);
-static VtableSlot g_elimination_vtable_slots[] = {
-    &goals::WinRule::teardown, &goals::EliminationVictoryCondition::has_won_match, stubs::return_true,
-    &goals::EliminationVictoryCondition::rule_satisfied, stubs::return_true};
-void** const kEliminationVtable = reinterpret_cast<void**>(g_elimination_vtable_slots);
-static VtableSlot g_collect_all_objects_vtable_slots[] = {
-    &goals::WinRule::teardown, &goals::WinRule::is_highest_score, stubs::return_true,
-    &goals::CollectAllObjectsVictoryCondition::rule_satisfied, stubs::return_true};
-void** const kCollectAllObjectsVtable = reinterpret_cast<void**>(g_collect_all_objects_vtable_slots);
 
 // The types (type=).
 constexpr uint32_t kHighestScore = 0x8F30FD26;      // highest_score
@@ -116,26 +82,9 @@ bool is_eliminated(uint8_t* player) { return reinterpret_cast<online::PlayerReco
 
 } // namespace
 
-// 0x005769A0
-void WinRule::destroy_body() { vtable_ = kBaseVtable; }
-
-// 0x00576970
-WinRule* WinRule::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
-// 0x00576650
-WinRule* WinRule::destroy_base(uint8_t flags)
-{
-    vtable_ = kBaseVtable;
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+bool WinRule::has_won_match(uint32_t /*player*/) { return false; }
+bool WinRule::echo_out() { return true; }
+int WinRule::target_value() const { return 0; }
 
 // 0x005769B0
 bool WinRule::is_highest_score(uint32_t player)
@@ -193,7 +142,7 @@ bool BestComboVictoryCondition::echo_out()
 }
 
 // 0x00576B80
-bool CompleteGoalsVictoryCondition::rule_satisfied()
+bool CompleteGoalsVictoryCondition::all_goals_complete()
 {
     online::Hub* net = net_session_slot();
     uint8_t* skate = get_skate();
@@ -291,39 +240,27 @@ WinRule* create_victory_condition(script::Struct* params)
 {
     uint32_t type;
     params->read_hash_value("type", &type, 1);
-    auto make = [](unsigned int size, void** vtable) {
-        auto* condition = static_cast<WinRule*>(memory::alloc_zeroed(size));
-        if (condition)
-            condition->vtable_ = vtable;
-        return condition;
-    };
     switch (type) {
     case kTargetScore: {
         int score;
         params->fetch_int_value("score", &score, 1);
-        auto* condition = static_cast<ScoreReachedVictoryCondition*>(make(8, kScoreReachedVtable));
-        if (condition)
-            condition->points_held_ = score;
-        return condition;
+        return new ScoreReachedVictoryCondition(score);
     }
     case kLabelBestChain: {
         int combos;
         params->fetch_int_value("num_combos", &combos, 1);
-        auto* condition = static_cast<BestComboVictoryCondition*>(make(8, kBestComboVtable));
-        if (condition)
-            condition->num_combos_ = combos;
-        return condition;
+        return new BestComboVictoryCondition(combos);
     }
     case kCompleteGoals:
-        return make(4, kCompleteGoalsVtable);
+        return new CompleteGoalsVictoryCondition;
     case kCollectAllObjects:
-        return make(4, kCollectAllObjectsVtable);
+        return new CollectAllObjectsVictoryCondition;
     case kHighestScore:
-        return make(4, kHighestScoreVtable);
+        return new TopPointsWin;
     case kElimination:
-        return make(4, kEliminationVtable);
+        return new EliminationVictoryCondition;
     case kLastManStanding:
-        return make(4, kLastManStandingVtable);
+        return new SoleSurvivorWin;
     default:
         return nullptr;
     }

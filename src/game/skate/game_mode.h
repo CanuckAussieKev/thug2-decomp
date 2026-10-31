@@ -1,6 +1,6 @@
 #pragma once
 
-// goals::MatchRules (the singleton 0x007CE470, 0x20 bytes; 0x00552F70-0x00553DF9) - the game mode: free skate,
+// goals::MatchRules (the singleton 0x007CE470; 0x00552F70-0x00553DF9) - the game mode: free skate,
 // career, the net games... its definition (mode_info's entry: the mode's structure, then options overridden) and its
 // victory conditions. goals::MatchFlow (0x00552E10-0x00552F6F): the skate module's game flow script, run until done.
 
@@ -8,6 +8,7 @@
 #include <cstdint>
 
 #include "engine/core/arena_alloc.h"
+#include "engine/core/mem.h"
 #include "engine/script/param_struct.h"
 
 namespace script {
@@ -27,56 +28,53 @@ namespace goals {
 
 class WinRule;
 
-// The game flow (0x10 bytes, vtable 0x0064DD50): a script started anew when one is requested.
-class MatchFlow {
+// The game flow: a script started anew when one is requested.
+class MatchFlow : public memory::HeapObject {
 public:
-    void** vtable_;              // +0x00
-    script::Script* own_script_; // +0x04
-    bool pending_;               // +0x08: label_ to be started
-    uint8_t pad09_[3];
-    uint32_t label_; // +0x0C
+    // 0x00552E10: no script.
+    MatchFlow() = default;
+    // 0x00552F30: the script deleted.
+    ~MatchFlow();
+    MatchFlow(const MatchFlow&) = delete;
+    MatchFlow& operator=(const MatchFlow&) = delete;
 
-    // 0x00552E10: the constructor (no script). Returns this.
-    MatchFlow* make_new();
-    // 0x00552F30 (vtable slot 0): the scalar deleting destructor (the script deleted).
-    MatchFlow* teardown(uint8_t flags);
     // 0x00552E30: script `name` to be started (by the next Update).
     void get_request(uint32_t name);
     // 0x00552E40: a requested script started (the old one deleted); the script updated - deleted once it's done.
     void tick_frame();
-};
-static_assert(offsetof(MatchFlow, label_) == 0x0C && sizeof(MatchFlow) == 0x10, "layout must match the original");
 
-class MatchRules {
+private:
+    script::Script* own_script_ = nullptr;
+    bool pending_ = false; // label_ to be started
+    uint32_t label_ = 0;
+};
+
+class MatchRules : public memory::HeapObject {
 public:
-    // The victory conditions' list (lists::Foremost<WinRule>, vtable 0x0064DD90; its nodes' 0x0064DD54).
+    // The victory conditions' list (an intrusive ring; the head's condition is -1). The original's list types have
+    // a vtable each (the head's 0x0064DD90, the nodes' 0x0064DD54) holding only their destructors.
     struct ConditionNode {
-        void** vtable_;
         WinRule* condition_; // (-1 for the head)
         int rank_;
         ConditionNode* succ_;
         ConditionNode* last_value_;
 
-        // 0x00553710: the node's destructor body (unlinked); 0x00553730 / 0x00553CB0: the node's / the head's
-        // scalar deleting destructor.
-        void destroy_body();
-        ConditionNode* teardown(uint8_t flags);
-        ConditionNode* destroy_head(uint8_t flags);
+        // 0x00553710: out of its list (linked to itself).
+        void unlink();
     };
 
-    void** vtable_;            // +0x00 (0x0064DD58)
-    script::Struct args_;      // +0x04: the mode's definition (Name, the options)
-    ConditionNode conditions_; // +0x0C
+    script::Struct args_;      // the mode's definition (Name, the options)
+    ConditionNode conditions_; // the head
 
     // 0x00553DB0 (cdecl): the singleton (made with `create`, counted); 0x00552F70: one reference let go (the last
     // deletes it).
     static MatchRules* sole(bool create);
     static void get_release();
-    // 0x00553D30: the constructor: no conditions, the free skate mode. Returns this. 0x00553890: the destructor body.
-    // 0x00553CE0 (vtable slot 0): the scalar deleting destructor.
-    MatchRules* make_new();
-    void destroy_body();
-    MatchRules* teardown(uint8_t flags);
+    // 0x00553D30: no conditions, the free skate mode. 0x00553890 / 0x00553CE0: the conditions deleted.
+    MatchRules();
+    ~MatchRules();
+    MatchRules(const MatchRules&) = delete;
+    MatchRules& operator=(const MatchRules&) = delete;
     // 0x00553D10: back to free skate.
     void get_reset();
     // 0x00553AD0: the mode `type` of mode_info loaded (its definition's structure); in a net game max_players
@@ -92,7 +90,7 @@ public:
     // 0x00553910: the run is over by the conditions: not elimiskate / scavenger hunt, with a clock, while the goal
     // manager's active net goal... is out of time - or every terminal condition complete.
     bool finish_rules_reached();
-    // 0x00553A60: the first victory condition's +4 (its target - 0: none).
+    // 0x00553A60: the first victory condition's setting (its target_value; 0: no conditions).
     int get_first_condition_value();
 
     // The definition's options.
@@ -137,9 +135,6 @@ public:
     // 0x005536D0: the round counted up.
     void increment_round();
 };
-static_assert(offsetof(MatchRules, args_) == 0x04 && offsetof(MatchRules, conditions_) == 0x0C &&
-                  sizeof(MatchRules) == 0x20,
-              "layout must match the original");
 
 // 0x00553C90: OverrideGameModeOptions - the game mode's options overridden by the command's parameters.
 bool __cdecl cfunc_override_game_mode_options(script::Struct* params, script::Script* script);

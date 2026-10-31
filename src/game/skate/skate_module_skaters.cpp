@@ -1016,9 +1016,8 @@ Skate* Skate::make_new()
     update_job_ = task;
     reinterpret_cast<SkateNet*>(this)->create_network_tasks();
     objects::g_profile_roster->reset_templates();
-    void* memory = memory::alloc_zeroed(0x10);
-    game_flow_ = memory ? static_cast<goals::MatchFlow*>(memory)->make_new() : nullptr;
-    memory = memory::alloc_zeroed(0x39C);
+    game_flow_ = new goals::MatchFlow;
+    void* memory = memory::alloc_zeroed(0x39C);
     goal_manager_ = memory ? static_cast<goals::GoalManager*>(memory)->make_new() : nullptr;
     render::engine::change_entity_hub(static_cast<void*>(objects::g_composite_registry));
     memory = memory::alloc_zeroed(0x6AC);
@@ -1080,9 +1079,7 @@ void Skate::destroy_body()
         reinterpret_cast<void(__thiscall*)(objects::RiderStoryProgress*, int)>(*reinterpret_cast<void***>(career_)[0])(
             career_, 1);
     reinterpret_cast<SkateNet*>(this)->delete_network_tasks();
-    if (game_flow_)
-        reinterpret_cast<void(__thiscall*)(goals::MatchFlow*, int)>(*reinterpret_cast<void***>(game_flow_)[0])(
-            game_flow_, 1);
+    delete game_flow_;
     if (goals::GoalManager* goals = goal_manager_) {
         goals->destroy_body();
         memory::dealloc(goals);
