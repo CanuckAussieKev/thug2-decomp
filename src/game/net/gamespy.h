@@ -1,8 +1,5 @@
-// The GameSpy SDK calls the game makes, behind our own functions (library code, not decompiled -
-// docs/library_ranges.md).
-//
-// Hooked build: the exe's own copy of the SDK (a 2003-04 build linked into it), called by address. Standalone build:
-// IGN's open-source release of the SDK (December 2007, common 2.06 - BSD-3, see THIRD_PARTY_NOTICES.md), built from
+// The GameSpy SDK calls the game makes, behind our own functions (library code, not decompiled). The original links a
+// 2003-04 build of the SDK; here it is IGN's open-source release of the SDK (December 2007, common 2.06 - BSD-3, see THIRD_PARTY_NOTICES.md), built from
 // source; gamespy.cpp adapts the calls where its API grew (docs/gamespy.md lists what differs). SDK objects are opaque
 // here (PEER, SBServer, qr2 buffers, GHTTPPost, statsgame_t: void*); a GPConnection is the pointer-sized slot the
 // game passes (BuddyMan's first word). Callbacks are passed as code pointers with the SDK's cdecl signatures.

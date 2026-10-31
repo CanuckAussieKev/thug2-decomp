@@ -1,11 +1,10 @@
 # The GameSpy SDK
 
-The game links a 2003-04 build of the GameSpy SDK (0x5f8160-0x622e80, docs/library_ranges.md). It is not
-decompiled. The hooked build calls the exe's copy; the standalone build links IGN's open-source release of the SDK
-(BSD-3, December 2007, common 2.06: github.com/nitrocaster/GameSpy at commit d1deb2d, fetched by
-`cmake/gamespy_sdk.cmake`). Both go through `src/game/net/gamespy.h`: one function per SDK call the game makes. In
-the hooked build each one calls the exe's function at its address. In the standalone build each one calls the 2007
-API (`src/game/net/gamespy.cpp`), adapted where the API changed.
+The original game links a 2003-04 build of the GameSpy SDK (0x5f8160-0x622e80 in the reference build). It is not
+decompiled: the game built from this source links IGN's open-source release of the SDK (BSD-3, December 2007, common
+2.06: github.com/nitrocaster/GameSpy at commit d1deb2d, fetched by `cmake/gamespy_sdk.cmake`), through
+`src/game/net/gamespy.h`: one function per SDK call the game makes, each calling the 2007 API
+(`src/game/net/gamespy.cpp`), adapted where the API changed.
 
 ## What the game calls (exe address -> 2007 API)
 
@@ -48,7 +47,7 @@ Signatures (adapted in gamespy.cpp):
 
 Structures and enums:
 - **PEERCallbacks**: 0x74 bytes in both (28 callbacks and the parameter). Every field the game fills is at the same
-  offset (self-test).
+  offset (checked against the original).
 - **GPBuddyStatus**: the 2007 one ends with `quietModeFlags`, 0x214 bytes instead of 0x210. The game's buffer is
   0x230 bytes. profile, status, the two 256-byte strings, ip and port are at the same offsets.
 - GPErrorArg, GPConnectResponseArg, GPRecvBuddyStatusArg and GPRecvBuddyMessageArg: the fields the game reads are at
@@ -68,8 +67,8 @@ Structures and enums:
 Behaviour:
 - **peerFixNick**: the 2007 SDK's rules changed in 2004. It allows another character set (`"#$%&'()*+,-./:;<=>?@`
   and the others), puts a '_' only before @ # + :, and its chat SDK cuts nicks at 20 characters. The exe's rules: a
-  '_' before a leading digit or '-', and A-Z a-z 0-9 []\`_^{|}- only. The standalone build keeps the game's rules
-  (`GameSpy::FixNick`; self-test against the exe's).
+  '_' before a leading digit or '-', and A-Z a-z 0-9 []\`_^{|}- only. Ours keeps the game's rules
+  (`GameSpy::FixNick`, checked against the exe's).
 - **Nick length**: the 2007 chat SDK refuses a nick of 21 characters or more before it connects (CHAT_NICK_TOO_LONG,
   which reaches the game's nick error callback as PEER_NICK_TOO_LONG = 6). The game's callback handles only "in
   use" (1) and "invalid" (2), so with a long network name the connection would stall. The game's retry nick
@@ -82,16 +81,15 @@ Behaviour:
 - **qr2 query challenge**: the 2007 qr2 answers a "pre-query IP verify" and, if the master server sets the option, asks
   clients for it before replying to queries. Old clients (the original game) don't send it. Only relevant if OpenSpy
   sets that option.
-- **Host names** (OnlineDomain, src/game/net/online_hosts.cpp): the hooked build writes them into the exe's SDK code.
-  The standalone build sets the 2007 SDK's own variables: GSIACHostname (made for each availability check, which
+- **Host names** (OnlineDomain, src/game/net/online_hosts.cpp): set in the 2007 SDK's own variables: GSIACHostname (made for each availability check, which
   takes the whole host name), qr2_hostname, SBOverrideMasterServer ("<name>.ms<n>.<domain>", n from the SDK's hash
   of the game name), Matchup1/2/3Hostname, GPConnectionManagerHostname, GPSearchManagerHostname,
   StatsServerHostname, gPTAMOTDURL / gPTAVercheckURL. The chat server's name was a constant, so
-  `cmake/gamespy_sdk.cmake` makes it a variable (peerChatServerAddress). gcd_hostname stays key.gamespy.com in both
-  builds: the game never changed it. WinMain's first availability check runs before the PC set-up reads OnlineDomain,
-  in both builds, so it still asks gamespy.com.
-- **Game key** (OnlineGameKey, src/game/net/online_identity.cpp): the hooked build writes it over the exe's three
-  stored copies. The standalone build passes Net::GameKey() to qr2_init, peerSetTitle and gcd_secret_key.
+  `cmake/gamespy_sdk.cmake` makes it a variable (peerChatServerAddress). gcd_hostname stays key.gamespy.com: the game
+  never changed it. WinMain's first availability check runs before the PC set-up reads OnlineDomain, so it still asks
+  gamespy.com.
+- **Game key** (OnlineGameKey, src/game/net/online_identity.cpp): Net::GameKey() is passed to qr2_init, peerSetTitle
+  and gcd_secret_key.
 
 ## Modules built (cmake/gamespy_sdk.cmake)
 
@@ -103,8 +101,7 @@ with MSVC, warnings off. MinGW-w64 isn't tried yet: the win32 platform layer is 
 
 ## Proven, and what still needs the network
 
-Offline (thug2_check's self-tests, `src/hook/selftests_gamespy.cpp`; thug2_check links the 2007 SDK, the DLL never
-does): MD5Update / MD5Final against the exe's, peerFixNick (ours against the exe's; where the 2007 one differs is
+Offline (compared with the original's copy during the decompilation): MD5Update / MD5Final against the exe's, peerFixNick (ours against the exe's; where the 2007 one differs is
 logged), qr2_buffer_add / qr2_keybuffer_add against the exe's, and the PEERCallbacks offsets the game fills. Not
 offline, because the exe's functions need its C runtime, which isn't started there: GenerateAuth and
 gcd_compute_response (compared by reading: the same format strings and MD5), SBServer key lookups (they need a listed

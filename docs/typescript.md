@@ -3,10 +3,9 @@
 The project's tools (`tools/`, and the submodules `tools/pipeline` and `tools/anteara`) were rewritten from Python
 into TypeScript run by Node (the user's preference, 2026-10-20); each port was proven **output-equivalent** to its
 Python twin before the Python file was deleted (below). This page is the conventions for every tool. What stays
-Python: the pyghidra scripts (`tools/ghidra/*.py`, `tools/pipeline/thaw_bmx/thaw_ghidra.py`,
-`tools/pipeline/thug1_campaign/thug1_functions.py` - pyghidra has no Node equivalent), the capstone one
-(`tools/capstone_disasm.py`), and NeverScript (docs/neverscript.md)
-(not ours: Go). Node has no FFI: a tool that calls a Windows DLL does it through Windows PowerShell's Add-Type (C#
+Python: the pyghidra scripts (`tools/pipeline/thaw_bmx/thaw_ghidra.py`, `tools/pipeline/thug1_campaign/thug1_functions.py`
+- pyghidra has no Node equivalent), the crash tools in `tools/standalone` (DbgHelp and the Win32 debug API through
+ctypes), and NeverScript (docs/neverscript.md) (not ours: Go). Node has no FFI: a tool that calls a Windows DLL does it through Windows PowerShell's Add-Type (C#
 P/Invoke) - `tools/symbolize.ts` (dbghelp).
 
 ## Running
@@ -156,8 +155,8 @@ converters' z-fighting gates, the menu builder's outputs...) that skip when a ga
 ## The migration (finished)
 
 Every Python tool was ported in four stages (1: tools/pipeline/level_port's shared modules; 2: the THPS3, THPS4,
-THUG1 and THAW converters; 3: the menu builder and Anteara Mod's tool; 4: the game scripts and the decomp's own
-tools: mutate, progress_report, fold_pending...), and each was compared with its Python twin on real game data before the
+THUG1 and THAW converters; 3: the menu builder and Anteara Mod's tool; 4: the game scripts and the decompilation's own
+tools), and each was compared with its Python twin on real game data before the
 Python file went: a harness ran both on the same inputs, each in a scratch folder of its own, and compared exit codes,
 stdout and every file written, byte for byte (library modules through drivers writing canonical dumps; Go's
 map-ordered checksum names in .qb files and Python's run-to-run set order compared sorted). Every case agreed. The

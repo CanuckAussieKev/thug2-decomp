@@ -1,6 +1,5 @@
 // The original's start-up initialisers, in their order (see startup_init.h). The table of the C++ initialisers
-// (0x0067C000 - 0x0067C13C, run by _cinit 0x006249D1 before WinMain) entry by entry; data/startup_initialisers.csv lists
-// every entry with what it does and where its work is done here.
+// (0x0067C000 - 0x0067C13C, run by _cinit 0x006249D1 before WinMain) entry by entry.
 //
 // Not reproduced, and why:
 // - The C initialisers (0x0067C144 - 0x0067C160) and entry 1 (0x00628777, the security cookie): the C runtime's own,

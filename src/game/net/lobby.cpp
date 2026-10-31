@@ -1,6 +1,6 @@
 // The GameSpy lobby (see lobby.h).
 //
-// The GameSpy Peer SDK (docs/library_ranges.md) is called by address; what each call does is said where it's made.
+// The GameSpy Peer SDK (game/net/gamespy.h): what each call does is said where it's made.
 
 #include "game/net/buddy_man.h"
 #include "game/net/gamenet_lobby.h"

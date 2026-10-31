@@ -3,7 +3,7 @@
 // The network manager's GameSpy lobby (GameNet::LobbyMan, the manager's m_lobbyMan): the peer SDK's connection to the
 // chat lobby, its rooms and the game hosted from it. Here its small members and the peer SDK callbacks at
 // 0x0053F520-0x0053FEE0 (gamenet_lobby.cpp); only the fields used so far are named. The peer SDK is library code
-// (docs/library_ranges.md), called by address.
+// (game/net/gamespy.h).
 
 #include <cstddef>
 #include <cstdint>
