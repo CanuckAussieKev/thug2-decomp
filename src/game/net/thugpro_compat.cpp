@@ -20,8 +20,9 @@ constexpr uint32_t kIsTallLevel = 0x7C793877; // IsTallLevel
 constexpr const char* kLevelLists[] = {
     "level_select_menu_level_info",       "level_select_menu_thug1_level_info", "level_select_menu_thps4_level_info",
     "level_select_menu_thps3_level_info", "level_select_menu_thaw_level_info",
-    // (not THUGPRO's: our THP8 levels wider than half units reach - tools/pipeline/thp8_levels, NET_HALF_REACH)
-    "level_select_menu_thps2_level_info", "level_select_menu_thp8_level_info",
+    // (not THUGPRO's: our THP8 / Proving Ground levels wider than half units reach - tools/pipeline/thp8_levels,
+    // NET_HALF_REACH; tools/pipeline/thpg_levels)
+    "level_select_menu_thps2_level_info", "level_select_menu_thp8_level_info", "level_select_menu_thpg_level_info",
     "level_select_menu_misc_level_info", // (the MISCELLANEOUS section: skate shops, tutorials, test levels)
 };
 
