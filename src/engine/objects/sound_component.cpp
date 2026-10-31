@@ -42,7 +42,6 @@ constexpr uint32_t kRetryDelay = 0x14D;                      // (ms)
 constexpr uint32_t kWaitTime = 2000;                         // (ms)
 
 sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer; }
-Entity* as_sound_object(AudioEmitterModule* component) { return reinterpret_cast<Entity*>(component); }
 
 // The camera nearest to `position` (0x004A09E0; its distance through `distance`) and a camera's position (0x00485A00).
 void* nearest_camera(const maths::Vec4* position, float* distance)
@@ -84,7 +83,7 @@ AudioEmitterModule::AudioEmitterModule()
 }
 
 // 0x00432DF0 (0x00433160 the deleting one)
-AudioEmitterModule::~AudioEmitterModule() { audio_mixer_handle()->stop_object_sounds(as_sound_object(this)); }
+AudioEmitterModule::~AudioEmitterModule() { audio_mixer_handle()->stop_object_sounds(this); }
 
 // 0x00432CA0
 void AudioEmitterModule::configure_from_data(script::Struct* params)
@@ -112,7 +111,7 @@ int AudioEmitterModule::invoke_method_by_name(uint32_t name, script::Struct* par
     if (name == kObjStopSound) {
         uint32_t sound = 0; // (read into the name's argument slot, cleared first)
         params->read_hash_value(0u, &sound, 0);
-        audio_mixer_handle()->halt_object_sound(as_sound_object(this), sound);
+        audio_mixer_handle()->halt_object_sound(this, sound);
         if (waiting_[0].props.checksum == sound)
             waiting_[0].props.checksum = 0;
         if (waiting_[1].props.checksum == sound)
@@ -203,12 +202,10 @@ void AudioEmitterModule::update_waiting_sounds()
         float dropoff = props.dropoff == 0.0f ? kDefaultDropoff : props.dropoff;
         if (camera && static_cast<double>(kHearingMargin) + dropoff > distance) {
             SoundParams params = {props.pitch2, props.volume2, props.dropoff, static_cast<int>(props.falloff)};
-            uint32_t id =
-                audio_mixer_handle()->play_object_sound(props.checksum, &params, as_sound_object(this), false, true);
+            uint32_t id = audio_mixer_handle()->play_object_sound(props.checksum, &params, this, false, true);
             if (!id)
                 continue;
-            if (sound::PlaybackProps* playing =
-                    audio_mixer_handle()->get_positional_props(as_sound_object(this), id, false)) {
+            if (sound::PlaybackProps* playing = audio_mixer_handle()->get_positional_props(this, id, false)) {
                 // Faded in from silence to its volume, at a hundredth of it a frame.
                 playing->volume3 = props.volume3;
                 playing->pitch3 = props.pitch3;
@@ -270,7 +267,7 @@ void AudioEmitterModule::emit_sound(script::Struct* params)
     }
     // (here the original calls its slot 13, an empty stub taking the sound, volume and pitch: nothing)
     SoundParams play = {pitch, volume, dropoff, falloff};
-    audio_mixer_handle()->play_object_sound(sound, &play, as_sound_object(this), keep_placement, false);
+    audio_mixer_handle()->play_object_sound(sound, &play, this, keep_placement, false);
 }
 
 // 0x00432FF0
@@ -280,7 +277,7 @@ void AudioEmitterModule::adjust_sound(script::Struct* params, script::Script* /*
     // (read into the parameters' own argument slot: none, the pointer's value)
     uint32_t sound = reinterpret_cast<uint32_t>(params);
     params->read_hash_value(0u, &sound, 0);
-    sound::PlaybackProps* props = audio_mixer_handle()->get_positional_props(as_sound_object(this), sound, true);
+    sound::PlaybackProps* props = audio_mixer_handle()->get_positional_props(this, sound, true);
     if (!props) {
         for (WaitingSound& waiting : waiting_) {
             if (waiting.props.checksum == sound) {

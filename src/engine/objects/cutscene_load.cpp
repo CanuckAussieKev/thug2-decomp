@@ -141,7 +141,7 @@ CinematicTable::CinematicTable()
     vblanks_ = 0;
     prev_retraces_ = 0;
     end_time_ = 0.0f;
-    colour_saved_ = false;
+    lent_saved_ = false;
     unknown34a8_ = nullptr;
     unknown34ac_ = nullptr;
     subtitles_ = nullptr;
@@ -277,7 +277,7 @@ void CinematicTable::add_objects(script::Struct* params)
                     auto* level = static_cast<GameEntity*>(find_object(stand_in_id(stand_in)));
                     ObjectModule* level_model = level->fetch_module(kModelModuleName);
                     void* model2 = model_of(level_model);
-                    if (!colour_saved_) {
+                    if (!lent_saved_) {
                         float saved[4];
                         const float* settings = reinterpret_cast<const float*>(
                             static_cast<render::RenderModel*>(model2)->fetch_bound_sphere(
@@ -286,8 +286,8 @@ void CinematicTable::add_objects(script::Struct* params)
                         uint8_t flags = *(static_cast<uint8_t*>(model2) + 0x44);
                         lent_3c_ = flags >> 2 & 1;
                         lent_3d_ = flags >> 3 & 1;
-                        std::memcpy(shade_, reinterpret_cast<uint8_t*>(level) + 0x4C, 16);
-                        colour_saved_ = true;
+                        lent_pos_ = level->at_point_;
+                        lent_saved_ = true;
                     }
                     float offset2[4] = {0.0f, 0.0f, 0.0f, 150.0f};
                     model_set_offset(model2, offset2);

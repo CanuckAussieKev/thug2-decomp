@@ -193,7 +193,7 @@ int AudioMixer::get_playing_index(uint32_t id)
 }
 
 // 0x0047AE20
-void AudioMixer::add_positional_sound(uint32_t unique_id, uint32_t checksum, objects::Entity* object)
+void AudioMixer::add_positional_sound(uint32_t unique_id, uint32_t checksum, objects::AudioEmitterModule* object)
 {
     if (unique_id == 0 || positional_count() == kMaxPositional)
         return;

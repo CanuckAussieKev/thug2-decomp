@@ -18,7 +18,7 @@
 #include "engine/maths/vec4.h"
 
 namespace objects {
-class Entity;
+class AudioEmitterModule;
 }
 
 namespace sound {
@@ -128,12 +128,12 @@ static_assert(sizeof(PlayingSound) == 0x3C, "layout must match the original");
 
 // A positional sound following an object (0x18 bytes; 128 of them).
 struct PositionalSound {
-    uint32_t unique_id_;     // +0x00
-    uint32_t checksum;       // +0x04
-    uint32_t in_use_;        // +0x08 (bit 0)
-    objects::Entity* object; // +0x0C
-    PositionalSound* next;   // +0x10
-    PositionalSound* prev;   // +0x14
+    uint32_t unique_id_;                 // +0x00
+    uint32_t checksum;                   // +0x04
+    uint32_t in_use_;                    // +0x08 (bit 0)
+    objects::AudioEmitterModule* object; // +0x0C the object's sound component
+    PositionalSound* next;               // +0x10
+    PositionalSound* prev;               // +0x14
 };
 
 // One of the driver's voices (0x18 bytes; up to 48).
@@ -154,7 +154,7 @@ public:
     // 0x0047AD80: the slot of the playing sound `id` - by unique id, else by name (-1 if neither is playing).
     int get_playing_index(uint32_t id);
     // 0x0047AE20: a positional sound for `object` (nothing at 128).
-    void add_positional_sound(uint32_t unique_id, uint32_t checksum, objects::Entity* object);
+    void add_positional_sound(uint32_t unique_id, uint32_t checksum, objects::AudioEmitterModule* object);
     // 0x0047AE90: (a group's sounds stopped - empty in this build).
     void stop_group(int group);
     // 0x0047AEA0: the permanent waves loaded for `group` (load type 2) dropped from the table.
@@ -205,14 +205,14 @@ public:
                        void* camera);
     // 0x0047BA00: the props of the positional sound of `object` with that unique id (or, `by_checksum`, name), if
     // it's playing.
-    PlaybackProps* get_positional_props(objects::Entity* object, uint32_t id, bool by_checksum);
+    PlaybackProps* get_positional_props(objects::AudioEmitterModule* object, uint32_t id, bool by_checksum);
     // 0x0047BAB0: whether `id` isn't the unique id of a playing or positional sound.
     bool is_unique_id_free(uint32_t id);
     // 0x0047BB20: `id`, or the next free one after it.
     uint32_t fetch_distinct_id(uint32_t id);
     // 0x0047BB50 / 0x0047BC30: the positional sounds of `object` (with that name, unless 0) stopped and dropped.
-    void stop_object_sounds(objects::Entity* object);
-    void halt_object_sound(objects::Entity* object, uint32_t checksum);
+    void stop_object_sounds(objects::AudioEmitterModule* object);
+    void halt_object_sound(objects::AudioEmitterModule* object, uint32_t checksum);
     // 0x0047BD20: the sound `checksum` played at `volume` / `pitch` (the unique id `uniqueId`, else the name;
     // made free); `params` its play parameters. Returns the unique id (0: not played).
     uint32_t emit_sound(uint32_t checksum, VolumeRef* volume, float pitch, uint32_t unique_id, void* params,
@@ -224,10 +224,10 @@ public:
                         void* extent);
     // 0x0047C140: the sound played on `object` (positional unless `not_positional`); a silent looping one is kept
     // by the object to start later (unless `force`, which plays it anyway). Returns the unique id.
-    uint32_t play_object_sound(uint32_t checksum, void* params, objects::Entity* object, bool not_positional,
-                               bool force);
+    uint32_t play_object_sound(uint32_t checksum, void* params, objects::AudioEmitterModule* object,
+                               bool not_positional, bool force);
     // 0x0047C360: a positional sound's volume and pitch from its object's place; false when it should stop.
-    bool update_positional_sound(objects::Entity* object, PlayingSound* sound, uint32_t time);
+    bool update_positional_sound(objects::AudioEmitterModule* object, PlayingSound* sound, uint32_t time);
     // 0x0047C560: every positional sound updated; those that ended or stop are dropped.
     void tick_positional_sounds();
 

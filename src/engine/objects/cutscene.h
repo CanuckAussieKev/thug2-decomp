@@ -16,6 +16,7 @@ class Array;
 class Struct;
 } // namespace script
 #include "engine/file/asset_bundle.h"
+#include "engine/maths/vec4.h"
 #include "engine/objects/node_objects.h"
 
 namespace objects {
@@ -83,7 +84,7 @@ public:
     void update_subtitles();
 
     // 0x00463C70: the cutscene's objects dropped; the objects they stood in for get back what they lent (their
-    // models' settings) and the cutscene's colour.
+    // models' settings) and the first one's position (lent_pos_: every one of them is put there).
     void destroy_objects();
     // 0x00463F20: an asset loaded (0x00408060) and listed with the cutscene's.
     void load_asset(uint32_t name, uint32_t a2, uint32_t a3);
@@ -183,8 +184,9 @@ public:
     uint8_t lent_3c_;       // +0x3C
     uint8_t lent_3d_;       // +0x3D
     uint8_t unknown3e_[2];
-    float shade_[4];    // +0x40: the colour of the first level object a cutscene object stood in for
-    bool colour_saved_; // +0x50: (and its model's settings, +0x2C-0x3D) saved
+    maths::Vec4 lent_pos_; // +0x40: the position of the first level object a cutscene object stood in for (given
+                           // back to every one of them afterwards, as the original)
+    bool lent_saved_;      // +0x50: it (and its model's settings, +0x2C-0x3D) saved
     uint8_t unknown51_[3];
     ObjectEntry entities_[256];      // +0x54
     int object_count_;               // +0x2054

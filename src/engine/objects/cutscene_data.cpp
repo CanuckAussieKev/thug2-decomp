@@ -216,7 +216,7 @@ void CinematicTable::destroy_objects()
             uint32_t mine = model_get(model);
             model_set(model, model_get(model_of(stand_in)));
             model_set(model_of(stand_in), mine);
-            std::memcpy(reinterpret_cast<uint8_t*>(original) + 0x4C, shade_, 16);
+            original->at_point_ = lent_pos_;
         }
         delete entry.object;
         entry.object = nullptr;
@@ -258,11 +258,7 @@ GameEntity* CinematicTable::create_object(script::Struct* params)
     script::launch_script(kCreateScript, params, object, false, nullptr);
     object->seal();
     script::launch_script(kInitScript, params, object, false, nullptr);
-    auto* colour = reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(object) + 0x4C);
-    colour[0] = 0.0f;
-    colour[1] = 0.0f;
-    colour[2] = 0.0f;
-    colour[3] = 1.0f;
+    object->at_point_ = {0.0f, 0.0f, 0.0f, 1.0f}; // at the origin
     return object;
 }
 

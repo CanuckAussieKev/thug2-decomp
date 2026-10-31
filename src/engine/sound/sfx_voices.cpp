@@ -91,35 +91,28 @@ void* viewport_camera(int viewport) { return render::obtain_active_lens(viewport
 const maths::Vec4* viewer_location(void* camera) { return static_cast<gfx::ViewCam*>(camera)->fetch_location(); }
 const maths::Mat4* cam_orientation(void* camera) { return static_cast<gfx::ViewCam*>(camera)->fetch_mat(); }
 // The objects' sound parts: the "object" the sound manager is given is the object's sound component.
-objects::AudioEmitterModule* audio_emitter_of(objects::Entity* object)
-{
-    return reinterpret_cast<objects::AudioEmitterModule*>(object);
-}
 double get_extent(void* extent, const maths::Vec4* from)
 {
     return maths::get_distance(*static_cast<const maths::Vec4*>(extent), *from);
 }
-bool object_sound_extent(objects::Entity* object, void* camera, void* out)
+bool object_sound_extent(objects::AudioEmitterModule* object, void* camera, void* out)
 {
-    return audio_emitter_of(object)->get_sound_extent(camera, static_cast<maths::Vec4*>(out));
+    return object->get_sound_extent(camera, static_cast<maths::Vec4*>(out));
 }
-maths::Vec4* object_sound_position(objects::Entity* object, maths::Vec4* out, void* camera)
+maths::Vec4* object_sound_position(objects::AudioEmitterModule* object, maths::Vec4* out, void* camera)
 {
-    return audio_emitter_of(object)->get_sound_position(out, camera);
+    return object->get_sound_position(out, camera);
 }
-maths::Vec4* object_sound_previous(objects::Entity* object, maths::Vec4* out, void* camera)
+maths::Vec4* object_sound_previous(objects::AudioEmitterModule* object, maths::Vec4* out, void* camera)
 {
-    return audio_emitter_of(object)->get_previous_sound_position(out, camera);
+    return object->get_previous_sound_position(out, camera);
 }
-void keep_looping_sound(objects::Entity* object, PlaybackProps* props, uint32_t time)
+void keep_looping_sound(objects::AudioEmitterModule* object, PlaybackProps* props, uint32_t time)
 {
-    audio_emitter_of(object)->keep_looping_sound(props, time);
+    object->keep_looping_sound(props, time);
 }
-void note_sound_update(objects::Entity* object, PlaybackProps* props) { audio_emitter_of(object)->update_props(props); }
-const maths::Vec4* object_position(objects::Entity* object)
-{
-    return reinterpret_cast<const maths::Vec4*>(reinterpret_cast<uint8_t*>(object) + 0x98);
-}
+void note_sound_update(objects::AudioEmitterModule* object, PlaybackProps* props) { object->update_props(props); }
+const maths::Vec4* object_position(objects::AudioEmitterModule* object) { return &object->at_point_; }
 
 // The CRT's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
 int ftol(double x) { return static_cast<int>(static_cast<int64_t>(x)); }
@@ -216,7 +209,7 @@ void AudioMixer::doppler_shift(float* pitch, const maths::Vec4* position, const 
 }
 
 // 0x0047BA00
-PlaybackProps* AudioMixer::get_positional_props(objects::Entity* object, uint32_t id, bool by_checksum)
+PlaybackProps* AudioMixer::get_positional_props(objects::AudioEmitterModule* object, uint32_t id, bool by_checksum)
 {
     for (PositionalSound* entry = positional_head(); entry; entry = entry->next) {
         uint32_t key = by_checksum ? entry->checksum : entry->unique_id_;
@@ -258,7 +251,7 @@ uint32_t AudioMixer::fetch_distinct_id(uint32_t id)
 }
 
 // 0x0047BB50
-void AudioMixer::stop_object_sounds(objects::Entity* object)
+void AudioMixer::stop_object_sounds(objects::AudioEmitterModule* object)
 {
     for (PositionalSound* entry = positional_head(); entry;) {
         PositionalSound* next = entry->next;
@@ -272,7 +265,7 @@ void AudioMixer::stop_object_sounds(objects::Entity* object)
 }
 
 // 0x0047BC30
-void AudioMixer::halt_object_sound(objects::Entity* object, uint32_t checksum)
+void AudioMixer::halt_object_sound(objects::AudioEmitterModule* object, uint32_t checksum)
 {
     for (PositionalSound* entry = positional_head(); entry;) {
         PositionalSound* next = entry->next;
@@ -400,8 +393,8 @@ bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, 
 }
 
 // 0x0047C140
-uint32_t AudioMixer::play_object_sound(uint32_t checksum, void* params, objects::Entity* object, bool not_positional,
-                                       bool force)
+uint32_t AudioMixer::play_object_sound(uint32_t checksum, void* params, objects::AudioEmitterModule* object,
+                                       bool not_positional, bool force)
 {
     if (no_sound())
         return 0;
@@ -443,7 +436,7 @@ uint32_t AudioMixer::play_object_sound(uint32_t checksum, void* params, objects:
 }
 
 // 0x0047C360
-bool AudioMixer::update_positional_sound(objects::Entity* object, PlayingSound* sound, uint32_t time)
+bool AudioMixer::update_positional_sound(objects::AudioEmitterModule* object, PlayingSound* sound, uint32_t time)
 {
     PlaybackProps* props = &sound->props;
     float dropoff = props->dropoff == 0.0f ? default_dropoff() : props->dropoff;
