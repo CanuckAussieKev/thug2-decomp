@@ -39,11 +39,11 @@ void* node_meta(MapListNode* node)
     return static_cast<PieceGroup*>(meta)->get_cast();
 }
 PieceGroup* as_meta(void* meta) { return static_cast<PieceGroup*>(meta); }
-Clipboard* as_clipboard(uint8_t* clipboard) { return reinterpret_cast<Clipboard*>(clipboard); }
+Clipboard* as_clipboard(Clipboard* clipboard) { return clipboard; }
 ParkAssembler* as_generator(void* generator) { return static_cast<ParkAssembler*>(generator); }
-uint8_t* next_clipboard(uint8_t* clipboard) { return *reinterpret_cast<uint8_t**>(clipboard + 0x14); }
+Clipboard* next_clipboard(Clipboard* clipboard) { return clipboard->following_; }
 // A clipboard's area where the cursor would paste it.
-void clipboard_area(uint8_t* clipboard, BuildPointer* cursor, CellBox* area)
+void clipboard_area(Clipboard* clipboard, BuildPointer* cursor, CellBox* area)
 {
     as_clipboard(clipboard)->fetch_extent(cursor, area);
 }
@@ -73,10 +73,10 @@ void set_default_heap(memory::Arena* /*heap*/) { stubs::return_zero(); }
 // 0x0059D120
 void BuildPointer::remove_clipboards_too_big()
 {
-    uint8_t* previous = nullptr;
-    uint8_t* clipboard = get_clipboards();
+    Clipboard* previous = nullptr;
+    Clipboard* clipboard = get_clipboards();
     while (clipboard) {
-        uint8_t* next = next_clipboard(clipboard);
+        Clipboard* next = next_clipboard(clipboard);
         CellBox area = {};
         clipboard_area(clipboard, this, &area);
         uint8_t park_width = hub()->park_dims().w;
@@ -84,7 +84,7 @@ void BuildPointer::remove_clipboards_too_big()
         if (area.w > park_width || area.w > park_length || area.l > park_width || area.l > park_length) {
             // Too big to paste in this park: unlinked and deleted.
             if (previous)
-                *reinterpret_cast<uint8_t**>(previous + 0x14) = next;
+                previous->following_ = next;
             if (clipboard == get_clipboards())
                 get_clipboards() = next;
             as_clipboard(clipboard)->teardown();
@@ -109,7 +109,7 @@ bool BuildPointer::commit_tile_placement()
     // A restart point needs a free slot of its type.
     uint32_t type = meta_type(get_meta());
     for (int slot = 1; slot < 9; ++slot) {
-        if (type == manager->get_at<uint32_t>(0x177A4 + (slot - 1) * 4)) {
+        if (type == manager->restart_pieces_[slot - 1]) {
             if (!as_generator(manager->get_generator())->has_free_restart_slot(slot)) {
                 debug::printf(
                     "No free slots exist for this type of restart point\n"); // "No free slots exist for this type of restart point\n"
@@ -213,7 +213,7 @@ bool BuildPointer::remove_gap_half()
     hub()->rebuild_area(&get_area(), false);
     // The pieces that had gaps are told to look again.
     manager = hub();
-    for (auto* node = manager->get_at<MapListNode*>(0x7C); node; node = node->following_) {
+    for (auto* node = manager->concrete_metas_; node; node = node->following_) {
         if (get_meta_flags(node_meta(node)) & kMetaHasGap)
             as_meta(node_meta(node))->spotlight(1, 1);
     }
@@ -304,7 +304,7 @@ bool BuildPointer::destroy_selection()
     bool destroyed = hub()->destroy_metas_in_area_and_rebuild(area, true, true, false);
     memory_marker("After Area deletion"); // "After Area deletion"
     selecting() = true;
-    get_at<bool>(0x55) = false;
+    area_highlighted_ = false;
     return destroyed;
 }
 
@@ -317,7 +317,7 @@ void BuildPointer::flatten_selection()
     selected_area(this, &area);
     hub()->clear_area(area);
     selecting() = true;
-    get_at<bool>(0x55) = false;
+    area_highlighted_ = false;
 }
 
 // 0x0059D9F0
@@ -382,22 +382,22 @@ bool BuildPointer::raise_lower(int dir)
         as_clipboard(active_copy_buffer())->free_all_piece_groups();
     bool raised = raise_area(area, height, dir, level);
     if (get_mode() == 4)
-        get_at<bool>(0x55) = false;
+        area_highlighted_ = false;
     return raised;
 }
 
 // 0x0059DCD0
 void ParkLayout::commission(uint32_t level)
 {
-    if (get_at<bool>(0x4))
+    if (park_built_)
         return;
-    get_at<bool>(0x4) = true;
+    park_built_ = true;
     prepare_all(level); // the park heap and pools
     for (int x = 0; x < kGridSize; ++x) {
         for (int z = 0; z < kGridSize; ++z) {
-            uint8_t* cell = get_bytes() + 0x352C + (x * kGridSize + z) * 0x10;
-            cell[8] = 0;
-            *reinterpret_cast<uint32_t*>(cell + 0xC) = 0;
+            FloorCell& cell = floor_[x][z];
+            cell.touched_ = false;
+            cell.delta_ = 0;
         }
     }
     // The park's gap manager (0xA8 bytes), in the top-down heap for that level.
@@ -408,7 +408,7 @@ void ParkLayout::commission(uint32_t level)
     gap_registry_ = block ? static_cast<GapRegistry*>(block)->make_new(this) : nullptr;
     if (level == kTopDownLevel)
         memory::Hub::get_pull()->leave_heap_scope();
-    int theme = (current_flags() & 2) ? get_at<uint16_t>(0x13C98) : 0;
+    int theme = (current_flags() & 2) ? map_.shell_size_ : 0;
     builder_->load_pieces(level, theme);
     set_up_abstract_metas();
     set_up_road_mask();
@@ -435,8 +435,8 @@ void ParkLayout::commission(uint32_t level)
         if (description->read_hash_value("first", &first, 0)) { // "first"
             // `first`'s place in the standard pieces (the manager's list runs from the last to the first).
             int index = 0;
-            int position = get_at<int>(0x88) - 1;
-            for (auto* node = get_at<MapListNode*>(0x80); node; node = node->following_, --position) {
+            int position = num_abstract_metas_ - 1;
+            for (auto* node = abstract_metas_; node; node = node->following_, --position) {
                 if (meta_type(node_meta(node)) == first) {
                     index = position;
                     break;
@@ -447,8 +447,8 @@ void ParkLayout::commission(uint32_t level)
             for (int entry = 0; entry < set.entry_total_; ++entry) {
                 int piece = index + entry;
                 void* meta = nullptr;
-                int at = get_at<int>(0x88) - 1;
-                for (auto* node = get_at<MapListNode*>(0x80); node; node = node->following_, --at) {
+                int at = num_abstract_metas_ - 1;
+                for (auto* node = abstract_metas_; node; node = node->following_, --at) {
                     void* candidate = node_meta(node);
                     if (at == piece) {
                         meta = candidate;

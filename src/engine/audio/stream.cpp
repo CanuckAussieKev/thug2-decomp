@@ -57,11 +57,11 @@ constexpr uint32_t kPending = 0x8000000Au; // E_PENDING
 // The BinkStream constructor and its open of a pcm.wad entry (written over BinkStreamView, stream_commands.h).
 BinkStream* construct_bink_stream(void* memory, bool unknown, int plays)
 {
-    return reinterpret_cast<BinkStream*>(static_cast<BinkStreamView*>(memory)->make_new(unknown, plays));
+    return static_cast<BinkStream*>(memory)->make_new(unknown, plays);
 }
 Result open_bink_from_wad(BinkStream* bink, uint32_t checksum, const char* path, uint32_t offset, uint32_t size)
 {
-    return reinterpret_cast<BinkStreamView*>(bink)->unseal(checksum, path, static_cast<long>(offset), size);
+    return bink->unseal(checksum, path, static_cast<long>(offset), size);
 }
 
 // Whether the slot's stream uses this OVERLAPPED block.

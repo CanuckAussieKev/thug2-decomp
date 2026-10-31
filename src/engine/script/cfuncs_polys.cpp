@@ -17,6 +17,7 @@
 #include "engine/gfx/sector.h"
 #include "engine/gfx/spawned_polys.h"
 #include "engine/gfx/texture_dict.h"
+#include "engine/gfx/engine_scene.h"
 
 namespace commands {
 
@@ -91,7 +92,7 @@ SceneNode* next_scene_node(SceneNode* node)
     return next->scene == reinterpret_cast<uint8_t*>(-1) ? nullptr : next;
 }
 // A scene's flag at +0x8D: a sky. 0x0048C7B0: the first scene that is one.
-bool is_sky_backdrop(const uint8_t* scene) { return scene[0x8D] != 0; }
+bool is_sky_backdrop(const uint8_t* scene) { return reinterpret_cast<const render::WorldScene*>(scene)->is_sky_; }
 uint8_t* first_sky_scene() { return reinterpret_cast<uint8_t*>(render::get_sky_scene()); }
 
 // A sector's geometry (0x004A2BA0: +0x14) and the geometry's vertex count / positions / colours (0x0048DF70,
@@ -127,7 +128,7 @@ uint8_t channel_byte(double value)
 template <typename Fn>
 void for_each_sector_geometry(uint8_t* scene, uint32_t light_group, Fn fn)
 {
-    auto* sectors = *reinterpret_cast<lists::KeyMap**>(scene + 0xD0);
+    lists::KeyMap* sectors = reinterpret_cast<render::WorldScene*>(scene)->sectors_;
     if (!sectors)
         return;
     sectors->iter_bucket_ = -1;
@@ -136,7 +137,7 @@ void for_each_sector_geometry(uint8_t* scene, uint32_t light_group, Fn fn)
         return;
     for (auto* sector = static_cast<uint8_t*>(sectors->iter_item_->value); sector;) {
         void* geometry = sector_geometry(sector);
-        if (geometry && (!light_group || light_group == *reinterpret_cast<uint32_t*>(sector + 0xC)))
+        if (geometry && (!light_group || light_group == reinterpret_cast<render::WorldCell*>(sector)->light_group_))
             fn(geometry);
         if (!sectors->step_iterator() || !sectors->iter_item_)
             break;

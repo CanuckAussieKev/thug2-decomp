@@ -323,14 +323,14 @@ void CameraAnimMovie::place_camera()
     float dir[4];
     if (aim_point_ != kFixedTarget) {
         // Aimed at an object (none: as it was): from its position (moved by the offsets in its frame).
-        auto* object = reinterpret_cast<uint8_t*>(
+        auto* object = static_cast<GameEntity*>(
             reinterpret_cast<ObjectHubBase*>(g_composite_registry)->look_up_entity(aim_point_));
         if (!object)
             return;
-        float target[4] = {prop<float>(object, 0x4C), prop<float>(object, 0x50), prop<float>(object, 0x54), 1.0f};
+        float target[4] = {object->at_point_.x, object->at_point_.y, object->at_point_.z, 1.0f};
         float frame[16];
         auto moved = [&](float* offset) {
-            *reinterpret_cast<maths::Mat4*>(frame) = *reinterpret_cast<const maths::Mat4*>(object + 0x6C);
+            *reinterpret_cast<maths::Mat4*>(frame) = object->basis_frame_;
             frame[12] = target[0];
             frame[13] = target[1];
             frame[14] = target[2];
@@ -403,7 +403,8 @@ void ObjectAnimMovie::tick_frame()
     if (anim_)
         step_asset(anim_, from, timeline_.ongoing_, viewer_, false);
     // Every object the asset moves: its frame's rotation and position.
-    int count = prop<int>(anim_, 8);
+    auto* frames = static_cast<gfx::JointClipFrames*>(anim_);
+    int count = frames->bone_count_;
     auto* quats = static_cast<float*>(memory::alloc(count * 16));
     if (quats) {
         for (int i = 0; i < count; ++i) {
@@ -411,12 +412,12 @@ void ObjectAnimMovie::tick_frame()
             quats[4 * i + 3] = 1.0f;
         }
     }
-    auto* positions = static_cast<float*>(memory::alloc(prop<int>(anim_, 8) * 16));
-    auto* flags = static_cast<bool*>(memory::alloc(prop<int>(anim_, 8)));
+    auto* positions = static_cast<float*>(memory::alloc(frames->bone_count_ * 16));
+    auto* flags = static_cast<bool*>(memory::alloc(frames->bone_count_));
     static_cast<gfx::JointClipFrames*>(anim_)->get_float_key_pose(quats, positions, flags, timeline_.ongoing_, 0);
-    for (int i = 0; i < prop<int>(anim_, 8); ++i) {
+    for (int i = 0; i < frames->bone_count_; ++i) {
         uint32_t name = static_cast<gfx::JointClipFrames*>(anim_)->fetch_joint_name(i);
-        uint8_t* object = reinterpret_cast<uint8_t*>(objects::find_object(name));
+        auto* object = static_cast<GameEntity*>(objects::find_object(name));
         if (!object) {
             debug::printf("object animation:  couldn't find object %s\n", script::find_checksum_name_or_unknown(name));
             continue;
@@ -424,17 +425,17 @@ void ObjectAnimMovie::tick_frame()
         float origin[4] = {0.0f, 0.0f, 0.0f, 1.0f};
         float matrix[16];
         quat_to_matrix(quats + 4 * i, origin, matrix);
-        std::memcpy(object + 0x6C, matrix, sizeof(matrix)); // its matrix
-        std::memcpy(object + 0xC0, matrix, sizeof(matrix)); // and its display matrix
-        std::memcpy(object + 0x4C, positions + 4 * i, 16);  // its position
+        std::memcpy(&object->basis_frame_, matrix, sizeof(matrix));    // its matrix
+        std::memcpy(&object->display_matrix_, matrix, sizeof(matrix)); // and its display matrix
+        std::memcpy(&object->at_point_, positions + 4 * i, 16);        // its position
         if (script::fetch_int_value(0x2F510F45)) {
             debug::printf("Object %s @ time %f:  ", script::find_checksum_name_or_unknown(name),
                           static_cast<double>(timeline_.ongoing_));
-            reinterpret_cast<const maths::Vec4*>(object + 0x4C)->echo_out(); // (printed)
-            reinterpret_cast<const maths::Mat4*>(object + 0x6C)->echo_out();
+            object->at_point_.echo_out(); // (printed)
+            object->basis_frame_.echo_out();
         }
         // The object's model told (the Update of its 0x286A8D26 component).
-        ObjectModule* component = reinterpret_cast<GameEntity*>(object)->fetch_module(0x286A8D26);
+        ObjectModule* component = object->fetch_module(0x286A8D26);
         if (component)
             component->tick_frame();
     }

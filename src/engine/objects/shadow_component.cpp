@@ -119,7 +119,8 @@ void GroundShadowModule::refresh_shadow()
         const GameEntity* object = entity_;
         maths::Vec4 above = object->at_point_ + object->basis_frame_.row[1] * kDetailedHeight;
         // (the model's lights' first direction - their slot 5 -, turned round - and not used)
-        if (auto* lights = *reinterpret_cast<render::ModelLights**>(model + 0x2C)) {
+        if (auto* lights =
+                reinterpret_cast<render::ModelLights*>(reinterpret_cast<render::RenderModel*>(model)->lights_ptr_)) {
             const maths::Vec4* v = lights->read_light_aim(0);
             maths::Vec4 unused = *v * -1.0f;
             (void)unused;
@@ -128,7 +129,7 @@ void GroundShadowModule::refresh_shadow()
         break;
     }
     case kShadowSimple:
-        as_blob(shadow_handle_)->size_factor_ = *reinterpret_cast<float*>(model + 0x1C);
+        as_blob(shadow_handle_)->size_factor_ = reinterpret_cast<render::RenderModel*>(model)->size_factor_.x;
         [[fallthrough]];
     case kShadowVolume:
         shadow_handle_->tick_frame(&at_point_, &entity_->basis_frame_, surface_dir_);
@@ -164,7 +165,7 @@ void GroundShadowModule::build_blob_shadow(int type, const char* model_name)
     case kShadowSimple: {
         auto* shadow = new render::BlobShadow();
         // (no shadow - out of memory - is written through regardless, as the original)
-        shadow->size_factor_ = *reinterpret_cast<float*>(model + 0x1C);
+        shadow->size_factor_ = reinterpret_cast<render::RenderModel*>(model)->size_factor_.x;
         shadow->load_mesh(model_name);
         shadow_handle_ = shadow;
         break;

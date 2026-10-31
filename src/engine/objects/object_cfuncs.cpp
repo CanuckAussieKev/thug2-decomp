@@ -22,6 +22,7 @@
 #include "engine/gfx/cag_cfuncs.h"
 #include "engine/gfx/weather.h"
 #include "engine/objects/particle_component.h"
+#include "engine/objects/skeleton_component.h"
 
 namespace commands {
 
@@ -103,7 +104,7 @@ void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 void* skeleton_of(objects::ObjectModule* component)
 {
     // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
-    return reinterpret_cast<void*>(reinterpret_cast<online::FoldedGetters*>(component)->word18());
+    return static_cast<objects::BoneRigModule*>(component)->bone_rig_;
 }
 bool read_joint_matrix(void* skeleton, uint32_t bone, maths::Mat4* out)
 {

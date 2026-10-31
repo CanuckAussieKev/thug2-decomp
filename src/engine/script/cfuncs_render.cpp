@@ -9,6 +9,7 @@
 
 #include "engine/core/checksums.h"
 #include "engine/gfx/debug_lines.h"
+#include "engine/gfx/view_cam.h"
 #include "engine/gfx/screen.h"
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/vec4.h"
@@ -376,9 +377,9 @@ bool __cdecl cfunc_set_clipping_distances(Struct* params, Script*)
     params->fetch_float("Near", &near_plane, 0);
     params->fetch_float("Far", &far_plane, 0);
     for (int i = 0; i < 2; ++i) {
-        if (uint8_t* camera = viewport_camera(i)) {
-            *reinterpret_cast<float*>(camera + 0xB8) = near_plane;
-            *reinterpret_cast<float*>(camera + 0xBC) = far_plane;
+        if (auto* camera = reinterpret_cast<gfx::ViewCam*>(viewport_camera(i))) {
+            camera->near_dist_ = near_plane;
+            camera->far_clip_ = far_plane;
         }
     }
     return true;

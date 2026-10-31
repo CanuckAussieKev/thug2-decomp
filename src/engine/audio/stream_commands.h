@@ -64,25 +64,4 @@ uint32_t __cdecl play_stream_at_object(void* component, uint32_t checksum, float
 // (12, at 0x0069CAD8; its users counted), or -1 (no slot, no file).
 int __cdecl load_stream_file(uint32_t key, const char* path, long offset, size_t size);
 
-// The Bink stream (0x1C0 bytes; made by the platform's stream start, 0x00453500): only its constructor and Open,
-// over the fields they set (by offset: the class's other methods, 0x00452D20 on, are the platform streams' -
-// fold this into that class when it's written). +0xC the stream file's slot, +0x28 the Bink, +0x88 opened,
-// +0x89 the file's first four bytes.
-class BinkStreamView {
-public:
-    // 0x00452C00: the fields cleared (slots -1); +0x19 and +0x24 from the arguments; +8 the next free stream
-    // buffer (0x004535E0).
-    BinkStreamView* make_new(bool unknown19, int unknown24);
-    // 0x00452C60: open stream file `key` (load_stream_file) with Bink from memory, video off; S_OK, or E_INVALIDARG
-    // if it can't be read or opened. Bink is told to use DirectSound the first time ("Bink can't use DSound").
-    long unseal(uint32_t key, const char* path, long offset, size_t size);
-
-private:
-    template <typename T>
-    T& get_at(uint32_t offset)
-    {
-        return *reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(this) + offset);
-    }
-};
-
 } // namespace audio

@@ -28,6 +28,7 @@
 #include "engine/sys/game_config.h"
 #include "engine/core/stubs.h"
 #include "engine/gfx/viewport.h"
+#include "engine/objects/skeleton_component.h"
 
 namespace objects {
 
@@ -218,7 +219,7 @@ void CinematicTable::update_stand_in(GameEntity* object)
             std::memcpy(matrix + 12, get_bytes(object) + 0x4C, 16);
             static_cast<render::RenderModel*>(level_model)
                 ->render(reinterpret_cast<maths::Mat4*>(matrix), false,
-                         reinterpret_cast<uint8_t*>(reinterpret_cast<online::FoldedGetters*>(skeleton)->word18()));
+                         static_cast<objects::BoneRigModule*>(skeleton)->bone_rig_);
             std::memcpy(get_bytes(level) + 0x4C, get_bytes(object) + 0x4C, 16);
         } else {
             if (fader_of(model)) {
@@ -266,8 +267,7 @@ void CinematicTable::update_object_transforms()
         GameEntity* object = entry.object;
         if (GameEntity* parent = entry.parent) {
             // hanging from the parent's bone 0x5A0E0860
-            auto* skeleton = reinterpret_cast<void*>(
-                reinterpret_cast<online::FoldedGetters*>(parent->fetch_module(kSkeletonModuleName))->word18());
+            void* skeleton = static_cast<objects::BoneRigModule*>(parent->fetch_module(kSkeletonModuleName))->bone_rig_;
             float bone[4], turned[4];
             static_cast<gfx::Rig*>(skeleton)->get_bone_position(kAttachBone, reinterpret_cast<maths::Vec4*>(bone));
             *reinterpret_cast<maths::Vec4*>(turned) = *reinterpret_cast<const maths::Vec4*>(bone) *

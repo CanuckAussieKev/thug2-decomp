@@ -116,6 +116,12 @@ struct BinkStream {
     // whether its preload is far enough to start.
     bool ready_to_free() { return true; }
     bool prefetch_complete() { return true; }
+    // 0x00452C00 (bink_stream_files.cpp): the fields cleared (slots -1); unknown19_ and plays_ from the arguments;
+    // async_ctl_ the next free stream buffer (0x004535E0).
+    BinkStream* make_new(bool unknown19, int plays);
+    // 0x00452C60: open stream file `key` (load_stream_file) with Bink from memory, video off; S_OK, or E_INVALIDARG
+    // if it can't be read or opened. Bink is told to use DirectSound the first time ("Bink can't use DSound").
+    long unseal(uint32_t key, const char* path, long offset, size_t size);
     // 0x00454440 (WadStream::set_channel_volumes, linker-folded: empty).
     void set_channel_volumes(float, float, float, float, float) {}
 

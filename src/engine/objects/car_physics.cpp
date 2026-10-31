@@ -25,6 +25,8 @@
 #include "platform/crt.h"
 #include "engine/objects/model_component.h"
 #include "engine/objects/skeleton_component.h"
+#include "engine/gfx/rig.h"
+#include "engine/objects/motion.h"
 
 namespace objects {
 
@@ -80,14 +82,11 @@ AutomobileDynamicsModule::BoneDesc* model_bones(void* model)
         static_cast<render::RenderModel*>(model)->get_asset_hierarchy());
 }
 // A skeleton's bone matrices (+0x04) and bone count (+0x14) - the folded getters 0x005480C0 / 0x004A2BA0.
-maths::Mat4* rig_matrix_block(void* skeleton)
-{
-    return *reinterpret_cast<maths::Mat4**>(static_cast<uint8_t*>(skeleton) + 4);
-}
-int skeleton_bone_count(void* skeleton) { return *reinterpret_cast<int*>(static_cast<uint8_t*>(skeleton) + 0x14); }
+maths::Mat4* rig_matrix_block(void* skeleton) { return static_cast<gfx::Rig*>(skeleton)->matrix_array_; }
+int skeleton_bone_count(void* skeleton) { return static_cast<gfx::Rig*>(skeleton)->bone_total_; }
 
 // The motion component's speed (+0x30) and path follower (0x00423510).
-float motion_speed(uint8_t* motion) { return *reinterpret_cast<float*>(motion + 0x30); }
+float motion_speed(uint8_t* motion) { return reinterpret_cast<KinematicsModule*>(motion)->path_speed_; }
 uint8_t* motion_path_follower(uint8_t* motion)
 {
     return static_cast<uint8_t*>(reinterpret_cast<MotionPathMembers*>(motion)->get_path_follower());
@@ -95,7 +94,7 @@ uint8_t* motion_path_follower(uint8_t* motion)
 
 // The suspend component (no source yet): suspended (+0x30, the getter 0x00433E90), and whether its object should be
 // updated this frame (0x00433EA0).
-bool suspend_suspended(uint8_t* suspend) { return suspend[0x30] != 0; }
+bool suspend_suspended(uint8_t* suspend) { return reinterpret_cast<DormancyModule*>(suspend)->far_; }
 bool suspend_should_update(uint8_t* suspend, float* distance)
 {
     return reinterpret_cast<DormancyModule*>(suspend)->wants_animating(distance);

@@ -39,6 +39,7 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/script/cscript.h"
 #include "engine/objects/model_component.h"
+#include "engine/objects/skeleton_component.h"
 
 namespace objects {
 
@@ -422,10 +423,7 @@ const float* wheel_place(const uint8_t* geometry, int i)
     return reinterpret_cast<const float*>(geometry + 0xE0 + i * 0x50);
 }
 // The skeleton (0x005480F0): its bone matrices (0x005480C0) and how many (0x004A2BA0).
-void* skeleton_of(ObjectModule* skeleton)
-{
-    return reinterpret_cast<void*>(reinterpret_cast<online::FoldedGetters*>(skeleton)->word18());
-}
+void* skeleton_of(ObjectModule* skeleton) { return static_cast<objects::BoneRigModule*>(skeleton)->bone_rig_; }
 // The viewport's camera (0x004A09C0; null if none), its position (0x00485A00) and matrix (0x00485A10).
 void* viewport_camera(int viewport) { return render::fetch_live_camera(viewport); }
 // 0x0041A730 (not rewritten yet): the rotation of a node's angles.
@@ -866,7 +864,7 @@ void DrivableModule::refresh_bone_rig()
     if (render::g_suppress_draw) // (rendering off)
         return;
     // (the skeleton's +0x04, through the getter folded at 0x005480C0)
-    auto* bones = reinterpret_cast<maths::Mat4*>(static_cast<online::FoldedGetters*>(skeleton_of(bone_rig_))->word04());
+    maths::Mat4* bones = static_cast<gfx::Rig*>(skeleton_of(bone_rig_))->matrix_array_;
     int count =
         reinterpret_cast<int(__thiscall*)(void*)>(code_address(&gfx::Rig::get_num_bones))(skeleton_of(bone_rig_));
     // Bone 0 the body (left as nothing), 1 the skater's place, 2 on the wheels: steered and rolled, at their place

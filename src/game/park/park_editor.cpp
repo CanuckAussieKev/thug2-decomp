@@ -63,18 +63,18 @@ void ParkLayout::rebuild_park(uint32_t how)
         // An empty grid.
         for (int x = 0; x < kGridSize; ++x) {
             for (int z = 0; z < kGridSize; ++z) {
-                uint8_t* cell = get_bytes() + 0x352C + (x * kGridSize + z) * 0x10;
-                *reinterpret_cast<uint32_t*>(cell) = 0;
-                *reinterpret_cast<uint32_t*>(cell + 4) = 0;
-                cell[8] = 0;
-                *reinterpret_cast<uint32_t*>(cell + 0xC) = 0;
+                FloorCell& cell = floor_[x][z];
+                cell.level_y_ = 0;
+                cell.heights_used_ = 0;
+                cell.touched_ = false;
+                cell.delta_ = 0;
             }
         }
         write_compressed_map();
-        if (get_at<uint16_t>(0x13C96) == kParkInfoVersion) {
+        if (map_.rev_ == kParkInfoVersion) {
             const char* unnamed = "unnamed park"; // "unnamed park"
-            std::memcpy(get_bytes() + 0x13CAC, unnamed, std::strlen(unnamed) + 1);
-            std::memcpy(get_bytes() + 0x1772C, unnamed, std::strlen(unnamed) + 1);
+            std::memcpy(map_.label_, unnamed, std::strlen(unnamed) + 1);
+            std::memcpy(park_name_, unnamed, std::strlen(unnamed) + 1);
         }
         current_flags() &= ~8u;
         how = kNewPark;
@@ -159,12 +159,12 @@ void ParkLayout::clear_area(CellBox area)
         shift_placed_piece(static_cast<PieceGroup*>(meta), 0, -at.y, 0);
         for (int x = at.x; x < at.x + at.w; ++x) {
             for (int z = at.z; z < at.z + at.l; ++z)
-                grid_level_count(x, z) = 0;
+                floor_[x][z].level_y_ = 0;
         }
     }
     for (int x = area.x; x < area.x + area.w; ++x) {
         for (int z = area.z; z < area.z + area.l; ++z)
-            grid_level_count(x, z) = 0;
+            floor_[x][z].level_y_ = 0;
     }
     current_flags() &= ~5u;
     rebuild_floor_and_pieces(this, &area, 0);
@@ -249,11 +249,11 @@ void BuildPointer::step_piece_family(int dir)
         return;
     }
     int selected = set.selected_;
-    for (uint8_t* clipboard = get_clipboards(); clipboard; clipboard = *reinterpret_cast<uint8_t**>(clipboard + 0x14))
-        reinterpret_cast<Clipboard*>(clipboard)->free_all_piece_groups();
-    uint8_t* clipboard = get_clipboards();
+    for (Clipboard* clipboard = get_clipboards(); clipboard; clipboard = clipboard->following_)
+        clipboard->free_all_piece_groups();
+    Clipboard* clipboard = get_clipboards();
     for (int i = 0; i < selected && clipboard; ++i)
-        clipboard = *reinterpret_cast<uint8_t**>(clipboard + 0x14);
+        clipboard = clipboard->following_;
     active_copy_buffer() = clipboard;
     if (get_meta()) {
         get_meta_flags(get_meta()) &= ~kMetaInCursor;

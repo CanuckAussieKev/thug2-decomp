@@ -25,6 +25,7 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/model_component.h"
+#include "engine/gfx/sector.h"
 
 namespace objects {
 
@@ -44,10 +45,7 @@ uint8_t* model_of(ObjectModule* model)
 
 // A level sector by name in any scene (0x0048C510) and its collision object (0x005480F0: +0x18).
 uint8_t* look_up_sector(uint32_t name) { return static_cast<uint8_t*>(render::engine::look_up_sector(name)); }
-render::HitMesh* sector_collision(uint8_t* sector)
-{
-    return reinterpret_cast<render::HitMesh*>(reinterpret_cast<online::FoldedGetters*>(sector)->word18());
-}
+render::HitMesh* sector_collision(uint8_t* sector) { return reinterpret_cast<render::WorldCell*>(sector)->hit_body_; }
 
 // The model's bone matrix (0x00493040: a single-bone model's, from the asset manager; null otherwise): its rotation at
 // +0x10, its translation at +0x40 (the matrix's fourth row).
@@ -107,8 +105,8 @@ void ContactShapeModule::set_up_hit_shape(int type, render::TriMeshSource* geome
         return;
     }
     uint8_t* model = model_of(entity_->fetch_module(kModelModuleName));
-    auto* data =
-        static_cast<uint8_t*>(assets::asset_manager()->get_asset_data(*reinterpret_cast<uint32_t*>(model + 0x30), 0));
+    auto* data = static_cast<uint8_t*>(
+        assets::asset_manager()->get_asset_data(reinterpret_cast<render::RenderModel*>(model)->source_path_, 0));
     if (data) {
         hit_shape_ =
             render::build_dynamic_hit_mesh(type, *reinterpret_cast<render::TriMeshSource**>(data + 0x8C),

@@ -53,7 +53,7 @@ inline void clean_geom_instance_strips(void* geom) { as_geom(geom)->clean_instan
 inline void set_geom_shadow(void* geom, uint8_t on) { as_geom(geom)->set_shadow(on != 0); }
 inline void set_geom_color(void* geom, uint32_t rgba) { as_geom(geom)->change_tint(rgba); }
 // The geom's multicolour flag (+0x10, the folded getter 0x005480B0).
-inline bool is_geom_multicolor(void* geom) { return reinterpret_cast<online::FoldedGetters*>(geom)->byte10(); }
+inline bool is_geom_multicolor(void* geom) { return as_geom(geom)->multicolour_ != 0; }
 
 // An engine object deleted (0x0048C3C0) / a scene or the model's lights deleted (0x0048C080, cdecl, the generic
 // delete through slot 0: typed here); a texture dictionary unloaded (0x0049EFD0).
@@ -65,7 +65,7 @@ inline void unload_textures(void* textures) { unload_tex_dict(static_cast<Textur
 // A skeleton's bone matrices (+0x04, the folded getter 0x005480C0) and bone count (+0x14, 0x004A2BA0).
 inline uint8_t* skeleton_bones(uint8_t* skeleton)
 {
-    return reinterpret_cast<uint8_t*>(reinterpret_cast<online::FoldedGetters*>(skeleton)->word04());
+    return reinterpret_cast<uint8_t*>(reinterpret_cast<gfx::Rig*>(skeleton)->matrix_array_);
 }
 inline int skeleton_bone_count(uint8_t* skeleton) { return reinterpret_cast<gfx::Rig*>(skeleton)->get_num_bones(); }
 

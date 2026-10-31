@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 
 #include "engine/audio/stream_commands.h"
 
@@ -117,29 +118,29 @@ int __cdecl load_stream_file(uint32_t key, const char* path, long offset, size_t
 }
 
 // 0x00452C00
-BinkStreamView* BinkStreamView::make_new(bool unknown19, int unknown24)
+BinkStream* BinkStream::make_new(bool unknown19, int plays)
 {
-    get_at<int>(0xC) = -1; // the stream file's slot
-    get_at<uint8_t>(0x10) = 0;
-    get_at<uint8_t>(0x11) = 0;
-    get_at<void*>(0x28) = nullptr; // the Bink
-    get_at<uint32_t>(0x1A8) = 0;
-    get_at<uint32_t>(0x2C) = 0;
-    get_at<uint32_t>(0x1AC) = 0;
-    get_at<int>(0) = -1;
-    get_at<uint32_t>(4) = 0;
-    get_at<bool>(0x19) = unknown19;
-    get_at<uint8_t>(0x6B) = 1;
-    get_at<int>(0x24) = unknown24;
-    get_at<uint32_t>(0x58) = 0;
-    get_at<uint8_t>(0x61) = 0;
-    get_at<uint8_t>(0x60) = 0;
-    get_at<void*>(8) = next_stream_buffer();
+    wad_entry_ = -1; // the stream file's slot
+    silent_ = false;
+    is_halted_ = false;
+    bink_ = nullptr;
+    unknown1a8_ = 0;
+    memory_ = nullptr;
+    unknown1ac_ = 0;
+    file_ref_ = reinterpret_cast<Hdl>(-1); // (INVALID_HANDLE_VALUE)
+    unknown04_ = 0;
+    unknown19_ = unknown19;
+    unknown6b_ = true;
+    plays_ = plays;
+    status_words_[9] = 0; // (+0x58)
+    finished_ = false;
+    pause_requested_ = false;
+    async_ctl_ = static_cast<_OVERLAPPED*>(next_stream_buffer());
     return this;
 }
 
 // 0x00452C60
-long BinkStreamView::unseal(uint32_t key, const char* path, long offset, size_t size)
+long BinkStream::unseal(uint32_t key, const char* path, long offset, size_t size)
 {
     if (!bink_sound_set()) {
         if (!bink_set_sound_system(bink_open_direct_sound(), g_sound_device))
@@ -151,14 +152,14 @@ long BinkStreamView::unseal(uint32_t key, const char* path, long offset, size_t 
         return kInvalidArg;
     void* data = stream_files()[slot].data;
     void* bink = video_open(data, kBinkFromMemory);
-    get_at<void*>(0x28) = bink;
+    bink_ = static_cast<render::Bink*>(bink);
     if (!bink)
         return kInvalidArg;
     bink_set_video_on_off(bink, 0);
-    // (the file's first four bytes, "BIKi"; unaligned)
-    get_at<uint32_t>(0x89) = *static_cast<const uint32_t*>(stream_files()[slot].data);
-    get_at<int>(0xC) = slot;
-    get_at<uint8_t>(0x88) = 1;
+    // (the file's first four bytes, "BIKi")
+    std::memcpy(from_where_, stream_files()[slot].data, sizeof(uint32_t));
+    wad_entry_ = slot;
+    from_handle_ = true;
     return 0;
 }
 

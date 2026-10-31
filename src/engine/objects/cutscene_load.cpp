@@ -25,6 +25,7 @@
 #include "engine/core/code_address.h"
 #include "engine/gfx/scene_load.h"
 #include "engine/objects/cutscene.h"
+#include "engine/objects/skeleton_component.h"
 
 namespace objects {
 
@@ -94,7 +95,7 @@ namespace {
 void* skeleton_of(ObjectModule* component)
 {
     // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
-    return reinterpret_cast<void*>(reinterpret_cast<online::FoldedGetters*>(component)->word18());
+    return static_cast<objects::BoneRigModule*>(component)->bone_rig_;
 }
 // The level object a cutscene object stands in for.
 GameEntity* level_object_of(GameEntity* object)

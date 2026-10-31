@@ -26,6 +26,9 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/flexible_particle.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/objects/skeleton_component.h"
+#include "engine/objects/model_component.h"
+#include "engine/gfx/model.h"
 
 namespace objects {
 
@@ -155,7 +158,7 @@ void AnimBlenderComponent::tick_frame()
         return;
     // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
     auto skeleton = [this]() {
-        return reinterpret_cast<gfx::Rig*>(reinterpret_cast<online::FoldedGetters*>(bone_rig_)->word18());
+        return reinterpret_cast<gfx::Rig*>(static_cast<objects::BoneRigModule*>(bone_rig_)->bone_rig_);
     };
     if (count == 1) {
         notify_observers(gfx::g_blend_buffer);
@@ -432,10 +435,10 @@ bool AnimBlenderComponent::all_channels_flag29()
 // 0x00419CA0
 bool AnimBlenderComponent::model_ready()
 {
-    void* thing = prop<void*>(mesh_instance_, 0x208);
+    render::RenderModel* thing = static_cast<MeshInstanceModule*>(mesh_instance_)->mesh_instance_;
     if (!thing)
         return false;
-    uint8_t flags = prop<uint8_t>(thing, 0x44);
+    uint8_t flags = thing->flag_bits_;
     return (flags & 2) && !(flags & 4);
 }
 

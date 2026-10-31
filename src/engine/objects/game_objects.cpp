@@ -29,6 +29,8 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/entity.h"
+#include "engine/objects/skeleton_component.h"
+#include "engine/objects/path_follower.h"
 
 namespace objects {
 
@@ -131,15 +133,15 @@ void spawn_pedestrian(script::Struct* params)
     script::launch_script(kPedAddComponents, params, ped, false, nullptr);
     ped->seal();
     script::launch_script(kPedInitModel, params, ped, false, nullptr);
-    auto* motion = reinterpret_cast<uint8_t*>(ped->fetch_module(kMotion));
-    *reinterpret_cast<float*>(motion + 0x2C) = 44.0f;
-    *reinterpret_cast<float*>(motion + 0x24) = 48.0f;
-    *reinterpret_cast<float*>(motion + 0x28) = 12.0f;
-    *reinterpret_cast<float*>(motion + 0x34) = 24.0f;
-    reinterpret_cast<KinematicsModule*>(motion)->init_path_follower(ped);
-    auto* path = static_cast<uint8_t*>(reinterpret_cast<MotionPathMembers*>(motion)->get_path_follower());
-    *reinterpret_cast<float*>(path + 0x94) = 24.0f;
-    *reinterpret_cast<uint32_t*>(motion + 0x1C) |= 0x400;
+    auto* motion = static_cast<KinematicsModule*>(ped->fetch_module(kMotion));
+    motion->path_max_speed_ = 44.0f;
+    motion->path_acceleration_ = 48.0f;
+    motion->path_deceleration_ = 12.0f;
+    motion->path_turn_distance_ = 24.0f;
+    motion->init_path_follower(ped);
+    auto* path = static_cast<PathFollower*>(reinterpret_cast<MotionPathMembers*>(motion)->get_path_follower());
+    path->corner_distance_ = 24.0f;
+    motion->motion_flags2_ |= 0x400;
     update_model(ped->fetch_module(kModel));
     script::launch_script(kPedDisableBones, nullptr, ped, false, nullptr);
 }
@@ -149,14 +151,14 @@ void set_up_automobile(GameEntity* car, script::Struct* params)
 {
     add_motion_components(car);
     add_node_components(car, params);
-    auto* motion = reinterpret_cast<uint8_t*>(car->fetch_module(kMotion));
-    *reinterpret_cast<float*>(motion + 0x2C) = 528.0f;
-    *reinterpret_cast<float*>(motion + 0x24) = 216.0f;
-    *reinterpret_cast<float*>(motion + 0x28) = 384.0f;
-    motion[0x70] = 0;
-    reinterpret_cast<KinematicsModule*>(motion)->init_path_follower(car);
-    auto* extra = static_cast<uint8_t*>(reinterpret_cast<MotionPathMembers*>(motion)->get_path_follower());
-    *reinterpret_cast<float*>(extra + 0x94) = 240.0f;
+    auto* motion = static_cast<KinematicsModule*>(car->fetch_module(kMotion));
+    motion->path_max_speed_ = 528.0f;
+    motion->path_acceleration_ = 216.0f;
+    motion->path_deceleration_ = 384.0f;
+    motion->ground_height_only_ = false;
+    motion->init_path_follower(car);
+    auto* extra = static_cast<PathFollower*>(reinterpret_cast<MotionPathMembers*>(motion)->get_path_follower());
+    extra->corner_distance_ = 240.0f;
     script::launch_script(kCarAddComponents, params, car, false, nullptr);
     car->seal();
     update_model(car->fetch_module(kModel));
@@ -205,8 +207,7 @@ void CrownObject::own_update()
     if (!worn_)
         return;
     // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
-    auto* skeleton =
-        reinterpret_cast<void*>(reinterpret_cast<online::FoldedGetters*>(skater_->fetch_module(kSkeleton))->word18());
+    void* skeleton = static_cast<objects::BoneRigModule*>(skater_->fetch_module(kSkeleton))->bone_rig_;
     static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(kBoneHead, &basis_frame_);
     maths::Mat4 turn;
     maths::get_multiply(basis_frame_, maths::make_pitch_matrix(turn, 90.0f), basis_frame_);
@@ -235,11 +236,11 @@ void CrownObject::init_from_node(EntityHub* manager, script::Struct* node)
     delete_structure(model);
     add_node_components(this, node);
     change_serial(kCrownObject);
-    auto* suspend = reinterpret_cast<uint8_t*>(fetch_module(kSuspend));
-    *reinterpret_cast<float*>(suspend + 0x34) = 1000000.0f;
-    *reinterpret_cast<float*>(suspend + 0x38) = 1000001.0f;
-    *reinterpret_cast<float*>(suspend + 0x3C) = 1000002.0f;
-    *reinterpret_cast<float*>(suspend + 0x40) = 1000003.0f;
+    auto* suspend = static_cast<DormancyModule*>(fetch_module(kSuspend));
+    suspend->lod_distances_[0] = 1000000.0f;
+    suspend->lod_distances_[1] = 1000001.0f;
+    suspend->lod_distances_[2] = 1000002.0f;
+    suspend->lod_distances_[3] = 1000003.0f;
     text::Chars file;
     {
         // The model's path (0x004879D0 returns a String: made in `storage`).

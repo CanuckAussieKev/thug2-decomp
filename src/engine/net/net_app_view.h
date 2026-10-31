@@ -41,17 +41,10 @@ static_assert(offsetof(PendingMsg, share_count_) == 0x08 && offsetof(SeqQueuedMs
                   offsetof(SeqQueuedMsg, share_count_) == 0x0C && sizeof(SeqQueuedMsg) == 0x10,
               "layout must match the original");
 
-// The links that queue a PendingMsg on a connection: list nodes (data = the link itself), deleted through
-// their vtable's scalar deleting destructor.
+// Any of the links that queue a message on a connection (MsgNormalLink / ReliableMsgNode / OrderedMsgNode,
+// net_messages.h): list nodes (data = the link itself), deleted through their vtable's scalar deleting destructor.
 struct TimedMsgNode : memory::PaddedListNode {
-    // +0x14...: depends on the queue (see Conn).
-    uint8_t fields_[0x18];
-
-    template <typename T>
-    T& get_at(uint32_t offset)
-    {
-        return *reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(this) + offset);
-    }
+    uint8_t fields_[0x18]; // +0x14...: depends on the queue
 };
 
 // 0x00456B30: a call through the object's vtable slot 5 (AppHost::tear_down_state for an App) - a jump, its arguments left

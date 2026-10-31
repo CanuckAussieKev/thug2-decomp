@@ -97,7 +97,7 @@ void bone_position(ObjectModule* skeleton, uint32_t bone, maths::Vec4* out)
 // The skeleton component's skeleton (its +0x18, the shared getter 0x005480F0) and that skeleton's bone matrix.
 void skin_matrix_ptr(ObjectModule* skeleton, uint32_t bone, maths::Mat4* out)
 {
-    auto* data = reinterpret_cast<void*>(reinterpret_cast<online::FoldedGetters*>(skeleton)->word18());
+    auto* data = reinterpret_cast<void*>(static_cast<objects::BoneRigModule*>(skeleton)->bone_rig_);
     static_cast<gfx::Rig*>(data)->read_joint_matrix(bone, out);
 }
 

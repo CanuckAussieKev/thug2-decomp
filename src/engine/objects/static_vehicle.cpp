@@ -38,7 +38,7 @@ const uint8_t* hierarchy_of(ObjectModule* model)
 
 // The skeleton component's skeleton (+0x18), its bone matrices (+0x04) and bone count (0x004A2BA0, not rewritten).
 uint8_t* skeleton_of(ObjectModule* skeleton) { return static_cast<objects::BoneRigModule*>(skeleton)->bone_rig_; }
-maths::Mat4* skeleton_palette(uint8_t* skeleton) { return *reinterpret_cast<maths::Mat4**>(skeleton + 0x04); }
+maths::Mat4* skeleton_palette(uint8_t* skeleton) { return reinterpret_cast<gfx::Rig*>(skeleton)->matrix_array_; }
 int get_bone_count(uint8_t* skeleton)
 {
     return reinterpret_cast<int(__thiscall*)(uint8_t*)>(code_address(&gfx::Rig::get_num_bones))(skeleton);

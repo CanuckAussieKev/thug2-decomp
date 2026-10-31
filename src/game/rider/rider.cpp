@@ -705,8 +705,8 @@ void Rider::show_board_element(uint32_t type)
     auto reset = [](render::BitmapTexture* element) { element->begin_edit(false, false); };
     render::BitmapTexture* element = new_element(texture);
     reset(element);
-    auto* parent = reinterpret_cast<render::BitmapTexture*>(
-        reinterpret_cast<online::FoldedGetters*>(fetch_module(0x5B512EDC))->word1c());
+    auto* parent = static_cast<render::BitmapTexture*>(
+        static_cast<objects::TaggingComponent*>(fetch_module(0x5B512EDC))->graffiti_);
     reset(parent);
     element->resize_from(parent, 1);
     element->get_border(0); // (black)

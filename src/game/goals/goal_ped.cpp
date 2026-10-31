@@ -412,7 +412,7 @@ void ObjectiveNpc::load_anim_bank(uint32_t stream, uint32_t anim_set)
     char path[0x20];
     std::snprintf(path, sizeof(path), "fam\\%08x.fam", stream); // "fam\%08x.fam"
     assets::ResourceRegistry* assets = assets::asset_manager();
-    int previous = static_cast<int>(reinterpret_cast<online::FoldedGetters*>(assets)->word18());
+    int previous = assets->unknown18_;
     if (assets->load_anim(path, stream, anim_set, false, false))
         fam_ = checksums::hash_from_text(path);
     assets->set_unknown18(previous);

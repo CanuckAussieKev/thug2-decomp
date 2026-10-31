@@ -137,7 +137,7 @@ void BoneRigModule::configure_from_data(script::Struct* params)
     prepare_rig(name);
     int skip = 0;
     if (params->fetch_int_value(kMaxBoneSkipLod, &skip, 0) && bone_rig_)
-        *reinterpret_cast<int*>(bone_rig_ + 0x10) = skip;
+        reinterpret_cast<gfx::Rig*>(bone_rig_)->max_lod_ = static_cast<uint32_t>(skip);
 }
 
 // 0x00431C60
@@ -288,7 +288,7 @@ bool BoneRigModule::obj_set_bone_scale(script::Struct* params, script::Script* /
         return true;
     }
     // Every bone but this one and those under it.
-    uint8_t* data = *reinterpret_cast<uint8_t**>(bone_rig_ + 0x08);
+    auto* data = reinterpret_cast<uint8_t*>(reinterpret_cast<gfx::Rig*>(bone_rig_)->payload_);
     uint32_t index = bone_index(data, bone);
     for (uint32_t i = 1; i < get_bone_count(data); ++i) {
         if (!is_bone_under(data, i, index) && i != index)

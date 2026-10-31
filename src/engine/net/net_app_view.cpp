@@ -38,6 +38,7 @@ void dealloc(void* memory) { memory::Hub::get_pull()->dealloc(memory); }
 
 // A message link deleted (every link type's scalar deleting destructor: out of its list, freed).
 void delete_link(TimedMsgNode* link) { memory::ListNode::destroy(link); }
+void delete_link(OrderedMsgNode* link) { memory::ListNode::destroy(&link->list_link_); }
 
 // Conn's methods (net_conn.cpp)
 uint32_t transmit_period(Conn* conn) { return conn->get_transmit_period(); }
@@ -319,13 +320,13 @@ bool AppHost::dispatch_queued_sequenced_messages(Conn* conn)
     InboundMsgCtx context;
     context.make_new();
     for (memory::ListNode& queue : conn->received_queues_) {
-        lists::Hunt<TimedMsgNode> search;
-        for (TimedMsgNode *link = search.head_element(&queue), *next; link; link = next) {
+        lists::Hunt<OrderedMsgNode> search;
+        for (OrderedMsgNode *link = search.head_element(&queue), *next; link; link = next) {
             next = search.following_item();
-            uint8_t group = link->get_at<uint8_t>(0x15);
-            if (link->get_at<uint32_t>(0x20) != conn->sequence_numbers_[group])
+            uint8_t group = link->bundle_id_;
+            if (link->order_index_ != conn->sequence_numbers_[group])
                 break; // not its turn yet
-            auto* msg = link->get_at<SeqQueuedMsg*>(0x28);
+            SeqQueuedMsg* msg = link->shared_msg_;
             context.sender_conn_ = static_cast<Conn*>(conn);
             context.body_ = msg->content_;
             context.receiver_app_ = static_cast<AppHost*>(this);
@@ -390,15 +391,17 @@ Conn* AppHost::find_conn_with_id(int handle)
 // 0x00457970
 bool AppHost::important_messages_due(Conn* conn)
 {
-    lists::Hunt<TimedMsgNode> important;
-    for (TimedMsgNode* link = important.head_element(&conn->important_msgs_); link; link = important.following_item()) {
-        uint32_t sent = link->get_at<uint32_t>(0x14);
+    lists::Hunt<ReliableMsgNode> important;
+    for (ReliableMsgNode* link = important.head_element(&conn->important_msgs_); link;
+         link = important.following_item()) {
+        uint32_t sent = link->stamp_ms_;
         if (!sent || clock_ - sent > retransmit_limit(conn))
             return true;
     }
-    lists::Hunt<TimedMsgNode> sequenced;
-    for (TimedMsgNode* link = sequenced.head_element(&conn->sequenced_msgs_); link; link = sequenced.following_item()) {
-        uint32_t sent = link->get_at<uint32_t>(0x1C);
+    lists::Hunt<OrderedMsgNode> sequenced;
+    for (OrderedMsgNode* link = sequenced.head_element(&conn->sequenced_msgs_); link;
+         link = sequenced.following_item()) {
+        uint32_t sent = link->stamp_ms_;
         if (!sent || clock_ - sent > retransmit_limit(conn))
             return true;
     }
@@ -408,21 +411,23 @@ bool AppHost::important_messages_due(Conn* conn)
 // 0x00457AC0
 bool AppHost::messages_due(Conn* conn)
 {
-    lists::Hunt<TimedMsgNode> normal;
-    for (TimedMsgNode* link = normal.head_element(&conn->normal_msgs_); link; link = normal.following_item()) {
-        if (clock_ >= link->get_at<uint32_t>(0x18))
+    lists::Hunt<MsgNormalLink> normal;
+    for (MsgNormalLink* link = normal.head_element(&conn->normal_msgs_); link; link = normal.following_item()) {
+        if (clock_ >= link->due_time_)
             return true;
     }
-    lists::Hunt<TimedMsgNode> important;
-    for (TimedMsgNode* link = important.head_element(&conn->important_msgs_); link; link = important.following_item()) {
-        uint32_t sent = link->get_at<uint32_t>(0x14);
-        if (!sent || clock_ < link->get_at<uint32_t>(0x24) || clock_ - sent > retransmit_limit(conn))
+    lists::Hunt<ReliableMsgNode> important;
+    for (ReliableMsgNode* link = important.head_element(&conn->important_msgs_); link;
+         link = important.following_item()) {
+        uint32_t sent = link->stamp_ms_;
+        if (!sent || clock_ < link->due_time_ || clock_ - sent > retransmit_limit(conn))
             return true;
     }
-    lists::Hunt<TimedMsgNode> sequenced;
-    for (TimedMsgNode* link = sequenced.head_element(&conn->sequenced_msgs_); link; link = sequenced.following_item()) {
-        uint32_t sent = link->get_at<uint32_t>(0x1C);
-        if (!sent || clock_ < link->get_at<uint32_t>(0x24) || clock_ - sent > retransmit_limit(conn))
+    lists::Hunt<OrderedMsgNode> sequenced;
+    for (OrderedMsgNode* link = sequenced.head_element(&conn->sequenced_msgs_); link;
+         link = sequenced.following_item()) {
+        uint32_t sent = link->stamp_ms_;
+        if (!sent || clock_ < link->due_time_ || clock_ - sent > retransmit_limit(conn))
             return true;
     }
     return false;
@@ -432,27 +437,31 @@ bool AppHost::messages_due(Conn* conn)
 void AppHost::free_messages(Conn* conn, int queue, uint8_t id)
 {
     memory::ListNode* list;
-    uint32_t msg_offset;
     switch (queue) {
     case 0:
         list = &conn->normal_msgs_;
-        msg_offset = 0x14;
         break;
     case 1:
         list = &conn->important_msgs_;
-        msg_offset = 0x18;
         break;
     case 2:
         list = &conn->sequenced_msgs_;
-        msg_offset = 0x28;
         break;
     default:
         return;
     }
+    // The link's message (each queue's link type keeps it at its own place).
+    auto message_of = [queue](TimedMsgNode* link) -> void* {
+        if (queue == 0)
+            return reinterpret_cast<MsgNormalLink*>(link)->shared_msg_;
+        if (queue == 1)
+            return reinterpret_cast<ReliableMsgNode*>(link)->shared_msg_;
+        return reinterpret_cast<OrderedMsgNode*>(link)->shared_msg_;
+    };
     lists::Hunt<TimedMsgNode> search;
     for (TimedMsgNode *link = search.head_element(list), *next; link; link = next) {
         next = search.following_item();
-        void* msg = link->get_at<void*>(msg_offset);
+        void* msg = message_of(link);
         if (static_cast<PendingMsg*>(msg)->ident_ != id)
             continue;
         int& ref_count =

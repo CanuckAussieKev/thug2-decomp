@@ -1023,20 +1023,12 @@ public:
     // generator, the whole park built, and the palette's piece sets from Ed_piece_sets / Ed_standard_metapieces.
     void commission(uint32_t level);
 
-    // Offset accessors (src/game/park).
-    uint8_t* get_bytes() { return reinterpret_cast<uint8_t*>(this); }
-    template <typename T>
-    T& get_at(uint32_t offset)
-    {
-        return *reinterpret_cast<T*>(get_bytes() + offset);
-    }
-    void*& get_generator() { return get_at<void*>(0x0); } // the park's piece generator
-    bool& floor_built() { return get_at<bool>(0x5); }
-    CellBox& park_dims() { return get_at<CellBox>(0x3520); }
-    uint32_t& current_flags() { return get_at<uint32_t>(0x17728); }
-    int& num_sets() { return get_at<int>(0x13C8C); }
-    // A grid cell (16 bytes): +0 the floor height there.
-    uint32_t& grid_level_count(int x, int z) { return get_at<uint32_t>(0x352C + (x * kGridSize + z) * 0x10); }
+    // Short names (src/game/park).
+    ParkAssembler*& get_generator() { return builder_; } // the park's piece generator
+    bool& floor_built() { return field_05_; }
+    CellBox& park_dims() { return build_area_; }
+    uint32_t& current_flags() { return flag_bits_; }
+    int& num_sets() { return num_sets_; }
 
     ParkAssembler* builder_; // +0x00
     bool park_built_;        // +0x04: the park is built (its changes go into the map when asked)
@@ -1204,25 +1196,20 @@ public:
     // cursor's piece (mode 5).
     void step_piece_family(int dir);
 
-    // Offset accessors (src/game/park).
-    uint8_t* get_bytes() { return reinterpret_cast<uint8_t*>(this); }
-    template <typename T>
-    T& get_at(uint32_t offset)
-    {
-        return *reinterpret_cast<T*>(get_bytes() + offset);
-    }
-    ParkLayout*& hub() { return get_at<ParkLayout*>(0x0); }
-    CellBox& get_area() { return get_at<CellBox>(0x4); } // the cells under the cursor
-    int& get_rotation() { return get_at<int>(0x38); }
-    bool& selecting() { return get_at<bool>(0x48); }               // an area is selected
-    GapDetails& current_gap() { return get_at<GapDetails>(0x70); } // the gap being made
-    uint32_t& gap_counter() { return get_at<uint32_t>(0xC4); }
-    uint8_t*& get_meta() { return get_at<uint8_t*>(0x44); } // the piece the cursor holds (flag 0x200 while it does)
-    uint8_t*& get_clipboards() { return get_at<uint8_t*>(0x58); } // the clipboards (next at +0x14)
-    uint8_t*& active_copy_buffer() { return get_at<uint8_t*>(0x5C); }
-    int& set_index() { return get_at<int>(0x64); }
-    int& visible_set_slot() { return get_at<int>(0x68); } // the set's place among the visible ones
-    int& get_mode() { return get_at<int>(0x6C); }         // 4: area selection, 5: clipboard
+    // Short names (src/game/park).
+    ParkLayout*& hub() { return park_owner_; }
+    CellBox& get_area() { return cell_footprint_; } // the cells under the cursor
+    int& get_rotation() { return quarter_turns_; }
+    // An area is selected (the selection stage as a flag: written true / read non-zero).
+    bool& selecting() { return reinterpret_cast<bool&>(box_select_stage_); }
+    GapDetails& current_gap() { return gap_; } // the gap being made
+    uint32_t& gap_counter() { return gap_counter_; }
+    PieceGroup*& get_meta() { return piece_group_; } // the piece the cursor holds (flag 0x200 while it does)
+    Clipboard*& get_clipboards() { return copy_buffers_; }
+    Clipboard*& active_copy_buffer() { return clipboard_; }
+    int& set_index() { return paste_set_index_; }
+    int& visible_set_slot() { return menu_index_; } // the set's place among the visible ones
+    int& get_mode() { return mode_sel_; }           // 4: area selection, 5: clipboard
 
     ParkLayout* park_owner_; // +0x00
     CellBox cell_footprint_; // +0x04

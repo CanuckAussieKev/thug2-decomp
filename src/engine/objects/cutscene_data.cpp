@@ -27,6 +27,7 @@
 #include "engine/core/code_address.h"
 #include "engine/gfx/engine.h"
 #include "engine/sys/startup_init.h"
+#include "engine/objects/skeleton_component.h"
 
 namespace objects {
 
@@ -322,7 +323,7 @@ void CinematicTable::update_object_poses()
         if (!component)
             continue;
         // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
-        auto* skeleton = reinterpret_cast<uint8_t*>(reinterpret_cast<online::FoldedGetters*>(component)->word18());
+        uint8_t* skeleton = static_cast<objects::BoneRigModule*>(component)->bone_rig_;
         auto* source = static_cast<uint8_t*>(entry.animation->source);
         void* animation = entry.animation->data;
         reinterpret_cast<gfx::Rig*>(skeleton)->set_lod(0.0f);
