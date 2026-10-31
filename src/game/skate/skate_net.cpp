@@ -893,28 +893,6 @@ namespace {
 // A state entry's time stamp as 32 bits (0x005197D0 / 0x005197E0: +0x78 the low half, +0x7A the high).
 uint32_t entry_time(const StateEntry& entry) { return static_cast<uint32_t>(entry.wraps) << 16 | entry.time; }
 
-// The server's record of what it last sent one client about each of the 8 skaters (by object id).
-struct RelaySent {
-    uint8_t unknown0[0x50];
-    uint32_t forced_frame_[8]; // +0x50 the server app's frame when everything was last sent
-    uint32_t time[8];          // +0x70 the entry's time stamp last sent
-    uint8_t value_7c_[8];      // +0x90
-    uint8_t flag75[8];         // +0x98
-    uint8_t flag76[8];         // +0xA0
-    int16_t pos[8][3];         // +0xA8
-    int16_t angles[8][3];      // +0xD8
-    uint32_t value68[8];       // +0x108
-    uint32_t value_6c_[8];     // +0x128
-    uint8_t state[8];          // +0x148
-    uint8_t flag74[8];         // +0x150
-    uint8_t unknown158[8];
-    uint32_t value80[8]; // +0x160
-};
-static_assert(offsetof(RelaySent, time) == 0x70 && offsetof(RelaySent, pos) == 0xA8 &&
-                  offsetof(RelaySent, angles) == 0xD8 && offsetof(RelaySent, value68) == 0x108 &&
-                  offsetof(RelaySent, state) == 0x148 && offsetof(RelaySent, value80) == 0x160,
-              "layout must match the original");
-
 // The server's frame count (its app: the network manager's +4, read through 0x005480C0 - a folded getter).
 uint32_t server_frame()
 {
@@ -929,7 +907,7 @@ int16_t pack_angle(float angle) { return static_cast<int16_t>(static_cast<int>(s
 // 0x005696C0
 uint32_t SkateNet::get_relay_flags(void* sent_record, void* state_entry, uint8_t index)
 {
-    auto* sent = static_cast<RelaySent*>(sent_record);
+    online::SentSkaterUpdates* sent = &static_cast<PlayerRecord*>(sent_record)->sent_;
     auto* entry = static_cast<StateEntry*>(state_entry);
     uint32_t flags = 0;
     // Everything again once 60 of the server's frames have gone by.
@@ -944,20 +922,20 @@ uint32_t SkateNet::get_relay_flags(void* sent_record, void* state_entry, uint8_t
         // (TP-R6: whole units in a big level)
         int16_t value =
             k == 1 ? thugpro::pack_height((&entry->position.x)[1]) : thugpro::pack_horizontal((&entry->position.x)[k]);
-        if (value != sent->pos[index][k] || force)
+        if (value != sent->pos_[index][k] || force)
             flags |= 1u << k;
     }
     for (int k = 0; k < 3; ++k) {
-        if (pack_angle(angles[k]) != sent->angles[index][k] || force)
+        if (pack_angle(angles[k]) != sent->angles_[index][k] || force)
             flags |= 8u << k;
     }
-    if (static_cast<uint8_t>(entry->state) != sent->state[index] || entry->flag74 != sent->flag74[index] ||
-        entry->value_7c_ != sent->value_7c_[index] || entry->flag75 != sent->flag75[index] ||
-        entry->flag76 != sent->flag76[index] || force)
+    if (static_cast<uint8_t>(entry->state) != sent->state_[index] || entry->flag74 != sent->flag74_[index] ||
+        entry->value_7c_ != sent->value_7c_[index] || entry->flag75 != sent->flag75_[index] ||
+        entry->flag76 != sent->flag76_[index] || force)
         flags |= 0x40;
-    if (entry->value68 != sent->value68[index] || entry->value_6c_ != sent->value_6c_[index] || force)
+    if (entry->value68 != sent->value68_[index] || entry->value_6c_ != sent->value_6c_[index] || force)
         flags |= 0x80;
-    if (entry->value80 != sent->value80[index] || force)
+    if (entry->value80 != sent->value80_[index] || force)
         flags |= 0x100;
     return flags;
 }
@@ -970,9 +948,9 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
     auto index = static_cast<uint8_t>(skater->ident_);
     StateRingLog* history = history_of(skater);
     StateEntry& entry = history->entries[(history->count - 1) % 20];
-    auto* sent = static_cast<RelaySent*>(out->sent_);
+    online::SentSkaterUpdates* sent = &static_cast<PlayerRecord*>(out->sent_)->sent_;
     util::PackedBitBuffer& stream = out->feed_;
-    sent->time[index] = entry_time(entry);
+    sent->time_[index] = entry_time(entry);
     float angles[3] = {entry.angles[0], entry.angles[1], entry.angles[2]};
     stream.write_bits(entry.time, 16);
     uint32_t flags = get_relay_flags(sent, &entry, index);
@@ -983,13 +961,13 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
             k == 1 ? thugpro::pack_height(entry.position.y) : thugpro::pack_horizontal((&entry.position.x)[k]);
         if (flags & (1u << k))
             stream.write_bits(static_cast<uint32_t>(static_cast<int>(value)), 16);
-        sent->pos[index][k] = value;
+        sent->pos_[index][k] = value;
     }
     for (int k = 0; k < 3; ++k) {
         int16_t value = pack_angle(angles[k]);
         if (flags & (8u << k))
             stream.write_bits(static_cast<uint32_t>(static_cast<int>(value)), 16);
-        sent->angles[index][k] = value;
+        sent->angles_[index][k] = value;
     }
     // (the bytes go out sign-extended: write_bits doesn't mask them, as the original)
     auto signed_byte = [](uint8_t value) {
@@ -1002,20 +980,20 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
         stream.write_bits(signed_byte(value_7c), 6);
         stream.write_bits(signed_byte(flag75), 1);
         stream.write_bits(signed_byte(flag76), 1);
-        sent->state[index] = state;
-        sent->flag74[index] = flag74;
+        sent->state_[index] = state;
+        sent->flag74_[index] = flag74;
         sent->value_7c_[index] = value_7c;
-        sent->flag75[index] = flag75;
-        sent->flag76[index] = flag76;
+        sent->flag75_[index] = flag75;
+        sent->flag76_[index] = flag76;
     }
     if (flags & 0x80) {
-        sent->value68[index] = entry.value68;
+        sent->value68_[index] = entry.value68;
         sent->value_6c_[index] = entry.value_6c_;
         stream.write_bits(entry.value68, 5);
         stream.write_bits(entry.value_6c_, 3);
     }
     if (flags & 0x100) {
-        sent->value80[index] = entry.value80;
+        sent->value80_[index] = entry.value80;
         stream.write_bits(entry.value80, 32);
     }
 }

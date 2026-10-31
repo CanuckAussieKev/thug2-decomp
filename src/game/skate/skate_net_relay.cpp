@@ -50,6 +50,8 @@
 #include "engine/gfx/anim_blend.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/core/code_address.h"
+#include "game/rider/skater_score.h"
+#include "engine/objects/model_component.h"
 
 namespace gfx {
 extern float g_one_over255; // 0x00645D70 (defined in tod_manager.cpp)
@@ -166,7 +168,7 @@ void enqueue(net::AppHost* app, PlayerRecord* player, net::NetMessageInfo* desc)
 net::AppHost* server_app() { return reinterpret_cast<net::AppHost*>(net_link()->host_); }
 
 objects::Rider* skater_of(PlayerRecord* player) { return player->skater_; }
-uint8_t get_skater_id(objects::Rider* skater) { return prop<uint8_t>(skater, 0x14); }
+uint8_t get_skater_id(objects::Rider* skater) { return static_cast<uint8_t>(skater->ident_); }
 PointTally* get_score_of(objects::Rider* skater) { return static_cast<PointTally*>(skater->get_points_total()); }
 
 Struct* spawn_param_table()
@@ -183,7 +185,10 @@ void delete_structure(Struct* structure)
 }
 
 // A skater's state history (+0x27C) and its newest state / message.
-objects::RiderFrameLog* get_history(const void* object) { return prop<objects::RiderFrameLog*>(object, 0x27C); }
+objects::RiderFrameLog* get_history(const objects::Entity* object)
+{
+    return reinterpret_cast<objects::RiderFrameLog*>(static_cast<const objects::Rider*>(object)->unknown27c_);
+}
 int& message_count(objects::RiderFrameLog* history) { return prop<int>(history, 0xA6C); }
 // The newest message slot made a message of `id`, stamped with the newest state's time.
 objects::StateHistoryMessage* new_message(objects::RiderFrameLog* history, uint8_t id)
@@ -235,7 +240,7 @@ void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
             PlayerRecord* other = by_object_id(id);
             if (!other)
                 continue;
-            other = by_object_id(static_cast<int>(prop<uint32_t>(skater_of(other), 0x14)));
+            other = by_object_id(static_cast<int>(skater_of(other)->ident_));
             if (!other || other == player)
                 continue;
             objects::Rider* skater = skater_of(other);
@@ -244,7 +249,7 @@ void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
             if (!states)
                 continue;
             uint16_t newest = prop<uint16_t>(history, 0x1C + ((states - 1) % 20) * 0x84 + 0x78);
-            if (newest == prop<uint32_t>(player, 0x70 + prop<uint32_t>(skater, 0x14) * 4))
+            if (newest == player->sent_.time_[skater->ident_])
                 continue;
             mask |= 1u << id;
             if (++count >= player->get_skaters_per_update())
@@ -411,9 +416,9 @@ int SkateNet::handle_relay_nearby(net::InboundMsgCtx* context)
             if (!to)
                 continue;
             // (x87: the differences and the sum unrounded)
-            double dx = static_cast<double>(prop<float>(to, 0x4C)) - prop<float>(from, 0x4C);
-            double dy = static_cast<double>(prop<float>(to, 0x50)) - prop<float>(from, 0x50);
-            double dz = static_cast<double>(prop<float>(to, 0x54)) - prop<float>(from, 0x54);
+            double dx = static_cast<double>(to->at_point_.x) - from->at_point_.x;
+            double dy = static_cast<double>(to->at_point_.y) - from->at_point_.y;
+            double dz = static_cast<double>(to->at_point_.z) - from->at_point_.z;
             double distance = std::sqrt(dz * dz + dy * dy + dx * dx);
             if (!(distance < 1800.0))
                 continue;
@@ -468,7 +473,7 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
     PlayerRecord* collector = by_connection(context->sender_conn_);
     if (skater_of(collector)) {
         auto* component = skater_of(collector)->fetch_module(kSkaterScore);
-        PointTally* score = prop<PointTally*>(component, 0x18);
+        PointTally* score = static_cast<objects::RiderPointKeeper*>(component)->points_held_;
         if (score)
             score->set_grand_total(score->get_total_score() + 1);
         int total = 0;
@@ -687,8 +692,8 @@ int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
     static_cast<gfx::FaceSkin*>(texture)->read_from(data, static_cast<int>(size));
     static_cast<gfx::FaceSkin*>(texture)->mark_usable(true);
     auto* model = skater->fetch_module(kModel);
-    static_cast<render::RenderModel*>(prop<void*>(model, 0x208))
-        ->replace_face_texture(texture, "CS_NSN_facemap.png", kAll);
+    static_cast<objects::MeshInstanceModule*>(model)->mesh_instance_->replace_face_texture(texture,
+                                                                                           "CS_NSN_facemap.png", kAll);
     if (net->get_on_server()) {
         // the server keeps the face and streams it to the others
         PlayerSearch search;
@@ -1005,7 +1010,7 @@ int SkateNet::handle_run_script_now(net::InboundMsgCtx* context)
 {
     online::Hub* net = net_link();
     auto* data = reinterpret_cast<uint32_t*>(context->body_);
-    if (!prop<bool>(net, 0x18C)) {
+    if (!net->cleared_to_start_) {
         net->queue_script(static_cast<int>(data[2]), data[1], data[0]);
         return 1;
     }
@@ -1201,9 +1206,10 @@ void Skate::broadcast_points(bool final)
             uint8_t id = get_skater_id(skater_of(other));
             int score;
             if (get_game_mode()->get_name_key() == kNetGoalAttack)
-                score = goals::get_objective_board()->count_cleared_by_player(prop<int>(skater_of(other), 0x14));
+                score =
+                    goals::get_objective_board()->count_cleared_by_player(static_cast<int>(skater_of(other)->ident_));
             else
-                score = net->get_entrant_points(prop<uint32_t>(skater_of(other), 0x14));
+                score = net->get_entrant_points(skater_of(other)->ident_);
             message.entries[count].id = id;
             message.entries[count].score = score;
             ++count;

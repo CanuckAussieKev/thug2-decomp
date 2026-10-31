@@ -142,9 +142,9 @@ bool __cdecl cfunc_restore_temporary_appearance(script::Struct* params, script::
     objects::RiderIdentity* profile = manager->fetch_account(player);
     objects::RiderIdentity* remembered = manager->get_extra_profile(name);
     if (params->has_bare_flag(kNoFaceTexture)) {
-        auto* appearance = reinterpret_cast<script::Struct*>(profile->look_data_ + 0x4C);
+        auto* appearance = &profile->appearance()->structure_;
         appearance->get_clear();
-        appearance->append_structure_if_any(reinterpret_cast<script::Struct*>(remembered->look_data_ + 0x4C));
+        appearance->append_structure_if_any(&remembered->appearance()->structure_);
         return true;
     }
     reinterpret_cast<gfx::ModelLook*>(profile)->copy_from(
@@ -309,7 +309,7 @@ bool __cdecl cfunc_set_skater_profile_info_by_name(script::Struct* params, scrip
 bool __cdecl cfunc_print_current_appearance(script::Struct* params, script::Script*)
 {
     objects::RiderIdentity* profile = get_profile_from_params(params);
-    script::dump_to_log(reinterpret_cast<script::Struct*>(profile->look_data_ + 0x4C));
+    script::dump_to_log(&profile->appearance()->structure_);
     return true;
 }
 

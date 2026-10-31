@@ -31,6 +31,7 @@
 #include "game/park_editing/piece_menu.h"
 #include "engine/gfx/tod_manager.h"
 #include "game/goals/create_a_trick.h"
+#include "game/rider/skater_score.h"
 
 #pragma warning(disable : 4996) // (the original's strcpy / strcat / sprintf into its fixed buffers, kept)
 
@@ -146,6 +147,12 @@ uint8_t* get_score_of(uint8_t* skater)
     return static_cast<uint8_t*>(reinterpret_cast<objects::Rider*>(skater)->get_points_total());
 }
 int total_score(uint8_t* score) { return reinterpret_cast<modules::PointTally*>(score)->get_total_score(); }
+// The points of the trick in progress: the combo's base points times its multiplier (as a whole number).
+int pending_points(uint8_t* score)
+{
+    auto* tally = reinterpret_cast<modules::PointTally*>(score);
+    return ftol(static_cast<double>(tally->pot_) * tally->multiplier_);
+}
 // How often the trick (by name / key combo) has been done with this spin, perfect, taps.
 int get_trick_count(uint8_t* score, uint32_t trick, int spin, bool perfect, int taps)
 {
@@ -1302,8 +1309,7 @@ void TrickObjectsGoal::evaluate_points()
         return;
     uint8_t* score = get_score_of(skater);
     // The points of the trick in progress (+0x14, times the multiplier +0x60) count too.
-    int pending =
-        ftol(static_cast<double>(*reinterpret_cast<int*>(score + 0x14)) * *reinterpret_cast<float*>(score + 0x60));
+    int pending = pending_points(score);
     if (total_score(score) + pending < required)
         fail_objective(manager, get_goal_id(this));
     else
@@ -1340,10 +1346,10 @@ void TrickObjectsGoal::get_object_hit(uint32_t cluster)
     };
     uint8_t* state = component(kSkaterState);
     uint8_t* score_component = component(kSkaterScore);
-    uint8_t* score = *reinterpret_cast<uint8_t**>(score_component + 0x18);
+    auto* score =
+        reinterpret_cast<uint8_t*>(reinterpret_cast<objects::RiderPointKeeper*>(score_component)->points_held_);
     // Only while the skater is in the air (+0xE0) or has points pending.
-    if (!state[0xE0] &&
-        ftol(static_cast<double>(*reinterpret_cast<int*>(score + 0x14)) * *reinterpret_cast<float*>(score + 0x60)) <= 0)
+    if (!state[0xE0] && pending_points(score) <= 0)
         return;
     if (!is_operative()) {
         void* manager = objective_board();

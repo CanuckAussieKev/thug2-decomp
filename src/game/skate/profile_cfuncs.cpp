@@ -207,9 +207,9 @@ bool __cdecl cfunc_remember_temporary_appearance(Struct* params, Script*)
     }
     auto* temporary = reinterpret_cast<uint8_t*>(profiles->get_extra_profile(name));
     if (params->has_bare_flag(0x3AF36E6Du)) { // NoFaceTexture: only the appearance's structure (+0x4C)
-        auto* own = reinterpret_cast<Struct*>(temporary + 0x4C);
+        auto* own = &reinterpret_cast<gfx::ModelLook*>(temporary)->structure_;
         own->get_clear();
-        own->append_structure_if_any(reinterpret_cast<Struct*>(source + 0x4C));
+        own->append_structure_if_any(&reinterpret_cast<gfx::ModelLook*>(source)->structure_);
     } else {
         reinterpret_cast<gfx::ModelLook*>(temporary)->copy_from(
             reinterpret_cast<gfx::ModelLook*>(source)); // the appearance copied

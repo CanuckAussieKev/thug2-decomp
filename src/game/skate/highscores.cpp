@@ -402,10 +402,10 @@ void BestResults::get_release()
 
 bool update_records(bool edited_copy)
 {
-    uint8_t* skate = reinterpret_cast<uint8_t*>(modules::g_skate_module);
+    modules::Skate* skate = modules::g_skate_module;
     if (edited_copy) {
         if (skate)
-            skate[0x384] = 0; // (no record new: as 0x00566F40 sets it before comparing)
+            skate->new_record_ = false; // (no record new: as 0x00566F40 sets it before comparing)
         get_log("records: not updated - the level is the level editor's edited copy (nothing done in it reaches the "
                 "records or the save)");
         return true;

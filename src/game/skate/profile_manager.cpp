@@ -61,7 +61,7 @@ RiderIdentity* new_profile()
 
 // The face texture object of a model appearance (its +0x54; 0x00576E60, folded with modules::Viewer's getter), told a
 // face texture (0x004875F0) and whether there is one (0x00487520).
-void* face_of(RiderIdentity* profile) { return *reinterpret_cast<void**>(profile->look_data_ + 0x54); }
+void* face_of(RiderIdentity* profile) { return profile->appearance()->face_skin_; }
 
 } // namespace
 

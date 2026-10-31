@@ -105,8 +105,8 @@ void JoinerRecord::destroy_body()
 // 0x00543180
 void clear_update_records(PlayerRecord* player)
 {
-    std::fill(std::begin(player->sent_updates_), std::end(player->sent_updates_), 0);
-    std::fill(std::begin(player->sent_updates2_), std::end(player->sent_updates2_), 0);
+    std::fill(std::begin(player->sent_.value68_), std::end(player->sent_.value68_), 0u);
+    std::fill(std::begin(player->sent_.value_6c_), std::end(player->sent_.value_6c_), 0u);
 }
 
 // 0x00543740
@@ -117,12 +117,12 @@ PlayerRecord* PlayerRecord::make_new(uint32_t flags)
     flag_bits_ = 0;
     std::sprintf(label_, "<No Name>"); // (0x0064CCE8)
     for (int i = 0; i < kMaxPlayers; ++i) {
-        sent_updates_[i] = -1;
-        update_bytes_a_[i] = 0xFF;
-        update_bytes_b_[i] = 0xFF;
+        sent_.value68_[i] = 0xFFFFFFFF;
+        sent_.state_[i] = 0xFF;
+        sent_.flag74_[i] = 0xFF;
         for (int j = 0; j < 3; ++j) {
-            update_records_a_[i][j] = 0xFFFF;
-            update_records_b_[i][j] = 0xFFFF;
+            sent_.pos_[i][j] = -1;
+            sent_.angles_[i][j] = -1;
         }
     }
     flag_bits_ = flags;

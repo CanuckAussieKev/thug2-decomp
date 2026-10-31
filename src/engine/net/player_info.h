@@ -70,6 +70,27 @@ static_assert(offsetof(JoinerRecord, account_) == 0x1C && offsetof(JoinerRecord,
                   offsetof(JoinerRecord, drive_control_mode_) == 0x40 && sizeof(JoinerRecord) == 0x44,
               "layout must match the original");
 
+// What the server last sent a player about each of the 8 skaters (by object id) - the player's +0x50 (SkateNet's
+// relay: get_relay_flags, write_object_update).
+struct SentSkaterUpdates {
+    uint32_t forced_frame_[8]; // +0x00 the server app's frame when everything was last sent
+    uint32_t time_[8];         // +0x20 the state entry's time stamp last sent
+    uint8_t value_7c_[8];      // +0x40
+    uint8_t flag75_[8];        // +0x48
+    uint8_t flag76_[8];        // +0x50
+    int16_t pos_[8][3];        // +0x58 (-1 each)
+    int16_t angles_[8][3];     // +0x88 (-1 each)
+    uint32_t value68_[8];      // +0xB8 (-1 each)
+    uint32_t value_6c_[8];     // +0xD8
+    uint8_t state_[8];         // +0xF8 (-1 each)
+    uint8_t flag74_[8];        // +0x100 (-1 each)
+    uint8_t unknown108_[8];
+    uint32_t value80_[8]; // +0x110
+};
+static_assert(offsetof(SentSkaterUpdates, pos_) == 0x58 && offsetof(SentSkaterUpdates, value68_) == 0xB8 &&
+                  offsetof(SentSkaterUpdates, state_) == 0xF8 && sizeof(SentSkaterUpdates) == 0x130,
+              "layout must match the original");
+
 // A player (0x1F0 bytes; a node of the manager's player list - lists::Elem<PlayerRecord>, its data itself - whose node
 // keeps the original's size: the net code reads players by byte offset). Also the players of a server described by the server list (HostListing's player list: only the name and
 // the rating are used there).
@@ -189,15 +210,8 @@ public:
     int num_placed_;             // +0x34 scavenger hunt: its objects placed (5 minus it is its score line's number)
     char label_[16];             // +0x38 ("<No Name>" until named)
     int32_t drive_control_mode_; // +0x48 its vehicle control type
-    objects::RiderIdentity* account_; // +0x4C
-    uint8_t unknown50_[0x58];
-    uint16_t update_records_a_[kMaxPlayers][3]; // +0xA8 (-1 each)
-    uint16_t update_records_b_[kMaxPlayers][3]; // +0xD8 (-1 each)
-    int sent_updates_[kMaxPlayers];             // +0x108 (-1 each)
-    int sent_updates2_[kMaxPlayers];            // +0x128
-    uint8_t update_bytes_a_[kMaxPlayers];       // +0x148 (-1 each)
-    uint8_t update_bytes_b_[kMaxPlayers];       // +0x150 (-1 each)
-    uint8_t unknown158_[0x28];
+    objects::RiderIdentity* account_;     // +0x4C
+    SentSkaterUpdates sent_;              // +0x50 (the server's)
     script::VectorValue placed_[5];       // +0x180 scavenger hunt: where its objects were placed (num_placed_)
     uint32_t flag_bits_;                  // +0x1D0 PlayerFlag
     uint32_t ready_query_owed_;           // +0x1D4
@@ -210,14 +224,13 @@ public:
 };
 static_assert(offsetof(PlayerRecord, skater_) == 0x14 && offsetof(PlayerRecord, team_) == 0x30 &&
                   offsetof(PlayerRecord, label_) == 0x38 && offsetof(PlayerRecord, account_) == 0x4C &&
-                  offsetof(PlayerRecord, update_records_a_) == 0xA8 && offsetof(PlayerRecord, sent_updates_) == 0x108 &&
-                  offsetof(PlayerRecord, update_bytes_a_) == 0x148 && offsetof(PlayerRecord, placed_) == 0x180 &&
+                  offsetof(PlayerRecord, sent_) == 0x50 && offsetof(PlayerRecord, placed_) == 0x180 &&
                   offsetof(PlayerRecord, flag_bits_) == 0x1D0 && offsetof(PlayerRecord, rejoin_group_) == 0x1D8 &&
                   offsetof(PlayerRecord, face_texture_data_) == 0x1E8 && sizeof(PlayerRecord) == 0x1F0,
               "layout must match the original");
 
-// 0x00543180 (called by the constructor on the player's +0x50, returning it): the sent update records zeroed (the
-// 16 words at +0xB8 of it: the player's +0x108 - +0x147).
+// 0x00543180 (called by the constructor on the player's +0x50, returning it): the sent records' value68_ and
+// value_6c_ zeroed (the 16 words at +0xB8 of it).
 void clear_update_records(PlayerRecord* player);
 
 // (The score lines' list types (score_list.cpp): lists::Hunt<ScoreEntry>'s destructors 0x00543170 / 0x00543580 only

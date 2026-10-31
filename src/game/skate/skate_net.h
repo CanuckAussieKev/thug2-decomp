@@ -80,8 +80,8 @@ public:
     // was last sent about each skater (+0x1C).
     struct RelayStream {
         util::PackedBitBuffer feed_;
-        uint32_t unknown18_;
-        void* sent_;
+        uint32_t unknown18_; // (the client's connection handle)
+        void* sent_;         // the client's player (online::PlayerRecord: its sent_ records)
     };
     // --- skate_net_relay.cpp: the server's part and the rest of the client's (0x00569560-0x0056C91F) ---
     // The main-loop tasks (their task: +0x1C the skate module): 0x00569BB0 the other skaters' updates to each remote

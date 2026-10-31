@@ -78,10 +78,7 @@ script::Struct* appearance_part(objects::RiderIdentity* profile, uint32_t part)
 {
     return get_appearance(profile)->get_part(part);
 }
-script::Struct* appearance_structure(objects::RiderIdentity* profile)
-{
-    return reinterpret_cast<script::Struct*>(profile->look_data_ + 0x4C);
-}
+script::Struct* appearance_structure(objects::RiderIdentity* profile) { return &profile->appearance()->structure_; }
 // RefreshSkaterModel's call between the heap switch and the model's build: compiled out of this build (0x0048C1B0, a
 // jump to the empty 0x005480A0; no arguments).
 inline void model_build_hook() {}

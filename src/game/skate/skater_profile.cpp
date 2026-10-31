@@ -426,10 +426,10 @@ void RiderIdentity::write_to_save(script::Struct* save)
     details_params()->fetch_int_value(kIsPro, &pro, 1);
     if (!pro) {
         script::Struct* appearance = new_empty_struct();
-        appearance->append_structure_if_any(reinterpret_cast<script::Struct*>(look_data_ + 0x4C));
+        appearance->append_structure_if_any(&this->appearance()->structure_);
         mine->add_component_of_type(kAppearance, kOwnedStructure, reinterpret_cast<uint32_t>(appearance));
     }
-    void* face = *reinterpret_cast<void**>(look_data_ + 0x54); // (the appearance's face: 0x00576E60, a folded getter)
+    void* face = appearance()->face_skin_; // (the appearance's face: 0x00576E60, a folded getter)
     if (face && static_cast<gfx::FaceSkin*>(face)->is_sound()) {
         script::Struct* texture = new_empty_struct();
         static_cast<gfx::FaceSkin*>(face)->save_to_structure(texture);
@@ -460,7 +460,7 @@ uint8_t* RiderIdentity::decode_from_bytes(uint8_t* buffer)
     uint8_t* at = reinterpret_cast<gfx::ModelLook*>(this)->decode_from_bytes(buffer); // the appearance
     // Not original - parts we can't build (a THUGPRO player's) replaced before anything builds them (TP-R9,
     // appearance_guard.h). Every caller reads a network message.
-    appearance_guard::sanitise(reinterpret_cast<script::Struct*>(look_data_ + 0x4C));
+    appearance_guard::sanitise(&appearance()->structure_);
     script::Struct* part = reinterpret_cast<script::Struct*>(buffer); // (the argument's slot)
     details_params()->read_sub_struct(kTrickStyle, &part, 1);
     part->get_clear();
