@@ -5,10 +5,10 @@
 #include <new>
 
 #include "game/core/dbg.h"
-#include "game/mth/maths.h"
-#include "game/mth/mat4.h"
-#include "game/mth/random.h"
-#include "game/mth/vec4.h"
+#include "game/maths/maths.h"
+#include "game/maths/mat4.h"
+#include "game/maths/random.h"
+#include "game/maths/vec4.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/movable_contact.h"
 #include "game/obj/control_pad.h"
@@ -34,7 +34,7 @@
 #include "game/sys/game_clock.h"
 #include "game/skater/balance_trick.h"
 #include "game/skate/point_tally.h"
-#include "game/ed/park_editor.h"
+#include "game/park_editing/park_editor.h"
 #include "game/skate/skate_module.h"
 #include "game/obj/trigger_events.h"
 

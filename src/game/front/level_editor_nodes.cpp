@@ -15,7 +15,7 @@
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_scenery.h"
-#include "game/mth/mat4.h"
+#include "game/maths/mat4.h"
 #include "game/script/names.h"
 #include "game/script/node_manager.h"
 #include "game/script/qb.h"

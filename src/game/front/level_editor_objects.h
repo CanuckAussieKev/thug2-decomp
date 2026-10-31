@@ -7,7 +7,7 @@
 
 #include "game/front/level_editor.h"
 #include "game/front/level_editor_scenery.h"
-#include "game/mth/mat4.h"
+#include "game/maths/mat4.h"
 
 namespace GameObjects {
 class CGameEntity;

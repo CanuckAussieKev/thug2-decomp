@@ -11,7 +11,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/task_list.h"
-#include "game/mth/random.h"
+#include "game/maths/random.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/gamenet_lobby.h"

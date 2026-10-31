@@ -8,7 +8,7 @@
 
 #include <SDL2/SDL.h>
 
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_registry.h"
 #include "game/core/checksums.h"
 #include "game/core/mem.h"
 #include "game/front/front_end.h"

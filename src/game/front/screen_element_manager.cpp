@@ -14,7 +14,7 @@
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/param_struct.h"
-#include "game/sio/input_hub.h"
+#include "game/pad_input/input_hub.h"
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/entity_hub.h"

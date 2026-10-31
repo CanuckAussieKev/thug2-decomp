@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "game/gfx/particle_system.h"
-#include "game/mth/vec4.h"
+#include "game/maths/vec4.h"
 
 struct IDirect3DIndexBuffer9;
 

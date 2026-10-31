@@ -9,9 +9,9 @@
 #include <cstring>
 
 #include "game/core/checksums.h"
-#include "game/mth/mat4.h"
-#include "game/mth/vec4.h"
-#include "game/nx/probe_ray.h"
+#include "game/maths/mat4.h"
+#include "game/maths/vec4.h"
+#include "game/engine3d/probe_ray.h"
 #include "game/obj/control_pad.h"
 #include "game/obj/movable_contact.h"
 #include "game/obj/entity.h"

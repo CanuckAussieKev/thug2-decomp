@@ -7,7 +7,7 @@
 #include <cstdint>
 
 #include "game/core/arena_alloc.h"
-#include "game/lst/chain_start.h"
+#include "game/lists/chain_start.h"
 #include "game/net/net_lists.h"
 
 namespace NetLink {

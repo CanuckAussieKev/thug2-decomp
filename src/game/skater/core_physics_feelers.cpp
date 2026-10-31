@@ -7,12 +7,12 @@
 #include <cmath>
 #include <cstdint>
 
-#include "game/mth/maths.h"
+#include "game/maths/maths.h"
 #include "game/gfx/d3dx.h"
-#include "game/mth/mat4.h"
-#include "game/mth/quat_rotation.h"
-#include "game/mth/vec4.h"
-#include "game/nx/probe_ray.h"
+#include "game/maths/mat4.h"
+#include "game/maths/quat_rotation.h"
+#include "game/maths/vec4.h"
+#include "game/engine3d/probe_ray.h"
 #include "game/obj/model_component.h"
 #include "game/obj/entity.h"
 #include "game/obj/rail_manager.h"
@@ -24,7 +24,7 @@
 #include "game/skater/flip_and_rotate.h"
 #include "game/skater/rider.h"
 #include "game/skater/thaw_bmx.h"
-#include "game/ed/park_editor.h"
+#include "game/park_editing/park_editor.h"
 
 namespace Skater {
 

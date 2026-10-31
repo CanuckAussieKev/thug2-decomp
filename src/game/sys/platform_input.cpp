@@ -8,7 +8,7 @@
 #include <cstring>
 #include <cwchar>
 
-#include "game/sio/device.h"
+#include "game/pad_input/device.h"
 #include "game/gfx/settings.h"
 #include "game/gfx/view_cam.h"
 #include "game/gfx/device.h"

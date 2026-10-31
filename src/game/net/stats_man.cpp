@@ -16,7 +16,7 @@
 #include "game/core/mem.h"
 #include "game/core/str.h"
 #include "game/core/task_list.h"
-#include "game/lst/chain_start.h"
+#include "game/lists/chain_start.h"
 #include "game/net/buddy_man.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_manager.h"
@@ -30,7 +30,7 @@
 #include "game/script/param_struct.h"
 #include "game/sys/stopwatch.h"
 #include "game/gfx/loading_bar.h"
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_registry.h"
 #include "game/net/task_vtable.h"
 
 namespace OnlinePlay {

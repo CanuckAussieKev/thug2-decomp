@@ -8,9 +8,9 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/sfx/mute_audio.h"
+#include "game/sound/mute_audio.h"
 #include "game/gfx/device.h"
-#include "game/pcm/music_player.h"
+#include "game/audio/music_player.h"
 
 namespace OsLayer {
 
@@ -125,7 +125,7 @@ void InitDirectSound(HWND window)
     if (DirectSound())
         DirectSound()->SetCooperativeLevel(window, DSSCL_PRIORITY);
     // NOT ORIGINAL: [features] mute_audio=1 - the process's audio session muted before anything plays
-    // (game/sfx/mute_audio.h)
+    // (game/sound/mute_audio.h)
     if (SoundFx::AudioMuted())
         SoundFx::SetAudioSessionMuted(true);
 }

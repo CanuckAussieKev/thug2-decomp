@@ -16,7 +16,7 @@
 #include "game/gfx/pc_lights.h"
 #include "game/gfx/engine_texture.h"
 #include "game/gfx/pc_texture.h"
-#include "game/lst/key_map.h"
+#include "game/lists/key_map.h"
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/sys/startup_init.h"

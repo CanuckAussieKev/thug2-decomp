@@ -6,8 +6,8 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/mth/mat4.h"
-#include "game/mth/random.h"
+#include "game/maths/mat4.h"
+#include "game/maths/random.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/entity_hub.h"
 #include "game/script/nodes.h"

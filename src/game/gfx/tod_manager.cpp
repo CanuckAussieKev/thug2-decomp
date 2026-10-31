@@ -9,7 +9,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/ed/park_editor.h"
+#include "game/park_editing/park_editor.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/engine_effects.h"
 #include "game/gfx/engine_scene_list.h"
@@ -18,7 +18,7 @@
 #include "game/gfx/light_manager.h"
 #include "game/gfx/particle_sets.h"
 #include "game/gfx/screen_effects.h"
-#include "game/lst/key_map.h"
+#include "game/lists/key_map.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/model_component.h"
 #include "game/script/cscript.h"

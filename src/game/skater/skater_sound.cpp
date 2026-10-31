@@ -7,9 +7,9 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/mth/vec4.h"
+#include "game/maths/vec4.h"
 #include "game/script/param_struct.h"
-#include "game/sfx/surface_kind.h"
+#include "game/sound/surface_kind.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/core/code_address.h"
 #include "game/skater/skitch.h"

@@ -10,7 +10,7 @@ does" (batch 70). For the token format see `src/game/script/qb.h`. Sections 11 a
 (events, objects) come from batches 75-77 (`src/game/obj/event.*`, `tracker.*`, `object.*`, `objman.*`), the
 front end's part of the frame (section 2) from batch 78 (`src/game/front/front_end.*`), the frame order, the
 object walk, pausing objects and composite objects (sections 2 and 12) from batches 79-81
-(`src/game/obj/compositemgr.*`, `composite.*`, `src/game/lst/head.*`).
+(`src/game/obj/compositemgr.*`, `composite.*`, `src/game/lists/head.*`).
 
 Conventions in this document:
 - "Update" means one call of `CScript::TickFrame` (0x004750B0). A "count" is one call of `UpdateWait` (0x00473050).

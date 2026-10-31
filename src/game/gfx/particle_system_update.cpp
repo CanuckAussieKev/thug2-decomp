@@ -13,7 +13,7 @@
 #include "game/gfx/view_cam.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/viewport.h"
-#include "game/nx/probe_ray.h"
+#include "game/engine3d/probe_ray.h"
 #include "game/obj/entity.h"
 #include "game/script/cscript.h"
 #include "game/script/param_struct.h"

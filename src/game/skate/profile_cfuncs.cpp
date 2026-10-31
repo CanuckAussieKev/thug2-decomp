@@ -12,7 +12,7 @@
 #include "game/skate/career.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
-#include "game/ed/goal_editor.h"
+#include "game/park_editing/goal_editor.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/engine_glue.h"
 #include "game/gfx/model.h"

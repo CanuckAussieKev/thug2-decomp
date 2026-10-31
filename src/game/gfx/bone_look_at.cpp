@@ -9,7 +9,7 @@
 #include "game/gfx/anim_blend.h"
 #include "game/gfx/anim_controller.h"
 #include "game/gfx/rig.h"
-#include "game/mth/x87_math.h"
+#include "game/maths/x87_math.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/entity.h"
 #include "game/obj/entity_hub.h"

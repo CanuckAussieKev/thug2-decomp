@@ -3,7 +3,7 @@
 // float, the ones it keeps on the FPU stack are worked in double.
 
 #include "game/obj/editor_camera.h"
-#include "game/ed/rail_editor.h"
+#include "game/park_editing/rail_editor.h"
 #include "game/gfx/engine_shadows.h"
 
 #include <cmath>
@@ -13,14 +13,14 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/mth/mat4.h"
-#include "game/nx/probe_ray.h"
+#include "game/maths/mat4.h"
+#include "game/engine3d/probe_ray.h"
 #include "game/obj/smtptr.h"
 #include "game/script/cache.h"
 #include "game/script/nodes.h"
 #include "game/script/qb.h"
 #include "game/script/param_struct.h"
-#include "game/ed/park_editor.h"
+#include "game/park_editing/park_editor.h"
 #include "game/skate/skate_module.h"
 #include "game/core/code_address.h"
 #include "game/sys/game_config.h"

@@ -9,7 +9,7 @@
 #include "game/core/checksums.h"
 #include "game/gfx/glyphs.h"
 #include "game/gfx/pc_font.h"
-#include "game/lst/key_map.h"
+#include "game/lists/key_map.h"
 #include "game/script/params.h"
 #include "game/script/param_struct.h"
 #include "game/obj/camera_lookaround.h"

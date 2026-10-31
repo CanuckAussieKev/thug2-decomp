@@ -10,7 +10,7 @@
 #include "game/obj/trick_objects.h"
 #include "game/script/cscript.h"
 #include "game/script/param_struct.h"
-#include "game/sio/input_hub.h"
+#include "game/pad_input/input_hub.h"
 #include "game/skater/rider.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/skater/trick_component.h"

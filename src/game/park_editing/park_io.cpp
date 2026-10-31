@@ -1,0 +1,557 @@
+// The park editor's park set up from the scripts (palette, bounds, road mask, lights) and kept in compressed
+// form (the map that's saved and sent), the gaps attached to pieces, and the memory bar.
+
+#include "game/park_editing/park.h"
+
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+
+#include "game/core/checksums.h"
+#include "game/core/dbg.h"
+#include "game/core/mem.h"
+#include "game/core/slab_bank.h"
+#include "game/park/park_memory.h"
+#include "game/script/cscript.h"
+#include "game/script/param_struct.h"
+#include "game/park_editing/rail_editor.h"
+#include "game/park_editing/goal_editor.h"
+#include "game/park_editing/park_editor.h"
+
+namespace ParkEditing {
+
+float g_parkGapGridOffset{28.0f};
+ParkEditing::CParkBuilderMode* g_parkEditor;
+
+namespace {
+
+MemSys::Arena* ParkHeap() { return g_parkHeap; }
+
+// The cell size (120, 48, 120) and the grid's offset in cells used by the gap pieces (28).
+float CellSizeX() { return g_parkCellSizeX; }
+float CellSizeY() { return g_parkCellSizeY; }
+float CellSizeZ() { return g_parkCellSizeZ; }
+float GapGridOffset() { return g_parkGapGridOffset; }
+
+// The park editor object (0x007CE5D8, 0x7C bytes): the value at +0x78 goes into the compressed map.
+uint32_t EditorValue78()
+{
+    auto* editor = reinterpret_cast<uint8_t*>(g_parkEditor);
+    return *reinterpret_cast<uint32_t*>(editor + 0x78);
+}
+uint8_t GeneratorMaxPlayers(void* generator) { return *(static_cast<uint8_t*>(generator) + 0x20); }
+
+void* PieceSource(void* generator, uint32_t name) { return static_cast<CParkAssembler*>(generator)->GetPieceSource(name); }
+void GetFootprintSize(void* piece, SCellBox* dims) { static_cast<CParkTile*>(piece)->GetFootprintSize(dims); }
+// A new palette metapiece on the park heap.
+CPieceGroup* NewAbstractMeta()
+{
+    MemSys::EnterHeapScope(ParkHeap());
+    void* memory = MemSys::Alloc(sizeof(CPieceGroup));
+    CPieceGroup* meta = memory ? static_cast<CPieceBlueprint*>(memory)->MakeNew() : nullptr;
+    MemSys::LeaveHeapScope();
+    return meta;
+}
+// Element `i` of a script array of integers, as a byte.
+uint8_t ByteAt(Scripts::CArray* array, uint32_t i) { return static_cast<uint8_t>(array->FetchPart(i)); }
+
+} // namespace
+
+void CParkLayout::SetUpAbstractMetas()
+{
+    Scripts::CArray* all = Scripts::FetchList("Ed_standard_metapieces"); // (0x00479090, asserting)
+    for (uint32_t i = 0; i < all->m_extent; ++i) {
+        auto* desc = reinterpret_cast<Scripts::CStruct*>(all->FetchPart(i));
+        uint32_t single = 0;
+        if (desc->ReadHashValue("single", &single, 0))
+            PieceSource(m_builder, single); // (loads the piece)
+    }
+
+    uint32_t pieceNames[1000]; // every piece a metapiece uses
+    uint32_t numPieceNames = 0;
+    for (uint32_t n = 0; n < all->m_extent; ++n) {
+        auto* desc = reinterpret_cast<Scripts::CStruct*>(all->FetchPart(n));
+        CPieceGroup* meta = NewAbstractMeta();
+        uint32_t single = 0;
+        Scripts::CArray* pieces = nullptr;
+        if (desc->ReadHashValue("single", &single, 0)) {
+            meta->Commission(1);
+            void* source = PieceSource(m_builder, single);
+            SCellBox pos;
+            pos.AssignValue(0, 0, 0, 0, 0, 0);
+            GetFootprintSize(source, &pos);
+            Scripts::CArray* at = nullptr;
+            if (desc->FetchList("pos", &at, 0)) {
+                uint8_t z = ByteAt(at, 2);
+                uint8_t y = ByteAt(at, 1);
+                pos.x = ByteAt(at, 0);
+                pos.y = static_cast<int8_t>(y);
+                pos.z = z;
+            }
+            meta->AddPiece(source, &pos, 0, false);
+            uint32_t name = *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(source) + 4); // the source's name
+            pieceNames[numPieceNames++] = name;
+            meta->m_flagBits |= CPieceGroup::kSector;
+            meta->m_nameKey = name;
+            uint32_t special; // (left unset if there's none, as in the original)
+            if (desc->ReadHashValue(0xF176A9FD, &special, 0)) { // special_type
+                switch (special) {
+                case 0x2813AB8A: // gap_placement
+                    meta->m_flagBits |= CPieceGroup::kGap;
+                    break;
+                case 0xFC26B6F4: // area_selection
+                    meta->m_flagBits |= CPieceGroup::kAreaSelect;
+                    break;
+                case 0xFFD81C08: // rail_placement
+                    meta->m_flagBits |= CPieceGroup::kRailPlacement;
+                    break;
+                case 0x48FA9C7B: // restart_1
+                    m_restartPieces[0] = single;
+                    break;
+                case 0x419183B2: // restart_multi
+                    m_restartPieces[1] = single;
+                    break;
+                case 0xE69AEFAF: // restart_horse
+                    m_restartPieces[2] = single;
+                    break;
+                case 0xA091CE25: // king_of_hill
+                    m_restartPieces[3] = single;
+                    break;
+                case 0x74B0F4E9: // red_flag
+                    m_restartPieces[4] = single;
+                    meta->m_flagBits |= CPieceGroup::kRestartFlag;
+                    break;
+                case 0xC893ACF8: // green_flag
+                    m_restartPieces[5] = single;
+                    meta->m_flagBits |= CPieceGroup::kRestartFlag;
+                    break;
+                case 0x40BDFA7E: // blue_flag
+                    m_restartPieces[6] = single;
+                    meta->m_flagBits |= CPieceGroup::kRestartFlag;
+                    break;
+                case 0x3AE047FC: // yellow_flag
+                    m_restartPieces[7] = single;
+                    meta->m_flagBits |= CPieceGroup::kRestartFlag;
+                    break;
+                }
+            }
+        } else if (desc->FetchList("multiple", &pieces, 0)) {
+            bool unslidable = false;
+            meta->Commission(static_cast<int>(pieces->m_extent));
+            for (uint32_t i = 0; i < pieces->m_extent; ++i) {
+                auto* entry = reinterpret_cast<Scripts::CStruct*>(pieces->FetchPart(i));
+                uint32_t name = entry->StepToEntry(nullptr)->checksum; // the piece's name comes first
+                Scripts::CArray* at = nullptr;
+                entry->FetchList(0u, &at, 1); // its unnamed [x y z (rot)]
+                void* source = PieceSource(m_builder, name);
+                pieceNames[numPieceNames++] = name;
+                SCellBox pos;
+                pos.AssignValue(0, 0, 0, 0, 0, 0);
+                GetFootprintSize(source, &pos);
+                uint8_t z = ByteAt(at, 2);
+                uint8_t y = ByteAt(at, 1);
+                pos.x = ByteAt(at, 0);
+                pos.y = static_cast<int8_t>(y);
+                pos.z = z;
+                int rot = at->m_extent > 3 ? static_cast<int>(at->FetchPart(3)) : 0;
+                if (entry->HasBareFlag(0x0CD75A3Fu))
+                    unslidable = true;
+                meta->AddPiece(source, &pos, rot, entry->HasBareFlag(0x0CD75A3Fu));
+            }
+            if (unslidable)
+                meta->m_flagBits |= CPieceGroup::kFloorLocked;
+        } else if (desc->FetchList("ack", &pieces, 0)) { // made of other palette metapieces
+            meta->Commission(static_cast<int>(pieces->m_extent));
+            for (uint32_t i = 0; i < pieces->m_extent; ++i) {
+                auto* entry = reinterpret_cast<Scripts::CStruct*>(pieces->FetchPart(i));
+                uint32_t name = entry->StepToEntry(nullptr)->checksum;
+                Scripts::CArray* at = nullptr;
+                entry->FetchList(0u, &at, 1);
+                CPieceGroup* part = nullptr;
+                for (CMapListNode* node = mp_abstract_metas; node; node = node->m_following) {
+                    if (node->GetPieceGroup()->Cast()->m_nameKey == name) {
+                        part = node->GetPieceGroup()->Cast();
+                        break;
+                    }
+                }
+                SCellBox pos = part->m_cellFootprint; // (an unknown name crashes, as in the original)
+                uint8_t z = ByteAt(at, 2);
+                uint8_t y = ByteAt(at, 1);
+                pos.x = ByteAt(at, 0);
+                pos.y = static_cast<int8_t>(y);
+                pos.z = z;
+                int rot = at->m_extent > 3 ? static_cast<int>(at->FetchPart(3)) : 0;
+                static_cast<CPieceBlueprint*>(meta)->AddMetaPiece(part, &pos, rot,
+                                                                     entry->HasBareFlag(0x0CD75A3Fu));
+            }
+        }
+        if (desc->ReadHashValue("name", &meta->m_nameKey, 0))
+            meta->m_flagBits &= ~CPieceGroup::kSector;
+        if (desc->HasBareFlag("is_riser"))
+            meta->m_flagBits |= CPieceGroup::kInnerShell;
+        if (desc->HasBareFlag("no_rails"))
+            meta->m_flagBits |= CPieceGroup::kNoRails;
+        CMapListNode* node = CMapListNode::Fabricate();
+        node->m_pieceGroup = meta; // (out of memory crashes, as in the original)
+        node->m_following = mp_abstract_metas;
+        mp_abstract_metas = node;
+        ++m_numAbstractMetas;
+    }
+
+    // a single-piece palette metapiece for every piece used that hasn't one
+    for (uint32_t i = 0; i < numPieceNames; ++i) {
+        uint32_t name = pieceNames[i];
+        bool found = false;
+        for (CMapListNode* node = mp_abstract_metas; node; node = node->m_following) {
+            if (node->GetPieceGroup()->Cast()->m_nameKey == name) {
+                found = true;
+                break;
+            }
+        }
+        if (found)
+            continue;
+        CPieceGroup* meta = NewAbstractMeta();
+        meta->Commission(1);
+        void* source = PieceSource(m_builder, name);
+        SCellBox pos;
+        pos.AssignValue(0, 0, 0, 0, 0, 0);
+        GetFootprintSize(source, &pos);
+        meta->AddPiece(source, &pos, 0, false);
+        meta->m_nameKey = name;
+        meta->m_flagBits |= CPieceGroup::kSector;
+        CMapListNode* node = CMapListNode::Fabricate();
+        node->m_pieceGroup = meta;
+        node->m_following = mp_abstract_metas;
+        mp_abstract_metas = node;
+        ++m_numAbstractMetas;
+    }
+}
+
+void CParkLayout::WriteCompressedMap()
+{
+    if (m_flagBits & kMapNewerThanPark)
+        return;
+    CompressedMap& map = m_map;
+    std::memset(&map, 0, sizeof(map));
+    Scripts::CArray* saveNames = Scripts::FetchList("Ed_Save_Map"); // the palette names, by save index
+    uint32_t nameTotal = saveNames->m_extent;
+    map.m_rev = CompressedMap::kVersion;
+    map.m_shellSize = static_cast<uint16_t>(m_shellSize);
+    map.unknown0A = 0;
+    map.m_posX = m_parkBounds.x;
+    map.m_depthCell = m_parkBounds.z;
+    map.m_w = m_parkBounds.w;
+    map.m_l = m_parkBounds.l;
+    map.m_styleSet = EditorValue78();
+    map.m_maxPlayers = GeneratorMaxPlayers(m_builder);
+    char* to = map.m_label;
+    for (const char* from = m_parkName; (*to++ = *from++) != '\0';) {
+    }
+    auto* out = reinterpret_cast<uint8_t*>(map.m_floorHeights);
+    for (int x = 0; x < kFloorSize; ++x)
+        for (int z = 0; z < kFloorSize; ++z)
+            *out++ = static_cast<uint8_t>(m_floor[x][z].m_levelY);
+
+    int numMetas = 0;
+    for (CMapListNode* node = mp_concrete_metas; node; node = node->m_following) {
+        CPieceGroup* meta = node->GetPieceGroup()->Cast();
+        uint32_t flags = meta->m_flagBits;
+        if ((flags & CPieceGroup::kInnerShell) || (flags & CPieceGroup::kFence) || !(flags & CPieceGroup::kInPark))
+            continue;
+        SCellBox at = meta->m_cellFootprint;
+        uint32_t index = 0;
+        while (index < nameTotal && saveNames->FetchPart(index) != meta->m_nameKey)
+            ++index;
+        if (index >= nameTotal)
+            continue;
+        auto* words = reinterpret_cast<uint32_t*>(out);
+        words[0] = ((static_cast<uint32_t>(at.z) << 8 | at.x) << 10) | (index & 0x3FF);
+        words[1] = ((static_cast<uint32_t>(static_cast<uint8_t>(at.y)) - 0x10) & 0x1F) << 2 |
+                   (static_cast<uint32_t>(meta->m_quarterTurns) & 3);
+        out += 8;
+        ++numMetas;
+    }
+    map.m_numMetas = static_cast<uint16_t>(numMetas);
+
+    SGapDetails* gaps[32];
+    int numGaps = 0;
+    for (int i = 0; i < 32; ++i) {
+        int half = 0;
+        SGapDetails* gap = mp_gapManager->GetGapInfo(i, &half);
+        if (gap && half == 0 && gap->m_numCompleteHalves == 2)
+            gaps[numGaps++] = gap;
+    }
+    map.m_numGaps = static_cast<uint16_t>(numGaps);
+    for (int i = 0; i < numGaps; ++i) {
+        const SGapDetails* gap = gaps[i];
+        out[8] = 0;
+        out[0] = gap->m_atPoint[0].x;
+        out[2] = static_cast<uint8_t>(gap->m_atPoint[0].y + 8);
+        out[4] = gap->m_atPoint[0].z;
+        out[8] |= static_cast<uint8_t>(gap->m_quarterTurns[0]);
+        out[6] = static_cast<uint8_t>(gap->m_leftExtent[0] << 4);
+        out[6] = static_cast<uint8_t>((gap->m_rightExtent[0] & 0xF) | (gap->m_leftExtent[0] << 4));
+        out[1] = gap->m_atPoint[1].x;
+        out[3] = static_cast<uint8_t>(gap->m_atPoint[1].y + 8);
+        out[5] = gap->m_atPoint[1].z;
+        out[8] |= static_cast<uint8_t>(gap->m_quarterTurns[1] << 4);
+        out[7] = static_cast<uint8_t>((gap->m_rightExtent[1] & 0xF) | (gap->m_leftExtent[1] << 4));
+        char* text = reinterpret_cast<char*>(out + 0xA);
+        for (const char* from = gap->m_text; (*text++ = *from++) != '\0';) {
+        }
+        *reinterpret_cast<uint16_t*>(out + 0x2A) = static_cast<uint16_t>(gap->m_pointsHeld);
+        *reinterpret_cast<uint32_t*>(out + 0x2C) = gap->m_cancelFlags;
+        out += 0x30;
+    }
+    map.m_extent = static_cast<uint16_t>(out - reinterpret_cast<uint8_t*>(&map));
+    if (!(m_flagBits & (kMapValid | kMapNewerThanPark)))
+        m_flagBits |= kMapNotSavedLocal;
+    m_flagBits = (m_flagBits & ~kMapNewerThanPark) | kMapValid | kMapInSync;
+    map.m_checksum = Checksums::GenerateCRCFromBuffer(&map.m_extent, sizeof(map) - 4);
+}
+
+void CParkLayout::SetDefaultBounds()
+{
+    int inner = Scripts::FetchIntValue("ed_default_inner_dim"); // (0x004790C0, asserting)
+    m_shellBounds.AssignValue(1, -4, 1, 56, 8, 56);
+    uint8_t corner = static_cast<uint8_t>((56 - inner) / 2 + 1);
+    m_parkBounds.AssignValue(corner, -4, corner, static_cast<uint8_t>(inner), 8, static_cast<uint8_t>(inner));
+}
+
+void CParkLayout::SetUpRoadMask()
+{
+    Scripts::CArray* roads = Scripts::FetchList("Ed_Roadmask");
+    m_numBlockedAreas = roads->m_extent;
+    // (the first four rectangles are set elsewhere; this reads the array from element 4, past its end, as the
+    // original does)
+    for (uint32_t i = 4; i < m_numBlockedAreas + 4; ++i) {
+        auto* rect = reinterpret_cast<Scripts::CArray*>(roads->FetchPart(i));
+        SCellBox& mask = (&m_blockedAreas[0])[i]; // (past the eighth: over the length itself, as in the original)
+        *mask.Byte(0) = ByteAt(rect, 0);
+        *mask.Byte(2) = ByteAt(rect, 1);
+        *mask.Byte(3) = ByteAt(rect, 2);
+        *mask.Byte(5) = ByteAt(rect, 3);
+        *mask.Byte(1) = 0;
+        mask.StretchVertically();
+    }
+    m_numBlockedAreas += 4;
+}
+
+void CParkLayout::SetUpLights()
+{
+    Scripts::CArray* themes = Scripts::FetchList("Ed_Light_Info"); // (the original doesn't assert)
+    auto* theme = reinterpret_cast<Scripts::CArray*>(themes->FetchPart(0));
+    auto* info = reinterpret_cast<Scripts::CStruct*>(theme->FetchPart(0));
+    float ambientConst, falloffConst, cursorAmbience;
+    Scripts::VectorValue ambient, falloff;
+    Scripts::CArray* positions;
+    info->FetchFloat("ambient_const", &ambientConst, 1);
+    info->FetchVec("ambient_rgb", &ambient, 1);
+    info->FetchFloat("falloff_const", &falloffConst, 1);
+    info->FetchVec("falloff_rgb", &falloff, 1);
+    info->FetchFloat("cursor_ambience", &cursorAmbience, 1);
+    info->FetchList("pos", &positions, 1);
+    // The generator's lights and their positions
+    m_builder->ConfigureLighting(static_cast<int>(positions->m_extent), ambient.x * ambientConst, ambient.y * ambientConst,
+                            ambient.z * ambientConst, falloff.x * falloffConst, falloff.y * falloffConst,
+                            falloff.z * falloffConst, cursorAmbience);
+    for (int i = 0; i < static_cast<int>(positions->m_extent); ++i) {
+        auto* v = reinterpret_cast<float*>(positions->FetchPart(static_cast<uint32_t>(i))); // a CVector (x at +4)
+        Maths::Vec4 pos;
+        pos.x = CellSizeX() * v[1];
+        pos.y = CellSizeY() * v[2];
+        pos.z = CellSizeZ() * v[3];
+        pos.w = 1.0f;
+        m_builder->MoveLightSource(&pos, i);
+    }
+}
+
+void CParkLayout::UpdatePercentBar()
+{
+    uint8_t stats[0x6C];
+    // 0x0059E730: the park's memory use (fills the stats at 0x007CE618, returns them)
+    auto* use = reinterpret_cast<uint8_t*>(GetMemoryStats(reinterpret_cast<MemoryStats*>(stats)));
+    float full;
+    std::memcpy(&full, use + 0x2C, 4);
+    float percent = full;
+    if (full < 0.0f)
+        percent = 0.0f;
+    else if (full > 1.0f)
+        percent = 1.0f;
+    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* params = memory ? memory->PrepareAll() : nullptr;
+    params->PushFloat(0x6D6C056Du, percent); // park_percent (out of memory crashes, as in the original)
+    if (Attributes().maxUsage >= 1.0f) // (0x007CE644: the park memory stats' largest usage)
+        params->PutNameKey(0u, 0x97A8E59Cu); // park_full
+    Scripts::LaunchScript(0xE2508960, params, nullptr, false, nullptr); // parked_update_percent_bar
+    if (params) {
+        params->Clear();
+        Scripts::DeleteStruct(params);
+    }
+}
+
+void CParkLayout::WriteCompressedMapIfBuilt()
+{
+    if (m_parkBuilt)
+        WriteCompressedMap();
+}
+
+void CParkLayout::ExportToStruct(Scripts::CStruct* out)
+{
+    if (m_parkBuilt)
+        WriteCompressedMap();
+    m_flagBits &= ~kMapNotSavedLocal;
+    Scripts::CArray* memory = Scripts::NewArray();
+    Scripts::CArray* map = memory ? memory->PrepareAll() : nullptr;
+    map->ConfigureSizeKind(0xEA6, Scripts::QBVAL_INTEGER); // (out of memory crashes, as in the original)
+    const auto* words = reinterpret_cast<const uint32_t*>(&m_map);
+    for (uint32_t i = 0; i < 0xEA6; ++i)
+        map->SetElement(i, words[i]);
+    out->AppendArrayRef(0x337C5289u, map); // Park_editor_map
+    Scripts::CStruct* structMemory = Scripts::NewStruct();
+    Scripts::CStruct* goals = structMemory ? structMemory->PrepareAll() : nullptr;
+    // the goal editor (module GoalEditor, 0x004E8470) writes the park's goals (level Load_Sk5Ed)
+    CObjectiveAuthoring::Pull()->WriteLevelGoals(0xE8B4B836, goals);
+    out->AppendStructRef(0xD8EB825Eu, goals); // Park_editor_goals
+    // the rail editor (module RailEditor, 0x004F4970) writes the park's rails
+    CRailAuthoring::Sole()->WriteToStructure(out);
+    out->PutInt(0xB7E39B53u, GeneratorMaxPlayers(m_builder)); // MaxPlayers
+}
+
+void CParkLayout::SetShellSize(int theme)
+{
+    m_shellSize = theme;
+    WriteCompressedMap();
+}
+
+void CParkLayout::ClearCompressedMap()
+{
+    SetDefaultBounds();
+    CompressedMap& map = m_map;
+    map.m_rev = CompressedMap::kVersion;
+    map.m_shellSize = static_cast<uint16_t>(m_shellSize);
+    map.unknown0A = 0;
+    map.m_posX = m_parkBounds.x;
+    map.m_depthCell = m_parkBounds.z;
+    map.m_w = m_parkBounds.w;
+    map.m_l = m_parkBounds.l;
+    map.m_styleSet = static_cast<void*>(g_parkEditor) ? EditorValue78() : 0;
+    map.m_maxPlayers = 2;
+    std::memcpy(map.m_label, "Unnamed park", 13); // "Unnamed park"
+    std::memset(map.m_floorHeights, 0, kFloorSize * kFloorSize);
+    map.m_numMetas = 0;
+    uint32_t used = offsetof(CompressedMap, m_floorHeights) + kFloorSize * kFloorSize;
+    // (the checksum is taken before the size and the gap count are set, as in the original)
+    uint32_t checksum = Checksums::GenerateCRCFromBuffer(&map.m_extent, static_cast<int>(used - 4));
+    map.m_extent = static_cast<uint16_t>(used);
+    map.m_checksum = checksum;
+    map.m_numGaps = 0;
+    if (!(m_flagBits & (kMapValid | kMapNewerThanPark)))
+        m_flagBits |= kMapNotSavedLocal;
+    m_flagBits = (m_flagBits & ~kMapNewerThanPark) | kMapValid | kMapInSync;
+}
+
+bool CParkLayout::RegisterGapEntry(SGapDetails* gap)
+{
+    int tab = mp_gapManager->FindEmptyGapSlot();
+    if (tab == -1)
+        return false;
+    // The trigger's position (x87 arithmetic: x is stored as a float on the way, z isn't). For a rotation past 3
+    // the previous half's position is used again (the original's are left unset before the first half).
+    Maths::Vec4 at = {0.0f, 0.0f, 0.0f, 1.0f};
+    for (int half = 0; half < gap->m_numCompleteHalves; ++half) {
+        SCellBox& pos = gap->m_atPoint[half];
+        pos.w = 1;
+        pos.h = 1;
+        pos.l = 1;
+        MapListHolder metas(GetIntersectingMetas(pos, 0, nullptr, true));
+        if (!metas.list)
+            return false;
+        CPieceGroup* meta = metas.list->GetPieceGroup()->Cast();
+        meta->m_flagBits |= CPieceGroup::kHighlightable;
+        pos = meta->m_cellFootprint;
+        SCellBox d = meta->m_cellFootprint;
+        float length = gap->FetchMagnitude(half);
+        const double w = CellSizeX(), l = CellSizeZ();
+        const double y = static_cast<double>(d.y) * CellSizeY();
+        int alongX = 0;
+        float x = at.x;
+        double z = at.z;
+        switch (gap->m_quarterTurns[half]) {
+        case 0:
+            alongX = 1;
+            x = static_cast<float>((static_cast<double>(d.w + d.x) * w - w * 0.5) - 1.0);
+            z = (static_cast<double>(d.z - gap->m_rightExtent[half]) * l + length * 0.5) - l;
+            at.y = static_cast<float>(y);
+            break;
+        case 1:
+            x = static_cast<float>((static_cast<double>(d.x - gap->m_rightExtent[half]) * w + length * 0.5) - w);
+            z = (static_cast<double>(d.z) * l - l * 0.5) + 1.0;
+            at.y = static_cast<float>(y);
+            break;
+        case 2:
+            alongX = 1;
+            x = static_cast<float>((static_cast<double>(d.x) * w - w * 0.5) + 1.0);
+            z = (static_cast<double>(d.z - gap->m_leftExtent[half]) * l + length * 0.5) - l;
+            at.y = static_cast<float>(y);
+            break;
+        case 3:
+            x = static_cast<float>((static_cast<double>(d.x - gap->m_leftExtent[half]) * w + length * 0.5) - w);
+            z = (static_cast<double>(d.l + d.z) * l - l * 0.5) - 1.0;
+            at.y = static_cast<float>(y);
+            break;
+        }
+        at.x = static_cast<float>(x - w * GapGridOffset());
+        at.z = static_cast<float>(z - l * GapGridOffset());
+        // The gap's trigger piece, its length in cells
+        void* piece = m_builder->MakeGapMarkerPiece(&at, length, alongX);
+        static_cast<CParkTile*>(piece)->SetLength(static_cast<float>(length / w));
+        if (half == 0)
+            mp_gapManager->StartGap(piece, meta, tab);
+        else
+            mp_gapManager->EndGap(piece, meta, tab);
+    }
+    gap->m_tabIndex = tab;
+    mp_gapManager->StoreGapDetails(tab, gap);
+    return true;
+}
+
+void CParkLayout::DropGapEntry(SGapDetails* gap)
+{
+    CPieceGroup* halves[2]; // (unset for a half with nothing there, as in the original)
+    for (int half = 0; half < gap->m_numCompleteHalves; ++half) {
+        MapListHolder metas(GetIntersectingMetas(gap->m_atPoint[half], 0, nullptr, true));
+        if (metas.list->m_following)
+            PrintMapList(metas.list);
+        for (CMapListNode* node = metas.list; node; node = node->m_following) {
+            CPieceGroup* meta = node->GetPieceGroup()->Cast();
+            halves[half] = meta;
+            const SCellBox& d = meta->m_cellFootprint;
+            if (d.x == gap->m_atPoint[half].x && d.y == gap->m_atPoint[half].y && d.z == gap->m_atPoint[half].z)
+                break;
+        }
+        CPieceGroup* meta = halves[half];
+        meta->Spotlight(false, 0);
+        meta->m_flagBits &= ~CPieceGroup::kHighlightable;
+    }
+    int index;
+    // The gap of the first half, removed
+    if (mp_gapManager->GetGapIndex(halves[0], &index))
+        mp_gapManager->DropGapEntry(index, true);
+    gap->m_tabIndex = -1;
+    gap->m_cancelFlags = static_cast<uint32_t>(Scripts::FetchIntValue(0x9A27E74Du)); // CANCEL_GROUND
+}
+
+void CParkLayout::PrintMapList(const CMapListNode* list)
+{
+    DebugOut::Printf("contents of map list:\n");
+    for (const CMapListNode* node = list; node; node = node->m_following) {
+        DebugOut::Printf("   address=%p area=", node->m_pieceGroup);
+        const SCellBox& d = node->m_pieceGroup->m_cellFootprint;
+        DebugOut::Printf("pos=(%d,%d,%d) dims=(%d,%d,%d)\n", d.x, static_cast<int>(d.y), d.z, d.w, d.h, d.l);
+    }
+}
+
+} // namespace Ed
+
+using ParkEditing::CParkLayout;

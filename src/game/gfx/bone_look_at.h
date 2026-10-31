@@ -3,8 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/quat_rotation.h"
-#include "game/mth/vec4.h"
+#include "game/maths/quat_rotation.h"
+#include "game/maths/vec4.h"
 
 namespace Scripts {
 class CStruct;

@@ -10,7 +10,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/net/gamenet_manager.h"
-#include "game/nx/probe_ray.h"
+#include "game/engine3d/probe_ray.h"
 #include "game/script/cscript.h"
 #include "game/script/param_struct.h"
 #include "game/sys/game_clock.h"

@@ -14,10 +14,10 @@
 #include "game/gfx/engine_scene_list.h"
 #include "game/gfx/model.h"
 #include "game/gfx/model_utils.h"
-#include "game/lst/key_map.h"
+#include "game/lists/key_map.h"
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"
-#include "game/nx/coll_static.h"
+#include "game/engine3d/coll_static.h"
 
 namespace Engine3D {
 

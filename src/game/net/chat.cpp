@@ -21,7 +21,7 @@
 #include "game/script/cscript.h"
 #include "game/script/params.h"
 #include "game/script/param_struct.h"
-#include "game/sio/device.h"
+#include "game/pad_input/device.h"
 #include "game/sys/stopwatch.h"
 #include "game/skate/skate_module.h"
 #include "game/skater/rider.h"

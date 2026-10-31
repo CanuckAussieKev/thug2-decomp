@@ -6,8 +6,8 @@
 
 #include <cstdint>
 
-#include "game/ed/goal_editor.h"
-#include "game/ed/park_editor.h"
+#include "game/park_editing/goal_editor.h"
+#include "game/park_editing/park_editor.h"
 #include "game/front/level_editor_actions.h"
 #include "game/gfx/anim_blend.h"
 #include "game/obj/anim_blender.h"

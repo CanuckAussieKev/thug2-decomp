@@ -4,10 +4,10 @@
 
 #include <cstdint>
 
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_registry.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
-#include "game/ed/park_editor.h"
+#include "game/park_editing/park_editor.h"
 #include "game/gfx/flexible_particle_manager.h"
 #include "game/obj/movie_manager.h"
 #include "game/obj/entity.h"

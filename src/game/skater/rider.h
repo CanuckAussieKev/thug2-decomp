@@ -4,8 +4,8 @@
 #include <cstdint>
 
 #include "game/core/text_store.h"
-#include "game/mth/mat4.h"
-#include "game/mth/vec4.h"
+#include "game/maths/mat4.h"
+#include "game/maths/vec4.h"
 #include "game/obj/entity.h"
 
 // Pieces of the skater object (GameObjects::CRider, a composite object; 0x0057FE30-0x00580BD8): its stats (overrides at

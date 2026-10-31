@@ -26,7 +26,7 @@
 #include "game/gfx/view_cam.h"
 #include "game/gfx/screen.h"
 #include "game/gfx/viewport.h"
-#include "game/mth/mat4.h"
+#include "game/maths/mat4.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/emitter_object.h"
 #include "game/obj/entity.h"
@@ -36,7 +36,7 @@
 #include "game/script/node_manager.h"
 #include "game/script/nodes.h"
 #include "game/script/param_struct.h"
-#include "game/sfx/sfx.h"
+#include "game/sound/sfx.h"
 #include "game/sys/run_log.h"
 
 namespace MenuSystem::LevelEditor::Entities {

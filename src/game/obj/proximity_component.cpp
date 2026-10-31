@@ -5,7 +5,7 @@
 
 #include "game/obj/proximity_component.h"
 
-#include "game/mth/shape_tests.h"
+#include "game/maths/shape_tests.h"
 #include "game/obj/smtptr.h"
 #include "game/script/cscript.h"
 #include "game/script/param_struct.h"

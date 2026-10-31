@@ -11,7 +11,7 @@
 #include "game/core/mem.h"
 #include "game/gfx/surface_material.h"
 #include "game/gfx/sub_mesh.h"
-#include "game/lst/key_map.h"
+#include "game/lists/key_map.h"
 #include "game/sys/crt.h"
 
 namespace Engine3D {

@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/mat4.h"
+#include "game/maths/mat4.h"
 
 // Texture projections on PC (Nx engine: the engine's CTextureProjection - constructor 0x0049FE20, destructor body
 // 0x004A04A0 - over it; made by the texture projection component, obj/texture_projection_component.h): a texture

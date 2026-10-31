@@ -15,7 +15,7 @@
 //   block_menu_input / unblock_menu_input stop / restart sending any pad event.
 // - SetMenuAutoRepeatTimes (delay rate): seconds, kept in milliseconds (default 300 / 50).
 // - SetAnalogStickActiveForMenus: whether the left stick moves through menus too (the input manager's flag).
-// PartyMod's UIControls setting (src/game/sio/sdl_input.*) is read but never used; nothing here reads it
+// PartyMod's UIControls setting (src/game/pad_input/sdl_input.*) is read but never used; nothing here reads it
 // either - these mappings come from the scripts only.
 
 #include <cstddef>

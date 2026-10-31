@@ -14,8 +14,8 @@
 #include "game/gfx/anim_cache.h"
 #include "game/gfx/custom_anim_key.h"
 #include "game/gfx/anim_track.h"
-#include "game/mth/maths.h"
-#include "game/mth/vec4.h"
+#include "game/maths/maths.h"
+#include "game/maths/vec4.h"
 #include "game/obj/walk_hang.h"
 
 namespace Gfx2D {

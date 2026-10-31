@@ -7,7 +7,7 @@
 #include <cstring>
 
 #include "game/script/script_tables.h"
-#include "game/sio/sdl_input.h"
+#include "game/pad_input/sdl_input.h"
 
 namespace SystemCore {
 

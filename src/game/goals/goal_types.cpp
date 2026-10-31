@@ -9,7 +9,7 @@
 #include "game/goals/goal_calls.h"
 #include "game/goals/goal_names.h"
 #include "game/gfx/view_cam.h"
-#include "game/mth/vec4.h"
+#include "game/maths/vec4.h"
 #include "game/net/gamenet_manager.h"
 #include "game/obj/entity.h"
 #include "game/script/cscript.h"

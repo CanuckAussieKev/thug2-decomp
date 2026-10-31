@@ -6,7 +6,7 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_registry.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/obj/node_objects.h"

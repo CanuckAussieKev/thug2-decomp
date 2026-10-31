@@ -10,7 +10,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/light_manager.h"
-#include "game/mth/vec4.h"
+#include "game/maths/vec4.h"
 #include "game/core/code_address.h"
 
 namespace Engine3D {

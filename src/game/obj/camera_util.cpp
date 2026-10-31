@@ -5,7 +5,7 @@
 #include <cmath>
 #include <cstdint>
 
-#include "game/nx/probe_ray.h"
+#include "game/engine3d/probe_ray.h"
 #include "game/obj/smtptr.h"
 
 namespace GameObjects {

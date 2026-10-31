@@ -13,7 +13,7 @@
 #include "game/core/mem.h"
 #include "game/core/slab_bank.h"
 #include "game/core/stubs.h"
-#include "game/ed/park_editor.h"
+#include "game/park_editing/park_editor.h"
 #include "game/park/park_memory.h"
 #include "game/script/param_struct.h"
 

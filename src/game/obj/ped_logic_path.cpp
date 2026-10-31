@@ -9,8 +9,8 @@
 #include <cstdint>
 
 #include "game/core/manager.h"
-#include "game/mth/random.h"
-#include "game/mth/vec4.h"
+#include "game/maths/random.h"
+#include "game/maths/vec4.h"
 #include "game/obj/anim_blender.h"
 #include "game/obj/motion.h"
 #include "game/obj/path_manager.h"
@@ -18,7 +18,7 @@
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
 #include "game/script/param_struct.h"
-#include "game/sfx/surface_kind.h"
+#include "game/sound/surface_kind.h"
 
 namespace GameObjects {
 

@@ -6,9 +6,9 @@
 #include <cstring>
 
 #include "game/core/manager.h"
-#include "game/ed/park_editor.h"
+#include "game/park_editing/park_editor.h"
 #include "game/park/park_memory.h"
-#include "game/ed/rail_editor.h"
+#include "game/park_editing/rail_editor.h"
 
 namespace ParkEditing {
 

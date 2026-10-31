@@ -33,7 +33,7 @@
 #include "game/gfx/settings.h"
 #include "game/gfx/shadow_base.h"
 #include "game/gfx/bitmap_texture.h"
-#include "game/mth/vec4.h"
+#include "game/maths/vec4.h"
 #include "game/core/code_address.h"
 #include "game/gfx/pc_particles.h"
 #include "game/obj/particle_component.h"

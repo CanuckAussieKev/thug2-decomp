@@ -6,12 +6,12 @@
 #include <cstring>
 #include <new>
 
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_registry.h"
 #include "game/core/checksums.h"
 #include "game/core/mem.h"
 #include "game/core/str.h"
 #include "game/core/text_store.h"
-#include "game/mth/random.h"
+#include "game/maths/random.h"
 #include "game/net/gamenet_manager.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/entity.h"

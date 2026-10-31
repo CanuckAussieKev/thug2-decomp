@@ -13,7 +13,7 @@
 #include "game/goals/objective.h"
 #include "game/goals/goal_names.h"
 #include "game/goals/goal_types.h"
-#include "game/lst/chain_start.h"
+#include "game/lists/chain_start.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"

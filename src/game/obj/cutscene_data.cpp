@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_registry.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/boned_anim_frame_data.h"
@@ -14,8 +14,8 @@
 #include "game/gfx/model.h"
 #include "game/gfx/scene_lights.h"
 #include "game/gfx/rig.h"
-#include "game/mth/quat_rotation.h"
-#include "game/mth/vec4.h"
+#include "game/maths/quat_rotation.h"
+#include "game/maths/vec4.h"
 #include "game/net/buddy_status.h"
 #include "game/obj/cutscene.h"
 #include "game/obj/model_component.h"

@@ -5,13 +5,13 @@
 #include <cstdint>
 #include <initializer_list>
 
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_registry.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/viewport.h"
 #include "game/goals/goal_manager.h"
-#include "game/mth/mat4.h"
+#include "game/maths/mat4.h"
 #include "game/obj/anim_movies.h"
 #include "game/obj/cutscene.h"
 #include "game/obj/node_objects.h"

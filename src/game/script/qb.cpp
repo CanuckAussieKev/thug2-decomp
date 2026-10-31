@@ -13,7 +13,7 @@
 #include "game/core/mem.h"
 #include "game/core/memory_sizes.h"
 #include "game/core/slab_bank.h"
-#include "game/mth/random.h"
+#include "game/maths/random.h"
 #include "game/script/cache.h"
 #include "game/script/names.h"
 #include "game/script/param_struct.h"

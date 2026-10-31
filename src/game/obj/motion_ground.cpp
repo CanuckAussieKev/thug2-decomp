@@ -4,12 +4,12 @@
 #include <cmath>
 #include <cstdint>
 
-#include "game/mth/random.h"
-#include "game/mth/vec4.h"
-#include "game/nx/coll_obj.h"
-#include "game/nx/coll_tests.h"
-#include "game/nx/coll_tri.h"
-#include "game/nx/probe_ray.h"
+#include "game/maths/random.h"
+#include "game/maths/vec4.h"
+#include "game/engine3d/coll_obj.h"
+#include "game/engine3d/coll_tests.h"
+#include "game/engine3d/coll_tri.h"
+#include "game/engine3d/probe_ray.h"
 #include "game/obj/motion.h"
 #include "game/obj/motion_internal.h"
 #include "game/script/cscript.h"

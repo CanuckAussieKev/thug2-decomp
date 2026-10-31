@@ -14,7 +14,7 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 set(THUG2_GAME_DIR "C:/Games/THUG2/Game" CACHE PATH
     "The game folder of a THUG2 install (its Data folder) the built exe is copied into, if it exists (an install root steps into its Game folder)")
 
-# --- SDL2 (PartyMod's window and input: src/game/sys/sdl_*.cpp, src/game/sio/sdl_input.cpp) --------------
+# --- SDL2 (PartyMod's window and input: src/game/sys/sdl_*.cpp, src/game/pad_input/sdl_input.cpp) --------------
 # The official 2.30.9 Visual C++ development package: the same version as the SDL2.dll PartyMod ships with (the
 # game folder's SDL2.dll). Downloaded and checked against its SHA-256 at configure time; not stored in the repo.
 include(FetchContent)
@@ -164,9 +164,9 @@ add_executable(thug2 WIN32
     src/main.cpp
     src/game/sys/run_log.cpp
     src/game/sys/crash.cpp
-    src/game/ass/resource_entry.cpp
-    src/game/ass/asset_types.cpp
-    src/game/ass/resource_registry.cpp
+    src/game/assets/resource_entry.cpp
+    src/game/assets/asset_types.cpp
+    src/game/assets/resource_registry.cpp
     src/game/core/arena_alloc.cpp
     src/game/core/checksums.cpp
     src/game/core/dbg.cpp
@@ -184,17 +184,17 @@ add_executable(thug2 WIN32
     src/game/core/text_store.cpp
     src/game/file/asset_bundle.cpp
     src/game/front/model_widget.cpp
-    src/game/ed/cursor.cpp
-    src/game/ed/park_floor.cpp
-    src/game/ed/park_manager.cpp
-    src/game/ed/park_map.cpp
-    src/game/ed/park_rails.cpp
-    src/game/ed/rail_editor.cpp
-    src/game/ed/rail_editor_draw.cpp
-    src/game/ed/rail_editor_script.cpp
-    src/game/ed/copy_buffer.cpp
-    src/game/ed/gap_slots.cpp
-    src/game/ed/piece_menu.cpp
+    src/game/park_editing/cursor.cpp
+    src/game/park_editing/park_floor.cpp
+    src/game/park_editing/park_manager.cpp
+    src/game/park_editing/park_map.cpp
+    src/game/park_editing/park_rails.cpp
+    src/game/park_editing/rail_editor.cpp
+    src/game/park_editing/rail_editor_draw.cpp
+    src/game/park_editing/rail_editor_script.cpp
+    src/game/park_editing/copy_buffer.cpp
+    src/game/park_editing/gap_slots.cpp
+    src/game/park_editing/piece_menu.cpp
     src/game/front/screen_element.cpp
     src/game/front/menu_element.cpp
     src/game/front/screen_element_manager.cpp
@@ -379,14 +379,14 @@ add_executable(thug2 WIN32
     src/game/skater/skater_query_cfuncs.cpp
     src/game/gfx/device.cpp
     src/game/gfx/movie.cpp
-    src/game/pcm/bink_stream.cpp
-    src/game/pcm/bink_stream_files.cpp
-    src/game/pcm/music_player.cpp
-    src/game/pcm/stream.cpp
-    src/game/pcm/stream_play.cpp
-    src/game/pcm/stream_commands.cpp
-    src/game/pcm/music_api.cpp
-    src/game/pcm/music_cfuncs.cpp
+    src/game/audio/bink_stream.cpp
+    src/game/audio/bink_stream_files.cpp
+    src/game/audio/music_player.cpp
+    src/game/audio/stream.cpp
+    src/game/audio/stream_play.cpp
+    src/game/audio/stream_commands.cpp
+    src/game/audio/music_api.cpp
+    src/game/audio/music_cfuncs.cpp
     src/game/gfx/loading_bar.cpp
     src/game/gfx/loading_console.cpp
     src/game/gfx/draw_frame.cpp
@@ -492,12 +492,12 @@ add_executable(thug2 WIN32
     src/game/obj/camera_lookaround.cpp
     src/game/obj/camera_util.cpp
     src/game/obj/component_types.cpp
-    src/game/ed/goal_editor_util.cpp
-    src/game/ed/edited_goal.cpp
-    src/game/ed/edited_goal_io.cpp
-    src/game/ed/goal_editor.cpp
-    src/game/ed/goal_editor_members.cpp
-    src/game/ed/goal_editor_nodes.cpp
+    src/game/park_editing/goal_editor_util.cpp
+    src/game/park_editing/edited_goal.cpp
+    src/game/park_editing/edited_goal_io.cpp
+    src/game/park_editing/goal_editor.cpp
+    src/game/park_editing/goal_editor_members.cpp
+    src/game/park_editing/goal_editor_nodes.cpp
     src/game/obj/object_proximity.cpp
     src/game/obj/pager_message.cpp
     src/game/obj/editor_camera.cpp
@@ -505,23 +505,23 @@ add_executable(thug2 WIN32
     src/game/file/file_load.cpp
     src/game/file/packs.cpp
     src/game/file/archive.cpp
-    src/game/lst/key_map.cpp
-    src/game/lst/chain_start.cpp
-    src/game/lst/lookup_table.cpp
-    src/game/lst/list_walk.cpp
-    src/game/nx/coll_cache.cpp
-    src/game/nx/coll_capsule.cpp
-    src/game/nx/coll_obj.cpp
-    src/game/nx/coll_movable.cpp
-    src/game/nx/coll_static.cpp
-    src/game/nx/coll_line.cpp
-    src/game/nx/coll_grid.cpp
-    src/game/nx/coll_rect.cpp
-    src/game/nx/coll_sphere.cpp
-    src/game/nx/coll_world.cpp
-    src/game/nx/probe_ray.cpp
-    src/game/nx/coll_tests.cpp
-    src/game/nx/coll_tri.cpp
+    src/game/lists/key_map.cpp
+    src/game/lists/chain_start.cpp
+    src/game/lists/lookup_table.cpp
+    src/game/lists/list_walk.cpp
+    src/game/engine3d/coll_cache.cpp
+    src/game/engine3d/coll_capsule.cpp
+    src/game/engine3d/coll_obj.cpp
+    src/game/engine3d/coll_movable.cpp
+    src/game/engine3d/coll_static.cpp
+    src/game/engine3d/coll_line.cpp
+    src/game/engine3d/coll_grid.cpp
+    src/game/engine3d/coll_rect.cpp
+    src/game/engine3d/coll_sphere.cpp
+    src/game/engine3d/coll_world.cpp
+    src/game/engine3d/probe_ray.cpp
+    src/game/engine3d/coll_tests.cpp
+    src/game/engine3d/coll_tri.cpp
     src/game/net/chat.cpp
     src/game/net/stats.cpp
     src/game/net/buddy_man.cpp
@@ -558,21 +558,21 @@ add_executable(thug2 WIN32
     src/game/net/gamenet_lobby_menus.cpp
     src/game/net/gamenet_newplayers.cpp
     src/game/net/gamenet_manager_create.cpp
-    src/game/ed/park_accessors.cpp
-    src/game/ed/cursor_tools.cpp
-    src/game/ed/upper_menu.cpp
-    src/game/ed/park_lists.cpp
-    src/game/ed/park_io.cpp
-    src/game/ed/park_cfuncs.cpp
-    src/game/ed/park_pieces.cpp
-    src/game/ed/park_metapieces.cpp
-    src/game/ed/park_generator.cpp
-    src/game/ed/park_editor_state.cpp
-    src/game/ed/gap_manager.cpp
-    src/game/ed/park_editor.cpp
-    src/game/ed/park_editor_cfuncs.cpp
-    src/game/ed/park_scene.cpp
-    src/game/ed/park_nodes.cpp
+    src/game/park_editing/park_accessors.cpp
+    src/game/park_editing/cursor_tools.cpp
+    src/game/park_editing/upper_menu.cpp
+    src/game/park_editing/park_lists.cpp
+    src/game/park_editing/park_io.cpp
+    src/game/park_editing/park_cfuncs.cpp
+    src/game/park_editing/park_pieces.cpp
+    src/game/park_editing/park_metapieces.cpp
+    src/game/park_editing/park_generator.cpp
+    src/game/park_editing/park_editor_state.cpp
+    src/game/park_editing/gap_manager.cpp
+    src/game/park_editing/park_editor.cpp
+    src/game/park_editing/park_editor_cfuncs.cpp
+    src/game/park_editing/park_scene.cpp
+    src/game/park_editing/park_nodes.cpp
     src/game/net/service.cpp
     src/game/net/online_hosts.cpp
     src/game/net/online_identity.cpp
@@ -614,11 +614,11 @@ add_executable(thug2 WIN32
     src/game/obj/node_objects.cpp
     src/game/obj/path_manager.cpp
     src/game/obj/path_follower.cpp
-    src/game/sfx/sfx.cpp
-    src/game/sfx/sound_cfuncs.cpp
-    src/game/sfx/sfx_voices.cpp
-    src/game/sfx/mute_audio.cpp
-    src/game/sfx/surface_kind.cpp
+    src/game/sound/sfx.cpp
+    src/game/sound/sound_cfuncs.cpp
+    src/game/sound/sfx_voices.cpp
+    src/game/sound/mute_audio.cpp
+    src/game/sound/surface_kind.cpp
     src/game/gfx/anim_blend.cpp
     src/game/gfx/anim_timeline.cpp
     src/game/gfx/anim_cache.cpp
@@ -674,9 +674,9 @@ add_executable(thug2 WIN32
     src/game/obj/rigidbody_physics.cpp
     src/game/obj/rigidbody_support.cpp
     src/game/obj/rigidbody_contacts.cpp
-    src/game/mth/quat_rotation.cpp
-    src/game/mth/rigidbody_math.cpp
-    src/game/mth/vector_transform.cpp
+    src/game/maths/quat_rotation.cpp
+    src/game/maths/rigidbody_math.cpp
+    src/game/maths/vector_transform.cpp
     src/game/obj/velocity_component.cpp
     src/game/obj/vibration_component.cpp
     src/game/obj/wait_and_die.cpp
@@ -701,9 +701,9 @@ add_executable(thug2 WIN32
     src/game/skater/skater_sound.cpp
     src/game/skater/skater_state.cpp
     src/game/skater/stance_panel.cpp
-    src/game/sio/device.cpp
-    src/game/sio/input_hub.cpp
-    src/game/sio/sdl_input.cpp
+    src/game/pad_input/device.cpp
+    src/game/pad_input/input_hub.cpp
+    src/game/pad_input/sdl_input.cpp
     src/game/skater/controls.cpp
     src/game/skater/core_physics.cpp
     src/game/skater/core_physics_state.cpp
@@ -765,11 +765,11 @@ add_executable(thug2 WIN32
     src/game/sys/game_module.cpp
     src/game/sys/winmain.cpp
     src/game/sys/startup_init.cpp
-    src/game/mc/memcard.cpp
-    src/game/mc/memcard_cfuncs.cpp
-    src/game/mc/save_types.cpp
-    src/game/mc/save_files_cfuncs.cpp
-    src/game/mc/save_contents.cpp
+    src/game/save_cards/memcard.cpp
+    src/game/save_cards/memcard_cfuncs.cpp
+    src/game/save_cards/save_types.cpp
+    src/game/save_cards/save_files_cfuncs.cpp
+    src/game/save_cards/save_contents.cpp
     src/game/gfx/texture_cfuncs.cpp
     src/game/skate/profile_cfuncs.cpp
     src/game/script/expression.cpp
@@ -802,7 +802,7 @@ add_executable(thug2 WIN32
     src/game/gfx/model_utils.cpp
     src/game/skate/cas_options.cpp
     src/game/gfx/bone_look_at.cpp
-    src/game/mth/vector_rotate_z.cpp
+    src/game/maths/vector_rotate_z.cpp
     src/game/gfx/boned_anim_frame_data_pose.cpp
     src/game/gfx/cag_cfuncs.cpp
     src/game/obj/model_swap_cfuncs.cpp
@@ -828,12 +828,12 @@ add_executable(thug2 WIN32
     src/game/script/cfuncs_render.cpp
     src/game/script/cfuncs_polys.cpp
     src/game/script/cfuncs_memory.cpp
-    src/game/mth/shape_tests.cpp
-    src/game/mth/maths.cpp
-    src/game/mth/mat4.cpp
-    src/game/mth/random.cpp
-    src/game/mth/rotation_blend.cpp
-    src/game/mth/vec4.cpp
+    src/game/maths/shape_tests.cpp
+    src/game/maths/maths.cpp
+    src/game/maths/mat4.cpp
+    src/game/maths/random.cpp
+    src/game/maths/rotation_blend.cpp
+    src/game/maths/vec4.cpp
     src/game/util/bitstream.cpp
     src/game/util/lzss.cpp
     src/game/util/bps.cpp

@@ -16,7 +16,7 @@
 #include "game/skater/rider.h"
 #include "game/script/cscript.h"
 #include "game/script/param_struct.h"
-#include "game/sio/device.h"
+#include "game/pad_input/device.h"
 
 namespace ScriptCommands {
 

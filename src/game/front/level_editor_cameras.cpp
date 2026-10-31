@@ -21,7 +21,7 @@
 #include "game/front/level_editor_node_create.h"
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_nodes.h"
-#include "game/mth/vec4.h"
+#include "game/maths/vec4.h"
 #include "game/obj/movie_cfuncs.h"
 #include "game/script/node_manager.h"
 #include "game/script/nodes.h"

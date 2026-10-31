@@ -3,8 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/mat4.h"
-#include "game/mth/vec4.h"
+#include "game/maths/mat4.h"
+#include "game/maths/vec4.h"
 #include "game/core/slab_bank.h"
 
 // The engine's spawned polygons (the SpawnPoly script command): textured or plain quads at a place, turned to face a

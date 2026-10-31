@@ -8,7 +8,7 @@
 #include <cstring>
 
 #include "game/core/manager.h"
-#include "game/mth/quat_rotation.h"
+#include "game/maths/quat_rotation.h"
 #include "game/obj/entity.h"
 #include "game/obj/vehicle_component.h"
 #include "game/script/param_struct.h"

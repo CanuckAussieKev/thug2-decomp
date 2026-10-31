@@ -4,12 +4,12 @@
 
 #include <cstdint>
 
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_registry.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/engine_shadows.h"
 #include "game/gfx/model.h"
-#include "game/mth/mat4.h"
+#include "game/maths/mat4.h"
 #include "game/script/param_struct.h"
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"

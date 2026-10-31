@@ -21,7 +21,7 @@
 #include "game/gfx/pc_billboards.h"
 #include "game/gfx/draw_frame.h"
 #include "game/gfx/render_state.h"
-#include "game/mth/mat4.h"
+#include "game/maths/mat4.h"
 #include "game/obj/entity.h"
 #include "game/sys/run_log.h"
 #include "game/gfx/pc_instance.h"

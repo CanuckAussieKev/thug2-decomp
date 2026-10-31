@@ -6,8 +6,8 @@
 #include <cstring>
 
 #include "game/core/manager.h"
-#include "game/ed/park_editor.h"
-#include "game/mth/random.h"
+#include "game/park_editing/park_editor.h"
+#include "game/maths/random.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_handlers.h"
 #include "game/net/gamenet_manager.h"
@@ -16,7 +16,7 @@
 #include "game/script/cscript.h"
 #include "game/script/param_struct.h"
 #include "game/sys/stopwatch.h"
-#include "game/ed/rail_editor.h"
+#include "game/park_editing/rail_editor.h"
 #include "game/core/code_address.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
@@ -26,7 +26,7 @@
 #include "game/skate/skate_module.h"
 #include "game/gfx/face_texture.h"
 #include "game/gfx/rig.h"
-#include "game/ed/goal_editor.h"
+#include "game/park_editing/goal_editor.h"
 #include "game/net/server_list.h"
 #include "game/net/score_list.h"
 #include "game/net/buddy_man.h"

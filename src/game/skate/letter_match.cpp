@@ -8,7 +8,7 @@
 
 #include "game/core/dbg.h"
 #include "game/core/str.h"
-#include "game/mth/random.h"
+#include "game/maths/random.h"
 #include "game/obj/proximity.h"
 #include "game/script/param_struct.h"
 #include "game/skate/skate_module_calls.h"

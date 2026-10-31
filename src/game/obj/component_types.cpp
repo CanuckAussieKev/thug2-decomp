@@ -4,8 +4,8 @@
 
 #include <cstdint>
 
-#include "game/ed/goal_editor.h"
-#include "game/ed/rail_editor.h"
+#include "game/park_editing/goal_editor.h"
+#include "game/park_editing/rail_editor.h"
 #include "game/obj/avoid.h"
 #include "game/obj/bbox_component.h"
 #include "game/obj/camera_component.h"

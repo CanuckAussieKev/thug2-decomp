@@ -7,11 +7,11 @@
 #include <cmath>
 #include <cstdint>
 
-#include "game/mth/maths.h"
-#include "game/mth/mat4.h"
-#include "game/mth/rotation_blend.h"
-#include "game/mth/vec4.h"
-#include "game/nx/probe_ray.h"
+#include "game/maths/maths.h"
+#include "game/maths/mat4.h"
+#include "game/maths/rotation_blend.h"
+#include "game/maths/vec4.h"
+#include "game/engine3d/probe_ray.h"
 #include "game/script/param_struct.h"
 #include "game/skate/career.h"
 #include "game/skater/core_physics.h"

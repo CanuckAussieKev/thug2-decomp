@@ -1,0 +1,520 @@
+// The sound effects manager (0x0047AC10-0x0047D41E). See sfx.h.
+
+#include "game/sound/sfx.h"
+
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+
+#include "game/core/checksums.h"
+#include "game/core/dbg.h"
+#include "game/front/automation.h"
+#include "game/audio/music_player.h"
+#include "game/script/param_struct.h"
+#include "game/sys/game_config.h"
+#include "game/gfx/loading_bar_cfuncs.h"
+#include "game/obj/movie_manager.h"
+
+namespace SoundFx {
+
+float g_defaultDropoff{1020.0f};
+float g_volumeScale{100.0f};
+SoundWaveSlot g_permanentWaves[256];
+SoundWaveSlot g_levelWaves[256];
+PlayingSound g_playingSounds[48];
+CAudioMixer* g_sfxManager;
+PositionalSound* g_positionalHead;
+int g_permanentCount;
+int g_levelCount;
+int g_positionalCount;
+
+namespace {
+
+constexpr int kMaxPlaying = 48;
+constexpr int kMaxPositional = 128;
+constexpr int kMaxWaves = 256;
+
+// Script globals the original reads (their values unused here; debug switches).
+constexpr uint32_t kDebugA = 0x6D2E270E;
+constexpr uint32_t kDebugB = 0xD7BB618D;
+
+PlayingSound* Playing() { return g_playingSounds; }
+
+float g_mainVolume{100.0f};
+float g_pitch{1.0f};
+PositionalSound g_positionalSounds[128];
+
+PositionalSound* PositionalPool() { return g_positionalSounds; }
+PositionalSound*& PositionalHead() { return g_positionalHead; }
+int& PositionalCount() { return g_positionalCount; }
+SoundWaveSlot* PermanentWaves() { return g_permanentWaves; }
+int& PermanentCount() { return g_permanentCount; }
+SoundWaveSlot* LevelWaves() { return g_levelWaves; }
+int& LevelCount() { return g_levelCount; }
+float& DefaultDropoff() { return g_defaultDropoff; }
+float& MasterLoudness() { return g_mainVolume; }
+float& Pitch() { return g_pitch; }
+// Whether a missing sound goes unreported (the report itself is compiled out; only the global is read).
+bool QuietMisses() { return GameConfig::g_fromCD; }
+
+// The missing-sound report (compiled out; the global still read).
+void ReportMissing()
+{
+    if (!QuietMisses())
+        Scripts::FetchIntValue(kDebugA);
+}
+
+// (debug output, compiled out)
+inline void PrintSoundDebug(int, int, int) {}
+inline void PrintGroup(int) {}
+
+} // namespace
+
+// 0x0047AC10
+int FalloffFromChecksum(uint32_t checksum)
+{
+    switch (checksum) {
+    case 0xF221474C: return 1;
+    case 0x9706104B: return 2;
+    case 0x0CA64C41: return 3;
+    case 0xEF082878: // (named, but the default)
+    default: return 0;
+    }
+}
+
+// 0x0047B030
+volumeRef* volumeRef::PrepareAll()
+{
+    CAudioMixer* manager = g_sfxManager;
+    m_kindTag = manager ? manager->m_defaultVolumeType : TYPE_STEREO;
+    ChangeMuted();
+    return this;
+}
+
+// 0x0047B070
+volumeRef* volumeRef::ChangeSpecies(int type)
+{
+    m_kindTag = type;
+    return this;
+}
+
+// 0x0047AC50
+void volumeRef::PercentTweak(float percent)
+{
+    for (int i = 0; i < ChannelCount(); ++i)
+        m_lanes[i] = static_cast<float>(static_cast<double>(percent) * m_lanes[i] * 0.0099999998f);
+}
+
+// 0x0047ACF0
+bool volumeRef::IsAudioOff()
+{
+    for (int i = 0; i < ChannelCount(); ++i) {
+        if (m_lanes[i] != 0.0f)
+            return false;
+    }
+    return m_kindTag != TYPE_3D;
+}
+
+// 0x0047AD60
+void volumeRef::ChangeMuted()
+{
+    for (float& channel : m_lanes)
+        channel = 0.0f;
+}
+
+// 0x0047B080
+float volumeRef::FindPeakChannel()
+{
+    float loudest = m_lanes[0];
+    for (int i = 1; i < ChannelCount(); ++i) {
+        if (std::fabs(loudest) < std::fabs(m_lanes[i]))
+            loudest = m_lanes[i];
+    }
+    return loudest;
+}
+
+// 0x0047B010
+bool NoSound()
+{
+    if (!AudioStream::g_soundDevice)
+        return true;
+    int platform = GameConfig::g_platform;
+    return platform == 2 || platform == 6;
+}
+
+// 0x0047AFD0
+float FetchMasterLoudness()
+{
+    return MasterLoudness();
+}
+
+// 0x0047AFE0
+int CountPlayingVoices()
+{
+    int playing = 0;
+    for (int voice = 0; voice < kMaxPlaying; ++voice) {
+        if (IsVoicePlaying(voice))
+            ++playing;
+    }
+    return playing;
+}
+
+// 0x0047B160
+CAudioMixer* CAudioMixer::MakeNew()
+{
+    if (!NoSound()) {
+        m_defaultVolumeType = volumeRef::TYPE_STEREO;
+        InitVoices(this);
+        for (int i = 0; i < kMaxPlaying; ++i) {
+            Playing()[i].uniqueId = 0;
+            Playing()[i].checksum = 0;
+        }
+    }
+    return this;
+}
+
+// 0x0047AD80
+int CAudioMixer::GetPlayingIndex(uint32_t id)
+{
+    for (int i = 0; i < kMaxPlaying; ++i) {
+        if (Playing()[i].uniqueId == id && IsVoicePlaying(i))
+            return i;
+    }
+    for (int i = 0; i < kMaxPlaying; ++i) {
+        if (Playing()[i].checksum == id && IsVoicePlaying(i)) {
+            // (a debug report, compiled out)
+            if (Scripts::FetchIntValue(kDebugA) == 0)
+                Scripts::FetchIntValue(kDebugB);
+            return i;
+        }
+    }
+    return -1;
+}
+
+// 0x0047AE20
+void CAudioMixer::AddPositionalSound(uint32_t uniqueId, uint32_t checksum, GameObjects::CEntity* object)
+{
+    if (uniqueId == 0 || PositionalCount() == kMaxPositional)
+        return;
+    ++PositionalCount(); // (counted even when no entry is free, as the original)
+    PositionalSound* entry = nullptr;
+    for (int i = 0; i < kMaxPositional; ++i) {
+        if (!(PositionalPool()[i].inUse & 1)) {
+            entry = &PositionalPool()[i];
+            break;
+        }
+    }
+    if (!entry)
+        return;
+    if (PositionalSound* head = PositionalHead())
+        head->prev = entry;
+    entry->next = PositionalHead();
+    entry->inUse = 1;
+    entry->prev = nullptr;
+    PositionalHead() = entry;
+    entry->uniqueId = uniqueId;
+    entry->checksum = checksum;
+    entry->object = object;
+}
+
+// 0x0047AE90
+void CAudioMixer::StopGroup(int group)
+{
+    (void)group;
+    GroupCount();
+}
+
+// 0x0047AEA0
+void CAudioMixer::UnloadGroup(int group)
+{
+    int count = PermanentCount();
+    for (int i = 0; i < count;) {
+        SoundWaveSlot& entry = PermanentWaves()[i];
+        if (entry.loadType == 2 && entry.group == static_cast<uint32_t>(group)) {
+            --count;
+            entry = PermanentWaves()[count]; // (the last moves into its place)
+        } else {
+            ++i;
+        }
+    }
+    if (PermanentCount() > 0)
+        PermanentCount() = count;
+    PrintGroup(group);
+}
+
+// 0x0047AF10
+void CAudioMixer::UnloadAllGroups()
+{
+    for (int group = 0; group < GroupCount(); ++group)
+        UnloadGroup(group);
+}
+
+// 0x0047AF40
+void CAudioMixer::InitPlaybackProps(PlaybackProps* props, SoundWaveSlot* entry, PlaybackProps* params)
+{
+    if (params) {
+        // (the parameters: {pitch, volume, dropoff, falloff} in the props' first four words' order)
+        auto* given = reinterpret_cast<uint32_t*>(params);
+        std::memcpy(&props->pitch, &given[0], 4);
+        std::memcpy(&props->volume, &given[1], 4);
+        float dropoff;
+        std::memcpy(&dropoff, &given[2], 4);
+        props->dropoff = dropoff != 0.0f ? dropoff : entry->dropoff;
+        props->unknown20 = 0;
+        props->unknown24 = 0;
+        props->pitch3 = props->pitch;
+        props->pitch2 = props->pitch;
+        props->volume3 = props->volume;
+        props->volume2 = props->volume;
+        props->falloff = given[3];
+    } else {
+        props->pitch = 100.0f;
+        props->volume = 100.0f;
+        props->dropoff = 0.0f;
+        props->falloff = 0;
+    }
+    props->checksum = entry->checksum;
+}
+
+// 0x0047B1B0
+void CAudioMixer::SweepUp()
+{
+    if (NoSound())
+        return;
+    PositionalHead() = nullptr;
+    PositionalCount() = 0;
+    for (int i = 0; i < kMaxPositional; ++i)
+        PositionalPool()[i].inUse = 0;
+    FreePermanentWaves();
+    PermanentCount() = 0;
+    DefaultDropoff() = 1020.0f;
+}
+
+// 0x0047B210
+void CAudioMixer::SetDefaultDropoff(float dropoff)
+{
+    if (!NoSound())
+        DefaultDropoff() = dropoff;
+}
+
+// 0x0047B240
+void CAudioMixer::StopAllSounds()
+{
+    if (NoSound())
+        return;
+    StopAllVoices();
+    PositionalHead() = nullptr;
+    PositionalCount() = 0;
+    for (int i = 0; i < kMaxPositional; ++i)
+        PositionalPool()[i].inUse = 0;
+}
+
+// 0x0047B2A0
+void CAudioMixer::UpdateVoiceVolumes()
+{
+    if (!NoSound())
+        SilenceVoices();
+}
+
+// 0x0047B2C0
+SoundWaveSlot* CAudioMixer::GetWaveTableEntry(uint32_t checksum)
+{
+    if (NoSound())
+        return nullptr;
+    for (int i = 0; i < LevelCount(); ++i) {
+        if (LevelWaves()[i].checksum == checksum)
+            return &LevelWaves()[i];
+    }
+    for (int i = 0; i < PermanentCount(); ++i) {
+        if (PermanentWaves()[i].checksum == checksum)
+            return &PermanentWaves()[i];
+    }
+    return nullptr;
+}
+
+// 0x0047B340
+bool CAudioMixer::IsFrozen()
+{
+    if (m_muteOverride)
+        return false;
+    return Engine3D::g_loadingScreenShown || GameObjects::g_gamePaused;
+}
+
+// 0x0047B360
+bool CAudioMixer::IngestSound(const char* path, uint16_t flags, int loadType, int group, float dropoff, float pitch,
+                            float volume)
+{
+    if (NoSound())
+        return false;
+    // the name without its folders
+    const char* name = path;
+    int length = static_cast<int>(std::strlen(path));
+    for (int i = 0; i < length; ++i) {
+        if (path[i] == '\\' || path[i] == '/')
+            name = path + i + 1;
+    }
+    uint32_t checksum = Checksums::HashFromText(name);
+    if (GetWaveTableEntry(checksum))
+        return false;
+    SoundWaveSlot* entry;
+    if (loadType == 0) {
+        if (LevelCount() >= kMaxWaves)
+            return false;
+        entry = &LevelWaves()[LevelCount()];
+        if (!LoadWave(path, checksum, &entry->wave, loadType, group))
+            return false;
+        ++LevelCount();
+    } else {
+        if (PermanentCount() >= kMaxWaves)
+            return false;
+        entry = &PermanentWaves()[PermanentCount()];
+        if (!LoadWave(path, checksum, &entry->wave, loadType, group))
+            return false;
+        ++PermanentCount();
+    }
+    entry->pitch = pitch;
+    entry->checksum = checksum;
+    entry->dropoff = dropoff;
+    entry->loadType = static_cast<uint8_t>(loadType);
+    entry->group = static_cast<uint8_t>(group);
+    entry->volume = volume;
+    entry->flags = flags;
+    return true;
+}
+
+// 0x0047B480
+void CAudioMixer::AdjustVolumeAndPitch(volumeRef* volume, float* pitch, SoundWaveSlot* entry)
+{
+    if (NoSound())
+        return;
+    volume->PercentTweak(50.0f);
+    if (entry->volume != 100.0f)
+        volume->PercentTweak(entry->volume);
+    if (entry->pitch != 100.0f)
+        *pitch = static_cast<float>(static_cast<double>(*pitch) * entry->pitch * 0.0099999998f);
+}
+
+// 0x0047B4E0
+bool CAudioMixer::StopSound(uint32_t id)
+{
+    if (NoSound())
+        return true;
+    int index = GetPlayingIndex(id);
+    if (index < 0)
+        return false;
+    StopVoice(index);
+    return true;
+}
+
+// 0x0047B520
+bool CAudioMixer::SetSoundParams(uint32_t id, volumeRef* volume, float pitch)
+{
+    if (NoSound())
+        return true;
+    int index = GetPlayingIndex(id);
+    if (index < 0) {
+        ReportMissing();
+        return false;
+    }
+    SoundWaveSlot* entry = Playing()[index].entry;
+    if (!entry)
+        return false;
+    if (!volume->IsAudioOff())
+        AdjustVolumeAndPitch(volume, &pitch, entry);
+    ApplyVoiceSettings(index, volume, pitch);
+    return true;
+}
+
+// 0x0047B5D0
+void CAudioMixer::ChangeMasterLoudness(float volume)
+{
+    if (NoSound())
+        return;
+    Scripts::FetchIntValue(kDebugB);
+    MasterLoudness() = volume;
+    float scaled = static_cast<float>(static_cast<double>(g_volumeScale) * volume * 0.0099999998f);
+    if (scaled < 0.1f)
+        scaled = 0.0f;
+    SetVoiceVolume(scaled);
+    AudioStream::SetUserSoundtrackVolume(scaled);
+}
+
+// 0x0047B650
+void CAudioMixer::SetPitch(float pitch, int /*unused1*/, int /*unused2*/)
+{
+    if (NoSound())
+        return;
+    Scripts::FetchIntValue(kDebugB);
+    if (!(pitch > 0.0099999998f) && !std::isnan(pitch))
+        pitch = 0.0099999998f;
+    Pitch() = pitch;
+    SetVoicePitch(pitch);
+    // (then a call with the pitch to 0x004504F0, a jump to the folded stub returning false: nothing to do)
+}
+
+// 0x0047B6B0
+void CAudioMixer::PrintSounds(int a, int b, int c)
+{
+    if (!NoSound())
+        PrintSoundDebug(a, b, c);
+}
+
+// 0x0047B6F0
+bool CAudioMixer::IsSoundPlaying(uint32_t uniqueId, int* index)
+{
+    if (NoSound() || uniqueId == 0)
+        return false;
+    for (int i = 0; i < kMaxPlaying; ++i) {
+        if (Playing()[i].uniqueId == uniqueId) {
+            if (!IsVoicePlaying(i))
+                return false;
+            if (index)
+                *index = i;
+            return true;
+        }
+    }
+    return false;
+}
+
+// 0x0047B760
+float CAudioMixer::GetDropoffDistance(uint32_t checksum)
+{
+    if (NoSound())
+        return DefaultDropoff();
+    SoundWaveSlot* entry = GetWaveTableEntry(checksum);
+    if (!entry)
+        return 0.0f;
+    return entry->dropoff == 0.0f ? DefaultDropoff() : entry->dropoff;
+}
+
+// 0x0047B7C0
+bool CAudioMixer::SetSoundParamsScaled(uint32_t uniqueId, volumeRef* volume, float pitch)
+{
+    if (NoSound())
+        return true;
+    int index = 0;
+    for (; index < kMaxPlaying; ++index) {
+        if (Playing()[index].uniqueId == uniqueId)
+            break;
+    }
+    if (index == kMaxPlaying || !IsVoicePlaying(index)) {
+        ReportMissing();
+        return false;
+    }
+    PlayingSound& sound = Playing()[index];
+    if (!volume->IsAudioOff()) {
+        if (sound.props.volume != 100.0f)
+            volume->PercentTweak(sound.props.volume);
+        if (sound.props.pitch != 100.0f)
+            pitch = static_cast<float>(static_cast<double>(sound.props.pitch) * pitch * 0.0099999998f);
+    }
+    SoundWaveSlot* entry = sound.entry;
+    if (!entry)
+        return false;
+    if (!volume->IsAudioOff())
+        AdjustVolumeAndPitch(volume, &pitch, entry);
+    ApplyVoiceSettings(index, volume, pitch);
+    return true;
+}
+
+} // namespace Sfx

@@ -10,7 +10,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/mth/mat4.h"
+#include "game/maths/mat4.h"
 #include "game/net/buddy_status.h"
 #include "game/obj/pager_message.h"
 #include "game/obj/skeleton_component.h"

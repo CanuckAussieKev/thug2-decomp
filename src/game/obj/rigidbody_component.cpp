@@ -9,8 +9,8 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/mth/mat4.h"
-#include "game/mth/random.h"
+#include "game/maths/mat4.h"
+#include "game/maths/random.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/smtptr.h"
 #include "game/script/cscript.h"
@@ -23,7 +23,7 @@
 #include "game/obj/entity.h"
 #include "game/skater/vehicle_sound.h"
 #include "game/obj/camera_lookaround.h"
-#include "game/nx/coll_cache.h"
+#include "game/engine3d/coll_cache.h"
 #include "game/sys/startup_init.h"
 
 namespace GameObjects {

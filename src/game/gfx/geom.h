@@ -4,9 +4,9 @@
 #include <cstdint>
 
 #include "game/core/arena_alloc.h"
-#include "game/mth/shape_tests.h"
-#include "game/mth/mat4.h"
-#include "game/mth/vec4.h"
+#include "game/maths/shape_tests.h"
+#include "game/maths/mat4.h"
+#include "game/maths/vec4.h"
 
 // The PC geom (Nx engine): a sector's or a model's renderable geometry - its meshes, or an instance of another
 // geom's meshes (a model drawn with its own transform and bones) - and what the engine asks of it: colours,

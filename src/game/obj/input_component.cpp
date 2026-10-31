@@ -17,7 +17,7 @@
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/param_struct.h"
-#include "game/sio/input_hub.h"
+#include "game/pad_input/input_hub.h"
 #include "game/sys/stopwatch.h"
 #include "game/obj/collide_and_die.h"
 #include "game/core/code_address.h"

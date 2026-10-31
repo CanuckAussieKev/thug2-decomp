@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/mat4.h"
+#include "game/maths/mat4.h"
 #include "game/obj/entity.h"
 
 namespace GameObjects {

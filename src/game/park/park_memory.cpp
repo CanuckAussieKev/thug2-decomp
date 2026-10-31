@@ -12,7 +12,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/slab_bank.h"
-#include "game/ed/park.h"
+#include "game/park_editing/park.h"
 #include "game/script/cscript.h"
 #include "game/script/param_struct.h"
 

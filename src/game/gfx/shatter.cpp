@@ -20,7 +20,7 @@
 #include "game/gfx/draw_frame.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/texture_splats.h"
-#include "game/lst/key_map.h"
+#include "game/lists/key_map.h"
 #include "game/core/code_address.h"
 #include "game/gfx/device.h"
 #include "game/sys/crt.h"

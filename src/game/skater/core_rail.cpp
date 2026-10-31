@@ -3,10 +3,10 @@
 #include <cmath>
 #include <cstdint>
 
-#include "game/mth/maths.h"
+#include "game/maths/maths.h"
 #include "game/gfx/d3dx.h"
-#include "game/mth/mat4.h"
-#include "game/mth/vec4.h"
+#include "game/maths/mat4.h"
+#include "game/maths/vec4.h"
 #include "game/obj/node_components.h"
 #include "game/obj/entity.h"
 #include "game/obj/rail_manager.h"
@@ -22,7 +22,7 @@
 #include "game/skater/thaw_bmx.h"
 #include "game/skater/trick_component.h"
 #include "game/skate/point_tally.h"
-#include "game/ed/park_editor.h"
+#include "game/park_editing/park_editor.h"
 #include "game/skate/skate_module.h"
 #include "game/net/gamenet_manager.h"
 #include "game/obj/trigger_events.h"

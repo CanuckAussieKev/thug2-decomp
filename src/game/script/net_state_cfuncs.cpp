@@ -26,13 +26,13 @@
 #include "game/script/preferences.h"
 #include "game/script/qb.h"
 #include "game/script/param_struct.h"
-#include "game/sio/input_hub.h"
+#include "game/pad_input/input_hub.h"
 #include "game/skate/skate_net.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/mlp.h"
 #include "game/skate/skate_module.h"
 #include "game/skate/game_mode.h"
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_registry.h"
 
 namespace ScriptCommands {
 

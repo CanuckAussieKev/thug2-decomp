@@ -7,8 +7,8 @@
 #include <new>
 
 #include "game/core/manager.h"
-#include "game/mth/maths.h"
-#include "game/mth/random.h"
+#include "game/maths/maths.h"
+#include "game/maths/random.h"
 #include "game/net/gamenet_manager.h"
 #include "game/obj/anim_blender.h"
 #include "game/obj/control_pad.h"

@@ -10,7 +10,7 @@ class CStruct;
 // [Miscellaneous] UsePS2Controls). The skater component's layout is only partly known: its fields are reached by offset.
 namespace Skater {
 
-// The UsePS2Controls setting (Sio::TheInputSettings, game/sio/sdl_input.h).
+// The UsePS2Controls setting (Sio::TheInputSettings, game/pad_input/sdl_input.h).
 bool Ps2Controls();
 
 class Component {

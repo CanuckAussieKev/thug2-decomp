@@ -5,7 +5,7 @@
 
 #include <cstdint>
 
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_registry.h"
 #include "game/core/checksums.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
@@ -14,7 +14,7 @@
 #include "game/gfx/lens_flare.h"
 #include "game/script/cscript.h"
 #include "game/script/param_struct.h"
-#include "game/sfx/surface_kind.h"
+#include "game/sound/surface_kind.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/engine_glue.h"
 #include "game/gfx/engine_scene.h"

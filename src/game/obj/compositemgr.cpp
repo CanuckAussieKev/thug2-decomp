@@ -15,7 +15,7 @@
 #include "game/script/names.h"
 #include "game/script/param_struct.h"
 #include "game/sys/mlp.h"
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_registry.h"
 #include "game/core/code_address.h"
 #include "game/obj/entity_hub.h"
 #include "game/front/screen_element_manager.h"

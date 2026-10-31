@@ -33,7 +33,7 @@
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_manager.h"
 #include "game/obj/signal.h"
-#include "game/lst/key_map.h"
+#include "game/lists/key_map.h"
 #include "game/obj/entity.h"
 #include "game/obj/trick_objects.h"
 #include "game/obj/tracker.h"

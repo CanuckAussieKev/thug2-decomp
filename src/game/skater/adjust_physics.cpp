@@ -4,9 +4,9 @@
 
 #include <cstdint>
 
-#include "game/ed/park_editor.h"
-#include "game/mth/vec4.h"
-#include "game/nx/probe_ray.h"
+#include "game/park_editing/park_editor.h"
+#include "game/maths/vec4.h"
+#include "game/engine3d/probe_ray.h"
 #include "game/obj/movable_contact.h"
 #include "game/obj/ride_tracker.h"
 #include "game/obj/shadow_component.h"

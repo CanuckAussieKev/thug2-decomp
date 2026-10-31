@@ -3,9 +3,9 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/vec4.h"
+#include "game/maths/vec4.h"
 #include "game/obj/entity.h"
-#include "game/sfx/sfx.h"
+#include "game/sound/sfx.h"
 
 namespace Scripts {
 class CScript;

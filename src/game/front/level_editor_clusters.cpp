@@ -18,7 +18,7 @@
 #include "game/front/level_editor_modules.h"
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_scenery.h"
-#include "game/lst/key_map.h"
+#include "game/lists/key_map.h"
 #include "game/obj/trick_objects.h"
 #include "game/script/nodes.h"
 #include "game/script/param_struct.h"

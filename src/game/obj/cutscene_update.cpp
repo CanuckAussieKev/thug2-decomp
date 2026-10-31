@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_registry.h"
 #include "game/gfx/d3dx.h"
 #include "game/core/mem.h"
 #include "game/gfx/boned_anim_frame_data.h"
@@ -14,7 +14,7 @@
 #include "game/gfx/light_manager.h"
 #include "game/gfx/model.h"
 #include "game/gfx/rig.h"
-#include "game/mth/mat4.h"
+#include "game/maths/mat4.h"
 #include "game/net/buddy_status.h"
 #include "game/obj/cutscene.h"
 #include "game/obj/matrix_component.h"

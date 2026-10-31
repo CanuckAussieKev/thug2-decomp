@@ -5,8 +5,8 @@
 #include <vector>
 
 #include "game/front/level_editor.h"
-#include "game/nx/coll_static.h"
-#include "game/nx/coll_tri.h"
+#include "game/engine3d/coll_static.h"
+#include "game/engine3d/coll_tri.h"
 
 // NOT ORIGINAL - the level editor's shared collision (ours, added at the user's request; see level_editor.h): a
 // moved / turned / scaled piece of scenery takes its collision along when that collision isn't its own.

@@ -35,7 +35,7 @@ struct ImFont;
 //     +0x2C8 the trick goals' acceleration_interval, acceleration_percent, trick_time, time_to_stop_adding_tricks,
 //     max_tricks, spin, single_combo, combo_size, tricktris_block_size, tricktris_total_to_win, +0x2CC ten key combo
 //     sets {set, require_perfect, spin / 180, num_taps} counted at +0x2F4, +0x2F8 ten gap numbers counted at +0x302,
-//     +0x303 required_trick_name. InitEditedGoal 0x004E69D0 (game/ed/goal_editor_util.h) gives its defaults,
+//     +0x303 required_trick_name. InitEditedGoal 0x004E69D0 (game/park_editing/goal_editor_util.h) gives its defaults,
 //     ChangeSpecies 0x004E6DA0 its points' kinds and counts; DecodeFromStruct 0x004E96D0 / ExportToStruct 0x004EB260 turn
 //     it into a script structure and back (GetEditedGoalsInfo's entries - and the CreatedGoals save, memcard.qb's own
 //     save type, version 5).

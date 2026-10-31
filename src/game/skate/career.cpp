@@ -8,7 +8,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/front/level_editor_career.h"
-#include "game/mth/vec4.h"
+#include "game/maths/vec4.h"
 #include "game/script/cscript.h"
 #include "game/script/param_struct.h"
 #include "game/skate/gap_checklist.h"

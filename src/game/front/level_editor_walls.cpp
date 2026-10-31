@@ -10,8 +10,8 @@
 
 #include "game/front/level_editor_scenery.h"
 #include "game/gfx/sector.h"
-#include "game/mth/vec4.h"
-#include "game/nx/coll_tri.h"
+#include "game/maths/vec4.h"
+#include "game/engine3d/coll_tri.h"
 #include "game/sys/run_log.h"
 #include "game/core/game_vtables.h"
 #include "game/gfx/engine_geom.h"

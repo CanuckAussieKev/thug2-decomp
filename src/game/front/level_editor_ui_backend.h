@@ -6,7 +6,7 @@ union SDL_Event;
 
 // NOT ORIGINAL - the level editor's UI layer, its backend (ours; see level_editor_ui.h): the one file that ties Dear
 // ImGui to the platform and the renderer - ImGui's official SDL2 platform backend (the game's window and input are
-// SDL2's: game/sys/sdl_window.h, game/sio/sdl_input.cpp) and its Direct3D 9 renderer backend (the game's device,
+// SDL2's: game/sys/sdl_window.h, game/pad_input/sdl_input.cpp) and its Direct3D 9 renderer backend (the game's device,
 // 0x007D69E0). Renderer-independence rules (the user's requirement - OpenGL or Vulkan later only swap this file):
 //   - only level_editor_ui_backend.cpp includes Direct3D or an ImGui backend header;
 //   - every gizmo and line is drawn through ImGui draw lists (level_editor_ui.cpp), projected to the screen;

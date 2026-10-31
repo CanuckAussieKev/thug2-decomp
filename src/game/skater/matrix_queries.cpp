@@ -6,8 +6,8 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/mth/maths.h"
-#include "game/mth/vec4.h"
+#include "game/maths/maths.h"
+#include "game/maths/vec4.h"
 #include "game/script/cscript.h"
 #include "game/script/param_struct.h"
 #include "game/skater/skater_x87.h"

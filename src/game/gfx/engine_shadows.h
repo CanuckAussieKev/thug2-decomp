@@ -3,9 +3,9 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/mat4.h"
-#include "game/mth/vec4.h"
-#include "game/lst/key_map.h"
+#include "game/maths/mat4.h"
+#include "game/maths/vec4.h"
+#include "game/lists/key_map.h"
 
 namespace Gfx2D {
 class ViewCam;

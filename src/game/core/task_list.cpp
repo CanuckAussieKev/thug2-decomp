@@ -6,7 +6,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/lst/chain_start.h"
+#include "game/lists/chain_start.h"
 #include "game/core/code_address.h"
 
 namespace TaskList {

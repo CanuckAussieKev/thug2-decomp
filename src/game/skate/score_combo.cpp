@@ -15,7 +15,7 @@
 #include "game/core/mem.h"
 #include "game/front/sprite_element.h"
 #include "game/goals/goal_manager.h"
-#include "game/mth/x87_math.h"
+#include "game/maths/x87_math.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
 #include "game/obj/anim_blender.h"

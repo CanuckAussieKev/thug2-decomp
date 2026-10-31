@@ -6,7 +6,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/mth/random.h"
+#include "game/maths/random.h"
 #include "game/obj/emitter_object.h"
 #include "game/obj/lock_obj.h"
 #include "game/obj/motion.h"

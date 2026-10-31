@@ -13,7 +13,7 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/nx/probe_ray.h"
+#include "game/engine3d/probe_ray.h"
 #include "game/obj/anim_blender.h"
 #include "game/obj/motion_path.h"
 #include "game/obj/smtptr.h"

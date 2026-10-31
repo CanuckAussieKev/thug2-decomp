@@ -71,7 +71,7 @@
 #include "game/gfx/occlusion.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/screen.h"
-#include "game/nx/probe_ray.h"
+#include "game/engine3d/probe_ray.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/entity.h"
 #include "game/script/cscript.h"

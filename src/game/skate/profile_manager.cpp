@@ -12,7 +12,7 @@
 #include "game/script/param_struct.h"
 #include "game/gfx/face_texture.h"
 #include "game/gfx/model_appearance.h"
-#include "game/lst/lookup_table.h"
+#include "game/lists/lookup_table.h"
 
 namespace GameObjects {
 

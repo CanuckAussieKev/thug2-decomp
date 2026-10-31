@@ -9,9 +9,9 @@
 #include "game/gfx/engine_texture.h"
 #include "game/gfx/engine_geom.h"
 #include "game/gfx/engine_scene_list.h"
-#include "game/nx/coll_static.h"
-#include "game/nx/coll_tri.h"
-#include "game/nx/coll_obj.h"
+#include "game/engine3d/coll_static.h"
+#include "game/engine3d/coll_tri.h"
+#include "game/engine3d/coll_obj.h"
 #include "game/core/code_address.h"
 
 namespace Engine3D {

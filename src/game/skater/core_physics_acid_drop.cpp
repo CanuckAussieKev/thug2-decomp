@@ -8,13 +8,13 @@
 #include <cmath>
 #include <cstdint>
 
-#include "game/mth/shape_tests.h"
-#include "game/mth/mat4.h"
-#include "game/mth/quat_rotation.h"
-#include "game/mth/rotation_blend.h"
-#include "game/mth/vec4.h"
-#include "game/nx/coll_cache.h"
-#include "game/nx/probe_ray.h"
+#include "game/maths/shape_tests.h"
+#include "game/maths/mat4.h"
+#include "game/maths/quat_rotation.h"
+#include "game/maths/rotation_blend.h"
+#include "game/maths/vec4.h"
+#include "game/engine3d/coll_cache.h"
+#include "game/engine3d/probe_ray.h"
 #include "game/obj/entity.h"
 #include "game/obj/walk_hang.h"
 #include "game/script/param_struct.h"

@@ -18,7 +18,7 @@
 #include "game/core/code_address.h"
 #include "game/skate/skate_module.h"
 #include "game/core/stubs.h"
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_registry.h"
 
 namespace {
 extern void** const kAsyncFileHandleAdapterVtable;

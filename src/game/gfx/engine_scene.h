@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "game/core/arena_alloc.h"
-#include "game/mth/shape_tests.h"
+#include "game/maths/shape_tests.h"
 
 namespace ListKit {
 class KeyMap;

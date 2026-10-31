@@ -8,8 +8,8 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/engine_shadows.h"
-#include "game/lst/key_map.h"
-#include "game/nx/coll_tri.h"
+#include "game/lists/key_map.h"
+#include "game/engine3d/coll_tri.h"
 #include "game/sys/startup_init.h"
 
 namespace Engine3D {

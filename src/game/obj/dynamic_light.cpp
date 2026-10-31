@@ -10,7 +10,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/nx/dynamic_light.h"
+#include "game/engine3d/dynamic_light.h"
 #include "game/script/param_struct.h"
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"

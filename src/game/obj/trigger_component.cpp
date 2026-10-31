@@ -7,7 +7,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/nx/probe_ray.h"
+#include "game/engine3d/probe_ray.h"
 #include "game/obj/entity.h"
 #include "game/script/nodes.h"
 #include "game/script/param_struct.h"

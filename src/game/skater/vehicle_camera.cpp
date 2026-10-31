@@ -14,7 +14,7 @@
 #include "game/obj/compositemgr.h"
 #include "game/script/names.h"
 #include "game/script/param_struct.h"
-#include "game/mth/x87_math.h"
+#include "game/maths/x87_math.h"
 #include "game/sys/stopwatch.h"
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"

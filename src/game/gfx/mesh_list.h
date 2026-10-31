@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/shape_tests.h"
+#include "game/maths/shape_tests.h"
 
 namespace ListKit {
 class KeyMap;

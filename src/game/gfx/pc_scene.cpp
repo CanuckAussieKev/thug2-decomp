@@ -13,7 +13,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/file/file_load.h"
-#include "game/ass/resource_entry.h"
+#include "game/assets/resource_entry.h"
 #include "game/gfx/engine_effects.h"
 #include "game/gfx/engine_scene.h"
 #include "game/gfx/geom.h"
@@ -23,11 +23,11 @@
 #include "game/gfx/sector.h"
 #include "game/gfx/sub_mesh.h"
 #include "game/gfx/mesh_list.h"
-#include "game/lst/key_map.h"
+#include "game/lists/key_map.h"
 #include "game/core/code_address.h"
-#include "game/nx/coll_movable.h"
+#include "game/engine3d/coll_movable.h"
 #include "game/core/stubs.h"
-#include "game/mc/memcard.h"
+#include "game/save_cards/memcard.h"
 #include "game/gfx/device.h"
 
 namespace Engine3D {

@@ -9,7 +9,7 @@
 #include "game/core/mem.h"
 #include "game/gfx/view_cam.h"
 #include "game/gfx/viewport.h"
-#include "game/mth/maths.h"
+#include "game/maths/maths.h"
 #include "game/obj/emitter_object.h"
 #include "game/obj/proximity.h"
 #include "game/script/names.h"

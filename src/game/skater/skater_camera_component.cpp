@@ -12,9 +12,9 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/mth/mat4.h"
-#include "game/mth/rotation_blend.h"
-#include "game/mth/vec4.h"
+#include "game/maths/mat4.h"
+#include "game/maths/rotation_blend.h"
+#include "game/maths/vec4.h"
 #include "game/obj/camera_lookaround.h"
 #include "game/obj/camera_util.h"
 #include "game/obj/entity.h"

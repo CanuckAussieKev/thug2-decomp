@@ -5,7 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/ed/park.h"
+#include "game/park_editing/park.h"
 #include "game/net/net_app.h"
 #include "game/script/param_struct.h"
 

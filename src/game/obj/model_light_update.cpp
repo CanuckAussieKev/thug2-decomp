@@ -9,7 +9,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/engine_model_lights.h"
-#include "game/nx/probe_ray.h"
+#include "game/engine3d/probe_ray.h"
 #include "game/obj/model_component.h"
 #include "game/obj/model_component_nx.h"
 #include "game/script/param_struct.h"

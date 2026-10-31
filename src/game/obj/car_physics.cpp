@@ -11,8 +11,8 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/mth/maths.h"
-#include "game/mth/vec4.h"
+#include "game/maths/maths.h"
+#include "game/maths/vec4.h"
 #include "game/obj/motion_path.h"
 #include "game/obj/suspend_component.h"
 #include "game/script/names.h"

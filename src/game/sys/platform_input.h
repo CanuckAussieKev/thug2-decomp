@@ -9,7 +9,7 @@
 
 // The Win32 platform layer's DirectInput side (0x005F2E00-0x005F4280): the two ports' joysticks, the keyboard and
 // the mouse - set up by InitInput (platform.h), read once a frame by the pad read - the controls each port has
-// (from the registry), and the keyboard's key names. PartyMod's SDL input (game/sio/sdl_input.h) replaces most of
+// (from the registry), and the keyboard's key names. PartyMod's SDL input (game/pad_input/sdl_input.h) replaces most of
 // it in the game: InitInput no longer makes the DirectInput devices, so the reads find none.
 namespace Sio {
 struct PadState;

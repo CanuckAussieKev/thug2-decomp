@@ -7,7 +7,7 @@
 #include <cstring>
 
 #include "game/gfx/settings.h"
-#include "game/sio/sdl_input.h"
+#include "game/pad_input/sdl_input.h"
 #include "game/sys/platform_input.h"
 #include "game/sys/sdl_events.h"
 #include "game/gfx/device.h"

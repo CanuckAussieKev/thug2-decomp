@@ -13,9 +13,9 @@
 
 #include "game/core/dbg.h"
 #include "game/gfx/debug_lines.h"
-#include "game/mth/rotation_blend.h"
-#include "game/mth/vec4.h"
-#include "game/nx/coll_rect.h"
+#include "game/maths/rotation_blend.h"
+#include "game/maths/vec4.h"
+#include "game/engine3d/coll_rect.h"
 #include "game/obj/vehicle_internal.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/stopwatch.h"

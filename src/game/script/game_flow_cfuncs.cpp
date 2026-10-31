@@ -11,7 +11,7 @@
 
 #include <cstdio>
 
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_registry.h"
 #include "game/core/checksums.h"
 #include "game/net/net_app.h"
 #include "game/net/net_conn.h"
@@ -21,7 +21,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/stubs.h"
-#include "game/ed/park_editor.h"
+#include "game/park_editing/park_editor.h"
 #include "game/file/packs.h"
 #include "game/front/front_end.h"
 #include "game/gfx/tod_manager.h"
@@ -35,7 +35,7 @@
 #include "game/script/node_prefixes.h"
 #include "game/script/skate_cfuncs.h"
 #include "game/script/param_struct.h"
-#include "game/sfx/sfx.h"
+#include "game/sound/sfx.h"
 #include "game/skater/rider.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/skate/skate_module.h"

@@ -7,8 +7,8 @@
 #include <cmath>
 #include <cstdint>
 
-#include "game/mth/mat4.h"
-#include "game/mth/vec4.h"
+#include "game/maths/mat4.h"
+#include "game/maths/vec4.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/entity.h"
 #include "game/obj/smtptr.h"

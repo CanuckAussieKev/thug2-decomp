@@ -7,15 +7,15 @@
 #include <cmath>
 #include <cstdint>
 
-#include "game/mth/mat4.h"
-#include "game/mth/vec4.h"
-#include "game/nx/probe_ray.h"
+#include "game/maths/mat4.h"
+#include "game/maths/vec4.h"
+#include "game/engine3d/probe_ray.h"
 #include "game/obj/walk_hang.h"
 #include "game/script/param_struct.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/core_physics_fields.h"
 #include "game/skater/rider.h"
-#include "game/ed/park_editor.h"
+#include "game/park_editing/park_editor.h"
 
 namespace Skater {
 

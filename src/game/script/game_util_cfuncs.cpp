@@ -7,10 +7,10 @@
 #include <cmath>
 #include <cstring>
 
-#include "game/ed/park_editor.h"
+#include "game/park_editing/park_editor.h"
 #include "game/gfx/debug_lines.h"
 #include "game/gfx/texture_cfuncs.h"
-#include "game/mth/vec4.h"
+#include "game/maths/vec4.h"
 #include "game/obj/compositemgr.h"
 #include "game/core/checksums.h"
 #include "game/script/cscript.h"
@@ -20,7 +20,7 @@
 #include "game/skate/skate_module.h"
 #include "game/skater/rider.h"
 #include "game/skater/skater_state.h"
-#include "game/ed/rail_editor.h"
+#include "game/park_editing/rail_editor.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/point_tally.h"
 #include "game/gfx/cag_cfuncs.h"

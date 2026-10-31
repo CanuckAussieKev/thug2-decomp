@@ -9,7 +9,7 @@
 #include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/lst/list_walk.h"
+#include "game/lists/list_walk.h"
 #include "game/net/net_access_c.h"
 #include "game/net/net_compress.h"
 #include "game/net/net_lzham.h"

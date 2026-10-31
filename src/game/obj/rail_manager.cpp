@@ -10,16 +10,16 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/mth/quat_rotation.h"
-#include "game/nx/probe_ray.h"
+#include "game/maths/quat_rotation.h"
+#include "game/engine3d/probe_ray.h"
 #include "game/obj/smtptr.h"
 #include "game/obj/trick_objects.h"
 #include "game/script/nodes.h"
 #include "game/script/param_struct.h"
-#include "game/sfx/surface_kind.h"
+#include "game/sound/surface_kind.h"
 #include "game/skate/skate_module.h"
 #include "game/skater/walk_physics.h"
-#include "game/ed/park_editor.h"
+#include "game/park_editing/park_editor.h"
 
 namespace GameObjects {
 

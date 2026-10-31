@@ -7,7 +7,7 @@
 
 #include "game/core/mem.h"
 #include "game/core/slab_bank.h"
-#include "game/lst/key_map.h"
+#include "game/lists/key_map.h"
 #include "game/script/cscript.h"
 #include "game/script/param_struct.h"
 #include "game/gfx/engine.h"

@@ -7,8 +7,8 @@
 
 #include "game/core/manager.h"
 #include "game/gfx/d3dx.h"
-#include "game/mth/mat4.h"
-#include "game/mth/vec4.h"
+#include "game/maths/mat4.h"
+#include "game/maths/vec4.h"
 #include "game/obj/entity.h"
 #include "game/obj/rail_manager.h"
 #include "game/obj/ride_tracker.h"

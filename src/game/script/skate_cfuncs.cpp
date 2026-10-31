@@ -12,7 +12,7 @@
 #include "game/script/node_prefixes.h"
 #include "game/script/nodes.h"
 #include "game/script/param_struct.h"
-#include "game/sio/input_hub.h"
+#include "game/pad_input/input_hub.h"
 #include "game/sys/stopwatch.h"
 #include "game/sys/model_viewer.h"
 #include "game/gfx/loading_console.h"

@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "game/front/level_editor_triggers.h"
-#include "game/mth/vec4.h"
+#include "game/maths/vec4.h"
 #include "game/skate/gap_checklist.h"
 #include "game/skate/skate_module.h"
 #include "game/sys/run_log.h"

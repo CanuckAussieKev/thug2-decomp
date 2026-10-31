@@ -11,10 +11,10 @@
 #include <cstring>
 #include <initializer_list>
 
-#include "game/mth/vec4.h"
-#include "game/nx/coll_obj.h"
-#include "game/nx/coll_tri.h"
-#include "game/nx/probe_ray.h"
+#include "game/maths/vec4.h"
+#include "game/engine3d/coll_obj.h"
+#include "game/engine3d/coll_tri.h"
+#include "game/engine3d/probe_ray.h"
 #include "game/script/names.h"
 #include "game/script/qb.h"
 #include "game/script/param_struct.h"

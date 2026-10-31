@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <new>
 
-#include "game/lst/key_map.h"
+#include "game/lists/key_map.h"
 #include "game/obj/signal.h"
 
 // The object tracker (GameObjects::CEventWaitBoard, 0xB21C bytes, the singleton 0x006F0FC0 with its use count 0x006F0FC4):

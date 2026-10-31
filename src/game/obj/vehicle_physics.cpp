@@ -10,13 +10,13 @@
 #include <cstdint>
 
 #include "game/gfx/debug_lines.h"
-#include "game/mth/shape_tests.h"
+#include "game/maths/shape_tests.h"
 #include "game/net/gamenet_manager.h"
-#include "game/nx/coll_movable.h"
+#include "game/engine3d/coll_movable.h"
 #include "game/obj/anim_blender.h"
 #include "game/obj/vehicle_internal.h"
 #include "game/sys/game_clock.h"
-#include "game/ed/park_editor.h"
+#include "game/park_editing/park_editor.h"
 #include "game/obj/control_pad.h"
 #include "game/obj/trigger_events.h"
 

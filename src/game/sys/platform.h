@@ -3,7 +3,7 @@
 #include <windows.h>
 
 // The Win32 platform layer: input set-up, rumble, the window's message pump. PartyMod replaces the input side
-// with SDL (game/sio/sdl_input.h), so most of the original's DirectInput code survives here only in comments.
+// with SDL (game/pad_input/sdl_input.h), so most of the original's DirectInput code survives here only in comments.
 namespace OsLayer {
 
 // 0x005F3A50 (cdecl): set a port's two motors, levels 0-65535 (Sio::SetSdlActuators).

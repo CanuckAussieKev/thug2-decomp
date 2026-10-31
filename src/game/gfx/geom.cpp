@@ -19,7 +19,7 @@
 #include "game/core/code_address.h"
 #include "game/core/game_vtables.h"
 #include "game/gfx/model.h"
-#include "game/mc/memcard.h"
+#include "game/save_cards/memcard.h"
 #include "game/core/stubs.h"
 #include "game/net/stats_man.h"
 #include "game/gfx/shader_slots.h"

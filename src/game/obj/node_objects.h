@@ -9,8 +9,8 @@
 #include <cstdint>
 
 #include "game/core/arena_alloc.h"
-#include "game/mth/mat4.h"
-#include "game/mth/vec4.h"
+#include "game/maths/mat4.h"
+#include "game/maths/vec4.h"
 
 namespace Scripts {
 class CStruct;

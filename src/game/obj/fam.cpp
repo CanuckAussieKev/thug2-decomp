@@ -5,14 +5,14 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_registry.h"
 #include "game/core/checksums.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/obj/anim_blender.h"
-#include "game/pcm/music_api.h"
-#include "game/pcm/stream_commands.h"
+#include "game/audio/music_api.h"
+#include "game/audio/stream_commands.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/param_struct.h"

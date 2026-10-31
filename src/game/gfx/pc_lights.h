@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/vec4.h"
+#include "game/maths/vec4.h"
 
 // Lighting on PC (Nx engine): the scene's lights (the engine's ambient colour 0x0067DC98, its scale 0x0067DC94, the
 // directional lights' directions 0x0067DC9C and colours 0x0067DCA0, their intensities 0x006FAAEC) and the PC model

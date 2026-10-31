@@ -7,8 +7,8 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/mth/mat4.h"
-#include "game/mth/vec4.h"
+#include "game/maths/mat4.h"
+#include "game/maths/vec4.h"
 #include "game/obj/node_objects.h"
 #include "game/script/param_struct.h"
 #include "game/core/code_address.h"

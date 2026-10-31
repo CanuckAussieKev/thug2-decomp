@@ -7,7 +7,7 @@
 
 #include "game/core/mem.h"
 #include "game/gfx/primitive_states.h"
-#include "game/lst/key_map.h"
+#include "game/lists/key_map.h"
 
 namespace Engine3D {
 

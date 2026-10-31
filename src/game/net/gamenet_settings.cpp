@@ -27,13 +27,13 @@
 #include "game/skate/skate_module.h"
 #include "game/gfx/face_texture.h"
 #include "game/gfx/rig.h"
-#include "game/ed/goal_editor.h"
-#include "game/ed/rail_editor.h"
+#include "game/park_editing/goal_editor.h"
+#include "game/park_editing/rail_editor.h"
 #include "game/net/server_list.h"
 #include "game/net/score_list.h"
 #include "game/net/buddy_man.h"
 #include "game/net/stats_man.h"
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_registry.h"
 
 namespace OnlinePlay {
 

@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "game/gfx/texture_splats.h"
-#include "game/mth/vec4.h"
+#include "game/maths/vec4.h"
 
 // The engine's effects (Nx, platform-independent; each passes on to the PC code): fog settings, the level colour,
 // shattering, texture splats aged and killed, screen flashes, and the tables they're kept in - flashes 0x007004A8,

@@ -9,15 +9,15 @@
 #include <cstdint>
 
 #include "game/core/checksums.h"
-#include "game/mth/mat4.h"
-#include "game/mth/vec4.h"
+#include "game/maths/mat4.h"
+#include "game/maths/vec4.h"
 #include "game/obj/anim_blender.h"
 #include "game/obj/control_pad.h"
 #include "game/obj/entity.h"
 #include "game/obj/rail_manager.h"
 #include "game/script/cscript.h"
 #include "game/script/param_struct.h"
-#include "game/sfx/surface_kind.h"
+#include "game/sound/surface_kind.h"
 #include "game/skate/point_tally.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skater/core_physics.h"

@@ -15,8 +15,8 @@
 #include <vector>
 
 #include "game/core/checksums.h"
-#include "game/ed/goal_editor.h"
-#include "game/ed/goal_editor_util.h"
+#include "game/park_editing/goal_editor.h"
+#include "game/park_editing/goal_editor_util.h"
 #include "game/front/level_editor_hud.h"
 #include "game/front/level_editor_layout.h"
 #include "game/front/level_editor_modules.h"
@@ -24,8 +24,8 @@
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_nodes.h"
 #include "game/goals/goal_manager_cfuncs.h"
-#include "game/mth/vec4.h"
-#include "game/nx/probe_ray.h"
+#include "game/maths/vec4.h"
+#include "game/engine3d/probe_ray.h"
 #include "game/obj/entity.h"
 #include "game/script/param_struct.h"
 #include "game/skate/gap_checklist.h"

@@ -6,13 +6,13 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/mth/mat4.h"
-#include "game/mth/rotation_blend.h"
-#include "game/mth/vec4.h"
+#include "game/maths/mat4.h"
+#include "game/maths/rotation_blend.h"
+#include "game/maths/vec4.h"
 #include "game/net/net_app.h"
 #include "game/net/net_conn.h"
 #include "game/net/net_lists.h"
-#include "game/nx/probe_ray.h"
+#include "game/engine3d/probe_ray.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/player_info.h"
 #include "game/obj/anim_blender.h"

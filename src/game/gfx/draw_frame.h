@@ -3,8 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/mat4.h"
-#include "game/mth/vec4.h"
+#include "game/maths/mat4.h"
+#include "game/maths/vec4.h"
 
 // The per-frame 3D render (Nx engine, PC/D3D9): the camera's matrices, the world passes per viewport and the
 // motion blur pass. PartyMod (whose code this contains: MIT, (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md) changes

@@ -9,7 +9,7 @@
 #include "game/core/str.h"
 #include "game/gfx/font.h"
 #include "game/gfx/pc_font.h"
-#include "game/lst/key_map.h"
+#include "game/lists/key_map.h"
 #include "game/script/param_struct.h"
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"

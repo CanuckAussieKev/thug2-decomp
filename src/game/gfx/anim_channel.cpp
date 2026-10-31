@@ -19,7 +19,7 @@
 #include "game/gfx/frame_source.h"
 #include "game/gfx/model_utils.h"
 #include "game/gfx/rig.h"
-#include "game/mth/maths.h"
+#include "game/maths/maths.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"

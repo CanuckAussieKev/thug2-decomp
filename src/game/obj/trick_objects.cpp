@@ -3,7 +3,7 @@
 // See trick_objects.h.
 
 #include "game/obj/trick_objects.h"
-#include "game/ed/rail_editor.h"
+#include "game/park_editing/rail_editor.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/engine_glue.h"
 #include "game/gfx/sector.h"

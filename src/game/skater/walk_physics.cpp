@@ -7,8 +7,8 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/nx/coll_cache.h"
-#include "game/nx/probe_ray.h"
+#include "game/engine3d/coll_cache.h"
+#include "game/engine3d/probe_ray.h"
 #include "game/obj/anim_blender.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/rail_manager.h"
@@ -18,7 +18,7 @@
 #include "game/script/param_struct.h"
 #include "game/skate/career.h"
 #include "game/skater/walk_fields.h"
-#include "game/mth/x87_math.h"
+#include "game/maths/x87_math.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/stopwatch.h"
 #include "game/obj/control_pad.h"

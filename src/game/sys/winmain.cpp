@@ -20,7 +20,7 @@
 #include "game/net/gamenet_qr2.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/online_identity.h"
-#include "game/sio/device.h"
+#include "game/pad_input/device.h"
 #include "game/sys/run_log.h"
 #include "game/sys/startup.h"
 #include "game/sys/pc_setup.h"

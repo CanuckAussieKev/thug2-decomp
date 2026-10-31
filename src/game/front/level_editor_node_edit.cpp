@@ -13,7 +13,7 @@
 #include "game/front/level_editor_node_create.h"
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_scenery.h"
-#include "game/mth/mat4.h"
+#include "game/maths/mat4.h"
 #include "game/obj/emitter_object.h"
 #include "game/obj/entity.h"
 #include "game/obj/proximity.h"

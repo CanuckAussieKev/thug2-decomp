@@ -9,7 +9,7 @@
 #include "game/core/checksums.h"
 #include "game/core/dbg.h"
 #include "game/core/str.h"
-#include "game/mth/random.h"
+#include "game/maths/random.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/token_reader.h"

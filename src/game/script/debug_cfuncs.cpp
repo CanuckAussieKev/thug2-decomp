@@ -19,7 +19,7 @@
 #include "game/script/script_startup.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/engine_glue.h"
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_registry.h"
 #include "game/sys/game_config.h"
 
 namespace ScriptCommands {

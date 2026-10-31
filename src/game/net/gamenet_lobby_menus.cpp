@@ -11,7 +11,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/task_list.h"
-#include "game/lst/chain_start.h"
+#include "game/lists/chain_start.h"
 #include "game/net/buddy_man.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_lobby.h"

@@ -6,14 +6,14 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_registry.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/boned_anim_frame_data.h"
 #include "game/gfx/view_cam.h"
-#include "game/mth/mat4.h"
-#include "game/mth/vec4.h"
+#include "game/maths/mat4.h"
+#include "game/maths/vec4.h"
 #include "game/obj/cutscene.h"
 #include "game/obj/node_objects.h"
 #include "game/obj/entity.h"

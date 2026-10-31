@@ -9,7 +9,7 @@
 #include "game/core/mem.h"
 #include "game/file/file_load.h"
 #include "game/gfx/surface_material.h"
-#include "game/lst/key_map.h"
+#include "game/lists/key_map.h"
 
 namespace Engine3D {
 

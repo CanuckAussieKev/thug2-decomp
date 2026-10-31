@@ -7,7 +7,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/slab_bank.h"
-#include "game/mth/random.h"
+#include "game/maths/random.h"
 #include "game/script/expression.h"
 #include "game/script/qb.h"
 #include "game/script/cscript.h"

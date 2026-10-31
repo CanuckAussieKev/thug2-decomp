@@ -9,8 +9,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/lst/chain_start.h"
-#include "game/mth/vec4.h"
+#include "game/lists/chain_start.h"
+#include "game/maths/vec4.h"
 #include "game/sys/game_module.h"
 
 namespace GameObjects {

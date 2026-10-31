@@ -12,7 +12,7 @@
 #include "game/core/mem.h"
 #include "game/core/text_store.h"
 #include "game/gfx/model.h"
-#include "game/mth/vec4.h"
+#include "game/maths/vec4.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/model_component.h"
 #include "game/obj/entity.h"

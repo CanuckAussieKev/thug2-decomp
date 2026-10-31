@@ -10,7 +10,7 @@
 #include <cstdint>
 
 #include "game/core/arena_alloc.h"
-#include "game/lst/lookup_table.h"
+#include "game/lists/lookup_table.h"
 
 namespace Scripts {
 class CStruct;

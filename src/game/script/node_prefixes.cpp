@@ -10,7 +10,7 @@
 #include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/lst/key_map.h"
+#include "game/lists/key_map.h"
 #include "game/script/names.h"
 #include "game/script/nodes.h"
 #include "game/script/qb.h"

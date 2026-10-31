@@ -25,14 +25,14 @@
 #include "game/net/thugpro_compat.h"
 #include "game/skate/skate_module.h"
 #include "game/skate/thugpro_cas.h"
-#include "game/sio/device.h"
+#include "game/pad_input/device.h"
 #include "game/sys/platform.h"
 #include "game/sys/screenshot.h"
 #include "game/sys/stopwatch.h"
 #include "game/sys/winmain.h"
 #include "game/obj/cutscene.h"
 #include "game/gfx/movie.h"
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_registry.h"
 #include "game/gfx/draw_frame.h"
 
 namespace FrameLoop {

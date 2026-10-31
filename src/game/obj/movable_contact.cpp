@@ -4,8 +4,8 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/mth/mat4.h"
-#include "game/nx/probe_ray.h"
+#include "game/maths/mat4.h"
+#include "game/engine3d/probe_ray.h"
 #include "game/obj/ride_tracker.h"
 #include "game/obj/smtptr.h"
 #include "game/sys/game_clock.h"

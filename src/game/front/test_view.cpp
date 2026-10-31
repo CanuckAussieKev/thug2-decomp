@@ -6,9 +6,9 @@
 #include <cstdint>
 
 #include "game/gfx/view_cam.h"
-#include "game/mth/mat4.h"
-#include "game/mth/vec4.h"
-#include "game/nx/probe_ray.h"
+#include "game/maths/mat4.h"
+#include "game/maths/vec4.h"
+#include "game/engine3d/probe_ray.h"
 #include "game/script/names.h"
 #include "game/script/param_struct.h"
 #include "game/skate/skate_module.h"

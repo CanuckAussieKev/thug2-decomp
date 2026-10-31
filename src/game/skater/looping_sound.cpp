@@ -10,7 +10,7 @@
 #include "game/core/mem.h"
 #include "game/script/names.h"
 #include "game/script/param_struct.h"
-#include "game/sfx/surface_kind.h"
+#include "game/sound/surface_kind.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/sys/stopwatch.h"
 #include "game/core/code_address.h"

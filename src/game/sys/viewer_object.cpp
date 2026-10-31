@@ -9,7 +9,7 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_registry.h"
 #include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -18,8 +18,8 @@
 #include "game/gfx/engine.h"
 #include "game/gfx/model.h"
 #include "game/gfx/model_utils.h"
-#include "game/mth/mat4.h"
-#include "game/mth/vec4.h"
+#include "game/maths/mat4.h"
+#include "game/maths/vec4.h"
 #include "game/net/net_app.h"
 #include "game/net/net_dispatcher.h"
 #include "game/obj/anim_blender.h"
@@ -29,7 +29,7 @@
 #include "game/script/cscript.h"
 #include "game/script/load.h"
 #include "game/script/param_struct.h"
-#include "game/sio/input_hub.h"
+#include "game/pad_input/input_hub.h"
 #include "game/sys/model_viewer.h"
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"

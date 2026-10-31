@@ -19,7 +19,7 @@
 #include "game/gfx/hd_ui.h"
 #include "game/gfx/draw_frame.h"
 #include "game/gfx/render_state.h"
-#include "game/sio/device.h"
+#include "game/pad_input/device.h"
 #include "game/sys/platform_d3d.h"
 #include "game/core/code_address.h"
 #include "game/gfx/device.h"

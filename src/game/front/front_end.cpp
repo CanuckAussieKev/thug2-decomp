@@ -17,14 +17,14 @@
 #include "game/front/screen_element_manager.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/tracker.h"
-#include "game/pcm/music_player.h"
+#include "game/audio/music_player.h"
 #include "game/script/cscript.h"
 #include "game/script/game_cfuncs.h"
 #include "game/script/param_struct.h"
-#include "game/sfx/sfx.h"
-#include "game/sio/device.h"
-#include "game/sio/input_hub.h"
-#include "game/sio/sdl_input.h"
+#include "game/sound/sfx.h"
+#include "game/pad_input/device.h"
+#include "game/pad_input/input_hub.h"
+#include "game/pad_input/sdl_input.h"
 #include "game/skate/skate_module.h"
 #include "game/skater/rider.h"
 #include "game/sys/game_clock.h"
@@ -32,7 +32,7 @@
 #include "game/sys/stopwatch.h"
 #include "game/core/code_address.h"
 #include "game/obj/movie_manager.h"
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_registry.h"
 
 namespace GameModules {
 

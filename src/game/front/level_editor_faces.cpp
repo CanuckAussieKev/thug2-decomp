@@ -16,7 +16,7 @@
 #include "game/front/level_editor_scenery.h"
 #include "game/front/level_editor_shared_coll.h"
 #include "game/front/level_editor_view.h"
-#include "game/nx/coll_tri.h"
+#include "game/engine3d/coll_tri.h"
 #include "game/sys/run_log.h"
 #include "game/core/game_vtables.h"
 #include "imgui.h"

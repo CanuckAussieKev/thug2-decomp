@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/vec4.h"
+#include "game/maths/vec4.h"
 
 // A scene mesh (Nx engine, PC): what its vertex and index buffers hold and the operations on it that live here -
 // moving and turning it in place, copying it, making it a billboard. Most of its code (drawing, the buffers

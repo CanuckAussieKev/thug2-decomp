@@ -10,7 +10,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/mth/shape_tests.h"
+#include "game/maths/shape_tests.h"
 #include "game/obj/entity_hub.h"
 #include "game/script/nodes.h"
 #include "game/script/param_struct.h"

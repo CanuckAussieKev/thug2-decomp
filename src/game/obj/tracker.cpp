@@ -20,7 +20,7 @@
 #include "game/script/cscript.h"
 #include "game/script/param_struct.h"
 #include "game/obj/compositemgr.h"
-#include "game/ed/piece_menu.h"
+#include "game/park_editing/piece_menu.h"
 #include "game/core/code_address.h"
 #include "game/gfx/weather.h"
 

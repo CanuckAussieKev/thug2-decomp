@@ -7,7 +7,7 @@
 #include "game/core/mem.h"
 #include "game/core/code_address.h"
 #include "game/core/game_vtables.h"
-#include "game/mc/save_types.h"
+#include "game/save_cards/save_types.h"
 #include "game/core/stubs.h"
 
 namespace MemSys {

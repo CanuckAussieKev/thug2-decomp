@@ -19,7 +19,7 @@
 #include "game/gfx/draw_frame.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/scene_render.h"
-#include "game/mth/mat4.h"
+#include "game/maths/mat4.h"
 #include "game/script/param_struct.h"
 #include "game/sys/stopwatch.h"
 #include "game/gfx/device.h"

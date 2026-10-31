@@ -47,7 +47,7 @@
 #include <cstdint>
 #include <string>
 
-#include "game/mth/vec4.h"
+#include "game/maths/vec4.h"
 
 namespace Skater::CollisionEvents {
 

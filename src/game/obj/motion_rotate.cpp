@@ -7,8 +7,8 @@
 
 #include "game/core/manager.h"
 #include "game/gfx/d3dx.h"
-#include "game/mth/mat4.h"
-#include "game/mth/rotation_blend.h"
+#include "game/maths/mat4.h"
+#include "game/maths/rotation_blend.h"
 #include "game/obj/motion.h"
 #include "game/obj/motion_internal.h"
 #include "game/obj/entity_hub.h"

@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-#include "game/mth/random.h"
+#include "game/maths/random.h"
 #include "game/script/cscript.h"
 #include "game/script/param_struct.h"
 #include "game/sys/game_clock.h"

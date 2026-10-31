@@ -7,7 +7,7 @@
 #include "game/gfx/engine_model_lights.h"
 #include "game/gfx/model.h"
 #include "game/gfx/model_appearance.h"
-#include "game/mth/mat4.h"
+#include "game/maths/mat4.h"
 #include "game/obj/anim_blender.h"
 #include "game/obj/model_component.h"
 #include "game/obj/model_component_nx.h"

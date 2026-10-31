@@ -6,8 +6,8 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/ass/resource_entry.h"
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_entry.h"
+#include "game/assets/resource_registry.h"
 #include "game/core/checksums.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
@@ -32,7 +32,7 @@
 #include "game/core/code_address.h"
 #include "game/net/net_manager.h"
 #include "game/core/stubs.h"
-#include "game/mc/memcard.h"
+#include "game/save_cards/memcard.h"
 
 namespace Engine3D {
 

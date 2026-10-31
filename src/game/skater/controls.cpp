@@ -6,12 +6,12 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/mth/vec4.h"
-#include "game/nx/probe_ray.h"
+#include "game/maths/vec4.h"
+#include "game/engine3d/probe_ray.h"
 #include "game/obj/movable_contact.h"
 #include "game/obj/trigger_component.h"
 #include "game/script/param_struct.h"
-#include "game/sio/sdl_input.h"
+#include "game/pad_input/sdl_input.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/walk_physics.h"
 #include "game/sys/game_config.h"

@@ -18,7 +18,7 @@
 #include "game/gfx/draw_frame.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/simple_material.h"
-#include "game/mth/x87_math.h"
+#include "game/maths/x87_math.h"
 #include "game/sys/platform_d3d.h"
 #include "game/core/code_address.h"
 #include "game/net/gamenet_handlers.h"

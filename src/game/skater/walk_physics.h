@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "game/mth/vec4.h"
+#include "game/maths/vec4.h"
 #include "game/obj/entity.h"
 
 namespace Engine3D {

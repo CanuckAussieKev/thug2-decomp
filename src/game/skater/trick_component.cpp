@@ -9,7 +9,7 @@
 #include "game/core/dbg.h"
 #include "game/script/names.h"
 #include "game/script/param_struct.h"
-#include "game/sio/input_hub.h"
+#include "game/pad_input/input_hub.h"
 #include "game/skater/controls.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/sys/game_clock.h"

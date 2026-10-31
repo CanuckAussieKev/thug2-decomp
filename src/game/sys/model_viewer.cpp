@@ -17,8 +17,8 @@
 #include "game/front/front_end.h"
 #include "game/gfx/viewport.h"
 #include "game/gfx/viewport_list.h"
-#include "game/mth/mat4.h"
-#include "game/mth/vec4.h"
+#include "game/maths/mat4.h"
+#include "game/maths/vec4.h"
 #include "game/net/gamenet_handlers.h"
 #include "game/net/net_app.h"
 #include "game/net/net_dispatcher.h"
@@ -30,7 +30,7 @@
 #include "game/script/script_startup.h"
 #include "game/script/param_struct.h"
 #include "game/script/struct_buffer.h"
-#include "game/sio/input_hub.h"
+#include "game/pad_input/input_hub.h"
 #include "game/sys/debug_mode.h"
 #include "game/sys/game_config.h"
 #include "game/sys/mlp.h"
@@ -38,7 +38,7 @@
 #include "game/sys/viewer_object.h"
 #include "game/core/code_address.h"
 #include "game/obj/movie_manager.h"
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_registry.h"
 #include "game/script/cfuncs_scene.h"
 
 namespace GameModules {

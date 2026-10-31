@@ -9,7 +9,7 @@
 #include <cstring>
 
 #include "game/gfx/anim_controller.h"
-#include "game/mth/vec4.h"
+#include "game/maths/vec4.h"
 #include "game/obj/walk_hang.h"
 #include "game/script/param_struct.h"
 

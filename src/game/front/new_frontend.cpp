@@ -51,7 +51,7 @@
 #include "game/obj/compositemgr.h"
 #include "game/obj/entity.h"
 #include "game/script/cscript.h"
-#include "game/sio/device.h"
+#include "game/pad_input/device.h"
 #include "game/core/str.h"
 #include "game/script/names.h"
 #include "game/script/param_struct.h"

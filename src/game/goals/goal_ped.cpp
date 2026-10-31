@@ -7,19 +7,19 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_registry.h"
 #include "game/core/checksums.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_names.h"
-#include "game/mth/random.h"
+#include "game/maths/random.h"
 #include "game/net/buddy_status.h"
 #include "game/obj/anim_blender.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/entity.h"
 #include "game/obj/entity_hub.h"
-#include "game/pcm/music_api.h"
-#include "game/pcm/stream_commands.h"
+#include "game/audio/music_api.h"
+#include "game/audio/stream_commands.h"
 #include "game/script/cscript.h"
 #include "game/script/param_struct.h"
 #include "game/skate/profile_manager.h"

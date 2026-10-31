@@ -16,7 +16,7 @@
 #include "game/gfx/surface_material.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/view_mode.h"
-#include "game/lst/key_map.h"
+#include "game/lists/key_map.h"
 #include "game/gfx/shader_slots.h"
 #include "game/gfx/device.h"
 #include "game/sys/startup_init.h"

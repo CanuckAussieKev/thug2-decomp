@@ -3,11 +3,11 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/mat4.h"
-#include "game/mth/vec4.h"
-#include "game/nx/coll_cache.h"
-#include "game/nx/coll_rect.h"
-#include "game/nx/probe_ray.h"
+#include "game/maths/mat4.h"
+#include "game/maths/vec4.h"
+#include "game/engine3d/coll_cache.h"
+#include "game/engine3d/coll_rect.h"
+#include "game/engine3d/probe_ray.h"
 #include "game/obj/entity.h"
 
 namespace Scripts {

@@ -13,7 +13,7 @@
 #include "game/script/param_struct.h"
 #include "game/core/code_address.h"
 #include "game/core/game_vtables.h"
-#include "game/mc/memcard.h"
+#include "game/save_cards/memcard.h"
 
 namespace Gfx2D {
 

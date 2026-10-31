@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_registry.h"
 #include "game/obj/cutscene.h"
 #include "game/core/code_address.h"
 

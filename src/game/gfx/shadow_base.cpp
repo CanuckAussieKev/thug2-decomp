@@ -22,7 +22,7 @@
 #include "game/gfx/pixel_shaders.h"
 #include "game/gfx/draw_frame.h"
 #include "game/gfx/render_state.h"
-#include "game/lst/key_map.h"
+#include "game/lists/key_map.h"
 #include "game/gfx/shader_slots.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/glow.h"

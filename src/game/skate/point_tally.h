@@ -14,8 +14,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/lst/dynamic_table.h"
-#include "game/lst/lookup_table.h"
+#include "game/lists/dynamic_table.h"
+#include "game/lists/lookup_table.h"
 #include "game/script/param_struct.h"
 
 namespace Scripts {

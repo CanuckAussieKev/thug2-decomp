@@ -6,14 +6,14 @@
 #include <cmath>
 #include <cstdint>
 
-#include "game/ass/resource_registry.h"
+#include "game/assets/resource_registry.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/engine_effects.h"
 #include "game/gfx/rig.h"
 #include "game/gfx/texture_dict.h"
-#include "game/mth/mat4.h"
-#include "game/mth/quat_rotation.h"
+#include "game/maths/mat4.h"
+#include "game/maths/quat_rotation.h"
 #include "game/obj/compositemgr.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"

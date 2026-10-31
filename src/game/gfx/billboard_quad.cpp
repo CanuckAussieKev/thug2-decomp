@@ -13,7 +13,7 @@
 #include "game/core/manager.h"
 #include "game/gfx/draw2d.h"
 #include "game/gfx/draw_frame.h"
-#include "game/mth/vec4.h"
+#include "game/maths/vec4.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/screen.h"
 #include "game/core/code_address.h"

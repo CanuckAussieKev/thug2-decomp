@@ -7,8 +7,8 @@
 #include <cstdint>
 
 #include "game/core/manager.h"
-#include "game/mth/quat_rotation.h"
-#include "game/nx/probe_ray.h"
+#include "game/maths/quat_rotation.h"
+#include "game/engine3d/probe_ray.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/entity_hub.h"
 #include "game/obj/entity.h"
