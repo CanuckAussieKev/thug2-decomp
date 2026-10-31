@@ -2,9 +2,7 @@
 
 #include <cstdint>
 
-namespace memory {
-class Arena;
-}
+#include "engine/core/mem.h"
 
 namespace file {
 
@@ -15,7 +13,7 @@ class AsyncFileHandle;
 //
 // File format: a header {uint32 unknown, uint32 count}, then `count` entries {offset from the start of the
 // file, size, name checksum, type checksum}, then the asset data.
-class AssetBundle {
+class AssetBundle : public memory::HeapObject {
 public:
     struct TableRow {
         uint32_t offset;
@@ -26,8 +24,10 @@ public:
     static constexpr int kBundleCapacity = 450;
 
     AssetBundle();
-    // The vtable's only slot (scalar deleting destructor). Doesn't free the assets themselves.
-    AssetBundle* teardown(unsigned int flags);
+    // 0x005B6EA0: the loaded file freed and an async load closed - not the assets themselves.
+    ~AssetBundle();
+    AssetBundle(const AssetBundle&) = delete;
+    AssetBundle& operator=(const AssetBundle&) = delete;
 
     // The heap the bundle file is loaded into (`file_heap`), and the heap each asset is copied out to.
     void set_heaps(memory::Arena* file_heap, memory::Arena* asset_heap);
@@ -45,7 +45,7 @@ public:
     // Free every asset with this name and type; whether there was one.
     bool free_asset(uint32_t name, uint32_t type);
 
-    void** vtable_;             // 0x0065822C
+    // (the original's table at 0x0065822C held only the destructor: no vtable here)
     AsyncFileHandle* file_ref_; // an async load in progress (closed when the bundle is split / destroyed)
     void* bundle_bytes_;        // the whole file, as loaded (shrinks as the assets are split off)
     uint8_t* loaded_data_;      // the start of the file
@@ -60,6 +60,6 @@ public:
     int unknown234c_;
     int unknown2350_;
 };
-static_assert(sizeof(AssetBundle) == 0x2354, "allocated as 0x2354 bytes by the original");
+static_assert(sizeof(AssetBundle) == 0x2350, "the original's 0x2354 bytes less its vtable");
 
 } // namespace file

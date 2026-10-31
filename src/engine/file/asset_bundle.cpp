@@ -7,18 +7,12 @@
 #include "engine/core/mem.h"
 #include "engine/file/async.h"
 #include "engine/file/packs.h"
-#include "engine/core/code_address.h"
 
 namespace file {
-
-namespace {
-extern void** const kAssetBundleVtable;
-} // namespace
 
 // 0x005B6CF0
 AssetBundle::AssetBundle()
 {
-    vtable_ = kAssetBundleVtable;
     bundle_bytes_ = nullptr;
     loaded_data_ = nullptr;
     file_ref_ = nullptr;
@@ -30,18 +24,14 @@ AssetBundle::AssetBundle()
 }
 
 // 0x005B6EA0
-AssetBundle* AssetBundle::teardown(unsigned int flags)
+AssetBundle::~AssetBundle()
 {
-    vtable_ = kAssetBundleVtable;
     if (bundle_bytes_) {
         memory::free_malloc(bundle_bytes_);
         bundle_bytes_ = nullptr;
     }
     if (file_ref_)
         async_close(file_ref_);
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x005B6D30
@@ -158,18 +148,4 @@ bool AssetBundle::free_asset(uint32_t name, uint32_t type)
     return found;
 }
 
-namespace {
-static VtableSlot g_asset_bundle_vtable_slots[] = {&file::AssetBundle::teardown};
-void** const kAssetBundleVtable = reinterpret_cast<void**>(g_asset_bundle_vtable_slots);
-} // namespace
-
 } // namespace file
-
-namespace {
-
-// The constructor returns `this` in EAX (callers use it).
-struct AssetBundleAdapter {
-    file::AssetBundle* make_new() { return new (this) file::AssetBundle; }
-};
-
-} // namespace

@@ -87,14 +87,6 @@ private:
     alignas(16) uint8_t bytes_[0xB0];
 };
 
-// The shadow object (0x14 bytes, not rewritten yet): 0x004A1750 constructs it, 0x004A17E0 sets its texture by
-// name; its vtable's [0] deletes, [1] places it (point, orientation, normal).
-void release_blob_shadow(void*& shadow)
-{
-    reinterpret_cast<void(__thiscall*)(void*, int)>((*static_cast<void***>(shadow))[0])(shadow, 1);
-    shadow = nullptr;
-}
-
 // The rail editor's 0x004F3D30 (thiscall; the editor from 0x004F4970), around the cursor's move in the park editor.
 void rail_editor_moving(int moved) { park_editing::RailAuthoring::sole()->change_live(moved != 0); }
 bool in_park_editor()
@@ -220,8 +212,8 @@ EditorViewModule* EditorViewModule::make_new()
 void EditorViewModule::destroy_body()
 {
     vtable_ = kVtable;
-    if (shadow_handle_)
-        release_blob_shadow(shadow_handle_);
+    delete shadow_handle_;
+    shadow_handle_ = nullptr;
     ObjectModule::destroy_body();
 }
 
@@ -255,10 +247,9 @@ void EditorViewModule::build_blob_shadow()
 {
     if (shadow_handle_)
         return;
-    void* memory = memory::alloc_zeroed(0x14);
-    shadow_handle_ = memory ? static_cast<render::BlobShadow*>(memory)->make_new() : nullptr;
-    *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(shadow_handle_) + 0xC) = 0x3F99999A; // 1.2 (no null check)
-    static_cast<render::BlobShadow*>(shadow_handle_)->change_mesh("Ped_Shadow");
+    shadow_handle_ = new render::BlobShadow();
+    shadow_handle_->size_factor_ = 1.2f; // (no null check)
+    shadow_handle_->load_mesh("Ped_Shadow");
 }
 
 // 0x004E59D0
@@ -266,8 +257,10 @@ void EditorViewModule::conceal(bool hide)
 {
     if (!hide)
         build_blob_shadow();
-    else if (shadow_handle_)
-        release_blob_shadow(shadow_handle_);
+    else if (shadow_handle_) {
+        delete shadow_handle_;
+        shadow_handle_ = nullptr;
+    }
 }
 
 // 0x004E5A10
@@ -279,8 +272,8 @@ void EditorViewModule::resync_ground_shadow()
     maths::Vec4 bottom = {top.x, top.y - kDown, top.z, top.w};
     feeler.change_finish(bottom);
     if (!feeler.get_hit_shape(1, 0)) {
-        if (shadow_handle_)
-            release_blob_shadow(shadow_handle_);
+        delete shadow_handle_;
+        shadow_handle_ = nullptr;
         return;
     }
     build_blob_shadow();
@@ -288,8 +281,7 @@ void EditorViewModule::resync_ground_shadow()
     maths::Mat4 identity;
     identity.reset_to_identity();
     maths::Vec4 normal = feeler.get_normal();
-    reinterpret_cast<void(__thiscall*)(void*, const maths::Vec4*, const maths::Mat4*, maths::Vec4)>(
-        (*static_cast<void***>(shadow_handle_))[1])(shadow_handle_, &point, &identity, normal);
+    shadow_handle_->tick_frame(&point, &identity, normal);
 }
 
 // 0x004E5460

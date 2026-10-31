@@ -11,6 +11,10 @@ class Script;
 class Struct;
 } // namespace script
 
+namespace render {
+class BlobShadow;
+}
+
 namespace objects {
 
 // The editor camera component (type 0xAC8946E2, vtable 0x0064B2D0, 0x9C bytes; made by 0x004E5940): the
@@ -44,7 +48,7 @@ public:
     // 0x004E5C20 (slot 1): one frame (see the class).
     void tick_frame();
 
-    // 0x004E5170: the shadow made if there's none (a 0x14-byte 0x004A1750 object, scale 1.2, "Ped_Shadow").
+    // 0x004E5170: the shadow made if there's none (a simple shadow, scale 1.2, "Ped_Shadow").
     void build_blob_shadow();
     // 0x004E5A10: the shadow placed on the ground under the cursor (or deleted with no ground).
     void resync_ground_shadow();
@@ -72,14 +76,14 @@ public:
     bool simple_collision_;     // +0x90
     bool no_wall_check_;        // +0x91 (0xF5680DEF)
     uint8_t pad92[2];
-    uint8_t* input_ptr_;  // +0x94 the Input component
-    void* shadow_handle_; // +0x98
+    uint8_t* input_ptr_;                // +0x94 the Input component
+    render::BlobShadow* shadow_handle_; // +0x98
 };
 static_assert(offsetof(EditorViewModule, focus_) == 0x1C, "m_focus");
 static_assert(offsetof(EditorViewModule, cursor_) == 0x3C, "m_cursor");
 static_assert(offsetof(EditorViewModule, zoom_) == 0x6C, "m_zoom");
 static_assert(offsetof(EditorViewModule, level_y_) == 0x88, "m_height");
-static_assert(offsetof(EditorViewModule, shadow_handle_) == 0x98, "mp_shadow");
+static_assert(offsetof(EditorViewModule, shadow_handle_) == 0x98, "the shadow's offset");
 static_assert(sizeof(EditorViewModule) == 0x9C, "size");
 
 // 0x004E4F50: whether the script `name` (or one it calls, by name - with a guard against loops in the list at

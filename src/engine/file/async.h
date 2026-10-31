@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "engine/core/mem.h"
+
 namespace pre {
 class ArchiveFile;
 }
@@ -10,9 +12,8 @@ class ArchiveFile;
 // their callbacks run later on the main thread (WaitForIO / ExecuteCallbacks). Files inside loaded .pre
 // archives are served directly from memory instead.
 //
-// AsyncFileHandle is the game's CAsyncFileHandle. Its virtual methods are called through the object's own
-// (game) vtable, so the platform subclass - CPcAsyncFileHandle, which reads with Win32, overlapped on newer
-// Windows - works whichever of its methods are rewritten.
+// AsyncFileHandle is the handle every platform shares; its virtual os_* methods are the
+// platform's side - debug stubs in the base, Win32 reads (overlapped on newer Windows) in PcAsyncFileHandle.
 namespace file {
 
 class AsyncFileHandle;
@@ -24,9 +25,16 @@ using IoCompletionHook = void(__cdecl*)(AsyncFileHandle* file, int event, int va
 // Operations, also the events passed to callbacks.
 enum AsyncOperation : int { kAsyncIdle = 0, kAsyncOpen = 1, kOpReadFile = 3, kAsyncClose = 6, kAsyncCancel = 7 };
 
-class AsyncFileHandle {
+class AsyncFileHandle : public memory::HeapObject {
 public:
-    // Non-virtual methods.
+    // 0x005B69A0: the defaults, then the base's platform init (a debug stub).
+    AsyncFileHandle();
+    // 0x005B66C0 / 0x005B6370
+    virtual ~AsyncFileHandle() = default;
+    AsyncFileHandle(const AsyncFileHandle&) = delete;
+    AsyncFileHandle& operator=(const AsyncFileHandle&) = delete;
+
+    // Non-virtual methods: each serves a file inside a loaded .pre archive itself, else asks the platform.
     bool prepare_all();
     void change_hook(IoCompletionHook callback, void* arg0, void* arg1);
     int get_file_size();
@@ -35,39 +43,23 @@ public:
     int get_take_in(void* buffer, int size, int count);
     bool unseal(const char* name, bool blocking, int priority);
     bool shut();
-    // Virtual slot 1 (overridden by the platform class, which calls this one).
-    void io_done_handler(int event, bool error, int value, int extra);
 
-    // The virtual methods, by vtable slot.
-    enum Bay {
-        kDestroy = 0,
-        kSlotNotify = 1,
-        kSlotInit = 2,
-        kSlotOpen = 3,
-        kSlotClose = 4,
-        kSlotFinished = 5,
-        kSlotBusy = 6,
-        kSlotAtEnd = 7,
-        kSlotPriority = 8,
-        kSlotStreamMode = 9,
-        kSlotTarget = 10,
-        kSlotBufSize = 11,
-        kSlotBlockMode = 12,
-        kSlotLoadAll = 13,
-        kSlotRead = 14,
-        kSlotWrite = 15,
-        kSlotReadLine = 16,
-        kSlotSeek = 17,
-        kPlatCancel = 18,
-    };
-    template <typename R, typename... A>
-    R Virtual(int slot, A... args)
-    {
-        auto function = reinterpret_cast<R(__thiscall*)(AsyncFileHandle*, A...)>(vtable_[slot]);
-        return function(this, args...);
-    }
+    // Virtual slot 1 (0x005B69F0): an operation finished - its callback queued, or it's counted done. The platform's
+    // override keeps the size and position up to date first.
+    virtual void io_done_handler(int event, bool error, int value, int extra);
+    // The platform's side (slots 2-7, 13, 14 and 18; the base's print "STUB: CAsyncFileHandle::<name>" and fail).
+    // The original's slots 8-12 and 15-17 (SetPriority, SetStream, SetDestination, SetBufferSize, SetBlocking,
+    // Write, GetS, Seek) are never called: the PC's are do-nothing stubs, so they're left out.
+    virtual bool os_open_setup();                                 // [2] Init
+    virtual bool os_open_file(const char* name);                  // [3] Open
+    virtual bool os_close_file();                                 // [4] Close
+    virtual bool os_read_finished();                              // [5] IsDone: whether the I/O in flight has finished
+    virtual bool os_read_pending();                               // [6] IsBusy
+    virtual bool os_at_end();                                     // [7] IsEOF
+    virtual int os_load_whole(void* buffer);                      // [13] Load: the whole file
+    virtual int os_read_chunk(void* buffer, int size, int count); // [14] Read
+    virtual bool os_cancel();                                     // [18] Cancel (the PC uses the base's)
 
-    void** vtable_;
     int outcome_val_; // result of the last operation (size read, error, ...)
     IoCompletionHook callback_;
     void* arg0_;
@@ -85,21 +77,6 @@ public:
     volatile int in_flight_ops_;
 };
 
-// What the CAsyncFileHandle constructor does (defaults, base vtable, the base class's platform init).
-void construct_async_file_handle(AsyncFileHandle* file);
-// The PC handle's platform methods, in vtable slot order where they override (for tests).
-struct PcAsyncMethods {
-    void* on_io_done_;
-    void* init;
-    void* open;
-    void* close;
-    void* is_done_;
-    void* is_busy_;
-    void* is_eof_;
-    void* load;
-    void* read;
-};
-PcAsyncMethods pc_async_file_handle_methods();
 // Whether overlapped I/O is used (chosen at start-up; Windows NT 6 and later).
 bool& async_use_overlapped_io();
 
@@ -110,7 +87,7 @@ AsyncLoaderModule* create_async_loader_module(bool create);
 void destroy_async_loader_module();
 void async_poll_handles();
 
-// The static side (CAsyncFileLoader).
+// The static side: the pool of handles and the callbacks.
 void async_init();
 bool async_busy();
 AsyncFileHandle* async_open(const char* name, bool blocking, int priority);

@@ -268,10 +268,8 @@ void CinematicEntry::get_end()
 CinematicTable::~CinematicTable()
 {
     g_cutscene_playing = false;
-    if (bundle_ptr_) {
-        delete_virtual(bundle_ptr_);
-        bundle_ptr_ = nullptr;
-    }
+    delete bundle_ptr_;
+    bundle_ptr_ = nullptr;
     if (camera_source_)
         delete_virtual(camera_source_);
     camera_source_ = nullptr;

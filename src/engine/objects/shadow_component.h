@@ -11,19 +11,18 @@ class Script;
 class Struct;
 } // namespace script
 
+namespace render {
+class ShadowBase;
+}
+
 namespace objects {
 
 // The shadow component (type 0x8A897DD2, "shadow"; vtable 0x00646498, 0x48 bytes; made by 0x00431800): the shadow
-// under its object - one of the renderer's shadow objects (not rewritten yet), chosen by ShadowType: detailed (type 1,
+// under its object - one of the renderer's shadow objects (engine_shadows.h), chosen by ShadowType: detailed (type 1,
 // 0x004A19C0: from the model, cast along (0, -1, 0) over 72), simple (type 2, 0x004A1750: a shadow model -
 // ShadowModel=, "Ped_Shadow" by default - at the ground, scaled by ShadowScale=) or Volume (type 3, 0x004A1F80), or
 // none. Each update it follows the object (unless the structure had the flag 0x7E773A11) and is shown while the
 // model is visible.
-//
-// The shadow object's vtable as used here: 0 the scalar deleting destructor; 1 (+0x04) tick_frame(position, matrix,
-// ground normal by value); 2 (+0x08) change_place(by value); 3 (+0x0C) SetLightDirection(direction); 4 (+0x10)
-// change_mat(matrix); 5 (+0x14) Hide; 6 (+0x18) Show; 7 (+0x1C) change_mesh(model, asset data). Its +0x04 is its type,
-// +0x0C the simple shadow's scale (the model's +0x1C at first), +0x10 its offset.
 //
 // The component's vtable: 0 the scalar deleting destructor; 1 Update; 2 configure_from_data; 3 Finalize; 4 the empty
 // 0x005480A0; 5 the shared 0x004E3F90; 6 0x0048DCD0; 7 the base's Suspend; 8 Hide; 9 0x004A1090 (Teleport, shared);
@@ -73,12 +72,12 @@ public:
     // 0x00431360 (not a Ghidra function): the light's direction handed to the shadow (if any).
     void set_light_direction(const maths::Vec4* direction);
 
-    void* shadow_handle_;         // +0x18 the renderer's shadow object
-    maths::Vec4 at_point_;        // +0x1C where it is
-    maths::Vec4 surface_dir_;     // +0x2C the ground's normal under it
-    uint32_t shadow_kind_;        // +0x3C ShadowType (none 0x806FFF30, simple, detailed, Volume)
-    ObjectModule* mesh_instance_; // +0x40 the model component (Finalize)
-    bool follow_object_;          // +0x44 each update puts it at the object's position
+    render::ShadowBase* shadow_handle_; // +0x18 the renderer's shadow object
+    maths::Vec4 at_point_;              // +0x1C where it is
+    maths::Vec4 surface_dir_;           // +0x2C the ground's normal under it
+    uint32_t shadow_kind_;              // +0x3C ShadowType (none 0x806FFF30, simple, detailed, Volume)
+    ObjectModule* mesh_instance_;       // +0x40 the model component (Finalize)
+    bool follow_object_;                // +0x44 each update puts it at the object's position
     uint8_t pad45[3];
 };
 static_assert(offsetof(GroundShadowModule, shadow_handle_) == 0x18 && offsetof(GroundShadowModule, at_point_) == 0x1C &&

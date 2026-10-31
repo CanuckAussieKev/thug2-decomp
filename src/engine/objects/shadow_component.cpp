@@ -46,30 +46,13 @@ constexpr float kCastDistance = 72.0f;
 // A detailed shadow is placed this far up the object's up.
 constexpr float kDetailedHeight = 36.0f;
 
-// The renderer's shadow object (see the class comment).
-void** get_vtable(void* shadow) { return *static_cast<void***>(shadow); }
-int& shadow_kind_of(void* shadow) { return *reinterpret_cast<int*>(static_cast<uint8_t*>(shadow) + 0x04); }
-float& shadow_scale_of(void* shadow) { return *reinterpret_cast<float*>(static_cast<uint8_t*>(shadow) + 0x0C); }
-float& shadow_offset_of(void* shadow) { return *reinterpret_cast<float*>(static_cast<uint8_t*>(shadow) + 0x10); }
-void release_blob_shadow(void* shadow)
-{
-    reinterpret_cast<void*(__thiscall*)(void*, int)>(get_vtable(shadow)[0])(shadow, 1);
-}
-void shadow_update(void* shadow, const maths::Vec4* pos, const maths::Mat4* matrix, maths::Vec4 normal)
-{
-    reinterpret_cast<void(__thiscall*)(void*, const maths::Vec4*, const maths::Mat4*, maths::Vec4)>(
-        get_vtable(shadow)[1])(shadow, pos, matrix, normal);
-}
-void shadow_set_position(void* shadow, maths::Vec4 pos)
-{
-    reinterpret_cast<void(__thiscall*)(void*, maths::Vec4)>(get_vtable(shadow)[2])(shadow, pos);
-}
-void shadow_set_matrix(void* shadow, const maths::Mat4* matrix)
-{
-    reinterpret_cast<void(__thiscall*)(void*, const maths::Mat4*)>(get_vtable(shadow)[4])(shadow, matrix);
-}
-void shadow_hide(void* shadow) { reinterpret_cast<void(__thiscall*)(void*)>(get_vtable(shadow)[5])(shadow); }
-void shadow_show(void* shadow) { reinterpret_cast<void(__thiscall*)(void*)>(get_vtable(shadow)[6])(shadow); }
+// The renderer's shadow object's kind (engine_shadows.h).
+int shadow_kind_of(const render::ShadowBase* shadow) { return shadow->kind_tag_; }
+// A simple shadow's scale and offset (the kind checked by the caller - or not, as the original).
+render::BlobShadow* as_blob(render::ShadowBase* shadow) { return static_cast<render::BlobShadow*>(shadow); }
+
+// The model's +0x2C object (vtable slot 5 gives a vector).
+void** get_vtable(void* object) { return *static_cast<void***>(object); }
 
 // The model component's model (+0x208), and that model's flags (+0x44: 0x2 visible, 0x4 hidden), its +0x1C (a
 // simple shadow's first scale), its checksum (+0x30) and its +0x2C object (vtable slot 5 gives a vector).
@@ -113,7 +96,7 @@ void GroundShadowModule::destroy_body()
 {
     vtable_ = kVtable;
     if (shadow_handle_) {
-        release_blob_shadow(shadow_handle_);
+        delete shadow_handle_;
         shadow_handle_ = nullptr;
     }
     ObjectModule::destroy_body();
@@ -135,8 +118,8 @@ void GroundShadowModule::seal()
     uint32_t checksum = *reinterpret_cast<uint32_t*>(model_of(mesh_instance_) + 0x30);
     void* asset = assets::g_asset_manager->get_asset_data(checksum, 0);
     if (shadow_handle_)
-        reinterpret_cast<void(__thiscall*)(void*, uint8_t*, void*)>(get_vtable(shadow_handle_)[7])(
-            shadow_handle_, model_of(mesh_instance_), asset);
+        shadow_handle_->change_mesh(reinterpret_cast<render::RenderModel*>(model_of(mesh_instance_)),
+                                    static_cast<uint8_t*>(asset));
 }
 
 // 0x00431450
@@ -149,7 +132,7 @@ void GroundShadowModule::refresh_shadow()
         return;
     uint8_t flags = model[0x44];
     if (!(flags & 0x2) || (flags & 0x4)) {
-        shadow_hide(shadow_handle_);
+        shadow_handle_->hide();
         return;
     }
     switch (shadow_kind_of(shadow_handle_)) {
@@ -163,19 +146,19 @@ void GroundShadowModule::refresh_shadow()
             maths::Vec4 unused = *v * -1.0f;
             (void)unused;
         }
-        shadow_set_position(shadow_handle_, above);
+        shadow_handle_->change_place(above);
         break;
     }
     case kShadowSimple:
-        shadow_scale_of(shadow_handle_) = *reinterpret_cast<float*>(model + 0x1C);
+        as_blob(shadow_handle_)->size_factor_ = *reinterpret_cast<float*>(model + 0x1C);
         [[fallthrough]];
     case kShadowVolume:
-        shadow_update(shadow_handle_, &at_point_, &entity_->basis_frame_, surface_dir_);
+        shadow_handle_->tick_frame(&at_point_, &entity_->basis_frame_, surface_dir_);
         break;
     default:
         break;
     }
-    shadow_show(shadow_handle_);
+    shadow_handle_->show();
 }
 
 // 0x00431570
@@ -184,9 +167,9 @@ void GroundShadowModule::conceal(bool hide)
     if (!shadow_handle_)
         return;
     if (hide)
-        shadow_hide(shadow_handle_);
+        shadow_handle_->hide();
     else
-        shadow_show(shadow_handle_);
+        shadow_handle_->show();
 }
 
 // 0x004315A0
@@ -197,33 +180,24 @@ void GroundShadowModule::build_blob_shadow(int type, const char* model_name)
     ObjectModule* model_component = entity_->fetch_module(kModel);
     uint8_t* model = model_component ? model_of(model_component) : nullptr;
     switch (type) {
-    case kShadowDetailed: {
-        void* memory = memory::alloc_zeroed(0x24);
-        shadow_handle_ = memory ? static_cast<render::FullShadow*>(memory)->make_new(
-                                      reinterpret_cast<render::RenderModel*>(model), kDown, kCastDistance)
-                                : nullptr;
+    case kShadowDetailed:
+        shadow_handle_ = new render::FullShadow(reinterpret_cast<render::RenderModel*>(model), kDown, kCastDistance);
         return;
-    }
     case kShadowSimple: {
-        void* memory = memory::alloc_zeroed(0x14);
-        void* shadow = memory ? static_cast<render::BlobShadow*>(memory)->make_new() : nullptr;
+        auto* shadow = new render::BlobShadow();
         // (no shadow - out of memory - is written through regardless, as the original)
-        shadow_scale_of(shadow) = *reinterpret_cast<float*>(model + 0x1C);
-        static_cast<render::BlobShadow*>(shadow)->change_mesh(model_name);
+        shadow->size_factor_ = *reinterpret_cast<float*>(model + 0x1C);
+        shadow->load_mesh(model_name);
         shadow_handle_ = shadow;
         break;
     }
-    case kShadowVolume: {
-        void* memory = memory::alloc(0x68);
-        shadow_handle_ = memory ? static_cast<render::ShadowVolume*>(memory)->make_new(
-                                      reinterpret_cast<render::RenderModel*>(model), kDown, kCastDistance)
-                                : nullptr;
+    case kShadowVolume:
+        shadow_handle_ = new render::ShadowVolume(reinterpret_cast<render::RenderModel*>(model), kDown, kCastDistance);
         break;
-    }
     default:
         return;
     }
-    shadow_update(shadow_handle_, &at_point_, &entity_->basis_frame_, surface_dir_);
+    shadow_handle_->tick_frame(&at_point_, &entity_->basis_frame_, surface_dir_);
 }
 
 // 0x00431780
@@ -233,8 +207,7 @@ void GroundShadowModule::destroy_shadow()
         return;
     if (mesh_instance_)
         set_model_shadow(model_of(mesh_instance_), false);
-    if (shadow_handle_)
-        release_blob_shadow(shadow_handle_);
+    delete shadow_handle_;
     shadow_handle_ = nullptr;
 }
 
@@ -248,8 +221,7 @@ void GroundShadowModule::set_normal(const maths::Vec4* normal) { surface_dir_ = 
 void GroundShadowModule::set_light_direction(const maths::Vec4* direction)
 {
     if (shadow_handle_)
-        reinterpret_cast<void(__thiscall*)(void*, const maths::Vec4*)>(get_vtable(shadow_handle_)[3])(shadow_handle_,
-                                                                                                      direction);
+        shadow_handle_->set_light_direction(direction);
 }
 
 // 0x00431860
@@ -272,8 +244,8 @@ void GroundShadowModule::configure_from_data(script::Struct* params)
             build_blob_shadow(kShadowSimple, model);
         float scale = 1.0f;
         params->fetch_float(kBlobSizeFactor, &scale, 0);
-        shadow_scale_of(shadow_handle_) = scale;
-        shadow_update(shadow_handle_, &at_point_, &entity_->basis_frame_, surface_dir_);
+        as_blob(shadow_handle_)->size_factor_ = scale;
+        shadow_handle_->tick_frame(&at_point_, &entity_->basis_frame_, surface_dir_);
         break;
     }
     case kVolume:
@@ -309,7 +281,7 @@ void GroundShadowModule::tick_frame()
                                               &entity_->display_matrix_};
             }
             matrix.row[3] = pos;
-            shadow_set_matrix(shadow_handle_, &matrix);
+            shadow_handle_->change_mat(&matrix);
         }
     }
     refresh_shadow();
@@ -331,7 +303,7 @@ int GroundShadowModule::invoke_method_by_name(uint32_t name, script::Struct* par
     if (shadow_handle_ && shadow_kind_of(shadow_handle_) == kShadowSimple) {
         float offset = 0.2f; // (read into the name's argument slot)
         params->fetch_float(kOffset, &offset, 0);
-        shadow_offset_of(shadow_handle_) = offset;
+        as_blob(shadow_handle_)->shift_ = offset;
     }
     return 1;
 }
