@@ -87,18 +87,13 @@ uint32_t& hidden_time() { return g_flare_hidden_time; }   // when it was last no
 maths::Vec4& get_color() { return g_flare_color; }
 maths::Vec4& get_position() { return g_flare_position; } // in the world, this frame
 
-// The texture `checksum` (the texture dictionary 0x00700F20's look-up), and a texture deleted (its vtable slot 0,
-// the scalar deleting destructor).
+// The texture `checksum` (the texture dictionary 0x00700F20's look-up), and a texture deleted.
 void* find_texture(uint32_t checksum)
 {
     return static_cast<render::TextureSet*>(reinterpret_cast<void*>(render::g_particle_texture_dict))
         ->fetch_skin(checksum);
 }
-void delete_texture(void* texture)
-{
-    using Destructor = void*(__thiscall*)(void*, uint32_t);
-    (*reinterpret_cast<Destructor**>(texture))[0](texture, 1);
-}
+void delete_texture(void* texture) { delete static_cast<render::BitmapTexture*>(texture); }
 
 // The game's clock with its offset, and the milliseconds since `time`.
 uint32_t get_now() { return static_cast<uint32_t>(frame_clock::game_clock_time()); }

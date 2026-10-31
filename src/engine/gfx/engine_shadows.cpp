@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstring>
 
+#include "engine/gfx/engine_texture.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/view_cam.h"
@@ -89,8 +90,7 @@ FullShadow::FullShadow(RenderModel* model, maths::Vec4 direction, float distance
 FullShadow::~FullShadow()
 {
     remove_texture_shadow_caster(bitmap_);
-    if (bitmap_)
-        delete_through0(bitmap_);
+    delete reinterpret_cast<BitmapTexture*>(bitmap_);
     if (view_camera_)
         delete_through0(view_camera_);
 }

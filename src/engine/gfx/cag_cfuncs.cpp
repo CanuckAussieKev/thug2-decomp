@@ -2,6 +2,7 @@
 // cag_cfuncs.h).
 
 #include "engine/gfx/cag_cfuncs.h"
+#include "engine/gfx/engine_texture.h"
 #include "engine/gfx/model_appearance.h"
 #include "engine/gfx/texture_dict.h"
 
@@ -54,21 +55,13 @@ constexpr uint32_t kHeadBoneGroups[4] = {
 // a new texture (0x0049FAA0: name, width, height, then 4 / 8, 0x20, 1, 1) and one taken out (0x0049F500).
 void* get_textures() { return reinterpret_cast<void*>(render::g_game_texture_dict); }
 void* skater_textures() { return reinterpret_cast<void*>(render::g_particle_texture_dict); }
-void* find_texture(void* dictionary, uint32_t name)
+render::BitmapTexture* find_texture(void* dictionary, uint32_t name)
 {
     return static_cast<render::TextureSet*>(dictionary)->fetch_skin(name);
 }
-void* alloc_pc_texture(uint32_t name, int width, int height, int a, int b)
+render::BitmapTexture* alloc_pc_texture(uint32_t name, int width, int height, int a, int b)
 {
     return static_cast<render::TextureSet*>(get_textures())->create_texture(name, width, height, a, b, 1, true);
-}
-
-// A texture's methods (each a jump through its vtable).
-template <typename R, typename... A>
-R texture_call(uint32_t slot, void* texture, A... args)
-{
-    // (the texture's virtual slot `slot`: the original goes through a jump stub for each)
-    return reinterpret_cast<R(__thiscall*)(void*, A...)>((*static_cast<void***>(texture))[slot])(texture, args...);
 }
 
 // The C runtime's _ftol (0x006236FC): truncated to a 64-bit integer, the low half kept.
@@ -91,13 +84,13 @@ bool __cdecl cfunc_generate_cag_texture(script::Struct* params, script::Script*)
     uint8_t palette[0x400]; // (filled by the tag's palette call, not here)
     Array* layers = nullptr;
     params->fetch_list(kLayerInfoList, &layers, 1);
-    void* tag = find_texture(skater_textures(), kCustomTag);
-    texture_call<void>(8, tag, 0, 0);
-    texture_call<void>(12, tag, 0u, false);
-    uint32_t size = texture_call<uint32_t>(33, tag);
+    render::BitmapTexture* tag = find_texture(skater_textures(), kCustomTag);
+    tag->begin_edit(false, false);
+    tag->modulate(0u, false);
+    uint32_t size = tag->fetch_breadth();
     int width = static_cast<uint16_t>(size);
-    void* workspace = alloc_pc_texture(kWorkspace, width, width, 4, 0x20);
-    texture_call<void>(8, workspace, 0, 0);
+    render::BitmapTexture* workspace = alloc_pc_texture(kWorkspace, width, width, 4, 0x20);
+    workspace->begin_edit(false, false);
 
     uint32_t count = layers->extent_;
     bool translucent = false;
@@ -106,28 +99,28 @@ bool __cdecl cfunc_generate_cag_texture(script::Struct* params, script::Script*)
         auto* info = reinterpret_cast<Struct*>(layers->fetch_part(i));
         uint32_t texture_id;
         info->read_hash_value(kTextureId, &texture_id, 1);
-        void* source = find_texture(get_textures(), texture_id);
-        texture_call<void>(8, source, 0, 0);
-        texture_call<void>(10, workspace);
-        texture_call<void>(8, workspace, 0, 0);
-        texture_call<void>(15, workspace, source, 0);
-        texture_call<void>(10, source);
-        texture_call<void>(19, workspace, 0u);
+        render::BitmapTexture* source = find_texture(get_textures(), texture_id);
+        source->begin_edit(false, false);
+        workspace->end_edit();
+        workspace->begin_edit(false, false);
+        workspace->resize_from(source, 0);
+        source->end_edit();
+        workspace->get_border(0u);
         float scale;
         info->fetch_float(kScale, &scale, 1);
-        texture_call<void>(16, workspace, scale, scale);
+        workspace->get_zoom(scale, scale);
         int flip_h;
         info->fetch_int_value(kFlipH, &flip_h, 1);
         int flip_v;
         info->fetch_int_value(kFlipV, &flip_v, 1);
         if (flip_h)
-            texture_call<void>(13, workspace);
+            workspace->get_mirror();
         if (flip_v)
-            texture_call<void>(14, workspace);
+            workspace->flip_vertically();
         float rot;
         info->fetch_float(kRot, &rot, 1);
         float radians = static_cast<float>(static_cast<double>(rot) * g_degree_to_radian_ratio); // pi / 180
-        texture_call<void>(17, workspace, radians, -1.0f, -1.0f);
+        workspace->spin_by(radians, -1.0f, -1.0f);
         float x;
         info->fetch_float(kPosX, &x, 1);
         float y;
@@ -136,7 +129,7 @@ bool __cdecl cfunc_generate_cag_texture(script::Struct* params, script::Script*)
             x = x + x;
             y = y + y;
         }
-        texture_call<void>(18, workspace, ftol(x), ftol(y), 0, 0u);
+        workspace->get_offset(ftol(x), ftol(y), false, 0);
         Array* rgba;
         info->fetch_list(kRgba, &rgba, 1);
         uint8_t a = static_cast<uint8_t>(ftol(rgba->fetch_float(3)));
@@ -144,22 +137,22 @@ bool __cdecl cfunc_generate_cag_texture(script::Struct* params, script::Script*)
         uint8_t g = static_cast<uint8_t>(ftol(rgba->fetch_float(1)));
         uint8_t r = static_cast<uint8_t>(ftol(rgba->fetch_float(0)));
         uint32_t colour = r | g << 8 | b << 16 | static_cast<uint32_t>(a) << 24;
-        texture_call<void>(12, workspace, colour, false);
+        workspace->modulate(colour, false);
         if (a < 0x80)
             translucent = true;
         int layer;
         info->fetch_int_value(kLayerId, &layer, 1);
         if (last_layer != layer)
             last_layer = layer; // (kept, never used)
-        texture_call<void>(9, workspace, 1, static_cast<void*>(nullptr));
-        texture_call<void>(41, tag, workspace, 1);
+        workspace->write_back(1, static_cast<void*>(nullptr));
+        tag->get_overlay(workspace, 1);
     }
 
-    texture_call<void>(19, tag, 0u);
-    if (!translucent && texture_call<uint8_t>(35, tag) == 8)
-        texture_call<void>(9, tag, 0, static_cast<void*>(palette));
+    tag->get_border(0u);
+    if (!translucent && tag->get_depth() == 8)
+        tag->write_back(0, static_cast<void*>(palette));
     else
-        texture_call<void>(9, tag, 1, static_cast<void*>(nullptr));
+        tag->write_back(1, static_cast<void*>(nullptr));
     static_cast<render::TextureSet*>(get_textures())->unload_texture(static_cast<render::BitmapTexture*>(workspace));
 
     int player;
@@ -173,8 +166,8 @@ bool __cdecl cfunc_generate_cag_texture(script::Struct* params, script::Script*)
     int test = 0;
     params->fetch_int_value(kTest, &test, 0);
     if (test) {
-        void* sprite = alloc_pc_texture(kWorkspaceSprite, 0x80, 0x80, 8, 0x20);
-        texture_call<void>(4, sprite, tag);
+        render::BitmapTexture* sprite = alloc_pc_texture(kWorkspaceSprite, 0x80, 0x80, 8, 0x20);
+        sprite->copy_from(tag);
     }
     return true;
 }
@@ -190,7 +183,7 @@ bool __cdecl cfunc_sync_cag_workspace(script::Struct* params, script::Script*)
     auto* tagging = static_cast<objects::TaggingComponent*>(skater->fetch_module(objects::TaggingComponent::kType));
     void* graffiti = tagging->graffiti_; // (0x00553E90, a getter folded with others)
     if (graffiti)
-        texture_call<void>(4, find_texture(skater_textures(), kCustomTag), graffiti);
+        find_texture(skater_textures(), kCustomTag)->copy_from(static_cast<render::BitmapTexture*>(graffiti));
     return true;
 }
 

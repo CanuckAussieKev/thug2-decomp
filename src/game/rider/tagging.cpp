@@ -78,12 +78,12 @@ void unload_texture(void* texture)
 }
 void release_texture(void* texture)
 {
-    reinterpret_cast<void(__thiscall*)(void*)>(&render::virtual_slot32_jump)(texture);
+    static_cast<render::BitmapTexture*>(texture)->release_pixels(); // (through the jump 0x0049F3B0)
 }
-// A texture's image put on `texture` (its vtable +0x10).
+// A texture's image put on `texture` (copy_from, through the jump 0x00487D50).
 void put_on(void* texture, void* image)
 {
-    reinterpret_cast<void(__thiscall*)(void*, void*)>(&gfx::virtual_slot4_jump)(texture, image);
+    static_cast<render::BitmapTexture*>(texture)->copy_from(static_cast<render::BitmapTexture*>(image));
 }
 
 // One of the component's own textures given back.

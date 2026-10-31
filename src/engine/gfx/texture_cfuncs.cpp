@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstring>
 
+#include "engine/gfx/engine_texture.h"
 #include "engine/core/dbg.h"
 #include "engine/gfx/texture_dict.h"
 #include "engine/objects/entity.h"
@@ -34,29 +35,21 @@ void* get_textures() { return reinterpret_cast<void*>(render::g_game_texture_dic
 void* particle_textures() { return reinterpret_cast<void*>(render::g_particle_texture_dict); }
 
 // A dictionary's calls (no source yet).
-void* read_texture_file(void* dictionary, const char* file, bool flag1, bool allocate_vram, bool flag3)
+render::BitmapTexture* read_texture_file(void* dictionary, const char* file, bool flag1, bool allocate_vram, bool flag3)
 {
     return static_cast<render::TextureSet*>(dictionary)->ingest_skin(file, flag1, allocate_vram, flag3);
 }
-void* fetch_skin(void* dictionary, uint32_t checksum)
+render::BitmapTexture* fetch_skin(void* dictionary, uint32_t checksum)
 {
     return static_cast<render::TextureSet*>(dictionary)->fetch_skin(checksum);
 }
-void* get_texture_by_name(void* dictionary, const char* file)
+render::BitmapTexture* get_texture_by_name(void* dictionary, const char* file)
 {
     return static_cast<render::TextureSet*>(dictionary)->get_texture_by_name(file);
 }
 void unload_texture_from(void* dictionary, void* texture)
 {
     static_cast<render::TextureSet*>(dictionary)->unload_texture(static_cast<render::BitmapTexture*>(texture));
-}
-
-// A texture's own calls (thunks into its vtable).
-template <typename Fn, typename... Args>
-void texture_call(uint32_t slot, void* texture, Args... args)
-{
-    // (the texture's virtual slot `slot`: the original goes through a jump stub for each)
-    reinterpret_cast<Fn>((*static_cast<void***>(texture))[slot])(texture, args...);
 }
 
 // A component's raw value.
@@ -182,7 +175,7 @@ bool __cdecl cfunc_generate32_bit_image(Struct* params, Script*)
 {
     uint32_t id;
     params->read_hash_value(0u, &id, 0);
-    void* texture = fetch_skin(get_textures(), id);
+    render::BitmapTexture* texture = fetch_skin(get_textures(), id);
     if (texture) {
         bool renderable = false;
         bool store_original = false;
@@ -191,7 +184,7 @@ bool __cdecl cfunc_generate32_bit_image(Struct* params, Script*)
             renderable = true;
         if (params->fetch_int_value(0xEEFAF080u, &value, 0) && value == 1) // store_original
             store_original = true;
-        texture_call<void(__thiscall*)(void*, bool, bool)>(8, texture, renderable, store_original);
+        texture->begin_edit(renderable, store_original);
     }
     return true;
 }
@@ -201,14 +194,14 @@ bool __cdecl cfunc_put32_bit_image_into_texture(Struct* params, Script*)
 {
     uint32_t id;
     params->read_hash_value(0u, &id, 0);
-    void* texture = fetch_skin(get_textures(), id);
+    render::BitmapTexture* texture = fetch_skin(get_textures(), id);
     if (texture) {
         bool palette_gen = false;
         int value = 0;
         params->fetch_int_value(0xC313FDFFu, &value, 0); // palette_gen
         if (value == 1)
             palette_gen = true;
-        texture_call<void(__thiscall*)(void*, bool, bool)>(9, texture, palette_gen, false);
+        texture->write_back(palette_gen, nullptr);
     }
     return true;
 }
@@ -220,14 +213,14 @@ bool __cdecl cfunc_flip_texture(Struct* params, Script*)
     params->read_hash_value(0u, &id, 0);
     int horizontal = 0;
     int vertical = 0;
-    void* texture = fetch_skin(get_textures(), id);
+    render::BitmapTexture* texture = fetch_skin(get_textures(), id);
     if (texture) {
         params->fetch_int_value(0xA04027C9u, &horizontal, 0); // horiz
         params->fetch_int_value(0x94927839u, &vertical, 0);   // vert
         if (horizontal)
-            texture_call<void(__thiscall*)(void*)>(13, texture);
+            texture->get_mirror();
         if (vertical)
-            texture_call<void(__thiscall*)(void*)>(14, texture);
+            texture->flip_vertically();
     }
     return true;
 }
@@ -239,10 +232,10 @@ bool __cdecl cfunc_resize_texture_into(Struct* params, Script*)
     params->read_hash_value(0u, &id, 0);
     uint32_t source; // (not initialised without src=, as in the original)
     params->read_hash_value(kSrc, &source, 0);
-    void* texture = fetch_skin(get_textures(), id);
+    render::BitmapTexture* texture = fetch_skin(get_textures(), id);
     if (texture) {
-        if (void* source_texture = fetch_skin(get_textures(), source))
-            texture_call<void(__thiscall*)(void*, void*, int)>(15, texture, source_texture, 0);
+        if (render::BitmapTexture* source_texture = fetch_skin(get_textures(), source))
+            texture->resize_from(source_texture, 0);
     }
     return true;
 }
@@ -254,8 +247,8 @@ bool __cdecl cfunc_scale_texture(Struct* params, Script*)
     params->read_hash_value(0u, &id, 0);
     float scale; // (not initialised without scale=, as in the original)
     params->fetch_float(0x13B9DA7Bu, &scale, 0);
-    if (void* texture = fetch_skin(get_textures(), id))
-        texture_call<void(__thiscall*)(void*, float, float)>(16, texture, scale, scale);
+    if (render::BitmapTexture* texture = fetch_skin(get_textures(), id))
+        texture->get_zoom(scale, scale);
     return true;
 }
 
@@ -264,14 +257,13 @@ bool __cdecl cfunc_adjust_texture_region(Struct* params, Script*)
 {
     uint32_t id;
     params->read_hash_value(0u, &id, 0);
-    void* texture = fetch_skin(get_textures(), id);
+    render::BitmapTexture* texture = fetch_skin(get_textures(), id);
     if (texture) {
         int x = 0;
         int y = 0;
-        // (its width and height: slots 33 and 34, through the jumps 0x0049F3C0 / 0x0049F3D0)
-        auto** slots = *static_cast<void***>(texture);
-        int width = reinterpret_cast<uint16_t(__thiscall*)(void*)>(slots[33])(texture);
-        int height = reinterpret_cast<uint16_t(__thiscall*)(void*)>(slots[34])(texture);
+        // (its width and height, through the jumps 0x0049F3C0 / 0x0049F3D0)
+        int width = texture->fetch_breadth();
+        int height = texture->fetch_tallness();
         int value5 = 0;
         int value6 = 0;
         int value7 = 0;
@@ -282,8 +274,7 @@ bool __cdecl cfunc_adjust_texture_region(Struct* params, Script*)
         params->fetch_int_value(0xE679982Eu, &value5, 0); // (names unknown)
         params->fetch_int_value(0x3D0F162Au, &value6, 0);
         params->fetch_int_value(0x39C54BDEu, &value7, 0);
-        texture_call<void(__thiscall*)(void*, int, int, int, int, int, int, int)>(20, texture, x, y, width, height,
-                                                                                  value5, value6, value7);
+        texture->adjust_region(x, y, width, height, value5, value6, value7);
     }
     return true;
 }
@@ -293,7 +284,7 @@ bool __cdecl cfunc_pull_texture_to_edge(Struct* params, Script*)
 {
     uint32_t id;
     params->read_hash_value(0u, &id, 0);
-    void* texture = fetch_skin(get_textures(), id);
+    render::BitmapTexture* texture = fetch_skin(get_textures(), id);
     if (texture) {
         int edge = 0;
         int axis = 0;
@@ -301,7 +292,7 @@ bool __cdecl cfunc_pull_texture_to_edge(Struct* params, Script*)
         params->fetch_int_value(0x485A0CDBu, &edge, 0);   // (name unknown)
         params->fetch_int_value(0x7AF07905u, &axis, 0);   // Axis
         params->fetch_int_value(0x88CF948Cu, &pixels, 0); // num_pixels
-        texture_call<void(__thiscall*)(void*, int, int, int)>(21, texture, edge, axis, pixels);
+        texture->get_stretch(edge, axis, pixels);
     }
     return true;
 }
@@ -311,7 +302,7 @@ bool __cdecl cfunc_adjust_texture_brightness(Struct* params, Script*)
 {
     uint32_t id;
     params->read_hash_value(0u, &id, 0);
-    void* texture = fetch_skin(get_textures(), id);
+    render::BitmapTexture* texture = fetch_skin(get_textures(), id);
     if (texture) {
         float brightness = 1.0f;
         int value = 0;
@@ -320,7 +311,7 @@ bool __cdecl cfunc_adjust_texture_brightness(Struct* params, Script*)
         params->fetch_int_value(kSetsPaletteFlag, &value, 0);
         if (value == 1)
             flag = true;
-        texture_call<void(__thiscall*)(void*, float, bool)>(23, texture, brightness, flag);
+        texture->adjust_brightness(brightness, flag);
     }
     return true;
 }
@@ -330,7 +321,7 @@ bool __cdecl cfunc_adjust_texture_hsv(Struct* params, Script*)
 {
     uint32_t id;
     params->read_hash_value(0u, &id, 0);
-    void* texture = fetch_skin(get_textures(), id);
+    render::BitmapTexture* texture = fetch_skin(get_textures(), id);
     if (texture) {
         float hue = 0.0f;
         float saturation = 1.0f;
@@ -343,8 +334,8 @@ bool __cdecl cfunc_adjust_texture_hsv(Struct* params, Script*)
         params->fetch_int_value(kSetsPaletteFlag, &bit_value, 0);
         if (bit_value == 1)
             flag = true;
-        texture_call<void(__thiscall*)(void*, float, float, float, bool)>(24, texture, hue, saturation, value, flag);
-        texture_call<void(__thiscall*)(void*, bool, bool)>(9, texture, false, false);
+        texture->shift_hue_sat_value(hue, saturation, value, flag);
+        texture->write_back(false, nullptr);
     }
     return true;
 }
@@ -354,7 +345,7 @@ bool __cdecl cfunc_copy_texture(Struct* params, Script*)
 {
     uint32_t source;
     params->read_hash_value(kSrc, &source, 0);
-    void* texture = fetch_skin(get_textures(), source);
+    render::BitmapTexture* texture = fetch_skin(get_textures(), source);
     uint32_t copy;
     if (texture && params->read_hash_value(kNew, &copy, 0))
         static_cast<render::TextureSet*>(get_textures())
@@ -374,10 +365,10 @@ bool __cdecl cfunc_combine_textures(Struct* params, Script*)
     params->read_hash_value(kNew, &combined, 0);
     if (params->has_bare_flag(0x5905256Bu)) // no_palette_gen
         palette_gen = false;
-    void* source_texture = fetch_skin(get_textures(), source);
+    render::BitmapTexture* source_texture = fetch_skin(get_textures(), source);
     if (!source_texture)
         return true;
-    void* top_texture = fetch_skin(get_textures(), top);
+    render::BitmapTexture* top_texture = fetch_skin(get_textures(), top);
     if (!top_texture)
         return true;
     if (combined) {
@@ -387,7 +378,7 @@ bool __cdecl cfunc_combine_textures(Struct* params, Script*)
                                         static_cast<render::BitmapTexture*>(top_texture), palette_gen);
         return true;
     }
-    texture_call<void(__thiscall*)(void*, void*, bool)>(41, source_texture, top_texture, palette_gen);
+    source_texture->get_overlay(top_texture, palette_gen);
     return true;
 }
 
@@ -398,7 +389,7 @@ bool __cdecl cfunc_load_particle_texture(Struct* params, Script*)
     params->fetch_text(0u, &file, 0);
     if (file[0] == '\0')
         return false;
-    void* texture = get_texture_by_name(particle_textures(), file);
+    render::BitmapTexture* texture = get_texture_by_name(particle_textures(), file);
     bool permanent = params->has_bare_flag(0xD5928F25u); // perm
     if (!texture)
         texture = read_texture_file(particle_textures(), file, true, true, permanent);
@@ -410,8 +401,8 @@ bool __cdecl cfunc_unload_particle_texture(Struct* params, Script*)
 {
     const char* file;
     params->fetch_text(0u, &file, 0);
-    if (void* texture = get_texture_by_name(particle_textures(), file)) {
-        texture_call<void(__thiscall*)(void*)>(32, texture); // (its vtable +0x80 first)
+    if (render::BitmapTexture* texture = get_texture_by_name(particle_textures(), file)) {
+        texture->release_pixels(); // (its vtable +0x80 first)
         unload_texture_from(particle_textures(), texture);
     }
     return true;
@@ -430,7 +421,7 @@ bool __cdecl cfunc_unload_sfp_texture(Struct* params, Script*)
 {
     const char* file;
     params->fetch_text(0u, &file, 0);
-    if (void* texture = get_texture_by_name(particle_textures(), file))
+    if (render::BitmapTexture* texture = get_texture_by_name(particle_textures(), file))
         unload_texture_from(particle_textures(), texture);
     return true;
 }

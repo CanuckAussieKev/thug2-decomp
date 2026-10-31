@@ -7,38 +7,9 @@
 #include <cstring>
 
 #include "engine/core/checksums.h"
-#include "engine/core/mem.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/gfx/viewport.h"
 
 namespace render {
-
-namespace {
-
-extern void** const kTextureVtable;
-
-} // namespace
-
-// 0x0049F200
-BitmapTexture* BitmapTexture::make_new()
-{
-    vtable = reinterpret_cast<void**>(kTextureVtable);
-    flag_bits_ &= 0xFFFF; // (the original clears the upper word alone)
-    return this;
-}
-
-// 0x0049F210
-void BitmapTexture::destroy_body() { vtable = reinterpret_cast<void**>(kTextureVtable); }
-
-// 0x0049F4D0
-BitmapTexture* BitmapTexture::teardown(unsigned int free_flags)
-{
-    destroy_body();
-    if (free_flags & 1)
-        memory::dealloc(this);
-    return this;
-}
 
 // 0x0049F220 (the original sprintfs into its 512 bytes unbounded)
 bool BitmapTexture::load_by_name(const char* name, int in_images, int argument)
@@ -55,8 +26,7 @@ bool BitmapTexture::load_by_name(const char* name, int in_images, int argument)
     while (start > 0 && path[start - 1] != '\\' && path[start - 1] != '/')
         --start;
     checksum_ = checksums::hash_from_text(path + start);
-    return reinterpret_cast<bool(__thiscall*)(BitmapTexture*, const char*, int, int)>(vtable[1])(this, path, in_images,
-                                                                                                 argument);
+    return ingest_file(path, in_images, argument);
 }
 
 // 0x0049F300
@@ -64,8 +34,7 @@ bool BitmapTexture::read_from_ram_block(const uint8_t* data, uint32_t size, uint
                                         uint32_t a5)
 {
     checksum_ = checksum;
-    return reinterpret_cast<bool(__thiscall*)(BitmapTexture*, const uint8_t*, uint32_t, uint32_t, uint32_t, uint32_t)>(
-        vtable[2])(this, data, size, a3, a4, a5);
+    return load_memory(data, size, a3, a4, a5);
 }
 
 // 0x0049F330
@@ -73,9 +42,8 @@ bool BitmapTexture::fabricate(uint32_t checksum, uint32_t width, uint32_t height
                               uint32_t a5)
 {
     checksum_ = checksum;
-    return reinterpret_cast<bool(__thiscall*)(BitmapTexture*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
-                                              uint32_t)>(vtable[3])(this, checksum, width, height, bits_per_pixel, a4,
-                                                                    a5);
+    return create_image(checksum, width, height, static_cast<int>(bits_per_pixel), static_cast<int>(a4),
+                        static_cast<int>(a5));
 }
 
 // 0x0049F3F0
@@ -89,48 +57,12 @@ void BitmapTexture::pin_resident(bool permanent)
 
 // --- the dispatchers --------------------------------------------------------------------------------------------
 
-// 0x0049F360
-__declspec(naked) void virtual_slot17_jump()
-{
-    __asm {
-        mov eax, dword ptr [ecx]
-        jmp dword ptr [eax + 0x44]
-    }
-}
-
-// 0x0049F3A0
-__declspec(naked) void virtual_slot26_jump()
-{
-    __asm {
-        mov eax, dword ptr [ecx]
-        jmp dword ptr [eax + 0x68]
-    }
-}
-
-// 0x0049F3B0
-__declspec(naked) void virtual_slot32_jump()
-{
-    __asm {
-        mov eax, dword ptr [ecx]
-        jmp dword ptr [eax + 0x80]
-    }
-}
-
 // 0x0049F3C0
 __declspec(naked) void virtual_slot33_jump()
 {
     __asm {
         mov eax, dword ptr [ecx]
         jmp dword ptr [eax + 0x84]
-    }
-}
-
-// 0x0049F3D0
-__declspec(naked) void virtual_slot34_jump()
-{
-    __asm {
-        mov eax, dword ptr [ecx]
-        jmp dword ptr [eax + 0x88]
     }
 }
 
@@ -142,51 +74,5 @@ __declspec(naked) void virtual_slot41_jump()
         jmp dword ptr [eax + 0xA4]
     }
 }
-
-namespace {
-static VtableSlot g_texture_vtable_slots[] = {&render::BitmapTexture::teardown,
-                                              stubs::return_false3,
-                                              stubs::return_false5,
-                                              stubs::return_false6,
-                                              stubs::return_false1,
-                                              stubs::return_false4,
-                                              stubs::return_false1,
-                                              stubs::return_false1,
-                                              stubs::return_false2,
-                                              stubs::return_false2,
-                                              stubs::return_false,
-                                              stubs::return_false5,
-                                              stubs::return_false2,
-                                              stubs::return_false,
-                                              stubs::return_false,
-                                              stubs::return_false2,
-                                              stubs::return_false2,
-                                              stubs::return_false3,
-                                              stubs::return_false4,
-                                              stubs::return_false1,
-                                              stubs::return_false7,
-                                              stubs::return_false3,
-                                              stubs::return_false5,
-                                              stubs::return_false2,
-                                              stubs::return_false4,
-                                              stubs::return_zero,
-                                              stubs::return_zero,
-                                              stubs::return_zero,
-                                              stubs::return_zero,
-                                              stubs::ignore_arguments2,
-                                              stubs::return_false1,
-                                              stubs::return_false,
-                                              stubs::return_false,
-                                              stubs::return_zero_word,
-                                              stubs::return_zero_word,
-                                              stubs::return_false,
-                                              stubs::return_zero,
-                                              stubs::ignore_argument,
-                                              stubs::return_false,
-                                              stubs::return_false,
-                                              stubs::return_false,
-                                              stubs::return_false2};
-void** const kTextureVtable = reinterpret_cast<void**>(g_texture_vtable_slots);
-} // namespace
 
 } // namespace render

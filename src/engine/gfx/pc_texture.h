@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/gfx/bitmap_texture.h"
+#include "engine/gfx/engine_texture.h"
 #include "engine/gfx/texture_dict.h"
 
 namespace lists {
@@ -25,89 +26,87 @@ struct TextureEdit {
 };
 
 // The PC texture (0x14 bytes, vtable 0x0064A770).
-struct PcTexture {
-    void** vtable;
-    uint32_t checksum; // +0x04 (the engine's)
-    uint32_t flags;    // +0x08: 1 being edited (`engine` is an STextureEdit*)
-    uint8_t unknownc_; // +0x0C
-    uint8_t unknownd_; // +0x0D
-    uint8_t pade_[2];
-    void* engine; // +0x10: the TextureRef, or the edit holding it
+class PcTexture final : public BitmapTexture {
+public:
+    // 0x004C7ED0: no texture.
+    PcTexture() = default;
+    // 0x004C8450: a copy of `source`: its texture copied, and an edit's copy of the pixels and kept texture (never its
+    // pixels: the copy's own, still null, are tested for them, as the original).
+    explicit PcTexture(const PcTexture* source);
+    // 0x004C9D00 (0x004CAE60 the scalar deleting destructor): an edit ended, the texture destroyed.
+    ~PcTexture() override;
 
     TextureRef* get_texture() const;
 
-    // 0x004C7ED0: construct (no texture). Returns this.
-    PcTexture* make_new();
     // 0x004C7EF0: its texture (and checksum, the texture's).
     void set_texture(TextureRef* texture);
-    // 0x004C8450: construct a copy of `source`: its texture copied, and an edit's copy of the pixels and kept texture
-    // (never its pixels: the copy's own, still null, are tested for them, as the original). Returns this.
-    PcTexture* construct_copy(const PcTexture* source);
-    // 0x004C9D00: the destructor's body: an edit ended, the texture destroyed.
-    void destroy_body();
-    // 0x004CAE60 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    PcTexture* teardown(unsigned int free_flags);
-    // 0x004C7F00 (virtual [1]): loaded from "<name>.img.xbx". Whether it was.
-    bool ingest_file(const char* name, int unused1, int unused2);
-    // 0x004C7F80 (virtual [2]): loaded from an image in memory. Whether it was.
-    bool load_memory(const uint8_t* data, int size, int unused1, int unused2, int unused3);
-    // 0x004C8830 (virtual [3]): a new texture of the size (one level per the device: the levels' 0), P8 for up to
-    // 8 bits a pixel, X1R5G5B5 for 16, X8R8G8B8 for 32 (and below 8); the old one's Direct3D texture released. The
-    // texture's size from the level's. True.
-    bool fabricate(uint32_t checksum, uint32_t width, uint32_t height, int bits_per_pixel, int unused1, int unused2);
-    // 0x004C86A0 (virtual [4]): its Direct3D texture made again as a copy of `source`'s, every level (exit() if it
-    // can't be made). True.
-    bool copy_from(const PcTexture* source);
-    // 0x004C8A60 (virtual [8]): an edit begun: level 0's pixels read (32 bits only, bottom row first), a copy of them
-    // kept and a texture of them made when asked. True.
-    bool begin_edit(bool keep_texture, bool keep_copy);
-    // 0x004C9EC0 (virtual [9]): the edit's pixels written back into level 0, bottom row first.
-    bool write_back(int unused1, int unused2);
-    // 0x004C98B0 (virtual [10]): the edit ended: its buffers and kept texture freed, the texture back in place.
-    bool end_edit();
+    // 0x004C7F00 (vtable slot 1): loaded from "<name>.img.xbx". Whether it was.
+    bool ingest_file(const char* name, int unused1, int unused2) override;
+    // 0x004C7F80 (slot 2): loaded from an image in memory. Whether it was.
+    bool load_memory(const uint8_t* data, uint32_t size, uint32_t, uint32_t, uint32_t) override;
+    // 0x004C8830 (slot 3): a new texture of the size (one level per the device: the levels' 0), P8 for up to 8 bits a
+    // pixel, X1R5G5B5 for 16, X8R8G8B8 for 32 (and below 8); the old one's Direct3D texture released. The texture's
+    // size from the level's. True.
+    bool create_image(uint32_t checksum, uint32_t width, uint32_t height, int bits_per_pixel, int unused1,
+                      int unused2) override;
+    // 0x004C86A0 (slot 4): its Direct3D texture made again as a copy of `source`'s (a PC texture), every level (exit()
+    // if it can't be made). True.
+    bool copy_from(const BitmapTexture* source) override;
+    // 0x004C8A60 (slot 8): an edit begun: level 0's pixels read (32 bits only, bottom row first), a copy of them kept
+    // and a texture of them made when asked. True.
+    bool begin_edit(bool keep_texture, bool keep_copy) override;
+    // 0x004C9EC0 (slot 9): the edit's pixels written back into level 0, bottom row first.
+    bool write_back(int unused1, const void* unused2) override;
+    // 0x004C98B0 (slot 10): the edit ended: its buffers and kept texture freed, the texture back in place.
+    bool end_edit() override;
     // 0x004C97D0: the palette entry nearest a colour (alpha's difference counted twice).
     uint8_t nearest_palette_index(uint32_t colour);
-    // 0x004C9950 (virtual [12]): the edit's pixels tinted by an RGBA colour (x / 128, alpha too), from the copy
-    // unless `cumulative`; the palette too for up to 8 bits a pixel, unless `cumulative`. True.
-    bool modulate(uint32_t colour, bool cumulative);
-    // 0x004C9D80 (virtual [15]): the edit's pixels resized from another edit's (both edits: else false).
-    bool resize_from(const PcTexture* source, int unused);
-    // 0x004C9DE0 (virtual [16]): the edit's pixels zoomed about the centre. True.
-    bool get_zoom(float x_zoom, float y_zoom);
-    // 0x004C8D30 (virtual [17]): the edit's pixels turned by `angle` about a point (below 0: the middle). True.
-    bool spin_by(float angle, float centre_x, float centre_y);
-    // 0x004CABE0 (virtual [18]): the edit's pixels moved; what's uncovered filled from the nearest edge unless
+    // 0x004C9950 (slot 12): the edit's pixels tinted by an RGBA colour (x / 128, alpha too), from the copy unless
+    // `cumulative`; the palette too for up to 8 bits a pixel, unless `cumulative`. True.
+    bool modulate(uint32_t colour, bool cumulative) override;
+    // 0x004C9D80 (slot 15): the edit's pixels resized from another edit's (both edits: else false).
+    bool resize_from(const BitmapTexture* source, int unused) override;
+    // 0x004C9DE0 (slot 16): the edit's pixels zoomed about the centre. True.
+    bool get_zoom(float x_zoom, float y_zoom) override;
+    // 0x004C8D30 (slot 17): the edit's pixels turned by `angle` about a point (below 0: the middle). True.
+    bool spin_by(float angle, float centre_x, float centre_y) override;
+    // 0x004CABE0 (slot 18): the edit's pixels moved; what's uncovered filled from the nearest edge unless
     // `keep_edges`. True.
-    bool get_offset(int dx, int dy, bool keep_edges, int unused);
-    // 0x004CADC0 (virtual [19]): a one-pixel border of the colour round the edit's pixels. True.
-    bool get_border(uint32_t colour);
-    // 0x004CA220 (virtual [21]): the part one side of column / row `position` stretched by `amount`. True.
-    bool get_stretch(uint16_t position, int vertical, int amount);
-    // 0x004CA410 (virtual [22]): the part one side squashed by `amount`, the space left filled with the colour or
-    // its edge. True.
-    bool squash(uint16_t position, int vertical, int amount, bool fill, uint32_t colour);
-    // 0x004CA7B0 (virtual [13]): the edit's pixels mirrored left to right. True.
-    bool get_mirror();
-    // 0x004CAA20 (virtual [24]): the edit's pixels' hue turned, saturation and value scaled (up to 1), from the copy
+    bool get_offset(int dx, int dy, bool keep_edges, int unused) override;
+    // 0x004CADC0 (slot 19): a one-pixel border of the colour round the edit's pixels. True.
+    bool get_border(uint32_t colour) override;
+    // 0x004CA220 (slot 21): the part one side of column / row `position` stretched by `amount`. True.
+    bool get_stretch(uint16_t position, int vertical, int amount) override;
+    // 0x004CA410 (slot 22): the part one side squashed by `amount`, the space left filled with the colour or its
+    // edge. True.
+    bool squash(uint16_t position, int vertical, int amount, bool fill, uint32_t colour) override;
+    // 0x004CA7B0 (slot 13): the edit's pixels mirrored left to right. True.
+    bool get_mirror() override;
+    // 0x004CAA20 (slot 24): the edit's pixels' hue turned, saturation and value scaled (up to 1), from the copy
     // unless `cumulative`. True.
-    bool shift_hue_sat_value(float hue, float saturation, float value, bool cumulative);
-    // 0x004CA8E0 (virtual [41]): another texture's level 0 drawn over the edit's pixels by its alpha. False.
-    bool get_overlay(PcTexture* over, int unused);
+    bool shift_hue_sat_value(float hue, float saturation, float value, bool cumulative) override;
+    // 0x004CA8E0 (slot 41): another (PC) texture's level 0 drawn over the edit's pixels by its alpha. False.
+    bool get_overlay(BitmapTexture* over, int unused) override;
     // 0x004C9F90: a rectangle of the edit's pixels read out (a palettized texture's whole image instead).
     void read_rect(uint32_t* out, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
     // 0x004CA0D0: a rectangle written in (a palettized texture's by nearest palette entry).
     void write_rect(const uint32_t* in, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
-    // 0x004C7FB0 / 0x004C7FE0 (virtual [33] / [34]): the image's width and height (0 without a texture).
-    uint16_t fetch_breadth();
-    uint16_t fetch_tallness();
-    // 0x004C8010 / 0x004C8030 (virtual [35] / [38]): its bits per pixel and its +0x0E (0 without one).
-    uint8_t get_depth();
-    uint8_t get_unknown_e();
-    // 0x004C8050 (virtual [39], folded with other classes' getters of a byte at +0x0C) / 0x004C8060 (virtual [40]).
-    uint8_t get_unknown_c();
-    uint8_t get_unknown_d();
+    // 0x004C7FB0 / 0x004C7FE0 (slots 33 / 34): the image's width and height (0 without a texture).
+    uint16_t fetch_breadth() override;
+    uint16_t fetch_tallness() override;
+    // 0x004C8010 / 0x004C8030 (slots 35 / 38): its bits per pixel and its +0x0E (0 without one).
+    uint8_t get_depth() override;
+    uint8_t get_unknown_e() override;
+    // 0x004C8050 (slot 39, folded with other classes' getters of a byte at +0x0C) / 0x004C8060 (slot 40).
+    uint8_t get_unknown_c() override;
+    uint8_t get_unknown_d() override;
+
+    uint8_t unknownc_ = 0; // +0x0C
+    uint8_t unknownd_ = 0; // +0x0D
+    uint8_t pade_[2];
+    void* image_ = nullptr; // +0x10: the TextureRef, or the edit holding it (flag_bits_ & 1: a TextureEdit)
 };
-static_assert(offsetof(PcTexture, flags) == 8 && offsetof(PcTexture, engine) == 0x10 && sizeof(PcTexture) == 0x14,
+static_assert(offsetof(PcTexture, flag_bits_) == 8 && offsetof(PcTexture, image_) == 0x10 && sizeof(PcTexture) == 0x14,
               "layout must match the original");
 
 // The PC texture dictionary (0x14 bytes, vtable 0x0064A824).

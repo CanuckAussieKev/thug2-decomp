@@ -701,23 +701,22 @@ void Rider::show_board_element(uint32_t type)
     auto new_element = [](const char* text) {
         return static_cast<render::TextureSet*>(get_elements())->ingest_skin(text, 0, 0, true);
     };
-    auto reset = [](void* element) {
-        reinterpret_cast<void(__thiscall*)(void*, int, int)>(&render::virtual_slot8_jump)(element, 0, 0);
-    };
-    void* element = new_element(texture);
+    // (the textures' calls go through the folded jumps 0x0048D060, 0x0048DE80, 0x0048DED0, 0x0048DEB0, 0x0049F360,
+    // 0x0049F420, 0x0048DE30 and 0x0048E4C0)
+    auto reset = [](render::BitmapTexture* element) { element->begin_edit(false, false); };
+    render::BitmapTexture* element = new_element(texture);
     reset(element);
-    void* parent = reinterpret_cast<void*(__thiscall*)(void*)>(code_address(&goals::Objective::fetch_args))(
-        fetch_module(0x5B512EDC));
+    auto* parent = static_cast<render::BitmapTexture*>(reinterpret_cast<void*(__thiscall*)(void*)>(
+        code_address(&goals::Objective::fetch_args))(fetch_module(0x5B512EDC)));
     reset(parent);
-    reinterpret_cast<void(__thiscall*)(void*, void*, int)>(&render::virtual_slot15_jump)(element, parent, 1);
-    reinterpret_cast<void(__thiscall*)(void*, uint32_t)>(&render::virtual_slot19_jump)(element, 0); // (black)
-    reinterpret_cast<void(__thiscall*)(void*, float, float)>(&render::virtual_slot16_jump)(element, width, height);
+    element->resize_from(parent, 1);
+    element->get_border(0); // (black)
+    element->get_zoom(width, height);
     int flag;
     if (params->fetch_int_value(0xC876ADF3, &flag, 0))
-        reinterpret_cast<void(__thiscall*)(void*, float, float, float)>(&render::virtual_slot17_jump)(
-            element, 1.5707964f, -1.0f, -1.0f);
+        element->spin_by(1.5707964f, -1.0f, -1.0f);
     bool second = false;
-    void* overlay = nullptr;
+    render::BitmapTexture* overlay = nullptr;
     int unused;
     if (params->fetch_int_value(0x25A0E7E9, &unused, 0)) {
         second = true;
@@ -725,19 +724,19 @@ void Rider::show_board_element(uint32_t type)
         params->fetch_text(0x499F4BE9, &overlay_texture, 1);
         overlay = new_element(overlay_texture);
         reset(overlay);
-        reinterpret_cast<void(__thiscall*)(void*, void*, int)>(&render::virtual_slot41_jump)(overlay, element, 1);
-        reinterpret_cast<void(__thiscall*)(void*, int, int)>(&render::virtual_slot9_jump)(overlay, 1, 0);
+        overlay->get_overlay(element, 1);
+        overlay->write_back(1, nullptr);
     }
-    reinterpret_cast<void(__thiscall*)(void*, int, int)>(&render::virtual_slot9_jump)(element, 1, 0);
+    element->write_back(1, nullptr);
     const char* model;
     params->fetch_text(0x49B318FD, &model, 1);
     // (the third is a checksum where swap_texture takes a texture name: passed on as it is)
     static_cast<MeshInstanceModule*>(fetch_module(kModelModuleName))
         ->swap_texture(model_swap, model, reinterpret_cast<const char*>(static_cast<uintptr_t>(model_swap2)));
     if (second)
-        static_cast<render::TextureSet*>(get_elements())->unload_texture(static_cast<render::BitmapTexture*>(overlay));
-    static_cast<render::TextureSet*>(get_elements())->unload_texture(static_cast<render::BitmapTexture*>(element));
-    reinterpret_cast<void(__thiscall*)(void*)>(&render::virtual_slot10_jump)(parent);
+        static_cast<render::TextureSet*>(get_elements())->unload_texture(overlay);
+    static_cast<render::TextureSet*>(get_elements())->unload_texture(element);
+    parent->end_edit();
     memory::Hub::get_pull()->leave_heap_scope();
 }
 

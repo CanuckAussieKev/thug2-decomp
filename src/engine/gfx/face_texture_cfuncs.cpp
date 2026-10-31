@@ -3,6 +3,7 @@
 
 #include "engine/gfx/cag_cfuncs.h"
 #include "engine/gfx/face_texture_cfuncs.h"
+#include "engine/gfx/engine_texture.h"
 
 #include <cstdint>
 #include <cstring>
@@ -43,7 +44,10 @@ constexpr uint32_t kRgb = 0xDECB67C7;        // "rgb"
 
 // The texture dictionary (0x00700F1C) and its texture by checksum (0x0049F540; null if none).
 void* texture_bank() { return reinterpret_cast<void*>(render::g_game_texture_dict); }
-void* find_texture(uint32_t name) { return static_cast<render::TextureSet*>(texture_bank())->fetch_skin(name); }
+render::BitmapTexture* find_texture(uint32_t name)
+{
+    return static_cast<render::TextureSet*>(texture_bank())->fetch_skin(name);
+}
 
 // The current profile's face texture (its appearance's +0x54, through the getter 0x00576E60 folded with others) - the
 // skate module's 0x00564F80 with no params is the current profile.
@@ -51,14 +55,6 @@ void* get_face_texture()
 {
     auto* profile = modules::Skate::sole()->fetch_account(static_cast<Struct*>(nullptr));
     return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(profile) + 0x54);
-}
-
-// A texture's methods (each a jump through its vtable).
-template <typename R, typename... A>
-R texture_call(uint32_t slot, void* texture, A... args)
-{
-    // (the texture's virtual slot `slot`: the original goes through a jump stub for each)
-    return reinterpret_cast<R(__thiscall*)(void*, A...)>((*static_cast<void***>(texture))[slot])(texture, args...);
 }
 
 // A colour as the textures take it: four bytes (the first in the low byte).
@@ -125,15 +121,15 @@ bool __cdecl cfunc_set_face_texture_from_video_capture(script::Struct* params, s
     uint32_t name;
     params->read_hash_value(kCapturedTexture, &name, 1);
     void* face = get_face_texture();
-    void* texture = find_texture(name);
+    render::BitmapTexture* texture = find_texture(name);
     uint8_t image[0x4420];
     std::memset(image, 0, sizeof(image));
-    texture_call<void>(30, texture, static_cast<void*>(image));
-    int palette_size = texture_call<int>(28, texture);
-    uint8_t bits_per_pixel = texture_call<uint8_t>(38, texture);
-    texture_call<void>(29, texture, static_cast<void*>(image + 0x20), palette_size / (bits_per_pixel >> 3));
-    const void* pixels = texture_call<const void*>(25, texture);
-    int pixel_size = texture_call<int>(26, texture);
+    texture->set_pixels(static_cast<void*>(image));
+    int palette_size = texture->get_palette_size();
+    uint8_t bits_per_pixel = texture->get_unknown_e();
+    texture->set_palette(static_cast<void*>(image + 0x20), palette_size / (bits_per_pixel >> 3));
+    const void* pixels = texture->get_pixels();
+    int pixel_size = texture->get_pixels_size();
     std::memcpy(image + 0x20 + palette_size, pixels, pixel_size);
     static_cast<gfx::FaceSkin*>(face)->set_image(image, pixel_size + palette_size + 0x20);
     return true;
@@ -145,7 +141,7 @@ bool __cdecl cfunc_offset_texture(script::Struct* params, script::Script*)
 {
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(0u, &name, 0);
-    void* texture = find_texture(name);
+    render::BitmapTexture* texture = find_texture(name);
     if (!texture)
         return true;
     int x = 0;
@@ -154,7 +150,7 @@ bool __cdecl cfunc_offset_texture(script::Struct* params, script::Script*)
     params->fetch_int_value(kYOffset, &y, 0);
     bool given;
     uint32_t colour = read_colour(params, &given);
-    texture_call<void>(18, texture, x, y, given, colour);
+    texture->get_offset(x, y, given, colour);
     return true;
 }
 
@@ -166,11 +162,11 @@ bool __cdecl cfunc_rotate_texture(script::Struct* params, script::Script*)
     params->read_hash_value(0u, &name, 0);
     float angle = 0.0f;
     params->fetch_float(kAngle, &angle, 0);
-    void* texture = find_texture(name);
+    render::BitmapTexture* texture = find_texture(name);
     if (texture) {
         // x87: degrees * (pi / 180, 0x00645464) in double, rounded once
         float radians = static_cast<float>(static_cast<double>(angle) * g_degree_to_radian_ratio);
-        texture_call<void>(17, texture, radians, -1.0f, -1.0f);
+        texture->spin_by(radians, -1.0f, -1.0f);
     }
     return true;
 }
@@ -182,7 +178,7 @@ bool __cdecl cfunc_push_texture_to_point(script::Struct* params, script::Script*
 {
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(0u, &name, 0);
-    void* texture = find_texture(name);
+    render::BitmapTexture* texture = find_texture(name);
     if (!texture)
         return true;
     int point = 0;
@@ -193,7 +189,7 @@ bool __cdecl cfunc_push_texture_to_point(script::Struct* params, script::Script*
     params->fetch_int_value(kPushAmount, &amount, 0);
     bool given;
     uint32_t colour = read_colour(params, &given);
-    texture_call<void>(22, texture, point, axis, amount, given, colour);
+    texture->squash(point, axis, amount, given, colour);
     return true;
 }
 
@@ -203,7 +199,7 @@ bool __cdecl cfunc_apply_rgba_to_texture(script::Struct* params, script::Script*
 {
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(0u, &name, 0);
-    void* texture = find_texture(name);
+    render::BitmapTexture* texture = find_texture(name);
     if (!texture)
         return true;
     int r = 0; // (r, g and b uninitialised in the original when missing)
@@ -217,7 +213,7 @@ bool __cdecl cfunc_apply_rgba_to_texture(script::Struct* params, script::Script*
     int mode = 0;
     params->fetch_int_value(kTintMode, &mode, 0);
     bool second = mode == 1;
-    texture_call<void>(12, texture, pack_colour(r, g, b, a), second);
+    texture->modulate(pack_colour(r, g, b, a), second);
     return true;
 }
 

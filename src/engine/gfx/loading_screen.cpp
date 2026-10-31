@@ -258,14 +258,12 @@ void __cdecl show_loading_screen(const char* name, bool keep, bool black)
         } else {
             if (uint8_t* old = picture()) {
                 if (std::strcmp(picture_name(), name) != 0) {
-                    reinterpret_cast<void*(__thiscall*)(void*, int)>((*reinterpret_cast<void***>(old))[0])(old, 1);
+                    delete reinterpret_cast<render::BitmapTexture*>(old);
                     picture() = nullptr;
                     set_picture_name(name);
                 }
             }
-            void* memory = memory::alloc(0x14);
-            picture() =
-                memory ? reinterpret_cast<uint8_t*>(static_cast<render::PcTexture*>(memory)->make_new()) : nullptr;
+            picture() = reinterpret_cast<uint8_t*>(static_cast<render::BitmapTexture*>(new render::PcTexture));
             // the language's picture: French "fr/<name>", German "gr/<name>"
             char localised[0xC8];
             const char* file = name;

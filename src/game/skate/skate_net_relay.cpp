@@ -631,7 +631,7 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
         if (!on_server || !player)
             break;
         PlayerSearch search;
-        void* texture = player->get_graffiti_texture();
+        auto* texture = static_cast<render::BitmapTexture*>(player->get_graffiti_texture());
         net::AppHost* app = context->receiver_app_;
         for (PlayerRecord* other = search.get_first(true); other; other = search.get_next(true)) {
             net::NetMessageInfo desc;
@@ -644,16 +644,14 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
             desc.byte_count_ = 1;
             get_sequence(desc, 10);
             enqueue(app, other, &desc);
-            void* palette =
-                get_call<void*>(reinterpret_cast<uint32_t>(code_address(render::virtual_slot27_jump)), texture);
-            uint32_t palette_size =
-                get_call<uint32_t>(reinterpret_cast<uint32_t>(code_address(render::virtual_slot28_jump)), texture);
+            // (the texture's palette and pixels: through the geoms' jumps 0x0048DF20 / 0x0048DF30 and 0x0048DF00 /
+            // 0x0049F3A0 - the same stub in the engine's and the PC's tables: none)
+            auto* palette = const_cast<void*>(texture->get_palette());
+            uint32_t palette_size = texture->get_palette_size();
             app->send_bulk_to_conn(other->conn_, 0x98, static_cast<uint16_t>(palette_size), palette, "CAG Palette", 10,
                                    false, true); // "CAG Palette"
-            void* pixels =
-                get_call<void*>(reinterpret_cast<uint32_t>(code_address(render::virtual_slot25_jump)), texture);
-            uint32_t pixels_size =
-                get_call<uint32_t>(reinterpret_cast<uint32_t>(code_address(render::virtual_slot26_jump)), texture);
+            auto* pixels = const_cast<void*>(texture->get_pixels());
+            uint32_t pixels_size = texture->get_pixels_size();
             app->send_bulk_to_conn(other->conn_, 0x97, static_cast<uint16_t>(pixels_size), pixels, "CAG Texture", 10,
                                    false, true); // "CAG Texture"
             uint32_t sent_parts = parts;

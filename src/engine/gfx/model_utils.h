@@ -50,8 +50,4 @@ struct HiddenModels {
 void __cdecl hide_models_for_cutscene();
 void __cdecl show_models_after_cutscene();
 
-// 0x00487D50: a tail jump to the object's vtable slot 4 (its arguments left as they are) - the textures', the fonts'
-// and the geoms' calls of their slot 4.
-void virtual_slot4_jump();
-
 } // namespace gfx

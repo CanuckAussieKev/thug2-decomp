@@ -47,12 +47,6 @@ uint32_t filename_key(const char* name)
     return checksums::hash_from_text(name + start);
 }
 
-template <typename R, typename... A>
-R texture_slot(BitmapTexture* texture, int slot, A... args)
-{
-    return reinterpret_cast<R(__thiscall*)(BitmapTexture*, A...)>(texture->vtable[slot])(texture, args...);
-}
-
 // (0x0048C1B0: an empty call - compiled-out debug code - each unload makes before the platform's)
 void debug_before_unload() {}
 
@@ -205,7 +199,7 @@ void TextureSet::drop_textures(bool all)
             next = static_cast<BitmapTexture*>(textures_->iter_item_->value);
         if (all || !(texture->flag_bits_ & kTexturePermanent)) {
             uint32_t key = texture->checksum_;
-            texture_slot<void*>(texture, 0, 1u);
+            delete texture;
             textures_->erase_entry(key);
         }
         texture = next;
@@ -218,7 +212,7 @@ bool TextureSet::swap_texture(const char* name, BitmapTexture* source)
     BitmapTexture* texture = find_texture(name);
     if (!texture)
         return false;
-    return texture_slot<bool>(texture, 4, source);
+    return texture->copy_from(source);
 }
 
 // 0x0049FB20 (no texture loaded: the original reads through null)
@@ -233,7 +227,7 @@ bool TextureSet::replace_texture_from_file(const char* name, const char* file)
     auto* loaded = load_texture_file(file, 0u, 0u);
     insert_texture(this, loaded, true);
     memory::pop_mem_profile();
-    bool replaced = texture_slot<bool>(texture, 4, loaded);
+    bool replaced = texture->copy_from(loaded);
     uint32_t key = loaded->checksum_;
     debug_before_unload();
     if (destroy_texture(loaded))
@@ -261,7 +255,7 @@ BitmapTexture* TextureSet::copy_texture_with_overlay(uint32_t checksum, BitmapTe
     if (texture) {
         texture->checksum_ = checksum;
         textures_->store_entry(checksum, texture);
-        texture_slot<bool>(texture, 41, overlay, argument);
+        texture->get_overlay(overlay, static_cast<int>(argument));
     }
     return texture;
 }

@@ -149,14 +149,6 @@ bool fetch_script(script::Struct* s, uint32_t name, script::ParamScript* out, in
     return s->fetch_script(name, out, assert);
 }
 
-// The texture's virtual slots the created graphic uses (the jumps 0x0048D060 [8], 0x0048DE30 [9], 0x0048E4C0 [10],
-// 0x0048DE80 [15], 0x0048DEB0 [16], 0x0048DED0 [19]; the texture's 0x0049F360 [17] and 0x0049F420 [41]).
-template <typename... A>
-void texture_slot(render::BitmapTexture* texture, int slot, A... args)
-{
-    reinterpret_cast<void(__thiscall*)(render::BitmapTexture*, A...)>(texture->vtable[slot])(texture, args...);
-}
-
 // The compiled-out call on the appearance 0x30E2951D makes (the empty 0x005BAB90, one argument).
 inline void unused_appearance_call(ModelLook*, int) {}
 
@@ -647,16 +639,16 @@ bool ModelAssembler::set_created_texture(uint32_t part)
     option->read_hash_value(kWith, &with, 0);
     option->fetch_text(kTempTexture, &temporary, 1);
     render::BitmapTexture* texture = game_textures()->ingest_skin(temporary, 0, 0, true);
-    texture_slot(texture, 8, 0, 0);
+    texture->begin_edit(false, false); // (the jump 0x0048D060)
     render::BitmapTexture* workspace = skater_textures()->fetch_skin(kCagWorkspace);
-    texture_slot(workspace, 8, 0, 0);
-    texture_slot(texture, 15, workspace, 1);
-    uint32_t black = 0; // (four zero bytes)
-    texture_slot(texture, 19, black);
-    texture_slot(texture, 16, x_scale, y_scale);
+    workspace->begin_edit(false, false);
+    texture->resize_from(workspace, 1);  // (0x0048DE80)
+    uint32_t black = 0;                  // (four zero bytes)
+    texture->get_border(black);          // (0x0048DED0)
+    texture->get_zoom(x_scale, y_scale); // (0x0048DEB0)
     int rotate;
     if (option->fetch_int_value(kRotate, &rotate, 0))
-        texture_slot(texture, 17, kQuarterTurn, -1.0f, -1.0f);
+        texture->spin_by(kQuarterTurn, -1.0f, -1.0f); // (0x0049F360)
     render::BitmapTexture* base = nullptr;
     bool deck = false;
     int is_deck;
@@ -665,19 +657,19 @@ bool ModelAssembler::set_created_texture(uint32_t part)
         const char* base_name = nullptr; // (asserted; missing: the stack slot the colour above zeroed)
         option->fetch_text(kBaseTexture, &base_name, 1);
         base = game_textures()->ingest_skin(base_name, 0, 0, true);
-        texture_slot(base, 8, 0, 0);
-        texture_slot(texture, 9, 1, 0);
-        texture_slot(base, 41, texture, 1);
-        texture_slot(base, 9, 1, 0);
+        base->begin_edit(false, false);
+        texture->write_back(1, nullptr); // (0x0048DE30)
+        base->get_overlay(texture, 1);   // (0x0049F420)
+        base->write_back(1, nullptr);
     }
-    texture_slot(texture, 9, 1, 0);
+    texture->write_back(1, nullptr); // (0x0048DE30)
     const char* logo = nullptr;
     option->fetch_text(kLogoTexture, &logo, 1);
     bool result = built_model()->replace_texture_with(in, logo, with);
     if (deck)
         game_textures()->unload_texture(base);
     game_textures()->unload_texture(texture);
-    texture_slot(workspace, 10);
+    workspace->end_edit(); // (0x0048E4C0)
     memory::Hub::get_pull()->leave_heap_scope();
     return result;
 }

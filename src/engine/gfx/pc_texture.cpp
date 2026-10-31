@@ -20,8 +20,6 @@
 #include "engine/file/file_load.h"
 #include "engine/lists/key_map.h"
 #include "engine/maths/maths.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
 
@@ -29,63 +27,34 @@ namespace render {
 
 namespace {
 
-extern void** const kTextureVtable;
-
-TextureEdit* get_edit(const PcTexture* texture) { return static_cast<TextureEdit*>(texture->engine); }
+TextureEdit* get_edit(const PcTexture* texture) { return static_cast<TextureEdit*>(texture->image_); }
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 
-PcTexture* alloc_pc_texture()
-{
-    void* memory = memory::alloc(sizeof(PcTexture));
-    return memory ? static_cast<PcTexture*>(memory)->make_new() : nullptr;
-}
+PcTexture* alloc_pc_texture() { return new PcTexture; }
 
 } // namespace
 
 TextureRef* PcTexture::get_texture() const
 {
-    return flags & 1 ? get_edit(this)->texture : static_cast<TextureRef*>(engine);
-}
-
-// 0x004C7ED0
-PcTexture* PcTexture::make_new()
-{
-    reinterpret_cast<BitmapTexture*>(this)->BitmapTexture::make_new();
-    unknownd_ = 0;
-    engine = nullptr;
-    unknownc_ = 0;
-    flags = 0;
-    vtable = reinterpret_cast<void**>(kTextureVtable);
-    return this;
+    return flag_bits_ & 1 ? get_edit(this)->texture : static_cast<TextureRef*>(image_);
 }
 
 // 0x004C7EF0
 void PcTexture::set_texture(TextureRef* texture)
 {
-    engine = texture;
-    checksum = texture->checksum;
+    image_ = texture;
+    checksum_ = texture->checksum;
 }
 
 // 0x004C9D00
-void PcTexture::destroy_body()
+PcTexture::~PcTexture()
 {
-    vtable = reinterpret_cast<void**>(kTextureVtable);
-    if (flags & 1)
+    if (flag_bits_ & 1)
         end_edit();
-    if (auto* texture = static_cast<TextureRef*>(engine)) {
+    if (auto* texture = static_cast<TextureRef*>(image_)) {
         texture->destroy_body();
         memory::Hub::get_pull()->dealloc(texture);
     }
-    reinterpret_cast<BitmapTexture*>(this)->BitmapTexture::destroy_body();
-}
-
-// 0x004CAE60
-PcTexture* PcTexture::teardown(unsigned int free_flags)
-{
-    destroy_body();
-    if (free_flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x004C7F00
@@ -95,25 +64,24 @@ bool PcTexture::ingest_file(const char* name, int /*unused1*/, int /*unused2*/)
     size_t length = std::strlen(name); // (unchecked, as the original)
     std::memcpy(path, name, length);
     std::memcpy(path + length, ".img.xbx", 9);
-    engine = read_texture_file(path);
-    return engine != nullptr;
+    image_ = read_texture_file(path);
+    return image_ != nullptr;
 }
 
 // 0x004C7F80
-bool PcTexture::load_memory(const uint8_t* data, int /*size*/, int, int, int)
+bool PcTexture::load_memory(const uint8_t* data, uint32_t /*size*/, uint32_t, uint32_t, uint32_t)
 {
-    engine = load_texture_memory(data);
-    return engine != nullptr;
+    image_ = load_texture_memory(data);
+    return image_ != nullptr;
 }
 
 // 0x004C9EC0
-bool PcTexture::write_back(int /*unused1*/, int /*unused2*/)
+bool PcTexture::write_back(int /*unused1*/, const void* /*unused2*/)
 {
     auto* texels = static_cast<uint32_t*>(get_texture()->get_lock());
-    const uint32_t* pixels = flags & 1 ? get_edit(this)->pixels : nullptr; // (null read from, as the original)
-    using Pull = uint16_t(__thiscall*)(PcTexture*);
-    uint32_t width = reinterpret_cast<Pull>(vtable[33])(this);
-    uint32_t height = reinterpret_cast<Pull>(vtable[34])(this);
+    const uint32_t* pixels = flag_bits_ & 1 ? get_edit(this)->pixels : nullptr; // (null read from, as the original)
+    uint32_t width = fetch_breadth();
+    uint32_t height = fetch_tallness();
     uint32_t* row = texels + (height - 1) * width;
     for (uint32_t y = height; y; --y) {
         for (uint32_t x = 0; x < width; ++x)
@@ -129,7 +97,7 @@ bool PcTexture::end_edit()
 {
     // (the edit's fields read whether or not it is one, as the original)
     auto* edit = get_edit(this);
-    TextureRef* texture = flags & 1 ? edit->texture : static_cast<TextureRef*>(engine);
+    TextureRef* texture = flag_bits_ & 1 ? edit->texture : static_cast<TextureRef*>(image_);
     if (edit->pixels) {
         memory::Hub::get_pull()->dealloc(edit->pixels);
         get_edit(this)->pixels = nullptr;
@@ -143,9 +111,9 @@ bool PcTexture::end_edit()
         memory::Hub::get_pull()->dealloc(kept);
         get_edit(this)->kept = nullptr;
     }
-    memory::Hub::get_pull()->dealloc(engine);
-    engine = texture;
-    flags &= ~1u;
+    memory::Hub::get_pull()->dealloc(image_);
+    image_ = texture;
+    flag_bits_ &= ~1u;
     return true;
 }
 
@@ -184,28 +152,26 @@ uint8_t PcTexture::get_unknown_c() { return unknownc_; }
 uint8_t PcTexture::get_unknown_d() { return unknownd_; }
 
 // 0x004C8450
-PcTexture* PcTexture::construct_copy(const PcTexture* source)
+PcTexture::PcTexture(const PcTexture* source)
 {
-    reinterpret_cast<BitmapTexture*>(this)->BitmapTexture::make_new();
-    vtable = reinterpret_cast<void**>(kTextureVtable);
     unknownc_ = source->unknownc_;
-    flags = source->flags;
+    flag_bits_ = source->flag_bits_;
     TextureRef* copy = nullptr;
     if (source->get_texture()) {
         void* memory = memory::alloc(sizeof(TextureRef));
         copy = memory ? static_cast<TextureRef*>(memory)->construct_copy(source->get_texture()) : nullptr;
     }
-    using Pull = uint16_t(__thiscall*)(const PcTexture*);
-    uint32_t width = reinterpret_cast<Pull>(source->vtable[33])(source);
-    uint32_t height = reinterpret_cast<Pull>(source->vtable[34])(source);
-    if (!(source->flags & 1)) {
-        engine = copy;
-        return this;
+    // (the source's size through its virtual functions)
+    uint32_t width = const_cast<PcTexture*>(source)->fetch_breadth();
+    uint32_t height = const_cast<PcTexture*>(source)->fetch_tallness();
+    if (!(source->flag_bits_ & 1)) {
+        image_ = copy;
+        return;
     }
     auto* edit = static_cast<TextureEdit*>(memory::alloc(sizeof(TextureEdit)));
     if (edit) // (no check after: written through null, as the original)
         *edit = {};
-    engine = edit;
+    image_ = edit;
     edit->texture = copy;
     const TextureEdit* from = get_edit(source);
     if (from->original) {
@@ -228,19 +194,18 @@ PcTexture* PcTexture::construct_copy(const PcTexture* source)
     } else {
         edit->kept = nullptr;
     }
-    return this;
 }
 
 // 0x004C8830
-bool PcTexture::fabricate(uint32_t new_checksum, uint32_t width, uint32_t height, int bits_per_pixel, int, int)
+bool PcTexture::create_image(uint32_t new_checksum, uint32_t width, uint32_t height, int bits_per_pixel, int, int)
 {
     TextureRef* old = get_texture();
     if (old && old->texture) // (released, the old texture itself kept)
         static_cast<IUnknown*>(old->texture)->Release();
     void* memory = memory::alloc(sizeof(TextureRef));
     TextureRef* texture = memory ? static_cast<TextureRef*>(memory)->make_new() : nullptr;
-    checksum = new_checksum;
-    engine = texture;                 // (an edit's place too)
+    checksum_ = new_checksum;
+    image_ = texture;                 // (an edit's place too)
     texture->checksum = new_checksum; // (no check, as the original)
     texture->unknownf_ = 0;
     texture->image_width_ = static_cast<uint16_t>(width);
@@ -278,8 +243,9 @@ bool PcTexture::fabricate(uint32_t new_checksum, uint32_t width, uint32_t height
 }
 
 // 0x004C86A0
-bool PcTexture::copy_from(const PcTexture* source)
+bool PcTexture::copy_from(const BitmapTexture* source_texture)
 {
+    const auto* source = static_cast<const PcTexture*>(source_texture);
     TextureRef* from = source->get_texture();
     auto** into = reinterpret_cast<IDirect3DTexture9**>(&get_texture()->texture);
     if (*into)
@@ -324,11 +290,11 @@ bool PcTexture::begin_edit(bool keep_texture, bool keep_copy)
     auto* edit = static_cast<TextureEdit*>(memory::alloc(sizeof(TextureEdit)));
     if (edit) // (no check after: written through null, as the original)
         *edit = {};
-    engine = edit;
+    image_ = edit;
     edit->texture = texture;
     uint32_t bytes = width * height * 4;
     edit->pixels = static_cast<uint32_t*>(memory::alloc(bytes));
-    flags |= 1;
+    flag_bits_ |= 1;
     uint32_t* pixels = get_edit(this)->pixels;
     auto* d3d = static_cast<IDirect3DTexture9*>(texture->texture);
     D3DSURFACE_DESC desc;
@@ -457,7 +423,7 @@ void __cdecl zoom_image(const uint8_t* from, uint16_t width, uint16_t height, ui
 // 0x004C97D0
 uint8_t PcTexture::nearest_palette_index(uint32_t colour)
 {
-    uint8_t depth = reinterpret_cast<uint8_t(__thiscall*)(PcTexture*)>(vtable[35])(this);
+    uint8_t depth = get_depth();
     int count = 1 << depth;
     const auto* entry =
         reinterpret_cast<const uint8_t*>(get_texture()->palette_owner()); // (its entries, as the original)
@@ -485,19 +451,17 @@ bool PcTexture::modulate(uint32_t colour, bool cumulative)
                               : reinterpret_cast<const uint8_t*>(get_edit(this)->pixels);
     uint32_t red = (colour & 0xFF) * 0xFF >> 7, green = (colour >> 8 & 0xFF) * 0xFF >> 7,
              blue = (colour >> 16 & 0xFF) * 0xFF >> 7, alpha = colour >> 24;
-    using Pull = uint16_t(__thiscall*)(PcTexture*);
-    using GetDepth = uint8_t(__thiscall*)(PcTexture*);
-    int width = reinterpret_cast<Pull>(vtable[33])(this);
-    int count = reinterpret_cast<Pull>(vtable[34])(this) * width;
+    int width = fetch_breadth();
+    int count = fetch_tallness() * width;
     for (int i = 0; i < count; ++i, from += 4, into += 4) {
         into[0] = static_cast<uint8_t>(from[0] * blue / 0xFF);
         into[1] = static_cast<uint8_t>(from[1] * green / 0xFF);
         into[2] = static_cast<uint8_t>(from[2] * red / 0xFF);
         into[3] = static_cast<uint8_t>(from[3] * alpha >> 7);
     }
-    if (reinterpret_cast<GetDepth>(vtable[35])(this) <= 8 && !cumulative) { // (the palette too, in place)
+    if (get_depth() <= 8 && !cumulative) { // (the palette too, in place)
         auto* entry = reinterpret_cast<uint8_t*>(get_texture()->palette_owner());
-        int entries = 1 << reinterpret_cast<GetDepth>(vtable[35])(this);
+        int entries = 1 << get_depth();
         for (int i = 0; i < entries; ++i, entry += 4) {
             entry[0] = static_cast<uint8_t>(entry[0] * blue / 0xFF);
             entry[1] = static_cast<uint8_t>(entry[1] * green / 0xFF);
@@ -509,9 +473,10 @@ bool PcTexture::modulate(uint32_t colour, bool cumulative)
 }
 
 // 0x004C9D80
-bool PcTexture::resize_from(const PcTexture* source, int /*unused*/)
+bool PcTexture::resize_from(const BitmapTexture* source_texture, int /*unused*/)
 {
-    if (!(flags & 1) || !(source->flags & 1))
+    const auto* source = static_cast<const PcTexture*>(source_texture);
+    if (!(flag_bits_ & 1) || !(source->flag_bits_ & 1))
         return false;
     const TextureRef* into = get_edit(this)->texture;
     const TextureRef* from = get_edit(source)->texture;
@@ -543,7 +508,7 @@ bool PcTexture::get_zoom(float x_zoom, float y_zoom)
 void PcTexture::read_rect(uint32_t* out, uint16_t x, uint16_t y, uint16_t width, uint16_t height)
 {
     uint32_t image_width = get_texture()->image_width_;
-    if (flags & 1 && get_edit(this)->pixels) {
+    if (flag_bits_ & 1 && get_edit(this)->pixels) {
         const uint32_t* from = get_edit(this)->pixels + (y * image_width + x);
         for (uint32_t row = height; row; --row) {
             std::memcpy(out, from, width * 4);
@@ -569,7 +534,7 @@ void PcTexture::read_rect(uint32_t* out, uint16_t x, uint16_t y, uint16_t width,
 void PcTexture::write_rect(const uint32_t* in, uint16_t x, uint16_t y, uint16_t width, uint16_t height)
 {
     uint32_t image_width = get_texture()->image_width_, image_height = get_texture()->image_height_;
-    if (flags & 1 && get_edit(this)->pixels) {
+    if (flag_bits_ & 1 && get_edit(this)->pixels) {
         uint32_t* into = get_edit(this)->pixels + (y * image_width + x);
         for (uint32_t row = height; row; --row) {
             std::memcpy(into, in, width * 4);
@@ -704,8 +669,8 @@ bool PcTexture::get_mirror()
     manager->enter_heap_scope(manager->top_down_heap_);
     auto* column = static_cast<uint32_t*>(memory::alloc(height * 4));
     memory::Hub::get_pull()->leave_heap_scope();
-    uint32_t* left = flags & 1 ? get_edit(this)->pixels : nullptr;
-    uint32_t* right = (flags & 1 ? get_edit(this)->pixels : nullptr) + width - 1;
+    uint32_t* left = flag_bits_ & 1 ? get_edit(this)->pixels : nullptr;
+    uint32_t* right = (flag_bits_ & 1 ? get_edit(this)->pixels : nullptr) + width - 1;
     for (; left < right; ++left, --right) { // (the columns swapped)
         for (int i = 0; i < height; ++i)
             column[i] = left[i * width];
@@ -719,13 +684,13 @@ bool PcTexture::get_mirror()
 }
 
 // 0x004CA8E0
-bool PcTexture::get_overlay(PcTexture* over, int /*unused*/)
+bool PcTexture::get_overlay(BitmapTexture* over_texture, int /*unused*/)
 {
+    auto* over = static_cast<PcTexture*>(over_texture);
     const auto* texels = static_cast<const uint8_t*>(over->get_texture()->get_lock());
-    auto* into = reinterpret_cast<uint8_t*>(flags & 1 ? get_edit(this)->pixels : nullptr);
-    using Pull = uint16_t(__thiscall*)(PcTexture*);
-    uint32_t width = reinterpret_cast<Pull>(over->vtable[33])(over);
-    uint32_t height = reinterpret_cast<Pull>(over->vtable[34])(over);
+    auto* into = reinterpret_cast<uint8_t*>(flag_bits_ & 1 ? get_edit(this)->pixels : nullptr);
+    uint32_t width = over->fetch_breadth();
+    uint32_t height = over->fetch_tallness();
     const uint8_t* row = texels + (height - 1) * width * 4; // (bottom row first, by its alpha)
     for (uint32_t y = height; y; --y, row -= width * 4) {
         const uint8_t* from = row;
@@ -746,14 +711,13 @@ bool PcTexture::get_overlay(PcTexture* over, int /*unused*/)
 // 0x004CAA20
 bool PcTexture::shift_hue_sat_value(float hue, float saturation, float value, bool cumulative)
 {
-    auto* into = reinterpret_cast<uint8_t*>(flags & 1 ? get_edit(this)->pixels : nullptr);
+    auto* into = reinterpret_cast<uint8_t*>(flag_bits_ & 1 ? get_edit(this)->pixels : nullptr);
     const uint8_t* from = nullptr;
-    if (flags & 1)
+    if (flag_bits_ & 1)
         from = reinterpret_cast<const uint8_t*>(get_edit(this)->original && !cumulative ? get_edit(this)->original
                                                                                         : get_edit(this)->pixels);
-    using Pull = uint16_t(__thiscall*)(PcTexture*);
-    int width = reinterpret_cast<Pull>(vtable[33])(this);
-    int count = reinterpret_cast<Pull>(vtable[34])(this) * width;
+    int width = fetch_breadth();
+    int count = fetch_tallness() * width;
     for (int i = 0; i < count; ++i, from += 4, into += 4) {
         float h, s, v;
         rgb_to_hsv(static_cast<float>(from[0] * (1.0f / 255.0f)), static_cast<float>(from[1] * (1.0f / 255.0f)),
@@ -777,9 +741,8 @@ bool PcTexture::shift_hue_sat_value(float hue, float saturation, float value, bo
 // 0x004CABE0
 bool PcTexture::get_offset(int dx, int dy, bool keep_edges, int /*unused*/)
 {
-    using Pull = uint16_t(__thiscall*)(PcTexture*);
-    int width = reinterpret_cast<Pull>(vtable[33])(this);
-    int height = reinterpret_cast<Pull>(vtable[34])(this);
+    int width = fetch_breadth();
+    int height = fetch_tallness();
     int from_x, into_x, part_width, from_y = 0, into_y, part_height;
     if (dx >= 0) {
         from_x = 0;
@@ -820,7 +783,7 @@ bool PcTexture::get_offset(int dx, int dy, bool keep_edges, int /*unused*/)
                     column = part_width - 1;
                 uint32_t pixel = part[row_start + column];
                 uint32_t texels_wide = get_texture()->width;
-                if (flags & 1 && get_edit(this)->pixels)
+                if (flag_bits_ & 1 && get_edit(this)->pixels)
                     get_edit(this)->pixels[static_cast<uint16_t>(y) * texels_wide + static_cast<uint16_t>(x)] = pixel;
             }
         }
@@ -832,7 +795,7 @@ bool PcTexture::get_offset(int dx, int dy, bool keep_edges, int /*unused*/)
 // 0x004CADC0
 bool PcTexture::get_border(uint32_t colour)
 {
-    uint32_t* pixels = flags & 1 ? get_edit(this)->pixels : nullptr;
+    uint32_t* pixels = flag_bits_ & 1 ? get_edit(this)->pixels : nullptr;
     uint32_t width = get_texture()->width;
     int height = get_texture()->height;
     uint32_t* bottom = pixels + (height - 1) * width;
@@ -947,7 +910,7 @@ bool PcTexture::squash(uint16_t position, int vertical, int amount, bool fill, u
 // 0x004C9B00
 BitmapTexture* PcTexDict::load_texture_file(const char* name, uint32_t a1, uint32_t /*a2*/)
 {
-    auto* texture = reinterpret_cast<BitmapTexture*>(alloc_pc_texture());
+    BitmapTexture* texture = alloc_pc_texture();
     // (no check: the engine's load called on null without memory, as the original)
     texture->BitmapTexture::load_by_name(name, static_cast<int>(a1), 1);
     return texture;
@@ -957,7 +920,7 @@ BitmapTexture* PcTexDict::load_texture_file(const char* name, uint32_t a1, uint3
 BitmapTexture* PcTexDict::load_texture_data(const uint8_t* data, uint32_t size, uint32_t checksum, uint32_t a3,
                                             uint32_t a4, uint32_t /*a6*/)
 {
-    auto* texture = reinterpret_cast<BitmapTexture*>(alloc_pc_texture());
+    BitmapTexture* texture = alloc_pc_texture();
     texture->BitmapTexture::read_from_ram_block(data, size, checksum, a3, a4, 1);
     return texture;
 }
@@ -968,7 +931,7 @@ BitmapTexture* PcTexDict::make_texture(uint32_t checksum, uint32_t width, uint32
 {
     auto* texture = static_cast<BitmapTexture*>(textures_->fetch_entry(checksum));
     if (!texture)
-        texture = reinterpret_cast<BitmapTexture*>(alloc_pc_texture());
+        texture = alloc_pc_texture();
     texture->BitmapTexture::fabricate(checksum, width, height, bits_per_pixel, a4, a5);
     return texture;
 }
@@ -976,20 +939,16 @@ BitmapTexture* PcTexDict::make_texture(uint32_t checksum, uint32_t width, uint32
 // 0x004C8090
 bool PcTexDict::destroy_texture(BitmapTexture* texture)
 {
-    auto* pc_texture = reinterpret_cast<PcTexture*>(texture);
-    if (pc_texture) // (through its vtable)
-        reinterpret_cast<PcTexture*(__thiscall*)(PcTexture*, unsigned int)>(pc_texture->vtable[0])(pc_texture, 1);
+    delete texture; // (through its vtable)
     return true;
 }
 
 // 0x004C9C80
 BitmapTexture* PcTexDict::duplicate_texture(uint32_t checksum, BitmapTexture* source)
 {
-    void* memory = memory::alloc(sizeof(PcTexture));
-    PcTexture* texture =
-        memory ? static_cast<PcTexture*>(memory)->construct_copy(reinterpret_cast<const PcTexture*>(source)) : nullptr;
+    auto* texture = new PcTexture(static_cast<const PcTexture*>(source));
     texture->get_texture()->checksum = checksum; // (no check, as the original)
-    return reinterpret_cast<BitmapTexture*>(texture);
+    return texture;
 }
 
 namespace {
@@ -1048,10 +1007,9 @@ uint32_t pixel_layout(uint8_t compression, uint8_t depth, uint32_t last)
 // The texture under its checksum in the table.
 void add_to_table(lists::KeyMap* table, TextureRef* texture)
 {
-    void* memory = memory::alloc(sizeof(PcTexture));
-    PcTexture* holder = memory ? static_cast<PcTexture*>(memory)->make_new() : nullptr;
-    holder->engine = texture; // (no check, as the original)
-    holder->checksum = texture->checksum;
+    auto* holder = new PcTexture;
+    holder->image_ = texture; // (no check, as the original)
+    holder->checksum_ = texture->checksum;
     table->store_entry(texture->checksum, holder);
 }
 
@@ -1338,51 +1296,5 @@ void __cdecl hsv_to_rgb(float* r, float* g, float* b, float h, float s, float v)
         break;
     }
 }
-
-namespace {
-static VtableSlot g_texture_vtable_slots[] = {&render::PcTexture::teardown,
-                                              &render::PcTexture::ingest_file,
-                                              &render::PcTexture::load_memory,
-                                              &render::PcTexture::fabricate,
-                                              &render::PcTexture::copy_from,
-                                              stubs::return_false4,
-                                              stubs::return_false1,
-                                              stubs::return_false1,
-                                              &render::PcTexture::begin_edit,
-                                              &render::PcTexture::write_back,
-                                              &render::PcTexture::end_edit,
-                                              stubs::return_false5,
-                                              &render::PcTexture::modulate,
-                                              &render::PcTexture::get_mirror,
-                                              stubs::return_false,
-                                              &render::PcTexture::resize_from,
-                                              &render::PcTexture::get_zoom,
-                                              &render::PcTexture::spin_by,
-                                              &render::PcTexture::get_offset,
-                                              &render::PcTexture::get_border,
-                                              stubs::return_false7,
-                                              &render::PcTexture::get_stretch,
-                                              &render::PcTexture::squash,
-                                              stubs::return_false2,
-                                              &render::PcTexture::shift_hue_sat_value,
-                                              stubs::return_zero,
-                                              stubs::return_zero,
-                                              stubs::return_zero,
-                                              stubs::return_zero,
-                                              stubs::ignore_arguments2,
-                                              stubs::return_false1,
-                                              stubs::return_false,
-                                              stubs::return_false,
-                                              &render::PcTexture::fetch_breadth,
-                                              &render::PcTexture::fetch_tallness,
-                                              &render::PcTexture::get_depth,
-                                              stubs::return_zero,
-                                              stubs::ignore_argument,
-                                              &render::PcTexture::get_unknown_e,
-                                              &render::PcTexture::get_unknown_c,
-                                              &render::PcTexture::get_unknown_d,
-                                              &render::PcTexture::get_overlay};
-void** const kTextureVtable = reinterpret_cast<void**>(g_texture_vtable_slots);
-} // namespace
 
 } // namespace render

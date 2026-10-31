@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstring>
 
+#include "engine/gfx/engine_texture.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/file/packs.h"
@@ -48,43 +49,37 @@ render::BitmapTexture*& face_overlay() { return g_face_overlay; }
 // The game's texture dictionary (0x00700F1C) and its texture `name`.
 render::BitmapTexture* find_texture(uint32_t name) { return render::g_game_texture_dict->fetch_skin(name); }
 
-// A texture's virtual slot (the original calls most through the folded jumps 0x0048D060 [8], 0x0048DE30 [9],
+// A texture's editing calls (the original calls most through the folded jumps 0x0048D060 [8], 0x0048DE30 [9],
 // 0x0048DEC0 [18], 0x0049F370 [21], 0x0048DEF0 [22], 0x0049F390 [24], 0x0049F3C0 [33], 0x0049F3D0 [34], 0x0049F420
 // [41]).
-template <typename R, typename... A>
-R texture_slot(render::BitmapTexture* texture, int slot, A... args)
-{
-    return reinterpret_cast<R(__thiscall*)(render::BitmapTexture*, A...)>((*reinterpret_cast<void***>(texture))[slot])(
-        texture, args...);
-}
-void begin_edit(render::BitmapTexture* texture) { texture_slot<void>(texture, 8, 0, 0); }
+void begin_edit(render::BitmapTexture* texture) { texture->begin_edit(false, false); }
 void end_edit(render::BitmapTexture* texture, uint8_t generate_palette)
 {
-    texture_slot<void>(texture, 9, generate_palette, 0);
+    texture->write_back(generate_palette, nullptr);
 }
 void get_offset(render::BitmapTexture* texture, int x, int y, bool use_colour, uint32_t colour)
 {
-    texture_slot<void>(texture, 18, x, y, use_colour, colour);
+    texture->get_offset(x, y, use_colour, static_cast<int>(colour));
 }
 // Pixels pulled in towards `point` along `axis` (0 x, 1 y) by `amount` (negative: from the other side)...
 void get_stretch(render::BitmapTexture* texture, int point, int axis, int amount)
 {
-    texture_slot<void>(texture, 21, point, axis, amount);
+    texture->get_stretch(static_cast<uint16_t>(point), axis, amount);
 }
 // ... or pushed out from it, the gap filled with `colour`.
 void stack_on(render::BitmapTexture* texture, int point, int axis, int amount, bool use_colour, uint32_t colour)
 {
-    texture_slot<void>(texture, 22, point, axis, amount, use_colour, colour);
+    texture->squash(static_cast<uint16_t>(point), axis, amount, use_colour, colour);
 }
 void shift_hsv(render::BitmapTexture* texture, float h, float s, float v)
 {
-    texture_slot<void>(texture, 24, h, s, v, 0);
+    texture->shift_hue_sat_value(h, s, v, false);
 }
-uint16_t get_width(render::BitmapTexture* texture) { return texture_slot<uint16_t>(texture, 33); }
-uint16_t get_height(render::BitmapTexture* texture) { return texture_slot<uint16_t>(texture, 34); }
+uint16_t get_width(render::BitmapTexture* texture) { return texture->fetch_breadth(); }
+uint16_t get_height(render::BitmapTexture* texture) { return texture->fetch_tallness(); }
 void draw_over(render::BitmapTexture* texture, render::BitmapTexture* overlay, uint8_t generate_palette)
 {
-    texture_slot<void>(texture, 41, overlay, generate_palette);
+    texture->get_overlay(overlay, generate_palette);
 }
 
 // The C runtime's _ftol (0x006236FC): truncated to a 64-bit integer, the low half kept.

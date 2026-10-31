@@ -225,13 +225,4 @@ void __cdecl hide_models_for_cutscene() { g_hidden_models.conceal(); }
 // 0x00487D30
 void __cdecl show_models_after_cutscene() { g_hidden_models.get_show(); }
 
-// 0x00487D50
-__declspec(naked) void virtual_slot4_jump()
-{
-    __asm {
-        mov eax, dword ptr [ecx]
-        jmp dword ptr [eax + 0x10]
-    }
-}
-
 } // namespace gfx

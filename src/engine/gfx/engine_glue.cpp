@@ -250,9 +250,8 @@ TexturedQuad* __cdecl create_textured_quad() { return new TexturedQuad(nullptr);
 // 0x004B2B60
 void* __cdecl create_render_target(int width, int height, uint8_t depth, int unused)
 {
-    void* memory = memory::alloc(0x14);
-    PcTexture* target = memory ? static_cast<PcTexture*>(memory)->make_new() : nullptr;
-    memory = memory::alloc(sizeof(TextureRef));
+    auto* target = new PcTexture;
+    void* memory = memory::alloc(sizeof(TextureRef));
     TextureRef* texture = memory ? static_cast<TextureRef*>(memory)->make_new() : nullptr;
     target->set_texture(texture);
     // (no check: a failed allocation calls through null, as the original)
