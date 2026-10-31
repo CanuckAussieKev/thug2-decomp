@@ -8,6 +8,8 @@ endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# compile_commands.json in the build folder, for clang-tidy / clangd (.clang-tidy, docs/style-guide.md).
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Static CRT so the exe doesn't need a separate runtime installed next to the game.
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
