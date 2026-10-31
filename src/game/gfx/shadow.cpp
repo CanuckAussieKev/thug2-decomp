@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <cstring>
 #include <initializer_list>
+#include <vector>
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -29,7 +30,7 @@
 
 namespace Nx {
 
-uint8_t g_shadowTriangles[20480];
+constexpr uint32_t kShadowTriangleBytes = 20480; // the original's triangle buffer (0x00796640)
 bool g_twoSidedStencil;
 float g_shadowViewport[4]{256.0f, 256.0f, 256.0f, 256.0f};
 
@@ -55,14 +56,31 @@ struct ProjectedVertex {
     uint32_t clip; // a bit per side it's outside of
 };
 static_assert(sizeof(ProjectedVertex) == 0x1C, "the buffer's stride");
-ProjectedVertex g_projectedVertices[4096];
-ProjectedVertex* Projected() { return g_projectedVertices; }
 struct ShadowVertex {
     float position[3];
     float u, v;
 };
 static_assert(sizeof(ShadowVertex) == 0x14, "the draw's stride");
-ShadowVertex* ShadowTriangles() { return reinterpret_cast<ShadowVertex*>(g_shadowTriangles); }
+// NOT ORIGINAL - both buffers grow to fit. The original's are fixed (4096 projected vertices at 0x0079B640, 20480
+// bytes - 1024 vertices - of triangles at 0x00796640) and unchecked: enough for THUG2's own scene meshes, but a
+// ported level's mesh under a shadow (Proving Ground's: more than 4096 vertices) ran past them into the globals
+// after them (a call through g_shadowCompanion holding a vertex's float). Their first sizes are the original's.
+std::vector<ProjectedVertex> g_projectedVertices(4096);
+std::vector<ShadowVertex> g_shadowVertices(kShadowTriangleBytes / sizeof(ShadowVertex));
+ProjectedVertex* Projected(uint32_t count)
+{
+    if (g_projectedVertices.size() < count)
+        g_projectedVertices.resize(count);
+    return g_projectedVertices.data();
+}
+ProjectedVertex* Projected() { return g_projectedVertices.data(); }
+ShadowVertex* ShadowTriangles(uint32_t vertices)
+{
+    if (g_shadowVertices.size() < vertices)
+        g_shadowVertices.resize(vertices);
+    return g_shadowVertices.data();
+}
+ShadowVertex* ShadowTriangles() { return g_shadowVertices.data(); }
 constexpr float kFacingLimit = std::bit_cast<float>(0xB8D1B717u); // 0x0064AAA0, -1e-4
 
 ShadowCompanionFn g_shadowCompanion = nullptr; // NOT ORIGINAL (SetShadowCompanion)
@@ -135,7 +153,7 @@ ShadowCaster* FirstCaster()
 // 0x004DA0F0
 void __cdecl ProjectShadowVertices(const float* positions, uint32_t count, const void* matrix)
 {
-    ProjectedVertex* vertex = Projected();
+    ProjectedVertex* vertex = Projected(count);
     for (uint32_t i = 0; i < count; ++i, ++vertex, positions += 3) {
         TransformCoord(vertex->projected, positions, matrix);
         // The clip flags from the float bits: a bit for each of x < 0, x > 1, y < 0, y > 1, z (on the sign and
@@ -154,7 +172,7 @@ void __cdecl ProjectShadowVertices(const float* positions, uint32_t count, const
 // 0x004DA190
 int __cdecl ClipShadowTriangles(const uint16_t* indices, uint32_t count)
 {
-    ShadowVertex* out = ShadowTriangles();
+    ShadowVertex* out = ShadowTriangles(3 * count); // (at most every triangle kept)
     for (uint32_t i = 0; i < count; ++i, indices += 3) {
         const ProjectedVertex& v0 = Projected()[indices[0]];
         const ProjectedVertex& v1 = Projected()[indices[1]];
