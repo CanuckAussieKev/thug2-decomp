@@ -37,12 +37,6 @@ class ParkTile;
 class PieceGroup;
 class TileTemplate;
 
-// A class's vtable as the original's code and the self-tests name it: an address, or the table (the vtable objects below).
-struct VtableRef {
-    void** const* table;
-    operator void**() const { return *table; }
-    operator uint32_t() const { return reinterpret_cast<uint32_t>(*table); }
-};
 class ParkLayout;
 struct RailNodeInfo;
 

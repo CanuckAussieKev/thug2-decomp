@@ -9,8 +9,6 @@
 
 namespace render {
 
-extern void** const kNodeVtable; // 0x00645AA0: lists::Elem<HitMesh>
-
 // The geometry a collision object's faces come from (render::TriMeshSource; its methods are rewritten later).
 struct TriMeshSource;
 struct CollisionHit;

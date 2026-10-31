@@ -29,7 +29,6 @@ TextureSet* g_particle_texture_dict;
 
 namespace {
 
-extern void** const kTexDictVtable;
 
 // The loaded dictionaries, by checksum (a static hash table).
 lists::KeyMap g_loaded_tex_dicts{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(4) at start-up)
