@@ -314,6 +314,10 @@ bool ParseCatalogue(const std::string& json, Catalogue* out, std::string* error)
             level.name = l.Str("name");
             level.load = l.Str("load");
             level.art = l.Str("art");
+            if (const Json* variants = l.Get("art_variants"); variants && variants->kind == Json::Array)
+                for (const Json& v : variants->items)
+                    if (v.kind == Json::String && !v.text.empty())
+                        level.artVariants.push_back(v.text);
             level.flag = l.Str("flag");
             level.seenFlag = l.Str("seen_flag");
             level.gameTag = l.Str("game_tag");
@@ -335,6 +339,70 @@ bool ParseCatalogue(const std::string& json, Catalogue* out, std::string* error)
     }
     *out = std::move(result);
     return true;
+}
+
+bool Catalogue::CycleArt(const std::string& load, int step)
+{
+    int s = 0, l = 0;
+    if (!Find(load, &s, &l))
+        return false;
+    Level& level = sections[s].levels[l];
+    int count = static_cast<int>(level.artVariants.size());
+    if (count < 2)
+        return false;
+    level.variant = ((level.variant + step) % count + count) % count;
+    return true;
+}
+
+void Catalogue::ApplyArtChoices(const std::vector<std::pair<std::string, int>>& choices)
+{
+    for (const auto& [load, variant] : choices) {
+        int s = 0, l = 0;
+        if (!Find(load, &s, &l))
+            continue;
+        Level& level = sections[s].levels[l];
+        if (variant >= 0 && variant < static_cast<int>(level.artVariants.size()))
+            level.variant = variant;
+    }
+}
+
+std::vector<std::pair<std::string, int>> Catalogue::ArtChoices() const
+{
+    std::vector<std::pair<std::string, int>> out;
+    for (const Section& s : sections)
+        for (const Level& l : s.levels)
+            if (l.variant > 0)
+                out.emplace_back(l.load, l.variant);
+    return out;
+}
+
+std::vector<std::pair<std::string, int>> ParseArtChoices(const std::string& text)
+{
+    std::vector<std::pair<std::string, int>> out;
+    size_t at = 0;
+    while (at <= text.size()) {
+        size_t end = text.find('\n', at);
+        std::string line = Trim(text.substr(at, end == std::string::npos ? std::string::npos : end - at));
+        at = end == std::string::npos ? text.size() + 1 : end + 1;
+        if (line.empty() || line[0] == '#')
+            continue;
+        size_t gap = line.find_first_of(" \t");
+        if (gap == std::string::npos)
+            continue;
+        std::string load = line.substr(0, gap), number = Trim(line.substr(gap));
+        if (number.empty() || number.find_first_not_of("0123456789") != std::string::npos || number.size() > 3)
+            continue;
+        out.emplace_back(load, std::atoi(number.c_str()));
+    }
+    return out;
+}
+
+std::string FormatArtChoices(const std::vector<std::pair<std::string, int>>& choices)
+{
+    std::string text = "# The level select's picture per level: <load script> <picture number, from 0>\n";
+    for (const auto& [load, variant] : choices)
+        text += load + " " + std::to_string(variant) + "\n";
+    return text;
 }
 
 // --- the state file ---------------------------------------------------------------------------------------------
