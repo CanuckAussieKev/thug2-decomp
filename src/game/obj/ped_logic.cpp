@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <new>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -18,7 +18,7 @@
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/nodes.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/skater/looping_sound.h"
 #include "game/skater/skater_sound.h"
@@ -26,7 +26,7 @@
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace GameObjects {

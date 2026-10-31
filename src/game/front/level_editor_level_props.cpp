@@ -10,13 +10,13 @@
 #include <cstring>
 #include <vector>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/gfx/tod_manager.h"
 #include "game/script/cscript.h"
 #include "game/script/node_manager.h"
 #include "game/script/nodes.h"
-#include "game/script/struct.h"
-#include "game/sys/log.h"
+#include "game/script/param_struct.h"
+#include "game/sys/run_log.h"
 #include "game/skate/skate_module.h"
 
 namespace MenuSystem::LevelEditor::LevelProps {

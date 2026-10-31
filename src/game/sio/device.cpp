@@ -3,7 +3,7 @@
 
 #include "game/sio/device.h"
 #include "game/net/task_vtable.h"
-#include "game/goals/goal.h"
+#include "game/goals/objective.h"
 
 #define DIRECTINPUT_VERSION 0x0800
 #include <windows.h>
@@ -16,8 +16,8 @@
 #include <cstring>
 #include <new>
 
-#include "game/core/alloc.h"
-#include "game/core/crc.h"
+#include "game/core/arena_alloc.h"
+#include "game/core/checksums.h"
 #include "game/front/front_end.h"
 #include "game/front/screen_element.h"
 #include "game/net/gamenet_game_cfuncs.h"
@@ -27,9 +27,9 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/stubs.h"
-#include "game/core/task.h"
-#include "game/lst/search.h"
-#include "game/pcm/music.h"
+#include "game/core/task_list.h"
+#include "game/lst/list_walk.h"
+#include "game/pcm/music_player.h"
 #include "game/pcm/music_api.h"
 #include "game/script/cscript.h"
 #include "game/sio/sdl_input.h"

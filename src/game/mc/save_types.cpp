@@ -6,8 +6,8 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "game/core/alloc.h"
-#include "game/core/crc.h"
+#include "game/core/arena_alloc.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/ed/goal_editor.h"
 #include "game/ed/park_editor.h"
@@ -16,16 +16,16 @@
 #include "game/net/gamenet_manager.h"
 #include "game/obj/tracker.h"
 #include "game/skate/career.h"
-#include "game/obj/object.h"
-#include "game/script/struct.h"
+#include "game/obj/entity.h"
+#include "game/script/param_struct.h"
 #include "game/script/struct_buffer.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
-#include "game/skater/skater.h"
+#include "game/skater/rider.h"
 #include "game/sys/game_config.h"
 #include "game/core/game_vtables.h"
-#include "game/goals/goal.h"
-#include "game/gfx/skeleton.h"
+#include "game/goals/objective.h"
+#include "game/gfx/rig.h"
 
 namespace MemCard {
 

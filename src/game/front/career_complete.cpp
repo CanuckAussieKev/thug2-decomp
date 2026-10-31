@@ -4,15 +4,15 @@
 
 #include <cstdint>
 
-#include "game/core/crc.h"
-#include "game/obj/object.h"
+#include "game/core/checksums.h"
+#include "game/obj/entity.h"
 #include "game/script/names.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/career.h"
 #include "game/skate/gap_checklist.h"
 #include "game/skate/skate_module.h"
-#include "game/skater/skater.h"
-#include "game/sys/log.h"
+#include "game/skater/rider.h"
+#include "game/sys/run_log.h"
 
 namespace MenuSystem::CareerComplete {
 

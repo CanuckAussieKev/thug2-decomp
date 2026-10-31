@@ -7,7 +7,7 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/park/park_memory.h"

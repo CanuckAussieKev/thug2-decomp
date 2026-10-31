@@ -8,16 +8,16 @@
 #include <cstring>
 #include <new>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/core/pool.h"
-#include "game/obj/event.h"
+#include "game/core/slab_bank.h"
+#include "game/obj/signal.h"
 #include "game/obj/tracker.h"
 #include "game/script/cache.h"
-#include "game/script/parse.h"
+#include "game/script/token_reader.h"
 #include "game/script/qb.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 
 namespace Scripts {
 

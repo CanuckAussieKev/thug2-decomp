@@ -4,20 +4,20 @@
 
 #include <cmath>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/front/front_end.h"
 #include "game/front/level_editor.h"
 #include "game/gfx/screen.h"
-#include "game/mth/matrix.h"
-#include "game/nx/feeler.h"
-#include "game/obj/object.h"
+#include "game/mth/mat4.h"
+#include "game/nx/probe_ray.h"
+#include "game/obj/entity.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/skate_module_calls.h"
-#include "game/skater/skater.h"
+#include "game/skater/rider.h"
 #include "game/skater/thaw_bmx.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 
 namespace Skater::ThawBmx {
 

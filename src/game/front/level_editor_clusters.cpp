@@ -12,19 +12,19 @@
 #include <memory>
 #include <vector>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/front/level_editor_fields.h"
 #include "game/front/level_editor_hud.h"
 #include "game/front/level_editor_modules.h"
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_scenery.h"
-#include "game/lst/hashtable.h"
+#include "game/lst/key_map.h"
 #include "game/obj/trick_objects.h"
 #include "game/script/nodes.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/skate_module.h"
 #include "game/sys/game_config.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 #include "imgui.h"
 
 namespace MenuSystem::LevelEditor::Clusters {

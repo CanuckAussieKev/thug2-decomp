@@ -18,8 +18,8 @@
 #include <cstdint>
 
 #include "game/ed/park_rails.h"
-#include "game/mth/vector.h"
-#include "game/core/pool.h"
+#include "game/mth/vec4.h"
+#include "game/core/slab_bank.h"
 
 namespace Scripts {
 class CArray;
@@ -409,7 +409,7 @@ static_assert(offsetof(SGapDetails, m_text) == 0x24 && offsetof(SGapDetails, m_n
               "layout must match the original");
 using GapRecord = SGapDetails;
 
-// A metapiece copied into a clipboard (0x18 bytes, pooled: the pool pair 0x007CE5C4; clipboard.cpp): the palette
+// A metapiece copied into a clipboard (0x18 bytes, pooled: the pool pair 0x007CE5C4; copy_buffer.cpp): the palette
 // piece it was made from, its cell and size where it was copied (raised so the lowest piece of the copy is at 0), its
 // turn, and the preview shown at the cursor. `centreX` / `centreZ` below are the copy's centre cell.
 struct CClipboardEntry {
@@ -443,7 +443,7 @@ static_assert(offsetof(CClipboardEntry, m_quarterTurns) == 0x08 && offsetof(CCli
                   sizeof(CClipboardEntry) == 0x18,
               "pool item");
 
-// A copied area (0x18 bytes, pooled: the pool pair 0x007CE5B4; clipboard.cpp): the metapieces (and rails) copied from
+// A copied area (0x18 bytes, pooled: the pool pair 0x007CE5B4; copy_buffer.cpp): the metapieces (and rails) copied from
 // it.
 struct CClipboard {
     SCellBox m_editSpan;           // +0x00

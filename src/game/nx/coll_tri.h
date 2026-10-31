@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/mth/geometry.h"
-#include "game/mth/vector.h"
+#include "game/mth/shape_tests.h"
+#include "game/mth/vec4.h"
 
 namespace Engine3D {
 

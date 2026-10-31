@@ -8,7 +8,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/script/names.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/sio/device.h"
 #include "game/sys/game_clock.h"
 #include "game/obj/control_pad.h"
@@ -17,7 +17,7 @@
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/skater/vehicle_sound.h"
 #include "game/obj/camera_lookaround.h"
 

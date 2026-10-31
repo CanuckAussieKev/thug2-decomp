@@ -5,21 +5,21 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/dbg.h"
 #include "game/obj/trick_objects.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
-#include "game/sio/inpman.h"
-#include "game/skater/skater.h"
+#include "game/script/param_struct.h"
+#include "game/sio/input_hub.h"
+#include "game/skater/rider.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/skater/trick_component.h"
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 #include "game/goals/goal_manager.h"
-#include "game/skate/score.h"
+#include "game/skate/point_tally.h"
 #include "game/skater/balance_trick.h"
 #include "game/skater/core_physics.h"
-#include "game/skater/gap.h"
+#include "game/skater/gap_entry.h"
 #include "game/skater/stats_manager.h"
 
 namespace GameObjects {

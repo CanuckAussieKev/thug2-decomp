@@ -8,15 +8,15 @@
 #include <cstdint>
 
 #include "game/gfx/debug_lines.h"
-#include "game/mth/math.h"
-#include "game/mth/quat.h"
-#include "game/nx/feeler.h"
+#include "game/mth/maths.h"
+#include "game/mth/quat_rotation.h"
+#include "game/nx/probe_ray.h"
 #include "game/obj/rigidbody_component.h"
 #include "game/obj/sound_component.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/sfx/sfx.h"
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 
 namespace GameObjects {
 

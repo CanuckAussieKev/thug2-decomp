@@ -9,13 +9,13 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/file/file.h"
+#include "game/file/file_load.h"
 #include "game/gfx/anim_blend.h"
 #include "game/gfx/anim_cache.h"
 #include "game/gfx/custom_anim_key.h"
 #include "game/gfx/anim_track.h"
-#include "game/mth/math.h"
-#include "game/mth/vector.h"
+#include "game/mth/maths.h"
+#include "game/mth/vec4.h"
 #include "game/obj/walk_hang.h"
 
 namespace Gfx2D {

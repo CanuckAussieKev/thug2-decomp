@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/net/buddy_man.h"
 #include "game/net/gamenet_handler_util.h"
@@ -15,7 +15,7 @@
 #include "game/net/gamenet_lobby.h"
 #include "game/script/cscript.h"
 #include "game/script/preferences.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/sys/winmain.h"
 #include "game/core/code_address.h"
 

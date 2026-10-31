@@ -10,7 +10,7 @@
 
 #include "game/sfx/mute_audio.h"
 #include "game/gfx/device.h"
-#include "game/pcm/music.h"
+#include "game/pcm/music_player.h"
 
 namespace OsLayer {
 

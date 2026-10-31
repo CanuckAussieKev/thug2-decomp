@@ -10,19 +10,19 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/mth/geometry.h"
-#include "game/obj/objman.h"
+#include "game/mth/shape_tests.h"
+#include "game/obj/entity_hub.h"
 #include "game/script/nodes.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/skate_module.h"
 #include "game/core/code_address.h"
 #include "game/skater/skitch.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/obj/camera_lookaround.h"
-#include "game/obj/objman.h"
+#include "game/obj/entity_hub.h"
 
 namespace GameObjects {
 

@@ -4,14 +4,14 @@
 #include <cstdint>
 
 #include "game/core/dbg.h"
-#include "game/mth/matrix.h"
-#include "game/mth/vector.h"
+#include "game/mth/mat4.h"
+#include "game/mth/vec4.h"
 #include "game/nx/coll_cache.h"
 #include "game/obj/control_pad.h"
 #include "game/obj/movable_contact.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/obj/smtptr.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/core_physics_fields.h"
 #include "game/skater/physics_control.h"

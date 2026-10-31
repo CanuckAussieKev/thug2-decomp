@@ -3,8 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/matrix.h"
-#include "game/mth/vector.h"
+#include "game/mth/mat4.h"
+#include "game/mth/vec4.h"
 
 // The PC particle systems the particle component makes (Nx engine; the particle manager's virtual [1]): camera-facing
 // quads emitted in bursts, each burst (up to five at once) a run of particles a period apart along the same path

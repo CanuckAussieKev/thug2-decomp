@@ -8,11 +8,11 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/file/file.h"
-#include "game/script/struct.h"
+#include "game/file/file_load.h"
+#include "game/script/param_struct.h"
 #include "game/script/struct_buffer.h"
 #include "game/ed/rail_editor.h"
 #include "game/ed/goal_editor.h"

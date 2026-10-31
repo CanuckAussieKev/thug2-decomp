@@ -3,10 +3,10 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/core/alloc.h"
-#include "game/mth/geometry.h"
-#include "game/mth/matrix.h"
-#include "game/mth/vector.h"
+#include "game/core/arena_alloc.h"
+#include "game/mth/shape_tests.h"
+#include "game/mth/mat4.h"
+#include "game/mth/vec4.h"
 
 // The PC geom (Nx engine): a sector's or a model's renderable geometry - its meshes, or an instance of another
 // geom's meshes (a model drawn with its own transform and bones) - and what the engine asks of it: colours,

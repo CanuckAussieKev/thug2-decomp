@@ -9,7 +9,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/core/pool.h"
+#include "game/core/slab_bank.h"
 #include "game/park/park_memory.h"
 #include "game/ed/rail_editor.h"
 

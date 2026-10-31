@@ -5,7 +5,7 @@
 #include "game/skate/cas_options.h"
 
 #include "game/mth/random.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/gfx/model_appearance.h"
 
 namespace GameObjects {

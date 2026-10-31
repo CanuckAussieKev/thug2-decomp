@@ -9,10 +9,10 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/core/task.h"
-#include "game/lst/search.h"
+#include "game/core/task_list.h"
+#include "game/lst/list_walk.h"
 #include "game/net/net_access_c.h"
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 #include "game/core/code_address.h"
 #include "game/net/task_vtable.h"
 

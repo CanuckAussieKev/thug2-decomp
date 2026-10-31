@@ -6,7 +6,7 @@
 
 #include "game/core/mem.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 
 namespace ParkEditing {
 

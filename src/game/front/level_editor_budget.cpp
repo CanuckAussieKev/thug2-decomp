@@ -9,11 +9,11 @@
 #include <cstdio>
 #include <vector>
 
-#include "game/core/alloc.h"
-#include "game/core/crc.h"
+#include "game/core/arena_alloc.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/memory_sizes.h"
-#include "game/core/pool.h"
+#include "game/core/slab_bank.h"
 #include "game/front/level_editor_checks.h"
 #include "game/front/level_editor_layout.h"
 #include "game/front/level_editor_node_create.h"
@@ -23,10 +23,10 @@
 #include "game/front/level_editor_triggers.h"
 #include "game/front/level_editor_objects.h"
 #include "game/gfx/screen.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/script/node_manager.h"
-#include "game/sys/log.h"
-#include "game/script/struct.h"
+#include "game/sys/run_log.h"
+#include "game/script/param_struct.h"
 #include "game/script/cscript.h"
 #include "imgui.h"
 

@@ -14,7 +14,7 @@
 #include "game/net/online_hosts.h"
 #include "game/net/online_identity.h"
 #include "game/script/patched.h"
-#include "game/sys/config.h"
+#include "game/sys/platform_config.h"
 #include "game/sys/debug_log.h"
 #include "game/sys/sdl_events.h"
 

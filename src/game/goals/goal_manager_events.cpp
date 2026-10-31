@@ -4,18 +4,18 @@
 
 #include <cstdint>
 
-#include "game/goals/goal.h"
+#include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_skate_line.h"
 #include "game/goals/goal_net_types.h"
 #include "game/goals/goal_manager_cfuncs.h"
 #include "game/goals/goal_names.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skate/trick_goals.h"
-#include "game/skater/skater.h"
-#include "game/skate/score.h"
+#include "game/skater/rider.h"
+#include "game/skate/point_tally.h"
 
 namespace GoalSystem {
 

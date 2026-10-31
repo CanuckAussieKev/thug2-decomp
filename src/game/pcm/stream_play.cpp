@@ -8,7 +8,7 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/gfx/movie.h"
 #include "game/sfx/sfx.h"
 #include "game/sys/game_config.h"

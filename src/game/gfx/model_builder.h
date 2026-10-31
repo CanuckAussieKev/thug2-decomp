@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 
 // The model builder (Gfx2D::CModelAssembler, an GameObjects::CEntity, 0x54 bytes, vtable 0x00648920): builds a model from an
 // appearance by running a build script on itself - the script's member functions (ModelAddGeom, GeomReplaceTexture,

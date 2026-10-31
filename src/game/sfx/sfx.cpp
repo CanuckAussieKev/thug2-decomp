@@ -6,11 +6,11 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/dbg.h"
 #include "game/front/automation.h"
-#include "game/pcm/music.h"
-#include "game/script/struct.h"
+#include "game/pcm/music_player.h"
+#include "game/script/param_struct.h"
 #include "game/sys/game_config.h"
 #include "game/gfx/loading_bar_cfuncs.h"
 #include "game/obj/movie_manager.h"

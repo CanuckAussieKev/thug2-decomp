@@ -11,11 +11,11 @@
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
 #include "game/net/player_info.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/obj/tracker.h"
-#include "game/skater/skater.h"
+#include "game/skater/rider.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/sio/device.h"
 
 namespace ScriptCommands {

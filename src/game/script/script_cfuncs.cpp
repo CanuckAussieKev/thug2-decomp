@@ -7,14 +7,14 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/dbg.h"
 #include "game/core/str.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
-#include "game/script/parse.h"
+#include "game/script/token_reader.h"
 #include "game/script/qb.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/gfx/tod_manager.h"
 
 namespace ScriptCommands {

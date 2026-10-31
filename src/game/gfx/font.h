@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint>
-#include "game/lst/hashtable.h"
+#include "game/lst/key_map.h"
 
 namespace Scripts {
 class CStruct;

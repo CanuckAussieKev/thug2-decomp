@@ -3,9 +3,9 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/core/alloc.h"
-#include "game/gfx/camera.h"
-#include "game/obj/object.h"
+#include "game/core/arena_alloc.h"
+#include "game/gfx/view_cam.h"
+#include "game/obj/entity.h"
 
 // The movie manager (GameObjects::CVideoHub, 0x0057A180-0x0057B240): the queue of camera animations and cutscenes
 // ("movies") the skate module plays (its +0x368). The first movie in the queue plays; its camera is the game's

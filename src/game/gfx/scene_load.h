@@ -2,7 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
-#include "game/core/pool.h"
+#include "game/core/slab_bank.h"
 
 // The PC engine's scene and mesh loaders (Nx engine's platform calls, cdecl): a scene's geometry from a file
 // or from memory - its materials (with the texture dictionary's textures), its sectors (each with a PC geom), the

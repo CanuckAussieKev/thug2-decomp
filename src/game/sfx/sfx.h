@@ -15,7 +15,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/vector.h"
+#include "game/mth/vec4.h"
 
 namespace GameObjects {
 class CEntity;

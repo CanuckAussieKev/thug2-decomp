@@ -10,15 +10,15 @@
 #include <cmath>
 #include <cstdint>
 
-#include "game/mth/math.h"
-#include "game/mth/matrix.h"
-#include "game/mth/vector.h"
+#include "game/mth/maths.h"
+#include "game/mth/mat4.h"
+#include "game/mth/vec4.h"
 #include "game/obj/control_pad.h"
 #include "game/skater/controls.h"
-#include "game/skater/skater.h"
+#include "game/skater/rider.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/sys/game_clock.h"
-#include "game/skate/score.h"
+#include "game/skate/point_tally.h"
 
 namespace Skater {
 

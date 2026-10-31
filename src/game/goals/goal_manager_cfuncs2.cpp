@@ -5,16 +5,16 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/dbg.h"
-#include "game/goals/goal.h"
+#include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
 #include "game/goals/goal_manager_cfuncs.h"
 #include "game/goals/goal_names.h"
 #include "game/goals/goal_types.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module_calls.h"
 

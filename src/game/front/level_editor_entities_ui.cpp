@@ -6,14 +6,14 @@
 #include <string>
 #include <vector>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/front/level_editor_entities.h"
 #include "game/front/level_editor_fields.h"
 #include "game/front/level_editor_nodes.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/script/node_manager.h"
 #include "game/script/nodes.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "imgui.h"
 
 namespace MenuSystem::LevelEditor::Entities {

@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 
 // Composite objects the game makes in code (0x005780E0-0x00578670, 0x0057B250-0x0057B618): cars made by the script command that creates
 // them (0x005A3260's caller), and the King of the Hill crown (GameObjects::CCrownObject): it sits on the head of the skater

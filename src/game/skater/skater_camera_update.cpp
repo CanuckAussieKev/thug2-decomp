@@ -9,20 +9,20 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/gfx/camera.h"
+#include "game/gfx/view_cam.h"
 #include "game/gfx/d3dx.h"
-#include "game/mth/matrix.h"
-#include "game/mth/slerp.h"
-#include "game/mth/vector.h"
-#include "game/nx/feeler.h"
+#include "game/mth/mat4.h"
+#include "game/mth/rotation_blend.h"
+#include "game/mth/vec4.h"
+#include "game/nx/probe_ray.h"
 #include "game/obj/camera_lookaround.h"
 #include "game/obj/camera_util.h"
-#include "game/obj/object.h"
-#include "game/script/struct.h"
+#include "game/obj/entity.h"
+#include "game/script/param_struct.h"
 #include "game/skater/core_physics_fields.h"
-#include "game/skater/skater.h"
+#include "game/skater/rider.h"
 #include "game/skater/skater_camera_component.h"
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 
 namespace GameObjects {
 

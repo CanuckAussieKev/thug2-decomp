@@ -8,7 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/core/alloc.h"
+#include "game/core/arena_alloc.h"
 #include "game/net/net_latency.h"
 #include "game/net/net_lists.h"
 #include "game/net/net_messages.h"

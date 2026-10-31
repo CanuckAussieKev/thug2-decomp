@@ -13,8 +13,8 @@
 #include "game/gfx/model_utils.h"
 #include "game/gfx/particle_system.h"
 #include "game/gfx/particle_system_internal.h"
-#include "game/mth/matrix.h"
-#include "game/mth/quat.h"
+#include "game/mth/mat4.h"
+#include "game/mth/quat_rotation.h"
 #include "game/core/game_vtables.h"
 #include "game/sys/crt.h"
 

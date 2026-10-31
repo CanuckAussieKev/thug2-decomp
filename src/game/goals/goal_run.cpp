@@ -1,29 +1,29 @@
 // GoalSystem::CObjective while it runs: its scripts, links, update, expiry, the skater's end of run, gaps, waypoints, clusters,
-// tricks, records (0x00554A80-0x00555A5F, 0x00556230; see goal.h).
+// tricks, records (0x00554A80-0x00555A5F, 0x00556230; see objective.h).
 
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/dbg.h"
 #include "game/core/mem.h"
-#include "game/goals/goal.h"
+#include "game/goals/objective.h"
 #include "game/goals/goal_calls.h"
 #include "game/goals/goal_names.h"
 #include "game/net/gamenet_manager.h"
-#include "game/obj/object.h"
-#include "game/obj/objman.h"
+#include "game/obj/entity.h"
+#include "game/obj/entity_hub.h"
 #include "game/obj/trick_objects.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skater/end_run.h"
-#include "game/skater/skater.h"
-#include "game/sys/timer.h"
+#include "game/skater/rider.h"
+#include "game/sys/stopwatch.h"
 #include "game/skate/game_mode.h"
-#include "game/skate/score.h"
+#include "game/skate/point_tally.h"
 #include "game/obj/compositemgr.h"
 #include "game/gfx/tod_manager.h"
 

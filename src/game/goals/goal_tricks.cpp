@@ -1,19 +1,19 @@
 // GoalSystem::CObjective and tricks: key combos picked, the texts' trick tokens, special trick slots as rewards, the trick
 // objects coloured (0x00555A60-0x00555DEF, 0x005565C0-0x0055669F, 0x005568B0-0x00556F8F, 0x00557AC0-0x00557E2F;
-// see goal.h).
+// see objective.h).
 
 #include <cstdint>
 
-#include "game/goals/goal.h"
+#include "game/goals/objective.h"
 #include "game/goals/goal_calls.h"
 #include "game/goals/goal_names.h"
 #include "game/mth/random.h"
 #include "game/obj/trick_objects.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module_calls.h"
-#include "game/skater/skater.h"
+#include "game/skater/rider.h"
 
 namespace GoalSystem {
 

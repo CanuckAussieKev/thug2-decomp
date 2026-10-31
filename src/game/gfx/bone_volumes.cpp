@@ -10,11 +10,11 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/gfx/skeleton.h"
-#include "game/lst/hashtable.h"
-#include "game/mth/geometry.h"
-#include "game/mth/matrix.h"
-#include "game/script/struct.h"
+#include "game/gfx/rig.h"
+#include "game/lst/key_map.h"
+#include "game/mth/shape_tests.h"
+#include "game/mth/mat4.h"
+#include "game/script/param_struct.h"
 #include "game/core/code_address.h"
 #include "game/sys/startup_init.h"
 

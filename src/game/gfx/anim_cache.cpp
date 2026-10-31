@@ -10,8 +10,8 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/core/pool.h"
-#include "game/sys/timer.h"
+#include "game/core/slab_bank.h"
+#include "game/sys/stopwatch.h"
 
 namespace Gfx2D {
 

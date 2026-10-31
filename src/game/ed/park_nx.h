@@ -6,7 +6,7 @@
 #include "game/gfx/engine_scene.h"
 #include "game/gfx/engine_scene_list.h"
 #include "game/gfx/sector.h"
-#include "game/mth/vector.h"
+#include "game/mth/vec4.h"
 
 // The engine's scene calls the park editor's pieces and generator make (Nx). Sectors are looked
 // up by name; the park's pieces are clones of the park editor's own sectors.

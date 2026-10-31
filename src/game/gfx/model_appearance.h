@@ -4,8 +4,8 @@
 #include <cstdint>
 
 #include "game/gfx/face_texture.h"
-#include "game/obj/object.h"
-#include "game/script/struct.h"
+#include "game/obj/entity.h"
+#include "game/script/param_struct.h"
 
 // A model's appearance (Gfx2D::CModelLook, 0x5C bytes, vtable 0x006488FC): a structure of CAS slots - each a
 // structure naming the part chosen for it ({skater_m_head = {desc_id = ...} board = {desc_id = ...} ...}) - and the

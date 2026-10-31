@@ -8,7 +8,7 @@
 #include <cstring>
 #include <new>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/engine_glue.h"
@@ -16,7 +16,7 @@
 #include "game/gfx/pc_lights.h"
 #include "game/gfx/engine_texture.h"
 #include "game/gfx/pc_texture.h"
-#include "game/lst/hashtable.h"
+#include "game/lst/key_map.h"
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/sys/startup_init.h"

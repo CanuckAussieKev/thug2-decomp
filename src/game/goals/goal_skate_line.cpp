@@ -8,7 +8,7 @@
 #include "game/core/mem.h"
 #include "game/goals/goal_manager.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/core/stubs.h"
 #include "game/gfx/weather.h"
 #include "game/core/code_address.h"

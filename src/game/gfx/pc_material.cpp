@@ -1,4 +1,4 @@
-// The PC materials (materialRef, material.h): constructed and destroyed, their animations (UV wibbles, colours,
+// The PC materials (materialRef, surface_material.h): constructed and destroyed, their animations (UV wibbles, colours,
 // textures) brought up to date, and set up on the device for drawing - all passes (for the pixel shaders) or one pass
 // through the fixed-function texture stages. The animations' arithmetic is the original's x87 code (in registers,
 // rounded where it stores), so it is written in x87 here too.
@@ -11,12 +11,12 @@
 #include <cstring>
 
 #include "game/core/manager.h"
-#include "game/gfx/material.h"
+#include "game/gfx/surface_material.h"
 #include "game/gfx/pc_billboards.h"
 #include "game/gfx/primitive_states.h"
-#include "game/gfx/render.h"
+#include "game/gfx/draw_frame.h"
 #include "game/gfx/render_state.h"
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 #include "game/gfx/device.h"
 #include "game/sys/startup_init.h"
 

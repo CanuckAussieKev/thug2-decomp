@@ -8,12 +8,12 @@
 
 #include "game/core/dbg.h"
 #include "game/script/names.h"
-#include "game/script/struct.h"
-#include "game/sio/inpman.h"
+#include "game/script/param_struct.h"
+#include "game/sio/input_hub.h"
 #include "game/skater/controls.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/sys/game_clock.h"
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 #include "game/obj/control_pad.h"
 
 namespace GameObjects {

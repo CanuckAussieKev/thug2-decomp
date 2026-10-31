@@ -7,7 +7,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/mth/random.h"
-#include "game/obj/emitter.h"
+#include "game/obj/emitter_object.h"
 #include "game/obj/lock_obj.h"
 #include "game/obj/motion.h"
 #include "game/obj/motion_internal.h"
@@ -16,8 +16,8 @@
 #include "game/obj/path_manager.h"
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
-#include "game/script/struct.h"
-#include "game/sys/timer.h"
+#include "game/script/param_struct.h"
+#include "game/sys/stopwatch.h"
 
 namespace GameObjects {
 

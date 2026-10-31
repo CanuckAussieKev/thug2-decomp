@@ -10,13 +10,13 @@
 #include "game/gfx/engine_model_lights.h"
 #include "game/gfx/model.h"
 #include "game/gfx/model_utils.h"
-#include "game/mth/matrix.h"
-#include "game/mth/vector.h"
+#include "game/mth/mat4.h"
+#include "game/mth/vec4.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
 #include "game/net/player_info.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace Engine3D {

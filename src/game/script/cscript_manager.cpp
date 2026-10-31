@@ -23,14 +23,14 @@
 #include <cstdint>
 #include <new>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
 #include "game/script/cscript.h"
 #include "game/script/load.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/script/struct_buffer.h"
 
 namespace Scripts {

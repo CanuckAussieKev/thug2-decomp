@@ -11,7 +11,7 @@
 #include "game/net/net_client.h"
 #include "game/net/player_info.h"
 #include "game/obj/anim_blender.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/sys/game_clock.h"
 #include "game/skater/core_physics.h"
@@ -21,7 +21,7 @@
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace GameObjects {

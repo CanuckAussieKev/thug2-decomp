@@ -4,8 +4,8 @@
 #include <cstdint>
 
 #include "game/front/screen_element.h"
-#include "game/obj/event.h"
-#include "game/obj/objman.h"
+#include "game/obj/signal.h"
+#include "game/obj/entity_hub.h"
 
 namespace Scripts {
 class CScript;

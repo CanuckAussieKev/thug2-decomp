@@ -7,7 +7,7 @@
 
 #include <cstdint>
 
-#include "game/core/alloc.h"
+#include "game/core/arena_alloc.h"
 #include "game/file/async.h"
 
 namespace Stubs {

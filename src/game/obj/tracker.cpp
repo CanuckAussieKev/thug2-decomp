@@ -9,16 +9,16 @@
 #include <cstring>
 #include <new>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/core/pool.h"
+#include "game/core/slab_bank.h"
 #include "game/front/screen_element_manager.h"
-#include "game/obj/object.h"
-#include "game/obj/objman.h"
+#include "game/obj/entity.h"
+#include "game/obj/entity_hub.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/obj/compositemgr.h"
 #include "game/ed/piece_menu.h"
 #include "game/core/code_address.h"

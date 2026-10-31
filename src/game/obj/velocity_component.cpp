@@ -8,13 +8,13 @@
 #include "game/core/mem.h"
 #include "game/net/gamenet_manager.h"
 #include "game/obj/suspend_component.h"
-#include "game/script/struct.h"
-#include "game/sys/timer.h"
+#include "game/script/param_struct.h"
+#include "game/sys/stopwatch.h"
 #include "game/obj/collide_and_die.h"
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/skater/vehicle_sound.h"
 
 namespace GameObjects {

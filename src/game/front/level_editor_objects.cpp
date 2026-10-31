@@ -11,19 +11,19 @@
 #include <initializer_list>
 #include <vector>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_scale.h"
 #include "game/gfx/model.h"
 #include "game/obj/compositemgr.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/script/game_cfuncs.h"
 #include "game/script/names.h"
 #include "game/script/node_manager.h"
 #include "game/script/nodes.h"
 #include "game/script/qb.h"
-#include "game/script/struct.h"
-#include "game/sys/log.h"
+#include "game/script/param_struct.h"
+#include "game/sys/run_log.h"
 #include "game/gfx/engine_geom.h"
 
 namespace MenuSystem::LevelEditor::Objects {

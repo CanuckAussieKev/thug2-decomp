@@ -10,15 +10,15 @@
 
 #include "game/core/manager.h"
 #include "game/mth/random.h"
-#include "game/mth/vector.h"
+#include "game/mth/vec4.h"
 #include "game/obj/anim_blender.h"
 #include "game/obj/motion.h"
 #include "game/obj/path_manager.h"
 #include "game/obj/ped_logic.h"
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
-#include "game/script/struct.h"
-#include "game/sfx/terrain.h"
+#include "game/script/param_struct.h"
+#include "game/sfx/surface_kind.h"
 
 namespace GameObjects {
 

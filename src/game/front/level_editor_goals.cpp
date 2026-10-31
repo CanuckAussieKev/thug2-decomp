@@ -14,7 +14,7 @@
 #include <initializer_list>
 #include <vector>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/ed/goal_editor.h"
 #include "game/ed/goal_editor_util.h"
 #include "game/front/level_editor_hud.h"
@@ -24,13 +24,13 @@
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_nodes.h"
 #include "game/goals/goal_manager_cfuncs.h"
-#include "game/mth/vector.h"
-#include "game/nx/feeler.h"
-#include "game/obj/object.h"
-#include "game/script/struct.h"
+#include "game/mth/vec4.h"
+#include "game/nx/probe_ray.h"
+#include "game/obj/entity.h"
+#include "game/script/param_struct.h"
 #include "game/skate/gap_checklist.h"
 #include "game/skate/skate_module.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 #include "game/obj/compositemgr.h"
 
 namespace MenuSystem::LevelEditor::Goals {

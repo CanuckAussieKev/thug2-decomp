@@ -15,7 +15,7 @@
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_preview.h"
 #include "game/front/level_editor_ui_backend.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 #include "imgui.h"
 
 namespace MenuSystem::LevelEditor::Thumbs {

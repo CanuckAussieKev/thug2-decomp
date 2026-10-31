@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 #include "game/obj/control_pad.h"
 
 namespace FrameClock {

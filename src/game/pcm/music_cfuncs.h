@@ -9,7 +9,7 @@ class CScript;
 
 // The script commands (CFunctions) of the music and streams, 0x0044D100-0x0044D7C7 and (between the sound effects'
 // commands, sfx/sound_cfuncs.h) 0x0044D8F0-0x0044E399: thin wrappers reading their parameters and calling the Pcm
-// functions (music.h, music_api.h, stream_commands.h). All are cdecl (params, script) and return whether the
+// functions (music_player.h, music_api.h, stream_commands.h). All are cdecl (params, script) and return whether the
 // script's `if` should be taken.
 namespace ScriptCommands {
 

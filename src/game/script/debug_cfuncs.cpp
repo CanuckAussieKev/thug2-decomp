@@ -6,20 +6,20 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/core/alloc.h"
-#include "game/core/crc.h"
+#include "game/core/arena_alloc.h"
+#include "game/core/checksums.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/obj/compositemgr.h"
-#include "game/obj/object.h"
-#include "game/obj/proxim.h"
+#include "game/obj/entity.h"
+#include "game/obj/proximity.h"
 #include "game/script/cscript.h"
 #include "game/sys/mlp.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/script/script_startup.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/engine_glue.h"
-#include "game/ass/assman.h"
+#include "game/ass/resource_registry.h"
 #include "game/sys/game_config.h"
 
 namespace ScriptCommands {

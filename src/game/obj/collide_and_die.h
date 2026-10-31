@@ -3,8 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/vector.h"
-#include "game/obj/object.h"
+#include "game/mth/vec4.h"
+#include "game/obj/entity.h"
 
 namespace OnlinePlay {
 class Hub;

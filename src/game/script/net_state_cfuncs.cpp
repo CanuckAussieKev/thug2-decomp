@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <initializer_list>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/stubs.h"
@@ -19,20 +19,20 @@
 #include "game/net/net_lists.h"
 #include "game/net/net_manager.h"
 #include "game/net/net_metrics.h"
-#include "game/skater/skater.h"
+#include "game/skater/rider.h"
 #include "game/net/player_info.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/script/cscript.h"
 #include "game/script/preferences.h"
 #include "game/script/qb.h"
-#include "game/script/struct.h"
-#include "game/sio/inpman.h"
+#include "game/script/param_struct.h"
+#include "game/sio/input_hub.h"
 #include "game/skate/skate_net.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/mlp.h"
 #include "game/skate/skate_module.h"
 #include "game/skate/game_mode.h"
-#include "game/ass/assman.h"
+#include "game/ass/resource_registry.h"
 
 namespace ScriptCommands {
 

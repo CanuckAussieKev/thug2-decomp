@@ -9,8 +9,8 @@
 
 #include "game/gfx/lens_flare.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
-#include "game/sfx/terrain.h"
+#include "game/script/param_struct.h"
+#include "game/sfx/surface_kind.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/engine_glue.h"
 #include "game/gfx/engine_effects.h"

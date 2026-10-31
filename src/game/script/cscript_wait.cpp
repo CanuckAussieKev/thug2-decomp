@@ -12,14 +12,14 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/obj/event.h"
+#include "game/obj/signal.h"
 #include "game/obj/tracker.h"
 #include "game/script/cache.h"
-#include "game/script/parse.h"
+#include "game/script/token_reader.h"
 #include "game/script/qb.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/sys/game_clock.h"
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 #include "game/obj/control_pad.h"
 
 namespace Scripts {

@@ -14,7 +14,7 @@
 #include <unordered_map>
 
 #include "game/gfx/render_state.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 #include "game/gfx/device.h"
 #include "game/gfx/engine.h"
 

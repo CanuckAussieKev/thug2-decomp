@@ -4,8 +4,8 @@
 #include <cstdint>
 
 #include "game/gfx/pc_model.h"
-#include "game/mth/matrix.h"
-#include "game/mth/vector.h"
+#include "game/mth/mat4.h"
+#include "game/mth/vec4.h"
 
 namespace Scripts {
 class CStruct;

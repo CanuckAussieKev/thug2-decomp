@@ -8,7 +8,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/script/qb.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 
 namespace Scripts {
 

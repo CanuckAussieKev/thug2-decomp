@@ -11,14 +11,14 @@
 #include "game/net/net_client.h"
 #include "game/obj/node_objects.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/gfx/model.h"
 #include "game/core/code_address.h"
 #include "game/skater/skitch.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace GameObjects {

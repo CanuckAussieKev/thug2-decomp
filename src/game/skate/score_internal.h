@@ -1,6 +1,6 @@
 #pragma once
 
-// What the score's files (score.cpp, score_combo.cpp, score_net.cpp) share: the skater, the game mode, the screen
+// What the score's files (point_tally.cpp, score_combo.cpp, score_net.cpp) share: the skater, the game mode, the screen
 // elements, the trick tables and the checksums they use.
 
 #include <cstdint>
@@ -10,11 +10,11 @@
 #include "game/net/gamenet_manager.h"
 #include "game/obj/trick_objects.h"
 #include "game/skate/game_mode.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/game_mode.h"
-#include "game/skate/score.h"
+#include "game/skate/point_tally.h"
 #include "game/skate/skate_module_calls.h"
-#include "game/skater/skater.h"
+#include "game/skater/rider.h"
 
 namespace GameModules {
 namespace ScoreInternal {

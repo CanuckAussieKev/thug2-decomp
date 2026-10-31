@@ -10,8 +10,8 @@
 
 #include "game/core/mem.h"
 #include "game/ed/park_nx.h"
-#include "game/mth/matrix.h"
-#include "game/script/struct.h"
+#include "game/mth/mat4.h"
+#include "game/script/param_struct.h"
 #include "game/core/code_address.h"
 
 namespace ParkEditing {

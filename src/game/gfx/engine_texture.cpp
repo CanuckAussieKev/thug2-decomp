@@ -6,7 +6,7 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/mem.h"
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"

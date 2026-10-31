@@ -3,8 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/vector.h"
-#include "game/obj/object.h"
+#include "game/mth/vec4.h"
+#include "game/obj/entity.h"
 
 namespace Scripts {
 class CStruct;
@@ -72,7 +72,7 @@ static_assert(offsetof(CShotImpactModule, mp_suspend) == 0x18 &&
 // flight within 48 of the ped (30 up from its position) hits it - unless the ped is already shot: the ped gets the
 // ProjectileInAvoidRadius event, projectile_hit_ped runs on the skater and hit_ped_script on the ped (Ped_ID,
 // projectile_id, ammo_type: the skater's core physics +0x2FC), and the projectile is spent. The skater's targeting
-// (src/game/skater/skater.cpp) walks these components.
+// (src/game/skater/rider.cpp) walks these components.
 //
 // Vtable: 0 the scalar deleting destructor, 1 Update, 2 ConfigureFromData; the rest the base's / shared (3 / 4
 // 0x005480A0, 5 0x004E3F90, 6 0x0048DCD0, 7 0x0045D760, 8 / 10 0x005BAB90, 9 0x005480A0, 11 0x0045D720, 12

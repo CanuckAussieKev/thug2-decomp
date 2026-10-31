@@ -18,7 +18,7 @@
 
 #include <windows.h>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/front/front_end.h"
 #include "game/front/level_editor_actions.h"
 #include "game/front/level_editor_hud.h"
@@ -31,14 +31,14 @@
 #include "game/front/level_editor_ui.h"
 #include "game/gfx/screen.h"
 #include "game/obj/compositemgr.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/gap_checklist.h"
 #include "game/skate/skate_module.h"
 #include "game/sys/mlp.h"
 #include "game/sys/sdl_events.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 
 namespace MenuSystem::LevelEditor::PlayTest {
 

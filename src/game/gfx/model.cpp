@@ -5,7 +5,7 @@
 
 #include "game/gfx/model.h"
 
-#include "game/ass/assman.h"
+#include "game/ass/resource_registry.h"
 #include "game/gfx/engine_mesh.h"
 #include "game/gfx/model_internal.h"
 #include "game/gfx/pc_lights.h"

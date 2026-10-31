@@ -9,10 +9,10 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/core/task.h"
+#include "game/core/task_list.h"
 #include "game/net/net_app.h"
 #include "game/sys/mlp.h"
-#include "game/ass/assman.h"
+#include "game/ass/resource_registry.h"
 
 namespace NetLink {
 

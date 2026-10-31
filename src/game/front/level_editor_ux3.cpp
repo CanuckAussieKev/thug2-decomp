@@ -17,7 +17,7 @@
 #include "game/front/level_editor_overlays.h"
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_ui.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 
 namespace MenuSystem::LevelEditor::Ux3 {
 

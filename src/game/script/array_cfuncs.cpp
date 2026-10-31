@@ -7,8 +7,8 @@
 
 #include "game/script/cscript.h"
 #include "game/script/names.h"
-#include "game/script/struct.h"
-#include "game/sys/log.h"
+#include "game/script/param_struct.h"
+#include "game/sys/run_log.h"
 
 namespace ScriptCommands {
 

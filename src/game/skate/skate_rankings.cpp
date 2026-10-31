@@ -15,9 +15,9 @@
 #include "game/net/player_info.h"
 #include "game/net/score_list.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/game_mode.h"
-#include "game/skater/skater.h"
+#include "game/skater/rider.h"
 
 namespace GameModules {
 

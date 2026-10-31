@@ -10,7 +10,7 @@
 #include <cstdint>
 
 #include "game/gfx/debug_lines.h"
-#include "game/mth/geometry.h"
+#include "game/mth/shape_tests.h"
 #include "game/net/gamenet_manager.h"
 #include "game/nx/coll_movable.h"
 #include "game/obj/anim_blender.h"

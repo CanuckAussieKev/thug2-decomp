@@ -5,9 +5,9 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/matrix.h"
-#include "game/mth/vector.h"
-#include "game/obj/object.h"
+#include "game/mth/mat4.h"
+#include "game/mth/vec4.h"
+#include "game/obj/entity.h"
 #include "game/obj/smtptr.h"
 
 namespace GameObjects {

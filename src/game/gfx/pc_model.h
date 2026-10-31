@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/vector.h"
+#include "game/mth/vec4.h"
 
 // The PC model (Nx engine): a model's geoms, and their bounding spheres together.
 namespace Engine3D {

@@ -12,20 +12,20 @@
 #include <cstring>
 #include <vector>
 
-#include "game/gfx/mesh.h"
+#include "game/gfx/sub_mesh.h"
 #include "game/gfx/model.h"
 #include "game/nx/coll_movable.h"
 #include "game/nx/coll_obj.h"
 #include "game/nx/coll_static.h"
 #include "game/nx/coll_tri.h"
 #include "game/obj/collision_component.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/core/code_address.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 #include "game/core/game_vtables.h"
 #include "game/nx/coll_line.h"
 #include "game/mc/memcard.h"
-#include "game/nx/feeler.h"
+#include "game/nx/probe_ray.h"
 #include "game/gfx/viewport.h"
 #include "game/core/stubs.h"
 

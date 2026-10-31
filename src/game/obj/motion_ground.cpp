@@ -5,16 +5,16 @@
 #include <cstdint>
 
 #include "game/mth/random.h"
-#include "game/mth/vector.h"
+#include "game/mth/vec4.h"
 #include "game/nx/coll_obj.h"
 #include "game/nx/coll_tests.h"
 #include "game/nx/coll_tri.h"
-#include "game/nx/feeler.h"
+#include "game/nx/probe_ray.h"
 #include "game/obj/motion.h"
 #include "game/obj/motion_internal.h"
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 
 namespace GameObjects {
 

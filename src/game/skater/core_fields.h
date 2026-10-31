@@ -7,15 +7,15 @@
 #include <cmath>
 #include <cstdint>
 
-#include "game/mth/matrix.h"
-#include "game/mth/vector.h"
-#include "game/nx/feeler.h"
+#include "game/mth/mat4.h"
+#include "game/mth/vec4.h"
+#include "game/nx/probe_ray.h"
 #include "game/obj/control_pad.h"
 #include "game/obj/movable_contact.h"
 #include "game/obj/ride_tracker.h"
 #include "game/obj/trigger_component.h"
 #include "game/skater/core_physics.h"
-#include "game/skater/skater.h"
+#include "game/skater/rider.h"
 #include "game/sys/game_clock.h"
 
 namespace Skater::CoreFields {

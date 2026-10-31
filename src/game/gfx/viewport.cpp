@@ -7,13 +7,13 @@
 
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
-#include "game/gfx/camera.h"
+#include "game/gfx/view_cam.h"
 #include "game/gfx/pc_viewport.h"
 #include "game/gfx/tod_manager.h"
 #include "game/gfx/viewport_list.h"
 #include "game/gfx/screen.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/core/code_address.h"
 #include "game/skate/skate_module.h"
 

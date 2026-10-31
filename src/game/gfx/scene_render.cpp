@@ -9,12 +9,12 @@
 #include <cstdint>
 
 #include "game/gfx/device.h"
-#include "game/gfx/material.h"
-#include "game/gfx/mesh.h"
+#include "game/gfx/surface_material.h"
+#include "game/gfx/sub_mesh.h"
 #include "game/gfx/occlusion.h"
 #include "game/gfx/pc_billboards.h"
 #include "game/gfx/render_state.h"
-#include "game/gfx/shadow.h"
+#include "game/gfx/shadow_base.h"
 #include "game/gfx/view_mode.h"
 #include "game/sys/crt.h"
 

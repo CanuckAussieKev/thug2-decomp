@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #include "game/script/names.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 
 // The parts of a script's parameter structure (Scripts::CStruct) script functions (ScriptCommands) use. Parameter names
 // are checksums of the names used in the scripts; 0 means the unnamed (first) parameter.

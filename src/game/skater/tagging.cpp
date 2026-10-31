@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -15,12 +15,12 @@
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
-#include "game/nx/feeler.h"
+#include "game/nx/probe_ray.h"
 #include "game/obj/control_pad.h"
 #include "game/obj/skeleton_component.h"
 #include "game/obj/trigger_component.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skater/walk_physics.h"
 #include "game/gfx/engine_effects.h"
 #include "game/gfx/engine_texture.h"
@@ -30,7 +30,7 @@
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/obj/camera_lookaround.h"
 #include "game/obj/trigger_events.h"
 #include "game/gfx/model_utils.h"

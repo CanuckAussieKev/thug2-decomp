@@ -3,9 +3,9 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/geometry.h"
-#include "game/mth/matrix.h"
-#include "game/mth/vector.h"
+#include "game/mth/shape_tests.h"
+#include "game/mth/mat4.h"
+#include "game/mth/vec4.h"
 
 // The engine's sector (Engine3D::CWorldCell; the PC sector CPcSector - pc_scene.h - extends it): a piece of a scene with a
 // name, its geometry (a CGeom - drawn) and its collision (a CHitMesh - collided with), moved, turned, scaled, shown,

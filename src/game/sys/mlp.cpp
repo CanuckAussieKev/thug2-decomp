@@ -17,8 +17,8 @@
 #include "game/gfx/device.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/engine_glue.h"
-#include "game/gfx/mesh.h"
-#include "game/gfx/texture.h"
+#include "game/gfx/sub_mesh.h"
+#include "game/gfx/bitmap_texture.h"
 #include "game/gfx/screen.h"
 #include "game/net/gamenet_game_cfuncs.h"
 #include "game/net/gamenet_manager.h"
@@ -28,12 +28,12 @@
 #include "game/sio/device.h"
 #include "game/sys/platform.h"
 #include "game/sys/screenshot.h"
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 #include "game/sys/winmain.h"
 #include "game/obj/cutscene.h"
 #include "game/gfx/movie.h"
-#include "game/ass/assman.h"
-#include "game/gfx/render.h"
+#include "game/ass/resource_registry.h"
+#include "game/gfx/draw_frame.h"
 
 namespace FrameLoop {
 

@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 
 // The skater's finalize-physics component (SkaterFinalizePhysics, type 0x9B373E58, vtable 0x0064BDEC, 0x20 bytes):
 // after the physics each frame, the core physics component's results go to the skater's state component, the object's

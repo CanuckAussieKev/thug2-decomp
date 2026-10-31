@@ -8,9 +8,9 @@
 
 #include <cstdint>
 
-#include "game/sys/config.h"
+#include "game/sys/platform_config.h"
 #include "game/gfx/device.h"
-#include "game/gfx/camera.h"
+#include "game/gfx/view_cam.h"
 
 namespace Engine3D {
 

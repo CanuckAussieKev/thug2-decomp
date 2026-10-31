@@ -10,13 +10,13 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/core/string.h"
+#include "game/core/text_store.h"
 #include "game/gfx/model.h"
-#include "game/mth/vector.h"
+#include "game/mth/vec4.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/model_component.h"
-#include "game/obj/object.h"
-#include "game/script/struct.h"
+#include "game/obj/entity.h"
+#include "game/script/param_struct.h"
 
 namespace Gfx2D {
 

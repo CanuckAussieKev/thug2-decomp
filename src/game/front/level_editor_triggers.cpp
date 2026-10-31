@@ -15,7 +15,7 @@
 #include <sstream>
 #include <vector>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/front/level_editor_cameras.h"
 #include "game/front/level_editor_chains.h"
 #include "game/front/level_editor_hud.h"
@@ -29,22 +29,22 @@
 #include "game/front/level_editor_view.h"
 #include "game/front/level_editor_walls.h"
 #include "game/gfx/sector.h"
-#include "game/mth/matrix.h"
+#include "game/mth/mat4.h"
 #include "game/nx/coll_cache.h"
 #include "game/nx/coll_movable.h"
 #include "game/nx/coll_tri.h"
 #include "game/nx/coll_world.h"
-#include "game/nx/feeler.h"
-#include "game/obj/object.h"
-#include "game/obj/proxim.h"
+#include "game/nx/probe_ray.h"
+#include "game/obj/entity.h"
+#include "game/obj/proximity.h"
 #include "game/script/load.h"
 #include "game/script/node_manager.h"
 #include "game/script/nodes.h"
 #include "game/script/qb.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/gap_checklist.h"
 #include "game/skate/skate_module.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 #include "game/core/game_vtables.h"
 
 namespace MenuSystem::LevelEditor::Triggers {

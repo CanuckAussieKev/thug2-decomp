@@ -6,14 +6,14 @@
 
 #include "game/ed/park_scene.h"
 
-#include "game/ass/asset.h"
+#include "game/ass/resource_entry.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/ed/park.h"
 #include "game/ed/park_nx.h"
 #include "game/ed/rail_editor.h"
 #include "game/gfx/engine_geom.h"
-#include "game/lst/hashtable.h"
+#include "game/lst/key_map.h"
 #include "game/nx/coll_tri.h"
 #include "game/park/park_memory.h"
 #include "game/script/nodes.h"

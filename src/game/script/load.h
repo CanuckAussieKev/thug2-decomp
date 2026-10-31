@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 
 // Loading .qb files: defining their global symbols (values, structures, arrays and compressed scripts) and
 // restarting the running scripts whose code changed.

@@ -41,16 +41,16 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/net/gamenet_manager.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/script/cache.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/params.h"
-#include "game/script/parse.h"
+#include "game/script/token_reader.h"
 #include "game/script/qb.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/gfx/loading_console.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 
 namespace Scripts {
 

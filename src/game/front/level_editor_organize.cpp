@@ -21,8 +21,8 @@
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_scenery.h"
 #include "game/front/level_editor_view.h"
-#include "game/obj/object.h"
-#include "game/sys/log.h"
+#include "game/obj/entity.h"
+#include "game/sys/run_log.h"
 
 namespace MenuSystem::LevelEditor::Organize {
 

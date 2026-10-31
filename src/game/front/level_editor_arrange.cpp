@@ -16,7 +16,7 @@
 #include <type_traits>
 #include <vector>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/front/level_editor_actions.h"
 #include "game/front/level_editor_adjust.h"
 #include "game/front/level_editor_carry.h"
@@ -31,11 +31,11 @@
 #include "game/front/level_editor_scenery.h"
 #include "game/front/level_editor_snap.h"
 #include "game/front/level_editor_ui.h"
-#include "game/gfx/mesh.h"
+#include "game/gfx/sub_mesh.h"
 #include "game/obj/compositemgr.h"
-#include "game/obj/object.h"
-#include "game/script/struct.h"
-#include "game/sys/log.h"
+#include "game/obj/entity.h"
+#include "game/script/param_struct.h"
+#include "game/sys/run_log.h"
 
 namespace MenuSystem::LevelEditor::Arrange {
 

@@ -5,7 +5,7 @@
 #include "game/gfx/screen_effects.h"
 
 #include "game/core/mem.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/core/code_address.h"
 
 namespace Engine3D {

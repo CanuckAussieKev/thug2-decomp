@@ -3,9 +3,9 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/core/task.h"
+#include "game/core/task_list.h"
 #include "game/obj/control_pad.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 
 namespace Scripts {
 class CScript;

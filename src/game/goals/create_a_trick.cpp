@@ -7,11 +7,11 @@
 
 #include "game/core/dbg.h"
 #include "game/core/mem.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/skate_module_calls.h"
-#include "game/skater/skater.h"
+#include "game/skater/rider.h"
 #include "game/core/code_address.h"
 
 namespace GoalSystem {

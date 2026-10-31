@@ -8,7 +8,7 @@
 #include "game/pcm/stream_commands.h"
 
 #include "game/core/dbg.h"
-#include "game/pcm/music.h"
+#include "game/pcm/music_player.h"
 #include "game/pcm/stream.h"
 #include "game/pcm/stream_files.h"
 #include "game/sys/crt.h"

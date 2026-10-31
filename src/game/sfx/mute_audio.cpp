@@ -6,7 +6,7 @@
 #include <audiopolicy.h>
 #include <mmdeviceapi.h>
 
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 
 namespace SoundFx {
 

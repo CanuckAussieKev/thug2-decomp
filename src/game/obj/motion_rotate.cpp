@@ -7,14 +7,14 @@
 
 #include "game/core/manager.h"
 #include "game/gfx/d3dx.h"
-#include "game/mth/matrix.h"
-#include "game/mth/slerp.h"
+#include "game/mth/mat4.h"
+#include "game/mth/rotation_blend.h"
 #include "game/obj/motion.h"
 #include "game/obj/motion_internal.h"
-#include "game/obj/objman.h"
+#include "game/obj/entity_hub.h"
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 
 namespace GameObjects {
 

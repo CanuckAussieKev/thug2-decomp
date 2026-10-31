@@ -1,4 +1,4 @@
-// The PC meshes' drawing (mesh.h): skinned on the CPU (one, two or three bones a vertex, into the vertex buffer) and
+// The PC meshes' drawing (sub_mesh.h): skinned on the CPU (one, two or three bones a vertex, into the vertex buffer) and
 // drawn - its material set up for the pixel shaders or pass by pass through the fixed-function stages, its level of
 // detail picked by distance, fog from three quarters of the way to the far plane.
 
@@ -12,11 +12,11 @@
 #include "game/gfx/device.h"
 #include "game/gfx/d3dx.h"
 #include "game/gfx/geom.h"
-#include "game/gfx/material.h"
-#include "game/gfx/mesh.h"
+#include "game/gfx/surface_material.h"
+#include "game/gfx/sub_mesh.h"
 #include "game/gfx/occlusion.h"
 #include "game/gfx/pc_fog.h"
-#include "game/gfx/render.h"
+#include "game/gfx/draw_frame.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/settings.h"
 #include "game/gfx/engine.h"

@@ -4,9 +4,9 @@
 
 #include "game/ed/park.h"
 
-#include "game/core/pool.h"
+#include "game/core/slab_bank.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 
 namespace ParkEditing {
 

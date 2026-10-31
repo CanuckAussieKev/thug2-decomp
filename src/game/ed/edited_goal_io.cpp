@@ -4,15 +4,15 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/dbg.h"
 #include "game/ed/goal_editor.h"
 #include "game/ed/goal_editor_util.h"
-#include "game/goals/goal.h"
+#include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
-#include "game/nx/feeler.h"
+#include "game/nx/probe_ray.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/sys/crt.h"
 
 #pragma warning(disable : 4996) // (strcpy: the original's inline copies of the texts)

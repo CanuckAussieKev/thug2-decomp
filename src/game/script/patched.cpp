@@ -7,8 +7,8 @@
 #include <cstring>
 #include <vector>
 
-#include "game/core/crc.h"
-#include "game/file/pip.h"
+#include "game/core/checksums.h"
+#include "game/file/packs.h"
 #include "game/sys/debug_log.h"
 #include "game/util/bps.h"
 

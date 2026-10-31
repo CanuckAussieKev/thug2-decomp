@@ -5,9 +5,9 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/sys/crt.h"
 
 namespace ParkEditing {

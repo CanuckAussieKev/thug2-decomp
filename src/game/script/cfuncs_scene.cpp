@@ -5,16 +5,16 @@
 
 #include <cstdint>
 
-#include "game/ass/assman.h"
-#include "game/core/crc.h"
+#include "game/ass/resource_registry.h"
+#include "game/core/checksums.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
-#include "game/core/string.h"
+#include "game/core/text_store.h"
 #include "game/file/async.h"
 #include "game/gfx/lens_flare.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
-#include "game/sfx/terrain.h"
+#include "game/script/param_struct.h"
+#include "game/sfx/surface_kind.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/engine_glue.h"
 #include "game/gfx/engine_scene.h"

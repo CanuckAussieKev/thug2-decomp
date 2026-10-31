@@ -5,19 +5,19 @@
 #include <cmath>
 #include <cstdint>
 
-#include "game/mth/geometry.h"
+#include "game/mth/shape_tests.h"
 #include "game/gfx/d3dx.h"
-#include "game/mth/vector.h"
-#include "game/mth/matrix.h"
+#include "game/mth/vec4.h"
+#include "game/mth/mat4.h"
 #include "game/nx/coll_cache.h"
-#include "game/nx/feeler.h"
+#include "game/nx/probe_ray.h"
 #include "game/obj/control_pad.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/obj/walk_hang.h"
 #include "game/skater/walk_fields.h"
 #include "game/skater/walk_physics.h"
 #include "game/mth/x87_math.h"
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 #include "game/sys/crt.h"
 
 namespace GameObjects {

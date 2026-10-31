@@ -3,8 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/core/alloc.h"
-#include "game/lst/hashtable.h"
+#include "game/core/arena_alloc.h"
+#include "game/lst/key_map.h"
 
 // Pieces of the trick object code at the end of the viewer range (0x005880E0-0x0058817C) and the trick object
 // manager's (0x007CE500) lookups, graffiti colours and graffiti log (0x00588200-0x005889E0); the rest of it (its

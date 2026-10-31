@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 
 namespace GameObjects {
 

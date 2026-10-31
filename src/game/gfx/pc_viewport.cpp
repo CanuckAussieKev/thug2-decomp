@@ -12,7 +12,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/gfx/render.h"
+#include "game/gfx/draw_frame.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/viewport.h"
 #include "game/sys/platform_d3d.h"

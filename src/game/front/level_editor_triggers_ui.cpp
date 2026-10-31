@@ -13,7 +13,7 @@
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_triggers.h"
 #include "game/script/qb.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/front/level_editor_playtest.h"
 #include "imgui.h"
 

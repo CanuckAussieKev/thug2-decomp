@@ -6,13 +6,13 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/mth/matrix.h"
+#include "game/mth/mat4.h"
 #include "game/mth/random.h"
 #include "game/obj/compositemgr.h"
-#include "game/obj/objman.h"
+#include "game/obj/entity_hub.h"
 #include "game/script/nodes.h"
-#include "game/script/struct.h"
-#include "game/sys/timer.h"
+#include "game/script/param_struct.h"
+#include "game/sys/stopwatch.h"
 #include "game/front/screen_element_cfuncs.h"
 
 namespace GameObjects {

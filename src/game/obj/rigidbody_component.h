@@ -3,11 +3,11 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/geometry.h"
-#include "game/mth/matrix.h"
-#include "game/mth/quat.h"
-#include "game/mth/vector.h"
-#include "game/obj/object.h"
+#include "game/mth/shape_tests.h"
+#include "game/mth/mat4.h"
+#include "game/mth/quat_rotation.h"
+#include "game/mth/vec4.h"
+#include "game/obj/entity.h"
 #include "game/obj/smtptr.h"
 #include "game/nx/coll_cache.h"
 
@@ -281,7 +281,7 @@ static_assert(sizeof(CBodyDynamicsModule::Spring) == 0x24 && sizeof(CBodyDynamic
 // 0x0042E380: `object` (a skater) added to the objects rigid bodies feel (8 places, 0x00695150: the last free one
 // from the end; none free: nothing), its extra reach (0x006939B0) back to 0.
 void __cdecl AddRigidBodyPusher(CGameEntity* object);
-// 0x0042BD60 (cdecl; skater.cpp's 0x005802C0): `object`'s extra reach as a pusher (0x006939B0, one float for each
+// 0x0042BD60 (cdecl; rider.cpp's 0x005802C0): `object`'s extra reach as a pusher (0x006939B0, one float for each
 // of the 8) - nothing if it isn't one.
 void __cdecl SetRigidBodyPusherReach(CGameEntity* object, float reach);
 // 0x0042BAC0 ToggleRigidBodyDebug: the rigid bodies' debug drawing stepped: off, the shapes, the details too, off.

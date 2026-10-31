@@ -7,14 +7,14 @@
 #include <cstring>
 #include <new>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/lst/hashtable.h"
+#include "game/lst/key_map.h"
 #include "game/script/names.h"
 #include "game/script/nodes.h"
 #include "game/script/qb.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 
 namespace LevelNodes {
 

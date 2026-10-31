@@ -12,9 +12,9 @@
 #include <initializer_list>
 #include <new>
 
-#include "game/gfx/render.h"
+#include "game/gfx/draw_frame.h"
 #include "game/gfx/render_state.h"
-#include "game/lst/hashtable.h"
+#include "game/lst/key_map.h"
 #include "game/sys/platform_d3d.h"
 #include "game/gfx/shader_slots.h"
 #include "game/sys/startup_init.h"

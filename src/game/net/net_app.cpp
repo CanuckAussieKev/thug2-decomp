@@ -8,16 +8,16 @@
 #include <cstring>
 #include <initializer_list>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/core/task.h"
-#include "game/lst/head.h"
-#include "game/lst/search.h"
+#include "game/core/task_list.h"
+#include "game/lst/chain_start.h"
+#include "game/lst/list_walk.h"
 #include "game/net/net_manager.h"
 #include "game/net/net_metrics.h"
 #include "game/net/net_messages.h"
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 #include "game/core/code_address.h"
 #include "game/net/task_vtable.h"
 #include "game/skate/skate_module.h"

@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/core/alloc.h"
+#include "game/core/arena_alloc.h"
 
 namespace NetLink {
 

@@ -12,7 +12,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/pc_lights.h"
-#include "game/mth/vector.h"
+#include "game/mth/vec4.h"
 #include "game/core/code_address.h"
 #include "game/sys/startup_init.h"
 

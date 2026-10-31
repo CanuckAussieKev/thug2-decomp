@@ -9,7 +9,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/str.h"
-#include "game/file/file.h"
+#include "game/file/file_load.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/engine_mesh.h"
 #include "game/gfx/mesh_list.h"

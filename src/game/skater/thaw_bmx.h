@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "game/mth/vector.h"
+#include "game/mth/vec4.h"
 
 namespace GameModules {
 struct FrontEnd;
@@ -28,7 +28,7 @@ class CStruct;
 //   CorePhysicsComponent::InvokeMethodByName through InvokeMethodByName below - registered as script member
 //   functions only while the feature is on; plus ThawBmxLoadAssets (ours: the bike's skeleton and animations loaded
 //   once, permanent);
-// - GetPhysicsStructure (0x005802E0, skater.cpp) gives thaw_bicycle_physics (THAW's bicycle_physics, put into the
+// - GetPhysicsStructure (0x005802E0, rider.cpp) gives thaw_bicycle_physics (THAW's bicycle_physics, put into the
 //   overlay's scripts by tools/pipeline/thaw_bmx/convert.ts) while the skater is on the bike;
 // - the ride itself is THAW's own bike scripts (phase 4: bike_scripts.qb / bike_grindscripts.qb / bike_sfx.qb ported
 //   by tools/pipeline/thaw_bmx/bike_scripts.ts - bike_start, bike_onground, BIKE_OLLIE, bike_air_state, BIKE_GRIND, bike_manual,

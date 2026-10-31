@@ -8,25 +8,25 @@
 #include <cstring>
 
 #include "game/core/mem.h"
-#include "game/core/pool.h"
-#include "game/core/crc.h"
+#include "game/core/slab_bank.h"
+#include "game/core/checksums.h"
 #include "game/gfx/screen.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
 #include "game/net/net_dispatcher.h"
 #include "game/net/thugpro_peer.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/params.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/sio/device.h"
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 #include "game/skate/skate_module.h"
-#include "game/skater/skater.h"
-#include "game/sys/log.h"
-#include "game/gfx/render.h"
+#include "game/skater/rider.h"
+#include "game/sys/run_log.h"
+#include "game/gfx/draw_frame.h"
 
 namespace OnlinePlay {
 

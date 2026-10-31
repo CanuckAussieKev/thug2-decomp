@@ -15,7 +15,7 @@
 #include "game/front/level_editor_actions.h"
 #include "game/front/level_editor_hud.h"
 #include "game/front/level_editor_prefs.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 
 namespace MenuSystem::LevelEditor::ViewCam {
 

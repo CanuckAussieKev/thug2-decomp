@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/geometry.h"
+#include "game/mth/shape_tests.h"
 
 // The PC scene and sector (Nx engine), and the PC screen effects object's setters.
 namespace Engine3D {

@@ -8,8 +8,8 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "game/core/crc.h"
-#include "game/nx/feeler.h"
+#include "game/core/checksums.h"
+#include "game/nx/probe_ray.h"
 #include "game/obj/smtptr.h"
 
 namespace ParkEditing {

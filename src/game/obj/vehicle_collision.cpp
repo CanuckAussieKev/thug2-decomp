@@ -13,12 +13,12 @@
 
 #include "game/core/dbg.h"
 #include "game/gfx/debug_lines.h"
-#include "game/mth/slerp.h"
-#include "game/mth/vector.h"
+#include "game/mth/rotation_blend.h"
+#include "game/mth/vec4.h"
 #include "game/nx/coll_rect.h"
 #include "game/obj/vehicle_internal.h"
 #include "game/sys/game_clock.h"
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 #include "game/obj/control_pad.h"
 #include "game/obj/trigger_events.h"
 

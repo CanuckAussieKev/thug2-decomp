@@ -8,7 +8,7 @@
 
 #pragma warning(disable : 4996) // (strcpy: the original's copies into its fixed fields)
 
-#include "game/core/task.h"
+#include "game/core/task_list.h"
 #include "game/net/gamespy.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_lobby.h"
@@ -17,23 +17,23 @@
 #include "game/net/net_manager.h"
 #include "game/script/cscript.h"
 #include "game/script/preferences.h"
-#include "game/script/struct.h"
-#include "game/sys/timer.h"
-#include "game/goals/goal.h"
+#include "game/script/param_struct.h"
+#include "game/sys/stopwatch.h"
+#include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
-#include "game/skate/score.h"
+#include "game/skate/point_tally.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
 #include "game/gfx/face_texture.h"
-#include "game/gfx/skeleton.h"
+#include "game/gfx/rig.h"
 #include "game/ed/goal_editor.h"
 #include "game/ed/rail_editor.h"
 #include "game/net/server_list.h"
 #include "game/net/score_list.h"
 #include "game/net/buddy_man.h"
 #include "game/net/stats_man.h"
-#include "game/ass/assman.h"
+#include "game/ass/resource_registry.h"
 
 namespace OnlinePlay {
 

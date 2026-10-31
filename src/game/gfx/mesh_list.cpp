@@ -9,9 +9,9 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/gfx/material.h"
-#include "game/gfx/mesh.h"
-#include "game/lst/hashtable.h"
+#include "game/gfx/surface_material.h"
+#include "game/gfx/sub_mesh.h"
+#include "game/lst/key_map.h"
 #include "game/sys/crt.h"
 
 namespace Engine3D {

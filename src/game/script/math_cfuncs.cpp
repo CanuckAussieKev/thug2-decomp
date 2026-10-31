@@ -6,10 +6,10 @@
 #include <cmath>
 #include <cstdint>
 
-#include "game/mth/matrix.h"
-#include "game/mth/vector.h"
+#include "game/mth/mat4.h"
+#include "game/mth/vec4.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/gfx/cag_cfuncs.h"
 
 namespace ScriptCommands {

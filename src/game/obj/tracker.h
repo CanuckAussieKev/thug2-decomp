@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <new>
 
-#include "game/lst/hashtable.h"
-#include "game/obj/event.h"
+#include "game/lst/key_map.h"
+#include "game/obj/signal.h"
 
 // The object tracker (GameObjects::CEventWaitBoard, 0xB21C bytes, the singleton 0x006F0FC0 with its use count 0x006F0FC4):
 // - the game objects by id (+0x08) and their aliases (+0x0C) - FindObject / ObjectExists / AssignAlias;
@@ -146,7 +146,7 @@ public:
     // 0x00462A90: `alias` names `object` (replacing what it named).
     void RegisterNickname(uint32_t alias, CEntity* object);
 
-    // 0x00461FE0 (objman.cpp): `listener` goes on the front of the list, registered. 0x00462000: the event
+    // 0x00461FE0 (entity_hub.cpp): `listener` goes on the front of the list, registered. 0x00462000: the event
     // listener stops seeing events.
     void SubscribeReceiver(CSignalReceiver* listener);
     void RemoveEventListener(CSignalReceiver* listener);

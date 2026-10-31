@@ -11,7 +11,7 @@
 #include <SDL2/SDL_syswm.h>
 
 #include "game/front/automation.h"
-#include "game/sys/config.h"
+#include "game/sys/platform_config.h"
 #include "game/sys/debug_log.h"
 #include "game/sys/sdl_events.h"
 #include "game/sys/winmain.h"

@@ -7,7 +7,7 @@
 #include <cctype>
 #include <cstdio>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 
 namespace MenuSystem::NewFrontend::Mirror {
 

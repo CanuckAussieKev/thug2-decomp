@@ -8,7 +8,7 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/engine.h"
@@ -16,11 +16,11 @@
 #include "game/gfx/engine_scene.h"
 #include "game/gfx/scene_load.h"
 #include "game/gfx/texture_dict.h"
-#include "game/mth/geometry.h"
-#include "game/mth/vector.h"
+#include "game/mth/shape_tests.h"
+#include "game/mth/vec4.h"
 #include "game/nx/coll_grid.h"
-#include "game/script/struct.h"
-#include "game/sys/timer.h"
+#include "game/script/param_struct.h"
+#include "game/sys/stopwatch.h"
 #include "game/core/code_address.h"
 
 namespace Engine3D {

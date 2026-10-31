@@ -5,22 +5,22 @@
 #include <cstdint>
 #include <initializer_list>
 
-#include "game/ass/assman.h"
+#include "game/ass/resource_registry.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/viewport.h"
 #include "game/goals/goal_manager.h"
-#include "game/mth/matrix.h"
+#include "game/mth/mat4.h"
 #include "game/obj/anim_movies.h"
 #include "game/obj/cutscene.h"
 #include "game/obj/node_objects.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/skate_module.h"
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 #include "game/core/code_address.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/core/stubs.h"
 
 namespace GameObjects {

@@ -1,7 +1,7 @@
 // GameModules::PointTally's combo: tricks logged and scored, the multiplier, the special meter, landing and bailing, the balance
-// meter (see score.h).
+// meter (see point_tally.h).
 
-#include "game/skate/score.h"
+#include "game/skate/point_tally.h"
 
 #include <cmath>
 #include <cstddef>
@@ -9,7 +9,7 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -25,7 +25,7 @@
 #include "game/skater/run_timer.h"
 #include "game/skater/stats_manager.h"
 #include "game/skater/trick_component.h"
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 
 namespace GameModules {
 

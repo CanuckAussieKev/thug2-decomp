@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/script/qb.h"
 
 namespace Scripts {

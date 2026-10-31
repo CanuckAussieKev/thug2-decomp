@@ -11,15 +11,15 @@
 #include <unordered_map>
 #include <vector>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_scenery.h"
-#include "game/mth/matrix.h"
+#include "game/mth/mat4.h"
 #include "game/script/names.h"
 #include "game/script/node_manager.h"
 #include "game/script/qb.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/skate_module.h"
 
 namespace MenuSystem::LevelEditor::Nodes {

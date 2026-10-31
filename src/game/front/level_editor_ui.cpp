@@ -46,7 +46,7 @@
 #include "game/front/level_editor_ux3.h"
 #include "game/front/level_editor_ux8.h"
 #include "game/front/level_editor_view.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 #include "imgui.h"
 
 namespace MenuSystem::LevelEditor::Ui {

@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "game/core/alloc.h"
+#include "game/core/arena_alloc.h"
 
 // The engine's own entry points (Engine3D::CEngine's statics, cdecl) at 0x0048BF20-0x0048C74F: starting it, a frame's
 // update and render, model and scene files, and the list of loaded scenes. (The ones that only jump into the

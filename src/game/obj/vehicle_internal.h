@@ -6,13 +6,13 @@
 #include <bit>
 #include <cstdint>
 
-#include "game/mth/matrix.h"
+#include "game/mth/mat4.h"
 #include "game/gfx/d3dx.h"
-#include "game/mth/quat.h"
-#include "game/mth/vector.h"
+#include "game/mth/quat_rotation.h"
+#include "game/mth/vec4.h"
 #include "game/nx/coll_rect.h"
-#include "game/nx/feeler.h"
-#include "game/obj/object.h"
+#include "game/nx/probe_ray.h"
+#include "game/obj/entity.h"
 #include "game/obj/trigger_component.h"
 
 namespace GameObjects::Vehicle {

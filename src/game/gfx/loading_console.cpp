@@ -23,10 +23,10 @@
 
 #include "game/front/level_editor_ui_fonts.h"
 #include "game/gfx/movie.h"
-#include "game/gfx/render.h"
+#include "game/gfx/draw_frame.h"
 #include "game/script/names.h"
-#include "game/script/struct.h"
-#include "game/sys/log.h"
+#include "game/script/param_struct.h"
+#include "game/sys/run_log.h"
 #include "imgui.h"
 
 #pragma comment(lib, "winmm.lib") // timeSetEvent / timeKillEvent

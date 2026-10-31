@@ -8,7 +8,7 @@
 
 #include "game/core/manager.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/career.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"

@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <unordered_map>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/obj/control_pad.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/skater/trick_component.h"

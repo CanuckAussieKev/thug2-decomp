@@ -11,11 +11,11 @@
 
 #include "game/ed/park_editor.h"
 #include "game/obj/compositemgr.h"
-#include "game/obj/objman.h"
+#include "game/obj/entity_hub.h"
 #include "game/obj/tracker.h"
 #include "game/park/park_memory.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/ed/rail_editor.h"
 #include "game/ed/goal_editor.h"
 #include "game/script/game_cfuncs.h"

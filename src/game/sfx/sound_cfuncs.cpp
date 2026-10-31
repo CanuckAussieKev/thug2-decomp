@@ -5,9 +5,9 @@
 #include <bit>
 #include <cstdint>
 
-#include "game/pcm/music.h"
+#include "game/pcm/music_player.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/sfx/sfx.h"
 
 namespace ScriptCommands {

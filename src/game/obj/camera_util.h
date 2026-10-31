@@ -1,7 +1,7 @@
 #pragma once
 
-#include "game/mth/matrix.h"
-#include "game/mth/vector.h"
+#include "game/mth/mat4.h"
+#include "game/mth/vec4.h"
 
 namespace GameObjects {
 

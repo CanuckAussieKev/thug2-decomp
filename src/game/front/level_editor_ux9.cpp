@@ -21,9 +21,9 @@
 #include "game/front/level_editor_overlays.h"
 #include "game/front/level_editor_scenery.h"
 #include "game/front/level_editor_skate_view.h"
-#include "game/mth/vector.h"
-#include "game/nx/feeler.h"
-#include "game/sys/log.h"
+#include "game/mth/vec4.h"
+#include "game/nx/probe_ray.h"
+#include "game/sys/run_log.h"
 #include "imgui.h"
 
 namespace MenuSystem::LevelEditor::Ux9 {

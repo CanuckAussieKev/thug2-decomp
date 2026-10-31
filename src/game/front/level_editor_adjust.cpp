@@ -8,7 +8,7 @@
 #include "game/front/level_editor_arrange.h"
 #include "game/front/level_editor_hud.h"
 #include "game/front/level_editor_ui.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 
 namespace MenuSystem::LevelEditor::Adjust {
 

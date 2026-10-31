@@ -12,18 +12,18 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/engine_scene_list.h"
 #include "game/gfx/geom.h"
-#include "game/gfx/material.h"
-#include "game/gfx/mesh.h"
+#include "game/gfx/surface_material.h"
+#include "game/gfx/sub_mesh.h"
 #include "game/gfx/mesh_list.h"
 #include "game/gfx/pixel_shaders.h"
 #include "game/gfx/texture_dict.h"
 #include "game/gfx/shader_slots.h"
-#include "game/gfx/texture.h"
+#include "game/gfx/bitmap_texture.h"
 #include "game/sys/startup_init.h"
 
 namespace Engine3D {

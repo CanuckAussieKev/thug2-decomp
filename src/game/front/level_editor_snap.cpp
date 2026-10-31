@@ -9,9 +9,9 @@
 #include <vector>
 
 #include "game/front/level_editor_scenery.h"
-#include "game/gfx/mesh.h"
-#include "game/mth/vector.h"
-#include "game/nx/feeler.h"
+#include "game/gfx/sub_mesh.h"
+#include "game/mth/vec4.h"
+#include "game/nx/probe_ray.h"
 
 namespace MenuSystem::LevelEditor::Snap {
 

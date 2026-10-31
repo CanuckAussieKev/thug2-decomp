@@ -4,7 +4,7 @@
 
 #include <algorithm>
 
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 
 namespace MemSys::Sizes {
 

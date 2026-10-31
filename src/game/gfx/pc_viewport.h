@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/vector.h"
+#include "game/mth/vec4.h"
 
 // The PC viewport (Nx engine: the engine's CViewRegion - constructor 0x004A0DB0, destructor body 0x004A0E60 - over it;
 // the viewports at 0x00701350): a world point onto the 640 x 448 screen, and the occlusion queries the sun's

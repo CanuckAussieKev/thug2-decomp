@@ -1,4 +1,4 @@
-// The PC materials' loaders (material.h): a scene's material list - from memory or from a file, the same records -
+// The PC materials' loaders (surface_material.h): a scene's material list - from memory or from a file, the same records -
 // into a new hash table by checksum, their textures looked up in the scene's texture table.
 
 #include <cstddef>
@@ -7,9 +7,9 @@
 #include <new>
 
 #include "game/core/mem.h"
-#include "game/file/file.h"
-#include "game/gfx/material.h"
-#include "game/lst/hashtable.h"
+#include "game/file/file_load.h"
+#include "game/gfx/surface_material.h"
+#include "game/lst/key_map.h"
 
 namespace Engine3D {
 

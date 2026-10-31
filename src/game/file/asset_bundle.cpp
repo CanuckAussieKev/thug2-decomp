@@ -6,7 +6,7 @@
 
 #include "game/core/mem.h"
 #include "game/file/async.h"
-#include "game/file/pip.h"
+#include "game/file/packs.h"
 #include "game/core/code_address.h"
 
 namespace FileLoad {

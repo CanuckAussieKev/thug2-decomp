@@ -5,7 +5,7 @@
 
 #include "game/core/str.h"
 #include "game/sio/sdl_input.h"
-#include "game/sys/config.h"
+#include "game/sys/platform_config.h"
 
 namespace Engine3D {
 

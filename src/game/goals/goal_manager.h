@@ -9,7 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/core/alloc.h"
+#include "game/core/arena_alloc.h"
 #include "game/lst/lookup_table.h"
 
 namespace Scripts {

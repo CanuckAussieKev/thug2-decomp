@@ -1,12 +1,12 @@
 #pragma once
 
 // The goal types of 0x005517C0-0x00552E0F: competition, film, find gaps (each a GoalSystem::CObjective with a vtable of its
-// own: the slots it changes are its own functions, the others CObjective's; see goal.h).
+// own: the slots it changes are its own functions, the others CObjective's; see objective.h).
 
 #include <cstddef>
 #include <cstdint>
 
-#include "game/goals/goal.h"
+#include "game/goals/objective.h"
 
 namespace Scripts {
 class CStruct;

@@ -5,16 +5,16 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/core/pool.h"
-#include "game/file/pip.h"
+#include "game/core/slab_bank.h"
+#include "game/file/packs.h"
 #include "game/script/load.h"
 #include "game/script/names.h"
 #include "game/script/qb.h"
 #include "game/script/script_tables.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 
 namespace Scripts {
 

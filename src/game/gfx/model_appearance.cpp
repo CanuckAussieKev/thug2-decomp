@@ -11,11 +11,11 @@
 #include "game/gfx/face_texture.h"
 #include "game/script/cscript.h"
 #include "game/skate/cas_options.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/script/struct_buffer.h"
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 
 namespace Gfx2D {
 

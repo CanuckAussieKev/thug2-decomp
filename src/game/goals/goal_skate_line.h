@@ -6,7 +6,7 @@
 
 #include <cstdint>
 
-#include "game/goals/goal.h"
+#include "game/goals/objective.h"
 
 namespace GoalSystem {
 

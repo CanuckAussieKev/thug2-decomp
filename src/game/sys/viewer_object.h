@@ -3,8 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/core/task.h"
-#include "game/obj/object.h"
+#include "game/core/task_list.h"
+#include "game/obj/entity.h"
 
 // The model viewer's object (0x128 bytes, vtable 0x0064F138: a composite object with a model and animations, made by
 // Viewer::CreateViewerObject with the viewer's net handler - constructor 0x0058ADB0). Its code is 0x005897B0-0x0058AFB7.

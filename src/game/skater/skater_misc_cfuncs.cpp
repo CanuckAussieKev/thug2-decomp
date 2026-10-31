@@ -8,18 +8,18 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/core/crc.h"
-#include "game/core/pool.h"
-#include "game/mth/matrix.h"
+#include "game/core/checksums.h"
+#include "game/core/slab_bank.h"
+#include "game/mth/mat4.h"
 #include "game/mth/random.h"
-#include "game/mth/vector.h"
-#include "game/obj/object.h"
+#include "game/mth/vec4.h"
+#include "game/obj/entity.h"
 #include "game/pcm/music_api.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
-#include "game/skater/skater.h"
+#include "game/skater/rider.h"
 #include "game/gfx/cag_cfuncs.h"
 
 namespace ScriptCommands {

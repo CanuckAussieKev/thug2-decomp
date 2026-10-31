@@ -1,4 +1,4 @@
-// The PC meshes' loading (mesh.h): a mesh's index buffers, vertex buffers, colours, levels of detail, material and
+// The PC meshes' loading (sub_mesh.h): a mesh's index buffers, vertex buffers, colours, levels of detail, material and
 // pixel shader from a scene file (in memory or read from a file); the skinned vertices unpacked; the vertex positions
 // a skinned model's bone scales move (while SetSkinScaling's are on); the collision positions and triangles.
 
@@ -13,9 +13,9 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/file/file.h"
-#include "game/gfx/material.h"
-#include "game/gfx/mesh.h"
+#include "game/file/file_load.h"
+#include "game/gfx/surface_material.h"
+#include "game/gfx/sub_mesh.h"
 #include "game/gfx/mesh_list.h"
 #include "game/gfx/pc_scene.h"
 #include "game/gfx/pixel_shaders.h"

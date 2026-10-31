@@ -9,7 +9,7 @@
 #include "game/gfx/sector.h"
 #include "game/goals/goal_manager.h"
 #include "game/skate/game_mode.h"
-#include "game/skater/skater.h"
+#include "game/skater/rider.h"
 #include "game/skate/skate_module.h"
 
 #include <cstddef>
@@ -25,7 +25,7 @@
 #include "game/net/net_app.h"
 #include "game/net/net_conn.h"
 #include "game/net/player_info.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/core/code_address.h"
 #include "game/sys/game_config.h"
 

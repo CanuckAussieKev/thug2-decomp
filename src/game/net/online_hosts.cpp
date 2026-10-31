@@ -13,7 +13,7 @@
 #include <cstring>
 
 #include "game/net/gamespy.h"
-#include "game/sys/config.h"
+#include "game/sys/platform_config.h"
 #include "game/sys/debug_log.h"
 
 namespace NetLink {

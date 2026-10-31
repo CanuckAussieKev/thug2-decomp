@@ -1,5 +1,5 @@
 // Loading an image (the engine's own format: a 32-byte header, a palette for 8-bit images, the texels swizzled)
-// into a texture: see texture.h.
+// into a texture: see bitmap_texture.h.
 
 #include <windows.h>
 
@@ -11,9 +11,9 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/file/file.h"
+#include "game/file/file_load.h"
 #include "game/gfx/hd_ui.h"
-#include "game/gfx/texture.h"
+#include "game/gfx/bitmap_texture.h"
 #include "game/sys/platform_d3d.h"
 #include "game/sys/platform_system.h"
 #include "game/gfx/device.h"

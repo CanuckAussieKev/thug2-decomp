@@ -11,13 +11,13 @@
 #include <cstring>
 #include <initializer_list>
 
-#include "game/core/task.h"
+#include "game/core/task_list.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/online_identity.h"
 #include "game/script/preferences.h"
-#include "game/script/struct.h"
-#include "game/sys/timer.h"
+#include "game/script/param_struct.h"
+#include "game/sys/stopwatch.h"
 
 #pragma warning(disable : 4996) // (strcpy: the original's copy of the server's name)
 

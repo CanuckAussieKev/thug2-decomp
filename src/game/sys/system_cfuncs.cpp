@@ -6,10 +6,10 @@
 
 #include "game/mth/random.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/game_config.h"
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 #include "game/obj/control_pad.h"
 
 namespace ScriptCommands {

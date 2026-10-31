@@ -6,8 +6,8 @@
 
 #include <cstdint>
 
-#include "game/mth/matrix.h"
-#include "game/mth/vector.h"
+#include "game/mth/mat4.h"
+#include "game/mth/vec4.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
@@ -18,9 +18,9 @@
 #include "game/net/net_lists.h"
 #include "game/net/thugpro_compat.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skater/end_run.h"
-#include "game/skater/skater.h"
+#include "game/skater/rider.h"
 #include "game/util/bitstream.h"
 #include "game/skate/skate_module.h"
 #include "game/core/code_address.h"

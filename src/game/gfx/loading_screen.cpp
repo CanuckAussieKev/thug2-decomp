@@ -20,10 +20,10 @@
 #include "game/gfx/loading_bar.h"
 #include "game/gfx/pc_lights.h"
 #include "game/gfx/pc_texture.h"
-#include "game/gfx/render.h"
+#include "game/gfx/draw_frame.h"
 #include "game/gfx/render_state.h"
 #include "game/sys/crt.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 #include "game/sys/game_config.h"
 
 namespace Engine3D {

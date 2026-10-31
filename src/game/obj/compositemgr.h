@@ -3,8 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/obj/object.h"
-#include "game/obj/objman.h"
+#include "game/obj/entity.h"
+#include "game/obj/entity_hub.h"
 
 // GameObjects::CEntityHub, the manager of every composite object (the singleton 0x006F0FB8, references
 // 0x006F0FBC): the component types (who makes each one), the list of all components of each type, making composite
@@ -20,7 +20,7 @@ using ComponentCreateFunction = CObjectModule*(__cdecl*)();
 // Called once when the type is registered (its member functions for scripts...).
 using ComponentRegisterFunction = void(__cdecl*)();
 
-// (CGameEntity's +0x104 bits: COMPOSITE_FLAG_* in object.h.)
+// (CGameEntity's +0x104 bits: COMPOSITE_FLAG_* in entity.h.)
 
 class CEntityHub : public CMiscHub {
 public:

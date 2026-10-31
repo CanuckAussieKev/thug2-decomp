@@ -3,12 +3,12 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/matrix.h"
-#include "game/mth/vector.h"
+#include "game/mth/mat4.h"
+#include "game/mth/vec4.h"
 #include "game/nx/coll_cache.h"
 #include "game/nx/coll_rect.h"
-#include "game/nx/feeler.h"
-#include "game/obj/object.h"
+#include "game/nx/probe_ray.h"
+#include "game/obj/entity.h"
 
 namespace Scripts {
 class CScript;

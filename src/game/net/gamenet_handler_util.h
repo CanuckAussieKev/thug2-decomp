@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/core/alloc.h"
+#include "game/core/arena_alloc.h"
 #include "game/goals/goal_manager.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
@@ -14,7 +14,7 @@
 #include "game/net/net_dispatcher.h"
 #include "game/net/player_info.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/core/code_address.h"
 #include "game/skate/skate_module.h"
 #include "game/skate/game_mode.h"

@@ -3,8 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/obj/object.h"
-#include "game/skater/manual.h"
+#include "game/obj/entity.h"
+#include "game/skater/manual_balance.h"
 
 namespace Scripts {
 class CScript;
@@ -13,7 +13,7 @@ class CStruct;
 
 // The skater's balance trick component (SkaterBalanceTrick, type 0x589E5FB3, vtable 0x0064BA30, 0x188 bytes; made by
 // 0x004F9170): the balance of the trick being balanced - a manual (or nose manual), a grind (or slide), a lip trick or
-// a skitch, one CBalance each (manual.h) - started by DoBalanceTrick, tweaked by AdjustBalance, its meter switched on
+// a skitch, one CBalance each (manual_balance.h) - started by DoBalanceTrick, tweaked by AdjustBalance, its meter switched on
 // and off; the physics values of its type (GrindParams / ManualParams / SkitchParams / LipParams, or the structure
 // DoBalanceTrick was given). From the disassembly of 0x004F8CD0-0x004F9960.
 //

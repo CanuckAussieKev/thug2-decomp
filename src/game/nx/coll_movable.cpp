@@ -13,7 +13,7 @@
 #include "game/core/game_vtables.h"
 #include "game/core/code_address.h"
 #include "game/nx/coll_obj.h"
-#include "game/nx/feeler.h"
+#include "game/nx/probe_ray.h"
 
 namespace Engine3D {
 

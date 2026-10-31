@@ -56,7 +56,7 @@
 #include "game/skater/finalize_physics.h"
 #include "game/skater/flip_and_rotate.h"
 #include "game/skater/floating_name.h"
-#include "game/skater/gap.h"
+#include "game/skater/gap_entry.h"
 #include "game/skater/local_net_logic.h"
 #include "game/skater/looping_sound.h"
 #include "game/skater/matrix_queries.h"

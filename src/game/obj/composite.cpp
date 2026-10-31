@@ -1,5 +1,5 @@
 // GameObjects::CGameEntity - the object made of components (skaters, peds, cars, level objects) - and the base of its
-// components, GameObjects::CObjectModule (object.h). From the disassembly of 0x0045D720-0x0045EE20 (methods __thiscall,
+// components, GameObjects::CObjectModule (entity.h). From the disassembly of 0x0045D720-0x0045EE20 (methods __thiscall,
 // RET n = 4 * arguments; the member functions scripts call are entries of the table at 0x00683268, filled in by
 // 0x006425D0, all `bool (CGameEntity::*)(CStruct* params, CScript* script)`).
 
@@ -7,22 +7,22 @@
 #include <cstdint>
 
 #include "game/core/manager.h"
-#include "game/mth/quat.h"
-#include "game/nx/feeler.h"
+#include "game/mth/quat_rotation.h"
+#include "game/nx/probe_ray.h"
 #include "game/obj/compositemgr.h"
-#include "game/obj/objman.h"
-#include "game/obj/object.h"
+#include "game/obj/entity_hub.h"
+#include "game/obj/entity.h"
 #include "game/obj/smtptr.h"
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
 #include "game/skater/vehicle_sound.h"
 #include "game/obj/camera_lookaround.h"
-#include "game/obj/objman.h"
+#include "game/obj/entity_hub.h"
 
 namespace GameObjects {
 

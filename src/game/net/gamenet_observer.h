@@ -8,7 +8,7 @@
 #include <cstdint>
 
 #include "game/core/mem.h"
-#include "game/core/task.h"
+#include "game/core/task_list.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/task_vtable.h"
 

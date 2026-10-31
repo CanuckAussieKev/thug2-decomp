@@ -49,7 +49,7 @@ std::string JumpTo(Vec3 position, bool hasHeading, float headingDegrees, Vec3* o
 bool LockCamera(Vec3 position, Vec3 direction, Vec3 drift = {0.0f, 0.0f, 0.0f});
 void UnlockCamera();
 bool CameraLocked();
-// The renderer, a viewport's camera before it's drawn (game/gfx/render.cpp): placed while locked.
+// The renderer, a viewport's camera before it's drawn (game/gfx/draw_frame.cpp): placed while locked.
 void PlaceCamera(Gfx2D::ViewCam* camera, int viewport);
 // TeleportSkaterStanding (sys/main.cpp, after the game's own commands).
 void RegisterScriptFunctions();

@@ -1,7 +1,7 @@
-// Maths::Vec4::RotateAboutZ (vector.h), from the disassembly of 0x004882D0 - code Ghidra never made a function of
+// Maths::Vec4::RotateAboutZ (vec4.h), from the disassembly of 0x004882D0 - code Ghidra never made a function of
 // (between 0x00488220's end and 0x00488300).
 
-#include "game/mth/vector.h"
+#include "game/mth/vec4.h"
 #include "game/mth/x87_math.h"
 
 namespace Maths {

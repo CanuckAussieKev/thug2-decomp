@@ -162,28 +162,28 @@ add_custom_target(editor_fonts DEPENDS ${THUG2_EDITOR_FONT_INCLUDES})
 # (its Data folder, binkw32.dll): README.md "Building and running".
 add_executable(thug2 WIN32
     src/main.cpp
-    src/game/sys/log.cpp
+    src/game/sys/run_log.cpp
     src/game/sys/crash.cpp
-    src/game/ass/asset.cpp
+    src/game/ass/resource_entry.cpp
     src/game/ass/asset_types.cpp
-    src/game/ass/assman.cpp
-    src/game/core/alloc.cpp
-    src/game/core/crc.cpp
+    src/game/ass/resource_registry.cpp
+    src/game/core/arena_alloc.cpp
+    src/game/core/checksums.cpp
     src/game/core/dbg.cpp
     src/game/core/dump_text.cpp
-    src/game/core/heap.cpp
+    src/game/core/arena.cpp
     src/game/core/manager.cpp
     src/game/core/mem.cpp
     src/game/core/memory_sizes.cpp
     src/game/core/memory_report.cpp
-    src/game/core/pool.cpp
-    src/game/core/singleton.cpp
+    src/game/core/slab_bank.cpp
+    src/game/core/single_instance.cpp
     src/game/core/stubs.cpp
-    src/game/core/task.cpp
+    src/game/core/task_list.cpp
     src/game/core/str.cpp
-    src/game/core/string.cpp
+    src/game/core/text_store.cpp
     src/game/file/asset_bundle.cpp
-    src/game/front/element3d.cpp
+    src/game/front/model_widget.cpp
     src/game/ed/cursor.cpp
     src/game/ed/park_floor.cpp
     src/game/ed/park_manager.cpp
@@ -192,7 +192,7 @@ add_executable(thug2 WIN32
     src/game/ed/rail_editor.cpp
     src/game/ed/rail_editor_draw.cpp
     src/game/ed/rail_editor_script.cpp
-    src/game/ed/clipboard.cpp
+    src/game/ed/copy_buffer.cpp
     src/game/ed/gap_slots.cpp
     src/game/ed/piece_menu.cpp
     src/game/front/screen_element.cpp
@@ -296,15 +296,15 @@ add_executable(thug2 WIN32
     src/game/front/level_editor_arrange.cpp
     src/game/front/level_editor_arrange_ui.cpp
     src/game/front/level_editor_links.cpp
-    src/game/skate/competition.cpp
-    src/game/skate/horse.cpp
-    src/game/skate/score.cpp
+    src/game/skate/contest.cpp
+    src/game/skate/letter_match.cpp
+    src/game/skate/point_tally.cpp
     src/game/skate/score_combo.cpp
     src/game/skate/score_net.cpp
     src/game/skate/skate_module_state.cpp
     src/game/skate/skate_module_skaters.cpp
     src/game/skate/skate_rankings.cpp
-    src/game/goals/goal.cpp
+    src/game/goals/objective.cpp
     src/game/goals/goal_run.cpp
     src/game/goals/goal_life.cpp
     src/game/goals/goal_tricks.cpp
@@ -334,7 +334,7 @@ add_executable(thug2 WIN32
     src/game/gfx/window2d.cpp
     src/game/gfx/engine_shadows.cpp
     src/game/gfx/engine_shadow_edges.cpp
-    src/game/gfx/skeleton.cpp
+    src/game/gfx/rig.cpp
     src/game/gfx/settings.cpp
     src/game/gfx/glyphs.cpp
     src/game/gfx/flash.cpp
@@ -346,12 +346,12 @@ add_executable(thug2 WIN32
     src/game/skate/skate_net.cpp
     src/game/skate/skate_net_relay.cpp
     src/game/skate/skate_module.cpp
-    src/game/sys/viewer.cpp
+    src/game/sys/model_viewer.cpp
     src/game/sys/viewer_object.cpp
     src/game/obj/game_objects.cpp
     src/game/skater/trick_lists.cpp
     src/game/skate/gap_checklist.cpp
-    src/game/skater/manual.cpp
+    src/game/skater/manual_balance.cpp
     src/game/skater/vehicle_camera.cpp
     src/game/skater/walk_camera.cpp
     src/game/skater/walk_physics.cpp
@@ -369,19 +369,19 @@ add_executable(thug2 WIN32
     src/game/obj/trick_objects.cpp
     src/game/obj/rail_manager.cpp
     src/game/skate/profile_manager.cpp
-    src/game/skate/records.cpp
+    src/game/skate/highscores.cpp
     src/game/skate/career.cpp
     src/game/skate/career_cfuncs.cpp
     src/game/skate/skater_profile.cpp
     src/game/skate/appearance_guard.cpp
     src/game/skate/thugpro_cas.cpp
-    src/game/skater/skater.cpp
+    src/game/skater/rider.cpp
     src/game/skater/skater_query_cfuncs.cpp
     src/game/gfx/device.cpp
     src/game/gfx/movie.cpp
     src/game/pcm/bink_stream.cpp
     src/game/pcm/bink_stream_files.cpp
-    src/game/pcm/music.cpp
+    src/game/pcm/music_player.cpp
     src/game/pcm/stream.cpp
     src/game/pcm/stream_play.cpp
     src/game/pcm/stream_commands.cpp
@@ -389,12 +389,12 @@ add_executable(thug2 WIN32
     src/game/pcm/music_cfuncs.cpp
     src/game/gfx/loading_bar.cpp
     src/game/gfx/loading_console.cpp
-    src/game/gfx/render.cpp
+    src/game/gfx/draw_frame.cpp
     src/game/gfx/wireframe.cpp
     src/game/gfx/view_mode.cpp
-    src/game/gfx/sprite.cpp
-    src/game/gfx/camera.cpp
-    src/game/gfx/scene.cpp
+    src/game/gfx/billboard_quad.cpp
+    src/game/gfx/view_cam.cpp
+    src/game/gfx/world_scene.cpp
     src/game/gfx/engine_glue.cpp
     src/game/gfx/scene_load.cpp
     src/game/gfx/pc_font.cpp
@@ -421,7 +421,7 @@ add_executable(thug2 WIN32
     src/game/gfx/model_particles.cpp
     src/game/gfx/engine_primitive.cpp
     src/game/gfx/engine_scene.cpp
-    src/game/gfx/particles.cpp
+    src/game/gfx/particle_sets.cpp
     src/game/gfx/model.cpp
     src/game/gfx/model_geoms.cpp
     src/game/gfx/sector.cpp
@@ -466,16 +466,16 @@ add_executable(thug2 WIN32
     src/game/gfx/render_state.cpp
     src/game/gfx/d3dx.cpp
     src/game/gfx/occlusion.cpp
-    src/game/gfx/shadow.cpp
+    src/game/gfx/shadow_base.cpp
     src/game/gfx/mesh_list.cpp
     src/game/gfx/pixel_shaders.cpp
     src/game/gfx/simple_material.cpp
     src/game/gfx/screen_fx.cpp
     src/game/gfx/draw2d.cpp
-    src/game/gfx/mesh.cpp
+    src/game/gfx/sub_mesh.cpp
     src/game/gfx/scene_render.cpp
     src/game/gfx/glow.cpp
-    src/game/gfx/texture.cpp
+    src/game/gfx/bitmap_texture.cpp
     src/game/gfx/texture_file.cpp
     src/game/gfx/hd_ui.cpp
     src/game/gfx/graphics_options.cpp
@@ -502,13 +502,13 @@ add_executable(thug2 WIN32
     src/game/obj/pager_message.cpp
     src/game/obj/editor_camera.cpp
     src/game/file/async.cpp
-    src/game/file/file.cpp
-    src/game/file/pip.cpp
-    src/game/file/pre.cpp
-    src/game/lst/hashtable.cpp
-    src/game/lst/head.cpp
+    src/game/file/file_load.cpp
+    src/game/file/packs.cpp
+    src/game/file/archive.cpp
+    src/game/lst/key_map.cpp
+    src/game/lst/chain_start.cpp
     src/game/lst/lookup_table.cpp
-    src/game/lst/search.cpp
+    src/game/lst/list_walk.cpp
     src/game/nx/coll_cache.cpp
     src/game/nx/coll_capsule.cpp
     src/game/nx/coll_obj.cpp
@@ -519,7 +519,7 @@ add_executable(thug2 WIN32
     src/game/nx/coll_rect.cpp
     src/game/nx/coll_sphere.cpp
     src/game/nx/coll_world.cpp
-    src/game/nx/feeler.cpp
+    src/game/nx/probe_ray.cpp
     src/game/nx/coll_tests.cpp
     src/game/nx/coll_tri.cpp
     src/game/net/chat.cpp
@@ -544,7 +544,7 @@ add_executable(thug2 WIN32
     src/game/net/player_info.cpp
     src/game/net/player_flags.cpp
     src/game/net/score_list.cpp
-    src/game/net/lobby.cpp
+    src/game/net/rooms.cpp
     src/game/net/server_list.cpp
     src/game/net/server_browser.cpp
     src/game/net/buddy_status.cpp
@@ -607,10 +607,10 @@ add_executable(thug2 WIN32
     src/game/obj/cutscene_package.cpp
     src/game/obj/cutscene_play.cpp
     src/game/obj/control_pad.cpp
-    src/game/obj/proxim.cpp
+    src/game/obj/proximity.cpp
     src/game/script/preferences.cpp
     src/game/script/struct_buffer.cpp
-    src/game/obj/emitter.cpp
+    src/game/obj/emitter_object.cpp
     src/game/obj/node_objects.cpp
     src/game/obj/path_manager.cpp
     src/game/obj/path_follower.cpp
@@ -618,12 +618,12 @@ add_executable(thug2 WIN32
     src/game/sfx/sound_cfuncs.cpp
     src/game/sfx/sfx_voices.cpp
     src/game/sfx/mute_audio.cpp
-    src/game/sfx/terrain.cpp
+    src/game/sfx/surface_kind.cpp
     src/game/gfx/anim_blend.cpp
     src/game/gfx/anim_timeline.cpp
     src/game/gfx/anim_cache.cpp
     src/game/gfx/anim_channel.cpp
-    src/game/obj/event.cpp
+    src/game/obj/signal.cpp
     src/game/obj/flip_rotate.cpp
     src/game/obj/lock_obj.cpp
     src/game/obj/chain_component.cpp
@@ -650,8 +650,8 @@ add_executable(thug2 WIN32
     src/game/obj/motion_rotate.cpp
     src/game/obj/movable_contact.cpp
     src/game/obj/node_components.cpp
-    src/game/obj/object.cpp
-    src/game/obj/objman.cpp
+    src/game/obj/entity.cpp
+    src/game/obj/entity_hub.cpp
     src/game/obj/particle_component.cpp
     src/game/obj/proximity_component.cpp
     src/game/park/park_cursor.cpp
@@ -674,7 +674,7 @@ add_executable(thug2 WIN32
     src/game/obj/rigidbody_physics.cpp
     src/game/obj/rigidbody_support.cpp
     src/game/obj/rigidbody_contacts.cpp
-    src/game/mth/quat.cpp
+    src/game/mth/quat_rotation.cpp
     src/game/mth/rigidbody_math.cpp
     src/game/mth/vector_transform.cpp
     src/game/obj/velocity_component.cpp
@@ -691,7 +691,7 @@ add_executable(thug2 WIN32
     src/game/skater/finalize_physics.cpp
     src/game/skater/flip_and_rotate.cpp
     src/game/skater/floating_name.cpp
-    src/game/skater/gap.cpp
+    src/game/skater/gap_entry.cpp
     src/game/skater/looping_sound.cpp
     src/game/skater/matrix_queries.cpp
     src/game/skater/physics_control.cpp
@@ -702,7 +702,7 @@ add_executable(thug2 WIN32
     src/game/skater/skater_state.cpp
     src/game/skater/stance_panel.cpp
     src/game/sio/device.cpp
-    src/game/sio/inpman.cpp
+    src/game/sio/input_hub.cpp
     src/game/sio/sdl_input.cpp
     src/game/skater/controls.cpp
     src/game/skater/core_physics.cpp
@@ -750,19 +750,19 @@ add_executable(thug2 WIN32
     src/game/sys/platform_system.cpp
     src/game/sys/platform_cfuncs.cpp
     src/game/sys/debug_mode.cpp
-    src/game/sys/config.cpp
+    src/game/sys/platform_config.cpp
     src/game/sys/crt.cpp
     src/game/sys/debug_log.cpp
     src/game/sys/pc_setup.cpp
     src/game/sys/sdl_events.cpp
     src/game/sys/sdl_window.cpp
     src/game/sys/registry.cpp
-    src/game/sys/timer.cpp
-    src/game/sys/main.cpp
+    src/game/sys/stopwatch.cpp
+    src/game/sys/startup.cpp
     src/game/sys/mlp.cpp
     src/game/sys/game_clock.cpp
     src/game/sys/system_cfuncs.cpp
-    src/game/sys/module.cpp
+    src/game/sys/game_module.cpp
     src/game/sys/winmain.cpp
     src/game/sys/startup_init.cpp
     src/game/mc/memcard.cpp
@@ -772,7 +772,7 @@ add_executable(thug2 WIN32
     src/game/mc/save_contents.cpp
     src/game/gfx/texture_cfuncs.cpp
     src/game/skate/profile_cfuncs.cpp
-    src/game/script/eval.cpp
+    src/game/script/expression.cpp
     src/game/script/node_manager.cpp
     src/game/script/node_prefixes.cpp
     src/game/script/nodes.cpp
@@ -785,13 +785,13 @@ add_executable(thug2 WIN32
     src/game/script/load.cpp
     src/game/script/cscript_core.cpp
     src/game/script/names.cpp
-    src/game/script/parse.cpp
+    src/game/script/token_reader.cpp
     src/game/script/patched.cpp
     src/game/script/world_cfuncs.cpp
     src/game/script/script_startup.cpp
     src/game/script/precompiled.cpp
     src/game/script/qb.cpp
-    src/game/script/struct.cpp
+    src/game/script/param_struct.cpp
     src/game/script/skate_cfuncs.cpp
     src/game/script/trick_cfuncs.cpp
     src/game/script/game_util_cfuncs.cpp
@@ -828,12 +828,12 @@ add_executable(thug2 WIN32
     src/game/script/cfuncs_render.cpp
     src/game/script/cfuncs_polys.cpp
     src/game/script/cfuncs_memory.cpp
-    src/game/mth/geometry.cpp
-    src/game/mth/math.cpp
-    src/game/mth/matrix.cpp
+    src/game/mth/shape_tests.cpp
+    src/game/mth/maths.cpp
+    src/game/mth/mat4.cpp
     src/game/mth/random.cpp
-    src/game/mth/slerp.cpp
-    src/game/mth/vector.cpp
+    src/game/mth/rotation_blend.cpp
+    src/game/mth/vec4.cpp
     src/game/util/bitstream.cpp
     src/game/util/lzss.cpp
     src/game/util/bps.cpp

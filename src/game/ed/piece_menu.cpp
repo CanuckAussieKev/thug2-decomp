@@ -10,7 +10,7 @@
 #include "game/front/text_element.h"
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 
 namespace ParkEditing {
 

@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/gfx/texture.h"
+#include "game/gfx/bitmap_texture.h"
 
 namespace ListKit {
 class KeyMap;

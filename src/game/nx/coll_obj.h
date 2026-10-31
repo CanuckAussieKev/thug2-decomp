@@ -3,8 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/core/alloc.h"
-#include "game/mth/geometry.h"
+#include "game/core/arena_alloc.h"
+#include "game/mth/shape_tests.h"
 
 namespace Engine3D {
 

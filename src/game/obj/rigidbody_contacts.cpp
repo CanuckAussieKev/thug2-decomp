@@ -6,10 +6,10 @@
 #include <cmath>
 #include <cstdint>
 
-#include "game/mth/geometry.h"
+#include "game/mth/shape_tests.h"
 #include "game/nx/coll_cache.h"
 #include "game/nx/coll_sphere.h"
-#include "game/nx/feeler.h"
+#include "game/nx/probe_ray.h"
 #include "game/obj/rigidbody_component.h"
 
 namespace GameObjects {

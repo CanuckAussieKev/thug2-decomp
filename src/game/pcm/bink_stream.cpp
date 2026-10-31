@@ -11,7 +11,7 @@
 #include "game/core/dbg.h"
 #include "game/core/mem.h"
 #include "game/gfx/movie.h"
-#include "game/pcm/music.h"
+#include "game/pcm/music_player.h"
 #include "game/sfx/mute_audio.h"
 #include "game/sys/winmain.h"
 #include "game/pcm/stream_files.h"

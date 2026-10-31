@@ -7,11 +7,11 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/core/pool.h"
+#include "game/core/slab_bank.h"
 #include "game/core/stubs.h"
 #include "game/goals/goal_manager.h"
 #include "game/mc/memcard.h"
@@ -19,11 +19,11 @@
 #include "game/mc/save_contents.h"
 #include "game/mc/save_types.h"
 #include "game/script/struct_buffer.h"
-#include "game/pcm/music.h"
+#include "game/pcm/music_player.h"
 #include "game/pcm/stream_commands.h"
 #include "game/script/cscript.h"
 #include "game/script/qb.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/sfx/sfx.h"
 #include "game/sys/game_config.h"
 

@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "game/mth/vector.h"
+#include "game/mth/vec4.h"
 
 // Vector helpers of the engine's particle systems (their bounding boxes, 0x00495260): a quadratic path's turning
 // point and componentwise minimum / maximum. All three take registers (naked adapters).

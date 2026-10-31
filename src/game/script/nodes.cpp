@@ -6,16 +6,16 @@
 #include <cmath>
 #include <cstdint>
 
-#include "game/mth/matrix.h"
-#include "game/mth/quat.h"
-#include "game/mth/vector.h"
+#include "game/mth/mat4.h"
+#include "game/mth/quat_rotation.h"
+#include "game/mth/vec4.h"
 #include "game/script/node_manager.h"
 #include "game/script/cache.h"
 #include "game/script/node_prefixes.h"
-#include "game/script/parse.h"
+#include "game/script/token_reader.h"
 #include "game/script/qb.h"
 #include "game/script/script_cfuncs.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/core/code_address.h"
 
 namespace LevelNodes {

@@ -8,15 +8,15 @@
 #include <cstring>
 
 #include "game/core/stubs.h"
-#include "game/mth/vector.h"
+#include "game/mth/vec4.h"
 #include "game/obj/stream_component.h"
-#include "game/pcm/music.h"
+#include "game/pcm/music_player.h"
 #include "game/pcm/music_api.h"
 #include "game/pcm/stream.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/sfx/sfx.h"
 #include "game/sys/game_config.h"
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 #include "game/gfx/viewport.h"
 
 namespace AudioStream {

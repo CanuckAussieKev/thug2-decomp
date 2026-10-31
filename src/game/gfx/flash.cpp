@@ -6,7 +6,7 @@
 #include <cstdint>
 
 #include "game/gfx/device.h"
-#include "game/gfx/render.h"
+#include "game/gfx/draw_frame.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/viewport_list.h"
 

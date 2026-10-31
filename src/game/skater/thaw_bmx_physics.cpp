@@ -18,23 +18,23 @@
 #include <cstring>
 #include <initializer_list>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/gfx/anim_blend.h"
-#include "game/mth/matrix.h"
-#include "game/mth/vector.h"
-#include "game/nx/feeler.h"
+#include "game/mth/mat4.h"
+#include "game/mth/vec4.h"
+#include "game/nx/probe_ray.h"
 #include "game/obj/anim_blender.h"
 #include "game/obj/control_pad.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skater/core_physics.h"
-#include "game/skater/skater.h"
+#include "game/skater/rider.h"
 #include "game/skater/thaw_bmx.h"
-#include "game/sys/config.h"
+#include "game/sys/platform_config.h"
 #include "game/sys/game_clock.h"
-#include "game/skate/score.h"
-#include "game/sys/log.h"
+#include "game/skate/point_tally.h"
+#include "game/sys/run_log.h"
 
 namespace Skater::ThawBmx {
 

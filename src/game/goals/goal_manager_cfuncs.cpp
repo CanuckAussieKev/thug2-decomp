@@ -5,12 +5,12 @@
 
 #include "game/goals/goal_manager_cfuncs.h"
 
-#include "game/goals/goal.h"
+#include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_net_types.h"
 #include "game/goals/goal_names.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 
 namespace GoalSystem {
 

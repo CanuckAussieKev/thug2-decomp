@@ -4,7 +4,7 @@
 
 #include <windows.h>
 
-#include "game/core/alloc.h"
+#include "game/core/arena_alloc.h"
 
 // Memory cards on the PC: saves are files under "Save\" (the console code's card/file interface, backed by
 // Win32 files). One manager (reference counted) holds the one card.

@@ -7,17 +7,17 @@
 
 #include "game/core/mem.h"
 #include "game/core/stubs.h"
-#include "game/core/task.h"
+#include "game/core/task_list.h"
 #include "game/ed/park.h"
 #include "game/ed/piece_menu.h"
 #include "game/park/park_memory.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
-#include "game/sys/timer.h"
+#include "game/script/param_struct.h"
+#include "game/sys/stopwatch.h"
 #include "game/core/code_address.h"
 #include "game/net/task_vtable.h"
 #include "game/core/stubs.h"
-#include "game/sys/viewer.h"
+#include "game/sys/model_viewer.h"
 
 namespace GameCode {
 

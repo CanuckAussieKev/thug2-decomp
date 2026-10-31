@@ -12,12 +12,12 @@
 #include <unordered_map>
 #include <utility>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/front/level_editor_node_create.h"
 #include "game/front/level_editor_objects.h"
 #include "game/script/node_manager.h"
 #include "game/script/nodes.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 
 namespace MenuSystem::LevelEditor::Fields {
 

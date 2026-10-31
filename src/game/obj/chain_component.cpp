@@ -3,24 +3,24 @@
 #include "game/obj/chain_component.h"
 #include "game/gfx/engine_primitive.h"
 #include "game/gfx/pc_primitive.h"
-#include "game/gfx/skeleton.h"
+#include "game/gfx/rig.h"
 
 #include <cmath>
 #include <cstdint>
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/mth/matrix.h"
+#include "game/mth/mat4.h"
 #include "game/net/buddy_status.h"
 #include "game/obj/pager_message.h"
 #include "game/obj/skeleton_component.h"
-#include "game/script/struct.h"
-#include "game/sys/timer.h"
+#include "game/script/param_struct.h"
+#include "game/sys/stopwatch.h"
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/obj/camera_lookaround.h"
 #include "game/gfx/weather.h"
 

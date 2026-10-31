@@ -10,16 +10,16 @@
 
 #include <SDL2/SDL.h>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/front/front_end.h"
 #include "game/front/level_editor.h"
 #include "game/gfx/screen.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/nodes.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/sys/mlp.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 
 namespace MenuSystem::RestartTester {
 

@@ -5,8 +5,8 @@
 #include <cstdint>
 #include <vector>
 
-#include "game/script/struct.h"
-#include "game/sys/log.h"
+#include "game/script/param_struct.h"
+#include "game/sys/run_log.h"
 
 namespace GameObjects::AppearanceGuard {
 

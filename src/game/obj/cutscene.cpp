@@ -6,12 +6,12 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/front/front_end.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/sio/device.h"
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 
 namespace GameObjects {
 

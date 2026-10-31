@@ -9,7 +9,7 @@
 #include "game/obj/movie_cfuncs.h"
 #include "game/obj/pager_message.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/sys/startup_init.h"
 
 namespace ScriptCommands {

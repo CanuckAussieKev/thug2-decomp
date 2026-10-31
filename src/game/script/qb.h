@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint>
-#include "game/core/pool.h"
+#include "game/core/slab_bank.h"
 
 // Compiled scripts (.qb bytecode): reading and skipping tokens, and setting up the script system's pools.
 //

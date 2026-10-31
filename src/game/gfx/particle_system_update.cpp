@@ -10,13 +10,13 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/gfx/camera.h"
+#include "game/gfx/view_cam.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/viewport.h"
-#include "game/nx/feeler.h"
-#include "game/obj/object.h"
+#include "game/nx/probe_ray.h"
+#include "game/obj/entity.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/skate_module.h"
 #include "game/gfx/flexible_particle_manager.h"
 #include "game/sys/crt.h"

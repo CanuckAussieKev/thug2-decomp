@@ -7,17 +7,17 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/gfx/debug_lines.h"
 #include "game/gfx/screen.h"
-#include "game/mth/geometry.h"
-#include "game/mth/vector.h"
+#include "game/mth/shape_tests.h"
+#include "game/mth/vec4.h"
 #include "game/obj/compositemgr.h"
-#include "game/obj/object.h"
-#include "game/obj/objman.h"
+#include "game/obj/entity.h"
+#include "game/obj/entity_hub.h"
 #include "game/obj/skeleton_component.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/gfx/anim_cache.h"
 #include "game/gfx/anim_blend.h"
 #include "game/gfx/boned_anim_frame_data.h"

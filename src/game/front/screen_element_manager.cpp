@@ -10,14 +10,14 @@
 #include "game/core/mem.h"
 #include "game/front/new_frontend.h"
 #include "game/front/text_element.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
-#include "game/sio/inpman.h"
+#include "game/script/param_struct.h"
+#include "game/sio/input_hub.h"
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"
-#include "game/obj/objman.h"
+#include "game/obj/entity_hub.h"
 
 namespace MenuSystem {
 

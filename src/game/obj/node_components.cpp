@@ -6,17 +6,17 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/ass/assman.h"
+#include "game/ass/resource_registry.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/obj/node_objects.h"
 #include "game/obj/rail_manager.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/core/code_address.h"
 #include "game/skater/skitch.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/skater/vehicle_sound.h"
 #include "game/net/buddy_status.h"
 #include "game/obj/camera_lookaround.h"

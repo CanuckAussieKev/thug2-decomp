@@ -44,7 +44,7 @@
 // - Shatter (0x005A5090) on a LevelGeometry node: the sector made invisible (0x005A3B80) and shattered (sector
 //   vtable +0x04, 0x004A1090); it doesn't touch the collision. Kill on it: the killed flag above, plus 0x004D8C90.
 //
-// Engine3D::CProbeRay::GetHitShape (0x004172F0, src/game/nx/feeler.cpp) calls NoteFeelerQuery after each query; nothing
+// Engine3D::CProbeRay::GetHitShape (0x004172F0, src/game/nx/probe_ray.cpp) calls NoteFeelerQuery after each query; nothing
 // else changes.
 
 #include <cmath>
@@ -56,7 +56,7 @@
 #include "game/skater/debug_collision.h"
 #include "game/script/names.h"
 #include "game/script/qb.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 
 namespace DebugCollision {
 

@@ -9,11 +9,11 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/gfx/camera.h"
+#include "game/gfx/view_cam.h"
 #include "game/gfx/particle_system.h"
 #include "game/gfx/viewport.h"
 #include "game/gfx/pc_flexible_particles.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/core/code_address.h"
 #include "game/core/game_vtables.h"
 #include "game/obj/movie_manager.h"

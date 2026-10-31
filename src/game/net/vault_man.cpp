@@ -10,22 +10,22 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/core/task.h"
+#include "game/core/task_list.h"
 #include "game/net/buddy_man.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/online_text.h"
 #include "game/script/cscript.h"
 #include "game/script/preferences.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/script/struct_buffer.h"
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 #include "game/mc/save_types.h"
 #include "game/core/code_address.h"
-#include "game/ass/assman.h"
+#include "game/ass/resource_registry.h"
 #include "game/net/task_vtable.h"
 #include "game/sys/crt.h"
 

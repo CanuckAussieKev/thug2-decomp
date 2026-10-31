@@ -2,16 +2,16 @@
 
 #include "game/obj/flip_rotate.h"
 #include "game/gfx/anim_controller.h"
-#include "game/gfx/skeleton.h"
+#include "game/gfx/rig.h"
 
 #include <cstdint>
 #include <cstring>
 
 #include "game/core/manager.h"
-#include "game/mth/quat.h"
-#include "game/obj/object.h"
+#include "game/mth/quat_rotation.h"
+#include "game/obj/entity.h"
 #include "game/obj/vehicle_component.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/skater/vehicle_sound.h"

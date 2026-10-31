@@ -9,9 +9,9 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/lst/head.h"
-#include "game/mth/vector.h"
-#include "game/sys/module.h"
+#include "game/lst/chain_start.h"
+#include "game/mth/vec4.h"
+#include "game/sys/game_module.h"
 
 namespace GameObjects {
 class CGameEntity;

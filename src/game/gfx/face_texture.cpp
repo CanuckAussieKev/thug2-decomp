@@ -10,9 +10,9 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/file/pip.h"
+#include "game/file/packs.h"
 #include "game/gfx/texture_dict.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 
 namespace Gfx2D {
 

@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 
 // Pre-compiled .qb files (magic 0xB075EF6F; the platform's extension, "xbx" on PC): an image of finished global
 // symbols, loaded as it is and kept loaded. The file's own symbol table entries are linked into the table in

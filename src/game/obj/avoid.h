@@ -3,10 +3,10 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/matrix.h"
-#include "game/mth/slerp.h"
-#include "game/mth/vector.h"
-#include "game/obj/object.h"
+#include "game/mth/mat4.h"
+#include "game/mth/rotation_blend.h"
+#include "game/mth/vec4.h"
+#include "game/obj/entity.h"
 
 namespace Scripts {
 class CScript;

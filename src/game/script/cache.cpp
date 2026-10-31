@@ -4,14 +4,14 @@
 #include <cstdint>
 #include <new>
 
-#include "game/core/alloc.h"
+#include "game/core/arena_alloc.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/core/pool.h"
-#include "game/lst/hashtable.h"
+#include "game/core/slab_bank.h"
+#include "game/lst/key_map.h"
 #include "game/script/qb.h"
-#include "game/script/struct.h"
-#include "game/sys/module.h"
+#include "game/script/param_struct.h"
+#include "game/sys/game_module.h"
 #include "game/util/lzss.h"
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"

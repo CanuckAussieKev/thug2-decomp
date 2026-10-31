@@ -14,10 +14,10 @@
 #include "backends/imgui_impl_dx9.h"
 #include "backends/imgui_impl_sdl2.h"
 #include "game/sys/sdl_window.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 #include "imgui.h"
 #include "game/gfx/device.h"
-#include "game/gfx/render.h"
+#include "game/gfx/draw_frame.h"
 
 namespace MenuSystem::LevelEditor::UiBackend {
 

@@ -9,12 +9,12 @@
 #include "game/front/screen_element_manager.h"
 #include "game/front/sprite_element.h"
 #include "game/obj/smtptr.h"
-#include "game/skater/skater.h"
+#include "game/skater/rider.h"
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace GameObjects {

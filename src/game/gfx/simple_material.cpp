@@ -1,7 +1,7 @@
 // A one-pass material made on the fly, and the chunk skippers: see simple_material.h.
 
 #include "game/gfx/simple_material.h"
-#include "game/gfx/material.h"
+#include "game/gfx/surface_material.h"
 #include "game/gfx/texture_dict.h"
 
 #include <cstdint>
@@ -9,7 +9,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/file/file.h"
+#include "game/file/file_load.h"
 #include "game/gfx/shader_slots.h"
 #include "game/sys/crt.h"
 

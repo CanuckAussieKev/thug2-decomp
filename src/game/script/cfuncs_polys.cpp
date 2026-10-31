@@ -6,10 +6,10 @@
 #include <cstdint>
 
 #include "game/core/mem.h"
-#include "game/core/pool.h"
-#include "game/lst/hashtable.h"
+#include "game/core/slab_bank.h"
+#include "game/lst/key_map.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/engine_geom.h"
 #include "game/gfx/engine_scene_list.h"

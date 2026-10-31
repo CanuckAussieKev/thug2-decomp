@@ -6,10 +6,10 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/sys/game_clock.h"
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 
 namespace GameObjects {
 

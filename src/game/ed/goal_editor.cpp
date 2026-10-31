@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/code_address.h"
 #include "game/skater/vehicle_sound.h"
 #include "game/obj/camera_lookaround.h"
@@ -18,10 +18,10 @@
 #include "game/obj/compositemgr.h"
 #include "game/obj/control_pad.h"
 #include "game/obj/editor_camera.h"
-#include "game/obj/objman.h"
+#include "game/obj/entity_hub.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/script/struct_buffer.h"
 #include "game/skate/skate_module.h"
 #include "game/sys/crt.h"

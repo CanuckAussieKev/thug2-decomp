@@ -10,7 +10,7 @@
 
 #include "game/sio/device.h"
 #include "game/gfx/settings.h"
-#include "game/gfx/camera.h"
+#include "game/gfx/view_cam.h"
 #include "game/gfx/device.h"
 
 #pragma warning(disable : 4996) // (sprintf / wcscpy: the original's own, into its fixed buffers)

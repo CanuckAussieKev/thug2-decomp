@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/geometry.h"
+#include "game/mth/shape_tests.h"
 
 // Collision (Nx): collision objects (CHitMesh - a level sector's faces, a movable object's), the queries that test
 // lines and boxes against them, and the caches that keep the objects near a box for repeated queries.

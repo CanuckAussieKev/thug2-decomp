@@ -7,9 +7,9 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/script/nodes.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 
 namespace GameObjects {
 

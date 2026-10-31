@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "game/core/pool.h"
+#include "game/core/slab_bank.h"
 #include "game/gfx/scene_load.h"
 #include "game/gfx/spawned_polys.h"
 

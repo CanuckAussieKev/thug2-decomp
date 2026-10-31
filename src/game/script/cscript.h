@@ -5,8 +5,8 @@
 #include <new>
 
 #include "game/obj/smtptr.h"
-#include "game/script/struct.h"
-#include "game/core/pool.h"
+#include "game/script/param_struct.h"
+#include "game/core/slab_bank.h"
 
 // A running script (Scripts::CScript, 0xF4 bytes, pool 0x006F3548 of 300 - ours 1200, game/core/memory_sizes.h) and the list of all of them.
 //
@@ -24,8 +24,8 @@
 namespace GameObjects {
 class CEntity;          // a game object (CSharedBase; +0x100 its component list)
 class CObjectModule;   // one of an object's components; can hold a script waiting on it
-class CSignalRouteTable; // a script's event handlers (game/obj/event.h)
-struct CSignal;          // an event (game/obj/event.h)
+class CSignalRouteTable; // a script's event handlers (game/obj/signal.h)
+struct CSignal;          // an event (game/obj/signal.h)
 } // namespace Obj
 
 namespace Scripts {

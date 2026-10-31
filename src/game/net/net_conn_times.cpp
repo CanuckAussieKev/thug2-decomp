@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "game/net/net_conn.h"
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 
 namespace NetLink {
 

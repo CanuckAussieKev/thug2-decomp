@@ -11,19 +11,19 @@
 #include <cstring>
 #include <initializer_list>
 
-#include "game/mth/vector.h"
+#include "game/mth/vec4.h"
 #include "game/nx/coll_obj.h"
 #include "game/nx/coll_tri.h"
-#include "game/nx/feeler.h"
+#include "game/nx/probe_ray.h"
 #include "game/script/names.h"
 #include "game/script/qb.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skater/core_physics_fields.h"
 #include "game/sys/mlp.h"
 #include "game/sys/screenshot.h"
 #include "game/skate/skate_module.h"
-#include "game/skater/skater.h"
-#include "game/sys/log.h"
+#include "game/skater/rider.h"
+#include "game/sys/run_log.h"
 
 namespace Skater::CollisionEvents {
 

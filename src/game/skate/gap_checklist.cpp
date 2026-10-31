@@ -12,7 +12,7 @@
 #include "game/core/str.h"
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/career.h"
 #include "game/goals/goal_manager.h"
 #include "game/skate/skate_module.h"

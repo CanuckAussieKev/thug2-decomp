@@ -19,7 +19,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/front/front_end.h"
 #include "game/front/mouse_menus.h"
 #include "game/front/new_frontend.h"
@@ -32,19 +32,19 @@
 #include "game/gfx/loading_bar_cfuncs.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_manager.h"
-#include "game/obj/event.h"
-#include "game/lst/hashtable.h"
-#include "game/obj/object.h"
+#include "game/obj/signal.h"
+#include "game/lst/key_map.h"
+#include "game/obj/entity.h"
 #include "game/obj/trick_objects.h"
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
 #include "game/sys/mlp.h"
 #include "game/sys/screenshot.h"
 #include "game/sys/crash.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 
 namespace MenuSystem::Automation {
 

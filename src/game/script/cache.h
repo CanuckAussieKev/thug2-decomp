@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <new>
-#include "game/core/pool.h"
+#include "game/core/slab_bank.h"
 
 namespace ListKit {
 class KeyMap;

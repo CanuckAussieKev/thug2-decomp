@@ -7,11 +7,11 @@
 
 #include "game/gfx/anim_blend.h"
 #include "game/gfx/anim_cache.h"
-#include "game/mth/quat.h"
-#include "game/mth/vector.h"
+#include "game/mth/quat_rotation.h"
+#include "game/mth/vec4.h"
 #include "game/mth/x87_math.h"
 #include "game/obj/walk_hang.h"
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 
 namespace Gfx2D {
 

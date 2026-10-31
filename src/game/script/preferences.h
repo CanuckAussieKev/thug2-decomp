@@ -7,7 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 
 namespace OptionStore {
 

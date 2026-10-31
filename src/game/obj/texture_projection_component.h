@@ -3,8 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/core/alloc.h"
-#include "game/obj/object.h"
+#include "game/core/arena_alloc.h"
+#include "game/obj/entity.h"
 
 namespace Scripts {
 class CStruct;

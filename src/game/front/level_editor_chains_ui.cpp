@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/front/level_editor_chains.h"
 #include "game/front/level_editor_ui.h"
 #include "imgui.h"

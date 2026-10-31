@@ -43,7 +43,7 @@ struct ImFont;
 //     InWallplant 5 (0x00519480..0x005194C0: each compares +0x18); +0x70 InBailState (0x005196D0, a byte); Walking
 //     (0x005194D0) = +0x118 clear and +0x1C == 1; Driving (0x00519510) = +0x118 set. The component's reset (0x00519460)
 //     sets +0x18 to 1.
-//   - SkaterBalanceTrick (0x589E5FB3): +0x18 the balance trick's type (manual.h) - Manual 0xEF24413B, NoseManual
+//   - SkaterBalanceTrick (0x589E5FB3): +0x18 the balance trick's type (manual_balance.h) - Manual 0xEF24413B, NoseManual
 //     0x0AC90769, Grind 0x255ED86F, Slide 0x8D10119D ...; 0 when none (cleared by its stop 0x004F8EE0 and reset
 //     0x004F8DE0).
 //   - SkaterScore (0xD262802F): +0x18 the score; its +0x14 times its +0x60 is the combo's points pending (as the trick

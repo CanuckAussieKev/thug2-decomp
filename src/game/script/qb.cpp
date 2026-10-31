@@ -8,18 +8,18 @@
 #include <string>
 #include <unordered_map>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/memory_sizes.h"
-#include "game/core/pool.h"
+#include "game/core/slab_bank.h"
 #include "game/mth/random.h"
 #include "game/script/cache.h"
 #include "game/script/names.h"
-#include "game/script/struct.h"
-#include "game/script/parse.h"
+#include "game/script/param_struct.h"
+#include "game/script/token_reader.h"
 #include "game/script/cscript.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 
 namespace Scripts {
 

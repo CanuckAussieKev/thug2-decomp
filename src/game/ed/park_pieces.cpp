@@ -11,7 +11,7 @@
 #include "game/core/dbg.h"
 #include "game/core/mem.h"
 #include "game/ed/park_nx.h"
-#include "game/mth/matrix.h"
+#include "game/mth/mat4.h"
 
 namespace ParkEditing {
 

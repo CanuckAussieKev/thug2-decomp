@@ -10,15 +10,15 @@
 
 #include "game/core/dbg.h"
 #include "game/core/mem.h"
-#include "game/core/task.h"
-#include "game/file/file.h"
-#include "game/file/pre.h"
+#include "game/core/task_list.h"
+#include "game/file/file_load.h"
+#include "game/file/archive.h"
 #include "game/front/data_overlay.h"
-#include "game/sys/module.h"
+#include "game/sys/game_module.h"
 #include "game/core/code_address.h"
 #include "game/skate/skate_module.h"
 #include "game/core/stubs.h"
-#include "game/ass/assman.h"
+#include "game/ass/resource_registry.h"
 
 namespace {
 extern void** const kAsyncFileHandleAdapterVtable;

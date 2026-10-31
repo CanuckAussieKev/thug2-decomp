@@ -16,7 +16,7 @@
 #include "game/gfx/pc_billboards.h"
 #include "game/gfx/pc_lights.h"
 #include "game/gfx/pixel_shaders.h"
-#include "game/gfx/render.h"
+#include "game/gfx/draw_frame.h"
 #include "game/gfx/view_mode.h"
 #include "game/gfx/shader_slots.h"
 #include "game/gfx/engine_glue.h"

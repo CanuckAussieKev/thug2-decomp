@@ -5,12 +5,12 @@
 #include <cstdint>
 
 #include "game/ed/park_editor.h"
-#include "game/mth/vector.h"
-#include "game/nx/feeler.h"
+#include "game/mth/vec4.h"
+#include "game/nx/probe_ray.h"
 #include "game/obj/movable_contact.h"
 #include "game/obj/ride_tracker.h"
 #include "game/obj/shadow_component.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/skater_state.h"
 #include "game/skater/thaw_bmx.h"

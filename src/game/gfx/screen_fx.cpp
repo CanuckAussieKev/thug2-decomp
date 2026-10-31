@@ -12,7 +12,7 @@
 #include "game/gfx/engine_effects.h"
 #include "game/gfx/pc_scene.h"
 #include "game/gfx/primitive_states.h"
-#include "game/gfx/render.h"
+#include "game/gfx/draw_frame.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/settings.h"
 #include "game/gfx/shader_slots.h"

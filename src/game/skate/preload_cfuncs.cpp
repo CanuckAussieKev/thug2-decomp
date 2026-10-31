@@ -6,18 +6,18 @@
 #include <cstring>
 #include <new>
 
-#include "game/ass/assman.h"
-#include "game/core/crc.h"
+#include "game/ass/resource_registry.h"
+#include "game/core/checksums.h"
 #include "game/core/mem.h"
 #include "game/core/str.h"
-#include "game/core/string.h"
+#include "game/core/text_store.h"
 #include "game/mth/random.h"
 #include "game/net/gamenet_manager.h"
 #include "game/obj/compositemgr.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/profile_cfuncs.h"
 #include "game/core/code_address.h"
 #include "game/skate/skate_module_calls.h"

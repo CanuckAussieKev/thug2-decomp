@@ -10,7 +10,7 @@
 #include "game/gfx/face_texture.h"
 #include "game/gfx/texture_dict.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
 

@@ -7,8 +7,8 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/sys/config.h"
-#include "game/sys/log.h"
+#include "game/sys/platform_config.h"
+#include "game/sys/run_log.h"
 
 namespace DebugLog {
 

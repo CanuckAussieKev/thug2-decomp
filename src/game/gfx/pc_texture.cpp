@@ -15,11 +15,11 @@
 #include <new>
 
 #include "game/core/manager.h"
-#include "game/core/alloc.h"
+#include "game/core/arena_alloc.h"
 #include "game/core/mem.h"
-#include "game/file/file.h"
-#include "game/lst/hashtable.h"
-#include "game/mth/math.h"
+#include "game/file/file_load.h"
+#include "game/lst/key_map.h"
+#include "game/mth/maths.h"
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/gfx/device.h"

@@ -18,7 +18,7 @@
 #include "game/net/gamenet_game_cfuncs.h"
 #include "game/sio/device.h"
 #include "game/skater/thaw_bmx.h"
-#include "game/sys/config.h"
+#include "game/sys/platform_config.h"
 #include "game/sys/debug_log.h"
 #include "game/sys/debug_mode.h"
 #include "game/sys/platform_cfuncs.h"

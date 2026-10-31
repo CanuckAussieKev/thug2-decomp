@@ -6,8 +6,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/core/alloc.h"
-#include "game/lst/head.h"
+#include "game/core/arena_alloc.h"
+#include "game/lst/chain_start.h"
 #include "game/net/net_lists.h"
 
 namespace NetLink {

@@ -9,11 +9,11 @@
 
 #include "game/core/stubs.h"
 #include "game/file/async.h"
-#include "game/mth/vector.h"
+#include "game/mth/vec4.h"
 #include "game/obj/stream_component.h"
-#include "game/pcm/music.h"
+#include "game/pcm/music_player.h"
 #include "game/pcm/stream.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/sfx/sfx.h"
 #include "game/gfx/viewport.h"
 #include "game/sys/game_config.h"
@@ -47,7 +47,7 @@ float& DefaultMusicVolume() { return g_musicStreamVolume; }
 float Zero() { return GameObjects::g_floatZero; }
 int& CurrentTrackIndex() { return g_currentTrackIndex; }
 
-// The stream fields used here (Stream in music.h; 0x74 bytes each, three at 0x0069B938).
+// The stream fields used here (Stream in music_player.h; 0x74 bytes each, three at 0x0069B938).
 struct StreamFields {
     uint32_t name;      // +0x00
     uint32_t id;        // +0x04
@@ -76,7 +76,7 @@ constexpr int kStreams = 3;
 uint8_t** Owners() { return reinterpret_cast<uint8_t**>(g_streamOwners); }
 uint32_t* OwnerIds(uint8_t* owner) { return reinterpret_cast<uint32_t*>(owner + 0x18); }
 
-// The user soundtrack (see music.cpp).
+// The user soundtrack (see music_player.cpp).
 int& UserSoundtrack() { return g_userSoundtrack; }
 bool CustomSoundtrackActive() { return g_usingUserSoundtrack; }
 int* UserOrder() { return g_userOrder; }

@@ -12,14 +12,14 @@
 #include "game/front/screen_element.h"
 #include "game/front/screen_element_manager.h"
 #include "game/front/text_element.h"
-#include "game/goals/goal.h"
+#include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_manager_cfuncs.h"
 #include "game/goals/goal_names.h"
 #include "game/net/gamenet_manager.h"
 #include "game/script/cscript.h"
 #include "game/script/game_cfuncs.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/trick_goals.h"
 
 namespace GoalSystem {

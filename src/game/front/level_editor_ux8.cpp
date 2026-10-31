@@ -18,7 +18,7 @@
 #include "game/front/level_editor_transform.h"
 #include "game/front/level_editor_ui.h"
 #include "game/front/level_editor_ux8_pie.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 
 namespace MenuSystem::LevelEditor::Ux8 {
 

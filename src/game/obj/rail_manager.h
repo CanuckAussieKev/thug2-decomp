@@ -3,8 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/matrix.h"
-#include "game/mth/vector.h"
+#include "game/mth/mat4.h"
+#include "game/mth/vec4.h"
 
 // The rail manager (GameObjects::CGrindRailHub, 0x0057C170-0x0057EE65): a level's (or a moving object's) grind rails and
 // climbing nodes, made from the node array's RailNodes / ClimbingNodes. The skate module's is at +0x24; an object's

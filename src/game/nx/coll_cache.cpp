@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <new>
 
-#include "game/core/alloc.h"
+#include "game/core/arena_alloc.h"
 #include "game/gfx/engine_scene_list.h"
 #include "game/nx/coll_world.h"
 

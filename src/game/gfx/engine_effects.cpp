@@ -9,7 +9,7 @@
 #include <cstring>
 #include <new>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/engine.h"
@@ -20,14 +20,14 @@
 #include "game/gfx/spawned_polys.h"
 #include "game/gfx/texture_dict.h"
 #include "game/gfx/texture_splats.h"
-#include "game/lst/hashtable.h"
-#include "game/mth/geometry.h"
-#include "game/mth/matrix.h"
+#include "game/lst/key_map.h"
+#include "game/mth/shape_tests.h"
+#include "game/mth/mat4.h"
 #include "game/nx/coll_grid.h"
 #include "game/net/buddy_status.h"
 #include "game/nx/coll_obj.h"
-#include "game/script/struct.h"
-#include "game/sys/timer.h"
+#include "game/script/param_struct.h"
+#include "game/sys/stopwatch.h"
 #include "game/core/code_address.h"
 #include "game/obj/movie_manager.h"
 #include "game/sys/crt.h"

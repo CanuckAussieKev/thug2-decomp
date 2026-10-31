@@ -4,11 +4,11 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/file/pip.h"
-#include "game/script/struct.h"
+#include "game/file/packs.h"
+#include "game/script/param_struct.h"
 #include "game/script/cfuncs_scene.h"
 
 namespace Scripts {

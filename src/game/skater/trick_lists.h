@@ -3,8 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/core/alloc.h"
-#include "game/core/string.h"
+#include "game/core/arena_alloc.h"
+#include "game/core/text_store.h"
 
 // Two kinds of list entries the skater's trick code (0x00512000-) keeps (each a ListKit::Elem of its own type with a
 // one-slot vtable: the scalar deleting destructor). Their constructors and destructors were placed at

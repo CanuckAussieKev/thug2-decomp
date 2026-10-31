@@ -6,10 +6,10 @@
 
 #include "game/skate/game_mode.h"
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/goals/goal.h"
+#include "game/goals/objective.h"
 #include "game/net/gamenet_manager.h"
 #include "game/script/cscript.h"
 #include "game/script/preferences.h"

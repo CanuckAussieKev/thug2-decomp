@@ -7,8 +7,8 @@
 #include <cstring>
 
 #include "game/gfx/debug_lines.h"
-#include "game/mth/geometry.h"
-#include "game/mth/matrix.h"
+#include "game/mth/shape_tests.h"
+#include "game/mth/mat4.h"
 #include "game/nx/coll_cache.h"
 #include "game/nx/coll_grid.h"
 #include "game/nx/coll_movable.h"

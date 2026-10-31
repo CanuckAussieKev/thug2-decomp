@@ -1,4 +1,4 @@
-// The PC vertex and index buffers (mesh.h): made, listed, locked and unlocked through their copies in memory, made
+// The PC vertex and index buffers (sub_mesh.h): made, listed, locked and unlocked through their copies in memory, made
 // again after a device reset; a mesh's buffers by index, its move into a vertex arena, its coloured pixel shader; the
 // skinned meshes' scaling while they load; the pixel shaders by a file's index.
 
@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/gfx/mesh.h"
+#include "game/gfx/sub_mesh.h"
 #include "game/gfx/pc_scene.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/shader_slots.h"

@@ -7,10 +7,10 @@
 #include <cmath>
 #include <cstdint>
 
-#include "game/mth/matrix.h"
-#include "game/mth/vector.h"
+#include "game/mth/mat4.h"
+#include "game/mth/vec4.h"
 #include "game/obj/control_pad.h"
-#include "game/skater/skater.h"
+#include "game/skater/rider.h"
 #include "game/sys/game_clock.h"
 #include "game/skater/core_physics.h"
 

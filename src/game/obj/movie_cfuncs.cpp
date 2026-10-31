@@ -4,15 +4,15 @@
 
 #include <cstdint>
 
-#include "game/ass/assman.h"
+#include "game/ass/resource_registry.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/ed/park_editor.h"
 #include "game/gfx/flexible_particle_manager.h"
 #include "game/obj/movie_manager.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/script/cfuncs_scene.h"
 #include "game/gfx/engine.h"

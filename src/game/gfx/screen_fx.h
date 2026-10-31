@@ -4,7 +4,7 @@
 
 // Full-screen effects (Nx engine, PC): the frame is drawn into one of the screen-copy render targets
 // (0x00786D1C, the current one 0x00786D68) instead of the back buffer, then downsampled, blurred (the motion blur,
-// render.h's DrawScreenBlur) and bloomed back.
+// draw_frame.h's DrawScreenBlur) and bloomed back.
 namespace Engine3D {
 
 // 0x004DE5E0: draw `source` over the whole of `target` (made the render target) - textured, offset by du / dv

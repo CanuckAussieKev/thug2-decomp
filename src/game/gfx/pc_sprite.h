@@ -3,10 +3,10 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/gfx/sprite.h"
+#include "game/gfx/billboard_quad.h"
 
 // The PC sprite (Nx engine: the engine's CBillboardQuad - constructor 0x0049ED60, destructor body 0x0049EBA0 - over it): the
-// engine's settings copied into the 2D sprite that draws it (SQuadSprite, sprite.h).
+// engine's settings copied into the 2D sprite that draws it (SQuadSprite, billboard_quad.h).
 namespace Engine3D {
 
 // The PC sprite (0x48 bytes, vtable 0x0064A744; made by CreateSprite 0x004B2A80).

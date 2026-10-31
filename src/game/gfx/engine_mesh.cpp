@@ -8,10 +8,10 @@
 #include <new>
 
 #include "game/core/manager.h"
-#include "game/file/pip.h"
+#include "game/file/packs.h"
 #include "game/gfx/engine_effects.h"
 #include "game/gfx/engine_glue.h"
-#include "game/mth/vector.h"
+#include "game/mth/vec4.h"
 #include "game/nx/coll_tri.h"
 #include "game/core/code_address.h"
 

@@ -3,7 +3,7 @@
 
 #include "game/obj/avoid.h"
 #include "game/gfx/d3dx.h"
-#include "game/skater/skater.h"
+#include "game/skater/rider.h"
 #include "game/skate/skate_module.h"
 
 #include <cmath>
@@ -13,19 +13,19 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/nx/feeler.h"
+#include "game/nx/probe_ray.h"
 #include "game/obj/anim_blender.h"
 #include "game/obj/motion_path.h"
 #include "game/obj/smtptr.h"
 #include "game/script/names.h"
-#include "game/script/struct.h"
-#include "game/sys/timer.h"
+#include "game/script/param_struct.h"
+#include "game/sys/stopwatch.h"
 #include "game/core/code_address.h"
 #include "game/skater/skitch.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/skater/vehicle_sound.h"
 #include "game/obj/camera_lookaround.h"
 

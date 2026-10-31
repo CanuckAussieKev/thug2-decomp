@@ -11,10 +11,10 @@
 #include <cstring>
 #include <initializer_list>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/lst/search.h"
+#include "game/lst/list_walk.h"
 #include "game/net/net_access_c.h"
 #include "game/net/net_app_messages.h"
 #include "game/net/net_dispatcher.h"

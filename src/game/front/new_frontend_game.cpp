@@ -5,18 +5,18 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/front/front_end.h"
 #include "game/front/level_editor.h"
 #include "game/front/screen_element.h"
 #include "game/front/screen_element_manager.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_manager.h"
-#include "game/obj/event.h"
-#include "game/obj/object.h"
+#include "game/obj/signal.h"
+#include "game/obj/entity.h"
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
 

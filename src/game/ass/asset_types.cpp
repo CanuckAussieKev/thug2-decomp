@@ -6,28 +6,28 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/ass/asset.h"
-#include "game/core/crc.h"
+#include "game/ass/resource_entry.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/str.h"
 #include "game/file/async.h"
-#include "game/file/pip.h"
+#include "game/file/packs.h"
 #include "game/gfx/boned_anim_frame_data.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/engine_mesh.h"
 #include "game/gfx/engine_scene.h"
 #include "game/gfx/engine_scene_list.h"
 #include "game/gfx/pc_lights.h"
-#include "game/gfx/skeleton.h"
+#include "game/gfx/rig.h"
 #include "game/gfx/texture_dict.h"
 #include "game/gfx/engine_glue.h"
 #include "game/obj/cutscene.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/script/node_manager.h"
 #include "game/script/qb.h"
 #include "game/script/script_startup.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 
 namespace AssetStore {
 

@@ -7,11 +7,11 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/pcm/music.h"
+#include "game/pcm/music_player.h"
 #include "game/pcm/music_api.h"
 #include "game/pcm/stream_commands.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/sfx/sfx.h"
 #include "game/sys/crt.h"
 

@@ -4,7 +4,7 @@
 
 #include <cstring>
 
-#include "game/file/file.h"
+#include "game/file/file_load.h"
 
 namespace MemSys {
 

@@ -6,11 +6,11 @@
 
 #include "game/gfx/screen.h"
 
-#include "game/gfx/render.h"
+#include "game/gfx/draw_frame.h"
 #include "game/gfx/settings.h"
 #include "game/script/params.h"
 #include "game/sys/sdl_window.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 #include "game/gfx/engine_glue.h"
 #include "game/gfx/device.h"
 #include "game/skate/skate_module.h"

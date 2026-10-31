@@ -8,7 +8,7 @@
 
 #include "game/core/manager.h"
 #include "game/net/net_access_c.h"
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 #include "game/core/code_address.h"
 #include "game/net/net_client.h"
 

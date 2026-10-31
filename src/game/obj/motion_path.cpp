@@ -7,10 +7,10 @@
 
 #include <cstdint>
 
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 
 namespace GameObjects {
 

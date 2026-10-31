@@ -10,7 +10,7 @@
 #include <cstring>
 #include <sstream>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 
 namespace MenuSystem::LevelEditor::Ground {
 

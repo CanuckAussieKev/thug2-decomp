@@ -12,10 +12,10 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/gfx/material.h"
+#include "game/gfx/surface_material.h"
 #include "game/gfx/particle_system.h"
 #include "game/gfx/particle_types.h"
-#include "game/gfx/render.h"
+#include "game/gfx/draw_frame.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/simple_material.h"
 #include "game/mth/x87_math.h"

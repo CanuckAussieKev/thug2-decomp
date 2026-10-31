@@ -7,17 +7,17 @@
 #include <cstdint>
 #include <new>
 
-#include "game/core/alloc.h"
+#include "game/core/arena_alloc.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/core/task.h"
+#include "game/core/task_list.h"
 #include "game/script/names.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/sys/mlp.h"
-#include "game/ass/assman.h"
+#include "game/ass/resource_registry.h"
 #include "game/core/code_address.h"
-#include "game/obj/objman.h"
+#include "game/obj/entity_hub.h"
 #include "game/front/screen_element_manager.h"
 #include "game/obj/cutscene_list_cfuncs.h"
 #include "game/sys/startup_init.h"

@@ -11,15 +11,15 @@
 #include <map>
 #include <string>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/mem.h"
 #include "game/front/level_editor_scenery.h"
-#include "game/gfx/mesh.h"
+#include "game/gfx/sub_mesh.h"
 #include "game/nx/coll_cache.h"
 #include "game/nx/coll_grid.h"
 #include "game/script/names.h"
 #include "game/script/qb.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 #include "game/core/game_vtables.h"
 
 namespace MenuSystem::LevelEditor::SharedCollision {

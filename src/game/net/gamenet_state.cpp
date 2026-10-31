@@ -5,13 +5,13 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/core/task.h"
+#include "game/core/task_list.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_app.h"
 #include "game/net/net_client.h"
 #include "game/script/preferences.h"
-#include "game/script/struct.h"
-#include "game/sys/timer.h"
+#include "game/script/param_struct.h"
+#include "game/sys/stopwatch.h"
 #include "game/ed/goal_editor.h"
 
 namespace OnlinePlay {

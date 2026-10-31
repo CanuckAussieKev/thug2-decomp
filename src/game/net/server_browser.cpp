@@ -10,7 +10,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/core/task.h"
+#include "game/core/task_list.h"
 #include "game/mth/random.h"
 #include "game/net/gamenet_handler_util.h"
 #include "game/net/gamenet_manager.h"
@@ -23,9 +23,9 @@
 #include "game/net/stats_man.h"
 #include "game/net/vault_man.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/sys/crt.h"
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 #include "game/gfx/anim_blend.h"
 #include "game/gfx/loading_bar.h"
 

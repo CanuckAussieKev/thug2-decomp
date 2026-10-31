@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/vector.h"
+#include "game/mth/vec4.h"
 #include "game/nx/coll_tests.h"
 
 namespace Engine3D {

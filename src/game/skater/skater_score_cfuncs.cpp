@@ -9,13 +9,13 @@
 #include "game/front/screen_element_manager.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/player_info.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/skate_module.h"
-#include "game/skater/skater.h"
+#include "game/skater/rider.h"
 #include "game/skate/game_mode.h"
-#include "game/skate/score.h"
+#include "game/skate/point_tally.h"
 
 namespace ScriptCommands {
 

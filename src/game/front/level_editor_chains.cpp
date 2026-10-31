@@ -16,7 +16,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/front/level_editor_fields.h"
@@ -27,20 +27,20 @@
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_scenery.h"
 #include "game/front/level_editor_triggers.h"
-#include "game/lst/hashtable.h"
-#include "game/mth/matrix.h"
-#include "game/mth/quat.h"
-#include "game/nx/feeler.h"
-#include "game/obj/object.h"
+#include "game/lst/key_map.h"
+#include "game/mth/mat4.h"
+#include "game/mth/quat_rotation.h"
+#include "game/nx/probe_ray.h"
+#include "game/obj/entity.h"
 #include "game/obj/rail_manager.h"
 #include "game/obj/trick_objects.h"
 #include "game/script/game_cfuncs.h"
 #include "game/script/load.h"
 #include "game/script/node_manager.h"
 #include "game/script/nodes.h"
-#include "game/script/struct.h"
-#include "game/sfx/terrain.h"
-#include "game/sys/log.h"
+#include "game/script/param_struct.h"
+#include "game/sfx/surface_kind.h"
+#include "game/sys/run_log.h"
 #include "game/skate/skate_module.h"
 
 namespace MenuSystem::LevelEditor::Chains {

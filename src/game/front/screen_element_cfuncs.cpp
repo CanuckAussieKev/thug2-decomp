@@ -11,7 +11,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/str.h"
-#include "game/front/element3d.h"
+#include "game/front/model_widget.h"
 #include "game/front/menu_element.h"
 #include "game/front/screen_element_cfuncs.h"
 #include "game/front/screen_element_manager.h"
@@ -22,7 +22,7 @@
 #include "game/gfx/font.h"
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/gfx/engine_geom.h"
 
 namespace MenuSystem {

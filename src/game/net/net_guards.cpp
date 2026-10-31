@@ -7,10 +7,10 @@
 #include <unordered_set>
 
 #include "game/net/net_dispatcher.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/skate_net.h"
 #include "game/gfx/frame_source.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 
 namespace OnlinePlay::Guards {
 

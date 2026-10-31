@@ -5,7 +5,7 @@
 #include <cstdint>
 
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 
 namespace ScriptCommands {
 

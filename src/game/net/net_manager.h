@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/core/alloc.h"
+#include "game/core/arena_alloc.h"
 #include "game/net/net_messages.h"
 
 // Neversoft's NetLink::Hub (0x37C bytes; the instance at 0x006EFDD8, made and released by CreateManager /

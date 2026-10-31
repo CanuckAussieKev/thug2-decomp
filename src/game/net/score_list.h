@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/core/alloc.h"
+#include "game/core/arena_alloc.h"
 
 // The network game's score list (the net_score_1 ... net_score_8 lines): OnlinePlay::Hub::GetSquadPoints /
 // GetEntrantPoints (gamenet_manager.h) and the task that fills the lines.

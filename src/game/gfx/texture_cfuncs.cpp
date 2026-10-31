@@ -8,8 +8,8 @@
 
 #include "game/core/dbg.h"
 #include "game/gfx/texture_dict.h"
-#include "game/obj/object.h"
-#include "game/script/struct.h"
+#include "game/obj/entity.h"
+#include "game/script/param_struct.h"
 
 namespace ScriptCommands {
 

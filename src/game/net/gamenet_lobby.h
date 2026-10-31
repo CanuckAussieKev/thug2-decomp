@@ -8,7 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/core/alloc.h"
+#include "game/core/arena_alloc.h"
 
 namespace Scripts {
 class CScript;
@@ -126,7 +126,7 @@ public:
     // 0x00540D50: the destructor body: the three tasks deleted, the node at +0x14 and its own node unlinked.
     void DestroyBody();
 
-    // --- lobby.cpp (0x00541870-0x00543010) ---
+    // --- rooms.cpp (0x00541870-0x00543010) ---
     // 0x00541870: the empty lobby and player lists, no peer, its three tasks (TaskList::Task<RoomManager>, priority 0:
     // 0x00540040, 0x005400B0, 0x005400E0) and the server-browsing keys registered with GameSpy's qr2 (0x005FF660:
     // 0x33 numobservers, 0x34 maxobservers, 0x35 skilllevel, 0x36 started, 0x37 hostmode, 0x38 ranked, 0x39 rating_).
@@ -220,7 +220,7 @@ static_assert(offsetof(RoomManager, m_groupId) == 0x28 && offsetof(RoomManager, 
 // A group room the peer's room list found (0x6C bytes, constructor 0x00545860; a list node, priority -group).
 struct LobbyRoom {
     // 0x00545860: an empty one (a node of nothing, its data itself; full / out of range / neversoft cleared). Returns
-    // this. (lobby.cpp)
+    // this. (rooms.cpp)
     LobbyRoom* MakeNew();
 
     MemSys::ListNode m_listLink;
@@ -238,7 +238,7 @@ struct LobbyRoom {
 static_assert(sizeof(LobbyRoom) == 0x6C && offsetof(LobbyRoom, m_groupId) == 0x54 && offsetof(LobbyRoom, m_full) == 0x68);
 
 // A player in the lobby's room (the lobby's player list).
-// (0x60 bytes, vtable 0x0064CBF8; made by lobby.cpp's callbacks)
+// (0x60 bytes, vtable 0x0064CBF8; made by rooms.cpp's callbacks)
 struct LobbyPlayer {
     MemSys::ListNode m_listLink;
     char m_nick[0x40];       // +0x14
@@ -250,7 +250,7 @@ struct LobbyPlayer {
 static_assert(offsetof(LobbyPlayer, m_account) == 0x54 && offsetof(LobbyPlayer, m_skillPoints) == 0x58 &&
               offsetof(LobbyPlayer, m_listed) == 0x5C && sizeof(LobbyPlayer) == 0x60);
 
-// The lobby's script commands from 0x00541870 on (lobby.cpp).
+// The lobby's script commands from 0x00541870 on (rooms.cpp).
 bool __cdecl CFunc_NumPlayersInLobby(Scripts::CStruct* params, Scripts::CScript* script);              // 0x00541A70
 bool __cdecl CFunc_LobbyDisconnect(Scripts::CStruct* params, Scripts::CScript* script);                // 0x005429C0
 bool __cdecl CFunc_FillPlayerList(Scripts::CStruct* params, Scripts::CScript* script);                 // 0x00542AA0

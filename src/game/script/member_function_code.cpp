@@ -19,7 +19,7 @@
 #include "game/obj/input_component.h"
 #include "game/obj/motion.h"
 #include "game/obj/motion_path.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/obj/object_proximity.h"
 #include "game/obj/pager_message.h"
 #include "game/obj/particle_component.h"

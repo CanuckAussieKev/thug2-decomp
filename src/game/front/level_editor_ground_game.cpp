@@ -18,7 +18,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/mem.h"
 #include "game/front/level_editor_ground.h"
 #include "game/front/level_editor_modules.h"
@@ -27,11 +27,11 @@
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_scenery.h"
 #include "game/gfx/engine_scene.h"
-#include "game/gfx/mesh.h"
+#include "game/gfx/sub_mesh.h"
 #include "game/gfx/sector.h"
 #include "game/nx/coll_static.h"
 #include "game/nx/coll_tri.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 #include "game/core/game_vtables.h"
 #include "game/sys/crt.h"
 
@@ -67,7 +67,7 @@ Engine3D::CStaticCollider* StaticOf(uint8_t* sector)
     return reinterpret_cast<Engine3D::CStaticCollider*>(coll);
 }
 
-// The buffers as meshRef::Replicate (mesh.cpp) makes them: a vertex buffer (0x004D5760: its memory copy and the card's) and
+// The buffers as meshRef::Replicate (sub_mesh.cpp) makes them: a vertex buffer (0x004D5760: its memory copy and the card's) and
 // an index buffer (the C runtime's malloc 0x00624031, constructor 0x004D4270).
 Engine3D::sVertexBuffer* NewVertexBuffer(uint32_t size)
 {

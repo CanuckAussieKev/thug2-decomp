@@ -17,11 +17,11 @@
 #include "game/front/level_editor_triggers.h"
 #include "game/front/level_editor_walls.h"
 #include "game/gfx/sector.h"
-#include "game/mth/vector.h"
+#include "game/mth/vec4.h"
 #include "game/nx/coll_tri.h"
 #include "game/obj/compositemgr.h"
-#include "game/obj/object.h"
-#include "game/sys/log.h"
+#include "game/obj/entity.h"
+#include "game/sys/run_log.h"
 #include "game/core/game_vtables.h"
 
 namespace MenuSystem::LevelEditor::View {

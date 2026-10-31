@@ -10,7 +10,7 @@
 #include "game/gfx/engine_geom.h"
 #include "game/gfx/model.h"
 #include "game/gfx/pc_lights.h"
-#include "game/gfx/skeleton.h"
+#include "game/gfx/rig.h"
 #include "game/gfx/texture_dict.h"
 #include "game/net/buddy_status.h"
 

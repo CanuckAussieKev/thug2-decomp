@@ -7,15 +7,15 @@
 #include <cstring>
 #include <new>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/core/pool.h"
-#include "game/file/file.h"
+#include "game/core/slab_bank.h"
+#include "game/file/file_load.h"
 #include "game/gfx/engine_scene.h"
 #include "game/gfx/frame_source.h"
 #include "game/gfx/geom.h"
-#include "game/gfx/material.h"
+#include "game/gfx/surface_material.h"
 #include "game/gfx/mesh_list.h"
 #include "game/gfx/pc_mesh.h"
 #include "game/gfx/pc_scene.h"

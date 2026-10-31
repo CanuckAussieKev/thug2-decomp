@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/core/task.h"
+#include "game/core/task_list.h"
 
 // The main loop's task manager (FrameLoop::Hub, the singleton 0x0044F260 creates). SystemCore::Main hands it the engine's
 // tasks and then runs its loop (MainLoop), which returns only when the game is quit or the loop is told to stop.

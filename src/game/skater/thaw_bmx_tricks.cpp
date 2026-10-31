@@ -8,27 +8,27 @@
 #include <cmath>
 #include <cstdint>
 
-#include "game/core/crc.h"
-#include "game/mth/matrix.h"
-#include "game/mth/vector.h"
+#include "game/core/checksums.h"
+#include "game/mth/mat4.h"
+#include "game/mth/vec4.h"
 #include "game/obj/anim_blender.h"
 #include "game/obj/control_pad.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/obj/rail_manager.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
-#include "game/sfx/terrain.h"
-#include "game/skate/score.h"
+#include "game/script/param_struct.h"
+#include "game/sfx/surface_kind.h"
+#include "game/skate/point_tally.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/flip_and_rotate.h"
-#include "game/skater/manual.h"
-#include "game/skater/skater.h"
+#include "game/skater/manual_balance.h"
+#include "game/skater/rider.h"
 #include "game/skater/special_item.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/sys/game_clock.h"
 #include "game/skate/skate_module.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 
 namespace Skater::ThawBmx {
 

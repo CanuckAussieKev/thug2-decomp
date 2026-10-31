@@ -3,16 +3,16 @@
 #include <cmath>
 #include <cstdint>
 
-#include "game/mth/vector.h"
-#include "game/nx/feeler.h"
-#include "game/obj/object.h"
+#include "game/mth/vec4.h"
+#include "game/nx/probe_ray.h"
+#include "game/obj/entity.h"
 #include "game/obj/smtptr.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skater/collision_events.h"
 #include "game/skater/core_fields.h"
 #include "game/skater/core_physics.h"
-#include "game/skater/skater.h"
+#include "game/skater/rider.h"
 #include "game/skater/skater_sound.h"
 #include "game/obj/trigger_events.h"
 

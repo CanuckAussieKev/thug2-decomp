@@ -11,11 +11,11 @@
 
 #include "game/core/dbg.h"
 #include "game/core/mem.h"
-#include "game/file/pip.h"
+#include "game/file/packs.h"
 #include "game/gfx/engine_glue.h"
 #include "game/gfx/sector.h"
 #include "game/net/buddy_status.h"
-#include "game/lst/hashtable.h"
+#include "game/lst/key_map.h"
 #include "game/nx/coll_grid.h"
 #include "game/nx/coll_static.h"
 #include "game/nx/coll_tri.h"

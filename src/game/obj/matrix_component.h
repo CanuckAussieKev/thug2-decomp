@@ -3,8 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/matrix.h"
-#include "game/obj/object.h"
+#include "game/mth/mat4.h"
+#include "game/obj/entity.h"
 
 namespace GameObjects {
 

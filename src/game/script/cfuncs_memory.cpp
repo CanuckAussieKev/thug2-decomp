@@ -7,17 +7,17 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/core/alloc.h"
-#include "game/core/crc.h"
+#include "game/core/arena_alloc.h"
+#include "game/core/checksums.h"
 #include "game/core/dbg.h"
 #include "game/core/dump_text.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/core/pool.h"
+#include "game/core/slab_bank.h"
 #include "game/core/stubs.h"
 #include "game/gfx/engine_glue.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/script/script_startup.h"
 #include "game/script/cfuncs_scene.h"
 

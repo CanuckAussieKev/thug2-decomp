@@ -4,7 +4,7 @@
 #include <cstdint>
 
 // Streams: sounds streamed from data\streams\pcm\pcm.wad (speech, effects) on the three stream channels; the
-// records of what each plays are AudioStream::Stream (music.h). Each command does nothing (returns 0 / false) while
+// records of what each plays are AudioStream::Stream (music_player.h). Each command does nothing (returns 0 / false) while
 // streamed sound is off: no sound, the null sound platform (0x007CEFA8 == 2), or the stream header not loaded.
 namespace AudioStream {
 

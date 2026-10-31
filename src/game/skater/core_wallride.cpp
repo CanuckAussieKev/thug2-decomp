@@ -3,12 +3,12 @@
 #include <cmath>
 #include <cstdint>
 
-#include "game/mth/matrix.h"
+#include "game/mth/mat4.h"
 #include "game/gfx/d3dx.h"
-#include "game/mth/vector.h"
-#include "game/obj/object.h"
+#include "game/mth/vec4.h"
+#include "game/obj/entity.h"
 #include "game/obj/ride_tracker.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skater/core_fields.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/trick_component.h"

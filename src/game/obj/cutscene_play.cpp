@@ -6,23 +6,23 @@
 #include <cstring>
 #include <new>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/stubs.h"
 #include "game/file/asset_bundle.h"
-#include "game/gfx/camera.h"
+#include "game/gfx/view_cam.h"
 #include "game/gfx/engine_glue.h"
 #include "game/obj/cutscene.h"
-#include "game/pcm/music.h"
+#include "game/pcm/music_player.h"
 #include "game/pcm/music_api.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
-#include "game/sys/timer.h"
+#include "game/script/param_struct.h"
+#include "game/sys/stopwatch.h"
 #include "game/sys/game_config.h"
 
 namespace AudioStream {
-// (stream.h; not included here: its SetMusicVolume clashes with music.h's)
+// (stream.h; not included here: its SetMusicVolume clashes with music_player.h's)
 void __cdecl SyncMusicToTime(float seconds);
 } // namespace Pcm
 

@@ -11,7 +11,7 @@
 #include "game/sys/platform_input.h"
 #include "game/sys/sdl_events.h"
 #include "game/gfx/device.h"
-#include "game/gfx/camera.h"
+#include "game/gfx/view_cam.h"
 
 namespace OsLayer {
 

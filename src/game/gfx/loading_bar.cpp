@@ -13,7 +13,7 @@
 
 #include "game/gfx/loading_console.h"
 #include "game/gfx/loading_screen.h"
-#include "game/gfx/render.h"
+#include "game/gfx/draw_frame.h"
 #include "game/gfx/render_state.h"
 #include "game/sys/startup_init.h"
 

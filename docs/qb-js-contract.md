@@ -7,11 +7,11 @@ control flow and random values; the native bridge remains scalar-only.
 The supported and deferred subsets are stated below.
 
 The proposal is synchronized with source commit `a1fbb35`. Behavior references are
-[struct.h](../src/game/script/struct.h),
-[struct.cpp](../src/game/script/struct.cpp),
-[parse.cpp](../src/game/script/parse.cpp),
-[eval.h](../src/game/script/eval.h),
-[eval.cpp](../src/game/script/eval.cpp),
+[param_struct.h](../src/game/script/param_struct.h),
+[param_struct.cpp](../src/game/script/param_struct.cpp),
+[token_reader.cpp](../src/game/script/token_reader.cpp),
+[expression.h](../src/game/script/expression.h),
+[expression.cpp](../src/game/script/expression.cpp),
 [load.cpp](../src/game/script/load.cpp) and
 [script-runtime.md](script-runtime.md). This is a selected port interface, not
 an official Neversoft specification or a declaration of complete compatibility.
@@ -221,7 +221,7 @@ A type-21 array produces reference container elements; a type-12 array produces
 copies. A type-20 structure's selected member is copied in reference mode.
 LocalString array indexing remains unsupported until source-compatible behavior
 is explicitly implemented. Bounds apply even when an original low-level getter
-would ignore a singleton index. Arithmetic delegates to eval.cpp behavior, not
+would ignore a singleton index. Arithmetic delegates to expression.cpp behavior, not
 to a generated JS operator.
 
 Operator IDs are 5 index, 7 equality, 8 dot/member, 10 subtract, 11 add,

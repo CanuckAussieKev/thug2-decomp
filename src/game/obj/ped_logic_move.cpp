@@ -8,29 +8,29 @@
 #include <cmath>
 #include <cstdint>
 
-#include "game/skater/skater.h"
+#include "game/skater/rider.h"
 #include "game/gfx/d3dx.h"
 #include "game/core/manager.h"
-#include "game/mth/math.h"
-#include "game/mth/matrix.h"
-#include "game/mth/vector.h"
+#include "game/mth/maths.h"
+#include "game/mth/mat4.h"
+#include "game/mth/vec4.h"
 #include "game/mth/x87_math.h"
 #include "game/nx/coll_obj.h"
 #include "game/nx/coll_tri.h"
-#include "game/nx/feeler.h"
+#include "game/nx/probe_ray.h"
 #include "game/obj/motion.h"
 #include "game/obj/motion_path.h"
-#include "game/obj/objman.h"
+#include "game/obj/entity_hub.h"
 #include "game/obj/path_manager.h"
 #include "game/obj/ped_logic.h"
 #include "game/obj/walk_hang.h"
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/skate_module.h"
 #include "game/skater/looping_sound.h"
-#include "game/sys/timer.h"
-#include "game/obj/objman.h"
+#include "game/sys/stopwatch.h"
+#include "game/obj/entity_hub.h"
 
 namespace GameObjects {
 

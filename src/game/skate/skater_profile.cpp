@@ -5,8 +5,8 @@
 
 #include "game/core/manager.h"
 #include "game/core/stubs.h"
-#include "game/obj/object.h"
-#include "game/script/struct.h"
+#include "game/obj/entity.h"
+#include "game/script/param_struct.h"
 #include "game/script/struct_buffer.h"
 #include "game/skate/appearance_guard.h"
 #include "game/skate/profile_manager.h"

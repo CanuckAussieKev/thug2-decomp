@@ -6,13 +6,13 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/file/pip.h"
+#include "game/file/packs.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
-#include "game/script/parse.h"
+#include "game/script/token_reader.h"
 #include "game/script/patched.h"
 #include "game/script/precompiled.h"
 #include "game/script/qb.h"

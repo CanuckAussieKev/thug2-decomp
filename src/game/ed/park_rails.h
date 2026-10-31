@@ -9,8 +9,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/core/pool.h"
-#include "game/mth/vector.h"
+#include "game/core/slab_bank.h"
+#include "game/mth/vec4.h"
 
 namespace ParkEditing {
 

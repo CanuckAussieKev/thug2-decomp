@@ -6,7 +6,7 @@
 #include <cmath>
 #include <cstdint>
 
-#include "game/mth/geometry.h"
+#include "game/mth/shape_tests.h"
 #include "game/nx/coll_cache.h"
 #include "game/nx/coll_grid.h"
 #include "game/nx/coll_obj.h"

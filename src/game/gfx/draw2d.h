@@ -3,7 +3,7 @@
 #include <cstdint>
 
 // The 2D draw list (Nx engine, PC): screen texts and sprites are kept in one list sorted by priority (0x007CC248,
-// lowest first) and drawn in that order by Draw2D. The base of SGlyphRun (text.h) and SQuadSprite (sprite.h).
+// lowest first) and drawn in that order by Draw2D. The base of SGlyphRun (text.h) and SQuadSprite (billboard_quad.h).
 namespace Engine3D {
 
 struct SOverlayDraw {

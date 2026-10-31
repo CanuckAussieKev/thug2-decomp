@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -14,21 +14,21 @@
 #include "game/obj/control_pad.h"
 #include "game/obj/trick_objects.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/skater/controls.h"
 #include "game/skater/flip_and_rotate.h"
 #include "game/skater/stats_manager.h"
 #include "game/skater/thaw_bmx.h"
 #include "game/sys/game_clock.h"
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 #include "game/goals/goal_manager.h"
 #include "game/skater/balance_trick.h"
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/obj/camera_lookaround.h"
 #include "game/sys/crt.h"
 

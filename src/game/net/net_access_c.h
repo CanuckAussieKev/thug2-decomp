@@ -7,7 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/core/alloc.h"
+#include "game/core/arena_alloc.h"
 #include "game/net/net_app.h"
 #include "game/net/net_dispatcher.h"
 #include "game/net/net_manager.h"

@@ -6,13 +6,13 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/ed/park.h"
 #include "game/ed/park_editor.h"
 #include "game/ed/rail_editor_internal.h"
 #include "game/obj/control_pad.h"
 #include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/core/stubs.h"
 
 namespace ParkEditing {

@@ -2,11 +2,11 @@
 
 // The horse, network and race goals (0x005608C0-0x0056123F): CObjective's subclasses for HORSE (its spots), the network
 // game modes' goals (elimiskate, scavenger hunt, goal attack, the timed modes) and races (laps of waypoints). Each
-// overrides some of CObjective's vtable slots (goal.h); the rest are CObjective's.
+// overrides some of CObjective's vtable slots (objective.h); the rest are CObjective's.
 
 #include <cstdint>
 
-#include "game/goals/goal.h"
+#include "game/goals/objective.h"
 
 namespace GoalSystem {
 

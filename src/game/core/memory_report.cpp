@@ -9,10 +9,10 @@
 #include <cstdio>
 #include <string>
 
-#include "game/core/alloc.h"
+#include "game/core/arena_alloc.h"
 #include "game/core/manager.h"
 #include "game/core/memory_sizes.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 
 namespace MemSys {
 

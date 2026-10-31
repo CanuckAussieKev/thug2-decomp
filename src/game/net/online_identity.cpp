@@ -4,7 +4,7 @@
 //   - the game name "thps6pc" (plain text at 0x0064B1CC) is pushed as an address by: WinMain's availability check,
 //     qr2_init (0x0053BE86), the qr2 / peer server key callbacks' "gamename" key (0x0053BA1F, 0x0053F936) and the
 //     stats SDK's copy into 0x007D7A78 (RankingsManager::LogInThread) and peerSetTitle's title and server-browsing name
-//     (CFunc_LobbyConnect, lobby.cpp: once pushed at 0x00542F8B / 0x00542FA0) - all source now, using GameName()
+//     (CFunc_LobbyConnect, rooms.cpp: once pushed at 0x00542F8B / 0x00542FA0) - all source now, using GameName()
 //     itself: nothing of the name is written into the exe any more.
 //   - the secret key "AdLWaZ" is stored twice bitwise-NOT (6 bytes each, decoded onto the stack at the call): at
 //     0x0067F120 for qr2_init, at 0x0067F154 for peerSetTitle (both keys); and once plain at 0x0064D58C for the
@@ -23,7 +23,7 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/sys/config.h"
+#include "game/sys/platform_config.h"
 #include "game/sys/debug_log.h"
 
 namespace NetLink {

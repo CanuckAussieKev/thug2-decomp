@@ -6,12 +6,12 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/mth/matrix.h"
+#include "game/mth/mat4.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skater/core_physics.h"
-#include "game/skater/skater.h"
+#include "game/skater/rider.h"
 #include "game/skater/skater_state.h"
 #include "game/skater/walk_physics.h"
 #include "game/sys/game_clock.h"
@@ -22,7 +22,7 @@
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/obj/camera_lookaround.h"
 
 namespace GameObjects {

@@ -8,23 +8,23 @@
 
 #include <SDL2/SDL.h>
 
-#include "game/ass/assman.h"
-#include "game/core/crc.h"
+#include "game/ass/resource_registry.h"
+#include "game/core/checksums.h"
 #include "game/core/mem.h"
 #include "game/front/front_end.h"
 #include "game/front/level_editor.h"
 #include "game/gfx/screen.h"
-#include "game/gfx/shadow.h"
+#include "game/gfx/shadow_base.h"
 #include "game/gfx/texture_cfuncs.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
-#include "game/script/struct.h"
-#include "game/skater/skater.h"
+#include "game/script/param_struct.h"
+#include "game/skater/rider.h"
 #include "game/skater/thaw_bmx_parked.h"
-#include "game/sys/config.h"
+#include "game/sys/platform_config.h"
 #include "game/sys/mlp.h"
 #include "game/sys/screenshot_files.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 
 namespace Skater::ThawBmx {
 

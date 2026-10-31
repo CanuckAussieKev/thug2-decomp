@@ -5,8 +5,8 @@
 #include <cstdint>
 
 #include "game/net/gamenet_manager.h"
-#include "game/script/struct.h"
-#include "game/sys/log.h"
+#include "game/script/param_struct.h"
+#include "game/sys/run_log.h"
 
 namespace OnlinePlay::Thugpro {
 

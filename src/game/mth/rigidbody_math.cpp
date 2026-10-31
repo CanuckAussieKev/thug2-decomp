@@ -1,11 +1,11 @@
-// Two maths helpers the rigid body's code sits next to: Vec4::SetLength (vector.h) and QuatRotation::FetchMat (quat.h).
+// Two maths helpers the rigid body's code sits next to: Vec4::SetLength (vec4.h) and QuatRotation::FetchMat (quat_rotation.h).
 // The x87 work is at 53 bits: what the original keeps on the FPU stack is a double here, what it stores a float.
 
 #include <cmath>
 
-#include "game/mth/matrix.h"
-#include "game/mth/quat.h"
-#include "game/mth/vector.h"
+#include "game/mth/mat4.h"
+#include "game/mth/quat_rotation.h"
+#include "game/mth/vec4.h"
 
 namespace Maths {
 

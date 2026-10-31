@@ -18,7 +18,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/front/level_editor.h"
 #include "game/front/level_editor_career.h"
 #include "game/front/level_editor_checks.h"
@@ -28,12 +28,12 @@
 #include "game/gfx/screen.h"
 #include "game/net/gamenet_manager.h"
 #include "game/net/net_manager.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/script/cscript.h"
 #include "game/script/node_manager.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/game_mode.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 #include "game/skate/skate_module.h"
 
 namespace MenuSystem::LevelEditor::Layout {

@@ -5,9 +5,9 @@
 #include <cstring>
 
 #include "game/core/manager.h"
-#include "game/gfx/camera.h"
+#include "game/gfx/view_cam.h"
 #include "game/obj/camera_lookaround.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skater/skater_camera_component.h"
 #include "game/skater/walk_camera.h"
 #include "game/gfx/viewport_list.h"

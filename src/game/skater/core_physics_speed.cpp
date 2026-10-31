@@ -6,10 +6,10 @@
 #include <cmath>
 #include <cstdint>
 
-#include "game/mth/vector.h"
-#include "game/nx/feeler.h"
+#include "game/mth/vec4.h"
+#include "game/nx/probe_ray.h"
 #include "game/obj/movable_contact.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skater/core_physics.h"
 #include "game/skater/core_physics_fields.h"
 #include "game/skater/thaw_bmx.h"

@@ -6,7 +6,7 @@
 #include <cstring>
 #include <vector>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/memory_sizes.h"
@@ -14,8 +14,8 @@
 #include "game/script/node_prefixes.h"
 #include "game/script/names.h"
 #include "game/script/nodes.h"
-#include "game/script/struct.h"
-#include "game/sys/log.h"
+#include "game/script/param_struct.h"
+#include "game/sys/run_log.h"
 
 namespace LevelNodes {
 

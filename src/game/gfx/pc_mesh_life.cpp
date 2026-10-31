@@ -1,4 +1,4 @@
-// The PC meshes' life cycle (mesh.h): constructed, their vertex buffers made, their per-vertex colours applied, their
+// The PC meshes' life cycle (sub_mesh.h): constructed, their vertex buffers made, their per-vertex colours applied, their
 // strips cleaned, destroyed; the vertex / index buffers destroyed, and all of them let go of and made again around a
 // device reset.
 
@@ -12,8 +12,8 @@
 
 #include "game/core/manager.h"
 #include "game/gfx/engine_scene_list.h"
-#include "game/gfx/material.h"
-#include "game/gfx/mesh.h"
+#include "game/gfx/surface_material.h"
+#include "game/gfx/sub_mesh.h"
 #include "game/gfx/mesh_list.h"
 #include "game/gfx/pc_billboards.h"
 #include "game/gfx/pc_scene.h"

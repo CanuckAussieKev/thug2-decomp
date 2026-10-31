@@ -256,7 +256,7 @@ bool __cdecl PlayUserTrack(int soundtrack, int track);
 Hdl __cdecl OpenUserTrack(int soundtrack, int track);
 // 0x00453AA0: stop the music (freed now, or asked to stop if it can't go yet).
 void __cdecl PlatformStopMusic();
-// 0x00453400: the music's volume (0-100), if music is loaded. 1. (Not SetMusicVolume: music.h's front-end call
+// 0x00453400: the music's volume (0-100), if music is loaded. 1. (Not SetMusicVolume: music_player.h's front-end call
 // has that name.)
 int __cdecl PlatformSetMusicVolume(float volume);
 // 0x00453470: keep the music within 5 frames of `seconds` in (cutscenes) - a Bink stream with a Bink open is

@@ -1,7 +1,7 @@
 // GameModules::PointTally's network side: trick objects (graffiti) scored on, logged on the server and sent to the players (see
-// score.h).
+// point_tally.h).
 
-#include "game/skate/score.h"
+#include "game/skate/point_tally.h"
 
 #include <cstddef>
 #include <cstdint>

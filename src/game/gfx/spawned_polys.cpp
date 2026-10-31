@@ -9,12 +9,12 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/core/pool.h"
+#include "game/core/slab_bank.h"
 #include "game/gfx/engine_primitive.h"
 #include "game/gfx/pc_primitive.h"
-#include "game/lst/hashtable.h"
+#include "game/lst/key_map.h"
 #include "game/script/cfuncs_engine.h"
-#include "game/sys/timer.h"
+#include "game/sys/stopwatch.h"
 #include "game/gfx/engine_effects.h"
 
 namespace Engine3D {

@@ -19,7 +19,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/front/level_editor_actions.h"
 #include "game/front/level_editor_adjust.h"
 #include "game/front/level_editor_arrange.h"
@@ -67,19 +67,19 @@
 #include "game/front/level_editor_view.h"
 #include "game/front/level_editor_walls.h"
 #include "game/front/mouse_menus.h"
-#include "game/gfx/camera.h"
+#include "game/gfx/view_cam.h"
 #include "game/gfx/occlusion.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/screen.h"
-#include "game/nx/feeler.h"
+#include "game/nx/probe_ray.h"
 #include "game/obj/compositemgr.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/qb.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/sys/sdl_events.h"
-#include "game/sys/log.h"
+#include "game/sys/run_log.h"
 #include "game/gfx/device.h"
 
 namespace MenuSystem::LevelEditor {
@@ -378,7 +378,7 @@ void MarkUnsaved()
     ++g_changes;
 }
 
-// The crash logger's hook (game/sys/log.h): what the editor was doing, and its unsaved changes autosaved.
+// The crash logger's hook (game/sys/run_log.h): what the editor was doing, and its unsaved changes autosaved.
 void OnCrash()
 {
     static int logged = 0;

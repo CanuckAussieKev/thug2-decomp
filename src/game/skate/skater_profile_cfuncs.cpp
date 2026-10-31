@@ -4,13 +4,13 @@
 
 #include <cstdint>
 
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/script/cscript.h"
 #include "game/skate/career.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module_calls.h"
-#include "game/skater/skater.h"
+#include "game/skater/rider.h"
 #include "game/gfx/model_appearance.h"
 #include "game/skate/skate_module.h"
 #include "game/goals/goal_manager.h"

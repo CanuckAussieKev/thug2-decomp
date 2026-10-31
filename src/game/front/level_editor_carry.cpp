@@ -9,12 +9,12 @@
 
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_scenery.h"
-#include "game/mth/vector.h"
-#include "game/nx/feeler.h"
+#include "game/mth/vec4.h"
+#include "game/nx/probe_ray.h"
 #include "game/obj/compositemgr.h"
-#include "game/obj/object.h"
-#include "game/script/struct.h"
-#include "game/sys/log.h"
+#include "game/obj/entity.h"
+#include "game/script/param_struct.h"
+#include "game/sys/run_log.h"
 
 namespace MenuSystem::LevelEditor::Carry {
 

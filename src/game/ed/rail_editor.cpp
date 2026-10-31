@@ -12,13 +12,13 @@
 #include <cstring>
 #include <new>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/core/pool.h"
+#include "game/core/slab_bank.h"
 #include "game/ed/park.h"
 #include "game/ed/rail_editor_internal.h"
-#include "game/obj/objman.h"
+#include "game/obj/entity_hub.h"
 #include "game/park/park_memory.h"
 #include "game/obj/compositemgr.h"
 

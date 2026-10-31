@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 
 namespace Scripts {
 class CScript;

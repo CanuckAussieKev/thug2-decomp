@@ -7,11 +7,11 @@
 #include <cstring>
 
 #include "game/core/mem.h"
-#include "game/obj/event.h"
+#include "game/obj/signal.h"
 #include "game/obj/tracker.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 #include "game/core/code_address.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/core/stubs.h"
 #include "game/front/screen_element.h"
 #include "game/front/screen_constants.h"

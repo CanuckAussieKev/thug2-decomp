@@ -3,8 +3,8 @@
 // The world's collision as a line query sees it: the static objects in the scenes' collision grids, and the list of
 // movable collision objects (cars, level objects...).
 
-#include "game/core/alloc.h"
-#include "game/mth/vector.h"
+#include "game/core/arena_alloc.h"
+#include "game/mth/vec4.h"
 #include "game/nx/coll_line.h"
 
 namespace GameObjects {

@@ -7,7 +7,7 @@
 
 #include "game/gfx/loading_bar.h"
 #include "game/gfx/loading_screen.h"
-#include "game/script/struct.h"
+#include "game/script/param_struct.h"
 
 namespace Engine3D {
 

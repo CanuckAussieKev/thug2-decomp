@@ -3,9 +3,9 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/mth/matrix.h"
-#include "game/mth/vector.h"
-#include "game/core/pool.h"
+#include "game/mth/mat4.h"
+#include "game/mth/vec4.h"
+#include "game/core/slab_bank.h"
 
 // The engine's spawned polygons (the SpawnPoly script command): textured or plain quads at a place, turned to face a
 // direction, their size and corner colours moved from a start to an end over their lifetime, each drawn by a PC

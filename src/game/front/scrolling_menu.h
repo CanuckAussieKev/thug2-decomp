@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "game/front/screen_element.h"
-#include "game/obj/event.h"
+#include "game/obj/signal.h"
 
 // The scrolling menus (VScrollingMenu / HScrollingMenu): an element holding a vmenu / hmenu that shows a window of
 // its items, scrolling to keep the focused item in view (items outside the window get alpha 0).

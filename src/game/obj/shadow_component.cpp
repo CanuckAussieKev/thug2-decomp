@@ -4,18 +4,18 @@
 
 #include <cstdint>
 
-#include "game/ass/assman.h"
+#include "game/ass/resource_registry.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/engine_shadows.h"
 #include "game/gfx/model.h"
-#include "game/mth/matrix.h"
-#include "game/script/struct.h"
+#include "game/mth/mat4.h"
+#include "game/script/param_struct.h"
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 #include "game/obj/node_components.h"
-#include "game/obj/object.h"
+#include "game/obj/entity.h"
 #include "game/gfx/weather.h"
 #include "game/obj/camera_lookaround.h"
 

@@ -13,9 +13,9 @@
 #include "game/front/level_editor_modules.h"
 #include "game/front/level_editor_overlays.h"
 #include "game/front/level_editor_scenery.h"
-#include "game/mth/vector.h"
+#include "game/mth/vec4.h"
 #include "game/nx/coll_tri.h"
-#include "game/nx/feeler.h"
+#include "game/nx/probe_ray.h"
 #include "game/core/game_vtables.h"
 
 namespace MenuSystem::LevelEditor::Ruler {

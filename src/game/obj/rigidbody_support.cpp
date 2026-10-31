@@ -8,20 +8,20 @@
 #include <cmath>
 #include <cstdint>
 
-#include "game/core/crc.h"
+#include "game/core/checksums.h"
 #include "game/gfx/engine_scene.h"
 #include "game/gfx/engine_scene_list.h"
 #include "game/gfx/sector.h"
 #include "game/mth/random.h"
-#include "game/mth/vector.h"
-#include "game/obj/object.h"
+#include "game/mth/vec4.h"
+#include "game/obj/entity.h"
 #include "game/obj/rigidbody_component.h"
 #include "game/obj/smtptr.h"
 #include "game/obj/sound_component.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
-#include "game/script/struct.h"
-#include "game/sys/timer.h"
+#include "game/script/param_struct.h"
+#include "game/sys/stopwatch.h"
 
 namespace GameObjects {
 
