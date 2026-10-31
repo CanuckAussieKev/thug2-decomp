@@ -15,7 +15,7 @@
 #include "game/nx/feeler.h"
 #include "game/obj/rail_manager.h"
 #include "hook/game.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "imgui.h"
 #include "game/skate/skate_module.h"
 

@@ -28,7 +28,7 @@
 #include "game/nx/coll_static.h"
 #include "game/nx/coll_tri.h"
 #include "hook/game.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "game/core/game_vtables.h"
 #include "game/sys/crt.h"
 

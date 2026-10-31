@@ -34,7 +34,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "imgui.h"
 
 namespace Front::LevelEditor::Checks {

@@ -36,7 +36,7 @@
 #include "game/script/struct.h"
 #include "game/sfx/terrain.h"
 #include "hook/game.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "game/skate/skate_module.h"
 
 namespace Front::LevelEditor::Chains {

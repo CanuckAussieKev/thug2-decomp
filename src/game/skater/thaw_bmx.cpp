@@ -24,7 +24,7 @@
 #include "game/sys/config.h"
 #include "game/sys/mlp.h"
 #include "game/sys/screenshot_files.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 
 namespace Skater::ThawBmx {
 

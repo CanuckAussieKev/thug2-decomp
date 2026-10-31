@@ -22,7 +22,7 @@
 #include "game/mth/vector.h"
 #include "game/nx/feeler.h"
 #include "hook/game.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "imgui.h"
 
 namespace Front::LevelEditor::Ux9 {

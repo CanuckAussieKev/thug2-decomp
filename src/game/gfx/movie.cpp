@@ -28,7 +28,7 @@
 #include "game/sfx/mute_audio.h"
 #include "hook/game.h"
 #include "hook/game_global.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "hook/hook.h"
 #include "hook/game_code.h"
 #include "game/sys/winmain.h"

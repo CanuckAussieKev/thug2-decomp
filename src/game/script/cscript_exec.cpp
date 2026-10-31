@@ -52,7 +52,7 @@
 #include "game/gfx/loading_console.h"
 #include "hook/game.h"
 #include "hook/hook.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 
 namespace Script {
 

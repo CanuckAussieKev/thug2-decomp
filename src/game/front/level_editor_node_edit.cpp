@@ -18,7 +18,7 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "game/gfx/light_manager.h"
 #include "game/gfx/scene_lights.h"
 

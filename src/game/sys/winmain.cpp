@@ -21,7 +21,7 @@
 #include "game/net/online_identity.h"
 #include "game/sio/device.h"
 #include "hook/game_global.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "game/sys/main.h"
 #include "game/sys/pc_setup.h"
 #include "game/sys/platform.h"
@@ -34,7 +34,9 @@
 #include "game/gfx/loading_console.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#ifndef THUG2_STANDALONE
 #include "hook/selftest.h"
+#endif
 #include "game/gfx/device.h"
 #include "game/gfx/movie.h"
 
@@ -183,7 +185,9 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
 // 0x004E1220
 void __cdecl ParseNetworkParams(const char* commandLine)
 {
+#ifndef THUG2_STANDALONE
     RunStageOnce(TestStage::Late); // the test runner's Late stage: the C runtime and the memory manager are up
+#endif
     ReadNetworkParams(commandLine);
 }
 

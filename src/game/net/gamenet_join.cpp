@@ -39,7 +39,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "game/ass/assman.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"

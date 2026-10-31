@@ -17,7 +17,7 @@
 #include "game/skate/skate_module_calls.h"
 #include "game/skater/skater.h"
 #include "game/skater/thaw_bmx.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 
 namespace Skater::ThawBmx {
 

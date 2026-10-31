@@ -16,7 +16,7 @@
 #include "game/gfx/screen.h"
 #include "hook/game.h"
 #include "hook/hook.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "hook/game_code.h"
 #include "game/gfx/device.h"
 #include "game/gfx/engine.h"

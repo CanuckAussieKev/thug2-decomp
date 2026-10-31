@@ -9,7 +9,7 @@
 #include <cctype>
 #include <cstring>
 
-#include "hook/log.h"
+#include "game/sys/log.h"
 
 namespace Front::LevelEditor::Actions {
 

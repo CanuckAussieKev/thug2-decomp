@@ -76,7 +76,7 @@
 #include "game/script/struct.h"
 #include "game/sys/sdl_events.h"
 #include "hook/game.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "game/gfx/device.h"
 
 namespace Front::LevelEditor {

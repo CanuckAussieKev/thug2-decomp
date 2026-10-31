@@ -23,7 +23,7 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "imgui.h"
 
 namespace Front::LevelEditor::Cameras {

@@ -23,7 +23,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "hook/game_code.h"
 #include "game/skater/vehicle_sound.h"
 #include "game/core/stubs.h"

@@ -35,7 +35,7 @@
 #include "game/sys/mlp.h"
 #include "game/sys/sdl_events.h"
 #include "hook/game.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 
 namespace Front::LevelEditor::PlayTest {
 

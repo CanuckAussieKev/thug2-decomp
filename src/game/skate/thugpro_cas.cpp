@@ -22,7 +22,7 @@
 #include "game/script/parse.h"
 #include "game/script/qb.h"
 #include "game/script/struct.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 
 namespace Obj::ThugproCas {
 

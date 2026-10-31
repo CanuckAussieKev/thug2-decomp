@@ -11,7 +11,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "game/gfx/engine_glue.h"
 #include "game/gfx/device.h"
 #include "game/skate/skate_module.h"

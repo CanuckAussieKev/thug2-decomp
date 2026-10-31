@@ -18,7 +18,7 @@
 #include "game/obj/collision_component.h"
 #include "game/obj/object.h"
 #include "hook/game.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "hook/game_code.h"
 #include "game/core/game_vtables.h"
 #include "game/nx/coll_line.h"

@@ -28,7 +28,7 @@
 #include "game/sys/game_clock.h"
 #include "hook/game.h"
 #include "hook/hook.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "game/obj/trigger_events.h"
 
 namespace Skater {

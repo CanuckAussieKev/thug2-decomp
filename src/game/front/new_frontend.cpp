@@ -61,7 +61,7 @@
 #include "game/sys/sdl_events.h"
 #include "game/sys/sdl_window.h"
 #include "hook/game.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "imgui.h"
 #include "game/gfx/loading_bar_cfuncs.h"
 #include "game/gfx/device.h"

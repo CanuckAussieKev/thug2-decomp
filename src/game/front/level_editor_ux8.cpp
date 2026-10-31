@@ -18,7 +18,7 @@
 #include "game/front/level_editor_transform.h"
 #include "game/front/level_editor_ui.h"
 #include "game/front/level_editor_ux8_pie.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 
 namespace Front::LevelEditor::Ux8 {
 

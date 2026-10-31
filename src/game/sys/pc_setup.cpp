@@ -19,7 +19,9 @@
 #include "game/sys/sdl_events.h"
 
 // The hook DLL's last words (src/proxy/dinput8.cpp; tools/check has its own).
+#ifndef THUG2_STANDALONE
 extern "C" void thug2_decomp_before_exit();
+#endif
 
 namespace Sys {
 
@@ -53,7 +55,9 @@ void InitPcSetup()
 
 void FastExit()
 {
+#ifndef THUG2_STANDALONE
     thug2_decomp_before_exit();
+#endif
     ExitProcess(0);
 }
 

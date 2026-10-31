@@ -1,7 +1,7 @@
 // NOT ORIGINAL - crash handling: every way the game or this DLL can break is logged and ends the process, never a
 // dialog (hook/crash.h).
 
-#include "hook/crash.h"
+#include "game/sys/crash.h"
 
 #include <windows.h>
 
@@ -20,8 +20,7 @@
 #include <rtcapi.h>
 #endif
 
-#include "hook/game.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 
 namespace {
 
@@ -32,14 +31,6 @@ void (*g_crashHook)() = nullptr;
 const EXCEPTION_RECORD* g_reportedRecord = nullptr;
 uintptr_t g_reportedAddress = 0;
 
-// The game's CRT (VC7.1, linked into the exe): its __security_error_handler's user handler (set by
-// _set_security_error_handler; called as handler(code, data) before the "Buffer overrun detected!" box), and the
-// MessageBoxA its __crtMessageBoxA looked up and cached (taken as is when set: the box is then ours).
-constexpr uintptr_t kGameSecurityUserHandler = 0x007DB104;
-constexpr uintptr_t kGameCachedMessageBox = 0x007DB55C;
-constexpr uintptr_t kGameSecurityErrorHandler = 0x006287DD; // __security_error_handler(int code, void* data)
-constexpr uintptr_t kGameCrtMessageBox = 0x00634205;        // __crtMessageBoxA(text, caption, type)
-
 void RunCrashHook()
 {
     if (g_crashHook)
@@ -48,7 +39,9 @@ void RunCrashHook()
 
 // The end of every fatal report: the crash hook, the exit code logged, the process ended. A second thread that
 // breaks meanwhile waits for the end.
-[[noreturn]] void EndProcess(UINT exitCode)
+} // namespace
+
+[[noreturn]] void CrashEndProcess(unsigned exitCode)
 {
     static std::atomic<long> ending{0};
     if (ending.exchange(1))
@@ -61,6 +54,8 @@ void RunCrashHook()
     for (;;)
         Sleep(INFINITE);
 }
+
+namespace {
 
 // The module an address is in (its file name only) and the address relative to it; false if in none.
 bool ModuleOf(uintptr_t address, char (&name)[MAX_PATH], uintptr_t* offset)
@@ -106,7 +101,9 @@ bool AfterCall(uintptr_t address)
 
 // The return addresses found on the stack from `esp` up (a scan, not a walk: optimized code - the game's - has no
 // frame chain; some may be stale).
-void LogStackScan(uintptr_t esp)
+} // namespace
+
+void CrashLogStackScan(uintptr_t esp)
 {
     Log("  return addresses on the stack (newest first):");
     char name[MAX_PATH] = "?";
@@ -123,6 +120,8 @@ void LogStackScan(uintptr_t esp)
         ++found;
     }
 }
+
+namespace {
 
 // The calls that led here (a frame walk: fine for our Debug build's code): addresses in our DLL relative to it, the
 // game's as they are.
@@ -166,7 +165,7 @@ void ReportException(const EXCEPTION_POINTERS* info, const char* note)
         Log("  [esp+0x%02X] %08X %08X %08X %08X %08X %08X %08X %08X", static_cast<unsigned>(slot - c->Esp), w[0], w[1],
             w[2], w[3], w[4], w[5], w[6], w[7]);
     }
-    LogStackScan(c->Esp);
+    CrashLogStackScan(c->Esp);
 }
 
 // Crashes (access violations and other fatal exceptions) are logged before Windows ends the game - first chance: an
@@ -211,7 +210,7 @@ LONG WINAPI UnhandledFilter(EXCEPTION_POINTERS* info)
     if (info->ExceptionRecord != g_reportedRecord || info->ContextRecord->Eip != g_reportedAddress)
         ReportException(info, "(unhandled)");
     Log("  unhandled: nothing caught exception 0x%08X", static_cast<unsigned>(code));
-    EndProcess(code);
+    CrashEndProcess(code);
 }
 
 void __cdecl InvalidParameter(const wchar_t* expression, const wchar_t* function, const wchar_t* file,
@@ -221,21 +220,21 @@ void __cdecl InvalidParameter(const wchar_t* expression, const wchar_t* function
     Log("INVALID PARAMETER: %ls in %ls (%ls:%u)", expression ? expression : L"?", function ? function : L"?",
         file ? file : L"?", line);
     LogBacktrace();
-    EndProcess(3);
+    CrashEndProcess(3);
 }
 
 void __cdecl PureCall()
 {
     Log("PURE VIRTUAL CALL (a call through an object's vtable while it's constructed or after it's destroyed)");
     LogBacktrace();
-    EndProcess(3);
+    CrashEndProcess(3);
 }
 
 void __cdecl AbortSignal(int)
 {
     Log("ABORT (abort() or std::terminate)");
     LogBacktrace();
-    EndProcess(3);
+    CrashEndProcess(3);
 }
 
 #ifdef _DEBUG
@@ -252,7 +251,7 @@ int __cdecl CrtReportHook(int type, char* message, int* returnValue)
         return TRUE;
     LogBacktrace();
     if (g_console || type == _CRT_ERROR)
-        EndProcess(3);
+        CrashEndProcess(3);
     if (returnValue)
         *returnValue = 0; // (no debugger break)
     return TRUE;
@@ -269,41 +268,9 @@ int __cdecl RtcErrorHandler(int type, const wchar_t*, int, const wchar_t*, const
     va_end(args);
     Log("RUN-TIME CHECK FAILURE #%d: %ls", type, text);
     LogBacktrace();
-    EndProcess(3);
+    CrashEndProcess(3);
 }
 #endif
-
-// The game's /GS check failed (its __security_error_handler calls this before its "Buffer overrun detected!" box).
-void __cdecl GameSecurityError(int code, void*)
-{
-    Log("BUFFER OVERRUN DETECTED by the game's own /GS check (security error %d%s): one of THUG2's functions found its "
-        "stack cookie overwritten as it returned - its caller is among the first addresses below",
-        code, code == 1 ? ": a buffer overrun" : "");
-    LogStackScan(reinterpret_cast<uintptr_t>(_AddressOfReturnAddress()));
-    EndProcess(0xC0000409);
-}
-
-// The game's CRT's message box (runtime errors R60xx, and the /GS box if the handler above weren't set): logged, the
-// process ends (the CRT would end it after the box anyway).
-int WINAPI GameCrtMessageBox(HWND, const char* text, const char* caption, UINT)
-{
-    char flat[1024];
-    size_t n = 0;
-    for (const char* p = text ? text : ""; *p && n + 4 < sizeof(flat); ++p) {
-        if (*p == '\r')
-            continue;
-        if (*p == '\n') {
-            if (n && flat[n - 1] != ' ')
-                flat[n++] = ' ';
-            continue;
-        }
-        flat[n++] = *p;
-    }
-    flat[n] = '\0';
-    Log("GAME CRT MESSAGE: %s: %s", caption ? caption : "", flat);
-    LogStackScan(reinterpret_cast<uintptr_t>(_AddressOfReturnAddress()));
-    EndProcess(3);
-}
 
 #ifdef _DEBUG
 void __stdcall PopsItsArgument(int) {}
@@ -386,12 +353,6 @@ void InstallCrashHandling(bool console)
     SetUnhandledExceptionFilter(UnhandledFilter);
 }
 
-void InstallGameCrtHandlers()
-{
-    GameVariable<void(__cdecl*)(int, void*)>(kGameSecurityUserHandler) = GameSecurityError;
-    GameVariable<decltype(&GameCrtMessageBox)>(kGameCachedMessageBox) = GameCrtMessageBox;
-}
-
 bool ParseTestFault(const std::string& name, TestFault* out)
 {
     for (const FaultName& entry : kFaultNames) {
@@ -443,11 +404,9 @@ bool CauseTestFault(TestFault fault)
     case TestFault::Abort:
         abort();
     case TestFault::GameOverrun:
-        GameFunction<void(__cdecl*)(int, void*)>(kGameSecurityErrorHandler)(1, nullptr);
-        break;
     case TestFault::GameCrtMessage:
-        GameFunction<int(__cdecl*)(const char*, const char*, unsigned)>(kGameCrtMessageBox)(
-            "crash test:\n\na message from the game's C runtime", "Microsoft Visual C++ Runtime Library", 0x12010);
+        if (!CauseGameCrtFault(fault))
+            return false;
         break;
     case TestFault::FastFail:
         __fastfail(2); // FAST_FAIL_STACK_COOKIE_CHECK_FAILURE
@@ -459,3 +418,9 @@ bool CauseTestFault(TestFault fault)
     Log("crash test: %s - still running after it", TestFaultName(fault));
     return true;
 }
+
+#ifdef THUG2_STANDALONE
+// The standalone build has no original C runtime to point at ours (the hooked build: hook/crash_game.cpp).
+void InstallGameCrtHandlers() {}
+bool CauseGameCrtFault(TestFault) { return false; }
+#endif

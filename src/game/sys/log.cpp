@@ -1,4 +1,4 @@
-#include "hook/log.h"
+#include "game/sys/log.h"
 
 #include <windows.h>
 
@@ -12,7 +12,7 @@
 
 #include <io.h>
 
-#include "hook/crash.h"
+#include "game/sys/crash.h"
 
 namespace {
 FILE* g_log = nullptr;

@@ -6,7 +6,7 @@
 #include <audiopolicy.h>
 #include <mmdeviceapi.h>
 
-#include "hook/log.h"
+#include "game/sys/log.h"
 
 namespace Sfx {
 

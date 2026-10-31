@@ -31,7 +31,7 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/game_global.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "game/core/game_vtables.h"
 #include "game/gfx/engine_scene_list.h"
 #include "game/skate/skate_module.h"

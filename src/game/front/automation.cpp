@@ -40,9 +40,9 @@
 #include "game/skate/skate_module.h"
 #include "game/sys/mlp.h"
 #include "game/sys/screenshot.h"
-#include "hook/crash.h"
+#include "game/sys/crash.h"
 #include "hook/game.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 
 namespace Front::Automation {
 
