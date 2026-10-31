@@ -57,11 +57,11 @@ struct ImFont;
 //   speed <node> <mph>                                   a moving object's path speed
 //   emitter <node> sound=<checksum> vol=<percent> radius=<r>  an emitter's sound (sound=0: none), its radius (0: as is)
 // tools/pipeline/game/apply_layout.ts bakes them as node fields only this project's DLL reads - ed_path_speed (mph), ed_sound /
-// ed_volume - and the radius as the node's Radius (warned); the DLL reads those fields when a level loads, too.
+// ed_volume - and the radius as the node's Radius (warned); the game reads those fields when a level loads, too.
 // Offline only: layouts apply only offline (level_editor_layout.h); the baked fields are ignored in a network session.
 namespace Front::LevelEditor::Entities {
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_entities.cpp) -----------------------------------------
+// --- the pure parts -----------------------------------------------------------------------------------------------
 
 // A bouncy set's stem: the name with its trailing digits, then trailing '_', taken off ("BO_Bouncy_Ball01" ->
 // "BO_Bouncy_Ball"); the name itself when that would leave nothing.

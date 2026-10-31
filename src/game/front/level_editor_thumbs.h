@@ -30,7 +30,7 @@ constexpr int kCells = (kAtlasPixels / kCellPixels) * (kAtlasPixels / kCellPixel
 constexpr int kPerFrame = 3;
 constexpr size_t kRecent = 20;
 
-// --- the pieces (pure, self-tested: src/hook/selftests_editor_ux4.cpp) -------------------------------------------
+// --- the pieces (pure) -------------------------------------------------------------------------------------------
 
 // The atlas's cells: which entry (a key: Key(tab, id); 0 none) each holds, and when each was last shown. Take finds a
 // key's cell or gives it one - a free cell, else the one shown longest ago (never one shown in `frame`: those are on

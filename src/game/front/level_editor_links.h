@@ -25,7 +25,7 @@
 // tools/pipeline/game/layout_file.ts reads them; tools/pipeline/game/apply_layout.ts bakes the copies as plain copies (as they are now).
 namespace Front::LevelEditor::Links {
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_arrange.cpp) -------------------------------------------
+// --- the pure parts ------------------------------------------------------------------------------------------------
 
 struct Member {
     uint32_t id = 0;

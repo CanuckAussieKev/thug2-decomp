@@ -1,10 +1,9 @@
 // The D3DX9 maths and utility calls the game makes, behind our own functions (the renderer is to move to OpenGL
 // one day: these are the only places that talk to D3DX).
 //
-// Hooked build: the exe's own D3DX9 (a 2004 version linked into it), called by address. Standalone build: Microsoft's
-// D3DX9 (d3dx9_43.dll, from the Microsoft.DXSDK.D3DX NuGet package), through the standard API only - MinGW-w64's
+// Microsoft's D3DX9 (d3dx9_43.dll, from the Microsoft.DXSDK.D3DX NuGet package), through the standard API only - MinGW-w64's
 // d3dx9 headers and libd3dx9_43.a offer the same calls. Matrices are 16 floats, row-major (D3DXMATRIX / Mth::Matrix);
-// the viewing functions are the right-handed ones (what the exe's versions compute).
+// the viewing functions are the right-handed ones (what the original's 2004 D3DX9 computes).
 #pragma once
 
 #include <cstdint>

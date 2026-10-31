@@ -32,7 +32,7 @@
 //   snapshot <name>                                 the snapshot this layout is (the active one)
 namespace Front::LevelEditor::Organize {
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_ux3.cpp) -------------------------------------------------
+// --- the pure parts --------------------------------------------------------------------------------------------------
 
 struct Member {
     char kind = 'n'; // 'o' an object, 's' a scene sector, 'n' a node by itself

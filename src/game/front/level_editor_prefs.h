@@ -49,7 +49,7 @@ constexpr int kAccentCount = 6;
 void AccentRgb(int accent, float rgb[3]);
 const char* AccentName(int accent);
 
-// The values now (read from the ini once, the first time; a self-test may Set them).
+// The values now (read from the ini once, the first time).
 const Values& Get();
 // Changed: kept (and written to the ini unless `save` is false - self-tests).
 void Set(const Values& values, bool save = true);

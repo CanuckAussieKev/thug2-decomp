@@ -14,10 +14,7 @@
 // MOTD URL), the product id 10368 (the MOTD), the CD key game id 1003, GP's "10thug211" location strings and the
 // stats path "thug2pc/%s".
 //
-// In the hooked build (the exe's copy of the GameSpy SDK, its callers reading those copies) this writes the key over
-// the data (only when the setting differs from the game's own; the name needs no write). tools/check_code_writes.ts
-// checks none lands in a rewritten function. The standalone build (the SDK linked: src/game/net/gamespy.h) writes
-// nothing: its callers pass GameKey() to the SDK.
+// The SDK is linked (src/game/net/gamespy.h): its callers pass GameKey() to it.
 
 #include "game/net/online_identity.h"
 

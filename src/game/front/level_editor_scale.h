@@ -63,7 +63,7 @@ constexpr float kFineStep = 1.01f;
 // A compressed collision geometry's largest side (16-bit sixteenths: 4095.9; a margin for the rounding of the box).
 constexpr float kCompressedExtent = 4000.0f;
 
-// --- the pieces (pure, self-tested: src/hook/selftests_editor_scale.cpp) ----------------------------------------
+// --- the pieces (pure) ------------------------------------------------------------------------------------------
 
 inline V3 Uniform(float s) { return {s, s, s}; }
 // Scaled by `factor` (along the world's axes) about `pivot` (a world point, where it is now): x' = (x - pivot) * factor

@@ -5,8 +5,6 @@
 
 // Appends to thug2-decomp.log next to the game exe.
 void LogOpen();
-// Send Log output to the console instead (for tools).
-void LogToConsole();
 void Log(const char* fmt, ...);
 // The last `lines` lines logged (at most 32, oldest first; each cut at 319 characters) - kept in memory: the log file
 // itself can't be opened again while it's written.
@@ -15,8 +13,8 @@ std::vector<std::string> LogTail(size_t lines);
 // game/gfx/loading_console.h). It must not wait for locks or log.
 void SetLogListener(void (*listener)(const char* line));
 
-// Called after a crash (a fatal exception in the game or this DLL, or any report that ends the process -
-// hook/crash.h) has been logged - each of the first few, first
+// Called after a crash (a fatal exception in the game, or any report that ends the process - game/sys/crash.h)
+// has been logged - each of the first few, first
 // chance (the code may still handle it). It must not allocate or take locks: the heap may be what broke. One hook:
 // the level editor's (its last action and its autosave - game/front/level_editor_layout.h).
 void SetCrashHook(void (*hook)());

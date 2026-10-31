@@ -27,7 +27,7 @@ struct Model;
 // after the 2D pass), so only what the next frame reads before it sets its camera again matters.
 namespace Front::LevelEditor::Preview {
 
-// --- the pieces (pure, self-tested) -----------------------------------------------------------------------------
+// --- the pieces (pure) ------------------------------------------------------------------------------------------
 
 // How the picture looks at its subject: turned `yaw` about the up axis (radians; 0 looks along +z, as the editor's
 // yaw), from `pitch` above (radians, the eye's height angle: positive looks down), `zoom` times closer than framed.

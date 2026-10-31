@@ -33,7 +33,7 @@
 // order kept).
 namespace Front::LevelEditor::NodeCreate {
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_create.cpp) -------------------------------------------
+// --- the pure parts -----------------------------------------------------------------------------------------------
 
 enum class Kind : uint8_t { Spawn, TeamSpawn, Crown, FlagSet, Light, Sound, Proxim };
 constexpr int kKinds = 7;

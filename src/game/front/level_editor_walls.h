@@ -42,7 +42,7 @@ struct WallState {
     bool off;
 };
 
-// --- the pieces (pure, self-tested: src/hook/selftests_editor_walls.cpp) ----------------------------------------------
+// --- the pieces (pure) ------------------------------------------------------------------------------------------------
 
 // To the nearest sixteenth of a unit (the BSP tree's grid).
 float ToSixteenth(float value);

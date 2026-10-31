@@ -14,7 +14,7 @@
 // panel message elsewhere) and the full path is logged.
 //
 // The pieces: screenshot.cpp (this: the key, the frame's request, what the sidecar says, the worker thread that
-// writes), screenshot_files.cpp (pure, self-tested: names, pixels -> RGB, PNG, the sidecar's text) and
+// writes), screenshot_files.cpp (pure: names, pixels -> RGB, PNG, the sidecar's text) and
 // game/gfx/screenshot_capture.cpp (the renderer backend: the only file of it that includes Direct3D).
 //
 // thug2-decomp.ini: [features] screenshots=0 turns it off (default 1); [features] screenshot_dir= another folder

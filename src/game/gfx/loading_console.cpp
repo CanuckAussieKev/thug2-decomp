@@ -74,7 +74,7 @@ bool InterestingLogLine(const char* line)
 {
     if (!line || !*line)
         return false;
-    // (the data overlay's files are already there as opened; the rest is the self-tests' and hooks' bookkeeping)
+    // (the data overlay's files are already there as opened; the rest is bookkeeping)
     for (const char* prefix : {"data overlay:", "replaced 0x", "shadow checks:", "self-test", "  "})
         if (std::strncmp(line, prefix, std::strlen(prefix)) == 0)
             return false;
@@ -362,15 +362,9 @@ bool Enabled()
 
 bool Active() { return g_active; }
 
-bool& SuspendedForSelfTests()
-{
-    static bool suspended = false;
-    return suspended;
-}
-
 void ScreenShown(bool freeze, bool blank)
 {
-    if (SuspendedForSelfTests() || !Enabled())
+    if (!Enabled())
         return;
     if (!g_fontTried)
         BuildFont();
@@ -394,7 +388,7 @@ void ScreenShown(bool freeze, bool blank)
 
 void ScreenHidden()
 {
-    if (SuspendedForSelfTests() || !g_active)
+    if (!g_active)
         return;
     g_active = false;
     g_timerDraws = false;

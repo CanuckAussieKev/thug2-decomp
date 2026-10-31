@@ -44,7 +44,7 @@ namespace Front::LevelEditor::SharedCollision {
 constexpr float kNear = 6.0f;
 constexpr int kMostFaces = 2048;
 
-// --- the pieces (pure, self-tested) -----------------------------------------------------------------------------
+// --- the pieces (pure) ------------------------------------------------------------------------------------------
 
 // The distance from a point to a triangle (a degenerate one: to its longest edge).
 float PointTriangleDistance(V3 p, V3 a, V3 b, V3 c);

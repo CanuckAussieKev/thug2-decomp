@@ -54,7 +54,7 @@ struct File;
 //     the thing back finds its edit again. Never silently dropped.
 namespace Front::LevelEditor::Checks {
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_ux5.cpp) -------------------------------------------------
+// --- the pure parts --------------------------------------------------------------------------------------------------
 
 enum class Severity : uint8_t { Error, Warning, Info };
 const char* SeverityName(Severity severity);

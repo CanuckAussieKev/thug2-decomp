@@ -17,12 +17,10 @@ namespace Net {
 // check).
 const char* GameName();
 
-// The secret key: OnlineGameKey, or "AdLWaZ". Read once. (The standalone build gives it to the SDK; the hooked build's
-// SDK callers read the copies SetUpOnlineIdentity writes.)
+// The secret key: OnlineGameKey, or "AdLWaZ". Read once (given to the SDK).
 const char* GameKey();
 
-// Write the identity into the GameSpy SDK's callers when the settings differ from the game's own (once, at
-// start-up; nothing is written for the defaults). In the standalone build it only reports the identity.
+// Report the identity when the settings differ from the game's own (once, at start-up).
 void SetUpOnlineIdentity();
 
 

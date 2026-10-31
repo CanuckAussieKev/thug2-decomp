@@ -27,7 +27,7 @@ class Camera;
 //   false when there's no local skater.
 namespace Front::TestView {
 
-// --- the pieces (pure, self-tested) -----------------------------------------------------------------------------
+// --- the pieces (pure) ------------------------------------------------------------------------------------------
 
 struct Vec3 {
     float x, y, z;

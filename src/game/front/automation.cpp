@@ -1655,7 +1655,7 @@ void WriteStatus(Runner& runner)
     CloseHandle(file);
 }
 
-// The command line as the DLL found it, read while the DLL loads: the game's own parsing cuts the process's command
+// The command line as the process got it, read at start-up: the game's own parsing cuts the process's command
 // line buffer into words later (a 0 after the first word: "... -run").
 const std::string g_commandLine = GetCommandLineA();
 

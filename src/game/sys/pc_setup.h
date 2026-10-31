@@ -11,10 +11,8 @@ namespace Sys {
 // (CreateSdlWindow) and input (Sio::InitSdlInput) follow later in WinMain.
 void InitPcSetup();
 
-// The end of the game (Sys::Main, when its main loop returns): the hook DLL logs what it wants
-// (thug2_decomp_before_exit), then the process ends at once - the game's own clean-up is skipped. (Not exit():
-// that would run this DLL's C runtime shutdown while the game's other threads still run.)
-// (Not marked noreturn: the self-tests stand it in with one that returns.)
+// The end of the game (Sys::Main, when its main loop returns): the process ends at once - the game's own clean-up
+// is skipped. (Not exit(): that would run the C runtime shutdown while the game's other threads still run.)
 void FastExit();
 
 } // namespace Sys

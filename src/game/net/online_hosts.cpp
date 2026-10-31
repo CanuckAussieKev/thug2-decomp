@@ -1,11 +1,8 @@
 // The online service's host names.
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md
 //
-// The hooked build calls the exe's copy of the GameSpy SDK (library code, not decompiled - docs/library_ranges.md):
-// its host names are there as the operands of the instructions that use them (and two data words), and this writes
-// the names made for the domain over them (tools/check_code_writes.ts checks the addresses below stay outside
-// rewritten functions). The standalone build links the SDK (src/game/net/gamespy.h): the domain is given to it
-// (GameSpy::SetOnlineDomain sets the SDK's host-name variables), nothing is written.
+// The GameSpy SDK is linked (src/game/net/gamespy.h): the domain is given to it (GameSpy::SetOnlineDomain sets the
+// SDK's host-name variables).
 
 #include "game/net/online_hosts.h"
 

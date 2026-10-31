@@ -8,7 +8,7 @@
 // from its script commands and its update.
 //
 // Not C++ virtual: the vtable pointer is the game's (CGoal's own 0x0064DDD0, a type's another), called through the
-// table (Virtual below) - the engine calls the same entries, and each is REPLACEd at its address. Every slot returns
+// table (Virtual below) - the engine calls the same entries. Every slot returns
 // what the callers read (AL for the bool ones; the setters' EAX is left unread - checked at the callers).
 
 #include <cstddef>

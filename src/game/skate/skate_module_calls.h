@@ -2,7 +2,7 @@
 
 // The skate module (Mdl::Skate, the singleton 0x007CE478) and the game mode (0x007CE470) as the script commands of
 // 0x005AAEF0-0x005B0A40 use them (career_cfuncs.cpp, competition_cfuncs.cpp, ...): the fields they read and the
-// calls into code that has no source yet (each a GameFunction at its address).
+// calls into code that had no source yet.
 
 #include <cstdint>
 

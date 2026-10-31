@@ -58,7 +58,7 @@
 //     the rail manager's finds and the skater's 0x0043E29F, 0x0050E5FB, 0x00516ABF...) passes every rail only in the
 //     park editor's level. Ours lets a rail the editor marks pass too (Obj::SetRailClearOverride: its segments by their
 //     ends' places): an added point's `grindflat=1`, a level point's `grindflat` record, and in a baked level
-//     (tools/pipeline/game/apply_layout.ts) the node flag ed_grind_flat, which only this DLL reads.
+//     (tools/pipeline/game/apply_layout.ts) the node flag ed_grind_flat, which only this game reads.
 //   - Ledges (the feature map): ClimbingNode chains of Type Ledge (THUG2's own form: CreatedAtStart, Type=Ledge, and
 //     HangLeft / HangRight when the level says which side the skater hangs from - ST's TRG_619... - AddNode
 //     0x0057D090 reads them as for any climbing node), drawn and edited as rails are (Draw::Ledge: the clicks snapped
@@ -90,7 +90,7 @@
 // Nodes are 8 hex digits (their checksums), terrains their names (TERRAIN_GRINDMETAL).
 namespace Front::LevelEditor::Chains {
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_chains.cpp) -------------------------------------------
+// --- the pure parts -----------------------------------------------------------------------------------------------
 
 // A point the editor added (in the overlay, in order).
 struct Point {

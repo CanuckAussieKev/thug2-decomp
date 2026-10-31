@@ -425,7 +425,7 @@ void __cdecl PlayNextTrack()
     int position;
     if (Reshuffle()) {
         // (an empty order: the original reads the word before it, which is the movie frame dump counter - by name
-        // here, as the standalone build's globals aren't laid out as the original's)
+        // here, as our globals aren't laid out as the original's)
         int last = OrderCount() > 0 ? Order()[OrderCount() - 1] : Nx::g_movieDumpCount;
         OrderCount() = 0;
         int count = 0;

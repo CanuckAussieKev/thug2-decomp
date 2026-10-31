@@ -35,7 +35,7 @@ struct ImFont;
 //   faces <checksum> <face>:<flags>,<face>:<flags>...    the faces' flags as edited (4 hex digits), faces ascending
 namespace Front::LevelEditor::Faces {
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_map3.cpp) ----------------------------------------------
+// --- the pure parts ------------------------------------------------------------------------------------------------
 
 // The flags the Inspector offers, in its order.
 struct FlagInfo {

@@ -25,7 +25,7 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
 
 // 0x004E1220 (cdecl): the network options on the command line (-HOST, -HOSTNAME, -EMAIL, -PPASS, -CONNECT,
 // -MAXPLAYERS, -GROUP, -NTEAMS, -SKILLLEVEL, -NAME, -PASSWORD; found in any case, values keep theirs). The
-// test runner's Late stage runs first (hook/selftest.h), then ReadNetworkParams.
+// ReadNetworkParams.
 void __cdecl ParseNetworkParams(const char* commandLine);
 // ParseNetworkParams without the test stage (what the tests call).
 void ReadNetworkParams(const char* commandLine);

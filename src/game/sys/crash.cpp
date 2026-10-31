@@ -1,5 +1,5 @@
-// NOT ORIGINAL - crash handling: every way the game or this DLL can break is logged and ends the process, never a
-// dialog (hook/crash.h).
+// NOT ORIGINAL - crash handling: every way the game can break is logged and ends the process, never a
+// dialog (game/sys/crash.h).
 
 #include "game/sys/crash.h"
 
@@ -239,7 +239,7 @@ void __cdecl AbortSignal(int)
 
 #ifdef _DEBUG
 // Debug C runtime reports: a warning is logged; an assertion is logged and the code carries on (its dialog's Ignore -
-// in thug2_check it ends the run); an error (heap corruption...) ends the process.
+// on the console it ends the run); an error (heap corruption...) ends the process.
 int __cdecl CrtReportHook(int type, char* message, int* returnValue)
 {
     char text[1024];
@@ -419,6 +419,5 @@ bool CauseTestFault(TestFault fault)
     return true;
 }
 
-// The standalone build has no original C runtime to point at ours (the hooked build: hook/crash_game.cpp).
-void InstallGameCrtHandlers() {}
+// (no original C runtime to point at ours)
 bool CauseGameCrtFault(TestFault) { return false; }

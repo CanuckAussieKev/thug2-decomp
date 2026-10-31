@@ -10,7 +10,7 @@
 // NOT ORIGINAL - the level editor's transform tools (ours; see level_editor.h):
 // Move / Rotate / Scale gizmos, World / Local space, the pivot, typed values while dragging, the snapping settings
 // (level_editor_snap.h does the snapping itself) and the repeat of the last duplicate. What's here is the tools' state
-// and their pure parts (self-tested: src/hook/selftests_editor_transform.cpp); level_editor.cpp applies them to the
+// and their pure parts; level_editor.cpp applies them to the
 // selection (its drag code calls these).
 //
 // The keys (the ini's [editor] wasd_flies= picks the scheme - the UX research: Unity, Unreal and Godot fly only while the right

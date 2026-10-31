@@ -1,7 +1,6 @@
 #pragma once
 
-// NOT ORIGINAL - the level editor's UI layout and input routing (ours; see level_editor_ui.h): pure, self-tested
-// (src/hook/selftests_editor_ui.cpp).
+// NOT ORIGINAL - the level editor's UI layout and input routing (ours; see level_editor_ui.h): pure.
 namespace Front::LevelEditor::UiLayout {
 
 struct Rect {

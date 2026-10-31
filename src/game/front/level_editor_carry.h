@@ -40,7 +40,7 @@ constexpr float kAbove = 400.0f;  // (how far over a member's top something can 
 constexpr float kRayUp = 50.0f;   // (the ground ray starts this far above the thing: its feet may be in the surface)
 constexpr float kRayDown = 400.0f;
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_carry.cpp) ------------------------------------------
+// --- the pure parts ---------------------------------------------------------------------------------------------
 
 // The placement undoing `placement`: Apply(Inverse(p), Apply(p, x)) == x (a scale of 0 is taken as 1).
 Placement Inverse(const Placement& placement);

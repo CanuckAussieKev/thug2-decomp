@@ -87,7 +87,7 @@ struct ImFont;
 // twice, a bad number or a point missing refuses the file (as the other records).
 namespace Front::LevelEditor::Goals {
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_goals.cpp) ----------------------------------------------
+// --- the pure parts -------------------------------------------------------------------------------------------------
 
 // Create-a-Goal's goal types, in its SELECT GOAL TYPE order (goal_editor_menu.qb's goals_menu_info).
 enum class Type : uint8_t { Skate, Combo, HighScore, HighCombo, Skatetris, ComboSkatetris, TrickTris, TrickBeat, Race, Gap };

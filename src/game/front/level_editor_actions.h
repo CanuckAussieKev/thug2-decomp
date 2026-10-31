@@ -27,7 +27,7 @@
 // registry's and the help's.
 namespace Front::LevelEditor::Actions {
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_ux3.cpp) -------------------------------------------------
+// --- the pure parts --------------------------------------------------------------------------------------------------
 
 enum : uint8_t { kCtrl = 1, kShift = 2, kAlt = 4 };
 // A key and its modifiers (an SDL scan code; 0: none).

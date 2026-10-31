@@ -29,7 +29,7 @@ struct Callback {
 
 // peerFixNick with the rules of the SDK the game was built with: a '_' before a leading digit or '-', and every
 // character outside A-Z a-z 0-9 []\`_^{|}- made '_'. (The 2007 SDK's chatFixNick has other rules - another character
-// set, a '_' before @ # + : only, nicks cut at 20 characters - so the standalone build's PeerFixNick is this.)
+// set, a '_' before @ # + : only, nicks cut at 20 characters - so PeerFixNick is this.)
 void FixNick(char* newNick, const char* oldNick);
 
 // (defined in gamespy.cpp, which includes the SDK's headers)

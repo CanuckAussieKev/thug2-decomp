@@ -62,7 +62,7 @@ struct FrontEnd;
 // the game's elements, a script scaling root_window back is undone the same frame: the game's is never drawn under ours.
 namespace Front::NewFrontend {
 
-// [features] new_frontend (read once; self-tests may set it).
+// [features] new_frontend (read once).
 bool& Enabled();
 
 // Sio::InitSdlInput: listens to SDL's events (nothing when off).

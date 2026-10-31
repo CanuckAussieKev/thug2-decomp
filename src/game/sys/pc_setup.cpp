@@ -18,8 +18,6 @@
 #include "game/sys/debug_log.h"
 #include "game/sys/sdl_events.h"
 
-// The hook DLL's last words (src/proxy/dinput8.cpp; tools/check has its own).
-
 namespace Sys {
 
 void InitPcSetup()

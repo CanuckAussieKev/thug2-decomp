@@ -1,5 +1,4 @@
-// The standalone game's entry point: the game built from source alone, no original exe (CMake target
-// thug2_standalone, THUG2_STANDALONE defined).
+// The game's entry point (thug2-decomp.exe).
 //
 // What runs before this is the C runtime's start-up, as the original's entry point (0x0062583D) did before its WinMain
 // (0x004E2680): heap, threads, stdio, command line and environment, then the C and C++ initialiser tables - the
@@ -19,10 +18,10 @@
 
 namespace {
 
-// NOT ORIGINAL: the hook DLL of the hooked build is a proxy called dinput8.dll and may sit in the game folder, which
-// Windows searches first for a DLL loaded by name. Nothing here imports DirectInput by name (SDL makes it through COM,
+// NOT ORIGINAL: a game folder may hold a dinput8.dll of its own (mod loaders and proxies are often called that), which
+// Windows would find first for a DLL loaded by name. Nothing here imports DirectInput by name (SDL makes it through COM,
 // whose registration names the system's DLL by its path), but anything that did - an import, a delay-load, a
-// LoadLibrary("dinput8.dll") - would get the proxy. Loaded from the system directory by its full path first, the
+// LoadLibrary("dinput8.dll") - would get that one. Loaded from the system directory by its full path first, the
 // system's is the dinput8.dll of this process: a later load by name finds it already loaded.
 void LoadSystemDirectInput()
 {
@@ -39,7 +38,7 @@ void LoadSystemDirectInput()
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, char* commandLine, int show)
 {
     // NOT ORIGINAL: thug2-decomp.log next to the exe and the crash handling (a crash logged with its call stack, never
-    // a dialog), as the hooked build opens them when it loads.
+    // a dialog).
     LogOpen();
     Log("thug2-decomp standalone");
     LoadSystemDirectInput();

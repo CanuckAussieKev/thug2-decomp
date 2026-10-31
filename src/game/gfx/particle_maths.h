@@ -5,7 +5,7 @@
 #include "game/mth/vector.h"
 
 // Vector helpers of the engine's particle systems (their bounding boxes, 0x00495260): a quadratic path's turning
-// point and componentwise minimum / maximum. All three take registers (naked adapters, REPLACE_UNCHECKED).
+// point and componentwise minimum / maximum. All three take registers (naked adapters).
 namespace Nx {
 
 // What 0x00494F10 is given on the stack (by value, caller-popped): the path's start, two more points and the two

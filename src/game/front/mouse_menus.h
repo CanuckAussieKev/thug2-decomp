@@ -35,7 +35,7 @@ struct FrontEnd;
 
 namespace MouseMenus {
 
-// [features] mouse_menus (read once; self-tests may set it).
+// [features] mouse_menus (read once).
 bool& Enabled();
 
 // Start listening to SDL's mouse events (Sio::InitSdlInput; nothing when the feature is off).
@@ -44,7 +44,7 @@ void Init();
 // then the mouse's movement, clicks and wheel turned into menu events.
 void Update(Mdl::FrontEnd* frontEnd);
 
-// --- the pieces (pure, self-tested) -----------------------------------------------------------------------------
+// --- the pieces (pure) ------------------------------------------------------------------------------------------
 
 // Window pixels -> the 640x480 menu layout: the window's size, the back buffer's (0x00786D6C / 0x00786D70) and
 // the layout -> back buffer conversion Nx::SetLetterbox set (scale 0x00786D80 / 84, offset 0x00786D88 / 8C:

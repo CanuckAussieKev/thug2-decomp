@@ -31,7 +31,7 @@ struct ImFont;
 //   cluster <sector> -            the piece not a trick object
 namespace Front::LevelEditor::Clusters {
 
-// --- the pure parts (self-tested: src/hook/selftests_editor_map3.cpp) ----------------------------------------------
+// --- the pure parts ------------------------------------------------------------------------------------------------
 
 // A piece's membership: a trick object of `cluster`, or not one (`trick` false; cluster 0).
 struct Membership {

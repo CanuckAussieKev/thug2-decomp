@@ -13,7 +13,7 @@ class CStruct;
 // NOT ORIGINAL - the level editor's node layer (ours; see level_editor.h): every node of the level's node arrays (the
 // node manager's, game/script/node_manager.h - what the game parsed at the level's load), sorted into families by
 // class and type, with what the gizmos need (position, heading, links, colour, radius), and the pure parts of
-// classifying and picking them (self-tested: src/hook/selftests_editor_ui.cpp). Read here; point nodes are moved and
+// classifying and picking them. Read here; point nodes are moved and
 // turned by level_editor_node_edit.h (phase 2 of the plan).
 namespace Front::LevelEditor::Nodes {
 
