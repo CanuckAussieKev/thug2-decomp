@@ -89,13 +89,13 @@ void CShadowVolume::ChangeMesh(CRenderModel*, uint8_t* assetData)
 {
     if (assetData)
         m_modelKey = *reinterpret_cast<uint32_t*>(assetData + 0x8C);
-    mp_edges = FindShadowEdges(m_modelKey);
-    if (mp_edges) {
-        ++mp_edges->users;
+    m_edges = FindShadowEdges(m_modelKey);
+    if (m_edges) {
+        ++m_edges->users;
         AddShadowVolume(this);
         return;
     }
-    mp_edges = static_cast<ShadowEdges*>(MemSys::AllocZeroed(0x10)); // (not checked, as the original)
+    m_edges = static_cast<ShadowEdges*>(MemSys::AllocZeroed(0x10)); // (not checked, as the original)
     auto* meshes = reinterpret_cast<CTriMeshSource*>(m_modelKey);
     // (with a key but no asset data, read through null - as the original)
     int faces = 0, vertices = 0;
@@ -110,8 +110,8 @@ void CShadowVolume::ChangeMesh(CRenderModel*, uint8_t* assetData)
     int estimate = vertices + faces - 2; // (Euler's formula for a closed convex mesh)
     if (estimate >= 1) {
         uint32_t size = static_cast<uint32_t>(estimate) * sizeof(ShadowSilhouetteEdge);
-        mp_edges->edges = static_cast<uint8_t*>(MemSys::Alloc(size));
-        std::memset(mp_edges->edges, 0, size);
+        m_edges->edges = static_cast<uint8_t*>(MemSys::Alloc(size));
+        std::memset(m_edges->edges, 0, size);
     }
     int count = 0;
     if (m_modelKey) {
@@ -134,29 +134,29 @@ void CShadowVolume::ChangeMesh(CRenderModel*, uint8_t* assetData)
                     c = face[4];
                 }
                 Maths::Vec4 normal = mesh.GetTriangleNormal(f);
-                mp_edges->lastMesh = m;
-                AddEdge(mp_edges, count, a, b, normal);
-                AddEdge(mp_edges, count, b, c, normal);
-                AddEdge(mp_edges, count, c, a, normal);
+                m_edges->lastMesh = m;
+                AddEdge(m_edges, count, a, b, normal);
+                AddEdge(m_edges, count, b, c, normal);
+                AddEdge(m_edges, count, c, a, normal);
             }
         }
     }
     if (count <= estimate && count > 0) {
-        mp_edges->count = count;
-        ++mp_edges->users;
+        m_edges->count = count;
+        ++m_edges->users;
         uint32_t key = m_modelKey;
-        EdgeTable().StoreEntry(key, mp_edges);
+        EdgeTable().StoreEntry(key, m_edges);
         AddShadowVolume(this);
         return;
     }
     DebugOut::Printf("Breaking Euler's formula: %df + %dv - 2 != %d!  Make sure the model is convex.", faces, vertices,
                 count);
-    if (mp_edges->edges) {
-        MemSys::Hub::Pull()->Dealloc(mp_edges->edges);
-        mp_edges->edges = nullptr;
+    if (m_edges->edges) {
+        MemSys::Hub::Pull()->Dealloc(m_edges->edges);
+        m_edges->edges = nullptr;
     }
-    MemSys::Hub::Pull()->Dealloc(mp_edges);
-    mp_edges = nullptr;
+    MemSys::Hub::Pull()->Dealloc(m_edges);
+    m_edges = nullptr;
 }
 
 } // namespace Nx

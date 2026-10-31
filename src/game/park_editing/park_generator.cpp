@@ -78,7 +78,7 @@ void CParkAssembler::DestroyBody()
 
 void CParkAssembler::GlowEveryPiece(bool on)
 {
-    for (CParkTile* piece = mp_pieces; piece;) {
+    for (CParkTile* piece = m_pieces; piece;) {
         CParkTile* next = piece->m_following;
         piece->SetHighlight(on, false);
         piece = next;
@@ -101,7 +101,7 @@ int CParkAssembler::GetPlayerCapLimit()
 
 CTileTemplate* CParkAssembler::GetPieceSource(uint32_t name)
 {
-    for (CTileTemplate* source = mp_sources; source; source = source->m_following) {
+    for (CTileTemplate* source = m_sources; source; source = source->m_following) {
         if (source->m_label == name)
             return source;
     }
@@ -242,7 +242,7 @@ void CParkAssembler::UpdateBounds(uint32_t /*unused*/)
 
 void CParkAssembler::SetPiecesHighlighted(int on)
 {
-    for (CParkTile* piece = mp_pieces; piece;) {
+    for (CParkTile* piece = m_pieces; piece;) {
         CParkTile* next = piece->m_following;
         if (piece->m_flagBits & CParkTile::kGap)
             piece->SetVisible(on != 0);
@@ -252,9 +252,9 @@ void CParkAssembler::SetPiecesHighlighted(int on)
 
 void CParkAssembler::SetRestartPiecesActive(bool active)
 {
-    for (CParkTile* piece = mp_pieces; piece;) {
+    for (CParkTile* piece = m_pieces; piece;) {
         CParkTile* next = piece->m_following;
-        if (CParkLayout::sSingleton()->GetRestartIndex(piece->mp_source->m_label))
+        if (CParkLayout::sSingleton()->GetRestartIndex(piece->m_blendSource->m_label))
             piece->ChangeLive(active);
         piece = next;
     }
@@ -279,7 +279,7 @@ bool CParkAssembler::DestroySector(uint32_t name, int /*unused*/)
 CParkTile* CParkAssembler::CreatePiece(CParkTile* source, uint32_t flags)
 {
     flags &= CParkTile::kCursor | CParkTile::kNoNode20 | CParkTile::kNoRails | CParkTile::kDestroyNow;
-    CTileTemplate* from = (source->m_flagBits & CParkTile::kSource) ? reinterpret_cast<CTileTemplate*>(source) : source->mp_source;
+    CTileTemplate* from = (source->m_flagBits & CParkTile::kSource) ? reinterpret_cast<CTileTemplate*>(source) : source->m_blendSource;
     // The source's sector copied into the park's scene (on the bottom-up heap).
     CloningPiece() = 1;
     const uint32_t name = from->m_label;
@@ -297,7 +297,7 @@ CParkTile* CParkAssembler::CreatePiece(CParkTile* source, uint32_t flags)
     MemSys::LeaveHeapScope();
     piece->m_sector = clone; // (out of memory crashes, as in the original)
     piece->m_ident = m_nextPieceId++;
-    piece->mp_source = from;
+    piece->m_blendSource = from;
     piece->SetQuarterTurns(0, 0);
     piece->m_flagBits |= flags;
     uint32_t rgba;
@@ -315,8 +315,8 @@ CParkTile* CParkAssembler::CreatePiece(CParkTile* source, uint32_t flags)
 void CParkAssembler::InsertTile(CParkTile* piece)
 {
     piece->m_flagBits |= CParkTile::kInList;
-    piece->m_following = mp_pieces;
-    mp_pieces = piece;
+    piece->m_following = m_pieces;
+    m_pieces = piece;
     m_flagBits |= CParkAssembler::kHasPieces;
 }
 
@@ -324,13 +324,13 @@ void CParkAssembler::DeletePiece(CParkTile* piece, int keepSector)
 {
     if (!(piece->m_flagBits & CParkTile::kCursor)) {
         CParkTile* previous = nullptr;
-        for (CParkTile* p = mp_pieces; p; previous = p, p = p->m_following) {
+        for (CParkTile* p = m_pieces; p; previous = p, p = p->m_following) {
             if (p != piece)
                 continue;
             if (previous)
                 previous->m_following = p->m_following;
             else
-                mp_pieces = p->m_following;
+                m_pieces = p->m_following;
             break;
         }
     }
@@ -338,7 +338,7 @@ void CParkAssembler::DeletePiece(CParkTile* piece, int keepSector)
         DestroySector(piece->m_sector, static_cast<int>(piece->m_flagBits));
     SetCountsDirty();
     piece->EraseOne();
-    if (!mp_pieces)
+    if (!m_pieces)
         m_flagBits &= ~CParkAssembler::kHasPieces;
 }
 

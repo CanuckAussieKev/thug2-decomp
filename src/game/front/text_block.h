@@ -52,7 +52,7 @@ public:
     void UpdateLines();
 
     uint32_t m_fontName;      // +0x178
-    char** mp_lines;          // +0x17C (while the lines are made: 30 of 0x60 characters)
+    char** m_lines;          // +0x17C (while the lines are made: 30 of 0x60 characters)
     int m_numLines;           // +0x180 lines made
     int m_line;               // +0x184 the line being filled
     int m_lineLength;         // +0x188
@@ -63,7 +63,7 @@ public:
     float m_lineSpacing;      // +0x1A0
     float m_linesHeight;      // +0x1A4 the lines' height in all
     int m_numElements;        // +0x1A8 line elements
-    CSmearEffect* mp_blur;     // +0x1AC
+    CSmearEffect* m_blur;     // +0x1AC
     bool m_shadow;            // +0x1B0
     bool m_mayGrow;    // +0x1B1
     uint8_t m_pad1B2[2];
@@ -74,7 +74,7 @@ public:
     bool m_overrideAlpha;     // +0x1C2
     uint8_t m_pad1C3;
 };
-static_assert(offsetof(CParagraphWidget, m_maxLines) == 0x190 && offsetof(CParagraphWidget, mp_blur) == 0x1AC &&
+static_assert(offsetof(CParagraphWidget, m_maxLines) == 0x190 && offsetof(CParagraphWidget, m_blur) == 0x1AC &&
                   offsetof(CParagraphWidget, m_shadowRgba) == 0x1BC && sizeof(CParagraphWidget) == 0x1C4,
               "layout must match the original");
 

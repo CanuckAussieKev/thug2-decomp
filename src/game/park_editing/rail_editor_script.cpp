@@ -104,7 +104,7 @@ void CRailAuthoring::TickFrame()
     static const Press presses[4] = {
         {0x1A0, kRailEditorX}, {0x180, kRailEditorTriangle}, {0x160, kRailEditorSquare}, {0x140, kRailEditorCircle}};
     for (const Press& press : presses) {
-        GameObjects::CControlButton* button = Button(mp_input, press.button);
+        GameObjects::CControlButton* button = Button(m_inputPtr, press.button);
         if (button->m_fired) {
             button->ResetActivation();
             Scripts::LaunchScript(press.script, nullptr, m_entity, false, nullptr);
@@ -125,13 +125,13 @@ void CRailAuthoring::Conceal(bool hide)
         return;
     }
     Scripts::LaunchScript(kCreateCursor, nullptr, nullptr, false, nullptr);
-    manager->m_builder->BuildRails(manager->mp_concrete_metas);
+    manager->m_builder->BuildRails(manager->m_concrete_metas);
     // The camera told whose it is (the input component's ConfigureFromData: player 0), the pad's events dropped.
     Scripts::CStruct* params = SpawnParamBag();
     params->PutInt(kPlayer, 0);
-    static_cast<GameObjects::CObjectModule*>(mp_input)->ConfigureFromData(params);
+    static_cast<GameObjects::CObjectModule*>(m_inputPtr)->ConfigureFromData(params);
     FreeStruct(params);
-    PadOf(mp_input)->Clear();
+    PadOf(m_inputPtr)->Clear();
 }
 
 // 0x004F6C10
@@ -170,16 +170,16 @@ void CRailAuthoring::WriteToStructure(Scripts::CStruct* params)
     for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following) {
         Scripts::CStruct* railInfo = SpawnParamBag();
         uint32_t pointCount = 0;
-        for (CEditedRailPoint* p = rail->mp_points; p; p = p->m_following)
+        for (CEditedRailPoint* p = rail->m_pointChain; p; p = p->m_following)
             ++pointCount;
         Scripts::CArray* points = NewArray();
         points->ConfigureSizeKind(pointCount, Scripts::QBVAL_STRUCT);
         uint32_t i = 0;
-        for (CEditedRailPoint* p = rail->mp_points; p; p = p->m_following) {
+        for (CEditedRailPoint* p = rail->m_pointChain; p; p = p->m_following) {
             Scripts::CStruct* point = SpawnParamBag();
             point->PutVec3(kPos, p->m_atPoint.x, p->m_atPoint.y, p->m_atPoint.z);
             // (a post drawn, not m_hasPost)
-            if (p->mp_post)
+            if (p->m_post)
                 point->PutNameKey(0u, kHasPost);
             points->SetElement(i++, reinterpret_cast<uint32_t>(point));
         }
@@ -219,7 +219,7 @@ void CRailAuthoring::WriteNodes(Scripts::CArray* nodes, int* index, uint32_t nam
     int next = *index;
     int railIndex = 0;
     for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following, ++railIndex) {
-        for (CEditedRailPoint* p = rail->mp_points; p; p = p->m_following) {
+        for (CEditedRailPoint* p = rail->m_pointChain; p; p = p->m_following) {
             auto* node = reinterpret_cast<Scripts::CStruct*>(nodes->FetchPart(static_cast<uint32_t>(next)));
             ++next;
             node->PutVec3(kPos, p->m_atPoint.x, p->m_atPoint.y, p->m_atPoint.z);
@@ -268,7 +268,7 @@ int CRailAuthoring::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, 
         params->FetchVec(kPos, reinterpret_cast<Scripts::VectorValue*>(&pos), 0);
         if (!m_activeNode)
             return 0;
-        CEditedRailPoint* head = m_activeNode->mp_points;
+        CEditedRailPoint* head = m_activeNode->m_pointChain;
         if (head && !RailSegmentValid(&pos, &head->m_atPoint))
             return 1;
         if (!CParkBuilderMode::IsInsidePark(pos, 10.0f))

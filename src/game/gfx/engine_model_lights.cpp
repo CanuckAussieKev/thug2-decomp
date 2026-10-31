@@ -56,11 +56,11 @@ CModelLights* CModelLights::MakeNew()
     m_intensityGoal = 0.0f;
     m_brightness = 0.0f;
     m_sizeFactor = 1.0f;
-    mp_intensities = static_cast<float*>(MemSys::Alloc(LightCount() * 4));
+    m_intensities = static_cast<float*>(MemSys::Alloc(LightCount() * 4));
     for (uint32_t i = 0; i < LightCount(); ++i)
-        mp_intensities[i] = 1.0f;
+        m_intensities[i] = 1.0f;
     m_unknown4 = 0;
-    mp_position = nullptr;
+    m_placeRef = nullptr;
     return this;
 }
 
@@ -68,9 +68,9 @@ CModelLights* CModelLights::MakeNew()
 void CModelLights::DestroyBody()
 {
     m_vtable = reinterpret_cast<void**>(kModelLightsVtable);
-    if (mp_intensities) {
-        MemSys::Hub::Pull()->Dealloc(mp_intensities);
-        mp_intensities = nullptr;
+    if (m_intensities) {
+        MemSys::Hub::Pull()->Dealloc(m_intensities);
+        m_intensities = nullptr;
     }
 }
 
@@ -102,7 +102,7 @@ bool CModelLights::ChangeDiffuseHue(int light, const uint32_t* color)
 // 0x0048E4D0
 bool CModelLights::BindPositionSource(const Maths::Vec4* position)
 {
-    mp_position = position;
+    m_placeRef = position;
     return true;
 }
 
@@ -113,9 +113,9 @@ void CModelLights::UpdateBrightness()
     if (m_sizeFactor < 0.0f)
         m_sizeFactor = 0.0f;
     for (uint32_t i = 0; i < LightCount(); ++i) {
-        mp_intensities[i] = Scaled(m_brightness, DarkRanges()[i], BrightRanges()[i]);
-        if (mp_intensities[i] < 0.0f)
-            mp_intensities[i] = 0.0f;
+        m_intensities[i] = Scaled(m_brightness, DarkRanges()[i], BrightRanges()[i]);
+        if (m_intensities[i] < 0.0f)
+            m_intensities[i] = 0.0f;
     }
     Virtual(this, 8, true, true);
 }

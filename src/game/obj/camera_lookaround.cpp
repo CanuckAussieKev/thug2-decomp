@@ -98,7 +98,7 @@ void CFreeLookModule::ConfigureFromData(Scripts::CStruct* /*params*/)
 // 0x004E4040
 void CFreeLookModule::Seal()
 {
-    mp_input = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kInput));
+    m_inputPtr = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kInput));
 }
 
 // 0x004E4000
@@ -125,7 +125,7 @@ void CFreeLookModule::TurnTo(float heading, float tilt, float time, float factor
 // 0x004E4060
 void CFreeLookModule::TickFrame()
 {
-    uint8_t* pad = mp_input + (Scripts::FetchIntValue(kSecondPad) ? 0x258 : 0x20);
+    uint8_t* pad = m_inputPtr + (Scripts::FetchIntValue(kSecondPad) ? 0x258 : 0x20);
     if (!Scripts::FetchIntValue(kNoButton) && pad[0x1F0]) {
         TakePress(pad + 0x1E0);
         Scripts::LaunchScript(m_entity->m_ident == kSpecialObject ? kSpecialScript : kScript, nullptr, nullptr, false,

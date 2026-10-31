@@ -111,7 +111,7 @@ void DeleteParticles(sFlexibleParticle* particles)
 // them), each allocated only if the one before was; all grey once the three are there. Whether they are.
 bool NewColours(CEmitterInstance* system, int count)
 {
-    uint8_t** colours[3] = {&system->mp_startColour, &system->mp_midColour, &system->mp_endColour};
+    uint8_t** colours[3] = {&system->m_startColour, &system->m_midColour, &system->m_endColour};
     for (uint8_t** colour : colours) {
         *colour = static_cast<uint8_t*>(Carve(static_cast<unsigned int>(count) * 4));
         if (!*colour)
@@ -172,10 +172,10 @@ CEmitterInstance* CEmitterInstance::MakeNew()
 // 0x00496D70
 void CEmitterInstance::Reset()
 {
-    mp_emitScript = nullptr;
-    mp_updateScript = nullptr;
-    mp_scriptParams = nullptr;
-    mp_matrix = nullptr;
+    m_emitScriptPtr = nullptr;
+    m_tickScript = nullptr;
+    m_scriptArgs = nullptr;
+    m_xformRef = nullptr;
     m_emitRate = 0.0f;
     m_emitOwed = 0.0f;
     m_lodMinParticles = 0;
@@ -232,20 +232,20 @@ void CEmitterInstance::DestroyBody()
 {
     m_vtable = kSystemVtable;
     m_listLink.vtable = kSystemNodeVtable;
-    if (mp_emitScript)
-        DeleteScript(mp_emitScript);
-    if (mp_updateScript)
-        DeleteScript(mp_updateScript);
-    if (Scripts::CStruct* params = mp_scriptParams) {
+    if (m_emitScriptPtr)
+        DeleteScript(m_emitScriptPtr);
+    if (m_tickScript)
+        DeleteScript(m_tickScript);
+    if (Scripts::CStruct* params = m_scriptArgs) {
         params->Clear();
         Scripts::DeleteStruct(params);
     }
-    if (mp_startColour)
-        MemSys::Dealloc(mp_startColour);
-    if (mp_midColour)
-        MemSys::Dealloc(mp_midColour);
-    if (mp_endColour)
-        MemSys::Dealloc(mp_endColour);
+    if (m_startColour)
+        MemSys::Dealloc(m_startColour);
+    if (m_midColour)
+        MemSys::Dealloc(m_midColour);
+    if (m_endColour)
+        MemSys::Dealloc(m_endColour);
     if (m_positionArray)
         MemSys::Dealloc(m_positionArray);
     if (m_particleList)
@@ -320,8 +320,8 @@ void CEmitterInstance::ChangePlace(int particle, int step, float x, float y, flo
 // 0x004969F0
 void CEmitterInstance::GetEmitMatrix(Maths::Mat4* out)
 {
-    if (mp_matrix) {
-        *out = *mp_matrix;
+    if (m_xformRef) {
+        *out = *m_xformRef;
         return;
     }
     out->row[0] = Maths::Vec4{1.0f, 0.0f, 0.0f, 0.0f};
@@ -403,10 +403,10 @@ void CEmitterInstance::SetColourScale(const float* rgba)
 // 0x00496F60
 void CEmitterInstance::RunEmitScript()
 {
-    if (mp_emitScript && mp_emitScript->TickFrame() == Scripts::SCRIPT_OUTCOME_FINISHED) {
-        if (Scripts::CScript* script = mp_emitScript)
+    if (m_emitScriptPtr && m_emitScriptPtr->TickFrame() == Scripts::SCRIPT_OUTCOME_FINISHED) {
+        if (Scripts::CScript* script = m_emitScriptPtr)
             DeleteScript(script);
-        mp_emitScript = nullptr;
+        m_emitScriptPtr = nullptr;
     }
 }
 
@@ -434,10 +434,10 @@ void BindScript(CEmitterInstance* system, Scripts::CScript*& slot, uint32_t scri
     }
     if (!slot)
         slot = NewScript();
-    if (!system->mp_scriptParams)
-        system->mp_scriptParams = SpawnParamTable();
-    system->mp_scriptParams->AppendStructureIfAny(params);
-    slot->BindScript(script, system->mp_scriptParams, static_cast<GameObjects::CEntity*>(object));
+    if (!system->m_scriptArgs)
+        system->m_scriptArgs = SpawnParamTable();
+    system->m_scriptArgs->AppendStructureIfAny(params);
+    slot->BindScript(script, system->m_scriptArgs, static_cast<GameObjects::CEntity*>(object));
 }
 
 } // namespace
@@ -445,13 +445,13 @@ void BindScript(CEmitterInstance* system, Scripts::CScript*& slot, uint32_t scri
 // 0x00497790
 void CEmitterInstance::SetEmitScript(uint32_t script, Scripts::CStruct* params, void* object)
 {
-    BindScript(this, mp_emitScript, script, params, object);
+    BindScript(this, m_emitScriptPtr, script, params, object);
 }
 
 // 0x00497900
 void CEmitterInstance::SetUpdateScript(uint32_t script, Scripts::CStruct* params, void* object)
 {
-    BindScript(this, mp_updateScript, script, params, object);
+    BindScript(this, m_tickScript, script, params, object);
 }
 
 // 0x00497A70
@@ -661,9 +661,9 @@ CLineParticles* CLineParticles::Teardown(unsigned int flags)
 void CModelParticles::DestroyBody()
 {
     SetVtables(this, Vt::kModelParticles, Vt::kModelParticlesNode);
-    if (mp_unknown13C) {
-        MemSys::Dealloc(mp_unknown13C);
-        mp_unknown13C = nullptr;
+    if (m_unknown13CPtr) {
+        MemSys::Dealloc(m_unknown13CPtr);
+        m_unknown13CPtr = nullptr;
     }
     if (m_modelList) {
         for (unsigned int i = 0; i < m_modelCount; ++i)

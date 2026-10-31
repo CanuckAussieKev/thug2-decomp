@@ -55,7 +55,7 @@ CObjectModule* __cdecl CTextureProjectionComponent::Fabricate()
     head.next = &head;
     head.prev = &head;
     head.vtable = kHeadVtable;
-    component->mp_suspend = nullptr;
+    component->m_suspend = nullptr;
     component->m_boneRig = nullptr;
     component->m_meshInstance = nullptr;
     component->m_kindTag = kType;
@@ -114,7 +114,7 @@ void CTextureProjectionComponent::ConfigureFromData(Scripts::CStruct* params)
 // 0x00434630
 void CTextureProjectionComponent::Seal()
 {
-    mp_suspend = m_entity->FetchModule(0xCE0CA665);
+    m_suspend = m_entity->FetchModule(0xCE0CA665);
     m_boneRig = m_entity->FetchModule(0x222756D5);
     m_meshInstance = m_entity->FetchModule(0x286A8D26);
 }

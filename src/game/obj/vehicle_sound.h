@@ -93,14 +93,14 @@ public:
     uint32_t m_unknownA8;
     float m_skid;                  // +0xAC the tyre sound's level
     int m_collideTime;             // +0xB0 the clock at the last crash sound
-    CDrivableModule* mp_vehicle; // +0xB4
-    CObjectModule* mp_sound;      // +0xB8
+    CDrivableModule* m_vehiclePtr; // +0xB4
+    CObjectModule* m_soundPtr;      // +0xB8
 };
 static_assert(offsetof(CEngineAudioModule, m_engineSound) == 0x20 &&
                   offsetof(CEngineAudioModule, m_gearCount) == 0x34 &&
                   offsetof(CEngineAudioModule, m_gearSteps) == 0x38 &&
                   offsetof(CEngineAudioModule, m_speed) == 0x98 && offsetof(CEngineAudioModule, m_skid) == 0xAC &&
-                  offsetof(CEngineAudioModule, mp_vehicle) == 0xB4 && sizeof(CEngineAudioModule) == 0xBC,
+                  offsetof(CEngineAudioModule, m_vehiclePtr) == 0xB4 && sizeof(CEngineAudioModule) == 0xBC,
               "layout must match the original");
 
 } // namespace Obj

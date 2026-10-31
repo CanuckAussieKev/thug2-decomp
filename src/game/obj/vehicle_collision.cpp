@@ -441,7 +441,7 @@ void CDrivableModule::Collide()
         rect.m_rect.sideA = collider.worldEdges[0];
         rect.m_rect.sideB = collider.worldEdges[1];
         if (rect.Query(0)) {
-            TriggerRect(mp_trigger, g_crossingEvents, &rect);
+            TriggerRect(m_triggerPtr, g_crossingEvents, &rect);
             if (Interrupted(this))
                 return;
             rect.JoinHits();
@@ -484,7 +484,7 @@ void CDrivableModule::Collide()
                                      static_cast<float>(static_cast<double>(feeler.m_line.end.w) - rect.m_rect.sideA.w)};
             }
             if (feeler.GetHitShape(false, false)) {
-                TriggerFeeler(mp_trigger, g_crossingEvents, &feeler);
+                TriggerFeeler(m_triggerPtr, g_crossingEvents, &feeler);
                 if (Interrupted(this))
                     return;
                 Contact& contact = contacts[m_contactCount];

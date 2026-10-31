@@ -331,9 +331,9 @@ bool CEmitterInstance::InvokeMethodByName(uint32_t name, Scripts::CStruct* param
             for (int i = first; i < last + 1; ++i) {
                 if (i >= NumColours(this))
                     continue;
-                uint8_t* end = mp_endColour + i * 4;
-                uint8_t* mid = mp_midColour + i * 4;
-                uint8_t* start = mp_startColour + i * 4;
+                uint8_t* end = m_endColour + i * 4;
+                uint8_t* mid = m_midColour + i * 4;
+                uint8_t* start = m_startColour + i * 4;
                 for (int k = 0; k < 4; ++k) {
                     if (params->FetchIntValue(kEndChannels[k], &value, 0)) {
                         end[k] = k == 3 ? static_cast<uint8_t>(static_cast<uint8_t>(value) >> 1)
@@ -539,8 +539,8 @@ void CEmitterInstance::TickFrame(float time, bool skip)
             Emit(count);
         }
     }
-    if (mp_updateScript)
-        mp_updateScript->TickFrame();
+    if (m_tickScript)
+        m_tickScript->TickFrame();
     if (!m_moving || time == 0.0f)
         return;
     if (m_updateBrightness)

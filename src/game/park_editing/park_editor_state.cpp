@@ -206,7 +206,7 @@ CParkBuilderMode* CParkBuilderMode::MakeNew()
         display->m_codeValue = reinterpret_cast<void(__cdecl*)(ParkEditorTask*)>(&Stubs::DoNothing);
         display->m_content = this;
     }
-    mp_displayTask = display;
+    m_drawJob = display;
     auto* input = static_cast<ParkEditorInputHandler*>(MemSys::AllocZeroed(sizeof(ParkEditorInputHandler)));
     if (input) {
         reinterpret_cast<TaskList::SchedulerTask*>(input)->MakeNew(0);

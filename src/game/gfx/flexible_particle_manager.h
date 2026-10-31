@@ -17,9 +17,9 @@ struct CFlexibleParticleManager {
     void** m_vtable;
     MemSys::Zone* m_zone;     // +0x04: its own memory (the script integer 0x91CB7552 bytes, else 0x5000)
     MemSys::Arena* m_arena;         // +0x08 "FlxParticles"
-    MemSys::Zone* mp_tempRegion; // +0x0C
-    MemSys::Arena* mp_tempHeap;     // +0x10 "TEMPFlxPrtcl": systems are made on it while it's there
-    MemSys::ListNode* mp_systems;  // +0x14: the list's head (ListKit::Foremost<CEmitterInstance>, vtable 0x006494C4)
+    MemSys::Zone* m_tempRegion; // +0x0C
+    MemSys::Arena* m_tempHeap;     // +0x10 "TEMPFlxPrtcl": systems are made on it while it's there
+    MemSys::ListNode* m_systemsPtr;  // +0x14: the list's head (ListKit::Foremost<CEmitterInstance>, vtable 0x006494C4)
     float m_colourScale[4];     // +0x18: the level's colour (given to the systems with flag 0x10000)
 
     // 0x0049AF20: its memory, the list, the colour white; the frame time scale (0x00700EF4) 60 / the script float
@@ -63,7 +63,7 @@ struct CFlexibleParticleManager {
     // camera first (the difference of the squared distances, truncated), else the higher priority (+0x124) first.
     static int __cdecl CompareDistance(const void* a, const void* b);
 };
-static_assert(offsetof(CFlexibleParticleManager, mp_systems) == 0x14 &&
+static_assert(offsetof(CFlexibleParticleManager, m_systemsPtr) == 0x14 &&
                   offsetof(CFlexibleParticleManager, m_colourScale) == 0x18 &&
                   sizeof(CFlexibleParticleManager) == 0x28,
               "layout must match the original");

@@ -52,10 +52,10 @@ public:
     uint8_t* m_riderRef;           // +0x18 the local skater (its projectile slots at +0x1C0, 0x18 bytes each)
     int m_seat;                   // +0x1C its slot (-1: none)
     int m_rest;                   // +0x20 frames left before the feelers run again
-    CActivationZoneModule* mp_trigger; // +0x24 the local skater's trigger component
+    CActivationZoneModule* m_triggerPtr; // +0x24 the local skater's trigger component
 };
 static_assert(offsetof(CProjectileComponent, m_riderRef) == 0x18 && offsetof(CProjectileComponent, m_seat) == 0x1C &&
-                  offsetof(CProjectileComponent, m_rest) == 0x20 && offsetof(CProjectileComponent, mp_trigger) == 0x24 &&
+                  offsetof(CProjectileComponent, m_rest) == 0x20 && offsetof(CProjectileComponent, m_triggerPtr) == 0x24 &&
                   sizeof(CProjectileComponent) == 0x28,
               "layout must match the original (0x004F3890 allocates 0x28 bytes)");
 

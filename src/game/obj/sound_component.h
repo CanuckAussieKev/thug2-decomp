@@ -91,12 +91,12 @@ public:
     Maths::Vec4 m_atPoint;             // +0x98 where it is
     Maths::Vec4 m_lastPos;         // +0xA8 where it was a frame ago
     EmitterNode* m_spewer;       // +0xB8 heard from its nearest point
-    ProximNode* mp_proxim;         // +0xBC
+    ProximNode* m_proxim;         // +0xBC
 };
 static_assert(sizeof(CAudioEmitterModule::WaitingSound) == 0x30, "layout must match the original");
 static_assert(offsetof(CAudioEmitterModule, m_soundCues) == 0x18 && offsetof(CAudioEmitterModule, m_waiting) == 0x38 &&
                   offsetof(CAudioEmitterModule, m_atPoint) == 0x98 && offsetof(CAudioEmitterModule, m_lastPos) == 0xA8 &&
-                  offsetof(CAudioEmitterModule, m_spewer) == 0xB8 && offsetof(CAudioEmitterModule, mp_proxim) == 0xBC &&
+                  offsetof(CAudioEmitterModule, m_spewer) == 0xB8 && offsetof(CAudioEmitterModule, m_proxim) == 0xBC &&
                   sizeof(CAudioEmitterModule) == 0xC0,
               "layout must match the original");
 

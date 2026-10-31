@@ -32,7 +32,7 @@ constexpr int kTextLength = 0x60;
 struct CGlyphString {
     void** m_vtable;
     CTypeface* m_typeface;          // +0x04
-    sCharEffect* mp_effects; // +0x08 (null until one is set)
+    sCharEffect* m_effects; // +0x08 (null until one is set)
     char* m_textBuffer;         // +0x0C (a buffer of its own, null until set)
     float m_posX, m_y;          // +0x10
     float m_pivotX, m_pivotY; // +0x18
@@ -47,7 +47,7 @@ struct CGlyphString {
     bool m_invisible;           // +0x3E
     bool m_zEnabled;         // +0x3F
     void* m_viewWindow;         // +0x40: the 2D window it's drawn in
-    CGlyphString* mp_nextFree;      // +0x44
+    CGlyphString* m_nextFree;      // +0x44
 
     // 0x0048D220: construct in `window` - no font, string or effects, at 0, unrotated, scale 1, grey, hidden.
     // Returns this.
@@ -88,7 +88,7 @@ struct CGlyphString {
     void SetCharRotation(int index, float rotation);
 };
 static_assert(offsetof(CGlyphString, m_rank) == 0x2C && offsetof(CGlyphString, m_layer) == 0x34 &&
-                  offsetof(CGlyphString, m_invisible) == 0x3E && offsetof(CGlyphString, mp_nextFree) == 0x44 && sizeof(CGlyphString) == 0x48,
+                  offsetof(CGlyphString, m_invisible) == 0x3E && offsetof(CGlyphString, m_nextFree) == 0x44 && sizeof(CGlyphString) == 0x48,
               "layout must match the original");
 
 // 0x0048D1D0: a text from the free list (null when it's empty).

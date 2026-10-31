@@ -110,10 +110,10 @@ int CBoneVolume::IntersectsSegment(const Maths::Seg* segment, float* s)
 CBoneVolumes* CBoneVolumes::MakeNew(uint32_t count)
 {
     m_num = count;
-    mp_volumes = nullptr;
+    m_volumes = nullptr;
     m_users = 0;
     if (count)
-        mp_volumes = NewVolumeArray(m_num);
+        m_volumes = NewVolumeArray(m_num);
     return this;
 }
 
@@ -122,10 +122,10 @@ void CBoneVolumes::Enrol(uint32_t count)
 {
     int users = m_users + 1;
     m_num = count;
-    mp_volumes = nullptr;
+    m_volumes = nullptr;
     m_users = users;
     if (count)
-        mp_volumes = NewVolumeArray(m_num);
+        m_volumes = NewVolumeArray(m_num);
     Table().StoreEntry(count, this);
 }
 
@@ -145,7 +145,7 @@ void CBoneVolumes::Fill(CRigData* data)
 {
     Scripts::CArray* descriptions = Scripts::FetchList(kBoneDescriptions);
     for (uint32_t i = 1; i < m_num; ++i) {
-        if (mp_volumes[i])
+        if (m_volumes[i])
             continue;
         for (uint32_t j = 0; j < descriptions->m_extent; ++j) {
             uint32_t bone = 0;
@@ -158,9 +158,9 @@ void CBoneVolumes::Fill(CRigData* data)
                 volume->m_vtable = kVolumeVtable;
                 new (&volume->m_capsule) Maths::Capsule();
             }
-            mp_volumes[i] = volume;
+            m_volumes[i] = volume;
             reinterpret_cast<Scripts::CStruct*>(descriptions->FetchPart(j))->FetchFloat(kRadius, &radius, 1);
-            mp_volumes[i]->m_capsule.radius = radius;
+            m_volumes[i]->m_capsule.radius = radius;
         }
     }
 }
@@ -179,7 +179,7 @@ uint32_t CBoneVolumes::SegmentHitsBone(const Maths::Seg* segment, CRig* skeleton
         WorldMatrix(&at, inverseBinds[index], pose, world);
         pose = *boneState->parent;
         ParentWorldMatrix(&parent, data, inverseBinds, index, pose, world);
-        CBoneVolume* volume = mp_volumes[index];
+        CBoneVolume* volume = m_volumes[index];
         float radius = volume ? volume->m_capsule.radius : 0.0f;
         Maths::Capsule capsule = Between(at.row[3], parent.row[3], radius);
         float distanceSquared;
@@ -201,7 +201,7 @@ uint32_t CBoneVolumes::SegmentHitsBone(const Maths::Seg* segment, CRig* skeleton
         if (i == 0)
             continue;
         Maths::Vec4 parent = positions[data->FetchParentSlot(i)];
-        CBoneVolume* volume = mp_volumes[i];
+        CBoneVolume* volume = m_volumes[i];
         if (!volume)
             continue;
         double radius = static_cast<double>(LargestScale(boneState)) * volume->m_capsule.radius;
@@ -238,7 +238,7 @@ bool CBoneVolumes::GetBoneVolume(CRig* skeleton, const Maths::Mat4* world, uint3
     pose = *boneState->parent;
     ParentWorldMatrix(&parent, data, inverseBinds, index, pose, world);
     float radius = 0.0f;
-    if (CBoneVolume* own = mp_volumes[index])
+    if (CBoneVolume* own = m_volumes[index])
         radius = LargestScale(boneState) * own->m_capsule.radius;
     *volume = static_cast<float>(CapsuleVolume(Between(at.row[3], parent.row[3], radius)));
     return true;

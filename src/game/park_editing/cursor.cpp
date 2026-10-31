@@ -70,8 +70,8 @@ void SwapWidthAndLength(SCellBox& area)
 void CBuildPointer::GlowOverlappingPieces(int on)
 {
     if (m_modeSel == kModePaste) {
-        if (mp_clipboard)
-            mp_clipboard->GlowOverlappingPieces(this, on);
+        if (m_clipboard)
+            m_clipboard->GlowOverlappingPieces(this, on);
         return;
     }
     MapListHolder metas(m_parkOwner->GetIntersectingMetas(m_cellFootprint, 0, nullptr, 0));
@@ -99,8 +99,8 @@ void CBuildPointer::ShiftBy(int dx, int dz)
 
     // Stand on the floor: the paste at its own height, otherwise the higher of the new and the old cells.
     if (m_modeSel == kModePaste) {
-        if (mp_clipboard) {
-            m_clipboardHeight = mp_clipboard->FetchTallness(this);
+        if (m_clipboard) {
+            m_clipboardHeight = m_clipboard->FetchTallness(this);
             m_cellFootprint.y = static_cast<int8_t>(m_clipboardHeight);
         } else {
             m_cellFootprint.y = 0;
@@ -133,7 +133,7 @@ void CBuildPointer::ShiftBy(int dx, int dz)
         m_parkOwner->HighlightGapPieces(1, &m_gap);
     } else {
         CParkLayout* manager = m_parkOwner;
-        for (CMapListNode* node = manager->mp_concrete_metas; node; node = node->m_following) {
+        for (CMapListNode* node = manager->m_concrete_metas; node; node = node->m_following) {
             if (node->GetPlacedPiece()->m_flagBits & CPieceGroup::kHighlightable)
                 node->GetPlacedPiece()->Spotlight(1, 1);
         }
@@ -223,8 +223,8 @@ void CBuildPointer::TickFrame(float offsetCellX, float offsetCellZ, int turnStep
                          static_cast<float>(static_cast<double>(m_atPoint.z) - kShowInset),
                          static_cast<float>(static_cast<double>(m_atPoint.w) + 1.0)};
     if (m_modeSel == kModePaste) {
-        if (mp_clipboard)
-            mp_clipboard->PreviewPieces(shown, m_angle, m_clipboardHeight);
+        if (m_clipboard)
+            m_clipboard->PreviewPieces(shown, m_angle, m_clipboardHeight);
         return;
     }
     for (CClipboard* clipboard = m_copyBuffers; clipboard; clipboard = clipboard->m_following)
@@ -370,7 +370,7 @@ void CBuildPointer::SwitchToClipboard()
 
     for (CClipboard* clipboard = m_copyBuffers; clipboard; clipboard = clipboard->m_following)
         clipboard->FreeAllPieceGroups();
-    mp_clipboard = m_copyBuffers;
+    m_clipboard = m_copyBuffers;
     DestroyCursorMeta();
     if (m_modeSel != kModePaste) {
         m_modeSel = kModePaste;
@@ -436,7 +436,7 @@ CBuildPointer* CBuildPointer::MakeNew()
     m_boxSelectStage = 0;
     m_areaHighlighted = false;
     m_copyBuffers = nullptr;
-    mp_clipboard = nullptr;
+    m_clipboard = nullptr;
     m_moveTime = 1.0f;
     m_pasteSetIndex = 0;
     m_menuIndex = 0;

@@ -18,7 +18,7 @@ struct PrefixNodes {
     void AppendOne(uint16_t index);
 
     int m_num;
-    uint16_t* mp_indices;
+    uint16_t* m_indices;
     uint32_t m_namePrefix;
 };
 static_assert(sizeof(PrefixNodes) == 0xC, "allocated as 0xC bytes");
@@ -50,7 +50,7 @@ struct PrefixTables {
     // many).
     uint32_t* GetNodes(uint32_t prefix, uint16_t* count);
 
-    PrefixTable* mp_first;
+    PrefixTable* m_firstPtr;
 };
 
 PrefixTables*& NodePrefixes();

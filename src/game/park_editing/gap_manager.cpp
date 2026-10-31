@@ -52,8 +52,8 @@ CGapRegistry::Gap* NewGap()
     auto* gap = static_cast<CGapRegistry::Gap*>(MemSys::AllocZeroed(sizeof(CGapRegistry::Gap)));
     if (gap) {
         gap->m_details.MakeNew();
-        gap->mp_pieces[0] = gap->mp_pieces[1] = nullptr;
-        gap->mp_metas[0] = gap->mp_metas[1] = nullptr;
+        gap->m_pieces[0] = gap->m_pieces[1] = nullptr;
+        gap->m_metas[0] = gap->m_metas[1] = nullptr;
         gap->m_details.m_cancelFlags = 0;
     }
     return gap;
@@ -76,7 +76,7 @@ void CGapRegistry::UpdateChecklist()
     if (!checklist)
         return;
     checklist->Clear();
-    for (Gap* gap : mp_gaps) {
+    for (Gap* gap : m_gapsPtr) {
         if (gap)
             checklist->RegisterGapEntry(gap->m_details.m_text, 0, gap->m_details.m_pointsHeld);
     }
@@ -85,16 +85,16 @@ void CGapRegistry::UpdateChecklist()
 // 0x0058CDA0
 void CGapRegistry::StoreGapDetails(int index, SGapDetails* info)
 {
-    std::sprintf(mp_gaps[index]->m_label, "%s", info->m_text);
-    mp_gaps[index]->m_details = *info;
+    std::sprintf(m_gapsPtr[index]->m_label, "%s", info->m_text);
+    m_gapsPtr[index]->m_details = *info;
     UpdateChecklist();
 }
 
 // 0x0058CDF0
 void CGapRegistry::DropGapEntry(int index, bool forget)
 {
-    Gap* gap = mp_gaps[index];
-    for (CParkTile* piece : gap->mp_pieces) {
+    Gap* gap = m_gapsPtr[index];
+    for (CParkTile* piece : gap->m_pieces) {
         if (piece)
             m_parkOwner->m_builder->DestroyPiece(piece);
     }
@@ -103,7 +103,7 @@ void CGapRegistry::DropGapEntry(int index, bool forget)
         if (checklistIndex >= 0)
             RemoveGapFromGoals(checklistIndex);
     }
-    for (Gap*& slot : mp_gaps) {
+    for (Gap*& slot : m_gapsPtr) {
         if (slot == gap)
             slot = nullptr;
     }
@@ -114,7 +114,7 @@ void CGapRegistry::DropGapEntry(int index, bool forget)
 void CGapRegistry::ClearGapEntries()
 {
     for (int i = 0; i < kMaxGaps; ++i) {
-        if (mp_gaps[i])
+        if (m_gapsPtr[i])
             DropGapEntry(i, false);
     }
 }
@@ -124,17 +124,17 @@ void CGapRegistry::SetTriggerLength(CParkTile* piece)
 {
     float length = 0.0f; // (the float at 0x0066D520)
     for (int i = 0; i < kMaxGaps; ++i) {
-        Gap* gap = mp_gaps[i];
+        Gap* gap = m_gapsPtr[i];
         if (!gap)
             continue;
         int half;
-        if (gap->mp_pieces[0] == piece)
+        if (gap->m_pieces[0] == piece)
             half = 0;
-        else if (gap->mp_pieces[1] == piece)
+        else if (gap->m_pieces[1] == piece)
             half = 1;
         else
             continue;
-        length = mp_gaps[i]->m_details.FetchMagnitude(half);
+        length = m_gapsPtr[i]->m_details.FetchMagnitude(half);
         break;
     }
     // the trigger piece's length in cells
@@ -153,18 +153,18 @@ void CGapRegistry::CopyFrom(CGapRegistry* other)
 {
     m_nextId = other->m_nextId;
     for (int i = 0; i < kMaxGaps; ++i) {
-        const Gap* source = other->mp_gaps[i];
+        const Gap* source = other->m_gapsPtr[i];
         if (source) {
             Gap* gap = NewGap();
             gap->m_ids[0] = source->m_ids[0];
             gap->m_ids[1] = source->m_ids[1];
-            gap->mp_pieces[0] = gap->mp_pieces[1] = nullptr;
-            gap->mp_metas[0] = gap->mp_metas[1] = nullptr;
+            gap->m_pieces[0] = gap->m_pieces[1] = nullptr;
+            gap->m_metas[0] = gap->m_metas[1] = nullptr;
             std::strcpy(gap->m_label, source->m_label);
             gap->m_details = source->m_details;
-            mp_gaps[i] = gap;
+            m_gapsPtr[i] = gap;
         } else {
-            mp_gaps[i] = nullptr;
+            m_gapsPtr[i] = nullptr;
         }
         m_startedFirst[i] = other->m_startedFirst[i];
     }
@@ -175,11 +175,11 @@ void CGapRegistry::CopyFrom(CGapRegistry* other)
 void CGapRegistry::StartGap(void* piece, CPieceGroup* meta, int index)
 {
     Gap* gap = NewGap();
-    mp_gaps[index] = gap;
+    m_gapsPtr[index] = gap;
     gap->m_ids[0] = m_nextId++;
-    mp_gaps[index]->mp_pieces[0] = static_cast<CParkTile*>(piece);
-    mp_gaps[index]->mp_metas[0] = meta;
-    mp_gaps[index]->m_details.m_tabIndex = index;
+    m_gapsPtr[index]->m_pieces[0] = static_cast<CParkTile*>(piece);
+    m_gapsPtr[index]->m_metas[0] = meta;
+    m_gapsPtr[index]->m_details.m_tabIndex = index;
     m_startedFirst[index] = true;
 }
 
@@ -190,13 +190,13 @@ void CGapRegistry::FireGap(int index, Scripts::CScript* script)
         int half = m_startedFirst[index] ? i : 1 - i;
         Scripts::CStruct* memory = Scripts::SpawnParamBag();
         Scripts::CStruct* params = memory ? memory->PrepareAll() : nullptr;
-        Gap* gap = mp_gaps[index];
+        Gap* gap = m_gapsPtr[index];
         params->PutNameKey(kGapId, gap->m_ids[half]);
-        params->PutInt(kScore, mp_gaps[index]->m_details.m_pointsHeld);
-        params->AppendWord(kText, mp_gaps[index]->m_label);
+        params->PutInt(kScore, m_gapsPtr[index]->m_details.m_pointsHeld);
+        params->AppendWord(kText, m_gapsPtr[index]->m_label);
         uint32_t name = kEndGap;
         if (i == 0) {
-            uint32_t flags = mp_gaps[index]->m_details.m_cancelFlags;
+            uint32_t flags = m_gapsPtr[index]->m_details.m_cancelFlags;
             if (!flags)
                 flags = static_cast<uint32_t>(Scripts::FetchIntValue(kCancelGround));
             params->PutNameKey(kCombinedFlags, flags);

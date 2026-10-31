@@ -102,7 +102,7 @@ CParagraphWidget* CParagraphWidget::MakeNew()
     m_fontName = 0;
     m_linesHeight = 0.0f;
     m_numElements = 0;
-    mp_blur = nullptr;
+    m_blur = nullptr;
     m_mayGrow = false;
     m_overrideRgba = false;
     m_rememberedOverride = false;
@@ -114,7 +114,7 @@ CParagraphWidget* CParagraphWidget::MakeNew()
 void CParagraphWidget::DestroyBody()
 {
     m_vtable = kCTextBlockElementVtable;
-    DeleteBlur(mp_blur);
+    DeleteBlur(m_blur);
     CUiWidget::DestroyBody();
 }
 
@@ -153,7 +153,7 @@ void CParagraphWidget::AddWords(const char* text)
         width = static_cast<float>(static_cast<double>(width) * m_internalScale);
         bool full = m_lineWidth > 0.0f && static_cast<double>(width) + m_lineWidth > m_span;
         if (full || previous == 1 || std::strlen(word) + static_cast<size_t>(m_lineLength) >= kLineChars) {
-            char* last = mp_lines[m_line] + m_lineLength - 1;
+            char* last = m_lines[m_line] + m_lineLength - 1;
             if (*last == ' ')
                 *last = 0;
             ++m_numLines;
@@ -162,7 +162,7 @@ void CParagraphWidget::AddWords(const char* text)
             m_lineLength = 0;
             m_lineWidth = 0.0f;
         }
-        CopyText(mp_lines[m_line] + m_lineLength, word);
+        CopyText(m_lines[m_line] + m_lineLength, word);
         m_lineLength += static_cast<int>(std::strlen(word));
         m_lineWidth = static_cast<float>(static_cast<double>(width) + m_lineWidth);
         previous = result;
@@ -176,7 +176,7 @@ void CParagraphWidget::ChangeCaption(const char** texts, int count)
     SetFocusSent(0);
     {
         ElementPtr child;
-        child.AssignValue(mp_firstChild.m_ownerObject);
+        child.AssignValue(m_eldest.m_ownerObject);
         while (child) {
             ElementPtr next;
             next.AssignValue(child->m_following.m_ownerObject);
@@ -186,13 +186,13 @@ void CParagraphWidget::ChangeCaption(const char** texts, int count)
     }
     MemSys::Hub* memory = MemSys::Hub::Pull();
     memory->EnterHeapScope(memory->m_frontEndHeap);
-    mp_lines = static_cast<char**>(MemSys::Alloc(kLineBuffers * sizeof(char*)));
-    mp_lines[0] = static_cast<char*>(MemSys::Alloc(kLineBuffers * kLineChars));
+    m_lines = static_cast<char**>(MemSys::Alloc(kLineBuffers * sizeof(char*)));
+    m_lines[0] = static_cast<char*>(MemSys::Alloc(kLineBuffers * kLineChars));
     MemSys::Hub::Pull()->LeaveHeapScope();
     for (int i = 1; i < kLineBuffers; ++i)
-        mp_lines[i] = mp_lines[0] + kLineChars * i;
+        m_lines[i] = m_lines[0] + kLineChars * i;
     for (int i = 0; i < kLineBuffers; ++i)
-        mp_lines[i][0] = 0;
+        m_lines[i][0] = 0;
     m_lineLength = 0;
     m_numLines = 0;
     m_line = 0;
@@ -249,15 +249,15 @@ void CParagraphWidget::ChangeCaption(const char** texts, int count)
         line->m_fontName = m_fontName;
         line->m_typeface = GetFont(m_fontName);
         line->m_objectFlags |= kVisibleNow;
-        line->ChangeCaption(mp_lines[first]);
+        line->ChangeCaption(m_lines[first]);
         line->ChangeScale(m_internalScale, m_internalScale, false, 0);
         m_linesHeight = static_cast<float>(static_cast<double>(line->m_levelY) * m_internalScale * m_lineSpacing +
                                            m_linesHeight);
         if (++first >= m_maxLines)
             first = 0;
     }
-    MemSys::Dealloc(mp_lines[0]);
-    MemSys::Dealloc(mp_lines);
+    MemSys::Dealloc(m_lines[0]);
+    MemSys::Dealloc(m_lines);
     SetFocusSent(1);
     m_objectFlags |= kVisibleNow;
 }
@@ -268,7 +268,7 @@ bool CParagraphWidget::FetchCaption(char* out, int size)
     *out = 0;
     int total = 0;
     ElementPtr child;
-    child.AssignValue(mp_firstChild.m_ownerObject);
+    child.AssignValue(m_eldest.m_ownerObject);
     while (child) {
         ElementPtr next;
         next.AssignValue(child->m_following.m_ownerObject);
@@ -291,7 +291,7 @@ int CParagraphWidget::FetchMagnitude()
 {
     int total = 0;
     ElementPtr child;
-    child.AssignValue(mp_firstChild.m_ownerObject);
+    child.AssignValue(m_eldest.m_ownerObject);
     while (child) {
         ElementPtr next;
         next.AssignValue(child->m_following.m_ownerObject);
@@ -350,10 +350,10 @@ bool CParagraphWidget::JoinOnto(const char* text, bool enforceMaxWidth, bool las
 void CParagraphWidget::UpdateLines()
 {
     ElementPtr child;
-    child.AssignValue(mp_firstChild.m_ownerObject);
+    child.AssignValue(m_eldest.m_ownerObject);
     while (child) {
         CLabelWidget* line = AsText(child.m_ownerObject);
-        if (mp_blur)
+        if (m_blur)
             line->EnableBlur();
         else
             line->DisableBlur();
@@ -398,19 +398,19 @@ void CParagraphWidget::ChangeTraits(CStruct* params)
             texts[i] = array->FetchText(static_cast<uint32_t>(i));
         ChangeCaption(texts, count < kMaxTexts ? count : kMaxTexts);
     }
-    if (params->HasBareFlag(kBlurEffect) && !mp_blur) {
+    if (params->HasBareFlag(kBlurEffect) && !m_blur) {
         MemSys::Hub* memory = MemSys::Hub::Pull();
         memory->EnterHeapScope(memory->m_frontEndHeap);
-        mp_blur = static_cast<CSmearEffect*>(MemSys::Alloc(sizeof(CSmearEffect)));
-        std::memcpy(&mp_blur->m_rgbaValue, m_shown.rgba, 4);
+        m_blur = static_cast<CSmearEffect*>(MemSys::Alloc(sizeof(CSmearEffect)));
+        std::memcpy(&m_blur->m_rgbaValue, m_shown.rgba, 4);
         MemSys::Hub::Pull()->LeaveHeapScope();
-    } else if (params->HasBareFlag(kNoBlurEffect) && mp_blur) {
-        DeleteBlur(mp_blur);
-        mp_blur = nullptr;
+    } else if (params->HasBareFlag(kNoBlurEffect) && m_blur) {
+        DeleteBlur(m_blur);
+        m_blur = nullptr;
     }
     uint32_t rgba;
-    if (ReadColourParam(params, kHaloColor, &rgba) && mp_blur)
-        mp_blur->m_rgbaValue = rgba;
+    if (ReadColourParam(params, kHaloColor, &rgba) && m_blur)
+        m_blur->m_rgbaValue = rgba;
     Scripts::CPair offset;
     offset.PrepareAll();
     if (params->FetchPair(kShadowOffs, &offset, false)) {
@@ -440,12 +440,12 @@ void CParagraphWidget::ChangeTraits(CStruct* params)
 // 0x004B0B60
 void CParagraphWidget::BlendTowards(CStruct* params)
 {
-    if (mp_blur) {
+    if (m_blur) {
         reinterpret_cast<void(__thiscall*)(CParagraphWidget*)>(m_vtable[10])(this);
         int ms;
-        CSmearEffect::Settings* target = mp_blur->SetFromParams(params, &ms);
+        CSmearEffect::Settings* target = m_blur->SetFromParams(params, &ms);
         ElementPtr child;
-        child.AssignValue(mp_firstChild.m_ownerObject);
+        child.AssignValue(m_eldest.m_ownerObject);
         while (child) {
             // each line's blur displaced towards the block's middle by how far its middle is from it
             CSmearEffect::Settings settings = *target;
@@ -455,7 +455,7 @@ void CParagraphWidget::BlendTowards(CStruct* params)
             double offset = static_cast<double>(m_levelY) * Half() - y;
             settings.maxDisplacement[1] = static_cast<float>(offset * target->bottomScales[1] - offset +
                                                              settings.maxDisplacement[1]);
-            AsText(child.m_ownerObject)->mp_blur->SetTarget(&settings, ms);
+            AsText(child.m_ownerObject)->m_blur->SetTarget(&settings, ms);
             child.AssignValue(child->m_following.m_ownerObject);
         }
     }
@@ -470,7 +470,7 @@ void CParagraphWidget::TickFrame()
     float y = static_cast<float>((static_cast<double>(m_levelY) - m_linesHeight) * (static_cast<double>(m_innerAlignV) + One()) *
                                  Half());
     ElementPtr child;
-    child.AssignValue(mp_firstChild.m_ownerObject);
+    child.AssignValue(m_eldest.m_ownerObject);
     for (int i = 0; i < m_numElements; ++i) {
         child->ChangeAlignment(m_innerAlignH, -1.0f);
         uint32_t rgba;

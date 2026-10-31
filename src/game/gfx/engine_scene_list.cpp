@@ -179,7 +179,7 @@ CCollGrid* __cdecl GetFirstCollGrid()
         return nullptr;
     do {
         MemSys::ListNode* next = NextNode(node);
-        if (CCollGrid* grid = SceneOf(node)->mp_collGrid)
+        if (CCollGrid* grid = SceneOf(node)->m_collGrid)
             return grid;
         node = next;
     } while (node);
@@ -204,7 +204,7 @@ CCollGrid** __cdecl GetCollGridsOnLine(const Maths::Seg* line)
     do {
         MemSys::ListNode* next = NextNode(node);
         CWorldScene* scene = SceneOf(node);
-        CCollGrid* grid = scene->mp_collGrid;
+        CCollGrid* grid = scene->m_collGrid;
         // (each "past" test as the original: NaN doesn't rule a grid out)
         if (grid && !(grid->m_box.min.x > box.max.x) && !(box.min.x > grid->m_box.max.x) &&
             !(grid->m_box.min.z > box.max.z) && !(box.min.z > grid->m_box.max.z) &&

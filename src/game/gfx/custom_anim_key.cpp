@@ -196,18 +196,18 @@ void CAnimScriptKey::AssignValue(int frame, uint32_t event, Scripts::CStruct* pa
     m_armed = false;
     m_kindTag = event;
     Scripts::CStruct* memory = Scripts::SpawnParamBag();
-    mp_params = memory ? memory->PrepareAll() : nullptr;
-    mp_params->AppendStructureIfAny(params);
+    m_callArgs = memory ? memory->PrepareAll() : nullptr;
+    m_callArgs->AppendStructureIfAny(params);
 }
 
 // 0x00486560
 void CAnimScriptKey::DestroyBody()
 {
     m_vtable = kScriptKeyVtable;
-    if (Scripts::CStruct* params = mp_params) {
+    if (Scripts::CStruct* params = m_callArgs) {
         params->Clear();
         Scripts::DeleteStruct(params);
-        mp_params = nullptr;
+        m_callArgs = nullptr;
     }
     m_vtable = kBaseVtable;
 }
@@ -215,7 +215,7 @@ void CAnimScriptKey::DestroyBody()
 // 0x00486440
 bool CAnimScriptKey::WorkOn(void* object)
 {
-    static_cast<GameObjects::CEntity*>(object)->PostOwnEvent(m_kindTag, mp_params);
+    static_cast<GameObjects::CEntity*>(object)->PostOwnEvent(m_kindTag, m_callArgs);
     return true;
 }
 

@@ -57,15 +57,15 @@ public:
     // less the object's, through the object's inverted orientation.
     void UpdateContactPoint();
 
-    CRideTracker* mp_ride;            // +0x18
+    CRideTracker* m_ride;            // +0x18
     Maths::Vec4 m_contactPoint;       // +0x1C in the object's frame
     uint8_t m_unknown2C[0x40];        // +0x2C
-    CGameEntity* mp_lastObject;  // +0x6C the object last ridden
+    CGameEntity* m_lastObject;  // +0x6C the object last ridden
     int m_stopTime;                   // +0x70 the game clock when it stopped riding
 };
-static_assert(offsetof(CMovingSurfaceModule, mp_ride) == 0x18 &&
+static_assert(offsetof(CMovingSurfaceModule, m_ride) == 0x18 &&
                   offsetof(CMovingSurfaceModule, m_contactPoint) == 0x1C &&
-                  offsetof(CMovingSurfaceModule, mp_lastObject) == 0x6C &&
+                  offsetof(CMovingSurfaceModule, m_lastObject) == 0x6C &&
                   offsetof(CMovingSurfaceModule, m_stopTime) == 0x70 && sizeof(CMovingSurfaceModule) == 0x74,
               "layout must match the original (0x00427AB0 allocates 0x74 bytes)");
 

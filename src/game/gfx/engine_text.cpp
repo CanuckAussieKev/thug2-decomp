@@ -75,7 +75,7 @@ CGlyphString* CGlyphString::MakeNew(void* window)
     m_scaleV = 1.0f;
     m_vtable = reinterpret_cast<void**>(kTextVtable);
     m_typeface = nullptr;
-    mp_effects = nullptr;
+    m_effects = nullptr;
     m_posX = 0.0f;
     m_y = 0.0f;
     m_pivotX = 0.0f;
@@ -88,7 +88,7 @@ CGlyphString* CGlyphString::MakeNew(void* window)
     m_invisible = true;
     m_zEnabled = false;
     m_viewWindow = window;
-    mp_nextFree = nullptr;
+    m_nextFree = nullptr;
     m_textBuffer = nullptr;
     return this;
 }
@@ -99,9 +99,9 @@ void CGlyphString::DestroyBody()
     m_vtable = reinterpret_cast<void**>(kTextVtable);
     if (m_textBuffer)
         MemSys::Dealloc(m_textBuffer); // (not cleared, as the original)
-    if (mp_effects) {
-        DeleteEffects(mp_effects);
-        mp_effects = nullptr;
+    if (m_effects) {
+        DeleteEffects(m_effects);
+        m_effects = nullptr;
     }
 }
 
@@ -121,9 +121,9 @@ void CGlyphString::FreeBuffers()
         MemSys::Dealloc(m_textBuffer);
         m_textBuffer = nullptr;
     }
-    if (mp_effects) {
-        DeleteEffects(mp_effects);
-        mp_effects = nullptr;
+    if (m_effects) {
+        DeleteEffects(m_effects);
+        m_effects = nullptr;
     }
 }
 
@@ -218,29 +218,29 @@ void CGlyphString::ChangeText(const char* string)
 // 0x0048D280
 void CGlyphString::SetCharOffset(int index, int16_t x, int16_t y)
 {
-    if (!mp_effects)
-        mp_effects = NewEffects();
-    mp_effects[index].x = x;
-    mp_effects[index].y = y;
+    if (!m_effects)
+        m_effects = NewEffects();
+    m_effects[index].x = x;
+    m_effects[index].y = y;
     TickFrame(this, 3);
 }
 
 // 0x0048D360
 void CGlyphString::SetCharScale(int index, float x, float y)
 {
-    if (!mp_effects)
-        mp_effects = NewEffects();
-    mp_effects[index].xscale = Fixed(x);
-    mp_effects[index].yscale = Fixed(y);
+    if (!m_effects)
+        m_effects = NewEffects();
+    m_effects[index].xscale = Fixed(x);
+    m_effects[index].yscale = Fixed(y);
     TickFrame(this, 3);
 }
 
 // 0x0048D450
 void CGlyphString::SetCharRotation(int index, float rotation)
 {
-    if (!mp_effects)
-        mp_effects = NewEffects();
-    mp_effects[index].rotation = Fixed(rotation);
+    if (!m_effects)
+        m_effects = NewEffects();
+    m_effects[index].rotation = Fixed(rotation);
     TickFrame(this, 3);
 }
 
@@ -249,7 +249,7 @@ CGlyphString* __cdecl NewText()
 {
     CGlyphString* text = FreeList();
     if (text)
-        FreeList() = text->mp_nextFree;
+        FreeList() = text->m_nextFree;
     return text;
 }
 
@@ -259,7 +259,7 @@ void __cdecl FreeText(CGlyphString* text)
     text->m_invisible = true;
     TickFrame(text, 2);
     text->FreeBuffers();
-    text->mp_nextFree = FreeList();
+    text->m_nextFree = FreeList();
     FreeList() = text;
 }
 

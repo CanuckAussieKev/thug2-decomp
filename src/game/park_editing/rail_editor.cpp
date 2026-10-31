@@ -126,24 +126,24 @@ void CEditedRailPoint::ClearGlow()
         ClearSectorColour(sector);
         SetSectorVisibility(sector, 0xFFFFFFFF);
     };
-    if (mp_post)
-        restore(mp_post);
-    if (mp_segment)
-        restore(mp_segment);
-    if (m_preceding && m_preceding->mp_segment)
-        restore(m_preceding->mp_segment);
-    if (m_following && !m_following->m_following && m_following->mp_post)
-        restore(m_following->mp_post);
-    if (m_preceding && !m_preceding->m_preceding && m_preceding->mp_post)
-        restore(m_preceding->mp_post);
+    if (m_post)
+        restore(m_post);
+    if (m_segment)
+        restore(m_segment);
+    if (m_preceding && m_preceding->m_segment)
+        restore(m_preceding->m_segment);
+    if (m_following && !m_following->m_following && m_following->m_post)
+        restore(m_following->m_post);
+    if (m_preceding && !m_preceding->m_preceding && m_preceding->m_post)
+        restore(m_preceding->m_post);
     m_highlighted = false;
 }
 
 // 0x004F40A0
-void CEditedRailPoint::DeleteSegment() { RemoveSceneSector(mp_segment); }
+void CEditedRailPoint::DeleteSegment() { RemoveSceneSector(m_segment); }
 
 // 0x004F40F0
-void CEditedRailPoint::DeletePost() { RemoveSceneSector(mp_post); }
+void CEditedRailPoint::DeletePost() { RemoveSceneSector(m_post); }
 
 // 0x004F4140
 void CEditedRailPoint::Pack(uint16_t* record) const
@@ -164,7 +164,7 @@ void CEditedRailPoint::Pack(uint16_t* record) const
 CEditedRail* CEditedRail::MakeNew()
 {
     m_ident = NextRailId()++;
-    mp_points = nullptr;
+    m_pointChain = nullptr;
     m_following = nullptr;
     m_preceding = nullptr;
     Clear();
@@ -174,22 +174,22 @@ CEditedRail* CEditedRail::MakeNew()
 // 0x004F6E20
 void CEditedRail::Clear()
 {
-    CEditedRailPoint* point = mp_points;
+    CEditedRailPoint* point = m_pointChain;
     while (point) {
         CEditedRailPoint* next = point->m_following;
-        RemoveSceneSector(point->mp_segment);
-        RemoveSceneSector(point->mp_post);
+        RemoveSceneSector(point->m_segment);
+        RemoveSceneSector(point->m_post);
         PointPools().Dealloc(point);
         point = next;
     }
-    mp_points = nullptr;
+    m_pointChain = nullptr;
 }
 
 // 0x004F3B90
 int CEditedRail::RailPointTotal() const
 {
     int count = 0;
-    for (CEditedRailPoint* p = mp_points; p; p = p->m_following)
+    for (CEditedRailPoint* p = m_pointChain; p; p = p->m_following)
         ++count;
     return count;
 }
@@ -197,7 +197,7 @@ int CEditedRail::RailPointTotal() const
 // 0x004F3BB0
 CEditedRailPoint* CEditedRail::FetchVertexAt(int index) const
 {
-    CEditedRailPoint* p = mp_points;
+    CEditedRailPoint* p = m_pointChain;
     while (index != 0) {
         if (!p)
             return nullptr;
@@ -210,33 +210,33 @@ CEditedRailPoint* CEditedRail::FetchVertexAt(int index) const
 // 0x004F3BD0
 void CEditedRail::ClearColours()
 {
-    for (CEditedRailPoint* p = mp_points; p; p = p->m_following) {
-        if (p->mp_post)
-            ClearSectorColour(p->mp_post);
-        if (p->mp_segment)
-            ClearSectorColour(p->mp_segment);
+    for (CEditedRailPoint* p = m_pointChain; p; p = p->m_following) {
+        if (p->m_post)
+            ClearSectorColour(p->m_post);
+        if (p->m_segment)
+            ClearSectorColour(p->m_segment);
     }
 }
 
 // 0x004F41C0
 void CEditedRail::DeleteSegments()
 {
-    for (CEditedRailPoint* p = mp_points; p; p = p->m_following)
-        RemoveSceneSector(p->mp_segment);
+    for (CEditedRailPoint* p = m_pointChain; p; p = p->m_following)
+        RemoveSceneSector(p->m_segment);
 }
 
 // 0x004F4220
 void CEditedRail::DeletePosts()
 {
-    for (CEditedRailPoint* p = mp_points; p; p = p->m_following)
-        RemoveSceneSector(p->mp_post);
+    for (CEditedRailPoint* p = m_pointChain; p; p = p->m_following)
+        RemoveSceneSector(p->m_post);
 }
 
 // 0x004F4280
 bool CEditedRail::FindNearestPoint(const Maths::Vec4* position, Maths::Vec4* point, float* distanceSquared, int* index,
                                    int skip) const
 {
-    const CEditedRailPoint* p = mp_points;
+    const CEditedRailPoint* p = m_pointChain;
     if (!p)
         return false;
     float best = 1e8f;
@@ -260,7 +260,7 @@ bool CEditedRail::FindNearestPoint(const Maths::Vec4* position, Maths::Vec4* poi
 int CEditedRail::CountPointsInside(float x0, float z0, float x1, float z1) const
 {
     int count = 0;
-    for (const CEditedRailPoint* p = mp_points; p; p = p->m_following) {
+    for (const CEditedRailPoint* p = m_pointChain; p; p = p->m_following) {
         if (Inside(p, x0, z0, x1, z1))
             ++count;
     }
@@ -274,18 +274,18 @@ void CEditedRail::ChangeColour(int index)
     auto* colour = reinterpret_cast<Scripts::CArray*>(colours->FetchPart(static_cast<uint32_t>(index)));
     uint32_t rgba = static_cast<uint8_t>(colour->FetchPart(0)) | static_cast<uint8_t>(colour->FetchPart(1)) << 8 |
                     static_cast<uint32_t>(static_cast<uint8_t>(colour->FetchPart(2))) << 16 | 0x80000000u;
-    for (CEditedRailPoint* p = mp_points; p; p = p->m_following) {
-        if (p->mp_post)
-            SetSectorColour(p->mp_post, rgba);
-        if (p->mp_segment)
-            SetSectorColour(p->mp_segment, rgba);
+    for (CEditedRailPoint* p = m_pointChain; p; p = p->m_following) {
+        if (p->m_post)
+            SetSectorColour(p->m_post, rgba);
+        if (p->m_segment)
+            SetSectorColour(p->m_segment, rgba);
     }
 }
 
 // 0x004F44B0
 bool CEditedRail::AnyPointOutside(float x0, float z0, float x1, float z1) const
 {
-    for (const CEditedRailPoint* p = mp_points; p; p = p->m_following) {
+    for (const CEditedRailPoint* p = m_pointChain; p; p = p->m_following) {
         if (p->m_atPoint.x < x0 || p->m_atPoint.x > x1 || p->m_atPoint.z < z0 || p->m_atPoint.z > z1)
             return true;
     }
@@ -306,15 +306,15 @@ CEditedRailPoint* CEditedRail::AppendRailVertex()
         point->m_levelY = 0.0f;
         point->m_following = nullptr;
         point->m_preceding = nullptr;
-        point->mp_segment = nullptr;
-        point->mp_post = nullptr;
+        point->m_segment = nullptr;
+        point->m_post = nullptr;
     }
     // (a failed allocation crashes here, as in the original)
-    point->m_following = mp_points;
-    if (mp_points)
-        mp_points->m_preceding = point;
+    point->m_following = m_pointChain;
+    if (m_pointChain)
+        m_pointChain->m_preceding = point;
     point->m_preceding = nullptr;
-    mp_points = point;
+    m_pointChain = point;
     return point;
 }
 
@@ -338,8 +338,8 @@ CEditedRailPoint* CEditedRail::CutAt(CEditedRailPoint* point)
         if (rails.pools[rails.current]->m_takenCount == CRailAuthoring::kMaxRails)
             return nullptr;
     }
-    if (point == mp_points) {
-        mp_points = point->m_following;
+    if (point == m_pointChain) {
+        m_pointChain = point->m_following;
         if (point->m_following)
             point->m_following->m_preceding = nullptr;
         point->DeleteSegment();
@@ -362,7 +362,7 @@ CEditedRailPoint* CEditedRail::CutAt(CEditedRailPoint* point)
 void CEditedRail::CopyFrom(const CEditedRail* source)
 {
     Clear();
-    for (const CEditedRailPoint* p = source->mp_points; p; p = p->m_following)
+    for (const CEditedRailPoint* p = source->m_pointChain; p; p = p->m_following)
         AddPointCopy(p);
 }
 
@@ -371,7 +371,7 @@ CEditedRail* CEditedRail::CopyInside(float x0, float z0, float x1, float z1, CEd
 {
     bool lastInside = false;
     const CEditedRailPoint* first = nullptr; // an inside point waiting for a second
-    for (const CEditedRailPoint* p = mp_points; p; p = p->m_following) {
+    for (const CEditedRailPoint* p = m_pointChain; p; p = p->m_following) {
         if (!Inside(p, x0, z0, x1, z1)) {
             first = nullptr;
             lastInside = false;
@@ -419,9 +419,9 @@ CRailAuthoring* CRailAuthoring::MakeNew()
     m_kindTag = kType;
     MakePointPool(kMaxPoints, "CEditedRailPoint");
     MakeRailPool(kMaxRails, "CEditedRail");
-    mp_input = nullptr;
+    m_inputPtr = nullptr;
     m_viewCamera = nullptr;
-    mp_dottedLine = nullptr;
+    m_dottedLine = nullptr;
     m_dottedLineName = 0;
     m_railGroups = nullptr;
     std::memset(&m_packed, 0, sizeof(m_packed));
@@ -451,7 +451,7 @@ CRailAuthoring* CRailAuthoring::Teardown(unsigned int flags)
 // 0x004F47E0
 void CRailAuthoring::Seal()
 {
-    mp_input = m_entity->FetchModule(kInput);
+    m_inputPtr = m_entity->FetchModule(kInput);
     m_viewCamera = m_entity->FetchModule(kEditorCamera);
 }
 
@@ -528,7 +528,7 @@ void CRailAuthoring::DeleteShortRails()
     CEditedRail* rail = m_railGroups;
     while (rail) {
         CEditedRail* next = rail->m_following;
-        if (!rail->mp_points || !rail->mp_points->m_following) {
+        if (!rail->m_pointChain || !rail->m_pointChain->m_following) {
             Uncouple(this, rail);
             rail->Clear();
             FreeRail(rail);
@@ -543,21 +543,21 @@ bool CRailAuthoring::CutRail(CEditedRail* rail, CEditedRailPoint* point)
     CEditedRailPoint* rest = rail->CutAt(point);
     if (!rest)
         return false;
-    NewRail()->mp_points = rest;
+    NewRail()->m_pointChain = rest;
     return true;
 }
 
 // 0x004F7410
 bool CRailAuthoring::CutPointInOrOut(CEditedRail* rail, float x0, float z0, float x1, float z1, int inside)
 {
-    CEditedRailPoint* p = rail->mp_points;
+    CEditedRailPoint* p = rail->m_pointChain;
     while (p) {
         CEditedRailPoint* next = p->m_following;
         bool cut = Inside(p, x0, z0, x1, z1) ? inside == 1 : inside == 0;
         if (cut) {
             CEditedRailPoint* rest = rail->CutAt(p);
             if (rest) {
-                NewRail()->mp_points = rest;
+                NewRail()->m_pointChain = rest;
                 return true;
             }
         }
@@ -632,7 +632,7 @@ int CRailAuthoring::RailPointTotal() const
 {
     int count = 0;
     for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following) {
-        for (CEditedRailPoint* p = rail->mp_points; p; p = p->m_following)
+        for (CEditedRailPoint* p = rail->m_pointChain; p; p = p->m_following)
             ++count;
     }
     return count;
@@ -642,7 +642,7 @@ int CRailAuthoring::RailPointTotal() const
 void CRailAuthoring::UnHighlightAll()
 {
     for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following) {
-        for (CEditedRailPoint* p = rail->mp_points; p; p = p->m_following)
+        for (CEditedRailPoint* p = rail->m_pointChain; p; p = p->m_following)
             p->ClearGlow();
     }
 }
@@ -651,11 +651,11 @@ void CRailAuthoring::UnHighlightAll()
 void CRailAuthoring::ChangeLive(bool active)
 {
     for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following) {
-        for (CEditedRailPoint* p = rail->mp_points; p; p = p->m_following) {
-            if (p->mp_post)
-                EnableSector(p->mp_post, active);
-            if (p->mp_segment)
-                EnableSector(p->mp_segment, active);
+        for (CEditedRailPoint* p = rail->m_pointChain; p; p = p->m_following) {
+            if (p->m_post)
+                EnableSector(p->m_post, active);
+            if (p->m_segment)
+                EnableSector(p->m_segment, active);
         }
     }
 }
@@ -743,9 +743,9 @@ bool CRailAuthoring::FindNearestPoint(const Maths::Vec4* position, Maths::Vec4* 
 // 0x004F48F0
 void CRailAuthoring::DeleteDottedLine()
 {
-    if (!mp_dottedLine)
+    if (!m_dottedLine)
         return;
-    RemoveSceneSector(mp_dottedLine);
+    RemoveSceneSector(m_dottedLine);
     m_dottedLineName = 0;
 }
 
@@ -767,10 +767,10 @@ void CRailAuthoring::Pack()
     // From the first rail laid (the tail) back to the head, each rail's points from its first laid.
     for (; rail; rail = rail->m_preceding) {
         uint16_t points = 0;
-        for (CEditedRailPoint* p = rail->mp_points; p; p = p->m_following)
+        for (CEditedRailPoint* p = rail->m_pointChain; p; p = p->m_following)
             ++points;
         *count++ = points;
-        CEditedRailPoint* p = rail->mp_points;
+        CEditedRailPoint* p = rail->m_pointChain;
         if (!p)
             continue;
         while (p->m_following)

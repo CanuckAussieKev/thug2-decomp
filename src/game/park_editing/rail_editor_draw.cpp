@@ -412,8 +412,8 @@ void CEditedRailPoint::DrawSegment(const Vec4* origin, const Vec4* position, flo
         DeleteSegment();
         return;
     }
-    if (!mp_segment)
-        mp_segment = CloneRailSector(kRailSource);
+    if (!m_segment)
+        m_segment = CloneRailSector(kRailSource);
     CEditedRailPoint* next = m_following;
     if (next->m_following) {
         // Joined on to the previous segment unless the turn is sharper than RailEditorMaxJoinAngle.
@@ -435,14 +435,14 @@ void CEditedRailPoint::DrawSegment(const Vec4* origin, const Vec4* position, flo
         TransformRailPoint(&c, &nextNext->m_atPoint, origin, position, angle);
         TransformRailPoint(&b, &next->m_atPoint, origin, position, angle);
         TransformRailPoint(&a, &m_atPoint, origin, position, angle);
-        StretchRailSector(kRailSource, &b, &c, &a, mp_segment, join ? next->mp_segment : nullptr, true);
+        StretchRailSector(kRailSource, &b, &c, &a, m_segment, join ? next->m_segment : nullptr, true);
         return;
     }
     Vec4 b, a;
     TransformRailPoint(&b, &next->m_atPoint, origin, position, angle);
     TransformRailPoint(&a, &m_atPoint, origin, position, angle);
     // (the original passes an unset local as the previous point: unread without a previous sector)
-    StretchRailSector(kRailSource, &b, &b, &a, mp_segment, nullptr, true);
+    StretchRailSector(kRailSource, &b, &b, &a, m_segment, nullptr, true);
 }
 
 // 0x004F56D0
@@ -518,9 +518,9 @@ void CEditedRailPoint::DrawPost(const Vec4* origin, const Vec4* position, float 
             v.z = static_cast<float>((dz * rx + dx * rz) + at.z);
         }
     }
-    if (!mp_post)
-        mp_post = DuplicateSceneSector(kPostSource);
-    SetVertices(FetchShape(mp_post), vertices);
+    if (!m_post)
+        m_post = DuplicateSceneSector(kPostSource);
+    SetVertices(FetchShape(m_post), vertices);
     MemSys::FreeMalloc(vertices);
 }
 
@@ -570,22 +570,22 @@ void CEditedRailPoint::Spotlight(bool flash, bool includeEndPosts)
     };
     // (the colour last chosen carries on to the segment when there's no next point to judge it by)
     Colour colour = normal;
-    if (mp_post) {
+    if (m_post) {
         colour = cornerOk(this) && !tooLong ? normal : bad;
-        paint(mp_post, colour);
+        paint(m_post, colour);
     }
-    if (mp_segment) {
+    if (m_segment) {
         if (m_following)
             colour = cornerOk(m_following) && cornerOk(this) && !tooLong ? normal : bad;
-        paint(mp_segment, colour);
+        paint(m_segment, colour);
     }
-    if (m_preceding && m_preceding->mp_segment)
-        paint(m_preceding->mp_segment, cornerOk(m_preceding) && cornerOk(this) && !tooLong ? normal : bad);
+    if (m_preceding && m_preceding->m_segment)
+        paint(m_preceding->m_segment, cornerOk(m_preceding) && cornerOk(this) && !tooLong ? normal : bad);
     if (includeEndPosts) {
-        if (m_following && !m_following->m_following && m_following->mp_post)
-            paint(m_following->mp_post, normal);
-        if (m_preceding && !m_preceding->m_preceding && m_preceding->mp_post)
-            paint(m_preceding->mp_post, normal);
+        if (m_following && !m_following->m_following && m_following->m_post)
+            paint(m_following->m_post, normal);
+        if (m_preceding && !m_preceding->m_preceding && m_preceding->m_post)
+            paint(m_preceding->m_post, normal);
     }
     m_highlighted = true;
 }
@@ -596,7 +596,7 @@ void CEditedRailPoint::Spotlight(bool flash, bool includeEndPosts)
 void CEditedRail::Xform(const Vec4* origin, const Vec4* position, float angle)
 {
     // (TransformRailPoint's turn, but z' not rounded to float before the position is added)
-    for (CEditedRailPoint* p = mp_points; p; p = p->m_following) {
+    for (CEditedRailPoint* p = m_pointChain; p; p = p->m_following) {
         double dx = static_cast<double>(p->m_atPoint.x) - origin->x;
         float dy = static_cast<float>(static_cast<double>(p->m_atPoint.y) - origin->y);
         double dz = static_cast<double>(p->m_atPoint.z) - origin->z;
@@ -614,7 +614,7 @@ void CEditedRail::Xform(const Vec4* origin, const Vec4* position, float angle)
 void CEditedRail::DrawSegments(const Vec4* origin, const Vec4* position, float angle)
 {
     CEditedRailPoint* last = nullptr;
-    for (CEditedRailPoint* p = mp_points; p; p = p->m_following)
+    for (CEditedRailPoint* p = m_pointChain; p; p = p->m_following)
         last = p;
     for (CEditedRailPoint* p = last; p; p = p->m_preceding)
         p->DrawSegment(origin, position, angle);
@@ -623,7 +623,7 @@ void CEditedRail::DrawSegments(const Vec4* origin, const Vec4* position, float a
 // 0x004F6210
 void CEditedRail::DrawPosts(const Vec4* origin, const Vec4* position, float angle)
 {
-    for (CEditedRailPoint* p = mp_points; p; p = p->m_following)
+    for (CEditedRailPoint* p = m_pointChain; p; p = p->m_following)
         p->DrawPost(origin, position, angle);
 }
 
@@ -659,7 +659,7 @@ void CRailAuthoring::RestoreHeights()
 {
     ChangeLive(false);
     for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following) {
-        for (CEditedRailPoint* p = rail->mp_points; p; p = p->m_following) {
+        for (CEditedRailPoint* p = rail->m_pointChain; p; p = p->m_following) {
             if (p->m_hasPost)
                 p->m_atPoint.y = static_cast<float>(static_cast<double>(CEditedRailPoint::GroundHeight(&p->m_atPoint)) +
                                                 p->m_levelY);
@@ -672,7 +672,7 @@ void CRailAuthoring::RestoreHeights()
 void CRailAuthoring::StoreHeights()
 {
     for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following) {
-        for (CEditedRailPoint* p = rail->mp_points; p; p = p->m_following)
+        for (CEditedRailPoint* p = rail->m_pointChain; p; p = p->m_following)
             p->m_levelY = static_cast<float>(static_cast<double>(p->m_atPoint.y) - CEditedRailPoint::GroundHeight(&p->m_atPoint));
     }
 }
@@ -705,7 +705,7 @@ void CRailAuthoring::DrawDottedLine(const Vec4* position)
 {
     if (!m_activeNode)
         return;
-    CEditedRailPoint* head = m_activeNode->mp_points;
+    CEditedRailPoint* head = m_activeNode->m_pointChain;
     if (!head)
         return;
     uint32_t source = kDottedGreen;
@@ -718,15 +718,15 @@ void CRailAuthoring::DrawDottedLine(const Vec4* position)
     } else if (head->m_following && !RailCornerOk(&head->m_following->m_atPoint, &head->m_atPoint, position)) {
         source = kDottedRed;
     }
-    if (!mp_dottedLine || source != m_dottedLineName) {
+    if (!m_dottedLine || source != m_dottedLineName) {
         DeleteDottedLine();
-        mp_dottedLine = CloneRailSector(source);
+        m_dottedLine = CloneRailSector(source);
         m_dottedLineName = source;
     }
     // (the original passes an unset local as the previous point: unread without a previous sector)
-    StretchRailSector(m_dottedLineName, &head->m_atPoint, position, position, mp_dottedLine, nullptr, false);
+    StretchRailSector(m_dottedLineName, &head->m_atPoint, position, position, m_dottedLine, nullptr, false);
     if (source == kDottedRed)
-        SetSectorVisibility(mp_dottedLine, FlashMask(Scripts::FetchIntValue(kRedLineFlashRate)));
+        SetSectorVisibility(m_dottedLine, FlashMask(Scripts::FetchIntValue(kRedLineFlashRate)));
 }
 
 // --- The register-argument entry points ---------------------------------------------------------------------------

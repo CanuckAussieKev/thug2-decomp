@@ -449,7 +449,7 @@ CDrivableModule* CDrivableModule::MakeNew()
     ClearToW1(m_orientation);
     // (the colliders' vectors' constructors do nothing: 0x005902E0)
     m_contactMemo.MakeNew();
-    mp_input = nullptr;
+    m_inputPtr = nullptr;
     m_debugMode = 0;
     m_passive = false;
     m_displaySteering = 0.0f;
@@ -697,7 +697,7 @@ void CDrivableModule::ConfigureFromData(Scripts::CStruct* params)
 // 0x0043BA20
 void CDrivableModule::Seal()
 {
-    mp_input = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kInput));
+    m_inputPtr = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kInput));
     m_meshInstance = m_entity->FetchModule(kModel);
     const uint8_t* geometry = ModelGeometry(m_entity->FetchModule(kModel));
     // The wheels' places from the model (z up there; always four).
@@ -744,12 +744,12 @@ void CDrivableModule::Seal()
     }
     // The skater's components (hidden unless shown driving).
     m_riderRef = LocalSkater();
-    mp_skaterCorePhysics = m_riderRef->FetchModule(kSkaterCorePhysics);
-    mp_trigger = m_riderRef->FetchModule(kTrigger);
+    m_skaterCorePhysics = m_riderRef->FetchModule(kSkaterCorePhysics);
+    m_triggerPtr = m_riderRef->FetchModule(kTrigger);
     if (!m_riderShown)
         m_riderRef->Conceal(true);
     else
-        mp_animBlender = m_riderRef->FetchModule(kAnimBlender);
+        m_animBlenderPtr = m_riderRef->FetchModule(kAnimBlender);
     // Everything made relative to the wheels' centre (x, z) and the colliders' lowest point.
     double sumX = 0.0, sumZ = 0.0;
     for (int i = m_wheelCount - 1; i >= 0; --i) {

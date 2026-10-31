@@ -88,19 +88,19 @@ public:
     // 0x0041E190 (DestroyParticles): the system destroyed now and let go; the object dies. 1.
     int DestroyParticles(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
 
-    CSharedRef<Engine3D::CEmitterInstance> mp_system; // +0x18
+    CSharedRef<Engine3D::CEmitterInstance> m_system; // +0x18
     uint32_t m_label;                        // +0x24 name (or the component's address)
     uint32_t m_unknown28;                   // +0x28 0x184197D5 (given to the system's +0x78)
     float m_clock;                           // +0x2C the time not yet given to the system
-    uint8_t* mp_suspend;                    // +0x30 the suspend component
-    CObjectModule* mp_brightnessModel;     // +0x34 ObjID's model (update_Brightness)
+    uint8_t* m_suspend;                    // +0x30 the suspend component
+    CObjectModule* m_brightnessModel;     // +0x34 ObjID's model (update_Brightness)
     bool m_rotate;                          // +0x38 EnableRotate
     uint8_t pad39[3];
 };
-static_assert(offsetof(CFlexibleParticleComponent, mp_system) == 0x18 &&
+static_assert(offsetof(CFlexibleParticleComponent, m_system) == 0x18 &&
                   offsetof(CFlexibleParticleComponent, m_label) == 0x24 &&
                   offsetof(CFlexibleParticleComponent, m_clock) == 0x2C &&
-                  offsetof(CFlexibleParticleComponent, mp_brightnessModel) == 0x34 &&
+                  offsetof(CFlexibleParticleComponent, m_brightnessModel) == 0x34 &&
                   offsetof(CFlexibleParticleComponent, m_rotate) == 0x38 && sizeof(CFlexibleParticleComponent) == 0x3C,
               "layout must match the original");
 

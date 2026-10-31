@@ -103,10 +103,10 @@ public:
     char* m_chars;            // +0x178
     uint32_t m_fontName;       // +0x17C
     void* m_typeface;             // +0x180
-    void** mp_texts;           // +0x184 the text objects (the first the text, the others the blur copies)
-    void** mp_shadows;         // +0x188
+    void** m_texts;           // +0x184 the text objects (the first the text, the others the blur copies)
+    void** m_shadows;         // +0x188
     int m_num;               // +0x18C
-    CSmearEffect* mp_blur;      // +0x190
+    CSmearEffect* m_blur;      // +0x190
     bool m_shadow;             // +0x194
     uint8_t m_pad195[3];
     float m_shadowX, m_shadowY; // +0x198 shadow_offs
@@ -117,7 +117,7 @@ public:
     uint8_t m_pad1A7;
     float m_innerAlignH, m_innerAlignV; // +0x1A8
 };
-static_assert(offsetof(CLabelWidget, mp_blur) == 0x190 && offsetof(CLabelWidget, m_shadowRgba) == 0x1A0 &&
+static_assert(offsetof(CLabelWidget, m_blur) == 0x190 && offsetof(CLabelWidget, m_shadowRgba) == 0x1A0 &&
                   offsetof(CLabelWidget, m_innerAlignH) == 0x1A8 && sizeof(CLabelWidget) == 0x1B0,
               "layout must match the original");
 

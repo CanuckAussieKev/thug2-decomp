@@ -171,7 +171,7 @@ public:
 
     // --- fields (after CEntity's) ---
     GameObjects::CSharedRef<CUiWidget> m_container;       // +0x4C
-    GameObjects::CSharedRef<CUiWidget> mp_firstChild;   // +0x58
+    GameObjects::CSharedRef<CUiWidget> m_eldest;   // +0x58
     GameObjects::CSharedRef<CUiWidget> m_following;         // +0x64 the next sibling
     GameObjects::CSharedRef<CUiWidget> m_preceding;         // +0x70 the previous sibling
     SElementState m_shown;                        // +0x7C

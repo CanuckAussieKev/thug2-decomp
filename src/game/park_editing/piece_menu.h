@@ -34,7 +34,7 @@ public:
     void TurnOffNow();
 
     CParkLayout* m_parkOwner; // +0x00
-    CPieceFamily* mp_set;        // +0x04: the set shown
+    CPieceFamily* m_pointGroup;        // +0x04: the set shown
     int m_setNumber;          // +0x08
     int m_selected;           // +0x0C: the entry focused
 };

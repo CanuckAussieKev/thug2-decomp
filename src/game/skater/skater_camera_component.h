@@ -140,8 +140,8 @@ public:
     CFreeLookModule* m_freeLookModule; // +0x168
     Maths::ArcRotationBlender* m_arcBlender; // +0x16C
     CGameEntity* m_riderRef;     // +0x170
-    uint8_t* mp_state;               // +0x174 the skater's SkaterState (+0x18 the state, flags as bytes)
-    uint8_t* mp_control;             // +0x178 the skater's SkaterPhysicsControl (+0x18 paused, +0x2C its state)
+    uint8_t* m_stateRef;               // +0x174 the skater's SkaterState (+0x18 the state, flags as bytes)
+    uint8_t* m_control;             // +0x178 the skater's SkaterPhysicsControl (+0x18 paused, +0x2C its state)
 };
 static_assert(offsetof(CRiderChaseView, m_modeSel) == 0x24 && offsetof(CRiderChaseView, m_aimPoint) == 0x30 &&
                   offsetof(CRiderChaseView, m_orientation) == 0x40 &&
@@ -157,7 +157,7 @@ static_assert(offsetof(CRiderChaseView, m_modeSel) == 0x24 && offsetof(CRiderCha
                   offsetof(CRiderChaseView, m_shakeLeft) == 0x150 &&
                   offsetof(CRiderChaseView, m_freeLookModule) == 0x168 &&
                   offsetof(CRiderChaseView, m_arcBlender) == 0x16C &&
-                  offsetof(CRiderChaseView, mp_control) == 0x178 && sizeof(CRiderChaseView) == 0x17C,
+                  offsetof(CRiderChaseView, m_control) == 0x178 && sizeof(CRiderChaseView) == 0x17C,
               "layout must match the original");
 
 // The skater's cleanup-state component (type 0xD8CC3428 "SkaterCleanupState", vtable 0x0064BB48, 0x1C bytes; made
@@ -178,7 +178,7 @@ public:
     // 0x004FBE00 (slot 1): CRider::UpdateShadowLight with the object's position and matrix.
     void TickFrame();
 
-    CObjectModule* mp_state;        // +0x18 the object's SkaterState
+    CObjectModule* m_stateRef;        // +0x18 the object's SkaterState
 };
 static_assert(sizeof(CRiderStateReset) == 0x1C, "layout must match the original");
 

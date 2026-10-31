@@ -189,9 +189,9 @@ float FeetAsInches() { return g_compositeFeetToInches; } // 12
 // 0x0045D850
 bool CEntity::InvokeMethodByName(CMemberFunctionEntry* entry, CStruct* params, CScript* script)
 {
-    if (entry->mCode) {
-        void* self = reinterpret_cast<uint8_t*>(this) + entry->mThisAdjustment;
-        return reinterpret_cast<bool(__thiscall*)(void*, CStruct*, CScript*)>(entry->mCode)(self, params, script);
+    if (entry->m_methodCode) {
+        void* self = reinterpret_cast<uint8_t*>(this) + entry->m_thisAdjustment;
+        return reinterpret_cast<bool(__thiscall*)(void*, CStruct*, CScript*)>(entry->m_methodCode)(self, params, script);
     }
     return VirtualCallMemberFunction(this, entry->m_callsign, params, script);
 }

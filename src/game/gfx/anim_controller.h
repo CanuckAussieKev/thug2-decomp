@@ -71,7 +71,7 @@ static_assert(offsetof(CAnimTimeline, m_outset) == 0x14 && offsetof(CAnimTimelin
 // The base controller's fields.
 struct CAnimController {
     void** m_vtable;
-    CAnimTimeline* mp_timeline;        // +0x04 (the timeline of the blender channel it belongs to)
+    CAnimTimeline* m_timelinePtr;        // +0x04 (the timeline of the blender channel it belongs to)
     GameObjects::CGameEntity* m_ownerObject;  // +0x08 (set by some controllers only; FetchSubject asks the channel)
     int m_rank;                    // +0x0C
     uint32_t m_ident;                     // +0x10
@@ -119,9 +119,9 @@ public:
     static void operator delete(void* item);
     static void operator delete(void* item, int) { operator delete(item); }
 
-    void* mp_frame;       // +0x14 (unused)
+    void* m_curFrameData;       // +0x14 (unused)
     void* m_frameSource;   // +0x18 the current frame (0x0048CFA0 / 0x0048CFD0)
-    void* mp_source;      // +0x1C its frame source
+    void* m_blendSource;      // +0x1C its frame source
     uint32_t m_animSet;   // +0x20 added to an animation's name
     int m_frameIndex;     // +0x24 (-1 none)
 };
@@ -144,7 +144,7 @@ public:
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
 
     void* m_frameSource;   // +0x14
-    void* mp_source;      // +0x18
+    void* m_blendSource;      // +0x18
     uint32_t m_animSet;   // +0x1C
     float m_weight;       // +0x20
 };
@@ -176,7 +176,7 @@ public:
     float m_k2;           // +0x20 wobbleK2
     float m_spazFactor;   // +0x24 spazFactor
     float m_aimPoint;       // +0x28 the time it wobbles around
-    void* mp_source;      // +0x2C
+    void* m_blendSource;      // +0x2C
     void* m_frameSource;   // +0x30
     uint32_t m_animSet;   // +0x34
 };
@@ -218,8 +218,8 @@ public:
     // 0x004A4EF0 (slot 5)
     void TickFrame();
 
-    CAnimTimeline* mp_partial; // +0x14 its own timeline
-    void* mp_source;           // +0x18
+    CAnimTimeline* m_partial; // +0x14 its own timeline
+    void* m_blendSource;           // +0x18
     void* m_frameSource;        // +0x1C
     uint32_t m_animSet;        // +0x20
 };

@@ -55,7 +55,7 @@ CObjectModule* __cdecl CAudioStreamModule::Fabricate()
     component->m_vtable = kVtable;
     component->m_kindTag = kType;
     component->m_spewer = nullptr;
-    component->mp_proxim = nullptr;
+    component->m_proxim = nullptr;
     return component;
 }
 
@@ -70,7 +70,7 @@ CAudioStreamModule* CAudioStreamModule::MakeNew()
 {
     CObjectModule::MakeNew();
     m_spewer = nullptr;
-    mp_proxim = nullptr;
+    m_proxim = nullptr;
     m_vtable = kVtable;
     m_kindTag = kType;
     return this;
@@ -101,7 +101,7 @@ void CAudioStreamModule::ConfigureFromData(Scripts::CStruct* params)
 {
     uint32_t node = reinterpret_cast<uint32_t>(params); // (read into the parameters' own argument slot)
     if (params->ReadHashValue(0x08470F2E, &node, 0)) // ProximNode
-        mp_proxim = Proxim_GetNode(node);
+        m_proxim = Proxim_GetNode(node);
 }
 
 // 0x00433CD0
@@ -118,10 +118,10 @@ Maths::Vec4* CAudioStreamModule::GetStreamPosition(Maths::Vec4* out, void* camer
 // 0x00433D30
 bool CAudioStreamModule::GetStreamExtent(void* camera, Maths::Vec4* out)
 {
-    if (!camera || !mp_proxim)
+    if (!camera || !m_proxim)
         return false;
     Maths::Vec4 nearest;
-    *out = *mp_proxim->NearestPointOn(&nearest, ViewerLocation(camera));
+    *out = *m_proxim->NearestPointOn(&nearest, ViewerLocation(camera));
     return true;
 }
 

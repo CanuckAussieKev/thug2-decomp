@@ -37,10 +37,10 @@ struct CChainLink {
     float m_value40;         // +0x40 (3 when made; 255 while in the collision range; 0 after a constraint pass)
     float m_byteCount;          // +0x44 the rest length to the link before it
     uint32_t m_unused48;     // +0x48
-    void* mp_line;           // +0x4C the line drawn to the next link (0x158 bytes, vtable 0x0064A628)
+    void* m_linePtr;           // +0x4C the line drawn to the next link (0x158 bytes, vtable 0x0064A628)
 };
 static_assert(sizeof(CChainLink) == 0x50 && offsetof(CChainLink, m_nextPos) == 0x30 &&
-                  offsetof(CChainLink, mp_line) == 0x4C,
+                  offsetof(CChainLink, m_linePtr) == 0x4C,
               "layout must match the original");
 
 // A chain hung from a bone of its object to a bone of another object (0x684 bytes).
@@ -125,7 +125,7 @@ public:
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
 
     ChainList m_chains;           // +0x18
-    CObjectModule* mp_suspend;   // +0x20
+    CObjectModule* m_suspend;   // +0x20
     CObjectModule* m_boneRig;  // +0x24
     CObjectModule* m_meshInstance;     // +0x28
     float m_finalFrame;            // +0x2C the last frame's length

@@ -90,7 +90,7 @@ Maths::Mat4 BoneSpace(CRig* skeleton, int index)
     Maths::Mat4 matrix;
     matrix = skeleton->m_matrixArray[index];
     Maths::Mat4 result;
-    result = skeleton->m_payload->mp_inverseBind[index];
+    result = skeleton->m_payload->m_inverseBind[index];
     result.InvertOrthonormal();
     Multiply(&result, &result, &matrix);
     return result;
@@ -105,7 +105,7 @@ CRigData* CRigData::MakeNew()
     m_num = 0;
     m_flagBits = 0;
     m_unknown588 = 0;
-    mp_inverseBind = nullptr;
+    m_inverseBind = nullptr;
     reinterpret_cast<uint32_t&>(m_lodDistances[0]) = 0x7F7FC99E;
     return this;
 }
@@ -114,13 +114,13 @@ CRigData* CRigData::MakeNew()
 CRigData* CRigData::Teardown(unsigned int freeFlags)
 {
     m_vtable = reinterpret_cast<void**>(kSkeletonDataVtable);
-    if (mp_inverseBind) {
-        MemSys::Hub::Pull()->Dealloc(mp_inverseBind);
-        mp_inverseBind = nullptr;
+    if (m_inverseBind) {
+        MemSys::Hub::Pull()->Dealloc(m_inverseBind);
+        m_inverseBind = nullptr;
     }
-    if (mp_bindTranslations) {
-        MemSys::Hub::Pull()->Dealloc(mp_bindTranslations);
-        mp_bindTranslations = nullptr;
+    if (m_bindTranslations) {
+        MemSys::Hub::Pull()->Dealloc(m_bindTranslations);
+        m_bindTranslations = nullptr;
     }
     if (freeFlags & 1)
         MemSys::Hub::Pull()->Dealloc(this);
@@ -168,18 +168,18 @@ bool CRigData::ReadIn(const uint32_t* buffer, uint32_t, bool)
     std::memcpy(m_flipNames, p, 4u * m_num);
     p += m_num;
     const auto* bind = reinterpret_cast<const float*>(p);
-    mp_inverseBind = static_cast<Maths::Mat4*>(MemSys::Alloc(static_cast<uint32_t>(m_num) << 6));
-    mp_bindTranslations = static_cast<Maths::Vec4*>(MemSys::Alloc(static_cast<uint32_t>(m_num) << 4));
+    m_inverseBind = static_cast<Maths::Mat4*>(MemSys::Alloc(static_cast<uint32_t>(m_num) << 6));
+    m_bindTranslations = static_cast<Maths::Vec4*>(MemSys::Alloc(static_cast<uint32_t>(m_num) << 4));
     for (int i = 0; i < m_num; ++i, bind += 8) {
         float rotation[4] = {bind[0], bind[1], bind[2], bind[3]};
         Maths::Vec4 translation = {bind[4], bind[5], bind[6], bind[7]};
-        mp_bindTranslations[i] = translation;
+        m_bindTranslations[i] = translation;
         Maths::Mat4 matrix;
         GameObjects::QuatToMatrix(rotation, &translation.x, &matrix.row[0].x);
         if (i != 0) {
             // (relative to the parent: its bind pose, the inverse of its inverse bind matrix)
             Maths::Mat4 parent;
-            parent = mp_inverseBind[FetchSlotNo(m_parentNames[i])];
+            parent = m_inverseBind[FetchSlotNo(m_parentNames[i])];
             parent.InvertOrthonormal();
             Multiply(&matrix, &matrix, &parent);
             matrix.row[0].w = 0.0f;
@@ -188,7 +188,7 @@ bool CRigData::ReadIn(const uint32_t* buffer, uint32_t, bool)
             matrix.row[3].w = 1.0f;
         }
         matrix.InvertOrthonormal();
-        mp_inverseBind[i] = matrix;
+        m_inverseBind[i] = matrix;
     }
     for (int i = 0; i < m_num; ++i) {
         if (!m_flipNames[i]) {
@@ -388,7 +388,7 @@ bool CRig::ReadJointMatrix(uint32_t name, Maths::Mat4* out)
         Maths::Vec4 translation = result.row[3];
         result.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
         Maths::Mat4 turn;
-        turn = m_payload->mp_inverseBind[i];
+        turn = m_payload->m_inverseBind[i];
         Multiply(&result, &turn, &result);
         result.row[3] = translation;
         break;
@@ -410,7 +410,7 @@ bool CRig::GetBonePosition(uint32_t name, Maths::Vec4* out)
 // 0x004A31E0
 void CRig::Blit(const Maths::Mat4* world, uint32_t startColour, uint32_t endColour, int frames)
 {
-    Maths::Mat4* inverseBind = m_payload->mp_inverseBind;
+    Maths::Mat4* inverseBind = m_payload->m_inverseBind;
     for (int i = 0; i < m_boneTotal; ++i) {
         Maths::Mat4 matrix = m_matrixArray[i];
         Maths::Mat4 bone = inverseBind[i];
@@ -513,7 +513,7 @@ void CRig::TickFrame(const float (*rotations)[4], const float (*translations)[4]
         if (i != 0)
             Multiply(&matrix, &matrix, bone.parent);
     }
-    Maths::Mat4* inverseBind = m_payload->mp_inverseBind;
+    Maths::Mat4* inverseBind = m_payload->m_inverseBind;
     for (int i = 0; i < m_boneTotal; ++i) {
         CJoint& bone = m_boneArray[i];
         Maths::Mat4& matrix = m_matrixArray[i];

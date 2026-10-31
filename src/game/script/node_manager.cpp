@@ -277,10 +277,10 @@ uint32_t CNodeManager::GetLastNodeArrayName()
 }
 
 // 0x0045D140
-void CNodeManager::SetOwner(void* owner) { mp_owner = owner; }
+void CNodeManager::SetOwner(void* owner) { m_ownerPtr = owner; }
 
 // 0x0045D470
-uint32_t CNodeManager::GetOwnerValue58() { return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(mp_owner) + 0x58); }
+uint32_t CNodeManager::GetOwnerValue58() { return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(m_ownerPtr) + 0x58); }
 
 // 0x0045D270
 bool CNodeManager::HasNodeArray(uint32_t name)

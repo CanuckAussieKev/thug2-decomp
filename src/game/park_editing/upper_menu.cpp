@@ -28,7 +28,7 @@ void CTopBarMenus::Fabricate()
     MemSys::EnterHeapScope(MemSys::BottomUpHeap());
     auto* menu = static_cast<CTopBarMenus*>(MemSys::Alloc(sizeof(CTopBarMenus)));
     if (menu) {
-        menu->mp_set = nullptr;
+        menu->m_pointGroup = nullptr;
         menu->m_selected = 0;
         menu->m_setNumber = 0;
         menu->m_parkOwner = CParkLayout::sSingleton();
@@ -51,14 +51,14 @@ void CTopBarMenus::TurnOn()
         RunMenuScript(0xA4F522E9, &params);       // parked_make_set_menu_item
         params.Clear();
     }
-    mp_set = nullptr;
+    m_pointGroup = nullptr;
 }
 
 void CTopBarMenus::TurnOffNow()
 {
     RunMenuScript(0x5C7A3276); // parked_destroy_piece_menu
     RunMenuScript(0x6BF4AA3D); // parked_destroy_set_menu
-    mp_set = nullptr;
+    m_pointGroup = nullptr;
 }
 
 } // namespace Ed

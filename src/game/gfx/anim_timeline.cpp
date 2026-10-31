@@ -207,7 +207,7 @@ CAnimTrack* CAnimTrack::MakeNew(GameObjects::CGameEntity* object)
 {
     CAnimTimeline::MakeNew();
     m_controllerCount = 0;
-    mp_events = nullptr;
+    m_eventsPtr = nullptr;
     m_eventCount = 0;
     m_ownerObject = object;
     m_vtable = kBlendTimelineVtable;
@@ -280,7 +280,7 @@ bool CAnimTrack::IsFading()
 void CAnimTrack::ArmEvents()
 {
     for (uint32_t i = 0; i < m_eventCount; ++i)
-        reinterpret_cast<CUserClipKey*>(&mp_events[i])->ChangeLive(true);
+        reinterpret_cast<CUserClipKey*>(&m_eventsPtr[i])->ChangeLive(true);
 }
 
 // 0x004819D0
@@ -294,7 +294,7 @@ GameObjects::CGameEntity* CAnimTrack::FetchSubject()
 // 0x00481710
 CAnimController* CAnimController::MakeNew(CAnimTimeline* timeline)
 {
-    mp_timeline = timeline;
+    m_timelinePtr = timeline;
     m_vtable = kControllerVtable;
     m_ident = 0;
     m_ownerObject = nullptr;
@@ -326,13 +326,13 @@ bool CAnimController::ConfigureFromData(Scripts::CStruct* params)
 // 0x00481760
 GameObjects::CGameEntity* CAnimController::FetchSubject()
 {
-    return static_cast<CAnimTrack*>(mp_timeline)->FetchSubject();
+    return static_cast<CAnimTrack*>(m_timelinePtr)->FetchSubject();
 }
 
 // 0x00481770
 uint8_t* CAnimController::FetchRig()
 {
-    GameObjects::CObjectModule* component = static_cast<CAnimTrack*>(mp_timeline)->FetchSubject()->FetchModule(kSkeleton);
+    GameObjects::CObjectModule* component = static_cast<CAnimTrack*>(m_timelinePtr)->FetchSubject()->FetchModule(kSkeleton);
     return component ? static_cast<GameObjects::CBoneRigModule*>(component)->m_boneRig : nullptr;
 }
 

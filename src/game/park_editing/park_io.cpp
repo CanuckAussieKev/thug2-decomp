@@ -168,7 +168,7 @@ void CParkLayout::SetUpAbstractMetas()
                 Scripts::CArray* at = nullptr;
                 entry->FetchList(0u, &at, 1);
                 CPieceGroup* part = nullptr;
-                for (CMapListNode* node = mp_abstract_metas; node; node = node->m_following) {
+                for (CMapListNode* node = m_abstract_metas; node; node = node->m_following) {
                     if (node->GetPieceGroup()->Cast()->m_nameKey == name) {
                         part = node->GetPieceGroup()->Cast();
                         break;
@@ -193,8 +193,8 @@ void CParkLayout::SetUpAbstractMetas()
             meta->m_flagBits |= CPieceGroup::kNoRails;
         CMapListNode* node = CMapListNode::Fabricate();
         node->m_pieceGroup = meta; // (out of memory crashes, as in the original)
-        node->m_following = mp_abstract_metas;
-        mp_abstract_metas = node;
+        node->m_following = m_abstract_metas;
+        m_abstract_metas = node;
         ++m_numAbstractMetas;
     }
 
@@ -202,7 +202,7 @@ void CParkLayout::SetUpAbstractMetas()
     for (uint32_t i = 0; i < numPieceNames; ++i) {
         uint32_t name = pieceNames[i];
         bool found = false;
-        for (CMapListNode* node = mp_abstract_metas; node; node = node->m_following) {
+        for (CMapListNode* node = m_abstract_metas; node; node = node->m_following) {
             if (node->GetPieceGroup()->Cast()->m_nameKey == name) {
                 found = true;
                 break;
@@ -221,8 +221,8 @@ void CParkLayout::SetUpAbstractMetas()
         meta->m_flagBits |= CPieceGroup::kSector;
         CMapListNode* node = CMapListNode::Fabricate();
         node->m_pieceGroup = meta;
-        node->m_following = mp_abstract_metas;
-        mp_abstract_metas = node;
+        node->m_following = m_abstract_metas;
+        m_abstract_metas = node;
         ++m_numAbstractMetas;
     }
 }
@@ -253,7 +253,7 @@ void CParkLayout::WriteCompressedMap()
             *out++ = static_cast<uint8_t>(m_floor[x][z].m_levelY);
 
     int numMetas = 0;
-    for (CMapListNode* node = mp_concrete_metas; node; node = node->m_following) {
+    for (CMapListNode* node = m_concrete_metas; node; node = node->m_following) {
         CPieceGroup* meta = node->GetPieceGroup()->Cast();
         uint32_t flags = meta->m_flagBits;
         if ((flags & CPieceGroup::kBuiltShell) || (flags & CPieceGroup::kFence) || !(flags & CPieceGroup::kInPark))

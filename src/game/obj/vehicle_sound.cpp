@@ -95,8 +95,8 @@ CObjectModule* __cdecl CEngineAudioModule::Fabricate()
 CEngineAudioModule* CEngineAudioModule::MakeNew()
 {
     CObjectModule::MakeNew();
-    mp_vehicle = nullptr;
-    mp_sound = nullptr;
+    m_vehiclePtr = nullptr;
+    m_soundPtr = nullptr;
     m_settings = nullptr;
     m_parkEditorLevel = false;
     m_speed = 0.0f;
@@ -145,8 +145,8 @@ void CEngineAudioModule::ConfigureFromData(Scripts::CStruct*)
 // 0x0043D050
 void CEngineAudioModule::Seal()
 {
-    mp_vehicle = static_cast<CDrivableModule*>(m_entity->FetchModule(kVehicle));
-    mp_sound = m_entity->FetchModule(kSound);
+    m_vehiclePtr = static_cast<CDrivableModule*>(m_entity->FetchModule(kVehicle));
+    m_soundPtr = m_entity->FetchModule(kSound);
     ReadSettings();
 }
 
@@ -172,7 +172,7 @@ void CEngineAudioModule::FetchDiagnostics(Scripts::CStruct* info)
 // 0x0043CE70
 void CEngineAudioModule::ReadSettings()
 {
-    Scripts::ReadSubStruct(kAllSettings)->ReadSubStruct(mp_vehicle->m_soundsName, &m_settings, 1);
+    Scripts::ReadSubStruct(kAllSettings)->ReadSubStruct(m_vehiclePtr->m_soundsName, &m_settings, 1);
     m_settings->ReadHashValue(0x306F8A9F, &m_engineSoundName, 0);
     m_settings->ReadHashValue(0x667FA96A, &m_skidSoundName, 0);
     Scripts::CArray* gears;
@@ -198,7 +198,7 @@ void CEngineAudioModule::ReadSettings()
 void CEngineAudioModule::TickEngine()
 {
     float frame = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
-    CDrivableModule* vehicle = mp_vehicle;
+    CDrivableModule* vehicle = m_vehiclePtr;
     // The slowest driven wheel (always four looked at, the last first).
     float slowest = kNoWheel;
     for (int i = 3; i >= 0; --i) {
@@ -229,7 +229,7 @@ void CEngineAudioModule::TickEngine()
     }
 
     // The gear: shifted at the gear's speeds while a wheel touches; back to the first after a while in the air.
-    if (mp_vehicle->m_wheelsInContact != 0) {
+    if (m_vehiclePtr->m_wheelsInContact != 0) {
         int gear = m_gear;
         if (gear < m_gearCount - 1 && m_speed > m_gearSteps[gear].upAt) {
             m_gear = gear + 1;
@@ -240,7 +240,7 @@ void CEngineAudioModule::TickEngine()
         }
     } else {
         float delay = Rate(0xC0F451D4);
-        if (mp_vehicle->m_airTime > delay)
+        if (m_vehiclePtr->m_airTime > delay)
             m_gear = 0;
     }
 
@@ -288,7 +288,7 @@ void CEngineAudioModule::UpdateSkid()
 {
     // The fastest slip of a sliding wheel (always four looked at, the last first), while braking.
     float slip = 0.0f;
-    CDrivableModule* vehicle = mp_vehicle;
+    CDrivableModule* vehicle = m_vehiclePtr;
     if (vehicle->m_brake || vehicle->m_handbrake) {
         for (int i = 3; i >= 0; --i) {
             const CDrivableModule::Wheel& wheel = vehicle->m_wheels[i];
@@ -338,12 +338,12 @@ void CEngineAudioModule::UpdateCollideSound()
     if (Unsigned(since) < delay)
         return;
     float fullCollision = Setting(m_settings, 0xCEA59D0B);
-    float strength = static_cast<float>(static_cast<double>(mp_vehicle->m_collisionImpulse) / fullCollision);
+    float strength = static_cast<float>(static_cast<double>(m_vehiclePtr->m_collisionImpulse) / fullCollision);
     float cutoff = Rate(0xF6981837);
     if (!(strength > cutoff))
         return;
     m_collideSound->PushFloat(0x9E497FC6, static_cast<float>(strength * kPercent));
-    PlaySoundFromStructure(mp_sound, m_collideSound);
+    PlaySoundFromStructure(m_soundPtr, m_collideSound);
     m_collideTime = Now(FrameClock::GameClockElapsed());
 
     // The skater told how hard (0-1). (Out of memory, the original adds to a null structure - kept.)
@@ -351,7 +351,7 @@ void CEngineAudioModule::UpdateCollideSound()
     Scripts::CStruct* event = memory ? memory->PrepareAll() : nullptr;
     float level = strength > 1.0f ? 1.0f : (strength < 0.0f ? 0.0f : strength);
     event->PushFloat(0x29461E27, level);
-    mp_vehicle->m_riderRef->PostOwnEvent(0xC4A60423, event);
+    m_vehiclePtr->m_riderRef->PostOwnEvent(0xC4A60423, event);
     if (event) {
         event->Clear();
         Scripts::DeleteStruct(event);

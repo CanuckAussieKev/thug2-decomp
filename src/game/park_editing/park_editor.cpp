@@ -219,7 +219,7 @@ void CParkBuilderMode::StartCallback()
     reinterpret_cast<TaskList::PileUp*>(server.m_handlers)->QueueJob(reinterpret_cast<TaskList::SchedulerTask*>(handler));
     handler->m_controlData = &InputManager()->m_hosts[handler->m_ordinal].m_content;
     handler->m_dev = reinterpret_cast<uint8_t*>(InputManager()->m_hosts[handler->m_ordinal].m_dev);
-    reinterpret_cast<TaskList::PileUp*>(mainLoop + 0x40)->QueueJob(reinterpret_cast<TaskList::SchedulerTask*>(mp_displayTask));
+    reinterpret_cast<TaskList::PileUp*>(mainLoop + 0x40)->QueueJob(reinterpret_cast<TaskList::SchedulerTask*>(m_drawJob));
 }
 
 // 0x0058D340

@@ -32,7 +32,7 @@ CSubMesh* CSubMesh::MakeNew()
     m_vtable = reinterpret_cast<void**>(kMeshVtable);
     new (&m_box) Maths::BBox();
     m_unknownB0 = 0;
-    mp_hierarchy = nullptr;
+    m_hierarchy = nullptr;
     m_hierarchyCount = 0;
     m_collisionName[0] = 0;
     return this;
@@ -66,7 +66,7 @@ CSubMesh* CSubMesh::Teardown(unsigned int flags)
 // 0x00490AB0
 void* CSubMesh::FetchBoneTree()
 {
-    return mp_hierarchy;
+    return m_hierarchy;
 }
 
 // 0x00490AC0

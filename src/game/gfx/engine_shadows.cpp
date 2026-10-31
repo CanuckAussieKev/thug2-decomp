@@ -259,7 +259,7 @@ CShadowVolume* CShadowVolume::MakeNew(CRenderModel*, Maths::Vec4 direction, floa
     v.MakeUnit();
     LookAlong(m_viewCamera, v);
     m_modelKey = 0;
-    mp_edges = nullptr;
+    m_edges = nullptr;
     return this;
 }
 
@@ -269,12 +269,12 @@ void CShadowVolume::DestroyBody()
     m_vtable = reinterpret_cast<void**>(kShadowVolumeVtable);
     if (m_viewCamera)
         DeleteThrough0(m_viewCamera);
-    if (mp_edges) {
-        if (mp_edges->count) {
+    if (m_edges) {
+        if (m_edges->count) {
             RemoveShadowVolume(this);
             ReleaseShadowEdges(m_modelKey);
         }
-        mp_edges = nullptr;
+        m_edges = nullptr;
     }
     CShadowBase::DestroyBody();
 }

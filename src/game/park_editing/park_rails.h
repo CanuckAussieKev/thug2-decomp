@@ -41,12 +41,12 @@ struct CParkRailString {
     uint8_t m_flagBits;            // +0x04
     uint8_t pad05[3];
     uint32_t m_label;            // +0x08: the piece (sector) it belongs to (FindRail looks it up)
-    CParkRailPoint* mp_points;  // +0x0C
+    CParkRailPoint* m_pointChain;  // +0x0C
     CParkRailPoint* m_tailNode;    // +0x10
     uint16_t m_vertexTotal;       // +0x14
     uint8_t pad16[2];
     CParkRailString* m_following;   // +0x18
-    CParkRailSet* mp_set;       // +0x1C: whose pools it uses
+    CParkRailSet* m_pointGroup;       // +0x1C: whose pools it uses
 
     // 0x0058AFC0: `point` on the end.
     void AppendSpot(CParkRailPoint* point);
@@ -61,8 +61,8 @@ struct CParkRailString {
     // 0x0058B220: CPoolable's delete (the pool pair 0x007CE594).
     static void __cdecl Dealloc(void* item);
 };
-static_assert(offsetof(CParkRailString, mp_points) == 0x0C && offsetof(CParkRailString, m_vertexTotal) == 0x14 &&
-                  offsetof(CParkRailString, mp_set) == 0x1C && sizeof(CParkRailString) == 0x20,
+static_assert(offsetof(CParkRailString, m_pointChain) == 0x0C && offsetof(CParkRailString, m_vertexTotal) == 0x14 &&
+                  offsetof(CParkRailString, m_pointGroup) == 0x1C && sizeof(CParkRailString) == 0x20,
               "layout must match the original");
 
 // A rail set (0x34 bytes: its rails and the pools they and their points come from).
@@ -71,8 +71,8 @@ struct CParkRailSet {
     CParkRailString* m_tailNode;   // +0x04
     uint16_t m_railTotal;        // +0x08
     uint8_t pad0A[2];
-    MemSys::SlabBank* mp_pointPool;    // +0x0C (0x30-byte items)
-    MemSys::SlabBank* mp_railPool;     // +0x10 (0x20-byte items)
+    MemSys::SlabBank* m_pointPool;    // +0x0C (0x30-byte items)
+    MemSys::SlabBank* m_railPool;     // +0x10 (0x20-byte items)
     char m_label[0x20];          // +0x14: "In set" / "Out set"
 
     // 0x0058AFF0: no rails, no pools (the last rail isn't cleared). Returns this.
@@ -96,7 +96,7 @@ struct CParkRailSet {
     // 0x0058B700: every rail (and its points) given back; empty.
     void Clear();
 };
-static_assert(offsetof(CParkRailSet, m_railTotal) == 0x08 && offsetof(CParkRailSet, mp_pointPool) == 0x0C &&
+static_assert(offsetof(CParkRailSet, m_railTotal) == 0x08 && offsetof(CParkRailSet, m_pointPool) == 0x0C &&
                   offsetof(CParkRailSet, m_label) == 0x14 && sizeof(CParkRailSet) == 0x34,
               "layout must match the original");
 

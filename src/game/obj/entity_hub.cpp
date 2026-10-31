@@ -346,8 +346,8 @@ void ReleaseTracker()
 // 0x00461FE0
 void CEventWaitBoard::SubscribeReceiver(CSignalReceiver* listener)
 {
-    listener->m_nextSubscriber = mp_eventListeners;
-    mp_eventListeners = listener;
+    listener->m_nextSubscriber = m_eventListeners;
+    m_eventListeners = listener;
     listener->m_onBoard = true;
 }
 

@@ -42,7 +42,7 @@ public:
     // (unsigned).
     bool IsDescendant(uint32_t bone, uint32_t ancestor);
     // 0x004A2CA0
-    Maths::Mat4* GetInverseBindMatrices() { return mp_inverseBind; }
+    Maths::Mat4* GetInverseBindMatrices() { return m_inverseBind; }
 
     void** m_vtable;
     int m_num;                      // +0x004
@@ -53,11 +53,11 @@ public:
     uint32_t m_lodMasks[64];          // +0x408 per bone: the LODs it's collapsed into its parent at (bit per LOD)
     float m_lodDistances[32];         // +0x508
     uint32_t m_unknown588;            // +0x588
-    Maths::Mat4* mp_inverseBind;      // +0x58C
-    Maths::Vec4* mp_bindTranslations; // +0x590
+    Maths::Mat4* m_inverseBind;      // +0x58C
+    Maths::Vec4* m_bindTranslations; // +0x590
     uint32_t m_flagBits;                 // +0x594 1: the skeleton's flag 0x10000000
 };
-static_assert(offsetof(CRigData, m_lodMasks) == 0x408 && offsetof(CRigData, mp_inverseBind) == 0x58C &&
+static_assert(offsetof(CRigData, m_lodMasks) == 0x408 && offsetof(CRigData, m_inverseBind) == 0x58C &&
                   sizeof(CRigData) == 0x598,
               "layout must match the original");
 

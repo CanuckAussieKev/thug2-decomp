@@ -213,7 +213,7 @@ CEditorViewModule* CEditorViewModule::MakeNew()
         *v = {0.0f, 0.0f, 0.0f, 1.0f};
     m_zoom = m_minZoom = m_maxZoom = m_heading = m_leanAngle = m_minTilt = m_maxTilt = m_levelY = m_minHeight = 0.0f;
     m_shadowHandle = nullptr;
-    mp_input = nullptr;
+    m_inputPtr = nullptr;
     m_simpleCollision = false;
     m_noWallCheck = false;
     return this;
@@ -253,7 +253,7 @@ void CEditorViewModule::ConfigureFromData(Scripts::CStruct* params)
 // 0x004E51F0
 void CEditorViewModule::Seal()
 {
-    mp_input = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kInput));
+    m_inputPtr = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kInput));
 }
 
 // 0x004E5170
@@ -397,7 +397,7 @@ void CEditorViewModule::TickFrame()
 {
     m_minTilt = Global(0x7D16D113);
     m_maxTilt = Global(0x411BEE4A);
-    uint8_t* pad = mp_input + 0x20;
+    uint8_t* pad = m_inputPtr + 0x20;
     auto stick = [pad](uint32_t offset) { return *reinterpret_cast<float*>(pad + offset); };
 
     // Heading, wrapped into 0..2 pi (the comparison on the unrounded sum, as the original).
@@ -428,7 +428,7 @@ void CEditorViewModule::TickFrame()
     // The zoom and height buttons by controller type.
     bool zoomIn = false, zoomOut = false, raise = false, lower = false;
     int controller = GameConfig::g_platform;
-    uint32_t buttons = *reinterpret_cast<uint32_t*>(mp_input + 0x1C);
+    uint32_t buttons = *reinterpret_cast<uint32_t*>(m_inputPtr + 0x1C);
     if (controller == 4 || controller == 7) {
         zoomIn = (buttons & 0x400000) != 0;
         zoomOut = (buttons & 0x800000) != 0;

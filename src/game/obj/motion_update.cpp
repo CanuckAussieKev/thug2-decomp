@@ -69,15 +69,15 @@ void Back(const CGameEntity* object, float back[4])
 // The node a path follower is headed for (MOTION_FOLLOWING_PATH and a follower), or 0; and its last node.
 uint32_t PathNode(const CKinematicsModule* motion)
 {
-    if (!(motion->m_motionFlags & MOTION_FOLLOWING_PATH) || !motion->mp_pathFollower)
+    if (!(motion->m_motionFlags & MOTION_FOLLOWING_PATH) || !motion->m_pathFollower)
         return 0;
-    return motion->mp_pathFollower->m_listLink;
+    return motion->m_pathFollower->m_listLink;
 }
 uint32_t PathLastNode(const CKinematicsModule* motion)
 {
-    if (!(motion->m_motionFlags & MOTION_FOLLOWING_PATH) || !motion->mp_pathFollower)
+    if (!(motion->m_motionFlags & MOTION_FOLLOWING_PATH) || !motion->m_pathFollower)
         return 0;
-    return motion->mp_pathFollower->m_lastNode;
+    return motion->m_pathFollower->m_lastNode;
 }
 
 } // namespace
@@ -184,12 +184,12 @@ void CKinematicsModule::UpdatePath()
     if (!(m_pathSpeed == 0.0f)) {
         Maths::Mat4& matrix = m_entity->m_basisFrame;
         const Maths::Vec4* along = (m_motionFlags2 & MOTION2_NO_PATH_HEADING) ? nullptr : &matrix.row[2];
-        if (mp_pathFollower->TickFrame(static_cast<float>(static_cast<double>(m_frameTime) * m_pathSpeed), along)) {
+        if (m_pathFollower->TickFrame(static_cast<float>(static_cast<double>(m_frameTime) * m_pathSpeed), along)) {
             m_motionFlags &= ~MOTION_FOLLOWING_PATH;
             m_pathSpeed = 0.0f;
         }
         if (!(m_motionFlags2 & MOTION2_NO_PATH_HEADING)) {
-            mp_pathFollower->GetHeading(&matrix.row[2]);
+            m_pathFollower->GetHeading(&matrix.row[2]);
             if ((m_motionFlags2 & MOTION2_LEVEL_HEADING) && !(matrix.row[2].y == 0.0f)) {
                 matrix.row[2].y = 0.0f;
                 matrix.row[2].MakeUnit();
@@ -202,7 +202,7 @@ void CKinematicsModule::UpdatePath()
             }
         }
         float height = m_entity->m_atPoint.y;
-        m_entity->m_atPoint = mp_pathFollower->m_atPoint;
+        m_entity->m_atPoint = m_pathFollower->m_atPoint;
         if (m_motionFlags2 & MOTION2_STICK_TO_GROUND) {
             m_entity->m_atPoint.y = height;
             StickToGround();
@@ -216,9 +216,9 @@ void CKinematicsModule::UpdatePath()
 // 0x004246A0
 void CKinematicsModule::UpdateFollowLeader()
 {
-    mp_trail->TickFrame();
+    m_trail->TickFrame();
     float height = m_entity->m_atPoint.y;
-    mp_trail->FetchPlace(&m_entity->m_atPoint, &m_entity->m_basisFrame);
+    m_trail->FetchPlace(&m_entity->m_atPoint, &m_entity->m_basisFrame);
     if (m_leaveYUnaffected)
         m_entity->m_atPoint.y = height;
 }
@@ -232,7 +232,7 @@ void CKinematicsModule::StartPath(uint32_t node)
         m_pathGroup->DropOut(m_entity);
     m_pathGroup = CPathManager::Sole()->AddToPath(m_entity, node);
     InitPathFollower(m_entity);
-    mp_pathFollower->Kickoff(node, &m_entity->m_atPoint);
+    m_pathFollower->Kickoff(node, &m_entity->m_atPoint);
 }
 
 // 0x00424020
@@ -321,29 +321,29 @@ void CKinematicsModule::TrailBehindLead(Scripts::CStruct* params)
 {
     if (params->HasBareFlag(kOff)) {
         m_motionFlags &= ~MOTION_FOLLOWING_LEADER;
-        if (CFollowTrail* trail = mp_trail) {
+        if (CFollowTrail* trail = m_trail) {
             // (its destructor: the empty 0x005480A0)
             MemSys::Hub::Pull()->Dealloc(trail);
-            mp_trail = nullptr;
+            m_trail = nullptr;
         }
         return;
     }
     m_leaveYUnaffected = params->HasBareFlag("LeaveYUnaffected");
     m_motionFlags = (m_motionFlags & ~MOTION_MOVING) | MOTION_FOLLOWING_LEADER;
     static_cast<CPinnedObjectModule*>(m_entity->FetchModule(kLockObj))->m_lockFlags &= ~LOCK_FLAG_LOCKED;
-    if (!mp_trail) {
+    if (!m_trail) {
         void* memory = MemSys::AllocZeroed(sizeof(CFollowTrail));
-        mp_trail = memory ? static_cast<CFollowTrail*>(memory)->PrepareAll() : nullptr;
+        m_trail = memory ? static_cast<CFollowTrail*>(memory)->PrepareAll() : nullptr;
     }
-    mp_trail->Reset();
+    m_trail->Reset();
     float distance = 0.0f;
     params->FetchFloat(kDistance, &distance, 0);
-    mp_trail->m_reach = distance;
+    m_trail->m_reach = distance;
     uint32_t leader = 0;
     params->ReadHashValue(kName, &leader, 0);
-    mp_trail->m_entityKey = leader;
+    m_trail->m_entityKey = leader;
     if (params->HasBareFlag(kOrientY))
-        mp_trail->m_freeFacing = true;
+        m_trail->m_freeFacing = true;
 }
 
 // --- script member functions ---
@@ -368,7 +368,7 @@ bool CKinematicsModule::Obj_SetPathTurnDist(Scripts::CStruct* params, Scripts::C
         if (!params->HasBareFlag(kInches))
             distance = static_cast<float>(static_cast<double>(distance) * 12.0f);
         InitPathFollower(m_entity);
-        mp_pathFollower->m_cornerDistance = distance;
+        m_pathFollower->m_cornerDistance = distance;
     }
     return true;
 }

@@ -228,7 +228,7 @@ CLabelWidget* CLabelWidget::MakeNew()
     m_fontName = 0;
     m_typeface = nullptr;
     m_chars = nullptr;
-    mp_blur = nullptr;
+    m_blur = nullptr;
     m_shadow = false;
     MakeTextObjects(1, false);
     m_innerAlignH = 0.0f;
@@ -272,9 +272,9 @@ void CLabelWidget::SetViewports()
     if (!window)
         return;
     if (m_num)
-        TextViewport(mp_texts[0], window->FetchScreenRect());
+        TextViewport(m_texts[0], window->FetchScreenRect());
     if (m_shadow)
-        TextViewport(mp_shadows[0], window->FetchScreenRect());
+        TextViewport(m_shadows[0], window->FetchScreenRect());
 }
 
 // 0x004AF8C0
@@ -347,9 +347,9 @@ void CLabelWidget::SetTextRotation(float degrees, int now)
             y = 0.0f;
         else if (m_innerAlignV > Zero())
             y = static_cast<float>(static_cast<double>(height) * m_summed.scaleY);
-        TextRotation(mp_texts[i], angle, x, y);
+        TextRotation(m_texts[i], angle, x, y);
         if (m_shadow)
-            TextRotation(mp_shadows[i], angle, x, y);
+            TextRotation(m_shadows[i], angle, x, y);
     }
     m_objectFlags |= kDirty;
     m_shown.angle = angle;
@@ -358,23 +358,23 @@ void CLabelWidget::SetTextRotation(float degrees, int now)
 // 0x004AFBB0
 void CLabelWidget::SetCharProperties(Scripts::CArray* chars)
 {
-    TextString(mp_texts[0], m_chars);
+    TextString(m_texts[0], m_chars);
     for (uint32_t i = 0; i < chars->m_extent; ++i) {
         auto* c = reinterpret_cast<CStruct*>(chars->FetchPart(i));
         int index = 0;
         c->FetchIntValue(kIndex, &index, 1);
         float degrees = 0.0f;
         if (c->FetchFloat(kRotAngle, &degrees, 0))
-            static_cast<Engine3D::CGlyphString*>(mp_texts[0])->SetCharRotation(index, static_cast<float>(static_cast<double>(degrees) * Degrees()));
+            static_cast<Engine3D::CGlyphString*>(m_texts[0])->SetCharRotation(index, static_cast<float>(static_cast<double>(degrees) * Degrees()));
         float x = 0.0f, y = 0.0f;
         if (c->FetchPair(kOffset, &x, &y, 0)) {
             int iy = Truncated(y);
             int ix = Truncated(x);
-            static_cast<Engine3D::CGlyphString*>(mp_texts[0])->SetCharOffset(index, static_cast<int16_t>(ix), static_cast<int16_t>(iy));
+            static_cast<Engine3D::CGlyphString*>(m_texts[0])->SetCharOffset(index, static_cast<int16_t>(ix), static_cast<int16_t>(iy));
         }
         float scaleX = 0.0f, scaleY = 0.0f;
         if (c->FetchPair(kScale, &scaleX, &scaleY, 0))
-            static_cast<Engine3D::CGlyphString*>(mp_texts[0])->SetCharScale(index, scaleX, scaleY);
+            static_cast<Engine3D::CGlyphString*>(m_texts[0])->SetCharScale(index, scaleX, scaleY);
     }
 }
 
@@ -415,15 +415,15 @@ bool CLabelWidget::Backspace()
 void CLabelWidget::MakeTextObjects(int count, bool onlyShadow)
 {
     if (m_shadow) {
-        mp_shadows = static_cast<void**>(FrontEndNew(static_cast<unsigned int>(count) * 4));
+        m_shadows = static_cast<void**>(FrontEndNew(static_cast<unsigned int>(count) * 4));
         for (int i = 0; i < count; ++i)
-            mp_shadows[i] = NewTextObject();
+            m_shadows[i] = NewTextObject();
     }
     if (!onlyShadow) {
         m_num = count;
-        mp_texts = static_cast<void**>(FrontEndNew(static_cast<unsigned int>(count) * 4));
+        m_texts = static_cast<void**>(FrontEndNew(static_cast<unsigned int>(count) * 4));
         for (int i = 0; i < count; ++i)
-            mp_texts[i] = NewTextObject();
+            m_texts[i] = NewTextObject();
     }
     SetViewports();
 }
@@ -431,16 +431,16 @@ void CLabelWidget::MakeTextObjects(int count, bool onlyShadow)
 // 0x004B0760
 void CLabelWidget::FreeTextObjects(bool onlyShadow)
 {
-    if (mp_shadows) {
+    if (m_shadows) {
         for (int i = 0; i < m_num; ++i)
-            FreeTextObject(mp_shadows[i]);
-        MemSys::Dealloc(mp_shadows);
-        mp_shadows = nullptr;
+            FreeTextObject(m_shadows[i]);
+        MemSys::Dealloc(m_shadows);
+        m_shadows = nullptr;
     }
     if (!onlyShadow) {
         for (int i = 0; i < m_num; ++i)
-            FreeTextObject(mp_texts[i]);
-        MemSys::Dealloc(mp_texts);
+            FreeTextObject(m_texts[i]);
+        MemSys::Dealloc(m_texts);
         m_num = 0;
     }
 }
@@ -448,13 +448,13 @@ void CLabelWidget::FreeTextObjects(bool onlyShadow)
 // 0x004B0A20 (the blur's memory isn't initialised: its constructor 0x005902E0 only returns it)
 void CLabelWidget::EnableBlur()
 {
-    if (mp_blur)
+    if (m_blur)
         return;
     FreeTextObjects(false);
     MemSys::Hub* memory = MemSys::Hub::Pull();
     memory->EnterHeapScope(memory->m_frontEndHeap);
-    mp_blur = static_cast<CSmearEffect*>(MemSys::Alloc(sizeof(CSmearEffect)));
-    std::memcpy(&mp_blur->m_rgbaValue, m_shown.rgba, 4);
+    m_blur = static_cast<CSmearEffect*>(MemSys::Alloc(sizeof(CSmearEffect)));
+    std::memcpy(&m_blur->m_rgbaValue, m_shown.rgba, 4);
     MemSys::Hub::Pull()->LeaveHeapScope();
     MakeTextObjects(17, false);
 }
@@ -462,11 +462,11 @@ void CLabelWidget::EnableBlur()
 // 0x004B0AE0
 void CLabelWidget::DisableBlur()
 {
-    if (!mp_blur)
+    if (!m_blur)
         return;
     FreeTextObjects(false);
-    DeleteBlur(mp_blur);
-    mp_blur = nullptr;
+    DeleteBlur(m_blur);
+    m_blur = nullptr;
     MakeTextObjects(1, false);
 }
 
@@ -493,8 +493,8 @@ void CLabelWidget::ChangeTraits(CStruct* params)
     if (params->HasBareFlag(kNoBlurEffect))
         DisableBlur();
     uint32_t rgba;
-    if (ReadColourParam(params, kHaloColor, &rgba) && mp_blur)
-        mp_blur->m_rgbaValue = rgba;
+    if (ReadColourParam(params, kHaloColor, &rgba) && m_blur)
+        m_blur->m_rgbaValue = rgba;
     Scripts::CPair offset;
     offset.PrepareAll();
     if (params->FetchPair(kShadowOffs, &offset, false)) {
@@ -531,8 +531,8 @@ void CLabelWidget::ChangeTraits(CStruct* params)
 // 0x004B09D0
 void CLabelWidget::BlendTowards(CStruct* params)
 {
-    if (mp_blur)
-        mp_blur->SetFromParams(params, nullptr);
+    if (m_blur)
+        m_blur->SetFromParams(params, nullptr);
     CUiWidget::BlendTowards(params);
     float degrees;
     if (params->FetchFloat(kRotAngle, &degrees, 0))
@@ -550,7 +550,7 @@ void CLabelWidget::TickFrame()
     if (m_num) {
         uint32_t shown;
         std::memcpy(&shown, m_shown.rgba, 4);
-        void* t = mp_texts[0];
+        void* t = m_texts[0];
         uint32_t rgba = WithAlpha(shown, Faded(static_cast<int>(shown >> 24), m_summed.alpha));
         TextOverrideAlpha(t, m_overrideAlpha);
         // the point turned about (as SetTextRotation), from the text's size when it is turned
@@ -586,7 +586,7 @@ void CLabelWidget::TickFrame()
         }
         TextHidden(t, hidden);
         if (m_shadow) {
-            void* s = mp_shadows[0];
+            void* s = m_shadows[0];
             uint32_t shadow;
             std::memcpy(&shadow, m_shadowRgba, 4);
             uint32_t shadowRgba = WithAlpha(shadow, Faded(m_shadowRgba[3], m_summed.alpha));
@@ -607,20 +607,20 @@ void CLabelWidget::TickFrame()
             }
         }
     }
-    if (!mp_blur)
+    if (!m_blur)
         return;
     // the blur copies: around the element's centre, each displaced, scaled and fainter, behind the one before
-    mp_blur->TickFrame();
+    m_blur->TickFrame();
     float centreX =
         static_cast<float>(static_cast<double>(m_summed.scaleX) * m_span * Half() + m_summed.left);
     float centreY =
         static_cast<float>(static_cast<double>(m_summed.scaleY) * m_levelY * Half() + m_summed.top);
     for (int i = 1; i < m_num; ++i) {
-        CSmearEffect::DupFrom* copy = mp_blur->GetCopy(i - 1);
-        uint32_t blur = mp_blur->m_rgbaValue;
+        CSmearEffect::DupFrom* copy = m_blur->GetCopy(i - 1);
+        uint32_t blur = m_blur->m_rgbaValue;
         uint32_t rgba = WithAlpha(
             blur, static_cast<uint8_t>(Truncated(static_cast<double>(static_cast<int>(blur >> 24)) * copy->alpha)));
-        void* t = mp_texts[i];
+        void* t = m_texts[i];
         float x = static_cast<float>(
             centreX - (static_cast<double>(m_span) * copy->scaleX * Half() + copy->dx) * m_summed.scaleX);
         float y = static_cast<float>(
@@ -637,7 +637,7 @@ void CLabelWidget::TickFrame()
         TextString(t, m_chars);
         TextHidden(t, outside || IsConcealed());
         if (m_shadow) {
-            void* s = mp_shadows[i];
+            void* s = m_shadows[i];
             uint32_t shadow;
             std::memcpy(&shadow, m_shadowRgba, 4);
             TextOverrideAlpha(s, m_overrideAlpha);

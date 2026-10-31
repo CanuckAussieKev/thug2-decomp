@@ -28,10 +28,10 @@ extern void** const kListenerAdapterVtable;
 
 CUiTree* g_uiElementHub;
 
-static_assert(offsetof(CUiTree, m_listener) == 0x28 && offsetof(CUiTree, mp_root) == 0x44 &&
-                  offsetof(CUiTree, mp_resolving) == 0x50 &&
+static_assert(offsetof(CUiTree, m_listener) == 0x28 && offsetof(CUiTree, m_treeRoot) == 0x44 &&
+                  offsetof(CUiTree, m_resolving) == 0x50 &&
                   offsetof(CUiTree, m_focusEntries) == 0x5C &&
-                  offsetof(CUiTree, mp_focusLists) == 0x4DC &&
+                  offsetof(CUiTree, m_focusLists) == 0x4DC &&
                   offsetof(CUiTree, m_focusDirty) == 0x4E4 &&
                   offsetof(CUiTree, m_numPriorities) == 0x4E8 &&
                   offsetof(CUiTree, m_priorities) == 0x4EC &&
@@ -87,10 +87,10 @@ CUiTree* CUiTree::MakeNew()
     m_listener.MakeNew();
     m_listener.m_vtable = kListenerAdapterVtable;
     m_vtable = kCScreenElementManagerVtable;
-    mp_root.m_preceding = mp_root.m_following = nullptr;
-    mp_root.m_ownerObject = nullptr;
-    mp_resolving.m_preceding = mp_resolving.m_following = nullptr;
-    mp_resolving.m_ownerObject = nullptr;
+    m_treeRoot.m_preceding = m_treeRoot.m_following = nullptr;
+    m_treeRoot.m_ownerObject = nullptr;
+    m_resolving.m_preceding = m_resolving.m_following = nullptr;
+    m_resolving.m_ownerObject = nullptr;
     for (FocusEntry& entry : m_focusEntries) {
         entry.element.m_ownerObject = nullptr;
         entry.element.m_preceding = entry.element.m_following = nullptr;
@@ -99,11 +99,11 @@ CUiTree* CUiTree::MakeNew()
         entry.element.m_ownerObject = nullptr;
         entry.element.m_preceding = entry.element.m_following = nullptr;
     }
-    mp_root.Release();
-    mp_resolving.Release();
+    m_treeRoot.Release();
+    m_resolving.Release();
     m_listener.EnterWaitBoard(nullptr);
     for (int i = 0; i < 2; ++i) {
-        mp_focusLists[i] = nullptr;
+        m_focusLists[i] = nullptr;
         m_focusDirty[i] = false;
     }
     for (FocusEntry& entry : m_focusEntries) {
@@ -128,8 +128,8 @@ void CUiTree::DestroyBody()
         m_priorities[i].element.Release();
     for (int i = kFocusEntries - 1; i >= 0; --i)
         m_focusEntries[i].element.Release();
-    mp_resolving.Release();
-    mp_root.Release();
+    m_resolving.Release();
+    m_treeRoot.Release();
     m_listener.Teardown();
     GameObjects::CObjectHubBase::DestroyBody();
 }
@@ -151,13 +151,13 @@ void CUiTree::DropEntityRegistration(GameObjects::CEntity* object)
 {
     ElementPtr element;
     element.AssignValue(AsElement(object));
-    if (element && mp_root.m_ownerObject == element.m_ownerObject) {
-        mp_root.Release();
+    if (element && m_treeRoot.m_ownerObject == element.m_ownerObject) {
+        m_treeRoot.Release();
         for (MemSys::ListNode* node = m_entities.next; node->data != reinterpret_cast<void*>(-1); node = node->next) {
             ElementPtr candidate;
             candidate.AssignValue(static_cast<CUiWidget*>(node->data));
             if (!candidate->m_container && candidate.m_ownerObject != element.m_ownerObject) {
-                mp_root.Assign(&candidate);
+                m_treeRoot.Assign(&candidate);
                 break;
             }
         }
@@ -183,7 +183,7 @@ void CUiTree::ChangeRoot(uint32_t id)
 {
     ElementPtr element;
     FetchPart(&element, id, 1);
-    mp_root.AssignValue(element.m_ownerObject);
+    m_treeRoot.AssignValue(element.m_ownerObject);
 }
 
 // 0x004ABBE0
@@ -192,10 +192,10 @@ void CUiTree::ChangeOwner(ElementPtr* parent, ElementPtr* child, int unused)
     ElementPtr oldParent;
     oldParent.AssignValue(child->m_ownerObject->m_container.m_ownerObject);
     if (CUiWidget* newParent = parent->m_ownerObject) {
-        if (mp_root.m_ownerObject == child->m_ownerObject || !mp_root) {
-            mp_root.AssignValue(newParent);
-            while (mp_root->m_container)
-                mp_root.AssignValue(mp_root->m_container.m_ownerObject);
+        if (m_treeRoot.m_ownerObject == child->m_ownerObject || !m_treeRoot) {
+            m_treeRoot.AssignValue(newParent);
+            while (m_treeRoot->m_container)
+                m_treeRoot.AssignValue(m_treeRoot->m_container.m_ownerObject);
         }
     }
     RemoveFocusEntries(child, false, false);
@@ -207,7 +207,7 @@ void CUiTree::DestroyTree(int keep, ElementPtr* element, Scripts::CScript* scrip
 {
     element->m_ownerObject->SetFocusSent(0);
     ElementPtr child;
-    child.AssignValue(element->m_ownerObject->mp_firstChild.m_ownerObject);
+    child.AssignValue(element->m_ownerObject->m_eldest.m_ownerObject);
     while (child) {
         ElementPtr next;
         next.AssignValue(child->m_following.m_ownerObject);
@@ -251,7 +251,7 @@ void CUiTree::DismantlePart(uint32_t id, int recurse, int keep, Scripts::CScript
 ElementPtr* CUiTree::FindByLocalId(ElementPtr* out, const ElementPtr* parent, uint32_t localId)
 {
     ElementPtr child;
-    child.AssignValue(parent->m_ownerObject->mp_firstChild.m_ownerObject);
+    child.AssignValue(parent->m_ownerObject->m_eldest.m_ownerObject);
     while (child) {
         uint32_t tag;
         if (child->ReadHashTag(kTagLocalId, &tag) && tag == localId)
@@ -275,54 +275,54 @@ bool CUiTree::ResolveId(Scripts::CStruct* params, uint32_t name, uint32_t* out)
         path->FetchIntValue(0u, &index, 0);
         if (id) {
             ElementPtr found;
-            if (!mp_resolving)
+            if (!m_resolving)
                 FetchPart(&found, id, 0);
             else
-                FindByLocalId(&found, &mp_resolving, id);
-            mp_resolving.AssignValue(found.m_ownerObject);
+                FindByLocalId(&found, &m_resolving, id);
+            m_resolving.AssignValue(found.m_ownerObject);
             found.Release();
-            if (!mp_resolving)
+            if (!m_resolving)
                 return false;
         } else if (index != -1) {
-            mp_resolving.AssignValue(mp_resolving->FindChildAtSlot(index));
-            if (!mp_resolving)
+            m_resolving.AssignValue(m_resolving->FindChildAtSlot(index));
+            if (!m_resolving)
                 return false;
         }
         bool resolved = ResolveId(path, kChild, out);
-        mp_resolving.Release();
+        m_resolving.Release();
         if (resolved)
             return true;
     }
     uint32_t id;
     if (params->ReadHashValue(name, &id, 0)) {
-        if (mp_resolving) {
+        if (m_resolving) {
             ElementPtr found;
-            FindByLocalId(&found, &mp_resolving, id);
-            mp_resolving.AssignValue(found.m_ownerObject);
+            FindByLocalId(&found, &m_resolving, id);
+            m_resolving.AssignValue(found.m_ownerObject);
             found.Release();
-            if (!mp_resolving)
+            if (!m_resolving)
                 return false;
-            id = mp_resolving->m_ident;
+            id = m_resolving->m_ident;
         } else if (GameObjects::CEntity* aliased = GameObjects::Tracker()->LookUpByNickname(id)) {
             id = aliased->m_ident;
         }
-        mp_resolving.Release();
+        m_resolving.Release();
         *out = id;
         return true;
     }
     int index;
     if (params->FetchIntValue(name, &index, 0)) {
-        if (!mp_resolving)
+        if (!m_resolving)
             return false;
         ElementPtr child;
-        child.AssignValue(mp_resolving->FindChildAtSlot(index));
-        mp_resolving.Release();
+        child.AssignValue(m_resolving->FindChildAtSlot(index));
+        m_resolving.Release();
         if (!child)
             return false;
         *out = child->m_ident;
         return true;
     }
-    mp_resolving.Release();
+    m_resolving.Release();
     return false;
 }
 
@@ -342,14 +342,14 @@ ElementPtr* CUiTree::ResolveElement(ElementPtr* out, Scripts::CStruct* params, u
 // 0x004ABD00
 void CUiTree::TickFrame()
 {
-    if (!mp_root)
+    if (!m_treeRoot)
         return;
     // Not original - the new front end (game/front/new_frontend.h): the original's elements hidden or shown for this
     // frame before they are laid out - a menu restyled by ours is never drawn as the game made it, not even a frame.
     // Original behaviour: the tree laid out as the scripts left it.
     MenuSystem::NewFrontend::BeforeScreenLayout();
     LockTree(1);
-    mp_root->UpdateLayout();
+    m_treeRoot->UpdateLayout();
     LockTree(0);
     if (m_numPriorities > 0)
         UpdatePriorities();
@@ -358,10 +358,10 @@ void CUiTree::TickFrame()
 // 0x004AAF90 (a stack of 32 elements: the next sibling, then the first child, of each)
 void CUiTree::LockTree(int lock)
 {
-    if (!mp_root)
+    if (!m_treeRoot)
         return;
     CUiWidget* stack[32];
-    stack[0] = mp_root.m_ownerObject;
+    stack[0] = m_treeRoot.m_ownerObject;
     int count = 1;
     while (count) {
         CUiWidget* element = stack[--count];
@@ -371,8 +371,8 @@ void CUiTree::LockTree(int lock)
             --element->m_aliasCount;
         if (element->m_following)
             stack[count++] = element->m_following.m_ownerObject;
-        if (element->mp_firstChild)
-            stack[count++] = element->mp_firstChild.m_ownerObject;
+        if (element->m_eldest)
+            stack[count++] = element->m_eldest.m_ownerObject;
     }
 }
 
@@ -400,7 +400,7 @@ void CUiTree::AddFocusEntry(ElementPtr* element, int list)
 {
     FocusEntry* last = nullptr;
     for (int i = 0; i < 2; ++i) {
-        for (FocusEntry* entry = mp_focusLists[i]; entry; entry = entry->next) {
+        for (FocusEntry* entry = m_focusLists[i]; entry; entry = entry->next) {
             if (entry->element.m_ownerObject == element->m_ownerObject && list == i) {
                 entry->marked = false;
                 return;
@@ -421,7 +421,7 @@ void CUiTree::AddFocusEntry(ElementPtr* element, int list)
     if (last)
         last->next = entry;
     else
-        mp_focusLists[list] = entry;
+        m_focusLists[list] = entry;
     m_focusDirty[list] = true;
 }
 
@@ -430,7 +430,7 @@ void CUiTree::RemoveFocusEntries(ElementPtr* element, bool fromParent, bool mark
 {
     for (int i = 0; i < 2; ++i) {
         FocusEntry* previous = nullptr;
-        FocusEntry* entry = mp_focusLists[i];
+        FocusEntry* entry = m_focusLists[i];
         while (entry) {
             FocusEntry* next = entry->next;
             ElementPtr walk;
@@ -451,7 +451,7 @@ void CUiTree::RemoveFocusEntries(ElementPtr* element, bool fromParent, bool mark
                     if (previous)
                         previous->next = next;
                     else
-                        mp_focusLists[i] = next;
+                        m_focusLists[i] = next;
                     entry->element.Release();
                     m_focusDirty[i] = true;
                     entry = previous;
@@ -467,7 +467,7 @@ void CUiTree::RemoveFocusEntries(ElementPtr* element, bool fromParent, bool mark
 void CUiTree::ClearMarks(ElementPtr* element)
 {
     for (int i = 0; i < 2; ++i) {
-        for (FocusEntry* entry = mp_focusLists[i]; entry; entry = entry->next) {
+        for (FocusEntry* entry = m_focusLists[i]; entry; entry = entry->next) {
             if (!entry->marked)
                 continue;
             ElementPtr walk;
@@ -553,12 +553,12 @@ void CUiTree::ListenerReceive(GameObjects::CSignal* event)
     if (!isPadType || event->m_aimPoint != kSystem)
         return;
     int controller = GameObjects::EventController(event);
-    for (FocusEntry* entry = manager->mp_focusLists[controller]; entry; entry = entry->next)
+    for (FocusEntry* entry = manager->m_focusLists[controller]; entry; entry = entry->next)
         entry->tried = false;
     manager->m_focusDirty[controller] = true;
     do {
         manager->m_focusDirty[controller] = false;
-        for (FocusEntry* entry = manager->mp_focusLists[controller]; entry; entry = entry->next) {
+        for (FocusEntry* entry = manager->m_focusLists[controller]; entry; entry = entry->next) {
             if (!entry->tried && !entry->marked && !entry->element->InputSuppressed()) {
                 if (padEvent && (!entry->element->HasPriority() || !manager->HasTopPrecedence(entry->id)))
                     continue;

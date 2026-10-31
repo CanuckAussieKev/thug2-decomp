@@ -128,7 +128,7 @@ void CProjectileComponent::Seal()
 {
     auto* skater = SkateCalls::GetHomeRider();
     if (skater)
-        mp_trigger = static_cast<CActivationZoneModule*>(skater->FetchModule(CActivationZoneModule::kType));
+        m_triggerPtr = static_cast<CActivationZoneModule*>(skater->FetchModule(CActivationZoneModule::kType));
 }
 
 // 0x004F3A90
@@ -154,7 +154,7 @@ void CProjectileComponent::CheckTriggers()
         feeler.m_line.end.y = pos.y;
         feeler.m_line.end.w = endW;
         ProbeTip(i, pos.x, pos.z, &feeler.m_line.end.x, &feeler.m_line.end.z);
-        if (feeler.GetHitShape(true, false) && mp_trigger->ProbeTouchesZone(TouchEvents(), &feeler))
+        if (feeler.GetHitShape(true, false) && m_triggerPtr->ProbeTouchesZone(TouchEvents(), &feeler))
             m_rest = kRestFrames;
     }
     feeler.m_entity.Release();

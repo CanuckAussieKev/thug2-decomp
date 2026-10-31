@@ -63,12 +63,12 @@ public:
     float m_tiltRate;       // +0x34 per second
     float m_headingRate;    // +0x38
     float m_secondsRemaining;       // +0x3C
-    uint8_t* mp_input;      // +0x40 the Input component
+    uint8_t* m_inputPtr;      // +0x40 the Input component
 };
 static_assert(offsetof(CFreeLookModule, m_locked) == 0x18 &&
                   offsetof(CFreeLookModule, m_factor) == 0x1C &&
                   offsetof(CFreeLookModule, m_targetTilt) == 0x2C &&
-                  offsetof(CFreeLookModule, mp_input) == 0x40 && sizeof(CFreeLookModule) == 0x44,
+                  offsetof(CFreeLookModule, m_inputPtr) == 0x40 && sizeof(CFreeLookModule) == 0x44,
               "layout must match the original");
 
 // 0x004E3F90: a tail jump to a component's slot 2 (the compiler folded it into several components' tables).

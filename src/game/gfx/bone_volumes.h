@@ -31,7 +31,7 @@ static_assert(offsetof(CBoneVolume, m_capsule) == 0x08 && sizeof(CBoneVolume) ==
 
 // A skeleton's bone volumes (0x0C bytes): one per bone (the root has none).
 struct CBoneVolumes {
-    CBoneVolume** mp_volumes; // +0x00 (null where a bone has none)
+    CBoneVolume** m_volumes; // +0x00 (null where a bone has none)
     uint32_t m_num;         // +0x04 the bones
     int m_users;              // +0x08
 

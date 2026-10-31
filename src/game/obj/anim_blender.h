@@ -122,17 +122,17 @@ public:
     // written without a channel).
     void GetTimes(float* start, float* current, float* end);
 
-    CObjectModule* mp_component18;   // +0x18 the object's 0xCE0CA665 component
+    CObjectModule* m_component18;   // +0x18 the object's 0xCE0CA665 component
     CObjectModule* m_boneRig;      // +0x1C its 0x222756D5 component
     CObjectModule* m_meshInstance;         // +0x20 its 0x286A8D26 component
     uint32_t m_unknown24;             // +0x24 (given to the 0xCE0CA665 component's 0x00433EA0 each update)
     MemSys::ListNode m_lanes;         // +0x28 the channel list's head (vtable 0x00645D88; data -1)
-    void* mp_observers;               // +0x3C a std::list of observers: its sentinel node (+4 next, +8 prev)
+    void* m_observers;               // +0x3C a std::list of observers: its sentinel node (+4 next, +8 prev)
     uint32_t m_observerCount;         // +0x40
 };
-static_assert(offsetof(CAnimBlenderComponent, mp_component18) == 0x18 &&
+static_assert(offsetof(CAnimBlenderComponent, m_component18) == 0x18 &&
                   offsetof(CAnimBlenderComponent, m_lanes) == 0x28 &&
-                  offsetof(CAnimBlenderComponent, mp_observers) == 0x3C && sizeof(CAnimBlenderComponent) == 0x44,
+                  offsetof(CAnimBlenderComponent, m_observers) == 0x3C && sizeof(CAnimBlenderComponent) == 0x44,
               "layout must match the original");
 
 // Pieces of the channel list's links and of the channel itself kept here.

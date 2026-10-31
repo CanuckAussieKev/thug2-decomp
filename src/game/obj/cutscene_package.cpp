@@ -264,9 +264,9 @@ void CCinematicTable::DestroyBody()
 {
     m_vtable = g_cutsceneDataVtable;
     g_cutscenePlaying = false;
-    if (mp_bundle) {
-        DeleteVirtual(mp_bundle);
-        mp_bundle = nullptr;
+    if (m_bundlePtr) {
+        DeleteVirtual(m_bundlePtr);
+        m_bundlePtr = nullptr;
     }
     if (m_cameraSource)
         DeleteVirtual(m_cameraSource);
@@ -294,25 +294,25 @@ void CCinematicTable::DestroyBody()
             Scripts::UnloadQB(Checksums::HashFromText(fileName));
         }
     }
-    if (mp_params) {
-        FreeStruct(mp_params);
-        mp_params = nullptr;
+    if (m_callArgs) {
+        FreeStruct(m_callArgs);
+        m_callArgs = nullptr;
     }
 }
 
 // 0x00466DD0
 void CCinematicTable::LoadFromBundle()
 {
-    FileLoad::AssetBundle* bundle = mp_bundle;
+    FileLoad::AssetBundle* bundle = m_bundlePtr;
     int count = bundle->m_num;
     for (int i = 0; i < count; ++i) {
-        FileLoad::AssetBundle::TableRow* entry = mp_bundle->GetEntry(i);
-        void* data = mp_bundle->ObtainLoadedItem(i);
+        FileLoad::AssetBundle::TableRow* entry = m_bundlePtr->GetEntry(i);
+        void* data = m_bundlePtr->ObtainLoadedItem(i);
         uint32_t type = entry->type;
         switch (type) {
         case kTypeStructure:
-            mp_params->Clear();
-            Scripts::DecodeFromBytes(mp_params, static_cast<const uint8_t*>(data));
+            m_callArgs->Clear();
+            Scripts::DecodeFromBytes(m_callArgs, static_cast<const uint8_t*>(data));
             break;
         case kTypeQB:
             if (m_flag34B0) {
@@ -329,12 +329,12 @@ void CCinematicTable::LoadFromBundle()
                 m_cameraSource = NewAnimSource();
                 static_cast<Engine3D::CFrameSource*>(m_cameraSource)->SetDone(true);
             }
-            if (!mp_cameraAnim) {
-                mp_cameraAnim = static_cast<Engine3D::CFrameSource*>(m_cameraSource)->PlayClip(name);
-                static_cast<Gfx2D::CJointClipFrames*>(mp_cameraAnim)->ArmEvents();
+            if (!m_cameraAnim) {
+                m_cameraAnim = static_cast<Engine3D::CFrameSource*>(m_cameraSource)->PlayClip(name);
+                static_cast<Gfx2D::CJointClipFrames*>(m_cameraAnim)->ArmEvents();
             }
-            if (!mp_objectAnims)
-                mp_objectAnims = mp_cameraAnim;
+            if (!m_objectAnims)
+                m_objectAnims = m_cameraAnim;
             break;
         }
         case kTypeObjectAnim: {
@@ -345,9 +345,9 @@ void CCinematicTable::LoadFromBundle()
                 m_objectSource = NewAnimSource();
                 static_cast<Engine3D::CFrameSource*>(m_objectSource)->SetDone(true);
             }
-            if (!mp_animList) {
-                mp_animList = static_cast<Engine3D::CFrameSource*>(m_objectSource)->PlayClip(name);
-                static_cast<Gfx2D::CJointClipFrames*>(mp_animList)->ArmEvents();
+            if (!m_animList) {
+                m_animList = static_cast<Engine3D::CFrameSource*>(m_objectSource)->PlayClip(name);
+                static_cast<Gfx2D::CJointClipFrames*>(m_animList)->ArmEvents();
             }
             break;
         }
@@ -359,8 +359,8 @@ void CCinematicTable::LoadFromBundle()
             break;
         }
         case kTypeObjects:
-            mp_params->Clear();
-            ObjectsFromTable(mp_params, static_cast<const uint32_t*>(data));
+            m_callArgs->Clear();
+            ObjectsFromTable(m_callArgs, static_cast<const uint32_t*>(data));
             break;
         case kTypeAnim:
             LoadAnimation(entry->name, reinterpret_cast<uint32_t>(data), entry->size);
@@ -377,10 +377,10 @@ void CCinematicTable::LoadFromBundle()
         default:
             break;
         }
-        mp_bundle->FreeAsset(entry->name, entry->type);
+        m_bundlePtr->FreeAsset(entry->name, entry->type);
     }
-    if (!mp_params->FetchFloat(kEndTime, &m_endTime, 0))
-        m_endTime = *static_cast<float*>(m_flag34B0 ? mp_cameraAnim : mp_animList);
+    if (!m_callArgs->FetchFloat(kEndTime, &m_endTime, 0))
+        m_endTime = *static_cast<float*>(m_flag34B0 ? m_cameraAnim : m_animList);
 }
 
 // A model in the bundle (with its textures, a skinned model's colours): loaded unless it's a skin variant that
@@ -390,8 +390,8 @@ void CCinematicTable::IngestMesh(int index, FileLoad::AssetBundle::TableRow* ent
     uint32_t modelName = entry->name + kTypeModel; // (the original prints name + type, compiled out)
     LoadParams params;
     reinterpret_cast<AssetStore::SkinParams*>(&params)->Clear(); // (the skinned model's load parameters, 0x14 bytes)
-    void* textureData = mp_bundle->FindAsset(entry->name, kTypeTextures, 1);
-    FileLoad::AssetBundle::TableRow* textures = mp_bundle->FindEntry(entry->name, kTypeTextures, 1);
+    void* textureData = m_bundlePtr->FindAsset(entry->name, kTypeTextures, 1);
+    FileLoad::AssetBundle::TableRow* textures = m_bundlePtr->FindEntry(entry->name, kTypeTextures, 1);
     uint32_t textureSize = textures->size;
     uint32_t texturesName = textures->type + textures->name;
     uint8_t isModel = entry->type == kTypeModel;
@@ -408,7 +408,7 @@ void CCinematicTable::IngestMesh(int index, FileLoad::AssetBundle::TableRow* ent
     textureParams.isModel = isModel;
     bool load = static_cast<int>(entry->size) >= 0x96;
     if (const uint8_t* colours =
-            static_cast<const uint8_t*>(mp_bundle->FindAsset(entry->name, kTypeColours, 0))) {
+            static_cast<const uint8_t*>(m_bundlePtr->FindAsset(entry->name, kTypeColours, 0))) {
         // the skater's colours from its appearance (part A or B, else the other)
         auto* part1 = static_cast<Scripts::CStruct*>(
             static_cast<Gfx2D::CModelLook*>(m_unknown34A8)->GetPart(kPartA));
@@ -435,16 +435,16 @@ void CCinematicTable::IngestMesh(int index, FileLoad::AssetBundle::TableRow* ent
         table.colours = skin;
         // which skin this is: the next names along say (none after it: the last)
         bool male = false, hasFace = false;
-        if (!mp_bundle->FindEntry(entry->name + 1, kTypeModel, 0)) {
+        if (!m_bundlePtr->FindEntry(entry->name + 1, kTypeModel, 0)) {
             male = false;
             hasFace = true;
-        } else if (!mp_bundle->FindEntry(entry->name + 2, kTypeModel, 0)) {
+        } else if (!m_bundlePtr->FindEntry(entry->name + 2, kTypeModel, 0)) {
             male = false;
             hasFace = false;
-        } else if (!mp_bundle->FindEntry(entry->name + 3, kTypeModel, 0)) {
+        } else if (!m_bundlePtr->FindEntry(entry->name + 3, kTypeModel, 0)) {
             male = true;
             hasFace = true;
-        } else if (!mp_bundle->FindEntry(entry->name + 4, kTypeModel, 0)) {
+        } else if (!m_bundlePtr->FindEntry(entry->name + 4, kTypeModel, 0)) {
             male = true;
             hasFace = false;
         }
@@ -457,9 +457,9 @@ void CCinematicTable::IngestMesh(int index, FileLoad::AssetBundle::TableRow* ent
             Engine3D::SetScreenClip(&table);
     }
     if (load) {
-        params.extra = mp_bundle->FindAsset(entry->name, kTypeExtra, 0);
+        params.extra = m_bundlePtr->FindAsset(entry->name, kTypeExtra, 0);
         if (params.extra)
-            params.extraSize = mp_bundle->FindEntry(entry->name, kTypeExtra, 1)->size;
+            params.extraSize = m_bundlePtr->FindEntry(entry->name, kTypeExtra, 1)->size;
         static_cast<AssetStore::CResourceRegistry*>(assets)->ReadResourceFromStream(texturesName, 3, 0, textureData, textureSize, false, true,
                                                                  &textureParams, 0);
         static_cast<AssetStore::CResourceRegistry*>(assets)->ReadResourceFromStream(modelName, 7, texturesName, data, entry->size, false, true,
@@ -469,10 +469,10 @@ void CCinematicTable::IngestMesh(int index, FileLoad::AssetBundle::TableRow* ent
         m_assets[m_assetCount] = texturesName;
         ++m_assetCount;
     }
-    mp_bundle->FreeAsset(entry->name, entry->type);
-    mp_bundle->FreeAsset(entry->name, kTypeTextures);
-    mp_bundle->FreeAsset(entry->name, kTypeExtra);
-    mp_bundle->FreeAsset(entry->name, kTypeColours);
+    m_bundlePtr->FreeAsset(entry->name, entry->type);
+    m_bundlePtr->FreeAsset(entry->name, kTypeTextures);
+    m_bundlePtr->FreeAsset(entry->name, kTypeExtra);
+    m_bundlePtr->FreeAsset(entry->name, kTypeColours);
 }
 
 } // namespace Obj

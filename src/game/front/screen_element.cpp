@@ -47,7 +47,7 @@ static_assert(offsetof(SElementState, pos3d) == 0x04 && offsetof(SElementState, 
                   offsetof(SElementState, scaleX) == 0x28 && offsetof(SElementState, baseScaleX) == 0x30 &&
                   offsetof(SElementState, angle) == 0x38 && offsetof(SElementState, rgba) == 0x3C,
               "layout must match the original");
-static_assert(offsetof(CUiWidget, m_container) == 0x4C && offsetof(CUiWidget, mp_firstChild) == 0x58 &&
+static_assert(offsetof(CUiWidget, m_container) == 0x4C && offsetof(CUiWidget, m_eldest) == 0x58 &&
                   offsetof(CUiWidget, m_following) == 0x64 && offsetof(CUiWidget, m_preceding) == 0x70 &&
                   offsetof(CUiWidget, m_shown) == 0x7C && offsetof(CUiWidget, m_aimPoint) == 0xC0 &&
                   offsetof(CUiWidget, m_morphStart) == 0x104 && offsetof(CUiWidget, m_morphDone) == 0x110 &&
@@ -200,8 +200,8 @@ CUiWidget* CUiWidget::MakeNew()
     m_vtable = kCScreenElementVtable;
     m_container.m_preceding = m_container.m_following = nullptr;
     m_container.m_ownerObject = nullptr;
-    mp_firstChild.m_preceding = mp_firstChild.m_following = nullptr;
-    mp_firstChild.m_ownerObject = nullptr;
+    m_eldest.m_preceding = m_eldest.m_following = nullptr;
+    m_eldest.m_ownerObject = nullptr;
     m_following.m_preceding = m_following.m_following = nullptr;
     m_following.m_ownerObject = nullptr;
     m_preceding.m_preceding = m_preceding.m_following = nullptr;
@@ -236,7 +236,7 @@ void CUiWidget::DestroyBody()
     m_ident = kDeadBeef;
     m_preceding.Release();
     m_following.Release();
-    mp_firstChild.Release();
+    m_eldest.Release();
     m_container.Release();
     GameObjects::CEntity::DestroyBody();
 }
@@ -486,7 +486,7 @@ void CUiWidget::ChangeDrawDepth(float z)
         m_zPriority = z;
     }
     ElementPtr child;
-    child.AssignValue(mp_firstChild.m_ownerObject);
+    child.AssignValue(m_eldest.m_ownerObject);
     if (child) {
         float next = static_cast<float>(static_cast<double>(z) + 1.0);
         while (child) {
@@ -502,7 +502,7 @@ void CUiWidget::SetChildrenPriority(int priority)
     m_objectFlags |= kPriority;
     m_rank = priority;
     ElementPtr child;
-    child.AssignValue(mp_firstChild.m_ownerObject);
+    child.AssignValue(m_eldest.m_ownerObject);
     while (child) {
         child->SetChildrenPriority(priority);
         child.AssignValue(child->m_following.m_ownerObject);
@@ -543,7 +543,7 @@ CUiWidget* CUiWidget::FetchPane() const
 // 0x004A95E0
 CUiWidget* CUiWidget::FetchYoungest() const
 {
-    CUiWidget* child = mp_firstChild.m_ownerObject;
+    CUiWidget* child = m_eldest.m_ownerObject;
     if (!child)
         return nullptr;
     while (child->m_following.m_ownerObject)
@@ -556,7 +556,7 @@ int CUiWidget::ChildTotal() const
 {
     int count = 0;
     ElementPtr child;
-    child.AssignValue(mp_firstChild.m_ownerObject);
+    child.AssignValue(m_eldest.m_ownerObject);
     while (child) {
         child.AssignValue(child->m_following.m_ownerObject);
         ++count;
@@ -568,7 +568,7 @@ int CUiWidget::ChildTotal() const
 ElementPtr* CUiWidget::FetchOffspring(ElementPtr* out, uint32_t id, int* index)
 {
     ElementPtr child;
-    child.AssignValue(mp_firstChild.m_ownerObject);
+    child.AssignValue(m_eldest.m_ownerObject);
     for (int i = 0; child; ++i) {
         if (id == 0) {
             if (*index == i)
@@ -607,14 +607,14 @@ void CUiWidget::ChangeOwner(const ElementPtr* parent, int)
     if (m_container) {
         // out of the old parent's children
         ElementPtr child;
-        child.AssignValue(m_container->mp_firstChild.m_ownerObject);
+        child.AssignValue(m_container->m_eldest.m_ownerObject);
         while (child && child.m_ownerObject != this)
             child.AssignValue(child->m_following.m_ownerObject);
         if (child) {
             if (m_preceding)
                 m_preceding->m_following.AssignValue(m_following.m_ownerObject);
             else
-                m_container->mp_firstChild.AssignValue(m_following.m_ownerObject);
+                m_container->m_eldest.AssignValue(m_following.m_ownerObject);
             if (m_following)
                 m_following->m_preceding.AssignValue(m_preceding.m_ownerObject);
         }
@@ -623,14 +623,14 @@ void CUiWidget::ChangeOwner(const ElementPtr* parent, int)
     if (m_container) {
         // last among the new parent's children
         ElementPtr last;
-        last.AssignValue(m_container->mp_firstChild.m_ownerObject);
+        last.AssignValue(m_container->m_eldest.m_ownerObject);
         ElementPtr* slot;
         if (last) {
             while (last->m_following)
                 last.AssignValue(last->m_following.m_ownerObject);
             slot = &last->m_following;
         } else {
-            slot = &m_container->mp_firstChild;
+            slot = &m_container->m_eldest;
         }
         slot->AssignValue(this);
         m_preceding.AssignValue(last.m_ownerObject);
@@ -758,7 +758,7 @@ void CUiWidget::UpdateLayout()
     m_objectFlags &= ~kVisibleNow;
     if (m_objectFlags & kPauseAsked)
         m_objectFlags |= kPaused;
-    for (CUiWidget* child = mp_firstChild.m_ownerObject; child; child = child->m_following.m_ownerObject)
+    for (CUiWidget* child = m_eldest.m_ownerObject; child; child = child->m_following.m_ownerObject)
         child->UpdateLayout();
     if (static_cast<int>(m_aliasCount) > 0)
         --m_aliasCount;

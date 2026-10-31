@@ -107,7 +107,7 @@ public:
     bool WorkOn(void* object);
 
     uint32_t m_kindTag;           // +0x0C
-    Scripts::CStruct* mp_params; // +0x10
+    Scripts::CStruct* m_callArgs; // +0x10
 };
 static_assert(sizeof(CAnimScriptKey) == 0x14, "layout must match the original");
 

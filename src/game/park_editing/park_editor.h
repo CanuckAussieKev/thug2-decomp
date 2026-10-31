@@ -186,7 +186,7 @@ public:
     bool m_actionFinished;                     // +0x30: a command that changes the park was carried out
     uint8_t pad31[3];
     ParkEditorTask* m_editorUpdateJob;           // +0x34 (0x0058FFC0, priority 0)
-    ParkEditorTask* mp_displayTask;         // +0x38 (the empty 0x005480A0, priority -1000)
+    ParkEditorTask* m_drawJob;         // +0x38 (the empty 0x005480A0, priority -1000)
     ParkEditorInputHandler* m_editorPadListener; // +0x3C (ProcessPadInput, priority 0)
     uint32_t m_curPhase;                       // +0x40
     uint32_t m_actions;                    // +0x44

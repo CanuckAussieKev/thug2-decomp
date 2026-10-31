@@ -92,7 +92,7 @@ void CTopBarMenus::DiscardOccurrence()
         return;
     LaunchScript(kDestroyPieceMenu);
     LaunchScript(kDestroySetMenu);
-    menu->mp_set = nullptr;
+    menu->m_pointGroup = nullptr;
     MemSys::Dealloc(menu);
     Sole() = nullptr;
 }
@@ -110,14 +110,14 @@ void CTopBarMenus::SelectPieceFamily(CPieceFamily* set, int /*unused*/, int fami
         cursor->DropAreaMarquee();
     }
     void* tracker = Tracker();
-    if (mp_set) {
-        uint32_t id = mp_set->m_entries[m_selected].checksum;
+    if (m_pointGroup) {
+        uint32_t id = m_pointGroup->m_entries[m_selected].checksum;
         if (ObjectExists(tracker, id))
             LaunchEvent(tracker, kUnfocus, id, kSystem);
     }
 
     // A new set: its piece menu (each clipboard, sector or piece), the set menu, the menus locked.
-    if (set != mp_set) {
+    if (set != m_pointGroup) {
         LaunchScript(kMakePieceMenu);
         for (int i = 0; i < set->m_entryTotal; ++i) {
             uint32_t checksum = set->m_entries[i].checksum;
@@ -154,7 +154,7 @@ void CTopBarMenus::SelectPieceFamily(CPieceFamily* set, int /*unused*/, int fami
         params.PutInt(kSetNumber, familyNumber);
         params.PutInt(kLastSetNumber, m_setNumber);
         LaunchScript(kLockMenus, &params);
-        mp_set = set;
+        m_pointGroup = set;
         m_setNumber = familyNumber;
         params.Clear();
     }

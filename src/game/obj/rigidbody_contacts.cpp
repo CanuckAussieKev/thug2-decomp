@@ -79,7 +79,7 @@ bool CBodyDynamicsModule::FindContacts()
 
     for (int j = m_sphereCount - 1; j >= 0; --j) {
         const Maths::Vec4& centre = WorldSphereCenters()[j];
-        const Sphere& sphere = mp_spheres[j];
+        const Sphere& sphere = m_spheres[j];
         Maths::Vec4 at = {Narrow(Wide(centre.x) + m_atPoint.x), Narrow(Wide(centre.y) + m_atPoint.y),
                           Narrow(Wide(m_atPoint.z) + centre.z), Narrow(Wide(centre.w) + m_atPoint.w)};
         Engine3D::CSphereFeeler feeler;

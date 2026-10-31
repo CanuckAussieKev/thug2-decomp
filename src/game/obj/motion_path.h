@@ -35,7 +35,7 @@ public:
     // 0x00423520: MOTION_PATH_RANDOM (the path follower takes a random link).
     bool PicksRandomLink() const;
     // 0x00423510: the path follower (+0x1EC; null while not on a path).
-    void* GetPathFollower() const { return mp_pathFollower; }
+    void* GetPathFollower() const { return m_pathFollower; }
     // 0x00423530: the speed along a path (MOTION_FLAG_ON_PATH): stopping - from the speed when it began, the stop's
     // distance covered (the frame's travel added) eased linearly to the minimum stop speed, 0 at its end; else
     // accelerating (or decelerating) towards the path velocity, by the frame's share, never past it (0 acceleration:
@@ -88,13 +88,13 @@ public:
     uint8_t m_unknown1B0[0x1E0 - 0x1B0];
     float m_frameTime;              // +0x1E0 seconds
     uint8_t m_unknown1E4[0x1EC - 0x1E4];
-    void* mp_pathFollower;          // +0x1EC
+    void* m_pathFollower;          // +0x1EC
 };
 static_assert(offsetof(CMotionPathMembers, m_motionFlags) == 0x18 &&
                   offsetof(CMotionPathMembers, m_acceleration) == 0x24 &&
                   offsetof(CMotionPathMembers, m_stopCovered) == 0x1A4 &&
                   offsetof(CMotionPathMembers, m_frameTime) == 0x1E0 &&
-                  offsetof(CMotionPathMembers, mp_pathFollower) == 0x1EC,
+                  offsetof(CMotionPathMembers, m_pathFollower) == 0x1EC,
               "layout must match the original");
 
 } // namespace Obj

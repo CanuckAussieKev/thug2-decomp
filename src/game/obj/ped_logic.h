@@ -254,7 +254,7 @@ public:
     uint32_t m_curPhase;              // +0x24 the logic state (LogicState)
     uint32_t m_stateTable;         // +0x28 its table
     uint32_t m_updateType;         // +0x2C ped_update_type (the move update run each frame)
-    Scripts::CScript* mp_auxScript; // +0x30
+    Scripts::CScript* m_auxScript; // +0x30
     float m_avoid[4];              // +0x34 the steering this frame, per quarter turn (cos-weighted; -1..1)
     float m_bias[4];               // +0x44 the lasting steering bias, per quarter turn
     uint32_t m_listLink;               // +0x54 the node it came from (a name)
@@ -265,7 +265,7 @@ public:
     Maths::Vec4 m_nodeAfterPos;    // +0x80
     int m_turnFrame;               // +0x90 frames into the turn towards the node after
     int m_turnFrames;              // +0x94 the turn's length (0: not turning)
-    CObjectGroup* mp_peds;         // +0x98 the path manager's extra group (the other peds to avoid)
+    CObjectGroup* m_peds;         // +0x98 the path manager's extra group (the other peds to avoid)
     float m_frameTime;             // +0x9C this frame's (seconds)
     Maths::Vec4 m_upDir;              // +0xA0 the up it blends from
     Maths::Vec4 m_upTarget;        // +0xB0 the up it blends to
@@ -286,10 +286,10 @@ public:
     Maths::Vec4 m_pastFrames[5];      // +0x17C its last positions (the newest last)
 };
 static_assert(offsetof(CPedestrianBrainModule, m_kind) == 0x18 && offsetof(CPedestrianBrainModule, m_flagBits) == 0x20 &&
-                  offsetof(CPedestrianBrainModule, mp_auxScript) == 0x30 && offsetof(CPedestrianBrainModule, m_avoid) == 0x34 &&
+                  offsetof(CPedestrianBrainModule, m_auxScript) == 0x30 && offsetof(CPedestrianBrainModule, m_avoid) == 0x34 &&
                   offsetof(CPedestrianBrainModule, m_bias) == 0x44 && offsetof(CPedestrianBrainModule, m_listLink) == 0x54 &&
                   offsetof(CPedestrianBrainModule, m_nodePos) == 0x60 && offsetof(CPedestrianBrainModule, m_turnFrame) == 0x90 &&
-                  offsetof(CPedestrianBrainModule, mp_peds) == 0x98 && offsetof(CPedestrianBrainModule, m_upDir) == 0xA0 &&
+                  offsetof(CPedestrianBrainModule, m_peds) == 0x98 && offsetof(CPedestrianBrainModule, m_upDir) == 0xA0 &&
                   offsetof(CPedestrianBrainModule, m_upBlend) == 0xD0 && offsetof(CPedestrianBrainModule, m_spinAngle) == 0xE4 &&
                   offsetof(CPedestrianBrainModule, m_jumpMatrix) == 0xF4 &&
                   offsetof(CPedestrianBrainModule, m_vertRotation) == 0x134 &&

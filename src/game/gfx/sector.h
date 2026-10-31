@@ -109,9 +109,9 @@ public:
     uint32_t m_surfaceType;    // +0x0C: its terrain type (the node's TerrainType)
     int m_rotY;            // +0x10: quarter turns about y
     void* m_geomHandle;         // +0x14: CGeom (on PC a CPcGeom), or null
-    CHitMesh* mp_collObj;  // +0x18: or null
+    CHitMesh* m_hitBody;  // +0x18: or null
 };
-static_assert(offsetof(CWorldCell, m_rotY) == 0x10 && offsetof(CWorldCell, mp_collObj) == 0x18 && sizeof(CWorldCell) == 0x1C,
+static_assert(offsetof(CWorldCell, m_rotY) == 0x10 && offsetof(CWorldCell, m_hitBody) == 0x18 && sizeof(CWorldCell) == 0x1C,
               "layout must match the original");
 
 } // namespace Nx

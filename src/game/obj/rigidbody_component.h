@@ -147,7 +147,7 @@ public:
         float depth;        // +0x28
         bool active;        // +0x2C
         bool scaled;        // +0x2D impulseScale worked out
-        int8_t friction;    // +0x2E its directed friction (an index into mp_directedFriction)
+        int8_t friction;    // +0x2E its directed friction (an index into m_steerFriction)
         uint8_t pad2F;
     };
     // The shape turned to the world this frame (from the centre of mass): the contact points (0x00694E30), the
@@ -218,15 +218,15 @@ public:
     float m_skaterRotationFactor;          // +0x54 skater_collision_rotation_factor (1)
     float m_linearSleepSquared;            // +0x58 linear_velocity_sleep_point squared (100)
     float m_angularSleepSquared;           // +0x5C angular_velocity_sleep_point squared (0.16)
-    Maths::Vec4* mp_contacts;              // +0x60 the shape's points (body space)
+    Maths::Vec4* m_contacts;              // +0x60 the shape's points (body space)
     Maths::Capsule m_capsule;                // +0x64
-    DirectedFriction* mp_directedFriction; // +0x88 one per contact (directed_friction=)
+    DirectedFriction* m_steerFriction; // +0x88 one per contact (directed_friction=)
     uint16_t m_contactCount;               // +0x8C
     uint16_t pad8E;
-    Sphere* mp_spheres;                    // +0x90
+    Sphere* m_spheres;                    // +0x90
     uint16_t m_sphereCount;                // +0x94
     uint16_t pad96;
-    Spring* mp_springs;                    // +0x98 (springs=)
+    Spring* m_springs;                    // +0x98 (springs=)
     uint16_t m_springCount;                // +0x9C
     uint16_t pad9E;
     Maths::Vec4 m_centerOfMass;            // +0xA0 center_of_mass
@@ -236,9 +236,9 @@ public:
     uint32_t m_bounceScript;               // +0xC8 BounceScript
     uint32_t m_settleScript;               // +0xCC SettleScript
     uint32_t m_scriptD0;                   // +0xD0 (0xCCB84047): run when the contacts can't be resolved
-    Scripts::CStruct* mp_callbackParams;    // +0xD4 CallbackParams (a copy)
-    Scripts::CStruct* mp_collideSound;      // +0xD8 the sound type's CollideSound (a copy)
-    Scripts::CStruct* mp_bounceSound;       // +0xDC ... BounceSound
+    Scripts::CStruct* m_callbackParamsPtr;    // +0xD4 CallbackParams (a copy)
+    Scripts::CStruct* m_collideSoundPtr;      // +0xD8 the sound type's CollideSound (a copy)
+    Scripts::CStruct* m_bounceSfx;       // +0xDC ... BounceSound
     int m_impactQuietMs;                // +0xE0 (1000)
     int m_globalCollideMuteDelay;          // +0xE4 (100)
     float m_bounceCallbackThreshold;       // +0xE8 BounceVelocityCallbackThreshold (20)
@@ -260,12 +260,12 @@ public:
     float m_radius;                        // +0x198 the bounding radius
     CAudioEmitterModule* m_audioModule;    // +0x19C the object's sound component (for the bounce sound)
 };
-static_assert(offsetof(CBodyDynamicsModule, m_steadyAccel) == 0x1C && offsetof(CBodyDynamicsModule, mp_contacts) == 0x60 &&
+static_assert(offsetof(CBodyDynamicsModule, m_steadyAccel) == 0x1C && offsetof(CBodyDynamicsModule, m_contacts) == 0x60 &&
                   offsetof(CBodyDynamicsModule, m_capsule) == 0x64 &&
-                  offsetof(CBodyDynamicsModule, mp_directedFriction) == 0x88 &&
+                  offsetof(CBodyDynamicsModule, m_steerFriction) == 0x88 &&
                   offsetof(CBodyDynamicsModule, m_contactCount) == 0x8C &&
                   offsetof(CBodyDynamicsModule, m_centerOfMass) == 0xA0 &&
-                  offsetof(CBodyDynamicsModule, mp_callbackParams) == 0xD4 &&
+                  offsetof(CBodyDynamicsModule, m_callbackParamsPtr) == 0xD4 &&
                   offsetof(CBodyDynamicsModule, m_flagBits) == 0xF4 && offsetof(CBodyDynamicsModule, m_curPhase) == 0x10C &&
                   offsetof(CBodyDynamicsModule, m_atPoint) == 0x110 && offsetof(CBodyDynamicsModule, m_basisFrame) == 0x150 &&
                   offsetof(CBodyDynamicsModule, m_contactsHit) == 0x190 &&

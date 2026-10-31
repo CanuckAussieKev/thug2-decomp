@@ -63,7 +63,7 @@ public:
     // nodes (no node array component: a crash).
     void ConfigureFromData(Scripts::CStruct* params);
 
-    CClassNodeList* mp_hooks; // +0x18 (0x4C bytes)
+    CClassNodeList* m_hooksPtr; // +0x18 (0x4C bytes)
 };
 static_assert(sizeof(CHookPointRegistryModule) == 0x1C,
               "layout must match the original (0x00428130 allocates 0x1C bytes)");

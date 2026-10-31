@@ -861,8 +861,8 @@ start at +0x4C) and `objman.*` (CObjectHubBase / CMiscHub); batch 77. Composite 
   visited; up to 32 nested walks, one bit each. A manager keeps its objects sorted by node priority, highest
   first, equal priorities newest first (ListKit::Foremost::AppendVertex 0x0045A540) (test).
 - Member functions called from script (`obj:Name` / `44` / `46` statements) come from tables of 0x18-byte entries
-  `{name, component type, a 16-byte member function pointer}` (`CMemberFunctionEntry`: m_callsign, mComponentType,
-  mCode, mThisAdjustment, two virtual-base offsets): CEntity's at 0x00683550 (type 0x57525413), CGameEntity's
+  `{name, component type, a 16-byte member function pointer}` (`CMemberFunctionEntry`: m_callsign, m_ownerKind,
+  m_methodCode, m_thisAdjustment, two virtual-base offsets): CEntity's at 0x00683550 (type 0x57525413), CGameEntity's
   at 0x00683268 (type 0x0ADA4E74, 30 entries), both registered by the composite object manager's constructor.
   An entry with a member function pointer is called directly (CEntity's vtable slot 2, 0x0045D850, `this` moved by
   the entry's adjustment); with none, by name (vtable slot 3) (code + test).

@@ -31,7 +31,7 @@ public:
     void TickFrame();
 
     uint32_t m_texture;  // +0x178 the texture's checksum
-    void* mp_piece;      // +0x17C
+    void* m_piece;      // +0x17C
 };
 static_assert(offsetof(CTextureElement, m_texture) == 0x178 && sizeof(CTextureElement) == 0x180,
               "layout must match the original");

@@ -69,7 +69,7 @@ CBitmapTexture* InsertTexture(CTextureSet* dict, CBitmapTexture* texture, bool p
     if (texture) {
         texture->PinResident(permanent);
         uint32_t key = texture->m_checksum;
-        dict->mp_textures->StoreEntry(key, texture);
+        dict->m_textures->StoreEntry(key, texture);
     }
     return texture;
 }
@@ -89,7 +89,7 @@ CTextureSet* CTextureSet::MakeNew(uint32_t checksum, bool makeTable)
     m_checksum = checksum;
     vtable = reinterpret_cast<void**>(kTexDictVtable);
     m_shareCount = 1;
-    mp_textures = makeTable ? NewTextureTable() : nullptr;
+    m_textures = makeTable ? NewTextureTable() : nullptr;
     return this;
 }
 
@@ -99,7 +99,7 @@ CTextureSet* CTextureSet::ConstructNamed(const char* name, bool makeTable)
     vtable = reinterpret_cast<void**>(kTexDictVtable);
     m_checksum = Checksums::HashFromText(name);
     m_shareCount = 1;
-    mp_textures = makeTable ? NewTextureTable() : nullptr;
+    m_textures = makeTable ? NewTextureTable() : nullptr;
     return this;
 }
 
@@ -108,7 +108,7 @@ void CTextureSet::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(kTexDictVtable);
     DropTextures(true);
-    if (ListKit::KeyMap* table = mp_textures) {
+    if (ListKit::KeyMap* table = m_textures) {
         if (table->m_buckets) {
             table->EmptyTable();
             MemSys::Dealloc(table->m_buckets);
@@ -130,18 +130,18 @@ CTextureSet* CTextureSet::Teardown(unsigned int freeFlags)
 // 0x0049F540
 CBitmapTexture* CTextureSet::FetchSkin(uint32_t checksum)
 {
-    if (!mp_textures)
+    if (!m_textures)
         return nullptr;
-    return static_cast<CBitmapTexture*>(mp_textures->FetchEntry(checksum, true));
+    return static_cast<CBitmapTexture*>(m_textures->FetchEntry(checksum, true));
 }
 
 // 0x0049F560
 CBitmapTexture* CTextureSet::GetTextureByName(const char* name)
 {
     uint32_t checksum = FilenameKey(name);
-    if (!mp_textures)
+    if (!m_textures)
         return nullptr;
-    return static_cast<CBitmapTexture*>(mp_textures->FetchEntry(checksum, true));
+    return static_cast<CBitmapTexture*>(m_textures->FetchEntry(checksum, true));
 }
 
 // 0x0049F660 (the original copies the name into 512 bytes unbounded)
@@ -150,7 +150,7 @@ CBitmapTexture* CTextureSet::FindTexture(const char* name)
     auto find = [this](uint32_t checksum) -> CBitmapTexture* {
         for (const int* multiplier = KeyMultipliers(); *multiplier > 0; ++multiplier) {
             uint32_t key = static_cast<uint32_t>(*multiplier) * checksum;
-            CBitmapTexture* texture = mp_textures ? static_cast<CBitmapTexture*>(mp_textures->FetchEntry(key)) : nullptr;
+            CBitmapTexture* texture = m_textures ? static_cast<CBitmapTexture*>(m_textures->FetchEntry(key)) : nullptr;
             if (texture)
                 return texture;
         }
@@ -205,14 +205,14 @@ bool CTextureSet::UnloadTexture(CBitmapTexture* texture)
     DebugBeforeUnload();
     if (!Bay<bool>(this, 5, texture))
         return false;
-    mp_textures->EraseEntry(key);
+    m_textures->EraseEntry(key);
     return true;
 }
 
 // 0x0049F5C0 (the next texture found before this one goes)
 void CTextureSet::DropTextures(bool all)
 {
-    ListKit::KeyMap* table = mp_textures;
+    ListKit::KeyMap* table = m_textures;
     if (!table)
         return;
     table->m_iterBucket = -1;
@@ -222,12 +222,12 @@ void CTextureSet::DropTextures(bool all)
     auto* texture = static_cast<CBitmapTexture*>(table->m_iterItem->value);
     while (texture) {
         CBitmapTexture* next = nullptr;
-        if (mp_textures->StepIterator() && mp_textures->m_iterItem)
-            next = static_cast<CBitmapTexture*>(mp_textures->m_iterItem->value);
+        if (m_textures->StepIterator() && m_textures->m_iterItem)
+            next = static_cast<CBitmapTexture*>(m_textures->m_iterItem->value);
         if (all || !(texture->m_flagBits & kTexturePermanent)) {
             uint32_t key = texture->m_checksum;
             TextureSlot<void*>(texture, 0, 1u);
-            mp_textures->EraseEntry(key);
+            m_textures->EraseEntry(key);
         }
         texture = next;
     }
@@ -258,7 +258,7 @@ bool CTextureSet::ReplaceTextureFromFile(const char* name, const char* file)
     uint32_t key = loaded->m_checksum;
     DebugBeforeUnload();
     if (Bay<bool>(this, 5, loaded))
-        mp_textures->EraseEntry(key);
+        m_textures->EraseEntry(key);
     MemSys::Hub::Pull()->LeaveHeapScope();
     return replaced;
 }
@@ -269,7 +269,7 @@ CBitmapTexture* CTextureSet::CopyTexture(uint32_t checksum, CBitmapTexture* sour
     auto* texture = Bay<CBitmapTexture*>(this, 8, checksum, source);
     if (texture) {
         texture->m_checksum = checksum;
-        mp_textures->StoreEntry(checksum, texture);
+        m_textures->StoreEntry(checksum, texture);
     }
     return texture;
 }
@@ -280,7 +280,7 @@ CBitmapTexture* CTextureSet::CopyTextureWithOverlay(uint32_t checksum, CBitmapTe
     auto* texture = Bay<CBitmapTexture*>(this, 8, checksum, source);
     if (texture) {
         texture->m_checksum = checksum;
-        mp_textures->StoreEntry(checksum, texture);
+        m_textures->StoreEntry(checksum, texture);
         TextureSlot<bool>(texture, 41, overlay, argument);
     }
     return texture;

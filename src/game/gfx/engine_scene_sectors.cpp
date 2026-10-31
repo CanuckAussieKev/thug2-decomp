@@ -58,7 +58,7 @@ CWorldCell* AllocSector(CWorldScene* scene)
 {
     auto* sector = Virtual<CWorldCell*>(scene, 7);
     sector->m_geomHandle = nullptr;
-    sector->mp_collObj = nullptr;
+    sector->m_hitBody = nullptr;
     return sector;
 }
 
@@ -128,10 +128,10 @@ void DeleteNodes(MemSys::ListNode* head)
 template <typename Body>
 void ForEachSector(CWorldScene* scene, Body body)
 {
-    scene->mp_sectors->m_iterBucket = -1;
-    scene->mp_sectors->m_iterItem = nullptr;
+    scene->m_sectors->m_iterBucket = -1;
+    scene->m_sectors->m_iterItem = nullptr;
     for (;;) {
-        ListKit::KeyMap* table = scene->mp_sectors;
+        ListKit::KeyMap* table = scene->m_sectors;
         if (!table->StepIterator() || !table->m_iterItem || !table->m_iterItem->value)
             break;
         body(static_cast<CWorldCell*>(table->m_iterItem->value));
@@ -141,7 +141,7 @@ void ForEachSector(CWorldScene* scene, Body body)
 void PutSector(CWorldScene* scene, CWorldCell* sector)
 {
     uint32_t key = sector->m_checksum;
-    scene->mp_sectors->StoreEntry(key, sector);
+    scene->m_sectors->StoreEntry(key, sector);
 }
 
 // A geom's counts (the engine's CGeom calls: 0x0048DF70, the slot-33 dispatcher, 0x0049C6F0).
@@ -163,24 +163,24 @@ CWorldScene* CWorldScene::MakeNew(int bits)
     m_vtable = reinterpret_cast<void**>(kSceneVtable);
     new (&m_unknownBox) Maths::BBox();
     new (&m_collisionBox) Maths::BBox();
-    mp_collGrid = nullptr;
+    m_collGrid = nullptr;
     void* memory = MemSys::Alloc(sizeof(ListKit::KeyMap));
-    mp_sectors = memory ? new (memory) ListKit::KeyMap(bits) : nullptr;
+    m_sectors = memory ? new (memory) ListKit::KeyMap(bits) : nullptr;
     m_label[0] = '\0';
     m_pipName[0] = '\0';
-    mp_collGrid = nullptr;
-    mp_collStatics = nullptr;
+    m_collGrid = nullptr;
+    m_collStatics = nullptr;
     m_collisionBlob = nullptr;
     m_collStaticCount = 0;
     m_addName[0] = '\0';
     m_addData = 0;
-    mp_addCollStatics = nullptr;
-    mp_addCollObjects = nullptr;
+    m_addCollStatics = nullptr;
+    m_addCollObjects = nullptr;
     m_addCollStaticCount = 0;
     m_sectorKept = false;
     m_added = false;
-    mp_hiddenSectors = NewHead();
-    mp_addSceneSectors = NewHead();
+    m_hiddenSectors = NewHead();
+    m_addSceneSectors = NewHead();
     m_buildsCollisionGrid = false;
     m_isSky = false;
     return this;
@@ -190,12 +190,12 @@ CWorldScene* CWorldScene::MakeNew(int bits)
 void CWorldScene::DestroyBody()
 {
     m_vtable = reinterpret_cast<void**>(kSceneVtable);
-    if (mp_sectors) {
+    if (m_sectors) {
         ForEachSector(this, [](CWorldCell* sector) {
             sector->ClearFlags(kSectorInGrid);
             Virtual<void*>(sector, 0, 1u);
         });
-        if (ListKit::KeyMap* table = mp_sectors) {
+        if (ListKit::KeyMap* table = m_sectors) {
             if (table->m_buckets) {
                 table->EmptyTable();
                 MemSys::Dealloc(table->m_buckets);
@@ -205,10 +205,10 @@ void CWorldScene::DestroyBody()
         }
     }
     SceneUnloadCollision(this);
-    if (mp_hiddenSectors)
-        Virtual<void*>(mp_hiddenSectors, 0, 1u);
-    if (mp_addSceneSectors)
-        Virtual<void*>(mp_addSceneSectors, 0, 1u);
+    if (m_hiddenSectors)
+        Virtual<void*>(m_hiddenSectors, 0, 1u);
+    if (m_addSceneSectors)
+        Virtual<void*>(m_addSceneSectors, 0, 1u);
     if (m_addData)
         UnloadTexDict(reinterpret_cast<CTextureSet*>(m_addData));
 }
@@ -227,7 +227,7 @@ void CWorldScene::FetchDiagnostics(Scripts::CStruct* info)
 {
     info->AppendWord(0xC3F4169A, m_label);
     int sectors = 0, count70 = 0, slot33 = 0, slot33Again = 0, countC6F0 = 0;
-    if (mp_sectors) {
+    if (m_sectors) {
         ForEachSector(this, [&](CWorldCell* sector) {
             ++sectors;
             if (void* geom = sector->m_geomHandle) {
@@ -279,7 +279,7 @@ uint32_t CWorldScene::CloneSectorNamed(uint32_t sectionId, CWorldScene* scene, i
 // 0x0049D590 (the original's SEH frame around the grid's `new` left out)
 bool CWorldScene::AddCollisionData(const uint8_t* data, int flag)
 {
-    SceneLoadCollisionData(this, data, &m_collStaticCount, &mp_collStatics, &m_collisionBlob, &m_collisionBox, flag);
+    SceneLoadCollisionData(this, data, &m_collStaticCount, &m_collStatics, &m_collisionBlob, &m_collisionBox, flag);
     if (m_collStaticCount > 0) {
         if (m_buildsCollisionGrid) {
             void* memory = MemSys::Alloc(sizeof(CCollGrid));
@@ -292,21 +292,21 @@ bool CWorldScene::AddCollisionData(const uint8_t* data, int flag)
                         grid->Cell(x, z)->MakeNew();
                 }
             }
-            mp_collGrid = grid;
+            m_collGrid = grid;
             grid->PrepareAll(&m_collisionBox);
-            mp_collGrid->Fill(mp_collStatics, m_collStaticCount);
+            m_collGrid->Fill(m_collStatics, m_collStaticCount);
         }
         for (int i = 0; i < m_collStaticCount; ++i) {
-            CStaticCollider* coll = CollStaticAt(mp_collStatics, i);
+            CStaticCollider* coll = CollStaticAt(m_collStatics, i);
             uint32_t name = reinterpret_cast<CHitMesh*>(coll)->m_checksum;
-            auto* sector = static_cast<CWorldCell*>(mp_sectors->FetchEntry(name));
+            auto* sector = static_cast<CWorldCell*>(m_sectors->FetchEntry(name));
             if (!sector) {
                 sector = AllocSector(this);
                 sector->m_checksum = name;
                 sector->ChangeLive(true);
                 PutSector(this, sector);
             }
-            sector->SetCollObj(reinterpret_cast<CHitMesh*>(CollStaticAt(mp_collStatics, i)));
+            sector->SetCollObj(reinterpret_cast<CHitMesh*>(CollStaticAt(m_collStatics, i)));
             sector->ChangeBits(kSectorInGrid);
         }
     }
@@ -332,7 +332,7 @@ bool CWorldScene::LoadCollisionFile(const char* name, int flag)
 // 0x0049D780 (the original's four list heads on its stack, and its SEH frame)
 void CWorldScene::UpdateSuperSectors(MemSys::ListNode* added)
 {
-    if (!mp_collGrid)
+    if (!m_collGrid)
         return;
     MemSys::ListNode toAdd, toRemove, moved, toDelete; // (collision objects; sectors)
     SetupListSentinel(&toAdd, kCollHeadVtable);
@@ -343,19 +343,19 @@ void CWorldScene::UpdateSuperSectors(MemSys::ListNode* added)
     manager->EnterHeapScope(manager->m_topDownHeap);
     ForEachSector(this, [&](CWorldCell* sector) {
         if (sector->FetchBits() & kSectorAddToGrid) {
-            AppendLast(&toAdd, NewNode(kCollNodeVtable, sector->mp_collObj));
+            AppendLast(&toAdd, NewNode(kCollNodeVtable, sector->m_hitBody));
             sector->ClearFlags(kSectorAddToGrid);
             sector->ChangeBits(kSectorInGrid);
         }
         if (sector->FetchBits() & (kSectorDelete | kSectorRemoveFromGrid)) {
-            AppendLast(&toRemove, NewNode(kCollNodeVtable, sector->mp_collObj));
+            AppendLast(&toRemove, NewNode(kCollNodeVtable, sector->m_hitBody));
             if (sector->FetchBits() & kSectorDelete)
                 AppendLast(&toDelete, NewNode(kSectorNodeVtable, sector));
             else
                 sector->ClearFlags(kSectorRemoveFromGrid);
         }
         if (sector->FetchBits() & kSectorMoved) {
-            AppendLast(&moved, NewNode(kCollNodeVtable, sector->mp_collObj));
+            AppendLast(&moved, NewNode(kCollNodeVtable, sector->m_hitBody));
             sector->ClearFlags(kSectorMoved);
         }
     });
@@ -365,16 +365,16 @@ void CWorldScene::UpdateSuperSectors(MemSys::ListNode* added)
             auto* sector = static_cast<CWorldCell*>(node->data);
             bool listed = false;
             for (MemSys::ListNode* removing = FirstNode(&toRemove); removing && !listed; removing = NextNode(removing))
-                listed = removing->data == sector->mp_collObj;
+                listed = removing->data == sector->m_hitBody;
             if (!listed) {
-                AppendLast(&toRemove, NewNode(kCollNodeVtable, sector->mp_collObj));
+                AppendLast(&toRemove, NewNode(kCollNodeVtable, sector->m_hitBody));
                 sector->ClearFlags(kSectorRemoveFromGrid);
             }
             node = next;
         }
     }
     MemSys::Hub::Pull()->LeaveHeapScope();
-    mp_collGrid->TickFrame(&toAdd, &toRemove, &moved);
+    m_collGrid->TickFrame(&toAdd, &toRemove, &moved);
     DeleteNodes(&toAdd);
     DeleteNodes(&toRemove);
     DeleteNodes(&moved);
@@ -382,7 +382,7 @@ void CWorldScene::UpdateSuperSectors(MemSys::ListNode* added)
         MemSys::ListNode* next = NextNode(node);
         auto* sector = static_cast<CWorldCell*>(node->data);
         uint32_t key = sector->m_checksum;
-        mp_sectors->EraseEntry(key);
+        m_sectors->EraseEntry(key);
         sector->ClearFlags(kSectorInGrid);
         if (sector)
             Virtual<void*>(sector, 0, 1u);
@@ -405,16 +405,16 @@ bool CWorldScene::UpdateSuperSectorsIfMarked(MemSys::ListNode* added)
 bool CWorldScene::LoadAddScene(const char* name)
 {
     Maths::BBox box;
-    if (!mp_collStatics)
+    if (!m_collStatics)
         return false;
     std::snprintf(m_addPipName, sizeof(m_addPipName), "levels\\%s\\%s%s.col.%s", name, name, "", PlatformSuffix());
     // (the base's collision file, not the one just named - as the original)
     if (auto* data = static_cast<const uint8_t*>(Packs::ReadIn(m_pipName, false, nullptr, nullptr, nullptr)))
-        SceneLoadCollisionData(this, data, &m_addCollStaticCount, &mp_addCollStatics, &mp_addCollObjects, &box, 0);
+        SceneLoadCollisionData(this, data, &m_addCollStaticCount, &m_addCollStatics, &m_addCollObjects, &box, 0);
     if (m_addCollStaticCount > 0) {
         for (int i = 0; i < m_addCollStaticCount; ++i) {
-            uint32_t sectionId = reinterpret_cast<CHitMesh*>(CollStaticAt(mp_addCollStatics, i))->m_checksum;
-            auto* sector = static_cast<CWorldCell*>(mp_sectors->FetchEntry(sectionId));
+            uint32_t sectionId = reinterpret_cast<CHitMesh*>(CollStaticAt(m_addCollStatics, i))->m_checksum;
+            auto* sector = static_cast<CWorldCell*>(m_sectors->FetchEntry(sectionId));
             if (!sector) {
                 sector = AllocSector(this);
                 sector->m_checksum = sectionId;
@@ -422,11 +422,11 @@ bool CWorldScene::LoadAddScene(const char* name)
                 sector->ChangeBits(kSectorAddToGrid);
                 m_sectorKept = true;
                 PutSector(this, sector);
-                AppendLast(mp_addSceneSectors, NewNode(kSectorNodeVtable, sector));
+                AppendLast(m_addSceneSectors, NewNode(kSectorNodeVtable, sector));
             }
-            sector->SetCollObj(reinterpret_cast<CHitMesh*>(CollStaticAt(mp_addCollStatics, i)));
+            sector->SetCollObj(reinterpret_cast<CHitMesh*>(CollStaticAt(m_addCollStatics, i)));
         }
-        UpdateSuperSectors(mp_hiddenSectors);
+        UpdateSuperSectors(m_hiddenSectors);
     }
     return Virtual<bool>(this, 5, name);
 }
@@ -434,18 +434,18 @@ bool CWorldScene::LoadAddScene(const char* name)
 // 0x0049DDE0
 bool CWorldScene::FlipExtraScene()
 {
-    if (!FirstNode(mp_addSceneSectors))
+    if (!FirstNode(m_addSceneSectors))
         return false;
     m_added = !m_added;
-    MemSys::ListNode* hide = m_added ? mp_hiddenSectors : mp_addSceneSectors;
-    MemSys::ListNode* show = m_added ? mp_addSceneSectors : mp_hiddenSectors;
+    MemSys::ListNode* hide = m_added ? m_hiddenSectors : m_addSceneSectors;
+    MemSys::ListNode* show = m_added ? m_addSceneSectors : m_hiddenSectors;
     for (MemSys::ListNode* node = FirstNode(hide); node;) {
         MemSys::ListNode* next = NextNode(node);
         auto* sector = static_cast<CWorldCell*>(node->data);
         sector->ChangeBits(kSectorRemoveFromGrid);
         m_sectorKept = true;
         uint32_t key = sector->m_checksum;
-        mp_sectors->EraseEntry(key);
+        m_sectors->EraseEntry(key);
         sector->ChangeLive(false);
         node = next;
     }
@@ -469,19 +469,19 @@ bool CWorldScene::UnloadAddedScene()
         FlipExtraScene();
     if (!Virtual<bool>(this, 6))
         return false;
-    if (CStaticCollider* statics = mp_addCollStatics) {
+    if (CStaticCollider* statics = m_addCollStatics) {
         auto* array = reinterpret_cast<uint8_t*>(statics) - 4;
         if (*reinterpret_cast<int*>(array))
             Virtual<void*>(statics, 0, 3u); // (the vector deleting destructor)
         else
             MemSys::Dealloc(array);
     }
-    if (mp_addCollObjects)
+    if (m_addCollObjects)
         Packs::Offload(m_addPipName);
-    if (mp_hiddenSectors)
-        DeleteNodes(mp_hiddenSectors);
-    if (mp_addSceneSectors) {
-        for (MemSys::ListNode* node = FirstNode(mp_addSceneSectors); node;) {
+    if (m_hiddenSectors)
+        DeleteNodes(m_hiddenSectors);
+    if (m_addSceneSectors) {
+        for (MemSys::ListNode* node = FirstNode(m_addSceneSectors); node;) {
             MemSys::ListNode* next = NextNode(node);
             DeleteSceneSector(this, static_cast<CWorldCell*>(node->data));
             Virtual<void*>(node, 0, 1u);

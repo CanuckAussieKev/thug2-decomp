@@ -379,15 +379,15 @@ public:
     float m_freeFallTime;          // +0x1308 seconds in the air without touching anything
     float m_collisionImpulse;      // +0x130C the strongest contact impulse this step
     CObjectModule* m_boneRig;   // +0x1310 the object's skeleton (0x222756D5)
-    uint8_t* mp_input;             // +0x1314 the input component (0x27D7CD28)
+    uint8_t* m_inputPtr;             // +0x1314 the input component (0x27D7CD28)
     CObjectModule* m_meshInstance;      // +0x1318 the model (0x286A8D26)
     int m_debugMode;               // +0x131C 0-2 (debug: the next one, 0xE6B5FCD9: the previous, 0x751DA48B: off)
     bool m_passive;                // +0x1320 no input, collision or debug drawing (set from outside)
     uint8_t pad1321[3];
     CGameEntity* m_riderRef;   // +0x1324 the local skater (GameModules::Skate's 0x00566520)
-    CObjectModule* mp_animBlender; // +0x1328 its animation blender (with m_riderShown)
-    CObjectModule* mp_skaterCorePhysics; // +0x132C its core physics (0x5BD63B29)
-    CObjectModule* mp_trigger;    // +0x1330 the object's trigger component (0xE594F0A2)
+    CObjectModule* m_animBlenderPtr; // +0x1328 its animation blender (with m_riderShown)
+    CObjectModule* m_skaterCorePhysics; // +0x132C its core physics (0x5BD63B29)
+    CObjectModule* m_triggerPtr;    // +0x1330 the object's trigger component (0xE594F0A2)
 };
 // 0x004354C0 (cdecl): the quaternion product a * b into `out` (0x00420140, a quaternion's *=, on a copy of a).
 // Returns out.
@@ -420,8 +420,8 @@ static_assert(offsetof(CDrivableModule, m_atPoint) == 0x18 && offsetof(CDrivable
                   offsetof(CDrivableModule, m_riderShown) == 0x12D8 &&
                   offsetof(CDrivableModule, m_soundsName) == 0x12F4 &&
                   offsetof(CDrivableModule, m_collisionImpulse) == 0x130C &&
-                  offsetof(CDrivableModule, mp_input) == 0x1314 &&
-                  offsetof(CDrivableModule, mp_trigger) == 0x1330 && sizeof(CDrivableModule) == 0x1334,
+                  offsetof(CDrivableModule, m_inputPtr) == 0x1314 &&
+                  offsetof(CDrivableModule, m_triggerPtr) == 0x1330 && sizeof(CDrivableModule) == 0x1334,
               "layout must match the original");
 
 } // namespace Obj

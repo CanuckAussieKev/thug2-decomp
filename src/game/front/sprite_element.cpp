@@ -90,7 +90,7 @@ CTextureElement* CTextureElement::MakeNew()
     CUiWidget::MakeNew();
     m_vtable = kCTextureElementVtable;
     m_texture = 0;
-    mp_piece = NewTexturedPiece();
+    m_piece = NewTexturedPiece();
     ChangeSpecies(kTextureElement);
     return this;
 }
@@ -99,8 +99,8 @@ CTextureElement* CTextureElement::MakeNew()
 void CTextureElement::DestroyBody()
 {
     m_vtable = kCTextureElementVtable;
-    if (mp_piece)
-        FreePiece(mp_piece);
+    if (m_piece)
+        FreePiece(m_piece);
     CUiWidget::DestroyBody();
 }
 
@@ -120,7 +120,7 @@ void CTextureElement::ChangeTraits(CStruct* params)
     uint32_t texture;
     if (params->ReadHashValue(kTexture, &texture, 0)) {
         m_texture = texture;
-        reinterpret_cast<Engine3D::CTexturedQuad*>(mp_piece)->SetTexture(static_cast<uint8_t*>(FindTexture(texture)));
+        reinterpret_cast<Engine3D::CTexturedQuad*>(m_piece)->SetTexture(static_cast<uint8_t*>(FindTexture(texture)));
         m_objectFlags |= kVisibleNow;
     }
     float angle;
@@ -128,7 +128,7 @@ void CTextureElement::ChangeTraits(CStruct* params)
         ChangeSpin(angle, 1);
     uint32_t blend;
     if (params->ReadHashValue(kBlend, &blend, 0))
-        reinterpret_cast<Engine3D::CTexturedQuad*>(mp_piece)->ChooseBlendMode(blend);
+        reinterpret_cast<Engine3D::CTexturedQuad*>(m_piece)->ChooseBlendMode(blend);
 }
 
 // 0x004AEFD0
@@ -152,9 +152,9 @@ void CTextureElement::GetProperties(CStruct* out)
 // 0x004AEF40
 void CTextureElement::TickFrame()
 {
-    reinterpret_cast<Engine3D::CTexturedQuad*>(mp_piece)->ChangeConcealed(false);
-    reinterpret_cast<Engine3D::CTexturedQuad*>(mp_piece)->ChangeRank(m_zPriority);
-    reinterpret_cast<Engine3D::CTexturedQuad*>(mp_piece)->ChangeRgba(ShownColour(this));
+    reinterpret_cast<Engine3D::CTexturedQuad*>(m_piece)->ChangeConcealed(false);
+    reinterpret_cast<Engine3D::CTexturedQuad*>(m_piece)->ChangeRank(m_zPriority);
+    reinterpret_cast<Engine3D::CTexturedQuad*>(m_piece)->ChangeRgba(ShownColour(this));
 }
 
 // --- SpriteElement --------------------------------------------------------------------------------------------

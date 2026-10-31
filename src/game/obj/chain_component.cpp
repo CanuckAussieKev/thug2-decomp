@@ -126,16 +126,16 @@ void CLineObject::ChooseBlendMode(uint32_t mode) { m_blendMode = mode; }
 // 0x00428280
 CChainLink* CChainLink::MakeNew()
 {
-    mp_line = nullptr;
+    m_linePtr = nullptr;
     return this;
 }
 
 // 0x00428250
 void CChainLink::DestroyBody()
 {
-    if (mp_line) {
-        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(mp_line))[0])(mp_line, 1);
-        mp_line = nullptr;
+    if (m_linePtr) {
+        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(m_linePtr))[0])(m_linePtr, 1);
+        m_linePtr = nullptr;
     }
 }
 
@@ -165,7 +165,7 @@ CChain* CChain::MakeNew()
 void CChain::UpdateLines()
 {
     for (uint32_t i = 1; i < static_cast<uint32_t>(m_links); ++i) {
-        void* line = m_chainLink[i - 1].mp_line;
+        void* line = m_chainLink[i - 1].m_linePtr;
         static_cast<uint8_t*>(line)[0x15] = 1;
         SetLineColour(line, 0, kLineBlack);
         SetLineVertex(line, 0, m_chainLink[i - 1].m_atPoint);
@@ -196,7 +196,7 @@ CChainComponent* CChainComponent::MakeNew()
     }
     m_chains.head = head;
     m_kindTag = kType;
-    mp_suspend = nullptr;
+    m_suspend = nullptr;
     m_boneRig = nullptr;
     m_meshInstance = nullptr;
     m_steps = 0;
@@ -256,7 +256,7 @@ void CChainComponent::ChainList::Teardown()
 // 0x00428370
 void CChainComponent::Seal()
 {
-    mp_suspend = m_entity->FetchModule(kSuspend);
+    m_suspend = m_entity->FetchModule(kSuspend);
     m_boneRig = m_entity->FetchModule(kSkeleton);
     m_meshInstance = m_entity->FetchModule(kModel);
 }
@@ -312,7 +312,7 @@ void CChainComponent::ConfigureFromData(Scripts::CStruct* params)
             // (a grey line to the next link)
             void* lineMemory = Carve(0x158);
             void* line = lineMemory ? static_cast<Engine3D::CPcPrimitive*>(lineMemory)->MakeNew(1) : nullptr;
-            link.mp_line = line;
+            link.m_linePtr = line;
             static_cast<uint32_t*>(line)[3] = kLineBlend;
             reinterpret_cast<void(__thiscall*)(void*, int, int, int)>(&Engine3D::VirtualSlot3Jump)(line, 1, 0, 2);
             SetLineColour(line, 0, kLineGrey);
@@ -641,7 +641,7 @@ void CChainComponent::TickFrame()
             chain->UpdateLines();
         } else {
             for (uint32_t i = 1; i < static_cast<uint32_t>(chain->m_links); ++i)
-                static_cast<uint8_t*>(chain->m_chainLink[i - 1].mp_line)[0x15] = 0;
+                static_cast<uint8_t*>(chain->m_chainLink[i - 1].m_linePtr)[0x15] = 0;
         }
     }
     m_finalFrame = frame;

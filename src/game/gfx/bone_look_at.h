@@ -85,7 +85,7 @@ public:
     void SetAllMax(const Maths::Vec4* max);
 
     void** vtable;
-    void* mp_owner;       // +0x04
+    void* m_ownerPtr;       // +0x04
     uint8_t* m_ownerObject;   // +0x08 (a composite object)
     uint32_t m_unknownC;  // +0x0C
     uint32_t m_ident;        // +0x10

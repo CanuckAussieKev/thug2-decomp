@@ -37,23 +37,23 @@ struct CWorldScene {
     uint8_t pad8E[2];
     Maths::BBox m_unknownBox;       // +0x90 (made empty)
     Maths::BBox m_collisionBox;     // +0xB0
-    ListKit::KeyMap* mp_sectors;   // +0xD0
-    CCollGrid* mp_collGrid;       // +0xD4
+    ListKit::KeyMap* m_sectors;   // +0xD0
+    CCollGrid* m_collGrid;       // +0xD4
     char m_pipName[0x80];         // +0xD8: the collision file's (unloaded with the collision)
     int m_collStaticCount;        // +0x158
-    CStaticCollider* mp_collStatics;  // +0x15C (an array new)
+    CStaticCollider* m_collStatics;  // +0x15C (an array new)
     uint8_t* m_collisionBlob;      // +0x160: the collision geometry (LoadCollisionData's)
     char m_addName[0x80];         // +0x164: the scene added to it
     uint32_t m_addData;           // +0x1E4: the added scene's texture dictionary (unloaded with the scene)
     char m_addPipName[0x80];      // +0x1E8: the added scene's collision file
     int m_addCollStaticCount;     // +0x268: the added scene's collision, as the base's
-    CStaticCollider* mp_addCollStatics; // +0x26C
-    uint8_t* mp_addCollObjects;   // +0x270
+    CStaticCollider* m_addCollStatics; // +0x26C
+    uint8_t* m_addCollObjects;   // +0x270
     bool m_sectorKept;            // +0x274: a sector couldn't be deleted (flag 0x40): marked instead
     bool m_added;                 // +0x275: the added scene shown
     uint8_t pad276[2];
-    MemSys::ListNode* mp_hiddenSectors;   // +0x278: ListKit::Foremost<CWorldCell> - the base's sectors the added scene hides
-    MemSys::ListNode* mp_addSceneSectors; // +0x27C: ListKit::Foremost<CWorldCell> - the sectors the added scene made
+    MemSys::ListNode* m_hiddenSectors;   // +0x278: ListKit::Foremost<CWorldCell> - the base's sectors the added scene hides
+    MemSys::ListNode* m_addSceneSectors; // +0x27C: ListKit::Foremost<CWorldCell> - the sectors the added scene made
 
     // 0x0049C910: the name kept, then PostLoad (vtable slot 1) with `arena`.
     void FinishLoad(const char* name, void* arena);
@@ -149,12 +149,12 @@ struct CWorldScene {
     bool UnloadAddedScene();
 };
 static_assert(offsetof(CWorldScene, m_buildsCollisionGrid) == 0x8C && offsetof(CWorldScene, m_collisionBox) == 0xB0 &&
-                  offsetof(CWorldScene, mp_sectors) == 0xD0 && offsetof(CWorldScene, mp_collGrid) == 0xD4 &&
+                  offsetof(CWorldScene, m_sectors) == 0xD0 && offsetof(CWorldScene, m_collGrid) == 0xD4 &&
                   offsetof(CWorldScene, m_pipName) == 0xD8 && offsetof(CWorldScene, m_collStaticCount) == 0x158 &&
-                  offsetof(CWorldScene, mp_collStatics) == 0x15C && offsetof(CWorldScene, m_addName) == 0x164 &&
+                  offsetof(CWorldScene, m_collStatics) == 0x15C && offsetof(CWorldScene, m_addName) == 0x164 &&
                   offsetof(CWorldScene, m_addData) == 0x1E4 && offsetof(CWorldScene, m_sectorKept) == 0x274 &&
                   offsetof(CWorldScene, m_added) == 0x275 && offsetof(CWorldScene, m_unknownBox) == 0x90 &&
-                  offsetof(CWorldScene, mp_addCollStatics) == 0x26C && offsetof(CWorldScene, mp_addSceneSectors) == 0x27C &&
+                  offsetof(CWorldScene, m_addCollStatics) == 0x26C && offsetof(CWorldScene, m_addSceneSectors) == 0x27C &&
                   sizeof(CWorldScene) == 0x280,
               "layout must match the original");
 

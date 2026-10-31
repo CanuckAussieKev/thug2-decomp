@@ -164,8 +164,8 @@ void CAutomobileDynamicsModule::ConfigureFromData(Scripts::CStruct* params)
 // 0x0041BE10
 void CAutomobileDynamicsModule::Seal()
 {
-    mp_motion = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kMotion));
-    mp_suspend = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSuspend));
+    m_motion = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kMotion));
+    m_suspend = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSuspend));
     CObjectModule* skeleton = m_entity->FetchModule(kSkeleton);
     if (!skeleton)
         return;
@@ -185,7 +185,7 @@ void CAutomobileDynamicsModule::Seal()
 // 0x0041BB30
 void CAutomobileDynamicsModule::UpdateAngles()
 {
-    uint8_t* motion = mp_motion;
+    uint8_t* motion = m_motion;
     // The spin, kept within 0-360 (the steps taken on the FPU stack, from the stored value).
     double frames = FrameClock::GetSlomoFrameSeconds() * kFramesPerSecond;
     double spin = frames * (static_cast<double>(MotionSpeed(motion)) * kSpinSpeedScale) * kSpinScale + m_wheelSpin;
@@ -233,7 +233,7 @@ void CAutomobileDynamicsModule::UpdateAngles()
                                   static_cast<float>(FrameClock::GetSlomoFrameSeconds() * kFramesPerSecond));
     }
     // The tilt.
-    float speed = MotionSpeed(mp_motion);
+    float speed = MotionSpeed(m_motion);
     float acceleration = static_cast<float>(static_cast<double>(speed) - m_lastSpeed);
     m_lastSpeed = speed;
     if (Scripts::FetchIntValue(kReadGlobalsEveryUpdate)) {
@@ -304,11 +304,11 @@ void CAutomobileDynamicsModule::UpdateBones()
 // 0x0041C1B0
 void CAutomobileDynamicsModule::TickFrame()
 {
-    if (SuspendSuspended(mp_suspend))
+    if (SuspendSuspended(m_suspend))
         return;
     if (m_entity->m_objectFlags & 1)
         return;
-    if (!SuspendShouldUpdate(mp_suspend, nullptr))
+    if (!SuspendShouldUpdate(m_suspend, nullptr))
         return;
     if (!m_boneRig)
         return;

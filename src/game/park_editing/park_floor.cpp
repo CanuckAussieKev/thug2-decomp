@@ -127,7 +127,7 @@ void CParkLayout::GenerateNodeArray()
         m_builder->PlantRestartPoint(&point, 0, &pos, type, 1, flag);
         // (the feeler's destructor lets go of what it hit)
     }
-    m_builder->BuildNodeArray(mp_concrete_metas);
+    m_builder->BuildNodeArray(m_concrete_metas);
 }
 
 // 0x00599CD0
@@ -173,7 +173,7 @@ void CParkLayout::DestroyMetasBelow(SCellBox area)
 void CParkLayout::UndoFloorChange()
 {
     RestoreFloorHeights();
-    for (CMapListNode* node = mp_riserList; node; node = node->m_following)
+    for (CMapListNode* node = m_riserList; node; node = node->m_following)
         node->m_pieceGroup = ShiftPlacedPiece(node->GetPlacedPiece(), 0, -node->m_dy, 0);
 }
 
@@ -329,7 +329,7 @@ void CParkLayout::RebuildInnerShell(SCellBox bounds)
     m_blockedAreas[3].l = 1;
 
     // Out go the fences and the player's metapieces no longer (wholly) in the park.
-    for (CMapListNode* node = mp_concrete_metas; node;) {
+    for (CMapListNode* node = m_concrete_metas; node;) {
         CMapListNode* next = node->m_following;
         SCellBox area = node->GetPlacedPiece()->m_cellFootprint;
         uint32_t flags = node->GetPlacedPiece()->m_flagBits;
@@ -390,18 +390,18 @@ bool CParkLayout::RaiseOrLowerFloor(SCellBox area, int y, int target, bool raise
     if (level)
         mode |= 1;
     ClearFloorChangeMarks();
-    if (mp_riserList)
-        CMapListNode::FreeNodeChain(mp_riserList);
-    mp_riserList = nullptr;
+    if (m_riserList)
+        CMapListNode::FreeNodeChain(m_riserList);
+    m_riserList = nullptr;
     m_riserMetas = 0;
     m_riserPieces = 0;
     if (level && HasFloorLockedMeta(area))
         return false;
-    if (!BuildRiserList(area, y, target, mode, &mp_riserList)) {
+    if (!BuildRiserList(area, y, target, mode, &m_riserList)) {
         RestoreFloorHeights();
         return false;
     }
-    MoveRiserList(mp_riserList);
+    MoveRiserList(m_riserList);
     if (!raise)
         DestroyMetasBelow(area);
     return true;
@@ -412,7 +412,7 @@ bool CParkLayout::RegenerateGround(SCellBox* area, int /*unused*/)
 {
     if (!area) {
         // The inner shell's pieces outside the park go first.
-        for (CMapListNode* node = mp_concrete_metas; node; node = node->m_following) {
+        for (CMapListNode* node = m_concrete_metas; node; node = node->m_following) {
             CPieceGroup* meta = node->GetPieceGroup();
             if (!(meta->m_flagBits & CPieceGroup::kBuiltShell))
                 continue;

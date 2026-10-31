@@ -51,7 +51,7 @@ public:
     // anything else.
     int ScoreTaken();
 
-    uint8_t* mp_suspend;      // +0x18 the suspend component (Finalize)
+    uint8_t* m_suspend;      // +0x18 the suspend component (Finalize)
     float m_radius;           // +0x1C radius
     float m_sizeFactor;            // +0x20 scale
     uint32_t m_onCollideScript;   // +0x24 death_script
@@ -61,7 +61,7 @@ public:
     bool m_hit;               // +0x40
     uint8_t pad41[3];
 };
-static_assert(offsetof(CShotImpactModule, mp_suspend) == 0x18 &&
+static_assert(offsetof(CShotImpactModule, m_suspend) == 0x18 &&
                   offsetof(CShotImpactModule, m_projectileType) == 0x2C &&
                   offsetof(CShotImpactModule, m_vel) == 0x30 &&
                   offsetof(CShotImpactModule, m_hit) == 0x40 && sizeof(CShotImpactModule) == 0x44,
@@ -96,10 +96,10 @@ public:
 
     float m_reachSquared;                 // +0x18 2304 (48 squared)
     CRider* m_riderRef;                // +0x1C the local skater
-    CPedestrianBrainModule* mp_pedLogic;   // +0x20 the object's
+    CPedestrianBrainModule* m_pedLogic;   // +0x20 the object's
 };
 static_assert(offsetof(CProjectileProximityComponent, m_reachSquared) == 0x18 &&
-                  offsetof(CProjectileProximityComponent, mp_pedLogic) == 0x20 &&
+                  offsetof(CProjectileProximityComponent, m_pedLogic) == 0x20 &&
                   sizeof(CProjectileProximityComponent) == 0x24,
               "layout must match the original");
 

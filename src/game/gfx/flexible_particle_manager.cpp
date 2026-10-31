@@ -71,8 +71,8 @@ CFlexibleParticleManager* CFlexibleParticleManager::MakeNew()
     void* memory = MemSys::AllocZeroed(sizeof(MemSys::MemoryArena));
     m_zone = memory ? new (memory) MemSys::MemoryArena(static_cast<uint32_t>(size)) : nullptr;
     m_arena = MemSys::Hub::Pull()->AddHeap(m_zone, 1, kHeapName);
-    mp_tempRegion = nullptr;
-    mp_tempHeap = nullptr;
+    m_tempRegion = nullptr;
+    m_tempHeap = nullptr;
     auto* head = static_cast<MemSys::ListNode*>(MemSys::AllocZeroed(sizeof(MemSys::ListNode)));
     if (head) {
         head->data = reinterpret_cast<void*>(-1);
@@ -81,7 +81,7 @@ CFlexibleParticleManager* CFlexibleParticleManager::MakeNew()
         head->prev = head;
         head->vtable = kHeadVtable;
     }
-    mp_systems = head;
+    m_systemsPtr = head;
     m_colourScale[0] = m_colourScale[1] = m_colourScale[2] = m_colourScale[3] = 1.0f;
     float rate = Scripts::FetchFloat(kFrameRateSymbol);
     // (0 gives 60; anything else, NaN too, 60 / it)
@@ -93,8 +93,8 @@ CFlexibleParticleManager* CFlexibleParticleManager::MakeNew()
 void CFlexibleParticleManager::DestroyBody()
 {
     m_vtable = reinterpret_cast<void**>(kManagerVtable);
-    if (mp_systems)
-        DeleteVirtual(mp_systems);
+    if (m_systemsPtr)
+        DeleteVirtual(m_systemsPtr);
     DeleteTempHeap();
     MemSys::Hub::Pull()->DeleteHeap(reinterpret_cast<MemSys::MemSource*>(m_arena));
     if (m_zone)
@@ -113,13 +113,13 @@ CFlexibleParticleManager* CFlexibleParticleManager::Teardown(unsigned int flags)
 // 0x0049A9D0
 void CFlexibleParticleManager::DeleteTempHeap()
 {
-    if (!mp_tempHeap)
+    if (!m_tempHeap)
         return;
-    MemSys::Hub::Pull()->DeleteHeap(reinterpret_cast<MemSys::MemSource*>(mp_tempHeap));
-    if (mp_tempRegion)
-        DeleteVirtual(mp_tempRegion);
-    mp_tempHeap = nullptr;
-    mp_tempRegion = nullptr;
+    MemSys::Hub::Pull()->DeleteHeap(reinterpret_cast<MemSys::MemSource*>(m_tempHeap));
+    if (m_tempRegion)
+        DeleteVirtual(m_tempRegion);
+    m_tempHeap = nullptr;
+    m_tempRegion = nullptr;
 }
 
 // 0x0049AA80
@@ -127,15 +127,15 @@ bool CFlexibleParticleManager::CreateTempHeap(uint32_t size)
 {
     DeleteTempHeap();
     void* memory = MemSys::AllocZeroed(sizeof(MemSys::MemoryArena));
-    mp_tempRegion = memory ? new (memory) MemSys::MemoryArena(size) : nullptr;
-    if (!mp_tempRegion)
+    m_tempRegion = memory ? new (memory) MemSys::MemoryArena(size) : nullptr;
+    if (!m_tempRegion)
         return false;
-    mp_tempHeap = MemSys::Hub::Pull()->AddHeap(mp_tempRegion, 1, kTempHeapName);
-    return mp_tempHeap != nullptr;
+    m_tempHeap = MemSys::Hub::Pull()->AddHeap(m_tempRegion, 1, kTempHeapName);
+    return m_tempHeap != nullptr;
 }
 
 // 0x0049A8E0
-bool CFlexibleParticleManager::HasTempHeap() { return mp_tempHeap != nullptr; }
+bool CFlexibleParticleManager::HasTempHeap() { return m_tempHeap != nullptr; }
 
 // 0x0049A8F0
 int __cdecl CFlexibleParticleManager::CompareDistance(const void* a, const void* b)
@@ -164,7 +164,7 @@ void CFlexibleParticleManager::RenderSystems(bool force)
 {
     CEmitterInstance* systems[256] = {};
     int count = 0;
-    for (CEmitterInstance* system = FirstSystem(mp_systems); system; system = NextSystem(system)) {
+    for (CEmitterInstance* system = FirstSystem(m_systemsPtr); system; system = NextSystem(system)) {
         if (system->m_wantsTime)
             systems[count++] = system; // (no bound, as the original)
     }
@@ -180,7 +180,7 @@ void CFlexibleParticleManager::RenderSystems(bool force)
 // 0x0049AC20
 CEmitterInstance* CFlexibleParticleManager::FindSystem(uint32_t name)
 {
-    for (CEmitterInstance* system = FirstSystem(mp_systems); system; system = NextSystem(system)) {
+    for (CEmitterInstance* system = FirstSystem(m_systemsPtr); system; system = NextSystem(system)) {
         if (system->m_label == name)
             return system;
     }
@@ -193,7 +193,7 @@ CEmitterInstance* CFlexibleParticleManager::StartSubsystem(uint32_t name, uint32
                                                         int segments, float unknown, int history, int perm,
                                                         bool useLevelColour, const char* model)
 {
-    MemSys::Hub::Pull()->EnterHeapScope(reinterpret_cast<MemSys::MemSource*>(mp_tempHeap ? mp_tempHeap : m_arena));
+    MemSys::Hub::Pull()->EnterHeapScope(reinterpret_cast<MemSys::MemSource*>(m_tempHeap ? m_tempHeap : m_arena));
     auto* system = static_cast<CEmitterInstance*>(CreateFlexibleParticles(
         name, type, particleCap, maxStreams, texture, blendMode, fixedAlpha, segments, unknown, history, model));
     MemSys::Hub::Pull()->LeaveHeapScope();
@@ -213,10 +213,10 @@ CEmitterInstance* CFlexibleParticleManager::StartSubsystem(uint32_t name, uint32
         system->SetColourScale(m_colourScale);
     }
     MemSys::ListNode* node = &system->m_listLink;
-    node->prev = mp_systems->prev;
-    node->next = mp_systems;
-    mp_systems->prev->next = node;
-    mp_systems->prev = node;
+    node->prev = m_systemsPtr->prev;
+    node->next = m_systemsPtr;
+    m_systemsPtr->prev->next = node;
+    m_systemsPtr->prev = node;
     return system;
 }
 
@@ -251,7 +251,7 @@ void CFlexibleParticleManager::DestroySystemWhenEmpty(uint32_t name)
 // 0x0049ADE0
 void CFlexibleParticleManager::DestroyGroup(uint32_t group)
 {
-    CEmitterInstance* system = FirstSystem(mp_systems);
+    CEmitterInstance* system = FirstSystem(m_systemsPtr);
     while (system) {
         CEmitterInstance* next = NextSystem(system);
         if (system->m_groupId == group)
@@ -263,7 +263,7 @@ void CFlexibleParticleManager::DestroyGroup(uint32_t group)
 // 0x0049AE30
 void CFlexibleParticleManager::DestroyNonPersistent()
 {
-    CEmitterInstance* system = FirstSystem(mp_systems);
+    CEmitterInstance* system = FirstSystem(m_systemsPtr);
     while (system) {
         CEmitterInstance* next = NextSystem(system);
         if (!system->unknown12E)
@@ -275,9 +275,9 @@ void CFlexibleParticleManager::DestroyNonPersistent()
 // 0x0049AE80
 void CFlexibleParticleManager::SetColourScale(const float* rgba)
 {
-    if (!mp_systems)
+    if (!m_systemsPtr)
         return;
-    for (CEmitterInstance* system = FirstSystem(mp_systems); system; system = NextSystem(system)) {
+    for (CEmitterInstance* system = FirstSystem(m_systemsPtr); system; system = NextSystem(system)) {
         if (system->m_flagBits & 0x10000u)
             system->SetColourScale(rgba);
     }

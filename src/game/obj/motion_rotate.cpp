@@ -239,15 +239,15 @@ void CKinematicsModule::UpdateRotations()
 // 0x00425520
 void CKinematicsModule::StartRotation(Scripts::CStruct* params, const Maths::Mat4* target)
 {
-    if (!mp_turn) {
+    if (!m_turnPtr) {
         if (!MemSys::g_managerReady) // (the memory manager not set up yet)
             MemSys::EnsureManager();
         // (its constructor, 0x005902E0, does nothing)
-        mp_turn = static_cast<Maths::ArcRotationBlender*>(MemSys::Hub::Pull()->Carve(0x98, 1, nullptr));
+        m_turnPtr = static_cast<Maths::ArcRotationBlender*>(MemSys::Hub::Pull()->Carve(0x98, 1, nullptr));
     }
     Maths::Mat4 end;
     end = *target;
-    mp_turn->SetMatrices(m_entity->m_basisFrame, end);
+    m_turnPtr->SetMatrices(m_entity->m_basisFrame, end);
     m_turnElapsed = 0.0f;
     m_turnTime = 0.0f;
     params->FetchFloat(kTime, &m_turnTime, 0);
@@ -266,7 +266,7 @@ void CKinematicsModule::UpdateTurn()
         t = 1.0f;
         m_motionFlags &= ~MOTION_TURNING;
     }
-    mp_turn->FetchMat(m_entity->m_basisFrame, t);
+    m_turnPtr->FetchMat(m_entity->m_basisFrame, t);
 }
 
 // --- looking at things ---

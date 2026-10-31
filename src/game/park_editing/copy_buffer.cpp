@@ -75,10 +75,10 @@ const Maths::Vec4* RailOrigin() { return &g_railOrigin; } // (zero)
 // A preview metapiece taken out of the park.
 void DestroyPreview(CClipboardEntry* entry)
 {
-    entry->mp_preview->m_flagBits &= ~CPieceGroup::kCursor;
-    CParkLayout::sSingleton()->FreePlacedPiece(entry->mp_preview, 0);
+    entry->m_preview->m_flagBits &= ~CPieceGroup::kCursor;
+    CParkLayout::sSingleton()->FreePlacedPiece(entry->m_preview, 0);
     CParkLayout::sSingleton()->RebuildParkGeometry(0);
-    entry->mp_preview = nullptr;
+    entry->m_preview = nullptr;
 }
 
 } // namespace
@@ -227,17 +227,17 @@ void CClipboardEntry::ShowPreview(uint8_t centreX, int /*height*/, uint8_t centr
     at.z = static_cast<float>(position.z + turnedZ);
     at.x = position.x + turnedX;
     at.y = static_cast<float>(m_y * static_cast<double>(kGridStepUp) + position.y);
-    if (!mp_preview) {
-        mp_preview = CParkLayout::sSingleton()->MakePlacedPiece(m_pieceGroup, 0x204);
-        mp_preview->m_flagBits |= CPieceGroup::kCursor;
+    if (!m_preview) {
+        m_preview = CParkLayout::sSingleton()->MakePlacedPiece(m_pieceGroup, 0x204);
+        m_preview->m_flagBits |= CPieceGroup::kCursor;
     }
-    mp_preview->ChangePlace(at, static_cast<float>(m_quarterTurns * static_cast<double>(kQuarterTurnDegrees) + angle));
+    m_preview->ChangePlace(at, static_cast<float>(m_quarterTurns * static_cast<double>(kQuarterTurnDegrees) + angle));
 }
 
 // --- CClipboard ---
 
 // 0x0058B7E0
-bool CClipboard::IsVacant() { return mp_metas ? false : m_railGroups == nullptr; }
+bool CClipboard::IsVacant() { return m_metas ? false : m_railGroups == nullptr; }
 
 // 0x0058BDF0
 CClipboard* CClipboard::MakeNew()
@@ -245,7 +245,7 @@ CClipboard* CClipboard::MakeNew()
     m_editSpan.AssignValue(0, 0, 0, 0, 0, 0);
     m_loCellZ = 0xFF;
     m_loCellX = 0xFF;
-    mp_metas = nullptr;
+    m_metas = nullptr;
     m_hiCellZ = 0;
     m_hiCellX = 0;
     m_following = nullptr;
@@ -260,7 +260,7 @@ int CClipboard::FetchTallness(CBuildPointer* cursor)
     const uint8_t centreX = static_cast<uint8_t>((m_loCellX + m_hiCellX) / 2);
     const uint8_t centreZ = static_cast<uint8_t>((m_loCellZ + m_hiCellZ) / 2);
     int highest = kNoHeight;
-    for (CClipboardEntry* entry = mp_metas; entry; entry = entry->m_following) {
+    for (CClipboardEntry* entry = m_metas; entry; entry = entry->m_following) {
         const int height = entry->FetchTallness(centreX, centreZ, cursor);
         if (height > highest)
             highest = height;
@@ -273,7 +273,7 @@ void CClipboard::GlowOverlappingPieces(CBuildPointer* cursor, int on)
 {
     const uint8_t centreX = static_cast<uint8_t>((m_loCellX + m_hiCellX) / 2);
     const uint8_t centreZ = static_cast<uint8_t>((m_loCellZ + m_hiCellZ) / 2);
-    for (CClipboardEntry* entry = mp_metas; entry; entry = entry->m_following)
+    for (CClipboardEntry* entry = m_metas; entry; entry = entry->m_following)
         entry->GlowOverlappingPieces(centreX, centreZ, cursor, on);
 }
 
@@ -349,7 +349,7 @@ void CClipboard::PreviewPieces(Maths::Vec4 position, float angle, int height)
 {
     const uint8_t centreX = static_cast<uint8_t>((m_loCellX + m_hiCellX) / 2);
     const uint8_t centreZ = static_cast<uint8_t>((m_loCellZ + m_hiCellZ) / 2);
-    for (CClipboardEntry* entry = mp_metas; entry; entry = entry->m_following)
+    for (CClipboardEntry* entry = m_metas; entry; entry = entry->m_following)
         entry->ShowPreview(centreX, height, centreZ, position, angle);
     Maths::Vec4 centre;
     GetCentre(&centre);
@@ -362,8 +362,8 @@ void CClipboard::PreviewPieces(Maths::Vec4 position, float angle, int height)
 // 0x0058C200
 void CClipboard::FreeAllPieceGroups()
 {
-    for (CClipboardEntry* entry = mp_metas; entry; entry = entry->m_following) {
-        if (entry->mp_preview)
+    for (CClipboardEntry* entry = m_metas; entry; entry = entry->m_following) {
+        if (entry->m_preview)
             DestroyPreview(entry);
     }
     for (void* rail = m_railGroups; rail; rail = FollowRailLink(rail))
@@ -377,7 +377,7 @@ bool CClipboard::AddRow(CPieceGroup* meta, int dy)
     const int8_t y = static_cast<int8_t>(area.y + dy);
     CPieceGroup* source = CParkLayout::sSingleton()->FetchMetaTemplate(meta->m_nameKey, nullptr);
     // (Already in it: done.)
-    for (CClipboardEntry* entry = mp_metas; entry; entry = entry->m_following) {
+    for (CClipboardEntry* entry = m_metas; entry; entry = entry->m_following) {
         if (entry->m_pieceGroup == source && entry->m_posX == area.x && entry->m_y == y && entry->m_depthCell == area.z &&
             entry->m_w == area.w && entry->m_l == area.l && entry->m_quarterTurns == meta->m_quarterTurns)
             return true;
@@ -389,7 +389,7 @@ bool CClipboard::AddRow(CPieceGroup* meta, int dy)
     auto* entry = static_cast<CClipboardEntry*>(pools.Carve(sizeof(CClipboardEntry)));
     if (entry) {
         entry->m_pieceGroup = nullptr;
-        entry->mp_preview = nullptr;
+        entry->m_preview = nullptr;
         entry->m_depthCell = 0;
         entry->m_y = 0;
         entry->m_posX = 0;
@@ -418,8 +418,8 @@ bool CClipboard::AddRow(CPieceGroup* meta, int dy)
     takeIn(area.x, area.z);
     takeIn(static_cast<uint8_t>(area.w + area.x - 1), static_cast<uint8_t>(area.l + area.z - 1));
     entry->m_quarterTurns = meta->m_quarterTurns;
-    entry->m_following = mp_metas;
-    mp_metas = entry;
+    entry->m_following = m_metas;
+    m_metas = entry;
     return true;
 }
 
@@ -427,14 +427,14 @@ bool CClipboard::AddRow(CPieceGroup* meta, int dy)
 void CClipboard::Teardown()
 {
     MemSys::PoolPair& pools = EntryPools();
-    for (CClipboardEntry* entry = mp_metas; entry;) {
+    for (CClipboardEntry* entry = m_metas; entry;) {
         CClipboardEntry* next = entry->m_following;
-        if (entry->mp_preview)
+        if (entry->m_preview)
             DestroyPreview(entry);
         pools.Dealloc(entry);
         entry = next;
     }
-    mp_metas = nullptr;
+    m_metas = nullptr;
     m_loCellZ = 0xFF;
     m_loCellX = 0xFF;
     m_hiCellZ = 0;
@@ -506,7 +506,7 @@ bool CClipboard::ShowAt(CBuildPointer* cursor)
     }
     const uint8_t centreX = static_cast<uint8_t>((m_loCellX + m_hiCellX) / 2);
     const uint8_t centreZ = static_cast<uint8_t>((m_loCellZ + m_hiCellZ) / 2);
-    for (CClipboardEntry* entry = mp_metas; entry; entry = entry->m_following) {
+    for (CClipboardEntry* entry = m_metas; entry; entry = entry->m_following) {
         if (!entry->CanPlace(centreX, centreZ, cursor)) {
             CParkBuilderMode::Release();
             return false;
@@ -519,7 +519,7 @@ bool CClipboard::ShowAt(CBuildPointer* cursor)
         CParkBuilderMode::Release();
         return false;
     }
-    for (CClipboardEntry* entry = mp_metas; entry; entry = entry->m_following)
+    for (CClipboardEntry* entry = m_metas; entry; entry = entry->m_following)
         entry->Graft(centreX, cursor->m_clipboardHeight, centreZ, cursor);
     Maths::Vec4 centre;
     GetCentre(&centre);

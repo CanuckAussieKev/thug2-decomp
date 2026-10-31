@@ -163,8 +163,8 @@ CMeshInstanceModule* CMeshInstanceModule::Teardown(unsigned int flags)
 void CMeshInstanceModule::Seal()
 {
     m_boneRig = m_entity->FetchModule(kSkeleton);
-    mp_animBlender = m_entity->FetchModule(kAnimBlender);
-    mp_suspend = m_entity->FetchModule(kSuspend);
+    m_animBlenderPtr = m_entity->FetchModule(kAnimBlender);
+    m_suspend = m_entity->FetchModule(kSuspend);
 }
 
 // 0x004214F0
@@ -211,8 +211,8 @@ void CMeshInstanceModule::TickFrame()
     GetDrawMatrix(&matrix);
     void* skeleton = m_boneRig ? SkeletonOf(m_boneRig) : nullptr;
     bool ready = m_boneRig != nullptr;
-    if (mp_animBlender)
-        ready = static_cast<CAnimBlenderComponent*>(mp_animBlender)->ModelReady();
+    if (m_animBlenderPtr)
+        ready = static_cast<CAnimBlenderComponent*>(m_animBlenderPtr)->ModelReady();
     m_meshInstance->Render(&matrix, !ready, reinterpret_cast<uint8_t*>(skeleton));
 }
 

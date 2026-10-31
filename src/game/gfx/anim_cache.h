@@ -73,11 +73,11 @@ struct CAnimCacheEntry {
     uint8_t* m_payload;                    // +0x00C
     uint32_t m_allocated;                // +0x010
     uint32_t m_extent;                     // +0x014
-    uint8_t* mp_rotationKeys;            // +0x018
-    uint8_t* mp_translationKeys;         // +0x01C
-    void(__cdecl* mp_releaseCallback)(void*); // +0x020
-    void* mp_releaseArg;                 // +0x024
-    CAnimCacheSlot* mp_slots[18];        // +0x028
+    uint8_t* m_rotationKeysPtr;            // +0x018
+    uint8_t* m_translationKeysPtr;         // +0x01C
+    void(__cdecl* m_releaseCallback)(void*); // +0x020
+    void* m_releaseArg;                 // +0x024
+    CAnimCacheSlot* m_slotsPtr[18];        // +0x028
     uint8_t m_rotationKeySize;           // +0x070
     uint8_t m_translationKeySize;        // +0x071
     uint16_t m_rotationOffsets[60];      // +0x072
@@ -86,7 +86,7 @@ struct CAnimCacheEntry {
     uint16_t m_flagBits;                    // +0x164
     uint16_t m_pad166;
 };
-static_assert(offsetof(CAnimCacheEntry, mp_slots) == 0x28 && offsetof(CAnimCacheEntry, m_rotationKeySize) == 0x70 &&
+static_assert(offsetof(CAnimCacheEntry, m_slotsPtr) == 0x28 && offsetof(CAnimCacheEntry, m_rotationKeySize) == 0x70 &&
                   offsetof(CAnimCacheEntry, m_translationOffsets) == 0xEA &&
                   offsetof(CAnimCacheEntry, m_flagBits) == 0x164 && sizeof(CAnimCacheEntry) == 0x168,
               "layout must match the original");

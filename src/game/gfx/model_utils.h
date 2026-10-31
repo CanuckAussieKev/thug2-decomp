@@ -37,7 +37,7 @@ bool __cdecl ScaleFromArgs(Maths::Vec4* scale, Scripts::CStruct* params);
 
 // The models hidden for a cutscene (0x006FA2F0): their objects' ids.
 struct SHiddenModels {
-    uint32_t* mp_ids;
+    uint32_t* m_idsPtr;
     int m_num;
 
     // 0x00487BD0: every model component's model with an object id that isn't hidden yet is hidden, its object's id

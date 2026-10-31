@@ -85,7 +85,7 @@ CObjectModule* __cdecl CDynamicLightComponent::Fabricate()
     component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
     component->m_kindTag = kType;
-    component->mp_light = nullptr;
+    component->m_light = nullptr;
     return component;
 }
 
@@ -93,11 +93,11 @@ CObjectModule* __cdecl CDynamicLightComponent::Fabricate()
 void CDynamicLightComponent::DestroyBody()
 {
     m_vtable = kVtable;
-    if (mp_light) {
-        mp_light->m_holderKey = 0;
-        mp_light = nullptr;
+    if (m_light) {
+        m_light->m_holderKey = 0;
+        m_light = nullptr;
     }
-    mp_waitAndDie = nullptr;
+    m_waitAndDie = nullptr;
     CObjectModule::DestroyBody();
 }
 
@@ -137,18 +137,18 @@ void CDynamicLightComponent::ConfigureFromData(Scripts::CStruct* params)
 }
 
 // 0x0041CDA0
-void CDynamicLightComponent::Seal() { mp_waitAndDie = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kWaitAndDie)); }
+void CDynamicLightComponent::Seal() { m_waitAndDie = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kWaitAndDie)); }
 
 // 0x0041CDC0
 void CDynamicLightComponent::TickFrame()
 {
-    if (!mp_light) {
-        mp_light = NewDynamicLight(1);
-        mp_light->m_holderKey = m_entity->m_ident;
+    if (!m_light) {
+        m_light = NewDynamicLight(1);
+        m_light->m_holderKey = m_entity->m_ident;
     }
     // The life's fraction.
-    double t = Unsigned(*reinterpret_cast<uint32_t*>(mp_waitAndDie + 0x1C)) /
-               Unsigned(*reinterpret_cast<uint32_t*>(mp_waitAndDie + 0x20));
+    double t = Unsigned(*reinterpret_cast<uint32_t*>(m_waitAndDie + 0x1C)) /
+               Unsigned(*reinterpret_cast<uint32_t*>(m_waitAndDie + 0x20));
     uint32_t fromColor = m_startColor, toColor = m_endColor;
     float fromRadius = m_startRadius, toRadius = m_endRadius;
     float fromIntensity = m_startIntensity, toIntensity = m_endIntensity;
@@ -175,7 +175,7 @@ void CDynamicLightComponent::TickFrame()
         color |= static_cast<uint32_t>(static_cast<uint8_t>(Truncated(static_cast<double>(to - from) * t + from)))
                  << (8 * i);
     }
-    Engine3D::CDynamicLight* light = mp_light;
+    Engine3D::CDynamicLight* light = m_light;
     light->m_atPoint = m_entity->m_atPoint;
     light->m_tint = color;
     light->m_strength = static_cast<float>((static_cast<double>(toIntensity) - fromIntensity) * t + fromIntensity);
@@ -189,13 +189,13 @@ int CDynamicLightComponent::InvokeMethodByName(uint32_t name, Scripts::CStruct* 
     case kSetRadius: {
         float radius = 0.0f;
         params->FetchFloat(kRadius, &radius, 1);
-        mp_light->SetReach(radius);
+        m_light->SetReach(radius);
         return 1;
     }
     case kSetIntensity: {
         float intensity = 0.0f;
         params->FetchFloat(kIntensity, &intensity, 1);
-        mp_light->m_strength = intensity;
+        m_light->m_strength = intensity;
         return 1;
     }
     case kSetColor: {
@@ -205,7 +205,7 @@ int CDynamicLightComponent::InvokeMethodByName(uint32_t name, Scripts::CStruct* 
         auto* out = reinterpret_cast<uint8_t*>(&color);
         for (uint32_t i = 0; i < 4; ++i)
             out[i] = static_cast<uint8_t>(bytes->FetchPart(i));
-        mp_light->m_tint = color;
+        m_light->m_tint = color;
         return 1;
     }
     default:

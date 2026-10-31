@@ -65,9 +65,9 @@ public:
     uint32_t m_checksum;      // +0x04
     uint16_t m_shareCount;      // +0x08: its loads (UnloadTexDict deletes it at 0)
     uint8_t padA[2];
-    ListKit::KeyMap* mp_textures; // +0x0C
+    ListKit::KeyMap* m_textures; // +0x0C
 };
-static_assert(offsetof(CTextureSet, mp_textures) == 0xC && sizeof(CTextureSet) == 0x10, "layout must match the original");
+static_assert(offsetof(CTextureSet, m_textures) == 0xC && sizeof(CTextureSet) == 0x10, "layout must match the original");
 
 // The loaded dictionaries (the hash table 0x00700F04), by checksum.
 // 0x0049F010: the dictionary `checksum`, or null.

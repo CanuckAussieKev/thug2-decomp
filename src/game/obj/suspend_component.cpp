@@ -321,7 +321,7 @@ void __cdecl SuspendTask(void* /*task*/)
                 component->RefreshShownState();
             }
         }
-        component = static_cast<CDormancyModule*>(component->mp_nextOfType);
+        component = static_cast<CDormancyModule*>(component->m_nextOfType);
     }
 }
 

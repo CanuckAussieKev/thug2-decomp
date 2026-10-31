@@ -42,8 +42,8 @@ void CProximityComponent::LaunchScript(uint32_t script, CEntity* skater)
     if (params)
         params = params->PrepareAll();
     params->PutNameKey(kSkaterId, skater->m_ident);
-    if (mp_params)
-        params->MergeStructure(mp_params);
+    if (m_callArgs)
+        params->MergeStructure(m_callArgs);
     Scripts::LaunchScript(script, params, m_entity, false, nullptr);
     if (params) {
         params->Clear(); // (its destructor)

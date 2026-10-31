@@ -107,7 +107,7 @@ CAnimEventBase* CAnimEventBase::Teardown(uint8_t flags)
 CTimedClipEvent* CTimedClipEvent::MakeNew()
 {
     m_vtable = kEventVtable;
-    mp_params = nullptr;
+    m_callArgs = nullptr;
     return this;
 }
 
@@ -235,15 +235,15 @@ double CAnimTrack::GetWeight()
 // 0x00481BB0
 void CAnimTrack::DeleteEvents()
 {
-    if (!m_eventCount || !mp_events)
+    if (!m_eventCount || !m_eventsPtr)
         return;
     m_eventCount = 0;
-    uint32_t* block = reinterpret_cast<uint32_t*>(mp_events) - 1;
+    uint32_t* block = reinterpret_cast<uint32_t*>(m_eventsPtr) - 1;
     if (*block)
-        Virtual<CTimedClipEvent*>(mp_events, 0, 3); // (the vector deleting destructor)
+        Virtual<CTimedClipEvent*>(m_eventsPtr, 0, 3); // (the vector deleting destructor)
     else
         MemSys::Hub::Pull()->Dealloc(block);
-    mp_events = nullptr;
+    m_eventsPtr = nullptr;
 }
 
 // 0x00481C00
@@ -274,7 +274,7 @@ void CAnimTrack::LoadEvents(uint32_t anim)
         for (uint32_t i = 0; i < count; ++i)
             events[i].MakeNew();
     }
-    mp_events = events;
+    m_eventsPtr = events;
     for (uint32_t i = 0; i < m_eventCount; ++i) {
         auto* entry = reinterpret_cast<CStruct*>(list->FetchPart(i));
         int frame = 0;
@@ -287,8 +287,8 @@ void CAnimTrack::LoadEvents(uint32_t anim)
         entry->ReadHashValue(kEvent, &type, 1);
         CStruct* params = nullptr;
         entry->ReadSubStruct(kParams, &params, 0);
-        SetUpEvent(&mp_events[i], frame, type, params);
-        ArmEvent(&mp_events[i], true);
+        SetUpEvent(&m_eventsPtr[i], frame, type, params);
+        ArmEvent(&m_eventsPtr[i], true);
     }
 }
 
@@ -308,9 +308,9 @@ void CAnimTrack::FireEvents(float from, float to)
         firstFrame = m_outset; // (as the original: the start itself, not in frames)
     }
     for (uint32_t i = 0; i < m_eventCount; ++i) {
-        ArmEvent(&mp_events[i], true);
-        if (Virtual<bool>(&mp_events[i], 1, firstFrame, lastFrame, 0))
-            FireEvent(&mp_events[i], m_ownerObject);
+        ArmEvent(&m_eventsPtr[i], true);
+        if (Virtual<bool>(&m_eventsPtr[i], 1, firstFrame, lastFrame, 0))
+            FireEvent(&m_eventsPtr[i], m_ownerObject);
     }
 }
 

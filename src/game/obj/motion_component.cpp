@@ -63,7 +63,7 @@ CKinematicsModule* CKinematicsModule::MakeNew()
     m_groundSpeed = 0.0f;
     m_groundOffset = 0.0f;
     m_kindTag = kType;
-    mp_pathFollower = nullptr;
+    m_pathFollower = nullptr;
     m_pathGroup = nullptr;
     m_groundHeightOnly = true;
     Reset();
@@ -74,19 +74,19 @@ CKinematicsModule* CKinematicsModule::MakeNew()
 void CKinematicsModule::DestroyBody()
 {
     m_vtable = kVtable;
-    if (mp_pathFollower) {
-        reinterpret_cast<CPathFollower*(__thiscall*)(CPathFollower*, unsigned int)>(mp_pathFollower->m_vtable[0])(
-            mp_pathFollower, 1);
-        mp_pathFollower = nullptr;
+    if (m_pathFollower) {
+        reinterpret_cast<CPathFollower*(__thiscall*)(CPathFollower*, unsigned int)>(m_pathFollower->m_vtable[0])(
+            m_pathFollower, 1);
+        m_pathFollower = nullptr;
     }
-    if (mp_turn) {
-        MemSys::Hub::Pull()->Dealloc(mp_turn); // (no destructor run)
-        mp_turn = nullptr;
+    if (m_turnPtr) {
+        MemSys::Hub::Pull()->Dealloc(m_turnPtr); // (no destructor run)
+        m_turnPtr = nullptr;
     }
-    if (CFollowTrail* trail = mp_trail) {
+    if (CFollowTrail* trail = m_trail) {
         // (its destructor: the empty 0x005480A0)
         MemSys::Hub::Pull()->Dealloc(trail);
-        mp_trail = nullptr;
+        m_trail = nullptr;
     }
     CObjectModule::DestroyBody();
 }
@@ -139,10 +139,10 @@ void CKinematicsModule::Reset()
 // 0x00423C90
 void CKinematicsModule::InitPathFollower(CGameEntity* owner)
 {
-    if (mp_pathFollower)
+    if (m_pathFollower)
         return;
     void* memory = MemSys::AllocZeroed(sizeof(CPathFollower));
-    mp_pathFollower = memory ? static_cast<CPathFollower*>(memory)->MakeNew(owner) : nullptr;
+    m_pathFollower = memory ? static_cast<CPathFollower*>(memory)->MakeNew(owner) : nullptr;
 }
 
 // --- the vtable ---
@@ -222,7 +222,7 @@ bool CKinematicsModule::Obj_StorePos(Scripts::CStruct*, Scripts::CScript*)
 // 0x00423810
 bool CKinematicsModule::Obj_StoreNode(Scripts::CStruct*, Scripts::CScript*)
 {
-    m_savedNodeId = mp_pathFollower->m_listLink;
+    m_savedNodeId = m_pathFollower->m_listLink;
     return true;
 }
 

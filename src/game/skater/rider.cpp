@@ -1114,7 +1114,7 @@ void CRider::LaunchProjectile()
     float toTargetX = 0.0f, toTargetZ = 0.0f;
     Maths::Vec4 aim = {};
     for (CObjectModule* component = ObjectHubSlot()->FindFirstModuleOfKind(0x3618B878); component;
-         component = component->mp_nextOfType) {
+         component = component->m_nextOfType) {
         CGameEntity* object = component->m_entity;
         if (!object)
             continue;

@@ -626,15 +626,15 @@ void CDrivableModule::UpdateWheelContacts()
         feeler.SetExcluded(0x10, 0);
         if (feeler.GetHitShape(false, false)) {
             if (wheel.state == kWheelInAir) {
-                TriggerFeeler(mp_trigger, g_wheelLandsEvents, &feeler);
+                TriggerFeeler(m_triggerPtr, g_wheelLandsEvents, &feeler);
                 if (m_cutShort || (m_entity->m_objectFlags & OBJECT_FLAG_DEAD))
                     return; // (the feeler's destructor lets go of its object)
             } else if (feeler.m_hit.object != wheel.feeler.m_hit.object) {
                 // Onto another collision object: off the old, onto the new.
-                TriggerFeeler(mp_trigger, g_wheelLeavesEvents, &wheel.feeler);
+                TriggerFeeler(m_triggerPtr, g_wheelLeavesEvents, &wheel.feeler);
                 if (m_cutShort || (m_entity->m_objectFlags & OBJECT_FLAG_DEAD))
                     return;
-                TriggerFeeler(mp_trigger, g_wheelLandsEvents, &feeler);
+                TriggerFeeler(m_triggerPtr, g_wheelLandsEvents, &feeler);
                 if (m_cutShort || (m_entity->m_objectFlags & OBJECT_FLAG_DEAD))
                     return;
             }
@@ -647,7 +647,7 @@ void CDrivableModule::UpdateWheelContacts()
             feeler.m_line.end = feeler.m_contactPos;
         } else {
             if (wheel.state != kWheelInAir) {
-                TriggerFeeler(mp_trigger, g_wheelLeavesEvents, &wheel.feeler);
+                TriggerFeeler(m_triggerPtr, g_wheelLeavesEvents, &wheel.feeler);
                 if (m_cutShort || (m_entity->m_objectFlags & OBJECT_FLAG_DEAD))
                     return;
             }
@@ -658,7 +658,7 @@ void CDrivableModule::UpdateWheelContacts()
         if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(ParkEditing::g_parkEditor) + 0x40) != kParkEditorOff) {
             feeler.SetExcluded(0, 0x50);
             if (feeler.GetHitShape(false, false)) {
-                TriggerFeeler(mp_trigger, g_crossingEvents, &feeler);
+                TriggerFeeler(m_triggerPtr, g_crossingEvents, &feeler);
                 if (m_cutShort || (m_entity->m_objectFlags & OBJECT_FLAG_DEAD))
                     return;
             }
@@ -719,7 +719,7 @@ void CDrivableModule::CheckSleep()
 // 0x004376B0
 void CDrivableModule::ReadControls()
 {
-    uint8_t* input = mp_input;
+    uint8_t* input = m_inputPtr;
     // The stick squared (its sign kept); else the d-pad's left / right.
     float stick = *reinterpret_cast<float*>(input + 0x238);
     double steering = std::fabs(static_cast<double>(stick)) * stick;
@@ -793,7 +793,7 @@ void CDrivableModule::UpdateSkater()
     skater->m_atPoint.y = static_cast<float>(static_cast<double>(object->m_atPoint.y) + place.y);
     skater->m_basisFrame = object->m_basisFrame;
     // The skater's core physics keeps its own copy of its object's matrix (+0x18).
-    uint8_t* core = reinterpret_cast<uint8_t*>(mp_skaterCorePhysics);
+    uint8_t* core = reinterpret_cast<uint8_t*>(m_skaterCorePhysics);
     *reinterpret_cast<Maths::Mat4*>(core + 0x18) = reinterpret_cast<CObjectModule*>(core)->m_entity->m_basisFrame;
     skater->m_vel = object->m_vel;
     if (!m_riderShown)
@@ -801,7 +801,7 @@ void CDrivableModule::UpdateSkater()
     // The steering animation's frame follows the smoothed steering (mirrored unless the skater's flag 0x28 is set).
     uint8_t* flags = *reinterpret_cast<uint8_t**>(core + 0x1528);
     float steering = flags[0x28] ? m_displaySteering : -m_displaySteering;
-    auto* blender = reinterpret_cast<CAnimBlenderComponent*>(mp_animBlender);
+    auto* blender = reinterpret_cast<CAnimBlenderComponent*>(m_animBlenderPtr);
     double duration = blender->FetchValue(m_riderAnimName);
     float frame = static_cast<float>((static_cast<double>(steering) - -1.0) * kHalf * duration);
     uint32_t frameBits = std::bit_cast<uint32_t>(frame);

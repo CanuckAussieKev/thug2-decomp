@@ -88,10 +88,10 @@ public:
     void** m_vtable;
     int m_cloneKind;             // +0x04: 1 an instance / a copy made with `instance`, 2 a copy without
     void* m_hitTriangles;        // +0x08: the collision faces
-    uint32_t* mp_renderColours;  // +0x0C: the vertex colours' copy (FetchTints)
+    uint32_t* m_renderColours;  // +0x0C: the vertex colours' copy (FetchTints)
     uint8_t m_multicolour;       // +0x10 (InitInstance's third argument's low byte)
 };
-static_assert(offsetof(CGeom, mp_renderColours) == 0xC && offsetof(CGeom, m_multicolour) == 0x10,
+static_assert(offsetof(CGeom, m_renderColours) == 0xC && offsetof(CGeom, m_multicolour) == 0x10,
               "layout must match the original");
 
 // The dispatchers: `MOV EAX,[ECX]; JMP [EAX + 4 * slot]` - the callee's arguments, whatever the class (the geom's

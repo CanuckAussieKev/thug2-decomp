@@ -90,9 +90,9 @@ void __cdecl CBodyDynamicsModule::PublishMethodTable()
 int CObjectModule::DispatchScriptMethod(Scripts::CMemberFunctionEntry* entry, Scripts::CStruct* params,
                                       Scripts::CScript* script)
 {
-    if (entry->mCode) {
-        void* self = reinterpret_cast<uint8_t*>(this) + entry->mThisAdjustment;
-        return reinterpret_cast<int(__thiscall*)(void*, Scripts::CStruct*, Scripts::CScript*)>(entry->mCode)(self, params,
+    if (entry->m_methodCode) {
+        void* self = reinterpret_cast<uint8_t*>(this) + entry->m_thisAdjustment;
+        return reinterpret_cast<int(__thiscall*)(void*, Scripts::CStruct*, Scripts::CScript*)>(entry->m_methodCode)(self, params,
                                                                                                          script);
     }
     return InvokeMethodByName(entry->m_callsign, params, script);
@@ -138,7 +138,7 @@ void CBodyDynamicsModule::Seal()
     m_audioModule = static_cast<CAudioEmitterModule*>(m_entity->FetchModule(kSound));
     const Maths::Mat4& m = m_basisFrame;
     for (int i = 0; i < m_springCount; ++i) {
-        Spring& spring = mp_springs[i];
+        Spring& spring = m_springs[i];
         const Maths::Vec4& p = spring.point;
         double x = (Wide(p.y) * M(m, 0x10) + Wide(p.x) * M(m, 0x00)) + Wide(p.z) * M(m, 0x20);
         float y = Narrow((Wide(p.x) * M(m, 0x04) + Wide(p.z) * M(m, 0x24)) + Wide(p.y) * M(m, 0x14));
@@ -154,7 +154,7 @@ void CBodyDynamicsModule::Seal()
 void CBodyDynamicsModule::Sleep()
 {
     if (m_settleScript)
-        m_entity->SpawnScript(m_settleScript, mp_callbackParams, 0, false)->TickFrame();
+        m_entity->SpawnScript(m_settleScript, m_callbackParamsPtr, 0, false)->TickFrame();
     m_vel = {0.0f, 0.0f, 0.0f, 1.0f};
     m_rotVel = {0.0f, 0.0f, 0.0f, 1.0f};
     m_curPhase = STATE_ASLEEP;
@@ -165,7 +165,7 @@ void CBodyDynamicsModule::UpdateWorldPoints()
 {
     const Maths::Mat4& m = m_basisFrame;
     for (int i = m_contactCount - 1; i >= 0; --i) {
-        const Maths::Vec4& p = mp_contacts[i];
+        const Maths::Vec4& p = m_contacts[i];
         Maths::Vec4& out = WorldContactPoints()[i];
         double x = (Wide(p.y) * M(m, 0x10) + Wide(p.z) * M(m, 0x20)) + Wide(p.x) * M(m, 0x00);
         double y = (Wide(p.x) * M(m, 0x04) + Wide(p.z) * M(m, 0x24)) + Wide(p.y) * M(m, 0x14);
@@ -173,7 +173,7 @@ void CBodyDynamicsModule::UpdateWorldPoints()
         out = {Narrow(x), Narrow(y), Narrow(z), p.w};
     }
     for (int i = m_sphereCount - 1; i >= 0; --i) {
-        const Maths::Vec4& p = mp_spheres[i].center;
+        const Maths::Vec4& p = m_spheres[i].center;
         Maths::Vec4& out = WorldSphereCenters()[i];
         double x = (Wide(p.y) * M(m, 0x10) + Wide(p.z) * M(m, 0x20)) + Wide(p.x) * M(m, 0x00);
         double y = (Wide(p.x) * M(m, 0x04) + Wide(p.z) * M(m, 0x24)) + Wide(p.y) * M(m, 0x14);
@@ -181,7 +181,7 @@ void CBodyDynamicsModule::UpdateWorldPoints()
         out = {Narrow(x), Narrow(y), Narrow(z), p.w};
     }
     for (int i = m_springCount - 1; i >= 0; --i) {
-        const Spring& spring = mp_springs[i];
+        const Spring& spring = m_springs[i];
         if (!spring.active)
             continue;
         const Maths::Vec4& p = spring.point;
@@ -381,15 +381,15 @@ void CBodyDynamicsModule::FeelPushers()
         Wake();
         m_pushCooldown = m_pushCooldownTime;
         if (m_collideScript)
-            m_entity->SpawnScript(m_collideScript, mp_callbackParams, 0, false)->TickFrame();
+            m_entity->SpawnScript(m_collideScript, m_callbackParamsPtr, 0, false)->TickFrame();
         HideSector(Checksums::FoldTextIntoChecksum(m_entity->m_ident, "_Shadow"));
         int now = static_cast<int>(FrameClock::GetTime());
         if (now - static_cast<int>(m_unknownF0) > 0 && now - NextCollideSoundTime() > 0 && m_audioModule &&
-            mp_collideSound) {
+            m_collideSoundPtr) {
             double length = std::sqrt((Wide(impulse.x) * impulse.x + Wide(impulse.z) * impulse.z) +
                                       Wide(impulse.y) * impulse.y);
-            mp_collideSound->PushFloat(kPercent, Narrow(length * kSoundScale));
-            m_audioModule->EmitSound(mp_collideSound);
+            m_collideSoundPtr->PushFloat(kPercent, Narrow(length * kSoundScale));
+            m_audioModule->EmitSound(m_collideSoundPtr);
             m_unknownF0 = static_cast<uint32_t>(MuteUntil(m_impactQuietMs));
             NextCollideSoundTime() = MuteUntil(m_globalCollideMuteDelay);
         }

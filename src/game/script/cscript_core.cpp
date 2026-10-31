@@ -166,7 +166,7 @@ void CScript::RunOnExitScripts()
     }
     // From the top level down; the depth is read once (the interrupts push and pop levels of their own).
     for (int i = m_callDepth; i; --i) {
-        uint32_t& onExit = m_returnAddresses[i - 1].mOnExitScript;
+        uint32_t& onExit = m_returnAddresses[i - 1].m_onExitScriptPtr;
         if (uint32_t name = onExit) {
             onExit = 0;
             Preempt(name, nullptr);
@@ -321,7 +321,7 @@ void CScript::ClearOnExitScripts()
 {
     m_onExitScript = 0;
     for (int i = m_callDepth; i; --i)
-        m_returnAddresses[i - 1].mOnExitScript = 0;
+        m_returnAddresses[i - 1].m_onExitScriptPtr = 0;
 }
 
 // 0x004734B0

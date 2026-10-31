@@ -35,9 +35,9 @@ public:
     // unless, outside a network game, the Suspend component's flag (0x00433E90) is set.
     void TickFrame();
 
-    CObjectModule* mp_suspend; // +0x18 the object's Suspend component (0xCE0CA665), from Finalize
+    CObjectModule* m_suspend; // +0x18 the object's Suspend component (0xCE0CA665), from Finalize
 };
-static_assert(offsetof(CVelocityTrackerModule, mp_suspend) == 0x18 && sizeof(CVelocityTrackerModule) == 0x1C,
+static_assert(offsetof(CVelocityTrackerModule, m_suspend) == 0x18 && sizeof(CVelocityTrackerModule) == 0x1C,
               "layout must match the original");
 
 } // namespace Obj

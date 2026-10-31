@@ -70,7 +70,7 @@ bool CPieceGroup::IsSpawnMarker()
     }
 }
 
-SPieceGroupDesc* CPieceGroup::GetDescriptor(int index) { return index < 2 ? &m_desc[index] : &mp_extra_desc[index - 2]; }
+SPieceGroupDesc* CPieceGroup::GetDescriptor(int index) { return index < 2 ? &m_desc[index] : &m_extra_desc[index - 2]; }
 
 void CPieceGroup::ToggleShown(bool visible)
 {
@@ -114,12 +114,12 @@ void CPieceGroup::SetQuarterTurns(int rot)
         m_cellFootprint.l = w;
     }
     // Every descriptor turned about the metapiece's corner, into new storage.
-    SPieceGroupDesc* extra = mp_extra_desc ? AllocateDescriptors(m_slotLimit - 2) : nullptr;
+    SPieceGroupDesc* extra = m_extra_desc ? AllocateDescriptors(m_slotLimit - 2) : nullptr;
     // (the original leaves the unused ones of these two as stack leftovers; here they keep what they were)
     SPieceGroupDesc first[2] = {m_desc[0], m_desc[1]};
     for (uint32_t i = 0; i < m_filledSlots; ++i) {
         SPieceGroupDesc* to = i < 2 ? &first[i] : &extra[i - 2];
-        const SPieceGroupDesc* from = i < 2 ? &m_desc[i] : &mp_extra_desc[i - 2];
+        const SPieceGroupDesc* from = i < 2 ? &m_desc[i] : &m_extra_desc[i - 2];
         *to = *from;
         // The entry's own size in cells, as it lies (x, z).
         uint8_t across;
@@ -165,9 +165,9 @@ void CPieceGroup::SetQuarterTurns(int rot)
         to->rot = static_cast<uint8_t>((from->rot + turn) & 3);
         to->piece = from->piece;
     }
-    if (mp_extra_desc)
-        MemSys::Dealloc(mp_extra_desc);
-    mp_extra_desc = extra;
+    if (m_extra_desc)
+        MemSys::Dealloc(m_extra_desc);
+    m_extra_desc = extra;
     m_desc[0] = first[0];
     m_desc[1] = first[1];
 }
@@ -200,14 +200,14 @@ void CPieceGroup::Commission(int count)
     if (count > 2) {
         extra = AllocateDescriptors(static_cast<uint32_t>(count - 2));
         // Growing: the extra entries kept.
-        if (extra && mp_extra_desc && m_slotLimit <= static_cast<uint32_t>(count) && m_slotLimit > 2) {
+        if (extra && m_extra_desc && m_slotLimit <= static_cast<uint32_t>(count) && m_slotLimit > 2) {
             for (uint32_t i = 2; i < m_slotLimit; ++i)
-                extra[i - 2] = mp_extra_desc[i - 2];
+                extra[i - 2] = m_extra_desc[i - 2];
         }
     }
-    if (mp_extra_desc)
-        MemSys::Dealloc(mp_extra_desc);
-    mp_extra_desc = extra;
+    if (m_extra_desc)
+        MemSys::Dealloc(m_extra_desc);
+    m_extra_desc = extra;
     m_slotLimit = static_cast<uint32_t>(count);
 }
 
@@ -285,8 +285,8 @@ bool CPieceGroup::Intersects(SCellBox area, uint32_t precise)
 CPieceGroup* CPieceGroup::Teardown(unsigned int flags)
 {
     m_vtable = kVtable;
-    if (mp_extra_desc)
-        MemSys::Dealloc(mp_extra_desc);
+    if (m_extra_desc)
+        MemSys::Dealloc(m_extra_desc);
     if (flags & 1)
         MemSys::Dealloc(this);
     return this;
@@ -310,8 +310,8 @@ void CPieceGroup::GetPieceList(Scripts::CArray* out)
 void CPieceGroup::DestroyBody()
 {
     m_vtable = kVtable;
-    if (mp_extra_desc)
-        MemSys::Dealloc(mp_extra_desc);
+    if (m_extra_desc)
+        MemSys::Dealloc(m_extra_desc);
 }
 
 void CPieceGroup::ChangePlace(Maths::Vec4 position, float angle)
@@ -390,7 +390,7 @@ void CPieceGroup::FinishPieces()
 CPlacedPieceGroup* CPlacedPieceGroup::MakeNew()
 {
     m_cellFootprint = {0, 0, 0, 0, 0, 0};
-    mp_extra_desc = nullptr;
+    m_extra_desc = nullptr;
     m_slotLimit = 0;
     m_filledSlots = 0;
     m_vtable = kVtable;
@@ -440,7 +440,7 @@ CPlacedPieceGroup* CPlacedPieceGroup::Teardown(unsigned int flags)
 CPieceBlueprint* CPieceBlueprint::MakeNew()
 {
     m_cellFootprint = {0, 0, 0, 0, 0, 0};
-    mp_extra_desc = nullptr;
+    m_extra_desc = nullptr;
     m_slotLimit = 0;
     m_filledSlots = 0;
     m_vtable = kVtable;

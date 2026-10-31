@@ -26,7 +26,7 @@ public:
     void DetachSharedRef(CSharedRef<CSharedBase>* pointer);
 
     void** m_vtable;
-    CSharedRef<CSharedBase>* mp_smartPointers;
+    CSharedRef<CSharedBase>* m_smartPointers;
 };
 
 // A pointer the object knows about (12 bytes).

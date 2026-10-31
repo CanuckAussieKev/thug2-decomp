@@ -94,7 +94,7 @@ public:
 
     uint32_t m_emitTarget;     // +0x18 (0xC036F4D0's checksum)
     void* m_effectHandle;         // +0x1C the Nx particle system
-    CObjectModule* mp_suspend; // +0x20 the object's suspend component
+    CObjectModule* m_suspend; // +0x20 the object's suspend component
     CObjectModule* m_meshInstance;  // +0x24 the model it follows (ConfigureFromData)
     int m_startTime;           // +0x28 the game clock when made
     uint32_t m_lifespan;       // +0x2C ms (0: for ever)

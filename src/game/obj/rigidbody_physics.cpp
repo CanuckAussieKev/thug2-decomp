@@ -88,7 +88,7 @@ void CBodyDynamicsModule::ApplySprings()
         settled = true;
         for (int i = m_springCount; i != 0;) {
             --i;
-            if (!mp_springs[i].active)
+            if (!m_springs[i].active)
                 continue;
             const Maths::Vec4& r = world[i];
             // its velocity: vel + rotvel x r
@@ -127,7 +127,7 @@ void CBodyDynamicsModule::ApplySprings()
     float dt = Narrow(FrameClock::GetSlomoFrameSeconds());
     for (int i = m_springCount; i != 0;) {
         --i;
-        const Spring& spring = mp_springs[i];
+        const Spring& spring = m_springs[i];
         if (!spring.active)
             continue;
         const Maths::Vec4& r = world[i];
@@ -179,17 +179,17 @@ void CBodyDynamicsModule::DebugDraw()
     for (int i = m_sphereCount; i != 0;) {
         --i;
         Maths::Vec4 center = at(centers[i]);
-        Gfx2D::AddDebugSphere(&center, mp_spheres[i].radius, &m_basisFrame, 12, colour, 1);
+        Gfx2D::AddDebugSphere(&center, m_spheres[i].radius, &m_basisFrame, 12, colour, 1);
     }
     if (DrawDetails())
         Gfx2D::PushDiagMarker(m_atPoint, 36.0f, 0xFFC800C8, 1);
     const Maths::Vec4* springs = WorldSpringPoints();
     for (int i = m_springCount; i != 0;) {
         --i;
-        if (!mp_springs[i].active)
+        if (!m_springs[i].active)
             continue;
         Gfx2D::PushDiagMarker(at(springs[i]), 24.0f, 0xFFC86400, 1);
-        Gfx2D::PushDiagMarker(mp_springs[i].anchor, 24.0f, 0xFFC80064, 1);
+        Gfx2D::PushDiagMarker(m_springs[i].anchor, 24.0f, 0xFFC80064, 1);
     }
 }
 
@@ -231,7 +231,7 @@ void CBodyDynamicsModule::Integrate(float dt)
     const Maths::Mat4& t = m_basisFrame;
     for (int i = m_contactCount; i != 0;) {
         --i;
-        const Maths::Vec4& c = mp_contacts[i];
+        const Maths::Vec4& c = m_contacts[i];
         const double x = c.x, y = c.y, z = c.z;
         WorldContactPoints()[i] = {Narrow((y * At(t, 1, 0) + At(t, 2, 0) * z) + At(t, 0, 0) * x),
                                    Narrow((At(t, 0, 1) * x + At(t, 2, 1) * z) + y * At(t, 1, 1)),
@@ -239,7 +239,7 @@ void CBodyDynamicsModule::Integrate(float dt)
     }
     for (int i = m_sphereCount; i != 0;) {
         --i;
-        const Maths::Vec4& c = mp_spheres[i].center;
+        const Maths::Vec4& c = m_spheres[i].center;
         const double x = c.x, y = c.y, z = c.z;
         WorldSphereCenters()[i] = {Narrow((y * At(t, 1, 0) + At(t, 2, 0) * z) + x * At(t, 0, 0)),
                                    Narrow((x * At(t, 0, 1) + At(t, 2, 1) * z) + y * At(t, 1, 1)),
@@ -247,9 +247,9 @@ void CBodyDynamicsModule::Integrate(float dt)
     }
     for (int i = m_springCount; i != 0;) {
         --i;
-        if (!mp_springs[i].active)
+        if (!m_springs[i].active)
             continue;
-        const Maths::Vec4& c = mp_springs[i].point;
+        const Maths::Vec4& c = m_springs[i].point;
         const double x = c.x, y = c.y, z = c.z;
         WorldSpringPoints()[i] = {Narrow((At(t, 2, 0) * z + At(t, 1, 0) * y) + x * At(t, 0, 0)),
                                   Narrow((At(t, 2, 1) * z + At(t, 1, 1) * y) + At(t, 0, 1) * x),
@@ -266,8 +266,8 @@ void CBodyDynamicsModule::OnBounce(float speed, const Maths::Vec4* point)
         Scripts::CStruct* params = Scripts::SpawnParamBag();
         if (params)
             params = params->PrepareAll();
-        if (mp_callbackParams)
-            params->MergeStructure(mp_callbackParams); // (out of memory: through null, as the original)
+        if (m_callbackParamsPtr)
+            params->MergeStructure(m_callbackParamsPtr); // (out of memory: through null, as the original)
         params->PutVec3(0x43F454D0, Scripts::VectorValue{point->x, point->y, point->z, point->w});
         m_entity->SpawnScript(m_bounceScript, params, 0, false)->TickFrame();
         if (params) {
@@ -275,10 +275,10 @@ void CBodyDynamicsModule::OnBounce(float speed, const Maths::Vec4* point)
             Scripts::DeleteStruct(params);
         }
     }
-    if (m_audioModule && mp_bounceSound && 48 - SoundFx::CountPlayingVoices() > 12) {
+    if (m_audioModule && m_bounceSfx && 48 - SoundFx::CountPlayingVoices() > 12) {
         float percent = Maths::Confine(Narrow(Wide(speed) / m_bounceFullSpeed * 100.0f), 0.0f, 100.0f);
-        mp_bounceSound->PushFloat(0x9E497FC6, percent); // Percent
-        m_audioModule->EmitSound(mp_bounceSound);
+        m_bounceSfx->PushFloat(0x9E497FC6, percent); // Percent
+        m_audioModule->EmitSound(m_bounceSfx);
     }
 }
 
@@ -330,7 +330,7 @@ void CBodyDynamicsModule::ResolveContacts()
         if (++round == kMaxRounds) {
             // Stuck: the script, or no velocity at all.
             if (m_scriptD0) {
-                m_entity->SpawnScript(m_scriptD0, mp_callbackParams, 0, false)->TickFrame();
+                m_entity->SpawnScript(m_scriptD0, m_callbackParamsPtr, 0, false)->TickFrame();
                 return;
             }
             m_vel = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -357,8 +357,8 @@ void CBodyDynamicsModule::ResolveContacts()
         double back = -((vz * n.z + Wide(vx) * n.x) + vy * n.y);
         Maths::Vec4 across = {Narrow(back * n.x + vx), Narrow(Wide(Narrow(back * n.y)) + vy),
                               Narrow(Wide(Narrow(back * n.z)) + vz), Narrow(Wide(Narrow(back * n.w)) + vel0.w)};
-        if (mp_directedFriction) {
-            const DirectedFriction& friction = mp_directedFriction[c.friction];
+        if (m_steerFriction) {
+            const DirectedFriction& friction = m_steerFriction[c.friction];
             if (friction.active) {
                 Maths::Vec4 d;
                 m_basisFrame.RotateVector(d, friction.direction);

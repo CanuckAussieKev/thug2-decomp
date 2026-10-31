@@ -660,7 +660,7 @@ uint8_t* SkateModule() { return reinterpret_cast<uint8_t*>(GameModules::g_skateM
 uint32_t CurrentLoadState() { return SkateModule() ? *reinterpret_cast<uint32_t*>(SkateModule() + 0x378) : 0; }
 bool InFrontEnd() { return CurrentLoadState() == kLoadMainMenu; }
 
-CUiWidget* FirstChild(const CUiWidget* element) { return element->mp_firstChild.Pull(); }
+CUiWidget* FirstChild(const CUiWidget* element) { return element->m_eldest.Pull(); }
 CUiWidget* NextSibling(const CUiWidget* element) { return element->m_following.Pull(); }
 CUiWidget* Parent(const CUiWidget* element) { return element->m_container.Pull(); }
 uint32_t IdentNo(const CUiWidget* element) { return element->m_ident; }
@@ -781,7 +781,7 @@ void FocusedElements(std::vector<CUiWidget*>* focused, std::vector<CUiWidget*>* 
     if (!manager)
         return;
     int guard = 0;
-    for (CUiTree::FocusEntry* entry = manager->mp_focusLists[0]; entry && guard < 64;
+    for (CUiTree::FocusEntry* entry = manager->m_focusLists[0]; entry && guard < 64;
          entry = entry->next, ++guard) {
         CUiWidget* element = entry->element.Pull();
         if (!element)

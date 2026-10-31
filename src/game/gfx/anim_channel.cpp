@@ -129,7 +129,7 @@ R Virtual(void* object, int slot, A... args)
 // A timeline's slots: 0 the scalar deleting destructor, 2 Update, 5 InvokeMethodByName.
 void DeleteTimeline(MemSys::ListNode* node) { Virtual<void*>(node, 0, 1); }
 
-GameObjects::CGameEntity* Owner(CBlendChannel* channel) { return reinterpret_cast<GameObjects::CGameEntity*>(channel->mp_owner); }
+GameObjects::CGameEntity* Owner(CBlendChannel* channel) { return reinterpret_cast<GameObjects::CGameEntity*>(channel->m_ownerPtr); }
 
 // The network manager (0x007CCE14) and this machine's client app for the channel's object - null when the object
 // isn't this machine's player's skater.
@@ -243,8 +243,8 @@ CBlendChannel* CBlendChannel::MakeNew(GameObjects::CGameEntity* object, GameObje
     m_timelines.prev = &m_timelines;
     m_timelines.vtable = reinterpret_cast<void**>(kHeadVtable);
     m_eventsOn = true;
-    mp_owner = reinterpret_cast<uint8_t*>(object);
-    mp_blender = blender;
+    m_ownerPtr = reinterpret_cast<uint8_t*>(object);
+    m_blender = blender;
     m_lookupKey = 0;
     m_eventTable = 0;
     m_ident = 0;
@@ -309,7 +309,7 @@ bool CBlendChannel::TickFrame(int index, bool blend)
     UpdateBlend();
     UpdateTimelines();
     RemoveDoneTimelines();
-    if (blend && mp_blender->ModelReady())
+    if (blend && m_blender->ModelReady())
         return BlendPose(index);
     return false;
 }
@@ -437,12 +437,12 @@ bool CBlendChannel::BlendPose(int index)
     CRig* skeleton = SkeletonOf(m_boneRig);
     if (!skeleton)
         return false;
-    skeleton->SetLOD(*reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(mp_blender) + 0x24)); // (its m_unknown24)
+    skeleton->SetLOD(*reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(m_blender) + 0x24)); // (its m_unknown24)
     int count = CountListItems(&m_timelines);
     CRigData* data = skeleton->m_payload;
     for (int i = 0; i < count; ++i) {
         // (each pose's translations start as the skeleton's bind translations)
-        std::memcpy(Poses()[i].translations, data->mp_bindTranslations,
+        std::memcpy(Poses()[i].translations, data->m_bindTranslations,
                     static_cast<size_t>(skeleton->GetNumBones() & 0x0FFFFFFF) * 16);
         FetchPose(i, &Poses()[i], &BlendWeights()[i]);
     }
@@ -1014,7 +1014,7 @@ int CBlendChannel::InvokeMethodByName(uint32_t name, CStruct* params, Scripts::C
         PlayAnimFromScript(params, script, kStockCrossfade);
         MemSys::ListNode* node = m_timelines.next;
         if (!IsHead(node) && node && reinterpret_cast<CAnimTrack*>(node)->m_repeatMode == CAnimTimeline::kHold)
-            Virtual<int>(mp_owner, 3, 0xEA6D0EFDu, params, script); // (the object's own member function)
+            Virtual<int>(m_ownerPtr, 3, 0xEA6D0EFDu, params, script); // (the object's own member function)
         return 1;
     }
     case 0x42FFC3CE: { // GetAnimLength: of anim, to the script's length

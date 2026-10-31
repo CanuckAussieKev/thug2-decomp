@@ -100,21 +100,21 @@ void FindKeys(uint8_t* keys, int count, float time, int (*keyframeTime)(const ui
 bool CJointClipFrames::ApplyAdditive(Maths::QuatRotation* rotations, Maths::Vec4* translations, void*, float weight,
                                         uint8_t* mask)
 {
-    uint8_t* rotKeys = mp_quatKeys;
-    uint8_t* transKeys = mp_transKeys;
-    uint16_t* rotSizes = mp_quatSizes;
-    uint16_t* transSizes = mp_transSizes;
+    uint8_t* rotKeys = m_quatKeys;
+    uint8_t* transKeys = m_transKeys;
+    uint16_t* rotSizes = m_quatSizes;
+    uint16_t* transSizes = m_transSizes;
     uint32_t maskBit = mask && mask[0x208] ? 1u << (*reinterpret_cast<uint32_t*>(mask + 0x210) & 31) : 0u;
     for (int i = 0; i < m_boneCount; ++i) {
         bool skip = maskBit ? ((*reinterpret_cast<uint32_t**>(mask + 0x20C))[i] & maskBit) != 0 : false;
         if (m_flagBits & kBoneBits)
-            skip = !(mp_partialBones[1 + i / 32] & (1u << (i % 32)));
+            skip = !(m_partialBones[1 + i / 32] & (1u << (i % 32)));
         if (!skip) {
             Maths::QuatRotation& rotation = rotations[i];
             if (*rotSizes) {
                 uint8_t key[8];
                 uint8_t decoded[20];
-                DecodeRotation(rotKeys, key, m_flagBits, mp_keyTable);
+                DecodeRotation(rotKeys, key, m_flagBits, m_keyTable);
                 RotationToQuatB(decoded, key);
                 Maths::QuatRotation added = rotation;
                 added *= *reinterpret_cast<Maths::QuatRotation*>(decoded + 4);
@@ -184,7 +184,7 @@ void CJointClipFrames::BuildCache(int format)
     if (*reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(manager) + 0xC8) == 0x32 ||
         CClipStore::HeapAvailable() < size) {
         if (manager->FreeOldest(priority, size))
-            mp_cacheEntry = nullptr;
+            m_cacheSlot = nullptr;
     }
     CAnimCacheEntry* entry = manager->AddRow(reinterpret_cast<uint32_t>(this), static_cast<int16_t>(m_boneCount),
                                                static_cast<int>(m_quatKeyCount), static_cast<int>(m_transKeyCount), format);
@@ -205,8 +205,8 @@ void CJointClipFrames::BuildCache(int format)
     alignas(4) uint8_t translation[8];
 
     // The rotations: each bone's keys one after another, the bones' starts in rotOffsets
-    uint16_t* sizes = mp_quatSizes;
-    uint8_t* cursor = mp_quatKeys;
+    uint16_t* sizes = m_quatSizes;
+    uint8_t* cursor = m_quatKeys;
     uint8_t* end = cursor + *sizes;
     uint32_t offset = 0;
     uint32_t bone = 0;
@@ -223,7 +223,7 @@ void CJointClipFrames::BuildCache(int format)
             if (static_cast<uint16_t>(bone) == static_cast<uint32_t>(bones))
                 break;
         }
-        cursor = DecodeRotation(cursor, key, m_flagBits, mp_keyTable);
+        cursor = DecodeRotation(cursor, key, m_flagBits, m_keyTable);
         const uint8_t* source = key;
         if (format == 3) {
             RotationToQuatA(quatA, key);
@@ -245,8 +245,8 @@ void CJointClipFrames::BuildCache(int format)
     }
 
     // The translations
-    sizes = mp_transSizes;
-    cursor = mp_transKeys;
+    sizes = m_transSizes;
+    cursor = m_transKeys;
     end = cursor + *sizes;
     offset = 0;
     bone = 0;
@@ -284,10 +284,10 @@ void CJointClipFrames::BuildCache(int format)
             break;
     }
 
-    mp_cacheEntry = cache;
+    m_cacheSlot = cache;
     entry->SetReleaseCallback(reinterpret_cast<void(__cdecl*)(void*)>(&CJointClipFrames::ForgetCacheEntry),
                               this); // (the entry's owner and its release callback)
-    uint16_t& cacheFlags = *reinterpret_cast<uint16_t*>(mp_cacheEntry + 0x164);
+    uint16_t& cacheFlags = *reinterpret_cast<uint16_t*>(m_cacheSlot + 0x164);
     cacheFlags = static_cast<uint16_t>(((m_flagBits >> 11) & 1) << 13 | (cacheFlags & 0xDFFF));
     ++CachesBuilt();
     LastCacheVblank() = FrameClock::FetchRetraceCount();
@@ -316,14 +316,14 @@ bool CJointClipFrames::GetFrames(Maths::QuatRotation* rotations, Maths::Vec4* tr
 {
     uint32_t flags = m_flagBits;
     if (flags & kCompressed) {
-        if (!(flags & kNoAutoCache) && !mp_cacheEntry)
+        if (!(flags & kNoAutoCache) && !m_cacheSlot)
             BuildCache(CacheFormat(CacheManager()));
         return FetchPose(reinterpret_cast<float*>(rotations), reinterpret_cast<float*>(translations), arg2, time, arg4,
                        static_cast<CFrameSource*>(arg5));
     }
     float frame = time * kFramesPerSecond;
-    uint8_t* rotKeys = mp_quatKeys;
-    uint8_t* transKeys = mp_transKeys;
+    uint8_t* rotKeys = m_quatKeys;
+    uint8_t* transKeys = m_transKeys;
     uint8_t* rotFrom = rotKeys;
     uint8_t* rotTo = rotKeys;
     uint8_t* transFrom = transKeys;
@@ -334,11 +334,11 @@ bool CJointClipFrames::GetFrames(Maths::QuatRotation* rotations, Maths::Vec4* tr
         int rotCount;
         int transCount;
         if (m_flagBits & kShortCounts) {
-            rotCount = reinterpret_cast<int16_t*>(mp_keyCounts)[i * 2];
-            transCount = reinterpret_cast<int16_t*>(mp_keyCounts)[i * 2 + 1];
+            rotCount = reinterpret_cast<int16_t*>(m_keyCounts)[i * 2];
+            transCount = reinterpret_cast<int16_t*>(m_keyCounts)[i * 2 + 1];
         } else {
-            rotCount = mp_keyCounts[i * 2];
-            transCount = mp_keyCounts[i * 2 + 1];
+            rotCount = m_keyCounts[i * 2];
+            transCount = m_keyCounts[i * 2 + 1];
         }
         FindKeys(rotKeys, rotCount, frame, RotationKeyTime, rotFrom, rotTo, rotFraction);
         InterpolateQuat(reinterpret_cast<float*>(rotations), rotFrom, rotTo, rotFraction,

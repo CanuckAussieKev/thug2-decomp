@@ -243,7 +243,7 @@ void CMenuBase::Arrange()
     bool regular = m_regularSpace > RegularSpaceMinimum();
     {
         ElementPtr item;
-        item.AssignValue(mp_firstChild.m_ownerObject);
+        item.AssignValue(m_eldest.m_ownerObject);
         if (regular) {
             for (; item; item.AssignValue(item->m_following.m_ownerObject)) {
                 double across = m_vertical ? static_cast<double>(item->m_span) * item->m_shown.scaleX
@@ -294,7 +294,7 @@ void CMenuBase::Arrange()
                                             (static_cast<double>(m_innerAlignH) + 1.0) * 0.5);
     {
         ElementPtr item;
-        item.AssignValue(mp_firstChild.m_ownerObject);
+        item.AssignValue(m_eldest.m_ownerObject);
         if (regular) {
             offset = static_cast<float>(static_cast<double>(m_regularSpace) * 0.5 + offset);
             for (; item; item.AssignValue(item->m_following.m_ownerObject)) {
@@ -331,7 +331,7 @@ void CMenuBase::Arrange()
             }
         }
     }
-    if (m_chosenItemId == 0 && mp_firstChild && m_focused) {
+    if (m_chosenItemId == 0 && m_eldest && m_focused) {
         m_selectedIndex = 0;
         MoveSelection(1, true, true);
         if (m_chosenItemId)
@@ -390,7 +390,7 @@ bool CMenuBase::PassEventToScript(GameObjects::CSignal* event)
         if (event->m_payload && event->m_payload->FetchIntValue(kGridIndex, &grid, 0)) {
             m_gridIndex = grid;
             ElementPtr item;
-            item.AssignValue(mp_firstChild.m_ownerObject);
+            item.AssignValue(m_eldest.m_ownerObject);
             int found = -1;
             for (int i = 0; item; ++i) {
                 int x = -1;
@@ -406,7 +406,7 @@ bool CMenuBase::PassEventToScript(GameObjects::CSignal* event)
         uint32_t childId;
         if (event->m_payload && event->m_payload->ReadHashValue(kChildId, &childId, 0)) {
             ElementPtr item;
-            item.AssignValue(mp_firstChild.m_ownerObject);
+            item.AssignValue(m_eldest.m_ownerObject);
             for (int i = 0; item; ++i) {
                 if (childId == item->m_ident) {
                     m_chosenItemId = childId;

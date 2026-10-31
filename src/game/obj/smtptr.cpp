@@ -17,7 +17,7 @@ extern void** const kRefCountedVtable;
 CSharedBase* CSharedBase::MakeNew()
 {
     m_vtable = kRefCountedVtable;
-    mp_smartPointers = nullptr;
+    m_smartPointers = nullptr;
     return this;
 }
 
@@ -40,13 +40,13 @@ CSharedBase* CSharedBase::ScalarDelete(uint8_t flags)
 // 0x00463820 (each pointer is taken out of the list of the object it points at, which is this one)
 void CSharedBase::ClearSmartPointers()
 {
-    for (CSharedRef<CSharedBase>* pointer = mp_smartPointers; pointer;) {
+    for (CSharedRef<CSharedBase>* pointer = m_smartPointers; pointer;) {
         CSharedRef<CSharedBase>* next = pointer->m_following;
         if (CSharedBase* object = pointer->m_ownerObject) {
             if (pointer->m_preceding)
                 pointer->m_preceding->m_following = next;
             else
-                object->mp_smartPointers = next;
+                object->m_smartPointers = next;
             if (pointer->m_following)
                 pointer->m_following->m_preceding = pointer->m_preceding;
             pointer->m_preceding = nullptr;
@@ -61,10 +61,10 @@ void CSharedBase::ClearSmartPointers()
 // 0x004637C0
 void CSharedBase::AttachSharedRef(CSharedRef<CSharedBase>* pointer)
 {
-    pointer->m_following = mp_smartPointers;
-    if (mp_smartPointers)
-        mp_smartPointers->m_preceding = pointer;
-    mp_smartPointers = pointer;
+    pointer->m_following = m_smartPointers;
+    if (m_smartPointers)
+        m_smartPointers->m_preceding = pointer;
+    m_smartPointers = pointer;
 }
 
 // 0x004637E0
@@ -73,7 +73,7 @@ void CSharedBase::DetachSharedRef(CSharedRef<CSharedBase>* pointer)
     if (pointer->m_preceding)
         pointer->m_preceding->m_following = pointer->m_following;
     else
-        mp_smartPointers = pointer->m_following;
+        m_smartPointers = pointer->m_following;
     if (pointer->m_following)
         pointer->m_following->m_preceding = pointer->m_preceding;
     pointer->m_preceding = nullptr;

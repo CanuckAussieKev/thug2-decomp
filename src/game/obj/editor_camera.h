@@ -72,7 +72,7 @@ public:
     bool m_simpleCollision;     // +0x90
     bool m_noWallCheck;         // +0x91 (0xF5680DEF)
     uint8_t pad92[2];
-    uint8_t* mp_input;          // +0x94 the Input component
+    uint8_t* m_inputPtr;          // +0x94 the Input component
     void* m_shadowHandle;            // +0x98
 };
 static_assert(offsetof(CEditorViewModule, m_focus) == 0x1C, "m_focus");

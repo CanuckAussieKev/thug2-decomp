@@ -381,7 +381,7 @@ bool __cdecl CFunc_ReplaceCarTextures(Scripts::CStruct* params, Scripts::CScript
     uint32_t seen[32];
     int seenCount = 0;
     for (GameObjects::CObjectModule* component = objects->FindFirstModuleOfKind(kModel); component;
-         component = component->mp_nextOfType) {
+         component = component->m_nextOfType) {
         if (component->m_entity->m_kindTag != kCarType)
             continue;
         void* model = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x208);

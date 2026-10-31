@@ -192,8 +192,8 @@ CStandardAnimController* CStandardAnimController::MakeNew(CAnimTimeline* timelin
 {
     BaseConstruct(this, timeline);
     m_vtable = kCStandardAnimControllerVtable;
-    mp_source = NewSource();
-    m_frameSource = SourceFrame(mp_source, false);
+    m_blendSource = NewSource();
+    m_frameSource = SourceFrame(m_blendSource, false);
     m_animSet = AnimSet(ObjectOf(this));
     m_frameSource = nullptr;
     m_frameIndex = -1;
@@ -206,9 +206,9 @@ void CStandardAnimController::DestroyBody()
     m_vtable = kCStandardAnimControllerVtable;
     if (m_frameSource)
         ReleaseFrameIndex(m_frameSource, m_frameIndex);
-    if (mp_source) {
-        FreeSource(mp_source);
-        mp_source = nullptr;
+    if (m_blendSource) {
+        FreeSource(m_blendSource);
+        m_blendSource = nullptr;
     }
     m_frameSource = nullptr;
     BaseDestroyBody(this);
@@ -230,12 +230,12 @@ bool CStandardAnimController::FetchPose(uint8_t* pose)
         if (*reinterpret_cast<int*>(static_cast<uint8_t*>(m_frameSource) + 0x24))
             m_frameIndex = FrameIndex(m_frameSource);
         else
-            m_frameSource = SourceFrame(mp_source, false);
+            m_frameSource = SourceFrame(m_blendSource, false);
     }
-    SetBones(mp_source, SkeletonOf(this));
-    SetBoneCount(mp_source, SkeletonOf(this));
-    FramePose(m_frameSource, pose, mp_timeline->m_ongoing, m_frameIndex, mp_source);
-    SourceFrame(mp_source, true);
+    SetBones(m_blendSource, SkeletonOf(this));
+    SetBoneCount(m_blendSource, SkeletonOf(this));
+    FramePose(m_frameSource, pose, m_timelinePtr->m_ongoing, m_frameIndex, m_blendSource);
+    SourceFrame(m_blendSource, true);
     return true;
 }
 
@@ -245,8 +245,8 @@ int CStandardAnimController::InvokeMethodByName(uint32_t name, Scripts::CStruct*
     switch (name) {
     case kPlayAnim: {
         PlayParams p = ReadPlayParams(params);
-        PlayAnim(mp_timeline, p.anim, p.start, p.end, p.loopType, p.blend, p.speed);
-        m_frameSource = LoggedSourceFrameOf(mp_source, m_animSet, p.anim);
+        PlayAnim(m_timelinePtr, p.anim, p.start, p.end, p.loopType, p.blend, p.speed);
+        m_frameSource = LoggedSourceFrameOf(m_blendSource, m_animSet, p.anim);
         m_frameIndex = FrameIndex(m_frameSource);
         return 1;
     }
@@ -255,13 +255,13 @@ int CStandardAnimController::InvokeMethodByName(uint32_t name, Scripts::CStruct*
         params->ReadHashValue(kAnim, &anim, 1);
         if (m_frameSource)
             ReleaseFrameIndex(m_frameSource, m_frameIndex);
-        if (mp_source) {
-            FreeSource(mp_source);
-            mp_source = nullptr;
+        if (m_blendSource) {
+            FreeSource(m_blendSource);
+            m_blendSource = nullptr;
         }
-        mp_source = NewSource();
-        SourceFrame(mp_source, false);
-        m_frameSource = LoggedSourceFrameOf(mp_source, m_animSet, anim);
+        m_blendSource = NewSource();
+        SourceFrame(m_blendSource, false);
+        m_frameSource = LoggedSourceFrameOf(m_blendSource, m_animSet, anim);
         m_frameIndex = FrameIndex(m_frameSource);
         return 1;
     }
@@ -271,7 +271,7 @@ int CStandardAnimController::InvokeMethodByName(uint32_t name, Scripts::CStruct*
         return 1;
     }
     case kInvalidateCache:
-        m_frameSource = SourceFrame(mp_source, false);
+        m_frameSource = SourceFrame(m_blendSource, false);
         return kNotMine;
     default:
         return kNotMine;
@@ -281,11 +281,11 @@ int CStandardAnimController::InvokeMethodByName(uint32_t name, Scripts::CStruct*
 // 0x004A4620
 void CStandardAnimController::TickFrame()
 {
-    float before = mp_timeline->m_ongoing;
-    mp_timeline->m_ongoing = Step(mp_timeline);
-    PassedEvents(mp_timeline, before, mp_timeline->m_ongoing);
-    if (mp_timeline->m_ongoing < before)
-        m_frameSource = SourceFrame(mp_source, false);
+    float before = m_timelinePtr->m_ongoing;
+    m_timelinePtr->m_ongoing = Step(m_timelinePtr);
+    PassedEvents(m_timelinePtr, before, m_timelinePtr->m_ongoing);
+    if (m_timelinePtr->m_ongoing < before)
+        m_frameSource = SourceFrame(m_blendSource, false);
 }
 
 // --- the weighted controller ---------------------------------------------------------------------------------
@@ -296,8 +296,8 @@ CWeightedAnimController* CWeightedAnimController::MakeNew(CAnimTimeline* timelin
     BaseConstruct(this, timeline);
     m_vtable = kCWeightedAnimControllerVtable;
     m_ownerObject = timeline ? ObjectOf(this) : object;
-    mp_source = NewSource();
-    m_frameSource = SourceFrame(mp_source, false);
+    m_blendSource = NewSource();
+    m_frameSource = SourceFrame(m_blendSource, false);
     m_animSet = AnimSet(m_ownerObject);
     m_frameSource = nullptr;
     m_weight = 0.0f;
@@ -308,9 +308,9 @@ CWeightedAnimController* CWeightedAnimController::MakeNew(CAnimTimeline* timelin
 void CWeightedAnimController::DestroyBody()
 {
     m_vtable = kCWeightedAnimControllerVtable;
-    if (mp_source) {
-        FreeSource(mp_source);
-        mp_source = nullptr;
+    if (m_blendSource) {
+        FreeSource(m_blendSource);
+        m_blendSource = nullptr;
     }
     m_frameSource = nullptr;
     BaseDestroyBody(this);
@@ -328,20 +328,20 @@ CWeightedAnimController* CWeightedAnimController::Teardown(uint8_t flags)
 // 0x004A5660
 bool CWeightedAnimController::FetchPose(uint8_t* pose)
 {
-    if (!m_frameSource || !mp_source || m_weight <= 0.0f)
+    if (!m_frameSource || !m_blendSource || m_weight <= 0.0f)
         return false;
-    m_frameSource = SourceFrame(mp_source, false);
+    m_frameSource = SourceFrame(m_blendSource, false);
     // (the skeleton component's skeleton, +0x18 - read through null without one, as the original)
     auto skeleton = [this] {
         GameObjects::CObjectModule* component = m_ownerObject->FetchModule(kSkeleton);
         return component ? *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x18) : nullptr;
     };
-    SetBones(mp_source, skeleton());
-    SetBoneCount(mp_source, skeleton());
+    SetBones(m_blendSource, skeleton());
+    SetBoneCount(m_blendSource, skeleton());
     static_cast<CJointClipFrames*>(m_frameSource)
         ->ApplyAdditiveIfCompressed(reinterpret_cast<Maths::QuatRotation*>(pose), reinterpret_cast<Maths::Vec4*>(pose + 0x400),
-                                    pose + 0x800, m_weight, static_cast<uint8_t*>(mp_source));
-    SourceFrame(mp_source, true);
+                                    pose + 0x800, m_weight, static_cast<uint8_t*>(m_blendSource));
+    SourceFrame(m_blendSource, true);
     return true;
 }
 
@@ -354,7 +354,7 @@ int CWeightedAnimController::InvokeMethodByName(uint32_t name, Scripts::CStruct*
         if (!params->ReadHashValue(kWeightedAnim, &anim, 0))
             params->ReadHashValue(kAnimName, &anim, 1);
         params->FetchFloat(kWeight, &m_weight, 0);
-        m_frameSource = SourceFrameOf(mp_source, m_animSet + anim);
+        m_frameSource = SourceFrameOf(m_blendSource, m_animSet + anim);
         return 1;
     }
     case kSetWeightedAnim: {
@@ -362,24 +362,24 @@ int CWeightedAnimController::InvokeMethodByName(uint32_t name, Scripts::CStruct*
         if (!params->ReadHashValue(kWeightedAnim, &anim, 0))
             params->ReadHashValue(kAnimName, &anim, 0);
         if (anim)
-            m_frameSource = SourceFrameOf(mp_source, m_animSet + anim);
+            m_frameSource = SourceFrameOf(m_blendSource, m_animSet + anim);
         params->FetchFloat(kWeight, &m_weight, 1);
         return 1;
     }
     case kNewSource: {
         uint32_t anim = reinterpret_cast<uint32_t>(params);
         params->ReadHashValue(kAnim, &anim, 1);
-        if (mp_source) {
-            FreeSource(mp_source);
-            mp_source = nullptr;
+        if (m_blendSource) {
+            FreeSource(m_blendSource);
+            m_blendSource = nullptr;
         }
-        mp_source = NewSource();
-        SourceFrame(mp_source, false);
-        m_frameSource = SourceFrameOf(mp_source, m_animSet + anim);
+        m_blendSource = NewSource();
+        SourceFrame(m_blendSource, false);
+        m_frameSource = SourceFrameOf(m_blendSource, m_animSet + anim);
         return 1;
     }
     case kInvalidateCache:
-        m_frameSource = SourceFrame(mp_source, false);
+        m_frameSource = SourceFrame(m_blendSource, false);
         return kNotMine;
     default:
         return kNotMine;
@@ -395,8 +395,8 @@ CWobbleDriver* CWobbleDriver::MakeNew(CAnimTimeline* timeline)
     m_vtable = kCWobbleControllerVtable;
     m_aimPoint = 0.0f;
     m_ampA = m_ampB = m_k1 = m_k2 = m_spazFactor = 0.0f;
-    mp_source = NewSource();
-    m_frameSource = SourceFrame(mp_source, false);
+    m_blendSource = NewSource();
+    m_frameSource = SourceFrame(m_blendSource, false);
     m_animSet = AnimSet(ObjectOf(this));
     return this;
 }
@@ -405,9 +405,9 @@ CWobbleDriver* CWobbleDriver::MakeNew(CAnimTimeline* timeline)
 void CWobbleDriver::DestroyBody()
 {
     m_vtable = kCWobbleControllerVtable;
-    if (mp_source) {
-        FreeSource(mp_source);
-        mp_source = nullptr;
+    if (m_blendSource) {
+        FreeSource(m_blendSource);
+        m_blendSource = nullptr;
     }
     if (m_frameSource)
         m_frameSource = nullptr;
@@ -426,10 +426,10 @@ CWobbleDriver* CWobbleDriver::Teardown(uint8_t flags)
 // 0x004A5110
 bool CWobbleDriver::FetchPose(uint8_t* pose)
 {
-    SetBones(mp_source, SkeletonOf(this));
-    SetBoneCount(mp_source, SkeletonOf(this));
-    FramePose(m_frameSource, pose, mp_timeline->m_ongoing, -1, mp_source);
-    SourceFrame(mp_source, true);
+    SetBones(m_blendSource, SkeletonOf(this));
+    SetBoneCount(m_blendSource, SkeletonOf(this));
+    FramePose(m_frameSource, pose, m_timelinePtr->m_ongoing, -1, m_blendSource);
+    SourceFrame(m_blendSource, true);
     return true;
 }
 
@@ -439,12 +439,12 @@ int CWobbleDriver::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
     switch (name) {
     case kPlayAnim: {
         PlayParams p = ReadPlayParams(params);
-        PlayAnim(mp_timeline, p.anim, p.start, p.end, p.loopType, p.blend, p.speed);
-        m_frameSource = SourceFrameOf(mp_source, m_animSet + p.anim);
+        PlayAnim(m_timelinePtr, p.anim, p.start, p.end, p.loopType, p.blend, p.speed);
+        m_frameSource = SourceFrameOf(m_blendSource, m_animSet + p.anim);
         return 1;
     }
     case kInvalidateCache:
-        m_frameSource = SourceFrame(mp_source, false);
+        m_frameSource = SourceFrame(m_blendSource, false);
         return kNotMine;
     case kSetTarget: {
         float fraction;
@@ -453,7 +453,7 @@ int CWobbleDriver::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
                 fraction = 0.0f;
             else if (fraction > 1.0f)
                 fraction = 1.0f;
-            const CAnimTimeline* t = mp_timeline;
+            const CAnimTimeline* t = m_timelinePtr;
             m_aimPoint = static_cast<float>((static_cast<double>(t->m_finish) - t->m_outset) * fraction + t->m_outset);
         }
         return 1;
@@ -481,7 +481,7 @@ int CWobbleDriver::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
 // second's amplitude around ampA, and the second (K2) the time around the target; within the timeline.
 float CWobbleDriver::WobbleTime()
 {
-    const CAnimTimeline* t = mp_timeline;
+    const CAnimTimeline* t = m_timelinePtr;
     float target = m_aimPoint;
     float k1 = m_k1, k2 = m_k2;
     double scale = std::fabs(target - (static_cast<double>(t->m_outset) + t->m_finish) * 0.5) *
@@ -510,10 +510,10 @@ float CWobbleDriver::WobbleTime()
 // 0x004A52E0
 void CWobbleDriver::TickFrame()
 {
-    float before = mp_timeline->m_ongoing;
-    mp_timeline->m_ongoing = WobbleTime();
-    if (mp_timeline->m_ongoing < before)
-        m_frameSource = SourceFrame(mp_source, false);
+    float before = m_timelinePtr->m_ongoing;
+    m_timelinePtr->m_ongoing = WobbleTime();
+    if (m_timelinePtr->m_ongoing < before)
+        m_frameSource = SourceFrame(m_blendSource, false);
 }
 
 // --- the pose controller -------------------------------------------------------------------------------------
@@ -563,11 +563,11 @@ CPartialClipDriver* CPartialClipDriver::MakeNew(CAnimTimeline* timeline)
 {
     BaseConstruct(this, timeline);
     m_vtable = kCPartialAnimControllerVtable;
-    mp_source = NewSource();
-    m_frameSource = SourceFrame(mp_source, false);
+    m_blendSource = NewSource();
+    m_frameSource = SourceFrame(m_blendSource, false);
     m_animSet = AnimSet(ObjectOf(this));
     void* memory = MemSys::AllocZeroed(sizeof(CAnimTimeline));
-    mp_partial = memory ? static_cast<CAnimTimeline*>(memory)->MakeNew() : nullptr;
+    m_partial = memory ? static_cast<CAnimTimeline*>(memory)->MakeNew() : nullptr;
     m_frameSource = nullptr;
     return this;
 }
@@ -576,13 +576,13 @@ CPartialClipDriver* CPartialClipDriver::MakeNew(CAnimTimeline* timeline)
 void CPartialClipDriver::DestroyBody()
 {
     m_vtable = kCPartialAnimControllerVtable;
-    if (mp_source) {
-        FreeSource(mp_source);
-        mp_source = nullptr;
+    if (m_blendSource) {
+        FreeSource(m_blendSource);
+        m_blendSource = nullptr;
     }
-    if (mp_partial) {
-        reinterpret_cast<void*(__thiscall*)(CAnimTimeline*, int)>(mp_partial->m_vtable[0])(mp_partial, 1);
-        mp_partial = nullptr;
+    if (m_partial) {
+        reinterpret_cast<void*(__thiscall*)(CAnimTimeline*, int)>(m_partial->m_vtable[0])(m_partial, 1);
+        m_partial = nullptr;
     }
     if (m_frameSource)
         m_frameSource = nullptr;
@@ -601,10 +601,10 @@ CPartialClipDriver* CPartialClipDriver::Teardown(uint8_t flags)
 // 0x004A5430
 bool CPartialClipDriver::FetchPose(uint8_t* pose)
 {
-    SetBones(mp_source, SkeletonOf(this));
-    SetBoneCount(mp_source, SkeletonOf(this));
-    FramePose(m_frameSource, pose, mp_partial->m_ongoing, -1, mp_source);
-    SourceFrame(mp_source, true);
+    SetBones(m_blendSource, SkeletonOf(this));
+    SetBoneCount(m_blendSource, SkeletonOf(this));
+    FramePose(m_frameSource, pose, m_partial->m_ongoing, -1, m_blendSource);
+    SourceFrame(m_blendSource, true);
     return true;
 }
 
@@ -627,10 +627,10 @@ void CPartialClipDriver::ConfigureFromData(Scripts::CStruct* params)
     params->FetchFloat(kCurrent, &current, 0);
     // the timeline's PlayAnim (vtable +0x0C)
     reinterpret_cast<void(__thiscall*)(CAnimTimeline*, uint32_t, float, float, int, float, float)>(
-        mp_partial->m_vtable[3])(mp_partial, anim, start, end, loopType, 0.0f, speed);
+        m_partial->m_vtable[3])(m_partial, anim, start, end, loopType, 0.0f, speed);
     if (current != 0.0f)
-        mp_partial->AdvanceClock(current);
-    m_frameSource = SourceFrameOf(mp_source, m_animSet + anim);
+        m_partial->AdvanceClock(current);
+    m_frameSource = SourceFrameOf(m_blendSource, m_animSet + anim);
 }
 
 // 0x004A54A0
@@ -641,31 +641,31 @@ int CPartialClipDriver::InvokeMethodByName(uint32_t name, Scripts::CStruct* para
         // the timeline stepped once by `frames` (its speed held at 0 meanwhile)
         float frames = 0.0f; // (missing: the original's is whatever its argument slot held)
         params->FetchFloat(kFrames, &frames, 1);
-        float speed = static_cast<float>(static_cast<double>(mp_partial->m_speed) * FramesPerSecond());
-        mp_partial->m_speed = 0.0f;
-        mp_partial->m_ongoing = static_cast<float>(static_cast<double>(frames) + mp_partial->m_ongoing);
-        reinterpret_cast<void(__thiscall*)(CAnimTimeline*)>(mp_partial->m_vtable[2])(mp_partial);
-        mp_partial->m_speed = static_cast<float>(static_cast<double>(speed) * SecondsPerFrame());
+        float speed = static_cast<float>(static_cast<double>(m_partial->m_speed) * FramesPerSecond());
+        m_partial->m_speed = 0.0f;
+        m_partial->m_ongoing = static_cast<float>(static_cast<double>(frames) + m_partial->m_ongoing);
+        reinterpret_cast<void(__thiscall*)(CAnimTimeline*)>(m_partial->m_vtable[2])(m_partial);
+        m_partial->m_speed = static_cast<float>(static_cast<double>(speed) * SecondsPerFrame());
         return 1;
     }
     case kSetSpeed: {
         float speed = 0.0f;
         params->FetchFloat(kSpeed, &speed, 1);
-        mp_partial->m_speed = static_cast<float>(static_cast<double>(speed) * SecondsPerFrame());
+        m_partial->m_speed = static_cast<float>(static_cast<double>(speed) * SecondsPerFrame());
         return 1;
     }
     case kInvalidateCache:
-        m_frameSource = SourceFrame(mp_source, false);
+        m_frameSource = SourceFrame(m_blendSource, false);
         return kNotMine;
     case kGetPartialAnimParams: {
-        script->m_args->PushFloat(kPartialAnimTime, mp_partial->m_ongoing);
-        script->m_args->PutNameKey(kPartialAnim, mp_partial->m_anim);
+        script->m_args->PushFloat(kPartialAnimTime, m_partial->m_ongoing);
+        script->m_args->PutNameKey(kPartialAnim, m_partial->m_anim);
         CStruct* out = script->m_args;
-        out->PutInt(kPartialAnimComplete, IsAccomplished(mp_partial));
+        out->PutInt(kPartialAnimComplete, IsAccomplished(m_partial));
         return 1;
     }
     case kReverse:
-        mp_partial->m_direction = mp_partial->m_direction ? 0 : -1;
+        m_partial->m_direction = m_partial->m_direction ? 0 : -1;
         return 1;
     default:
         return kNotMine;
@@ -675,10 +675,10 @@ int CPartialClipDriver::InvokeMethodByName(uint32_t name, Scripts::CStruct* para
 // 0x004A4EF0
 void CPartialClipDriver::TickFrame()
 {
-    float before = mp_partial->m_ongoing;
-    mp_partial->m_ongoing = Step(mp_partial);
-    if (mp_partial->m_ongoing < before)
-        m_frameSource = SourceFrame(mp_source, false);
+    float before = m_partial->m_ongoing;
+    m_partial->m_ongoing = Step(m_partial);
+    if (m_partial->m_ongoing < before)
+        m_frameSource = SourceFrame(m_blendSource, false);
 }
 
 namespace {

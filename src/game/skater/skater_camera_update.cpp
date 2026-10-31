@@ -95,7 +95,7 @@ void CRiderChaseView::TickFrame()
     auto* skater = m_riderRef;
     if (!skater)
         return;
-    uint8_t* control = mp_control;
+    uint8_t* control = m_control;
     if (control && At<uint8_t*>(control, 0x2C)[0x118]) {
         // Driving: the camera object not updated.
         m_entity->m_compositeFlags |= 1;
@@ -120,7 +120,7 @@ void CRiderChaseView::TickFrame()
     float lastFacingZ = view.row[2].z;
     float lastFacingY = view.row[2].y;
     float lastFacingX = view.row[2].x;
-    uint8_t* state = mp_state;
+    uint8_t* state = m_stateRef;
     int physicsState = At<int>(state, 0x18);
     uint8_t* core = reinterpret_cast<uint8_t*>(m_riderRef->FetchModule(kCorePhysics));
     bool turned = false;
@@ -188,8 +188,8 @@ void CRiderChaseView::TickFrame()
         if (horizontal > kSlowHorizontal)
             along = !lookDown;
         else
-            along = !lookDown && mp_state[0x78];
-        bool skip = !(horizontal > kSlowHorizontal) && !lookDown && !mp_state[0x78];
+            along = !lookDown && m_stateRef[0x78];
+        bool skip = !(horizontal > kSlowHorizontal) && !lookDown && !m_stateRef[0x78];
         if (!skip) {
             Maths::Vec4& right = orient.row[0];
             Maths::Vec4& upRow = orient.row[1];
@@ -197,7 +197,7 @@ void CRiderChaseView::TickFrame()
             if (along) {
                 skater = m_riderRef;
                 facing = skater->m_vel;
-                uint8_t* s = mp_state;
+                uint8_t* s = m_stateRef;
                 if (s[0x78]) {
                     facing.x = 0.0f;
                     facing.z = 0.0f;
@@ -247,7 +247,7 @@ void CRiderChaseView::TickFrame()
             upRow.MakeUnit();
         }
     }
-    if (m_riderRef->m_unknownBC && mp_state[0xA8]) {
+    if (m_riderRef->m_unknownBC && m_stateRef[0xA8]) {
         auto* physics = reinterpret_cast<uint8_t*>(m_riderRef->FetchModule(kCorePhysics));
         orient = At<Maths::Mat4>(physics, 0x3B0);
     }
@@ -302,7 +302,7 @@ void CRiderChaseView::TickFrame()
         }
     }
     if (!lipTilted) {
-        uint8_t* s = mp_state;
+        uint8_t* s = m_stateRef;
         if (!VertAir(s))
             Multiply(&orient, &Maths::MakePitchMatrix(rotation, m_leanAngle + m_airTilt), &orient);
     }
@@ -390,10 +390,10 @@ void CRiderChaseView::TickFrame()
         slerp->SetMatrices(view, goal);
         Maths::Mat4 from = view;
         view = goal;
-        if (VertAir(mp_state)) {
+        if (VertAir(m_stateRef)) {
             slerp->FetchMat(view, static_cast<float>(FrameBlend(m_vertAirSlerp, seconds)));
             m_settleTime = 1.0f / 6.0f;
-        } else if (At<int>(mp_state, 0x18) == 0 && m_settleTime >= seconds) {
+        } else if (At<int>(m_stateRef, 0x18) == 0 && m_settleTime >= seconds) {
             m_settleTime = static_cast<float>(m_settleTime - static_cast<double>(seconds));
             slerp->FetchMat(view, static_cast<float>(FrameBlend(m_vertAirLandedSlerp, seconds)));
         } else {

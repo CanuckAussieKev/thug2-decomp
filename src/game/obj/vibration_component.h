@@ -73,10 +73,10 @@ public:
     bool m_active;                 // +0x18
     uint8_t pad19[3];
     Stopwatch m_timers[kActuators];    // +0x1C
-    Sio::InputPort* mp_device;        // +0x34
+    Sio::InputPort* m_padDev;        // +0x34
 };
 static_assert(offsetof(CPadRumbleModule, m_active) == 0x18 && offsetof(CPadRumbleModule, m_timers) == 0x1C &&
-                  offsetof(CPadRumbleModule, mp_device) == 0x34 && sizeof(CPadRumbleModule) == 0x38,
+                  offsetof(CPadRumbleModule, m_padDev) == 0x34 && sizeof(CPadRumbleModule) == 0x38,
               "layout must match the original");
 
 } // namespace Obj

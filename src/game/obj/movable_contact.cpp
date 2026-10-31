@@ -43,7 +43,7 @@ CObjectModule* __cdecl CMovingSurfaceModule::Fabricate()
     contact->CObjectModule::MakeNew();
     contact->m_vtable = kVtable;
     contact->m_kindTag = kType;
-    contact->mp_ride = nullptr;
+    contact->m_ride = nullptr;
     contact->m_stopTime = 0;
     return contact;
 }
@@ -123,12 +123,12 @@ CGameEntity* CMovingSurfaceModule::FindContactAhead(Maths::Vec4* pos, const Math
 Maths::Vec4* CMovingSurfaceModule::GetContactPoint(Maths::Vec4* out)
 {
     Maths::Vec4 point = m_contactPoint;
-    if (mp_lastObject) {
+    if (m_lastObject) {
         Maths::Mat4 matrix;
-        matrix = mp_lastObject->m_basisFrame;
+        matrix = m_lastObject->m_basisFrame;
         Maths::Vec4 turned;
         matrix.RotateVector(turned, point);
-        const Maths::Vec4& at = mp_lastObject->m_atPoint;
+        const Maths::Vec4& at = m_lastObject->m_atPoint;
         point = {turned.x + at.x, turned.y + at.y, turned.z + at.z, turned.w + at.w};
     }
     *out = point;
@@ -138,22 +138,22 @@ Maths::Vec4* CMovingSurfaceModule::GetContactPoint(Maths::Vec4* out)
 // 0x00427C70
 void CMovingSurfaceModule::StopRiding()
 {
-    CRideTracker* ride = mp_ride;
+    CRideTracker* ride = m_ride;
     if (!ride)
         return;
-    mp_lastObject = ride->m_entity.m_ownerObject;
+    m_lastObject = ride->m_entity.m_ownerObject;
     reinterpret_cast<CSharedRef<CSharedBase>*>(&ride->m_entity)->Release();
     MemSys::Hub::Pull()->Dealloc(ride);
-    mp_ride = nullptr;
+    m_ride = nullptr;
     m_stopTime = FrameClock::GameClockElapsed() + g_clockOffset;
 }
 
 // 0x00427CB0
 bool CMovingSurfaceModule::IsRiding()
 {
-    if (!mp_ride)
+    if (!m_ride)
         return false;
-    if (mp_ride->m_entity.m_ownerObject)
+    if (m_ride->m_entity.m_ownerObject)
         return true;
     StopRiding();
     return false;
@@ -163,17 +163,17 @@ bool CMovingSurfaceModule::IsRiding()
 bool CMovingSurfaceModule::StartRiding(Engine3D::CProbeRay* feeler)
 {
     if (!feeler->HitObjectAlive()) {
-        if (mp_ride)
+        if (m_ride)
             StopRiding();
         return false;
     }
-    if (mp_ride) {
-        CGameEntity* riding = mp_ride->m_entity.m_ownerObject;
+    if (m_ride) {
+        CGameEntity* riding = m_ride->m_entity.m_ownerObject;
         if (!riding || riding != feeler->GetHitObject())
             StopRiding();
     }
-    if (mp_ride) {
-        if (mp_ride->m_entity.m_ownerObject)
+    if (m_ride) {
+        if (m_ride->m_entity.m_ownerObject)
             return false; // (already riding it)
         StopRiding();
     }
@@ -181,10 +181,10 @@ bool CMovingSurfaceModule::StartRiding(Engine3D::CProbeRay* feeler)
         MemSys::EnsureManager();
     void* memory = MemSys::Hub::Pull()->Carve(sizeof(CRideTracker), 1, nullptr);
     if (!memory) {
-        mp_ride = nullptr;
+        m_ride = nullptr;
         return true;
     }
-    mp_ride = static_cast<CRideTracker*>(memory)->MakeNew(feeler->GetHitObject());
+    m_ride = static_cast<CRideTracker*>(memory)->MakeNew(feeler->GetHitObject());
     return true;
 }
 
@@ -192,12 +192,12 @@ bool CMovingSurfaceModule::StartRiding(Engine3D::CProbeRay* feeler)
 void CMovingSurfaceModule::UpdateContactPoint()
 {
     CGameEntity* object;
-    if (mp_ride && mp_ride->m_entity.m_ownerObject) {
-        object = mp_ride->m_entity.m_ownerObject;
+    if (m_ride && m_ride->m_entity.m_ownerObject) {
+        object = m_ride->m_entity.m_ownerObject;
     } else {
-        if (mp_ride)
+        if (m_ride)
             StopRiding();
-        object = mp_lastObject;
+        object = m_lastObject;
         if (!object)
             return;
     }

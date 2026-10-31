@@ -88,18 +88,18 @@ float VblankSeconds(uint64_t vblanks, int rate)
 void CCinematicTable::MarkLoadedModels()
 {
     int version = 0;
-    mp_params->FetchIntValue(kVersion, &version, 1);
+    m_callArgs->FetchIntValue(kVersion, &version, 1);
     Scripts::CArray* objects = nullptr;
-    mp_params->FetchList(kObjects, &objects, 1);
+    m_callArgs->FetchList(kObjects, &objects, 1);
     for (uint32_t i = 0; i < objects->m_extent; ++i) {
         auto* object = reinterpret_cast<Scripts::CStruct*>(objects->FetchPart(i));
         uint32_t model;
         if (object->ReadHashValue(version >= 2 ? kName : kModel, &model, 0) &&
-            mp_bundle->HasAsset(model, kTypeModel))
+            m_bundlePtr->HasAsset(model, kTypeModel))
             object->PutNameKey(kUnnamed, kKeepSkeleton);
     }
     if (m_flag34B0)
-        AddObjects(mp_params);
+        AddObjects(m_callArgs);
 }
 
 // 0x004677F0
@@ -111,9 +111,9 @@ bool CCinematicTable::FinishLoading(int /*unused*/)
     MarkLoadedModels();
     AddCutsceneLights();
     MemSys::Hub::Pull()->LeaveHeapScope();
-    if (mp_bundle)
-        DeleteVirtual(mp_bundle);
-    mp_bundle = nullptr;
+    if (m_bundlePtr)
+        DeleteVirtual(m_bundlePtr);
+    m_bundlePtr = nullptr;
     if (m_flag34B0 && !m_ready) {
         // the music: waiting for its stream to be ready, then started
         for (;;) {
@@ -171,11 +171,11 @@ bool CCinematicTable::ReadIn(const char* path, int a2, int /*unused*/, const uin
     MemSys::Arena* assetHeap = m_flag34B0 ? manager->m_cinematicHighHeap : manager->m_topDownHeap;
     manager->EnterHeapScope(fileHeap);
     void* memory = MemSys::AllocZeroed(sizeof(FileLoad::AssetBundle));
-    mp_bundle = memory ? new (memory) FileLoad::AssetBundle : nullptr;
-    mp_bundle->SetHeaps(fileHeap, assetHeap);
+    m_bundlePtr = memory ? new (memory) FileLoad::AssetBundle : nullptr;
+    m_bundlePtr->SetHeaps(fileHeap, assetHeap);
     MemSys::Hub::Pull()->LeaveHeapScope();
     MemSys::Hub::Pull()->EnterHeapScope(assetHeap);
-    mp_bundle->ReadIn(path, a2, 0);
+    m_bundlePtr->ReadIn(path, a2, 0);
     MemSys::Hub::Pull()->LeaveHeapScope();
     FinishLoading(a2);
     m_readyFlag = true;
@@ -188,13 +188,13 @@ bool CCinematicTable::IsLoaded()
     if (m_readyFlag)
         return true;
     if (m_flag34B0) {
-        if (!mp_bundle->IsLoaded())
+        if (!m_bundlePtr->IsLoaded())
             return false;
         FinishLoading(1);
         m_readyFlag = true;
         return true;
     }
-    if (mp_bundle && !mp_bundle->IsLoaded())
+    if (m_bundlePtr && !m_bundlePtr->IsLoaded())
         return false;
     return true;
 }

@@ -107,7 +107,7 @@ CObjectModule* __cdecl CHookPointRegistryModule::Fabricate()
     component->CObjectModule::MakeNew();
     component->m_vtable = kHookManagerVtable;
     component->m_kindTag = kType;
-    component->mp_hooks = nullptr;
+    component->m_hooksPtr = nullptr;
     return component;
 }
 
@@ -115,7 +115,7 @@ CObjectModule* __cdecl CHookPointRegistryModule::Fabricate()
 void CHookPointRegistryModule::DestroyBody()
 {
     m_vtable = kHookManagerVtable;
-    if (CClassNodeList* hooks = mp_hooks) {
+    if (CClassNodeList* hooks = m_hooksPtr) {
         hooks->Clear(); // (its destructor)
         MemSys::Hub::Pull()->Dealloc(hooks);
     }
@@ -135,13 +135,13 @@ CHookPointRegistryModule* CHookPointRegistryModule::Teardown(unsigned int flags)
 void CHookPointRegistryModule::ConfigureFromData(Scripts::CStruct*)
 {
     CObjectModule* nodeArray = m_entity->FetchModule(CWaypointListModule::kType);
-    if (CClassNodeList* hooks = mp_hooks) {
+    if (CClassNodeList* hooks = m_hooksPtr) {
         hooks->Clear();
         MemSys::Hub::Pull()->Dealloc(hooks);
     }
     void* memory = MemSys::AllocZeroed(sizeof(CClassNodeList));
-    mp_hooks = memory ? static_cast<CClassNodeList*>(memory)->PrepareAll() : nullptr;
-    mp_hooks->SetNodes(NodeArrayOf(nodeArray));
+    m_hooksPtr = memory ? static_cast<CClassNodeList*>(memory)->PrepareAll() : nullptr;
+    m_hooksPtr->SetNodes(NodeArrayOf(nodeArray));
 }
 
 // --- the rails ---

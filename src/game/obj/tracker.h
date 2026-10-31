@@ -107,12 +107,12 @@ public:
     bool m_hasLooped;            // +0x7004 the ring is full
     char m_names[0x100][0x40]; // +0x7005 the event names (no check that there are at most 256)
     uint8_t unknownB005[3];
-    ListKit::KeyMap* mp_names;  // +0xB008 name checksum -> m_names entry (made on the first AddRow)
+    ListKit::KeyMap* m_namesPtr;  // +0xB008 name checksum -> m_names entry (made on the first AddRow)
     int m_layer;               // +0xB00C how many launches are under way
     int m_addedSinceSweep;          // +0xB010 entries since the last Print
 };
 static_assert(sizeof(CSignalTrace::TableRow) == 0x1C && offsetof(CSignalTrace, m_ordinal) == 0x7000 &&
-                  offsetof(CSignalTrace, m_names) == 0x7005 && offsetof(CSignalTrace, mp_names) == 0xB008 &&
+                  offsetof(CSignalTrace, m_names) == 0x7005 && offsetof(CSignalTrace, m_namesPtr) == 0xB008 &&
                   sizeof(CSignalTrace) == 0xB014,
               "layout must match the original");
 
@@ -171,10 +171,10 @@ public:
 
     void** m_vtable;
     int m_nextAutoId;                  // +0x04
-    ListKit::KeyMap* mp_objects;        // +0x08 id -> CEntity (8 bits)
-    ListKit::KeyMap* mp_aliases;        // +0x0C alias -> CEntity (4 bits)
-    ListKit::KeyMap* mp_listeners;      // +0x10 event type -> CScriptList (8 bits)
-    CSignalReceiver* mp_eventListeners; // +0x14
+    ListKit::KeyMap* m_entityList;        // +0x08 id -> CEntity (8 bits)
+    ListKit::KeyMap* m_aliases;        // +0x0C alias -> CEntity (4 bits)
+    ListKit::KeyMap* m_listeners;      // +0x10 event type -> CScriptList (8 bits)
+    CSignalReceiver* m_eventListeners; // +0x14
     bool unknown18;                    // +0x18 (cleared by the constructor only)
     uint8_t unknown19[3];
     int m_launchDepth;                 // +0x1C
@@ -184,7 +184,7 @@ public:
     bool unknownB218;                  // +0xB218 (cleared by the constructor only)
     uint8_t unknownB219[3];
 };
-static_assert(offsetof(CEventWaitBoard, mp_eventListeners) == 0x14 && offsetof(CEventWaitBoard, m_launchDepth) == 0x1C &&
+static_assert(offsetof(CEventWaitBoard, m_eventListeners) == 0x14 && offsetof(CEventWaitBoard, m_launchDepth) == 0x1C &&
                   offsetof(CEventWaitBoard, m_log) == 0x20 && offsetof(CEventWaitBoard, m_launchedFromScript) == 0xB034 &&
                   offsetof(CEventWaitBoard, m_waiters) == 0xB038 && offsetof(CEventWaitBoard, unknownB218) == 0xB218 &&
                   sizeof(CEventWaitBoard) == 0xB21C,

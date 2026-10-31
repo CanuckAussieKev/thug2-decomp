@@ -103,7 +103,7 @@ uint32_t& RefTally() { return g_compositeMgrReferences; }
 CObjectModule*& ComponentList(uint32_t index) { return g_componentList[index]; }
 // A component's type and its link to the next of its type.
 uint32_t TypeOf(CObjectModule* component) { return component->m_kindTag; }
-CObjectModule*& NextOfType(CObjectModule* component) { return component->mp_nextOfType; }
+CObjectModule*& NextOfType(CObjectModule* component) { return component->m_nextOfType; }
 
 // A composite object's flags.
 uint32_t& CompositeFlags(CGameEntity* object) { return object->m_compositeFlags; }

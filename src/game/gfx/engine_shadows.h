@@ -118,10 +118,10 @@ public:
     Maths::Mat4 m_basisFrame;    // +0x0C
     uint32_t m_modelKey;     // +0x4C the asset data's meshes
     Maths::Vec4 m_direction; // +0x50
-    ShadowEdges* mp_edges;   // +0x60
+    ShadowEdges* m_edges;   // +0x60
     float m_reach;        // +0x64
 };
-static_assert(offsetof(CShadowVolume, m_modelKey) == 0x4C && offsetof(CShadowVolume, mp_edges) == 0x60 &&
+static_assert(offsetof(CShadowVolume, m_modelKey) == 0x4C && offsetof(CShadowVolume, m_edges) == 0x60 &&
                   sizeof(CShadowVolume) == 0x68,
               "layout must match the original");
 

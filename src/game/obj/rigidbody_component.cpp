@@ -179,12 +179,12 @@ CBodyDynamicsModule* CBodyDynamicsModule::MakeNew()
 void CBodyDynamicsModule::DestroyBody()
 {
     m_vtable = kVtable;
-    for (void* array : {static_cast<void*>(mp_contacts), static_cast<void*>(mp_directedFriction),
-                        static_cast<void*>(mp_spheres), static_cast<void*>(mp_springs)}) {
+    for (void* array : {static_cast<void*>(m_contacts), static_cast<void*>(m_steerFriction),
+                        static_cast<void*>(m_spheres), static_cast<void*>(m_springs)}) {
         if (array)
             MemSys::Hub::Pull()->Dealloc(array);
     }
-    for (Scripts::CStruct* structure : {mp_callbackParams, mp_bounceSound, mp_collideSound}) {
+    for (Scripts::CStruct* structure : {m_callbackParamsPtr, m_bounceSfx, m_collideSoundPtr}) {
         if (structure)
             EraseOne(structure);
     }
@@ -204,11 +204,11 @@ CBodyDynamicsModule* CBodyDynamicsModule::Teardown(unsigned int flags)
 void CBodyDynamicsModule::SetContacts(Scripts::CArray* points)
 {
     m_contactCount = static_cast<uint16_t>(points->m_extent);
-    mp_contacts = Reallocate(mp_contacts, m_contactCount * sizeof(Maths::Vec4));
+    m_contacts = Reallocate(m_contacts, m_contactCount * sizeof(Maths::Vec4));
     const uint32_t* elements = points->FindArrayValue();
     for (uint32_t i = 0; i < m_contactCount; ++i) {
         const float* v = VectorOf(elements[i]);
-        mp_contacts[i] = {v[0], v[1], v[2], 0.0f};
+        m_contacts[i] = {v[0], v[1], v[2], 0.0f};
     }
 }
 
@@ -216,13 +216,13 @@ void CBodyDynamicsModule::SetContacts(Scripts::CArray* points)
 void CBodyDynamicsModule::SetBox(const Maths::Vec4* top, const Maths::Vec4* bottom)
 {
     m_contactCount = 8;
-    mp_contacts = Reallocate(mp_contacts, m_contactCount * sizeof(Maths::Vec4));
+    m_contacts = Reallocate(m_contacts, m_contactCount * sizeof(Maths::Vec4));
     int n = 0;
     for (bool right : {false, true}) {
         for (bool upper : {false, true}) {
             const Maths::Vec4& half = upper ? *top : *bottom;
             for (bool front : {false, true}) {
-                mp_contacts[n++] = {half.x * (right ? 1.0f : -1.0f), upper ? top->y : -bottom->y,
+                m_contacts[n++] = {half.x * (right ? 1.0f : -1.0f), upper ? top->y : -bottom->y,
                                     half.z * (front ? 1.0f : -1.0f), 1.0f};
             }
         }
@@ -233,20 +233,20 @@ void CBodyDynamicsModule::SetBox(const Maths::Vec4* top, const Maths::Vec4* bott
 void CBodyDynamicsModule::SetPyramid(float halfHeight, float halfDepth)
 {
     m_contactCount = 5;
-    mp_contacts = Reallocate(mp_contacts, m_contactCount * sizeof(Maths::Vec4));
+    m_contacts = Reallocate(m_contacts, m_contactCount * sizeof(Maths::Vec4));
     const float base = halfHeight * kPyramidBase;
-    mp_contacts[0] = {halfDepth, base, halfDepth, 1.0f};
-    mp_contacts[1] = {-halfDepth, base, halfDepth, 1.0f};
-    mp_contacts[2] = {-halfDepth, base, -halfDepth, 1.0f};
-    mp_contacts[3] = {halfDepth, base, -halfDepth, 1.0f};
-    mp_contacts[4] = {0.0f, halfHeight * kPyramidTip, 0.0f, 1.0f};
+    m_contacts[0] = {halfDepth, base, halfDepth, 1.0f};
+    m_contacts[1] = {-halfDepth, base, halfDepth, 1.0f};
+    m_contacts[2] = {-halfDepth, base, -halfDepth, 1.0f};
+    m_contacts[3] = {halfDepth, base, -halfDepth, 1.0f};
+    m_contacts[4] = {0.0f, halfHeight * kPyramidTip, 0.0f, 1.0f};
 }
 
 // 0x0042D790 (the angle's cosine taken unrounded, its sine from the angle rounded to a float, as the original)
 void CBodyDynamicsModule::SetCylinder(float topRadius, float bottomRadius, float halfHeight, int edges)
 {
     m_contactCount = static_cast<uint16_t>(edges * 2);
-    mp_contacts = Reallocate(mp_contacts, m_contactCount * sizeof(Maths::Vec4));
+    m_contacts = Reallocate(m_contacts, m_contactCount * sizeof(Maths::Vec4));
     int n = 0;
     for (bool upper : {false, true}) {
         const float radius = upper ? topRadius : bottomRadius;
@@ -254,7 +254,7 @@ void CBodyDynamicsModule::SetCylinder(float topRadius, float bottomRadius, float
             --i;
             double angle = static_cast<double>(i) * kAlmostTwoPi / static_cast<double>(edges);
             float rounded = static_cast<float>(angle);
-            mp_contacts[n++] = {X87CosTimes(angle, radius), upper ? halfHeight : -halfHeight,
+            m_contacts[n++] = {X87CosTimes(angle, radius), upper ? halfHeight : -halfHeight,
                                 X87SinTimes(rounded, radius), 1.0f};
         }
     }
@@ -264,14 +264,14 @@ void CBodyDynamicsModule::SetCylinder(float topRadius, float bottomRadius, float
 void CBodyDynamicsModule::SetTriangle(const Maths::Vec4* dimensions)
 {
     m_contactCount = 6;
-    mp_contacts = Reallocate(mp_contacts, m_contactCount * sizeof(Maths::Vec4));
+    m_contacts = Reallocate(m_contacts, m_contactCount * sizeof(Maths::Vec4));
     const Maths::Vec4& d = *dimensions;
     int n = 0;
     for (bool back : {false, true}) {
         float z = (back ? -1.0f : 1.0f) * d.z;
-        mp_contacts[n++] = {d.x, -d.y, z, 1.0f};
-        mp_contacts[n++] = {-d.x, -d.y, z, 1.0f};
-        mp_contacts[n++] = {0.0f, d.y, z, 1.0f};
+        m_contacts[n++] = {d.x, -d.y, z, 1.0f};
+        m_contacts[n++] = {-d.x, -d.y, z, 1.0f};
+        m_contacts[n++] = {0.0f, d.y, z, 1.0f};
     }
 }
 
@@ -279,12 +279,12 @@ void CBodyDynamicsModule::SetTriangle(const Maths::Vec4* dimensions)
 void CBodyDynamicsModule::SetSpheres(Scripts::CArray* spheres)
 {
     m_sphereCount = static_cast<uint16_t>(spheres->m_extent);
-    mp_spheres = Reallocate(mp_spheres, m_sphereCount * sizeof(Sphere));
+    m_spheres = Reallocate(m_spheres, m_sphereCount * sizeof(Sphere));
     const uint32_t* elements = spheres->FindArrayValue();
     for (uint32_t i = 0; i < m_sphereCount; ++i) {
         auto* settings = reinterpret_cast<Scripts::CStruct*>(elements[i]);
-        settings->FetchVec(0u, reinterpret_cast<Scripts::VectorValue*>(&mp_spheres[i].center), 1);
-        settings->FetchFloat(0xC48391A5, &mp_spheres[i].radius, 1); // radius
+        settings->FetchVec(0u, reinterpret_cast<Scripts::VectorValue*>(&m_spheres[i].center), 1);
+        settings->FetchFloat(0xC48391A5, &m_spheres[i].radius, 1); // radius
     }
 }
 
@@ -297,19 +297,19 @@ void CBodyDynamicsModule::SetSounds(uint32_t type)
     Scripts::CStruct* sound;
     if (sounds->HasEntryNamed(0xBF8E0ACE)) { // CollideSound
         sounds->ReadSubStruct(0xBF8E0ACE, &sound, 1);
-        if (mp_collideSound)
-            EraseOne(mp_collideSound);
-        mp_collideSound = CopyOf(sound);
+        if (m_collideSoundPtr)
+            EraseOne(m_collideSoundPtr);
+        m_collideSoundPtr = CopyOf(sound);
     }
     if (!sounds->HasEntryNamed(0x1FB2F60C)) // BounceSound
         return;
     sounds->ReadSubStruct(0x1FB2F60C, &sound, 1);
-    if (mp_bounceSound)
-        EraseOne(mp_bounceSound);
-    mp_bounceSound = CopyOf(sound);
+    if (m_bounceSfx)
+        EraseOne(m_bounceSfx);
+    m_bounceSfx = CopyOf(sound);
     if (sounds->HasEntryNamed(0x3818EE47)) { // CollideMuteDelay
         // (read into the argument slot, which then holds the copy's allocation)
-        int delay = static_cast<int>(reinterpret_cast<uint32_t>(mp_bounceSound));
+        int delay = static_cast<int>(reinterpret_cast<uint32_t>(m_bounceSfx));
         sounds->FetchIntValue(0x3818EE47, &delay, 0);
         m_impactQuietMs = delay;
     }
@@ -386,7 +386,7 @@ void CBodyDynamicsModule::ConfigureFromData(Scripts::CStruct* params)
     if (params->HasEntryNamed(0x0DD85BDA)) { // CallbackParams (the old copy is kept - leaked)
         Scripts::CStruct* callback;
         params->ReadSubStruct(0x0DD85BDA, &callback, 1);
-        mp_callbackParams = CopyOf(callback);
+        m_callbackParamsPtr = CopyOf(callback);
     }
     if (params->HasEntryNamed(0x94956E48)) { // SoundType
         uint32_t type;
@@ -402,13 +402,13 @@ void CBodyDynamicsModule::ConfigureFromData(Scripts::CStruct* params)
         Scripts::CArray* springs;
         params->FetchList(0xB77BE94A, &springs, 1);
         m_springCount = static_cast<uint16_t>(springs->m_extent);
-        mp_springs = Reallocate(mp_springs, m_springCount * sizeof(Spring));
+        m_springs = Reallocate(m_springs, m_springCount * sizeof(Spring));
         // (each built by the vector constructor iterator 0x00401020 with 0x005902E0 - which does nothing)
         const uint32_t* elements = springs->FindArrayValue();
         for (int i = 0; i < m_springCount; ++i) {
             const float* v = VectorOf(elements[i]);
-            mp_springs[i].point = {v[0], v[1], v[2], 0.0f};
-            mp_springs[i].active = true;
+            m_springs[i].point = {v[0], v[1], v[2], 0.0f};
+            m_springs[i].active = true;
         }
     }
 
@@ -482,16 +482,16 @@ void CBodyDynamicsModule::ConfigureFromData(Scripts::CStruct* params)
     if (params->HasEntryNamed(0xC35CAC0D)) { // directed_friction: one structure per contact
         Scripts::CArray* friction;
         params->FetchList(0xC35CAC0D, &friction, 0);
-        mp_directedFriction = Reallocate(mp_directedFriction, m_contactCount * sizeof(DirectedFriction));
+        m_steerFriction = Reallocate(m_steerFriction, m_contactCount * sizeof(DirectedFriction));
         const uint32_t* elements = friction->FindArrayValue();
         for (int i = m_contactCount; i != 0;) {
             --i;
             auto* settings = reinterpret_cast<Scripts::CStruct*>(elements[i]);
             if (settings->HasEntryNamed(0x806FFF30)) { // none
-                mp_directedFriction[i].active = false;
+                m_steerFriction[i].active = false;
             } else {
-                mp_directedFriction[i].active = true;
-                settings->FetchVec(0u, reinterpret_cast<Scripts::VectorValue*>(&mp_directedFriction[i].direction), 1);
+                m_steerFriction[i].active = true;
+                settings->FetchVec(0u, reinterpret_cast<Scripts::VectorValue*>(&m_steerFriction[i].direction), 1);
             }
         }
     }
@@ -503,14 +503,14 @@ void CBodyDynamicsModule::ConfigureFromData(Scripts::CStruct* params)
         turn.InitFromAngles(angles);
         auto m = [&turn](int r, int c) { return static_cast<double>(reinterpret_cast<const float*>(&turn.row[r])[c]); };
         for (int i = m_contactCount; i != 0;) {
-            Maths::Vec4& p = mp_contacts[--i];
+            Maths::Vec4& p = m_contacts[--i];
             double x = p.x, y = p.y, z = p.z;
             p.z = static_cast<float>((m(0, 2) * x + m(1, 2) * y) + m(2, 2) * z);
             p.x = static_cast<float>((m(0, 0) * x + m(1, 0) * y) + m(2, 0) * z);
             p.y = static_cast<float>((m(0, 1) * x + m(1, 1) * y) + m(2, 1) * z);
         }
         for (int i = m_sphereCount; i != 0;) {
-            Maths::Vec4& p = mp_spheres[--i].center;
+            Maths::Vec4& p = m_spheres[--i].center;
             double x = p.x, y = p.y, z = p.z;
             p.z = static_cast<float>((m(1, 2) * y + m(2, 2) * z) + m(0, 2) * x);
             p.x = static_cast<float>((m(1, 0) * y + m(2, 0) * z) + m(0, 0) * x);
@@ -524,11 +524,11 @@ void CBodyDynamicsModule::ConfigureFromData(Scripts::CStruct* params)
         vector(0x737612C6, &center);
     if (center.x == 0.0f && center.y == 0.0f && center.z == 0.0f) {
         for (int i = m_contactCount; i != 0;) {
-            const Maths::Vec4& p = mp_contacts[--i];
+            const Maths::Vec4& p = m_contacts[--i];
             center = {center.x + p.x, center.y + p.y, center.z + p.z, center.w + p.w};
         }
         for (int i = m_sphereCount; i != 0;) {
-            const Maths::Vec4& p = mp_spheres[--i].center;
+            const Maths::Vec4& p = m_spheres[--i].center;
             center = {center.x + p.x, center.y + p.y, center.z + p.z, center.w + p.w};
         }
         double share = 1.0 / static_cast<double>(m_contactCount + m_sphereCount);
@@ -544,24 +544,24 @@ void CBodyDynamicsModule::ConfigureFromData(Scripts::CStruct* params)
         p = {p.x - center.x, p.y - center.y, p.z - center.z, p.w - center.w};
     };
     for (int i = m_contactCount; i != 0;)
-        recentre(mp_contacts[--i]);
+        recentre(m_contacts[--i]);
     for (int i = m_sphereCount; i != 0;)
-        recentre(mp_spheres[--i].center);
+        recentre(m_spheres[--i].center);
     for (int i = m_springCount; i != 0;)
-        recentre(mp_springs[--i].point);
+        recentre(m_springs[--i].point);
 
     // mass_over_moment, else the default scaled down by the size of a big shape.
     if (!params->FetchFloat(0x967CD3AE, &m_massOverMoment, 0)) {
         float extent = 0.0f;
         for (int i = m_contactCount; i != 0;) {
-            const Maths::Vec4& p = mp_contacts[--i];
+            const Maths::Vec4& p = m_contacts[--i];
             double x = p.x, y = p.y, z = p.z;
             float length = static_cast<float>(std::sqrt((z * z + x * x) + y * y));
             if (!(extent > length))
                 extent = length;
         }
         for (int i = m_sphereCount; i != 0;) {
-            const Sphere& s = mp_spheres[--i];
+            const Sphere& s = m_spheres[--i];
             double x = s.center.x, y = s.center.y, z = s.center.z;
             float length = static_cast<float>(std::sqrt((z * z + x * x) + y * y) + s.radius);
             if (!(extent > length))
@@ -579,14 +579,14 @@ void CBodyDynamicsModule::ConfigureFromData(Scripts::CStruct* params)
     // The bounding radius (squared lengths compared unrounded).
     m_radius = 0.0f;
     for (int i = m_contactCount; i != 0;) {
-        const Maths::Vec4& p = mp_contacts[--i];
+        const Maths::Vec4& p = m_contacts[--i];
         double x = p.x, y = p.y, z = p.z;
         double lengthSquared = (z * z + x * x) + y * y;
         if (lengthSquared > m_radius)
             m_radius = static_cast<float>(lengthSquared);
     }
     for (int i = m_sphereCount; i != 0;) {
-        const Sphere& s = mp_spheres[--i];
+        const Sphere& s = m_spheres[--i];
         double x = s.center.x, y = s.center.y, z = s.center.z;
         double reach = std::sqrt((z * z + x * x) + y * y) + s.radius;
         if (reach * reach > m_radius)

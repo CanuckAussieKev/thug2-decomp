@@ -61,8 +61,8 @@ void CBuildPointer::SetGapVoidMask(Scripts::CStruct* flags)
 
 void CBuildPointer::ShowClipboard()
 {
-    if (mp_clipboard)
-        mp_clipboard->ShowAt(this);
+    if (m_clipboard)
+        m_clipboard->ShowAt(this);
 }
 
 void CBuildPointer::SelectClipboard(int index)
@@ -71,15 +71,15 @@ void CBuildPointer::SelectClipboard(int index)
     CClipboard* clipboard = m_copyBuffers;
     for (int i = 0; i < index && clipboard; ++i)
         clipboard = clipboard->m_following;
-    mp_clipboard = clipboard;
+    m_clipboard = clipboard;
 }
 
 void CBuildPointer::ToggleShown(bool visible)
 {
     if (m_pieceGroup)
         m_pieceGroup->ToggleShown(visible);
-    if (!visible && mp_clipboard)
-        mp_clipboard->FreeAllPieceGroups();
+    if (!visible && m_clipboard)
+        m_clipboard->FreeAllPieceGroups();
     m_areaHighlighted = false;
 }
 
@@ -156,12 +156,12 @@ void CBuildPointer::ClampToPark()
     if (pos.l + pos.z > bounds.l + bounds.z)
         pos.z = static_cast<uint8_t>(bounds.l - pos.l + bounds.z);
 
-    if (m_modeSel != kModePaste || !mp_clipboard)
+    if (m_modeSel != kModePaste || !m_clipboard)
         return;
     // the pasted area (whose corner may be off the grid: signed) is pushed back inside too
     SCellBox area;
     area.AssignValue(0, 0, 0, 0, 0, 0);
-    mp_clipboard->FetchExtent(this, &area);
+    m_clipboard->FetchExtent(this, &area);
     int last = bounds.w + bounds.x - 1;
     int shift = 0;
     if (static_cast<int8_t>(area.x) < bounds.x)
@@ -189,7 +189,7 @@ void CBuildPointer::FreeCopyBuffers()
         CClipboard::Dealloc(clipboard);
         clipboard = next;
     }
-    mp_clipboard = nullptr;
+    m_clipboard = nullptr;
 }
 
 void CBuildPointer::ForgetGapAt(CPieceGroup* meta)

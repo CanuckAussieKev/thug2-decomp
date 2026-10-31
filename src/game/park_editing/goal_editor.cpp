@@ -161,7 +161,7 @@ CObjectiveAuthoring* CObjectiveAuthoring::MakeNew()
     m_kindTag = kGoalEditor;
     ClearLevelGoals();
     ClearParkGoals();
-    mp_input = nullptr;
+    m_inputPtr = nullptr;
     m_viewCamera = nullptr;
     return this;
 }
@@ -187,7 +187,7 @@ CObjectiveAuthoring* CObjectiveAuthoring::Teardown(unsigned int flags)
 // 0x004E8210
 void CObjectiveAuthoring::Seal()
 {
-    mp_input = m_entity->FetchModule(kInput);
+    m_inputPtr = m_entity->FetchModule(kInput);
     m_viewCamera = m_entity->FetchModule(kEditorCamera);
 }
 
@@ -612,7 +612,7 @@ void CObjectiveAuthoring::TickFrame()
         RunCursorScript();
         return;
     }
-    GameObjects::CControlButton* place = Button(mp_input, 0x1C0);
+    GameObjects::CControlButton* place = Button(m_inputPtr, 0x1C0);
     if (place->m_fired) {
         place->ResetActivation();
         GameObjects::CEditorViewModule* camera = ViewCam(m_viewCamera);
@@ -630,7 +630,7 @@ void CObjectiveAuthoring::TickFrame()
         if (m_activeNode->m_lastPointPlaced)
             Scripts::LaunchScript(0xC05E7E20, nullptr, m_entity, false, nullptr);
     }
-    GameObjects::CControlButton* back = Button(mp_input, 0x1A0);
+    GameObjects::CControlButton* back = Button(m_inputPtr, 0x1A0);
     if (back->m_fired) {
         back->ResetActivation();
         GameObjects::CEditorViewModule* camera = ViewCam(m_viewCamera);
@@ -656,7 +656,7 @@ void CObjectiveAuthoring::Conceal(bool hide)
     }
     Scripts::CStruct* params = SpawnParamTable();
     params->PutInt(0x67E6859A, 0);
-    mp_input->ConfigureFromData(params);
+    m_inputPtr->ConfigureFromData(params);
     if (params) {
         params->Clear();
         Scripts::DeleteStruct(params);

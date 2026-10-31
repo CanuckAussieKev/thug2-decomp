@@ -70,7 +70,7 @@ void ChangePhase(void* core, int state) { static_cast<Skater::SkaterPhysicsModul
 // 0x004F8420
 void CRiderPhysicsTweaks::TickFrame()
 {
-    void* core = mp_core;
+    void* core = m_corePtr;
     void* object = m_entity;
     m_uberFrigged = 0;
     Maths::Vec4& position = VectorAt(object, kPosition);
@@ -118,15 +118,15 @@ void CRiderPhysicsTweaks::TickFrame()
             if (state != 0 && state != 1)
                 ChangePhase(core, 1);
         }
-        At<float>(mp_state, kHeightOverGround) = 0.0f;
+        At<float>(m_stateRef, kHeightOverGround) = 0.0f;
         return;
     }
 
     // Ground. Standing on a moving object (the skater on the ground or in the air, not skitching (+0x88) nor
     // wallriding (+0x78)) that isn't what the feeler hit: off it, with its velocity.
     uint8_t* flags = At<uint8_t*>(core, kTimedFlags);
-    if (!flags[0x88] && !flags[0x78] && mp_ride->mp_ride) {
-        CRideTracker* ride = mp_ride->mp_ride;
+    if (!flags[0x88] && !flags[0x78] && m_ride->m_ride) {
+        CRideTracker* ride = m_ride->m_ride;
         bool leave = true;
         if (ride->m_entity.m_ownerObject) {
             int state = At<int>(flags, 0x18);
@@ -138,16 +138,16 @@ void CRiderPhysicsTweaks::TickFrame()
                 leave = false;
             }
             if (leave)
-                VectorAt(object, kVelocity) += VectorAt(mp_ride->mp_ride->m_entity.m_ownerObject, kVelocity);
+                VectorAt(object, kVelocity) += VectorAt(m_ride->m_ride->m_entity.m_ownerObject, kVelocity);
         }
         if (leave)
-            mp_ride->StopRiding();
+            m_ride->StopRiding();
     }
 
     // Kept just over the ground.
     {
         double over = static_cast<double>(position.y) - VectorAt(core, kHitPoint).y;
-        At<float>(mp_state, kHeightOverGround) = static_cast<float>(over);
+        At<float>(m_stateRef, kHeightOverGround) = static_cast<float>(over);
         if (over < kLeastHeight)
             position.y = static_cast<float>(static_cast<double>(VectorAt(core, kHitPoint).y) + kLeastHeight);
     }

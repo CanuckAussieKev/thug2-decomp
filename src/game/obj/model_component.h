@@ -146,8 +146,8 @@ public:
     Maths::Vec4 m_shift;         // +0x1F8 added to the display position (w 1)
     Engine3D::CRenderModel* m_meshInstance;         // +0x208
     CObjectModule* m_boneRig;  // +0x20C its object's skeleton component (Finalize)
-    CObjectModule* mp_animBlender; // +0x210
-    CObjectModule* mp_suspend;   // +0x214
+    CObjectModule* m_animBlenderPtr; // +0x210
+    CObjectModule* m_suspend;   // +0x214
     float m_colorValues[4];       // +0x218 (1 to m_colorValueCount)
     int m_colorValueCount;        // +0x228
     float m_brightness;           // +0x22C

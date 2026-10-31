@@ -165,7 +165,7 @@ CRenderModel* CRenderModel::MakeNew()
     m_flagBits = static_cast<uint8_t>((m_flagBits & ~kModelHidden) | kModelEnabledBit);
     m_sizeFactor = {1.0f, 1.0f, 1.0f, 1.0f};
     m_flagBits &= ~(kModelSphereValid | kModelScaled | kModelShadow | kModelShadowVolume);
-    mp_lights = nullptr;
+    m_lightsPtr = nullptr;
     return this;
 }
 
@@ -173,8 +173,8 @@ CRenderModel* CRenderModel::MakeNew()
 void CRenderModel::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(kModelVtable);
-    if (mp_lights)
-        DiscardScene(mp_lights);
+    if (m_lightsPtr)
+        DiscardScene(m_lightsPtr);
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next) {
         if (uint8_t* volumes = TableRow(node)->boneVolumes)
             ReleaseBoneVolumes(*reinterpret_cast<void**>(volumes + 4));
@@ -256,8 +256,8 @@ bool CRenderModel::AddAssetGeom(uint32_t assetName, uint32_t name, bool multicol
     SetGeomShadow(entry->geom, (m_flagBits >> 4) & 1);
     entry->name = name;
     m_visibleGeoms |= GeomBit(m_geomTotal);
-    if (mp_lights)
-        SetGeomLights(entry->geom, mp_lights);
+    if (m_lightsPtr)
+        SetGeomLights(entry->geom, m_lightsPtr);
     ++m_geomTotal;
     if (m_displayMode != 0 && ModelVirtual<bool>(this, 3, 0))
         m_displayMode = 0;
@@ -330,8 +330,8 @@ bool CRenderModel::AddFileGeom(const char* fileName, uint32_t name, bool viaReso
     SetGeomShadow(entry->geom, (m_flagBits >> 4) & 1);
     entry->name = name;
     m_visibleGeoms |= GeomBit(m_geomTotal);
-    if (mp_lights)
-        SetGeomLights(entry->geom, mp_lights);
+    if (m_lightsPtr)
+        SetGeomLights(entry->geom, m_lightsPtr);
     ++m_geomTotal;
     if (m_displayMode != 0 && ModelVirtual<bool>(this, 3, 0))
         m_displayMode = 0;
@@ -354,8 +354,8 @@ bool CRenderModel::AddGeom(void* geom, uint32_t name, bool defaultHeap)
     entry->name = name;
     m_visibleGeoms |= GeomBit(m_geomTotal);
     entry->textures = nullptr;
-    if (mp_lights)
-        SetGeomLights(entry->geom, mp_lights);
+    if (m_lightsPtr)
+        SetGeomLights(entry->geom, m_lightsPtr);
     entry->boneVolumes = nullptr;
     entry->scene = nullptr;
     entry->assetName = 0;

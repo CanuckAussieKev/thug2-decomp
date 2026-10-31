@@ -163,7 +163,7 @@ void CCinematicTable::UpdateTime(int /*unused*/)
     if (!m_flag34B0)
         return;
     // the camera and object animations come in parts: the next part when this one's over
-    float length = *static_cast<float*>(mp_cameraAnim);
+    float length = *static_cast<float*>(m_cameraAnim);
     if (!(m_clock >= static_cast<double>(kPartEnd) + length)) { // (unordered too)
         m_cameraStart = static_cast<float>(m_clock / (static_cast<double>(length) + kFrame) * kFrame);
         return;
@@ -177,8 +177,8 @@ void CCinematicTable::UpdateTime(int /*unused*/)
             DeleteVirtual(m_cameraSource);
         m_cameraSource = NewAnimSource();
         static_cast<Engine3D::CFrameSource*>(m_cameraSource)->SetDone(true);
-        mp_cameraAnim = static_cast<Engine3D::CFrameSource*>(m_cameraSource)->PlayClip(name);
-        static_cast<Gfx2D::CJointClipFrames*>(mp_cameraAnim)->ArmEvents();
+        m_cameraAnim = static_cast<Engine3D::CFrameSource*>(m_cameraSource)->PlayClip(name);
+        static_cast<Gfx2D::CJointClipFrames*>(m_cameraAnim)->ArmEvents();
     }
     if (m_objectPart < m_objectParts) {
         ++m_objectPart;
@@ -186,8 +186,8 @@ void CCinematicTable::UpdateTime(int /*unused*/)
         if (m_objectSource)
             DeleteVirtual(m_objectSource);
         m_objectSource = NewAnimSource();
-        mp_animList = static_cast<Engine3D::CFrameSource*>(m_objectSource)->PlayClip(name);
-        static_cast<Gfx2D::CJointClipFrames*>(mp_animList)->ArmEvents();
+        m_animList = static_cast<Engine3D::CFrameSource*>(m_objectSource)->PlayClip(name);
+        static_cast<Gfx2D::CJointClipFrames*>(m_animList)->ArmEvents();
     }
     for (int i = 0; i < m_objectCount; ++i) {
         ObjectEntry& entry = m_entities[i];
@@ -253,13 +253,13 @@ void CCinematicTable::UpdateObjectTransforms()
 {
     if (!m_objectSource)
         return;
-    static_cast<Gfx2D::CJointClipFrames*>(mp_animList)->GetFloatKeyPose(
+    static_cast<Gfx2D::CJointClipFrames*>(m_animList)->GetFloatKeyPose(
         Rotations(), Translations(), g_cutsceneCameraSlot,
         static_cast<float>(m_clock - static_cast<double>(m_cameraStart)),
         static_cast<int>(reinterpret_cast<uint32_t>(m_objectSource)));
     // the animated objects of the level (not the cutscene's own)
-    for (int j = 0; j < *reinterpret_cast<int*>(Bytes(mp_animList) + 8); ++j) {
-        uint32_t name = static_cast<Gfx2D::CJointClipFrames*>(mp_animList)->FetchJointName(j);
+    for (int j = 0; j < *reinterpret_cast<int*>(Bytes(m_animList) + 8); ++j) {
+        uint32_t name = static_cast<Gfx2D::CJointClipFrames*>(m_animList)->FetchJointName(j);
         bool own = false;
         for (int k = m_objectCount - 1; k >= 0; --k) {
             if (m_entities[k].name == name)
@@ -336,7 +336,7 @@ void CCinematicTable::RestartObjects()
     m_clock = 0.0f;
     m_unknown3478 = 0;
     DestroyObjects();
-    AddObjects(mp_params);
+    AddObjects(m_callArgs);
 }
 
 // 0x00466490

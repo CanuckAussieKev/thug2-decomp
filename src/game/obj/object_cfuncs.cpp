@@ -201,7 +201,7 @@ bool __cdecl CFunc_RunScriptOnComponentType(Scripts::CStruct* params, Scripts::C
     Scripts::CStruct* targetParams = nullptr;
     params->ReadSubStruct(kParams, &targetParams, 0);
     for (GameObjects::CObjectModule* component = GameObjects::ObjectHubSlot()->FindFirstModuleOfKind(type); component;
-         component = component->mp_nextOfType)
+         component = component->m_nextOfType)
         component->InvokeMethodByName(target, targetParams, script);
     return true;
 }
@@ -232,7 +232,7 @@ bool __cdecl CFunc_DestroyParticlesByGroupID(Scripts::CStruct* params, Scripts::
     if (void* manager = ParticleHubHandle())
         DestroyParticleGroup(manager, group);
     for (GameObjects::CObjectModule* component = GameObjects::ObjectHubSlot()->FindFirstModuleOfKind(kParticle); component;
-         component = component->mp_nextOfType) {
+         component = component->m_nextOfType) {
         GameObjects::CGameEntity* object = component->m_entity;
         if (!(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) && ParticleGroup(component) == group)
             FlagAsDead(object);

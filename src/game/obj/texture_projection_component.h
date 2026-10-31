@@ -48,12 +48,12 @@ public:
     };
 
     ProjectionList m_projections;         // +0x18 (a ListKit::Foremost of the projections)
-    CObjectModule* mp_suspend;      // +0x2C
+    CObjectModule* m_suspend;      // +0x2C
     CObjectModule* m_boneRig;     // +0x30
     CObjectModule* m_meshInstance;        // +0x34
 };
 static_assert(offsetof(CTextureProjectionComponent, m_projections) == 0x18 &&
-                  offsetof(CTextureProjectionComponent, mp_suspend) == 0x2C &&
+                  offsetof(CTextureProjectionComponent, m_suspend) == 0x2C &&
                   sizeof(CTextureProjectionComponent) == 0x38,
               "layout must match the original");
 

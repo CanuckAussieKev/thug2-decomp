@@ -107,7 +107,7 @@ void DeleteComponent(CComponent* component)
 // 0x00472980: run a member function's table entry on `object` (no null checks).
 bool InvokeMethodByName(CMemberFunctionEntry* entry, CStruct* params, GameObjects::CEntity* object, CScript* script)
 {
-    uint32_t type = entry->mComponentType;
+    uint32_t type = entry->m_ownerKind;
     if (type == kObjectComponentType || type == kObjectComponentType2)
         return ObjectCallMemberFunction(object, entry, params, script);
     return ComponentCallMemberFunction(FetchModule(object, type), entry, params, script);

@@ -161,7 +161,7 @@ uint32_t CParkAssembler::FindFollowingRailNode(CArray* nodes, uint32_t geometry,
     auto used = [this](int node) {
         bool found = false;
         for (int i = 0; i < m_numUsedNodes; ++i) {
-            if (mp_usedNodes[i] == node)
+            if (m_usedNodes[i] == node)
                 found = true;
         }
         return found;
@@ -177,7 +177,7 @@ uint32_t CParkAssembler::FindFollowingRailNode(CArray* nodes, uint32_t geometry,
     }
     const int count = static_cast<int>(nodes->m_extent);
     for (int i = from; i < count; ++i) {
-        const PieceNodeInfo& node = mp_nodeInfo[i];
+        const PieceNodeInfo& node = m_nodeInfo[i];
         if (node.m_class != kRailNode && node.m_class != kClimbingNode)
             continue;
         uint32_t link = 0;
@@ -214,7 +214,7 @@ uint32_t CParkAssembler::FindFollowingRailNode(CArray* nodes, uint32_t geometry,
     }
     if (found == -1)
         return 0;
-    mp_usedNodes[m_numUsedNodes++] = found;
+    m_usedNodes[m_numUsedNodes++] = found;
     CStruct* node = Elem(nodes, found);
     std::memset(info, 0, sizeof(RailNodeInfo));
     node->FetchVec(kPos, Out(&info->m_atPoint), 1);
@@ -241,12 +241,12 @@ void CParkAssembler::BuildSourceRails(CArray* nodes)
 
     // what's needed of each node
     const int count = static_cast<int>(nodes->m_extent);
-    mp_usedNodes = static_cast<int*>(MemSys::Alloc(0x400)); // (room for 256)
+    m_usedNodes = static_cast<int*>(MemSys::Alloc(0x400)); // (room for 256)
     m_numUsedNodes = 0;
-    mp_nodeInfo = static_cast<PieceNodeInfo*>(MemSys::Alloc(count * sizeof(PieceNodeInfo)));
+    m_nodeInfo = static_cast<PieceNodeInfo*>(MemSys::Alloc(count * sizeof(PieceNodeInfo)));
     for (int i = 0; i < static_cast<int>(nodes->m_extent); ++i) {
         CStruct* node = Elem(nodes, i);
-        PieceNodeInfo& info = mp_nodeInfo[i];
+        PieceNodeInfo& info = m_nodeInfo[i];
         info.m_class = 0;
         node->ReadHashValue(kClass, &info.m_class, 0);
         info.m_cluster = 0;
@@ -291,11 +291,11 @@ void CParkAssembler::BuildSourceRails(CArray* nodes)
         }
         geometry = NextGeometryNode(nodes, &index);
     }
-    MemSys::Dealloc(mp_usedNodes);
-    MemSys::Dealloc(mp_nodeInfo);
+    MemSys::Dealloc(m_usedNodes);
+    MemSys::Dealloc(m_nodeInfo);
 
     // each source piece's rail points and segments
-    for (TemplateTile* source = mp_sources; source; source = source->m_following) {
+    for (TemplateTile* source = m_sources; source; source = source->m_following) {
         source->m_railPointTotal = 0;
         source->m_numRailSegments = 0;
         for (int i = 0; Rail* rail = rails.FindRail(source->m_label, i); ++i) {
@@ -310,7 +310,7 @@ bool CParkAssembler::FindNearestRailPoint(const Maths::Vec4* position, Maths::Ve
     bool found = false;
     float best = 1e8f;
     for (Rail* rail = m_rails.m_railGroups; rail; rail = rail->m_following) {
-        for (RailPoint* point = rail->mp_points; point; point = point->m_following) {
+        for (RailPoint* point = rail->m_pointChain; point; point = point->m_following) {
             const double dx = static_cast<double>(point->m_atPoint.x) - position->x;
             const double dy = static_cast<double>(point->m_atPoint.y) - position->y;
             const double dz = static_cast<double>(point->m_atPoint.z) - position->z;
@@ -333,12 +333,12 @@ void CParkAssembler::GetNodeCounts(int* counts)
 {
     for (int i = 0; i < 6; ++i)
         counts[i] = 0;
-    for (DuplicatedTile* piece = mp_pieces; piece; piece = piece->m_following) {
+    for (DuplicatedTile* piece = m_pieces; piece; piece = piece->m_following) {
         if (!(piece->m_flagBits & (DuplicatedTile::kNoNode20 | DuplicatedTile::kNoNode80)))
             ++counts[0];
         if (!(piece->m_flagBits & DuplicatedTile::kCursor) && !(piece->m_flagBits & DuplicatedTile::kNoRails)) {
-            counts[1] += piece->mp_source->m_railPointTotal;
-            counts[2] += piece->mp_source->m_numRailSegments;
+            counts[1] += piece->m_blendSource->m_railPointTotal;
+            counts[2] += piece->m_blendSource->m_numRailSegments;
         }
     }
     const int points = counts[1] + RailEditorPoints();
@@ -401,7 +401,7 @@ void CParkAssembler::BuildRails(CMapListNode* metas)
         for (int i = 0; i < pieces; ++i) {
             DuplicatedTile* piece = Cloned(meta->GetPiece(static_cast<uint32_t>(i)));
             for (int j = 0;; ++j) {
-                const uint32_t name = piece->mp_source->m_label;
+                const uint32_t name = piece->m_blendSource->m_label;
                 Rail* source = m_sourceRails.FindRail(name, j);
                 if (!source)
                     break;
@@ -427,13 +427,13 @@ void CParkAssembler::BuildRails(CMapListNode* metas)
 
 void CParkAssembler::WritePieceNodes(CArray* nodes, int* index)
 {
-    for (DuplicatedTile* piece = mp_pieces; piece; piece = piece->m_following) {
+    for (DuplicatedTile* piece = m_pieces; piece; piece = piece->m_following) {
         if (piece->m_flagBits & (DuplicatedTile::kNoNode20 | DuplicatedTile::kNoNode80))
             continue;
         CStruct* node = Elem(nodes, *index);
         node->PutVec3(kPos, Value(piece->m_atPoint));
         node->PutNameKey(kName, piece->m_sector);
-        const uint32_t flags = piece->mp_source->m_flagBits;
+        const uint32_t flags = piece->m_blendSource->m_flagBits;
         if (!(flags & TemplateTile::kGameObject)) {
             node->PutNameKey(kFlag, kPieceFlag);
             node->PutNameKey(kCluster, ~piece->m_ident);
@@ -444,7 +444,7 @@ void CParkAssembler::WritePieceNodes(CArray* nodes, int* index)
         }
         if (piece->m_flagBits & DuplicatedTile::kGap)
             node->PutNameKey(kTriggerScript, GapFireScript(piece));
-        else if (uint32_t script = piece->mp_source->m_triggerScript)
+        else if (uint32_t script = piece->m_blendSource->m_triggerScript)
             node->PutNameKey(kTriggerScript, script);
         ++*index;
     }
@@ -458,7 +458,7 @@ void CParkAssembler::WriteRailNodes(CArray* nodes, int* index)
         return;
     const int end = *index + count;
     Rail* rail = rails.m_railGroups;
-    RailPoint* point = rail->mp_points;
+    RailPoint* point = rail->m_pointChain;
     int railStart = *index; // the node a loop's last point links to
     uint32_t name = kFirstRailNode;
     while (*index < end) {
@@ -491,7 +491,7 @@ void CParkAssembler::WriteRailNodes(CArray* nodes, int* index)
         if (!point) {
             rail = rail->m_following;
             if (rail) {
-                point = rail->mp_points;
+                point = rail->m_pointChain;
                 railStart = *index + 1;
             }
         }

@@ -45,9 +45,9 @@ public:
     bool m_armed;             // +0x08
     uint8_t m_pad09[3];
     uint32_t m_kindTag;          // +0x0C
-    Scripts::CStruct* mp_params; // +0x10
+    Scripts::CStruct* m_callArgs; // +0x10
 };
-static_assert(sizeof(CTimedClipEvent) == 0x14 && offsetof(CTimedClipEvent, mp_params) == 0x10, "layout must match the original");
+static_assert(sizeof(CTimedClipEvent) == 0x14 && offsetof(CTimedClipEvent, m_callArgs) == 0x10, "layout must match the original");
 
 // The events' base (vtable 0x006487B0: slot 2 pure).
 class CAnimEventBase {
@@ -135,7 +135,7 @@ public:
     float m_fadeLeft;                     // +0x5C
     float m_fadeScale;                    // +0x60
     GameObjects::CGameEntity* m_ownerObject;     // +0x64
-    CTimedClipEvent* mp_events;                // +0x68 (an array of m_eventCount)
+    CTimedClipEvent* m_eventsPtr;                // +0x68 (an array of m_eventCount)
     uint32_t m_eventCount;                // +0x6C
     bool m_eventsOn;                      // +0x70
     uint8_t m_pad71[3];

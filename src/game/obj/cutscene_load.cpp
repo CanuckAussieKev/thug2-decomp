@@ -135,7 +135,7 @@ void __cdecl AnimSourceFree(void* item)
 CCinematicTable* CCinematicTable::MakeNew()
 {
     m_vtable = g_cutsceneDataVtable;
-    mp_bundle = nullptr;
+    m_bundlePtr = nullptr;
     m_objectPart = 0;
     m_cameraPart = 0;
     m_cameraParts = 0;
@@ -161,7 +161,7 @@ CCinematicTable* CCinematicTable::MakeNew()
     m_nextSubtitle = 0;
     m_subtitleTime = 0.0f;
     m_nextSubtitleTime = -1.0f;
-    mp_params = MakeStruct();
+    m_callArgs = MakeStruct();
     return this;
 }
 
@@ -378,9 +378,9 @@ void CCinematicTable::AddObjects(Scripts::CStruct* params)
             if (parent->active)
                 ApplySkaterLook(entry);
         }
-        void* anims = mp_animList;
+        void* anims = m_animList;
         for (int j = 0; j < *reinterpret_cast<int*>(static_cast<uint8_t*>(anims) + 8); ++j) {
-            if (entry.name == static_cast<Gfx2D::CJointClipFrames*>(mp_animList)->FetchJointName(j)) {
+            if (entry.name == static_cast<Gfx2D::CJointClipFrames*>(m_animList)->FetchJointName(j)) {
                 entry.animIndex = j;
                 break;
             }

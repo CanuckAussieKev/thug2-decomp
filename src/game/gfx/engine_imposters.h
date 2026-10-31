@@ -16,7 +16,7 @@ class KeyMap;
 namespace Engine3D {
 
 struct CImposterManager {
-    ListKit::KeyMap* mp_groups;
+    ListKit::KeyMap* m_groupsPtr;
     int m_maxPerFrame;
 
     // 0x0048E3E0: construct - a table of 2^8 buckets, 1 imposter a frame. Returns this.

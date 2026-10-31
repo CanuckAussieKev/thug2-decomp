@@ -135,7 +135,7 @@ public:
     uint32_t m_flagBits;                // +0x0C
     int m_quarterTurns;                       // +0x10: quarter turns
     SPieceGroupDesc m_desc[2];       // +0x14: the first two pieces
-    SPieceGroupDesc* mp_extra_desc;  // +0x2C: the others (piece 2 is mp_extra_desc[0])
+    SPieceGroupDesc* m_extra_desc;  // +0x2C: the others (piece 2 is m_extra_desc[0])
     uint32_t m_slotLimit;          // +0x30
     uint32_t m_filledSlots;     // +0x34
     uint32_t m_nameKey;        // +0x38: the abstract metapiece's name
@@ -193,7 +193,7 @@ public:
     }
 };
 static_assert(offsetof(CPieceGroup, m_flagBits) == 0x0C && offsetof(CPieceGroup, m_desc) == 0x14 &&
-                  offsetof(CPieceGroup, mp_extra_desc) == 0x2C && offsetof(CPieceGroup, m_filledSlots) == 0x34 &&
+                  offsetof(CPieceGroup, m_extra_desc) == 0x2C && offsetof(CPieceGroup, m_filledSlots) == 0x34 &&
                   offsetof(CPieceGroup, m_nameKey) == 0x38 && sizeof(CPieceGroup) == 0x3C,
               "layout must match the original");
 
@@ -258,7 +258,7 @@ public:
     uint32_t m_flagBits;          // +0x08
     CParkTile* m_following;           // +0x0C: the generator's list
     uint32_t m_ident;             // +0x10: the generator's piece counter when made (the cluster of its rails)
-    CTileTemplate* mp_source;   // +0x14
+    CTileTemplate* m_blendSource;   // +0x14
     Maths::Vec4 m_atPoint;         // +0x18
     int m_quarterTurns;                 // +0x28: quarter turns
 
@@ -295,7 +295,7 @@ public:
     // 0x00591600: its sector's geometry tinted (purple for a gap's piece) or back to normal
     void SetHighlight(bool on, bool gap);
 };
-static_assert(offsetof(CParkTile, m_ident) == 0x10 && offsetof(CParkTile, mp_source) == 0x14 && offsetof(CParkTile, m_atPoint) == 0x18 &&
+static_assert(offsetof(CParkTile, m_ident) == 0x10 && offsetof(CParkTile, m_blendSource) == 0x14 && offsetof(CParkTile, m_atPoint) == 0x18 &&
                   offsetof(CParkTile, m_quarterTurns) == 0x28 && sizeof(CParkTile) == 0x2C,
               "layout must match the original (a placed piece: 0x2C bytes)");
 
@@ -422,7 +422,7 @@ struct CClipboardEntry {
     uint8_t m_w;                    // +0x0C
     uint8_t m_l;                    // +0x0D
     uint8_t pad0E[2];
-    CPieceGroup* mp_preview;         // +0x10: shown at the cursor (kCursor)
+    CPieceGroup* m_preview;         // +0x10: shown at the cursor (kCursor)
     CClipboardEntry* m_following;       // +0x14
 
     // 0x0058B800: the cells it would take with the cursor's copy (turned with the cursor; one high, at its height).
@@ -439,7 +439,7 @@ struct CClipboardEntry {
     // 0x0058BCA0: its preview (made the first time) placed at `position` turned by `angle` degrees
     void ShowPreview(uint8_t centreX, int height, uint8_t centreZ, Maths::Vec4 position, float angle);
 };
-static_assert(offsetof(CClipboardEntry, m_quarterTurns) == 0x08 && offsetof(CClipboardEntry, mp_preview) == 0x10 &&
+static_assert(offsetof(CClipboardEntry, m_quarterTurns) == 0x08 && offsetof(CClipboardEntry, m_preview) == 0x10 &&
                   sizeof(CClipboardEntry) == 0x18,
               "pool item");
 
@@ -450,7 +450,7 @@ struct CClipboard {
     uint8_t m_loCellX, m_loCellZ;  // +0x06: the cells its entries cover
     uint8_t m_hiCellX, m_hiCellZ;  // +0x08
     uint8_t pad0A[2];
-    CClipboardEntry* mp_metas; // +0x0C: its entries (the newest first)
+    CClipboardEntry* m_metas; // +0x0C: its entries (the newest first)
     void* m_railGroups;            // +0x10: the rail editor's copies of the rails over it (linked by their first word)
     CClipboard* m_following;       // +0x14: the cursor's list
 
@@ -586,8 +586,8 @@ public:
     // metapieces, its name and its SGapDetails.
     struct Gap {
         uint32_t m_ids[2];        // +0x00: each end's GapID (the manager's counter when it was made)
-        CParkTile* mp_pieces[2];     // +0x08: the trigger pieces
-        CPieceGroup* mp_metas[2];  // +0x10
+        CParkTile* m_pieces[2];     // +0x08: the trigger pieces
+        CPieceGroup* m_metas[2];  // +0x10
         char m_label[0x80];        // +0x18: the text of the gap's EndGap
         SGapDetails m_details;           // +0x98
     };
@@ -602,12 +602,12 @@ public:
     void FireGap(int index, Scripts::CScript* script);
 
     uint32_t m_nextId;               // +0x00: the next end's GapID
-    Gap* mp_gaps[kMaxGaps];          // +0x04
+    Gap* m_gapsPtr[kMaxGaps];          // +0x04
     bool m_startedFirst[kMaxGaps];   // +0x84: the gap's first half (StartGap) was placed first
     CParkLayout* m_parkOwner;        // +0xA4: the park it's in (null in a copy)
 };
 static_assert(sizeof(CGapRegistry::Gap) == 0xEC && offsetof(CGapRegistry::Gap, m_details) == 0x98 &&
-                  offsetof(CGapRegistry, mp_gaps) == 4 && offsetof(CGapRegistry, m_startedFirst) == 0x84 &&
+                  offsetof(CGapRegistry, m_gapsPtr) == 4 && offsetof(CGapRegistry, m_startedFirst) == 0x84 &&
                   offsetof(CGapRegistry, m_parkOwner) == 0xA4 && sizeof(CGapRegistry) == 0xA8,
               "layout must match the original");
 
@@ -779,8 +779,8 @@ public:
 
     uint32_t m_flagBits;               // +0x000
     uint32_t m_04;
-    CParkTile* mp_pieces;              // +0x008
-    CTileTemplate* mp_sources;       // +0x00C
+    CParkTile* m_pieces;              // +0x008
+    CTileTemplate* m_sources;       // +0x00C
     void* m_sourceWorld;           // +0x010: "sk5ed"
     void* m_sceneHandle;                 // +0x014: "cloned"
     uint32_t m_18;
@@ -788,8 +788,8 @@ public:
     int m_maxPlayers;               // +0x020
     CParkRailSet m_sourceRails;     // +0x024: the pieces' rails, from their node array
     CParkRailSet m_rails;           // +0x058: the placed pieces' rails, while the node array is built
-    PieceNodeInfo* mp_nodeInfo;     // +0x08C: (while BuildSourceRails runs)
-    int* mp_usedNodes;              // +0x090: (likewise) the rail nodes taken
+    PieceNodeInfo* m_nodeInfo;     // +0x08C: (while BuildSourceRails runs)
+    int* m_usedNodes;              // +0x090: (likewise) the rail nodes taken
     int m_numUsedNodes;             // +0x094
     RestartPoint m_restarts[kRestartTableSize]; // +0x098: by type - 0 player 2, 1 player 1, 2-7 horse, 8-13 king of
                                     // the hill, 14-17 the flags (SpawnSlotArray)
@@ -801,7 +801,7 @@ public:
     uint8_t m_nodeArray[0x64];      // +0x440: an AssetStore::CNodeTableResource (the node array's owner)
 };
 static_assert(offsetof(CParkAssembler, m_sourceRails) == 0x24 && offsetof(CParkAssembler, m_rails) == 0x58 &&
-                  offsetof(CParkAssembler, mp_nodeInfo) == 0x8C && offsetof(CParkAssembler, m_restarts) == 0x98 &&
+                  offsetof(CParkAssembler, m_nodeInfo) == 0x8C && offsetof(CParkAssembler, m_restarts) == 0x98 &&
                   offsetof(CParkAssembler, m_lightTotal) == 0x320 && offsetof(CParkAssembler, m_lights) == 0x33C &&
                   offsetof(CParkAssembler, m_nodeArray) == 0x440 && sizeof(CParkAssembler) == 0x4A4,
               "layout must match the original");
@@ -897,7 +897,7 @@ public:
     // The abstract metapiece named `checksum` (null if none) - inline in the original.
     CPieceGroup* FindPieceTemplate(uint32_t checksum)
     {
-        for (CMapListNode* node = mp_abstract_metas; node; node = node->m_following) {
+        for (CMapListNode* node = m_abstract_metas; node; node = node->m_following) {
             CPieceGroup* meta = node->GetPlacedPiece();
             if (meta->m_nameKey == checksum)
                 return meta;
@@ -1055,14 +1055,14 @@ public:
     bool m_parkBuilt;                    // +0x04: the park is built (its changes go into the map when asked)
     bool m_05;                           // +0x05: the floor is built
     uint8_t pad06[2];
-    CMapListNode* mp_riserList;          // +0x08
+    CMapListNode* m_riserList;          // +0x08
     int m_riserMetas;                    // +0x0C
     int m_riserPieces;                   // +0x10
     uint32_t m_shellBlocks[8][3];        // +0x14: "floor_wall_block%d", "wall_block%d", "floor_block%d" (1..8)
     int m_74;
-    void* mp_78;                         // +0x78: a Malloc block
-    CMapListNode* mp_concrete_metas;     // +0x7C
-    CMapListNode* mp_abstract_metas;     // +0x80
+    void* m_78;                         // +0x78: a Malloc block
+    CMapListNode* m_concrete_metas;     // +0x7C
+    CMapListNode* m_abstract_metas;     // +0x80
     int m_numConcreteMetas;              // +0x84
     int m_numAbstractMetas;              // +0x88
     CMapListNode* m_cellMetas[kFloorSize][kFloorSize]; // +0x8C: [x][z] the metapieces with pieces in each cell
@@ -1081,12 +1081,12 @@ public:
     uint32_t m_restartPieces[kNumRestartPieces]; // +0x177A4: restart_1, restart_multi, restart_horse, king_of_hill,
                                                  // and the red, green, blue, yellow flags
     CGapRegistry* m_gapRegistry;          // +0x177C4
-    CGapRegistry* mp_gapManagerCopy;      // +0x177C8: see CreateGapManagerCopy
+    CGapRegistry* m_gapManagerCopy;      // +0x177C8: see CreateGapManagerCopy
 
 private:
     void ReadCompressedMap(Scripts::CArray* names, bool current);
 };
-static_assert(offsetof(CParkLayout, m_shellBlocks) == 0x14 && offsetof(CParkLayout, mp_concrete_metas) == 0x7C &&
+static_assert(offsetof(CParkLayout, m_shellBlocks) == 0x14 && offsetof(CParkLayout, m_concrete_metas) == 0x7C &&
                   offsetof(CParkLayout, m_cellMetas) == 0x8C && offsetof(CParkLayout, m_shellSize) == 0x351C &&
                   offsetof(CParkLayout, m_floor) == 0x352C && offsetof(CParkLayout, m_sets) == 0x1076C &&
                   offsetof(CParkLayout, m_numSets) == 0x13C8C && offsetof(CParkLayout, m_map) == 0x13C90 &&
@@ -1252,7 +1252,7 @@ public:
     bool m_areaHighlighted;      // +0x55
     uint8_t pad56[2];
     CClipboard* m_copyBuffers;   // +0x58: the newest first
-    CClipboard* mp_clipboard;    // +0x5C: the one being pasted
+    CClipboard* m_clipboard;    // +0x5C: the one being pasted
     int m_clipboardHeight;       // +0x60
     int m_pasteSetIndex;          // +0x64: the clipboard set's index
     int m_menuIndex;             // +0x68

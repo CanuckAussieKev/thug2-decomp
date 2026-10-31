@@ -754,7 +754,7 @@ void KeepRootHidden()
 
 uint32_t TypeOf(const CUiWidget* element) { return reinterpret_cast<const GameObjects::CEntity*>(element)->m_kindTag; }
 uint32_t IdOfElement(const CUiWidget* element) { return reinterpret_cast<const GameObjects::CEntity*>(element)->m_ident; }
-CUiWidget* FirstChild(const CUiWidget* element) { return element->mp_firstChild.Pull(); }
+CUiWidget* FirstChild(const CUiWidget* element) { return element->m_eldest.Pull(); }
 CUiWidget* Next(const CUiWidget* element) { return element->m_following.Pull(); }
 bool ElementHidden(const CUiWidget* element)
 {
@@ -779,7 +779,7 @@ uint32_t SpriteType()
 CUiWidget* RootElement()
 {
     CUiTree* manager = CUiTree::Sole();
-    return manager ? manager->mp_root.Pull() : nullptr;
+    return manager ? manager->m_treeRoot.Pull() : nullptr;
 }
 
 // The menu that takes the pad events now: of the focused menus, one in a dialog box first, else the last in the tree

@@ -474,7 +474,7 @@ bool CFootMovement::TryGrind()
             return false;
         // (vtable +0x34: the component's rails)
         auto railsOf = [](CObjectModule* c) { return reinterpret_cast<CGrindRailHub*(__thiscall*)(CObjectModule*)>(c->m_vtable[13])(c); };
-        for (; component && !found; component = component->mp_nextOfType) {
+        for (; component && !found; component = component->m_nextOfType) {
             Maths::Mat4 world;
             static_cast<CGrindPathLinkModule*>(component)->UpdateRailMatrix(&world);
             Maths::Mat4 inverse = world;

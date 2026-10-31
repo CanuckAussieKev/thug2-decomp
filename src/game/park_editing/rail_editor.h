@@ -35,8 +35,8 @@ struct CEditedRailPoint {
     float m_levelY;              // +0x14 how far over the ground below it is (where its post stands)
     CEditedRailPoint* m_following;   // +0x18
     CEditedRailPoint* m_preceding;   // +0x1C
-    uint8_t* mp_segment;         // +0x20 the sector of the rail from here to the next point (an Engine3D::CWorldCell)
-    uint8_t* mp_post;            // +0x24 its post's sector
+    uint8_t* m_segment;         // +0x20 the sector of the rail from here to the next point (an Engine3D::CWorldCell)
+    uint8_t* m_post;            // +0x24 its post's sector
 
     // 0x004F3AD0: if highlighted, its sectors (and those of its neighbours that Highlight coloured: the previous
     // point's segment, an end point's post) back to their own colour and shown in every viewport; not highlighted.
@@ -65,15 +65,15 @@ struct CEditedRailPoint {
 };
 static_assert(offsetof(CEditedRailPoint, m_hasPost) == 0x10 && offsetof(CEditedRailPoint, m_highlighted) == 0x11 &&
                   offsetof(CEditedRailPoint, m_levelY) == 0x14 && offsetof(CEditedRailPoint, m_following) == 0x18 &&
-                  offsetof(CEditedRailPoint, m_preceding) == 0x1C && offsetof(CEditedRailPoint, mp_segment) == 0x20 &&
-                  offsetof(CEditedRailPoint, mp_post) == 0x24 && sizeof(CEditedRailPoint) == 0x28,
+                  offsetof(CEditedRailPoint, m_preceding) == 0x1C && offsetof(CEditedRailPoint, m_segment) == 0x20 &&
+                  offsetof(CEditedRailPoint, m_post) == 0x24 && sizeof(CEditedRailPoint) == 0x28,
               "layout must match the original");
 
 // A rail (0x10 bytes). Its points are kept newest first: the head is the last point laid.
 struct CEditedRail {
     CEditedRail* m_following;          // +0x00
     CEditedRail* m_preceding;          // +0x04
-    CEditedRailPoint* mp_points;   // +0x08
+    CEditedRailPoint* m_pointChain;   // +0x08
     uint32_t m_ident;                 // +0x0C (from the counter 0x0067EFFC: unique)
 
     // 0x004F70C0: the constructor (returns this): a new id, unlinked, no points.
@@ -125,7 +125,7 @@ struct CEditedRail {
     // `list` (linked by m_following only); returns the new list.
     CEditedRail* CopyInside(float x0, float z0, float x1, float z1, CEditedRail* list) const;
 };
-static_assert(offsetof(CEditedRail, mp_points) == 0x08 && offsetof(CEditedRail, m_ident) == 0x0C &&
+static_assert(offsetof(CEditedRail, m_pointChain) == 0x08 && offsetof(CEditedRail, m_ident) == 0x0C &&
                   sizeof(CEditedRail) == 0x10,
               "layout must match the original");
 
@@ -294,19 +294,19 @@ public:
     static void __cdecl FreeRail(void* rail);
     static void __cdecl FreePoint(void* point);
 
-    void* mp_input;                // +0x18 the input component (0x27D7CD28)
+    void* m_inputPtr;                // +0x18 the input component (0x27D7CD28)
     void* m_viewCamera;               // +0x1C the editor camera component (0xAC8946E2)
     CEditedRail* m_railGroups;         // +0x20
     CEditedRail* m_activeNode;       // +0x24 the rail points are added to
     uint32_t m_modeSel;               // +0x28 SetEditingMode's Mode
     uint32_t m_dottedLineName;     // +0x2C the dotted line's clone (Sk5Ed_RAdot_Dynamic / ..._Green)
-    uint8_t* mp_dottedLine;        // +0x30 its sector
+    uint8_t* m_dottedLine;        // +0x30 its sector
     RailBuffer m_packed;           // +0x34
     uint8_t pad1166[2];
 };
-static_assert(offsetof(CRailAuthoring, mp_input) == 0x18 && offsetof(CRailAuthoring, m_railGroups) == 0x20 &&
+static_assert(offsetof(CRailAuthoring, m_inputPtr) == 0x18 && offsetof(CRailAuthoring, m_railGroups) == 0x20 &&
                   offsetof(CRailAuthoring, m_activeNode) == 0x24 && offsetof(CRailAuthoring, m_modeSel) == 0x28 &&
-                  offsetof(CRailAuthoring, mp_dottedLine) == 0x30 &&
+                  offsetof(CRailAuthoring, m_dottedLine) == 0x30 &&
                   offsetof(CRailAuthoring, m_packed) == 0x34 && sizeof(CRailAuthoring) == 0x1168,
               "layout must match the original (0x004F7FB0 allocates 0x1168 bytes)");
 

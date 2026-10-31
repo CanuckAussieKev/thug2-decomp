@@ -31,7 +31,7 @@ void HighlightPiece(CParkTile* piece, bool on) { piece->SetVisible(on); }
 int CGapRegistry::FindEmptyGapSlot()
 {
     for (int slot = 0; slot < kMaxGaps; ++slot) {
-        if (!mp_gaps[slot])
+        if (!m_gapsPtr[slot])
             return slot;
     }
     return -1;
@@ -40,16 +40,16 @@ int CGapRegistry::FindEmptyGapSlot()
 // 0x0058C9B0
 void CGapRegistry::EndGap(void* piece, CPieceGroup* meta, int index)
 {
-    Gap* gap = mp_gaps[index];
+    Gap* gap = m_gapsPtr[index];
     const int slot = FindEmptyGapSlot();
     if (slot < 0)
         return;
-    mp_gaps[slot] = gap;
+    m_gapsPtr[slot] = gap;
     gap->m_ids[1] = m_nextId;
     ++m_nextId;
-    mp_gaps[slot]->mp_pieces[1] = static_cast<CParkTile*>(piece);
-    mp_gaps[slot]->mp_metas[1] = meta;
-    mp_gaps[slot]->m_details.m_tabIndex = index;
+    m_gapsPtr[slot]->m_pieces[1] = static_cast<CParkTile*>(piece);
+    m_gapsPtr[slot]->m_metas[1] = meta;
+    m_gapsPtr[slot]->m_details.m_tabIndex = index;
     m_startedFirst[slot] = false;
 }
 
@@ -57,8 +57,8 @@ void CGapRegistry::EndGap(void* piece, CPieceGroup* meta, int index)
 bool CGapRegistry::GetGapIndex(CPieceGroup* meta, int* index)
 {
     for (int slot = 0; slot < kMaxGaps; ++slot) {
-        Gap* gap = mp_gaps[slot];
-        if (gap && gap->mp_metas[Half(this, slot)] == meta) {
+        Gap* gap = m_gapsPtr[slot];
+        if (gap && gap->m_metas[Half(this, slot)] == meta) {
             if (index)
                 *index = slot;
             return true;
@@ -71,11 +71,11 @@ bool CGapRegistry::GetGapIndex(CPieceGroup* meta, int* index)
 uint32_t CGapRegistry::GetGapTriggerName(CParkTile* piece)
 {
     for (int slot = 0; slot < kMaxGaps; ++slot) {
-        Gap* gap = mp_gaps[slot];
-        if (!gap || gap->mp_pieces[Half(this, slot)] != piece)
+        Gap* gap = m_gapsPtr[slot];
+        if (!gap || gap->m_pieces[Half(this, slot)] != piece)
             continue;
         if ((slot & 1) && Scripts::FetchIntValue("PrintGaps")) {
-            Gap* record = mp_gaps[slot];
+            Gap* record = m_gapsPtr[slot];
             DebugOut::Printf("Editor Gap %d points: %s\n", record->m_details.m_pointsHeld, record->m_details.m_text);
         }
         char name[32];
@@ -88,26 +88,26 @@ uint32_t CGapRegistry::GetGapTriggerName(CParkTile* piece)
 // 0x0058CB20
 SGapDetails* CGapRegistry::GetGapInfo(int index, int* half)
 {
-    Gap* gap = mp_gaps[index];
+    Gap* gap = m_gapsPtr[index];
     if (!gap)
         return nullptr;
     *half = Half(this, index);
     // The name copied over the text (unbounded: as the original's inline strcpy).
-    char* to = mp_gaps[index]->m_details.m_text;
-    const char* from = mp_gaps[index]->m_label;
+    char* to = m_gapsPtr[index]->m_details.m_text;
+    const char* from = m_gapsPtr[index]->m_label;
     while ((*to++ = *from++) != '\0') {
     }
-    return &mp_gaps[index]->m_details;
+    return &m_gapsPtr[index]->m_details;
 }
 
 // 0x0058CB70
 void CGapRegistry::ChangeGapInProgress(int index)
 {
-    if (!mp_gaps[index])
+    if (!m_gapsPtr[index])
         return;
-    if (CParkTile* piece = mp_gaps[index]->mp_pieces[0])
+    if (CParkTile* piece = m_gapsPtr[index]->m_pieces[0])
         HighlightPiece(piece, true);
-    if (CParkTile* piece = mp_gaps[index]->mp_pieces[1])
+    if (CParkTile* piece = m_gapsPtr[index]->m_pieces[1])
         HighlightPiece(piece, true);
 }
 
@@ -118,7 +118,7 @@ CGapRegistry* CGapRegistry::sSingleton() { return Sole(); }
 CGapRegistry* CGapRegistry::MakeNew(CParkLayout* manager)
 {
     m_nextId = 2000;
-    for (Gap*& gap : mp_gaps)
+    for (Gap*& gap : m_gapsPtr)
         gap = nullptr;
     m_parkOwner = manager;
     Sole() = this;

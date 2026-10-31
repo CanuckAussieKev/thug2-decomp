@@ -45,7 +45,7 @@ public:
     // 0x0041C3D0 (vtable slot 1): see the class. The times are the game clock's, compared unsigned.
     void TickFrame();
 
-    uint8_t* mp_suspend;    // +0x18 the suspend component (+0x30: suspended)
+    uint8_t* m_suspend;    // +0x18 the suspend component (+0x30: suspended)
     float m_radius;         // +0x1C radius
     float m_sizeFactor;          // +0x20 scale (given to death_script)
     uint32_t m_madeTime;    // +0x24

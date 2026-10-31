@@ -109,10 +109,10 @@ CPieceGroup* CParkLayout::MakePlacedPiece(CPieceGroup* abstractMeta, uint32_t pi
     CMapListNode* node = CMapListNode::Fabricate();
     node->m_pieceGroup = meta; // (out of memory crashes, as in the original)
     node->m_following = nullptr;
-    if (!mp_concrete_metas) {
-        mp_concrete_metas = node;
+    if (!m_concrete_metas) {
+        m_concrete_metas = node;
     } else {
-        CMapListNode* last = mp_concrete_metas;
+        CMapListNode* last = m_concrete_metas;
         while (last->m_following)
             last = last->m_following;
         last->m_following = node;
@@ -123,7 +123,7 @@ CPieceGroup* CParkLayout::MakePlacedPiece(CPieceGroup* abstractMeta, uint32_t pi
 
 bool CParkLayout::HasPiecesOutside(SCellBox area)
 {
-    for (CMapListNode* node = mp_concrete_metas; node; node = node->m_following) {
+    for (CMapListNode* node = m_concrete_metas; node; node = node->m_following) {
         CPieceGroup* meta = node->GetPieceGroup()->Cast();
         SCellBox dims = meta->m_cellFootprint;
         bool inside = dims.x >= area.x && dims.z >= area.z && dims.x + dims.w <= area.x + area.w &&

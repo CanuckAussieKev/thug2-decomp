@@ -61,19 +61,19 @@ struct CEmitterInstance : GameObjects::CSharedBase {
     float m_sizeScale;            // +0xC4 SetParticleSizeScale
     float m_ageLeft[2];              // +0xC8 setLife min, max
     float m_emitTarget[3];        // +0xD0 setEmitTarget (a direction)
-    Maths::Mat4* mp_matrix;       // +0xDC the matrix it follows (its object's display matrix)
+    Maths::Mat4* m_xformRef;       // +0xDC the matrix it follows (its object's display matrix)
     float m_orientationTurn[3];          // +0xE0 (x, y, z angles: the matrix of GetRotationMatrix; setEmitAngle)
     uint32_t m_unknownEC;         // +0xEC (a float: a model's +0x22C, update_Brightness; the ground's brightness)
     uint32_t m_label;              // +0xF0
     uint32_t m_groupId;           // +0xF4 groupID
     sFlexibleParticle* m_particleList; // +0xF8 (m_maxParticles of them, after their count)
-    Scripts::CScript* mp_emitScript;   // +0xFC emitscript (run each emit... update)
-    Scripts::CScript* mp_updateScript; // +0x100 UpdateScript
-    Scripts::CStruct* mp_scriptParams; // +0x104 their params
+    Scripts::CScript* m_emitScriptPtr;   // +0xFC emitscript (run each emit... update)
+    Scripts::CScript* m_tickScript; // +0x100 UpdateScript
+    Scripts::CStruct* m_scriptArgs; // +0x104 their params
     float m_colourMid;            // +0x108 setColor midTime: when the mid colour is, a fraction of a life (below 0: none)
-    uint8_t* mp_startColour;      // +0x10C (RGBA; the types with segments: one a segment and three more)
-    uint8_t* mp_midColour;        // +0x110
-    uint8_t* mp_endColour;        // +0x114
+    uint8_t* m_startColour;      // +0x10C (RGBA; the types with segments: one a segment and three more)
+    uint8_t* m_midColour;        // +0x110
+    uint8_t* m_endColour;        // +0x114
     int m_historyLength;          // +0x118 (the glow ribbon trail's history steps)
     float* m_positionArray;          // +0x11C: three floats a particle a history step (step-major)
     uint32_t m_flagBits;             // +0x120 (bit 0 while the component updates it; 4 the system's set; 0x10 random
@@ -181,9 +181,9 @@ static_assert(offsetof(CEmitterInstance, m_listLink) == 0x0C && offsetof(CEmitte
                   offsetof(CEmitterInstance, m_unknown8C) == 0x8C && offsetof(CEmitterInstance, m_emitRange) == 0x98 &&
                   offsetof(CEmitterInstance, m_force) == 0xA8 && offsetof(CEmitterInstance, m_extent) == 0xB4 &&
                   offsetof(CEmitterInstance, m_ageLeft) == 0xC8 && offsetof(CEmitterInstance, m_emitTarget) == 0xD0 &&
-                  offsetof(CEmitterInstance, mp_matrix) == 0xDC && offsetof(CEmitterInstance, m_unknownEC) == 0xEC &&
+                  offsetof(CEmitterInstance, m_xformRef) == 0xDC && offsetof(CEmitterInstance, m_unknownEC) == 0xEC &&
                   offsetof(CEmitterInstance, m_groupId) == 0xF4 && offsetof(CEmitterInstance, m_particleList) == 0xF8 &&
-                  offsetof(CEmitterInstance, mp_scriptParams) == 0x104 &&
+                  offsetof(CEmitterInstance, m_scriptArgs) == 0x104 &&
                   offsetof(CEmitterInstance, m_colourMid) == 0x108 &&
                   offsetof(CEmitterInstance, m_positionArray) == 0x11C && offsetof(CEmitterInstance, m_flagBits) == 0x120 &&
                   offsetof(CEmitterInstance, m_wantsTime) == 0x12A && offsetof(CEmitterInstance, m_unknown12F) == 0x12F &&
@@ -275,7 +275,7 @@ struct CLineParticles : CEmitterInstance {
 struct CModelParticles : CEmitterInstance {
     unsigned int m_modelCount; // +0x134
     unsigned int m_drawnModels; // +0x138: the models Render goes through (the same count)
-    void* mp_unknown13C;       // +0x13C (freed): a rotation (Maths::QuatRotation) a model, turned by its particle's velocity
+    void* m_unknown13CPtr;       // +0x13C (freed): a rotation (Maths::QuatRotation) a model, turned by its particle's velocity
     uint8_t unknown140[4];
     void** m_modelList;          // +0x144: m_modelCount of them (deleted with 0x0048C3C0)
 
@@ -302,7 +302,7 @@ struct CModelParticles : CEmitterInstance {
     CModelParticles* Teardown(unsigned int flags);
     CModelParticles* DestroyFromNode(unsigned int flags);
 };
-static_assert(offsetof(CModelParticles, m_modelCount) == 0x134 && offsetof(CModelParticles, mp_unknown13C) == 0x13C &&
+static_assert(offsetof(CModelParticles, m_modelCount) == 0x134 && offsetof(CModelParticles, m_unknown13CPtr) == 0x13C &&
                   offsetof(CModelParticles, m_modelList) == 0x144,
               "layout must match the original");
 

@@ -69,9 +69,9 @@ void __cdecl CPadRumbleModule::PublishMethodTable()
 void CPadRumbleModule::DestroyBody()
 {
     m_vtable = kVtable;
-    if (mp_device) {
+    if (m_padDev) {
         for (int i = kActuators - 1; i >= 0; --i)
-            mp_device->FireActuator(i, 0);
+            m_padDev->FireActuator(i, 0);
     }
     CObjectModule::DestroyBody();
 }
@@ -106,7 +106,7 @@ void CPadRumbleModule::UpdateTimers()
         int clock = FrameClock::GameClockElapsed();
         uint32_t elapsed = static_cast<uint32_t>(clock) + (static_cast<uint32_t>(g_clockOffset) - static_cast<uint32_t>(start));
         if (elapsed >= timer.duration) {
-            mp_device->FireActuator(i, 0);
+            m_padDev->FireActuator(i, 0);
             timer.running = false;
         }
     }
@@ -118,13 +118,13 @@ void CPadRumbleModule::StopAll()
     if (!m_active)
         return;
     for (int i = kActuators - 1; i >= 0; --i) {
-        mp_device->FireActuator(i, 0);
+        m_padDev->FireActuator(i, 0);
         m_timers[i].running = false;
     }
 }
 
 // 0x0043D550
-void CPadRumbleModule::ResetDevice() { mp_device->ClearRumble(); }
+void CPadRumbleModule::ResetDevice() { m_padDev->ClearRumble(); }
 
 // 0x0043D560
 void CPadRumbleModule::ChangeLive(bool active)
@@ -134,22 +134,22 @@ void CPadRumbleModule::ChangeLive(bool active)
     if (!active) {
         m_active = false;
         VirtualSuspend(true);
-        if (mp_device) {
-            mp_device->StopActuators();
-            mp_device->StopRumble();
+        if (m_padDev) {
+            m_padDev->StopActuators();
+            m_padDev->StopRumble();
         }
     } else {
         m_active = true;
         VirtualSuspend(false);
-        if (mp_device)
-            mp_device->EnableActuators();
+        if (m_padDev)
+            m_padDev->EnableActuators();
     }
 }
 
 // 0x0043D5C0
 void CPadRumbleModule::ChangeGadget(Sio::InputPort* device)
 {
-    mp_device = device;
+    m_padDev = device;
     if (m_active)
         device->EnableActuators();
     else
@@ -168,11 +168,11 @@ bool CPadRumbleModule::Vibrate(Scripts::CStruct* params, Scripts::CScript*)
     float percent = 0.0f;
     params->FetchFloat(kPercent, &percent, 0);
     if (params->HasBareFlag(kOff)) {
-        mp_device->StopActuators();
+        m_padDev->StopActuators();
         for (int i = kActuators - 1; i >= 0; --i)
             m_timers[i].running = false;
     } else {
-        mp_device->FireActuator(actuator, Ftol(percent));
+        m_padDev->FireActuator(actuator, Ftol(percent));
     }
     float duration = 0.0f;
     if (params->FetchFloat(kDuration, &duration, 0)) {

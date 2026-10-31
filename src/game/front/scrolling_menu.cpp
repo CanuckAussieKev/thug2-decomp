@@ -65,7 +65,7 @@ CWindowedList* CWindowedList::MakeNew()
     m_vtable = kCScrollingMenuVtable;
     m_listener.m_vtable = kListenerAdapterVtable;
     m_listener.EnterWaitBoard(this);
-    mp_menu = nullptr;
+    m_menu = nullptr;
     m_chosenItemId = 0;
     m_focused = false;
     m_rearrange = false;
@@ -155,17 +155,17 @@ void CWindowedList::FindMenu()
 {
     {
         ElementPtr child;
-        child.AssignValue(mp_firstChild.m_ownerObject);
+        child.AssignValue(m_eldest.m_ownerObject);
         while (child) {
             if (child->m_kindTag == VMenuType() && m_vertical)
-                mp_menu = child.m_ownerObject;
+                m_menu = child.m_ownerObject;
             else if (child->m_kindTag == HMenuType() && !m_vertical)
-                mp_menu = child.m_ownerObject;
+                m_menu = child.m_ownerObject;
             child.AssignValue(child->m_following.m_ownerObject);
         }
     }
     float space = -1.0f;
-    if (static_cast<CMenuBase*>(mp_menu)->GetRegularSpace(&space) && m_numItemsToShow >= 0) {
+    if (static_cast<CMenuBase*>(m_menu)->GetRegularSpace(&space) && m_numItemsToShow >= 0) {
         m_regularSpace = space;
         m_windowLength = static_cast<float>(static_cast<double>(m_numItemsToShow) * space);
     } else {
@@ -178,11 +178,11 @@ void CWindowedList::FindMenu()
 void CWindowedList::ItemPlace(ElementPtr* item, float* x, float* y, float* w, float* h)
 {
     item->m_ownerObject->FetchLocation(x, y);
-    *x = static_cast<float>(static_cast<double>(mp_menu->m_shown.scaleX) * *x);
-    *y = static_cast<float>(static_cast<double>(mp_menu->m_shown.scaleY) * *y);
-    *w = static_cast<float>(static_cast<double>(mp_menu->m_shown.scaleX) * item->m_ownerObject->m_span *
+    *x = static_cast<float>(static_cast<double>(m_menu->m_shown.scaleX) * *x);
+    *y = static_cast<float>(static_cast<double>(m_menu->m_shown.scaleY) * *y);
+    *w = static_cast<float>(static_cast<double>(m_menu->m_shown.scaleX) * item->m_ownerObject->m_span *
                             item->m_ownerObject->m_shown.scaleX);
-    *h = static_cast<float>(static_cast<double>(mp_menu->m_shown.scaleY) * item->m_ownerObject->m_levelY *
+    *h = static_cast<float>(static_cast<double>(m_menu->m_shown.scaleY) * item->m_ownerObject->m_levelY *
                             item->m_ownerObject->m_shown.scaleY);
     float alignH, alignV;
     item->m_ownerObject->FetchAlignment(&alignH, &alignV);
@@ -207,7 +207,7 @@ void CWindowedList::ChangeTraits(Scripts::CStruct* params)
         m_rearrange = true;
     } else if (params->HasBareFlag(kResetWindowBottom)) {
         ElementPtr last;
-        last.AssignValue(mp_menu->FetchYoungest());
+        last.AssignValue(m_menu->FetchYoungest());
         float x, y, w, h;
         ItemPlace(&last, &x, &y, &w, &h);
         m_rearrange = true;
@@ -231,18 +231,18 @@ bool CWindowedList::PassEventToScript(GameObjects::CSignal* event)
         event->SetEventHandled(m_ident, 0);
     }
     if (event->m_kindTag == kFocus) {
-        if (!mp_menu)
+        if (!m_menu)
             FindMenu();
         if (!m_focused) {
             m_focused = true;
-            tracker->LaunchEvent(kFocus, mp_menu->m_ident, kSystem, event->m_payload, false, -1.0f);
+            tracker->LaunchEvent(kFocus, m_menu->m_ident, kSystem, event->m_payload, false, -1.0f);
             event->SetEventHandled(m_ident, 0);
         }
     }
     if (event->m_kindTag == kUnfocus && m_focused) {
         FindMenu();
         m_focused = false;
-        tracker->LaunchEvent(kUnfocus, mp_menu->m_ident, kSystem, nullptr, false, -1.0f);
+        tracker->LaunchEvent(kUnfocus, m_menu->m_ident, kSystem, nullptr, false, -1.0f);
         event->SetEventHandled(m_ident, 0);
     }
     return true;
@@ -255,18 +255,18 @@ void CWindowedList::ListenerReceive(GameObjects::CSignal* event)
     auto* self = reinterpret_cast<CWindowedList*>(reinterpret_cast<uint8_t*>(this) - offsetof(CWindowedList, m_listener));
     if (!MayHave(self, event))
         return;
-    if (event->m_kindTag == kFocusSentEvent && self->mp_menu) {
-        if (event->m_aimPoint == self->mp_menu->m_ident) {
+    if (event->m_kindTag == kFocusSentEvent && self->m_menu) {
+        if (event->m_aimPoint == self->m_menu->m_ident) {
             self->m_rearrange = true;
             VUpdate(self);
         }
         SetEventConsumed(event, self->m_ident, 0);
     }
     if (event->m_kindTag == kFocus) {
-        if (!self->mp_menu)
+        if (!self->m_menu)
             self->FindMenu();
         ElementPtr item;
-        item.AssignValue(self->mp_menu->mp_firstChild.m_ownerObject);
+        item.AssignValue(self->m_menu->m_eldest.m_ownerObject);
         while (item) {
             if (item->m_ident == event->m_aimPoint) {
                 self->m_chosenItemId = item->m_ident;
@@ -282,18 +282,18 @@ void CWindowedList::ListenerReceive(GameObjects::CSignal* event)
 // 0x004AE960
 void CWindowedList::TickFrame()
 {
-    if (!mp_menu)
+    if (!m_menu)
         return;
     int index = 0;
     float before = 0.0f, after = 0.0f; // the window's margins before / after the selected item
     ElementPtr selected;
     if (m_chosenItemId)
-        selected.AssignValue(mp_menu->FindChildWithId(m_chosenItemId, &index));
+        selected.AssignValue(m_menu->FindChildWithId(m_chosenItemId, &index));
     else
-        selected.AssignValue(mp_menu->FindChildAtSlot(0));
+        selected.AssignValue(m_menu->FindChildAtSlot(0));
     if (!selected)
         return;
-    int count = mp_menu->ChildTotal();
+    int count = m_menu->ChildTotal();
     if (!(m_regularSpace < 0.0f)) {
         // keep the selection in the middle of the shown items when it can be
         int half = m_numItemsToShow / 2;
@@ -302,9 +302,9 @@ void CWindowedList::TickFrame()
         if (index < count - half)
             after = static_cast<float>(static_cast<double>(half) * m_regularSpace);
     }
-    mp_menu->ChangeAlignment(-1.0f, -1.0f);
+    m_menu->ChangeAlignment(-1.0f, -1.0f);
     float menuX, menuY;
-    mp_menu->FetchLocation(&menuX, &menuY);
+    m_menu->FetchLocation(&menuX, &menuY);
     float place, length, other1, other2; // along the menu, and across it
     if (m_vertical)
         ItemPlace(&selected, &other1, &place, &other2, &length);
@@ -335,13 +335,13 @@ void CWindowedList::TickFrame()
         return;
     float shift = -m_windowStart;
     if (m_vertical)
-        mp_menu->ChangeLocation(menuX, shift, 1);
+        m_menu->ChangeLocation(menuX, shift, 1);
     else
-        mp_menu->ChangeLocation(shift, menuY, 1);
+        m_menu->ChangeLocation(shift, menuY, 1);
     // the items in the window shown, the others hidden
     index = 0;
     ElementPtr item;
-    item.AssignValue(mp_menu->mp_firstChild.m_ownerObject);
+    item.AssignValue(m_menu->m_eldest.m_ownerObject);
     while (item) {
         if (m_vertical)
             ItemPlace(&item, &other1, &place, &other2, &length);

@@ -74,7 +74,7 @@ bool CRiderChaseView::LookDown()
 {
     if (!m_riderRef)
         return false;
-    uint8_t* state = mp_state;
+    uint8_t* state = m_stateRef;
     if (At<int>(state, 0x1C))
         return false;
     if (At<int>(state, 0x18) == 3 || VertAir(state))
@@ -137,7 +137,7 @@ void CRiderChaseView::FetchGoal(Maths::Vec4* out, bool instant)
     } else {
         m_rateScale = 1.0f;
     }
-    uint8_t* state = mp_state;
+    uint8_t* state = m_stateRef;
     float across;
     double up;
     bool snap = instant;
@@ -148,7 +148,7 @@ void CRiderChaseView::FetchGoal(Maths::Vec4* out, bool instant)
     } else {
         across = static_cast<float>(FrameBlend(static_cast<float>(m_lerpXZ * static_cast<double>(m_rateScale)), seconds));
         up = FrameBlend(static_cast<float>(m_lerpY * static_cast<double>(m_rateScale)), seconds);
-        state = mp_state;
+        state = m_stateRef;
         if (state[0x98])
             up = 1.0;
         if (state[0xA0])
@@ -174,12 +174,12 @@ void CRiderChaseView::GetZoomedOffsets(float* height, float* distance)
     if (!m_riderRef)
         return;
     m_zoomTarget = 1.0f;
-    uint8_t* state = mp_state;
+    uint8_t* state = m_stateRef;
     if (!m_vertZoomOn && VertAir(state) && state[0xE0])
         m_vertZoomOn = 1;
-    else if (!VertAir(mp_state))
+    else if (!VertAir(m_stateRef))
         m_vertZoomOn = 0;
-    state = mp_state;
+    state = m_stateRef;
     if (m_vertZoomOn)
         m_zoomTarget = m_bigAirTrickZoom;
     else if (At<int>(state, 0x18) == 4)
@@ -196,7 +196,7 @@ void CRiderChaseView::GetZoomedOffsets(float* height, float* distance)
     float tilt = m_freeLookModule->m_leanAngle;
     if (tilt < 0.0f)
         *distance = static_cast<float>(((tilt + static_cast<double>(kTiltBias)) * kTiltScale * kTiltRange + kTiltBase) * behind);
-    float above = At<int>(mp_state, 0x18) == 3 ? m_lipTrickAbove : m_above;
+    float above = At<int>(m_stateRef, 0x18) == 3 ? m_lipTrickAbove : m_above;
     if (m_zoom < 1.0f)
         *height = static_cast<float>((static_cast<double>(above) - kZoomedHeight) * m_zoom + kZoomedHeight);
     else
@@ -208,12 +208,12 @@ void CRiderChaseView::BindRider(CGameEntity* skater)
 {
     m_riderRef = skater;
     if (!skater) {
-        mp_state = nullptr;
-        mp_control = nullptr;
+        m_stateRef = nullptr;
+        m_control = nullptr;
         return;
     }
-    mp_state = reinterpret_cast<uint8_t*>(skater->FetchModule(kSkaterState));
-    mp_control = reinterpret_cast<uint8_t*>(m_riderRef->FetchModule(kPhysicsControl));
+    m_stateRef = reinterpret_cast<uint8_t*>(skater->FetchModule(kSkaterState));
+    m_control = reinterpret_cast<uint8_t*>(m_riderRef->FetchModule(kPhysicsControl));
     m_instantFrames = 3;
 }
 
@@ -244,8 +244,8 @@ CRiderChaseView* CRiderChaseView::MakeNew()
     m_vertAirLerpXZ = 1.0f;
     m_halfpipeUpBlend = 1.0f;
     m_riderRef = nullptr;
-    mp_state = nullptr;
-    mp_control = nullptr;
+    m_stateRef = nullptr;
+    m_control = nullptr;
     m_zoomEaseRate = 0.0625f;
     m_lerpXZ = 0.25f;
     m_lerpY = 0.5f;
@@ -335,7 +335,7 @@ void CRiderStateReset::DestroyBody()
 }
 
 // 0x004FBDA0
-void CRiderStateReset::ConfigureFromData(Scripts::CStruct*) { mp_state = nullptr; }
+void CRiderStateReset::ConfigureFromData(Scripts::CStruct*) { m_stateRef = nullptr; }
 
 // 0x004FBDB0
 CRiderStateReset* CRiderStateReset::Teardown(unsigned int flags)
@@ -347,7 +347,7 @@ CRiderStateReset* CRiderStateReset::Teardown(unsigned int flags)
 }
 
 // 0x004FBDE0
-void CRiderStateReset::Seal() { mp_state = m_entity->FetchModule(kSkaterState); }
+void CRiderStateReset::Seal() { m_stateRef = m_entity->FetchModule(kSkaterState); }
 
 // 0x004FBE00
 void CRiderStateReset::TickFrame()

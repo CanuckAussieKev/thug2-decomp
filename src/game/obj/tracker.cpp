@@ -208,15 +208,15 @@ void CScriptList::operator delete(void* list) { ScriptListPools().Dealloc(list);
 // 0x004627C0
 void CSignalTrace::AddRow(uint32_t type, uint32_t target, uint32_t source, uint32_t script, uint32_t how, int kind)
 {
-    if (!mp_names) {
-        mp_names = NewHashTable(8);
+    if (!m_namesPtr) {
+        m_namesPtr = NewHashTable(8);
         Scripts::CArray* names = Scripts::FetchList(kEventNames);
         for (int i = 0; i < static_cast<int>(names->m_extent); ++i) {
             char* name = m_names[i];
             const char* string = names->FindInlineText(i);
             std::memcpy(name, string, std::strlen(string) + 1);
             uint32_t checksum = Checksums::HashFromText(names->FindInlineText(i));
-            mp_names->StoreEntry(checksum, name);
+            m_namesPtr->StoreEntry(checksum, name);
         }
     }
     int last = m_ordinal - 1;
@@ -270,7 +270,7 @@ void CSignalTrace::EchoOut(bool onlyNew, int /*count*/)
 }
 
 // 0x00462CB0
-void CSignalTrace::Teardown() { DeleteHashTable(mp_names); }
+void CSignalTrace::Teardown() { DeleteHashTable(m_namesPtr); }
 
 // --- the tracker -----------------------------------------------------------------------------------------
 
@@ -280,14 +280,14 @@ CEventWaitBoard* CEventWaitBoard::MakeNew()
     m_vtable = kTrackerVtable;
     m_log.m_ordinal = 0;
     m_log.m_hasLooped = false;
-    m_log.mp_names = nullptr;
+    m_log.m_namesPtr = nullptr;
     m_log.m_layer = 0;
     m_log.m_addedSinceSweep = 0;
-    mp_objects = NewHashTable(8);
-    mp_aliases = NewHashTable(4);
-    mp_listeners = NewHashTable(8);
+    m_entityList = NewHashTable(8);
+    m_aliases = NewHashTable(4);
+    m_listeners = NewHashTable(8);
     m_nextAutoId = 0;
-    mp_eventListeners = nullptr;
+    m_eventListeners = nullptr;
     unknown18 = false;
     m_launchDepth = 0;
     m_launchedFromScript = 0;
@@ -301,7 +301,7 @@ CEventWaitBoard* CEventWaitBoard::MakeNew()
 void CEventWaitBoard::Destruct()
 {
     m_vtable = kTrackerVtable;
-    DeleteHashTable(mp_objects);
+    DeleteHashTable(m_entityList);
     m_log.Teardown();
 }
 
@@ -317,13 +317,13 @@ CEventWaitBoard* CEventWaitBoard::ScalarDelete(uint8_t flags)
 // 0x00462120
 CEntity* CEventWaitBoard::LookUpObject(uint32_t id)
 {
-    if (auto* object = static_cast<CEntity*>(mp_objects->FetchEntry(id)))
+    if (auto* object = static_cast<CEntity*>(m_entityList->FetchEntry(id)))
         return object;
-    return static_cast<CEntity*>(mp_aliases->FetchEntry(id, true));
+    return static_cast<CEntity*>(m_aliases->FetchEntry(id, true));
 }
 
 // 0x00462190
-CEntity* CEventWaitBoard::LookUpByNickname(uint32_t alias) { return static_cast<CEntity*>(mp_aliases->FetchEntry(alias)); }
+CEntity* CEventWaitBoard::LookUpByNickname(uint32_t alias) { return static_cast<CEntity*>(m_aliases->FetchEntry(alias)); }
 
 // 0x004621D0
 uint32_t CEventWaitBoard::FetchDistinctId()
@@ -335,26 +335,26 @@ uint32_t CEventWaitBoard::FetchDistinctId()
         if (m_nextAutoId >= 1000000)
             m_nextAutoId = 0;
         checksum = Checksums::HashFromText(name);
-    } while (mp_objects->FetchEntry(checksum));
+    } while (m_entityList->FetchEntry(checksum));
     return checksum;
 }
 
 // 0x00462980
 void CEventWaitBoard::AddObject(CEntity* object)
 {
-    if (auto* aliased = static_cast<CEntity*>(mp_aliases->FetchEntry(ObjectId(object)))) {
+    if (auto* aliased = static_cast<CEntity*>(m_aliases->FetchEntry(ObjectId(object)))) {
         if (HasAliases(aliased))
             --aliased->m_aliasCount;
-        mp_aliases->EraseEntry(ObjectId(object));
+        m_aliases->EraseEntry(ObjectId(object));
     }
-    mp_objects->StoreEntry(ObjectId(object), object);
+    m_entityList->StoreEntry(ObjectId(object), object);
     m_log.AddRow(0, ObjectId(object), kNoObjectId, 0, 0, CSignalTrace::OBJECT_ADDED);
 }
 
 // 0x00462A20
 void CEventWaitBoard::RemoveObject(CEntity* object, uint32_t freshId, bool renamed)
 {
-    mp_objects->EraseEntry(ObjectId(object));
+    m_entityList->EraseEntry(ObjectId(object));
     if (renamed) {
         for (SWaiter& waiter : m_waiters) {
             if (waiter.objectId == ObjectId(object))
@@ -369,7 +369,7 @@ void CEventWaitBoard::RemoveObject(CEntity* object, uint32_t freshId, bool renam
 // 0x00462590: from the start of the table again after each one removed.
 void CEventWaitBoard::RemoveAliasesOf(CEntity* object)
 {
-    ListKit::KeyMap* table = mp_aliases;
+    ListKit::KeyMap* table = m_aliases;
     for (;;) {
         table->m_iterBucket = -1;
         table->m_iterItem = nullptr;
@@ -396,25 +396,25 @@ void CEventWaitBoard::RemoveAliasesOf(CEntity* object)
 // 0x00462A90 (`object` isn't checked for null)
 void CEventWaitBoard::RegisterNickname(uint32_t alias, CEntity* object)
 {
-    if (auto* aliased = static_cast<CEntity*>(mp_aliases->FetchEntry(alias))) {
+    if (auto* aliased = static_cast<CEntity*>(m_aliases->FetchEntry(alias))) {
         if (HasAliases(aliased))
             --aliased->m_aliasCount;
-        mp_aliases->EraseEntry(alias);
+        m_aliases->EraseEntry(alias);
     }
     ++object->m_aliasCount;
-    mp_aliases->StoreEntry(alias, object);
+    m_aliases->StoreEntry(alias, object);
 }
 
 // 0x00462000
 void CEventWaitBoard::RemoveEventListener(CSignalReceiver* listener)
 {
     CSignalReceiver* previous = nullptr;
-    for (CSignalReceiver* other = mp_eventListeners; other; other = other->m_nextSubscriber) {
+    for (CSignalReceiver* other = m_eventListeners; other; other = other->m_nextSubscriber) {
         if (other == listener) {
             if (previous)
                 previous->m_nextSubscriber = listener->m_nextSubscriber;
             else
-                mp_eventListeners = listener->m_nextSubscriber;
+                m_eventListeners = listener->m_nextSubscriber;
             break;
         }
         previous = other;
@@ -426,7 +426,7 @@ void CEventWaitBoard::RemoveEventListener(CSignalReceiver* listener)
 void CEventWaitBoard::AddListener(uint32_t type, Scripts::CScript* script)
 {
     PushScriptHeap();
-    auto* list = static_cast<CScriptList*>(mp_listeners->FetchEntry(type));
+    auto* list = static_cast<CScriptList*>(m_listeners->FetchEntry(type));
     if (!list) {
         list = static_cast<CScriptList*>(CScriptList::operator new(sizeof(CScriptList)));
         if (list) {
@@ -436,7 +436,7 @@ void CEventWaitBoard::AddListener(uint32_t type, Scripts::CScript* script)
             list->m_preceding = list;
             list->m_vtable = kScriptListVtable;
         }
-        mp_listeners->StoreEntry(type, list); // (null too, if there was no memory - then Add crashes)
+        m_listeners->StoreEntry(type, list); // (null too, if there was no memory - then Add crashes)
     }
     list->AppendOne(script);
     MemSys::LeaveHeapScope();
@@ -445,12 +445,12 @@ void CEventWaitBoard::AddListener(uint32_t type, Scripts::CScript* script)
 // 0x00463450
 void CEventWaitBoard::RemoveListener(uint32_t type, Scripts::CScript* script)
 {
-    auto* list = static_cast<CScriptList*>(mp_listeners->FetchEntry(type));
+    auto* list = static_cast<CScriptList*>(m_listeners->FetchEntry(type));
     if (!list)
         return;
     list->DropOut(script);
     if (list->IsVacant()) {
-        mp_listeners->EraseEntry(type);
+        m_listeners->EraseEntry(type);
         DeleteScriptList(list);
     }
 }
@@ -458,7 +458,7 @@ void CEventWaitBoard::RemoveListener(uint32_t type, Scripts::CScript* script)
 // 0x00462B90: walking the table, one item ahead (the current one may be removed).
 void CEventWaitBoard::ForgetScript(Scripts::CScript* script)
 {
-    ListKit::KeyMap* table = mp_listeners;
+    ListKit::KeyMap* table = m_listeners;
     table->m_iterBucket = -1;
     table->m_iterItem = nullptr;
     if (!table->StepIterator() || !table->m_iterItem)
@@ -522,7 +522,7 @@ bool CEventWaitBoard::LaunchEvent(uint32_t type, uint32_t target, uint32_t sourc
 
     if (!broadcast) {
         // Every event listener, then the target: an object, or else the spawned script with that id.
-        for (CSignalReceiver* listener = mp_eventListeners; listener; listener = listener->m_nextSubscriber) {
+        for (CSignalReceiver* listener = m_eventListeners; listener; listener = listener->m_nextSubscriber) {
             ++listener->m_busy;
             ListenerReceive(listener, &event);
             --listener->m_busy;
@@ -538,7 +538,7 @@ bool CEventWaitBoard::LaunchEvent(uint32_t type, uint32_t target, uint32_t sourc
                 script->ReceiveEvent(&event); // (null when there's no such script - an original crash)
             }
         }
-    } else if (auto* list = static_cast<CScriptList*>(mp_listeners->FetchEntry(type, true))) {
+    } else if (auto* list = static_cast<CScriptList*>(m_listeners->FetchEntry(type, true))) {
         // Every script listening for the type, in the order they started listening; with a radius (>= 0), only
         // those whose object is nearer the source than that (scripts without an object, or whose object has no
         // position, always get it).

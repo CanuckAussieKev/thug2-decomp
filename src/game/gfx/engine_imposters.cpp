@@ -44,7 +44,7 @@ void* FirstGroup(ListKit::KeyMap* table)
 CImposterManager* CImposterManager::MakeNew()
 {
     void* memory = MemSys::Alloc(sizeof(ListKit::KeyMap));
-    mp_groups = memory ? new (memory) ListKit::KeyMap(8) : nullptr;
+    m_groupsPtr = memory ? new (memory) ListKit::KeyMap(8) : nullptr;
     m_maxPerFrame = 1;
     return this;
 }
@@ -52,19 +52,19 @@ CImposterManager* CImposterManager::MakeNew()
 // 0x0048E260
 void CImposterManager::DeleteAll()
 {
-    for (void* group = FirstGroup(mp_groups); group;) {
-        void* next = NextGroup(mp_groups);
+    for (void* group = FirstGroup(m_groupsPtr); group;) {
+        void* next = NextGroup(m_groupsPtr);
         reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*static_cast<void***>(group))[0])(group, 1);
         group = next;
     }
-    mp_groups->EmptyTable();
+    m_groupsPtr->EmptyTable();
 }
 
 // 0x0048E2D0
 void CImposterManager::TickFrame()
 {
     int done = 0;
-    for (void* group = FirstGroup(mp_groups); group; group = NextGroup(mp_groups)) {
+    for (void* group = FirstGroup(m_groupsPtr); group; group = NextGroup(m_groupsPtr)) {
         Virtual(group, 6);
         float distance = SpanTo(group);
         if (distance <= ImposterNearRange(group)) { // (NaN: as beyond it)
@@ -86,7 +86,7 @@ void CImposterManager::TickFrame()
 void CImposterManager::Render()
 {
     SetPrimitiveStates();
-    for (void* group = FirstGroup(mp_groups); group; group = NextGroup(mp_groups)) {
+    for (void* group = FirstGroup(m_groupsPtr); group; group = NextGroup(m_groupsPtr)) {
         if (HasImposter(group))
             Virtual(group, 4);
     }

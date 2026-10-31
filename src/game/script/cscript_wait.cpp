@@ -206,8 +206,8 @@ bool CScript::ReceiveEvent(GameObjects::CSignal* event)
     // Levels blocked on it further down go on when they're returned to.
     for (int i = 0; i < m_callDepth; ++i) {
         SCallFrame& frame = m_returnAddresses[i];
-        if ((frame.m_suspendKind & RETURN_WAIT_TYPE_MASK) == SUSPEND_ON_BLOCK && frame.mWaitArg &&
-            event->m_kindTag == frame.mWaitArg)
+        if ((frame.m_suspendKind & RETURN_WAIT_TYPE_MASK) == SUSPEND_ON_BLOCK && frame.m_waitArgPtr &&
+            event->m_kindTag == frame.m_waitArgPtr)
             frame.m_suspendKind &= ~RETURN_WAIT_TYPE_MASK;
     }
     if (m_signalRoutes)
@@ -254,11 +254,11 @@ void CScript::RunSubScript(uint32_t name, const uint8_t* code, CStruct* params, 
     frame.m_callerFrame = m_pc;
     frame.m_ownerEntity = m_entity.Pull();
     frame.m_loopState = m_innermostRepeat;
-    frame.mOnExitScript = m_onExitScript;
+    frame.m_onExitScriptPtr = m_onExitScript;
     frame.m_suspendKind = (frame.m_suspendKind & ~RETURN_WAIT_TYPE_MASK) | (m_waitType & RETURN_WAIT_TYPE_MASK);
     frame.m_sleepComponent = m_blockingModule;
-    frame.mWaitArg = m_waitArg;
-    frame.mWaitCounter = m_waitCounter;
+    frame.m_waitArgPtr = m_waitArg;
+    frame.m_waitCounterPtr = m_waitCounter;
     frame.m_sleepTimer = m_waitTimer;
     frame.m_traitMask = static_cast<uint8_t>((frame.m_traitMask & ~(RETURN_FLAG_TIMER_STARTED | RETURN_FLAG_INTERRUPTED)) |
                                         (m_waitTimerStarted ? RETURN_FLAG_TIMER_STARTED : 0) |
@@ -297,15 +297,15 @@ bool CScript::ReturnFromScript(CStruct* results)
         m_pc = frame.m_callerFrame;
         m_entity.AssignValue(frame.m_ownerEntity);
         m_innermostRepeat = frame.m_loopState;
-        m_onExitScript = frame.mOnExitScript;
+        m_onExitScript = frame.m_onExitScriptPtr;
         m_waitType = frame.m_suspendKind & RETURN_WAIT_TYPE_MASK;
         // The rest of the wait only if it was waiting (otherwise the callee's values stay).
         if (m_waitType != SUSPEND_ON_NOTHING) {
-            m_waitCounter = frame.mWaitCounter;
+            m_waitCounter = frame.m_waitCounterPtr;
             m_waitTimer = frame.m_sleepTimer;
             m_waitTimerStarted = (frame.m_traitMask & RETURN_FLAG_TIMER_STARTED) != 0;
             m_blockingModule = frame.m_sleepComponent;
-            m_waitArg = frame.mWaitArg;
+            m_waitArg = frame.m_waitArgPtr;
         }
         m_flagBits = static_cast<uint8_t>((m_flagBits & ~SCRIPT_RUN_INTERRUPTED) |
                                        ((frame.m_traitMask & RETURN_FLAG_INTERRUPTED) ? SCRIPT_RUN_INTERRUPTED : 0));

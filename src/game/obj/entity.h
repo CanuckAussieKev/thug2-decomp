@@ -266,11 +266,11 @@ public:
     uint32_t m_flagBits;               // +0x08 COMPONENT_FLAG_*
     CGameEntity* m_entity;     // +0x0C
     CObjectModule* m_following;        // +0x10 the next of its object's components
-    CObjectModule* mp_nextOfType;  // +0x14 the next of the manager's components of its type
+    CObjectModule* m_nextOfType;  // +0x14 the next of the manager's components of its type
 };
 static_assert(offsetof(CObjectModule, m_kindTag) == 0x04 && offsetof(CObjectModule, m_flagBits) == 0x08 &&
                   offsetof(CObjectModule, m_entity) == 0x0C && offsetof(CObjectModule, m_following) == 0x10 &&
-                  offsetof(CObjectModule, mp_nextOfType) == 0x14,
+                  offsetof(CObjectModule, m_nextOfType) == 0x14,
               "layout must match the original");
 
 // CObjectModule::m_flagBits (+0x08)

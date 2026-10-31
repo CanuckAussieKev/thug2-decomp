@@ -195,14 +195,14 @@ public:
     bool m_waiting;                       // +0x60 a time waited for
     uint8_t m_pad61[3];
     float m_waitTime;                     // +0x64
-    uint8_t* mp_owner;                    // +0x68 the object (its script at +0x10, id at +0x14, parameters at +0x20)
-    GameObjects::CAnimBlenderComponent* mp_blender; // +0x6C
+    uint8_t* m_ownerPtr;                    // +0x68 the object (its script at +0x10, id at +0x14, parameters at +0x20)
+    GameObjects::CAnimBlenderComponent* m_blender; // +0x6C
     GameObjects::CObjectModule* m_boneRig;     // +0x70 the object's skeleton component
 };
 static_assert(offsetof(CBlendChannel, m_timelines) == 0x14 && offsetof(CBlendChannel, m_ident) == 0x28 &&
                   offsetof(CBlendChannel, m_ongoing) == 0x30 && offsetof(CBlendChannel, m_flag4C) == 0x4C &&
                   offsetof(CBlendChannel, m_lookupKey) == 0x50 && offsetof(CBlendChannel, m_waiting) == 0x60 &&
-                  offsetof(CBlendChannel, mp_owner) == 0x68 && sizeof(CBlendChannel) == 0x74,
+                  offsetof(CBlendChannel, m_ownerPtr) == 0x68 && sizeof(CBlendChannel) == 0x74,
               "layout must match the original");
 
 // The node type of the channel's timeline list (vtable 0x006486CC; CAnimTimeline::DestroyBody is its destructor

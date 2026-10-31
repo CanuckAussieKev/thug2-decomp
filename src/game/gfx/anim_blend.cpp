@@ -196,7 +196,7 @@ bool CBlendChannel::HasValue(uint32_t offset)
 // 0x0047D660
 void CBlendChannel::ClearFlag()
 {
-    if (auto* params = *reinterpret_cast<Scripts::CStruct**>(mp_owner + 0x20))
+    if (auto* params = *reinterpret_cast<Scripts::CStruct**>(m_ownerPtr + 0x20))
         params->EraseModule(0x5DB4115F);
 }
 

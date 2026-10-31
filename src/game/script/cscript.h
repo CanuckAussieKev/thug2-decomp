@@ -79,11 +79,11 @@ struct SCallFrame {
     const uint8_t* m_callerFrame; // +0x08 m_pc
     GameObjects::CEntity* m_ownerEntity;      // +0x0C m_entity (a plain pointer here: ObjectDestroyed clears it)
     SRepeatFrame* m_loopState;               // +0x10 m_innermostRepeat
-    uint32_t mOnExitScript;      // +0x14 m_onExitScript
+    uint32_t m_onExitScriptPtr;      // +0x14 m_onExitScript
     GameObjects::CObjectModule* m_sleepComponent; // +0x18 m_blockingModule
     float m_sleepTimer;            // +0x1C m_waitTimer
-    uint32_t mWaitArg;           // +0x20 m_waitArg
-    int mWaitCounter;            // +0x24 m_waitCounter
+    uint32_t m_waitArgPtr;           // +0x20 m_waitArg
+    int m_waitCounterPtr;            // +0x24 m_waitCounter
     uint32_t m_suspendKind;          // +0x28 bits 0-3: m_waitType (the other bits are kept as they are)
     uint8_t m_traitMask;              // +0x2C bit 0: m_waitTimerStarted, bit 1: the level was an interrupt
     uint8_t unknown2D[3];
@@ -91,9 +91,9 @@ struct SCallFrame {
 static_assert(sizeof(SCallFrame) == 0x30, "layout must match the original");
 static_assert(offsetof(SCallFrame, m_argStruct) == 0x04 && offsetof(SCallFrame, m_callerFrame) == 0x08 &&
                   offsetof(SCallFrame, m_ownerEntity) == 0x0C && offsetof(SCallFrame, m_loopState) == 0x10 &&
-                  offsetof(SCallFrame, mOnExitScript) == 0x14 &&
+                  offsetof(SCallFrame, m_onExitScriptPtr) == 0x14 &&
                   offsetof(SCallFrame, m_sleepComponent) == 0x18 && offsetof(SCallFrame, m_sleepTimer) == 0x1C &&
-                  offsetof(SCallFrame, mWaitArg) == 0x20 && offsetof(SCallFrame, mWaitCounter) == 0x24 &&
+                  offsetof(SCallFrame, m_waitArgPtr) == 0x20 && offsetof(SCallFrame, m_waitCounterPtr) == 0x24 &&
                   offsetof(SCallFrame, m_suspendKind) == 0x28 && offsetof(SCallFrame, m_traitMask) == 0x2C,
               "layout must match the original");
 constexpr uint32_t RETURN_WAIT_TYPE_MASK = 0xF;
@@ -112,12 +112,12 @@ static_assert(sizeof(SParamScript) == 8, "allocated as 8 bytes by 0x0048B200");
 // tables at 0x00683550 (CEntity's, filled in by 0x00642940) and 0x00683268 (CGameEntity's, 0x006425D0).
 struct CMemberFunctionEntry {
     uint32_t m_callsign;
-    uint32_t mComponentType; // the object component that runs it; 0x57525413 / 0x0ADA4E74: the object itself
+    uint32_t m_ownerKind; // the object component that runs it; 0x57525413 / 0x0ADA4E74: the object itself
     // +0x08: the member function, as a 16-byte (virtual-inheritance) member function pointer, `bool (Class::*)(
     // CStruct* params, CScript* script)`; null: the object looks the name up (CEntity::InvokeMethodByName 0x0045D850).
-    void* mCode;
-    int mThisAdjustment;      // +0x0C
-    int mVirtualBaseOffsets[2]; // +0x10 (unused by single-inheritance classes)
+    void* m_methodCode;
+    int m_thisAdjustment;      // +0x0C
+    int m_virtualBaseOffsets[2]; // +0x10 (unused by single-inheritance classes)
 };
 static_assert(sizeof(CMemberFunctionEntry) == 0x18, "a table entry is 0x18 bytes");
 

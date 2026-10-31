@@ -78,14 +78,14 @@ void __cdecl InterpolateFloatTrans(float* out, const CFloatKey* a, const CFloatK
 // decompression got to, and which bones the skeleton's level of detail leaves out.
 struct CFrameSource {
     uint32_t m_unknown00[2];
-    const uint8_t* mp_quatAt[64];    // +0x008
-    const uint8_t* mp_transAt[64];   // +0x108
+    const uint8_t* m_quatAt[64];    // +0x008
+    const uint8_t* m_transAt[64];   // +0x108
     bool m_resume;                   // +0x208 start each bone's search where it last ended
     uint8_t m_pad209[3];
-    const uint32_t* mp_boneMasks;    // +0x20C (a word for each bone)
+    const uint32_t* m_boneMasks;    // +0x20C (a word for each bone)
     int m_maskBit;                   // +0x210
 };
-static_assert(offsetof(CFrameSource, mp_transAt) == 0x108 && offsetof(CFrameSource, m_maskBit) == 0x210,
+static_assert(offsetof(CFrameSource, m_transAt) == 0x108 && offsetof(CFrameSource, m_maskBit) == 0x210,
               "layout must match the original");
 
 // An entry of the frame cache (0x006F92B0, 50 of them; its code isn't rewritten here - only the key searches): an
@@ -106,10 +106,10 @@ public:
     void* m_payload;                   // +0x00 the frame data it holds
     uint32_t m_unknown04[4];         // (+0x04: the frame it was last used)
     uint32_t m_extent;                 // +0x14 the keys' size
-    uint8_t* mp_quatKeys;            // +0x18
-    uint8_t* mp_transKeys;           // +0x1C
+    uint8_t* m_quatKeys;            // +0x18
+    uint8_t* m_transKeys;           // +0x1C
     uint32_t m_unknown20[2];
-    uint8_t** mp_cursors[18];        // +0x28 (each: 60 quaternion cursors, 60 translation cursors, ...)
+    uint8_t** m_cursors[18];        // +0x28 (each: 60 quaternion cursors, 60 translation cursors, ...)
     uint8_t m_quatStride;            // +0x70
     uint8_t m_transStride;           // +0x71
     uint16_t m_quatOffsets[60];      // +0x72
@@ -117,7 +117,7 @@ public:
     uint16_t m_boneCount;            // +0x162
     uint16_t m_flagBits;                // +0x164 (0x4000 searching, 0x8000 not ready)
 };
-static_assert(offsetof(CFrameCacheEntry, mp_cursors) == 0x28 && offsetof(CFrameCacheEntry, m_quatOffsets) == 0x72 &&
+static_assert(offsetof(CFrameCacheEntry, m_cursors) == 0x28 && offsetof(CFrameCacheEntry, m_quatOffsets) == 0x72 &&
                   offsetof(CFrameCacheEntry, m_transOffsets) == 0xEA && offsetof(CFrameCacheEntry, m_flagBits) == 0x164,
               "layout must match the original");
 
@@ -186,22 +186,22 @@ public:
     uint32_t m_unknown00;
     uint32_t m_flagBits;              // +0x04
     int m_boneCount;               // +0x08
-    uint8_t* mp_keyTable;          // +0x0C (flag 0x2000: the animation's own quaternion table)
-    uint8_t* mp_quatKeys;          // +0x10
-    uint8_t* mp_transKeys;         // +0x14
-    uint8_t* mp_keyCounts;         // +0x18
+    uint8_t* m_keyTable;          // +0x0C (flag 0x2000: the animation's own quaternion table)
+    uint8_t* m_quatKeys;          // +0x10
+    uint8_t* m_transKeys;         // +0x14
+    uint8_t* m_keyCounts;         // +0x18
     uint32_t* m_boneLabels;        // +0x1C
-    uint32_t* mp_partialBones;     // +0x20 (flag 0x80000: a count, then a bit for each bone)
-    uint8_t* mp_cacheEntry;        // +0x24 (+4: the frame it was last used)
-    CTimedClipEvent** mp_events;        // +0x28
-    uint16_t* mp_quatSizes;        // +0x2C (each bone's quaternion keys' size in bytes)
-    uint16_t* mp_transSizes;       // +0x30
+    uint32_t* m_partialBones;     // +0x20 (flag 0x80000: a count, then a bit for each bone)
+    uint8_t* m_cacheSlot;        // +0x24 (+4: the frame it was last used)
+    CTimedClipEvent** m_eventsPtr;        // +0x28
+    uint16_t* m_quatSizes;        // +0x2C (each bone's quaternion keys' size in bytes)
+    uint16_t* m_transSizes;       // +0x30
     int16_t m_quatKeyCount;        // +0x34
     int16_t m_transKeyCount;       // +0x36
     int16_t m_eventCount;          // +0x38
     uint16_t m_bits;               // +0x3A (bits 1-8: references to its cache entry)
 };
-static_assert(offsetof(CJointClipFrames, mp_cacheEntry) == 0x24 && offsetof(CJointClipFrames, m_bits) == 0x3A &&
+static_assert(offsetof(CJointClipFrames, m_cacheSlot) == 0x24 && offsetof(CJointClipFrames, m_bits) == 0x3A &&
                   sizeof(CJointClipFrames) == 0x3C,
               "layout must match the original");
 

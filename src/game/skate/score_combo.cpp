@@ -226,7 +226,7 @@ void PointTally::PlaceBalanceGauge(bool on, float lean, bool manual)
     m_meterOffset.x = static_cast<float>((static_cast<double>(to.x) - from.x) * steps * part + from.x);
     m_meterOffset.y = static_cast<float>((static_cast<double>(to.y) - from.y) * steps * part + from.y);
     m_meterRotation = static_cast<float>(static_cast<double>(lean) * -45.0);
-    auto* arrow = static_cast<MenuSystem::CImageWidget*>(meter->mp_firstChild.m_ownerObject);
+    auto* arrow = static_cast<MenuSystem::CImageWidget*>(meter->m_eldest.m_ownerObject);
     bool left = !(lean >= 0.0f); // (as the FPU compares: a NaN counts as below)
     double x;
     double y;

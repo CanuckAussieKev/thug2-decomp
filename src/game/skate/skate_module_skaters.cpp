@@ -825,7 +825,7 @@ void __cdecl Skate::DebugRails()
     Stubs::IgnoreArgument(0); // (the rail manager's debug drawing)
     auto* manager = reinterpret_cast<GameObjects::CEntityHub*>(EntityHubHandle());
     for (GameObjects::CObjectModule* component = manager->FindFirstModuleOfKind(kRailManagerType); component;
-         component = component->mp_nextOfType) {
+         component = component->m_nextOfType) {
         uint8_t* object = reinterpret_cast<uint8_t*>(component->m_entity);
         float matrix[16];
         std::memcpy(matrix, object + 0x6C, sizeof(matrix));

@@ -131,7 +131,7 @@ double OffsetSquaredZYX(const float* p, const Maths::Vec4& l)
 sLevelLamp* sLevelLamp::MakeNew()
 {
     void* memory = MemSys::Alloc(sizeof(ListKit::KeyMap));
-    mp_sectors = memory ? new (memory) ListKit::KeyMap(4) : nullptr;
+    m_sectors = memory ? new (memory) ListKit::KeyMap(4) : nullptr;
     auto* colour = reinterpret_cast<uint8_t*>(&m_shade);
     colour[0] = 0x80;
     colour[1] = 0x80;
@@ -157,23 +157,23 @@ void sLevelLamp::SetReach(float radius)
 // 0x0048F200
 bool sLevelLamp::TouchesSector(const CWorldCell* sector)
 {
-    return mp_sectors->FetchEntry(reinterpret_cast<uint32_t>(sector)) != nullptr;
+    return m_sectors->FetchEntry(reinterpret_cast<uint32_t>(sector)) != nullptr;
 }
 
 // 0x0048FFD0
 void sLevelLamp::ClearSectors()
 {
-    mp_sectors->EmptyTable();
+    m_sectors->EmptyTable();
 }
 
 // 0x0048FFE0
 void sLevelLamp::FindSectors(Scripts::CArray* excluded)
 {
-    mp_sectors->EmptyTable();
+    m_sectors->EmptyTable();
     CWorldScene* scene = GetMainScene();
     if (!scene)
         return;
-    ListKit::KeyMap* sectors = scene->mp_sectors;
+    ListKit::KeyMap* sectors = scene->m_sectors;
     if (!sectors)
         return;
     for (auto* sector = static_cast<CWorldCell*>(FirstValue(sectors)); sector;
@@ -203,7 +203,7 @@ void sLevelLamp::FindSectors(Scripts::CArray* excluded)
         if (skip)
             continue;
         uint32_t key = reinterpret_cast<uint32_t>(sector);
-        mp_sectors->StoreEntry(key, sector);
+        m_sectors->StoreEntry(key, sector);
     }
 }
 
@@ -295,9 +295,9 @@ void __cdecl ApplySceneLight(CWorldScene* /*scene*/, uint32_t name)
     if (!name)
         return;
     sLevelLamp* light = FindSceneLight(name);
-    if (!light || !light->mp_sectors)
+    if (!light || !light->m_sectors)
         return;
-    ListKit::KeyMap* sectors = light->mp_sectors;
+    ListKit::KeyMap* sectors = light->m_sectors;
     for (auto* sector = static_cast<CWorldCell*>(FirstValue(sectors)); sector;
          sector = static_cast<CWorldCell*>(NextValue(sectors))) {
         if (sector->m_geomHandle)

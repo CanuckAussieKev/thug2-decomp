@@ -49,7 +49,7 @@ public:
     // 0x1A0F4C50 its colour (rgba=, four bytes; read whether given or not) - each asserted; 1. Anything else: 2.
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
 
-    Engine3D::CDynamicLight* mp_light; // +0x18
+    Engine3D::CDynamicLight* m_light; // +0x18
     uint32_t m_startColor;       // +0x1C
     uint32_t m_middleColor;      // +0x20
     uint32_t m_endColor;         // +0x24
@@ -60,12 +60,12 @@ public:
     float m_middleIntensity;     // +0x38
     float m_endIntensity;        // +0x3C
     float m_middleTime;          // +0x40 the middle's fraction of the life (-1: none)
-    uint8_t* mp_waitAndDie;      // +0x44 its +0x1C elapsed, +0x20 total (unsigned)
+    uint8_t* m_waitAndDie;      // +0x44 its +0x1C elapsed, +0x20 total (unsigned)
 };
-static_assert(offsetof(CDynamicLightComponent, mp_light) == 0x18 &&
+static_assert(offsetof(CDynamicLightComponent, m_light) == 0x18 &&
                   offsetof(CDynamicLightComponent, m_startRadius) == 0x28 &&
                   offsetof(CDynamicLightComponent, m_middleTime) == 0x40 &&
-                  offsetof(CDynamicLightComponent, mp_waitAndDie) == 0x44 && sizeof(CDynamicLightComponent) == 0x48,
+                  offsetof(CDynamicLightComponent, m_waitAndDie) == 0x44 && sizeof(CDynamicLightComponent) == 0x48,
               "layout must match the original");
 
 } // namespace Obj

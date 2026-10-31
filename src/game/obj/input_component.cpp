@@ -159,7 +159,7 @@ CPadInputModule* CPadInputModule::MakeNew()
     m_padPrimary.PrepareAll();
     m_padSecondary.PrepareAll();
     m_kindTag = kType;
-    mp_handler = nullptr;
+    m_handler = nullptr;
     m_unknown49C = 0;
     return this;
 }
@@ -168,7 +168,7 @@ CPadInputModule* CPadInputModule::MakeNew()
 void CPadInputModule::DestroyBody()
 {
     m_vtable = kVtable;
-    for (Responder* handler : {mp_handler, mp_handler2}) {
+    for (Responder* handler : {m_handler, m_handler2}) {
         if (!handler)
             continue;
         if (handler->IsOnTaskList())
@@ -201,31 +201,31 @@ void CPadInputModule::ConfigureFromData(Scripts::CStruct* params)
 // 0x0041F1B0
 void CPadInputModule::LinkToPad(int controller)
 {
-    if (!mp_handler) {
+    if (!m_handler) {
         MemSys::Hub* memory = MemSys::Hub::Pull();
         memory->EnterHeapScope(memory->m_skaterInfoHeap);
-        mp_handler = NewHandler(0, HandlerCode, this);
+        m_handler = NewHandler(0, HandlerCode, this);
         uint8_t* manager = InputManager();
-        ServerHandlers(manager, mp_handler->m_ordinal)->QueueJob(mp_handler);
-        PlaceHandler(mp_handler, manager, mp_handler->m_ordinal);
-        mp_handler2 = NewHandler(1, HandlerCode2, this);
+        ServerHandlers(manager, m_handler->m_ordinal)->QueueJob(m_handler);
+        PlaceHandler(m_handler, manager, m_handler->m_ordinal);
+        m_handler2 = NewHandler(1, HandlerCode2, this);
         manager = InputManager();
-        ServerHandlers(manager, mp_handler2->m_ordinal)->QueueJob(mp_handler2);
-        PlaceHandler(mp_handler2, manager, mp_handler2->m_ordinal);
+        ServerHandlers(manager, m_handler2->m_ordinal)->QueueJob(m_handler2);
+        PlaceHandler(m_handler2, manager, m_handler2->m_ordinal);
         MemSys::Hub::Pull()->LeaveHeapScope();
     }
-    Responder* handler = mp_handler;
+    Responder* handler = m_handler;
     uint8_t* manager = InputManager();
     handler->DropOut();
     ServerHandlers(manager, controller)->QueueJob(handler);
     PlaceHandler(handler, manager, controller);
-    Responder* handler2 = mp_handler2;
+    Responder* handler2 = m_handler2;
     manager = InputManager();
     handler2->DropOut();
     ServerHandlers(manager, 1)->QueueJob(handler2);
     PlaceHandler(handler2, manager, 1);
     if (CObjectModule* vibration = m_entity->FetchModule(kVibration))
-        static_cast<CPadRumbleModule*>(vibration)->ChangeGadget(reinterpret_cast<Sio::InputPort*>(mp_handler->m_dev));
+        static_cast<CPadRumbleModule*>(vibration)->ChangeGadget(reinterpret_cast<Sio::InputPort*>(m_handler->m_dev));
 }
 
 // 0x0041F170

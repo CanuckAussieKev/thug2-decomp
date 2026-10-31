@@ -636,7 +636,7 @@ bool CPedestrianBrainModule::Ped_InitPath(Scripts::CStruct*, Scripts::CScript*)
     LevelNodes::FetchPlace(m_nextNode, &m_nextNodePos);
     ChooseNodeAfter();
     m_flagBits |= PED_FLAG_MOVING;
-    mp_peds = CPathManager::Sole()->AddToExtraGroup(m_entity, m_nextNode);
+    m_peds = CPathManager::Sole()->AddToExtraGroup(m_entity, m_nextNode);
     Motion(m_entity)->m_motionFlags |= 0x10;
     // Facing along the way to the first waypoint.
     float dx = m_nextNodePos.x - m_nodePos.x, dy = m_nextNodePos.y - m_nodePos.y, dz = m_nextNodePos.z - m_nodePos.z,

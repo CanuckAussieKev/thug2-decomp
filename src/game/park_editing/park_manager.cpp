@@ -37,8 +37,8 @@ CParkLayout* CParkLayout::MakeNew()
         area = SCellBox::Make(0, 0, 0, 0, 0, 0);
     void* memory = MemSys::Alloc(0x4A4);
     m_builder = memory ? static_cast<CParkAssembler*>(memory)->MakeNew() : nullptr;
-    mp_concrete_metas = nullptr;
-    mp_abstract_metas = nullptr;
+    m_concrete_metas = nullptr;
+    m_abstract_metas = nullptr;
     m_numConcreteMetas = 0;
     m_numAbstractMetas = 0;
     std::memset(m_cellMetas, 0, sizeof(m_cellMetas));
@@ -46,7 +46,7 @@ CParkLayout* CParkLayout::MakeNew()
     m_flagBits = 0;
     m_05 = false;
     m_gapRegistry = nullptr;
-    mp_gapManagerCopy = nullptr;
+    m_gapManagerCopy = nullptr;
     // The shell's blocks of each of the 8 kinds.
     for (int i = 1; i <= 8; ++i) {
         char name[128];
@@ -59,10 +59,10 @@ CParkLayout* CParkLayout::MakeNew()
     }
     m_shellSize = 0;
     ClearCompressedMap();
-    mp_riserList = nullptr;
+    m_riserList = nullptr;
     m_parkName[0] = '\0';
     m_74 = 0;
-    mp_78 = nullptr;
+    m_78 = nullptr;
     return this;
 }
 
@@ -77,9 +77,9 @@ void CParkLayout::SpawnOccurrence()
 void CParkLayout::DiscardOccurrence()
 {
     if (CParkLayout* manager = Sole()) {
-        if (manager->mp_78) {
-            MemSys::FreeMalloc(manager->mp_78);
-            manager->mp_78 = nullptr;
+        if (manager->m_78) {
+            MemSys::FreeMalloc(manager->m_78);
+            manager->m_78 = nullptr;
         }
         if (CParkAssembler* generator = manager->m_builder) {
             generator->Teardown();
@@ -191,7 +191,7 @@ void CParkLayout::FreePlacedPiece(CPieceGroup* meta, uint32_t flags)
     }
     SetMetaInCells(meta, 0);
     RemoveMetaFromCells(meta);
-    RemoveMetaFromList(meta, &mp_concrete_metas);
+    RemoveMetaFromList(meta, &m_concrete_metas);
     for (int player = 1; player < 9; ++player) {
         if (meta->m_nameKey == m_restartPieces[player - 1]) {
             m_builder->UnplantRestartPoint(&meta->m_cellFootprint, player);
@@ -210,7 +210,7 @@ void CParkLayout::DestroyConcreteMetas(int keepRails)
 {
     GeneratorRebuildsCollision() = false;
     m_gapRegistry->ClearGapEntries();
-    for (CMapListNode* node = mp_concrete_metas; node;) {
+    for (CMapListNode* node = m_concrete_metas; node;) {
         CMapListNode* next = node->m_following;
         FreePlacedPiece(node->GetPlacedPiece(), 0);
         node = next;
@@ -266,9 +266,9 @@ void CParkLayout::Teardown(int keepRails)
     if (!(m_flagBits & (kMapUpToDate | kMapSaved)))
         WriteCompressedMap();
     m_gapRegistry->ClearGapEntries();
-    while (mp_abstract_metas) {
-        CPieceGroup* meta = mp_abstract_metas->GetPieceGroup();
-        RemoveMetaFromList(meta, &mp_abstract_metas);
+    while (m_abstract_metas) {
+        CPieceGroup* meta = m_abstract_metas->GetPieceGroup();
+        RemoveMetaFromList(meta, &m_abstract_metas);
         if (meta)
             meta->EraseOne();
     }
@@ -283,9 +283,9 @@ void CParkLayout::Teardown(int keepRails)
         MemSys::Dealloc(gaps);
     }
     m_gapRegistry = nullptr;
-    if (mp_riserList)
-        CMapListNode::FreeNodeChain(mp_riserList);
-    mp_riserList = nullptr;
+    if (m_riserList)
+        CMapListNode::FreeNodeChain(m_riserList);
+    m_riserList = nullptr;
     DestroyParkPools();
 }
 

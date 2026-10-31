@@ -166,16 +166,16 @@ public:
 
     void** m_vtable;              // +0x00 (0x00647908)
     uint32_t m_unknown4;
-    FileLoad::AssetBundle* mp_bundle; // +0x08: the cutscene's loaded bundle
+    FileLoad::AssetBundle* m_bundlePtr; // +0x08: the cutscene's loaded bundle
     bool m_readyFlag;                // +0x0C
     uint8_t m_unknownD[3];
     int m_cameraParts;            // +0x10: the camera animation's parts (after the first)
     void* m_cameraSource;         // +0x14: its animation source
     int m_objectParts;            // +0x18: the object animation's parts
     void* m_objectSource;         // +0x1C
-    void* mp_objectAnims;         // +0x20
-    void* mp_cameraAnim;          // +0x24
-    void* mp_animList;            // +0x28: the object animations' names (count at +8, 0x00482F00 the n-th)
+    void* m_objectAnims;         // +0x20
+    void* m_cameraAnim;          // +0x24
+    void* m_animList;            // +0x28: the object animations' names (count at +8, 0x00482F00 the n-th)
     uint8_t m_lent2C[0x10];       // +0x2C: given back to the objects' models
     uint8_t m_lent3C;             // +0x3C
     uint8_t m_lent3D;             // +0x3D
@@ -218,7 +218,7 @@ public:
     float m_subtitleTime;         // +0x34C0: when the last subtitle started
     float m_nextSubtitleTime;     // +0x34C4: -1: no more
     uint32_t m_nextSubtitle;      // +0x34C8: its index
-    Scripts::CStruct* mp_params;   // +0x34CC
+    Scripts::CStruct* m_callArgs;   // +0x34CC
 };
 
 // The cutscene kind of the movie manager's movie details (vtable 0x00647920).
@@ -281,7 +281,7 @@ public:
 };
 
 static_assert(sizeof(CCinematicTable) == 0x34D0 && offsetof(CCinematicTable, m_unknown3470) == 0x3470 &&
-                  offsetof(CCinematicTable, m_unknown348C) == 0x348C && offsetof(CCinematicTable, mp_animList) == 0x28,
+                  offsetof(CCinematicTable, m_unknown348C) == 0x348C && offsetof(CCinematicTable, m_animList) == 0x28,
               "layout must match the original");
 static_assert(offsetof(CCinematicTable, m_entities) == 0x54 && offsetof(CCinematicTable, m_objectCount) == 0x2054 &&
                   offsetof(CCinematicTable, m_animationCount) == 0x2C58 && offsetof(CCinematicTable, m_assetCount) == 0x345C &&

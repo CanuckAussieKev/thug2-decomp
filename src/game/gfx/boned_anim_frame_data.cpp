@@ -424,17 +424,17 @@ CJointClipFrames* CJointClipFrames::MakeNew()
     m_bits &= 0xFE00;
     m_unknown00 = 0;
     m_boneCount = 0;
-    mp_keyTable = nullptr;
-    mp_quatKeys = nullptr;
-    mp_transKeys = nullptr;
-    mp_keyCounts = nullptr;
+    m_keyTable = nullptr;
+    m_quatKeys = nullptr;
+    m_transKeys = nullptr;
+    m_keyCounts = nullptr;
     m_boneLabels = nullptr;
-    mp_quatSizes = nullptr;
-    mp_transSizes = nullptr;
+    m_quatSizes = nullptr;
+    m_transSizes = nullptr;
     m_eventCount = 0;
-    mp_events = nullptr;
-    mp_cacheEntry = nullptr;
-    mp_partialBones = nullptr;
+    m_eventsPtr = nullptr;
+    m_cacheSlot = nullptr;
+    m_partialBones = nullptr;
     return this;
 }
 
@@ -442,12 +442,12 @@ CJointClipFrames* CJointClipFrames::MakeNew()
 void CJointClipFrames::DestroyBody()
 {
     for (int i = 0; i < m_eventCount; ++i) {
-        if (CTimedClipEvent* event = mp_events[i])
+        if (CTimedClipEvent* event = m_eventsPtr[i])
             Virtual<void*>(event, 0, 1);
     }
-    if (mp_events)
-        MemSys::FreeMalloc(mp_events);
-    if (mp_cacheEntry) {
+    if (m_eventsPtr)
+        MemSys::FreeMalloc(m_eventsPtr);
+    if (m_cacheSlot) {
         if (void* cache = FrameCache())
             CacheRemove(cache, this);
     }
@@ -457,7 +457,7 @@ void CJointClipFrames::DestroyBody()
 void __cdecl CJointClipFrames::ForgetCacheEntry(CJointClipFrames* data)
 {
     if (data)
-        data->mp_cacheEntry = nullptr;
+        data->m_cacheSlot = nullptr;
 }
 
 // 0x00482BA0
@@ -485,7 +485,7 @@ bool CJointClipFrames::ArmEvents()
 {
     int count = m_eventCount;
     for (int i = 0; i < count; ++i)
-        ArmEvent(mp_events[i], true);
+        ArmEvent(m_eventsPtr[i], true);
     return true;
 }
 
@@ -496,7 +496,7 @@ bool CJointClipFrames::FireEvents(float from, float to, void* target, int flag)
     float toFrame = static_cast<float>(static_cast<double>(to) * 60.0);
     int count = m_eventCount;
     for (int i = 0; i < count; ++i) {
-        CTimedClipEvent* event = mp_events[i];
+        CTimedClipEvent* event = m_eventsPtr[i];
         if (Virtual<bool>(event, 1, fromFrame, toFrame, flag))
             FireEvent(event, target);
     }
@@ -524,26 +524,26 @@ int CFrameCacheEntry::FindQuatKeys(int bone, float frame, uint8_t** first, uint8
         return -2;
     m_flagBits |= 0x4000;
     int stride = m_quatStride;
-    uint8_t* start = mp_quatKeys + m_quatOffsets[bone];
+    uint8_t* start = m_quatKeys + m_quatOffsets[bone];
     uint8_t* end;
     if (bone == m_boneCount - 1) {
-        if (!(start + stride < mp_transKeys)) {
+        if (!(start + stride < m_transKeys)) {
             *second = *first = start;
             m_flagBits &= ~0x4000;
             return cursor;
         }
-        end = mp_transKeys;
+        end = m_transKeys;
     } else {
         if (!(m_quatOffsets[bone] + stride < m_quatOffsets[bone + 1])) {
             *second = *first = start;
             m_flagBits &= ~0x4000;
             return cursor;
         }
-        end = mp_quatKeys + m_quatOffsets[bone + 1];
+        end = m_quatKeys + m_quatOffsets[bone + 1];
     }
     // From the cursor: its pair still around the frame, or the next one.
-    if (cursor != -1 && mp_cursors[cursor] && mp_cursors[cursor][bone]) {
-        uint8_t* key = mp_cursors[cursor][bone];
+    if (cursor != -1 && m_cursors[cursor] && m_cursors[cursor][bone]) {
+        uint8_t* key = m_cursors[cursor][bone];
         uint8_t* next = key + stride;
         if (QuatKeyTime(key) <= frame) {
             if (QuatKeyTime(next) >= frame) {
@@ -554,7 +554,7 @@ int CFrameCacheEntry::FindQuatKeys(int bone, float frame, uint8_t** first, uint8
             }
             uint8_t* after = next + stride;
             if (after < end && QuatKeyTime(after) >= frame) {
-                mp_cursors[cursor][bone] = next;
+                m_cursors[cursor][bone] = next;
                 *first = next;
                 *second = after;
                 m_flagBits &= ~0x4000;
@@ -579,8 +579,8 @@ int CFrameCacheEntry::FindQuatKeys(int bone, float frame, uint8_t** first, uint8
     }
     *first = key;
     *second = next;
-    if (cursor != -1 && mp_cursors[cursor])
-        mp_cursors[cursor][bone] = key;
+    if (cursor != -1 && m_cursors[cursor])
+        m_cursors[cursor][bone] = key;
     m_flagBits &= ~0x4000;
     return cursor;
 }
@@ -592,10 +592,10 @@ int CFrameCacheEntry::FindTransKeys(int bone, float frame, uint8_t** first, uint
         return -2;
     m_flagBits |= 0x4000;
     int stride = m_transStride;
-    uint8_t* start = mp_transKeys + m_transOffsets[bone];
+    uint8_t* start = m_transKeys + m_transOffsets[bone];
     uint8_t* end;
     if (bone == m_boneCount - 1) {
-        end = mp_quatKeys + m_extent;
+        end = m_quatKeys + m_extent;
         if (!(start + stride < end)) {
             *second = *first = start;
             m_flagBits &= ~0x4000;
@@ -607,10 +607,10 @@ int CFrameCacheEntry::FindTransKeys(int bone, float frame, uint8_t** first, uint
             m_flagBits &= ~0x4000;
             return cursor;
         }
-        end = mp_transKeys + m_transOffsets[bone + 1];
+        end = m_transKeys + m_transOffsets[bone + 1];
     }
-    if (cursor != -1 && mp_cursors[cursor] && mp_cursors[cursor][60 + bone]) {
-        uint8_t* key = mp_cursors[cursor][60 + bone];
+    if (cursor != -1 && m_cursors[cursor] && m_cursors[cursor][60 + bone]) {
+        uint8_t* key = m_cursors[cursor][60 + bone];
         uint8_t* next = key + stride;
         if (TransKeyTime(key) <= frame) {
             if (TransKeyTime(next) >= frame) {
@@ -621,7 +621,7 @@ int CFrameCacheEntry::FindTransKeys(int bone, float frame, uint8_t** first, uint
             }
             uint8_t* after = next + stride;
             if (after < end && TransKeyTime(after) >= frame) {
-                mp_cursors[cursor][60 + bone] = next;
+                m_cursors[cursor][60 + bone] = next;
                 *first = next;
                 *second = after;
                 m_flagBits &= ~0x4000;
@@ -648,8 +648,8 @@ int CFrameCacheEntry::FindTransKeys(int bone, float frame, uint8_t** first, uint
     }
     *first = key;
     *second = next;
-    if (cursor != -1 && mp_cursors[cursor])
-        mp_cursors[cursor][60 + bone] = key;
+    if (cursor != -1 && m_cursors[cursor])
+        m_cursors[cursor][60 + bone] = key;
     m_flagBits &= ~0x4000;
     return cursor;
 }
@@ -665,13 +665,13 @@ int CFrameCacheEntry::FindQuatKeysBackwards(int bone, float frame, uint8_t** fir
     int endOffset = m_quatOffsets[bone == m_boneCount - 1 ? bone : bone + 1];
     int stride = m_quatStride;
     if (!(offset + stride < endOffset)) {
-        *second = *first = mp_quatKeys + offset;
+        *second = *first = m_quatKeys + offset;
         m_flagBits &= ~0x4000;
         return cursor;
     }
     // From the cursor: its pair still around the frame, or the one before.
-    if (cursor != -1 && mp_cursors[cursor] && mp_cursors[cursor][bone]) {
-        uint8_t* key = mp_cursors[cursor][bone];
+    if (cursor != -1 && m_cursors[cursor] && m_cursors[cursor][bone]) {
+        uint8_t* key = m_cursors[cursor][bone];
         uint8_t* next = key + stride;
         if (QuatKeyTime(next) >= frame) {
             if (QuatKeyTime(key) <= frame) {
@@ -681,8 +681,8 @@ int CFrameCacheEntry::FindQuatKeysBackwards(int bone, float frame, uint8_t** fir
                 return cursor;
             }
             uint8_t* before = key - stride;
-            if (!(before < mp_quatKeys + offset) && QuatKeyTime(before) <= frame && QuatKeyTime(key) >= frame) {
-                mp_cursors[cursor][bone] = before;
+            if (!(before < m_quatKeys + offset) && QuatKeyTime(before) <= frame && QuatKeyTime(key) >= frame) {
+                m_cursors[cursor][bone] = before;
                 *first = before;
                 *second = key;
                 m_flagBits &= ~0x4000;
@@ -690,10 +690,10 @@ int CFrameCacheEntry::FindQuatKeysBackwards(int bone, float frame, uint8_t** fir
             }
         }
     }
-    uint8_t* key = mp_quatKeys + m_quatOffsets[bone];
+    uint8_t* key = m_quatKeys + m_quatOffsets[bone];
     uint8_t* next = key + stride;
     if (QuatKeyTime(next) <= frame) {
-        uint8_t* end = mp_quatKeys + endOffset;
+        uint8_t* end = m_quatKeys + endOffset;
         for (;;) {
             key = next;
             next += stride;
@@ -701,7 +701,7 @@ int CFrameCacheEntry::FindQuatKeysBackwards(int bone, float frame, uint8_t** fir
                 *first = key;
                 *second = key;
                 if (cursor != -1)
-                    mp_cursors[cursor][bone] = key; // (no check for a cursor array here, as the original)
+                    m_cursors[cursor][bone] = key; // (no check for a cursor array here, as the original)
                 m_flagBits &= ~0x4000;
                 return cursor;
             }
@@ -711,8 +711,8 @@ int CFrameCacheEntry::FindQuatKeysBackwards(int bone, float frame, uint8_t** fir
     }
     *first = key;
     *second = next;
-    if (cursor != -1 && mp_cursors[cursor])
-        mp_cursors[cursor][bone] = key;
+    if (cursor != -1 && m_cursors[cursor])
+        m_cursors[cursor][bone] = key;
     m_flagBits &= ~0x4000;
     return cursor;
 }
@@ -727,12 +727,12 @@ int CFrameCacheEntry::FindTransKeysBackwards(int bone, float frame, uint8_t** fi
     int endOffset = m_transOffsets[bone == m_boneCount - 1 ? bone : bone + 1];
     int stride = m_transStride;
     if (!(offset + stride < endOffset)) {
-        *second = *first = mp_transKeys + offset;
+        *second = *first = m_transKeys + offset;
         m_flagBits &= ~0x4000;
         return cursor;
     }
-    if (cursor != -1 && mp_cursors[cursor] && mp_cursors[cursor][60 + bone]) {
-        uint8_t* key = mp_cursors[cursor][60 + bone];
+    if (cursor != -1 && m_cursors[cursor] && m_cursors[cursor][60 + bone]) {
+        uint8_t* key = m_cursors[cursor][60 + bone];
         uint8_t* next = key + stride;
         if (TransKeyTime(next) >= frame) {
             if (TransKeyTime(key) <= frame) {
@@ -742,9 +742,9 @@ int CFrameCacheEntry::FindTransKeysBackwards(int bone, float frame, uint8_t** fi
                 return cursor;
             }
             uint8_t* before = key - stride;
-            if (!(before < mp_transKeys + m_transOffsets[bone]) && TransKeyTime(before) <= frame &&
+            if (!(before < m_transKeys + m_transOffsets[bone]) && TransKeyTime(before) <= frame &&
                 TransKeyTime(key) >= frame) {
-                mp_cursors[cursor][60 + bone] = before;
+                m_cursors[cursor][60 + bone] = before;
                 *first = before;
                 *second = key;
                 m_flagBits &= ~0x4000;
@@ -752,10 +752,10 @@ int CFrameCacheEntry::FindTransKeysBackwards(int bone, float frame, uint8_t** fi
             }
         }
     }
-    uint8_t* key = mp_transKeys + m_transOffsets[bone];
+    uint8_t* key = m_transKeys + m_transOffsets[bone];
     uint8_t* next = key + stride;
     if (TransKeyTime(next) <= frame) {
-        uint8_t* end = mp_transKeys + endOffset;
+        uint8_t* end = m_transKeys + endOffset;
         for (;;) {
             key = next;
             next += stride;
@@ -771,8 +771,8 @@ int CFrameCacheEntry::FindTransKeysBackwards(int bone, float frame, uint8_t** fi
     }
     *first = key;
     *second = next;
-    if (cursor != -1 && mp_cursors[cursor])
-        mp_cursors[cursor][60 + bone] = key;
+    if (cursor != -1 && m_cursors[cursor])
+        m_cursors[cursor][60 + bone] = key;
     m_flagBits &= ~0x4000;
     return cursor;
 }
@@ -804,16 +804,16 @@ CTimedClipEvent* ReadEvent(uint8_t** at)
 bool CJointClipFrames::ReadEvents(const uint32_t* header, uint8_t* at)
 {
     if (!header[3]) {
-        mp_events = nullptr;
+        m_eventsPtr = nullptr;
         m_eventCount = static_cast<int16_t>(header[3]);
         return true;
     }
-    mp_events = static_cast<CTimedClipEvent**>(MemSys::AllocBlock(header[3] * 4));
+    m_eventsPtr = static_cast<CTimedClipEvent**>(MemSys::AllocBlock(header[3] * 4));
     for (uint32_t i = 0; i < header[3]; ++i) {
         CTimedClipEvent* event = ReadEvent(&at);
         if (!event)
             return false;
-        mp_events[i] = event;
+        m_eventsPtr[i] = event;
     }
     m_eventCount = static_cast<int16_t>(header[3]);
     return true;
@@ -829,24 +829,24 @@ bool CJointClipFrames::SetUpCompressed(uint8_t* data)
     uint32_t quatSize = header[4];
     uint32_t transSize = header[5];
     uint8_t* p = data + 0x18;
-    mp_quatSizes = reinterpret_cast<uint16_t*>(p);
+    m_quatSizes = reinterpret_cast<uint16_t*>(p);
     p += m_boneCount * 2;
-    mp_transSizes = reinterpret_cast<uint16_t*>(p);
+    m_transSizes = reinterpret_cast<uint16_t*>(p);
     p = Aligned(p + m_boneCount * 2);
     uint32_t flags = m_flagBits;
     m_boneLabels = nullptr;
     if (flags & 0x2000) {
-        mp_keyTable = p;
+        m_keyTable = p;
         p += 0x600;
     }
     if (flags & 0x80000) {
-        mp_partialBones = reinterpret_cast<uint32_t*>(p);
+        m_partialBones = reinterpret_cast<uint32_t*>(p);
         p = PastBoneBits(p);
     }
     p = Aligned(p);
     if (!(flags & 0x8000000) && !(flags & 0x1000000)) {
-        mp_quatKeys = p;
-        mp_transKeys = p + quatSize;
+        m_quatKeys = p;
+        m_transKeys = p + quatSize;
         p += quatSize + transSize;
     }
     return ReadEvents(header, Aligned(p));
@@ -868,15 +868,15 @@ bool CJointClipFrames::SetUpFloatKeys(uint8_t* data)
         m_boneLabels = nullptr;
     }
     if (flags & 0x80000) {
-        mp_partialBones = reinterpret_cast<uint32_t*>(p);
+        m_partialBones = reinterpret_cast<uint32_t*>(p);
         p = PastBoneBits(p);
     }
-    mp_keyCounts = p;
+    m_keyCounts = p;
     p = Aligned(p + m_boneCount * ((flags & 0x400000) ? 4 : 2));
     int keySize = (flags & 0x8000000) || (flags & 0x1000000) ? 16 : 8;
-    mp_quatKeys = p;
-    mp_transKeys = p + m_quatKeyCount * keySize;
-    p = mp_transKeys + m_transKeyCount * keySize;
+    m_quatKeys = p;
+    m_transKeys = p + m_quatKeyCount * keySize;
+    p = m_transKeys + m_transKeyCount * keySize;
     return ReadEvents(header, Aligned(p));
 }
 
@@ -886,22 +886,22 @@ bool CJointClipFrames::GetFloatKeyPose(float* rotations, float* translations, vo
     float quatFrame = static_cast<float>(static_cast<double>(time) * 60.0);
     float transFrame = quatFrame;
     // (kept from bone to bone when a bone's search finds nothing)
-    uint8_t* quatFrom = mp_quatKeys;
-    uint8_t* quatTo = mp_quatKeys;
+    uint8_t* quatFrom = m_quatKeys;
+    uint8_t* quatTo = m_quatKeys;
     float quatT = 0.0f;
-    uint8_t* transFrom = mp_transKeys;
-    uint8_t* transTo = mp_transKeys;
+    uint8_t* transFrom = m_transKeys;
+    uint8_t* transTo = m_transKeys;
     float transT = 0.0f;
-    uint8_t* quatKeys = mp_quatKeys;
-    uint8_t* transKeys = mp_transKeys;
+    uint8_t* quatKeys = m_quatKeys;
+    uint8_t* transKeys = m_transKeys;
     for (int bone = 0; bone < m_boneCount; ++bone) {
         int quatCount, transCount;
         if (m_flagBits & 0x400000) {
-            quatCount = reinterpret_cast<const int16_t*>(mp_keyCounts)[2 * bone];
-            transCount = reinterpret_cast<const int16_t*>(mp_keyCounts)[2 * bone + 1];
+            quatCount = reinterpret_cast<const int16_t*>(m_keyCounts)[2 * bone];
+            transCount = reinterpret_cast<const int16_t*>(m_keyCounts)[2 * bone + 1];
         } else {
-            quatCount = mp_keyCounts[2 * bone];
-            transCount = mp_keyCounts[2 * bone + 1];
+            quatCount = m_keyCounts[2 * bone];
+            transCount = m_keyCounts[2 * bone + 1];
         }
         for (int k = 0; k < quatCount; ++k) {
             uint8_t* key = quatKeys + 16 * k;
@@ -959,23 +959,23 @@ bool CJointClipFrames::FetchPose(float* rotations, float* translations, uint8_t*
 {
     float quatFrame = static_cast<float>(static_cast<double>(time) * 60.0);
     float transFrame = quatFrame; // (each clamped in turn by the cache's keys - kept for the later bones)
-    uint8_t* quatData = mp_quatKeys;
-    uint8_t* transData = mp_transKeys;
-    const uint16_t* quatSize = mp_quatSizes;
-    const uint16_t* transSize = mp_transSizes;
+    uint8_t* quatData = m_quatKeys;
+    uint8_t* transData = m_transKeys;
+    const uint16_t* quatSize = m_quatSizes;
+    const uint16_t* transSize = m_transSizes;
     bool forwards = true;
     uint32_t mask = source && source->m_resume ? 1u << (source->m_maskBit & 31) : 0u;
-    if (mp_cacheEntry) {
+    if (m_cacheSlot) {
         uint32_t& counter = g_cacheUseCounter;
-        *reinterpret_cast<uint32_t*>(mp_cacheEntry + 4) = counter++;
-        if (cursor != -1 && CacheDirection(mp_cacheEntry, cursor, static_cast<int>(static_cast<int64_t>(time))) < 0)
+        *reinterpret_cast<uint32_t*>(m_cacheSlot + 4) = counter++;
+        if (cursor != -1 && CacheDirection(m_cacheSlot, cursor, static_cast<int>(static_cast<int64_t>(time))) < 0)
             forwards = false;
     }
-    auto* entry = reinterpret_cast<CFrameCacheEntry*>(mp_cacheEntry);
+    auto* entry = reinterpret_cast<CFrameCacheEntry*>(m_cacheSlot);
     for (int bone = 0; bone < m_boneCount; ++bone) {
-        bool skip = mask ? (source->mp_boneMasks[bone] & mask) != 0 : false;
+        bool skip = mask ? (source->m_boneMasks[bone] & mask) != 0 : false;
         if (m_flagBits & 0x80000)
-            skip = !(mp_partialBones[1 + bone / 32] & (1u << (bone % 32)));
+            skip = !(m_partialBones[1 + bone / 32] & (1u << (bone % 32)));
         if (skip) {
             valid[bone] = 0;
         } else {
@@ -986,7 +986,7 @@ bool CJointClipFrames::FetchPose(float* rotations, float* translations, uint8_t*
                 rotations[3] = 1.0f;
             } else {
                 bool done = false;
-                if (mp_cacheEntry) {
+                if (m_cacheSlot) {
                     uint8_t* first;
                     uint8_t* second;
                     int found = forwards ? entry->FindQuatKeys(bone, quatFrame, &first, &second, cursor)
@@ -1013,20 +1013,20 @@ bool CJointClipFrames::FetchPose(float* rotations, float* translations, uint8_t*
                     // Decompressing: from the bone's start (or where the source left it) to the pair around the frame.
                     const uint8_t* end = quatData + *quatSize;
                     const uint8_t* at = quatData;
-                    if (source && source->m_resume && source->mp_quatAt[bone])
-                        at = source->mp_quatAt[bone];
+                    if (source && source->m_resume && source->m_quatAt[bone])
+                        at = source->m_quatAt[bone];
                     CShortKey a, b;
                     float t;
                     for (;;) {
                         if (source)
-                            source->mp_quatAt[bone] = at;
-                        at = DecompressQuatKey(at, &a, m_flagBits, mp_keyTable);
+                            source->m_quatAt[bone] = at;
+                        at = DecompressQuatKey(at, &a, m_flagBits, m_keyTable);
                         if (at >= end) {
                             b = a;
                             t = 0.0f;
                             break;
                         }
-                        DecompressQuatKey(at, &b, m_flagBits, mp_keyTable);
+                        DecompressQuatKey(at, &b, m_flagBits, m_keyTable);
                         float from = static_cast<float>(QuatKeyTime(reinterpret_cast<const uint8_t*>(&a.time)));
                         float to = static_cast<float>(QuatKeyTime(reinterpret_cast<const uint8_t*>(&b.time)));
                         if (quatFrame >= from && quatFrame <= to) {
@@ -1040,7 +1040,7 @@ bool CJointClipFrames::FetchPose(float* rotations, float* translations, uint8_t*
             // The translation (none for a bone without keys when flag 0x20000 says so).
             if (!((m_flagBits & 0x20000) && *transSize == 0)) {
                 bool done = false;
-                if (mp_cacheEntry) {
+                if (m_cacheSlot) {
                     uint8_t* first;
                     uint8_t* second;
                     int found = forwards ? entry->FindTransKeys(bone, transFrame, &first, &second, cursor)
@@ -1070,13 +1070,13 @@ bool CJointClipFrames::FetchPose(float* rotations, float* translations, uint8_t*
                 if (!done) {
                     const uint8_t* end = transData + *transSize;
                     const uint8_t* at = transData;
-                    if (source && source->m_resume && source->mp_transAt[bone])
-                        at = source->mp_transAt[bone];
+                    if (source && source->m_resume && source->m_transAt[bone])
+                        at = source->m_transAt[bone];
                     CShortKey a, b;
                     float t = 0.0f;
                     for (;;) {
                         if (source)
-                            source->mp_transAt[bone] = at;
+                            source->m_transAt[bone] = at;
                         at = DecompressTransKey(at, &a);
                         if (at >= end) {
                             b = a;

@@ -194,7 +194,7 @@ CPedestrianBrainModule* CPedestrianBrainModule::MakeNew()
         avoid = 0.0f;
     m_turnFrame = 0;
     m_turnFrames = 0;
-    mp_peds = nullptr;
+    m_peds = nullptr;
     m_stickAbove = Scripts::FetchFloat(kStickAbove);
     m_stickBelow = Scripts::FetchFloat(kStickBelow);
     m_flagBits = 0;
@@ -202,7 +202,7 @@ CPedestrianBrainModule* CPedestrianBrainModule::MakeNew()
     m_curPhase = Checksums::HashFromText("NULL");
     m_stateTable = Checksums::HashFromText("NULL");
     m_updateType = Checksums::HashFromText("NULL");
-    mp_auxScript = nullptr;
+    m_auxScript = nullptr;
     m_nextNodePos = {0.0f, 0.0f, 0.0f, 1.0f};
     return this;
 }
@@ -211,9 +211,9 @@ CPedestrianBrainModule* CPedestrianBrainModule::MakeNew()
 void CPedestrianBrainModule::DestroyBody()
 {
     m_vtable = kVtable;
-    if (Scripts::CScript* script = mp_auxScript) {
+    if (Scripts::CScript* script = m_auxScript) {
         DeleteScript(script);
-        mp_auxScript = nullptr;
+        m_auxScript = nullptr;
     }
     CObjectModule::DestroyBody();
 }
@@ -391,9 +391,9 @@ bool CPedestrianBrainModule::ChangePhase(uint32_t state, uint32_t table, Scripts
     m_curPhase = state;
     m_updateType = updateType;
     m_entity->ReplaceScript(script, params);
-    if (Scripts::CScript* aux = mp_auxScript) {
+    if (Scripts::CScript* aux = m_auxScript) {
         DeleteScript(aux);
-        mp_auxScript = nullptr;
+        m_auxScript = nullptr;
     }
     InitializeMovement();
     if (stateStruct->HasBareFlag(kHideBoardGeom))
@@ -408,16 +408,16 @@ void CPedestrianBrainModule::ActivateAuxScript(uint32_t script, Scripts::CStruct
 {
     if (!script)
         return;
-    if (!mp_auxScript)
-        mp_auxScript = NewScript();
-    mp_auxScript->BindScript(script, params, m_entity);
-    if (mp_auxScript->HasAttachedScript()) {
-        mp_auxScript->TickFrame();
+    if (!m_auxScript)
+        m_auxScript = NewScript();
+    m_auxScript->BindScript(script, params, m_entity);
+    if (m_auxScript->HasAttachedScript()) {
+        m_auxScript->TickFrame();
         return;
     }
-    if (Scripts::CScript* aux = mp_auxScript) {
+    if (Scripts::CScript* aux = m_auxScript) {
         DeleteScript(aux);
-        mp_auxScript = nullptr;
+        m_auxScript = nullptr;
     }
 }
 
@@ -659,9 +659,9 @@ bool CPedestrianBrainModule::Ped_ActivateAuxScript(Scripts::CStruct* params, Scr
 // 0x004F20F0
 bool CPedestrianBrainModule::Ped_DeactivateAuxScript(Scripts::CStruct*, Scripts::CScript*)
 {
-    if (Scripts::CScript* aux = mp_auxScript) {
+    if (Scripts::CScript* aux = m_auxScript) {
         DeleteScript(aux);
-        mp_auxScript = nullptr;
+        m_auxScript = nullptr;
     }
     return true;
 }

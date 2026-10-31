@@ -189,7 +189,7 @@ public:
     uint32_t m_geomListSize;      // +0x14
     uint32_t m_visibleGeoms;      // +0x18: a bit per geom (in list order, modulo 32)
     Maths::Vec4 m_sizeFactor;          // +0x1C
-    uint8_t* mp_lights;           // +0x2C
+    uint8_t* m_lightsPtr;           // +0x2C
     uint32_t m_sourcePath;          // +0x30: the first geom's (a checksum; "none" when made)
     Maths::Vec4 m_enclosingBall; // +0x34 (with kModelSphereValid)
     uint8_t m_flagBits;              // +0x44
@@ -199,7 +199,7 @@ public:
     int16_t m_numAssetGeoms;      // +0x4A: geoms with the asset manager's scene
 };
 static_assert(offsetof(CRenderModel, m_geoms) == 0x10 && offsetof(CRenderModel, m_sizeFactor) == 0x1C &&
-                  offsetof(CRenderModel, mp_lights) == 0x2C && offsetof(CRenderModel, m_enclosingBall) == 0x34 &&
+                  offsetof(CRenderModel, m_lightsPtr) == 0x2C && offsetof(CRenderModel, m_enclosingBall) == 0x34 &&
                   offsetof(CRenderModel, m_flagBits) == 0x44 && offsetof(CRenderModel, m_numAssetGeoms) == 0x4A &&
                   sizeof(CRenderModel) == 0x4C,
               "layout must match the original");

@@ -309,15 +309,15 @@ void CPedestrianBrainModule::FaceAlong(const Maths::Vec4* direction)
 bool CPedestrianBrainModule::AvoidPeds()
 {
     bool avoided = false;
-    if (!mp_peds)
+    if (!m_peds)
         return false;
-    CSharedRef<CEntity>* slot = mp_peds->m_slots;
+    CSharedRef<CEntity>* slot = m_peds->m_slots;
     Maths::Mat4 m = m_entity->m_displayMatrix;
     const Maths::Vec4& at = m.row[2];
     float range = Scripts::FetchFloat(kAvoidPedRange);
     float bias = Scripts::FetchFloat(kPedDodgeBias);
     CKinematicsModule* motion = Motion(m_entity);
-    int count = mp_peds->m_extent;
+    int count = m_peds->m_extent;
     if (count <= 0)
         return false;
     for (; count; --count, ++slot) {
@@ -1158,8 +1158,8 @@ void CPedestrianBrainModule::TickFrame()
     case kBailUpdate: BailMoveUpdate(); break;
     default: break;
     }
-    if (mp_auxScript)
-        mp_auxScript->TickFrame();
+    if (m_auxScript)
+        m_auxScript->TickFrame();
 }
 
 // --- script member functions ---

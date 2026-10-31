@@ -35,7 +35,7 @@ public:
     uint8_t* m_hitShape;      // +0x8C: the objects (0x40 bytes each)
     Maths::BBox m_box;            // +0x90
     uint32_t m_unknownB0;
-    void* mp_hierarchy;         // +0xB4
+    void* m_hierarchy;         // +0xB4
     uint32_t m_hierarchyCount;  // +0xB8
 };
 static_assert(offsetof(CSubMesh, m_box) == 0x90 && offsetof(CSubMesh, m_hierarchyCount) == 0xB8 && sizeof(CSubMesh) == 0xBC,

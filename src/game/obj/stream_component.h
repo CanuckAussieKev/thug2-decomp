@@ -65,10 +65,10 @@ public:
 
     uint32_t m_streams[3];    // +0x18 the ids of the streams it plays (0: free)
     EmitterNode* m_spewer;  // +0x24
-    ProximNode* mp_proxim;    // +0x28
+    ProximNode* m_proxim;    // +0x28
 };
 static_assert(offsetof(CAudioStreamModule, m_streams) == 0x18 && offsetof(CAudioStreamModule, m_spewer) == 0x24 &&
-                  offsetof(CAudioStreamModule, mp_proxim) == 0x28 && sizeof(CAudioStreamModule) == 0x2C,
+                  offsetof(CAudioStreamModule, m_proxim) == 0x28 && sizeof(CAudioStreamModule) == 0x2C,
               "layout must match the original");
 
 } // namespace Obj

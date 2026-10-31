@@ -104,7 +104,7 @@ void CParkTile::GetFootprintSize(SCellBox* dims)
 
 Maths::Vec4* CParkTile::GetDimsTurned(Maths::Vec4* out, int rot)
 {
-    CParkTile* source = (m_flagBits & kSource) ? this : mp_source->AsPiece();
+    CParkTile* source = (m_flagBits & kSource) ? this : m_blendSource->AsPiece();
     // (The original asks the source three times, once per component; it's a plain getter. Its w: the source's when
     // the turn is odd, a stack leftover when it's even - the source's here.)
     Maths::Vec4 size;
@@ -205,13 +205,13 @@ CCopiedPiece* CCopiedPiece::MakeNew()
     m_vtable = kVtable;
     m_ident = 0;
     m_flagBits = kCloned;
-    mp_source = nullptr;
+    m_blendSource = nullptr;
     return this;
 }
 
 Maths::Vec4* CCopiedPiece::MeasureSpan(Maths::Vec4* out)
 {
-    const Maths::Vec4& size = mp_source->m_extent;
+    const Maths::Vec4& size = m_blendSource->m_extent;
     const bool across = (m_quarterTurns & 1) != 0;
     out->x = across ? size.z : size.x;
     out->y = size.y;

@@ -108,8 +108,8 @@ public:
     uint32_t m_events;        // +0x1C this frame's
     CPadState m_padPrimary;        // +0x20
     CPadState m_padSecondary;       // +0x258
-    Responder* mp_handler;      // +0x490
-    Responder* mp_handler2;     // +0x494
+    Responder* m_handler;      // +0x490
+    Responder* m_handler2;     // +0x494
     bool m_disabled;          // +0x498 DisablePlayerInput
     bool m_netDisabled;       // +0x499 NetDisablePlayerInput
     bool m_inputEvents;       // +0x49A EnableInputEvents
@@ -117,7 +117,7 @@ public:
     uint32_t m_unknown49C;    // +0x49C 0xB9B1E3B6
 };
 static_assert(offsetof(CPadInputModule, m_padPrimary) == 0x20 && offsetof(CPadInputModule, m_padSecondary) == 0x258 &&
-                  offsetof(CPadInputModule, mp_handler) == 0x490 && offsetof(CPadInputModule, m_disabled) == 0x498 &&
+                  offsetof(CPadInputModule, m_handler) == 0x490 && offsetof(CPadInputModule, m_disabled) == 0x498 &&
                   offsetof(CPadInputModule, m_unknown49C) == 0x49C && sizeof(CPadInputModule) == 0x4A0,
               "layout must match the original");
 static_assert(offsetof(CPadInputModule::Responder, m_controlData) == 0x18 &&

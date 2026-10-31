@@ -42,7 +42,7 @@ public:
     float m_outerRadius;      // +0x24
     uint32_t m_enterScript;   // +0x28
     uint32_t m_dismountScript;    // +0x2C
-    Scripts::CStruct* mp_params; // +0x30
+    Scripts::CStruct* m_callArgs; // +0x30
     int m_isWithin;             // +0x34
 };
 static_assert(offsetof(CProximityComponent, m_active) == 0x18 && offsetof(CProximityComponent, m_isWithin) == 0x34,

@@ -50,7 +50,7 @@ public:
     void ItemPlace(ElementPtr* item, float* x, float* y, float* w, float* h);
 
     GameObjects::CSignalReceiver m_listener; // +0x178
-    CUiWidget* mp_menu;        // +0x194
+    CUiWidget* m_menu;        // +0x194
     uint32_t m_chosenItemId;          // +0x198 the item focused
     float m_innerAlignH;          // +0x19C internal_just
     float m_innerAlignV;          // +0x1A0
@@ -65,7 +65,7 @@ public:
     bool m_vertical;                // +0x1BC
     uint8_t pad1BD[3];
 };
-static_assert(offsetof(CWindowedList, m_listener) == 0x178 && offsetof(CWindowedList, mp_menu) == 0x194 &&
+static_assert(offsetof(CWindowedList, m_listener) == 0x178 && offsetof(CWindowedList, m_menu) == 0x194 &&
                   offsetof(CWindowedList, m_focused) == 0x1A4 && offsetof(CWindowedList, m_windowStart) == 0x1A8 &&
                   offsetof(CWindowedList, m_regularSpace) == 0x1B8 && offsetof(CWindowedList, m_vertical) == 0x1BC &&
                   sizeof(CWindowedList) == 0x1C0,

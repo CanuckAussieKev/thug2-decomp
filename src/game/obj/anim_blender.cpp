@@ -133,7 +133,7 @@ CAnimBlenderComponent* CAnimBlenderComponent::MakeNew()
         sentinel[1] = sentinel;
         sentinel[2] = sentinel;
     }
-    mp_observers = sentinel;
+    m_observers = sentinel;
     m_kindTag = kType;
     return this;
 }
@@ -143,22 +143,22 @@ void CAnimBlenderComponent::DestroyBody()
 {
     m_vtable = kVtable;
     reinterpret_cast<ListHead*>(&m_lanes)->DeleteAllNodes();
-    auto** sentinel = static_cast<void**>(mp_observers);
-    for (auto** node = sentinel ? static_cast<void**>(sentinel[1]) : nullptr; node != mp_observers;
+    auto** sentinel = static_cast<void**>(m_observers);
+    for (auto** node = sentinel ? static_cast<void**>(sentinel[1]) : nullptr; node != m_observers;
          node = static_cast<void**>(node[1])) {
         if (node[0])
             Virtual<void*>(node[0], 0, 1u);
     }
     // the list emptied (std::list::erase(begin, end), 0x004ECC30) - twice, as the original
     for (int pass = 0; pass < 2; ++pass) {
-        auto** head = static_cast<void**>(mp_observers);
+        auto** head = static_cast<void**>(m_observers);
         void* result;
-        reinterpret_cast<GameObjects::PointerList*>(&mp_observers)
+        reinterpret_cast<GameObjects::PointerList*>(&m_observers)
             ->Erase(reinterpret_cast<GameObjects::PointerListNode**>(&result),
                     reinterpret_cast<GameObjects::PointerListNode*>(head ? head[1] : nullptr),
                     reinterpret_cast<GameObjects::PointerListNode*>(head));
     }
-    MemSys::Hub::Pull()->Dealloc(mp_observers);
+    MemSys::Hub::Pull()->Dealloc(m_observers);
     m_lanes.UnlinkAs(Vt::kBlenderChannelNode);
     CObjectModule::DestroyBody();
 }
@@ -180,7 +180,7 @@ void CAnimBlenderComponent::TickFrame()
     int count = 0;
     bool changed = false;
     Channel* channel = Masked(m_lanes.next);
-    bool ready = static_cast<CDormancyModule*>(mp_component18)->WantsAnimating(reinterpret_cast<float*>(&m_unknown24));
+    bool ready = static_cast<CDormancyModule*>(m_component18)->WantsAnimating(reinterpret_cast<float*>(&m_unknown24));
     if (!channel)
         return;
     do {
@@ -257,7 +257,7 @@ void CAnimBlenderComponent::Seal()
         Virtual<void>(node, 2);
     m_boneRig = m_entity->FetchModule(0x222756D5);
     m_meshInstance = m_entity->FetchModule(0x286A8D26);
-    mp_component18 = m_entity->FetchModule(0xCE0CA665);
+    m_component18 = m_entity->FetchModule(0xCE0CA665);
 }
 
 // 0x00419980
@@ -425,8 +425,8 @@ Gfx2D::CBlendChannel* CAnimBlenderComponent::AddChannel(uint32_t id, bool atFron
 // 0x0041A220
 void CAnimBlenderComponent::NotifyObservers(Gfx2D::CStance* pose)
 {
-    auto** sentinel = static_cast<void**>(mp_observers);
-    for (auto** node = sentinel ? static_cast<void**>(sentinel[1]) : nullptr; node != mp_observers;
+    auto** sentinel = static_cast<void**>(m_observers);
+    for (auto** node = sentinel ? static_cast<void**>(sentinel[1]) : nullptr; node != m_observers;
          node = static_cast<void**>(node[1]))
         Virtual<void>(node[0], 1, pose);
 }

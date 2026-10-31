@@ -63,10 +63,10 @@ CObjectModule* __cdecl CRiderPhysicsTweaks::Fabricate()
         return nullptr;
     auto* component = static_cast<CRiderPhysicsTweaks*>(memory);
     component->CObjectModule::MakeNew();
-    component->mp_core = nullptr;
+    component->m_corePtr = nullptr;
     component->m_meshInstance = nullptr;
     component->m_shadowHandle = nullptr;
-    component->mp_ride = nullptr;
+    component->m_ride = nullptr;
     component->m_uberFrigged = 0;
     component->m_vtable = kVtable;
     component->m_kindTag = kType;
@@ -92,24 +92,24 @@ CRiderPhysicsTweaks* CRiderPhysicsTweaks::Teardown(unsigned int flags)
 // 0x004F8080
 void CRiderPhysicsTweaks::Seal()
 {
-    mp_core = m_entity->FetchModule(kSkaterCorePhysics);
+    m_corePtr = m_entity->FetchModule(kSkaterCorePhysics);
     m_meshInstance = reinterpret_cast<CMeshInstanceModule*>(m_entity->FetchModule(kModel));
     m_shadowHandle = reinterpret_cast<CGroundShadowModule*>(m_entity->FetchModule(kShadow));
-    mp_ride = reinterpret_cast<CMovingSurfaceModule*>(m_entity->FetchModule(kMovableContact));
-    mp_state = reinterpret_cast<CRiderPoseState*>(m_entity->FetchModule(kSkaterState));
+    m_ride = reinterpret_cast<CMovingSurfaceModule*>(m_entity->FetchModule(kMovableContact));
+    m_stateRef = reinterpret_cast<CRiderPoseState*>(m_entity->FetchModule(kSkaterState));
 }
 
 // 0x004F8C40
 void CRiderPhysicsTweaks::FrameUpdate()
 {
-    uint8_t* flags = At<uint8_t*>(mp_core, kTimedFlags);
+    uint8_t* flags = At<uint8_t*>(m_corePtr, kTimedFlags);
     if (At<int>(flags, 0x18) == 0 || m_entity->m_vel.y < 0.0f) {
         if (flags[0x60] != 1) {
             flags[0x60] = 1;
             At<int>(flags, 0x64) = FrameClock::GameClockElapsed() + g_clockOffset;
         }
     }
-    if (!At<uint8_t*>(mp_core, kTimedFlags)[0x88])
+    if (!At<uint8_t*>(m_corePtr, kTimedFlags)[0x88])
         CheckInsideMovingObject();
     TickFrame();
     m_entity->m_oldPos = m_entity->m_atPoint;
@@ -118,8 +118,8 @@ void CRiderPhysicsTweaks::FrameUpdate()
 // 0x004F8AA0
 void CRiderPhysicsTweaks::CheckInsideMovingObject()
 {
-    Maths::Vec4& frameStart = At<Maths::Vec4>(mp_core, kFrameStart);
-    if (!mp_ride->FindContactAhead(&m_entity->m_atPoint, &frameStart))
+    Maths::Vec4& frameStart = At<Maths::Vec4>(m_corePtr, kFrameStart);
+    if (!m_ride->FindContactAhead(&m_entity->m_atPoint, &frameStart))
         return;
     DebugOut::Printf("M:%s:%i: %s\n", "mponents\\SkaterAdjustPhysicsComponent.cpp", 0x182, "found to be inside a moving object");
     Engine3D::CProbeRay feeler;
@@ -130,9 +130,9 @@ void CRiderPhysicsTweaks::CheckInsideMovingObject()
     Maths::Vec4 end = {pos.x, static_cast<float>(static_cast<double>(pos.y) - kFeelerReach), pos.z, pos.w};
     feeler.ChangeFinish(&end);
     if (feeler.GetHitShape(true, false) && feeler.HitObjectAlive())
-        reinterpret_cast<Walk::MovableContact*>(mp_ride)->StartRiding(feeler.GetHitObject());
-    if (At<int>(At<uint8_t*>(mp_core, kTimedFlags), 0x18) == 4) {
-        ChangePhase(mp_core, 1);
+        reinterpret_cast<Walk::MovableContact*>(m_ride)->StartRiding(feeler.GetHitObject());
+    if (At<int>(At<uint8_t*>(m_corePtr, kTimedFlags), 0x18) == 4) {
+        ChangePhase(m_corePtr, 1);
         m_entity->PostOwnEvent(kUnderTheFloor, nullptr);
     } else if (m_entity->m_atPoint == frameStart) {
         m_entity->m_vel = {0.0f, 0.0f, 0.0f, 1.0f};

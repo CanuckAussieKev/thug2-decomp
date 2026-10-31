@@ -72,7 +72,7 @@ void SkaterPhysicsModule::TryStartSkitch()
     float nearest = Scripts::FetchFloat(kSkitchMaxDistance);
     GameObjects::CGameEntity* found = nullptr;
     for (GameObjects::CObjectModule* skitch = GameObjects::ObjectHubSlot()->FindFirstModuleOfKind(kSkitch); skitch;
-         skitch = skitch->mp_nextOfType) {
+         skitch = skitch->m_nextOfType) {
         if (!At<uint8_t>(skitch, 0x18))
             continue;
         GameObjects::CGameEntity* car = skitch->m_entity;

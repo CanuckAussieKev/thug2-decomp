@@ -91,13 +91,13 @@ public:
     uint8_t pad45[3];
     void* m_meshInstance;        // +0x48 the model component's model (+0x208)
     void* m_boneRig;     // +0x4C the skeleton component's skeleton (+0x18)
-    uint8_t* mp_motion;    // +0x50 the motion component
-    uint8_t* mp_suspend;   // +0x54 the suspend component
+    uint8_t* m_motion;    // +0x50 the motion component
+    uint8_t* m_suspend;   // +0x54 the suspend component
 };
 static_assert(offsetof(CAutomobileDynamicsModule, m_wheelSpin) == 0x18 && offsetof(CAutomobileDynamicsModule, m_lastSpeed) == 0x30 &&
                   offsetof(CAutomobileDynamicsModule, m_tiltDivisor) == 0x40 &&
                   offsetof(CAutomobileDynamicsModule, m_bodyShown) == 0x44 &&
-                  offsetof(CAutomobileDynamicsModule, mp_suspend) == 0x54 && sizeof(CAutomobileDynamicsModule) == 0x58,
+                  offsetof(CAutomobileDynamicsModule, m_suspend) == 0x54 && sizeof(CAutomobileDynamicsModule) == 0x58,
               "layout must match the original");
 static_assert(offsetof(CAutomobileDynamicsModule::BoneDesc, parent) == 0x08 &&
                   offsetof(CAutomobileDynamicsModule::BoneDesc, index) == 0x0A &&

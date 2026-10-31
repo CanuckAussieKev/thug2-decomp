@@ -293,7 +293,7 @@ public:
     uint32_t m_savedNodeId;     // +0x1C0 Obj_StoreNode
     float m_turnTime;          // +0x1C4 Obj_Rotate's time (0: at once)
     float m_turnElapsed;       // +0x1C8
-    Maths::ArcRotationBlender* mp_turn; // +0x1CC Obj_Rotate's interpolator (0x98 bytes)
+    Maths::ArcRotationBlender* m_turnPtr; // +0x1CC Obj_Rotate's interpolator (0x98 bytes)
     float m_hoverBase;         // +0x1D0 the height without the bob
     float m_bobNow;       // +0x1D4 the bob now
     float m_bobHeight;    // +0x1D8
@@ -301,8 +301,8 @@ public:
     float m_frameTime;         // +0x1E0 this frame's length (seconds, slow motion included)
     uint32_t m_firstNode;      // +0x1E4 its own node (Name)
     uint32_t m_listLink;           // +0x1E8 the node it's at
-    CPathFollower* mp_pathFollower; // +0x1EC
-    CFollowTrail* mp_trail;    // +0x1F0 Obj_FollowLeader's
+    CPathFollower* m_pathFollower; // +0x1EC
+    CFollowTrail* m_trail;    // +0x1F0 Obj_FollowLeader's
     bool m_leaveYUnaffected;   // +0x1F4 Obj_FollowLeader's LeaveYUnaffected
     uint8_t pad1F5[3];
     float m_jumpSpeed;         // +0x1F8 up (per second)
@@ -338,9 +338,9 @@ static_assert(offsetof(CKinematicsModule, m_motionFlags) == 0x18 && offsetof(CKi
                   offsetof(CKinematicsModule, m_rotTarget) == 0x12C && offsetof(CKinematicsModule, m_moveStart) == 0x18C &&
                   offsetof(CKinematicsModule, m_groundSpeed) == 0x19C &&
                   offsetof(CKinematicsModule, m_pathMinStopSpeed) == 0x1AC &&
-                  offsetof(CKinematicsModule, m_storedPos) == 0x1B0 && offsetof(CKinematicsModule, mp_turn) == 0x1CC &&
+                  offsetof(CKinematicsModule, m_storedPos) == 0x1B0 && offsetof(CKinematicsModule, m_turnPtr) == 0x1CC &&
                   offsetof(CKinematicsModule, m_hoverBase) == 0x1D0 && offsetof(CKinematicsModule, m_frameTime) == 0x1E0 &&
-                  offsetof(CKinematicsModule, mp_pathFollower) == 0x1EC &&
+                  offsetof(CKinematicsModule, m_pathFollower) == 0x1EC &&
                   offsetof(CKinematicsModule, m_leaveYUnaffected) == 0x1F4 &&
                   offsetof(CKinematicsModule, m_jumpSpeed) == 0x1F8 &&
                   offsetof(CKinematicsModule, m_jumpHasHeading) == 0x210 &&

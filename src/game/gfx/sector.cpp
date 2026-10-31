@@ -42,7 +42,7 @@ CWorldCell* CWorldCell::MakeNew()
     vtable = reinterpret_cast<void**>(kSectorVtable);
     m_flagBits = kSectorCollidable;
     m_geomHandle = nullptr;
-    mp_collObj = nullptr;
+    m_hitBody = nullptr;
     m_rotY = 0;
     m_surfaceType = kDefaultTerrain;
     return this;
@@ -52,8 +52,8 @@ CWorldCell* CWorldCell::MakeNew()
 void CWorldCell::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(kSectorVtable);
-    if (mp_collObj && (m_flagBits & kSectorClone))
-        mp_collObj->Call<void*>(0, 1u);
+    if (m_hitBody && (m_flagBits & kSectorClone))
+        m_hitBody->Call<void*>(0, 1u);
     if (m_geomHandle)
         (*reinterpret_cast<void* (__thiscall***)(void*, unsigned int)>(m_geomHandle))[0](m_geomHandle, 1);
 }
@@ -95,11 +95,11 @@ CWorldCell* CWorldCell::Replicate(int instance, bool flag, void* scene)
     clone->m_rotY = m_rotY;
     if (m_geomHandle)
         clone->m_geomHandle = static_cast<CGeom*>(m_geomHandle)->Replicate(instance, scene);
-    if (!mp_collObj)
+    if (!m_hitBody)
         return clone;
-    auto* coll = mp_collObj->Call<CHitMesh*>(12, instance);
+    auto* coll = m_hitBody->Call<CHitMesh*>(12, instance);
     if (coll) {
-        clone->mp_collObj = coll;
+        clone->m_hitBody = coll;
         coll->SetChecksum(clone->m_checksum);
         clone->m_flagBits &= ~kSectorInGrid;
         if (flag)
@@ -108,7 +108,7 @@ CWorldCell* CWorldCell::Replicate(int instance, bool flag, void* scene)
             SetGeomCollTriData(clone->m_geomHandle, coll->m_geometry);
     } else {
         clone->m_flagBits &= ~kSectorInGrid;
-        clone->mp_collObj = nullptr;
+        clone->m_hitBody = nullptr;
         if (clone->m_geomHandle)
             SetGeomCollTriData(clone->m_geomHandle, nullptr);
     }
@@ -121,9 +121,9 @@ void CWorldCell::ChooseGeom(void* geom) { m_geomHandle = geom; }
 // 0x0049EAA0
 bool CWorldCell::SetCollObj(CHitMesh* coll)
 {
-    if (mp_collObj)
+    if (m_hitBody)
         return false;
-    mp_collObj = coll;
+    m_hitBody = coll;
     if (m_geomHandle)
         SetGeomCollTriData(m_geomHandle, coll->m_geometry);
     return true;
@@ -172,11 +172,11 @@ uint32_t CWorldCell::FetchShown() { return m_geomHandle ? GeomCall<uint32_t>(12,
 // 0x0049E9B0
 void CWorldCell::ChangeLive(bool active)
 {
-    if (mp_collObj) {
+    if (m_hitBody) {
         if (active)
-            CollFlags(mp_collObj) &= ~4;
+            CollFlags(m_hitBody) &= ~4;
         else
-            CollFlags(mp_collObj) |= 4;
+            CollFlags(m_hitBody) |= 4;
     }
     if (m_geomHandle)
         GeomCall<void>(13, m_geomHandle, active);
@@ -187,7 +187,7 @@ bool CWorldCell::IsOperative()
 {
     if (m_geomHandle)
         return GeomCall<bool>(14, m_geomHandle);
-    return !(CollFlags(mp_collObj) & 4);
+    return !(CollFlags(m_hitBody) & 4);
 }
 
 // 0x0049EA30
@@ -197,26 +197,26 @@ void CWorldCell::EnableCollision(bool collidable)
         m_flagBits |= kSectorCollidable;
     else
         m_flagBits &= ~kSectorCollidable;
-    if (mp_collObj) {
+    if (m_hitBody) {
         if (collidable)
-            CollFlags(mp_collObj) &= ~2;
+            CollFlags(m_hitBody) &= ~2;
         else
-            CollFlags(mp_collObj) |= 2;
+            CollFlags(m_hitBody) |= 2;
     }
 }
 
 // 0x0049EA60
 void CWorldCell::MarkAsOccluder(bool occluder)
 {
-    if (!mp_collObj)
+    if (!m_hitBody)
         return;
     if (!occluder) {
-        CollFlags(mp_collObj) &= 0x7F;
+        CollFlags(m_hitBody) &= 0x7F;
         return;
     }
-    if (!(CollFlags(mp_collObj) & 0x80)) {
-        mp_collObj->m_flagBits |= 0x80;
-        static_cast<CollGeometryForwarders*>(mp_collObj)->AddOcclusionPolys(); // its occlusion polygons added
+    if (!(CollFlags(m_hitBody) & 0x80)) {
+        m_hitBody->m_flagBits |= 0x80;
+        static_cast<CollGeometryForwarders*>(m_hitBody)->AddOcclusionPolys(); // its occlusion polygons added
     }
 }
 
@@ -225,17 +225,17 @@ const Maths::BBox* CWorldCell::FetchBounds()
 {
     if (m_geomHandle)
         return GeomCall<const Maths::BBox*>(15, m_geomHandle);
-    return mp_collObj->Call<const Maths::BBox*>(21);
+    return m_hitBody->Call<const Maths::BBox*>(21);
 }
 
 // 0x0049E740 (both of the original's branches call the collision's: there must be one)
-const Maths::Mat4* CWorldCell::FetchFacing() { return mp_collObj->Call<const Maths::Mat4*>(8); }
+const Maths::Mat4* CWorldCell::FetchFacing() { return m_hitBody->Call<const Maths::Mat4*>(8); }
 
 // 0x0049E6C0
 void CWorldCell::PlaceAtAbsolutePoint(const Maths::Vec4* position)
 {
-    if (mp_collObj) {
-        mp_collObj->Call<void>(5, position);
+    if (m_hitBody) {
+        m_hitBody->Call<void>(5, position);
         if (m_flagBits & kSectorInGrid)
             m_flagBits |= kSectorMoved;
     }
@@ -246,8 +246,8 @@ void CWorldCell::PlaceAtAbsolutePoint(const Maths::Vec4* position)
 // 0x0049E700
 void CWorldCell::ChangeFacing(const Maths::Mat4* orientation)
 {
-    if (mp_collObj) {
-        mp_collObj->Call<void>(6, orientation);
+    if (m_hitBody) {
+        m_hitBody->Call<void>(6, orientation);
         if (m_flagBits & kSectorInGrid)
             m_flagBits |= kSectorMoved;
     }
@@ -259,9 +259,9 @@ void CWorldCell::ChangeFacing(const Maths::Mat4* orientation)
 void CWorldCell::SpinAroundUp(int turns)
 {
     int delta = (turns - m_rotY + 4) % 4;
-    if (mp_collObj) {
-        const Maths::Vec4* about = m_geomHandle ? GeomWorldPosition(m_geomHandle) : mp_collObj->Call<const Maths::Vec4*>(7);
-        mp_collObj->Call<void>(22, about, delta);
+    if (m_hitBody) {
+        const Maths::Vec4* about = m_geomHandle ? GeomWorldPosition(m_geomHandle) : m_hitBody->Call<const Maths::Vec4*>(7);
+        m_hitBody->Call<void>(22, about, delta);
     }
     if (m_geomHandle)
         GeomCall<void>(22, m_geomHandle, delta);
@@ -271,9 +271,9 @@ void CWorldCell::SpinAroundUp(int turns)
 // 0x0049E7C0
 void CWorldCell::ChangeScale(const Maths::Vec4* scale)
 {
-    if (mp_collObj) {
-        const Maths::Vec4* about = m_geomHandle ? GeomWorldPosition(m_geomHandle) : mp_collObj->Call<const Maths::Vec4*>(7);
-        mp_collObj->Call<void>(23, about, scale);
+    if (m_hitBody) {
+        const Maths::Vec4* about = m_geomHandle ? GeomWorldPosition(m_geomHandle) : m_hitBody->Call<const Maths::Vec4*>(7);
+        m_hitBody->Call<void>(23, about, scale);
         if (m_flagBits & kSectorInGrid)
             m_flagBits |= kSectorMoved;
     }
@@ -284,10 +284,10 @@ void CWorldCell::ChangeScale(const Maths::Vec4* scale)
 // 0x0049EA00
 void CWorldCell::ChooseRawVerts(const Maths::Vec4* vertices)
 {
-    if (!mp_collObj || !mp_collObj->m_geometry)
+    if (!m_hitBody || !m_hitBody->m_geometry)
         return;
     // CTriMeshSource: every vertex set (0x00415C10)
-    mp_collObj->m_geometry->ChooseRawVerts(vertices);
+    m_hitBody->m_geometry->ChooseRawVerts(vertices);
     if (m_flagBits & kSectorInGrid)
         m_flagBits |= kSectorMoved;
 }

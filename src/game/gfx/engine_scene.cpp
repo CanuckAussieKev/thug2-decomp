@@ -115,7 +115,7 @@ void CWorldScene::PrintCollStatics()
 // 0x0049C9F0
 CStaticCollider* CWorldScene::FetchStaticCollision(int index)
 {
-    return reinterpret_cast<CStaticCollider*>(reinterpret_cast<uint8_t*>(mp_collStatics) + index * kCollStaticSize);
+    return reinterpret_cast<CStaticCollider*>(reinterpret_cast<uint8_t*>(m_collStatics) + index * kCollStaticSize);
 }
 
 // 0x0049CA10
@@ -137,7 +137,7 @@ int __cdecl MakeCollisionFileName(char* out, const char* level)
 // 0x0049CB00
 void* CWorldScene::LookUpSector(uint32_t name)
 {
-    ListKit::KeyMap* table = mp_sectors;
+    ListKit::KeyMap* table = m_sectors;
     ListKit::KeyMap::Item* item = &table->m_buckets[name & ((1u << table->m_bits) - 1)];
     for (; item; item = item->next) {
         if (item->key == name && item->value)
@@ -156,7 +156,7 @@ bool CWorldScene::RemoveSceneSector(void* sector)
     }
     if (LookUpSector(SectorKeyFromSpec(sector)) == sector) {
         uint32_t name = SectorKeyFromSpec(sector);
-        mp_sectors->EraseEntry(name);
+        m_sectors->EraseEntry(name);
     }
     if (sector)
         Virtual<void*>(sector, 0, 1u);
@@ -238,7 +238,7 @@ bool CWorldScene::InitCollisionGrid(const Maths::BBox* box)
             for (int z = 0; z < CCollGrid::kSize; ++z)
                 grid->m_cells[x][z].MakeNew();
     }
-    mp_collGrid = grid;
+    m_collGrid = grid;
     grid->PrepareAll(&m_collisionBox); // (no check, as the original)
     return true;
 }
@@ -246,19 +246,19 @@ bool CWorldScene::InitCollisionGrid(const Maths::BBox* box)
 // 0x0049CFB0
 bool CWorldScene::UnloadCollision()
 {
-    if (CCollGrid* grid = mp_collGrid) {
+    if (CCollGrid* grid = m_collGrid) {
         for (int i = CCollGrid::kSize * CCollGrid::kSize - 1; i >= 0; --i) // (the grid's destructor, 0x0049C980)
             (&grid->m_cells[0][0])[i].Destruct();
         MemSys::Dealloc(grid);
-        mp_collGrid = nullptr;
+        m_collGrid = nullptr;
     }
-    if (mp_collStatics) {
-        int* block = reinterpret_cast<int*>(mp_collStatics) - 1;
+    if (m_collStatics) {
+        int* block = reinterpret_cast<int*>(m_collStatics) - 1;
         if (*block) // (the deleting destructor of the array, through the first's vtable: 0x0049CE00)
-            Virtual<void*>(mp_collStatics, 0, 3u);
+            Virtual<void*>(m_collStatics, 0, 3u);
         else
             MemSys::Dealloc(block);
-        mp_collStatics = nullptr;
+        m_collStatics = nullptr;
     }
     if (m_pipName[0]) {
         Packs::Offload(m_pipName);
@@ -270,16 +270,16 @@ bool CWorldScene::UnloadCollision()
 // 0x0049D030
 void CWorldScene::DeleteMarkedSectors()
 {
-    if (!mp_collGrid)
+    if (!m_collGrid)
         return;
-    ForEachSector(mp_sectors, [](void* sector) {
+    ForEachSector(m_sectors, [](void* sector) {
         if (SectorAttributeBits(sector) & 8) {
             ResetSectorBits(sector, 0x40);
             Virtual<void*>(sector, 0, 1u);
         }
     });
-    mp_collGrid->Clear();
-    mp_sectors->EmptyTable();
+    m_collGrid->Clear();
+    m_sectors->EmptyTable();
 }
 
 // 0x0049D0B0
@@ -287,7 +287,7 @@ void CWorldScene::SetSectorsInBox(const Maths::Vec4* box, uint32_t on, int)
 {
     float minX = box[0].x, minY = box[0].y, minZ = box[0].z;
     float maxX = box[1].x, maxY = box[1].y, maxZ = box[1].z;
-    ForEachSector(mp_sectors, [&](void* sector) {
+    ForEachSector(m_sectors, [&](void* sector) {
         const Maths::BBox* bounds = SectorBox(sector);
         const auto* f = reinterpret_cast<const float*>(bounds);
         // (each "not past it": NaN counts as touching)

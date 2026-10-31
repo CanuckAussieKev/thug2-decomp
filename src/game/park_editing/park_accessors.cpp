@@ -163,7 +163,7 @@ int CParkLayout::GetRestartIndex(uint32_t name)
 CPieceGroup* CParkLayout::FetchMetaTemplate(uint32_t name, int* index)
 {
     int position = m_numAbstractMetas - 1;
-    for (CMapListNode* node = mp_abstract_metas; node; node = node->m_following, --position) {
+    for (CMapListNode* node = m_abstract_metas; node; node = node->m_following, --position) {
         CPieceGroup* meta = node->GetPieceGroup()->Cast();
         if (meta->m_nameKey == name) {
             if (index)
@@ -235,27 +235,27 @@ void CParkLayout::CreateGapManagerCopy()
     MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_scriptHeap);
     void* memory = MemSys::Alloc(0xA8);
     CGapRegistry* copy = memory ? static_cast<CGapRegistry*>(memory)->MakeNew(nullptr) : nullptr;
-    mp_gapManagerCopy = copy;
+    m_gapManagerCopy = copy;
     copy->CopyFrom(static_cast<CGapRegistry*>(current)); // (null if out of memory)
     MemSys::LeaveHeapScope();
     GapManagerInstance() = current; // (the constructor made the copy current)
 }
 
-void CParkLayout::UseGapManagerCopy() { GapManagerInstance() = mp_gapManagerCopy; }
+void CParkLayout::UseGapManagerCopy() { GapManagerInstance() = m_gapManagerCopy; }
 
 void CParkLayout::DestroyGapManagerCopy()
 {
-    CGapRegistry* copy = mp_gapManagerCopy;
+    CGapRegistry* copy = m_gapManagerCopy;
     if (!copy)
         return;
     copy->Teardown();
     MemSys::Hub::Pull()->Dealloc(copy);
-    mp_gapManagerCopy = nullptr;
+    m_gapManagerCopy = nullptr;
 }
 
 void CParkLayout::HighlightGapPieces(bool on, SGapDetails* gap)
 {
-    for (CMapListNode* node = mp_concrete_metas; node; node = node->m_following) {
+    for (CMapListNode* node = m_concrete_metas; node; node = node->m_following) {
         if (node->GetPieceGroup()->Cast()->m_flagBits & CPieceGroup::kHighlightable)
             node->GetPieceGroup()->Cast()->Spotlight(on, 1);
     }
@@ -276,7 +276,7 @@ void CParkLayout::ClearFloorChangeMarks()
             m_floor[x][z].m_delta = 0;
         }
     }
-    for (CMapListNode* node = mp_concrete_metas; node; node = node->m_following)
+    for (CMapListNode* node = m_concrete_metas; node; node = node->m_following)
         node->GetPieceGroup()->Cast()->m_flagBits &= ~CPieceGroup::kFlag20;
 }
 

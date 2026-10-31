@@ -57,10 +57,10 @@ public:
     float m_brightness;            // +0x08
     float m_intensityGoal;      // +0x0C
     float m_sizeFactor;                 // +0x10: the ambient colour's
-    float* mp_intensities;         // +0x14: each light's
-    const Maths::Vec4* mp_position; // +0x18
+    float* m_intensities;         // +0x14: each light's
+    const Maths::Vec4* m_placeRef; // +0x18
 };
-static_assert(offsetof(CModelLights, mp_intensities) == 0x14 && sizeof(CModelLights) == 0x1C,
+static_assert(offsetof(CModelLights, m_intensities) == 0x14 && sizeof(CModelLights) == 0x1C,
               "layout must match the original");
 
 extern uint32_t g_lightCount;

@@ -532,12 +532,12 @@ bool __cdecl CFunc_Debounce(Scripts::CStruct* params, Scripts::CScript*)
     int release = 0;
     params->FetchIntValue(0x1A4E0EF9u, &release, 0);
     auto* objects = GameObjects::g_compositeRegistry;
-    for (GameObjects::CObjectModule* input = objects->FindFirstModuleOfKind(0x27D7CD28); input; input = input->mp_nextOfType)
+    for (GameObjects::CObjectModule* input = objects->FindFirstModuleOfKind(0x27D7CD28); input; input = input->m_nextOfType)
         static_cast<GameObjects::CPadInputModule*>(input)->LockButton(button, time, release != 0);
     // x87: the unsigned clock + time * 1000.0 (0x006453C0), stored as a float
     float until = static_cast<float>(static_cast<double>(FrameClock::GetTime()) +
                                      static_cast<double>(time) * static_cast<double>(Gfx2D::g_thousand));
-    for (GameObjects::CObjectModule* trick = objects->FindFirstModuleOfKind(0x270F56E1); trick; trick = trick->mp_nextOfType)
+    for (GameObjects::CObjectModule* trick = objects->FindFirstModuleOfKind(0x270F56E1); trick; trick = trick->m_nextOfType)
         static_cast<GameObjects::CMoveExecutor*>(trick)->HoldOffButton(PadInput::ButtonIndex(button), until);
     return true;
 }

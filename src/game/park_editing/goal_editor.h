@@ -347,7 +347,7 @@ public:
 
     CEditedGoal m_goals[50];               // +0x0018
     CEditedGoal* m_activeNode;               // +0xA108 the one being edited
-    GameObjects::CObjectModule* mp_input;         // +0xA10C the object's input component
+    GameObjects::CObjectModule* m_inputPtr;         // +0xA10C the object's input component
     GameObjects::CObjectModule* m_viewCamera;        // +0xA110 its editor camera
 };
 static_assert(offsetof(CObjectiveAuthoring, m_goals) == 0x18 && offsetof(CObjectiveAuthoring, m_activeNode) == 0xA108 &&

@@ -176,7 +176,7 @@ void SHiddenModels::Conceal()
         return static_cast<GameObjects::CMeshInstanceModule*>(manager->FindFirstModuleOfKind(GameObjects::CMeshInstanceModule::kType));
     };
     int count = 0;
-    for (auto* component = first(); component; component = static_cast<GameObjects::CMeshInstanceModule*>(component->mp_nextOfType)) {
+    for (auto* component = first(); component; component = static_cast<GameObjects::CMeshInstanceModule*>(component->m_nextOfType)) {
         if (Hideable(component))
             ++count;
     }
@@ -184,11 +184,11 @@ void SHiddenModels::Conceal()
         return;
     if (!MemSys::g_managerReady)
         MemSys::EnsureManager();
-    mp_ids = static_cast<uint32_t*>(MemSys::Hub::Pull()->Carve(count * 4, 1, nullptr));
+    m_idsPtr = static_cast<uint32_t*>(MemSys::Hub::Pull()->Carve(count * 4, 1, nullptr));
     m_num = 0;
-    for (auto* component = first(); component; component = static_cast<GameObjects::CMeshInstanceModule*>(component->mp_nextOfType)) {
+    for (auto* component = first(); component; component = static_cast<GameObjects::CMeshInstanceModule*>(component->m_nextOfType)) {
         if (Hideable(component)) {
-            mp_ids[m_num] = ObjectId(component);
+            m_idsPtr[m_num] = ObjectId(component);
             component->m_meshInstance->Conceal(1);
             ++m_num;
         }
@@ -199,15 +199,15 @@ void SHiddenModels::Conceal()
 // 0x00487CB0
 void SHiddenModels::Show()
 {
-    if (mp_ids) {
+    if (m_idsPtr) {
         for (int i = 0; i < m_num; ++i) {
-            if (auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(mp_ids[i]))) {
+            if (auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(m_idsPtr[i]))) {
                 auto* component = static_cast<GameObjects::CMeshInstanceModule*>(object->FetchModule(GameObjects::CMeshInstanceModule::kType));
                 component->m_meshInstance->Conceal(0);
             }
         }
-        MemSys::Hub::Pull()->Dealloc(mp_ids);
-        mp_ids = nullptr;
+        MemSys::Hub::Pull()->Dealloc(m_idsPtr);
+        m_idsPtr = nullptr;
     }
     m_num = 0;
 }

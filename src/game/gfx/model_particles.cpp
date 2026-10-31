@@ -49,7 +49,7 @@ CModelParticles* CModelParticles::MakeNew(uint32_t name, int particleCap, const 
     char fileName[512] = {};
     m_positionArray = nullptr;
     m_modelList = nullptr;
-    mp_unknown13C = nullptr;
+    m_unknown13CPtr = nullptr;
     m_particleList = nullptr;
     m_unknown8C = 0;
     ParticleParts::SetVtables(this, Vt::kModelParticles, Vt::kModelParticlesNode);
@@ -87,24 +87,24 @@ CModelParticles* CModelParticles::MakeNew(uint32_t name, int particleCap, const 
         for (unsigned int i = 0; i < m_modelCount; ++i)
             rotations[i] = {0.0f, 0.0f, 0.0f, 1.0f}; // (the constructor 0x00464340)
     }
-    mp_unknown13C = rotations;
+    m_unknown13CPtr = rotations;
     if (!rotations)
         return this;
-    mp_startColour = static_cast<uint8_t*>(Carve(4));
-    if (!mp_startColour)
+    m_startColour = static_cast<uint8_t*>(Carve(4));
+    if (!m_startColour)
         return this;
-    mp_midColour = static_cast<uint8_t*>(Carve(4));
-    if (!mp_midColour)
+    m_midColour = static_cast<uint8_t*>(Carve(4));
+    if (!m_midColour)
         return this;
-    mp_endColour = static_cast<uint8_t*>(Carve(4));
-    if (!mp_endColour)
+    m_endColour = static_cast<uint8_t*>(Carve(4));
+    if (!m_endColour)
         return this;
     for (unsigned int i = 0; i < m_modelCount; ++i) {
         rotations[i].x = static_cast<float>(Rand() % 100);
         rotations[i].y = static_cast<float>(Rand() % 100);
         rotations[i].z = static_cast<float>(Rand() % 100);
         rotations[i].w = static_cast<float>(Rand() % 100);
-        static_cast<Maths::QuatRotation*>(mp_unknown13C)->MakeUnit(1.0f); // (the first, each time: the original's)
+        static_cast<Maths::QuatRotation*>(m_unknown13CPtr)->MakeUnit(1.0f); // (the first, each time: the original's)
     }
     m_colourMid = -1.0f;
     m_flagBits |= 4u;
@@ -124,7 +124,7 @@ void CModelParticles::Render()
     // (from the last particle's model: it's shown again below)
     for (unsigned int i = static_cast<unsigned int>(count - 1); i < m_drawnModels; ++i)
         model(i)->ChangeLive(0);
-    auto* rotations = static_cast<Maths::QuatRotation*>(mp_unknown13C);
+    auto* rotations = static_cast<Maths::QuatRotation*>(m_unknown13CPtr);
     for (int p = 0; p < count; ++p) {
         sFlexibleParticle& particle = m_particleList[p];
         model(static_cast<unsigned int>(p))->ChangeLive(1);
@@ -132,17 +132,17 @@ void CModelParticles::Render()
         const uint8_t* from;
         const uint8_t* to;
         if (!(m_colourMid >= 0.0f)) { // (no mid colour; NaN too)
-            from = mp_startColour;
-            to = mp_endColour;
+            from = m_startColour;
+            to = m_endColour;
         } else if (life < m_colourMid) {
             life = static_cast<float>(static_cast<double>(life) / m_colourMid);
-            from = mp_startColour;
-            to = mp_midColour;
+            from = m_startColour;
+            to = m_midColour;
         } else {
             life = static_cast<float>((static_cast<double>(life) - m_colourMid) /
                                       (1.0 - static_cast<double>(m_colourMid)));
-            from = mp_midColour;
-            to = mp_endColour;
+            from = m_midColour;
+            to = m_endColour;
         }
         uint32_t fromColour, toColour, colour;
         std::memcpy(&fromColour, from, 4);

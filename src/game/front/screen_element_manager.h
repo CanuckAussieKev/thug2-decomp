@@ -125,10 +125,10 @@ public:
     void UpdatePriorities();
 
     GameObjects::CSignalReceiver m_listener;                  // +0x28
-    ElementPtr mp_root;                              // +0x44
-    ElementPtr mp_resolving;                         // +0x50 ResolveId's element so far
+    ElementPtr m_treeRoot;                              // +0x44
+    ElementPtr m_resolving;                         // +0x50 ResolveId's element so far
     FocusEntry m_focusEntries[kFocusEntries];        // +0x5C
-    FocusEntry* mp_focusLists[2];                    // +0x4DC one per controller
+    FocusEntry* m_focusLists[2];                    // +0x4DC one per controller
     bool m_focusDirty[2];                      // +0x4E4
     uint8_t pad4E6[2];
     int m_numPriorities;                             // +0x4E8

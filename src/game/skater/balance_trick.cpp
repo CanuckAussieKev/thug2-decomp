@@ -85,8 +85,8 @@ CRiderTeeterMoves* CRiderTeeterMoves::MakeNew()
     m_lip.MakeNew();
     m_skitch.MakeNew();
     m_kindTag = kType;
-    mp_animBlender = nullptr;
-    mp_params = nullptr;
+    m_animBlenderPtr = nullptr;
+    m_callArgs = nullptr;
     return this;
 }
 
@@ -122,7 +122,7 @@ void CRiderTeeterMoves::ConfigureFromData(Scripts::CStruct* /*params*/)
 // 0x004F9080
 void CRiderTeeterMoves::Seal()
 {
-    mp_animBlender = static_cast<CAnimBlenderComponent*>(m_entity->FetchModule(kAnimBlender));
+    m_animBlenderPtr = static_cast<CAnimBlenderComponent*>(m_entity->FetchModule(kAnimBlender));
 }
 
 // 0x004F8D70
@@ -212,8 +212,8 @@ float CRiderTeeterMoves::GetLean() const
 // 0x004F90A0
 float CRiderTeeterMoves::GetPhysicsValue(uint32_t name)
 {
-    if (mp_params)
-        return SkaterOf(m_entity)->GetScaledParam(name, mp_params);
+    if (m_callArgs)
+        return SkaterOf(m_entity)->GetScaledParam(name, m_callArgs);
     uint32_t structure;
     switch (m_trick) {
     case kGrind:
@@ -240,20 +240,20 @@ float CRiderTeeterMoves::GetPhysicsValue(uint32_t name)
 // 0x004F91D0
 void CRiderTeeterMoves::ClearParams()
 {
-    if (Scripts::CStruct* params = mp_params) {
+    if (Scripts::CStruct* params = m_callArgs) {
         params->Clear();
         Scripts::DeleteStruct(params);
-        mp_params = nullptr;
+        m_callArgs = nullptr;
     }
 }
 
 // 0x004F9370
 void CRiderTeeterMoves::ChangeArgs(Scripts::CStruct* params)
 {
-    if (!mp_params)
-        mp_params = SpawnParamBag();
-    mp_params->Clear();
-    mp_params->AppendStructureIfAny(params);
+    if (!m_callArgs)
+        m_callArgs = SpawnParamBag();
+    m_callArgs->Clear();
+    m_callArgs->AppendStructureIfAny(params);
 }
 
 // 0x004F9200
@@ -269,7 +269,7 @@ void CRiderTeeterMoves::SetWobble(Scripts::CStruct* wobble)
         wobble->ReadSubStruct(kWobbleNames[i], &value, 1);
         values[i] = SkaterOf(m_entity)->GetScaledValue(value);
     }
-    mp_animBlender->FirstChannel47E450(values, 1);
+    m_animBlenderPtr->FirstChannel47E450(values, 1);
 }
 
 // 0x004F9420

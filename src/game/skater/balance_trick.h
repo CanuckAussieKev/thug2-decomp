@@ -78,21 +78,21 @@ public:
     uint32_t m_trick;                   // +0x18 the balance trick being balanced (0: none)
     bool m_started;                     // +0x1C StartBalanceTrick
     uint8_t pad1D[3];
-    Scripts::CStruct* mp_params;         // +0x20 DoBalanceTrick's BalanceParams (a copy)
+    Scripts::CStruct* m_callArgs;         // +0x20 DoBalanceTrick's BalanceParams (a copy)
     CBalance m_manual;                  // +0x24 manual / nose manual
     CBalance m_grind;                   // +0x7C grind / slide
     CBalance m_lip;                     // +0xD4
     CBalance m_skitch;                  // +0x12C
-    CAnimBlenderComponent* mp_animBlender; // +0x184
+    CAnimBlenderComponent* m_animBlenderPtr; // +0x184
 };
 static_assert(offsetof(CRiderTeeterMoves, m_trick) == 0x18 &&
                   offsetof(CRiderTeeterMoves, m_started) == 0x1C &&
-                  offsetof(CRiderTeeterMoves, mp_params) == 0x20 &&
+                  offsetof(CRiderTeeterMoves, m_callArgs) == 0x20 &&
                   offsetof(CRiderTeeterMoves, m_manual) == 0x24 &&
                   offsetof(CRiderTeeterMoves, m_grind) == 0x7C &&
                   offsetof(CRiderTeeterMoves, m_lip) == 0xD4 &&
                   offsetof(CRiderTeeterMoves, m_skitch) == 0x12C &&
-                  offsetof(CRiderTeeterMoves, mp_animBlender) == 0x184 &&
+                  offsetof(CRiderTeeterMoves, m_animBlenderPtr) == 0x184 &&
                   sizeof(CRiderTeeterMoves) == 0x188,
               "layout must match the original (0x004F9170 allocates 0x188 bytes)");
 

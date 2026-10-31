@@ -159,7 +159,7 @@ CEffectsEmitterModule* CEffectsEmitterModule::Teardown(unsigned int flags)
 }
 
 // 0x00429BF0
-void CEffectsEmitterModule::Seal() { mp_suspend = m_entity->FetchModule(kSuspend); }
+void CEffectsEmitterModule::Seal() { m_suspend = m_entity->FetchModule(kSuspend); }
 
 // 0x00429960
 void CEffectsEmitterModule::Conceal(bool hide) { reinterpret_cast<Engine3D::CPcParticleSystem*>(m_effectHandle)->Conceal(hide); }
@@ -451,7 +451,7 @@ void CEffectsEmitterModule::ConfigureFromData(Scripts::CStruct* params)
 void CEffectsEmitterModule::TickFrame()
 {
     // (suspended: nothing - unless a network game runs and it has a lifetime)
-    if (mp_suspend && static_cast<CDormancyModule*>(mp_suspend)->IsFar()) {
+    if (m_suspend && static_cast<CDormancyModule*>(m_suspend)->IsFar()) {
         void* net = static_cast<void*>(g_onlineHub);
         if (!static_cast<OnlinePlay::Hub*>(net)->InNetGame() || m_lifespan == 0)
             return;

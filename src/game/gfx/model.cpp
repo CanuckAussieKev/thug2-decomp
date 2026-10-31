@@ -202,17 +202,17 @@ bool CRenderModel::BreakOwnStrips()
 // 0x00493BD0
 bool CRenderModel::CreateLights()
 {
-    mp_lights = NewLights();
+    m_lightsPtr = NewLights();
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
-        SetGeomLights(Geom(node), mp_lights);
+        SetGeomLights(Geom(node), m_lightsPtr);
     return true;
 }
 
 // 0x00493C10
 bool CRenderModel::DestroyLights()
 {
-    DiscardScene(mp_lights);
-    mp_lights = nullptr;
+    DiscardScene(m_lightsPtr);
+    m_lightsPtr = nullptr;
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
         SetGeomLights(Geom(node), nullptr);
     return true;

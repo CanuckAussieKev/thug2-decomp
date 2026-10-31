@@ -174,7 +174,7 @@ void CShotImpactModule::TickFrame()
     if (net->InNetGame() && m_projectileType != kFireball && !net->PlayersCanCollide())
         return;
     float reach = static_cast<float>(static_cast<double>(m_radius) + kReach);
-    if (reinterpret_cast<CDormancyModule*>(mp_suspend)->IsFar() || m_hit)
+    if (reinterpret_cast<CDormancyModule*>(m_suspend)->IsFar() || m_hit)
         return;
     GameModules::Skate* skate = SkateModule();
     uint32_t count = static_cast<uint32_t>(skate->CountRiders());
@@ -284,7 +284,7 @@ CProjectileProximityComponent* CProjectileProximityComponent::Teardown(unsigned 
 void CProjectileProximityComponent::ConfigureFromData(Scripts::CStruct*)
 {
     m_riderRef = LocalSkater();
-    mp_pedLogic = static_cast<CPedestrianBrainModule*>(m_entity->FetchModule(kPedLogic));
+    m_pedLogic = static_cast<CPedestrianBrainModule*>(m_entity->FetchModule(kPedLogic));
     m_reachSquared = kReach * kReach;
 }
 
@@ -297,11 +297,11 @@ void CProjectileProximityComponent::TickFrame()
     }
     if (!m_entity->m_ident)
         return;
-    if (!mp_pedLogic) {
-        mp_pedLogic = static_cast<CPedestrianBrainModule*>(m_entity->FetchModule(kPedLogic));
+    if (!m_pedLogic) {
+        m_pedLogic = static_cast<CPedestrianBrainModule*>(m_entity->FetchModule(kPedLogic));
         return;
     }
-    if (mp_pedLogic->GetLogicState() == kShot)
+    if (m_pedLogic->GetLogicState() == kShot)
         return;
     for (int i = 0; i < 5; ++i) {
         CRider::Projectile& projectile = m_riderRef->m_projectiles[i];

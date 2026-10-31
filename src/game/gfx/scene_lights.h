@@ -28,7 +28,7 @@ struct sLevelLamp {
     float m_radius;               // +0x14
     uint32_t m_label;              // +0x18: the node's (its dynamic light's owner)
     uint32_t m_shade;            // +0x1C: RGBA
-    ListKit::KeyMap* mp_sectors;   // +0x20: the sectors it reaches (keyed by their address)
+    ListKit::KeyMap* m_sectors;   // +0x20: the sectors it reaches (keyed by their address)
 
     // 0x0048FF40 (the array's static constructor's callback): an empty table of 2^4 buckets, grey, nothing else
     // set. Returns this.

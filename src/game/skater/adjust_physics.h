@@ -52,18 +52,18 @@ public:
     int m_uberFrigTries;                 // +0x18 the uber frig's tries in a row (0-5: its offsets from the frame's start)
     uint8_t m_uberFrigged;               // +0x1C set while the uber frig put the skater back this frame
     uint8_t m_pad1D[3];
-    void* mp_core;                       // +0x20 the skater's core physics component
+    void* m_corePtr;                       // +0x20 the skater's core physics component
     CMeshInstanceModule* m_meshInstance;           // +0x24 the model component (UpdateBrightness)
     CGroundShadowModule* m_shadowHandle;         // +0x28
-    CMovingSurfaceModule* mp_ride;   // +0x2C
-    CRiderPoseState* mp_state;     // +0x30
+    CMovingSurfaceModule* m_ride;   // +0x2C
+    CRiderPoseState* m_stateRef;     // +0x30
 };
 static_assert(offsetof(CRiderPhysicsTweaks, m_uberFrigTries) == 0x18 &&
                   offsetof(CRiderPhysicsTweaks, m_uberFrigged) == 0x1C &&
-                  offsetof(CRiderPhysicsTweaks, mp_core) == 0x20 &&
+                  offsetof(CRiderPhysicsTweaks, m_corePtr) == 0x20 &&
                   offsetof(CRiderPhysicsTweaks, m_shadowHandle) == 0x28 &&
-                  offsetof(CRiderPhysicsTweaks, mp_ride) == 0x2C &&
-                  offsetof(CRiderPhysicsTweaks, mp_state) == 0x30,
+                  offsetof(CRiderPhysicsTweaks, m_ride) == 0x2C &&
+                  offsetof(CRiderPhysicsTweaks, m_stateRef) == 0x30,
               "layout must match the original");
 
 } // namespace Obj

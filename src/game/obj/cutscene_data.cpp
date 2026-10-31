@@ -308,7 +308,7 @@ void CCinematicTable::RefreshViewer(void* camera)
     float rotation[4] = {0.0f, 0.0f, 0.0f, 1.0f};
     float translation[4];
     bool flag = false;
-    static_cast<Gfx2D::CJointClipFrames*>(mp_cameraAnim)
+    static_cast<Gfx2D::CJointClipFrames*>(m_cameraAnim)
         ->GetFloatKeyPose(rotation, translation, &flag, static_cast<float>(m_clock - static_cast<double>(m_cameraStart)),
                           static_cast<int>(reinterpret_cast<uint32_t>(m_cameraSource)));
     std::memcpy(position, translation, 16);
@@ -318,7 +318,7 @@ void CCinematicTable::RefreshViewer(void* camera)
         return;
     MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_cinematicLowHeap);
-    static_cast<Gfx2D::CJointClipFrames*>(mp_objectAnims)
+    static_cast<Gfx2D::CJointClipFrames*>(m_objectAnims)
         ->FireEvents(std::bit_cast<float>(m_unknown3478), m_clock, camera, 0);
     MemSys::Hub::Pull()->LeaveHeapScope();
 }

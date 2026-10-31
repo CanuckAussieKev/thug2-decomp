@@ -91,7 +91,7 @@ CAudioEmitterModule* CAudioEmitterModule::MakeNew()
 {
     CObjectModule::MakeNew();
     m_spewer = nullptr;
-    mp_proxim = nullptr;
+    m_proxim = nullptr;
     m_vtable = kVtable;
     m_kindTag = kType;
     m_atPoint = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -121,7 +121,7 @@ void CAudioEmitterModule::ConfigureFromData(Scripts::CStruct* params)
 {
     uint32_t node = reinterpret_cast<uint32_t>(params); // (read into the parameters' own argument slot)
     if (params->ReadHashValue(0x08470F2E, &node, 0)) // ProximNode
-        mp_proxim = Proxim_GetNode(node);
+        m_proxim = Proxim_GetNode(node);
 }
 
 // 0x004335D0
@@ -194,10 +194,10 @@ Maths::Vec4* CAudioEmitterModule::GetPreviousSoundPosition(Maths::Vec4* out, voi
 // 0x00432F10
 bool CAudioEmitterModule::GetSoundExtent(void* camera, Maths::Vec4* out)
 {
-    if (!camera || !mp_proxim)
+    if (!camera || !m_proxim)
         return false;
     Maths::Vec4 nearest;
-    *out = *mp_proxim->NearestPointOn(&nearest, ViewerLocation(camera));
+    *out = *m_proxim->NearestPointOn(&nearest, ViewerLocation(camera));
     return true;
 }
 

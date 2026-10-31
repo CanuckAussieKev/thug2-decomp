@@ -102,12 +102,12 @@ void CImpactDestructModule::ConfigureFromData(Scripts::CStruct* params)
 }
 
 // 0x0041C330
-void CImpactDestructModule::Seal() { mp_suspend = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSuspend)); }
+void CImpactDestructModule::Seal() { m_suspend = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSuspend)); }
 
 // 0x0041C3D0
 void CImpactDestructModule::TickFrame()
 {
-    if (!g_onlineHub->InNetGame() && mp_suspend[0x30])
+    if (!g_onlineHub->InNetGame() && m_suspend[0x30])
         return;
     int& offset = g_clockOffset;
     if (static_cast<uint32_t>(FrameClock::GameClockElapsed()) + (static_cast<uint32_t>(offset) - m_madeTime) > kLifetime) {

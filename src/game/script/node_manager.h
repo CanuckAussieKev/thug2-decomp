@@ -84,10 +84,10 @@ public:
     NodeSlot m_walk;                        // +0x10000 the walk's place (m_listLink -1: no walk)
     uint32_t m_num;                       // +0x10004 node arrays in use
     NodeArrayEntry m_arrays[kMaxArrays];    // +0x10008
-    void* mp_owner;                         // +0x100F8
+    void* m_ownerPtr;                         // +0x100F8
 };
 static_assert(offsetof(CNodeManager, m_walk) == 0x10000 && offsetof(CNodeManager, m_num) == 0x10004 &&
-                  offsetof(CNodeManager, m_arrays) == 0x10008 && offsetof(CNodeManager, mp_owner) == 0x100F8 &&
+                  offsetof(CNodeManager, m_arrays) == 0x10008 && offsetof(CNodeManager, m_ownerPtr) == 0x100F8 &&
                   sizeof(CNodeManager) == 0x100FC,
               "layout must match the original (allocated as 0x100FC bytes)");
 

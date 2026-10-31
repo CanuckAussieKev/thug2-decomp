@@ -63,7 +63,7 @@ uint16_t WithUsers(uint16_t flags, int delta)
 // Every slot cleared and given back (Release and the destructor).
 void FreeSlots(CAnimCacheEntry* entry)
 {
-    for (CAnimCacheSlot*& slot : entry->mp_slots) {
+    for (CAnimCacheSlot*& slot : entry->m_slotsPtr) {
         if (slot) {
             slot->Clear();
             if (slot)
@@ -76,8 +76,8 @@ void FreeSlots(CAnimCacheEntry* entry)
 // The fields Release and the destructor empty.
 void Vacant(CAnimCacheEntry* entry)
 {
-    entry->mp_rotationKeys = nullptr;
-    entry->mp_translationKeys = nullptr;
+    entry->m_rotationKeysPtr = nullptr;
+    entry->m_translationKeysPtr = nullptr;
     entry->m_lookupKey = 0;
     entry->m_bones = 0;
     entry->m_rotationKeySize = 0;
@@ -126,8 +126,8 @@ void CAnimCacheSlot::Clear()
 void CAnimCacheEntry::MakeNew()
 {
     m_flagBits &= 0xA000;
-    mp_rotationKeys = nullptr;
-    mp_translationKeys = nullptr;
+    m_rotationKeysPtr = nullptr;
+    m_translationKeysPtr = nullptr;
     m_lookupKey = 0;
     m_bones = 0;
     m_rotationKeySize = 0;
@@ -157,8 +157,8 @@ uint32_t CAnimCacheEntry::Carve(uint32_t key, int16_t bones, int rotationKeys, i
     m_lookupKey = key;
     m_payload = static_cast<uint8_t*>(MemSys::Alloc(m_allocated));
     std::memset(m_payload, 0, m_allocated);
-    mp_rotationKeys = m_payload;
-    mp_translationKeys = m_payload + m_rotationKeySize * rotationKeys;
+    m_rotationKeysPtr = m_payload;
+    m_translationKeysPtr = m_payload + m_rotationKeySize * rotationKeys;
     PopHeap();
     m_flagBits &= ~(kBusy | kReleasing);
     m_lastUsed = 0;
@@ -173,9 +173,9 @@ uint32_t CAnimCacheEntry::Release()
         // (forever, as the original: the flags were read once)
     }
     m_flagBits = flags | kReleasing;
-    if (mp_releaseCallback) {
-        mp_releaseCallback(mp_releaseArg);
-        mp_releaseCallback = nullptr;
+    if (m_releaseCallback) {
+        m_releaseCallback(m_releaseArg);
+        m_releaseCallback = nullptr;
     }
     uint32_t allocated = m_allocated;
     m_flagBits &= kReleasing;
@@ -190,12 +190,12 @@ uint32_t CAnimCacheEntry::Release()
 void CAnimCacheEntry::DestroyBody()
 {
     m_flagBits &= ~(kKeep | kBusy);
-    mp_releaseCallback = nullptr;
+    m_releaseCallback = nullptr;
     Vacant(this);
     FreeData(this);
-    if (mp_releaseCallback) { // (never: cleared above)
-        mp_releaseCallback(mp_releaseArg);
-        mp_releaseCallback = nullptr;
+    if (m_releaseCallback) { // (never: cleared above)
+        m_releaseCallback(m_releaseArg);
+        m_releaseCallback = nullptr;
     }
     FreeSlots(this);
     m_kindTag = 0;
@@ -205,15 +205,15 @@ void CAnimCacheEntry::DestroyBody()
 int CAnimCacheEntry::NewSlot()
 {
     for (int i = 0; i < kSlots; ++i) {
-        if (mp_slots[i])
+        if (m_slotsPtr[i])
             continue;
         auto* slot = static_cast<CAnimCacheSlot*>(SlotPools().Carve(sizeof(CAnimCacheSlot)));
         if (slot)
             slot->m_clock = 0x8000;
-        mp_slots[i] = slot;
+        m_slotsPtr[i] = slot;
         slot->m_clock &= 0x7FFF; // (null: a crash, as the original)
-        std::memset(mp_slots[i]->m_rotationKeys, 0, sizeof(slot->m_rotationKeys));
-        std::memset(mp_slots[i]->m_translationKeys, 0, sizeof(slot->m_translationKeys));
+        std::memset(m_slotsPtr[i]->m_rotationKeys, 0, sizeof(slot->m_rotationKeys));
+        std::memset(m_slotsPtr[i]->m_translationKeys, 0, sizeof(slot->m_translationKeys));
         return i;
     }
     return -1;
@@ -224,12 +224,12 @@ void CAnimCacheEntry::FreeSlot(int index)
 {
     if (!(m_flagBits & kUserMask))
         return;
-    CAnimCacheSlot* slot = mp_slots[index];
+    CAnimCacheSlot* slot = m_slotsPtr[index];
     if (slot && index > 0) {
         slot->Clear();
-        if (mp_slots[index])
-            CAnimCacheSlot::Dealloc(mp_slots[index]);
-        mp_slots[index] = nullptr;
+        if (m_slotsPtr[index])
+            CAnimCacheSlot::Dealloc(m_slotsPtr[index]);
+        m_slotsPtr[index] = nullptr;
     }
     m_flagBits = WithUsers(m_flagBits, -1);
 }
@@ -237,7 +237,7 @@ void CAnimCacheEntry::FreeSlot(int index)
 // 0x00480590
 int16_t CAnimCacheEntry::SetSlotTime(int index, int16_t time)
 {
-    CAnimCacheSlot* slot = mp_slots[index];
+    CAnimCacheSlot* slot = m_slotsPtr[index];
     if (!slot)
         return 0;
     uint16_t old = slot->m_clock;
@@ -253,10 +253,10 @@ uint8_t CAnimCacheEntry::GetRotationKeySize() { return m_rotationKeySize; }
 uint8_t CAnimCacheEntry::GetTranslationKeySize() { return m_translationKeySize; }
 
 // 0x00480600
-uint8_t* CAnimCacheEntry::GetRotationKeys(int /*unused*/) { return mp_rotationKeys; }
+uint8_t* CAnimCacheEntry::GetRotationKeys(int /*unused*/) { return m_rotationKeysPtr; }
 
 // 0x00480610
-uint8_t* CAnimCacheEntry::GetTranslationKeys(int /*unused*/) { return mp_translationKeys; }
+uint8_t* CAnimCacheEntry::GetTranslationKeys(int /*unused*/) { return m_translationKeysPtr; }
 
 // 0x00480620
 uint16_t* CAnimCacheEntry::GetRotationOffsets() { return m_rotationOffsets; }
@@ -267,8 +267,8 @@ uint16_t* CAnimCacheEntry::GetTranslationOffsets() { return m_translationOffsets
 // 0x00480640
 void CAnimCacheEntry::SetReleaseCallback(void(__cdecl* callback)(void*), void* arg)
 {
-    mp_releaseCallback = callback;
-    mp_releaseArg = arg;
+    m_releaseCallback = callback;
+    m_releaseArg = arg;
 }
 
 // --- the cache ---
@@ -494,7 +494,7 @@ int CClipStore::Defragment()
         if (entry->m_kindTag) {
             Hub()->Dealloc(entry->m_payload);
             entry->m_payload = nullptr;
-            for (CAnimCacheSlot* slot : entry->mp_slots) {
+            for (CAnimCacheSlot* slot : entry->m_slotsPtr) {
                 if (slot)
                     slot->Clear();
             }
@@ -512,8 +512,8 @@ int CClipStore::Defragment()
             CopyForwards(entry->m_payload, copy + offset, entry->m_allocated);
             offset += entry->m_allocated;
             int moved = static_cast<int>(entry->m_payload - *old++);
-            entry->mp_rotationKeys += moved;
-            entry->mp_translationKeys += moved;
+            entry->m_rotationKeysPtr += moved;
+            entry->m_translationKeysPtr += moved;
         }
     }
     MemSys::Dealloc(copy);
