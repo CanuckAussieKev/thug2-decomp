@@ -218,7 +218,7 @@ ElementPtr* UiTree::spawn_part(ElementPtr* out, uint32_t type, uint32_t id, scri
         break;
     }
     element->change_serial(id);
-    virtual_register_object(element.owner_object_);
+    enrol_subject(element.owner_object_);
     v_set_properties(element.owner_object_, params);
     v_set_morph(element.owner_object_, params);
     int priority = 0;
@@ -243,7 +243,7 @@ bool __cdecl cfunc_screen_element_system_init(script::Struct*, script::Script*)
     UiWidget* root = m ? static_cast<PanelWidget*>(m)->make_new() : nullptr;
     memory::Hub::get_pull()->leave_heap_scope();
     root->change_serial(kRootWindow);
-    hub()->virtual_register_object(root);
+    hub()->enrol_subject(root);
     return true;
 }
 

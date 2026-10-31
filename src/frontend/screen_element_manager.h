@@ -22,7 +22,7 @@ namespace frontend {
 class UiTree;
 extern UiTree* g_ui_element_hub; // the singleton
 
-class UiTree : public objects::ObjectHubBase {
+class UiTree final : public objects::ObjectHubBase {
 public:
     // A focused element of one controller's list (0x18 bytes).
     struct FocusEntry {
@@ -47,20 +47,18 @@ public:
 
     static UiTree*& sole() { return g_ui_element_hub; }
 
-    // 0x004AB990: the constructor (returns this): vtables 0x0064A0E8 / 0x0064A104 (the listener), no root, the
-    // listener on the tracker's list for no object, no focus, no priorities, no pad event types read yet.
-    UiTree* make_new();
-    // 0x004ABB00: the destructor body (the entries' smart pointers, the root, the listener, the object list).
-    void destroy_body();
-    // 0x004ACB40 (vtable slot 0): the scalar deleting destructor. 0x004ABAF0: the same from the listener.
-    UiTree* teardown(uint8_t flags);
+    // 0x004AB990: vtables 0x0064A0E8 / 0x0064A104 (the listener), no root, the listener on the tracker's list for no
+    // object, no focus, no priorities, no pad event types read yet.
+    UiTree();
+    // 0x004ABB00 (0x004ACB40 the deleting one; 0x004ABAF0 the same from the listener): the entries' smart
+    // pointers, the root, the listener, the object list.
+    ~UiTree() override;
 
-    // --- the vtable (0x0064A0E8: ObjectHubBase's with 0, 2 and 6 overridden; 0x004AAD30 slot 1 jumps to
-    //     enrol_subject 0x00461A00) ---
-    // 0x004AAFF0 (slot 2): the root unregistered: the first element without a parent becomes the root.
-    void drop_entity_registration(objects::Entity* object);
-    // 0x004AAD40 (slot 6): the object list's head.
-    objects::ObjectListHead* fetch_object_set();
+    // --- the manager's virtuals (vtable 0x0064A0E8; 0x004AAD30, slot 1, jumps to enrol_subject 0x00461A00) ---
+    // 0x004AAFF0: the root unregistered: the first element without a parent becomes the root.
+    void drop_entity_registration(objects::Entity* object) override;
+    // (slot 5: an empty stub - a dead element stays where it is)
+    void remove_entity(objects::Entity*) override {}
 
     // --- elements ---
     // 0x004AAE20: the object with the id (any object: the tracker's lookup) as a smart pointer into `out`;

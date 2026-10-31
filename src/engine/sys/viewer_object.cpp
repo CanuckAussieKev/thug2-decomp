@@ -226,7 +226,7 @@ maths::Vec4 g_origin_position{0.0f, 0.0f, 0.0f, 1.0f};
 // 0x00589910
 void PreviewEntity::read_in(script::Struct* params)
 {
-    object_hub_slot()->virtual_register_object(this);
+    object_hub_slot()->enrol_subject(this);
     add_motion_components(this);
     add_node_components(this, params);
     memory::Hub* memory = memory::Hub::get_pull();

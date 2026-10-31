@@ -67,8 +67,7 @@ ViewpointModule* ViewpointModule::teardown(unsigned int flags)
 void ViewpointModule::configure_from_data(script::Struct*)
 {
     ObjectHubBase* manager = reinterpret_cast<ObjectHubBase*>(object_hub_slot());
-    reinterpret_cast<void(__thiscall*)(ObjectHubBase*, Entity*, int)>(manager->vtable_[4])(manager, entity_,
-                                                                                           kCameraPriority);
+    manager->set_entity_rank(entity_, kCameraPriority);
 }
 
 // 0x0041B810

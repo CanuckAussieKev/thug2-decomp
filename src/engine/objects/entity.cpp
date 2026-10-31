@@ -149,7 +149,7 @@ void Entity::destroy_body()
     if (tag_table_)
         free_struct(tag_table_); // (the pointer is left as it is)
     if (park_owner_)
-        park_owner_->virtual_unregister_object(this);
+        park_owner_->drop_entity_registration(this);
     if (own_script_) {
         own_script_->clear_on_exit_scripts();
         if (own_script_)
@@ -226,8 +226,8 @@ void Entity::flag_as_dead()
     script::end_scripts_bound_to_entity(this);
     object_flags_ &= ~kObjectFlagLocked;
     ObjectHubBase* manager = park_owner_; // (unregistering clears park_owner_: the manager read first is used)
-    manager->virtual_unregister_object(this);
-    manager->virtual_kill_object(this);
+    manager->drop_entity_registration(this);
+    manager->remove_entity(this);
     object_flags_ |= kObjectFlagDead;
     ref_.clear_smart_pointers();
 }
@@ -297,7 +297,7 @@ void Entity::announce(uint32_t type, Struct* data, float /*radius*/)
 void Entity::change_serial(uint32_t id)
 {
     if (ident_ != kUnassignedId && park_owner_)
-        park_owner_->virtual_reassign_object_id(this, id);
+        park_owner_->reassign_object_id(this, id);
     ident_ = id;
     create_tags_if_needed();
     tag_table_->put_name_key(kId, id);

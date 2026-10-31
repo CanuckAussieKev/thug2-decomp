@@ -57,11 +57,8 @@ constexpr float kHalf = 0.5f;                      // 0x006453BC
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
 void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
-// A manager's object list (its vtable +0x18).
-memory::ListNode* manager_object_list(ObjectHubBase* manager)
-{
-    return reinterpret_cast<memory::ListNode*(__thiscall*)(ObjectHubBase*)>(manager->vtable_[6])(manager);
-}
+// A manager's object list.
+memory::ListNode* manager_object_list(ObjectHubBase* manager) { return manager->fetch_object_set(); }
 
 // Whether `object` is nearer than the square root of `reach_squared` to `point` (or to the position of `self`'s object).
 // The squares summed z, y, then x on the FPU stack, compared unrounded.

@@ -184,7 +184,7 @@ void set_id(void* element, uint32_t id) { static_cast<objects::Entity*>(element)
 // The manager's +4 (adds an element) / an element's +4 (its properties from a structure).
 void add_to_manager(void* manager, void* element)
 {
-    reinterpret_cast<void(__thiscall*)(void*, void*)>((*static_cast<void***>(manager))[1])(manager, element);
+    static_cast<frontend::UiTree*>(manager)->enrol_subject(static_cast<objects::Entity*>(element));
 }
 void change_traits(void* element, script::Struct* params)
 {

@@ -137,7 +137,7 @@ void spawn_pedestrian(script::Struct* params)
     add_base_components(ped);
     add_motion_components(ped);
     ped->change_species(kObjectTypePed);
-    object_hub_slot()->virtual_register_object(ped);
+    object_hub_slot()->enrol_subject(ped);
     level_nodes::fetch_place(params, &ped->at_point_);
     add_node_components(ped, params);
     script::launch_script(kPedAddComponents, params, ped, false, nullptr);
@@ -184,7 +184,7 @@ void spawn_automobile(script::Struct* params)
     void* component = memory::alloc_zeroed(0x58);
     car->attach_module(component ? static_cast<AutomobileDynamicsModule*>(component)->make_new() : nullptr);
     level_nodes::fetch_place(params, &car->at_point_);
-    object_hub_slot()->virtual_register_object(car);
+    object_hub_slot()->enrol_subject(car);
     set_up_automobile(car, params);
 }
 
@@ -258,7 +258,7 @@ CrownObject* CrownObject::teardown(unsigned int flags)
 // 0x00578490
 void CrownObject::init_from_node(EntityHub* manager, script::Struct* node)
 {
-    manager->virtual_register_object(this);
+    manager->enrol_subject(this);
     add_motion_components(this);
     script::Struct* model = spawn_param_table();
     model->put_name_key(kComponent, kModel);

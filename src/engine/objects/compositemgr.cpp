@@ -60,7 +60,6 @@ uint32_t g_composite_mgr_references;
 
 namespace {
 
-extern void** const kManagerVtable;
 constexpr uint32_t kCompositeObjectType = 0xCDEB9229;
 constexpr uint32_t kObjectMemberFunctionType = 0x57525413;    // the table at 0x00683550 (Entity's)
 constexpr uint32_t kCompositeMemberFunctionType = 0x0ADA4E74; // the table at 0x00683268 (GameEntity's)
@@ -138,37 +137,23 @@ void walk_objects(ObjectHubBase* manager, Visit visit)
 EntityHub*& object_hub_slot() { return g_composite_registry; }
 
 // 0x0045F6E0
-EntityHub* EntityHub::make_new()
+EntityHub::EntityHub()
 {
-    MiscHub::make_new();
-    vtable_ = kManagerVtable;
     update_job_ = new tasks::Task<EntityHub>(&composite_object_manager_task, this, kLogicTaskPriority);
     register_logic_task(update_job_);
     script::register_member_function_table(reinterpret_cast<void*>(kObjectMemberFunctionType),
                                            g_object_member_functions, 0x18);
     script::register_member_function_table(reinterpret_cast<void*>(kCompositeMemberFunctionType),
                                            g_composite_object_member_functions, 0x18);
-    return this;
 }
 
 // 0x0045F200
-void EntityHub::destroy_body()
+EntityHub::~EntityHub()
 {
-    vtable_ = kManagerVtable;
     if (update_job_) {
         get_remove_task(update_job_);
         delete update_job_;
     }
-    MiscHub::destroy_body();
-}
-
-// 0x0045F300
-EntityHub* EntityHub::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x0045F270
@@ -243,7 +228,7 @@ GameEntity* EntityHub::create_composite_object()
     void* memory = memory::alloc_zeroed(0x108);
     GameEntity* object = memory ? construct_composite_object(memory) : nullptr;
     object->change_species(kCompositeObjectType);
-    virtual_register_object(object);
+    enrol_subject(object);
     return object;
 }
 
@@ -282,8 +267,7 @@ void __cdecl composite_object_manager_task(tasks::Task<EntityHub>* task) { task-
 EntityHub* create_composite_object_manager(bool create)
 {
     if (!object_hub_slot() && create) {
-        void* memory = memory::alloc_zeroed(sizeof(EntityHub), 1);
-        object_hub_slot() = memory ? static_cast<EntityHub*>(memory)->make_new() : nullptr;
+        object_hub_slot() = new EntityHub; // (zeroed, from the current heap: the component count starts at 0)
     }
     ++ref_tally();
     return object_hub_slot();
@@ -406,18 +390,7 @@ void resize_coim_heap(uint32_t size)
 } // namespace objects
 
 namespace objects {
-namespace {
-
-static VtableSlot g_manager_vtable_slots[] = {&objects::EntityHub::teardown,
-                                              &objects::ObjectHubBase::enrol_subject,
-                                              &objects::ObjectHubBase::drop_entity_registration,
-                                              &objects::ObjectHubBase::reassign_object_id,
-                                              &objects::ObjectHubBase::set_entity_rank,
-                                              &objects::MiscHub::remove_entity,
-                                              &frontend::UiTree::fetch_object_set};
-void** const kManagerVtable = reinterpret_cast<void**>(g_manager_vtable_slots);
-
-} // namespace
+namespace {} // namespace
 } // namespace objects
 
 namespace objects {

@@ -240,7 +240,7 @@ void ParagraphWidget::change_caption(const char** texts, int count)
         void* block = memory::alloc_zeroed(sizeof(LabelWidget));
         LabelWidget* line = block ? static_cast<LabelWidget*>(block)->make_new() : nullptr;
         memory::Hub::get_pull()->leave_heap_scope();
-        manager->virtual_register_object(line);
+        manager->enrol_subject(line);
         {
             ElementPtr child, self;
             child.assign_value(line);

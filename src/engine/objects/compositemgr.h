@@ -27,15 +27,12 @@ public:
     static constexpr int kMaxComponentTypes = 0x80;
     static constexpr int kLogicTaskPriority = -900; // the main loop's logic tasks (the front end's: -2000)
 
-    // 0x0045F6E0: the constructor (returns this): a MiscHub (vtable 0x006476D4), its logic task (priority
-    // -900) on the main loop's logic task list, and the member functions of objects (0x00683550) and of composite
-    // objects (0x00683268) registered for scripts. The component count isn't set: the instance is made zeroed
-    // (0x0045F7A0).
-    EntityHub* make_new();
-    // 0x0045F200: the destructor body: the logic task off its list and deleted, then MiscHub's.
-    void destroy_body();
-    // 0x0045F300: the scalar deleting destructor (vtable slot 0).
-    EntityHub* teardown(unsigned int flags);
+    // 0x0045F6E0: a MiscHub (vtable 0x006476D4), its logic task (priority -900) on the main loop's logic task list,
+    // and the member functions of objects (0x00683550) and of composite objects (0x00683268) registered for
+    // scripts. The component count isn't set: the instance is made zeroed (0x0045F7A0).
+    EntityHub();
+    // 0x0045F200 (0x0045F300 the deleting one): the logic task off its list and deleted, then MiscHub's.
+    ~EntityHub() override;
 
     // 0x0045F270: a component type: `create` makes one; `register_function` (if any) is called at once. (No check
     // against kMaxComponentTypes.)
@@ -50,7 +47,7 @@ public:
     void detach_module_of_kind(ObjectModule* component);
 
     // 0x0045F330: a new composite object (0x108 bytes, GameEntity's constructor 0x0045E510), of type
-    // 0xCDEB9229, registered with this manager (vtable slot 1). Out of memory: crash (change_species on null).
+    // 0xCDEB9229, registered with this manager. Out of memory: crash (change_species on null).
     GameEntity* create_composite_object();
     // 0x0045F3A0: a new composite object set up from `node_data` (0x0045DAD0), with the components `components`
     // names (0x0045DA90, each with `node_data`), then, with `finalize`, its vtable +0x20 (Finalize).

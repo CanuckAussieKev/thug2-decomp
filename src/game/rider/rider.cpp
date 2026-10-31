@@ -1238,7 +1238,7 @@ Rider* Rider::make_new(int viewport, EntityHub* manager, bool local, uint32_t id
     else if (skater_number == 1)
         get_tracker()->register_nickname(0x06ED3FA7, this);
     get_at<int>(this, 0x30) = -500;
-    reinterpret_cast<void(__thiscall*)(EntityHub*, Rider*)>((*reinterpret_cast<void***>(manager))[1])(manager, this);
+    manager->enrol_subject(this);
     view_slot_ = viewport;
     unknown31c_ = 0;
     debug::printf("D:%s:%i: m_skater_number = %i\n", "jects\\skater.cpp", 0x43C, viewport);

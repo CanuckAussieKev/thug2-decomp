@@ -418,8 +418,7 @@ bool KinematicsModule::look_at_object(script::Struct* params, script::Script*)
     if (!params->read_hash_value(kName, &name, 0))
         return false;
     // (the object of that id in its manager's list, not itself)
-    auto* list = reinterpret_cast<memory::ListNode*(__thiscall*)(ObjectHubBase*)>(entity_->park_owner_->vtable_[6])(
-        entity_->park_owner_);
+    memory::ListNode* list = entity_->park_owner_->fetch_object_set();
     memory::ListNode* node = next_object_node(list);
     auto* object = node ? static_cast<Entity*>(node->data) : nullptr;
     while (object) {

@@ -84,8 +84,7 @@ void PinnedObjectModule::configure_from_data(script::Struct* params)
         target = manager->look_up_entity(entity_label_);
     if (target) {
         int priority = get_truncated(static_cast<double>(target->list_link_.priority) - 1.0);
-        reinterpret_cast<void(__thiscall*)(ObjectHubBase*, Entity*, int)>(manager->vtable_[4])(
-            manager, reinterpret_cast<Entity*>(entity_), priority);
+        manager->set_entity_rank(reinterpret_cast<Entity*>(entity_), priority);
     }
     lock_flags_ &= ~kLockFlagLag;
     lag_min_ = 1.0f;

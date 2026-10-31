@@ -101,11 +101,8 @@ void matrix_to_quat(float* quat, const maths::Mat4* matrix)
 {
     reinterpret_cast<maths::QuatRotation*>(quat)->from_matrix(*matrix);
 }
-// A manager's object list (its vtable +0x18).
-memory::ListNode* manager_object_list(ObjectHubBase* manager)
-{
-    return reinterpret_cast<memory::ListNode*(__thiscall*)(ObjectHubBase*)>(manager->vtable_[6])(manager);
-}
+// A manager's object list.
+memory::ListNode* manager_object_list(ObjectHubBase* manager) { return manager->fetch_object_set(); }
 // maths::fast_a_cos (0x00403EF0) as its callers here see it: the x87 result is used before it is rounded to a float.
 double fast_a_cos_unrounded(float value)
 {

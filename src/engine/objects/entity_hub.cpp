@@ -12,7 +12,6 @@
 #include "engine/sys/mlp.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/core/code_address.h"
-#include "frontend/screen_element_manager.h"
 #include "engine/objects/entity.h"
 
 namespace objects {
@@ -21,8 +20,6 @@ uint32_t g_tracker_references;
 
 namespace {
 
-extern void** const kManagerVtable;
-extern void** const kGeneralManagerVtable;
 extern void** const kListHeadVtable;
 constexpr int kFlushTaskPriority = 1000;
 
@@ -66,48 +63,10 @@ ObjectListHead* ObjectListHead::teardown(unsigned int flags)
 }
 
 // 0x00461BC0
-ObjectHubBase* ObjectHubBase::make_new()
-{
-    vtable_ = kManagerVtable;
-    setup_list_sentinel(&entities_);
-    walking_ = 0;
-    restart_walks_ = 0;
-    reassigning_ = false;
-    return this;
-}
+ObjectHubBase::ObjectHubBase() { setup_list_sentinel(&entities_); }
 
 // 0x00461B50
-void ObjectHubBase::destroy_body()
-{
-    vtable_ = kManagerVtable;
-    entities_.unlink_as(kObjectNodeVtable);
-}
-
-// 0x00461B80
-ObjectHubBase* ObjectHubBase::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
-void ObjectHubBase::virtual_register_object(Entity* object)
-{
-    reinterpret_cast<void(__thiscall*)(ObjectHubBase*, Entity*)>(vtable_[1])(this, object);
-}
-void ObjectHubBase::virtual_unregister_object(Entity* object)
-{
-    reinterpret_cast<void(__thiscall*)(ObjectHubBase*, Entity*)>(vtable_[2])(this, object);
-}
-void ObjectHubBase::virtual_reassign_object_id(Entity* object, uint32_t id)
-{
-    reinterpret_cast<void(__thiscall*)(ObjectHubBase*, Entity*, uint32_t)>(vtable_[3])(this, object, id);
-}
-void ObjectHubBase::virtual_kill_object(Entity* object)
-{
-    reinterpret_cast<void(__thiscall*)(ObjectHubBase*, Entity*)>(vtable_[5])(this, object);
-}
+ObjectHubBase::~ObjectHubBase() { entities_.unlink_as(kObjectNodeVtable); }
 
 // 0x00461A00
 void ObjectHubBase::enrol_subject(Entity* object)
@@ -141,9 +100,9 @@ void ObjectHubBase::reassign_object_id(Entity* object, uint32_t id)
 {
     new_id_ = id;
     reassigning_ = true;
-    virtual_unregister_object(object);
+    drop_entity_registration(object);
     object->ident_ = id;
-    virtual_register_object(object);
+    enrol_subject(object);
     reassigning_ = false;
 }
 
@@ -152,7 +111,7 @@ void ObjectHubBase::set_entity_rank(Entity* object, int priority)
 {
     uint32_t id = object->ident_;
     object->list_link_.priority = priority;
-    virtual_reassign_object_id(object, id);
+    reassign_object_id(object, id);
 }
 
 // 0x004619F0
@@ -189,35 +148,20 @@ void ObjectHubBase::for_each(ObjectCallback callback, void* data)
 }
 
 // 0x00461BF0
-MiscHub* MiscHub::make_new()
+MiscHub::MiscHub()
 {
-    ObjectHubBase::make_new();
-    vtable_ = kGeneralManagerVtable;
     setup_list_sentinel(&dead_objects_);
     flush_task_ = new tasks::Task<MiscHub>(&flush_dead_objects_task, this, kFlushTaskPriority);
     queue_engine_job(flush_task_);
-    return this;
 }
 
 // 0x00461DF0
-void MiscHub::destroy_body()
+MiscHub::~MiscHub()
 {
-    vtable_ = kGeneralManagerVtable;
     for_each(&get_unlock, nullptr);
     for_each(&dispose_when_free, nullptr);
     delete flush_task_;
     dead_objects_.unlink_as(kObjectNodeVtable);
-    vtable_ = kManagerVtable;
-    entities_.unlink_as(kObjectNodeVtable);
-}
-
-// 0x00461EA0
-MiscHub* MiscHub::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x00461B00
@@ -320,22 +264,5 @@ namespace {
 
 static VtableSlot g_list_head_vtable_slots[] = {&objects::ObjectListHead::teardown};
 void** const kListHeadVtable = reinterpret_cast<void**>(g_list_head_vtable_slots);
-static VtableSlot g_manager_vtable_slots[] = {&objects::ObjectHubBase::teardown,
-                                              &objects::ObjectHubBase::enrol_subject,
-                                              &objects::ObjectHubBase::drop_entity_registration,
-                                              &objects::ObjectHubBase::reassign_object_id,
-                                              &objects::ObjectHubBase::set_entity_rank,
-                                              &_purecall,
-                                              &_purecall};
-void** const kManagerVtable = reinterpret_cast<void**>(g_manager_vtable_slots);
-static VtableSlot g_general_manager_vtable_slots[] = {&objects::MiscHub::teardown,
-                                                      &objects::ObjectHubBase::enrol_subject,
-                                                      &objects::ObjectHubBase::drop_entity_registration,
-                                                      &objects::ObjectHubBase::reassign_object_id,
-                                                      &objects::ObjectHubBase::set_entity_rank,
-                                                      &objects::MiscHub::remove_entity,
-                                                      &frontend::UiTree::fetch_object_set};
-void** const kGeneralManagerVtable = reinterpret_cast<void**>(g_general_manager_vtable_slots);
-
 } // namespace
 } // namespace objects

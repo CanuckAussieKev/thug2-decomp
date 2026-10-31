@@ -755,7 +755,7 @@ int PedestrianBrainModule::probe_ahead(maths::Vec4 direction, float range, maths
     // A ped close ahead?
     ObjectSearch search;
     ObjectHubBase* manager = entity_->park_owner_;
-    auto* list = reinterpret_cast<memory::ListNode*(__thiscall*)(ObjectHubBase*)>(manager->vtable_[6])(manager);
+    memory::ListNode* list = manager->fetch_object_set();
     for (auto* other = static_cast<GameEntity*>(search.first_item_of_type(list, kObjectTypePed)); other;
          other = static_cast<GameEntity*>(search.next_item_of_type())) {
         GameEntity* me = entity_;

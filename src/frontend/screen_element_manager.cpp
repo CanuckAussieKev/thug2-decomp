@@ -23,10 +23,6 @@
 
 namespace frontend {
 
-namespace {
-extern void** const kCScreenElementManagerVtable;
-} // namespace
-
 UiTree* g_ui_element_hub;
 
 static_assert(offsetof(UiTree, listener_) == 0x28 && offsetof(UiTree, tree_root_) == 0x44 &&
@@ -80,26 +76,9 @@ void set_flag_property(UiWidget* element, uint32_t flag)
 
 // --- construction ---------------------------------------------------------------------------------------------
 
-// 0x004AB990
-UiTree* UiTree::make_new()
+// 0x004AB990 (the smart pointers start empty)
+UiTree::UiTree()
 {
-    objects::ObjectHubBase::make_new();
-    new (&listener_) TreeListener;
-    vtable_ = kCScreenElementManagerVtable;
-    tree_root_.preceding_ = tree_root_.following_ = nullptr;
-    tree_root_.owner_object_ = nullptr;
-    resolving_.preceding_ = resolving_.following_ = nullptr;
-    resolving_.owner_object_ = nullptr;
-    for (FocusEntry& entry : focus_entries_) {
-        entry.element.owner_object_ = nullptr;
-        entry.element.preceding_ = entry.element.following_ = nullptr;
-    }
-    for (PriorityEntry& entry : priorities_) {
-        entry.element.owner_object_ = nullptr;
-        entry.element.preceding_ = entry.element.following_ = nullptr;
-    }
-    tree_root_.get_release();
-    resolving_.get_release();
     listener_.enter_wait_board(nullptr);
     for (int i = 0; i < 2; ++i) {
         focus_lists_[i] = nullptr;
@@ -115,34 +94,19 @@ UiTree* UiTree::make_new()
     num_priorities_ = 0;
     for (PriorityEntry& entry : priorities_)
         entry.active = false;
-    return this;
 }
 
-// 0x004ABB00
-void UiTree::destroy_body()
+// 0x004ABB00 (0x004ACB40 the deleting one): the entries' smart pointers, the root; then (the members) the listener,
+// and ObjectHubBase's.
+UiTree::~UiTree()
 {
-    vtable_ = kCScreenElementManagerVtable;
     for (int i = kPriorities - 1; i >= 0; --i)
         priorities_[i].element.get_release();
     for (int i = kFocusEntries - 1; i >= 0; --i)
         focus_entries_[i].element.get_release();
     resolving_.get_release();
     tree_root_.get_release();
-    listener_.~TreeListener();
-    objects::ObjectHubBase::destroy_body();
 }
-
-// 0x004ACB40
-UiTree* UiTree::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
-}
-
-// 0x004AAD40
-objects::ObjectListHead* UiTree::fetch_object_set() { return &entities_; }
 
 // 0x004AAFF0
 void UiTree::drop_entity_registration(objects::Entity* object)
@@ -219,7 +183,7 @@ void UiTree::destroy_tree(int keep, ElementPtr* element, script::Script* script)
             ElementPtr none;
             change_owner(&none, element, 1);
         }
-        virtual_unregister_object(element->owner_object_);
+        drop_entity_registration(element->owner_object_);
         if (element->owner_object_)
             element->owner_object_->virtual_destroy(1);
     }
@@ -239,7 +203,7 @@ void UiTree::dismantle_part(uint32_t id, int recurse, int keep, script::Script* 
         remove_focus_entries(&element, false, false);
         if (script && element.owner_object_)
             script->object_destroyed(element.owner_object_);
-        virtual_unregister_object(element.owner_object_);
+        drop_entity_registration(element.owner_object_);
         if (element.owner_object_)
             element.owner_object_->virtual_destroy(1);
     }
@@ -695,13 +659,11 @@ void create_screen_element_manager(bool create)
 {
     UiTree*& instance = UiTree::sole();
     if (!instance && create) {
-        void* memory = memory::alloc_zeroed(sizeof(UiTree), static_cast<memory::Arena*>(nullptr), 1);
-        if (memory) {
-            instance = static_cast<UiTree*>(memory)->make_new();
+        instance = new UiTree; // (zeroed, from the current heap)
+        if (instance) {
             ++g_screen_element_manager_uses;
             return;
         }
-        instance = nullptr;
     }
     ++g_screen_element_manager_uses;
 }
@@ -714,8 +676,7 @@ void delete_screen_element_manager()
         --uses;
         return;
     }
-    if (UiTree* instance = UiTree::sole())
-        reinterpret_cast<void*(__thiscall*)(void*, int)>(instance->vtable_[0])(instance, 1);
+    delete UiTree::sole();
     UiTree::sole() = nullptr;
     uses = 0;
 }
@@ -732,16 +693,3 @@ void set_score_text(const char* text, int player)
 } // namespace frontend
 
 using frontend::UiTree;
-
-namespace frontend {
-namespace {
-static VtableSlot g_c_screen_element_manager_vtable_slots[] = {&UiTree::teardown,
-                                                               &objects::ObjectHubBase::enrol_subject,
-                                                               &UiTree::drop_entity_registration,
-                                                               &objects::ObjectHubBase::reassign_object_id,
-                                                               &objects::ObjectHubBase::set_entity_rank,
-                                                               stubs::ignore_argument,
-                                                               &UiTree::fetch_object_set};
-void** const kCScreenElementManagerVtable = reinterpret_cast<void**>(g_c_screen_element_manager_vtable_slots);
-} // namespace
-} // namespace frontend
