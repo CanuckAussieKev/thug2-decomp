@@ -2,6 +2,7 @@
 // The Nx particle systems themselves have no source yet: their methods are called as the game's.
 
 #include "game/obj/particle_component.h"
+#include "game/gfx/d3dx.h"
 
 #include <cstring>
 
@@ -83,7 +84,7 @@ using ParticleParams = Nx::CParticleParams;
 // D3DXMatrixMultiply (the library's, 0x005BFA8C): out = a * b.
 void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 // An array's first three integers' low bytes into `rgb`; `last` the third.

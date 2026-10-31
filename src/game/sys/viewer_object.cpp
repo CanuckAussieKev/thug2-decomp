@@ -1,6 +1,7 @@
 // The model viewer's object (0x005897B0-0x0058AFB7). See viewer_object.h.
 
 #include "game/sys/viewer_object.h"
+#include "game/gfx/d3dx.h"
 #include "game/net/task_vtable.h"
 
 #include <bit>
@@ -143,7 +144,7 @@ void DeleteStructure(Script::CStruct* structure)
 // D3DXMatrixMultiply (library code: stdcall), out = a * b.
 void MultiplyMatrix(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 // The model component's model (+0x208), its bone count (0x00492FF0) and hierarchy (0x00493040: objects of 0x50 bytes,

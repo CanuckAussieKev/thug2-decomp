@@ -2,6 +2,7 @@
 // values in registers, floats where it stores them.
 
 #include "game/gfx/pc_billboards.h"
+#include "game/gfx/d3dx.h"
 
 #include <windows.h>
 
@@ -411,8 +412,8 @@ void sBillboardBatch::Render()
             SetPixelShader(At<void*>(static_cast<sBillboardEntry*>(node->data)->mesh, 0x44), nullptr);
         break;
     }
-    auto transpose = GameFunction<void*(__stdcall*)(float*, const float*)>(0x005BFCD5); // (D3DX)
-    auto multiply = GameFunction<void*(__stdcall*)(float*, const float*, const float*)>(0x005BFA8C);
+    auto transpose = D3dx::MatrixTranspose; // (D3DX)
+    auto multiply = D3dx::MatrixMultiply;
     float projection[16], view[16], identity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     float viewWorld[16], all[16];
     transpose(projection, reinterpret_cast<float*>(&g_projectionMatrix));

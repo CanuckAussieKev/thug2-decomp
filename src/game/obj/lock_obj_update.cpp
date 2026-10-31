@@ -7,6 +7,7 @@
 #include <cstdint>
 
 #include "game/core/manager.h"
+#include "game/gfx/d3dx.h"
 #include "game/core/mem.h"
 #include "game/gfx/skeleton.h"
 #include "game/mth/matrix.h"
@@ -81,7 +82,7 @@ bool FollowModel(CBaseComponent* model, CCompositeObject* target)
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
 void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 void SetProduct(Mth::Matrix& out, const Mth::Matrix& a, const Mth::Matrix& b)

@@ -2,6 +2,7 @@
 // flexible_particle.h. From the disassembly of 0x0041D6E0-0x0041E25E.
 
 #include "game/obj/flexible_particle.h"
+#include "game/gfx/d3dx.h"
 #include "game/gfx/flexible_particle_manager.h"
 #include "game/gfx/particle_system.h"
 
@@ -163,7 +164,7 @@ Mth::Matrix* SystemRotation(Nx::CParticleSystem* system, Mth::Matrix* out)
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
 void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 // The suspend component (no source yet): whether its object should be updated (0x00433EA0), suspended (+0x30, the

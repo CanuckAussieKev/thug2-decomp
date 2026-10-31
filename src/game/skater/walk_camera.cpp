@@ -2,6 +2,7 @@
 // 0x00524C20-0x00525E3F (and 0x00525F70).
 
 #include "game/skater/walk_camera.h"
+#include "game/gfx/d3dx.h"
 
 #include <cmath>
 #include <cstdint>
@@ -55,7 +56,7 @@ constexpr float kTiltBase = 0.4000000059604645f;   // 0x0064BAF8
 // D3DXMatrixMultiply (linked later; 0x005BFA8C).
 void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
-    GameFunction<void*(__stdcall*)(void*, const void*, const void*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 // The right stick's turn of the facing (0x00525468-): the sine rounded to float, the cosine kept at full

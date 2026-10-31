@@ -1,6 +1,7 @@
 // Shadows: see shadow.h.
 
 #include "game/gfx/shadow.h"
+#include "game/gfx/d3dx.h"
 
 #include <windows.h>
 
@@ -70,23 +71,23 @@ ShadowCompanionFn g_shadowCompanion = nullptr; // NOT ORIGINAL (SetShadowCompani
 // D3DX (linked library code; stdcall).
 void MatrixMultiply(float* out, const float* a, const float* b)
 {
-    GameFunction<void*(__stdcall*)(float*, const float*, const float*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 void MatrixInverse(float* out, float* determinant, const float* m)
 {
-    GameFunction<void*(__stdcall*)(float*, float*, const float*)>(0x005BFF98)(out, determinant, m);
+    D3dx::MatrixInverse(out, determinant, m);
 }
 void TransformCoord(float* out, const float* v, const void* m)
 {
-    GameFunction<void*(__stdcall*)(float*, const float*, const void*)>(0x005BF2F5)(out, v, m);
+    D3dx::Vec3TransformCoord(out, v, m);
 }
 void MatrixLookAt(float* out, const float* eye, const float* at, const float* up)
 {
-    GameFunction<void*(__stdcall*)(float*, const float*, const float*, const float*)>(0x005C0985)(out, eye, at, up);
+    D3dx::MatrixLookAtRH(out, eye, at, up);
 }
 void MatrixOrtho(float* out, float width, float height, float nearZ, float farZ)
 {
-    GameFunction<void*(__stdcall*)(float*, float, float, float, float)>(0x005C0B39)(out, width, height, nearZ, farZ);
+    D3dx::MatrixOrthoRH(out, width, height, nearZ, farZ);
 }
 
 // The models' meshes (not rewritten yet; thiscall).

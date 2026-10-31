@@ -1,6 +1,7 @@
 // The skater's rotate component (Obj::CSkaterRotateComponent): see rotate_component.h.
 
 #include "game/skater/rotate_component.h"
+#include "game/gfx/d3dx.h"
 
 #include <cmath>
 #include <cstdint>
@@ -45,7 +46,7 @@ void CoreMatrixFromObject(uint8_t* corePhysics)
 // m = rotation * m (D3DXMatrixMultiply, linked library code).
 void TurnBy(Mth::Matrix& m, const Mth::Matrix& rotation)
 {
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(&m, &rotation, &m);
+    D3dx::MatrixMultiply(&m, &rotation, &m);
 }
 
 // A turn set up from `degrees` over `duration` seconds.

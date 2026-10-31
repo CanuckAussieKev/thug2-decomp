@@ -2,6 +2,7 @@
 // where it keeps values in registers, floats where it stores them.
 
 #include "game/gfx/pc_texture_projection.h"
+#include "game/gfx/d3dx.h"
 
 #include <windows.h>
 
@@ -47,7 +48,7 @@ int Rand() { return GameFunction<int(__cdecl*)()>(0x00623BA3)(); } // (the game'
 
 void TransformCoord(float* out, const float* v, const Mth::Matrix* m)
 {
-    GameFunction<void*(__stdcall*)(float*, const float*, const Mth::Matrix*)>(0x005BF2F5)(out, v, m); // (D3DX)
+    D3dx::Vec3TransformCoord(out, v, m); // (D3DX)
 }
 
 // The vertex stack (0x006FC4A0) the splitter works on.

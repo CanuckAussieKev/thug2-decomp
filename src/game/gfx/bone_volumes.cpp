@@ -1,6 +1,7 @@
 // Bone volumes: see bone_volumes.h. From the disassembly of 0x0048B330-0x0048BF0D.
 
 #include "game/gfx/bone_volumes.h"
+#include "game/gfx/d3dx.h"
 
 #include <cmath>
 #include <cstring>
@@ -39,7 +40,7 @@ Mth::Vector* BonePositions() { return g_bonePositions; }
 // D3DXMatrixMultiply (0x005BFA8C, the D3DX library's): out = a * b.
 void Multiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 // A bone's matrix in the world: its bind pose (the inverse bind matrix inverted) times `pose`, times `world`.

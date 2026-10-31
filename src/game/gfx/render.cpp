@@ -2,6 +2,7 @@
 // display region and black bars (contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md).
 
 #include "game/gfx/render.h"
+#include "game/gfx/d3dx.h"
 #include "game/gfx/device.h"
 #include "game/gfx/pc_scene.h"
 #include "game/gfx/settings.h"
@@ -118,23 +119,23 @@ void DrawPrimitiveUP(int type, unsigned int count, const void* vertices, unsigne
 
 void MatrixLookAt(Mth::Matrix* out, const float* eye, const float* at, const float* up)
 {
-    GameFunction<void*(__stdcall*)(void*, const float*, const float*, const float*)>(0x005C0985)(out, eye, at, up);
+    D3dx::MatrixLookAtRH(out, eye, at, up);
 }
 void MatrixPerspective(Mth::Matrix* out, float width, float height, float nearZ, float farZ)
 {
-    GameFunction<void*(__stdcall*)(void*, float, float, float, float)>(0x005C0ACD)(out, width, height, nearZ, farZ);
+    D3dx::MatrixPerspectiveRH(out, width, height, nearZ, farZ);
 }
 void MatrixScaling(Mth::Matrix* out, float x, float y, float z)
 {
-    GameFunction<void*(__stdcall*)(void*, float, float, float)>(0x005C036B)(out, x, y, z);
+    D3dx::MatrixScaling(out, x, y, z);
 }
 void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
-    GameFunction<void*(__stdcall*)(void*, const void*, const void*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 void MatrixRotationY(Mth::Matrix* out, float angle)
 {
-    GameFunction<void*(__stdcall*)(void*, float)>(0x005C0509)(out, angle);
+    D3dx::MatrixRotationY(out, angle);
 }
 
 // --- x87 instructions the original uses, so results round exactly as there ---------------------------------------

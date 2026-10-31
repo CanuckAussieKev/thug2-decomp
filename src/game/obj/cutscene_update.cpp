@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "game/ass/assman.h"
+#include "game/gfx/d3dx.h"
 #include "game/core/mem.h"
 #include "game/gfx/boned_anim_frame_data.h"
 #include "game/gfx/engine_model_lights.h"
@@ -303,7 +304,7 @@ void CCutsceneData::UpdateObjectTransforms()
             parentMatrix[3] = 0.0f;
             parentMatrix[7] = 0.0f;
             parentMatrix[11] = 0.0f;
-            GameFunction<float*(__stdcall*)(float*, const float*, const float*)>(0x005BFA8C)(boneMatrix, boneMatrix,
+            D3dx::MatrixMultiply(boneMatrix, boneMatrix,
                                                                                          parentMatrix);
             float matrix[16];
             std::memcpy(matrix, boneMatrix, 48);

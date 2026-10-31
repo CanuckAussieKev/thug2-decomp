@@ -2,6 +2,7 @@
 // the original keeps on the FPU stays a double here, what it stores is rounded to a float there.
 
 #include "game/gfx/engine_texture_projection.h"
+#include "game/gfx/d3dx.h"
 
 #include <cstring>
 
@@ -167,7 +168,7 @@ void CTextureProjection::UpdateMatrix()
     else
         return;
     // (D3DXMatrixMultiply)
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(&m_projection,
+    D3dx::MatrixMultiply(&m_projection,
                                                                                                      &view, &lens);
 }
 

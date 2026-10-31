@@ -9,6 +9,7 @@
 #include <cstdint>
 
 #include "game/skater/skater.h"
+#include "game/gfx/d3dx.h"
 #include "game/core/manager.h"
 #include "game/mth/math.h"
 #include "game/mth/matrix.h"
@@ -114,7 +115,7 @@ CCompositeObject* LocalSkater()
 // D3DXMatrixMultiply (linked library code).
 void D3dxMultiply(Mth::Matrix& out, const Mth::Matrix& a, const Mth::Matrix& b)
 {
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(&out, &a, &b);
+    D3dx::MatrixMultiply(&out, &a, &b);
 }
 
 // _ftol2: a 64-bit truncation whose low half is used (the integer indefinite, 2^63 - a NaN, what doesn't fit - gives

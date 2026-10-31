@@ -1,6 +1,7 @@
 // What a point riding on a moving object is carried by. See ride_tracker.h.
 
 #include "game/obj/ride_tracker.h"
+#include "game/gfx/d3dx.h"
 
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -23,7 +24,7 @@ void KeepRotation(Mth::Matrix& m)
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
 void D3dMatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
-    GameFunction<Mth::Matrix*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 } // namespace

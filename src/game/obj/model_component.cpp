@@ -4,6 +4,7 @@
 // worked in double.
 
 #include "game/obj/model_component.h"
+#include "game/gfx/d3dx.h"
 
 #include <cstdint>
 #include <cstring>
@@ -102,7 +103,7 @@ void* SkeletonOf(CBaseComponent* component)
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
 void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 // The network manager (0x007CCE14) and its players (not rewritten yet): the player with an object id (0x0053AEA0),

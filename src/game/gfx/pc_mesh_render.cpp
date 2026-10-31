@@ -10,6 +10,7 @@
 #include <cstring>
 
 #include "game/gfx/device.h"
+#include "game/gfx/d3dx.h"
 #include "game/gfx/geom.h"
 #include "game/gfx/material.h"
 #include "game/gfx/mesh.h"
@@ -33,15 +34,15 @@ bool PixelShaders() { return g_shadersAvailable; }
 // D3DX (the statically linked library's, through its thunks).
 void TransformCoord(float* out, const float* v, const float* m)
 {
-    GameFunction<void*(__stdcall*)(float*, const float*, const float*)>(0x005BF2F5)(out, v, m);
+    D3dx::Vec3TransformCoord(out, v, m);
 }
 void TransformNormal(float* out, const float* v, const float* m)
 {
-    GameFunction<void*(__stdcall*)(float*, const float*, const float*)>(0x005BF31F)(out, v, m);
+    D3dx::Vec3TransformNormal(out, v, m);
 }
 void MatrixMultiply(void* out, const void* a, const void* b)
 {
-    GameFunction<void*(__stdcall*)(void*, const void*, const void*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 // A vertex's skinning data (0x4C bytes): its position, normal, colour, texture coordinates, bones and weights.

@@ -3,6 +3,7 @@
 // precision) until the original stores them as floats.
 
 #include "game/skater/nonlocal_net_logic.h"
+#include "game/gfx/d3dx.h"
 
 #include <cmath>
 #include <cstdint>
@@ -82,7 +83,7 @@ double Physics(CCompositeObject* skater, uint32_t name) { return GetPhysicsFloat
 // m = rotation * m (D3DXMatrixMultiply, linked library code).
 void TurnBy(Mth::Matrix& m, const Mth::Matrix& rotation)
 {
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(&m, &rotation, &m);
+    D3dx::MatrixMultiply(&m, &rotation, &m);
 }
 
 // The C runtime's acos (0x00623630) as its x87 code computes it: atan2(sqrt((1 + x)(1 - x)), x).

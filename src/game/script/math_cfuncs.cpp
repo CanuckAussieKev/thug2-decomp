@@ -1,6 +1,7 @@
 // Script commands (CFunctions) for maths, 0x00448AE0-0x00448EF0 (see math_cfuncs.h).
 
 #include "game/script/math_cfuncs.h"
+#include "game/gfx/d3dx.h"
 
 #include <cmath>
 #include <cstdint>
@@ -95,7 +96,7 @@ double X87Atan(double value)
 // D3DX's matrix product (linked library code; stdcall): out = a * b.
 void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
-    GameFunction<void*(__stdcall*)(void*, const void*, const void*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 // The unnamed argument, in degrees for the trigonometry.

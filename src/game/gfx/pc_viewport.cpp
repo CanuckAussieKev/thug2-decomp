@@ -2,6 +2,7 @@
 // values in registers, floats where it stores them.
 
 #include "game/gfx/pc_viewport.h"
+#include "game/gfx/d3dx.h"
 
 #include <windows.h>
 
@@ -44,8 +45,7 @@ bool Radeon8500() { return g_radeon8500; }
 
 void Transform(float* out, const float* v, const void* matrix)
 {
-    GameFunction<void*(__stdcall*)(float*, const float*, const void*)>(0x005BF833)(
-        out, v, matrix); // (D3DXVec4Transform)
+    D3dx::Vec4Transform(out, v, matrix);
 }
 
 // The queries' states: colour writes off, no z writes, no texture, the vertex colour's shader.

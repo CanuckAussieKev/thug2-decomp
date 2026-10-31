@@ -1,6 +1,7 @@
 // The engine's platform calls: see engine_glue.h.
 
 #include "game/gfx/engine.h"
+#include "game/gfx/d3dx.h"
 #include "game/gfx/pc_gamma.h"
 #include "game/gfx/engine_glue.h"
 
@@ -79,10 +80,9 @@ uint32_t ClearColour()
 }
 
 // D3DX (linked library code): a surface written to an image file (format 1: JPEG).
-long SaveSurfaceToFile(const char* file, int format, IDirect3DSurface9* surface)
+long SaveSurfaceToFile(const char* file, IDirect3DSurface9* surface)
 {
-    return GameFunction<long(__stdcall*)(const char*, int, IDirect3DSurface9*, const void*, const void*)>(0x005C2F76)(
-        file, format, surface, nullptr, nullptr);
+    return D3dx::SaveSurfaceToJpg(file, surface);
 }
 
 // A shadow caster's key: the texture's (+0x10, through one more pointer with flag 1 of +0x08).
@@ -189,7 +189,7 @@ void __cdecl ScreenShot(const char* name, int /*unused*/)
     IDirect3DSurface9* surface = nullptr;
     Device()->CreateOffscreenPlainSurface(mode.Width, mode.Height, D3DFMT_A8R8G8B8, D3DPOOL_SCRATCH, &surface, nullptr);
     Device()->GetFrontBufferData(0, surface);
-    SaveSurfaceToFile(file, 1, surface);
+    SaveSurfaceToFile(file, surface);
     surface->Release();
 }
 

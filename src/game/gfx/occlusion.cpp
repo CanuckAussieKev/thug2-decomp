@@ -2,6 +2,7 @@
 // intermediate values stay in double precision (in registers), the rest are rounded to floats where it stored them.
 
 #include "game/gfx/occlusion.h"
+#include "game/gfx/d3dx.h"
 
 #include <cmath>
 #include <cstdint>
@@ -49,7 +50,7 @@ float VerticalSin() { return g_viewShape.cosY; }
 // D3DXVec3Transform (linked library code; stdcall): (x, y, z, 1) x matrix.
 void Transform(float* out, const float* point, const void* matrix)
 {
-    GameFunction<void*(__stdcall*)(float*, const float*, const void*)>(0x005BF19F)(out, point, matrix);
+    D3dx::Vec3Transform(out, point, matrix);
 }
 
 // The C runtime's qsort (the game's, so equal occluders end up in the same order).

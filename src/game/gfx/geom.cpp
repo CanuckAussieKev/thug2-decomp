@@ -2,6 +2,7 @@
 // them in registers, rounded to float where it stores them).
 
 #include "game/gfx/geom.h"
+#include "game/gfx/d3dx.h"
 
 #include <cmath>
 #include <cstring>
@@ -613,7 +614,7 @@ void CPcGeom::RotateY(int turns)
     Mth::Matrix rotation;
     Mth::CreateRotateYMatrix(rotation, static_cast<float>(static_cast<double>(turns) * kQuarterTurn));
     // D3DX (linked library code): rotation = m * rotation
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(&rotation, &m,
+    D3dx::MatrixMultiply(&rotation, &m,
                                                                                                  &rotation);
     rotation.row[3] = instance->transform.row[3];
     instance->transform = rotation;

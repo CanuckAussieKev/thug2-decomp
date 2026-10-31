@@ -1,6 +1,7 @@
 // The level editor's view modes (game/gfx/view_mode.h). NOT ORIGINAL.
 
 #include "game/gfx/view_mode.h"
+#include "game/gfx/d3dx.h"
 
 #include <windows.h>
 
@@ -99,8 +100,7 @@ std::unordered_map<void*, Twin> g_twins;
 // D3DXAssembleShader (linked library code; stdcall), as game/gfx/pixel_shaders.cpp calls it.
 long AssembleShader(const char* source, uint32_t length, void** shader, void** errors)
 {
-    return GameFunction<long(__stdcall*)(const char*, uint32_t, const void*, void*, uint32_t, void**, void**)>(
-        0x005C2FBD)(source, length, nullptr, nullptr, 0, shader, errors);
+    return D3dx::AssembleShader(source, length, shader, errors);
 }
 void* BufferPointer(void* buffer) { return reinterpret_cast<void*(__stdcall*)(void*)>((*static_cast<void***>(buffer))[3])(buffer); }
 void Release(void* object) { reinterpret_cast<unsigned long(__stdcall*)(void*)>((*static_cast<void***>(object))[2])(object); }

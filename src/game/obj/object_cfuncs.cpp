@@ -1,6 +1,7 @@
 // Script commands (CFunctions) for nodes and composite objects, 0x00449280-0x00449F80 (see object_cfuncs.h).
 
 #include "game/obj/object_cfuncs.h"
+#include "game/gfx/d3dx.h"
 
 #include <cstdint>
 
@@ -94,7 +95,7 @@ void AnglesToMatrix(Mth::Matrix* matrix, const Script::VectorValue* angles)
 // D3DX's matrix product (linked library code; stdcall): out = a * b.
 void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
-    GameFunction<void*(__stdcall*)(void*, const void*, const void*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 // A skeleton component's skeleton (0x005480F0: its +0x18) and that skeleton's matrix of `bone` (0x004A36E0; false -

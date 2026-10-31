@@ -3,6 +3,7 @@
 // on the FPU stack are worked in double.
 
 #include "game/obj/car_physics.h"
+#include "game/gfx/d3dx.h"
 #include "game/gfx/model.h"
 
 #include <cmath>
@@ -65,7 +66,7 @@ constexpr float kDegreesToRadians = 0.0174532924f; // 0x00645464
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
 void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 // The game's C runtime asin (_CIasin, 0x00623560: the argument and result on the FPU stack; a library function, not

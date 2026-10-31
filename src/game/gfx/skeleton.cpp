@@ -2,6 +2,7 @@
 // function, not decompiled); the x87 code is followed where it keeps values unrounded.
 
 #include "game/gfx/skeleton.h"
+#include "game/gfx/d3dx.h"
 
 #include <cstring>
 
@@ -29,7 +30,7 @@ constexpr uint32_t kTurnBone = 0x9F173EEB;
 // out = a * b (D3DXMatrixMultiply, 0x005BFA8C).
 void Multiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 void SetIdentity(Mth::Matrix& m)

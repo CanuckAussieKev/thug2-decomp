@@ -1,6 +1,7 @@
 // The pixel shaders: see pixel_shaders.h.
 
 #include "game/gfx/pixel_shaders.h"
+#include "game/gfx/d3dx.h"
 
 #include <windows.h>
 
@@ -42,8 +43,7 @@ void Release(void* object) { reinterpret_cast<unsigned long(__stdcall*)(void*)>(
 // D3DXAssembleShader (linked library code; stdcall). Returns the HRESULT.
 long AssembleShader(const char* source, uint32_t length, void** shader, void** errors)
 {
-    return GameFunction<long(__stdcall*)(const char*, uint32_t, const void*, void*, uint32_t, void**, void**)>(
-        0x005C2FBD)(source, length, nullptr, nullptr, 0, shader, errors);
+    return D3dx::AssembleShader(source, length, shader, errors);
 }
 
 // Per-pass flags of a material (not rewritten yet; thiscall): bit n set for passes that take their alpha from the

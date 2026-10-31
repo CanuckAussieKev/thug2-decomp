@@ -2,6 +2,7 @@
 // CollisionMode and its model's (or its level sector's) collision, placed where the object is.
 
 #include "game/obj/collision_component.h"
+#include "game/gfx/d3dx.h"
 #include "game/gfx/model.h"
 #include "game/gfx/engine.h"
 
@@ -54,7 +55,7 @@ const uint8_t* BoneOf(uint8_t* model) { return reinterpret_cast<const uint8_t*>(
 
 void D3dxMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 // The collision object's slots 5 / 6: its world position, its orientation.
