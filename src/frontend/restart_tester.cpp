@@ -66,13 +66,13 @@ struct Relaunch {
 std::vector<Relaunch> level_restarts()
 {
     std::vector<Relaunch> out;
-    const uint32_t class_key = name_hash("Class"), restart = name_hash("Restart"), name = name_hash("Name"),
+    const uint32_t class_key = name_hash("Class"), restart = name_hash("Restart"), name_key = name_hash("Name"),
                    pos = name_hash("Pos"), types_key = name_hash("restart_types"),
                    restart_name = name_hash("RestartName");
     level_nodes::start_node_walk(0);
     while (script::Struct* node = level_nodes::get_next_node()) {
         uint32_t cls = 0, name = 0;
-        if (!node->read_hash_value(class_key, &cls, 0) || cls != restart || !node->read_hash_value(name, &name, 0))
+        if (!node->read_hash_value(class_key, &cls, 0) || cls != restart || !node->read_hash_value(name_key, &name, 0))
             continue;
         Relaunch r{name, {}, {}, {0, 0, 0, 1}};
         // (its name when the game knows it - level names mostly aren't -, else its RestartName text and checksum)
