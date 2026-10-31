@@ -13,11 +13,11 @@
 #include "engine/net/net_app.h"
 #include "engine/core/code_address.h"
 
-namespace NetLink {
+namespace net {
 
 namespace {
 
-using MemSys::ListNode;
+using memory::ListNode;
 
 // The bandwidth of each bandwidth type (bytes per second).
 constexpr int kBroadbandBandwidth = 400000;
@@ -30,16 +30,16 @@ constexpr uint32_t kWriteBufferSize = 0x514;
 constexpr uint32_t kMinResendThreshold = 500;
 constexpr uint32_t kStatus2ResendThreshold = 1000;
 
-uint32_t g_nextConnId{1};
+uint32_t g_next_conn_id{1};
 
 // The running number each connection gets (+0x44).
-uint32_t& NextConnId() { return g_nextConnId; }
+uint32_t& next_conn_id() { return g_next_conn_id; }
 
 // ~StreamDesc: frees the data unless it was sent in place.
-void DestroyStreamDescBody(StreamDesc* stream) { stream->DestroyBody(); }
+void destroy_stream_desc_body(StreamDesc* stream) { stream->destroy_body(); }
 
 // A link deleted through its vtable (the scalar deleting destructor).
-void DeleteLink(void* link)
+void delete_link(void* link)
 {
     auto* vtable = *static_cast<void***>(link);
     reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(vtable[0])(link, 1);
@@ -47,23 +47,23 @@ void DeleteLink(void* link)
 
 // A queued message's last link gone: deleted.
 template <typename Msg>
-void Release(Msg* message)
+void get_release(Msg* message)
 {
-    if (--message->m_shareCount == 0) {
-        message->DestroyBody();
-        MemSys::Dealloc(message);
+    if (--message->share_count_ == 0) {
+        message->destroy_body();
+        memory::dealloc(message);
     }
 }
 
 // Each item of a list (the links: their data is the link itself), the next one fetched before `action` runs
 // on the current one (which may delete it).
 template <typename T, typename F>
-void ForEach(ListNode* head, F action)
+void for_each(ListNode* head, F action)
 {
-    ListKit::Hunt<T> search;
-    T* item = search.HeadElement(head);
+    lists::Hunt<T> search;
+    T* item = search.head_element(head);
     while (item) {
-        T* next = search.FollowingItem();
+        T* next = search.following_item();
         action(item);
         item = next;
     }
@@ -72,13 +72,13 @@ void ForEach(ListNode* head, F action)
 } // namespace
 
 // 0x00455C60
-MsgSeqLinkHead* MsgSeqLinkHead::MakeNew()
+MsgSeqLinkHead* MsgSeqLinkHead::make_new()
 {
-    InitConnListHead(this, kMsgSeqLinkVtable);
+    init_conn_list_head(this, kMsgSeqLinkVtable);
     return this;
 }
 
-void InitConnListHead(ListNode* head, void** vtable)
+void init_conn_list_head(ListNode* head, void** vtable)
 {
     head->data = reinterpret_cast<void*>(-1);
     head->priority = 0;
@@ -87,37 +87,37 @@ void InitConnListHead(ListNode* head, void** vtable)
     head->vtable = vtable;
 }
 
-// 0x00455B50 / 0x00455B70 / 0x00455B90 / 0x00455BB0: the message lists' ListKit::Elem<T> destructor bodies
-void MsgNormalNode::DestroyBody() { UnlinkAs(kMsgNormalNodeVtable); }
-void MsgImpNode::DestroyBody() { UnlinkAs(kMsgImpNodeVtable); }
-void MsgSeqNode::DestroyBody() { UnlinkAs(kMsgSeqNodeVtable); }
-void StreamLinkNode::DestroyBody() { UnlinkAs(kStreamLinkNodeVtable); }
+// 0x00455B50 / 0x00455B70 / 0x00455B90 / 0x00455BB0: the message lists' lists::Elem<T> destructor bodies
+void MsgNormalNode::destroy_body() { unlink_as(kMsgNormalNodeVtable); }
+void MsgImpNode::destroy_body() { unlink_as(kMsgImpNodeVtable); }
+void MsgSeqNode::destroy_body() { unlink_as(kMsgSeqNodeVtable); }
+void StreamLinkNode::destroy_body() { unlink_as(kStreamLinkNodeVtable); }
 
 // 0x004559D0 / 0x004559E0 / 0x004559F0 / 0x00455A00
 template <void** const& SearchVtable>
-void ConnListSearch<SearchVtable>::DestroyBody()
+void ConnListSearch<SearchVtable>::destroy_body()
 {
-    m_vtable = SearchVtable;
+    vtable_ = SearchVtable;
 }
 
 // 0x00455A80 / 0x00455AB0 / 0x00455AE0 / 0x00455B10
 template <void** const& SearchVtable>
-ConnListSearch<SearchVtable>* ConnListSearch<SearchVtable>::Teardown(unsigned int flags)
+ConnListSearch<SearchVtable>* ConnListSearch<SearchVtable>::teardown(unsigned int flags)
 {
-    m_vtable = SearchVtable;
+    vtable_ = SearchVtable;
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
-static VtableSlot kMsgSeqLinkSearchVtable_slots[] = {&NetLink::MsgSeqLinkSearch::Teardown};
-void** const kMsgSeqLinkSearchVtable = reinterpret_cast<void**>(kMsgSeqLinkSearchVtable_slots);
-static VtableSlot kMsgLinkSearchVtable_slots[] = {&NetLink::MsgLinkSearch::Teardown};
-void** const kMsgLinkSearchVtable = reinterpret_cast<void**>(kMsgLinkSearchVtable_slots);
-static VtableSlot kMsgImpLinkSearchVtable_slots[] = {&NetLink::MsgImpLinkSearch::Teardown};
-void** const kMsgImpLinkSearchVtable = reinterpret_cast<void**>(kMsgImpLinkSearchVtable_slots);
-static VtableSlot kStreamLinkSearchVtable_slots[] = {&NetLink::StreamLinkSearch::Teardown};
-void** const kStreamLinkSearchVtable = reinterpret_cast<void**>(kStreamLinkSearchVtable_slots);
+static VtableSlot g_msg_seq_link_search_vtable_slots[] = {&net::MsgSeqLinkSearch::teardown};
+void** const kMsgSeqLinkSearchVtable = reinterpret_cast<void**>(g_msg_seq_link_search_vtable_slots);
+static VtableSlot g_msg_link_search_vtable_slots[] = {&net::MsgLinkSearch::teardown};
+void** const kMsgLinkSearchVtable = reinterpret_cast<void**>(g_msg_link_search_vtable_slots);
+static VtableSlot g_msg_imp_link_search_vtable_slots[] = {&net::MsgImpLinkSearch::teardown};
+void** const kMsgImpLinkSearchVtable = reinterpret_cast<void**>(g_msg_imp_link_search_vtable_slots);
+static VtableSlot g_stream_link_search_vtable_slots[] = {&net::StreamLinkSearch::teardown};
+void** const kStreamLinkSearchVtable = reinterpret_cast<void**>(g_stream_link_search_vtable_slots);
 
 template struct ConnListSearch<kMsgSeqLinkSearchVtable>;
 template struct ConnListSearch<kMsgLinkSearchVtable>;
@@ -125,244 +125,244 @@ template struct ConnListSearch<kMsgImpLinkSearchVtable>;
 template struct ConnListSearch<kStreamLinkSearchVtable>;
 
 // 0x00455C80
-Conn* Conn::MakeNew(int flags)
+Conn* Conn::make_new(int flags)
 {
-    InitConnListHead(&m_normalMsgs, kMsgNormalLinkVtable);
-    InitConnListHead(&m_importantMsgs, kMsgImpLinkVtable);
-    InitConnListHead(&m_sequencedMsgs, kMsgSeqLinkVtable);
-    m_curStanding = 0;
-    m_flagBits = 0;
-    for (ListNode& queue : m_receivedQueues)
-        static_cast<MsgSeqLinkHead*>(&queue)->MakeNew();
-    InitConnListHead(&m_receivedStreams, kStreamLinkVtable);
-    InitConnListHead(&m_sendStreams, kStreamLinkVtable);
-    m_pingProbe.MakeNew();
-    m_receiveMetrics.MakeNew();
-    m_sendMetrics.MakeNew();
-    m_appNode.vtable = kConnNodeVtable;
-    m_appNode.data = this;
-    m_appNode.priority = 0;
-    m_appNode.next = &m_appNode;
-    m_appNode.prev = &m_appNode;
+    init_conn_list_head(&normal_msgs_, kMsgNormalLinkVtable);
+    init_conn_list_head(&important_msgs_, kMsgImpLinkVtable);
+    init_conn_list_head(&sequenced_msgs_, kMsgSeqLinkVtable);
+    cur_standing_ = 0;
+    flag_bits_ = 0;
+    for (ListNode& queue : received_queues_)
+        static_cast<MsgSeqLinkHead*>(&queue)->make_new();
+    init_conn_list_head(&received_streams_, kStreamLinkVtable);
+    init_conn_list_head(&send_streams_, kStreamLinkVtable);
+    ping_probe_.make_new();
+    receive_metrics_.make_new();
+    send_metrics_.make_new();
+    app_node_.vtable = kConnNodeVtable;
+    app_node_.data = this;
+    app_node_.priority = 0;
+    app_node_.next = &app_node_;
+    app_node_.prev = &app_node_;
 
-    m_flagBits = static_cast<uint32_t>(flags);
-    m_curStanding = kConnReady;
-    m_readBuffer = m_readPtr = static_cast<char*>(MemSys::Alloc(kRecvChunkBytes));
-    m_outgoingBytes = m_writePtr = static_cast<char*>(MemSys::Alloc(kWriteBufferSize));
-    m_txSpacingMs = 0;
-    m_lastTransmitAt = 0;
-    m_sendNow = false;
-    m_aliasConn = nullptr;
-    m_lastTimestampIn = 0;
-    m_timestampOut = 0;
-    m_streamCounter = 0;
-    m_linkSpeed = kBroadbandBandwidth;
+    flag_bits_ = static_cast<uint32_t>(flags);
+    cur_standing_ = kConnReady;
+    read_buffer_ = read_ptr_ = static_cast<char*>(memory::alloc(kRecvChunkBytes));
+    outgoing_bytes_ = write_ptr_ = static_cast<char*>(memory::alloc(kWriteBufferSize));
+    tx_spacing_ms_ = 0;
+    last_transmit_at_ = 0;
+    send_now_ = false;
+    alias_conn_ = nullptr;
+    last_timestamp_in_ = 0;
+    timestamp_out_ = 0;
+    stream_counter_ = 0;
+    link_speed_ = kBroadbandBandwidth;
     // (only the first 64 groups' sequence numbers are zeroed: 0x40 dwords each - the rest keep what the
     // memory held)
-    std::memset(m_nextSequenceIds, 0, 0x100);
-    std::memset(m_sequenceNumbers, 0, 0x100);
-    m_ident = NextConnId()++;
+    std::memset(next_sequence_ids_, 0, 0x100);
+    std::memset(sequence_numbers_, 0, 0x100);
+    ident_ = next_conn_id()++;
     return this;
 }
 
 // 0x00456790
-void Conn::Teardown()
+void Conn::teardown()
 {
-    DestroyReceivedSequencedMessages();
-    ReleaseQueuedMessages();
-    DestroyLinks();
-    MemSys::Dealloc(m_readBuffer);
-    MemSys::Dealloc(m_outgoingBytes);
-    m_appNode.DestroyBody();
-    static_cast<StreamLinkNode*>(&m_sendStreams)->DestroyBody();
-    static_cast<StreamLinkNode*>(&m_receivedStreams)->DestroyBody();
+    destroy_received_sequenced_messages();
+    release_queued_messages();
+    destroy_links();
+    memory::dealloc(read_buffer_);
+    memory::dealloc(outgoing_bytes_);
+    app_node_.destroy_body();
+    static_cast<StreamLinkNode*>(&send_streams_)->destroy_body();
+    static_cast<StreamLinkNode*>(&received_streams_)->destroy_body();
     for (int group = kChannelGroups - 1; group >= 0; --group)
-        static_cast<MsgSeqNode*>(&m_receivedQueues[group])->DestroyBody();
-    static_cast<MsgSeqNode*>(&m_sequencedMsgs)->DestroyBody();
-    static_cast<MsgImpNode*>(&m_importantMsgs)->DestroyBody();
-    static_cast<MsgNormalNode*>(&m_normalMsgs)->DestroyBody();
+        static_cast<MsgSeqNode*>(&received_queues_[group])->destroy_body();
+    static_cast<MsgSeqNode*>(&sequenced_msgs_)->destroy_body();
+    static_cast<MsgImpNode*>(&important_msgs_)->destroy_body();
+    static_cast<MsgNormalNode*>(&normal_msgs_)->destroy_body();
 }
 
 // 0x00455970
-uint32_t Conn::GetTransmitPeriod() { return m_txSpacingMs; }
+uint32_t Conn::get_transmit_period() { return tx_spacing_ms_; }
 
 // 0x00455980
-void Conn::ForceSendNow(bool force) { m_sendNow = force; }
+void Conn::force_send_now(bool force) { send_now_ = force; }
 
 // 0x00455990
-bool Conn::IsSendForced() { return m_sendNow; }
+bool Conn::is_send_forced() { return send_now_; }
 
 // 0x004559A0
-int Conn::GetLinkSpeedClass() { return m_linkClass; }
+int Conn::get_link_speed_class() { return link_class_; }
 
 // 0x004559B0
-void Conn::ChangeThroughput(int bytesPerSecond) { m_linkSpeed = bytesPerSecond; }
+void Conn::change_throughput(int bytes_per_second) { link_speed_ = bytes_per_second; }
 
 // 0x004559C0
-int Conn::FetchThroughput() { return m_linkSpeed; }
+int Conn::fetch_throughput() { return link_speed_; }
 
 // 0x00455A10
-bool Conn::IsOutsider() { return (m_flagBits & kFlagForeign) != 0; }
+bool Conn::is_outsider() { return (flag_bits_ & kFlagForeign) != 0; }
 
 // 0x00455A20
-bool Conn::IsHostLocal() { return (m_flagBits & kFlagLocal) != 0; }
+bool Conn::is_host_local() { return (flag_bits_ & kFlagLocal) != 0; }
 
 // 0x00455A30
-bool Conn::IsOffMachine() { return (m_flagBits & kFlagRemote) != 0; }
+bool Conn::is_off_machine() { return (flag_bits_ & kFlagRemote) != 0; }
 
 // 0x00455A40
-void Conn::SetLinkSpeedClass(int type)
+void Conn::set_link_speed_class(int type)
 {
-    m_linkClass = type;
+    link_class_ = type;
     switch (type) {
     case kBandwidthBroadband:
-        m_linkSpeed = kBroadbandBandwidth;
+        link_speed_ = kBroadbandBandwidth;
         break;
     case kBandwidthModem:
-        m_linkSpeed = kModemBandwidth;
+        link_speed_ = kModemBandwidth;
         break;
     case kBandwidthLan:
-        m_linkSpeed = kLanBandwidth;
+        link_speed_ = kLanBandwidth;
         break;
     }
 }
 
 // 0x00455B40
-int Conn::GetMeanPing()
+int Conn::get_mean_ping()
 {
-    if (IsHostLocal())
+    if (is_host_local())
         return 0;
-    return m_pingProbe.m_averageLatency;
+    return ping_probe_.average_latency_;
 }
 
 // 0x00455C10
-void Conn::MarkStale()
+void Conn::mark_stale()
 {
-    m_curStanding &= ~kConnReady;
-    m_curStanding |= kConnBroken;
+    cur_standing_ &= ~kConnReady;
+    cur_standing_ |= kConnBroken;
 }
 
 // 0x00455C20
-bool Conn::IsSound() { return (m_curStanding & kConnBroken) == 0; }
+bool Conn::is_sound() { return (cur_standing_ & kConnBroken) == 0; }
 
 // 0x00455C30
-uint32_t Conn::GetRetryDelay()
+uint32_t Conn::get_retry_delay()
 {
-    if (m_curStanding & kStatus2)
+    if (cur_standing_ & kStatus2)
         return kStatus2ResendThreshold;
-    int threshold = 2 * GetMeanPing();
+    int threshold = 2 * get_mean_ping();
     if (threshold < static_cast<int>(kMinResendThreshold)) // (signed)
         threshold = kMinResendThreshold;
     return static_cast<uint32_t>(threshold);
 }
 
 // 0x00455E50
-void Conn::DestroyReceivedSequencedMessages()
+void Conn::destroy_received_sequenced_messages()
 {
-    for (ListNode& queue : m_receivedQueues) {
-        ForEach<OrderedMsgNode>(&queue, [](OrderedMsgNode* link) {
-            if (SeqQueuedMsg* message = link->m_sharedMsg) {
-                message->DestroyBody();
-                MemSys::Dealloc(message);
+    for (ListNode& queue : received_queues_) {
+        for_each<OrderedMsgNode>(&queue, [](OrderedMsgNode* link) {
+            if (SeqQueuedMsg* message = link->shared_msg_) {
+                message->destroy_body();
+                memory::dealloc(message);
             }
-            DeleteLink(link);
+            delete_link(link);
         });
     }
 }
 
 // 0x00455F30
-void Conn::DestroyLinks()
+void Conn::destroy_links()
 {
-    auto deleteLink = [](void* link) { DeleteLink(link); };
-    ForEach<MsgNormalLink>(&m_normalMsgs, deleteLink);
-    ForEach<ReliableMsgNode>(&m_importantMsgs, deleteLink);
-    ForEach<OrderedMsgNode>(&m_sequencedMsgs, deleteLink);
-    for (ListNode& queue : m_receivedQueues)
-        ForEach<OrderedMsgNode>(&queue, deleteLink);
-    auto deleteStream = [](BulkStreamNode* link) {
-        if (StreamDesc* stream = link->m_msgMeta) {
-            DestroyStreamDescBody(stream);
-            MemSys::Dealloc(stream);
+    auto drop_link = [](void* link) { delete_link(link); };
+    for_each<MsgNormalLink>(&normal_msgs_, drop_link);
+    for_each<ReliableMsgNode>(&important_msgs_, drop_link);
+    for_each<OrderedMsgNode>(&sequenced_msgs_, drop_link);
+    for (ListNode& queue : received_queues_)
+        for_each<OrderedMsgNode>(&queue, drop_link);
+    auto delete_stream = [](BulkStreamNode* link) {
+        if (StreamDesc* stream = link->msg_meta_) {
+            destroy_stream_desc_body(stream);
+            memory::dealloc(stream);
         }
-        DeleteLink(link);
+        delete_link(link);
     };
-    ForEach<BulkStreamNode>(&m_receivedStreams, deleteStream);
-    ForEach<BulkStreamNode>(&m_sendStreams, deleteStream);
+    for_each<BulkStreamNode>(&received_streams_, delete_stream);
+    for_each<BulkStreamNode>(&send_streams_, delete_stream);
 }
 
 // 0x00456210
-void Conn::DestroyImportantMessages()
+void Conn::destroy_important_messages()
 {
-    ForEach<ReliableMsgNode>(&m_importantMsgs, [](ReliableMsgNode* link) {
-        Release(link->m_sharedMsg);
-        DeleteLink(link);
+    for_each<ReliableMsgNode>(&important_msgs_, [](ReliableMsgNode* link) {
+        get_release(link->shared_msg_);
+        delete_link(link);
     });
-    ForEach<OrderedMsgNode>(&m_sequencedMsgs, [](OrderedMsgNode* link) {
-        Release(link->m_sharedMsg);
-        DeleteLink(link);
+    for_each<OrderedMsgNode>(&sequenced_msgs_, [](OrderedMsgNode* link) {
+        get_release(link->shared_msg_);
+        delete_link(link);
     });
 }
 
 // 0x00456370
-void Conn::ReleaseQueuedMessages()
+void Conn::release_queued_messages()
 {
-    ForEach<MsgNormalLink>(&m_normalMsgs, [](MsgNormalLink* link) { Release(link->m_sharedMsg); });
-    ForEach<ReliableMsgNode>(&m_importantMsgs, [](ReliableMsgNode* link) { Release(link->m_sharedMsg); });
-    ForEach<OrderedMsgNode>(&m_sequencedMsgs, [](OrderedMsgNode* link) { Release(link->m_sharedMsg); });
+    for_each<MsgNormalLink>(&normal_msgs_, [](MsgNormalLink* link) { get_release(link->shared_msg_); });
+    for_each<ReliableMsgNode>(&important_msgs_, [](ReliableMsgNode* link) { get_release(link->shared_msg_); });
+    for_each<OrderedMsgNode>(&sequenced_msgs_, [](OrderedMsgNode* link) { get_release(link->shared_msg_); });
 }
 
 // 0x00456540
-int Conn::GetHighestResendCount()
+int Conn::get_highest_resend_count()
 {
     int highest = 0;
-    ForEach<ReliableMsgNode>(&m_importantMsgs, [&](ReliableMsgNode* link) {
-        if (link->m_retryCount > highest)
-            highest = link->m_retryCount;
+    for_each<ReliableMsgNode>(&important_msgs_, [&](ReliableMsgNode* link) {
+        if (link->retry_count_ > highest)
+            highest = link->retry_count_;
     });
-    ForEach<OrderedMsgNode>(&m_sequencedMsgs, [&](OrderedMsgNode* link) {
-        if (link->m_retryCount > highest)
-            highest = link->m_retryCount;
+    for_each<OrderedMsgNode>(&sequenced_msgs_, [&](OrderedMsgNode* link) {
+        if (link->retry_count_ > highest)
+            highest = link->retry_count_;
     });
     return highest;
 }
 
 // 0x004565E0
-int Conn::GetNumQueuedStreamPieces()
+int Conn::get_num_queued_stream_pieces()
 {
     int count = 0;
-    ForEach<OrderedMsgNode>(&m_sequencedMsgs, [&](OrderedMsgNode* link) {
-        if (link->m_bulkMsg)
+    for_each<OrderedMsgNode>(&sequenced_msgs_, [&](OrderedMsgNode* link) {
+        if (link->bulk_msg_)
             ++count;
     });
     return count;
 }
 
 // 0x00456630
-void Conn::ClearResendCounts()
+void Conn::clear_resend_counts()
 {
-    ForEach<ReliableMsgNode>(&m_importantMsgs, [](ReliableMsgNode* link) { link->m_retryCount = 0; });
-    ForEach<OrderedMsgNode>(&m_sequencedMsgs, [](OrderedMsgNode* link) { link->m_retryCount = 0; });
+    for_each<ReliableMsgNode>(&important_msgs_, [](ReliableMsgNode* link) { link->retry_count_ = 0; });
+    for_each<OrderedMsgNode>(&sequenced_msgs_, [](OrderedMsgNode* link) { link->retry_count_ = 0; });
 }
 
 // 0x004566D0
-void Conn::MarkMessagesForRetry(uint32_t packetstamp)
+void Conn::mark_messages_for_retry(uint32_t packetstamp)
 {
-    ForEach<ReliableMsgNode>(&m_importantMsgs, [=](ReliableMsgNode* link) {
-        if (link->m_packetClock == packetstamp)
-            link->m_stampMs = 0;
+    for_each<ReliableMsgNode>(&important_msgs_, [=](ReliableMsgNode* link) {
+        if (link->packet_clock_ == packetstamp)
+            link->stamp_ms_ = 0;
     });
-    ForEach<OrderedMsgNode>(&m_sequencedMsgs, [=](OrderedMsgNode* link) {
-        if (link->m_packetClock == packetstamp)
-            link->m_stampMs = 0;
+    for_each<OrderedMsgNode>(&sequenced_msgs_, [=](OrderedMsgNode* link) {
+        if (link->packet_clock_ == packetstamp)
+            link->stamp_ms_ = 0;
     });
 }
 
 // 0x00456770
-void Conn::DropQueuedTraffic()
+void Conn::drop_queued_traffic()
 {
-    DestroyReceivedSequencedMessages();
-    ReleaseQueuedMessages();
-    DestroyLinks();
+    destroy_received_sequenced_messages();
+    release_queued_messages();
+    destroy_links();
 }
 
 } // namespace Net

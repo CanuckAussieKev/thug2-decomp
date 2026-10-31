@@ -8,25 +8,25 @@
 #include "engine/script/cscript.h"
 #include "engine/core/game_vtables.h"
 
-namespace Engine3D {
+namespace render {
 
 namespace {
 
-void** const& kEngineVtable = Vt::kEngineParticles;
+void** const& g_engine_vtable = vt::kEngineParticles;
 
-uint8_t* Bytes(CPcParticleSystem* system) { return reinterpret_cast<uint8_t*>(system); }
-bool& Hidden(CPcParticleSystem* system) { return reinterpret_cast<bool&>(Bytes(system)[0x159]); }
-bool HeldBack(CPcParticleSystem* system) { return Bytes(system)[0x15A] != 0; }
+uint8_t* get_bytes(PcParticleSystem* system) { return reinterpret_cast<uint8_t*>(system); }
+bool& get_hidden(PcParticleSystem* system) { return reinterpret_cast<bool&>(get_bytes(system)[0x159]); }
+bool held_back(PcParticleSystem* system) { return get_bytes(system)[0x15A] != 0; }
 
 // A virtual slot of the system.
 template <typename... A>
-void Virtual(CPcParticleSystem* system, int slot, A... args)
+void Virtual(PcParticleSystem* system, int slot, A... args)
 {
-    reinterpret_cast<void(__thiscall*)(CPcParticleSystem*, A...)>(system->vtable[slot])(system, args...);
+    reinterpret_cast<void(__thiscall*)(PcParticleSystem*, A...)>(system->vtable[slot])(system, args...);
 }
 
 // A float passed through the x87 (FLD / FSTP): a signalling NaN comes out quiet.
-float ThroughX87(float value)
+float through_x87(float value)
 {
     uint32_t bits = std::bit_cast<uint32_t>(value);
     if ((bits & 0x7F800000u) == 0x7F800000u && (bits & 0x007FFFFFu))
@@ -37,78 +37,78 @@ float ThroughX87(float value)
 } // namespace
 
 // 0x00494DF0
-void CPcParticleSystem::EngineDestroyBody() { vtable = reinterpret_cast<void**>(kEngineVtable); }
+void PcParticleSystem::engine_destroy_body() { vtable = reinterpret_cast<void**>(g_engine_vtable); }
 
 // 0x00495230
-CPcParticleSystem* CPcParticleSystem::EngineDestroy(unsigned int flags)
+PcParticleSystem* PcParticleSystem::engine_destroy(unsigned int flags)
 {
-    vtable = reinterpret_cast<void**>(kEngineVtable);
+    vtable = reinterpret_cast<void**>(g_engine_vtable);
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00494E00
-void CPcParticleSystem::EngineRender(bool advance)
+void PcParticleSystem::engine_render(bool advance)
 {
-    if (!Hidden(this) && !HeldBack(this))
+    if (!get_hidden(this) && !held_back(this))
         Virtual(this, 4, advance);
 }
 
 // 0x00494E20
-void CPcParticleSystem::EngineUpdate()
+void PcParticleSystem::engine_update()
 {
-    if (!Hidden(this) && !HeldBack(this))
+    if (!get_hidden(this) && !held_back(this))
         Virtual(this, 5);
 }
 
 // 0x00494E40
-void CPcParticleSystem::EngineRelease()
+void PcParticleSystem::engine_release()
 {
-    uint32_t& scripts = *reinterpret_cast<uint32_t*>(Bytes(this) + 0x4C);
+    uint32_t& scripts = *reinterpret_cast<uint32_t*>(get_bytes(this) + 0x4C);
     if (scripts) {
-        Scripts::StopScriptsByTag(scripts);
+        script::stop_scripts_by_tag(scripts);
         scripts = 0;
     }
     Virtual(this, 2);
 }
 
 // 0x00494E70
-void CPcParticleSystem::Conceal(bool hide)
+void PcParticleSystem::conceal(bool hide)
 {
-    if (Hidden(this) == hide)
+    if (get_hidden(this) == hide)
         return;
-    Hidden(this) = hide;
+    get_hidden(this) = hide;
     Virtual(this, 3, hide);
 }
 
 // 0x00494E90
-void CPcParticleSystem::SetRate(float value) { rate = value; }
+void PcParticleSystem::set_rate(float value) { rate = value; }
 
 // 0x00494EA0
-void CPcParticleSystem::SetLifespan(float value) { lifetime = value; }
+void PcParticleSystem::set_lifespan(float value) { lifetime = value; }
 
 // 0x00494EB0
-void CPcParticleSystem::ChangeExtent(int which, float size) { sizes[which] = ThroughX87(size); }
+void PcParticleSystem::change_extent(int which, float size) { sizes[which] = through_x87(size); }
 
 // 0x00494EC0
-void CPcParticleSystem::ChangeColour(int which, const uint32_t* colour)
+void PcParticleSystem::change_colour(int which, const uint32_t* colour)
 {
     *reinterpret_cast<uint32_t*>(colours[which]) = *colour;
     Virtual(this, 6);
 }
 
 // 0x00494EE0
-void CPcParticleSystem::SetValue38(float value)
+void PcParticleSystem::set_value38(float value)
 {
-    *reinterpret_cast<float*>(Bytes(this) + 0x38) = value;
+    *reinterpret_cast<float*>(get_bytes(this) + 0x38) = value;
     Virtual(this, 6);
 }
 
 // 0x00494EF0
-void CPcParticleSystem::SetColourMidPercent(float percent)
+void PcParticleSystem::set_colour_mid_percent(float percent)
 {
-    colourMidPercent = percent;
+    colour_mid_percent_ = percent;
     Virtual(this, 6);
 }
 

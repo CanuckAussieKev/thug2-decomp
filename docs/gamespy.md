@@ -68,7 +68,7 @@ Behaviour:
 - **peerFixNick**: the 2007 SDK's rules changed in 2004. It allows another character set (`"#$%&'()*+,-./:;<=>?@`
   and the others), puts a '_' only before @ # + :, and its chat SDK cuts nicks at 20 characters. The exe's rules: a
   '_' before a leading digit or '-', and A-Z a-z 0-9 []\`_^{|}- only. Ours keeps the game's rules
-  (`GameSpy::FixNick`, checked against the exe's).
+  (`GameSpy::fix_nick`, checked against the exe's).
 - **Nick length**: the 2007 chat SDK refuses a nick of 21 characters or more before it connects (CHAT_NICK_TOO_LONG,
   which reaches the game's nick error callback as PEER_NICK_TOO_LONG = 6). The game's callback handles only "in
   use" (1) and "invalid" (2), so with a long network name the connection would stall. The game's retry nick

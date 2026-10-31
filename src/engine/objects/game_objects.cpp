@@ -32,7 +32,7 @@
 #include "engine/objects/entity.h"
 #include "engine/core/stubs.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
@@ -59,252 +59,252 @@ constexpr uint32_t kPedDisableBones = 0x48CA2D26;  // ped_disable_bones (a scrip
 
 // A new component of `size` bytes from T's constructor (null if there's no memory).
 template <typename T>
-CObjectModule* NewComponent(unsigned int size)
+ObjectModule* new_component(unsigned int size)
 {
-    void* memory = MemSys::AllocZeroed(size);
-    return memory ? static_cast<T*>(memory)->MakeNew() : nullptr;
+    void* memory = memory::alloc_zeroed(size);
+    return memory ? static_cast<T*>(memory)->make_new() : nullptr;
 }
-// A component's ConfigureFromData (vtable +0x08).
-void InitComponentFromStructure(CObjectModule* component, Scripts::CStruct* params)
+// A component's configure_from_data (vtable +0x08).
+void init_component_from_structure(ObjectModule* component, script::Struct* params)
 {
-    reinterpret_cast<void(__thiscall*)(CObjectModule*, Scripts::CStruct*)>((*reinterpret_cast<void***>(component))[2])(
+    reinterpret_cast<void(__thiscall*)(ObjectModule*, script::Struct*)>((*reinterpret_cast<void***>(component))[2])(
         component, params);
 }
 // The model component's update after the object is finished (0x00420480).
-void UpdateModel(CObjectModule* model) { static_cast<CMeshInstanceModule*>(model)->JumpTo(); }
+void update_model(ObjectModule* model) { static_cast<MeshInstanceModule*>(model)->jump_to(); }
 // The composite object's Finalize (vtable +0x20).
-void VirtualFinalize(CGameEntity* object)
+void virtual_finalize(GameEntity* object)
 {
-    reinterpret_cast<void(__thiscall*)(CGameEntity*)>(object->m_vtable[8])(object);
+    reinterpret_cast<void(__thiscall*)(GameEntity*)>(object->vtable_[8])(object);
 }
 
-Scripts::CStruct* SpawnParamTable()
+script::Struct* spawn_param_table()
 {
-    Scripts::CStruct* memory = Scripts::SpawnParamBag();
-    return memory ? memory->PrepareAll() : nullptr;
+    script::Struct* memory = script::spawn_param_bag();
+    return memory ? memory->prepare_all() : nullptr;
 }
-void DeleteStructure(Scripts::CStruct* structure)
+void delete_structure(script::Struct* structure)
 {
     if (structure) {
-        structure->Clear();
-        Scripts::DeleteStruct(structure);
+        structure->get_clear();
+        script::delete_struct(structure);
     }
 }
 
 } // namespace
 
 // 0x0057B250
-void AddBaseComponents(CGameEntity* object)
+void add_base_components(GameEntity* object)
 {
-    object->AttachModule(NewComponent<CDormancyModule>(0x4C)); // suspend
-    object->AttachModule(NewComponent<CBBoxComponent>(0x4C));    // (type 0xB87C8E43)
+    object->attach_module(new_component<DormancyModule>(0x4C)); // suspend
+    object->attach_module(new_component<CbBoxComponent>(0x4C));    // (type 0xB87C8E43)
 }
 
 // 0x0057B2F0
-void AddMotionComponents(CGameEntity* object)
+void add_motion_components(GameEntity* object)
 {
-    object->AttachModule(NewComponent<CKinematicsModule>(0x24C)); // motion
-    object->AttachModule(NewComponent<CObjectProximityComponent>(0x30)); // objectproximity
-    object->AttachModule(NewComponent<CAudioEmitterModule>(0xC0));   // sound
-    object->AttachModule(NewComponent<CAudioStreamModule>(0x2C));  // stream
-    object->AttachModule(NewComponent<CPinnedObjectModule>(0x90)); // lockobj
+    object->attach_module(new_component<KinematicsModule>(0x24C)); // motion
+    object->attach_module(new_component<ObjectProximityComponent>(0x30)); // objectproximity
+    object->attach_module(new_component<AudioEmitterModule>(0xC0));   // sound
+    object->attach_module(new_component<AudioStreamModule>(0x2C));  // stream
+    object->attach_module(new_component<PinnedObjectModule>(0x90)); // lockobj
 }
 
 // 0x0057B420
-void AddNodeComponents(CGameEntity* object, Scripts::CStruct* node)
+void add_node_components(GameEntity* object, script::Struct* node)
 {
-    CObjectModule* motion = object->FetchModule(kMotion);
+    ObjectModule* motion = object->fetch_module(kMotion);
     if (!motion)
-        AddMotionComponents(object); // (sic: not looked up again - the motion stays null below)
-    static_cast<CKinematicsModule*>(motion)->FaceNode(node);
-    if (uint32_t name = LevelNodes::GetNodeName(node))
-        object->ChangeSerial(name);
+        add_motion_components(object); // (sic: not looked up again - the motion stays null below)
+    static_cast<KinematicsModule*>(motion)->face_node(node);
+    if (uint32_t name = level_nodes::get_node_name(node))
+        object->change_serial(name);
     uint32_t script = 0;
-    if (node->ReadHashValue(kTriggerScript, &script, 0)) {
-        Scripts::CStruct* params = nullptr;
-        node->ReadSubStruct(kParams, &params, 0);
-        object->ReplaceScript(script, params);
+    if (node->read_hash_value(kTriggerScript, &script, 0)) {
+        script::Struct* params = nullptr;
+        node->read_sub_struct(kParams, &params, 0);
+        object->replace_script(script, params);
     }
-    InitComponentFromStructure(motion, node);
-    InitComponentFromStructure(object->FetchModule(kSuspend), node);
+    init_component_from_structure(motion, node);
+    init_component_from_structure(object->fetch_module(kSuspend), node);
 }
 
 // 0x0057B4E0
-void SpawnPedestrian(Scripts::CStruct* params)
+void spawn_pedestrian(script::Struct* params)
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CGameEntity));
-    auto* ped = memory ? static_cast<CGameEntity*>(memory)->MakeNew() : nullptr;
-    AddBaseComponents(ped);
-    AddMotionComponents(ped);
-    ped->ChangeSpecies(kObjectTypePed);
-    ObjectHubSlot()->VirtualRegisterObject(ped);
-    LevelNodes::FetchPlace(params, &ped->m_atPoint);
-    AddNodeComponents(ped, params);
-    Scripts::LaunchScript(kPedAddComponents, params, ped, false, nullptr);
-    VirtualFinalize(ped);
-    Scripts::LaunchScript(kPedInitModel, params, ped, false, nullptr);
-    auto* motion = reinterpret_cast<uint8_t*>(ped->FetchModule(kMotion));
+    void* memory = memory::alloc_zeroed(sizeof(GameEntity));
+    auto* ped = memory ? static_cast<GameEntity*>(memory)->make_new() : nullptr;
+    add_base_components(ped);
+    add_motion_components(ped);
+    ped->change_species(kObjectTypePed);
+    object_hub_slot()->virtual_register_object(ped);
+    level_nodes::fetch_place(params, &ped->at_point_);
+    add_node_components(ped, params);
+    script::launch_script(kPedAddComponents, params, ped, false, nullptr);
+    virtual_finalize(ped);
+    script::launch_script(kPedInitModel, params, ped, false, nullptr);
+    auto* motion = reinterpret_cast<uint8_t*>(ped->fetch_module(kMotion));
     *reinterpret_cast<float*>(motion + 0x2C) = 44.0f;
     *reinterpret_cast<float*>(motion + 0x24) = 48.0f;
     *reinterpret_cast<float*>(motion + 0x28) = 12.0f;
     *reinterpret_cast<float*>(motion + 0x34) = 24.0f;
-    reinterpret_cast<CKinematicsModule*>(motion)->InitPathFollower(ped);
-    auto* path = static_cast<uint8_t*>(reinterpret_cast<CMotionPathMembers*>(motion)->GetPathFollower());
+    reinterpret_cast<KinematicsModule*>(motion)->init_path_follower(ped);
+    auto* path = static_cast<uint8_t*>(reinterpret_cast<MotionPathMembers*>(motion)->get_path_follower());
     *reinterpret_cast<float*>(path + 0x94) = 24.0f;
     *reinterpret_cast<uint32_t*>(motion + 0x1C) |= 0x400;
-    UpdateModel(ped->FetchModule(kModel));
-    Scripts::LaunchScript(kPedDisableBones, nullptr, ped, false, nullptr);
+    update_model(ped->fetch_module(kModel));
+    script::launch_script(kPedDisableBones, nullptr, ped, false, nullptr);
 }
 
 // 0x005780E0
-void SetUpAutomobile(CGameEntity* car, Scripts::CStruct* params)
+void set_up_automobile(GameEntity* car, script::Struct* params)
 {
-    AddMotionComponents(car);
-    AddNodeComponents(car, params);
-    auto* motion = reinterpret_cast<uint8_t*>(car->FetchModule(kMotion));
+    add_motion_components(car);
+    add_node_components(car, params);
+    auto* motion = reinterpret_cast<uint8_t*>(car->fetch_module(kMotion));
     *reinterpret_cast<float*>(motion + 0x2C) = 528.0f;
     *reinterpret_cast<float*>(motion + 0x24) = 216.0f;
     *reinterpret_cast<float*>(motion + 0x28) = 384.0f;
     motion[0x70] = 0;
-    reinterpret_cast<CKinematicsModule*>(motion)->InitPathFollower(car);
-    auto* extra = static_cast<uint8_t*>(reinterpret_cast<CMotionPathMembers*>(motion)->GetPathFollower());
+    reinterpret_cast<KinematicsModule*>(motion)->init_path_follower(car);
+    auto* extra = static_cast<uint8_t*>(reinterpret_cast<MotionPathMembers*>(motion)->get_path_follower());
     *reinterpret_cast<float*>(extra + 0x94) = 240.0f;
-    Scripts::LaunchScript(kCarAddComponents, params, car, false, nullptr);
-    VirtualFinalize(car);
-    UpdateModel(car->FetchModule(kModel));
+    script::launch_script(kCarAddComponents, params, car, false, nullptr);
+    virtual_finalize(car);
+    update_model(car->fetch_module(kModel));
 }
 
 // 0x00578170
-void SpawnAutomobile(Scripts::CStruct* params)
+void spawn_automobile(script::Struct* params)
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CGameEntity));
-    auto* car = memory ? static_cast<CGameEntity*>(memory)->MakeNew() : nullptr;
-    AddBaseComponents(car);
-    car->ChangeSpecies(kObjectTypeCar);
-    void* component = MemSys::AllocZeroed(0x58);
-    car->AttachModule(component ? static_cast<CAutomobileDynamicsModule*>(component)->MakeNew() : nullptr);
-    LevelNodes::FetchPlace(params, &car->m_atPoint);
-    ObjectHubSlot()->VirtualRegisterObject(car);
-    SetUpAutomobile(car, params);
+    void* memory = memory::alloc_zeroed(sizeof(GameEntity));
+    auto* car = memory ? static_cast<GameEntity*>(memory)->make_new() : nullptr;
+    add_base_components(car);
+    car->change_species(kObjectTypeCar);
+    void* component = memory::alloc_zeroed(0x58);
+    car->attach_module(component ? static_cast<AutomobileDynamicsModule*>(component)->make_new() : nullptr);
+    level_nodes::fetch_place(params, &car->at_point_);
+    object_hub_slot()->virtual_register_object(car);
+    set_up_automobile(car, params);
 }
 
 // 0x00578240
-CCrownObject* CCrownObject::MakeNew()
+CrownObject* CrownObject::make_new()
 {
-    CGameEntity::MakeNew();
-    m_vtable = kCrownVtable;
-    AddBaseComponents(this);
-    m_kindTag = kObjectTypeCrown;
-    ChangeSerial(kCrownObject);
-    m_worn = false;
+    GameEntity::make_new();
+    vtable_ = kCrownVtable;
+    add_base_components(this);
+    kind_tag_ = kObjectTypeCrown;
+    change_serial(kCrownObject);
+    worn_ = false;
     return this;
 }
 
 // 0x005782B0
-void CCrownObject::PutOn(CGameEntity* skater)
+void CrownObject::put_on(GameEntity* skater)
 {
-    m_skater = skater;
-    m_worn = true;
+    skater_ = skater;
+    worn_ = true;
 }
 
 // 0x005782D0
-void CCrownObject::TakeOff() { m_worn = false; }
+void CrownObject::take_off() { worn_ = false; }
 
 // 0x005782E0
-bool CCrownObject::IsWorn() { return m_worn; }
+bool CrownObject::is_worn() { return worn_; }
 
 // 0x005782F0
-void CCrownObject::DestroyBody()
+void CrownObject::destroy_body()
 {
-    m_vtable = kCrownVtable;
-    m_worn = false;
-    CGameEntity::DestroyBody();
+    vtable_ = kCrownVtable;
+    worn_ = false;
+    GameEntity::destroy_body();
 }
 
 // 0x00578310
-void CCrownObject::OwnUpdate()
+void CrownObject::own_update()
 {
-    if (!m_worn)
+    if (!worn_)
         return;
     // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
-    auto* skeleton = reinterpret_cast<void*>(reinterpret_cast<OnlinePlay::FoldedGetters*>(m_skater->FetchModule(kSkeleton))->Word18());
-    static_cast<Gfx2D::CRig*>(skeleton)->ReadJointMatrix(kBoneHead, &m_basisFrame);
-    Maths::Mat4 turn;
-    Maths::Multiply(m_basisFrame, Maths::MakePitchMatrix(turn, 90.0f), m_basisFrame);
-    Maths::Vec4 raise = {0.0f, 0.0f, -18.0f, 0.0f};
-    m_basisFrame.OffsetLocal(raise);
-    Maths::Vec4 offset = m_basisFrame.row[3];
-    m_basisFrame.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    Maths::Multiply(m_basisFrame, m_basisFrame, m_skater->m_basisFrame);
-    Maths::Vec4 moved;
-    m_atPoint = m_skater->m_basisFrame.Xform(moved, offset); // (the matrix times the offset, w too)
-    const Maths::Vec4& at = m_skater->m_atPoint;
-    m_atPoint.x = static_cast<float>(static_cast<double>(at.x) + m_atPoint.x);
-    m_atPoint.y = static_cast<float>(static_cast<double>(at.y) + m_atPoint.y);
-    m_atPoint.z = static_cast<float>(static_cast<double>(at.z) + m_atPoint.z);
-    m_atPoint.w = static_cast<float>(static_cast<double>(at.w) + m_atPoint.w);
+    auto* skeleton = reinterpret_cast<void*>(reinterpret_cast<online::FoldedGetters*>(skater_->fetch_module(kSkeleton))->word18());
+    static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(kBoneHead, &basis_frame_);
+    maths::Mat4 turn;
+    maths::get_multiply(basis_frame_, maths::make_pitch_matrix(turn, 90.0f), basis_frame_);
+    maths::Vec4 raise = {0.0f, 0.0f, -18.0f, 0.0f};
+    basis_frame_.offset_local(raise);
+    maths::Vec4 offset = basis_frame_.row[3];
+    basis_frame_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    maths::get_multiply(basis_frame_, basis_frame_, skater_->basis_frame_);
+    maths::Vec4 moved;
+    at_point_ = skater_->basis_frame_.xform(moved, offset); // (the matrix times the offset, w too)
+    const maths::Vec4& at = skater_->at_point_;
+    at_point_.x = static_cast<float>(static_cast<double>(at.x) + at_point_.x);
+    at_point_.y = static_cast<float>(static_cast<double>(at.y) + at_point_.y);
+    at_point_.z = static_cast<float>(static_cast<double>(at.z) + at_point_.z);
+    at_point_.w = static_cast<float>(static_cast<double>(at.w) + at_point_.w);
 }
 
 // 0x00578460
-CCrownObject* CCrownObject::Teardown(unsigned int flags)
+CrownObject* CrownObject::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00578490
-void CCrownObject::InitFromNode(CEntityHub* manager, Scripts::CStruct* node)
+void CrownObject::init_from_node(EntityHub* manager, script::Struct* node)
 {
-    manager->VirtualRegisterObject(this);
-    AddMotionComponents(this);
-    Scripts::CStruct* model = SpawnParamTable();
-    model->PutNameKey(kComponent, kModel);
-    VirtualCreateComponentFromStructure(model, nullptr);
-    DeleteStructure(model);
-    AddNodeComponents(this, node);
-    ChangeSerial(kCrownObject);
-    auto* suspend = reinterpret_cast<uint8_t*>(FetchModule(kSuspend));
+    manager->virtual_register_object(this);
+    add_motion_components(this);
+    script::Struct* model = spawn_param_table();
+    model->put_name_key(kComponent, kModel);
+    virtual_create_component_from_structure(model, nullptr);
+    delete_structure(model);
+    add_node_components(this, node);
+    change_serial(kCrownObject);
+    auto* suspend = reinterpret_cast<uint8_t*>(fetch_module(kSuspend));
     *reinterpret_cast<float*>(suspend + 0x34) = 1000000.0f;
     *reinterpret_cast<float*>(suspend + 0x38) = 1000001.0f;
     *reinterpret_cast<float*>(suspend + 0x3C) = 1000002.0f;
     *reinterpret_cast<float*>(suspend + 0x40) = 1000003.0f;
-    TextUtil::Chars file;
+    text::Chars file;
     {
         // The model's path (0x004879D0 returns a String: made in `storage`).
-        alignas(TextUtil::Chars) uint8_t storage[sizeof(TextUtil::Chars)];
-        auto* path = Gfx2D::MakeModelPath(reinterpret_cast<TextUtil::Chars*>(storage), "crown", ".mdl");
+        alignas(text::Chars) uint8_t storage[sizeof(text::Chars)];
+        auto* path = gfx::make_model_path(reinterpret_cast<text::Chars*>(storage), "crown", ".mdl");
         file = *path;
         path->~Chars();
     }
     // The model component's model (+0x208): loaded from the file (0x004935E0), then 0x00493C60(1).
-    void* modelData = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(FetchModule(kModel)) + 0x208);
-    static_cast<Engine3D::CRenderModel*>(modelData)->AddFileGeom(file.c_str(), 0, true, 0, false, false, true, false);
-    modelData = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(FetchModule(kModel)) + 0x208);
-    static_cast<Engine3D::CRenderModel*>(modelData)->ChangeLive(1);
-    LevelNodes::FetchPlace(node, &m_atPoint);
-    VirtualFinalize(this);
-    UpdateModel(FetchModule(kModel));
+    void* model_data = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(fetch_module(kModel)) + 0x208);
+    static_cast<render::RenderModel*>(model_data)->add_file_geom(file.c_str(), 0, true, 0, false, false, true, false);
+    model_data = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(fetch_module(kModel)) + 0x208);
+    static_cast<render::RenderModel*>(model_data)->change_live(1);
+    level_nodes::fetch_place(node, &at_point_);
+    virtual_finalize(this);
+    update_model(fetch_module(kModel));
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kCrownVtable_slots[] = {&GameObjects::CCrownObject::Teardown,
-         &GameObjects::CEntity::ChangeTraits,
-         static_cast<bool (GameObjects::CEntity::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CEntity::InvokeMethodByName),
-         static_cast<bool (GameObjects::CGameEntity::*)(uint32_t, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CGameEntity::InvokeMethodByName),
-         Stubs::IgnoreArgument,
-         &GameObjects::CEntity::PassEventToScript,
-         &GameObjects::CGameEntity::FlagAsDead,
-         &GameObjects::CGameEntity::ShouldUpdateScripts,
-         &GameObjects::CGameEntity::Seal,
-         &GameObjects::CGameEntity::CreateComponentFromStructure,
-         &GameObjects::CCrownObject::OwnUpdate};
-void** const kCrownVtable = reinterpret_cast<void**>(kCrownVtable_slots);
+static VtableSlot g_crown_vtable_slots[] = {&objects::CrownObject::teardown,
+         &objects::Entity::change_traits,
+         static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
+         static_cast<bool (objects::GameEntity::*)(uint32_t, script::Struct*, script::Script*)>(&objects::GameEntity::invoke_method_by_name),
+         stubs::ignore_argument,
+         &objects::Entity::pass_event_to_script,
+         &objects::GameEntity::flag_as_dead,
+         &objects::GameEntity::should_update_scripts,
+         &objects::GameEntity::seal,
+         &objects::GameEntity::create_component_from_structure,
+         &objects::CrownObject::own_update};
+void** const kCrownVtable = reinterpret_cast<void**>(g_crown_vtable_slots);
 
 } // namespace
 } // namespace Obj

@@ -1,13 +1,13 @@
-// A vector times a full 4x4 matrix (Maths::Vec4::MultiplyBy, engine/maths/vec4.h).
+// A vector times a full 4x4 matrix (maths::Vec4::multiply_by, engine/maths/vec4.h).
 
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 
-namespace Maths {
+namespace maths {
 
 // 0x00434200 (the x87 sums in double, each stored once; the terms added as the original does: w first, then z,
 // then x / y in the order below)
-Vec4& Vec4::MultiplyBy(const Mat4& matrix)
+Vec4& Vec4::multiply_by(const Mat4& matrix)
 {
     const double vx = x, vy = y, vz = z, vw = w;
     const Vec4* m = matrix.row;

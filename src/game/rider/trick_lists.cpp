@@ -9,14 +9,14 @@
 #include "engine/core/code_address.h"
 #include "game/rider/gap_entry.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
 extern void** const kListEntryVtable;
 extern void** const kNameEntryVtable;
 
-void InitNode(MemSys::ListNode& node, void* data)
+void init_node(memory::ListNode& node, void* data)
 {
     node.data = data;
     node.priority = 0;
@@ -27,80 +27,80 @@ void InitNode(MemSys::ListNode& node, void* data)
 } // namespace
 
 // 0x00578670
-void TrickListEntry::SetFlag() { m_flag2C = true; }
+void TrickListEntry::set_flag() { flag_2c_ = true; }
 
 // 0x00578740
-TrickListEntry* TrickListEntry::MakeNew()
+TrickListEntry* TrickListEntry::make_new()
 {
-    InitNode(m_listLink, this);
-    m_listLink.vtable = kListEntryVtable;
-    m_lookupKey = 0;
-    m_unknown24 = 0;
-    m_unknown30 = 0;
-    m_unknown34 = false;
-    Scripts::CArray* memory = Scripts::AllocScriptArray();
-    m_elementList = memory ? memory->PrepareAll() : nullptr;
-    m_unknown38 = 0;
-    m_unknown3C = 0;
+    init_node(list_link_, this);
+    list_link_.vtable = kListEntryVtable;
+    lookup_key_ = 0;
+    unknown24_ = 0;
+    unknown30_ = 0;
+    unknown34_ = false;
+    script::Array* memory = script::alloc_script_array();
+    element_list_ = memory ? memory->prepare_all() : nullptr;
+    unknown38_ = 0;
+    unknown3c_ = 0;
     return this;
 }
 
 // 0x00579570
-void TrickListEntry::DestroyBody()
+void TrickListEntry::destroy_body()
 {
-    m_listLink.vtable = kListEntryVtable;
-    if (m_elementList)
-        Scripts::ReleaseArrayStorage(m_elementList);
-    if (Scripts::CArray* array = m_elementList) {
-        array->Clear();
-        Scripts::DeleteArray(array);
+    list_link_.vtable = kListEntryVtable;
+    if (element_list_)
+        script::release_array_storage(element_list_);
+    if (script::Array* array = element_list_) {
+        array->get_clear();
+        script::delete_array(array);
     }
-    m_listLink.UnlinkAs(g_gapNodeVtable);
+    list_link_.unlink_as(kGapNodeVtable);
 }
 
 // 0x00579820
-TrickListEntry* TrickListEntry::Teardown(unsigned int flags)
+TrickListEntry* TrickListEntry::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x005787F0
-TrickNameEntry* TrickNameEntry::MakeNew()
+TrickNameEntry* TrickNameEntry::make_new()
 {
-    InitNode(m_listLink, this);
-    m_listLink.vtable = kNameEntryVtable;
-    new (&m_label) TextUtil::Chars();
+    init_node(list_link_, this);
+    list_link_.vtable = kNameEntryVtable;
+    new (&label_) text::Chars();
     return this;
 }
 
 // 0x00579630
-void TrickNameEntry::DestroyBody()
+void TrickNameEntry::destroy_body()
 {
-    m_label.~Chars();
-    m_listLink.UnlinkAs(g_gapTrickNodeVtable);
+    label_.~Chars();
+    list_link_.unlink_as(kGapTrickNodeVtable);
 }
 
 // 0x00579600
-TrickNameEntry* TrickNameEntry::Teardown(unsigned int flags)
+TrickNameEntry* TrickNameEntry::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kListEntryVtable_slots[] = {&GameObjects::TrickListEntry::Teardown};
-void** const kListEntryVtable = reinterpret_cast<void**>(kListEntryVtable_slots);
-static VtableSlot kNameEntryVtable_slots[] = {&GameObjects::TrickNameEntry::Teardown};
-void** const kNameEntryVtable = reinterpret_cast<void**>(kNameEntryVtable_slots);
+static VtableSlot g_list_entry_vtable_slots[] = {&objects::TrickListEntry::teardown};
+void** const kListEntryVtable = reinterpret_cast<void**>(g_list_entry_vtable_slots);
+static VtableSlot g_name_entry_vtable_slots[] = {&objects::TrickNameEntry::teardown};
+void** const kNameEntryVtable = reinterpret_cast<void**>(g_name_entry_vtable_slots);
 
 } // namespace
 } // namespace Obj

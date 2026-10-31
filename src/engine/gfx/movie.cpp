@@ -32,10 +32,10 @@
 #include "platform/winmain.h"
 #include "platform/crt.h"
 
-namespace Engine3D {
+namespace render {
 
 // (device.h declares this too; not included here, its SetRenderState is another one than the one below)
-extern IDirect3DDevice9* g_d3dDevice;
+extern IDirect3DDevice9* g_d3d_device;
 
 namespace {
 
@@ -46,106 +46,106 @@ struct MovieVertex {
 };
 static_assert(sizeof(MovieVertex) == 0x1C, "the draw's stride");
 
-void** InputPort() { return reinterpret_cast<void**>(g_d3dDevice); }
+void** input_port() { return reinterpret_cast<void**>(g_d3d_device); }
 template <typename F>
-F Method(int index) { return reinterpret_cast<F>((*reinterpret_cast<void***>(InputPort()))[index]); }
-void SetTextureStageState(int stage, int type, int value)
+F get_method(int index) { return reinterpret_cast<F>((*reinterpret_cast<void***>(input_port()))[index]); }
+void set_texture_stage_state(int stage, int type, int value)
 {
-    Method<long(__stdcall*)(void*, int, int, int)>(0x10C / 4)(InputPort(), stage, type, value);
+    get_method<long(__stdcall*)(void*, int, int, int)>(0x10C / 4)(input_port(), stage, type, value);
 }
 
-uint32_t s_movieWidth = 0;
-uint32_t s_movieHeight = 0;
+uint32_t s_movie_width = 0;
+uint32_t s_movie_height = 0;
 
 } // namespace
 
-void SetMovieTexture(int stage, void* texture, int unknown)
+void set_movie_texture(int stage, void* texture, int unknown)
 {
     // GetLevelDesc(0): a D3DSURFACE_DESC (0x20 bytes: format, type, usage, pool, multisample type and quality,
     // width, height)
     uint32_t desc[8];
     reinterpret_cast<long(__stdcall*)(void*, unsigned int, void*)>((*static_cast<void***>(texture))[0x44 / 4])(
         texture, 0, desc);
-    s_movieWidth = desc[6];
-    s_movieHeight = desc[7];
+    s_movie_width = desc[6];
+    s_movie_height = desc[7];
     (void)unknown; // (passed on by the original; SetTexture doesn't take it)
-    SetTexture(stage, texture);
+    set_texture(stage, texture);
 }
 
-void __stdcall DrawMovieQuad(void* device, int type, uint32_t count, void* vertices, uint32_t stride)
+void __stdcall draw_movie_quad(void* device, int type, uint32_t count, void* vertices, uint32_t stride)
 {
-    uint32_t backBufferWidth = reinterpret_cast<uint32_t&>(g_backBufferWidth);
-    uint32_t backBufferHeight = reinterpret_cast<uint32_t&>(g_backBufferHeight);
+    uint32_t back_buffer_width = reinterpret_cast<uint32_t&>(g_back_buffer_width);
+    uint32_t back_buffer_height = reinterpret_cast<uint32_t&>(g_back_buffer_height);
     // (4:3, whatever the movie's own shape: some, like the credits, are anamorphic)
-    float targetAspect = 4.0f / 3.0f;
-    float backBufferAspect = static_cast<float>(backBufferWidth) / static_cast<float>(backBufferHeight);
-    float width = static_cast<float>(backBufferWidth);
-    float height = static_cast<float>(backBufferHeight);
-    float offsetX = 0.0f;
-    float offsetY = 0.0f;
-    if (backBufferAspect > targetAspect) {
-        width = targetAspect / backBufferAspect * static_cast<float>(backBufferWidth);
-        offsetX = (static_cast<float>(backBufferWidth) - width) / 2;
-    } else if (backBufferAspect < targetAspect) {
-        height = backBufferAspect / targetAspect * static_cast<float>(backBufferHeight);
-        offsetY = (static_cast<float>(backBufferHeight) - height) / 2;
+    float target_aspect = 4.0f / 3.0f;
+    float back_buffer_aspect = static_cast<float>(back_buffer_width) / static_cast<float>(back_buffer_height);
+    float width = static_cast<float>(back_buffer_width);
+    float height = static_cast<float>(back_buffer_height);
+    float offset_x = 0.0f;
+    float offset_y = 0.0f;
+    if (back_buffer_aspect > target_aspect) {
+        width = target_aspect / back_buffer_aspect * static_cast<float>(back_buffer_width);
+        offset_x = (static_cast<float>(back_buffer_width) - width) / 2;
+    } else if (back_buffer_aspect < target_aspect) {
+        height = back_buffer_aspect / target_aspect * static_cast<float>(back_buffer_height);
+        offset_y = (static_cast<float>(back_buffer_height) - height) / 2;
     }
     auto* quad = static_cast<MovieVertex*>(vertices);
-    quad[0].x = offsetX;
-    quad[0].y = offsetY;
-    quad[1].x = offsetX + width;
-    quad[1].y = offsetY;
-    quad[2].x = offsetX;
-    quad[2].y = offsetY + height;
-    quad[3].x = offsetX + width;
-    quad[3].y = offsetY + height;
+    quad[0].x = offset_x;
+    quad[0].y = offset_y;
+    quad[1].x = offset_x + width;
+    quad[1].y = offset_y;
+    quad[2].x = offset_x;
+    quad[2].y = offset_y + height;
+    quad[3].x = offset_x + width;
+    quad[3].y = offset_y + height;
     // DrawPrimitiveUP
     reinterpret_cast<long(__stdcall*)(void*, int, uint32_t, const void*, uint32_t)>(
         (*static_cast<void***>(device))[0x14C / 4])(device, type, count, vertices, stride);
 }
 
-float g_onePercent{0.01f};
+float g_one_percent{0.01f};
 float g_float255{255.0f};
 float g_float16384{16384.0f};
-uint32_t g_movieSurfaceType{3};
-float g_movieBackBufferWidth{640.0f};
-float g_movieBackBufferHeight{480.0f};
-float g_moviePictureWidth{640.0f};
-float g_moviePictureHeight{480.0f};
-float g_movieDrawWidth{1.0f};
-float g_movieDrawHeight{1.0f};
-uint32_t g_savedMinFilter;
-uint32_t g_savedAntialias;
-uint32_t g_savedCullMode;
-bool g_moviePlaying;
-int g_movieDumpCount;
-bool g_deviceLost;
-bool g_quitRequested;
-Bink* g_currentMovie; // a Bink movie playing
+uint32_t g_movie_surface_type{3};
+float g_movie_back_buffer_width{640.0f};
+float g_movie_back_buffer_height{480.0f};
+float g_movie_picture_width{640.0f};
+float g_movie_picture_height{480.0f};
+float g_movie_draw_width{1.0f};
+float g_movie_draw_height{1.0f};
+uint32_t g_saved_min_filter;
+uint32_t g_saved_antialias;
+uint32_t g_saved_cull_mode;
+bool g_movie_playing;
+int g_movie_dump_count;
+bool g_device_lost;
+bool g_quit_requested;
+Bink* g_current_movie; // a Bink movie playing
 
 // 0x0044FA80
-void DrawMovieFrame(void* texture, float x, float y, float width, float height, float alpha)
+void draw_movie_frame(void* texture, float x, float y, float width, float height, float alpha)
 {
     if (!texture)
         return;
-    ChooseBlendMode(0);
-    ChangePhase(kAddressMode0, 0x10001); // (clamp)
-    SetVertexFormat(0x144);
-    Method<long(__stdcall*)(void*, int, int)>(0xE4 / 4)(InputPort(), 22, 1); // D3DRS_CULLMODE: none
-    Method<long(__stdcall*)(void*, uint32_t)>(0x164 / 4)(InputPort(), 0x144); // SetFVF
-    SetPixelShader(nullptr, nullptr); // (no pixel shader)
-    SetTextureStageState(0, 1, 5); // colour: modulate
-    SetTextureStageState(0, 2, 2);
-    SetTextureStageState(0, 3, 1);
-    SetTextureStageState(0, 4, 3);
-    SetTextureStageState(1, 1, 1); // stage 1 off
-    SetTexture(0, nullptr); // (the original also passes 0, unused)
+    choose_blend_mode(0);
+    change_phase(kAddressMode0, 0x10001); // (clamp)
+    set_vertex_format(0x144);
+    get_method<long(__stdcall*)(void*, int, int)>(0xE4 / 4)(input_port(), 22, 1); // D3DRS_CULLMODE: none
+    get_method<long(__stdcall*)(void*, uint32_t)>(0x164 / 4)(input_port(), 0x144); // SetFVF
+    set_pixel_shader(nullptr, nullptr); // (no pixel shader)
+    set_texture_stage_state(0, 1, 5); // colour: modulate
+    set_texture_stage_state(0, 2, 2);
+    set_texture_stage_state(0, 3, 1);
+    set_texture_stage_state(0, 4, 3);
+    set_texture_stage_state(1, 1, 1); // stage 1 off
+    set_texture(0, nullptr); // (the original also passes 0, unused)
     // (a leftover from testing: the name of a frame dump that's never written)
-    char dumpName[256];
-    std::snprintf(dumpName, sizeof(dumpName), "e:\\movietest\\movie%04d.bmp", g_movieDumpCount);
-    ++g_movieDumpCount;
-    // Originally from PartyMod Fixes (its call at 0x0044FB8C): SetMovieTexture in place of the renderer's texture set (0x004DA730)
-    SetMovieTexture(0, texture, 0);
+    char dump_name[256];
+    std::snprintf(dump_name, sizeof(dump_name), "e:\\movietest\\movie%04d.bmp", g_movie_dump_count);
+    ++g_movie_dump_count;
+    // Originally from PartyMod Fixes (its call at 0x0044FB8C): set_movie_texture in place of the renderer's texture set (0x004DA730)
+    set_movie_texture(0, texture, 0);
 
     // (x87: alpha * 255 truncated; each corner is position + size * the screen scale, rounded once)
     uint32_t color = static_cast<uint32_t>(static_cast<int>(static_cast<double>(alpha) * g_float255))
@@ -154,63 +154,63 @@ void DrawMovieFrame(void* texture, float x, float y, float width, float height, 
     MovieVertex vertices[4];
     vertices[0] = {x, y, 0.0f, 1.0f, color, 0.0f, 0.0f};
     vertices[1] = vertices[0];
-    vertices[1].x = static_cast<float>(static_cast<double>(g_movieBackBufferWidth) * width + x);
+    vertices[1].x = static_cast<float>(static_cast<double>(g_movie_back_buffer_width) * width + x);
     vertices[1].u = 1.0f;
     vertices[2] = vertices[0];
-    vertices[2].y = static_cast<float>(static_cast<double>(g_movieBackBufferHeight) * height + y);
+    vertices[2].y = static_cast<float>(static_cast<double>(g_movie_back_buffer_height) * height + y);
     vertices[2].v = 1.0f;
     vertices[3] = vertices[1];
     vertices[3].y = vertices[2].y;
     vertices[3].v = 1.0f;
-    if (Method<long(__stdcall*)(void*)>(0xC / 4)(InputPort()) == 0) // TestCooperativeLevel: the device isn't lost
+    if (get_method<long(__stdcall*)(void*)>(0xC / 4)(input_port()) == 0) // TestCooperativeLevel: the device isn't lost
         // Originally from PartyMod Fixes (its call at 0x0044FC88): fitted to 4:3, in place of the device's DrawPrimitiveUP
-        DrawMovieQuad(InputPort(), 5 /* triangle strip */, 2, vertices, sizeof(MovieVertex));
-    SetTextureStageState(0, 1, 4); // colour: modulate back
+        draw_movie_quad(input_port(), 5 /* triangle strip */, 2, vertices, sizeof(MovieVertex));
+    set_texture_stage_state(0, 1, 4); // colour: modulate back
 }
 
 namespace {
 
 // The Bink SDK (binkw32.dll), through the game's import table.
-int BinkSetSoundSystem(void* open, void* param) { return reinterpret_cast<int(__stdcall*)(void*, void*)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetSoundSystem@8"))(open, param); }
-void* BinkOpenDirectSound() { return reinterpret_cast<void*>(Crt::LibraryFunction("binkw32.dll", "_BinkOpenDirectSound@4")); } // the function, passed to the above
-Bink* VideoOpen(const char* path, uint32_t flags) { return reinterpret_cast<Bink*(__stdcall*)(const char*, uint32_t)>(Crt::LibraryFunction("binkw32.dll", "_BinkOpen@8"))(path, flags); }
-void VideoToggleSound(Bink* bink, int on) { reinterpret_cast<int(__stdcall*)(Bink*, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetSoundOnOff@8"))(bink, on); }
-void VideoSetLoudness(Bink* bink, uint32_t track, int volume) { reinterpret_cast<void(__stdcall*)(Bink*, uint32_t, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetVolume@12"))(bink, track, SoundFx::OutputBinkVolume(volume)); } // (NOT ORIGINAL: mute_audio)
-void BinkPause(Bink* bink, int pause) { reinterpret_cast<int(__stdcall*)(Bink*, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkPause@8"))(bink, pause); }
-int VideoWaitReady(Bink* bink) { return reinterpret_cast<int(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkWait@4"))(bink); }
-void VideoDecodeFrame(Bink* bink) { reinterpret_cast<int(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkDoFrame@4"))(bink); }
-void VideoCopyFrame(Bink* bink, void* bits, int pitch, uint32_t height, uint32_t x, uint32_t y, uint32_t flags)
+int bink_set_sound_system(void* open, void* param) { return reinterpret_cast<int(__stdcall*)(void*, void*)>(crt::library_function("binkw32.dll", "_BinkSetSoundSystem@8"))(open, param); }
+void* bink_open_direct_sound() { return reinterpret_cast<void*>(crt::library_function("binkw32.dll", "_BinkOpenDirectSound@4")); } // the function, passed to the above
+Bink* video_open(const char* path, uint32_t flags) { return reinterpret_cast<Bink*(__stdcall*)(const char*, uint32_t)>(crt::library_function("binkw32.dll", "_BinkOpen@8"))(path, flags); }
+void video_toggle_sound(Bink* bink, int on) { reinterpret_cast<int(__stdcall*)(Bink*, int)>(crt::library_function("binkw32.dll", "_BinkSetSoundOnOff@8"))(bink, on); }
+void video_set_loudness(Bink* bink, uint32_t track, int volume) { reinterpret_cast<void(__stdcall*)(Bink*, uint32_t, int)>(crt::library_function("binkw32.dll", "_BinkSetVolume@12"))(bink, track, sound::output_bink_volume(volume)); } // (NOT ORIGINAL: mute_audio)
+void bink_pause(Bink* bink, int pause) { reinterpret_cast<int(__stdcall*)(Bink*, int)>(crt::library_function("binkw32.dll", "_BinkPause@8"))(bink, pause); }
+int video_wait_ready(Bink* bink) { return reinterpret_cast<int(__stdcall*)(Bink*)>(crt::library_function("binkw32.dll", "_BinkWait@4"))(bink); }
+void video_decode_frame(Bink* bink) { reinterpret_cast<int(__stdcall*)(Bink*)>(crt::library_function("binkw32.dll", "_BinkDoFrame@4"))(bink); }
+void video_copy_frame(Bink* bink, void* bits, int pitch, uint32_t height, uint32_t x, uint32_t y, uint32_t flags)
 {
-    reinterpret_cast<int(__stdcall*)(Bink*, void*, int, uint32_t, uint32_t, uint32_t, uint32_t)>(Crt::LibraryFunction("binkw32.dll", "_BinkCopyToBuffer@28"))(bink, bits, pitch, height, x, y, flags);
+    reinterpret_cast<int(__stdcall*)(Bink*, void*, int, uint32_t, uint32_t, uint32_t, uint32_t)>(crt::library_function("binkw32.dll", "_BinkCopyToBuffer@28"))(bink, bits, pitch, height, x, y, flags);
 }
-void VideoAdvanceFrame(Bink* bink) { reinterpret_cast<void(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkNextFrame@4"))(bink); }
-void VideoClose(Bink* bink) { reinterpret_cast<void(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkClose@4"))(bink); }
+void video_advance_frame(Bink* bink) { reinterpret_cast<void(__stdcall*)(Bink*)>(crt::library_function("binkw32.dll", "_BinkNextFrame@4"))(bink); }
+void video_close(Bink* bink) { reinterpret_cast<void(__stdcall*)(Bink*)>(crt::library_function("binkw32.dll", "_BinkClose@4"))(bink); }
 
-Bink*& CurrentMovie() { return g_currentMovie; }
-bool& MoviePlaying() { return g_moviePlaying; }
+Bink*& current_movie() { return g_current_movie; }
+bool& movie_playing() { return g_movie_playing; }
 
-// The D3D device's render and sampler states (IDirect3DDevice9 methods 57/58 and 69/70).
-void SetRenderState(int state, uint32_t value) { Method<long(__stdcall*)(void*, int, uint32_t)>(0xE4 / 4)(InputPort(), state, value); }
-void GetRenderState(int state, uint32_t* value) { Method<long(__stdcall*)(void*, int, uint32_t*)>(0xE8 / 4)(InputPort(), state, value); }
-void GetSamplerState(int sampler, int type, uint32_t* value)
+// The d_3d device's render and sampler states (IDirect3DDevice9 methods 57/58 and 69/70).
+void set_render_state(int state, uint32_t value) { get_method<long(__stdcall*)(void*, int, uint32_t)>(0xE4 / 4)(input_port(), state, value); }
+void get_render_state(int state, uint32_t* value) { get_method<long(__stdcall*)(void*, int, uint32_t*)>(0xE8 / 4)(input_port(), state, value); }
+void get_sampler_state(int sampler, int type, uint32_t* value)
 {
-    Method<long(__stdcall*)(void*, int, int, uint32_t*)>(0x110 / 4)(InputPort(), sampler, type, value);
+    get_method<long(__stdcall*)(void*, int, int, uint32_t*)>(0x110 / 4)(input_port(), sampler, type, value);
 }
-void SetSamplerState(int sampler, int type, uint32_t value)
+void set_sampler_state(int sampler, int type, uint32_t value)
 {
-    Method<long(__stdcall*)(void*, int, int, uint32_t)>(0x114 / 4)(InputPort(), sampler, type, value);
+    get_method<long(__stdcall*)(void*, int, int, uint32_t)>(0x114 / 4)(input_port(), sampler, type, value);
 }
-enum { kD3DCullMode = 22, kRsMultisample = 161, kD3DLighting = 137, kMinFilter = 6 };
-// The states BeginMovie changes, for EndMovie.
-uint32_t& SavedCullMode() { return g_savedCullMode; }
-uint32_t& SavedAntialias() { return g_savedAntialias; }
-uint32_t& SavedMinFilter() { return g_savedMinFilter; }
-// The renderer's cached states (ChangePhase: 1 the z write, 2 the z test).
-void SetRendererSampler(int state, int value) { ChangePhase(state, static_cast<uint32_t>(value)); }
+enum { kD3dCullMode = 22, kRsMultisample = 161, kD3dLighting = 137, kMinFilter = 6 };
+// The states begin_movie changes, for end_movie.
+uint32_t& saved_cull_mode() { return g_saved_cull_mode; }
+uint32_t& saved_antialias() { return g_saved_antialias; }
+uint32_t& get_saved_min_filter() { return g_saved_min_filter; }
+// The renderer's cached states (change_phase: 1 the z write, 2 the z test).
+void set_renderer_sampler(int state, int value) { change_phase(state, static_cast<uint32_t>(value)); }
 
 // A texture's methods (IDirect3DTexture9: Release, LockRect, UnlockRect).
 template <typename F>
-F TextureMethod(void* texture, int index) { return reinterpret_cast<F>((*reinterpret_cast<void***>(texture))[index]); }
+F texture_method(void* texture, int index) { return reinterpret_cast<F>((*reinterpret_cast<void***>(texture))[index]); }
 struct SurfaceLock {
     int pitch;
     void* bits;
@@ -219,79 +219,79 @@ struct SurfaceLock {
 } // namespace
 
 // 0x0044F8C0
-void* __cdecl BeginMovie(uint32_t width, uint32_t height)
+void* __cdecl begin_movie(uint32_t width, uint32_t height)
 {
-    GetRenderState(kD3DCullMode, &SavedCullMode());
-    SetRenderState(kD3DCullMode, 1); // none
-    GetRenderState(kRsMultisample, &SavedAntialias());
-    SetRenderState(kRsMultisample, 0);
-    SetRenderState(kD3DLighting, 0);
-    SetRendererSampler(1, 0);
-    SetRendererSampler(2, 0);
-    GetSamplerState(0, kMinFilter, &SavedMinFilter());
-    SetSamplerState(0, kMinFilter, 2); // linear
+    get_render_state(kD3dCullMode, &saved_cull_mode());
+    set_render_state(kD3dCullMode, 1); // none
+    get_render_state(kRsMultisample, &saved_antialias());
+    set_render_state(kRsMultisample, 0);
+    set_render_state(kD3dLighting, 0);
+    set_renderer_sampler(1, 0);
+    set_renderer_sampler(2, 0);
+    get_sampler_state(0, kMinFilter, &get_saved_min_filter());
+    set_sampler_state(0, kMinFilter, 2); // linear
     // (x87: unsigned to float through FILD and +2^32)
-    g_moviePictureWidth = static_cast<float>(static_cast<double>(width));
-    g_moviePictureHeight = static_cast<float>(static_cast<double>(height));
-    void** device = InputPort();
-    g_movieBackBufferWidth = static_cast<float>(g_backBufferWidth); // the back buffer
-    g_movieBackBufferHeight = static_cast<float>(g_backBufferHeight);
+    g_movie_picture_width = static_cast<float>(static_cast<double>(width));
+    g_movie_picture_height = static_cast<float>(static_cast<double>(height));
+    void** device = input_port();
+    g_movie_back_buffer_width = static_cast<float>(g_back_buffer_width); // the back buffer
+    g_movie_back_buffer_height = static_cast<float>(g_back_buffer_height);
     void* texture;
     // CreateTexture: one level, no usage, D3DFMT_X8R8G8B8 (0x16), D3DPOOL_MANAGED
-    long result = Method<long(__stdcall*)(void*, uint32_t, uint32_t, uint32_t, uint32_t, int, int, void**, void*)>(0x5C / 4)(
+    long result = get_method<long(__stdcall*)(void*, uint32_t, uint32_t, uint32_t, uint32_t, int, int, void**, void*)>(0x5C / 4)(
         device, width, height, 1, 0, 0x16, 1, &texture, nullptr);
     if (result < 0)
         return nullptr;
-    MoviePlaying() = true;
+    movie_playing() = true;
     return texture;
 }
 
 // 0x0044F9F0
-void __cdecl EndMovie(void* texture)
+void __cdecl end_movie(void* texture)
 {
-    MoviePlaying() = false;
-    SetRenderState(kD3DCullMode, SavedCullMode());
-    SetRenderState(kRsMultisample, SavedAntialias());
-    SetSamplerState(0, kMinFilter, SavedMinFilter());
-    SetRendererSampler(1, 1);
-    SetRendererSampler(2, 1);
+    movie_playing() = false;
+    set_render_state(kD3dCullMode, saved_cull_mode());
+    set_render_state(kRsMultisample, saved_antialias());
+    set_sampler_state(0, kMinFilter, get_saved_min_filter());
+    set_renderer_sampler(1, 1);
+    set_renderer_sampler(2, 1);
     if (texture)
-        TextureMethod<unsigned long(__stdcall*)(void*)>(texture, 2)(texture); // Release
-    SetTexture(0, nullptr); // (the original also passes 0, unused)
+        texture_method<unsigned long(__stdcall*)(void*)>(texture, 2)(texture); // Release
+    set_texture(0, nullptr); // (the original also passes 0, unused)
 }
 
 // 0x0044FCC0
-void __cdecl DrawMovie(Bink* bink, void* texture)
+void __cdecl draw_movie(Bink* bink, void* texture)
 {
-    Method<long(__stdcall*)(void*)>(0xA4 / 4)(InputPort()); // BeginScene
+    get_method<long(__stdcall*)(void*)>(0xA4 / 4)(input_port()); // BeginScene
     // Clear: the target, to black (Z 1.0)
-    Method<long(__stdcall*)(void*, uint32_t, const void*, uint32_t, uint32_t, float, uint32_t)>(0xAC / 4)(InputPort(), 0, nullptr, 1, 0, 1.0f, 0);
-    DrawMovieFrame(texture, 0.0f, 0.0f, g_movieDrawWidth, g_movieDrawHeight, 1.0f);
-    Method<long(__stdcall*)(void*)>(0xA8 / 4)(InputPort()); // EndScene
-    Method<long(__stdcall*)(void*, const void*, const void*, void*, const void*)>(0x44 / 4)(InputPort(), nullptr, nullptr, nullptr, nullptr); // Present
-    VideoAdvanceFrame(bink);
+    get_method<long(__stdcall*)(void*, uint32_t, const void*, uint32_t, uint32_t, float, uint32_t)>(0xAC / 4)(input_port(), 0, nullptr, 1, 0, 1.0f, 0);
+    draw_movie_frame(texture, 0.0f, 0.0f, g_movie_draw_width, g_movie_draw_height, 1.0f);
+    get_method<long(__stdcall*)(void*)>(0xA8 / 4)(input_port()); // EndScene
+    get_method<long(__stdcall*)(void*, const void*, const void*, void*, const void*)>(0x44 / 4)(input_port(), nullptr, nullptr, nullptr, nullptr); // Present
+    video_advance_frame(bink);
 }
 
 // 0x0044F840
-bool ButtonPressedAgain(const uint8_t* controlData, uint16_t* seenUp, uint32_t mask)
+bool button_pressed_again(const uint8_t* control_data, uint16_t* seen_up, uint32_t mask)
 {
-    if (!controlData)
+    if (!control_data)
         return false;
-    uint16_t up = static_cast<uint16_t>(controlData[2] << 8 | controlData[3]);
+    uint16_t up = static_cast<uint16_t>(control_data[2] << 8 | control_data[3]);
     if (up & mask) {
-        *seenUp |= static_cast<uint16_t>(mask);
+        *seen_up |= static_cast<uint16_t>(mask);
         return false;
     }
-    return (*seenUp & mask) != 0;
+    return (*seen_up & mask) != 0;
 }
 
-__declspec(naked) void ButtonPressedAgainStub()
+__declspec(naked) void button_pressed_again_stub()
 {
     __asm {
         push ecx
         push esi
         push eax
-        call ButtonPressedAgain
+        call button_pressed_again
         add esp, 12
         ret
     }
@@ -300,26 +300,26 @@ __declspec(naked) void ButtonPressedAgainStub()
 namespace {
 // The sound effects manager (a reference-counted singleton) and its main volume (the original calls it as a method
 // of the manager; it reads a global), and the music's. 0-100.
-void CreateSoundManager() { SoundFx::CreateManager(false); }
-void ReleaseSoundManager() { SoundFx::ReleaseManager(); }
-float SoundVolume() { return SoundFx::FetchMasterLoudness(); }
-float MusicVolume() { return AudioStream::GetMusicVolume(); }
-void ToggleFog(bool on) { Engine3D::Engine::EnableFog(on); }
-bool AppActive() { return SystemCore::g_appActive; }
-bool QuitRequested() { return g_quitRequested; }
-bool DeviceLost() { return g_deviceLost; }
+void create_sound_manager() { sound::create_manager(false); }
+void release_sound_manager() { sound::release_manager(); }
+float sound_volume() { return sound::fetch_master_loudness(); }
+float current_music_volume() { return audio::get_music_volume(); }
+void toggle_fog(bool on) { render::engine::enable_fog(on); }
+bool app_active() { return sys::g_app_active; }
+bool quit_requested() { return g_quit_requested; }
+bool device_lost() { return g_device_lost; }
 
 enum : uint32_t { kStart = 0x0800, kCross = 0x0040 }; // PS2 control data bytes 2-3 (set while up)
 } // namespace
 
 // 0x0044FDC0
-void __cdecl PlayMovieFile(const char* name)
+void __cdecl play_movie_file(const char* name)
 {
-    if (!BinkSetSoundSystem(BinkOpenDirectSound(), AudioStream::g_soundDevice))
-        DebugOut::Printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
-    CreateSoundManager();
-    float music = MusicVolume();
-    float effects = SoundVolume();
+    if (!bink_set_sound_system(bink_open_direct_sound(), audio::g_sound_device))
+        debug::printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
+    create_sound_manager();
+    float music = current_music_volume();
+    float effects = sound_volume();
     float volume = music > effects ? music : effects;
 
     // data\movies\bik\ + the name after its last backslash + .bik (the original only looks for a backslash
@@ -337,106 +337,106 @@ void __cdecl PlayMovieFile(const char* name)
     std::strncpy(path + 16, name + start, length - start);
     std::memcpy(path + std::strlen(path), ".bik", 5);
 
-    AudioStream::StopMusic();
-    AudioStream::HaltStreams(-1); // (all of them)
-    CurrentMovie() = VideoOpen(path, 0);
-    if (!CurrentMovie()) {
-        ReleaseSoundManager();
+    audio::stop_music();
+    audio::halt_streams(-1); // (all of them)
+    current_movie() = video_open(path, 0);
+    if (!current_movie()) {
+        release_sound_manager();
         return;
     }
-    void* texture = BeginMovie(CurrentMovie()->width, CurrentMovie()->height);
+    void* texture = begin_movie(current_movie()->width, current_movie()->height);
     // The screen saver's timer is reset every 200 frames (by setting its timeout again).
-    UINT screenSaverTimeout = 0;
-    SystemParametersInfoA(SPI_GETSCREENSAVETIMEOUT, 0, &screenSaverTimeout, 0);
-    uint32_t screenSaverFrames = 0;
-    bool fog = reinterpret_cast<int&>(g_fogActive) != 0;
-    ToggleFog(false);
+    UINT screen_saver_timeout = 0;
+    SystemParametersInfoA(SPI_GETSCREENSAVETIMEOUT, 0, &screen_saver_timeout, 0);
+    uint32_t screen_saver_frames = 0;
+    bool fog = reinterpret_cast<int&>(g_fog_active) != 0;
+    toggle_fog(false);
     if (texture) {
-        Sio::Hub* input = Sio::CreateManager(false);
-        uint16_t seenUp[4] = {};
-        VideoToggleSound(CurrentMovie(), 1);
-        VideoSetLoudness(CurrentMovie(), 0,
-                      static_cast<int>(static_cast<double>(volume) * g_onePercent // 0.01
+        sio::Hub* input = sio::create_manager(false);
+        uint16_t seen_up[4] = {};
+        video_toggle_sound(current_movie(), 1);
+        video_set_loudness(current_movie(), 0,
+                      static_cast<int>(static_cast<double>(volume) * g_one_percent // 0.01
                                        * g_float16384));                         // 16384
         int frames = 0;
         for (;;) {
-            if (screenSaverTimeout && screenSaverFrames++ >= 200) {
-                screenSaverFrames = 0;
-                SystemParametersInfoA(SPI_SETSCREENSAVETIMEOUT, screenSaverTimeout, nullptr, 0);
+            if (screen_saver_timeout && screen_saver_frames++ >= 200) {
+                screen_saver_frames = 0;
+                SystemParametersInfoA(SPI_SETSCREENSAVETIMEOUT, screen_saver_timeout, nullptr, 0);
             }
-            if (!AppActive()) {
-                BinkPause(CurrentMovie(), 1);
-                while (!AppActive()) {
+            if (!app_active()) {
+                bink_pause(current_movie(), 1);
+                while (!app_active()) {
                     Sleep(100);
-                    OsLayer::ProcessWindowEvents();
+                    os_layer::process_window_events();
                 }
                 continue;
             }
-            if (QuitRequested())
+            if (quit_requested())
                 break;
-            if (DeviceLost()) {
-                FrameLoop::Hub::ResetDeviceIfLost(); // (through the jump at 0x0044F250)
-                if (DeviceLost()) {
+            if (device_lost()) {
+                frame_loop::Hub::reset_device_if_lost(); // (through the jump at 0x0044F250)
+                if (device_lost()) {
                     // Not original - the original (0x00450053-0x00450066) tries again at once, without handling the
                     // window's messages: with the device lost (another full-screen program on the display) it
                     // never gets it back and spins at full CPU, hung. Here it waits and lets the window be
                     // restored, as the inactive-app wait above does.
                     Sleep(100);
-                    OsLayer::ProcessWindowEvents();
+                    os_layer::process_window_events();
                     continue;
                 }
-                BinkPause(CurrentMovie(), 0);
+                bink_pause(current_movie(), 0);
             }
-            if (VideoWaitReady(CurrentMovie()))
+            if (video_wait_ready(current_movie()))
                 continue;
-            Bink* bink = CurrentMovie();
-            VideoDecodeFrame(bink);
+            Bink* bink = current_movie();
+            video_decode_frame(bink);
             SurfaceLock locked;
-            if (TextureMethod<long(__stdcall*)(void*, uint32_t, SurfaceLock*, const void*, uint32_t)>(texture, 0x4C / 4)(
+            if (texture_method<long(__stdcall*)(void*, uint32_t, SurfaceLock*, const void*, uint32_t)>(texture, 0x4C / 4)(
                     texture, 0, &locked, nullptr, 0) >= 0) {
-                VideoCopyFrame(bink, locked.bits, locked.pitch, bink->height, 0, 0,
-                                 g_movieSurfaceType | 0x80000000); // the surface type, copy all
-                TextureMethod<long(__stdcall*)(void*, uint32_t)>(texture, 0x50 / 4)(texture, 0);
+                video_copy_frame(bink, locked.bits, locked.pitch, bink->height, 0, 0,
+                                 g_movie_surface_type | 0x80000000); // the surface type, copy all
+                texture_method<long(__stdcall*)(void*, uint32_t)>(texture, 0x50 / 4)(texture, 0);
             }
-            DrawMovie(CurrentMovie(), texture);
-            if (CurrentMovie()->frameNum >= CurrentMovie()->frames - 1)
+            draw_movie(current_movie(), texture);
+            if (current_movie()->frame_num_ >= current_movie()->frames - 1)
                 break;
             ++frames;
             if (frames % 2 == 0)
-                OsLayer::ProcessWindowEvents();
+                os_layer::process_window_events();
             // PartyMod NOPs the original's "if (frames % 5 != 0) continue;" (0x00450121): the pads are read
             // every frame, so skipping reacts at once.
-            input->PollPads();
+            input->poll_pads();
             bool skip = false;
             for (int port = 0; port < 4 && !skip; ++port) {
-                Sio::InputPort* device = input->GetPadAtSlot(port);
+                sio::InputPort* device = input->get_pad_at_slot(port);
                 if (!device)
                     continue;
-                const uint8_t* data = device->m_controlData;
+                const uint8_t* data = device->control_data_;
                 if (data[2] << 8 & kStart)
-                    seenUp[port] |= kStart;
-                else if (seenUp[port] & kStart)
+                    seen_up[port] |= kStart;
+                else if (seen_up[port] & kStart)
                     skip = true;
-                if (!skip && ButtonPressedAgain(data, &seenUp[port], kCross))
+                if (!skip && button_pressed_again(data, &seen_up[port], kCross))
                     skip = true;
             }
             if (skip)
                 break;
         }
-        Sio::ReleaseManager();
+        sio::release_manager();
     }
-    MoviePlaying() = false;
-    ToggleFog(fog);
-    EndMovie(texture);
-    VideoClose(CurrentMovie());
-    CurrentMovie() = nullptr;
-    SetTextureStageState(0, 4, 4); // alpha: modulate
-    ReleaseSoundManager();
+    movie_playing() = false;
+    toggle_fog(fog);
+    end_movie(texture);
+    video_close(current_movie());
+    current_movie() = nullptr;
+    set_texture_stage_state(0, 4, 4); // alpha: modulate
+    release_sound_manager();
 }
 
 namespace {
 // thug2-decomp.ini [features] skip_intro_movies=1: the logo and intro movies at start-up aren't played.
-bool IsIntroMovie(const char* name)
+bool is_intro_movie(const char* name)
 {
     const char* base = name;
     for (const char* c = name; *c; ++c)
@@ -453,32 +453,32 @@ bool IsIntroMovie(const char* name)
 // NOT ORIGINAL (with skip_intro_movies): any movie the start-up script itself plays (startup_loading_screen - where
 // the game plays its logos and intro) counts as an intro movie too: e.g. Anteara Mod's Shorty's movie
 // (tools/anteara), while the same movie from GAME MOVIES still plays.
-bool FromStartUpScript(void* script)
+bool from_start_up_script(void* script)
 {
-    static const uint32_t startUp = Checksums::HashFromText("startup_loading_screen");
-    return script && static_cast<Scripts::CScript*>(script)->m_scriptTitle == startUp;
+    static const uint32_t kStartUp = checksums::hash_from_text("startup_loading_screen");
+    return script && static_cast<script::Script*>(script)->script_title_ == kStartUp;
 }
 } // namespace
 
-bool& SkipIntroMovies()
+bool& skip_intro_movies()
 {
     // (not original either: -edit implies it - straight into the level editor)
-    static bool skip = ConfigInt("features", "skip_intro_movies", 0) != 0 || MenuSystem::BeginLevel::EditRequested();
+    static bool skip = config_int("features", "skip_intro_movies", 0) != 0 || frontend::begin_level::edit_requested();
     return skip;
 }
 
 // 0x0059F0C0: the PlayMovie script command: play the movie named by the unnamed string (through the jump at
 // 0x0044F830).
-bool __cdecl PlayMovie(Scripts::CStruct* params, void* script)
+bool __cdecl play_movie(script::Struct* params, void* script)
 {
     const char* name = nullptr;
-    if (!params->FetchText(0u, &name, 1))
+    if (!params->fetch_text(0u, &name, 1))
         return false;
-    if (SkipIntroMovies() && (IsIntroMovie(name) || FromStartUpScript(script))) {
-        Log("skipping intro movie %s (thug2-decomp.ini [features] skip_intro_movies)", name);
+    if (skip_intro_movies() && (is_intro_movie(name) || from_start_up_script(script))) {
+        get_log("skipping intro movie %s (thug2-decomp.ini [features] skip_intro_movies)", name);
         return true;
     }
-    PlayMovieFile(name);
+    play_movie_file(name);
     return true;
 }
 

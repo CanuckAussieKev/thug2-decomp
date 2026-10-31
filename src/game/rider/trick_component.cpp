@@ -16,9 +16,9 @@
 #include "platform/stopwatch.h"
 #include "engine/objects/control_pad.h"
 
-namespace GameObjects {
+namespace objects {
 
-uint32_t g_trickComponentMemberFunctions[24]{
+uint32_t g_trick_component_member_functions[24]{
             0xE4AB4785, 0x270F56E1, 0, 0, 0, 0,
             0x46D49242, 0x270F56E1, 0, 0, 0, 0,
             0x1FC98415, 0x270F56E1, 0, 0, 0, 0,
@@ -36,28 +36,28 @@ constexpr uint32_t kStatsManager = 0x4FF8DAC6;
 constexpr uint32_t kSecond = 1000; // the sequences' window (ms)
 
 template <typename T>
-T& Prop(const void* object, uint32_t offset)
+T& prop(const void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
 }
 
 // The events from the newest back, `count` of them (the count read again each step, as the original does).
 template <typename Visit>
-void ForEachEvent(CMoveExecutor* trick, Visit visit)
+void for_each_event(MoveExecutor* trick, Visit visit)
 {
-    int index = trick->m_eventHead;
-    for (int n = 0; n < trick->m_eventCount; ++n) {
-        if (!visit(index, trick->m_events[index]))
+    int index = trick->event_head_;
+    for (int n = 0; n < trick->event_count_; ++n) {
+        if (!visit(index, trick->events_[index]))
             return;
         if (--index < 0)
-            index += CMoveExecutor::kEvents;
+            index += MoveExecutor::kEvents;
     }
 }
 
-uint32_t Now() { return FrameClock::GetTime(); }
+uint32_t get_now() { return frame_clock::get_time(); }
 
 // _stricmp (0x00626EFB) in the C locale.
-int CompareNoCase(const char* a, const char* b)
+int compare_no_case(const char* a, const char* b)
 {
     for (;; ++a, ++b) {
         int x = static_cast<unsigned char>(*a), y = static_cast<unsigned char>(*b);
@@ -73,7 +73,7 @@ int CompareNoCase(const char* a, const char* b)
 } // namespace
 
 // 0x0051EA40
-bool IsDirection(uint32_t button)
+bool is_direction(uint32_t button)
 {
     switch (button) {
     case 0xB7231A95:
@@ -90,13 +90,13 @@ bool IsDirection(uint32_t button)
     }
 }
 
-__declspec(naked) void IsDirectionStub()
+__declspec(naked) void is_direction_stub()
 {
     __asm {
         push ecx
         push edx
         push eax
-        call IsDirection
+        call is_direction
         add esp, 4
         pop edx
         pop ecx
@@ -105,17 +105,17 @@ __declspec(naked) void IsDirectionStub()
 }
 
 namespace {
-void __stdcall MarkUsedThunk(CMoveExecutor* trick, uint32_t flags) { trick->FlagSpent(flags); }
+void __stdcall mark_used_thunk(MoveExecutor* trick, uint32_t flags) { trick->flag_spent(flags); }
 } // namespace
 
-__declspec(naked) void MarkUsedStub()
+__declspec(naked) void mark_used_stub()
 {
     __asm {
         push ecx
         push edx
         push dword ptr [esp + 0xC]
         push ecx
-        call MarkUsedThunk
+        call mark_used_thunk
         pop edx
         pop ecx
         ret 4
@@ -123,95 +123,95 @@ __declspec(naked) void MarkUsedStub()
 }
 
 // 0x0051EA90
-void __cdecl CMoveExecutor::PublishMethodTable()
+void __cdecl MoveExecutor::publish_method_table()
 {
-    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_trickComponentMemberFunctions, 0x18);
+    script::register_member_function_table(reinterpret_cast<void*>(kType), g_trick_component_member_functions, 0x18);
 }
 
 // 0x0051F2B0
-void CMoveExecutor::Seal()
+void MoveExecutor::seal()
 {
-    m_input = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kInput));
-    m_balanceTrick = m_entity->FetchModule(kSkaterBalanceTrick);
-    m_corePhysics = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSkaterCorePhysics));
-    m_flipRotate = m_entity->FetchModule(kSkaterFlipAndRotate);
-    m_skaterState = m_entity->FetchModule(kSkaterState);
-    m_statsManager = m_entity->FetchModule(kStatsManager);
+    input_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kInput));
+    balance_trick_ = entity_->fetch_module(kSkaterBalanceTrick);
+    core_physics_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterCorePhysics));
+    flip_rotate_ = entity_->fetch_module(kSkaterFlipAndRotate);
+    skater_state_ = entity_->fetch_module(kSkaterState);
+    stats_manager_ = entity_->fetch_module(kStatsManager);
 }
 
 // 0x0051F320
-void CMoveExecutor::Reset()
+void MoveExecutor::get_reset()
 {
-    m_unknown18 = 0;
-    m_ignoredCount = 0;
-    m_unknownA24 = false;
-    m_extraListCount = 0;
-    m_queueFirst = -1;
-    m_queueLast = -1;
-    std::memset(m_extraLists, 0, 0x1238 - 0x1208);
-    Prop<uint8_t>(this, 0x1268) = 0;
+    unknown18_ = 0;
+    ignored_count_ = 0;
+    unknowna24_ = false;
+    extra_list_count_ = 0;
+    queue_first_ = -1;
+    queue_last_ = -1;
+    std::memset(extra_lists_, 0, 0x1238 - 0x1208);
+    prop<uint8_t>(this, 0x1268) = 0;
     std::memset(reinterpret_cast<uint8_t*>(this) + 0x1238, 0, 0x1268 - 0x1238);
-    Prop<uint8_t>(this, 0x12B0) = 0;
+    prop<uint8_t>(this, 0x12B0) = 0;
     std::memset(reinterpret_cast<uint8_t*>(this) + 0x1280, 0, 0x12B0 - 0x1280);
-    Prop<uint8_t>(this, 0x12C8) = 0;
-    Prop<uint8_t>(this, 0x12C9) = 0;
-    Prop<uint32_t>(this, 0x12CC) = 0;
-    Prop<uint32_t>(this, 0x12D0) = 0;
-    Prop<uint32_t>(this, 0x12D4) = 0;
-    Prop<uint32_t>(this, 0x1328) = 0;
-    Prop<uint32_t>(this, 0x132C) = 0;
-    ClearEventBuffer();
-    m_buttonMap[0] = m_buttonMap[1] = m_buttonMap[2] = 0;
+    prop<uint8_t>(this, 0x12C8) = 0;
+    prop<uint8_t>(this, 0x12C9) = 0;
+    prop<uint32_t>(this, 0x12CC) = 0;
+    prop<uint32_t>(this, 0x12D0) = 0;
+    prop<uint32_t>(this, 0x12D4) = 0;
+    prop<uint32_t>(this, 0x1328) = 0;
+    prop<uint32_t>(this, 0x132C) = 0;
+    clear_event_buffer();
+    button_map_[0] = button_map_[1] = button_map_[2] = 0;
     for (int i = 0; i < kButtons; ++i) {
-        m_btnDown[i] = false;
-        m_heldOffUntil[i] = 0.0f;
+        btn_down_[i] = false;
+        held_off_until_[i] = 0.0f;
     }
-    Prop<uint8_t>(this, 0x1330) = 0;
-    Prop<uint8_t>(this, 0x1BB8) = 0;
+    prop<uint8_t>(this, 0x1330) = 0;
+    prop<uint8_t>(this, 0x1BB8) = 0;
 }
 
 // 0x0051EAB0
-void CMoveExecutor::ClearExtraTricks() { std::memset(&m_extraListCount, 0, 0x1230 - 0x1204); }
+void MoveExecutor::clear_extra_tricks() { std::memset(&extra_list_count_, 0, 0x1230 - 0x1204); }
 
 // 0x0051EB30
-void CMoveExecutor::ClearBlock1238()
+void MoveExecutor::clear_block1238()
 {
-    Prop<uint8_t>(this, 0x1268) = 0;
+    prop<uint8_t>(this, 0x1268) = 0;
     std::memset(reinterpret_cast<uint8_t*>(this) + 0x1238, 0, 0x1264 - 0x1238);
 }
 
 // 0x0051EF00
-void CMoveExecutor::ClearBlock1280()
+void MoveExecutor::clear_block1280()
 {
-    Prop<uint8_t>(this, 0x12B0) = 0;
+    prop<uint8_t>(this, 0x12B0) = 0;
     std::memset(reinterpret_cast<uint8_t*>(this) + 0x1280, 0, 0x12AC - 0x1280);
 }
 
 // 0x0051EB00
-void CMoveExecutor::ClearEventBuffer()
+void MoveExecutor::clear_event_buffer()
 {
-    for (TrickEvent& e : m_events) {
+    for (TrickEvent& e : events_) {
         e.type = 0;
         e.used = false;
         e.flags = 0;
     }
-    m_eventCount = 0;
-    m_eventHead = 0;
+    event_count_ = 0;
+    event_head_ = 0;
 }
 
 // 0x0051EB80
-void CMoveExecutor::ClearUsed()
+void MoveExecutor::clear_used()
 {
-    ForEachEvent(this, [](int, TrickEvent& e) {
+    for_each_event(this, [](int, TrickEvent& e) {
         e.used = false;
         return true;
     });
 }
 
 // 0x0051EBD0
-void CMoveExecutor::FlagSpent(uint32_t flags)
+void MoveExecutor::flag_spent(uint32_t flags)
 {
-    ForEachEvent(this, [&](int, TrickEvent& e) {
+    for_each_event(this, [&](int, TrickEvent& e) {
         if (e.used) {
             e.used = false;
             e.flags |= flags;
@@ -221,27 +221,27 @@ void CMoveExecutor::FlagSpent(uint32_t flags)
 }
 
 // 0x0051F570
-TrickEvent* CMoveExecutor::AppendIncident(int type)
+TrickEvent* MoveExecutor::append_incident(int type)
 {
-    if (++m_eventHead >= kEvents)
-        m_eventHead = 0;
-    if (m_eventCount < kEvents)
-        ++m_eventCount;
-    TrickEvent& e = m_events[m_eventHead];
+    if (++event_head_ >= kEvents)
+        event_head_ = 0;
+    if (event_count_ < kEvents)
+        ++event_count_;
+    TrickEvent& e = events_[event_head_];
     e.type = type;
-    e.time = Now();
+    e.time = get_now();
     e.used = false;
     e.flags = 0;
     return &e;
 }
 
 // 0x0051F610
-void CMoveExecutor::ExpireButton(uint32_t button, uint32_t ms)
+void MoveExecutor::expire_button(uint32_t button, uint32_t ms)
 {
-    ForEachEvent(this, [&](int, TrickEvent& e) {
+    for_each_event(this, [&](int, TrickEvent& e) {
         if (e.button == button) {
             uint32_t time = e.time;
-            if (!(Now() - time < ms))
+            if (!(get_now() - time < ms))
                 e.flags = 0xFFFFFFFF;
         }
         return true;
@@ -249,12 +249,12 @@ void CMoveExecutor::ExpireButton(uint32_t button, uint32_t ms)
 }
 
 // 0x0051F6B0
-bool CMoveExecutor::FindPress(uint32_t button, uint32_t ms, uint32_t mask)
+bool MoveExecutor::find_press(uint32_t button, uint32_t ms, uint32_t mask)
 {
     bool found = false;
-    ForEachEvent(this, [&](int, TrickEvent& e) {
+    for_each_event(this, [&](int, TrickEvent& e) {
         uint32_t time = e.time;
-        if (Now() - time >= ms)
+        if (get_now() - time >= ms)
             return false;
         if (!(e.flags & mask) && e.type == 1 && e.button == button) {
             e.used = true;
@@ -267,30 +267,30 @@ bool CMoveExecutor::FindPress(uint32_t button, uint32_t ms, uint32_t mask)
 }
 
 // 0x0051F7A0
-bool CMoveExecutor::FindPressBoth(uint32_t first, uint32_t second, uint32_t ms, uint32_t mask)
+bool MoveExecutor::find_press_both(uint32_t first, uint32_t second, uint32_t ms, uint32_t mask)
 {
-    bool gotFirst = false, gotSecond = false, any = false, found = false;
-    ForEachEvent(this, [&](int, TrickEvent& e) {
+    bool got_first = false, got_second = false, any = false, found = false;
+    for_each_event(this, [&](int, TrickEvent& e) {
         uint32_t time = e.time;
-        if (Now() - time >= ms)
+        if (get_now() - time >= ms)
             return false;
         if ((e.flags & mask) || e.type != 1)
             return true;
         if (e.button == first) {
             e.used = true;
-            if (gotSecond) {
+            if (got_second) {
                 found = true;
                 return false;
             }
-            gotFirst = true;
+            got_first = true;
             any = true;
         } else if (e.button == second) {
             e.used = true;
-            if (gotFirst) {
+            if (got_first) {
                 found = true;
                 return false;
             }
-            gotSecond = true;
+            got_second = true;
             any = true;
         } else if (any) {
             return false;
@@ -301,41 +301,41 @@ bool CMoveExecutor::FindPressBoth(uint32_t first, uint32_t second, uint32_t ms, 
 }
 
 // 0x0051F8F0
-void CMoveExecutor::UpdateButton(int index, bool pressed)
+void MoveExecutor::update_button(int index, bool pressed)
 {
-    if (m_heldOffUntil[index] != 0.0f) {
+    if (held_off_until_[index] != 0.0f) {
         if (pressed) {
-            uint32_t now = Now();
-            if (static_cast<double>(now) <= m_heldOffUntil[index] || m_heldOffUntil[index] != m_heldOffUntil[index])
+            uint32_t now = get_now();
+            if (static_cast<double>(now) <= held_off_until_[index] || held_off_until_[index] != held_off_until_[index])
                 return;
         }
-        m_heldOffUntil[index] = 0.0f;
+        held_off_until_[index] = 0.0f;
     }
-    if (m_btnDown[index] == pressed)
+    if (btn_down_[index] == pressed)
         return;
-    m_btnDown[index] = pressed;
-    uint32_t button = PadInput::ButtonHash(index);
-    for (int i = 0; i < m_ignoredCount; ++i)
-        if (m_ignored[i] == button)
+    btn_down_[index] = pressed;
+    uint32_t button = pad_input::button_hash(index);
+    for (int i = 0; i < ignored_count_; ++i)
+        if (ignored_[i] == button)
             return;
-    AppendIncident(pressed ? 1 : 2)->button = button;
+    append_incident(pressed ? 1 : 2)->button = button;
 }
 
 // 0x0051F290
-void CMoveExecutor::HoldOffButton(int index, float until)
+void MoveExecutor::hold_off_button(int index, float until)
 {
-    m_btnDown[index] = false;
-    m_heldOffUntil[index] = until;
+    btn_down_[index] = false;
+    held_off_until_[index] = until;
 }
 
 // 0x0051F9B0
-bool CMoveExecutor::CheckSpinSequence(const uint32_t* buttons, bool any)
+bool MoveExecutor::check_spin_sequence(const uint32_t* buttons, bool any)
 {
     int state = 0, second = 0;
     bool found = false, failed = false;
-    ForEachEvent(this, [&](int index, TrickEvent& e) {
+    for_each_event(this, [&](int index, TrickEvent& e) {
         uint32_t time = e.time;
-        if (Now() - time >= kSecond) {
+        if (get_now() - time >= kSecond) {
             failed = true;
             return false;
         }
@@ -372,20 +372,20 @@ bool CMoveExecutor::CheckSpinSequence(const uint32_t* buttons, bool any)
     });
     if (!found)
         return false;
-    FlagSpent(0x100);
-    SetButtonMap(buttons);
+    flag_spent(0x100);
+    set_button_map(buttons);
     return true;
 }
 
 // 0x0051FB90
-bool CMoveExecutor::CheckReleasePress(uint32_t button, bool twice, bool setMap)
+bool MoveExecutor::check_release_press(uint32_t button, bool twice, bool set_map)
 {
     int state = 0;
     uint32_t first = 0;
     bool found = false;
-    ForEachEvent(this, [&](int, TrickEvent& e) {
+    for_each_event(this, [&](int, TrickEvent& e) {
         uint32_t time = e.time;
-        if (Now() - time >= kSecond)
+        if (get_now() - time >= kSecond)
             return false;
         if (!twice) {
             if (state == 0) {
@@ -419,149 +419,149 @@ bool CMoveExecutor::CheckReleasePress(uint32_t button, bool twice, bool setMap)
     });
     if (!found)
         return false;
-    if (setMap) {
-        FlagSpent(0xFFFFFFFF);
+    if (set_map) {
+        flag_spent(0xFFFFFFFF);
         // (the original hands its own three stack arguments over as the map)
-        const uint32_t map[3] = {button, twice, setMap};
-        SetButtonMap(map);
+        const uint32_t map[3] = {button, twice, set_map};
+        set_button_map(map);
     }
     return true;
 }
 
 // 0x0051EC40
-uint32_t CMoveExecutor::ReadTrigger(const uint8_t* node, int count, uint32_t* out)
+uint32_t MoveExecutor::read_trigger(const uint8_t* node, int count, uint32_t* out)
 {
     for (int i = 0; i < count; ++i) {
-        uint32_t button = Prop<uint32_t>(node, 8);
+        uint32_t button = prop<uint32_t>(node, 8);
         if (button == 0x03749393)
-            button = m_buttonMap[1];
+            button = button_map_[1];
         else if (button == 0x7473A305)
-            button = m_buttonMap[2];
+            button = button_map_[2];
         else if (button == 0x9A7DC229)
-            button = m_buttonMap[0];
+            button = button_map_[0];
         out[i] = button;
-        node = Prop<const uint8_t*>(node, 0xC);
+        node = prop<const uint8_t*>(node, 0xC);
     }
     if ((node[0] & 0xFE) == 2)
-        return Prop<uint32_t>(node, 8);
-    return static_cast<uint32_t>(Scripts::FetchIntValue(Prop<uint32_t>(node, 8)));
+        return prop<uint32_t>(node, 8);
+    return static_cast<uint32_t>(script::fetch_int_value(prop<uint32_t>(node, 8)));
 }
 
 // 0x0051ECC0
-void CMoveExecutor::SetButtonMap(const uint32_t* buttons)
+void MoveExecutor::set_button_map(const uint32_t* buttons)
 {
-    m_buttonMap[0] = buttons[0];
-    m_buttonMap[1] = buttons[1];
-    m_buttonMap[2] = buttons[2];
+    button_map_[0] = buttons[0];
+    button_map_[1] = buttons[1];
+    button_map_[2] = buttons[2];
 }
 
 // 0x0051ECF0
-bool CMoveExecutor::IsKeyHeld(uint32_t button)
+bool MoveExecutor::is_key_held(uint32_t button)
 {
     // NOT ORIGINAL - THAW's BMX (the feature on, the skater on the bike): THAW's stick directions (leftleft ...
     // rightdownright - game/rider/thaw_bmx.h). Original behaviour: THUG2's buttons only.
-    if (Skater::ThawBmx::IsSwitchedOn()) {
-        int held = Skater::ThawBmx::TrickStickHeld(this, button);
+    if (skater::thaw_bmx::is_switched_on()) {
+        int held = skater::thaw_bmx::trick_stick_held(this, button);
         if (held >= 0)
             return held != 0;
     }
-    return m_btnDown[PadInput::GlyphForButtonTag(button)];
+    return btn_down_[pad_input::glyph_for_button_tag(button)];
 }
 
 // 0x0051ED10
-void CMoveExecutor::ClearQueue()
+void MoveExecutor::clear_queue()
 {
-    m_queueLast = -1;
-    m_queueFirst = -1;
+    queue_last_ = -1;
+    queue_first_ = -1;
 }
 
 // 0x0051ED20
-void CMoveExecutor::QueueTrick(uint32_t list, int index, bool flag)
+void MoveExecutor::queue_trick(uint32_t list, int index, bool flag)
 {
     int slot;
-    if (m_queueFirst == -1 && m_queueLast == -1) {
+    if (queue_first_ == -1 && queue_last_ == -1) {
         slot = 0;
-        m_queueFirst = 0;
-        m_queueLast = 0;
+        queue_first_ = 0;
+        queue_last_ = 0;
     } else {
-        slot = m_queueLast + 1;
+        slot = queue_last_ + 1;
         if (slot >= 100)
             slot = 0;
-        if (slot == m_queueFirst)
+        if (slot == queue_first_)
             return;
-        m_queueLast = slot;
+        queue_last_ = slot;
     }
-    m_queue[slot].list = list;
-    m_queue[slot].index = index;
-    m_queue[slot].flag = flag;
+    queue_[slot].list = list;
+    queue_[slot].index = index;
+    queue_[slot].flag = flag;
 }
 
 // 0x0051ED90
-void CMoveExecutor::RemoveTrickList(uint32_t list)
+void MoveExecutor::remove_trick_list(uint32_t list)
 {
-    for (int i = 0; i < m_extraListCount; ++i) {
-        if (m_extraLists[i] != list)
+    for (int i = 0; i < extra_list_count_; ++i) {
+        if (extra_lists_[i] != list)
             continue;
-        for (int j = i; j < m_extraListCount - 1; ++j)
-            m_extraLists[j] = m_extraLists[j + 1];
-        --m_extraListCount;
+        for (int j = i; j < extra_list_count_ - 1; ++j)
+            extra_lists_[j] = extra_lists_[j + 1];
+        --extra_list_count_;
     }
-    for (QueuedTrick& queued : m_queue)
+    for (QueuedTrick& queued : queue_)
         if (queued.list == list)
             queued.list = 0;
 }
 
 // 0x0051EE10
-bool CMoveExecutor::IsTrickEntry(Scripts::CStruct* trick)
+bool MoveExecutor::is_trick_entry(script::Struct* trick)
 {
     uint32_t checksum = 0;
-    if (trick->ReadHashValue(0xA6D2D890u, &checksum, 0) || trick->ReadHashValue(0x22E168C1u, &checksum, 0))
+    if (trick->read_hash_value(0xA6D2D890u, &checksum, 0) || trick->read_hash_value(0x22E168C1u, &checksum, 0))
         return true;
-    Scripts::CArray* array = nullptr;
-    if (trick->FetchList(0x689FE07Cu, &array, 0))
+    script::Array* array = nullptr;
+    if (trick->fetch_list(0x689FE07Cu, &array, 0))
         return true;
     uint32_t name = 0;
-    if (!trick->ReadHashValue(0xA92A2280u, &name, 0))
+    if (!trick->read_hash_value(0xA92A2280u, &name, 0))
         return false;
     uint32_t structure = 0;
-    m_trickLists->ReadHashValue(name, &structure, 0);
+    trick_lists_->read_hash_value(name, &structure, 0);
     if (structure)
-        return Scripts::ReadSubStruct(structure) != nullptr;
+        return script::read_sub_struct(structure) != nullptr;
     int value = 0;
-    return m_trickLists->FetchIntValue(name, &value, 0);
+    return trick_lists_->fetch_int_value(name, &value, 0);
 }
 
 // 0x0051EF50
-bool CMoveExecutor::TrickNamed(Scripts::CStruct* trick, const char* name)
+bool MoveExecutor::trick_named(script::Struct* trick, const char* name)
 {
     uint32_t alias = 0;
-    if (trick->ReadHashValue(0xA92A2280u, &alias, 0)) {
+    if (trick->read_hash_value(0xA92A2280u, &alias, 0)) {
         uint32_t structure = 0;
-        m_trickLists->ReadHashValue(alias, &structure, 0);
+        trick_lists_->read_hash_value(alias, &structure, 0);
         if (structure) {
-            trick = Scripts::ReadSubStruct(structure);
+            trick = script::read_sub_struct(structure);
             if (!trick)
                 return false;
         }
     }
-    Scripts::CStruct* params = nullptr;
-    trick->ReadSubStruct(0x7031F10Cu, &params, 0);
+    script::Struct* params = nullptr;
+    trick->read_sub_struct(0x7031F10Cu, &params, 0);
     if (!params)
         return false;
-    const char* trickName = nullptr;
-    params->FetchText(0xA1DC81F9u, &trickName, 0);
-    return trickName && CompareNoCase(trickName, name) == 0;
+    const char* trick_name = nullptr;
+    params->fetch_text(0xA1DC81F9u, &trick_name, 0);
+    return trick_name && compare_no_case(trick_name, name) == 0;
 }
 
 // 0x0051F010
-void CMoveExecutor::DumpEventBuffer()
+void MoveExecutor::dump_event_buffer()
 {
-    DebugOut::Printf("Event buffer:\n");
-    int count = m_eventCount > 10 ? 10 : m_eventCount;
-    int index = m_eventHead;
+    debug::printf("Event buffer:\n");
+    int count = event_count_ > 10 ? 10 : event_count_;
+    int index = event_head_;
     for (int n = 0; n < count; ++n) {
-        const TrickEvent& e = m_events[index];
-        DebugOut::Printf("T=%d Used=0x%08x Button=", e.time, e.flags);
+        const TrickEvent& e = events_[index];
+        debug::printf("T=%d Used=0x%08x Button=", e.time, e.flags);
         const char* text = nullptr;
         switch (e.button) {
         case 0x00000000: text = "Nothing"; break;
@@ -586,15 +586,15 @@ void CMoveExecutor::DumpEventBuffer()
         default: break;
         }
         if (text)
-            DebugOut::Printf(text);
-        DebugOut::Printf(" Event=");
+            debug::printf(text);
+        debug::printf(" Event=");
         switch (e.type) {
-        case 0: DebugOut::Printf("None"); break;
-        case 1: DebugOut::Printf("Pressed"); break;
-        case 2: DebugOut::Printf("Released"); break;
+        case 0: debug::printf("None"); break;
+        case 1: debug::printf("Pressed"); break;
+        case 2: debug::printf("Released"); break;
         default: break;
         }
-        DebugOut::Printf("\n");
+        debug::printf("\n");
         if (--index < 0)
             index += kEvents;
     }
@@ -604,7 +604,7 @@ namespace {
 
 // How a scan over the events ended: the trigger found; stopped (false, the used marks kept: an event too old, or
 // one that rules the trigger out); or the events ran out (false, the used marks cleared - for most kinds).
-enum class Scan { Found, Stopped, IsOver };
+enum class Scan { kFound, kStopped, kIsOver };
 
 // One step of a sequence: an event of `type` (1 pressed, 2 released) of the trigger's button `button` (0-2).
 struct Step {
@@ -615,21 +615,21 @@ struct Step {
 // The steps matched in order from the newest event back, one step per event (each marked used); events with any of
 // `mask`'s flags skipped; older than `ms`: stopped.
 template <size_t N>
-Scan MatchSteps(CMoveExecutor* trick, const Step (&steps)[N], const uint32_t* buttons, uint32_t ms, uint32_t mask)
+Scan match_steps(MoveExecutor* trick, const Step (&steps)[N], const uint32_t* buttons, uint32_t ms, uint32_t mask)
 {
     size_t state = 0;
-    Scan result = Scan::IsOver;
-    ForEachEvent(trick, [&](int, TrickEvent& e) {
+    Scan result = Scan::kIsOver;
+    for_each_event(trick, [&](int, TrickEvent& e) {
         uint32_t time = e.time;
-        if (Now() - time >= ms) {
-            result = Scan::Stopped;
+        if (get_now() - time >= ms) {
+            result = Scan::kStopped;
             return false;
         }
         const Step& step = steps[state];
         if (!(e.flags & mask) && e.type == step.type && e.button == buttons[step.button]) {
             e.used = true;
             if (++state == N) {
-                result = Scan::Found;
+                result = Scan::kFound;
                 return false;
             }
         }
@@ -639,18 +639,18 @@ Scan MatchSteps(CMoveExecutor* trick, const Step (&steps)[N], const uint32_t* bu
 }
 
 // The newest event of `type` of `button` (no flag of `mask`) within `ms`, unmarked.
-Scan FindEvent(CMoveExecutor* trick, int type, uint32_t button, uint32_t ms, uint32_t mask, TrickEvent*& found)
+Scan find_event(MoveExecutor* trick, int type, uint32_t button, uint32_t ms, uint32_t mask, TrickEvent*& found)
 {
-    Scan result = Scan::IsOver;
-    ForEachEvent(trick, [&](int, TrickEvent& e) {
+    Scan result = Scan::kIsOver;
+    for_each_event(trick, [&](int, TrickEvent& e) {
         uint32_t time = e.time;
-        if (Now() - time >= ms) {
-            result = Scan::Stopped;
+        if (get_now() - time >= ms) {
+            result = Scan::kStopped;
             return false;
         }
         if (!(e.flags & mask) && e.type == type && e.button == button) {
             found = &e;
-            result = Scan::Found;
+            result = Scan::kFound;
             return false;
         }
         return true;
@@ -659,7 +659,7 @@ Scan FindEvent(CMoveExecutor* trick, int type, uint32_t button, uint32_t ms, uin
 }
 
 // The d-pad's four directions (ReleaseAndTap looks past them).
-bool IsStraightDirection(uint32_t button)
+bool is_straight_direction(uint32_t button)
 {
     return button == 0xBC6B118F || button == 0xE3006FC4 || button == 0x85981897 || button == 0x4B358AEB;
 }
@@ -667,111 +667,111 @@ bool IsStraightDirection(uint32_t button)
 } // namespace
 
 // 0x0051FDA0
-bool CMoveExecutor::CheckTrigger(Scripts::CStruct* trigger, uint32_t markFlags, uint32_t mask, bool scaled)
+bool MoveExecutor::check_trigger(script::Struct* trigger, uint32_t mark_flags, uint32_t mask, bool scaled)
 {
-    if (!trigger || m_input[0x498] || m_input[0x499])
+    if (!trigger || input_[0x498] || input_[0x499])
         return false;
-    Scripts::CComponent* kind = trigger->StepToEntry(nullptr);
+    script::Component* kind = trigger->step_to_entry(nullptr);
     if (!kind)
         return false;
     const auto* node = reinterpret_cast<const uint8_t*>(kind->next);
     uint32_t buttons[3] = {0, 0, 0};
-    // The events marked used get `markFlags`, the trigger's buttons become the map.
+    // The events marked used get `mark_flags`, the trigger's buttons become the map.
     auto succeed = [&] {
-        FlagSpent(markFlags);
-        SetButtonMap(buttons);
+        flag_spent(mark_flags);
+        set_button_map(buttons);
         return true;
     };
     auto fail = [&] {
-        ClearUsed();
+        clear_used();
         return false;
     };
-    auto finish = [&](Scan scan) { return scan == Scan::Found ? succeed() : scan == Scan::Stopped ? false : fail(); };
+    auto finish = [&](Scan scan) { return scan == Scan::kFound ? succeed() : scan == Scan::kStopped ? false : fail(); };
 
     switch (kind->checksum) {
     case 0x823B8342: { // Press: the button pressed (the event gets the flags itself, nothing marked)
-        uint32_t ms = ReadTrigger(node, 1, buttons);
+        uint32_t ms = read_trigger(node, 1, buttons);
         if (scaled) {
-            float rate = Prop<float>(m_corePhysics, 0x2E8);
+            float rate = prop<float>(core_physics_, 0x2E8);
             if (rate < 1.0f)
                 ms = static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(ms) / rate));
         }
         TrickEvent* e = nullptr;
-        Scan scan = FindEvent(this, 1, buttons[0], ms, mask, e);
-        if (scan != Scan::Found)
-            return scan == Scan::Stopped ? false : fail();
-        e->flags |= markFlags;
-        SetButtonMap(buttons);
+        Scan scan = find_event(this, 1, buttons[0], ms, mask, e);
+        if (scan != Scan::kFound)
+            return scan == Scan::kStopped ? false : fail();
+        e->flags |= mark_flags;
+        set_button_map(buttons);
         return true;
     }
     case 0xCEA9F4B5: { // NOT ORIGINAL - THAW's BMX (the feature on; THAW 0x470EAB): BikePress - Press
         // (the time stretched the same way), but the same right-stick flick not twice: with the button map's first
         // button (the last trick's) this one, only once the right stick has been centred - the press found keeps
         // the flags all the same. Original behaviour: an unknown kind (the default below).
-        if (!Skater::ThawBmx::IsSwitchedOn())
+        if (!skater::thaw_bmx::is_switched_on())
             return fail();
-        uint32_t ms = ReadTrigger(node, 1, buttons);
+        uint32_t ms = read_trigger(node, 1, buttons);
         if (scaled) {
-            float rate = Prop<float>(m_corePhysics, 0x2E8);
+            float rate = prop<float>(core_physics_, 0x2E8);
             if (rate < 1.0f)
                 ms = static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(ms) / rate));
         }
         TrickEvent* e = nullptr;
-        Scan scan = FindEvent(this, 1, buttons[0], ms, mask, e);
-        if (scan != Scan::Found)
-            return scan == Scan::Stopped ? false : fail();
-        e->flags |= markFlags;
-        if (!Skater::ThawBmx::BikePressMayCount(m_buttonMap[0], buttons[0], Skater::ThawBmx::RightStickCentred(this)))
+        Scan scan = find_event(this, 1, buttons[0], ms, mask, e);
+        if (scan != Scan::kFound)
+            return scan == Scan::kStopped ? false : fail();
+        e->flags |= mark_flags;
+        if (!skater::thaw_bmx::bike_press_may_count(button_map_[0], buttons[0], skater::thaw_bmx::get_right_stick_centred(this)))
             return false;
-        SetButtonMap(buttons);
+        set_button_map(buttons);
         return true;
     }
     case 0x61B8FCE2: { // Release: the button released (as Press)
-        uint32_t ms = ReadTrigger(node, 1, buttons);
+        uint32_t ms = read_trigger(node, 1, buttons);
         TrickEvent* e = nullptr;
-        Scan scan = FindEvent(this, 2, buttons[0], ms, mask, e);
-        if (scan != Scan::Found)
-            return scan == Scan::Stopped ? false : fail();
-        e->flags |= markFlags;
-        SetButtonMap(buttons);
+        Scan scan = find_event(this, 2, buttons[0], ms, mask, e);
+        if (scan != Scan::kFound)
+            return scan == Scan::kStopped ? false : fail();
+        e->flags |= mark_flags;
+        set_button_map(buttons);
         return true;
     }
     case 0x7FA5CDBB: { // Tap: the button pressed, then released (the button map left alone)
-        static const Step steps[] = {{2, 0}, {1, 0}};
-        Scan scan = MatchSteps(this, steps, buttons, ReadTrigger(node, 1, buttons), mask);
-        if (scan != Scan::Found)
-            return scan == Scan::Stopped ? false : fail();
-        FlagSpent(markFlags);
+        static const Step kSteps[] = {{2, 0}, {1, 0}};
+        Scan scan = match_steps(this, kSteps, buttons, read_trigger(node, 1, buttons), mask);
+        if (scan != Scan::kFound)
+            return scan == Scan::kStopped ? false : fail();
+        flag_spent(mark_flags);
         return true;
     }
     case 0x7D482318: { // InOrder: the first pressed, then the second
-        static const Step steps[] = {{1, 1}, {1, 0}};
-        return finish(MatchSteps(this, steps, buttons, ReadTrigger(node, 2, buttons), mask));
+        static const Step kSteps[] = {{1, 1}, {1, 0}};
+        return finish(match_steps(this, kSteps, buttons, read_trigger(node, 2, buttons), mask));
     }
     case 0xFFB718BD: { // PressAndRelease: the first pressed, then the second released
-        static const Step steps[] = {{2, 1}, {1, 0}};
-        return finish(MatchSteps(this, steps, buttons, ReadTrigger(node, 2, buttons), mask));
+        static const Step kSteps[] = {{2, 1}, {1, 0}};
+        return finish(match_steps(this, kSteps, buttons, read_trigger(node, 2, buttons), mask));
     }
     case 0x2C434C90: { // TapTwiceRelease: the first pressed twice, then the second released
-        static const Step steps[] = {{2, 1}, {1, 0}, {1, 0}};
-        return finish(MatchSteps(this, steps, buttons, ReadTrigger(node, 2, buttons), mask));
+        static const Step kSteps[] = {{2, 1}, {1, 0}, {1, 0}};
+        return finish(match_steps(this, kSteps, buttons, read_trigger(node, 2, buttons), mask));
     }
     case 0xC1AD35C0: { // TripleInOrderSloppy: the first, second and third pressed in turn
-        static const Step steps[] = {{1, 2}, {1, 1}, {1, 0}};
-        return finish(MatchSteps(this, steps, buttons, ReadTrigger(node, 3, buttons), mask));
+        static const Step kSteps[] = {{1, 2}, {1, 1}, {1, 0}};
+        return finish(match_steps(this, kSteps, buttons, read_trigger(node, 3, buttons), mask));
     }
     case 0x3FE7C311: { // TripleInOrderStrict: the first tapped, the second tapped, then the third pressed
-        static const Step steps[] = {{1, 2}, {2, 1}, {1, 1}, {2, 0}, {1, 0}};
-        return finish(MatchSteps(this, steps, buttons, ReadTrigger(node, 3, buttons), mask));
+        static const Step kSteps[] = {{1, 2}, {2, 1}, {1, 1}, {2, 0}, {1, 0}};
+        return finish(match_steps(this, kSteps, buttons, read_trigger(node, 3, buttons), mask));
     }
     case 0xA2E042D7: { // TripleInOrder: the first tapped, then the second and third pressed (in either order)
-        uint32_t ms = ReadTrigger(node, 3, buttons);
+        uint32_t ms = read_trigger(node, 3, buttons);
         int state = 0;
-        Scan scan = Scan::IsOver;
-        ForEachEvent(this, [&](int, TrickEvent& e) {
+        Scan scan = Scan::kIsOver;
+        for_each_event(this, [&](int, TrickEvent& e) {
             uint32_t time = e.time;
-            if (Now() - time >= ms) {
-                scan = Scan::Stopped;
+            if (get_now() - time >= ms) {
+                scan = Scan::kStopped;
                 return false;
             }
             if (e.flags & mask)
@@ -802,7 +802,7 @@ bool CMoveExecutor::CheckTrigger(Scripts::CStruct* trigger, uint32_t markFlags, 
             default:
                 if (e.type == 1 && e.button == buttons[0]) {
                     e.used = true;
-                    scan = Scan::Found;
+                    scan = Scan::kFound;
                     return false;
                 }
                 break;
@@ -812,13 +812,13 @@ bool CMoveExecutor::CheckTrigger(Scripts::CStruct* trigger, uint32_t markFlags, 
         return finish(scan);
     }
     case 0xF630DAE5: { // HoldTwoAndPress: the first and second pressed (either order, neither released), then the third
-        uint32_t ms = ReadTrigger(node, 3, buttons);
+        uint32_t ms = read_trigger(node, 3, buttons);
         int state = 0;
-        Scan scan = Scan::IsOver;
-        ForEachEvent(this, [&](int, TrickEvent& e) {
+        Scan scan = Scan::kIsOver;
+        for_each_event(this, [&](int, TrickEvent& e) {
             uint32_t time = e.time;
-            if (Now() - time >= ms) {
-                scan = Scan::Stopped;
+            if (get_now() - time >= ms) {
+                scan = Scan::kStopped;
                 return false;
             }
             if (e.flags & mask)
@@ -841,12 +841,12 @@ bool CMoveExecutor::CheckTrigger(Scripts::CStruct* trigger, uint32_t markFlags, 
             if (e.type == 1) {
                 e.used = true;
                 if (next == 4) {
-                    scan = Scan::Found;
+                    scan = Scan::kFound;
                     return false;
                 }
                 state = next;
             } else if (e.type == 2) {
-                scan = Scan::Stopped;
+                scan = Scan::kStopped;
                 return false;
             }
             return true;
@@ -855,13 +855,13 @@ bool CMoveExecutor::CheckTrigger(Scripts::CStruct* trigger, uint32_t markFlags, 
     }
     case 0x395EC2D4: { // ReleaseTwo: both released (either order; scanning back from the newest, a press of the one
                        // whose release came first rules it out)
-        uint32_t ms = ReadTrigger(node, 2, buttons);
+        uint32_t ms = read_trigger(node, 2, buttons);
         bool got0 = false, got1 = false;
-        Scan scan = Scan::IsOver;
-        ForEachEvent(this, [&](int, TrickEvent& e) {
+        Scan scan = Scan::kIsOver;
+        for_each_event(this, [&](int, TrickEvent& e) {
             uint32_t time = e.time;
-            if (Now() - time >= ms) {
-                scan = Scan::Stopped;
+            if (get_now() - time >= ms) {
+                scan = Scan::kStopped;
                 return false;
             }
             bool free = !(e.flags & mask);
@@ -874,11 +874,11 @@ bool CMoveExecutor::CheckTrigger(Scripts::CStruct* trigger, uint32_t markFlags, 
                 got1 = true;
             }
             if (got0 && got1) {
-                scan = Scan::Found;
+                scan = Scan::kFound;
                 return false;
             }
             if (free && e.type == 1 && ((got0 && e.button == buttons[0]) || (!got0 && got1 && e.button == buttons[1]))) {
-                scan = Scan::Stopped;
+                scan = Scan::kStopped;
                 return false;
             }
             return true;
@@ -886,13 +886,13 @@ bool CMoveExecutor::CheckTrigger(Scripts::CStruct* trigger, uint32_t markFlags, 
         return finish(scan);
     }
     case 0xAC2B1445: { // ReleaseTwoAndPress: the first and second released and the third pressed (as ReleaseTwo)
-        uint32_t ms = ReadTrigger(node, 3, buttons);
+        uint32_t ms = read_trigger(node, 3, buttons);
         bool got0 = false, got1 = false, got2 = false;
-        Scan scan = Scan::IsOver;
-        ForEachEvent(this, [&](int, TrickEvent& e) {
+        Scan scan = Scan::kIsOver;
+        for_each_event(this, [&](int, TrickEvent& e) {
             uint32_t time = e.time;
-            if (Now() - time >= ms) {
-                scan = Scan::Stopped;
+            if (get_now() - time >= ms) {
+                scan = Scan::kStopped;
                 return false;
             }
             bool free = !(e.flags & mask);
@@ -910,11 +910,11 @@ bool CMoveExecutor::CheckTrigger(Scripts::CStruct* trigger, uint32_t markFlags, 
             }
             if (got0 && got1) {
                 if (got2) {
-                    scan = Scan::Found;
+                    scan = Scan::kFound;
                     return false;
                 }
             } else if (free && e.type == 1 && ((got0 && e.button == buttons[0]) || (!got0 && got1 && e.button == buttons[1]))) {
-                scan = Scan::Stopped;
+                scan = Scan::kStopped;
                 return false;
             }
             return true;
@@ -922,12 +922,12 @@ bool CMoveExecutor::CheckTrigger(Scripts::CStruct* trigger, uint32_t markFlags, 
         return finish(scan);
     }
     case 0x3F369070: { // PressTwoAnyOrder: both pressed (either order, no release of either between); never clears
-        uint32_t ms = ReadTrigger(node, 2, buttons);
+        uint32_t ms = read_trigger(node, 2, buttons);
         bool got0 = false, got1 = false;
-        Scan scan = Scan::Stopped;
-        ForEachEvent(this, [&](int, TrickEvent& e) {
+        Scan scan = Scan::kStopped;
+        for_each_event(this, [&](int, TrickEvent& e) {
             uint32_t time = e.time;
-            if (Now() - time >= ms)
+            if (get_now() - time >= ms)
                 return false;
             if (e.flags & mask)
                 return true;
@@ -942,7 +942,7 @@ bool CMoveExecutor::CheckTrigger(Scripts::CStruct* trigger, uint32_t markFlags, 
                 } else if (e.type == 1) {
                     e.used = true;
                     if (other) {
-                        scan = Scan::Found;
+                        scan = Scan::kFound;
                         return false;
                     }
                     mine = true;
@@ -953,38 +953,38 @@ bool CMoveExecutor::CheckTrigger(Scripts::CStruct* trigger, uint32_t markFlags, 
         return finish(scan);
     }
     case 0x14FE9B7D: { // AirTrickLogic: the second held (its newest press marked) and the first pressed - or both pressed
-        uint32_t ms = ReadTrigger(node, 2, buttons);
-        if (IsKeyHeld(buttons[1])) {
-            ForEachEvent(this, [&](int, TrickEvent& e) {
+        uint32_t ms = read_trigger(node, 2, buttons);
+        if (is_key_held(buttons[1])) {
+            for_each_event(this, [&](int, TrickEvent& e) {
                 if (e.type == 1 && e.button == buttons[1]) {
                     e.used = true;
                     return false;
                 }
                 return true;
             });
-            return FindPress(buttons[0], ms, mask) ? succeed() : fail();
+            return find_press(buttons[0], ms, mask) ? succeed() : fail();
         }
-        return FindPressBoth(buttons[0], buttons[1], ms, mask) ? succeed() : fail();
+        return find_press_both(buttons[0], buttons[1], ms, mask) ? succeed() : fail();
     }
     case 0x3C3028F4: { // PressTwo: both held, and both pressed
-        uint32_t ms = ReadTrigger(node, 2, buttons);
-        if (!IsKeyHeld(buttons[0]) || !IsKeyHeld(buttons[1]))
+        uint32_t ms = read_trigger(node, 2, buttons);
+        if (!is_key_held(buttons[0]) || !is_key_held(buttons[1]))
             return fail();
-        return FindPressBoth(buttons[0], buttons[1], ms, mask) ? succeed() : fail();
+        return find_press_both(buttons[0], buttons[1], ms, mask) ? succeed() : fail();
     }
     case 0xA8123ECF: { // HoldThree: the three (as named, not mapped) held; nothing marked
-        const auto* second = Prop<const uint8_t*>(node, 0xC);
-        uint32_t a = Prop<uint32_t>(node, 8), b = Prop<uint32_t>(second, 8);
-        uint32_t c = Prop<uint32_t>(Prop<const uint8_t*>(second, 0xC), 8);
-        return IsKeyHeld(a) && IsKeyHeld(b) && IsKeyHeld(c);
+        const auto* second = prop<const uint8_t*>(node, 0xC);
+        uint32_t a = prop<uint32_t>(node, 8), b = prop<uint32_t>(second, 8);
+        uint32_t c = prop<uint32_t>(prop<const uint8_t*>(second, 0xC), 8);
+        return is_key_held(a) && is_key_held(b) && is_key_held(c);
     }
     case 0x696E5E66: { // ReleaseAndTap: the newest three events past the d-pad's four directions: the first released,
                        // then the second pressed and released
-        uint32_t ms = ReadTrigger(node, 2, buttons);
+        uint32_t ms = read_trigger(node, 2, buttons);
         int found[3] = {-1, -1, -1};
         int count = 0;
-        ForEachEvent(this, [&](int index, TrickEvent& e) {
-            if (!(e.flags & mask) && !IsStraightDirection(e.button)) {
+        for_each_event(this, [&](int index, TrickEvent& e) {
+            if (!(e.flags & mask) && !is_straight_direction(e.button)) {
                 found[count++] = index;
                 if (count == 3)
                     return false;
@@ -994,13 +994,13 @@ bool CMoveExecutor::CheckTrigger(Scripts::CStruct* trigger, uint32_t markFlags, 
         if (found[0] == -1 || found[1] == -1 || found[2] == -1)
             return false;
         for (int index : found) {
-            uint32_t time = m_events[index].time;
-            if (Now() - time >= ms)
+            uint32_t time = events_[index].time;
+            if (get_now() - time >= ms)
                 return false;
         }
-        TrickEvent& newest = m_events[found[0]];
-        TrickEvent& middle = m_events[found[1]];
-        TrickEvent& oldest = m_events[found[2]];
+        TrickEvent& newest = events_[found[0]];
+        TrickEvent& middle = events_[found[1]];
+        TrickEvent& oldest = events_[found[2]];
         if (newest.type != 2 || newest.button != buttons[1] || middle.type != 1 || middle.button != buttons[1] ||
             oldest.type != 2 || oldest.button != buttons[0])
             return fail();
@@ -1012,22 +1012,22 @@ bool CMoveExecutor::CheckTrigger(Scripts::CStruct* trigger, uint32_t markFlags, 
     case 0xB6258557: { // (name unknown) the button pressed, with no direction pressed but the map's (its last
                        // direction) - those marked used; the newest press gets the flags
         uint32_t direction = 0;
-        for (uint32_t mapped : m_buttonMap)
-            if (IsDirection(mapped))
+        for (uint32_t mapped : button_map_)
+            if (is_direction(mapped))
                 direction = mapped;
-        uint32_t ms = ReadTrigger(node, 1, buttons);
+        uint32_t ms = read_trigger(node, 1, buttons);
         bool found = false;
-        int foundIndex = 0;
+        int found_index = 0;
         bool refused = false;
-        ForEachEvent(this, [&](int index, TrickEvent& e) {
+        for_each_event(this, [&](int index, TrickEvent& e) {
             uint32_t time = e.time;
-            if (Now() - time >= ms)
+            if (get_now() - time >= ms)
                 return false;
             if (!(e.flags & mask) && e.type == 1) {
                 if (e.button == buttons[0]) {
                     found = true;
-                    foundIndex = index;
-                } else if (IsDirection(e.button)) {
+                    found_index = index;
+                } else if (is_direction(e.button)) {
                     if (e.button != direction) {
                         refused = true;
                         return false;
@@ -1041,7 +1041,7 @@ bool CMoveExecutor::CheckTrigger(Scripts::CStruct* trigger, uint32_t markFlags, 
             return false;
         if (!found)
             return fail();
-        m_events[foundIndex].flags |= markFlags;
+        events_[found_index].flags |= mark_flags;
         return succeed();
     }
     default:
@@ -1050,66 +1050,66 @@ bool CMoveExecutor::CheckTrigger(Scripts::CStruct* trigger, uint32_t markFlags, 
 }
 
 // 0x00521930
-void CMoveExecutor::QueueDoneTricks(uint32_t list, bool flag, uint32_t used)
+void MoveExecutor::queue_done_tricks(uint32_t list, bool flag, uint32_t used)
 {
-    Scripts::CArray* tricks = Scripts::FetchList(list);
+    script::Array* tricks = script::fetch_list(list);
     if (!tricks)
         return;
-    int count = static_cast<int>(tricks->m_extent);
+    int count = static_cast<int>(tricks->extent_);
     uint32_t mask = ~used & 0xFFFFFFFB;
     for (int i = 0; i < count; ++i) {
-        auto* trick = reinterpret_cast<Scripts::CStruct*>(tricks->FetchPart(static_cast<uint32_t>(i)));
-        if (!IsTrickEntry(trick))
+        auto* trick = reinterpret_cast<script::Struct*>(tricks->fetch_part(static_cast<uint32_t>(i)));
+        if (!is_trick_entry(trick))
             continue;
-        Scripts::CStruct* trigger = reinterpret_cast<Skater::Component*>(this)->PlatformStructure(trick);
-        Scripts::CStruct* alternate = nullptr;
-        trick->ReadSubStruct(0x68B74085u, &alternate, 0);
-        if (CheckTrigger(trigger, 1, mask, false) || CheckTrigger(alternate, 1, mask, false))
-            QueueTrick(list, i, flag);
+        script::Struct* trigger = reinterpret_cast<skater::Component*>(this)->platform_structure(trick);
+        script::Struct* alternate = nullptr;
+        trick->read_sub_struct(0x68B74085u, &alternate, 0);
+        if (check_trigger(trigger, 1, mask, false) || check_trigger(alternate, 1, mask, false))
+            queue_trick(list, i, flag);
     }
 }
 
 // 0x00521A10
-void CMoveExecutor::QueueAllDoneTricks()
+void MoveExecutor::queue_all_done_tricks()
 {
-    if (m_manualList && Prop<bool>(m_balance1C, 0x74))
-        QueueDoneTricks(m_manualList, true, m_listUsed);
-    for (int i = 0; i < m_extraListCount; ++i)
-        QueueDoneTricks(m_extraLists[i], false, m_listUsed);
+    if (manual_list_ && prop<bool>(balance_1c_, 0x74))
+        queue_done_tricks(manual_list_, true, list_used_);
+    for (int i = 0; i < extra_list_count_; ++i)
+        queue_done_tricks(extra_lists_[i], false, list_used_);
 }
 
 // 0x00521A80
-void CMoveExecutor::SetPendingTrick(uint32_t list, uint32_t mask, bool flag)
+void MoveExecutor::set_pending_trick(uint32_t list, uint32_t mask, bool flag)
 {
-    Scripts::CArray* tricks = Scripts::FetchList(list);
+    script::Array* tricks = script::fetch_list(list);
     if (!tricks)
         return;
-    int count = static_cast<int>(tricks->m_extent);
+    int count = static_cast<int>(tricks->extent_);
     for (int i = 0; i < count; ++i) {
-        auto* trick = reinterpret_cast<Scripts::CStruct*>(tricks->FetchPart(static_cast<uint32_t>(i)));
-        if (!IsTrickEntry(trick))
+        auto* trick = reinterpret_cast<script::Struct*>(tricks->fetch_part(static_cast<uint32_t>(i)));
+        if (!is_trick_entry(trick))
             continue;
-        Scripts::CStruct* trigger = reinterpret_cast<Skater::Component*>(this)->PlatformStructure(trick);
-        Scripts::CStruct* alternate = nullptr;
-        trick->ReadSubStruct(0x68B74085u, &alternate, 0);
-        if (!CheckTrigger(trigger, 4, mask, false) && !CheckTrigger(alternate, 4, mask, false))
+        script::Struct* trigger = reinterpret_cast<skater::Component*>(this)->platform_structure(trick);
+        script::Struct* alternate = nullptr;
+        trick->read_sub_struct(0x68B74085u, &alternate, 0);
+        if (!check_trigger(trigger, 4, mask, false) && !check_trigger(alternate, 4, mask, false))
             continue;
-        Prop<uint32_t>(this, 0x126C) = list;
-        Prop<int>(this, 0x1270) = i;
-        Prop<int>(this, 0x1274) = static_cast<int>(
-            static_cast<uint32_t>(FrameClock::GameClockElapsed()) + static_cast<uint32_t>(g_clockOffset));
-        Prop<bool>(this, 0x127C) = flag;
-        Prop<int>(this, 0x1278) = -1;
-        trick->FetchIntValue(0x79A07F3Fu, &Prop<int>(this, 0x1278), 0);
-        Prop<bool>(this, 0x1268) = true;
+        prop<uint32_t>(this, 0x126C) = list;
+        prop<int>(this, 0x1270) = i;
+        prop<int>(this, 0x1274) = static_cast<int>(
+            static_cast<uint32_t>(frame_clock::game_clock_elapsed()) + static_cast<uint32_t>(g_clock_offset));
+        prop<bool>(this, 0x127C) = flag;
+        prop<int>(this, 0x1278) = -1;
+        trick->fetch_int_value(0x79A07F3Fu, &prop<int>(this, 0x1278), 0);
+        prop<bool>(this, 0x1268) = true;
     }
 }
 
 // 0x0051F260
-bool CMoveExecutor::SetCurrentBailEndpose(Scripts::CStruct* params, Scripts::CScript*)
+bool MoveExecutor::set_current_bail_endpose(script::Struct* params, script::Script*)
 {
-    uint32_t& endpose = Prop<uint32_t>(this, 0x1BBC);
-    if (!params->ReadHashValue(0u, &endpose, 0))
+    uint32_t& endpose = prop<uint32_t>(this, 0x1BBC);
+    if (!params->read_hash_value(0u, &endpose, 0))
         endpose = 0;
     return true;
 }

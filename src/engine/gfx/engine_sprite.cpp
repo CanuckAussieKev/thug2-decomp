@@ -11,7 +11,7 @@
 #include "engine/core/code_address.h"
 #include "engine/core/stubs.h"
 
-namespace Engine3D {
+namespace render {
 
 namespace {
 
@@ -21,7 +21,7 @@ constexpr uint32_t kBlend = 0x54628ED7; // "blend"
 
 // The platform's slot `slot` (no arguments).
 template <typename T>
-void Notify(T* object, int slot)
+void notify(T* object, int slot)
 {
     reinterpret_cast<void(__thiscall*)(T*)>(object->vtable[slot])(object);
 }
@@ -31,91 +31,91 @@ void Notify(T* object, int slot)
 // --- the sprite ---------------------------------------------------------------------------------------------
 
 // 0x0049ED60
-CBillboardQuad* CBillboardQuad::MakeNew(void* window)
+BillboardQuad* BillboardQuad::make_new(void* window)
 {
-    m_posX = -1.0f;
-    m_y = -1.0f;
-    m_hotX = -1.0f;
-    m_hotY = -1.0f;
+    pos_x_ = -1.0f;
+    y_ = -1.0f;
+    hot_x_ = -1.0f;
+    hot_y_ = -1.0f;
     vtable = reinterpret_cast<void**>(kSpriteVtable);
-    m_bitmap = nullptr;
-    m_scaleH = 1.0f;
-    m_scaleV = 1.0f;
-    m_orientationTurn = 0.0f;
-    m_rank = 0.0f;
-    m_span = 0;
-    m_levelY = 0;
-    std::memset(m_rgbaValue, 0x80, sizeof(m_rgbaValue));
-    m_screenRegion = window;
-    m_invisible = true;
-    m_useDepth = false;
-    m_flipV = false;
-    m_flipU = false;
-    m_mixMode = kBlend;
+    bitmap_ = nullptr;
+    scale_h_ = 1.0f;
+    scale_v_ = 1.0f;
+    orientation_turn_ = 0.0f;
+    rank_ = 0.0f;
+    span_ = 0;
+    level_y_ = 0;
+    std::memset(rgba_value_, 0x80, sizeof(rgba_value_));
+    screen_region_ = window;
+    invisible_ = true;
+    use_depth_ = false;
+    flip_v_ = false;
+    flip_u_ = false;
+    mix_mode_ = kBlend;
     return this;
 }
 
 // 0x0049EBA0
-void CBillboardQuad::DestroyBody() { vtable = reinterpret_cast<void**>(kSpriteVtable); }
+void BillboardQuad::destroy_body() { vtable = reinterpret_cast<void**>(kSpriteVtable); }
 
 // 0x0049EDD0
-CBillboardQuad* CBillboardQuad::Teardown(unsigned int freeFlags)
+BillboardQuad* BillboardQuad::teardown(unsigned int free_flags)
 {
-    DestroyBody();
-    if (freeFlags & 1)
-        MemSys::Dealloc(this);
+    destroy_body();
+    if (free_flags & 1)
+        memory::dealloc(this);
     return this;
 }
 
 // 0x0049EBB0
-void CBillboardQuad::ChangeConcealed(bool hidden)
+void BillboardQuad::change_concealed(bool hidden)
 {
-    m_invisible = hidden;
-    Notify(this, 2);
+    invisible_ = hidden;
+    notify(this, 2);
 }
 
 // 0x0049EBC0
-void CBillboardQuad::SetTexture(uint8_t* texture)
+void BillboardQuad::set_texture(uint8_t* texture)
 {
-    m_bitmap = texture;
+    bitmap_ = texture;
     if (texture) {
-        m_span = TexelsAcross(texture);
-        m_levelY = TexelsDown(texture);
+        span_ = texels_across(texture);
+        level_y_ = texels_down(texture);
     }
-    Notify(this, 3);
+    notify(this, 3);
 }
 
 // 0x0049EC00
-void CBillboardQuad::ChooseBlendMode(uint32_t blend)
+void BillboardQuad::choose_blend_mode(uint32_t blend)
 {
-    m_mixMode = blend;
-    Notify(this, 3);
+    mix_mode_ = blend;
+    notify(this, 3);
 }
 
 // 0x0049EC10
-void CBillboardQuad::ChangeLocation(float x, float y)
+void BillboardQuad::change_location(float x, float y)
 {
-    m_posX = x;
-    m_y = y;
-    Notify(this, 3);
+    pos_x_ = x;
+    y_ = y;
+    notify(this, 3);
 }
 
 // 0x0049EC30
-void CBillboardQuad::ChangeExtent(uint16_t width, uint16_t height)
+void BillboardQuad::change_extent(uint16_t width, uint16_t height)
 {
-    m_span = width;
-    m_levelY = height;
-    Notify(this, 3);
+    span_ = width;
+    level_y_ = height;
+    notify(this, 3);
 }
 
 // 0x0049EE00 (the products at 53 bits - exact for floats -, the quotients rounded to floats once)
-void CBillboardQuad::ChangeScale(float xscale, float yscale)
+void BillboardQuad::change_scale(float xscale, float yscale)
 {
     float width = 1.0f;
     float height = 1.0f;
-    if (m_bitmap) {
-        width = static_cast<float>(TexelsAcross(m_bitmap));
-        height = static_cast<float>(TexelsDown(m_bitmap));
+    if (bitmap_) {
+        width = static_cast<float>(texels_across(bitmap_));
+        height = static_cast<float>(texels_down(bitmap_));
     }
     constexpr float kNarrowest = 1.25f;                                // 0x00649AC4
     constexpr float kMinHeight = std::bit_cast<float>(0x3F955326u); // 0x00649AC0: 1.1666
@@ -123,138 +123,138 @@ void CBillboardQuad::ChangeScale(float xscale, float yscale)
         xscale = static_cast<float>(static_cast<double>(kNarrowest) / width);
     if (yscale > 0.0f && static_cast<double>(height) * yscale <= kMinHeight)
         yscale = static_cast<float>(static_cast<double>(kMinHeight) / height);
-    m_scaleV = yscale;
-    m_scaleH = xscale;
-    Notify(this, 3);
+    scale_v_ = yscale;
+    scale_h_ = xscale;
+    notify(this, 3);
 }
 
 // 0x0049EC50
-void CBillboardQuad::SetFlip(bool flipV, bool flipU)
+void BillboardQuad::set_flip(bool flip_v, bool flip_u)
 {
-    m_flipV = flipV;
-    m_flipU = flipU;
-    Notify(this, 3);
+    flip_v_ = flip_v;
+    flip_u_ = flip_u;
+    notify(this, 3);
 }
 
 // 0x0049EC70
-void CBillboardQuad::SetHotSpot(float x, float y)
+void BillboardQuad::set_hot_spot(float x, float y)
 {
-    m_hotX = x;
-    m_hotY = y;
-    Notify(this, 3);
+    hot_x_ = x;
+    hot_y_ = y;
+    notify(this, 3);
 }
 
 // 0x0049EC90
-void CBillboardQuad::ChangeSpin(float rotation)
+void BillboardQuad::change_spin(float rotation)
 {
-    m_orientationTurn = rotation;
-    Notify(this, 3);
+    orientation_turn_ = rotation;
+    notify(this, 3);
 }
 
 // 0x0049ECA0
-void CBillboardQuad::ChangeRank(float priority)
+void BillboardQuad::change_rank(float priority)
 {
-    m_rank = priority;
-    m_useDepth = false;
-    Notify(this, 4);
+    rank_ = priority;
+    use_depth_ = false;
+    notify(this, 4);
 }
 
 // 0x0049ECC0
-void CBillboardQuad::SetDepth(uint32_t depth)
+void BillboardQuad::set_depth(uint32_t depth)
 {
-    m_layer = depth;
-    m_useDepth = true;
-    Notify(this, 4);
+    layer_ = depth;
+    use_depth_ = true;
+    notify(this, 4);
 }
 
 // 0x0049ECE0
-void CBillboardQuad::SetZWrite(bool zWrite)
+void BillboardQuad::set_z_write(bool z_write)
 {
-    m_zWrite = zWrite;
-    Notify(this, 3);
+    z_write_ = z_write;
+    notify(this, 3);
 }
 
 // 0x0049ECF0
-void CBillboardQuad::ChangeRgba(uint32_t rgba)
+void BillboardQuad::change_rgba(uint32_t rgba)
 {
-    std::memcpy(m_rgbaValue, &rgba, sizeof(m_rgbaValue));
-    Notify(this, 3);
+    std::memcpy(rgba_value_, &rgba, sizeof(rgba_value_));
+    notify(this, 3);
 }
 
 // --- the textured quad ----------------------------------------------------------------------------------------
 
 // 0x0049EED0
-CTexturedQuad* CTexturedQuad::MakeNew(void* window)
+TexturedQuad* TexturedQuad::make_new(void* window)
 {
-    m_screenRegion = window;
+    screen_region_ = window;
     vtable = reinterpret_cast<void**>(kQuadVtable);
-    m_bitmap = nullptr;
-    std::memset(m_rgbaValue, 0x80, sizeof(m_rgbaValue));
-    m_invisible = true;
-    m_useDepth = false;
+    bitmap_ = nullptr;
+    std::memset(rgba_value_, 0x80, sizeof(rgba_value_));
+    invisible_ = true;
+    use_depth_ = false;
     return this;
 }
 
 // 0x0049EF00
-CTexturedQuad* CTexturedQuad::Teardown(unsigned int freeFlags)
+TexturedQuad* TexturedQuad::teardown(unsigned int free_flags)
 {
     vtable = reinterpret_cast<void**>(kQuadVtable);
-    if (freeFlags & 1)
-        MemSys::Dealloc(this);
+    if (free_flags & 1)
+        memory::dealloc(this);
     return this;
 }
 
 // 0x0049EF30
-CTexturedQuad* CTexturedQuad::Fabricate()
+TexturedQuad* TexturedQuad::fabricate()
 {
-    void* memory = MemSys::Alloc(sizeof(CTexturedQuad));
-    return memory ? static_cast<CTexturedQuad*>(memory)->MakeNew(nullptr) : nullptr;
+    void* memory = memory::alloc(sizeof(TexturedQuad));
+    return memory ? static_cast<TexturedQuad*>(memory)->make_new(nullptr) : nullptr;
 }
 
 // 0x0049ED10
-void CTexturedQuad::ChangeConcealed(bool hidden)
+void TexturedQuad::change_concealed(bool hidden)
 {
-    m_invisible = hidden;
-    Notify(this, 4);
+    invisible_ = hidden;
+    notify(this, 4);
 }
 
 // 0x0049ED40
-void CTexturedQuad::SetTexture(uint8_t* texture)
+void TexturedQuad::set_texture(uint8_t* texture)
 {
-    m_bitmap = texture;
-    Notify(this, 5);
+    bitmap_ = texture;
+    notify(this, 5);
 }
 
 // 0x0049ED00
-void CTexturedQuad::ChooseBlendMode(uint32_t blend)
+void TexturedQuad::choose_blend_mode(uint32_t blend)
 {
-    m_mixMode = blend;
-    Notify(this, 5);
+    mix_mode_ = blend;
+    notify(this, 5);
 }
 
 // 0x0049ED20
-void CTexturedQuad::ChangeRank(float priority)
+void TexturedQuad::change_rank(float priority)
 {
-    m_rank = priority;
-    m_useDepth = false;
-    Notify(this, 6);
+    rank_ = priority;
+    use_depth_ = false;
+    notify(this, 6);
 }
 
 // 0x0049ED50
-void CTexturedQuad::ChangeRgba(uint32_t rgba)
+void TexturedQuad::change_rgba(uint32_t rgba)
 {
-    std::memcpy(m_rgbaValue, &rgba, sizeof(m_rgbaValue));
-    Notify(this, 5);
+    std::memcpy(rgba_value_, &rgba, sizeof(rgba_value_));
+    notify(this, 5);
 }
 
 namespace {
-static VtableSlot kSpriteVtable_slots[] = {&Engine3D::CBillboardQuad::Teardown, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing,
-                Stubs::DoNothing, Stubs::DoNothing};
-void** const kSpriteVtable = reinterpret_cast<void**>(kSpriteVtable_slots);
-static VtableSlot kQuadVtable_slots[] = {&Engine3D::CTexturedQuad::Teardown, &Engine3D::CTexturedQuad::Fabricate, Stubs::DoNothing,
-                Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing,
-                Stubs::IgnoreArgument, Stubs::IgnoreArgument};
-void** const kQuadVtable = reinterpret_cast<void**>(kQuadVtable_slots);
+static VtableSlot g_sprite_vtable_slots[] = {&render::BillboardQuad::teardown, stubs::do_nothing, stubs::do_nothing, stubs::do_nothing,
+                stubs::do_nothing, stubs::do_nothing};
+void** const kSpriteVtable = reinterpret_cast<void**>(g_sprite_vtable_slots);
+static VtableSlot g_quad_vtable_slots[] = {&render::TexturedQuad::teardown, &render::TexturedQuad::fabricate, stubs::do_nothing,
+                stubs::do_nothing, stubs::do_nothing, stubs::do_nothing, stubs::do_nothing, stubs::do_nothing,
+                stubs::ignore_argument, stubs::ignore_argument};
+void** const kQuadVtable = reinterpret_cast<void**>(g_quad_vtable_slots);
 } // namespace
 
 } // namespace Nx

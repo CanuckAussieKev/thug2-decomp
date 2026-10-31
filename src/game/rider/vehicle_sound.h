@@ -5,9 +5,9 @@
 
 #include "engine/objects/entity.h"
 
-namespace Scripts {
-class CScript;
-class CStruct;
+namespace script {
+class Script;
+class Struct;
 } // namespace Script
 
 // The skater's vehicle sound component (SkaterVehicleSound, type 0x1859F772, vtable 0x0064C1E4, 0xC8 bytes; made by
@@ -17,12 +17,12 @@ class CStruct;
 // 0x3C2DA7F5 (and, in the park editor's levels, sounds from the global 0x38EC37AC); the rates and limits are in the
 // global structure 0x38EC37AC.
 //
-// Vtable: 0 Destroy, 1 Update, 2 ConfigureFromData, 3 Finalize; 11 0x0042BB20 (member function entries by table:
+// Vtable: 0 Destroy, 1 Update, 2 configure_from_data, 3 Finalize; 11 0x0042BB20 (member function entries by table:
 // SetSkaterVehicleSounds / NoSkaterVehicleSounds / StopSkaterVehicleSounds, the table at 0x00684648); 12
-// InvokeMethodByName 0x0051ADC0 (shared: "not mine").
-namespace GameObjects {
+// invoke_method_by_name 0x0051ADC0 (shared: "not mine").
+namespace objects {
 
-class CSkaterVehicleSoundComponent : public CObjectModule {
+class SkaterVehicleSoundComponent : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x1859F772;
     static constexpr int kMaxGears = 6;
@@ -30,91 +30,91 @@ public:
     // A gear (0x10 bytes from +0x44): the speed it shifts up above (0xFAD20901), the speed it shifts down below
     // (0xFCF5C8A2), and the engine's pitch range across it (0x735B5CE4 at its bottom, 0xE59A89A6 at its top).
     struct Gear {
-        float upAt;
-        float downAt;
-        float lowRpm;
-        float highRpm;
+        float up_at_;
+        float down_at_;
+        float low_rpm_;
+        float high_rpm_;
     };
 
     // 0x0051B880 (registered with the composite object manager): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Fabricate();
+    static ObjectModule* __cdecl fabricate();
     // 0x0051AD90 (not a Ghidra function; registered with Create): its script member functions (the table at
     // 0x00684648) registered.
-    static void __cdecl PublishMethodTable();
+    static void __cdecl publish_method_table();
     // 0x0051ADD0: the base's constructor, its vtable and type; no sounds, no settings, the settings' name 0x1CA1FF20,
     // silenced. Returns this.
-    CSkaterVehicleSoundComponent* MakeNew();
+    SkaterVehicleSoundComponent* make_new();
     // 0x0051ADB0: the destructor body (the base's).
-    void DestroyBody();
+    void destroy_body();
     // 0x0051AE30 (vtable slot 0)
-    CSkaterVehicleSoundComponent* Teardown(unsigned int flags);
+    SkaterVehicleSoundComponent* teardown(unsigned int flags);
 
     // 0x0051AE60 (vtable slot 2): whether the level is the park editor's (its +0x40 isn't "off"); `params` isn't
     // read.
-    void ConfigureFromData(Scripts::CStruct* params);
+    void configure_from_data(script::Struct* params);
     // 0x0051B8E0 (vtable slot 3): the skater's core physics, sound and input components, then the settings read.
-    void Seal();
+    void seal();
     // 0x0051B920 (vtable slot 1): the engine and skid sounds while driving (not silenced, with settings).
-    void TickFrame();
+    void tick_frame();
 
     // 0x0051B670: the settings read (see the class).
-    void ReadSettings();
+    void read_settings();
     // 0x0051AE80: the engine sound: the speed (in mph) smoothed, the gear shifted up or down (back to the first
     // after a while without driving), and the sound's pitch and volume from where the speed is in the gear's range.
-    void TickEngine();
+    void tick_engine();
     // 0x0051B3E0: the skid sound: its level follows the speed while braking; silent: stopped.
-    void UpdateSkid();
+    void update_skid();
     // 0x0051B3B0: reads a setting (0x71B4B9FE) and the clock, and does nothing with them.
-    void UpdateUnused();
+    void update_unused();
 
     // --- script member functions (the table at 0x00684648) ---
     // 0x0051B7C0 SetSkaterVehicleSounds: the settings named by the unnamed checksum (if any) read again, the engine
     // sound stopped, not silenced. True.
-    bool SetSkaterVehicleSounds(Scripts::CStruct* params, Scripts::CScript* script);
+    bool set_skater_vehicle_sounds(script::Struct* params, script::Script* script);
     // 0x0051B820 NoSkaterVehicleSounds: the engine sound stopped, the settings dropped, silenced. True.
-    bool NoSkaterVehicleSounds(Scripts::CStruct* params, Scripts::CScript* script);
+    bool no_skater_vehicle_sounds(script::Struct* params, script::Script* script);
     // 0x0051B860 StopSkaterVehicleSounds (not a Ghidra function): the engine sound stopped (its id kept). True.
-    bool StopSkaterVehicleSounds(Scripts::CStruct* params, Scripts::CScript* script);
+    bool stop_skater_vehicle_sounds(script::Struct* params, script::Script* script);
 
-    CObjectModule* m_corePhysics; // +0x18
-    CObjectModule* m_sound;       // +0x1C
-    uint8_t* m_input;              // +0x20 (+0x40 the brake held; +0x1C0 a flag)
-    Scripts::CStruct* m_settings;   // +0x24
-    bool m_parkEditorLevel;        // +0x28
+    ObjectModule* core_physics_; // +0x18
+    ObjectModule* sound_;       // +0x1C
+    uint8_t* input_;              // +0x20 (+0x40 the brake held; +0x1C0 a flag)
+    script::Struct* settings_;   // +0x24
+    bool park_editor_level_;        // +0x28
     uint8_t pad29[3];
-    uint32_t m_engineSound;        // +0x2C the playing engine sound's id (0: none)
-    uint32_t m_skidSound;          // +0x30 the playing skid sound's id
-    Scripts::CStruct* m_extra;      // +0x34 (0xBF8E0ACE of the settings)
-    uint32_t m_engineSoundName;    // +0x38
-    uint32_t m_skidSoundName;      // +0x3C
-    int m_gearCount;               // +0x40
-    Gear m_gearSteps[kMaxGears];       // +0x44
-    float m_speed;                 // +0xA4 the smoothed speed (mph)
-    int m_gear;                    // +0xA8
-    float m_rpm;                   // +0xAC
-    int m_shiftTime;               // +0xB0 the clock at the last shift
-    uint32_t m_unknownB4;
-    float m_skid;                  // +0xB8 the skid sound's level
-    uint32_t m_unknownBC;
-    uint32_t m_settingsName;       // +0xC0
-    bool m_silenced;               // +0xC4
-    uint8_t padC5[3];
+    uint32_t engine_sound_;        // +0x2C the playing engine sound's id (0: none)
+    uint32_t skid_sound_;          // +0x30 the playing skid sound's id
+    script::Struct* extra_;      // +0x34 (0xBF8E0ACE of the settings)
+    uint32_t engine_sound_name_;    // +0x38
+    uint32_t skid_sound_name_;      // +0x3C
+    int gear_count_;               // +0x40
+    Gear gear_steps_[kMaxGears];       // +0x44
+    float speed_;                 // +0xA4 the smoothed speed (mph)
+    int gear_;                    // +0xA8
+    float rpm_;                   // +0xAC
+    int shift_time_;               // +0xB0 the clock at the last shift
+    uint32_t unknownb4_;
+    float skid_;                  // +0xB8 the skid sound's level
+    uint32_t unknownbc_;
+    uint32_t settings_name_;       // +0xC0
+    bool silenced_;               // +0xC4
+    uint8_t padc5_[3];
 };
-static_assert(offsetof(CSkaterVehicleSoundComponent, m_settings) == 0x24 &&
-                  offsetof(CSkaterVehicleSoundComponent, m_engineSound) == 0x2C &&
-                  offsetof(CSkaterVehicleSoundComponent, m_gearCount) == 0x40 &&
-                  offsetof(CSkaterVehicleSoundComponent, m_gearSteps) == 0x44 &&
-                  offsetof(CSkaterVehicleSoundComponent, m_speed) == 0xA4 &&
-                  offsetof(CSkaterVehicleSoundComponent, m_skid) == 0xB8 &&
-                  offsetof(CSkaterVehicleSoundComponent, m_settingsName) == 0xC0 &&
-                  sizeof(CSkaterVehicleSoundComponent) == 0xC8,
+static_assert(offsetof(SkaterVehicleSoundComponent, settings_) == 0x24 &&
+                  offsetof(SkaterVehicleSoundComponent, engine_sound_) == 0x2C &&
+                  offsetof(SkaterVehicleSoundComponent, gear_count_) == 0x40 &&
+                  offsetof(SkaterVehicleSoundComponent, gear_steps_) == 0x44 &&
+                  offsetof(SkaterVehicleSoundComponent, speed_) == 0xA4 &&
+                  offsetof(SkaterVehicleSoundComponent, skid_) == 0xB8 &&
+                  offsetof(SkaterVehicleSoundComponent, settings_name_) == 0xC0 &&
+                  sizeof(SkaterVehicleSoundComponent) == 0xC8,
               "layout must match the original");
 
 // The components with no member functions of their own by name (the state history, the vehicle sound, the stats
 // manager, the matrix, collision and avoid components...).
 struct ComponentWithoutMemberFunctions {
     // 0x0051ADC0 (vtable +0x30): 2 - not mine.
-    int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
 };
 
 } // namespace Obj

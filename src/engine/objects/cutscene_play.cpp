@@ -1,4 +1,4 @@
-// Cutscenes: loading a cutscene file and playing it (the data's Load / FinishLoading / IsLoaded / Update / Play,
+// Cutscenes: loading a cutscene file and playing it (the data's Load / finish_loading / is_loaded / Update / Play,
 // the details' remaining virtuals and both deleting destructors; 0x00467710-0x004680DE). See cutscene.h.
 
 #include <cstdint>
@@ -21,16 +21,16 @@
 #include "platform/stopwatch.h"
 #include "engine/sys/game_config.h"
 
-namespace AudioStream {
+namespace audio {
 // (stream.h; not included here: its SetMusicVolume clashes with music_player.h's)
-void __cdecl SyncMusicToTime(float seconds);
+void __cdecl sync_music_to_time(float seconds);
 } // namespace Pcm
 
-namespace GameObjects {
+namespace objects {
 
-char g_cutsceneShotName[256];
-bool g_cutscenePlaying;
-int g_cutsceneFixedFrame;
+char g_cutscene_shot_name[256];
+bool g_cutscene_playing;
+int g_cutscene_fixed_frame;
 
 namespace {
 
@@ -48,32 +48,32 @@ constexpr uint32_t kFieldOfView = 0x99529205;  // a global float: the cutscene c
 constexpr uint32_t kInfoScript = 0xD9157174;
 
 // The frame counter while the time is fixed (one frame each update), and the screenshots' file name.
-int& FixedFrame() { return g_cutsceneFixedFrame; }
-char* ShotName() { return g_cutsceneShotName; }
+int& fixed_frame() { return g_cutscene_fixed_frame; }
+char* shot_name() { return g_cutscene_shot_name; }
 
-void Run(uint32_t script, Scripts::CStruct* params = nullptr)
+void get_run(uint32_t script, script::Struct* params = nullptr)
 {
-    Scripts::LaunchScript(script, params, nullptr, false, nullptr);
+    script::launch_script(script, params, nullptr, false, nullptr);
 }
-void DeleteVirtual(void* object)
+void delete_virtual(void* object)
 {
     reinterpret_cast<void(__thiscall*)(void*, int)>((*static_cast<void***>(object))[0])(object, 1);
 }
-Scripts::CStruct* MakeStruct()
+script::Struct* make_struct()
 {
-    Scripts::CStruct* memory = Scripts::SpawnParamBag();
-    return memory ? memory->PrepareAll() : nullptr;
+    script::Struct* memory = script::spawn_param_bag();
+    return memory ? memory->prepare_all() : nullptr;
 }
 
 // The vblank count since a time, in seconds (the x87's unsigned 64-bit conversion).
-float VblankSeconds(uint64_t vblanks, int rate)
+float vblank_seconds(uint64_t vblanks, int rate)
 {
-    uint64_t lowPart[1] = {vblanks & 0x7FFFFFFFFFFFFFFFull};
-    uint64_t highPart[1] = {vblanks & 0x8000000000000000ull};
+    uint64_t low_part[1] = {vblanks & 0x7FFFFFFFFFFFFFFFull};
+    uint64_t high_part[1] = {vblanks & 0x8000000000000000ull};
     float result;
     __asm {
-        fild qword ptr [lowPart]
-        fild qword ptr [highPart]
+        fild qword ptr [low_part]
+        fild qword ptr [high_part]
         fchs
         faddp st(1), st
         fidiv dword ptr [rate]
@@ -85,46 +85,46 @@ float VblankSeconds(uint64_t vblanks, int rate)
 } // namespace
 
 // 0x00467710
-void CCinematicTable::MarkLoadedModels()
+void CinematicTable::mark_loaded_models()
 {
     int version = 0;
-    m_callArgs->FetchIntValue(kVersion, &version, 1);
-    Scripts::CArray* objects = nullptr;
-    m_callArgs->FetchList(kObjects, &objects, 1);
-    for (uint32_t i = 0; i < objects->m_extent; ++i) {
-        auto* object = reinterpret_cast<Scripts::CStruct*>(objects->FetchPart(i));
+    call_args_->fetch_int_value(kVersion, &version, 1);
+    script::Array* objects = nullptr;
+    call_args_->fetch_list(kObjects, &objects, 1);
+    for (uint32_t i = 0; i < objects->extent_; ++i) {
+        auto* object = reinterpret_cast<script::Struct*>(objects->fetch_part(i));
         uint32_t model;
-        if (object->ReadHashValue(version >= 2 ? kName : kModel, &model, 0) &&
-            m_bundlePtr->HasAsset(model, kTypeModel))
-            object->PutNameKey(kUnnamed, kKeepSkeleton);
+        if (object->read_hash_value(version >= 2 ? kName : kModel, &model, 0) &&
+            bundle_ptr_->has_asset(model, kTypeModel))
+            object->put_name_key(kUnnamed, kKeepSkeleton);
     }
-    if (m_flag34B0)
-        AddObjects(m_callArgs);
+    if (flag_34b_0_)
+        add_objects(call_args_);
 }
 
 // 0x004677F0
-bool CCinematicTable::FinishLoading(int /*unused*/)
+bool CinematicTable::finish_loading(int /*unused*/)
 {
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(m_flag34B0 ? manager->m_cinematicLowHeap : manager->m_bottomUpHeap);
-    LoadFromBundle();
-    MarkLoadedModels();
-    AddCutsceneLights();
-    MemSys::Hub::Pull()->LeaveHeapScope();
-    if (m_bundlePtr)
-        DeleteVirtual(m_bundlePtr);
-    m_bundlePtr = nullptr;
-    if (m_flag34B0 && !m_ready) {
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(flag_34b_0_ ? manager->cinematic_low_heap_ : manager->bottom_up_heap_);
+    load_from_bundle();
+    mark_loaded_models();
+    add_cutscene_lights();
+    memory::Hub::get_pull()->leave_heap_scope();
+    if (bundle_ptr_)
+        delete_virtual(bundle_ptr_);
+    bundle_ptr_ = nullptr;
+    if (flag_34b_0_ && !ready_) {
         // the music: waiting for its stream to be ready, then started
         for (;;) {
-            AudioStream::TickFrame();
-            if (AudioStream::IsMusicTrackPrimed()) {
-                AudioStream::BeginPrimedMusicTrack(-1.0f);
-                m_ready = true;
+            audio::tick_frame();
+            if (audio::is_music_track_primed()) {
+                audio::begin_primed_music_track(-1.0f);
+                ready_ = true;
                 break;
             }
-            FrameClock::WaitForVblank();
-            if (m_ready)
+            frame_clock::wait_for_vblank();
+            if (ready_)
                 break;
         }
     }
@@ -132,211 +132,211 @@ bool CCinematicTable::FinishLoading(int /*unused*/)
 }
 
 // 0x004678A0
-bool CCinematicTable::ReadIn(const char* path, int a2, int /*unused*/, const uint32_t* settings)
+bool CinematicTable::read_in(const char* path, int a2, int /*unused*/, const uint32_t* settings)
 {
     if (settings) {
-        m_unknown34A8 = reinterpret_cast<void*>(settings[0]);
-        m_unknown34AC = reinterpret_cast<void*>(settings[1]);
-        m_flag34B0 = static_cast<uint8_t>(settings[2]);
+        unknown34a8_ = reinterpret_cast<void*>(settings[0]);
+        unknown34ac_ = reinterpret_cast<void*>(settings[1]);
+        flag_34b_0_ = static_cast<uint8_t>(settings[2]);
     } else {
-        m_unknown34A8 = nullptr;
-        m_unknown34AC = nullptr;
-        m_flag34B0 = 0;
+        unknown34a8_ = nullptr;
+        unknown34ac_ = nullptr;
+        flag_34b_0_ = 0;
     }
-    if (m_flag34B0)
-        AudioStream::StopMusic();
-    Stubs::ReturnTrue(); // (0x005B6570: a jump to the shared stub, true)
-    const char* name = CutsceneNameFromPath(path);
-    if (m_flag34B0)
-        std::memcpy(ShotName(), name, std::strlen(name) + 1);
+    if (flag_34b_0_)
+        audio::stop_music();
+    stubs::return_true(); // (0x005B6570: a jump to the shared stub, true)
+    const char* name = cutscene_name_from_path(path);
+    if (flag_34b_0_)
+        std::memcpy(shot_name(), name, std::strlen(name) + 1);
     else
-        std::memcpy(ShotName(), "dummy", 6); // (the game's 0x0064799C)
-    m_label = Checksums::HashFromText(name);
-    if (m_flag34B0) {
+        std::memcpy(shot_name(), "dummy", 6); // (the game's 0x0064799C)
+    label_ = checksums::hash_from_text(name);
+    if (flag_34b_0_) {
         // the music: the cutscene's for the skater's model, else the cutscene's own; else none to wait for
         char stream[256];
-        std::snprintf(stream, sizeof(stream), "%s_%s", name, SkaterModelName(static_cast<Scripts::CStruct*>(m_unknown34AC)));
-        if (!AudioStream::PrimeMusicTrack(Checksums::HashFromText(stream))) {
-            AudioStream::StopMusic();
+        std::snprintf(stream, sizeof(stream), "%s_%s", name, skater_model_name(static_cast<script::Struct*>(unknown34ac_)));
+        if (!audio::prime_music_track(checksums::hash_from_text(stream))) {
+            audio::stop_music();
             std::snprintf(stream, sizeof(stream), "%s", name);
-            if (!AudioStream::PrimeMusicTrack(Checksums::HashFromText(stream)))
-                m_ready = true;
+            if (!audio::prime_music_track(checksums::hash_from_text(stream)))
+                ready_ = true;
         }
-        if (m_flag34B0)
-            SetUpCutsceneHeaps();
+        if (flag_34b_0_)
+            set_up_cutscene_heaps();
     }
-    g_cutscenePlaying = true;
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    MemSys::Arena* fileHeap = m_flag34B0 ? manager->m_cinematicLowHeap : manager->m_bottomUpHeap;
-    MemSys::Arena* assetHeap = m_flag34B0 ? manager->m_cinematicHighHeap : manager->m_topDownHeap;
-    manager->EnterHeapScope(fileHeap);
-    void* memory = MemSys::AllocZeroed(sizeof(FileLoad::AssetBundle));
-    m_bundlePtr = memory ? new (memory) FileLoad::AssetBundle : nullptr;
-    m_bundlePtr->SetHeaps(fileHeap, assetHeap);
-    MemSys::Hub::Pull()->LeaveHeapScope();
-    MemSys::Hub::Pull()->EnterHeapScope(assetHeap);
-    m_bundlePtr->ReadIn(path, a2, 0);
-    MemSys::Hub::Pull()->LeaveHeapScope();
-    FinishLoading(a2);
-    m_readyFlag = true;
+    g_cutscene_playing = true;
+    memory::Hub* manager = memory::Hub::get_pull();
+    memory::Arena* file_heap = flag_34b_0_ ? manager->cinematic_low_heap_ : manager->bottom_up_heap_;
+    memory::Arena* asset_heap = flag_34b_0_ ? manager->cinematic_high_heap_ : manager->top_down_heap_;
+    manager->enter_heap_scope(file_heap);
+    void* memory = memory::alloc_zeroed(sizeof(file::AssetBundle));
+    bundle_ptr_ = memory ? new (memory) file::AssetBundle : nullptr;
+    bundle_ptr_->set_heaps(file_heap, asset_heap);
+    memory::Hub::get_pull()->leave_heap_scope();
+    memory::Hub::get_pull()->enter_heap_scope(asset_heap);
+    bundle_ptr_->read_in(path, a2, 0);
+    memory::Hub::get_pull()->leave_heap_scope();
+    finish_loading(a2);
+    ready_flag_ = true;
     return true;
 }
 
 // 0x00467B50
-bool CCinematicTable::IsLoaded()
+bool CinematicTable::is_loaded()
 {
-    if (m_readyFlag)
+    if (ready_flag_)
         return true;
-    if (m_flag34B0) {
-        if (!m_bundlePtr->IsLoaded())
+    if (flag_34b_0_) {
+        if (!bundle_ptr_->is_loaded())
             return false;
-        FinishLoading(1);
-        m_readyFlag = true;
+        finish_loading(1);
+        ready_flag_ = true;
         return true;
     }
-    if (m_bundlePtr && !m_bundlePtr->IsLoaded())
+    if (bundle_ptr_ && !bundle_ptr_->is_loaded())
         return false;
     return true;
 }
 
 // 0x00467BA0
-void CCinematicTable::TickFrame(void* camera, Scripts::CStruct* /*params*/)
+void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
 {
-    bool fixed = Scripts::FetchIntValue(kFixedTime) != 0;
-    if (!m_flag34B0) {
-        m_unknown3478 = *reinterpret_cast<uint32_t*>(&m_clock);
-        m_clock = static_cast<float>(FrameClock::GetFrameSeconds() + m_clock);
+    bool fixed = script::fetch_int_value(kFixedTime) != 0;
+    if (!flag_34b_0_) {
+        unknown3478_ = *reinterpret_cast<uint32_t*>(&clock_);
+        clock_ = static_cast<float>(frame_clock::get_frame_seconds() + clock_);
     } else {
-        if (!m_canSkip) { // (the first update: started)
-            m_canSkip = true;
-            Run(kStartScript);
-            static_cast<Gfx2D::ViewCam*>(camera)->ChangeHFov(Scripts::FetchFloat(kFieldOfView));
-            m_unknown3478 = 0;
-            m_pausedVblanks = FrameClock::FetchRetraceCount();
-            FixedFrame() = 0;
+        if (!can_skip_) { // (the first update: started)
+            can_skip_ = true;
+            get_run(kStartScript);
+            static_cast<gfx::ViewCam*>(camera)->change_h_fov(script::fetch_float(kFieldOfView));
+            unknown3478_ = 0;
+            paused_vblanks_ = frame_clock::fetch_retrace_count();
+            fixed_frame() = 0;
         }
-        int rate = GameConfig::g_frameRate;
-        AudioStream::SyncMusicToTime(VblankSeconds(FrameClock::FetchRetraceCount() - m_pausedVblanks, rate));
-        UpdateTime(reinterpret_cast<int>(camera));
-        CheckSkip();
-        RefreshViewer(camera);
-        UpdateSubtitles();
+        int rate = game_config::g_frame_rate;
+        audio::sync_music_to_time(vblank_seconds(frame_clock::fetch_retrace_count() - paused_vblanks_, rate));
+        update_time(reinterpret_cast<int>(camera));
+        check_skip();
+        refresh_viewer(camera);
+        update_subtitles();
     }
-    UpdateObjectPoses();
-    UpdateObjectTransforms();
-    ShowHiddenObjects();
-    if (!m_flag34B0)
+    update_object_poses();
+    update_object_transforms();
+    show_hidden_objects();
+    if (!flag_34b_0_)
         return;
-    if (Scripts::FetchIntValue(kDiagnosticsHash) != 0 || fixed) {
-        Scripts::CStruct* info = MakeStruct();
-        int frame = FixedFrame();
+    if (script::fetch_int_value(kDiagnosticsHash) != 0 || fixed) {
+        script::Struct* info = make_struct();
+        int frame = fixed_frame();
         char line[128];
         std::snprintf(line, sizeof(line), "time = %02d : %02d : %02d", frame / 30 / 60, frame / 30 % 60, frame % 30);
-        info->AppendWord("line1", line);
+        info->append_word("line1", line);
         char line2[128];
-        std::snprintf(line2, sizeof(line2), "time = %f sec. / %f sec.", static_cast<double>(m_clock),
-                      static_cast<double>(m_endTime));
-        info->AppendWord("line2", line2);
-        Scripts::LaunchScript(kInfoScript, info, nullptr, false, nullptr);
+        std::snprintf(line2, sizeof(line2), "time = %f sec. / %f sec.", static_cast<double>(clock_),
+                      static_cast<double>(end_time_));
+        info->append_word("line2", line2);
+        script::launch_script(kInfoScript, info, nullptr, false, nullptr);
         if (info) {
-            info->Clear();
-            Scripts::DeleteStruct(info);
+            info->get_clear();
+            script::delete_struct(info);
         }
-        if (fixed && FixedFrame() > 0) {
+        if (fixed && fixed_frame() > 0) {
             char shot[128];
-            std::snprintf(shot, sizeof(shot), "%s%04d", ShotName(), FixedFrame() - 1);
-            Engine3D::ScreenShot(shot, 1); // (a screenshot)
+            std::snprintf(shot, sizeof(shot), "%s%04d", shot_name(), fixed_frame() - 1);
+            render::screen_shot(shot, 1); // (a screenshot)
         }
     }
-    ++FixedFrame();
+    ++fixed_frame();
 }
 
 // 0x00467EA0
-void CCinematicTable::Perform(void* camera, Scripts::CStruct* params)
+void CinematicTable::perform(void* camera, script::Struct* params)
 {
-    g_cutscenePlaying = true;
-    if (!m_flag34B0) {
-        m_ready = true;
-        TickFrame(camera, params);
+    g_cutscene_playing = true;
+    if (!flag_34b_0_) {
+        ready_ = true;
+        tick_frame(camera, params);
         return;
     }
-    RefreshObjects();
-    if (!m_ready) {
-        if (!AudioStream::IsMusicTrackPrimed())
+    refresh_objects();
+    if (!ready_) {
+        if (!audio::is_music_track_primed())
             return;
-        AudioStream::BeginPrimedMusicTrack(-1.0f);
-        m_ready = true;
+        audio::begin_primed_music_track(-1.0f);
+        ready_ = true;
     }
-    TickFrame(camera, params);
+    tick_frame(camera, params);
 }
 
 // 0x00468080
-CCinematicTable* CCinematicTable::Teardown(unsigned int flags)
+CinematicTable* CinematicTable::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00467F30
-CCinematicEntry* CCinematicEntry::Teardown(unsigned int flags)
+CinematicEntry* CinematicEntry::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00467F60
-void CCinematicEntry::TickFrame()
+void CinematicEntry::tick_frame()
 {
-    if (!m_content)
+    if (!content_)
         return;
-    if (!m_ownsData) {
-        if (!m_begun) {
-            m_content->RestartObjects();
-            if (m_beginScript)
-                Run(m_beginScript);
+    if (!owns_data_) {
+        if (!begun_) {
+            content_->restart_objects();
+            if (begin_script_)
+                get_run(begin_script_);
         }
-        m_begun = true;
-        m_content->Perform(m_viewer, m_args);
+        begun_ = true;
+        content_->perform(viewer_, args_);
         return;
     }
-    if (!m_content->IsLoaded())
+    if (!content_->is_loaded())
         return;
-    if (!m_begun && m_beginScript) {
-        Run(m_beginScript);
-        m_begun = true;
+    if (!begun_ && begin_script_) {
+        get_run(begin_script_);
+        begun_ = true;
     }
-    if (m_flag5D) {
-        m_content->UpdateVblanks();
-        m_content->RefreshObjects();
-        m_content->UpdateObjectTransforms();
+    if (flag_5d_) {
+        content_->update_vblanks();
+        content_->refresh_objects();
+        content_->update_object_transforms();
     } else {
-        m_content->Perform(m_viewer, m_args);
+        content_->perform(viewer_, args_);
     }
-    if (m_unknown60 > -1 && --m_unknown60 == 0) {
-        m_unknown60 = -1;
-        reinterpret_cast<void(__thiscall*)(void*, int)>(m_vtable[0x30 / 4])(this, 1);
+    if (unknown60_ > -1 && --unknown60_ == 0) {
+        unknown60_ = -1;
+        reinterpret_cast<void(__thiscall*)(void*, int)>(vtable_[0x30 / 4])(this, 1);
     }
 }
 
 // 0x00468040
-bool CCinematicEntry::IsFinished()
+bool CinematicEntry::is_finished()
 {
-    if (m_isFinished)
+    if (is_finished_)
         return true;
-    if (m_flag18 || !m_content)
+    if (flag18_ || !content_)
         return false;
-    return m_content->IsLoaded() && m_content->IsFinished();
+    return content_->is_loaded() && content_->is_finished();
 }
 
 // 0x004680B0
-bool CCinematicEntry::IsReady()
+bool CinematicEntry::is_ready()
 {
-    CCinematicTable* data = m_content;
-    return data && data->m_flag34B0 && data->IsLoaded() && data->m_ready;
+    CinematicTable* data = content_;
+    return data && data->flag_34b_0_ && data->is_loaded() && data->ready_;
 }
 
 } // namespace Obj

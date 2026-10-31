@@ -16,62 +16,62 @@
 // A hint's keys are tokens joined by '+': a key cap ("Ctrl", "G", "WASD"), a mouse glyph ("LMB", "RMB", "MMB", "Wheel",
 // "Mouse", "2xLMB" a double click) or a controller glyph ("PadA", "PadB", "PadX", "PadY", "LS", "RS", "LT", "RT", "LB",
 // "RB", "DPad", "Back", "R3", "L3"). The UI (level_editor_ux8_ui.cpp) draws each as its glyph.
-namespace MenuSystem::LevelEditor::Hints {
+namespace frontend::level_editor::hints {
 
 // --- the pieces (pure) ---------------------------------------------------------------------------------------------
 
-enum class Selection : uint8_t { None, Objects, Scenery, PointNode, OtherNode, Wall };
-enum class Drag : uint8_t { None, ShiftBy, MoveAxis, SpinBy, StretchBy };
+enum class Selection : uint8_t { kNone, object_edit, kScenery, kPointNode, kOtherNode, kWall };
+enum class Drag : uint8_t { kNone, kShiftBy, kMoveAxis, kSpinBy, scale_tool };
 
 struct CtxInfo {
     bool rmb = false;       // the right button held (looking / flying)
-    bool flyAlways = false; // [editor] wasd_flies=1
+    bool fly_always_ = false; // [editor] wasd_flies=1
     uint8_t mods = 0;       // Actions::kCtrl | kShift | kAlt held
-    Selection selection = Selection::None;
-    bool freeCamera = false; // (with a selection: the camera flew off it - F frames it again)
+    Selection selection = Selection::kNone;
+    bool free_camera_ = false; // (with a selection: the camera flew off it - F frames it again)
     int tool = 0;            // the transform tool: 0 move, 1 rotate, 2 scale (level_editor_transform.h)
-    Drag drag = Drag::None;
+    Drag drag = Drag::kNone;
     bool modal = false;      // Alt+G's transform (no button held)
     std::string typed;       // a typed value's description ("" none)
     int carried = 0;         // what the moving scenery carries
-    bool browser = false, placeArmed = false;
-    bool chainDrawing = false, ladderDrawing = false, chainPick = false;
-    std::string chainWaiting; // (Chains::Waiting)
-    bool rulerArmed = false, facesMode = false, boxArmed = false;
-    int ux9Tool = 0;          // (UX9 - level_editor_ux9.h) 1 the gap wizard picking, 2 the ground tool marking a rectangle
-    bool chainPoint = false;  // a rail / ladder / path point selected
+    bool browser = false, place_armed_ = false;
+    bool chain_drawing_ = false, ladder_drawing_ = false, chain_pick_ = false;
+    std::string chain_waiting_; // (Chains::Waiting)
+    bool ruler_armed_ = false, faces_mode_ = false, box_armed_ = false;
+    int ux9_tool_ = 0;          // (UX9 - level_editor_ux9.h) 1 the gap wizard picking, 2 the ground tool marking a rectangle
+    bool chain_point_ = false;  // a rail / ladder / path point selected
     bool following = false;   // the camera follows the selection (Shift+F)
     bool walking = false;     // walk mode
-    bool pieOpen = false;     // a pie menu up
-    bool pieSticky = false;   // (opened by a tap: stays until a click)
+    bool pie_open_ = false;     // a pie menu up
+    bool pie_sticky_ = false;   // (opened by a tap: stays until a click)
     bool pad = false;         // controller mode with a controller attached
     bool simulating = false;  // UX6's Simulate (F6)
-    // What the held modifiers do (ModifierHints from the registry), filled by the caller when `mods` isn't 0.
+    // What the held modifiers do (modifier_hints from the registry), filled by the caller when `mods` isn't 0.
     std::vector<std::pair<std::string, std::string>> modded;
 };
 struct Hint {
     std::string keys, what;
 };
-// An action's keys as bound now ("" unbound) - Actions::KeysText by id, in the game.
+// An action's keys as bound now ("" unbound) - Actions::get_keys_text by id, in the game.
 using KeyText = std::function<std::string(const char* id)>;
 
 // The hints for this state (at most kMaxHints).
 constexpr size_t kMaxHints = 16;
-std::vector<Hint> Build(const CtxInfo& context, const KeyText& keyOf);
-// The first of a KeysText's alternatives ("Ctrl+Y / Ctrl+Shift+Z" -> "Ctrl+Y"; an Info's text as it is).
-std::string LeadingKeyName(const std::string& keysText);
+std::vector<Hint> get_build(const CtxInfo& context, const KeyText& key_of);
+// The first of a get_keys_text's alternatives ("Ctrl+Y / Ctrl+Shift+Z" -> "Ctrl+Y"; an Info's text as it is).
+std::string leading_key_name(const std::string& keys_text);
 // Single plain keys run together for a cap ("W", "A", "S", "D" -> "WASD"; a key with modifiers or a long name: joined
 // with a space).
-std::string JoinKeys(const std::vector<std::string>& keys);
+std::string join_keys(const std::vector<std::string>& keys);
 // The registry's actions bound with exactly `mods` held (their first such chord), as (keys, name): Press and Toggle,
 // in the registry's order, at most `limit`.
-std::vector<std::pair<std::string, std::string>> ModifierHints(const std::vector<Actions::ActStep>& actions, uint8_t mods,
+std::vector<std::pair<std::string, std::string>> modifier_hints(const std::vector<actions::ActStep>& actions, uint8_t mods,
                                                                size_t limit);
 
 // A hint's keys split into tokens ('+' between them; a key ending in '+' - "Keypad+" - kept whole).
-std::vector<std::string> Tokens(const std::string& keys);
-enum class Glyph : uint8_t { Key, Mouse, MouseLeft, MouseRight, MouseMiddle, Wheel, DoubleClick, PadA, PadB, PadX, PadY,
-                             PadOther };
-Glyph GlyphOf(const std::string& token);
+std::vector<std::string> get_tokens(const std::string& keys);
+enum class Glyph : uint8_t { kKey, kMouse, kMouseLeft, kMouseRight, kMouseMiddle, kWheel, kDoubleClick, kPadA, kPadB, kPadX, kPadY,
+                             kPadOther };
+Glyph glyph_of(const std::string& token);
 
-} // namespace MenuSystem::LevelEditor::Hints
+} // namespace MenuSystem::level_editor::Hints

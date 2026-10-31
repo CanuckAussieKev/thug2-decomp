@@ -31,11 +31,11 @@
 
 #pragma comment(lib, "winmm.lib") // timeSetEvent / timeKillEvent
 
-namespace Gfx2D::LoadingConsole {
+namespace gfx::loading_console {
 
 // --- pure helpers ---
 
-const char* FileName(const char* path)
+const char* get_file_name(const char* path)
 {
     const char* name = path;
     for (const char* c = path; *c; ++c)
@@ -44,7 +44,7 @@ const char* FileName(const char* path)
     return name;
 }
 
-std::string SizeText(long long bytes)
+std::string size_text(long long bytes)
 {
     char text[32];
     if (bytes < 1024)
@@ -56,7 +56,7 @@ std::string SizeText(long long bytes)
     return text;
 }
 
-bool InterestingCommand(const char* name)
+bool interesting_command(const char* name)
 {
     if (!name)
         return false;
@@ -70,7 +70,7 @@ bool InterestingCommand(const char* name)
     return false;
 }
 
-bool InterestingLogLine(const char* line)
+bool interesting_log_line(const char* line)
 {
     if (!line || !*line)
         return false;
@@ -81,7 +81,7 @@ bool InterestingLogLine(const char* line)
     return true;
 }
 
-void Ring::AppendOne(const char* text, double time)
+void Ring::append_one(const char* text, double time)
 {
     if (count != 0) {
         Seg& newest = lines[(count - 1) % kRingLines];
@@ -98,7 +98,7 @@ void Ring::AppendOne(const char* text, double time)
     ++count;
 }
 
-std::vector<std::string> Ring::FinalOne(size_t n) const
+std::vector<std::string> Ring::final_one(size_t n) const
 {
     size_t shown = std::min<size_t>({n, count, kRingLines});
     std::vector<std::string> out;
@@ -123,37 +123,37 @@ SRWLOCK g_lock = SRWLOCK_INIT; // the ring and the activity time
 Ring g_ring;
 std::atomic<bool> g_active{false};
 double g_start = 0.0;        // when the load began (Now())
-double g_lastActivity = 0.0; // the last line's time (Now())
+double g_last_activity = 0.0; // the last line's time (Now())
 
 // The loading screen's lock (0x007052AC: a mutex, held while it draws) and its state.
-HANDLE ScreenMutex() { return reinterpret_cast<HANDLE&>(Engine3D::g_screenMutex); }
-IDirect3DDevice9* InputPort() { return Engine3D::g_d3dDevice; }
-bool LoadScreenShown() { return Engine3D::g_loadingScreenUp != 0; } // the main loop draws nothing then
-uint32_t BarTimer() { return Engine3D::g_loadingBarTimer; }   // the loading bar's timer (0x004B7400)
-void* ScreenPicture() { return Engine3D::g_loadingScreenPicture; }    // the loading screen's picture
-void* MovieShown() { return Engine3D::g_currentMovie; }       // a Bink movie playing (gfx/movie.cpp)
-int ScreenWidth() { return Engine3D::g_backBufferWidth; }
-int ScreenHeight() { return Engine3D::g_backBufferHeight; }
-int ProgressBarPixels() { return Engine3D::g_gradientWidth; } // the loading bar's width in pixels
+HANDLE screen_mutex() { return reinterpret_cast<HANDLE&>(render::g_screen_mutex); }
+IDirect3DDevice9* input_port() { return render::g_d3d_device; }
+bool load_screen_shown() { return render::g_loading_screen_up != 0; } // the main loop draws nothing then
+uint32_t bar_timer() { return render::g_loading_bar_timer; }   // the loading bar's timer (0x004B7400)
+void* screen_picture() { return render::g_loading_screen_picture; }    // the loading screen's picture
+void* movie_shown() { return render::g_current_movie; }       // a Bink movie playing (gfx/movie.cpp)
+int get_screen_width() { return render::g_back_buffer_width; }
+int get_screen_height() { return render::g_back_buffer_height; }
+int progress_bar_pixels() { return render::g_gradient_width; } // the loading bar's width in pixels
 
-double Now()
+double get_now()
 {
-    static const double frequency = [] {
+    static const double kFrequency = [] {
         LARGE_INTEGER f;
         QueryPerformanceFrequency(&f);
         return static_cast<double>(f.QuadPart);
     }();
     LARGE_INTEGER counter;
     QueryPerformanceCounter(&counter);
-    return static_cast<double>(counter.QuadPart) / frequency;
+    return static_cast<double>(counter.QuadPart) / kFrequency;
 }
 
-void AddLine(const char* text)
+void add_line(const char* text)
 {
-    double now = Now();
+    double now = get_now();
     AcquireSRWLockExclusive(&g_lock);
-    g_ring.AppendOne(text, now - g_start);
-    g_lastActivity = now;
+    g_ring.append_one(text, now - g_start);
+    g_last_activity = now;
     ReleaseSRWLockExclusive(&g_lock);
 }
 
@@ -165,37 +165,37 @@ struct Glyph {
 };
 Glyph g_glyphs[128];
 float g_advance = 0.0f;    // the font's one advance (monospace)
-float g_lineHeight = 0.0f; // pixels
-float g_whiteU = 0.0f, g_whiteV = 0.0f;
+float g_line_height = 0.0f; // pixels
+float g_white_u = 0.0f, g_white_v = 0.0f;
 IDirect3DTexture9* g_texture = nullptr;
-bool g_fontTried = false;
+bool g_font_tried = false;
 
-void BuildFont()
+void build_font()
 {
-    g_fontTried = true;
-    IDirect3DDevice9* device = InputPort();
+    g_font_tried = true;
+    IDirect3DDevice9* device = input_port();
     if (!device)
         return;
-    float pixels = std::clamp(std::round(static_cast<float>(ScreenHeight()) * 15.0f / 720.0f), 12.0f, 30.0f);
+    float pixels = std::clamp(std::round(static_cast<float>(get_screen_height()) * 15.0f / 720.0f), 12.0f, 30.0f);
     ImFontAtlas atlas;
     atlas.Flags |= ImFontAtlasFlags_NoMouseCursors;
     ImFontConfig config;
     config.PixelSnapH = true;
     config.OversampleH = 2;
     static const ImWchar kRanges[] = {0x0020, 0x007E, 0};
-    MenuSystem::LevelEditor::UiFonts::CompressedFont mono = MenuSystem::LevelEditor::UiFonts::Mono();
+    frontend::level_editor::ui_fonts::CompressedFont mono = frontend::level_editor::ui_fonts::get_mono();
     ImFont* font = atlas.AddFontFromMemoryCompressedTTF(mono.data, mono.size, pixels, &config, kRanges);
     unsigned char* rgba = nullptr;
     int width = 0, height = 0;
     if (!font || !atlas.Build()) {
-        Log("loading console: the font couldn't be made - no panel");
+        get_log("loading console: the font couldn't be made - no panel");
         return;
     }
     atlas.GetTexDataAsRGBA32(&rgba, &width, &height);
     IDirect3DTexture9* texture = nullptr;
     if (FAILED(device->CreateTexture(static_cast<UINT>(width), static_cast<UINT>(height), 1, 0, D3DFMT_A8R8G8B8,
                                      D3DPOOL_MANAGED, &texture, nullptr))) {
-        Log("loading console: no texture for the font - no panel");
+        get_log("loading console: no texture for the font - no panel");
         return;
     }
     D3DLOCKED_RECT locked;
@@ -218,11 +218,11 @@ void BuildFont()
                        glyph->AdvanceX, glyph->Visible != 0};
     }
     g_advance = g_glyphs['M'].advance;
-    g_lineHeight = std::round(pixels * 1.2f);
-    g_whiteU = atlas.TexUvWhitePixel.x;
-    g_whiteV = atlas.TexUvWhitePixel.y;
+    g_line_height = std::round(pixels * 1.2f);
+    g_white_u = atlas.TexUvWhitePixel.x;
+    g_white_v = atlas.TexUvWhitePixel.y;
     g_texture = texture;
-    Log("loading console: on ([features] loading_console=0 turns it off) - JetBrains Mono %.0f px", pixels);
+    get_log("loading console: on ([features] loading_console=0 turns it off) - JetBrains Mono %.0f px", pixels);
 }
 
 // --- the panel's geometry: laid out at most 10 times a second, drawn with every frame of the loading screen ---
@@ -237,17 +237,17 @@ constexpr size_t kShownLines = 12;
 constexpr double kLayoutSeconds = 0.1;
 constexpr double kStallSeconds = 10.0;
 std::vector<Vertex> g_vertices; // (used with the loading screen's lock held)
-double g_laidOut = -1.0;
+double g_laid_out = -1.0;
 
-void Rect2(float x0, float y0, float x1, float y1, uint32_t color)
+void rect2(float x0, float y0, float x1, float y1, uint32_t color)
 {
-    const Vertex a{x0, y0, 0.0f, 1.0f, color, g_whiteU, g_whiteV}, b{x1, y0, 0.0f, 1.0f, color, g_whiteU, g_whiteV},
-        c{x0, y1, 0.0f, 1.0f, color, g_whiteU, g_whiteV}, d{x1, y1, 0.0f, 1.0f, color, g_whiteU, g_whiteV};
+    const Vertex a{x0, y0, 0.0f, 1.0f, color, g_white_u, g_white_v}, b{x1, y0, 0.0f, 1.0f, color, g_white_u, g_white_v},
+        c{x0, y1, 0.0f, 1.0f, color, g_white_u, g_white_v}, d{x1, y1, 0.0f, 1.0f, color, g_white_u, g_white_v};
     g_vertices.insert(g_vertices.end(), {a, b, c, b, d, c});
 }
 
 // Text from (x, y) (the line's top), at most `columns` characters.
-void Text(float x, float y, const char* text, size_t columns, uint32_t color)
+void text_tools(float x, float y, const char* text, size_t columns, uint32_t color)
 {
     for (size_t i = 0; text[i] && i < columns; ++i) {
         unsigned char c = static_cast<unsigned char>(text[i]);
@@ -262,34 +262,34 @@ void Text(float x, float y, const char* text, size_t columns, uint32_t color)
     }
 }
 
-void Layout(double now)
+void get_layout(double now)
 {
-    g_laidOut = now;
+    g_laid_out = now;
     g_vertices.clear();
     std::vector<std::string> lines;
     double started, last;
     AcquireSRWLockShared(&g_lock);
-    lines = g_ring.FinalOne(kShownLines);
+    lines = g_ring.final_one(kShownLines);
     started = g_start;
-    last = g_lastActivity;
+    last = g_last_activity;
     ReleaseSRWLockShared(&g_lock);
 
-    float width = static_cast<float>(ScreenWidth()), height = static_cast<float>(ScreenHeight());
+    float width = static_cast<float>(get_screen_width()), height = static_cast<float>(get_screen_height());
     float margin = std::max(8.0f, std::round(height * 0.02f));
-    float pad = std::round(g_lineHeight * 0.4f);
-    // Left of the loading bar (centred, ProgressBarPixels wide, its frame 5/640 of the screen wider each side), at most 45%.
-    float barLeft = (width - static_cast<float>(ProgressBarPixels())) * 0.5f - width * 5.0f / 640.0f;
-    float panelWidth = std::min(width * 0.45f, barLeft - 2.0f * margin);
-    if (panelWidth < 20.0f * g_advance)
-        panelWidth = std::min(width - 2.0f * margin, 40.0f * g_advance); // (no room beside the bar: over it)
-    size_t columns = static_cast<size_t>(std::max(1.0f, (panelWidth - 2.0f * pad) / g_advance));
-    float panelHeight = 2.0f * pad + g_lineHeight * static_cast<float>(kShownLines + 1) + pad * 0.5f;
-    float x0 = margin, y1 = height - margin, y0 = y1 - panelHeight, x1 = x0 + panelWidth;
+    float pad = std::round(g_line_height * 0.4f);
+    // Left of the loading bar (centred, progress_bar_pixels wide, its frame 5/640 of the screen wider each side), at most 45%.
+    float bar_left = (width - static_cast<float>(progress_bar_pixels())) * 0.5f - width * 5.0f / 640.0f;
+    float panel_width = std::min(width * 0.45f, bar_left - 2.0f * margin);
+    if (panel_width < 20.0f * g_advance)
+        panel_width = std::min(width - 2.0f * margin, 40.0f * g_advance); // (no room beside the bar: over it)
+    size_t columns = static_cast<size_t>(std::max(1.0f, (panel_width - 2.0f * pad) / g_advance));
+    float panel_height = 2.0f * pad + g_line_height * static_cast<float>(kShownLines + 1) + pad * 0.5f;
+    float x0 = margin, y1 = height - margin, y0 = y1 - panel_height, x1 = x0 + panel_width;
 
     double idle = now - last;
     bool stalled = idle >= kStallSeconds;
-    Rect2(x0, y0, x1, y1, stalled ? 0xC0301000u : 0xB0000000u);
-    Rect2(x0, y0, x1, y0 + 2.0f, stalled ? 0xFFFF8C1Au : 0xFF5A5A5Au); // (a rule along the top)
+    rect2(x0, y0, x1, y1, stalled ? 0xC0301000u : 0xB0000000u);
+    rect2(x0, y0, x1, y0 + 2.0f, stalled ? 0xFFFF8C1Au : 0xFF5A5A5Au); // (a rule along the top)
 
     char left[48], right[64];
     std::snprintf(left, sizeof(left), "LOADING %.1f s", now - started);
@@ -298,109 +298,109 @@ void Layout(double now)
     else
         std::snprintf(right, sizeof(right), "last activity %.1f s ago", idle);
     float y = y0 + pad;
-    Text(x0 + pad, y, left, columns, 0xFFFFFFFFu);
-    size_t rightLength = std::strlen(right);
-    size_t leftLength = std::strlen(left);
-    if (leftLength + 2 + rightLength <= columns)
-        Text(x1 - pad - static_cast<float>(rightLength) * g_advance, y, right, columns, stalled ? 0xFFFF9A2Eu : 0xFFA0A0A0u);
+    text_tools(x0 + pad, y, left, columns, 0xFFFFFFFFu);
+    size_t right_length = std::strlen(right);
+    size_t left_length = std::strlen(left);
+    if (left_length + 2 + right_length <= columns)
+        text_tools(x1 - pad - static_cast<float>(right_length) * g_advance, y, right, columns, stalled ? 0xFFFF9A2Eu : 0xFFA0A0A0u);
     else
-        Text(x0 + pad + static_cast<float>(leftLength + 2) * g_advance, y, right, columns - std::min(columns, leftLength + 2),
+        text_tools(x0 + pad + static_cast<float>(left_length + 2) * g_advance, y, right, columns - std::min(columns, left_length + 2),
              stalled ? 0xFFFF9A2Eu : 0xFFA0A0A0u);
-    y += g_lineHeight + pad * 0.5f;
+    y += g_line_height + pad * 0.5f;
     for (size_t i = 0; i < lines.size(); ++i) {
         bool newest = i + 1 == lines.size();
         uint32_t color = newest ? (stalled ? 0xFFFFC080u : 0xFFFFFFFFu) : 0xFFB8B8B8u;
-        Text(x0 + pad, y, lines[i].c_str(), columns, color);
-        y += g_lineHeight;
+        text_tools(x0 + pad, y, lines[i].c_str(), columns, color);
+        y += g_line_height;
     }
 }
 
 // --- the console's own timer, for a loading screen without a loading bar ---
 
 UINT g_timer = 0;
-std::atomic<bool> g_timerDraws{false}; // the screen shown wasn't frozen
+std::atomic<bool> g_timer_draws{false}; // the screen shown wasn't frozen
 std::atomic<bool> g_blank{false};
 
-void CALLBACK ScreenTick(UINT, UINT, DWORD_PTR, DWORD_PTR, DWORD_PTR)
+void CALLBACK screen_tick(UINT, UINT, DWORD_PTR, DWORD_PTR, DWORD_PTR)
 {
     // Only while the loading bar's own timer isn't running (it draws the panel then), a loading screen is up, it
     // isn't a frozen frame, and no movie is shown.
-    if (!g_active || !g_timerDraws || BarTimer() != 0 || !LoadScreenShown() || MovieShown())
+    if (!g_active || !g_timer_draws || bar_timer() != 0 || !load_screen_shown() || movie_shown())
         return;
     bool blank = g_blank;
-    if (!blank && !ScreenPicture())
+    if (!blank && !screen_picture())
         return;
-    WaitForSingleObject(ScreenMutex(), INFINITE);
-    IDirect3DDevice9* device = InputPort();
-    if (device && LoadScreenShown() && BarTimer() == 0 && g_active) {
+    WaitForSingleObject(screen_mutex(), INFINITE);
+    IDirect3DDevice9* device = input_port();
+    if (device && load_screen_shown() && bar_timer() == 0 && g_active) {
         device->BeginScene();
         // as the loading screen draws it (0x004B78B0): its picture, or black
         if (blank)
             device->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0);
         else
-            Engine3D::DrawLoadingScreenPicture(); // the picture, full screen
-        DrawPanel();
+            render::draw_loading_screen_picture(); // the picture, full screen
+        draw_panel();
         device->EndScene();
         device->Present(nullptr, nullptr, nullptr, nullptr);
     }
-    ReleaseMutex(ScreenMutex());
+    ReleaseMutex(screen_mutex());
 }
 
-void OnLogLine(const char* line)
+void on_log_line(const char* line)
 {
     if (g_active)
-        NoteLogLine(line);
+        note_log_line(line);
 }
 
 } // namespace
 
-bool IsSwitchedOn()
+bool is_switched_on()
 {
-    static bool on = ConfigInt("features", "loading_console", 1) != 0;
+    static bool on = config_int("features", "loading_console", 1) != 0;
     return on;
 }
 
-bool LiveNow() { return g_active; }
+bool live_now() { return g_active; }
 
-void ScreenShown(bool freeze, bool blank)
+void screen_shown(bool freeze, bool blank)
 {
-    if (!IsSwitchedOn())
+    if (!is_switched_on())
         return;
-    if (!g_fontTried)
-        BuildFont();
+    if (!g_font_tried)
+        build_font();
     if (!g_active) {
-        double now = Now();
+        double now = get_now();
         AcquireSRWLockExclusive(&g_lock);
         g_ring.count = 0;
         g_start = now;
-        g_lastActivity = now;
+        g_last_activity = now;
         ReleaseSRWLockExclusive(&g_lock);
-        g_laidOut = -1.0;
-        SetLogListener(&OnLogLine);
+        g_laid_out = -1.0;
+        set_log_listener(&on_log_line);
         g_active = true;
     }
-    Note(freeze ? "loading screen (frozen frame)" : blank ? "loading screen (blank)" : "loading screen");
+    get_note(freeze ? "loading screen (frozen frame)" : blank ? "loading screen (blank)" : "loading screen");
     g_blank = blank;
-    g_timerDraws = !freeze;
+    g_timer_draws = !freeze;
     if (!freeze && !g_timer)
-        g_timer = timeSetEvent(100, 10, &ScreenTick, 0, TIME_PERIODIC);
+        g_timer = timeSetEvent(100, 10, &screen_tick, 0, TIME_PERIODIC);
 }
 
-void ScreenHidden()
+void screen_hidden()
 {
     if (!g_active)
         return;
     g_active = false;
-    g_timerDraws = false;
+    g_timer_draws = false;
     if (g_timer) {
         timeKillEvent(g_timer);
         g_timer = 0;
     }
-    double now = Now();
-    Log("loading console: the loading screen was up %.1f s", now - g_start);
+    double now = get_now();
+    get_log("loading console: the loading screen was up %.1f s", now - g_start);
 }
 
-void Note(const char* format, ...)
+void get_note(const char* format, ...)
 {
     if (!g_active)
         return;
@@ -409,75 +409,75 @@ void Note(const char* format, ...)
     va_start(args, format);
     std::vsnprintf(text, sizeof(text), format, args);
     va_end(args);
-    AddLine(text);
+    add_line(text);
 }
 
-void NoteFile(const char* what, const char* path, long long size)
+void note_file(const char* what, const char* path, long long size)
 {
     if (!g_active || !path)
         return;
     if (size >= 0)
-        Note("%s %s  %s", what, FileName(path), SizeText(size).c_str());
+        get_note("%s %s  %s", what, get_file_name(path), size_text(size).c_str());
     else
-        Note("%s %s", what, FileName(path));
+        get_note("%s %s", what, get_file_name(path));
 }
 
-void NoteScriptCall(uint32_t name, bool cfunction, Scripts::CStruct* params)
+void note_script_call(uint32_t name, bool cfunction, script::Struct* params)
 {
     if (!g_active)
         return;
-    const char* text = Scripts::LookUpHashName(name);
+    const char* text = script::look_up_hash_name(name);
     if (cfunction) {
-        if (!InterestingCommand(text))
+        if (!interesting_command(text))
             return;
         // what it's given: a file or scene name, else a name checksum
         const char* what = nullptr;
         if (params) {
-            if (!params->FetchText(0u, &what, 0))
+            if (!params->fetch_text(0u, &what, 0))
                 for (const char* key : {"scene", "file", "name", "filename", "level", "type"})
-                    if (params->FetchText(key, &what, 0))
+                    if (params->fetch_text(key, &what, 0))
                         break;
             uint32_t checksum = 0;
-            if (!what && (params->ReadHashValue(0u, &checksum, 0) || params->ReadHashValue("name", &checksum, 0) ||
-                          params->ReadHashValue("type", &checksum, 0)))
-                what = Scripts::LookUpHashName(checksum);
+            if (!what && (params->read_hash_value(0u, &checksum, 0) || params->read_hash_value("name", &checksum, 0) ||
+                          params->read_hash_value("type", &checksum, 0)))
+                what = script::look_up_hash_name(checksum);
         }
         if (what && *what)
-            Note("%s %s", text, FileName(what));
+            get_note("%s %s", text, get_file_name(what));
         else
-            Note("%s", text);
+            get_note("%s", text);
     } else if (text) {
-        Note("script %s", text);
+        get_note("script %s", text);
     }
     // (a script whose name the game doesn't know - most of them, the retail scripts carry few names - isn't shown:
     // a checksum says nothing)
 }
 
-void NoteLogLine(const char* line)
+void note_log_line(const char* line)
 {
-    if (!g_active || !InterestingLogLine(line))
+    if (!g_active || !interesting_log_line(line))
         return;
     char text[kLineWidth];
     strncpy_s(text, line, _TRUNCATE);
     // (a log line can come from any thread, also while a crash is being logged: never wait for the lock)
-    double now = Now();
+    double now = get_now();
     if (!TryAcquireSRWLockExclusive(&g_lock))
         return;
-    g_ring.AppendOne(text, now - g_start);
-    g_lastActivity = now;
+    g_ring.append_one(text, now - g_start);
+    g_last_activity = now;
     ReleaseSRWLockExclusive(&g_lock);
 }
 
-void DrawPanel()
+void draw_panel()
 {
     if (!g_active || !g_texture)
         return;
-    IDirect3DDevice9* device = InputPort();
+    IDirect3DDevice9* device = input_port();
     if (!device)
         return;
-    double now = Now();
-    if (g_laidOut < 0.0 || now - g_laidOut >= kLayoutSeconds)
-        Layout(now);
+    double now = get_now();
+    if (g_laid_out < 0.0 || now - g_laid_out >= kLayoutSeconds)
+        get_layout(now);
     if (g_vertices.empty())
         return;
     // The device's state saved and put back after (the renderer's cached state stays true).
@@ -525,4 +525,4 @@ void DrawPanel()
     saved->Release();
 }
 
-} // namespace Gfx2D::LoadingConsole
+} // namespace gfx::loading_console

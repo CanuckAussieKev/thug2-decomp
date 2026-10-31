@@ -18,41 +18,41 @@
 //     `hidden` and `no_random` (never offered in our CAS menus or the random skater: our own skaters stay THUG2's).
 //   - Only entries whose files can all be found: each string naming a path (a mesh, a texture swap's `with`) must be
 //     the game's own or a loose file of THUGPRO's (not in its archives: those aren't read). Others are left out.
-//   - Those loose files are then read from the install when the game asks for them (DataOverlay::OverlayPath's last
+//   - Those loose files are then read from the install when the game asks for them (data_overlay::OverlayPath's last
 //     step) - only files the game itself hasn't, named by an added part.
 // [features] thugpro_parts=0 turns it off, =2 offers them in our CAS menus too (without `hidden` / `no_random`: to try
 // them offline - a THUG2 player without them then sees our skater with THUG2's parts); thugpro_folder= the install's
 // folder (default %LOCALAPPDATA%\THUG Pro).
-namespace Scripts {
-class CArray;
-class CStruct;
+namespace script {
+class Array;
+class Struct;
 } // namespace Script
 
-namespace GameObjects::ThugproCas {
+namespace objects::thugpro_cas {
 
 // From the main loop once a frame until it has run (it waits for the CAS lists to exist).
-void LoadOnce();
+void load_once();
 
-// The data overlay's last step: `relative` (DataOverlay::OverlayName's form: lower case, '\', no "data\") is a file
+// The data overlay's last step: `relative` (data_overlay::overlay_name's form: lower case, '\', no "data\") is a file
 // of one of THUGPRO's added parts, in its install: its full path in `path`.
-bool FilePath(const char* relative, char (&path)[260]);
+bool file_path(const char* relative, char (&path)[260]);
 
 // --- the pieces (exposed for the self-tests) -------------------------------------------------------------------------
 
 // An archive's (.prx) files named in `names` (lower case, '\'), decompressed; false if it isn't one.
-bool ReadArchive(const std::vector<uint8_t>& archive, const std::vector<std::string>& names,
+bool read_archive(const std::vector<uint8_t>& archive, const std::vector<std::string>& names,
                  std::vector<std::pair<std::string, std::vector<uint8_t>>>* out);
 // The archives' LZSS (a 4 KB window of spaces, written from 4078): `size` bytes out, or fewer if the input runs out.
-std::vector<uint8_t> ExpandLzss(const uint8_t* in, size_t length, size_t size);
+std::vector<uint8_t> expand_lzss(const uint8_t* in, size_t length, size_t size);
 // A .qb file's top-level `name = [` arrays: their names and where each array starts (its '[' token). The walk stops
 // at its end token, at `size` bytes, or at a token it can't move past (the file must end in zeros: the tokens are read
 // without bounds, as the game reads them).
-std::vector<std::pair<uint32_t, const uint8_t*>> TopLevelArrays(const uint8_t* qb, size_t size);
+std::vector<std::pair<uint32_t, const uint8_t*>> top_level_arrays(const uint8_t* qb, size_t size);
 // A game path's key: lower case, '\', its extensions taken off (.xbx, then .skin / .tex / .cas / .col / .img / .png /
 // .mdl / .ske ...), as both a part's path and the game's request for one of its files give it.
-std::string PathKey(const char* path);
+std::string path_key(const char* path);
 // Of THUGPRO's array `theirs`, the entries to append to our `ours`: structures with a desc_id ours hasn't, every path
 // they name found by `found` (which notes the THUGPRO ones). Their indices in `theirs`.
-std::vector<uint32_t> PickNew(Scripts::CArray* ours, Scripts::CArray* theirs, bool (*found)(const char* path));
+std::vector<uint32_t> pick_new(script::Array* ours, script::Array* theirs, bool (*found)(const char* path));
 
-} // namespace GameObjects::ThugproCas
+} // namespace GameObjects::thugpro_cas

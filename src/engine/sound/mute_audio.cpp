@@ -8,24 +8,24 @@
 
 #include "platform/run_log.h"
 
-namespace SoundFx {
+namespace sound {
 
-bool& AudioMuted()
+bool& audio_muted()
 {
-    static bool muted = ConfigInt("features", "mute_audio", 0) != 0;
+    static bool muted = config_int("features", "mute_audio", 0) != 0;
     return muted;
 }
 
-int OutputAttenuation(int attenuation) { return AudioMuted() ? -10000 : attenuation; }
+int output_attenuation(int attenuation) { return audio_muted() ? -10000 : attenuation; }
 
-int OutputBinkVolume(int volume) { return AudioMuted() ? 0 : volume; }
+int output_bink_volume(int volume) { return audio_muted() ? 0 : volume; }
 
 namespace {
 
 // Calls `use` with the default playback device's GUID_NULL session volume of this process (COM set up for the call
 // if the thread hadn't). False if any step fails.
 template <typename F>
-bool WithSessionVolume(F use)
+bool with_session_volume(F use)
 {
     HRESULT init = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     bool ok = false;
@@ -55,20 +55,20 @@ bool WithSessionVolume(F use)
 
 } // namespace
 
-bool SetAudioSessionMuted(bool muted)
+bool set_audio_session_muted(bool muted)
 {
-    bool ok = WithSessionVolume([muted](ISimpleAudioVolume* volume) {
+    bool ok = with_session_volume([muted](ISimpleAudioVolume* volume) {
         return SUCCEEDED(volume->SetMute(muted ? TRUE : FALSE, nullptr));
     });
-    Log("mute_audio: audio session %s%s (thug2-decomp.ini [features] mute_audio)", muted ? "muted" : "unmuted",
+    get_log("mute_audio: audio session %s%s (thug2-decomp.ini [features] mute_audio)", muted ? "muted" : "unmuted",
         ok ? "" : " - FAILED (no playback device?); the game's volume paths are silenced anyway");
     return ok;
 }
 
-bool AudioSessionMuted()
+bool audio_session_muted()
 {
     BOOL muted = FALSE;
-    bool ok = WithSessionVolume([&muted](ISimpleAudioVolume* volume) { return SUCCEEDED(volume->GetMute(&muted)); });
+    bool ok = with_session_volume([&muted](ISimpleAudioVolume* volume) { return SUCCEEDED(volume->GetMute(&muted)); });
     return ok && muted;
 }
 

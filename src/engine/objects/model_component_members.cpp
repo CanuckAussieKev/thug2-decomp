@@ -1,4 +1,4 @@
-// The model component's script members (GameObjects::CMeshInstanceModule::InvokeMethodByName, 0x00421AE0). From its disassembly
+// The model component's script members (GameObjects::MeshInstanceModule::invoke_method_by_name, 0x00421AE0). From its disassembly
 // (0x00421AE0-0x00422CF4: a binary search on the name; each member's code below in the order of their names).
 // Parameters the original reads without giving them a default are left as they were (unset) - noted where so.
 
@@ -19,9 +19,9 @@
 #include "engine/objects/control_pad.h"
 #include "engine/gfx/engine_geom.h"
 
-namespace GameObjects {
+namespace objects {
 
-using namespace ModelNx;
+using namespace model_nx;
 
 namespace {
 
@@ -39,7 +39,7 @@ constexpr uint32_t kObjSetLightDirection = 0x46A1F4A4;
 constexpr uint32_t kDisableDisplayFlip = 0x4AF3B1F7;
 constexpr uint32_t kObjInitModel = 0x4D8E11AB;
 constexpr uint32_t kObjGetScaling = 0x57B8D888;
-constexpr uint32_t kObjSetUVOffset = 0x57EB306E;
+constexpr uint32_t kObjSetUvOffset = 0x57EB306E;
 constexpr uint32_t kObjRestoreBoundingSphere = 0x5B41DA8F;
 constexpr uint32_t kClearGeom = 0x5BE3432A;
 constexpr uint32_t kObjClearColor = 0x6052480A;
@@ -48,11 +48,11 @@ constexpr uint32_t kObjSetLightDiffuseColor = 0x70E6466B;
 constexpr uint32_t kEnableDisplayFlip = 0x721184C7;
 constexpr uint32_t kObjSetColor = 0x76ECFA1C;
 constexpr uint32_t kObjTestModelCollision = 0x7ADD91D2;
-constexpr uint32_t kObjSetUVParams = 0x812FF44D;
+constexpr uint32_t kObjSetUvParams = 0x812FF44D;
 constexpr uint32_t kObjReplaceTexture = 0x83F9BE15;
 constexpr uint32_t kAddGeom = 0x890E57ED;
 constexpr uint32_t kObjDisableAmbientLight = 0x8A445E26;
-constexpr uint32_t kObjSetColorRGB = 0x8CA6BC2C;
+constexpr uint32_t kObjSetColorRgb = 0x8CA6BC2C;
 constexpr uint32_t kObjInitModelFromProfile = 0x98ED5C8B;
 constexpr uint32_t kObjReplaceSpriteTexture = 0x9A478AFE;
 constexpr uint32_t kObjEnableAmbientLight = 0xA14D6372;
@@ -111,17 +111,17 @@ constexpr uint8_t kMsgSpinModel = 0x76;
 constexpr uint8_t kMsgCancelRotateDisplay = 0x8C;
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
-int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
+int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // The model's lights (not rewritten yet): ambient colour (0x0048E450) and on (0x0048DE30), a diffuse light's colour
 // (0x0048E480), on (0x0048E4C0) and direction (0x004E3F90).
-void ChangeAmbientTint(void* lights, const uint8_t* rgba) { static_cast<Engine3D::CModelLights*>(lights)->ChangeAmbientTint(reinterpret_cast<const uint32_t*>(rgba)); }
-void EnableAmbient(void* lights, bool on) { reinterpret_cast<void(__thiscall*)(void*, bool)>(&Engine3D::VirtualSlot9Jump)(lights, on); }
-void ChangeDiffuseHue(void* lights, int index, const uint8_t* rgba) { static_cast<Engine3D::CModelLights*>(lights)->ChangeDiffuseHue(index, reinterpret_cast<const uint32_t*>(rgba)); }
-void EnableDiffuse(void* lights, int index, bool on) { reinterpret_cast<void(__thiscall*)(void*, int, bool)>(&Engine3D::VirtualSlot10Jump)(lights, index, on); }
-void SetLightDirection(void* lights, int index, const Maths::Vec4* direction)
+void change_ambient_tint(void* lights, const uint8_t* rgba) { static_cast<render::ModelLights*>(lights)->change_ambient_tint(reinterpret_cast<const uint32_t*>(rgba)); }
+void enable_ambient(void* lights, bool on) { reinterpret_cast<void(__thiscall*)(void*, bool)>(&render::virtual_slot9_jump)(lights, on); }
+void change_diffuse_hue(void* lights, int index, const uint8_t* rgba) { static_cast<render::ModelLights*>(lights)->change_diffuse_hue(index, reinterpret_cast<const uint32_t*>(rgba)); }
+void enable_diffuse(void* lights, int index, bool on) { reinterpret_cast<void(__thiscall*)(void*, int, bool)>(&render::virtual_slot10_jump)(lights, index, on); }
+void set_light_direction(void* lights, int index, const maths::Vec4* direction)
 {
-    ModelNx::SetLightsDirection(lights, nullptr, index, direction);
+    model_nx::set_lights_direction(lights, nullptr, index, direction);
 }
 
 // The model appearance a profile is read into (0x00488EA0 constructor, 0x00488F40 loaded from a structure, 0x004890F0
@@ -133,172 +133,172 @@ struct Appearance {
 } // namespace
 
 // 0x00421AE0
-int CMeshInstanceModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script)
+int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
 {
     bool result = true;
     switch (name) {
     case kSwitchOnAtomic: {
         uint32_t geom;
-        params->ReadHashValue(0u, &geom, 1);
-        ConcealMesh(geom, false, true);
+        params->read_hash_value(0u, &geom, 1);
+        conceal_mesh(geom, false, true);
         break;
     }
     case kSwitchOffAtomic: {
         uint32_t geom;
-        params->ReadHashValue(0u, &geom, 1);
-        ConcealMesh(geom, true, true);
+        params->read_hash_value(0u, &geom, 1);
+        conceal_mesh(geom, true, true);
         break;
     }
     case kAtomicIsHidden: {
         uint32_t geom;
-        params->ReadHashValue(0u, &geom, 1);
-        bool hidden = m_meshInstance->IsPartConcealed(geom);
-        script->m_args->PutInt(kHidden, hidden ? 1 : 0);
+        params->read_hash_value(0u, &geom, 1);
+        bool hidden = mesh_instance_->is_part_concealed(geom);
+        script->args_->put_int(kHidden, hidden ? 1 : 0);
         break;
     }
     case kObjUpdateBrightness:
-        UpdateLightsBrightness(ModelLights(m_meshInstance));
+        update_lights_brightness(model_lights(mesh_instance_));
         break;
     case kObjGetModelName:
-        script->m_args->PutNameKey(kFilename, ModelFileChecksum(m_meshInstance));
+        script->args_->put_name_key(kFilename, model_file_checksum(mesh_instance_));
         break;
     case kObjUpdateModel:
-        CObjectModule::TickFrame(); // (through the vtable)
+        ObjectModule::tick_frame(); // (through the vtable)
         break;
     case kObjSetVisibility:
     case kObjClearVisibility: {
         // The viewports the model is drawn in (a bit each).
         int viewport = 0;
-        params->FetchIntValue(kViewport, &viewport, false);
+        params->fetch_int_value(kViewport, &viewport, false);
         uint32_t bit = 1u << viewport;
-        uint32_t mask = m_meshInstance->FetchShown();
-        m_meshInstance->ToggleShown(name == kObjSetVisibility ? mask | bit : mask & ~bit);
+        uint32_t mask = mesh_instance_->fetch_shown();
+        mesh_instance_->toggle_shown(name == kObjSetVisibility ? mask | bit : mask & ~bit);
         break;
     }
     case kObjEnableScaling:
-        if (m_meshInstance)
-            AllowResizing(m_meshInstance, true);
+        if (mesh_instance_)
+            allow_resizing(mesh_instance_, true);
         break;
     case kObjDisableScaling:
-        if (m_meshInstance)
-            AllowResizing(m_meshInstance, false);
+        if (mesh_instance_)
+            allow_resizing(mesh_instance_, false);
         break;
     case kObjApplyScaling:
-        if (m_meshInstance) {
-            Maths::Vec4 scale = {1.0f, 1.0f, 1.0f, 1.0f};
-            if (FetchMagnification(&scale, params)) {
-                ChangeScale(m_meshInstance, &scale);
-                AllowResizing(m_meshInstance, true);
+        if (mesh_instance_) {
+            maths::Vec4 scale = {1.0f, 1.0f, 1.0f, 1.0f};
+            if (fetch_magnification(&scale, params)) {
+                change_scale(mesh_instance_, &scale);
+                allow_resizing(mesh_instance_, true);
             }
         }
         break;
     case kObjGetScaling:
-        if (m_meshInstance) {
-            Maths::Vec4 scale = reinterpret_cast<VectorAt1C*>(m_meshInstance)->Pull();
-            script->m_args->PutVec3(kScaling, Scripts::VectorValue{scale.x, scale.y, scale.z, scale.w});
+        if (mesh_instance_) {
+            maths::Vec4 scale = reinterpret_cast<VectorAt1c*>(mesh_instance_)->get_pull();
+            script->args_->put_vec3(kScaling, script::VectorValue{scale.x, scale.y, scale.z, scale.w});
         }
         break;
     case kObjSetLightAmbientColor: {
         int r, g, b; // (unset when not given)
-        params->FetchIntValue(kR, &r, 0);
-        params->FetchIntValue(kG, &g, 0);
-        params->FetchIntValue(kB, &b, 0);
+        params->fetch_int_value(kR, &r, 0);
+        params->fetch_int_value(kG, &g, 0);
+        params->fetch_int_value(kB, &b, 0);
         uint8_t rgba[4] = {static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), 0x80};
-        ChangeAmbientTint(ModelLights(m_meshInstance), rgba);
-        EnableAmbient(ModelLights(m_meshInstance), true);
+        change_ambient_tint(model_lights(mesh_instance_), rgba);
+        enable_ambient(model_lights(mesh_instance_), true);
         break;
     }
     case kObjEnableAmbientLight:
-        EnableAmbient(ModelLights(m_meshInstance), true);
+        enable_ambient(model_lights(mesh_instance_), true);
         break;
     case kObjDisableAmbientLight:
-        EnableAmbient(ModelLights(m_meshInstance), false);
+        enable_ambient(model_lights(mesh_instance_), false);
         break;
     case kObjSetLightDiffuseColor: {
         int index, r, g, b; // (unset when not given)
-        params->FetchIntValue(kIndex, &index, 0);
-        params->FetchIntValue(kR, &r, 0);
-        params->FetchIntValue(kG, &g, 0);
-        params->FetchIntValue(kB, &b, 0);
+        params->fetch_int_value(kIndex, &index, 0);
+        params->fetch_int_value(kR, &r, 0);
+        params->fetch_int_value(kG, &g, 0);
+        params->fetch_int_value(kB, &b, 0);
         uint8_t rgba[4] = {static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), 0x80};
-        ChangeDiffuseHue(ModelLights(m_meshInstance), index, rgba);
-        EnableDiffuse(ModelLights(m_meshInstance), index, true);
+        change_diffuse_hue(model_lights(mesh_instance_), index, rgba);
+        enable_diffuse(model_lights(mesh_instance_), index, true);
         break;
     }
     case kObjEnableDiffuseLight:
     case kObjDisableDiffuseLight: {
         int index; // (unset when not given)
-        params->FetchIntValue(kIndex, &index, 0);
-        EnableDiffuse(ModelLights(m_meshInstance), index, name == kObjEnableDiffuseLight);
+        params->fetch_int_value(kIndex, &index, 0);
+        enable_diffuse(model_lights(mesh_instance_), index, name == kObjEnableDiffuseLight);
         break;
     }
     case kObjSetLightDirection: {
         int index; // (unset when not given)
-        params->FetchIntValue(kIndex, &index, 0);
-        Maths::Vec4 direction = {0.0f, 0.0f, 1.0f, 0.0f};
-        if (params->FetchVec(kDirection, reinterpret_cast<Scripts::VectorValue*>(&direction), 0)) {
+        params->fetch_int_value(kIndex, &index, 0);
+        maths::Vec4 direction = {0.0f, 0.0f, 1.0f, 0.0f};
+        if (params->fetch_vec(kDirection, reinterpret_cast<script::VectorValue*>(&direction), 0)) {
             direction.w = 0.0f;
         } else {
             float heading, pitch;
-            if (params->FetchFloat(kHeading, &heading, 0) && params->FetchFloat(kPitch, &pitch, 0)) {
-                direction.RotateAboutX(pitch * kRadiansPerDegree);
-                direction.RotateAboutY(heading * kRadiansPerDegree);
+            if (params->fetch_float(kHeading, &heading, 0) && params->fetch_float(kPitch, &pitch, 0)) {
+                direction.rotate_about_x(pitch * kRadiansPerDegree);
+                direction.rotate_about_y(heading * kRadiansPerDegree);
             }
         }
-        SetLightDirection(ModelLights(m_meshInstance), index, &direction);
+        set_light_direction(model_lights(mesh_instance_), index, &direction);
         break;
     }
     case kCancelRotateDisplay: {
-        m_twistRate[0].Clear();
-        m_twistRate[1].Clear();
-        m_twistRate[2].Clear();
-        void* manager = NetSessionSlot();
-        void* player = FindPlayerSlotByObj(manager, m_entity->m_ident);
-        if (player && IsOwnPlayer(player)) {
-            NetLink::NetMessageInfo message;
-            message.MakeNew();
-            NetLink::Guest* app = ClientApp(manager, PlayerSkaterIndex(player));
-            uint8_t object = static_cast<uint8_t>(m_entity->m_ident);
-            message.m_content = &object;
-            message.m_byteCount = 1;
-            message.m_ident = kMsgCancelRotateDisplay;
-            app->SendToHost(&message);
+        twist_rate_[0].get_clear();
+        twist_rate_[1].get_clear();
+        twist_rate_[2].get_clear();
+        void* manager = net_session_slot();
+        void* player = find_player_slot_by_obj(manager, entity_->ident_);
+        if (player && is_own_player(player)) {
+            net::NetMessageInfo message;
+            message.make_new();
+            net::Guest* app = client_app(manager, player_skater_index(player));
+            uint8_t object = static_cast<uint8_t>(entity_->ident_);
+            message.content_ = &object;
+            message.byte_count_ = 1;
+            message.ident_ = kMsgCancelRotateDisplay;
+            app->send_to_host(&message);
         }
         break;
     }
     case kRotateDisplay: {
         float duration = 0.0f;
-        params->FetchFloat(kDuration, &duration, 0);
-        if (params->HasBareFlag(kSeconds) || params->HasBareFlag(kSecond))
+        params->fetch_float(kDuration, &duration, 0);
+        if (params->has_bare_flag(kSeconds) || params->has_bare_flag(kSecond))
             duration *= kSecondsToMs;
-        else if (params->HasBareFlag(kFrames) || params->HasBareFlag(kFrame))
+        else if (params->has_bare_flag(kFrames) || params->has_bare_flag(kFrame))
             duration *= kFramesToMs;
         float start = 0.0f;
-        params->FetchFloat(kStartAngle, &start, 0);
+        params->fetch_float(kStartAngle, &start, 0);
         float end = 0.0f;
-        params->FetchFloat(kEndAngle, &end, 0);
+        params->fetch_float(kEndAngle, &end, 0);
         int power = 0;
-        params->FetchIntValue(kSinePower, &power, 0);
-        m_pivot = {0.0f, 30.0f, 0.0f, 1.0f};
-        params->FetchVec(kRotationOffset, reinterpret_cast<Scripts::VectorValue*>(&m_pivot), 0);
-        bool hold = params->HasBareFlag(kHoldOnLastAngle);
-        bool dontPause = params->HasBareFlag(kDontPause);
-        uint32_t now = dontPause ? FrameClock::GetTime()
-                                 : static_cast<uint32_t>(FrameClock::GameClockElapsed() + g_clockOffset);
+        params->fetch_int_value(kSinePower, &power, 0);
+        pivot_ = {0.0f, 30.0f, 0.0f, 1.0f};
+        params->fetch_vec(kRotationOffset, reinterpret_cast<script::VectorValue*>(&pivot_), 0);
+        bool hold = params->has_bare_flag(kHoldOnLastAngle);
+        bool dont_pause = params->has_bare_flag(kDontPause);
+        uint32_t now = dont_pause ? frame_clock::get_time()
+                                 : static_cast<uint32_t>(frame_clock::game_clock_elapsed() + g_clock_offset);
         uint8_t axes = 0;
         static const uint32_t kAxes[3] = {kX, kY, kZ};
         for (int axis = 0; axis < 3; ++axis) {
-            if (!params->HasBareFlag(kAxes[axis]))
+            if (!params->has_bare_flag(kAxes[axis]))
                 continue;
-            m_twistRate[axis].AppendOne(duration, now, start, end - start, power, hold, dontPause);
+            twist_rate_[axis].append_one(duration, now, start, end - start, power, hold, dont_pause);
             axes |= static_cast<uint8_t>(1 << axis);
         }
-        void* manager = NetSessionSlot();
-        void* player = FindPlayerSlotByObj(manager, m_entity->m_ident);
-        if (player && IsOwnPlayer(player)) {
-            NetLink::NetMessageInfo message;
-            message.MakeNew();
-            NetLink::Guest* app = ClientApp(manager, PlayerSkaterIndex(player));
+        void* manager = net_session_slot();
+        void* player = find_player_slot_by_obj(manager, entity_->ident_);
+        if (player && is_own_player(player)) {
+            net::NetMessageInfo message;
+            message.make_new();
+            net::Guest* app = client_app(manager, player_skater_index(player));
             struct {
                 int period;
                 int power;
@@ -309,163 +309,163 @@ int CMeshInstanceModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* par
                 uint8_t axes;
                 uint8_t pad;
             } data;
-            data.period = Truncated(duration);
-            data.start = static_cast<int16_t>(Truncated(start));
-            data.range = static_cast<int16_t>(Truncated(static_cast<double>(end) - start));
+            data.period = get_truncated(duration);
+            data.start = static_cast<int16_t>(get_truncated(start));
+            data.range = static_cast<int16_t>(get_truncated(static_cast<double>(end) - start));
             data.power = power;
-            data.object = static_cast<uint8_t>(m_entity->m_ident);
+            data.object = static_cast<uint8_t>(entity_->ident_);
             data.hold = hold;
             data.axes = axes;
-            message.m_content = &data;
-            message.m_byteCount = 0x10;
-            message.m_ident = kMsgSpinModel;
-            app->SendToHost(&message);
+            message.content_ = &data;
+            message.byte_count_ = 0x10;
+            message.ident_ = kMsgSpinModel;
+            app->send_to_host(&message);
         }
         break;
     }
     case kEnableDisplayFlip:
-        m_flip = true;
+        flip_ = true;
         break;
     case kDisableDisplayFlip:
-        m_flip = false;
+        flip_ = false;
         break;
     case kObjSetBoundingSphere: {
         float radius;
-        params->FetchFloat(0u, &radius, 1);
-        if (m_meshInstance) {
-            Maths::Vec4 sphere = {0.0f, 0.0f, 0.0f, radius};
-            m_meshInstance->ChangeBoundSphere(&sphere);
+        params->fetch_float(0u, &radius, 1);
+        if (mesh_instance_) {
+            maths::Vec4 sphere = {0.0f, 0.0f, 0.0f, radius};
+            mesh_instance_->change_bound_sphere(&sphere);
         }
         break;
     }
     case kObjRestoreBoundingSphere:
-        if (m_meshInstance)
-            m_meshInstance->ChangeBoundSphere(&m_enclosingBall);
+        if (mesh_instance_)
+            mesh_instance_->change_bound_sphere(&enclosing_ball_);
         break;
     case kClearGeom: {
         uint32_t geom; // (unset when not given)
-        if (!params->ReadHashValue(kName, &geom, 0))
-            params->ReadHashValue(0u, &geom, 1);
-        m_meshInstance->DetachGeom(geom);
+        if (!params->read_hash_value(kName, &geom, 0))
+            params->read_hash_value(0u, &geom, 1);
+        mesh_instance_->detach_geom(geom);
         break;
     }
     case kObjClearGeoms:
-        if (m_meshInstance)
-            m_meshInstance->DropGeoms();
+        if (mesh_instance_)
+            mesh_instance_->drop_geoms();
         break;
     case kAddGeom: {
         uint32_t geom; // (unset when not given)
-        if (!params->ReadHashValue(kName, &geom, 0))
-            params->ReadHashValue(0u, &geom, 1);
+        if (!params->read_hash_value(kName, &geom, 0))
+            params->read_hash_value(0u, &geom, 1);
         const char* file;
-        params->FetchText(kModel, &file, true);
-        LoadAsset(m_meshInstance, Checksums::HashFromText(file), geom, false);
+        params->fetch_text(kModel, &file, true);
+        load_asset(mesh_instance_, checksums::hash_from_text(file), geom, false);
         break;
     }
-    case kObjSetUVOffset: {
+    case kObjSetUvOffset: {
         uint32_t material; // (unset when not given)
-        params->ReadHashValue(kMaterial, &material, 0);
+        params->read_hash_value(kMaterial, &material, 0);
         float u, v; // (unset when not given)
-        params->FetchFloat(kU, &u, 0);
-        params->FetchFloat(kV, &v, 0);
+        params->fetch_float(kU, &u, 0);
+        params->fetch_float(kV, &v, 0);
         int pass = 0;
-        params->FetchIntValue(kPass, &pass, 0);
-        m_meshInstance->ChooseUvShift(material, pass, u, v);
+        params->fetch_int_value(kPass, &pass, 0);
+        mesh_instance_->choose_uv_shift(material, pass, u, v);
         break;
     }
-    case kObjSetUVParams: {
+    case kObjSetUvParams: {
         uint32_t material; // (unset when not given)
-        params->ReadHashValue(kMaterial, &material, 0);
+        params->read_hash_value(kMaterial, &material, 0);
         int pass; // (unset when not given)
-        params->FetchIntValue(kPass, &pass, 0);
-        Maths::Mat4 uv;
-        uv.ResetToIdentity();
-        float uScale = 1.0f, vScale = 1.0f;
-        bool scaled = params->FetchFloat(kUScale, &uScale, 0);
-        if (params->FetchFloat(kVScale, &vScale, 0) || scaled) {
-            uv.row[0].x *= uScale;
-            uv.row[1].y *= vScale;
+        params->fetch_int_value(kPass, &pass, 0);
+        maths::Mat4 uv;
+        uv.reset_to_identity();
+        float u_scale = 1.0f, v_scale = 1.0f;
+        bool scaled = params->fetch_float(kUScale, &u_scale, 0);
+        if (params->fetch_float(kVScale, &v_scale, 0) || scaled) {
+            uv.row[0].x *= u_scale;
+            uv.row[1].y *= v_scale;
         }
         float rot;
-        if (params->FetchFloat(kRot, &rot, 0))
-            uv.SpinAroundZ(rot * kRadiansPerDegree);
-        float uOff = 0.0f, vOff = 0.0f;
-        bool offset = params->FetchFloat(kUOff, &uOff, 0);
-        if (params->FetchFloat(kVOff, &vOff, 0) || offset) {
-            uv.row[3].x = uOff;
-            uv.row[3].y = vOff;
+        if (params->fetch_float(kRot, &rot, 0))
+            uv.spin_around_z(rot * kRadiansPerDegree);
+        float u_off = 0.0f, v_off = 0.0f;
+        bool offset = params->fetch_float(kUOff, &u_off, 0);
+        if (params->fetch_float(kVOff, &v_off, 0) || offset) {
+            uv.row[3].x = u_off;
+            uv.row[3].y = v_off;
         }
-        m_meshInstance->ChooseUvMatrix(material, pass, &uv);
+        mesh_instance_->choose_uv_matrix(material, pass, &uv);
         break;
     }
     case kObjClearColor:
-        if (m_meshInstance)
-            m_meshInstance->ClearGeomColor(kAll);
+        if (mesh_instance_)
+            mesh_instance_->clear_geom_color(kAll);
         break;
     case kObjSetColor:
-        if (m_meshInstance) {
+        if (mesh_instance_) {
             int h, s, v;
-            if (params->FetchIntValue(kH, &h, false) && params->FetchIntValue(kS, &s, false) &&
-                params->FetchIntValue(kV, &v, false)) {
-                m_meshInstance->SetGeomColorHsv(kAll, static_cast<float>(h), static_cast<float>(static_cast<double>(s) * kPercent), static_cast<float>(static_cast<double>(v) * kPercent));
+            if (params->fetch_int_value(kH, &h, false) && params->fetch_int_value(kS, &s, false) &&
+                params->fetch_int_value(kV, &v, false)) {
+                mesh_instance_->set_geom_color_hsv(kAll, static_cast<float>(h), static_cast<float>(static_cast<double>(s) * kPercent), static_cast<float>(static_cast<double>(v) * kPercent));
             }
         }
         break;
-    case kObjSetColorRGB:
-        if (m_meshInstance) {
+    case kObjSetColorRgb:
+        if (mesh_instance_) {
             int r, g, b;
-            if (params->FetchIntValue(kR, &r, false) && params->FetchIntValue(kG, &g, false) &&
-                params->FetchIntValue(kB, &b, false))
-                m_meshInstance->ChangeTint(static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), static_cast<uint8_t>(0xFF));
+            if (params->fetch_int_value(kR, &r, false) && params->fetch_int_value(kG, &g, false) &&
+                params->fetch_int_value(kB, &b, false))
+                mesh_instance_->change_tint(static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), static_cast<uint8_t>(0xFF));
         }
         break;
     case kObjHasModelLights:
-        return ModelLights(m_meshInstance) ? 1 : 0;
+        return model_lights(mesh_instance_) ? 1 : 0;
     case kObjInitModel:
-        SetUpMesh(params);
+        set_up_mesh(params);
         break;
     case kObjInitModelFromProfile:
-        if (m_meshInstance) {
-            int texDictOffset = 0;
-            params->FetchIntValue(kTexDictOffset, &texDictOffset, 0);
-            int viaResourceStore = 0;
-            params->FetchIntValue(kUseAssetManager, &viaResourceStore, 0);
-            Scripts::CStruct* profile;
-            params->ReadSubStruct(kStruct, &profile, 1);
-            uint32_t buildScript = 0;
-            params->ReadHashValue(kBuildScript, &buildScript, 0);
+        if (mesh_instance_) {
+            int tex_dict_offset = 0;
+            params->fetch_int_value(kTexDictOffset, &tex_dict_offset, 0);
+            int via_resource_store = 0;
+            params->fetch_int_value(kUseAssetManager, &via_resource_store, 0);
+            script::Struct* profile;
+            params->read_sub_struct(kStruct, &profile, 1);
+            uint32_t build_script = 0;
+            params->read_hash_value(kBuildScript, &build_script, 0);
             Appearance appearance;
-            reinterpret_cast<Gfx2D::CModelLook*>(&appearance)->MakeNew();
-            reinterpret_cast<Gfx2D::CModelLook*>(&appearance)->ReadIn(profile, 1 != 0);
-            reinterpret_cast<void(__thiscall*)(CMeshInstanceModule*, void*, bool, int, uint32_t)>(m_vtable[13])(
-                this, &appearance, viaResourceStore != 0, texDictOffset, buildScript);
-            reinterpret_cast<Gfx2D::CModelLook*>(&appearance)->DestroyBody();
+            reinterpret_cast<gfx::ModelLook*>(&appearance)->make_new();
+            reinterpret_cast<gfx::ModelLook*>(&appearance)->read_in(profile, 1 != 0);
+            reinterpret_cast<void(__thiscall*)(MeshInstanceModule*, void*, bool, int, uint32_t)>(vtable_[13])(
+                this, &appearance, via_resource_store != 0, tex_dict_offset, build_script);
+            reinterpret_cast<gfx::ModelLook*>(&appearance)->destroy_body();
         }
         break;
     case kObjReplaceTexture: {
         result = false;
-        Scripts::CArray* array;
-        if (params->FetchList(kArray, &array, 0)) {
+        script::Array* array;
+        if (params->fetch_list(kArray, &array, 0)) {
             // Each of the array's structures.
-            for (uint32_t i = 0; i < array->m_extent; ++i) {
-                auto* entry = reinterpret_cast<Scripts::CStruct*>(array->FetchPart(i));
+            for (uint32_t i = 0; i < array->extent_; ++i) {
+                auto* entry = reinterpret_cast<script::Struct*>(array->fetch_part(i));
                 const char* src;
                 const char* dest;
-                entry->FetchText(kSrc, &src, true);
-                entry->FetchText(kDest, &dest, true);
+                entry->fetch_text(kSrc, &src, true);
+                entry->fetch_text(kDest, &dest, true);
                 uint32_t in = kAll;
-                entry->ReadHashValue(kIn, &in, 0);
-                if (m_meshInstance && m_meshInstance->SwapTexture(in, src, dest))
+                entry->read_hash_value(kIn, &in, 0);
+                if (mesh_instance_ && mesh_instance_->swap_texture(in, src, dest))
                     result = true;
             }
         } else {
             const char* src;
             const char* dest;
-            params->FetchText(kSrc, &src, true);
-            params->FetchText(kDest, &dest, true);
+            params->fetch_text(kSrc, &src, true);
+            params->fetch_text(kDest, &dest, true);
             uint32_t in = kAll;
-            params->ReadHashValue(kIn, &in, 0);
-            if (m_meshInstance && m_meshInstance->SwapTexture(in, src, dest))
+            params->read_hash_value(kIn, &in, 0);
+            if (mesh_instance_ && mesh_instance_->swap_texture(in, src, dest))
                 result = true;
         }
         break;
@@ -473,38 +473,38 @@ int CMeshInstanceModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* par
     case kObjReplaceSpriteTexture: {
         // (dest: a checksum here, passed on as the name)
         const char* src;
-        params->FetchText(kSrc, &src, true);
+        params->fetch_text(kSrc, &src, true);
         uint32_t dest = 0;
-        params->ReadHashValue(kDest, &dest, 1);
+        params->read_hash_value(kDest, &dest, 1);
         uint32_t in = kAll;
-        params->ReadHashValue(kIn, &in, 0);
-        result = m_meshInstance && m_meshInstance->ReplaceTextureWith(in, src, dest);
+        params->read_hash_value(kIn, &in, 0);
+        result = mesh_instance_ && mesh_instance_->replace_texture_with(in, src, dest);
         break;
     }
     case kObjTestModelCollision:
     case kObjGetBoneVolume: {
         if (name == kObjTestModelCollision) {
             uint32_t arg = 0;
-            params->ReadHashValue(kCollisionArg, &arg, false);
-            Scripts::CStruct* lineParams = nullptr;
-            if (params->ReadSubStruct(kLine, &lineParams, false)) {
-                Maths::Vec4 line[2];
-                lineParams->FetchVec(kStart, reinterpret_cast<Scripts::VectorValue*>(&line[0]), 1);
-                lineParams->FetchVec(kEnd, reinterpret_cast<Scripts::VectorValue*>(&line[1]), 1);
-                int hit = TestCollision(line, arg, 0, 0, 0);
+            params->read_hash_value(kCollisionArg, &arg, false);
+            script::Struct* line_params = nullptr;
+            if (params->read_sub_struct(kLine, &line_params, false)) {
+                maths::Vec4 line[2];
+                line_params->fetch_vec(kStart, reinterpret_cast<script::VectorValue*>(&line[0]), 1);
+                line_params->fetch_vec(kEnd, reinterpret_cast<script::VectorValue*>(&line[1]), 1);
+                int hit = test_collision(line, arg, 0, 0, 0);
                 if (hit)
-                    script->m_args->PutNameKey(kCollisionResult, static_cast<uint32_t>(hit));
+                    script->args_->put_name_key(kCollisionResult, static_cast<uint32_t>(hit));
             }
         }
         // (the line test goes on into the bone's volume)
         uint32_t bone;
-        params->ReadHashValue(kBone, &bone, 1);
-        void* skeleton = SkeletonOf(m_boneRig);
-        Maths::Mat4 matrix;
-        GetDrawMatrix(&matrix);
+        params->read_hash_value(kBone, &bone, 1);
+        void* skeleton = skeleton_of(bone_rig_);
+        maths::Mat4 matrix;
+        get_draw_matrix(&matrix);
         float volume = static_cast<float>(
-            m_meshInstance->GetBoneVolume(reinterpret_cast<uint32_t>(skeleton), reinterpret_cast<uint32_t>(&matrix), bone));
-        script->m_args->PushFloat(kBoneVolume, volume);
+            mesh_instance_->get_bone_volume(reinterpret_cast<uint32_t>(skeleton), reinterpret_cast<uint32_t>(&matrix), bone));
+        script->args_->push_float(kBoneVolume, volume);
         break;
     }
     default:
@@ -514,9 +514,9 @@ int CMeshInstanceModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* par
 }
 
 // (no address: the tail jump folded at 0x004E3F90 - model_component_nx.h)
-void __fastcall ModelNx::SetLightsDirection(void* lights, void*, int index, const Maths::Vec4* direction)
+void __fastcall model_nx::set_lights_direction(void* lights, void*, int index, const maths::Vec4* direction)
 {
-    reinterpret_cast<void(__thiscall*)(void*, int, const Maths::Vec4*)>((*static_cast<void***>(lights))[2])(lights, index,
+    reinterpret_cast<void(__thiscall*)(void*, int, const maths::Vec4*)>((*static_cast<void***>(lights))[2])(lights, index,
                                                                                                       direction);
 }
 

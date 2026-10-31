@@ -11,7 +11,7 @@
 #include "editor/level_editor_layout.h"
 #include "engine/script/params.h"
 
-namespace Engine3D {
+namespace render {
 
 namespace {
 
@@ -24,61 +24,61 @@ constexpr uint32_t kEnableSuperSectors = 0x9E6EA452; // add_super_sectors
 constexpr uint32_t kTexDict = 0xDC8116B2;         // tex_dict
 
 // 0x0049F0C0 (cdecl): a texture dictionary from its file; the 1 marks a level's.
-void* ReadTextureDictionary(const char* path, int level, int unknown2, int unknown3, int unknown4)
+void* read_texture_dictionary(const char* path, int level, int unknown2, int unknown3, int unknown4)
 {
-    return LoadTexDict(path, level, static_cast<uint32_t>(unknown2), static_cast<uint32_t>(unknown3),
+    return load_tex_dict(path, level, static_cast<uint32_t>(unknown2), static_cast<uint32_t>(unknown3),
                        static_cast<uint32_t>(unknown4));
 }
 
 // 0x0048CCB0 (cdecl): the engine's scene load (the geometry file, then the scene registered under its name and
 // put in the scene list); returns the scene.
-void* LoadSceneFile(const char* name, void* texDict, bool withSuperSectors, bool isSky, bool isDictionary, bool isNet)
+void* load_scene_file(const char* name, void* tex_dict, bool with_super_sectors, bool is_sky, bool is_dictionary, bool is_net)
 {
-    return LoadScene(name, static_cast<CTextureSet*>(texDict), withSuperSectors, isSky, isDictionary, isNet);
+    return load_scene(name, static_cast<TextureSet*>(tex_dict), with_super_sectors, is_sky, is_dictionary, is_net);
 }
 
 } // namespace
 
 // 0x00445130
-bool __cdecl CFunc_LoadScene(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+bool __cdecl cfunc_load_scene(script::Struct* params, script::Script* /*script*/)
 {
-    bool isDictionary = params->HasBareFlag(kIsDictionary);
-    bool isSky = params->HasBareFlag(kIsSky);
-    bool isNet = params->HasBareFlag(kIsNet);
-    bool withSuperSectors = !params->HasBareFlag(kNoSuperSectors);
+    bool is_dictionary = params->has_bare_flag(kIsDictionary);
+    bool is_sky = params->has_bare_flag(kIsSky);
+    bool is_net = params->has_bare_flag(kIsNet);
+    bool with_super_sectors = !params->has_bare_flag(kNoSuperSectors);
     const char* name = nullptr;
-    params->FetchText(kScene, &name, 1);
-    DebugOut::Printf("Loading Scene %s ...", name);
+    params->fetch_text(kScene, &name, 1);
+    debug::printf("Loading Scene %s ...", name);
 
     // (the original sprintf's into the 128 bytes unchecked; the empty string is a platform suffix)
-    char texturePath[128];
-    std::snprintf(texturePath, sizeof(texturePath), "levels\\%s\\%s%s.tex", name, name, "");
-    void* texDict = ReadTextureDictionary(texturePath, 1, 0, 0, 0);
+    char texture_path[128];
+    std::snprintf(texture_path, sizeof(texture_path), "levels\\%s\\%s%s.tex", name, name, "");
+    void* tex_dict = read_texture_dictionary(texture_path, 1, 0, 0, 0);
 
     // A structure describing the load is built here and never used (left from an older interface).
     alignas(4) uint8_t memory[8];
-    Scripts::CStruct* description = reinterpret_cast<Scripts::CStruct*>(memory)->PrepareAll();
-    description->PutNameKey(kTexDict, Checksums::HashFromText(texturePath));
-    if (TextUtil::FindCaseless(name, "_sky") || isSky) {
-        isSky = true;
-        withSuperSectors = false;
-        description->PutNameKey(0u, kIsSky);
+    script::Struct* description = reinterpret_cast<script::Struct*>(memory)->prepare_all();
+    description->put_name_key(kTexDict, checksums::hash_from_text(texture_path));
+    if (text::find_caseless(name, "_sky") || is_sky) {
+        is_sky = true;
+        with_super_sectors = false;
+        description->put_name_key(0u, kIsSky);
     }
-    if (isDictionary) {
-        withSuperSectors = false;
-        description->PutNameKey(0u, kIsDictionary);
-    } else if (withSuperSectors) {
-        description->PutNameKey(0u, kEnableSuperSectors);
+    if (is_dictionary) {
+        with_super_sectors = false;
+        description->put_name_key(0u, kIsDictionary);
+    } else if (with_super_sectors) {
+        description->put_name_key(0u, kEnableSuperSectors);
     }
-    if (isNet)
-        description->PutNameKey(0u, kIsNet);
+    if (is_net)
+        description->put_name_key(0u, kIsNet);
 
-    LoadSceneFile(name, texDict, withSuperSectors, isSky, isDictionary, isNet);
-    DebugOut::Printf("... done\n");
-    description->Clear();
+    load_scene_file(name, tex_dict, with_super_sectors, is_sky, is_dictionary, is_net);
+    debug::printf("... done\n");
+    description->get_clear();
 
     // Not original - the level editor's saved layouts (level_editor_layout.h): put back once the level is up.
-    MenuSystem::LevelEditor::Layout::OnSceneLoaded(name, isNet);
+    frontend::level_editor::layout::on_scene_loaded(name, is_net);
     return true;
 }
 

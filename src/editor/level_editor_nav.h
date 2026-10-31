@@ -12,7 +12,7 @@
 // walk mode, click-to-teleport, the follow camera, wheel drill-through, the pie menus' geometry, a controller stick's
 // response and the quick selection sets. The game side (what calls them with the editor's camera, keys and the game's
 // collision ray) is level_editor_ux8.cpp.
-namespace MenuSystem::LevelEditor::Nav {
+namespace frontend::level_editor::nav {
 
 // --- walk mode: the camera at a skater's eye height, with gravity and collision (Blender's walk navigation) ---------
 
@@ -39,25 +39,25 @@ struct WalkInput {
     bool jump = false;                  // pressed (a jump starts only on the ground)
     bool run = false;
 };
-// One step: moved along the yaw's heading (FrameFromYawPitch's: forward = (sin yaw, 0, cos yaw)) - stopped at walls
+// One step: moved along the yaw's heading (frame_from_yaw_pitch's: forward = (sin yaw, 0, cos yaw)) - stopped at walls
 // (sliding along them, one axis at a time), stepping up what's no higher than kStepHeight - then falling or standing on
 // the ground below (snapped down a step while grounded); with no ground below at all it stays at its height (a level's
 // edge: it doesn't fall out of the world). A jump starts on the ground; a ceiling stops it.
-void Step(Walker* walker, float yaw, const WalkInput& input, float seconds, const Cast& cast);
+void get_step(Walker* walker, float yaw, const WalkInput& input, float seconds, const Cast& cast);
 // The camera for a walker, and a walker for a camera (dropping from where it is).
-inline V3 EyeOf(const Walker& w) { return {w.feet.x, w.feet.y + kEyeHeight, w.feet.z}; }
-Walker WalkerAt(V3 camera);
+inline V3 eye_of(const Walker& w) { return {w.feet.x, w.feet.y + kEyeHeight, w.feet.z}; }
+Walker walker_at(V3 camera);
 
 // --- click-to-teleport ----------------------------------------------------------------------------------------------
 
-// Two clicks are a double click: within `maxMs` and `maxPixels` of each other.
-bool IsDoubleClick(uint32_t firstMs, float firstX, float firstY, uint32_t secondMs, float secondX, float secondY,
-                   uint32_t maxMs = 400, float maxPixels = 6.0f);
+// Two clicks are a double click: within `max_ms` and `max_pixels` of each other.
+bool is_double_click(uint32_t first_ms, float first_x, float first_y, uint32_t second_ms, float second_x, float second_y,
+                   uint32_t max_ms = 400, float max_pixels = 6.0f);
 // Where a double click on a surface takes the camera: back along the ray from the point hit by kStandOff (or 80% of
 // the way there when nearer), and at least kLift above the point - looking the same way.
 constexpr float kStandOff = 260.0f;
 constexpr float kLift = 60.0f;
-V3 TeleportTarget(V3 camera, V3 hit);
+V3 teleport_target(V3 camera, V3 hit);
 
 // --- the follow camera (Unity's Shift+F) ---------------------------------------------------------------------------
 
@@ -67,23 +67,23 @@ struct Follower {
     bool have = false;
     V3 last = {};
 };
-V3 FollowStep(Follower* follower, bool active, V3 target);
+V3 follow_step(Follower* follower, bool active, V3 target);
 
 // --- wheel drill-through ------------------------------------------------------------------------------------------
 
 // What's under the cursor (`count` things, front to back): from `current` (the one the hover shows; -1 none), `steps`
 // notches deeper (positive) or nearer, round the ends. -1 when there's nothing.
-int DrillIndex(int current, int steps, int count);
+int drill_index(int current, int steps, int count);
 // The click-to-cycle index that makes the hover show `shown` (the hover is the cycle's next: index + 1).
-inline int CycleIndexShowing(int shown, int count) { return count > 0 ? (shown - 1 + count) % count : -1; }
+inline int cycle_index_showing(int shown, int count) { return count > 0 ? (shown - 1 + count) % count : -1; }
 
 // --- pie menus ----------------------------------------------------------------------------------------------------
 
 // The slice under an offset from the pie's centre (screen pixels, y down): slice 0 straight up, then clockwise, each
 // 360 / count degrees round its direction; -1 within `deadzone` (or no slices).
-int SliceAt(float dx, float dy, int count, float deadzone);
+int slice_at(float dx, float dy, int count, float deadzone);
 // A slice's direction (unit, screen: y down).
-void SliceDirection(int index, int count, float* dx, float* dy);
+void slice_direction(int index, int count, float* dx, float* dy);
 // A press held this long (ms) opens the pie to run what's pointed at on letting go; a shorter tap keeps it open until a
 // click (Blender's pies).
 constexpr uint32_t kPieTapMs = 250;
@@ -92,17 +92,17 @@ constexpr uint32_t kPieTapMs = 250;
 
 // An axis (SDL: -32768..32767) to -1..1: 0 within `deadzone` (a fraction of the range), then rescaled from there and
 // squared (fine control near the middle), the sign kept.
-float Stick(int raw, float deadzone);
+float get_stick(int raw, float deadzone);
 
 // --- quick selection sets (UX3's groups by the names "Set 1".."Set 9") ---------------------------------------------
 
 constexpr int kQuickSets = 9;
-std::string QuickSetName(int number); // "Set 3"
+std::string quick_set_name(int number); // "Set 3"
 // The group of that name's index (-1 none).
-int FindGroup(const Organize::State& state, const std::string& name);
+int find_group(const organize::State& state, const std::string& name);
 // The group `name` made of `members` (replaced when there is one, else added at the end). False: no members.
-bool StoreGroup(Organize::State* state, const std::string& name, const std::vector<Organize::Member>& members);
+bool store_group(organize::State* state, const std::string& name, const std::vector<organize::Member>& members);
 // `members` taken out of group `index` (false: none of them were in it).
-bool RemoveFromGroup(Organize::State* state, int index, const std::vector<Organize::Member>& members);
+bool remove_from_group(organize::State* state, int index, const std::vector<organize::Member>& members);
 
-} // namespace MenuSystem::LevelEditor::Nav
+} // namespace MenuSystem::level_editor::nav

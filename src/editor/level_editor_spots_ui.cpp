@@ -1,5 +1,5 @@
 // NOT ORIGINAL - the level editor's Inspector row for HORSE spots (ours; the feature map - level_editor_ui.h): a restart
-// whose restart_types has Horse is one of the spots a HORSE game sends the skaters to (GameObjects::GetRestartNodes 0x0046B6C0
+// whose restart_types has Horse is one of the spots a HORSE game sends the skaters to (GameObjects::get_restart_nodes 0x0046B6C0
 // reads the node's restart_types each time it's asked - live). The checkbox adds / takes out Horse through the
 // Inspector's own field edit (a kFieldSet of restart_types: one undo step, the `set` record's f.restart_types=, put back
 // by Home / Reset level). The H badge on the gizmo is drawn with the spawns (level_editor.cpp). Only ImGui's API here.
@@ -13,41 +13,41 @@
 #include "engine/script/param_struct.h"
 #include "imgui.h"
 
-namespace MenuSystem::LevelEditor::Ui {
+namespace frontend::level_editor::ui {
 
-void SpawnSection(int nodeIndex, std::vector<Request>* requests)
+void spawn_section(int node_index, std::vector<Request>* requests)
 {
-    const std::vector<Nodes::Elem>& all = Nodes::All();
-    if (nodeIndex < 0 || nodeIndex >= static_cast<int>(all.size()))
+    const std::vector<nodes::Elem>& all = nodes::get_all();
+    if (node_index < 0 || node_index >= static_cast<int>(all.size()))
         return;
-    const Nodes::Elem& node = all[nodeIndex];
-    if (node.family != Nodes::Family::Spawn || node.hidden)
+    const nodes::Elem& node = all[node_index];
+    if (node.family != nodes::Family::kSpawn || node.hidden)
         return;
-    static const uint32_t kHorse = Fields::HashOfName("Horse");
+    static const uint32_t kHorse = fields::hash_of_name("Horse");
     // (the restart_types as the node has them now, in order)
     std::vector<uint32_t> types;
-    if (Scripts::CStruct* s = Nodes::StructOf(node)) {
-        Scripts::CArray* list = nullptr;
-        if (s->FetchList(Fields::KeyRestartTypes(), &list, 0) && list) {
-            for (uint32_t i = 0; i < list->m_extent; ++i)
-                types.push_back(list->FetchPart(i));
+    if (script::Struct* s = nodes::struct_of(node)) {
+        script::Array* list = nullptr;
+        if (s->fetch_list(fields::key_restart_types(), &list, 0) && list) {
+            for (uint32_t i = 0; i < list->extent_; ++i)
+                types.push_back(list->fetch_part(i));
         }
     }
-    bool horse = (node.restartTypes & Nodes::kHorse) != 0;
+    bool horse = (node.restart_types_ & nodes::kHorse) != 0;
     ImGui::BeginDisabled(node.added);
     if (ImGui::Checkbox("HORSE Spot", &horse)) {
         std::string text;
         for (uint32_t type : types) {
             if (type == kHorse)
                 continue;
-            text += (text.empty() ? "" : ", ") + Fields::NameText(type, Fields::NameOf);
+            text += (text.empty() ? "" : ", ") + fields::get_name_text(type, fields::get_name_of);
         }
         if (horse)
             text += std::string(text.empty() ? "" : ", ") + "Horse";
         Request request = {Request::kFieldSet};
         request.node = node.name;
-        request.id = Fields::KeyRestartTypes();
-        request.value = static_cast<int>(Fields::Kind::Names);
+        request.id = fields::key_restart_types();
+        request.value = static_cast<int>(fields::Kind::kNames);
         request.text = text;
         requests->push_back(request);
     }
@@ -56,4 +56,4 @@ void SpawnSection(int nodeIndex, std::vector<Request>* requests)
         ImGui::SetTooltip("%s", node.added ? "Set by the spawn type" : "Use as a HORSE spot");
 }
 
-} // namespace MenuSystem::LevelEditor::Ui
+} // namespace MenuSystem::level_editor::Ui

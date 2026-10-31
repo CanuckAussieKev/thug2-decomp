@@ -1,4 +1,4 @@
-// CScript's life: construction and destruction, the pooled new / delete, stopping (ResetScriptState), setting the
+// CScript's life: construction and destruction, the pooled new / delete, stopping (reset_script_state), setting the
 // script to run, and the small accessors. See cscript.h for the class and docs/script-runtime.md.
 
 #include "engine/script/cscript.h"
@@ -19,316 +19,316 @@
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
 
-namespace Scripts {
+namespace script {
 
-CScript* g_runningScript;
-CScript* g_scriptListHead;
-bool g_onePerFrameReleased;
-int g_scriptCount;
-uint32_t g_nextScriptUniqueId;
-bool g_updatingSpawnedScripts;
-bool g_deleteSpawnedScriptsPending;
-MemSys::PoolPair g_scriptPools;
+Script* g_running_script;
+Script* g_script_list_head;
+bool g_one_per_frame_released;
+int g_script_count;
+uint32_t g_next_script_unique_id;
+bool g_updating_spawned_scripts;
+bool g_delete_spawned_scripts_pending;
+memory::PoolPair g_script_pools;
 
 namespace {
 
 // The CScript pool pair (300 items, made by the script system's start-up).
-MemSys::PoolPair& ScriptPools() { return g_scriptPools; }
+memory::PoolPair& script_pools() { return g_script_pools; }
 
 // A new empty structure from the structure pool (null if there's no room).
-CStruct* NewEmptyStruct()
+Struct* new_empty_struct()
 {
-    CStruct* structure = SpawnParamBag();
-    return structure ? structure->PrepareAll() : nullptr;
+    Struct* structure = spawn_param_bag();
+    return structure ? structure->prepare_all() : nullptr;
 }
 // `delete structure` (its destructor is Clear).
-void FreeStruct(CStruct* structure)
+void free_struct(Struct* structure)
 {
-    structure->Clear();
-    DeleteStruct(structure);
+    structure->get_clear();
+    delete_struct(structure);
 }
 
 } // namespace
 
 // 0x004738E0
-CScript* CScript::MakeNew()
+Script* Script::make_new()
 {
-    m_entity.m_preceding = nullptr;
-    m_entity.m_following = nullptr;
-    m_entity.m_ownerObject = nullptr;
-    m_sharedBase.MakeNew();
-    // Then all of it is zeroed - m_sharedBase's vtable too (an original quirk, kept).
-    std::memset(this, 0, sizeof(CScript));
-    m_following = ScriptListHead();
-    if (ScriptListHead())
-        ScriptListHead()->m_priorEntry = this;
-    m_uniqueId = NextScriptUniqueId();
-    ++ScriptCount();
-    ++NextScriptUniqueId();
-    m_listLink = 0;
-    m_signalRoutes = nullptr;
-    m_frameRecords = m_inlineReturnAddresses;
-    m_onExceptionScript = 0;
-    m_onExitScript = 0;
-    m_loops = &m_inlineLoop;
-    ScriptListHead() = this;
+    entity_.preceding_ = nullptr;
+    entity_.following_ = nullptr;
+    entity_.owner_object_ = nullptr;
+    shared_base_.make_new();
+    // Then all of it is zeroed - shared_base_'s vtable too (an original quirk, kept).
+    std::memset(this, 0, sizeof(Script));
+    following_ = script_list_head();
+    if (script_list_head())
+        script_list_head()->prior_entry_ = this;
+    unique_id_ = next_script_unique_id();
+    ++script_count();
+    ++next_script_unique_id();
+    list_link_ = 0;
+    signal_routes_ = nullptr;
+    frame_records_ = inline_return_addresses_;
+    on_exception_script_ = 0;
+    on_exit_script_ = 0;
+    loops_ = &inline_loop_;
+    script_list_head() = this;
     return this;
 }
 
 // 0x00474420
-void CScript::Teardown()
+void Script::teardown()
 {
-    ResetScriptState();
-    ReportStopped(); // (inlined in the original)
-    if (m_callbackParams)
-        FreeStruct(m_callbackParams);
+    reset_script_state();
+    report_stopped(); // (inlined in the original)
+    if (callback_params_)
+        free_struct(callback_params_);
 
-    if (!m_priorEntry)
-        ScriptListHead() = m_following;
-    if (m_following)
-        m_following->m_priorEntry = m_priorEntry;
-    if (m_priorEntry)
-        m_priorEntry->m_following = m_following;
+    if (!prior_entry_)
+        script_list_head() = following_;
+    if (following_)
+        following_->prior_entry_ = prior_entry_;
+    if (prior_entry_)
+        prior_entry_->following_ = following_;
 
-    ForgetStoredRandomsOf(reinterpret_cast<uint32_t>(this));
-    if (GameObjects::CSignalRouteTable* table = m_signalRoutes) {
-        if (table->m_inUse) {
-            // Its handlers are being run: it is marked dead and freed afterwards (by ForwardTrigger).
-            table->m_alive = false;
+    forget_stored_randoms_of(reinterpret_cast<uint32_t>(this));
+    if (objects::SignalRouteTable* table = signal_routes_) {
+        if (table->in_use_) {
+            // Its handlers are being run: it is marked dead and freed afterwards (by forward_trigger).
+            table->alive_ = false;
         } else {
-            table->Teardown();
-            MemSys::Hub::Pull()->Dealloc(table);
+            table->teardown();
+            memory::Hub::get_pull()->dealloc(table);
         }
     }
-    --ScriptCount();
-    m_sharedBase.Destruct();
-    m_entity.Release();
+    --script_count();
+    shared_base_.destruct();
+    entity_.get_release();
 }
 
 // 0x00449970
-void* CScript::operator new(size_t size) { return ScriptPools().Carve(static_cast<unsigned int>(size)); }
+void* Script::operator new(size_t size) { return script_pools().carve(static_cast<unsigned int>(size)); }
 
 // 0x004499B0
-void CScript::operator delete(void* script) { ScriptPools().Dealloc(script); }
+void Script::operator delete(void* script) { script_pools().dealloc(script); }
 
 // 0x00473A80
-void CScript::ResetScriptState()
+void Script::reset_script_state()
 {
-    RunOnExitScripts();
-    if (m_codeCopy) {
-        MemSys::FreeMalloc(m_codeCopy);
-        m_codeCopy = nullptr;
+    run_on_exit_scripts();
+    if (code_copy_) {
+        memory::free_malloc(code_copy_);
+        code_copy_ = nullptr;
     }
-    CScriptStore* cache = ScriptStoreInstance();
-    // (released even when the code was a private copy or given to BindScript, which took no use of the cached
+    ScriptStore* cache = script_store_instance();
+    // (released even when the code was a private copy or given to bind_script, which took no use of the cached
     // code: if that script is cached, a use someone else took is given back - an original quirk, kept)
-    if (m_pc)
-        cache->ReleaseScript(m_scriptTitle);
-    m_pc = nullptr;
-    if (m_args) {
-        FreeStruct(m_args);
-        m_args = nullptr;
+    if (pc_)
+        cache->release_script(script_title_);
+    pc_ = nullptr;
+    if (args_) {
+        free_struct(args_);
+        args_ = nullptr;
     }
-    if (m_stmtArgs) {
-        FreeStruct(m_stmtArgs);
-        m_stmtArgs = nullptr;
+    if (stmt_args_) {
+        free_struct(stmt_args_);
+        stmt_args_ = nullptr;
     }
-    for (int i = 0; i < m_callDepth; ++i) {
-        cache->ReleaseScript(m_frameRecords[i].m_scriptId);
-        if (CStruct* params = m_frameRecords[i].m_argStruct) {
-            FreeStruct(params);
-            m_frameRecords[i].m_argStruct = nullptr;
+    for (int i = 0; i < call_depth_; ++i) {
+        cache->release_script(frame_records_[i].script_id_);
+        if (Struct* params = frame_records_[i].arg_struct_) {
+            free_struct(params);
+            frame_records_[i].arg_struct_ = nullptr;
         }
     }
-    m_callDepth = 0;
-    if (m_frameRecords != m_inlineReturnAddresses)
-        MemSys::FreeMalloc(m_frameRecords);
-    m_frameRecords = m_inlineReturnAddresses;
-    m_innermostRepeat = nullptr;
-    if (m_loops != &m_inlineLoop)
-        MemSys::FreeMalloc(m_loops);
-    m_loops = &m_inlineLoop;
-    m_suspendFramesLeft = 0;
-    m_suspendReason = SUSPEND_ON_NOTHING;
-    m_blockingModule = nullptr;
-    m_suspendArg = 0;
-    m_entity.Release();
-    m_scriptTitle = 0;
-    m_flagBits &= ~(SCRIPT_RUN_INTERRUPTED | SCRIPT_RUN_WAIT_UPDATED);
+    call_depth_ = 0;
+    if (frame_records_ != inline_return_addresses_)
+        memory::free_malloc(frame_records_);
+    frame_records_ = inline_return_addresses_;
+    innermost_repeat_ = nullptr;
+    if (loops_ != &inline_loop_)
+        memory::free_malloc(loops_);
+    loops_ = &inline_loop_;
+    suspend_frames_left_ = 0;
+    suspend_reason_ = kSuspendOnNothing;
+    blocking_module_ = nullptr;
+    suspend_arg_ = 0;
+    entity_.get_release();
+    script_title_ = 0;
+    flag_bits_ &= ~(kScriptRunInterrupted | kScriptRunWaitUpdated);
 }
 
 // 0x00473880
-void CScript::RunOnExitScripts()
+void Script::run_on_exit_scripts()
 {
-    if (uint32_t name = m_onExitScript) {
-        m_onExitScript = 0;
-        Preempt(name, nullptr);
+    if (uint32_t name = on_exit_script_) {
+        on_exit_script_ = 0;
+        preempt(name, nullptr);
     }
     // From the top level down; the depth is read once (the interrupts push and pop levels of their own).
-    for (int i = m_callDepth; i; --i) {
-        uint32_t& onExit = m_frameRecords[i - 1].m_onExitScriptPtr;
-        if (uint32_t name = onExit) {
-            onExit = 0;
-            Preempt(name, nullptr);
+    for (int i = call_depth_; i; --i) {
+        uint32_t& on_exit = frame_records_[i - 1].on_exit_script_ptr_;
+        if (uint32_t name = on_exit) {
+            on_exit = 0;
+            preempt(name, nullptr);
         }
     }
 }
 
 // 0x00473010
-void CScript::ReportStopped()
+void Script::report_stopped()
 {
-    if (m_signalRoutes) {
-        m_signalRoutes->UnregisterWithTracker(this);
-        m_signalRoutes->RemoveGroup(GameObjects::kAllGroups);
+    if (signal_routes_) {
+        signal_routes_->unregister_with_tracker(this);
+        signal_routes_->remove_group(objects::kAllGroups);
     }
-    if (m_spawnFlags & SCRIPT_FLAG_TRACKER_BLOCKED)
-        GameObjects::Tracker()->ForgetScript(this);
+    if (spawn_flags_ & kScriptFlagTrackerBlocked)
+        objects::get_tracker()->forget_script(this);
 }
 
 // 0x004739D0
-CStruct* CScript::CopyParamsIfOwned(CStruct* params)
+Struct* Script::copy_params_if_owned(Struct* params)
 {
     if (!params)
         return nullptr;
-    if ((m_stmtArgs && m_stmtArgs->RefTally(params)) || (m_args && m_args->RefTally(params))) {
-        CStruct* copy = NewEmptyStruct();
-        copy->AppendStructureIfAny(params); // (no check for a full pool)
+    if ((stmt_args_ && stmt_args_->ref_tally(params)) || (args_ && args_->ref_tally(params))) {
+        Struct* copy = new_empty_struct();
+        copy->append_structure_if_any(params); // (no check for a full pool)
         return copy;
     }
     return nullptr;
 }
 
 // 0x00474540
-void CScript::BindScript(uint32_t name, const uint8_t* code, CStruct* params, GameObjects::CEntity* object)
+void Script::bind_script(uint32_t name, const uint8_t* code, Struct* params, objects::Entity* object)
 {
-    // ResetScriptState frees this script's parameters: keep what `params` needs.
-    CStruct* copy = CopyParamsIfOwned(params);
-    ResetScriptState();
-    m_stmtArgs = NewEmptyStruct();
-    m_scriptTitle = name;
-    m_entity.AssignValue(object);
-    m_args = NewEmptyStruct();
-    m_pc = code ? code : ScriptStoreInstance()->FetchScript(name);
-    if (!m_pc) {
+    // reset_script_state frees this script's parameters: keep what `params` needs.
+    Struct* copy = copy_params_if_owned(params);
+    reset_script_state();
+    stmt_args_ = new_empty_struct();
+    script_title_ = name;
+    entity_.assign_value(object);
+    args_ = new_empty_struct();
+    pc_ = code ? code : script_store_instance()->fetch_script(name);
+    if (!pc_) {
         // No such script.
         if (copy)
-            FreeStruct(copy);
-        ResetScriptState();
-        ReportStopped();
+            free_struct(copy);
+        reset_script_state();
+        report_stopped();
         return;
     }
     // The first line: the script's default parameters.
-    m_pc = ParseArguments(m_args, m_pc, nullptr);
+    pc_ = parse_arguments(args_, pc_, nullptr);
     if (copy) {
-        m_args->AppendStructureIfAny(copy);
-        FreeStruct(copy);
+        args_->append_structure_if_any(copy);
+        free_struct(copy);
     } else {
-        m_args->AppendStructureIfAny(params);
+        args_->append_structure_if_any(params);
     }
 }
 
 // 0x004747A0
-void CScript::BindScript(uint32_t name, CStruct* params, GameObjects::CEntity* object) { BindScript(name, nullptr, params, object); }
+void Script::bind_script(uint32_t name, Struct* params, objects::Entity* object) { bind_script(name, nullptr, params, object); }
 
 // 0x004747C0
-void CScript::BindScript(const char* name, CStruct* params, GameObjects::CEntity* object)
+void Script::bind_script(const char* name, Struct* params, objects::Entity* object)
 {
-    BindScript(Checksums::HashFromText(name), nullptr, params, object);
+    bind_script(checksums::hash_from_text(name), nullptr, params, object);
 }
 
 // 0x00474720
-void CScript::SetScriptCopy(SParamScript* script, CStruct* params, GameObjects::CEntity* object)
+void Script::set_script_copy(ParamScript* script, Struct* params, objects::Entity* object)
 {
-    auto size = static_cast<uint32_t>(SkipToEndOfScript(script->m_codeStream) - script->m_codeStream);
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(manager->m_scriptHeap);
-    auto* copy = static_cast<uint8_t*>(MemSys::AllocBlock(size));
-    MemSys::Hub::Pull()->LeaveHeapScope();
-    const uint8_t* source = script->m_codeStream;
+    auto size = static_cast<uint32_t>(skip_to_end_of_script(script->code_stream_) - script->code_stream_);
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(manager->script_heap_);
+    auto* copy = static_cast<uint8_t*>(memory::alloc_block(size));
+    memory::Hub::get_pull()->leave_heap_scope();
+    const uint8_t* source = script->code_stream_;
     for (uint32_t i = 0; i < size; ++i)
         copy[i] = source[i];
-    BindScript(script->m_ownNameHash, copy, params, object);
-    m_codeCopy = copy; // (after BindScript: its ResetScriptState would free it)
+    bind_script(script->own_name_hash_, copy, params, object);
+    code_copy_ = copy; // (after bind_script: its reset_script_state would free it)
 }
 
 // 0x004747F0
-void CScript::Relaunch()
+void Script::relaunch()
 {
-    CStruct* params = NewEmptyStruct();
+    Struct* params = new_empty_struct();
     uint32_t name;
-    GameObjects::CEntity* object;
-    if (m_callDepth) {
+    objects::Entity* object;
+    if (call_depth_) {
         // The bottom level: the script it was started with.
-        params->Assign(m_frameRecords[0].m_argStruct);
-        object = m_frameRecords[0].m_ownerEntity;
-        name = m_frameRecords[0].m_scriptId;
+        params->get_assign(frame_records_[0].arg_struct_);
+        object = frame_records_[0].owner_entity_;
+        name = frame_records_[0].script_id_;
     } else {
-        params->Assign(m_args);
-        object = m_entity.Pull();
-        name = m_scriptTitle;
+        params->get_assign(args_);
+        object = entity_.get_pull();
+        name = script_title_;
     }
-    BindScript(name, nullptr, params, object);
+    bind_script(name, nullptr, params, object);
     if (params)
-        FreeStruct(params);
+        free_struct(params);
 }
 
 // 0x00472C90
-bool CScript::AllScriptsStillDefined()
+bool Script::all_scripts_still_defined()
 {
-    if (m_callDepth == 0)
-        return m_codeCopy || FindSymbol(m_scriptTitle);
-    if (!FindSymbol(m_scriptTitle))
+    if (call_depth_ == 0)
+        return code_copy_ || find_symbol(script_title_);
+    if (!find_symbol(script_title_))
         return false;
     // (the bottom level's script isn't looked for when it runs a private copy)
-    for (int i = m_codeCopy ? 1 : 0; i < m_callDepth; ++i) {
-        if (!FindSymbol(m_frameRecords[i].m_scriptId))
+    for (int i = code_copy_ ? 1 : 0; i < call_depth_; ++i) {
+        if (!find_symbol(frame_records_[i].script_id_))
             return false;
     }
     return true;
 }
 
 // 0x00472940
-bool CScript::HasAttachedScript() { return m_pc != nullptr; }
+bool Script::has_attached_script() { return pc_ != nullptr; }
 
 // 0x00472F90
-void CScript::SetSpawnerFile(CScript* spawner)
+void Script::set_spawner_file(Script* spawner)
 {
-    uint32_t name = spawner->m_callDepth ? spawner->m_frameRecords[0].m_scriptId : spawner->m_scriptTitle;
-    m_spawnerFile = FindSymbol(name)->unknown8; // (no check that it is still defined)
+    uint32_t name = spawner->call_depth_ ? spawner->frame_records_[0].script_id_ : spawner->script_title_;
+    spawner_file_ = find_symbol(name)->unknown8; // (no check that it is still defined)
 }
 
 // 0x00473BE0
-void CScript::ObjectDestroyed(GameObjects::CEntity* object)
+void Script::object_destroyed(objects::Entity* object)
 {
     if (!object)
         return;
-    if (m_entity.Pull() == object)
-        m_entity.Release();
-    for (int i = 0; i < m_callDepth; ++i) {
-        if (m_frameRecords[i].m_ownerEntity == object)
-            m_frameRecords[i].m_ownerEntity = nullptr;
+    if (entity_.get_pull() == object)
+        entity_.get_release();
+    for (int i = 0; i < call_depth_; ++i) {
+        if (frame_records_[i].owner_entity_ == object)
+            frame_records_[i].owner_entity_ = nullptr;
     }
-    m_suspendReason = SUSPEND_ON_NOTHING; // (whatever it was waiting for)
+    suspend_reason_ = kSuspendOnNothing; // (whatever it was waiting for)
 }
 
 // 0x00472ED0 / 0x00472EE0 / 0x00472EF0
-void CScript::SetOnExceptionScript(uint32_t name) { m_onExceptionScript = name; }
-uint32_t CScript::GetOnExceptionScript() { return m_onExceptionScript; }
-void CScript::SetOnExitScript(uint32_t name) { m_onExitScript = name; }
+void Script::set_on_exception_script(uint32_t name) { on_exception_script_ = name; }
+uint32_t Script::get_on_exception_script() { return on_exception_script_; }
+void Script::set_on_exit_script(uint32_t name) { on_exit_script_ = name; }
 
 // 0x00472F00
-void CScript::ClearOnExitScripts()
+void Script::clear_on_exit_scripts()
 {
-    m_onExitScript = 0;
-    for (int i = m_callDepth; i; --i)
-        m_frameRecords[i - 1].m_onExitScriptPtr = 0;
+    on_exit_script_ = 0;
+    for (int i = call_depth_; i; --i)
+        frame_records_[i - 1].on_exit_script_ptr_ = 0;
 }
 
 // 0x004734B0
-CScript* FindScriptWithUniqueId(uint32_t id)
+Script* find_script_with_unique_id(uint32_t id)
 {
-    for (CScript* script = ScriptListHead(); script; script = script->m_following) {
-        if (script->m_uniqueId == id)
+    for (Script* script = script_list_head(); script; script = script->following_) {
+        if (script->unique_id_ == id)
             return script;
     }
     return nullptr;

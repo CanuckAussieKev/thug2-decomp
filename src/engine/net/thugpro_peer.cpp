@@ -42,16 +42,16 @@
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
 
-namespace Scripts {
-class CStruct;
-class CScript;
+namespace script {
+class Struct;
+class Script;
 } // namespace Script
-namespace ScriptCommands {
-bool __cdecl CFunc_Create(Scripts::CStruct* params, Scripts::CScript* script); // 0x005A4FF0 (node_object_cfuncs.cpp)
-bool __cdecl CFunc_Kill(Scripts::CStruct* params, Scripts::CScript* script);   // 0x005A5030
-} // namespace ScriptCommands
+namespace commands {
+bool __cdecl cfunc_create(script::Struct* params, script::Script* script); // 0x005A4FF0 (node_object_cfuncs.cpp)
+bool __cdecl cfunc_kill(script::Struct* params, script::Script* script);   // 0x005A5030
+} // namespace commands
 
-namespace OnlinePlay::Thugpro {
+namespace online::thugpro {
 
 namespace {
 
@@ -76,17 +76,17 @@ constexpr uint32_t kLoadGapMs = 400;            // a frame this long: a level (r
 
 int g_override = -1;
 
-bool ReadPeerMode()
+bool read_peer_mode()
 {
-    if (_stricmp(NetLink::GameName(), "thugpro") == 0)
+    if (_stricmp(net::get_game_name(), "thugpro") == 0)
         return true;
-    return BuildInfo::FetchFlag("online", "thugpro_peer", false);
+    return build_info::fetch_flag("online", "thugpro_peer", false);
 }
 
-uint32_t ReadMachineId()
+uint32_t read_machine_id()
 {
     char text[32];
-    BuildInfo::FetchText("online", "thugpro_machine_id", "", text, sizeof(text));
+    build_info::fetch_text("online", "thugpro_machine_id", "", text, sizeof(text));
     uint32_t id = static_cast<uint32_t>(std::strtoul(text, nullptr, 16));
     std::random_device random;
     while (id == 0)
@@ -96,7 +96,7 @@ uint32_t ReadMachineId()
 
 // A string into a field: cut to fit, NUL-ended; the rest of the field left as it is (strncpy_s would fill it
 // with 0xFE in a debug build - on the wire).
-void CopyField(char* out, size_t size, const char* in)
+void copy_field(char* out, size_t size, const char* in)
 {
     size_t length = in ? strnlen(in, size - 1) : 0;
     if (length)
@@ -118,8 +118,8 @@ struct ProSetPrefixes {
     const char* geo;
     const char* trg;
     const char* trg2; // (G_COMP only)
-    const char* geoNot;
-    const char* trgNot;
+    const char* geo_not_;
+    const char* trg_not_;
 };
 constexpr ProSetPrefixes kProSets[8] = {
     {"Proset1", "TRG_Proset1", nullptr, "PROSET1NOT", "TRG_PROSET1NOT"},
@@ -134,35 +134,35 @@ constexpr ProSetPrefixes kProSets[8] = {
 
 } // namespace
 
-bool PeerMode()
+bool peer_mode()
 {
     if (g_override >= 0)
         return g_override != 0;
-    static bool mode = ReadPeerMode();
+    static bool mode = read_peer_mode();
     return mode;
 }
 
-void SetPeerModeOverride(int mode) { g_override = mode; }
+void set_peer_mode_override(int mode) { g_override = mode; }
 
-uint32_t MachineId()
+uint32_t get_machine_id()
 {
-    static uint32_t id = ReadMachineId();
+    static uint32_t id = read_machine_id();
     return id;
 }
 
 // --- Layouts ---
 
-uint32_t EncodeChat(ChatMessage* out, uint32_t machineId, uint8_t objId, const char* name, const char* text)
+uint32_t encode_chat(ChatMessage* out, uint32_t machine_id, uint8_t obj_id, const char* name, const char* text)
 {
     std::memset(out, 0, sizeof(*out));
-    out->machineId = machineId;
-    out->objId = objId;
-    CopyField(out->name, sizeof(out->name), name);
-    CopyField(out->text, sizeof(out->text), text);
+    out->machine_id_ = machine_id;
+    out->obj_id_ = obj_id;
+    copy_field(out->name, sizeof(out->name), name);
+    copy_field(out->text, sizeof(out->text), text);
     return kChatHeaderSize + static_cast<uint32_t>(std::strlen(out->text)) + 1;
 }
 
-bool DecodeChat(const uint8_t* data, uint32_t length, bool thugpro, ChatLine* out)
+bool decode_chat(const uint8_t* data, uint32_t length, bool thugpro, ChatLine* out)
 {
     // THUGPRO: id, object, name, text - at most its struct (so text <= 127). THUG2: object, name, text - at most our
     // 0x94-byte packet (text <= 130). The text ends inside the message (so the message is longer than its header).
@@ -173,27 +173,27 @@ bool DecodeChat(const uint8_t* data, uint32_t length, bool thugpro, ChatLine* ou
     const uint8_t* fields = data + (thugpro ? 4 : 0);
     const char* name = reinterpret_cast<const char*>(fields + 1);
     const char* text = reinterpret_cast<const char*>(data + header);
-    size_t nameLength = strnlen(name, kNameSize);
-    size_t textLength = strnlen(text, length - header);
-    if (nameLength >= static_cast<size_t>(kNameSize) || textLength >= length - header)
+    size_t name_length = strnlen(name, kNameSize);
+    size_t text_length = strnlen(text, length - header);
+    if (name_length >= static_cast<size_t>(kNameSize) || text_length >= length - header)
         return false;
     std::memset(out, 0, sizeof(*out));
     if (thugpro)
-        std::memcpy(&out->machineId, data, 4);
-    out->objId = fields[0];
-    std::memcpy(out->name, name, nameLength);
-    std::memcpy(out->text, text, textLength);
+        std::memcpy(&out->machine_id_, data, 4);
+    out->obj_id_ = fields[0];
+    std::memcpy(out->name, name, name_length);
+    std::memcpy(out->text, text, text_length);
     return true;
 }
 
-uint8_t LevelOptions(const HostListing& info) { return static_cast<uint8_t>(info.flags & 0xFF); }
-uint8_t ProSets(const HostListing& info) { return static_cast<uint8_t>((info.flags >> 8) & 0xFF); }
-uint64_t MakeFlags(uint8_t levelOptions, uint8_t proSets)
+uint8_t get_level_options(const HostListing& info) { return static_cast<uint8_t>(info.flags & 0xFF); }
+uint8_t get_pro_sets(const HostListing& info) { return static_cast<uint8_t>((info.flags >> 8) & 0xFF); }
+uint64_t make_flags(uint8_t level_options, uint8_t pro_sets)
 {
-    return static_cast<uint64_t>(levelOptions) | (static_cast<uint64_t>(proSets) << 8);
+    return static_cast<uint64_t>(level_options) | (static_cast<uint64_t>(pro_sets) << 8);
 }
 
-bool DecodeServerInfo(const uint8_t* data, uint32_t length, HostListing* out)
+bool decode_server_info(const uint8_t* data, uint32_t length, HostListing* out)
 {
     if (!data || length < sizeof(HostListing))
         return false;
@@ -201,7 +201,7 @@ bool DecodeServerInfo(const uint8_t* data, uint32_t length, HostListing* out)
     return true;
 }
 
-const char* ChangeLevelName(uint32_t level, const char* listName)
+const char* change_level_name(uint32_t level, const char* list_name)
 {
     switch (level) {
     case kLoadMainMenu:
@@ -211,77 +211,77 @@ const char* ChangeLevelName(uint32_t level, const char* listName)
     case kLoadSk5edGameplay:
         return "Custom Park\n";
     default:
-        return listName ? listName : "Unknown\n";
+        return list_name ? list_name : "Unknown\n";
     }
 }
 
-void ExtendChangeLevel(const uint8_t* message, const char* name, uint8_t out[kChangeLevelThugproSize])
+void extend_change_level(const uint8_t* message, const char* name, uint8_t out[kChangeLevelThugproSize])
 {
     std::memset(out, 0, kChangeLevelThugproSize);
     std::memcpy(out, message, kChangeLevelSize);
-    CopyField(reinterpret_cast<char*>(out + kChangeLevelSize), kChangeLevelNameSize, name);
+    copy_field(reinterpret_cast<char*>(out + kChangeLevelSize), kChangeLevelNameSize, name);
 }
 
 // --- Effects ---
 
-bool IsTimeOfDay(uint32_t state) { return Gfx2D::NextTODState(state) != 0; }
+bool is_time_of_day(uint32_t state) { return gfx::next_tod_state(state) != 0; }
 
-bool ProSetLevel(uint32_t levelLoad)
+bool pro_set_level(uint32_t level_load)
 {
     for (const char* load : kProSetLevels)
-        if (Checksums::HashFromText(load) == levelLoad)
+        if (checksums::hash_from_text(load) == level_load)
             return true;
     return false;
 }
 
-void ApplyProSet(int index, bool on, uint32_t levelLoad, Effects& effects)
+void apply_pro_set(int index, bool on, uint32_t level_load, Effects& effects)
 {
     // THUGPRO's toggle_geo_nomenu (its KillAllTextureSplats first left out: decals only).
     const ProSetPrefixes& p = kProSets[index];
-    effects.KillPrefix(p.geo);
-    effects.KillPrefix(p.trg);
+    effects.kill_prefix(p.geo);
+    effects.kill_prefix(p.trg);
     if (p.trg2)
-        effects.KillPrefix(p.trg2);
-    effects.KillPrefix(p.geoNot);
-    effects.KillPrefix(p.trgNot);
-    effects.CreatePrefix(p.geoNot);
-    effects.CreatePrefix(p.trgNot);
+        effects.kill_prefix(p.trg2);
+    effects.kill_prefix(p.geo_not_);
+    effects.kill_prefix(p.trg_not_);
+    effects.create_prefix(p.geo_not_);
+    effects.create_prefix(p.trg_not_);
     if (!on)
         return;
-    effects.CreatePrefix(p.geo);
-    effects.CreatePrefix(p.trg);
+    effects.create_prefix(p.geo);
+    effects.create_prefix(p.trg);
     if (p.trg2)
-        effects.CreatePrefix(p.trg2);
-    effects.KillPrefix(p.geoNot);
-    effects.KillPrefix(p.trgNot);
-    effects.KillPrefix("TRG_G_COMP_Spectator");
-    if (levelLoad == Checksums::HashFromText("Load_sch"))
-        effects.KillName(Checksums::HashFromText("G_COMP_Ramp04"));
+        effects.create_prefix(p.trg2);
+    effects.kill_prefix(p.geo_not_);
+    effects.kill_prefix(p.trg_not_);
+    effects.kill_prefix("TRG_G_COMP_Spectator");
+    if (level_load == checksums::hash_from_text("Load_sch"))
+        effects.kill_name(checksums::hash_from_text("G_COMP_Ramp04"));
 }
 
-void ApplyServerInfo(const HostListing& info, const char* levelPrefix, uint32_t levelLoad, Effects& effects)
+void apply_server_info(const HostListing& info, const char* level_prefix, uint32_t level_load, Effects& effects)
 {
-    effects.SetTimeOfDay(info.timeOfDay);
-    effects.SetWeather(info.weather);
+    effects.set_time_of_day(info.time_of_day_);
+    effects.set_weather(info.weather);
     // The level options: THUGPRO only ever sets its SERVER_LEVEL_CHANGE_0n_ON flags from this message (the level's
     // own setup sets its default ones), then runs each toggle by its flag - so an option not set here stays as the
     // level's setup made it (our ports run the defaults in their setup scripts).
-    uint8_t options = LevelOptions(info);
-    if (levelPrefix && *levelPrefix) {
+    uint8_t options = get_level_options(info);
+    if (level_prefix && *level_prefix) {
         for (int n = 1; n <= 8; ++n) {
             if (!(options & (1 << (n - 1))))
                 continue;
             char name[96];
-            std::snprintf(name, sizeof(name), "%s_LEVEL_CHANGE_0%d", levelPrefix, n);
-            effects.LaunchScript(Checksums::HashFromText(name), true);
+            std::snprintf(name, sizeof(name), "%s_LEVEL_CHANGE_0%d", level_prefix, n);
+            effects.launch_script(checksums::hash_from_text(name), true);
         }
     }
     // The pro sets: in THUGPRO's THPS4 levels and New York all eight toggled by their flags (THUGPRO's
     // HandleProtrickObjects at each start).
-    if (ProSetLevel(levelLoad)) {
-        uint8_t sets = ProSets(info);
+    if (pro_set_level(level_load)) {
+        uint8_t sets = get_pro_sets(info);
         for (int i = 0; i < 8; ++i)
-            ApplyProSet(i, (sets >> i) & 1, levelLoad, effects);
+            apply_pro_set(i, (sets >> i) & 1, level_load, effects);
     }
 }
 
@@ -290,104 +290,104 @@ namespace {
 // The game's side of the effects.
 class GameEffects final : public Effects {
 public:
-    void SetTimeOfDay(uint32_t state) override
+    void set_time_of_day(uint32_t state) override
     {
-        if (!IsTimeOfDay(state))
-            state = Gfx2D::kAfternoon; // (THUGPRO's thugpro_change_time_of_day: anything else is afternoon)
-        Gfx2D::CTODManager* manager = Gfx2D::TODManager();
-        if (!manager || !manager->CanSetTODInstant(state)) {
-            Log("thugpro: time of day %08X not set (no time-of-day states in this level)", state);
+        if (!is_time_of_day(state))
+            state = gfx::kAfternoon; // (THUGPRO's thugpro_change_time_of_day: anything else is afternoon)
+        gfx::CtodManager* manager = gfx::tod_manager();
+        if (!manager || !manager->can_set_tod_instant(state)) {
+            get_log("thugpro: time of day %08X not set (no time-of-day states in this level)", state);
             return;
         }
-        if (manager->CurrentState() == state)
+        if (manager->current_state() == state)
             return;
-        manager->SetTODInstant(state);
+        manager->set_tod_instant(state);
     }
-    void SetWeather(uint32_t weather) override
+    void set_weather(uint32_t weather) override
     {
         // THUGPRO's set_current_weather_values: THUG2's rain / snow (the weather object 0x006FA7C8: +0x10 the
         // rain's rate, +0x40 the snow's, +0x58 rain (1) or snow (0)). "default" leaves the level's own weather
         // (THUGPRO clears it: it has its own per-level weather settings - ours are THUG2's).
         if (weather == kWeatherDefault)
             return;
-        uint8_t* object = reinterpret_cast<uint8_t*>(Engine3D::g_weather);
+        uint8_t* object = reinterpret_cast<uint8_t*>(render::g_weather);
         if (!object)
             return;
-        float& rainRate = *reinterpret_cast<float*>(object + 0x10);
-        float& snowRate = *reinterpret_cast<float*>(object + 0x40);
+        float& rain_rate = *reinterpret_cast<float*>(object + 0x10);
+        float& snow_rate = *reinterpret_cast<float*>(object + 0x40);
         bool& rain = *reinterpret_cast<bool*>(object + 0x58);
         if (weather == kWeatherRain) {
             rain = true;
-            rainRate = 16.0f;
-            snowRate = 0.0f;
+            rain_rate = 16.0f;
+            snow_rate = 0.0f;
         } else if (weather == kWeatherSnow) {
             rain = false;
-            snowRate = 5.0f;
-            rainRate = 0.0f;
+            snow_rate = 5.0f;
+            rain_rate = 0.0f;
         } else { // clear, or anything else
-            rainRate = 0.0f;
-            snowRate = 0.0f;
+            rain_rate = 0.0f;
+            snow_rate = 0.0f;
         }
     }
-    bool LaunchScript(uint32_t script, bool on) override
+    bool launch_script(uint32_t script, bool on) override
     {
-        if (!Scripts::ScriptExists(script))
+        if (!script::script_exists(script))
             return false;
-        Scripts::CStruct* params = NewParams();
-        params->PutNameKey(0u, on ? kOn : kOff);
-        Scripts::LaunchScript(script, params, nullptr, false, nullptr);
-        DeleteParams(params);
+        script::Struct* params = new_params();
+        params->put_name_key(0u, on ? kOn : kOff);
+        script::launch_script(script, params, nullptr, false, nullptr);
+        delete_params(params);
         return true;
     }
-    void KillPrefix(const char* prefix) override { ObjectCommand(reinterpret_cast<uint32_t>(CodeAddress(ScriptCommands::CFunc_Kill)), kPrefix, prefix, 0); }
-    void CreatePrefix(const char* prefix) override { ObjectCommand(reinterpret_cast<uint32_t>(CodeAddress(ScriptCommands::CFunc_Create)), kPrefix, prefix, 0); }
-    void KillName(uint32_t name) override { ObjectCommand(reinterpret_cast<uint32_t>(CodeAddress(ScriptCommands::CFunc_Kill)), kName, nullptr, name); }
+    void kill_prefix(const char* prefix) override { object_command(reinterpret_cast<uint32_t>(code_address(commands::cfunc_kill)), kPrefix, prefix, 0); }
+    void create_prefix(const char* prefix) override { object_command(reinterpret_cast<uint32_t>(code_address(commands::cfunc_create)), kPrefix, prefix, 0); }
+    void kill_name(uint32_t name) override { object_command(reinterpret_cast<uint32_t>(code_address(commands::cfunc_kill)), kName, nullptr, name); }
 
 private:
-    static Scripts::CStruct* NewParams()
+    static script::Struct* new_params()
     {
-        Scripts::CStruct* params = Scripts::SpawnParamBag();
-        return params ? params->PrepareAll() : nullptr;
+        script::Struct* params = script::spawn_param_bag();
+        return params ? params->prepare_all() : nullptr;
     }
-    static void DeleteParams(Scripts::CStruct* params)
+    static void delete_params(script::Struct* params)
     {
         if (!params)
             return;
-        params->Clear();
-        Scripts::DeleteStruct(params);
+        params->get_clear();
+        script::delete_struct(params);
     }
     // The script commands Kill (0x005A5030) and Create (0x005A4FF0) - prefix= or name= - run from a spawned
     // NullScript (Kill reads its script's object for some classes: it needs a real script).
-    static void ObjectCommand(uint32_t command, uint32_t key, const char* text, uint32_t checksum)
+    static void object_command(uint32_t command, uint32_t key, const char* text, uint32_t checksum)
     {
-        if (!Scripts::ScriptExists(kNullScript)) {
-            Log("thugpro: no NullScript - pro sets not changed");
+        if (!script::script_exists(kNullScript)) {
+            get_log("thugpro: no NullScript - pro sets not changed");
             return;
         }
-        Scripts::CScript* script = Scripts::SpawnScript(kNullScript, nullptr, 0, nullptr, -1, 0, false, false, false,
+        script::Script* script = script::spawn_script(kNullScript, nullptr, 0, nullptr, -1, 0, false, false, false,
                                                       false);
         if (!script)
             return;
-        Scripts::CStruct* params = NewParams();
+        script::Struct* params = new_params();
         if (text)
-            params->AppendWord(key, text);
+            params->append_word(key, text);
         else
-            params->PutNameKey(key, checksum);
-        reinterpret_cast<bool(__cdecl*)(Scripts::CStruct*, Scripts::CScript*)>(command)(params, script);
-        DeleteParams(params);
-        Scripts::KillSpawnedScript(script);
+            params->put_name_key(key, checksum);
+        reinterpret_cast<bool(__cdecl*)(script::Struct*, script::Script*)>(command)(params, script);
+        delete_params(params);
+        script::kill_spawned_script(script);
     }
 };
 
 // The level structure being played: its `level` (the skate module's +0x380: the structure's name).
-const char* CurrentLevelPrefix()
+const char* current_level_prefix()
 {
-    uint8_t* skate = reinterpret_cast<uint8_t*>(GameModules::g_skateModule);
+    uint8_t* skate = reinterpret_cast<uint8_t*>(modules::g_skate_module);
     if (!skate)
         return nullptr;
-    Scripts::CStruct* structure = Scripts::ReadSubStruct(*reinterpret_cast<uint32_t*>(skate + 0x380));
+    script::Struct* structure = script::read_sub_struct(*reinterpret_cast<uint32_t*>(skate + 0x380));
     const char* prefix = nullptr;
-    if (!structure || !structure->FetchText(kLevel, &prefix, 0))
+    if (!structure || !structure->fetch_text(kLevel, &prefix, 0))
         return nullptr;
     return prefix;
 }
@@ -396,217 +396,217 @@ const char* CurrentLevelPrefix()
 struct Session {
     bool have = false;      // server info (or an update) received
     bool applied = false;   // applied since the level's last load
-    HostListing info = {Gfx2D::kAfternoon, kWeatherDefault, 0};
+    HostListing info = {gfx::kAfternoon, kWeatherDefault, 0};
     uint32_t level = 0;     // the network level (load script) and the skater it was applied with
     void* skater = nullptr;
     int settle = 0;         // frames the level has been up
-    uint32_t lastTime = 0;
+    uint32_t last_time_ = 0;
 };
 Session g_session;
 
 // The host's options (the chat commands): sent in server info.
 struct HostOptions {
     uint32_t weather = kWeatherDefault;
-    uint8_t levelOptions = 0;
-    uint8_t proSets = 0;
+    uint8_t level_options_ = 0;
+    uint8_t pro_sets_ = 0;
 };
 HostOptions g_host;
 
-Hub* NetSessionSlot() { return FetchHub(); }
+Hub* net_session_slot() { return fetch_hub(); }
 
-bool IsClientOfNetGame(Hub* manager) { return manager && manager->InNetGame() && !manager->OnServer(); }
-bool IsHostOfNetGame(Hub* manager) { return manager && manager->InNetGame() && manager->OnServer(); }
+bool is_client_of_net_game(Hub* manager) { return manager && manager->in_net_game() && !manager->get_on_server(); }
+bool is_host_of_net_game(Hub* manager) { return manager && manager->in_net_game() && manager->get_on_server(); }
 
-bool LevelUp() { return g_session.settle >= kSettleFrames; }
+bool level_up() { return g_session.settle >= kSettleFrames; }
 
-void ApplySession()
+void apply_session()
 {
     GameEffects effects;
-    const char* prefix = CurrentLevelPrefix();
+    const char* prefix = current_level_prefix();
     const HostListing& info = g_session.info;
-    Log("thugpro: host options applied in %s: time of day %08X, weather %08X, level options %02X, pro sets %02X",
-        prefix ? prefix : "(no level structure)", info.timeOfDay, info.weather, LevelOptions(info), ProSets(info));
-    ApplyServerInfo(info, prefix, NetSessionSlot()->m_level, effects);
+    get_log("thugpro: host options applied in %s: time of day %08X, weather %08X, level options %02X, pro sets %02X",
+        prefix ? prefix : "(no level structure)", info.time_of_day_, info.weather, get_level_options(info), get_pro_sets(info));
+    apply_server_info(info, prefix, net_session_slot()->level_, effects);
     g_session.applied = true;
 }
 
-uint32_t Word(NetLink::InboundMsgCtx* context)
+uint32_t get_word(net::InboundMsgCtx* context)
 {
     uint32_t value = 0;
-    if (context->m_bodySize >= 4)
-        std::memcpy(&value, context->m_body, 4);
+    if (context->body_size_ >= 4)
+        std::memcpy(&value, context->body_, 4);
     return value;
 }
 
 // Server info for `app`'s connection `handle`, before THUG2's start info.
-void SendServerInfo(NetLink::AppHost* app, int handle)
+void send_server_info(net::AppHost* app, int handle)
 {
-    HostListing info = HostServerInfo();
-    NetLink::NetMessageInfo desc;
-    desc.MakeNew();
-    desc.m_ident = kMsgServerInfo;
-    desc.m_byteCount = sizeof(info);
-    desc.m_content = &info;
-    desc.m_rank = 0xFF;
-    desc.m_queue = NetLink::NetMessageInfo::kLanePriority;
-    desc.m_groupId = kGroupPlayerMessages;
-    app->PutOnOutbox(handle, &desc);
+    HostListing info = host_server_info();
+    net::NetMessageInfo desc;
+    desc.make_new();
+    desc.ident_ = kMsgServerInfo;
+    desc.byte_count_ = sizeof(info);
+    desc.content_ = &info;
+    desc.rank_ = 0xFF;
+    desc.queue_ = net::NetMessageInfo::kLanePriority;
+    desc.group_id_ = kGroupPlayerMessages;
+    app->put_on_outbox(handle, &desc);
 }
 
 // A 4-byte update to every player (the host's own client ignores it).
-void Broadcast(uint8_t id, uint32_t value)
+void get_broadcast(uint8_t id, uint32_t value)
 {
-    Hub* manager = NetSessionSlot();
-    if (!IsHostOfNetGame(manager) || !manager->m_host)
+    Hub* manager = net_session_slot();
+    if (!is_host_of_net_game(manager) || !manager->host_)
         return;
-    NetLink::NetMessageInfo desc;
-    desc.MakeNew();
-    desc.m_ident = id;
-    desc.m_byteCount = 4;
-    desc.m_content = &value;
-    desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
-    desc.m_groupId = kGroupPlayerMessages;
-    manager->m_host->PutOnOutbox(kHandleBroadcast, &desc);
+    net::NetMessageInfo desc;
+    desc.make_new();
+    desc.ident_ = id;
+    desc.byte_count_ = 4;
+    desc.content_ = &value;
+    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
+    desc.group_id_ = kGroupPlayerMessages;
+    manager->host_->put_on_outbox(kHandleBroadcast, &desc);
 }
 
-// NOT ORIGINAL - AppHost::PutOnOutbox's filter (net_app.h): what THUGPRO's PutOnOutbox hook adds when we host.
-bool FilterOutgoing(NetLink::AppHost* app, int handle, NetLink::NetMessageInfo* desc)
+// NOT ORIGINAL - AppHost::put_on_outbox's filter (net_app.h): what THUGPRO's put_on_outbox hook adds when we host.
+bool filter_outgoing(net::AppHost* app, int handle, net::NetMessageInfo* desc)
 {
-    if (!PeerMode())
+    if (!peer_mode())
         return false;
-    Hub* manager = NetSessionSlot();
-    if (!IsHostOfNetGame(manager) || app != manager->m_host)
+    Hub* manager = net_session_slot();
+    if (!is_host_of_net_game(manager) || app != manager->host_)
         return false;
-    if (desc->m_ident == kMsgLobbyDetails) {
-        SendServerInfo(app, handle);
+    if (desc->ident_ == kMsgLobbyDetails) {
+        send_server_info(app, handle);
         return false;
     }
-    if (desc->m_ident == kMsgLevelSwitch && desc->m_byteCount == kChangeLevelSize && desc->m_content) {
+    if (desc->ident_ == kMsgLevelSwitch && desc->byte_count_ == kChangeLevelSize && desc->content_) {
         uint8_t message[kChangeLevelThugproSize];
-        const auto* data = static_cast<const uint8_t*>(desc->m_content);
+        const auto* data = static_cast<const uint8_t*>(desc->content_);
         uint32_t level;
         std::memcpy(&level, data, 4);
-        ExtendChangeLevel(data, ChangeLevelName(level, Hub::LevelListName(level)), message);
-        NetLink::NetMessageInfo extended = *desc;
-        extended.m_content = message;
-        extended.m_byteCount = kChangeLevelThugproSize;
-        app->PutOnOutbox(handle, &extended);
+        extend_change_level(data, change_level_name(level, Hub::level_list_name(level)), message);
+        net::NetMessageInfo extended = *desc;
+        extended.content_ = message;
+        extended.byte_count_ = kChangeLevelThugproSize;
+        app->put_on_outbox(handle, &extended);
         return true;
     }
     return false;
 }
 
 // NOT ORIGINAL - the TOD manager's multiplayer unlock (tod_manager.h): THUGPRO network games.
-bool UnlockTimeOfDay()
+bool unlock_time_of_day()
 {
-    if (!PeerMode())
+    if (!peer_mode())
         return false;
-    Hub* manager = NetSessionSlot();
-    return manager && manager->InNetGame();
+    Hub* manager = net_session_slot();
+    return manager && manager->in_net_game();
 }
 
 struct Install {
     Install()
     {
-        NetLink::SetEnqueueFilter(FilterOutgoing);
-        Gfx2D::SetMultiplayerUnlock(UnlockTimeOfDay);
+        net::set_enqueue_filter(filter_outgoing);
+        gfx::set_multiplayer_unlock(unlock_time_of_day);
     }
 } g_install;
 
 } // namespace
 
-const HostListing* ReceivedServerInfo() { return g_session.have ? &g_session.info : nullptr; }
-bool TimeOfDayUnlocked() { return UnlockTimeOfDay(); }
-bool FilterOutgoingMessage(NetLink::AppHost* app, int handle, NetLink::NetMessageInfo* desc) { return FilterOutgoing(app, handle, desc); }
+const HostListing* received_server_info() { return g_session.have ? &g_session.info : nullptr; }
+bool time_of_day_unlocked() { return unlock_time_of_day(); }
+bool filter_outgoing_message(net::AppHost* app, int handle, net::NetMessageInfo* desc) { return filter_outgoing(app, handle, desc); }
 
 // --- The handlers ---
 
-void AddClientHandlers(NetLink::AppHost* client, void* skate)
+void add_client_handlers(net::AppHost* client, void* skate)
 {
-    NetLink::Router& dispatcher = client->m_dispatcher;
-    dispatcher.AppendListener(kMsgServerInfo, HandleServerInfo, 0, skate, 0x80);
-    dispatcher.AppendListener(kMsgModsAllowed, HandleModsAllowed, 0, skate, 0x80);
-    dispatcher.AppendListener(kMsgUpdateTimeOfDay, HandleUpdateTimeOfDay, NetLink::kPacketLate, skate, 0x80);
-    dispatcher.AppendListener(kMsgUpdateWeather, HandleUpdateWeather, NetLink::kPacketLate, skate, 0x80);
-    dispatcher.AppendListener(kMsgUpdateLevelOption, HandleUpdateLevelOption, NetLink::kPacketLate, skate, 0x80);
+    net::Router& dispatcher = client->dispatcher_;
+    dispatcher.append_listener(kMsgServerInfo, handle_server_info, 0, skate, 0x80);
+    dispatcher.append_listener(kMsgModsAllowed, handle_mods_allowed, 0, skate, 0x80);
+    dispatcher.append_listener(kMsgUpdateTimeOfDay, handle_update_time_of_day, net::kPacketLate, skate, 0x80);
+    dispatcher.append_listener(kMsgUpdateWeather, handle_update_weather, net::kPacketLate, skate, 0x80);
+    dispatcher.append_listener(kMsgUpdateLevelOption, handle_update_level_option, net::kPacketLate, skate, 0x80);
 }
 
-int __cdecl HandleServerInfo(NetLink::InboundMsgCtx* context)
+int __cdecl handle_server_info(net::InboundMsgCtx* context)
 {
     HostListing info;
-    if (!PeerMode() || !IsClientOfNetGame(NetSessionSlot()) ||
-        !DecodeServerInfo(reinterpret_cast<const uint8_t*>(context->m_body), context->m_bodySize, &info))
+    if (!peer_mode() || !is_client_of_net_game(net_session_slot()) ||
+        !decode_server_info(reinterpret_cast<const uint8_t*>(context->body_), context->body_size_, &info))
         return 1;
     g_session.have = true;
     g_session.applied = false;
     g_session.info = info;
-    Log("thugpro: server info: time of day %08X, weather %08X, level options %02X, pro sets %02X", info.timeOfDay,
-        info.weather, LevelOptions(info), ProSets(info));
+    get_log("thugpro: server info: time of day %08X, weather %08X, level options %02X, pro sets %02X", info.time_of_day_,
+        info.weather, get_level_options(info), get_pro_sets(info));
     return 1;
 }
 
-int __cdecl HandleUpdateTimeOfDay(NetLink::InboundMsgCtx* context)
+int __cdecl handle_update_time_of_day(net::InboundMsgCtx* context)
 {
-    if (!PeerMode() || !IsClientOfNetGame(NetSessionSlot()) || context->m_bodySize < 4)
+    if (!peer_mode() || !is_client_of_net_game(net_session_slot()) || context->body_size_ < 4)
         return 1;
     g_session.have = true;
-    g_session.info.timeOfDay = Word(context);
-    if (LevelUp()) {
+    g_session.info.time_of_day_ = get_word(context);
+    if (level_up()) {
         GameEffects effects;
-        effects.SetTimeOfDay(g_session.info.timeOfDay);
+        effects.set_time_of_day(g_session.info.time_of_day_);
     }
     return 1;
 }
 
-int __cdecl HandleUpdateWeather(NetLink::InboundMsgCtx* context)
+int __cdecl handle_update_weather(net::InboundMsgCtx* context)
 {
-    if (!PeerMode() || !IsClientOfNetGame(NetSessionSlot()) || context->m_bodySize < 4)
+    if (!peer_mode() || !is_client_of_net_game(net_session_slot()) || context->body_size_ < 4)
         return 1;
     g_session.have = true;
-    g_session.info.weather = Word(context);
-    if (LevelUp()) {
+    g_session.info.weather = get_word(context);
+    if (level_up()) {
         GameEffects effects;
-        effects.SetWeather(g_session.info.weather);
+        effects.set_weather(g_session.info.weather);
     }
     return 1;
 }
 
 // (THUGPRO registers it and does nothing; no THUGPRO code sends it)
-int __cdecl HandleUpdateLevelOption(NetLink::InboundMsgCtx* /*context*/) { return 1; }
+int __cdecl handle_update_level_option(net::InboundMsgCtx* /*context*/) { return 1; }
 
-int __cdecl HandleModsAllowed(NetLink::InboundMsgCtx* context)
+int __cdecl handle_mods_allowed(net::InboundMsgCtx* context)
 {
     // THUGPRO's client leaves when the host allows no modified scripts and its own are modified. Ours aren't
     // THUGPRO's at all - so a host that allows none is left, as the server removing us (THUG2's dialog).
-    if (!PeerMode() || !IsClientOfNetGame(NetSessionSlot()) || context->m_bodySize < 4 || Word(context) == 1)
+    if (!peer_mode() || !is_client_of_net_game(net_session_slot()) || context->body_size_ < 4 || get_word(context) == 1)
         return 1;
-    Log("thugpro: the host allows no modified scripts (message 159) - leaving");
-    NetLink::InboundMsgCtx removed = *context;
-    removed.m_typeCode = 'Q';
-    return GameModules::SkateNet::HandleServerRemovedYou(&removed);
+    get_log("thugpro: the host allows no modified scripts (message 159) - leaving");
+    net::InboundMsgCtx removed = *context;
+    removed.type_code_ = 'Q';
+    return modules::SkateNet::handle_server_removed_you(&removed);
 }
 
-void TickFrame()
+void tick_frame()
 {
-    Hub* manager = NetSessionSlot();
-    if (!PeerMode() || !IsClientOfNetGame(manager)) {
+    Hub* manager = net_session_slot();
+    if (!peer_mode() || !is_client_of_net_game(manager)) {
         if (g_session.have)
-            Log("thugpro: network game over - the host's options dropped");
+            get_log("thugpro: network game over - the host's options dropped");
         g_session = Session();
         return;
     }
-    uint32_t now = FrameClock::GetTime();
-    bool loaded = g_session.lastTime != 0 && now - g_session.lastTime > kLoadGapMs;
-    g_session.lastTime = now;
-    void* skater = GameObjects::FindObject(kSkater);
-    if (loaded || !skater || manager->m_level == kLoadMainMenu || manager->m_level != g_session.level ||
+    uint32_t now = frame_clock::get_time();
+    bool loaded = g_session.last_time_ != 0 && now - g_session.last_time_ > kLoadGapMs;
+    g_session.last_time_ = now;
+    void* skater = objects::find_object(kSkater);
+    if (loaded || !skater || manager->level_ == kLoadMainMenu || manager->level_ != g_session.level ||
         skater != g_session.skater) {
-        if (loaded || manager->m_level != g_session.level || skater != g_session.skater)
+        if (loaded || manager->level_ != g_session.level || skater != g_session.skater)
             g_session.applied = false;
-        g_session.level = manager->m_level;
+        g_session.level = manager->level_;
         g_session.skater = skater;
         g_session.settle = 0;
-        if (!skater || manager->m_level == kLoadMainMenu)
+        if (!skater || manager->level_ == kLoadMainMenu)
             return;
     }
     if (g_session.settle < kSettleFrames) {
@@ -614,18 +614,18 @@ void TickFrame()
         return;
     }
     if (g_session.have && !g_session.applied)
-        ApplySession();
+        apply_session();
 }
 
 // --- Hosting ---
 
-HostListing HostServerInfo()
+HostListing host_server_info()
 {
-    HostListing info = {Gfx2D::kAfternoon, g_host.weather, MakeFlags(g_host.levelOptions, g_host.proSets)};
-    if (Gfx2D::CTODManager* manager = Gfx2D::TODManager()) {
-        uint32_t state = manager->CurrentState();
-        if (IsTimeOfDay(state))
-            info.timeOfDay = state;
+    HostListing info = {gfx::kAfternoon, g_host.weather, make_flags(g_host.level_options_, g_host.pro_sets_)};
+    if (gfx::CtodManager* manager = gfx::tod_manager()) {
+        uint32_t state = manager->current_state();
+        if (is_time_of_day(state))
+            info.time_of_day_ = state;
     }
     return info;
 }
@@ -633,15 +633,15 @@ HostListing HostServerInfo()
 namespace {
 
 // The time-of-day / weather names of the chat commands.
-uint32_t StateNamed(const char* word, const char* const* names, size_t count)
+uint32_t state_named(const char* word, const char* const* names, size_t count)
 {
     for (size_t i = 0; i < count; ++i)
         if (_stricmp(word, names[i]) == 0)
-            return Checksums::HashFromText(names[i]);
+            return checksums::hash_from_text(names[i]);
     return 0;
 }
 
-bool OnOff(const char* word, bool* on)
+bool on_off(const char* word, bool* on)
 {
     if (_stricmp(word, "on") == 0)
         *on = true;
@@ -652,94 +652,94 @@ bool OnOff(const char* word, bool* on)
     return true;
 }
 
-void Say(const char* line) { ShowLocalChatLine(line); }
+void get_say(const char* line) { show_local_chat_line(line); }
 
 } // namespace
 
-bool HandleChatCommand(const char* text)
+bool handle_chat_command(const char* text)
 {
-    if (!PeerMode() || text[0] != '/')
+    if (!peer_mode() || text[0] != '/')
         return false;
     char command[16] = {}, first[24] = {}, second[8] = {};
     int words = sscanf_s(text, "/%15s %23s %7s", command, static_cast<unsigned>(sizeof(command)), first,
                          static_cast<unsigned>(sizeof(first)), second, static_cast<unsigned>(sizeof(second)));
     if (words < 1)
         return false;
-    Hub* manager = NetSessionSlot();
-    bool client = IsClientOfNetGame(manager);
+    Hub* manager = net_session_slot();
+    bool client = is_client_of_net_game(manager);
     char line[160];
     if (_stricmp(command, "thugpro") == 0) {
         const HostListing& info = g_session.info;
         std::snprintf(line, sizeof(line),
                       "\\c4thugpro:\\c0 machine id %08X; %s; time of day %08X, weather %08X, options %02X, pro sets "
                       "%02X",
-                      MachineId(), client ? (g_session.have ? "the host's" : "no host options yet") : "ours",
-                      client ? info.timeOfDay : HostServerInfo().timeOfDay, client ? info.weather : g_host.weather,
-                      client ? LevelOptions(info) : g_host.levelOptions, client ? ProSets(info) : g_host.proSets);
-        Say(line);
+                      get_machine_id(), client ? (g_session.have ? "the host's" : "no host options yet") : "ours",
+                      client ? info.time_of_day_ : host_server_info().time_of_day_, client ? info.weather : g_host.weather,
+                      client ? get_level_options(info) : g_host.level_options_, client ? get_pro_sets(info) : g_host.pro_sets_);
+        get_say(line);
         return true;
     }
     bool tod = _stricmp(command, "tod") == 0;
     bool weather = _stricmp(command, "weather") == 0;
     bool option = _stricmp(command, "option") == 0;
-    bool proSet = _stricmp(command, "proset") == 0;
-    if (!tod && !weather && !option && !proSet)
+    bool pro_set = _stricmp(command, "proset") == 0;
+    if (!tod && !weather && !option && !pro_set)
         return false;
     if (client) {
-        Say("\\c4thugpro:\\c0 only the host sets the time of day, weather and options");
+        get_say("\\c4thugpro:\\c0 only the host sets the time of day, weather and options");
         return true;
     }
     GameEffects effects;
     if (tod || weather) {
         static const char* const kTimes[] = {"morning", "afternoon", "evening", "night"};
         static const char* const kWeathers[] = {"default", "clear", "rain", "snow"};
-        uint32_t state = tod ? StateNamed(first, kTimes, 4) : StateNamed(first, kWeathers, 4);
+        uint32_t state = tod ? state_named(first, kTimes, 4) : state_named(first, kWeathers, 4);
         if (words < 2 || !state) {
-            Say(tod ? "\\c4thugpro:\\c0 /tod morning|afternoon|evening|night"
+            get_say(tod ? "\\c4thugpro:\\c0 /tod morning|afternoon|evening|night"
                     : "\\c4thugpro:\\c0 /weather default|clear|rain|snow");
             return true;
         }
         if (tod) {
-            effects.SetTimeOfDay(state);
-            Broadcast(kMsgUpdateTimeOfDay, state);
+            effects.set_time_of_day(state);
+            get_broadcast(kMsgUpdateTimeOfDay, state);
         } else {
             g_host.weather = state;
-            effects.SetWeather(state);
-            Broadcast(kMsgUpdateWeather, state);
+            effects.set_weather(state);
+            get_broadcast(kMsgUpdateWeather, state);
         }
         std::snprintf(line, sizeof(line), "\\c4thugpro:\\c0 %s %s%s", command, first,
-                      IsHostOfNetGame(manager) ? " (sent to the players)" : "");
-        Say(line);
+                      is_host_of_net_game(manager) ? " (sent to the players)" : "");
+        get_say(line);
         return true;
     }
     // /option n on|off, /proset n on|off: here now, to the players with the next game's server info (THUGPRO
     // changes them in a game through its own flag broadcast, which THUG2's scripts don't have).
     int n = std::atoi(first);
     bool on = false;
-    if (words < 3 || n < 1 || n > 8 || !OnOff(second, &on)) {
-        Say(option ? "\\c4thugpro:\\c0 /option <1-8> on|off" : "\\c4thugpro:\\c0 /proset <1-8> on|off (8: G_COMP)");
+    if (words < 3 || n < 1 || n > 8 || !on_off(second, &on)) {
+        get_say(option ? "\\c4thugpro:\\c0 /option <1-8> on|off" : "\\c4thugpro:\\c0 /proset <1-8> on|off (8: G_COMP)");
         return true;
     }
     uint8_t bit = static_cast<uint8_t>(1 << (n - 1));
-    uint32_t load = manager ? manager->m_level : 0;
+    uint32_t load = manager ? manager->level_ : 0;
     if (option) {
-        g_host.levelOptions = static_cast<uint8_t>(on ? g_host.levelOptions | bit : g_host.levelOptions & ~bit);
-        const char* prefix = CurrentLevelPrefix();
+        g_host.level_options_ = static_cast<uint8_t>(on ? g_host.level_options_ | bit : g_host.level_options_ & ~bit);
+        const char* prefix = current_level_prefix();
         char name[96];
         std::snprintf(name, sizeof(name), "%s_LEVEL_CHANGE_0%d", prefix ? prefix : "", n);
-        bool ran = prefix && effects.LaunchScript(Checksums::HashFromText(name), on);
+        bool ran = prefix && effects.launch_script(checksums::hash_from_text(name), on);
         std::snprintf(line, sizeof(line), "\\c4thugpro:\\c0 level option %d %s%s", n, on ? "on" : "off",
                       ran ? "" : " (this level has no such option)");
     } else {
-        g_host.proSets = static_cast<uint8_t>(on ? g_host.proSets | bit : g_host.proSets & ~bit);
-        bool here = ProSetLevel(load);
+        g_host.pro_sets_ = static_cast<uint8_t>(on ? g_host.pro_sets_ | bit : g_host.pro_sets_ & ~bit);
+        bool here = pro_set_level(load);
         if (here)
-            ApplyProSet(n - 1, on, load, effects);
+            apply_pro_set(n - 1, on, load, effects);
         std::snprintf(line, sizeof(line), "\\c4thugpro:\\c0 pro set %d %s%s", n, on ? "on" : "off",
                       here ? "" : " (only THPS4's levels and New York have them)");
     }
-    Say(line);
+    get_say(line);
     return true;
 }
 
-} // namespace OnlinePlay::Thugpro
+} // namespace online::Thugpro

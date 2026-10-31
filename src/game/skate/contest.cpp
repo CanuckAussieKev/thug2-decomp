@@ -1,4 +1,4 @@
-// GameModules::CContest: 0x0054FFD0-0x005517BF (see contest.h).
+// modules::Contest: 0x0054FFD0-0x005517BF (see contest.h).
 
 #include "game/skate/contest.h"
 
@@ -17,18 +17,18 @@
 #include "engine/gfx/tod_manager.h"
 #include "engine/gfx/loading_bar.h"
 
-namespace GameModules {
+namespace modules {
 
-float g_competitionTiny{0.0001f};
-float g_competitionTwo{2.0f};
-float g_competitionThird{0.33333334f};
-float g_competitionThree{3.0f};
-float g_competitionEighth{0.125f};
-float g_competitionNearlyHalf{0.499999f};
-float g_competitionNinetyNine{99.0f};
-float g_competitionOverHalf{0.500099f};
-float g_competitionMaxJudge{99.85f};
-float g_competitionMaxPoints{99.9f};
+float g_competition_tiny{0.0001f};
+float g_competition_two{2.0f};
+float g_competition_third{0.33333334f};
+float g_competition_three{3.0f};
+float g_competition_eighth{0.125f};
+float g_competition_nearly_half{0.499999f};
+float g_competition_ninety_nine{99.0f};
+float g_competition_over_half{0.500099f};
+float g_competition_max_judge{99.85f};
+float g_competition_max_points{99.9f};
 
 namespace {
 
@@ -41,82 +41,82 @@ constexpr uint32_t kPlayer = 0x67E6859A;            // player
 constexpr uint32_t kTopJudge = 0x7B1B959F;          // top_judge
 constexpr uint32_t kRankingList = 0x370B9420;       // leader_board
 constexpr uint32_t kAddLeaderBoard = 0xCE76F8C1;    // goal_comp_add_leader_board
-constexpr uint32_t kJudgeNames[CContest::kJudges] = {
+constexpr uint32_t kJudgeNames[Contest::kJudges] = {
     0x84F93830, 0x1DF0698A, 0x6AF7591C, 0xF493CCBF, 0x8394FC29, // comp_str_Judge1..5
 };
 
 // The constants, as the original reads them.
-float Tenth() { return Scripts::g_parseNudge; }        // 0.1
-float Eighth() { return g_competitionEighth; }       // 0.125
-float Two() { return g_competitionTwo; }          // 2.0
-float NearlyHalf() { return g_competitionNearlyHalf; }   // 0.4999990 (rounding to the nearest)
-float Hundred() { return Gfx2D::g_hundred; }      // 100
-float MaxPoints() { return g_competitionMaxPoints; }    // 99.9
-float Half() { return Gfx2D::g_half; }         // 0.5
-float Zero() { return GameObjects::g_floatZero; }         // 0
-float MaxJudge() { return g_competitionMaxJudge; }     // 99.85
-float Three() { return g_competitionThree; }        // 3
-float Ten() { return Engine3D::g_floatTen; }          // 10
-float Tiny() { return g_competitionTiny; }         // 0.0001
-float OverHalf() { return g_competitionOverHalf; }     // 0.500099
-float NinetyNine() { return g_competitionNinetyNine; }   // 99
-float Third() { return g_competitionThird; }        // 1/3
+float tenth() { return script::g_parse_nudge; }        // 0.1
+float eighth() { return g_competition_eighth; }       // 0.125
+float two() { return g_competition_two; }          // 2.0
+float nearly_half() { return g_competition_nearly_half; }   // 0.4999990 (rounding to the nearest)
+float hundred() { return gfx::g_hundred; }      // 100
+float max_points() { return g_competition_max_points; }    // 99.9
+float get_half() { return gfx::g_half; }         // 0.5
+float get_zero() { return objects::g_float_zero; }         // 0
+float max_judge() { return g_competition_max_judge; }     // 99.85
+float three() { return g_competition_three; }        // 3
+float ten() { return render::g_float_ten; }          // 10
+float tiny() { return g_competition_tiny; }         // 0.0001
+float over_half() { return g_competition_over_half; }     // 0.500099
+float ninety_nine() { return g_competition_ninety_nine; }   // 99
+float get_third() { return g_competition_third; }        // 1/3
 constexpr float kScoreSpread = 1.9f;                             // (0x3FF33333, pushed as an immediate)
 
 // The x87 code's conversions: truncation toward zero (_ftol).
-int Truncate(double value) { return static_cast<int>(value); }
+int truncate(double value) { return static_cast<int>(value); }
 // A score rounded to the nearest (the original adds 0.499999 and truncates).
-int Round(float value) { return Truncate(static_cast<double>(value) + NearlyHalf()); }
+int current_round(float value) { return truncate(static_cast<double>(value) + nearly_half()); }
 
-GameObjects::CProfileRoster* RosterHandle() { return GameObjects::g_profileRoster; }
+objects::ProfileRoster* roster_handle() { return objects::g_profile_roster; }
 // The profile manager's template at `index` (0x00557FB0) and its count (0x00469490: the table's).
-GameObjects::CRiderIdentity* TemplateAt(GameObjects::CProfileRoster* manager, int index)
+objects::RiderIdentity* template_at(objects::ProfileRoster* manager, int index)
 {
     // (0x00557FB0 is the lookup table's by-index code, shared with the goal manager's: its first member is the table too)
-    return reinterpret_cast<GameObjects::CRiderIdentity*>(reinterpret_cast<GoalSystem::CGoalManager*>(manager)->GetObjectiveAt(index));
+    return reinterpret_cast<objects::RiderIdentity*>(reinterpret_cast<goals::GoalManager*>(manager)->get_objective_at(index));
 }
 
 // The goal manager (0x005591B0) and its active competition goal (0x00558D90; null: none).
-bool CompetitionGoalActive()
+bool competition_goal_active()
 {
-    return GoalSystem::GetObjectiveBoard()->GetActiveCompetition() != nullptr;
+    return goals::get_objective_board()->get_active_competition() != nullptr;
 }
 
-Scripts::CStruct* SpawnParamTable()
+script::Struct* spawn_param_table()
 {
-    Scripts::CStruct* structure = Scripts::SpawnParamBag();
-    return structure ? structure->PrepareAll() : nullptr;
+    script::Struct* structure = script::spawn_param_bag();
+    return structure ? structure->prepare_all() : nullptr;
 }
-void DeleteStructure(Scripts::CStruct* structure)
+void delete_structure(script::Struct* structure)
 {
     if (structure) {
-        structure->Clear();
-        Scripts::DeleteStruct(structure);
+        structure->get_clear();
+        script::delete_struct(structure);
     }
 }
-Scripts::CArray* AllocScriptArray()
+script::Array* alloc_script_array()
 {
-    Scripts::CArray* array = Scripts::AllocScriptArray();
-    return array ? array->PrepareAll() : nullptr;
+    script::Array* array = script::alloc_script_array();
+    return array ? array->prepare_all() : nullptr;
 }
 // An array handed to a structure (which copied it): its contents and itself freed.
-void FreeArray(Scripts::CArray* array)
+void free_array(script::Array* array)
 {
-    Scripts::ReleaseArrayStorage(array);
+    script::release_array_storage(array);
     if (array) {
-        array->Clear();
-        Scripts::DeleteArray(array);
+        array->get_clear();
+        script::delete_array(array);
     }
 }
 
 } // namespace
 
-int CContest::Leader::BestTwo(int count) const
+int Contest::Leader::best_two(int count) const
 {
     int best = 0;
     int second = 0;
     for (int i = 0; i < count; ++i) {
-        int score = m_scores[i];
+        int score = scores_[i];
         if (score > best) {
             second = best;
             best = score;
@@ -127,12 +127,12 @@ int CContest::Leader::BestTwo(int count) const
     return best + second;
 }
 
-int CContest::Leader::BestTwoOfFourWords() const
+int Contest::Leader::best_two_of_four_words() const
 {
     int best = 0;
     int second = 0;
     for (int i = 0; i < 4; ++i) {
-        int score = Word(i);
+        int score = get_word(i);
         if (score > best) {
             second = best;
             best = score;
@@ -144,39 +144,39 @@ int CContest::Leader::BestTwoOfFourWords() const
 }
 
 // 0x0054FFD0
-CContest::Leader* CContest::Leader::MakeNew()
+Contest::Leader* Contest::Leader::make_new()
 {
-    new (&m_label) TextUtil::Chars();
+    new (&label_) text::Chars();
     return this;
 }
 
 // 0x0054FFF0
-void CContest::DestroyBody()
+void Contest::destroy_body()
 {
     // (the compiler's array-destructor helper, 0x0062382B: last to first)
     for (int i = 7; i >= 0; --i)
-        m_leaders[i].m_label.~Chars();
+        leaders_[i].label_.~Chars();
 }
 
 // 0x00550010
-void CContest::RewriteArgs(Scripts::CStruct* params) { m_args->AppendStructureIfAny(params); }
+void Contest::rewrite_args(script::Struct* params) { args_->append_structure_if_any(params); }
 
 // 0x00550020
-void CContest::BeginTimedSession()
+void Contest::begin_timed_session()
 {
-    ++m_runs;
-    m_pathVertices = 0.0f;
-    m_crashPenalty = 0.0f;
+    ++runs_;
+    path_vertices_ = 0.0f;
+    crash_penalty_ = 0.0f;
 }
 
 // 0x00550040
-bool CContest::IsLeadingScorer(int judge)
+bool Contest::is_leading_scorer(int judge)
 {
     // The judges by score, highest first (a selection sort; equal scores keep their order).
     int order[kJudges] = {0, 1, 2, 3, 4};
     for (int i = 0; i < kJudges; ++i) {
         for (int j = i; j < kJudges; ++j) {
-            if (m_judgeScores[order[i]] < m_judgeScores[order[j]]) {
+            if (judge_scores_[order[i]] < judge_scores_[order[j]]) {
                 int swap = order[i];
                 order[i] = order[j];
                 order[j] = swap;
@@ -187,123 +187,123 @@ bool CContest::IsLeadingScorer(int judge)
 }
 
 // 0x005501A0
-bool CContest::PlaceIs(int place) { return place == m_standing; }
+bool Contest::place_is(int place) { return place == standing_; }
 
 // 0x005501C0
-bool CContest::RoundIs(int round) { return round == m_runs + 1; }
+bool Contest::round_is(int round) { return round == runs_ + 1; }
 
 // 0x005501E0
-void CContest::End() { m_ended = true; }
+void Contest::get_end() { ended_ = true; }
 
 // 0x005501F0
-bool CContest::IsEnded() { return m_ended; }
+bool Contest::is_ended() { return ended_; }
 
 // 0x00550200
-void CContest::SortLeaders()
+void Contest::sort_leaders()
 {
-    int count = (m_ended ? 2 : m_runs) + 1;
+    int count = (ended_ ? 2 : runs_) + 1;
     for (int i = 0; i < kLeaders - 1; ++i) {
         int best = i;
         for (int j = i + 1; j < kLeaders; ++j) {
-            int score = m_leaders[j].BestTwo(count);
-            int bestScore = m_leaders[best].BestTwo(count);
-            if (score > bestScore || (m_leaders[j].m_ident == 0 && score == bestScore))
+            int score = leaders_[j].best_two(count);
+            int best_score = leaders_[best].best_two(count);
+            if (score > best_score || (leaders_[j].ident_ == 0 && score == best_score))
                 best = j;
         }
         if (best != i) {
-            // (a leader's copy: the name, the id, the scores and m_unknown1C - not the padding)
-            Leader& a = m_leaders[best];
-            Leader& b = m_leaders[i];
-            TextUtil::Chars name(a.m_label);
-            int id = a.m_ident;
-            int scores[kRuns] = {a.m_scores[0], a.m_scores[1], a.m_scores[2]};
-            bool unknown = a.m_unknown1C;
-            a.m_label = b.m_label;
-            a.m_ident = b.m_ident;
+            // (a leader's copy: the name, the id, the scores and unknown1c_ - not the padding)
+            Leader& a = leaders_[best];
+            Leader& b = leaders_[i];
+            text::Chars name(a.label_);
+            int id = a.ident_;
+            int scores[kRuns] = {a.scores_[0], a.scores_[1], a.scores_[2]};
+            bool unknown = a.unknown1c_;
+            a.label_ = b.label_;
+            a.ident_ = b.ident_;
             for (int k = 0; k < kRuns; ++k)
-                a.m_scores[k] = b.m_scores[k];
-            a.m_unknown1C = b.m_unknown1C;
-            b.m_label = name;
-            b.m_ident = id;
+                a.scores_[k] = b.scores_[k];
+            a.unknown1c_ = b.unknown1c_;
+            b.label_ = name;
+            b.ident_ = id;
             for (int k = 0; k < kRuns; ++k)
-                b.m_scores[k] = scores[k];
-            b.m_unknown1C = unknown;
+                b.scores_[k] = scores[k];
+            b.unknown1c_ = unknown;
         }
     }
 }
 
 // 0x005504B0
-CContest* CContest::MakeNew(int)
+Contest* Contest::make_new(int)
 {
     // (the compiler's array-constructor helper, 0x0062388B)
-    for (Leader& leader : m_leaders)
-        leader.MakeNew();
-    m_args = SpawnParamTable();
+    for (Leader& leader : leaders_)
+        leader.make_new();
+    args_ = spawn_param_table();
     return this;
 }
 
 // 0x00550560
-void CContest::Kickoff(float bronze, float silver, float gold, float bronzeScore, float silverScore,
-                         float goldScore, float bailPenalty)
+void Contest::kickoff(float bronze, float silver, float gold, float bronze_score, float silver_score,
+                         float gold_score, float bail_penalty)
 {
-    m_thirdMark = bronze;
-    m_secondMark = silver;
-    m_topMark = gold;
-    m_bronzeScore = bronzeScore;
-    m_silverScore = silverScore;
-    m_goldScore = goldScore;
-    m_bailPenalty = bailPenalty;
-    m_ended = false;
+    third_mark_ = bronze;
+    second_mark_ = silver;
+    top_mark_ = gold;
+    bronze_score_ = bronze_score;
+    silver_score_ = silver_score;
+    gold_score_ = gold_score;
+    bail_penalty_ = bail_penalty;
+    ended_ = false;
 
-    GameObjects::CProfileRoster* manager = RosterHandle();
-    m_leaders[0].m_label = manager->FetchActiveAccount()->FetchShownName();
+    objects::ProfileRoster* manager = roster_handle();
+    leaders_[0].label_ = manager->fetch_active_account()->fetch_shown_name();
 
     // The pros that can compete: not hidden (0xF3149AC5) and not the player, in a random order.
     int pros[96]; // (the original's stack room)
-    int proCount = 0;
-    int templates = static_cast<int>(manager->m_templates.m_num);
+    int pro_count = 0;
+    int templates = static_cast<int>(manager->templates_.num_);
     for (int i = 0; i < templates; ++i) {
-        GameObjects::CRiderIdentity* profile = TemplateAt(manager, i);
-        if (profile->IsPro() && !profile->HasFlagF3149AC5() &&
-            Checksums::HashFromText(profile->FetchShownName()) !=
-                Checksums::HashFromText(m_leaders[0].m_label.c_str()))
-            pros[proCount++] = i;
+        objects::RiderIdentity* profile = template_at(manager, i);
+        if (profile->is_pro() && !profile->has_flag_f_3149a_c5() &&
+            checksums::hash_from_text(profile->fetch_shown_name()) !=
+                checksums::hash_from_text(leaders_[0].label_.c_str()))
+            pros[pro_count++] = i;
     }
-    for (int i = 0; i < proCount; ++i) {
-        int other = Maths::RollSideStream(proCount);
+    for (int i = 0; i < pro_count; ++i) {
+        int other = maths::roll_side_stream(pro_count);
         int swap = pros[i];
         pros[i] = pros[other];
         pros[other] = swap;
     }
     int ids[kLeaders - 1] = {1, 2, 3, 4, 5, 6, 7};
     for (int i = 0; i < kLeaders - 1; ++i) {
-        int other = Maths::RollSideStream(kLeaders - 1);
+        int other = maths::roll_side_stream(kLeaders - 1);
         int swap = ids[i];
         ids[i] = ids[other];
         ids[other] = swap;
     }
 
-    m_leaders[0].m_ident = 0;
-    for (int& score : m_leaders[0].m_scores)
+    leaders_[0].ident_ = 0;
+    for (int& score : leaders_[0].scores_)
         score = 0;
-    bronze = static_cast<float>(Maths::PlusOrMinusExact(Two()) + bronze);
-    silver = static_cast<float>(Maths::PlusOrMinusExact(Two()) + silver);
-    gold = static_cast<float>(Maths::PlusOrMinusExact(Two()) + gold);
+    bronze = static_cast<float>(maths::plus_or_minus_exact(two()) + bronze);
+    silver = static_cast<float>(maths::plus_or_minus_exact(two()) + silver);
+    gold = static_cast<float>(maths::plus_or_minus_exact(two()) + gold);
     if (!(silver < gold))
-        silver = static_cast<float>(static_cast<double>(gold) - Tenth());
+        silver = static_cast<float>(static_cast<double>(gold) - tenth());
     if (!(bronze < silver))
-        bronze = static_cast<float>(static_cast<double>(silver) - Tenth());
+        bronze = static_cast<float>(static_cast<double>(silver) - tenth());
 
     for (int i = 0; i < kLeaders - 1; ++i) {
-        Leader& leader = m_leaders[i + 1];
-        leader.m_ident = ids[i];
-        Scripts::CArray* names;
+        Leader& leader = leaders_[i + 1];
+        leader.ident_ = ids[i];
+        script::Array* names;
         const char* name;
-        if (m_args->FetchList(kLeaderBoardNames, &names, 0))
-            name = names->FindInlineText(static_cast<uint32_t>(i));
+        if (args_->fetch_list(kLeaderBoardNames, &names, 0))
+            name = names->find_inline_text(static_cast<uint32_t>(i));
         else
-            name = manager->GetTemplate(manager->GetTemplateName(pros[i]))->FetchShownName();
-        leader.m_label = name;
+            name = manager->get_template(manager->get_template_name(pros[i]))->fetch_shown_name();
+        leader.label_ = name;
 
         // The first three pros near the medal points, the others near the bronze.
         float points;
@@ -314,174 +314,174 @@ void CContest::Kickoff(float bronze, float silver, float gold, float bronzeScore
         } else if (i == 2) {
             points = bronze;
         } else {
-            float spread = static_cast<float>(static_cast<double>(bronze) * Eighth());
-            double random = Maths::PlusOrMinusExact(spread);
+            float spread = static_cast<float>(static_cast<double>(bronze) * eighth());
+            double random = maths::plus_or_minus_exact(spread);
             points = static_cast<float>(static_cast<double>(bronze) - spread + random);
             if (!(points < bronze))
-                points = static_cast<float>(static_cast<double>(bronze) - Tenth());
+                points = static_cast<float>(static_cast<double>(bronze) - tenth());
         }
         // Two judges' scores either side of the points, the third a little lower.
-        float high = static_cast<float>(Maths::PlusOrMinusExact(Two()) + points);
+        float high = static_cast<float>(maths::plus_or_minus_exact(two()) + points);
         float low = high;
         float mirrored = static_cast<float>(static_cast<double>(points) + points - high);
         if (mirrored < high)
             low = mirrored;
-        int first = Maths::RollSideStream(3);
+        int first = maths::roll_side_stream(3);
         int second;
         do {
-            second = Maths::RollSideStream(3);
+            second = maths::roll_side_stream(3);
         } while (second == first);
-        float base = low - Two();
-        for (int& score : leader.m_scores)
-            score = Truncate(Maths::PlusOrMinusExact(kScoreSpread) + base + NearlyHalf());
-        leader.m_scores[first] = Round(high);
-        leader.m_scores[second] = Round(mirrored);
+        float base = low - two();
+        for (int& score : leader.scores_)
+            score = truncate(maths::plus_or_minus_exact(kScoreSpread) + base + nearly_half());
+        leader.scores_[first] = current_round(high);
+        leader.scores_[second] = current_round(mirrored);
     }
 
-    DebugOut::Printf("\n\n");
+    debug::printf("\n\n");
     for (int i = 0; i < kLeaders; ++i) {
-        Leader& leader = m_leaders[i];
-        DebugOut::Printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.m_ident, leader.m_label.c_str(), leader.Word(0),
-                    leader.Word(1), leader.Word(2), leader.BestTwoOfFourWords());
+        Leader& leader = leaders_[i];
+        debug::printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.ident_, leader.label_.c_str(), leader.get_word(0),
+                    leader.get_word(1), leader.get_word(2), leader.best_two_of_four_words());
     }
-    SortLeaders();
-    const char* firstPlace;
-    if (m_args->FetchText(kFirstPlaceName, &firstPlace, 0))
-        m_leaders[0].m_label = firstPlace;
-    DebugOut::Printf("\nSorted\n");
+    sort_leaders();
+    const char* first_place;
+    if (args_->fetch_text(kFirstPlaceName, &first_place, 0))
+        leaders_[0].label_ = first_place;
+    debug::printf("\nSorted\n");
     for (int i = 0; i < kLeaders; ++i) {
-        Leader& leader = m_leaders[i];
-        DebugOut::Printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.m_ident, leader.m_label.c_str(), leader.Word(0),
-                    leader.Word(1), leader.Word(2), leader.BestTwoOfFourWords());
+        Leader& leader = leaders_[i];
+        debug::printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.ident_, leader.label_.c_str(), leader.get_word(0),
+                    leader.get_word(1), leader.get_word(2), leader.best_two_of_four_words());
     }
     for (int i = 0; i < kJudges; ++i)
-        m_judgeNames[i] = Scripts::FetchText(kJudgeNames[i]);
-    m_runs = -1;
+        judge_names_[i] = script::fetch_text(kJudgeNames[i]);
+    runs_ = -1;
 }
 
 // 0x00550B50
-void CContest::ShowLeaderBoard()
+void Contest::show_leader_board()
 {
-    if (!CompetitionGoalActive())
+    if (!competition_goal_active())
         return;
-    Scripts::CStruct* params = SpawnParamTable();
-    Scripts::CArray* board = AllocScriptArray();
-    board->ConfigureSizeKind(5, Scripts::QBVAL_STRUCT);
-    DebugOut::Printf("\nSetupJudgeText\n");
+    script::Struct* params = spawn_param_table();
+    script::Array* board = alloc_script_array();
+    board->configure_size_kind(5, script::kQbvalStruct);
+    debug::printf("\nSetupJudgeText\n");
     for (int i = 0; i < kLeaders; ++i) {
-        Leader& leader = m_leaders[i];
-        DebugOut::Printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.m_ident, leader.m_label.c_str(), leader.Word(0),
-                    leader.Word(1), leader.Word(2), leader.BestTwoOfFourWords());
+        Leader& leader = leaders_[i];
+        debug::printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.ident_, leader.label_.c_str(), leader.get_word(0),
+                    leader.get_word(1), leader.get_word(2), leader.best_two_of_four_words());
     }
     for (int i = 0; i < 5; ++i) {
-        Leader& leader = m_leaders[i];
-        Scripts::CStruct* entry = SpawnParamTable();
-        entry->AppendWord(kName, leader.m_label.c_str());
-        DebugOut::Printf("m_current_round: %i\n", m_runs);
-        entry->PutInt(kScore, leader.BestTwo(m_runs + 1));
-        if (leader.m_ident == 0)
-            entry->PutNameKey(kNoName, kPlayer);
-        board->SetElement(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(entry));
+        Leader& leader = leaders_[i];
+        script::Struct* entry = spawn_param_table();
+        entry->append_word(kName, leader.label_.c_str());
+        debug::printf("m_current_round: %i\n", runs_);
+        entry->put_int(kScore, leader.best_two(runs_ + 1));
+        if (leader.ident_ == 0)
+            entry->put_name_key(kNoName, kPlayer);
+        board->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(entry));
     }
-    params->AppendArrayValue(kRankingList, board);
-    FreeArray(board);
-    Scripts::SpawnScript(kAddLeaderBoard, params, 0, nullptr, 0, 0, false, false, false, false);
-    DeleteStructure(params);
+    params->append_array_value(kRankingList, board);
+    free_array(board);
+    script::spawn_script(kAddLeaderBoard, params, 0, nullptr, 0, 0, false, false, false, false);
+    delete_structure(params);
 }
 
 // 0x00550EF0
-void CContest::EndRun(int score)
+void Contest::end_run(int score)
 {
-    if (m_ended)
+    if (ended_)
         return;
-    DebugOut::Printf("Ending Competition with score of %d\n", score);
-    DebugOut::Printf("Bronze %f, silver %f, gold %f\n", static_cast<double>(m_bronzeScore),
-                static_cast<double>(m_silverScore), static_cast<double>(m_goldScore));
+    debug::printf("Ending Competition with score of %d\n", score);
+    debug::printf("Bronze %f, silver %f, gold %f\n", static_cast<double>(bronze_score_),
+                static_cast<double>(silver_score_), static_cast<double>(gold_score_));
 
     // The points: linear between the medal scores (above gold: towards 100 at twice the gold score).
     double x = score;
     float points;
-    if (x < m_bronzeScore)
-        points = static_cast<float>(static_cast<double>(m_thirdMark) / m_bronzeScore * x);
-    else if (x < m_silverScore)
-        points = static_cast<float>((static_cast<double>(m_secondMark) - m_thirdMark) * (x - m_bronzeScore) /
-                                        (static_cast<double>(m_silverScore) - m_bronzeScore) +
-                                    m_thirdMark);
-    else if (x < m_goldScore)
-        points = static_cast<float>((static_cast<double>(m_topMark) - m_secondMark) * (x - m_silverScore) /
-                                        (static_cast<double>(m_goldScore) - m_silverScore) +
-                                    m_secondMark);
+    if (x < bronze_score_)
+        points = static_cast<float>(static_cast<double>(third_mark_) / bronze_score_ * x);
+    else if (x < silver_score_)
+        points = static_cast<float>((static_cast<double>(second_mark_) - third_mark_) * (x - bronze_score_) /
+                                        (static_cast<double>(silver_score_) - bronze_score_) +
+                                    third_mark_);
+    else if (x < gold_score_)
+        points = static_cast<float>((static_cast<double>(top_mark_) - second_mark_) * (x - silver_score_) /
+                                        (static_cast<double>(gold_score_) - silver_score_) +
+                                    second_mark_);
     else
-        points = static_cast<float>((x - m_goldScore) * (static_cast<double>(Hundred()) - m_topMark) /
-                                        (static_cast<double>(m_goldScore) + m_goldScore - m_goldScore) +
-                                    m_topMark);
-    DebugOut::Printf("points calculated at %f\n", static_cast<double>(points));
-    points = points - m_crashPenalty;
-    DebugOut::Printf("points decremented by %f bail points to %f\n", static_cast<double>(m_crashPenalty),
+        points = static_cast<float>((x - gold_score_) * (static_cast<double>(hundred()) - top_mark_) /
+                                        (static_cast<double>(gold_score_) + gold_score_ - gold_score_) +
+                                    top_mark_);
+    debug::printf("points calculated at %f\n", static_cast<double>(points));
+    points = points - crash_penalty_;
+    debug::printf("points decremented by %f bail points to %f\n", static_cast<double>(crash_penalty_),
                 static_cast<double>(points));
 
-    float max = MaxPoints();
-    m_pathVertices = points;
+    float max = max_points();
+    path_vertices_ = points;
     if (!(points <= max))
-        m_pathVertices = max;
-    float spread = static_cast<float>((static_cast<double>(max) - m_pathVertices) * Tenth());
-    m_pathVertices = static_cast<float>(
-        Maths::PlusOrMinusExact(static_cast<float>((static_cast<double>(max) - m_pathVertices) * Tenth() * Half())) +
-        m_pathVertices);
-    if (!(m_pathVertices <= max))
-        m_pathVertices = max;
-    if (m_pathVertices < Zero())
-        m_pathVertices = 0.0f;
+        path_vertices_ = max;
+    float spread = static_cast<float>((static_cast<double>(max) - path_vertices_) * tenth());
+    path_vertices_ = static_cast<float>(
+        maths::plus_or_minus_exact(static_cast<float>((static_cast<double>(max) - path_vertices_) * tenth() * get_half())) +
+        path_vertices_);
+    if (!(path_vertices_ <= max))
+        path_vertices_ = max;
+    if (path_vertices_ < get_zero())
+        path_vertices_ = 0.0f;
 
     // The judges: two near the points, the third making the average.
-    float* judges = m_judgeScores;
+    float* judges = judge_scores_;
     for (int i = 0; i < 2; ++i) {
-        judges[i] = static_cast<float>(Maths::PlusOrMinusExact(spread) + m_pathVertices);
-        if (!(judges[i] <= MaxJudge()))
+        judges[i] = static_cast<float>(maths::plus_or_minus_exact(spread) + path_vertices_);
+        if (!(judges[i] <= max_judge()))
             judges[i] = max;
-        if (judges[i] < Zero())
+        if (judges[i] < get_zero())
             judges[i] = 0.0f;
     }
-    judges[2] = static_cast<float>(static_cast<double>(m_pathVertices) * Three() -
+    judges[2] = static_cast<float>(static_cast<double>(path_vertices_) * three() -
                                    (static_cast<double>(judges[1]) + judges[0]));
-    if (judges[2] < Zero())
+    if (judges[2] < get_zero())
         judges[2] = 0.0f;
-    if (!(judges[2] <= MaxJudge()))
+    if (!(judges[2] <= max_judge()))
         judges[2] = max;
     // Each to a tenth (the third with a nudge up), then to a whole score.
-    judges[2] = static_cast<float>(Truncate(static_cast<double>(judges[2]) * Ten()) * static_cast<double>(Tenth()) +
-                                   Tiny());
+    judges[2] = static_cast<float>(truncate(static_cast<double>(judges[2]) * ten()) * static_cast<double>(tenth()) +
+                                   tiny());
     judges[0] = static_cast<float>(
-        Truncate(Truncate(static_cast<double>(judges[0]) * Ten()) * static_cast<double>(Tenth()) + OverHalf()));
+        truncate(truncate(static_cast<double>(judges[0]) * ten()) * static_cast<double>(tenth()) + over_half()));
     float first = judges[0];
-    double second = Truncate(Truncate(static_cast<double>(judges[1]) * Ten()) * static_cast<double>(Tenth()) +
-                             OverHalf());
+    double second = truncate(truncate(static_cast<double>(judges[1]) * ten()) * static_cast<double>(tenth()) +
+                             over_half());
     judges[1] = static_cast<float>(second);
-    judges[2] = static_cast<float>(Truncate(static_cast<double>(judges[2]) + NearlyHalf()));
-    float limit = NinetyNine();
+    judges[2] = static_cast<float>(truncate(static_cast<double>(judges[2]) + nearly_half()));
+    float limit = ninety_nine();
     if (!(first <= limit))
         judges[0] = limit;
     if (!(second <= limit))
         judges[1] = limit;
     if (!(judges[2] <= limit))
         judges[2] = limit;
-    m_pathVertices = static_cast<float>(Truncate(
-        (static_cast<double>(judges[1]) + judges[2] + judges[0]) * Third() + NearlyHalf()));
-    if (!(m_pathVertices <= limit))
-        m_pathVertices = limit;
-    m_runTotals[m_runs] = Truncate(m_pathVertices);
-    DebugOut::Printf("3 scores are %f,%f,%f, total is %f\n", static_cast<double>(judges[0]),
-                static_cast<double>(judges[1]), static_cast<double>(judges[2]), static_cast<double>(m_pathVertices));
+    path_vertices_ = static_cast<float>(truncate(
+        (static_cast<double>(judges[1]) + judges[2] + judges[0]) * get_third() + nearly_half()));
+    if (!(path_vertices_ <= limit))
+        path_vertices_ = limit;
+    run_totals_[runs_] = truncate(path_vertices_);
+    debug::printf("3 scores are %f,%f,%f, total is %f\n", static_cast<double>(judges[0]),
+                static_cast<double>(judges[1]), static_cast<double>(judges[2]), static_cast<double>(path_vertices_));
 
     // The player's score of the run, the standings, the place.
-    for (Leader& leader : m_leaders) {
-        if (leader.m_ident == 0)
-            leader.m_scores[m_runs] = m_runTotals[m_runs];
+    for (Leader& leader : leaders_) {
+        if (leader.ident_ == 0)
+            leader.scores_[runs_] = run_totals_[runs_];
     }
-    SortLeaders();
+    sort_leaders();
     for (int i = 0; i < kLeaders; ++i) {
-        if (m_leaders[i].m_ident == 0)
-            m_standing = i + 1;
+        if (leaders_[i].ident_ == 0)
+            standing_ = i + 1;
     }
 
     // The two other judges near the lowest of the three.
@@ -490,46 +490,46 @@ void CContest::EndRun(int score)
         lowest = judges[1];
     if (judges[2] < lowest)
         lowest = judges[2];
-    DebugOut::Printf("Lowest = %f\n", static_cast<double>(lowest));
+    debug::printf("Lowest = %f\n", static_cast<double>(lowest));
     float base = lowest - spread;
     for (int i = 3; i < kJudges; ++i) {
-        double judge = Maths::PlusOrMinusExact(spread) + base;
+        double judge = maths::plus_or_minus_exact(spread) + base;
         judges[i] = static_cast<float>(judge);
-        DebugOut::Printf("Score %d is %f\n", i, judge); // (the unrounded value)
+        debug::printf("Score %d is %f\n", i, judge); // (the unrounded value)
     }
     for (int i = 0; i < kJudges; ++i) {
-        if (judges[i] < Zero())
+        if (judges[i] < get_zero())
             judges[i] = 0.0f;
     }
     // The first four shuffled.
     for (int i = 0; i < kJudges - 1; ++i) {
-        int other = Maths::RollSideStream(kJudges);
+        int other = maths::roll_side_stream(kJudges);
         float swap = judges[i];
         judges[i] = judges[other];
         judges[other] = swap;
     }
 
-    if (!CompetitionGoalActive())
+    if (!competition_goal_active())
         return;
-    Scripts::CStruct* params = SpawnParamTable();
-    Scripts::CArray* scores = AllocScriptArray();
-    scores->ConfigureSizeKind(5, Scripts::QBVAL_STRUCT);
-    DebugOut::Printf("\nJudgement Day\n\n");
+    script::Struct* params = spawn_param_table();
+    script::Array* scores = alloc_script_array();
+    scores->configure_size_kind(5, script::kQbvalStruct);
+    debug::printf("\nJudgement Day\n\n");
     for (int i = 0; i < kJudges; ++i) {
-        Scripts::CStruct* entry = SpawnParamTable();
-        entry->PutInt("score", Round(judges[i])); // "score"
-        if (IsLeadingScorer(i))
-            entry->PutNameKey(kNoName, kTopJudge);
-        scores->SetElement(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(entry));
-        DebugOut::Printf("%d: %f Top=%d\n", i, static_cast<double>(judges[i]),
-                    static_cast<int>(IsLeadingScorer(i)));
+        script::Struct* entry = spawn_param_table();
+        entry->put_int("score", current_round(judges[i])); // "score"
+        if (is_leading_scorer(i))
+            entry->put_name_key(kNoName, kTopJudge);
+        scores->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(entry));
+        debug::printf("%d: %f Top=%d\n", i, static_cast<double>(judges[i]),
+                    static_cast<int>(is_leading_scorer(i)));
     }
-    params->AppendArrayValue("scores", scores);              // "scores"
-    params->PutInt("total_score", Round(m_pathVertices));  // "total_score"
-    FreeArray(scores);
-    Scripts::SpawnScript("goal_comp_show_run_scores", params, 0, nullptr, 0, 0, false, false, false,
+    params->append_array_value("scores", scores);              // "scores"
+    params->put_int("total_score", current_round(path_vertices_));  // "total_score"
+    free_array(scores);
+    script::spawn_script("goal_comp_show_run_scores", params, 0, nullptr, 0, 0, false, false, false,
                         false); // goal_comp_show_run_scores
-    DeleteStructure(params);
+    delete_structure(params);
 }
 
 } // namespace Mdl

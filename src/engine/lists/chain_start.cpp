@@ -1,13 +1,13 @@
-// Intrusive list heads (ListKit::Foremost<T>). See chain_start.h.
+// Intrusive list heads (lists::Foremost<T>). See chain_start.h.
 
 #include "engine/lists/chain_start.h"
 
-namespace ListKit {
+namespace lists {
 
 namespace {
 
 // `node` linked in before `next`.
-void InsertBefore(MemSys::ListNode* next, MemSys::ListNode* node)
+void insert_before(memory::ListNode* next, memory::ListNode* node)
 {
     node->prev = next->prev;
     node->next = next;
@@ -16,7 +16,7 @@ void InsertBefore(MemSys::ListNode* next, MemSys::ListNode* node)
 }
 
 // `node` linked in after `prev`.
-void InsertAfter(MemSys::ListNode* prev, MemSys::ListNode* node)
+void insert_after(memory::ListNode* prev, memory::ListNode* node)
 {
     node->prev = prev;
     node->next = prev->next;
@@ -27,51 +27,51 @@ void InsertAfter(MemSys::ListNode* prev, MemSys::ListNode* node)
 } // namespace
 
 // 0x0045A540
-void Foremost::AppendVertex(MemSys::ListNode* node)
+void Foremost::append_vertex(memory::ListNode* node)
 {
     int priority = node->priority;
-    for (MemSys::ListNode* next = m_listLink.next;; next = next->next) {
+    for (memory::ListNode* next = list_link_.next;; next = next->next) {
         if (next->data == reinterpret_cast<void*>(-1) || !next)
             break;
         if (next->priority <= priority) {
-            InsertBefore(next, node);
+            insert_before(next, node);
             return;
         }
     }
-    InsertBefore(&m_listLink, node); // at the end
+    insert_before(&list_link_, node); // at the end
 }
 
 // 0x0045AEB0
-bool Foremost::InsertByUniqueOrder(MemSys::ListNode* node)
+bool Foremost::insert_by_unique_order(memory::ListNode* node)
 {
     int priority = node->priority;
-    for (MemSys::ListNode* next = m_listLink.next;; next = next->next) {
+    for (memory::ListNode* next = list_link_.next;; next = next->next) {
         if (next->data == reinterpret_cast<void*>(-1) || !next)
             break;
         if (next->priority == priority)
             return false;
         if (next->priority > priority) {
-            InsertBefore(next, node);
+            insert_before(next, node);
             return true;
         }
     }
-    InsertBefore(&m_listLink, node); // at the end
+    insert_before(&list_link_, node); // at the end
     return true;
 }
 
 // 0x00457350
-void Foremost::AppendNode(MemSys::ListNode* node)
+void Foremost::append_node(memory::ListNode* node)
 {
     int priority = node->priority;
-    for (MemSys::ListNode* prev = m_listLink.prev;; prev = prev->prev) {
+    for (memory::ListNode* prev = list_link_.prev;; prev = prev->prev) {
         if (prev->data == reinterpret_cast<void*>(-1) || !prev)
             break;
         if (prev->priority >= priority) {
-            InsertAfter(prev, node);
+            insert_after(prev, node);
             return;
         }
     }
-    InsertAfter(&m_listLink, node); // at the front
+    insert_after(&list_link_, node); // at the front
 }
 
 } // namespace Lst

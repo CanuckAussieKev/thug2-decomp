@@ -48,97 +48,97 @@
 #include "engine/objects/particle_component.h"
 #include "game/skate/skate_module.h"
 
-namespace Engine3D {
+namespace render {
 
-DeviceViewport g_deviceViewport;
+DeviceViewport g_device_viewport;
 RenderCamera g_camera;
-ViewShape g_viewShape;
+ViewShape g_view_shape;
 
 bool g_radeon8500;
-int g_framesRendered;
-Maths::Mat4 g_worldMatrix;
-Maths::Mat4 g_viewMatrix;
-Maths::Mat4 g_projectionMatrix;
-Maths::Mat4 g_headingMatrix;
-int g_stepSeconds;
-int g_screenCopyIndex;
-int g_backBufferWidth;
-int g_backBufferHeight;
-int g_drawCalls;
-int g_drawnTriangles;
-float g_fogBeginDistance;
-float g_fogEnd;
+int g_frames_rendered;
+maths::Mat4 g_world_matrix;
+maths::Mat4 g_view_matrix;
+maths::Mat4 g_projection_matrix;
+maths::Mat4 g_heading_matrix;
+int g_step_seconds;
+int g_screen_copy_index;
+int g_back_buffer_width;
+int g_back_buffer_height;
+int g_draw_calls;
+int g_drawn_triangles;
+float g_fog_begin_distance;
+float g_fog_end;
 
 namespace {
 
 // --- the renderer's state (render_state.h) ---------------------------------------------------------------------
 
 // A render state by the renderer's own numbering (1-0x24), cached.
-void SetRenderState(int state, int value) { ChangePhase(state, static_cast<uint32_t>(value)); }
+void set_render_state(int state, int value) { change_phase(state, static_cast<uint32_t>(value)); }
 // Fog on or off (the request is kept in 0x007004C8; the device's D3DRS_FOGENABLE follows).
-void ChangeFog(bool on) { Engine::EnableFog(on); }
+void change_fog(bool on) { engine::enable_fog(on); }
 
 // --- the D3D9 device (0x007D69E0) and its objects, through their vtables ----------------------------------------
 
-void* InputPort() { return reinterpret_cast<void*>(g_d3dDevice); }
+void* input_port() { return reinterpret_cast<void*>(g_d3d_device); }
 template <typename F>
-F Method(void* object, int offset) { return reinterpret_cast<F>((*reinterpret_cast<void***>(object))[offset / 4]); }
+F get_method(void* object, int offset) { return reinterpret_cast<F>((*reinterpret_cast<void***>(object))[offset / 4]); }
 
-void SetTransform(int type, const Maths::Mat4* m) { Method<long(__stdcall*)(void*, int, const void*)>(InputPort(), 0xB0)(InputPort(), type, m); }
-void SetRenderTarget(void* surface) { Method<long(__stdcall*)(void*, int, void*)>(InputPort(), 0x94)(InputPort(), 0, surface); }
-void SetDepthStencilSurface(void* surface) { Method<long(__stdcall*)(void*, void*)>(InputPort(), 0x9C)(InputPort(), surface); }
-void SetTextureStageState(int stage, int type, int value)
+void set_transform(int type, const maths::Mat4* m) { get_method<long(__stdcall*)(void*, int, const void*)>(input_port(), 0xB0)(input_port(), type, m); }
+void set_render_target(void* surface) { get_method<long(__stdcall*)(void*, int, void*)>(input_port(), 0x94)(input_port(), 0, surface); }
+void set_depth_stencil_surface(void* surface) { get_method<long(__stdcall*)(void*, void*)>(input_port(), 0x9C)(input_port(), surface); }
+void set_texture_stage_state(int stage, int type, int value)
 {
-    Method<long(__stdcall*)(void*, int, int, int)>(InputPort(), 0x10C)(InputPort(), stage, type, value);
+    get_method<long(__stdcall*)(void*, int, int, int)>(input_port(), 0x10C)(input_port(), stage, type, value);
 }
-uint32_t GetSamplerState(int sampler, int type)
+uint32_t get_sampler_state(int sampler, int type)
 {
     uint32_t value;
-    Method<long(__stdcall*)(void*, int, int, uint32_t*)>(InputPort(), 0x110)(InputPort(), sampler, type, &value);
+    get_method<long(__stdcall*)(void*, int, int, uint32_t*)>(input_port(), 0x110)(input_port(), sampler, type, &value);
     return value;
 }
-void SetSamplerState(int sampler, int type, uint32_t value)
+void set_sampler_state(int sampler, int type, uint32_t value)
 {
-    Method<long(__stdcall*)(void*, int, int, uint32_t)>(InputPort(), 0x114)(InputPort(), sampler, type, value);
+    get_method<long(__stdcall*)(void*, int, int, uint32_t)>(input_port(), 0x114)(input_port(), sampler, type, value);
 }
-void ClearTarget(uint32_t color)
+void clear_target(uint32_t color)
 {
-    Method<long(__stdcall*)(void*, uint32_t, const void*, uint32_t, uint32_t, float, uint32_t)>(InputPort(), 0xAC)(
-        InputPort(), 0, nullptr, 1 /* D3DCLEAR_TARGET */, color, 1.0f, 0);
+    get_method<long(__stdcall*)(void*, uint32_t, const void*, uint32_t, uint32_t, float, uint32_t)>(input_port(), 0xAC)(
+        input_port(), 0, nullptr, 1 /* D3DCLEAR_TARGET */, color, 1.0f, 0);
 }
-void DrawPrimitiveUP(int type, unsigned int count, const void* vertices, unsigned int stride)
+void draw_primitive_up(int type, unsigned int count, const void* vertices, unsigned int stride)
 {
-    Method<long(__stdcall*)(void*, int, unsigned int, const void*, unsigned int)>(InputPort(), 0x14C)(InputPort(), type, count,
+    get_method<long(__stdcall*)(void*, int, unsigned int, const void*, unsigned int)>(input_port(), 0x14C)(input_port(), type, count,
                                                                                                vertices, stride);
 }
 
 // --- D3DX (linked library code; stdcall) ----------------------------------------------------------------------
 
-void MatrixLookAt(Maths::Mat4* out, const float* eye, const float* at, const float* up)
+void matrix_look_at(maths::Mat4* out, const float* eye, const float* at, const float* up)
 {
-    D3dx::MatrixLookAtRH(out, eye, at, up);
+    d3dx::matrix_look_at_rh(out, eye, at, up);
 }
-void MatrixPerspective(Maths::Mat4* out, float width, float height, float nearZ, float farZ)
+void matrix_perspective(maths::Mat4* out, float width, float height, float near_z, float far_z)
 {
-    D3dx::MatrixPerspectiveRH(out, width, height, nearZ, farZ);
+    d3dx::matrix_perspective_rh(out, width, height, near_z, far_z);
 }
-void MatrixScaling(Maths::Mat4* out, float x, float y, float z)
+void matrix_scaling(maths::Mat4* out, float x, float y, float z)
 {
-    D3dx::MatrixScaling(out, x, y, z);
+    d3dx::matrix_scaling(out, x, y, z);
 }
-void MatrixMultiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
+void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
 {
-    D3dx::MatrixMultiply(out, a, b);
+    d3dx::matrix_multiply(out, a, b);
 }
-void MatrixRotationY(Maths::Mat4* out, float angle)
+void matrix_rotation_y(maths::Mat4* out, float angle)
 {
-    D3dx::MatrixRotationY(out, angle);
+    d3dx::matrix_rotation_y(out, angle);
 }
 
 // --- x87 instructions the original uses, so results round exactly as there ---------------------------------------
 
 // FPTAN of `angle` (unrounded), times `factor`, rounded once to float.
-float TanTimes(double angle, float factor)
+float tan_times(double angle, float factor)
 {
     float result;
     __asm {
@@ -151,7 +151,7 @@ float TanTimes(double angle, float factor)
     return result;
 }
 // FPTAN rounded once to float.
-float Tan(float angle)
+float get_tan(float angle)
 {
     float result;
     __asm {
@@ -163,21 +163,21 @@ float Tan(float angle)
     return result;
 }
 // FPATAN: atan2(y, x) - pi/2 (the pi/2 a float), rounded once to float.
-float Atan2LessQuarterTurn(float y, float x)
+float atan2_less_quarter_turn(float y, float x)
 {
-    const float quarterTurn = 1.5707963705062866f;
+    const float quarter_turn = 1.5707963705062866f;
     float result;
     __asm {
         fld y
         fld x
         fpatan
-        fsub quarterTurn
+        fsub quarter_turn
         fstp result
     }
     return result;
 }
 
-float FloatFromBits(uint32_t bits)
+float float_from_bits(uint32_t bits)
 {
     float f;
     std::memcpy(&f, &bits, 4);
@@ -188,79 +188,79 @@ float FloatFromBits(uint32_t bits)
 
 // --- PartyMod's display region and black bars ---------------------------------------------------------------
 
-void SetDisplayRegion()
+void set_display_region()
 {
-    // the 640x480 layout's size on the back buffer (SetLetterbox), centred
-    auto width = static_cast<uint32_t>(g_displayFactorX * 640.0f);
-    auto height = static_cast<uint32_t>(g_displayFactorY * 480.0f);
+    // the 640x480 layout's size on the back buffer (set_letterbox), centred
+    auto width = static_cast<uint32_t>(g_display_factor_x * 640.0f);
+    auto height = static_cast<uint32_t>(g_display_factor_y * 480.0f);
     // (the device viewport, 0x00786C90: x, y, width, height)
-    g_deviceViewport.x = (reinterpret_cast<uint32_t&>(g_backBufferWidth) - width) / 2;
-    g_deviceViewport.width = width;
-    g_deviceViewport.y = (reinterpret_cast<uint32_t&>(g_backBufferHeight) - height) / 2;
-    g_deviceViewport.height = height;
+    g_device_viewport.x = (reinterpret_cast<uint32_t&>(g_back_buffer_width) - width) / 2;
+    g_device_viewport.width = width;
+    g_device_viewport.y = (reinterpret_cast<uint32_t&>(g_back_buffer_height) - height) / 2;
+    g_device_viewport.height = height;
 }
 
-void Draw2DWithBlackBars()
+void draw_2d_with_black_bars()
 {
     struct BarVertex {
         float x, y, z, w;
         uint32_t color;
         float u, v;
     };
-    Draw2D(); // the 2D pass
+    draw_2d(); // the 2D pass
     // (widescreen_menus: in the front end the 3D scene fills the sides, so no bars over it.)
-    if (FrontEndWidescreen())
+    if (get_front_end_widescreen())
         return;
 
-    uint32_t backBufferWidth = reinterpret_cast<uint32_t&>(g_backBufferWidth);
-    uint32_t backBufferHeight = reinterpret_cast<uint32_t&>(g_backBufferHeight);
-    float backBufferAspect = static_cast<float>(backBufferWidth) / static_cast<float>(backBufferHeight);
+    uint32_t back_buffer_width = reinterpret_cast<uint32_t&>(g_back_buffer_width);
+    uint32_t back_buffer_height = reinterpret_cast<uint32_t&>(g_back_buffer_height);
+    float back_buffer_aspect = static_cast<float>(back_buffer_width) / static_cast<float>(back_buffer_height);
     constexpr uint32_t kBlack = 0xFF000000;
-    if (backBufferAspect > DesiredAspectRatio()) {
+    if (back_buffer_aspect > desired_aspect_ratio()) {
         // bars left and right
-        auto width = static_cast<uint32_t>(std::round(static_cast<double>(g_displayFactorX * 640.0f)));
-        uint32_t barWidth = (backBufferWidth - width) / 2;
-        SetTexture(0, nullptr);
+        auto width = static_cast<uint32_t>(std::round(static_cast<double>(g_display_factor_x * 640.0f)));
+        uint32_t bar_width = (back_buffer_width - width) / 2;
+        set_texture(0, nullptr);
         BarVertex bar[4] = {
             {-0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
-            {-0.5f, static_cast<float>(backBufferHeight) + 0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
-            {static_cast<float>(barWidth) + 0.5f, static_cast<float>(backBufferHeight) + 0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
-            {static_cast<float>(barWidth) + 0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
+            {-0.5f, static_cast<float>(back_buffer_height) + 0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
+            {static_cast<float>(bar_width) + 0.5f, static_cast<float>(back_buffer_height) + 0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
+            {static_cast<float>(bar_width) + 0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
         };
-        DrawPrimitiveUP(6 /* D3DPT_TRIANGLEFAN */, 2, bar, sizeof(BarVertex));
+        draw_primitive_up(6 /* D3DPT_TRIANGLEFAN */, 2, bar, sizeof(BarVertex));
         for (BarVertex& corner : bar)
-            corner.x += static_cast<float>(width + barWidth);
-        DrawPrimitiveUP(6, 2, bar, sizeof(BarVertex));
-    } else if (backBufferAspect < DesiredAspectRatio()) {
+            corner.x += static_cast<float>(width + bar_width);
+        draw_primitive_up(6, 2, bar, sizeof(BarVertex));
+    } else if (back_buffer_aspect < desired_aspect_ratio()) {
         // bars top and bottom
-        auto height = static_cast<uint32_t>(std::round(static_cast<double>(g_displayFactorY * 480.0f)));
-        uint32_t barHeight = (backBufferHeight - height) / 2;
-        SetTexture(0, nullptr);
+        auto height = static_cast<uint32_t>(std::round(static_cast<double>(g_display_factor_y * 480.0f)));
+        uint32_t bar_height = (back_buffer_height - height) / 2;
+        set_texture(0, nullptr);
         BarVertex bar[4] = {
             {-0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
-            {-0.5f, static_cast<float>(barHeight) + 0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
-            {static_cast<float>(backBufferWidth) + 0.5f, static_cast<float>(barHeight) + 0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
-            {static_cast<float>(backBufferWidth) + 0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
+            {-0.5f, static_cast<float>(bar_height) + 0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
+            {static_cast<float>(back_buffer_width) + 0.5f, static_cast<float>(bar_height) + 0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
+            {static_cast<float>(back_buffer_width) + 0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
         };
-        DrawPrimitiveUP(6, 2, bar, sizeof(BarVertex));
+        draw_primitive_up(6, 2, bar, sizeof(BarVertex));
         for (BarVertex& corner : bar)
-            corner.y += static_cast<float>(height + barHeight);
-        DrawPrimitiveUP(6, 2, bar, sizeof(BarVertex));
+            corner.y += static_cast<float>(height + bar_height);
+        draw_primitive_up(6, 2, bar, sizeof(BarVertex));
     }
 }
 
 // Not original - the level editor's ortho views (editor/level_editor_camera.h): the near plane brought up for the
-// editor's camera while DrawViewport draws the world with it (2, the original's, otherwise).
-static float s_nearZ = 2.0f;
+// editor's camera while draw_viewport draws the world with it (2, the original's, otherwise).
+static float s_near_z = 2.0f;
 
 // 0x004DB200
-void ChooseCamera(const Maths::Mat4* orientation, const Maths::Vec4* position, float angle, float aspect, float zoom,
+void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, float angle, float aspect, float zoom,
                bool infinite)
 {
     auto& camera = g_camera;
-    auto& world = g_worldMatrix;
-    auto& view = g_viewMatrix;
-    auto& projection = g_projectionMatrix;
+    auto& world = g_world_matrix;
+    auto& view = g_view_matrix;
+    auto& projection = g_projection_matrix;
 
     camera.position[0] = position->x;
     camera.position[1] = position->y;
@@ -273,57 +273,57 @@ void ChooseCamera(const Maths::Mat4* orientation, const Maths::Vec4* position, f
     camera.up[2] = orientation->row[1].z;
     float target[3] = {camera.position[0] - camera.backward[0], camera.position[1] - camera.backward[1],
                        camera.position[2] - camera.backward[2]};
-    world = Maths::Mat4{{{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}}};
-    MatrixLookAt(&view, camera.position, target, camera.up);
+    world = maths::Mat4{{{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}}};
+    matrix_look_at(&view, camera.position, target, camera.up);
 
-    // (not original: s_nearZ - the original: camera.nearZ = 2.0f;)
-    camera.nearZ = s_nearZ;
+    // (not original: s_near_z - the original: camera.nearZ = 2.0f;)
+    camera.near_z_ = s_near_z;
     // Originally from PartyMod Fixes (its float at 0x004DB35D): the far plane 96000 - further, for large levels' backgrounds (e.g.
     // Skatopia). The original: camera.farZ = 32000.0f;
-    camera.farZ = 96000.0f;
+    camera.far_z_ = 96000.0f;
     camera.angle = angle;
-    if (g_distanceClipping) // distance clipping (setting 0x007D6444: 100-595)
-        camera.farZ = static_cast<float>(static_cast<double>(static_cast<uint32_t>(Gfx2D::g_drawDistanceSetting)) * 18.0);
+    if (g_distance_clipping) // distance clipping (setting 0x007D6444: 100-595)
+        camera.far_z_ = static_cast<float>(static_cast<double>(static_cast<uint32_t>(gfx::g_draw_distance_setting)) * 18.0);
     // NOT ORIGINAL - [Graphics] draw_distance_scale (engine/gfx/graphics_options.h): the far plane (and with it the
     // distance clipping's cull distance, 0x00786CAC) further out.
-    camera.farZ = GraphicsOptions::Scaled(camera.farZ, GraphicsOptions::Pull().drawDistanceScale);
+    camera.far_z_ = graphics_options::get_scaled(camera.far_z_, graphics_options::get_pull().draw_distance_scale_);
 
     // (degrees to half the angle in radians: the tangent takes the product unrounded, later uses a float)
-    double halfAngle = static_cast<double>(angle) * 0.008726646f;
-    float width = TanTimes(halfAngle, 4.0f);
-    float heightFactor = static_cast<float>(1.0 / (static_cast<double>(aspect) * 0.90909094f));
-    float height = heightFactor * width;
-    MatrixPerspective(&projection, width, height, camera.nearZ, camera.farZ);
+    double half_angle = static_cast<double>(angle) * 0.008726646f;
+    float width = tan_times(half_angle, 4.0f);
+    float height_factor = static_cast<float>(1.0 / (static_cast<double>(aspect) * 0.90909094f));
+    float height = height_factor * width;
+    matrix_perspective(&projection, width, height, camera.near_z_, camera.far_z_);
     if (zoom != 1.0f) {
-        Maths::Mat4 scale;
-        MatrixScaling(&scale, zoom, zoom, 1.0f);
-        MatrixMultiply(&projection, &projection, &scale);
+        maths::Mat4 scale;
+        matrix_scaling(&scale, zoom, zoom, 1.0f);
+        matrix_multiply(&projection, &projection, &scale);
     }
-    camera.nearHeight = height;
-    camera.nearWidth = width;
+    camera.near_height_ = height;
+    camera.near_width_ = width;
     if (infinite) {
         projection.row[2].z = -0.999999f;
         projection.row[3].z = 1e-6f;
     }
-    SetTransform(0x100, &world); // D3DTS_WORLD
-    SetTransform(2, &view);      // D3DTS_VIEW
-    SetTransform(3, &projection);
+    set_transform(0x100, &world); // D3DTS_WORLD
+    set_transform(2, &view);      // D3DTS_VIEW
+    set_transform(3, &projection);
 
-    auto& shape = g_viewShape;
-    shape.tanX = Tan(static_cast<float>(halfAngle));
-    shape.tanY = -(heightFactor * shape.tanX);
-    double tanX2 = static_cast<double>(shape.tanX) * shape.tanX;
-    double tanY2 = static_cast<double>(shape.tanY) * shape.tanY;
-    shape.sinX = static_cast<float>(1.0 / std::sqrt(1.0 / tanX2 + 1.0));
-    shape.sinY = static_cast<float>(1.0 / std::sqrt(1.0 / tanY2 + 1.0));
-    shape.cosX = static_cast<float>(1.0 / std::sqrt(tanX2 + 1.0));
-    shape.cosY = static_cast<float>(1.0 / std::sqrt(tanY2 + 1.0));
+    auto& shape = g_view_shape;
+    shape.tan_x_ = get_tan(static_cast<float>(half_angle));
+    shape.tan_y_ = -(height_factor * shape.tan_x_);
+    double tan_x2 = static_cast<double>(shape.tan_x_) * shape.tan_x_;
+    double tan_y2 = static_cast<double>(shape.tan_y_) * shape.tan_y_;
+    shape.sin_x_ = static_cast<float>(1.0 / std::sqrt(1.0 / tan_x2 + 1.0));
+    shape.sin_y_ = static_cast<float>(1.0 / std::sqrt(1.0 / tan_y2 + 1.0));
+    shape.cos_x_ = static_cast<float>(1.0 / std::sqrt(tan_x2 + 1.0));
+    shape.cos_y_ = static_cast<float>(1.0 / std::sqrt(tan_y2 + 1.0));
 
     // The camera's heading: a rotation about the vertical axis (0x00786C50).
-    MatrixRotationY(&g_headingMatrix,
-                    Atan2LessQuarterTurn(-camera.backward[2], -camera.backward[0]));
+    matrix_rotation_y(&g_heading_matrix,
+                    atan2_less_quarter_turn(-camera.backward[2], -camera.backward[0]));
     // The view frustum (0x00775B80) follows the new view.
-    g_billboardPool.SetupAxes();
+    g_billboard_pool.setup_axes();
 }
 
 namespace {
@@ -338,112 +338,112 @@ static_assert(sizeof(ScreenVertex) == 0x1C, "the draw's stride");
 } // namespace
 
 // 0x004DF390
-void DrawScreenBlur()
+void draw_screen_blur()
 {
-    if (!g_screenCopyInUse) // blur available
+    if (!g_screen_copy_in_use) // blur available
         return;
-    ChangeFog(false);
-    SetRenderState(0x15, 0);
-    SetRenderState(0x16, 0);
-    SetRenderState(0x10, 1);
+    change_fog(false);
+    set_render_state(0x15, 0);
+    set_render_state(0x16, 0);
+    set_render_state(0x10, 1);
     // Linear filtering on all four samplers (put back at the end).
-    uint32_t minFilter[4], magFilter[4];
+    uint32_t min_filter[4], mag_filter[4];
     for (int i = 0; i < 4; ++i) {
-        minFilter[i] = GetSamplerState(i, 6); // D3DSAMP_MINFILTER
-        if (minFilter[i] != 2)                // D3DTEXF_LINEAR
-            SetSamplerState(i, 6, 2);
-        magFilter[i] = GetSamplerState(i, 5); // D3DSAMP_MAGFILTER
-        if (magFilter[i] != 2)
-            SetSamplerState(i, 5, 2);
+        min_filter[i] = get_sampler_state(i, 6); // D3DSAMP_MINFILTER
+        if (min_filter[i] != 2)                // D3DTEXF_LINEAR
+            set_sampler_state(i, 6, 2);
+        mag_filter[i] = get_sampler_state(i, 5); // D3DSAMP_MAGFILTER
+        if (mag_filter[i] != 2)
+            set_sampler_state(i, 5, 2);
     }
-    if (g_bloomOn)
-        Bloom();
-    SetRenderState(4, 0x10001);
-    SetRenderState(1, 0);
-    SetRenderState(2, 0);
-    SetRenderState(0x12, 0);
-    SetRenderState(0x11, 1);
+    if (g_bloom_on)
+        get_bloom();
+    set_render_state(4, 0x10001);
+    set_render_state(1, 0);
+    set_render_state(2, 0);
+    set_render_state(0x12, 0);
+    set_render_state(0x11, 1);
 
     // Two textures take turns: the one just drawn into (the last frame's blur) and the other.
-    int current = g_screenCopyIndex;
-    void* const* textures = reinterpret_cast<void* const*>(g_screenTextures);
+    int current = g_screen_copy_index;
+    void* const* textures = reinterpret_cast<void* const*>(g_screen_textures);
     void* texture = textures[current];
     void* other = textures[(current + 1) % 2];
     uint32_t desc[8]; // D3DSURFACE_DESC
-    Method<long(__stdcall*)(void*, unsigned int, uint32_t*)>(texture, 0x44)(texture, 0, desc); // GetLevelDesc
-    uint32_t texelsWide = desc[6], texelsHigh = desc[7];
+    get_method<long(__stdcall*)(void*, unsigned int, uint32_t*)>(texture, 0x44)(texture, 0, desc); // GetLevelDesc
+    uint32_t texels_wide = desc[6], texels_high = desc[7];
 
     // The quad covers the screen; the texture is drawn shrunk towards its centre by the blur amount.
-    uint32_t amount = g_screenBlur;
+    uint32_t amount = g_screen_blur;
     float inset = static_cast<float>((1.0 - static_cast<double>(amount) * (1.0f / 255)) * 0.5);
-    double insetU = inset / static_cast<double>(texelsWide); // (the u's are rounded from this, unrounded)
-    float insetV = static_cast<float>(inset / static_cast<double>(texelsHigh));
-    float screenWidth = static_cast<float>(g_presentParameters.BackBufferWidth);
-    float screenHeight = static_cast<float>(g_presentParameters.BackBufferHeight);
+    double inset_u = inset / static_cast<double>(texels_wide); // (the u's are rounded from this, unrounded)
+    float inset_v = static_cast<float>(inset / static_cast<double>(texels_high));
+    float screen_width = static_cast<float>(g_present_parameters.BackBufferWidth);
+    float screen_height = static_cast<float>(g_present_parameters.BackBufferHeight);
     uint32_t color = 0x80808080;
     ScreenVertex quad[4] = {
-        {0, 0, 0, 1, color, static_cast<float>(insetU), insetV},
-        {screenWidth, 0, 0, 1, color, static_cast<float>(1.0 - insetU), insetV},
-        {0, screenHeight, 0, 1, color, static_cast<float>(insetU), 1.0f - insetV},
-        {screenWidth, screenHeight, 0, 1, color, static_cast<float>(1.0 - insetU), 1.0f - insetV},
+        {0, 0, 0, 1, color, static_cast<float>(inset_u), inset_v},
+        {screen_width, 0, 0, 1, color, static_cast<float>(1.0 - inset_u), inset_v},
+        {0, screen_height, 0, 1, color, static_cast<float>(inset_u), 1.0f - inset_v},
+        {screen_width, screen_height, 0, 1, color, static_cast<float>(1.0 - inset_u), 1.0f - inset_v},
     };
     // Originally from PartyMod Fixes (its JMP at 0x004DF63A): no letterbox adjustment - PartyMod's letterbox is a viewport. The
     // original, when letterboxed (0x00786CBE), moved the quad in by an eighth of the back buffer's height:
-    //   float bar = static_cast<float>(g_backBufferHeight / 8);
+    //   float bar = static_cast<float>(g_back_buffer_height / 8);
     //   quad[0].y = quad[1].y = bar;
-    //   quad[0].v = quad[1].v = insetV + bar;   (sic: a pixel count added to a texture coordinate)
+    //   quad[0].v = quad[1].v = inset_v + bar;   (sic: a pixel count added to a texture coordinate)
     //   quad[2].y -= bar; quad[3].y -= bar; quad[2].v -= bar; quad[3].v -= bar;
     if (amount) {
-        ChooseBlendMode(g_screenBlurFrames > 2 ? 5 : 0);
+        choose_blend_mode(g_screen_blur_frames > 2 ? 5 : 0);
         color = amount << 24 | 0x808080;
         for (ScreenVertex& v : quad)
             v.color = color;
     } else {
-        ChooseBlendMode(0);
+        choose_blend_mode(0);
     }
 
     // Draw into `texture`: the other texture (if the blur level, 0x0078732C, is above 2)...
     void* surface = nullptr;
-    Method<long(__stdcall*)(void*, unsigned int, void**)>(texture, 0x48)(texture, 0, &surface); // GetSurfaceLevel
-    void* depth = reinterpret_cast<void*>(g_zBufferSurface);
+    get_method<long(__stdcall*)(void*, unsigned int, void**)>(texture, 0x48)(texture, 0, &surface); // GetSurfaceLevel
+    void* depth = reinterpret_cast<void*>(g_z_buffer_surface);
     // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, engine/gfx/graphics_options.h)
-    if (!GraphicsOptions::SetSceneTarget(static_cast<IDirect3DTexture9*>(texture))) {
-        SetRenderTarget(surface);
-        SetDepthStencilSurface(depth);
+    if (!graphics_options::set_scene_target(static_cast<IDirect3DTexture9*>(texture))) {
+        set_render_target(surface);
+        set_depth_stencil_surface(depth);
     }
-    Method<unsigned long(__stdcall*)(void*)>(surface, 8)(surface); // Release
-    SetVertexFormat(0x144);                                       // XYZRHW | DIFFUSE | TEX1
-    SetPixelShader(nullptr, nullptr); // (no pixel shader)
-    SetTextureStageState(0, 1, 2); // colour op: select arg 1
-    SetTextureStageState(0, 2, 2); // colour arg 1: texture
-    SetTextureStageState(0, 4, 1); // alpha op: disable
-    if (g_screenBlurFrames > 2) {
-        SetRenderState(0x11, 1);
-        SetTexture(0, other);
-        DrawPrimitiveUP(5 /* triangle strip */, 2, quad, sizeof(ScreenVertex));
-        ++g_drawCalls; // draw calls
-        g_drawnTriangles += 2; // triangles
+    get_method<unsigned long(__stdcall*)(void*)>(surface, 8)(surface); // Release
+    set_vertex_format(0x144);                                       // XYZRHW | DIFFUSE | TEX1
+    set_pixel_shader(nullptr, nullptr); // (no pixel shader)
+    set_texture_stage_state(0, 1, 2); // colour op: select arg 1
+    set_texture_stage_state(0, 2, 2); // colour arg 1: texture
+    set_texture_stage_state(0, 4, 1); // alpha op: disable
+    if (g_screen_blur_frames > 2) {
+        set_render_state(0x11, 1);
+        set_texture(0, other);
+        draw_primitive_up(5 /* triangle strip */, 2, quad, sizeof(ScreenVertex));
+        ++g_draw_calls; // draw calls
+        g_drawn_triangles += 2; // triangles
     }
     // ...then `texture` onto the back buffer, cleared first to the fog colour (with fog and distance clipping
     // on) or the background colour.
     // NOT ORIGINAL - [Graphics] msaa (engine/gfx/graphics_options.h): the multisampled frame resolved into `texture`.
-    GraphicsOptions::ResolveSceneTarget(static_cast<IDirect3DTexture9*>(texture));
-    SetRenderTarget(reinterpret_cast<void*>(g_backBuffer));
-    SetDepthStencilSurface(reinterpret_cast<void*>(g_backDepth));
-    bool fogColour = g_fogSetting && g_distanceClipping;
-    ClearTarget(fogColour ? g_fogColour : g_camera.backgroundColour);
-    SetRenderState(0x11, 0);
-    SetTexture(0, texture);
-    DrawPrimitiveUP(5, 2, quad, sizeof(ScreenVertex));
-    SetRenderState(0x11, 1);
-    ++g_drawCalls;
-    g_drawnTriangles += 2;
+    graphics_options::resolve_scene_target(static_cast<IDirect3DTexture9*>(texture));
+    set_render_target(reinterpret_cast<void*>(g_back_buffer));
+    set_depth_stencil_surface(reinterpret_cast<void*>(g_back_depth));
+    bool fog_colour = g_fog_setting && g_distance_clipping;
+    clear_target(fog_colour ? g_fog_colour : g_camera.background_colour_);
+    set_render_state(0x11, 0);
+    set_texture(0, texture);
+    draw_primitive_up(5, 2, quad, sizeof(ScreenVertex));
+    set_render_state(0x11, 1);
+    ++g_draw_calls;
+    g_drawn_triangles += 2;
     for (int i = 0; i < 4; ++i) {
-        SetSamplerState(i, 6, minFilter[i]);
-        SetSamplerState(i, 5, magFilter[i]);
+        set_sampler_state(i, 6, min_filter[i]);
+        set_sampler_state(i, 5, mag_filter[i]);
     }
-    g_screenCopyIndex = (g_screenCopyIndex + 1) % 2;
-    ChangeFog(true);
+    g_screen_copy_index = (g_screen_copy_index + 1) % 2;
+    change_fog(true);
 }
 
 namespace {
@@ -462,18 +462,18 @@ struct MeshGroup {
     uint32_t flags;
     uint8_t unknown04[0x18];
     void** meshes; // +0x1C
-    int meshCount; // +0x20
+    int mesh_count_; // +0x20
 };
-static_assert(offsetof(MeshGroup, meshCount) == 0x20, "mesh group layout");
+static_assert(offsetof(MeshGroup, mesh_count_) == 0x20, "mesh group layout");
 
 // A loaded world scene (only what the render uses).
 struct Scene {
     uint8_t unknown000[0x84];
     uint32_t name;          // +0x84: the checksum of its name
-    void* texDict;          // +0x88
-    uint8_t unknown08C;
+    void* tex_dict_;          // +0x88
+    uint8_t unknown08c_;
     bool sky;               // +0x8D: drawn in the sky pass
-    uint8_t unknown08E[0x1F2];
+    uint8_t unknown08e_[0x1F2];
     MeshGroup* group;       // +0x280
 };
 static_assert(offsetof(Scene, group) == 0x280 && offsetof(Scene, sky) == 0x8D && offsetof(Scene, name) == 0x84,
@@ -487,262 +487,262 @@ struct SceneNode {
     SceneNode* next; // +0x0C
 };
 
-bool IsEnd(const SceneNode* node) { return reinterpret_cast<intptr_t>(node->scene) == -1; }
+bool is_end(const SceneNode* node) { return reinterpret_cast<intptr_t>(node->scene) == -1; }
 
 // Calls fn(scene) for every scene in the list (the next node is taken before the call).
 template <typename F>
-void ForEachScene(F fn)
+void for_each_scene(F fn)
 {
-    SceneNode* node = reinterpret_cast<SceneNode*>(g_sceneList.next);
-    if (IsEnd(node) || !node) // (sic: the original reads the node before testing it)
+    SceneNode* node = reinterpret_cast<SceneNode*>(g_scene_list.next);
+    if (is_end(node) || !node) // (sic: the original reads the node before testing it)
         return;
     while (node) {
-        SceneNode* next = IsEnd(node->next) ? nullptr : node->next;
+        SceneNode* next = is_end(node->next) ? nullptr : node->next;
         fn(node->scene);
         node = next;
     }
 }
 
-DeviceViewport& TheViewport() { return g_deviceViewport; }
-void SetViewport() { Method<long(__stdcall*)(void*, const void*)>(InputPort(), 0xBC)(InputPort(), &TheViewport()); }
+DeviceViewport& the_viewport() { return g_device_viewport; }
+void set_viewport() { get_method<long(__stdcall*)(void*, const void*)>(input_port(), 0xBC)(input_port(), &the_viewport()); }
 // The device's render state directly (not the renderer's cached one).
-void SetDeviceRenderState(int state, uint32_t value)
+void set_device_render_state(int state, uint32_t value)
 {
-    Method<long(__stdcall*)(void*, int, uint32_t)>(InputPort(), 0xE4)(InputPort(), state, value);
+    get_method<long(__stdcall*)(void*, int, uint32_t)>(input_port(), 0xE4)(input_port(), state, value);
 }
 
-void FullScreenViewport()
+void full_screen_viewport()
 {
-    TheViewport() = {0, 0, reinterpret_cast<uint32_t&>(g_backBufferWidth), reinterpret_cast<uint32_t&>(g_backBufferHeight), 0.0f, 1.0f};
+    the_viewport() = {0, 0, reinterpret_cast<uint32_t&>(g_back_buffer_width), reinterpret_cast<uint32_t&>(g_back_buffer_height), 0.0f, 1.0f};
 }
 
 // The camera (a game object).
-float CameraAngle(void* camera) { return static_cast<Gfx2D::ViewCam*>(camera)->FetchEffectiveHFov(); }
-const Maths::Vec4* ViewerLocation(void* camera) { return static_cast<Gfx2D::ViewCam*>(camera)->FetchLocation(); }
-const Maths::Mat4* CamOrientation(void* camera) { return static_cast<Gfx2D::ViewCam*>(camera)->FetchMat(); }
+float camera_angle(void* camera) { return static_cast<gfx::ViewCam*>(camera)->fetch_effective_h_fov(); }
+const maths::Vec4* viewer_location(void* camera) { return static_cast<gfx::ViewCam*>(camera)->fetch_location(); }
+const maths::Mat4* cam_orientation(void* camera) { return static_cast<gfx::ViewCam*>(camera)->fetch_mat(); }
 
-void DrawSceneGroup(Scene* scene, int pass, int viewport)
+void draw_scene_group(Scene* scene, int pass, int viewport)
 {
-    DrawScene(reinterpret_cast<sceneRef*>(scene->group), static_cast<uint32_t>(pass), viewport);
+    draw_scene(reinterpret_cast<SceneRef*>(scene->group), static_cast<uint32_t>(pass), viewport);
 }
-void SetPass(int pass) { DrawInstanceBatch(static_cast<uint32_t>(pass), 0); }
-// No world transform (SetWorldTransform's null: the original passes 0).
-void ClearWorldTransform() { SetWorldTransform(nullptr); }
+void set_pass(int pass) { draw_instance_batch(static_cast<uint32_t>(pass), 0); }
+// No world transform (set_world_transform's null: the original passes 0).
+void clear_world_transform() { set_world_transform(nullptr); }
 
-void DrawViewport(int index)
+void draw_viewport(int index)
 {
-    const Viewport* view = reinterpret_cast<const Viewport*>(FetchCurrentView(index));
+    const Viewport* view = reinterpret_cast<const Viewport*>(fetch_current_view(index));
     void* camera = view->camera;
     if (!camera)
         return;
     // Not original - the level editor (editor/level_editor.h): while it runs, the first viewport's camera is put
     // where the editor flies.
     // Original behaviour: the camera is drawn where the game put it.
-    MenuSystem::LevelEditor::PlaceCamera(static_cast<Gfx2D::ViewCam*>(camera));
+    frontend::level_editor::place_camera(static_cast<gfx::ViewCam*>(camera));
     // Not original - the automation channel's camera lock (frontend/test_view.h): viewport 0's camera held at a pose.
     // Original behaviour: the camera is drawn where the game put it.
-    MenuSystem::TestView::PlaceCamera(static_cast<Gfx2D::ViewCam*>(camera), index);
-    g_drawnViewport = index; // the viewport being drawn
-    double width = g_backBufferWidth;
-    double height = static_cast<float>(g_backBufferHeight);
-    DeviceViewport& vp = TheViewport();
+    frontend::test_view::place_camera(static_cast<gfx::ViewCam*>(camera), index);
+    g_drawn_viewport = index; // the viewport being drawn
+    double width = g_back_buffer_width;
+    double height = static_cast<float>(g_back_buffer_height);
+    DeviceViewport& vp = the_viewport();
     vp.x = static_cast<int>(width * view->x);
     vp.y = static_cast<int>(height * view->y);
     vp.width = static_cast<int>(width * view->width);
     vp.height = static_cast<int>(height * view->height);
-    vp.minZ = 0.0f;
-    vp.maxZ = 1.0f;
-    if (g_camera.letterboxActive && !FrontEndWidescreen()) {
+    vp.min_z_ = 0.0f;
+    vp.max_z_ = 1.0f;
+    if (g_camera.letterbox_active_ && !get_front_end_widescreen()) {
         // Originally from PartyMod Fixes (its call at 0x004B2E65): the viewport fitted to the aspect wanted. The original squashed the
         // viewport to 3/4 of the screen's height:
-        //   int screenHeight = g_backBufferHeight;
-        //   vp.y += screenHeight / 8;
-        //   vp.height -= screenHeight / 4;
+        //   int screen_height = g_back_buffer_height;
+        //   vp.y += screen_height / 8;
+        //   vp.height -= screen_height / 4;
         // (widescreen_menus: in the front end the 3D view keeps the whole screen; the 2D below stays fitted.)
-        SetDisplayRegion();
+        set_display_region();
     }
-    SetViewport();
-    ClearWorldTransform();
-    float aspect = reinterpret_cast<CViewRegion*>(const_cast<Viewport*>(view))->FetchWidthOverHeight();
+    set_viewport();
+    clear_world_transform();
+    float aspect = reinterpret_cast<ViewRegion*>(const_cast<Viewport*>(view))->fetch_width_over_height();
 
     // Not original - the level editor's ortho views (editor/level_editor_camera.h): its camera's field of view
     // narrowed and the near plane brought up for the world's passes (the sky's keeps the near plane).
     // Original behaviour: the camera's own angle, the near plane at 2.
-    auto* editorCamera = static_cast<Gfx2D::ViewCam*>(camera);
-    float editorNear = MenuSystem::LevelEditor::NearPlane(static_cast<Gfx2D::ViewCam*>(camera));
+    auto* editor_camera = static_cast<gfx::ViewCam*>(camera);
+    float editor_near = frontend::level_editor::get_near_plane(static_cast<gfx::ViewCam*>(camera));
 
     // The world: every scene but the sky.
     {
-        float angle = MenuSystem::LevelEditor::AdjustViewAngle(editorCamera, CameraAngle(camera));
-        s_nearZ = editorNear;
-        const Maths::Vec4* position = ViewerLocation(camera);
-        ChooseCamera(CamOrientation(camera), position, angle, aspect, 1.0f, false);
+        float angle = frontend::level_editor::adjust_view_angle(editor_camera, camera_angle(camera));
+        s_near_z = editor_near;
+        const maths::Vec4* position = viewer_location(camera);
+        choose_camera(cam_orientation(camera), position, angle, aspect, 1.0f, false);
         // Not original - the level editor: the view's projection noted (its mouse ray and outlines).
         // Original behaviour: nothing.
-        MenuSystem::LevelEditor::NoteView(static_cast<Gfx2D::ViewCam*>(camera), angle, aspect, &vp.x);
+        frontend::level_editor::note_view(static_cast<gfx::ViewCam*>(camera), angle, aspect, &vp.x);
         // Not original - the screenshot key's sidecar (platform/screenshot.h): the camera noted.
-        const Maths::Mat4* frame = CamOrientation(camera);
+        const maths::Mat4* frame = cam_orientation(camera);
         const float at[3] = {position->x, position->y, position->z};
         const float forward[3] = {-frame->row[2].x, -frame->row[2].y, -frame->row[2].z};
-        SystemCore::Screenshot::NoteView(index, at, forward);
+        sys::screenshot::note_view(index, at, forward);
     }
-    ForEachScene([&](Scene* scene) {
+    for_each_scene([&](Scene* scene) {
         if (scene->sky)
             return;
-        CollectOccluders(ViewerLocation(camera), index);
-        SetRenderState(1, 1);
-        SetRenderState(2, 1);
+        collect_occluders(viewer_location(camera), index);
+        set_render_state(1, 1);
+        set_render_state(2, 1);
         MeshGroup* group = scene->group;
         if (!(group->flags & 0x100)) {
             group->flags |= 0x100;
-            for (int i = 0; i < group->meshCount; ++i)
-                reinterpret_cast<meshRef*>(group->meshes[i])->BuildCollision();
+            for (int i = 0; i < group->mesh_count_; ++i)
+                reinterpret_cast<MeshRef*>(group->meshes[i])->build_collision();
         }
-        DrawSceneGroup(scene, 0x55, index);
+        draw_scene_group(scene, 0x55, index);
     });
-    SetRenderState(1, 0);
-    DrawTextureSplats();
-    DrawProjectionBatches();
-    SetRenderState(1, 1);
-    static_cast<CImposterManager*>(g_imposterManager)->Render();
-    SetPass(1);
-    ClearWorldTransform();
+    set_render_state(1, 0);
+    draw_texture_splats();
+    draw_projection_batches();
+    set_render_state(1, 1);
+    static_cast<ImposterManager*>(g_imposter_manager)->render();
+    set_pass(1);
+    clear_world_transform();
 
     // The sky: from the origin, far plane at infinity, fog over 20-21 (the fog range put back after).
     {
-        Maths::Vec4 origin = {0.0f, 0.0f, 0.0f, 1.0f};
-        float angle = MenuSystem::LevelEditor::AdjustViewAngle(editorCamera, CameraAngle(camera));
-        s_nearZ = 2.0f;
-        ChooseCamera(CamOrientation(camera), &origin, angle, aspect, 1.0f, true);
+        maths::Vec4 origin = {0.0f, 0.0f, 0.0f, 1.0f};
+        float angle = frontend::level_editor::adjust_view_angle(editor_camera, camera_angle(camera));
+        s_near_z = 2.0f;
+        choose_camera(cam_orientation(camera), &origin, angle, aspect, 1.0f, true);
     }
-    float& fogStart = g_fogBeginDistance;
-    float& fogEnd = g_fogEnd;
-    float savedFogEnd = fogEnd, savedFogStart = fogStart;
-    fogStart = 20.0f;
-    fogEnd = 21.0f;
-    SetDeviceRenderState(0x24, reinterpret_cast<uint32_t&>(g_fogBeginDistance)); // D3DRS_FOGSTART
-    SetDeviceRenderState(0x25, reinterpret_cast<uint32_t&>(g_fogEnd)); // D3DRS_FOGEND
-    bool fog = g_fogActive != 0;
-    ChangeFog(false);
-    SetRenderState(1, 0);
-    SetRenderState(2, 1);
-    ForEachScene([&](Scene* scene) {
+    float& fog_start = g_fog_begin_distance;
+    float& fog_end = g_fog_end;
+    float saved_fog_end = fog_end, saved_fog_start = fog_start;
+    fog_start = 20.0f;
+    fog_end = 21.0f;
+    set_device_render_state(0x24, reinterpret_cast<uint32_t&>(g_fog_begin_distance)); // D3DRS_FOGSTART
+    set_device_render_state(0x25, reinterpret_cast<uint32_t&>(g_fog_end)); // D3DRS_FOGEND
+    bool fog = g_fog_active != 0;
+    change_fog(false);
+    set_render_state(1, 0);
+    set_render_state(2, 1);
+    for_each_scene([&](Scene* scene) {
         if (!scene->sky)
             return;
         // (with distance clipping and fog both on, there's no sky)
-        if (g_distanceClipping && g_fogSetting)
+        if (g_distance_clipping && g_fog_setting)
             return;
-        uint32_t minFilter = GetSamplerState(0, 6), mipFilter = GetSamplerState(0, 7);
-        SetSamplerState(0, 6, 2); // linear
-        SetSamplerState(0, 7, 0); // no mipmaps
-        DrawSceneGroup(scene, 3, index);
-        SetSamplerState(0, 7, mipFilter);
-        SetSamplerState(0, 6, minFilter);
+        uint32_t min_filter = get_sampler_state(0, 6), mip_filter = get_sampler_state(0, 7);
+        set_sampler_state(0, 6, 2); // linear
+        set_sampler_state(0, 7, 0); // no mipmaps
+        draw_scene_group(scene, 3, index);
+        set_sampler_state(0, 7, mip_filter);
+        set_sampler_state(0, 6, min_filter);
     });
-    SetRenderState(1, 1);
-    SetRenderState(1, 0);
+    set_render_state(1, 1);
+    set_render_state(1, 0);
     if (g_radeon8500)
-        Sun::Render(static_cast<Gfx2D::ViewCam*>(camera));
-    SetRenderState(1, 1);
-    SetRenderState(2, 1);
-    fogStart = savedFogStart;
-    fogEnd = savedFogEnd;
-    SetDeviceRenderState(0x24, reinterpret_cast<uint32_t&>(g_fogBeginDistance));
-    SetDeviceRenderState(0x25, reinterpret_cast<uint32_t&>(g_fogEnd));
-    ChangeFog(fog);
+        sun::render(static_cast<gfx::ViewCam*>(camera));
+    set_render_state(1, 1);
+    set_render_state(2, 1);
+    fog_start = saved_fog_start;
+    fog_end = saved_fog_end;
+    set_device_render_state(0x24, reinterpret_cast<uint32_t&>(g_fog_begin_distance));
+    set_device_render_state(0x25, reinterpret_cast<uint32_t&>(g_fog_end));
+    change_fog(fog);
 
     // The world again, for the later passes.
     {
-        float angle = MenuSystem::LevelEditor::AdjustViewAngle(editorCamera, CameraAngle(camera));
-        const Maths::Vec4* position = ViewerLocation(camera);
-        s_nearZ = editorNear;
-        ChooseCamera(CamOrientation(camera), position, angle, aspect, 1.0f, false);
-        s_nearZ = 2.0f;
+        float angle = frontend::level_editor::adjust_view_angle(editor_camera, camera_angle(camera));
+        const maths::Vec4* position = viewer_location(camera);
+        s_near_z = editor_near;
+        choose_camera(cam_orientation(camera), position, angle, aspect, 1.0f, false);
+        s_near_z = 2.0f;
     }
-    SetPass(0x82);
-    SetRenderState(1, 1);
-    SetRenderState(2, 1);
-    ForEachScene([&](Scene* scene) {
+    set_pass(0x82);
+    set_render_state(1, 1);
+    set_render_state(2, 1);
+    for_each_scene([&](Scene* scene) {
         if (!scene->sky)
-            DrawSceneGroup(scene, 0x46, index);
+            draw_scene_group(scene, 0x46, index);
     });
-    SetPass(0x102);
-    IssueOcclusionQueries();
-    SetRenderState(1, 0);
-    static_cast<CFlexibleParticleManager*>(g_flexibleParticleManager)->RenderSystems(index > 0);
-    static_cast<CEffectsDirector*>(reinterpret_cast<void*>(GameObjects::g_particleHub))->DrawParticles();
+    set_pass(0x102);
+    issue_occlusion_queries();
+    set_render_state(1, 0);
+    static_cast<FlexibleParticleManager*>(g_flexible_particle_manager)->render_systems(index > 0);
+    static_cast<EffectsDirector*>(reinterpret_cast<void*>(objects::g_particle_hub))->draw_particles();
     {
         // (the weather's slot 3, through the jump 0x004A10A0)
         void* weather = g_weather;
         reinterpret_cast<void(__thiscall*)(void*)>((*static_cast<void***>(weather))[3])(weather);
     }
-    SetRenderState(1, 1);
-    Engine::DrawShatters();
-    SetRenderState(1, 0);
+    set_render_state(1, 1);
+    engine::draw_shatters();
+    set_render_state(1, 0);
     if (!g_radeon8500)
-        Sun::Render(static_cast<Gfx2D::ViewCam*>(camera));
-    SetRenderState(1, 1);
-    SetRenderState(2, 1);
-    RenderPrimitives();
-    SetRenderState(1, 1);
-    SetRenderState(2, 1);
-    UpdateGlows(false);
-    Engine::DrawFlashes(index, 0);
+        sun::render(static_cast<gfx::ViewCam*>(camera));
+    set_render_state(1, 1);
+    set_render_state(2, 1);
+    render_primitives();
+    set_render_state(1, 1);
+    set_render_state(2, 1);
+    update_glows(false);
+    engine::draw_flashes(index, 0);
 }
 
 } // namespace
 
 // 0x004B2D80
-void DrawWorld()
+void draw_world()
 {
     // Not original - the level editor (editor/level_editor.h): its frame (flying, picking, dragging) - it runs
     // while the game is paused.
     // Original behaviour: nothing.
-    MenuSystem::LevelEditor::TickFrame();
-    ++g_framesRendered; // frames rendered
-    if (!g_loadingScreenUp) { // (nothing while the device is lost)
-        g_stepSeconds = static_cast<int>(FrameClock::GetTime());
-        SetRenderState(1, 1);
-        SetRenderState(2, 1);
-        RenderShadowTextures();
-        BeginScreenEffects();
-        int count = GameModules::g_viewportCount;
+    frontend::level_editor::tick_frame();
+    ++g_frames_rendered; // frames rendered
+    if (!g_loading_screen_up) { // (nothing while the device is lost)
+        g_step_seconds = static_cast<int>(frame_clock::get_time());
+        set_render_state(1, 1);
+        set_render_state(2, 1);
+        render_shadow_textures();
+        begin_screen_effects();
+        int count = modules::g_viewport_count;
         // Not original - the wireframe render mode (engine/gfx/wireframe.h): the 3D passes in wireframe when asked.
         // Original behaviour: the render mode (0x006FA734) isn't read.
-        Wireframe::BeginWorld();
-        ViewMode::BeginWorld(); // (not original either: the editor's view modes - engine/gfx/view_mode.h)
+        wireframe::begin_world();
+        view_mode::begin_world(); // (not original either: the editor's view modes - engine/gfx/view_mode.h)
         for (int i = 0; i < count; ++i)
-            DrawViewport(i);
-        ViewMode::EndWorld();
-        Wireframe::EndWorld();
+            draw_viewport(i);
+        view_mode::end_world();
+        wireframe::end_world();
 
         // Full-screen effects and the 2D on top.
-        FullScreenViewport();
-        if (g_camera.letterboxActive) {
+        full_screen_viewport();
+        if (g_camera.letterbox_active_) {
             // Originally from PartyMod Fixes (its call at 0x004B33CA): fitted to the aspect wanted. The original:
-            //   int screenHeight = g_backBufferHeight;
-            //   TheViewport().y = screenHeight / 8;
-            //   TheViewport().height = screenHeight - screenHeight / 4;
-            SetDisplayRegion();
+            //   int screen_height = g_back_buffer_height;
+            //   the_viewport().y = screen_height / 8;
+            //   the_viewport().height = screen_height - screen_height / 4;
+            set_display_region();
         }
-        SetViewport();
-        CopyScreenQuarter();
-        DrawScreenBlur();
-        bool fog = g_fogActive != 0;
-        ChangeFog(false);
+        set_viewport();
+        copy_screen_quarter();
+        draw_screen_blur();
+        bool fog = g_fog_active != 0;
+        change_fog(false);
         // Originally from PartyMod Fixes (its call at 0x004B341D): the 2D pass (0x004DFB90 in the original), then black bars over what's
         // drawn outside the fitted area.
-        Draw2DWithBlackBars();
+        draw_2d_with_black_bars();
         // Not original - the level editor: the hovered and selected objects outlined over everything.
         // Original behaviour: nothing more is drawn.
-        MenuSystem::LevelEditor::Blit();
+        frontend::level_editor::blit();
         // Not original either - the new front end ([features] new_frontend, frontend/new_frontend.h): over
         // everything while it's up in the front end.
-        MenuSystem::NewFrontend::Blit();
-        ChangeFog(fog);
+        frontend::new_frontend::blit();
+        change_fog(fog);
     }
-    FullScreenViewport();
-    SetViewport();
+    full_screen_viewport();
+    set_viewport();
 }
 
 } // namespace Nx

@@ -9,16 +9,16 @@
 #include "engine/maths/vec4.h"
 #include "engine/render/coll_tests.h"
 
-namespace Engine3D {
+namespace render {
 
-class CHitMeshCache;
+class HitMeshCache;
 
 // One end of a rect hit: the point, and the triangle edge it lies on (unit; left as it was when the end is on a
 // rect side instead).
 struct RectHitEnd {
-    Maths::Vec4 point;
-    Maths::Vec4 edge;
-    bool onTriangleEdge;
+    maths::Vec4 point;
+    maths::Vec4 edge;
+    bool on_triangle_edge_;
     uint8_t pad[3];
 };
 static_assert(sizeof(RectHitEnd) == 0x24, "layout must match the original");
@@ -26,13 +26,13 @@ static_assert(sizeof(RectHitEnd) == 0x24, "layout must match the original");
 // Where the rect crosses a triangle (0x60 bytes): a segment, the face's normal, its object's checksum and flag 0x40.
 struct RectHit {
     // 0x00417AD0 / 0x00417B60: every field copied (not the padding). Returns this.
-    RectHit* CopyFrom(const RectHit* other);
-    RectHit* Assign(const RectHit* other);
+    RectHit* copy_from(const RectHit* other);
+    RectHit* get_assign(const RectHit* other);
 
     RectHitEnd ends[2];
-    Maths::Vec4 normal;      // +0x48
+    maths::Vec4 normal;      // +0x48
     uint32_t checksum;       // +0x58
-    uint8_t faceFlag40;      // +0x5C
+    uint8_t face_flag40_;      // +0x5C
     uint8_t pad[3];
 };
 static_assert(sizeof(RectHit) == 0x60 && offsetof(RectHit, normal) == 0x48, "layout must match the original");
@@ -44,8 +44,8 @@ struct RectHits {
 
     RectHit hits[kMost];
     int count;               // +0xC00
-    uint16_t ignoreFlags;    // +0xC04
-    uint16_t requireFlags;   // +0xC06
+    uint16_t ignore_flags_;    // +0xC04
+    uint16_t require_flags_;   // +0xC06
 };
 static_assert(sizeof(RectHits) == 0xC08, "layout must match the original");
 
@@ -53,31 +53,31 @@ static_assert(sizeof(RectHits) == 0xC08, "layout must match the original");
 // through `cache` when it holds the rect's box (its statics whose boxes touch that box grown by 0.5 - w by 1),
 // else the scenes' grids along the rect's diagonal (each object's slot 13 first; nothing when the rect's scene has
 // no grid). Whether anything was hit.
-bool CollideRectWithStatics(const CollRect* rect, RectHits* hits, CHitMeshCache* cache);
+bool collide_rect_with_statics(const CollRect* rect, RectHits* hits, HitMeshCache* cache);
 
 // The rect feeler (0x1844 bytes): a rect, what it hits, and the hits joined into longer segments.
-class CBoxProbe {
+class BoxProbe {
 public:
     // 0x004182D0: no hits, faces flagged 0x10 ignored, no cache. Returns this.
-    CBoxProbe* MakeNew();
+    BoxProbe* make_new();
     // 0x00417840: the rect's query, through the feeler's cache or the current rect cache (0x0069198C). (The
     // argument isn't used.)
-    bool Query(int unused);
+    bool get_query(int unused);
     // 0x00417C00: the hits joined: duplicates (both ends within 0.1, either way round, normals within 0.99) dropped;
     // each remaining hit extended by the later ones lying along it (normals and directions within 0.99, an end
-    // within 0.1 of one of its ends) into m_joined.
-    void JoinHits();
+    // within 0.1 of one of its ends) into joined_.
+    void join_hits();
     // 0x00417860: the rect drawn, then the joined hits (or the hits) - compiled out of this build.
-    void DebugDraw(uint32_t r, uint32_t g, uint32_t b, int frames);
+    void debug_draw(uint32_t r, uint32_t g, uint32_t b, int frames);
 
-    CollRect m_rect;                    // +0x0000
-    RectHits m_hits;                    // +0x0030
-    RectHit m_joined[RectHits::kMost];  // +0x0C38
-    int m_joinedCount;                  // +0x1838
-    uint32_t m_unknown183C;             // +0x183C
-    CHitMeshCache* m_hitCache;               // +0x1840
+    CollRect rect_;                    // +0x0000
+    RectHits hits_;                    // +0x0030
+    RectHit joined_[RectHits::kMost];  // +0x0C38
+    int joined_count_;                  // +0x1838
+    uint32_t unknown183c_;             // +0x183C
+    HitMeshCache* hit_cache_;               // +0x1840
 };
-static_assert(offsetof(CBoxProbe, m_joined) == 0xC38 && offsetof(CBoxProbe, m_hitCache) == 0x1840,
+static_assert(offsetof(BoxProbe, joined_) == 0xC38 && offsetof(BoxProbe, hit_cache_) == 0x1840,
               "layout must match the original");
 
 } // namespace Nx

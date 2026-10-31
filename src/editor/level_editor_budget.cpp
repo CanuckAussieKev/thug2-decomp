@@ -30,38 +30,38 @@
 #include "engine/script/cscript.h"
 #include "imgui.h"
 
-namespace MenuSystem::LevelEditor::Budget {
+namespace frontend::level_editor::budget {
 
 // --- the pure parts -------------------------------------------------------------------------------------------------
 
-double Fill(double used, double limit) { return limit > 0.0 ? used / limit : 0.0; }
+double get_fill(double used, double limit) { return limit > 0.0 ? used / limit : 0.0; }
 
-StageMap LevelOf(double used, double limit)
+StageMap get_level_of(double used, double limit)
 {
     if (limit <= 0.0)
-        return StageMap::Ok;
+        return StageMap::kOk;
     if (used > limit)
-        return StageMap::Over;
-    return used >= 0.8 * limit ? StageMap::Near : StageMap::Ok;
+        return StageMap::kOver;
+    return used >= 0.8 * limit ? StageMap::kNear : StageMap::kOk;
 }
 
-uint32_t LevelColour(StageMap level)
+uint32_t level_colour(StageMap level)
 {
     switch (level) {
-    case StageMap::Over: return 0xFFE5484D;
-    case StageMap::Near: return 0xFFF5A524;
+    case StageMap::kOver: return 0xFFE5484D;
+    case StageMap::kNear: return 0xFFF5A524;
     default: return 0xFF46A758;
     }
 }
 
-int Worst(const std::vector<Meter>& meters)
+int get_worst(const std::vector<Meter>& meters)
 {
     int worst = -1;
     double fill = -1.0;
     for (size_t i = 0; i < meters.size(); ++i) {
         if (meters[i].limit <= 0.0)
             continue;
-        double f = Fill(meters[i].used, meters[i].limit);
+        double f = get_fill(meters[i].used, meters[i].limit);
         if (f > fill) {
             fill = f;
             worst = static_cast<int>(i);
@@ -70,7 +70,7 @@ int Worst(const std::vector<Meter>& meters)
     return worst;
 }
 
-std::string Bytes(double bytes)
+std::string get_bytes(double bytes)
 {
     char text[32];
     double a = std::fabs(bytes);
@@ -85,10 +85,10 @@ std::string Bytes(double bytes)
 
 namespace {
 
-std::string Amount(const Meter& meter, double value)
+std::string get_amount(const Meter& meter, double value)
 {
     if (meter.bytes)
-        return Bytes(value);
+        return get_bytes(value);
     char text[32];
     std::snprintf(text, sizeof(text), "%.0f", value);
     return text;
@@ -96,22 +96,22 @@ std::string Amount(const Meter& meter, double value)
 
 } // namespace
 
-std::string UsedText(const Meter& meter)
+std::string used_text(const Meter& meter)
 {
-    std::string text = Amount(meter, meter.used);
+    std::string text = get_amount(meter, meter.used);
     if (meter.limit > 0.0)
-        text += " / " + Amount(meter, meter.limit);
+        text += " / " + get_amount(meter, meter.limit);
     return text;
 }
 
-std::string AddedText(const Meter& meter)
+std::string added_text(const Meter& meter)
 {
     // (memory moves by a few bytes on its own: under 1 KB isn't shown)
     if (meter.added == 0.0 || (meter.bytes && std::fabs(meter.added) < 1024.0))
         return "";
     std::string sign = meter.added > 0.0 ? "+" : "-";
     Meter positive = meter;
-    return (meter.approximate ? "about " : "") + sign + Amount(positive, std::fabs(meter.added));
+    return (meter.approximate ? "about " : "") + sign + get_amount(positive, std::fabs(meter.added));
 }
 
 // --- the game side ------------------------------------------------------------------------------------------------
@@ -121,49 +121,49 @@ namespace {
 // The script pools (Scripts::CreateScriptPools): their pool pairs and names (the counts are the pools' own -
 // ours are bigger than the original's: engine/core/memory_sizes.h).
 struct PoolInfo {
-    MemSys::PoolPair& (*pair)(); // (a function: the globals are set up after this table)
+    memory::PoolPair& (*pair)(); // (a function: the globals are set up after this table)
     const char* name;
     const char* where;
 };
 const PoolInfo kPools[] = {
-    {[]() -> MemSys::PoolPair& { return Scripts::g_structPools; }, "Script structures (CStruct)", "CStruct pool 0x006F3614 (CreateScriptPools; ini [memory] struct_pool, original 19800)"},
-    {[]() -> MemSys::PoolPair& { return Scripts::g_componentPools; }, "Script components", "CComponent pool 0x006F2338 (CreateScriptPools; ini [memory] component_pool, original 86000)"},
-    {[]() -> MemSys::PoolPair& { return Scripts::g_vectorPools; }, "Script vectors", "CVector pool 0x006F3654 (CreateScriptPools; ini [memory] vector_pool, original 9500)"},
-    {[]() -> MemSys::PoolPair& { return Scripts::g_arrayPools; }, "Script arrays", "CArray pool 0x006F22B4 (CreateScriptPools; ini [memory] array_pool, original 7000)"},
-    {[]() -> MemSys::PoolPair& { return Scripts::g_symbolPools; }, "Script symbols", "CSymbolTableEntry pool 0x006F362C (CreateScriptPools; ini [memory] symbol_pool, original 12500)"},
-    {[]() -> MemSys::PoolPair& { return Scripts::g_scriptPools; }, "Running scripts", "CScript pool 0x006F3548 (CreateScriptPools; ini [memory] script_pool, original 300)"},
+    {[]() -> memory::PoolPair& { return script::g_struct_pools; }, "Script structures (CStruct)", "CStruct pool 0x006F3614 (CreateScriptPools; ini [memory] struct_pool, original 19800)"},
+    {[]() -> memory::PoolPair& { return script::g_component_pools; }, "Script components", "CComponent pool 0x006F2338 (CreateScriptPools; ini [memory] component_pool, original 86000)"},
+    {[]() -> memory::PoolPair& { return script::g_vector_pools; }, "Script vectors", "CVector pool 0x006F3654 (CreateScriptPools; ini [memory] vector_pool, original 9500)"},
+    {[]() -> memory::PoolPair& { return script::g_array_pools; }, "Script arrays", "CArray pool 0x006F22B4 (CreateScriptPools; ini [memory] array_pool, original 7000)"},
+    {[]() -> memory::PoolPair& { return script::g_symbol_pools; }, "Script symbols", "CSymbolTableEntry pool 0x006F362C (CreateScriptPools; ini [memory] symbol_pool, original 12500)"},
+    {[]() -> memory::PoolPair& { return script::g_script_pools; }, "Running scripts", "CScript pool 0x006F3548 (CreateScriptPools; ini [memory] script_pool, original 300)"},
 };
 constexpr int kPoolCount = static_cast<int>(sizeof(kPools) / sizeof(kPools[0]));
 
-bool PoolUse(MemSys::PoolPair& pools, int* used, int* count)
+bool pool_use(memory::PoolPair& pools, int* used, int* count)
 {
-    MemSys::SlabBank* pool = pools.current == 0 || pools.current == 1 ? pools.pools[pools.current] : nullptr;
+    memory::SlabBank* pool = pools.current == 0 || pools.current == 1 ? pools.pools[pools.current] : nullptr;
     if (!pool)
         return false;
-    *used = pool->m_takenCount;
-    *count = pool->m_num;
+    *used = pool->taken_count_;
+    *count = pool->num_;
     return true;
 }
 
 // A region's bytes and what's free in it: between its two allocators' tops, and their free blocks.
-bool RegionUse(MemSys::Zone* region, double* size, double* used)
+bool region_use(memory::Zone* region, double* size, double* used)
 {
     if (!region)
         return false;
-    double free = region->FreeByteCount();
-    for (MemSys::MemSource* allocator : region->m_allocators) {
+    double free = region->free_byte_count();
+    for (memory::MemSource* allocator : region->allocators_) {
         if (allocator)
-            free += allocator->m_freeSize;
+            free += allocator->free_size_;
     }
-    *size = static_cast<double>(region->m_finish - region->m_outset);
+    *size = static_cast<double>(region->finish_ - region->outset_);
     *used = *size - free;
     return true;
 }
 
-bool LevelUp()
+bool level_up()
 {
     constexpr uint32_t kSkater = 0x5B8AB877; // Skater
-    return Engine3D::CurrentLevel() != 0 && GameObjects::FindObject(kSkater) && Scenery::MainScene();
+    return render::current_level() != 0 && objects::find_object(kSkater) && scenery::main_scene();
 }
 
 // The baseline: taken in the first frame a level (each load) is up.
@@ -175,54 +175,54 @@ struct Datum {
 };
 Datum g_base;
 
-void TakeBaseline()
+void take_baseline()
 {
-    MemSys::Hub* manager = MemSys::Hub::Pull();
+    memory::Hub* manager = memory::Hub::get_pull();
     double size = 0.0;
     g_base.main = g_base.script = 0.0;
     if (manager) {
-        RegionUse(manager->m_primaryZone, &size, &g_base.main);
-        RegionUse(manager->m_scriptRegion, &size, &g_base.script);
+        region_use(manager->primary_zone_, &size, &g_base.main);
+        region_use(manager->script_region_, &size, &g_base.script);
     }
     for (int i = 0; i < kPoolCount; ++i) {
         int used = 0, count = 0;
-        g_base.pools[i] = PoolUse(kPools[i].pair(), &used, &count) ? used : 0;
+        g_base.pools[i] = pool_use(kPools[i].pair(), &used, &count) ? used : 0;
     }
     g_base.taken = true;
 }
 
 } // namespace
 
-void Observe()
+void get_observe()
 {
-    int loads = Layout::LevelLoads();
+    int loads = layout::level_loads();
     if (loads != g_base.loads) {
         g_base.loads = loads;
         g_base.taken = false;
     }
-    if (!g_base.taken && LevelUp())
-        TakeBaseline();
+    if (!g_base.taken && level_up())
+        take_baseline();
 }
 
-std::vector<Meter> Meters()
+std::vector<Meter> get_meters()
 {
     std::vector<Meter> meters;
-    const std::vector<Nodes::Elem>& nodes = Nodes::All();
+    const std::vector<nodes::Elem>& nodes = nodes::get_all();
     if (nodes.empty())
         return meters;
     // Counted as the game counts them now, and as the level has them (no added node; hidden ones counted).
-    int crownsShipped = 0, restartsShipped = 0, addedNodes = 0;
-    static const uint32_t kRestart = Checksums::HashFromText("Restart"),
-                          kCrown = Checksums::HashFromText("Crown");
-    for (const Nodes::Elem& n : nodes) {
+    int crowns_shipped = 0, restarts_shipped = 0, added_nodes = 0;
+    static const uint32_t kRestart = checksums::hash_from_text("Restart"),
+                          kCrown = checksums::hash_from_text("Crown");
+    for (const nodes::Elem& n : nodes) {
         if (n.added) {
-            ++addedNodes;
+            ++added_nodes;
             continue;
         }
-        crownsShipped += n.type == kCrown;
-        restartsShipped += n.cls == kRestart;
+        crowns_shipped += n.type == kCrown;
+        restarts_shipped += n.cls == kRestart;
     }
-    NodeCreate::Counts counts = NodeCreate::CountsNow();
+    node_create::Counts counts = node_create::counts_now();
     auto count = [&](const char* name, double used, double limit, double added, const char* where) {
         Meter m;
         m.name = name;
@@ -232,37 +232,37 @@ std::vector<Meter> Meters()
         m.where = where;
         meters.push_back(m);
     };
-    count("Crowns", counts.crowns, NodeCreate::kMaxCrowns, counts.crowns - crownsShipped,
+    count("Crowns", counts.crowns, node_create::kMaxCrowns, counts.crowns - crowns_shipped,
           "CFunc_SpawnCrown 0x00538170: two 10-entry stack arrays (more overruns them)");
-    count("Restarts", counts.restarts, NodeCreate::kMaxRestarts, counts.restarts - restartsShipped,
+    count("Restarts", counts.restarts, node_create::kMaxRestarts, counts.restarts - restarts_shipped,
           "GetRestartNode 0x0046B790: a 256-name stack array for every restart (more overruns it)");
-    int addedLights = 0;
-    for (const Nodes::Elem& n : nodes)
-        addedLights += n.added && !n.hidden && n.family == Nodes::Family::Light;
-    count("Level lights", counts.levelLights, NodeCreate::kMaxLevelLights, addedLights,
+    int added_lights = 0;
+    for (const nodes::Elem& n : nodes)
+        added_lights += n.added && !n.hidden && n.family == nodes::Family::kLight;
+    count("Level lights", counts.level_lights_, node_create::kMaxLevelLights, added_lights,
           "the light manager's level light list (count 0x006FAEF4; AddLight 0x00490570)");
-    count("Dynamic lights", counts.dynamicLights, NodeCreate::kMaxDynamicLights, 0,
+    count("Dynamic lights", counts.dynamic_lights_, node_create::kMaxDynamicLights, 0,
           "the light manager's dynamic light list (count 0x006FAEF0)");
-    count("Nodes", static_cast<double>(nodes.size()), static_cast<double>(MemSys::Sizes::NodeHashSlots()), addedNodes,
+    count("Nodes", static_cast<double>(nodes.size()), static_cast<double>(memory::sizes::node_hash_slots()), added_nodes,
           "the node manager's name hash 0x006F0D84 (HashNode 0x0045CE60): original 0x4000 slots, ours [memory] "
           "node_hash_slots");
-    if (LevelNodes::CNodeManager* manager = LevelNodes::NodeManagerInstance())
-        count("Node arrays", manager->m_num, LevelNodes::CNodeManager::kMaxArrays, 0,
+    if (level_nodes::NodeManager* manager = level_nodes::node_manager_instance())
+        count("Node arrays", manager->num_, level_nodes::NodeManager::kMaxArrays, 0,
               "CNodeManager's 20 node arrays (AddNodeArray 0x0045D520)");
-    count("Editor trigger volumes", static_cast<double>(Triggers::AddedTriggers().size()), 0,
-          static_cast<double>(Triggers::AddedTriggers().size()), "the movable collision list (no fixed limit)");
+    count("Editor trigger volumes", static_cast<double>(triggers::added_triggers().size()), 0,
+          static_cast<double>(triggers::added_triggers().size()), "the movable collision list (no fixed limit)");
     int faces = 0;
-    int companions = SharedCollision::TotalOf(&faces);
+    int companions = shared_collision::total_of(&faces);
     (void)companions;
     count("Collision faces taken along", faces, 0, faces,
           "companions' faces (at most 2048 a piece: SharedCollision::kMostFaces)");
-    count("Scenery copies", static_cast<double>(Scenery::Clones().size()), 0,
-          static_cast<double>(Scenery::Clones().size()), "CScene::CloneSector 0x0049DF30 (meshes in main memory)");
-    count("Object copies", static_cast<double>(Objects::Copies().size()), 0,
-          static_cast<double>(Objects::Copies().size()), "objects made from copies of their nodes");
+    count("Scenery copies", static_cast<double>(scenery::get_clones().size()), 0,
+          static_cast<double>(scenery::get_clones().size()), "CScene::CloneSector 0x0049DF30 (meshes in main memory)");
+    count("Object copies", static_cast<double>(object_edit::get_copies().size()), 0,
+          static_cast<double>(object_edit::get_copies().size()), "objects made from copies of their nodes");
     for (int i = 0; i < kPoolCount; ++i) {
         int used = 0, total = 0;
-        if (!PoolUse(kPools[i].pair(), &used, &total))
+        if (!pool_use(kPools[i].pair(), &used, &total))
             continue;
         Meter m;
         m.name = kPools[i].name;
@@ -273,9 +273,9 @@ std::vector<Meter> Meters()
         m.where = kPools[i].where;
         meters.push_back(m);
     }
-    if (MemSys::Hub* manager = MemSys::Hub::Pull()) {
+    if (memory::Hub* manager = memory::Hub::get_pull()) {
         double size = 0.0, used = 0.0;
-        if (RegionUse(manager->m_scriptRegion, &size, &used)) {
+        if (region_use(manager->script_region_, &size, &used)) {
             Meter m;
             m.name = "Script heap";
             m.used = used;
@@ -285,7 +285,7 @@ std::vector<Meter> Meters()
             m.where = "the script region (InitStandardHeaps 0x005BBE80: original 0x434770 bytes, grown by the bigger pools)";
             meters.push_back(m);
         }
-        if (RegionUse(manager->m_primaryZone, &size, &used)) {
+        if (region_use(manager->primary_zone_, &size, &used)) {
             Meter m;
             m.name = "Main memory";
             m.used = used;
@@ -301,19 +301,19 @@ std::vector<Meter> Meters()
 
 namespace {
 
-ImU32 Colour(uint32_t argb)
+ImU32 get_colour(uint32_t argb)
 {
     return IM_COL32((argb >> 16) & 0xFF, (argb >> 8) & 0xFF, argb & 0xFF, (argb >> 24) & 0xFF);
 }
 
 // The meters, made again a few times a second (reading them walks the nodes and the pools).
-const std::vector<Meter>& Cached()
+const std::vector<Meter>& get_cached()
 {
     static std::vector<Meter> meters;
     static double last = -1.0;
     double now = ImGui::GetTime();
     if (last < 0.0 || now - last > 0.25) {
-        meters = Meters();
+        meters = get_meters();
         last = now;
     }
     return meters;
@@ -321,40 +321,40 @@ const std::vector<Meter>& Cached()
 
 } // namespace
 
-bool StripMeter(float* fill, uint32_t* argb)
+bool strip_meter(float* fill, uint32_t* argb)
 {
-    const std::vector<Meter>& meters = Cached();
-    int worst = Worst(meters);
+    const std::vector<Meter>& meters = get_cached();
+    int worst = get_worst(meters);
     if (worst < 0)
         return false;
     const Meter& w = meters[worst];
-    *fill = static_cast<float>(std::min(1.0, Fill(w.used, w.limit)));
-    *argb = LevelColour(LevelOf(w.used, w.limit));
+    *fill = static_cast<float>(std::min(1.0, get_fill(w.used, w.limit)));
+    *argb = level_colour(get_level_of(w.used, w.limit));
     return true;
 }
 
-void Tooltip()
+void tooltip()
 {
-    const std::vector<Meter>& meters = Cached();
-    int worst = Worst(meters);
+    const std::vector<Meter>& meters = get_cached();
+    int worst = get_worst(meters);
     if (worst < 0)
         return;
     ImGui::BeginTooltip();
-    ImGui::Text("Budget: %s %s (click for details)", meters[worst].name, UsedText(meters[worst]).c_str());
+    ImGui::Text("Budget: %s %s (click for details)", meters[worst].name, used_text(meters[worst]).c_str());
     ImGui::Separator();
     for (const Meter& m : meters) {
-        StageMap l = LevelOf(m.used, m.limit);
-        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(Colour(LevelColour(l))), "%s", "\xE2\x97\x8F");
+        StageMap l = get_level_of(m.used, m.limit);
+        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(get_colour(level_colour(l))), "%s", "\xE2\x97\x8F");
         ImGui::SameLine();
-        std::string added = AddedText(m);
-        ImGui::Text("%s: %s%s%s", m.name, UsedText(m).c_str(), added.empty() ? "" : "  (edits ",
+        std::string added = added_text(m);
+        ImGui::Text("%s: %s%s%s", m.name, used_text(m).c_str(), added.empty() ? "" : "  (edits ",
                     added.empty() ? "" : (added + ")").c_str());
     }
     ImGui::EndTooltip();
 }
-void Table()
+void get_table()
 {
-    const std::vector<Meter>& meters = Cached();
+    const std::vector<Meter>& meters = get_cached();
     if (meters.empty()) {
         ImGui::TextDisabled("No level loaded");
         return;
@@ -374,20 +374,20 @@ void Table()
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("%s", m.where);
         ImGui::TableNextColumn();
-        ImGui::TextUnformatted(UsedText(m).c_str());
+        ImGui::TextUnformatted(used_text(m).c_str());
         ImGui::TableNextColumn();
         if (m.limit > 0.0) {
-            StageMap l = LevelOf(m.used, m.limit);
-            ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImGui::ColorConvertU32ToFloat4(Colour(LevelColour(l))));
-            ImGui::ProgressBar(static_cast<float>(std::min(1.0, Fill(m.used, m.limit))), ImVec2(-1.0f, 0.0f), "");
+            StageMap l = get_level_of(m.used, m.limit);
+            ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImGui::ColorConvertU32ToFloat4(get_colour(level_colour(l))));
+            ImGui::ProgressBar(static_cast<float>(std::min(1.0, get_fill(m.used, m.limit))), ImVec2(-1.0f, 0.0f), "");
             ImGui::PopStyleColor();
         } else {
             ImGui::TextDisabled("(count)");
         }
         ImGui::TableNextColumn();
-        ImGui::TextUnformatted(AddedText(m).c_str());
+        ImGui::TextUnformatted(added_text(m).c_str());
     }
     ImGui::EndTable();
 }
 
-} // namespace MenuSystem::LevelEditor::Budget
+} // namespace MenuSystem::level_editor::Budget

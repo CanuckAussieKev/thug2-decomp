@@ -10,173 +10,173 @@
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/render/coll_world.h"
 
-namespace Engine3D {
+namespace render {
 
 namespace {
 
-CHitMeshCache* g_caches[8];
+HitMeshCache* g_caches[8];
 
-CHitMeshCache** Caches() { return g_caches; }
+HitMeshCache** caches() { return g_caches; }
 
-uint32_t g_cachesInUse;
+uint32_t g_caches_in_use;
 
-uint32_t& CachesInUse() { return g_cachesInUse; }
+uint32_t& caches_in_use() { return g_caches_in_use; }
 
 // The movable collision objects (the first node of their list: 0x00691984).
-MemSys::ListNode* FirstMovable() { return g_movables.next; }
+memory::ListNode* first_movable() { return g_movables.next; }
 
 // The collision grid lists the line from the box's min to its max passes through (null-terminated; null: none),
 // and one list's collision objects near the line (null-terminated). 0x0048C980 / 0x004188C0.
-void** GridListsAlong(Maths::Seg* line) { return reinterpret_cast<void**>(GetCollGridsOnLine(line)); }
-CHitMesh** ObjectsAlong(void* list, Maths::Seg* line)
+void** grid_lists_along(maths::Seg* line) { return reinterpret_cast<void**>(get_coll_grids_on_line(line)); }
+HitMesh** objects_along(void* list, maths::Seg* line)
 {
-    return static_cast<CCollGrid*>(list)->ObjectsAlongLine(line, nullptr);
+    return static_cast<CollGrid*>(list)->objects_along_line(line, nullptr);
 }
 
 // The collision objects' virtual methods the cache uses.
-bool TouchesBox(CHitMesh* object, const Maths::BBox* box)
+bool touches_box(HitMesh* object, const maths::BBox* box)
 {
-    return reinterpret_cast<bool(__thiscall*)(CHitMesh*, const Maths::BBox*)>((*reinterpret_cast<void***>(object))[13])(
+    return reinterpret_cast<bool(__thiscall*)(HitMesh*, const maths::BBox*)>((*reinterpret_cast<void***>(object))[13])(
         object, box);
 }
-void* Geometry(CHitMesh* object, int slot)
+void* get_geometry(HitMesh* object, int slot)
 {
-    return reinterpret_cast<void*(__thiscall*)(CHitMesh*)>((*reinterpret_cast<void***>(object))[slot])(object);
+    return reinterpret_cast<void*(__thiscall*)(HitMesh*)>((*reinterpret_cast<void***>(object))[slot])(object);
 }
-uint32_t ObjectFlags(CHitMesh* object) { return reinterpret_cast<uint32_t*>(object)[2]; }
+uint32_t object_flags(HitMesh* object) { return reinterpret_cast<uint32_t*>(object)[2]; }
 
-void Clear(CHitMeshCache* cache)
+void get_clear(HitMeshCache* cache)
 {
-    cache->m_box.min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
-    cache->m_box.max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
-    cache->m_num = 0;
-    cache->m_statics = 0;
-    cache->m_movables = 0;
+    cache->box_.min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
+    cache->box_.max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
+    cache->num_ = 0;
+    cache->statics_ = 0;
+    cache->movables_ = 0;
 }
 
 } // namespace
 
 // 0x0040AB50
-CHitMeshCache* CHitMeshCache::MakeNew()
+HitMeshCache* HitMeshCache::make_new()
 {
-    new (&m_box) Maths::BBox();
-    RegisterCollCache(this);
-    Clear(this);
+    new (&box_) maths::BBox();
+    register_coll_cache(this);
+    get_clear(this);
     return this;
 }
 
 // 0x0040AB40
-void CHitMeshCache::Destruct()
+void HitMeshCache::destruct()
 {
-    UnregisterCollCache(this);
+    unregister_coll_cache(this);
 }
 
 // 0x0040ABA0
-void CHitMeshCache::TickFrame(const Maths::BBox& box)
+void HitMeshCache::tick_frame(const maths::BBox& box)
 {
-    Clear(this);
-    Maths::Seg line(box.min, box.max);
-    void** lists = GridListsAlong(&line);
+    get_clear(this);
+    maths::Seg line(box.min, box.max);
+    void** lists = grid_lists_along(&line);
     if (!lists)
         return;
-    m_box = box;
+    box_ = box;
     // The box the objects are tested against: grown by half a unit each way.
-    Maths::BBox grown;
-    grown.AppendSpot({box.max.x + 0.5f, box.max.y + 0.5f, box.max.z + 0.5f, box.max.w});
-    grown.AppendSpot({box.min.x - 0.5f, box.min.y - 0.5f, box.min.z - 0.5f, box.min.w});
+    maths::BBox grown;
+    grown.append_spot({box.max.x + 0.5f, box.max.y + 0.5f, box.max.z + 0.5f, box.max.w});
+    grown.append_spot({box.min.x - 0.5f, box.min.y - 0.5f, box.min.z - 0.5f, box.min.w});
     for (; *lists; ++lists) {
-        for (CHitMesh** object = ObjectsAlong(*lists, &line); *object; ++object) {
-            if (!TouchesBox(*object, &grown))
+        for (HitMesh** object = objects_along(*lists, &line); *object; ++object) {
+            if (!touches_box(*object, &grown))
                 continue;
-            m_entries[m_num].geometry = Geometry(*object, 21);
-            m_entries[m_num].object = *object;
-            ++m_num;
-            ++m_statics;
+            entries_[num_].geometry = get_geometry(*object, 21);
+            entries_[num_].object = *object;
+            ++num_;
+            ++statics_;
         }
     }
-    for (MemSys::ListNode* node = FirstMovable(); node->data != reinterpret_cast<void*>(-1) && node; node = node->next) {
-        auto* object = static_cast<CHitMesh*>(node->data);
-        if (!object || (ObjectFlags(object) & 6) || !TouchesBox(object, &grown))
+    for (memory::ListNode* node = first_movable(); node->data != reinterpret_cast<void*>(-1) && node; node = node->next) {
+        auto* object = static_cast<HitMesh*>(node->data);
+        if (!object || (object_flags(object) & 6) || !touches_box(object, &grown))
             continue;
-        m_entries[m_num].geometry = Geometry(object, 20);
-        m_entries[m_num].object = object;
-        ++m_num;
-        ++m_movables;
+        entries_[num_].geometry = get_geometry(object, 20);
+        entries_[num_].object = object;
+        ++num_;
+        ++movables_;
     }
 }
 
 // 0x0040A910
-void CHitMeshCache::RemoveStatic(CHitMesh* object)
+void HitMeshCache::remove_static(HitMesh* object)
 {
-    for (int i = 0; i < m_statics; ++i) {
-        if (m_entries[i].object != object)
+    for (int i = 0; i < statics_; ++i) {
+        if (entries_[i].object != object)
             continue;
-        for (int k = i + 1; k < m_num; ++k)
-            m_entries[k - 1] = m_entries[k];
-        --m_statics;
-        --m_num;
+        for (int k = i + 1; k < num_; ++k)
+            entries_[k - 1] = entries_[k];
+        --statics_;
+        --num_;
         return;
     }
 }
 
 // 0x0040A990
-void CHitMeshCache::RemoveMovable(CHitMesh* object)
+void HitMeshCache::remove_movable(HitMesh* object)
 {
-    for (int i = m_statics; i < m_num; ++i) {
-        if (m_entries[i].object != object)
+    for (int i = statics_; i < num_; ++i) {
+        if (entries_[i].object != object)
             continue;
-        --m_num;
-        m_entries[i] = m_entries[m_num];
-        --m_movables;
+        --num_;
+        entries_[i] = entries_[num_];
+        --movables_;
         return;
     }
 }
 
 // 0x0040AA00
-void RegisterCollCache(CHitMeshCache* cache)
+void register_coll_cache(HitMeshCache* cache)
 {
     for (int i = 0; i < 8; ++i) {
-        if (!(CachesInUse() & (1u << i))) {
-            Caches()[i] = cache;
-            CachesInUse() |= 1u << i;
+        if (!(caches_in_use() & (1u << i))) {
+            caches()[i] = cache;
+            caches_in_use() |= 1u << i;
             return;
         }
     }
 }
 
 // 0x0040AA40
-void UnregisterCollCache(CHitMeshCache* cache)
+void unregister_coll_cache(HitMeshCache* cache)
 {
     for (int i = 0; i < 8; ++i) {
-        if ((CachesInUse() & (1u << i)) && Caches()[i] == cache) {
-            CachesInUse() &= ~(1u << i);
+        if ((caches_in_use() & (1u << i)) && caches()[i] == cache) {
+            caches_in_use() &= ~(1u << i);
             return;
         }
     }
 }
 
 // 0x0040AA80
-void RemoveMovableFromCaches(CHitMesh* object)
+void remove_movable_from_caches(HitMesh* object)
 {
     for (int i = 0; i < 8; ++i) {
-        if (CachesInUse() & (1u << i))
-            Caches()[i]->RemoveMovable(object);
+        if (caches_in_use() & (1u << i))
+            caches()[i]->remove_movable(object);
     }
 }
 
 // 0x0040AAC0
-void RemoveFromCaches(CHitMesh* object)
+void remove_from_caches(HitMesh* object)
 {
     for (int i = 0; i < 8; ++i) {
-        if (CachesInUse() & (1u << i)) {
-            Caches()[i]->RemoveStatic(object);
-            Caches()[i]->RemoveMovable(object);
+        if (caches_in_use() & (1u << i)) {
+            caches()[i]->remove_static(object);
+            caches()[i]->remove_movable(object);
         }
     }
 }
 
 // 0x0040ADD0
-int ShapeTypeFromChecksum(uint32_t shape)
+int shape_type_from_checksum(uint32_t shape)
 {
     switch (shape) {
     case 0xDD42AA66:

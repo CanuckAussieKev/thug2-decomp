@@ -11,9 +11,9 @@
 #include "platform/stopwatch.h"
 #include "engine/render/probe_ray.h"
 
-namespace Skater {
+namespace skater {
 
-using namespace CoreFields;
+using namespace core_fields;
 
 namespace {
 
@@ -30,79 +30,79 @@ constexpr uint32_t kLeftAir = 0x5E27200A;
 } // namespace
 
 // 0x00510830
-void SkaterPhysicsModule::TickFrame()
+void SkaterPhysicsModule::tick_frame()
 {
-    At<float>(this, kFrameLength) = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
-    CollisionEvents::Checkpoint(this, "update-start"); // (not original)
-    bool bike = ThawBmx::LiveNow(this); // (not original: THAW's bike, thaw_bmx_physics.cpp)
+    get_at<float>(this, kFrameLength) = static_cast<float>(frame_clock::get_slomo_frame_seconds());
+    collision_events::checkpoint(this, "update-start"); // (not original)
+    bool bike = thaw_bmx::live_now(this); // (not original: THAW's bike, thaw_bmx_physics.cpp)
     if (bike)
-        ThawBmx::BeginFrame(this);
-    At<uint8_t>(this, kTouchedDownNow) = 0;
-    At<uint8_t>(this, kFrameBeganInLip) = StateOf(this) == kLip;
-    At<uint8_t>(this, kFrameFlag255) = BitMark(this, 0x78);
-    if (!BitMark(this, 0x20) && InputOf(this)[0x1C0])
-        SetFlag(this, 0x20, 1);
-    ClampSkaterSpeed();
-    SetFlag(this, 0x98, 0);
-    SetFlag(this, 0xA0, 0);
-    RefreshHitCache();
-    UpdateModelRotation();
+        thaw_bmx::begin_frame(this);
+    get_at<uint8_t>(this, kTouchedDownNow) = 0;
+    get_at<uint8_t>(this, kFrameBeganInLip) = state_of(this) == kLip;
+    get_at<uint8_t>(this, kFrameFlag255) = bit_mark(this, 0x78);
+    if (!bit_mark(this, 0x20) && input_of(this)[0x1C0])
+        set_flag(this, 0x20, 1);
+    clamp_skater_speed();
+    set_flag(this, 0x98, 0);
+    set_flag(this, 0xA0, 0);
+    refresh_hit_cache();
+    update_model_rotation();
 
-    switch (StateOf(this)) {
+    switch (state_of(this)) {
     case kGround:
-        VectorAt(this, kGroundStart) = VectorAt(ObjectOf(this), kPosition);
-        DoGroundPhysics();
-        TryStartSkitch();
+        vector_at(this, kGroundStart) = vector_at(object_of(this), kPosition);
+        do_ground_physics();
+        try_start_skitch();
         break;
     case kAir:
-        DoAirPhysics();
-        if (StateOf(this) == kGround)
-            At<uint8_t>(this, kTouchedDownNow) = 1;
+        do_air_physics();
+        if (state_of(this) == kGround)
+            get_at<uint8_t>(this, kTouchedDownNow) = 1;
         break;
     case kWallRide:
-        StepWallRide();
+        step_wall_ride();
         break;
     case kLip:
-        StepCopingMove();
+        step_coping_move();
         break;
     case kRail:
-        StepGrindMove();
+        step_grind_move();
         break;
     case kWallplant:
-        StepWallplant();
+        step_wallplant();
         break;
     case kBikeStall: // (not original: THAW's stall state - only THAW's bike gets into it, thaw_bmx.h)
-        if (ThawBmx::IsSwitchedOn())
-            DoBikeStallPhysics();
+        if (thaw_bmx::is_switched_on())
+            do_bike_stall_physics();
         break;
     default:
         break;
     }
 
-    CollisionEvents::Checkpoint(this, "state-physics"); // (not original)
-    UpdateSpeedOverride();
-    CollisionEvents::Checkpoint(this, "after-4FF200"); // (not original)
-    TryGrind(false); // (inlined in the original)
-    CollisionEvents::Checkpoint(this, "try-grind"); // (not original)
-    UpdateFreeRevert();
-    CollisionEvents::Checkpoint(this, "free-revert"); // (not original)
-    UpdateFocusButton();
-    UpdateProjectiles();
-    UpdateSpecialTime();
-    CollisionEvents::Checkpoint(this, "update-rest"); // (not original)
+    collision_events::checkpoint(this, "state-physics"); // (not original)
+    update_speed_override();
+    collision_events::checkpoint(this, "after-4FF200"); // (not original)
+    try_grind(false); // (inlined in the original)
+    collision_events::checkpoint(this, "try-grind"); // (not original)
+    update_free_revert();
+    collision_events::checkpoint(this, "free-revert"); // (not original)
+    update_focus_button();
+    update_projectiles();
+    update_special_time();
+    collision_events::checkpoint(this, "update-rest"); // (not original)
 
-    uint8_t inAir = StateOf(this) == kAir && BitMark(this, 0x30) && !BitMark(this, 0x78);
-    uint8_t& airFromJump = At<uint8_t>(this, kAirFromJump);
-    if (airFromJump != inAir) {
-        airFromJump = !airFromJump;
-        static_cast<GameObjects::CEntity*>(ObjectOf(this))->Announce(airFromJump ? kEnteredAir : kLeftAir, nullptr, 0.0f);
+    uint8_t in_air = state_of(this) == kAir && bit_mark(this, 0x30) && !bit_mark(this, 0x78);
+    uint8_t& air_from_jump = get_at<uint8_t>(this, kAirFromJump);
+    if (air_from_jump != in_air) {
+        air_from_jump = !air_from_jump;
+        static_cast<objects::Entity*>(object_of(this))->announce(air_from_jump ? kEnteredAir : kLeftAir, nullptr, 0.0f);
     }
-    if (StateOf(this) != kAir)
-        At<int>(this, kAirborneClock) = 0;
-    if (bike && ThawBmx::LiveNow(this))
-        ThawBmx::EndFrame(this); // (not original: THAW 0x005C9210, the x-up let go)
-    reinterpret_cast<void*&>(Engine3D::g_currentCache) = nullptr;
-    CollisionEvents::EndFrame(this); // (not original: [debug] collision_events)
+    if (state_of(this) != kAir)
+        get_at<int>(this, kAirborneClock) = 0;
+    if (bike && thaw_bmx::live_now(this))
+        thaw_bmx::end_frame(this); // (not original: THAW 0x005C9210, the x-up let go)
+    reinterpret_cast<void*&>(render::g_current_cache) = nullptr;
+    collision_events::end_frame(this); // (not original: [debug] collision_events)
 }
 
 } // namespace Skater

@@ -12,9 +12,9 @@
 #include "engine/script/param_struct.h"
 #include "engine/gfx/cag_cfuncs.h"
 
-namespace ScriptCommands {
+namespace commands {
 
-float g_scriptRadiansToDegrees{57.295776f};
+float g_script_radians_to_degrees{57.295776f};
 
 namespace {
 
@@ -43,11 +43,11 @@ constexpr uint32_t kRx = 0xFDF10F7A;           // "rx"
 constexpr uint32_t kRy = 0x8AF63FEC;           // "ry"
 constexpr uint32_t kRz = 0x13FF6E56;           // "rz"
 
-float DegreeToRadianConv() { return g_degreeToRadianRatio; } // pi / 180
-float ConvertToDegrees() { return g_scriptRadiansToDegrees; } // 180 / pi
+float degree_to_radian_conv() { return g_degree_to_radian_ratio; } // pi / 180
+float convert_to_degrees() { return g_script_radians_to_degrees; } // 180 / pi
 
 // The x87 instructions the originals use (53-bit precision), so the results match bit for bit.
-double X87Sin(double angle)
+double x87_sin(double angle)
 {
     double result;
     __asm {
@@ -57,7 +57,7 @@ double X87Sin(double angle)
     }
     return result;
 }
-double X87Cos(double angle)
+double x87_cos(double angle)
 {
     double result;
     __asm {
@@ -67,7 +67,7 @@ double X87Cos(double angle)
     }
     return result;
 }
-double X87Tan(double angle)
+double x87_tan(double angle)
 {
     double result;
     __asm {
@@ -78,7 +78,7 @@ double X87Tan(double angle)
     }
     return result;
 }
-double X87Atan(double value)
+double x87_atan(double value)
 {
     double result;
     __asm {
@@ -91,83 +91,83 @@ double X87Atan(double value)
 }
 
 // D3DX's matrix product (linked library code; stdcall): out = a * b.
-void MatrixMultiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
+void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
 {
-    D3dx::MatrixMultiply(out, a, b);
+    d3dx::matrix_multiply(out, a, b);
 }
 
 // The unnamed argument, in degrees for the trigonometry.
-float Argument(Scripts::CStruct* params)
+float get_argument(script::Struct* params)
 {
     float value = 0.0f;
-    params->FetchFloat(0u, &value, 1);
+    params->fetch_float(0u, &value, 1);
     return value;
 }
 
 } // namespace
 
 // 0x00448AE0: Sin <degrees>: sin = the sine.
-bool __cdecl CFunc_Sin(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_sin(script::Struct* params, script::Script* script)
 {
-    float angle = Argument(params);
-    script->m_args->PushFloat(kSin, static_cast<float>(X87Sin(static_cast<double>(angle) * DegreeToRadianConv())));
+    float angle = get_argument(params);
+    script->args_->push_float(kSin, static_cast<float>(x87_sin(static_cast<double>(angle) * degree_to_radian_conv())));
     return true;
 }
 
 // 0x00448B20: Cos <degrees>: cos = the cosine.
-bool __cdecl CFunc_Cos(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_cos(script::Struct* params, script::Script* script)
 {
-    float angle = Argument(params);
-    script->m_args->PushFloat(kCos, static_cast<float>(X87Cos(static_cast<double>(angle) * DegreeToRadianConv())));
+    float angle = get_argument(params);
+    script->args_->push_float(kCos, static_cast<float>(x87_cos(static_cast<double>(angle) * degree_to_radian_conv())));
     return true;
 }
 
 // 0x00448B60: Tan <degrees>: tan = the tangent.
-bool __cdecl CFunc_Tan(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_tan(script::Struct* params, script::Script* script)
 {
-    float angle = Argument(params);
-    script->m_args->PushFloat(kTan, static_cast<float>(X87Tan(static_cast<double>(angle) * DegreeToRadianConv())));
+    float angle = get_argument(params);
+    script->args_->push_float(kTan, static_cast<float>(x87_tan(static_cast<double>(angle) * degree_to_radian_conv())));
     return true;
 }
 
 // 0x00448BA0: ASin <value>: asin = the arc sine in degrees (the C runtime's asin).
-bool __cdecl CFunc_ASin(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_a_sin(script::Struct* params, script::Script* script)
 {
-    float value = Argument(params);
-    script->m_args->PushFloat(kASin, static_cast<float>(std::asin(static_cast<double>(value)) * ConvertToDegrees()));
+    float value = get_argument(params);
+    script->args_->push_float(kASin, static_cast<float>(std::asin(static_cast<double>(value)) * convert_to_degrees()));
     return true;
 }
 
 // 0x00448BE0: ACos <value>: acos = the arc cosine in degrees (the C runtime's acos).
-bool __cdecl CFunc_ACos(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_a_cos(script::Struct* params, script::Script* script)
 {
-    float value = Argument(params);
-    script->m_args->PushFloat(kACos, static_cast<float>(std::acos(static_cast<double>(value)) * ConvertToDegrees()));
+    float value = get_argument(params);
+    script->args_->push_float(kACos, static_cast<float>(std::acos(static_cast<double>(value)) * convert_to_degrees()));
     return true;
 }
 
 // 0x00448C20: ATan <value>: atan = the arc tangent in degrees.
-bool __cdecl CFunc_ATan(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_a_tan(script::Struct* params, script::Script* script)
 {
-    float value = Argument(params);
-    script->m_args->PushFloat(kATan, static_cast<float>(X87Atan(value) * ConvertToDegrees()));
+    float value = get_argument(params);
+    script->args_->push_float(kATan, static_cast<float>(x87_atan(value) * convert_to_degrees()));
     return true;
 }
 
 // 0x00448C60: Sqrt <value>: sqrt = the square root.
-bool __cdecl CFunc_Sqrt(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_sqrt(script::Struct* params, script::Script* script)
 {
-    float value = Argument(params);
-    script->m_args->PushFloat(kSqrt, static_cast<float>(std::sqrt(static_cast<double>(value))));
+    float value = get_argument(params);
+    script->args_->push_float(kSqrt, static_cast<float>(std::sqrt(static_cast<double>(value))));
     return true;
 }
 
 // 0x00448CA0: NormalizeVector <vector>: norm = the vector scaled to length 1 (all four components scaled; a
 // zero vector as it is), length = its length (x, y, z).
-bool __cdecl CFunc_NormalizeVector(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_normalize_vector(script::Struct* params, script::Script* script)
 {
-    Scripts::VectorValue v = {};
-    params->FetchVec(0u, &v, 1);
+    script::VectorValue v = {};
+    params->fetch_vec(0u, &v, 1);
     // (x87: the sum from z down, unrounded; the length rounded to a float)
     double z2 = static_cast<double>(v.z) * v.z;
     double y2 = static_cast<double>(v.y) * v.y;
@@ -180,73 +180,73 @@ bool __cdecl CFunc_NormalizeVector(Scripts::CStruct* params, Scripts::CScript* s
         v.z = static_cast<float>(v.z * scale);
         v.w = static_cast<float>(v.w * scale);
     }
-    script->m_args->PutVec3(kNorm, v);
-    script->m_args->PushFloat(kLength, length);
+    script->args_->put_vec3(kNorm, v);
+    script->args_->push_float(kLength, length);
     return true;
 }
 
 // 0x00448D70: LinearMap result=<name> From=a To=b <value> lowerbound=lo upperbound=hi: <name> = where value
 // lies between lo and hi (clamped to 0..1) mapped onto a..b.
-bool __cdecl CFunc_LinearMap(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_linear_map(script::Struct* params, script::Script* script)
 {
     uint32_t result = 0;
-    params->ReadHashValue(kResult, &result, 1);
+    params->read_hash_value(kResult, &result, 1);
     float from = 0.0f, to = 0.0f, value = 0.0f, lower = 0.0f, upper = 0.0f;
-    params->FetchFloat(kFrom, &from, 1);
-    params->FetchFloat(kTo, &to, 1);
-    params->FetchFloat(kValue, &value, 1);
-    params->FetchFloat(kLowerBound, &lower, 1);
-    params->FetchFloat(kUpperBound, &upper, 1);
+    params->fetch_float(kFrom, &from, 1);
+    params->fetch_float(kTo, &to, 1);
+    params->fetch_float(kValue, &value, 1);
+    params->fetch_float(kLowerBound, &lower, 1);
+    params->fetch_float(kUpperBound, &upper, 1);
     // x87: the fraction stays unrounded (unless clamped)
     double fraction = (static_cast<double>(value) - lower) / (static_cast<double>(upper) - lower);
     if (fraction < 0.0)
         fraction = 0.0;
     else if (fraction > 1.0)
         fraction = 1.0;
-    script->m_args->PushFloat(result, static_cast<float>((static_cast<double>(to) - from) * fraction + from));
+    script->args_->push_float(result, static_cast<float>((static_cast<double>(to) - from) * fraction + from));
     return true;
 }
 
 // 0x00448E60: Clamp <value> min=lo max=hi: Clamped = the value limited to max, then to min (so min wins when
 // min > max).
-bool __cdecl CFunc_Clamp(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_clamp(script::Struct* params, script::Script* script)
 {
     float value = 0.0f, min = 0.0f, max = 0.0f;
-    params->FetchFloat(0u, &value, 1);
-    params->FetchFloat(kMin, &min, 1);
-    params->FetchFloat(kMax, &max, 1);
+    params->fetch_float(0u, &value, 1);
+    params->fetch_float(kMin, &min, 1);
+    params->fetch_float(kMax, &max, 1);
     float clamped = value > max ? max : value;
     if (clamped < min)
         clamped = min;
-    script->m_args->PushFloat(kClamped, clamped);
+    script->args_->push_float(kClamped, clamped);
     return true;
 }
 
 // 0x00448EF0: RotateVector x=.. Y=.. z=.. [rx=degrees] [ry=..] [rz=..]: x, Y, z = the point (w = 1) turned about
 // the X axis, then Y, then Z (each rotation applied in front: identity, then Rx * m, Ry * m, Rz * m).
-bool __cdecl CFunc_RotateVector(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_rotate_vector(script::Struct* params, script::Script* script)
 {
-    Maths::Vec4 point = {0.0f, 0.0f, 0.0f, 1.0f};
-    params->FetchFloat(kX, &point.x, 1);
-    params->FetchFloat(kY, &point.y, 1);
-    params->FetchFloat(kZ, &point.z, 1);
+    maths::Vec4 point = {0.0f, 0.0f, 0.0f, 1.0f};
+    params->fetch_float(kX, &point.x, 1);
+    params->fetch_float(kY, &point.y, 1);
+    params->fetch_float(kZ, &point.z, 1);
     float rx = 0.0f, ry = 0.0f, rz = 0.0f;
-    params->FetchFloat(kRx, &rx, 0);
-    params->FetchFloat(kRy, &ry, 0);
-    params->FetchFloat(kRz, &rz, 0);
+    params->fetch_float(kRx, &rx, 0);
+    params->fetch_float(kRy, &ry, 0);
+    params->fetch_float(kRz, &rz, 0);
 
-    Maths::Mat4 m;
-    m.ResetToIdentity();
-    Maths::Mat4 rotation;
-    MatrixMultiply(&m, &Maths::MakePitchMatrix(rotation, rx * DegreeToRadianConv()), &m);
-    MatrixMultiply(&m, &Maths::MakeYawMatrix(rotation, ry * DegreeToRadianConv()), &m);
-    MatrixMultiply(&m, &Maths::MakeRollMatrix(rotation, rz * DegreeToRadianConv()), &m);
-    Maths::Vec4 turned;
-    m.Xform(turned, point);
-    script->m_args->PushFloat(kX, turned.x);
-    script->m_args->PushFloat(kY, turned.y);
-    script->m_args->PushFloat(kZ, turned.z);
+    maths::Mat4 m;
+    m.reset_to_identity();
+    maths::Mat4 rotation;
+    matrix_multiply(&m, &maths::make_pitch_matrix(rotation, rx * degree_to_radian_conv()), &m);
+    matrix_multiply(&m, &maths::make_yaw_matrix(rotation, ry * degree_to_radian_conv()), &m);
+    matrix_multiply(&m, &maths::make_roll_matrix(rotation, rz * degree_to_radian_conv()), &m);
+    maths::Vec4 turned;
+    m.xform(turned, point);
+    script->args_->push_float(kX, turned.x);
+    script->args_->push_float(kY, turned.y);
+    script->args_->push_float(kZ, turned.z);
     return true;
 }
 
-} // namespace ScriptCommands
+} // namespace commands

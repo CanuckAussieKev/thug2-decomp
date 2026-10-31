@@ -5,51 +5,51 @@
 
 #include "engine/maths/shape_tests.h"
 
-// Collision (Nx): collision objects (CHitMesh - a level sector's faces, a movable object's), the queries that test
+// Collision (Nx): collision objects (HitMesh - a level sector's faces, a movable object's), the queries that test
 // lines and boxes against them, and the caches that keep the objects near a box for repeated queries.
-namespace Engine3D {
+namespace render {
 
-class CHitMesh;
+class HitMesh;
 
 // A collision cache (0xFCC bytes): the collision objects whose boxes touch its box, the static ones (level
 // sectors) first, then the movable ones; each with the geometry the queries use. Every cache is registered (8 at
 // most) so a dying object can be taken out of all of them.
-class CHitMeshCache {
+class HitMeshCache {
 public:
     struct TableRow {
-        CHitMesh* object;
+        HitMesh* object;
         void* geometry;
     };
 
     // 0x0040AB50: an empty box, no objects; registered (returns this).
-    CHitMeshCache* MakeNew();
+    HitMeshCache* make_new();
     // 0x0040AB40: unregistered.
-    void Destruct();
+    void destruct();
     // 0x0040ABA0: refilled for `box`: the box kept if any collision grid lists cover it, and the objects of those
     // lists and the movable ones (neither flag 2 nor 4) whose boxes touch it grown by 0.5.
-    void TickFrame(const Maths::BBox& box);
+    void tick_frame(const maths::BBox& box);
     // 0x0040A910: `object` out of the static ones (the rest shifted down).
-    void RemoveStatic(CHitMesh* object);
+    void remove_static(HitMesh* object);
     // 0x0040A990: `object` out of the movable ones (the last entry moved into its place).
-    void RemoveMovable(CHitMesh* object);
+    void remove_movable(HitMesh* object);
 
-    Maths::BBox m_box;            // +0x000
-    TableRow m_entries[500];       // +0x020
-    int m_num;                // +0xFC0
-    int m_statics;              // +0xFC4
-    int m_movables;             // +0xFC8
+    maths::BBox box_;            // +0x000
+    TableRow entries_[500];       // +0x020
+    int num_;                // +0xFC0
+    int statics_;              // +0xFC4
+    int movables_;             // +0xFC8
 };
-static_assert(sizeof(CHitMeshCache) == 0xFCC && offsetof(CHitMeshCache, m_num) == 0xFC0, "layout must match the original");
+static_assert(sizeof(HitMeshCache) == 0xFCC && offsetof(HitMeshCache, num_) == 0xFC0, "layout must match the original");
 
 // The registered caches (0x006918EC, in use: the bits of 0x0069190C). 0x0040AA00 / 0x0040AA40: one registered (no
 // room: ignored) / unregistered. 0x0040AA80: `object` out of every cache's movable ones; 0x0040AAC0: out of both.
-void RegisterCollCache(CHitMeshCache* cache);
-void UnregisterCollCache(CHitMeshCache* cache);
-void RemoveMovableFromCaches(CHitMesh* object);
-void RemoveFromCaches(CHitMesh* object);
+void register_coll_cache(HitMeshCache* cache);
+void unregister_coll_cache(HitMeshCache* cache);
+void remove_movable_from_caches(HitMesh* object);
+void remove_from_caches(HitMesh* object);
 
 // 0x0040ADD0: a node's collision shape type from its checksum - 1 for a box (0xE460ABDE) and two others
 // (0xDD42AA66, 0x2BA71070), 4 for a sector (0x6AADF154), 0 for anything else.
-int ShapeTypeFromChecksum(uint32_t shape);
+int shape_type_from_checksum(uint32_t shape);
 
 } // namespace Nx

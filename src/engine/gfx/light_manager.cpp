@@ -16,219 +16,219 @@
 #include "engine/core/code_address.h"
 #include "engine/sys/startup_init.h"
 
-namespace Engine3D {
+namespace render {
 
-int g_dynamicLightCount;
+int g_dynamic_light_count;
 
-CDynamicLightBase* g_dynamicLights[256];
+DynamicLightBase* g_dynamic_lights[256];
 float* g_intensities;
-uint32_t g_modelLightCount;
-float g_ambientIntensity{1.0f};
-sLightingState g_activeLighting{0, nullptr, nullptr, 0.5f, 0.0f, nullptr, nullptr};
-sLightingState g_worldLightStack[4]; // (the saved ones: PushLights / PopLights)
+uint32_t g_model_light_count;
+float g_ambient_intensity{1.0f};
+LightingState g_active_lighting{0, nullptr, nullptr, 0.5f, 0.0f, nullptr, nullptr};
+LightingState g_world_light_stack[4]; // (the saved ones: PushLights / PopLights)
 namespace {
 
 extern void** const kDynamicLightVtable;
 constexpr int kSavedLightLevels = 4;
 constexpr int kMaxDynamicLights = 256;
 
-sLightingState& World() { return g_activeLighting; }
-sLightingState* PileUp() { return g_worldLightStack; }
-int g_lightStackTop{-1};
-float g_lightBrightness{1.0f};
-float g_lightBrightnessTarget{1.0f};
-int g_nearLightIndexes[32]{-1}; // GetDynamicLightsNear's indexes
-float g_nearLightFalloffs[31]{1.0f}; // GetDynamicLightsNear's falloffs
-float g_minIntensity;
+LightingState& get_world() { return g_active_lighting; }
+LightingState* pile_up() { return g_world_light_stack; }
+int g_light_stack_top{-1};
+float g_light_brightness{1.0f};
+float g_light_brightness_target{1.0f};
+int g_near_light_indexes[32]{-1}; // get_dynamic_lights_near's indexes
+float g_near_light_falloffs[31]{1.0f}; // get_dynamic_lights_near's falloffs
+float g_min_intensity;
 
-int& StackTop() { return g_lightStackTop; }
-uint32_t& LightCount() { return g_lightCount; }
-float& Brightness() { return g_lightBrightness; }
-float& LightGainGoal() { return g_lightBrightnessTarget; }
-float& AmbientIntensity() { return g_ambientIntensity; }
-float MinIntensity() { return g_minIntensity; }
-float*& Intensities() { return g_intensities; }
+int& stack_top() { return g_light_stack_top; }
+uint32_t& light_count() { return g_light_count; }
+float& get_brightness() { return g_light_brightness; }
+float& light_gain_goal() { return g_light_brightness_target; }
+float& ambient_intensity() { return g_ambient_intensity; }
+float min_intensity() { return g_min_intensity; }
+float*& get_intensities() { return g_intensities; }
 
-CDynamicLightBase** DynamicLights() { return g_dynamicLights; }
-int& DynamicLightCount() { return g_dynamicLightCount; }
-// GetDynamicLightsNear's falloffs and the lights' indexes (32 each).
-float* NearFalloffs() { return g_nearLightFalloffs; }
-int* NearIndexes() { return g_nearLightIndexes; }
+DynamicLightBase** dynamic_lights() { return g_dynamic_lights; }
+int& dynamic_light_count() { return g_dynamic_light_count; }
+// get_dynamic_lights_near's falloffs and the lights' indexes (32 each).
+float* near_falloffs() { return g_near_light_falloffs; }
+int* near_indexes() { return g_near_light_indexes; }
 
 // 2b - 1 times a range, plus 1 (the high range above 0.5 - or NaN -, the low one at and below).
-float Scaled(float brightness, float low, float high)
+float get_scaled(float brightness, float low, float high)
 {
     double range = brightness <= 0.5f ? low : high;
     return static_cast<float>((static_cast<double>(brightness) * 2.0 - 1.0) * range + 1.0);
 }
 
 // A compiled-out call (the empty 0x005480A0) after the stack is popped.
-void CompiledOut() {}
+void compiled_out() {}
 
 // A light's falloff (virtual [2]): returned in ST0 unrounded.
-double CallFalloff(CDynamicLightBase* light, float distance)
+double call_falloff(DynamicLightBase* light, float distance)
 {
-    return reinterpret_cast<double(__thiscall*)(CDynamicLightBase*, float)>(light->vtable[2])(light, distance);
+    return reinterpret_cast<double(__thiscall*)(DynamicLightBase*, float)>(light->vtable[2])(light, distance);
 }
 
 } // namespace
 
 // 0x0048EAC0
-sLightingState* sLightingState::MakeNew()
+LightingState* LightingState::make_new()
 {
     ambient = 0x80484848;
     directions = nullptr;
     colours = nullptr;
-    ambientLow = 0.5f;
-    lightLow = nullptr;
-    lightHigh = nullptr;
+    ambient_low_ = 0.5f;
+    light_low_ = nullptr;
+    light_high_ = nullptr;
     return this;
 }
 
 // 0x0048EB00
-void sLightingState::FreeArrays()
+void LightingState::free_arrays()
 {
     if (directions) {
-        MemSys::Hub::Pull()->Dealloc(directions);
+        memory::Hub::get_pull()->dealloc(directions);
         directions = nullptr;
     }
     if (colours) {
-        MemSys::Hub::Pull()->Dealloc(colours);
+        memory::Hub::get_pull()->dealloc(colours);
         colours = nullptr;
     }
-    if (lightLow) {
-        MemSys::Hub::Pull()->Dealloc(lightLow);
-        lightLow = nullptr;
+    if (light_low_) {
+        memory::Hub::get_pull()->dealloc(light_low_);
+        light_low_ = nullptr;
     }
-    if (lightHigh) {
-        MemSys::Hub::Pull()->Dealloc(lightHigh);
-        lightHigh = nullptr;
+    if (light_high_) {
+        memory::Hub::get_pull()->dealloc(light_high_);
+        light_high_ = nullptr;
     }
 }
 
 // 0x0048EB70
-void __cdecl InitLightManager(uint32_t maxLights, uint32_t maxModelLights)
+void __cdecl init_light_manager(uint32_t max_lights, uint32_t max_model_lights)
 {
-    DebugOut::Printf("Initializing Light Manager...");
-    g_modelLightCount = maxModelLights;
-    LightCount() = maxLights;
-    sLightingState& world = World();
-    world.directions = static_cast<Maths::Vec4*>(MemSys::Alloc(maxLights * 16));
-    world.colours = static_cast<uint32_t*>(MemSys::Alloc(maxLights * 4));
-    world.lightLow = static_cast<float*>(MemSys::Alloc(maxLights * 4));
-    world.lightHigh = static_cast<float*>(MemSys::Alloc(maxLights * 4));
+    debug::printf("Initializing Light Manager...");
+    g_model_light_count = max_model_lights;
+    light_count() = max_lights;
+    LightingState& world = get_world();
+    world.directions = static_cast<maths::Vec4*>(memory::alloc(max_lights * 16));
+    world.colours = static_cast<uint32_t*>(memory::alloc(max_lights * 4));
+    world.light_low_ = static_cast<float*>(memory::alloc(max_lights * 4));
+    world.light_high_ = static_cast<float*>(memory::alloc(max_lights * 4));
     for (int i = 0; i < kSavedLightLevels; ++i) {
-        sLightingState& saved = PileUp()[i];
-        saved.directions = static_cast<Maths::Vec4*>(MemSys::Alloc(maxLights * 16));
-        saved.colours = static_cast<uint32_t*>(MemSys::Alloc(maxLights * 4));
-        saved.lightLow = static_cast<float*>(MemSys::Alloc(maxLights * 4));
-        saved.lightHigh = static_cast<float*>(MemSys::Alloc(maxLights * 4));
-        std::memset(saved.directions, 0, maxLights * 16);
-        std::memset(saved.colours, 0, maxLights * 4);
-        std::memset(saved.lightLow, 0, maxLights * 4);
-        std::memset(saved.lightHigh, 0, maxLights * 4);
+        LightingState& saved = pile_up()[i];
+        saved.directions = static_cast<maths::Vec4*>(memory::alloc(max_lights * 16));
+        saved.colours = static_cast<uint32_t*>(memory::alloc(max_lights * 4));
+        saved.light_low_ = static_cast<float*>(memory::alloc(max_lights * 4));
+        saved.light_high_ = static_cast<float*>(memory::alloc(max_lights * 4));
+        std::memset(saved.directions, 0, max_lights * 16);
+        std::memset(saved.colours, 0, max_lights * 4);
+        std::memset(saved.light_low_, 0, max_lights * 4);
+        std::memset(saved.light_high_, 0, max_lights * 4);
     }
-    Intensities() = static_cast<float*>(MemSys::Alloc(maxLights * 4));
-    for (uint32_t i = 0; i < maxLights; ++i)
-        Intensities()[i] = 1.0f;
+    get_intensities() = static_cast<float*>(memory::alloc(max_lights * 4));
+    for (uint32_t i = 0; i < max_lights; ++i)
+        get_intensities()[i] = 1.0f;
 }
 
 // 0x0048FB60
-void __cdecl UninitLightManager()
+void __cdecl uninit_light_manager()
 {
-    DebugOut::Printf("Uninitializing Light Manager...");
-    DeleteDynamicLights();
+    debug::printf("Uninitializing Light Manager...");
+    delete_dynamic_lights();
 }
 
 // 0x0048E8F0
-bool __cdecl SetLightAmbientColor(uint32_t rgba)
+bool __cdecl set_light_ambient_color(uint32_t rgba)
 {
-    World().ambient = rgba;
-    return UpdateAmbientLight();
+    get_world().ambient = rgba;
+    return update_ambient_light();
 }
 
 // 0x0048E900
-uint32_t* __cdecl GetLightAmbientColor(uint32_t* out)
+uint32_t* __cdecl get_light_ambient_color(uint32_t* out)
 {
-    FetchAmbientHue(out);
+    fetch_ambient_hue(out);
     return out;
 }
 
 // 0x0048E930
-bool __cdecl SetLightDiffuseColor(int light, uint32_t rgba)
+bool __cdecl set_light_diffuse_color(int light, uint32_t rgba)
 {
-    World().colours[light] = rgba;
-    return UpdateLightColor(light);
+    get_world().colours[light] = rgba;
+    return update_light_color(light);
 }
 
 // 0x0048E950
-uint32_t* __cdecl GetLightDiffuseColor(uint32_t* out, int light)
+uint32_t* __cdecl get_light_diffuse_color(uint32_t* out, int light)
 {
-    FetchLightTint(out, light);
+    fetch_light_tint(out, light);
     return out;
 }
 
 // 0x0048ED70
-bool __cdecl SetLightDirection(int light, const Maths::Vec4* direction)
+bool __cdecl set_light_direction(int light, const maths::Vec4* direction)
 {
-    World().directions[light] = *direction;
-    return UpdateLightDirection(light);
+    get_world().directions[light] = *direction;
+    return update_light_direction(light);
 }
 
 // 0x0048E970
-void __cdecl ChangeAmbientScale(float low, float high)
+void __cdecl change_ambient_scale(float low, float high)
 {
-    World().ambientLow = low;
-    World().ambientHigh = high;
+    get_world().ambient_low_ = low;
+    get_world().ambient_high_ = high;
 }
 
 // 0x0048E990
-void __cdecl ChangeDiffuseScale(int light, float low, float high)
+void __cdecl change_diffuse_scale(int light, float low, float high)
 {
-    World().lightLow[light] = low;
-    World().lightHigh[light] = high;
+    get_world().light_low_[light] = low;
+    get_world().light_high_[light] = high;
 }
 
 // 0x0048E9B0
-float __cdecl FetchAmbientScale(bool low)
+float __cdecl fetch_ambient_scale(bool low)
 {
-    return low ? World().ambientLow : World().ambientHigh;
+    return low ? get_world().ambient_low_ : get_world().ambient_high_;
 }
 
 // 0x0048E9D0 (both branches read the low ranges, as the original)
-float __cdecl FetchDiffuseScale(int light, bool low)
+float __cdecl fetch_diffuse_scale(int light, bool low)
 {
     if (low)
-        return World().lightLow[light];
-    return World().lightLow[light];
+        return get_world().light_low_[light];
+    return get_world().light_low_[light];
 }
 
 // 0x0048EA00
-void __cdecl PushWorldLights()
+void __cdecl push_world_lights()
 {
-    if (++StackTop() < kSavedLightLevels)
-        PileUp()[StackTop()] = World();
+    if (++stack_top() < kSavedLightLevels)
+        pile_up()[stack_top()] = get_world();
     else
-        --StackTop();
+        --stack_top();
 }
 
 // 0x0048EA40
-bool __cdecl PopWorldLights()
+bool __cdecl pop_world_lights()
 {
-    if (StackTop() < 0)
+    if (stack_top() < 0)
         return false;
-    World() = PileUp()[StackTop()];
-    --StackTop();
-    CompiledOut();
+    get_world() = pile_up()[stack_top()];
+    --stack_top();
+    compiled_out();
     return true;
 }
 
 // 0x0048EDB0
-bool __cdecl SetWorldBrightness(float target)
+bool __cdecl set_world_brightness(float target)
 {
     constexpr float kStep = 0.02f; // 0x006492BC
-    LightGainGoal() = target;
-    float& brightness = Brightness();
+    light_gain_goal() = target;
+    float& brightness = get_brightness();
     if (brightness < target) {
         double moved = static_cast<double>(brightness) + kStep; // (compared before it's rounded)
         brightness = static_cast<float>(moved);
@@ -240,60 +240,60 @@ bool __cdecl SetWorldBrightness(float target)
         if (moved < target)
             brightness = target;
     }
-    AmbientIntensity() = Scaled(brightness, World().ambientLow, World().ambientHigh);
-    if (AmbientIntensity() < MinIntensity())
-        AmbientIntensity() = MinIntensity();
-    for (uint32_t i = 0; i < LightCount(); ++i) {
-        Intensities()[i] = Scaled(brightness, World().lightLow[i], World().lightHigh[i]);
-        if (Intensities()[i] < MinIntensity())
-            Intensities()[i] = MinIntensity();
+    ambient_intensity() = get_scaled(brightness, get_world().ambient_low_, get_world().ambient_high_);
+    if (ambient_intensity() < min_intensity())
+        ambient_intensity() = min_intensity();
+    for (uint32_t i = 0; i < light_count(); ++i) {
+        get_intensities()[i] = get_scaled(brightness, get_world().light_low_[i], get_world().light_high_[i]);
+        if (get_intensities()[i] < min_intensity())
+            get_intensities()[i] = min_intensity();
     }
-    UpdateAllLights();
+    update_all_lights();
     return true;
 }
 
 // 0x0048EF00
-void __cdecl DeleteDynamicLights()
+void __cdecl delete_dynamic_lights()
 {
-    for (int i = 0; i < DynamicLightCount(); ++i) {
-        if (DynamicLights()[i]) {
-            MemSys::Hub::Pull()->Dealloc(DynamicLights()[i]);
-            DynamicLights()[i] = nullptr;
+    for (int i = 0; i < dynamic_light_count(); ++i) {
+        if (dynamic_lights()[i]) {
+            memory::Hub::get_pull()->dealloc(dynamic_lights()[i]);
+            dynamic_lights()[i] = nullptr;
         }
     }
-    DynamicLightCount() = 0;
+    dynamic_light_count() = 0;
 }
 
 // 0x0048EF50
-CDynamicLightBase** __cdecl FindDynamicLight(uint32_t owner)
+DynamicLightBase** __cdecl find_dynamic_light(uint32_t owner)
 {
-    for (int i = 0; i < DynamicLightCount(); ++i) {
-        CDynamicLightBase* light = DynamicLights()[i];
+    for (int i = 0; i < dynamic_light_count(); ++i) {
+        DynamicLightBase* light = dynamic_lights()[i];
         if (light && light->owner == owner)
-            return &DynamicLights()[i];
+            return &dynamic_lights()[i];
     }
     return nullptr;
 }
 
 // 0x0048EF90
-uint32_t __cdecl GetDynamicLightsNear(const Maths::Vec4* position, uint32_t max, CDynamicLightBase** out)
+uint32_t __cdecl get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, DynamicLightBase** out)
 {
-    float* falloffs = NearFalloffs();
-    int* indexes = NearIndexes();
+    float* falloffs = near_falloffs();
+    int* indexes = near_indexes();
     uint32_t count = 0;
-    for (int i = 0; i < DynamicLightCount(); ++i) {
-        CDynamicLightBase* light = DynamicLights()[i]; // (not checked for null, as the original)
+    for (int i = 0; i < dynamic_light_count(); ++i) {
+        DynamicLightBase* light = dynamic_lights()[i]; // (not checked for null, as the original)
         if (!(light->intensity > 0.0f) || !light->owner)
             continue;
         double dx = static_cast<double>(position->x) - light->pos[0];
         double dy = static_cast<double>(position->y) - light->pos[1];
         double dz = static_cast<double>(position->z) - light->pos[2];
-        double distanceSquared = dz * dz + dy * dy + dx * dx;
+        double distance_squared = dz * dz + dy * dy + dx * dx;
         double radius = light->radius;
-        if (distanceSquared > radius * radius) // (NaN: within reach)
+        if (distance_squared > radius * radius) // (NaN: within reach)
             continue;
-        auto distance = static_cast<float>(std::sqrt(static_cast<double>(static_cast<float>(distanceSquared))));
-        double falloff = CallFalloff(light, distance);
+        auto distance = static_cast<float>(std::sqrt(static_cast<double>(static_cast<float>(distance_squared))));
+        double falloff = call_falloff(light, distance);
         if (count == 0) {
             falloffs[0] = static_cast<float>(falloff);
             indexes[0] = i;
@@ -309,7 +309,7 @@ uint32_t __cdecl GetDynamicLightsNear(const Maths::Vec4* position, uint32_t max,
             if (falloff > falloffs[j]) {
                 // the entries from j on moved up one by swaps (the one past the end - out[count] too - written)
                 for (uint32_t k = count; k > j; --k) {
-                    CDynamicLightBase* l = out[k];
+                    DynamicLightBase* l = out[k];
                     out[k] = out[k - 1];
                     out[k - 1] = l;
                     float f = falloffs[k];
@@ -338,77 +338,77 @@ uint32_t __cdecl GetDynamicLightsNear(const Maths::Vec4* position, uint32_t max,
 }
 
 // 0x0048F160
-CDynamicLightBase* __cdecl CreateDynamicLight(int type)
+DynamicLightBase* __cdecl create_dynamic_light(int type)
 {
     if (type != 1)
         return nullptr;
-    auto* light = static_cast<CDynamicLightBase*>(MemSys::AllocZeroed(sizeof(CDynamicLightBase)));
+    auto* light = static_cast<DynamicLightBase*>(memory::alloc_zeroed(sizeof(DynamicLightBase)));
     if (!light)
         return nullptr;
-    light->unknown2C = false;
+    light->unknown2c_ = false;
     light->vtable = reinterpret_cast<void**>(kDynamicLightVtable);
     light->type = 1;
     light->radius = 50.0f;
-    light->inverseRadius = 50.0f; // (as the original: not 1 / 50)
+    light->inverse_radius_ = 50.0f; // (as the original: not 1 / 50)
     return light;
 }
 
 // 0x0048FB80
-CDynamicLightBase* __cdecl NewDynamicLight(int type)
+DynamicLightBase* __cdecl new_dynamic_light(int type)
 {
-    int count = DynamicLightCount();
+    int count = dynamic_light_count();
     for (int i = 0; i < count; ++i) {
-        CDynamicLightBase* light = DynamicLights()[i];
+        DynamicLightBase* light = dynamic_lights()[i];
         if (!light) {
-            DynamicLights()[i] = CreateDynamicLight(type);
-            return DynamicLights()[i];
+            dynamic_lights()[i] = create_dynamic_light(type);
+            return dynamic_lights()[i];
         }
         if (!light->owner)
-            return DynamicLights()[i];
+            return dynamic_lights()[i];
     }
-    if (count >= kMaxDynamicLights || DynamicLights()[count])
+    if (count >= kMaxDynamicLights || dynamic_lights()[count])
         return nullptr;
-    DynamicLightCount() = count + 1;
-    DynamicLights()[count] = CreateDynamicLight(type);
-    return DynamicLights()[count];
+    dynamic_light_count() = count + 1;
+    dynamic_lights()[count] = create_dynamic_light(type);
+    return dynamic_lights()[count];
 }
 
 // 0x0048E8C0
-int CDynamicLightBase::IsOn()
+int DynamicLightBase::is_on()
 {
     return intensity > 0.0f ? 1 : 0;
 }
 
 // 0x0048EA90
-int CDynamicLightBase::InReach(float distance)
+int DynamicLightBase::in_reach(float distance)
 {
     return distance < radius ? 1 : 0;
 }
 
 // 0x0048EAB0
-double CDynamicLightBase::Falloff(float distance)
+double DynamicLightBase::get_falloff(float distance)
 {
-    return static_cast<double>(distance) * inverseRadius;
+    return static_cast<double>(distance) * inverse_radius_;
 }
 
 namespace {
-static VtableSlot kDynamicLightVtable_slots[] = {&Engine3D::CDynamicLightBase::IsOn, &Engine3D::CDynamicLightBase::InReach,
-                &Engine3D::CDynamicLightBase::Falloff};
-void** const kDynamicLightVtable = reinterpret_cast<void**>(kDynamicLightVtable_slots);
+static VtableSlot g_dynamic_light_vtable_slots[] = {&render::DynamicLightBase::is_on, &render::DynamicLightBase::in_reach,
+                &render::DynamicLightBase::get_falloff};
+void** const kDynamicLightVtable = reinterpret_cast<void**>(g_dynamic_light_vtable_slots);
 } // namespace
 
 } // namespace Nx
 
-namespace Engine3D {
+namespace render {
 
 // 0x00640B60 (a static initialiser): the world lights' ambient colour (the rest of them is the image's data).
-void SetWorldLightsAmbient() { g_activeLighting.ambient = 0x80484848; }
+void set_world_lights_ambient() { g_active_lighting.ambient = 0x80484848; }
 
 // 0x00640B90 (a static initialiser): the four saved light sets.
-void ConstructWorldLightStack()
+void construct_world_light_stack()
 {
-    for (sLightingState& lights : g_worldLightStack)
-        lights.MakeNew();
+    for (LightingState& lights : g_world_light_stack)
+        lights.make_new();
 }
 
 } // namespace Nx

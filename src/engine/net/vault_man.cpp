@@ -1,4 +1,4 @@
-// The content vault and HTTP file transfers (OnlinePlay::VaultMan). See vault_man.h.
+// The content vault and HTTP file transfers (online::VaultMan). See vault_man.h.
 
 #include "engine/net/vault_man.h"
 #include "engine/net/gamespy.h"
@@ -29,27 +29,27 @@
 #include "engine/net/task_vtable.h"
 #include "platform/crt.h"
 
-namespace OnlinePlay {
+namespace online {
 
 namespace {
 
-using Detail::DeleteParams;
-using Detail::NewParams;
+using detail::delete_params;
+using detail::new_params;
 
-static VtableSlot kItemVtable_slots[] = {&OnlinePlay::VaultItem::Teardown};
-void** const kItemVtable = reinterpret_cast<void**>(kItemVtable_slots); // VaultItem (and a category's items head)
-static VtableSlot kCategoriesHeadVtable_slots[] = {&OnlinePlay::VaultNode::DeleteCategoriesHead};
-void** const kCategoriesHeadVtable = reinterpret_cast<void**>(kCategoriesHeadVtable_slots); // the vault's categories head
-static VtableSlot kCategoryVtable_slots[] = {&OnlinePlay::VaultCategory::Teardown};
-void** const kCategoryVtable = reinterpret_cast<void**>(kCategoryVtable_slots); // VaultCategory
-static VtableSlot kItemNodeVtable_slots[] = {&OnlinePlay::VaultNode::DeleteItemNode};
-void** const kItemNodeVtable = reinterpret_cast<void**>(kItemNodeVtable_slots); // ListKit::Elem<VaultItem>
-static VtableSlot kCategoryNodeVtable_slots[] = {&OnlinePlay::VaultNode::DeleteCategoryNode};
-void** const kCategoryNodeVtable = reinterpret_cast<void**>(kCategoryNodeVtable_slots); // ListKit::Elem<VaultCategory>
-static VtableSlot kCategorySearchVtable_slots[] = {&OnlinePlay::VaultSearch::DestroyCategorySearchAndFree};
-void** const kCategorySearchVtable = reinterpret_cast<void**>(kCategorySearchVtable_slots);
-static VtableSlot kItemSearchVtable_slots[] = {&OnlinePlay::VaultSearch::DestroyItemSearchAndFree};
-void** const kItemSearchVtable = reinterpret_cast<void**>(kItemSearchVtable_slots);
+static VtableSlot g_item_vtable_slots[] = {&online::VaultItem::teardown};
+void** const kItemVtable = reinterpret_cast<void**>(g_item_vtable_slots); // VaultItem (and a category's items head)
+static VtableSlot g_categories_head_vtable_slots[] = {&online::VaultNode::delete_categories_head};
+void** const kCategoriesHeadVtable = reinterpret_cast<void**>(g_categories_head_vtable_slots); // the vault's categories head
+static VtableSlot g_category_vtable_slots[] = {&online::VaultCategory::teardown};
+void** const kCategoryVtable = reinterpret_cast<void**>(g_category_vtable_slots); // VaultCategory
+static VtableSlot g_item_node_vtable_slots[] = {&online::VaultNode::delete_item_node};
+void** const kItemNodeVtable = reinterpret_cast<void**>(g_item_node_vtable_slots); // lists::Elem<VaultItem>
+static VtableSlot g_category_node_vtable_slots[] = {&online::VaultNode::delete_category_node};
+void** const kCategoryNodeVtable = reinterpret_cast<void**>(g_category_node_vtable_slots); // lists::Elem<VaultCategory>
+static VtableSlot g_category_search_vtable_slots[] = {&online::VaultSearch::destroy_category_search_and_free};
+void** const kCategorySearchVtable = reinterpret_cast<void**>(g_category_search_vtable_slots);
+static VtableSlot g_item_search_vtable_slots[] = {&online::VaultSearch::destroy_item_search_and_free};
+void** const kItemSearchVtable = reinterpret_cast<void**>(g_item_search_vtable_slots);
 
 constexpr uint32_t kTimeout = 25000;     // ms without progress
 constexpr uint32_t kListBufferSize = 100000;
@@ -64,69 +64,69 @@ constexpr uint32_t kDoneScript = 0x0089990F;
 constexpr uint32_t kProgressScript = 0x4B85EE64;
 constexpr uint32_t kErrorScript = 0xCF040665;
 
-Hub* NetSessionSlot() { return g_onlineHub; }
-VaultMan* Vault() { return reinterpret_cast<VaultMan*>(NetSessionSlot()->m_vaultMan); }
-MemSys::Hub* RamStats() { return MemSys::Hub::Pull(); }
-void PushTopDown() { RamStats()->EnterHeapScope(RamStats()->m_internetTopDownHeap); }
-void PushBottomUp() { RamStats()->EnterHeapScope(RamStats()->m_internetBottomUpHeap); }
-void PopHeap() { RamStats()->LeaveHeapScope(); }
-Scheduling::PileUp* LogicTasks() { return reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04); }
+Hub* net_session_slot() { return g_online_hub; }
+VaultMan* get_vault() { return reinterpret_cast<VaultMan*>(net_session_slot()->vault_man_); }
+memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
+void push_top_down() { ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_); }
+void push_bottom_up() { ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_); }
+void pop_heap() { ram_stats()->leave_heap_scope(); }
+tasks::PileUp* get_logic_tasks() { return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 0x04); }
 
-uint32_t Checksums(const char* name) { return Checksums::HashFromText(name); }
-void Run(const char* script, Scripts::CStruct* params = nullptr) { Scripts::LaunchScript(script, params, nullptr, false); }
-void Run(uint32_t script, Scripts::CStruct* params = nullptr) { Scripts::LaunchScript(script, params, nullptr, false, nullptr); }
+uint32_t get_checksums(const char* name) { return checksums::hash_from_text(name); }
+void get_run(const char* script, script::Struct* params = nullptr) { script::launch_script(script, params, nullptr, false); }
+void get_run(uint32_t script, script::Struct* params = nullptr) { script::launch_script(script, params, nullptr, false, nullptr); }
 
 // The semaphore (the threads set their request up while holding it).
-void Stall(void* semaphore) { WaitForSingleObject(static_cast<HANDLE>(semaphore), INFINITE); }
-void Release(void* semaphore) { ReleaseSemaphore(static_cast<HANDLE>(semaphore), 1, nullptr); }
-// A thread made suspended; the manager notes its id (SetRoomId) before it starts.
-HANDLE StartThread(LPTHREAD_START_ROUTINE thread, void* param)
+void get_stall(void* semaphore) { WaitForSingleObject(static_cast<HANDLE>(semaphore), INFINITE); }
+void get_release(void* semaphore) { ReleaseSemaphore(static_cast<HANDLE>(semaphore), 1, nullptr); }
+// A thread made suspended; the manager notes its id (set_room_id) before it starts.
+HANDLE start_thread(LPTHREAD_START_ROUTINE thread, void* param)
 {
     DWORD id;
     HANDLE handle = CreateThread(nullptr, 0x8000, thread, param, CREATE_SUSPENDED, &id);
-    NetSessionSlot()->SetRoomId(id);
+    net_session_slot()->set_room_id(id);
     return handle; // (never closed)
 }
 
 // GameSpy's HTTP SDK (library code, not decompiled; cdecl).
-void GhttpThink() { GameSpy::HttpThink(); }
-void GhttpCancelRequest(int request) { GameSpy::HttpCancelRequest(request); }
-void GhttpCleanup() { GameSpy::HttpCleanup(); }
-int GhttpGetEx(const char* url, const char* headers, char* buffer, uint32_t size, void* post, int throttle,
+void ghttp_think() { game_spy::http_think(); }
+void ghttp_cancel_request(int request) { game_spy::http_cancel_request(request); }
+void ghttp_cleanup() { game_spy::http_cleanup(); }
+int ghttp_get_ex(const char* url, const char* headers, char* buffer, uint32_t size, void* post, int throttle,
                int blocking, const void* progress, const void* completed, void* param)
 {
-    return GameSpy::HttpGetEx(url, headers, buffer, size, post, throttle,
+    return game_spy::http_get_ex(url, headers, buffer, size, post, throttle,
                                                                        blocking, progress, completed, param);
 }
-void* GhttpNewPost() { return GameSpy::HttpNewPost(); }
-void GhttpPostAddString(void* post, const char* name, const char* value)
+void* ghttp_new_post() { return game_spy::http_new_post(); }
+void ghttp_post_add_string(void* post, const char* name, const char* value)
 {
-    GameSpy::HttpPostAddString(post, name, value);
+    game_spy::http_post_add_string(post, name, value);
 }
-void GhttpPostAddFileFromMemory(void* post, const char* name, const char* buffer, uint32_t size,
-                                const char* reportName, const char* contentType)
+void ghttp_post_add_file_from_memory(void* post, const char* name, const char* buffer, uint32_t size,
+                                const char* report_name, const char* content_type)
 {
-    GameSpy::HttpPostAddFileFromMemory(
-        post, name, buffer, size, reportName, contentType);
+    game_spy::http_post_add_file_from_memory(
+        post, name, buffer, size, report_name, content_type);
 }
-int GhttpPostEx(const char* url, const char* headers, void* post, int throttle, int blocking, const void* progress,
+int ghttp_post_ex(const char* url, const char* headers, void* post, int throttle, int blocking, const void* progress,
                 const void* completed, void* param)
 {
-    return GameSpy::HttpPostEx(url, headers, post, throttle, blocking, progress, completed, param);
+    return game_spy::http_post_ex(url, headers, post, throttle, blocking, progress, completed, param);
 }
 // The GameSpy SDK's strdup (goastrdup, the game's C runtime malloc) and the game runtime's free for it.
-char* GameSpyStrdup(const char* text) { return GameSpy::Strdup(text); }
-void GameCrtFree(void* memory) { Crt::Dealloc(memory); }
+char* game_spy_strdup(const char* text) { return game_spy::game_strdup(text); }
+void game_crt_free(void* memory) { crt::dealloc(memory); }
 // The GameSpy SDK's id of this machine (GOAGetUniqueID).
-const char* GameSpyUniqueId() { return GameSpy::UniqueId(); }
+const char* game_spy_unique_id() { return game_spy::get_unique_id(); }
 // 0x005A8EB0: a downloaded item loaded from `buffer` by the type's script (not rewritten yet).
-void LoadDownloadedItem(char* buffer, uint32_t script)
+void load_downloaded_item(char* buffer, uint32_t script)
 {
-    MemCard::KeepLoadedContents(reinterpret_cast<const uint8_t*>(buffer), script);
+    save_cards::keep_loaded_contents(reinterpret_cast<const uint8_t*>(buffer), script);
 }
 
 // The folder of an item type ("levels"...; null for an unknown type).
-const char* TypeFolder(uint32_t type)
+const char* type_folder(uint32_t type)
 {
     switch (type) {
     case kVaultParks: return "levels";
@@ -137,7 +137,7 @@ const char* TypeFolder(uint32_t type)
     }
 }
 // The upload's file type ("cap" park, "cas" skater, "cat" trick, "cag" goal; null for an unknown type).
-const char* UploadFileType(uint32_t type)
+const char* upload_file_type(uint32_t type)
 {
     switch (type) {
     case kVaultParks: return "cap";
@@ -148,12 +148,12 @@ const char* UploadFileType(uint32_t type)
     }
 }
 
-void UnlinkListNode(void* node)
+void unlink_list_node(void* node)
 {
     auto* vtable = *static_cast<void***>(node);
     reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(vtable[0])(node, 1);
 }
-void InitNode(MemSys::ListNode* node, void** vtable)
+void init_node(memory::ListNode* node, void** vtable)
 {
     node->data = node;
     node->priority = 0;
@@ -161,7 +161,7 @@ void InitNode(MemSys::ListNode* node, void** vtable)
     node->prev = node;
     node->vtable = vtable;
 }
-void SetupListSentinel(MemSys::ListNode* head, void** vtable)
+void setup_list_sentinel(memory::ListNode* head, void** vtable)
 {
     head->data = reinterpret_cast<void*>(-1);
     head->priority = 0;
@@ -170,7 +170,7 @@ void SetupListSentinel(MemSys::ListNode* head, void** vtable)
     head->vtable = vtable;
 }
 // `node` at the front of the list (the lists of the vault are built that way: the last line first).
-void Prepend(MemSys::ListNode* head, MemSys::ListNode* node)
+void prepend(memory::ListNode* head, memory::ListNode* node)
 {
     node->prev = head;
     node->next = head->next;
@@ -178,15 +178,15 @@ void Prepend(MemSys::ListNode* head, MemSys::ListNode* node)
     head->next = node;
 }
 // The list walk's step: `node`'s successor, or null at the head.
-MemSys::ListNode* NextNode(MemSys::ListNode* node)
+memory::ListNode* get_next_node(memory::ListNode* node)
 {
-    MemSys::ListNode* next = node->next;
+    memory::ListNode* next = node->next;
     return next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
 }
 
 // The next field of a list line: the text up to the next ':' (which is cut there), and `*rest` moved past it.
 // (A line with too few fields writes through null, as the original's strstr does.)
-char* Prop(char** rest)
+char* prop(char** rest)
 {
     char* field = *rest;
     char* end = std::strstr(field, ":");
@@ -194,10 +194,10 @@ char* Prop(char** rest)
     *rest = end + 1;
     return field;
 }
-int NumberField(char** rest)
+int number_field(char** rest)
 {
     char number[128];
-    Text::DupFrom(number, Prop(rest));
+    text_tools::dup_from(number, prop(rest));
     return std::atol(number);
 }
 
@@ -206,401 +206,401 @@ int NumberField(char** rest)
 // --- the list nodes, items and categories ---
 
 // 0x0054B2D0
-void VaultNode::DestroyItemNode() { m_listLink.UnlinkAs(kItemNodeVtable); }
+void VaultNode::destroy_item_node() { list_link_.unlink_as(kItemNodeVtable); }
 
 // 0x0054B2B0
-void VaultNode::DestroyCategoryNode() { m_listLink.UnlinkAs(kCategoryNodeVtable); }
+void VaultNode::destroy_category_node() { list_link_.unlink_as(kCategoryNodeVtable); }
 
 // 0x0054B2F0
-VaultNode* VaultNode::DeleteItemNode(unsigned int flags)
+VaultNode* VaultNode::delete_item_node(unsigned int flags)
 {
-    DestroyItemNode();
+    destroy_item_node();
     if (flags & 1)
-        RamStats()->Dealloc(this);
+        ram_stats()->dealloc(this);
     return this;
 }
 
 // 0x0054B330
-VaultNode* VaultNode::DeleteCategoryNode(unsigned int flags)
+VaultNode* VaultNode::delete_category_node(unsigned int flags)
 {
-    DestroyCategoryNode();
+    destroy_category_node();
     if (flags & 1)
-        RamStats()->Dealloc(this);
+        ram_stats()->dealloc(this);
     return this;
 }
 
 // 0x0054B610
-VaultNode* VaultNode::DeleteCategoriesHead(unsigned int flags)
+VaultNode* VaultNode::delete_categories_head(unsigned int flags)
 {
-    DestroyCategoryNode();
+    destroy_category_node();
     if (flags & 1)
-        RamStats()->Dealloc(this);
+        ram_stats()->dealloc(this);
     return this;
 }
 
 // 0x0054B570
-VaultItem* VaultItem::MakeNew()
+VaultItem* VaultItem::make_new()
 {
-    InitNode(&m_listLink, kItemVtable);
-    m_url[0] = '\0';
-    m_label[0] = '\0';
-    m_creator[0] = '\0';
-    m_extent[0] = '\0';
-    m_unknownCC[0] = '\0';
-    m_summaryText[0] = '\0';
-    m_pointsHeld = 0;
-    m_numPieces = 0;
-    m_numGaps = 0;
-    m_numGoals = 0;
-    m_styleSet = 0;
-    m_todScript = 0;
-    m_hasMaleBody = 0;
-    m_span = 0;
-    m_levelY = 0;
+    init_node(&list_link_, kItemVtable);
+    url_[0] = '\0';
+    label_[0] = '\0';
+    creator_[0] = '\0';
+    extent_[0] = '\0';
+    unknowncc_[0] = '\0';
+    summary_text_[0] = '\0';
+    points_held_ = 0;
+    num_pieces_ = 0;
+    num_gaps_ = 0;
+    num_goals_ = 0;
+    style_set_ = 0;
+    tod_script_ = 0;
+    has_male_body_ = 0;
+    span_ = 0;
+    level_y_ = 0;
     return this;
 }
 
 // 0x0054B5E0
-VaultItem* VaultItem::Teardown(unsigned int flags)
+VaultItem* VaultItem::teardown(unsigned int flags)
 {
-    reinterpret_cast<VaultNode*>(this)->DestroyItemNode();
+    reinterpret_cast<VaultNode*>(this)->destroy_item_node();
     if (flags & 1)
-        RamStats()->Dealloc(this);
+        ram_stats()->dealloc(this);
     return this;
 }
 
 // 0x0054B670
-VaultCategory* VaultCategory::MakeNew()
+VaultCategory* VaultCategory::make_new()
 {
-    InitNode(&m_listLink, kCategoryVtable);
-    SetupListSentinel(&m_items, kItemVtable);
-    m_skip = false;
+    init_node(&list_link_, kCategoryVtable);
+    setup_list_sentinel(&items_, kItemVtable);
+    skip_ = false;
     return this;
 }
 
 // 0x0054C890
-void VaultCategory::DestroyBody()
+void VaultCategory::destroy_body()
 {
-    m_listLink.vtable = kCategoryVtable;
-    for (MemSys::ListNode* node = NextNode(&m_items); node;) {
-        MemSys::ListNode* next = NextNode(node);
-        UnlinkListNode(node->data);
+    list_link_.vtable = kCategoryVtable;
+    for (memory::ListNode* node = get_next_node(&items_); node;) {
+        memory::ListNode* next = get_next_node(node);
+        unlink_list_node(node->data);
         node = next;
     }
-    m_items.UnlinkAs(kItemNodeVtable);
-    m_listLink.UnlinkAs(kCategoryNodeVtable);
+    items_.unlink_as(kItemNodeVtable);
+    list_link_.unlink_as(kCategoryNodeVtable);
 }
 
 // 0x0054C980
-VaultCategory* VaultCategory::Teardown(unsigned int flags)
+VaultCategory* VaultCategory::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        RamStats()->Dealloc(this);
+        ram_stats()->dealloc(this);
     return this;
 }
 
 // 0x0054B6B0
-void* VaultSearch::HeadElement(MemSys::ListNode* head)
+void* VaultSearch::head_element(memory::ListNode* head)
 {
-    m_listLink = head;
-    return FollowingItem();
+    list_link_ = head;
+    return following_item();
 }
 
 // 0x0054B640
-void* VaultSearch::FollowingItem()
+void* VaultSearch::following_item()
 {
-    m_listLink = NextNode(m_listLink);
-    return m_listLink ? m_listLink->data : nullptr;
+    list_link_ = get_next_node(list_link_);
+    return list_link_ ? list_link_->data : nullptr;
 }
 
 // 0x0054A770 / 0x0054A760
-void VaultSearch::DestroyCategorySearch() { m_vtable = kCategorySearchVtable; }
-void VaultSearch::DestroyItemSearch() { m_vtable = kItemSearchVtable; }
+void VaultSearch::destroy_category_search() { vtable_ = kCategorySearchVtable; }
+void VaultSearch::destroy_item_search() { vtable_ = kItemSearchVtable; }
 
 // 0x0054A780
-VaultSearch* VaultSearch::DestroyCategorySearchAndFree(unsigned int flags)
+VaultSearch* VaultSearch::destroy_category_search_and_free(unsigned int flags)
 {
-    m_vtable = kCategorySearchVtable;
+    vtable_ = kCategorySearchVtable;
     if (flags & 1)
-        RamStats()->Dealloc(this);
+        ram_stats()->dealloc(this);
     return this;
 }
 
 // 0x0054B280
-VaultSearch* VaultSearch::DestroyItemSearchAndFree(unsigned int flags)
+VaultSearch* VaultSearch::destroy_item_search_and_free(unsigned int flags)
 {
-    m_vtable = kItemSearchVtable;
+    vtable_ = kItemSearchVtable;
     if (flags & 1)
-        RamStats()->Dealloc(this);
+        ram_stats()->dealloc(this);
     return this;
 }
 
 // --- the vault ---
 
 // 0x0054C1D0
-VaultMan* VaultMan::MakeNew()
+VaultMan* VaultMan::make_new()
 {
-    SetupListSentinel(&m_categories, kCategoriesHeadVtable);
-    m_search.m_vtable = kCategorySearchVtable;
-    m_search.m_listLink = nullptr;
-    m_transfer = kNone;
-    m_progress = 0;
-    m_startTime = 0;
-    auto* task = static_cast<Scheduling::SchedulerTask*>(MemSys::AllocZeroed(0x20));
+    setup_list_sentinel(&categories_, kCategoriesHeadVtable);
+    search_.vtable_ = kCategorySearchVtable;
+    search_.list_link_ = nullptr;
+    transfer_ = kNone;
+    progress_ = 0;
+    start_time_ = 0;
+    auto* task = static_cast<tasks::SchedulerTask*>(memory::alloc_zeroed(0x20));
     if (task) {
-        task->MakeNew(0);
-        task->m_vtable = GameCode::kTaskVtable;
-        reinterpret_cast<void**>(task)[6] = reinterpret_cast<void*>(&VaultTask); // +0x18 the callback
+        task->make_new(0);
+        task->vtable_ = game_code::kTaskVtable;
+        reinterpret_cast<void**>(task)[6] = reinterpret_cast<void*>(&vault_task); // +0x18 the callback
         reinterpret_cast<void**>(task)[7] = this;                                // +0x1C the data
     }
-    m_task = task;
-    m_semaphore = CreateSemaphoreA(nullptr, 1, 10, nullptr);
+    task_ = task;
+    semaphore_ = CreateSemaphoreA(nullptr, 1, 10, nullptr);
     return this;
 }
 
 // 0x0054B470
-void VaultMan::DestroyBody()
+void VaultMan::destroy_body()
 {
-    Release(m_semaphore);
-    if (m_task) // (its scalar deleting destructor, vtable slot 2)
-        reinterpret_cast<void*(__thiscall*)(Scheduling::SchedulerTask*, unsigned int)>(m_task->m_vtable[2])(m_task, 1);
-    m_search.m_vtable = kCategorySearchVtable;
-    m_categories.UnlinkAs(kCategoryNodeVtable);
+    get_release(semaphore_);
+    if (task_) // (its scalar deleting destructor, vtable slot 2)
+        reinterpret_cast<void*(__thiscall*)(tasks::SchedulerTask*, unsigned int)>(task_->vtable_[2])(task_, 1);
+    search_.vtable_ = kCategorySearchVtable;
+    categories_.unlink_as(kCategoryNodeVtable);
 }
 
 // 0x0054A910
-void VaultMan::Download(const DownloadRequest* request)
+void VaultMan::download(const DownloadRequest* request)
 {
-    PushBottomUp();
-    VaultMan* vault = Vault();
-    vault->m_transfer = kDownload;
-    vault->m_outcomeVal = 0;
-    LogicTasks()->QueueJob(vault->m_task);
-    vault->m_progress = 0;
-    vault->m_startTime = FrameClock::GetTime();
-    vault->m_bufferSize = request->bufferSize;
-    vault->m_failScript = request->failScript;
-    vault->m_doneScript = request->doneScript;
-    vault->m_progressScript = request->progressScript;
-    vault->m_errorScript = request->errorScript;
-    vault->m_callback = request->callback;
-    char* url = GameSpyStrdup(request->url);
-    HANDLE thread = StartThread(&DownloadThread, url);
-    Stall(vault->m_semaphore);
+    push_bottom_up();
+    VaultMan* vault = get_vault();
+    vault->transfer_ = kDownload;
+    vault->outcome_val_ = 0;
+    get_logic_tasks()->queue_job(vault->task_);
+    vault->progress_ = 0;
+    vault->start_time_ = frame_clock::get_time();
+    vault->buffer_size_ = request->buffer_size_;
+    vault->fail_script_ = request->fail_script_;
+    vault->done_script_ = request->done_script_;
+    vault->progress_script_ = request->progress_script_;
+    vault->error_script_ = request->error_script_;
+    vault->callback_ = request->callback;
+    char* url = game_spy_strdup(request->url);
+    HANDLE thread = start_thread(&download_thread, url);
+    get_stall(vault->semaphore_);
     ResumeThread(thread);
-    Release(vault->m_semaphore);
-    PopHeap();
+    get_release(vault->semaphore_);
+    pop_heap();
 }
 
 // 0x0054B370
-void VaultMan::StartList(const char* url)
+void VaultMan::start_list(const char* url)
 {
     // (the original uses `url` as sprintf's format)
-    std::snprintf(m_url, sizeof(m_url), "%s", url);
-    m_progress = 0;
-    m_startTime = FrameClock::GetTime();
-    m_doneScript = kDoneScript;
-    m_failScript = kFailScript;
-    m_errorScript = kErrorScript;
-    m_progressScript = kProgressScript;
-    HANDLE thread = StartThread(&ListThread, this);
+    std::snprintf(url_, sizeof(url_), "%s", url);
+    progress_ = 0;
+    start_time_ = frame_clock::get_time();
+    done_script_ = kDoneScript;
+    fail_script_ = kFailScript;
+    error_script_ = kErrorScript;
+    progress_script_ = kProgressScript;
+    HANDLE thread = start_thread(&list_thread, this);
     ResumeThread(thread);
 }
 
 // 0x0054B400
-void VaultMan::ListItems(VaultCategory* category)
+void VaultMan::list_items(VaultCategory* category)
 {
     char url[128];
-    std::snprintf(url, sizeof(url), "http://www.thugonline.com/%s/%s/dir_list.txt", m_folder, category->m_label);
-    m_transfer = kItems;
-    m_outcomeVal = 0;
-    StartList(url);
+    std::snprintf(url, sizeof(url), "http://www.thugonline.com/%s/%s/dir_list.txt", folder_, category->label_);
+    transfer_ = kItems;
+    outcome_val_ = 0;
+    start_list(url);
 }
 
 // 0x0054B500
-void VaultMan::ListCategories()
+void VaultMan::list_categories()
 {
-    m_transfer = kCategories;
+    transfer_ = kCategories;
     char url[128];
-    std::snprintf(url, sizeof(url), "http://www.thugonline.com/%s/dir_list.txt", m_folder);
-    StartList(url);
-    m_outcomeVal = 0;
-    LogicTasks()->QueueJob(m_task);
+    std::snprintf(url, sizeof(url), "http://www.thugonline.com/%s/dir_list.txt", folder_);
+    start_list(url);
+    outcome_val_ = 0;
+    get_logic_tasks()->queue_job(task_);
 }
 
 // 0x0054C130
-void VaultMan::FreeDirectoryListing()
+void VaultMan::free_directory_listing()
 {
-    for (MemSys::ListNode* node = NextNode(&m_categories); node;) {
-        MemSys::ListNode* next = NextNode(node);
-        UnlinkListNode(node->data);
+    for (memory::ListNode* node = get_next_node(&categories_); node;) {
+        memory::ListNode* next = get_next_node(node);
+        unlink_list_node(node->data);
         node = next;
     }
-    GhttpCleanup();
+    ghttp_cleanup();
 }
 
 // 0x0054B6E0
-void __cdecl VaultMan::VaultTask(Scheduling::SchedulerTask* task)
+void __cdecl VaultMan::vault_task(tasks::SchedulerTask* task)
 {
     auto* vault = reinterpret_cast<VaultMan*>(reinterpret_cast<void**>(task)[7]);
-    if (FrameClock::GetTime() - vault->m_startTime > kTimeout) {
-        if (vault->m_transfer != kNone)
-            RamStats()->Dealloc(vault->m_octets);
-        GhttpCancelRequest(vault->m_req);
-        Run(vault->m_failScript);
-        vault->m_transfer = kNone;
-        vault->m_task->DropOut();
+    if (frame_clock::get_time() - vault->start_time_ > kTimeout) {
+        if (vault->transfer_ != kNone)
+            ram_stats()->dealloc(vault->octets_);
+        ghttp_cancel_request(vault->req_);
+        get_run(vault->fail_script_);
+        vault->transfer_ = kNone;
+        vault->task_->drop_out();
         return;
     }
-    PushTopDown();
-    GhttpThink();
-    PopHeap();
+    push_top_down();
+    ghttp_think();
+    pop_heap();
 
-    int transfer = vault->m_transfer;
-    if (vault->m_progress < 100) {
+    int transfer = vault->transfer_;
+    if (vault->progress_ < 100) {
         if (transfer == kDownload || transfer == kDownload6) {
             char text[16];
-            std::snprintf(text, sizeof(text), "%d%%", vault->m_progress);
-            Scripts::CStruct* params = NewParams();
-            params->AppendWord(Checksums("text"), Scripts::QBVAL_STRING, text);
-            Run(vault->m_progressScript, params);
-            DeleteParams(params);
+            std::snprintf(text, sizeof(text), "%d%%", vault->progress_);
+            script::Struct* params = new_params();
+            params->append_word(get_checksums("text"), script::kQbvalString, text);
+            get_run(vault->progress_script_, params);
+            delete_params(params);
         }
         return;
     }
     if (transfer == kDownload || transfer == kDownload6)
-        RamStats()->Dealloc(vault->m_octets);
+        ram_stats()->dealloc(vault->octets_);
 
     switch (transfer) {
     case kDownload:
     case kDownload6:
     case kUpload: {
-        vault->m_task->DropOut();
-        vault->m_transfer = kNone;
-        if (vault->m_outcomeVal == 1) {
-            Scripts::CStruct* params = NewParams();
-            params->PutNameKey("type", vault->m_kindTag);
+        vault->task_->drop_out();
+        vault->transfer_ = kNone;
+        if (vault->outcome_val_ == 1) {
+            script::Struct* params = new_params();
+            params->put_name_key("type", vault->kind_tag_);
             if (transfer == kUpload)
-                Run("LaunchUploadCompleteDialog", params);
+                get_run("LaunchUploadCompleteDialog", params);
             else
-                Run(vault->m_doneScript, params);
-            DeleteParams(params);
+                get_run(vault->done_script_, params);
+            delete_params(params);
         } else {
-            Run(vault->m_fault == kErrorScriptResult ? vault->m_errorScript : vault->m_failScript);
+            get_run(vault->fault_ == kErrorScriptResult ? vault->error_script_ : vault->fail_script_);
         }
         if (transfer == kUpload)
-            RamStats()->Dealloc(vault->m_octets);
+            ram_stats()->dealloc(vault->octets_);
         return;
     }
     case kCategories: {
-        if (vault->m_outcomeVal != 1) {
-            vault->m_transfer = kNone;
-            vault->m_task->DropOut();
-            MemSys::Dealloc(vault->m_octets);
-            Run(vault->m_failScript);
+        if (vault->outcome_val_ != 1) {
+            vault->transfer_ = kNone;
+            vault->task_->drop_out();
+            memory::dealloc(vault->octets_);
+            get_run(vault->fail_script_);
             return;
         }
-        PushBottomUp();
+        push_bottom_up();
         // (an empty list leaves the transfer as it is: it's read again next time)
-        char* line = Text::Token(vault->m_octets, "\r\n");
+        char* line = text_tools::get_token(vault->octets_, "\r\n");
         if (line) {
             do {
-                void* memory = MemSys::AllocZeroed(sizeof(VaultCategory));
-                VaultCategory* category = memory ? static_cast<VaultCategory*>(memory)->MakeNew() : nullptr;
-                Prepend(&vault->m_categories, &category->m_listLink);
-                Text::DupFrom(category->m_label, line);
-                line = Text::Token(nullptr, "\r\n");
+                void* memory = memory::alloc_zeroed(sizeof(VaultCategory));
+                VaultCategory* category = memory ? static_cast<VaultCategory*>(memory)->make_new() : nullptr;
+                prepend(&vault->categories_, &category->list_link_);
+                text_tools::dup_from(category->label_, line);
+                line = text_tools::get_token(nullptr, "\r\n");
             } while (line);
-            vault->m_category = static_cast<VaultCategory*>(vault->m_search.HeadElement(&vault->m_categories));
-            if (vault->m_category->m_skip)
-                vault->m_category = static_cast<VaultCategory*>(vault->m_search.FollowingItem());
-            vault->m_transfer = kNone;
-            MemSys::Dealloc(vault->m_octets);
-            vault->ListItems(vault->m_category);
+            vault->category_ = static_cast<VaultCategory*>(vault->search_.head_element(&vault->categories_));
+            if (vault->category_->skip_)
+                vault->category_ = static_cast<VaultCategory*>(vault->search_.following_item());
+            vault->transfer_ = kNone;
+            memory::dealloc(vault->octets_);
+            vault->list_items(vault->category_);
         }
-        PopHeap();
+        pop_heap();
         return;
     }
     case kItems: {
-        PushBottomUp();
-        if (vault->m_outcomeVal != 1) {
-            vault->m_transfer = kNone;
-            vault->m_task->DropOut();
-            MemSys::Dealloc(vault->m_octets);
-            Run(vault->m_failScript);
-            PopHeap();
+        push_bottom_up();
+        if (vault->outcome_val_ != 1) {
+            vault->transfer_ = kNone;
+            vault->task_->drop_out();
+            memory::dealloc(vault->octets_);
+            get_run(vault->fail_script_);
+            pop_heap();
             return;
         }
         // Each line: file:name:creator[:park, trick, skater or goal fields]:...:description
-        for (char* line = Text::Token(vault->m_octets, "\r\n"); line; line = Text::Token(nullptr, "\r\n")) {
-            void* memory = MemSys::AllocZeroed(sizeof(VaultItem));
-            VaultItem* item = memory ? static_cast<VaultItem*>(memory)->MakeNew() : nullptr;
-            Prepend(&vault->m_category->m_items, &item->m_listLink);
+        for (char* line = text_tools::get_token(vault->octets_, "\r\n"); line; line = text_tools::get_token(nullptr, "\r\n")) {
+            void* memory = memory::alloc_zeroed(sizeof(VaultItem));
+            VaultItem* item = memory ? static_cast<VaultItem*>(memory)->make_new() : nullptr;
+            prepend(&vault->category_->items_, &item->list_link_);
             char* rest = line;
             char file[1024];
-            Text::DupFrom(file, Prop(&rest));
+            text_tools::dup_from(file, prop(&rest));
             // (the original makes the URL with sprintf: no limit)
-            std::snprintf(item->m_url, sizeof(item->m_url) + 0x80, "http://www.thugonline.com/%s/%s/%s",
-                          vault->m_folder, vault->m_category->m_label, file);
-            Text::DupFrom(item->m_label, Prop(&rest));
-            Text::DupFrom(item->m_creator, Prop(&rest));
-            if (vault->m_kindTag == kVaultParks) {
-                Text::DupFrom(item->m_extent, Prop(&rest));
-                item->m_numPieces = NumberField(&rest);
-                item->m_numGaps = NumberField(&rest);
-                item->m_numGoals = NumberField(&rest);
-                item->m_styleSet = NumberField(&rest);
-                item->m_todScript = static_cast<uint32_t>(NumberField(&rest));
+            std::snprintf(item->url_, sizeof(item->url_) + 0x80, "http://www.thugonline.com/%s/%s/%s",
+                          vault->folder_, vault->category_->label_, file);
+            text_tools::dup_from(item->label_, prop(&rest));
+            text_tools::dup_from(item->creator_, prop(&rest));
+            if (vault->kind_tag_ == kVaultParks) {
+                text_tools::dup_from(item->extent_, prop(&rest));
+                item->num_pieces_ = number_field(&rest);
+                item->num_gaps_ = number_field(&rest);
+                item->num_goals_ = number_field(&rest);
+                item->style_set_ = number_field(&rest);
+                item->tod_script_ = static_cast<uint32_t>(number_field(&rest));
             }
-            if (vault->m_kindTag == kVaultTricks)
-                item->m_pointsHeld = NumberField(&rest);
-            if (vault->m_kindTag == kVaultSkaters)
-                item->m_hasMaleBody = NumberField(&rest);
-            if (vault->m_kindTag == kVaultGoals)
-                item->m_numGoals = NumberField(&rest);
-            Text::DupFrom(item->m_unknownCC, Prop(&rest));
-            Text::DupFrom(item->m_summaryText, rest);
+            if (vault->kind_tag_ == kVaultTricks)
+                item->points_held_ = number_field(&rest);
+            if (vault->kind_tag_ == kVaultSkaters)
+                item->has_male_body_ = number_field(&rest);
+            if (vault->kind_tag_ == kVaultGoals)
+                item->num_goals_ = number_field(&rest);
+            text_tools::dup_from(item->unknowncc_, prop(&rest));
+            text_tools::dup_from(item->summary_text_, rest);
         }
-        vault->m_transfer = kNone;
-        MemSys::Dealloc(vault->m_octets);
-        vault->m_category = static_cast<VaultCategory*>(vault->m_search.FollowingItem());
-        if (vault->m_category && !vault->m_category->m_skip) {
-            vault->ListItems(vault->m_category); // the next category's
+        vault->transfer_ = kNone;
+        memory::dealloc(vault->octets_);
+        vault->category_ = static_cast<VaultCategory*>(vault->search_.following_item());
+        if (vault->category_ && !vault->category_->skip_) {
+            vault->list_items(vault->category_); // the next category's
         } else {
             // All in: the menu.
-            vault->m_category = static_cast<VaultCategory*>(vault->m_search.HeadElement(&vault->m_categories));
-            vault->m_task->DropOut();
-            Scripts::CStruct* params = NewParams();
-            params->AppendWord("category", vault->m_category->m_label);
-            params->PutNameKey("type", vault->m_kindTag);
-            Run("net_vault_menu_create", params);
-            DeleteParams(params);
+            vault->category_ = static_cast<VaultCategory*>(vault->search_.head_element(&vault->categories_));
+            vault->task_->drop_out();
+            script::Struct* params = new_params();
+            params->append_word("category", vault->category_->label_);
+            params->put_name_key("type", vault->kind_tag_);
+            get_run("net_vault_menu_create", params);
+            delete_params(params);
         }
-        PopHeap();
+        pop_heap();
         return;
     }
     case kUploads: {
-        PushBottomUp();
+        push_bottom_up();
         // Each line: file:creator:size:...:description (the whole line also makes the URL).
-        for (char* line = Text::Token(vault->m_octets, "\r\n"); line; line = Text::Token(nullptr, "\r\n")) {
-            void* memory = MemSys::AllocZeroed(sizeof(VaultItem));
-            VaultItem* item = memory ? static_cast<VaultItem*>(memory)->MakeNew() : nullptr;
-            Prepend(&vault->m_category->m_items, &item->m_listLink);
-            std::snprintf(item->m_url, sizeof(item->m_url) + 0x80, "http://www.thugonline.com/%s/%s", vault->m_folder,
+        for (char* line = text_tools::get_token(vault->octets_, "\r\n"); line; line = text_tools::get_token(nullptr, "\r\n")) {
+            void* memory = memory::alloc_zeroed(sizeof(VaultItem));
+            VaultItem* item = memory ? static_cast<VaultItem*>(memory)->make_new() : nullptr;
+            prepend(&vault->category_->items_, &item->list_link_);
+            std::snprintf(item->url_, sizeof(item->url_) + 0x80, "http://www.thugonline.com/%s/%s", vault->folder_,
                           line);
             char* rest = line;
-            Text::DupFrom(item->m_label, Prop(&rest));
-            Text::DupFrom(item->m_creator, Prop(&rest));
-            Text::DupFrom(item->m_extent, Prop(&rest));
-            Text::DupFrom(item->m_unknownCC, Prop(&rest));
-            Text::DupFrom(item->m_summaryText, rest);
+            text_tools::dup_from(item->label_, prop(&rest));
+            text_tools::dup_from(item->creator_, prop(&rest));
+            text_tools::dup_from(item->extent_, prop(&rest));
+            text_tools::dup_from(item->unknowncc_, prop(&rest));
+            text_tools::dup_from(item->summary_text_, rest);
         }
-        vault->m_transfer = kNone;
-        vault->m_task->DropOut();
-        MemSys::Dealloc(vault->m_octets);
-        vault->ListCategories();
-        PopHeap();
+        vault->transfer_ = kNone;
+        vault->task_->drop_out();
+        memory::dealloc(vault->octets_);
+        vault->list_categories();
+        pop_heap();
         return;
     }
     default:
@@ -609,299 +609,299 @@ void __cdecl VaultMan::VaultTask(Scheduling::SchedulerTask* task)
 }
 
 // 0x0054A7B0
-unsigned long __stdcall VaultMan::ListThread(void* param)
+unsigned long __stdcall VaultMan::list_thread(void* param)
 {
     auto* vault = static_cast<VaultMan*>(param);
-    Stall(vault->m_semaphore);
-    PushBottomUp();
-    auto* buffer = static_cast<char*>(MemSys::Alloc(kListBufferSize));
-    vault->m_octets = buffer;
+    get_stall(vault->semaphore_);
+    push_bottom_up();
+    auto* buffer = static_cast<char*>(memory::alloc(kListBufferSize));
+    vault->octets_ = buffer;
     std::memset(buffer, 0, kListBufferSize);
-    vault->m_req = GhttpGetEx(vault->m_url, nullptr, vault->m_octets, kListBufferSize, nullptr, 0, 0,
-                                  reinterpret_cast<const void*>(&OnProgress),
-                                  reinterpret_cast<const void*>(&OnTransferDone), vault);
-    PopHeap();
-    Release(vault->m_semaphore);
+    vault->req_ = ghttp_get_ex(vault->url_, nullptr, vault->octets_, kListBufferSize, nullptr, 0, 0,
+                                  reinterpret_cast<const void*>(&on_progress),
+                                  reinterpret_cast<const void*>(&on_transfer_done), vault);
+    pop_heap();
+    get_release(vault->semaphore_);
     return 0;
 }
 
 // 0x0054A860
-unsigned long __stdcall VaultMan::DownloadThread(void* url)
+unsigned long __stdcall VaultMan::download_thread(void* url)
 {
-    Hub* manager = NetSessionSlot();
-    VaultMan* vault = Vault();
-    Stall(vault->m_semaphore);
-    PushBottomUp();
-    uint32_t size = vault->m_bufferSize;
-    auto* buffer = static_cast<char*>(MemSys::Alloc(size));
-    vault->m_octets = buffer;
-    int request = GhttpGetEx(static_cast<const char*>(url), nullptr, buffer, size, nullptr, 0, 0,
-                             reinterpret_cast<const void*>(&OnProgress), vault->m_callback, vault);
-    reinterpret_cast<VaultMan*>(manager->m_vaultMan)->m_req = request;
-    PopHeap();
-    Release(reinterpret_cast<VaultMan*>(manager->m_vaultMan)->m_semaphore);
-    GameCrtFree(url);
+    Hub* manager = net_session_slot();
+    VaultMan* vault = get_vault();
+    get_stall(vault->semaphore_);
+    push_bottom_up();
+    uint32_t size = vault->buffer_size_;
+    auto* buffer = static_cast<char*>(memory::alloc(size));
+    vault->octets_ = buffer;
+    int request = ghttp_get_ex(static_cast<const char*>(url), nullptr, buffer, size, nullptr, 0, 0,
+                             reinterpret_cast<const void*>(&on_progress), vault->callback_, vault);
+    reinterpret_cast<VaultMan*>(manager->vault_man_)->req_ = request;
+    pop_heap();
+    get_release(reinterpret_cast<VaultMan*>(manager->vault_man_)->semaphore_);
+    game_crt_free(url);
     return 0;
 }
 
 // 0x0054AAC0
-unsigned long __stdcall VaultMan::UploadThread(void* param)
+unsigned long __stdcall VaultMan::upload_thread(void* param)
 {
     auto* vault = static_cast<VaultMan*>(param);
-    OptionStore::Preferences* prefs = NetSessionSlot()->GetOnlineSettings();
-    const char* networkId;
-    prefs->FetchSetting(Checksums("network_id"))->FetchText("ui_string", &networkId, 1);
-    Stall(vault->m_semaphore);
-    PushBottomUp();
-    void* post = GhttpNewPost();
+    prefs::Preferences* prefs = net_session_slot()->get_online_settings();
+    const char* network_id;
+    prefs->fetch_setting(get_checksums("network_id"))->fetch_text("ui_string", &network_id, 1);
+    get_stall(vault->semaphore_);
+    push_bottom_up();
+    void* post = ghttp_new_post();
     char number[32];
-    char fileName[0x80] = {}; // (left unset in the original for an unknown type)
+    char file_name[0x80] = {}; // (left unset in the original for an unknown type)
     char* buffer = nullptr;
     uint32_t size = 0;
-    // The item's data written to a buffer (from the current heap: MemSys::Alloc for a trick, its steps inlined for the
+    // The item's data written to a buffer (from the current heap: memory::alloc for a trick, its steps inlined for the
     // others).
-    auto writeData = [&]() {
-        size = Scripts::MeasureBufferBytes(vault->m_content, kListBufferSize);
-        buffer = static_cast<char*>(MemSys::Alloc(size));
-        Scripts::EmitIntoBuffer(vault->m_content, reinterpret_cast<uint8_t*>(buffer), size, 1, nullptr);
-        uint32_t checksum = Checksums::GenerateCRCCaseless(buffer, static_cast<int>(size));
-        Text::DupFrom(fileName, vault->m_sourcePath);
+    auto write_data = [&]() {
+        size = script::measure_buffer_bytes(vault->content_, kListBufferSize);
+        buffer = static_cast<char*>(memory::alloc(size));
+        script::emit_into_buffer(vault->content_, reinterpret_cast<uint8_t*>(buffer), size, 1, nullptr);
+        uint32_t checksum = checksums::generate_crc_caseless(buffer, static_cast<int>(size));
+        text_tools::dup_from(file_name, vault->source_path_);
         return checksum;
     };
-    auto addNumber = [&](const char* name, int value) {
+    auto add_number = [&](const char* name, int value) {
         std::snprintf(number, sizeof(number), "%d", value);
-        GhttpPostAddString(post, name, number);
+        ghttp_post_add_string(post, name, number);
     };
-    switch (vault->m_kindTag) {
+    switch (vault->kind_tag_) {
     case kVaultTricks:
     case kVaultSkaters:
     case kVaultGoals: {
-        if (vault->m_kindTag == kVaultTricks) {
-            GhttpPostAddString(post, "filetype", "cat");
-            addNumber("score", vault->m_pointsHeld);
-        } else if (vault->m_kindTag == kVaultSkaters) {
-            GhttpPostAddString(post, "filetype", "cas");
-            addNumber("is_male", vault->m_hasMaleBody);
+        if (vault->kind_tag_ == kVaultTricks) {
+            ghttp_post_add_string(post, "filetype", "cat");
+            add_number("score", vault->points_held_);
+        } else if (vault->kind_tag_ == kVaultSkaters) {
+            ghttp_post_add_string(post, "filetype", "cas");
+            add_number("is_male", vault->has_male_body_);
         } else {
-            GhttpPostAddString(post, "filetype", "cag");
-            addNumber("num_goals", vault->m_numGoals);
+            ghttp_post_add_string(post, "filetype", "cag");
+            add_number("num_goals", vault->num_goals_);
         }
-        uint32_t checksum = writeData();
-        GhttpPostAddString(post, "player", networkId);
-        addNumber("checksum", static_cast<int>(checksum));
+        uint32_t checksum = write_data();
+        ghttp_post_add_string(post, "player", network_id);
+        add_number("checksum", static_cast<int>(checksum));
         break;
     }
     case kVaultParks: {
-        uint32_t checksum = writeData();
-        GhttpPostAddString(post, "player", networkId);
-        addNumber("width", vault->m_span);
-        addNumber("height", vault->m_byteCount);
-        addNumber("checksum", static_cast<int>(checksum));
-        addNumber("num_pieces", vault->m_numPieces);
-        addNumber("num_gaps", vault->m_numGaps);
-        addNumber("num_goals", vault->m_numGoals);
-        addNumber("theme", vault->m_styleSet);
-        std::snprintf(number, sizeof(number), "0x%x", vault->m_todScript);
-        GhttpPostAddString(post, "tod_script", number);
+        uint32_t checksum = write_data();
+        ghttp_post_add_string(post, "player", network_id);
+        add_number("width", vault->span_);
+        add_number("height", vault->byte_count_);
+        add_number("checksum", static_cast<int>(checksum));
+        add_number("num_pieces", vault->num_pieces_);
+        add_number("num_gaps", vault->num_gaps_);
+        add_number("num_goals", vault->num_goals_);
+        add_number("theme", vault->style_set_);
+        std::snprintf(number, sizeof(number), "0x%x", vault->tod_script_);
+        ghttp_post_add_string(post, "tod_script", number);
         break;
     }
     default:
         break;
     }
-    vault->m_octets = buffer;
-    vault->m_bufferSize = size;
-    GhttpPostAddFileFromMemory(post, "filename", buffer, size, fileName, nullptr);
+    vault->octets_ = buffer;
+    vault->buffer_size_ = size;
+    ghttp_post_add_file_from_memory(post, "filename", buffer, size, file_name, nullptr);
     char description[0x400];
-    std::snprintf(description, sizeof(description), "%s", vault->m_summaryText);
-    GhttpPostAddString(post, "description", description);
-    GhttpPostAddString(post, "uniqueid", GameSpyUniqueId());
-    if (const char* fileType = UploadFileType(vault->m_kindTag)) // (a trick, skater or goal gets it twice)
-        GhttpPostAddString(post, "filetype", fileType);
-    GhttpPostAddString(post, "dblog", "1");
-    vault->m_req = GhttpPostEx("http://www.thugonline.com/cgi-bin/upload2.pl", nullptr, post, 0, 0,
-                                   reinterpret_cast<const void*>(&OnProgress),
-                                   reinterpret_cast<const void*>(&OnTransferDone), vault);
-    PopHeap();
-    Release(vault->m_semaphore);
+    std::snprintf(description, sizeof(description), "%s", vault->summary_text_);
+    ghttp_post_add_string(post, "description", description);
+    ghttp_post_add_string(post, "uniqueid", game_spy_unique_id());
+    if (const char* file_type = upload_file_type(vault->kind_tag_)) // (a trick, skater or goal gets it twice)
+        ghttp_post_add_string(post, "filetype", file_type);
+    ghttp_post_add_string(post, "dblog", "1");
+    vault->req_ = ghttp_post_ex("http://www.thugonline.com/cgi-bin/upload2.pl", nullptr, post, 0, 0,
+                                   reinterpret_cast<const void*>(&on_progress),
+                                   reinterpret_cast<const void*>(&on_transfer_done), vault);
+    pop_heap();
+    get_release(vault->semaphore_);
     return 0;
 }
 
 // 0x0054A660
-void __cdecl VaultMan::OnProgress(void*, int state, const char*, int64_t, int64_t received, int64_t total,
+void __cdecl VaultMan::on_progress(void*, int state, const char*, int64_t, int64_t received, int64_t total,
                                   VaultMan* vault)
 {
     // (states 3 and 7: receiving the file / posting)
     if ((state == 7 || state == 3) && total > 0)
-        vault->m_progress = static_cast<int>(static_cast<double>(received) / static_cast<double>(total) * 100.0f);
-    vault->m_startTime = FrameClock::GetTime();
+        vault->progress_ = static_cast<int>(static_cast<double>(received) / static_cast<double>(total) * 100.0f);
+    vault->start_time_ = frame_clock::get_time();
 }
 
 // 0x0054A740
-int __cdecl VaultMan::OnTransferDone(void*, int result, char*, int64_t, VaultMan* vault)
+int __cdecl VaultMan::on_transfer_done(void*, int result, char*, int64_t, VaultMan* vault)
 {
-    vault->m_progress = 100;
-    vault->m_outcomeVal = result != 0 ? 2 : 1;
+    vault->progress_ = 100;
+    vault->outcome_val_ = result != 0 ? 2 : 1;
     return 1;
 }
 
 // 0x0054A6B0
-int __cdecl VaultMan::OnFileDownloaded(void*, int result, char* buffer, int64_t, VaultMan* vault)
+int __cdecl VaultMan::on_file_downloaded(void*, int result, char* buffer, int64_t, VaultMan* vault)
 {
-    vault->m_progress = 100;
+    vault->progress_ = 100;
     if (result != 0) {
-        vault->m_fault = result;
-        vault->m_outcomeVal = 2;
+        vault->fault_ = result;
+        vault->outcome_val_ = 2;
         return 1;
     }
-    vault->m_outcomeVal = 1;
+    vault->outcome_val_ = 1;
     uint32_t script = 0;
-    switch (vault->m_kindTag) {
+    switch (vault->kind_tag_) {
     case kVaultTricks: script = 0x61A1BC57; break;
     case kVaultSkaters: script = 0xB010F357; break;
     case kVaultGoals: script = 0x62896EDF; break;
     case kVaultParks: script = 0x3BF882CC; break;
     default: break;
     }
-    LoadDownloadedItem(buffer, script);
-    vault->m_fault = 0;
+    load_downloaded_item(buffer, script);
+    vault->fault_ = 0;
     return 1;
 }
 
 // --- the script commands ---
 
-// 0x0054AA10: DownloadFile file=<url>: the item, loaded when it comes (OnFileDownloaded).
-bool __cdecl DownloadFile(Scripts::CStruct* params, Scripts::CScript*)
+// 0x0054AA10: DownloadFile file=<url>: the item, loaded when it comes (on_file_downloaded).
+bool __cdecl download_file(script::Struct* params, script::Script*)
 {
     const char* file = "";
-    params->FetchText("file", &file, 0);
+    params->fetch_text("file", &file, 0);
     DownloadRequest request;
-    request.doneScript = kDoneScript;
-    request.failScript = kFailScript;
-    request.errorScript = kErrorScript;
-    request.progressScript = kProgressScript;
-    request.bufferSize = kDownloadFileSize;
+    request.done_script_ = kDoneScript;
+    request.fail_script_ = kFailScript;
+    request.error_script_ = kErrorScript;
+    request.progress_script_ = kProgressScript;
+    request.buffer_size_ = kDownloadFileSize;
     // (the original uses the URL as sprintf's format)
     std::snprintf(request.url, sizeof(request.url), "%s", file);
-    request.callback = reinterpret_cast<const void*>(&VaultMan::OnFileDownloaded);
-    Vault()->Download(&request);
+    request.callback = reinterpret_cast<const void*>(&VaultMan::on_file_downloaded);
+    get_vault()->download(&request);
     return true;
 }
 
 // 0x0054B060: UploadFile type data description filename [score width length num_pieces num_gaps num_goals theme
-// tod_script is_male]: the upload on a thread (UploadThread).
-bool __cdecl UploadFile(Scripts::CStruct* params, Scripts::CScript*)
+// tod_script is_male]: the upload on a thread (upload_thread).
+bool __cdecl upload_file(script::Struct* params, script::Script*)
 {
-    VaultMan* vault = Vault();
-    vault->m_transfer = VaultMan::kUpload;
-    vault->m_outcomeVal = 0;
-    LogicTasks()->QueueJob(vault->m_task);
-    vault->m_progress = 0;
-    vault->m_startTime = FrameClock::GetTime();
-    vault->m_failScript = kFailScript;
-    params->ReadHashValue("type", &vault->m_kindTag, 1);
-    params->ReadSubStruct("data", &vault->m_content, 0);
+    VaultMan* vault = get_vault();
+    vault->transfer_ = VaultMan::kUpload;
+    vault->outcome_val_ = 0;
+    get_logic_tasks()->queue_job(vault->task_);
+    vault->progress_ = 0;
+    vault->start_time_ = frame_clock::get_time();
+    vault->fail_script_ = kFailScript;
+    params->read_hash_value("type", &vault->kind_tag_, 1);
+    params->read_sub_struct("data", &vault->content_, 0);
     const char* description;
-    const char* fileName;
-    params->FetchText("description", &description, 1);
-    params->FetchText("filename", &fileName, 1);
-    Text::DupFrom(vault->m_sourcePath, fileName);
-    Text::DupFrom(vault->m_summaryText, description);
-    params->FetchIntValue("score", &vault->m_pointsHeld, 0);
-    params->FetchIntValue("width", &vault->m_span, 0);
-    params->FetchIntValue("length", &vault->m_byteCount, 0);
-    params->FetchIntValue("num_pieces", &vault->m_numPieces, 0);
-    params->FetchIntValue("num_gaps", &vault->m_numGaps, 0);
-    params->FetchIntValue("num_goals", &vault->m_numGoals, 0);
-    params->FetchIntValue("theme", &vault->m_styleSet, 0);
-    params->ReadHashValue("tod_script", &vault->m_todScript, 0);
-    params->FetchIntValue("is_male", &vault->m_hasMaleBody, 0);
-    HANDLE thread = StartThread(&VaultMan::UploadThread, vault);
-    Stall(vault->m_semaphore);
+    const char* file_name;
+    params->fetch_text("description", &description, 1);
+    params->fetch_text("filename", &file_name, 1);
+    text_tools::dup_from(vault->source_path_, file_name);
+    text_tools::dup_from(vault->summary_text_, description);
+    params->fetch_int_value("score", &vault->points_held_, 0);
+    params->fetch_int_value("width", &vault->span_, 0);
+    params->fetch_int_value("length", &vault->byte_count_, 0);
+    params->fetch_int_value("num_pieces", &vault->num_pieces_, 0);
+    params->fetch_int_value("num_gaps", &vault->num_gaps_, 0);
+    params->fetch_int_value("num_goals", &vault->num_goals_, 0);
+    params->fetch_int_value("theme", &vault->style_set_, 0);
+    params->read_hash_value("tod_script", &vault->tod_script_, 0);
+    params->fetch_int_value("is_male", &vault->has_male_body_, 0);
+    HANDLE thread = start_thread(&VaultMan::upload_thread, vault);
+    get_stall(vault->semaphore_);
     ResumeThread(thread);
-    Release(vault->m_semaphore);
+    get_release(vault->semaphore_);
     return true;
 }
 
 // 0x0054B240
-bool __cdecl CancelFileTransfer(Scripts::CStruct*, Scripts::CScript*)
+bool __cdecl cancel_file_transfer(script::Struct*, script::Script*)
 {
-    VaultMan* vault = Vault();
-    if (vault->m_transfer != VaultMan::kNone) {
-        RamStats()->Dealloc(vault->m_octets);
-        GhttpCancelRequest(vault->m_req);
-        vault->m_transfer = VaultMan::kNone;
-        vault->m_task->DropOut();
+    VaultMan* vault = get_vault();
+    if (vault->transfer_ != VaultMan::kNone) {
+        ram_stats()->dealloc(vault->octets_);
+        ghttp_cancel_request(vault->req_);
+        vault->transfer_ = VaultMan::kNone;
+        vault->task_->drop_out();
     }
     return true;
 }
 
 // 0x0054C290: DownloadDirectoryList <type>: the type's categories and their items (for profile 0x011B0C16, first
 // the uploads list, as an "Uploads" category).
-bool __cdecl DownloadDirectoryList(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl download_directory_list(script::Struct* params, script::Script*)
 {
-    Hub* manager = NetSessionSlot();
-    VaultMan* vault = reinterpret_cast<VaultMan*>(manager->m_vaultMan);
-    FriendsManager* buddies = static_cast<FriendsManager*>(manager->m_presenceService);
-    params->ReadHashValue(0u, &vault->m_kindTag, 1);
-    if (const char* folder = TypeFolder(vault->m_kindTag)) // (an unknown type keeps the folder)
-        std::snprintf(vault->m_folder, sizeof(vault->m_folder), "%s", folder);
-    if (buddies->m_account != kUploadsProfile) {
-        vault->ListCategories();
+    Hub* manager = net_session_slot();
+    VaultMan* vault = reinterpret_cast<VaultMan*>(manager->vault_man_);
+    FriendsManager* buddies = static_cast<FriendsManager*>(manager->presence_service_);
+    params->read_hash_value(0u, &vault->kind_tag_, 1);
+    if (const char* folder = type_folder(vault->kind_tag_)) // (an unknown type keeps the folder)
+        std::snprintf(vault->folder_, sizeof(vault->folder_), "%s", folder);
+    if (buddies->account_ != kUploadsProfile) {
+        vault->list_categories();
         return true;
     }
-    PushBottomUp();
-    void* memory = MemSys::AllocZeroed(sizeof(VaultCategory));
-    VaultCategory* category = memory ? static_cast<VaultCategory*>(memory)->MakeNew() : nullptr;
-    category->m_skip = true;
-    Prepend(&vault->m_categories, &category->m_listLink);
-    std::memcpy(category->m_label, "Uploads", 8);
-    vault->m_category = static_cast<VaultCategory*>(vault->m_search.HeadElement(&vault->m_categories));
-    vault->m_transfer = VaultMan::kUploads;
-    vault->m_outcomeVal = 0;
+    push_bottom_up();
+    void* memory = memory::alloc_zeroed(sizeof(VaultCategory));
+    VaultCategory* category = memory ? static_cast<VaultCategory*>(memory)->make_new() : nullptr;
+    category->skip_ = true;
+    prepend(&vault->categories_, &category->list_link_);
+    std::memcpy(category->label_, "Uploads", 8);
+    vault->category_ = static_cast<VaultCategory*>(vault->search_.head_element(&vault->categories_));
+    vault->transfer_ = VaultMan::kUploads;
+    vault->outcome_val_ = 0;
     char url[128];
-    std::snprintf(url, sizeof(url), "http://www.thugonline.com/%s/uploads.txt", vault->m_folder);
-    vault->StartList(url);
-    LogicTasks()->QueueJob(vault->m_task);
-    PopHeap();
+    std::snprintf(url, sizeof(url), "http://www.thugonline.com/%s/uploads.txt", vault->folder_);
+    vault->start_list(url);
+    get_logic_tasks()->queue_job(vault->task_);
+    pop_heap();
     return true;
 }
 
 // 0x0054C460
-bool __cdecl FreeDirectoryListing(Scripts::CStruct*, Scripts::CScript*)
+bool __cdecl free_directory_listing(script::Struct*, script::Script*)
 {
-    Vault()->FreeDirectoryListing();
+    get_vault()->free_directory_listing();
     return true;
 }
 
 // 0x0054C470: a menu item for each item of the current category (net_vault_menu_add_park / goal / skater / trick),
 // its details as parameters, choosing it gets the file.
-bool __cdecl FillVaultMenu(Scripts::CStruct*, Scripts::CScript*)
+bool __cdecl fill_vault_menu(script::Struct*, script::Script*)
 {
-    VaultMan* vault = Vault();
-    PushTopDown();
-    for (MemSys::ListNode* node = NextNode(&vault->m_category->m_items); node; node = NextNode(node)) {
+    VaultMan* vault = get_vault();
+    push_top_down();
+    for (memory::ListNode* node = get_next_node(&vault->category_->items_); node; node = get_next_node(node)) {
         auto* item = static_cast<VaultItem*>(node->data);
         if (!item)
             break;
-        Scripts::CStruct* params = NewParams();
-        params->AppendWord("name", item->m_label);
-        params->AppendWord("creator", item->m_creator);
-        params->AppendWord("size", item->m_extent);
-        params->PutInt("score", item->m_pointsHeld);
-        params->PutInt("num_pieces", item->m_numPieces);
-        params->PutInt("num_gaps", item->m_numGaps);
-        params->PutInt("width", item->m_span);
-        params->PutInt("height", item->m_levelY);
-        params->PutInt("num_goals", item->m_numGoals);
-        params->PutInt("theme", item->m_styleSet);
-        params->PutNameKey("tod_script", item->m_todScript);
-        params->PutInt("is_male", item->m_hasMaleBody);
-        params->AppendWord("description", item->m_summaryText);
-        Scripts::CStruct* choose = NewParams();
-        choose->AppendWord("file", item->m_url);
-        params->PutSubStruct("pad_choose_params", choose);
+        script::Struct* params = new_params();
+        params->append_word("name", item->label_);
+        params->append_word("creator", item->creator_);
+        params->append_word("size", item->extent_);
+        params->put_int("score", item->points_held_);
+        params->put_int("num_pieces", item->num_pieces_);
+        params->put_int("num_gaps", item->num_gaps_);
+        params->put_int("width", item->span_);
+        params->put_int("height", item->level_y_);
+        params->put_int("num_goals", item->num_goals_);
+        params->put_int("theme", item->style_set_);
+        params->put_name_key("tod_script", item->tod_script_);
+        params->put_int("is_male", item->has_male_body_);
+        params->append_word("description", item->summary_text_);
+        script::Struct* choose = new_params();
+        choose->append_word("file", item->url_);
+        params->put_sub_struct("pad_choose_params", choose);
         const char* script = nullptr;
-        switch (vault->m_kindTag) {
+        switch (vault->kind_tag_) {
         case kVaultParks: script = "net_vault_menu_add_park"; break;
         case kVaultGoals: script = "net_vault_menu_add_goal"; break;
         case kVaultSkaters: script = "net_vault_menu_add_skater"; break;
@@ -909,47 +909,47 @@ bool __cdecl FillVaultMenu(Scripts::CStruct*, Scripts::CScript*)
         default: break;
         }
         if (script)
-            Run(script, params);
-        DeleteParams(params);
-        DeleteParams(choose);
+            get_run(script, params);
+        delete_params(params);
+        delete_params(choose);
     }
-    PopHeap();
+    pop_heap();
     return true;
 }
 
 namespace {
 // The category after / before the current one (round to the first / last), its name into the script's parameters.
-void MoveCategory(Scripts::CScript* script, bool forward)
+void move_category(script::Script* script, bool forward)
 {
-    VaultMan* vault = Vault();
-    MemSys::ListNode*& node = vault->m_search.m_listLink;
-    MemSys::ListNode* step = forward ? node->next : node->prev;
+    VaultMan* vault = get_vault();
+    memory::ListNode*& node = vault->search_.list_link_;
+    memory::ListNode* step = forward ? node->next : node->prev;
     node = step->data == reinterpret_cast<void*>(-1) ? nullptr : step;
-    vault->m_category = node ? static_cast<VaultCategory*>(node->data) : nullptr;
-    if (!vault->m_category) {
-        node = &vault->m_categories;
+    vault->category_ = node ? static_cast<VaultCategory*>(node->data) : nullptr;
+    if (!vault->category_) {
+        node = &vault->categories_;
         step = forward ? node->next : node->prev;
         node = step->data == reinterpret_cast<void*>(-1) ? nullptr : step;
-        vault->m_category = node ? static_cast<VaultCategory*>(node->data) : nullptr;
+        vault->category_ = node ? static_cast<VaultCategory*>(node->data) : nullptr;
     }
-    script->m_args->AppendWord("category", vault->m_category->m_label);
+    script->args_->append_word("category", vault->category_->label_);
 }
 } // namespace
 
 // 0x0054C770
-bool __cdecl NextVaultCategory(Scripts::CStruct*, Scripts::CScript* script)
+bool __cdecl next_vault_category(script::Struct*, script::Script* script)
 {
-    MoveCategory(script, true);
+    move_category(script, true);
     return true;
 }
 
 // 0x0054C800
-bool __cdecl PrevVaultCategory(Scripts::CStruct*, Scripts::CScript* script)
+bool __cdecl prev_vault_category(script::Struct*, script::Script* script)
 {
-    MoveCategory(script, false);
+    move_category(script, false);
     return true;
 }
 
-} // namespace OnlinePlay
+} // namespace online
 
-using OnlinePlay::VaultMan;
+using online::VaultMan;

@@ -1,4 +1,4 @@
-// The colour cycle component (GameObjects::CColorCycleComponent): see color_cycle.h. From the disassembly of
+// The colour cycle component (GameObjects::ColorCycleComponent): see color_cycle.h. From the disassembly of
 // 0x0041B280-0x0041B57F.
 
 #include "engine/objects/color_cycle.h"
@@ -20,9 +20,9 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace GameObjects {
+namespace objects {
 
-uint32_t g_colorCycleMemberFunctions[30]{
+uint32_t g_color_cycle_member_functions[30]{
             0x4AF8B9AE, 0xCDC76A22, 0, 0, 0, 0,
             0x1DE2F35B, 0xCDC76A22, 0, 0, 0, 0,
             0x4A752AAE, 0xCDC76A22, 0, 0, 0, 0,
@@ -39,177 +39,177 @@ constexpr float kMilliseconds = 1000.0f; // 0x006453C0
 
 // 0x005A3E80 (cdecl; no source yet): the colour of the object `id` from `params` (color=), as the script command
 // SetObjectColor does.
-void SetObjectColor(uint32_t id, Scripts::CStruct* params)
+void set_object_color(uint32_t id, script::Struct* params)
 {
-    ScriptCommands::SetNodeColor(id, params);
+    commands::set_node_color(id, params);
 }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
-int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
+int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-Scripts::CStruct* NewParams()
+script::Struct* new_params()
 {
-    Scripts::CStruct* params = Scripts::SpawnParamBag();
-    return params ? params->PrepareAll() : nullptr;
+    script::Struct* params = script::spawn_param_bag();
+    return params ? params->prepare_all() : nullptr;
 }
-void DeleteParams(Scripts::CStruct* params)
+void delete_params(script::Struct* params)
 {
     if (params) {
-        params->Clear(); // (the destructor)
-        Scripts::DeleteStruct(params);
+        params->get_clear(); // (the destructor)
+        script::delete_struct(params);
     }
 }
 
 } // namespace
 
 // 0x0041B3C0
-CObjectModule* __cdecl CColorCycleComponent::Fabricate()
+ObjectModule* __cdecl ColorCycleComponent::fabricate()
 {
-    auto* component = static_cast<CColorCycleComponent*>(MemSys::AllocZeroed(sizeof(CColorCycleComponent)));
+    auto* component = static_cast<ColorCycleComponent*>(memory::alloc_zeroed(sizeof(ColorCycleComponent)));
     if (!component)
         return nullptr;
-    component->CObjectModule::MakeNew();
-    component->m_colorCount = 0;
-    component->m_ongoing = 0;
-    component->m_clock = 0.0f;
-    component->m_on = false;
-    component->m_vtable = kVtable;
-    component->m_kindTag = kType;
+    component->ObjectModule::make_new();
+    component->color_count_ = 0;
+    component->ongoing_ = 0;
+    component->clock_ = 0.0f;
+    component->on_ = false;
+    component->vtable_ = kVtable;
+    component->kind_tag_ = kType;
     return component;
 }
 
 // 0x0041B280
-void __cdecl CColorCycleComponent::PublishMethodTable()
+void __cdecl ColorCycleComponent::publish_method_table()
 {
-    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_colorCycleMemberFunctions, 0x18);
+    script::register_member_function_table(reinterpret_cast<void*>(kType), g_color_cycle_member_functions, 0x18);
 }
 
 // 0x0041B2A0
-void CColorCycleComponent::DestroyBody()
+void ColorCycleComponent::destroy_body()
 {
-    m_vtable = kVtable;
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    ObjectModule::destroy_body();
 }
 
 // 0x0041B2E0
-CColorCycleComponent* CColorCycleComponent::Teardown(unsigned int flags)
+ColorCycleComponent* ColorCycleComponent::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x0041B310
-void CColorCycleComponent::ChangeColors(Scripts::CArray* colors)
+void ColorCycleComponent::change_colors(script::Array* colors)
 {
-    int count = static_cast<int>(colors->m_extent);
-    m_colorCount = count;
+    int count = static_cast<int>(colors->extent_);
+    color_count_ = count;
     for (int i = 0; i < count; ++i) {
-        auto* vector = reinterpret_cast<const float*>(colors->FetchPart(static_cast<uint32_t>(i)));
-        m_colors[i] = {vector[1], vector[2], vector[3], 1.0f}; // (a CVector: its coordinates from +4)
+        auto* vector = reinterpret_cast<const float*>(colors->fetch_part(static_cast<uint32_t>(i)));
+        colors_[i] = {vector[1], vector[2], vector[3], 1.0f}; // (a CVector: its coordinates from +4)
     }
-    m_ongoing = 0;
+    ongoing_ = 0;
 }
 
 // 0x0041B440
-void CColorCycleComponent::SetOn(bool on)
+void ColorCycleComponent::set_on(bool on)
 {
-    if (m_on && !on) {
-        Scripts::CStruct* params = NewParams();
-        params->PutNameKey(kName, m_entity->m_ident);
-        params->PutInt(kColor, kNeutralColor);
-        SetObjectColor(m_entity->m_ident, params);
-        DeleteParams(params);
+    if (on_ && !on) {
+        script::Struct* params = new_params();
+        params->put_name_key(kName, entity_->ident_);
+        params->put_int(kColor, kNeutralColor);
+        set_object_color(entity_->ident_, params);
+        delete_params(params);
     }
-    if (m_on) {
-        m_on = on;
+    if (on_) {
+        on_ = on;
         return;
     }
-    m_on = on;
+    on_ = on;
     if (on) {
-        m_clock = 0.0f;
-        m_ongoing = 0;
+        clock_ = 0.0f;
+        ongoing_ = 0;
     }
 }
 
 // 0x0041B580
-void CColorCycleComponent::TickFrame()
+void ColorCycleComponent::tick_frame()
 {
-    if (!m_on)
+    if (!on_)
         return;
-    Scripts::CStruct* params = NewParams();
-    const Maths::Vec4& color = m_colors[m_ongoing];
-    uint32_t rgb = static_cast<uint32_t>(Truncated(color.z)) << 8;
-    rgb = (rgb + static_cast<uint32_t>(Truncated(color.y))) << 8;
-    rgb += static_cast<uint32_t>(Truncated(color.x));
-    params->PutInt(kColor, static_cast<int>(rgb));
-    params->PutNameKey(kName, m_entity->m_ident);
-    Scripts::DumpToLog(params, 0);
-    SetObjectColor(m_entity->m_ident, params);
-    DeleteParams(params);
+    script::Struct* params = new_params();
+    const maths::Vec4& color = colors_[ongoing_];
+    uint32_t rgb = static_cast<uint32_t>(get_truncated(color.z)) << 8;
+    rgb = (rgb + static_cast<uint32_t>(get_truncated(color.y))) << 8;
+    rgb += static_cast<uint32_t>(get_truncated(color.x));
+    params->put_int(kColor, static_cast<int>(rgb));
+    params->put_name_key(kName, entity_->ident_);
+    script::dump_to_log(params, 0);
+    set_object_color(entity_->ident_, params);
+    delete_params(params);
     // (compared before rounding, as the original keeps the sum on the FPU stack)
-    double time = FrameClock::GetSlomoFrameSeconds() * kMilliseconds + m_clock;
-    m_clock = static_cast<float>(time);
-    if (time >= m_period) {
-        m_clock = 0.0f;
-        if (++m_ongoing >= m_colorCount)
-            m_ongoing = 0;
+    double time = frame_clock::get_slomo_frame_seconds() * kMilliseconds + clock_;
+    clock_ = static_cast<float>(time);
+    if (time >= period_) {
+        clock_ = 0.0f;
+        if (++ongoing_ >= color_count_)
+            ongoing_ = 0;
     }
 }
 
 // 0x0041B560
-int CColorCycleComponent::On(Scripts::CStruct*, Scripts::CScript*)
+int ColorCycleComponent::get_on(script::Struct*, script::Script*)
 {
-    SetOn(true);
+    set_on(true);
     return 1;
 }
 
 // 0x0041B570
-int CColorCycleComponent::Disengaged(Scripts::CStruct*, Scripts::CScript*)
+int ColorCycleComponent::disengaged(script::Struct*, script::Script*)
 {
-    SetOn(false);
+    set_on(false);
     return 1;
 }
 
 // 0x0041B2B0
-int CColorCycleComponent::SetPeriodFromScript(Scripts::CStruct* params, Scripts::CScript*)
+int ColorCycleComponent::set_period_from_script(script::Struct* params, script::Script*)
 {
     float period;
     std::memcpy(&period, &params, sizeof(period)); // (the original's slot for it: the params argument)
-    params->FetchFloat(0u, &period, 1);
-    m_period = period;
+    params->fetch_float(0u, &period, 1);
+    period_ = period;
     return 1;
 }
 
 // 0x0041B390
-int CColorCycleComponent::SetColorsFromScript(Scripts::CStruct* params, Scripts::CScript*)
+int ColorCycleComponent::set_colors_from_script(script::Struct* params, script::Script*)
 {
-    auto* colors = reinterpret_cast<Scripts::CArray*>(params); // (the original's slot for it: the params argument)
-    params->FetchList(0u, &colors, 1);
-    ChangeColors(colors);
+    auto* colors = reinterpret_cast<script::Array*>(params); // (the original's slot for it: the params argument)
+    params->fetch_list(0u, &colors, 1);
+    change_colors(colors);
     return 1;
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CColorCycleComponent::Teardown,
-         &GameObjects::CColorCycleComponent::TickFrame,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::DispatchScriptMethod,
-         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::ColorCycleComponent::teardown,
+         &objects::ColorCycleComponent::tick_frame,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         &objects::ObjectModule::dispatch_script_method,
+         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

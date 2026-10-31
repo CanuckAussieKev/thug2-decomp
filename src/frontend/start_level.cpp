@@ -28,26 +28,26 @@
 #include "engine/sys/mlp.h"
 #include "platform/run_log.h"
 
-namespace MenuSystem::BeginLevel {
+namespace frontend::begin_level {
 
 namespace {
 
-uint32_t NameHash(const char* name) { return Checksums::HashFromText(name); }
+uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 
-bool IsScript(uint32_t name)
+bool is_script(uint32_t name)
 {
-    Scripts::CSymbolTableEntry* symbol = Scripts::ResolveSymbol(name);
-    return symbol && symbol->type == Scripts::QBVAL_SCRIPT_BODY;
+    script::SymbolTableEntry* symbol = script::resolve_symbol(name);
+    return symbol && symbol->type == script::kQbvalScriptBody;
 }
 
 // The command line as the process got it, read at start-up: the game's own parsing cuts the process's command
 // line buffer into words later (a 0 after the first word, "... -level" - seen with THUG2.exe, 2026-10-20).
-const std::string g_commandLine = GetCommandLineA();
+const std::string kCommandLine = GetCommandLineA();
 
-std::string FromIni(const char* key)
+std::string from_ini(const char* key)
 {
     char value[128] = {};
-    GetPrivateProfileStringA("features", key, "", value, sizeof(value), GameFolderPath("thug2-decomp.ini").c_str());
+    GetPrivateProfileStringA("features", key, "", value, sizeof(value), game_folder_path("thug2-decomp.ini").c_str());
     return value;
 }
 
@@ -56,162 +56,162 @@ struct Request {
     std::string level;
     bool edit = false;
 };
-const Request& TheRequest()
+const Request& the_request()
 {
-    static const Request request = [] {
+    static const Request kRequest = [] {
         Request r;
-        if (!(r.level = OptionValue(g_commandLine, "edit")).empty())
+        if (!(r.level = option_value(kCommandLine, "edit")).empty())
             r.edit = true;
-        else if (!(r.level = OptionValue(g_commandLine, "level")).empty())
+        else if (!(r.level = option_value(kCommandLine, "level")).empty())
             r.edit = false;
-        else if (!(r.level = FromIni("edit_level")).empty())
+        else if (!(r.level = from_ini("edit_level")).empty())
             r.edit = true;
         else
-            r.level = FromIni("start_level");
+            r.level = from_ini("start_level");
         return r;
     }();
-    return request;
+    return kRequest;
 }
 
 // Whether Level_<name>'s scene can load: a level without a scene pre (scnpre) needs levels\<level>\<level>.scn.xbx
 // (data folder or overlay). The DEVKIT_ONLY level Default has none on PC (only its scripts and sky ship): the game's
 // scene load returns no scene for it and writes through it (0x0048C5AA). Levels with a scene pre aren't checked.
-bool SceneInstalled(const std::string& name)
+bool scene_installed(const std::string& name)
 {
-    Scripts::CStruct* info = Scripts::ReadSubStruct(("Level_" + name).c_str());
+    script::Struct* info = script::read_sub_struct(("Level_" + name).c_str());
     const char* scene = nullptr;
-    if (!info || info->HasEntryNamed("scnpre") || !info->FetchText("level", &scene, 0) || !scene)
+    if (!info || info->has_entry_named("scnpre") || !info->fetch_text("level", &scene, 0) || !scene)
         return true;
     char path[160];
     std::snprintf(path, sizeof(path), "levels\\%s\\%s.scn.xbx", scene, scene);
-    return FileLoad::IsPresent(path);
+    return file::is_present(path);
 }
 
 int s_frames;  // the front end's frames with the main menu's scripts loaded
 bool s_done;
 
-// -edit: the editor opened once the level is up (EditUpdate).
+// -edit: the editor opened once the level is up (edit_update).
 constexpr uint32_t kSkater = 0x5B8AB877;  // Skater (the local skater's alias)
 constexpr int kLevelSettleFrames = 90;     // (in the level, unpaused, before Start is pressed)
 constexpr int kPauseWaitFrames = 120;      // (for the pause menu, before Start is pressed again)
 constexpr int kPauseMenuFrames = 20;       // (the pause menu up this long before LEVEL EDITOR is chosen)
 constexpr int kStartPresses = 5;
-enum class Edit { Disengaged, WaitLevel, WaitPause, Done };
-Edit s_edit = Edit::Disengaged;
-int s_editFrames;
+enum class Edit { kDisengaged, kWaitLevel, kWaitPause, kDone };
+Edit s_edit = Edit::kDisengaged;
+int s_edit_frames;
 int s_presses;
 bool s_started;      // the requested level's load began
-bool s_poolsLogged;  // its script pool use logged (Scripts::LogScriptPoolUse)
-int s_poolFrames;
+bool s_pools_logged;  // its script pool use logged (Scripts::log_script_pool_use)
+int s_pool_frames;
 
-// -at / start_at: the skater put there standing once the level is up (AtUpdate).
+// -at / start_at: the skater put there standing once the level is up (at_update).
 constexpr int kAtSettleFrames = 60;  // (in the level, unpaused, before the teleport)
-enum class At { Disengaged, WaitLevel, Done };
-At s_at = At::Disengaged;
-int s_atFrames;
+enum class At { kDisengaged, kWaitLevel, kDone };
+At s_at = At::kDisengaged;
+int s_at_frames;
 
 // The spot asked for ("" if none): -at, then start_at=.
-const std::string& AtText()
+const std::string& at_text()
 {
-    static const std::string text = [] {
-        std::string t = OptionValue(g_commandLine, "at");
-        return t.empty() ? FromIni("start_at") : t;
+    static const std::string kText = [] {
+        std::string t = option_value(kCommandLine, "at");
+        return t.empty() ? from_ini("start_at") : t;
     }();
-    return text;
+    return kText;
 }
 
 // True while the teleport is still to come (-edit's editor waits for it).
-bool AtUpdate(GameModules::FrontEnd* frontEnd)
+bool at_update(modules::FrontEnd* front_end)
 {
-    if (s_at != At::WaitLevel)
+    if (s_at != At::kWaitLevel)
         return false;
-    bool inLevel = Engine3D::CurrentLevel() != 0 && GameObjects::FindObject(kSkater) != nullptr;
-    bool paused = frontEnd && frontEnd->m_isHalted;
-    s_atFrames = inLevel && !paused ? s_atFrames + 1 : 0;
-    if (s_atFrames < kAtSettleFrames)
+    bool in_level = render::current_level() != 0 && objects::find_object(kSkater) != nullptr;
+    bool paused = front_end && front_end->is_halted_;
+    s_at_frames = in_level && !paused ? s_at_frames + 1 : 0;
+    if (s_at_frames < kAtSettleFrames)
         return true;
-    s_at = At::Done;
+    s_at = At::kDone;
     Spot spot;
-    ParseSpot(AtText(), &spot);  // (checked when it was asked for)
-    TestView::Vec3 at{};
-    std::string failed = TestView::JumpTo({spot.x, spot.y, spot.z}, spot.hasHeading, spot.heading, &at);
+    parse_spot(at_text(), &spot);  // (checked when it was asked for)
+    test_view::Vec3 at{};
+    std::string failed = test_view::jump_to({spot.x, spot.y, spot.z}, spot.has_heading_, spot.heading, &at);
     if (!failed.empty())
-        Log("start at: %s - the skater stays where the level put it", failed.c_str());
+        get_log("start at: %s - the skater stays where the level put it", failed.c_str());
     else
-        Log("start at: the skater stands at (%.1f, %.1f, %.1f) in %s", at.x, at.y, at.z, Requested());
+        get_log("start at: the skater stands at (%.1f, %.1f, %.1f) in %s", at.x, at.y, at.z, get_requested());
     return false;
 }
 
-void EditUpdate(GameModules::FrontEnd* frontEnd)
+void edit_update(modules::FrontEnd* front_end)
 {
-    bool inLevel = Engine3D::CurrentLevel() != 0 && GameObjects::FindObject(kSkater) != nullptr;
-    bool paused = frontEnd && frontEnd->m_isHalted;
-    if (s_edit == Edit::WaitLevel) {
-        s_editFrames = inLevel && !paused ? s_editFrames + 1 : 0;
-        if (s_editFrames < kLevelSettleFrames)
+    bool in_level = render::current_level() != 0 && objects::find_object(kSkater) != nullptr;
+    bool paused = front_end && front_end->is_halted_;
+    if (s_edit == Edit::kWaitLevel) {
+        s_edit_frames = in_level && !paused ? s_edit_frames + 1 : 0;
+        if (s_edit_frames < kLevelSettleFrames)
             return;
-        if (!LevelEditor::IsSwitchedOn()) {
-            Log("edit level: the level editor is off ([features] level_editor=0) - free skate in %s, as -level",
-                Requested());
-            s_edit = Edit::Done;
+        if (!level_editor::is_switched_on()) {
+            get_log("edit level: the level editor is off ([features] level_editor=0) - free skate in %s, as -level",
+                get_requested());
+            s_edit = Edit::kDone;
             return;
         }
-        if (!IsScript(NameHash("level_editor_enter"))) {
-            Log("edit level: no level_editor_enter script (the data overlay isn't installed - "
+        if (!is_script(name_hash("level_editor_enter"))) {
+            get_log("edit level: no level_editor_enter script (the data overlay isn't installed - "
                 "tools/pipeline/menu_level/make_menu_level.ts) - free skate in %s, as -level",
-                Requested());
-            s_edit = Edit::Done;
+                get_requested());
+            s_edit = Edit::kDone;
             return;
         }
         // (the level is loaded in free skate - Load - so this is only a safeguard: never in a network session or a
         // career-type mode - level_editor_layout.h)
         std::string why;
-        if (LevelEditor::Layout::Refused(&why)) {
-            Log("edit level: the level editor isn't offered here (%s) - %s as it is", why.c_str(), Requested());
-            LevelEditor::Layout::PanelMessage(("The level editor isn't offered here - " + why).c_str());
-            s_edit = Edit::Done;
+        if (level_editor::layout::get_refused(&why)) {
+            get_log("edit level: the level editor isn't offered here (%s) - %s as it is", why.c_str(), get_requested());
+            level_editor::layout::panel_message(("The level editor isn't offered here - " + why).c_str());
+            s_edit = Edit::kDone;
             return;
         }
         // Start, as the player presses it: handle_start_pressed pauses and makes the pause menu.
-        Log("edit level: %s is up - pausing (Start) to open the level editor", Requested());
-        MouseMenus::SendMenuPadEvent(frontEnd, GameModules::FrontEnd::kPadStart);
+        get_log("edit level: %s is up - pausing (Start) to open the level editor", get_requested());
+        mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadStart);
         ++s_presses;
-        s_edit = Edit::WaitPause;
-        s_editFrames = 0;
+        s_edit = Edit::kWaitPause;
+        s_edit_frames = 0;
         return;
     }
-    if (s_edit != Edit::WaitPause)
+    if (s_edit != Edit::kWaitPause)
         return;
-    if (!inLevel) {
-        s_editFrames = 0;
+    if (!in_level) {
+        s_edit_frames = 0;
         return;
     }
     if (!paused) {
         // (not taken - a level's intro camera, menu input blocked a moment: pressed again a little later)
-        if (++s_editFrames < kPauseWaitFrames)
+        if (++s_edit_frames < kPauseWaitFrames)
             return;
         if (s_presses >= kStartPresses) {
-            Log("edit level: the game didn't pause after %d presses of Start - free skate in %s (the pause menu's "
+            get_log("edit level: the game didn't pause after %d presses of Start - free skate in %s (the pause menu's "
                 "LEVEL EDITOR opens the editor)",
-                s_presses, Requested());
-            s_edit = Edit::Done;
+                s_presses, get_requested());
+            s_edit = Edit::kDone;
             return;
         }
-        MouseMenus::SendMenuPadEvent(frontEnd, GameModules::FrontEnd::kPadStart);
+        mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadStart);
         ++s_presses;
-        s_editFrames = 0;
+        s_edit_frames = 0;
         return;
     }
-    if (++s_editFrames < kPauseMenuFrames)
+    if (++s_edit_frames < kPauseMenuFrames)
         return;
-    s_edit = Edit::Done;
-    Log("edit level: running level_editor_enter (the pause menu's LEVEL EDITOR)");
-    Scripts::LaunchScript(NameHash("level_editor_enter"), nullptr, nullptr, false, "level_editor_enter");
+    s_edit = Edit::kDone;
+    get_log("edit level: running level_editor_enter (the pause menu's LEVEL EDITOR)");
+    script::launch_script(name_hash("level_editor_enter"), nullptr, nullptr, false, "level_editor_enter");
 }
 
 } // namespace
 
-std::string OptionValue(const std::string& line, const char* option)
+std::string option_value(const std::string& line, const char* option)
 {
     std::string name = option;
     for (const std::string& form : {"--" + name + "=", "--" + name + " ", "-" + name + " "}) {
@@ -233,7 +233,7 @@ std::string OptionValue(const std::string& line, const char* option)
     return {};
 }
 
-bool ParseSpot(const std::string& text, Spot* out)
+bool parse_spot(const std::string& text, Spot* out)
 {
     std::string s = text;
     // (the sidecar's "(x, y, z)": one pair of parentheses around the whole)
@@ -273,104 +273,104 @@ bool ParseSpot(const std::string& text, Spot* out)
         out->x = values[0];
         out->y = values[1];
         out->z = values[2];
-        out->hasHeading = count == 4;
+        out->has_heading_ = count == 4;
         out->heading = count == 4 ? values[3] : 0.0f;
     }
     return true;
 }
 
-const char* Requested() { return TheRequest().level.c_str(); }
+const char* get_requested() { return the_request().level.c_str(); }
 
-bool EditRequested() { return TheRequest().edit && !TheRequest().level.empty(); }
+bool edit_requested() { return the_request().edit && !the_request().level.empty(); }
 
-void TickFrame(GameModules::FrontEnd* frontEnd)
+void tick_frame(modules::FrontEnd* front_end)
 {
-    if (FrameLoop::FramesRun() == 0)
+    if (frame_loop::frames_run() == 0)
         return;
-    if (!*Requested()) {
-        if (!s_done && !AtText().empty()) {
+    if (!*get_requested()) {
+        if (!s_done && !at_text().empty()) {
             s_done = true;
-            Log("start at: %s asked for without a level (-level / start_level) - ignored", AtText().c_str());
+            get_log("start at: %s asked for without a level (-level / start_level) - ignored", at_text().c_str());
         }
         return;
     }
     if (s_done) {
         // (once the level is up and settled: what it costs the script pools - for the converters' load checks,
         // tools/pipeline/game/load_check.ps1)
-        if (!s_poolsLogged && s_started) {
-            bool up = Engine3D::CurrentLevel() != 0 && GameObjects::FindObject(kSkater) != nullptr &&
-                      !(frontEnd && frontEnd->m_isHalted);
-            s_poolFrames = up ? s_poolFrames + 1 : 0;
-            if (s_poolFrames >= kLevelSettleFrames) {
-                s_poolsLogged = true;
-                Scripts::LogScriptPoolUse((std::string("in ") + Requested()).c_str());
-                MemSys::LogMemoryUse((std::string("in ") + Requested()).c_str());
+        if (!s_pools_logged && s_started) {
+            bool up = render::current_level() != 0 && objects::find_object(kSkater) != nullptr &&
+                      !(front_end && front_end->is_halted_);
+            s_pool_frames = up ? s_pool_frames + 1 : 0;
+            if (s_pool_frames >= kLevelSettleFrames) {
+                s_pools_logged = true;
+                script::log_script_pool_use((std::string("in ") + get_requested()).c_str());
+                memory::log_memory_use((std::string("in ") + get_requested()).c_str());
             }
         }
-        if (AtUpdate(frontEnd))
+        if (at_update(front_end))
             return;  // (-edit's editor once the skater stands there)
-        if (s_edit != Edit::Disengaged && s_edit != Edit::Done)
-            EditUpdate(frontEnd);
+        if (s_edit != Edit::kDisengaged && s_edit != Edit::kDone)
+            edit_update(front_end);
         return;
     }
     // In the front end, with the main menu up: its scripts loaded (not the early self-tests' stand-in symbol table,
     // which run this before the game is up), then a second more for the menu to settle.
-    if (Engine3D::CurrentLevel() != 0 || (frontEnd && frontEnd->m_isHalted) || !IsScript(NameHash("main_menu_skate_now")))
+    if (render::current_level() != 0 || (front_end && front_end->is_halted_) || !is_script(name_hash("main_menu_skate_now")))
         return;
     if (++s_frames < 60)
         return;
     s_done = true;
-    bool loaded = ReadIn(Requested(), nullptr);
+    bool loaded = read_in(get_requested(), nullptr);
     s_started = loaded;
-    if (loaded && !AtText().empty()) {
-        if (ParseSpot(AtText(), nullptr)) {
-            s_at = At::WaitLevel;
-            s_atFrames = 0;
-            Log("start at: the skater is put at %s standing once %s is up", AtText().c_str(), Requested());
+    if (loaded && !at_text().empty()) {
+        if (parse_spot(at_text(), nullptr)) {
+            s_at = At::kWaitLevel;
+            s_at_frames = 0;
+            get_log("start at: the skater is put at %s standing once %s is up", at_text().c_str(), get_requested());
         } else {
-            Log("start at: \"%s\" isn't x,y,z or x,y,z,heading - ignored", AtText().c_str());
+            get_log("start at: \"%s\" isn't x,y,z or x,y,z,heading - ignored", at_text().c_str());
         }
     }
-    if (loaded && EditRequested()) {
-        s_edit = Edit::WaitLevel;
-        s_editFrames = 0;
+    if (loaded && edit_requested()) {
+        s_edit = Edit::kWaitLevel;
+        s_edit_frames = 0;
         s_presses = 0;
-        Log("edit level: the level editor opens once %s is up", Requested());
+        get_log("edit level: the level editor opens once %s is up", get_requested());
     }
 }
 
-bool ReadIn(const char* name, std::string* why)
+bool read_in(const char* name, std::string* why)
 {
     std::string level = name;
     if (_strnicmp(level.c_str(), "load_", 5) != 0)
         level = "Load_" + level;
-    uint32_t load = NameHash(level.c_str());
-    if (!IsScript(load)) {
-        Log("start level: %s isn't a level's load script - the main menu stays", level.c_str());
+    uint32_t load = name_hash(level.c_str());
+    if (!is_script(load)) {
+        get_log("start level: %s isn't a level's load script - the main menu stays", level.c_str());
         if (why)
             *why = level + " isn't a level's load script";
         return false;
     }
-    if (!SceneInstalled(level.substr(5))) {
-        Log("start level: %s - the level's scene isn't installed (the game would crash loading it) - the main menu "
+    if (!scene_installed(level.substr(5))) {
+        get_log("start level: %s - the level's scene isn't installed (the game would crash loading it) - the main menu "
             "stays",
             level.c_str());
         if (why)
             *why = level + ": the level's scene isn't installed";
         return false;
     }
-    Log("start level: %s (free skate)", level.c_str());
-    Scripts::LaunchScript(NameHash("EnableSun"), nullptr, nullptr, false, "EnableSun");
-    Scripts::CStruct* params = Scripts::SpawnParamBag()->PrepareAll();
-    params->PutNameKey(0u, NameHash("freeskate"));
-    Scripts::LaunchScript(NameHash("SetGameType"), params, nullptr, false, "SetGameType");
-    params->Clear();
-    Scripts::LaunchScript(NameHash("SetCurrentGameType"), nullptr, nullptr, false, "SetCurrentGameType");
-    params->PutNameKey(NameHash("level"), load);
-    Scripts::SpawnScript(NameHash("level_select_change_level"), params, 0, nullptr, 0, 0, false, false, false, false);
-    params->Clear();
-    Scripts::DeleteStruct(params);
+    get_log("start level: %s (free skate)", level.c_str());
+    script::launch_script(name_hash("EnableSun"), nullptr, nullptr, false, "EnableSun");
+    script::Struct* params = script::spawn_param_bag()->prepare_all();
+    params->put_name_key(0u, name_hash("freeskate"));
+    script::launch_script(name_hash("SetGameType"), params, nullptr, false, "SetGameType");
+    params->get_clear();
+    script::launch_script(name_hash("SetCurrentGameType"), nullptr, nullptr, false, "SetCurrentGameType");
+    params->put_name_key(name_hash("level"), load);
+    script::spawn_script(name_hash("level_select_change_level"), params, 0, nullptr, 0, 0, false, false, false, false);
+    params->get_clear();
+    script::delete_struct(params);
     return true;
 }
 
-} // namespace MenuSystem::BeginLevel
+} // namespace MenuSystem::begin_level

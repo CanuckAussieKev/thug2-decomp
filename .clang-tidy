@@ -1,29 +1,48 @@
-# The project's checks (docs/style-guide.md): C++ Core Guidelines naming, standard-library style.
-# Run: clang-tidy -p out/build/verify <file> (compile_commands.json from the CMake build).
+# The project's checks (docs/style-guide.md): C++ Core Guidelines, with the house naming rules.
+# Run: clang-tidy -p out/build/<preset> --extra-arg=--target=i686-pc-windows-msvc <file>
 Checks: >
   -*,
   readability-identifier-naming
 WarningsAsErrors: ''
-HeaderFilterRegex: '.*[/\\]src[/\\].*'
+HeaderFilterRegex: '.*[/\\]src[/\\](platform|engine|game|frontend|editor)[/\\].*'
 CheckOptions:
   readability-identifier-naming.NamespaceCase: lower_case
-  readability-identifier-naming.ClassCase: lower_case
-  readability-identifier-naming.StructCase: lower_case
-  readability-identifier-naming.UnionCase: lower_case
-  readability-identifier-naming.EnumCase: lower_case
-  readability-identifier-naming.TypeAliasCase: lower_case
-  readability-identifier-naming.TypedefCase: lower_case
+  readability-identifier-naming.ClassCase: CamelCase
+  readability-identifier-naming.StructCase: CamelCase
+  readability-identifier-naming.UnionCase: CamelCase
+  readability-identifier-naming.EnumCase: CamelCase
+  readability-identifier-naming.TypeAliasCase: CamelCase
+  readability-identifier-naming.TypedefCase: CamelCase
   readability-identifier-naming.FunctionCase: lower_case
   readability-identifier-naming.MethodCase: lower_case
-  readability-identifier-naming.VariableCase: lower_case
   readability-identifier-naming.ParameterCase: lower_case
+  readability-identifier-naming.LocalVariableCase: lower_case
+  readability-identifier-naming.LocalConstantCase: lower_case
+  readability-identifier-naming.StaticVariableCase: lower_case
+  readability-identifier-naming.GlobalVariableCase: lower_case
+  readability-identifier-naming.GlobalVariablePrefix: 'g_'
+  # file statics that alias a global keep s_
+  readability-identifier-naming.GlobalVariableIgnoredRegexp: '^s_[a-z0-9_]+$'
+  readability-identifier-naming.GlobalPointerCase: lower_case
+  readability-identifier-naming.GlobalPointerPrefix: 'g_'
+  readability-identifier-naming.GlobalPointerIgnoredRegexp: '^s_[a-z0-9_]+$'
   readability-identifier-naming.MemberCase: lower_case
   readability-identifier-naming.MemberSuffix: '_'
-  readability-identifier-naming.ConstantMemberCase: lower_case
-  readability-identifier-naming.ConstantMemberSuffix: '_'
-  readability-identifier-naming.StaticConstantCase: lower_case
-  readability-identifier-naming.ConstexprVariableCase: lower_case
-  readability-identifier-naming.GlobalConstantCase: lower_case
-  readability-identifier-naming.EnumConstantCase: lower_case
+  # plain one-word members of small data structs (x, y, length) keep no suffix
+  readability-identifier-naming.MemberIgnoredRegexp: '^[a-z][a-z0-9]*$'
+  readability-identifier-naming.ClassMemberCase: lower_case
+  readability-identifier-naming.ClassMemberSuffix: '_'
+  readability-identifier-naming.ConstexprVariableCase: CamelCase
+  readability-identifier-naming.ConstexprVariablePrefix: 'k'
+  readability-identifier-naming.GlobalConstantCase: CamelCase
+  readability-identifier-naming.GlobalConstantPrefix: 'k'
+  readability-identifier-naming.GlobalConstantPointerCase: CamelCase
+  readability-identifier-naming.GlobalConstantPointerPrefix: 'k'
+  readability-identifier-naming.StaticConstantCase: CamelCase
+  readability-identifier-naming.StaticConstantPrefix: 'k'
+  readability-identifier-naming.ClassConstantCase: CamelCase
+  readability-identifier-naming.ClassConstantPrefix: 'k'
+  readability-identifier-naming.EnumConstantCase: CamelCase
+  readability-identifier-naming.EnumConstantPrefix: 'k'
   readability-identifier-naming.TemplateParameterCase: CamelCase
   readability-identifier-naming.MacroDefinitionCase: UPPER_CASE

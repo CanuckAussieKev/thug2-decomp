@@ -15,30 +15,30 @@
 #include "engine/net/net_lzham.h"
 #include "engine/util/lzss.h"
 
-namespace NetLink {
+namespace net {
 
-uint32_t g_maxLatency{2000};
+uint32_t g_max_latency{2000};
 
 namespace {
 
 constexpr uint32_t kMaxStreamStartData = 0x100; // the first piece of a stream, in its start message
 
-uint32_t Timestamp(AppHost* app) { return app->m_clock; }
-Router* GetDispatcher(AppHost* app) { return &app->m_dispatcher; }
+uint32_t get_timestamp(AppHost* app) { return app->clock_; }
+Router* get_dispatcher(AppHost* app) { return &app->dispatcher_; }
 
-void ConstructContext(InboundMsgCtx* context) { context->MakeNew(); }
+void construct_context(InboundMsgCtx* context) { context->make_new(); }
 
 // Method 1's decompressor: 0 when it worked; `size` gets the expanded size.
-int Decompress(const char* in, int inSize, char* out, int* size)
+int decompress(const char* in, int in_size, char* out, int* size)
 {
-    return RleDecompress(reinterpret_cast<const uint8_t*>(in), inSize, reinterpret_cast<uint8_t*>(out), size);
+    return rle_decompress(reinterpret_cast<const uint8_t*>(in), in_size, reinterpret_cast<uint8_t*>(out), size);
 }
 
 // NOT ORIGINAL: the received streams' bounds (a compressed message comes from the network - THUGPRO's players among
 // others, docs/thugpro-online.md section 9). The original decoders read past a stream that ends inside a code, and
 // LZSS writes as much as the stream says: each stream is walked first, and expanded only when it ends exactly at its
 // end (RLE) or expands to exactly `expected` bytes (LZSS) - what the original's own size check then accepts.
-bool RleStreamFits(const uint8_t* in, int size)
+bool rle_stream_fits(const uint8_t* in, int size)
 {
     while (size > 0) {
         uint8_t code = *in++;
@@ -51,7 +51,7 @@ bool RleStreamFits(const uint8_t* in, int size)
     }
     return true;
 }
-bool LzssStreamFits(const uint8_t* in, int size, int expected)
+bool lzss_stream_fits(const uint8_t* in, int size, int expected)
 {
     int expanded = 0;
     unsigned int flags = 0;
@@ -81,167 +81,167 @@ bool LzssStreamFits(const uint8_t* in, int size, int expected)
     }
 }
 
-void FreeQueuedMsg(PendingMsg* msg)
+void free_queued_msg(PendingMsg* msg)
 {
-    if (--msg->m_shareCount == 0) {
-        DestroyQueuedMsg(msg);
-        MemSys::Hub::Pull()->Dealloc(msg);
+    if (--msg->share_count_ == 0) {
+        destroy_queued_msg(msg);
+        memory::Hub::get_pull()->dealloc(msg);
     }
 }
 
 // A normal or important message into the packet: its id, its length (unless the id has none), its data.
-bool AppendMessage(AppHost* app, Conn* conn, PendingMsg* msg)
+bool append_message(AppHost* app, Conn* conn, PendingMsg* msg)
 {
-    char*& writePtr = conn->m_writePtr;
-    uint8_t flags = MessageFlags(static_cast<uint8_t*>(app->m_supervisor), msg->m_ident);
-    auto size = static_cast<uint16_t>(msg->m_byteCount + ((~flags & kMsgNoLength) ? 3 : 1));
-    if (static_cast<int>(size - reinterpret_cast<uint32_t>(conn->m_outgoingBytes) +
-                         reinterpret_cast<uint32_t>(writePtr)) >= static_cast<int>(kMaxPacketSize))
+    char*& write_ptr = conn->write_ptr_;
+    uint8_t flags = message_flags(static_cast<uint8_t*>(app->supervisor_), msg->ident_);
+    auto size = static_cast<uint16_t>(msg->byte_count_ + ((~flags & kMsgNoLength) ? 3 : 1));
+    if (static_cast<int>(size - reinterpret_cast<uint32_t>(conn->outgoing_bytes_) +
+                         reinterpret_cast<uint32_t>(write_ptr)) >= static_cast<int>(kMaxPacketSize))
         return false;
-    *writePtr++ = static_cast<char>(msg->m_ident);
-    if (!(MessageFlags(static_cast<uint8_t*>(app->m_supervisor), msg->m_ident) & kMsgNoLength)) {
-        *reinterpret_cast<uint16_t*>(writePtr) = msg->m_byteCount;
-        writePtr += 2;
+    *write_ptr++ = static_cast<char>(msg->ident_);
+    if (!(message_flags(static_cast<uint8_t*>(app->supervisor_), msg->ident_) & kMsgNoLength)) {
+        *reinterpret_cast<uint16_t*>(write_ptr) = msg->byte_count_;
+        write_ptr += 2;
     }
-    if (msg->m_byteCount) {
-        std::memcpy(writePtr, msg->m_content, msg->m_byteCount);
-        writePtr += msg->m_byteCount;
+    if (msg->byte_count_) {
+        std::memcpy(write_ptr, msg->content_, msg->byte_count_);
+        write_ptr += msg->byte_count_;
     }
-    AddMessageMetric(&conn->m_sendMetrics, msg->m_ident, msg->m_byteCount);
+    add_message_metric(&conn->send_metrics_, msg->ident_, msg->byte_count_);
     return true;
 }
 
 // A sequenced message into the packet, wrapped in a message of id 7: group, sequence number, id, data.
-bool AppendSequencedMessage(Conn* conn, OrderedMsgNode* link)
+bool append_sequenced_message(Conn* conn, OrderedMsgNode* link)
 {
-    char*& writePtr = conn->m_writePtr;
-    SeqQueuedMsg* msg = link->m_sharedMsg;
-    uint16_t length = msg->m_byteCount;
+    char*& write_ptr = conn->write_ptr_;
+    SeqQueuedMsg* msg = link->shared_msg_;
+    uint16_t length = msg->byte_count_;
     auto size = static_cast<uint16_t>(length + 9);
-    if (static_cast<int>(size - reinterpret_cast<uint32_t>(conn->m_outgoingBytes) +
-                         reinterpret_cast<uint32_t>(writePtr)) >= static_cast<int>(kMaxPacketSize))
+    if (static_cast<int>(size - reinterpret_cast<uint32_t>(conn->outgoing_bytes_) +
+                         reinterpret_cast<uint32_t>(write_ptr)) >= static_cast<int>(kMaxPacketSize))
         return false;
-    *writePtr++ = static_cast<char>(kMsgSequenced);
-    *reinterpret_cast<uint16_t*>(writePtr) = static_cast<uint16_t>(length + 6);
-    writePtr += 2;
-    *writePtr++ = static_cast<char>(link->m_bundleId);
-    *reinterpret_cast<uint32_t*>(writePtr) = link->m_orderIndex;
-    writePtr += 4;
-    *writePtr++ = static_cast<char>(msg->m_ident);
-    if (msg->m_byteCount) {
-        std::memcpy(writePtr, msg->m_content, msg->m_byteCount);
-        writePtr += msg->m_byteCount;
+    *write_ptr++ = static_cast<char>(kMsgSequenced);
+    *reinterpret_cast<uint16_t*>(write_ptr) = static_cast<uint16_t>(length + 6);
+    write_ptr += 2;
+    *write_ptr++ = static_cast<char>(link->bundle_id_);
+    *reinterpret_cast<uint32_t*>(write_ptr) = link->order_index_;
+    write_ptr += 4;
+    *write_ptr++ = static_cast<char>(msg->ident_);
+    if (msg->byte_count_) {
+        std::memcpy(write_ptr, msg->content_, msg->byte_count_);
+        write_ptr += msg->byte_count_;
     }
-    AddMessageMetric(&conn->m_sendMetrics, msg->m_ident, msg->m_byteCount);
+    add_message_metric(&conn->send_metrics_, msg->ident_, msg->byte_count_);
     return true;
 }
 
 // The messages a stream became, dispatched; the stream is deleted unless a handler keeps it.
-int DispatchStream(InboundMsgCtx* context, BulkStreamNode* link, StreamDesc* desc, bool checkChecksum)
+int dispatch_stream(InboundMsgCtx* context, BulkStreamNode* link, StreamDesc* desc, bool check_checksum)
 {
     InboundMsgCtx whole;
-    ConstructContext(&whole);
-    whole.m_receiverApp = context->m_receiverApp;
-    whole.m_senderConn = context->m_senderConn;
-    whole.m_typeCode = desc->m_msgId;
-    whole.m_bodySize = desc->m_extent;
-    whole.m_wireOptions = 0;
-    whole.m_body = static_cast<char*>(MemSys::Alloc(desc->m_extent));
-    std::memcpy(whole.m_body, desc->m_content, desc->m_extent);
-    if (checkChecksum && Checksums::GenerateCRCFromBuffer(whole.m_body, desc->m_extent) != desc->m_checksum)
-        whole.m_wireOptions |= kPacketChecksumMismatch;
-    int result = GetDispatcher(context->m_receiverApp)->DispatchMsg(&whole);
+    construct_context(&whole);
+    whole.receiver_app_ = context->receiver_app_;
+    whole.sender_conn_ = context->sender_conn_;
+    whole.type_code_ = desc->msg_id_;
+    whole.body_size_ = desc->extent_;
+    whole.wire_options_ = 0;
+    whole.body_ = static_cast<char*>(memory::alloc(desc->extent_));
+    std::memcpy(whole.body_, desc->content_, desc->extent_);
+    if (check_checksum && checksums::generate_crc_from_buffer(whole.body_, desc->extent_) != desc->checksum_)
+        whole.wire_options_ |= kPacketChecksumMismatch;
+    int result = get_dispatcher(context->receiver_app_)->dispatch_msg(&whole);
     if (result != kHandlerKeep && result != kResultMsgFreed) {
-        if (StreamDesc* stream = link->m_msgMeta) {
-            DestroyStreamDesc(stream);
-            MemSys::Hub::Pull()->Dealloc(stream);
+        if (StreamDesc* stream = link->msg_meta_) {
+            destroy_stream_desc(stream);
+            memory::Hub::get_pull()->dealloc(stream);
         }
-        UnlinkListNode(link);
+        unlink_list_node(link);
     }
-    MemSys::Hub::Pull()->Dealloc(whole.m_body);
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    memory::Hub::get_pull()->dealloc(whole.body_);
+    memory::Hub::get_pull()->leave_heap_scope();
     return result;
 }
 
 } // namespace
 
 // 0x004598C0
-bool AppHost::BundleMessages(Conn* conn, int queue, bool resendsOnly)
+bool AppHost::bundle_messages(Conn* conn, int queue, bool resends_only)
 {
     bool fits = true;
     switch (queue) {
     case kQueueNormal: {
-        ListKit::Hunt<MsgNormalLink> search;
+        lists::Hunt<MsgNormalLink> search;
         MsgNormalLink* next;
-        for (MsgNormalLink* link = search.HeadElement(&conn->m_normalMsgs); link; link = next) {
-            next = search.FollowingItem();
-            if (Timestamp(this) < link->m_dueTime)
+        for (MsgNormalLink* link = search.head_element(&conn->normal_msgs_); link; link = next) {
+            next = search.following_item();
+            if (get_timestamp(this) < link->due_time_)
                 continue;
-            if (NetLink::OverBandwidthBudget(this, conn))
+            if (net::over_bandwidth_budget(this, conn))
                 return fits;
-            PendingMsg* msg = link->m_sharedMsg;
-            if (!AppendMessage(this, conn, msg)) {
+            PendingMsg* msg = link->shared_msg_;
+            if (!append_message(this, conn, msg)) {
                 fits = false;
                 continue;
             }
-            FreeQueuedMsg(msg);
-            UnlinkListNode(link);
+            free_queued_msg(msg);
+            unlink_list_node(link);
         }
         break;
     }
     case kLanePriority: {
-        ListKit::Hunt<ReliableMsgNode> search;
-        for (ReliableMsgNode* link = search.HeadElement(&conn->m_importantMsgs); link;
-             link = search.FollowingItem()) {
-            if (Timestamp(this) < link->m_dueTime)
+        lists::Hunt<ReliableMsgNode> search;
+        for (ReliableMsgNode* link = search.head_element(&conn->important_msgs_); link;
+             link = search.following_item()) {
+            if (get_timestamp(this) < link->due_time_)
                 continue;
-            if (NetLink::OverBandwidthBudget(this, conn))
+            if (net::over_bandwidth_budget(this, conn))
                 return fits;
             // never sent (unless only resends are wanted), or not acked within the resend threshold
-            if (link->m_stampMs == 0) {
-                if (resendsOnly)
+            if (link->stamp_ms_ == 0) {
+                if (resends_only)
                     continue;
             } else {
-                uint32_t threshold = GetRetryDelay(conn);
-                if (Timestamp(this) - link->m_stampMs <= threshold)
+                uint32_t threshold = get_retry_delay(conn);
+                if (get_timestamp(this) - link->stamp_ms_ <= threshold)
                     continue;
             }
-            if (!AppendMessage(this, conn, link->m_sharedMsg)) {
+            if (!append_message(this, conn, link->shared_msg_)) {
                 fits = false;
                 continue;
             }
-            if (link->m_stampMs != 0)
-                ++link->m_retryCount;
-            link->m_stampMs = Timestamp(this);
-            link->m_packetClock = conn->m_timestampOut;
+            if (link->stamp_ms_ != 0)
+                ++link->retry_count_;
+            link->stamp_ms_ = get_timestamp(this);
+            link->packet_clock_ = conn->timestamp_out_;
         }
         break;
     }
     case kLaneOrdered: {
-        ListKit::Hunt<OrderedMsgNode> search;
-        for (OrderedMsgNode* link = search.HeadElement(&conn->m_sequencedMsgs); link;
-             link = search.FollowingItem()) {
-            if (Timestamp(this) < link->m_dueTime)
+        lists::Hunt<OrderedMsgNode> search;
+        for (OrderedMsgNode* link = search.head_element(&conn->sequenced_msgs_); link;
+             link = search.following_item()) {
+            if (get_timestamp(this) < link->due_time_)
                 continue;
-            if (NetLink::OverBandwidthBudget(this, conn))
+            if (net::over_bandwidth_budget(this, conn))
                 return fits;
             // never sent (unless only resends are wanted), or not acked within the resend threshold
-            if (link->m_stampMs == 0) {
-                if (resendsOnly)
+            if (link->stamp_ms_ == 0) {
+                if (resends_only)
                     continue;
             } else {
-                uint32_t threshold = GetRetryDelay(conn);
-                if (Timestamp(this) - link->m_stampMs <= threshold)
+                uint32_t threshold = get_retry_delay(conn);
+                if (get_timestamp(this) - link->stamp_ms_ <= threshold)
                     continue;
             }
-            if (!AppendSequencedMessage(conn, link)) {
+            if (!append_sequenced_message(conn, link)) {
                 fits = false;
                 continue;
             }
-            if (link->m_stampMs != 0)
-                ++link->m_retryCount;
-            link->m_stampMs = Timestamp(this);
-            link->m_packetClock = conn->m_timestampOut;
+            if (link->stamp_ms_ != 0)
+                ++link->retry_count_;
+            link->stamp_ms_ = get_timestamp(this);
+            link->packet_clock_ = conn->timestamp_out_;
         }
         break;
     }
@@ -252,268 +252,268 @@ bool AppHost::BundleMessages(Conn* conn, int queue, bool resendsOnly)
 }
 
 // 0x0045AB60
-int AppHost::OnPingReplyMsg(InboundMsgCtx* context)
+int AppHost::on_ping_reply_msg(InboundMsgCtx* context)
 {
-    Conn* conn = context->m_senderConn;
-    auto* sentTime = reinterpret_cast<uint32_t*>(context->m_body);
-    if (!NetLink::IsHostLocal(conn)) {
-        uint32_t now = Timestamp(context->m_receiverApp);
-        if (*sentTime == conn->m_pingProbe.m_probeSentAt) {
-            conn->m_pingProbe.m_echoSeenAt = *sentTime;
-            uint32_t latency = now - *sentTime;
-            if (latency > MaxLatency())
-                latency = MaxLatency();
-            AddLatency(conn, latency);
+    Conn* conn = context->sender_conn_;
+    auto* sent_time = reinterpret_cast<uint32_t*>(context->body_);
+    if (!net::is_host_local(conn)) {
+        uint32_t now = get_timestamp(context->receiver_app_);
+        if (*sent_time == conn->ping_probe_.probe_sent_at_) {
+            conn->ping_probe_.echo_seen_at_ = *sent_time;
+            uint32_t latency = now - *sent_time;
+            if (latency > max_latency())
+                latency = max_latency();
+            add_latency(conn, latency);
         }
     }
     return kResultPassOn;
 }
 
 // 0x0045AD60
-int AppHost::OnPingProbeMsg(InboundMsgCtx* context)
+int AppHost::on_ping_probe_msg(InboundMsgCtx* context)
 {
     NetMessageInfo desc;
-    ConstructMsgDesc(&desc);
-    uint32_t sentTime = *reinterpret_cast<uint32_t*>(context->m_body);
-    desc.m_content = &sentTime;
-    desc.m_byteCount = sizeof(sentTime);
-    desc.m_ident = kMsgLatencyResponse;
-    NetLink::PutOnOutbox(context->m_receiverApp, context->m_senderConn->m_hdl, &desc);
+    construct_msg_desc(&desc);
+    uint32_t sent_time = *reinterpret_cast<uint32_t*>(context->body_);
+    desc.content_ = &sent_time;
+    desc.byte_count_ = sizeof(sent_time);
+    desc.ident_ = kMsgLatencyResponse;
+    net::put_on_outbox(context->receiver_app_, context->sender_conn_->hdl_, &desc);
     return kResultPassOn;
 }
 
 // 0x0045ABF0
-int AppHost::HandleCompressedMessages(InboundMsgCtx* context)
+int AppHost::handle_compressed_messages(InboundMsgCtx* context)
 {
     InboundMsgCtx inner;
-    ConstructContext(&inner);
-    char* msg = context->m_body;
+    construct_context(&inner);
+    char* msg = context->body_;
     // NOT ORIGINAL: a message too short for its header, or expanding to less than a message's id and length, is
     // dropped (the original reads past them).
-    if (context->m_bodySize < 3)
+    if (context->body_size_ < 3)
         return kResultConsumed;
     int size = *reinterpret_cast<uint16_t*>(msg + 1);
     uint8_t method = static_cast<uint8_t>(msg[0]);
     if (size < 3)
         return kResultConsumed;
     const auto* stream = reinterpret_cast<const uint8_t*>(msg + 3);
-    int streamSize = static_cast<int>(context->m_bodySize) - 3;
-    auto* data = static_cast<char*>(MemSys::Alloc(size));
-    int expectedSize = size;
+    int stream_size = static_cast<int>(context->body_size_) - 3;
+    auto* data = static_cast<char*>(memory::alloc(size));
+    int expected_size = size;
     if (method == 1) {
-        if (!RleStreamFits(stream, streamSize) || Decompress(msg + 3, streamSize, data, &size) != 0 ||
-            expectedSize != size) {
-            MemSys::Hub::Pull()->Dealloc(data);
+        if (!rle_stream_fits(stream, stream_size) || decompress(msg + 3, stream_size, data, &size) != 0 ||
+            expected_size != size) {
+            memory::Hub::get_pull()->dealloc(data);
             return kResultConsumed;
         }
     } else if (method == 2) {
-        if (!LzssStreamFits(stream, streamSize, expectedSize)) {
-            MemSys::Hub::Pull()->Dealloc(data);
+        if (!lzss_stream_fits(stream, stream_size, expected_size)) {
+            memory::Hub::get_pull()->dealloc(data);
             return kResultConsumed;
         }
-        size = static_cast<int>(reinterpret_cast<char*>(Lzss::Decode(reinterpret_cast<uint8_t*>(msg + 3),
+        size = static_cast<int>(reinterpret_cast<char*>(lzss::decode(reinterpret_cast<uint8_t*>(msg + 3),
                                                                      reinterpret_cast<uint8_t*>(data),
-                                                                     streamSize)) -
+                                                                     stream_size)) -
                                 data);
-        if (expectedSize != size) {
-            MemSys::Hub::Pull()->Dealloc(data);
+        if (expected_size != size) {
+            memory::Hub::get_pull()->dealloc(data);
             return kResultConsumed;
         }
-    } else if (method == Lzham::kMethod) {
+    } else if (method == lzham::kMethod) {
         // NOT ORIGINAL: THUGPRO's LZHAM (TP-R11), expanded into the header's size and no further.
         size_t expanded = 0;
-        if (!Lzham::Decompress(stream, static_cast<size_t>(streamSize), reinterpret_cast<uint8_t*>(data),
-                               static_cast<size_t>(expectedSize), &expanded) ||
-            expanded != static_cast<size_t>(expectedSize)) {
-            MemSys::Hub::Pull()->Dealloc(data);
+        if (!lzham::decompress(stream, static_cast<size_t>(stream_size), reinterpret_cast<uint8_t*>(data),
+                               static_cast<size_t>(expected_size), &expanded) ||
+            expanded != static_cast<size_t>(expected_size)) {
+            memory::Hub::get_pull()->dealloc(data);
             return kResultConsumed;
         }
     } else {
         // (The original uses the buffer as it is, not expanded - uninitialised memory dispatched. NOT ORIGINAL: dropped.)
-        MemSys::Hub::Pull()->Dealloc(data);
+        memory::Hub::get_pull()->dealloc(data);
         return kResultConsumed;
     }
 
     // The expanded data is one message: id, length, data.
-    inner.m_senderConn = context->m_senderConn;
+    inner.sender_conn_ = context->sender_conn_;
     uint8_t id = static_cast<uint8_t>(data[0]);
     uint16_t length = *reinterpret_cast<uint16_t*>(data + 1);
-    if (length > expectedSize - 3) { // NOT ORIGINAL: a length past the expanded data (the original copies on)
-        MemSys::Hub::Pull()->Dealloc(data);
+    if (length > expected_size - 3) { // NOT ORIGINAL: a length past the expanded data (the original copies on)
+        memory::Hub::get_pull()->dealloc(data);
         return kResultConsumed;
     }
-    auto* copy = static_cast<char*>(MemSys::Alloc(length));
+    auto* copy = static_cast<char*>(memory::alloc(length));
     std::memcpy(copy, data + 3, length);
-    inner.m_body = copy;
-    inner.m_receiverApp = context->m_receiverApp;
-    inner.m_wireOptions = context->m_wireOptions;
-    inner.m_typeCode = id;
-    inner.m_bodySize = length;
-    int result = GetDispatcher(context->m_receiverApp)->DispatchMsg(&inner);
-    MemSys::Hub::Pull()->Dealloc(inner.m_body);
-    MemSys::Hub::Pull()->Dealloc(data);
+    inner.body_ = copy;
+    inner.receiver_app_ = context->receiver_app_;
+    inner.wire_options_ = context->wire_options_;
+    inner.type_code_ = id;
+    inner.body_size_ = length;
+    int result = get_dispatcher(context->receiver_app_)->dispatch_msg(&inner);
+    memory::Hub::get_pull()->dealloc(inner.body_);
+    memory::Hub::get_pull()->dealloc(data);
     return result;
 }
 
 // 0x0045AF10
-int AppHost::OnOrderedMsgs(InboundMsgCtx* context)
+int AppHost::on_ordered_msgs(InboundMsgCtx* context)
 {
-    auto* msg = reinterpret_cast<uint8_t*>(context->m_body);
-    Conn* conn = context->m_senderConn;
-    context->m_Acknowledge = true;
+    auto* msg = reinterpret_cast<uint8_t*>(context->body_);
+    Conn* conn = context->sender_conn_;
+    context->acknowledge_ = true;
     uint32_t sequence = *reinterpret_cast<uint32_t*>(msg + 1);
     uint8_t group = msg[0];
-    if (sequence < conn->m_sequenceNumbers[group])
+    if (sequence < conn->sequence_numbers_[group])
         return kResultPassOn; // handled already
 
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(manager->m_networkHeap);
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(manager->network_heap_);
     uint8_t id = msg[5];
-    auto length = static_cast<uint16_t>(context->m_bodySize - 6);
-    void* memory = MemSys::Alloc(sizeof(SeqQueuedMsg));
-    SeqQueuedMsg* seqMsg = memory ? ConstructSeqMsg(memory, id, length, reinterpret_cast<char*>(msg + 6), group, false)
+    auto length = static_cast<uint16_t>(context->body_size_ - 6);
+    void* memory = memory::alloc(sizeof(SeqQueuedMsg));
+    SeqQueuedMsg* seq_msg = memory ? construct_seq_msg(memory, id, length, reinterpret_cast<char*>(msg + 6), group, false)
                             : nullptr;
-    void* linkMemory = MemSys::AllocZeroed(sizeof(OrderedMsgNode));
-    OrderedMsgNode* link = linkMemory ? ConstructMsgSeqLink(linkMemory, seqMsg) : nullptr;
+    void* link_memory = memory::alloc_zeroed(sizeof(OrderedMsgNode));
+    OrderedMsgNode* link = link_memory ? construct_msg_seq_link(link_memory, seq_msg) : nullptr;
     // (a failed allocation crashes here, as in the original)
-    link->m_listLink.priority = static_cast<int>(sequence);
-    link->m_stampMs = 0;
-    link->m_packetClock = 0;
-    link->m_bundleId = group;
-    link->m_orderIndex = sequence;
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    link->list_link_.priority = static_cast<int>(sequence);
+    link->stamp_ms_ = 0;
+    link->packet_clock_ = 0;
+    link->bundle_id_ = group;
+    link->order_index_ = sequence;
+    memory::Hub::get_pull()->leave_heap_scope();
 
-    auto& buffer = reinterpret_cast<ListKit::Foremost&>(context->m_senderConn->m_receivedQueues[group]);
-    if (!buffer.InsertByUniqueOrder(&link->m_listLink)) { // a duplicate
-        if (SeqQueuedMsg* duplicate = link->m_sharedMsg) {
-            DestroyQueuedMsg(duplicate);
-            MemSys::Hub::Pull()->Dealloc(duplicate);
+    auto& buffer = reinterpret_cast<lists::Foremost&>(context->sender_conn_->received_queues_[group]);
+    if (!buffer.insert_by_unique_order(&link->list_link_)) { // a duplicate
+        if (SeqQueuedMsg* duplicate = link->shared_msg_) {
+            destroy_queued_msg(duplicate);
+            memory::Hub::get_pull()->dealloc(duplicate);
         }
-        UnlinkListNode(link);
+        unlink_list_node(link);
         return kResultConsumed;
     }
     return kResultPassOn;
 }
 
 // 0x0045B0B0
-int AppHost::OnReceiptMsg(InboundMsgCtx* context)
+int AppHost::on_receipt_msg(InboundMsgCtx* context)
 {
-    auto* packetstamp = reinterpret_cast<uint16_t*>(context->m_body);
-    uint32_t sentTime = 0;
-    context->m_bodySize = sizeof(uint16_t);
-    if (context->m_wireOptions & kPacketForeign)
+    auto* packetstamp = reinterpret_cast<uint16_t*>(context->body_);
+    uint32_t sent_time = 0;
+    context->body_size_ = sizeof(uint16_t);
+    if (context->wire_options_ & kPacketForeign)
         return kResultConsumed;
 
     {
-        ListKit::Hunt<ReliableMsgNode> search;
+        lists::Hunt<ReliableMsgNode> search;
         ReliableMsgNode* next;
-        for (ReliableMsgNode* link = search.HeadElement(&context->m_senderConn->m_importantMsgs); link;
+        for (ReliableMsgNode* link = search.head_element(&context->sender_conn_->important_msgs_); link;
              link = next) {
-            next = search.FollowingItem();
-            if (*packetstamp == static_cast<uint16_t>(link->m_packetClock) && link->m_stampMs) {
-                FreeQueuedMsg(link->m_sharedMsg);
-                sentTime = link->m_stampMs;
-                UnlinkListNode(link);
+            next = search.following_item();
+            if (*packetstamp == static_cast<uint16_t>(link->packet_clock_) && link->stamp_ms_) {
+                free_queued_msg(link->shared_msg_);
+                sent_time = link->stamp_ms_;
+                unlink_list_node(link);
             }
         }
     }
     {
-        ListKit::Hunt<OrderedMsgNode> search;
+        lists::Hunt<OrderedMsgNode> search;
         OrderedMsgNode* next;
-        for (OrderedMsgNode* link = search.HeadElement(&context->m_senderConn->m_sequencedMsgs); link;
+        for (OrderedMsgNode* link = search.head_element(&context->sender_conn_->sequenced_msgs_); link;
              link = next) {
-            next = search.FollowingItem();
-            if (*packetstamp == static_cast<uint16_t>(link->m_packetClock) && link->m_stampMs) {
-                SeqQueuedMsg* msg = link->m_sharedMsg;
-                if (--msg->m_shareCount == 0) {
-                    DestroyQueuedMsg(msg);
-                    MemSys::Hub::Pull()->Dealloc(msg);
+            next = search.following_item();
+            if (*packetstamp == static_cast<uint16_t>(link->packet_clock_) && link->stamp_ms_) {
+                SeqQueuedMsg* msg = link->shared_msg_;
+                if (--msg->share_count_ == 0) {
+                    destroy_queued_msg(msg);
+                    memory::Hub::get_pull()->dealloc(msg);
                 }
-                sentTime = link->m_stampMs;
-                UnlinkListNode(link);
+                sent_time = link->stamp_ms_;
+                unlink_list_node(link);
             }
         }
     }
 
-    Conn* conn = context->m_senderConn;
-    if (IsOffMachine(conn) && (conn->m_curStanding & kConnStatus1) && sentTime) {
-        uint32_t latency = Timestamp(context->m_receiverApp) - sentTime;
-        uint32_t current = NetLink::IsHostLocal(conn) ? 0 : static_cast<uint32_t>(conn->m_pingProbe.m_averageLatency);
+    Conn* conn = context->sender_conn_;
+    if (is_off_machine(conn) && (conn->cur_standing_ & kConnStatus1) && sent_time) {
+        uint32_t latency = get_timestamp(context->receiver_app_) - sent_time;
+        uint32_t current = net::is_host_local(conn) ? 0 : static_cast<uint32_t>(conn->ping_probe_.average_latency_);
         if (latency > current) {
-            if (latency > MaxLatency())
-                latency = MaxLatency();
-            AddLatency(context->m_senderConn, latency);
+            if (latency > max_latency())
+                latency = max_latency();
+            add_latency(context->sender_conn_, latency);
         }
     }
     return kResultPassOn;
 }
 
 // 0x0045B2F0
-int AppHost::DrainStreamMsgs(InboundMsgCtx* context)
+int AppHost::drain_stream_msgs(InboundMsgCtx* context)
 {
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(manager->m_networkHeap);
-    switch (context->m_typeCode) {
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(manager->network_heap_);
+    switch (context->type_code_) {
     case kMsgBulkChunk: {
         // stream id (4 bytes), then the piece
-        char* msg = context->m_body;
-        ListKit::Hunt<BulkStreamNode> search;
-        for (BulkStreamNode* link = search.HeadElement(&context->m_senderConn->m_receivedStreams); link;
-             link = search.FollowingItem()) {
-            StreamDesc* desc = link->m_msgMeta;
-            if (desc->m_streamId != *reinterpret_cast<int*>(msg))
+        char* msg = context->body_;
+        lists::Hunt<BulkStreamNode> search;
+        for (BulkStreamNode* link = search.head_element(&context->sender_conn_->received_streams_); link;
+             link = search.following_item()) {
+            StreamDesc* desc = link->msg_meta_;
+            if (desc->stream_id_ != *reinterpret_cast<int*>(msg))
                 continue;
-            uint32_t size = context->m_bodySize - 4;
-            std::memcpy(desc->m_succ, msg + 4, size);
-            desc->m_succ += size;
-            if (static_cast<uint32_t>(desc->m_succ - desc->m_content) >= static_cast<uint32_t>(desc->m_extent))
-                return DispatchStream(context, link, desc, true);
+            uint32_t size = context->body_size_ - 4;
+            std::memcpy(desc->succ_, msg + 4, size);
+            desc->succ_ += size;
+            if (static_cast<uint32_t>(desc->succ_ - desc->content_) >= static_cast<uint32_t>(desc->extent_))
+                return dispatch_stream(context, link, desc, true);
         }
         break;
     }
     case kMsgBulkBegin: {
         // name (0x20 bytes), size, stream id, checksum, message id, then the first piece
-        char* msg = context->m_body;
-        int streamId = *reinterpret_cast<int*>(msg + 0x24);
-        ListKit::Hunt<BulkStreamNode> search;
-        for (BulkStreamNode* link = search.HeadElement(&context->m_senderConn->m_receivedStreams); link;
-             link = search.FollowingItem()) {
-            if (link->m_msgMeta->m_streamId == streamId) { // started already
-                MemSys::Hub::Pull()->LeaveHeapScope();
+        char* msg = context->body_;
+        int stream_id = *reinterpret_cast<int*>(msg + 0x24);
+        lists::Hunt<BulkStreamNode> search;
+        for (BulkStreamNode* link = search.head_element(&context->sender_conn_->received_streams_); link;
+             link = search.following_item()) {
+            if (link->msg_meta_->stream_id_ == stream_id) { // started already
+                memory::Hub::get_pull()->leave_heap_scope();
                 return kResultConsumed;
             }
         }
-        void* memory = MemSys::Alloc(sizeof(StreamDesc));
-        StreamDesc* desc = memory ? ConstructStreamDesc(memory) : nullptr;
-        for (int i = 0; (desc->m_desc[i] = msg[i]) != 0; ++i) // (strcpy: no limit)
+        void* memory = memory::alloc(sizeof(StreamDesc));
+        StreamDesc* desc = memory ? construct_stream_desc(memory) : nullptr;
+        for (int i = 0; (desc->desc_[i] = msg[i]) != 0; ++i) // (strcpy: no limit)
             ;
-        desc->m_extent = *reinterpret_cast<int*>(msg + 0x20);
-        desc->m_streamId = *reinterpret_cast<int*>(msg + 0x24);
-        desc->m_checksum = *reinterpret_cast<uint32_t*>(msg + 0x28);
-        desc->m_msgId = static_cast<uint8_t>(msg[0x2C]);
-        desc->m_content = static_cast<uint8_t*>(MemSys::Alloc(*reinterpret_cast<uint32_t*>(msg + 0x20)));
-        desc->m_succ = desc->m_content;
+        desc->extent_ = *reinterpret_cast<int*>(msg + 0x20);
+        desc->stream_id_ = *reinterpret_cast<int*>(msg + 0x24);
+        desc->checksum_ = *reinterpret_cast<uint32_t*>(msg + 0x28);
+        desc->msg_id_ = static_cast<uint8_t>(msg[0x2C]);
+        desc->content_ = static_cast<uint8_t*>(memory::alloc(*reinterpret_cast<uint32_t*>(msg + 0x20)));
+        desc->succ_ = desc->content_;
         int size = *reinterpret_cast<int*>(msg + 0x20);
         if (size >= static_cast<int>(kMaxStreamStartData))
             size = kMaxStreamStartData;
-        std::memcpy(desc->m_content, msg + 0x2D, size);
-        desc->m_succ += size;
-        void* linkMemory = MemSys::AllocZeroed(sizeof(BulkStreamNode));
-        BulkStreamNode* link = linkMemory ? ConstructStreamLink(linkMemory, desc) : nullptr;
+        std::memcpy(desc->content_, msg + 0x2D, size);
+        desc->succ_ += size;
+        void* link_memory = memory::alloc_zeroed(sizeof(BulkStreamNode));
+        BulkStreamNode* link = link_memory ? construct_stream_link(link_memory, desc) : nullptr;
         // at the end of the connection's streams
-        MemSys::ListNode* head = &context->m_senderConn->m_receivedStreams;
-        link->m_listLink.next = head;
-        link->m_listLink.prev = head->prev;
-        head->prev->next = &link->m_listLink;
-        head->prev = &link->m_listLink;
-        if (static_cast<uint32_t>(desc->m_succ - desc->m_content) >= static_cast<uint32_t>(desc->m_extent)) // all in one message
-            return DispatchStream(context, link, desc, false); // (no checksum check on this path)
+        memory::ListNode* head = &context->sender_conn_->received_streams_;
+        link->list_link_.next = head;
+        link->list_link_.prev = head->prev;
+        head->prev->next = &link->list_link_;
+        head->prev = &link->list_link_;
+        if (static_cast<uint32_t>(desc->succ_ - desc->content_) >= static_cast<uint32_t>(desc->extent_)) // all in one message
+            return dispatch_stream(context, link, desc, false); // (no checksum check on this path)
         break;
     }
     default:
         break;
     }
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    memory::Hub::get_pull()->leave_heap_scope();
     return kResultPassOn;
 }
 

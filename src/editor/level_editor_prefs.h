@@ -22,48 +22,48 @@ struct ImFont;
 //                          UX2's; this window shows it)
 //   speed_by_selection=0   F (frame the selection) sets the flying speed from the selection's size (Unreal's)
 //   tips_seen=0            the first-run tips were dismissed (the help's "Show tips" shows them again)
-namespace MenuSystem::LevelEditor::OptionStore {
+namespace frontend::level_editor::prefs {
 
 struct Values {
-    int flySpeed = 800;
-    int flyAccelMs = 0;
-    int lookPct = 100;
-    bool invertY = false;
-    int gizmoPct = 100;
-    int uiScalePct = 0;
-    int autosaveSeconds = 60;
-    int snapMove = 25;
-    int snapTurn = 15;
+    int fly_speed_ = 800;
+    int fly_accel_ms_ = 0;
+    int look_pct_ = 100;
+    bool invert_y_ = false;
+    int gizmo_pct_ = 100;
+    int ui_scale_pct_ = 0;
+    int autosave_seconds_ = 60;
+    int snap_move_ = 25;
+    int snap_turn_ = 15;
     int accent = 0;
-    bool wasdFlies = false;
-    bool speedBySelection = false;
-    bool tipsSeen = false;
+    bool wasd_flies_ = false;
+    bool speed_by_selection_ = false;
+    bool tips_seen_ = false;
 };
 
 // The limits (pure): every value brought within its range (fly speed 50..20000, accel 0..3000 ms, look 10..500%,
 // gizmo 25..400%, UI scale 0 or 75..400%, autosave 10..3600 s, snap move 1..1000, snap turn 1..90, accent
 // 0..kAccentCount-1).
-Values Clamped(Values v);
+Values get_clamped(Values v);
 constexpr int kAccentCount = 6;
 // An accent's colour (pure): r, g, b in 0..1; its name.
-void AccentRgb(int accent, float rgb[3]);
-const char* AccentName(int accent);
+void get_accent_rgb(int accent, float rgb[3]);
+const char* accent_name(int accent);
 
 // The values now (read from the ini once, the first time).
-const Values& Pull();
+const Values& get_pull();
 // Changed: kept (and written to the ini unless `save` is false - self-tests).
-void AssignValue(const Values& values, bool save = true);
+void assign_value(const Values& values, bool save = true);
 // Counts each change of the UI's look (scale, accent): the UI rebuilds its fonts / style when it moves.
-int StyleGeneration();
+int style_generation();
 
 // The window (the toolbar's Prefs, Ctrl+,): open / closed, and drawn by the UI's frame (level_editor_ui.cpp) with
 // its scale and fonts.
-bool& Unseal();
-void Pane(float scale, ImFont* heading, ImFont* small);
+bool& unseal();
+void pane(float scale, ImFont* heading, ImFont* small);
 
 // The first-run tips: a short overlay the first time the editor opens (until dismissed: tips_seen=1), and again from
 // the help's "Show tips".
-void ShowTips();
-void TipsWindow(float scale, ImFont* heading, ImFont* mono);
+void show_tips();
+void tips_window(float scale, ImFont* heading, ImFont* mono);
 
-} // namespace MenuSystem::LevelEditor::OptionStore
+} // namespace MenuSystem::level_editor::prefs

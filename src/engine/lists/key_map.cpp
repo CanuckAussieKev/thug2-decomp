@@ -7,40 +7,40 @@
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
 
-namespace ListKit {
+namespace lists {
 
-static_assert(sizeof(KeyMap::Item) == 12 && offsetof(KeyMap, m_iterItem) == 0x10 &&
-                  offsetof(KeyMap, m_flag) == 0x14,
+static_assert(sizeof(KeyMap::Item) == 12 && offsetof(KeyMap, iter_item_) == 0x10 &&
+                  offsetof(KeyMap, flag_) == 0x14,
               "layout must match the original");
 
 // 0x0049FD90
 KeyMap::KeyMap(int bits)
 {
-    m_bits = bits;
+    bits_ = bits;
     int count = 1 << bits;
-    auto* buckets = static_cast<Item*>(MemSys::Alloc(static_cast<unsigned int>(count) * sizeof(Item)));
+    auto* buckets = static_cast<Item*>(memory::alloc(static_cast<unsigned int>(count) * sizeof(Item)));
     if (buckets) {
         for (int i = 0; i < count; ++i)
             buckets[i] = {0, nullptr, nullptr};
     }
-    m_buckets = buckets;
-    m_extent = 0;
-    m_flag = false;
+    buckets_ = buckets;
+    extent_ = 0;
+    flag_ = false;
 }
 
 // 0x005B89D0
 KeyMap::~KeyMap()
 {
-    if (m_buckets) {
-        EmptyTable();
-        MemSys::Dealloc(m_buckets);
-        m_buckets = nullptr;
+    if (buckets_) {
+        empty_table();
+        memory::dealloc(buckets_);
+        buckets_ = nullptr;
     }
 }
 
-void* KeyMap::FetchEntry(uint32_t key) const
+void* KeyMap::fetch_entry(uint32_t key) const
 {
-    for (const Item* item = &m_buckets[key & ((1u << m_bits) - 1)]; item; item = item->next) {
+    for (const Item* item = &buckets_[key & ((1u << bits_) - 1)]; item; item = item->next) {
         if (item->key == key && item->value)
             return item->value;
     }
@@ -48,34 +48,34 @@ void* KeyMap::FetchEntry(uint32_t key) const
 }
 
 // 0x00462050
-void* KeyMap::FetchEntry(const uint32_t& key, bool /*unused*/) const
+void* KeyMap::fetch_entry(const uint32_t& key, bool /*unused*/) const
 {
-    return FetchEntry(key);
+    return fetch_entry(key);
 }
 
 // 0x00462740
-bool KeyMap::StoreEntry(const uint32_t& key, void* value)
+bool KeyMap::store_entry(const uint32_t& key, void* value)
 {
-    Item* bucket = &m_buckets[key & ((1u << m_bits) - 1)];
+    Item* bucket = &buckets_[key & ((1u << bits_) - 1)];
     if (bucket->value) {
         // The bucket's own slot is taken: chain a new item right after it.
-        auto* item = static_cast<Item*>(MemSys::SlotPoolSetup::CreateItem(0));
+        auto* item = static_cast<Item*>(memory::slot_pool_setup::create_item(0));
         *item = {key, value, bucket->next};
         bucket->next = item;
     } else {
         bucket->value = value;
         bucket->key = key;
     }
-    ++m_extent;
+    ++extent_;
     return true;
 }
 
 // 0x005B80D0
-void KeyMap::EraseEntry(const uint32_t& key)
+void KeyMap::erase_entry(const uint32_t& key)
 {
-    if (!m_buckets)
+    if (!buckets_)
         return;
-    Item* item = &m_buckets[key & ((1u << m_bits) - 1)];
+    Item* item = &buckets_[key & ((1u << bits_) - 1)];
     Item* previous = nullptr;
     while (item->key != key || !item->value) {
         previous = item;
@@ -85,37 +85,37 @@ void KeyMap::EraseEntry(const uint32_t& key)
     }
     if (previous) {
         previous->next = item->next;
-        MemSys::SlotPoolSetup::ReturnEntry(0, item);
+        memory::slot_pool_setup::return_entry(0, item);
     } else {
         // The bucket's own slot: empty it, keeping any chain behind it.
         item->key = 0;
         item->value = nullptr;
     }
-    --m_extent;
+    --extent_;
 }
 
 // 0x0049FD30
-void KeyMap::EmptyTable()
+void KeyMap::empty_table()
 {
-    if (!m_buckets)
+    if (!buckets_)
         return;
-    Item* bucket = m_buckets;
-    for (unsigned int i = 1u << m_bits; i != 0; --i, ++bucket) {
+    Item* bucket = buckets_;
+    for (unsigned int i = 1u << bits_; i != 0; --i, ++bucket) {
         for (Item* item = bucket->next; item;) {
             Item* next = item->next;
-            MemSys::SlotPoolSetup::ReturnEntry(0, item);
+            memory::slot_pool_setup::return_entry(0, item);
             item = next;
         }
         *bucket = {0, nullptr, nullptr};
     }
-    m_extent = 0;
+    extent_ = 0;
 }
 
 // 0x005B8060
-void KeyMap::RunHook(HookFn callback, void* data)
+void KeyMap::run_hook(HookFn callback, void* data)
 {
-    Item* bucket = m_buckets;
-    for (unsigned int i = 1u << m_bits; i != 0; --i, ++bucket) {
+    Item* bucket = buckets_;
+    for (unsigned int i = 1u << bits_; i != 0; --i, ++bucket) {
         // The chained items first, then the bucket's own slot.
         for (Item* item = bucket->next; item;) {
             Item* next = item->next;
@@ -129,25 +129,25 @@ void KeyMap::RunHook(HookFn callback, void* data)
 }
 
 // 0x00588190
-bool KeyMap::StepIterator()
+bool KeyMap::step_iterator()
 {
-    if (m_iterItem)
-        m_iterItem = m_iterItem->next;
-    else if (m_iterBucket >= 0)
+    if (iter_item_)
+        iter_item_ = iter_item_->next;
+    else if (iter_bucket_ >= 0)
         return false; // already finished
-    if (m_iterItem)
+    if (iter_item_)
         return true;
 
     // Move on to the next bucket with anything in it.
     Item* bucket;
     do {
-        if (++m_iterBucket >= 1 << m_bits)
+        if (++iter_bucket_ >= 1 << bits_)
             return false;
-        bucket = &m_buckets[m_iterBucket];
-        m_iterItem = bucket;
+        bucket = &buckets_[iter_bucket_];
+        iter_item_ = bucket;
     } while (!bucket->value && !bucket->next);
     if (!bucket->value)
-        m_iterItem = bucket->next; // empty slot with a chain behind it
+        iter_item_ = bucket->next; // empty slot with a chain behind it
     return true;
 }
 
@@ -156,8 +156,8 @@ bool KeyMap::StepIterator()
 namespace {
 
 struct HashTableAdapter {
-    ListKit::KeyMap* MakeNew(int bits) { return new (this) ListKit::KeyMap(bits); }
-    void Teardown() { reinterpret_cast<ListKit::KeyMap*>(this)->~KeyMap(); }
+    lists::KeyMap* make_new(int bits) { return new (this) lists::KeyMap(bits); }
+    void teardown() { reinterpret_cast<lists::KeyMap*>(this)->~KeyMap(); }
 };
 
 } // namespace

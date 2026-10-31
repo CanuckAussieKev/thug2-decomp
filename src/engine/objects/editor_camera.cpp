@@ -1,4 +1,4 @@
-// The editor camera component (GameObjects::CEditorViewModule) and its ground checks: see editor_camera.h. From the
+// The editor camera component (GameObjects::EditorViewModule) and its ground checks: see editor_camera.h. From the
 // disassembly of 0x004E4ED0-0x004E65F2. The x87 roundings are kept: values the original stores are rounded to
 // float, the ones it keeps on the FPU stack are worked in double.
 
@@ -30,13 +30,13 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace GameObjects {
+namespace objects {
 
-uint32_t g_editorCameraSkipNames[4]{0x0B38ED6B, 0xDEA3057B, 0x9FBBD5F0, 0x8F308205};
-uint32_t g_editorCameraName{0x43BFAB74};
-uint32_t g_editorCameraSeen[20];
-uint8_t g_editorCameraFlagged;
-int g_editorCameraSeenCount;
+uint32_t g_editor_camera_skip_names[4]{0x0B38ED6B, 0xDEA3057B, 0x9FBBD5F0, 0x8F308205};
+uint32_t g_editor_camera_name{0x43BFAB74};
+uint32_t g_editor_camera_seen[20];
+uint8_t g_editor_camera_flagged;
+int g_editor_camera_seen_count;
 
 namespace {
 
@@ -53,386 +53,386 @@ constexpr float kStickScale = 0.0078125f;        // 0x0064A2FC (1 / 128)
 constexpr float kDeadZone = 0.009999999776482582f; // 0x0064544C
 constexpr double kHeightSlack = 0.01;            // 0x0064B310
 
-// Script globals (Scripts::FetchFloat).
-float Global(uint32_t name) { return Scripts::FetchFloat(name); }
+// Script globals (Scripts::fetch_float).
+float get_global(uint32_t name) { return script::fetch_float(name); }
 
-uint8_t& Flagged() { return g_editorCameraFlagged; }
-int& SeenCount() { return g_editorCameraSeenCount; }
-uint32_t* Seen() { return g_editorCameraSeen; }
+uint8_t& get_flagged() { return g_editor_camera_flagged; }
+int& get_seen_count() { return g_editor_camera_seen_count; }
+uint32_t* get_seen() { return g_editor_camera_seen; }
 
 // The collision feeler (Nx's ray, 0xB0 bytes; not rewritten yet): its line from +0x00 to +0x10, a hit callback at
 // +0x20, the hit's point at +0x78 and normal at +0x88; what it hit held by a smart pointer at +0x98.
 class Feeler {
 public:
-    Feeler() { AsFeeler()->MakeNew(); }
-    ~Feeler() { reinterpret_cast<CSharedRef<CSharedBase>*>(m_bytes + 0x98)->~CSharedRef(); }
+    Feeler() { as_feeler()->make_new(); }
+    ~Feeler() { reinterpret_cast<SharedRef<SharedBase>*>(bytes_ + 0x98)->~SharedRef(); }
     Feeler(const Feeler&) = delete;
     Feeler& operator=(const Feeler&) = delete;
-    void SetExcluded(uint32_t skip, uint32_t need)
+    void set_excluded(uint32_t skip, uint32_t need)
     {
-        AsFeeler()->SetExcluded(static_cast<uint16_t>(skip), static_cast<uint16_t>(need));
+        as_feeler()->set_excluded(static_cast<uint16_t>(skip), static_cast<uint16_t>(need));
     }
-    void ChangeOrigin(const Maths::Vec4& v) { AsFeeler()->ChangeOrigin(&v); }
-    void ChangeFinish(const Maths::Vec4& v) { AsFeeler()->ChangeFinish(&v); }
-    bool GetHitShape(int a, int b) { return AsFeeler()->GetHitShape(a != 0, b != 0) != 0; }
-    Engine3D::CProbeRay* AsFeeler() { return reinterpret_cast<Engine3D::CProbeRay*>(m_bytes); }
-    Maths::Vec4& Kickoff() { return *reinterpret_cast<Maths::Vec4*>(m_bytes); }
-    Maths::Vec4& End() { return *reinterpret_cast<Maths::Vec4*>(m_bytes + 0x10); }
-    void*& HookFn() { return *reinterpret_cast<void**>(m_bytes + 0x20); }
-    const Maths::Vec4& Point() const { return *reinterpret_cast<const Maths::Vec4*>(m_bytes + 0x78); }
-    const Maths::Vec4& Normal() const { return *reinterpret_cast<const Maths::Vec4*>(m_bytes + 0x88); }
-    uint8_t* Bytes() { return m_bytes; }
+    void change_origin(const maths::Vec4& v) { as_feeler()->change_origin(&v); }
+    void change_finish(const maths::Vec4& v) { as_feeler()->change_finish(&v); }
+    bool get_hit_shape(int a, int b) { return as_feeler()->get_hit_shape(a != 0, b != 0) != 0; }
+    render::ProbeRay* as_feeler() { return reinterpret_cast<render::ProbeRay*>(bytes_); }
+    maths::Vec4& kickoff() { return *reinterpret_cast<maths::Vec4*>(bytes_); }
+    maths::Vec4& get_end() { return *reinterpret_cast<maths::Vec4*>(bytes_ + 0x10); }
+    void*& hook_fn() { return *reinterpret_cast<void**>(bytes_ + 0x20); }
+    const maths::Vec4& get_point() const { return *reinterpret_cast<const maths::Vec4*>(bytes_ + 0x78); }
+    const maths::Vec4& get_normal() const { return *reinterpret_cast<const maths::Vec4*>(bytes_ + 0x88); }
+    uint8_t* get_bytes() { return bytes_; }
 
 private:
-    alignas(16) uint8_t m_bytes[0xB0];
+    alignas(16) uint8_t bytes_[0xB0];
 };
 
 // The shadow object (0x14 bytes, not rewritten yet): 0x004A1750 constructs it, 0x004A17E0 sets its texture by
 // name; its vtable's [0] deletes, [1] places it (point, orientation, normal).
-void ReleaseBlobShadow(void*& shadow)
+void release_blob_shadow(void*& shadow)
 {
     reinterpret_cast<void(__thiscall*)(void*, int)>((*static_cast<void***>(shadow))[0])(shadow, 1);
     shadow = nullptr;
 }
 
 // The rail editor's 0x004F3D30 (thiscall; the editor from 0x004F4970), around the cursor's move in the park editor.
-void RailEditorMoving(int moved)
+void rail_editor_moving(int moved)
 {
-    ParkEditing::CRailAuthoring::Sole()->ChangeLive(moved != 0);
+    park_editing::RailAuthoring::sole()->change_live(moved != 0);
 }
-bool InParkEditor()
+bool in_park_editor()
 {
-    return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule) + 0x378) == 0xE8B4B836;
+    return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(modules::g_skate_module) + 0x378) == 0xE8B4B836;
 }
 
 } // namespace
 
 // 0x004E4F50
-bool __cdecl ScriptFlagged(uint32_t name)
+bool __cdecl script_flagged(uint32_t name)
 {
-    for (int i = 0; i < SeenCount(); ++i) {
-        if (Seen()[i] == name)
+    for (int i = 0; i < get_seen_count(); ++i) {
+        if (get_seen()[i] == name)
             return false;
     }
-    Seen()[SeenCount()++] = name;
-    if (name == g_editorCameraName)
+    get_seen()[get_seen_count()++] = name;
+    if (name == g_editor_camera_name)
         return false;
-    for (uint32_t skipName : g_editorCameraSkipNames) {
-        if (name == skipName)
+    for (uint32_t skip_name : g_editor_camera_skip_names) {
+        if (name == skip_name)
             return true;
     }
-    Scripts::CScriptStore* cache = Scripts::g_scriptStore;
-    const uint8_t* token = cache->FetchScript(name);
+    script::ScriptStore* cache = script::g_script_store;
+    const uint8_t* token = cache->fetch_script(name);
     if (!token)
         return false;
-    token = Scripts::SkipToEndOfStatement(token);
+    token = script::skip_to_end_of_statement(token);
     while (*token != 0x24) { // (end of script)
         const uint8_t* next;
         if (*token == 0x16) { // a name: a script called?
-            uint32_t called = Scripts::FetchWord32(token + 1);
+            uint32_t called = script::fetch_word32(token + 1);
             next = token + 5;
             bool flagged = false;
             if (*next == 0x42) { // (a name after a colon-like 0x42 token: the second name's the script)
                 ++next;
                 if (*next == 0x16) {
-                    called = Scripts::FetchWord32(next + 1);
+                    called = script::fetch_word32(next + 1);
                     next += 5;
-                    flagged = ScriptFlagged(called);
+                    flagged = script_flagged(called);
                 } else {
-                    token = Scripts::SkipToEndOfStatement(next);
+                    token = script::skip_to_end_of_statement(next);
                     continue;
                 }
             } else {
-                flagged = ScriptFlagged(called);
+                flagged = script_flagged(called);
             }
             if (flagged) {
-                cache->ReleaseScript(name);
+                cache->release_script(name);
                 return true;
             }
-            token = Scripts::SkipToEndOfStatement(next);
+            token = script::skip_to_end_of_statement(next);
         } else if (*token == 0x47) {
-            token = Scripts::StepOverToken(token);
+            token = script::step_over_token(token);
             if (*token == 0x39)
                 ++token;
         } else {
-            token = Scripts::SkipToEndOfStatement(token);
+            token = script::skip_to_end_of_statement(token);
         }
     }
-    cache->ReleaseScript(name);
+    cache->release_script(name);
     return false;
 }
 
 // 0x004E5320
-void __cdecl FlagScriptedHit(void* feeler)
+void __cdecl flag_scripted_hit(void* feeler)
 {
     auto* bytes = static_cast<uint8_t*>(feeler);
     if (!bytes[0x6D])
         return;
-    uint32_t nodeName = *reinterpret_cast<uint32_t*>(bytes + 0x58);
-    if (!nodeName)
+    uint32_t node_name = *reinterpret_cast<uint32_t*>(bytes + 0x58);
+    if (!node_name)
         return;
-    Scripts::CStruct* node = LevelNodes::FetchVertex(nodeName, false);
+    script::Struct* node = level_nodes::fetch_vertex(node_name, false);
     if (!node)
         return;
     uint32_t script = 0;
-    node->ReadHashValue(0x2CA8A299, &script, 0);
+    node->read_hash_value(0x2CA8A299, &script, 0);
     if (!script)
         return;
-    SeenCount() = 0;
-    if (ScriptFlagged(script))
-        Flagged() = 1;
+    get_seen_count() = 0;
+    if (script_flagged(script))
+        get_flagged() = 1;
 }
 
 // 0x004E5390
-bool FlaggedObjectBetween(const Maths::Vec4& start, const Maths::Vec4& end)
+bool flagged_object_between(const maths::Vec4& start, const maths::Vec4& end)
 {
-    Flagged() = 0;
+    get_flagged() = 0;
     Feeler feeler;
-    feeler.Kickoff() = start;
-    feeler.End() = end;
-    feeler.SetExcluded(0, 0x50);
-    feeler.HookFn() = reinterpret_cast<void*>(&FlagScriptedHit);
-    feeler.GetHitShape(1, 0);
-    return Flagged() != 0;
+    feeler.kickoff() = start;
+    feeler.get_end() = end;
+    feeler.set_excluded(0, 0x50);
+    feeler.hook_fn() = reinterpret_cast<void*>(&flag_scripted_hit);
+    feeler.get_hit_shape(1, 0);
+    return get_flagged() != 0;
 }
 
 // 0x004E5940
-CObjectModule* __cdecl CEditorViewModule::Fabricate()
+ObjectModule* __cdecl EditorViewModule::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CEditorViewModule));
-    return memory ? static_cast<CEditorViewModule*>(memory)->MakeNew() : nullptr;
+    void* memory = memory::alloc_zeroed(sizeof(EditorViewModule));
+    return memory ? static_cast<EditorViewModule*>(memory)->make_new() : nullptr;
 }
 
 // 0x004E5060
-CEditorViewModule* CEditorViewModule::MakeNew()
+EditorViewModule* EditorViewModule::make_new()
 {
-    CObjectModule::MakeNew();
-    m_vtable = kVtable;
-    m_kindTag = kEditorCamera;
-    for (Maths::Vec4* v : {&m_focus, &m_viewer, &m_cursor, &m_rightSide, &m_forward})
+    ObjectModule::make_new();
+    vtable_ = kVtable;
+    kind_tag_ = kEditorCamera;
+    for (maths::Vec4* v : {&focus_, &viewer_, &cursor_, &right_side_, &forward_})
         *v = {0.0f, 0.0f, 0.0f, 1.0f};
-    m_zoom = m_minZoom = m_maxZoom = m_heading = m_leanAngle = m_minTilt = m_maxTilt = m_levelY = m_minHeight = 0.0f;
-    m_shadowHandle = nullptr;
-    m_inputPtr = nullptr;
-    m_simpleCollision = false;
-    m_noWallCheck = false;
+    zoom_ = min_zoom_ = max_zoom_ = heading_ = lean_angle_ = min_tilt_ = max_tilt_ = level_y_ = min_height_ = 0.0f;
+    shadow_handle_ = nullptr;
+    input_ptr_ = nullptr;
+    simple_collision_ = false;
+    no_wall_check_ = false;
     return this;
 }
 
 // 0x004E5100
-void CEditorViewModule::DestroyBody()
+void EditorViewModule::destroy_body()
 {
-    m_vtable = kVtable;
-    if (m_shadowHandle)
-        ReleaseBlobShadow(m_shadowHandle);
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    if (shadow_handle_)
+        release_blob_shadow(shadow_handle_);
+    ObjectModule::destroy_body();
 }
 
 // 0x004E59A0
-CEditorViewModule* CEditorViewModule::Teardown(unsigned int flags)
+EditorViewModule* EditorViewModule::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x004E4ED0
-void CEditorViewModule::ConfigureFromData(Scripts::CStruct* params)
+void EditorViewModule::configure_from_data(script::Struct* params)
 {
-    m_minHeight = 0.0f;
-    params->FetchFloat(0x9CDF40CD, &m_minHeight, 0); // min_height
-    m_minZoom = 100.0f;
-    params->FetchFloat(0x52EECB98, &m_minZoom, 0);
-    m_maxZoom = 2000.0f;
-    params->FetchFloat(0x53E2512C, &m_maxZoom, 0);
-    m_simpleCollision = params->HasBareFlag(0xA0D7FBAB); // SimpleCollision
-    m_noWallCheck = params->HasBareFlag(0xF5680DEF);
+    min_height_ = 0.0f;
+    params->fetch_float(0x9CDF40CD, &min_height_, 0); // min_height
+    min_zoom_ = 100.0f;
+    params->fetch_float(0x52EECB98, &min_zoom_, 0);
+    max_zoom_ = 2000.0f;
+    params->fetch_float(0x53E2512C, &max_zoom_, 0);
+    simple_collision_ = params->has_bare_flag(0xA0D7FBAB); // SimpleCollision
+    no_wall_check_ = params->has_bare_flag(0xF5680DEF);
 }
 
 // 0x004E51F0
-void CEditorViewModule::Seal()
+void EditorViewModule::seal()
 {
-    m_inputPtr = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kInput));
+    input_ptr_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kInput));
 }
 
 // 0x004E5170
-void CEditorViewModule::BuildBlobShadow()
+void EditorViewModule::build_blob_shadow()
 {
-    if (m_shadowHandle)
+    if (shadow_handle_)
         return;
-    void* memory = MemSys::AllocZeroed(0x14);
-    m_shadowHandle = memory ? static_cast<Engine3D::CBlobShadow*>(memory)->MakeNew() : nullptr;
-    *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(m_shadowHandle) + 0xC) = 0x3F99999A; // 1.2 (no null check)
-    static_cast<Engine3D::CBlobShadow*>(m_shadowHandle)->ChangeMesh("Ped_Shadow");
+    void* memory = memory::alloc_zeroed(0x14);
+    shadow_handle_ = memory ? static_cast<render::BlobShadow*>(memory)->make_new() : nullptr;
+    *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(shadow_handle_) + 0xC) = 0x3F99999A; // 1.2 (no null check)
+    static_cast<render::BlobShadow*>(shadow_handle_)->change_mesh("Ped_Shadow");
 }
 
 // 0x004E59D0
-void CEditorViewModule::Conceal(bool hide)
+void EditorViewModule::conceal(bool hide)
 {
     if (!hide)
-        BuildBlobShadow();
-    else if (m_shadowHandle)
-        ReleaseBlobShadow(m_shadowHandle);
+        build_blob_shadow();
+    else if (shadow_handle_)
+        release_blob_shadow(shadow_handle_);
 }
 
 // 0x004E5A10
-void CEditorViewModule::ResyncGroundShadow()
+void EditorViewModule::resync_ground_shadow()
 {
-    Maths::Vec4 top = {m_cursor.x, m_cursor.y + m_levelY, m_cursor.z, m_cursor.w};
+    maths::Vec4 top = {cursor_.x, cursor_.y + level_y_, cursor_.z, cursor_.w};
     Feeler feeler;
-    feeler.ChangeOrigin(top);
-    Maths::Vec4 bottom = {top.x, top.y - kDown, top.z, top.w};
-    feeler.ChangeFinish(bottom);
-    if (!feeler.GetHitShape(1, 0)) {
-        if (m_shadowHandle)
-            ReleaseBlobShadow(m_shadowHandle);
+    feeler.change_origin(top);
+    maths::Vec4 bottom = {top.x, top.y - kDown, top.z, top.w};
+    feeler.change_finish(bottom);
+    if (!feeler.get_hit_shape(1, 0)) {
+        if (shadow_handle_)
+            release_blob_shadow(shadow_handle_);
         return;
     }
-    BuildBlobShadow();
-    Maths::Vec4 point = feeler.Point();
-    Maths::Mat4 identity;
-    identity.ResetToIdentity();
-    Maths::Vec4 normal = feeler.Normal();
-    reinterpret_cast<void(__thiscall*)(void*, const Maths::Vec4*, const Maths::Mat4*, Maths::Vec4)>(
-        (*static_cast<void***>(m_shadowHandle))[1])(m_shadowHandle, &point, &identity, normal);
+    build_blob_shadow();
+    maths::Vec4 point = feeler.get_point();
+    maths::Mat4 identity;
+    identity.reset_to_identity();
+    maths::Vec4 normal = feeler.get_normal();
+    reinterpret_cast<void(__thiscall*)(void*, const maths::Vec4*, const maths::Mat4*, maths::Vec4)>(
+        (*static_cast<void***>(shadow_handle_))[1])(shadow_handle_, &point, &identity, normal);
 }
 
 // 0x004E5460
-bool CEditorViewModule::GroundHeight(Maths::Vec4 start, Maths::Vec4 end, float* height)
+bool EditorViewModule::ground_height(maths::Vec4 start, maths::Vec4 end, float* height)
 {
     Feeler feeler;
-    feeler.ChangeOrigin(start);
-    feeler.ChangeFinish(end);
-    if (!feeler.GetHitShape(1, 0))
+    feeler.change_origin(start);
+    feeler.change_finish(end);
+    if (!feeler.get_hit_shape(1, 0))
         return false;
-    Flagged() = 0;
-    if (m_simpleCollision) {
-        *height = feeler.Point().y;
+    get_flagged() = 0;
+    if (simple_collision_) {
+        *height = feeler.get_point().y;
         return true;
     }
-    FlagScriptedHit(feeler.Bytes());
-    if (Flagged())
+    flag_scripted_hit(feeler.get_bytes());
+    if (get_flagged())
         return false;
-    if (feeler.Normal().y < kMaxSlope)
+    if (feeler.get_normal().y < kMaxSlope)
         return false;
-    *height = feeler.Point().y;
-    Maths::Vec4 point = feeler.Point();
-    return !FlaggedObjectBetween(start, point);
+    *height = feeler.get_point().y;
+    maths::Vec4 point = feeler.get_point();
+    return !flagged_object_between(start, point);
 }
 
 // 0x004E5640
-bool CEditorViewModule::PlaceCursor(Maths::Vec4 previous, float step)
+bool EditorViewModule::place_cursor(maths::Vec4 previous, float step)
 {
-    float above = m_cursor.y + step;
-    float below = Global(0xF230D521) + m_cursor.y;
+    float above = cursor_.y + step;
+    float below = get_global(0xF230D521) + cursor_.y;
     float height;
-    if (!GroundHeight({m_cursor.x, above + m_levelY, m_cursor.z, m_cursor.w},
-                      {m_cursor.x, below + m_levelY, m_cursor.z, m_cursor.w}, &height))
+    if (!ground_height({cursor_.x, above + level_y_, cursor_.z, cursor_.w},
+                      {cursor_.x, below + level_y_, cursor_.z, cursor_.w}, &height))
         return false;
     // Nothing in the way at head height from where it was?
-    double was = static_cast<double>(previous.y) + m_levelY;
+    double was = static_cast<double>(previous.y) + level_y_;
     float top = static_cast<float>((height > was ? static_cast<double>(height) : was) + kWallHeight);
-    Maths::Vec4 to = {m_cursor.x, top, m_cursor.z, m_cursor.w};
-    Maths::Vec4 from = {previous.x, top, previous.z, previous.w};
+    maths::Vec4 to = {cursor_.x, top, cursor_.z, cursor_.w};
+    maths::Vec4 from = {previous.x, top, previous.z, previous.w};
     bool clear = true;
-    if (!m_simpleCollision && FlaggedObjectBetween(from, to))
+    if (!simple_collision_ && flagged_object_between(from, to))
         clear = false;
-    if (!m_noWallCheck) {
+    if (!no_wall_check_) {
         Feeler feeler;
-        feeler.SetExcluded(0x10, 0);
-        feeler.ChangeOrigin(from);
-        feeler.ChangeFinish(to);
-        if (feeler.GetHitShape(1, 0))
+        feeler.set_excluded(0x10, 0);
+        feeler.change_origin(from);
+        feeler.change_finish(to);
+        if (feeler.get_hit_shape(1, 0))
             clear = false;
     }
     if (!clear)
         return false;
-    if (height >= m_cursor.y) { // (not a number goes down)
+    if (height >= cursor_.y) { // (not a number goes down)
         // Up: the height above it less the rise (the editor's own camera only if it's no lower than 0x71EC75E9).
-        float lowered = static_cast<float>(m_levelY - (static_cast<double>(height) - m_cursor.y));
-        if (!m_simpleCollision || m_entity->m_ident == 0x5B509AD3 || Global(0x71EC75E9) < m_levelY)
-            m_levelY = lowered;
-        if (m_levelY < m_minHeight)
-            m_levelY = m_minHeight;
-        m_cursor.y = height;
+        float lowered = static_cast<float>(level_y_ - (static_cast<double>(height) - cursor_.y));
+        if (!simple_collision_ || entity_->ident_ == 0x5B509AD3 || get_global(0x71EC75E9) < level_y_)
+            level_y_ = lowered;
+        if (level_y_ < min_height_)
+            level_y_ = min_height_;
+        cursor_.y = height;
         return true;
     }
     // Down: the drop added to the height (unless it's a small one with the camera low).
-    double drop = static_cast<double>(m_cursor.y) - height;
-    if (m_levelY > 1.0f || !(drop <= step))
-        m_levelY = static_cast<float>(drop + m_levelY);
-    m_cursor.y = height;
+    double drop = static_cast<double>(cursor_.y) - height;
+    if (level_y_ > 1.0f || !(drop <= step))
+        level_y_ = static_cast<float>(drop + level_y_);
+    cursor_.y = height;
     return true;
 }
 
 // 0x004E5210
-int CEditorViewModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* /*script*/)
+int EditorViewModule::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
     if (name == 0x69CB3AE1) {
-        Scripts::VectorValue position;
-        params->FetchVec(0xB9D31B0A, &position, 1); // Position
-        m_cursor = {position.x, position.y, position.z, position.w};
-        m_levelY = 0.0f;
-        reinterpret_cast<void(__thiscall*)(CObjectModule*)>(m_vtable[1])(this); // Update
-        m_levelY = position.y - m_cursor.y;
+        script::VectorValue position;
+        params->fetch_vec(0xB9D31B0A, &position, 1); // Position
+        cursor_ = {position.x, position.y, position.z, position.w};
+        level_y_ = 0.0f;
+        reinterpret_cast<void(__thiscall*)(ObjectModule*)>(vtable_[1])(this); // Update
+        level_y_ = position.y - cursor_.y;
         return 1;
     }
     if (name == 0xF362BBBF) {
-        params->FetchVec(0xB9D31B0A, reinterpret_cast<Scripts::VectorValue*>(&m_cursor), 0);
-        m_focus = m_cursor;
-        m_zoom = 700.0f;
-        params->FetchFloat(0xC48391A5, &m_zoom, 0);
-        m_leanAngle = 0.6f;
-        params->FetchFloat(0xE3C07609, &m_leanAngle, 0); // tilt
-        m_levelY = 0.0f;
-        params->FetchFloat(0xB8D629CA, &m_levelY, 0);
+        params->fetch_vec(0xB9D31B0A, reinterpret_cast<script::VectorValue*>(&cursor_), 0);
+        focus_ = cursor_;
+        zoom_ = 700.0f;
+        params->fetch_float(0xC48391A5, &zoom_, 0);
+        lean_angle_ = 0.6f;
+        params->fetch_float(0xE3C07609, &lean_angle_, 0); // tilt
+        level_y_ = 0.0f;
+        params->fetch_float(0xB8D629CA, &level_y_, 0);
         return 1;
     }
     return 2;
 }
 
 // 0x004E5C20
-void CEditorViewModule::TickFrame()
+void EditorViewModule::tick_frame()
 {
-    m_minTilt = Global(0x7D16D113);
-    m_maxTilt = Global(0x411BEE4A);
-    uint8_t* pad = m_inputPtr + 0x20;
+    min_tilt_ = get_global(0x7D16D113);
+    max_tilt_ = get_global(0x411BEE4A);
+    uint8_t* pad = input_ptr_ + 0x20;
     auto stick = [pad](uint32_t offset) { return *reinterpret_cast<float*>(pad + offset); };
 
     // Heading, wrapped into 0..2 pi (the comparison on the unrounded sum, as the original).
-    double heading = static_cast<double>(Global(0x8242D878)) * stick(0x210) + m_heading;
-    m_heading = static_cast<float>(heading);
+    double heading = static_cast<double>(get_global(0x8242D878)) * stick(0x210) + heading_;
+    heading_ = static_cast<float>(heading);
     if (heading > kTwoPi) {
-        double h = m_heading;
+        double h = heading_;
         do
             h -= kTwoPi;
         while (h > kTwoPi);
-        m_heading = static_cast<float>(h);
+        heading_ = static_cast<float>(h);
     }
-    if (m_heading < 0.0f) {
-        double h = m_heading;
+    if (heading_ < 0.0f) {
+        double h = heading_;
         do
             h += kTwoPi;
         while (h < 0.0f);
-        m_heading = static_cast<float>(h);
+        heading_ = static_cast<float>(h);
     }
     // Tilt, within the globals' range.
-    double tilt = -(static_cast<double>(Global(0x3CFA3A72)) * stick(0x214)) + m_leanAngle;
-    m_leanAngle = static_cast<float>(tilt);
-    if (tilt > m_maxTilt)
-        m_leanAngle = m_maxTilt;
-    if (m_leanAngle < m_minTilt)
-        m_leanAngle = m_minTilt;
+    double tilt = -(static_cast<double>(get_global(0x3CFA3A72)) * stick(0x214)) + lean_angle_;
+    lean_angle_ = static_cast<float>(tilt);
+    if (tilt > max_tilt_)
+        lean_angle_ = max_tilt_;
+    if (lean_angle_ < min_tilt_)
+        lean_angle_ = min_tilt_;
 
     // The zoom and height buttons by controller type.
-    bool zoomIn = false, zoomOut = false, raise = false, lower = false;
-    int controller = GameConfig::g_platform;
-    uint32_t buttons = *reinterpret_cast<uint32_t*>(m_inputPtr + 0x1C);
+    bool zoom_in = false, zoom_out = false, raise = false, lower = false;
+    int controller = game_config::g_platform;
+    uint32_t buttons = *reinterpret_cast<uint32_t*>(input_ptr_ + 0x1C);
     if (controller == 4 || controller == 7) {
-        zoomIn = (buttons & 0x400000) != 0;
-        zoomOut = (buttons & 0x800000) != 0;
-        if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(ParkEditing::g_parkEditor) + 0x40) == 0x7ECA21E5) {
+        zoom_in = (buttons & 0x400000) != 0;
+        zoom_out = (buttons & 0x800000) != 0;
+        if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor) + 0x40) == 0x7ECA21E5) {
             raise = (buttons & 0x1000) != 0;
             lower = (buttons & 0x4000) != 0;
         } else {
@@ -441,34 +441,34 @@ void CEditorViewModule::TickFrame()
         }
     } else if (controller == 5) {
         if (buttons & 0x1000000) {
-            zoomIn = (buttons & 0x2000) != 0;
-            zoomOut = (buttons & 0x1000) != 0;
+            zoom_in = (buttons & 0x2000) != 0;
+            zoom_out = (buttons & 0x1000) != 0;
         } else {
             lower = (buttons & 0x2000) != 0;
             raise = (buttons & 0x1000) != 0;
         }
     } else {
-        zoomIn = pad[0xE0] != 0;
-        zoomOut = pad[0x100] != 0;
+        zoom_in = pad[0xE0] != 0;
+        zoom_out = pad[0x100] != 0;
         raise = pad[0x80] != 0;
         lower = pad[0xA0] != 0;
     }
-    double zoomRate = Global(0x4E58F829);
-    if (!zoomIn)
-        zoomRate = zoomOut ? -zoomRate : 0.0f;
-    double zoom = zoomRate * m_zoom + m_zoom;
-    m_zoom = static_cast<float>(zoom);
-    if (zoom < m_minZoom)
-        m_zoom = m_minZoom;
-    if (m_zoom > m_maxZoom)
-        m_zoom = m_maxZoom;
-    float zoomFraction = static_cast<float>((static_cast<double>(m_zoom) - m_minZoom) /
-                                            (static_cast<double>(m_maxZoom) - m_minZoom));
+    double zoom_rate = get_global(0x4E58F829);
+    if (!zoom_in)
+        zoom_rate = zoom_out ? -zoom_rate : 0.0f;
+    double zoom = zoom_rate * zoom_ + zoom_;
+    zoom_ = static_cast<float>(zoom);
+    if (zoom < min_zoom_)
+        zoom_ = min_zoom_;
+    if (zoom_ > max_zoom_)
+        zoom_ = max_zoom_;
+    float zoom_fraction = static_cast<float>((static_cast<double>(zoom_) - min_zoom_) /
+                                            (static_cast<double>(max_zoom_) - min_zoom_));
 
     // Raising / lowering the height (by the zoom; slowly when close), not through a ceiling.
-    float nearRate = Global(0x604961F4);
-    float rise = static_cast<float>((static_cast<double>(Global(0x5C445EAD)) - nearRate) * zoomFraction + nearRate);
-    if (m_zoom < kNearZoom)
+    float near_rate = get_global(0x604961F4);
+    float rise = static_cast<float>((static_cast<double>(get_global(0x5C445EAD)) - near_rate) * zoom_fraction + near_rate);
+    if (zoom_ < kNearZoom)
         rise = 0.2f;
     if (!raise) {
         if (!lower)
@@ -477,15 +477,15 @@ void CEditorViewModule::TickFrame()
             rise = -rise;
     }
     if ((raise || lower) && rise > 0.0f) {
-        Maths::Vec4 from = {m_cursor.x, static_cast<float>(static_cast<double>(m_cursor.y) + m_levelY + kAbove),
-                            m_cursor.z, m_cursor.w};
-        Maths::Vec4 to = {m_cursor.x, from.y - kDown, m_cursor.z, m_cursor.w};
+        maths::Vec4 from = {cursor_.x, static_cast<float>(static_cast<double>(cursor_.y) + level_y_ + kAbove),
+                            cursor_.z, cursor_.w};
+        maths::Vec4 to = {cursor_.x, from.y - kDown, cursor_.z, cursor_.w};
         Feeler ceiling;
-        ceiling.ChangeOrigin(from);
-        ceiling.ChangeFinish(to);
-        if (ceiling.GetHitShape(1, 0)) {
-            float room = from.y - ceiling.Point().y;
-            if (Global(0x61D56FA0) < room)
+        ceiling.change_origin(from);
+        ceiling.change_finish(to);
+        if (ceiling.get_hit_shape(1, 0)) {
+            float room = from.y - ceiling.get_point().y;
+            if (get_global(0x61D56FA0) < room)
                 rise = 0.0f;
             if (room < 0.0f)
                 rise = 0.0f;
@@ -493,45 +493,45 @@ void CEditorViewModule::TickFrame()
             rise = 0.0f;
         }
     }
-    m_levelY = rise + m_levelY;
+    level_y_ = rise + level_y_;
 
-    uint8_t* skate = reinterpret_cast<uint8_t*>(GameModules::g_skateModule);
-    if (InParkEditor())
-        RailEditorMoving(0);
+    uint8_t* skate = reinterpret_cast<uint8_t*>(modules::g_skate_module);
+    if (in_park_editor())
+        rail_editor_moving(0);
 
     // The cursor kept under anything above it, and the height under any ceiling.
     Feeler feeler;
     {
-        float height = m_levelY;
-        Maths::Vec4 above = {m_cursor.x, static_cast<float>(static_cast<double>(height) + m_cursor.y), m_cursor.z,
-                             static_cast<float>(static_cast<double>(m_cursor.w) + 1.0f)};
-        feeler.ChangeOrigin(above);
-        feeler.ChangeFinish(m_cursor);
-        if (feeler.GetHitShape(1, 0)) {
-            m_levelY = static_cast<float>((static_cast<double>(m_cursor.y) + m_levelY) - feeler.Point().y);
-            m_cursor = feeler.Point();
+        float height = level_y_;
+        maths::Vec4 above = {cursor_.x, static_cast<float>(static_cast<double>(height) + cursor_.y), cursor_.z,
+                             static_cast<float>(static_cast<double>(cursor_.w) + 1.0f)};
+        feeler.change_origin(above);
+        feeler.change_finish(cursor_);
+        if (feeler.get_hit_shape(1, 0)) {
+            level_y_ = static_cast<float>((static_cast<double>(cursor_.y) + level_y_) - feeler.get_point().y);
+            cursor_ = feeler.get_point();
         }
-        feeler.ChangeOrigin(m_cursor);
-        float up = m_levelY + kAbove;
-        Maths::Vec4 top = {m_cursor.x, up + m_cursor.y, m_cursor.z, static_cast<float>(static_cast<double>(m_cursor.w) + 1.0f)};
-        feeler.ChangeFinish(top);
-        if (feeler.GetHitShape(1, 0))
-            m_levelY = static_cast<float>((static_cast<double>(feeler.Point().y) - m_cursor.y) - kAbove);
+        feeler.change_origin(cursor_);
+        float up = level_y_ + kAbove;
+        maths::Vec4 top = {cursor_.x, up + cursor_.y, cursor_.z, static_cast<float>(static_cast<double>(cursor_.w) + 1.0f)};
+        feeler.change_finish(top);
+        if (feeler.get_hit_shape(1, 0))
+            level_y_ = static_cast<float>((static_cast<double>(feeler.get_point().y) - cursor_.y) - kAbove);
     }
-    if (rise < 0.0f && m_minHeight <= (static_cast<double>(m_levelY) - rise) + kHeightSlack && m_levelY < m_minHeight)
-        m_levelY = m_minHeight;
-    if (m_levelY < 0.0f)
-        m_levelY = 0.0f;
+    if (rise < 0.0f && min_height_ <= (static_cast<double>(level_y_) - rise) + kHeightSlack && level_y_ < min_height_)
+        level_y_ = min_height_;
+    if (level_y_ < 0.0f)
+        level_y_ = 0.0f;
 
     // The heading's axes.
-    float headingNow = m_heading;
-    m_rightSide = {static_cast<float>(std::cos(static_cast<double>(headingNow))), 0.0f,
-               static_cast<float>(-std::sin(static_cast<double>(headingNow))), 1.0f};
-    m_forward = {static_cast<float>(std::sin(static_cast<double>(headingNow))), 0.0f,
-                 static_cast<float>(std::cos(static_cast<double>(headingNow))), 1.0f};
-    float nearSpeed = Global(0x83BDE786);
-    double speed = (static_cast<double>(Global(0xBFB0D8DF)) - nearSpeed) * zoomFraction + nearSpeed;
-    if (m_zoom < kNearZoom)
+    float heading_now = heading_;
+    right_side_ = {static_cast<float>(std::cos(static_cast<double>(heading_now))), 0.0f,
+               static_cast<float>(-std::sin(static_cast<double>(heading_now))), 1.0f};
+    forward_ = {static_cast<float>(std::sin(static_cast<double>(heading_now))), 0.0f,
+                 static_cast<float>(std::cos(static_cast<double>(heading_now))), 1.0f};
+    float near_speed = get_global(0x83BDE786);
+    double speed = (static_cast<double>(get_global(0xBFB0D8DF)) - near_speed) * zoom_fraction + near_speed;
+    if (zoom_ < kNearZoom)
         speed = 1.0f;
 
     // The left stick (or the d-pad) moves the cursor along the axes.
@@ -549,65 +549,65 @@ void CEditorViewModule::TickFrame()
         if (pad[0x20])
             ahead = 0.5f;
     }
-    float a1 = static_cast<float>(ahead * m_forward.w);
-    float a2 = static_cast<float>(ahead * m_forward.z);
-    float a3 = static_cast<float>(ahead * m_forward.y);
-    double a4 = ahead * m_forward.x;
+    float a1 = static_cast<float>(ahead * forward_.w);
+    float a2 = static_cast<float>(ahead * forward_.z);
+    float a3 = static_cast<float>(ahead * forward_.y);
+    double a4 = ahead * forward_.x;
     float b1 = static_cast<float>(a1 * speed), b2 = static_cast<float>(a2 * speed), b3 = static_cast<float>(a3 * speed);
     float b4 = static_cast<float>(a4 * speed);
-    double c1 = static_cast<double>(side) * m_rightSide.w, c2 = static_cast<double>(side) * m_rightSide.z;
-    float c3 = side * m_rightSide.y, c4 = side * m_rightSide.x;
+    double c1 = static_cast<double>(side) * right_side_.w, c2 = static_cast<double>(side) * right_side_.z;
+    float c3 = side * right_side_.y, c4 = side * right_side_.x;
     float d1 = static_cast<float>(c1 * speed), d2 = static_cast<float>(c2 * speed), d3 = static_cast<float>(c3 * speed);
     double x0 = speed * c4;
-    Maths::Vec4 previous = m_cursor;
-    m_cursor.x = static_cast<float>((x0 + b4) + m_cursor.x);
-    m_cursor.y = static_cast<float>((static_cast<double>(d3) + b3) + m_cursor.y);
-    m_cursor.z = static_cast<float>((static_cast<double>(d2) + b2) + m_cursor.z);
-    m_cursor.w = static_cast<float>((static_cast<double>(d1) + b1) + m_cursor.w);
-    if (!PlaceCursor(previous, Global(0xC7210318)))
-        m_cursor = previous;
+    maths::Vec4 previous = cursor_;
+    cursor_.x = static_cast<float>((x0 + b4) + cursor_.x);
+    cursor_.y = static_cast<float>((static_cast<double>(d3) + b3) + cursor_.y);
+    cursor_.z = static_cast<float>((static_cast<double>(d2) + b2) + cursor_.z);
+    cursor_.w = static_cast<float>((static_cast<double>(d1) + b1) + cursor_.w);
+    if (!place_cursor(previous, get_global(0xC7210318)))
+        cursor_ = previous;
     if (*reinterpret_cast<uint32_t*>(skate + 0x378) == 0xE8B4B836)
-        RailEditorMoving(1);
+        rail_editor_moving(1);
 
     // The camera: the focus follows the cursor (its height eased), the camera at the zoom along the tilt.
-    m_focus.x = m_cursor.x;
-    m_focus.z = m_cursor.z;
-    float ease = Global(0x725AD02C);
-    m_focus.y = static_cast<float>(((static_cast<double>(m_cursor.y) + m_levelY) - m_focus.y) * ease + m_focus.y);
-    float tiltNow = m_leanAngle;
-    float atX = static_cast<float>(std::cos(static_cast<double>(tiltNow)) * m_forward.x);
-    float atZ = static_cast<float>(std::cos(static_cast<double>(tiltNow)) * m_forward.z);
-    float atY = static_cast<float>(std::sin(static_cast<double>(tiltNow)));
-    Maths::Mat4 look;
-    look.row[0] = {m_rightSide.x, m_rightSide.y, m_rightSide.z, 0.0f};
-    look.row[1] = {static_cast<float>(static_cast<double>(atY) * m_rightSide.z - static_cast<double>(atZ) * m_rightSide.y),
-                   static_cast<float>(static_cast<double>(atZ) * m_rightSide.x - static_cast<double>(atX) * m_rightSide.z),
-                   static_cast<float>(static_cast<double>(atX) * m_rightSide.y - static_cast<double>(atY) * m_rightSide.x),
+    focus_.x = cursor_.x;
+    focus_.z = cursor_.z;
+    float ease = get_global(0x725AD02C);
+    focus_.y = static_cast<float>(((static_cast<double>(cursor_.y) + level_y_) - focus_.y) * ease + focus_.y);
+    float tilt_now = lean_angle_;
+    float at_x = static_cast<float>(std::cos(static_cast<double>(tilt_now)) * forward_.x);
+    float at_z = static_cast<float>(std::cos(static_cast<double>(tilt_now)) * forward_.z);
+    float at_y = static_cast<float>(std::sin(static_cast<double>(tilt_now)));
+    maths::Mat4 look;
+    look.row[0] = {right_side_.x, right_side_.y, right_side_.z, 0.0f};
+    look.row[1] = {static_cast<float>(static_cast<double>(at_y) * right_side_.z - static_cast<double>(at_z) * right_side_.y),
+                   static_cast<float>(static_cast<double>(at_z) * right_side_.x - static_cast<double>(at_x) * right_side_.z),
+                   static_cast<float>(static_cast<double>(at_x) * right_side_.y - static_cast<double>(at_y) * right_side_.x),
                    0.0f};
-    look.row[2] = {atX, atY, atZ, 0.0f};
+    look.row[2] = {at_x, at_y, at_z, 0.0f};
     look.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    m_entity->m_basisFrame = look;
-    float zoomNow = m_zoom;
-    float offW = previous.w * zoomNow; // (the cursor's w from before the move, as the original reuses it)
-    float offZ = atZ * zoomNow, nudgeAlongY = atY * zoomNow, sideShiftX = atX * zoomNow;
-    m_viewer.x = sideShiftX + m_focus.x;
-    m_viewer.y = m_focus.y + nudgeAlongY;
-    m_viewer.z = m_focus.z + offZ;
-    m_viewer.w = m_focus.w + offW;
-    m_viewer.w = 1.0f;
-    m_entity->m_atPoint = m_viewer;
-    ResyncGroundShadow();
+    entity_->basis_frame_ = look;
+    float zoom_now = zoom_;
+    float off_w = previous.w * zoom_now; // (the cursor's w from before the move, as the original reuses it)
+    float off_z = at_z * zoom_now, nudge_along_y = at_y * zoom_now, side_shift_x = at_x * zoom_now;
+    viewer_.x = side_shift_x + focus_.x;
+    viewer_.y = focus_.y + nudge_along_y;
+    viewer_.z = focus_.z + off_z;
+    viewer_.w = focus_.w + off_w;
+    viewer_.w = 1.0f;
+    entity_->at_point_ = viewer_;
+    resync_ground_shadow();
 }
 
 namespace {
 
 // 0x004E5390: `end` in ESI, `start` in EDI; the result in AL.
-__declspec(naked) void FlaggedObjectBetweenStub()
+__declspec(naked) void flagged_object_between_stub()
 {
     __asm {
         push esi
         push edi
-        call FlaggedObjectBetween
+        call flagged_object_between
         add esp, 8
         ret
     }
@@ -617,23 +617,23 @@ __declspec(naked) void FlaggedObjectBetweenStub()
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CEditorViewModule::Teardown,
-         &GameObjects::CEditorViewModule::TickFrame,
-         &GameObjects::CEditorViewModule::ConfigureFromData,
-         &GameObjects::CEditorViewModule::Seal,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         &GameObjects::CEditorViewModule::Conceal,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
-         &GameObjects::CEditorViewModule::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::EditorViewModule::teardown,
+         &objects::EditorViewModule::tick_frame,
+         &objects::EditorViewModule::configure_from_data,
+         &objects::EditorViewModule::seal,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         &objects::EditorViewModule::conceal,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
+         &objects::EditorViewModule::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

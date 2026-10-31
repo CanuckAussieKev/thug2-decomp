@@ -3,12 +3,12 @@
 #include <array>
 #include <cstdint>
 
-namespace Checksums {
+namespace checksums {
 
 namespace {
 
 // The standard CRC-32 table. The exe has the same table at 0x0067C248.
-constexpr std::array<uint32_t, 256> MakeTable()
+constexpr std::array<uint32_t, 256> make_table()
 {
     std::array<uint32_t, 256> table{};
     for (uint32_t i = 0; i < 256; ++i) {
@@ -20,15 +20,15 @@ constexpr std::array<uint32_t, 256> MakeTable()
     return table;
 }
 
-constexpr std::array<uint32_t, 256> kTable = MakeTable();
+constexpr std::array<uint32_t, 256> kTable = make_table();
 
-uint32_t Step(uint32_t crc, uint8_t byte)
+uint32_t get_step(uint32_t crc, uint8_t byte)
 {
     return (crc >> 8) ^ kTable[(crc ^ byte) & 0xFF];
 }
 
 // Names are case-insensitive and treat '/' and '\' as the same character.
-uint8_t NameChar(char c)
+uint8_t name_char(char c)
 {
     if (c >= 'A' && c <= 'Z')
         c += 'a' - 'A';
@@ -40,54 +40,54 @@ uint8_t NameChar(char c)
 } // namespace
 
 // 0x00401B90
-uint32_t HashFromText(const char* string)
+uint32_t hash_from_text(const char* string)
 {
     if (!string)
         return 0;
-    return FoldTextIntoChecksum(0xFFFFFFFF, string);
+    return fold_text_into_checksum(0xFFFFFFFF, string);
 }
 
 // 0x00401BE0
-uint32_t FoldTextIntoChecksum(uint32_t crc, const char* string)
+uint32_t fold_text_into_checksum(uint32_t crc, const char* string)
 {
     if (!string)
         return crc;
     for (; *string; ++string)
-        crc = Step(crc, NameChar(*string));
+        crc = get_step(crc, name_char(*string));
     return crc;
 }
 
 // 0x00401AA0
-uint32_t GenerateCRCFromBuffer(const void* data, int size)
+uint32_t generate_crc_from_buffer(const void* data, int size)
 {
     if (!data || size < 1)
         return 0;
     const auto* bytes = static_cast<const uint8_t*>(data);
     uint32_t crc = 0xFFFFFFFF;
     for (int i = 0; i < size; ++i)
-        crc = Step(crc, bytes[i]);
+        crc = get_step(crc, bytes[i]);
     return crc;
 }
 
 // 0x00401AF0
 // Ghidra's pseudocode shows this as an empty loop: it misses the third argument (the starting CRC, loaded
 // straight into EAX) and with it the loop body and the return value. The script code chains it over tokens.
-uint32_t ExtendCRCWithBuffer(const void* data, int size, uint32_t crc)
+uint32_t extend_crc_with_buffer(const void* data, int size, uint32_t crc)
 {
     const auto* bytes = static_cast<const uint8_t*>(data);
     for (int i = 0; i < size; ++i)
-        crc = Step(crc, bytes[i]);
+        crc = get_step(crc, bytes[i]);
     return crc;
 }
 
 // 0x00401B30
-uint32_t GenerateCRCCaseless(const char* data, int size)
+uint32_t generate_crc_caseless(const char* data, int size)
 {
     if (!data || size < 1)
         return 0;
     uint32_t crc = 0xFFFFFFFF;
     for (int i = 0; i < size; ++i)
-        crc = Step(crc, NameChar(data[i]));
+        crc = get_step(crc, name_char(data[i]));
     return crc;
 }
 

@@ -1,4 +1,4 @@
-// The Avoid component (GameObjects::CObstacleDodgeModule): see avoid.h. From the disassembly of 0x004E3270-0x004E3F50 (the
+// The Avoid component (GameObjects::ObstacleDodgeModule): see avoid.h. From the disassembly of 0x004E3270-0x004E3F50 (the
 // member functions 0x004E37D0, 0x004E3810, 0x004E3BD0 and 0x004E3EC0 aren't Ghidra functions).
 
 #include "engine/objects/avoid.h"
@@ -29,9 +29,9 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace GameObjects {
+namespace objects {
 
-uint32_t g_avoidMemberFunctions[54]{
+uint32_t g_avoid_member_functions[54]{
             0x6157CBC0, 0x6EB050ED, 0, 0, 0, 0,
             0xD2AA4D2D, 0x6EB050ED, 0, 0, 0, 0,
             0x41226942, 0x6EB050ED, 0, 0, 0, 0,
@@ -58,7 +58,7 @@ constexpr float kToRadians = 0.01745329238474369f;  // 0x00645464
 constexpr float kToDegrees = 57.2957763671875f;     // 0x00645468
 
 // The quarter an angle falls in (0-4; 4 is ahead again), as the original's x87 sum and _ftol2.
-int Quarter(float angle)
+int get_quarter(float angle)
 {
     double value = static_cast<double>(angle) + kQuarterTurn;
     if (value < 0.0)
@@ -71,329 +71,329 @@ int Quarter(float angle)
     return static_cast<int>(static_cast<uint32_t>(static_cast<uint64_t>(static_cast<int64_t>(quarters))));
 }
 
-// The local skater (GameModules::Skate 0x007CE478's 0x00566520; not rewritten yet).
-CGameEntity* LocalSkater()
+// The local skater (modules::Skate 0x007CE478's 0x00566520; not rewritten yet).
+GameEntity* local_skater()
 {
-    return static_cast<CGameEntity*>(GameModules::Skate::Sole()->GetHomeRider());
+    return static_cast<GameEntity*>(modules::Skate::sole()->get_home_rider());
 }
 
 // The animation blender's (component 0x7149B753).
-CAnimBlenderComponent* Blender(CObjectModule* blender) { return static_cast<CAnimBlenderComponent*>(blender); }
-void PlayAnim(CObjectModule* blender, uint32_t anim, int unknown)
+AnimBlenderComponent* get_blender(ObjectModule* blender) { return static_cast<AnimBlenderComponent*>(blender); }
+void play_anim(ObjectModule* blender, uint32_t anim, int unknown)
 {
-    Blender(blender)->PlayAnimation(anim, static_cast<uint32_t>(unknown));
+    get_blender(blender)->play_animation(anim, static_cast<uint32_t>(unknown));
 }
-float ClipLength(CObjectModule* blender, uint32_t anim) { return Blender(blender)->FetchValue(anim); }
-// (each channel's 0x0047DC40 with these: AnyChannel - its result unused here)
-void FlipAnims(CObjectModule* blender, uint32_t objectId, bool flip, int a, int b)
+float clip_length(ObjectModule* blender, uint32_t anim) { return get_blender(blender)->fetch_value(anim); }
+// (each channel's 0x0047DC40 with these: any_channel - its result unused here)
+void flip_anims(ObjectModule* blender, uint32_t object_id, bool flip, int a, int b)
 {
-    Blender(blender)->AnyChannel(objectId, flip ? 1u : 0u, static_cast<uint32_t>(a), static_cast<uint32_t>(b));
+    get_blender(blender)->any_channel(object_id, flip ? 1u : 0u, static_cast<uint32_t>(a), static_cast<uint32_t>(b));
 }
-bool AnimComplete(CObjectModule* blender) { return Blender(blender)->IsClipDone(); }
+bool anim_complete(ObjectModule* blender) { return get_blender(blender)->is_clip_done(); }
 // The motion component's (0x0A015E17) path follower, 0x00423510 (null, or something with a point at +0x74).
-uint8_t* MotionPath(CObjectModule* motion)
+uint8_t* motion_path(ObjectModule* motion)
 {
-    return static_cast<uint8_t*>(reinterpret_cast<CMotionPathMembers*>(motion)->GetPathFollower());
+    return static_cast<uint8_t*>(reinterpret_cast<MotionPathMembers*>(motion)->get_path_follower());
 }
-uint32_t& MotionFlags(CObjectModule* motion) { return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(motion) + 0x1C); }
+uint32_t& motion_flags(ObjectModule* motion) { return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(motion) + 0x1C); }
 
 // `out` = `in` (all four) times `m`, summed as 0x0040AF60 does.
-void Xform(const Maths::Mat4& m, Maths::Vec4& out, const Maths::Vec4& in) { m.Xform(out, in); }
+void xform(const maths::Mat4& m, maths::Vec4& out, const maths::Vec4& in) { m.xform(out, in); }
 // D3DXMatrixMultiply (linked library code).
-void D3dxMultiply(Maths::Mat4& out, const Maths::Mat4& a, const Maths::Mat4& b)
+void d3dx_multiply(maths::Mat4& out, const maths::Mat4& a, const maths::Mat4& b)
 {
-    D3dx::MatrixMultiply(&out, &a, &b);
+    d3dx::matrix_multiply(&out, &a, &b);
 }
 
 // The collision feeler (Nx's ray, 0xB0 bytes): constructed by 0x00417760, its line from +0x00 to +0x10, tested
 // by 0x004172F0; what it hit is held by a smart pointer at +0x98.
 class Feeler {
 public:
-    Feeler() { reinterpret_cast<Engine3D::CProbeRay*>(m_bytes)->MakeNew(); }
-    ~Feeler() { reinterpret_cast<CSharedRef<CSharedBase>*>(m_bytes + 0x98)->~CSharedRef(); }
+    Feeler() { reinterpret_cast<render::ProbeRay*>(bytes_)->make_new(); }
+    ~Feeler() { reinterpret_cast<SharedRef<SharedBase>*>(bytes_ + 0x98)->~SharedRef(); }
     Feeler(const Feeler&) = delete;
     Feeler& operator=(const Feeler&) = delete;
-    Maths::Vec4& Kickoff() { return *reinterpret_cast<Maths::Vec4*>(m_bytes); }
-    Maths::Vec4& End() { return *reinterpret_cast<Maths::Vec4*>(m_bytes + 0x10); }
-    bool GetHitShape(int a, int b) { return reinterpret_cast<Engine3D::CProbeRay*>(m_bytes)->GetHitShape(a != 0, b != 0) != 0; }
+    maths::Vec4& kickoff() { return *reinterpret_cast<maths::Vec4*>(bytes_); }
+    maths::Vec4& get_end() { return *reinterpret_cast<maths::Vec4*>(bytes_ + 0x10); }
+    bool get_hit_shape(int a, int b) { return reinterpret_cast<render::ProbeRay*>(bytes_)->get_hit_shape(a != 0, b != 0) != 0; }
 
 private:
-    alignas(16) uint8_t m_bytes[0xB0];
+    alignas(16) uint8_t bytes_[0xB0];
 };
 
 // The angle of `v` about the y row of `m` from its at row, in the original's degrees or radians.
-float AngleInPlane(const Maths::Mat4& m, const Maths::Vec4& v) { return Maths::GetAngleInPlane(m, v, 2, 1); }
+float angle_in_plane(const maths::Mat4& m, const maths::Vec4& v) { return maths::get_angle_in_plane(m, v, 2, 1); }
 
 } // namespace
 
 // 0x004E3270
-float AvoidDistance(float angle, Scripts::CStruct* params)
+float avoid_distance(float angle, script::Struct* params)
 {
     float distance = 0.0f;
-    switch (Quarter(angle)) {
-    case 1: params->FetchFloat("distLeft", &distance, 1); break;
-    case 2: params->FetchFloat("distBack", &distance, 1); break;
-    case 3: params->FetchFloat("distRight", &distance, 1); break;
-    default: params->FetchFloat("distForward", &distance, 1); break;
+    switch (get_quarter(angle)) {
+    case 1: params->fetch_float("distLeft", &distance, 1); break;
+    case 2: params->fetch_float("distBack", &distance, 1); break;
+    case 3: params->fetch_float("distRight", &distance, 1); break;
+    default: params->fetch_float("distForward", &distance, 1); break;
     }
     return distance;
 }
 
 // 0x004E3930
-bool LineCollides(const Maths::Vec4& start, const Maths::Vec4& end)
+bool line_collides(const maths::Vec4& start, const maths::Vec4& end)
 {
     Feeler feeler;
-    feeler.Kickoff() = start;
-    feeler.End() = end;
-    return feeler.GetHitShape(1, 0);
+    feeler.kickoff() = start;
+    feeler.get_end() = end;
+    return feeler.get_hit_shape(1, 0);
 }
 
 // 0x004E39E0
-CObjectModule* __cdecl CObstacleDodgeModule::Fabricate()
+ObjectModule* __cdecl ObstacleDodgeModule::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CObstacleDodgeModule));
-    return memory ? static_cast<CObstacleDodgeModule*>(memory)->MakeNew() : nullptr;
+    void* memory = memory::alloc_zeroed(sizeof(ObstacleDodgeModule));
+    return memory ? static_cast<ObstacleDodgeModule*>(memory)->make_new() : nullptr;
 }
 
 // 0x004E3310
-void __cdecl CObstacleDodgeModule::PublishMethodTable()
+void __cdecl ObstacleDodgeModule::publish_method_table()
 {
-    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kAvoid), g_avoidMemberFunctions, 0x18);
+    script::register_member_function_table(reinterpret_cast<void*>(kAvoid), g_avoid_member_functions, 0x18);
 }
 
 // 0x004E3660
-CObstacleDodgeModule* CObstacleDodgeModule::MakeNew()
+ObstacleDodgeModule* ObstacleDodgeModule::make_new()
 {
-    CObjectModule::MakeNew();
-    m_vtable = kVtable;
-    m_kindTag = kAvoid;
+    ObjectModule::make_new();
+    vtable_ = kVtable;
+    kind_tag_ = kAvoid;
     return this;
 }
 
 // 0x004E3330
-void CObstacleDodgeModule::DestroyBody()
+void ObstacleDodgeModule::destroy_body()
 {
-    m_vtable = kVtable;
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    ObjectModule::destroy_body();
 }
 
 // 0x004E36C0
-CObstacleDodgeModule* CObstacleDodgeModule::Teardown(unsigned int flags)
+ObstacleDodgeModule* ObstacleDodgeModule::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x004E34C0
-float CObstacleDodgeModule::SideAwayFromSkater()
+float ObstacleDodgeModule::side_away_from_skater()
 {
-    CGameEntity* skater = LocalSkater();
+    GameEntity* skater = local_skater();
     // The skater's heading (its at row) flat and normalised; across it (x up), as the original's cross product
     // with (0, 1, 0) - the zero terms multiplied out.
-    const Maths::Vec4& at = skater->m_basisFrame.row[2];
+    const maths::Vec4& at = skater->basis_frame_.row[2];
     double x = at.x, z = at.z, y = 0.0;
     float length = static_cast<float>(std::sqrt(z * z + x * x));
     if (length > 0.0f) {
-        double exactInverse = 1.0 / length; // (x by the unrounded inverse, z and y by the rounded one)
-        float inverse = static_cast<float>(exactInverse);
-        x *= exactInverse;
+        double exact_inverse = 1.0 / length; // (x by the unrounded inverse, z and y by the rounded one)
+        float inverse = static_cast<float>(exact_inverse);
+        x *= exact_inverse;
         y = static_cast<double>(inverse) * 0.0f;
         z *= inverse;
     }
-    double zeroY = y * 0.0f;
-    float sideX = static_cast<float>(zeroY - z);
-    float sideY = static_cast<float>(z * 0.0f - x * 0.0f);
-    float sideZ = static_cast<float>(x - zeroY);
-    Maths::Vec4 side = {sideX, sideY, sideZ, 0.0f};
+    double zero_y = y * 0.0f;
+    float side_x = static_cast<float>(zero_y - z);
+    float side_y = static_cast<float>(z * 0.0f - x * 0.0f);
+    float side_z = static_cast<float>(x - zero_y);
+    maths::Vec4 side = {side_x, side_y, side_z, 0.0f};
     // Which of the object's two sides is further from the skater (the first one's x and y unrounded).
-    const Maths::Vec4& pos = m_entity->m_atPoint;
-    double aX = static_cast<double>(sideX) + pos.x, aY = static_cast<double>(sideY) + pos.y;
-    float aZ = sideZ + pos.z;
-    float bX = pos.x - sideX, bY = pos.y - sideY, bZ = pos.z - sideZ;
-    const Maths::Vec4& s = skater->m_atPoint;
-    float d1x = static_cast<float>(s.x - aX);
-    double d1y = s.y - aY;
-    double d1z = static_cast<double>(s.z) - aZ;
-    double d2x = static_cast<double>(s.x) - bX, d2y = static_cast<double>(s.y) - bY, d2z = static_cast<double>(s.z) - bZ;
+    const maths::Vec4& pos = entity_->at_point_;
+    double a_x = static_cast<double>(side_x) + pos.x, a_y = static_cast<double>(side_y) + pos.y;
+    float a_z = side_z + pos.z;
+    float b_x = pos.x - side_x, b_y = pos.y - side_y, b_z = pos.z - side_z;
+    const maths::Vec4& s = skater->at_point_;
+    float d1x = static_cast<float>(s.x - a_x);
+    double d1y = s.y - a_y;
+    double d1z = static_cast<double>(s.z) - a_z;
+    double d2x = static_cast<double>(s.x) - b_x, d2y = static_cast<double>(s.y) - b_y, d2z = static_cast<double>(s.z) - b_z;
     double first = (d1z * d1z + d1y * d1y) + static_cast<double>(d1x) * d1x;
     double second = (d2z * d2z + d2y * d2y) + d2x * d2x;
     if (first < second) {
-        side.x = -sideX;
-        side.z = -sideZ;
+        side.x = -side_x;
+        side.z = -side_z;
     }
-    return static_cast<float>(static_cast<double>(AngleInPlane(m_entity->m_displayMatrix, side)) * kToDegrees);
+    return static_cast<float>(static_cast<double>(angle_in_plane(entity_->display_matrix_, side)) * kToDegrees);
 }
 
 // 0x004E3A40
-bool CObstacleDodgeModule::TryJump(const Maths::Mat4& start, Maths::Mat4& out, float angle, float distance,
-                              float maxDistance)
+bool ObstacleDodgeModule::try_jump(const maths::Mat4& start, maths::Mat4& out, float angle, float distance,
+                              float max_distance)
 {
     out = start;
-    Maths::Mat4 turn;
-    D3dxMultiply(out, Maths::MakeYawMatrix(turn, static_cast<float>(static_cast<double>(angle) * kToRadians)), out);
-    Maths::Vec4 probe = {0.0f, 10.0f, distance + 15.0f, 1.0f};
-    Maths::Vec4 probeEnd;
-    Xform(out, probeEnd, probe);
-    if (LineCollides(start.row[3], probeEnd))
+    maths::Mat4 turn;
+    d3dx_multiply(out, maths::make_yaw_matrix(turn, static_cast<float>(static_cast<double>(angle) * kToRadians)), out);
+    maths::Vec4 probe = {0.0f, 10.0f, distance + 15.0f, 1.0f};
+    maths::Vec4 probe_end;
+    xform(out, probe_end, probe);
+    if (line_collides(start.row[3], probe_end))
         return false;
-    Maths::Vec4 landing = {0.0f, 0.0f, distance, 1.0f};
-    Maths::Vec4 end;
-    Xform(out, end, landing);
+    maths::Vec4 landing = {0.0f, 0.0f, distance, 1.0f};
+    maths::Vec4 end;
+    xform(out, end, landing);
     out.row[3] = end;
-    const Maths::Vec4& s = LocalSkater()->m_atPoint;
+    const maths::Vec4& s = local_skater()->at_point_;
     double dx = static_cast<double>(end.x) - s.x, dy = static_cast<double>(end.y) - s.y,
            dz = static_cast<double>(end.z) - s.z;
-    double fromSkater = std::sqrt((dz * dz + dy * dy) + dx * dx);
-    if (fromSkater < 30.0) {
-        DebugOut::Printf("Too close to skater %f!\n", fromSkater);
+    double from_skater = std::sqrt((dz * dz + dy * dy) + dx * dx);
+    if (from_skater < 30.0) {
+        debug::printf("Too close to skater %f!\n", from_skater);
         return false;
     }
-    double hx = static_cast<double>(end.x) - m_herdPoint.x, hz = static_cast<double>(end.z) - m_herdPoint.z;
-    return !(std::sqrt(hz * hz + hx * hx) >= maxDistance); // (not a number: within, as the original's FCOMP)
+    double hx = static_cast<double>(end.x) - herd_point_.x, hz = static_cast<double>(end.z) - herd_point_.z;
+    return !(std::sqrt(hz * hz + hx * hx) >= max_distance); // (not a number: within, as the original's FCOMP)
 }
 
 // 0x004E3340
-void CObstacleDodgeModule::PlayJump(float angle, Scripts::CStruct* params)
+void ObstacleDodgeModule::play_jump(float angle, script::Struct* params)
 {
     // The checksum is read into the parameters' own argument slot: without one it's the pointer's value.
     uint32_t anim = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(params));
-    switch (Quarter(angle)) {
+    switch (get_quarter(angle)) {
     case 0:
     case 4:
-        params->ReadHashValue(kJumpForward, &anim, 1);
+        params->read_hash_value(kJumpForward, &anim, 1);
         break;
     case 1:
     case 3: {
         // The side's own animation, or the other side's flipped.
-        uint32_t own = Quarter(angle) == 1 ? kJumpLeft : kJumpRight;
-        uint32_t other = Quarter(angle) == 1 ? kJumpRight : kJumpLeft;
-        bool flip = !params->ReadHashValue(own, &anim, 0);
+        uint32_t own = get_quarter(angle) == 1 ? kJumpLeft : kJumpRight;
+        uint32_t other = get_quarter(angle) == 1 ? kJumpRight : kJumpLeft;
+        bool flip = !params->read_hash_value(own, &anim, 0);
         if (flip)
-            params->ReadHashValue(other, &anim, 1);
-        if (CObjectModule* blender = m_entity->FetchModule(kAnimBlender))
-            FlipAnims(blender, m_entity->m_ident, flip, 0, 1);
+            params->read_hash_value(other, &anim, 1);
+        if (ObjectModule* blender = entity_->fetch_module(kAnimBlender))
+            flip_anims(blender, entity_->ident_, flip, 0, 1);
         break;
     }
     case 2:
-        params->ReadHashValue(kJumpBack, &anim, 1);
+        params->read_hash_value(kJumpBack, &anim, 1);
         break;
     default:
         return;
     }
-    if (CObjectModule* blender = m_entity->FetchModule(kAnimBlender)) {
-        PlayAnim(blender, anim, 0);
-        m_lastsFor = ClipLength(blender, anim);
+    if (ObjectModule* blender = entity_->fetch_module(kAnimBlender)) {
+        play_anim(blender, anim, 0);
+        lasts_for_ = clip_length(blender, anim);
     }
 }
 
 // 0x004E3BD0
-bool CObstacleDodgeModule::Jump(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+bool ObstacleDodgeModule::get_jump(script::Struct* params, script::Script* /*script*/)
 {
     // From where it stands, as its display matrix shows it.
-    Maths::Mat4 start = m_entity->m_displayMatrix;
-    start.row[3] = m_entity->m_atPoint;
-    float maxDistance = 100.0f;
-    params->FetchFloat("maxHerdDistance", &maxDistance, 0);
-    Maths::Mat4 end;
-    float side = SideAwayFromSkater();
-    bool found = TryJump(start, end, side, AvoidDistance(side, params), maxDistance);
+    maths::Mat4 start = entity_->display_matrix_;
+    start.row[3] = entity_->at_point_;
+    float max_distance = 100.0f;
+    params->fetch_float("maxHerdDistance", &max_distance, 0);
+    maths::Mat4 end;
+    float side = side_away_from_skater();
+    bool found = try_jump(start, end, side, avoid_distance(side, params), max_distance);
     if (!found) {
         float other = static_cast<float>(static_cast<double>(side) + 180.0f);
-        found = TryJump(start, end, other, AvoidDistance(other, params), maxDistance);
+        found = try_jump(start, end, other, avoid_distance(other, params), max_distance);
     }
     if (!found) {
         float back = static_cast<float>(static_cast<double>(side) - 90.0f);
-        found = TryJump(start, end, back, AvoidDistance(back, params), maxDistance);
+        found = try_jump(start, end, back, avoid_distance(back, params), max_distance);
     }
     if (!found) {
         // Away from the herd point (this angle in radians, as the original passes it).
-        const Maths::Vec4& pos = start.row[3];
-        Maths::Vec4 away = {m_herdPoint.x - pos.x, m_herdPoint.y - pos.y, m_herdPoint.z - pos.z,
-                            m_herdPoint.w - pos.w};
-        float angle = AngleInPlane(m_entity->m_basisFrame, away);
-        found = TryJump(start, end, angle, AvoidDistance(angle, params), maxDistance);
+        const maths::Vec4& pos = start.row[3];
+        maths::Vec4 away = {herd_point_.x - pos.x, herd_point_.y - pos.y, herd_point_.z - pos.z,
+                            herd_point_.w - pos.w};
+        float angle = angle_in_plane(entity_->basis_frame_, away);
+        found = try_jump(start, end, angle, avoid_distance(angle, params), max_distance);
     }
     if (!found)
         return false;
     // The landing keeps the start's rows; the slerp from the start to it.
-    Maths::Vec4 landing = end.row[3];
+    maths::Vec4 landing = end.row[3];
     end = start;
     end.row[3] = landing;
-    m_slerp.SetMatrices(start, end);
-    m_progress = 0.0f;
-    const Maths::Vec4& pos = start.row[3];
-    Maths::Vec4 move = {landing.x - pos.x, landing.y - pos.y, landing.z - pos.z, landing.w - pos.w};
-    PlayJump(AngleInPlane(m_entity->m_basisFrame, move), params);
+    slerp_.set_matrices(start, end);
+    progress_ = 0.0f;
+    const maths::Vec4& pos = start.row[3];
+    maths::Vec4 move = {landing.x - pos.x, landing.y - pos.y, landing.z - pos.z, landing.w - pos.w};
+    play_jump(angle_in_plane(entity_->basis_frame_, move), params);
     return true;
 }
 
 // 0x004E36F0
-bool CObstacleDodgeModule::DebugBox(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+bool ObstacleDodgeModule::debug_box(script::Struct* params, script::Script* /*script*/)
 {
     float distance; // (read into the parameters' own argument slot: without one it keeps the pointer's bits)
     std::memcpy(&distance, &params, sizeof(distance));
-    params->FetchFloat("dist", &distance, 1);
+    params->fetch_float("dist", &distance, 1);
     return false;
 }
 
 // 0x004E3EC0
-bool CObstacleDodgeModule::StepJump(Scripts::CStruct* /*params*/, Scripts::CScript* /*script*/)
+bool ObstacleDodgeModule::step_jump(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    m_progress = static_cast<float>(FrameClock::GetSlomoFrameSeconds() * 60.0f * m_lastsFor * 0.01666666753590107f +
-                                    m_progress);
-    Maths::Mat4 now;
-    m_slerp.FetchMat(now, m_progress);
-    m_entity->m_atPoint = now.row[3];
-    m_entity->m_basisFrame = now;
-    m_entity->m_basisFrame.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    progress_ = static_cast<float>(frame_clock::get_slomo_frame_seconds() * 60.0f * lasts_for_ * 0.01666666753590107f +
+                                    progress_);
+    maths::Mat4 now;
+    slerp_.fetch_mat(now, progress_);
+    entity_->at_point_ = now.row[3];
+    entity_->basis_frame_ = now;
+    entity_->basis_frame_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     return true;
 }
 
 // 0x004E37D0
-bool CObstacleDodgeModule::JumpFinished(Scripts::CStruct* /*params*/, Scripts::CScript* /*script*/)
+bool ObstacleDodgeModule::jump_finished(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    if (!(m_progress >= 1.0f))
+    if (!(progress_ >= 1.0f))
         return false;
-    return AnimComplete(m_entity->FetchModule(kAnimBlender));
+    return anim_complete(entity_->fetch_module(kAnimBlender));
 }
 
 // 0x004E3810
-bool CObstacleDodgeModule::StorePosition(Scripts::CStruct* /*params*/, Scripts::CScript* /*script*/)
+bool ObstacleDodgeModule::store_position(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    m_herdPoint = m_entity->m_atPoint;
+    herd_point_ = entity_->at_point_;
     return true;
 }
 
 // 0x004E3850
-bool CObstacleDodgeModule::StoreTarget(Scripts::CStruct* /*params*/, Scripts::CScript* /*script*/)
+bool ObstacleDodgeModule::store_target(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    const Maths::Vec4* point = &m_entity->m_atPoint;
-    CObjectModule* motion = m_entity->FetchModule(kMotion);
-    if (motion && MotionPath(motion))
-        point = reinterpret_cast<const Maths::Vec4*>(MotionPath(motion) + 0x74);
-    m_aimPoint = *point;
+    const maths::Vec4* point = &entity_->at_point_;
+    ObjectModule* motion = entity_->fetch_module(kMotion);
+    if (motion && motion_path(motion))
+        point = reinterpret_cast<const maths::Vec4*>(motion_path(motion) + 0x74);
+    aim_point_ = *point;
     return true;
 }
 
 // 0x004E38C0
-bool CObstacleDodgeModule::HoldMotion(Scripts::CStruct* /*params*/, Scripts::CScript* /*script*/)
+bool ObstacleDodgeModule::hold_motion(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    uint32_t& flags = MotionFlags(m_entity->FetchModule(kMotion));
+    uint32_t& flags = motion_flags(entity_->fetch_module(kMotion));
     flags |= 4;
-    m_motionHeld = flags != 0;
+    motion_held_ = flags != 0;
     return true;
 }
 
 // 0x004E38F0
-bool CObstacleDodgeModule::RestoreMotion(Scripts::CStruct* /*params*/, Scripts::CScript* /*script*/)
+bool ObstacleDodgeModule::restore_motion(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    if (CObjectModule* motion = m_entity->FetchModule(kMotion)) {
-        if (m_motionHeld)
-            MotionFlags(motion) |= 4;
+    if (ObjectModule* motion = entity_->fetch_module(kMotion)) {
+        if (motion_held_)
+            motion_flags(motion) |= 4;
         else
-            MotionFlags(motion) &= ~4u;
+            motion_flags(motion) &= ~4u;
     }
     return true;
 }
@@ -402,24 +402,24 @@ bool CObstacleDodgeModule::RestoreMotion(Scripts::CStruct* /*params*/, Scripts::
 namespace {
 
 // 0x004E3270: the angle on the stack, the parameters in ESI; the result in ST0.
-__declspec(naked) void AvoidDistanceStub()
+__declspec(naked) void avoid_distance_stub()
 {
     __asm {
         push esi
         push dword ptr [esp + 8]
-        call AvoidDistance
+        call avoid_distance
         add esp, 8
         ret
     }
 }
 
 // 0x004E3930: the start in EDI, the end in ESI; the result in AL.
-__declspec(naked) void LineCollidesStub()
+__declspec(naked) void line_collides_stub()
 {
     __asm {
         push esi
         push edi
-        call LineCollides
+        call line_collides
         add esp, 8
         ret
     }
@@ -429,23 +429,23 @@ __declspec(naked) void LineCollidesStub()
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CObstacleDodgeModule::Teardown,
-         &GameObjects::ComponentWithoutUpdate::TickFrame,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::DispatchScriptMethod,
-         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::ObstacleDodgeModule::teardown,
+         &objects::ComponentWithoutUpdate::tick_frame,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         &objects::ObjectModule::dispatch_script_method,
+         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

@@ -25,94 +25,94 @@
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
 
-namespace Engine3D {
+namespace render {
 
 namespace {
 
 extern void** const kTextureVtable;
 extern void** const kTexDictVtable;
 
-sTextureEdit* Edit(const CPcTexture* texture) { return static_cast<sTextureEdit*>(texture->engine); }
-IDirect3DDevice9* InputPort() { return g_d3dDevice; }
+TextureEdit* get_edit(const PcTexture* texture) { return static_cast<TextureEdit*>(texture->engine); }
+IDirect3DDevice9* input_port() { return g_d3d_device; }
 
-CPcTexture* AllocPcTexture()
+PcTexture* alloc_pc_texture()
 {
-    void* memory = MemSys::Alloc(sizeof(CPcTexture));
-    return memory ? static_cast<CPcTexture*>(memory)->MakeNew() : nullptr;
+    void* memory = memory::alloc(sizeof(PcTexture));
+    return memory ? static_cast<PcTexture*>(memory)->make_new() : nullptr;
 }
 
 } // namespace
 
-textureRef* CPcTexture::Texture() const
+TextureRef* PcTexture::get_texture() const
 {
-    return flags & 1 ? Edit(this)->texture : static_cast<textureRef*>(engine);
+    return flags & 1 ? get_edit(this)->texture : static_cast<TextureRef*>(engine);
 }
 
 // 0x004C7ED0
-CPcTexture* CPcTexture::MakeNew()
+PcTexture* PcTexture::make_new()
 {
-    reinterpret_cast<CBitmapTexture*>(this)->CBitmapTexture::MakeNew();
-    unknownD = 0;
+    reinterpret_cast<BitmapTexture*>(this)->BitmapTexture::make_new();
+    unknownd_ = 0;
     engine = nullptr;
-    unknownC = 0;
+    unknownc_ = 0;
     flags = 0;
     vtable = reinterpret_cast<void**>(kTextureVtable);
     return this;
 }
 
 // 0x004C7EF0
-void CPcTexture::SetTexture(textureRef* texture)
+void PcTexture::set_texture(TextureRef* texture)
 {
     engine = texture;
     checksum = texture->checksum;
 }
 
 // 0x004C9D00
-void CPcTexture::DestroyBody()
+void PcTexture::destroy_body()
 {
     vtable = reinterpret_cast<void**>(kTextureVtable);
     if (flags & 1)
-        EndEdit();
-    if (auto* texture = static_cast<textureRef*>(engine)) {
-        texture->DestroyBody();
-        MemSys::Hub::Pull()->Dealloc(texture);
+        end_edit();
+    if (auto* texture = static_cast<TextureRef*>(engine)) {
+        texture->destroy_body();
+        memory::Hub::get_pull()->dealloc(texture);
     }
-    reinterpret_cast<CBitmapTexture*>(this)->CBitmapTexture::DestroyBody();
+    reinterpret_cast<BitmapTexture*>(this)->BitmapTexture::destroy_body();
 }
 
 // 0x004CAE60
-CPcTexture* CPcTexture::Teardown(unsigned int freeFlags)
+PcTexture* PcTexture::teardown(unsigned int free_flags)
 {
-    DestroyBody();
-    if (freeFlags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+    destroy_body();
+    if (free_flags & 1)
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x004C7F00
-bool CPcTexture::IngestFile(const char* name, int /*unused1*/, int /*unused2*/)
+bool PcTexture::ingest_file(const char* name, int /*unused1*/, int /*unused2*/)
 {
     char path[0x100];
     size_t length = std::strlen(name); // (unchecked, as the original)
     std::memcpy(path, name, length);
     std::memcpy(path + length, ".img.xbx", 9);
-    engine = ReadTextureFile(path);
+    engine = read_texture_file(path);
     return engine != nullptr;
 }
 
 // 0x004C7F80
-bool CPcTexture::LoadMemory(const uint8_t* data, int /*size*/, int, int, int)
+bool PcTexture::load_memory(const uint8_t* data, int /*size*/, int, int, int)
 {
-    engine = LoadTextureMemory(data);
+    engine = load_texture_memory(data);
     return engine != nullptr;
 }
 
 // 0x004C9EC0
-bool CPcTexture::WriteBack(int /*unused1*/, int /*unused2*/)
+bool PcTexture::write_back(int /*unused1*/, int /*unused2*/)
 {
-    auto* texels = static_cast<uint32_t*>(Texture()->Lock());
-    const uint32_t* pixels = flags & 1 ? Edit(this)->pixels : nullptr; // (null read from, as the original)
-    using Pull = uint16_t(__thiscall*)(CPcTexture*);
+    auto* texels = static_cast<uint32_t*>(get_texture()->get_lock());
+    const uint32_t* pixels = flags & 1 ? get_edit(this)->pixels : nullptr; // (null read from, as the original)
+    using Pull = uint16_t(__thiscall*)(PcTexture*);
     uint32_t width = reinterpret_cast<Pull>(vtable[33])(this);
     uint32_t height = reinterpret_cast<Pull>(vtable[34])(this);
     uint32_t* row = texels + (height - 1) * width;
@@ -121,111 +121,111 @@ bool CPcTexture::WriteBack(int /*unused1*/, int /*unused2*/)
             row[x] = *pixels++;
         row -= width;
     }
-    Texture()->Unlock();
+    get_texture()->get_unlock();
     return true;
 }
 
 // 0x004C98B0
-bool CPcTexture::EndEdit()
+bool PcTexture::end_edit()
 {
     // (the edit's fields read whether or not it is one, as the original)
-    auto* edit = Edit(this);
-    textureRef* texture = flags & 1 ? edit->texture : static_cast<textureRef*>(engine);
+    auto* edit = get_edit(this);
+    TextureRef* texture = flags & 1 ? edit->texture : static_cast<TextureRef*>(engine);
     if (edit->pixels) {
-        MemSys::Hub::Pull()->Dealloc(edit->pixels);
-        Edit(this)->pixels = nullptr;
+        memory::Hub::get_pull()->dealloc(edit->pixels);
+        get_edit(this)->pixels = nullptr;
     }
-    if (Edit(this)->original) {
-        MemSys::Hub::Pull()->Dealloc(Edit(this)->original);
-        Edit(this)->original = nullptr;
+    if (get_edit(this)->original) {
+        memory::Hub::get_pull()->dealloc(get_edit(this)->original);
+        get_edit(this)->original = nullptr;
     }
-    if (textureRef* kept = Edit(this)->kept) {
-        kept->DestroyBody();
-        MemSys::Hub::Pull()->Dealloc(kept);
-        Edit(this)->kept = nullptr;
+    if (TextureRef* kept = get_edit(this)->kept) {
+        kept->destroy_body();
+        memory::Hub::get_pull()->dealloc(kept);
+        get_edit(this)->kept = nullptr;
     }
-    MemSys::Hub::Pull()->Dealloc(engine);
+    memory::Hub::get_pull()->dealloc(engine);
     engine = texture;
     flags &= ~1u;
     return true;
 }
 
 // 0x004C7FB0
-uint16_t CPcTexture::FetchBreadth()
+uint16_t PcTexture::fetch_breadth()
 {
-    textureRef* texture = Texture();
-    return texture ? texture->imageWidth : 0;
+    TextureRef* texture = get_texture();
+    return texture ? texture->image_width_ : 0;
 }
 
 // 0x004C7FE0
-uint16_t CPcTexture::FetchTallness()
+uint16_t PcTexture::fetch_tallness()
 {
-    textureRef* texture = Texture();
-    return texture ? texture->imageHeight : 0;
+    TextureRef* texture = get_texture();
+    return texture ? texture->image_height_ : 0;
 }
 
 // 0x004C8010
-uint8_t CPcTexture::GetDepth()
+uint8_t PcTexture::get_depth()
 {
-    textureRef* texture = Texture();
+    TextureRef* texture = get_texture();
     return texture ? texture->depth : 0;
 }
 
 // 0x004C8030
-uint8_t CPcTexture::GetUnknownE()
+uint8_t PcTexture::get_unknown_e()
 {
-    textureRef* texture = Texture();
-    return texture ? texture->unknownE : 0;
+    TextureRef* texture = get_texture();
+    return texture ? texture->unknowne_ : 0;
 }
 
 // 0x004C8050
-uint8_t CPcTexture::GetUnknownC() { return unknownC; }
+uint8_t PcTexture::get_unknown_c() { return unknownc_; }
 
 // 0x004C8060
-uint8_t CPcTexture::GetUnknownD() { return unknownD; }
+uint8_t PcTexture::get_unknown_d() { return unknownd_; }
 
 // 0x004C8450
-CPcTexture* CPcTexture::ConstructCopy(const CPcTexture* source)
+PcTexture* PcTexture::construct_copy(const PcTexture* source)
 {
-    reinterpret_cast<CBitmapTexture*>(this)->CBitmapTexture::MakeNew();
+    reinterpret_cast<BitmapTexture*>(this)->BitmapTexture::make_new();
     vtable = reinterpret_cast<void**>(kTextureVtable);
-    unknownC = source->unknownC;
+    unknownc_ = source->unknownc_;
     flags = source->flags;
-    textureRef* copy = nullptr;
-    if (source->Texture()) {
-        void* memory = MemSys::Alloc(sizeof(textureRef));
-        copy = memory ? static_cast<textureRef*>(memory)->ConstructCopy(source->Texture()) : nullptr;
+    TextureRef* copy = nullptr;
+    if (source->get_texture()) {
+        void* memory = memory::alloc(sizeof(TextureRef));
+        copy = memory ? static_cast<TextureRef*>(memory)->construct_copy(source->get_texture()) : nullptr;
     }
-    using Pull = uint16_t(__thiscall*)(const CPcTexture*);
+    using Pull = uint16_t(__thiscall*)(const PcTexture*);
     uint32_t width = reinterpret_cast<Pull>(source->vtable[33])(source);
     uint32_t height = reinterpret_cast<Pull>(source->vtable[34])(source);
     if (!(source->flags & 1)) {
         engine = copy;
         return this;
     }
-    auto* edit = static_cast<sTextureEdit*>(MemSys::Alloc(sizeof(sTextureEdit)));
+    auto* edit = static_cast<TextureEdit*>(memory::alloc(sizeof(TextureEdit)));
     if (edit) // (no check after: written through null, as the original)
         *edit = {};
     engine = edit;
     edit->texture = copy;
-    const sTextureEdit* from = Edit(source);
+    const TextureEdit* from = get_edit(source);
     if (from->original) {
         uint32_t bytes = height * width * 4;
-        edit->original = static_cast<uint32_t*>(MemSys::Alloc(bytes));
+        edit->original = static_cast<uint32_t*>(memory::alloc(bytes));
         std::memcpy(edit->original, from->original, bytes);
     } else {
         edit->original = nullptr;
     }
     // (its own pixels tested, not the source's: always null here, so never copied - as the original)
     if (edit->pixels) {
-        edit->pixels = static_cast<uint32_t*>(MemSys::Alloc(height * height * 4));
+        edit->pixels = static_cast<uint32_t*>(memory::alloc(height * height * 4));
         std::memcpy(edit->pixels, from->pixels, width * height * 4);
     } else {
         edit->pixels = nullptr;
     }
     if (from->kept) {
-        void* memory = MemSys::Alloc(sizeof(textureRef));
-        edit->kept = memory ? static_cast<textureRef*>(memory)->ConstructCopy(from->kept) : nullptr;
+        void* memory = memory::alloc(sizeof(TextureRef));
+        edit->kept = memory ? static_cast<TextureRef*>(memory)->construct_copy(from->kept) : nullptr;
     } else {
         edit->kept = nullptr;
     }
@@ -233,23 +233,23 @@ CPcTexture* CPcTexture::ConstructCopy(const CPcTexture* source)
 }
 
 // 0x004C8830
-bool CPcTexture::Fabricate(uint32_t newChecksum, uint32_t width, uint32_t height, int bitsPerPixel, int, int)
+bool PcTexture::fabricate(uint32_t new_checksum, uint32_t width, uint32_t height, int bits_per_pixel, int, int)
 {
-    textureRef* old = Texture();
+    TextureRef* old = get_texture();
     if (old && old->texture) // (released, the old texture itself kept)
         static_cast<IUnknown*>(old->texture)->Release();
-    void* memory = MemSys::Alloc(sizeof(textureRef));
-    textureRef* texture = memory ? static_cast<textureRef*>(memory)->MakeNew() : nullptr;
-    checksum = newChecksum;
+    void* memory = memory::alloc(sizeof(TextureRef));
+    TextureRef* texture = memory ? static_cast<TextureRef*>(memory)->make_new() : nullptr;
+    checksum = new_checksum;
     engine = texture; // (an edit's place too)
-    texture->checksum = newChecksum; // (no check, as the original)
-    texture->unknownF = 0;
-    texture->imageWidth = static_cast<uint16_t>(width);
-    texture->imageHeight = static_cast<uint16_t>(height);
-    if (bitsPerPixel < 8)
-        bitsPerPixel = 32;
-    uint32_t format = newChecksum; // (any other depth: the checksum taken for the format, as the original)
-    switch (bitsPerPixel) {
+    texture->checksum = new_checksum; // (no check, as the original)
+    texture->unknownf_ = 0;
+    texture->image_width_ = static_cast<uint16_t>(width);
+    texture->image_height_ = static_cast<uint16_t>(height);
+    if (bits_per_pixel < 8)
+        bits_per_pixel = 32;
+    uint32_t format = new_checksum; // (any other depth: the checksum taken for the format, as the original)
+    switch (bits_per_pixel) {
     case 1:
     case 2:
     case 4:
@@ -269,47 +269,47 @@ bool CPcTexture::Fabricate(uint32_t newChecksum, uint32_t width, uint32_t height
         break;
     }
     auto** d3d = reinterpret_cast<IDirect3DTexture9**>(&texture->texture);
-    InputPort()->CreateTexture(width, height, 0, 0, static_cast<D3DFORMAT>(format), D3DPOOL_MANAGED, d3d, nullptr);
+    input_port()->CreateTexture(width, height, 0, 0, static_cast<D3DFORMAT>(format), D3DPOOL_MANAGED, d3d, nullptr);
     D3DSURFACE_DESC desc;
     (*d3d)->GetLevelDesc(0, &desc);
     texture->height = static_cast<uint16_t>(desc.Height);
     texture->width = static_cast<uint16_t>(desc.Width);
-    texture->unknownE = format == D3DFMT_P8 ? 0x20 : 0;
+    texture->unknowne_ = format == D3DFMT_P8 ? 0x20 : 0;
     return true;
 }
 
 // 0x004C86A0
-bool CPcTexture::CopyFrom(const CPcTexture* source)
+bool PcTexture::copy_from(const PcTexture* source)
 {
-    textureRef* from = source->Texture();
-    auto** into = reinterpret_cast<IDirect3DTexture9**>(&Texture()->texture);
+    TextureRef* from = source->get_texture();
+    auto** into = reinterpret_cast<IDirect3DTexture9**>(&get_texture()->texture);
     if (*into)
         (*into)->Release();
-    auto* fromTexture = static_cast<IDirect3DTexture9*>(from->texture);
-    DWORD levels = fromTexture->GetLevelCount();
+    auto* from_texture = static_cast<IDirect3DTexture9*>(from->texture);
+    DWORD levels = from_texture->GetLevelCount();
     D3DSURFACE_DESC desc;
-    fromTexture->GetLevelDesc(0, &desc);
-    if (InputPort()->CreateTexture(desc.Width, desc.Height, levels, 0, desc.Format, D3DPOOL_MANAGED, into, nullptr) !=
+    from_texture->GetLevelDesc(0, &desc);
+    if (input_port()->CreateTexture(desc.Width, desc.Height, levels, 0, desc.Format, D3DPOOL_MANAGED, into, nullptr) !=
         D3D_OK)
-        Crt::Exit(0); // (the game's exit())
+        crt::get_exit(0); // (the game's exit())
     for (DWORD level = 0; level < levels; ++level) {
         static_cast<IDirect3DTexture9*>(from->texture)->GetLevelDesc(level, &desc);
-        uint32_t rowBytes, rows = desc.Height;
+        uint32_t row_bytes, rows = desc.Height;
         if (desc.Format == D3DFMT_A8R8G8B8 || desc.Format == D3DFMT_X8R8G8B8) {
-            rowBytes = desc.Width << 2;
+            row_bytes = desc.Width << 2;
         } else { // (blocks of 4 rows; the row's bytes as the original works them out)
             rows = (rows + 3) >> 2;
-            rowBytes = desc.Format == D3DFMT_DXT1 ? desc.Width << 3 : desc.Width << 4;
+            row_bytes = desc.Format == D3DFMT_DXT1 ? desc.Width << 3 : desc.Width << 4;
         }
-        D3DLOCKED_RECT fromRect, intoRect;
-        static_cast<IDirect3DTexture9*>(from->texture)->LockRect(level, &fromRect, nullptr, 0);
-        (*into)->LockRect(level, &intoRect, nullptr, 0);
-        auto* write = static_cast<uint8_t*>(intoRect.pBits);
-        auto* read = static_cast<const uint8_t*>(fromRect.pBits);
+        D3DLOCKED_RECT from_rect, into_rect;
+        static_cast<IDirect3DTexture9*>(from->texture)->LockRect(level, &from_rect, nullptr, 0);
+        (*into)->LockRect(level, &into_rect, nullptr, 0);
+        auto* write = static_cast<uint8_t*>(into_rect.pBits);
+        auto* read = static_cast<const uint8_t*>(from_rect.pBits);
         for (uint32_t row = rows; row; --row) {
-            std::memcpy(write, read, rowBytes);
-            write += intoRect.Pitch;
-            read += fromRect.Pitch;
+            std::memcpy(write, read, row_bytes);
+            write += into_rect.Pitch;
+            read += from_rect.Pitch;
         }
         static_cast<IDirect3DTexture9*>(from->texture)->UnlockRect(level);
         (*into)->UnlockRect(level);
@@ -318,19 +318,19 @@ bool CPcTexture::CopyFrom(const CPcTexture* source)
 }
 
 // 0x004C8A60
-bool CPcTexture::BeginEdit(bool keepTexture, bool keepCopy)
+bool PcTexture::begin_edit(bool keep_texture, bool keep_copy)
 {
-    textureRef* texture = Texture();
+    TextureRef* texture = get_texture();
     uint32_t width = texture->width, height = texture->height;
-    auto* edit = static_cast<sTextureEdit*>(MemSys::Alloc(sizeof(sTextureEdit)));
+    auto* edit = static_cast<TextureEdit*>(memory::alloc(sizeof(TextureEdit)));
     if (edit) // (no check after: written through null, as the original)
         *edit = {};
     engine = edit;
     edit->texture = texture;
     uint32_t bytes = width * height * 4;
-    edit->pixels = static_cast<uint32_t*>(MemSys::Alloc(bytes));
+    edit->pixels = static_cast<uint32_t*>(memory::alloc(bytes));
     flags |= 1;
-    uint32_t* pixels = Edit(this)->pixels;
+    uint32_t* pixels = get_edit(this)->pixels;
     auto* d3d = static_cast<IDirect3DTexture9*>(texture->texture);
     D3DSURFACE_DESC desc;
     d3d->GetLevelDesc(0, &desc);
@@ -345,26 +345,26 @@ bool CPcTexture::BeginEdit(bool keepTexture, bool keepCopy)
         }
     }
     static_cast<IDirect3DTexture9*>(texture->texture)->UnlockRect(0);
-    if (keepCopy) {
-        Edit(this)->original = static_cast<uint32_t*>(MemSys::Alloc(bytes));
-        std::memcpy(Edit(this)->original, Edit(this)->pixels, bytes);
+    if (keep_copy) {
+        get_edit(this)->original = static_cast<uint32_t*>(memory::alloc(bytes));
+        std::memcpy(get_edit(this)->original, get_edit(this)->pixels, bytes);
     }
-    if (keepTexture) {
-        void* memory = MemSys::Alloc(sizeof(textureRef));
-        Edit(this)->kept = memory ? static_cast<textureRef*>(memory)->MakeNew() : nullptr;
-        textureRef* kept = Edit(this)->kept; // (no check, as the original)
-        kept->imageWidth = static_cast<uint16_t>(width);
-        kept->imageHeight = static_cast<uint16_t>(height);
+    if (keep_texture) {
+        void* memory = memory::alloc(sizeof(TextureRef));
+        get_edit(this)->kept = memory ? static_cast<TextureRef*>(memory)->make_new() : nullptr;
+        TextureRef* kept = get_edit(this)->kept; // (no check, as the original)
+        kept->image_width_ = static_cast<uint16_t>(width);
+        kept->image_height_ = static_cast<uint16_t>(height);
         kept->depth = 32;
-        auto** keptD3d = reinterpret_cast<IDirect3DTexture9**>(&kept->texture);
-        InputPort()->CreateTexture(width, height, 0, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, keptD3d, nullptr);
-        (*keptD3d)->GetLevelDesc(0, &desc);
+        auto** kept_d3d = reinterpret_cast<IDirect3DTexture9**>(&kept->texture);
+        input_port()->CreateTexture(width, height, 0, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, kept_d3d, nullptr);
+        (*kept_d3d)->GetLevelDesc(0, &desc);
         kept->height = static_cast<uint16_t>(desc.Height);
         kept->width = static_cast<uint16_t>(desc.Width);
-        D3DLOCKED_RECT keptRect;
-        (*keptD3d)->LockRect(0, &keptRect, nullptr, 0);
-        std::memcpy(keptRect.pBits, Edit(this)->pixels, bytes);
-        (*keptD3d)->UnlockRect(0);
+        D3DLOCKED_RECT kept_rect;
+        (*kept_d3d)->LockRect(0, &kept_rect, nullptr, 0);
+        std::memcpy(kept_rect.pBits, get_edit(this)->pixels, bytes);
+        (*kept_d3d)->UnlockRect(0);
     }
     return true;
 }
@@ -372,7 +372,7 @@ bool CPcTexture::BeginEdit(bool keepTexture, bool keepCopy)
 namespace {
 
 // A pixel of four bytes sampled between four (10-bit fractions; each channel rounded).
-uint32_t Bilinear(uint32_t c00, uint32_t c01, uint32_t c10, uint32_t c11, int fx, int fy)
+uint32_t bilinear(uint32_t c00, uint32_t c01, uint32_t c10, uint32_t c11, int fx, int fy)
 {
     int w00 = ((0x400 - fx) * (0x400 - fy)) >> 10;
     int w01 = ((0x400 - fy) * fx) >> 10;
@@ -388,78 +388,78 @@ uint32_t Bilinear(uint32_t c00, uint32_t c01, uint32_t c10, uint32_t c11, int fx
 }
 
 // The four pixels about (sx, sy) of a width x height image (the right / lower ones the same at the edges).
-uint32_t SampleAt(const uint32_t* image, int width, int height, int sx, int sy, int fx, int fy)
+uint32_t sample_at(const uint32_t* image, int width, int height, int sx, int sy, int fx, int fy)
 {
     int step = sx < width - 1 ? 1 : 0;
     const uint32_t* p = image + (sy * width + sx);
     uint32_t c00 = p[0], c01 = p[step];
     if (sy < height - 1)
         p += width;
-    return Bilinear(c00, c01, p[0], p[step], fx, fy);
+    return bilinear(c00, c01, p[0], p[step], fx, fy);
 }
 
-int Ftol(double value) { return static_cast<int>(value); } // (the game's _ftol: towards zero)
+int ftol(double value) { return static_cast<int>(value); } // (the game's _ftol: towards zero)
 
 } // namespace
 
 // 0x004C9200
-void __cdecl ResizeImage(const uint8_t* from, uint16_t fromWidth, uint16_t fromHeight, uint8_t* into, uint16_t intoWidth,
-                         uint16_t intoHeight, uint16_t bitsPerPixel)
+void __cdecl resize_image(const uint8_t* from, uint16_t from_width, uint16_t from_height, uint8_t* into, uint16_t into_width,
+                         uint16_t into_height, uint16_t bits_per_pixel)
 {
-    if (bitsPerPixel == 8) { // (nearest, the bytes cleared first - as many as the source has)
-        std::memset(into, 0, static_cast<uint32_t>(fromHeight) * fromWidth);
-        float width = static_cast<float>(static_cast<int>(fromWidth));
-        float xScale = static_cast<float>(static_cast<double>(width) / static_cast<int>(intoWidth));
-        float yScale = static_cast<float>(static_cast<double>(static_cast<int>(fromHeight)) / static_cast<int>(intoHeight));
-        for (int y = 0; y < intoHeight; ++y) {
-            double row = static_cast<double>(y) * width * yScale;
-            uint8_t* out = into + intoWidth * y;
-            for (int x = 0; x < intoWidth; ++x)
-                out[x] = from[Ftol(static_cast<double>(x) * xScale + row)];
+    if (bits_per_pixel == 8) { // (nearest, the bytes cleared first - as many as the source has)
+        std::memset(into, 0, static_cast<uint32_t>(from_height) * from_width);
+        float width = static_cast<float>(static_cast<int>(from_width));
+        float x_scale = static_cast<float>(static_cast<double>(width) / static_cast<int>(into_width));
+        float y_scale = static_cast<float>(static_cast<double>(static_cast<int>(from_height)) / static_cast<int>(into_height));
+        for (int y = 0; y < into_height; ++y) {
+            double row = static_cast<double>(y) * width * y_scale;
+            uint8_t* out = into + into_width * y;
+            for (int x = 0; x < into_width; ++x)
+                out[x] = from[ftol(static_cast<double>(x) * x_scale + row)];
         }
         return;
     }
-    int xStep = Ftol(static_cast<double>(static_cast<int>(fromWidth)) / static_cast<int>(intoWidth) * 1024.0f);
-    int yStep = Ftol(static_cast<double>(static_cast<int>(fromHeight)) / static_cast<int>(intoHeight) * 1024.0f);
+    int x_step = ftol(static_cast<double>(static_cast<int>(from_width)) / static_cast<int>(into_width) * 1024.0f);
+    int y_step = ftol(static_cast<double>(static_cast<int>(from_height)) / static_cast<int>(into_height) * 1024.0f);
     auto* out = reinterpret_cast<uint32_t*>(into);
     const auto* image = reinterpret_cast<const uint32_t*>(from);
     int y = 0;
-    for (int row = intoHeight; row > 0; --row, y += yStep) {
+    for (int row = into_height; row > 0; --row, y += y_step) {
         int sy = static_cast<int16_t>(y >> 10);
         int fy = y & 0x3FF;
         int x = 0;
-        for (int column = intoWidth; column > 0; --column, x += xStep)
-            *out++ = SampleAt(image, fromWidth, fromHeight, static_cast<int16_t>(x >> 10), sy, x & 0x3FF, fy);
+        for (int column = into_width; column > 0; --column, x += x_step)
+            *out++ = sample_at(image, from_width, from_height, static_cast<int16_t>(x >> 10), sy, x & 0x3FF, fy);
     }
 }
 
 // 0x004C9520
-void __cdecl ZoomImage(const uint8_t* from, uint16_t width, uint16_t height, uint8_t* into, float xZoom, float yZoom)
+void __cdecl zoom_image(const uint8_t* from, uint16_t width, uint16_t height, uint8_t* into, float x_zoom, float y_zoom)
 {
-    int xStep = Ftol(1.0f / static_cast<double>(xZoom) * 1024.0f);
-    int yStep = Ftol(1.0f / static_cast<double>(yZoom) * 1024.0f);
-    int xStart = ((0x400 - xStep) * static_cast<int>(width)) >> 1; // (about the centre)
-    int y = ((0x400 - yStep) * static_cast<int>(height)) >> 1;
-    int xMax = width * 1024 - 1024, yMax = height * 1024 - 1024;
+    int x_step = ftol(1.0f / static_cast<double>(x_zoom) * 1024.0f);
+    int y_step = ftol(1.0f / static_cast<double>(y_zoom) * 1024.0f);
+    int x_start = ((0x400 - x_step) * static_cast<int>(width)) >> 1; // (about the centre)
+    int y = ((0x400 - y_step) * static_cast<int>(height)) >> 1;
+    int x_max = width * 1024 - 1024, y_max = height * 1024 - 1024;
     auto* out = reinterpret_cast<uint32_t*>(into);
     const auto* image = reinterpret_cast<const uint32_t*>(from);
-    for (int row = height; row > 0; --row, y += yStep) {
-        int cy = y < 0 ? 0 : y > yMax ? yMax : y;
+    for (int row = height; row > 0; --row, y += y_step) {
+        int cy = y < 0 ? 0 : y > y_max ? y_max : y;
         int sy = static_cast<int16_t>(cy >> 10);
-        int x = xStart;
-        for (int column = width; column > 0; --column, x += xStep) {
-            int cx = x < 0 ? 0 : x > xMax ? xMax : x;
-            *out++ = SampleAt(image, width, height, static_cast<int16_t>(cx >> 10), sy, cx & 0x3FF, cy & 0x3FF);
+        int x = x_start;
+        for (int column = width; column > 0; --column, x += x_step) {
+            int cx = x < 0 ? 0 : x > x_max ? x_max : x;
+            *out++ = sample_at(image, width, height, static_cast<int16_t>(cx >> 10), sy, cx & 0x3FF, cy & 0x3FF);
         }
     }
 }
 
 // 0x004C97D0
-uint8_t CPcTexture::NearestPaletteIndex(uint32_t colour)
+uint8_t PcTexture::nearest_palette_index(uint32_t colour)
 {
-    uint8_t depth = reinterpret_cast<uint8_t(__thiscall*)(CPcTexture*)>(vtable[35])(this);
+    uint8_t depth = reinterpret_cast<uint8_t(__thiscall*)(PcTexture*)>(vtable[35])(this);
     int count = 1 << depth;
-    const auto* entry = reinterpret_cast<const uint8_t*>(Texture()->PaletteOwner()); // (its entries, as the original)
+    const auto* entry = reinterpret_cast<const uint8_t*>(get_texture()->palette_owner()); // (its entries, as the original)
     uint8_t nearest = 0;
     int best = 0x7FFFFFFF;
     int c0 = colour & 0xFF, c1 = colour >> 8 & 0xFF, c2 = colour >> 16 & 0xFF, c3 = colour >> 24;
@@ -475,16 +475,16 @@ uint8_t CPcTexture::NearestPaletteIndex(uint32_t colour)
 }
 
 // 0x004C9950
-bool CPcTexture::Modulate(uint32_t colour, bool cumulative)
+bool PcTexture::modulate(uint32_t colour, bool cumulative)
 {
     // (the edit's fields read without checking it is one, as the original)
-    uint8_t* into = reinterpret_cast<uint8_t*>(Edit(this)->pixels);
-    const uint8_t* from = Edit(this)->original && !cumulative ? reinterpret_cast<const uint8_t*>(Edit(this)->original)
-                                                             : reinterpret_cast<const uint8_t*>(Edit(this)->pixels);
+    uint8_t* into = reinterpret_cast<uint8_t*>(get_edit(this)->pixels);
+    const uint8_t* from = get_edit(this)->original && !cumulative ? reinterpret_cast<const uint8_t*>(get_edit(this)->original)
+                                                             : reinterpret_cast<const uint8_t*>(get_edit(this)->pixels);
     uint32_t red = (colour & 0xFF) * 0xFF >> 7, green = (colour >> 8 & 0xFF) * 0xFF >> 7,
              blue = (colour >> 16 & 0xFF) * 0xFF >> 7, alpha = colour >> 24;
-    using Pull = uint16_t(__thiscall*)(CPcTexture*);
-    using GetDepth = uint8_t(__thiscall*)(CPcTexture*);
+    using Pull = uint16_t(__thiscall*)(PcTexture*);
+    using GetDepth = uint8_t(__thiscall*)(PcTexture*);
     int width = reinterpret_cast<Pull>(vtable[33])(this);
     int count = reinterpret_cast<Pull>(vtable[34])(this) * width;
     for (int i = 0; i < count; ++i, from += 4, into += 4) {
@@ -494,7 +494,7 @@ bool CPcTexture::Modulate(uint32_t colour, bool cumulative)
         into[3] = static_cast<uint8_t>(from[3] * alpha >> 7);
     }
     if (reinterpret_cast<GetDepth>(vtable[35])(this) <= 8 && !cumulative) { // (the palette too, in place)
-        auto* entry = reinterpret_cast<uint8_t*>(Texture()->PaletteOwner());
+        auto* entry = reinterpret_cast<uint8_t*>(get_texture()->palette_owner());
         int entries = 1 << reinterpret_cast<GetDepth>(vtable[35])(this);
         for (int i = 0; i < entries; ++i, entry += 4) {
             entry[0] = static_cast<uint8_t>(entry[0] * blue / 0xFF);
@@ -507,202 +507,202 @@ bool CPcTexture::Modulate(uint32_t colour, bool cumulative)
 }
 
 // 0x004C9D80
-bool CPcTexture::ResizeFrom(const CPcTexture* source, int /*unused*/)
+bool PcTexture::resize_from(const PcTexture* source, int /*unused*/)
 {
     if (!(flags & 1) || !(source->flags & 1))
         return false;
-    const textureRef* into = Edit(this)->texture;
-    const textureRef* from = Edit(source)->texture;
-    ResizeImage(reinterpret_cast<const uint8_t*>(Edit(source)->pixels), from->imageWidth, from->imageHeight,
-                reinterpret_cast<uint8_t*>(Edit(this)->pixels), into->imageWidth, into->imageHeight, 32);
+    const TextureRef* into = get_edit(this)->texture;
+    const TextureRef* from = get_edit(source)->texture;
+    resize_image(reinterpret_cast<const uint8_t*>(get_edit(source)->pixels), from->image_width_, from->image_height_,
+                reinterpret_cast<uint8_t*>(get_edit(this)->pixels), into->image_width_, into->image_height_, 32);
     return true;
 }
 
 // 0x004C9DE0
-bool CPcTexture::Zoom(float xZoom, float yZoom)
+bool PcTexture::get_zoom(float x_zoom, float y_zoom)
 {
-    uint32_t* pixels = Edit(this)->pixels; // (read before the flag's test, as the original)
-    const textureRef* texture = Texture();
-    uint32_t width = texture->imageWidth, height = texture->imageHeight;
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(manager->m_topDownHeap);
+    uint32_t* pixels = get_edit(this)->pixels; // (read before the flag's test, as the original)
+    const TextureRef* texture = get_texture();
+    uint32_t width = texture->image_width_, height = texture->image_height_;
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(manager->top_down_heap_);
     uint32_t bytes = height * width * 4;
-    auto* zoomed = static_cast<uint8_t*>(MemSys::Alloc(bytes));
+    auto* zoomed = static_cast<uint8_t*>(memory::alloc(bytes));
     std::memset(zoomed, 0, bytes);
-    MemSys::Hub::Pull()->LeaveHeapScope();
-    ZoomImage(reinterpret_cast<const uint8_t*>(pixels), static_cast<uint16_t>(width), static_cast<uint16_t>(height),
-              zoomed, xZoom, yZoom);
+    memory::Hub::get_pull()->leave_heap_scope();
+    zoom_image(reinterpret_cast<const uint8_t*>(pixels), static_cast<uint16_t>(width), static_cast<uint16_t>(height),
+              zoomed, x_zoom, y_zoom);
     std::memcpy(pixels, zoomed, bytes);
-    MemSys::Hub::Pull()->Dealloc(zoomed);
+    memory::Hub::get_pull()->dealloc(zoomed);
     return true;
 }
 
 // 0x004C9F90
-void CPcTexture::ReadRect(uint32_t* out, uint16_t x, uint16_t y, uint16_t width, uint16_t height)
+void PcTexture::read_rect(uint32_t* out, uint16_t x, uint16_t y, uint16_t width, uint16_t height)
 {
-    uint32_t imageWidth = Texture()->imageWidth;
-    if (flags & 1 && Edit(this)->pixels) {
-        const uint32_t* from = Edit(this)->pixels + (y * imageWidth + x);
+    uint32_t image_width = get_texture()->image_width_;
+    if (flags & 1 && get_edit(this)->pixels) {
+        const uint32_t* from = get_edit(this)->pixels + (y * image_width + x);
         for (uint32_t row = height; row; --row) {
             std::memcpy(out, from, width * 4);
             out += width;
-            from += imageWidth;
+            from += image_width;
         }
         return;
     }
     // Palettized: the whole image (not the rectangle's size, as the original), bottom row first.
-    const auto* texels = static_cast<const uint8_t*>(Texture()->Lock());
-    const auto* palette = reinterpret_cast<const uint32_t*>(Texture()->PaletteOwner());
-    uint32_t rows = Texture()->imageHeight, columns = Texture()->imageWidth;
+    const auto* texels = static_cast<const uint8_t*>(get_texture()->get_lock());
+    const auto* palette = reinterpret_cast<const uint32_t*>(get_texture()->palette_owner());
+    uint32_t rows = get_texture()->image_height_, columns = get_texture()->image_width_;
     const uint8_t* row = texels + x + (static_cast<int>(rows) - y - 1) * static_cast<int>(columns);
     for (uint32_t r = rows; r; --r) {
         for (uint32_t c = 0; c < columns; ++c)
             *out++ = palette[row[c]];
         row -= columns;
     }
-    Texture()->Unlock();
+    get_texture()->get_unlock();
 }
 
 // 0x004CA0D0
-void CPcTexture::WriteRect(const uint32_t* in, uint16_t x, uint16_t y, uint16_t width, uint16_t height)
+void PcTexture::write_rect(const uint32_t* in, uint16_t x, uint16_t y, uint16_t width, uint16_t height)
 {
-    uint32_t imageWidth = Texture()->imageWidth, imageHeight = Texture()->imageHeight;
-    if (flags & 1 && Edit(this)->pixels) {
-        uint32_t* into = Edit(this)->pixels + (y * imageWidth + x);
+    uint32_t image_width = get_texture()->image_width_, image_height = get_texture()->image_height_;
+    if (flags & 1 && get_edit(this)->pixels) {
+        uint32_t* into = get_edit(this)->pixels + (y * image_width + x);
         for (uint32_t row = height; row; --row) {
             std::memcpy(into, in, width * 4);
             in += width;
-            into += imageWidth;
+            into += image_width;
         }
         return;
     }
-    auto* texels = static_cast<uint8_t*>(Texture()->Lock());
-    uint8_t* row = texels + (static_cast<int>(imageHeight) - y - 1) * static_cast<int>(imageWidth) + x;
+    auto* texels = static_cast<uint8_t*>(get_texture()->get_lock());
+    uint8_t* row = texels + (static_cast<int>(image_height) - y - 1) * static_cast<int>(image_width) + x;
     for (uint32_t r = height; r; --r) {
         for (uint32_t c = 0; c < width; ++c)
-            row[c] = NearestPaletteIndex(*in++);
-        row -= imageWidth;
+            row[c] = nearest_palette_index(*in++);
+        row -= image_width;
     }
-    Texture()->Unlock();
+    get_texture()->get_unlock();
 }
 
 // 0x004C8D30
-bool CPcTexture::SpinBy(float angle, float centreX, float centreY)
+bool PcTexture::spin_by(float angle, float centre_x, float centre_y)
 {
-    uint32_t* pixels = Edit(this)->pixels; // (read before the flag's test, as the original)
-    uint32_t width = Texture()->width, height = Texture()->height;
-    if (centreX < 0.0f) // (below 0: the middle)
-        centreX = static_cast<float>((static_cast<double>(width) - 1.0f) * 0.5f);
-    if (centreY < 0.0f)
-        centreY = static_cast<float>((static_cast<double>(height) - 1.0f) * 0.5f);
+    uint32_t* pixels = get_edit(this)->pixels; // (read before the flag's test, as the original)
+    uint32_t width = get_texture()->width, height = get_texture()->height;
+    if (centre_x < 0.0f) // (below 0: the middle)
+        centre_x = static_cast<float>((static_cast<double>(width) - 1.0f) * 0.5f);
+    if (centre_y < 0.0f)
+        centre_y = static_cast<float>((static_cast<double>(height) - 1.0f) * 0.5f);
     float m[4];
-    Maths::CreateRotate2D(m, -angle);
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(manager->m_topDownHeap);
+    maths::create_rotate_2d(m, -angle);
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(manager->top_down_heap_);
     uint32_t bytes = height * width * 4;
-    auto* rotated = static_cast<uint32_t*>(MemSys::Alloc(bytes));
-    MemSys::Hub::Pull()->LeaveHeapScope();
-    int yMax = static_cast<int>(height * 1024 - 1024), xMax = static_cast<int>(width * 1024 - 1024);
+    auto* rotated = static_cast<uint32_t*>(memory::alloc(bytes));
+    memory::Hub::get_pull()->leave_heap_scope();
+    int y_max = static_cast<int>(height * 1024 - 1024), x_max = static_cast<int>(width * 1024 - 1024);
     // the image's axes turned (each a float, as the original stores them), in 1024ths
     float xx = static_cast<float>(static_cast<double>(m[2]) * 0.0f + m[0]);
     float xy = static_cast<float>(static_cast<double>(m[3]) * 0.0f + m[1]);
     float yx = static_cast<float>(static_cast<double>(m[0]) * 0.0f + m[2]);
     float yy = static_cast<float>(static_cast<double>(m[1]) * 0.0f + m[3]);
-    int xxStep = Ftol(static_cast<double>(xx) * 1024.0f), xyStep = Ftol(static_cast<double>(xy) * 1024.0f);
-    int yxStep = Ftol(static_cast<double>(yx) * 1024.0f), yyStep = Ftol(static_cast<double>(yy) * 1024.0f);
+    int xx_step = ftol(static_cast<double>(xx) * 1024.0f), xy_step = ftol(static_cast<double>(xy) * 1024.0f);
+    int yx_step = ftol(static_cast<double>(yx) * 1024.0f), yy_step = ftol(static_cast<double>(yy) * 1024.0f);
     // where the top left comes from: the centre moved back through the turn
-    double nx = -static_cast<double>(centreX), ny = -static_cast<double>(centreY);
+    double nx = -static_cast<double>(centre_x), ny = -static_cast<double>(centre_y);
     float ox = static_cast<float>(m[2] * ny + nx * m[0]);
     float oy = static_cast<float>(ny * m[3] + m[1] * nx);
-    double originCoordX = static_cast<double>(ox) + centreX; // (kept in the register, unrounded)
-    float originCoordY = static_cast<float>(static_cast<double>(oy) + centreY);
-    int rowX = Ftol(originCoordX * 1024.0f);
-    int rowY = Ftol(static_cast<double>(originCoordY) * 1024.0f);
+    double origin_coord_x = static_cast<double>(ox) + centre_x; // (kept in the register, unrounded)
+    float origin_coord_y = static_cast<float>(static_cast<double>(oy) + centre_y);
+    int row_x = ftol(origin_coord_x * 1024.0f);
+    int row_y = ftol(static_cast<double>(origin_coord_y) * 1024.0f);
     uint32_t* out = rotated;
-    for (uint32_t row = height; row; --row, rowX += yxStep, rowY += yyStep) {
-        int x = rowX, y = rowY;
-        for (uint32_t column = width; column; --column, x += xxStep, y += xyStep) {
-            int cx = x < 0 ? 0 : x > xMax ? xMax : x;
-            int cy = y < 0 ? 0 : y > yMax ? yMax : y;
-            *out++ = SampleAt(pixels, static_cast<int>(width), static_cast<int>(height), static_cast<int16_t>(cx >> 10),
+    for (uint32_t row = height; row; --row, row_x += yx_step, row_y += yy_step) {
+        int x = row_x, y = row_y;
+        for (uint32_t column = width; column; --column, x += xx_step, y += xy_step) {
+            int cx = x < 0 ? 0 : x > x_max ? x_max : x;
+            int cy = y < 0 ? 0 : y > y_max ? y_max : y;
+            *out++ = sample_at(pixels, static_cast<int>(width), static_cast<int>(height), static_cast<int16_t>(cx >> 10),
                               static_cast<int16_t>(cy >> 10), cx & 0x3FF, cy & 0x3FF);
         }
     }
     std::memcpy(pixels, rotated, bytes);
-    MemSys::Hub::Pull()->Dealloc(rotated);
+    memory::Hub::get_pull()->dealloc(rotated);
     return true;
 }
 
 // 0x004CA220
-bool CPcTexture::Stretch(uint16_t position, int vertical, int amount)
+bool PcTexture::get_stretch(uint16_t position, int vertical, int amount)
 {
-    uint32_t width = Texture()->imageWidth, height = Texture()->imageHeight;
+    uint32_t width = get_texture()->image_width_, height = get_texture()->image_height_;
     if (!amount)
         return true;
     int at = position;
     if (at + amount <= 0)
         amount = 1 - at;
     uint32_t end = static_cast<uint32_t>(at + amount);
-    uint16_t readX = 0, readY = 0, readWidth, readHeight, newWidth, newHeight;
+    uint16_t read_x = 0, read_y = 0, read_width, read_height, new_width, new_height;
     int offset;
     if (!vertical) { // (the part left of the column stretched by -amount, or the part from it by amount)
         if (end >= width)
             amount = static_cast<int>(width) - at - 1;
-        readHeight = newHeight = static_cast<uint16_t>(height);
+        read_height = new_height = static_cast<uint16_t>(height);
         if (amount < 0) {
-            readWidth = static_cast<uint16_t>(at + 1);
-            newWidth = static_cast<uint16_t>(at - amount + 1);
+            read_width = static_cast<uint16_t>(at + 1);
+            new_width = static_cast<uint16_t>(at - amount + 1);
             offset = -amount;
         } else {
-            readWidth = static_cast<uint16_t>(width - at);
-            newWidth = static_cast<uint16_t>(amount - at + static_cast<int>(width));
-            readX = position;
+            read_width = static_cast<uint16_t>(width - at);
+            new_width = static_cast<uint16_t>(amount - at + static_cast<int>(width));
+            read_x = position;
             offset = 0;
         }
     } else {
         if (end >= height)
             amount = static_cast<int>(height) - at - 1;
-        readWidth = newWidth = static_cast<uint16_t>(width);
+        read_width = new_width = static_cast<uint16_t>(width);
         if (amount < 0) {
-            readHeight = static_cast<uint16_t>(at + 1);
-            newHeight = static_cast<uint16_t>(at - amount + 1);
+            read_height = static_cast<uint16_t>(at + 1);
+            new_height = static_cast<uint16_t>(at - amount + 1);
             offset = -amount * static_cast<int>(width);
         } else {
-            readHeight = static_cast<uint16_t>(height - at);
-            newHeight = static_cast<uint16_t>(amount - at + static_cast<int>(height));
-            readY = position;
+            read_height = static_cast<uint16_t>(height - at);
+            new_height = static_cast<uint16_t>(amount - at + static_cast<int>(height));
+            read_y = position;
             offset = 0;
         }
     }
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(manager->m_cinematicHighHeap ? manager->m_cinematicHighHeap : manager->m_topDownHeap);
-    auto* part = static_cast<uint32_t*>(MemSys::Alloc(static_cast<uint32_t>(readHeight) * readWidth * 4));
-    auto* stretched = static_cast<uint32_t*>(MemSys::Alloc(static_cast<uint32_t>(newHeight) * newWidth * 4));
-    MemSys::Hub::Pull()->LeaveHeapScope();
-    ReadRect(part, readX, readY, readWidth, readHeight);
-    ResizeImage(reinterpret_cast<const uint8_t*>(part), readWidth, readHeight, reinterpret_cast<uint8_t*>(stretched),
-                newWidth, newHeight, 32);
-    CopySubImage(reinterpret_cast<uint8_t*>(part), 0, 0, readWidth, readHeight,
-                 reinterpret_cast<const uint8_t*>(stretched + static_cast<uint16_t>(offset)), newWidth, newHeight, 32);
-    WriteRect(part, readX, readY, readWidth, readHeight);
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(manager->cinematic_high_heap_ ? manager->cinematic_high_heap_ : manager->top_down_heap_);
+    auto* part = static_cast<uint32_t*>(memory::alloc(static_cast<uint32_t>(read_height) * read_width * 4));
+    auto* stretched = static_cast<uint32_t*>(memory::alloc(static_cast<uint32_t>(new_height) * new_width * 4));
+    memory::Hub::get_pull()->leave_heap_scope();
+    read_rect(part, read_x, read_y, read_width, read_height);
+    resize_image(reinterpret_cast<const uint8_t*>(part), read_width, read_height, reinterpret_cast<uint8_t*>(stretched),
+                new_width, new_height, 32);
+    copy_sub_image(reinterpret_cast<uint8_t*>(part), 0, 0, read_width, read_height,
+                 reinterpret_cast<const uint8_t*>(stretched + static_cast<uint16_t>(offset)), new_width, new_height, 32);
+    write_rect(part, read_x, read_y, read_width, read_height);
     if (part)
-        MemSys::Hub::Pull()->Dealloc(part);
+        memory::Hub::get_pull()->dealloc(part);
     if (stretched)
-        MemSys::Hub::Pull()->Dealloc(stretched);
+        memory::Hub::get_pull()->dealloc(stretched);
     return true;
 }
 
 // 0x004CA7B0
-bool CPcTexture::Mirror()
+bool PcTexture::get_mirror()
 {
-    uint32_t width = Texture()->imageWidth;
-    int height = Texture()->imageHeight;
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(manager->m_topDownHeap);
-    auto* column = static_cast<uint32_t*>(MemSys::Alloc(height * 4));
-    MemSys::Hub::Pull()->LeaveHeapScope();
-    uint32_t* left = flags & 1 ? Edit(this)->pixels : nullptr;
-    uint32_t* right = (flags & 1 ? Edit(this)->pixels : nullptr) + width - 1;
+    uint32_t width = get_texture()->image_width_;
+    int height = get_texture()->image_height_;
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(manager->top_down_heap_);
+    auto* column = static_cast<uint32_t*>(memory::alloc(height * 4));
+    memory::Hub::get_pull()->leave_heap_scope();
+    uint32_t* left = flags & 1 ? get_edit(this)->pixels : nullptr;
+    uint32_t* right = (flags & 1 ? get_edit(this)->pixels : nullptr) + width - 1;
     for (; left < right; ++left, --right) { // (the columns swapped)
         for (int i = 0; i < height; ++i)
             column[i] = left[i * width];
@@ -711,16 +711,16 @@ bool CPcTexture::Mirror()
         for (int i = 0; i < height; ++i)
             right[i * width] = column[i];
     }
-    MemSys::Hub::Pull()->Dealloc(column);
+    memory::Hub::get_pull()->dealloc(column);
     return true;
 }
 
 // 0x004CA8E0
-bool CPcTexture::Overlay(CPcTexture* over, int /*unused*/)
+bool PcTexture::get_overlay(PcTexture* over, int /*unused*/)
 {
-    const auto* texels = static_cast<const uint8_t*>(over->Texture()->Lock());
-    auto* into = reinterpret_cast<uint8_t*>(flags & 1 ? Edit(this)->pixels : nullptr);
-    using Pull = uint16_t(__thiscall*)(CPcTexture*);
+    const auto* texels = static_cast<const uint8_t*>(over->get_texture()->get_lock());
+    auto* into = reinterpret_cast<uint8_t*>(flags & 1 ? get_edit(this)->pixels : nullptr);
+    using Pull = uint16_t(__thiscall*)(PcTexture*);
     uint32_t width = reinterpret_cast<Pull>(over->vtable[33])(over);
     uint32_t height = reinterpret_cast<Pull>(over->vtable[34])(over);
     const uint8_t* row = texels + (height - 1) * width * 4; // (bottom row first, by its alpha)
@@ -736,24 +736,24 @@ bool CPcTexture::Overlay(CPcTexture* over, int /*unused*/)
                 into[3] = alpha;
         }
     }
-    over->Texture()->Unlock();
+    over->get_texture()->get_unlock();
     return false;
 }
 
 // 0x004CAA20
-bool CPcTexture::ShiftHueSatValue(float hue, float saturation, float value, bool cumulative)
+bool PcTexture::shift_hue_sat_value(float hue, float saturation, float value, bool cumulative)
 {
-    auto* into = reinterpret_cast<uint8_t*>(flags & 1 ? Edit(this)->pixels : nullptr);
+    auto* into = reinterpret_cast<uint8_t*>(flags & 1 ? get_edit(this)->pixels : nullptr);
     const uint8_t* from = nullptr;
     if (flags & 1)
-        from = reinterpret_cast<const uint8_t*>(Edit(this)->original && !cumulative ? Edit(this)->original
-                                                                                    : Edit(this)->pixels);
-    using Pull = uint16_t(__thiscall*)(CPcTexture*);
+        from = reinterpret_cast<const uint8_t*>(get_edit(this)->original && !cumulative ? get_edit(this)->original
+                                                                                    : get_edit(this)->pixels);
+    using Pull = uint16_t(__thiscall*)(PcTexture*);
     int width = reinterpret_cast<Pull>(vtable[33])(this);
     int count = reinterpret_cast<Pull>(vtable[34])(this) * width;
     for (int i = 0; i < count; ++i, from += 4, into += 4) {
         float h, s, v;
-        RgbToHsv(static_cast<float>(from[0] * (1.0f / 255.0f)), static_cast<float>(from[1] * (1.0f / 255.0f)),
+        rgb_to_hsv(static_cast<float>(from[0] * (1.0f / 255.0f)), static_cast<float>(from[1] * (1.0f / 255.0f)),
                  static_cast<float>(from[2] * (1.0f / 255.0f)), &h, &s, &v);
         double turned = static_cast<double>(h) + hue;
         h = static_cast<float>(turned);
@@ -764,75 +764,75 @@ bool CPcTexture::ShiftHueSatValue(float hue, float saturation, float value, bool
         scaled = static_cast<double>(v) * value;
         v = scaled < 1.0f ? static_cast<float>(scaled) : 1.0f;
         float rgb[3];
-        HsvToRgb(&rgb[0], &rgb[1], &rgb[2], h, s, v);
+        hsv_to_rgb(&rgb[0], &rgb[1], &rgb[2], h, s, v);
         for (int k = 0; k < 3; ++k)
-            into[k] = static_cast<uint8_t>(Ftol(static_cast<double>(rgb[k]) * 255.0f + 0.5f));
+            into[k] = static_cast<uint8_t>(ftol(static_cast<double>(rgb[k]) * 255.0f + 0.5f));
     }
     return true;
 }
 
 // 0x004CABE0
-bool CPcTexture::Offset(int dx, int dy, bool keepEdges, int /*unused*/)
+bool PcTexture::get_offset(int dx, int dy, bool keep_edges, int /*unused*/)
 {
-    using Pull = uint16_t(__thiscall*)(CPcTexture*);
+    using Pull = uint16_t(__thiscall*)(PcTexture*);
     int width = reinterpret_cast<Pull>(vtable[33])(this);
     int height = reinterpret_cast<Pull>(vtable[34])(this);
-    int fromX, intoX, partWidth, fromY = 0, intoY, partHeight;
+    int from_x, into_x, part_width, from_y = 0, into_y, part_height;
     if (dx >= 0) {
-        fromX = 0;
-        intoX = dx;
-        partWidth = width - dx;
+        from_x = 0;
+        into_x = dx;
+        part_width = width - dx;
     } else {
-        fromX = -dx;
-        intoX = 0;
-        partWidth = width + dx;
+        from_x = -dx;
+        into_x = 0;
+        part_width = width + dx;
     }
     if (dy >= 0) {
-        intoY = dy;
-        partHeight = height - dy;
+        into_y = dy;
+        part_height = height - dy;
     } else {
-        fromY = -dy;
-        intoY = 0;
-        partHeight = height + dy;
+        from_y = -dy;
+        into_y = 0;
+        part_height = height + dy;
     }
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(manager->m_topDownHeap);
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(manager->top_down_heap_);
     auto* part = static_cast<uint32_t*>(
-        Crt::AllocBlock(partHeight * partWidth * 4)); // (the C runtime's malloc)
-    MemSys::Hub::Pull()->LeaveHeapScope();
-    ReadRect(part, static_cast<uint16_t>(fromX), static_cast<uint16_t>(fromY), static_cast<uint16_t>(partWidth),
-             static_cast<uint16_t>(partHeight));
-    WriteRect(part, static_cast<uint16_t>(intoX), static_cast<uint16_t>(intoY), static_cast<uint16_t>(partWidth),
-              static_cast<uint16_t>(partHeight));
-    if (!keepEdges) { // (what was uncovered filled from the moved part's nearest edge)
-        for (int y = 0, sy = -intoY; y < height; ++y, ++sy) {
+        crt::alloc_block(part_height * part_width * 4)); // (the C runtime's malloc)
+    memory::Hub::get_pull()->leave_heap_scope();
+    read_rect(part, static_cast<uint16_t>(from_x), static_cast<uint16_t>(from_y), static_cast<uint16_t>(part_width),
+             static_cast<uint16_t>(part_height));
+    write_rect(part, static_cast<uint16_t>(into_x), static_cast<uint16_t>(into_y), static_cast<uint16_t>(part_width),
+              static_cast<uint16_t>(part_height));
+    if (!keep_edges) { // (what was uncovered filled from the moved part's nearest edge)
+        for (int y = 0, sy = -into_y; y < height; ++y, ++sy) {
             int row = sy <= 0 ? 0 : sy;
-            if (row >= partHeight - 1)
-                row = partHeight - 1;
-            int rowStart = row * partWidth;
-            for (int x = 0, sx = -intoX; x < width; ++x, ++sx) {
-                if (sx >= 0 && sx < partWidth && sy >= 0 && sy < partHeight)
+            if (row >= part_height - 1)
+                row = part_height - 1;
+            int row_start = row * part_width;
+            for (int x = 0, sx = -into_x; x < width; ++x, ++sx) {
+                if (sx >= 0 && sx < part_width && sy >= 0 && sy < part_height)
                     continue;
                 int column = sx <= 0 ? 0 : sx;
-                if (column >= partWidth - 1)
-                    column = partWidth - 1;
-                uint32_t pixel = part[rowStart + column];
-                uint32_t texelsWide = Texture()->width;
-                if (flags & 1 && Edit(this)->pixels)
-                    Edit(this)->pixels[static_cast<uint16_t>(y) * texelsWide + static_cast<uint16_t>(x)] = pixel;
+                if (column >= part_width - 1)
+                    column = part_width - 1;
+                uint32_t pixel = part[row_start + column];
+                uint32_t texels_wide = get_texture()->width;
+                if (flags & 1 && get_edit(this)->pixels)
+                    get_edit(this)->pixels[static_cast<uint16_t>(y) * texels_wide + static_cast<uint16_t>(x)] = pixel;
             }
         }
     }
-    Crt::Dealloc(part); // (the C runtime's free)
+    crt::dealloc(part); // (the C runtime's free)
     return true;
 }
 
 // 0x004CADC0
-bool CPcTexture::Border(uint32_t colour)
+bool PcTexture::get_border(uint32_t colour)
 {
-    uint32_t* pixels = flags & 1 ? Edit(this)->pixels : nullptr;
-    uint32_t width = Texture()->width;
-    int height = Texture()->height;
+    uint32_t* pixels = flags & 1 ? get_edit(this)->pixels : nullptr;
+    uint32_t width = get_texture()->width;
+    int height = get_texture()->height;
     uint32_t* bottom = pixels + (height - 1) * width;
     uint32_t* right = pixels + width - 1;
     uint32_t* top = pixels;
@@ -848,167 +848,167 @@ bool CPcTexture::Border(uint32_t colour)
 }
 
 // 0x004CA410
-bool CPcTexture::Squash(uint16_t position, int vertical, int amount, bool fill, uint32_t colour)
+bool PcTexture::squash(uint16_t position, int vertical, int amount, bool fill, uint32_t colour)
 {
-    uint32_t height = Texture()->imageHeight, width = Texture()->imageWidth;
+    uint32_t height = get_texture()->image_height_, width = get_texture()->image_width_;
     if (!amount)
         return true;
     int at = position;
     if (at + amount <= 0)
         amount = 1 - at;
     int end = at + amount;
-    uint16_t readX = 0, readY = 0, intoX = 0, intoY = 0, readWidth, readHeight, newWidth, newHeight;
+    uint16_t read_x = 0, read_y = 0, into_x = 0, into_y = 0, read_width, read_height, new_width, new_height;
     if (!vertical) {
         if (end >= static_cast<int>(width))
             amount = static_cast<int>(width) - at - 1;
-        newHeight = readHeight = static_cast<uint16_t>(height);
+        new_height = read_height = static_cast<uint16_t>(height);
         if (amount < 0) {
-            newWidth = static_cast<uint16_t>(amount - at + static_cast<int>(width));
-            readWidth = static_cast<uint16_t>(width - at);
-            readX = position;
+            new_width = static_cast<uint16_t>(amount - at + static_cast<int>(width));
+            read_width = static_cast<uint16_t>(width - at);
+            read_x = position;
         } else {
-            readWidth = static_cast<uint16_t>(at + 1);
-            newWidth = static_cast<uint16_t>(at - amount + 1);
-            intoX = static_cast<uint16_t>(amount);
+            read_width = static_cast<uint16_t>(at + 1);
+            new_width = static_cast<uint16_t>(at - amount + 1);
+            into_x = static_cast<uint16_t>(amount);
         }
     } else {
         if (end >= static_cast<int>(height))
             amount = static_cast<int>(height) - at - 1;
-        readWidth = newWidth = static_cast<uint16_t>(width);
+        read_width = new_width = static_cast<uint16_t>(width);
         if (amount < 0) {
-            readHeight = static_cast<uint16_t>(height - at);
-            newHeight = static_cast<uint16_t>(amount - at + static_cast<int>(height));
-            readY = position;
+            read_height = static_cast<uint16_t>(height - at);
+            new_height = static_cast<uint16_t>(amount - at + static_cast<int>(height));
+            read_y = position;
         } else {
-            readHeight = static_cast<uint16_t>(at + 1);
-            newHeight = static_cast<uint16_t>(at - amount + 1);
-            intoY = static_cast<uint16_t>(amount);
+            read_height = static_cast<uint16_t>(at + 1);
+            new_height = static_cast<uint16_t>(at - amount + 1);
+            into_y = static_cast<uint16_t>(amount);
         }
     }
-    auto crtMalloc = Crt::AllocBlock; // (the C runtime's)
-    auto crtFree = Crt::Dealloc;
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(manager->m_topDownHeap);
-    int count = readHeight * readWidth;
-    auto* part = static_cast<uint32_t*>(crtMalloc(count * 4));
-    auto* squashed = static_cast<uint32_t*>(crtMalloc(newHeight * newWidth * 4));
-    MemSys::Hub::Pull()->LeaveHeapScope();
-    ReadRect(part, readX, readY, readWidth, readHeight);
-    ResizeImage(reinterpret_cast<const uint8_t*>(part), readWidth, readHeight, reinterpret_cast<uint8_t*>(squashed),
-                newWidth, newHeight, 32);
+    auto crt_malloc = crt::alloc_block; // (the C runtime's)
+    auto crt_free = crt::dealloc;
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(manager->top_down_heap_);
+    int count = read_height * read_width;
+    auto* part = static_cast<uint32_t*>(crt_malloc(count * 4));
+    auto* squashed = static_cast<uint32_t*>(crt_malloc(new_height * new_width * 4));
+    memory::Hub::get_pull()->leave_heap_scope();
+    read_rect(part, read_x, read_y, read_width, read_height);
+    resize_image(reinterpret_cast<const uint8_t*>(part), read_width, read_height, reinterpret_cast<uint8_t*>(squashed),
+                new_width, new_height, 32);
     if (fill) {
         for (int i = 0; i < count; ++i)
             part[i] = colour;
     }
-    CopySubImage(reinterpret_cast<uint8_t*>(part), intoX, intoY, readWidth, readHeight,
-                 reinterpret_cast<const uint8_t*>(squashed), newWidth, newHeight, 32);
-    WriteRect(part, readX, readY, readWidth, readHeight);
+    copy_sub_image(reinterpret_cast<uint8_t*>(part), into_x, into_y, read_width, read_height,
+                 reinterpret_cast<const uint8_t*>(squashed), new_width, new_height, 32);
+    write_rect(part, read_x, read_y, read_width, read_height);
     if (!fill) { // (what was uncovered filled with the squashed part's edge column / row)
         if (!vertical) {
             bool right = amount > 0;
-            int source = right ? 0 : newWidth - 1;
-            manager = MemSys::Hub::Pull();
-            manager->EnterHeapScope(manager->m_topDownHeap);
+            int source = right ? 0 : new_width - 1;
+            manager = memory::Hub::get_pull();
+            manager->enter_heap_scope(manager->top_down_heap_);
             int rows = static_cast<uint16_t>(height);
-            auto* column = static_cast<uint32_t*>(crtMalloc(rows * 4));
-            MemSys::Hub::Pull()->LeaveHeapScope();
+            auto* column = static_cast<uint32_t*>(crt_malloc(rows * 4));
+            memory::Hub::get_pull()->leave_heap_scope();
             for (int i = 0; i < rows; ++i)
-                column[i] = squashed[source + i * newWidth];
+                column[i] = squashed[source + i * new_width];
             int first = right ? 0 : static_cast<int>(width) + amount;
             int last = right ? amount - 1 : static_cast<int>(width) - 1;
             for (int x = first; x <= last; ++x)
-                WriteRect(column, static_cast<uint16_t>(x), 0, 1, static_cast<uint16_t>(height));
-            crtFree(column);
+                write_rect(column, static_cast<uint16_t>(x), 0, 1, static_cast<uint16_t>(height));
+            crt_free(column);
         } else {
             bool down = amount > 0;
-            int source = down ? 0 : newHeight - 1;
-            manager = MemSys::Hub::Pull();
-            manager->EnterHeapScope(manager->m_topDownHeap);
+            int source = down ? 0 : new_height - 1;
+            manager = memory::Hub::get_pull();
+            manager->enter_heap_scope(manager->top_down_heap_);
             uint32_t bytes = static_cast<uint16_t>(width) * 4u;
-            auto* row = static_cast<uint32_t*>(crtMalloc(bytes));
-            MemSys::Hub::Pull()->LeaveHeapScope();
-            std::memcpy(row, squashed + newWidth * source, bytes);
+            auto* row = static_cast<uint32_t*>(crt_malloc(bytes));
+            memory::Hub::get_pull()->leave_heap_scope();
+            std::memcpy(row, squashed + new_width * source, bytes);
             int first = down ? 0 : static_cast<int>(height) + amount;
             int last = down ? amount - 1 : static_cast<int>(height) - 1;
             for (int y = first; y <= last; ++y)
-                WriteRect(row, 0, static_cast<uint16_t>(y), static_cast<uint16_t>(width), 1);
-            crtFree(row);
+                write_rect(row, 0, static_cast<uint16_t>(y), static_cast<uint16_t>(width), 1);
+            crt_free(row);
         }
     }
     if (part)
-        crtFree(part);
+        crt_free(part);
     if (squashed)
-        crtFree(squashed);
+        crt_free(squashed);
     return true;
 }
 
 // 0x004C8070
-CPcTexDict* CPcTexDict::MakeNew(uint32_t checksum)
+PcTexDict* PcTexDict::make_new(uint32_t checksum)
 {
-    reinterpret_cast<CTextureSet*>(this)->CTextureSet::MakeNew(checksum, true);
+    reinterpret_cast<TextureSet*>(this)->TextureSet::make_new(checksum, true);
     vtable = reinterpret_cast<void**>(kTexDictVtable);
     return this;
 }
 
 // 0x004C9AF0
-void CPcTexDict::DestroyBody()
+void PcTexDict::destroy_body()
 {
     vtable = reinterpret_cast<void**>(kTexDictVtable);
-    reinterpret_cast<CTextureSet*>(this)->CTextureSet::DestroyBody();
+    reinterpret_cast<TextureSet*>(this)->TextureSet::destroy_body();
 }
 
 // 0x004C9F60
-CPcTexDict* CPcTexDict::Teardown(unsigned int freeFlags)
+PcTexDict* PcTexDict::teardown(unsigned int free_flags)
 {
-    DestroyBody();
-    if (freeFlags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+    destroy_body();
+    if (free_flags & 1)
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x004C9B00
-CPcTexture* CPcTexDict::IngestSkin(const char* name, int a2, int /*unused*/)
+PcTexture* PcTexDict::ingest_skin(const char* name, int a2, int /*unused*/)
 {
-    CPcTexture* texture = AllocPcTexture();
+    PcTexture* texture = alloc_pc_texture();
     // (no check: the engine's load called on null without memory, as the original)
-    reinterpret_cast<CBitmapTexture*>(texture)->CBitmapTexture::LoadByName(name, a2, 1);
+    reinterpret_cast<BitmapTexture*>(texture)->BitmapTexture::load_by_name(name, a2, 1);
     return texture;
 }
 
 // 0x004C89B0
-CPcTexture* CPcTexDict::CreateTexture(uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5,
+PcTexture* PcTexDict::create_texture(uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5,
                                       uint32_t /*unused*/)
 {
-    CPcTexture* texture = AllocPcTexture();
-    reinterpret_cast<CBitmapTexture*>(texture)->CBitmapTexture::ReadFromRamBlock(reinterpret_cast<const uint8_t*>(static_cast<uintptr_t>(a1)), a2, a3, a4, a5, 1);
+    PcTexture* texture = alloc_pc_texture();
+    reinterpret_cast<BitmapTexture*>(texture)->BitmapTexture::read_from_ram_block(reinterpret_cast<const uint8_t*>(static_cast<uintptr_t>(a1)), a2, a3, a4, a5, 1);
     return texture;
 }
 
 // 0x004C9BA0
-CPcTexture* CPcTexDict::RefreshTexture(uint32_t checksum, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5,
+PcTexture* PcTexDict::refresh_texture(uint32_t checksum, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5,
                                       uint32_t a6)
 {
-    auto* texture = static_cast<CPcTexture*>(static_cast<ListKit::KeyMap*>(textures)->FetchEntry(checksum));
+    auto* texture = static_cast<PcTexture*>(static_cast<lists::KeyMap*>(textures)->fetch_entry(checksum));
     if (!texture)
-        texture = AllocPcTexture();
-    reinterpret_cast<CBitmapTexture*>(texture)->CBitmapTexture::Fabricate(checksum, a2, a3, a4, a5, a6);
+        texture = alloc_pc_texture();
+    reinterpret_cast<BitmapTexture*>(texture)->BitmapTexture::fabricate(checksum, a2, a3, a4, a5, a6);
     return texture;
 }
 
 // 0x004C8090
-bool CPcTexDict::UnloadTexture(CPcTexture* texture)
+bool PcTexDict::unload_texture(PcTexture* texture)
 {
     if (texture) // (through its vtable)
-        reinterpret_cast<CPcTexture*(__thiscall*)(CPcTexture*, unsigned int)>(texture->vtable[0])(texture, 1);
+        reinterpret_cast<PcTexture*(__thiscall*)(PcTexture*, unsigned int)>(texture->vtable[0])(texture, 1);
     return true;
 }
 
 // 0x004C9C80
-CPcTexture* CPcTexDict::CopyTexture(uint32_t checksum, const CPcTexture* source)
+PcTexture* PcTexDict::copy_texture(uint32_t checksum, const PcTexture* source)
 {
-    void* memory = MemSys::Alloc(sizeof(CPcTexture));
-    CPcTexture* texture = memory ? static_cast<CPcTexture*>(memory)->ConstructCopy(source) : nullptr;
-    texture->Texture()->checksum = checksum; // (no check, as the original)
+    void* memory = memory::alloc(sizeof(PcTexture));
+    PcTexture* texture = memory ? static_cast<PcTexture*>(memory)->construct_copy(source) : nullptr;
+    texture->get_texture()->checksum = checksum; // (no check, as the original)
     return texture;
 }
 
@@ -1016,7 +1016,7 @@ namespace {
 
 // The dictionary's table remade for `count` textures: 2^bits buckets, bits the first with 2^bits at least twice the
 // count (1-12), in the heap the old table was in (the old one freed).
-ListKit::KeyMap* RemakeTable(ListKit::KeyMap* table, uint32_t count)
+lists::KeyMap* remake_table(lists::KeyMap* table, uint32_t count)
 {
     uint32_t size = 2, bits = 1;
     uint32_t wanted = count * 2;
@@ -1028,25 +1028,25 @@ ListKit::KeyMap* RemakeTable(ListKit::KeyMap* table, uint32_t count)
             ++bits;
         } while (wanted > size);
     }
-    MemSys::MemSource* heap = MemSys::FetchChunkPrefix(table)->allocator; // (read before the null test, as the original)
+    memory::MemSource* heap = memory::fetch_chunk_prefix(table)->allocator; // (read before the null test, as the original)
     if (table) {
-        if (table->m_buckets) {
-            table->EmptyTable();
-            MemSys::Hub::Pull()->Dealloc(table->m_buckets);
-            table->m_buckets = nullptr;
+        if (table->buckets_) {
+            table->empty_table();
+            memory::Hub::get_pull()->dealloc(table->buckets_);
+            table->buckets_ = nullptr;
         }
-        MemSys::Hub::Pull()->Dealloc(table);
+        memory::Hub::get_pull()->dealloc(table);
     }
-    MemSys::Hub::Pull()->EnterHeapScope(heap);
-    void* memory = MemSys::Alloc(sizeof(ListKit::KeyMap));
-    auto* remade = memory ? new (memory) ListKit::KeyMap(static_cast<int>(bits)) : nullptr;
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    memory::Hub::get_pull()->enter_heap_scope(heap);
+    void* memory = memory::alloc(sizeof(lists::KeyMap));
+    auto* remade = memory ? new (memory) lists::KeyMap(static_cast<int>(bits)) : nullptr;
+    memory::Hub::get_pull()->leave_heap_scope();
     return remade;
 }
 
 // A texture's format from its header: by depth (8 P8, 16 A1R5G5B5, 32 A8R8G8B8) or its compression (1, 2: DXT1, 5:
 // DXT5); anything else keeps the last one's (the original's stack).
-uint32_t PixelLayout(uint8_t compression, uint8_t depth, uint32_t last)
+uint32_t pixel_layout(uint8_t compression, uint8_t depth, uint32_t last)
 {
     if (compression) {
         if (compression == 1 || compression == 2)
@@ -1065,67 +1065,67 @@ uint32_t PixelLayout(uint8_t compression, uint8_t depth, uint32_t last)
 }
 
 // The texture under its checksum in the table.
-void AddToTable(ListKit::KeyMap* table, textureRef* texture)
+void add_to_table(lists::KeyMap* table, TextureRef* texture)
 {
-    void* memory = MemSys::Alloc(sizeof(CPcTexture));
-    CPcTexture* holder = memory ? static_cast<CPcTexture*>(memory)->MakeNew() : nullptr;
+    void* memory = memory::alloc(sizeof(PcTexture));
+    PcTexture* holder = memory ? static_cast<PcTexture*>(memory)->make_new() : nullptr;
     holder->engine = texture; // (no check, as the original)
     holder->checksum = texture->checksum;
-    table->StoreEntry(texture->checksum, holder);
+    table->store_entry(texture->checksum, holder);
 }
 
-textureRef* NewEngineTexture()
+TextureRef* new_engine_texture()
 {
-    void* memory = MemSys::Alloc(sizeof(textureRef));
-    return memory ? static_cast<textureRef*>(memory)->MakeNew() : nullptr;
+    void* memory = memory::alloc(sizeof(TextureRef));
+    return memory ? static_cast<TextureRef*>(memory)->make_new() : nullptr;
 }
 
 } // namespace
 
 // 0x004CAE90
-ListKit::KeyMap* __cdecl LoadTexturesFromFile(const char* name, ListKit::KeyMap* table, bool remake)
+lists::KeyMap* __cdecl load_textures_from_file(const char* name, lists::KeyMap* table, bool remake)
 {
-    FileLoad::Hdl file = FileLoad::Unseal(name, "rb");
+    file::Hdl file = file::unseal(name, "rb");
     if (!file)
         return table;
-    auto read = [file](void* into, int size, int count) { FileLoad::TakeIn(into, size, count, file); };
+    auto read = [file](void* into, int size, int count) { file::get_take_in(into, size, count, file); };
     uint32_t version;
     read(&version, 4, 1);
     int count;
     read(&count, 4, 1);
     if (remake)
-        table = RemakeTable(table, static_cast<uint32_t>(count));
+        table = remake_table(table, static_cast<uint32_t>(count));
     uint32_t format = 0; // (the original's is whatever its stack held until a texture sets it)
     for (int i = 0; i < count; ++i) {
-        textureRef* texture = NewEngineTexture();
+        TextureRef* texture = new_engine_texture();
         read(&texture->checksum, 4, 1); // (no check, as the original)
-        uint32_t width, height, levels, depth, paletteDepth, compression, paletteSize;
+        uint32_t width, height, levels, depth, palette_depth, compression, palette_size;
         read(&width, 4, 1);
         read(&height, 4, 1);
         read(&levels, 4, 1);
         read(&depth, 4, 1);
-        read(&paletteDepth, 4, 1);
+        read(&palette_depth, 4, 1);
         read(&compression, 4, 1);
-        read(&paletteSize, 4, 1);
+        read(&palette_size, 4, 1);
         texture->width = static_cast<uint16_t>(width);
         texture->height = static_cast<uint16_t>(height);
         texture->levels = static_cast<uint8_t>(levels);
         texture->depth = static_cast<uint8_t>(depth);
-        texture->unknownE = static_cast<uint8_t>(paletteDepth);
-        texture->unknownF = static_cast<uint8_t>(compression);
-        format = PixelLayout(texture->unknownF, texture->depth, format);
+        texture->unknowne_ = static_cast<uint8_t>(palette_depth);
+        texture->unknownf_ = static_cast<uint8_t>(compression);
+        format = pixel_layout(texture->unknownf_, texture->depth, format);
         if (texture->height < 4)
             texture->height = 4;
         auto** d3d = reinterpret_cast<IDirect3DTexture9**>(&texture->texture);
-        if (paletteSize) {
+        if (palette_size) {
             // Palettized: an A8R8G8B8 texture made, the palette and the levels read - and dropped (the texture's
             // texels left as they are, as the original).
             texture->depth = 32;
             format = D3DFMT_A8R8G8B8;
-            InputPort()->CreateTexture(texture->width, texture->height, texture->levels, 0, D3DFMT_A8R8G8B8,
+            input_port()->CreateTexture(texture->width, texture->height, texture->levels, 0, D3DFMT_A8R8G8B8,
                                     D3DPOOL_MANAGED, d3d, nullptr);
-            void* palette = MemSys::Alloc(paletteSize);
-            read(palette, static_cast<int>(paletteSize), 1);
+            void* palette = memory::alloc(palette_size);
+            read(palette, static_cast<int>(palette_size), 1);
             for (uint32_t level = 0; level < texture->levels; ++level) {
                 uint32_t size;
                 read(&size, 4, 1);
@@ -1133,14 +1133,14 @@ ListKit::KeyMap* __cdecl LoadTexturesFromFile(const char* name, ListKit::KeyMap*
                 (*d3d)->LockRect(level, &rect, nullptr, 0);
                 D3DSURFACE_DESC desc;
                 (*d3d)->GetLevelDesc(level, &desc);
-                void* texels = MemSys::Alloc(size);
+                void* texels = memory::alloc(size);
                 read(texels, static_cast<int>(size), 1);
-                MemSys::Hub::Pull()->Dealloc(texels);
+                memory::Hub::get_pull()->dealloc(texels);
                 (*d3d)->UnlockRect(level);
             }
-            MemSys::Hub::Pull()->Dealloc(palette);
+            memory::Hub::get_pull()->dealloc(palette);
         } else {
-            InputPort()->CreateTexture(texture->width, texture->height, texture->levels, 0, static_cast<D3DFORMAT>(format),
+            input_port()->CreateTexture(texture->width, texture->height, texture->levels, 0, static_cast<D3DFORMAT>(format),
                                     D3DPOOL_MANAGED, d3d, nullptr);
             texture->palette = nullptr;
             for (uint32_t level = 0; level < texture->levels; ++level) {
@@ -1152,38 +1152,38 @@ ListKit::KeyMap* __cdecl LoadTexturesFromFile(const char* name, ListKit::KeyMap*
                 (*d3d)->UnlockRect(level);
             }
         }
-        AddToTable(table, texture);
+        add_to_table(table, texture);
     }
-    FileLoad::Shut(file);
+    file::shut(file);
     return table;
 }
 
 // 0x004CB420
-ListKit::KeyMap* __cdecl LoadTexturesFromMemory(const uint8_t** cursor, ListKit::KeyMap* table, bool remake)
+lists::KeyMap* __cdecl load_textures_from_memory(const uint8_t** cursor, lists::KeyMap* table, bool remake)
 {
     const auto* p = reinterpret_cast<const uint32_t*>(*cursor); // (the cursor not moved on, as the original)
     int count = static_cast<int>(p[1]);
     p += 2;
     if (remake)
-        table = RemakeTable(table, static_cast<uint32_t>(count));
+        table = remake_table(table, static_cast<uint32_t>(count));
     uint32_t format = 0; // (as the file loader's)
     for (int i = count; i > 0; --i) {
-        textureRef* texture = NewEngineTexture();
+        TextureRef* texture = new_engine_texture();
         texture->checksum = *p++;
-        uint32_t width = *p++, height = *p++, levels = *p++, depth = *p++, paletteDepth = *p++, compression = *p++;
-        uint32_t paletteSize = *p++;
+        uint32_t width = *p++, height = *p++, levels = *p++, depth = *p++, palette_depth = *p++, compression = *p++;
+        uint32_t palette_size = *p++;
         texture->levels = static_cast<uint8_t>(levels);
         texture->width = static_cast<uint16_t>(width);
         texture->height = static_cast<uint16_t>(height);
         texture->depth = static_cast<uint8_t>(depth);
-        texture->unknownE = static_cast<uint8_t>(paletteDepth);
-        texture->unknownF = static_cast<uint8_t>(compression);
-        format = PixelLayout(static_cast<uint8_t>(compression), static_cast<uint8_t>(depth), format);
+        texture->unknowne_ = static_cast<uint8_t>(palette_depth);
+        texture->unknownf_ = static_cast<uint8_t>(compression);
+        format = pixel_layout(static_cast<uint8_t>(compression), static_cast<uint8_t>(depth), format);
         auto** d3d = reinterpret_cast<IDirect3DTexture9**>(&texture->texture);
-        InputPort()->CreateTexture(static_cast<uint16_t>(width), static_cast<uint16_t>(height),
+        input_port()->CreateTexture(static_cast<uint16_t>(width), static_cast<uint16_t>(height),
                                 static_cast<uint8_t>(levels), 0, static_cast<D3DFORMAT>(format), D3DPOOL_MANAGED, d3d,
                                 nullptr);
-        if (!paletteSize)
+        if (!palette_size)
             texture->palette = nullptr;
         for (uint32_t level = 0; level < texture->levels; ++level) {
             uint32_t size = *p++;
@@ -1193,7 +1193,7 @@ ListKit::KeyMap* __cdecl LoadTexturesFromMemory(const uint8_t** cursor, ListKit:
             p = reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(p) + size);
             (*reinterpret_cast<IDirect3DTexture9**>(&texture->texture))->UnlockRect(level);
         }
-        AddToTable(table, texture);
+        add_to_table(table, texture);
     }
     return table;
 }
@@ -1201,12 +1201,12 @@ ListKit::KeyMap* __cdecl LoadTexturesFromMemory(const uint8_t** cursor, ListKit:
 namespace {
 
 // Whether the table has any textures (iterated from the start).
-bool HasTextures(ListKit::KeyMap* table)
+bool has_textures(lists::KeyMap* table)
 {
-    table->m_iterBucket = -1;
-    table->m_iterItem = nullptr;
+    table->iter_bucket_ = -1;
+    table->iter_item_ = nullptr;
     int count = 0;
-    while (table->StepIterator() && table->m_iterItem && table->m_iterItem->value)
+    while (table->step_iterator() && table->iter_item_ && table->iter_item_->value)
         ++count;
     return count != 0;
 }
@@ -1214,97 +1214,97 @@ bool HasTextures(ListKit::KeyMap* table)
 } // namespace
 
 // 0x004CB380
-bool CPcTexDict::IngestFile(const char* name)
+bool PcTexDict::ingest_file(const char* name)
 {
-    auto* table = static_cast<ListKit::KeyMap*>(textures);
+    auto* table = static_cast<lists::KeyMap*>(textures);
     if (!table) {
-        LoadTexturesFromFile(name, nullptr, false);
-    } else if (!HasTextures(table)) {
-        textures = LoadTexturesFromFile(name, table, true);
+        load_textures_from_file(name, nullptr, false);
+    } else if (!has_textures(table)) {
+        textures = load_textures_from_file(name, table, true);
     } else {
-        LoadTexturesFromFile(name, table, false);
+        load_textures_from_file(name, table, false);
     }
     return true;
 }
 
 // 0x004CB7C0
-bool CPcTexDict::LoadMemory(const uint8_t* data)
+bool PcTexDict::load_memory(const uint8_t* data)
 {
-    auto* table = static_cast<ListKit::KeyMap*>(textures);
+    auto* table = static_cast<lists::KeyMap*>(textures);
     if (!table) {
-        LoadTexturesFromMemory(&data, nullptr, false);
-    } else if (!HasTextures(table)) {
-        textures = LoadTexturesFromMemory(&data, table, true);
+        load_textures_from_memory(&data, nullptr, false);
+    } else if (!has_textures(table)) {
+        textures = load_textures_from_memory(&data, table, true);
     } else {
-        LoadTexturesFromMemory(&data, table, false);
+        load_textures_from_memory(&data, table, false);
     }
     return true;
 }
 
 // 0x004CB760
-CPcTexDict* CPcTexDict::ConstructFromFile(const char* name)
+PcTexDict* PcTexDict::construct_from_file(const char* name)
 {
-    reinterpret_cast<CTextureSet*>(this)->CTextureSet::ConstructNamed(name, true);
+    reinterpret_cast<TextureSet*>(this)->TextureSet::construct_named(name, true);
     vtable = reinterpret_cast<void**>(kTexDictVtable);
-    IngestFile(name);
+    ingest_file(name);
     return this;
 }
 
 // 0x004C7270
-CPcTexDict* __cdecl LoadTexDictFile(const char* name)
+PcTexDict* __cdecl load_tex_dict_file(const char* name)
 {
-    void* memory = MemSys::Alloc(sizeof(CPcTexDict));
-    return memory ? static_cast<CPcTexDict*>(memory)->ConstructFromFile(name) : nullptr;
+    void* memory = memory::alloc(sizeof(PcTexDict));
+    return memory ? static_cast<PcTexDict*>(memory)->construct_from_file(name) : nullptr;
 }
 
 // 0x004C72E0
-CPcTexDict* __cdecl LoadTexDictMemory(uint32_t checksum, const uint8_t* data)
+PcTexDict* __cdecl load_tex_dict_memory(uint32_t checksum, const uint8_t* data)
 {
-    void* memory = MemSys::Alloc(sizeof(CPcTexDict));
-    CPcTexDict* dict = memory ? static_cast<CPcTexDict*>(memory)->MakeNew(checksum) : nullptr;
-    dict->LoadMemory(data); // (called on null without memory, as the original)
+    void* memory = memory::alloc(sizeof(PcTexDict));
+    PcTexDict* dict = memory ? static_cast<PcTexDict*>(memory)->make_new(checksum) : nullptr;
+    dict->load_memory(data); // (called on null without memory, as the original)
     return dict;
 }
 
 // 0x004C7360
-CPcTexDict* __cdecl CreateTexDict(uint32_t checksum)
+PcTexDict* __cdecl create_tex_dict(uint32_t checksum)
 {
-    void* memory = MemSys::Alloc(sizeof(CPcTexDict));
-    return memory ? static_cast<CPcTexDict*>(memory)->MakeNew(checksum) : nullptr;
+    void* memory = memory::alloc(sizeof(PcTexDict));
+    return memory ? static_cast<PcTexDict*>(memory)->make_new(checksum) : nullptr;
 }
 
 // 0x004C80B0
-void __cdecl CopySubImage(uint8_t* into, uint16_t x, uint16_t y, uint16_t intoWidth, uint16_t intoHeight,
-                          const uint8_t* from, uint16_t fromWidth, uint16_t fromHeight, uint16_t bitsPerPixel)
+void __cdecl copy_sub_image(uint8_t* into, uint16_t x, uint16_t y, uint16_t into_width, uint16_t into_height,
+                          const uint8_t* from, uint16_t from_width, uint16_t from_height, uint16_t bits_per_pixel)
 {
-    int columns = fromWidth;
-    if (columns >= intoWidth - x)
-        columns = intoWidth - x;
-    int rows = fromHeight < intoHeight - y ? fromHeight : intoHeight - y;
-    int offset = y * intoWidth;
-    uint32_t bytesPerPixel = bitsPerPixel >> 3;
-    int rowBytes;
-    uint32_t fromStride, intoStride;
-    if (bytesPerPixel) {
-        rowBytes = columns * static_cast<int>(bytesPerPixel);
-        fromStride = fromWidth * bytesPerPixel;
-        into += (offset + x) * static_cast<int>(bytesPerPixel);
-        intoStride = intoWidth * bytesPerPixel;
+    int columns = from_width;
+    if (columns >= into_width - x)
+        columns = into_width - x;
+    int rows = from_height < into_height - y ? from_height : into_height - y;
+    int offset = y * into_width;
+    uint32_t bytes_per_pixel = bits_per_pixel >> 3;
+    int row_bytes;
+    uint32_t from_stride, into_stride;
+    if (bytes_per_pixel) {
+        row_bytes = columns * static_cast<int>(bytes_per_pixel);
+        from_stride = from_width * bytes_per_pixel;
+        into += (offset + x) * static_cast<int>(bytes_per_pixel);
+        into_stride = into_width * bytes_per_pixel;
     } else { // (4 bits: two pixels a byte)
         into += (offset + x) / 2;
-        rowBytes = columns / 2;
-        fromStride = fromWidth >> 1u;
-        intoStride = intoWidth >> 1u;
+        row_bytes = columns / 2;
+        from_stride = from_width >> 1u;
+        into_stride = into_width >> 1u;
     }
     for (; rows > 0; --rows) {
-        std::memcpy(into, from, static_cast<uint32_t>(rowBytes));
-        from += fromStride;
-        into += intoStride;
+        std::memcpy(into, from, static_cast<uint32_t>(row_bytes));
+        from += from_stride;
+        into += into_stride;
     }
 }
 
 // 0x004C8180
-void __cdecl RgbToHsv(float r, float g, float b, float* h, float* s, float* v)
+void __cdecl rgb_to_hsv(float r, float g, float b, float* h, float* s, float* v)
 {
     float low = g < b ? g : b;
     if (r < low)
@@ -1337,7 +1337,7 @@ void __cdecl RgbToHsv(float r, float g, float b, float* h, float* s, float* v)
 }
 
 // 0x004C82D0
-void __cdecl HsvToRgb(float* r, float* g, float* b, float h, float s, float v)
+void __cdecl hsv_to_rgb(float* r, float* g, float* b, float h, float s, float v)
 {
     if (s == 0.0f) {
         *b = v;
@@ -1362,23 +1362,23 @@ void __cdecl HsvToRgb(float* r, float* g, float* b, float h, float s, float v)
 }
 
 namespace {
-static VtableSlot kTextureVtable_slots[] = {&Engine3D::CPcTexture::Teardown, &Engine3D::CPcTexture::IngestFile,
-                &Engine3D::CPcTexture::LoadMemory, &Engine3D::CPcTexture::Fabricate, &Engine3D::CPcTexture::CopyFrom, Stubs::ReturnFalse4,
-                Stubs::ReturnFalse1, Stubs::ReturnFalse1, &Engine3D::CPcTexture::BeginEdit, &Engine3D::CPcTexture::WriteBack,
-                &Engine3D::CPcTexture::EndEdit, Stubs::ReturnFalse5, &Engine3D::CPcTexture::Modulate, &Engine3D::CPcTexture::Mirror,
-                Stubs::ReturnFalse, &Engine3D::CPcTexture::ResizeFrom, &Engine3D::CPcTexture::Zoom, &Engine3D::CPcTexture::SpinBy,
-                &Engine3D::CPcTexture::Offset, &Engine3D::CPcTexture::Border, Stubs::ReturnFalse7, &Engine3D::CPcTexture::Stretch,
-                &Engine3D::CPcTexture::Squash, Stubs::ReturnFalse2, &Engine3D::CPcTexture::ShiftHueSatValue, Stubs::ReturnZero,
-                Stubs::ReturnZero, Stubs::ReturnZero, Stubs::ReturnZero, Stubs::IgnoreArguments2, Stubs::ReturnFalse1,
-                Stubs::ReturnFalse, Stubs::ReturnFalse, &Engine3D::CPcTexture::FetchBreadth, &Engine3D::CPcTexture::FetchTallness,
-                &Engine3D::CPcTexture::GetDepth, Stubs::ReturnZero, Stubs::IgnoreArgument, &Engine3D::CPcTexture::GetUnknownE,
-                &Engine3D::CPcTexture::GetUnknownC, &Engine3D::CPcTexture::GetUnknownD, &Engine3D::CPcTexture::Overlay};
-void** const kTextureVtable = reinterpret_cast<void**>(kTextureVtable_slots);
-static VtableSlot kTexDictVtable_slots[] = {&Engine3D::CPcTexDict::Teardown, &Engine3D::CPcTexDict::IngestSkin,
-                &Engine3D::CPcTexDict::CreateTexture, &Engine3D::CPcTexDict::RefreshTexture, Stubs::ReturnZero1,
-                &Engine3D::CPcTexDict::UnloadTexture, Stubs::IgnoreArgument, Stubs::ReturnFalse1,
-                &Engine3D::CPcTexDict::CopyTexture};
-void** const kTexDictVtable = reinterpret_cast<void**>(kTexDictVtable_slots);
+static VtableSlot g_texture_vtable_slots[] = {&render::PcTexture::teardown, &render::PcTexture::ingest_file,
+                &render::PcTexture::load_memory, &render::PcTexture::fabricate, &render::PcTexture::copy_from, stubs::return_false4,
+                stubs::return_false1, stubs::return_false1, &render::PcTexture::begin_edit, &render::PcTexture::write_back,
+                &render::PcTexture::end_edit, stubs::return_false5, &render::PcTexture::modulate, &render::PcTexture::get_mirror,
+                stubs::return_false, &render::PcTexture::resize_from, &render::PcTexture::get_zoom, &render::PcTexture::spin_by,
+                &render::PcTexture::get_offset, &render::PcTexture::get_border, stubs::return_false7, &render::PcTexture::get_stretch,
+                &render::PcTexture::squash, stubs::return_false2, &render::PcTexture::shift_hue_sat_value, stubs::return_zero,
+                stubs::return_zero, stubs::return_zero, stubs::return_zero, stubs::ignore_arguments2, stubs::return_false1,
+                stubs::return_false, stubs::return_false, &render::PcTexture::fetch_breadth, &render::PcTexture::fetch_tallness,
+                &render::PcTexture::get_depth, stubs::return_zero, stubs::ignore_argument, &render::PcTexture::get_unknown_e,
+                &render::PcTexture::get_unknown_c, &render::PcTexture::get_unknown_d, &render::PcTexture::get_overlay};
+void** const kTextureVtable = reinterpret_cast<void**>(g_texture_vtable_slots);
+static VtableSlot g_tex_dict_vtable_slots[] = {&render::PcTexDict::teardown, &render::PcTexDict::ingest_skin,
+                &render::PcTexDict::create_texture, &render::PcTexDict::refresh_texture, stubs::return_zero1,
+                &render::PcTexDict::unload_texture, stubs::ignore_argument, stubs::return_false1,
+                &render::PcTexDict::copy_texture};
+void** const kTexDictVtable = reinterpret_cast<void**>(g_tex_dict_vtable_slots);
 } // namespace
 
 } // namespace Nx

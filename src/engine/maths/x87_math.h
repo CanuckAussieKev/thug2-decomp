@@ -9,10 +9,10 @@
 // the precision control (it only rounds + - * / and FSQRT to 53 bits): what the original computes from them in
 // registers is computed here in registers too, and only rounded where the original stores. The game's C runtime's
 // _CIacos / _CIasin (0x00623630 / 0x00623560: the argument and the result in ST0) are ours (platform/crt.h).
-namespace X87 {
+namespace x87 {
 
 // FSQRT (53 bits: the same as a double square root).
-inline double Sqrt(double value)
+inline double get_sqrt(double value)
 {
     double result;
     __asm {
@@ -25,7 +25,7 @@ inline double Sqrt(double value)
 
 // sin / cos rounded to 53 bits (for a value the original stores as a float or uses once: rounding the 64-bit result
 // to 53 bits first changes a float only in a tie, practically never).
-inline double Sin(double angle)
+inline double get_sin(double angle)
 {
     double result;
     __asm {
@@ -36,7 +36,7 @@ inline double Sin(double angle)
     return result;
 }
 
-inline double Cos(double angle)
+inline double get_cos(double angle)
 {
     double result;
     __asm {
@@ -48,7 +48,7 @@ inline double Cos(double angle)
 }
 
 // a / b by FDIV (two NaNs: the FPU's choice of which comes out - the larger significand - not SSE's, the first).
-inline double Divide(double a, double b)
+inline double divide(double a, double b)
 {
     double result;
     __asm {
@@ -60,7 +60,7 @@ inline double Divide(double a, double b)
 }
 
 // a * b by FMUL with a in ST0, rounded to float (two NaNs: the FPU's choice, not SSE's).
-inline float MultiplyF(float a, float b)
+inline float multiply_f(float a, float b)
 {
     float result;
     __asm {
@@ -72,7 +72,7 @@ inline float MultiplyF(float a, float b)
 }
 
 // sin(angle) * factor and sin(a) * sin(b), from the full-precision sines (the product rounded to 53 bits).
-inline double SinTimes(double angle, double factor)
+inline double sin_times(double angle, double factor)
 {
     double result;
     __asm {
@@ -84,7 +84,7 @@ inline double SinTimes(double angle, double factor)
     return result;
 }
 
-inline double SinProduct(double a, double b)
+inline double sin_product(double a, double b)
 {
     double result;
     __asm {
@@ -99,7 +99,7 @@ inline double SinProduct(double a, double b)
 }
 
 // cos(angle) / sin(angle) from the full-precision cosine and sine.
-inline double Cot(double angle)
+inline double get_cot(double angle)
 {
     double result;
     __asm {
@@ -115,7 +115,7 @@ inline double Cot(double angle)
 }
 
 // sin / cos rounded to float (as the original stores them).
-inline float SinF(double angle)
+inline float get_sin_f(double angle)
 {
     float result;
     __asm {
@@ -126,7 +126,7 @@ inline float SinF(double angle)
     return result;
 }
 
-inline float CosF(double angle)
+inline float cos_f(double angle)
 {
     float result;
     __asm {
@@ -138,7 +138,7 @@ inline float CosF(double angle)
 }
 
 // Whether cos(angle) (at full precision) is above `value`.
-inline bool CosAbove(double angle, float value)
+inline bool cos_above(double angle, float value)
 {
     uint16_t status;
     __asm {
@@ -152,7 +152,7 @@ inline bool CosAbove(double angle, float value)
 
 // (a, b) turned by `angle`: a' = cos * a + sin * b, b' = cos * b - sin * a - each product and sum rounded to 53
 // bits from the full-precision sine and cosine (exact as doubles).
-inline void SpinBy(double angle, double a, double b, double* rotatedA, double* rotatedB)
+inline void spin_by(double angle, double a, double b, double* rotated_a, double* rotated_b)
 {
     double ra, rb;
     __asm {
@@ -173,12 +173,12 @@ inline void SpinBy(double angle, double a, double b, double* rotatedA, double* r
         fsubp st(1), st    // cos*b - sin*a
         fstp rb
     }
-    *rotatedA = ra;
-    *rotatedB = rb;
+    *rotated_a = ra;
+    *rotated_b = rb;
 }
 
 // FPATAN: the angle of (x, y) - atan(y / x) in the right quadrant - rounded to float.
-inline float Atan2F(double y, double x)
+inline float atan_2f(double y, double x)
 {
     float result;
     __asm {
@@ -191,7 +191,7 @@ inline float Atan2F(double y, double x)
 }
 
 // The difference of two such angles, rounded to float: atan2(y1, x1) - atan2(y2, x2).
-inline double Atan2Difference(double y1, double x1, double y2, double x2)
+inline double atan2_difference(double y1, double x1, double y2, double x2)
 {
     double result;
     __asm {
@@ -207,12 +207,12 @@ inline double Atan2Difference(double y1, double x1, double y2, double x2)
     return result;
 }
 
-// The game's C runtime's acos (_CIacos 0x00623630), rounded to float; `aboveLimit` tells whether the unrounded
+// The game's C runtime's acos (_CIacos 0x00623630), rounded to float; `above_limit` tells whether the unrounded
 // result is above `limit` (as the original compares it before rounding).
-inline float AcosF(double value, float limit, bool* aboveLimit)
+inline float acos_f(double value, float limit, bool* above_limit)
 {
     float result;
-    void* function = Crt::AcosX87();
+    void* function = crt::acos_x87();
     uint16_t status;
     __asm {
         fld value
@@ -221,19 +221,19 @@ inline float AcosF(double value, float limit, bool* aboveLimit)
         fcomp limit
         fnstsw status
     }
-    *aboveLimit = (status & 0x4100) == 0;
+    *above_limit = (status & 0x4100) == 0;
     return result;
 }
 
 // -asin(value) (the game's _CIasin, 0x00623560) rounded to float, and from its full-precision cosine: whether that
 // cosine's size is above `limit`, and 1 / cos, -1 / cos (to 53 bits).
-inline float NegAsinCos(double value, float limit, bool* above, double* inverse, double* negInverse)
+inline float neg_asin_cos(double value, float limit, bool* above, double* inverse, double* neg_inverse)
 {
     float angle;
-    double inv, negInv;
+    double inv, neg_inv;
     uint16_t status;
-    void* function = Crt::AsinX87();
-    const float one = 1.0f, minusOne = -1.0f;
+    void* function = crt::asin_x87();
+    const float one = 1.0f, minus_one = -1.0f;
     __asm {
         fld value
         call function
@@ -247,22 +247,22 @@ inline float NegAsinCos(double value, float limit, bool* above, double* inverse,
         fld one
         fdiv st, st(1)
         fstp inv
-        fld minusOne
+        fld minus_one
         fdiv st, st(1)
-        fstp negInv
+        fstp neg_inv
         fstp st(0)
     }
     *above = (status & 0x4100) == 0;
     *inverse = inv;
-    *negInverse = negInv;
+    *neg_inverse = neg_inv;
     return angle;
 }
 
 // _CIacos / _CIasin (0x00623560) to 53 bits.
-inline double Acos(double value)
+inline double get_acos(double value)
 {
     double result;
-    void* function = Crt::AcosX87();
+    void* function = crt::acos_x87();
     __asm {
         fld value
         call function
@@ -271,10 +271,10 @@ inline double Acos(double value)
     return result;
 }
 
-inline double Asin(double value)
+inline double get_asin(double value)
 {
     double result;
-    void* function = Crt::AsinX87();
+    void* function = crt::asin_x87();
     __asm {
         fld value
         call function
@@ -283,4 +283,4 @@ inline double Asin(double value)
     return result;
 }
 
-} // namespace X87
+} // namespace x87

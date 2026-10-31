@@ -46,7 +46,7 @@
 #include "platform/crash.h"
 #include "platform/run_log.h"
 
-namespace MenuSystem::Automation {
+namespace frontend::automation {
 
 namespace {
 
@@ -54,8 +54,8 @@ namespace {
 
 constexpr uint32_t kSystem = 0x36B2EE74;       // "system" (the menus' pad events' target and source)
 constexpr uint32_t kFocusEvent = 0x9D3FB516;   // "focus"
-constexpr uint32_t kPadChoose = GameModules::FrontEnd::kPadChoose;
-constexpr uint32_t kPadStart = GameModules::FrontEnd::kPadStart;
+constexpr uint32_t kPadChoose = modules::FrontEnd::kPadChoose;
+constexpr uint32_t kPadStart = modules::FrontEnd::kPadStart;
 constexpr uint32_t kSkater = 0x5B8AB877;       // Skater (the local skater's alias)
 constexpr uint32_t kLoadMainMenu = 0xE92ECAFE; // load_mainmenu (the skate module's level in the front end)
 
@@ -66,22 +66,22 @@ constexpr int kDefaultChooseSeconds = 10;
 constexpr int kDefaultWaitSeconds = 90;
 constexpr int kSettleFrames = 60;      // waitfor level / ingame: how long the condition must hold
 constexpr int kPartialLineFrames = 30;
-constexpr int kMaxCaptureFrames = SystemCore::Screenshot::kMaxSeriesFrames; // a last line without its end of line, once the file has been still this long
+constexpr int kMaxCaptureFrames = sys::screenshot::kMaxSeriesFrames; // a last line without its end of line, once the file has been still this long
 constexpr int kMaxTraceFrames = 36000;   // trace: ten minutes at 60 frames a second
 constexpr uint32_t kStateModuleKey = 0x43686585; // SkaterState
 constexpr uint32_t kScoreModuleKey = 0xD262802F; // SkaterScore
 constexpr uint32_t kSkaterCorePhysicsComponent = 0x5BD63B29; // SkaterCorePhysics
 
-uint32_t NameHash(const std::string& name) { return Checksums::HashFromText(name.c_str()); }
+uint32_t name_hash(const std::string& name) { return checksums::hash_from_text(name.c_str()); }
 
-std::string Lower(std::string text)
+std::string get_lower(std::string text)
 {
     for (char& c : text)
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     return text;
 }
 
-bool IsIdentifier(const std::string& text)
+bool is_identifier(const std::string& text)
 {
     if (text.empty() || std::isdigit(static_cast<unsigned char>(text[0])))
         return false;
@@ -91,7 +91,7 @@ bool IsIdentifier(const std::string& text)
     return true;
 }
 
-bool IsHex(const std::string& text)
+bool is_hex(const std::string& text)
 {
     if (text.size() < 3 || text.size() > 10 || text[0] != '0' || (text[1] != 'x' && text[1] != 'X'))
         return false;
@@ -101,7 +101,7 @@ bool IsHex(const std::string& text)
     return true;
 }
 
-bool IsInteger(const std::string& text)
+bool is_integer(const std::string& text)
 {
     size_t start = text[0] == '-' ? 1 : 0;
     if (start >= text.size())
@@ -112,7 +112,7 @@ bool IsInteger(const std::string& text)
     return true;
 }
 
-bool IsFloat(const std::string& text)
+bool is_float(const std::string& text)
 {
     size_t start = text[0] == '-' ? 1 : 0;
     bool digits = false, point = false;
@@ -128,12 +128,12 @@ bool IsFloat(const std::string& text)
 }
 
 // An element id: a name or 0x<hex>.
-bool IsId(const std::string& text) { return IsHex(text) || IsIdentifier(text); }
+bool is_id(const std::string& text) { return is_hex(text) || is_identifier(text); }
 
 // A positive number that fits (false for anything else).
-bool ReadCount(const std::string& text, int low, int high, int* out)
+bool read_count(const std::string& text, int low, int high, int* out)
 {
-    if (!IsInteger(text) || text.size() > 9)
+    if (!is_integer(text) || text.size() > 9)
         return false;
     int value = std::atoi(text.c_str());
     if (value < low || value > high)
@@ -143,11 +143,11 @@ bool ReadCount(const std::string& text, int low, int high, int* out)
 }
 
 // tokens[first...] as numbers (integers or decimals, signed); false if any isn't one.
-bool ReadNumbers(const std::vector<std::string>& tokens, size_t first, std::vector<float>* out)
+bool read_numbers(const std::vector<std::string>& tokens, size_t first, std::vector<float>* out)
 {
     out->clear();
     for (size_t i = first; i < tokens.size(); ++i) {
-        if (!IsInteger(tokens[i]) && !IsFloat(tokens[i]))
+        if (!is_integer(tokens[i]) && !is_float(tokens[i]))
             return false;
         out->push_back(static_cast<float>(std::atof(tokens[i].c_str())));
     }
@@ -155,7 +155,7 @@ bool ReadNumbers(const std::vector<std::string>& tokens, size_t first, std::vect
 }
 
 // The words of a line: split at spaces, a quoted part kept whole (quotes included); `#` outside quotes ends it.
-bool Tokenize(const std::string& line, std::vector<std::string>* tokens, std::string* error)
+bool tokenize(const std::string& line, std::vector<std::string>* tokens, std::string* error)
 {
     std::string token;
     bool quoted = false, any = false;
@@ -190,7 +190,7 @@ bool Tokenize(const std::string& line, std::vector<std::string>* tokens, std::st
 }
 
 // The text after the first word (echo's), comments included.
-std::string Rest(const std::string& line)
+std::string get_rest(const std::string& line)
 {
     size_t start = line.find_first_not_of(" \t");
     if (start == std::string::npos)
@@ -205,32 +205,32 @@ std::string Rest(const std::string& line)
     return line.substr(text, end + 1 - text);
 }
 
-bool ParseParam(const std::string& token, Param* out, std::string* error)
+bool parse_param(const std::string& token, Param* out, std::string* error)
 {
     size_t equals = token.find('=');
     if (equals == std::string::npos) {
-        if (!IsIdentifier(token)) {
+        if (!is_identifier(token)) {
             *error = "not a flag: " + token;
             return false;
         }
-        *out = {Param::BitMark, "", token, 0, 0.0f};
+        *out = {Param::kBitMark, "", token, 0, 0.0f};
         return true;
     }
     std::string name = token.substr(0, equals), value = token.substr(equals + 1);
-    if (!IsIdentifier(name) || value.empty()) {
+    if (!is_identifier(name) || value.empty()) {
         *error = "not a parameter: " + token;
         return false;
     }
     if (value.size() >= 2 && value.front() == '"' && value.back() == '"')
-        *out = {Param::Chars, name, value.substr(1, value.size() - 2), 0, 0.0f};
+        *out = {Param::kChars, name, value.substr(1, value.size() - 2), 0, 0.0f};
     else if (value.find('"') != std::string::npos)
         return *error = "not a parameter: " + token, false;
-    else if (IsInteger(value) && value.size() <= 10)
-        *out = {Param::Integer, name, value, std::atoi(value.c_str()), 0.0f};
-    else if (IsFloat(value))
-        *out = {Param::Float, name, value, 0, static_cast<float>(std::atof(value.c_str()))};
-    else if (IsId(value))
-        *out = {Param::Name, name, value, 0, 0.0f};
+    else if (is_integer(value) && value.size() <= 10)
+        *out = {Param::kInteger, name, value, std::atoi(value.c_str()), 0.0f};
+    else if (is_float(value))
+        *out = {Param::kFloat, name, value, 0, static_cast<float>(std::atof(value.c_str()))};
+    else if (is_id(value))
+        *out = {Param::kName, name, value, 0, 0.0f};
     else
         return *error = "not a value: " + value, false;
     return true;
@@ -252,11 +252,11 @@ const struct {
 
 // --- names ------------------------------------------------------------------------------------------------------
 
-std::unordered_map<uint32_t, std::string>& Names()
+std::unordered_map<uint32_t, std::string>& get_names()
 {
     static std::unordered_map<uint32_t, std::string>* names = [] {
         auto* table = new std::unordered_map<uint32_t, std::string>;
-        auto add = [table](const char* name) { table->emplace(Checksums::HashFromText(name), name); };
+        auto add = [table](const char* name) { table->emplace(checksums::hash_from_text(name), name); };
         for (const char* name : kKnownNames)
             add(name);
         for (const char* name : kDeniedScripts)
@@ -268,33 +268,33 @@ std::unordered_map<uint32_t, std::string>& Names()
     return *names;
 }
 
-void Remember(const std::string& name)
+void remember(const std::string& name)
 {
-    if (IsIdentifier(name))
-        Names().emplace(NameHash(name), name);
+    if (is_identifier(name))
+        get_names().emplace(name_hash(name), name);
 }
 
-uint32_t IdChecksum(const std::string& id)
+uint32_t id_checksum(const std::string& id)
 {
-    if (IsHex(id))
+    if (is_hex(id))
         return static_cast<uint32_t>(std::strtoul(id.c_str() + 2, nullptr, 16));
-    return NameHash(id);
+    return name_hash(id);
 }
 
-const std::unordered_map<uint32_t, bool>& DeniedChecksums()
+const std::unordered_map<uint32_t, bool>& denied_checksums()
 {
     static std::unordered_map<uint32_t, bool>* denied = [] {
         auto* table = new std::unordered_map<uint32_t, bool>;
         for (const char* name : kDeniedScripts)
-            (*table)[Checksums::HashFromText(name)] = true;
+            (*table)[checksums::hash_from_text(name)] = true;
         for (const char* name : kDeniedIds)
-            (*table)[Checksums::HashFromText(name)] = true;
+            (*table)[checksums::hash_from_text(name)] = true;
         return table;
     }();
     return *denied;
 }
 
-std::string JsonString(const std::string& text)
+std::string json_string(const std::string& text)
 {
     std::string out = "\"";
     for (char c : text) {
@@ -313,11 +313,11 @@ std::string JsonString(const std::string& text)
     return out + "\"";
 }
 
-std::string JsonList(const std::vector<std::string>& items)
+std::string json_list(const std::vector<std::string>& items)
 {
     std::string out = "[";
     for (size_t i = 0; i < items.size(); ++i)
-        out += (i ? ", " : "") + JsonString(items[i]);
+        out += (i ? ", " : "") + json_string(items[i]);
     return out + "]";
 }
 
@@ -325,116 +325,116 @@ std::string JsonList(const std::vector<std::string>& items)
 
 // --- the pieces -------------------------------------------------------------------------------------------------
 
-CommandLineOutcome ParseCommand(const std::string& line, OrderCode* out, std::string* error)
+CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::string* error)
 {
     std::vector<std::string> tokens;
-    if (!Tokenize(line, &tokens, error))
-        return CommandLineOutcome::Error;
+    if (!tokenize(line, &tokens, error))
+        return CommandLineOutcome::kError;
     if (tokens.empty())
-        return CommandLineOutcome::Vacant;
-    OrderCode command = {Op::Echo, "", {}, Condition::None, 0, 0};
-    std::string keyword = Lower(tokens[0]);
+        return CommandLineOutcome::kVacant;
+    OrderCode command = {Op::kEcho, "", {}, Condition::kNone, 0, 0};
+    std::string keyword = get_lower(tokens[0]);
     size_t count = tokens.size();
     auto fail = [error](const std::string& why) {
         *error = why;
-        return CommandLineOutcome::Error;
+        return CommandLineOutcome::kError;
     };
     if (keyword == "run") {
-        if (count < 2 || !IsIdentifier(tokens[1]))
+        if (count < 2 || !is_identifier(tokens[1]))
             return fail("run <script> [name=value | flag]...");
-        command.op = Op::Run;
+        command.op = Op::kRun;
         command.target = tokens[1];
         for (size_t i = 2; i < count; ++i) {
             Param param;
-            if (!ParseParam(tokens[i], &param, error))
-                return CommandLineOutcome::Error;
+            if (!parse_param(tokens[i], &param, error))
+                return CommandLineOutcome::kError;
             command.params.push_back(param);
         }
     } else if (keyword == "choose" || keyword == "focus") {
-        command.op = keyword == "choose" ? Op::Choose : Op::Focus;
+        command.op = keyword == "choose" ? Op::kChoose : Op::kFocus;
         command.seconds = kDefaultChooseSeconds;
-        if (count < 2 || count > 3 || !IsId(tokens[1]) || (count == 3 && !ReadCount(tokens[2], 1, 3600, &command.seconds)))
+        if (count < 2 || count > 3 || !is_id(tokens[1]) || (count == 3 && !read_count(tokens[2], 1, 3600, &command.seconds)))
             return fail(keyword + " <id> [seconds]");
         command.target = tokens[1];
     } else if (keyword == "hold") {
         // (test tooling: press's button held without waiting - the next commands run while it's down)
-        command.op = Op::Hold;
+        command.op = Op::kHold;
         command.frames = kDefaultPressFrames;
-        if (count < 2 || count > 3 || (count == 3 && !ReadCount(tokens[2], 1, 3600, &command.frames)))
+        if (count < 2 || count > 3 || (count == 3 && !read_count(tokens[2], 1, 3600, &command.frames)))
             return fail("hold <button> [frames]");
-        const Button* button = FindButton(tokens[1]);
+        const Button* button = find_button(tokens[1]);
         if (!button)
             return fail("no such button: " + tokens[1]);
         command.target = button->name;
     } else if (keyword == "press") {
-        command.op = Op::Press;
+        command.op = Op::kPress;
         command.frames = kDefaultPressFrames;
-        if (count < 2 || count > 3 || (count == 3 && !ReadCount(tokens[2], 1, 600, &command.frames)))
+        if (count < 2 || count > 3 || (count == 3 && !read_count(tokens[2], 1, 600, &command.frames)))
             return fail("press <button> [frames]");
-        const Button* button = FindButton(tokens[1]);
+        const Button* button = find_button(tokens[1]);
         if (!button)
             return fail("no such button: " + tokens[1]);
         command.target = button->name;
     } else if (keyword == "wait") {
-        command.op = Op::Stall;
-        if (count != 2 || !ReadCount(tokens[1], 0, 36000, &command.frames))
+        command.op = Op::kStall;
+        if (count != 2 || !read_count(tokens[1], 0, 36000, &command.frames))
             return fail("wait <frames>");
     } else if (keyword == "waitfor") {
-        command.op = Op::WaitFor;
+        command.op = Op::kWaitFor;
         command.seconds = kDefaultWaitSeconds;
         if (count < 2)
             return fail("waitfor ready | frontend | ingame | level <name> | menu <id> | focus <id> [seconds]");
-        std::string what = Lower(tokens[1]);
+        std::string what = get_lower(tokens[1]);
         size_t next = 2;
         if (what == "fe") {
-            command.condition = Condition::NewFrontend;
-            if (count < 3 || !IsIdentifier(tokens[2]))
+            command.condition = Condition::kNewFrontend;
+            if (count < 3 || !is_identifier(tokens[2]))
                 return fail("waitfor fe <screen> [seconds]");
-            command.target = Lower(tokens[2]);
+            command.target = get_lower(tokens[2]);
             next = 3;
         } else if (what == "ready")
-            command.condition = Condition::Ready;
+            command.condition = Condition::kReady;
         else if (what == "frontend")
-            command.condition = Condition::FrontEnd;
+            command.condition = Condition::kFrontEnd;
         else if (what == "ingame")
-            command.condition = Condition::InGame;
+            command.condition = Condition::kInGame;
         else if (what == "level" || what == "menu" || what == "focus") {
-            command.condition = what == "level" ? Condition::StageMap : what == "menu" ? Condition::Menu : Condition::Focus;
-            if (count < 3 || !(command.condition == Condition::StageMap ? IsIdentifier(tokens[2]) : IsId(tokens[2])))
+            command.condition = what == "level" ? Condition::kStageMap : what == "menu" ? Condition::kMenu : Condition::kFocus;
+            if (count < 3 || !(command.condition == Condition::kStageMap ? is_identifier(tokens[2]) : is_id(tokens[2])))
                 return fail("waitfor " + what + " <" + (what == "level" ? "name" : "id") + "> [seconds]");
             command.target = tokens[2];
             next = 3;
         } else {
             return fail("no such condition: " + tokens[1]);
         }
-        if (count > next + 1 || (count == next + 1 && !ReadCount(tokens[next], 1, 3600, &command.seconds)))
+        if (count > next + 1 || (count == next + 1 && !read_count(tokens[next], 1, 3600, &command.seconds)))
             return fail("waitfor: a timeout is whole seconds (1-3600)");
     } else if (keyword == "level") {
-        command.op = Op::StageMap;
-        if (count != 2 || !IsIdentifier(tokens[1]))
+        command.op = Op::kStageMap;
+        if (count != 2 || !is_identifier(tokens[1]))
             return fail("level <name>");
         command.target = tokens[1];
     } else if (keyword == "teleport") {
-        command.op = Op::JumpTo;
-        // (a last word `board`: the skater put on its board instead of standing - TestView::JumpTo's onBoard)
+        command.op = Op::kJumpTo;
+        // (a last word `board`: the skater put on its board instead of standing - test_view::JumpTo's on_board)
         std::vector<std::string> words = tokens;
-        if (words.size() >= 5 && Lower(words.back()) == "board") {
+        if (words.size() >= 5 && get_lower(words.back()) == "board") {
             command.target = "board";
             words.pop_back();
         }
-        if ((words.size() != 4 && words.size() != 5) || !ReadNumbers(words, 1, &command.numbers))
+        if ((words.size() != 4 && words.size() != 5) || !read_numbers(words, 1, &command.numbers))
             return fail("teleport <x> <y> <z> [heading] [board]");
     } else if (keyword == "camera") {
-        command.op = Op::ViewCam;
-        if (count == 2 && Lower(tokens[1]) == "off")
+        command.op = Op::kViewCam;
+        if (count == 2 && get_lower(tokens[1]) == "off")
             command.target = "off";
-        else if ((count != 7 && count != 10) || !ReadNumbers(tokens, 1, &command.numbers))
+        else if ((count != 7 && count != 10) || !read_numbers(tokens, 1, &command.numbers))
             return fail("camera <x> <y> <z> <dx> <dy> <dz> [<drift x> <drift y> <drift z>] | camera off");
         else if (command.numbers[3] == 0.0f && command.numbers[4] == 0.0f && command.numbers[5] == 0.0f)
             return fail("camera: the direction is zero");
     } else if (keyword == "capture") {
-        command.op = Op::Capture;
-        if (count < 2 || count > 3 || !ReadCount(tokens[1], 1, kMaxCaptureFrames, &command.frames))
+        command.op = Op::kCapture;
+        if (count < 2 || count > 3 || !read_count(tokens[1], 1, kMaxCaptureFrames, &command.frames))
             return fail("capture <frames 1-" + std::to_string(kMaxCaptureFrames) + "> [folder]");
         if (count == 3) {
             std::string folder = tokens[2];
@@ -445,47 +445,47 @@ CommandLineOutcome ParseCommand(const std::string& line, OrderCode* out, std::st
             command.target = folder;
         }
     } else if (keyword == "trace") {
-        command.op = Op::Trace;
-        if (count != 2 || !ReadCount(tokens[1], 1, kMaxTraceFrames, &command.frames))
+        command.op = Op::kTrace;
+        if (count != 2 || !read_count(tokens[1], 1, kMaxTraceFrames, &command.frames))
             return fail("trace <frames 1-" + std::to_string(kMaxTraceFrames) + ">");
     } else if (keyword == "logtricks") {
-        command.op = Op::LogTricks;
+        command.op = Op::kLogTricks;
         command.frames = 0; // (every trick object)
-        if (count > 2 || (count == 2 && !ReadCount(tokens[1], 1, 100000, &command.frames)))
+        if (count > 2 || (count == 2 && !read_count(tokens[1], 1, 100000, &command.frames)))
             return fail("logtricks [count]");
     } else if (keyword == "fe") {
-        command.op = Op::Frontend;
+        command.op = Op::kFrontend;
         command.seconds = 10;
-        command.target = Rest(line);
+        command.target = get_rest(line);
         if (count < 2)
             return fail("fe select <screen>/<item> | fe focus <screen>/<item> | fe back | fe press <input>");
         // (select / focus: a last number is the timeout - the front end ignores it)
-        if (count == 4 && (Lower(tokens[1]) == "select" || Lower(tokens[1]) == "focus") &&
-            !ReadCount(tokens[3], 1, 3600, &command.seconds))
-            return fail("fe " + Lower(tokens[1]) + ": a timeout is whole seconds (1-3600)");
+        if (count == 4 && (get_lower(tokens[1]) == "select" || get_lower(tokens[1]) == "focus") &&
+            !read_count(tokens[3], 1, 3600, &command.seconds))
+            return fail("fe " + get_lower(tokens[1]) + ": a timeout is whole seconds (1-3600)");
     } else if (keyword == "echo") {
-        command.op = Op::Echo;
-        command.target = Rest(line);
+        command.op = Op::kEcho;
+        command.target = get_rest(line);
     } else if (keyword == "crash") {
-        command.op = Op::Crash;
+        command.op = Op::kCrash;
         TestFault fault;
-        if (count != 2 || !ParseTestFault(tokens[1], &fault))
-            return fail(std::string("crash <kind>: ") + TestFaultNames());
-        command.target = TestFaultName(fault);
+        if (count != 2 || !parse_test_fault(tokens[1], &fault))
+            return fail(std::string("crash <kind>: ") + test_fault_names());
+        command.target = test_fault_name(fault);
     } else if (keyword == "quit") {
-        command.op = Op::Quit;
+        command.op = Op::kQuit;
         if (count != 1)
             return fail("quit takes nothing");
     } else {
         return fail("no such command: " + tokens[0]);
     }
     *out = command;
-    return CommandLineOutcome::OrderCode;
+    return CommandLineOutcome::kOrderCode;
 }
 
-const Button* FindButton(const std::string& name)
+const Button* find_button(const std::string& name)
 {
-    std::string low = Lower(name);
+    std::string low = get_lower(name);
     for (const auto& alias : kButtonAliases)
         if (low == alias.alias)
             low = alias.name;
@@ -495,15 +495,15 @@ const Button* FindButton(const std::string& name)
     return nullptr;
 }
 
-bool ButtonChooses(const Button& button) { return !(button.byte == 2 && button.bit >= 4); }
+bool button_chooses(const Button& button) { return !(button.byte == 2 && button.bit >= 4); }
 
-bool NameLooksOnline(const std::string& name)
+bool name_looks_online(const std::string& name)
 {
     static const char* const kWords[] = {"net",     "online",   "internet", "lobby",  "lobbies", "login",
                                          "logon",   "buddy",    "buddies",  "homie",  "homies",  "gamespy",
                                          "network", "server",   "servers",  "join",   "host",    "lan"};
     static const char* const kParts[] = {"internet", "lobby", "gamespy", "network", "login"};
-    std::string low = Lower(name);
+    std::string low = get_lower(name);
     for (const char* part : kParts)
         if (low.find(part) != std::string::npos)
             return true;
@@ -521,32 +521,32 @@ bool NameLooksOnline(const std::string& name)
     return false;
 }
 
-bool ScriptDenied(const std::string& name) { return NameLooksOnline(name) || ChecksumDenied(NameHash(name)); }
+bool script_denied(const std::string& name) { return name_looks_online(name) || checksum_denied(name_hash(name)); }
 
-bool ChecksumDenied(uint32_t checksum) { return DeniedChecksums().count(checksum) != 0; }
+bool checksum_denied(uint32_t checksum) { return denied_checksums().count(checksum) != 0; }
 
-bool IdDenied(uint32_t id, const std::string& name)
+bool id_denied(uint32_t id, const std::string& name)
 {
-    return ChecksumDenied(id) || (!name.empty() && NameLooksOnline(name));
+    return checksum_denied(id) || (!name.empty() && name_looks_online(name));
 }
 
-std::string RefusalByName(const OrderCode& command)
+std::string refusal_by_name(const OrderCode& command)
 {
     switch (command.op) {
-    case Op::Run:
-        if (ScriptDenied(command.target))
+    case Op::kRun:
+        if (script_denied(command.target))
             return "the script " + command.target + " is online / network";
         for (const Param& param : command.params) {
-            const std::string& name = param.kind == Param::BitMark ? param.text : param.name;
-            if (NameLooksOnline(name) || ChecksumDenied(NameHash(name)))
+            const std::string& name = param.kind == Param::kBitMark ? param.text : param.name;
+            if (name_looks_online(name) || checksum_denied(name_hash(name)))
                 return "the parameter " + name + " is online / network";
-            if ((param.kind == Param::Name || param.kind == Param::Chars) && ScriptDenied(param.text))
+            if ((param.kind == Param::kName || param.kind == Param::kChars) && script_denied(param.text))
                 return "the value " + param.text + " is online / network";
         }
         return {};
-    case Op::Choose:
-    case Op::Focus:
-        if (IdDenied(IdChecksum(command.target), IsHex(command.target) ? "" : command.target))
+    case Op::kChoose:
+    case Op::kFocus:
+        if (id_denied(id_checksum(command.target), is_hex(command.target) ? "" : command.target))
             return "the element " + command.target + " is online / network";
         return {};
     default:
@@ -554,69 +554,69 @@ std::string RefusalByName(const OrderCode& command)
     }
 }
 
-std::string NameOf(uint32_t checksum)
+std::string get_name_of(uint32_t checksum)
 {
-    auto found = Names().find(checksum);
-    if (found != Names().end())
+    auto found = get_names().find(checksum);
+    if (found != get_names().end())
         return found->second;
     char text[16];
     std::snprintf(text, sizeof(text), "0x%08X", checksum);
     return text;
 }
 
-std::string Describe(const OrderCode& command)
+std::string describe(const OrderCode& command)
 {
     switch (command.op) {
-    case Op::Run: {
+    case Op::kRun: {
         std::string text = "run " + command.target;
         for (const Param& param : command.params) {
             text += " ";
-            if (param.kind == Param::BitMark)
+            if (param.kind == Param::kBitMark)
                 text += param.text;
             else
-                text += param.name + "=" + (param.kind == Param::Chars ? "\"" + param.text + "\"" : param.text);
+                text += param.name + "=" + (param.kind == Param::kChars ? "\"" + param.text + "\"" : param.text);
         }
         return text;
     }
-    case Op::Choose: return "choose " + command.target;
-    case Op::Focus: return "focus " + command.target;
-    case Op::Press: return "press " + command.target + " " + std::to_string(command.frames);
-    case Op::Hold: return "hold " + command.target + " " + std::to_string(command.frames);
-    case Op::Stall: return "wait " + std::to_string(command.frames);
-    case Op::WaitFor: {
+    case Op::kChoose: return "choose " + command.target;
+    case Op::kFocus: return "focus " + command.target;
+    case Op::kPress: return "press " + command.target + " " + std::to_string(command.frames);
+    case Op::kHold: return "hold " + command.target + " " + std::to_string(command.frames);
+    case Op::kStall: return "wait " + std::to_string(command.frames);
+    case Op::kWaitFor: {
         static const char* const kConditions[] = {"?", "ready", "frontend", "ingame", "level", "menu", "focus", "fe"};
         std::string text = std::string("waitfor ") + kConditions[static_cast<int>(command.condition)];
         if (!command.target.empty())
             text += " " + command.target;
         return text;
     }
-    case Op::StageMap: return "level " + command.target;
-    case Op::Echo: return "echo " + command.target;
-    case Op::Frontend: return "fe " + command.target;
-    case Op::Quit: return "quit";
-    case Op::Crash: return "crash " + command.target;
-    case Op::JumpTo:
-    case Op::ViewCam: {
+    case Op::kStageMap: return "level " + command.target;
+    case Op::kEcho: return "echo " + command.target;
+    case Op::kFrontend: return "fe " + command.target;
+    case Op::kQuit: return "quit";
+    case Op::kCrash: return "crash " + command.target;
+    case Op::kJumpTo:
+    case Op::kViewCam: {
         if (command.target == "off")
             return "camera off";
-        std::string text = command.op == Op::JumpTo ? "teleport" : "camera";
+        std::string text = command.op == Op::kJumpTo ? "teleport" : "camera";
         for (float number : command.numbers) {
             char value[32];
             std::snprintf(value, sizeof(value), " %g", static_cast<double>(number));
             text += value;
         }
-        if (command.op == Op::JumpTo && command.target == "board")
+        if (command.op == Op::kJumpTo && command.target == "board")
             text += " board";
         return text;
     }
-    case Op::Capture: return "capture " + std::to_string(command.frames) + (command.target.empty() ? "" : " " + command.target);
-    case Op::LogTricks: return "logtricks" + (command.frames ? " " + std::to_string(command.frames) : std::string());
-    case Op::Trace: return "trace " + std::to_string(command.frames);
+    case Op::kCapture: return "capture " + std::to_string(command.frames) + (command.target.empty() ? "" : " " + command.target);
+    case Op::kLogTricks: return "logtricks" + (command.frames ? " " + std::to_string(command.frames) : std::string());
+    case Op::kTrace: return "trace " + std::to_string(command.frames);
     }
     return "?";
 }
 
-std::string StatusJson(const Standing& status)
+std::string status_json(const Standing& status)
 {
     std::string out = "{\n";
     auto field = [&out](const char* name, const std::string& value, bool last = false) {
@@ -625,23 +625,23 @@ std::string StatusJson(const Standing& status)
     auto boolean = [](bool value) { return std::string(value ? "true" : "false"); };
     field("frames", std::to_string(status.frames));
     field("ready", boolean(status.ready));
-    field("main_menu", boolean(status.mainMenu));
-    field("where", JsonString(status.where));
+    field("main_menu", boolean(status.main_menu_));
+    field("where", json_string(status.where));
     field("paused", boolean(status.paused));
     field("loading", boolean(status.loading));
-    field("level", JsonString(status.level));
-    field("game_mode", JsonString(status.gameMode));
-    field("focus", JsonList(status.focus));
-    field("selected", JsonList(status.selected));
-    field("lines_read", std::to_string(status.linesRead));
-    field("lines_done", std::to_string(status.linesDone));
+    field("level", json_string(status.level));
+    field("game_mode", json_string(status.game_mode_));
+    field("focus", json_list(status.focus));
+    field("selected", json_list(status.selected));
+    field("lines_read", std::to_string(status.lines_read_));
+    field("lines_done", std::to_string(status.lines_done_));
     field("queued", std::to_string(status.queued));
-    field("current", JsonString(status.current));
-    field("last", JsonString(status.last));
-    field("result", JsonString(status.result));
+    field("current", json_string(status.current));
+    field("last", json_string(status.last));
+    field("result", json_string(status.result));
     field("errors", std::to_string(status.errors));
     if (!status.frontend.empty())
-        field("frontend", JsonString(status.frontend));
+        field("frontend", json_string(status.frontend));
     field("refusals", std::to_string(status.refusals), true);
     return out + "}\n";
 }
@@ -651,76 +651,76 @@ std::string StatusJson(const Standing& status)
 
 namespace {
 
-using MouseMenus::ChildCount;
-using MouseMenus::IsMenu;
-using MouseMenus::SelectedIndex;
+using mouse_menus::child_count;
+using mouse_menus::is_menu;
+using mouse_menus::selected_index;
 
-uint8_t* SkateModule() { return reinterpret_cast<uint8_t*>(GameModules::g_skateModule); }
+uint8_t* skate_module() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
 // The level loaded (its load script's checksum, the skate module's +0x378; load_mainmenu in the front end).
-uint32_t CurrentLoadState() { return SkateModule() ? *reinterpret_cast<uint32_t*>(SkateModule() + 0x378) : 0; }
-bool InFrontEnd() { return CurrentLoadState() == kLoadMainMenu; }
+uint32_t current_load_state() { return skate_module() ? *reinterpret_cast<uint32_t*>(skate_module() + 0x378) : 0; }
+bool in_front_end() { return current_load_state() == kLoadMainMenu; }
 
-CUiWidget* FirstChild(const CUiWidget* element) { return element->m_eldest.Pull(); }
-CUiWidget* NextSibling(const CUiWidget* element) { return element->m_following.Pull(); }
-CUiWidget* Parent(const CUiWidget* element) { return element->m_container.Pull(); }
-uint32_t IdentNo(const CUiWidget* element) { return element->m_ident; }
+UiWidget* first_child(const UiWidget* element) { return element->eldest_.get_pull(); }
+UiWidget* next_sibling(const UiWidget* element) { return element->following_.get_pull(); }
+UiWidget* current_parent(const UiWidget* element) { return element->container_.get_pull(); }
+uint32_t ident_no(const UiWidget* element) { return element->ident_; }
 
-CUiWidget* ChildAt(const CUiWidget* menu, int index)
+UiWidget* child_at(const UiWidget* menu, int index)
 {
     if (index < 0)
         return nullptr;
-    CUiWidget* child = FirstChild(menu);
+    UiWidget* child = first_child(menu);
     for (; child && index > 0; --index)
-        child = NextSibling(child);
+        child = next_sibling(child);
     return child;
 }
 
-int IndexOf(const CUiWidget* menu, const CUiWidget* item)
+int get_index_of(const UiWidget* menu, const UiWidget* item)
 {
     int index = 0;
-    for (CUiWidget* child = FirstChild(menu); child; child = NextSibling(child), ++index)
+    for (UiWidget* child = first_child(menu); child; child = next_sibling(child), ++index)
         if (child == item)
             return index;
     return -1;
 }
 
-bool HiddenInChain(const CUiWidget* element)
+bool hidden_in_chain(const UiWidget* element)
 {
-    for (; element; element = Parent(element))
-        if (element->m_objectFlags & CUiWidget::kHidden)
+    for (; element; element = current_parent(element))
+        if (element->object_flags_ & UiWidget::kHidden)
             return true;
     return false;
 }
 
 // The element `id` if it exists (null if not); `holder` keeps it alive.
-CUiWidget* FindElement(uint32_t id, ElementPtr* holder)
+UiWidget* find_element(uint32_t id, ElementPtr* holder)
 {
-    holder->Release();
-    if (!CUiTree::Sole())
+    holder->get_release();
+    if (!UiTree::sole())
         return nullptr;
-    FetchPart(holder, id);
-    return holder->Pull();
+    fetch_part(holder, id);
+    return holder->get_pull();
 }
 
 // Whether a script's parameters name a denied script or id (structures and arrays too).
-bool StructDenied(Scripts::CStruct* params, int depth);
+bool struct_denied(script::Struct* params, int depth);
 
-bool ValueDenied(uint32_t type, uint32_t value, int depth)
+bool value_denied(uint32_t type, uint32_t value, int depth)
 {
     switch (type) {
-    case Scripts::QBVAL_NAME:
-        return ChecksumDenied(value);
-    case Scripts::QBVAL_STRUCT:
-    case Scripts::QBVAL_STRUCT_REF:
-        return StructDenied(reinterpret_cast<Scripts::CStruct*>(value), depth + 1);
-    case Scripts::QBVAL_ARRAY:
-    case Scripts::ESYMBOLTYPE_ARRAYPOINTER: {
-        auto* array = reinterpret_cast<Scripts::CArray*>(value);
+    case script::kQbvalName:
+        return checksum_denied(value);
+    case script::kQbvalStruct:
+    case script::kQbvalStructRef:
+        return struct_denied(reinterpret_cast<script::Struct*>(value), depth + 1);
+    case script::kQbvalArray:
+    case script::kEsymboltypeArraypointer: {
+        auto* array = reinterpret_cast<script::Array*>(value);
         if (!array || depth > 8)
             return false;
-        uint32_t* elements = array->FindArrayValue();
-        for (uint32_t i = 0; elements && i < array->m_extent; ++i)
-            if (ValueDenied(array->m_kindTag, elements[i], depth + 1))
+        uint32_t* elements = array->find_array_value();
+        for (uint32_t i = 0; elements && i < array->extent_; ++i)
+            if (value_denied(array->kind_tag_, elements[i], depth + 1))
                 return true;
         return false;
     }
@@ -729,32 +729,32 @@ bool ValueDenied(uint32_t type, uint32_t value, int depth)
     }
 }
 
-bool StructDenied(Scripts::CStruct* params, int depth)
+bool struct_denied(script::Struct* params, int depth)
 {
     if (!params || depth > 8)
         return false;
-    for (Scripts::CComponent* component = params->StepToEntry(nullptr); component;
-         component = params->StepToEntry(component)) {
-        if (ChecksumDenied(component->name) || ValueDenied(component->KindTag(), component->raw, depth))
+    for (script::Component* component = params->step_to_entry(nullptr); component;
+         component = params->step_to_entry(component)) {
+        if (checksum_denied(component->name) || value_denied(component->kind_tag(), component->raw, depth))
             return true;
     }
     return false;
 }
 
 // Whether an element's event handlers (all, or only pad_choose / pad_start ones) run or name a denied script.
-bool HandlersDenied(const CUiWidget* element, bool chooseOnly)
+bool handlers_denied(const UiWidget* element, bool choose_only)
 {
-    Scripts::CScript* script = element->m_ownScript;
-    if (!script || !script->m_signalRoutes)
+    script::Script* script = element->own_script_;
+    if (!script || !script->signal_routes_)
         return false;
-    const GameObjects::CSignalRouteTable* table = script->m_signalRoutes;
-    for (int i = 0; i < table->m_num; ++i) {
-        const GameObjects::CSignalRouteTable::TableRow& entry = table->m_entries[i];
-        if (entry.script == GameObjects::kNullScript)
+    const objects::SignalRouteTable* table = script->signal_routes_;
+    for (int i = 0; i < table->num_; ++i) {
+        const objects::SignalRouteTable::TableRow& entry = table->entries_[i];
+        if (entry.script == objects::kNullScript)
             continue;
-        if (chooseOnly && entry.type != kPadChoose && entry.type != kPadStart)
+        if (choose_only && entry.type != kPadChoose && entry.type != kPadStart)
             continue;
-        if (ChecksumDenied(entry.script) || StructDenied(entry.params, 0))
+        if (checksum_denied(entry.script) || struct_denied(entry.params, 0))
             return true;
     }
     return false;
@@ -762,72 +762,72 @@ bool HandlersDenied(const CUiWidget* element, bool chooseOnly)
 
 // Why choosing this element would be refused ("" if it wouldn't): its id, its own handlers, its parents' choose
 // handlers.
-std::string RefusalOfElement(const CUiWidget* element)
+std::string refusal_of_element(const UiWidget* element)
 {
-    if (ChecksumDenied(IdentNo(element)))
-        return "the element " + NameOf(IdentNo(element)) + " is online / network";
-    if (HandlersDenied(element, false))
-        return "the element " + NameOf(IdentNo(element)) + "'s handlers lead online / to the network";
-    for (const CUiWidget* parent = Parent(element); parent; parent = Parent(parent))
-        if (HandlersDenied(parent, true))
-            return "the menu " + NameOf(IdentNo(parent)) + "'s choose handlers lead online / to the network";
+    if (checksum_denied(ident_no(element)))
+        return "the element " + get_name_of(ident_no(element)) + " is online / network";
+    if (handlers_denied(element, false))
+        return "the element " + get_name_of(ident_no(element)) + "'s handlers lead online / to the network";
+    for (const UiWidget* parent = current_parent(element); parent; parent = current_parent(parent))
+        if (handlers_denied(parent, true))
+            return "the menu " + get_name_of(ident_no(parent)) + "'s choose handlers lead online / to the network";
     return {};
 }
 
 // The focused elements (controller 0's focus list) and the selected items of the focused menus.
-void FocusedElements(std::vector<CUiWidget*>* focused, std::vector<CUiWidget*>* selected)
+void focused_elements(std::vector<UiWidget*>* focused, std::vector<UiWidget*>* selected)
 {
-    CUiTree* manager = CUiTree::Sole();
+    UiTree* manager = UiTree::sole();
     if (!manager)
         return;
     int guard = 0;
-    for (CUiTree::FocusEntry* entry = manager->m_focusLists[0]; entry && guard < 64;
+    for (UiTree::FocusEntry* entry = manager->focus_lists_[0]; entry && guard < 64;
          entry = entry->next, ++guard) {
-        CUiWidget* element = entry->element.Pull();
+        UiWidget* element = entry->element.get_pull();
         if (!element)
             continue;
         focused->push_back(element);
-        if (IsMenu(element))
-            if (CUiWidget* item = ChildAt(element, SelectedIndex(element)))
+        if (is_menu(element))
+            if (UiWidget* item = child_at(element, selected_index(element)))
                 selected->push_back(item);
     }
 }
 
 // Why the game state refuses actions ("" if it doesn't): online, a network game, a network game mode.
-std::string NetRefusal()
+std::string net_refusal()
 {
-    if (NetLink::Hub* net = NetLink::Hub::Sole())
-        if (net->IsOnline())
+    if (net::Hub* net = net::Hub::sole())
+        if (net->is_online())
             return "the game is online";
-    if (void* gameNet = OnlinePlay::g_onlineHub)
-        if (static_cast<OnlinePlay::Hub*>(gameNet)->InNetGame())
+    if (void* game_net = online::g_online_hub)
+        if (static_cast<online::Hub*>(game_net)->in_net_game())
             return "a network game runs";
-    if (void* mode = reinterpret_cast<void*>(GoalSystem::g_gameMode)) {
-        std::string name = NameOf(static_cast<GoalSystem::CMatchRules*>(mode)->GetNameKey());
+    if (void* mode = reinterpret_cast<void*>(goals::g_game_mode)) {
+        std::string name = get_name_of(static_cast<goals::MatchRules*>(mode)->get_name_key());
         if (name.rfind("net", 0) == 0)
             return "the game mode is a network one (" + name + ")";
     }
     return {};
 }
 
-std::string ActiveRulesetLabel()
+std::string active_ruleset_label()
 {
-    void* mode = reinterpret_cast<void*>(GoalSystem::g_gameMode);
-    return mode ? NameOf(static_cast<GoalSystem::CMatchRules*>(mode)->GetNameKey()) : "";
+    void* mode = reinterpret_cast<void*>(goals::g_game_mode);
+    return mode ? get_name_of(static_cast<goals::MatchRules*>(mode)->get_name_key()) : "";
 }
 
 // The main menu: its menu up and taking pad events, in the front end.
-bool MainMenuUp()
+bool main_menu_up()
 {
-    static const uint32_t kMainVMenu = Checksums::HashFromText("main_vmenu");
-    if (!InFrontEnd())
+    static const uint32_t kMainVMenu = checksums::hash_from_text("main_vmenu");
+    if (!in_front_end())
         return false;
     ElementPtr holder;
-    CUiWidget* menu = FindElement(kMainVMenu, &holder);
-    return menu && IsMenu(menu) && MouseMenus::MenuGetsPadEvents(menu);
+    UiWidget* menu = find_element(kMainVMenu, &holder);
+    return menu && is_menu(menu) && mouse_menus::menu_gets_pad_events(menu);
 }
 
-bool SkaterPresent() { return GameObjects::FindObject(kSkater) != nullptr; }
+bool skater_present() { return objects::find_object(kSkater) != nullptr; }
 
 // --- trace: the skater frame by frame ---------------------------------------------------------------------------
 
@@ -835,68 +835,68 @@ struct Trace {
     FILE* file = nullptr;
     int left = 0;
 };
-Trace& TraceState()
+Trace& trace_state()
 {
     static Trace trace;
     return trace;
 }
 
-void StopTrace()
+void stop_trace()
 {
-    Trace& trace = TraceState();
+    Trace& trace = trace_state();
     if (trace.file)
         std::fclose(trace.file);
     trace.file = nullptr;
     trace.left = 0;
 }
 
-std::string StartTrace(int frames)
+std::string start_trace(int frames)
 {
-    StopTrace();
-    std::string path = GameFolderPath("thug2-decomp-trace.txt");
+    stop_trace();
+    std::string path = game_folder_path("thug2-decomp-trace.txt");
     FILE* file = _fsopen(path.c_str(), "w", _SH_DENYWR);
     if (!file)
         return "can't write " + path;
     std::fprintf(file, "# frame x y z vx vy vz up_y state physics bailing trick pot multiplier landed ground_flags ground_object\n");
     std::fflush(file);
-    TraceState().file = file;
-    TraceState().left = frames;
+    trace_state().file = file;
+    trace_state().left = frames;
     return {};
 }
 
 // Once a frame: the skater's line (nothing while there's none - a level loading).
-void TraceFrame()
+void trace_frame()
 {
-    Trace& trace = TraceState();
+    Trace& trace = trace_state();
     if (!trace.file)
         return;
-    auto* skater = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(kSkater));
+    auto* skater = static_cast<objects::GameEntity*>(objects::find_object(kSkater));
     if (skater) {
-        auto* state = reinterpret_cast<uint8_t*>(skater->FetchModule(kStateModuleKey));
+        auto* state = reinterpret_cast<uint8_t*>(skater->fetch_module(kStateModuleKey));
         int where = state ? *reinterpret_cast<int*>(state + 0x18) : -1;
         int physics = state ? *reinterpret_cast<int*>(state + 0x1C) : -1;
         int bailing = state ? state[0x70] : -1;
         int trick = state ? state[0xE0] : -1;
         // the score: the combo so far (+0x14) and its multiplier (+0x60), the last score landed (+0x20)
-        auto* scoreComponent = reinterpret_cast<uint8_t*>(skater->FetchModule(kScoreModuleKey));
-        uint8_t* score = scoreComponent ? *reinterpret_cast<uint8_t**>(scoreComponent + 0x18) : nullptr;
+        auto* score_component = reinterpret_cast<uint8_t*>(skater->fetch_module(kScoreModuleKey));
+        uint8_t* score = score_component ? *reinterpret_cast<uint8_t**>(score_component + 0x18) : nullptr;
         int pot = score ? *reinterpret_cast<int*>(score + 0x14) : -1;
         float multiplier = score ? *reinterpret_cast<float*>(score + 0x60) : 0.0f;
         int landed = score ? *reinterpret_cast<int*>(score + 0x20) : -1;
         // the core physics' last ground hit (its feeler copy at +0x158): the face's flags and the object's checksum
-        auto* core = reinterpret_cast<uint8_t*>(skater->FetchModule(kSkaterCorePhysicsComponent));
-        unsigned groundFlags = core ? *reinterpret_cast<uint16_t*>(core + 0x158 + 0x50) : 0;
-        unsigned groundObject = core ? *reinterpret_cast<uint32_t*>(core + 0x158 + 0x58) : 0;
+        auto* core = reinterpret_cast<uint8_t*>(skater->fetch_module(kSkaterCorePhysicsComponent));
+        unsigned ground_flags = core ? *reinterpret_cast<uint16_t*>(core + 0x158 + 0x50) : 0;
+        unsigned ground_object = core ? *reinterpret_cast<uint32_t*>(core + 0x158 + 0x58) : 0;
         std::fprintf(trace.file, "%u %.2f %.2f %.2f %.2f %.2f %.2f %.3f %d %d %d %d %d %.2f %d 0x%04X 0x%08X\n",
-                     FrameLoop::FramesRun(), static_cast<double>(skater->m_atPoint.x), static_cast<double>(skater->m_atPoint.y),
-                     static_cast<double>(skater->m_atPoint.z), static_cast<double>(skater->m_vel.x),
-                     static_cast<double>(skater->m_vel.y), static_cast<double>(skater->m_vel.z),
-                     static_cast<double>(skater->m_basisFrame.row[1].y), where, physics, bailing, trick, pot,
-                     static_cast<double>(multiplier), landed, groundFlags, groundObject);
+                     frame_loop::frames_run(), static_cast<double>(skater->at_point_.x), static_cast<double>(skater->at_point_.y),
+                     static_cast<double>(skater->at_point_.z), static_cast<double>(skater->vel_.x),
+                     static_cast<double>(skater->vel_.y), static_cast<double>(skater->vel_.z),
+                     static_cast<double>(skater->basis_frame_.row[1].y), where, physics, bailing, trick, pot,
+                     static_cast<double>(multiplier), landed, ground_flags, ground_object);
         std::fflush(trace.file);
     }
     if (--trace.left <= 0)
-        StopTrace();
+        stop_trace();
 }
 
 // --- the command file -------------------------------------------------------------------------------------------
@@ -911,8 +911,8 @@ struct Runner {
     bool looked = false;
     uint64_t size = 0, time = 0, offset = 0;
     std::string partial;
-    int stillFrames = 0;
-    int linesRead = 0, linesDone = 0;
+    int still_frames_ = 0;
+    int lines_read_ = 0, lines_done_ = 0;
     std::deque<Seg> queue;
     // the running command
     bool active = false;
@@ -921,74 +921,74 @@ struct Runner {
     DWORD started = 0;
     int counter = 0;
     int phase = 0;
-    MouseMenus::Target target = {};
-    bool targetSet = false;
+    mouse_menus::Target target = {};
+    bool target_set_ = false;
     // the button held (port 0)
     const Button* held = nullptr;
-    // `hold`'s button (port 0), held for `holdFrames` more frames while later commands run
-    const Button* holdButton = nullptr;
-    int holdFrames = 0;
+    // `hold`'s button (port 0), held for `hold_frames_` more frames while later commands run
+    const Button* hold_button_ = nullptr;
+    int hold_frames_ = 0;
     // the status
     std::string last, result = "ok";
     int errors = 0, refusals = 0;
     bool ready = false;
     std::string written;
-    uint32_t writtenFrames = 0;
+    uint32_t written_frames_ = 0;
     // -run
-    bool runDone = false;
-    int readyFrames = 0;
+    bool run_done_ = false;
+    int ready_frames_ = 0;
     // the main menu: frames in a row it has been up, and whether that's a second
-    int menuFrames = 0;
-    bool menuSettled = false;
+    int menu_frames_ = 0;
+    bool menu_settled_ = false;
 };
 
-Runner& State()
+Runner& get_state()
 {
     static Runner* runner = new Runner; // (never freed: nothing runs on the game's memory at exit)
     return *runner;
 }
 
 // The menu the running choose / focus is moving (cleared if it dies).
-ElementPtr& TargetMenu()
+ElementPtr& target_menu()
 {
     static ElementPtr* menu = new ElementPtr;
     return *menu;
 }
 
-uint64_t FileTimeValue(const FILETIME& time) { return (uint64_t(time.dwHighDateTime) << 32) | time.dwLowDateTime; }
+uint64_t file_time_value(const FILETIME& time) { return (uint64_t(time.dwHighDateTime) << 32) | time.dwLowDateTime; }
 
-uint64_t ProcessStart()
+uint64_t process_start()
 {
     FILETIME created, exited, kernel, user;
     if (!GetProcessTimes(GetCurrentProcess(), &created, &exited, &kernel, &user))
         return 0;
-    return FileTimeValue(created);
+    return file_time_value(created);
 }
 
-void AddLine(Runner& runner, const std::string& text)
+void add_line(Runner& runner, const std::string& text)
 {
-    ++runner.linesRead;
+    ++runner.lines_read_;
     // (a UTF-8 byte order mark - PowerShell's Out-File writes one - isn't part of the command)
     bool bom = text.size() >= 3 && text.compare(0, 3, "\xEF\xBB\xBF") == 0;
-    runner.queue.push_back({bom ? text.substr(3) : text, runner.linesRead});
+    runner.queue.push_back({bom ? text.substr(3) : text, runner.lines_read_});
 }
 
-void PollFile(Runner& runner)
+void poll_file(Runner& runner)
 {
-    std::string path = GameFolderPath("thug2-decomp-commands.txt");
+    std::string path = game_folder_path("thug2-decomp-commands.txt");
     WIN32_FILE_ATTRIBUTE_DATA info;
     if (!GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &info)) {
         runner.looked = true;
         return;
     }
     uint64_t size = (uint64_t(info.nFileSizeHigh) << 32) | info.nFileSizeLow;
-    uint64_t time = FileTimeValue(info.ftLastWriteTime);
+    uint64_t time = file_time_value(info.ftLastWriteTime);
     if (!runner.looked) {
         runner.looked = true;
         // (a file from before this run - written more than 10 s before the game started - isn't run)
-        uint64_t start = ProcessStart();
+        uint64_t start = process_start();
         if (start && time + 10ull * 10000000ull < start) {
-            Log("automation: %s is older than this run - not run", path.c_str());
+            get_log("automation: %s is older than this run - not run", path.c_str());
             runner.size = runner.offset = size;
             runner.time = time;
             return;
@@ -996,19 +996,19 @@ void PollFile(Runner& runner)
     }
     if (size == runner.size && time == runner.time) {
         // A last line without an end of line, once the file has been still a moment.
-        if (!runner.partial.empty() && ++runner.stillFrames >= kPartialLineFrames) {
-            AddLine(runner, runner.partial);
+        if (!runner.partial.empty() && ++runner.still_frames_ >= kPartialLineFrames) {
+            add_line(runner, runner.partial);
             runner.partial.clear();
         }
         return;
     }
-    runner.stillFrames = 0;
+    runner.still_frames_ = 0;
     if (size < runner.offset) {
-        Log("automation: the command file got shorter - read from its start again");
+        get_log("automation: the command file got shorter - read from its start again");
         runner.offset = 0;
         runner.partial.clear();
         runner.queue.clear();
-        runner.linesRead = runner.linesDone = 0;
+        runner.lines_read_ = runner.lines_done_ = 0;
     }
     HANDLE file = CreateFileA(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                               nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -1034,132 +1034,132 @@ void PollFile(Runner& runner)
         std::string line = runner.partial.substr(0, end);
         if (!line.empty() && line.back() == '\r')
             line.pop_back();
-        AddLine(runner, line);
+        add_line(runner, line);
         runner.partial.erase(0, end + 1);
     }
 }
 
 // --- running commands -------------------------------------------------------------------------------------------
 
-void Finish(Runner& runner, const std::string& result)
+void get_finish(Runner& runner, const std::string& result)
 {
     runner.active = false;
     runner.last = runner.text;
     runner.result = result;
-    ++runner.linesDone;
-    Log("automation: %s -> %s", runner.text.c_str(), result.c_str());
-    TargetMenu().Release();
-    runner.targetSet = false;
+    ++runner.lines_done_;
+    get_log("automation: %s -> %s", runner.text.c_str(), result.c_str());
+    target_menu().get_release();
+    runner.target_set_ = false;
 }
 
 // A failure: the rest of the batch is skipped.
-void Fail(Runner& runner, const std::string& result, bool refused)
+void get_fail(Runner& runner, const std::string& result, bool refused)
 {
     if (refused) {
         ++runner.refusals;
-        Log("automation: REFUSED %s: %s", runner.text.c_str(), result.c_str());
+        get_log("automation: REFUSED %s: %s", runner.text.c_str(), result.c_str());
     } else {
         ++runner.errors;
     }
-    Finish(runner, (refused ? "refused: " : "error: ") + result);
+    get_finish(runner, (refused ? "refused: " : "error: ") + result);
     if (!runner.queue.empty())
-        Log("automation: %d command line(s) after it skipped", static_cast<int>(runner.queue.size()));
-    runner.linesDone += static_cast<int>(runner.queue.size());
+        get_log("automation: %d command line(s) after it skipped", static_cast<int>(runner.queue.size()));
+    runner.lines_done_ += static_cast<int>(runner.queue.size());
     runner.queue.clear();
 }
 
-bool TimedOut(const Runner& runner, int seconds)
+bool get_timed_out(const Runner& runner, int seconds)
 {
     return GetTickCount() - runner.started > static_cast<DWORD>(seconds) * 1000u;
 }
 
-Scripts::CStruct* MakeParams(const std::vector<Param>& params)
+script::Struct* make_params(const std::vector<Param>& params)
 {
-    Scripts::CStruct* out = Scripts::SpawnParamBag()->PrepareAll();
+    script::Struct* out = script::spawn_param_bag()->prepare_all();
     for (const Param& param : params) {
         switch (param.kind) {
-        case Param::BitMark: out->PutNameKey(0u, NameHash(param.text)); break;
-        case Param::Integer: out->PutInt(NameHash(param.name), param.integer); break;
-        case Param::Float: out->PushFloat(NameHash(param.name), param.real); break;
-        case Param::Chars: out->AppendWord(NameHash(param.name), param.text.c_str()); break;
-        case Param::Name: out->PutNameKey(NameHash(param.name), IdChecksum(param.text)); break;
+        case Param::kBitMark: out->put_name_key(0u, name_hash(param.text)); break;
+        case Param::kInteger: out->put_int(name_hash(param.name), param.integer); break;
+        case Param::kFloat: out->push_float(name_hash(param.name), param.real); break;
+        case Param::kChars: out->append_word(name_hash(param.name), param.text.c_str()); break;
+        case Param::kName: out->put_name_key(name_hash(param.name), id_checksum(param.text)); break;
         }
     }
     return out;
 }
 
-bool ScriptExists(uint32_t name)
+bool script_exists(uint32_t name)
 {
-    Scripts::CSymbolTableEntry* symbol = Scripts::ResolveSymbol(name);
-    return symbol && (symbol->type == Scripts::QBVAL_SCRIPT_BODY || symbol->type == Scripts::QBVAL_NATIVE_FUNC);
+    script::SymbolTableEntry* symbol = script::resolve_symbol(name);
+    return symbol && (symbol->type == script::kQbvalScriptBody || symbol->type == script::kQbvalNativeFunc);
 }
 
 // Spawn a script (run's and -run's); "" if it ran, else why not.
-std::string SpawnNamed(const std::string& name, const std::vector<Param>& params)
+std::string spawn_named(const std::string& name, const std::vector<Param>& params)
 {
-    uint32_t checksum = NameHash(name);
-    if (!ScriptExists(checksum))
+    uint32_t checksum = name_hash(name);
+    if (!script_exists(checksum))
         return "no script " + name;
-    Scripts::CStruct* structure = MakeParams(params);
-    Scripts::SpawnScript(checksum, structure, 0, nullptr, 0, 0, false, false, false, false);
-    structure->Clear();
-    Scripts::DeleteStruct(structure);
+    script::Struct* structure = make_params(params);
+    script::spawn_script(checksum, structure, 0, nullptr, 0, 0, false, false, false, false);
+    structure->get_clear();
+    script::delete_struct(structure);
     return {};
 }
 
-int ReadTarget(void* /*context*/) { return TargetMenu() ? SelectedIndex(TargetMenu().Pull()) : -1; }
+int read_target(void* /*context*/) { return target_menu() ? selected_index(target_menu().get_pull()) : -1; }
 
-void SendStep(void* context, int direction)
+void send_step(void* context, int direction)
 {
-    auto* frontEnd = static_cast<GameModules::FrontEnd*>(context);
-    bool vertical = TargetMenu() && MouseMenus::MenuRunsTopToBottom(TargetMenu().Pull());
-    uint32_t event = vertical ? (direction < 0 ? GameModules::FrontEnd::kPadUp : GameModules::FrontEnd::kPadDown)
-                              : (direction < 0 ? GameModules::FrontEnd::kPadLeft : GameModules::FrontEnd::kPadRight);
-    MouseMenus::SendMenuPadEvent(frontEnd, event);
+    auto* front_end = static_cast<modules::FrontEnd*>(context);
+    bool vertical = target_menu() && mouse_menus::menu_runs_top_to_bottom(target_menu().get_pull());
+    uint32_t event = vertical ? (direction < 0 ? modules::FrontEnd::kPadUp : modules::FrontEnd::kPadDown)
+                              : (direction < 0 ? modules::FrontEnd::kPadLeft : modules::FrontEnd::kPadRight);
+    mouse_menus::send_menu_pad_event(front_end, event);
 }
 
-// Whether the front end drops menu pad events now (as InputLogic / SendMenuPadEvent check): the first controller's
+// Whether the front end drops menu pad events now (as input_logic / send_menu_pad_event check): the first controller's
 // mapping inactive, menu input blocked, no input device.
-bool MenuInputBlocked(GameModules::FrontEnd* frontEnd)
+bool menu_input_blocked(modules::FrontEnd* front_end)
 {
-    if (!frontEnd || frontEnd->m_padMappings[0].m_mapping == 0 || frontEnd->m_blockMenuInput)
+    if (!front_end || front_end->pad_mappings_[0].mapping_ == 0 || front_end->block_menu_input_)
         return true;
-    GameModules::FrontEndInputHandler* handler = frontEnd->m_padListeners[0];
-    return !handler || !handler->m_dev;
+    modules::FrontEndInputHandler* handler = front_end->pad_listeners_[0];
+    return !handler || !handler->dev_;
 }
 
 // Whether a pad press would be lost on the menus now: in the front end or the pause menu, menu input blocked, or a
 // menu has the focus but none of the focused menus takes pad events (a menu still coming in).
-bool MenusIgnorePad(GameModules::FrontEnd* frontEnd)
+bool menus_ignore_pad(modules::FrontEnd* front_end)
 {
-    if (!InFrontEnd() && !(frontEnd && frontEnd->m_isHalted))
+    if (!in_front_end() && !(front_end && front_end->is_halted_))
         return false;
-    if (MenuInputBlocked(frontEnd))
+    if (menu_input_blocked(front_end))
         return true;
-    std::vector<CUiWidget*> focused, selected;
-    FocusedElements(&focused, &selected);
-    bool anyMenu = false;
-    for (CUiWidget* element : focused) {
-        if (!IsMenu(element))
+    std::vector<UiWidget*> focused, selected;
+    focused_elements(&focused, &selected);
+    bool any_menu = false;
+    for (UiWidget* element : focused) {
+        if (!is_menu(element))
             continue;
-        anyMenu = true;
-        if (MouseMenus::MenuGetsPadEvents(element))
+        any_menu = true;
+        if (mouse_menus::menu_gets_pad_events(element))
             return false;
     }
-    return anyMenu;
+    return any_menu;
 }
 
 // Why pressing the button now is refused ("" if it isn't): a button that can choose, with a focused element (or a
 // focused menu's selected item) that leads online.
-std::string PressRefusal(const Button& button)
+std::string press_refusal(const Button& button)
 {
-    if (!ButtonChooses(button))
+    if (!button_chooses(button))
         return {};
-    std::vector<CUiWidget*> focused, selected;
-    FocusedElements(&focused, &selected);
+    std::vector<UiWidget*> focused, selected;
+    focused_elements(&focused, &selected);
     for (auto* list : {&selected, &focused}) {
-        for (CUiWidget* element : *list) {
-            std::string refusal = RefusalOfElement(element);
+        for (UiWidget* element : *list) {
+            std::string refusal = refusal_of_element(element);
             if (!refusal.empty())
                 return refusal;
         }
@@ -1172,111 +1172,111 @@ std::string PressRefusal(const Button& button)
 // 0x00786D04, set at 0x004B7ABB; both cleared by 0x004B6F10 - also the start-up screen, shown without the script
 // flag). Menus made under one are usually still being set up by their scripts (choosing one away under the loading
 // logo left the logo up), so choose / press wait for it - at most kPressWaitSeconds.
-bool LoadingScreenUp()
+bool loading_screen_up()
 {
-    return Engine3D::g_loadingScreenShown != 0 || Engine3D::g_loadingBarTimer != 0 ||
-           static_cast<uint8_t>(Engine3D::g_loadingScreenUp) != 0;
+    return render::g_loading_screen_shown != 0 || render::g_loading_bar_timer != 0 ||
+           static_cast<uint8_t>(render::g_loading_screen_up) != 0;
 }
 
 // choose / focus, once a frame until done.
-void StepChoose(Runner& runner, GameModules::FrontEnd* frontEnd)
+void step_choose(Runner& runner, modules::FrontEnd* front_end)
 {
-    bool choose = runner.command.op == Op::Choose;
-    uint32_t id = IdChecksum(runner.command.target);
+    bool choose = runner.command.op == Op::kChoose;
+    uint32_t id = id_checksum(runner.command.target);
     ElementPtr holder;
-    CUiWidget* item = FindElement(id, &holder);
-    if (!item || HiddenInChain(item)) {
-        if (TimedOut(runner, runner.command.seconds))
-            Fail(runner, item ? "the element is hidden" : "no element " + runner.command.target, false);
+    UiWidget* item = find_element(id, &holder);
+    if (!item || hidden_in_chain(item)) {
+        if (get_timed_out(runner, runner.command.seconds))
+            get_fail(runner, item ? "the element is hidden" : "no element " + runner.command.target, false);
         return;
     }
     // A menu given: its selected item (choose) - or the focus event to the menu (focus).
-    CUiWidget* menu = nullptr;
-    CUiWidget* chosen = item;
-    if (IsMenu(item)) {
+    UiWidget* menu = nullptr;
+    UiWidget* chosen = item;
+    if (is_menu(item)) {
         if (!choose) {
-            std::string why = RefusalOfElement(item);
+            std::string why = refusal_of_element(item);
             if (!why.empty())
-                return Fail(runner, why, true);
-            GameObjects::Tracker()->LaunchEvent(kFocusEvent, id, kSystem, nullptr, false, -1.0f);
-            return Finish(runner, "ok (focus sent to the menu)");
+                return get_fail(runner, why, true);
+            objects::get_tracker()->launch_event(kFocusEvent, id, kSystem, nullptr, false, -1.0f);
+            return get_finish(runner, "ok (focus sent to the menu)");
         }
         menu = item;
-        chosen = ChildAt(menu, SelectedIndex(menu));
+        chosen = child_at(menu, selected_index(menu));
         if (!chosen) {
-            if (TimedOut(runner, runner.command.seconds))
-                Fail(runner, "the menu " + NameOf(id) + " has no item selected", false);
+            if (get_timed_out(runner, runner.command.seconds))
+                get_fail(runner, "the menu " + get_name_of(id) + " has no item selected", false);
             return;
         }
     } else {
-        menu = Parent(item);
+        menu = current_parent(item);
     }
-    std::string why = RefusalOfElement(chosen);
+    std::string why = refusal_of_element(chosen);
     if (!why.empty())
-        return Fail(runner, why, true);
-    if (!menu || !IsMenu(menu)) {
+        return get_fail(runner, why, true);
+    if (!menu || !is_menu(menu)) {
         // Not a menu's item: the event goes to it.
-        GameObjects::Tracker()->LaunchEvent(choose ? kPadChoose : kFocusEvent, id, kSystem, nullptr, false, -1.0f);
-        return Finish(runner, choose ? "ok (pad_choose sent to the element)" : "ok (focus sent to the element)");
+        objects::get_tracker()->launch_event(choose ? kPadChoose : kFocusEvent, id, kSystem, nullptr, false, -1.0f);
+        return get_finish(runner, choose ? "ok (pad_choose sent to the element)" : "ok (focus sent to the element)");
     }
-    int index = IndexOf(menu, chosen);
-    CUiWidget* current = ChildAt(menu, SelectedIndex(menu));
+    int index = get_index_of(menu, chosen);
+    UiWidget* current = child_at(menu, selected_index(menu));
     // (nothing sent while the menu doesn't take pad events, the front end blocks menu input - SetButtonEventMappings
     // block_menu_input, TemporarilyDisableInput - or the menu is on an item it passes over by itself)
-    bool wait = !MouseMenus::MenuGetsPadEvents(menu) || MenuInputBlocked(frontEnd) ||
-                (current && MouseMenus::ItemPassedOver(current)) ||
-                (LoadingScreenUp() && !TimedOut(runner, kPressWaitSeconds));
-    if (wait && TimedOut(runner, runner.command.seconds))
-        return Fail(runner, "its menu " + NameOf(IdentNo(menu)) + " didn't take pad events", false);
-    if (!runner.targetSet || TargetMenu().Pull() != menu) {
+    bool wait = !mouse_menus::menu_gets_pad_events(menu) || menu_input_blocked(front_end) ||
+                (current && mouse_menus::item_passed_over(current)) ||
+                (loading_screen_up() && !get_timed_out(runner, kPressWaitSeconds));
+    if (wait && get_timed_out(runner, runner.command.seconds))
+        return get_fail(runner, "its menu " + get_name_of(ident_no(menu)) + " didn't take pad events", false);
+    if (!runner.target_set_ || target_menu().get_pull() != menu) {
         if (wait)
             return;
-        TargetMenu().AssignValue(menu);
-        runner.target = MouseMenus::StartTarget(index, ChildCount(menu), MouseMenus::MenuWraps(menu));
-        runner.targetSet = true;
+        target_menu().assign_value(menu);
+        runner.target = mouse_menus::start_target(index, child_count(menu), mouse_menus::menu_wraps(menu));
+        runner.target_set_ = true;
     }
-    runner.target.count = ChildCount(menu);
-    MouseMenus::TargetState state = MouseMenus::AdvanceTarget(runner.target, wait, ReadTarget, SendStep, frontEnd);
-    if (state == MouseMenus::TargetState::Moving)
+    runner.target.count = child_count(menu);
+    mouse_menus::TargetState state = mouse_menus::advance_target(runner.target, wait, read_target, send_step, front_end);
+    if (state == mouse_menus::TargetState::kMoving)
         return;
-    if (state == MouseMenus::TargetState::GaveUp)
-        return Fail(runner, "its menu's selection didn't get to it", false);
+    if (state == mouse_menus::TargetState::kGaveUp)
+        return get_fail(runner, "its menu's selection didn't get to it", false);
     if (wait)
         return; // (there - the choose waits for the menu to take it)
     if (choose)
-        MouseMenus::SendMenuPadEvent(frontEnd, kPadChoose);
-    Finish(runner, "ok");
+        mouse_menus::send_menu_pad_event(front_end, kPadChoose);
+    get_finish(runner, "ok");
 }
 
-bool ConditionHolds(const OrderCode& command)
+bool condition_holds(const OrderCode& command)
 {
     switch (command.condition) {
-    case Condition::Ready: return State().menuSettled;
-    case Condition::FrontEnd: return InFrontEnd();
-    case Condition::NewFrontend: return MenuSystem::NewFrontend::AutomationScreenUp(command.target);
-    case Condition::InGame: {
-        auto* frontEnd = GameModules::g_frontEndInstance;
-        return CurrentLoadState() && !InFrontEnd() && SkaterPresent() && !(frontEnd && frontEnd->m_isHalted);
+    case Condition::kReady: return get_state().menu_settled_;
+    case Condition::kFrontEnd: return in_front_end();
+    case Condition::kNewFrontend: return frontend::new_frontend::automation_screen_up(command.target);
+    case Condition::kInGame: {
+        auto* front_end = modules::g_front_end_instance;
+        return current_load_state() && !in_front_end() && skater_present() && !(front_end && front_end->is_halted_);
     }
-    case Condition::StageMap: {
+    case Condition::kStageMap: {
         std::string name = command.target;
         if (_strnicmp(name.c_str(), "load_", 5) != 0)
             name = "Load_" + name;
-        return CurrentLoadState() == NameHash(name) && SkaterPresent();
+        return current_load_state() == name_hash(name) && skater_present();
     }
-    case Condition::Menu: {
+    case Condition::kMenu: {
         ElementPtr holder;
-        return FindElement(IdChecksum(command.target), &holder) != nullptr;
+        return find_element(id_checksum(command.target), &holder) != nullptr;
     }
-    case Condition::Focus: {
-        uint32_t id = IdChecksum(command.target);
-        std::vector<CUiWidget*> focused, selected;
-        FocusedElements(&focused, &selected);
-        for (CUiWidget* element : focused)
-            if (IdentNo(element) == id)
+    case Condition::kFocus: {
+        uint32_t id = id_checksum(command.target);
+        std::vector<UiWidget*> focused, selected;
+        focused_elements(&focused, &selected);
+        for (UiWidget* element : focused)
+            if (ident_no(element) == id)
                 return true;
-        for (CUiWidget* element : selected)
-            if (IdentNo(element) == id)
+        for (UiWidget* element : selected)
+            if (ident_no(element) == id)
                 return true;
         return false;
     }
@@ -1286,32 +1286,32 @@ bool ConditionHolds(const OrderCode& command)
 
 // The condition has held long enough: a level / in game for a second in a row (the level's first frames - its intro
 // camera, the skater set down - pass first), the others at once.
-bool ConditionMet(Runner& runner)
+bool condition_met(Runner& runner)
 {
-    if (!ConditionHolds(runner.command)) {
+    if (!condition_holds(runner.command)) {
         runner.counter = 0;
         return false;
     }
     Condition condition = runner.command.condition;
-    int frames = condition == Condition::StageMap || condition == Condition::InGame ? kSettleFrames : 1;
+    int frames = condition == Condition::kStageMap || condition == Condition::kInGame ? kSettleFrames : 1;
     return ++runner.counter >= frames;
 }
 
 // `logtricks [count]` (a test of the graffiti change mask, TP-R7): one trick by
 // skater 0 over the level's trick objects (every one, or the first `count` in the table's order), through the trick
-// object manager's LogTrickObjects as a skater's trick goes - more than THUG2's own mask held crashed there.
-std::string LogTricks(int count, std::string* failed)
+// object manager's log_trick_objects as a skater's trick goes - more than THUG2's own mask held crashed there.
+std::string log_tricks(int count, std::string* failed)
 {
-    auto* manager = GameObjects::g_trickSpotHub;
+    auto* manager = objects::g_trick_spot_hub;
     if (!manager) {
         *failed = "no trick object manager";
         return "";
     }
     std::vector<uint32_t> objects;
     std::vector<void*> clusters;
-    const ListKit::KeyMap& table = manager->m_objectClusters;
-    for (int bucket = 0; bucket < (1 << table.m_bits); ++bucket) {
-        for (const ListKit::KeyMap::Item* item = &table.m_buckets[bucket]; item; item = item->next) {
+    const lists::KeyMap& table = manager->object_clusters_;
+    for (int bucket = 0; bucket < (1 << table.bits_); ++bucket) {
+        for (const lists::KeyMap::Item* item = &table.buckets_[bucket]; item; item = item->next) {
             if (!item->value)
                 continue;
             objects.push_back(item->key);
@@ -1324,7 +1324,7 @@ std::string LogTricks(int count, std::string* failed)
     size_t asked = objects.size();
     objects.push_back(0xEEEEEEEE); // (past the list: must be left alone)
     uint8_t stolen[0x100] = {};
-    uint32_t changed = manager->LogTrickObjects(static_cast<uint32_t>(asked), objects.data(), stolen, 0, 1000000);
+    uint32_t changed = manager->log_trick_objects(static_cast<uint32_t>(asked), objects.data(), stolen, 0, 1000000);
     if (objects[asked] != 0xEEEEEEEE) {
         *failed = "the word past the list was changed";
         return "";
@@ -1336,9 +1336,9 @@ std::string LogTricks(int count, std::string* failed)
 }
 
 // Start the next command; true if it's done already (the next can start this frame).
-void WriteStatus(Runner& runner);
+void write_status(Runner& runner);
 
-bool Kickoff(Runner& runner, GameModules::FrontEnd* frontEnd)
+bool kickoff(Runner& runner, modules::FrontEnd* front_end)
 {
     Seg line = runner.queue.front();
     runner.queue.pop_front();
@@ -1348,183 +1348,183 @@ bool Kickoff(Runner& runner, GameModules::FrontEnd* frontEnd)
     runner.started = GetTickCount();
     runner.counter = 0;
     runner.phase = 0;
-    runner.targetSet = false;
-    switch (ParseCommand(line.text, &command, &error)) {
-    case CommandLineOutcome::Vacant:
-        ++runner.linesDone;
+    runner.target_set_ = false;
+    switch (parse_command(line.text, &command, &error)) {
+    case CommandLineOutcome::kVacant:
+        ++runner.lines_done_;
         return true;
-    case CommandLineOutcome::Error:
-        Log("automation: line %d: %s", line.number, line.text.c_str());
-        Fail(runner, "line " + std::to_string(line.number) + ": " + error, false);
+    case CommandLineOutcome::kError:
+        get_log("automation: line %d: %s", line.number, line.text.c_str());
+        get_fail(runner, "line " + std::to_string(line.number) + ": " + error, false);
         return true;
-    case CommandLineOutcome::OrderCode:
+    case CommandLineOutcome::kOrderCode:
         break;
     }
     runner.active = true;
     runner.command = command;
-    runner.text = Describe(command);
-    Remember(command.target);
-    if (command.op == Op::StageMap || command.condition == Condition::StageMap)
-        Remember(_strnicmp(command.target.c_str(), "load_", 5) == 0 ? command.target : "Load_" + command.target);
-    Log("automation: %s", runner.text.c_str());
-    std::string why = RefusalByName(command);
-    if (why.empty() && command.op != Op::Stall && command.op != Op::Echo && command.op != Op::Quit &&
-        command.op != Op::WaitFor)
-        why = NetRefusal();
+    runner.text = describe(command);
+    remember(command.target);
+    if (command.op == Op::kStageMap || command.condition == Condition::kStageMap)
+        remember(_strnicmp(command.target.c_str(), "load_", 5) == 0 ? command.target : "Load_" + command.target);
+    get_log("automation: %s", runner.text.c_str());
+    std::string why = refusal_by_name(command);
+    if (why.empty() && command.op != Op::kStall && command.op != Op::kEcho && command.op != Op::kQuit &&
+        command.op != Op::kWaitFor)
+        why = net_refusal();
     if (!why.empty()) {
-        Fail(runner, why, true);
+        get_fail(runner, why, true);
         return true;
     }
     switch (command.op) {
-    case Op::Run: {
-        std::string failed = SpawnNamed(command.target, command.params);
+    case Op::kRun: {
+        std::string failed = spawn_named(command.target, command.params);
         if (failed.empty())
-            Finish(runner, "ok");
+            get_finish(runner, "ok");
         else
-            Fail(runner, failed, false);
+            get_fail(runner, failed, false);
         return true;
     }
-    case Op::StageMap: {
+    case Op::kStageMap: {
         std::string failed;
-        if (BeginLevel::ReadIn(command.target.c_str(), &failed))
-            Finish(runner, "ok");
+        if (begin_level::read_in(command.target.c_str(), &failed))
+            get_finish(runner, "ok");
         else
-            Fail(runner, failed, false);
+            get_fail(runner, failed, false);
         return true;
     }
-    case Op::Echo:
-        Finish(runner, command.target);
+    case Op::kEcho:
+        get_finish(runner, command.target);
         return true;
-    case Op::Frontend: {
+    case Op::kFrontend: {
         bool done = true;
-        std::string result = MenuSystem::NewFrontend::AutomationCommand(command.target, &done);
+        std::string result = frontend::new_frontend::automation_command(command.target, &done);
         if (!done)
             return false; // (Continue: once its screen is up)
         if (result.rfind("refused", 0) == 0)
-            Fail(runner, result, true);
+            get_fail(runner, result, true);
         else if (result.rfind("error", 0) == 0)
-            Fail(runner, result, false);
+            get_fail(runner, result, false);
         else
-            Finish(runner, result);
+            get_finish(runner, result);
         return true;
     }
-    case Op::JumpTo: {
-        if (!CurrentLoadState() || InFrontEnd() || !SkaterPresent()) {
-            Fail(runner, "not in a level with the skater", false);
+    case Op::kJumpTo: {
+        if (!current_load_state() || in_front_end() || !skater_present()) {
+            get_fail(runner, "not in a level with the skater", false);
             return true;
         }
         const std::vector<float>& n = command.numbers;
-        MenuSystem::TestView::Vec3 at = {};
-        std::string failed = MenuSystem::TestView::JumpTo({n[0], n[1], n[2]}, n.size() > 3, n.size() > 3 ? n[3] : 0.0f, &at,
+        frontend::test_view::Vec3 at = {};
+        std::string failed = frontend::test_view::jump_to({n[0], n[1], n[2]}, n.size() > 3, n.size() > 3 ? n[3] : 0.0f, &at,
                                                        command.target == "board");
         if (!failed.empty()) {
-            Fail(runner, failed, false);
+            get_fail(runner, failed, false);
             return true;
         }
         char result[96];
         std::snprintf(result, sizeof(result), "ok (standing at %.1f %.1f %.1f)", at.x, at.y, at.z);
-        if (FILE* traceFile = TraceState().file) { // (a trace marks each teleport: the rides it holds)
-            std::fprintf(traceFile, "# %s -> %s\n", runner.text.c_str(), result);
-            std::fflush(traceFile);
+        if (FILE* trace_file = trace_state().file) { // (a trace marks each teleport: the rides it holds)
+            std::fprintf(trace_file, "# %s -> %s\n", runner.text.c_str(), result);
+            std::fflush(trace_file);
         }
-        Finish(runner, result);
+        get_finish(runner, result);
         return true;
     }
-    case Op::ViewCam:
+    case Op::kViewCam:
         if (command.target == "off")
-            MenuSystem::TestView::UnlockCamera();
-        else if (!MenuSystem::TestView::LockCamera(
+            frontend::test_view::unlock_camera();
+        else if (!frontend::test_view::lock_camera(
                      {command.numbers[0], command.numbers[1], command.numbers[2]},
                      {command.numbers[3], command.numbers[4], command.numbers[5]},
                      command.numbers.size() > 6
-                         ? MenuSystem::TestView::Vec3{command.numbers[6], command.numbers[7], command.numbers[8]}
-                         : MenuSystem::TestView::Vec3{0.0f, 0.0f, 0.0f})) {
-            Fail(runner, "the direction has no horizon (straight up / down)", false);
+                         ? frontend::test_view::Vec3{command.numbers[6], command.numbers[7], command.numbers[8]}
+                         : frontend::test_view::Vec3{0.0f, 0.0f, 0.0f})) {
+            get_fail(runner, "the direction has no horizon (straight up / down)", false);
             return true;
         }
-        Finish(runner, "ok");
+        get_finish(runner, "ok");
         return true;
-    case Op::Capture: {
-        std::string failed = SystemCore::Screenshot::StartSeries(command.frames, command.target);
+    case Op::kCapture: {
+        std::string failed = sys::screenshot::start_series(command.frames, command.target);
         if (!failed.empty()) {
-            Fail(runner, failed, false);
+            get_fail(runner, failed, false);
             return true;
         }
         return false; // (Continue: done once written)
     }
-    case Op::Trace: {
-        std::string failed = StartTrace(command.frames);
+    case Op::kTrace: {
+        std::string failed = start_trace(command.frames);
         if (failed.empty())
-            Finish(runner, "ok");
+            get_finish(runner, "ok");
         else
-            Fail(runner, failed, false);
+            get_fail(runner, failed, false);
         return true;
     }
-    case Op::LogTricks: {
-        if (!CurrentLoadState() || InFrontEnd() || !SkaterPresent()) {
-            Fail(runner, "not in a level with the skater", false);
+    case Op::kLogTricks: {
+        if (!current_load_state() || in_front_end() || !skater_present()) {
+            get_fail(runner, "not in a level with the skater", false);
             return true;
         }
         std::string failed;
-        std::string result = LogTricks(command.frames, &failed);
+        std::string result = log_tricks(command.frames, &failed);
         if (failed.empty())
-            Finish(runner, result);
+            get_finish(runner, result);
         else
-            Fail(runner, failed, false);
+            get_fail(runner, failed, false);
         return true;
     }
-    case Op::Crash: {
-        TestFault fault = TestFault::Access;
-        ParseTestFault(command.target, &fault);
-        WriteStatus(runner); // (its "current" says what ended the game)
-        if (!CauseTestFault(fault))
-            Fail(runner, "crash " + command.target + ": not in this build (a Debug build's check)", false);
+    case Op::kCrash: {
+        TestFault fault = TestFault::kAccess;
+        parse_test_fault(command.target, &fault);
+        write_status(runner); // (its "current" says what ended the game)
+        if (!cause_test_fault(fault))
+            get_fail(runner, "crash " + command.target + ": not in this build (a Debug build's check)", false);
         else
-            Fail(runner, "crash " + command.target + ": the game still runs after it", false);
+            get_fail(runner, "crash " + command.target + ": the game still runs after it", false);
         return true;
     }
-    case Op::Quit: {
-        Finish(runner, "ok");
+    case Op::kQuit: {
+        get_finish(runner, "ok");
         SDL_Event event = {};
         event.type = SDL_QUIT;
         SDL_PushEvent(&event);
         return false;
     }
-    case Op::Press: {
-        std::string refusal = PressRefusal(*FindButton(command.target));
+    case Op::kPress: {
+        std::string refusal = press_refusal(*find_button(command.target));
         if (!refusal.empty()) {
-            Fail(runner, refusal, true);
+            get_fail(runner, refusal, true);
             return true;
         }
         runner.phase = 0; // (Continue: held once the menus take it - looked at again then)
         return false;
     }
-    case Op::Hold: {
-        std::string refusal = PressRefusal(*FindButton(command.target));
+    case Op::kHold: {
+        std::string refusal = press_refusal(*find_button(command.target));
         if (refusal.empty())
-            refusal = NetRefusal();
+            refusal = net_refusal();
         if (!refusal.empty()) {
-            Fail(runner, refusal, true);
+            get_fail(runner, refusal, true);
             return true;
         }
-        runner.holdButton = FindButton(command.target);
-        runner.holdFrames = command.frames;
-        Finish(runner, "ok");
+        runner.hold_button_ = find_button(command.target);
+        runner.hold_frames_ = command.frames;
+        get_finish(runner, "ok");
         return true;
     }
-    case Op::Choose:
-    case Op::Focus:
-        StepChoose(runner, frontEnd);
+    case Op::kChoose:
+    case Op::kFocus:
+        step_choose(runner, front_end);
         return !runner.active;
-    case Op::Stall:
+    case Op::kStall:
         if (command.frames == 0) {
-            Finish(runner, "ok");
+            get_finish(runner, "ok");
             return true;
         }
         return false;
-    case Op::WaitFor:
-        if (ConditionMet(runner)) {
-            Finish(runner, "ok");
+    case Op::kWaitFor:
+        if (condition_met(runner)) {
+            get_finish(runner, "ok");
             return true;
         }
         return false;
@@ -1533,20 +1533,20 @@ bool Kickoff(Runner& runner, GameModules::FrontEnd* frontEnd)
 }
 
 // The running command's frame.
-void Continue(Runner& runner, GameModules::FrontEnd* frontEnd)
+void Continue(Runner& runner, modules::FrontEnd* front_end)
 {
     switch (runner.command.op) {
-    case Op::Press:
+    case Op::kPress:
         if (runner.phase == 0) {
             // In the menus, not while they'd drop it (at most kPressWaitSeconds).
-            if ((MenusIgnorePad(frontEnd) || LoadingScreenUp()) && !TimedOut(runner, kPressWaitSeconds))
+            if ((menus_ignore_pad(front_end) || loading_screen_up()) && !get_timed_out(runner, kPressWaitSeconds))
                 return;
-            std::string refusal = PressRefusal(*FindButton(runner.command.target));
+            std::string refusal = press_refusal(*find_button(runner.command.target));
             if (refusal.empty())
-                refusal = NetRefusal();
+                refusal = net_refusal();
             if (!refusal.empty())
-                return Fail(runner, refusal, true);
-            runner.held = FindButton(runner.command.target);
+                return get_fail(runner, refusal, true);
+            runner.held = find_button(runner.command.target);
             runner.phase = 1;
             runner.counter = 0;
         }
@@ -1556,96 +1556,96 @@ void Continue(Runner& runner, GameModules::FrontEnd* frontEnd)
             runner.phase = 2;
             runner.counter = 0;
         } else if (runner.phase == 2 && runner.counter >= kReleaseFrames) {
-            Finish(runner, "ok");
+            get_finish(runner, "ok");
         }
         return;
-    case Op::Stall:
+    case Op::kStall:
         if (++runner.counter >= runner.command.frames)
-            Finish(runner, "ok");
+            get_finish(runner, "ok");
         return;
-    case Op::Frontend: {
-        std::string result = MenuSystem::NewFrontend::AutomationResult();
+    case Op::kFrontend: {
+        std::string result = frontend::new_frontend::automation_result();
         if (result.empty()) {
-            if (TimedOut(runner, runner.command.seconds)) {
-                MenuSystem::NewFrontend::AutomationCancel();
-                Fail(runner, "fe " + runner.command.target + ": its screen wasn't up in " +
-                                 std::to_string(runner.command.seconds) + " s (" + MenuSystem::NewFrontend::AutomationStatus() + ")",
+            if (get_timed_out(runner, runner.command.seconds)) {
+                frontend::new_frontend::automation_cancel();
+                get_fail(runner, "fe " + runner.command.target + ": its screen wasn't up in " +
+                                 std::to_string(runner.command.seconds) + " s (" + frontend::new_frontend::automation_status() + ")",
                      false);
             }
             return;
         }
         if (result.rfind("error", 0) == 0)
-            Fail(runner, result, false);
+            get_fail(runner, result, false);
         else
-            Finish(runner, result);
+            get_finish(runner, result);
         return;
     }
-    case Op::WaitFor:
-        if (ConditionMet(runner))
-            Finish(runner, "ok");
-        else if (TimedOut(runner, runner.command.seconds))
-            Fail(runner, "timed out after " + std::to_string(runner.command.seconds) + " s", false);
+    case Op::kWaitFor:
+        if (condition_met(runner))
+            get_finish(runner, "ok");
+        else if (get_timed_out(runner, runner.command.seconds))
+            get_fail(runner, "timed out after " + std::to_string(runner.command.seconds) + " s", false);
         return;
-    case Op::Choose:
-    case Op::Focus:
-        if (!NetRefusal().empty())
-            return Fail(runner, NetRefusal(), true);
-        StepChoose(runner, frontEnd);
+    case Op::kChoose:
+    case Op::kFocus:
+        if (!net_refusal().empty())
+            return get_fail(runner, net_refusal(), true);
+        step_choose(runner, front_end);
         return;
-    case Op::Capture:
-        if (SystemCore::Screenshot::SeriesRunning())
+    case Op::kCapture:
+        if (sys::screenshot::series_running())
             return;
-        if (SystemCore::Screenshot::SeriesResult().rfind("ok", 0) == 0)
-            Finish(runner, SystemCore::Screenshot::SeriesResult());
+        if (sys::screenshot::series_result().rfind("ok", 0) == 0)
+            get_finish(runner, sys::screenshot::series_result());
         else
-            Fail(runner, SystemCore::Screenshot::SeriesResult(), false);
+            get_fail(runner, sys::screenshot::series_result(), false);
         return;
     default:
-        Finish(runner, "ok");
+        get_finish(runner, "ok");
         return;
     }
 }
 
-void WriteStatus(Runner& runner)
+void write_status(Runner& runner)
 {
     Standing status = {};
-    status.frames = FrameLoop::FramesRun();
+    status.frames = frame_loop::frames_run();
     status.ready = runner.ready;
-    status.mainMenu = runner.menuSettled;
-    auto* frontEnd = GameModules::g_frontEndInstance;
-    status.paused = frontEnd && frontEnd->m_isHalted;
-    status.loading = LoadingScreenUp();
-    uint32_t load = CurrentLoadState();
+    status.main_menu_ = runner.menu_settled_;
+    auto* front_end = modules::g_front_end_instance;
+    status.paused = front_end && front_end->is_halted_;
+    status.loading = loading_screen_up();
+    uint32_t load = current_load_state();
     status.where = !load ? "starting" : load == kLoadMainMenu ? "front_end" : "level";
-    status.level = load ? NameOf(load) : "";
+    status.level = load ? get_name_of(load) : "";
     if (_strnicmp(status.level.c_str(), "load_", 5) == 0)
         status.level.erase(0, 5);
-    status.gameMode = ActiveRulesetLabel();
-    std::vector<CUiWidget*> focused, selected;
-    FocusedElements(&focused, &selected);
-    for (CUiWidget* element : focused)
-        status.focus.push_back(NameOf(IdentNo(element)));
-    for (CUiWidget* element : selected)
-        status.selected.push_back(NameOf(IdentNo(element)));
-    status.linesRead = runner.linesRead;
-    status.linesDone = runner.linesDone;
+    status.game_mode_ = active_ruleset_label();
+    std::vector<UiWidget*> focused, selected;
+    focused_elements(&focused, &selected);
+    for (UiWidget* element : focused)
+        status.focus.push_back(get_name_of(ident_no(element)));
+    for (UiWidget* element : selected)
+        status.selected.push_back(get_name_of(ident_no(element)));
+    status.lines_read_ = runner.lines_read_;
+    status.lines_done_ = runner.lines_done_;
     status.queued = static_cast<int>(runner.queue.size());
     status.current = runner.active ? runner.text : "";
     status.last = runner.last;
     status.result = runner.result;
     status.errors = runner.errors;
     status.refusals = runner.refusals;
-    status.frontend = MenuSystem::NewFrontend::AutomationStatus();
+    status.frontend = frontend::new_frontend::automation_status();
     // Written when anything but the frame count changed, or every half second.
     status.frames = 0;
-    std::string key = StatusJson(status);
-    if (key == runner.written && FrameLoop::FramesRun() - runner.writtenFrames < 30)
+    std::string key = status_json(status);
+    if (key == runner.written && frame_loop::frames_run() - runner.written_frames_ < 30)
         return;
     runner.written = key;
-    runner.writtenFrames = FrameLoop::FramesRun();
-    status.frames = FrameLoop::FramesRun();
-    std::string text = StatusJson(status);
-    std::string path = GameFolderPath("thug2-decomp-status.json");
+    runner.written_frames_ = frame_loop::frames_run();
+    status.frames = frame_loop::frames_run();
+    std::string text = status_json(status);
+    std::string path = game_folder_path("thug2-decomp-status.json");
     HANDLE file = CreateFileA(path.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                               nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (file == INVALID_HANDLE_VALUE)
@@ -1657,13 +1657,13 @@ void WriteStatus(Runner& runner)
 
 // The command line as the process got it, read at start-up: the game's own parsing cuts the process's command
 // line buffer into words later (a 0 after the first word: "... -run").
-const std::string g_commandLine = GetCommandLineA();
+const std::string kCommandLine = GetCommandLineA();
 
 // -run <script>, --run <script> or --run=<script> ("" if none).
-const std::string& RequestedRun()
+const std::string& requested_run()
 {
-    static const std::string script = [] {
-        const std::string& line = g_commandLine;
+    static const std::string kScript = [] {
+        const std::string& line = kCommandLine;
         for (const char* option : {"--run=", "--run ", "-run "}) {
             size_t at = line.find(option);
             if (at == std::string::npos)
@@ -1676,87 +1676,87 @@ const std::string& RequestedRun()
         }
         return std::string();
     }();
-    return script;
+    return kScript;
 }
 
-void UpdateRun(Runner& runner)
+void update_run(Runner& runner)
 {
-    if (runner.runDone || RequestedRun().empty() || !runner.ready)
+    if (runner.run_done_ || requested_run().empty() || !runner.ready)
         return;
-    if (++runner.readyFrames < 30) // (a moment for the menu to settle, as -level)
+    if (++runner.ready_frames_ < 30) // (a moment for the menu to settle, as -level)
         return;
-    runner.runDone = true;
-    const std::string& name = RequestedRun();
+    runner.run_done_ = true;
+    const std::string& name = requested_run();
     std::string why;
-    if (!IsIdentifier(name))
+    if (!is_identifier(name))
         why = "not a script name";
-    else if (ScriptDenied(name))
+    else if (script_denied(name))
         why = "the script is online / network";
     else
-        why = NetRefusal();
+        why = net_refusal();
     if (!why.empty()) {
-        Log("automation: REFUSED -run %s: %s", name.c_str(), why.c_str());
+        get_log("automation: REFUSED -run %s: %s", name.c_str(), why.c_str());
         return;
     }
-    std::string failed = SpawnNamed(name, {});
-    Log("automation: -run %s -> %s", name.c_str(), failed.empty() ? "ok" : failed.c_str());
+    std::string failed = spawn_named(name, {});
+    get_log("automation: -run %s -> %s", name.c_str(), failed.empty() ? "ok" : failed.c_str());
 }
 
 } // namespace
 
-bool& IsSwitchedOn()
+bool& is_switched_on()
 {
-    static bool on = ConfigInt("features", "automation", 0) != 0;
+    static bool on = config_int("features", "automation", 0) != 0;
     return on;
 }
 
-void TickFrame(GameModules::FrontEnd* frontEnd)
+void tick_frame(modules::FrontEnd* front_end)
 {
     // (not before the game's first frame: the early self-tests run the front end's input logic on stand-in state)
-    if (FrameLoop::FramesRun() == 0)
+    if (frame_loop::frames_run() == 0)
         return;
-    if (!IsSwitchedOn() && RequestedRun().empty())
+    if (!is_switched_on() && requested_run().empty())
         return;
-    Runner& runner = State();
+    Runner& runner = get_state();
     static bool s_named = false;
     if (!s_named) { // (-level's level by name in the status)
         s_named = true;
-        std::string level = BeginLevel::Requested();
+        std::string level = begin_level::get_requested();
         if (!level.empty())
-            Remember(_strnicmp(level.c_str(), "load_", 5) == 0 ? level : "Load_" + level);
+            remember(_strnicmp(level.c_str(), "load_", 5) == 0 ? level : "Load_" + level);
     }
     // (the main menu counts once it has taken pad events for a second: chosen away at once, while its start-up
     // scripts still ran, the next menu came up under a loading logo that stayed)
-    runner.menuFrames = MainMenuUp() ? runner.menuFrames + 1 : 0;
-    runner.menuSettled = runner.menuFrames >= kSettleFrames;
-    if (!runner.ready && runner.menuSettled) {
+    runner.menu_frames_ = main_menu_up() ? runner.menu_frames_ + 1 : 0;
+    runner.menu_settled_ = runner.menu_frames_ >= kSettleFrames;
+    if (!runner.ready && runner.menu_settled_) {
         runner.ready = true;
-        Log("automation: the main menu is up (frame %u)", FrameLoop::FramesRun());
+        get_log("automation: the main menu is up (frame %u)", frame_loop::frames_run());
     }
-    UpdateRun(runner);
-    if (!IsSwitchedOn())
+    update_run(runner);
+    if (!is_switched_on())
         return;
-    TraceFrame();
-    if (runner.holdFrames > 0 && --runner.holdFrames == 0)
-        runner.holdButton = nullptr;
-    PollFile(runner);
+    trace_frame();
+    if (runner.hold_frames_ > 0 && --runner.hold_frames_ == 0)
+        runner.hold_button_ = nullptr;
+    poll_file(runner);
     if (runner.active)
-        Continue(runner, frontEnd);
+        Continue(runner, front_end);
     for (int i = 0; i < 32 && !runner.active && !runner.queue.empty(); ++i)
-        if (!Kickoff(runner, frontEnd))
+        if (!kickoff(runner, front_end))
             break;
-    WriteStatus(runner);
+    write_status(runner);
 }
 
-bool ParamsDenied(Scripts::CStruct* params) { return StructDenied(params, 0); }
+bool params_denied(script::Struct* params) { return struct_denied(params, 0); }
 
-std::string ElementRefusal(const CUiWidget* element) { return RefusalOfElement(element); }
+std::string element_refusal(const UiWidget* element) { return refusal_of_element(element); }
 
-void AddPadButtons(int port, uint8_t* data)
+void add_pad_buttons(int port, uint8_t* data)
 {
-    if (port != 0 || !IsSwitchedOn())
+    if (port != 0 || !is_switched_on())
         return;
-    for (const Button* button : {State().held, State().holdButton}) {
+    for (const Button* button : {get_state().held, get_state().hold_button_}) {
         if (!button)
             continue;
         data[button->byte] |= static_cast<uint8_t>(1u << button->bit);
@@ -1765,4 +1765,4 @@ void AddPadButtons(int port, uint8_t* data)
     }
 }
 
-} // namespace MenuSystem::Automation
+} // namespace MenuSystem::automation

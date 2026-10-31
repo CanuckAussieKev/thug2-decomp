@@ -22,9 +22,9 @@
 #include "engine/objects/control_pad.h"
 #include "engine/objects/trigger_events.h"
 
-namespace GameObjects {
+namespace objects {
 
-using namespace Vehicle;
+using namespace vehicle;
 
 namespace {
 
@@ -47,33 +47,33 @@ const float kAlignFast = 122500.0f;                         // 0x006467C4 (350 s
 const float kAlignSlowRate = std::bit_cast<float>(0x3E99999Au); // 0x006467C0: 0.3
 
 // The model component's 0x00420670 (not rewritten yet): its lighting from what a feeler hit.
-void LightFromFeeler(CObjectModule* model, Engine3D::CProbeRay* feeler, bool b, float c)
+void light_from_feeler(ObjectModule* model, render::ProbeRay* feeler, bool b, float c)
 {
-    static_cast<CMeshInstanceModule*>(model)->ApplyBrightness(feeler, b, c);
+    static_cast<MeshInstanceModule*>(model)->apply_brightness(feeler, b, c);
 }
 
-bool Interrupted(const CDrivableModule* vehicle)
+bool get_interrupted(const DrivableModule* vehicle)
 {
-    return vehicle->m_cutShort || (vehicle->m_entity->m_objectFlags & OBJECT_FLAG_DEAD);
+    return vehicle->cut_short_ || (vehicle->entity_->object_flags_ & kObjectFlagDead);
 }
 
 // A slerp between two matrices, on the stack without a constructor (as the original's).
 struct SlerpStorage {
-    alignas(Maths::ArcRotationBlender) uint8_t bytes[sizeof(Maths::ArcRotationBlender)];
-    Maths::ArcRotationBlender* Pull() { return reinterpret_cast<Maths::ArcRotationBlender*>(bytes); }
+    alignas(maths::ArcRotationBlender) uint8_t bytes[sizeof(maths::ArcRotationBlender)];
+    maths::ArcRotationBlender* get_pull() { return reinterpret_cast<maths::ArcRotationBlender*>(bytes); }
 };
 
 } // namespace
 
 // 0x00436CF0 (stdcall)
-double __stdcall CDrivableModule::GetPenetration(const Contact* contact, const Collider* collider)
+double __stdcall DrivableModule::get_penetration(const Contact* contact, const Collider* collider)
 {
     // The contact point's distance in from each of the face's four edges; the nearest.
-    double dx = static_cast<double>(contact->point.x) - collider->worldCorner.x;
-    double dy = static_cast<double>(contact->point.y) - collider->worldCorner.y;
-    double dz = static_cast<double>(contact->point.z) - collider->worldCorner.z;
-    const Maths::Vec4& a = collider->directions[0];
-    const Maths::Vec4& b = collider->directions[1];
+    double dx = static_cast<double>(contact->point.x) - collider->world_corner_.x;
+    double dy = static_cast<double>(contact->point.y) - collider->world_corner_.y;
+    double dz = static_cast<double>(contact->point.z) - collider->world_corner_.z;
+    const maths::Vec4& a = collider->directions[0];
+    const maths::Vec4& b = collider->directions[1];
     int side = 0;
     float nearest = static_cast<float>((dz * a.z + dy * a.y) + dx * a.x);
     double distance = static_cast<double>(collider->lengths[0]) - nearest;
@@ -94,7 +94,7 @@ double __stdcall CDrivableModule::GetPenetration(const Contact* contact, const C
     if (nearest < kShallowestLevel)
         return 0.0;
     // That distance along the contact's normal.
-    const Maths::Vec4& n = contact->normal;
+    const maths::Vec4& n = contact->normal;
     switch (side) {
     case 0:
         return nearest / ((static_cast<double>(a.z) * n.z + static_cast<double>(a.y) * n.y) + static_cast<double>(n.x) * a.x);
@@ -108,43 +108,43 @@ double __stdcall CDrivableModule::GetPenetration(const Contact* contact, const C
 }
 
 // 0x00436E50
-bool CDrivableModule::FindEdgeContact(Contact* contact, Engine3D::CBoxProbe* rect, const Collider* collider, int hit, int end)
+bool DrivableModule::find_edge_contact(Contact* contact, render::BoxProbe* rect, const Collider* collider, int hit, int end)
 {
     // Another joined hit with an end at this point (within 0.1) facing the opposite way.
-    for (int k = rect->m_joinedCount - 1; k >= 0; --k) {
+    for (int k = rect->joined_count_ - 1; k >= 0; --k) {
         if (k == hit)
             continue;
-        const Engine3D::RectHit& other = rect->m_joined[k];
+        const render::RectHit& other = rect->joined_[k];
         for (int e = 1; e >= 0; --e) {
-            const Maths::Vec4& p = other.ends[e].point;
+            const maths::Vec4& p = other.ends[e].point;
             if (!(std::fabs(static_cast<double>(contact->point.x) - p.x) < kSameEnd))
                 continue;
             if (!(std::fabs(static_cast<double>(contact->point.y) - p.y) < kSameEnd))
                 continue;
             if (!(std::fabs(static_cast<double>(contact->point.z) - p.z) < kSameEnd))
                 continue;
-            const Maths::Vec4& n = contact->normal;
+            const maths::Vec4& n = contact->normal;
             if (!((static_cast<double>(n.z) * other.normal.z + static_cast<double>(n.y) * other.normal.y) +
                       static_cast<double>(n.x) * other.normal.x <
                   kOpposite))
                 continue;
             // On the edge between them: the normal across the hit's triangle edge, and the depth.
-            const Maths::Vec4& edge = rect->m_joined[hit].ends[end].edge;
+            const maths::Vec4& edge = rect->joined_[hit].ends[end].edge;
             double x = static_cast<double>(edge.y) * n.z - static_cast<double>(edge.z) * n.y;
             double y = static_cast<double>(edge.z) * n.x - static_cast<double>(edge.x) * n.z;
             contact->normal.w = 0.0f;
             contact->normal.z = static_cast<float>(static_cast<double>(edge.x) * n.y - static_cast<double>(edge.y) * n.x);
             contact->normal.x = static_cast<float>(x);
             contact->normal.y = static_cast<float>(y);
-            contact->depth = static_cast<float>(GetPenetration(contact, collider));
-            if (m_debugMode) {
-                Maths::Vec4 tip{static_cast<float>(static_cast<double>(contact->normal.x) * 72.0f + contact->point.x),
+            contact->depth = static_cast<float>(get_penetration(contact, collider));
+            if (debug_mode_) {
+                maths::Vec4 tip{static_cast<float>(static_cast<double>(contact->normal.x) * 72.0f + contact->point.x),
                                 static_cast<float>(static_cast<double>(contact->normal.y) * 72.0f + contact->point.y),
                                 static_cast<float>(static_cast<double>(static_cast<float>(contact->normal.z * 72.0f)) +
                                                    contact->point.z),
                                 static_cast<float>(static_cast<double>(static_cast<float>(contact->normal.w * 72.0f)) +
                                                    contact->point.w)};
-                Gfx2D::PushDiagLine(&contact->point, &tip, 0xFFFF64FF, 0xFFFF64FF, 1);
+                gfx::push_diag_line(&contact->point, &tip, 0xFFFF64FF, 0xFFFF64FF, 1);
             }
             return true;
         }
@@ -153,44 +153,44 @@ bool CDrivableModule::FindEdgeContact(Contact* contact, Engine3D::CBoxProbe* rec
 }
 
 // 0x00437060
-bool CDrivableModule::NormalFacesAway(const Contact* contact)
+bool DrivableModule::normal_faces_away(const Contact* contact)
 {
-    const Maths::Vec4& p = contact->point;
-    const Maths::Vec4& n = contact->normal;
-    double along = ((static_cast<double>(p.z) - m_atPoint.z) * n.z + (static_cast<double>(p.y) - m_atPoint.y) * n.y) +
-                   (static_cast<double>(p.x) - m_atPoint.x) * n.x;
+    const maths::Vec4& p = contact->point;
+    const maths::Vec4& n = contact->normal;
+    double along = ((static_cast<double>(p.z) - at_point_.z) * n.z + (static_cast<double>(p.y) - at_point_.y) * n.y) +
+                   (static_cast<double>(p.x) - at_point_.x) * n.x;
     bool away = along >= 0.0;
-    if (m_debugMode && away) {
-        Maths::Vec4 tip{static_cast<float>(static_cast<double>(n.x) * 48.0f + p.x),
+    if (debug_mode_ && away) {
+        maths::Vec4 tip{static_cast<float>(static_cast<double>(n.x) * 48.0f + p.x),
                         static_cast<float>(static_cast<double>(n.y) * 48.0f + p.y),
                         static_cast<float>(static_cast<double>(static_cast<float>(n.z * 48.0f)) + p.z),
                         static_cast<float>(static_cast<double>(static_cast<float>(n.w * 48.0f)) + p.w)};
-        Gfx2D::PushDiagLine(&p, &tip, 0xFF000000, 0xFF000000, 1);
+        gfx::push_diag_line(&p, &tip, 0xFF000000, 0xFF000000, 1);
     }
     return away;
 }
 
 // 0x00437120
-void CDrivableModule::MoveBy(const Maths::Vec4* move)
+void DrivableModule::move_by(const maths::Vec4* move)
 {
-    Maths::Vec4 saved = m_atPoint;
-    Maths::Vec4 end{static_cast<float>(static_cast<double>(move->x) + m_atPoint.x),
-                    static_cast<float>(static_cast<double>(m_atPoint.y) + move->y),
-                    static_cast<float>(static_cast<double>(m_atPoint.z) + move->z),
-                    static_cast<float>(static_cast<double>(m_atPoint.w) + move->w)};
-    Engine3D::CProbeRay feeler;
-    feeler.MakeNew(&m_atPoint, &end);
-    if (feeler.GetHitShape(false, false)) {
+    maths::Vec4 saved = at_point_;
+    maths::Vec4 end{static_cast<float>(static_cast<double>(move->x) + at_point_.x),
+                    static_cast<float>(static_cast<double>(at_point_.y) + move->y),
+                    static_cast<float>(static_cast<double>(at_point_.z) + move->z),
+                    static_cast<float>(static_cast<double>(at_point_.w) + move->w)};
+    render::ProbeRay feeler;
+    feeler.make_new(&at_point_, &end);
+    if (feeler.get_hit_shape(false, false)) {
         // Going through something: put just off the surface, the rest of the move reflected, the momentum into it
         // turned back by half again.
-        DebugOut::Printf(kDebugFormat, kDebugFile, 0xB10, "less than uber frig"); // "less than uber frig"
-        const Maths::Vec4& point = feeler.m_contactPos;
-        const Maths::Vec4& n = feeler.m_surfaceDir;
-        m_atPoint.x = static_cast<float>(static_cast<double>(n.x) + point.x);
-        m_atPoint.y = static_cast<float>(static_cast<double>(point.y) + n.y);
-        m_atPoint.z = static_cast<float>(static_cast<double>(point.z) + n.z);
-        m_atPoint.w = static_cast<float>(static_cast<double>(point.w) + n.w);
-        double distance = feeler.m_reach;
+        debug::printf(kDebugFormat, kDebugFile, 0xB10, "less than uber frig"); // "less than uber frig"
+        const maths::Vec4& point = feeler.contact_pos_;
+        const maths::Vec4& n = feeler.surface_dir_;
+        at_point_.x = static_cast<float>(static_cast<double>(n.x) + point.x);
+        at_point_.y = static_cast<float>(static_cast<double>(point.y) + n.y);
+        at_point_.z = static_cast<float>(static_cast<double>(point.z) + n.z);
+        at_point_.w = static_cast<float>(static_cast<double>(point.w) + n.w);
+        double distance = feeler.reach_;
         double vx = distance * move->x, vy = distance * move->y, vz = distance * move->z, vw = distance * move->w;
         double twice = (static_cast<double>(n.x) * vx + static_cast<double>(n.y) * vy) + static_cast<double>(n.z) * vz;
         twice = twice + twice;
@@ -202,345 +202,345 @@ void CDrivableModule::MoveBy(const Maths::Vec4* move)
         float ry = static_cast<float>(vy - ky);
         double rz = vz - kz;
         float rw = static_cast<float>(vw - kw);
-        m_atPoint.x = static_cast<float>(static_cast<double>(rx) + m_atPoint.x);
-        m_atPoint.y = static_cast<float>(static_cast<double>(ry) + m_atPoint.y);
-        m_atPoint.z = static_cast<float>(rz + m_atPoint.z);
-        m_atPoint.w = static_cast<float>(static_cast<double>(rw) + m_atPoint.w);
-        double into = ((static_cast<double>(n.z) * m_linearMomentum.z + static_cast<double>(n.y) * m_linearMomentum.y) + static_cast<double>(n.x) * m_linearMomentum.x) *
+        at_point_.x = static_cast<float>(static_cast<double>(rx) + at_point_.x);
+        at_point_.y = static_cast<float>(static_cast<double>(ry) + at_point_.y);
+        at_point_.z = static_cast<float>(rz + at_point_.z);
+        at_point_.w = static_cast<float>(static_cast<double>(rw) + at_point_.w);
+        double into = ((static_cast<double>(n.z) * linear_momentum_.z + static_cast<double>(n.y) * linear_momentum_.y) + static_cast<double>(n.x) * linear_momentum_.x) *
                       kBounce;
-        m_linearMomentum.x = static_cast<float>(m_linearMomentum.x - static_cast<double>(n.x) * into);
-        m_linearMomentum.y = static_cast<float>(m_linearMomentum.y - static_cast<double>(n.y) * into);
-        m_linearMomentum.z = static_cast<float>(m_linearMomentum.z - static_cast<double>(n.z) * into);
-        m_linearMomentum.w = static_cast<float>(m_linearMomentum.w - static_cast<double>(n.w) * into);
+        linear_momentum_.x = static_cast<float>(linear_momentum_.x - static_cast<double>(n.x) * into);
+        linear_momentum_.y = static_cast<float>(linear_momentum_.y - static_cast<double>(n.y) * into);
+        linear_momentum_.z = static_cast<float>(linear_momentum_.z - static_cast<double>(n.z) * into);
+        linear_momentum_.w = static_cast<float>(linear_momentum_.w - static_cast<double>(n.w) * into);
     } else {
-        m_atPoint.x = static_cast<float>(static_cast<double>(m_atPoint.x) + move->x);
-        m_atPoint.y = static_cast<float>(static_cast<double>(move->y) + m_atPoint.y);
-        m_atPoint.z = static_cast<float>(static_cast<double>(m_atPoint.z) + move->z);
-        m_atPoint.w = static_cast<float>(static_cast<double>(m_atPoint.w) + move->w);
+        at_point_.x = static_cast<float>(static_cast<double>(at_point_.x) + move->x);
+        at_point_.y = static_cast<float>(static_cast<double>(move->y) + at_point_.y);
+        at_point_.z = static_cast<float>(static_cast<double>(at_point_.z) + move->z);
+        at_point_.w = static_cast<float>(static_cast<double>(at_point_.w) + move->w);
     }
     // Nothing below at all (4800 down): through the world - put back where it was. Else the model lit from the
     // ground.
-    feeler.m_line.start = m_atPoint;
-    feeler.m_line.end = m_atPoint;
-    feeler.m_line.end.y = static_cast<float>(static_cast<double>(m_atPoint.y) - kDropTest);
-    if (!feeler.GetHitShape(false, false)) {
-        DebugOut::Printf(kDebugFormat, kDebugFile, 0xB26, "uber frig"); // "uber frig"
-        m_atPoint = saved;
+    feeler.line_.start = at_point_;
+    feeler.line_.end = at_point_;
+    feeler.line_.end.y = static_cast<float>(static_cast<double>(at_point_.y) - kDropTest);
+    if (!feeler.get_hit_shape(false, false)) {
+        debug::printf(kDebugFormat, kDebugFile, 0xB26, "uber frig"); // "uber frig"
+        at_point_ = saved;
     } else {
-        LightFromFeeler(m_meshInstance, &feeler, true, 1.0f);
+        light_from_feeler(mesh_instance_, &feeler, true, 1.0f);
     }
 }
 
 // 0x00437450
-double CDrivableModule::GetImpulseDenominator(const Maths::Vec4* offset, const Maths::Vec4* direction)
+double DrivableModule::get_impulse_denominator(const maths::Vec4* offset, const maths::Vec4* direction)
 {
     // 1 / (n . (n / m + (I^-1 (r x n)) x r)).
-    const Maths::Vec4& r = *offset;
-    const Maths::Vec4& n = *direction;
-    float invMass = m_invMass;
-    Maths::Vec4 cross;
+    const maths::Vec4& r = *offset;
+    const maths::Vec4& n = *direction;
+    float inv_mass = inv_mass_;
+    maths::Vec4 cross;
     cross.x = static_cast<float>(static_cast<double>(n.z) * r.y - static_cast<double>(r.z) * n.y);
     cross.y = static_cast<float>(static_cast<double>(r.z) * n.x - static_cast<double>(r.x) * n.z);
     cross.z = static_cast<float>(static_cast<double>(n.y) * r.x - static_cast<double>(n.x) * r.y);
     cross.w = 0.0f;
-    float linearX = static_cast<float>(static_cast<double>(n.x) * invMass);
-    float linearY = static_cast<float>(static_cast<double>(invMass) * n.y);
-    float linearZ = static_cast<float>(static_cast<double>(n.z) * invMass);
-    Maths::Vec4 w;
-    m_invInertia.RotateVector(w, cross);
+    float linear_x = static_cast<float>(static_cast<double>(n.x) * inv_mass);
+    float linear_y = static_cast<float>(static_cast<double>(inv_mass) * n.y);
+    float linear_z = static_cast<float>(static_cast<double>(n.z) * inv_mass);
+    maths::Vec4 w;
+    inv_inertia_.rotate_vector(w, cross);
     double tx = static_cast<double>(w.y) * r.z - static_cast<double>(w.z) * r.y;
     double ty = static_cast<double>(w.z) * r.x - static_cast<double>(w.x) * r.z;
     float tz = static_cast<float>(static_cast<double>(w.x) * r.y - static_cast<double>(w.y) * r.x);
-    float ux = static_cast<float>(tx + linearX);
-    double uy = ty + linearY;
-    double uz = static_cast<double>(tz) + linearZ;
+    float ux = static_cast<float>(tx + linear_x);
+    double uy = ty + linear_y;
+    double uz = static_cast<double>(tz) + linear_z;
     return 1.0 / ((uy * n.y + uz * n.z) + static_cast<double>(ux) * n.x);
 }
 
 // 0x00438770
-void CDrivableModule::UpdateRighting()
+void DrivableModule::update_righting()
 {
-    QuatToMatrix(&m_orientation, &m_basisFrame);
-    m_basisFrame.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    if (m_basisFrame.row[1].y > kRightingUp) {
-        m_righting = false;
+    quat_to_matrix(&orientation_, &basis_frame_);
+    basis_frame_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    if (basis_frame_.row[1].y > kRightingUp) {
+        righting_ = false;
         return;
     }
     // Upside down (or on its side), still, after a collision, with the throttle held: turn upright.
-    double vx = m_vel.x, vy = m_vel.y, vz = m_vel.z;
-    double sx = m_rotvel.x, sy = m_rotvel.y, sz = m_rotvel.z;
+    double vx = vel_.x, vy = vel_.y, vz = vel_.z;
+    double sx = rotvel_.x, sy = rotvel_.y, sz = rotvel_.z;
     bool stuck = (vx * vx + vy * vy) + vz * vz < kRightingSpeed && (sx * sx + sy * sy) + sz * sz < kRightingSpin &&
-                 m_collisionImpulse > 0.0f && m_basisFrame.row[1].y < kRightingTilt &&
-                 (m_wheelsInContact == 0 || m_basisFrame.row[1].y < 0.0f) && m_throttle;
-    if (!m_righting) {
+                 collision_impulse_ > 0.0f && basis_frame_.row[1].y < kRightingTilt &&
+                 (wheels_in_contact_ == 0 || basis_frame_.row[1].y < 0.0f) && throttle_;
+    if (!righting_) {
         if (!stuck)
             return;
-        m_linearMomentum = {0.0f, 0.0f, 0.0f, 1.0f};
-        m_rotmom = {0.0f, 0.0f, 0.0f, 1.0f};
-        m_righting = true;
-        m_rightingStart = FrameClock::GameClockElapsed() + g_clockOffset;
+        linear_momentum_ = {0.0f, 0.0f, 0.0f, 1.0f};
+        rotmom_ = {0.0f, 0.0f, 0.0f, 1.0f};
+        righting_ = true;
+        righting_start_ = frame_clock::game_clock_elapsed() + g_clock_offset;
     }
-    int start = m_rightingStart;
-    if (static_cast<uint32_t>(FrameClock::GameClockElapsed()) + (static_cast<uint32_t>(g_clockOffset) - static_cast<uint32_t>(start)) >
+    int start = righting_start_;
+    if (static_cast<uint32_t>(frame_clock::game_clock_elapsed()) + (static_cast<uint32_t>(g_clock_offset) - static_cast<uint32_t>(start)) >
         5300) {
-        m_righting = false;
+        righting_ = false;
         return;
     }
-    start = m_rightingStart;
-    if (static_cast<uint32_t>(FrameClock::GameClockElapsed()) + (static_cast<uint32_t>(g_clockOffset) - static_cast<uint32_t>(start)) <
+    start = righting_start_;
+    if (static_cast<uint32_t>(frame_clock::game_clock_elapsed()) + (static_cast<uint32_t>(g_clock_offset) - static_cast<uint32_t>(start)) <
         300)
         return;
     // After 300 ms, turned towards upright facing the same way.
-    Maths::Vec4 forward{m_basisFrame.row[2].x, 0.0f, m_basisFrame.row[2].z, m_basisFrame.row[2].w};
-    forward.MakeUnit();
-    Maths::Mat4 target;
+    maths::Vec4 forward{basis_frame_.row[2].x, 0.0f, basis_frame_.row[2].z, basis_frame_.row[2].w};
+    forward.make_unit();
+    maths::Mat4 target;
     target.row[0] = {forward.z, 0.0f, -forward.x, 1.0f};
     target.row[1] = {0.0f, 1.0f, 0.0f, 1.0f};
     target.row[2] = forward;
     target.row[3] = {0.0f, 0.0f, 0.0f, 1.0f}; // (the original leaves its stack there)
     SlerpStorage storage;
-    Maths::ArcRotationBlender* slerp = storage.Pull();
-    slerp->SetMatrices(m_basisFrame, target);
-    double t = FrameClock::GetSlomoFrameSeconds() / slerp->angle * kRightingRate;
-    slerp->FetchMat(m_basisFrame, t > 1.0 ? 1.0f : static_cast<float>(t));
-    Maths::Vec4 quat;
-    MatrixToQuat(&quat, &m_basisFrame);
-    m_orientation = quat;
+    maths::ArcRotationBlender* slerp = storage.get_pull();
+    slerp->set_matrices(basis_frame_, target);
+    double t = frame_clock::get_slomo_frame_seconds() / slerp->angle * kRightingRate;
+    slerp->fetch_mat(basis_frame_, t > 1.0 ? 1.0f : static_cast<float>(t));
+    maths::Vec4 quat;
+    matrix_to_quat(&quat, &basis_frame_);
+    orientation_ = quat;
 }
 
 // 0x00439D90
-void CDrivableModule::AlignInAir()
+void DrivableModule::align_in_air()
 {
-    if (m_righting)
+    if (righting_)
         return;
-    if (m_kickTime > 0.0f)
+    if (kick_time_ > 0.0f)
         return;
-    double vx = m_vel.x, vz = m_vel.z;
-    double align = m_alignSpeed;
+    double vx = vel_.x, vz = vel_.z;
+    double align = align_speed_;
     bool slow = align * align > vx * vx + vz * vz;
-    if (slow && !m_alignWhenSlow)
+    if (slow && !align_when_slow_)
         return;
-    QuatToMatrix(&m_orientation, &m_basisFrame);
-    m_basisFrame.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    quat_to_matrix(&orientation_, &basis_frame_);
+    basis_frame_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     // Slow: towards its facing (level); fast: towards where it's going.
-    Maths::Vec4 at;
+    maths::Vec4 at;
     if (slow)
-        at = {m_basisFrame.row[2].x, 0.0f, m_basisFrame.row[2].z, m_basisFrame.row[2].w};
+        at = {basis_frame_.row[2].x, 0.0f, basis_frame_.row[2].z, basis_frame_.row[2].w};
     else
-        at = m_vel;
-    at.MakeUnit();
-    if ((static_cast<double>(at.z) * m_basisFrame.row[2].z + static_cast<double>(at.y) * m_basisFrame.row[2].y) +
-            static_cast<double>(at.x) * m_basisFrame.row[2].x <
+        at = vel_;
+    at.make_unit();
+    if ((static_cast<double>(at.z) * basis_frame_.row[2].z + static_cast<double>(at.y) * basis_frame_.row[2].y) +
+            static_cast<double>(at.x) * basis_frame_.row[2].x <
         0.0) {
         at.x = at.x * -1.0f;
         at.y = at.y * -1.0f;
         at.z = at.z * -1.0f;
         at.w = at.w * -1.0f;
     }
-    Maths::Vec4 up{0.0f, 1.0f, 0.0f, 1.0f};
-    Maths::Mat4 target;
-    target.row[0] = Maths::CrossVec(up, at);
-    target.row[1] = Maths::CrossVec(at, target.row[0]);
+    maths::Vec4 up{0.0f, 1.0f, 0.0f, 1.0f};
+    maths::Mat4 target;
+    target.row[0] = maths::cross_vec(up, at);
+    target.row[1] = maths::cross_vec(at, target.row[0]);
     target.row[2] = at;
     target.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     SlerpStorage storage;
-    Maths::ArcRotationBlender* slerp = storage.Pull();
-    slerp->SetMatrices(m_basisFrame, target);
+    maths::ArcRotationBlender* slerp = storage.get_pull();
+    slerp->set_matrices(basis_frame_, target);
     // The turn ramps in over alignTime of free fall; slower under 350.
-    vx = m_vel.x;
-    vz = m_vel.z;
+    vx = vel_.x;
+    vz = vel_.z;
     bool fast = vx * vx + vz * vz > kAlignFast;
-    float time = m_alignTime;
-    float falling = m_freeFallTime;
+    float time = align_time_;
+    float falling = free_fall_time_;
     double ramp = falling < time ? falling : time;
-    double rate = fast ? static_cast<double>(m_alignRate) * m_stepLength
-                       : static_cast<double>(m_alignRate) * m_stepLength * kAlignSlowRate;
-    slerp->FetchMat(m_basisFrame, static_cast<float>(ramp / time * rate));
-    Maths::Vec4 quat;
-    MatrixToQuat(&quat, &m_basisFrame);
-    m_orientation = quat;
+    double rate = fast ? static_cast<double>(align_rate_) * step_length_
+                       : static_cast<double>(align_rate_) * step_length_ * kAlignSlowRate;
+    slerp->fetch_mat(basis_frame_, static_cast<float>(ramp / time * rate));
+    maths::Vec4 quat;
+    matrix_to_quat(&quat, &basis_frame_);
+    orientation_ = quat;
 }
 
 // 0x0043BEE0
-void CDrivableModule::Integrate()
+void DrivableModule::integrate()
 {
     // The accelerations.
-    double invMass = m_invMass;
-    float accelX = static_cast<float>(invMass * m_force.x), accelY = static_cast<float>(invMass * m_force.y);
-    float accelZ = static_cast<float>(invMass * m_force.z), accelW = static_cast<float>(invMass * m_force.w);
-    Maths::Vec4 spinAccel;
-    m_invInertia.RotateVector(spinAccel, m_twistForce);
+    double inv_mass = inv_mass_;
+    float accel_x = static_cast<float>(inv_mass * force_.x), accel_y = static_cast<float>(inv_mass * force_.y);
+    float accel_z = static_cast<float>(inv_mass * force_.z), accel_w = static_cast<float>(inv_mass * force_.w);
+    maths::Vec4 spin_accel;
+    inv_inertia_.rotate_vector(spin_accel, twist_force_);
     // The momentum.
-    double dt = m_stepLength;
-    float dy = static_cast<float>(dt * m_force.y), dz = static_cast<float>(dt * m_force.z);
-    float dw = static_cast<float>(dt * m_force.w);
-    m_linearMomentum.x = static_cast<float>(dt * m_force.x + m_linearMomentum.x);
-    m_linearMomentum.y = static_cast<float>(static_cast<double>(dy) + m_linearMomentum.y);
-    m_linearMomentum.z = static_cast<float>(static_cast<double>(dz) + m_linearMomentum.z);
-    m_linearMomentum.w = static_cast<float>(static_cast<double>(dw) + m_linearMomentum.w);
+    double dt = step_length_;
+    float dy = static_cast<float>(dt * force_.y), dz = static_cast<float>(dt * force_.z);
+    float dw = static_cast<float>(dt * force_.w);
+    linear_momentum_.x = static_cast<float>(dt * force_.x + linear_momentum_.x);
+    linear_momentum_.y = static_cast<float>(static_cast<double>(dy) + linear_momentum_.y);
+    linear_momentum_.z = static_cast<float>(static_cast<double>(dz) + linear_momentum_.z);
+    linear_momentum_.w = static_cast<float>(static_cast<double>(dw) + linear_momentum_.w);
     // The move: (velocity + half the acceleration over the step) over the step.
-    float timestep = m_stepLength;
-    double half = static_cast<double>(m_stepLength) * kHalf;
-    float hy = static_cast<float>(accelY * half), hz = static_cast<float>(accelZ * half);
-    float hw = static_cast<float>(accelW * half);
-    double vx = accelX * half + m_vel.x;
-    double vy = static_cast<double>(hy) + m_vel.y;
-    float vz = static_cast<float>(static_cast<double>(hz) + m_vel.z);
-    float vw = static_cast<float>(static_cast<double>(hw) + m_vel.w);
-    Maths::Vec4 move{static_cast<float>(vx * timestep), static_cast<float>(vy * timestep),
+    float timestep = step_length_;
+    double half = static_cast<double>(step_length_) * kHalf;
+    float hy = static_cast<float>(accel_y * half), hz = static_cast<float>(accel_z * half);
+    float hw = static_cast<float>(accel_w * half);
+    double vx = accel_x * half + vel_.x;
+    double vy = static_cast<double>(hy) + vel_.y;
+    float vz = static_cast<float>(static_cast<double>(hz) + vel_.z);
+    float vw = static_cast<float>(static_cast<double>(hw) + vel_.w);
+    maths::Vec4 move{static_cast<float>(vx * timestep), static_cast<float>(vy * timestep),
                      static_cast<float>(static_cast<double>(vz) * timestep), static_cast<float>(static_cast<double>(vw) * timestep)};
-    MoveBy(&move);
+    move_by(&move);
     // The orientation: q += q * (-dt / 2) * (angular velocity + half the angular acceleration over the step).
-    half = static_cast<double>(m_stepLength) * kHalf;
-    Maths::Vec4 quat = m_orientation;
-    double wx = spinAccel.x * half + m_rotvel.x;
-    float wy = static_cast<float>(static_cast<double>(static_cast<float>(spinAccel.y * half)) + m_rotvel.y);
-    float wz = static_cast<float>(static_cast<double>(static_cast<float>(spinAccel.z * half)) + m_rotvel.z);
-    float scale = static_cast<float>(static_cast<double>(m_stepLength) * kMinusHalf);
-    Maths::Vec4 turn{static_cast<float>(wx * scale), static_cast<float>(static_cast<double>(wy) * scale),
+    half = static_cast<double>(step_length_) * kHalf;
+    maths::Vec4 quat = orientation_;
+    double wx = spin_accel.x * half + rotvel_.x;
+    float wy = static_cast<float>(static_cast<double>(static_cast<float>(spin_accel.y * half)) + rotvel_.y);
+    float wz = static_cast<float>(static_cast<double>(static_cast<float>(spin_accel.z * half)) + rotvel_.z);
+    float scale = static_cast<float>(static_cast<double>(step_length_) * kMinusHalf);
+    maths::Vec4 turn{static_cast<float>(wx * scale), static_cast<float>(static_cast<double>(wy) * scale),
                      static_cast<float>(static_cast<double>(wz) * scale), 0.0f};
-    QuatMultiply(&quat, &turn);
-    m_orientation.x = static_cast<float>(static_cast<double>(quat.x) + m_orientation.x);
-    m_orientation.y = static_cast<float>(static_cast<double>(quat.y) + m_orientation.y);
-    m_orientation.z = static_cast<float>(static_cast<double>(quat.z) + m_orientation.z);
-    m_orientation.w = static_cast<float>(static_cast<double>(quat.w) + m_orientation.w);
-    QuatNormalize(&m_orientation, 1.0f);
+    quat_multiply(&quat, &turn);
+    orientation_.x = static_cast<float>(static_cast<double>(quat.x) + orientation_.x);
+    orientation_.y = static_cast<float>(static_cast<double>(quat.y) + orientation_.y);
+    orientation_.z = static_cast<float>(static_cast<double>(quat.z) + orientation_.z);
+    orientation_.w = static_cast<float>(static_cast<double>(quat.w) + orientation_.w);
+    quat_normalize(&orientation_, 1.0f);
     // The angular momentum.
-    dt = m_stepLength;
-    dy = static_cast<float>(dt * m_twistForce.y);
-    dz = static_cast<float>(dt * m_twistForce.z);
-    dw = static_cast<float>(dt * m_twistForce.w);
-    m_rotmom.x = static_cast<float>(dt * m_twistForce.x + m_rotmom.x);
-    m_rotmom.y = static_cast<float>(static_cast<double>(dy) + m_rotmom.y);
-    m_rotmom.z = static_cast<float>(static_cast<double>(dz) + m_rotmom.z);
-    m_rotmom.w = static_cast<float>(static_cast<double>(dw) + m_rotmom.w);
-    UpdateWheelRotations();
-    if (m_wheelsInContact == 0 && m_collisionImpulse == 0.0f)
-        AlignInAir();
-    UpdateRighting();
-    UpdateDependents();
+    dt = step_length_;
+    dy = static_cast<float>(dt * twist_force_.y);
+    dz = static_cast<float>(dt * twist_force_.z);
+    dw = static_cast<float>(dt * twist_force_.w);
+    rotmom_.x = static_cast<float>(dt * twist_force_.x + rotmom_.x);
+    rotmom_.y = static_cast<float>(static_cast<double>(dy) + rotmom_.y);
+    rotmom_.z = static_cast<float>(static_cast<double>(dz) + rotmom_.z);
+    rotmom_.w = static_cast<float>(static_cast<double>(dw) + rotmom_.w);
+    update_wheel_rotations();
+    if (wheels_in_contact_ == 0 && collision_impulse_ == 0.0f)
+        align_in_air();
+    update_righting();
+    update_dependents();
 }
 
 // 0x00438BB0
-void CDrivableModule::Collide()
+void DrivableModule::collide()
 {
-    m_collisionImpulse = 0.0f;
-    Engine3D::CBoxProbe rect;
-    rect.MakeNew();
-    Engine3D::CProbeRay feeler;
-    feeler.MakeNew();
-    rect.m_hitCache = &m_contactMemo;
-    feeler.m_hitCache = &m_contactMemo;
-    m_contactCount = 0;
-    Contact* contacts = Contacts();
+    collision_impulse_ = 0.0f;
+    render::BoxProbe rect;
+    rect.make_new();
+    render::ProbeRay feeler;
+    feeler.make_new();
+    rect.hit_cache_ = &contact_memo_;
+    feeler.hit_cache_ = &contact_memo_;
+    contact_count_ = 0;
+    Contact* contacts = get_contacts();
     // Each collider's face against the world: where it crosses the world's faces, and lines from the body's
     // position to its four corners.
     for (int i = 1; i >= 0; --i) {
-        const Collider& collider = m_colliders[i];
-        rect.m_rect.origin = collider.worldCorner;
-        rect.m_rect.sideA = collider.worldEdges[0];
-        rect.m_rect.sideB = collider.worldEdges[1];
-        if (rect.Query(0)) {
-            TriggerRect(m_triggerPtr, g_crossingEvents, &rect);
-            if (Interrupted(this))
+        const Collider& collider = colliders_[i];
+        rect.rect_.origin = collider.world_corner_;
+        rect.rect_.side_a_ = collider.world_edges_[0];
+        rect.rect_.side_b_ = collider.world_edges_[1];
+        if (rect.get_query(0)) {
+            trigger_rect(trigger_ptr_, kCrossingEvents, &rect);
+            if (get_interrupted(this))
                 return;
-            rect.JoinHits();
-            for (int k = rect.m_joinedCount - 1; k >= 0; --k) {
-                const Engine3D::RectHit& hit = rect.m_joined[k];
+            rect.join_hits();
+            for (int k = rect.joined_count_ - 1; k >= 0; --k) {
+                const render::RectHit& hit = rect.joined_[k];
                 for (int e = 1; e >= 0; --e) {
-                    Contact& contact = contacts[m_contactCount];
+                    Contact& contact = contacts[contact_count_];
                     contact.point = hit.ends[e].point;
                     contact.normal = hit.normal;
-                    contact.fromFeeler = false;
-                    bool onEdge = hit.ends[e].onTriangleEdge;
-                    if (!NormalFacesAway(&contact)) {
-                        contact.depth = onEdge ? static_cast<float>(GetPenetration(&contact, &collider)) : 0.0f;
-                        ++m_contactCount;
-                    } else if (onEdge && FindEdgeContact(&contact, &rect, &collider, k, e)) {
-                        ++m_contactCount;
+                    contact.from_feeler_ = false;
+                    bool on_edge = hit.ends[e].on_triangle_edge_;
+                    if (!normal_faces_away(&contact)) {
+                        contact.depth = on_edge ? static_cast<float>(get_penetration(&contact, &collider)) : 0.0f;
+                        ++contact_count_;
+                    } else if (on_edge && find_edge_contact(&contact, &rect, &collider, k, e)) {
+                        ++contact_count_;
                     }
                 }
             }
         }
-        if (m_debugMode)
-            rect.DebugDraw(0xFF, 0xFF, 0xFF, 1);
-        feeler.m_line.start = m_atPoint;
-        feeler.m_line.end = rect.m_rect.origin;
+        if (debug_mode_)
+            rect.debug_draw(0xFF, 0xFF, 0xFF, 1);
+        feeler.line_.start = at_point_;
+        feeler.line_.end = rect.rect_.origin;
         for (int corner = 0; corner < 4; ++corner) {
             if (corner == 1) {
-                feeler.m_line.end = {static_cast<float>(static_cast<double>(feeler.m_line.end.x) + rect.m_rect.sideA.x),
-                                     static_cast<float>(static_cast<double>(rect.m_rect.sideA.y) + feeler.m_line.end.y),
-                                     static_cast<float>(static_cast<double>(rect.m_rect.sideA.z) + feeler.m_line.end.z),
-                                     static_cast<float>(static_cast<double>(rect.m_rect.sideA.w) + feeler.m_line.end.w)};
+                feeler.line_.end = {static_cast<float>(static_cast<double>(feeler.line_.end.x) + rect.rect_.side_a_.x),
+                                     static_cast<float>(static_cast<double>(rect.rect_.side_a_.y) + feeler.line_.end.y),
+                                     static_cast<float>(static_cast<double>(rect.rect_.side_a_.z) + feeler.line_.end.z),
+                                     static_cast<float>(static_cast<double>(rect.rect_.side_a_.w) + feeler.line_.end.w)};
             } else if (corner == 2) {
-                feeler.m_line.end = {static_cast<float>(static_cast<double>(feeler.m_line.end.x) + rect.m_rect.sideB.x),
-                                     static_cast<float>(static_cast<double>(rect.m_rect.sideB.y) + feeler.m_line.end.y),
-                                     static_cast<float>(static_cast<double>(rect.m_rect.sideB.z) + feeler.m_line.end.z),
-                                     static_cast<float>(static_cast<double>(rect.m_rect.sideB.w) + feeler.m_line.end.w)};
+                feeler.line_.end = {static_cast<float>(static_cast<double>(feeler.line_.end.x) + rect.rect_.side_b_.x),
+                                     static_cast<float>(static_cast<double>(rect.rect_.side_b_.y) + feeler.line_.end.y),
+                                     static_cast<float>(static_cast<double>(rect.rect_.side_b_.z) + feeler.line_.end.z),
+                                     static_cast<float>(static_cast<double>(rect.rect_.side_b_.w) + feeler.line_.end.w)};
             } else if (corner == 3) {
-                feeler.m_line.end = {static_cast<float>(static_cast<double>(feeler.m_line.end.x) - rect.m_rect.sideA.x),
-                                     static_cast<float>(static_cast<double>(feeler.m_line.end.y) - rect.m_rect.sideA.y),
-                                     static_cast<float>(static_cast<double>(feeler.m_line.end.z) - rect.m_rect.sideA.z),
-                                     static_cast<float>(static_cast<double>(feeler.m_line.end.w) - rect.m_rect.sideA.w)};
+                feeler.line_.end = {static_cast<float>(static_cast<double>(feeler.line_.end.x) - rect.rect_.side_a_.x),
+                                     static_cast<float>(static_cast<double>(feeler.line_.end.y) - rect.rect_.side_a_.y),
+                                     static_cast<float>(static_cast<double>(feeler.line_.end.z) - rect.rect_.side_a_.z),
+                                     static_cast<float>(static_cast<double>(feeler.line_.end.w) - rect.rect_.side_a_.w)};
             }
-            if (feeler.GetHitShape(false, false)) {
-                TriggerFeeler(m_triggerPtr, g_crossingEvents, &feeler);
-                if (Interrupted(this))
+            if (feeler.get_hit_shape(false, false)) {
+                trigger_feeler(trigger_ptr_, kCrossingEvents, &feeler);
+                if (get_interrupted(this))
                     return;
-                Contact& contact = contacts[m_contactCount];
-                contact.point = feeler.m_contactPos;
-                contact.normal = feeler.m_surfaceDir;
-                if (!NormalFacesAway(&contact)) {
+                Contact& contact = contacts[contact_count_];
+                contact.point = feeler.contact_pos_;
+                contact.normal = feeler.surface_dir_;
+                if (!normal_faces_away(&contact)) {
                     // How far in: the rest of the line, along the normal.
-                    const Maths::Seg& line = feeler.m_line;
+                    const maths::Seg& line = feeler.line_;
                     double dz = static_cast<double>(line.start.z) - line.end.z;
                     double dy = static_cast<double>(line.start.y) - line.end.y;
                     double dx = static_cast<double>(line.start.x) - line.end.x;
                     contact.depth = static_cast<float>(
-                        (1.0 - feeler.m_reach) * ((dz * feeler.m_surfaceDir.z + dy * feeler.m_surfaceDir.y) + dx * feeler.m_surfaceDir.x));
-                    ++m_contactCount;
+                        (1.0 - feeler.reach_) * ((dz * feeler.surface_dir_.z + dy * feeler.surface_dir_.y) + dx * feeler.surface_dir_.x));
+                    ++contact_count_;
                     // (the original marks the next record, not this one)
-                    contacts[m_contactCount].fromFeeler = true;
+                    contacts[contact_count_].from_feeler_ = true;
                 }
             }
-            if (m_debugMode)
-                feeler.DebugDraw(0xFF, 0xFF, 0xFF, 1);
+            if (debug_mode_)
+                feeler.debug_draw(0xFF, 0xFF, 0xFF, 1);
         }
     }
-    if (m_contactCount == 0)
+    if (contact_count_ == 0)
         return;
-    for (int n = m_contactCount - 1; n >= 0; --n)
+    for (int n = contact_count_ - 1; n >= 0; --n)
         contacts[n].impulse = 0.0f;
-    Maths::Vec4 mom = m_linearMomentum, rotmom = m_rotmom, vel = m_vel;
-    Maths::Vec4 rotvel = m_rotvel;
+    maths::Vec4 mom = linear_momentum_, rotmom = rotmom_, vel = vel_;
+    maths::Vec4 rotvel = rotvel_;
 
     // Impulses at the contacts closing in (with restitution), up to six passes until none is.
     for (int pass = 0;;) {
         bool separating = true;
-        for (int n = m_contactCount - 1; n >= 0; --n) {
+        for (int n = contact_count_ - 1; n >= 0; --n) {
             Contact& contact = contacts[n];
-            Maths::Vec4 r{static_cast<float>(static_cast<double>(contact.point.x) - m_atPoint.x),
-                          static_cast<float>(static_cast<double>(contact.point.y) - m_atPoint.y),
-                          static_cast<float>(static_cast<double>(contact.point.z) - m_atPoint.z),
-                          static_cast<float>(static_cast<double>(contact.point.w) - m_atPoint.w)};
-            Maths::Vec4 v;
-            GetPointVelocity(&v, &r);
-            const Maths::Vec4& nrm = contact.normal;
-            double closingExact = (static_cast<double>(v.z) * nrm.z + static_cast<double>(v.x) * nrm.x) +
+            maths::Vec4 r{static_cast<float>(static_cast<double>(contact.point.x) - at_point_.x),
+                          static_cast<float>(static_cast<double>(contact.point.y) - at_point_.y),
+                          static_cast<float>(static_cast<double>(contact.point.z) - at_point_.z),
+                          static_cast<float>(static_cast<double>(contact.point.w) - at_point_.w)};
+            maths::Vec4 v;
+            get_point_velocity(&v, &r);
+            const maths::Vec4& nrm = contact.normal;
+            double closing_exact = (static_cast<double>(v.z) * nrm.z + static_cast<double>(v.x) * nrm.x) +
                                   static_cast<double>(v.y) * nrm.y;
-            float closing = static_cast<float>(closingExact);
-            if (closingExact > 0.0)
+            float closing = static_cast<float>(closing_exact);
+            if (closing_exact > 0.0)
                 continue;
             separating = false;
-            float bounce = static_cast<float>(-(static_cast<double>(closing) * m_restitution));
-            double denominator = GetImpulseDenominator(&r, &nrm);
+            float bounce = static_cast<float>(-(static_cast<double>(closing) * restitution_));
+            double denominator = get_impulse_denominator(&r, &nrm);
             float impulse = static_cast<float>((static_cast<double>(bounce) - closing) * denominator);
             contact.impulse = static_cast<float>(static_cast<double>(impulse) + contact.impulse);
-            Maths::Vec4 push{static_cast<float>(static_cast<double>(impulse) * nrm.x),
+            maths::Vec4 push{static_cast<float>(static_cast<double>(impulse) * nrm.x),
                              static_cast<float>(static_cast<double>(impulse) * nrm.y),
                              static_cast<float>(static_cast<double>(impulse) * nrm.z),
                              static_cast<float>(static_cast<double>(impulse) * nrm.w)};
-            ApplyImpulseAtOffset(&push, &r);
+            apply_impulse_at_offset(&push, &r);
         }
         ++pass;
         if (pass > 5 || separating)
@@ -548,37 +548,37 @@ void CDrivableModule::Collide()
     }
 
     // Pushed out by how deep each contact is (at most 2).
-    for (int n = m_contactCount - 1; n >= 0; --n) {
+    for (int n = contact_count_ - 1; n >= 0; --n) {
         Contact& contact = contacts[n];
         if (contact.depth < 0.0f || contact.depth == 0.0f)
             continue;
         if (contact.depth > kDeepestLevel)
             contact.depth = kDeepestLevel;
-        double push = static_cast<double>(m_depthCorrection) * contact.depth;
-        float pushRounded = static_cast<float>(push);
-        const Maths::Vec4& nrm = contact.normal;
-        Maths::Vec4 force{static_cast<float>(static_cast<double>(pushRounded) * nrm.x),
-                          static_cast<float>(static_cast<double>(pushRounded) * nrm.y),
-                          static_cast<float>(static_cast<double>(pushRounded) * nrm.z), static_cast<float>(push * nrm.w)};
-        Maths::Vec4 r{static_cast<float>(static_cast<double>(contact.point.x) - m_atPoint.x),
-                      static_cast<float>(static_cast<double>(contact.point.y) - m_atPoint.y),
-                      static_cast<float>(static_cast<double>(contact.point.z) - m_atPoint.z),
-                      static_cast<float>(static_cast<double>(contact.point.w) - m_atPoint.w)};
-        AddForceAtOffset(&force, &r);
+        double push = static_cast<double>(depth_correction_) * contact.depth;
+        float push_rounded = static_cast<float>(push);
+        const maths::Vec4& nrm = contact.normal;
+        maths::Vec4 force{static_cast<float>(static_cast<double>(push_rounded) * nrm.x),
+                          static_cast<float>(static_cast<double>(push_rounded) * nrm.y),
+                          static_cast<float>(static_cast<double>(push_rounded) * nrm.z), static_cast<float>(push * nrm.w)};
+        maths::Vec4 r{static_cast<float>(static_cast<double>(contact.point.x) - at_point_.x),
+                      static_cast<float>(static_cast<double>(contact.point.y) - at_point_.y),
+                      static_cast<float>(static_cast<double>(contact.point.z) - at_point_.z),
+                      static_cast<float>(static_cast<double>(contact.point.w) - at_point_.w)};
+        add_force_at_offset(&force, &r);
     }
 
     // Friction against the sliding at each contact that took an impulse (on the velocities as they were, updated
     // by each friction impulse in turn); at most the friction coefficient times that impulse.
-    float friction = m_basisFrame.row[1].y > kUpright ? m_dragFactor : m_tippedFriction;
-    for (int n = m_contactCount - 1; n >= 0; --n) {
+    float friction = basis_frame_.row[1].y > kUpright ? drag_factor_ : tipped_friction_;
+    for (int n = contact_count_ - 1; n >= 0; --n) {
         Contact& contact = contacts[n];
         if (contact.impulse == 0.0f)
             continue;
-        const Maths::Vec4& nrm = contact.normal;
-        float rz = static_cast<float>(static_cast<double>(contact.point.z) - m_atPoint.z);
-        float ry = static_cast<float>(static_cast<double>(contact.point.y) - m_atPoint.y);
-        Maths::Vec4 r{static_cast<float>(static_cast<double>(contact.point.x) - m_atPoint.x), ry, rz,
-                      static_cast<float>(static_cast<double>(contact.point.w) - m_atPoint.w)};
+        const maths::Vec4& nrm = contact.normal;
+        float rz = static_cast<float>(static_cast<double>(contact.point.z) - at_point_.z);
+        float ry = static_cast<float>(static_cast<double>(contact.point.y) - at_point_.y);
+        maths::Vec4 r{static_cast<float>(static_cast<double>(contact.point.x) - at_point_.x), ry, rz,
+                      static_cast<float>(static_cast<double>(contact.point.w) - at_point_.w)};
         double cz = static_cast<double>(ry) * rotvel.x - static_cast<double>(r.x) * rotvel.y;
         double cy = static_cast<double>(r.x) * rotvel.z - static_cast<double>(rz) * rotvel.x;
         float cx = static_cast<float>(static_cast<double>(rz) * rotvel.y - static_cast<double>(ry) * rotvel.z);
@@ -589,27 +589,27 @@ void CDrivableModule::Collide()
         float tz = static_cast<float>(along * nrm.z);
         float ty = static_cast<float>(along * nrm.y);
         float tx = static_cast<float>(along * nrm.x);
-        float slideW = static_cast<float>(vel.w - along * nrm.w);
-        float slideZ = static_cast<float>(static_cast<double>(pvz) - tz);
-        float slideY = static_cast<float>(pvy - ty);
-        double slideX = pvx - tx;
-        double speed = std::sqrt((slideX * slideX + static_cast<double>(slideY) * slideY) + static_cast<double>(slideZ) * slideZ);
-        float speedRounded = static_cast<float>(speed);
+        float slide_w = static_cast<float>(vel.w - along * nrm.w);
+        float slide_z = static_cast<float>(static_cast<double>(pvz) - tz);
+        float slide_y = static_cast<float>(pvy - ty);
+        double slide_x = pvx - tx;
+        double speed = std::sqrt((slide_x * slide_x + static_cast<double>(slide_y) * slide_y) + static_cast<double>(slide_z) * slide_z);
+        float speed_rounded = static_cast<float>(speed);
         if (speed < kMinSlide)
             continue;
-        double inverse = 1.0 / speedRounded;
-        Maths::Vec4 slide{static_cast<float>(slideX * inverse), static_cast<float>(slideY * inverse),
-                          static_cast<float>(slideZ * inverse), static_cast<float>(slideW * inverse)};
-        double stop = GetImpulseDenominator(&r, &slide) * speedRounded;
+        double inverse = 1.0 / speed_rounded;
+        maths::Vec4 slide{static_cast<float>(slide_x * inverse), static_cast<float>(slide_y * inverse),
+                          static_cast<float>(slide_z * inverse), static_cast<float>(slide_w * inverse)};
+        double stop = get_impulse_denominator(&r, &slide) * speed_rounded;
         float most = static_cast<float>(static_cast<double>(friction) * contact.impulse);
         if (stop > most)
             stop = most;
         double against = -stop;
-        Maths::Vec4 push{static_cast<float>(static_cast<double>(slide.x) * against),
+        maths::Vec4 push{static_cast<float>(static_cast<double>(slide.x) * against),
                          static_cast<float>(static_cast<double>(slide.y) * against),
                          static_cast<float>(static_cast<double>(slide.z) * against),
                          static_cast<float>(static_cast<double>(slide.w) * against)};
-        ApplyImpulseAtOffset(&push, &r);
+        apply_impulse_at_offset(&push, &r);
         // The copies of the momenta and velocities followed along.
         mom.x = static_cast<float>(static_cast<double>(push.x) + mom.x);
         mom.y = static_cast<float>(static_cast<double>(push.y) + mom.y);
@@ -621,40 +621,40 @@ void CDrivableModule::Collide()
         rotmom.x = static_cast<float>(rotmom.x + ax);
         rotmom.y = static_cast<float>(ay + rotmom.y);
         rotmom.z = static_cast<float>(az + rotmom.z);
-        double invMass = m_invMass;
-        vel = {static_cast<float>(invMass * mom.x), static_cast<float>(invMass * mom.y),
-               static_cast<float>(invMass * mom.z), static_cast<float>(invMass * mom.w)};
-        Maths::Vec4 spin;
-        m_invInertia.RotateVector(spin, rotmom);
+        double inv_mass = inv_mass_;
+        vel = {static_cast<float>(inv_mass * mom.x), static_cast<float>(inv_mass * mom.y),
+               static_cast<float>(inv_mass * mom.z), static_cast<float>(inv_mass * mom.w)};
+        maths::Vec4 spin;
+        inv_inertia_.rotate_vector(spin, rotmom);
         rotvel.x = spin.x;
         rotvel.y = spin.y;
         rotvel.z = spin.z;
     }
 
-    for (int n = m_contactCount - 1; n >= 0; --n) {
+    for (int n = contact_count_ - 1; n >= 0; --n) {
         float impulse = contacts[n].impulse;
-        if (impulse > m_collisionImpulse)
-            m_collisionImpulse = impulse;
+        if (impulse > collision_impulse_)
+            collision_impulse_ = impulse;
     }
 
     // Steering against a wall: a push along it, by how much the wall faces the vehicle's front.
-    if (m_steering == 0.0f || static_cast<uint32_t>(m_wheelsInContact) < 3 || m_handbrake)
+    if (steering_ == 0.0f || static_cast<uint32_t>(wheels_in_contact_) < 3 || handbrake_)
         return;
-    for (int n = m_contactCount - 1; n >= 0; --n) {
+    for (int n = contact_count_ - 1; n >= 0; --n) {
         Contact& contact = contacts[n];
-        Maths::Vec4 r{static_cast<float>(static_cast<double>(contact.point.x) - m_atPoint.x),
-                      static_cast<float>(static_cast<double>(contact.point.y) - m_atPoint.y),
-                      static_cast<float>(static_cast<double>(contact.point.z) - m_atPoint.z),
-                      static_cast<float>(static_cast<double>(contact.point.w) - m_atPoint.w)};
-        const Maths::Vec4& nrm = contact.normal;
-        const Maths::Vec4& at = m_basisFrame.row[2];
+        maths::Vec4 r{static_cast<float>(static_cast<double>(contact.point.x) - at_point_.x),
+                      static_cast<float>(static_cast<double>(contact.point.y) - at_point_.y),
+                      static_cast<float>(static_cast<double>(contact.point.z) - at_point_.z),
+                      static_cast<float>(static_cast<double>(contact.point.w) - at_point_.w)};
+        const maths::Vec4& nrm = contact.normal;
+        const maths::Vec4& at = basis_frame_.row[2];
         float strength = static_cast<float>(((static_cast<double>(at.x) * nrm.x + static_cast<double>(at.z) * nrm.z) +
                                              static_cast<double>(nrm.y) * at.y) *
-                                            contact.impulse * m_wallSteering * m_steering);
-        Maths::Vec4 push{static_cast<float>(static_cast<double>(strength) * -nrm.z),
+                                            contact.impulse * wall_steering_ * steering_);
+        maths::Vec4 push{static_cast<float>(static_cast<double>(strength) * -nrm.z),
                          static_cast<float>(static_cast<double>(strength) * 0.0f),
                          static_cast<float>(static_cast<double>(strength) * nrm.x), strength};
-        ApplyImpulseAtOffset(&push, &r);
+        apply_impulse_at_offset(&push, &r);
     }
 }
 

@@ -1,4 +1,4 @@
-// The network manager's tasks (Scheduling::Task<OnlinePlay::Hub>: the manager at the task's +0x1C) and its GameSpy query
+// The network manager's tasks (tasks::Task<online::Hub>: the manager at the task's +0x1C) and its GameSpy query
 // callbacks. See gamenet_handlers.h.
 
 #include <cstdint>
@@ -38,9 +38,9 @@
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
 
-namespace OnlinePlay {
+namespace online {
 
-using namespace Detail;
+using namespace detail;
 
 namespace {
 
@@ -62,34 +62,34 @@ constexpr uint32_t kShowJoinTimeoutNotice = 0x3F7009B4; // ShowJoinTimeoutNotice
 
 constexpr uint32_t kJoinTimeout = 60000; // ms
 
-Hub* TaskManager(void* task) { return Prop<Hub*>(task, 0x1C); }
+Hub* task_manager(void* task) { return prop<Hub*>(task, 0x1C); }
 
 // The connection's line of the network metrics: "(n) Lag: ... Resends: ... Bps: <in> <out>".
-void ShowConnectionMetrics(NetLink::Conn* conn, int index)
+void show_connection_metrics(net::Conn* conn, int index)
 {
-    int lag = conn->IsHostLocal() ? 0 : conn->m_pingProbe.m_averageLatency;
-    int sent = conn->m_sendMetrics.GetThroughput();
-    int received = conn->m_receiveMetrics.GetThroughput();
-    int resends = conn->GetHighestResendCount();
+    int lag = conn->is_host_local() ? 0 : conn->ping_probe_.average_latency_;
+    int sent = conn->send_metrics_.get_throughput();
+    int received = conn->receive_metrics_.get_throughput();
+    int resends = conn->get_highest_resend_count();
     char line[1024];
     std::sprintf(line, "(%d) Lag: %d Resends: %d Bps: %d %d", index, lag, resends, received, sent);
-    Scripts::CStruct* params = NewParams();
-    params->AppendWord(kText, line);
-    Run(kUpdateNetMetrics, params);
-    DeleteParams(params);
+    script::Struct* params = new_params();
+    params->append_word(kText, line);
+    get_run(kUpdateNetMetrics, params);
+    delete_params(params);
 }
 
 // Each connection of `app` that isn't local.
-void ShowAppMetrics(NetLink::AppHost* app)
+void show_app_metrics(net::AppHost* app)
 {
-    NetLink::ConnSearch search;
-    search.m_vtable = NetLink::kConnSearchVtable;
-    search.m_listLink = nullptr;
+    net::ConnSearch search;
+    search.vtable_ = net::kConnSearchVtable;
+    search.list_link_ = nullptr;
     int index = 0;
-    for (NetLink::Conn* conn = app->BeginConnWalk(&search); conn; conn = app->StepConnWalk(&search)) {
-        if (conn->IsHostLocal())
+    for (net::Conn* conn = app->begin_conn_walk(&search); conn; conn = app->step_conn_walk(&search)) {
+        if (conn->is_host_local())
             continue;
-        ShowConnectionMetrics(conn, index);
+        show_connection_metrics(conn, index);
         ++index;
     }
 }
@@ -97,119 +97,119 @@ void ShowAppMetrics(NetLink::AppHost* app)
 } // namespace
 
 // 0x0052F4A0
-void __cdecl LevelChangeTask(void* task)
+void __cdecl level_change_task(void* task)
 {
     PlayerSearch search;
-    Hub* manager = TaskManager(task);
-    if (FrameClock::GetTime() < g_levelChangeTime)
+    Hub* manager = task_manager(task);
+    if (frame_clock::get_time() < g_level_change_time)
         return;
-    Call(CodeAddress(&GameModules::Skate::ChangeLevel), Skate(), manager->m_level); // the level changed
-    if (uint8_t* king = IsCrownRuleActive(manager))
-        AsPlayer(king)->GiveCrown(false);
-    for (uint8_t* p = StartRosterSweep(manager, &search, true); p; p = StepRosterSweep(manager, &search, true))
-        AsPlayer(p)->ClearFlags(); // carries no flag
-    Prop<Scheduling::SchedulerTask*>(manager, 0xEC)->DropOut();
+    get_call(code_address(&modules::Skate::change_level), get_skate(), manager->level_); // the level changed
+    if (uint8_t* king = is_crown_rule_active(manager))
+        as_player(king)->give_crown(false);
+    for (uint8_t* p = start_roster_sweep(manager, &search, true); p; p = step_roster_sweep(manager, &search, true))
+        as_player(p)->clear_flags(); // carries no flag
+    prop<tasks::SchedulerTask*>(manager, 0xEC)->drop_out();
 }
 
-uint32_t g_modemDialogEnd;
+uint32_t g_modem_dialog_end;
 
 // 0x00533810
-void __cdecl DialupProgressTick(void* task)
+void __cdecl dialup_progress_tick(void* task)
 {
-    Hub* manager = TaskManager(task);
-    NetLink::Hub* net = NetLink::Hub::Sole();
-    int state = net->GetDialupStatus();
-    int& shown = Prop<int>(manager, 0x1A8); // the state shown last
+    Hub* manager = task_manager(task);
+    net::Hub* net = net::Hub::sole();
+    int state = net->get_dialup_status();
+    int& shown = prop<int>(manager, 0x1A8); // the state shown last
     if (state == shown && state != 8) {
         shown = state;
         return;
     }
-    Scripts::CStruct* params = NewParams();
+    script::Struct* params = new_params();
     char line[128];
     char line2[128];
     switch (state) {
     case 0: // connecting / dialing
-        if (net->GetNetLinkKind() == 3)
-            std::sprintf(line, "%s", Scripts::FetchText(kConnecting));
+        if (net->get_net_link_kind() == 3)
+            std::sprintf(line, "%s", script::fetch_text(kConnecting));
         else
-            std::sprintf(line, "%s %s", Scripts::FetchText(kDialing), net->GetDialupNumber());
-        params->AppendWord(kText, Scripts::QBVAL_STRING, line);
-        Run(kStateDialog, params);
+            std::sprintf(line, "%s %s", script::fetch_text(kDialing), net->get_dialup_number());
+        params->append_word(kText, script::kQbvalString, line);
+        get_run(kStateDialog, params);
         break;
     case 1:
-        params->AppendWord(kText, Scripts::QBVAL_STRING, Scripts::FetchText(kConnected));
-        Run(kStateDialog, params);
+        params->append_word(kText, script::kQbvalString, script::fetch_text(kConnected));
+        get_run(kStateDialog, params);
         break;
     case 2: // logged in (with the speed on a modem)
-        if (net->GetNetLinkKind() == 1)
-            std::sprintf(line2, "%s %d bps", Scripts::FetchText(kAuthDone), net->GetDialupSpeed());
+        if (net->get_net_link_kind() == 1)
+            std::sprintf(line2, "%s %d bps", script::fetch_text(kAuthDone), net->get_dialup_speed());
         else
-            std::sprintf(line2, "%s", Scripts::FetchText(kAuthDone));
-        params->AppendWord(kText, Scripts::QBVAL_STRING, line2);
-        Run(kFinalStateDialog, params);
+            std::sprintf(line2, "%s", script::fetch_text(kAuthDone));
+        params->append_word(kText, script::kQbvalString, line2);
+        get_run(kFinalStateDialog, params);
         break;
     case 3:
     case 4:
-        params->AppendWord(kText, Scripts::QBVAL_STRING, Scripts::FetchText(state == 3 ? kDisconnecting : kHangingUp));
-        Run(kStatusDialog, params);
+        params->append_word(kText, script::kQbvalString, script::fetch_text(state == 3 ? kDisconnecting : kHangingUp));
+        get_run(kStatusDialog, params);
         break;
     case 5:
-        params->AppendWord(kText, Scripts::QBVAL_STRING, Scripts::FetchText(kDisconnected));
-        Run(kFinalStateDialog, params);
+        params->append_word(kText, script::kQbvalString, script::fetch_text(kDisconnected));
+        get_run(kFinalStateDialog, params);
         break;
     case 7: // redial in five seconds
-        std::sprintf(line, "%s", Scripts::FetchText(kRedialPause));
-        params->AppendWord(kText, Scripts::QBVAL_STRING, line);
-        Run(kStateDialog, params);
-        g_modemDialogEnd = FrameClock::GetTime() + 5000;
-        net->SetDialupStatus(8);
+        std::sprintf(line, "%s", script::fetch_text(kRedialPause));
+        params->append_word(kText, script::kQbvalString, line);
+        get_run(kStateDialog, params);
+        g_modem_dialog_end = frame_clock::get_time() + 5000;
+        net->set_dialup_status(8);
         break;
     case 8:
-        if (FrameClock::GetTime() > g_modemDialogEnd) {
+        if (frame_clock::get_time() > g_modem_dialog_end) {
             shown = -1;
-            net->ConnectToInternet();
+            net->connect_to_internet();
             return; // (the parameters never deleted: the original's)
         }
         break;
     default: // (6: nothing)
         break;
     }
-    DeleteParams(params);
+    delete_params(params);
     shown = state;
 }
 
 // 0x00533B50 (each list is shown twice: the original's loop)
-void __cdecl NetMetricsTask(void* task)
+void __cdecl net_metrics_task(void* task)
 {
-    Hub* manager = TaskManager(task);
+    Hub* manager = task_manager(task);
     for (int pass = 0; pass < 2; ++pass) {
-        if (NetLink::AppHost* client = manager->m_clientApp; client && !client->IsHostLocal())
-            ShowAppMetrics(client);
-        if (NetLink::AppHost* server = manager->m_host)
-            ShowAppMetrics(server);
+        if (net::AppHost* client = manager->client_app_; client && !client->is_host_local())
+            show_app_metrics(client);
+        if (net::AppHost* server = manager->host_)
+            show_app_metrics(server);
     }
 }
 
 // 0x00533ED0
-void __cdecl JoinDeadlineTick(void* task)
+void __cdecl join_deadline_tick(void* task)
 {
-    Hub* manager = TaskManager(task);
-    if (manager->m_joinPhase == 8 || FrameClock::GetTime() - static_cast<uint32_t>(manager->m_joinBeganAt) <= kJoinTimeout)
+    Hub* manager = task_manager(task);
+    if (manager->join_phase_ == 8 || frame_clock::get_time() - static_cast<uint32_t>(manager->join_began_at_) <= kJoinTimeout)
         return;
-    manager->m_joinPhaseJob->DropOut();
-    Run(kShowJoinTimeoutNotice);
+    manager->join_phase_job_->drop_out();
+    get_run(kShowJoinTimeoutNotice);
 }
 
 // 0x00533400
-void __cdecl PlayerTeamKeyCallback(int, int, void* buffer, void*)
+void __cdecl player_team_key_callback(int, int, void* buffer, void*)
 {
-    GameSpy::Qr2BufferAdd(buffer, "");
+    game_spy::call_qr2_buffer_add(buffer, "");
 }
 
 // 0x00533420
-void __cdecl KeyListCallback(int type, void* keys, void*)
+void __cdecl key_list_callback(int type, void* keys, void*)
 {
-    auto add = [keys](int key) { GameSpy::Qr2KeyBufferAdd(keys, key); };
+    auto add = [keys](int key) { game_spy::qr2_key_buffer_add(keys, key); };
     if (type == 0) { // the server's
         for (int key : {1, 2, 4, 5, 6, 8, 0x14, 0xA, 0xB, 0x13})
             add(key);
@@ -220,9 +220,9 @@ void __cdecl KeyListCallback(int type, void* keys, void*)
 }
 
 // 0x005334B0
-void __cdecl AddErrorCallback(int error, const char* message, void*)
+void __cdecl add_error_callback(int error, const char* message, void*)
 {
-    DebugOut::Printf("Error adding server: %d, %s\n", error, message);
+    debug::printf("Error adding server: %d, %s\n", error, message);
 }
 
-} // namespace OnlinePlay
+} // namespace online

@@ -7,86 +7,86 @@
 #include "engine/core/mem.h"
 #include "engine/core/code_address.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 extern void** const kRefCountedVtable;
 } // namespace
 
 // 0x004637B0
-CSharedBase* CSharedBase::MakeNew()
+SharedBase* SharedBase::make_new()
 {
-    m_vtable = kRefCountedVtable;
-    m_smartPointers = nullptr;
+    vtable_ = kRefCountedVtable;
+    smart_pointers_ = nullptr;
     return this;
 }
 
 // 0x00463870
-void CSharedBase::Destruct()
+void SharedBase::destruct()
 {
-    m_vtable = kRefCountedVtable;
-    ClearSmartPointers();
+    vtable_ = kRefCountedVtable;
+    clear_smart_pointers();
 }
 
 // 0x00463880
-CSharedBase* CSharedBase::ScalarDelete(uint8_t flags)
+SharedBase* SharedBase::scalar_delete(uint8_t flags)
 {
-    Destruct(); // (inlined in the original)
+    destruct(); // (inlined in the original)
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
 // 0x00463820 (each pointer is taken out of the list of the object it points at, which is this one)
-void CSharedBase::ClearSmartPointers()
+void SharedBase::clear_smart_pointers()
 {
-    for (CSharedRef<CSharedBase>* pointer = m_smartPointers; pointer;) {
-        CSharedRef<CSharedBase>* next = pointer->m_following;
-        if (CSharedBase* object = pointer->m_ownerObject) {
-            if (pointer->m_preceding)
-                pointer->m_preceding->m_following = next;
+    for (SharedRef<SharedBase>* pointer = smart_pointers_; pointer;) {
+        SharedRef<SharedBase>* next = pointer->following_;
+        if (SharedBase* object = pointer->owner_object_) {
+            if (pointer->preceding_)
+                pointer->preceding_->following_ = next;
             else
-                object->m_smartPointers = next;
-            if (pointer->m_following)
-                pointer->m_following->m_preceding = pointer->m_preceding;
-            pointer->m_preceding = nullptr;
-            pointer->m_following = nullptr;
-            pointer->m_ownerObject = nullptr;
+                object->smart_pointers_ = next;
+            if (pointer->following_)
+                pointer->following_->preceding_ = pointer->preceding_;
+            pointer->preceding_ = nullptr;
+            pointer->following_ = nullptr;
+            pointer->owner_object_ = nullptr;
         }
-        pointer->m_ownerObject = nullptr;
+        pointer->owner_object_ = nullptr;
         pointer = next;
     }
 }
 
 // 0x004637C0
-void CSharedBase::AttachSharedRef(CSharedRef<CSharedBase>* pointer)
+void SharedBase::attach_shared_ref(SharedRef<SharedBase>* pointer)
 {
-    pointer->m_following = m_smartPointers;
-    if (m_smartPointers)
-        m_smartPointers->m_preceding = pointer;
-    m_smartPointers = pointer;
+    pointer->following_ = smart_pointers_;
+    if (smart_pointers_)
+        smart_pointers_->preceding_ = pointer;
+    smart_pointers_ = pointer;
 }
 
 // 0x004637E0
-void CSharedBase::DetachSharedRef(CSharedRef<CSharedBase>* pointer)
+void SharedBase::detach_shared_ref(SharedRef<SharedBase>* pointer)
 {
-    if (pointer->m_preceding)
-        pointer->m_preceding->m_following = pointer->m_following;
+    if (pointer->preceding_)
+        pointer->preceding_->following_ = pointer->following_;
     else
-        m_smartPointers = pointer->m_following;
-    if (pointer->m_following)
-        pointer->m_following->m_preceding = pointer->m_preceding;
-    pointer->m_preceding = nullptr;
-    pointer->m_following = nullptr;
+        smart_pointers_ = pointer->following_;
+    if (pointer->following_)
+        pointer->following_->preceding_ = pointer->preceding_;
+    pointer->preceding_ = nullptr;
+    pointer->following_ = nullptr;
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kRefCountedVtable_slots[] = {&GameObjects::CSharedBase::ScalarDelete};
-void** const kRefCountedVtable = reinterpret_cast<void**>(kRefCountedVtable_slots);
+static VtableSlot g_ref_counted_vtable_slots[] = {&objects::SharedBase::scalar_delete};
+void** const kRefCountedVtable = reinterpret_cast<void**>(g_ref_counted_vtable_slots);
 
 } // namespace
 } // namespace Obj

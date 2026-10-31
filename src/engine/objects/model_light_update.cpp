@@ -1,4 +1,4 @@
-// The model light update component (GameObjects::CMeshLightingModule): see model_light_update.h. From the disassembly of
+// The model light update component (GameObjects::MeshLightingModule): see model_light_update.h. From the disassembly of
 // 0x00422D00-0x00423127. The x87 roundings are kept: values the original stores are rounded to float, the ones it keeps
 // on the FPU stack are worked in double.
 
@@ -21,7 +21,7 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
@@ -39,137 +39,137 @@ constexpr float kLerpRate = 0.02f;       // 0x3CA3D70A
 } // namespace
 
 // 0x00422DC0
-CObjectModule* __cdecl CMeshLightingModule::Fabricate()
+ObjectModule* __cdecl MeshLightingModule::fabricate()
 {
-    auto* component = static_cast<CMeshLightingModule*>(MemSys::AllocZeroed(sizeof(CMeshLightingModule)));
+    auto* component = static_cast<MeshLightingModule*>(memory::alloc_zeroed(sizeof(MeshLightingModule)));
     if (!component)
         return nullptr;
-    component->CObjectModule::MakeNew();
-    component->m_vtable = kVtable;
-    component->m_lightFlags = 0;
-    component->m_gapTime = 0;
-    component->m_counter = 0;
-    component->m_brightness = 0.0f;
-    component->m_kindTag = kType;
+    component->ObjectModule::make_new();
+    component->vtable_ = kVtable;
+    component->light_flags_ = 0;
+    component->gap_time_ = 0;
+    component->counter_ = 0;
+    component->brightness_ = 0.0f;
+    component->kind_tag_ = kType;
     return component;
 }
 
 // 0x00422D00
-void CMeshLightingModule::DestroyBody()
+void MeshLightingModule::destroy_body()
 {
-    m_vtable = kVtable;
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    ObjectModule::destroy_body();
 }
 
 // 0x00422D10
-CMeshLightingModule* CMeshLightingModule::Teardown(unsigned int flags)
+MeshLightingModule* MeshLightingModule::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00422D40
-void CMeshLightingModule::ConfigureFromData(Scripts::CStruct* params)
+void MeshLightingModule::configure_from_data(script::Struct* params)
 {
-    if (params->HasBareFlag(kOnce))
-        m_lightFlags |= MODEL_LIGHT_ONCE;
+    if (params->has_bare_flag(kOnce))
+        light_flags_ |= kModelLightOnce;
     else
-        m_lightFlags &= ~MODEL_LIGHT_ONCE;
-    m_gapTime = 0;
-    m_counter = 0;
-    if (params->FetchIntValue(kInterval, reinterpret_cast<int*>(&m_gapTime), 0))
-        m_counter = reinterpret_cast<uint32_t>(this) % m_gapTime + 1;
+        light_flags_ &= ~kModelLightOnce;
+    gap_time_ = 0;
+    counter_ = 0;
+    if (params->fetch_int_value(kInterval, reinterpret_cast<int*>(&gap_time_), 0))
+        counter_ = reinterpret_cast<uint32_t>(this) % gap_time_ + 1;
 }
 
 // 0x00422DA0
-void CMeshLightingModule::Seal()
+void MeshLightingModule::seal()
 {
-    m_meshInstance = static_cast<CMeshInstanceModule*>(m_entity->FetchModule(kModel));
+    mesh_instance_ = static_cast<MeshInstanceModule*>(entity_->fetch_module(kModel));
 }
 
 // 0x00422E40
-void CMeshLightingModule::Sample(bool lerp, float rate)
+void MeshLightingModule::get_sample(bool lerp, float rate)
 {
     // Down from just above the object (nudged along its up vector).
-    Engine3D::CProbeRay down;
-    down.MakeNew();
-    CGameEntity* object = m_entity;
-    Maths::Vec4& start = down.m_line.start;
-    Maths::Vec4& end = down.m_line.end;
-    start = object->m_atPoint;
-    end = object->m_atPoint;
-    const Maths::Vec4& up = object->m_basisFrame.row[1];
-    double stepX = static_cast<double>(up.x) * kUpNudge;
-    double stepY = static_cast<double>(up.y) * kUpNudge;
-    double stepZ = static_cast<double>(up.z) * kUpNudge;
-    double stepW = static_cast<double>(up.w) * kUpNudge;
-    start.x = static_cast<float>(stepX + start.x);
-    start.y = static_cast<float>(start.y + stepY);
-    start.z = static_cast<float>(start.z + stepZ);
-    start.w = static_cast<float>(start.w + stepW);
+    render::ProbeRay down;
+    down.make_new();
+    GameEntity* object = entity_;
+    maths::Vec4& start = down.line_.start;
+    maths::Vec4& end = down.line_.end;
+    start = object->at_point_;
+    end = object->at_point_;
+    const maths::Vec4& up = object->basis_frame_.row[1];
+    double step_x = static_cast<double>(up.x) * kUpNudge;
+    double step_y = static_cast<double>(up.y) * kUpNudge;
+    double step_z = static_cast<double>(up.z) * kUpNudge;
+    double step_w = static_cast<double>(up.w) * kUpNudge;
+    start.x = static_cast<float>(step_x + start.x);
+    start.y = static_cast<float>(start.y + step_y);
+    start.z = static_cast<float>(start.z + step_z);
+    start.w = static_cast<float>(start.w + step_w);
     start.y = start.y + kAbove;
     end.y = end.y - kDepth;
-    bool hit = down.GetHitShape(false, false) != 0;
+    bool hit = down.get_hit_shape(false, false) != 0;
     // Again from higher up, to just under what it hit (or as far down), faces flagged 0x20 only.
-    Engine3D::CProbeRay again;
-    again.MakeNew();
-    again.SetExcluded(0, 0x20);
-    again.m_line.start = {start.x, start.y + kSecondAbove, start.z, start.w};
+    render::ProbeRay again;
+    again.make_new();
+    again.set_excluded(0, 0x20);
+    again.line_.start = {start.x, start.y + kSecondAbove, start.z, start.w};
     if (hit)
-        again.m_line.end = {down.m_contactPos.x, down.m_contactPos.y - 1.0f, down.m_contactPos.z, down.m_contactPos.w};
+        again.line_.end = {down.contact_pos_.x, down.contact_pos_.y - 1.0f, down.contact_pos_.z, down.contact_pos_.w};
     else
-        again.m_line.end = {start.x, start.y - kDepth, start.z, start.w};
-    if (again.GetHitShape(false, false)) {
-        m_meshInstance->ApplyBrightness(&again, lerp, rate);
-        m_brightness = static_cast<float>(again.GetHitVertexValue());
+        again.line_.end = {start.x, start.y - kDepth, start.z, start.w};
+    if (again.get_hit_shape(false, false)) {
+        mesh_instance_->apply_brightness(&again, lerp, rate);
+        brightness_ = static_cast<float>(again.get_hit_vertex_value());
     } else if (hit) {
-        m_meshInstance->ApplyBrightness(&down, lerp, 1.0f);
-        m_brightness = static_cast<float>(down.GetHitVertexValue());
+        mesh_instance_->apply_brightness(&down, lerp, 1.0f);
+        brightness_ = static_cast<float>(down.get_hit_vertex_value());
     }
-    again.Destruct();
-    down.Destruct();
+    again.destruct();
+    down.destruct();
 }
 
 // 0x004230B0
-void CMeshLightingModule::TickFrame()
+void MeshLightingModule::tick_frame()
 {
-    if (!(m_lightFlags & MODEL_LIGHT_SAMPLED)) {
-        Sample(false, 1.0f);
-        m_lightFlags |= MODEL_LIGHT_SAMPLED;
+    if (!(light_flags_ & kModelLightSampled)) {
+        get_sample(false, 1.0f);
+        light_flags_ |= kModelLightSampled;
         return;
     }
-    if (m_gapTime && m_counter++ < m_gapTime) {
-        static_cast<Engine3D::CModelLights*>(ModelNx::ModelLights(m_meshInstance->m_meshInstance))->MoveBrightness(m_brightness, kLerpRate);
+    if (gap_time_ && counter_++ < gap_time_) {
+        static_cast<render::ModelLights*>(model_nx::model_lights(mesh_instance_->mesh_instance_))->move_brightness(brightness_, kLerpRate);
         return;
     }
-    m_counter = 0;
-    if (m_lightFlags & MODEL_LIGHT_ONCE)
-        VirtualSuspend(true);
+    counter_ = 0;
+    if (light_flags_ & kModelLightOnce)
+        virtual_suspend(true);
     else
-        Sample(true, 1.0f);
+        get_sample(true, 1.0f);
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CMeshLightingModule::Teardown,
-         &GameObjects::CMeshLightingModule::TickFrame,
-         &GameObjects::CMeshLightingModule::ConfigureFromData,
-         &GameObjects::CMeshLightingModule::Seal,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
-         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::MeshLightingModule::teardown,
+         &objects::MeshLightingModule::tick_frame,
+         &objects::MeshLightingModule::configure_from_data,
+         &objects::MeshLightingModule::seal,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
+         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

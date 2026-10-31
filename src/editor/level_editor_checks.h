@@ -9,7 +9,7 @@
 
 struct ImFont;
 
-namespace MenuSystem::LevelEditor::Layout {
+namespace frontend::level_editor::layout {
 struct FileLoad;
 }
 
@@ -21,8 +21,8 @@ struct FileLoad;
 //
 // The rules (each row says which; "as shipped" rows - problems the level has without the editor's edits - are hidden
 // unless "Show the level's own" is on):
-//   Placement - spawns, crowns, flags (and the editor's trigger volumes): probed with the game's collision ray (a CProbeRay,
-//     static collision; it meets only the FRONT of a face - Engine3D::RayHitsTriangle 0x0040B420 refuses a determinant below
+//   Placement - spawns, crowns, flags (and the editor's trigger volumes): probed with the game's collision ray (a ProbeRay,
+//     static collision; it meets only the FRONT of a face - render::ray_hits_triangle 0x0040B420 refuses a determinant below
 //     0.03). From the point, lifted kLift units (a spawn standing on the floor is on it, not in it), six directions are
 //     probed: going out (the first face facing the point) and coming back in from kReach away (a face facing away from
 //     the point, met from outside). A direction is "behind a surface" when a face facing away is nearer than any face
@@ -52,49 +52,49 @@ struct FileLoad;
 //     the level (a level / DLL update, a hand-edited file): logged when the layout goes in, listed here, and KEPT - the
 //     next save writes it again (Layout::FileLoad::carried) unless Fix (Drop record) drops it, so an update that brings
 //     the thing back finds its edit again. Never silently dropped.
-namespace MenuSystem::LevelEditor::Checks {
+namespace frontend::level_editor::checks {
 
 // --- the pure parts --------------------------------------------------------------------------------------------------
 
-enum class Severity : uint8_t { Error, Warning, DetailsOf };
-const char* SeverityName(Severity severity);
+enum class Severity : uint8_t { kError, kWarning, kDetailsOf };
+const char* severity_name(Severity severity);
 enum class Rule : uint8_t {
-    InsideSolid,
-    BelowGround,
-    NoGround,
-    FloatingRail,
-    LonelyRail,
-    CollisionLeft,
-    HiddenCollision,
-    Limit,
-    TriggerIdle,
-    TriggerScript,
-    GapUnpaired,
-    OnlineParity,
-    Multiplayer,
-    LayoutRecord,
+    kInsideSolid,
+    kBelowGround,
+    kNoGround,
+    kFloatingRail,
+    kLonelyRail,
+    kCollisionLeft,
+    kHiddenCollision,
+    kLimit,
+    kTriggerIdle,
+    kTriggerScript,
+    kGapUnpaired,
+    kOnlineParity,
+    kMultiplayer,
+    kLayoutRecord,
 };
 constexpr int kRules = 14;
-const char* RuleName(Rule rule); // "Inside solid"...
+const char* rule_name(Rule rule); // "Inside solid"...
 
 struct Issue {
-    Rule rule = Rule::Limit;
-    Severity severity = Severity::Warning;
+    Rule rule = Rule::kLimit;
+    Severity severity = Severity::kWarning;
     std::string text;       // what is wrong
     uint32_t node = 0;      // the node it is about (Go to selects it; 0 none)
     uint32_t sector = 0;    // or the scenery piece
-    bool hasPos = false;    // or a place to look at
+    bool has_pos_ = false;    // or a place to look at
     V3 pos = {};
     bool fixable = false;   // a safe Fix is offered
-    V3 fixPos = {};         // (placement: where Fix puts the node)
-    bool levelOwn = false;  // the level has it as shipped (not the editor's doing)
+    V3 fix_pos_ = {};         // (placement: where Fix puts the node)
+    bool level_own_ = false;  // the level has it as shipped (not the editor's doing)
     std::string record;     // (layout records: the record's line)
     uint32_t key = 0;       // identity (Ignore): the rule, the subject and the detail
 };
 // An issue's identity from its rule, subject (a node, a sector, 0) and a detail text.
-uint32_t IssueKey(Rule rule, uint32_t subject, const std::string& detail);
+uint32_t issue_key(Rule rule, uint32_t subject, const std::string& detail);
 // Sorted for the list: errors first, then warnings, infos; the editor's before the level's own; then by rule, text.
-void Sort(std::vector<Issue>* issues);
+void get_sort(std::vector<Issue>* issues);
 
 // Placement probes (see the top). Distances from the point; -1: nothing met.
 constexpr float kLift = 12.0f, kReach = 2000.0f, kSideReach = 150.0f, kGroundReach = 5000.0f, kRailNear = 30.0f;
@@ -103,16 +103,16 @@ struct Probe {
     float in = -1.0f;  // the nearest face facing away (met coming back in from the reach)
 };
 // Whether a direction is behind a surface: a face facing away nearer than any facing the point.
-bool Behind(const Probe& probe);
+bool get_behind(const Probe& probe);
 // The six directions in order: +x, -x, +y, -y, +z, -z.
-enum class Place : uint8_t { Clear, InsideSolid, BelowGround };
-Place Judge(const Probe probes[6]);
+enum class Place : uint8_t { kClear, kInsideSolid, kBelowGround };
+Place get_judge(const Probe probes[6]);
 // A rail point floats when no probe met a face within `near` either way.
-bool Floating(const Probe probes[6], float near);
+bool floating(const Probe probes[6], float near);
 
 // Rails of one point: given each rail node's links (indices into the same list), those linked to nothing and by
 // nothing.
-std::vector<int> LonelyPoints(const std::vector<std::vector<int>>& links);
+std::vector<int> lonely_points(const std::vector<std::vector<int>>& links);
 
 // Multiplayer's needs (see the top). Teams: Red, Blue, Green, Yellow.
 struct TeamNodes {
@@ -127,48 +127,48 @@ struct MpProblem {
     std::string text;
     int team = -1; // (CTF: the team, -1 none)
 };
-std::vector<MpProblem> MultiplayerProblems(const MpCounts& counts);
+std::vector<MpProblem> multiplayer_problems(const MpCounts& counts);
 
 // Layout records: one "kind key" (the first two words - three for lock / order) of a record's line, the identity a
 // carried record is matched by (a record of that kind and key captured again: not carried).
-std::string RecordKey(const std::string& line);
+std::string record_key(const std::string& line);
 // The carried lines (`unresolved`) not matched by any line of `captured` (a layout's text).
-std::vector<std::string> CarriedLines(const std::vector<std::string>& unresolved, const std::string& captured);
+std::vector<std::string> carried_lines(const std::vector<std::string>& unresolved, const std::string& captured);
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
 // The game's collision ray (static collision): the first face met from `from` to `to` (false: none) - where, its
 // normal, its collision object's checksum (0: none).
-bool Cast(V3 from, V3 to, V3* hit, V3* normal = nullptr, uint32_t* sector = nullptr);
-// The probes around a point (see the top): `reach` along each direction (ProbeEach: each its own).
-void ProbeAround(V3 point, float reach, Probe probes[6]);
-void ProbeEach(V3 point, const float reach[6], Probe probes[6]);
+bool get_cast(V3 from, V3 to, V3* hit, V3* normal = nullptr, uint32_t* sector = nullptr);
+// The probes around a point (see the top): `reach` along each direction (probe_each: each its own).
+void probe_around(V3 point, float reach, Probe probes[6]);
+void probe_each(V3 point, const float reach[6], Probe probes[6]);
 
 // The layout put in place (Layout's Apply, after it): its records that don't resolve to anything in the level - logged
-// and listed; their lines kept for the next save (`CarriedRecords`) unless dropped. A new level / Reset level: none.
-void NoteLayoutApplied(const Layout::FileLoad& file);
-void ForgetLayoutRecords();
+// and listed; their lines kept for the next save (`carried_records`) unless dropped. A new level / Reset level: none.
+void note_layout_applied(const layout::FileLoad& file);
+void forget_layout_records();
 // The lines to write again (Layout's Capture: `captured` its text so far - lines it has of a record's kind and key
 // aren't repeated).
-std::vector<std::string> CarriedRecords(const std::string& captured);
+std::vector<std::string> carried_records(const std::string& captured);
 // The unresolved records now (the panel's, the screenshot sidecar's).
-const std::vector<Issue>& LayoutIssues();
+const std::vector<Issue>& layout_issues();
 
 // The editor's frame (Draw, after the model): `changes` (the editor's change count) and `marks` (the Outliner's - what
 // the editor changed, by name) - checked again a moment after they change.
-void NoteModel(int changes, const std::unordered_map<uint32_t, uint8_t>& marks);
+void note_model(int changes, const std::unordered_map<uint32_t, uint8_t>& marks);
 // Once a frame while the editor runs (its Update): the UI's actions (Go to, Fix...).
-void TickFrame();
+void tick_frame();
 // A new level: the ignored list and the issues forgotten.
-void ForgetLevel();
+void forget_level();
 // The issues of the last check, and how many of each severity are shown (not ignored, not the level's own unless
 // shown) - the toolbar's button.
-const std::vector<Issue>& Issues();
-void ShownCounts(int* errors, int* warnings, int* infos);
+const std::vector<Issue>& get_issues();
+void shown_counts(int* errors, int* warnings, int* infos);
 // The Problems window: open on a tab (0 problems, 1 budget), toggled (Alt+P; the tool strip's Problems button), the window.
 constexpr int kProblemsTab = 0, kBudgetTab = 1;
-void OpenWindow(int tab);
-void ToggleWindow();
-void Pane(float viewX, float viewY, float viewWidth, float viewHeight, float scale, ImFont* mono);
+void open_window(int tab);
+void toggle_window();
+void pane(float view_x, float view_y, float view_width, float view_height, float scale, ImFont* mono);
 
-} // namespace MenuSystem::LevelEditor::Checks
+} // namespace MenuSystem::level_editor::Checks

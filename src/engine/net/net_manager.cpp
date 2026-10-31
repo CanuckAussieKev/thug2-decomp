@@ -14,82 +14,82 @@
 #include "engine/sys/mlp.h"
 #include "engine/assets/resource_registry.h"
 
-namespace NetLink {
+namespace net {
 
 namespace {
 
 // strcpy: the settings are copied with no length limit.
-void CopyString(char* out, const char* source)
+void copy_string(char* out, const char* source)
 {
     while ((*out++ = *source++) != '\0') {
     }
 }
 
 // The setters that copy only a different string.
-void CopyIfDifferent(char* out, const char* source)
+void copy_if_different(char* out, const char* source)
 {
     if (std::strcmp(source, out) != 0)
-        CopyString(out, source);
+        copy_string(out, source);
 }
 
-// Adds a task to the main loop's logic tasks (FrameLoop::Hub +0x04).
-void RegisterLogicTask(uint8_t* mlp, void* task)
+// Adds a task to the main loop's logic tasks (frame_loop::Hub +0x04).
+void register_logic_task(uint8_t* mlp, void* task)
 {
-    reinterpret_cast<FrameLoop::Hub*>(mlp)->m_logicTasks.QueueJob(static_cast<Scheduling::SchedulerTask*>(task));
+    reinterpret_cast<frame_loop::Hub*>(mlp)->logic_tasks_.queue_job(static_cast<tasks::SchedulerTask*>(task));
 }
 
 } // namespace
 
-Hub* Hub::Sole() { return g_netCore; }
+Hub* Hub::sole() { return g_net_core; }
 
 // 0x00454580
-bool Hub::ConnectToInternet()
+bool Hub::connect_to_internet()
 {
-    m_isNetworked = true;
+    is_networked_ = true;
     return true;
 }
 
 // 0x00454590
-bool Hub::DisconnectFromInternet()
+bool Hub::disconnect_from_internet()
 {
-    m_isNetworked = false;
+    is_networked_ = false;
     return true;
 }
 
 // 0x004545D0
-void Hub::SetDialupNumber(int index, const char* number) { CopyString(m_dialupNumbers[index], number); }
+void Hub::set_dialup_number(int index, const char* number) { copy_string(dialup_numbers_[index], number); }
 
 // 0x00454600
-void Hub::SetDialupUserName(const char* name) { CopyString(m_dialupUserName, name); }
+void Hub::set_dialup_user_name(const char* name) { copy_string(dialup_user_name_, name); }
 
 // 0x00454620
-void Hub::SetDialupPassword(const char* password) { CopyString(m_dialupPassword, password); }
+void Hub::set_dialup_password(const char* password) { copy_string(dialup_password_, password); }
 
 // 0x00454640
-void Hub::SetRouterAddr(const char* ip) { CopyIfDifferent(m_routerAddr, ip); }
+void Hub::set_router_addr(const char* ip) { copy_if_different(router_addr_, ip); }
 
 // 0x004546A0
-void Hub::SetAddressMask(const char* ip) { CopyIfDifferent(m_subnetMask, ip); }
+void Hub::set_address_mask(const char* ip) { copy_if_different(subnet_mask_, ip); }
 
 // 0x00454710
-void Hub::SetOwnAddress(const char* ip) { CopyIfDifferent(m_localIP, ip); }
+void Hub::set_own_address(const char* ip) { copy_if_different(local_ip_, ip); }
 
 // 0x00454770
-void Hub::SetNetLinkKind(int type)
+void Hub::set_net_link_kind(int type)
 {
-    if (m_connectionType == type)
+    if (connection_type_ == type)
         return;
-    m_connectionType = type;
+    connection_type_ = type;
     switch (type) {
     case kConnectionModem:
-        m_linkSpeed = 4200;
+        link_speed_ = 4200;
         break;
     case kConnection2:
     case kConnection4:
-        m_linkSpeed = 400000;
+        link_speed_ = 400000;
         break;
     case kConnection3:
-        m_linkSpeed = 300000;
+        link_speed_ = 300000;
         break;
     default: // (the bandwidth stays)
         break;
@@ -97,48 +97,48 @@ void Hub::SetNetLinkKind(int type)
 }
 
 // 0x004547D0
-void Hub::SetAdapterKind(int type)
+void Hub::set_adapter_kind(int type)
 {
-    if (m_deviceType != type)
-        m_deviceType = type;
+    if (device_type_ != type)
+        device_type_ = type;
 }
 
 // 0x004547F0
-void Hub::SetAutoAddress(bool useDHCP)
+void Hub::set_auto_address(bool use_dhcp)
 {
-    if (m_useDHCP != useDHCP)
-        m_useDHCP = useDHCP;
+    if (use_dhcp_ != use_dhcp)
+        use_dhcp_ = use_dhcp;
 }
 
 // 0x00454820
-void Hub::SetNameResolver(int index, const char* ip) { CopyIfDifferent(m_resolverIps[index], ip); }
+void Hub::set_name_resolver(int index, const char* ip) { copy_if_different(resolver_ips_[index], ip); }
 
 // 0x00454890
-void Hub::SetMachineLabel(const char* name)
+void Hub::set_machine_label(const char* name)
 {
     if (!name)
-        m_hostName[0] = '\0'; // (and the copy below still reads from the null pointer, as in the original)
-    CopyString(m_hostName, name);
+        host_name_[0] = '\0'; // (and the copy below still reads from the null pointer, as in the original)
+    copy_string(host_name_, name);
 }
 
 // 0x004548C0
-void Hub::SetNetworkDomain(const char* name)
+void Hub::set_network_domain(const char* name)
 {
     if (!name)
-        m_domainName[0] = '\0'; // (likewise)
-    CopyString(m_domainName, name);
+        domain_name_[0] = '\0'; // (likewise)
+    copy_string(domain_name_, name);
 }
 
 // 0x004548F0
-uint32_t Hub::GetLocalAddress()
+uint32_t Hub::get_local_address()
 {
-    if (m_localAddress)
-        return m_localAddress;
-    return inet_addr(m_localIP);
+    if (local_address_)
+        return local_address_;
+    return inet_addr(local_ip_);
 }
 
 // 0x00454910
-const char* Hub::FetchOwnAddress()
+const char* Hub::fetch_own_address()
 {
     hostent* localhost = gethostbyname("localhost");
     if (!localhost)
@@ -152,27 +152,27 @@ const char* Hub::FetchOwnAddress()
 }
 
 // 0x004549C0
-bool Hub::LoadNetworkDrivers(const char* /*ip*/, const char* /*subnetMask*/, const char* /*gateway*/)
+bool Hub::load_network_drivers(const char* /*ip*/, const char* /*subnet_mask*/, const char* /*gateway*/)
 {
     return true;
 }
 
 // 0x00454CB0
-void Hub::AddAppTasks(AppHost* app)
+void Hub::add_app_tasks(AppHost* app)
 {
-    uint8_t* mlp = reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager); // the FrameLoop::Hub
-    RegisterLogicTask(mlp, app->ReceiveTask());
-    RegisterLogicTask(mlp, app->SendTask());
-    RegisterLogicTask(mlp, app->ProcessTask());
-    RegisterLogicTask(mlp, app->MetricsTask());
+    uint8_t* mlp = reinterpret_cast<uint8_t*>(assets::g_main_loop_manager); // the frame_loop::Hub
+    register_logic_task(mlp, app->receive_task());
+    register_logic_task(mlp, app->send_task());
+    register_logic_task(mlp, app->process_task());
+    register_logic_task(mlp, app->metrics_task());
 }
 
 // 0x00454DE0
-const char* Hub::GetDialupNumber()
+const char* Hub::get_dialup_number()
 {
-    if (m_connectionType == kConnection3)
+    if (connection_type_ == kConnection3)
         return "";
-    return m_dialupNumbers[m_dialupNumberIndex];
+    return dialup_numbers_[dialup_number_index_];
 }
 
 } // namespace Net

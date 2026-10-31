@@ -22,12 +22,12 @@
 // sectors. The game itself never moves such pieces - the park editor's pieces carry their own collision.)
 //
 // What we do: the first time the editor moves (or hides) a piece, the faces of the level's collision-only sectors that
-// belong to it are copied into a collision object of our own for the piece (a Companion: a plain CStaticCollider with the
+// belong to it are copied into a collision object of our own for the piece (a Companion: a plain StaticCollider with the
 // sector collision vtable and a float geometry without a BSP tree), and the originals are turned off (face flag 0x10,
 // "not collidable": every feeler's default ignore mask; the camera's too).
 // From then on the companion's vertices are written from their copy by the piece's placement (the same Apply the
 // meshes follow: moved, turned, scaled exactly with it), and Commit puts the companion in the scene's collision grid
-// (CCollGrid::TickFrame 0x00418F60 - added once, then moved - as UpdateSuperSectors 0x0049D780 does for sectors).
+// (CollGrid::tick_frame 0x00418F60 - added once, then moved - as UpdateSuperSectors 0x0049D780 does for sectors).
 // A face belongs to the piece when:
 //   - it is collidable and not a trigger (flags 0x10 / 0x40 clear: gap and kill volumes stay where they are), its
 //     collision-only sector is on (no flag 2 / 4), and all three vertices are within the piece's box (grown kNear);
@@ -36,10 +36,10 @@
 //     nearest of the level's other solid pieces (not see-through, not the editor's copies) whose boxes hold the face.
 //     Faces of an object named after another piece stay with that one. See-through pieces (decals, shadows, glows) take
 //     nothing.
-// At most kMostFaces faces (the no-tree face list the queries fall back on - CTriMeshSource::GetFacesInBox - has 2048).
+// At most kMostFaces faces (the no-tree face list the queries fall back on - TriMeshSource::get_faces_in_box - has 2048).
 // A copy (Ctrl+D) gets a copy of its source's companion (or of the faces that would be its source's), as the engine's
-// DuplicateSceneSector copies a sector's own collision; the originals stay on for the source.
-namespace MenuSystem::LevelEditor::SharedCollision {
+// duplicate_scene_sector copies a sector's own collision; the originals stay on for the source.
+namespace frontend::level_editor::shared_collision {
 
 constexpr float kNear = 6.0f;
 constexpr int kMostFaces = 2048;
@@ -47,16 +47,16 @@ constexpr int kMostFaces = 2048;
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
 // The distance from a point to a triangle (a degenerate one: to its longest edge).
-float PointTriangleDistance(V3 p, V3 a, V3 b, V3 c);
+float point_triangle_distance(V3 p, V3 a, V3 b, V3 c);
 // The least of `best` and the distance from `p` to the triangles of a strip (each three consecutive indices; those
 // repeating an index or past `vertexCount` skipped), positions every `stride` bytes.
-float StripDistance(V3 p, const uint8_t* positions, uint32_t stride, uint32_t vertexCount, const uint16_t* indices,
-                    uint32_t indexCount, float best);
-// Whether a face whose farthest vertex is `own` from the piece (and `nearestOther` from the nearest other piece) is
+float strip_distance(V3 p, const uint8_t* positions, uint32_t stride, uint32_t vertex_count, const uint16_t* indices,
+                    uint32_t index_count, float best);
+// Whether a face whose farthest vertex is `own` from the piece (and `nearest_other` from the nearest other piece) is
 // the piece's: within kNear and strictly nearer.
-bool Belongs(float own, float nearestOther);
+bool belongs(float own, float nearest_other);
 // Whether a face of these flags may go with a piece: collidable, not a trigger.
-inline bool Takeable(uint32_t flags) { return !(flags & 0x50); }
+inline bool takeable(uint32_t flags) { return !(flags & 0x50); }
 
 // A face as copied: its corners (world space), flags, terrain and its vertices' bytes (the ground's light).
 struct FaceCopy {
@@ -65,7 +65,7 @@ struct FaceCopy {
     uint8_t bytes[3];
 };
 // Face `face` of a geometry (compressed or not, small faces or not).
-FaceCopy ReadFace(const Engine3D::CTriMeshSource* geometry, int face);
+FaceCopy read_face(const render::TriMeshSource* geometry, int face);
 
 // A collision object of our own (see above): the faces given (corners shared where equal), float vertices, no tree, no
 // face rejection (scale 0). `Base` is where the vertices were given; Place writes them where `placement` takes those.
@@ -75,74 +75,74 @@ public:
     Companion(const Companion&) = delete;
     Companion& operator=(const Companion&) = delete;
 
-    void Place(const Placement& placement);
+    void get_place(const Placement& placement);
     // The vertices where they are now become the base (a placement of none leaves them).
-    void Rebase();
+    void rebase();
     // The faces as they are now (a copy's).
-    std::vector<FaceCopy> Faces() const;
-    // On / off (the object's flag 4, as CWorldCell::ChangeLive turns a sector's collision off).
-    void ChangeLive(bool active);
+    std::vector<FaceCopy> get_faces() const;
+    // On / off (the object's flag 4, as WorldCell::change_live turns a sector's collision off).
+    void change_live(bool active);
     // A face's flags set (level_editor_faces.h: the face flags edited).
-    void ChangeTriFlags(int face, uint16_t flags);
-    bool LiveNow() const;
+    void change_tri_flags(int face, uint16_t flags);
+    bool live_now() const;
 
-    Engine3D::CStaticCollider* Object() { return &m_entity; }
-    const Engine3D::CTriMeshSource& Geometry() const { return m_geometry; }
-    int FaceCount() const { return m_geometry.m_triCount; }
-    int VertexCount() const { return m_geometry.m_numVertices; }
-    V3 BaseVertex(int i) const { return m_base[i]; }
-    V3 Vertex(int i) const;
+    render::StaticCollider* get_object() { return &entity_; }
+    const render::TriMeshSource& get_geometry() const { return geometry_; }
+    int face_count() const { return geometry_.tri_count_; }
+    int get_vertex_count() const { return geometry_.num_vertices_; }
+    V3 base_vertex(int i) const { return base_[i]; }
+    V3 get_vertex(int i) const;
 
 private:
-    void UpdateBox();
+    void update_box();
 
-    std::vector<V3> m_base;
-    std::vector<float> m_vertices;
-    std::vector<uint8_t> m_faces;      // 10 bytes each: flags, terrain, three u16 indices
-    std::vector<uint8_t> m_bytes;      // one per vertex
-    std::vector<uint8_t> m_rejection;  // one per face (all 0: the rejection scale is 0)
-    Engine3D::CTriMeshSource m_geometry{};
-    Engine3D::CStaticCollider m_entity{};
+    std::vector<V3> base_;
+    std::vector<float> vertices_;
+    std::vector<uint8_t> faces_;      // 10 bytes each: flags, terrain, three u16 indices
+    std::vector<uint8_t> bytes_;      // one per vertex
+    std::vector<uint8_t> rejection_;  // one per face (all 0: the rejection scale is 0)
+    render::TriMeshSource geometry_{};
+    render::StaticCollider entity_{};
 };
 
 // --- the game side ----------------------------------------------------------------------------------------------
 
 // The piece's companion made if it has none yet (its faces gathered; the originals turned off) - while the piece is
-// still where the editor first found it (before its first move: ApplyTrack calls it first). Nothing when the setting
+// still where the editor first found it (before its first move: apply_track calls it first). Nothing when the setting
 // is off ([editor] shared_collision=0) or no face belongs to it.
-void Ensure(uint32_t checksum, uint8_t* scene, uint8_t* sector, uint8_t* geom);
+void ensure(uint32_t checksum, uint8_t* scene, uint8_t* sector, uint8_t* geom);
 // The companion (if any) placed with the piece.
-void Place(uint32_t checksum, const Placement& placement);
-// The piece's track started again where it is (level_editor_scenery.cpp's TrackOf): its companion's base is now.
-void Rebase(uint32_t checksum);
+void get_place(uint32_t checksum, const Placement& placement);
+// The piece's track started again where it is (level_editor_scenery.cpp's track_of): its companion's base is now.
+void rebase(uint32_t checksum);
 // Shown / hidden with the piece.
-void ChangeLive(uint32_t checksum, bool active);
+void change_live(uint32_t checksum, bool active);
 // A copy `copy` (in `scene`) of `source` made: the copy's companion, from the source's (or from the faces that belong
 // to the source, left on). Call before the copy exists in the level (it would compete for them) - `Prepare` - and once
 // it does - `Finish`.
-std::shared_ptr<std::vector<FaceCopy>> PrepareCopy(uint32_t source);
-void FinishCopy(const std::shared_ptr<std::vector<FaceCopy>>& faces, uint32_t copy, uint8_t* scene, uint8_t* sector,
+std::shared_ptr<std::vector<FaceCopy>> prepare_copy(uint32_t source);
+void finish_copy(const std::shared_ptr<std::vector<FaceCopy>>& faces, uint32_t copy, uint8_t* scene, uint8_t* sector,
                 uint8_t* geom);
 // The scene's companions put in its collision grid / moved there (after UpdateSuperSectors).
-void Finalise(uint8_t* scene);
+void finalise(uint8_t* scene);
 // How many pieces have a companion, and their faces (the HUD's debug line, the log).
-int TotalOf(int* faces = nullptr);
+int total_of(int* faces = nullptr);
 // The collision view (level_editor_view.h): every live companion that is on (its piece's checksum and it); the faces of
 // a level geometry turned off for companions (their indices); a number that changes whenever faces are taken or given
 // back (its cache is made again then).
-void ForEachCompanion(void (*each)(void* context, uint32_t checksum, const Companion& companion), void* context);
-std::vector<int> TakenFaces(const Engine3D::CTriMeshSource* geometry);
-uint32_t Generation();
+void for_each_companion(void (*each)(void* context, uint32_t checksum, const Companion& companion), void* context);
+std::vector<int> taken_faces(const render::TriMeshSource* geometry);
+uint32_t get_generation();
 // (level_editor_faces.h - face flags edited) A level geometry's face taken along by a piece's companion: the piece, the
 // face's index in the companion and the flags it had (given back when the companion goes; the original carries 0x10
 // meanwhile). False: not taken.
-bool TakenFace(const Engine3D::CTriMeshSource* geometry, int face, uint32_t* piece, int* index, uint16_t* flags);
+bool taken_face(const render::TriMeshSource* geometry, int face, uint32_t* piece, int* index, uint16_t* flags);
 // A companion's face's origin: the level geometry and face it was taken from (false: none - a copy's companion, whose
 // faces are copies).
-bool OriginOf(uint32_t piece, int index, Engine3D::CTriMeshSource** geometry, int* face);
+bool origin_of(uint32_t piece, int index, render::TriMeshSource** geometry, int* face);
 // A taken face's flags set: the companion's copy and the flags given back when the companion goes (false: not taken).
-bool SetTakenFlags(const Engine3D::CTriMeshSource* geometry, int face, uint16_t flags);
+bool set_taken_flags(const render::TriMeshSource* geometry, int face, uint16_t flags);
 // The piece's companion (null: none, or its level gone).
-const Companion* CompanionOf(uint32_t piece);
+const Companion* companion_of(uint32_t piece);
 
-} // namespace MenuSystem::LevelEditor::SharedCollision
+} // namespace MenuSystem::level_editor::SharedCollision

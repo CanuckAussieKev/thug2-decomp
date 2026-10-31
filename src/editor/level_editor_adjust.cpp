@@ -10,7 +10,7 @@
 #include "editor/level_editor_ui.h"
 #include "platform/run_log.h"
 
-namespace MenuSystem::LevelEditor::Adjust {
+namespace frontend::level_editor::adjust {
 
 namespace {
 constexpr float kPi = 3.14159265f;
@@ -18,22 +18,22 @@ constexpr float kPi = 3.14159265f;
 
 // --- the pure parts ---------------------------------------------------------------------------------------------
 
-const char* Title(Kind kind)
+const char* get_title(Kind kind)
 {
     switch (kind) {
-    case Kind::ShiftBy: return "Move";
-    case Kind::Turn: return "Turn";
-    case Kind::StretchBy: return "Scale";
-    case Kind::Duplicate: return "Duplicate";
-    case Kind::Justify: return "Align";
-    case Kind::Distribute: return "Distribute";
-    case Kind::Place: return "Place";
-    case Kind::None: break;
+    case Kind::kShiftBy: return "Move";
+    case Kind::kTurn: return "Turn";
+    case Kind::scale_tool: return "Scale";
+    case Kind::kDuplicate: return "Duplicate";
+    case Kind::kJustify: return "Align";
+    case Kind::kDistribute: return "Distribute";
+    case Kind::kPlace: return "Place";
+    case Kind::kNone: break;
     }
     return "";
 }
 
-ActStep Normalised(const ActStep& action, float grid)
+ActStep normalised(const ActStep& action, float grid)
 {
     ActStep n = action;
     n.count = std::clamp(n.count, 1, kMaxCopies);
@@ -47,11 +47,11 @@ ActStep Normalised(const ActStep& action, float grid)
     if (n.quarters)
         n.degrees = 90.0f * std::round(n.degrees / 90.0f);
     if (n.grid && grid > 0.0f)
-        n.offset = {SnapToGrid(n.offset.x, grid), SnapToGrid(n.offset.y, grid), SnapToGrid(n.offset.z, grid)};
+        n.offset = {snap_to_grid(n.offset.x, grid), snap_to_grid(n.offset.y, grid), snap_to_grid(n.offset.z, grid)};
     return n;
 }
 
-bool Same(const ActStep& a, const ActStep& b)
+bool get_same(const ActStep& a, const ActStep& b)
 {
     auto same3 = [](V3 p, V3 q) { return p.x == q.x && p.y == q.y && p.z == q.z; };
     return a.kind == b.kind && same3(a.offset, b.offset) && a.degrees == b.degrees && a.quarters == b.quarters &&
@@ -60,9 +60,9 @@ bool Same(const ActStep& a, const ActStep& b)
            a.gaps == b.gaps && same3(a.pos, b.pos);
 }
 
-Xform::RepeatStep StepOf(const ActStep& action)
+xform::RepeatStep step_of(const ActStep& action)
 {
-    Xform::RepeatStep step;
+    xform::RepeatStep step;
     step.offset = action.offset;
     if (action.quarters) {
         step.quarters = ((static_cast<int>(std::lround(action.degrees / 90.0f)) % 4) + 4) % 4;
@@ -80,7 +80,7 @@ namespace {
 struct RamStats {
     bool valid = false;
     ActStep action;
-    Edit::Selected source, after; // (Duplicate: what it copied; the selection the action left)
+    edit::Selected source, after; // (Duplicate: what it copied; the selection the action left)
     V3 start = {};                // (Move: where it was)
     uint64_t serial = 0;          // (the undo stack's top when it was made)
 };
@@ -90,155 +90,155 @@ bool g_shown = true;
 bool g_pending;
 ActStep g_request;
 
-bool SameSelection(const Edit::Selected& a, const Edit::Selected& b) { return a.kind == b.kind && a.ids == b.ids; }
+bool same_selection(const edit::Selected& a, const edit::Selected& b) { return a.kind == b.kind && a.ids == b.ids; }
 
 // The action made again from where it started (its step taken back first - Place: moved / turned in place).
-void Apply(const ActStep& wanted)
+void get_apply(const ActStep& wanted)
 {
-    ActStep n = Normalised(wanted, Xform::Grid());
-    if (Same(n, g_last.action))
+    ActStep n = normalised(wanted, xform::get_grid());
+    if (get_same(n, g_last.action))
         return;
     g_applying = true;
-    size_t depth = Edit::Deepness();
+    size_t depth = edit::deepness();
     bool pushed = true;
     switch (n.kind) {
-    case Kind::Place: {
-        V3 pos = Edit::Pos();
+    case Kind::kPlace: {
+        V3 pos = edit::get_pos();
         if (pos.x != n.pos.x || pos.y != n.pos.y || pos.z != n.pos.z)
-            Edit::PlaceAt(n.pos);
+            edit::place_at(n.pos);
         float turn = n.degrees - g_last.action.degrees;
         if (std::fabs(turn) > 1e-4f)
-            Edit::TurnBy(turn * kPi / 180.0f);
-        Edit::Settle();
+            edit::turn_by(turn * kPi / 180.0f);
+        edit::get_settle();
         pushed = false;
         break;
     }
-    case Kind::ShiftBy:
-        Edit::TakeBack();
-        Edit::Begin();
-        Edit::PlaceAt(g_last.start + n.offset);
-        Edit::End();
+    case Kind::kShiftBy:
+        edit::take_back();
+        edit::get_begin();
+        edit::place_at(g_last.start + n.offset);
+        edit::get_end();
         break;
-    case Kind::Turn:
-        Edit::TakeBack();
-        Edit::Begin();
-        Edit::TurnBy(n.degrees * kPi / 180.0f);
-        Edit::End();
+    case Kind::kTurn:
+        edit::take_back();
+        edit::get_begin();
+        edit::turn_by(n.degrees * kPi / 180.0f);
+        edit::get_end();
         break;
-    case Kind::StretchBy:
-        Edit::TakeBack();
-        if (!Edit::ScaleBy(n.factor, n.uniform)) {
-            Edit::Begin(); // (at a limit, or back to 1: a step that changes nothing keeps the panel's place)
-            Edit::End();
+    case Kind::scale_tool:
+        edit::take_back();
+        if (!edit::scale_by(n.factor, n.uniform)) {
+            edit::get_begin(); // (at a limit, or back to 1: a step that changes nothing keeps the panel's place)
+            edit::get_end();
         }
         break;
-    case Kind::Duplicate: {
-        Edit::TakeBack();
-        Edit::ChooseOne(g_last.source);
-        depth = Edit::Deepness();
-        Xform::RepeatStep step = StepOf(n);
+    case Kind::kDuplicate: {
+        edit::take_back();
+        edit::choose_one(g_last.source);
+        depth = edit::deepness();
+        xform::RepeatStep step = step_of(n);
         for (int i = 0; i < n.count; ++i) {
-            if (Edit::Duplicate(&step).empty())
+            if (edit::get_duplicate(&step).empty())
                 break;
         }
-        Edit::Fold(depth);
-        pushed = Edit::Deepness() > depth;
+        edit::fold(depth);
+        pushed = edit::deepness() > depth;
         break;
     }
-    case Kind::Justify:
-    case Kind::Distribute: {
-        Edit::TakeBack();
-        bool done = n.kind == Kind::Justify
-                        ? Arrange::Justify(n.axis, static_cast<Arrange::Edge>(n.edge), static_cast<Arrange::Reference>(n.reference),
+    case Kind::kJustify:
+    case Kind::kDistribute: {
+        edit::take_back();
+        bool done = n.kind == Kind::kJustify
+                        ? arrange::justify(n.axis, static_cast<arrange::Edge>(n.edge), static_cast<arrange::Reference>(n.reference),
                                          n.local)
-                        : Arrange::Distribute(n.axis, n.gaps, n.local);
+                        : arrange::distribute(n.axis, n.gaps, n.local);
         if (!done) {
-            Edit::Begin();
-            Edit::End();
+            edit::get_begin();
+            edit::get_end();
         }
         break;
     }
-    case Kind::None:
+    case Kind::kNone:
         break;
     }
     g_applying = false;
-    if (n.kind != Kind::Place && !pushed) {
+    if (n.kind != Kind::kPlace && !pushed) {
         g_last.valid = false; // (nothing made: the step under it isn't this action's)
-        Hud::Message("Adjust: invalid values");
+        hud::get_message("Adjust: invalid values");
         return;
     }
     (void)depth;
     g_last.action = n;
-    g_last.serial = Edit::TopSerial();
-    g_last.after = Edit::Selection();
+    g_last.serial = edit::top_serial();
+    g_last.after = edit::get_selection();
 }
 
 } // namespace
 
-void Note(const ActStep& action)
+void get_note(const ActStep& action)
 {
     if (g_applying)
         return;
-    g_last.valid = action.kind != Kind::None;
+    g_last.valid = action.kind != Kind::kNone;
     g_last.action = action;
-    g_last.serial = Edit::TopSerial();
-    g_last.after = Edit::Selection();
-    if (action.kind == Kind::ShiftBy)
-        g_last.start = Edit::Pos() - action.offset;
-    if (action.kind == Kind::Place) {
-        g_last.action.pos = Edit::Pos();
+    g_last.serial = edit::top_serial();
+    g_last.after = edit::get_selection();
+    if (action.kind == Kind::kShiftBy)
+        g_last.start = edit::get_pos() - action.offset;
+    if (action.kind == Kind::kPlace) {
+        g_last.action.pos = edit::get_pos();
         g_last.action.degrees = 0.0f;
     }
     g_pending = false;
 }
 
-void NoteDuplicate(const Edit::Selected& source, const ActStep& action)
+void note_duplicate(const edit::Selected& source, const ActStep& action)
 {
     if (g_applying)
         return;
     g_last.source = source;
-    Note(action);
+    get_note(action);
 }
 
-bool Applying() { return g_applying; }
+bool applying() { return g_applying; }
 
-void Request(const ActStep& action, bool now)
+void get_request(const ActStep& action, bool now)
 {
     g_request = action;
     g_pending = true;
     (void)now;
 }
 
-const ActStep& FinalOne() { return g_last.action; }
+const ActStep& final_one() { return g_last.action; }
 
-bool Adjustable()
+bool get_adjustable()
 {
-    if (!g_last.valid || Edit::TopSerial() != g_last.serial)
+    if (!g_last.valid || edit::top_serial() != g_last.serial)
         return false;
     // (a placed thing: still the one selected)
-    return g_last.action.kind != Kind::Place || SameSelection(Edit::Selection(), g_last.after);
+    return g_last.action.kind != Kind::kPlace || same_selection(edit::get_selection(), g_last.after);
 }
 
-bool& Shown() { return g_shown; }
+bool& get_shown() { return g_shown; }
 
-void Tick()
+void tick()
 {
     // (F4 - its registry entry, level_editor_arrange.cpp - switches Shown)
-    if (!g_pending || Edit::Dragging())
+    if (!g_pending || edit::get_dragging())
         return;
     g_pending = false;
-    if (!Adjustable()) {
-        Hud::Message("Adjust: only the last operation can be adjusted");
+    if (!get_adjustable()) {
+        hud::get_message("Adjust: only the last operation can be adjusted");
         return;
     }
-    Apply(g_request);
+    get_apply(g_request);
 }
 
-void Forget()
+void get_forget()
 {
     g_last = RamStats{};
     g_pending = false;
     g_applying = false;
 }
 
-} // namespace MenuSystem::LevelEditor::Adjust
+} // namespace MenuSystem::level_editor::Adjust

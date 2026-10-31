@@ -6,32 +6,32 @@
 
 // Loading .qb files: defining their global symbols (values, structures, arrays and compressed scripts) and
 // restarting the running scripts whose code changed.
-namespace Scripts {
+namespace script {
 
-class CScript;
+class Script;
 
 // Define the global symbol `name` from the value at `token` (a .qb file's "name = value").
-const uint8_t* ParseSymbolDefinition(const uint8_t* token, uint32_t name, const char* filename);
+const uint8_t* parse_symbol_definition(const uint8_t* token, uint32_t name, const char* filename);
 // Make the script symbol `name` from `size` bytes of compiled code (compressed when that's smaller).
-CSymbolTableEntry* DefineScriptSymbol(uint32_t size, const uint8_t* code, uint32_t name, uint32_t checksum,
+SymbolTableEntry* define_script_symbol(uint32_t size, const uint8_t* code, uint32_t name, uint32_t checksum,
                                       const char* filename);
-// Define everything in the .qb file `data` (old format). With `useQbNames`, the file's checksum names go in
-// the .qb name table; with `temporary`, every change is undone by ProcessPendingSymbols.
-void ReadQbFile(const char* filename, const uint8_t* data, int unused, int useQbNames, int temporary);
+// Define everything in the .qb file `data` (old format). With `use_qb_names`, the file's checksum names go in
+// the .qb name table; with `temporary`, every change is undone by process_pending_symbols.
+void read_qb_file(const char* filename, const uint8_t* data, int unused, int use_qb_names, int temporary);
 // Restart the scripts running (or calling) a script that was just (re)defined.
-void RestartChangedScripts();
+void restart_changed_scripts();
 // Whether `script` is running `name` or has it on its call stack.
-bool ScriptRefersTo(const CScript* script, uint32_t name);
+bool script_refers_to(const Script* script, uint32_t name);
 // Define a .qb file already in memory (old or pre-compiled format), then restart changed scripts.
-void LoadQBData(const char* filename, const uint8_t* data, int unused, int useQbNames, int temporary);
+void load_qb_data(const char* filename, const uint8_t* data, int unused, int use_qb_names, int temporary);
 // Load and define the .qb file `filename`.
-void LoadQB(const char* filename, int unused, int temporary);
-// Remove every symbol defined by the .qb file whose name's checksum is `fileChecksum` (nothing for 0), stop the
+void load_qb(const char* filename, int unused, int temporary);
+// Remove every symbol defined by the .qb file whose name's checksum is `file_checksum` (nothing for 0), stop the
 // scripts running code that's gone, and unload the file if it's still loaded (pre-compiled ones are).
-void UnloadQB(uint32_t fileChecksum);
+void unload_qb(uint32_t file_checksum);
 
 // The entry points for the game's callers, which pass arguments in registers (also called by the self-tests).
-void ParseSymbolDefinitionStub();
-void CreateScriptSymbolStub();
+void parse_symbol_definition_stub();
+void create_script_symbol_stub();
 
 } // namespace Script

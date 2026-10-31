@@ -3,7 +3,7 @@
 // the code after it (0x0058CD40-). See park.h.
 //
 // The manager (0xA8 bytes, park.h) keeps up to 32 slots; a whole gap takes two - its first end's and its second end's -
-// both pointing at the same CGapRegistry::Gap.
+// both pointing at the same GapRegistry::Gap.
 
 #include <cstddef>
 #include <cstdint>
@@ -15,50 +15,50 @@
 #include "game/park_editing/park.h"
 #include "engine/script/param_struct.h"
 
-namespace ParkEditing {
+namespace park_editing {
 
 namespace {
 
 // Which end slot `slot` is of its gap: 0 its first (StartGap's), 1 its second.
-int Half(const CGapRegistry* manager, int slot) { return manager->m_startedFirst[slot] ? 0 : 1; }
+int get_half(const GapRegistry* manager, int slot) { return manager->started_first_[slot] ? 0 : 1; }
 
 // A piece's highlight (its sector's).
-void HighlightPiece(CParkTile* piece, bool on) { piece->SetVisible(on); }
+void highlight_piece(ParkTile* piece, bool on) { piece->set_visible(on); }
 
 } // namespace
 
 // 0x0058C990
-int CGapRegistry::FindEmptyGapSlot()
+int GapRegistry::find_empty_gap_slot()
 {
     for (int slot = 0; slot < kMaxGaps; ++slot) {
-        if (!m_gapsPtr[slot])
+        if (!gaps_ptr_[slot])
             return slot;
     }
     return -1;
 }
 
 // 0x0058C9B0
-void CGapRegistry::EndGap(void* piece, CPieceGroup* meta, int index)
+void GapRegistry::end_gap(void* piece, PieceGroup* meta, int index)
 {
-    Gap* gap = m_gapsPtr[index];
-    const int slot = FindEmptyGapSlot();
+    Gap* gap = gaps_ptr_[index];
+    const int slot = find_empty_gap_slot();
     if (slot < 0)
         return;
-    m_gapsPtr[slot] = gap;
-    gap->m_ids[1] = m_nextId;
-    ++m_nextId;
-    m_gapsPtr[slot]->m_pieces[1] = static_cast<CParkTile*>(piece);
-    m_gapsPtr[slot]->m_metas[1] = meta;
-    m_gapsPtr[slot]->m_details.m_slotIndex = index;
-    m_startedFirst[slot] = false;
+    gaps_ptr_[slot] = gap;
+    gap->ids_[1] = next_id_;
+    ++next_id_;
+    gaps_ptr_[slot]->pieces_[1] = static_cast<ParkTile*>(piece);
+    gaps_ptr_[slot]->metas_[1] = meta;
+    gaps_ptr_[slot]->details_.slot_index_ = index;
+    started_first_[slot] = false;
 }
 
 // 0x0058CA10
-bool CGapRegistry::GetGapIndex(CPieceGroup* meta, int* index)
+bool GapRegistry::get_gap_index(PieceGroup* meta, int* index)
 {
     for (int slot = 0; slot < kMaxGaps; ++slot) {
-        Gap* gap = m_gapsPtr[slot];
-        if (gap && gap->m_metas[Half(this, slot)] == meta) {
+        Gap* gap = gaps_ptr_[slot];
+        if (gap && gap->metas_[get_half(this, slot)] == meta) {
             if (index)
                 *index = slot;
             return true;
@@ -68,83 +68,83 @@ bool CGapRegistry::GetGapIndex(CPieceGroup* meta, int* index)
 }
 
 // 0x0058CA60
-uint32_t CGapRegistry::GetGapTriggerName(CParkTile* piece)
+uint32_t GapRegistry::get_gap_trigger_name(ParkTile* piece)
 {
     for (int slot = 0; slot < kMaxGaps; ++slot) {
-        Gap* gap = m_gapsPtr[slot];
-        if (!gap || gap->m_pieces[Half(this, slot)] != piece)
+        Gap* gap = gaps_ptr_[slot];
+        if (!gap || gap->pieces_[get_half(this, slot)] != piece)
             continue;
-        if ((slot & 1) && Scripts::FetchIntValue("PrintGaps")) {
-            Gap* record = m_gapsPtr[slot];
-            DebugOut::Printf("Editor Gap %d points: %s\n", record->m_details.m_pointsHeld, record->m_details.m_text);
+        if ((slot & 1) && script::fetch_int_value("PrintGaps")) {
+            Gap* record = gaps_ptr_[slot];
+            debug::printf("Editor Gap %d points: %s\n", record->details_.points_held_, record->details_.text_);
         }
         char name[32];
         std::snprintf(name, sizeof(name), "EditorTrgGap%d", slot);
-        return Checksums::HashFromText(name);
+        return checksums::hash_from_text(name);
     }
     return 0;
 }
 
 // 0x0058CB20
-SGapDetails* CGapRegistry::GetGapInfo(int index, int* half)
+GapDetails* GapRegistry::get_gap_info(int index, int* half)
 {
-    Gap* gap = m_gapsPtr[index];
+    Gap* gap = gaps_ptr_[index];
     if (!gap)
         return nullptr;
-    *half = Half(this, index);
+    *half = get_half(this, index);
     // The name copied over the text (unbounded: as the original's inline strcpy).
-    char* to = m_gapsPtr[index]->m_details.m_text;
-    const char* from = m_gapsPtr[index]->m_label;
+    char* to = gaps_ptr_[index]->details_.text_;
+    const char* from = gaps_ptr_[index]->label_;
     while ((*to++ = *from++) != '\0') {
     }
-    return &m_gapsPtr[index]->m_details;
+    return &gaps_ptr_[index]->details_;
 }
 
 // 0x0058CB70
-void CGapRegistry::ChangeGapInProgress(int index)
+void GapRegistry::change_gap_in_progress(int index)
 {
-    if (!m_gapsPtr[index])
+    if (!gaps_ptr_[index])
         return;
-    if (CParkTile* piece = m_gapsPtr[index]->m_pieces[0])
-        HighlightPiece(piece, true);
-    if (CParkTile* piece = m_gapsPtr[index]->m_pieces[1])
-        HighlightPiece(piece, true);
+    if (ParkTile* piece = gaps_ptr_[index]->pieces_[0])
+        highlight_piece(piece, true);
+    if (ParkTile* piece = gaps_ptr_[index]->pieces_[1])
+        highlight_piece(piece, true);
 }
 
 // 0x0058CBB0
-CGapRegistry* CGapRegistry::sSingleton() { return Sole(); }
+GapRegistry* GapRegistry::singleton() { return sole(); }
 
 // 0x0058CCC0
-CGapRegistry* CGapRegistry::MakeNew(CParkLayout* manager)
+GapRegistry* GapRegistry::make_new(ParkLayout* manager)
 {
-    m_nextId = 2000;
-    for (Gap*& gap : m_gapsPtr)
+    next_id_ = 2000;
+    for (Gap*& gap : gaps_ptr_)
         gap = nullptr;
-    m_parkOwner = manager;
-    Sole() = this;
+    park_owner_ = manager;
+    sole() = this;
     return this;
 }
 
 // 0x0058CBC0
-SGapDetails* SGapDetails::MakeNew()
+GapDetails* GapDetails::make_new()
 {
-    for (SCellBox& pos : m_atPoint)
-        pos.AssignValue(0, 0, 0, 0, 0, 0);
+    for (CellBox& pos : at_point_)
+        pos.assign_value(0, 0, 0, 0, 0, 0);
     return this;
 }
 
 // 0x0058CBF0
-float SGapDetails::FetchMagnitude(int half)
+float GapDetails::fetch_magnitude(int half)
 {
     // Its extents and its half's piece across the gap: the piece's length when it faces along z, its width along x.
-    const int extents = m_reachRight[half] + m_reachLeft[half];
-    switch (m_quarterTurns[half]) {
+    const int extents = reach_right_[half] + reach_left_[half];
+    switch (quarter_turns_[half]) {
     case 0:
     case 2:
-        return static_cast<float>((extents + m_atPoint[half].l) * static_cast<double>(kGridStepAlong));
+        return static_cast<float>((extents + at_point_[half].l) * static_cast<double>(kGridStepAlong));
     case 1:
     case 3:
-        return static_cast<float>((extents + m_atPoint[half].w) * static_cast<double>(kGridPitch));
+        return static_cast<float>((extents + at_point_[half].w) * static_cast<double>(kGridPitch));
     default:
         return 0.0f;
     }

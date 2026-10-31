@@ -12,7 +12,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 
-namespace MenuSystem::LevelEditor::Hud {
+namespace frontend::level_editor::hud {
 namespace {
 
 constexpr size_t kMaxText = 90;
@@ -25,13 +25,13 @@ constexpr float kLineHeight = 12.5f;
 
 std::map<std::string, std::string> g_shown; // element id -> text
 std::string g_message;
-uint32_t g_messageUntil;
+uint32_t g_message_until;
 bool g_panel;
 bool g_elements = true; // (false while the UI shows the editor)
-float g_panelX, g_panelY, g_panelWidth;
-size_t g_panelLines;
+float g_panel_x, g_panel_y, g_panel_width;
+size_t g_panel_lines;
 
-void ChangeCaption(const std::string& id, const std::string& full)
+void change_caption(const std::string& id, const std::string& full)
 {
     if (!g_elements)
         return;
@@ -41,88 +41,88 @@ void ChangeCaption(const std::string& id, const std::string& full)
         return;
     g_shown[id] = text;
     alignas(4) uint8_t memory[8];
-    Scripts::CStruct* params = reinterpret_cast<Scripts::CStruct*>(memory)->PrepareAll();
-    params->PutNameKey(kId, Checksums::HashFromText(id.c_str()));
-    params->AppendWord(kText, text.c_str());
-    Scripts::LaunchScript("level_editor_hud_set", params, nullptr, false);
-    params->Clear();
+    script::Struct* params = reinterpret_cast<script::Struct*>(memory)->prepare_all();
+    params->put_name_key(kId, checksums::hash_from_text(id.c_str()));
+    params->append_word(kText, text.c_str());
+    script::launch_script("level_editor_hud_set", params, nullptr, false);
+    params->get_clear();
 }
 
 } // namespace
 
-void Reset(bool screenElements)
+void get_reset(bool screen_elements)
 {
     g_shown.clear();
     g_message.clear();
-    g_messageUntil = 0;
+    g_message_until = 0;
     g_panel = false;
-    g_elements = screenElements;
+    g_elements = screen_elements;
 }
 
-const std::string& CurrentMessage() { return g_message; }
+const std::string& current_message() { return g_message; }
 
-void ChangeStrand(int line, const std::string& text)
+void change_strand(int line, const std::string& text)
 {
     char id[32];
     std::snprintf(id, sizeof(id), "level_editor_hud_%d", line);
-    ChangeCaption(id, text);
+    change_caption(id, text);
 }
 
-void Message(const std::string& text, double seconds)
+void get_message(const std::string& text, double seconds)
 {
     g_message = text;
-    g_messageUntil = SDL_GetTicks() + static_cast<uint32_t>(seconds * 1000.0);
-    ChangeStrand(7, text);
+    g_message_until = SDL_GetTicks() + static_cast<uint32_t>(seconds * 1000.0);
+    change_strand(7, text);
 }
 
-void Tick()
+void tick()
 {
-    if (!g_message.empty() && static_cast<int32_t>(SDL_GetTicks() - g_messageUntil) >= 0) {
+    if (!g_message.empty() && static_cast<int32_t>(SDL_GetTicks() - g_message_until) >= 0) {
         g_message.clear();
-        ChangeStrand(7, "");
+        change_strand(7, "");
     }
 }
 
-void ShowPanel(const std::vector<std::string>& lines, float x, float y, float width)
+void show_panel(const std::vector<std::string>& lines, float x, float y, float width)
 {
     if (!g_elements)
         return;
-    if (!g_panel || g_panelX != x || g_panelY != y || g_panelWidth != width || g_panelLines != lines.size()) {
+    if (!g_panel || g_panel_x != x || g_panel_y != y || g_panel_width != width || g_panel_lines != lines.size()) {
         alignas(4) uint8_t memory[8];
-        Scripts::CStruct* params = reinterpret_cast<Scripts::CStruct*>(memory)->PrepareAll();
+        script::Struct* params = reinterpret_cast<script::Struct*>(memory)->prepare_all();
         float height = 12.0f + kLineHeight * static_cast<float>(lines.size());
-        params->InsertPair(Checksums::HashFromText("pos"), x, y);
-        params->InsertPair(Checksums::HashFromText("scale"), width / kSpriteUnit, height / kSpriteUnitDown);
-        params->PutInt(Checksums::HashFromText("lines"), static_cast<int>(lines.size()));
-        Scripts::LaunchScript("level_editor_panel_show", params, nullptr, false);
-        params->Clear();
+        params->insert_pair(checksums::hash_from_text("pos"), x, y);
+        params->insert_pair(checksums::hash_from_text("scale"), width / kSpriteUnit, height / kSpriteUnitDown);
+        params->put_int(checksums::hash_from_text("lines"), static_cast<int>(lines.size()));
+        script::launch_script("level_editor_panel_show", params, nullptr, false);
+        params->get_clear();
         for (auto it = g_shown.begin(); it != g_shown.end();)
             it = it->first.rfind("level_editor_panel_", 0) == 0 ? g_shown.erase(it) : std::next(it);
         g_panel = true;
-        g_panelX = x;
-        g_panelY = y;
-        g_panelWidth = width;
-        g_panelLines = lines.size();
+        g_panel_x = x;
+        g_panel_y = y;
+        g_panel_width = width;
+        g_panel_lines = lines.size();
     }
     for (size_t i = 0; i < lines.size(); ++i) {
         char id[32];
         std::snprintf(id, sizeof(id), "level_editor_panel_%u", static_cast<unsigned>(i));
-        ChangeCaption(id, lines[i]);
+        change_caption(id, lines[i]);
     }
 }
 
-void HidePanel()
+void hide_panel()
 {
     if (!g_panel)
         return;
-    Scripts::LaunchScript("level_editor_panel_hide", nullptr, nullptr, false);
+    script::launch_script("level_editor_panel_hide", nullptr, nullptr, false);
     for (auto it = g_shown.begin(); it != g_shown.end();)
         it = it->first.rfind("level_editor_panel_", 0) == 0 ? g_shown.erase(it) : std::next(it);
     g_panel = false;
 }
 
-bool PanelShown() { return g_panel; }
+bool panel_shown() { return g_panel; }
 
-std::string Key(const char* keys) { return std::string("\\c1") + keys + "\\c0"; }
+std::string get_key(const char* keys) { return std::string("\\c1") + keys + "\\c0"; }
 
-} // namespace MenuSystem::LevelEditor::Hud
+} // namespace MenuSystem::level_editor::Hud

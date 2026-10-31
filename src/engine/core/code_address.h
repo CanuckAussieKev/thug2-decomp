@@ -7,7 +7,7 @@
 
 // The code address of a free function or a simple member function.
 template <typename F>
-void* CodeAddress(F f)
+void* code_address(F f)
 {
     static_assert(sizeof(F) == sizeof(void*), "only plain functions and simple member functions");
     void* p;
@@ -19,12 +19,12 @@ extern "C" int __cdecl _purecall(void); // (the C runtime's: a pure virtual slot
 
 // One slot of a hand-built virtual table:
 //
-//   static VtableSlot kRegionVtable_slots[] = {&AllocAdapters::RegionDestroy, &_purecall};
-//   void** const kRegionVtable = reinterpret_cast<void**>(kRegionVtable_slots);
+//   static VtableSlot g_region_vtable_slots[] = {&AllocAdapters::region_destroy, &_purecall};
+//   void** const kRegionVtable = reinterpret_cast<void**>(g_region_vtable_slots);
 struct VtableSlot {
     void* code;
     template <typename F>
-    VtableSlot(F f) : code(CodeAddress(f))
+    VtableSlot(F f) : code(code_address(f))
     {
     }
 };

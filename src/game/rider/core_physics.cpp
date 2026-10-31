@@ -30,12 +30,12 @@
 #include "platform/run_log.h"
 #include "engine/objects/trigger_events.h"
 
-namespace Skater {
+namespace skater {
 
 namespace {
 
 template <typename T>
-T& At(void* object, uint32_t offset)
+T& get_at(void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
@@ -79,59 +79,59 @@ constexpr uint32_t kButton80 = 0x80;
 constexpr uint32_t kTrigger1 = 0xC0;
 constexpr uint32_t kTrigger2 = 0x120;
 
-Maths::Vec4& VectorAt(void* object, uint32_t offset) { return At<Maths::Vec4>(object, offset); }
+maths::Vec4& vector_at(void* object, uint32_t offset) { return get_at<maths::Vec4>(object, offset); }
 
 // 0x00580400 / 0x00580440: a physics value (the skater's own tuning structure for `object`, else the global
 // script value).
-float TuningFloatLookup(uint32_t name, void* object)
+float tuning_float_lookup(uint32_t name, void* object)
 {
-    return GameObjects::ReadTuningFloat(name, 1, static_cast<GameObjects::CGameEntity*>(object));
+    return objects::read_tuning_float(name, 1, static_cast<objects::GameEntity*>(object));
 }
-int PhysicsInteger(uint32_t name, void* object)
+int physics_integer(uint32_t name, void* object)
 {
-    return GameObjects::ReadTuningInt(name, 1, static_cast<GameObjects::CGameEntity*>(object));
+    return objects::read_tuning_int(name, 1, static_cast<objects::GameEntity*>(object));
 }
 
 // The game's clock (0x0044ECE0, plus the offset at 0x00696D60).
-int Now()
+int get_now()
 {
-    int time = FrameClock::GameClockElapsed();
-    return time + GameObjects::g_clockOffset;
+    int time = frame_clock::game_clock_elapsed();
+    return time + objects::g_clock_offset;
 }
 
 // A timed flag: a bool and, after it, the time it last changed.
-void SetTimedFlag(void* flags, uint32_t offset, uint8_t value)
+void set_timed_flag(void* flags, uint32_t offset, uint8_t value)
 {
-    uint8_t& flag = At<uint8_t>(flags, offset);
+    uint8_t& flag = get_at<uint8_t>(flags, offset);
     if (flag == value)
         return;
     flag = value;
-    At<int>(flags, offset + 4) = Now();
+    get_at<int>(flags, offset + 4) = get_now();
 }
 
 // A button's times: since it was last pressed (0x0046B920) / released (0x0046B900).
-int TimeSincePress(uint8_t* button) { return reinterpret_cast<GameObjects::CControlButton*>(button)->GetHeldMillis(); }
-int TimeSinceRelease(uint8_t* button) { return reinterpret_cast<GameObjects::CControlButton*>(button)->ReadLetGoTime(); }
+int time_since_press(uint8_t* button) { return reinterpret_cast<objects::ControlButton*>(button)->get_held_millis(); }
+int time_since_release(uint8_t* button) { return reinterpret_cast<objects::ControlButton*>(button)->read_let_go_time(); }
 
 // The components the skater's physics reaches through its own fields.
-GameObjects::CActivationZoneModule* TriggerOf(void* component)
+objects::ActivationZoneModule* trigger_of(void* component)
 {
-    return static_cast<GameObjects::CActivationZoneModule*>(At<void*>(component, kActivationZoneSlot));
+    return static_cast<objects::ActivationZoneModule*>(get_at<void*>(component, kActivationZoneSlot));
 }
-Engine3D::CProbeRay* FeelerAt(void* component, uint32_t offset) { return &At<Engine3D::CProbeRay>(component, offset); }
-const int* Events(uint32_t address) { return reinterpret_cast<const int*>(address); }
-void StopRiding(void* ride) { static_cast<GameObjects::CMovingSurfaceModule*>(ride)->StopRiding(); }
+render::ProbeRay* feeler_at(void* component, uint32_t offset) { return &get_at<render::ProbeRay>(component, offset); }
+const int* get_events(uint32_t address) { return reinterpret_cast<const int*>(address); }
+void stop_riding(void* ride) { static_cast<objects::MovingSurfaceModule*>(ride)->stop_riding(); }
 
 // The two triggers: both held - or, under PartyMod's PS2 controls (its JZ -> JNZ at each check), either.
-bool TriggersHeld(const uint8_t* input)
+bool triggers_held(const uint8_t* input)
 {
-    if (Ps2Controls())
+    if (ps2_controls())
         return input[kTrigger1] || input[kTrigger2];
     return input[kTrigger1] && input[kTrigger2];
 }
 
 // velocity += direction * scale, the x component's product unrounded (the original keeps it on the x87 stack).
-void StackOn(Maths::Vec4& velocity, const Maths::Vec4& direction, float scale)
+void stack_on(maths::Vec4& velocity, const maths::Vec4& direction, float scale)
 {
     float y = direction.y * scale;
     float z = direction.z * scale;
@@ -145,41 +145,41 @@ void StackOn(Maths::Vec4& velocity, const Maths::Vec4& direction, float scale)
 } // namespace
 
 // 0x004FCBA0
-int SkaterPhysicsModule::LipPushOff(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::lip_push_off(script::Struct*, script::Script*)
 {
-    void* object = At<void*>(this, kObject);
-    const Maths::Vec4& facing = VectorAt(object, kFacing);
-    Maths::Vec4 forward = {facing.x, 0.0f, facing.z, facing.w};
+    void* object = get_at<void*>(this, kObject);
+    const maths::Vec4& facing = vector_at(object, kFacing);
+    maths::Vec4 forward = {facing.x, 0.0f, facing.z, facing.w};
     double length = std::sqrt(static_cast<double>(forward.z) * forward.z + static_cast<double>(forward.x) * forward.x);
     if (length > 0.0) {
         double scale = 1.0 / length; // (w isn't scaled; y stays 0)
         forward.x = static_cast<float>(forward.x * scale);
         forward.z = static_cast<float>(forward.z * scale);
     }
-    Maths::Vec4 side = {forward.z, 0.0f, -forward.x, 0.0f};
+    maths::Vec4 side = {forward.z, 0.0f, -forward.x, 0.0f};
 
-    uint8_t* input = At<uint8_t*>(this, kInput);
+    uint8_t* input = get_at<uint8_t*>(this, kInput);
     if (input[kButton80])
         return 0;
     // (The original: both triggers. PartyMod's JZ -> JNZ at 0x004FCC59 makes it either.)
-    if (TriggersHeld(input)) {
-        float scale = TuningFloatLookup(0x1F96C224, object);
-        StackOn(VectorAt(At<void*>(this, kObject), kVelocity), forward, scale);
+    if (triggers_held(input)) {
+        float scale = tuning_float_lookup(0x1F96C224, object);
+        stack_on(vector_at(get_at<void*>(this, kObject), kVelocity), forward, scale);
         return 1;
     }
     if (input[kButton60]) {
-        int wait = PhysicsInteger(0x3080E9E7, object);
-        if (TimeSincePress(input + kButton60) > wait) {
-            float scale = TuningFloatLookup(0xDC818B7E, object);
-            StackOn(VectorAt(At<void*>(this, kObject), kVelocity), forward, scale);
+        int wait = physics_integer(0x3080E9E7, object);
+        if (time_since_press(input + kButton60) > wait) {
+            float scale = tuning_float_lookup(0xDC818B7E, object);
+            stack_on(vector_at(get_at<void*>(this, kObject), kVelocity), forward, scale);
             return 1;
         }
     }
     if (input[kButton20]) {
-        int wait = PhysicsInteger(0x9B25142A, object);
-        if (TimeSincePress(input + kButton20) > wait) {
-            float scale = TuningFloatLookup(0x1AB3809F, object);
-            Maths::Vec4& velocity = VectorAt(At<void*>(this, kObject), kVelocity);
+        int wait = physics_integer(0x9B25142A, object);
+        if (time_since_press(input + kButton20) > wait) {
+            float scale = tuning_float_lookup(0x1AB3809F, object);
+            maths::Vec4& velocity = vector_at(get_at<void*>(this, kObject), kVelocity);
             // velocity -= side * scale (x's product unrounded, as above)
             float y = scale * 0.0f;
             float z = -forward.x * scale;
@@ -191,10 +191,10 @@ int SkaterPhysicsModule::LipPushOff(Scripts::CStruct*, Scripts::CScript*)
         }
     }
     if (input[kButton40]) {
-        int wait = PhysicsInteger(0x9B25142A, object);
-        if (TimeSincePress(input + kButton40) > wait) {
-            float scale = TuningFloatLookup(0x1AB3809F, object);
-            VectorAt(At<void*>(this, kObject), kVelocity) += side * scale;
+        int wait = physics_integer(0x9B25142A, object);
+        if (time_since_press(input + kButton40) > wait) {
+            float scale = tuning_float_lookup(0x1AB3809F, object);
+            vector_at(get_at<void*>(this, kObject), kVelocity) += side * scale;
             return 1;
         }
     }
@@ -210,48 +210,48 @@ namespace {
 // velocity, as GetSpeed reads it) at the first and at the last, the height. (Only boosts are seen: a loop on a rail
 // that doesn't climb boosts nothing and logs nothing.)
 struct RailBoostLog {
-    Scripts::CScript* script = nullptr;
-    std::chrono::steady_clock::time_point last, windowStart;
+    script::Script* script = nullptr;
+    std::chrono::steady_clock::time_point last, window_start_;
     int boosts = 0;
-    float speedFrom = 0.0f, heightFrom = 0.0f;
+    float speed_from_ = 0.0f, height_from_ = 0.0f;
 };
 
-void LogRailBoost(Scripts::CScript* script, float before, float after, float height)
+void log_rail_boost(script::Script* script, float before, float after, float height)
 {
-    static const bool on = ConfigInt("features", "debug_rail_speed", 0) != 0;
-    if (!on || !script)
+    static const bool kOn = config_int("features", "debug_rail_speed", 0) != 0;
+    if (!kOn || !script)
         return;
-    static const uint32_t kLoops[] = {Checksums::HashFromText("RailAccelerate2"),
-                                      Checksums::HashFromText("ed_RailSpeedLoop")};
-    if (script->m_scriptTitle != kLoops[0] && script->m_scriptTitle != kLoops[1])
+    static const uint32_t kLoops[] = {checksums::hash_from_text("RailAccelerate2"),
+                                      checksums::hash_from_text("ed_RailSpeedLoop")};
+    if (script->script_title_ != kLoops[0] && script->script_title_ != kLoops[1])
         return;
     static RailBoostLog log;
     auto now = std::chrono::steady_clock::now();
     auto seconds = [](std::chrono::steady_clock::duration d) { return std::chrono::duration<double>(d).count(); };
     if (script != log.script || seconds(now - log.last) > 0.5) {
         float rate = 0.0f;
-        script->m_args->FetchFloat(Checksums::HashFromText("rate"), &rate, 0);
-        Log("rail speed-up: %s boosting (rate %.3f): speed %.0f -> %.0f, height %.0f",
-            script->m_scriptTitle == kLoops[0] ? "RailAccelerate2" : "ed_RailSpeedLoop", rate, before, after, height);
+        script->args_->fetch_float(checksums::hash_from_text("rate"), &rate, 0);
+        get_log("rail speed-up: %s boosting (rate %.3f): speed %.0f -> %.0f, height %.0f",
+            script->script_title_ == kLoops[0] ? "RailAccelerate2" : "ed_RailSpeedLoop", rate, before, after, height);
         log.script = script;
-        log.windowStart = now;
+        log.window_start_ = now;
         log.boosts = 0;
-        log.speedFrom = before;
-        log.heightFrom = height;
+        log.speed_from_ = before;
+        log.height_from_ = height;
     } else {
         ++log.boosts;
-        double window = seconds(now - log.windowStart);
+        double window = seconds(now - log.window_start_);
         if (window >= 1.0) {
             // (the speed the skater had before each boost - what the rail physics and the speed limit left of the
             // last one)
-            Log("rail speed-up: %.2f s, %d boosts: speed %.0f -> %.0f (%+.0f a second; this boost to %.0f), height "
+            get_log("rail speed-up: %.2f s, %d boosts: speed %.0f -> %.0f (%+.0f a second; this boost to %.0f), height "
                 "%.0f -> %.0f",
-                window, log.boosts, log.speedFrom, before, (before - log.speedFrom) / window, after, log.heightFrom,
+                window, log.boosts, log.speed_from_, before, (before - log.speed_from_) / window, after, log.height_from_,
                 height);
-            log.windowStart = now;
+            log.window_start_ = now;
             log.boosts = 0;
-            log.speedFrom = before;
-            log.heightFrom = height;
+            log.speed_from_ = before;
+            log.height_from_ = height;
         }
     }
     log.last = now;
@@ -260,19 +260,19 @@ void LogRailBoost(Scripts::CScript* script, float before, float after, float hei
 } // namespace
 
 // 0x004FCE90
-int SkaterPhysicsModule::SetSpeed(Scripts::CStruct* params, Scripts::CScript* script)
+int SkaterPhysicsModule::set_speed(script::Struct* params, script::Script* script)
 {
     float speed = 0.0f;
-    params->FetchFloat(0u, &speed, 0); // (unnamed)
-    void* object = At<void*>(this, kObject);
-    Maths::Vec4& velocity = VectorAt(object, kVelocity);
-    double lengthSqr = static_cast<double>(velocity.x) * velocity.x + static_cast<double>(velocity.y) * velocity.y +
+    params->fetch_float(0u, &speed, 0); // (unnamed)
+    void* object = get_at<void*>(this, kObject);
+    maths::Vec4& velocity = vector_at(object, kVelocity);
+    double length_sqr = static_cast<double>(velocity.x) * velocity.x + static_cast<double>(velocity.y) * velocity.y +
                        static_cast<double>(velocity.z) * velocity.z;
-    float before = static_cast<float>(std::sqrt(lengthSqr));
-    if (lengthSqr < static_cast<double>(0.001f)) { // (not taken for a NaN)
-        std::memcpy(&velocity, &VectorAt(object, kFacing), sizeof(velocity)); // (moved, not loaded as floats)
+    float before = static_cast<float>(std::sqrt(length_sqr));
+    if (length_sqr < static_cast<double>(0.001f)) { // (not taken for a NaN)
+        std::memcpy(&velocity, &vector_at(object, kFacing), sizeof(velocity)); // (moved, not loaded as floats)
     } else {
-        double scale = 1.0 / std::sqrt(lengthSqr);
+        double scale = 1.0 / std::sqrt(length_sqr);
         velocity.x = static_cast<float>(scale * velocity.x);
         velocity.y = static_cast<float>(scale * velocity.y);
         velocity.z = static_cast<float>(scale * velocity.z);
@@ -282,352 +282,352 @@ int SkaterPhysicsModule::SetSpeed(Scripts::CStruct* params, Scripts::CScript* sc
     velocity.y = speed * velocity.y;
     velocity.z = speed * velocity.z;
     velocity.w = speed * velocity.w;
-    LogRailBoost(script, before, speed, VectorAt(object, kPosition).y);
+    log_rail_boost(script, before, speed, vector_at(object, kPosition).y);
     return 1;
 }
 
 // 0x00509BD0
-void SkaterPhysicsModule::CheckForGround()
+void SkaterPhysicsModule::check_for_ground()
 {
-    void* object = At<void*>(this, kObject);
-    uint8_t* input = At<uint8_t*>(this, kInput);
+    void* object = get_at<void*>(this, kObject);
+    uint8_t* input = get_at<uint8_t*>(this, kInput);
     // Not original: THAW 0x005DF050 - on the bike (out of a manual) the two wheels instead (thaw_bmx_physics.cpp).
-    bool bike = ThawBmx::LiveNow(this);
-    ThawBmx::WheelGround wheels = bike ? ThawBmx::WheelGroundCheck(this) : ThawBmx::kWheelsNotUsed;
-    if (wheels == ThawBmx::kWheelsOnGround || wheels == ThawBmx::kWheelsOnGroundNoHit) {
-        GroundUnderWheels(wheels == ThawBmx::kWheelsOnGround);
+    bool bike = thaw_bmx::live_now(this);
+    thaw_bmx::WheelGround wheels = bike ? thaw_bmx::wheel_ground_check(this) : thaw_bmx::kWheelsNotUsed;
+    if (wheels == thaw_bmx::kWheelsOnGround || wheels == thaw_bmx::kWheelsOnGroundNoHit) {
+        ground_under_wheels(wheels == thaw_bmx::kWheelsOnGround);
         return;
     }
-    if (wheels == ThawBmx::kWheelsNotUsed) {
+    if (wheels == thaw_bmx::kWheelsNotUsed) {
         // The feeler: from above the skater (up * a physics value) to 200 below, along its up axis.
-        float above = TuningFloatLookup(0xE4D79235, object);
-        Maths::Vec4& start = VectorAt(this, kProbeOrigin);
-        Maths::Vec4& end = VectorAt(this, kProbeTip);
-        start = VectorAt(object, kUp) * above;
-        end = VectorAt(object, kUp) * -200.0f;
-        start += VectorAt(object, kPosition);
-        end += VectorAt(object, kPosition);
+        float above = tuning_float_lookup(0xE4D79235, object);
+        maths::Vec4& start = vector_at(this, kProbeOrigin);
+        maths::Vec4& end = vector_at(this, kProbeTip);
+        start = vector_at(object, kUp) * above;
+        end = vector_at(object, kUp) * -200.0f;
+        start += vector_at(object, kPosition);
+        end += vector_at(object, kPosition);
 
-        if (ProbeTouchesZone(0x10, 0)) {
-            const Maths::Vec4& position = VectorAt(object, kPosition);
-            const Maths::Vec4& point = VectorAt(this, kHitPoint);
-            const Maths::Vec4& up = VectorAt(object, kUp);
+        if (probe_touches_zone(0x10, 0)) {
+            const maths::Vec4& position = vector_at(object, kPosition);
+            const maths::Vec4& point = vector_at(this, kHitPoint);
+            const maths::Vec4& up = vector_at(object, kUp);
             double dx = static_cast<double>(position.x) - point.x;
             double dy = static_cast<double>(position.y) - point.y;
             double dz = static_cast<double>(position.z) - point.z;
             float distance = static_cast<float>(std::sqrt(dx * dx + dz * dz + dy * dy));
             float along = static_cast<float>(dz * up.z + dy * up.y + dx * up.x); // (how far above the hit, along up)
 
-            if (!At<uint8_t>(this, kHitSkatable)) {
+            if (!get_at<uint8_t>(this, kHitSkatable)) {
                 // Not ground: if the skater is (nearly) at or below it, move it out by the hit's normal; then leave.
                 if (along < 0.001f) {
-                    Maths::Vec4& p = VectorAt(object, kPosition);
-                    const Maths::Vec4& normal = VectorAt(this, kHitNormal);
+                    maths::Vec4& p = vector_at(object, kPosition);
+                    const maths::Vec4& normal = vector_at(this, kHitNormal);
                     float x = point.x + normal.x, y = point.y + normal.y, z = point.z + normal.z, w = point.w + normal.w;
                     p.z = z;
                     p.w = w;
                     p.x = x;
                     p.y = y;
                 }
-                CollisionEvents::NotePath(this, CollisionEvents::RouteWay::GroundUnskatable,
-                                          VectorAt(object, kVelocity)); // (not original)
+                collision_events::note_path(this, collision_events::RouteWay::kGroundUnskatable,
+                                          vector_at(object, kVelocity)); // (not original)
             } else {
                 // Ground. The facing turned into the hit's plane and into the ground's plane: a hit at too steep
                 // an angle to the current ground (cos of a physics angle - one value with button +0x20 held,
                 // another without), or too far away for how fast the skater moves, isn't kept to.
-                Maths::Vec4 normal = VectorAt(this, kHitNormal);
-                Maths::Vec4 facing = VectorAt(object, kFacing);
-                if (bike && ThawBmx::RollingBackwards(this)) // (not original: THAW 0x005DEB08, rolling back on the bike)
+                maths::Vec4 normal = vector_at(this, kHitNormal);
+                maths::Vec4 facing = vector_at(object, kFacing);
+                if (bike && thaw_bmx::rolling_backwards(this)) // (not original: THAW 0x005DEB08, rolling back on the bike)
                     facing = {-facing.x, -facing.y, -facing.z, -facing.w};
-                Maths::Vec4 inHitPlane = facing;
-                Maths::Vec4 inGroundPlane = facing;
-                float facingIntoHit = static_cast<float>(static_cast<double>(facing.x) * normal.x +
+                maths::Vec4 in_hit_plane = facing;
+                maths::Vec4 in_ground_plane = facing;
+                float facing_into_hit = static_cast<float>(static_cast<double>(facing.x) * normal.x +
                                                          static_cast<double>(facing.z) * normal.z +
                                                          static_cast<double>(facing.y) * normal.y);
-                inHitPlane.AlignToPlane(normal);
-                inGroundPlane.AlignToPlane(VectorAt(this, kFloorUpVector));
-                float turn = static_cast<float>(static_cast<double>(inGroundPlane.x) * inHitPlane.x +
-                                                static_cast<double>(inGroundPlane.z) * inHitPlane.z +
-                                                static_cast<double>(inGroundPlane.y) * inHitPlane.y);
-                float angle = TuningFloatLookup(input[kButton20] ? 0x4138283E : 0xEF161C2A, object);
+                in_hit_plane.align_to_plane(normal);
+                in_ground_plane.align_to_plane(vector_at(this, kFloorUpVector));
+                float turn = static_cast<float>(static_cast<double>(in_ground_plane.x) * in_hit_plane.x +
+                                                static_cast<double>(in_ground_plane.z) * in_hit_plane.z +
+                                                static_cast<double>(in_ground_plane.y) * in_hit_plane.y);
+                float angle = tuning_float_lookup(input[kButton20] ? 0x4138283E : 0xEF161C2A, object);
                 double limit = std::cos(static_cast<double>(angle) * 0.0174532924f); // (degrees to radians)
                 bool keep = true;
-                if (facingIntoHit > 0.0f && turn > 0.0f && turn < limit)
+                if (facing_into_hit > 0.0f && turn > 0.0f && turn < limit)
                     keep = false;
                 if (keep && along > 0.0f) {
                     // How far the skater could have dropped this frame at that angle (at least a physics value).
                     float cosine = turn > 1.0f ? 1.0f : (turn < -1.0f ? -1.0f : turn);
-                    const Maths::Vec4& p = VectorAt(object, kPosition);
-                    const Maths::Vec4& old = VectorAt(object, kOldPosition);
+                    const maths::Vec4& p = vector_at(object, kPosition);
+                    const maths::Vec4& old = vector_at(object, kOldPosition);
                     float mx = p.x - old.x, my = p.y - old.y, mz = p.z - old.z;
                     double moved = std::sqrt(static_cast<double>(mx) * mx + static_cast<double>(mz) * mz +
                                              static_cast<double>(my) * my);
                     float reach = static_cast<float>(std::tan(std::acos(static_cast<double>(cosine))) * moved);
-                    float least = TuningFloatLookup(0x899BA3D0, object);
+                    float least = tuning_float_lookup(0x899BA3D0, object);
                     if (reach < least)
                         reach = least;
                     if (distance > reach)
                         keep = false;
                 }
                 if (keep) {
-                    void* flags = At<void*>(this, kTimedFlags);
-                    SetTimedFlag(flags, 0x40, At<uint8_t>(this, kHitFlag));
-                    TurnToNormal(normal);
-                    VectorAt(object, kPosition) = VectorAt(this, kHitPoint);
-                    flags = At<void*>(this, kTimedFlags);
-                    if (At<int>(flags, 0x18) == 0 && distance > 2.0f && turn > 0.99f)
-                        SetTimedFlag(flags, 0x98, 1);
-                    uint8_t surface = At<uint8_t>(this, kSurfaceFlags);
-                    static_cast<GameObjects::CRiderPoseState*>(At<void*>(this, kTimedFlags))->SetSurfaceKind(surface);
-                    At<uint8_t>(At<uint8_t*>(this, kOtherComponent), 0x1C) = surface;
-                    if (!bike || !ThawBmx::LerpDisplayNormal(this)) // (not original: the bike's, THAW 0x005CB420)
-                        UpdateGroundNormal();
-                    StartRidingHitObject();
-                    if (At<int>(this, 0x1AC) != At<int>(this, 0xFC)) {
-                        TriggerOf(this)->ProbeTouchesZone(g_kickEvents, FeelerAt(this, kOtherFeeler));
-                        if (At<uint8_t>(At<uint8_t*>(this, kTriggerState), 0x26))
+                    void* flags = get_at<void*>(this, kTimedFlags);
+                    set_timed_flag(flags, 0x40, get_at<uint8_t>(this, kHitFlag));
+                    turn_to_normal(normal);
+                    vector_at(object, kPosition) = vector_at(this, kHitPoint);
+                    flags = get_at<void*>(this, kTimedFlags);
+                    if (get_at<int>(flags, 0x18) == 0 && distance > 2.0f && turn > 0.99f)
+                        set_timed_flag(flags, 0x98, 1);
+                    uint8_t surface = get_at<uint8_t>(this, kSurfaceFlags);
+                    static_cast<objects::RiderPoseState*>(get_at<void*>(this, kTimedFlags))->set_surface_kind(surface);
+                    get_at<uint8_t>(get_at<uint8_t*>(this, kOtherComponent), 0x1C) = surface;
+                    if (!bike || !thaw_bmx::lerp_display_normal(this)) // (not original: the bike's, THAW 0x005CB420)
+                        update_ground_normal();
+                    start_riding_hit_object();
+                    if (get_at<int>(this, 0x1AC) != get_at<int>(this, 0xFC)) {
+                        trigger_of(this)->probe_touches_zone(kKickEvents, feeler_at(this, kOtherFeeler));
+                        if (get_at<uint8_t>(get_at<uint8_t*>(this, kTriggerState), 0x26))
                             return;
-                        TriggerOf(this)->ProbeTouchesZone(g_skaterEvents0064BBB0, FeelerAt(this, kFeeler));
-                        if (At<uint8_t>(At<uint8_t*>(this, kTriggerState), 0x26))
+                        trigger_of(this)->probe_touches_zone(kSkaterEvents0064bBb0, feeler_at(this, kFeeler));
+                        if (get_at<uint8_t>(get_at<uint8_t*>(this, kTriggerState), 0x26))
                             return;
                     }
-                    void* skater = At<void*>(this, kSkaterComponent);
-                    if (!At<uint8_t>(skater, 0x13B0))
-                        static_cast<GameObjects::CMoveExecutor*>(skater)->SetTrickObjects(false);
-                    FeelerAt(this, kOtherFeeler)->Assign(*FeelerAt(this, kFeeler));
-                    At<uint8_t>(At<uint8_t*>(this, kOtherComponent), 0x1D) = At<uint8_t>(this, 0x1AA);
+                    void* skater = get_at<void*>(this, kSkaterComponent);
+                    if (!get_at<uint8_t>(skater, 0x13B0))
+                        static_cast<objects::MoveExecutor*>(skater)->set_trick_objects(false);
+                    feeler_at(this, kOtherFeeler)->get_assign(*feeler_at(this, kFeeler));
+                    get_at<uint8_t>(get_at<uint8_t*>(this, kOtherComponent), 0x1D) = get_at<uint8_t>(this, 0x1AA);
                     return;
                 }
-                CollisionEvents::NotePath(this, CollisionEvents::RouteWay::GroundRejected,
-                                          VectorAt(object, kVelocity)); // (not original)
+                collision_events::note_path(this, collision_events::RouteWay::kGroundRejected,
+                                          vector_at(object, kVelocity)); // (not original)
             }
         } else {
-            CollisionEvents::NotePath(this, CollisionEvents::RouteWay::NoGround, VectorAt(object, kVelocity)); // (not original)
+            collision_events::note_path(this, collision_events::RouteWay::kNoGround, vector_at(object, kVelocity)); // (not original)
         }
     } // (not original: wheels == kWheelsNotUsed)
 
     // Off the ground.
-    SetPhysicsState(1);
-    CollisionEvents::Checkpoint(this, "set-air-4FDED0"); // (not original)
-    static_cast<GameObjects::CEntity*>(At<void*>(this, kObject))->Announce(0xD96F01F1, nullptr, 0.0f);
-    CollisionEvents::Checkpoint(this, "SkaterOffEdge-event"); // (not original)
-    static_cast<GameObjects::CEntity*>(At<void*>(this, kObject))->PostOwnEvent(0x3B1001B6, nullptr);
-    CollisionEvents::Checkpoint(this, "GroundGone-event"); // (not original)
-    StartVertAir();
-    CollisionEvents::Checkpoint(this, "after-4FEBA0"); // (not original)
-    void* flags = At<void*>(this, kTimedFlags);
-    if (At<uint8_t>(flags, 0x30)) {
-        SetTimedFlag(flags, 0x48, 1);
+    set_physics_state(1);
+    collision_events::checkpoint(this, "set-air-4FDED0"); // (not original)
+    static_cast<objects::Entity*>(get_at<void*>(this, kObject))->announce(0xD96F01F1, nullptr, 0.0f);
+    collision_events::checkpoint(this, "SkaterOffEdge-event"); // (not original)
+    static_cast<objects::Entity*>(get_at<void*>(this, kObject))->post_own_event(0x3B1001B6, nullptr);
+    collision_events::checkpoint(this, "GroundGone-event"); // (not original)
+    start_vert_air();
+    collision_events::checkpoint(this, "after-4FEBA0"); // (not original)
+    void* flags = get_at<void*>(this, kTimedFlags);
+    if (get_at<uint8_t>(flags, 0x30)) {
+        set_timed_flag(flags, 0x48, 1);
         // The original: unless both triggers are held. PartyMod only turns the first check's JZ into a JNZ (at
         // 0x00509E47), so under its PS2 controls this is skipped only while the second is held without the first.
-        bool skip = Ps2Controls() ? !input[kTrigger1] && input[kTrigger2] : input[kTrigger1] && input[kTrigger2];
+        bool skip = ps2_controls() ? !input[kTrigger1] && input[kTrigger2] : input[kTrigger1] && input[kTrigger2];
         if (!skip)
-            BreakVert(false);
-        int wait = Scripts::FetchIntValue(0x6BB5B751);
-        if (TimeSinceRelease(input + kButton20) > wait && TimeSincePress(input + kButton20) > wait)
-            SetTimedFlag(At<void*>(this, kTimedFlags), 0x48, 0);
-    } else if (TriggersHeld(input)) {
+            break_vert(false);
+        int wait = script::fetch_int_value(0x6BB5B751);
+        if (time_since_release(input + kButton20) > wait && time_since_press(input + kButton20) > wait)
+            set_timed_flag(get_at<void*>(this, kTimedFlags), 0x48, 0);
+    } else if (triggers_held(input)) {
         // (The original: both triggers; PartyMod's JZ -> JNZ at 0x0050A257 makes it either.)
         uint8_t drop[40];
-        void* o = At<void*>(this, kObject);
-        if (FindAcidDrop(true, &VectorAt(o, kPosition), &VectorAt(o, kOldPosition), &VectorAt(o, kVelocity),
+        void* o = get_at<void*>(this, kObject);
+        if (find_acid_drop(true, &vector_at(o, kPosition), &vector_at(o, kOldPosition), &vector_at(o, kVelocity),
                          reinterpret_cast<AcidDrop*>(drop)))
-            StartAcidDrop(reinterpret_cast<const AcidDrop*>(drop));
+            start_acid_drop(reinterpret_cast<const AcidDrop*>(drop));
     }
-    TriggerOf(this)->ProbeTouchesZone(g_otherFeelerLeaveEvents, FeelerAt(this, kOtherFeeler));
+    trigger_of(this)->probe_touches_zone(kOtherFeelerLeaveEvents, feeler_at(this, kOtherFeeler));
 }
 
 // Not original (THAW's BMX, phase 3 - THAW 0x005DF3E0..0x005DF7B5): the bike on the ground under its wheels
-// (ThawBmx::WheelGroundCheck has put it there): the display normal towards the ground's; with the feeler under the
-// skater on the ground (`hit`), what CheckForGround does on the ground after that: the terrain, a ride on what was
+// (ThawBmx::wheel_ground_check has put it there): the display normal towards the ground's; with the feeler under the
+// skater on the ground (`hit`), what check_for_ground does on the ground after that: the terrain, a ride on what was
 // hit, the triggers, the trick objects, the feeler kept.
-void SkaterPhysicsModule::GroundUnderWheels(bool hit)
+void SkaterPhysicsModule::ground_under_wheels(bool hit)
 {
-    if (!ThawBmx::LerpDisplayNormal(this))
-        UpdateGroundNormal();
+    if (!thaw_bmx::lerp_display_normal(this))
+        update_ground_normal();
     if (!hit)
         return;
-    uint8_t surface = At<uint8_t>(this, kSurfaceFlags);
-    static_cast<GameObjects::CRiderPoseState*>(At<void*>(this, kTimedFlags))->SetSurfaceKind(surface);
-    At<uint8_t>(At<uint8_t*>(this, kOtherComponent), 0x1C) = surface;
-    StartRidingHitObject();
-    if (At<int>(this, 0x1AC) != At<int>(this, 0xFC)) {
-        TriggerOf(this)->ProbeTouchesZone(g_kickEvents, FeelerAt(this, kOtherFeeler));
-        if (At<uint8_t>(At<uint8_t*>(this, kTriggerState), 0x26))
+    uint8_t surface = get_at<uint8_t>(this, kSurfaceFlags);
+    static_cast<objects::RiderPoseState*>(get_at<void*>(this, kTimedFlags))->set_surface_kind(surface);
+    get_at<uint8_t>(get_at<uint8_t*>(this, kOtherComponent), 0x1C) = surface;
+    start_riding_hit_object();
+    if (get_at<int>(this, 0x1AC) != get_at<int>(this, 0xFC)) {
+        trigger_of(this)->probe_touches_zone(kKickEvents, feeler_at(this, kOtherFeeler));
+        if (get_at<uint8_t>(get_at<uint8_t*>(this, kTriggerState), 0x26))
             return;
-        TriggerOf(this)->ProbeTouchesZone(g_skaterEvents0064BBB0, FeelerAt(this, kFeeler));
-        if (At<uint8_t>(At<uint8_t*>(this, kTriggerState), 0x26))
+        trigger_of(this)->probe_touches_zone(kSkaterEvents0064bBb0, feeler_at(this, kFeeler));
+        if (get_at<uint8_t>(get_at<uint8_t*>(this, kTriggerState), 0x26))
             return;
     }
-    void* skater = At<void*>(this, kSkaterComponent);
-    if (!At<uint8_t>(skater, 0x13B0))
-        static_cast<GameObjects::CMoveExecutor*>(skater)->SetTrickObjects(false);
-    FeelerAt(this, kOtherFeeler)->Assign(*FeelerAt(this, kFeeler));
-    At<uint8_t>(At<uint8_t*>(this, kOtherComponent), 0x1D) = At<uint8_t>(this, 0x1AA);
+    void* skater = get_at<void*>(this, kSkaterComponent);
+    if (!get_at<uint8_t>(skater, 0x13B0))
+        static_cast<objects::MoveExecutor*>(skater)->set_trick_objects(false);
+    feeler_at(this, kOtherFeeler)->get_assign(*feeler_at(this, kFeeler));
+    get_at<uint8_t>(get_at<uint8_t*>(this, kOtherComponent), 0x1D) = get_at<uint8_t>(this, 0x1AA);
 }
 
 namespace {
 
-uint8_t& BitMark(void* component, uint32_t offset) { return At<uint8_t>(At<void*>(component, kTimedFlags), offset); }
-void* ObjectOf(void* component) { return At<void*>(component, kObject); }
+uint8_t& bit_mark(void* component, uint32_t offset) { return get_at<uint8_t>(get_at<void*>(component, kTimedFlags), offset); }
+void* object_of(void* component) { return get_at<void*>(component, kObject); }
 
 } // namespace
 
 // 0x0050CA00
-void SkaterPhysicsModule::DoAirPhysics()
+void SkaterPhysicsModule::do_air_physics()
 {
-    uint8_t* input = At<uint8_t*>(this, kInput);
-    float gravity = static_cast<float>(GetGravity());
-    SetTimedFlag(At<void*>(this, kTimedFlags), 0x40, 0);
-    void* flags = At<void*>(this, kTimedFlags);
-    if (At<uint8_t>(flags, 0x30) || At<uint8_t>(flags, 0x78) || At<uint8_t>(flags, 0xA8) || At<uint8_t>(flags, 0x70))
-        SetTimedFlag(flags, 0xB0, 1);
-    At<uint8_t>(this, 0x2EC) = 0;
+    uint8_t* input = get_at<uint8_t*>(this, kInput);
+    float gravity = static_cast<float>(get_gravity());
+    set_timed_flag(get_at<void*>(this, kTimedFlags), 0x40, 0);
+    void* flags = get_at<void*>(this, kTimedFlags);
+    if (get_at<uint8_t>(flags, 0x30) || get_at<uint8_t>(flags, 0x78) || get_at<uint8_t>(flags, 0xA8) || get_at<uint8_t>(flags, 0x70))
+        set_timed_flag(flags, 0xB0, 1);
+    get_at<uint8_t>(this, 0x2EC) = 0;
     // Not original: THAW 0x005DF880 - on the bike no manual in the air, and its own pitch and spin (0x005D7CB0) for
     // the lean and spin (thaw_bmx_physics.cpp).
-    bool bike = ThawBmx::LiveNow(this);
+    bool bike = thaw_bmx::live_now(this);
     if (bike)
-        ThawBmx::OnAir(this);
+        thaw_bmx::on_air(this);
     else
-        LeanInAir();
-    CheckFlipSpin();
+        lean_in_air();
+    check_flip_spin();
     if (bike)
-        ThawBmx::AirRotation(this);
+        thaw_bmx::air_rotation(this);
     else
-        Spin();
-    RotateInAcidDrop();
+        get_spin();
+    rotate_in_acid_drop();
     // (The original: flag +0x80 or both triggers. PartyMod's JZ -> JNZ at 0x0050CAC4 makes it either trigger.)
-    if (BitMark(this, 0x80) || TriggersHeld(input))
-        RecoverInAir();
+    if (bit_mark(this, 0x80) || triggers_held(input))
+        recover_in_air();
     // Not original: THAW 0x005DF98B - on the bike the tire tap (looked for, or carried on), and while it's on the
     // bike isn't kept upright (0x005DF9DB).
     if (bike)
-        ThawBmx::TireTap(this);
+        thaw_bmx::tire_tap(this);
     {
-        uint8_t* other = At<uint8_t*>(this, kOtherFlags);
-        if (!BitMark(this, 0x30) && !BitMark(this, 0x78) && !other[0x28] && !other[0x50] &&
-            !(bike && ThawBmx::TireTapping(this)))
-            KeepUpright();
+        uint8_t* other = get_at<uint8_t*>(this, kOtherFlags);
+        if (!bit_mark(this, 0x30) && !bit_mark(this, 0x78) && !other[0x28] && !other[0x50] &&
+            !(bike && thaw_bmx::tire_tapping(this)))
+            keep_upright();
     }
-    if (At<float>(this, 0x320) != 0.0f)
-        ApplyWheelDrag();
+    if (get_at<float>(this, 0x320) != 0.0f)
+        apply_wheel_drag();
 
-    Maths::Vec4 velocity = VectorAt(ObjectOf(this), kVelocity);
-    int& countdown = At<int>(this, 0x14CC);
+    maths::Vec4 velocity = vector_at(object_of(this), kVelocity);
+    int& countdown = get_at<int>(this, 0x14CC);
     if (countdown > 0) {
         --countdown;
-        if (WallPlant(true, false, false))
+        if (wall_plant(true, false, false))
             countdown = 0;
         else if (countdown == 0)
-            VectorAt(ObjectOf(this), kFacing).AlignToPlane(VectorAt(this, 0x14F0));
+            vector_at(object_of(this), kFacing).align_to_plane(vector_at(this, 0x14F0));
     }
-    flags = At<void*>(this, kTimedFlags);
-    if (At<uint8_t>(flags, 0x78)) {
-        if (velocity.y < 0.0f && VectorAt(ObjectOf(this), kPosition).y < At<float>(this, 0x37C))
-            VectorAt(flags, 0xE4).SetLength(0.1f);
+    flags = get_at<void*>(this, kTimedFlags);
+    if (get_at<uint8_t>(flags, 0x78)) {
+        if (velocity.y < 0.0f && vector_at(object_of(this), kPosition).y < get_at<float>(this, 0x37C))
+            vector_at(flags, 0xE4).set_length(0.1f);
         else
-            velocity += VectorAt(flags, 0xE4);
+            velocity += vector_at(flags, 0xE4);
     }
 
     // What the skater rides on (+0x152C's +0x18, if it's still under the skater) carries it along.
-    Maths::Vec4 carried = {0.0f, 0.0f, 0.0f, 1.0f};
+    maths::Vec4 carried = {0.0f, 0.0f, 0.0f, 1.0f};
     {
-        void* ride = At<void*>(this, kRide);
-        uint32_t* rider = At<uint32_t*>(ride, 0x18);
-        void* object = ObjectOf(this);
+        void* ride = get_at<void*>(this, kRide);
+        uint32_t* rider = get_at<uint32_t*>(ride, 0x18);
+        void* object = object_of(this);
         if (rider) {
             if (*rider == 0)
-                StopRiding(ride);
-            else if (!reinterpret_cast<GameObjects::CRideTracker*>(rider)->TickFrame(&VectorAt(object, kPosition)))
-                StopRiding(ride);
-            else if (!BitMark(this, 0x78) || At<uint8_t>(this, 0x14C0))
-                carried = VectorAt(At<void*>(At<void*>(this, kRide), 0x18), 0x5C);
+                stop_riding(ride);
+            else if (!reinterpret_cast<objects::RideTracker*>(rider)->tick_frame(&vector_at(object, kPosition)))
+                stop_riding(ride);
+            else if (!bit_mark(this, 0x78) || get_at<uint8_t>(this, 0x14C0))
+                carried = vector_at(get_at<void*>(get_at<void*>(this, kRide), 0x18), 0x5C);
         }
     }
 
     // Move: position += velocity * t + (0, gravity, 0, 1) * t * t / 2, then the carried offset; velocity +=
     // (0, gravity, 0, 1) * t. (Rounded as the original: x's velocity product and the z, w sums stay unrounded.)
     {
-        float t = At<float>(this, 0x8C);
+        float t = get_at<float>(this, 0x8C);
         double half = static_cast<double>(t) * t * 0.5f;
-        float zeroHalf = static_cast<float>(0.0 * half);
-        float halfGravity = static_cast<float>(half * gravity);
-        float halfFloat = static_cast<float>(half);
+        float zero_half = static_cast<float>(0.0 * half);
+        float half_gravity = static_cast<float>(half * gravity);
+        float half_float = static_cast<float>(half);
         float ty = t * velocity.y, tz = t * velocity.z, tw = t * velocity.w;
-        float sx = static_cast<float>(static_cast<double>(velocity.x) * t + zeroHalf);
-        float sy = ty + halfGravity;
+        float sx = static_cast<float>(static_cast<double>(velocity.x) * t + zero_half);
+        float sy = ty + half_gravity;
         double sz = 0.0 * half + tz;
-        double sw = static_cast<double>(tw) + halfFloat;
-        Maths::Vec4& position = VectorAt(ObjectOf(this), kPosition);
+        double sw = static_cast<double>(tw) + half_float;
+        maths::Vec4& position = vector_at(object_of(this), kPosition);
         position.x = sx + position.x;
         position.y = sy + position.y;
         position.z = static_cast<float>(sz + position.z);
         position.w = static_cast<float>(sw + position.w);
-        VectorAt(ObjectOf(this), kPosition) += carried;
+        vector_at(object_of(this), kPosition) += carried;
 
-        float tt = At<float>(this, 0x8C);
+        float tt = get_at<float>(this, 0x8C);
         float zero = 0.0f * tt;
         float fall = tt * gravity;
-        Maths::Vec4& v = VectorAt(ObjectOf(this), kVelocity);
+        maths::Vec4& v = vector_at(object_of(this), kVelocity);
         v.x += zero;
         v.y += fall;
         v.z += zero;
         v.w += tt;
     }
 
-    void* object = ObjectOf(this);
-    flags = At<void*>(this, kTimedFlags);
-    if (At<uint8_t>(flags, 0x48)) {
-        if (At<uint8_t>(flags, 0x38) && At<uint8_t>(flags, 0x30)) {
+    void* object = object_of(this);
+    flags = get_at<void*>(this, kTimedFlags);
+    if (get_at<uint8_t>(flags, 0x48)) {
+        if (get_at<uint8_t>(flags, 0x38) && get_at<uint8_t>(flags, 0x30)) {
             // On a wall: a feeler from the skater's up (+1) to 23 below; off it, break out of vert.
-            const Maths::Vec4& up = VectorAt(object, kUp);
-            const Maths::Vec4& position = VectorAt(object, kPosition);
-            Maths::Vec4& start = VectorAt(this, kProbeOrigin);
-            Maths::Vec4& end = VectorAt(this, kProbeTip);
+            const maths::Vec4& up = vector_at(object, kUp);
+            const maths::Vec4& position = vector_at(object, kPosition);
+            maths::Vec4& start = vector_at(this, kProbeOrigin);
+            maths::Vec4& end = vector_at(this, kProbeTip);
             float x = up.x + position.x, y = up.y + position.y, z = up.z + position.z, w = up.w + position.w;
             start.z = z, start.w = w, start.x = x, start.y = y;
             float ey = up.y * -23.0f, ez = up.z * -23.0f, ew = up.w * -23.0f;
             x = static_cast<float>(static_cast<double>(up.x) * -23.0f + position.x);
             y = ey + position.y, z = ez + position.z, w = ew + position.w;
             end.z = z, end.w = w, end.x = x, end.y = y;
-            if (!ProbeTouchesZone(0x10, 0)) {
-                BreakVert(false);
-                int wait = Scripts::FetchIntValue(0x6BB5B751);
-                if (TimeSinceRelease(input + kButton20) > wait && TimeSincePress(input + kButton20) > wait)
-                    SetTimedFlag(At<void*>(this, kTimedFlags), 0x48, 0);
+            if (!probe_touches_zone(0x10, 0)) {
+                break_vert(false);
+                int wait = script::fetch_int_value(0x6BB5B751);
+                if (time_since_release(input + kButton20) > wait && time_since_press(input + kButton20) > wait)
+                    set_timed_flag(get_at<void*>(this, kTimedFlags), 0x48, 0);
             }
         }
-        uint32_t stamp = At<uint32_t>(At<void*>(this, kTimedFlags), 0x4C);
-        uint32_t now = static_cast<uint32_t>(FrameClock::GameClockElapsed());
-        int elapsed = static_cast<int>(now + (static_cast<uint32_t>(GameObjects::g_clockOffset) - stamp));
-        if (elapsed > Scripts::FetchIntValue(0x26495947))
-            SetTimedFlag(At<void*>(this, kTimedFlags), 0x48, 0);
-    } else if (At<uint8_t>(flags, 0x30)) {
+        uint32_t stamp = get_at<uint32_t>(get_at<void*>(this, kTimedFlags), 0x4C);
+        uint32_t now = static_cast<uint32_t>(frame_clock::game_clock_elapsed());
+        int elapsed = static_cast<int>(now + (static_cast<uint32_t>(objects::g_clock_offset) - stamp));
+        if (elapsed > script::fetch_int_value(0x26495947))
+            set_timed_flag(get_at<void*>(this, kTimedFlags), 0x48, 0);
+    } else if (get_at<uint8_t>(flags, 0x30)) {
         // (The original: both triggers. PartyMod's JZ -> JNZ at 0x0050CF89 makes it either.)
-        if ((TriggersHeld(input) || At<uint8_t>(this, 0x2D0)) && !At<uint8_t>(flags, 0x78) &&
-            VectorAt(object, kVelocity).y > 0.0f)
-            BreakVert(false);
+        if ((triggers_held(input) || get_at<uint8_t>(this, 0x2D0)) && !get_at<uint8_t>(flags, 0x78) &&
+            vector_at(object, kVelocity).y > 0.0f)
+            break_vert(false);
     }
 
     // Along a wall (+0x278: its normal; +0x26C: the height so far): a feeler across it, stepped down until it
     // hits.
     bool riding = false;
     {
-        void* ride = At<void*>(this, kRide);
-        uint32_t* rider = At<uint32_t*>(ride, 0x18);
+        void* ride = get_at<void*>(this, kRide);
+        uint32_t* rider = get_at<uint32_t*>(ride, 0x18);
         if (rider && *rider)
             riding = true;
         else if (rider)
-            StopRiding(ride);
+            stop_riding(ride);
     }
-    if (!riding && BitMark(this, 0x38) && BitMark(this, 0x30)) {
-        Maths::Vec4& start = VectorAt(this, kProbeOrigin);
-        Maths::Vec4& end = VectorAt(this, kProbeTip);
-        start.x = VectorAt(ObjectOf(this), kPosition).x;
-        start.y = At<float>(this, 0x26C);
-        start.z = VectorAt(ObjectOf(this), kPosition).z;
+    if (!riding && bit_mark(this, 0x38) && bit_mark(this, 0x30)) {
+        maths::Vec4& start = vector_at(this, kProbeOrigin);
+        maths::Vec4& end = vector_at(this, kProbeTip);
+        start.x = vector_at(object_of(this), kPosition).x;
+        start.y = get_at<float>(this, 0x26C);
+        start.z = vector_at(object_of(this), kPosition).z;
         end = start;
-        const Maths::Vec4& wall = VectorAt(this, kWallFaceVector);
+        const maths::Vec4& wall = vector_at(this, kWallFaceVector);
         float wz = wall.z * 30.0f, ww = wall.w * 30.0f;
         start.x = static_cast<float>(static_cast<double>(wall.x) * 30.0f + start.x);
         start.y = static_cast<float>(static_cast<double>(wall.y) * 30.0f + start.y);
@@ -637,12 +637,12 @@ void SkaterPhysicsModule::DoAirPhysics()
         end.y = static_cast<float>(end.y - static_cast<double>(wall.y) * 30.0f);
         end.z -= wz;
         end.w -= ww;
-        float& step = At<float>(this, 0x298);
+        float& step = get_at<float>(this, 0x298);
         bool found = false;
         if (step > 0.5f) {
             start.y = step + start.y;
             end.y = end.y + step;
-            if (ProbeTouchesZone(0, 8)) {
+            if (probe_touches_zone(0, 8)) {
                 found = true;
             } else {
                 start.y -= step;
@@ -650,199 +650,199 @@ void SkaterPhysicsModule::DoAirPhysics()
                 step *= 0.5f;
             }
         }
-        if (!found && ProbeTouchesZone(0, 8))
+        if (!found && probe_touches_zone(0, 8))
             found = true;
         for (int i = 0; !found && i < 10; ++i) {
             start.y -= 3.0f;
             end.y -= 3.0f;
-            if (ProbeTouchesZone(0, 8)) {
-                At<float>(this, 0x26C) = VectorAt(this, kHitPoint).y;
+            if (probe_touches_zone(0, 8)) {
+                get_at<float>(this, 0x26C) = vector_at(this, kHitPoint).y;
                 found = true;
             }
         }
-        const Maths::Vec4& point = VectorAt(this, kHitPoint);
-        const Maths::Vec4& normal = VectorAt(this, kHitNormal);
+        const maths::Vec4& point = vector_at(this, kHitPoint);
+        const maths::Vec4& normal = vector_at(this, kHitNormal);
         if (found && std::sqrt(std::fabs(static_cast<double>(wall.z) * normal.z + static_cast<double>(wall.x) * normal.x)) >
                          0.02f) {
             // Still along the wall: stay on it (not below the height so far); its normal is the new wall normal,
             // and the skater is pushed off it by a script value.
-            float height = point.y < At<float>(this, 0x26C) ? At<float>(this, 0x26C) : point.y;
+            float height = point.y < get_at<float>(this, 0x26C) ? get_at<float>(this, 0x26C) : point.y;
             float hz = point.z, hw = point.w;
-            At<float>(this, 0x268) = point.x;
-            At<float>(this, 0x274) = hw;
-            At<float>(this, 0x26C) = height;
-            At<float>(this, 0x270) = hz;
-            VectorAt(ObjectOf(this), kPosition).x = point.x;
-            VectorAt(ObjectOf(this), kPosition).z = hz;
-            Maths::Vec4& newWall = VectorAt(this, kWallFaceVector);
-            newWall = normal;
-            float push = Scripts::FetchFloat(0x78384871);
-            Maths::Vec4& position = VectorAt(ObjectOf(this), kPosition);
-            float py = push * newWall.y, pz = push * newWall.z, pw = push * newWall.w;
-            position.x = static_cast<float>(static_cast<double>(push) * newWall.x + position.x);
+            get_at<float>(this, 0x268) = point.x;
+            get_at<float>(this, 0x274) = hw;
+            get_at<float>(this, 0x26C) = height;
+            get_at<float>(this, 0x270) = hz;
+            vector_at(object_of(this), kPosition).x = point.x;
+            vector_at(object_of(this), kPosition).z = hz;
+            maths::Vec4& new_wall = vector_at(this, kWallFaceVector);
+            new_wall = normal;
+            float push = script::fetch_float(0x78384871);
+            maths::Vec4& position = vector_at(object_of(this), kPosition);
+            float py = push * new_wall.y, pz = push * new_wall.z, pw = push * new_wall.w;
+            position.x = static_cast<float>(static_cast<double>(push) * new_wall.x + position.x);
             position.y += py;
             position.z += pz;
             position.w += pw;
-            Maths::Vec4 flat = {newWall.x, 0.0f, newWall.z, newWall.w};
-            flat.MakeUnit();
-            TurnToNormal(flat);
-            VectorAt(ObjectOf(this), kVelocity).AlignToPlane(flat);
+            maths::Vec4 flat = {new_wall.x, 0.0f, new_wall.z, new_wall.w};
+            flat.make_unit();
+            turn_to_normal(flat);
+            vector_at(object_of(this), kVelocity).align_to_plane(flat);
         } else {
-            SetTimedFlag(At<void*>(this, kTimedFlags), 0x38, 0);
+            set_timed_flag(get_at<void*>(this, kTimedFlags), 0x38, 0);
         }
     }
 
     {
-        uint8_t* other = At<uint8_t*>(this, kOtherFlags);
-        if (!BitMark(this, 0x30) || BitMark(this, 0x78) || At<uint8_t>(this, 0x2DB) || other[0x28] || other[0x50])
-            At<Maths::Mat4>(this, kDisplayMatrix) = At<Maths::Mat4>(ObjectOf(this), kMatrix);
+        uint8_t* other = get_at<uint8_t*>(this, kOtherFlags);
+        if (!bit_mark(this, 0x30) || bit_mark(this, 0x78) || get_at<uint8_t>(this, 0x2DB) || other[0x28] || other[0x50])
+            get_at<maths::Mat4>(this, kDisplayMatrix) = get_at<maths::Mat4>(object_of(this), kMatrix);
         else
-            UpdateGroundNormal();
+            update_ground_normal();
     }
     if (bike) // (not original: THAW 0x005E0476 - on the bike the wheel points follow it through the air)
-        ThawBmx::AirWheelPoints(this);
+        thaw_bmx::air_wheel_points(this);
 
     // Landing: a feeler from the last position (carried along) to the new one.
-    auto lastPosition = [&] { return carried + VectorAt(ObjectOf(this), kOldPosition); };
-    Maths::Vec4 from = lastPosition();
-    bool stopped = CheckAirForwardCollision(&from);
-    int state = At<int>(At<void*>(this, kTimedFlags), 0x18);
+    auto last_position = [&] { return carried + vector_at(object_of(this), kOldPosition); };
+    maths::Vec4 from = last_position();
+    bool stopped = check_air_forward_collision(&from);
+    int state = get_at<int>(get_at<void*>(this, kTimedFlags), 0x18);
     if (state == 2 || state == 5)
         return;
-    VectorAt(this, kProbeOrigin) = lastPosition();
-    VectorAt(this, kProbeTip) = VectorAt(ObjectOf(this), kPosition);
-    if (!stopped && ProbeTouchesZone(0x10, 0)) {
-        bool steep = VectorAt(this, kHitNormal).y < 0.1f;
-        from = lastPosition();
+    vector_at(this, kProbeOrigin) = last_position();
+    vector_at(this, kProbeTip) = vector_at(object_of(this), kPosition);
+    if (!stopped && probe_touches_zone(0x10, 0)) {
+        bool steep = vector_at(this, kHitNormal).y < 0.1f;
+        from = last_position();
         // (Not yet, while something above says so - fast or steep, and the ride's timer past 500.)
-        bool notYet = StepUp(&from) &&
-                      (VectorAt(ObjectOf(this), kVelocity).y > 10.0f || steep) &&
-                      static_cast<uint32_t>(static_cast<GameObjects::CMovingSurfaceModule*>(At<void*>(this, kRide))->TimeSinceStop()) > 500;
-        if (!notYet) {
-            Maths::Vec4 normal = VectorAt(this, kHitNormal);
-            VectorAt(ObjectOf(this), kPosition) = VectorAt(this, kHitPoint);
-            VectorAt(ObjectOf(this), kPosition) += normal;
-            if (At<uint8_t>(this, kHitSkatable)) {
-                LandFromAir();
+        bool not_yet = step_up(&from) &&
+                      (vector_at(object_of(this), kVelocity).y > 10.0f || steep) &&
+                      static_cast<uint32_t>(static_cast<objects::MovingSurfaceModule*>(get_at<void*>(this, kRide))->time_since_stop()) > 500;
+        if (!not_yet) {
+            maths::Vec4 normal = vector_at(this, kHitNormal);
+            vector_at(object_of(this), kPosition) = vector_at(this, kHitPoint);
+            vector_at(object_of(this), kPosition) += normal;
+            if (get_at<uint8_t>(this, kHitSkatable)) {
+                land_from_air();
                 return;
             }
             // Not something to land on: turn along it and push off it.
-            VectorAt(ObjectOf(this), kVelocity).AlignToPlane(normal);
-            VectorAt(ObjectOf(this), kFacing).AlignToPlane(normal);
-            At<Maths::Mat4>(ObjectOf(this), kMatrix).SquareUpAxes(2);
-            At<Maths::Mat4>(this, kDisplayMatrix) = At<Maths::Mat4>(ObjectOf(this), kMatrix);
-            float push = TuningFloatLookup(0x23410C14, object);
-            VectorAt(ObjectOf(this), kPosition) += normal * push;
-            SetTimedFlag(At<void*>(this, kTimedFlags), 0xB0, 1);
+            vector_at(object_of(this), kVelocity).align_to_plane(normal);
+            vector_at(object_of(this), kFacing).align_to_plane(normal);
+            get_at<maths::Mat4>(object_of(this), kMatrix).square_up_axes(2);
+            get_at<maths::Mat4>(this, kDisplayMatrix) = get_at<maths::Mat4>(object_of(this), kMatrix);
+            float push = tuning_float_lookup(0x23410C14, object);
+            vector_at(object_of(this), kPosition) += normal * push;
+            set_timed_flag(get_at<void*>(this, kTimedFlags), 0xB0, 1);
         }
-    } else if (!BitMark(this, 0x30)) {
-        TestLateralHits();
+    } else if (!bit_mark(this, 0x30)) {
+        test_lateral_hits();
     }
 
-    if (KeepOffCeiling())
-        SetTimedFlag(At<void*>(this, kTimedFlags), 0xB0, 1);
-    JumpReleased();
-    VertWallplant();
-    if (BitMark(this, 0xB0))
+    if (keep_off_ceiling())
+        set_timed_flag(get_at<void*>(this, kTimedFlags), 0xB0, 1);
+    jump_released();
+    vert_wallplant();
+    if (bit_mark(this, 0xB0))
         return;
     // An acid drop: both triggers (the original; PartyMod's JZ -> JNZ at 0x0050DA64 makes it either).
-    if (!TriggersHeld(input))
+    if (!triggers_held(input))
         return;
     bool recent = false;
-    if (At<uint32_t>(this, 0x380) > At<uint32_t>(this, 0x4EC))
-        recent = static_cast<uint32_t>(FrameClock::GameClockTimeSince(At<int>(this, 0x380))) < 0xFA;
+    if (get_at<uint32_t>(this, 0x380) > get_at<uint32_t>(this, 0x4EC))
+        recent = static_cast<uint32_t>(frame_clock::game_clock_time_since(get_at<int>(this, 0x380))) < 0xFA;
     uint8_t drop[40];
-    void* o = ObjectOf(this);
-    if (FindAcidDrop(recent, &VectorAt(o, kPosition), &VectorAt(o, kOldPosition), &VectorAt(o, kVelocity),
+    void* o = object_of(this);
+    if (find_acid_drop(recent, &vector_at(o, kPosition), &vector_at(o, kOldPosition), &vector_at(o, kVelocity),
                      reinterpret_cast<AcidDrop*>(drop)))
-        StartAcidDrop(reinterpret_cast<const AcidDrop*>(drop));
+        start_acid_drop(reinterpret_cast<const AcidDrop*>(drop));
 }
 
 // (Part of 0x0050CA00: landing on something skatable.)
-void SkaterPhysicsModule::LandFromAir()
+void SkaterPhysicsModule::land_from_air()
 {
-    SetPhysicsState(0);
-    StartRidingHitObject();
-    void* flags = At<void*>(this, kTimedFlags);
-    if (At<uint8_t>(flags, 0x30) || At<uint8_t>(flags, 0x78)) {
-        At<uint8_t>(this, 0x373) = 1;
-        At<uint8_t>(this, 0x374) = 1;
+    set_physics_state(0);
+    start_riding_hit_object();
+    void* flags = get_at<void*>(this, kTimedFlags);
+    if (get_at<uint8_t>(flags, 0x30) || get_at<uint8_t>(flags, 0x78)) {
+        get_at<uint8_t>(this, 0x373) = 1;
+        get_at<uint8_t>(this, 0x374) = 1;
     } else {
-        At<uint8_t>(this, 0x374) = 0;
+        get_at<uint8_t>(this, 0x374) = 0;
     }
-    At<uint8_t>(this, 0x372) = At<uint8_t>(flags, 0x78);
-    SetSurfaceKind(At<uint8_t>(this, kSurfaceFlags));
-    if (!At<uint8_t>(this, 0x2ED)) {
-        uint32_t which = BitMark(this, 0xE1);
-        void* object = ObjectOf(this);
-        float speed = VectorAt(object, kVelocity).LenOf();
-        float scale = static_cast<GameObjects::CRider*>(object)->GetScaledPhysics(0xCC5F87AA);
-        static_cast<GameObjects::CRiderSfxPlayer*>(At<void*>(this, kOtherComponent))
-            ->PlayLand(speed / scale, static_cast<int>(which));
+    get_at<uint8_t>(this, 0x372) = get_at<uint8_t>(flags, 0x78);
+    set_surface_kind(get_at<uint8_t>(this, kSurfaceFlags));
+    if (!get_at<uint8_t>(this, 0x2ED)) {
+        uint32_t which = bit_mark(this, 0xE1);
+        void* object = object_of(this);
+        float speed = vector_at(object, kVelocity).len_of();
+        float scale = static_cast<objects::Rider*>(object)->get_scaled_physics(0xCC5F87AA);
+        static_cast<objects::RiderSfxPlayer*>(get_at<void*>(this, kOtherComponent))
+            ->play_land(speed / scale, static_cast<int>(which));
     }
-    void* skater = At<void*>(this, kSkaterComponent);
-    if (!At<uint8_t>(skater, 0x13B0))
-        static_cast<GameObjects::CMoveExecutor*>(skater)->SetTrickObjects(false);
-    RememberFloorProbe(&At<uint8_t>(this, kFeeler));
-    TriggerOf(this)->ProbeTouchesZone(g_skaterEvents0064BB98, FeelerAt(this, kOtherFeeler));
-    if (!At<uint8_t>(At<uint8_t*>(this, kTriggerState), 0x26)) {
-        const Maths::Vec4& normal = VectorAt(this, kHitNormal);
-        Maths::Vec4& velocity = VectorAt(ObjectOf(this), kVelocity);
-        uint8_t* input = At<uint8_t*>(this, kInput);
-        if (!At<uint8_t>(this, 0x374) && !At<uint8_t>(this, 0x373) && velocity.x == 0.0f && velocity.z == 0.0f &&
+    void* skater = get_at<void*>(this, kSkaterComponent);
+    if (!get_at<uint8_t>(skater, 0x13B0))
+        static_cast<objects::MoveExecutor*>(skater)->set_trick_objects(false);
+    remember_floor_probe(&get_at<uint8_t>(this, kFeeler));
+    trigger_of(this)->probe_touches_zone(kSkaterEvents0064bB98, feeler_at(this, kOtherFeeler));
+    if (!get_at<uint8_t>(get_at<uint8_t*>(this, kTriggerState), 0x26)) {
+        const maths::Vec4& normal = vector_at(this, kHitNormal);
+        maths::Vec4& velocity = vector_at(object_of(this), kVelocity);
+        uint8_t* input = get_at<uint8_t*>(this, kInput);
+        if (!get_at<uint8_t>(this, 0x374) && !get_at<uint8_t>(this, 0x373) && velocity.x == 0.0f && velocity.z == 0.0f &&
             input[kButton40]) {
             // (Landing straight down with button +0x40 held: no bounce.)
-            At<uint32_t>(&velocity, 4) = 0;
+            get_at<uint32_t>(&velocity, 4) = 0;
         } else {
-            if (!BitMark(this, 0x78)) {
-                velocity.FlattenOntoPlane(normal);
+            if (!bit_mark(this, 0x78)) {
+                velocity.flatten_onto_plane(normal);
             } else {
                 // Landing from a wall ride: along +0x490's direction in the ground's plane, unless that turns
                 // the skater upwards (0x004FF590) - then the old velocity in the plane; at least a script speed.
-                Maths::Vec4 saved = velocity;
-                velocity.ChangeHeading(VectorAt(this, 0x490));
-                velocity.AlignToPlane(normal);
-                Maths::Vec4& v = VectorAt(ObjectOf(this), kVelocity);
-                Maths::Vec4 probe = v;
-                AlongFacing(&probe);
+                maths::Vec4 saved = velocity;
+                velocity.change_heading(vector_at(this, 0x490));
+                velocity.align_to_plane(normal);
+                maths::Vec4& v = vector_at(object_of(this), kVelocity);
+                maths::Vec4 probe = v;
+                get_along_facing(&probe);
                 if (probe.y > 0.0f) {
                     v = saved;
-                    VectorAt(ObjectOf(this), kVelocity).FlattenOntoPlane(normal);
+                    vector_at(object_of(this), kVelocity).flatten_onto_plane(normal);
                 }
-                float least = Scripts::FetchFloat(0x59484878);
-                if (static_cast<double>(least) * least > VectorAt(ObjectOf(this), kVelocity).MagnitudeSquared())
-                    VectorAt(ObjectOf(this), kVelocity).SetLength(Scripts::FetchFloat(0x59484878));
+                float least = script::fetch_float(0x59484878);
+                if (static_cast<double>(least) * least > vector_at(object_of(this), kVelocity).magnitude_squared())
+                    vector_at(object_of(this), kVelocity).set_length(script::fetch_float(0x59484878));
             }
-            VectorAt(ObjectOf(this), kVelocity).ClampTinyToNothing(10.0f);
+            vector_at(object_of(this), kVelocity).clamp_tiny_to_nothing(10.0f);
         }
-        SetTimedFlag(At<void*>(this, kTimedFlags), 0x30, 0);
-        At<uint8_t>(this, 0x2D0) = 0;
-        if (ThawBmx::LiveNow(this)) {
+        set_timed_flag(get_at<void*>(this, kTimedFlags), 0x30, 0);
+        get_at<uint8_t>(this, 0x2D0) = 0;
+        if (thaw_bmx::live_now(this)) {
             // Not original: THAW 0x005E0AA4 - on the bike the landing keeps the
             // bike's own up as the display / ground normal, the display matrix the skater's as it landed, and then
             // sets the ground normal to the hit's (0x004FE860: the skater's up turned to it, the display normal's
             // lerp started) - the bike eases into the landing instead of snapping to the ground.
-            const Maths::Vec4 up = VectorAt(ObjectOf(this), kUp);
-            const Maths::Vec4 hit = normal;
-            VectorAt(this, 0x58) = up;
-            VectorAt(this, kFloorUpVector) = up;
-            VectorAt(this, 0x78) = VectorAt(this, 0x58);
-            FindNearestWallSide();
-            At<Maths::Mat4>(this, kDisplayMatrix) = At<Maths::Mat4>(ObjectOf(this), kMatrix);
-            TurnToNormal(hit);
-            static_cast<GameObjects::CEntity*>(ObjectOf(this))->PostOwnEvent(0x532B16EF, nullptr);
+            const maths::Vec4 up = vector_at(object_of(this), kUp);
+            const maths::Vec4 hit = normal;
+            vector_at(this, 0x58) = up;
+            vector_at(this, kFloorUpVector) = up;
+            vector_at(this, 0x78) = vector_at(this, 0x58);
+            find_nearest_wall_side();
+            get_at<maths::Mat4>(this, kDisplayMatrix) = get_at<maths::Mat4>(object_of(this), kMatrix);
+            turn_to_normal(hit);
+            static_cast<objects::Entity*>(object_of(this))->post_own_event(0x532B16EF, nullptr);
             return;
         }
-        Maths::Vec4& ground = VectorAt(this, 0x58);
+        maths::Vec4& ground = vector_at(this, 0x58);
         ground = normal;
-        VectorAt(this, kFloorUpVector) = ground;
-        VectorAt(this, 0x78) = ground;
-        FindNearestWallSide();
-        VectorAt(ObjectOf(this), kUp) = ground;
-        At<Maths::Mat4>(ObjectOf(this), kMatrix).SquareUpAxes(1);
-        At<Maths::Mat4>(this, kDisplayMatrix) = At<Maths::Mat4>(ObjectOf(this), kMatrix);
+        vector_at(this, kFloorUpVector) = ground;
+        vector_at(this, 0x78) = ground;
+        find_nearest_wall_side();
+        vector_at(object_of(this), kUp) = ground;
+        get_at<maths::Mat4>(object_of(this), kMatrix).square_up_axes(1);
+        get_at<maths::Mat4>(this, kDisplayMatrix) = get_at<maths::Mat4>(object_of(this), kMatrix);
     }
-    static_cast<GameObjects::CEntity*>(ObjectOf(this))->PostOwnEvent(0x532B16EF, nullptr);
+    static_cast<objects::Entity*>(object_of(this))->post_own_event(0x532B16EF, nullptr);
 }
 
 } // namespace Skater

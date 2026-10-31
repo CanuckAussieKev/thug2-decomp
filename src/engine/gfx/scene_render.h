@@ -5,9 +5,9 @@
 #include "engine/gfx/mesh_list.h"
 
 // Drawing a scene's meshes (Nx engine, PC).
-namespace Engine3D {
+namespace render {
 
-// Render flags (DrawScene's `flags`).
+// Render flags (draw_scene's `flags`).
 enum DrawOptionBits : uint32_t {
     kRenderOpaque = 0x1,        // the meshes before the first transparent one
     kRenderTransparent = 0x2,   // the rest: transparent, then the flagged ones sorted by depth, then the others
@@ -21,9 +21,9 @@ enum DrawOptionBits : uint32_t {
 // 0x004DC700: draw a scene's meshes for viewport `viewport` (a mesh's +0x1B holds a bit per viewport it shows in),
 // changing material only between meshes of different materials; shadows over what was drawn when the scene has them
 // (flag 0x100).
-void __cdecl DrawScene(sceneRef* scene, uint32_t flags, int viewport);
-// 0x004DA690 (qsort's comparison of the sorted list's entries): by the depth value SphereInView left
+void __cdecl draw_scene(SceneRef* scene, uint32_t flags, int viewport);
+// 0x004DA690 (qsort's comparison of the sorted list's entries): by the depth value sphere_in_view left
 // (0x007CA978), ascending.
-int __cdecl CompareDistances(const void* a, const void* b);
+int __cdecl compare_distances(const void* a, const void* b);
 
 } // namespace Nx

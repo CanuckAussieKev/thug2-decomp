@@ -10,109 +10,109 @@
 // Each is constructed as the others are - (name, max particles, texture, blend mode, fixed alpha, segments, a float,
 // history), each reading what it uses -, its particles, positions and colours allocated (each step stops at the first
 // that fails), the colours grey, no mid colour, flag 4. Their PC classes over them are in pc_flexible_particles.h.
-namespace Engine3D {
+namespace render {
 
 // "ribbon" (vtables 0x006494DC and 0x006494D8): history + 1 positions each (zeroed), two colours.
-struct CRibbonParticles : CEmitterInstance {
-    int m_steps; // +0x134: history + 1
+struct RibbonParticles : EmitterInstance {
+    int steps_; // +0x134: history + 1
 
     // 0x0049B0D0. Returns this.
-    CRibbonParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
+    RibbonParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
                                 int segments, float unknown, int history);
     // 0x0049B070: the vtables, the base's body.
-    void DestroyBody();
+    void destroy_body();
     // 0x0049B0A0 (vtable slot 0) / 0x0049B090 (through the node)
-    CRibbonParticles* Teardown(unsigned int flags);
+    RibbonParticles* teardown(unsigned int flags);
 };
 
 // "ribbontrail" (vtables 0x006494F0 and 0x006494EC): history + 1 positions each (zeroed), a colour a step.
-struct CRibbonTrailParticles : CEmitterInstance {
-    int m_steps; // +0x134: history + 1
+struct RibbonTrailParticles : EmitterInstance {
+    int steps_; // +0x134: history + 1
 
     // 0x0049B380. Returns this.
-    CRibbonTrailParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
-                                     int fixedAlpha, int segments, float unknown, int history);
+    RibbonTrailParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
+                                     int fixed_alpha, int segments, float unknown, int history);
     // 0x0049B320
-    void DestroyBody();
+    void destroy_body();
     // 0x0049B350 (vtable slot 0) / 0x0049B340 (through the node)
-    CRibbonTrailParticles* Teardown(unsigned int flags);
+    RibbonTrailParticles* teardown(unsigned int flags);
 };
 
 // "shaded" (vtables 0x00649504 and 0x00649500): a position each, four colours.
-struct CShadedParticles : CEmitterInstance {
+struct ShadedParticles : EmitterInstance {
     // 0x0049B660. Returns this.
-    CShadedParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
+    ShadedParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
                                 int segments, float unknown, int history);
     // 0x0049B600
-    void DestroyBody();
+    void destroy_body();
     // 0x0049B630 (vtable slot 0) / 0x0049B620 (through the node)
-    CShadedParticles* Teardown(unsigned int flags);
+    ShadedParticles* teardown(unsigned int flags);
 };
 
 // "smooth" (vtables 0x00649518 and 0x00649514): a position each, two colours.
-struct CSmoothParticles : CEmitterInstance {
+struct SmoothParticles : EmitterInstance {
     // 0x0049B910. Returns this.
-    CSmoothParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
+    SmoothParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
                                 int segments, float unknown, int history);
     // 0x0049B8A0
-    void DestroyBody();
+    void destroy_body();
     // 0x0049B8E0 (vtable slot 0) / 0x0049B8D0 (through the node)
-    CSmoothParticles* Teardown(unsigned int flags);
+    SmoothParticles* teardown(unsigned int flags);
 };
 
 // "smoothribbon" (vtables 0x0064952C and 0x00649528): history + 1 positions each (zeroed), four colours.
-struct CSmoothRibbonParticles : CEmitterInstance {
-    int m_steps; // +0x134: history + 1 (set once everything is allocated)
+struct SmoothRibbonParticles : EmitterInstance {
+    int steps_; // +0x134: history + 1 (set once everything is allocated)
 
     // 0x0049BBD0. Returns this.
-    CSmoothRibbonParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
-                                      int fixedAlpha, int segments, float unknown, int history);
+    SmoothRibbonParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
+                                      int fixed_alpha, int segments, float unknown, int history);
     // 0x0049BB50
-    void DestroyBody();
+    void destroy_body();
     // 0x0049BBA0 (vtable slot 0) / 0x0049BB90 (through the node)
-    CSmoothRibbonParticles* Teardown(unsigned int flags);
+    SmoothRibbonParticles* teardown(unsigned int flags);
 };
 
 // "smoothstar" (vtables 0x00649540 and 0x0064953C): a position each, three colours; the star's points and size.
-struct CSmoothStarParticles : CEmitterInstance {
-    int m_segments;  // +0x134: the star's points
-    float m_extent;    // +0x138
+struct SmoothStarParticles : EmitterInstance {
+    int segments_;  // +0x134: the star's points
+    float extent_;    // +0x138
 
     // 0x0049BE80. Returns this.
-    CSmoothStarParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
-                                    int fixedAlpha, int segments, float size, int history);
+    SmoothStarParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
+                                    int fixed_alpha, int segments, float size, int history);
     // 0x0049BE20
-    void DestroyBody();
+    void destroy_body();
     // 0x0049BE50 (vtable slot 0) / 0x0049BE40 (through the node)
-    CSmoothStarParticles* Teardown(unsigned int flags);
+    SmoothStarParticles* teardown(unsigned int flags);
 };
 
 // "star" (vtables 0x00649554 and 0x00649550): as smoothstar.
-struct CStarParticles : CEmitterInstance {
-    int m_segments; // +0x134
-    float m_extent;   // +0x138
+struct StarParticles : EmitterInstance {
+    int segments_; // +0x134
+    float extent_;   // +0x138
 
     // 0x0049C140. Returns this.
-    CStarParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
+    StarParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
                               int segments, float size, int history);
     // 0x0049C0D0
-    void DestroyBody();
+    void destroy_body();
     // 0x0049C110 (vtable slot 0) / 0x0049C100 (through the node)
-    CStarParticles* Teardown(unsigned int flags);
+    StarParticles* teardown(unsigned int flags);
 };
 
-static_assert(offsetof(CRibbonParticles, m_steps) == 0x134 && offsetof(CSmoothStarParticles, m_extent) == 0x138 &&
-                  offsetof(CStarParticles, m_extent) == 0x138,
+static_assert(offsetof(RibbonParticles, steps_) == 0x134 && offsetof(SmoothStarParticles, extent_) == 0x138 &&
+                  offsetof(StarParticles, extent_) == 0x138,
               "layout must match the original");
 
 // The types' counts (vtable slots 3 and 2; linker-folded: one body each, shared by every class whose count it is):
 // 0x0049B8C0 two colours (ribbon, smooth), 0x0049BB70 four (shaded, smoothribbon), 0x0049C0F0 three (smoothstar,
 // star, glow), 0x0049BB80 the int at +0x134 (the vertex lists of the ribbons, ribbontrail's colours too).
-struct CParticleCounts {
-    int TwoColours();
-    int FourColours();
-    int ThreeColours();
-    int Field134();
+struct ParticleCounts {
+    int two_colours();
+    int four_colours();
+    int three_colours();
+    int field134();
 };
 
 } // namespace Nx

@@ -1,4 +1,4 @@
-// The skater's flip-and-rotate component (GameObjects::CRiderSpinAndFlip): see flip_and_rotate.h.
+// The skater's flip-and-rotate component (GameObjects::RiderSpinAndFlip): see flip_and_rotate.h.
 
 #include "game/rider/flip_and_rotate.h"
 
@@ -24,7 +24,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
@@ -43,194 +43,194 @@ constexpr uint32_t kNormal = 0xDE7A971B;
 constexpr uint8_t kMsgBoardRotated = 0x2A;
 
 template <typename T>
-T& Prop(void* object, uint32_t offset)
+T& prop(void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
 
 // The network manager (0x007CCE14) and its players: the player with an object id, whether a player is this
 // machine's, a player's skater's index (its +0x2BC) and the client app of an index.
-OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
-OnlinePlay::PlayerRecord* FindPlayerSlotByObj(uint32_t id)
+online::Hub* net_session_slot() { return online::g_online_hub; }
+online::PlayerRecord* find_player_slot_by_obj(uint32_t id)
 {
-    return reinterpret_cast<OnlinePlay::PlayerRecord*>(NetSessionSlot()->FindPlayerSlotByObj(static_cast<uint16_t>(id)));
+    return reinterpret_cast<online::PlayerRecord*>(net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id)));
 }
-bool IsOwnPlayer(OnlinePlay::PlayerRecord* player) { return player->IsOwnPlayer() != 0; }
-int PlayerSkaterIndex(OnlinePlay::PlayerRecord* player) { return static_cast<int>(player->GetSkaterValue2BC()); }
-NetLink::Guest* ClientApp(int index) { return static_cast<NetLink::Guest*>(NetSessionSlot()->FetchPatron(index)); }
-// A client app's +0x08 (passed to the animation blender and to ApplyBoardTurned, which doesn't use it).
-uint32_t AppValue8(NetLink::Guest* app) { return Prop<uint32_t>(app, 0x08); }
+bool is_own_player(online::PlayerRecord* player) { return player->is_own_player() != 0; }
+int player_skater_index(online::PlayerRecord* player) { return static_cast<int>(player->get_skater_value_2b_c()); }
+net::Guest* client_app(int index) { return static_cast<net::Guest*>(net_session_slot()->fetch_patron(index)); }
+// A client app's +0x08 (passed to the animation blender and to apply_board_turned, which doesn't use it).
+uint32_t app_value8(net::Guest* app) { return prop<uint32_t>(app, 0x08); }
 
 // The core physics component's (not rewritten yet): the skater turned around (0x004FE120) and whether the flip is
 // needed (0x004FC440).
-void TurnAround(uint8_t* corePhysics) { reinterpret_cast<Skater::SkaterPhysicsModule*>(corePhysics)->TurnAround(); }
-bool FlipNeeded(uint8_t* corePhysics) { return (reinterpret_cast<Skater::SkaterPhysicsModule*>(corePhysics)->IsSidesSwapped() & 0xFF) != 0; }
+void turn_around(uint8_t* core_physics) { reinterpret_cast<skater::SkaterPhysicsModule*>(core_physics)->turn_around(); }
+bool flip_needed(uint8_t* core_physics) { return (reinterpret_cast<skater::SkaterPhysicsModule*>(core_physics)->is_sides_swapped() & 0xFF) != 0; }
 
 // The animation blender's 0x00419C10: its animations mirrored or not (`flip`: the state component's byte as it is).
-void FlipAnims(CObjectModule* blender, uint32_t objectId, uint32_t flip, uint32_t a, int b)
+void flip_anims(ObjectModule* blender, uint32_t object_id, uint32_t flip, uint32_t a, int b)
 {
-    static_cast<CAnimBlenderComponent*>(blender)->AnyChannel(objectId, flip, a, static_cast<uint32_t>(b));
+    static_cast<AnimBlenderComponent*>(blender)->any_channel(object_id, flip, a, static_cast<uint32_t>(b));
 }
 
 // The skater's index (+0x2BC of the skater object).
-int SkaterIndex(CGameEntity* skater) { return Prop<int>(skater, 0x2BC); }
+int get_skater_index(GameEntity* skater) { return prop<int>(skater, 0x2BC); }
 
 } // namespace
 
 // 0x00511470
-CObjectModule* __cdecl CRiderSpinAndFlip::Fabricate()
+ObjectModule* __cdecl RiderSpinAndFlip::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CRiderSpinAndFlip));
+    void* memory = memory::alloc_zeroed(sizeof(RiderSpinAndFlip));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CRiderSpinAndFlip*>(memory);
-    component->CObjectModule::MakeNew();
-    component->m_animBlender = nullptr;
-    component->m_meshSet = nullptr;
-    component->m_deckTurned = false;
-    component->m_vtable = kVtable;
-    component->m_kindTag = kSkaterFlipAndRotate;
+    auto* component = static_cast<RiderSpinAndFlip*>(memory);
+    component->ObjectModule::make_new();
+    component->anim_blender_ = nullptr;
+    component->mesh_set_ = nullptr;
+    component->deck_turned_ = false;
+    component->vtable_ = kVtable;
+    component->kind_tag_ = kSkaterFlipAndRotate;
     return component;
 }
 
 // 0x00511300
-void CRiderSpinAndFlip::DestroyBody()
+void RiderSpinAndFlip::destroy_body()
 {
-    m_vtable = kVtable;
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    ObjectModule::destroy_body();
 }
 
 // 0x00511320
-CRiderSpinAndFlip* CRiderSpinAndFlip::Teardown(unsigned int flags)
+RiderSpinAndFlip* RiderSpinAndFlip::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00511350
-void CRiderSpinAndFlip::Seal()
+void RiderSpinAndFlip::seal()
 {
-    m_corePhysics = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSkaterCorePhysics));
-    m_meshSet = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kModel));
-    m_animBlender = m_entity->FetchModule(kAnimBlender);
+    core_physics_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterCorePhysics));
+    mesh_set_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kModel));
+    anim_blender_ = entity_->fetch_module(kAnimBlender);
 }
 
 // 0x00511390
-bool CRiderSpinAndFlip::ApplyBoardTurned(uint32_t objectId, bool rotated, uint32_t /*unused*/, bool send)
+bool RiderSpinAndFlip::apply_board_turned(uint32_t object_id, bool rotated, uint32_t /*unused*/, bool send)
 {
     if (send) {
-        OnlinePlay::PlayerRecord* player = FindPlayerSlotByObj(objectId);
-        if (player && IsOwnPlayer(player)) {
-            NetLink::NetMessageInfo message;
-            message.MakeNew();
-            NetLink::Guest* app = ClientApp(PlayerSkaterIndex(player));
-            uint8_t data[2] = {static_cast<uint8_t>(objectId), static_cast<uint8_t>(rotated)};
-            message.m_ident = kMsgBoardRotated;
-            message.m_byteCount = 2;
-            message.m_content = data;
-            app->SendToHost(&message);
+        online::PlayerRecord* player = find_player_slot_by_obj(object_id);
+        if (player && is_own_player(player)) {
+            net::NetMessageInfo message;
+            message.make_new();
+            net::Guest* app = client_app(player_skater_index(player));
+            uint8_t data[2] = {static_cast<uint8_t>(object_id), static_cast<uint8_t>(rotated)};
+            message.ident_ = kMsgBoardRotated;
+            message.byte_count_ = 2;
+            message.content_ = data;
+            app->send_to_host(&message);
         }
     }
-    bool was = m_deckTurned;
-    m_deckTurned = rotated;
+    bool was = deck_turned_;
+    deck_turned_ = rotated;
     return was;
 }
 
 // 0x00511310
-void CRiderSpinAndFlip::ClearAfterFlags()
+void RiderSpinAndFlip::clear_after_flags()
 {
-    m_flipAfter = false;
-    m_rotateAfter = false;
+    flip_after_ = false;
+    rotate_after_ = false;
 }
 
 // 0x00511420
-void CRiderSpinAndFlip::ApplyFlipToAnims()
+void RiderSpinAndFlip::apply_flip_to_anims()
 {
-    NetLink::Guest* app = ClientApp(SkaterIndex(m_entity));
-    uint8_t* state = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSkaterState));
-    FlipAnims(m_animBlender, m_entity->m_ident, Prop<uint8_t>(state, 0x28), AppValue8(app), 1);
+    net::Guest* app = client_app(get_skater_index(entity_));
+    uint8_t* state = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterState));
+    flip_anims(anim_blender_, entity_->ident_, prop<uint8_t>(state, 0x28), app_value8(app), 1);
 }
 
 // 0x005114F0
-void CRiderSpinAndFlip::Flip()
+void RiderSpinAndFlip::get_flip()
 {
-    uint8_t* state = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSkaterState));
-    uint8_t& flipped = Prop<uint8_t>(state, 0x28);
+    uint8_t* state = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterState));
+    uint8_t& flipped = prop<uint8_t>(state, 0x28);
     uint8_t flip = flipped == 0 ? 1 : 0;
     if (flipped != flip) { // (always)
         flipped = flip;
-        Prop<int>(state, 0x2C) = FrameClock::GameClockElapsed() + g_clockOffset;
+        prop<int>(state, 0x2C) = frame_clock::game_clock_elapsed() + g_clock_offset;
     }
     // NOT ORIGINAL - THAW's BMX ([features] thaw_bmx, on the bike): THAW's Flip turns the flag only - the animations
-    // take it when they're played (game/rider/thaw_bmx.h FlipFlagOnly / PlayFlip). Original behaviour: every running
+    // take it when they're played (game/rider/thaw_bmx.h flip_flag_only / play_flip). Original behaviour: every running
     // animation mirrored at once.
-    if (Skater::ThawBmx::FlipFlagOnly(m_corePhysics))
+    if (skater::thaw_bmx::flip_flag_only(core_physics_))
         return;
-    ApplyFlipToAnims();
+    apply_flip_to_anims();
 }
 
 // 0x00511570
-void CRiderSpinAndFlip::DoAfterAnim()
+void RiderSpinAndFlip::do_after_anim()
 {
-    if (m_flipAfter) {
-        Flip();
-        m_flipAfter = false;
+    if (flip_after_) {
+        get_flip();
+        flip_after_ = false;
     }
-    if (m_rotateAfter) {
-        TurnAround(m_corePhysics);
-        m_rotateAfter = false;
+    if (rotate_after_) {
+        turn_around(core_physics_);
+        rotate_after_ = false;
     }
-    if (m_boardRotateAfter) {
+    if (board_rotate_after_) {
         // (the player isn't checked for null here)
-        NetLink::Guest* app = ClientApp(PlayerSkaterIndex(FindPlayerSlotByObj(m_entity->m_ident)));
-        ApplyBoardTurned(m_entity->m_ident, !m_deckTurned, AppValue8(app), true);
-        m_boardRotateAfter = false;
+        net::Guest* app = client_app(player_skater_index(find_player_slot_by_obj(entity_->ident_)));
+        apply_board_turned(entity_->ident_, !deck_turned_, app_value8(app), true);
+        board_rotate_after_ = false;
     }
-    Prop<uint8_t>(m_meshSet, 0x1F4) = 0;
+    prop<uint8_t>(mesh_set_, 0x1F4) = 0;
 }
 
 // 0x00511600
-int CRiderSpinAndFlip::InvokeMethodByName(uint32_t name, Scripts::CStruct* params,
-                                                      Scripts::CScript* /*script*/)
+int RiderSpinAndFlip::invoke_method_by_name(uint32_t name, script::Struct* params,
+                                                      script::Script* /*script*/)
 {
     switch (name) {
     case kBoardIsRotated:
-        return m_deckTurned ? 1 : 0;
+        return deck_turned_ ? 1 : 0;
     case kBoardRotateAfter:
-        m_boardRotateAfter = true;
+        board_rotate_after_ = true;
         return 1;
     case kPlayAnim:
-        DoAfterAnim();
+        do_after_anim();
         return 2;
     case kRotateNoFlip:
-        TurnAround(m_corePhysics);
+        turn_around(core_physics_);
         return 1;
     case kFlip:
-        Flip();
+        get_flip();
         return 1;
     case kFlipIfNeeded:
-        if (FlipNeeded(m_corePhysics))
-            Flip();
+        if (flip_needed(core_physics_))
+            get_flip();
         return 1;
     case kFlipAndRotate:
-        TurnAround(m_corePhysics);
-        Flip();
+        turn_around(core_physics_);
+        get_flip();
         return 1;
     case kIsFlipAfterSet:
-        return m_flipAfter ? 1 : 0;
+        return flip_after_ ? 1 : 0;
     case kRotateAfter:
-        m_rotateAfter = true;
+        rotate_after_ = true;
         return 1;
     case kFlipAfter:
-        m_flipAfter = true;
+        flip_after_ = true;
         return 1;
     case kBoardRotate: {
         // (the player isn't checked for null here)
-        NetLink::Guest* app = ClientApp(PlayerSkaterIndex(FindPlayerSlotByObj(m_entity->m_ident)));
-        bool rotated = params->HasBareFlag(kNormal) ? false : !m_deckTurned;
-        ApplyBoardTurned(m_entity->m_ident, rotated, AppValue8(app), true);
+        net::Guest* app = client_app(player_skater_index(find_player_slot_by_obj(entity_->ident_)));
+        bool rotated = params->has_bare_flag(kNormal) ? false : !deck_turned_;
+        apply_board_turned(entity_->ident_, rotated, app_value8(app), true);
         return 1;
     }
     default:
@@ -240,23 +240,23 @@ int CRiderSpinAndFlip::InvokeMethodByName(uint32_t name, Scripts::CStruct* param
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CRiderSpinAndFlip::Teardown,
-         &GameObjects::ComponentWithoutUpdate::TickFrame,
-         Stubs::IgnoreArgument,
-         &GameObjects::CRiderSpinAndFlip::Seal,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
-         &GameObjects::CRiderSpinAndFlip::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::RiderSpinAndFlip::teardown,
+         &objects::ComponentWithoutUpdate::tick_frame,
+         stubs::ignore_argument,
+         &objects::RiderSpinAndFlip::seal,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
+         &objects::RiderSpinAndFlip::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

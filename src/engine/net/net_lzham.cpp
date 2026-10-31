@@ -6,11 +6,11 @@
 
 #include <lzham_static_lib.h>
 
-namespace NetLink::Lzham {
+namespace net::lzham {
 
 // THUGPRO's parameters (Net/Encoding.cpp in Morten1337's thugpro_proxy): everything zero but the dictionary, the
 // level and no helper threads - the table update settings at their defaults, which both ends must share.
-size_t Compress(const uint8_t* in, size_t size, uint8_t* out, size_t capacity)
+size_t compress(const uint8_t* in, size_t size, uint8_t* out, size_t capacity)
 {
     lzham_compress_params params;
     std::memset(&params, 0, sizeof(params));
@@ -26,7 +26,7 @@ size_t Compress(const uint8_t* in, size_t size, uint8_t* out, size_t capacity)
 }
 
 // The stream's own adler32 is checked too (THUGPRO doesn't ask for it; the stream carries it either way).
-bool Decompress(const uint8_t* in, size_t size, uint8_t* out, size_t capacity, size_t* outSize)
+bool decompress(const uint8_t* in, size_t size, uint8_t* out, size_t capacity, size_t* out_size)
 {
     if (!in || !out || size == 0)
         return false;
@@ -41,8 +41,8 @@ bool Decompress(const uint8_t* in, size_t size, uint8_t* out, size_t capacity, s
         return false;
     if (written > capacity)
         return false;
-    *outSize = written;
+    *out_size = written;
     return true;
 }
 
-} // namespace NetLink::Lzham
+} // namespace NetLink::lzham

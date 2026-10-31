@@ -1,4 +1,4 @@
-// The skater's state component (GameObjects::CRiderPoseState) and three functions of its state history: see
+// The skater's state component (GameObjects::RiderPoseState) and three functions of its state history: see
 // skater_state.h.
 
 #include "game/rider/skater_state.h"
@@ -21,10 +21,10 @@
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/state_history.h"
 
-namespace GameObjects {
+namespace objects {
 
-uint32_t g_powerupNames[1]{0xD039432C};
-uint32_t g_skaterStateMemberFunctions[114]{
+uint32_t g_powerup_names[1]{0xD039432C};
+uint32_t g_skater_state_member_functions[114]{
             0x5EA287F2, 0x43686585, 0, 0, 0, 0,
             0x3527FC07, 0x43686585, 0, 0, 0, 0,
             0xA32C1A15, 0x43686585, 0, 0, 0, 0,
@@ -55,16 +55,16 @@ constexpr uint32_t kTerrain = 0x3789AC4E, kSparksPos = 0xFF5318DA;
 
 // The powerups' names (0x0067F09C): one.
 constexpr int kPowerups = 1;
-const uint32_t* PowerupNames() { return g_powerupNames; }
+const uint32_t* powerup_names() { return g_powerup_names; }
 
 // The powerup the unnamed checksum names (asserted), or -1.
-int FindPowerup(Scripts::CStruct* params)
+int find_powerup(script::Struct* params)
 {
     // (without one the original's variable keeps the params pointer: the stack slot it reuses)
     auto name = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(params));
-    params->ReadHashValue(uint32_t{0}, &name, 1);
+    params->read_hash_value(uint32_t{0}, &name, 1);
     for (int i = 0; i < kPowerups; ++i) {
-        if (PowerupNames()[i] == name)
+        if (powerup_names()[i] == name)
             return i;
     }
     return -1;
@@ -73,156 +73,156 @@ int FindPowerup(Scripts::CStruct* params)
 } // namespace
 
 // 0x00519740
-CObjectModule* __cdecl CRiderPoseState::Fabricate()
+ObjectModule* __cdecl RiderPoseState::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CRiderPoseState));
+    void* memory = memory::alloc_zeroed(sizeof(RiderPoseState));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CRiderPoseState*>(memory);
-    component->CObjectModule::MakeNew();
-    component->m_vtable = kVtable;
-    component->m_kindTag = kSkaterState;
-    component->m_boostItems[0] = 0;
+    auto* component = static_cast<RiderPoseState*>(memory);
+    component->ObjectModule::make_new();
+    component->vtable_ = kVtable;
+    component->kind_tag_ = kSkaterState;
+    component->boost_items_[0] = 0;
     return component;
 }
 
 // 0x00519430
-void __cdecl CRiderPoseState::PublishMethodTable()
+void __cdecl RiderPoseState::publish_method_table()
 {
-    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kSkaterState), g_skaterStateMemberFunctions,
+    script::register_member_function_table(reinterpret_cast<void*>(kSkaterState), g_skater_state_member_functions,
                                         0x18);
 }
 
 // 0x00519450
-void CRiderPoseState::DestroyBody()
+void RiderPoseState::destroy_body()
 {
-    m_vtable = kVtable;
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    ObjectModule::destroy_body();
 }
 
 // 0x00519620
-CRiderPoseState* CRiderPoseState::Teardown(unsigned int flags)
+RiderPoseState* RiderPoseState::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00519460
-void CRiderPoseState::ConfigureFromData(Scripts::CStruct* /*params*/) { m_curPhase = AIR; }
+void RiderPoseState::configure_from_data(script::Struct* /*params*/) { cur_phase_ = kAir; }
 
 // 0x00519660
-void CRiderPoseState::ChangePhase(int state)
+void RiderPoseState::change_phase(int state)
 {
-    if (state == m_curPhase)
+    if (state == cur_phase_)
         return;
-    m_curPhase = state;
-    m_entity->PostOwnEvent(kOnSkaterStateChange, nullptr);
+    cur_phase_ = state;
+    entity_->post_own_event(kOnSkaterStateChange, nullptr);
 }
 
 // 0x00519680
-void CRiderPoseState::SetPhysicsMode(int mode)
+void RiderPoseState::set_physics_mode(int mode)
 {
-    if (mode == m_physicsMode)
+    if (mode == physics_mode_)
         return;
-    m_physicsMode = mode;
-    m_entity->PostOwnEvent(kOnSkaterPhysicsStateChange, nullptr);
+    physics_mode_ = mode;
+    entity_->post_own_event(kOnSkaterPhysicsStateChange, nullptr);
 }
 
 // 0x005196A0
-void CRiderPoseState::SetSurfaceKind(uint8_t terrain)
+void RiderPoseState::set_surface_kind(uint8_t terrain)
 {
-    if (terrain == m_surfaceType)
+    if (terrain == surface_type_)
         return;
-    m_surfaceType = terrain;
-    m_entity->PostOwnEvent(kOnSkaterTerrainChange, nullptr);
+    surface_type_ = terrain;
+    entity_->post_own_event(kOnSkaterTerrainChange, nullptr);
 }
 
 // 0x00519470
-void CRiderPoseState::ClearPowerups() { m_boostItems[0] = 0; }
+void RiderPoseState::clear_powerups() { boost_items_[0] = 0; }
 
 // 0x00519650
-void CRiderPoseState::ClearDoingTrick() { m_inTrickMove = 0; }
+void RiderPoseState::clear_doing_trick() { in_trick_move_ = 0; }
 
 // 0x00519480
-bool CRiderPoseState::InAir(Scripts::CStruct*, Scripts::CScript*) { return m_curPhase == AIR; }
+bool RiderPoseState::in_air(script::Struct*, script::Script*) { return cur_phase_ == kAir; }
 // 0x00519490
-bool CRiderPoseState::OnWall(Scripts::CStruct*, Scripts::CScript*) { return m_curPhase == WALL; }
+bool RiderPoseState::get_on_wall(script::Struct*, script::Script*) { return cur_phase_ == kWall; }
 // 0x005194A0
-bool CRiderPoseState::OnLip(Scripts::CStruct*, Scripts::CScript*) { return m_curPhase == LIP; }
+bool RiderPoseState::on_lip(script::Struct*, script::Script*) { return cur_phase_ == kLip; }
 // 0x005194B0
-bool CRiderPoseState::OnRail(Scripts::CStruct*, Scripts::CScript*) { return m_curPhase == RAIL; }
+bool RiderPoseState::get_on_rail(script::Struct*, script::Script*) { return cur_phase_ == kRail; }
 // 0x005194C0
-bool CRiderPoseState::InWallplant(Scripts::CStruct*, Scripts::CScript*) { return m_curPhase == WALLPLANT; }
+bool RiderPoseState::in_wallplant(script::Struct*, script::Script*) { return cur_phase_ == kWallplant; }
 // 0x005196D0
-bool CRiderPoseState::InBailState(Scripts::CStruct*, Scripts::CScript*) { return m_bailing != 0; }
+bool RiderPoseState::in_bail_state(script::Struct*, script::Script*) { return bailing_ != 0; }
 // 0x005194D0
-bool CRiderPoseState::OnFoot(Scripts::CStruct*, Scripts::CScript*)
+bool RiderPoseState::on_foot(script::Struct*, script::Script*)
 {
-    return !m_inVehicle && m_physicsMode == WALKING;
+    return !in_vehicle_ && physics_mode_ == kWalking;
 }
 // 0x005194F0
-bool CRiderPoseState::Skating(Scripts::CStruct*, Scripts::CScript*)
+bool RiderPoseState::skating(script::Struct*, script::Script*)
 {
-    return !m_inVehicle && m_physicsMode == SKATING;
+    return !in_vehicle_ && physics_mode_ == kSkating;
 }
 // 0x00519510
-bool CRiderPoseState::Driving(Scripts::CStruct*, Scripts::CScript*) { return m_inVehicle != 0; }
+bool RiderPoseState::get_driving(script::Struct*, script::Script*) { return in_vehicle_ != 0; }
 // 0x00519520
-bool CRiderPoseState::SetDriving(Scripts::CStruct*, Scripts::CScript*)
+bool RiderPoseState::set_driving(script::Struct*, script::Script*)
 {
-    m_inVehicle = 1;
+    in_vehicle_ = 1;
     return true;
 }
 // 0x00519530
-bool CRiderPoseState::UnsetDriving(Scripts::CStruct*, Scripts::CScript*)
+bool RiderPoseState::unset_driving(script::Struct*, script::Script*)
 {
-    m_inVehicle = 0;
+    in_vehicle_ = 0;
     return true;
 }
 // 0x005196E0
-bool CRiderPoseState::InAirMove(Scripts::CStruct*, Scripts::CScript*) { return m_inTrickMove != 0; }
+bool RiderPoseState::in_air_move(script::Struct*, script::Script*) { return in_trick_move_ != 0; }
 
 // 0x00519540
-bool CRiderPoseState::HasPowerup(Scripts::CStruct* params, Scripts::CScript*)
+bool RiderPoseState::has_powerup(script::Struct* params, script::Script*)
 {
-    int index = FindPowerup(params);
-    return index != -1 && m_boostItems[index] != 0;
+    int index = find_powerup(params);
+    return index != -1 && boost_items_[index] != 0;
 }
 
 // 0x005195B0
-bool CRiderPoseState::PickedUpPowerup(Scripts::CStruct* params, Scripts::CScript*)
+bool RiderPoseState::picked_up_powerup(script::Struct* params, script::Script*)
 {
-    int index = FindPowerup(params);
+    int index = find_powerup(params);
     if (index != -1)
-        m_boostItems[index] = 1;
+        boost_items_[index] = 1;
     return true;
 }
 
 // 0x005196F0
-bool CRiderPoseState::GetSurfaceKind(Scripts::CStruct*, Scripts::CScript* script)
+bool RiderPoseState::get_surface_kind(script::Struct*, script::Script* script)
 {
-    script->m_args->PutInt(kTerrain, m_surfaceType);
+    script->args_->put_int(kTerrain, surface_type_);
     return true;
 }
 
 // 0x00519720
-bool CRiderPoseState::GetSparksPos(Scripts::CStruct*, Scripts::CScript* script)
+bool RiderPoseState::get_sparks_pos(script::Struct*, script::Script* script)
 {
-    script->m_args->PutNameKey(kSparksPos, m_sparksPos);
+    script->args_->put_name_key(kSparksPos, sparks_pos_);
     return true;
 }
 
 // 0x00519600
-bool CRiderPoseState::SetSparksPos(Scripts::CStruct* params, Scripts::CScript*)
+bool RiderPoseState::set_sparks_pos(script::Struct* params, script::Script*)
 {
-    params->ReadHashValue(uint32_t{0}, &m_sparksPos, 0);
+    params->read_hash_value(uint32_t{0}, &sparks_pos_, 0);
     return true;
 }
 
 // 0x005197D0
-uint32_t SkaterStateHistoryFrame::GetTime()
+uint32_t SkaterStateHistoryFrame::get_time()
 {
     auto* self = reinterpret_cast<uint8_t*>(this);
     return static_cast<uint32_t>(*reinterpret_cast<uint16_t*>(self + 0x7A)) << 16 |
@@ -230,7 +230,7 @@ uint32_t SkaterStateHistoryFrame::GetTime()
 }
 
 // 0x005197E0
-void SkaterStateHistoryFrame::ChangeMoment(uint32_t time)
+void SkaterStateHistoryFrame::change_moment(uint32_t time)
 {
     auto* self = reinterpret_cast<uint8_t*>(this);
     *reinterpret_cast<uint16_t*>(self + 0x78) = static_cast<uint16_t>(time);
@@ -238,50 +238,50 @@ void SkaterStateHistoryFrame::ChangeMoment(uint32_t time)
 }
 
 // 0x005197C0
-void CRiderFrameLog::DestroyBody()
+void RiderFrameLog::destroy_body()
 {
-    m_vtable = g_stateHistoryVtable;
-    CObjectModule::DestroyBody();
+    vtable_ = kStateHistoryVtable;
+    ObjectModule::destroy_body();
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CRiderPoseState::Teardown,
-         &GameObjects::ComponentWithoutUpdate::TickFrame,
-         &GameObjects::CRiderPoseState::ConfigureFromData,
-         Stubs::DoNothing,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::DispatchScriptMethod,
-         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::RiderPoseState::teardown,
+         &objects::ComponentWithoutUpdate::tick_frame,
+         &objects::RiderPoseState::configure_from_data,
+         stubs::do_nothing,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         &objects::ObjectModule::dispatch_script_method,
+         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 
-static VtableSlot g_stateHistoryVtable_slots[] = {&GameObjects::CRiderFrameLog::Teardown,
-         &GameObjects::ComponentWithoutUpdate::TickFrame,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
-         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
-void** const g_stateHistoryVtable = reinterpret_cast<void**>(g_stateHistoryVtable_slots);
+static VtableSlot g_state_history_vtable_slots[] = {&objects::RiderFrameLog::teardown,
+         &objects::ComponentWithoutUpdate::tick_frame,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
+         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+void** const kStateHistoryVtable = reinterpret_cast<void**>(g_state_history_vtable_slots);
 
 } // namespace Obj

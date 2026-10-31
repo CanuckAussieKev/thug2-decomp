@@ -11,54 +11,54 @@
 #include "engine/core/code_address.h"
 #include "engine/core/stubs.h"
 
-namespace Engine3D {
+namespace render {
 
-CGlyphString* g_freeTexts;
+GlyphString* g_free_texts;
 namespace {
 
 extern void** const kTextVtable;
 
-CGlyphString*& FreeList() { return g_freeTexts; }
+GlyphString*& free_list() { return g_free_texts; }
 
 // The platform's updates (virtual [2]-[5]).
-void TickFrame(CGlyphString* text, int slot) { reinterpret_cast<void(__thiscall*)(CGlyphString*)>(text->m_vtable[slot])(text); }
+void tick_frame(GlyphString* text, int slot) { reinterpret_cast<void(__thiscall*)(GlyphString*)>(text->vtable_[slot])(text); }
 
 // Memory from the front end's heap.
-void* FrontEndNew(unsigned int size)
+void* front_end_new(unsigned int size)
 {
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(manager->m_frontEndHeap);
-    void* memory = MemSys::Alloc(size);
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(manager->front_end_heap_);
+    void* memory = memory::alloc(size);
+    memory::Hub::get_pull()->leave_heap_scope();
     return memory;
 }
 
 // The effects: an array new of 96 (the count before them; each constructed by the compiler's array helper).
-sCharEffect* NewEffects()
+CharEffect* new_effects()
 {
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(manager->m_frontEndHeap);
-    auto* memory = static_cast<int*>(MemSys::Alloc(4 + kCharEffects * sizeof(sCharEffect)));
-    sCharEffect* effects = nullptr;
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(manager->front_end_heap_);
+    auto* memory = static_cast<int*>(memory::alloc(4 + kCharEffects * sizeof(CharEffect)));
+    CharEffect* effects = nullptr;
     if (memory) {
         *memory = kCharEffects;
-        effects = reinterpret_cast<sCharEffect*>(memory + 1);
+        effects = reinterpret_cast<CharEffect*>(memory + 1);
         for (int i = 0; i < kCharEffects; ++i)
-            effects[i].MakeNew();
+            effects[i].make_new();
     }
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    memory::Hub::get_pull()->leave_heap_scope();
     return effects;
 }
 // (their destructor is empty: the compiler's array helper runs 0x005480A0 over them)
-void DeleteEffects(sCharEffect* effects) { MemSys::Dealloc(reinterpret_cast<int*>(effects) - 1); }
+void delete_effects(CharEffect* effects) { memory::dealloc(reinterpret_cast<int*>(effects) - 1); }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 16 bits kept.
-int16_t Fixed(float value) { return static_cast<int16_t>(static_cast<int64_t>(static_cast<double>(value) * 16384.0)); }
+int16_t get_fixed(float value) { return static_cast<int16_t>(static_cast<int64_t>(static_cast<double>(value) * 16384.0)); }
 
 } // namespace
 
 // 0x0048D0A0
-sCharEffect* sCharEffect::MakeNew()
+CharEffect* CharEffect::make_new()
 {
     x = 0;
     y = 0;
@@ -69,204 +69,204 @@ sCharEffect* sCharEffect::MakeNew()
 }
 
 // 0x0048D220
-CGlyphString* CGlyphString::MakeNew(void* window)
+GlyphString* GlyphString::make_new(void* window)
 {
-    m_scaleH = 1.0f;
-    m_scaleV = 1.0f;
-    m_vtable = reinterpret_cast<void**>(kTextVtable);
-    m_typeface = nullptr;
-    m_effects = nullptr;
-    m_posX = 0.0f;
-    m_y = 0.0f;
-    m_pivotX = 0.0f;
-    m_pivotY = 0.0f;
-    m_angle = 0.0f;
-    m_rank = 0.0f;
-    m_shade = 0x80808080;
-    m_fixedColour = false;
-    m_overrideAlpha = false;
-    m_invisible = true;
-    m_zEnabled = false;
-    m_screenRegion = window;
-    m_nextFree = nullptr;
-    m_textBuffer = nullptr;
+    scale_h_ = 1.0f;
+    scale_v_ = 1.0f;
+    vtable_ = reinterpret_cast<void**>(kTextVtable);
+    typeface_ = nullptr;
+    effects_ = nullptr;
+    pos_x_ = 0.0f;
+    y_ = 0.0f;
+    pivot_x_ = 0.0f;
+    pivot_y_ = 0.0f;
+    angle_ = 0.0f;
+    rank_ = 0.0f;
+    shade_ = 0x80808080;
+    fixed_colour_ = false;
+    override_alpha_ = false;
+    invisible_ = true;
+    z_enabled_ = false;
+    screen_region_ = window;
+    next_free_ = nullptr;
+    text_buffer_ = nullptr;
     return this;
 }
 
 // 0x0048D620
-void CGlyphString::DestroyBody()
+void GlyphString::destroy_body()
 {
-    m_vtable = reinterpret_cast<void**>(kTextVtable);
-    if (m_textBuffer)
-        MemSys::Dealloc(m_textBuffer); // (not cleared, as the original)
-    if (m_effects) {
-        DeleteEffects(m_effects);
-        m_effects = nullptr;
+    vtable_ = reinterpret_cast<void**>(kTextVtable);
+    if (text_buffer_)
+        memory::dealloc(text_buffer_); // (not cleared, as the original)
+    if (effects_) {
+        delete_effects(effects_);
+        effects_ = nullptr;
     }
 }
 
 // 0x0048D670
-CGlyphString* CGlyphString::Teardown(unsigned int flags)
+GlyphString* GlyphString::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
 // 0x0048D5A0
-void CGlyphString::FreeBuffers()
+void GlyphString::free_buffers()
 {
-    if (m_textBuffer) {
-        MemSys::Dealloc(m_textBuffer);
-        m_textBuffer = nullptr;
+    if (text_buffer_) {
+        memory::dealloc(text_buffer_);
+        text_buffer_ = nullptr;
     }
-    if (m_effects) {
-        DeleteEffects(m_effects);
-        m_effects = nullptr;
+    if (effects_) {
+        delete_effects(effects_);
+        effects_ = nullptr;
     }
 }
 
 // 0x0048D0C0
-void CGlyphString::ChangeConcealed(bool hidden)
+void GlyphString::change_concealed(bool hidden)
 {
-    m_invisible = hidden;
-    TickFrame(this, 2);
+    invisible_ = hidden;
+    tick_frame(this, 2);
 }
 
 // 0x0048D0D0
-void CGlyphString::ChangeTypeface(CTypeface* font)
+void GlyphString::change_typeface(Typeface* font)
 {
-    m_typeface = font;
-    TickFrame(this, 3);
+    typeface_ = font;
+    tick_frame(this, 3);
 }
 
 // 0x0048D0E0
-void CGlyphString::ChangeLocation(float x, float y)
+void GlyphString::change_location(float x, float y)
 {
-    m_posX = x;
-    m_y = y;
-    TickFrame(this, 3);
+    pos_x_ = x;
+    y_ = y;
+    tick_frame(this, 3);
 }
 
 // 0x0048D100
-void CGlyphString::ChangeScale(float x, float y)
+void GlyphString::change_scale(float x, float y)
 {
-    m_scaleH = x;
-    m_scaleV = y;
-    TickFrame(this, 3);
+    scale_h_ = x;
+    scale_v_ = y;
+    tick_frame(this, 3);
 }
 
 // 0x0048D120
-void CGlyphString::ChangeSpin(float angle, float pivotX, float pivotY)
+void GlyphString::change_spin(float angle, float pivot_x, float pivot_y)
 {
-    m_angle = angle;
-    m_pivotX = pivotX;
-    m_pivotY = pivotY;
-    TickFrame(this, 3);
+    angle_ = angle;
+    pivot_x_ = pivot_x;
+    pivot_y_ = pivot_y;
+    tick_frame(this, 3);
 }
 
 // 0x0048D140
-void CGlyphString::ChangeRank(float priority)
+void GlyphString::change_rank(float priority)
 {
-    m_rank = priority;
-    m_zEnabled = false;
-    TickFrame(this, 4);
+    rank_ = priority;
+    z_enabled_ = false;
+    tick_frame(this, 4);
 }
 
 // 0x0048D160
-void CGlyphString::SetDepth(float depth)
+void GlyphString::set_depth(float depth)
 {
-    m_layer = depth;
-    m_zEnabled = true;
-    TickFrame(this, 4);
+    layer_ = depth;
+    z_enabled_ = true;
+    tick_frame(this, 4);
 }
 
 // 0x0048D180
-void CGlyphString::ChangeColour(uint32_t rgba, bool fixed)
+void GlyphString::change_colour(uint32_t rgba, bool fixed)
 {
-    m_shade = rgba;
-    m_fixedColour = fixed;
-    TickFrame(this, 3);
+    shade_ = rgba;
+    fixed_colour_ = fixed;
+    tick_frame(this, 3);
 }
 
 // 0x0048D1A0
-void CGlyphString::SetOverrideAlpha(bool on)
+void GlyphString::set_override_alpha(bool on)
 {
-    m_overrideAlpha = on;
-    TickFrame(this, 3);
+    override_alpha_ = on;
+    tick_frame(this, 3);
 }
 
 // 0x0048D1B0
-void CGlyphString::ChangePane(void* window)
+void GlyphString::change_pane(void* window)
 {
-    m_screenRegion = window;
-    TickFrame(this, 5);
+    screen_region_ = window;
+    tick_frame(this, 5);
 }
 
 // 0x0048D530
-void CGlyphString::ChangeText(const char* string)
+void GlyphString::change_text(const char* string)
 {
-    if (!m_textBuffer)
-        m_textBuffer = static_cast<char*>(FrontEndNew(kTextLength));
-    char* out = m_textBuffer;
+    if (!text_buffer_)
+        text_buffer_ = static_cast<char*>(front_end_new(kTextLength));
+    char* out = text_buffer_;
     while ((*out++ = *string++) != '\0') {
     }
-    TickFrame(this, 3);
+    tick_frame(this, 3);
 }
 
 // 0x0048D280
-void CGlyphString::SetCharOffset(int index, int16_t x, int16_t y)
+void GlyphString::set_char_offset(int index, int16_t x, int16_t y)
 {
-    if (!m_effects)
-        m_effects = NewEffects();
-    m_effects[index].x = x;
-    m_effects[index].y = y;
-    TickFrame(this, 3);
+    if (!effects_)
+        effects_ = new_effects();
+    effects_[index].x = x;
+    effects_[index].y = y;
+    tick_frame(this, 3);
 }
 
 // 0x0048D360
-void CGlyphString::SetCharScale(int index, float x, float y)
+void GlyphString::set_char_scale(int index, float x, float y)
 {
-    if (!m_effects)
-        m_effects = NewEffects();
-    m_effects[index].xscale = Fixed(x);
-    m_effects[index].yscale = Fixed(y);
-    TickFrame(this, 3);
+    if (!effects_)
+        effects_ = new_effects();
+    effects_[index].xscale = get_fixed(x);
+    effects_[index].yscale = get_fixed(y);
+    tick_frame(this, 3);
 }
 
 // 0x0048D450
-void CGlyphString::SetCharRotation(int index, float rotation)
+void GlyphString::set_char_rotation(int index, float rotation)
 {
-    if (!m_effects)
-        m_effects = NewEffects();
-    m_effects[index].rotation = Fixed(rotation);
-    TickFrame(this, 3);
+    if (!effects_)
+        effects_ = new_effects();
+    effects_[index].rotation = get_fixed(rotation);
+    tick_frame(this, 3);
 }
 
 // 0x0048D1D0
-CGlyphString* __cdecl NewText()
+GlyphString* __cdecl new_text()
 {
-    CGlyphString* text = FreeList();
+    GlyphString* text = free_list();
     if (text)
-        FreeList() = text->m_nextFree;
+        free_list() = text->next_free_;
     return text;
 }
 
 // 0x0048D5F0
-void __cdecl FreeText(CGlyphString* text)
+void __cdecl free_text(GlyphString* text)
 {
-    text->m_invisible = true;
-    TickFrame(text, 2);
-    text->FreeBuffers();
-    text->m_nextFree = FreeList();
-    FreeList() = text;
+    text->invisible_ = true;
+    tick_frame(text, 2);
+    text->free_buffers();
+    text->next_free_ = free_list();
+    free_list() = text;
 }
 
 namespace {
-static VtableSlot kTextVtable_slots[] = {&Engine3D::CGlyphString::Teardown, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing,
-                Stubs::DoNothing, Stubs::DoNothing};
-void** const kTextVtable = reinterpret_cast<void**>(kTextVtable_slots);
+static VtableSlot g_text_vtable_slots[] = {&render::GlyphString::teardown, stubs::do_nothing, stubs::do_nothing, stubs::do_nothing,
+                stubs::do_nothing, stubs::do_nothing};
+void** const kTextVtable = reinterpret_cast<void**>(g_text_vtable_slots);
 } // namespace
 
 } // namespace Nx

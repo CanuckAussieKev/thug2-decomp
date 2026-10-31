@@ -1,4 +1,4 @@
-// ListKit::ResolveMap's code (see lookup_table.h): 0x00557F10, 0x00561430, 0x005628B0, 0x00562970, 0x0055B990.
+// lists::ResolveMap's code (see lookup_table.h): 0x00557F10, 0x00561430, 0x005628B0, 0x00562970, 0x0055B990.
 
 #include <cstdint>
 
@@ -6,12 +6,12 @@
 
 #include "engine/core/mem.h"
 
-namespace ListKit {
+namespace lists {
 
 namespace {
 
 // The item's deleting destructor (its vtable's first entry).
-void DeleteItem(void* item)
+void delete_item(void* item)
 {
     void** vtable = *static_cast<void***>(item);
     reinterpret_cast<void*(__thiscall*)(void*, uint8_t)>(vtable[0])(item, 1);
@@ -20,95 +20,95 @@ void DeleteItem(void* item)
 } // namespace
 
 // 0x00557F10
-void* ResolveMap::FetchEntryAt(const int* index, uint32_t* key)
+void* ResolveMap::fetch_entry_at(const int* index, uint32_t* key)
 {
-    if (m_cursor && m_cursorIndex != *index) {
-        if (m_cursorIndex < *index) {
+    if (cursor_ && cursor_index_ != *index) {
+        if (cursor_index_ < *index) {
             do {
-                ++m_cursorIndex;
-                m_cursor = m_cursor->next;
-            } while (m_cursorIndex < *index);
+                ++cursor_index_;
+                cursor_ = cursor_->next;
+            } while (cursor_index_ < *index);
         } else {
-            m_cursor = nullptr;
+            cursor_ = nullptr;
         }
     }
-    if (!m_cursor) {
-        Elem* node = m_first;
+    if (!cursor_) {
+        Elem* node = first_;
         for (int i = *index; i > 0; --i)
             node = node->next;
-        m_cursorIndex = *index;
-        m_cursor = node;
+        cursor_index_ = *index;
+        cursor_ = node;
     }
     if (key)
-        *key = m_cursor->key;
-    return m_cursor->item;
+        *key = cursor_->key;
+    return cursor_->item;
 }
 
 // 0x00561430
-void* ResolveMap::FetchEntry(const uint32_t* key)
+void* ResolveMap::fetch_entry(const uint32_t* key)
 {
-    m_cursor = nullptr;
-    m_cursorIndex = 0;
-    for (Elem* node = m_first; node; node = node->next) {
+    cursor_ = nullptr;
+    cursor_index_ = 0;
+    for (Elem* node = first_; node; node = node->next) {
         if (node->key == *key) {
-            m_cursor = node;
+            cursor_ = node;
             return node->item;
         }
-        ++m_cursorIndex;
+        ++cursor_index_;
     }
     return nullptr;
 }
 
 // 0x005628B0
-bool ResolveMap::StoreEntry(const uint32_t* key, void* item)
+bool ResolveMap::store_entry(const uint32_t* key, void* item)
 {
-    auto* node = static_cast<Elem*>(MemSys::Alloc(sizeof(Elem)));
+    auto* node = static_cast<Elem*>(memory::alloc(sizeof(Elem)));
     if (node) {
         node->item = nullptr;
         node->next = nullptr;
     }
     node->item = item; // (a failed allocation writes through null, as the original)
     node->key = *key;
-    if (!m_first)
-        m_first = node;
+    if (!first_)
+        first_ = node;
     else
-        m_last->next = node;
-    m_last = node;
-    ++m_num;
-    m_cursor = nullptr;
+        last_->next = node;
+    last_ = node;
+    ++num_;
+    cursor_ = nullptr;
     return true;
 }
 
 // 0x00562970
-void ResolveMap::EraseEntry(const uint32_t* key)
+void ResolveMap::erase_entry(const uint32_t* key)
 {
-    m_cursor = nullptr;
+    cursor_ = nullptr;
     Elem* previous = nullptr;
-    for (Elem* node = m_first; node; previous = node, node = node->next) {
+    for (Elem* node = first_; node; previous = node, node = node->next) {
         if (node->key != *key)
             continue;
         if (previous)
             previous->next = node->next;
         else
-            m_first = node->next;
-        if (m_last == node)
-            m_last = previous;
-        MemSys::Dealloc(node);
-        --m_num;
+            first_ = node->next;
+        if (last_ == node)
+            last_ = previous;
+        memory::dealloc(node);
+        --num_;
         return;
     }
 }
 
 // 0x0055B990
-void TableItemEraser::EmptyTableItems()
+void TableItemEraser::empty_table_items()
 {
-    for (int count = m_lookupTable->m_num; count > 0; --count) {
+    for (int count = lookup_table_->num_; count > 0; --count) {
         int index = 0;
         uint32_t key;
-        void* item = m_lookupTable->FetchEntryAt(&index, &key);
-        m_lookupTable->EraseEntry(&key);
+        void* item = lookup_table_->fetch_entry_at(&index, &key);
+        lookup_table_->erase_entry(&key);
         if (item)
-            DeleteItem(item);
+            delete_item(item);
     }
 }
 

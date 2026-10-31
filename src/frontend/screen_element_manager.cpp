@@ -19,30 +19,30 @@
 #include "engine/core/stubs.h"
 #include "engine/objects/entity_hub.h"
 
-namespace MenuSystem {
+namespace frontend {
 
 namespace {
 extern void** const kCScreenElementManagerVtable;
 extern void** const kListenerAdapterVtable;
 } // namespace
 
-CUiTree* g_uiElementHub;
+UiTree* g_ui_element_hub;
 
-static_assert(offsetof(CUiTree, m_listener) == 0x28 && offsetof(CUiTree, m_treeRoot) == 0x44 &&
-                  offsetof(CUiTree, m_resolving) == 0x50 &&
-                  offsetof(CUiTree, m_focusEntries) == 0x5C &&
-                  offsetof(CUiTree, m_focusLists) == 0x4DC &&
-                  offsetof(CUiTree, m_focusDirty) == 0x4E4 &&
-                  offsetof(CUiTree, m_numPriorities) == 0x4E8 &&
-                  offsetof(CUiTree, m_priorities) == 0x4EC &&
-                  offsetof(CUiTree, m_padEventTypes) == 0x5DC &&
-                  offsetof(CUiTree, m_padEventKindCount) == 0x69C &&
-                  offsetof(CUiTree, m_checkDevice) == 0x6A0 && sizeof(CUiTree) == 0x6A4,
+static_assert(offsetof(UiTree, listener_) == 0x28 && offsetof(UiTree, tree_root_) == 0x44 &&
+                  offsetof(UiTree, resolving_) == 0x50 &&
+                  offsetof(UiTree, focus_entries_) == 0x5C &&
+                  offsetof(UiTree, focus_lists_) == 0x4DC &&
+                  offsetof(UiTree, focus_dirty_) == 0x4E4 &&
+                  offsetof(UiTree, num_priorities_) == 0x4E8 &&
+                  offsetof(UiTree, priorities_) == 0x4EC &&
+                  offsetof(UiTree, pad_event_types_) == 0x5DC &&
+                  offsetof(UiTree, pad_event_kind_count_) == 0x69C &&
+                  offsetof(UiTree, check_device_) == 0x6A0 && sizeof(UiTree) == 0x6A4,
               "layout must match the original");
 
 namespace {
 
-using Scripts::CStruct;
+using script::Struct;
 
 // Names (checksums).
 constexpr uint32_t kTagLocalId = 0x9494A525, kChild = 0xDD4CABD6, kUnHide = 0xB60D1F35, kHide = 0x5B6634D4;
@@ -51,28 +51,28 @@ constexpr uint32_t kDeviceNum = 0xC9428A08, kScoreElementHash = 0x675ADBAA;
 constexpr uint32_t kSystem = 0x36B2EE74, kFocus = 0x9D3FB516, kUnfocus = 0x4ADF0CD3;
 constexpr uint32_t kFocusSentEvent = 0x3056434F, kFocusClearedEvent = 0x4A57316B;
 // The script array of the pad event types ("pad_event_types").
-const char* PadEventTypesName() { return "pad_event_types"; }
+const char* pad_event_types_name() { return "pad_event_types"; }
 
-CUiWidget* AsElement(GameObjects::CEntity* object) { return static_cast<CUiWidget*>(object); }
+UiWidget* as_element(objects::Entity* object) { return static_cast<UiWidget*>(object); }
 
-void SetEventConsumed(GameObjects::CSignal* event, uint32_t how, uint32_t script) { event->SetEventConsumed(how, script); }
+void set_event_consumed(objects::Signal* event, uint32_t how, uint32_t script) { event->set_event_consumed(how, script); }
 
-void VSetProperties(CUiWidget* e, CStruct* params)
+void v_set_properties(UiWidget* e, Struct* params)
 {
-    reinterpret_cast<void(__thiscall*)(CUiWidget*, CStruct*)>(e->m_vtable[1])(e, params);
+    reinterpret_cast<void(__thiscall*)(UiWidget*, Struct*)>(e->vtable_[1])(e, params);
 }
 
-// A structure with one flag, given to `element`'s ChangeTraits (Hide / UnHide).
-void SetFlagProperty(CUiWidget* element, uint32_t flag)
+// A structure with one flag, given to `element`'s change_traits (Hide / UnHide).
+void set_flag_property(UiWidget* element, uint32_t flag)
 {
-    CStruct* params = Scripts::SpawnParamBag();
+    Struct* params = script::spawn_param_bag();
     if (params)
-        params = params->PrepareAll();
-    params->PutNameKey(0u, flag);
-    VSetProperties(element, params);
+        params = params->prepare_all();
+    params->put_name_key(0u, flag);
+    v_set_properties(element, params);
     if (params) {
-        params->Clear();
-        Scripts::DeleteStruct(params);
+        params->get_clear();
+        script::delete_struct(params);
     }
 }
 
@@ -81,311 +81,311 @@ void SetFlagProperty(CUiWidget* element, uint32_t flag)
 // --- construction ---------------------------------------------------------------------------------------------
 
 // 0x004AB990
-CUiTree* CUiTree::MakeNew()
+UiTree* UiTree::make_new()
 {
-    GameObjects::CObjectHubBase::MakeNew();
-    m_listener.MakeNew();
-    m_listener.m_vtable = kListenerAdapterVtable;
-    m_vtable = kCScreenElementManagerVtable;
-    m_treeRoot.m_preceding = m_treeRoot.m_following = nullptr;
-    m_treeRoot.m_ownerObject = nullptr;
-    m_resolving.m_preceding = m_resolving.m_following = nullptr;
-    m_resolving.m_ownerObject = nullptr;
-    for (FocusEntry& entry : m_focusEntries) {
-        entry.element.m_ownerObject = nullptr;
-        entry.element.m_preceding = entry.element.m_following = nullptr;
+    objects::ObjectHubBase::make_new();
+    listener_.make_new();
+    listener_.vtable_ = kListenerAdapterVtable;
+    vtable_ = kCScreenElementManagerVtable;
+    tree_root_.preceding_ = tree_root_.following_ = nullptr;
+    tree_root_.owner_object_ = nullptr;
+    resolving_.preceding_ = resolving_.following_ = nullptr;
+    resolving_.owner_object_ = nullptr;
+    for (FocusEntry& entry : focus_entries_) {
+        entry.element.owner_object_ = nullptr;
+        entry.element.preceding_ = entry.element.following_ = nullptr;
     }
-    for (PriorityEntry& entry : m_priorities) {
-        entry.element.m_ownerObject = nullptr;
-        entry.element.m_preceding = entry.element.m_following = nullptr;
+    for (PriorityEntry& entry : priorities_) {
+        entry.element.owner_object_ = nullptr;
+        entry.element.preceding_ = entry.element.following_ = nullptr;
     }
-    m_treeRoot.Release();
-    m_resolving.Release();
-    m_listener.EnterWaitBoard(nullptr);
+    tree_root_.get_release();
+    resolving_.get_release();
+    listener_.enter_wait_board(nullptr);
     for (int i = 0; i < 2; ++i) {
-        m_focusLists[i] = nullptr;
-        m_focusDirty[i] = false;
+        focus_lists_[i] = nullptr;
+        focus_dirty_[i] = false;
     }
-    for (FocusEntry& entry : m_focusEntries) {
-        entry.element.Release();
+    for (FocusEntry& entry : focus_entries_) {
+        entry.element.get_release();
         entry.next = nullptr;
     }
-    m_padEventKindCount = 0;
-    std::memset(m_padEventTypes, 0, sizeof(m_padEventTypes));
-    m_checkDevice = false;
-    m_numPriorities = 0;
-    for (PriorityEntry& entry : m_priorities)
+    pad_event_kind_count_ = 0;
+    std::memset(pad_event_types_, 0, sizeof(pad_event_types_));
+    check_device_ = false;
+    num_priorities_ = 0;
+    for (PriorityEntry& entry : priorities_)
         entry.active = false;
     return this;
 }
 
 // 0x004ABB00
-void CUiTree::DestroyBody()
+void UiTree::destroy_body()
 {
-    m_vtable = kCScreenElementManagerVtable;
-    m_listener.m_vtable = kListenerAdapterVtable;
+    vtable_ = kCScreenElementManagerVtable;
+    listener_.vtable_ = kListenerAdapterVtable;
     for (int i = kPriorities - 1; i >= 0; --i)
-        m_priorities[i].element.Release();
+        priorities_[i].element.get_release();
     for (int i = kFocusEntries - 1; i >= 0; --i)
-        m_focusEntries[i].element.Release();
-    m_resolving.Release();
-    m_treeRoot.Release();
-    m_listener.Teardown();
-    GameObjects::CObjectHubBase::DestroyBody();
+        focus_entries_[i].element.get_release();
+    resolving_.get_release();
+    tree_root_.get_release();
+    listener_.teardown();
+    objects::ObjectHubBase::destroy_body();
 }
 
 // 0x004ACB40
-CUiTree* CUiTree::Teardown(uint8_t flags)
+UiTree* UiTree::teardown(uint8_t flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
 // 0x004AAD40
-GameObjects::CObjectListHead* CUiTree::FetchObjectSet() { return &m_entities; }
+objects::ObjectListHead* UiTree::fetch_object_set() { return &entities_; }
 
 // 0x004AAFF0
-void CUiTree::DropEntityRegistration(GameObjects::CEntity* object)
+void UiTree::drop_entity_registration(objects::Entity* object)
 {
     ElementPtr element;
-    element.AssignValue(AsElement(object));
-    if (element && m_treeRoot.m_ownerObject == element.m_ownerObject) {
-        m_treeRoot.Release();
-        for (MemSys::ListNode* node = m_entities.next; node->data != reinterpret_cast<void*>(-1); node = node->next) {
+    element.assign_value(as_element(object));
+    if (element && tree_root_.owner_object_ == element.owner_object_) {
+        tree_root_.get_release();
+        for (memory::ListNode* node = entities_.next; node->data != reinterpret_cast<void*>(-1); node = node->next) {
             ElementPtr candidate;
-            candidate.AssignValue(static_cast<CUiWidget*>(node->data));
-            if (!candidate->m_container && candidate.m_ownerObject != element.m_ownerObject) {
-                m_treeRoot.Assign(&candidate);
+            candidate.assign_value(static_cast<UiWidget*>(node->data));
+            if (!candidate->container_ && candidate.owner_object_ != element.owner_object_) {
+                tree_root_.get_assign(&candidate);
                 break;
             }
         }
     }
-    GameObjects::CObjectHubBase::DropEntityRegistration(object);
+    objects::ObjectHubBase::drop_entity_registration(object);
 }
 
 // --- elements -------------------------------------------------------------------------------------------------
 
 // 0x004AAE20
-ElementPtr* CUiTree::FetchPart(ElementPtr* out, uint32_t id, int)
+ElementPtr* UiTree::fetch_part(ElementPtr* out, uint32_t id, int)
 {
-    GameObjects::CEntity* object = GameObjects::Tracker()->LookUpObject(id);
-    out->m_preceding = out->m_following = nullptr;
-    out->m_ownerObject = nullptr;
+    objects::Entity* object = objects::get_tracker()->look_up_object(id);
+    out->preceding_ = out->following_ = nullptr;
+    out->owner_object_ = nullptr;
     if (object)
-        out->AssignValue(AsElement(object));
+        out->assign_value(as_element(object));
     return out;
 }
 
 // 0x004AB730
-void CUiTree::ChangeRoot(uint32_t id)
+void UiTree::change_root(uint32_t id)
 {
     ElementPtr element;
-    FetchPart(&element, id, 1);
-    m_treeRoot.AssignValue(element.m_ownerObject);
+    fetch_part(&element, id, 1);
+    tree_root_.assign_value(element.owner_object_);
 }
 
 // 0x004ABBE0
-void CUiTree::ChangeOwner(ElementPtr* parent, ElementPtr* child, int unused)
+void UiTree::change_owner(ElementPtr* parent, ElementPtr* child, int unused)
 {
-    ElementPtr oldParent;
-    oldParent.AssignValue(child->m_ownerObject->m_container.m_ownerObject);
-    if (CUiWidget* newParent = parent->m_ownerObject) {
-        if (m_treeRoot.m_ownerObject == child->m_ownerObject || !m_treeRoot) {
-            m_treeRoot.AssignValue(newParent);
-            while (m_treeRoot->m_container)
-                m_treeRoot.AssignValue(m_treeRoot->m_container.m_ownerObject);
+    ElementPtr old_parent;
+    old_parent.assign_value(child->owner_object_->container_.owner_object_);
+    if (UiWidget* new_parent = parent->owner_object_) {
+        if (tree_root_.owner_object_ == child->owner_object_ || !tree_root_) {
+            tree_root_.assign_value(new_parent);
+            while (tree_root_->container_)
+                tree_root_.assign_value(tree_root_->container_.owner_object_);
         }
     }
-    RemoveFocusEntries(child, false, false);
-    child->m_ownerObject->ChangeOwner(parent, unused);
+    remove_focus_entries(child, false, false);
+    child->owner_object_->change_owner(parent, unused);
 }
 
 // 0x004AC400
-void CUiTree::DestroyTree(int keep, ElementPtr* element, Scripts::CScript* script)
+void UiTree::destroy_tree(int keep, ElementPtr* element, script::Script* script)
 {
-    element->m_ownerObject->SetFocusSent(0);
+    element->owner_object_->set_focus_sent(0);
     ElementPtr child;
-    child.AssignValue(element->m_ownerObject->m_eldest.m_ownerObject);
+    child.assign_value(element->owner_object_->eldest_.owner_object_);
     while (child) {
         ElementPtr next;
-        next.AssignValue(child->m_following.m_ownerObject);
-        DestroyTree(0, &child, script);
-        child.AssignValue(next.m_ownerObject);
+        next.assign_value(child->following_.owner_object_);
+        destroy_tree(0, &child, script);
+        child.assign_value(next.owner_object_);
     }
     if (keep == 0) {
-        if (script && element->m_ownerObject)
-            script->ObjectDestroyed(element->m_ownerObject);
+        if (script && element->owner_object_)
+            script->object_destroyed(element->owner_object_);
         {
             ElementPtr none;
-            ChangeOwner(&none, element, 1);
+            change_owner(&none, element, 1);
         }
-        VirtualUnregisterObject(element->m_ownerObject);
-        if (element->m_ownerObject)
-            element->m_ownerObject->VirtualDestroy(1);
+        virtual_unregister_object(element->owner_object_);
+        if (element->owner_object_)
+            element->owner_object_->virtual_destroy(1);
     }
 }
 
 // 0x004AD100
-void CUiTree::DismantlePart(uint32_t id, int recurse, int keep, Scripts::CScript* script)
+void UiTree::dismantle_part(uint32_t id, int recurse, int keep, script::Script* script)
 {
     ElementPtr element;
-    FetchPart(&element, id, 1);
+    fetch_part(&element, id, 1);
     if (recurse) {
-        RemoveFocusEntries(&element, false, false);
-        if (CUiWidget* parent = element->m_container.m_ownerObject)
-            parent->SetFocusSent(0);
-        DestroyTree(keep, &element, script);
+        remove_focus_entries(&element, false, false);
+        if (UiWidget* parent = element->container_.owner_object_)
+            parent->set_focus_sent(0);
+        destroy_tree(keep, &element, script);
     } else {
-        RemoveFocusEntries(&element, false, false);
-        if (script && element.m_ownerObject)
-            script->ObjectDestroyed(element.m_ownerObject);
-        VirtualUnregisterObject(element.m_ownerObject);
-        if (element.m_ownerObject)
-            element.m_ownerObject->VirtualDestroy(1);
+        remove_focus_entries(&element, false, false);
+        if (script && element.owner_object_)
+            script->object_destroyed(element.owner_object_);
+        virtual_unregister_object(element.owner_object_);
+        if (element.owner_object_)
+            element.owner_object_->virtual_destroy(1);
     }
 }
 
 // 0x004AB130
-ElementPtr* CUiTree::FindByLocalId(ElementPtr* out, const ElementPtr* parent, uint32_t localId)
+ElementPtr* UiTree::find_by_local_id(ElementPtr* out, const ElementPtr* parent, uint32_t local_id)
 {
     ElementPtr child;
-    child.AssignValue(parent->m_ownerObject->m_eldest.m_ownerObject);
+    child.assign_value(parent->owner_object_->eldest_.owner_object_);
     while (child) {
         uint32_t tag;
-        if (child->ReadHashTag(kTagLocalId, &tag) && tag == localId)
+        if (child->read_hash_tag(kTagLocalId, &tag) && tag == local_id)
             break;
-        child.AssignValue(child->m_following.m_ownerObject);
+        child.assign_value(child->following_.owner_object_);
     }
-    out->m_preceding = out->m_following = nullptr;
-    out->m_ownerObject = nullptr;
-    out->AssignValue(child.m_ownerObject);
+    out->preceding_ = out->following_ = nullptr;
+    out->owner_object_ = nullptr;
+    out->assign_value(child.owner_object_);
     return out;
 }
 
 // 0x004AC120
-bool CUiTree::ResolveId(Scripts::CStruct* params, uint32_t name, uint32_t* out)
+bool UiTree::resolve_id(script::Struct* params, uint32_t name, uint32_t* out)
 {
-    CStruct* path = nullptr;
-    if (params->ReadSubStruct(name, &path, 0)) {
+    Struct* path = nullptr;
+    if (params->read_sub_struct(name, &path, 0)) {
         uint32_t id = 0;
-        path->ReadHashValue(0u, &id, 0);
+        path->read_hash_value(0u, &id, 0);
         int index = -1;
-        path->FetchIntValue(0u, &index, 0);
+        path->fetch_int_value(0u, &index, 0);
         if (id) {
             ElementPtr found;
-            if (!m_resolving)
-                FetchPart(&found, id, 0);
+            if (!resolving_)
+                fetch_part(&found, id, 0);
             else
-                FindByLocalId(&found, &m_resolving, id);
-            m_resolving.AssignValue(found.m_ownerObject);
-            found.Release();
-            if (!m_resolving)
+                find_by_local_id(&found, &resolving_, id);
+            resolving_.assign_value(found.owner_object_);
+            found.get_release();
+            if (!resolving_)
                 return false;
         } else if (index != -1) {
-            m_resolving.AssignValue(m_resolving->FindChildAtSlot(index));
-            if (!m_resolving)
+            resolving_.assign_value(resolving_->find_child_at_slot(index));
+            if (!resolving_)
                 return false;
         }
-        bool resolved = ResolveId(path, kChild, out);
-        m_resolving.Release();
+        bool resolved = resolve_id(path, kChild, out);
+        resolving_.get_release();
         if (resolved)
             return true;
     }
     uint32_t id;
-    if (params->ReadHashValue(name, &id, 0)) {
-        if (m_resolving) {
+    if (params->read_hash_value(name, &id, 0)) {
+        if (resolving_) {
             ElementPtr found;
-            FindByLocalId(&found, &m_resolving, id);
-            m_resolving.AssignValue(found.m_ownerObject);
-            found.Release();
-            if (!m_resolving)
+            find_by_local_id(&found, &resolving_, id);
+            resolving_.assign_value(found.owner_object_);
+            found.get_release();
+            if (!resolving_)
                 return false;
-            id = m_resolving->m_ident;
-        } else if (GameObjects::CEntity* aliased = GameObjects::Tracker()->LookUpByNickname(id)) {
-            id = aliased->m_ident;
+            id = resolving_->ident_;
+        } else if (objects::Entity* aliased = objects::get_tracker()->look_up_by_nickname(id)) {
+            id = aliased->ident_;
         }
-        m_resolving.Release();
+        resolving_.get_release();
         *out = id;
         return true;
     }
     int index;
-    if (params->FetchIntValue(name, &index, 0)) {
-        if (!m_resolving)
+    if (params->fetch_int_value(name, &index, 0)) {
+        if (!resolving_)
             return false;
         ElementPtr child;
-        child.AssignValue(m_resolving->FindChildAtSlot(index));
-        m_resolving.Release();
+        child.assign_value(resolving_->find_child_at_slot(index));
+        resolving_.get_release();
         if (!child)
             return false;
-        *out = child->m_ident;
+        *out = child->ident_;
         return true;
     }
-    m_resolving.Release();
+    resolving_.get_release();
     return false;
 }
 
 // 0x004AD1E0
-ElementPtr* CUiTree::ResolveElement(ElementPtr* out, Scripts::CStruct* params, uint32_t name, int assert)
+ElementPtr* UiTree::resolve_element(ElementPtr* out, script::Struct* params, uint32_t name, int assert)
 {
     uint32_t id;
-    if (ResolveId(params, name, &id))
-        return FetchPart(out, id, assert);
-    out->m_preceding = out->m_following = nullptr;
-    out->m_ownerObject = nullptr;
+    if (resolve_id(params, name, &id))
+        return fetch_part(out, id, assert);
+    out->preceding_ = out->following_ = nullptr;
+    out->owner_object_ = nullptr;
     return out;
 }
 
 // --- each frame -----------------------------------------------------------------------------------------------
 
 // 0x004ABD00
-void CUiTree::TickFrame()
+void UiTree::tick_frame()
 {
-    if (!m_treeRoot)
+    if (!tree_root_)
         return;
     // Not original - the new front end (frontend/new_frontend.h): the original's elements hidden or shown for this
     // frame before they are laid out - a menu restyled by ours is never drawn as the game made it, not even a frame.
     // Original behaviour: the tree laid out as the scripts left it.
-    MenuSystem::NewFrontend::BeforeScreenLayout();
-    LockTree(1);
-    m_treeRoot->UpdateLayout();
-    LockTree(0);
-    if (m_numPriorities > 0)
-        UpdatePriorities();
+    frontend::new_frontend::before_screen_layout();
+    lock_tree(1);
+    tree_root_->update_layout();
+    lock_tree(0);
+    if (num_priorities_ > 0)
+        update_priorities();
 }
 
 // 0x004AAF90 (a stack of 32 elements: the next sibling, then the first child, of each)
-void CUiTree::LockTree(int lock)
+void UiTree::lock_tree(int lock)
 {
-    if (!m_treeRoot)
+    if (!tree_root_)
         return;
-    CUiWidget* stack[32];
-    stack[0] = m_treeRoot.m_ownerObject;
+    UiWidget* stack[32];
+    stack[0] = tree_root_.owner_object_;
     int count = 1;
     while (count) {
-        CUiWidget* element = stack[--count];
+        UiWidget* element = stack[--count];
         if (lock == 1)
-            ++element->m_aliasCount;
-        else if (static_cast<int>(element->m_aliasCount) > 0)
-            --element->m_aliasCount;
-        if (element->m_following)
-            stack[count++] = element->m_following.m_ownerObject;
-        if (element->m_eldest)
-            stack[count++] = element->m_eldest.m_ownerObject;
+            ++element->alias_count_;
+        else if (static_cast<int>(element->alias_count_) > 0)
+            --element->alias_count_;
+        if (element->following_)
+            stack[count++] = element->following_.owner_object_;
+        if (element->eldest_)
+            stack[count++] = element->eldest_.owner_object_;
     }
 }
 
 // 0x004AAEE0
-void CUiTree::SetPausedAll(bool pause)
+void UiTree::set_paused_all(bool pause)
 {
-    MemSys::ListNode* node = m_entities.next;
+    memory::ListNode* node = entities_.next;
     if (node->data == reinterpret_cast<void*>(-1))
         return;
     while (node) {
         ElementPtr element;
-        element.AssignValue(static_cast<CUiWidget*>(node->data));
-        element->SetFrozen(pause);
+        element.assign_value(static_cast<UiWidget*>(node->data));
+        element->set_frozen(pause);
         node = node->next;
         if (node->data == reinterpret_cast<void*>(-1))
             node = nullptr;
@@ -396,12 +396,12 @@ void CUiTree::SetPausedAll(bool pause)
 
 // 0x004AB250 (a new entry goes after the last entry looked at - the second list's tail when it has entries,
 // whichever list it is for -, or heads `list` when both are empty)
-void CUiTree::AddFocusEntry(ElementPtr* element, int list)
+void UiTree::add_focus_entry(ElementPtr* element, int list)
 {
     FocusEntry* last = nullptr;
     for (int i = 0; i < 2; ++i) {
-        for (FocusEntry* entry = m_focusLists[i]; entry; entry = entry->next) {
-            if (entry->element.m_ownerObject == element->m_ownerObject && list == i) {
+        for (FocusEntry* entry = focus_lists_[i]; entry; entry = entry->next) {
+            if (entry->element.owner_object_ == element->owner_object_ && list == i) {
                 entry->marked = false;
                 return;
             }
@@ -409,37 +409,37 @@ void CUiTree::AddFocusEntry(ElementPtr* element, int list)
         }
     }
     int free = 0;
-    while (m_focusEntries[free].element) {
+    while (focus_entries_[free].element) {
         if (++free == kFocusEntries)
             return;
     }
-    FocusEntry* entry = &m_focusEntries[free];
-    entry->element.AssignValue(element->m_ownerObject);
-    entry->id = element->m_ownerObject->m_ident;
+    FocusEntry* entry = &focus_entries_[free];
+    entry->element.assign_value(element->owner_object_);
+    entry->id = element->owner_object_->ident_;
     entry->next = nullptr;
     entry->marked = false;
     if (last)
         last->next = entry;
     else
-        m_focusLists[list] = entry;
-    m_focusDirty[list] = true;
+        focus_lists_[list] = entry;
+    focus_dirty_[list] = true;
 }
 
 // 0x004AB330
-void CUiTree::RemoveFocusEntries(ElementPtr* element, bool fromParent, bool mark)
+void UiTree::remove_focus_entries(ElementPtr* element, bool from_parent, bool mark)
 {
     for (int i = 0; i < 2; ++i) {
         FocusEntry* previous = nullptr;
-        FocusEntry* entry = m_focusLists[i];
+        FocusEntry* entry = focus_lists_[i];
         while (entry) {
             FocusEntry* next = entry->next;
             ElementPtr walk;
-            walk.AssignValue(entry->element.m_ownerObject);
-            if (fromParent && walk)
-                walk.AssignValue(walk->m_container.m_ownerObject);
+            walk.assign_value(entry->element.owner_object_);
+            if (from_parent && walk)
+                walk.assign_value(walk->container_.owner_object_);
             bool matched = false;
-            for (; walk; walk.AssignValue(walk->m_container.m_ownerObject)) {
-                if (walk.m_ownerObject == element->m_ownerObject) {
+            for (; walk; walk.assign_value(walk->container_.owner_object_)) {
+                if (walk.owner_object_ == element->owner_object_) {
                     matched = true;
                     break;
                 }
@@ -451,9 +451,9 @@ void CUiTree::RemoveFocusEntries(ElementPtr* element, bool fromParent, bool mark
                     if (previous)
                         previous->next = next;
                     else
-                        m_focusLists[i] = next;
-                    entry->element.Release();
-                    m_focusDirty[i] = true;
+                        focus_lists_[i] = next;
+                    entry->element.get_release();
+                    focus_dirty_[i] = true;
                     entry = previous;
                 }
             }
@@ -464,16 +464,16 @@ void CUiTree::RemoveFocusEntries(ElementPtr* element, bool fromParent, bool mark
 }
 
 // 0x004AB4D0
-void CUiTree::ClearMarks(ElementPtr* element)
+void UiTree::clear_marks(ElementPtr* element)
 {
     for (int i = 0; i < 2; ++i) {
-        for (FocusEntry* entry = m_focusLists[i]; entry; entry = entry->next) {
+        for (FocusEntry* entry = focus_lists_[i]; entry; entry = entry->next) {
             if (!entry->marked)
                 continue;
             ElementPtr walk;
-            walk.AssignValue(entry->element.m_ownerObject);
-            for (; walk; walk.AssignValue(walk->m_container.m_ownerObject)) {
-                if (walk.m_ownerObject == element->m_ownerObject) {
+            walk.assign_value(entry->element.owner_object_);
+            for (; walk; walk.assign_value(walk->container_.owner_object_)) {
+                if (walk.owner_object_ == element->owner_object_) {
                     entry->marked = false;
                     break;
                 }
@@ -483,133 +483,133 @@ void CUiTree::ClearMarks(ElementPtr* element)
 }
 
 // 0x004ABD40
-void CUiTree::ListenerReceive(GameObjects::CSignal* event)
+void UiTree::listener_receive(objects::Signal* event)
 {
     // (`this` is the listener: the manager is 0x28 before it)
-    CUiTree* manager =
-        reinterpret_cast<CUiTree*>(reinterpret_cast<uint8_t*>(this) - offsetof(CUiTree, m_listener));
-    if (manager->m_padEventKindCount == 0) {
-        Scripts::CArray* types = Scripts::FetchList(PadEventTypesName()); // (the original passes 1 as well: unused)
-        manager->m_padEventKindCount = static_cast<int>(types->m_extent);
-        for (int i = 0; i < manager->m_padEventKindCount; ++i)
-            manager->m_padEventTypes[i] = types->FetchPart(i);
+    UiTree* manager =
+        reinterpret_cast<UiTree*>(reinterpret_cast<uint8_t*>(this) - offsetof(UiTree, listener_));
+    if (manager->pad_event_kind_count_ == 0) {
+        script::Array* types = script::fetch_list(pad_event_types_name()); // (the original passes 1 as well: unused)
+        manager->pad_event_kind_count_ = static_cast<int>(types->extent_);
+        for (int i = 0; i < manager->pad_event_kind_count_; ++i)
+            manager->pad_event_types_[i] = types->fetch_part(i);
     }
-    bool padEvent = false;
-    if (manager->m_numPriorities > 0) {
-        for (int i = 0; i < manager->m_padEventKindCount; ++i) {
-            if (event->m_kindTag == manager->m_padEventTypes[i]) {
-                padEvent = true;
+    bool pad_event = false;
+    if (manager->num_priorities_ > 0) {
+        for (int i = 0; i < manager->pad_event_kind_count_; ++i) {
+            if (event->kind_tag_ == manager->pad_event_types_[i]) {
+                pad_event = true;
                 break;
             }
         }
     }
-    if (manager->m_checkDevice && event->m_payload) {
+    if (manager->check_device_ && event->payload_) {
         int device;
-        if (event->m_payload->FetchIntValue(kDeviceNum, &device, 0)) {
-            auto* input = PadInput::g_inputManager; // (the input manager)
-            if (input->GetPlayerController(0) != device)
+        if (event->payload_->fetch_int_value(kDeviceNum, &device, 0)) {
+            auto* input = pad_input::g_input_manager; // (the input manager)
+            if (input->get_player_controller(0) != device)
                 return;
         }
     }
-    GameObjects::CEventWaitBoard* tracker = GameObjects::Tracker();
-    if (event->m_kindTag == kFocus && event->m_aimPoint != kSystem) {
+    objects::EventWaitBoard* tracker = objects::get_tracker();
+    if (event->kind_tag_ == kFocus && event->aim_point_ != kSystem) {
         ElementPtr element;
-        manager->FetchPart(&element, event->m_aimPoint, 0);
-        if (element && !element->InputSuppressed()) {
-            manager->AddFocusEntry(&element, GameObjects::EventController(event));
-            SetEventConsumed(event, 1, 0);
+        manager->fetch_part(&element, event->aim_point_, 0);
+        if (element && !element->input_suppressed()) {
+            manager->add_focus_entry(&element, objects::event_controller(event));
+            set_event_consumed(event, 1, 0);
         }
     }
-    if (event->m_kindTag == kUnfocus && event->m_aimPoint != kSystem) {
+    if (event->kind_tag_ == kUnfocus && event->aim_point_ != kSystem) {
         ElementPtr element;
-        manager->FetchPart(&element, event->m_aimPoint, 0);
-        if (element && !element->InputSuppressed()) {
-            manager->RemoveFocusEntries(&element, false, false);
-            SetEventConsumed(event, 1, 0);
+        manager->fetch_part(&element, event->aim_point_, 0);
+        if (element && !element->input_suppressed()) {
+            manager->remove_focus_entries(&element, false, false);
+            set_event_consumed(event, 1, 0);
         }
     }
-    if (event->m_kindTag == kFocusClearedEvent) {
+    if (event->kind_tag_ == kFocusClearedEvent) {
         ElementPtr element;
-        manager->FetchPart(&element, event->m_aimPoint, 0);
-        manager->RemoveFocusEntries(&element, true, true);
-        SetEventConsumed(event, 1, 0);
+        manager->fetch_part(&element, event->aim_point_, 0);
+        manager->remove_focus_entries(&element, true, true);
+        set_event_consumed(event, 1, 0);
     }
-    if (event->m_kindTag == kFocusSentEvent) {
+    if (event->kind_tag_ == kFocusSentEvent) {
         ElementPtr element;
-        manager->FetchPart(&element, event->m_aimPoint, 0);
-        manager->ClearMarks(&element);
-        SetEventConsumed(event, 1, 0);
-        element.Release();
+        manager->fetch_part(&element, event->aim_point_, 0);
+        manager->clear_marks(&element);
+        set_event_consumed(event, 1, 0);
+        element.get_release();
     }
     // a pad event from the system: offered to the controller's focused elements until one handles it (a
     // change of the list starts the round again with the elements not offered it yet)
-    bool isPadType = false;
-    for (int i = 0; i < manager->m_padEventKindCount; ++i) {
-        if (event->m_kindTag == manager->m_padEventTypes[i]) {
-            isPadType = true;
+    bool is_pad_type = false;
+    for (int i = 0; i < manager->pad_event_kind_count_; ++i) {
+        if (event->kind_tag_ == manager->pad_event_types_[i]) {
+            is_pad_type = true;
             break;
         }
     }
-    if (!isPadType || event->m_aimPoint != kSystem)
+    if (!is_pad_type || event->aim_point_ != kSystem)
         return;
-    int controller = GameObjects::EventController(event);
-    for (FocusEntry* entry = manager->m_focusLists[controller]; entry; entry = entry->next)
+    int controller = objects::event_controller(event);
+    for (FocusEntry* entry = manager->focus_lists_[controller]; entry; entry = entry->next)
         entry->tried = false;
-    manager->m_focusDirty[controller] = true;
+    manager->focus_dirty_[controller] = true;
     do {
-        manager->m_focusDirty[controller] = false;
-        for (FocusEntry* entry = manager->m_focusLists[controller]; entry; entry = entry->next) {
-            if (!entry->tried && !entry->marked && !entry->element->InputSuppressed()) {
-                if (padEvent && (!entry->element->HasPriority() || !manager->HasTopPrecedence(entry->id)))
+        manager->focus_dirty_[controller] = false;
+        for (FocusEntry* entry = manager->focus_lists_[controller]; entry; entry = entry->next) {
+            if (!entry->tried && !entry->marked && !entry->element->input_suppressed()) {
+                if (pad_event && (!entry->element->has_priority() || !manager->has_top_precedence(entry->id)))
                     continue;
-                if (tracker->LaunchEvent(event->m_kindTag, entry->element->m_ident, event->m_fromWhere, event->m_payload, false,
+                if (tracker->launch_event(event->kind_tag_, entry->element->ident_, event->from_where_, event->payload_, false,
                                          -1.0f)) {
-                    event->SetEventHandled(1, 0);
+                    event->set_event_handled(1, 0);
                     return;
                 }
                 entry->tried = true;
             }
-            if (manager->m_focusDirty[controller])
+            if (manager->focus_dirty_[controller])
                 break;
         }
-    } while (manager->m_focusDirty[controller]);
+    } while (manager->focus_dirty_[controller]);
 }
 
 // --- pad-event priorities -------------------------------------------------------------------------------------
 
 // 0x004AAD80
-bool CUiTree::HasPriorities() const { return m_numPriorities > 0; }
+bool UiTree::has_priorities() const { return num_priorities_ > 0; }
 
 // 0x004AAD50
-bool CUiTree::IsPadEvent(uint32_t type) const
+bool UiTree::is_pad_event(uint32_t type) const
 {
-    for (int i = 0; i < m_padEventKindCount; ++i)
-        if (type == m_padEventTypes[i])
+    for (int i = 0; i < pad_event_kind_count_; ++i)
+        if (type == pad_event_types_[i])
             return true;
     return false;
 }
 
 // 0x004AB7C0
-bool CUiTree::HasTopPrecedence(uint32_t id)
+bool UiTree::has_top_precedence(uint32_t id)
 {
     ElementPtr element;
-    FetchPart(&element, id, 1);
-    uint32_t priority = static_cast<uint32_t>(element->FetchRank());
+    fetch_part(&element, id, 1);
+    uint32_t priority = static_cast<uint32_t>(element->fetch_rank());
     uint32_t top = 0;
-    for (const PriorityEntry& entry : m_priorities)
+    for (const PriorityEntry& entry : priorities_)
         if (entry.active && entry.priority > top)
             top = entry.priority;
     return priority == top;
 }
 
 // 0x004AC570
-bool CUiTree::PushPriority(uint32_t id, uint32_t priority)
+bool UiTree::push_priority(uint32_t id, uint32_t priority)
 {
     uint32_t lowest = 0, highest = 0;
-    int slot = -1, highestSlot = -1;
+    int slot = -1, highest_slot = -1;
     bool free = false;
     for (int i = 0; i < kPriorities; ++i) {
-        PriorityEntry& entry = m_priorities[i];
+        PriorityEntry& entry = priorities_[i];
         if (entry.active) {
             if (entry.priority < lowest || lowest == 0) {
                 lowest = entry.priority;
@@ -617,7 +617,7 @@ bool CUiTree::PushPriority(uint32_t id, uint32_t priority)
             }
             if (entry.priority > highest) {
                 highest = entry.priority;
-                highestSlot = i;
+                highest_slot = i;
             }
         } else if (!free) {
             slot = i;
@@ -626,47 +626,47 @@ bool CUiTree::PushPriority(uint32_t id, uint32_t priority)
     }
     if (!free && priority < lowest)
         return false;
-    PriorityEntry& entry = m_priorities[slot];
+    PriorityEntry& entry = priorities_[slot];
     entry.id = id;
     entry.active = true;
     ElementPtr element;
-    FetchPart(&element, id, 1);
-    entry.element.AssignValue(element.m_ownerObject);
+    fetch_part(&element, id, 1);
+    entry.element.assign_value(element.owner_object_);
     entry.priority = priority;
-    if (m_numPriorities > 0) {
+    if (num_priorities_ > 0) {
         // the top one shown: the new one hidden unless it is the new top, then the old top is
-        CStruct* params = Scripts::SpawnParamBag();
+        Struct* params = script::spawn_param_bag();
         if (params)
-            params = params->PrepareAll();
-        params->PutNameKey(0u, kHide);
+            params = params->prepare_all();
+        params->put_name_key(0u, kHide);
         if (priority > highest)
-            VSetProperties(m_priorities[highestSlot].element.m_ownerObject, params);
+            v_set_properties(priorities_[highest_slot].element.owner_object_, params);
         else
-            VSetProperties(element.m_ownerObject, params);
+            v_set_properties(element.owner_object_, params);
         if (params) {
-            params->Clear();
-            Scripts::DeleteStruct(params);
+            params->get_clear();
+            script::delete_struct(params);
         }
     }
-    ++m_numPriorities;
+    ++num_priorities_;
     return true;
 }
 
 // 0x004AB5D0 (with no priority above 0 the "top" is the entry before the first)
-void CUiTree::UpdatePriorities()
+void UiTree::update_priorities()
 {
     uint32_t highest = 0;
     int top = -1;
-    if (m_numPriorities <= 0)
+    if (num_priorities_ <= 0)
         return;
     for (int i = 0; i < kPriorities; ++i) {
-        PriorityEntry& entry = m_priorities[i];
+        PriorityEntry& entry = priorities_[i];
         if (!entry.active)
             continue;
-        CUiWidget* element;
+        UiWidget* element;
         {
             ElementPtr found;
-            element = FetchPart(&found, entry.id, 0)->m_ownerObject;
+            element = fetch_part(&found, entry.id, 0)->owner_object_;
         }
         if (element) {
             if (entry.priority > highest) {
@@ -675,55 +675,55 @@ void CUiTree::UpdatePriorities()
             }
         } else {
             entry.active = false;
-            --m_numPriorities;
+            --num_priorities_;
         }
     }
-    if (m_numPriorities <= 0)
+    if (num_priorities_ <= 0)
         return;
-    SetFlagProperty(m_priorities[top].element.m_ownerObject, kUnHide);
+    set_flag_property(priorities_[top].element.owner_object_, kUnHide);
 }
 
 // --- the singleton --------------------------------------------------------------------------------------------
 
-uint32_t g_screenElementManagerUses;
+uint32_t g_screen_element_manager_uses;
 
 // 0x004ACAF0
-void CreateScreenElementManager(bool create)
+void create_screen_element_manager(bool create)
 {
-    CUiTree*& instance = CUiTree::Sole();
+    UiTree*& instance = UiTree::sole();
     if (!instance && create) {
-        void* memory = MemSys::AllocZeroed(sizeof(CUiTree), static_cast<MemSys::Arena*>(nullptr), 1);
+        void* memory = memory::alloc_zeroed(sizeof(UiTree), static_cast<memory::Arena*>(nullptr), 1);
         if (memory) {
-            instance = static_cast<CUiTree*>(memory)->MakeNew();
-            ++g_screenElementManagerUses;
+            instance = static_cast<UiTree*>(memory)->make_new();
+            ++g_screen_element_manager_uses;
             return;
         }
         instance = nullptr;
     }
-    ++g_screenElementManagerUses;
+    ++g_screen_element_manager_uses;
 }
 
 // 0x004AACF0
-void DeleteScreenElementManager()
+void delete_screen_element_manager()
 {
-    uint32_t& uses = g_screenElementManagerUses;
+    uint32_t& uses = g_screen_element_manager_uses;
     if (uses > 1) {
         --uses;
         return;
     }
-    if (CUiTree* instance = CUiTree::Sole())
-        reinterpret_cast<void*(__thiscall*)(void*, int)>(instance->m_vtable[0])(instance, 1);
-    CUiTree::Sole() = nullptr;
+    if (UiTree* instance = UiTree::sole())
+        reinterpret_cast<void*(__thiscall*)(void*, int)>(instance->vtable_[0])(instance, 1);
+    UiTree::sole() = nullptr;
     uses = 0;
 }
 
 // 0x004AB910
-void SetScoreText(const char* text, int player)
+void set_score_text(const char* text, int player)
 {
     ElementPtr element;
-    CUiTree::Sole()->FetchPart(&element, kScoreElementHash + player, 0);
+    UiTree::sole()->fetch_part(&element, kScoreElementHash + player, 0);
     if (element)
-        static_cast<CLabelWidget*>(element.m_ownerObject)->ChangeCaption(text);
+        static_cast<LabelWidget*>(element.owner_object_)->change_caption(text);
 }
 
 } // namespace Front
@@ -732,25 +732,25 @@ namespace {
 
 // 0x004ABAF0: the listener's slot 0 (`this` = the listener): the manager's Destroy.
 struct ListenerAdapter {
-    MenuSystem::CUiTree* Teardown(uint8_t flags)
+    frontend::UiTree* teardown(uint8_t flags)
     {
-        auto* manager = reinterpret_cast<MenuSystem::CUiTree*>(reinterpret_cast<uint8_t*>(this) - 0x28);
-        return manager->Teardown(flags);
+        auto* manager = reinterpret_cast<frontend::UiTree*>(reinterpret_cast<uint8_t*>(this) - 0x28);
+        return manager->teardown(flags);
     }
 };
 
 } // namespace
 
-using MenuSystem::CUiTree;
+using frontend::UiTree;
 
-namespace MenuSystem {
+namespace frontend {
 namespace {
-static VtableSlot kCScreenElementManagerVtable_slots[] = {&CUiTree::Teardown,
-                &GameObjects::CObjectHubBase::EnrolSubject, &CUiTree::DropEntityRegistration,
-                &GameObjects::CObjectHubBase::ReassignObjectId, &GameObjects::CObjectHubBase::SetEntityRank, Stubs::IgnoreArgument,
-                &CUiTree::FetchObjectSet};
-void** const kCScreenElementManagerVtable = reinterpret_cast<void**>(kCScreenElementManagerVtable_slots);
-static VtableSlot kListenerAdapterVtable_slots[] = {&ListenerAdapter::Teardown, &CUiTree::ListenerReceive};
-void** const kListenerAdapterVtable = reinterpret_cast<void**>(kListenerAdapterVtable_slots);
+static VtableSlot g_c_screen_element_manager_vtable_slots[] = {&UiTree::teardown,
+                &objects::ObjectHubBase::enrol_subject, &UiTree::drop_entity_registration,
+                &objects::ObjectHubBase::reassign_object_id, &objects::ObjectHubBase::set_entity_rank, stubs::ignore_argument,
+                &UiTree::fetch_object_set};
+void** const kCScreenElementManagerVtable = reinterpret_cast<void**>(g_c_screen_element_manager_vtable_slots);
+static VtableSlot g_listener_adapter_vtable_slots[] = {&ListenerAdapter::teardown, &UiTree::listener_receive};
+void** const kListenerAdapterVtable = reinterpret_cast<void**>(g_listener_adapter_vtable_slots);
 } // namespace
 } // namespace Front

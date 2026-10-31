@@ -1,4 +1,4 @@
-// The animation blender's channel (Gfx2D::CBlendChannel, anim_blend.h): its timelines, blend value, wobble, speed, flip
+// The animation blender's channel (gfx::CBlendChannel, anim_blend.h): its timelines, blend value, wobble, speed, flip
 // and loop messages, poses (0x0047DC40-0x0047F24E). From the disassembly.
 
 #include "engine/gfx/anim_blend.h"
@@ -37,19 +37,19 @@
 #include "engine/core/stubs.h"
 #include "engine/sys/startup_init.h"
 
-namespace Gfx2D {
+namespace gfx {
 
-CStance* g_blendBuffer;
-float* g_blendWeights;
-uint32_t* g_blendSets;
+Stance* g_blend_buffer;
+float* g_blend_weights;
+uint32_t* g_blend_sets;
 namespace {
 
-using Scripts::CStruct;
+using script::Struct;
 
 extern void** const kChannelVtable;
 extern void** const kHeadVtable;
-void** const& kListNodeVtable = Vt::kAnimListNode;
-void** const& kBlenderNodeVtable = Vt::kBlenderChannelNode; // (the blender's channel list node)
+void** const& g_list_node_vtable = vt::kAnimListNode;
+void** const& g_blender_node_vtable = vt::kBlenderChannelNode; // (the blender's channel list node)
 constexpr uint32_t kSkeleton = 0x222756D5;          // skeleton
 constexpr uint32_t kAnimScratch = 0x7C0B34B4;       // AnimScratch
 constexpr uint32_t kFlipped = 0x20000000;
@@ -74,44 +74,44 @@ constexpr float kFixedPoint = 4096.0f;              // 0x00648730
 enum : uint8_t { kMsgPlayAnim = 0x29, kMsgWobbleTarget = 0x2B, kMsgFlip = 0x2C, kMsgWobbleDetails = 0x3C,
                  kMsgLoopType = 0x3D, kMsgSpeed = 0x41 };
 
-uint8_t g_lastWobbleTarget{0xFF};
-uint8_t g_lastWobbleDetails{0xFF};
-int8_t g_lastLoopType{-1};
-CStance* g_poses;
-int g_maxBlends;
+uint8_t g_last_wobble_target{0xFF};
+uint8_t g_last_wobble_details{0xFF};
+int8_t g_last_loop_type{-1};
+Stance* g_poses;
+int g_max_blends;
 int g_subsets;
 
 // What was last sent (all start 0xFF).
-uint8_t& LastWobbleTarget() { return g_lastWobbleTarget; }
-uint8_t& LastWobbleDetails() { return g_lastWobbleDetails; }
-int8_t& LastLoopType() { return g_lastLoopType; }
+uint8_t& last_wobble_target() { return g_last_wobble_target; }
+uint8_t& last_wobble_details() { return g_last_wobble_details; }
+int8_t& last_loop_type() { return g_last_loop_type; }
 
-// The blend buffers (InitBuffers).
-uint32_t*& BlendSets() { return g_blendSets; }
-float*& BlendWeights() { return g_blendWeights; }
-CStance*& BlendBuffer() { return g_blendBuffer; }
-CStance*& Poses() { return g_poses; }
-int& MaxBlends() { return g_maxBlends; }
-int& Subsets() { return g_subsets; }
-bool OmitFromDraw() { return Engine3D::g_suppressDraw; }
+// The blend buffers (init_buffers).
+uint32_t*& blend_sets() { return g_blend_sets; }
+float*& blend_weights() { return g_blend_weights; }
+Stance*& blend_buffer() { return g_blend_buffer; }
+Stance*& current_poses() { return g_poses; }
+int& max_blends() { return g_max_blends; }
+int& get_subsets() { return g_subsets; }
+bool omit_from_draw() { return render::g_suppress_draw; }
 
-MemSys::PoolPair& StructPools() { return Scripts::g_structPools; }
+memory::PoolPair& struct_pools() { return script::g_struct_pools; }
 
-float& AsFloat(uint32_t& bits) { return reinterpret_cast<float&>(bits); }
+float& get_as_float(uint32_t& bits) { return reinterpret_cast<float&>(bits); }
 
-bool IsHead(const MemSys::ListNode* node) { return node->data == reinterpret_cast<void*>(-1); }
+bool is_head(const memory::ListNode* node) { return node->data == reinterpret_cast<void*>(-1); }
 // A list node as the original masks it: null when it's the head.
-CAnimTrack* Masked(MemSys::ListNode* node) { return IsHead(node) ? nullptr : reinterpret_cast<CAnimTrack*>(node); }
-MemSys::ListNode* Elem(CAnimTrack* timeline) { return reinterpret_cast<MemSys::ListNode*>(timeline); }
+AnimTrack* masked(memory::ListNode* node) { return is_head(node) ? nullptr : reinterpret_cast<AnimTrack*>(node); }
+memory::ListNode* elem(AnimTrack* timeline) { return reinterpret_cast<memory::ListNode*>(timeline); }
 
 // The playing timeline (the list's first), or null.
-CAnimTrack* First(CBlendChannel* channel)
+AnimTrack* get_first(BlendChannel* channel)
 {
-    MemSys::ListNode* node = channel->m_timelines.next;
-    return IsHead(node) || !node ? nullptr : reinterpret_cast<CAnimTrack*>(node);
+    memory::ListNode* node = channel->timelines_.next;
+    return is_head(node) || !node ? nullptr : reinterpret_cast<AnimTrack*>(node);
 }
 
-void Uncouple(MemSys::ListNode* node)
+void uncouple(memory::ListNode* node)
 {
     node->prev->next = node->next;
     node->next->prev = node->prev;
@@ -126,92 +126,92 @@ R Virtual(void* object, int slot, A... args)
     return reinterpret_cast<R(__thiscall*)(void*, A...)>(vtable[slot])(object, args...);
 }
 
-// A timeline's slots: 0 the scalar deleting destructor, 2 Update, 5 InvokeMethodByName.
-void DeleteTimeline(MemSys::ListNode* node) { Virtual<void*>(node, 0, 1); }
+// A timeline's slots: 0 the scalar deleting destructor, 2 Update, 5 invoke_method_by_name.
+void delete_timeline(memory::ListNode* node) { Virtual<void*>(node, 0, 1); }
 
-GameObjects::CGameEntity* Owner(CBlendChannel* channel) { return reinterpret_cast<GameObjects::CGameEntity*>(channel->m_ownerPtr); }
+objects::GameEntity* get_owner(BlendChannel* channel) { return reinterpret_cast<objects::GameEntity*>(channel->owner_ptr_); }
 
 // The network manager (0x007CCE14) and this machine's client app for the channel's object - null when the object
 // isn't this machine's player's skater.
-OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
-OnlinePlay::PlayerRecord* FindOwnPlayerRecord(uint32_t objectId)
+online::Hub* net_session_slot() { return online::g_online_hub; }
+online::PlayerRecord* find_own_player_record(uint32_t object_id)
 {
-    auto* player = reinterpret_cast<OnlinePlay::PlayerRecord*>(NetSessionSlot()->FindPlayerSlotByObj(static_cast<uint16_t>(objectId)));
-    if (!player || !player->IsOwnPlayer())
+    auto* player = reinterpret_cast<online::PlayerRecord*>(net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(object_id)));
+    if (!player || !player->is_own_player())
         return nullptr;
     return player;
 }
-NetLink::Guest* ClientOf(OnlinePlay::PlayerRecord* player)
+net::Guest* client_of(online::PlayerRecord* player)
 {
-    return static_cast<NetLink::Guest*>(NetSessionSlot()->FetchPatron(static_cast<int>(player->GetSkaterValue2BC())));
+    return static_cast<net::Guest*>(net_session_slot()->fetch_patron(static_cast<int>(player->get_skater_value_2b_c())));
 }
 
-void PostOut(NetLink::Guest* app, NetLink::NetMessageInfo& message, uint8_t id, void* data, uint16_t length, bool singular)
+void post_out(net::Guest* app, net::NetMessageInfo& message, uint8_t id, void* data, uint16_t length, bool singular)
 {
-    message.m_content = data;
-    message.m_byteCount = length;
-    message.m_ident = id;
+    message.content_ = data;
+    message.byte_count_ = length;
+    message.ident_ = id;
     if (singular)
-        message.m_singular = true;
-    app->SendToHost(&message);
+        message.singular_ = true;
+    app->send_to_host(&message);
 }
 
 // A structure made and freed as the original's inlined new / delete do.
-CStruct* SpawnParamBag()
+Struct* spawn_param_bag()
 {
-    void* memory = StructPools().Carve(8);
-    return memory ? static_cast<CStruct*>(memory)->PrepareAll() : nullptr;
+    void* memory = struct_pools().carve(8);
+    return memory ? static_cast<Struct*>(memory)->prepare_all() : nullptr;
 }
-void FreeStruct(CStruct* params)
+void free_struct(Struct* params)
 {
     if (params) {
-        params->Clear();
-        Scripts::DeleteStruct(params);
+        params->get_clear();
+        script::delete_struct(params);
     }
 }
 
 // The playing timeline's controllers given a member function with `params` (slot 5, no script).
-void PassToFirst(CBlendChannel* channel, uint32_t name, CStruct* params)
+void pass_to_first(BlendChannel* channel, uint32_t name, Struct* params)
 {
-    Virtual<int>(Masked(channel->m_timelines.next), 5, name, params, static_cast<Scripts::CScript*>(nullptr));
+    Virtual<int>(masked(channel->timelines_.next), 5, name, params, static_cast<script::Script*>(nullptr));
 }
 
 // The original's _ftol: truncated towards zero.
-int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
+int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-// The track's fade (StartFade 0x00481B40), weight (0x00481B80, ST0) and operator new (0x00481EE0; the original
+// The track's fade (start_fade 0x00481B40), weight (0x00481B80, ST0) and operator new (0x00481EE0; the original
 // passes it 0 too).
-bool StartBlendOut(CAnimTrack* timeline, float period) { return timeline->StartFade(period); }
-double Weight(CAnimTrack* timeline) { return timeline->GetWeight(); }
-void* NewTimeline(uint32_t size) { return CAnimTrack::operator new(size); }
+bool start_blend_out(AnimTrack* timeline, float period) { return timeline->start_fade(period); }
+double current_weight(AnimTrack* timeline) { return timeline->get_weight(); }
+void* new_timeline(uint32_t size) { return AnimTrack::operator new(size); }
 
-int CountListItems(MemSys::ListNode* head) { return reinterpret_cast<AnimListHead*>(head)->TallyEntries(); }
+int count_list_items(memory::ListNode* head) { return reinterpret_cast<AnimListHead*>(head)->tally_entries(); }
 
-// An animation's frame data in the anim set (Engine3D::GetAnimData 0x0048CF50: its first value the length), the range
-// (FetchAnimDurations 0x004877E0 - the original passes the script too, unused) and loop type (GetAnimLoopType 0x00487770)
+// An animation's frame data in the anim set (render::get_anim_data 0x0048CF50: its first value the length), the range
+// (fetch_anim_durations 0x004877E0 - the original passes the script too, unused) and loop type (get_anim_loop_type 0x00487770)
 // a play's parameters ask for, and a controller added to a track (0x00481FB0).
-float* AnimLength(uint32_t key) { return static_cast<float*>(Engine3D::GetAnimData(key, 0)); }
-void RangeFromParams(float* from, float* to, float current, float length, CStruct* params, Scripts::CScript* /*script*/)
+float* anim_length(uint32_t key) { return static_cast<float*>(render::get_anim_data(key, 0)); }
+void range_from_params(float* from, float* to, float current, float length, Struct* params, script::Script* /*script*/)
 {
-    FetchAnimDurations(from, to, current, length, params);
+    fetch_anim_durations(from, to, current, length, params);
 }
-void LoopTypeFromParams(int* loopType, CStruct* params) { GetAnimLoopType(loopType, params); }
-void AttachController(CAnimTrack* timeline, CStruct* params) { timeline->AttachController(params); }
+void loop_type_from_params(int* loop_type, Struct* params) { get_anim_loop_type(loop_type, params); }
+void attach_controller(AnimTrack* timeline, Struct* params) { timeline->attach_controller(params); }
 
 // The skeleton component's skeleton (the getter folded at 0x005480F0).
-CRig* SkeletonOf(GameObjects::CObjectModule* component)
+Rig* skeleton_of(objects::ObjectModule* component)
 {
-    return reinterpret_cast<CRig*>(static_cast<GameObjects::CBoneRigModule*>(component)->m_boneRig);
+    return reinterpret_cast<Rig*>(static_cast<objects::BoneRigModule*>(component)->bone_rig_);
 }
 
 } // namespace
 
 // 0x0047DD10
-int AnimListHead::TallyEntries()
+int AnimListHead::tally_entries()
 {
-    MemSys::ListNode* node = m_head.next;
+    memory::ListNode* node = head_.next;
     int count = 0;
-    while (!IsHead(node) && node) {
+    while (!is_head(node) && node) {
         node = node->next;
         ++count;
     }
@@ -219,266 +219,266 @@ int AnimListHead::TallyEntries()
 }
 
 // 0x0047DD40
-AnimListNode* AnimListNode::Teardown(uint8_t flags)
+AnimListNode* AnimListNode::teardown(uint8_t flags)
 {
-    m_listLink.UnlinkAs(reinterpret_cast<void**>(kListNodeVtable));
+    list_link_.unlink_as(reinterpret_cast<void**>(g_list_node_vtable));
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
 // --- making and destroying ---
 
 // 0x0047F150
-CBlendChannel* CBlendChannel::MakeNew(GameObjects::CGameEntity* object, GameObjects::CAnimBlenderComponent* blender, bool full)
+BlendChannel* BlendChannel::make_new(objects::GameEntity* object, objects::AnimBlenderComponent* blender, bool full)
 {
-    m_listLink.data = this;
-    m_listLink.priority = 0;
-    m_listLink.next = &m_listLink;
-    m_listLink.prev = &m_listLink;
-    m_listLink.vtable = reinterpret_cast<void**>(kChannelVtable);
-    m_timelines.data = reinterpret_cast<void*>(-1);
-    m_timelines.priority = 0;
-    m_timelines.next = &m_timelines;
-    m_timelines.prev = &m_timelines;
-    m_timelines.vtable = reinterpret_cast<void**>(kHeadVtable);
-    m_eventsOn = true;
-    m_ownerPtr = reinterpret_cast<uint8_t*>(object);
-    m_blender = blender;
-    m_lookupKey = 0;
-    m_eventTable = 0;
-    m_ident = 0;
-    m_rank = 0;
-    m_flag4C = false;
-    m_periodLeft = 0.0f;
-    m_period = 0.0f;
+    list_link_.data = this;
+    list_link_.priority = 0;
+    list_link_.next = &list_link_;
+    list_link_.prev = &list_link_;
+    list_link_.vtable = reinterpret_cast<void**>(kChannelVtable);
+    timelines_.data = reinterpret_cast<void*>(-1);
+    timelines_.priority = 0;
+    timelines_.next = &timelines_;
+    timelines_.prev = &timelines_;
+    timelines_.vtable = reinterpret_cast<void**>(kHeadVtable);
+    events_on_ = true;
+    owner_ptr_ = reinterpret_cast<uint8_t*>(object);
+    blender_ = blender;
+    lookup_key_ = 0;
+    event_table_ = 0;
+    ident_ = 0;
+    rank_ = 0;
+    flag_4c_ = false;
+    period_left_ = 0.0f;
+    period_ = 0.0f;
     uint32_t value = full ? 0x3F800000 : 0;
-    m_ongoing = value;
-    m_aimPoint = value;
-    m_outset = value;
-    Reset();
+    ongoing_ = value;
+    aim_point_ = value;
+    outset_ = value;
+    get_reset();
     return this;
 }
 
 // 0x0047EE90
-void CBlendChannel::DestroyBody()
+void BlendChannel::destroy_body()
 {
-    m_listLink.vtable = reinterpret_cast<void**>(kChannelVtable);
-    reinterpret_cast<GameObjects::ListHead*>(&m_timelines)->DeleteAllNodes();
-    m_timelines.UnlinkAs(reinterpret_cast<void**>(kListNodeVtable));
-    m_listLink.UnlinkAs(reinterpret_cast<void**>(kBlenderNodeVtable));
+    list_link_.vtable = reinterpret_cast<void**>(kChannelVtable);
+    reinterpret_cast<objects::ListHead*>(&timelines_)->delete_all_nodes();
+    timelines_.unlink_as(reinterpret_cast<void**>(g_list_node_vtable));
+    list_link_.unlink_as(reinterpret_cast<void**>(g_blender_node_vtable));
 }
 
 // 0x0047F230
-CBlendChannel* CBlendChannel::Teardown(uint8_t flags)
+BlendChannel* BlendChannel::teardown(uint8_t flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
 // 0x0047EF20
-void CBlendChannel::Reset()
+void BlendChannel::get_reset()
 {
-    reinterpret_cast<GameObjects::ListHead*>(&m_timelines)->DeleteAllNodes();
-    bool waiting = m_waiting;
-    m_hasNextBlend = false;
-    m_nextBlend = 0.0f;
+    reinterpret_cast<objects::ListHead*>(&timelines_)->delete_all_nodes();
+    bool waiting = waiting_;
+    has_next_blend_ = false;
+    next_blend_ = 0.0f;
     if (waiting) {
-        m_waiting = false;
-        if (Scripts::CScript* script = Owner(this)->m_ownScript)
-            script->StopWaiting();
+        waiting_ = false;
+        if (script::Script* script = get_owner(this)->own_script_)
+            script->stop_waiting();
     }
-    m_waitTime = 0.0f;
-    m_prevTimelinePos = 0.0f;
-    m_flag4E = false;
+    wait_time_ = 0.0f;
+    prev_timeline_pos_ = 0.0f;
+    flag_4e_ = false;
 }
 
 // 0x0047DCF0
-void CBlendChannel::Seal()
+void BlendChannel::seal()
 {
-    m_boneRig = Owner(this)->FetchModule(kSkeleton);
+    bone_rig_ = get_owner(this)->fetch_module(kSkeleton);
 }
 
 // --- each frame ---
 
 // 0x0047EFB0
-bool CBlendChannel::TickFrame(int index, bool blend)
+bool BlendChannel::tick_frame(int index, bool blend)
 {
-    UpdateBlend();
-    UpdateTimelines();
-    RemoveDoneTimelines();
-    if (blend && m_blender->ModelReady())
-        return BlendPose(index);
+    update_blend();
+    update_timelines();
+    remove_done_timelines();
+    if (blend && blender_->model_ready())
+        return blend_pose(index);
     return false;
 }
 
 // 0x0047EF60
-void CBlendChannel::ReleaseWaitingScript(Scripts::CScript* script)
+void BlendChannel::release_waiting_script(script::Script* script)
 {
-    if (script->m_suspendReason != 6)
+    if (script->suspend_reason_ != 6)
         return;
-    if (CAnimTrack* first = First(this)) {
-        if (first->IsAccomplished())
-            script->StopWaiting();
+    if (AnimTrack* first = get_first(this)) {
+        if (first->is_accomplished())
+            script->stop_waiting();
     }
 }
 
 // 0x0047E030 (x87: the blend's time left unrounded through the division)
-void CBlendChannel::UpdateBlend()
+void BlendChannel::update_blend()
 {
-    if (CAnimTrack* first = First(this))
-        m_prevTimelinePos = first->m_ongoing;
-    if (m_periodLeft > 0.0f) {
-        double left = m_periodLeft - FrameClock::GetSlomoFrameSeconds();
-        m_periodLeft = static_cast<float>(left);
+    if (AnimTrack* first = get_first(this))
+        prev_timeline_pos_ = first->ongoing_;
+    if (period_left_ > 0.0f) {
+        double left = period_left_ - frame_clock::get_slomo_frame_seconds();
+        period_left_ = static_cast<float>(left);
         if (!(left > 0.0))
             left = 0.0;
-        m_periodLeft = static_cast<float>(left);
-        double done = left / m_period;
-        AsFloat(m_ongoing) =
-            static_cast<float>((static_cast<double>(AsFloat(m_outset)) - AsFloat(m_aimPoint)) * done + AsFloat(m_aimPoint));
+        period_left_ = static_cast<float>(left);
+        double done = left / period_;
+        get_as_float(ongoing_) =
+            static_cast<float>((static_cast<double>(get_as_float(outset_)) - get_as_float(aim_point_)) * done + get_as_float(aim_point_));
     } else {
-        m_ongoing = m_aimPoint;
+        ongoing_ = aim_point_;
     }
-    if (!m_waiting)
+    if (!waiting_)
         return;
-    GameObjects::CGameEntity* owner = Owner(this);
-    if (!owner->m_ownScript) {
-        void* memory = Scripts::CScript::operator new(sizeof(Scripts::CScript));
-        owner->m_ownScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
+    objects::GameEntity* owner = get_owner(this);
+    if (!owner->own_script_) {
+        void* memory = script::Script::operator new(sizeof(script::Script));
+        owner->own_script_ = memory ? static_cast<script::Script*>(memory)->make_new() : nullptr;
     }
     bool stop;
-    if (!owner->m_ownScript->IsBlocked(false)) {
+    if (!owner->own_script_->is_blocked(false)) {
         stop = true;
     } else {
         float start, current, end;
-        reinterpret_cast<GameObjects::BlendChannelLinks*>(this)->GetTimes(&start, &current, &end);
+        reinterpret_cast<objects::BlendChannelLinks*>(this)->get_times(&start, &current, &end);
         // (forwards: the time reached; backwards - or a range of none - reached the other way; NaN: never)
-        if (start <= end && current >= m_waitTime)
+        if (start <= end && current >= wait_time_)
             stop = true;
         else
-            stop = start >= end && current <= m_waitTime;
+            stop = start >= end && current <= wait_time_;
     }
     if (stop) {
-        owner->m_ownScript->StopWaiting();
-        m_waiting = false;
+        owner->own_script_->stop_waiting();
+        waiting_ = false;
     }
 }
 
 // 0x0047E1B0
-void CBlendChannel::UpdateTimelines()
+void BlendChannel::update_timelines()
 {
-    int count = CountListItems(&m_timelines);
-    CAnimTrack* timeline = Masked(m_timelines.next);
+    int count = count_list_items(&timelines_);
+    AnimTrack* timeline = masked(timelines_.next);
     for (; count > 0; --count) {
         Virtual<void>(timeline, 2);
-        timeline = Masked(Elem(timeline)->next);
+        timeline = masked(elem(timeline)->next);
     }
 }
 
 // 0x0047DDC0
-void CBlendChannel::RemoveDoneTimelines()
+void BlendChannel::remove_done_timelines()
 {
-    MemSys::ListNode* node = m_timelines.next;
-    if (IsHead(node) || !node)
+    memory::ListNode* node = timelines_.next;
+    if (is_head(node) || !node)
         return;
     while (node) {
-        CAnimTrack* next = Masked(node->next);
-        if (!reinterpret_cast<CAnimTrack*>(node)->IsOperative()) {
-            Uncouple(node);
-            DeleteTimeline(node);
+        AnimTrack* next = masked(node->next);
+        if (!reinterpret_cast<AnimTrack*>(node)->is_operative()) {
+            uncouple(node);
+            delete_timeline(node);
         }
-        node = Elem(next);
+        node = elem(next);
     }
 }
 
 // 0x0047DE20
-void CBlendChannel::PushTimeline(float period)
+void BlendChannel::push_timeline(float period)
 {
     int count = 0;
-    for (CAnimTrack* timeline = Masked(m_timelines.next); timeline;) {
-        CAnimTrack* next = Masked(Elem(timeline)->next);
-        if (++count >= MaxBlends()) {
-            Uncouple(Elem(timeline));
-            DeleteTimeline(Elem(timeline));
+    for (AnimTrack* timeline = masked(timelines_.next); timeline;) {
+        AnimTrack* next = masked(elem(timeline)->next);
+        if (++count >= max_blends()) {
+            uncouple(elem(timeline));
+            delete_timeline(elem(timeline));
         }
         timeline = next;
     }
-    if (CountListItems(&m_timelines) != 0) {
-        CAnimTrack* first = First(this);
-        if (first && StartBlendOut(first, period)) {
+    if (count_list_items(&timelines_) != 0) {
+        AnimTrack* first = get_first(this);
+        if (first && start_blend_out(first, period)) {
             float others = 0.0f;
-            for (MemSys::ListNode* node = Elem(first)->next; !IsHead(node) && node; node = node->next) {
-                auto* timeline = reinterpret_cast<CAnimTrack*>(node);
-                if (timeline->IsFading())
-                    others = static_cast<float>(static_cast<double>(timeline->m_fadeScale) * timeline->m_fadeLeft +
+            for (memory::ListNode* node = elem(first)->next; !is_head(node) && node; node = node->next) {
+                auto* timeline = reinterpret_cast<AnimTrack*>(node);
+                if (timeline->is_fading())
+                    others = static_cast<float>(static_cast<double>(timeline->fade_scale_) * timeline->fade_left_ +
                                                 others);
             }
-            first->m_fadeScale = static_cast<float>((1.0 - others) / first->m_fadeLeft);
+            first->fade_scale_ = static_cast<float>((1.0 - others) / first->fade_left_);
         }
     }
-    void* memory = NewTimeline(sizeof(CAnimTrack));
-    CAnimTrack* timeline =
-        memory ? static_cast<CAnimTrack*>(memory)->MakeNew(Owner(this)) : nullptr;
-    MemSys::ListNode* node = Elem(timeline); // (null: a crash, as the original)
-    node->prev = &m_timelines;
-    node->next = m_timelines.next;
-    m_timelines.next->prev = node;
-    m_timelines.next = node;
+    void* memory = new_timeline(sizeof(AnimTrack));
+    AnimTrack* timeline =
+        memory ? static_cast<AnimTrack*>(memory)->make_new(get_owner(this)) : nullptr;
+    memory::ListNode* node = elem(timeline); // (null: a crash, as the original)
+    node->prev = &timelines_;
+    node->next = timelines_.next;
+    timelines_.next->prev = node;
+    timelines_.next = node;
 }
 
 // 0x0047ED60
-bool CBlendChannel::BlendPose(int index)
+bool BlendChannel::blend_pose(int index)
 {
-    if (OmitFromDraw() || !m_lookupKey)
+    if (omit_from_draw() || !lookup_key_)
         return false;
-    CRig* skeleton = SkeletonOf(m_boneRig);
+    Rig* skeleton = skeleton_of(bone_rig_);
     if (!skeleton)
         return false;
-    skeleton->SetLOD(*reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(m_blender) + 0x24)); // (its m_unknown24)
-    int count = CountListItems(&m_timelines);
-    CRigData* data = skeleton->m_payload;
+    skeleton->set_lod(*reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(blender_) + 0x24)); // (its unknown24_)
+    int count = count_list_items(&timelines_);
+    RigData* data = skeleton->payload_;
     for (int i = 0; i < count; ++i) {
         // (each pose's translations start as the skeleton's bind translations)
-        std::memcpy(Poses()[i].translations, data->m_bindTranslations,
-                    static_cast<size_t>(skeleton->GetNumBones() & 0x0FFFFFFF) * 16);
-        FetchPose(i, &Poses()[i], &BlendWeights()[i]);
+        std::memcpy(current_poses()[i].translations, data->bind_translations_,
+                    static_cast<size_t>(skeleton->get_num_bones() & 0x0FFFFFFF) * 16);
+        fetch_pose(i, &current_poses()[i], &blend_weights()[i]);
     }
     if (count > 1)
-        MixPoses(Poses(), BlendWeights(), skeleton->GetNumBones(), Poses(), count);
-    std::memcpy(&BlendBuffer()[index], Poses(), sizeof(CStance));
+        mix_poses(current_poses(), blend_weights(), skeleton->get_num_bones(), current_poses(), count);
+    std::memcpy(&blend_buffer()[index], current_poses(), sizeof(Stance));
     return true;
 }
 
 // 0x0047EFF0
-bool CBlendChannel::BlendFirstPose()
+bool BlendChannel::blend_first_pose()
 {
-    return BlendPose(0);
+    return blend_pose(0);
 }
 
 // 0x0047EAA0
-void CBlendChannel::FetchPose(int index, void* pose, float* weight)
+void BlendChannel::fetch_pose(int index, void* pose, float* weight)
 {
-    CAnimTrack* timeline = nullptr;
-    MemSys::ListNode* node = m_timelines.next;
-    if (!IsHead(node) && node) {
+    AnimTrack* timeline = nullptr;
+    memory::ListNode* node = timelines_.next;
+    if (!is_head(node) && node) {
         for (;;) {
             if (index-- == 0) {
-                timeline = reinterpret_cast<CAnimTrack*>(node);
+                timeline = reinterpret_cast<AnimTrack*>(node);
                 break;
             }
             node = node->next;
-            if (IsHead(node) || !node)
+            if (is_head(node) || !node)
                 break;
         }
     }
-    double w = Weight(timeline); // (null when not found: a crash, as the original)
+    double w = current_weight(timeline); // (null when not found: a crash, as the original)
     float rounded = static_cast<float>(w);
     if (!(w <= 0.0)) {
-        SkeletonOf(m_boneRig); // (read and not used)
-        timeline->GetPoses(pose);
+        skeleton_of(bone_rig_); // (read and not used)
+        timeline->get_poses(pose);
         *weight = rounded;
     } else {
         *weight = 0.0f;
@@ -488,81 +488,81 @@ void CBlendChannel::FetchPose(int index, void* pose, float* weight)
 // --- what scripts and the network ask ---
 
 // 0x0047DC40
-bool CBlendChannel::SetFlipped(uint32_t objectId, bool flip, uint32_t /*unused*/, bool send)
+bool BlendChannel::set_flipped(uint32_t object_id, bool flip, uint32_t /*unused*/, bool send)
 {
-    if (send && m_ident == 0) {
-        if (OnlinePlay::PlayerRecord* player = FindOwnPlayerRecord(objectId)) {
-            NetLink::NetMessageInfo message;
-            message.MakeNew();
-            NetLink::Guest* app = ClientOf(player);
-            uint8_t data[2] = {static_cast<uint8_t>(objectId), static_cast<uint8_t>(flip)};
-            PostOut(app, message, kMsgFlip, data, 2, false);
+    if (send && ident_ == 0) {
+        if (online::PlayerRecord* player = find_own_player_record(object_id)) {
+            net::NetMessageInfo message;
+            message.make_new();
+            net::Guest* app = client_of(player);
+            uint8_t data[2] = {static_cast<uint8_t>(object_id), static_cast<uint8_t>(flip)};
+            post_out(app, message, kMsgFlip, data, 2, false);
         }
     }
-    bool was = (m_flagBits >> 29) & 1;
-    m_flagBits = (m_flagBits & ~kFlipped) | (flip ? kFlipped : 0);
+    bool was = (flag_bits_ >> 29) & 1;
+    flag_bits_ = (flag_bits_ & ~kFlipped) | (flip ? kFlipped : 0);
     return was;
 }
 
 // 0x0047DD80
-void CBlendChannel::ToggleFlipped()
+void BlendChannel::toggle_flipped()
 {
-    NetLink::AppHost* app = NetSessionSlot()->FetchPatron(0);
+    net::AppHost* app = net_session_slot()->fetch_patron(0);
     uint32_t unused = *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(app) + 8);
-    SetFlipped(Owner(this)->m_ident, !((m_flagBits >> 29) & 1), unused, true);
+    set_flipped(get_owner(this)->ident_, !((flag_bits_ >> 29) & 1), unused, true);
 }
 
 // 0x0047E010
-void CBlendChannel::AdvanceClock(float frames)
+void BlendChannel::advance_clock(float frames)
 {
-    MemSys::ListNode* node = m_timelines.next;
-    if (!IsHead(node) && node)
-        reinterpret_cast<CAnimTrack*>(node)->AdvanceClock(frames);
+    memory::ListNode* node = timelines_.next;
+    if (!is_head(node) && node)
+        reinterpret_cast<AnimTrack*>(node)->advance_clock(frames);
 }
 
 // 0x0047E210
-bool CBlendChannel::IsClipDone()
+bool BlendChannel::is_clip_done()
 {
-    CAnimTrack* first = First(this);
-    return first ? first->IsAccomplished() : false;
+    AnimTrack* first = get_first(this);
+    return first ? first->is_accomplished() : false;
 }
 
 // 0x0047E240
-bool CBlendChannel::IsCycling()
+bool BlendChannel::is_cycling()
 {
-    CAnimTrack* first = First(this);
+    AnimTrack* first = get_first(this);
     if (!first)
         return false;
-    return first->m_repeatMode == CAnimTimeline::kCycle || first->m_repeatMode == CAnimTimeline::kPingPong;
+    return first->repeat_mode_ == AnimTimeline::kCycle || first->repeat_mode_ == AnimTimeline::kPingPong;
 }
 
 // 0x0047DF50
-bool CBlendChannel::IsAnimOneOf(CStruct* params, Scripts::CScript* /*script*/)
+bool BlendChannel::is_anim_one_of(Struct* params, script::Script* /*script*/)
 {
-    CAnimTrack* first = First(this);
-    uint32_t anim = first ? first->m_anim : 0;
-    for (Scripts::CComponent* component = params->StepToEntry(nullptr); component;
-         component = params->StepToEntry(component)) {
+    AnimTrack* first = get_first(this);
+    uint32_t anim = first ? first->anim_ : 0;
+    for (script::Component* component = params->step_to_entry(nullptr); component;
+         component = params->step_to_entry(component)) {
         if (component->name)
             continue;
-        Scripts::CArray* array = nullptr;
-        if (component->KindTag() == Scripts::QBVAL_NAME) {
-            Scripts::CSymbolTableEntry* symbol = Scripts::ResolveSymbol(component->checksum);
-            if (symbol && symbol->type == Scripts::QBVAL_ARRAY) {
-                array = reinterpret_cast<Scripts::CArray*>(symbol->raw);
+        script::Array* array = nullptr;
+        if (component->kind_tag() == script::kQbvalName) {
+            script::SymbolTableEntry* symbol = script::resolve_symbol(component->checksum);
+            if (symbol && symbol->type == script::kQbvalArray) {
+                array = reinterpret_cast<script::Array*>(symbol->raw);
             } else {
                 if (component->checksum == anim)
                     return true;
                 continue;
             }
-        } else if (component->KindTag() == Scripts::QBVAL_ARRAY) {
+        } else if (component->kind_tag() == script::kQbvalArray) {
             array = component->array;
         } else {
             continue;
         }
         if (array) {
-            for (uint32_t i = 0; i < array->m_extent; ++i) {
-                if (array->FetchPart(i) == anim)
+            for (uint32_t i = 0; i < array->extent_; ++i) {
+                if (array->fetch_part(i) == anim)
                     return true;
             }
         }
@@ -571,40 +571,40 @@ bool CBlendChannel::IsAnimOneOf(CStruct* params, Scripts::CScript* /*script*/)
 }
 
 // 0x0047E280
-void CBlendChannel::ChooseWobbleGoal(float target, bool send)
+void BlendChannel::choose_wobble_goal(float target, bool send)
 {
-    if (send && m_ident == 0) {
-        if (OnlinePlay::PlayerRecord* player = FindOwnPlayerRecord(Owner(this)->m_ident)) {
-            NetLink::Guest* app = ClientOf(player);
+    if (send && ident_ == 0) {
+        if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident_)) {
+            net::Guest* app = client_of(player);
             if (target < 0.0f)
                 target = 0.0f;
             else if (target > 1.0f)
                 target = 1.0f;
             uint8_t data[2];
-            data[1] = static_cast<uint8_t>(Truncated(target * 255.0)); // (0x00646B88)
-            data[0] = static_cast<uint8_t>(Owner(this)->m_ident);
-            if (LastWobbleTarget() != data[1]) {
-                NetLink::NetMessageInfo message;
-                message.MakeNew();
-                PostOut(app, message, kMsgWobbleTarget, data, 2, true);
-                LastWobbleTarget() = data[1];
+            data[1] = static_cast<uint8_t>(get_truncated(target * 255.0)); // (0x00646B88)
+            data[0] = static_cast<uint8_t>(get_owner(this)->ident_);
+            if (last_wobble_target() != data[1]) {
+                net::NetMessageInfo message;
+                message.make_new();
+                post_out(app, message, kMsgWobbleTarget, data, 2, true);
+                last_wobble_target() = data[1];
             }
         }
     }
-    if (!First(this))
+    if (!get_first(this))
         return;
-    CStruct* params = SpawnParamBag();
-    params->PushFloat(0x4D747FA0, target);
-    PassToFirst(this, 0xD0209498, params); // ChooseWobbleGoal
-    FreeStruct(params);
+    Struct* params = spawn_param_bag();
+    params->push_float(0x4D747FA0, target);
+    pass_to_first(this, 0xD0209498, params); // choose_wobble_goal
+    free_struct(params);
 }
 
 // 0x0047E450
-void CBlendChannel::SetWobbleDetails(const float* details, bool send)
+void BlendChannel::set_wobble_details(const float* details, bool send)
 {
-    if (send && m_ident == 0) {
-        if (OnlinePlay::PlayerRecord* player = FindOwnPlayerRecord(Owner(this)->m_ident)) {
-            NetLink::Guest* app = ClientOf(player);
+    if (send && ident_ == 0) {
+        if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident_)) {
+            net::Guest* app = client_of(player);
             // Which of its known values each detail has (0x00645D6C... - the server sends those).
             uint8_t bits = 0;
             if (details[0] == 0.05f)
@@ -619,292 +619,292 @@ void CBlendChannel::SetWobbleDetails(const float* details, bool send)
             uint8_t b4 = details[4] == 1.5f ? 0 : details[4] == 1.0f ? 1 : 0;
             uint8_t data[2];
             data[0] = static_cast<uint8_t>(bits | b1 << 2 | b2 << 3 | b3 << 4 | b4 << 5);
-            data[1] = static_cast<uint8_t>(Owner(this)->m_ident);
-            if (LastWobbleDetails() != data[0]) {
-                NetLink::NetMessageInfo message;
-                message.MakeNew();
-                PostOut(app, message, kMsgWobbleDetails, data, 2, true);
-                LastWobbleDetails() = data[0];
+            data[1] = static_cast<uint8_t>(get_owner(this)->ident_);
+            if (last_wobble_details() != data[0]) {
+                net::NetMessageInfo message;
+                message.make_new();
+                post_out(app, message, kMsgWobbleDetails, data, 2, true);
+                last_wobble_details() = data[0];
             }
         }
     }
-    if (!First(this))
+    if (!get_first(this))
         return;
-    CStruct* params = SpawnParamBag();
-    params->PushFloat(0xFD266A26, details[0]); // wobbleAmpA
-    params->PushFloat(0x642F3B9C, details[1]); // wobbleAmpB
-    params->PushFloat(0x0F43FD49, details[2]); // wobbleK1
-    params->PushFloat(0x964AACF3, details[3]); // wobbleK2
-    params->PushFloat(0xF90B0824, details[4]); // spazFactor
-    PassToFirst(this, 0xEA6D0EFD, params);    // SetWobbleDetails
-    FreeStruct(params);
+    Struct* params = spawn_param_bag();
+    params->push_float(0xFD266A26, details[0]); // wobbleAmpA
+    params->push_float(0x642F3B9C, details[1]); // wobbleAmpB
+    params->push_float(0x0F43FD49, details[2]); // wobbleK1
+    params->push_float(0x964AACF3, details[3]); // wobbleK2
+    params->push_float(0xF90B0824, details[4]); // spazFactor
+    pass_to_first(this, 0xEA6D0EFD, params);    // SetWobbleDetails
+    free_struct(params);
 }
 
 // 0x0047E740
-void CBlendChannel::ChangeRepeatMode(int loopType, bool send)
+void BlendChannel::change_repeat_mode(int loop_type, bool send)
 {
-    if (send && m_ident == 0) {
-        if (OnlinePlay::PlayerRecord* player = FindOwnPlayerRecord(Owner(this)->m_ident)) {
-            NetLink::Guest* app = ClientOf(player);
-            uint8_t data[2] = {static_cast<uint8_t>(Owner(this)->m_ident), static_cast<uint8_t>(loopType)};
-            if (LastLoopType() != loopType) {
-                NetLink::NetMessageInfo message;
-                message.MakeNew();
-                PostOut(app, message, kMsgLoopType, data, 2, false);
-                LastLoopType() = static_cast<int8_t>(loopType);
+    if (send && ident_ == 0) {
+        if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident_)) {
+            net::Guest* app = client_of(player);
+            uint8_t data[2] = {static_cast<uint8_t>(get_owner(this)->ident_), static_cast<uint8_t>(loop_type)};
+            if (last_loop_type() != loop_type) {
+                net::NetMessageInfo message;
+                message.make_new();
+                post_out(app, message, kMsgLoopType, data, 2, false);
+                last_loop_type() = static_cast<int8_t>(loop_type);
             }
         }
     }
-    if (CAnimTrack* first = First(this))
-        first->m_repeatMode = loopType;
+    if (AnimTrack* first = get_first(this))
+        first->repeat_mode_ = loop_type;
 }
 
 // 0x0047E810
-void CBlendChannel::Reverse(uint32_t /*unused*/)
+void BlendChannel::get_reverse(uint32_t /*unused*/)
 {
-    if (CAnimTrack* first = First(this))
-        first->m_direction = first->m_direction != 0 ? 0 : -1;
+    if (AnimTrack* first = get_first(this))
+        first->direction_ = first->direction_ != 0 ? 0 : -1;
 }
 
 // 0x0047E850 (x87: the range and the ratio's products unrounded)
-void CBlendChannel::SetSpeed(float speed, bool send, bool all, bool keepRatio)
+void BlendChannel::set_speed(float speed, bool send, bool all, bool keep_ratio)
 {
-    CAnimTrack* first = First(this);
+    AnimTrack* first = get_first(this);
     if (!first)
         return;
-    if (!all && std::abs(static_cast<double>(first->m_speed) * kFramesPerSecond - speed) < 0.05f) // (0x00645D6C)
+    if (!all && std::abs(static_cast<double>(first->speed_) * kFramesPerSecond - speed) < 0.05f) // (0x00645D6C)
         return;
-    if (send && m_ident == 0) {
-        if (OnlinePlay::PlayerRecord* player = FindOwnPlayerRecord(Owner(this)->m_ident)) {
-            if (NetLink::Guest* app = ClientOf(player)) {
-                NetLink::NetMessageInfo message;
-                message.MakeNew();
+    if (send && ident_ == 0) {
+        if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident_)) {
+            if (net::Guest* app = client_of(player)) {
+                net::NetMessageInfo message;
+                message.make_new();
                 struct {
                     float speed;
                     uint8_t object;
                 } data;
                 data.speed = speed;
-                data.object = static_cast<uint8_t>(Owner(this)->m_ident);
-                PostOut(app, message, kMsgSpeed, &data, 8, false);
+                data.object = static_cast<uint8_t>(get_owner(this)->ident_);
+                post_out(app, message, kMsgSpeed, &data, 8, false);
             }
         }
     }
     if (!all) {
-        First(this)->m_speed = speed * kSecondsPerFrame;
+        get_first(this)->speed_ = speed * kSecondsPerFrame;
         return;
     }
-    if (keepRatio) {
+    if (keep_ratio) {
         float start, current, end;
-        First(this)->GetTimes(&start, &current, &end);
+        get_first(this)->get_times(&start, &current, &end);
         float ratio = static_cast<float>(speed / (static_cast<double>(end) - start));
-        for (MemSys::ListNode* node = m_timelines.next; !IsHead(node) && node; node = node->next) {
-            auto* timeline = reinterpret_cast<CAnimTrack*>(node);
-            timeline->GetTimes(&start, &current, &end);
-            timeline->m_speed = static_cast<float>((static_cast<double>(end) - start) * ratio * kSecondsPerFrame);
+        for (memory::ListNode* node = timelines_.next; !is_head(node) && node; node = node->next) {
+            auto* timeline = reinterpret_cast<AnimTrack*>(node);
+            timeline->get_times(&start, &current, &end);
+            timeline->speed_ = static_cast<float>((static_cast<double>(end) - start) * ratio * kSecondsPerFrame);
         }
     } else {
-        MemSys::ListNode* node = m_timelines.next;
-        if (IsHead(node) || !node)
+        memory::ListNode* node = timelines_.next;
+        if (is_head(node) || !node)
             return;
-        float perFrame = speed * kSecondsPerFrame;
-        for (; !IsHead(node) && node; node = node->next)
-            reinterpret_cast<CAnimTrack*>(node)->m_speed = perFrame;
+        float per_frame = speed * kSecondsPerFrame;
+        for (; !is_head(node) && node; node = node->next)
+            reinterpret_cast<AnimTrack*>(node)->speed_ = per_frame;
     }
 }
 
 // 0x0047EA40
-double CBlendChannel::GetSpeed(CStruct* /*params*/, Scripts::CScript* /*script*/)
+double BlendChannel::get_speed(Struct* /*params*/, script::Script* /*script*/)
 {
-    CAnimTrack* first = First(this);
+    AnimTrack* first = get_first(this);
     if (!first)
         return 0.0;
-    return static_cast<double>(first->m_speed) * kFramesPerSecond;
+    return static_cast<double>(first->speed_) * kFramesPerSecond;
 }
 
 // 0x0047EA80
-void CBlendChannel::SetEventsOn(bool on)
+void BlendChannel::set_events_on(bool on)
 {
-    if (CAnimTrack* first = First(this)) {
-        m_eventsOn = on;
-        first->m_eventsOn = on;
+    if (AnimTrack* first = get_first(this)) {
+        events_on_ = on;
+        first->events_on_ = on;
     }
 }
 
 // 0x0047F000
-void CBlendChannel::SetAnimTags(uint32_t anim)
+void BlendChannel::set_anim_tags(uint32_t anim)
 {
-    CStruct* all = Scripts::ReadSubStruct(0x95807202);
-    CStruct* tags;
-    if (!all || !all->ReadSubStruct(anim, &tags, 0))
+    Struct* all = script::read_sub_struct(0x95807202);
+    Struct* tags;
+    if (!all || !all->read_sub_struct(anim, &tags, 0))
         return;
-    CStruct* params = SpawnParamBag();
-    CStruct* copy = SpawnParamBag();
-    copy->AppendStructureIfAny(tags);
-    params->AppendStructRef(0x5DB4115F, copy); // AnimTags
-    Owner(this)->SetTagsFromStruct(params);
-    FreeStruct(params);
+    Struct* params = spawn_param_bag();
+    Struct* copy = spawn_param_bag();
+    copy->append_structure_if_any(tags);
+    params->append_struct_ref(0x5DB4115F, copy); // AnimTags
+    get_owner(this)->set_tags_from_struct(params);
+    free_struct(params);
 }
 
 // 0x0047EB30
-void __cdecl CBlendChannel::InitBuffers(int blends, int subsets)
+void __cdecl BlendChannel::init_buffers(int blends, int subsets)
 {
-    MaxBlends() = blends;
-    Subsets() = subsets;
-    DebugOut::Printf("D:%s:%i: size = %i\n", "nimblendsubset.cpp", 0x963, 0);
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->CreateLabeledZone(kAnimScratch, Subsets() * 0x840 + 0x90 + MaxBlends() * 0x848,
+    max_blends() = blends;
+    get_subsets() = subsets;
+    debug::printf("D:%s:%i: size = %i\n", "nimblendsubset.cpp", 0x963, 0);
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->create_labeled_zone(kAnimScratch, get_subsets() * 0x840 + 0x90 + max_blends() * 0x848,
                            "AnimScratch", 0); // "AnimScratch"
-    manager->EnterHeapScope(manager->FetchHeapByKey(kAnimScratch, 1));
+    manager->enter_heap_scope(manager->fetch_heap_by_key(kAnimScratch, 1));
     // (each pose's rotations made the identity by the vector constructor iterator 0x00401020 with 0x00464340; its
     // translations' constructor 0x005902E0 does nothing)
-    auto newPoses = [](int count) {
-        auto* poses = static_cast<CStance*>(MemSys::Alloc(static_cast<uint32_t>(count) * sizeof(CStance)));
+    auto new_poses = [](int count) {
+        auto* poses = static_cast<Stance*>(memory::alloc(static_cast<uint32_t>(count) * sizeof(Stance)));
         if (poses) {
             for (int i = 0; i < count; ++i) {
                 for (auto& rotation : poses[i].rotations)
-                    reinterpret_cast<GameObjects::IdentityQuat*>(rotation)->AssignValue();
+                    reinterpret_cast<objects::IdentityQuat*>(rotation)->assign_value();
             }
         }
         return poses;
     };
-    BlendBuffer() = newPoses(Subsets());
-    Poses() = newPoses(MaxBlends());
-    BlendSets() = static_cast<uint32_t*>(MemSys::Alloc(static_cast<uint32_t>(MaxBlends()) * 4));
-    BlendWeights() = static_cast<float*>(MemSys::Alloc(static_cast<uint32_t>(MaxBlends()) * 4));
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    blend_buffer() = new_poses(get_subsets());
+    current_poses() = new_poses(max_blends());
+    blend_sets() = static_cast<uint32_t*>(memory::alloc(static_cast<uint32_t>(max_blends()) * 4));
+    blend_weights() = static_cast<float*>(memory::alloc(static_cast<uint32_t>(max_blends()) * 4));
+    memory::Hub::get_pull()->leave_heap_scope();
 }
 
 // --- playing ---
 
 // 0x0047F260
-void CBlendChannel::PlayAnim(uint32_t anim, bool send, float from, float to, int loopType, float blendPeriod,
-                             float speed, CStruct* params)
+void BlendChannel::play_anim(uint32_t anim, bool send, float from, float to, int loop_type, float blend_period,
+                             float speed, Struct* params)
 {
     if (!anim)
         anim = kDefault;
-    if (send && m_ident == 0) {
-        if (OnlinePlay::PlayerRecord* player = FindOwnPlayerRecord(Owner(this)->m_ident)) {
-            NetLink::NetMessageInfo message;
-            message.MakeNew();
-            NetLink::Guest* app = ClientOf(player);
+    if (send && ident_ == 0) {
+        if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident_)) {
+            net::NetMessageInfo message;
+            message.make_new();
+            net::Guest* app = client_of(player);
             // loop type, object, anim, then the times, blend period and speed x 4096 as shorts
             uint8_t data[0xE];
-            uint8_t object = static_cast<uint8_t>(Owner(this)->m_ident);
-            int16_t times[4] = {static_cast<int16_t>(Truncated(from * kFixedPoint)),
-                                static_cast<int16_t>(Truncated(to * kFixedPoint)),
-                                static_cast<int16_t>(Truncated(blendPeriod * kFixedPoint)),
-                                static_cast<int16_t>(Truncated(speed * kFixedPoint))};
-            data[0] = static_cast<uint8_t>(loopType);
+            uint8_t object = static_cast<uint8_t>(get_owner(this)->ident_);
+            int16_t times[4] = {static_cast<int16_t>(get_truncated(from * kFixedPoint)),
+                                static_cast<int16_t>(get_truncated(to * kFixedPoint)),
+                                static_cast<int16_t>(get_truncated(blend_period * kFixedPoint)),
+                                static_cast<int16_t>(get_truncated(speed * kFixedPoint))};
+            data[0] = static_cast<uint8_t>(loop_type);
             data[1] = object;
             std::memcpy(data + 2, &anim, 4);
             std::memcpy(data + 6, times, sizeof(times));
-            PostOut(app, message, kMsgPlayAnim, data, sizeof(data), false);
+            post_out(app, message, kMsgPlayAnim, data, sizeof(data), false);
         }
     }
-    if (blendPeriod == 0.0f || !m_flag4C)
-        reinterpret_cast<GameObjects::ListHead*>(&m_timelines)->DeleteAllNodes();
-    PushTimeline(blendPeriod);
-    Virtual<void>(Masked(m_timelines.next), 6, anim, from, to, loopType, blendPeriod, speed, (m_flagBits >> 29) & 1,
+    if (blend_period == 0.0f || !flag_4c_)
+        reinterpret_cast<objects::ListHead*>(&timelines_)->delete_all_nodes();
+    push_timeline(blend_period);
+    Virtual<void>(masked(timelines_.next), 6, anim, from, to, loop_type, blend_period, speed, (flag_bits_ >> 29) & 1,
                   params);
-    if (CStruct* tags = Owner(this)->m_tagTable)
-        tags->EraseModule(kAnimTags);
-    SetAnimTags(anim);
+    if (Struct* tags = get_owner(this)->tag_table_)
+        tags->erase_module(kAnimTags);
+    set_anim_tags(anim);
 }
 
 // 0x004803D0
-void CBlendChannel::PlayAnimation(uint32_t anim, float blendPeriod)
+void BlendChannel::play_animation(uint32_t anim, float blend_period)
 {
-    PlayAnim(anim, false, 0.0f, *AnimLength(m_lookupKey + anim), 0, blendPeriod, 1.0f, nullptr);
+    play_anim(anim, false, 0.0f, *anim_length(lookup_key_ + anim), 0, blend_period, 1.0f, nullptr);
 }
 
 // 0x00480410
-void CBlendChannel::ConfigureFromData(CStruct* params)
+void BlendChannel::configure_from_data(Struct* params)
 {
-    params->ReadHashValue(kSubsetId, &m_ident, 0);
-    params->FetchFloat(0x4D786F62, &AsFloat(m_ongoing), 0); // BlendWeight
+    params->read_hash_value(kSubsetId, &ident_, 0);
+    params->fetch_float(0x4D786F62, &get_as_float(ongoing_), 0); // BlendWeight
     int priority = 0;
-    params->FetchIntValue(0x3D836C96, &priority, 0);
-    m_rank = priority;
-    params->ReadHashValue(0x5B8C6DC2, &m_eventTable, 0); // AnimEventTableName
-    uint32_t animSet = 0; // (the original's is left as it was when neither is there)
-    if (!params->ReadHashValue(0x52A864B0, &animSet, 0))
-        params->ReadHashValue(0x09794932, &animSet, 1);
-    m_lookupKey = animSet;
-    PlayAnim(kDefault, false, 0.0f, 1000.0f, 0, kStockCrossfade, 1.0f, nullptr);
-    Reset();
+    params->fetch_int_value(0x3D836C96, &priority, 0);
+    rank_ = priority;
+    params->read_hash_value(0x5B8C6DC2, &event_table_, 0); // AnimEventTableName
+    uint32_t anim_set = 0; // (the original's is left as it was when neither is there)
+    if (!params->read_hash_value(0x52A864B0, &anim_set, 0))
+        params->read_hash_value(0x09794932, &anim_set, 1);
+    lookup_key_ = anim_set;
+    play_anim(kDefault, false, 0.0f, 1000.0f, 0, kStockCrossfade, 1.0f, nullptr);
+    get_reset();
     uint32_t anim = kDefault;
-    bool loop = params->ReadHashValue(0xEAE64B47, &anim, 0);
-    PlayAnim(anim, false, 0.0f, *AnimLength(m_lookupKey + anim), 0, kStockCrossfade, 1.0f, nullptr);
+    bool loop = params->read_hash_value(0xEAE64B47, &anim, 0);
+    play_anim(anim, false, 0.0f, *anim_length(lookup_key_ + anim), 0, kStockCrossfade, 1.0f, nullptr);
     if (loop)
-        ChangeRepeatMode(CAnimTimeline::kCycle, true);
-    if (params->HasBareFlag(0xCF466AA2))
-        m_flag4C = true;
-    SetEventsOn(params->HasBareFlag(0xE1B3F630));
+        change_repeat_mode(AnimTimeline::kCycle, true);
+    if (params->has_bare_flag(0xCF466AA2))
+        flag_4c_ = true;
+    set_events_on(params->has_bare_flag(0xE1B3F630));
 }
 
 // 0x0047F470 (x87: the synchronised start's fraction and product unrounded)
-uint32_t CBlendChannel::PlayAnimFromScript(CStruct* params, Scripts::CScript* script, float blendPeriod)
+uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* script, float blend_period)
 {
-    if (CAnimTrack* first = First(this))
-        m_prevTimelinePos = first->m_ongoing;
-    if (m_flag4E) {
-        CAnimTrack* first = First(this);
-        if (!first || !first->IsAccomplished())
+    if (AnimTrack* first = get_first(this))
+        prev_timeline_pos_ = first->ongoing_;
+    if (flag_4e_) {
+        AnimTrack* first = get_first(this);
+        if (!first || !first->is_accomplished())
             return 0;
     }
-    if (!m_lookupKey)
+    if (!lookup_key_)
         return 0;
     uint32_t anim = 0;
-    params->ReadHashValue(kAnim, &anim, 0);
+    params->read_hash_value(kAnim, &anim, 0);
     if (!anim)
-        Scripts::DumpToLog(params, 0);
+        script::dump_to_log(params, 0);
     float speed = 1.0f;
-    params->FetchFloat(kSpeed, &speed, 0);
-    CAnimTrack* first = First(this);
-    uint32_t playing = first ? first->m_anim : 0;
+    params->fetch_float(kSpeed, &speed, 0);
+    AnimTrack* first = get_first(this);
+    uint32_t playing = first ? first->anim_ : 0;
     if (anim == kCurrent) {
         anim = playing;
-    } else if (playing == anim && params->HasBareFlag(0xFE09FE09)) { // NoRestart
+    } else if (playing == anim && params->has_bare_flag(0xFE09FE09)) { // NoRestart
         return 0;
     }
-    if (!AnimLength(m_lookupKey + anim))
+    if (!anim_length(lookup_key_ + anim))
         anim = kDefault;
 
-    float blend = blendPeriod;
-    if (m_hasNextBlend) {
-        blend = m_nextBlend;
-        m_hasNextBlend = false;
+    float blend = blend_period;
+    if (has_next_blend_) {
+        blend = next_blend_;
+        has_next_blend_ = false;
     } else {
         float percent = 0.0f;
-        if (params->FetchFloat(0x4F3ABD6C, &percent, 0)) // (of the anim's length)
-            blend = static_cast<float>(percent * static_cast<double>(0.01f) * *AnimLength(m_lookupKey + anim));
+        if (params->fetch_float(0x4F3ABD6C, &percent, 0)) // (of the anim's length)
+            blend = static_cast<float>(percent * static_cast<double>(0.01f) * *anim_length(lookup_key_ + anim));
         else
-            params->FetchFloat(0x8F0D24ED, &blend, 0); // BlendPeriod
+            params->fetch_float(0x8F0D24ED, &blend, 0); // BlendPeriod
     }
-    float length = *AnimLength(m_lookupKey + anim);
+    float length = *anim_length(lookup_key_ + anim);
     float to = length;
     float from = 0.0f;
     float start = 0.0f; // the time the new one starts at
     bool sync = true;
     double fraction;
-    if (params->HasBareFlag(0x099371AE)) { // SyncToPreviousAnim: as far through as the playing one
+    if (params->has_bare_flag(0x099371AE)) { // SyncToPreviousAnim: as far through as the playing one
         float current, ends;
-        reinterpret_cast<GameObjects::BlendChannelLinks*>(this)->GetTimes(&ends, &current, &ends);
-        float playingLength = *AnimLength(m_lookupKey + playing);
-        params->FetchFloat(0x4B4A153A, &playingLength, 0); // (read and not used here)
-        float through = static_cast<float>(current / *AnimLength(m_lookupKey + playing));
+        reinterpret_cast<objects::BlendChannelLinks*>(this)->get_times(&ends, &current, &ends);
+        float playing_length = *anim_length(lookup_key_ + playing);
+        params->fetch_float(0x4B4A153A, &playing_length, 0); // (read and not used here)
+        float through = static_cast<float>(current / *anim_length(lookup_key_ + playing));
         if (through > 1.0f)
             fraction = 1.0;
         else if (through < 0.0f)
             fraction = 0.0;
         else
             fraction = through;
-    } else if (params->HasBareFlag(0xFF5AC79E)) { // as far from the end as the playing one
+    } else if (params->has_bare_flag(0xFF5AC79E)) { // as far from the end as the playing one
         float current, ends;
-        reinterpret_cast<GameObjects::BlendChannelLinks*>(this)->GetTimes(&ends, &current, &ends);
-        float playingLength = *AnimLength(m_lookupKey + playing);
-        params->FetchFloat(0x4B4A153A, &playingLength, 0);
-        fraction = Maths::Confine(static_cast<float>((static_cast<double>(playingLength) - current) / playingLength),
+        reinterpret_cast<objects::BlendChannelLinks*>(this)->get_times(&ends, &current, &ends);
+        float playing_length = *anim_length(lookup_key_ + playing);
+        params->fetch_float(0x4B4A153A, &playing_length, 0);
+        fraction = maths::confine(static_cast<float>((static_cast<double>(playing_length) - current) / playing_length),
                               0.0f, 1.0f);
     } else {
         sync = false;
@@ -912,75 +912,75 @@ uint32_t CBlendChannel::PlayAnimFromScript(CStruct* params, Scripts::CScript* sc
     }
     if (sync) {
         start = static_cast<float>(fraction * length);
-        if (params->HasBareFlag(kBackwards))
+        if (params->has_bare_flag(kBackwards))
             start = static_cast<float>(-(static_cast<double>(length) - start));
-        speed = static_cast<float>(GetSpeed(nullptr, nullptr));
+        speed = static_cast<float>(get_speed(nullptr, nullptr));
     }
     float current = 0.0f, ends = 0.0f;
-    if (CAnimTrack* playingNow = First(this))
-        playingNow->GetTimes(&ends, &current, &ends);
-    RangeFromParams(&from, &to, current, length, params, script);
-    int loopType = 0;
-    LoopTypeFromParams(&loopType, params);
-    m_flag4E = params->HasBareFlag(0x84F13067); // (wait for the playing one to complete)
+    if (AnimTrack* playing_now = get_first(this))
+        playing_now->get_times(&ends, &current, &ends);
+    range_from_params(&from, &to, current, length, params, script);
+    int loop_type = 0;
+    loop_type_from_params(&loop_type, params);
+    flag_4e_ = params->has_bare_flag(0x84F13067); // (wait for the playing one to complete)
     float duration = 0.0f;
-    if (params->FetchFloat(0x23272E4D, &duration, 0))
+    if (params->fetch_float(0x23272E4D, &duration, 0))
         speed = static_cast<float>(length / duration);
-    PlayAnim(anim, true, from, to, loopType, blend, speed, params);
-    CAnimTrack* timeline = Masked(m_timelines.next);
+    play_anim(anim, true, from, to, loop_type, blend, speed, params);
+    AnimTrack* timeline = masked(timelines_.next);
     if (start != 0.0f)
-        timeline->AdvanceClock(start);
-    timeline->m_eventsOn = m_eventsOn;
+        timeline->advance_clock(start);
+    timeline->events_on_ = events_on_;
 
     uint32_t partial;
-    if (params->ReadHashValue(0x6C565F57, &partial, 0)) { // PartialAnimOverlay: a partial animation controller too
-        CStruct* controller = Scripts::SpawnParamBag();
+    if (params->read_hash_value(0x6C565F57, &partial, 0)) { // PartialAnimOverlay: a partial animation controller too
+        Struct* controller = script::spawn_param_bag();
         if (controller)
-            controller = controller->PrepareAll();
+            controller = controller->prepare_all();
         uint32_t id = reinterpret_cast<uint32_t>(script); // (its argument's place reused: the id when there is one)
-        if (params->ReadHashValue(0xF0CE9E0F, &id, 0))
-            controller->PutNameKey(kId, id);
-        controller->PutNameKey(0x7321A8D6, 0x659BF355);  // Type PartialAnim
-        controller->PutNameKey(0x6C2BFB7F, partial);     // AnimName
-        controller->PushFloat(0x46E55E8F, from);           // From
-        controller->PushFloat(0x28782D3B, to);             // To
-        controller->PutNameKey(0u, 0xD029F619);           // Seconds
-        controller->PushFloat(kCurrent, start);
-        controller->PushFloat(kSpeed, speed);
-        switch (loopType) {
-        case CAnimTimeline::kCycle:
-            controller->PutNameKey(0u, kCycle);
+        if (params->read_hash_value(0xF0CE9E0F, &id, 0))
+            controller->put_name_key(kId, id);
+        controller->put_name_key(0x7321A8D6, 0x659BF355);  // Type PartialAnim
+        controller->put_name_key(0x6C2BFB7F, partial);     // AnimName
+        controller->push_float(0x46E55E8F, from);           // From
+        controller->push_float(0x28782D3B, to);             // To
+        controller->put_name_key(0u, 0xD029F619);           // Seconds
+        controller->push_float(kCurrent, start);
+        controller->push_float(kSpeed, speed);
+        switch (loop_type) {
+        case AnimTimeline::kCycle:
+            controller->put_name_key(0u, kCycle);
             break;
-        case CAnimTimeline::kPingPong:
-            controller->PutNameKey(0u, kPingPong);
+        case AnimTimeline::kPingPong:
+            controller->put_name_key(0u, kPingPong);
             break;
-        case CAnimTimeline::kHold:
-            controller->PutNameKey(0u, kHoldLoop);
+        case AnimTimeline::kHold:
+            controller->put_name_key(0u, kHoldLoop);
             break;
         default:
             break;
         }
-        AttachController(Masked(m_timelines.next), controller);
-        FreeStruct(controller);
+        attach_controller(masked(timelines_.next), controller);
+        free_struct(controller);
     }
     return anim;
 }
 
 // 0x0047FA00
-int CBlendChannel::InvokeMethodByName(uint32_t name, CStruct* params, Scripts::CScript* script)
+int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::Script* script)
 {
     switch (name) {
     case 0x1DF59A54: { // the info of timeline Index (0xD2D6A582; the playing one without it) to the script
         int index;
-        if (!params->FetchIntValue(kIndex, &index, 0)) {
-            MemSys::ListNode* node = m_timelines.next;
-            if (!IsHead(node) && node)
-                AddTimelineInfo(reinterpret_cast<CAnimTimeline*>(node), script->m_args);
+        if (!params->fetch_int_value(kIndex, &index, 0)) {
+            memory::ListNode* node = timelines_.next;
+            if (!is_head(node) && node)
+                add_timeline_info(reinterpret_cast<AnimTimeline*>(node), script->args_);
             return 1;
         }
-        for (CAnimTrack* timeline = Masked(m_timelines.next); timeline; timeline = Masked(Elem(timeline)->next)) {
+        for (AnimTrack* timeline = masked(timelines_.next); timeline; timeline = masked(elem(timeline)->next)) {
             if (index == 0) {
-                AddTimelineInfo(timeline, script->m_args);
+                add_timeline_info(timeline, script->args_);
                 break;
             }
             --index;
@@ -989,15 +989,15 @@ int CBlendChannel::InvokeMethodByName(uint32_t name, CStruct* params, Scripts::C
     }
     case 0x27A98022: { // Flip: flipped, and every timeline's (or timeline Index's) controllers told
         int index;
-        if (!params->FetchIntValue(kIndex, &index, 0)) {
-            ToggleFlipped();
-            for (MemSys::ListNode* node = m_timelines.next; !IsHead(node) && node; node = node->next)
+        if (!params->fetch_int_value(kIndex, &index, 0)) {
+            toggle_flipped();
+            for (memory::ListNode* node = timelines_.next; !is_head(node) && node; node = node->next)
                 Virtual<int>(node, 5, name, params, script);
             return 1;
         }
         if (index == 0)
-            ToggleFlipped();
-        for (CAnimTrack* timeline = Masked(m_timelines.next); timeline; timeline = Masked(Elem(timeline)->next)) {
+            toggle_flipped();
+        for (AnimTrack* timeline = masked(timelines_.next); timeline; timeline = masked(elem(timeline)->next)) {
             if (index == 0) {
                 Virtual<int>(timeline, 5, name, params, script);
                 break;
@@ -1008,72 +1008,72 @@ int CBlendChannel::InvokeMethodByName(uint32_t name, CStruct* params, Scripts::C
     }
     case 0x2889C6C9:
     case 0x76CC99D5: // (whether the animation is complete)
-        return IsClipDone() ? 1 : 0;
+        return is_clip_done() ? 1 : 0;
     case kPlayAnim:
     case kObjPlayAnim: {
-        PlayAnimFromScript(params, script, kStockCrossfade);
-        MemSys::ListNode* node = m_timelines.next;
-        if (!IsHead(node) && node && reinterpret_cast<CAnimTrack*>(node)->m_repeatMode == CAnimTimeline::kHold)
-            Virtual<int>(m_ownerPtr, 3, 0xEA6D0EFDu, params, script); // (the object's own member function)
+        play_anim_from_script(params, script, kStockCrossfade);
+        memory::ListNode* node = timelines_.next;
+        if (!is_head(node) && node && reinterpret_cast<AnimTrack*>(node)->repeat_mode_ == AnimTimeline::kHold)
+            Virtual<int>(owner_ptr_, 3, 0xEA6D0EFDu, params, script); // (the object's own member function)
         return 1;
     }
     case 0x42FFC3CE: { // GetAnimLength: of anim, to the script's length
         uint32_t anim = 0;
-        params->ReadHashValue(kAnim, &anim, 0);
-        if (HasValue(anim))
-            script->m_args->PushFloat(0xFE82614D, std::fabs(FetchValue(anim))); // length
+        params->read_hash_value(kAnim, &anim, 0);
+        if (has_value(anim))
+            script->args_->push_float(0xFE82614D, std::fabs(fetch_value(anim))); // length
         return 1;
     }
     case 0x4FAF61A9: { // every timeline's speed so its range takes 0x23272E4D seconds
         float duration = 0.0f;
-        params->FetchFloat(0x23272E4D, &duration, 1);
-        for (MemSys::ListNode* node = m_timelines.next; !IsHead(node) && node; node = node->next) {
-            auto* timeline = reinterpret_cast<CAnimTrack*>(node);
+        params->fetch_float(0x23272E4D, &duration, 1);
+        for (memory::ListNode* node = timelines_.next; !is_head(node) && node; node = node->next) {
+            auto* timeline = reinterpret_cast<AnimTrack*>(node);
             float start, current, end;
-            timeline->GetTimes(&start, &current, &end);
+            timeline->get_times(&start, &current, &end);
             float larger = start > end ? start : end;
-            timeline->m_speed = static_cast<float>(larger / static_cast<double>(duration) * kSecondsPerFrame);
+            timeline->speed_ = static_cast<float>(larger / static_cast<double>(duration) * kSecondsPerFrame);
         }
         return 1;
     }
     case 0x58C52F64: // the loop type: once with 0xD443A2BC, else cycling
-        ChangeRepeatMode(params->HasBareFlag(0xD443A2BC) ? CAnimTimeline::kOnce : CAnimTimeline::kCycle, true);
+        change_repeat_mode(params->has_bare_flag(0xD443A2BC) ? AnimTimeline::kOnce : AnimTimeline::kCycle, true);
         return 1;
     case 0x5195BCBB: // the speed to the script's Speed
-        script->m_args->PushFloat(kSpeed, static_cast<float>(GetSpeed(params, script)));
+        script->args_->push_float(kSpeed, static_cast<float>(get_speed(params, script)));
         return 1;
     case 0x68C86AEC: // the next play's blend period
-        params->FetchFloat(0u, &m_nextBlend, 0);
-        m_hasNextBlend = true;
+        params->fetch_float(0u, &next_blend_, 0);
+        has_next_blend_ = true;
         return 1;
     case 0x6ECEB234: // whether it's flipped
-        return (m_flagBits >> 29) & 1;
-    case 0x74CF5C94: // WaitAnim
-        return WaitAnim(params);
+        return (flag_bits_ >> 29) & 1;
+    case 0x74CF5C94: // wait_anim
+        return wait_anim(params);
     case 0x80FDBDF2: // whether it cycles
-        return IsCycling() ? 1 : 0;
+        return is_cycling() ? 1 : 0;
     case 0x9069F357: { // AnimExists (the anim set's unnamed checksum)
         uint32_t anim = reinterpret_cast<uint32_t>(params); // (its argument's place reused, as the original)
-        params->ReadHashValue(0u, &anim, 0);
-        return HasValue(anim) ? 1 : 0;
+        params->read_hash_value(0u, &anim, 0);
+        return has_value(anim) ? 1 : 0;
     }
     case 0x922E7D14: // whether the unnamed time (frames) was passed since the last frame
-        return TimePassed(params);
+        return time_passed(params);
     case 0x986D274E: // to every timeline
-        for (MemSys::ListNode* node = m_timelines.next; !IsHead(node) && node; node = node->next)
+        for (memory::ListNode* node = timelines_.next; !is_head(node) && node; node = node->next)
             Virtual<int>(node, 5, name, params, script);
         return 1;
     case 0x98A32669: { // flag4C from enabled
         int enabled = static_cast<int>(reinterpret_cast<uintptr_t>(params)); // (the argument's place, as above)
-        params->FetchIntValue(0xAF06447B, &enabled, 1);
-        m_flag4C = enabled != 0;
+        params->fetch_int_value(0xAF06447B, &enabled, 1);
+        flag_4c_ = enabled != 0;
         return 1;
     }
     case 0x1A0F9646: // AnimEquals
     case 0xB5FB7EB6:
-        return IsAnimOneOf(params, script) ? 1 : 0;
+        return is_anim_one_of(params, script) ? 1 : 0;
     case 0xC68365EB: // anim (Default when there's none) to timeline Index's (the playing one's) controllers
-        return PassAnimToTimeline(params, script);
+        return pass_anim_to_timeline(params, script);
     case 0xEA6D0EFD:
         return 1;
     case 0x5E3F0F17:
@@ -1082,8 +1082,8 @@ int CBlendChannel::InvokeMethodByName(uint32_t name, CStruct* params, Scripts::C
     case 0xBD4EDD44: // SetPartialAnimSpeed
     case 0xD63A1B81: // GetPartialAnimParams
     case 0xF5E2B871: {
-        MemSys::ListNode* node = m_timelines.next;
-        if (IsHead(node) || !node)
+        memory::ListNode* node = timelines_.next;
+        if (is_head(node) || !node)
             return 1;
         return Virtual<int>(node, 5, name, params, script) != 0 ? 1 : 0;
     }
@@ -1092,59 +1092,59 @@ int CBlendChannel::InvokeMethodByName(uint32_t name, CStruct* params, Scripts::C
     }
 }
 
-// The WaitAnim member function (0x0047FDCE): the script waits until the playing timeline reaches a time - in
+// The wait_anim member function (0x0047FDCE): the script waits until the playing timeline reaches a time - in
 // frames (Frame / Frames), a percentage of its range (Percent), seconds (0x49E0EE96 / Seconds) or milliseconds -
 // from the current time (0x91A4C826), the end (FromEnd) or its start; the object's script made if it has none.
-int CBlendChannel::WaitAnim(CStruct* params)
+int BlendChannel::wait_anim(Struct* params)
 {
     float start, current, end;
-    reinterpret_cast<GameObjects::BlendChannelLinks*>(this)->GetTimes(&start, &current, &end);
+    reinterpret_cast<objects::BlendChannelLinks*>(this)->get_times(&start, &current, &end);
     float time = 0.0f;
-    params->FetchFloat(0u, &time, 0);
-    if (params->HasBareFlag(0x4A07C332) || params->HasBareFlag(0x019176C5)) // Frame, Frames
+    params->fetch_float(0u, &time, 0);
+    if (params->has_bare_flag(0x4A07C332) || params->has_bare_flag(0x019176C5)) // Frame, Frames
         time = time * kSecondsPerFrame;
-    else if (params->HasBareFlag(0x9E497FC6)) // Percent
+    else if (params->has_bare_flag(0x9E497FC6)) // Percent
         time = static_cast<float>((static_cast<double>(end) - start) * time * static_cast<double>(0.01f) + start);
-    else if (!params->HasBareFlag(0x49E0EE96) && !params->HasBareFlag(0xD029F619)) // (Seconds: as it is)
+    else if (!params->has_bare_flag(0x49E0EE96) && !params->has_bare_flag(0xD029F619)) // (Seconds: as it is)
         time = time * 0.001f;
     bool forwards = start <= end;
     // (x87: rounded once to a float; a NaN kept as it is - not negated)
     auto sum = [](float a, float b) { return static_cast<float>(static_cast<double>(a) + b); };
     auto difference = [](float a, float b) { return static_cast<float>(static_cast<double>(a) - b); };
-    if (params->HasBareFlag(0x91A4C826))
-        m_waitTime = forwards ? sum(time, current) : difference(current, time);
-    else if (params->HasBareFlag(0xE18CD075)) // FromEnd
-        m_waitTime = forwards ? difference(end, time) : sum(time, start);
+    if (params->has_bare_flag(0x91A4C826))
+        wait_time_ = forwards ? sum(time, current) : difference(current, time);
+    else if (params->has_bare_flag(0xE18CD075)) // FromEnd
+        wait_time_ = forwards ? difference(end, time) : sum(time, start);
     else
-        m_waitTime = time;
-    if (forwards ? m_waitTime > end : m_waitTime < end)
-        m_waitTime = end;
-    GameObjects::CGameEntity* owner = Owner(this);
-    if (!owner->m_ownScript) {
-        void* memory = Scripts::CScript::operator new(sizeof(Scripts::CScript));
-        owner->m_ownScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
+        wait_time_ = time;
+    if (forwards ? wait_time_ > end : wait_time_ < end)
+        wait_time_ = end;
+    objects::GameEntity* owner = get_owner(this);
+    if (!owner->own_script_) {
+        void* memory = script::Script::operator new(sizeof(script::Script));
+        owner->own_script_ = memory ? static_cast<script::Script*>(memory)->make_new() : nullptr;
     }
-    if ((start <= end && current >= m_waitTime) || (start >= end && current <= m_waitTime)) {
-        owner->m_ownScript->StopWaiting(); // (already there)
-        m_waiting = false;
+    if ((start <= end && current >= wait_time_) || (start >= end && current <= wait_time_)) {
+        owner->own_script_->stop_waiting(); // (already there)
+        waiting_ = false;
     } else {
-        owner->m_ownScript->GateOff(0);
-        m_waiting = true;
+        owner->own_script_->gate_off(0);
+        waiting_ = true;
     }
     return 1;
 }
 
 // The member function 0x922E7D14 (0x004800D3): whether the time given (the unnamed float, in frames, from the
 // start) lies between the playing timeline's time last frame and now - either way round.
-int CBlendChannel::TimePassed(CStruct* params)
+int BlendChannel::time_passed(Struct* params)
 {
     float start, current, end;
-    reinterpret_cast<GameObjects::BlendChannelLinks*>(this)->GetTimes(&start, &current, &end);
+    reinterpret_cast<objects::BlendChannelLinks*>(this)->get_times(&start, &current, &end);
     float time = 0.0f;
-    params->FetchFloat(0u, &time, 0);
+    params->fetch_float(0u, &time, 0);
     time = time * kSecondsPerFrame;
     float now = static_cast<float>(static_cast<double>(current) - start);
-    float before = static_cast<float>(static_cast<double>(m_prevTimelinePos) - start);
+    float before = static_cast<float>(static_cast<double>(prev_timeline_pos_) - start);
     if (now == time)
         return 1;
     if (before < time && time < now)
@@ -1159,66 +1159,66 @@ int CBlendChannel::TimePassed(CStruct* params)
 // The member function 0xC68365EB (0x00480212): anim (Default added when the anim set hasn't it) and its length
 // (Duration) to timeline Index's controllers (the playing one's without it - its tags then set from the anim). Their
 // answer (as true / false), or false without such a timeline.
-int CBlendChannel::PassAnimToTimeline(CStruct* params, Scripts::CScript* script)
+int BlendChannel::pass_anim_to_timeline(Struct* params, script::Script* script)
 {
     uint32_t anim = reinterpret_cast<uint32_t>(params); // (the argument's place, as above)
-    params->ReadHashValue(kAnim, &anim, 0);
-    if (!HasValue(anim)) {
+    params->read_hash_value(kAnim, &anim, 0);
+    if (!has_value(anim)) {
         anim = kDefault;
-        params->PutNameKey(kAnim, kDefault);
+        params->put_name_key(kAnim, kDefault);
     }
-    params->PushFloat(0x79A07F3F, FetchValue(anim)); // Duration
+    params->push_float(0x79A07F3F, fetch_value(anim)); // Duration
     int index;
-    CAnimTrack* timeline = Masked(m_timelines.next);
-    if (params->FetchIntValue(kIndex, &index, 0)) {
+    AnimTrack* timeline = masked(timelines_.next);
+    if (params->fetch_int_value(kIndex, &index, 0)) {
         for (; timeline && index; --index)
-            timeline = Masked(Elem(timeline)->next);
+            timeline = masked(elem(timeline)->next);
     }
     if (!timeline)
         return 0;
-    if (timeline == Masked(m_timelines.next)) {
-        ClearFlag();
-        SetAnimTags(anim);
+    if (timeline == masked(timelines_.next)) {
+        clear_flag();
+        set_anim_tags(anim);
     }
     return Virtual<int>(timeline, 5, 0xC68365EBu, params, script) != 0 ? 1 : 0;
 }
 
 namespace {
-static VtableSlot kChannelVtable_slots[] = {&Gfx2D::CBlendChannel::Teardown, &Gfx2D::CBlendChannel::TickFrame,
-                &Gfx2D::CBlendChannel::Seal, &Gfx2D::CBlendChannel::ConfigureFromData,
-                &Gfx2D::CBlendChannel::InvokeMethodByName, Stubs::IgnoreArgument,
-                &Gfx2D::CBlendChannel::ReleaseWaitingScript};
-void** const kChannelVtable = reinterpret_cast<void**>(kChannelVtable_slots);
-static VtableSlot kHeadVtable_slots[] = {&Gfx2D::CAnimTimeline::Teardown};
-void** const kHeadVtable = reinterpret_cast<void**>(kHeadVtable_slots);
+static VtableSlot g_channel_vtable_slots[] = {&gfx::BlendChannel::teardown, &gfx::BlendChannel::tick_frame,
+                &gfx::BlendChannel::seal, &gfx::BlendChannel::configure_from_data,
+                &gfx::BlendChannel::invoke_method_by_name, stubs::ignore_argument,
+                &gfx::BlendChannel::release_waiting_script};
+void** const kChannelVtable = reinterpret_cast<void**>(g_channel_vtable_slots);
+static VtableSlot g_head_vtable_slots[] = {&gfx::AnimTimeline::teardown};
+void** const kHeadVtable = reinterpret_cast<void**>(g_head_vtable_slots);
 } // namespace
 
 } // namespace Gfx
 
-namespace Vt {
-static VtableSlot kBlenderChannelNode_slots[] = {&GameObjects::BlendChannelLinks::DestroyNode};
-void** const kBlenderChannelNode = reinterpret_cast<void**>(kBlenderChannelNode_slots);
-static VtableSlot kAnimListNode_slots[] = {&Gfx2D::AnimListNode::Teardown};
-void** const kAnimListNode = reinterpret_cast<void**>(kAnimListNode_slots);
+namespace vt {
+static VtableSlot g_blender_channel_node_slots[] = {&objects::BlendChannelLinks::destroy_node};
+void** const kBlenderChannelNode = reinterpret_cast<void**>(g_blender_channel_node_slots);
+static VtableSlot g_anim_list_node_slots[] = {&gfx::AnimListNode::teardown};
+void** const kAnimListNode = reinterpret_cast<void**>(g_anim_list_node_slots);
 } // namespace Vt
 
-namespace Gfx2D {
+namespace gfx {
 
 namespace {
 
 // 64 quaternions nothing reads (only their static initialiser writes them).
-float g_spareRotations[256];
+float g_spare_rotations[256];
 
 } // namespace
 
 // 0x00640AA0 (a static initialiser): each (0, 0, 0, 1).
-void ConstructSpareRotations()
+void construct_spare_rotations()
 {
     for (int i = 0; i < 64; ++i) {
-        g_spareRotations[4 * i + 0] = 0.0f;
-        g_spareRotations[4 * i + 1] = 0.0f;
-        g_spareRotations[4 * i + 2] = 0.0f;
-        g_spareRotations[4 * i + 3] = 1.0f;
+        g_spare_rotations[4 * i + 0] = 0.0f;
+        g_spare_rotations[4 * i + 1] = 0.0f;
+        g_spare_rotations[4 * i + 2] = 0.0f;
+        g_spare_rotations[4 * i + 3] = 1.0f;
     }
 }
 

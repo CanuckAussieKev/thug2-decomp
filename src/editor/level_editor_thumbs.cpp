@@ -18,11 +18,11 @@
 #include "platform/run_log.h"
 #include "imgui.h"
 
-namespace MenuSystem::LevelEditor::Thumbs {
+namespace frontend::level_editor::thumbs {
 
 // --- the pieces -------------------------------------------------------------------------------------------------
 
-int CellCache::Find(uint64_t key) const
+int CellCache::get_find(uint64_t key) const
 {
     if (!key)
         return -1;
@@ -32,9 +32,9 @@ int CellCache::Find(uint64_t key) const
     return -1;
 }
 
-int CellCache::Take(uint64_t key, uint64_t frame)
+int CellCache::get_take(uint64_t key, uint64_t frame)
 {
-    int cell = Find(key);
+    int cell = get_find(key);
     if (cell < 0) {
         // (a free cell, else the one shown longest ago - not one on screen this frame)
         int best = -1;
@@ -58,24 +58,24 @@ int CellCache::Take(uint64_t key, uint64_t frame)
     return cell;
 }
 
-void CellCache::Clear()
+void CellCache::get_clear()
 {
     std::fill(keys.begin(), keys.end(), 0);
     std::fill(shown.begin(), shown.end(), 0);
     std::fill(drawn.begin(), drawn.end(), 0);
 }
 
-void CellRect(int cell, int* x, int* y)
+void cell_rect(int cell, int* x, int* y)
 {
     constexpr int kPerRow = kAtlasPixels / kCellPixels;
     *x = (cell % kPerRow) * kCellPixels;
     *y = (cell / kPerRow) * kCellPixels;
 }
 
-void CellUv(int cell, float* u0, float* v0, float* u1, float* v1)
+void cell_uv(int cell, float* u0, float* v0, float* u1, float* v1)
 {
     int x, y;
-    CellRect(cell, &x, &y);
+    cell_rect(cell, &x, &y);
     constexpr float kSize = static_cast<float>(kAtlasPixels);
     *u0 = static_cast<float>(x) / kSize;
     *v0 = static_cast<float>(y) / kSize;
@@ -83,14 +83,14 @@ void CellUv(int cell, float* u0, float* v0, float* u1, float* v1)
     *v1 = static_cast<float>(y + kCellPixels) / kSize;
 }
 
-std::string EntryName(int tab, uint32_t id)
+std::string get_entry_name(int tab, uint32_t id)
 {
     char text[16];
     std::snprintf(text, sizeof(text), "%c:%08X", tab == 0 ? 's' : 'o', id);
     return text;
 }
 
-bool ParseEntry(const std::string& text, int* tab, uint32_t* id)
+bool parse_entry(const std::string& text, int* tab, uint32_t* id)
 {
     if (text.size() != 10 || text[1] != ':' || (text[0] != 's' && text[0] != 'o'))
         return false;
@@ -102,7 +102,7 @@ bool ParseEntry(const std::string& text, int* tab, uint32_t* id)
     return true;
 }
 
-void PushRecent(std::vector<std::string>* list, const std::string& entry, size_t cap)
+void push_recent(std::vector<std::string>* list, const std::string& entry, size_t cap)
 {
     list->erase(std::remove(list->begin(), list->end(), entry), list->end());
     list->insert(list->begin(), entry);
@@ -110,7 +110,7 @@ void PushRecent(std::vector<std::string>* list, const std::string& entry, size_t
         list->resize(cap);
 }
 
-void ToggleIn(std::vector<std::string>* list, const std::string& entry)
+void toggle_in(std::vector<std::string>* list, const std::string& entry)
 {
     auto found = std::find(list->begin(), list->end(), entry);
     if (found != list->end())
@@ -119,7 +119,7 @@ void ToggleIn(std::vector<std::string>* list, const std::string& entry)
         list->push_back(entry);
 }
 
-std::string JoinList(const std::vector<std::string>& list)
+std::string join_list(const std::vector<std::string>& list)
 {
     std::string text;
     for (const std::string& entry : list) {
@@ -130,7 +130,7 @@ std::string JoinList(const std::vector<std::string>& list)
     return text;
 }
 
-std::vector<std::string> SplitList(const std::string& text)
+std::vector<std::string> split_list(const std::string& text)
 {
     std::vector<std::string> list;
     size_t start = 0;
@@ -139,7 +139,7 @@ std::vector<std::string> SplitList(const std::string& text)
         std::string entry = text.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
         int tab;
         uint32_t id;
-        if (ParseEntry(entry, &tab, &id) && std::find(list.begin(), list.end(), entry) == list.end())
+        if (parse_entry(entry, &tab, &id) && std::find(list.begin(), list.end(), entry) == list.end())
             list.push_back(entry);
         if (comma == std::string::npos)
             break;
@@ -148,7 +148,7 @@ std::vector<std::string> SplitList(const std::string& text)
     return list;
 }
 
-std::string KeyOf(const std::string& scene)
+std::string get_key_of(const std::string& scene)
 {
     std::string key = scene;
     for (char& c : key)
@@ -170,133 +170,133 @@ std::vector<uint64_t> g_wanted; // (the grid's entries shown last frame, in orde
 std::unordered_map<uint64_t, uint64_t> g_failed; // (entries that couldn't be drawn: the frame tried)
 std::string g_level;            // (the lists' level)
 std::vector<std::string> g_recent, g_favourites;
-bool g_gridRead, g_grid = true;
-int g_listMode;                 // (0 all, 1 recent, 2 favourites)
+bool g_grid_read, g_grid = true;
+int g_list_mode;                 // (0 all, 1 recent, 2 favourites)
 
-std::string Ini() { return GameFolderPath("thug2-decomp.ini"); }
+std::string get_ini() { return game_folder_path("thug2-decomp.ini"); }
 
-std::string ReadString(const char* section, const std::string& key)
+std::string read_string(const char* section, const std::string& key)
 {
     char value[4096] = {};
-    GetPrivateProfileStringA(section, key.c_str(), "", value, sizeof(value), Ini().c_str());
+    GetPrivateProfileStringA(section, key.c_str(), "", value, sizeof(value), get_ini().c_str());
     return value;
 }
 
-void WriteString(const char* section, const std::string& key, const std::string& value)
+void write_string(const char* section, const std::string& key, const std::string& value)
 {
-    WritePrivateProfileStringA(section, key.c_str(), value.c_str(), Ini().c_str());
+    WritePrivateProfileStringA(section, key.c_str(), value.c_str(), get_ini().c_str());
 }
 
-void LoadLists(const std::string& level)
+void load_lists(const std::string& level)
 {
     g_level = level;
-    g_recent = SplitList(ReadString("editor_palette", KeyOf(level) + "_recent"));
-    g_favourites = SplitList(ReadString("editor_palette", KeyOf(level) + "_favourites"));
+    g_recent = split_list(read_string("editor_palette", get_key_of(level) + "_recent"));
+    g_favourites = split_list(read_string("editor_palette", get_key_of(level) + "_favourites"));
     if (g_recent.size() > kRecent)
         g_recent.resize(kRecent);
 }
 
-void SaveLists()
+void save_lists()
 {
     if (g_level.empty())
         return;
-    WriteString("editor_palette", KeyOf(g_level) + "_recent", JoinList(g_recent));
-    WriteString("editor_palette", KeyOf(g_level) + "_favourites", JoinList(g_favourites));
+    write_string("editor_palette", get_key_of(g_level) + "_recent", join_list(g_recent));
+    write_string("editor_palette", get_key_of(g_level) + "_favourites", join_list(g_favourites));
 }
 
 } // namespace
 
-void TickCycle(const Ui::ShapeMesh& model)
+void tick_cycle(const ui::ShapeMesh& model)
 {
     ++g_frame;
     if (model.level != g_level) {
-        LoadLists(model.level);
-        g_cells.Clear();
+        load_lists(model.level);
+        g_cells.get_clear();
         g_failed.clear();
     }
-    if (UiBackend::AtlasGeneration() != g_generation) {
-        g_generation = UiBackend::AtlasGeneration();
+    if (ui_backend::atlas_generation() != g_generation) {
+        g_generation = ui_backend::atlas_generation();
         std::fill(g_cells.drawn.begin(), g_cells.drawn.end(), 0);
     }
-    if (!model.browser || !GridMode()) {
+    if (!model.browser || !grid_mode()) {
         g_wanted.clear();
         return;
     }
     // The pictures the grid showed last frame and lacks, a few a frame.
-    int drawnNow = 0;
+    int drawn_now = 0;
     for (uint64_t key : g_wanted) {
-        if (drawnNow >= kPerFrame)
+        if (drawn_now >= kPerFrame)
             break;
-        int cell = g_cells.Find(key);
+        int cell = g_cells.get_find(key);
         if (cell < 0 || g_cells.drawn[cell])
             continue;
         auto failed = g_failed.find(key);
         if (failed != g_failed.end() && g_frame - failed->second < 300)
             continue;
         int x, y;
-        CellRect(cell, &x, &y);
-        if (!UiBackend::BeginAtlasCell(kAtlasPixels, x, y, kCellPixels, kBackground))
+        cell_rect(cell, &x, &y);
+        if (!ui_backend::begin_atlas_cell(kAtlasPixels, x, y, kCellPixels, kBackground))
             return; // (no atlas: logged once by the backend)
         int tab = static_cast<int>(key >> 32) - 1;
         auto id = static_cast<uint32_t>(key);
-        bool drew = Preview::DrawView(tab == 0 ? Preview::Kind::kSector : Preview::Kind::kObject, id, Preview::Orbit{});
-        UiBackend::EndAtlasCell();
+        bool drew = preview::draw_view(tab == 0 ? preview::Kind::kSector : preview::Kind::kObject, id, preview::Orbit{});
+        ui_backend::end_atlas_cell();
         g_cells.drawn[cell] = 1;
         if (!drew)
             g_failed[key] = g_frame;
-        ++drawnNow;
+        ++drawn_now;
     }
 }
 
-void Halt()
+void halt()
 {
-    UiBackend::FreeAtlas();
-    g_cells.Clear();
+    ui_backend::free_atlas();
+    g_cells.get_clear();
     g_wanted.clear();
     g_failed.clear();
 }
 
-void NoteUsed(int tab, uint32_t id)
+void note_used(int tab, uint32_t id)
 {
-    PushRecent(&g_recent, EntryName(tab, id), kRecent);
-    SaveLists();
+    push_recent(&g_recent, get_entry_name(tab, id), kRecent);
+    save_lists();
 }
 
-bool Favourite(int tab, uint32_t id)
+bool favourite(int tab, uint32_t id)
 {
-    std::string entry = EntryName(tab, id);
+    std::string entry = get_entry_name(tab, id);
     return std::find(g_favourites.begin(), g_favourites.end(), entry) != g_favourites.end();
 }
 
-void ToggleFavourite(int tab, uint32_t id)
+void toggle_favourite(int tab, uint32_t id)
 {
-    ToggleIn(&g_favourites, EntryName(tab, id));
-    SaveLists();
+    toggle_in(&g_favourites, get_entry_name(tab, id));
+    save_lists();
 }
 
-bool GridMode()
+bool grid_mode()
 {
-    if (!g_gridRead) {
-        g_gridRead = true;
-        g_grid = ConfigInt("editor", "palette_grid", 1) != 0;
+    if (!g_grid_read) {
+        g_grid_read = true;
+        g_grid = config_int("editor", "palette_grid", 1) != 0;
     }
     return g_grid;
 }
 
-void SetGridMode(bool on)
+void set_grid_mode(bool on)
 {
-    GridMode();
+    grid_mode();
     if (on == g_grid)
         return;
     g_grid = on;
-    ConfigSetInt("editor", "palette_grid", on ? 1 : 0);
+    config_set_int("editor", "palette_grid", on ? 1 : 0);
 }
 
 // --- the palette's items (ImGui) --------------------------------------------------------------------------------
 
 namespace {
 
-bool Matches(const std::string& text, const char* filter)
+bool get_matches(const std::string& text, const char* filter)
 {
     if (!filter || !filter[0])
         return true;
@@ -308,7 +308,7 @@ bool Matches(const std::string& text, const char* filter)
 }
 
 // A five-pointed star (filled, or its outline).
-void Star(ImDrawList* draw, ImVec2 centre, float radius, ImU32 colour, bool filled)
+void star(ImDrawList* draw, ImVec2 centre, float radius, ImU32 colour, bool filled)
 {
     ImVec2 points[10];
     for (int i = 0; i < 10; ++i) {
@@ -328,7 +328,7 @@ void Star(ImDrawList* draw, ImVec2 centre, float radius, ImU32 colour, bool fill
 }
 
 // The star button at `centre`: true when clicked.
-bool StarButton(const char* id, ImVec2 centre, float radius, bool on)
+bool star_button(const char* id, ImVec2 centre, float radius, bool on)
 {
     ImVec2 cursor = ImGui::GetCursorScreenPos();
     ImGui::SetCursorScreenPos(ImVec2(centre.x - radius, centre.y - radius));
@@ -338,20 +338,20 @@ bool StarButton(const char* id, ImVec2 centre, float radius, bool on)
         ImGui::SetTooltip(on ? "Remove from Favourites" : "Add to Favourites");
     ImDrawList* draw = ImGui::GetWindowDrawList();
     if (on || hovered)
-        Star(draw, centre, radius, on ? IM_COL32(255, 205, 60, 255) : IM_COL32(255, 205, 60, 150), true);
+        star(draw, centre, radius, on ? IM_COL32(255, 205, 60, 255) : IM_COL32(255, 205, 60, 150), true);
     else
-        Star(draw, centre, radius, IM_COL32(200, 200, 200, 110), false);
+        star(draw, centre, radius, IM_COL32(200, 200, 200, 110), false);
     ImGui::SetCursorScreenPos(cursor);
     return clicked;
 }
 
-void Chip(const char* label, int mode, const char* tip)
+void chip(const char* label, int mode, const char* tip)
 {
-    bool on = g_listMode == mode;
+    bool on = g_list_mode == mode;
     if (on)
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.82f, 0.34f, 0.11f, 0.85f));
     if (ImGui::SmallButton(label))
-        g_listMode = mode;
+        g_list_mode = mode;
     if (on)
         ImGui::PopStyleColor();
     if (ImGui::IsItemHovered())
@@ -360,62 +360,62 @@ void Chip(const char* label, int mode, const char* tip)
 
 } // namespace
 
-int ItemsPanel(const Ui::ShapeMesh& model, const char* filter, bool follow, float height, ImFont* mono, ImFont* smallFont,
-               float scale, std::vector<Ui::Request>* requests)
+int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, float height, ImFont* mono, ImFont* small_font,
+               float scale, std::vector<ui::Request>* requests)
 {
-    const std::vector<Ui::BrowserItem>& items = *model.browserItems;
-    int tab = model.browserTab;
+    const std::vector<ui::BrowserItem>& items = *model.browser_items_;
+    int tab = model.browser_tab_;
     // The mode and the lists.
-    float rightEdge = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
-    Chip("All", 0, "Every entry of this tab");
+    float right_edge = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
+    chip("All", 0, "Every entry of this tab");
     ImGui::SameLine(0.0f, 3.0f * scale);
-    Chip("Recent", 1, "The last 20 placed in this level, newest first");
+    chip("Recent", 1, "The last 20 placed in this level, newest first");
     ImGui::SameLine(0.0f, 3.0f * scale);
-    Chip("Favourites", 2, "The entries you starred in this level");
+    chip("Favourites", 2, "The entries you starred in this level");
     float toggle = ImGui::CalcTextSize("Grid List").x + 24.0f * scale;
-    ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 6.0f * scale, rightEdge - toggle));
-    bool grid = GridMode();
+    ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 6.0f * scale, right_edge - toggle));
+    bool grid = grid_mode();
     if (grid)
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.30f, 0.45f, 0.70f, 0.85f));
     if (ImGui::SmallButton("Grid"))
-        SetGridMode(true);
+        set_grid_mode(true);
     if (grid)
         ImGui::PopStyleColor();
     ImGui::SameLine(0.0f, 2.0f * scale);
     if (!grid)
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.30f, 0.45f, 0.70f, 0.85f));
     if (ImGui::SmallButton("List"))
-        SetGridMode(false);
+        set_grid_mode(false);
     if (!grid)
         ImGui::PopStyleColor();
 
     // The entries listed: the filter, then the mode (Recent in its order).
     std::vector<int> shown;
-    if (g_listMode == 1) {
-        std::unordered_map<uint32_t, int> byId;
+    if (g_list_mode == 1) {
+        std::unordered_map<uint32_t, int> by_id;
         for (int i = 0; i < static_cast<int>(items.size()); ++i)
-            byId.emplace(items[i].id, i);
+            by_id.emplace(items[i].id, i);
         for (const std::string& entry : g_recent) {
-            int entryTab;
+            int entry_tab;
             uint32_t id;
-            if (!ParseEntry(entry, &entryTab, &id) || entryTab != tab)
+            if (!parse_entry(entry, &entry_tab, &id) || entry_tab != tab)
                 continue;
-            auto found = byId.find(id);
-            if (found != byId.end() && Matches(items[found->second].label, filter))
+            auto found = by_id.find(id);
+            if (found != by_id.end() && get_matches(items[found->second].label, filter))
                 shown.push_back(found->second);
         }
     } else {
         for (int i = 0; i < static_cast<int>(items.size()); ++i) {
-            if (!Matches(items[i].label, filter))
+            if (!get_matches(items[i].label, filter))
                 continue;
-            if (g_listMode == 2 && !Favourite(tab, items[i].id))
+            if (g_list_mode == 2 && !favourite(tab, items[i].id))
                 continue;
             shown.push_back(i);
         }
     }
 
-    auto request = [&](Ui::Request::Kind kind, int value) {
-        Ui::Request r{kind};
+    auto request = [&](ui::Request::Kind kind, int value) {
+        ui::Request r{kind};
         r.value = value;
         requests->push_back(r);
     };
@@ -424,32 +424,32 @@ int ItemsPanel(const Ui::ShapeMesh& model, const char* filter, bool follow, floa
     if (items.empty())
         ImGui::TextDisabled(tab == 0 ? "(no movable pieces)" : "(no copyable objects)");
     else if (shown.empty())
-        ImGui::TextDisabled(g_listMode == 1 ? "(none placed yet)"
-                            : g_listMode == 2 ? "(no favourites)"
+        ImGui::TextDisabled(g_list_mode == 1 ? "(none placed yet)"
+                            : g_list_mode == 2 ? "(no favourites)"
                                               : "(no matches)");
     if (!grid) {
         // The list, a star at each row's end.
         ImGui::PushFont(mono);
-        float starRadius = ImGui::GetTextLineHeight() * 0.42f;
+        float star_radius = ImGui::GetTextLineHeight() * 0.42f;
         for (int i : shown) {
             ImGui::PushID(i);
-            bool selected = i == model.browserIndex;
-            float rowY = ImGui::GetCursorScreenPos().y;
-            float rowRight = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
+            bool selected = i == model.browser_index_;
+            float row_y = ImGui::GetCursorScreenPos().y;
+            float row_right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
             ImGui::SetNextItemAllowOverlap();
             if (ImGui::Selectable(items[i].label.c_str(), selected, ImGuiSelectableFlags_AllowDoubleClick)) {
-                request(Ui::Request::kBrowserIndex, i);
+                request(ui::Request::kBrowserIndex, i);
                 if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-                    request(Ui::Request::kBrowserPlace, 0);
+                    request(ui::Request::kBrowserPlace, 0);
             }
             if (ImGui::IsItemHovered())
                 hovered = i;
             if (selected && follow)
                 ImGui::SetScrollHereY(0.5f);
-            float right = rowRight - starRadius - 2.0f;
-            if (StarButton("##star", ImVec2(right, rowY + ImGui::GetTextLineHeight() * 0.5f), starRadius,
-                           Favourite(tab, items[i].id)))
-                ToggleFavourite(tab, items[i].id);
+            float right = row_right - star_radius - 2.0f;
+            if (star_button("##star", ImVec2(right, row_y + ImGui::GetTextLineHeight() * 0.5f), star_radius,
+                           favourite(tab, items[i].id)))
+                toggle_favourite(tab, items[i].id);
             ImGui::PopID();
         }
         ImGui::PopFont();
@@ -460,25 +460,25 @@ int ItemsPanel(const Ui::ShapeMesh& model, const char* filter, bool follow, floa
 
     // The grid: cells of a thumbnail and a name; only the rows in view are laid out (and their pictures asked for).
     float cell = std::floor(92.0f * scale);
-    ImGui::PushFont(smallFont);
-    float labelHeight = ImGui::GetTextLineHeight();
+    ImGui::PushFont(small_font);
+    float label_height = ImGui::GetTextLineHeight();
     float spacing = 6.0f * scale;
     float width = ImGui::GetContentRegionAvail().x;
     int columns = std::max(1, static_cast<int>((width + spacing) / (cell + spacing)));
     int rows = (static_cast<int>(shown.size()) + columns - 1) / columns;
-    float rowHeight = cell + labelHeight + ImGui::GetStyle().ItemSpacing.y; // (a row's group and the spacing after it)
-    uint64_t texture = UiBackend::AtlasTexture();
+    float row_height = cell + label_height + ImGui::GetStyle().ItemSpacing.y; // (a row's group and the spacing after it)
+    uint64_t texture = ui_backend::atlas_texture();
     std::vector<uint64_t> wanted;
     // (keys moved the highlight: its row scrolled into view)
     if (follow) {
-        auto at = std::find(shown.begin(), shown.end(), model.browserIndex);
+        auto at = std::find(shown.begin(), shown.end(), model.browser_index_);
         if (at != shown.end()) {
-            float y = static_cast<float>((at - shown.begin()) / columns) * rowHeight;
+            float y = static_cast<float>((at - shown.begin()) / columns) * row_height;
             ImGui::SetScrollY(std::max(0.0f, y - ImGui::GetWindowHeight() * 0.4f));
         }
     }
     ImGuiListClipper clipper;
-    clipper.Begin(rows, rowHeight);
+    clipper.Begin(rows, row_height);
     while (clipper.Step()) {
         for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row) {
             for (int column = 0; column < columns; ++column) {
@@ -492,25 +492,25 @@ int ItemsPanel(const Ui::ShapeMesh& model, const char* filter, bool follow, floa
                 ImGui::BeginGroup();
                 ImVec2 a = ImGui::GetCursorScreenPos();
                 ImVec2 b(a.x + cell, a.y + cell);
-                bool selected = i == model.browserIndex;
+                bool selected = i == model.browser_index_;
                 ImGui::SetNextItemAllowOverlap();
                 if (ImGui::InvisibleButton("##thumb", ImVec2(cell, cell))) {
-                    request(Ui::Request::kBrowserIndex, i);
+                    request(ui::Request::kBrowserIndex, i);
                 }
                 if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-                    request(Ui::Request::kBrowserPlace, 0);
+                    request(ui::Request::kBrowserPlace, 0);
                 bool hover = ImGui::IsItemHovered();
                 if (hover) {
                     hovered = i;
                     ImGui::SetTooltip("%s\nDouble-click to place", items[i].label.c_str());
                 }
                 ImDrawList* draw = ImGui::GetWindowDrawList();
-                uint64_t key = Key(tab, items[i].id);
-                int c = g_cells.Take(key, g_frame);
+                uint64_t key = get_key(tab, items[i].id);
+                int c = g_cells.get_take(key, g_frame);
                 wanted.push_back(key);
                 if (c >= 0 && texture && g_cells.drawn[c]) {
                     float u0, v0, u1, v1;
-                    CellUv(c, &u0, &v0, &u1, &v1);
+                    cell_uv(c, &u0, &v0, &u1, &v1);
                     draw->AddImage(static_cast<ImTextureID>(texture), a, b, ImVec2(u0, v0), ImVec2(u1, v1));
                 } else {
                     draw->AddRectFilled(a, b, IM_COL32(42, 44, 48, 255));
@@ -525,8 +525,8 @@ int ItemsPanel(const Ui::ShapeMesh& model, const char* filter, bool follow, floa
                 draw->AddRect(a, b, border, 2.0f, 0, selected ? 2.5f : 1.0f);
                 // (the star in the top right corner)
                 float r = 7.0f * scale;
-                if (StarButton("##star", ImVec2(b.x - r - 3.0f, a.y + r + 3.0f), r, Favourite(tab, items[i].id)))
-                    ToggleFavourite(tab, items[i].id);
+                if (star_button("##star", ImVec2(b.x - r - 3.0f, a.y + r + 3.0f), r, favourite(tab, items[i].id)))
+                    toggle_favourite(tab, items[i].id);
                 // The name, cut to the cell.
                 ImGui::SetCursorScreenPos(ImVec2(a.x, b.y + 1.0f));
                 std::string label = items[i].label;
@@ -536,7 +536,7 @@ int ItemsPanel(const Ui::ShapeMesh& model, const char* filter, bool follow, floa
                 }
                 ImGui::TextUnformatted(label.c_str());
                 ImGui::SetCursorScreenPos(ImVec2(a.x, a.y));
-                ImGui::Dummy(ImVec2(cell, cell + labelHeight));
+                ImGui::Dummy(ImVec2(cell, cell + label_height));
                 ImGui::EndGroup();
                 ImGui::PopID();
             }
@@ -549,4 +549,4 @@ int ItemsPanel(const Ui::ShapeMesh& model, const char* filter, bool follow, floa
     return hovered;
 }
 
-} // namespace MenuSystem::LevelEditor::Thumbs
+} // namespace MenuSystem::level_editor::thumbs

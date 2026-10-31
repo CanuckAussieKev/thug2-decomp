@@ -29,10 +29,10 @@
 #include "platform/crt.h"
 #include "engine/sys/startup_init.h"
 
-namespace Engine3D {
+namespace render {
 
-uint32_t g_projectionBatchCount;
-sProjectionBatch g_projectionBatches[10]; // (kBatchLimit)
+uint32_t g_projection_batch_count;
+ProjectionBatch g_projection_batches[10]; // (kBatchLimit)
 
 namespace {
 
@@ -40,152 +40,152 @@ extern void** const kProjectionVtable;
 constexpr uint32_t kBatchLimit = 10;
 constexpr uint32_t kBatchVertices = 0x600;
 
-IDirect3DDevice9* InputPort() { return g_d3dDevice; }
-IDirect3DDevice9* DrawDevice() { return g_drawDevice; } // (the same device, kept twice)
-uint32_t& BatchCount() { return g_projectionBatchCount; }
-sProjectionBatch* Batches() { return g_projectionBatches; }
-int Rand() { return Crt::Rand(); } // (the game's C runtime's)
+IDirect3DDevice9* input_port() { return g_d3d_device; }
+IDirect3DDevice9* draw_device() { return g_draw_device; } // (the same device, kept twice)
+uint32_t& batch_count() { return g_projection_batch_count; }
+ProjectionBatch* get_batches() { return g_projection_batches; }
+int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
 
-void TransformCoord(float* out, const float* v, const Maths::Mat4* m)
+void transform_coord(float* out, const float* v, const maths::Mat4* m)
 {
-    D3dx::Vec3TransformCoord(out, v, m); // (D3DX)
+    d3dx::vec3_transform_coord(out, v, m); // (D3DX)
 }
 
 // The vertex stack (0x006FC4A0) the splitter works on.
-uint8_t* VertexStack() { return reinterpret_cast<uint8_t*>(&g_vertexStack); }
-void PushVertex(const uint8_t* vertex)
+uint8_t* vertex_stack() { return reinterpret_cast<uint8_t*>(&g_vertex_stack); }
+void push_vertex(const uint8_t* vertex)
 {
-    reinterpret_cast<sVertexStack*>(VertexStack())->StackOn(vertex);
+    reinterpret_cast<VertexStack*>(vertex_stack())->stack_on(vertex);
 }
 
-float* Uv(uint8_t* vertex) { return reinterpret_cast<float*>(vertex + 0x10); }
-uint32_t& Colour(uint8_t* vertex) { return *reinterpret_cast<uint32_t*>(vertex + 0xC); }
-uint32_t Opaque(uint32_t colour) { return (colour & 0xFFFFFF) | 0x80000000; }
-float ToUv(float coordinate) { return static_cast<float>((static_cast<double>(coordinate) + 1.0f) * 0.5f); }
-float FromUv(float uv)
+float* get_uv(uint8_t* vertex) { return reinterpret_cast<float*>(vertex + 0x10); }
+uint32_t& get_colour(uint8_t* vertex) { return *reinterpret_cast<uint32_t*>(vertex + 0xC); }
+uint32_t opaque(uint32_t colour) { return (colour & 0xFFFFFF) | 0x80000000; }
+float to_uv(float coordinate) { return static_cast<float>((static_cast<double>(coordinate) + 1.0f) * 0.5f); }
+float from_uv(float uv)
 {
     double value = uv;
     return static_cast<float>(value + value - 1.0f);
 }
 
 // A triangle (three vertices of 0x18 bytes) copied: positions, texture coordinates, then the colours made opaque.
-void CopyTriangle(uint8_t* into, uint8_t* from)
+void copy_triangle(uint8_t* into, uint8_t* from)
 {
     for (int k = 0; k < 3; ++k)
         std::memcpy(into + 0x18 * k, from + 0x18 * k, 12);
     for (int k = 0; k < 3; ++k)
-        std::memcpy(Uv(into + 0x18 * k), Uv(from + 0x18 * k), 8);
+        std::memcpy(get_uv(into + 0x18 * k), get_uv(from + 0x18 * k), 8);
     for (int k = 0; k < 3; ++k)
-        Colour(into + 0x18 * k) = Opaque(Colour(from + 0x18 * k));
+        get_colour(into + 0x18 * k) = opaque(get_colour(from + 0x18 * k));
 }
 
 } // namespace
 
 // 0x004C7610
-sProjectionBatch* sProjectionBatch::MakeNew()
+ProjectionBatch* ProjectionBatch::make_new()
 {
-    reinterpret_cast<materialRef*>(material)->MakeNew();
+    reinterpret_cast<MaterialRef*>(material)->make_new();
     return this;
 }
 
 // 0x004C73D0
-void sProjectionBatch::Teardown()
+void ProjectionBatch::teardown()
 {
-    reinterpret_cast<materialRef*>(material)->DestroyBody();
+    reinterpret_cast<MaterialRef*>(material)->destroy_body();
 }
 
 // 0x004C73E0
-sProjectionBatch* __cdecl GetProjectionBatch(uint32_t texture, uint32_t blendName)
+ProjectionBatch* __cdecl get_projection_batch(uint32_t texture, uint32_t blend_name)
 {
-    uint32_t count = BatchCount();
+    uint32_t count = batch_count();
     for (uint32_t i = 0; i < count; ++i) {
-        if (Batches()[i].texture == texture)
-            return &Batches()[i];
+        if (get_batches()[i].texture == texture)
+            return &get_batches()[i];
     }
     if (count >= kBatchLimit) {
-        DebugOut::Printf("hmmm\n");
+        debug::printf("hmmm\n");
         return nullptr;
     }
-    sProjectionBatch* batch = &Batches()[count];
+    ProjectionBatch* batch = &get_batches()[count];
     uint8_t* material = batch->material;
     *reinterpret_cast<uint32_t*>(material + 0x20) = 0x44; // (the pass's flags)
-    int a = Rand();
-    int b = Rand();
+    int a = get_rand();
+    int b = get_rand();
     *reinterpret_cast<int*>(material) = a * b; // a random checksum
     *reinterpret_cast<uint32_t*>(material + 0x08) = 1; // one pass
     *reinterpret_cast<uint32_t*>(material + 0x30) = texture;
     material[0x0D] = 1;
     material[0x11] = 4;
-    *reinterpret_cast<uint32_t*>(material + 0x80) = BlendModeFromName(blendName);
+    *reinterpret_cast<uint32_t*>(material + 0x80) = blend_mode_from_name(blend_name);
     for (int k = 0; k < 3; ++k)
         reinterpret_cast<float*>(material + 0x40)[k] = 128.0f; // its colour
     *reinterpret_cast<uint32_t*>(material + 0x90) = 0x20002;
     *reinterpret_cast<uint32_t*>(material + 0xE0) = 0;
     material[0x10] = 1;
-    MaterialPixelShader(material, &batch->pixelShader);
+    material_pixel_shader(material, &batch->pixel_shader_);
     batch->texture = texture;
-    batch->triangleCount = 0;
-    ++BatchCount();
+    batch->triangle_count_ = 0;
+    ++batch_count();
     return batch;
 }
 
 // 0x004C7520
-void __cdecl DrawProjectionBatches()
+void __cdecl draw_projection_batches()
 {
-    SetVertexFormat(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
-    InputPort()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
-    DWORD minFilter;
-    InputPort()->GetSamplerState(0, D3DSAMP_MINFILTER, &minFilter);
-    InputPort()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-    for (uint32_t i = 0; i < BatchCount(); ++i) {
-        sProjectionBatch* batch = &Batches()[i];
-        reinterpret_cast<materialRef*>(batch->material)->HandIn(); // (the material's set-up)
-        SetPixelShader(batch->pixelShader, batch->material);
-        DrawDevice()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, batch->triangleCount, batch->vertices, 0x18);
-        ++reinterpret_cast<uint32_t&>(g_drawCalls); // (the frame's draw calls)
-        reinterpret_cast<uint32_t&>(g_drawnTriangles) += batch->triangleCount; // (and triangles)
+    set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
+    input_port()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
+    DWORD min_filter;
+    input_port()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
+    input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+    for (uint32_t i = 0; i < batch_count(); ++i) {
+        ProjectionBatch* batch = &get_batches()[i];
+        reinterpret_cast<MaterialRef*>(batch->material)->hand_in(); // (the material's set-up)
+        set_pixel_shader(batch->pixel_shader_, batch->material);
+        draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, batch->triangle_count_, batch->vertices, 0x18);
+        ++reinterpret_cast<uint32_t&>(g_draw_calls); // (the frame's draw calls)
+        reinterpret_cast<uint32_t&>(g_drawn_triangles) += batch->triangle_count_; // (and triangles)
     }
-    InputPort()->SetSamplerState(0, D3DSAMP_MINFILTER, minFilter);
-    BatchCount() = 0;
+    input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
+    batch_count() = 0;
 }
 
 // 0x004C7E80
-CPcTextureProjection* CPcTextureProjection::MakeNew()
+PcTextureProjection* PcTextureProjection::make_new()
 {
-    reinterpret_cast<CTextureProjection*>(this)->CTextureProjection::MakeNew();
+    reinterpret_cast<TextureProjection*>(this)->TextureProjection::make_new();
     vtable = reinterpret_cast<void**>(kProjectionVtable);
     return this;
 }
 
 // 0x004C7EA0
-CPcTextureProjection* CPcTextureProjection::Teardown(unsigned int freeFlags)
+PcTextureProjection* PcTextureProjection::teardown(unsigned int free_flags)
 {
-    reinterpret_cast<CTextureProjection*>(this)->CTextureProjection::DestroyBody();
-    if (freeFlags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+    reinterpret_cast<TextureProjection*>(this)->TextureProjection::destroy_body();
+    if (free_flags & 1)
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x004C7620
-void CPcTextureProjection::CastOnto(void** sectors, int /*unused*/)
+void PcTextureProjection::cast_onto(void** sectors, int /*unused*/)
 {
-    sProjectionBatch* batch = nullptr;
-    uint8_t* batchVertices = nullptr;
+    ProjectionBatch* batch = nullptr;
+    uint8_t* batch_vertices = nullptr;
     for (; *sectors; ++sectors) {
-        auto* geom = static_cast<uint8_t*>(static_cast<CPcSector*>(*sectors)->geom); // (the sector's geom)
+        auto* geom = static_cast<uint8_t*>(static_cast<PcSector*>(*sectors)->geom); // (the sector's geom)
         if (!geom)
             continue;
-        auto** meshes = *reinterpret_cast<meshRef***>(geom + 0x3C);
+        auto** meshes = *reinterpret_cast<MeshRef***>(geom + 0x3C);
         for (uint32_t m = 0; m < *reinterpret_cast<uint32_t*>(geom + 0x40); ++m) {
-            meshRef* mesh = meshes[m];
+            MeshRef* mesh = meshes[m];
             if (mesh->flags & 2)
                 continue;
             uint8_t* vertices;
-            mesh->vertexBuffers[0]->Lock(0, 0, &vertices, 0x10);
+            mesh->vertex_buffers_[0]->get_lock(0, 0, &vertices, 0x10);
             uint16_t* indices = nullptr;
-            mesh->indexBuffers[0]->Lock(0, 0, &indices, 0x10);
+            mesh->index_buffers_[0]->get_lock(0, 0, &indices, 0x10);
             uint32_t a = indices[0], b = indices[1];
-            for (uint32_t strip = 2; strip < mesh->indexCounts[0]; ++strip) {
+            for (uint32_t strip = 2; strip < mesh->index_counts_[0]; ++strip) {
                 uint32_t c = indices[strip];
                 uint32_t ia = a, ib = b, ic = c;
                 a = b;
@@ -194,38 +194,38 @@ void CPcTextureProjection::CastOnto(void** sectors, int /*unused*/)
                     continue;
                 uint32_t stride = mesh->stride;
                 float t0[3], t1[3], t2[3];
-                TransformCoord(t0, reinterpret_cast<const float*>(vertices + stride * ia), &projection);
-                TransformCoord(t1, reinterpret_cast<const float*>(vertices + stride * ib), &projection);
-                TransformCoord(t2, reinterpret_cast<const float*>(vertices + stride * ic), &projection);
+                transform_coord(t0, reinterpret_cast<const float*>(vertices + stride * ia), &projection);
+                transform_coord(t1, reinterpret_cast<const float*>(vertices + stride * ib), &projection);
+                transform_coord(t2, reinterpret_cast<const float*>(vertices + stride * ic), &projection);
                 if (t0[2] < -1.0f && t1[2] < -1.0f && t2[2] < -1.0f) // (wholly behind)
                     continue;
-                if (!TriangleOverlapsScreen(t0[0], t0[1], t1[0], t1[1], t2[0], t2[1]))
+                if (!triangle_overlaps_screen(t0[0], t0[1], t1[0], t1[1], t2[0], t2[1]))
                     continue;
-                if (!batchVertices) {
+                if (!batch_vertices) {
                     uint8_t* key = *reinterpret_cast<uint8_t**>(texture + 0x10);
                     if (texture[8] & 1)
                         key = *reinterpret_cast<uint8_t**>(key);
-                    batch = GetProjectionBatch(reinterpret_cast<uint32_t>(key), blendName);
-                    batchVertices = reinterpret_cast<uint8_t*>(batch) + 0x120; // (null: written near null, as the original)
+                    batch = get_projection_batch(reinterpret_cast<uint32_t>(key), blend_name_);
+                    batch_vertices = reinterpret_cast<uint8_t*>(batch) + 0x120; // (null: written near null, as the original)
                 }
                 // the triangle written at the batch's next slot (the pieces' scratch: the first piece kept goes there)
-                uint32_t count = batch->triangleCount;
-                uint8_t* v0 = batchVertices + count * 0x48;
+                uint32_t count = batch->triangle_count_;
+                uint8_t* v0 = batch_vertices + count * 0x48;
                 uint8_t* v1 = v0 + 0x18;
                 uint8_t* v2 = v0 + 0x30;
                 std::memcpy(v0, vertices + stride * ia, 12);
                 std::memcpy(v1, vertices + stride * ib, 12);
                 std::memcpy(v2, vertices + stride * ic, 12);
-                Uv(v0)[0] = ToUv(t0[0]);
-                Uv(v0)[1] = ToUv(t0[1]);
-                Uv(v1)[0] = ToUv(t1[0]);
-                Uv(v1)[1] = ToUv(t1[1]);
-                Uv(v2)[0] = ToUv(t2[0]);
-                Uv(v2)[1] = ToUv(t2[1]);
-                uint32_t colourOffset = mesh->unknown1C[0];
-                Colour(v0) = Opaque(*reinterpret_cast<uint32_t*>(vertices + stride * ia + colourOffset));
-                Colour(v1) = Opaque(*reinterpret_cast<uint32_t*>(vertices + stride * ib + colourOffset));
-                Colour(v2) = Opaque(*reinterpret_cast<uint32_t*>(vertices + stride * ic + colourOffset));
+                get_uv(v0)[0] = to_uv(t0[0]);
+                get_uv(v0)[1] = to_uv(t0[1]);
+                get_uv(v1)[0] = to_uv(t1[0]);
+                get_uv(v1)[1] = to_uv(t1[1]);
+                get_uv(v2)[0] = to_uv(t2[0]);
+                get_uv(v2)[1] = to_uv(t2[1]);
+                uint32_t colour_offset = mesh->unknown1c_[0];
+                get_colour(v0) = opaque(*reinterpret_cast<uint32_t*>(vertices + stride * ia + colour_offset));
+                get_colour(v1) = opaque(*reinterpret_cast<uint32_t*>(vertices + stride * ib + colour_offset));
+                get_colour(v2) = opaque(*reinterpret_cast<uint32_t*>(vertices + stride * ic + colour_offset));
                 uint8_t whole[3 * 0x18];
                 uint8_t* pieces;
                 uint8_t* end;
@@ -244,20 +244,20 @@ void CPcTextureProjection::CastOnto(void** sectors, int /*unused*/)
                     float cy = static_cast<float>(e2x * e1z - e2z * e1x);
                     double cx = e2z * e1y - e2y * e1z;
                     double total = static_cast<double>(cy) * cy + static_cast<double>(cz) * cz + cx * cx;
-                    g_splitAreaLimit = static_cast<float>(total / (static_cast<double>(fineness) * 16.0f));
-                    reinterpret_cast<sVertexStack*>(VertexStack())->MakeNew(); // (emptied)
-                    g_vertexStack.vertexSize = 0x18;
-                    PushVertex(v0);
-                    PushVertex(v1);
-                    PushVertex(v2);
-                    pieces = static_cast<uint8_t*>(MemSys::Alloc(0x2000));
+                    g_split_area_limit = static_cast<float>(total / (static_cast<double>(fineness) * 16.0f));
+                    reinterpret_cast<VertexStack*>(vertex_stack())->make_new(); // (emptied)
+                    g_vertex_stack.vertex_size_ = 0x18;
+                    push_vertex(v0);
+                    push_vertex(v1);
+                    push_vertex(v2);
+                    pieces = static_cast<uint8_t*>(memory::alloc(0x2000));
                     std::memset(pieces, 0, 0x2000);
-                    void* memory = MemSys::Alloc(0xD8);
-                    format = memory ? reinterpret_cast<uint8_t*>(static_cast<meshRef*>(memory)->MakeNew()) : nullptr;
+                    void* memory = memory::alloc(0xD8);
+                    format = memory ? reinterpret_cast<uint8_t*>(static_cast<MeshRef*>(memory)->make_new()) : nullptr;
                     format[0x1C] = 0x0C; // (no check: written through null, as the original)
                     format[0x1E] = 0x10;
                     end = pieces;
-                    while (SplitNextTriangle(&end, reinterpret_cast<const sSplitFormat*>(format)))
+                    while (split_next_triangle(&end, reinterpret_cast<const SplitFormat*>(format)))
                         ;
                 } else {
                     std::memcpy(whole, v0, sizeof(whole));
@@ -268,11 +268,11 @@ void CPcTextureProjection::CastOnto(void** sectors, int /*unused*/)
                 bool full = false;
                 if (!fineness || pieces != end) {
                     for (uint8_t* piece = pieces; piece != end; piece += 0x48) {
-                        if (!TriangleOverlapsScreen(FromUv(Uv(piece)[0]), FromUv(Uv(piece)[1]),
-                                                    FromUv(Uv(piece + 0x18)[0]), FromUv(Uv(piece + 0x18)[1]),
-                                                    FromUv(Uv(piece + 0x30)[0]), FromUv(Uv(piece + 0x30)[1])))
+                        if (!triangle_overlaps_screen(from_uv(get_uv(piece)[0]), from_uv(get_uv(piece)[1]),
+                                                    from_uv(get_uv(piece + 0x18)[0]), from_uv(get_uv(piece + 0x18)[1]),
+                                                    from_uv(get_uv(piece + 0x30)[0]), from_uv(get_uv(piece + 0x30)[1])))
                             continue;
-                        CopyTriangle(batchVertices + count * 0x48, piece);
+                        copy_triangle(batch_vertices + count * 0x48, piece);
                         ++count;
                         if (3 * count + 2 >= kBatchVertices) {
                             full = true;
@@ -280,39 +280,39 @@ void CPcTextureProjection::CastOnto(void** sectors, int /*unused*/)
                         }
                     }
                 }
-                batch->triangleCount = count;
+                batch->triangle_count_ = count;
                 if (!full)
-                    batch->blendName = blendName;
+                    batch->blend_name_ = blend_name_;
                 if (fineness) {
                     if (format) {
-                        reinterpret_cast<meshRef*>(format)->DestroyBody(); // (its destructor body)
-                        MemSys::Hub::Pull()->Dealloc(format);
+                        reinterpret_cast<MeshRef*>(format)->destroy_body(); // (its destructor body)
+                        memory::Hub::get_pull()->dealloc(format);
                     }
-                    MemSys::Hub::Pull()->Dealloc(pieces);
+                    memory::Hub::get_pull()->dealloc(pieces);
                 }
                 if (full)
                     return; // (the buffers left locked, as the original)
             }
-            mesh->indexBuffers[0]->Unlock(); // (unlocked)
-            mesh->vertexBuffers[0]->Unlock();
+            mesh->index_buffers_[0]->get_unlock(); // (unlocked)
+            mesh->vertex_buffers_[0]->get_unlock();
         }
     }
 }
 
 namespace {
-static VtableSlot kProjectionVtable_slots[] = {&Engine3D::CPcTextureProjection::Teardown, &Engine3D::CPcTextureProjection::CastOnto};
-void** const kProjectionVtable = reinterpret_cast<void**>(kProjectionVtable_slots);
+static VtableSlot g_projection_vtable_slots[] = {&render::PcTextureProjection::teardown, &render::PcTextureProjection::cast_onto};
+void** const kProjectionVtable = reinterpret_cast<void**>(g_projection_vtable_slots);
 } // namespace
 
 } // namespace Nx
 
-namespace Engine3D {
+namespace render {
 
 // 0x00640D30 (a static initialiser): the ten projection batches (their materials).
-void ConstructProjectionBatches()
+void construct_projection_batches()
 {
-    for (sProjectionBatch& batch : g_projectionBatches)
-        batch.MakeNew();
+    for (ProjectionBatch& batch : g_projection_batches)
+        batch.make_new();
 }
 
 } // namespace Nx

@@ -5,10 +5,10 @@
 
 #include <cstdint>
 
-namespace CollisionOverlay {
+namespace collision_overlay {
 
-// After a feeler's query (Engine3D::CProbeRay::GetHitShape): `hit` is its result, `caller` the return address into the
+// After a feeler's query (render::ProbeRay::get_hit_shape): `hit` is its result, `caller` the return address into the
 // code that asked. Logs the hit when the feature is on.
-void NoteFeelerQuery(const void* feeler, int hit, uint32_t caller);
+void note_feeler_query(const void* feeler, int hit, uint32_t caller);
 
-} // namespace CollisionOverlay
+} // namespace collision_overlay

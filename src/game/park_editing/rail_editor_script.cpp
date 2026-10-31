@@ -15,10 +15,10 @@
 #include "engine/script/param_struct.h"
 #include "engine/core/stubs.h"
 
-namespace ParkEditing {
+namespace park_editing {
 
-using namespace RailEditorInternal;
-using Maths::Vec4;
+using namespace rail_editor_internal;
+using maths::Vec4;
 
 namespace {
 
@@ -51,191 +51,191 @@ constexpr uint32_t kMode = 0x6835B854, kRailId = 0xA61E7CD9, kRailPointIndex = 0
 constexpr float kAngleScaleToDeg = 57.2957763671875f; // 0x00645468
 
 // The input component's pad (+0x20) and its four buttons (X +0x1A0, Triangle +0x180, Square +0x160, Circle +0x140).
-GameObjects::CPadSnapshot* PadOf(void* input) { return reinterpret_cast<GameObjects::CPadSnapshot*>(static_cast<uint8_t*>(input) + 0x20); }
-GameObjects::CControlButton* Button(void* input, uint32_t offset)
+objects::PadSnapshot* pad_of(void* input) { return reinterpret_cast<objects::PadSnapshot*>(static_cast<uint8_t*>(input) + 0x20); }
+objects::ControlButton* get_button(void* input, uint32_t offset)
 {
-    return reinterpret_cast<GameObjects::CControlButton*>(static_cast<uint8_t*>(input) + 0x20 + offset);
+    return reinterpret_cast<objects::ControlButton*>(static_cast<uint8_t*>(input) + 0x20 + offset);
 }
 
-Scripts::CStruct* SpawnParamBag()
+script::Struct* spawn_param_bag()
 {
-    Scripts::CStruct* structure = Scripts::SpawnParamBag();
-    return structure ? structure->PrepareAll() : nullptr;
+    script::Struct* structure = script::spawn_param_bag();
+    return structure ? structure->prepare_all() : nullptr;
 }
-Scripts::CArray* AllocScriptArray()
+script::Array* alloc_script_array()
 {
-    Scripts::CArray* array = Scripts::AllocScriptArray();
-    return array ? array->PrepareAll() : nullptr;
+    script::Array* array = script::alloc_script_array();
+    return array ? array->prepare_all() : nullptr;
 }
-void FreeStruct(Scripts::CStruct* structure)
+void free_struct(script::Struct* structure)
 {
     if (structure) {
-        structure->Clear();
-        Scripts::DeleteStruct(structure);
+        structure->get_clear();
+        script::delete_struct(structure);
     }
 }
 
-int RailPoolUsed()
+int rail_pool_used()
 {
-    MemSys::PoolPair& pools = RailPools();
-    return pools.pools[pools.current]->m_takenCount;
+    memory::PoolPair& pools = rail_pools();
+    return pools.pools[pools.current]->taken_count_;
 }
 
 // The editor camera's (0xAC8946E2) target: +0x3C its position, +0x78 its heading (radians), +0x88 the height over it.
-const Vec4& ViewerLocation(void* camera) { return *reinterpret_cast<const Vec4*>(static_cast<uint8_t*>(camera) + 0x3C); }
-float CameraHeading(void* camera) { return *reinterpret_cast<const float*>(static_cast<uint8_t*>(camera) + 0x78); }
-float CameraHeight(void* camera) { return *reinterpret_cast<const float*>(static_cast<uint8_t*>(camera) + 0x88); }
+const Vec4& viewer_location(void* camera) { return *reinterpret_cast<const Vec4*>(static_cast<uint8_t*>(camera) + 0x3C); }
+float camera_heading(void* camera) { return *reinterpret_cast<const float*>(static_cast<uint8_t*>(camera) + 0x78); }
+float camera_height(void* camera) { return *reinterpret_cast<const float*>(static_cast<uint8_t*>(camera) + 0x88); }
 
 // The structure a script's member function writes its results to (CScript +0x14).
-Scripts::CStruct* Results(Scripts::CScript* script)
+script::Struct* get_results(script::Script* script)
 {
-    return *reinterpret_cast<Scripts::CStruct**>(reinterpret_cast<uint8_t*>(script) + 0x14);
+    return *reinterpret_cast<script::Struct**>(reinterpret_cast<uint8_t*>(script) + 0x14);
 }
 
 } // namespace
 
 // 0x004F4810
-void CRailAuthoring::TickFrame()
+void RailAuthoring::tick_frame()
 {
     struct Press {
         uint32_t button;
         uint32_t script;
     };
-    static const Press presses[4] = {
+    static const Press kPresses[4] = {
         {0x1A0, kRailEditorX}, {0x180, kRailEditorTriangle}, {0x160, kRailEditorSquare}, {0x140, kRailEditorCircle}};
-    for (const Press& press : presses) {
-        GameObjects::CControlButton* button = Button(m_inputPtr, press.button);
-        if (button->m_fired) {
-            button->ResetActivation();
-            Scripts::LaunchScript(press.script, nullptr, m_entity, false, nullptr);
+    for (const Press& press : kPresses) {
+        objects::ControlButton* button = get_button(input_ptr_, press.button);
+        if (button->fired_) {
+            button->reset_activation();
+            script::launch_script(press.script, nullptr, entity_, false, nullptr);
         }
     }
-    Scripts::LaunchScript(kRailEditorEveryFrame, nullptr, m_entity, false, nullptr);
+    script::launch_script(kRailEditorEveryFrame, nullptr, entity_, false, nullptr);
 }
 
 // 0x004F6F90
-void CRailAuthoring::Conceal(bool hide)
+void RailAuthoring::conceal(bool hide)
 {
-    CParkLayout* manager = CParkLayout::sSingleton();
+    ParkLayout* manager = ParkLayout::singleton();
     if (hide) {
-        Scripts::LaunchScript(kDestroyCursor, nullptr, nullptr, false, nullptr);
-        manager->m_builder->DestroyRails();
-        UnHighlightAll();
-        DeleteDottedLine();
+        script::launch_script(kDestroyCursor, nullptr, nullptr, false, nullptr);
+        manager->builder_->destroy_rails();
+        un_highlight_all();
+        delete_dotted_line();
         return;
     }
-    Scripts::LaunchScript(kCreateCursor, nullptr, nullptr, false, nullptr);
-    manager->m_builder->BuildRails(manager->m_concrete_metas);
-    // The camera told whose it is (the input component's ConfigureFromData: player 0), the pad's events dropped.
-    Scripts::CStruct* params = SpawnParamBag();
-    params->PutInt(kPlayer, 0);
-    static_cast<GameObjects::CObjectModule*>(m_inputPtr)->ConfigureFromData(params);
-    FreeStruct(params);
-    PadOf(m_inputPtr)->Clear();
+    script::launch_script(kCreateCursor, nullptr, nullptr, false, nullptr);
+    manager->builder_->build_rails(manager->concrete_metas_);
+    // The camera told whose it is (the input component's configure_from_data: player 0), the pad's events dropped.
+    script::Struct* params = spawn_param_bag();
+    params->put_int(kPlayer, 0);
+    static_cast<objects::ObjectModule*>(input_ptr_)->configure_from_data(params);
+    free_struct(params);
+    pad_of(input_ptr_)->get_clear();
 }
 
 // 0x004F6C10
-void CRailAuthoring::FetchDiagnostics(Scripts::CStruct* info)
+void RailAuthoring::fetch_diagnostics(script::Struct* info)
 {
-    info->PutInt(kNumFreeRailPoints, FreePoints());
-    info->PutInt(kNumFreeRails, kMaxRails - RailPoolUsed());
-    if (m_activeNode)
-        info->AppendStructRef(kCurrentRail, SpawnParamBag());
+    info->put_int(kNumFreeRailPoints, free_points());
+    info->put_int(kNumFreeRails, kMaxRails - rail_pool_used());
+    if (active_node_)
+        info->append_struct_ref(kCurrentRail, spawn_param_bag());
     else
-        info->PutNameKey(kCurrentRail, kNull);
+        info->put_name_key(kCurrentRail, kNull);
     int count = 0;
-    for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following)
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_)
         ++count;
     if (count) {
-        Scripts::CArray* rails = AllocScriptArray();
-        rails->ConfigureSizeKind(static_cast<uint32_t>(count), Scripts::QBVAL_STRUCT);
+        script::Array* rails = alloc_script_array();
+        rails->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalStruct);
         uint32_t i = 0;
-        for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following)
-            rails->SetElement(i++, reinterpret_cast<uint32_t>(SpawnParamBag()));
-        info->AppendArrayRef(kRails, rails);
+        for (EditedRail* rail = rail_groups_; rail; rail = rail->following_)
+            rails->set_element(i++, reinterpret_cast<uint32_t>(spawn_param_bag()));
+        info->append_array_ref(kRails, rails);
     }
     // (then the base's - the empty 0x005BAB90)
-    Stubs::IgnoreArgument(reinterpret_cast<int>(info));
+    stubs::ignore_argument(reinterpret_cast<int>(info));
 }
 
 // 0x004F6680
-void CRailAuthoring::WriteToStructure(Scripts::CStruct* params)
+void RailAuthoring::write_to_structure(script::Struct* params)
 {
     int count = 0;
-    for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following)
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_)
         ++count;
-    Scripts::CArray* rails = AllocScriptArray();
-    rails->ConfigureSizeKind(static_cast<uint32_t>(count), Scripts::QBVAL_STRUCT);
+    script::Array* rails = alloc_script_array();
+    rails->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalStruct);
     uint32_t r = 0;
-    for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following) {
-        Scripts::CStruct* railInfo = SpawnParamBag();
-        uint32_t pointCount = 0;
-        for (CEditedRailPoint* p = rail->m_pointChain; p; p = p->m_following)
-            ++pointCount;
-        Scripts::CArray* points = AllocScriptArray();
-        points->ConfigureSizeKind(pointCount, Scripts::QBVAL_STRUCT);
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
+        script::Struct* rail_info = spawn_param_bag();
+        uint32_t point_count = 0;
+        for (EditedRailPoint* p = rail->point_chain_; p; p = p->following_)
+            ++point_count;
+        script::Array* points = alloc_script_array();
+        points->configure_size_kind(point_count, script::kQbvalStruct);
         uint32_t i = 0;
-        for (CEditedRailPoint* p = rail->m_pointChain; p; p = p->m_following) {
-            Scripts::CStruct* point = SpawnParamBag();
-            point->PutVec3(kPos, p->m_atPoint.x, p->m_atPoint.y, p->m_atPoint.z);
-            // (a post drawn, not m_hasPost)
-            if (p->m_post)
-                point->PutNameKey(0u, kHasPost);
-            points->SetElement(i++, reinterpret_cast<uint32_t>(point));
+        for (EditedRailPoint* p = rail->point_chain_; p; p = p->following_) {
+            script::Struct* point = spawn_param_bag();
+            point->put_vec3(kPos, p->at_point_.x, p->at_point_.y, p->at_point_.z);
+            // (a post drawn, not has_post_)
+            if (p->post_)
+                point->put_name_key(0u, kHasPost);
+            points->set_element(i++, reinterpret_cast<uint32_t>(point));
         }
-        railInfo->AppendArrayRef(kPoints, points);
-        rails->SetElement(r++, reinterpret_cast<uint32_t>(railInfo));
+        rail_info->append_array_ref(kPoints, points);
+        rails->set_element(r++, reinterpret_cast<uint32_t>(rail_info));
     }
-    params->AppendArrayRef(kCreatedRails, rails);
+    params->append_array_ref(kCreatedRails, rails);
 }
 
 // 0x004F7ED0
-void CRailAuthoring::DecodeFromStruct(Scripts::CStruct* params)
+void RailAuthoring::decode_from_struct(script::Struct* params)
 {
-    Clear();
-    Scripts::CArray* rails = nullptr;
-    params->FetchList(kCreatedRails, &rails, 0);
+    get_clear();
+    script::Array* rails = nullptr;
+    params->fetch_list(kCreatedRails, &rails, 0);
     if (!rails)
         return;
-    for (uint32_t r = 0; r < rails->m_extent; ++r) {
-        auto* railInfo = reinterpret_cast<Scripts::CStruct*>(rails->FetchPart(r));
-        NewRail();
-        Scripts::CArray* points = nullptr;
-        railInfo->FetchList(kPoints, &points, 1);
-        for (uint32_t i = 0; i < points->m_extent; ++i) {
-            CEditedRailPoint* p = m_activeNode->AppendRailVertex();
-            auto* point = reinterpret_cast<Scripts::CStruct*>(points->FetchPart(i));
+    for (uint32_t r = 0; r < rails->extent_; ++r) {
+        auto* rail_info = reinterpret_cast<script::Struct*>(rails->fetch_part(r));
+        get_new_rail();
+        script::Array* points = nullptr;
+        rail_info->fetch_list(kPoints, &points, 1);
+        for (uint32_t i = 0; i < points->extent_; ++i) {
+            EditedRailPoint* p = active_node_->append_rail_vertex();
+            auto* point = reinterpret_cast<script::Struct*>(points->fetch_part(i));
             // (a full pool: written through null, as the original)
-            point->FetchVec(kPos, reinterpret_cast<Scripts::VectorValue*>(&p->m_atPoint), 0);
-            if (point->HasBareFlag(kHasPost))
-                p->m_hasPost = true;
+            point->fetch_vec(kPos, reinterpret_cast<script::VectorValue*>(&p->at_point_), 0);
+            if (point->has_bare_flag(kHasPost))
+                p->has_post_ = true;
         }
     }
 }
 
 // 0x004F6920
-void CRailAuthoring::WriteNodes(Scripts::CArray* nodes, int* index, uint32_t name)
+void RailAuthoring::write_nodes(script::Array* nodes, int* index, uint32_t name)
 {
     int next = *index;
-    int railIndex = 0;
-    for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following, ++railIndex) {
-        for (CEditedRailPoint* p = rail->m_pointChain; p; p = p->m_following) {
-            auto* node = reinterpret_cast<Scripts::CStruct*>(nodes->FetchPart(static_cast<uint32_t>(next)));
+    int rail_index = 0;
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_, ++rail_index) {
+        for (EditedRailPoint* p = rail->point_chain_; p; p = p->following_) {
+            auto* node = reinterpret_cast<script::Struct*>(nodes->fetch_part(static_cast<uint32_t>(next)));
             ++next;
-            node->PutVec3(kPos, p->m_atPoint.x, p->m_atPoint.y, p->m_atPoint.z);
-            node->PutNameKey(kName, name++);
-            node->PutNameKey(0u, kRailNodeClass);
-            node->PutNameKey(0u, kTrickObject);
+            node->put_vec3(kPos, p->at_point_.x, p->at_point_.y, p->at_point_.z);
+            node->put_name_key(kName, name++);
+            node->put_name_key(0u, kRailNodeClass);
+            node->put_name_key(0u, kTrickObject);
             char cluster[52];
-            std::snprintf(cluster, sizeof(cluster), "CreatedRailCluster%d", railIndex);
-            node->PutNameKey(kCluster, Checksums::HashFromText(cluster));
-            node->PutNameKey(kSurfaceKindKey, kMetalSmooth);
-            if (p->m_following) {
+            std::snprintf(cluster, sizeof(cluster), "CreatedRailCluster%d", rail_index);
+            node->put_name_key(kCluster, checksums::hash_from_text(cluster));
+            node->put_name_key(kSurfaceKindKey, kMetalSmooth);
+            if (p->following_) {
                 // linked to the next point's node (the next one written)
-                Scripts::CArray* links = AllocScriptArray();
-                links->ConfigureSizeKind(1, Scripts::QBVAL_INTEGER);
-                links->SetElement(0, static_cast<uint32_t>(next));
-                node->AppendArrayRef(kLinks, links);
+                script::Array* links = alloc_script_array();
+                links->configure_size_kind(1, script::kQbvalInteger);
+                links->set_element(0, static_cast<uint32_t>(next));
+                node->append_array_ref(kLinks, links);
             }
         }
     }
@@ -243,143 +243,143 @@ void CRailAuthoring::WriteNodes(Scripts::CArray* nodes, int* index, uint32_t nam
 }
 
 // 0x004F75F0
-int CRailAuthoring::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script)
+int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
 {
     switch (name) {
     case kNoFreeRailPoints: // (name unknown) 1 when no rail point is free
-        return FreePoints() == 0 ? 1 : 0;
+        return free_points() == 0 ? 1 : 0;
     case kSetEditingMode: {
-        params->ReadHashValue(kMode, &m_modeSel, 0);
-        Scripts::CStruct* text = SpawnParamBag();
-        text->PutNameKey(kMode, kRailPlacement);
-        Scripts::LaunchScript(kHelperTextMode, text, nullptr, false, nullptr);
-        FreeStruct(text);
+        params->read_hash_value(kMode, &mode_sel_, 0);
+        script::Struct* text = spawn_param_bag();
+        text->put_name_key(kMode, kRailPlacement);
+        script::launch_script(kHelperTextMode, text, nullptr, false, nullptr);
+        free_struct(text);
         return 1;
     }
     case kDeleteRail: {
         uint32_t id = 0;
-        params->ReadHashValue(kRailId, &id, 0);
-        if (CEditedRail* rail = FindRail(id))
-            DeleteRail(rail);
+        params->read_hash_value(kRailId, &id, 0);
+        if (EditedRail* rail = find_rail(id))
+            delete_rail(rail);
         return 1;
     }
     case kAddNewPosition: {
         Vec4 pos = {0.0f, 0.0f, 0.0f, 1.0f};
-        params->FetchVec(kPos, reinterpret_cast<Scripts::VectorValue*>(&pos), 0);
-        if (!m_activeNode)
+        params->fetch_vec(kPos, reinterpret_cast<script::VectorValue*>(&pos), 0);
+        if (!active_node_)
             return 0;
-        CEditedRailPoint* head = m_activeNode->m_pointChain;
-        if (head && !RailSegmentValid(&pos, &head->m_atPoint))
+        EditedRailPoint* head = active_node_->point_chain_;
+        if (head && !rail_segment_valid(&pos, &head->at_point_))
             return 1;
-        if (!CParkBuilderMode::IsInsidePark(pos, 10.0f))
+        if (!ParkBuilderMode::is_inside_park(pos, 10.0f))
             return head ? 1 : 0;
-        CParkBuilderMode* editor = CParkBuilderMode::Fabricate(false);
-        if (!editor->IsParkFull()) {
-            if (CEditedRailPoint* p = m_activeNode->AppendRailVertex()) {
-                p->m_atPoint = pos;
-                p->m_levelY = static_cast<float>(static_cast<double>(pos.y) - CEditedRailPoint::GroundHeight(&p->m_atPoint));
-                p->m_hasPost = params->HasBareFlag(kAddPost);
-                const Vec4& zero = g_railOrigin;
-                p->DrawSegment(&zero, &zero, 0.0f);
-                p->DrawPost(&zero, &zero, 0.0f);
-                CParkBuilderMode::Release();
+        ParkBuilderMode* editor = ParkBuilderMode::fabricate(false);
+        if (!editor->is_park_full()) {
+            if (EditedRailPoint* p = active_node_->append_rail_vertex()) {
+                p->at_point_ = pos;
+                p->level_y_ = static_cast<float>(static_cast<double>(pos.y) - EditedRailPoint::ground_height(&p->at_point_));
+                p->has_post_ = params->has_bare_flag(kAddPost);
+                const Vec4& zero = g_rail_origin;
+                p->draw_segment(&zero, &zero, 0.0f);
+                p->draw_post(&zero, &zero, 0.0f);
+                ParkBuilderMode::get_release();
                 return 1;
             }
         }
-        CParkBuilderMode::Release();
+        ParkBuilderMode::get_release();
         return 0;
     }
     case kGetEditingMode:
-        Results(script)->PutNameKey(kMode, m_modeSel);
+        get_results(script)->put_name_key(kMode, mode_sel_);
         return 1;
     case kDeleteRailPoint: {
         uint32_t id = 0;
-        params->ReadHashValue(kRailId, &id, 0);
-        CEditedRail* rail = FindRail(id);
+        params->read_hash_value(kRailId, &id, 0);
+        EditedRail* rail = find_rail(id);
         if (!rail)
             return 0;
         int index = 0;
-        params->FetchIntValue(kRailPointIndex, &index, 0);
-        CEditedRailPoint* p = rail->FetchVertexAt(index);
+        params->fetch_int_value(kRailPointIndex, &index, 0);
+        EditedRailPoint* p = rail->fetch_vertex_at(index);
         if (!p)
             return 0;
-        CutRail(rail, p);
-        DeleteShortRails();
+        cut_rail(rail, p);
+        delete_short_rails();
         return 1;
     }
     case kUpdateRailPointPosition: {
         uint32_t id = 0;
-        params->ReadHashValue(kRailId, &id, 0);
+        params->read_hash_value(kRailId, &id, 0);
         int index = 0;
-        params->FetchIntValue(kRailPointIndex, &index, 0);
+        params->fetch_int_value(kRailPointIndex, &index, 0);
         Vec4 pos; // (left unset without a pos, as the original's)
-        params->FetchVec(kPos, reinterpret_cast<Scripts::VectorValue*>(&pos), 0);
-        CEditedRail* rail = FindRail(id);
+        params->fetch_vec(kPos, reinterpret_cast<script::VectorValue*>(&pos), 0);
+        EditedRail* rail = find_rail(id);
         if (!rail)
             return 1;
-        bool update = params->HasBareFlag(kUpdateSuperSectors);
-        return rail->MovePoint(index, &pos, update) ? 1 : 0;
+        bool update = params->has_bare_flag(kUpdateSuperSectors);
+        return rail->move_point(index, &pos, update) ? 1 : 0;
     }
     case kHighlightRailPoint: {
         uint32_t id = 0;
-        params->ReadHashValue(kRailId, &id, 0);
+        params->read_hash_value(kRailId, &id, 0);
         int index = 0;
-        params->FetchIntValue(kRailPointIndex, &index, 0);
-        CEditedRail* rail = FindRail(id);
+        params->fetch_int_value(kRailPointIndex, &index, 0);
+        EditedRail* rail = find_rail(id);
         if (!rail)
             return 1;
-        CEditedRailPoint* p = rail->FetchVertexAt(index);
-        bool includeEndPosts = params->HasBareFlag(kIncludeEndPosts);
-        bool flash = params->HasBareFlag(kFlash);
-        p->Spotlight(flash, includeEndPosts);
+        EditedRailPoint* p = rail->fetch_vertex_at(index);
+        bool include_end_posts = params->has_bare_flag(kIncludeEndPosts);
+        bool flash = params->has_bare_flag(kFlash);
+        p->spotlight(flash, include_end_posts);
         return 1;
     }
     case kGetCursorPosition: {
-        const Vec4& target = ViewerLocation(m_viewCamera);
-        float y = static_cast<float>(static_cast<double>(target.y) + CameraHeight(m_viewCamera));
-        Scripts::CStruct* results = Results(script);
-        results->PutVec3(kPos, target.x, y, target.z);
-        results->PushFloat(kAngle, static_cast<float>(static_cast<double>(CameraHeading(m_viewCamera)) * kAngleScaleToDeg));
+        const Vec4& target = viewer_location(view_camera_);
+        float y = static_cast<float>(static_cast<double>(target.y) + camera_height(view_camera_));
+        script::Struct* results = get_results(script);
+        results->put_vec3(kPos, target.x, y, target.z);
+        results->push_float(kAngle, static_cast<float>(static_cast<double>(camera_heading(view_camera_)) * kAngleScaleToDeg));
         return 1;
     }
     case kDrawDottedLine: {
         Vec4 pos; // (left unset without a pos, as the original's)
-        params->FetchVec(kPos, reinterpret_cast<Scripts::VectorValue*>(&pos), 0);
-        DrawDottedLine(&pos);
+        params->fetch_vec(kPos, reinterpret_cast<script::VectorValue*>(&pos), 0);
+        draw_dotted_line(&pos);
         return 1;
     }
     case kClearRailEditor:
-        Clear();
+        get_clear();
         return 1;
     case kDeleteDottedLine:
-        DeleteDottedLine();
+        delete_dotted_line();
         return 1;
     case kNewRail:
-        if (FreePoints() == 0)
+        if (free_points() == 0)
             return 0;
-        NewRail();
+        get_new_rail();
         return 1;
     case kUnHighlightAllRails:
-        UnHighlightAll();
+        un_highlight_all();
         return 1;
     case kDestroyEditedRailSectors:
-        UpdateSuperSectors() = true;
-        if (params->HasBareFlag(kDoNotUpdateSuperSectors))
-            UpdateSuperSectors() = false;
-        DeleteAllSegments();
-        DeleteAllPosts();
-        UpdateSuperSectors() = true;
+        get_update_super_sectors() = true;
+        if (params->has_bare_flag(kDoNotUpdateSuperSectors))
+            get_update_super_sectors() = false;
+        delete_all_segments();
+        delete_all_posts();
+        get_update_super_sectors() = true;
         return 1;
     case kGetEditedRailInfo: {
         uint32_t id = 0;
-        params->ReadHashValue(kRailId, &id, 0);
-        CEditedRail* rail = FindRail(id);
-        if (params->HasBareFlag(kCurrentRail))
-            rail = m_activeNode;
+        params->read_hash_value(kRailId, &id, 0);
+        EditedRail* rail = find_rail(id);
+        if (params->has_bare_flag(kCurrentRail))
+            rail = active_node_;
         if (!rail)
             return 0;
-        Results(script)->PutNameKey(kRailId, rail->m_ident);
-        Results(script)->PutInt(kNumPoints, rail->RailPointTotal());
+        get_results(script)->put_name_key(kRailId, rail->ident_);
+        get_results(script)->put_int(kNumPoints, rail->rail_point_total());
         return 1;
     }
     default:

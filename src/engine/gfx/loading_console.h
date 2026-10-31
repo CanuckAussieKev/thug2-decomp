@@ -12,7 +12,7 @@
 // box - clear of the loading bar, which is centred) shows:
 //   LOADING 12.3 s                    last activity 0.4 s ago
 //   [the last lines of what is being loaded, oldest first, each with its time since the load began]
-// The lines: files opened (FileLoad::Unseal - archives, the data overlay, the data folder - by file name and size),
+// The lines: files opened (FileLoad::unseal - archives, the data overlay, the data folder - by file name and size),
 // files loaded whole (the PIP loader: from an archive, the cache or disk, with their size), .prx archives loaded,
 // the script commands that load or build things (Load* / Add* scene and collision / Create* / Parse* / Init* /
 // Preload*: scenes, collision, node arrays, QB files, assets, objects, the skater), the scripts called meanwhile
@@ -36,49 +36,49 @@
 //
 // thug2-decomp.ini [features] loading_console=0 turns it off (default 1): the loading screen exactly as the
 // original's (the same timer, the same picture, no extra timer).
-namespace Scripts {
-class CStruct;
+namespace script {
+class Struct;
 }
 
-namespace Gfx2D::LoadingConsole {
+namespace gfx::loading_console {
 
 // [features] loading_console (read once).
-bool IsSwitchedOn();
+bool is_switched_on();
 // Whether a loading screen is up and the console runs (lines are kept only then).
-bool LiveNow();
+bool live_now();
 
 // DisplayLoadingScreen (0x00490890's callers: the script command, the cutscene loader): a loading screen shown -
 // `freeze`: the last frame kept, `blank`: black instead of the picture. Starts the console's clock (the first
 // screen of a load; a screen shown again while one is up keeps it) and, unless frozen, its own drawing timer.
-void ScreenShown(bool freeze, bool blank);
+void screen_shown(bool freeze, bool blank);
 // HideLoadingScreen (0x004908C0's callers): the screen gone, the console stopped.
-void ScreenHidden();
+void screen_hidden();
 
 // A line for the panel (printf-style; cut to kLineWidth characters). Nothing while not Active.
-void Note(const char* format, ...);
+void get_note(const char* format, ...);
 // A file: `what` ("open", "load"...), the file's name without its folder, its size if known (< 0: not known).
-void NoteFile(const char* what, const char* path, long long size);
+void note_file(const char* what, const char* path, long long size);
 // A script command or script being run (by checksum; only the interesting ones are kept - see above), with what it
 // loads or makes if its parameters say (an unnamed string, scene= / file= / name=...).
-void NoteScriptCall(uint32_t name, bool cfunction, Scripts::CStruct* params);
+void note_script_call(uint32_t name, bool cfunction, script::Struct* params);
 // A line of the game log (thug2-decomp.log), filtered.
-void NoteLogLine(const char* line);
+void note_log_line(const char* line);
 
 // Drawn by the loading screen's frame (engine/gfx/loading_bar.cpp, 0x004B6FF0), inside its scene, with the loading
 // screen's lock held: the panel over the picture, the device's state put back after.
-void DrawPanel();
+void draw_panel();
 
 // --- pure helpers, for the self-test ---
 constexpr size_t kLineWidth = 96;
 constexpr size_t kRingLines = 64;
 // "name.ext" of "folder\\sub/name.ext".
-const char* FileName(const char* path);
+const char* get_file_name(const char* path);
 // "512 B", "12.3 KB", "4.5 MB".
-std::string SizeText(long long bytes);
+std::string size_text(long long bytes);
 // Whether a script command's name is one the panel shows.
-bool InterestingCommand(const char* name);
+bool interesting_command(const char* name);
 // Whether a log line is one the panel shows.
-bool InterestingLogLine(const char* line);
+bool interesting_log_line(const char* line);
 
 // The ring of lines (the console's own state, also used by the self-test on a separate instance).
 struct Ring {
@@ -90,9 +90,9 @@ struct Ring {
     Seg lines[kRingLines];
     unsigned count = 0; // lines ever added
     // Add `text` at `time`; the same text as the newest line counts that one up instead.
-    void AppendOne(const char* text, double time);
+    void append_one(const char* text, double time);
     // The newest `n` lines' text ("[  1.2] text (x3)"), oldest first.
-    std::vector<std::string> FinalOne(size_t n) const;
+    std::vector<std::string> final_one(size_t n) const;
 };
 
-} // namespace Gfx2D::LoadingConsole
+} // namespace gfx::loading_console

@@ -19,7 +19,7 @@ an official Neversoft specification or a declaration of complete compatibility.
 ## Version 1 remains supported
 
 Implemented values are `{type: 1 | 2 | 13, bits: uint32}`. Parameters are ordered
-arrays of `[nameHash, value]`. An absent value is `undefined`, not zero,
+arrays of `[name_hash_, value]`. An absent value is `undefined`, not zero,
 `null`, false or a type-0 component. Checksums and raw bits are integral JS
 Numbers in `[0, 4294967295]`; signed integer interpretation is `bits | 0`.
 
@@ -63,7 +63,7 @@ materializes an owning copy of its outer reference target, as described below.
 
 Completed-expression materialization is not yet represented separately by the
 emitter. It can retain a live container reference where the original evaluator's
-`FetchVerdict` copies the referenced target as an owning value. This is a known
+`fetch_verdict` copies the referenced target as an owning value. This is a known
 compatibility gap; helper-level copy/reference tests do not establish complete
 expression-result compatibility.
 
@@ -398,7 +398,7 @@ parameters, RNG, global reads, engine objects or renderer.
 Its single host dependency is `UnSetFlag`.
 
 The driver implements a bounded career-flag service with the behavior of
-`CFunc_UnSetFlag` (0x005AEDD0) and `CRiderStoryProgress::UnSetFlag` (0x00584470): direct
+`cfunc_un_set_flag` (0x005AEDD0) and `RiderStoryProgress::UnSetFlag` (0x00584470): direct
 Integer `flag`, optional direct Integer `level` (-1 means current), clear the
 selected level's bit and the level-start bit. Other getter/coercion cases are
 outside this host subset; invalid/missing arguments fault. This is a test

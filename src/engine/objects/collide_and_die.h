@@ -6,15 +6,15 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 
-namespace OnlinePlay {
+namespace online {
 class Hub;
 }
 
-namespace Scripts {
-class CStruct;
+namespace script {
+class Struct;
 } // namespace Script
 
-namespace GameObjects {
+namespace objects {
 
 // The collide-and-die component (type 0x6259B52B "collideanddie", vtable 0x00645EB4, 0x54 bytes; made by 0x0041C370):
 // a projectile's end - each update a collision feeler from where its object was (24 up) to where it is (24 up, plus
@@ -22,48 +22,48 @@ namespace GameObjects {
 // (pos = the hit point, vel, scale) and the object dies a second later. It dies anyway ten seconds after it was made.
 // Suspended (unless in a network game), nothing happens.
 //
-// Vtable: 0 the scalar deleting destructor, 1 Update, 2 ConfigureFromData, 3 Finalize; the rest the base's / shared (4
+// Vtable: 0 the scalar deleting destructor, 1 Update, 2 configure_from_data, 3 Finalize; the rest the base's / shared (4
 // / 9 0x005480A0, 5 / 8 0x005BAB90, 6 0x0048DCD0, 7 0x0045D760, 10 0x005144C0, 11 0x0045D720, 12 0x0051ADC0).
-class CImpactDestructModule : public CObjectModule {
+class ImpactDestructModule : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x6259B52B;
 
     // 0x0041C370 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Fabricate();
+    static ObjectModule* __cdecl fabricate();
     // 0x0041C210: the base's constructor, its vtable and type; no radius, scale or script, made now (the game clock),
     // not dying, the first update to come. Returns this.
-    CImpactDestructModule* MakeNew();
+    ImpactDestructModule* make_new();
     // 0x0041C1F0: the base's body.
-    void DestroyBody();
+    void destroy_body();
     // 0x0041C280 (vtable slot 0)
-    CImpactDestructModule* Teardown(unsigned int flags);
+    ImpactDestructModule* teardown(unsigned int flags);
     // 0x0041C2B0 (vtable slot 2): radius, scale, death_script (each asserted), vel (asserted; default (0, 0, 1),
     // normalised).
-    void ConfigureFromData(Scripts::CStruct* params);
+    void configure_from_data(script::Struct* params);
     // 0x0041C330 (vtable slot 3): the object's suspend component.
-    void Seal();
+    void seal();
     // 0x0041C3D0 (vtable slot 1): see the class. The times are the game clock's, compared unsigned.
-    void TickFrame();
+    void tick_frame();
 
-    uint8_t* m_suspend;    // +0x18 the suspend component (+0x30: suspended)
-    float m_radius;         // +0x1C radius
-    float m_sizeFactor;          // +0x20 scale (given to death_script)
-    uint32_t m_madeTime;    // +0x24
-    uint32_t m_onCollideScript; // +0x28 death_script
-    uint32_t m_deathTime;   // +0x2C (a second after the hit)
-    bool m_fadingOut;           // +0x30
-    bool m_firstUpdate;     // +0x31
+    uint8_t* suspend_;    // +0x18 the suspend component (+0x30: suspended)
+    float radius_;         // +0x1C radius
+    float size_factor_;          // +0x20 scale (given to death_script)
+    uint32_t made_time_;    // +0x24
+    uint32_t on_collide_script_; // +0x28 death_script
+    uint32_t death_time_;   // +0x2C (a second after the hit)
+    bool fading_out_;           // +0x30
+    bool first_update_;     // +0x31
     uint8_t pad32[2];
-    Maths::Vec4 m_vel;      // +0x34 vel (normalised)
-    Maths::Vec4 m_lastPos;  // +0x44 the object's position at the last update
+    maths::Vec4 vel_;      // +0x34 vel (normalised)
+    maths::Vec4 last_pos_;  // +0x44 the object's position at the last update
 };
-static_assert(offsetof(CImpactDestructModule, m_radius) == 0x1C &&
-                  offsetof(CImpactDestructModule, m_deathTime) == 0x2C &&
-                  offsetof(CImpactDestructModule, m_firstUpdate) == 0x31 &&
-                  offsetof(CImpactDestructModule, m_vel) == 0x34 &&
-                  offsetof(CImpactDestructModule, m_lastPos) == 0x44 && sizeof(CImpactDestructModule) == 0x54,
+static_assert(offsetof(ImpactDestructModule, radius_) == 0x1C &&
+                  offsetof(ImpactDestructModule, death_time_) == 0x2C &&
+                  offsetof(ImpactDestructModule, first_update_) == 0x31 &&
+                  offsetof(ImpactDestructModule, vel_) == 0x34 &&
+                  offsetof(ImpactDestructModule, last_pos_) == 0x44 && sizeof(ImpactDestructModule) == 0x54,
               "layout must match the original");
 
-extern OnlinePlay::Hub* g_onlineHub;
+extern online::Hub* g_online_hub;
 
 } // namespace Obj

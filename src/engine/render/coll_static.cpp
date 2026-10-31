@@ -18,466 +18,466 @@
 #include "engine/render/coll_movable.h"
 #include "engine/sys/startup_init.h"
 
-namespace Engine3D {
+namespace render {
 
-Maths::Vec4 g_sharedOrigin;        // the origin and orientation every static object reports
-Maths::Mat4 g_sharedOrientation;
+maths::Vec4 g_shared_origin;        // the origin and orientation every static object reports
+maths::Mat4 g_shared_orientation;
 
 namespace {
 
-static VtableSlot kInstanceVtable_slots[] = {&Engine3D::CCollStaticInstance::ScalarDelete, Stubs::ReturnTrue,
-        &Engine3D::CollFaceAccess::GetTriangleAttrs, &Engine3D::CollFaceAccess::GetFaceTerrain, &Engine3D::CHitMesh::AssignShapeData,
-        &Engine3D::CCollStaticInstance::PlaceAtAbsolutePoint, &Engine3D::CCollStaticInstance::ChangeFacing,
-        &Engine3D::CCollScaled::GetAbsolutePoint, &Engine3D::CHitMovingMesh::FetchFacing, &Engine3D::CCollScaled::ReadVertexPoint,
-        Stubs::ReturnZero, Stubs::IgnoreArgument, &Engine3D::CCollStaticInstance::Replicate, &Engine3D::CCollStaticInstance::InsideBounds,
-        &Engine3D::CCollStaticInstance::CollideWithLine, &Engine3D::CCollStaticInstance::CollideWithRect,
-        &Engine3D::CStaticCollider::CollideWithSphere, &Engine3D::CStaticCollider::CollideWithCapsule,
-        &Engine3D::CollGeometryForwarders::IsPointBehindFaces, &Engine3D::CCollStaticInstance::DrawDiagnostic, Stubs::ReturnZero,
-        &Engine3D::CCollStaticInstance::GetWorldBounds, Stubs::IgnoreArguments2, &Engine3D::CCollStaticInstance::RescaleIfAt,
-        &Engine3D::CCollStaticInstance::ChangeScale, &Engine3D::CHitMovingMesh::GetAbsolutePoint};
-void** const kInstanceVtable = reinterpret_cast<void**>(kInstanceVtable_slots);
+static VtableSlot g_instance_vtable_slots[] = {&render::CollStaticInstance::scalar_delete, stubs::return_true,
+        &render::CollFaceAccess::get_triangle_attrs, &render::CollFaceAccess::get_face_terrain, &render::HitMesh::assign_shape_data,
+        &render::CollStaticInstance::place_at_absolute_point, &render::CollStaticInstance::change_facing,
+        &render::CollScaled::get_absolute_point, &render::HitMovingMesh::fetch_facing, &render::CollScaled::read_vertex_point,
+        stubs::return_zero, stubs::ignore_argument, &render::CollStaticInstance::replicate, &render::CollStaticInstance::inside_bounds,
+        &render::CollStaticInstance::collide_with_line, &render::CollStaticInstance::collide_with_rect,
+        &render::StaticCollider::collide_with_sphere, &render::StaticCollider::collide_with_capsule,
+        &render::CollGeometryForwarders::is_point_behind_faces, &render::CollStaticInstance::draw_diagnostic, stubs::return_zero,
+        &render::CollStaticInstance::get_world_bounds, stubs::ignore_arguments2, &render::CollStaticInstance::rescale_if_at,
+        &render::CollStaticInstance::change_scale, &render::HitMovingMesh::get_absolute_point};
+void** const kInstanceVtable = reinterpret_cast<void**>(g_instance_vtable_slots);
 
 // The geometry's own methods: 0x00416BF0 a copy, 0x00416400 moved.
-CTriMeshSource* CloneGeometry(CTriMeshSource* geometry, int a, int b) { return geometry->Replicate(a, b != 0); }
-void TranslateGeometry(CTriMeshSource* geometry, const Maths::Vec4* delta) { geometry->Slide(delta); }
+TriMeshSource* clone_geometry(TriMeshSource* geometry, int a, int b) { return geometry->replicate(a, b != 0); }
+void translate_geometry(TriMeshSource* geometry, const maths::Vec4* delta) { geometry->get_slide(delta); }
 // 0x00414D60 through our stub (the original's is the same empty function).
-void DrawGeometry(CTriMeshSource* geometry, const Maths::Mat4* transform, int a, int b)
+void draw_geometry(TriMeshSource* geometry, const maths::Mat4* transform, int a, int b)
 {
-    reinterpret_cast<CollGeometryStubs*>(geometry)->DrawDiagnostic(transform, a, b, 1);
+    reinterpret_cast<CollGeometryStubs*>(geometry)->draw_diagnostic(transform, a, b, 1);
 }
-const uint8_t* Face(const CTriMeshSource* geometry, int face)
+const uint8_t* get_face(const TriMeshSource* geometry, int face)
 {
-    return geometry->m_faces + face * (geometry->m_smallFaces ? 8 : 10);
+    return geometry->faces_ + face * (geometry->small_faces_ ? 8 : 10);
 }
 
 } // namespace
 
 // 0x00410BF0
-uint32_t CollFaceAccess::GetTriangleAttrs(int face) const
+uint32_t CollFaceAccess::get_triangle_attrs(int face) const
 {
-    return *reinterpret_cast<const uint16_t*>(Face(m_geometry, face));
+    return *reinterpret_cast<const uint16_t*>(get_face(geometry_, face));
 }
 
 // 0x00411750
-uint16_t CollFaceAccess::GetFaceTerrain(int face) const
+uint16_t CollFaceAccess::get_face_terrain(int face) const
 {
-    return *reinterpret_cast<const uint16_t*>(Face(m_geometry, face) + 2);
+    return *reinterpret_cast<const uint16_t*>(get_face(geometry_, face) + 2);
 }
 
 // 0x00412730 (not a function in Ghidra: the array constructor's element constructor)
-CStaticCollider* CStaticCollider::MakeNew()
+StaticCollider* StaticCollider::make_new()
 {
-    m_flagBits = 0;
-    m_geometry = nullptr;
-    m_vtable = Vt::kVtblStaticColl;
-    m_octets = nullptr;
-    m_unknown14 = 0;
+    flag_bits_ = 0;
+    geometry_ = nullptr;
+    vtable_ = vt::kVtblStaticColl;
+    octets_ = nullptr;
+    unknown14_ = 0;
     return this;
 }
 
 // 0x00412760
-void CStaticCollider::Destruct()
+void StaticCollider::destruct()
 {
-    m_vtable = Vt::kVtblStaticColl;
-    if ((m_flagBits & kOwnsGeometry) && m_octets) {
-        MemSys::FreeMalloc(m_octets);
-        m_octets = nullptr;
+    vtable_ = vt::kVtblStaticColl;
+    if ((flag_bits_ & kOwnsGeometry) && octets_) {
+        memory::free_malloc(octets_);
+        octets_ = nullptr;
     }
-    DestroyBase();
+    destroy_base();
 }
 
 // 0x004139A0
-CHitMesh* CStaticCollider::Replicate(bool instance)
+HitMesh* StaticCollider::replicate(bool instance)
 {
-    CTriMeshSource* geometry = instance ? m_geometry : CloneGeometry(m_geometry, 0, 1);
+    TriMeshSource* geometry = instance ? geometry_ : clone_geometry(geometry_, 0, 1);
     if (!geometry)
         return nullptr;
-    CCollStaticInstance* copyInstance = nullptr;
-    CStaticCollider* copy = nullptr;
-    CHitMesh* made;
+    CollStaticInstance* copy_instance = nullptr;
+    StaticCollider* copy = nullptr;
+    HitMesh* made;
     if (instance) {
-        void* memory = MemSys::Alloc(sizeof(CCollStaticInstance));
-        copyInstance = memory ? static_cast<CCollStaticInstance*>(memory)->MakeNew() : nullptr;
-        made = copyInstance;
+        void* memory = memory::alloc(sizeof(CollStaticInstance));
+        copy_instance = memory ? static_cast<CollStaticInstance*>(memory)->make_new() : nullptr;
+        made = copy_instance;
     } else {
-        auto* memory = static_cast<CStaticCollider*>(MemSys::Alloc(sizeof(CStaticCollider)));
+        auto* memory = static_cast<StaticCollider*>(memory::alloc(sizeof(StaticCollider)));
         if (memory) {
-            memory->m_flagBits = 0;
-            memory->m_geometry = nullptr;
-            memory->m_vtable = Vt::kVtblStaticColl;
-            memory->m_octets = nullptr;
-            memory->m_unknown14 = 0;
+            memory->flag_bits_ = 0;
+            memory->geometry_ = nullptr;
+            memory->vtable_ = vt::kVtblStaticColl;
+            memory->octets_ = nullptr;
+            memory->unknown14_ = 0;
         }
         copy = memory;
         made = copy;
     }
     // (a failed allocation crashes here, as in the original)
-    made->m_checksum = m_checksum;
-    made->m_flagBits = m_flagBits;
-    made->m_visitStamp = m_visitStamp;
-    made->m_geometry = m_geometry;
-    if (copyInstance) {
-        copyInstance->SetSharedGeometry(geometry);
+    made->checksum_ = checksum_;
+    made->flag_bits_ = flag_bits_;
+    made->visit_stamp_ = visit_stamp_;
+    made->geometry_ = geometry_;
+    if (copy_instance) {
+        copy_instance->set_shared_geometry(geometry);
     } else if (copy) {
-        copy->m_flagBits |= kOwnsGeometry;
-        copy->m_geometry = geometry;
-        if (!instance && m_octets) {
-            uint32_t size = m_geometry->m_triCount;
-            MemSys::PushMemProfile("Collision face-rejection optimization");
-            MemSys::EnterHeapScope(MemSys::BottomUpHeap());
-            copy->m_octets = static_cast<uint8_t*>(MemSys::AllocBlock(size));
-            std::memcpy(copy->m_octets, m_octets, size);
-            MemSys::LeaveHeapScope();
-            MemSys::PopMemProfile();
+        copy->flag_bits_ |= kOwnsGeometry;
+        copy->geometry_ = geometry;
+        if (!instance && octets_) {
+            uint32_t size = geometry_->tri_count_;
+            memory::push_mem_profile("Collision face-rejection optimization");
+            memory::enter_heap_scope(memory::bottom_up_heap());
+            copy->octets_ = static_cast<uint8_t*>(memory::alloc_block(size));
+            std::memcpy(copy->octets_, octets_, size);
+            memory::leave_heap_scope();
+            memory::pop_mem_profile();
         } else {
-            copy->m_octets = nullptr;
+            copy->octets_ = nullptr;
         }
     }
     return made;
 }
 
 // 0x00410C20
-void CStaticCollider::PlaceAtAbsolutePoint(const Maths::Vec4* position)
+void StaticCollider::place_at_absolute_point(const maths::Vec4* position)
 {
-    const auto* current = Call<const Maths::Vec4*>(7);
-    Maths::Vec4 delta{position->x - current->x, position->y - current->y, position->z - current->z,
+    const auto* current = get_call<const maths::Vec4*>(7);
+    maths::Vec4 delta{position->x - current->x, position->y - current->y, position->z - current->z,
                       position->w - current->w};
-    TranslateGeometry(m_geometry, &delta);
+    translate_geometry(geometry_, &delta);
 }
 
 // 0x004123A0
-const Maths::Vec4* CStaticCollider::GetAbsolutePoint() const
+const maths::Vec4* StaticCollider::get_absolute_point() const
 {
-    return &g_sharedOrigin;
+    return &g_shared_origin;
 }
 
 // 0x004123B0
-const Maths::Mat4* CStaticCollider::FetchFacing() const
+const maths::Mat4* StaticCollider::fetch_facing() const
 {
-    return &g_sharedOrientation;
+    return &g_shared_orientation;
 }
 
 // 0x00410980
-Maths::Vec4 CStaticCollider::ReadVertexPoint(int index) const
+maths::Vec4 StaticCollider::read_vertex_point(int index) const
 {
-    Maths::Vec4 raw = m_geometry->ReadStoredVertex(index);
+    maths::Vec4 raw = geometry_->read_stored_vertex(index);
     return {raw.x, raw.y, raw.z, 1.0f};
 }
 
 // 0x00410C70
-bool CStaticCollider::InsideBounds(const Maths::BBox* box) const
+bool StaticCollider::inside_bounds(const maths::BBox* box) const
 {
-    return box->Intersects(*reinterpret_cast<const Maths::BBox*>(&m_geometry->m_lowerLimit));
+    return box->intersects(*reinterpret_cast<const maths::BBox*>(&geometry_->lower_limit_));
 }
 
 // 0x00412750
-const Maths::BBox* CStaticCollider::GetGeometryBBox() const
+const maths::BBox* StaticCollider::get_geometry_b_box() const
 {
-    return reinterpret_cast<const Maths::BBox*>(&m_geometry->m_lowerLimit);
+    return reinterpret_cast<const maths::BBox*>(&geometry_->lower_limit_);
 }
 
 // 0x004127C0
-CCollStaticInstance* CCollStaticInstance::MakeNew()
+CollStaticInstance* CollStaticInstance::make_new()
 {
-    CCollScaled::MakeNew();
-    m_vtable = kInstanceVtable;
-    new (&m_worldBox) Maths::BBox();
-    m_octets = nullptr;
-    m_unknownC4 = 0;
+    CollScaled::make_new();
+    vtable_ = kInstanceVtable;
+    new (&world_box_) maths::BBox();
+    octets_ = nullptr;
+    unknownc4_ = 0;
     return this;
 }
 
 // 0x00414C30
-CCollStaticInstance* CCollStaticInstance::ConstructCopy(const CCollStaticInstance* other)
+CollStaticInstance* CollStaticInstance::construct_copy(const CollStaticInstance* other)
 {
-    static_cast<CCollScaled*>(this)->ConstructCopy(other);
-    m_vtable = kInstanceVtable;
-    m_worldBox = other->m_worldBox;
-    m_octets = other->m_octets;
-    m_unknownC4 = other->m_unknownC4;
+    static_cast<CollScaled*>(this)->construct_copy(other);
+    vtable_ = kInstanceVtable;
+    world_box_ = other->world_box_;
+    octets_ = other->octets_;
+    unknownc4_ = other->unknownc4_;
     return this;
 }
 
 // 0x00412840
-void CCollStaticInstance::Destruct()
+void CollStaticInstance::destruct()
 {
-    m_vtable = kInstanceVtable;
-    if ((m_flagBits & kOwnsGeometry) && m_octets) {
-        MemSys::FreeMalloc(m_octets);
-        m_octets = nullptr;
+    vtable_ = kInstanceVtable;
+    if ((flag_bits_ & kOwnsGeometry) && octets_) {
+        memory::free_malloc(octets_);
+        octets_ = nullptr;
     }
-    DestroyBase();
+    destroy_base();
 }
 
 // 0x00413ED0
-CCollStaticInstance* CCollStaticInstance::ScalarDelete(uint8_t flags)
+CollStaticInstance* CollStaticInstance::scalar_delete(uint8_t flags)
 {
-    Destruct();
+    destruct();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00414CD0
-CCollStaticInstance* CCollStaticInstance::Replicate(int /*argument*/)
+CollStaticInstance* CollStaticInstance::replicate(int /*argument*/)
 {
-    void* memory = MemSys::Alloc(sizeof(CCollStaticInstance));
-    CCollStaticInstance* copy = memory ? static_cast<CCollStaticInstance*>(memory)->ConstructCopy(this) : nullptr;
-    copy->SetSharedGeometry(m_geometry); // (on a null copy too: a crash, as in the original)
+    void* memory = memory::alloc(sizeof(CollStaticInstance));
+    CollStaticInstance* copy = memory ? static_cast<CollStaticInstance*>(memory)->construct_copy(this) : nullptr;
+    copy->set_shared_geometry(geometry_); // (on a null copy too: a crash, as in the original)
     return copy;
 }
 
 // 0x00411480
-void CCollStaticInstance::SetSharedGeometry(CTriMeshSource* geometry)
+void CollStaticInstance::set_shared_geometry(TriMeshSource* geometry)
 {
-    m_flagBits |= kOwnsGeometry | kSharedGeometry;
-    m_geometry = geometry;
-    m_worldBox.min = geometry->m_lowerLimit;
-    m_worldBox.max = geometry->m_upperLimit;
-    m_octets = nullptr;
+    flag_bits_ |= kOwnsGeometry | kSharedGeometry;
+    geometry_ = geometry;
+    world_box_.min = geometry->lower_limit_;
+    world_box_.max = geometry->upper_limit_;
+    octets_ = nullptr;
 }
 
 // 0x00413F00
-void CCollStaticInstance::PlaceAtAbsolutePoint(const Maths::Vec4* position)
+void CollStaticInstance::place_at_absolute_point(const maths::Vec4* position)
 {
-    m_basisFrame.row[3] = *position;
-    UpdateInverse();
-    RecomputeWorldBounds();
+    basis_frame_.row[3] = *position;
+    update_inverse();
+    recompute_world_bounds();
 }
 
 // 0x00413F30
-void CCollStaticInstance::ChangeFacing(const Maths::Mat4* orientation)
+void CollStaticInstance::change_facing(const maths::Mat4* orientation)
 {
-    CCollScaled::ChangeFacing(orientation);
-    RecomputeWorldBounds();
+    CollScaled::change_facing(orientation);
+    recompute_world_bounds();
 }
 
 // 0x00413F50
-void CCollStaticInstance::ChangeScale(const Maths::Vec4* scale)
+void CollStaticInstance::change_scale(const maths::Vec4* scale)
 {
-    m_sizeFactor = *scale;
-    UpdateInverse();
-    RecomputeWorldBounds();
+    size_factor_ = *scale;
+    update_inverse();
+    recompute_world_bounds();
 }
 
 // 0x004113B0
-void CCollStaticInstance::RecomputeWorldBounds()
+void CollStaticInstance::recompute_world_bounds()
 {
-    m_worldBox.min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
-    m_worldBox.max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
-    int count = m_geometry->m_numVertices;
+    world_box_.min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
+    world_box_.max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
+    int count = geometry_->num_vertices_;
     for (int i = 0; i < count; ++i) {
-        Maths::Vec4 raw;
-        m_geometry->ReadStoredVertex(i, &raw);
-        Maths::Vec4 scaled{raw.x * m_sizeFactor.x, raw.y * m_sizeFactor.y, raw.z * m_sizeFactor.z, raw.w * m_sizeFactor.w};
-        Maths::Vec4 placed;
-        m_basisFrame.CarryPointThrough(placed, scaled);
-        m_worldBox.AppendSpot(placed);
+        maths::Vec4 raw;
+        geometry_->read_stored_vertex(i, &raw);
+        maths::Vec4 scaled{raw.x * size_factor_.x, raw.y * size_factor_.y, raw.z * size_factor_.z, raw.w * size_factor_.w};
+        maths::Vec4 placed;
+        basis_frame_.carry_point_through(placed, scaled);
+        world_box_.append_spot(placed);
     }
 }
 
 // 0x00411460
-bool CCollStaticInstance::InsideBounds(const Maths::BBox* box) const
+bool CollStaticInstance::inside_bounds(const maths::BBox* box) const
 {
-    return box->Intersects(m_worldBox);
+    return box->intersects(world_box_);
 }
 
 // 0x00412830
-Maths::BBox* CCollStaticInstance::GetWorldBounds()
+maths::BBox* CollStaticInstance::get_world_bounds()
 {
-    return &m_worldBox;
+    return &world_box_;
 }
 
 // 0x00411330 (the position compared exactly; NaN is unequal)
-void CCollStaticInstance::RescaleIfAt(const Maths::Vec4* position, const Maths::Vec4* scale)
+void CollStaticInstance::rescale_if_at(const maths::Vec4* position, const maths::Vec4* scale)
 {
-    const Maths::Vec4& at = m_basisFrame.row[3];
+    const maths::Vec4& at = basis_frame_.row[3];
     if (!(position->x == at.x) || !(position->y == at.y) || !(position->z == at.z))
         return;
-    Maths::Vec4 scaled{scale->x * m_sizeFactor.x, scale->y * m_sizeFactor.y, scale->z * m_sizeFactor.z, scale->w * m_sizeFactor.w};
-    Call<void>(24, &scaled); // ChangeScale
+    maths::Vec4 scaled{scale->x * size_factor_.x, scale->y * size_factor_.y, scale->z * size_factor_.z, scale->w * size_factor_.w};
+    get_call<void>(24, &scaled); // change_scale
 }
 
 // 0x00412F50
-void CCollStaticInstance::DrawDiagnostic(int a, int b)
+void CollStaticInstance::draw_diagnostic(int a, int b)
 {
-    Maths::Mat4 transform = m_basisFrame;
-    transform.ScaleRows(m_sizeFactor);
-    DrawGeometry(m_geometry, &transform, a, b);
+    maths::Mat4 transform = basis_frame_;
+    transform.scale_rows(size_factor_);
+    draw_geometry(geometry_, &transform, a, b);
 }
 
 // 0x00413000
-CHitMovingTriangles* CHitMovingTriangles::MakeNew(CTriMeshSource* geometry)
+HitMovingTriangles* HitMovingTriangles::make_new(TriMeshSource* geometry)
 {
-    CHitMovingMesh::MakeNew();
-    m_vtable = Vt::kVtblMovingMeshColl;
-    new (&m_box) Maths::BBox();
-    AssignShapeData(geometry);
-    m_unknownD0 = geometry->m_unknown3C;
-    m_boxDirty = true;
+    HitMovingMesh::make_new();
+    vtable_ = vt::kVtblMovingMeshColl;
+    new (&box_) maths::BBox();
+    assign_shape_data(geometry);
+    unknownd0_ = geometry->unknown3c_;
+    box_dirty_ = true;
     return this;
 }
 
 // 0x00413080
-CHitMovingTriangles* CHitMovingTriangles::ConstructCopy(const CHitMovingTriangles* other)
+HitMovingTriangles* HitMovingTriangles::construct_copy(const HitMovingTriangles* other)
 {
-    CHitMovingMesh::ConstructCopy(other);
-    m_vtable = Vt::kVtblMovingMeshColl;
-    m_radius = other->m_radius;
-    m_boxDirty = other->m_boxDirty;
-    m_box = other->m_box;
-    m_unknownCC = other->m_unknownCC;
-    m_unknownD0 = other->m_unknownD0;
+    HitMovingMesh::construct_copy(other);
+    vtable_ = vt::kVtblMovingMeshColl;
+    radius_ = other->radius_;
+    box_dirty_ = other->box_dirty_;
+    box_ = other->box_;
+    unknowncc_ = other->unknowncc_;
+    unknownd0_ = other->unknownd0_;
     return this;
 }
 
 // 0x00413070
-void CHitMovingTriangles::Destruct()
+void HitMovingTriangles::destruct()
 {
-    m_vtable = Vt::kVtblMovingMeshColl;
-    CHitMovingMesh::Destruct();
+    vtable_ = vt::kVtblMovingMeshColl;
+    HitMovingMesh::destruct();
 }
 
 // 0x004143D0
-CHitMovingTriangles* CHitMovingTriangles::ScalarDelete(uint8_t flags)
+HitMovingTriangles* HitMovingTriangles::scalar_delete(uint8_t flags)
 {
-    Destruct();
+    destruct();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00414400
-CHitMovingTriangles* CHitMovingTriangles::Replicate(int argument)
+HitMovingTriangles* HitMovingTriangles::replicate(int argument)
 {
-    void* memory = MemSys::Alloc(sizeof(CHitMovingTriangles));
-    CHitMovingTriangles* copy = memory ? static_cast<CHitMovingTriangles*>(memory)->ConstructCopy(this) : nullptr;
-    copy->m_flagBits |= kOwnsGeometry; // (a failed allocation crashes here, as in the original)
-    copy->m_geometry = CloneGeometry(m_geometry, argument, 0);
+    void* memory = memory::alloc(sizeof(HitMovingTriangles));
+    HitMovingTriangles* copy = memory ? static_cast<HitMovingTriangles*>(memory)->construct_copy(this) : nullptr;
+    copy->flag_bits_ |= kOwnsGeometry; // (a failed allocation crashes here, as in the original)
+    copy->geometry_ = clone_geometry(geometry_, argument, 0);
     return copy;
 }
 
 // 0x00411780 (a null geometry crashes, as in the original)
-void CHitMovingTriangles::AssignShapeData(CTriMeshSource* geometry)
+void HitMovingTriangles::assign_shape_data(TriMeshSource* geometry)
 {
-    m_geometry = geometry;
+    geometry_ = geometry;
     if (geometry)
-        m_checksum = geometry->m_checksum;
-    m_radius = 0.0f;
-    for (int i = 0; i < geometry->m_numVertices; ++i) {
-        Maths::Vec4 v = m_geometry->ReadStoredVertex(i);
+        checksum_ = geometry->checksum_;
+    radius_ = 0.0f;
+    for (int i = 0; i < geometry->num_vertices_; ++i) {
+        maths::Vec4 v = geometry_->read_stored_vertex(i);
         double length = std::sqrt((static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y) +
                                   static_cast<double>(v.z) * v.z);
-        if (length > m_radius)
-            m_radius = static_cast<float>(length);
-        geometry = m_geometry;
+        if (length > radius_)
+            radius_ = static_cast<float>(length);
+        geometry = geometry_;
     }
-    m_boxDirty = true;
+    box_dirty_ = true;
 }
 
 // 0x00412F90
-void CHitMovingTriangles::PlaceAtAbsolutePoint(const Maths::Vec4* position)
+void HitMovingTriangles::place_at_absolute_point(const maths::Vec4* position)
 {
-    m_anchorPoint = *position;
-    m_boxDirty = true;
+    anchor_point_ = *position;
+    box_dirty_ = true;
 }
 
 // 0x00411810
-bool CHitMovingTriangles::InsideBounds(const Maths::BBox* box)
+bool HitMovingTriangles::inside_bounds(const maths::BBox* box)
 {
-    if (m_boxDirty) {
-        UpdateBBox();
-        m_boxDirty = false;
+    if (box_dirty_) {
+        update_b_box();
+        box_dirty_ = false;
     }
-    return box->Intersects(m_box);
+    return box->intersects(box_);
 }
 
 // 0x00412FC0
-Maths::BBox* CHitMovingTriangles::GetLocalBounds()
+maths::BBox* HitMovingTriangles::get_local_bounds()
 {
-    if (m_boxDirty) {
-        UpdateBBox();
-        m_boxDirty = false;
+    if (box_dirty_) {
+        update_b_box();
+        box_dirty_ = false;
     }
-    return &m_box;
+    return &box_;
 }
 
 // 0x0040B390
-void CHitMovingTriangles::UpdateBBox()
+void HitMovingTriangles::update_b_box()
 {
-    m_box.min = {m_anchorPoint.x - m_radius, m_anchorPoint.y - m_radius, m_anchorPoint.z - m_radius, 1.0f};
-    m_box.max = {m_radius + m_anchorPoint.x, m_anchorPoint.y + m_radius, m_anchorPoint.z + m_radius, 1.0f};
+    box_.min = {anchor_point_.x - radius_, anchor_point_.y - radius_, anchor_point_.z - radius_, 1.0f};
+    box_.max = {radius_ + anchor_point_.x, anchor_point_.y + radius_, anchor_point_.z + radius_, 1.0f};
 }
 
 // 0x00413130
-void CHitMovingTriangles::DrawDiagnostic(int a, int b)
+void HitMovingTriangles::draw_diagnostic(int a, int b)
 {
-    Maths::Mat4 transform = m_orientation;
-    transform.row[3] = m_anchorPoint;
-    DrawGeometry(m_geometry, &transform, a, b);
+    maths::Mat4 transform = orientation_;
+    transform.row[3] = anchor_point_;
+    draw_geometry(geometry_, &transform, a, b);
 }
 
 // 0x00414D60
-void CollGeometryStubs::DrawDiagnostic(const Maths::Mat4* /*transform*/, int /*a*/, int /*b*/, int /*c*/)
+void CollGeometryStubs::draw_diagnostic(const maths::Mat4* /*transform*/, int /*a*/, int /*b*/, int /*c*/)
 {
 }
 
 // 0x0040AE80
-void CollGeometryForwarders::RotateY(const Maths::Vec4* centre, int quarterTurns)
+void CollGeometryForwarders::rotate_y(const maths::Vec4* centre, int quarter_turns)
 {
-    m_geometry->RotateY(centre, quarterTurns);
+    geometry_->rotate_y(centre, quarter_turns);
 }
 
 // 0x0040AE90
-void CollGeometryForwarders::StretchBy(const Maths::Vec4* centre, const Maths::Vec4* scale)
+void CollGeometryForwarders::scale_tool(const maths::Vec4* centre, const maths::Vec4* scale)
 {
-    m_geometry->StretchBy(centre, scale);
+    geometry_->scale_tool(centre, scale);
 }
 
 // 0x0040AEA0
-void CollGeometryForwarders::DrawDiagnostic(int a, int b)
+void CollGeometryForwarders::draw_diagnostic(int a, int b)
 {
-    Stubs::IgnoreArguments2(a, b);
+    stubs::ignore_arguments2(a, b);
 }
 
 // 0x0040AEB0
-void CollGeometryForwarders::AddOcclusionPolys()
+void CollGeometryForwarders::add_occlusion_polys()
 {
-    m_geometry->AddOcclusionPolys();
+    geometry_->add_occlusion_polys();
 }
 
 // 0x0040AEC0
-bool CollGeometryForwarders::IsPointBehindFaces(const Maths::Vec4* point, int unused)
+bool CollGeometryForwarders::is_point_behind_faces(const maths::Vec4* point, int unused)
 {
-    return m_geometry->IsPointBehindFaces(point, unused);
+    return geometry_->is_point_behind_faces(point, unused);
 }
 
 // 0x00414990 (a failed allocation of the box crashes when there are geometries, as in the original)
-CHitMesh* BuildDynamicHitMesh(int type, CTriMeshSource* geometries, int count, int value)
+HitMesh* build_dynamic_hit_mesh(int type, TriMeshSource* geometries, int count, int value)
 {
-    CHitMesh* made;
+    HitMesh* made;
     if (type == 1) {
-        void* memory = MemSys::Alloc(sizeof(CHitMovingBox));
-        CHitMovingBox* box = memory ? static_cast<CHitMovingBox*>(memory)->MakeNew() : nullptr;
+        void* memory = memory::alloc(sizeof(HitMovingBox));
+        HitMovingBox* box = memory ? static_cast<HitMovingBox*>(memory)->make_new() : nullptr;
         if (count >= 1) {
-            Maths::BBox bounds;
+            maths::BBox bounds;
             for (int i = 0; i < count; ++i) {
-                bounds.AppendSpot(geometries[i].m_lowerLimit);
-                bounds.AppendSpot(geometries[i].m_upperLimit);
+                bounds.append_spot(geometries[i].lower_limit_);
+                bounds.append_spot(geometries[i].upper_limit_);
             }
-            box->m_box = bounds;
+            box->box_ = bounds;
         }
         made = box;
     } else if (type == 4) {
         if (count == 1) {
-            void* memory = MemSys::Alloc(sizeof(CHitMovingTriangles));
-            made = memory ? static_cast<CHitMovingTriangles*>(memory)->MakeNew(geometries) : nullptr;
+            void* memory = memory::alloc(sizeof(HitMovingTriangles));
+            made = memory ? static_cast<HitMovingTriangles*>(memory)->make_new(geometries) : nullptr;
         } else if (count > 1) {
-            void* memory = MemSys::Alloc(sizeof(CHitMeshGroup));
-            CHitMeshGroup* multi = memory ? static_cast<CHitMeshGroup*>(memory)->MakeNew() : nullptr;
+            void* memory = memory::alloc(sizeof(HitMeshGroup));
+            HitMeshGroup* multi = memory ? static_cast<HitMeshGroup*>(memory)->make_new() : nullptr;
             for (int i = 0; i < count; ++i) {
-                void* part = MemSys::Alloc(sizeof(CHitMovingTriangles));
-                multi->AttachChild(part ? static_cast<CHitMovingTriangles*>(part)->MakeNew(&geometries[i]) : nullptr);
+                void* part = memory::alloc(sizeof(HitMovingTriangles));
+                multi->attach_child(part ? static_cast<HitMovingTriangles*>(part)->make_new(&geometries[i]) : nullptr);
             }
             made = multi;
         } else {
@@ -487,17 +487,17 @@ CHitMesh* BuildDynamicHitMesh(int type, CTriMeshSource* geometries, int count, i
         return nullptr;
     }
     if (made) {
-        made->Call<void>(11, value);
-        RegisterMovable(made); // (the original also pushes `value`, which RegisterMovable doesn't use)
+        made->get_call<void>(11, value);
+        register_movable(made); // (the original also pushes `value`, which register_movable doesn't use)
     }
     return made;
 }
 
 } // namespace Nx
 
-namespace Engine3D {
+namespace render {
 
 // 0x00640860 (a static initialiser): the shared orientation starts as the rotation of no angles.
-void ConstructSharedOrientation() { g_sharedOrientation.SetFromEulerAngles(0.0f, 0.0f, 0.0f); }
+void construct_shared_orientation() { g_shared_orientation.set_from_euler_angles(0.0f, 0.0f, 0.0f); }
 
 } // namespace Nx

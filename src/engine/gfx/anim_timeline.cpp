@@ -1,4 +1,4 @@
-// The animation timeline (Gfx2D::CAnimTimeline, anim_controller.h), the blend channel's timeline (blend_timeline.h),
+// The animation timeline (gfx::AnimTimeline, anim_controller.h), the blend channel's timeline (blend_timeline.h),
 // the base animation controller's members and the base animation event's destructor body
 // (0x00481380-0x004819E6, but 0x004817D0). From the disassembly.
 
@@ -18,15 +18,15 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/core/stubs.h"
 
-namespace Gfx2D {
+namespace gfx {
 
 namespace {
 
 extern void** const kTimelineVtable;
-void** const& kListNodeVtable = Vt::kAnimListNode; // (the channel list's node type)
-void** const& kBlendTimelineVtable = Vt::kAnimTrack;
+void** const& g_list_node_vtable = vt::kAnimListNode; // (the channel list's node type)
+void** const& g_blend_timeline_vtable = vt::kAnimTrack;
 extern void** const kControllerVtable;
-void** const& kEventVtable = Vt::kAnimEventBase;
+void** const& g_event_vtable = vt::kAnimEventBase;
 constexpr uint32_t kNoAnim = 0xF60C9090;     // Unassigned
 constexpr uint32_t kId = 0x40C698AF;         // id
 constexpr uint32_t kSkeleton = 0x222756D5;   // skeleton
@@ -34,30 +34,30 @@ constexpr float kFramesPerSecond = 60.0f;    // 0x00645EA0
 constexpr float kSecondsPerFrame = 1.0f / 60.0f; // 0x006463B8
 
 template <typename T>
-void** Vtable(T address)
+void** get_vtable(T address)
 {
     return reinterpret_cast<void**>(address);
 }
 
-MemSys::ListNode* Elem(CAnimTimeline* timeline) { return reinterpret_cast<MemSys::ListNode*>(timeline); }
+memory::ListNode* elem(AnimTimeline* timeline) { return reinterpret_cast<memory::ListNode*>(timeline); }
 
 // The timeline's empty state (Reset and the constructor).
-void Clear(CAnimTimeline* t)
+void get_clear(AnimTimeline* t)
 {
-    t->m_outset = 0.0f;
-    t->m_ongoing = 0.0f;
-    t->m_finish = 0.0f;
-    t->m_speed = 0.0f;
-    t->m_direction = 0;
-    t->m_repeatMode = CAnimTimeline::kCycle;
-    t->m_complete = false;
-    t->m_anim = kNoAnim;
+    t->outset_ = 0.0f;
+    t->ongoing_ = 0.0f;
+    t->finish_ = 0.0f;
+    t->speed_ = 0.0f;
+    t->direction_ = 0;
+    t->repeat_mode_ = AnimTimeline::kCycle;
+    t->complete_ = false;
+    t->anim_ = kNoAnim;
 }
 
 // A controller's scalar deleting destructor (slot 0) and pose (slot 1).
-void DeleteController(CAnimDriver* controller)
+void delete_controller(AnimDriver* controller)
 {
-    reinterpret_cast<void(__thiscall*)(CAnimDriver*, int)>(controller->m_vtable[0])(controller, 1);
+    reinterpret_cast<void(__thiscall*)(AnimDriver*, int)>(controller->vtable_[0])(controller, 1);
 }
 
 } // namespace
@@ -65,293 +65,293 @@ void DeleteController(CAnimDriver* controller)
 // --- the timeline ---
 
 // 0x00481650
-CAnimTimeline* CAnimTimeline::MakeNew()
+AnimTimeline* AnimTimeline::make_new()
 {
-    MemSys::ListNode* node = Elem(this);
+    memory::ListNode* node = elem(this);
     node->data = this;
     node->priority = 0;
     node->next = node;
     node->prev = node;
-    m_vtable = kTimelineVtable;
-    Clear(this);
+    vtable_ = kTimelineVtable;
+    get_clear(this);
     return this;
 }
 
 // 0x00481690
-void CAnimTimeline::DestroyBody()
+void AnimTimeline::destroy_body()
 {
-    Elem(this)->UnlinkAs(kListNodeVtable);
+    elem(this)->unlink_as(g_list_node_vtable);
 }
 
 // 0x004816E0
-CAnimTimeline* CAnimTimeline::Teardown(uint8_t flags)
+AnimTimeline* AnimTimeline::teardown(uint8_t flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
 // 0x00481380
-void CAnimTimeline::Reset()
+void AnimTimeline::get_reset()
 {
-    Clear(this);
+    get_clear(this);
 }
 
 // 0x00481640
-void CAnimTimeline::TickFrame()
+void AnimTimeline::tick_frame()
 {
-    m_ongoing = static_cast<float>(NextTime());
+    ongoing_ = static_cast<float>(next_time());
 }
 
 // 0x00481430 (start: the smaller of the two - `to` when they're equal or NaN; end: the other)
-void CAnimTimeline::PlayAnim(uint32_t anim, float from, float to, int loopType, float /*blendPeriod*/, float speed)
+void AnimTimeline::play_anim(uint32_t anim, float from, float to, int loop_type, float /*blendPeriod*/, float speed)
 {
     bool forwards = from < to;
-    m_outset = forwards ? from : to;
-    m_ongoing = from;
-    m_finish = forwards ? to : from;
-    m_speed = speed * kSecondsPerFrame;
-    m_direction = forwards ? 0 : -1;
-    m_repeatMode = loopType;
-    m_complete = false;
-    m_anim = anim;
+    outset_ = forwards ? from : to;
+    ongoing_ = from;
+    finish_ = forwards ? to : from;
+    speed_ = speed * kSecondsPerFrame;
+    direction_ = forwards ? 0 : -1;
+    repeat_mode_ = loop_type;
+    complete_ = false;
+    anim_ = anim;
 }
 
 // 0x004813B0
-void CAnimTimeline::GetTimes(float* start, float* current, float* end)
+void AnimTimeline::get_times(float* start, float* current, float* end)
 {
-    *current = m_ongoing;
-    if (m_direction == 0) {
-        *start = m_outset;
-        *end = m_finish;
+    *current = ongoing_;
+    if (direction_ == 0) {
+        *start = outset_;
+        *end = finish_;
     } else {
-        *start = m_finish;
-        *end = m_outset;
+        *start = finish_;
+        *end = outset_;
     }
 }
 
 // 0x004813F0
-bool CAnimTimeline::IsAccomplished()
+bool AnimTimeline::is_accomplished()
 {
-    if (m_repeatMode != kOnce)
+    if (repeat_mode_ != kOnce)
         return false;
-    return m_direction == 0 ? m_ongoing == m_finish : m_ongoing == m_outset;
+    return direction_ == 0 ? ongoing_ == finish_ : ongoing_ == outset_;
 }
 
 // 0x004814B0 (x87: the step and the wrapped time unrounded; the stepped time itself kept as a float)
-double CAnimTimeline::NextTime()
+double AnimTimeline::next_time()
 {
     float stepped = 0.0f; // the time a frame on
     float bound = 0.0f;   // the end it reaches
     double time = 0.0;
-    m_complete = false;
-    if (m_repeatMode == kHold)
+    complete_ = false;
+    if (repeat_mode_ == kHold)
         return 0.0;
-    if (m_direction == 0) {
-        double next = FrameClock::GetSlomoFrameSeconds() * kFramesPerSecond * m_speed + m_ongoing;
+    if (direction_ == 0) {
+        double next = frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * speed_ + ongoing_;
         stepped = static_cast<float>(next);
-        m_complete = next > m_finish;
-        if (m_outset == m_finish) {
-            bound = m_finish;
-            time = m_finish;
+        complete_ = next > finish_;
+        if (outset_ == finish_) {
+            bound = finish_;
+            time = finish_;
         } else {
             // (wrapped round the end, as many times as it takes - forever on a degenerate range, as the original)
-            time = static_cast<double>(stepped) - m_finish + m_outset;
-            while (time > m_finish)
-                time = time - m_finish + m_outset;
-            bound = m_finish;
+            time = static_cast<double>(stepped) - finish_ + outset_;
+            while (time > finish_)
+                time = time - finish_ + outset_;
+            bound = finish_;
         }
-    } else if (m_direction == -1) {
-        double next = m_ongoing - FrameClock::GetSlomoFrameSeconds() * kFramesPerSecond * m_speed;
+    } else if (direction_ == -1) {
+        double next = ongoing_ - frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * speed_;
         stepped = static_cast<float>(next);
-        m_complete = next < m_outset;
-        if (m_outset == m_finish) {
-            time = m_finish;
+        complete_ = next < outset_;
+        if (outset_ == finish_) {
+            time = finish_;
         } else {
-            time = static_cast<double>(stepped) - m_outset + m_finish;
-            while (time < m_outset)
-                time = time - m_outset + m_finish;
+            time = static_cast<double>(stepped) - outset_ + finish_;
+            while (time < outset_)
+                time = time - outset_ + finish_;
         }
-        bound = m_outset;
+        bound = outset_;
     }
-    if (m_complete && m_repeatMode == kOnce) {
+    if (complete_ && repeat_mode_ == kOnce) {
         time = bound;
-    } else if (m_complete && m_repeatMode == kPingPong) {
+    } else if (complete_ && repeat_mode_ == kPingPong) {
         time = bound;
-        m_direction = m_direction != 0 ? 0 : -1;
-    } else if (!m_complete || m_repeatMode != kCycle) {
+        direction_ = direction_ != 0 ? 0 : -1;
+    } else if (!complete_ || repeat_mode_ != kCycle) {
         time = stepped;
     }
-    if (time < m_outset)
-        time = m_outset;
-    if (time > m_finish)
-        time = m_finish;
+    if (time < outset_)
+        time = outset_;
+    if (time > finish_)
+        time = finish_;
     return time;
 }
 
 // 0x004816B0
-void CAnimTimeline::AdvanceClock(float frames)
+void AnimTimeline::advance_clock(float frames)
 {
-    float speed = m_speed;
-    m_speed = 0.0f;
-    m_ongoing = static_cast<float>(static_cast<double>(frames) + m_ongoing);
-    m_ongoing = static_cast<float>(NextTime());
-    m_speed = speed;
+    float speed = speed_;
+    speed_ = 0.0f;
+    ongoing_ = static_cast<float>(static_cast<double>(frames) + ongoing_);
+    ongoing_ = static_cast<float>(next_time());
+    speed_ = speed;
 }
 
 // --- the blend timeline ---
 
 // 0x00481830
-CAnimTrack* CAnimTrack::MakeNew(GameObjects::CGameEntity* object)
+AnimTrack* AnimTrack::make_new(objects::GameEntity* object)
 {
-    CAnimTimeline::MakeNew();
-    m_controllerCount = 0;
-    m_eventsPtr = nullptr;
-    m_eventCount = 0;
-    m_ownerObject = object;
-    m_vtable = kBlendTimelineVtable;
-    m_eventsOn = true;
-    m_curPhase = kPlaying;
+    AnimTimeline::make_new();
+    controller_count_ = 0;
+    events_ptr_ = nullptr;
+    event_count_ = 0;
+    owner_object_ = object;
+    vtable_ = g_blend_timeline_vtable;
+    events_on_ = true;
+    cur_phase_ = kPlaying;
     return this;
 }
 
 // 0x00481960
-void CAnimTrack::Reset()
+void AnimTrack::get_reset()
 {
-    CAnimTimeline::Reset();
-    m_curPhase = kOff;
-    m_fadeLeft = 0.0f;
-    m_fadeScale = 0.0f;
+    AnimTimeline::get_reset();
+    cur_phase_ = kOff;
+    fade_left_ = 0.0f;
+    fade_scale_ = 0.0f;
 }
 
 // 0x00481870
-void CAnimTrack::DeleteControllers()
+void AnimTrack::delete_controllers()
 {
-    for (int i = 0; i < m_controllerCount; ++i) {
-        if (m_controllerList[i])
-            DeleteController(m_controllerList[i]);
-        m_controllerList[i] = nullptr;
+    for (int i = 0; i < controller_count_; ++i) {
+        if (controller_list_[i])
+            delete_controller(controller_list_[i]);
+        controller_list_[i] = nullptr;
     }
-    m_controllerCount = 0;
+    controller_count_ = 0;
 }
 
 // 0x004818B0
-void CAnimTrack::DetachAnimDriver(CAnimDriver* controller)
+void AnimTrack::detach_anim_driver(AnimDriver* controller)
 {
     int i = 0;
     for (;; ++i) {
-        if (i >= m_controllerCount)
+        if (i >= controller_count_)
             return;
-        if (m_controllerList[i] == controller)
+        if (controller_list_[i] == controller)
             break;
     }
-    if (m_controllerList[i])
-        DeleteController(m_controllerList[i]);
-    m_controllerList[i] = nullptr;
-    for (; i < m_controllerCount - 1; ++i)
-        m_controllerList[i] = m_controllerList[i + 1];
-    --m_controllerCount;
+    if (controller_list_[i])
+        delete_controller(controller_list_[i]);
+    controller_list_[i] = nullptr;
+    for (; i < controller_count_ - 1; ++i)
+        controller_list_[i] = controller_list_[i + 1];
+    --controller_count_;
 }
 
 // 0x00481920
-bool CAnimTrack::GetPoses(void* pose)
+bool AnimTrack::get_poses(void* pose)
 {
-    for (int i = 0; i < m_controllerCount; ++i) {
-        CAnimDriver* controller = m_controllerList[i];
-        reinterpret_cast<bool(__thiscall*)(CAnimDriver*, void*)>(controller->m_vtable[1])(controller, pose);
+    for (int i = 0; i < controller_count_; ++i) {
+        AnimDriver* controller = controller_list_[i];
+        reinterpret_cast<bool(__thiscall*)(AnimDriver*, void*)>(controller->vtable_[1])(controller, pose);
     }
     return true;
 }
 
 // 0x00481980
-bool CAnimTrack::IsOperative()
+bool AnimTrack::is_operative()
 {
-    return m_curPhase != kOff;
+    return cur_phase_ != kOff;
 }
 
 // 0x00481990
-bool CAnimTrack::IsFading()
+bool AnimTrack::is_fading()
 {
-    return m_curPhase == kFading;
+    return cur_phase_ == kFading;
 }
 
 // 0x004819A0
-void CAnimTrack::ArmEvents()
+void AnimTrack::arm_events()
 {
-    for (uint32_t i = 0; i < m_eventCount; ++i)
-        reinterpret_cast<CUserClipKey*>(&m_eventsPtr[i])->ChangeLive(true);
+    for (uint32_t i = 0; i < event_count_; ++i)
+        reinterpret_cast<UserClipKey*>(&events_ptr_[i])->change_live(true);
 }
 
 // 0x004819D0
-GameObjects::CGameEntity* CAnimTrack::FetchSubject()
+objects::GameEntity* AnimTrack::fetch_subject()
 {
-    return m_ownerObject;
+    return owner_object_;
 }
 
 // --- the base controller ---
 
 // 0x00481710
-CAnimDriver* CAnimDriver::MakeNew(CAnimTimeline* timeline)
+AnimDriver* AnimDriver::make_new(AnimTimeline* timeline)
 {
-    m_timelinePtr = timeline;
-    m_vtable = kControllerVtable;
-    m_ident = 0;
-    m_ownerObject = nullptr;
-    m_rank = 0;
+    timeline_ptr_ = timeline;
+    vtable_ = kControllerVtable;
+    ident_ = 0;
+    owner_object_ = nullptr;
+    rank_ = 0;
     return this;
 }
 
 // 0x00481730
-void CAnimDriver::DestroyBody()
+void AnimDriver::destroy_body()
 {
-    m_vtable = kControllerVtable;
+    vtable_ = kControllerVtable;
 }
 
 // 0x004817A0
-CAnimDriver* CAnimDriver::Teardown(uint8_t flags)
+AnimDriver* AnimDriver::teardown(uint8_t flags)
 {
-    m_vtable = kControllerVtable;
+    vtable_ = kControllerVtable;
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
 // 0x00481740
-bool CAnimDriver::ConfigureFromData(Scripts::CStruct* params)
+bool AnimDriver::configure_from_data(script::Struct* params)
 {
-    return params->ReadHashValue(kId, &m_ident, 0);
+    return params->read_hash_value(kId, &ident_, 0);
 }
 
 // 0x00481760
-GameObjects::CGameEntity* CAnimDriver::FetchSubject()
+objects::GameEntity* AnimDriver::fetch_subject()
 {
-    return static_cast<CAnimTrack*>(m_timelinePtr)->FetchSubject();
+    return static_cast<AnimTrack*>(timeline_ptr_)->fetch_subject();
 }
 
 // 0x00481770
-uint8_t* CAnimDriver::FetchRig()
+uint8_t* AnimDriver::fetch_rig()
 {
-    GameObjects::CObjectModule* component = static_cast<CAnimTrack*>(m_timelinePtr)->FetchSubject()->FetchModule(kSkeleton);
-    return component ? static_cast<GameObjects::CBoneRigModule*>(component)->m_boneRig : nullptr;
+    objects::ObjectModule* component = static_cast<AnimTrack*>(timeline_ptr_)->fetch_subject()->fetch_module(kSkeleton);
+    return component ? static_cast<objects::BoneRigModule*>(component)->bone_rig_ : nullptr;
 }
 
 // --- the base event ---
 
 // 0x004819E0
-void CAnimEventBase::DestroyBody()
+void AnimEventBase::destroy_body()
 {
-    m_vtable = kEventVtable;
+    vtable_ = g_event_vtable;
 }
 
 namespace {
-static VtableSlot kTimelineVtable_slots[] = {&Gfx2D::CAnimTimeline::Teardown, &Gfx2D::CAnimTimeline::Reset,
-                &Gfx2D::CAnimTimeline::TickFrame, &Gfx2D::CAnimTimeline::PlayAnim, Stubs::IgnoreArgument};
-void** const kTimelineVtable = reinterpret_cast<void**>(kTimelineVtable_slots);
-static VtableSlot kControllerVtable_slots[] = {&Gfx2D::CAnimDriver::Teardown, Stubs::ReturnFalse1,
-                Stubs::IgnoreArgument, &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName,
-                &Gfx2D::CAnimDriver::ConfigureFromData, Stubs::DoNothing};
-void** const kControllerVtable = reinterpret_cast<void**>(kControllerVtable_slots);
+static VtableSlot g_timeline_vtable_slots[] = {&gfx::AnimTimeline::teardown, &gfx::AnimTimeline::get_reset,
+                &gfx::AnimTimeline::tick_frame, &gfx::AnimTimeline::play_anim, stubs::ignore_argument};
+void** const kTimelineVtable = reinterpret_cast<void**>(g_timeline_vtable_slots);
+static VtableSlot g_controller_vtable_slots[] = {&gfx::AnimDriver::teardown, stubs::return_false1,
+                stubs::ignore_argument, &objects::ComponentWithoutMemberFunctions::invoke_method_by_name,
+                &gfx::AnimDriver::configure_from_data, stubs::do_nothing};
+void** const kControllerVtable = reinterpret_cast<void**>(g_controller_vtable_slots);
 } // namespace
 
 } // namespace Gfx

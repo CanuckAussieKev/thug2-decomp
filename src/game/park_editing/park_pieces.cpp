@@ -1,4 +1,4 @@
-// The park editor's pieces (ParkEditing::CParkTile, CTileTemplate, CCopiedPiece) and cell boxes (SCellBox): a source piece is
+// The park editor's pieces (park_editing::ParkTile, TileTemplate, CopiedPiece) and cell boxes (CellBox): a source piece is
 // one of the editor's own sectors (its name and size); the pieces placed in the park are cloned from them and moved,
 // turned, stretched, shown or tinted through their sectors.
 
@@ -13,14 +13,14 @@
 #include "game/park_editing/park_nx.h"
 #include "engine/maths/mat4.h"
 
-namespace ParkEditing {
+namespace park_editing {
 
-static VtableSlot kPieceVtable_slots[] = {&_purecall, &CParkTile::Teardown};
-void** const kPieceVtable = reinterpret_cast<void**>(kPieceVtable_slots);
-static VtableSlot kSourcePieceVtable_slots[] = {&CTileTemplate::MeasureSpan, &CTileTemplate::Teardown};
-void** const kSourcePieceVtable = reinterpret_cast<void**>(kSourcePieceVtable_slots);
-static VtableSlot kClonedPieceVtable_slots[] = {&CCopiedPiece::MeasureSpan, &CTileTemplate::Teardown};
-void** const kClonedPieceVtable = reinterpret_cast<void**>(kClonedPieceVtable_slots);
+static VtableSlot g_piece_vtable_slots[] = {&_purecall, &ParkTile::teardown};
+void** const kPieceVtable = reinterpret_cast<void**>(g_piece_vtable_slots);
+static VtableSlot g_source_piece_vtable_slots[] = {&TileTemplate::measure_span, &TileTemplate::teardown};
+void** const kSourcePieceVtable = reinterpret_cast<void**>(g_source_piece_vtable_slots);
+static VtableSlot g_cloned_piece_vtable_slots[] = {&CopiedPiece::measure_span, &TileTemplate::teardown};
+void** const kClonedPieceVtable = reinterpret_cast<void**>(g_cloned_piece_vtable_slots);
 
 namespace {
 
@@ -30,85 +30,85 @@ constexpr double kCellSlack = 2.0;
 constexpr float kRadiansPerDegree = 0.0174532924f;
 
 // A piece's size in whole cells along one axis (truncated).
-uint8_t Cells(float size, float cell) { return static_cast<uint8_t>(static_cast<int>((size + kCellSlack) / cell)); }
+uint8_t get_cells(float size, float cell) { return static_cast<uint8_t>(static_cast<int>((size + kCellSlack) / cell)); }
 
 // D3DXMatrixMultiply (0x005BFA8C, the D3DX library's): out = a * b.
-void MultiplyMatrices(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
+void multiply_matrices(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
 {
-    D3dx::MatrixMultiply(out, a, b);
+    d3dx::matrix_multiply(out, a, b);
 }
 
 } // namespace
 
-// --- SCellBox ----------------------------------------------------------------------------------------------------
+// --- CellBox ----------------------------------------------------------------------------------------------------
 
-SCellBox* SCellBox::AssignValue(uint8_t x_, int8_t y_, uint8_t z_, uint8_t w_, uint8_t h_, uint8_t l_)
+CellBox* CellBox::assign_value(uint8_t x, int8_t y, uint8_t z, uint8_t w, uint8_t h, uint8_t l)
 {
-    x = x_;
-    y = y_;
-    z = z_;
-    w = w_;
-    h = h_;
-    l = l_;
+    x = x;
+    y = y;
+    z = z;
+    w = w;
+    h = h;
+    l = l;
     return this;
 }
 
-uint8_t* SCellBox::Byte(int index) { return reinterpret_cast<uint8_t*>(this) + index; }
+uint8_t* CellBox::get_byte(int index) { return reinterpret_cast<uint8_t*>(this) + index; }
 
-void SCellBox::StretchVertically() { h = static_cast<uint8_t>(0x7F - y); }
+void CellBox::stretch_vertically() { h = static_cast<uint8_t>(0x7F - y); }
 
-void SCellBox::RaiseCeilingToLimit()
+void CellBox::raise_ceiling_to_limit()
 {
     y = -100;
     h = 200;
 }
 
-void SCellBox::DumpToLog() const
+void CellBox::dump_to_log() const
 {
-    DebugOut::Printf("pos=(%d,%d,%d) dims=(%d,%d,%d)\n", x, static_cast<int>(y), z, w, h, l); // "pos=(%d,%d,%d) dims=..."
+    debug::printf("pos=(%d,%d,%d) dims=(%d,%d,%d)\n", x, static_cast<int>(y), z, w, h, l); // "pos=(%d,%d,%d) dims=..."
 }
 
-// --- CParkTile -------------------------------------------------------------------------------------------------------
+// --- ParkTile -------------------------------------------------------------------------------------------------------
 
-void CParkTile::DestroyBody() { m_vtable = kVtable; }
+void ParkTile::destroy_body() { vtable_ = kVtable; }
 
-CParkTile* CParkTile::Teardown(unsigned int flags)
+ParkTile* ParkTile::teardown(unsigned int flags)
 {
-    m_vtable = kVtable;
+    vtable_ = kVtable;
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
-uint32_t CParkTile::FetchSerial() { return m_ident; }
+uint32_t ParkTile::fetch_serial() { return ident_; }
 
-void CParkTile::SetQuarterTurns(int rot, int update)
+void ParkTile::set_quarter_turns(int rot, int update)
 {
-    m_quarterTurns = rot;
+    quarter_turns_ = rot;
     if (update == 1)
-        Scene::SpinAroundUp(Scene::LookUpSector(m_sector), rot);
+        scene::spin_around_up(scene::look_up_sector(sector_), rot);
 }
 
-void CParkTile::ChangeLive(bool active) { Scene::ChangeLive(Scene::LookUpSector(m_sector), active); }
+void ParkTile::change_live(bool active) { scene::change_live(scene::look_up_sector(sector_), active); }
 
-void CParkTile::SetVisible(bool visible) { Scene::ToggleShown(Scene::LookUpSector(m_sector), visible ? 0xFF : 0); }
+void ParkTile::set_visible(bool visible) { scene::toggle_shown(scene::look_up_sector(sector_), visible ? 0xFF : 0); }
 
-void CParkTile::GetFootprintSize(SCellBox* dims)
+void ParkTile::get_footprint_size(CellBox* dims)
 {
-    Maths::Vec4 size;
-    MeasureSpan(&size);
-    dims->l = Cells(size.z, kGridStepAlong);
-    dims->h = Cells(size.y, kGridStepUp);
-    dims->w = Cells(size.x, kGridPitch);
+    maths::Vec4 size;
+    measure_span(&size);
+    dims->l = get_cells(size.z, kGridStepAlong);
+    dims->h = get_cells(size.y, kGridStepUp);
+    dims->w = get_cells(size.x, kGridPitch);
 }
 
-Maths::Vec4* CParkTile::GetDimsTurned(Maths::Vec4* out, int rot)
+maths::Vec4* ParkTile::get_dims_turned(maths::Vec4* out, int rot)
 {
-    CParkTile* source = (m_flagBits & kSource) ? this : m_blendSource->AsPiece();
+    ParkTile* source = (flag_bits_ & kSource) ? this : blend_source_->as_piece();
     // (The original asks the source three times, once per component; it's a plain getter. Its w: the source's when
     // the turn is odd, a stack leftover when it's even - the source's here.)
-    Maths::Vec4 size;
-    source->MeasureSpan(&size);
+    maths::Vec4 size;
+    source->measure_span(&size);
     const bool across = (rot & 1) != 0;
     out->x = across ? size.z : size.x;
     out->y = size.y;
@@ -117,102 +117,102 @@ Maths::Vec4* CParkTile::GetDimsTurned(Maths::Vec4* out, int rot)
     return out;
 }
 
-void CParkTile::ChangePlace(Maths::Vec4* position, int update)
+void ParkTile::change_place(maths::Vec4* position, int update)
 {
-    m_atPoint.x = position->x;
-    m_atPoint.y = position->y;
-    m_atPoint.z = position->z;
-    m_atPoint.w = position->w;
+    at_point_.x = position->x;
+    at_point_.y = position->y;
+    at_point_.z = position->z;
+    at_point_.w = position->w;
     if (update == 1)
-        Scene::PlaceAtAbsolutePoint(Scene::LookUpSector(m_sector), position);
+        scene::place_at_absolute_point(scene::look_up_sector(sector_), position);
 }
 
-void CParkTile::SetLength(float length)
+void ParkTile::set_length(float length)
 {
-    uint8_t* sector = Scene::LookUpSector(m_sector);
-    const bool across = (m_quarterTurns & 1) != 0;
+    uint8_t* sector = scene::look_up_sector(sector_);
+    const bool across = (quarter_turns_ & 1) != 0;
     // (w is a stack leftover in the original)
-    Maths::Vec4 scale = {across ? 1.0f : length, 1.0f, across ? length : 1.0f, 1.0f};
-    Scene::ChangeScale(sector, &scale);
+    maths::Vec4 scale = {across ? 1.0f : length, 1.0f, across ? length : 1.0f, 1.0f};
+    scene::change_scale(sector, &scale);
 }
 
-void CParkTile::SetAngle(float degrees)
+void ParkTile::set_angle(float degrees)
 {
-    uint8_t* geometry = Scene::FetchShape(Scene::LookUpSector(m_sector));
+    uint8_t* geometry = scene::fetch_shape(scene::look_up_sector(sector_));
     if (!geometry)
         return;
-    Maths::Mat4 orientation;
-    orientation.ResetToIdentity();
-    Maths::Mat4 turn;
-    Maths::MakeYawMatrix(turn, static_cast<float>(static_cast<double>(degrees) * kRadiansPerDegree));
-    MultiplyMatrices(&orientation, &orientation, &turn);
-    Scene::ChangeFacing(geometry, &orientation);
+    maths::Mat4 orientation;
+    orientation.reset_to_identity();
+    maths::Mat4 turn;
+    maths::make_yaw_matrix(turn, static_cast<float>(static_cast<double>(degrees) * kRadiansPerDegree));
+    multiply_matrices(&orientation, &orientation, &turn);
+    scene::change_facing(geometry, &orientation);
 }
 
-void CParkTile::SetHighlight(bool on, bool gap)
+void ParkTile::set_highlight(bool on, bool gap)
 {
-    uint8_t* sector = Scene::LookUpSector(m_sector);
+    uint8_t* sector = scene::look_up_sector(sector_);
     if (!sector)
         return;
-    uint8_t* geometry = Scene::FetchShape(sector);
+    uint8_t* geometry = scene::fetch_shape(sector);
     if (!geometry)
         return;
     if (!on) {
-        Scene::WipeTint(geometry);
+        scene::wipe_tint(geometry);
         return;
     }
     // r g b (a 0): purple over a gap's pieces, red otherwise
-    Scene::ChangeTint(geometry, gap ? 0x00A064A0u : 0x006464A0u);
+    scene::change_tint(geometry, gap ? 0x00A064A0u : 0x006464A0u);
 }
 
-// --- CTileTemplate / CCopiedPiece ---------------------------------------------------------------------------------
+// --- TileTemplate / CopiedPiece ---------------------------------------------------------------------------------
 
-CTileTemplate* CTileTemplate::MakeNew()
+TileTemplate* TileTemplate::make_new()
 {
-    m_label = 0;
-    m_following = nullptr;
-    m_vtable = kVtable;
-    m_flagBits = CParkTile::kSource;
-    m_extent = {0.0f, 0.0f, 0.0f, 1.0f};
-    m_20 = 1;
-    m_triggerScript = 0;
-    m_railPointTotal = 0;
-    m_numRailSegments = 0;
+    label_ = 0;
+    following_ = nullptr;
+    vtable_ = kVtable;
+    flag_bits_ = ParkTile::kSource;
+    extent_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    field_20_ = 1;
+    trigger_script_ = 0;
+    rail_point_total_ = 0;
+    num_rail_segments_ = 0;
     return this;
 }
 
-Maths::Vec4* CTileTemplate::MeasureSpan(Maths::Vec4* out)
+maths::Vec4* TileTemplate::measure_span(maths::Vec4* out)
 {
-    out->x = m_extent.x;
-    out->y = m_extent.y;
-    out->z = m_extent.z;
-    out->w = m_extent.w;
+    out->x = extent_.x;
+    out->y = extent_.y;
+    out->z = extent_.z;
+    out->w = extent_.w;
     return out;
 }
 
-CTileTemplate* CTileTemplate::Teardown(unsigned int flags)
+TileTemplate* TileTemplate::teardown(unsigned int flags)
 {
-    AsPiece()->DestroyBody();
+    as_piece()->destroy_body();
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
-CCopiedPiece* CCopiedPiece::MakeNew()
+CopiedPiece* CopiedPiece::make_new()
 {
-    m_sector = 0;
-    m_following = nullptr;
-    m_vtable = kVtable;
-    m_ident = 0;
-    m_flagBits = kCloned;
-    m_blendSource = nullptr;
+    sector_ = 0;
+    following_ = nullptr;
+    vtable_ = kVtable;
+    ident_ = 0;
+    flag_bits_ = kCloned;
+    blend_source_ = nullptr;
     return this;
 }
 
-Maths::Vec4* CCopiedPiece::MeasureSpan(Maths::Vec4* out)
+maths::Vec4* CopiedPiece::measure_span(maths::Vec4* out)
 {
-    const Maths::Vec4& size = m_blendSource->m_extent;
-    const bool across = (m_quarterTurns & 1) != 0;
+    const maths::Vec4& size = blend_source_->extent_;
+    const bool across = (quarter_turns_ & 1) != 0;
     out->x = across ? size.z : size.x;
     out->y = size.y;
     out->z = across ? size.x : size.z;
@@ -222,7 +222,7 @@ Maths::Vec4* CCopiedPiece::MeasureSpan(Maths::Vec4* out)
 
 } // namespace Ed
 
-using ParkEditing::CCopiedPiece;
-using ParkEditing::CParkTile;
-using ParkEditing::CTileTemplate;
-using ParkEditing::SCellBox;
+using park_editing::CopiedPiece;
+using park_editing::ParkTile;
+using park_editing::TileTemplate;
+using park_editing::CellBox;

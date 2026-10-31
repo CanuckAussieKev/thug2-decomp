@@ -21,98 +21,98 @@
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/engine_glue.h"
 
-namespace Engine3D {
+namespace render {
 
-bool g_shadersAvailable;
-uint32_t g_blendMode;
-uint32_t g_blendOp;
-uint32_t g_srcBlend;
-uint32_t g_destBlend;
-uint32_t g_alphaBlend;
-uint32_t g_alphaTest;
-uint32_t g_alphaTestValue;
+bool g_shaders_available;
+uint32_t g_blend_mode;
+uint32_t g_blend_op;
+uint32_t g_src_blend;
+uint32_t g_dest_blend;
+uint32_t g_alpha_blend;
+uint32_t g_alpha_test;
+uint32_t g_alpha_test_value;
 uint32_t g_specular;
 uint8_t g_dither;
-uint8_t g_zWrite;
-uint8_t g_zTest;
-uint32_t g_depthBias;
+uint8_t g_z_write;
+uint8_t g_z_test;
+uint32_t g_depth_bias;
 uint32_t g_lighting;
-uint32_t g_cullMode;
-bool g_nearCamera;
-uint32_t g_addressModes[4];
-uint32_t g_mipLodBiases[4];
+uint32_t g_cull_mode;
+bool g_near_camera;
+uint32_t g_address_modes[4];
+uint32_t g_mip_lod_biases[4];
 uint32_t g_filters[4];
 void* g_textures[4];
-uint32_t g_borderColours[4];
-uint32_t g_vertexFormat;
-uint32_t g_pixelShaderLocked;
-void* g_currentPixelShader;
-float g_psConstantBank[20];
-uint32_t g_instanceColourOn;
-uint8_t g_instanceColour[4];
-uint8_t g_pixelShaderChanged;
-uint32_t g_vertexFormatLocked;
-uint32_t g_skippedPasses;
-uint32_t g_submitLocked;
-uint32_t g_forcedBlend;
-uint32_t g_fogActive;
-uint8_t g_localViewer;
-const float* g_worldTransform;
-float g_worldTransformCopy[16];
+uint32_t g_border_colours[4];
+uint32_t g_vertex_format;
+uint32_t g_pixel_shader_locked;
+void* g_current_pixel_shader;
+float g_ps_constant_bank[20];
+uint32_t g_instance_colour_on;
+uint8_t g_instance_colour[4];
+uint8_t g_pixel_shader_changed;
+uint32_t g_vertex_format_locked;
+uint32_t g_skipped_passes;
+uint32_t g_submit_locked;
+uint32_t g_forced_blend;
+uint32_t g_fog_active;
+uint8_t g_local_viewer;
+const float* g_world_transform;
+float g_world_transform_copy[16];
 
 namespace {
 
-IDirect3DDevice9* InputPort() { return g_d3dDevice; }
+IDirect3DDevice9* input_port() { return g_d3d_device; }
 
 // What the device was last given (the cache).
-uint32_t& BlendMode() { return g_blendMode; }
-uint32_t& BlendOp() { return g_blendOp; }
-uint32_t& SrcBlend() { return g_srcBlend; }
-uint32_t& DestBlend() { return g_destBlend; }
-uint32_t& AlphaBlend() { return g_alphaBlend; }
-uint32_t& AlphaTest() { return g_alphaTest; }
-uint32_t& AlphaTestLevel() { return g_alphaTestValue; }
-uint32_t& Specular() { return g_specular; }
-uint8_t& Dither() { return g_dither; }
-uint8_t& ZWrite() { return g_zWrite; }
-uint8_t& ZTest() { return g_zTest; }
-uint32_t& DepthBias() { return g_depthBias; }
-uint32_t& Lighting() { return g_lighting; }
-uint32_t& CullMode() { return g_cullMode; }
-uint32_t* AddressModes() { return g_addressModes; } // [4]: U low 16 bits, V high
-uint32_t* MipLodBiases() { return g_mipLodBiases; } // [4]: float bits
-uint32_t* Filters() { return g_filters; }      // [4]: min low 16 bits, mag high
-void** Textures() { return g_textures; }           // [4]
-uint32_t& VertexFormat() { return g_vertexFormat; }
-uint32_t& PixelShaderLocked() { return g_pixelShaderLocked; }
-void*& CurrentPixelShader() { return g_currentPixelShader; }
-float* PsConstantBank() { return g_psConstantBank; } // [5][4]; [4] is 0x00786F0C
-uint8_t& PixelShaderChanged() { return g_pixelShaderChanged; }
-uint32_t& VertexFormatLocked() { return g_vertexFormatLocked; }
-uint32_t& ForcedBlend() { return g_forcedBlend; }
-uint32_t& Fog() { return g_fogActive; }
-uint32_t& FogColor() { return g_fogColour; }
-uint8_t& LocalViewer() { return g_localViewer; }
+uint32_t& get_blend_mode() { return g_blend_mode; }
+uint32_t& blend_op() { return g_blend_op; }
+uint32_t& src_blend() { return g_src_blend; }
+uint32_t& dest_blend() { return g_dest_blend; }
+uint32_t& alpha_blend() { return g_alpha_blend; }
+uint32_t& alpha_test() { return g_alpha_test; }
+uint32_t& alpha_test_level() { return g_alpha_test_value; }
+uint32_t& get_specular() { return g_specular; }
+uint8_t& dither() { return g_dither; }
+uint8_t& get_z_write() { return g_z_write; }
+uint8_t& get_z_test() { return g_z_test; }
+uint32_t& depth_bias() { return g_depth_bias; }
+uint32_t& get_lighting() { return g_lighting; }
+uint32_t& cull_mode() { return g_cull_mode; }
+uint32_t* address_modes() { return g_address_modes; } // [4]: U low 16 bits, V high
+uint32_t* mip_lod_biases() { return g_mip_lod_biases; } // [4]: float bits
+uint32_t* filters() { return g_filters; }      // [4]: min low 16 bits, mag high
+void** get_textures() { return g_textures; }           // [4]
+uint32_t& vertex_format() { return g_vertex_format; }
+uint32_t& pixel_shader_locked() { return g_pixel_shader_locked; }
+void*& current_pixel_shader() { return g_current_pixel_shader; }
+float* ps_constant_bank() { return g_ps_constant_bank; } // [5][4]; [4] is 0x00786F0C
+uint8_t& pixel_shader_changed() { return g_pixel_shader_changed; }
+uint32_t& vertex_format_locked() { return g_vertex_format_locked; }
+uint32_t& forced_blend() { return g_forced_blend; }
+uint32_t& get_fog() { return g_fog_active; }
+uint32_t& fog_color() { return g_fog_colour; }
+uint8_t& local_viewer() { return g_local_viewer; }
 
 // Device capabilities (found at start-up).
-bool HasPixelShaders() { return g_shadersAvailable; }
-bool HasBorderAddressing() { return g_borderAddressingSupported; }
-bool HasBlendFactor() { return g_blendFactorSupported; }
+bool has_pixel_shaders() { return g_shaders_available; }
+bool has_border_addressing() { return g_border_addressing_supported; }
+bool has_blend_factor() { return g_blend_factor_supported; }
 
 // The pixel shaders (handles made at start-up) the stand-in texture stages know.
-void* Shader(int slot) { return g_pixelShaders[slot]; }
+void* get_shader(int slot) { return g_pixel_shaders[slot]; }
 
-void SetTss(DWORD stage, D3DTEXTURESTAGESTATETYPE type, DWORD value) { InputPort()->SetTextureStageState(stage, type, value); }
-void SetSampler(DWORD sampler, D3DSAMPLERSTATETYPE type, DWORD value) { InputPort()->SetSamplerState(sampler, type, value); }
-void SetDeviceRenderState(D3DRENDERSTATETYPE state, DWORD value) { InputPort()->SetRenderState(state, value); }
+void set_tss(DWORD stage, D3DTEXTURESTAGESTATETYPE type, DWORD value) { input_port()->SetTextureStageState(stage, type, value); }
+void set_sampler(DWORD sampler, D3DSAMPLERSTATETYPE type, DWORD value) { input_port()->SetSamplerState(sampler, type, value); }
+void set_device_render_state(D3DRENDERSTATETYPE state, DWORD value) { input_port()->SetRenderState(state, value); }
 
 // D3DTADDRESS for the renderer's addressing modes (border needs the device's support; else clamp).
-bool AddressValue(uint32_t mode, DWORD* value)
+bool address_value(uint32_t mode, DWORD* value)
 {
     switch (mode) {
     case 0: *value = D3DTADDRESS_WRAP; return true;
     case 1: *value = D3DTADDRESS_CLAMP; return true;
-    case 2: *value = HasBorderAddressing() ? D3DTADDRESS_BORDER : D3DTADDRESS_CLAMP; return true;
+    case 2: *value = has_border_addressing() ? D3DTADDRESS_BORDER : D3DTADDRESS_CLAMP; return true;
     default: return false; // (nothing sent, but the cache takes the value)
     }
 }
@@ -121,49 +121,49 @@ constexpr float kDepthBiasUnit = std::bit_cast<float>(0xB60637BDu); // 0x0064AAA
 constexpr float k255 = 255.0f;                                      // 0x00646B88
 
 // The CRT's _ftol (0x006236FC): truncation, as a 64-bit integer.
-int64_t Ftol(double value) { return static_cast<int64_t>(value); }
+int64_t ftol(double value) { return static_cast<int64_t>(value); }
 
 } // namespace
 
 // 0x004DAB60
-void __cdecl ChangePhase(int state, uint32_t value)
+void __cdecl change_phase(int state, uint32_t value)
 {
     switch (state) {
     case kZWrite:
         if (value) {
-            if (!ZWrite()) {
-                Engine3D::SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
-                ZWrite() = 1;
+            if (!get_z_write()) {
+                render::set_render_state(D3DRS_ZWRITEENABLE, TRUE);
+                get_z_write() = 1;
             }
-        } else if (ZWrite() == 1) {
-            Engine3D::SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
-            ZWrite() = 0;
+        } else if (get_z_write() == 1) {
+            render::set_render_state(D3DRS_ZWRITEENABLE, FALSE);
+            get_z_write() = 0;
         }
         return;
     case kZTest:
         if (value) {
-            if (!ZTest()) {
-                Engine3D::SetRenderState(D3DRS_ZFUNC, D3DCMP_LESSEQUAL);
-                ZTest() = 1;
+            if (!get_z_test()) {
+                render::set_render_state(D3DRS_ZFUNC, D3DCMP_LESSEQUAL);
+                get_z_test() = 1;
             }
-        } else if (ZTest() == 1) {
-            Engine3D::SetRenderState(D3DRS_ZFUNC, D3DCMP_ALWAYS);
-            ZTest() = 0;
+        } else if (get_z_test() == 1) {
+            render::set_render_state(D3DRS_ZFUNC, D3DCMP_ALWAYS);
+            get_z_test() = 0;
         }
         return;
     case kPhaseAlphaTest:
-        if (value == AlphaTestLevel())
+        if (value == alpha_test_level())
             return;
-        AlphaTestLevel() = value;
+        alpha_test_level() = value;
         if (value) {
-            Engine3D::SetRenderState(D3DRS_ALPHAREF, value);
-            if (!AlphaTest()) {
-                Engine3D::SetRenderState(D3DRS_ALPHATESTENABLE, TRUE);
-                AlphaTest() = 1;
+            render::set_render_state(D3DRS_ALPHAREF, value);
+            if (!alpha_test()) {
+                render::set_render_state(D3DRS_ALPHATESTENABLE, TRUE);
+                alpha_test() = 1;
             }
-        } else if (AlphaTest()) {
-            Engine3D::SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
-            AlphaTest() = 0;
+        } else if (alpha_test()) {
+            render::set_render_state(D3DRS_ALPHATESTENABLE, FALSE);
+            alpha_test() = 0;
         }
         return;
     case kAddressMode0:
@@ -171,20 +171,20 @@ void __cdecl ChangePhase(int state, uint32_t value)
     case kAddressMode0 + 2:
     case kAddressMode0 + 3: {
         int sampler = state - kAddressMode0;
-        uint32_t& cached = AddressModes()[sampler];
+        uint32_t& cached = address_modes()[sampler];
         uint32_t u = value & 0xFFFF;
         if (u != (cached & 0xFFFF)) {
             DWORD address;
-            if (AddressValue(u, &address))
-                SetSampler(sampler, D3DSAMP_ADDRESSU, address);
+            if (address_value(u, &address))
+                set_sampler(sampler, D3DSAMP_ADDRESSU, address);
             cached = (cached & 0xFFFF0000) | u;
         }
         uint32_t v = value & 0xFFFF0000;
         if (v == (cached & 0xFFFF0000))
             return;
         DWORD address;
-        if (AddressValue(v >> 16, &address))
-            SetSampler(sampler, D3DSAMP_ADDRESSV, address);
+        if (address_value(v >> 16, &address))
+            set_sampler(sampler, D3DSAMP_ADDRESSV, address);
         cached = (cached & 0xFFFF) | v;
         return;
     }
@@ -193,55 +193,55 @@ void __cdecl ChangePhase(int state, uint32_t value)
     case kMipLodBias0 + 2:
     case kMipLodBias0 + 3: {
         int sampler = state - kMipLodBias0;
-        if (value != MipLodBiases()[sampler]) {
-            SetSampler(sampler, D3DSAMP_MIPMAPLODBIAS, value);
-            MipLodBiases()[sampler] = value;
+        if (value != mip_lod_biases()[sampler]) {
+            set_sampler(sampler, D3DSAMP_MIPMAPLODBIAS, value);
+            mip_lod_biases()[sampler] = value;
         }
         return;
     }
     case kCullMode:
-        if (value != CullMode()) {
-            CullMode() = value;
-            Engine3D::SetRenderState(D3DRS_CULLMODE, value);
+        if (value != cull_mode()) {
+            cull_mode() = value;
+            render::set_render_state(D3DRS_CULLMODE, value);
         }
         return;
     case kAlphaBlend:
-        if (value != AlphaBlend()) {
-            AlphaBlend() = value;
-            Engine3D::SetRenderState(D3DRS_ALPHABLENDENABLE, value != 0);
+        if (value != alpha_blend()) {
+            alpha_blend() = value;
+            render::set_render_state(D3DRS_ALPHABLENDENABLE, value != 0);
         }
         return;
     case kAlphaTest:
-        if (value != AlphaTest()) {
-            AlphaTest() = value;
-            Engine3D::SetRenderState(D3DRS_ALPHATESTENABLE, value != 0);
+        if (value != alpha_test()) {
+            alpha_test() = value;
+            render::set_render_state(D3DRS_ALPHATESTENABLE, value != 0);
         }
         return;
     case kSpecular:
-        if (value != Specular()) {
-            Specular() = value;
-            Engine3D::SetRenderState(D3DRS_SPECULARENABLE, value != 0);
-            Engine3D::SetRenderState(D3DRS_LOCALVIEWER, value != 0);
+        if (value != get_specular()) {
+            get_specular() = value;
+            render::set_render_state(D3DRS_SPECULARENABLE, value != 0);
+            render::set_render_state(D3DRS_LOCALVIEWER, value != 0);
         }
         return;
     case kFog:
-        if (value != Fog()) {
-            Fog() = value;
-            Engine3D::SetRenderState(D3DRS_FOGENABLE, value != 0);
+        if (value != get_fog()) {
+            get_fog() = value;
+            render::set_render_state(D3DRS_FOGENABLE, value != 0);
         }
         return;
     case kDepthBias:
-        if (value != DepthBias()) {
-            DepthBias() = value;
+        if (value != depth_bias()) {
+            depth_bias() = value;
             // (unsigned, scaled; x87 at double precision, stored as a float)
             float bias = static_cast<float>(static_cast<double>(value) * kDepthBiasUnit);
-            Engine3D::SetRenderState(D3DRS_DEPTHBIAS, std::bit_cast<uint32_t>(bias));
+            render::set_render_state(D3DRS_DEPTHBIAS, std::bit_cast<uint32_t>(bias));
         }
         return;
     case kLighting:
-        if (value != Lighting()) {
-            Lighting() = value;
-            Engine3D::SetRenderState(D3DRS_LIGHTING, value != 0);
+        if (value != get_lighting()) {
+            get_lighting() = value;
+            render::set_render_state(D3DRS_LIGHTING, value != 0);
         }
         return;
     case kFilter0:
@@ -249,26 +249,26 @@ void __cdecl ChangePhase(int state, uint32_t value)
     case kFilter0 + 2:
     case kFilter0 + 3: {
         int sampler = state - kFilter0;
-        uint32_t& cached = Filters()[sampler];
+        uint32_t& cached = filters()[sampler];
         uint32_t mag = value & 0xFFFF0000;
         if (mag != (cached & 0xFFFF0000)) {
-            SetSampler(sampler, D3DSAMP_MAGFILTER, (value & 0x10000) ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+            set_sampler(sampler, D3DSAMP_MAGFILTER, (value & 0x10000) ? D3DTEXF_LINEAR : D3DTEXF_POINT);
             cached = (cached & 0xFFFF) | mag;
         }
         uint32_t min = value & 0xFFFF;
         if (min != (cached & 0xFFFF)) {
             // NOT ORIGINAL - [Graphics] anisotropy (engine/gfx/graphics_options.h): anisotropic in place of linear.
             // Original behaviour: (value & 1) ? D3DTEXF_LINEAR : D3DTEXF_POINT
-            SetSampler(sampler, D3DSAMP_MINFILTER,
-                       GraphicsOptions::MinFilter((value & 1) != 0, GraphicsOptions::ActiveAnisotropy()));
+            set_sampler(sampler, D3DSAMP_MINFILTER,
+                       graphics_options::get_min_filter((value & 1) != 0, graphics_options::active_anisotropy()));
             cached = (cached & 0xFFFF0000) | min;
         }
         return;
     }
     case kLocalViewer:
-        if (value != LocalViewer()) {
-            LocalViewer() = value != 0;
-            Engine3D::SetRenderState(D3DRS_LOCALVIEWER, value);
+        if (value != local_viewer()) {
+            local_viewer() = value != 0;
+            render::set_render_state(D3DRS_LOCALVIEWER, value);
         }
         return;
     default: // (0xC-0xF, 0x17-0x1F: nothing)
@@ -277,37 +277,37 @@ void __cdecl ChangePhase(int state, uint32_t value)
 }
 
 // 0x004D9DB0
-void __cdecl SetVertexFormat(uint32_t fvf)
+void __cdecl set_vertex_format(uint32_t fvf)
 {
-    if (VertexFormatLocked() == 0 && VertexFormat() != fvf) {
-        InputPort()->SetFVF(fvf);
-        VertexFormat() = fvf;
+    if (vertex_format_locked() == 0 && vertex_format() != fvf) {
+        input_port()->SetFVF(fvf);
+        vertex_format() = fvf;
     }
 }
 
 // 0x004DA730
-void __cdecl SetTexture(int stage, void* texture)
+void __cdecl set_texture(int stage, void* texture)
 {
-    if (Textures()[stage] != texture) {
-        InputPort()->SetTexture(stage, static_cast<IDirect3DBaseTexture9*>(texture));
-        Textures()[stage] = texture;
+    if (get_textures()[stage] != texture) {
+        input_port()->SetTexture(stage, static_cast<IDirect3DBaseTexture9*>(texture));
+        get_textures()[stage] = texture;
     }
 }
 
 // 0x004DA760
-void __cdecl ChooseBlendMode(uint32_t mode)
+void __cdecl choose_blend_mode(uint32_t mode)
 {
-    uint32_t wanted = ForcedBlend() ? ForcedBlend() : mode;
-    if (wanted == BlendMode())
+    uint32_t wanted = forced_blend() ? forced_blend() : mode;
+    if (wanted == get_blend_mode())
         return;
     uint32_t kind = wanted & 0xFFFFFF;
-    if (kind != (BlendMode() & 0xFFFFFF)) {
+    if (kind != (get_blend_mode() & 0xFFFFFF)) {
         // Fog goes black under the additive and subtractive modes (1-4).
-        if (Fog()) {
+        if (get_fog()) {
             if (kind >= 1 && kind <= 4)
-                Engine3D::SetRenderState(D3DRS_FOGCOLOR, 0);
+                render::set_render_state(D3DRS_FOGCOLOR, 0);
             else
-                SetDeviceRenderState(D3DRS_FOGCOLOR, FogColor());
+                set_device_render_state(D3DRS_FOGCOLOR, fog_color());
         }
         uint32_t op, src, dest;
         switch (kind) {
@@ -332,7 +332,7 @@ void __cdecl ChooseBlendMode(uint32_t mode)
             break;
         }
         // Without blend factors: the nearest the colour and source alpha can do.
-        if (!HasBlendFactor()) {
+        if (!has_blend_factor()) {
             if (src == D3DBLEND_BLENDFACTOR && dest == D3DBLEND_INVBLENDFACTOR) {
                 src = D3DBLEND_ONE;
                 dest = D3DBLEND_INVSRCALPHA;
@@ -345,154 +345,154 @@ void __cdecl ChooseBlendMode(uint32_t mode)
                     dest = D3DBLEND_INVSRCALPHA;
             }
         }
-        if (op != BlendOp()) {
-            SetDeviceRenderState(D3DRS_BLENDOP, op);
-            BlendOp() = op;
+        if (op != blend_op()) {
+            set_device_render_state(D3DRS_BLENDOP, op);
+            blend_op() = op;
         }
-        if (src != SrcBlend()) {
-            SetDeviceRenderState(D3DRS_SRCBLEND, src);
-            SrcBlend() = src;
+        if (src != src_blend()) {
+            set_device_render_state(D3DRS_SRCBLEND, src);
+            src_blend() = src;
         }
-        if (dest != DestBlend()) {
-            SetDeviceRenderState(D3DRS_DESTBLEND, dest);
-            DestBlend() = dest;
+        if (dest != dest_blend()) {
+            set_device_render_state(D3DRS_DESTBLEND, dest);
+            dest_blend() = dest;
         }
     }
     // The blend factor: the mode's top byte doubled (0x80 and up: full), in all four channels.
     uint32_t alpha = wanted & 0xFF000000;
-    if (alpha != (BlendMode() & 0xFF000000)) {
+    if (alpha != (get_blend_mode() & 0xFF000000)) {
         alpha = alpha >= 0x80000000 ? 0xFF000000 : alpha << 1;
-        SetDeviceRenderState(D3DRS_BLENDFACTOR, (((alpha >> 8 | alpha) >> 8 | alpha) >> 8) | alpha);
+        set_device_render_state(D3DRS_BLENDFACTOR, (((alpha >> 8 | alpha) >> 8 | alpha) >> 8) | alpha);
     }
-    BlendMode() = wanted;
+    get_blend_mode() = wanted;
 }
 
 // 0x004D9DE0
-void __cdecl SetFixedFunctionStages(void* shader, uint32_t factor)
+void __cdecl set_fixed_function_stages(void* shader, uint32_t factor)
 {
     // The last stage-0 state each one sets, then stage 1 off.
-    D3DTEXTURESTAGESTATETYPE lastType;
-    DWORD lastValue;
-    if (shader == Shader(kPixelShader964)) {
-        SetTss(0, D3DTSS_COLOROP, D3DTOP_MODULATE4X);
-        SetTss(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
-        SetTss(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE);
-        SetTss(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
-        SetTss(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
-        SetTss(0, D3DTSS_ALPHAARG2, D3DTA_DIFFUSE);
-        SetTss(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
+    D3DTEXTURESTAGESTATETYPE last_type;
+    DWORD last_value;
+    if (shader == get_shader(kPixelShader964)) {
+        set_tss(0, D3DTSS_COLOROP, D3DTOP_MODULATE4X);
+        set_tss(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
+        set_tss(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE);
+        set_tss(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
+        set_tss(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
+        set_tss(0, D3DTSS_ALPHAARG2, D3DTA_DIFFUSE);
+        set_tss(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
         return;
     }
-    if (shader == Shader(kPixelShader95C)) { // vertex colour x2 x the factor, vertex alpha
-        SetDeviceRenderState(D3DRS_TEXTUREFACTOR, factor);
-        SetTss(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
-        SetTss(0, D3DTSS_COLORARG1, D3DTA_DIFFUSE);
-        SetTss(0, D3DTSS_COLORARG2, D3DTA_TFACTOR);
-        SetTss(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
-        lastType = D3DTSS_ALPHAARG1;
-        lastValue = D3DTA_DIFFUSE;
-    } else if (shader != Shader(kPixelShader958) && shader == Shader(kPixelShader954)) { // the factor alone
-        SetDeviceRenderState(D3DRS_TEXTUREFACTOR, factor);
-        SetTss(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
-        SetTss(0, D3DTSS_COLORARG1, D3DTA_TFACTOR);
-        SetTss(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
-        lastType = D3DTSS_ALPHAARG1;
-        lastValue = D3DTA_TFACTOR;
-    } else if (shader != Shader(kPixelShader958) && shader == Shader(kPixelShader950)) { // texture x vertex colour x2, texture alpha
-        SetTss(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
-        SetTss(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
-        SetTss(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE);
-        SetTss(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
-        SetTss(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
-        lastType = D3DTSS_ALPHAARG2;
-        lastValue = D3DTA_DIFFUSE;
-    } else if (shader != Shader(kPixelShader958) && shader == Shader(kPixelShader94C)) { // vertex colour alone
-        SetTss(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
-        SetTss(0, D3DTSS_COLORARG1, D3DTA_DIFFUSE);
-        SetTss(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
-        lastType = D3DTSS_ALPHAARG1;
-        lastValue = D3DTA_DIFFUSE;
-    } else if (shader != Shader(kPixelShader958) && shader == Shader(kPixelShader944)) { // texture alpha x vertex alpha x2
-        SetTss(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
-        SetTss(0, D3DTSS_COLORARG1, D3DTA_TEXTURE | D3DTA_ALPHAREPLICATE);
-        SetTss(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE | D3DTA_ALPHAREPLICATE);
-        SetTss(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
-        SetTss(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
-        lastType = D3DTSS_ALPHAARG2;
-        lastValue = D3DTA_DIFFUSE;
+    if (shader == get_shader(kPixelShader95c)) { // vertex colour x2 x the factor, vertex alpha
+        set_device_render_state(D3DRS_TEXTUREFACTOR, factor);
+        set_tss(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
+        set_tss(0, D3DTSS_COLORARG1, D3DTA_DIFFUSE);
+        set_tss(0, D3DTSS_COLORARG2, D3DTA_TFACTOR);
+        set_tss(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
+        last_type = D3DTSS_ALPHAARG1;
+        last_value = D3DTA_DIFFUSE;
+    } else if (shader != get_shader(kPixelShader958) && shader == get_shader(kPixelShader954)) { // the factor alone
+        set_device_render_state(D3DRS_TEXTUREFACTOR, factor);
+        set_tss(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
+        set_tss(0, D3DTSS_COLORARG1, D3DTA_TFACTOR);
+        set_tss(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
+        last_type = D3DTSS_ALPHAARG1;
+        last_value = D3DTA_TFACTOR;
+    } else if (shader != get_shader(kPixelShader958) && shader == get_shader(kPixelShader950)) { // texture x vertex colour x2, texture alpha
+        set_tss(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
+        set_tss(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
+        set_tss(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE);
+        set_tss(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
+        set_tss(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
+        last_type = D3DTSS_ALPHAARG2;
+        last_value = D3DTA_DIFFUSE;
+    } else if (shader != get_shader(kPixelShader958) && shader == get_shader(kPixelShader94c)) { // vertex colour alone
+        set_tss(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
+        set_tss(0, D3DTSS_COLORARG1, D3DTA_DIFFUSE);
+        set_tss(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
+        last_type = D3DTSS_ALPHAARG1;
+        last_value = D3DTA_DIFFUSE;
+    } else if (shader != get_shader(kPixelShader958) && shader == get_shader(kPixelShader944)) { // texture alpha x vertex alpha x2
+        set_tss(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
+        set_tss(0, D3DTSS_COLORARG1, D3DTA_TEXTURE | D3DTA_ALPHAREPLICATE);
+        set_tss(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE | D3DTA_ALPHAREPLICATE);
+        set_tss(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
+        set_tss(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
+        last_type = D3DTSS_ALPHAARG2;
+        last_value = D3DTA_DIFFUSE;
     } else { // kPixelShader958 and any other: the texture alone
-        SetTss(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
-        SetTss(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
-        SetTss(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
-        lastType = D3DTSS_ALPHAARG1;
-        lastValue = D3DTA_TEXTURE;
+        set_tss(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
+        set_tss(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
+        set_tss(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
+        last_type = D3DTSS_ALPHAARG1;
+        last_value = D3DTA_TEXTURE;
     }
-    SetTss(0, lastType, lastValue);
-    SetTss(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
+    set_tss(0, last_type, last_value);
+    set_tss(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
 }
 
 // 0x004DAA10
-void __cdecl SetFixedFunctionStagesForMaterial(void* shader, const void* material)
+void __cdecl set_fixed_function_stages_for_material(void* shader, const void* material)
 {
     if (!material) {
-        SetFixedFunctionStages(shader, 0xFFFFFFFF);
+        set_fixed_function_stages(shader, 0xFFFFFFFF);
         return;
     }
     const float* color = reinterpret_cast<const float*>(static_cast<const uint8_t*>(material) + 0x40);
-    uint32_t r = static_cast<uint8_t>(Ftol(static_cast<double>(color[0]) * k255));
-    uint32_t g = static_cast<uint8_t>(Ftol(static_cast<double>(color[1]) * k255));
-    uint32_t b = static_cast<uint8_t>(Ftol(static_cast<double>(color[2]) * k255));
-    SetFixedFunctionStages(shader, (((r | 0xFFFFFF00) << 8 | g) << 8) | b);
+    uint32_t r = static_cast<uint8_t>(ftol(static_cast<double>(color[0]) * k255));
+    uint32_t g = static_cast<uint8_t>(ftol(static_cast<double>(color[1]) * k255));
+    uint32_t b = static_cast<uint8_t>(ftol(static_cast<double>(color[2]) * k255));
+    set_fixed_function_stages(shader, (((r | 0xFFFFFF00) << 8 | g) << 8) | b);
 }
 
 // 0x004DAA80
-void __cdecl SetPixelShader(void* shader, const void* material)
+void __cdecl set_pixel_shader(void* shader, const void* material)
 {
-    if (!HasPixelShaders()) {
-        SetFixedFunctionStagesForMaterial(shader, material);
+    if (!has_pixel_shaders()) {
+        set_fixed_function_stages_for_material(shader, material);
         return;
     }
-    if (PixelShaderLocked() == 0) {
-        if (CurrentPixelShader() != shader) {
+    if (pixel_shader_locked() == 0) {
+        if (current_pixel_shader() != shader) {
             // Not original - the level editor's Unlit view (engine/gfx/view_mode.h): the shader's unlit twin during the 3D
             // passes. Original behaviour: the device gets `shader`.
-            InputPort()->SetPixelShader(static_cast<IDirect3DPixelShader9*>(ViewMode::DeviceShader(shader)));
-            CurrentPixelShader() = shader;
-            PixelShaderChanged() = 1;
+            input_port()->SetPixelShader(static_cast<IDirect3DPixelShader9*>(view_mode::device_shader(shader)));
+            current_pixel_shader() = shader;
+            pixel_shader_changed() = 1;
         }
-        InputPort()->SetPixelShaderConstantF(0, PsConstantBank(), 5);
+        input_port()->SetPixelShaderConstantF(0, ps_constant_bank(), 5);
     }
-    PixelShaderChanged() = 0;
+    pixel_shader_changed() = 0;
 }
 
 // 0x004DAAF0
-void __cdecl SetPixelShaderWithConstants(void* shader, uint32_t count)
+void __cdecl set_pixel_shader_with_constants(void* shader, uint32_t count)
 {
-    if (PixelShaderLocked() == 0) {
-        if (CurrentPixelShader() != shader) {
+    if (pixel_shader_locked() == 0) {
+        if (current_pixel_shader() != shader) {
             // Not original - the Unlit view's twin (view_mode.h), as in SetPixelShader.
-            InputPort()->SetPixelShader(static_cast<IDirect3DPixelShader9*>(ViewMode::DeviceShader(shader)));
-            CurrentPixelShader() = shader;
-            PixelShaderChanged() = 1;
+            input_port()->SetPixelShader(static_cast<IDirect3DPixelShader9*>(view_mode::device_shader(shader)));
+            current_pixel_shader() = shader;
+            pixel_shader_changed() = 1;
         }
-        InputPort()->SetPixelShaderConstantF(0, PsConstantBank(), count);
-        InputPort()->SetPixelShaderConstantF(4, PsConstantBank() + 16, 1);
+        input_port()->SetPixelShaderConstantF(0, ps_constant_bank(), count);
+        input_port()->SetPixelShaderConstantF(4, ps_constant_bank() + 16, 1);
     }
-    PixelShaderChanged() = 0;
+    pixel_shader_changed() = 0;
 }
 
 // 0x004DA0E0
-float __cdecl LastSphereDistance() { return g_lastSphereDistance; }
+float __cdecl last_sphere_distance() { return g_last_sphere_distance; }
 
 // 0x004DB620
-void __cdecl SetWorldTransform(const float* matrix)
+void __cdecl set_world_transform(const float* matrix)
 {
     if (!matrix) {
-        g_worldTransform = nullptr;
+        g_world_transform = nullptr;
         return;
     }
-    float* world = g_worldTransformCopy;
-    g_worldTransform = world;
+    float* world = g_world_transform_copy;
+    g_world_transform = world;
     for (int row = 0; row < 4; ++row) {
         world[row * 4 + 0] = matrix[row * 4 + 0];
         world[row * 4 + 1] = matrix[row * 4 + 1];
@@ -502,56 +502,56 @@ void __cdecl SetWorldTransform(const float* matrix)
 }
 
 // 0x004D7D70
-void __cdecl ResetRenderState()
+void __cdecl reset_render_state()
 {
-    LocalViewer() = 0;
+    local_viewer() = 0;
     // The world, view and projection transforms (0x00786B90, 0x00786BD0, 0x00786C10): identity.
-    for (Maths::Mat4* matrix : {&g_worldMatrix, &g_viewMatrix, &g_projectionMatrix}) {
+    for (maths::Mat4* matrix : {&g_world_matrix, &g_view_matrix, &g_projection_matrix}) {
         float* m = reinterpret_cast<float*>(matrix);
         for (int i = 0; i < 16; ++i)
             m[i] = (i % 5 == 0) ? 1.0f : 0.0f;
     }
-    Lighting() = 0;
-    Specular() = 0;
-    CullMode() = D3DCULL_CW;
-    g_nearCamera = 1;
-    Dither() = 1;
-    ZTest() = 1;
-    ZWrite() = 1;
-    AlphaBlend() = 1;
-    AlphaTest() = 1;
-    AlphaTestLevel() = 0;
+    get_lighting() = 0;
+    get_specular() = 0;
+    cull_mode() = D3DCULL_CW;
+    g_near_camera = 1;
+    dither() = 1;
+    get_z_test() = 1;
+    get_z_write() = 1;
+    alpha_blend() = 1;
+    alpha_test() = 1;
+    alpha_test_level() = 0;
     for (int i = 0; i < 4; ++i) {
-        AddressModes()[i] = 0;
-        MipLodBiases()[i] = 0;
-        Textures()[i] = nullptr;
-        Filters()[i] = 0x10000;
-        g_borderColours[i] = 0;
+        address_modes()[i] = 0;
+        mip_lod_biases()[i] = 0;
+        get_textures()[i] = nullptr;
+        filters()[i] = 0x10000;
+        g_border_colours[i] = 0;
     }
     // (none of these is a mode: the next one is always sent)
-    BlendMode() = 0xDEADBABE;
-    BlendOp() = 0xDEADBABE;
-    SrcBlend() = 0xDEADBABE;
-    DestBlend() = 0xDEADBABE;
-    g_pendingScreenShot[0] = 0;
-    reinterpret_cast<uint8_t&>(g_screenShotNameExact) = 0;
+    get_blend_mode() = 0xDEADBABE;
+    blend_op() = 0xDEADBABE;
+    src_blend() = 0xDEADBABE;
+    dest_blend() = 0xDEADBABE;
+    g_pending_screen_shot[0] = 0;
+    reinterpret_cast<uint8_t&>(g_screen_shot_name_exact) = 0;
     // Pixel shader constant 4: (0, 0.5, 0, 0.5).
-    reinterpret_cast<uint32_t&>(g_psConstantBank[16]) = 0;
-    g_psConstantBank[17] = 0.5f;
-    reinterpret_cast<uint32_t&>(g_psConstantBank[18]) = 0;
-    g_psConstantBank[19] = 0.5f;
-    PixelShaderLocked() = 0;
-    CurrentPixelShader() = nullptr;
-    PixelShaderChanged() = 0;
-    g_camera.customTransforms = 0;
-    g_billboardFlag = 0;
-    VertexFormatLocked() = 0;
-    g_skippedPasses = 0;
-    g_submitLocked = 0;
-    ForcedBlend() = 0;
-    g_camera.clearColourAndDepth = true;
-    g_camera.backgroundColour = 0;
-    g_camera.letterboxActive = 0; // the letterbox
+    reinterpret_cast<uint32_t&>(g_ps_constant_bank[16]) = 0;
+    g_ps_constant_bank[17] = 0.5f;
+    reinterpret_cast<uint32_t&>(g_ps_constant_bank[18]) = 0;
+    g_ps_constant_bank[19] = 0.5f;
+    pixel_shader_locked() = 0;
+    current_pixel_shader() = nullptr;
+    pixel_shader_changed() = 0;
+    g_camera.custom_transforms_ = 0;
+    g_billboard_flag = 0;
+    vertex_format_locked() = 0;
+    g_skipped_passes = 0;
+    g_submit_locked = 0;
+    forced_blend() = 0;
+    g_camera.clear_colour_and_depth_ = true;
+    g_camera.background_colour_ = 0;
+    g_camera.letterbox_active_ = 0; // the letterbox
     // The default light: its direction (0x00786F48) and colours, as bit patterns.
     static const uint32_t kLight[] = {
         0xBF000000, 0xBF5DB3D7, 0,          0,          0x3F160419, 0x3F160419, 0x3F160419, 0x3F800000,
@@ -559,75 +559,75 @@ void __cdecl ResetRenderState()
         0x3F800000, 0,          0,          0,          0,          0,          0,          0x3F800000,
     };
     for (int i = 0; i < 24; ++i)
-        reinterpret_cast<uint32_t&>(g_lightConstants[4 + i]) = kLight[i];
-    reinterpret_cast<uint32_t&>(g_lightConstants[0]) = 0x3F1624DD; // the ambient colour
-    reinterpret_cast<uint32_t&>(g_lightConstants[1]) = 0x3F1624DD;
-    reinterpret_cast<uint32_t&>(g_lightConstants[2]) = 0x3F1624DD;
-    reinterpret_cast<uint32_t&>(g_lightConstants[3]) = 0x3F800000;
-    Fog() = 0;
-    FogColor() = 0;
-    reinterpret_cast<uint32_t&>(g_fogBeginDistance) = 0xC3700000; // fog start and end, as bit patterns (-240, -24600)
-    reinterpret_cast<uint32_t&>(g_fogEnd) = 0xC6C03000;
+        reinterpret_cast<uint32_t&>(g_light_constants[4 + i]) = kLight[i];
+    reinterpret_cast<uint32_t&>(g_light_constants[0]) = 0x3F1624DD; // the ambient colour
+    reinterpret_cast<uint32_t&>(g_light_constants[1]) = 0x3F1624DD;
+    reinterpret_cast<uint32_t&>(g_light_constants[2]) = 0x3F1624DD;
+    reinterpret_cast<uint32_t&>(g_light_constants[3]) = 0x3F800000;
+    get_fog() = 0;
+    fog_color() = 0;
+    reinterpret_cast<uint32_t&>(g_fog_begin_distance) = 0xC3700000; // fog start and end, as bit patterns (-240, -24600)
+    reinterpret_cast<uint32_t&>(g_fog_end) = 0xC6C03000;
 }
 
 // 0x004D80D0
-void __cdecl ApplyRenderState()
+void __cdecl apply_render_state()
 {
-    IDirect3DDevice9* device = InputPort();
-    device->SetRenderState(D3DRS_LOCALVIEWER, LocalViewer());
-    InputPort()->SetRenderState(D3DRS_COLORVERTEX, FALSE);
-    InputPort()->SetRenderState(D3DRS_LIGHTING, Lighting());
-    InputPort()->SetRenderState(D3DRS_SPECULARENABLE, Specular());
-    InputPort()->SetRenderState(D3DRS_CULLMODE, CullMode());
-    InputPort()->SetRenderState(D3DRS_DITHERENABLE, Dither());
-    InputPort()->SetRenderState(D3DRS_ZENABLE, ZTest());
-    InputPort()->SetRenderState(D3DRS_ZWRITEENABLE, ZWrite());
-    InputPort()->SetRenderState(D3DRS_ALPHABLENDENABLE, AlphaBlend());
-    InputPort()->SetRenderState(D3DRS_ALPHATESTENABLE, AlphaTest());
-    InputPort()->SetRenderState(D3DRS_ALPHAFUNC, D3DCMP_GREATEREQUAL);
-    InputPort()->SetRenderState(D3DRS_ALPHAREF, AlphaTestLevel());
+    IDirect3DDevice9* device = input_port();
+    device->SetRenderState(D3DRS_LOCALVIEWER, local_viewer());
+    input_port()->SetRenderState(D3DRS_COLORVERTEX, FALSE);
+    input_port()->SetRenderState(D3DRS_LIGHTING, get_lighting());
+    input_port()->SetRenderState(D3DRS_SPECULARENABLE, get_specular());
+    input_port()->SetRenderState(D3DRS_CULLMODE, cull_mode());
+    input_port()->SetRenderState(D3DRS_DITHERENABLE, dither());
+    input_port()->SetRenderState(D3DRS_ZENABLE, get_z_test());
+    input_port()->SetRenderState(D3DRS_ZWRITEENABLE, get_z_write());
+    input_port()->SetRenderState(D3DRS_ALPHABLENDENABLE, alpha_blend());
+    input_port()->SetRenderState(D3DRS_ALPHATESTENABLE, alpha_test());
+    input_port()->SetRenderState(D3DRS_ALPHAFUNC, D3DCMP_GREATEREQUAL);
+    input_port()->SetRenderState(D3DRS_ALPHAREF, alpha_test_level());
     for (int sampler = 0; sampler < 4; ++sampler) {
-        AddressModes()[sampler] = 0;
-        MipLodBiases()[sampler] = 0;
-        Textures()[sampler] = nullptr;
-        Filters()[sampler] = 0x10000;
-        g_borderColours[sampler] = 0;
-        InputPort()->SetSamplerState(sampler, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-        InputPort()->SetSamplerState(sampler, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
+        address_modes()[sampler] = 0;
+        mip_lod_biases()[sampler] = 0;
+        get_textures()[sampler] = nullptr;
+        filters()[sampler] = 0x10000;
+        g_border_colours[sampler] = 0;
+        input_port()->SetSamplerState(sampler, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+        input_port()->SetSamplerState(sampler, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
         // NOT ORIGINAL - [Graphics] anisotropy (engine/gfx/graphics_options.h): anisotropic minification on every
         // sampler at the chosen taps. (Off: the original's below.)
-        if (int taps = GraphicsOptions::ActiveAnisotropy()) {
-            InputPort()->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
-            InputPort()->SetSamplerState(sampler, D3DSAMP_MAXANISOTROPY, static_cast<DWORD>(taps));
-        } else if (sampler == 0 && g_backBufferHeight <= 480) {
+        if (int taps = graphics_options::active_anisotropy()) {
+            input_port()->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
+            input_port()->SetSamplerState(sampler, D3DSAMP_MAXANISOTROPY, static_cast<DWORD>(taps));
+        } else if (sampler == 0 && g_back_buffer_height <= 480) {
             // Anisotropic minification on the first sampler, at back buffers up to 480 lines high.
-            InputPort()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
-            uint32_t anisotropy = g_maxAnisotropy;
-            InputPort()->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropy < 3 ? anisotropy : 3);
+            input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
+            uint32_t anisotropy = g_max_anisotropy;
+            input_port()->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropy < 3 ? anisotropy : 3);
         } else {
-            InputPort()->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+            input_port()->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
         }
-        InputPort()->SetSamplerState(sampler, D3DSAMP_ADDRESSU, D3DTADDRESS_WRAP);
-        InputPort()->SetSamplerState(sampler, D3DSAMP_ADDRESSV, D3DTADDRESS_WRAP);
+        input_port()->SetSamplerState(sampler, D3DSAMP_ADDRESSU, D3DTADDRESS_WRAP);
+        input_port()->SetSamplerState(sampler, D3DSAMP_ADDRESSV, D3DTADDRESS_WRAP);
     }
     D3DMATERIAL9 material = {};
-    InputPort()->SetMaterial(&material);
-    InputPort()->SetRenderState(D3DRS_DIFFUSEMATERIALSOURCE, D3DMCS_COLOR1);
-    InputPort()->SetRenderState(D3DRS_SPECULARMATERIALSOURCE, D3DMCS_COLOR2);
-    InputPort()->SetRenderState(D3DRS_AMBIENTMATERIALSOURCE, D3DMCS_COLOR1);
-    InputPort()->SetRenderState(D3DRS_EMISSIVEMATERIALSOURCE, D3DMCS_MATERIAL);
-    MarkBillboardsReady();
-    CompilePixelShaders();
-    InputPort()->SetRenderState(D3DRS_FOGENABLE, Fog());
-    InputPort()->SetRenderState(D3DRS_FOGTABLEMODE, D3DFOG_NONE);
-    InputPort()->SetRenderState(D3DRS_RANGEFOGENABLE, TRUE);
-    InputPort()->SetRenderState(D3DRS_FOGVERTEXMODE, D3DFOG_LINEAR);
-    InputPort()->SetRenderState(D3DRS_FOGCOLOR, FogColor());
-    InputPort()->SetRenderState(D3DRS_FOGSTART, reinterpret_cast<uint32_t&>(g_fogBeginDistance));
-    InputPort()->SetRenderState(D3DRS_FOGEND, reinterpret_cast<uint32_t&>(g_fogEnd));
+    input_port()->SetMaterial(&material);
+    input_port()->SetRenderState(D3DRS_DIFFUSEMATERIALSOURCE, D3DMCS_COLOR1);
+    input_port()->SetRenderState(D3DRS_SPECULARMATERIALSOURCE, D3DMCS_COLOR2);
+    input_port()->SetRenderState(D3DRS_AMBIENTMATERIALSOURCE, D3DMCS_COLOR1);
+    input_port()->SetRenderState(D3DRS_EMISSIVEMATERIALSOURCE, D3DMCS_MATERIAL);
+    mark_billboards_ready();
+    compile_pixel_shaders();
+    input_port()->SetRenderState(D3DRS_FOGENABLE, get_fog());
+    input_port()->SetRenderState(D3DRS_FOGTABLEMODE, D3DFOG_NONE);
+    input_port()->SetRenderState(D3DRS_RANGEFOGENABLE, TRUE);
+    input_port()->SetRenderState(D3DRS_FOGVERTEXMODE, D3DFOG_LINEAR);
+    input_port()->SetRenderState(D3DRS_FOGCOLOR, fog_color());
+    input_port()->SetRenderState(D3DRS_FOGSTART, reinterpret_cast<uint32_t&>(g_fog_begin_distance));
+    input_port()->SetRenderState(D3DRS_FOGEND, reinterpret_cast<uint32_t&>(g_fog_end));
     // (NOT ORIGINAL: or [Graphics] msaa's samples - engine/gfx/graphics_options.h)
-    if (g_antialiasing || GraphicsOptions::ChosenSamples()) // the antialiasing setting
-        InputPort()->SetRenderState(D3DRS_MULTISAMPLEANTIALIAS, TRUE);
+    if (g_antialiasing || graphics_options::chosen_samples()) // the antialiasing setting
+        input_port()->SetRenderState(D3DRS_MULTISAMPLEANTIALIAS, TRUE);
 }
 
 } // namespace Nx

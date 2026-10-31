@@ -15,180 +15,180 @@
 #include "editor/level_editor_ux8.h"
 #include "imgui.h"
 
-namespace MenuSystem::LevelEditor::Ui {
+namespace frontend::level_editor::ui {
 
 namespace {
 
 // A registry action as a menu item: its name (or `label`), its first key, its check and whether it can run now.
-void Item(const char* id, const char* label = nullptr)
+void get_item(const char* id, const char* label = nullptr)
 {
-    int index = Actions::Find(id);
-    const Actions::ActStep* action = index >= 0 ? Actions::Pull(index) : nullptr;
+    int index = actions::get_find(id);
+    const actions::ActStep* action = index >= 0 ? actions::get_pull(index) : nullptr;
     if (!action)
         return;
-    std::string keys = Hints::LeadingKeyName(Actions::KeysText(index));
-    int checked = Actions::Checked(index);
+    std::string keys = hints::leading_key_name(actions::get_keys_text(index));
+    int checked = actions::get_checked(index);
     if (ImGui::MenuItem(label ? label : action->name.c_str(), keys.empty() ? nullptr : keys.c_str(), checked == 1,
-                        Actions::IsSwitchedOn(index)))
-        Actions::Run(index);
+                        actions::is_switched_on(index)))
+        actions::get_run(index);
     if (!action->tip.empty() && ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | ImGuiHoveredFlags_AllowWhenDisabled))
         ImGui::SetTooltip("%s", action->tip.c_str());
 }
 
-void Items(std::initializer_list<const char*> ids)
+void get_items(std::initializer_list<const char*> ids)
 {
     for (const char* id : ids)
-        Item(id);
+        get_item(id);
 }
 
 // A menu's title, noted for the self-test (level_editor_ui_strip.h).
-bool Menu(const char* title)
+bool get_menu(const char* title)
 {
     bool open = ImGui::BeginMenu(title);
-    UiStrip::Note(title);
+    ui_strip::get_note(title);
     return open;
 }
 
-void FileMenu()
+void file_menu()
 {
-    if (!Menu("File"))
+    if (!get_menu("File"))
         return;
-    Items({"save", "snapshots"});
+    get_items({"save", "snapshots"});
     ImGui::Separator();
-    Items({"restore_autosave", "discard_autosave"});
+    get_items({"restore_autosave", "discard_autosave"});
     ImGui::Separator();
-    Items({"play", "simulate"});
+    get_items({"play", "simulate"});
     ImGui::Separator();
-    Item("reset_level");
+    get_item("reset_level");
     ImGui::EndMenu();
 }
 
-void EditMenu(const Ux8::Fonts& fonts)
+void edit_menu(const ux8::Fonts& fonts)
 {
-    if (!Menu("Edit"))
+    if (!get_menu("Edit"))
         return;
-    Items({"undo", "redo", "history", "changes"});
+    get_items({"undo", "redo", "history", "changes"});
     ImGui::Separator();
-    Items({"copy", "paste", "copy_props", "paste_transform", "paste_fields"});
+    get_items({"copy", "paste", "copy_props", "paste_transform", "paste_fields"});
     ImGui::Separator();
-    Items({"duplicate", "linked_duplicate", "repeat_duplicate"});
+    get_items({"duplicate", "linked_duplicate", "repeat_duplicate"});
     ImGui::Separator();
-    Items({"delete", "home", "lock"});
+    get_items({"delete", "home", "lock"});
     ImGui::Separator();
     if (ImGui::BeginMenu("Select")) {
-        Items({"deselect", "select_all", "invert_selection", "select_similar", "select_family", "box_select"});
+        get_items({"deselect", "select_all", "invert_selection", "select_similar", "select_family", "box_select"});
         ImGui::Separator();
-        Item("make_group");
-        Ux8::SetsMenu(fonts);
+        get_item("make_group");
+        ux8::sets_menu(fonts);
         ImGui::EndMenu();
     }
-    Item("note_here");
+    get_item("note_here");
     ImGui::Separator();
-    Item("preferences");
+    get_item("preferences");
     ImGui::EndMenu();
 }
 
-void ViewMenu(const ShapeMesh& model, std::vector<Request>* requests)
+void view_menu(const ShapeMesh& model, std::vector<Request>* requests)
 {
-    if (!Menu("View"))
+    if (!get_menu("View"))
         return;
-    Overlays::ViewModeItems();
+    overlays::view_mode_items();
     ImGui::Separator();
     if (ImGui::BeginMenu("Overlays")) {
-        Overlays::OverlayItems(model, requests);
+        overlays::overlay_items(model, requests);
         ImGui::EndMenu();
     }
-    Items({"collision", "faces", "occlusion"});
+    get_items({"collision", "faces", "occlusion"});
     ImGui::Separator();
-    Items({"hide", "isolate", "show_all"});
+    get_items({"hide", "isolate", "show_all"});
     ImGui::Separator();
     if (ImGui::BeginMenu("Camera")) {
-        Items({"frame_selection", "follow_selection", "walk_mode", "teleport"});
+        get_items({"frame_selection", "follow_selection", "walk_mode", "teleport"});
         ImGui::Separator();
-        Items({"view_top", "view_bottom", "view_front", "view_back", "view_right", "view_left", "view_ortho"});
+        get_items({"view_top", "view_bottom", "view_front", "view_back", "view_right", "view_left", "view_ortho"});
         ImGui::Separator();
         if (ImGui::BeginMenu("Bookmarks")) {
             for (int i = 1; i <= 9; ++i)
-                Item(("bookmark_" + std::to_string(i)).c_str());
+                get_item(("bookmark_" + std::to_string(i)).c_str());
             ImGui::Separator();
             for (int i = 1; i <= 9; ++i)
-                Item(("bookmark_store_" + std::to_string(i)).c_str());
+                get_item(("bookmark_store_" + std::to_string(i)).c_str());
             ImGui::EndMenu();
         }
         ImGui::Separator();
-        Items({"faster", "slower", "camera_node", "log_camera"});
+        get_items({"faster", "slower", "camera_node", "log_camera"});
         ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("Windows")) {
-        Items({"problems", "trail_window", "arrange_window", "adjust_last", "history", "changes", "snapshots"});
+        get_items({"problems", "trail_window", "arrange_window", "adjust_last", "history", "changes", "snapshots"});
         ImGui::EndMenu();
     }
     ImGui::EndMenu();
 }
 
-void ToolsMenu()
+void tools_menu()
 {
-    if (!Menu("Tools"))
+    if (!get_menu("Tools"))
         return;
-    Items({"tool_move", "tool_rotate", "tool_scale", "tool_space", "modal_transform"});
+    get_items({"tool_move", "tool_rotate", "tool_scale", "tool_space", "modal_transform"});
     ImGui::Separator();
-    Item("snap25");
-    Xform::OptionsMenuItems();
-    Items({"edge_snap", "carry_objects"});
+    get_item("snap25");
+    xform::options_menu_items();
+    get_items({"edge_snap", "carry_objects"});
     if (ImGui::BeginMenu("Pick")) {
-        Items({"pick_nodes", "pick_objects", "pick_scenery"});
+        get_items({"pick_nodes", "pick_objects", "pick_scenery"});
         ImGui::EndMenu();
     }
     ImGui::Separator();
-    Items({"browser", "place", "drop"});
+    get_items({"browser", "place", "drop"});
     ImGui::Separator();
-    Items({"ruler", "ruler_clear", "gap_wizard", "ground_tool", "edge_rail"});
+    get_items({"ruler", "ruler_clear", "gap_wizard", "ground_tool", "edge_rail"});
     ImGui::Separator();
     if (ImGui::BeginMenu("Arrange")) {
-        Item("arrange_window");
+        get_item("arrange_window");
         ImGui::Separator();
         static const char* const kAxes = "xyz";
         for (int axis = 0; axis < 3; ++axis) {
             for (const char* edge : {"min", "centre", "max"})
-                Item((std::string("align_") + kAxes[axis] + "_" + edge).c_str());
+                get_item((std::string("align_") + kAxes[axis] + "_" + edge).c_str());
         }
         ImGui::Separator();
-        Items({"distribute_x", "distribute_y", "distribute_z"});
+        get_items({"distribute_x", "distribute_y", "distribute_z"});
         ImGui::Separator();
-        Items({"replace_selection", "unlink"});
+        get_items({"replace_selection", "unlink"});
         ImGui::Separator();
-        Items({"drag_readout", "placement_ghost", "click_places"});
+        get_items({"drag_readout", "placement_ghost", "click_places"});
         ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("Rails and Paths")) {
-        Items({"chain_insert", "chain_extend", "chain_link", "chain_unlink", "chain_finish"});
+        get_items({"chain_insert", "chain_extend", "chain_link", "chain_unlink", "chain_finish"});
         ImGui::EndMenu();
     }
     ImGui::Separator();
-    Item("controller_mode");
+    get_item("controller_mode");
     ImGui::EndMenu();
 }
 
-void HelpMenu()
+void help_menu()
 {
-    if (!Menu("Help"))
+    if (!get_menu("Help"))
         return;
-    Items({"help", "command_search", "keys"});
+    get_items({"help", "command_search", "keys"});
     ImGui::Separator();
     if (ImGui::MenuItem("Show Tips"))
-        OptionStore::ShowTips();
+        prefs::show_tips();
     ImGui::EndMenu();
 }
 
 } // namespace
 
-void MenuBar(const ShapeMesh& model, const Ux8::Fonts& fonts, std::vector<Request>* requests)
+void menu_bar(const ShapeMesh& model, const ux8::Fonts& fonts, std::vector<Request>* requests)
 {
-    FileMenu();
-    EditMenu(fonts);
-    ViewMenu(model, requests);
-    ToolsMenu();
-    HelpMenu();
+    file_menu();
+    edit_menu(fonts);
+    view_menu(model, requests);
+    tools_menu();
+    help_menu();
 }
 
-} // namespace MenuSystem::LevelEditor::Ui
+} // namespace MenuSystem::level_editor::Ui

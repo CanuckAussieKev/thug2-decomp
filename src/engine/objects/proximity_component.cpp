@@ -1,4 +1,4 @@
-// The proximity component (GameObjects::CProximityComponent, proximity_component.h): a leftover only its member function
+// The proximity component (GameObjects::ProximityComponent, proximity_component.h): a leftover only its member function
 // table reaches.
 
 #include <cstdint>
@@ -16,147 +16,147 @@
 #include "engine/script/names.h"
 #include "engine/sys/startup_init.h"
 
-namespace GameObjects {
+namespace objects {
 
-CGameEntity* g_proximitySkater;
-float g_proximitySkaterRadius;
+GameEntity* g_proximity_skater;
+float g_proximity_skater_radius;
 
 namespace {
 
 constexpr uint32_t kSkaterId = 0x0AE89B6C;  // (its name unknown): the skater's id, for the scripts
-constexpr uint32_t kInactive = 0x742CF11F;  // CLOCK_IDLE
+constexpr uint32_t kInactive = 0x742CF11F;  // kClockIdle
 constexpr uint32_t kDelay = 0x9D02737D;     // (its name unknown): seconds
 
 // The skater the component watches and the radius added to its outer one (globals no code here sets).
-CGameEntity* Skater() { return g_proximitySkater; }
-float SkaterRadius() { return g_proximitySkaterRadius; }
+GameEntity* get_skater() { return g_proximity_skater; }
+float skater_radius() { return g_proximity_skater_radius; }
 
-int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
+int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 } // namespace
 
 // 0x0042B620
-void CProximityComponent::LaunchScript(uint32_t script, CEntity* skater)
+void ProximityComponent::launch_script(uint32_t script, Entity* skater)
 {
-    Scripts::CStruct* params = Scripts::SpawnParamBag();
+    script::Struct* params = script::spawn_param_bag();
     if (params)
-        params = params->PrepareAll();
-    params->PutNameKey(kSkaterId, skater->m_ident);
-    if (m_callArgs)
-        params->MergeStructure(m_callArgs);
-    Scripts::LaunchScript(script, params, m_entity, false, nullptr);
+        params = params->prepare_all();
+    params->put_name_key(kSkaterId, skater->ident_);
+    if (call_args_)
+        params->merge_structure(call_args_);
+    script::launch_script(script, params, entity_, false, nullptr);
     if (params) {
-        params->Clear(); // (its destructor)
-        Scripts::DeleteStruct(params);
+        params->get_clear(); // (its destructor)
+        script::delete_struct(params);
     }
 }
 
 // 0x0042B700
-void CProximityComponent::TickFrame()
+void ProximityComponent::tick_frame()
 {
-    CGameEntity* skater = Skater();
+    GameEntity* skater = get_skater();
     if (!skater)
         return;
-    int inside = m_isWithin;
+    int inside = is_within_;
     bool within = false;
-    if (m_active) {
-        const Maths::Vec4& at = m_entity->m_atPoint;
-        double dx = static_cast<double>(skater->m_atPoint.x) - at.x;
-        double dy = static_cast<double>(skater->m_atPoint.y) - at.y;
-        double dz = static_cast<double>(skater->m_atPoint.z) - at.z;
-        double reach = static_cast<double>(SkaterRadius()) + m_outerRadius;
+    if (active_) {
+        const maths::Vec4& at = entity_->at_point_;
+        double dx = static_cast<double>(skater->at_point_.x) - at.x;
+        double dy = static_cast<double>(skater->at_point_.y) - at.y;
+        double dz = static_cast<double>(skater->at_point_.z) - at.z;
+        double reach = static_cast<double>(skater_radius()) + outer_radius_;
         if (!(reach * reach < (dz * dz + dy * dy) + dx * dx)) {
-            Maths::Seg line;
-            const Maths::Vec4& head = skater->m_atPoint;
+            maths::Seg line;
+            const maths::Vec4& head = skater->at_point_;
             line.start = head;
-            line.end = {head.x, static_cast<float>(static_cast<double>(head.y) + SkaterRadius()), head.z, head.w};
-            Maths::Capsule capsule(line, 0.0f);
-            if (!m_isWithin) {
-                capsule.radius = m_innerRadius;
-                if (capsule.ContainsPoint(m_entity->m_atPoint, nullptr))
+            line.end = {head.x, static_cast<float>(static_cast<double>(head.y) + skater_radius()), head.z, head.w};
+            maths::Capsule capsule(line, 0.0f);
+            if (!is_within_) {
+                capsule.radius = inner_radius_;
+                if (capsule.contains_point(entity_->at_point_, nullptr))
                     inside = 1;
                 within = true;
             } else {
-                capsule.radius = m_outerRadius;
-                within = capsule.ContainsPoint(m_entity->m_atPoint, nullptr);
+                capsule.radius = outer_radius_;
+                within = capsule.contains_point(entity_->at_point_, nullptr);
             }
         }
     }
     if (!within)
         inside = 0;
-    if (inside == m_isWithin)
+    if (inside == is_within_)
         return;
-    m_isWithin = inside;
-    LaunchScript(inside ? m_enterScript : m_dismountScript, Skater());
+    is_within_ = inside;
+    launch_script(inside ? enter_script_ : dismount_script_, get_skater());
 }
 
 // 0x0042B850
-bool CProximityComponent::Proximity_Init(Scripts::CStruct* params, Scripts::CScript*)
+bool ProximityComponent::proximity_init(script::Struct* params, script::Script*)
 {
-    m_active = false;
-    TickFrame();
-    ConfigureFromData(params);
-    m_active = true;
-    VirtualSuspend(false);
+    active_ = false;
+    tick_frame();
+    configure_from_data(params);
+    active_ = true;
+    virtual_suspend(false);
     return true;
 }
 
 // 0x0042B590
-bool CProximityComponent::Proximity_SetActive(Scripts::CStruct* params, Scripts::CScript*)
+bool ProximityComponent::proximity_set_active(script::Struct* params, script::Script*)
 {
-    m_active = !params->HasBareFlag(kInactive);
-    if (!m_active) {
+    active_ = !params->has_bare_flag(kInactive);
+    if (!active_) {
         float delay;
-        if (params->FetchFloat(kDelay, &delay, 0)) {
-            int now = FrameClock::GameClockElapsed();
-            m_reactivateTime =
-                now + (g_clockOffset - Truncate(static_cast<double>(delay) * -1000.0f));
+        if (params->fetch_float(kDelay, &delay, 0)) {
+            int now = frame_clock::game_clock_elapsed();
+            reactivate_time_ =
+                now + (g_clock_offset - truncate(static_cast<double>(delay) * -1000.0f));
         } else {
-            m_reactivateTime = 0;
+            reactivate_time_ = 0;
         }
     }
-    VirtualSuspend(false);
+    virtual_suspend(false);
     return true;
 }
 
 // 0x0042B570
-bool CProximityComponent::Proximity_EnterProximityNotHandled(Scripts::CStruct*, Scripts::CScript*)
+bool ProximityComponent::proximity_enter_proximity_not_handled(script::Struct*, script::Script*)
 {
-    m_isWithin = 0;
+    is_within_ = 0;
     return true;
 }
 
 } // namespace Obj
 
-using GameObjects::CProximityComponent;
+using objects::ProximityComponent;
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
 // The proximity component's script member functions (three records and the terminator; no table registers them).
-uint32_t g_proximityMemberFunctions[24];
+uint32_t g_proximity_member_functions[24];
 
 } // namespace
 
 // 0x00644910 (a static initialiser): every record's name (the CRC of its text, computed here), the component's type and
 // function - all of it code, unlike the other tables, whose names and types are data.
-void FillProximityMemberFunctions()
+void fill_proximity_member_functions()
 {
     constexpr uint32_t kProximityType = 0xE54DB2EE;
-    uint32_t* records = g_proximityMemberFunctions;
-    records[0] = Checksums::HashFromText("Proximity_Init");
-    records[6] = Checksums::HashFromText("Proximity_SetActive");
-    records[12] = Checksums::HashFromText("Proximity_EnterProximityNotHandled");
+    uint32_t* records = g_proximity_member_functions;
+    records[0] = checksums::hash_from_text("Proximity_Init");
+    records[6] = checksums::hash_from_text("Proximity_SetActive");
+    records[12] = checksums::hash_from_text("Proximity_EnterProximityNotHandled");
     records[18] = 0;
     for (int i = 0; i < 4; ++i)
         records[6 * i + 1] = kProximityType;
     void* const code[] = {
-        CodeAddress(&GameObjects::CProximityComponent::Proximity_Init),
-        CodeAddress(&GameObjects::CProximityComponent::Proximity_SetActive),
-        CodeAddress(&GameObjects::CProximityComponent::Proximity_EnterProximityNotHandled),
+        code_address(&objects::ProximityComponent::proximity_init),
+        code_address(&objects::ProximityComponent::proximity_set_active),
+        code_address(&objects::ProximityComponent::proximity_enter_proximity_not_handled),
     };
-    Scripts::FillMemberFunctionCode(records, code, 3);
+    script::fill_member_function_code(records, code, 3);
 }
 
 } // namespace Obj

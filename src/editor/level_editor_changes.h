@@ -6,13 +6,13 @@
 #include <vector>
 
 // NOT ORIGINAL - the level editor's Changes panel (ours; see level_editor.h): every change this edited copy makes to the
-// level as shipped, read from its layout as it is now (Layout::CaptureText - level_editor_layout.h): one entry a record
+// level as shipped, read from its layout as it is now (Layout::capture_text - level_editor_layout.h): one entry a record
 // (a piece moved / turned / scaled / hidden, a copy, an object moved, a node moved or its fields edited, a node added
 // or hidden, a trigger, a chain edit, a wall, faces, a cluster, a camera, the level's properties...), grouped by kind,
 // each with a one-line summary, Go to (what it names selected, the camera taken there) and Revert: the layout without
 // that record put in place (the rest as it is) - one undo step (Ctrl+Z puts the change back). The editor's own records
 // (groups, labels, locks of its Outliner: level_editor_organize.h) aren't changes to the level: not listed.
-namespace MenuSystem::LevelEditor::Changes {
+namespace frontend::level_editor::changes {
 
 // --- the pure parts --------------------------------------------------------------------------------------------------
 
@@ -25,16 +25,16 @@ struct TableRow {
 };
 // The group a record's keyword belongs to (nullptr: not a change - the header, the scene, the editor's own records,
 // anything unknown).
-const char* GroupOf(const std::string& keyword);
+const char* group_of(const std::string& keyword);
 // The groups in the panel's order.
-const std::vector<const char*>& Bunches();
+const std::vector<const char*>& bunches();
 // A checksum's name for summaries (`label`: the name, else "" - then the record's comment, else the hex).
 using Labeler = std::function<std::string(uint32_t checksum)>;
 // The changes of a layout's text, in its order.
-std::vector<TableRow> LinkChain(const std::string& layoutText, const Labeler& label);
+std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& label);
 // The text with line `line` taken out (the record reverted); the text unchanged when there is no such line.
-std::string Without(const std::string& layoutText, int line);
+std::string without(const std::string& layout_text, int line);
 // A record's checksum argument: 8 hex digits (or 0x and 8) as they are, else a name's checksum (the script's CRC).
-uint32_t IdOf(const std::string& word);
+uint32_t id_of(const std::string& word);
 
-} // namespace MenuSystem::LevelEditor::Changes
+} // namespace MenuSystem::level_editor::Changes

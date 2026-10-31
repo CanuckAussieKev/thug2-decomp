@@ -14,10 +14,10 @@
 #include "engine/gfx/model_appearance.h"
 #include "engine/lists/lookup_table.h"
 
-namespace GameObjects {
+namespace objects {
 
-GameObjects::CProfileRoster* g_profileRoster;
-uint32_t g_profileManagerReferences;
+objects::ProfileRoster* g_profile_roster;
+uint32_t g_profile_manager_references;
 
 namespace {
 
@@ -47,326 +47,326 @@ constexpr uint32_t kStats[] = {
     0xB1FC0722, // manual_balance
 };
 
-MemSys::Arena* ProfileHeap() { return MemSys::Hub::Pull()->m_skaterInfoHeap; }
+memory::Arena* profile_heap() { return memory::Hub::get_pull()->skater_info_heap_; }
 
-CProfileRoster*& Sole() { return g_profileRoster; }
-uint32_t& RefTally() { return g_profileManagerReferences; }
+ProfileRoster*& sole() { return g_profile_roster; }
+uint32_t& ref_tally() { return g_profile_manager_references; }
 
 // A new profile (constructed: its defaults).
-CRiderIdentity* NewProfile()
+RiderIdentity* new_profile()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CRiderIdentity));
-    return memory ? static_cast<CRiderIdentity*>(memory)->MakeNew() : nullptr;
+    void* memory = memory::alloc_zeroed(sizeof(RiderIdentity));
+    return memory ? static_cast<RiderIdentity*>(memory)->make_new() : nullptr;
 }
 
-// The face texture object of a model appearance (its +0x54; 0x00576E60, folded with GameModules::Viewer's getter), told a
+// The face texture object of a model appearance (its +0x54; 0x00576E60, folded with modules::Viewer's getter), told a
 // face texture (0x004875F0) and whether there is one (0x00487520).
-void* FaceOf(CRiderIdentity* profile) { return *reinterpret_cast<void**>(profile->m_lookData + 0x54); }
+void* face_of(RiderIdentity* profile) { return *reinterpret_cast<void**>(profile->look_data_ + 0x54); }
 
 } // namespace
 
-void CRiderIdentity::SetAppearance(Scripts::CStruct* appearance, bool update)
+void RiderIdentity::set_appearance(script::Struct* appearance, bool update)
 {
-    reinterpret_cast<Gfx2D::CModelLook*>(this)->ReadIn(appearance, update);
+    reinterpret_cast<gfx::ModelLook*>(this)->read_in(appearance, update);
 }
 // 0x00543010
-void CRiderIdentity::DestroyBody()
+void RiderIdentity::destroy_body()
 {
-    DetailsParams()->Clear();
-    reinterpret_cast<Gfx2D::CModelLook*>(this)->DestroyBody();
+    details_params()->get_clear();
+    reinterpret_cast<gfx::ModelLook*>(this)->destroy_body();
 }
-void CRiderIdentity::EraseOne()
+void RiderIdentity::erase_one()
 {
-    DetailsParams()->Clear();
-    reinterpret_cast<Gfx2D::CModelLook*>(this)->DestroyBody();
-    MemSys::Hub::Pull()->Dealloc(this);
+    details_params()->get_clear();
+    reinterpret_cast<gfx::ModelLook*>(this)->destroy_body();
+    memory::Hub::get_pull()->dealloc(this);
 }
 
 // The lookup table's generic code.
-CRiderIdentity* ProfileTable::GetByIndex(int index, uint32_t* key)
+RiderIdentity* ProfileTable::get_by_index(int index, uint32_t* key)
 {
-    return static_cast<CRiderIdentity*>(reinterpret_cast<ListKit::ResolveMap*>(this)->FetchEntryAt(&index, key));
+    return static_cast<RiderIdentity*>(reinterpret_cast<lists::ResolveMap*>(this)->fetch_entry_at(&index, key));
 }
-CRiderIdentity* ProfileTable::Pull(uint32_t key)
+RiderIdentity* ProfileTable::get_pull(uint32_t key)
 {
-    return static_cast<CRiderIdentity*>(reinterpret_cast<ListKit::ResolveMap*>(this)->FetchEntry(&key));
+    return static_cast<RiderIdentity*>(reinterpret_cast<lists::ResolveMap*>(this)->fetch_entry(&key));
 }
-bool ProfileTable::PlaceIn(uint32_t key, CRiderIdentity* item)
+bool ProfileTable::place_in(uint32_t key, RiderIdentity* item)
 {
-    return reinterpret_cast<ListKit::ResolveMap*>(this)->StoreEntry(&key, item);
+    return reinterpret_cast<lists::ResolveMap*>(this)->store_entry(&key, item);
 }
-void ProfileTable::DropOut(uint32_t key) { reinterpret_cast<ListKit::ResolveMap*>(this)->EraseEntry(&key); }
+void ProfileTable::drop_out(uint32_t key) { reinterpret_cast<lists::ResolveMap*>(this)->erase_entry(&key); }
 
 // 0x0057B9E0
-void ProfileTable::Clear()
+void ProfileTable::get_clear()
 {
-    for (Elem* node = m_first; node;) {
+    for (Elem* node = first_; node;) {
         Elem* next = node->next;
-        MemSys::Hub::Pull()->Dealloc(node);
+        memory::Hub::get_pull()->dealloc(node);
         node = next;
     }
-    m_first = nullptr;
-    m_cursor = nullptr;
-    m_num = 0;
+    first_ = nullptr;
+    cursor_ = nullptr;
+    num_ = 0;
 }
 
 // 0x0057BBF0
-void ProfileTable::Teardown() { Clear(); }
+void ProfileTable::teardown() { get_clear(); }
 
 // 0x0057BC00
-CProfileRoster* CProfileRoster::MakeNew()
+ProfileRoster* ProfileRoster::make_new()
 {
-    m_templates.m_num = 0;
-    m_templates.m_first = nullptr;
-    m_templates.m_cursor = nullptr;
-    m_cursorPos = 0;
-    m_profiles[0] = nullptr;
-    m_profiles[1] = nullptr;
-    m_locked = false;
-    m_extraCount = 0;
+    templates_.num_ = 0;
+    templates_.first_ = nullptr;
+    templates_.cursor_ = nullptr;
+    cursor_pos_ = 0;
+    profiles_[0] = nullptr;
+    profiles_[1] = nullptr;
+    locked_ = false;
+    extra_count_ = 0;
     return this;
 }
 
 // 0x0057BC20
-void CProfileRoster::DestroyBody()
+void ProfileRoster::destroy_body()
 {
     // Every template (the first each time: dropped from the table as it goes; a null one dropped too).
-    for (uint32_t left = m_templates.m_num; left != 0; --left) {
+    for (uint32_t left = templates_.num_; left != 0; --left) {
         uint32_t key;
-        if (CRiderIdentity* profile = m_templates.GetByIndex(0, &key))
-            profile->EraseOne();
-        m_templates.DropOut(key);
+        if (RiderIdentity* profile = templates_.get_by_index(0, &key))
+            profile->erase_one();
+        templates_.drop_out(key);
     }
     // The second player's copy (the first player's is a template), and the extras.
-    if (CRiderIdentity* copy = m_profiles[1])
-        copy->EraseOne();
-    m_profiles[1] = nullptr;
-    for (int i = 0; i < m_extraCount; ++i) {
-        if (CRiderIdentity* extra = m_extraProfiles[i])
-            extra->EraseOne();
-        m_extraProfiles[i] = nullptr;
+    if (RiderIdentity* copy = profiles_[1])
+        copy->erase_one();
+    profiles_[1] = nullptr;
+    for (int i = 0; i < extra_count_; ++i) {
+        if (RiderIdentity* extra = extra_profiles_[i])
+            extra->erase_one();
+        extra_profiles_[i] = nullptr;
     }
-    m_templates.Clear();
+    templates_.get_clear();
 }
 
 // 0x0057B620 / 0x0057B630 / 0x0057B640
-void CProfileRoster::SetCurrentIndex(int index) { m_cursorPos = index; }
-CRiderIdentity* CProfileRoster::FetchActiveAccount() { return m_profiles[m_cursorPos]; }
-CRiderIdentity* CProfileRoster::FetchAccount(int index) { return m_profiles[index]; }
+void ProfileRoster::set_current_index(int index) { cursor_pos_ = index; }
+RiderIdentity* ProfileRoster::fetch_active_account() { return profiles_[cursor_pos_]; }
+RiderIdentity* ProfileRoster::fetch_account(int index) { return profiles_[index]; }
 
 // 0x0057B650
-CRiderIdentity* CProfileRoster::GetExtraProfile(uint32_t name)
+RiderIdentity* ProfileRoster::get_extra_profile(uint32_t name)
 {
-    for (int i = 0; i < m_extraCount; ++i) {
-        if (m_extraNames[i] == name)
-            return m_extraProfiles[i];
+    for (int i = 0; i < extra_count_; ++i) {
+        if (extra_names_[i] == name)
+            return extra_profiles_[i];
     }
     return nullptr;
 }
 
 // 0x0057B680
-void CProfileRoster::SetLocked(bool locked) { m_locked = locked; }
+void ProfileRoster::set_locked(bool locked) { locked_ = locked; }
 
 // 0x0057B690
-void CProfileRoster::PrepareAll()
+void ProfileRoster::prepare_all()
 {
-    MemSys::Hub::Pull()->EnterHeapScope(ProfileHeap());
-    Scripts::LaunchScript(kInitProSkaters, nullptr, nullptr, false, nullptr);
+    memory::Hub::get_pull()->enter_heap_scope(profile_heap());
+    script::launch_script(kInitProSkaters, nullptr, nullptr, false, nullptr);
     uint32_t key;
-    m_profiles[0] = m_templates.GetByIndex(0, &key);
+    profiles_[0] = templates_.get_by_index(0, &key);
     for (int i = 1; i < 2; ++i) {
-        m_profiles[i] = NewProfile();
-        m_profiles[i]->CopyFrom(m_templates.GetByIndex(i, &key));
+        profiles_[i] = new_profile();
+        profiles_[i]->copy_from(templates_.get_by_index(i, &key));
     }
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    memory::Hub::get_pull()->leave_heap_scope();
 }
 
 // 0x0057B770
-uint32_t CProfileRoster::GetTemplateName(int index)
+uint32_t ProfileRoster::get_template_name(int index)
 {
     uint32_t key;
-    m_templates.GetByIndex(index, &key);
+    templates_.get_by_index(index, &key);
     return key;
 }
 
 // 0x0057B790
-void CProfileRoster::ResetSecondProfile()
+void ProfileRoster::reset_second_profile()
 {
-    MemSys::Hub::Pull()->EnterHeapScope(ProfileHeap());
-    CRiderIdentity* copy = m_profiles[1];
-    copy->CopyFrom(m_templates.Pull(copy->FetchTitle()));
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    memory::Hub::get_pull()->enter_heap_scope(profile_heap());
+    RiderIdentity* copy = profiles_[1];
+    copy->copy_from(templates_.get_pull(copy->fetch_title()));
+    memory::Hub::get_pull()->leave_heap_scope();
 }
 
 // 0x0057B7E0
-CRiderIdentity* CProfileRoster::GetTemplate(uint32_t name) { return m_templates.Pull(name); }
+RiderIdentity* ProfileRoster::get_template(uint32_t name) { return templates_.get_pull(name); }
 
 // 0x0057B800
-void CProfileRoster::ResetTemplates()
+void ProfileRoster::reset_templates()
 {
-    uint32_t count = m_templates.m_num;
+    uint32_t count = templates_.num_;
     for (uint32_t i = 0; i < count; ++i) {
         uint32_t key;
-        m_templates.GetByIndex(static_cast<int>(i), &key)->Reset(nullptr);
+        templates_.get_by_index(static_cast<int>(i), &key)->get_reset(nullptr);
     }
 }
 
 // 0x0057B840
-void CProfileRoster::WritePros(Scripts::CStruct* save)
+void ProfileRoster::write_pros(script::Struct* save)
 {
-    uint32_t count = m_templates.m_num;
+    uint32_t count = templates_.num_;
     for (uint32_t i = 0; i < count; ++i) {
         uint32_t key;
-        CRiderIdentity* profile = m_templates.GetByIndex(static_cast<int>(i), &key);
-        if (profile->IsPro())
-            profile->WriteToSave(save);
+        RiderIdentity* profile = templates_.get_by_index(static_cast<int>(i), &key);
+        if (profile->is_pro())
+            profile->write_to_save(save);
     }
-    save->AddComponentOfType(kCurrentSkater, Scripts::QBVAL_NAME, m_profiles[m_cursorPos]->FetchTitle());
-    TextUtil::Chars displayName(m_profiles[m_cursorPos]->FetchShownName());
-    save->AppendWord(kDisplayName, Scripts::QBVAL_STRING, displayName.c_str());
+    save->add_component_of_type(kCurrentSkater, script::kQbvalName, profiles_[cursor_pos_]->fetch_title());
+    text::Chars display_name(profiles_[cursor_pos_]->fetch_shown_name());
+    save->append_word(kDisplayName, script::kQbvalString, display_name.c_str());
 }
 
 // 0x0057B920
-void CProfileRoster::WriteCustomSkaters(Scripts::CStruct* save)
+void ProfileRoster::write_custom_skaters(script::Struct* save)
 {
-    uint32_t count = m_templates.m_num;
+    uint32_t count = templates_.num_;
     for (uint32_t i = 0; i < count; ++i) {
         uint32_t key;
-        CRiderIdentity* profile = m_templates.GetByIndex(static_cast<int>(i), &key);
-        if (!profile->IsPro())
-            profile->WriteToSave(save);
+        RiderIdentity* profile = templates_.get_by_index(static_cast<int>(i), &key);
+        if (!profile->is_pro())
+            profile->write_to_save(save);
     }
 }
 
 // 0x0057B970
-bool CProfileRoster::AddExtraProfile(uint32_t name)
+bool ProfileRoster::add_extra_profile(uint32_t name)
 {
-    m_extraProfiles[m_extraCount] = NewProfile();
-    m_extraNames[m_extraCount] = name;
-    ++m_extraCount;
+    extra_profiles_[extra_count_] = new_profile();
+    extra_names_[extra_count_] = name;
+    ++extra_count_;
     return true;
 }
 
 // 0x0057BA20
-void CProfileRoster::SetCurrentSkater(uint32_t name)
+void ProfileRoster::set_current_skater(uint32_t name)
 {
-    MemSys::Hub::Pull()->EnterHeapScope(ProfileHeap());
-    if (m_cursorPos == 0)
-        m_profiles[m_cursorPos] = m_templates.Pull(name);
+    memory::Hub::get_pull()->enter_heap_scope(profile_heap());
+    if (cursor_pos_ == 0)
+        profiles_[cursor_pos_] = templates_.get_pull(name);
     else
-        m_profiles[m_cursorPos]->CopyFrom(m_templates.Pull(name));
-    MemSys::Hub::Pull()->LeaveHeapScope();
+        profiles_[cursor_pos_]->copy_from(templates_.get_pull(name));
+    memory::Hub::get_pull()->leave_heap_scope();
 }
 
 // 0x0057BAA0
-void CProfileRoster::ReadPros(Scripts::CStruct* save)
+void ProfileRoster::read_pros(script::Struct* save)
 {
-    MemSys::Hub::Pull()->EnterHeapScope(ProfileHeap());
-    uint32_t count = m_templates.m_num;
+    memory::Hub::get_pull()->enter_heap_scope(profile_heap());
+    uint32_t count = templates_.num_;
     for (uint32_t i = 0; i < count; ++i) {
         uint32_t key;
-        CRiderIdentity* profile = m_templates.GetByIndex(static_cast<int>(i), &key);
-        if (profile->IsPro())
-            profile->ReadFromSave(profile->FetchTitle(), save);
+        RiderIdentity* profile = templates_.get_by_index(static_cast<int>(i), &key);
+        if (profile->is_pro())
+            profile->read_from_save(profile->fetch_title(), save);
     }
     uint32_t current = 0;
-    save->ReadHashValue(kCurrentSkater, &current, 0);
-    SetCurrentSkater(current);
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    save->read_hash_value(kCurrentSkater, &current, 0);
+    set_current_skater(current);
+    memory::Hub::get_pull()->leave_heap_scope();
 }
 
 // 0x0057BB40
-bool CProfileRoster::AddTemplate(Scripts::CStruct* params)
+bool ProfileRoster::add_template(script::Struct* params)
 {
-    MemSys::Hub::Pull()->EnterHeapScope(ProfileHeap());
+    memory::Hub::get_pull()->enter_heap_scope(profile_heap());
     uint32_t name;
-    params->ReadHashValue(kName, &name, 1);
-    CRiderIdentity* profile = NewProfile();
-    profile->Reset(params);
-    m_templates.PlaceIn(name, profile);
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    params->read_hash_value(kName, &name, 1);
+    RiderIdentity* profile = new_profile();
+    profile->get_reset(params);
+    templates_.place_in(name, profile);
+    memory::Hub::get_pull()->leave_heap_scope();
     return true;
 }
 
 // 0x0057BD70
-bool CProfileRoster::ReadCustomSkater(Scripts::CStruct* save, bool keepSavedStats)
+bool ProfileRoster::read_custom_skater(script::Struct* save, bool keep_saved_stats)
 {
-    SetCurrentSkater(kCustom);
-    CRiderIdentity* profile = m_profiles[m_cursorPos];
-    Scripts::CStruct* custom = nullptr;
-    save->ReadSubStruct(kCustom, &custom, 0);
+    set_current_skater(kCustom);
+    RiderIdentity* profile = profiles_[cursor_pos_];
+    script::Struct* custom = nullptr;
+    save->read_sub_struct(kCustom, &custom, 0);
     int version = 0;
-    if (!custom->FetchIntValue(kVersionNumber, &version, 0))
+    if (!custom->fetch_int_value(kVersionNumber, &version, 0))
         return false;
     if (version != 2)
         return true;
     // The appearance, and the face texture if the save has one.
-    Scripts::CStruct* appearance = nullptr;
-    custom->ReadSubStruct(kAppearance, &appearance, 0);
-    profile->SetAppearance(appearance, true);
-    if (void* face = FaceOf(profile)) {
-        Scripts::CStruct* texture;
-        bool found = custom->ReadSubStruct(kFaceTexture, &texture, 0);
+    script::Struct* appearance = nullptr;
+    custom->read_sub_struct(kAppearance, &appearance, 0);
+    profile->set_appearance(appearance, true);
+    if (void* face = face_of(profile)) {
+        script::Struct* texture;
+        bool found = custom->read_sub_struct(kFaceTexture, &texture, 0);
         if (found) {
-            static_cast<Gfx2D::CFaceSkin*>(face)->LoadFromStructure(texture);
-            DebugOut::Printf("Face texture found\n");
+            static_cast<gfx::FaceSkin*>(face)->load_from_structure(texture);
+            debug::printf("Face texture found\n");
         } else {
-            DebugOut::Printf("Face texture not found\n");
+            debug::printf("Face texture not found\n");
         }
-        static_cast<Gfx2D::CFaceSkin*>(face)->MarkUsable(found);
+        static_cast<gfx::FaceSkin*>(face)->mark_usable(found);
     }
     // The stats and specials as they are, the save's info read over them, then (unless the save's stats are kept)
     // put back.
     int stats[10];
     for (int i = 0; i < 10; ++i)
-        stats[i] = profile->FetchTally(kStats[i]);
-    int maxSpecials = profile->GetMaxSpecials();
-    Scripts::CStruct* memory = Scripts::SpawnParamBag();
-    Scripts::CStruct* specials = memory ? memory->PrepareAll() : nullptr;
-    specials->AppendStructureIfAny(profile->GetSpecials());
-    Scripts::CStruct* info = nullptr;
-    custom->ReadSubStruct(kInfo, &info, 0);
-    profile->DetailsParams()->Clear();
-    profile->DetailsParams()->AppendStructureIfAny(info);
-    if (!keepSavedStats) {
+        stats[i] = profile->fetch_tally(kStats[i]);
+    int max_specials = profile->get_max_specials();
+    script::Struct* memory = script::spawn_param_bag();
+    script::Struct* specials = memory ? memory->prepare_all() : nullptr;
+    specials->append_structure_if_any(profile->get_specials());
+    script::Struct* info = nullptr;
+    custom->read_sub_struct(kInfo, &info, 0);
+    profile->details_params()->get_clear();
+    profile->details_params()->append_structure_if_any(info);
+    if (!keep_saved_stats) {
         for (int i = 0; i < 10; ++i)
-            profile->SetAbilityLevel(kStats[i], stats[i]);
-        profile->SetAbilityLevel(kMaxSpecials, maxSpecials);
-        profile->GetSpecials()->Clear();
-        profile->GetSpecials()->AppendStructureIfAny(specials);
+            profile->set_ability_level(kStats[i], stats[i]);
+        profile->set_ability_level(kMaxSpecials, max_specials);
+        profile->get_specials()->get_clear();
+        profile->get_specials()->append_structure_if_any(specials);
     }
     if (specials) {
-        specials->Clear();
-        Scripts::DeleteStruct(specials);
+        specials->get_clear();
+        script::delete_struct(specials);
     }
-    int deckFlags = 1; // (read, never used)
-    return custom->FetchIntValue(kDeckFlags, &deckFlags, 0);
+    int deck_flags = 1; // (read, never used)
+    return custom->fetch_int_value(kDeckFlags, &deck_flags, 0);
 }
 
 // 0x0057C0D0
-CProfileRoster* CProfileRoster::Fabricate(bool create)
+ProfileRoster* ProfileRoster::fabricate(bool create)
 {
-    if (!Sole() && create) {
-        void* memory = MemSys::AllocZeroed(sizeof(CProfileRoster), nullptr, 1);
-        Sole() = memory ? static_cast<CProfileRoster*>(memory)->MakeNew() : nullptr;
+    if (!sole() && create) {
+        void* memory = memory::alloc_zeroed(sizeof(ProfileRoster), nullptr, 1);
+        sole() = memory ? static_cast<ProfileRoster*>(memory)->make_new() : nullptr;
     }
-    ++RefTally();
-    return Sole();
+    ++ref_tally();
+    return sole();
 }
 
 // 0x0057C120
-void CProfileRoster::Release()
+void ProfileRoster::get_release()
 {
-    if (RefTally() > 1) {
-        --RefTally();
+    if (ref_tally() > 1) {
+        --ref_tally();
         return;
     }
-    if (CProfileRoster* manager = Sole()) {
-        manager->DestroyBody();
-        MemSys::Hub::Pull()->Dealloc(manager);
+    if (ProfileRoster* manager = sole()) {
+        manager->destroy_body();
+        memory::Hub::get_pull()->dealloc(manager);
     }
-    Sole() = nullptr;
-    RefTally() = 0;
+    sole() = nullptr;
+    ref_tally() = 0;
 }
 
 } // namespace Obj

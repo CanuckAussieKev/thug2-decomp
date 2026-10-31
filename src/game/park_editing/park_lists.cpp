@@ -9,23 +9,23 @@
 #include "engine/core/slab_bank.h"
 #include "game/park/park_memory.h"
 
-namespace ParkEditing {
+namespace park_editing {
 
-MemSys::PoolPair g_nodePools;
+memory::PoolPair g_node_pools;
 
 namespace {
 
-MemSys::PoolPair& NodePools() { return g_nodePools; }
+memory::PoolPair& node_pools() { return g_node_pools; }
 
 // The generator's piece making.
-void* GetPieceSource(void* generator, uint32_t name) { return static_cast<CParkAssembler*>(generator)->GetPieceSource(name); }
-void* CreatePiece(void* generator, void* source, uint32_t flags)
+void* get_piece_source(void* generator, uint32_t name) { return static_cast<ParkAssembler*>(generator)->get_piece_source(name); }
+void* create_piece(void* generator, void* source, uint32_t flags)
 {
-    return static_cast<CParkAssembler*>(generator)->CreatePiece(static_cast<CParkTile*>(source), flags);
+    return static_cast<ParkAssembler*>(generator)->create_piece(static_cast<ParkTile*>(source), flags);
 }
 
 // One floor slide step for a cell or metapiece at `current`.
-int ScrollOffset(uint32_t flags, int current, int height)
+int scroll_offset(uint32_t flags, int current, int height)
 {
     if (flags & 1) {
         if (flags & 2)
@@ -37,324 +37,324 @@ int ScrollOffset(uint32_t flags, int current, int height)
 
 } // namespace
 
-// --- CMapListNode and CPieceGroup (game code outside this range, or not rewritten yet) ----------------------------
+// --- CMapListNode and PieceGroup (game code outside this range, or not rewritten yet) ----------------------------
 
-CMapListNode* CMapListNode::Fabricate()
+MapListNode* MapListNode::fabricate()
 {
-    auto* node = static_cast<CMapListNode*>(NodePools().Carve(sizeof(CMapListNode)));
+    auto* node = static_cast<MapListNode*>(node_pools().carve(sizeof(MapListNode)));
     if (node) {
-        node->m_dy = 0;
-        node->m_pieceGroup = nullptr;
-        node->m_following = nullptr;
+        node->dy_ = 0;
+        node->piece_group_ = nullptr;
+        node->following_ = nullptr;
     }
     return node;
 }
 
-void CMapListNode::Dealloc(void* node) { NodePools().Dealloc(node); }
+void MapListNode::dealloc(void* node) { node_pools().dealloc(node); }
 
-void __fastcall CMapListNode::FreeNodeChain(CMapListNode* list)
+void __fastcall MapListNode::free_node_chain(MapListNode* list)
 {
-    CMapListNode* node = list;
+    MapListNode* node = list;
     while (node) {
-        CMapListNode* next = node->m_following;
-        Dealloc(node);
+        MapListNode* next = node->following_;
+        dealloc(node);
         node = next;
     }
 }
 
-void CMapListNode::AuditSoundness(const CMapListNode* list)
+void MapListNode::audit_soundness(const MapListNode* list)
 {
     if (!list)
         return;
-    for (const CMapListNode* node = list->m_following; node; node = node->m_following) {
-        for (const CMapListNode* later = node; later; later = later->m_following) {
+    for (const MapListNode* node = list->following_; node; node = node->following_) {
+        for (const MapListNode* later = node; later; later = later->following_) {
         }
     }
 }
 
-// --- CParkLayout ------------------------------------------------------------------------------------------------
+// --- ParkLayout ------------------------------------------------------------------------------------------------
 
-CPieceGroup* CParkLayout::MakePlacedPiece(CPieceGroup* abstractMeta, uint32_t pieceFlags)
+PieceGroup* ParkLayout::make_placed_piece(PieceGroup* abstract_meta, uint32_t piece_flags)
 {
-    MemSys::EnterHeapScope(ParkHeap());
-    void* memory = MemSys::Alloc(sizeof(CPieceGroup));
-    CPieceGroup* meta = memory ? static_cast<CPlacedPieceGroup*>(memory)->MakeNew() : nullptr;
-    MemSys::LeaveHeapScope();
+    memory::enter_heap_scope(park_heap());
+    void* memory = memory::alloc(sizeof(PieceGroup));
+    PieceGroup* meta = memory ? static_cast<PlacedPieceGroup*>(memory)->make_new() : nullptr;
+    memory::leave_heap_scope();
 
-    int count = abstractMeta->CountPieces();
-    meta->Commission(count); // (a failed allocation crashes here, as in the original)
-    meta->m_nameKey = abstractMeta->m_nameKey;
-    if (abstractMeta->m_flagBits & CPieceGroup::kBuiltShell) {
-        pieceFlags |= 0x20;
-        meta->m_flagBits |= CPieceGroup::kBuiltShell;
+    int count = abstract_meta->count_pieces();
+    meta->commission(count); // (a failed allocation crashes here, as in the original)
+    meta->name_key_ = abstract_meta->name_key_;
+    if (abstract_meta->flag_bits_ & PieceGroup::kBuiltShell) {
+        piece_flags |= 0x20;
+        meta->flag_bits_ |= PieceGroup::kBuiltShell;
     }
-    if (abstractMeta->m_flagBits & CPieceGroup::kNoRails) {
-        pieceFlags |= 0x100;
-        meta->m_flagBits |= CPieceGroup::kNoRails;
+    if (abstract_meta->flag_bits_ & PieceGroup::kNoRails) {
+        piece_flags |= 0x100;
+        meta->flag_bits_ |= PieceGroup::kNoRails;
     }
-    if (abstractMeta->m_flagBits & CPieceGroup::kFloorLocked)
-        meta->m_flagBits |= CPieceGroup::kFloorLocked;
+    if (abstract_meta->flag_bits_ & PieceGroup::kFloorLocked)
+        meta->flag_bits_ |= PieceGroup::kFloorLocked;
     for (int i = 0; i < count; ++i) {
-        SPieceGroupDesc entry;
-        static_cast<CPieceBlueprint*>(abstractMeta)->GetEntry(&entry, i); // entry `i`, copied
-        void* source = GetPieceSource(sSingleton()->m_builder, reinterpret_cast<uint32_t>(entry.piece));
-        void* piece = CreatePiece(m_builder, source, pieceFlags);
-        static_cast<CParkTile*>(piece)->SetQuarterTurns(entry.rot, 0); // turn it
-        SCellBox pos;
-        pos.AssignValue(entry.x, entry.y, entry.z, 0, 0, 0);
-        meta->InsertTile(piece, &pos, entry.rot, entry.setsFloor);
+        PieceGroupDesc entry;
+        static_cast<PieceBlueprint*>(abstract_meta)->get_entry(&entry, i); // entry `i`, copied
+        void* source = get_piece_source(singleton()->builder_, reinterpret_cast<uint32_t>(entry.piece));
+        void* piece = create_piece(builder_, source, piece_flags);
+        static_cast<ParkTile*>(piece)->set_quarter_turns(entry.rot, 0); // turn it
+        CellBox pos;
+        pos.assign_value(entry.x, entry.y, entry.z, 0, 0, 0);
+        meta->insert_tile(piece, &pos, entry.rot, entry.sets_floor_);
     }
-    meta->FinishPieces();
+    meta->finish_pieces();
 
-    CMapListNode* node = CMapListNode::Fabricate();
-    node->m_pieceGroup = meta; // (out of memory crashes, as in the original)
-    node->m_following = nullptr;
-    if (!m_concrete_metas) {
-        m_concrete_metas = node;
+    MapListNode* node = MapListNode::fabricate();
+    node->piece_group_ = meta; // (out of memory crashes, as in the original)
+    node->following_ = nullptr;
+    if (!concrete_metas_) {
+        concrete_metas_ = node;
     } else {
-        CMapListNode* last = m_concrete_metas;
-        while (last->m_following)
-            last = last->m_following;
-        last->m_following = node;
+        MapListNode* last = concrete_metas_;
+        while (last->following_)
+            last = last->following_;
+        last->following_ = node;
     }
-    ++m_numConcreteMetas;
+    ++num_concrete_metas_;
     return meta;
 }
 
-bool CParkLayout::HasPiecesOutside(SCellBox area)
+bool ParkLayout::has_pieces_outside(CellBox area)
 {
-    for (CMapListNode* node = m_concrete_metas; node; node = node->m_following) {
-        CPieceGroup* meta = node->GetPieceGroup()->Cast();
-        SCellBox dims = meta->m_cellFootprint;
+    for (MapListNode* node = concrete_metas_; node; node = node->following_) {
+        PieceGroup* meta = node->get_piece_group()->get_cast();
+        CellBox dims = meta->cell_footprint_;
         bool inside = dims.x >= area.x && dims.z >= area.z && dims.x + dims.w <= area.x + area.w &&
                       dims.z + dims.l <= area.z + area.l;
         if (inside)
             continue;
-        uint32_t flags = meta->m_flagBits;
-        if (!(flags & CPieceGroup::kBuiltShell) && !(flags & CPieceGroup::kFence) && (flags & CPieceGroup::kInPark))
+        uint32_t flags = meta->flag_bits_;
+        if (!(flags & PieceGroup::kBuiltShell) && !(flags & PieceGroup::kFence) && (flags & PieceGroup::kInPark))
             return true;
     }
     return false;
 }
 
-void CParkLayout::AddMetaToList(CPieceGroup* meta, CMapListNode** list)
+void ParkLayout::add_meta_to_list(PieceGroup* meta, MapListNode** list)
 {
-    for (CMapListNode* node = *list; node; node = node->m_following) {
-        if (node->GetPieceGroup() == meta)
+    for (MapListNode* node = *list; node; node = node->following_) {
+        if (node->get_piece_group() == meta)
             return;
     }
-    CMapListNode* node = CMapListNode::Fabricate();
-    node->m_pieceGroup = meta; // (out of memory crashes, as in the original)
-    node->m_following = *list;
+    MapListNode* node = MapListNode::fabricate();
+    node->piece_group_ = meta; // (out of memory crashes, as in the original)
+    node->following_ = *list;
     *list = node;
 }
 
-void CParkLayout::RemoveMetaFromList(CPieceGroup* meta, CMapListNode** list)
+void ParkLayout::remove_meta_from_list(PieceGroup* meta, MapListNode** list)
 {
-    CMapListNode* previous = nullptr;
-    for (CMapListNode* node = *list; node; previous = node, node = node->m_following) {
-        if (node->GetPieceGroup() != meta)
+    MapListNode* previous = nullptr;
+    for (MapListNode* node = *list; node; previous = node, node = node->following_) {
+        if (node->get_piece_group() != meta)
             continue;
         if (previous)
-            previous->m_following = node->m_following;
+            previous->following_ = node->following_;
         else
-            *list = node->m_following;
-        CMapListNode::Dealloc(node);
+            *list = node->following_;
+        MapListNode::dealloc(node);
         return;
     }
 }
 
-void CParkLayout::AddMetaToCells(CPieceGroup* meta)
+void ParkLayout::add_meta_to_cells(PieceGroup* meta)
 {
-    for (int i = 0; i < meta->m_cellFootprint.w; ++i) {
-        for (int j = 0; j < meta->m_cellFootprint.l; ++j) {
-            CMapListNode* node = CMapListNode::Fabricate();
-            node->m_pieceGroup = meta; // (out of memory crashes, as in the original)
-            CMapListNode*& bucket = m_cellMetas[meta->m_cellFootprint.x + i][meta->m_cellFootprint.z + j];
-            node->m_following = bucket;
+    for (int i = 0; i < meta->cell_footprint_.w; ++i) {
+        for (int j = 0; j < meta->cell_footprint_.l; ++j) {
+            MapListNode* node = MapListNode::fabricate();
+            node->piece_group_ = meta; // (out of memory crashes, as in the original)
+            MapListNode*& bucket = cell_metas_[meta->cell_footprint_.x + i][meta->cell_footprint_.z + j];
+            node->following_ = bucket;
             bucket = node;
         }
     }
 }
 
-void CParkLayout::RemoveMetaFromCells(CPieceGroup* meta)
+void ParkLayout::remove_meta_from_cells(PieceGroup* meta)
 {
-    for (int i = 0; i < meta->m_cellFootprint.w; ++i) {
-        for (int j = 0; j < meta->m_cellFootprint.l; ++j) {
-            CMapListNode*& bucket = m_cellMetas[meta->m_cellFootprint.x + i][meta->m_cellFootprint.z + j];
-            CMapListNode* previous = nullptr;
-            for (CMapListNode* node = bucket; node; previous = node, node = node->m_following) {
-                if (node->m_pieceGroup != meta)
+    for (int i = 0; i < meta->cell_footprint_.w; ++i) {
+        for (int j = 0; j < meta->cell_footprint_.l; ++j) {
+            MapListNode*& bucket = cell_metas_[meta->cell_footprint_.x + i][meta->cell_footprint_.z + j];
+            MapListNode* previous = nullptr;
+            for (MapListNode* node = bucket; node; previous = node, node = node->following_) {
+                if (node->piece_group_ != meta)
                     continue;
                 if (previous)
-                    previous->m_following = node->m_following;
+                    previous->following_ = node->following_;
                 else
-                    bucket = node->m_following;
-                CMapListNode::Dealloc(node);
+                    bucket = node->following_;
+                MapListNode::dealloc(node);
                 break;
             }
         }
     }
 }
 
-CMapListNode* CParkLayout::GetIntersectingMetas(SCellBox area, int rot, CPieceGroup* meta, uint32_t skipInnerShell)
+MapListNode* ParkLayout::get_intersecting_metas(CellBox area, int rot, PieceGroup* meta, uint32_t skip_inner_shell)
 {
-    bool precise = static_cast<uint8_t>(skipInnerShell) != 0;
-    CMapListNode* list = nullptr;
+    bool precise = static_cast<uint8_t>(skip_inner_shell) != 0;
+    MapListNode* list = nullptr;
     if (!meta) {
         for (int x = area.x; x < area.x + area.w; ++x) {
             for (int z = area.z; z < area.z + area.l; ++z) {
-                for (CMapListNode* node = m_cellMetas[x][z]; node; node = node->m_following) {
-                    if (precise && (node->GetPieceGroup()->m_flagBits & CPieceGroup::kBuiltShell))
+                for (MapListNode* node = cell_metas_[x][z]; node; node = node->following_) {
+                    if (precise && (node->get_piece_group()->flag_bits_ & PieceGroup::kBuiltShell))
                         continue;
-                    if (node->GetPieceGroup()->Cast()->Intersects(area, skipInnerShell))
-                        AddMetaToList(node->GetPieceGroup(), &list);
+                    if (node->get_piece_group()->get_cast()->intersects(area, skip_inner_shell))
+                        add_meta_to_list(node->get_piece_group(), &list);
                 }
             }
         }
-        CMapListNode::AuditSoundness(list);
+        MapListNode::audit_soundness(list);
         return list;
     }
 
-    meta->SetQuarterTurns(rot);
-    area.w = meta->m_cellFootprint.w;
-    area.h = meta->m_cellFootprint.h;
-    area.l = meta->m_cellFootprint.l;
-    MapListHolder nearby(GetIntersectingMetas(area, 0, nullptr, false));
-    for (uint32_t i = 0; i < meta->m_filledSlots; ++i) {
-        SPieceGroupDesc* entry = meta->GetEntry(static_cast<int>(i));
-        SCellBox pos;
-        pos.AssignValue(entry->x, entry->y, entry->z, 0, 0, 0);
+    meta->set_quarter_turns(rot);
+    area.w = meta->cell_footprint_.w;
+    area.h = meta->cell_footprint_.h;
+    area.l = meta->cell_footprint_.l;
+    MapListHolder nearby(get_intersecting_metas(area, 0, nullptr, false));
+    for (uint32_t i = 0; i < meta->filled_slots_; ++i) {
+        PieceGroupDesc* entry = meta->get_entry(static_cast<int>(i));
+        CellBox pos;
+        pos.assign_value(entry->x, entry->y, entry->z, 0, 0, 0);
         pos.x = static_cast<uint8_t>(pos.x + area.x);
         pos.y = static_cast<int8_t>(pos.y + area.y);
         pos.z = static_cast<uint8_t>(pos.z + area.z);
-        for (CMapListNode* node = nearby.list; node; node = node->m_following) {
-            if (node->GetPieceGroup()->Cast()->Intersects(pos, false))
-                AddMetaToList(node->GetPieceGroup(), &list);
+        for (MapListNode* node = nearby.list; node; node = node->following_) {
+            if (node->get_piece_group()->get_cast()->intersects(pos, false))
+                add_meta_to_list(node->get_piece_group(), &list);
         }
     }
-    meta->SetQuarterTurns(0);
-    CMapListNode::AuditSoundness(list);
+    meta->set_quarter_turns(0);
+    MapListNode::audit_soundness(list);
     return list;
 }
 
-CMapListNode* CParkLayout::CollectPiecesInRegion(SCellBox area)
+MapListNode* ParkLayout::collect_pieces_in_region(CellBox area)
 {
-    CMapListNode* list = nullptr;
+    MapListNode* list = nullptr;
     for (int x = area.x; x < area.x + area.w; ++x) {
         for (int z = area.z; z < area.z + area.l; ++z) {
-            for (CMapListNode* node = m_cellMetas[x][z]; node; node = node->m_following)
-                AddMetaToList(node->GetPieceGroup(), &list);
+            for (MapListNode* node = cell_metas_[x][z]; node; node = node->following_)
+                add_meta_to_list(node->get_piece_group(), &list);
         }
     }
     return list;
 }
 
-SGapDetails* CParkLayout::GetGapInfo(SCellBox* cell, int* half)
+GapDetails* ParkLayout::get_gap_info(CellBox* cell, int* half)
 {
     cell->w = 1;
     cell->h = 1;
     cell->l = 1;
-    MapListHolder metas(GetIntersectingMetas(*cell, 0, nullptr, true));
+    MapListHolder metas(get_intersecting_metas(*cell, 0, nullptr, true));
     if (!metas.list)
         return nullptr;
-    CPieceGroup* meta = metas.list->GetPieceGroup()->Cast();
+    PieceGroup* meta = metas.list->get_piece_group()->get_cast();
     int gap;
     // The gap a metapiece is a half of, and its info
-    if (!m_gapRegistry->GetGapIndex(meta, &gap))
+    if (!gap_registry_->get_gap_index(meta, &gap))
         return nullptr;
-    return m_gapRegistry->GetGapInfo(gap, half);
+    return gap_registry_->get_gap_info(gap, half);
 }
 
-bool CParkLayout::HasFloorLockedMeta(SCellBox area)
+bool ParkLayout::has_floor_locked_meta(CellBox area)
 {
-    area.RaiseCeilingToLimit();
-    MapListHolder metas(GetIntersectingMetas(area, 0, nullptr, true));
-    for (CMapListNode* node = metas.list; node; node = node->m_following) {
-        if (node->GetPieceGroup()->Cast()->m_flagBits & CPieceGroup::kFloorLocked)
+    area.raise_ceiling_to_limit();
+    MapListHolder metas(get_intersecting_metas(area, 0, nullptr, true));
+    for (MapListNode* node = metas.list; node; node = node->following_) {
+        if (node->get_piece_group()->get_cast()->flag_bits_ & PieceGroup::kFloorLocked)
             return true;
     }
     return false;
 }
 
-bool CParkLayout::BuildRiserList(SCellBox area, int y, int height, uint32_t flags, CMapListNode** slidList)
+bool ParkLayout::build_riser_list(CellBox area, int y, int height, uint32_t flags, MapListNode** slid_list)
 {
     area.y = static_cast<int8_t>(y);
     if (flags & 4)
-        area.RaiseCeilingToLimit();
+        area.raise_ceiling_to_limit();
     else
-        area.StretchVertically();
+        area.stretch_vertically();
     for (int x = area.x; x < area.x + area.w; ++x) {
         for (int z = area.z; z < area.z + area.l; ++z) {
-            FloorCell& cell = m_floor[x][z];
-            if (!cell.m_touched) {
-                int amount = ScrollOffset(flags, cell.m_levelY, height);
-                cell.m_levelY += amount;
-                cell.m_delta = amount;
-                if (cell.m_levelY < -16 || cell.m_levelY > 15)
+            FloorCell& cell = floor_[x][z];
+            if (!cell.touched_) {
+                int amount = scroll_offset(flags, cell.level_y_, height);
+                cell.level_y_ += amount;
+                cell.delta_ = amount;
+                if (cell.level_y_ < -16 || cell.level_y_ > 15)
                     return false;
             }
-            cell.m_touched = true;
+            cell.touched_ = true;
         }
     }
-    MapListHolder metas(GetIntersectingMetas(area, 0, nullptr, true));
-    for (CMapListNode* node = metas.list; node; node = node->m_following) {
-        CPieceGroup* meta = node->GetPieceGroup()->Cast();
-        SCellBox dims = meta->m_cellFootprint;
-        if ((meta->m_flagBits & CPieceGroup::kBuiltShell) || (meta->m_flagBits & CPieceGroup::kFlag20))
+    MapListHolder metas(get_intersecting_metas(area, 0, nullptr, true));
+    for (MapListNode* node = metas.list; node; node = node->following_) {
+        PieceGroup* meta = node->get_piece_group()->get_cast();
+        CellBox dims = meta->cell_footprint_;
+        if ((meta->flag_bits_ & PieceGroup::kBuiltShell) || (meta->flag_bits_ & PieceGroup::kFlag20))
             continue;
-        meta->m_flagBits |= CPieceGroup::kFlag20;
-        CMapListNode* slid = CMapListNode::Fabricate();
-        slid->m_following = *slidList; // (out of memory crashes, as in the original)
-        slid->m_pieceGroup = meta;
-        *slidList = slid;
-        slid->m_dy = ScrollOffset(flags, dims.y, height);
-        if (!BuildRiserList(dims, dims.y, height, flags & ~4u, slidList))
+        meta->flag_bits_ |= PieceGroup::kFlag20;
+        MapListNode* slid = MapListNode::fabricate();
+        slid->following_ = *slid_list; // (out of memory crashes, as in the original)
+        slid->piece_group_ = meta;
+        *slid_list = slid;
+        slid->dy_ = scroll_offset(flags, dims.y, height);
+        if (!build_riser_list(dims, dims.y, height, flags & ~4u, slid_list))
             return false;
     }
     return true;
 }
 
-void CParkLayout::SetMetaInCells(CPieceGroup* meta, int add)
+void ParkLayout::set_meta_in_cells(PieceGroup* meta, int add)
 {
-    for (uint32_t i = 0; i < meta->m_filledSlots; ++i) {
-        void* piece = meta->GetPiece(static_cast<int>(i)); // (and the cast to a concrete piece: 0x005902E0)
-        SPieceGroupDesc* entry = meta->GetEntry(static_cast<int>(i));
-        if (!entry->setsFloor)
+    for (uint32_t i = 0; i < meta->filled_slots_; ++i) {
+        void* piece = meta->get_piece(static_cast<int>(i)); // (and the cast to a concrete piece: 0x005902E0)
+        PieceGroupDesc* entry = meta->get_entry(static_cast<int>(i));
+        if (!entry->sets_floor_)
             continue;
-        SCellBox dims;
-        dims.AssignValue(0, 0, 0, 0, 0, 0);
-        static_cast<CParkTile*>(piece)->GetFootprintSize(&dims); // the piece's size in cells
-        dims.x = static_cast<uint8_t>(entry->x + meta->m_cellFootprint.x);
-        dims.y = static_cast<int8_t>(entry->y + meta->m_cellFootprint.y);
-        dims.z = static_cast<uint8_t>(entry->z + meta->m_cellFootprint.z);
-        int zEnd = dims.z + dims.l;
+        CellBox dims;
+        dims.assign_value(0, 0, 0, 0, 0, 0);
+        static_cast<ParkTile*>(piece)->get_footprint_size(&dims); // the piece's size in cells
+        dims.x = static_cast<uint8_t>(entry->x + meta->cell_footprint_.x);
+        dims.y = static_cast<int8_t>(entry->y + meta->cell_footprint_.y);
+        dims.z = static_cast<uint8_t>(entry->z + meta->cell_footprint_.z);
+        int z_end = dims.z + dims.l;
         for (int x = dims.x; x < dims.x + dims.w; ++x) {
-            for (int z = dims.z; z < zEnd; ++z) {
-                FloorCell& cell = m_floor[x][z];
+            for (int z = dims.z; z < z_end; ++z) {
+                FloorCell& cell = floor_[x][z];
                 if (add) {
                     int top = dims.y + dims.h;
-                    if (cell.m_levelY < top)
-                        cell.m_levelY = top;
-                    if (cell.m_levelY > 15)
-                        cell.m_levelY = 15;
-                    if (cell.m_levelY < -16)
-                        cell.m_levelY = -16;
+                    if (cell.level_y_ < top)
+                        cell.level_y_ = top;
+                    if (cell.level_y_ > 15)
+                        cell.level_y_ = 15;
+                    if (cell.level_y_ < -16)
+                        cell.level_y_ = -16;
                 } else {
                     // nothing left above the piece: the floor comes down to its bottom
-                    SCellBox above = dims;
+                    CellBox above = dims;
                     above.y = static_cast<int8_t>(dims.h + dims.y);
-                    above.StretchVertically();
-                    MapListHolder metas(GetIntersectingMetas(above, 0, nullptr, true));
-                    if (!metas.list && cell.m_levelY > dims.y)
-                        cell.m_levelY = dims.y;
+                    above.stretch_vertically();
+                    MapListHolder metas(get_intersecting_metas(above, 0, nullptr, true));
+                    if (!metas.list && cell.level_y_ > dims.y)
+                        cell.level_y_ = dims.y;
                 }
                 for (int level = dims.y; level < dims.h + dims.y; ++level) {
                     uint32_t bit = 1u << ((level + 0x11) & 31);
                     if (add)
-                        cell.m_heightsUsed |= bit;
+                        cell.heights_used_ |= bit;
                     else
-                        cell.m_heightsUsed &= ~bit;
+                        cell.heights_used_ &= ~bit;
                 }
             }
         }
@@ -363,4 +363,4 @@ void CParkLayout::SetMetaInCells(CPieceGroup* meta, int add)
 
 } // namespace Ed
 
-using ParkEditing::CParkLayout;
+using park_editing::ParkLayout;

@@ -2,80 +2,80 @@
 
 #include <cstdint>
 
-namespace Scripts {
-class CStruct;
-class CScript;
+namespace script {
+class Struct;
+class Script;
 } // namespace Script
 
-// The network manager's script commands (CFunctions, OnlinePlay::Hub, 0x00535DA0-0x00539570): capture the flag,
+// The network manager's script commands (CFunctions, online::Hub, 0x00535DA0-0x00539570): capture the flag,
 // the game's state, the join mode, the lobby and the message of the day, first-come-first-served requests to the server
 // (start, level, pro set, goals), teams, the crown, starting and ending network games, the player list
 // (gamenet_commands.cpp, ...). All are cdecl (params, script) and return whether the script's `if` should be taken.
-namespace OnlinePlay {
+namespace online {
 
 // --- gamenet_commands.cpp: 0x00535DA0-0x00536460 ---
-bool __cdecl CFunc_StartCTFGame(Scripts::CStruct* params, Scripts::CScript* script);           // 0x00535DA0
-bool __cdecl CFunc_EndCTFGame(Scripts::CStruct* params, Scripts::CScript* script);             // 0x00535DC0
-bool __cdecl CFunc_DisplayFlagBaseWarning(Scripts::CStruct* params, Scripts::CScript* script); // 0x00535DE0
-bool __cdecl CFunc_NetworkGamePending(Scripts::CStruct* params, Scripts::CScript* script);     // 0x00535E20
-bool __cdecl CFunc_MarkGameOver(Scripts::CStruct* params, Scripts::CScript* script);           // 0x00535E30
-bool __cdecl CFunc_SetJoinMode(Scripts::CStruct* params, Scripts::CScript* script);            // 0x00535E40
-bool __cdecl CFunc_GetNumTeams(Scripts::CStruct* params, Scripts::CScript* script);            // 0x00535E90
-bool __cdecl CFunc_ConnectedToPeer(Scripts::CStruct* params, Scripts::CScript* script);        // 0x00535EB0
-bool __cdecl CFunc_InGroupRoom(Scripts::CStruct* params, Scripts::CScript* script);            // 0x00535EE0
-bool __cdecl CFunc_IsAutoServing(Scripts::CStruct* params, Scripts::CScript* script);          // 0x00535EF0
-bool __cdecl CFunc_ChangeLevelPending(Scripts::CStruct* params, Scripts::CScript* script);     // 0x00535F20
-bool __cdecl CFunc_CancelMotdDownload(Scripts::CStruct* params, Scripts::CScript* script);     // 0x00535F30
-bool __cdecl CFunc_DownloadMotd(Scripts::CStruct* params, Scripts::CScript* script);           // 0x00535F40
-bool __cdecl CFunc_ServicesAreAvailable(Scripts::CStruct* params, Scripts::CScript* script);   // 0x00535F50
-bool __cdecl CFunc_AlreadyGotMotd(Scripts::CStruct* params, Scripts::CScript* script);         // 0x00535FA0
-bool __cdecl CFunc_JoinServerComplete(Scripts::CStruct* params, Scripts::CScript* script);     // 0x00535FB0
-bool __cdecl CFunc_JustStartedNetGame(Scripts::CStruct* params, Scripts::CScript* script);     // 0x00535FC0
-bool __cdecl CFunc_FCFSRequestStartGame(Scripts::CStruct* params, Scripts::CScript* script);   // 0x00535FE0
-bool __cdecl CFunc_FCFSRequestChangeLevel(Scripts::CStruct* params, Scripts::CScript* script); // 0x00536170
-bool __cdecl CFunc_ReattemptJoinServer(Scripts::CStruct* params, Scripts::CScript* script);    // 0x00536240
-bool __cdecl CFunc_FCFSRequestToggleProSet(Scripts::CStruct* params, Scripts::CScript* script); // 0x00536260
-bool __cdecl CFunc_FCFSRequestToggleGoalSelection(Scripts::CStruct* params, Scripts::CScript* script); // 0x005362F0
-bool __cdecl CFunc_ResetProSetFlags(Scripts::CStruct* params, Scripts::CScript* script);       // 0x00536360
-bool __cdecl CFunc_HasSignedDisclaimer(Scripts::CStruct* params, Scripts::CScript* script);    // 0x00536460
-bool __cdecl CFunc_FoundServers(Scripts::CStruct* params, Scripts::CScript* script);          // 0x00537100
+bool __cdecl cfunc_start_ctf_game(script::Struct* params, script::Script* script);           // 0x00535DA0
+bool __cdecl cfunc_end_ctf_game(script::Struct* params, script::Script* script);             // 0x00535DC0
+bool __cdecl cfunc_display_flag_base_warning(script::Struct* params, script::Script* script); // 0x00535DE0
+bool __cdecl cfunc_network_game_pending(script::Struct* params, script::Script* script);     // 0x00535E20
+bool __cdecl cfunc_mark_game_over(script::Struct* params, script::Script* script);           // 0x00535E30
+bool __cdecl cfunc_set_join_mode(script::Struct* params, script::Script* script);            // 0x00535E40
+bool __cdecl cfunc_get_num_teams(script::Struct* params, script::Script* script);            // 0x00535E90
+bool __cdecl cfunc_connected_to_peer(script::Struct* params, script::Script* script);        // 0x00535EB0
+bool __cdecl cfunc_in_group_room(script::Struct* params, script::Script* script);            // 0x00535EE0
+bool __cdecl cfunc_is_auto_serving(script::Struct* params, script::Script* script);          // 0x00535EF0
+bool __cdecl cfunc_change_level_pending(script::Struct* params, script::Script* script);     // 0x00535F20
+bool __cdecl cfunc_cancel_motd_download(script::Struct* params, script::Script* script);     // 0x00535F30
+bool __cdecl cfunc_download_motd(script::Struct* params, script::Script* script);           // 0x00535F40
+bool __cdecl cfunc_services_are_available(script::Struct* params, script::Script* script);   // 0x00535F50
+bool __cdecl cfunc_already_got_motd(script::Struct* params, script::Script* script);         // 0x00535FA0
+bool __cdecl cfunc_join_server_complete(script::Struct* params, script::Script* script);     // 0x00535FB0
+bool __cdecl cfunc_just_started_net_game(script::Struct* params, script::Script* script);     // 0x00535FC0
+bool __cdecl cfunc_fcfs_request_start_game(script::Struct* params, script::Script* script);   // 0x00535FE0
+bool __cdecl cfunc_fcfs_request_change_level(script::Struct* params, script::Script* script); // 0x00536170
+bool __cdecl cfunc_reattempt_join_server(script::Struct* params, script::Script* script);    // 0x00536240
+bool __cdecl cfunc_fcfs_request_toggle_pro_set(script::Struct* params, script::Script* script); // 0x00536260
+bool __cdecl cfunc_fcfs_request_toggle_goal_selection(script::Struct* params, script::Script* script); // 0x005362F0
+bool __cdecl cfunc_reset_pro_set_flags(script::Struct* params, script::Script* script);       // 0x00536360
+bool __cdecl cfunc_has_signed_disclaimer(script::Struct* params, script::Script* script);    // 0x00536460
+bool __cdecl cfunc_found_servers(script::Struct* params, script::Script* script);          // 0x00537100
 
 // --- gamenet_game_commands.cpp: 0x00538050-0x00539570 ---
-bool __cdecl CFunc_TeamFlagTaken(Scripts::CStruct* params, Scripts::CScript* script);         // 0x00538050
-bool __cdecl CFunc_SpawnCrown(Scripts::CStruct* params, Scripts::CScript* script);            // 0x00538170
-bool __cdecl CFunc_StartNetworkGame(Scripts::CStruct* params, Scripts::CScript* script);      // 0x00538280
-bool __cdecl CFunc_SendGameOverToObservers(Scripts::CStruct* params, Scripts::CScript* script); // 0x00538620
-bool __cdecl CFunc_EndNetworkGame(Scripts::CStruct* params, Scripts::CScript* script);        // 0x00538720
-bool __cdecl CFunc_GetMyTeam(Scripts::CStruct* params, Scripts::CScript* script);             // 0x005388C0
-bool __cdecl CFunc_SetNumTeams(Scripts::CStruct* params, Scripts::CScript* script);           // 0x005388F0
-bool __cdecl CFunc_JoinTeam(Scripts::CStruct* params, Scripts::CScript* script);              // 0x00538C90
-bool __cdecl CFunc_IsHost(Scripts::CStruct* params, Scripts::CScript* script);                // 0x00538D70
-bool __cdecl CFunc_AllPlayersAreReady(Scripts::CStruct* params, Scripts::CScript* script);    // 0x00538DC0
-bool __cdecl CFunc_CreatePlayerOptions(Scripts::CStruct* params, Scripts::CScript* script);   // 0x00538E70
-bool __cdecl CFunc_FillPlayerListMenu(Scripts::CStruct* params, Scripts::CScript* script);    // 0x00539080
-bool __cdecl CFunc_RemovePlayer(Scripts::CStruct* params, Scripts::CScript* script);          // 0x00539470
-bool __cdecl CFunc_CancelRemovePlayer(Scripts::CStruct* params, Scripts::CScript* script);    // 0x00539480
-bool __cdecl CFunc_ToggleProSet(Scripts::CStruct* params, Scripts::CScript* script);          // 0x00539570
+bool __cdecl cfunc_team_flag_taken(script::Struct* params, script::Script* script);         // 0x00538050
+bool __cdecl cfunc_spawn_crown(script::Struct* params, script::Script* script);            // 0x00538170
+bool __cdecl cfunc_start_network_game(script::Struct* params, script::Script* script);      // 0x00538280
+bool __cdecl cfunc_send_game_over_to_observers(script::Struct* params, script::Script* script); // 0x00538620
+bool __cdecl cfunc_end_network_game(script::Struct* params, script::Script* script);        // 0x00538720
+bool __cdecl cfunc_get_my_team(script::Struct* params, script::Script* script);             // 0x005388C0
+bool __cdecl cfunc_set_num_teams(script::Struct* params, script::Script* script);           // 0x005388F0
+bool __cdecl cfunc_join_team(script::Struct* params, script::Script* script);              // 0x00538C90
+bool __cdecl cfunc_is_host(script::Struct* params, script::Script* script);                // 0x00538D70
+bool __cdecl cfunc_all_players_are_ready(script::Struct* params, script::Script* script);    // 0x00538DC0
+bool __cdecl cfunc_create_player_options(script::Struct* params, script::Script* script);   // 0x00538E70
+bool __cdecl cfunc_fill_player_list_menu(script::Struct* params, script::Script* script);    // 0x00539080
+bool __cdecl cfunc_remove_player(script::Struct* params, script::Script* script);          // 0x00539470
+bool __cdecl cfunc_cancel_remove_player(script::Struct* params, script::Script* script);    // 0x00539480
+bool __cdecl cfunc_toggle_pro_set(script::Struct* params, script::Script* script);          // 0x00539570
 
 // The first-come-first-served start request (message 0x60, 52 bytes): the host's game options, from the network
 // preferences (the game type from the set-up game's).
 struct StartGameRequest {
-    uint32_t gameType;        // +0x00 game_type
-    uint32_t timeLimit;       // +0x04 time_limit
-    uint32_t skillLevel;      // +0x08 skill_level
-    uint32_t fireballLevel;   // +0x0C fireball_difficulty
-    uint32_t playerCollision; // +0x10 player_collision
-    uint32_t friendlyFire;    // +0x14 friendly_fire
+    uint32_t game_type_;        // +0x00 game_type
+    uint32_t time_limit_;       // +0x04 time_limit
+    uint32_t skill_level_;      // +0x08 skill_level
+    uint32_t fireball_level_;   // +0x0C fireball_difficulty
+    uint32_t player_collision_; // +0x10 player_collision
+    uint32_t friendly_fire_;    // +0x14 friendly_fire
     uint32_t unused18;        // +0x18 (never written: the original's stack)
-    uint32_t targetScore;     // +0x1C target_score
-    uint32_t stopAtZero;      // +0x20 stop_at_zero
-    uint32_t scoreReset;      // +0x24 score_reset
-    uint32_t ctfGameType;     // +0x28 ctf_game_type
+    uint32_t target_score_;     // +0x1C target_score
+    uint32_t stop_at_zero_;      // +0x20 stop_at_zero
+    uint32_t score_reset_;      // +0x24 score_reset
+    uint32_t ctf_game_type_;     // +0x28 ctf_game_type
     uint32_t goals;           // +0x2C goals
-    uint32_t teamGraffiti;    // +0x30 team_graffiti_mode
+    uint32_t team_graffiti_;    // +0x30 team_graffiti_mode
 };
 static_assert(sizeof(StartGameRequest) == 0x34, "layout must match the original");
 
-extern uint32_t g_netGameStartTime;
+extern uint32_t g_net_game_start_time;
 
-} // namespace OnlinePlay
+} // namespace online

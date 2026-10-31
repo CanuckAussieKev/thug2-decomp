@@ -8,76 +8,76 @@
 
 // Memory cards on the PC: saves are files under "Save\" (the console code's card/file interface, backed by
 // Win32 files). One manager (reference counted) holds the one card.
-namespace MemCard {
+namespace save_cards {
 
-extern void** const kFileVtable; // 0x00658A60: ListKit::Foremost<File> / ListKit::Elem<File> (memcard.cpp)
+extern void** const kFileVtable; // 0x00658A60: lists::Foremost<File> / lists::Elem<File> (memcard.cpp)
 
 class SaveCard;
 
 // A save file (also an entry of a directory listing: name, date, size).
 struct FileLoad {
-    // The list node it starts with (ListKit::Elem<File>: the data is the file itself).
-    MemSys::ListNode m_listLink;
-    char m_label[0x28];
-    uint8_t m_second, m_minute, m_hour, m_day, m_month, m_unknown41;
-    uint16_t m_year;
-    uint32_t m_extent;
-    uint16_t m_unknown48;
-    uint8_t m_unknown4A[0x42];
-    HANDLE m_hdl;
-    SaveCard* m_saveDevice;
+    // The list node it starts with (lists::Elem<File>: the data is the file itself).
+    memory::ListNode list_link_;
+    char label_[0x28];
+    uint8_t second_, minute_, hour_, day_, month_, unknown41_;
+    uint16_t year_;
+    uint32_t extent_;
+    uint16_t unknown48_;
+    uint8_t unknown4a_[0x42];
+    HANDLE hdl_;
+    SaveCard* save_device_;
 
     // Origin: 0 from the start, 1 from the current position, else from the end. Returns the new position.
-    DWORD SeekTo(LONG offset, int origin);
-    bool Drain();
+    DWORD seek_to(LONG offset, int origin);
+    bool drain();
     // The bytes written / read, or 0 on failure.
-    int EmitOut(const void* data, int size);
-    int TakeIn(void* buffer, int size);
-    bool Shut();
+    int emit_out(const void* data, int size);
+    int get_take_in(void* buffer, int size);
+    bool shut();
 };
 
 class SaveCard {
 public:
     // Open (mode 1 read, 2 write, 3 both - existing files; 4 write a new file; 6 write, created if needed).
-    FileLoad* Unseal(const char* name, int mode, int unused);
-    bool RemoveFile(const char* name);
+    FileLoad* unseal(const char* name, int mode, int unused);
+    bool remove_file(const char* name);
     // The name as the card uses it (a copy in a shared buffer).
-    const char* ConvertFilename(const char* name);
+    const char* convert_filename(const char* name);
     // Free space, in 16 KB blocks (0 without a card).
-    int GetFreeBlocks();
+    int get_free_blocks();
     // Add every file matching `pattern` in Save\ to `list` (a list head), with its date and size.
-    bool ListSaveFiles(const char* pattern, FileLoad* list);
+    bool list_save_files(const char* pattern, FileLoad* list);
     // (shared with other classes: always true)
-    bool AlwaysTrue(int unused);
+    bool always_true(int unused);
 
-    uint32_t m_unknown0;
-    uint32_t m_unknown4;
-    int m_fault;
-    uint8_t m_present; // (set to 0x75 by the manager)
-    uint8_t m_unknownD[3];
+    uint32_t unknown0_;
+    uint32_t unknown4_;
+    int fault_;
+    uint8_t present_; // (set to 0x75 by the manager)
+    uint8_t unknownd_[3];
 };
 static_assert(sizeof(SaveCard) == 0x10, "layout must match the original");
 
 class Hub {
 public:
-    Hub* PrepareAll(); // the constructor
-    SaveCard* GetStorageSlot(int port, int slot);
+    Hub* prepare_all(); // the constructor
+    SaveCard* get_storage_slot(int port, int slot);
 
     struct Bay {
         int port;
         int slot;
         uint32_t unknown8;
-        uint32_t unknownC;
+        uint32_t unknownc_;
     };
-    Bay m_slots[4][2];
-    SaveCard m_saveDevice;
+    Bay slots_[4][2];
+    SaveCard save_device_;
 };
 static_assert(sizeof(Hub) == 0x90, "layout must match the original");
 
 // The manager, made by the first Create (with `create`); each Create adds a reference, Release drops one.
-Hub* CreateManager(bool create);
-void ReleaseManager();
+Hub* create_manager(bool create);
+void release_manager();
 
-extern Hub* g_theCard;
+extern Hub* g_the_card;
 
 } // namespace Mc

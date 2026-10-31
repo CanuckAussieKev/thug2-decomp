@@ -21,9 +21,9 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace GameObjects {
+namespace objects {
 
-uint32_t g_vibrationComponentMemberFunctions[12]{
+uint32_t g_vibration_component_member_functions[12]{
             0xDF8A5F0A, 0x404EB936, 0, 0, 0, 0,
             0, 0x404EB936, 0, 0, 0, 0};
 
@@ -37,174 +37,174 @@ constexpr uint32_t kDuration = 0x79A07F3F;
 const float kMilliseconds = 1000.0f; // 0x006453C0
 
 // The original's _ftol (0x006236FC): truncated towards zero (the low half of the 64-bit result).
-int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
+int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-bool IsGameHalted() { return g_simulationHalted; }
+bool is_game_halted() { return g_simulation_halted; }
 
 } // namespace
 
 // 0x0043D670
-CObjectModule* __cdecl CPadRumbleModule::Fabricate()
+ObjectModule* __cdecl PadRumbleModule::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CPadRumbleModule));
+    void* memory = memory::alloc_zeroed(sizeof(PadRumbleModule));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CPadRumbleModule*>(memory);
-    component->CObjectModule::MakeNew();
-    component->m_vtable = kVtable;
-    component->m_kindTag = kType;
-    component->m_active = false;
+    auto* component = static_cast<PadRumbleModule*>(memory);
+    component->ObjectModule::make_new();
+    component->vtable_ = kVtable;
+    component->kind_tag_ = kType;
+    component->active_ = false;
     for (int i = kActuators - 1; i >= 0; --i)
-        component->m_timers[i].running = false;
+        component->timers_[i].running = false;
     return component;
 }
 
 // 0x0043D490
-void __cdecl CPadRumbleModule::PublishMethodTable()
+void __cdecl PadRumbleModule::publish_method_table()
 {
-    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_vibrationComponentMemberFunctions, 0x18);
+    script::register_member_function_table(reinterpret_cast<void*>(kType), g_vibration_component_member_functions, 0x18);
 }
 
 // 0x0043D4B0
-void CPadRumbleModule::DestroyBody()
+void PadRumbleModule::destroy_body()
 {
-    m_vtable = kVtable;
-    if (m_padDev) {
+    vtable_ = kVtable;
+    if (pad_dev_) {
         for (int i = kActuators - 1; i >= 0; --i)
-            m_padDev->FireActuator(i, 0);
+            pad_dev_->fire_actuator(i, 0);
     }
-    CObjectModule::DestroyBody();
+    ObjectModule::destroy_body();
 }
 
 // 0x0043D5E0
-CPadRumbleModule* CPadRumbleModule::Teardown(unsigned int flags)
+PadRumbleModule* PadRumbleModule::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x0043D610
-void CPadRumbleModule::TickFrame()
+void PadRumbleModule::tick_frame()
 {
-    if (!m_active) {
-        VirtualSuspend(true);
+    if (!active_) {
+        virtual_suspend(true);
         return;
     }
-    UpdateTimers();
+    update_timers();
 }
 
 // 0x0043D61F
-void CPadRumbleModule::UpdateTimers()
+void PadRumbleModule::update_timers()
 {
     for (int i = kActuators - 1; i >= 0; --i) {
-        Stopwatch& timer = m_timers[i];
+        Stopwatch& timer = timers_[i];
         if (!timer.running)
             continue;
         int start = timer.start;
-        int clock = FrameClock::GameClockElapsed();
-        uint32_t elapsed = static_cast<uint32_t>(clock) + (static_cast<uint32_t>(g_clockOffset) - static_cast<uint32_t>(start));
+        int clock = frame_clock::game_clock_elapsed();
+        uint32_t elapsed = static_cast<uint32_t>(clock) + (static_cast<uint32_t>(g_clock_offset) - static_cast<uint32_t>(start));
         if (elapsed >= timer.duration) {
-            m_padDev->FireActuator(i, 0);
+            pad_dev_->fire_actuator(i, 0);
             timer.running = false;
         }
     }
 }
 
 // 0x0043D520
-void CPadRumbleModule::StopAll()
+void PadRumbleModule::stop_all()
 {
-    if (!m_active)
+    if (!active_)
         return;
     for (int i = kActuators - 1; i >= 0; --i) {
-        m_padDev->FireActuator(i, 0);
-        m_timers[i].running = false;
+        pad_dev_->fire_actuator(i, 0);
+        timers_[i].running = false;
     }
 }
 
 // 0x0043D550
-void CPadRumbleModule::ResetDevice() { m_padDev->ClearRumble(); }
+void PadRumbleModule::reset_device() { pad_dev_->clear_rumble(); }
 
 // 0x0043D560
-void CPadRumbleModule::ChangeLive(bool active)
+void PadRumbleModule::change_live(bool active)
 {
-    if (active == m_active)
+    if (active == active_)
         return;
     if (!active) {
-        m_active = false;
-        VirtualSuspend(true);
-        if (m_padDev) {
-            m_padDev->StopActuators();
-            m_padDev->StopRumble();
+        active_ = false;
+        virtual_suspend(true);
+        if (pad_dev_) {
+            pad_dev_->stop_actuators();
+            pad_dev_->stop_rumble();
         }
     } else {
-        m_active = true;
-        VirtualSuspend(false);
-        if (m_padDev)
-            m_padDev->EnableActuators();
+        active_ = true;
+        virtual_suspend(false);
+        if (pad_dev_)
+            pad_dev_->enable_actuators();
     }
 }
 
 // 0x0043D5C0
-void CPadRumbleModule::ChangeGadget(Sio::InputPort* device)
+void PadRumbleModule::change_gadget(sio::InputPort* device)
 {
-    m_padDev = device;
-    if (m_active)
-        device->EnableActuators();
+    pad_dev_ = device;
+    if (active_)
+        device->enable_actuators();
     else
-        device->StopRumble();
+        device->stop_rumble();
 }
 
 // 0x0043D6F0
-bool CPadRumbleModule::Vibrate(Scripts::CStruct* params, Scripts::CScript*)
+bool PadRumbleModule::vibrate(script::Struct* params, script::Script*)
 {
-    if (!params->HasBareFlag(kOff) && (IsGameHalted() || (m_entity->m_compositeFlags & COMPOSITE_FLAG_PAUSED)))
+    if (!params->has_bare_flag(kOff) && (is_game_halted() || (entity_->composite_flags_ & kCompositeFlagPaused)))
         return true;
-    if (!m_active)
+    if (!active_)
         return true;
     int actuator = 0;
-    params->FetchIntValue(kActuator, &actuator, 0);
+    params->fetch_int_value(kActuator, &actuator, 0);
     float percent = 0.0f;
-    params->FetchFloat(kPercent, &percent, 0);
-    if (params->HasBareFlag(kOff)) {
-        m_padDev->StopActuators();
+    params->fetch_float(kPercent, &percent, 0);
+    if (params->has_bare_flag(kOff)) {
+        pad_dev_->stop_actuators();
         for (int i = kActuators - 1; i >= 0; --i)
-            m_timers[i].running = false;
+            timers_[i].running = false;
     } else {
-        m_padDev->FireActuator(actuator, Ftol(percent));
+        pad_dev_->fire_actuator(actuator, ftol(percent));
     }
     float duration = 0.0f;
-    if (params->FetchFloat(kDuration, &duration, 0)) {
-        m_timers[actuator].running = true;
-        m_timers[actuator].duration = static_cast<uint32_t>(Ftol(static_cast<double>(duration) * kMilliseconds));
-        int clock = FrameClock::GameClockElapsed();
-        m_timers[actuator].start = clock + g_clockOffset;
+    if (params->fetch_float(kDuration, &duration, 0)) {
+        timers_[actuator].running = true;
+        timers_[actuator].duration = static_cast<uint32_t>(ftol(static_cast<double>(duration) * kMilliseconds));
+        int clock = frame_clock::game_clock_elapsed();
+        timers_[actuator].start = clock + g_clock_offset;
     } else {
-        m_timers[actuator].running = false;
+        timers_[actuator].running = false;
     }
     return true;
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CPadRumbleModule::Teardown,
-         &GameObjects::CPadRumbleModule::TickFrame,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::DispatchScriptMethod,
-         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::PadRumbleModule::teardown,
+         &objects::PadRumbleModule::tick_frame,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         &objects::ObjectModule::dispatch_script_method,
+         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

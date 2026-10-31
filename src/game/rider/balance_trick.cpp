@@ -1,4 +1,4 @@
-// The skater's balance trick component (GameObjects::CRiderTeeterMoves): see balance_trick.h.
+// The skater's balance trick component (GameObjects::RiderTeeterMoves): see balance_trick.h.
 
 #include "game/rider/balance_trick.h"
 
@@ -20,9 +20,9 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace GameObjects {
+namespace objects {
 
-uint32_t g_balanceTrickMemberFunctions[12]{
+uint32_t g_balance_trick_member_functions[12]{
     0x6DF82E70, 0x589E5FB3, 0, 0, 0, 0,
     0, 0x589E5FB3, 0, 0, 0, 0};
 
@@ -43,7 +43,7 @@ constexpr uint32_t kTimeAdd = 0x3A4E9413, kLeanAdd = 0x0B4CECC1, kPaceBoost = 0x
                    kTweak = 0x2BFD3D35, kButtonA = 0x4F1A0B01, kButtonB = 0xD6135ABB, kTypeName = 0x7321A8D6,
                    kIsATap = 0x2335E1E1, kDoFlipCheck = 0x1304E677, kPlayRangeAnimBackwards = 0x08FE31ED,
                    kClearCheese = 0xBBDB0F78;
-// The wobble's values (each a structure for GetScaledValue).
+// The wobble's values (each a structure for get_scaled_value).
 constexpr uint32_t kWobbleNames[5] = {0xFD266A26 /* WobbleAmpA */, 0x642F3B9C /* WobbleAmpB */,
                                       0x0F43FD49 /* WobbleK1 */, 0x964AACF3 /* WobbleK2 */,
                                       0xF90B0824 /* SpazFactor */};
@@ -51,171 +51,171 @@ constexpr uint32_t kWobbleNames[5] = {0xFD266A26 /* WobbleAmpA */, 0x642F3B9C /*
 constexpr uint32_t kGrindParams = 0x6B7FDADD, kManualParams = 0xB8CC8633, kSkitchParams = 0xFC87CC01,
                    kLipParams = 0xBE615D0A;
 
-CRider* SkaterOf(CGameEntity* object) { return static_cast<CRider*>(object); }
+Rider* skater_of(GameEntity* object) { return static_cast<Rider*>(object); }
 
-Scripts::CStruct* SpawnParamBag()
+script::Struct* spawn_param_bag()
 {
-    Scripts::CStruct* structure = Scripts::SpawnParamBag();
-    return structure ? structure->PrepareAll() : nullptr;
+    script::Struct* structure = script::spawn_param_bag();
+    return structure ? structure->prepare_all() : nullptr;
 }
 
 } // namespace
 
 // 0x004F9170
-CObjectModule* __cdecl CRiderTeeterMoves::Fabricate()
+ObjectModule* __cdecl RiderTeeterMoves::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CRiderTeeterMoves));
-    return memory ? static_cast<CRiderTeeterMoves*>(memory)->MakeNew() : nullptr;
+    void* memory = memory::alloc_zeroed(sizeof(RiderTeeterMoves));
+    return memory ? static_cast<RiderTeeterMoves*>(memory)->make_new() : nullptr;
 }
 
 // 0x004F8CD0
-void __cdecl CRiderTeeterMoves::PublishMethodTable()
+void __cdecl RiderTeeterMoves::publish_method_table()
 {
-    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_balanceTrickMemberFunctions,
+    script::register_member_function_table(reinterpret_cast<void*>(kType), g_balance_trick_member_functions,
                                         0x18);
 }
 
 // 0x004F8F80
-CRiderTeeterMoves* CRiderTeeterMoves::MakeNew()
+RiderTeeterMoves* RiderTeeterMoves::make_new()
 {
-    CObjectModule::MakeNew();
-    m_vtable = kVtable;
-    m_manual.MakeNew();
-    m_grind.MakeNew();
-    m_lip.MakeNew();
-    m_skitch.MakeNew();
-    m_kindTag = kType;
-    m_animBlenderPtr = nullptr;
-    m_callArgs = nullptr;
+    ObjectModule::make_new();
+    vtable_ = kVtable;
+    manual_.make_new();
+    grind_.make_new();
+    lip_.make_new();
+    skitch_.make_new();
+    kind_tag_ = kType;
+    anim_blender_ptr_ = nullptr;
+    call_args_ = nullptr;
     return this;
 }
 
 // 0x004F8CF0
-void CRiderTeeterMoves::DestroyBody()
+void RiderTeeterMoves::destroy_body()
 {
-    m_vtable = kVtable;
-    m_skitch.DestroyBody();
-    m_lip.DestroyBody();
-    m_grind.DestroyBody();
-    m_manual.DestroyBody();
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    skitch_.destroy_body();
+    lip_.destroy_body();
+    grind_.destroy_body();
+    manual_.destroy_body();
+    ObjectModule::destroy_body();
 }
 
 // 0x004F9010
-CRiderTeeterMoves* CRiderTeeterMoves::Teardown(unsigned int flags)
+RiderTeeterMoves* RiderTeeterMoves::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x004F9040
-void CRiderTeeterMoves::ConfigureFromData(Scripts::CStruct* /*params*/)
+void RiderTeeterMoves::configure_from_data(script::Struct* /*params*/)
 {
-    m_manual.PrepareAll(m_entity);
-    m_grind.PrepareAll(m_entity);
-    m_lip.PrepareAll(m_entity);
-    m_skitch.PrepareAll(m_entity);
+    manual_.prepare_all(entity_);
+    grind_.prepare_all(entity_);
+    lip_.prepare_all(entity_);
+    skitch_.prepare_all(entity_);
 }
 
 // 0x004F9080
-void CRiderTeeterMoves::Seal()
+void RiderTeeterMoves::seal()
 {
-    m_animBlenderPtr = static_cast<CAnimBlenderComponent*>(m_entity->FetchModule(kAnimBlender));
+    anim_blender_ptr_ = static_cast<AnimBlenderComponent*>(entity_->fetch_module(kAnimBlender));
 }
 
 // 0x004F8D70
-int CRiderTeeterMoves::InBalanceMove(Scripts::CStruct* /*params*/, Scripts::CScript* /*script*/)
+int RiderTeeterMoves::in_balance_move(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    return m_started ? 1 : 0;
+    return started_ ? 1 : 0;
 }
 
 // 0x004F8D80
-void CRiderTeeterMoves::ClearBestTimes()
+void RiderTeeterMoves::clear_best_times()
 {
-    m_manual.ClearBestTime();
-    m_grind.ClearBestTime();
-    m_lip.ClearBestTime();
-    m_skitch.ClearBestTime();
+    manual_.clear_best_time();
+    grind_.clear_best_time();
+    lip_.clear_best_time();
+    skitch_.clear_best_time();
 }
 
 // 0x004F8DB0
-void CRiderTeeterMoves::KeepBestTimes()
+void RiderTeeterMoves::keep_best_times()
 {
-    m_manual.KeepBestTime();
-    m_grind.KeepBestTime();
-    m_lip.KeepBestTime();
-    m_skitch.KeepBestTime();
+    manual_.keep_best_time();
+    grind_.keep_best_time();
+    lip_.keep_best_time();
+    skitch_.keep_best_time();
 }
 
 // 0x004F8DE0
-void CRiderTeeterMoves::Reset()
+void RiderTeeterMoves::get_reset()
 {
-    m_manual.Reset();
-    m_grind.Reset();
-    m_skitch.Reset();
-    m_lip.Reset();
-    m_trick = 0;
-    m_started = false;
+    manual_.get_reset();
+    grind_.get_reset();
+    skitch_.get_reset();
+    lip_.get_reset();
+    trick_ = 0;
+    started_ = false;
 }
 
 // 0x004F8EE0
-void CRiderTeeterMoves::Halt()
+void RiderTeeterMoves::halt()
 {
-    m_manual.Halt();
-    m_grind.Halt();
-    m_lip.Halt();
-    m_skitch.Halt();
-    m_trick = 0;
-    m_started = false;
+    manual_.halt();
+    grind_.halt();
+    lip_.halt();
+    skitch_.halt();
+    trick_ = 0;
+    started_ = false;
 }
 
-CBalance* CRiderTeeterMoves::AtHand()
+Balance* RiderTeeterMoves::at_hand()
 {
-    switch (m_trick) {
+    switch (trick_) {
     case kManual:
     case kNoseManual:
-        return &m_manual;
+        return &manual_;
     case kGrind:
     case kSlide:
-        return &m_grind;
+        return &grind_;
     case kSkitch:
-        return &m_skitch;
+        return &skitch_;
     case kLip:
-        return &m_lip;
+        return &lip_;
     default:
         return nullptr;
     }
 }
 
 // 0x004F8E20
-void CRiderTeeterMoves::GetButtons(int* count, uint32_t* buttons) const
+void RiderTeeterMoves::get_buttons(int* count, uint32_t* buttons) const
 {
-    const CBalance* balance = const_cast<CRiderTeeterMoves*>(this)->AtHand();
+    const Balance* balance = const_cast<RiderTeeterMoves*>(this)->at_hand();
     if (!balance) {
         *count = 0;
         return;
     }
     *count = 2;
-    buttons[0] = balance->m_leftButton;
-    buttons[1] = balance->m_rightPress;
+    buttons[0] = balance->left_button_;
+    buttons[1] = balance->right_press_;
 }
 
 // 0x004F8F20
-float CRiderTeeterMoves::GetLean() const
+float RiderTeeterMoves::get_lean() const
 {
-    const CBalance* balance = const_cast<CRiderTeeterMoves*>(this)->AtHand();
-    return balance ? balance->m_lean : 0.0f;
+    const Balance* balance = const_cast<RiderTeeterMoves*>(this)->at_hand();
+    return balance ? balance->lean_ : 0.0f;
 }
 
 // 0x004F90A0
-float CRiderTeeterMoves::GetPhysicsValue(uint32_t name)
+float RiderTeeterMoves::get_physics_value(uint32_t name)
 {
-    if (m_callArgs)
-        return SkaterOf(m_entity)->GetScaledParam(name, m_callArgs);
+    if (call_args_)
+        return skater_of(entity_)->get_scaled_param(name, call_args_);
     uint32_t structure;
-    switch (m_trick) {
+    switch (trick_) {
     case kGrind:
     case kSlide:
         structure = kGrindParams;
@@ -233,136 +233,136 @@ float CRiderTeeterMoves::GetPhysicsValue(uint32_t name)
     default:
         return 0.0f;
     }
-    CRider* skater = SkaterOf(m_entity);
-    return skater->GetScaledParam(name, Scripts::ReadSubStruct(structure));
+    Rider* skater = skater_of(entity_);
+    return skater->get_scaled_param(name, script::read_sub_struct(structure));
 }
 
 // 0x004F91D0
-void CRiderTeeterMoves::ClearParams()
+void RiderTeeterMoves::clear_params()
 {
-    if (Scripts::CStruct* params = m_callArgs) {
-        params->Clear();
-        Scripts::DeleteStruct(params);
-        m_callArgs = nullptr;
+    if (script::Struct* params = call_args_) {
+        params->get_clear();
+        script::delete_struct(params);
+        call_args_ = nullptr;
     }
 }
 
 // 0x004F9370
-void CRiderTeeterMoves::ChangeArgs(Scripts::CStruct* params)
+void RiderTeeterMoves::change_args(script::Struct* params)
 {
-    if (!m_callArgs)
-        m_callArgs = SpawnParamBag();
-    m_callArgs->Clear();
-    m_callArgs->AppendStructureIfAny(params);
+    if (!call_args_)
+        call_args_ = spawn_param_bag();
+    call_args_->get_clear();
+    call_args_->append_structure_if_any(params);
 }
 
 // 0x004F9200
-void CRiderTeeterMoves::SetWobble(Scripts::CStruct* wobble)
+void RiderTeeterMoves::set_wobble(script::Struct* wobble)
 {
-    if (!m_entity->m_ownScript) {
-        void* memory = Scripts::g_scriptPools.Carve(0xF4);
-        m_entity->m_ownScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
+    if (!entity_->own_script_) {
+        void* memory = script::g_script_pools.carve(0xF4);
+        entity_->own_script_ = memory ? static_cast<script::Script*>(memory)->make_new() : nullptr;
     }
     float values[5];
-    Scripts::CStruct* value = nullptr; // (not cleared again: a missing one leaves the last found)
+    script::Struct* value = nullptr; // (not cleared again: a missing one leaves the last found)
     for (int i = 0; i < 5; ++i) {
-        wobble->ReadSubStruct(kWobbleNames[i], &value, 1);
-        values[i] = SkaterOf(m_entity)->GetScaledValue(value);
+        wobble->read_sub_struct(kWobbleNames[i], &value, 1);
+        values[i] = skater_of(entity_)->get_scaled_value(value);
     }
-    m_animBlenderPtr->FirstChannel47E450(values, 1);
+    anim_blender_ptr_->first_channel_47e_450(values, 1);
 }
 
 // 0x004F9420
-int CRiderTeeterMoves::InvokeMethodByName(uint32_t name, Scripts::CStruct* params,
-                                                     Scripts::CScript* /*script*/)
+int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* params,
+                                                     script::Script* /*script*/)
 {
     switch (name) {
     case kSwitchOffBalanceMeter: {
-        auto* score = m_entity->FetchModule(kSkaterScore);
-        GameModules::PointTally* display = *reinterpret_cast<GameModules::PointTally**>(reinterpret_cast<uint8_t*>(score) + 0x18);
-        display->SetTeeterGauge(false, 0.0f);
-        display->SetWheelieGauge(false, 0.0f);
-        m_manual.HideDisplay();
-        m_grind.HideDisplay();
-        m_lip.HideDisplay();
-        m_skitch.HideDisplay();
+        auto* score = entity_->fetch_module(kSkaterScore);
+        modules::PointTally* display = *reinterpret_cast<modules::PointTally**>(reinterpret_cast<uint8_t*>(score) + 0x18);
+        display->set_teeter_gauge(false, 0.0f);
+        display->set_wheelie_gauge(false, 0.0f);
+        manual_.hide_display();
+        grind_.hide_display();
+        lip_.hide_display();
+        skitch_.hide_display();
         return 1;
     }
     case kSwitchOnBalanceMeter:
-        m_manual.ShowDisplay();
-        m_grind.ShowDisplay();
-        m_lip.ShowDisplay();
-        m_skitch.ShowDisplay();
+        manual_.show_display();
+        grind_.show_display();
+        lip_.show_display();
+        skitch_.show_display();
         return 1;
     case kStartBalanceTrick:
-        m_started = true;
+        started_ = true;
         return 1;
     case kAdjustBalance: {
-        if (!m_trick)
+        if (!trick_)
             return 1;
-        float timeAdd = 0.0f, leanAdd = 0.0f, speedAdd = 0.0f, timeMult = 1.0f, leanMult = 1.0f, speedMult = 1.0f;
-        params->FetchFloat(kTimeAdd, &timeAdd, 0);
-        params->FetchFloat(kLeanAdd, &leanAdd, 0);
-        params->FetchFloat(kPaceBoost, &speedAdd, 0);
-        params->FetchFloat(kDurationScale, &timeMult, 0);
-        params->FetchFloat(kLeanMult, &leanMult, 0);
-        params->FetchFloat(kSpeedMult, &speedMult, 0);
+        float time_add = 0.0f, lean_add = 0.0f, speed_add = 0.0f, time_mult = 1.0f, lean_mult = 1.0f, speed_mult = 1.0f;
+        params->fetch_float(kTimeAdd, &time_add, 0);
+        params->fetch_float(kLeanAdd, &lean_add, 0);
+        params->fetch_float(kPaceBoost, &speed_add, 0);
+        params->fetch_float(kDurationScale, &time_mult, 0);
+        params->fetch_float(kLeanMult, &lean_mult, 0);
+        params->fetch_float(kSpeedMult, &speed_mult, 0);
         // (an unknown type has no balance: the original crashes here)
-        CBalance* balance = AtHand();
-        double time = static_cast<double>(timeMult) * balance->m_onRailSeconds + timeAdd;
-        balance->m_onRailSeconds = time < 0.0 ? 0.0f : static_cast<float>(time);
+        Balance* balance = at_hand();
+        double time = static_cast<double>(time_mult) * balance->on_rail_seconds_ + time_add;
+        balance->on_rail_seconds_ = time < 0.0 ? 0.0f : static_cast<float>(time);
         // The lean and its speed scaled, then pushed further the way they lean.
-        double lean = static_cast<double>(leanMult) * balance->m_lean;
-        balance->m_lean = static_cast<float>(lean);
-        balance->m_lean = static_cast<float>((lean < 0.0 ? -1.0f : 1.0f) * static_cast<double>(leanAdd) + lean);
-        double speed = static_cast<double>(speedMult) * balance->m_leanSpeed;
-        balance->m_leanSpeed = static_cast<float>(speed);
-        balance->m_leanSpeed = static_cast<float>((speed < 0.0 ? -1.0f : 1.0f) * static_cast<double>(speedAdd) + speed);
+        double lean = static_cast<double>(lean_mult) * balance->lean_;
+        balance->lean_ = static_cast<float>(lean);
+        balance->lean_ = static_cast<float>((lean < 0.0 ? -1.0f : 1.0f) * static_cast<double>(lean_add) + lean);
+        double speed = static_cast<double>(speed_mult) * balance->lean_speed_;
+        balance->lean_speed_ = static_cast<float>(speed);
+        balance->lean_speed_ = static_cast<float>((speed < 0.0 ? -1.0f : 1.0f) * static_cast<double>(speed_add) + speed);
         return 1;
     }
     case kSetWobbleDetails: {
-        if (params->HasBareFlag(kWobble)) {
-            m_manual.ShowMeter();
-            m_grind.ShowMeter();
-            m_lip.ShowMeter();
-            m_skitch.ShowMeter();
+        if (params->has_bare_flag(kWobble)) {
+            manual_.show_meter();
+            grind_.show_meter();
+            lip_.show_meter();
+            skitch_.show_meter();
         }
-        Scripts::CStruct* wobble = Scripts::ReadSubStruct(kDefaultWobbleParams); // (asserted)
-        params->ReadSubStruct(kWobbleParams, &wobble, 0);
-        SetWobble(wobble);
+        script::Struct* wobble = script::read_sub_struct(kDefaultWobbleParams); // (asserted)
+        params->read_sub_struct(kWobbleParams, &wobble, 0);
+        set_wobble(wobble);
         return 1;
     }
     case kStopBalanceTrick:
-        Halt();
+        halt();
         return 1;
     case kDoBalanceTrick: {
-        ClearParams();
-        Scripts::CStruct* balanceParams = nullptr;
-        if (params->ReadSubStruct(kEquilibriumArgs, &balanceParams, 0))
-            ChangeArgs(balanceParams);
+        clear_params();
+        script::Struct* balance_params = nullptr;
+        if (params->read_sub_struct(kEquilibriumArgs, &balance_params, 0))
+            change_args(balance_params);
         int tweak = 0;
-        params->FetchIntValue(kTweak, &tweak, 0);
-        uint32_t buttonA = 0, buttonB = 0, type = 0;
-        params->ReadHashValue(kButtonA, &buttonA, 1);
-        params->ReadHashValue(kButtonB, &buttonB, 1);
-        params->ReadHashValue(kTypeName, &type, 0);
+        params->fetch_int_value(kTweak, &tweak, 0);
+        uint32_t button_a = 0, button_b = 0, type = 0;
+        params->read_hash_value(kButtonA, &button_a, 1);
+        params->read_hash_value(kButtonB, &button_b, 1);
+        params->read_hash_value(kTypeName, &type, 0);
         // The same trick (a manual and a nose manual count as one) or a tap: carried on.
-        if (m_trick == type || (m_trick == kManual && type == kNoseManual) || (m_trick == kNoseManual && type == kManual))
+        if (trick_ == type || (trick_ == kManual && type == kNoseManual) || (trick_ == kNoseManual && type == kManual))
             return 1;
         int tap;
-        if (params->FetchIntValue(kIsATap, &tap, 0))
+        if (params->fetch_int_value(kIsATap, &tap, 0))
             return 1;
-        m_trick = type;
-        bool doFlip = params->HasBareFlag(kDoFlipCheck);
-        bool backwards = params->HasBareFlag(kPlayRangeAnimBackwards);
-        bool clearCheese = params->HasBareFlag(kClearCheese);
-        CBalance* balance = AtHand();
+        trick_ = type;
+        bool do_flip = params->has_bare_flag(kDoFlipCheck);
+        bool backwards = params->has_bare_flag(kPlayRangeAnimBackwards);
+        bool clear_cheese = params->has_bare_flag(kClearCheese);
+        Balance* balance = at_hand();
         if (!balance)
             return 1;
-        if (clearCheese)
-            balance->Reset();
-        balance->KeepBestTime();
-        balance->Kickoff(buttonA, buttonB, static_cast<uint32_t>(tweak), doFlip, backwards);
+        if (clear_cheese)
+            balance->get_reset();
+        balance->keep_best_time();
+        balance->kickoff(button_a, button_b, static_cast<uint32_t>(tweak), do_flip, backwards);
         return 1;
     }
     default:
@@ -372,23 +372,23 @@ int CRiderTeeterMoves::InvokeMethodByName(uint32_t name, Scripts::CStruct* param
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CRiderTeeterMoves::Teardown,
-         &GameObjects::ComponentWithoutUpdate::TickFrame,
-         &GameObjects::CRiderTeeterMoves::ConfigureFromData,
-         &GameObjects::CRiderTeeterMoves::Seal,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::DispatchScriptMethod,
-         &GameObjects::CRiderTeeterMoves::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::RiderTeeterMoves::teardown,
+         &objects::ComponentWithoutUpdate::tick_frame,
+         &objects::RiderTeeterMoves::configure_from_data,
+         &objects::RiderTeeterMoves::seal,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         &objects::ObjectModule::dispatch_script_method,
+         &objects::RiderTeeterMoves::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

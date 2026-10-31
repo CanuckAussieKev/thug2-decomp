@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace GameModules {
+namespace modules {
 struct FrontEnd;
 }
 
@@ -24,7 +24,7 @@ struct FrontEnd;
 //   thug2-decomp.ini [features] edit_level=<name>    (the command line wins; -edit before -level, edit_level before
 //                                                     start_level)
 //
-// As -level, and the intro movies are skipped for that run (Engine3D::SkipIntroMovies). Once the level is up - the skater
+// As -level, and the intro movies are skipped for that run (render::skip_intro_movies). Once the level is up - the skater
 // there, not paused, a second and a half settled - Start is pressed for the player (the pad_start event the menus
 // get: handle_start_pressed pauses the game and makes the pause menu), and once the pause menu is up, level_editor_enter
 // runs - what the pause menu's LEVEL EDITOR item runs (editor/level_editor.h). Leaving the editor is as usual (the
@@ -44,30 +44,30 @@ struct FrontEnd;
 // +x - as the screenshot sidecar gives it) or the way it faced. Once per run, before -edit's editor opens. Without a
 // level it is logged and ignored; never in network games (the level is loaded in free skate). A malformed spot is
 // logged and ignored.
-namespace MenuSystem::BeginLevel {
+namespace frontend::begin_level {
 
 // The level asked for ("" if none), and whether it came from -edit / edit_level (the editor opens there).
-const char* Requested();
-bool EditRequested();
-// Once a frame from the front end's input logic (MouseMenus::TickFrame).
-void TickFrame(GameModules::FrontEnd* frontEnd);
+const char* get_requested();
+bool edit_requested();
+// Once a frame from the front end's input logic (mouse_menus::tick_frame).
+void tick_frame(modules::FrontEnd* front_end);
 // What Update does once the menu is up: the level `name` (with or without Load_) in free skate. False (logged, and
 // why in `why` if given) for an unknown level or one whose scene isn't installed. (Also the automation channel's
 // `level` command - frontend/automation.h.)
-bool ReadIn(const char* name, std::string* why);
+bool read_in(const char* name, std::string* why);
 
 // The command line's option (pure): the word after `-<option> `, `--<option> ` or `--<option>=` in
 // `line` ("" if none; a quoted value keeps what is inside the quotes).
-std::string OptionValue(const std::string& line, const char* option);
+std::string option_value(const std::string& line, const char* option);
 
 // -at / start_at (pure): three or four numbers separated by commas and / or spaces (optionally in
 // parentheses, as the screenshot sidecar writes a position). False for anything else: fewer than three or more than
 // four, a word, an empty field ("1,,2,3"), a number that isn't finite.
 struct Spot {
     float x = 0.0f, y = 0.0f, z = 0.0f;
-    bool hasHeading = false;
+    bool has_heading_ = false;
     float heading = 0.0f;
 };
-bool ParseSpot(const std::string& text, Spot* out);
+bool parse_spot(const std::string& text, Spot* out);
 
-} // namespace MenuSystem::BeginLevel
+} // namespace MenuSystem::begin_level

@@ -1,9 +1,9 @@
 #pragma once
 
-// GameModules::PointTally (0x1550 bytes, 0x00561240-0x00564BFF): a skater's score - its total, the combo being built (the trick
+// modules::PointTally (0x1550 bytes, 0x00561240-0x00564BFF): a skater's score - its total, the combo being built (the trick
 // log: each trick's points, its repeats, its spin, its name and the text shown), the multiplier, the special meter,
 // the balance / manual meter's on-screen positions and the "robot" detection (the same lines skated over and over
-// earn less). The SkaterScore component holds one (+0x18); CRider::GetPointsTotal returns it.
+// earn less). The SkaterScore component holds one (+0x18); Rider::get_points_total returns it.
 //
 // A trick's points: its base times a reduction for how often it was done already (100, 75, 50, 25 then 10 percent:
 // 0x0064E280), times half its spin multiplier (2 for no spin, 3 for a 180, ... 7 past 900: 0x0064E268; a no-spin
@@ -18,41 +18,41 @@
 #include "engine/lists/lookup_table.h"
 #include "engine/script/param_struct.h"
 
-namespace Scripts {
-class CStruct;
+namespace script {
+class Struct;
 }
 
-namespace NetLink {
+namespace net {
 struct InboundMsgCtx;
 }
 
-namespace GameModules {
+namespace modules {
 
 // A trick in the log (0x9C bytes).
-struct STrickLog {
-    int m_pointsHeld;          // +0x00 its base points
-    int m_repeats;        // +0x04 how often done before (the reduction's index)
-    int m_twistRate;           // +0x08 in half turns
-    int m_rotationDeg;    // +0x0C as spun (signed)
-    uint32_t m_label;      // +0x10 its name's checksum
-    int m_kind;           // +0x14 (the flags' 0x04 / 0x08 bits shifted; not 0: 1.2 times)
-    uint32_t m_flagBits;     // +0x18 (kTrick* below)
-    char m_text[0x40];    // +0x1C its name, spaces escaped as "\_"
-    char m_shown[0x40];   // +0x5C the text shown in the trick string
+struct TrickLog {
+    int points_held_;          // +0x00 its base points
+    int repeats_;        // +0x04 how often done before (the reduction's index)
+    int twist_rate_;           // +0x08 in half turns
+    int rotation_deg_;    // +0x0C as spun (signed)
+    uint32_t label_;      // +0x10 its name's checksum
+    int kind_;           // +0x14 (the flags' 0x04 / 0x08 bits shifted; not 0: 1.2 times)
+    uint32_t flag_bits_;     // +0x18 (kTrick* below)
+    char text_[0x40];    // +0x1C its name, spaces escaped as "\_"
+    char shown_[0x40];   // +0x5C the text shown in the trick string
 };
-static_assert(sizeof(STrickLog) == 0x9C, "layout must match the original");
+static_assert(sizeof(TrickLog) == 0x9C, "layout must match the original");
 
 // How often a trick was seen (a node of the score's table, by name; 0x24 bytes): by kind, in combos landed before
 // and in this one. (The kind can reach 6 - flags 0x04 and 0x08 both - and the counts are then read and written past
 // the arrays, as the original.)
-struct STrickSeen {
-    uint32_t m_unused;    // +0x00 (never set)
-    int m_landed[4];      // +0x04
-    int m_ongoing[4];     // +0x14
+struct TrickSeen {
+    uint32_t unused_;    // +0x00 (never set)
+    int landed_[4];      // +0x04
+    int ongoing_[4];     // +0x14
 };
-static_assert(sizeof(STrickSeen) == 0x24, "layout must match the original");
+static_assert(sizeof(TrickSeen) == 0x24, "layout must match the original");
 
-// STrickLog::m_flagBits.
+// TrickLog::flag_bits_.
 constexpr uint32_t kTrickNoSpin = 0x02;       // the spin multiplier back to none (and the next trick's spin is set)
 constexpr uint32_t kTrickKindBits = 0x0C;     // its kind (0x0400: only the 0x08 bit counts)
 constexpr uint32_t kTrickGap = 0x10;          // a gap
@@ -65,194 +65,194 @@ constexpr uint32_t kTrickKindHigh = 0x400;    // see kTrickKindBits
 
 class PointTally {
 public:
-    float m_focusTimeLimit;      // +0x00 focus_time_limit
-    int m_focusMaxTimes;         // +0x04 focus_max_times_in_combo
-    int16_t m_riderNo;          // +0x08 the skater's object id
-    uint8_t pad0A[2];
-    int m_sum;                 // +0x0C the total score
-    int m_potState;              // +0x10 0 none, 1 landed (the countdown to its counting), 2 counting into the total
-    int m_pot;                   // +0x14 the combo's base points
-    int m_potShown;              // +0x18 the pot being counted down
-    int m_potCountdown;          // +0x1C frames before the counting starts
-    int m_potScore;              // +0x20 the combo's points (the pot times the multiplier; captureScore)
-    int m_potSpecial;            // +0x24 the points already put into the special meter
-    int m_bonus;                 // +0x28
-    int m_bestTricks;            // +0x2C the most tricks in a combo
-    int m_topChain;             // +0x30 the best combo's points
-    int m_bestComboSent;         // +0x34 the best combo the server was told about
-    ListKit::ResolveMap m_seen;     // +0x38 STrickSeen by trick name
-    ListKit::GrowableMap m_log;     // +0x4C STrickLog*
-    int m_tricks;                // +0x5C the tricks in the combo (the log's used entries)
-    float m_multiplier;          // +0x60
-    int m_comboTricks;           // +0x64 the tricks in this combo (for m_bestTricks)
-    int m_lastNoSpin;            // +0x68 the last no-spin trick's index (-1)
-    int m_spinTrick;             // +0x6C the trick the spin goes on (-1)
-    int m_special;               // +0x70 the special meter (0-3000)
-    bool m_specialActive;        // +0x74
-    uint8_t m_barColors[3][4];   // +0x75 special_bar_colors (empty, full, flashing)
+    float focus_time_limit_;      // +0x00 focus_time_limit
+    int focus_max_times_;         // +0x04 focus_max_times_in_combo
+    int16_t rider_no_;          // +0x08 the skater's object id
+    uint8_t pad0a_[2];
+    int sum_;                 // +0x0C the total score
+    int pot_state_;              // +0x10 0 none, 1 landed (the countdown to its counting), 2 counting into the total
+    int pot_;                   // +0x14 the combo's base points
+    int pot_shown_;              // +0x18 the pot being counted down
+    int pot_countdown_;          // +0x1C frames before the counting starts
+    int pot_score_;              // +0x20 the combo's points (the pot times the multiplier; captureScore)
+    int pot_special_;            // +0x24 the points already put into the special meter
+    int bonus_;                 // +0x28
+    int best_tricks_;            // +0x2C the most tricks in a combo
+    int top_chain_;             // +0x30 the best combo's points
+    int best_combo_sent_;         // +0x34 the best combo the server was told about
+    lists::ResolveMap seen_;     // +0x38 TrickSeen by trick name
+    lists::GrowableMap log_;     // +0x4C TrickLog*
+    int tricks_;                // +0x5C the tricks in the combo (the log's used entries)
+    float multiplier_;          // +0x60
+    int combo_tricks_;           // +0x64 the tricks in this combo (for best_tricks_)
+    int last_no_spin_;            // +0x68 the last no-spin trick's index (-1)
+    int spin_trick_;             // +0x6C the trick the spin goes on (-1)
+    int special_;               // +0x70 the special meter (0-3000)
+    bool special_active_;        // +0x74
+    uint8_t bar_colors_[3][4];   // +0x75 special_bar_colors (empty, full, flashing)
     uint8_t pad81[3];
-    float m_specialPhase;        // +0x84 the flashing's phase
-    float m_specialRate;         // +0x88 special_bar_interpolator_rate
-    bool m_verbosePrint;                // +0x8C (0x1EDC33F1: the points printed)
-    uint8_t pad8D[3];
-    int m_arrowCount;            // +0x90 balance_meter_info's arrow_positions
-    Scripts::CPair m_arrows[20];  // +0x94 (one more: the last repeated)
-    float m_arrowStep;           // +0x184 1 / the arrow count
-    Scripts::CPair m_meterOffset; // +0x188 the arrow's offset from the meter
-    float m_meterRotation;       // +0x194
-    Scripts::CPair m_bars[2];     // +0x198 bar_positions (balance, manual)
-    uint8_t m_lineCounts[2500];  // +0x1B0 robot detection: how often each line was skated since the robot reset
-    uint8_t m_comboLineCounts[2500]; // +0xB74 ... in this combo
-    int m_robotLines;            // +0x1538
-    int m_robotComboLines;       // +0x153C
-    int m_robotNewLines;         // +0x1540
-    int m_robotComboNewLines;    // +0x1544
-    int m_robotComboFirstLines;  // +0x1548
-    float m_robotFactor;         // +0x154C (1: none)
+    float special_phase_;        // +0x84 the flashing's phase
+    float special_rate_;         // +0x88 special_bar_interpolator_rate
+    bool verbose_print_;                // +0x8C (0x1EDC33F1: the points printed)
+    uint8_t pad8d_[3];
+    int arrow_count_;            // +0x90 balance_meter_info's arrow_positions
+    script::Pair arrows_[20];  // +0x94 (one more: the last repeated)
+    float arrow_step_;           // +0x184 1 / the arrow count
+    script::Pair meter_offset_; // +0x188 the arrow's offset from the meter
+    float meter_rotation_;       // +0x194
+    script::Pair bars_[2];     // +0x198 bar_positions (balance, manual)
+    uint8_t line_counts_[2500];  // +0x1B0 robot detection: how often each line was skated since the robot reset
+    uint8_t combo_line_counts_[2500]; // +0xB74 ... in this combo
+    int robot_lines_;            // +0x1538
+    int robot_combo_lines_;       // +0x153C
+    int robot_new_lines_;         // +0x1540
+    int robot_combo_new_lines_;    // +0x1544
+    int robot_combo_first_lines_;  // +0x1548
+    float robot_factor_;         // +0x154C (1: none)
 
     // --- queries (point_tally.cpp) ---
     // 0x00561240 (cdecl): the step the counting pot goes down by: 1, 10, 100, 10000, 100000 or 1000000 (none of
     // 1000).
-    static int PointGain(int value);
+    static int point_gain(int value);
     // 0x00561290
-    void SetRiderNumber(int16_t id);
+    void set_rider_number(int16_t id);
     // 0x005612A0: `text` into `out` with each space as "\_" (`this` unused).
-    void EscapeSpaces(char* out, const char* text);
+    void escape_spaces(char* out, const char* text);
     // 0x005612D0: special_bar_colors and special_bar_interpolator_rate.
-    void SetSpecialBarColors();
+    void set_special_bar_colors();
     // 0x00561360 (cdecl): the trick `trick`'s name checksum after `taps` - 1 of its ExtraTricks.
-    static uint32_t TrickNameAfterTaps(uint32_t trick, int taps);
+    static uint32_t trick_name_after_taps(uint32_t trick, int taps);
     // 0x00561400 / 0x00561410 / 0x00561420
-    void ResetBests();
-    void AddBonus(int points);
-    int GetBonus();
+    void reset_bests();
+    void add_bonus(int points);
+    int get_bonus();
     // 0x00561550: the points of the log's tricks [first, last) (as captureScore, without kTrickSpinPlusOne).
-    int GetScoreOfRange(int first, int last);
+    int get_score_of_range(int first, int last);
     // 0x00561640 / 0x00561660: the last trick's / trick `index`'s name (0: none).
-    uint32_t FetchNewestTrickKey();
-    uint32_t GetTrickName(int index);
+    uint32_t fetch_newest_trick_key();
+    uint32_t get_trick_name(int index);
     // 0x00561670: the trick string (the_trick_text + the skater's number) set to the log's texts, or emptied; then
     // UpdateTrickText.
-    void DispatchTrickSequence(bool clear);
+    void dispatch_trick_sequence(bool clear);
     // 0x00561730: balance_meter_info's arrows and bar positions (the multiplayer ones in a split screen game other than
     // HORSE).
-    void SetupBalanceMeter();
+    void setup_balance_meter();
     // 0x00561890: the score pot text (the_score_pot_text + the skater's number): blank, the points, or the points
     // "X" the multiplier; then UpdateScorepot.
-    void DispatchScorePot(int points, float multiplier);
+    void dispatch_score_pot(int points, float multiplier);
     // 0x005619E0: in a career game, the skate module's score goals (+0x60, 64 of {score, script, goal}) the total
     // went past from `before` to `after` - each done once, its script run on the skater.
-    void TestRecordScore(int before, int after);
+    void test_record_score(int before, int after);
     // 0x00561A80: the total; shown (as minutes:seconds in king of the hill) for a local skater.
-    void SetGrandTotal(int total);
+    void set_grand_total(int total);
     // 0x00561B40: the total - on the server in a game scored by clusters, the clusters the skater holds.
-    int GetTotalScore();
+    int get_total_score();
     // 0x00562080 (cdecl): the trick mapped to key combo `keyCombo` (the profile's trick_mapping, else a special in
     // that slot) after `taps`; 0 if none.
-    static uint32_t TrickFromKeyCombo(uint32_t keyCombo, int taps);
+    static uint32_t trick_from_key_combo(uint32_t key_combo, int taps);
     // 0x00562150 (cdecl): the created trick mapped to `keyCombo` (its index in the skater's), else a created trick
     // special's name in that slot (as the index, as the original), else -1.
-    static int CreatedTrickFromKeyCombo(uint32_t keyCombo);
+    static int created_trick_from_key_combo(uint32_t key_combo);
     // 0x00562250: whether trick `index` is `name` (with `spin`, perfect if `perfect`: landed within
     // perfect_landing_slop degrees of it).
-    bool IsTrickAt(int index, uint32_t name, int spin, bool perfect);
+    bool is_trick_at(int index, uint32_t name, int spin, bool perfect);
     // 0x005622C0: how often the combo has `name` (with the spin it shares, `spin`; perfect).
-    int CountTrick(uint32_t name, int spin, bool perfect);
+    int count_trick(uint32_t name, int spin, bool perfect);
     // 0x00562370: how many of the combo's tricks have `text` in their name (ignoring case).
-    int CountTricksNamed(const char* text);
+    int count_tricks_named(const char* text);
     // 0x005623B0 / 0x00562410: whether the last named trick is `name` after `taps` / the trick mapped to `keyCombo`.
-    bool LastTrickIs(uint32_t name, int spin, bool perfect, int taps);
-    bool LastTrickIsKeyCombo(uint32_t keyCombo, int spin, bool perfect, int taps);
-    // 0x005624C0 / 0x00562510: CountTrick of `name` after `taps` / of the trick mapped to `keyCombo`.
-    int CountTrickAfterTaps(uint32_t name, int spin, bool perfect, int taps);
-    int CountKeyCombo(uint32_t keyCombo, int spin, bool perfect, int taps);
+    bool last_trick_is(uint32_t name, int spin, bool perfect, int taps);
+    bool last_trick_is_key_combo(uint32_t key_combo, int spin, bool perfect, int taps);
+    // 0x005624C0 / 0x00562510: count_trick of `name` after `taps` / of the trick mapped to `keyCombo`.
+    int count_trick_after_taps(uint32_t name, int spin, bool perfect, int taps);
+    int count_key_combo(uint32_t key_combo, int spin, bool perfect, int taps);
     // 0x005625A0 / 0x00562620: how often the combo has the trick done again apart (`name` after `taps` / mapped to
     // `keyCombo`; with `spin`): its times, one less when the last one is still the latest (gaps between don't count).
-    int CountTrickRepeats(uint32_t name, int spin, int taps);
-    int CountKeyComboRepeats(uint32_t keyCombo, int spin, int taps);
-    // 0x005626E0: SetupBalanceMeter (a jump to it).
-    void RefreshBalanceMeter();
+    int count_trick_repeats(uint32_t name, int spin, int taps);
+    int count_key_combo_repeats(uint32_t key_combo, int spin, int taps);
+    // 0x005626E0: setup_balance_meter (a jump to it).
+    void refresh_balance_meter();
     // 0x00562740: whether trick `index` is a gap.
-    bool IsGap(int index);
+    bool is_gap(int index);
     // 0x00562760: the special on / off (SkaterEnterSpecial / SkaterExitSpecial to the skater on a change).
-    void SetSpecialActive(bool active);
+    void set_special_active(bool active);
     // 0x005627B0: line `line` skated: its counts up (to 255), and the factor the points are cut by once it was
     // skated more than robot_kick_in_count times in the combo (1 for lines past the 2500).
-    void RefreshBotCheck(int line);
+    void refresh_bot_check(int line);
     // 0x005629D0: the log's oldest landed tricks (those up to the first unnamed one, at most to the spin trick and
     // the last no-spin one) merged into its first entry (their points, no spin).
-    void TrimLog();
+    void trim_log();
     // 0x00562B20 / 0x00562C10 / 0x00562D00 / 0x005638A0: trick_text_countdown / _landed / _bail / _pulse with the
     // skater number's container, trick text and score pot ids.
-    void MoveCaptionTimer(int skater);
-    void MoveCaptionLanded(int skater);
-    void MoveCaptionWipeout(int skater);
-    void MoveCaptionPulse(int skater);
+    void move_caption_timer(int skater);
+    void move_caption_landed(int skater);
+    void move_caption_wipeout(int skater);
+    void move_caption_pulse(int skater);
     // 0x00562DF0: the special on, its meter full.
-    void FillSpecial();
+    void fill_special();
     // 0x005633B0: the combo's tricks that aren't gaps.
-    int CountNonGapTricks();
+    int count_non_gap_tricks();
 
     // --- the combo (score_combo.cpp) ---
     // 0x00562E40 (captureScore): the combo's points (each trick's, the debug print), the special meter filled by the
-    // new points (NewSpecial), m_potScore / m_potSpecial.
-    void BankComboScore();
+    // new points (NewSpecial), pot_score_ / pot_special_.
+    void bank_combo_score();
     // 0x00563020: the pot and the log emptied; no multiplier, no spin trick, no robot counts for the combo.
-    void ResetScorePot();
+    void reset_score_pot();
     // 0x00563080: the balance meter (on / off - show_balance_meter / hide_balance_meter - its mode, the arrow's place
     // and angle for `lean`).
-    void PlaceBalanceGauge(bool on, float lean, bool manual);
+    void place_balance_gauge(bool on, float lean, bool manual);
     // 0x00563370 / 0x00563390
-    void SetTeeterGauge(bool on, float lean);
-    void SetWheelieGauge(bool on, float lean);
+    void set_teeter_gauge(bool on, float lean);
+    void set_wheelie_gauge(bool on, float lean);
     // 0x00563440: the constructor. Returns this.
-    PointTally* MakeNew();
+    PointTally* make_new();
     // 0x00564B80: the destructor body.
-    void DestroyBody();
+    void destroy_body();
     // 0x00563580: one frame: the special meter running down, the pot's countdown and counting, the special bar's
     // size and colour.
-    void TickFrame();
+    void tick_frame();
     // 0x00563990: a trick done (`text`, `score` base points, `flags`): logged (the log trimmed when full - at 250 the
     // last one's points just grow), how often it was seen, the multiplier, the trick string and pot shown.
-    void FireOff(const char* text, int score, uint32_t flags);
+    void fire_off(const char* text, int score, uint32_t flags);
     // 0x00563F30: the spin trick's spin (the "FS" / "BS" and Cab names; ollies' sides swapped on odd half turns).
-    void ChangeSpinDegrees(int degrees);
+    void change_spin_degrees(int degrees);
     // 0x00564270: points added to the last trick while it is being held (no more than 10 tricks since the last
     // no-spin one; a no-spin trick only up to 20000).
-    void TweakTrick(int points);
+    void tweak_trick(int points);
     // 0x00564330: the combo landed: its points to the total (as the game mode counts them), the best combo, the
     // seen counts, the server told.
-    void Land();
+    void land();
     // 0x00564860: the combo bailed (`clear`: the trick string emptied at once).
-    void Bail(bool clear);
+    void get_bail(bool clear);
     // 0x00564A10: everything back to the start of a run.
-    void Reset();
-    // 0x00564BE0: ChangeSpinDegrees while the spin trick isn't a no-spin one.
-    void AdvanceTurn(int degrees);
+    void get_reset();
+    // 0x00564BE0: change_spin_degrees while the spin trick isn't a no-spin one.
+    void advance_turn(int degrees);
 
     // --- the network (score_net.cpp) ---
     // 0x00561BA0: the server asked to log the trick objects the skater just scored on (message 0x3B).
-    void NoteTaggedPropAsk(int score);
+    void note_tagged_prop_ask(int score);
     // 0x00561CB0: `count` trick objects scored on by skater `skaterId` (`score` points; on the server, `send`):
     // logged, the players whose clusters were taken told, the objects sent to every player and observer; each
     // object's cluster coloured for the skater (or the skater's team).
-    void NoteTaggedProp(int skaterId, int score, uint32_t count, uint32_t* objects, bool send);
+    void note_tagged_prop(int skater_id, int score, uint32_t count, uint32_t* objects, bool send);
     // 0x005626F0 (cdecl, the net handler): a trick objects message for this game logged by the skater's score.
-    static int __cdecl OnScoreMsg(NetLink::InboundMsgCtx* context);
+    static int __cdecl on_score_msg(net::InboundMsgCtx* context);
 
     // (the trick log's entry `index`; the last one)
-    STrickLog* Trick(int index) { return static_cast<STrickLog*>(m_log.m_items[index]); }
-    STrickLog* NewestLoggedTrick() { return Trick(m_log.m_num - 1); }
+    TrickLog* get_trick(int index) { return static_cast<TrickLog*>(log_.items_[index]); }
+    TrickLog* newest_logged_trick() { return get_trick(log_.num_ - 1); }
 };
-static_assert(offsetof(PointTally, m_seen) == 0x38 && offsetof(PointTally, m_log) == 0x4C && offsetof(PointTally, m_special) == 0x70 &&
-                  offsetof(PointTally, m_barColors) == 0x75 && offsetof(PointTally, m_specialPhase) == 0x84 &&
-                  offsetof(PointTally, m_arrows) == 0x94 && offsetof(PointTally, m_arrowStep) == 0x184 &&
-                  offsetof(PointTally, m_bars) == 0x198 && offsetof(PointTally, m_lineCounts) == 0x1B0 &&
-                  offsetof(PointTally, m_comboLineCounts) == 0xB74 && offsetof(PointTally, m_robotLines) == 0x1538 &&
+static_assert(offsetof(PointTally, seen_) == 0x38 && offsetof(PointTally, log_) == 0x4C && offsetof(PointTally, special_) == 0x70 &&
+                  offsetof(PointTally, bar_colors_) == 0x75 && offsetof(PointTally, special_phase_) == 0x84 &&
+                  offsetof(PointTally, arrows_) == 0x94 && offsetof(PointTally, arrow_step_) == 0x184 &&
+                  offsetof(PointTally, bars_) == 0x198 && offsetof(PointTally, line_counts_) == 0x1B0 &&
+                  offsetof(PointTally, combo_line_counts_) == 0xB74 && offsetof(PointTally, robot_lines_) == 0x1538 &&
                   sizeof(PointTally) == 0x1550,
               "layout must match the original");
 
-// 0x00561240's entry: PointTally::PointGain with EDX kept (Update relies on it).
-int ScoreIncrementStub();
+// 0x00561240's entry: PointTally::point_gain with EDX kept (Update relies on it).
+int score_increment_stub();
 
 } // namespace Mdl

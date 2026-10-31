@@ -12,148 +12,148 @@
 #include "engine/audio/stream_commands.h"
 #include "engine/sys/startup_init.h"
 
-namespace AudioStream {
+namespace audio {
 
-void* g_wadFile{INVALID_HANDLE_VALUE};
-WadEntry* g_wadEntries;
-void* g_streamLock; // a mutex (HANDLE), made at start-up
+void* g_wad_file{INVALID_HANDLE_VALUE};
+WadEntry* g_wad_entries;
+void* g_stream_lock; // a mutex (HANDLE), made at start-up
 
 namespace {
 
 // The lock the game thread and the stream thread take around the streams (a mutex made at start-up).
-HANDLE StreamLock() { return g_streamLock; }
+HANDLE stream_lock() { return g_stream_lock; }
 
-int g_nextOverlapped;
-uint32_t g_wadEntryCount;
-HANDLE g_threadHandle;
-bool g_stopThread;
-bool g_soundtracksCounted;
-int g_soundtrackCount;
+int g_next_overlapped;
+uint32_t g_wad_entry_count;
+HANDLE g_thread_handle;
+bool g_stop_thread;
+bool g_soundtracks_counted;
+int g_soundtrack_count;
 
-HANDLE& ThreadHandle() { return g_threadHandle; }
-bool& StopThread() { return g_stopThread; }
+HANDLE& thread_handle() { return g_thread_handle; }
+bool& stop_thread() { return g_stop_thread; }
 
 // pcm.wad (opened for streaming) and pcm.dat's index of it.
-HANDLE& WadFile() { return g_wadFile; }
-WadEntry*& WadEntries() { return g_wadEntries; }
-uint32_t& WadEntryCount() { return g_wadEntryCount; }
+HANDLE& get_wad_file() { return g_wad_file; }
+WadEntry*& wad_entries() { return g_wad_entries; }
+uint32_t& wad_entry_count() { return g_wad_entry_count; }
 
 // The ring of OVERLAPPED blocks streams read with, and the next one to try.
 OVERLAPPED g_overlapped[256];
-OVERLAPPED* Overlapped() { return g_overlapped; }
+OVERLAPPED* get_overlapped() { return g_overlapped; }
 constexpr int kOverlapSlots = 256;
-int& NextOverlapped() { return g_nextOverlapped; }
+int& next_overlapped() { return g_next_overlapped; }
 
 // The user soundtracks (0x4C bytes each at 0x006EE024: the track count, then the name at +8).
-bool& SoundtracksCounted() { return g_soundtracksCounted; }
-int& SoundtrackCount() { return g_soundtrackCount; }
+bool& soundtracks_counted() { return g_soundtracks_counted; }
+int& soundtrack_count() { return g_soundtrack_count; }
 // (Never filled on PC - the count stays 0 - so the slots are only the original's room: 99 of them before the next variable.)
 constexpr int kSoundtrackSize = 0x4C, kSoundtrackSlots = 99;
 uint8_t g_soundtracks[kSoundtrackSlots * kSoundtrackSize];
-uint8_t* Soundtrack(int index) { return g_soundtracks + index * kSoundtrackSize; }
+uint8_t* get_soundtrack(int index) { return g_soundtracks + index * kSoundtrackSize; }
 
 constexpr uint32_t kPending = 0x8000000Au; // E_PENDING
 
 // The BinkStream constructor and its open of a pcm.wad entry (written over BinkStreamView, stream_commands.h).
-BinkStream* ConstructBinkStream(void* memory, bool unknown, int plays)
+BinkStream* construct_bink_stream(void* memory, bool unknown, int plays)
 {
-    return reinterpret_cast<BinkStream*>(static_cast<BinkStreamView*>(memory)->MakeNew(unknown, plays));
+    return reinterpret_cast<BinkStream*>(static_cast<BinkStreamView*>(memory)->make_new(unknown, plays));
 }
-Result OpenBinkFromWad(BinkStream* bink, uint32_t checksum, const char* path, uint32_t offset, uint32_t size)
+Result open_bink_from_wad(BinkStream* bink, uint32_t checksum, const char* path, uint32_t offset, uint32_t size)
 {
-    return reinterpret_cast<BinkStreamView*>(bink)->Unseal(checksum, path, static_cast<long>(offset), size);
+    return reinterpret_cast<BinkStreamView*>(bink)->unseal(checksum, path, static_cast<long>(offset), size);
 }
 
 // Whether the slot's stream uses this OVERLAPPED block.
-bool UsesOverlapped(const StreamSlot& slot, const OVERLAPPED* overlapped)
+bool uses_overlapped(const StreamSlot& slot, const OVERLAPPED* overlapped)
 {
     if (slot.wad)
-        return slot.wad->m_asyncCtl == overlapped;
+        return slot.wad->async_ctl_ == overlapped;
     if (slot.bink)
-        return slot.bink->m_asyncCtl == overlapped;
+        return slot.bink->async_ctl_ == overlapped;
     return false;
 }
 
 // A stream that finished (and isn't pending) or was asked to stop and may go.
 template <typename Stream>
-bool Over(Stream* stream)
+bool get_over(Stream* stream)
 {
-    if (stream->m_finished && stream->Standing() != kPending)
+    if (stream->finished_ && stream->get_standing() != kPending)
         return true;
-    return stream->m_stopRequested && stream->ReadyToFree();
+    return stream->stop_requested_ && stream->ready_to_free();
 }
-bool Over(const StreamSlot& slot)
+bool get_over(const StreamSlot& slot)
 {
     if (slot.wad)
-        return Over(slot.wad);
+        return get_over(slot.wad);
     if (slot.bink)
-        return Over(slot.bink);
+        return get_over(slot.bink);
     return false;
 }
 
-bool PrefetchComplete(const StreamSlot& slot)
+bool prefetch_complete(const StreamSlot& slot)
 {
     if (slot.wad)
-        return slot.wad->PrefetchComplete();
+        return slot.wad->prefetch_complete();
     if (slot.bink)
-        return slot.bink->PrefetchComplete();
+        return slot.bink->prefetch_complete();
     return true;
 }
 
 } // namespace
 
-StreamSlot g_streamSlots[3];
+StreamSlot g_stream_slots[3];
 
-StreamSlot* StreamSlots() { return g_streamSlots; }
+StreamSlot* stream_slots() { return g_stream_slots; }
 
-StreamSlot g_musicSlot;
+StreamSlot g_music_slot;
 
-StreamSlot& MusicSlot() { return g_musicSlot; }
+StreamSlot& music_slot() { return g_music_slot; }
 
 // --- StreamSlot --------------------------------------------------------------------------------------------
 
 // 0x00453500
-void StreamSlot::Fabricate(int type, bool unknown, int plays)
+void StreamSlot::fabricate(int type, bool unknown, int plays)
 {
     if (type == 0) {
-        void* memory = MemSys::AllocZeroed(sizeof(WadStream));
-        wad = memory ? static_cast<WadStream*>(memory)->MakeNew(unknown) : nullptr;
+        void* memory = memory::alloc_zeroed(sizeof(WadStream));
+        wad = memory ? static_cast<WadStream*>(memory)->make_new(unknown) : nullptr;
     } else if (type == 1) {
-        void* memory = MemSys::AllocZeroed(sizeof(BinkStream));
-        bink = memory ? ConstructBinkStream(memory, unknown, plays) : nullptr;
+        void* memory = memory::alloc_zeroed(sizeof(BinkStream));
+        bink = memory ? construct_bink_stream(memory, unknown, plays) : nullptr;
     }
 }
 
 // 0x00453090
-Result StreamSlot::Unseal(uint32_t checksum, const char* path, Hdl wadFile, uint32_t offset, uint32_t size, void* buffer)
+Result StreamSlot::unseal(uint32_t checksum, const char* path, Hdl wad_file, uint32_t offset, uint32_t size, void* buffer)
 {
     if (wad)
-        return wad->OpenFromWad(wadFile, offset, size, buffer);
+        return wad->open_from_wad(wad_file, offset, size, buffer);
     if (bink)
-        return OpenBinkFromWad(bink, checksum, path, offset, size);
+        return open_bink_from_wad(bink, checksum, path, offset, size);
     return -1;
 }
 
 // 0x004530E0
-void StreamSlot::SetVolumeAndPan(float left, float right)
+void StreamSlot::set_volume_and_pan(float left, float right)
 {
     if (wad)
-        wad->SetVolumeAndPan(left, right);
+        wad->set_volume_and_pan(left, right);
     else if (bink)
-        bink->SetVolumeAndPan(left, right);
+        bink->set_volume_and_pan(left, right);
 }
 
 // 0x004538F0
-void StreamSlot::Dealloc()
+void StreamSlot::dealloc()
 {
     if (WadStream* stream = wad) {
-        stream->Destruct();
-        MemSys::Dealloc(stream);
+        stream->destruct();
+        memory::dealloc(stream);
         wad = nullptr;
     }
     if (BinkStream* stream = bink) {
-        stream->Destruct();
-        MemSys::Dealloc(stream);
+        stream->destruct();
+        memory::dealloc(stream);
         bink = nullptr;
     }
 }
@@ -162,25 +162,25 @@ void StreamSlot::Dealloc()
 
 namespace {
 
-void UpdateSlot(StreamSlot& slot)
+void update_slot(StreamSlot& slot)
 {
     if (slot.wad)
-        slot.wad->TickFrame();
+        slot.wad->tick_frame();
     else if (slot.bink)
-        slot.bink->TickFrame();
+        slot.bink->tick_frame();
 }
 
 } // namespace
 
 // 0x00453100
-unsigned long __stdcall StreamThread(void*)
+unsigned long __stdcall stream_thread(void*)
 {
-    while (!StopThread()) {
-        if (WaitForSingleObject(StreamLock(), INFINITE) != WAIT_TIMEOUT) {
-            UpdateSlot(MusicSlot());
+    while (!stop_thread()) {
+        if (WaitForSingleObject(stream_lock(), INFINITE) != WAIT_TIMEOUT) {
+            update_slot(music_slot());
             for (int i = 0; i < kStreamSlots; ++i)
-                UpdateSlot(StreamSlots()[i]);
-            ReleaseMutex(StreamLock());
+                update_slot(stream_slots()[i]);
+            ReleaseMutex(stream_lock());
         }
         Sleep(5);
     }
@@ -188,28 +188,28 @@ unsigned long __stdcall StreamThread(void*)
 }
 
 // 0x004531A0
-void __cdecl StopStreamThread()
+void __cdecl stop_stream_thread()
 {
-    if (HANDLE thread = ThreadHandle()) {
-        StopThread() = true;
+    if (HANDLE thread = thread_handle()) {
+        stop_thread() = true;
         WaitForSingleObject(thread, INFINITE);
-        ThreadHandle() = nullptr;
+        thread_handle() = nullptr;
     }
 }
 
 // 0x004535E0
-_OVERLAPPED* __cdecl NewOverlapped()
+_OVERLAPPED* __cdecl new_overlapped()
 {
     for (;;) {
         // (loops for ever if all 256 are in use)
-        OVERLAPPED* overlapped = &Overlapped()[NextOverlapped()];
-        int next = NextOverlapped() + 1;
-        NextOverlapped() = next >= kOverlapSlots ? 0 : next;
-        if (UsesOverlapped(MusicSlot(), overlapped))
+        OVERLAPPED* overlapped = &get_overlapped()[next_overlapped()];
+        int next = next_overlapped() + 1;
+        next_overlapped() = next >= kOverlapSlots ? 0 : next;
+        if (uses_overlapped(music_slot(), overlapped))
             continue;
         bool used = false;
         for (int i = 0; i < kStreamSlots && !used; ++i)
-            used = UsesOverlapped(StreamSlots()[i], overlapped);
+            used = uses_overlapped(stream_slots()[i], overlapped);
         if (used)
             continue;
         std::memset(overlapped, 0, sizeof(*overlapped));
@@ -218,26 +218,26 @@ _OVERLAPPED* __cdecl NewOverlapped()
 }
 
 // 0x00453670
-void __cdecl InitPlatform()
+void __cdecl init_platform()
 {
-    std::memset(&MusicSlot(), 0, sizeof(StreamSlot));
-    std::memset(StreamSlots(), 0, kStreamSlots * sizeof(StreamSlot));
-    UserSoundtrackCount();
-    WadFile() = CreateFileA("data\\streams\\pcm\\pcm.wad", GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
+    std::memset(&music_slot(), 0, sizeof(StreamSlot));
+    std::memset(stream_slots(), 0, kStreamSlots * sizeof(StreamSlot));
+    user_soundtrack_count();
+    get_wad_file() = CreateFileA("data\\streams\\pcm\\pcm.wad", GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
                             FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING, nullptr);
     HANDLE index = CreateFileA("data\\streams\\pcm\\pcm.dat", GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
                                FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
     if (index != INVALID_HANDLE_VALUE) {
         DWORD read;
-        ReadFile(index, &WadEntryCount(), 4, &read, nullptr);
-        WadEntries() = static_cast<WadEntry*>(MemSys::Alloc(WadEntryCount() * sizeof(WadEntry)));
-        ReadFile(index, WadEntries(), WadEntryCount() * sizeof(WadEntry), &read, nullptr);
+        ReadFile(index, &wad_entry_count(), 4, &read, nullptr);
+        wad_entries() = static_cast<WadEntry*>(memory::alloc(wad_entry_count() * sizeof(WadEntry)));
+        ReadFile(index, wad_entries(), wad_entry_count() * sizeof(WadEntry), &read, nullptr);
         CloseHandle(index);
     }
-    // Sorted by checksum for FindWadEntry (an exchange sort).
-    WadEntry* entries = WadEntries();
-    for (uint32_t i = 0; i < WadEntryCount(); ++i) {
-        for (uint32_t j = i + 1; j < WadEntryCount(); ++j) {
+    // Sorted by checksum for find_wad_entry (an exchange sort).
+    WadEntry* entries = wad_entries();
+    for (uint32_t i = 0; i < wad_entry_count(); ++i) {
+        for (uint32_t j = i + 1; j < wad_entry_count(); ++j) {
             if (entries[i].checksum > entries[j].checksum) {
                 WadEntry swap = entries[i];
                 entries[i] = entries[j];
@@ -245,23 +245,23 @@ void __cdecl InitPlatform()
             }
         }
     }
-    if (!ThreadHandle()) {
+    if (!thread_handle()) {
         DWORD id = 0;
-        ThreadHandle() = CreateThread(nullptr, 0, StreamThread, nullptr, 0, &id);
-        SetThreadPriority(ThreadHandle(), THREAD_PRIORITY_ABOVE_NORMAL);
+        thread_handle() = CreateThread(nullptr, 0, stream_thread, nullptr, 0, &id);
+        SetThreadPriority(thread_handle(), THREAD_PRIORITY_ABOVE_NORMAL);
     }
 }
 
 // --- pcm.wad's index ---------------------------------------------------------------------------------------
 
 // 0x004533A0
-int FindWadEntry(uint32_t checksum)
+int find_wad_entry(uint32_t checksum)
 {
     int low = 0;
-    int high = static_cast<int>(WadEntryCount()) - 1;
+    int high = static_cast<int>(wad_entry_count()) - 1;
     while (low <= high) {
         int middle = (low + high) / 2;
-        uint32_t found = WadEntries()[middle].checksum;
+        uint32_t found = wad_entries()[middle].checksum;
         if (found < checksum)
             low = middle + 1;
         else if (found == checksum)
@@ -273,121 +273,121 @@ int FindWadEntry(uint32_t checksum)
 }
 
 // 0x004533A0: the checksum in EBX (ECX and EDX not kept).
-__declspec(naked) void FindWadEntryStub()
+__declspec(naked) void find_wad_entry_stub()
 {
     __asm {
         push ebx
-        call FindWadEntry
+        call find_wad_entry
         add esp, 4
         ret
     }
 }
 
 // 0x004533E0
-uint32_t __cdecl StreamExists(uint32_t checksum, int music)
+uint32_t __cdecl stream_exists(uint32_t checksum, int music)
 {
     if (music)
         return 0;
-    return FindWadEntry(checksum) != -1 ? checksum : 0;
+    return find_wad_entry(checksum) != -1 ? checksum : 0;
 }
 
 // --- State -------------------------------------------------------------------------------------------------
 
 // 0x00453250
-int __cdecl MusicStatus()
+int __cdecl music_status()
 {
-    return MusicSlot().Playing() ? 2 : 1;
+    return music_slot().get_playing() ? 2 : 1;
 }
 
 // 0x00453270
-int __cdecl StreamStatus(int slot)
+int __cdecl stream_status(int slot)
 {
     int first = slot == -1 ? 0 : slot;
     int end = slot == -1 ? kStreamSlots : slot + 1;
     for (int i = first; i < end; ++i)
-        if (!StreamSlots()[i].Playing())
+        if (!stream_slots()[i].get_playing())
             return 1;
     return 2;
 }
 
 // 0x00453220
-bool __cdecl MusicPreloadDone()
+bool __cdecl music_preload_done()
 {
-    return PrefetchComplete(MusicSlot());
+    return prefetch_complete(music_slot());
 }
 
 // 0x004531D0
-bool __cdecl StreamPreloadDone(int slot)
+bool __cdecl stream_preload_done(int slot)
 {
-    return PrefetchComplete(StreamSlots()[slot]);
+    return prefetch_complete(stream_slots()[slot]);
 }
 
 // 0x004532C0
-void __cdecl PauseStreams(bool pause, int which)
+void __cdecl pause_streams(bool pause, int which)
 {
     if (which == 1) {
-        StreamSlot& music = MusicSlot();
+        StreamSlot& music = music_slot();
         music.paused = pause;
         if (music.wad)
-            music.wad->Freeze(pause ? 1 : 0);
+            music.wad->get_freeze(pause ? 1 : 0);
         else if (music.bink)
-            music.bink->Freeze(pause ? 1 : 0);
+            music.bink->get_freeze(pause ? 1 : 0);
         return;
     }
     for (int i = 0; i < kStreamSlots; ++i) {
-        StreamSlot& slot = StreamSlots()[i];
-        if (!slot.Playing())
+        StreamSlot& slot = stream_slots()[i];
+        if (!slot.get_playing())
             continue;
         if (slot.wad)
-            slot.wad->Freeze(pause ? 1 : 0);
+            slot.wad->get_freeze(pause ? 1 : 0);
         else if (slot.bink)
-            slot.bink->Freeze(pause ? 1 : 0);
+            slot.bink->get_freeze(pause ? 1 : 0);
         slot.paused = pause;
     }
 }
 
 // 0x00453940
-int __cdecl UpdateStreams()
+int __cdecl update_streams()
 {
-    WaitForSingleObject(StreamLock(), INFINITE);
-    if (Over(MusicSlot()))
-        MusicSlot().Dealloc();
+    WaitForSingleObject(stream_lock(), INFINITE);
+    if (get_over(music_slot()))
+        music_slot().dealloc();
     for (int i = 0; i < kStreamSlots; ++i)
-        if (Over(StreamSlots()[i]))
-            StreamSlots()[i].Dealloc();
-    ReleaseMutex(StreamLock());
+        if (get_over(stream_slots()[i]))
+            stream_slots()[i].dealloc();
+    ReleaseMutex(stream_lock());
     return 0;
 }
 
 // --- User soundtracks --------------------------------------------------------------------------------------
 
 // 0x004542D0
-int __cdecl UserSoundtrackCount()
+int __cdecl user_soundtrack_count()
 {
-    if (!SoundtracksCounted()) {
-        SoundtracksCounted() = true;
-        SoundtrackCount() = 0; // (none on PC)
+    if (!soundtracks_counted()) {
+        soundtracks_counted() = true;
+        soundtrack_count() = 0; // (none on PC)
     }
-    return SoundtrackCount();
+    return soundtrack_count();
 }
 
 // 0x00454300
-const wchar_t* __cdecl UserSoundtrackName(int index)
+const wchar_t* __cdecl user_soundtrack_name(int index)
 {
-    return index < SoundtrackCount() ? reinterpret_cast<const wchar_t*>(Soundtrack(index) + 8) : nullptr;
+    return index < soundtrack_count() ? reinterpret_cast<const wchar_t*>(get_soundtrack(index) + 8) : nullptr;
 }
 
 // 0x00454320
-int __cdecl UserSoundtrackTracks(int index)
+int __cdecl user_soundtrack_tracks(int index)
 {
-    return index < SoundtrackCount() ? *reinterpret_cast<int*>(Soundtrack(index)) : 0;
+    return index < soundtrack_count() ? *reinterpret_cast<int*>(get_soundtrack(index)) : 0;
 }
 
 } // namespace Pcm
 
-namespace AudioStream {
+namespace audio {
 
 // 0x006409D0 (a static initialiser): the streams' lock, a mutex nobody owns.
-void CreateStreamLock() { g_streamLock = CreateMutexA(nullptr, FALSE, nullptr); }
+void create_stream_lock() { g_stream_lock = CreateMutexA(nullptr, FALSE, nullptr); }
 
 } // namespace Pcm

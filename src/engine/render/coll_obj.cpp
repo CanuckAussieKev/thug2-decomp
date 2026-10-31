@@ -14,21 +14,21 @@
 #include "engine/core/stubs.h"
 #include "engine/render/coll_static.h"
 
-namespace Engine3D {
+namespace render {
 
 namespace {
 
-static VtableSlot kHeadVtable_slots[] = {&Engine3D::CollObjListNodes::DestroyHead};
-void** const kHeadVtable = reinterpret_cast<void**>(kHeadVtable_slots); // ListKit::Foremost<CHitMesh>
+static VtableSlot g_head_vtable_slots[] = {&render::CollObjListNodes::destroy_head};
+void** const kHeadVtable = reinterpret_cast<void**>(g_head_vtable_slots); // lists::Foremost<HitMesh>
 
 void* const kHeadData = reinterpret_cast<void*>(-1);
 
 // 0x00416970: the geometry's destructor.
-void FreeShapeData(CTriMeshSource* geometry) { geometry->Destruct(); }
+void free_shape_data(TriMeshSource* geometry) { geometry->destruct(); }
 
-MemSys::ListNode* NewHead()
+memory::ListNode* new_head()
 {
-    auto* head = static_cast<MemSys::ListNode*>(MemSys::AllocZeroed(sizeof(MemSys::ListNode)));
+    auto* head = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
     if (head) {
         head->data = kHeadData;
         head->priority = 0;
@@ -39,78 +39,78 @@ MemSys::ListNode* NewHead()
     return head;
 }
 // The first child's node (null at the end of the list - the head's data is -1).
-MemSys::ListNode* First(MemSys::ListNode* head)
+memory::ListNode* get_first(memory::ListNode* head)
 {
-    MemSys::ListNode* node = head->next;
+    memory::ListNode* node = head->next;
     return node->data == kHeadData ? nullptr : node;
 }
 // The children in turn: the head-data test first, then the null one (the original's order).
 template <typename F>
-void ForEachChild(MemSys::ListNode* head, F f)
+void for_each_child(memory::ListNode* head, F f)
 {
-    for (MemSys::ListNode* node = head->next; node->data != kHeadData && node; node = node->next)
-        f(static_cast<CHitMesh*>(node->data));
+    for (memory::ListNode* node = head->next; node->data != kHeadData && node; node = node->next)
+        f(static_cast<HitMesh*>(node->data));
 }
 
 } // namespace
 
-static VtableSlot kCollObjVtable_slots[] = {&Engine3D::CHitMesh::ScalarDelete, Stubs::ReturnFalse,
-        &_purecall, &_purecall, &Engine3D::CHitMesh::AssignShapeData,
+static VtableSlot g_coll_obj_vtable_slots[] = {&render::HitMesh::scalar_delete, stubs::return_false,
+        &_purecall, &_purecall, &render::HitMesh::assign_shape_data,
         &_purecall, &_purecall, &_purecall,
-        &_purecall, &_purecall, Stubs::ReturnZero, Stubs::IgnoreArgument,
+        &_purecall, &_purecall, stubs::return_zero, stubs::ignore_argument,
         &_purecall, &_purecall, &_purecall,
         &_purecall, &_purecall, &_purecall,
-        &_purecall, &_purecall, Stubs::ReturnZero};
-void** const kCollObjVtable = reinterpret_cast<void**>(kCollObjVtable_slots);
-static VtableSlot kNodeVtable_slots[] = {&Engine3D::CollObjListNodes::DestroyNode};
-void** const kNodeVtable = reinterpret_cast<void**>(kNodeVtable_slots); // ListKit::Elem<CHitMesh>
+        &_purecall, &_purecall, stubs::return_zero};
+void** const kCollObjVtable = reinterpret_cast<void**>(g_coll_obj_vtable_slots);
+static VtableSlot g_node_vtable_slots[] = {&render::CollObjListNodes::destroy_node};
+void** const kNodeVtable = reinterpret_cast<void**>(g_node_vtable_slots); // lists::Elem<HitMesh>
 
 // 0x0040B370
-void CHitMesh::AssignShapeData(CTriMeshSource* geometry)
+void HitMesh::assign_shape_data(TriMeshSource* geometry)
 {
-    m_geometry = geometry;
+    geometry_ = geometry;
     if (geometry)
-        m_checksum = *reinterpret_cast<uint32_t*>(geometry);
+        checksum_ = *reinterpret_cast<uint32_t*>(geometry);
 }
 
-void CHitMesh::DestroyBase()
+void HitMesh::destroy_base()
 {
-    CTriMeshSource* geometry = m_geometry;
-    m_vtable = kCollObjVtable;
-    if (geometry && (m_flagBits & kOwnsGeometry) && !(m_flagBits & kSharedGeometry)) {
-        FreeShapeData(geometry);
-        MemSys::Hub::Pull()->Dealloc(geometry);
+    TriMeshSource* geometry = geometry_;
+    vtable_ = kCollObjVtable;
+    if (geometry && (flag_bits_ & kOwnsGeometry) && !(flag_bits_ & kSharedGeometry)) {
+        free_shape_data(geometry);
+        memory::Hub::get_pull()->dealloc(geometry);
     }
 }
 
 // 0x00413390
-CHitMesh* CHitMesh::ScalarDelete(uint8_t flags)
+HitMesh* HitMesh::scalar_delete(uint8_t flags)
 {
-    DestroyBase();
+    destroy_base();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x004131D0
-void CollObjListNodes::DestroyNodeBody()
+void CollObjListNodes::destroy_node_body()
 {
-    reinterpret_cast<MemSys::ListNode*>(this)->UnlinkAs(kNodeVtable);
+    reinterpret_cast<memory::ListNode*>(this)->unlink_as(kNodeVtable);
 }
 
 // 0x00411880 (the body inlined)
-MemSys::ListNode* CollObjListNodes::DestroyNode(uint8_t flags)
+memory::ListNode* CollObjListNodes::destroy_node(uint8_t flags)
 {
-    DestroyNodeBody();
+    destroy_node_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
-    return reinterpret_cast<MemSys::ListNode*>(this);
+        memory::Hub::get_pull()->dealloc(this);
+    return reinterpret_cast<memory::ListNode*>(this);
 }
 
 // 0x00413180
-MemSys::ListNode* CollObjListNodes::ConstructHead()
+memory::ListNode* CollObjListNodes::construct_head()
 {
-    auto* head = reinterpret_cast<MemSys::ListNode*>(this);
+    auto* head = reinterpret_cast<memory::ListNode*>(this);
     head->data = kHeadData;
     head->priority = 0;
     head->next = head;
@@ -120,94 +120,94 @@ MemSys::ListNode* CollObjListNodes::ConstructHead()
 }
 
 // 0x004131A0
-MemSys::ListNode* CollObjListNodes::DestroyHead(uint8_t flags)
+memory::ListNode* CollObjListNodes::destroy_head(uint8_t flags)
 {
-    DestroyNodeBody();
+    destroy_node_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
-    return reinterpret_cast<MemSys::ListNode*>(this);
+        memory::Hub::get_pull()->dealloc(this);
+    return reinterpret_cast<memory::ListNode*>(this);
 }
 
 // 0x004133E0
-CHitMeshGroup* CHitMeshGroup::MakeNew()
+HitMeshGroup* HitMeshGroup::make_new()
 {
-    m_flagBits = 0;
-    m_geometry = nullptr;
-    m_vtable = Vt::kVtblCompoundColl;
-    new (&m_box) Maths::BBox();
-    MemSys::ListNode* head = NewHead();
-    m_value38 = 0;
-    m_subNodes = head;
-    m_dirty = true;
+    flag_bits_ = 0;
+    geometry_ = nullptr;
+    vtable_ = vt::kVtblCompoundColl;
+    new (&box_) maths::BBox();
+    memory::ListNode* head = new_head();
+    value38_ = 0;
+    sub_nodes_ = head;
+    dirty_ = true;
     return this;
 }
 
 // 0x00411D10
-CHitMeshGroup* CHitMeshGroup::ConstructCopy(const CHitMeshGroup* other)
+HitMeshGroup* HitMeshGroup::construct_copy(const HitMeshGroup* other)
 {
-    m_vtable = kCollObjVtable;
-    m_checksum = other->m_checksum;
-    m_flagBits = other->m_flagBits;
-    m_visitStamp = other->m_visitStamp;
-    m_geometry = other->m_geometry;
-    m_vtable = Vt::kVtblCompoundColl;
-    m_subNodes = other->m_subNodes;
-    m_box = other->m_box;
-    m_dirty = other->m_dirty;
-    m_boxValid = other->m_boxValid;
-    m_value38 = other->m_value38;
+    vtable_ = kCollObjVtable;
+    checksum_ = other->checksum_;
+    flag_bits_ = other->flag_bits_;
+    visit_stamp_ = other->visit_stamp_;
+    geometry_ = other->geometry_;
+    vtable_ = vt::kVtblCompoundColl;
+    sub_nodes_ = other->sub_nodes_;
+    box_ = other->box_;
+    dirty_ = other->dirty_;
+    box_valid_ = other->box_valid_;
+    value38_ = other->value38_;
     return this;
 }
 
 // 0x00411B10
-void CHitMeshGroup::Destruct()
+void HitMeshGroup::destruct()
 {
-    m_vtable = Vt::kVtblCompoundColl;
-    if (m_subNodes) {
-        MemSys::ListNode* node = m_subNodes->next;
+    vtable_ = vt::kVtblCompoundColl;
+    if (sub_nodes_) {
+        memory::ListNode* node = sub_nodes_->next;
         if (node->data != kHeadData && node) {
             while (node) {
-                MemSys::ListNode* next = node->next->data == kHeadData ? nullptr : node->next;
-                if (auto* child = static_cast<CHitMesh*>(node->data))
-                    child->Call<void*>(0, 1);
-                reinterpret_cast<void(__thiscall*)(MemSys::ListNode*, int)>(node->vtable[0])(node, 1);
+                memory::ListNode* next = node->next->data == kHeadData ? nullptr : node->next;
+                if (auto* child = static_cast<HitMesh*>(node->data))
+                    child->get_call<void*>(0, 1);
+                reinterpret_cast<void(__thiscall*)(memory::ListNode*, int)>(node->vtable[0])(node, 1);
                 node = next;
             }
         }
-        if (m_subNodes)
-            reinterpret_cast<void(__thiscall*)(MemSys::ListNode*, int)>(m_subNodes->vtable[0])(m_subNodes, 1);
+        if (sub_nodes_)
+            reinterpret_cast<void(__thiscall*)(memory::ListNode*, int)>(sub_nodes_->vtable[0])(sub_nodes_, 1);
     }
-    RemoveFromCaches(this);
-    DestroyBase();
+    remove_from_caches(this);
+    destroy_base();
 }
 
 // 0x00413460
-CHitMeshGroup* CHitMeshGroup::ScalarDelete(uint8_t flags)
+HitMeshGroup* HitMeshGroup::scalar_delete(uint8_t flags)
 {
-    Destruct();
+    destruct();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00413490
-CHitMeshGroup* CHitMeshGroup::Replicate(int argument)
+HitMeshGroup* HitMeshGroup::replicate(int argument)
 {
-    void* memory = MemSys::Alloc(sizeof(CHitMeshGroup));
-    CHitMeshGroup* copy = memory ? static_cast<CHitMeshGroup*>(memory)->ConstructCopy(this) : nullptr;
-    copy->m_flagBits |= kOwnsGeometry; // (a failed allocation crashes here, as in the original)
-    copy->m_subNodes = NewHead();
-    ForEachChild(m_subNodes, [&](CHitMesh* child) {
-        auto* node = static_cast<MemSys::ListNode*>(MemSys::AllocZeroed(sizeof(MemSys::ListNode)));
+    void* memory = memory::alloc(sizeof(HitMeshGroup));
+    HitMeshGroup* copy = memory ? static_cast<HitMeshGroup*>(memory)->construct_copy(this) : nullptr;
+    copy->flag_bits_ |= kOwnsGeometry; // (a failed allocation crashes here, as in the original)
+    copy->sub_nodes_ = new_head();
+    for_each_child(sub_nodes_, [&](HitMesh* child) {
+        auto* node = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
         if (node) {
-            void* clone = child->Call<void*>(12, argument);
+            void* clone = child->get_call<void*>(12, argument);
             node->vtable = kNodeVtable;
             node->data = clone;
             node->priority = 0;
             node->next = node;
             node->prev = node;
         }
-        MemSys::ListNode* head = copy->m_subNodes;
+        memory::ListNode* head = copy->sub_nodes_;
         node->prev = head->prev;
         node->next = head;
         head->prev->next = node;
@@ -217,9 +217,9 @@ CHitMeshGroup* CHitMeshGroup::Replicate(int argument)
 }
 
 // 0x00411BE0
-void CHitMeshGroup::AttachChild(CHitMesh* child)
+void HitMeshGroup::attach_child(HitMesh* child)
 {
-    auto* node = static_cast<MemSys::ListNode*>(MemSys::AllocZeroed(sizeof(MemSys::ListNode)));
+    auto* node = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
     if (node) {
         node->vtable = kNodeVtable;
         node->data = child;
@@ -227,7 +227,7 @@ void CHitMeshGroup::AttachChild(CHitMesh* child)
         node->next = node;
         node->prev = node;
     }
-    MemSys::ListNode* head = m_subNodes;
+    memory::ListNode* head = sub_nodes_;
     node->prev = head->prev;
     node->next = head;
     head->prev->next = node;
@@ -235,121 +235,121 @@ void CHitMeshGroup::AttachChild(CHitMesh* child)
 }
 
 // 0x00411D90
-bool CHitMeshGroup::IsTriangleHit()
+bool HitMeshGroup::is_triangle_hit()
 {
     bool all = true;
-    ForEachChild(m_subNodes, [&](CHitMesh* child) { all = all && child->Call<bool>(1); });
+    for_each_child(sub_nodes_, [&](HitMesh* child) { all = all && child->get_call<bool>(1); });
     return all;
 }
 
 // 0x00411CC0
-void CHitMeshGroup::SetGeometryAll(void* value)
+void HitMeshGroup::set_geometry_all(void* value)
 {
-    ForEachChild(m_subNodes, [&](CHitMesh* child) { child->Call<void>(4, value); });
-    m_dirty = true;
+    for_each_child(sub_nodes_, [&](HitMesh* child) { child->get_call<void>(4, value); });
+    dirty_ = true;
 }
 
 // 0x00411C30
-void CHitMeshGroup::PlaceAtAbsolutePoint(const void* position)
+void HitMeshGroup::place_at_absolute_point(const void* position)
 {
-    ForEachChild(m_subNodes, [&](CHitMesh* child) { child->Call<void>(5, position); });
-    m_dirty = true;
+    for_each_child(sub_nodes_, [&](HitMesh* child) { child->get_call<void>(5, position); });
+    dirty_ = true;
 }
 
 // 0x00411C80
-void CHitMeshGroup::ChangeFacing(const void* orientation)
+void HitMeshGroup::change_facing(const void* orientation)
 {
-    ForEachChild(m_subNodes, [&](CHitMesh* child) { child->Call<void>(6, orientation); });
+    for_each_child(sub_nodes_, [&](HitMesh* child) { child->get_call<void>(6, orientation); });
 }
 
 // 0x00411F60
-void* CHitMeshGroup::GetAbsolutePoint()
+void* HitMeshGroup::get_absolute_point()
 {
-    return static_cast<CHitMesh*>(First(m_subNodes)->data)->Call<void*>(7);
+    return static_cast<HitMesh*>(get_first(sub_nodes_)->data)->get_call<void*>(7);
 }
 
 // 0x00411F80
-void* CHitMeshGroup::FetchFacing()
+void* HitMeshGroup::fetch_facing()
 {
-    return static_cast<CHitMesh*>(First(m_subNodes)->data)->Call<void*>(8);
+    return static_cast<HitMesh*>(get_first(sub_nodes_)->data)->get_call<void*>(8);
 }
 
 // 0x00410960
-Maths::Vec4 CHitMeshGroup::ReadVertexPoint(int /*vertex*/) const
+maths::Vec4 HitMeshGroup::read_vertex_point(int /*vertex*/) const
 {
     return {0.0f, 0.0f, 0.0f, 0.0f};
 }
 
 // 0x0040AE20
-int CHitMeshGroup::GetValue38() const
+int HitMeshGroup::get_value38() const
 {
-    return m_value38;
+    return value38_;
 }
 
 // 0x0040AE10
-void CHitMeshGroup::SetValue38(int value)
+void HitMeshGroup::set_value38(int value)
 {
-    m_value38 = value;
+    value38_ = value;
 }
 
 // 0x00411E80
-int CHitMeshGroup::InsideBounds(const Maths::BBox* box)
+int HitMeshGroup::inside_bounds(const maths::BBox* box)
 {
-    if (m_dirty) {
-        RecomputeBBox();
-        m_dirty = false;
+    if (dirty_) {
+        recompute_b_box();
+        dirty_ = false;
     }
-    if (m_boxValid && !box->Intersects(m_box))
+    if (box_valid_ && !box->intersects(box_))
         return 0;
     return 1;
 }
 
 // 0x00411EC0
-bool CHitMeshGroup::CollideWithLine(void* a, void* b, void* c, void* d)
+bool HitMeshGroup::collide_with_line(void* a, void* b, void* c, void* d)
 {
     bool hit = false;
-    ForEachChild(m_subNodes, [&](CHitMesh* child) {
-        if (child->Call<bool>(14, a, b, c, d) || hit)
+    for_each_child(sub_nodes_, [&](HitMesh* child) {
+        if (child->get_call<bool>(14, a, b, c, d) || hit)
             hit = true;
     });
     return hit;
 }
 
 // 0x00411F20
-void CHitMeshGroup::PassDown(void* a, void* b)
+void HitMeshGroup::pass_down(void* a, void* b)
 {
-    ForEachChild(m_subNodes, [&](CHitMesh* child) { child->Call<void>(19, a, b); });
+    for_each_child(sub_nodes_, [&](HitMesh* child) { child->get_call<void>(19, a, b); });
 }
 
 // 0x00411E50
-Maths::BBox* CHitMeshGroup::GetLocalBounds()
+maths::BBox* HitMeshGroup::get_local_bounds()
 {
-    if (m_dirty) {
-        RecomputeBBox();
-        m_dirty = false;
+    if (dirty_) {
+        recompute_b_box();
+        dirty_ = false;
     }
-    return m_boxValid ? &m_box : nullptr;
+    return box_valid_ ? &box_ : nullptr;
 }
 
 // 0x00411DD0
-void CHitMeshGroup::RecomputeBBox()
+void HitMeshGroup::recompute_b_box()
 {
-    m_boxValid = true;
-    m_box.min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
-    m_box.max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
-    for (MemSys::ListNode* node = m_subNodes->next; node->data != kHeadData && node; node = node->next) {
-        auto* box = static_cast<CHitMesh*>(node->data)->Call<Maths::BBox*>(20);
+    box_valid_ = true;
+    box_.min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
+    box_.max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
+    for (memory::ListNode* node = sub_nodes_->next; node->data != kHeadData && node; node = node->next) {
+        auto* box = static_cast<HitMesh*>(node->data)->get_call<maths::BBox*>(20);
         if (!box) {
-            m_boxValid = false;
+            box_valid_ = false;
             return;
         }
-        m_box.AppendSpot(box->min);
-        m_box.AppendSpot(box->max);
+        box_.append_spot(box->min);
+        box_.append_spot(box->max);
     }
 }
 
 // 0x0040AE30
-uint16_t CollObjStubs::NoTerrain(int /*face*/)
+uint16_t CollObjStubs::no_terrain(int /*face*/)
 {
     return 0;
 }

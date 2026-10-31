@@ -15,16 +15,16 @@
 #include "game/skate/thugpro_cas.h"
 #include "platform/run_log.h"
 
-namespace MenuSystem::DataOverlay {
+namespace frontend::data_overlay {
 
 namespace {
 
-bool IsFolder(const std::string& path)
+bool is_folder(const std::string& path)
 {
     DWORD attributes = GetFileAttributesA(path.c_str());
     return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY);
 }
-bool IsFile(const std::string& path)
+bool is_file(const std::string& path)
 {
     DWORD attributes = GetFileAttributesA(path.c_str());
     return attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY);
@@ -32,13 +32,13 @@ bool IsFile(const std::string& path)
 
 } // namespace
 
-const std::string& Folder()
+const std::string& get_folder()
 {
-    static const std::string folder = GameFolderPath("thug2-decomp-data");
-    return folder;
+    static const std::string kFolder = game_folder_path("thug2-decomp-data");
+    return kFolder;
 }
 
-void OverlayName(const char* name, char (&out)[260])
+void overlay_name(const char* name, char (&out)[260])
 {
     int length = 0;
     for (const char* c = name; *c && length < 259; ++c)
@@ -54,60 +54,60 @@ void OverlayName(const char* name, char (&out)[260])
         std::memmove(out, rest, std::strlen(rest) + 1);
 }
 
-int SearchFolders(bool anteara, bool frontEnd, const char* (&folders)[4])
+int search_folders(bool anteara, bool front_end, const char* (&folders)[4])
 {
     int count = 0;
-    if (anteara && frontEnd)
+    if (anteara && front_end)
         folders[count++] = "anteara\\front_end\\";
     if (anteara)
         folders[count++] = "anteara\\";
-    if (frontEnd)
+    if (front_end)
         folders[count++] = "front_end\\";
     folders[count++] = "";
     return count;
 }
 
-bool AntearaMod()
+bool anteara_mod()
 {
-    static const bool on = [] {
-        bool setting = ConfigInt("features", "anteara_mod", 0) != 0;
+    static const bool kOn = [] {
+        bool setting = config_int("features", "anteara_mod", 0) != 0;
         if (setting) {
-            std::string folder = Folder() + "\\anteara";
-            Log(IsFolder(folder) ? "anteara_mod: on - Anteara Mod's scripts from %s (tools/anteara)"
+            std::string folder = get_folder() + "\\anteara";
+            get_log(is_folder(folder) ? "anteara_mod: on - Anteara Mod's scripts from %s (tools/anteara)"
                                  : "anteara_mod: on, but %s not found - run tools/pipeline/menu_level/make_menu_level.ts; the "
                                    "game's scripts are used",
                 folder.c_str());
         }
         return setting;
     }();
-    return on;
+    return kOn;
 }
 
-bool OverlayPath(const char* name, char (&path)[260])
+bool get_overlay_path(const char* name, char (&path)[260])
 {
-    static const bool overlay = IsFolder(Folder());
+    static const bool kOverlay = is_folder(get_folder());
     if (!name)
         return false;
     char relative[260];
-    OverlayName(name, relative);
+    overlay_name(name, relative);
     std::string full;
     // First, while [features] hd_ui is on: the upscaled menu images and fonts (engine/gfx/hd_ui.h), in the hd_ui folder
     // under the same names (also the ones inside the .prx packs, which the overlay serves by name).
-    if (overlay && Engine3D::HdUi::IsSwitchedOn()) {
-        std::string candidate = Folder() + "\\hd_ui\\" + relative;
-        if (IsFile(candidate))
+    if (kOverlay && render::hd_ui::is_switched_on()) {
+        std::string candidate = get_folder() + "\\hd_ui\\" + relative;
+        if (is_file(candidate))
             full = candidate;
     }
     const char* folders[4];
-    int count = overlay && full.empty() ? SearchFolders(AntearaMod(), NewFrontend::IsSwitchedOn(), folders) : 0;
+    int count = kOverlay && full.empty() ? search_folders(anteara_mod(), new_frontend::is_switched_on(), folders) : 0;
     for (int i = 0; i < count && full.empty(); ++i) {
-        std::string candidate = Folder() + "\\" + folders[i] + relative;
-        if (IsFile(candidate))
+        std::string candidate = get_folder() + "\\" + folders[i] + relative;
+        if (is_file(candidate))
             full = candidate;
     }
     // Last: a THUGPRO part's file from the user's THUGPRO install (TP-R10, game/skate/thugpro_cas.h).
     if (full.empty())
-        return GameObjects::ThugproCas::FilePath(relative, path);
+        return objects::thugpro_cas::file_path(relative, path);
     if (full.size() >= sizeof(path))
         return false;
     std::memcpy(path, full.c_str(), full.size() + 1);
@@ -115,9 +115,9 @@ bool OverlayPath(const char* name, char (&path)[260])
     static std::vector<std::string> logged;
     if (std::find(logged.begin(), logged.end(), full) == logged.end()) {
         logged.push_back(full);
-        Log("data overlay: %s read from %s (asked for as %s)", relative, full.c_str(), name);
+        get_log("data overlay: %s read from %s (asked for as %s)", relative, full.c_str(), name);
     }
     return true;
 }
 
-} // namespace MenuSystem::DataOverlay
+} // namespace MenuSystem::data_overlay

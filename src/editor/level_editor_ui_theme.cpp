@@ -8,14 +8,14 @@
 #include "editor/level_editor_ui_layout.h"
 #include "imgui.h"
 
-namespace MenuSystem::LevelEditor::UiTheme {
+namespace frontend::level_editor::ui_theme {
 
 namespace {
 
 // The characters the editor shows: Latin-1, dashes and bullets, arrows and triangles.
 const ImWchar kRanges[] = {0x0020, 0x00FF, 0x2013, 0x2026, 0x2190, 0x2193, 0x25B2, 0x25C0, 0};
 
-ImFont* AddFont(UiFonts::CompressedFont font, float size)
+ImFont* add_font(ui_fonts::CompressedFont font, float size)
 {
     ImFontConfig config;
     config.OversampleH = 2;
@@ -27,23 +27,23 @@ ImFont* AddFont(UiFonts::CompressedFont font, float size)
 
 } // namespace
 
-Fonts BuildFonts(float scale)
+Fonts build_fonts(float scale)
 {
-    UiLayout::FontSizes sizes = UiLayout::FontSizesFor(scale);
+    ui_layout::FontSizes sizes = ui_layout::font_sizes_for(scale);
     ImFontAtlas* atlas = ImGui::GetIO().Fonts;
     atlas->Clear();
     Fonts fonts;
-    fonts.ui = AddFont(UiFonts::Inter(), sizes.ui);
-    fonts.small = AddFont(UiFonts::Inter(), sizes.small);
-    fonts.mono = AddFont(UiFonts::Mono(), sizes.mono);
-    fonts.heading = AddFont(UiFonts::InterSemiBold(), sizes.heading);
+    fonts.ui = add_font(ui_fonts::inter(), sizes.ui);
+    fonts.small = add_font(ui_fonts::inter(), sizes.small);
+    fonts.mono = add_font(ui_fonts::get_mono(), sizes.mono);
+    fonts.heading = add_font(ui_fonts::inter_semi_bold(), sizes.heading);
     atlas->Build();
     return fonts;
 }
 
-void ApplyStyle(float scale, const float accentRgb[3])
+void apply_style(float scale, const float accent_rgb[3])
 {
-    auto accentAt = [accentRgb](float alpha) { return ImVec4(accentRgb[0], accentRgb[1], accentRgb[2], alpha); };
+    auto accent_at = [accent_rgb](float alpha) { return ImVec4(accent_rgb[0], accent_rgb[1], accent_rgb[2], alpha); };
     ImGuiStyle style;
     ImGui::StyleColorsDark(&style);
     style.WindowRounding = 0.0f;
@@ -61,7 +61,7 @@ void ApplyStyle(float scale, const float accentRgb[3])
     style.ScrollbarSize = 12.0f;
     // A dark neutral with the accent.
     ImVec4* c = style.Colors;
-    const ImVec4 accent = accentAt(1.0f), accentSoft = accentAt(0.55f);
+    const ImVec4 accent = accent_at(1.0f), accent_soft = accent_at(0.55f);
     c[ImGuiCol_WindowBg] = ImVec4(0.11f, 0.115f, 0.125f, 0.94f);
     c[ImGuiCol_ChildBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
     c[ImGuiCol_PopupBg] = ImVec4(0.12f, 0.125f, 0.135f, 0.98f);
@@ -73,10 +73,10 @@ void ApplyStyle(float scale, const float accentRgb[3])
     c[ImGuiCol_TitleBg] = c[ImGuiCol_TitleBgActive] = ImVec4(0.09f, 0.095f, 0.1f, 1.0f);
     c[ImGuiCol_Button] = ImVec4(0.2f, 0.21f, 0.225f, 1.0f);
     c[ImGuiCol_ButtonHovered] = ImVec4(0.28f, 0.29f, 0.31f, 1.0f);
-    c[ImGuiCol_ButtonActive] = accentSoft;
-    c[ImGuiCol_Header] = accentAt(0.35f);
-    c[ImGuiCol_HeaderHovered] = accentAt(0.45f);
-    c[ImGuiCol_HeaderActive] = accentSoft;
+    c[ImGuiCol_ButtonActive] = accent_soft;
+    c[ImGuiCol_Header] = accent_at(0.35f);
+    c[ImGuiCol_HeaderHovered] = accent_at(0.45f);
+    c[ImGuiCol_HeaderActive] = accent_soft;
     c[ImGuiCol_CheckMark] = accent;
     c[ImGuiCol_SliderGrab] = accent;
     c[ImGuiCol_SliderGrabActive] = accent;
@@ -91,4 +91,4 @@ void ApplyStyle(float scale, const float accentRgb[3])
     ImGui::GetStyle() = style;
 }
 
-} // namespace MenuSystem::LevelEditor::UiTheme
+} // namespace MenuSystem::level_editor::ui_theme

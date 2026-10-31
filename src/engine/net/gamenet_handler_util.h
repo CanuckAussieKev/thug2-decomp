@@ -19,141 +19,141 @@
 #include "game/skate/skate_module.h"
 #include "game/skate/game_mode.h"
 
-namespace GameObjects {
-class CEntity;
+namespace objects {
+class Entity;
 } // namespace Obj
 
-namespace OnlinePlay {
-extern void** const kNewPlayerSearchVtable; // 0x0064C82C: ListKit::Hunt<JoinerRecord> (gamenet_handlers.cpp)
-} // namespace OnlinePlay
+namespace online {
+extern void** const kNewPlayerSearchVtable; // 0x0064C82C: lists::Hunt<JoinerRecord> (gamenet_handlers.cpp)
+} // namespace online
 
-namespace OnlinePlay::Detail {
+namespace online::detail {
 
 // Handler results.
-constexpr int kContinue = NetLink::kResultPassOn;
-constexpr int kHalt = NetLink::kResultStop;
-constexpr int kDone = NetLink::kResultConsumed;
-constexpr int kKeep = NetLink::kHandlerKeep;
+constexpr int kContinue = net::kResultPassOn;
+constexpr int kHalt = net::kResultStop;
+constexpr int kDone = net::kResultConsumed;
+constexpr int kKeep = net::kHandlerKeep;
 
 constexpr uint8_t kGroupGame = 8; // the sequenced group of the game's messages
 
 template <typename T>
-T& Prop(const void* object, uint32_t offset)
+T& prop(const void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
 }
 // A thiscall into code not rewritten yet.
 template <typename R = void, typename... A>
-R Call(uint32_t address, const void* object, A... args)
+R get_call(uint32_t address, const void* object, A... args)
 {
     return reinterpret_cast<R(__thiscall*)(const void*, A...)>(address)(object, args...);
 }
 
 // The same, into code of ours reached through its address (GAME_CODE).
 template <typename R = void, typename... A>
-R Call(void* code, const void* object, A... args)
+R get_call(void* code, const void* object, A... args)
 {
     return reinterpret_cast<R(__thiscall*)(const void*, A...)>(code)(object, args...);
 }
 
-inline Hub* ManagerOf(NetLink::InboundMsgCtx* context) { return static_cast<Hub*>(context->m_content); }
-inline const uint8_t* Message(NetLink::InboundMsgCtx* context)
+inline Hub* manager_of(net::InboundMsgCtx* context) { return static_cast<Hub*>(context->content_); }
+inline const uint8_t* get_message(net::InboundMsgCtx* context)
 {
-    return reinterpret_cast<const uint8_t*>(context->m_body);
+    return reinterpret_cast<const uint8_t*>(context->body_);
 }
-inline uint32_t MessageWord(NetLink::InboundMsgCtx* context, uint32_t offset)
+inline uint32_t message_word(net::InboundMsgCtx* context, uint32_t offset)
 {
-    return *reinterpret_cast<const uint32_t*>(context->m_body + offset);
+    return *reinterpret_cast<const uint32_t*>(context->body_ + offset);
 }
-inline void Run(uint32_t name, Scripts::CStruct* params = nullptr, GameObjects::CEntity* object = nullptr)
+inline void get_run(uint32_t name, script::Struct* params = nullptr, objects::Entity* object = nullptr)
 {
-    Scripts::LaunchScript(name, params, object, false, nullptr);
+    script::launch_script(name, params, object, false, nullptr);
 }
 
 // The singletons (not rewritten): the skate module, the game mode, the goal manager.
-inline uint8_t* Skate() { return reinterpret_cast<uint8_t*>(GameModules::g_skateModule); }
-inline uint8_t* GameMode() { return reinterpret_cast<uint8_t*>(GoalSystem::g_gameMode); }
-inline bool IsSquadMatch() { return Call<bool>(CodeAddress(&GoalSystem::CMatchRules::IsSquadMatch), GameMode()); }
-inline uint32_t GameType() { return Call<uint32_t>(CodeAddress(&GoalSystem::CMatchRules::GetNameKey), GameMode()); }
-inline uint8_t* ObjectiveBoard() { return reinterpret_cast<uint8_t*>(GoalSystem::GetObjectiveBoard()); }
-inline uint8_t* GetGoal(uint8_t* goals, uint32_t name) { return Call<uint8_t*>(CodeAddress(&GoalSystem::CGoalManager::GetGoal), goals, name, 1); }
+inline uint8_t* get_skate() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
+inline uint8_t* get_game_mode() { return reinterpret_cast<uint8_t*>(goals::g_game_mode); }
+inline bool is_squad_match() { return get_call<bool>(code_address(&goals::MatchRules::is_squad_match), get_game_mode()); }
+inline uint32_t get_game_type() { return get_call<uint32_t>(code_address(&goals::MatchRules::get_name_key), get_game_mode()); }
+inline uint8_t* objective_board() { return reinterpret_cast<uint8_t*>(goals::get_objective_board()); }
+inline uint8_t* get_goal(uint8_t* goals, uint32_t name) { return get_call<uint8_t*>(code_address(&goals::GoalManager::get_goal), goals, name, 1); }
 
-// The manager's players (OnlinePlay::PlayerRecord, player_info.h; reached as bytes here): +0x14 the skater, +0x18 the
+// The manager's players (online::PlayerRecord, player_info.h; reached as bytes here): +0x14 the skater, +0x18 the
 // connection, +0x30 the team, +0x38 the name, +0x1D0 flags.
-inline PlayerRecord* AsPlayer(const uint8_t* player) { return reinterpret_cast<PlayerRecord*>(const_cast<uint8_t*>(player)); }
-inline uint8_t* FindPlayerBySender(Hub* manager, NetLink::Conn* conn)
+inline PlayerRecord* as_player(const uint8_t* player) { return reinterpret_cast<PlayerRecord*>(const_cast<uint8_t*>(player)); }
+inline uint8_t* find_player_by_sender(Hub* manager, net::Conn* conn)
 {
-    return manager->FindPlayerBySender(conn);
+    return manager->find_player_by_sender(conn);
 }
 // (the original pushes the id as 16 bits)
-inline uint8_t* FindPlayerSlotByObj(Hub* manager, uint16_t id) { return manager->FindPlayerSlotByObj(id); }
-inline uint8_t* FindPlayerSlotByObj(Hub* manager, const uint8_t* id) // a signed byte, widened
+inline uint8_t* find_player_slot_by_obj(Hub* manager, uint16_t id) { return manager->find_player_slot_by_obj(id); }
+inline uint8_t* find_player_slot_by_obj(Hub* manager, const uint8_t* id) // a signed byte, widened
 {
-    return FindPlayerSlotByObj(manager, static_cast<uint16_t>(static_cast<int8_t>(*id)));
+    return find_player_slot_by_obj(manager, static_cast<uint16_t>(static_cast<int8_t>(*id)));
 }
-inline uint8_t* FindOwnPlayerRecord(Hub* manager) { return static_cast<uint8_t*>(manager->GetOwnPlayer()); }
-inline uint8_t* IsCrownRuleActive(Hub* manager) { return static_cast<uint8_t*>(manager->GetHillRuler()); }
+inline uint8_t* find_own_player_record(Hub* manager) { return static_cast<uint8_t*>(manager->get_own_player()); }
+inline uint8_t* is_crown_rule_active(Hub* manager) { return static_cast<uint8_t*>(manager->get_hill_ruler()); }
 // (0 or 1 in EAX: the original's callers test AL)
-inline bool IsOwnPlayer(const uint8_t* player) { return AsPlayer(player)->IsOwnPlayer() != 0; }
-inline bool IsObserver(const uint8_t* player) { return AsPlayer(player)->IsObserver() != 0; }
-inline GameObjects::CEntity* PlayerSkater(const uint8_t* player) { return Prop<GameObjects::CEntity*>(player, 0x14); }
-inline uint32_t SkaterId(const void* skater) { return Prop<uint32_t>(skater, 0x14); }
-inline const char* PlayerName(uint8_t* player) { return reinterpret_cast<const char*>(player + 0x38); }
-inline int PlayerTeam(const uint8_t* player) { return Prop<int>(player, 0x30); }
+inline bool is_own_player(const uint8_t* player) { return as_player(player)->is_own_player() != 0; }
+inline bool is_observer(const uint8_t* player) { return as_player(player)->is_observer() != 0; }
+inline objects::Entity* player_skater(const uint8_t* player) { return prop<objects::Entity*>(player, 0x14); }
+inline uint32_t get_skater_id(const void* skater) { return prop<uint32_t>(skater, 0x14); }
+inline const char* player_name(uint8_t* player) { return reinterpret_cast<const char*>(player + 0x38); }
+inline int player_team(const uint8_t* player) { return prop<int>(player, 0x30); }
 
-// ListKit::Hunt<PlayerRecord> (vtable 0x0064C1A8) for the manager's BeginPlayerWalk / StepPlayerWalk, and
-// ListKit::Hunt<JoinerRecord> (0x0064C82C) for BeginJoinerWalk / StepJoinerWalk.
+// lists::Hunt<PlayerRecord> (vtable 0x0064C1A8) for the manager's begin_player_walk / step_player_walk, and
+// lists::Hunt<JoinerRecord> (0x0064C82C) for begin_joiner_walk / step_joiner_walk.
 struct PlayerSearch {
-    void** m_vtable = GameModules::kPlayerSearchVtable;
-    void* m_listLink = nullptr;
+    void** vtable_ = modules::kPlayerSearchVtable;
+    void* list_link_ = nullptr;
 };
 struct NewPlayerSearch {
-    void** m_vtable = kNewPlayerSearchVtable;
-    void* m_listLink = nullptr;
+    void** vtable_ = kNewPlayerSearchVtable;
+    void* list_link_ = nullptr;
 };
-inline uint8_t* StartRosterSweep(Hub* manager, PlayerSearch* search, bool observers)
+inline uint8_t* start_roster_sweep(Hub* manager, PlayerSearch* search, bool observers)
 {
-    return static_cast<uint8_t*>(manager->BeginPlayerWalk(search, observers));
+    return static_cast<uint8_t*>(manager->begin_player_walk(search, observers));
 }
-inline uint8_t* StepRosterSweep(Hub* manager, PlayerSearch* search, bool observers)
+inline uint8_t* step_roster_sweep(Hub* manager, PlayerSearch* search, bool observers)
 {
-    return static_cast<uint8_t*>(manager->StepPlayerWalk(search, observers));
+    return static_cast<uint8_t*>(manager->step_player_walk(search, observers));
 }
-inline uint8_t* FirstNewPlayer(Hub* manager, NewPlayerSearch* search)
+inline uint8_t* first_new_player(Hub* manager, NewPlayerSearch* search)
 {
-    return static_cast<uint8_t*>(manager->BeginJoinerWalk(search));
+    return static_cast<uint8_t*>(manager->begin_joiner_walk(search));
 }
-inline uint8_t* NextNewPlayer(Hub* manager, NewPlayerSearch* search)
+inline uint8_t* next_new_player(Hub* manager, NewPlayerSearch* search)
 {
-    return static_cast<uint8_t*>(manager->StepJoinerWalk(search));
+    return static_cast<uint8_t*>(manager->step_joiner_walk(search));
 }
 
-// A player's connection's handle, for AppHost::PutOnOutbox (0x005434A0: 0 without a connection).
-inline int PlayerHandle(uint8_t* player) { return AsPlayer(player)->GetLinkHandle(); }
+// A player's connection's handle, for AppHost::put_on_outbox (0x005434A0: 0 without a connection).
+inline int player_handle(uint8_t* player) { return as_player(player)->get_link_handle(); }
 
 // A message for the server through `app` (a client).
-inline void SendToServer(NetLink::AppHost* app, NetLink::NetMessageInfo* desc)
+inline void send_to_server(net::AppHost* app, net::NetMessageInfo* desc)
 {
-    static_cast<NetLink::Guest*>(app)->SendToHost(desc);
+    static_cast<net::Guest*>(app)->send_to_host(desc);
 }
 
 // Script parameters: a new structure (the original's new CStruct - null if out of memory, then used anyway as the
 // original does), deleted with Clear.
-inline Scripts::CStruct* NewParams()
+inline script::Struct* new_params()
 {
-    Scripts::CStruct* memory = Scripts::SpawnParamBag();
-    return memory ? memory->PrepareAll() : nullptr;
+    script::Struct* memory = script::spawn_param_bag();
+    return memory ? memory->prepare_all() : nullptr;
 }
-inline void DeleteParams(Scripts::CStruct* params)
+inline void delete_params(script::Struct* params)
 {
     if (params) {
-        params->Clear();
-        Scripts::DeleteStruct(params);
+        params->get_clear();
+        script::delete_struct(params);
     }
 }
 
 // "team_<n + 1>_name" (the original's sprintf).
-inline void TeamNameKey(char* out, int team)
+inline void team_name_key(char* out, int team)
 {
     char digits[12];
     int length = 0;
@@ -174,4 +174,4 @@ inline void TeamNameKey(char* out, int team)
     std::memcpy(p, "_name", 6);
 }
 
-} // namespace OnlinePlay::Detail
+} // namespace online::Detail

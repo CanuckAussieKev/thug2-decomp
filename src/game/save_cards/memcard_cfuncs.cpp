@@ -1,4 +1,4 @@
-// Script functions (ScriptCommands) for the memory card.
+// Script functions (commands) for the memory card.
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
 #include "game/save_cards/memcard_cfuncs.h"
@@ -23,20 +23,20 @@
 #include "engine/script/struct_buffer.h"
 #include "engine/sys/game_config.h"
 
-namespace MemCard {
+namespace save_cards {
 
 // PartyMod's free space (code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md): with a card
 // (its +0x0C flag), the disk's free 16 KB blocks, clamped to 0x7FFE0001 so that scripts can add to it without
-// overflowing (the original's count, card->GetFreeBlocks(), is unclamped).
-int32_t __fastcall FreeDiskBlocks(SaveCard* card)
+// overflowing (the original's count, card->get_free_blocks(), is unclamped).
+int32_t __fastcall free_disk_blocks(SaveCard* card)
 {
     if (!reinterpret_cast<const uint8_t*>(card)[0xC])
         return 0;
-    ULARGE_INTEGER freeSpace;
-    ULARGE_INTEGER totalSpace;
-    if (!GetDiskFreeSpaceExA(nullptr, &freeSpace, &totalSpace, nullptr))
+    ULARGE_INTEGER free_space;
+    ULARGE_INTEGER total_space;
+    if (!GetDiskFreeSpaceExA(nullptr, &free_space, &total_space, nullptr))
         return 0;
-    uint64_t blocks = freeSpace.QuadPart >> 14;
+    uint64_t blocks = free_space.QuadPart >> 14;
     constexpr uint64_t kLimit = INT32_MAX - UINT16_MAX * 2; // (a number that leaves room for a bit of maths)
     if (blocks > kLimit)
         blocks = kLimit;
@@ -48,26 +48,26 @@ namespace {
 constexpr uint32_t kSpaceAvailable = 0x0C37C363; // "SpaceAvailable"
 constexpr uint32_t kFilesLeft = 0x0855B2FC;      // "FilesLeft"
 
-// The calling script's own parameters (Scripts::CScript +0x14): where ScriptCommands leave results for it.
-Scripts::CStruct* ResultParams(Scripts::CScript* script)
+// The calling script's own parameters (Scripts::CScript +0x14): where commands leave results for it.
+script::Struct* result_params(script::Script* script)
 {
-    return *reinterpret_cast<Scripts::CStruct**>(reinterpret_cast<char*>(script) + 0x14);
+    return *reinterpret_cast<script::Struct**>(reinterpret_cast<char*>(script) + 0x14);
 }
 
 } // namespace
 
 // 0x005A6E40. Results for the script: SpaceAvailable (16 KB blocks; 0 until a card is found) and FilesLeft
 // (always 1000000). False without a card.
-bool GetMemCardSpaceAvailable(Scripts::CStruct*, Scripts::CScript* script)
+bool get_mem_card_space_available(script::Struct*, script::Script* script)
 {
-    ResultParams(script)->PutInt(kSpaceAvailable, 0);
-    ResultParams(script)->PutInt(kFilesLeft, 1000000);
-    SaveCard* card = g_theCard->GetStorageSlot(0, 0);
+    result_params(script)->put_int(kSpaceAvailable, 0);
+    result_params(script)->put_int(kFilesLeft, 1000000);
+    SaveCard* card = g_the_card->get_storage_slot(0, 0);
     if (!card)
         return false;
     // Originally from PartyMod Fixes (its call at 0x005A6E7E): the clamped disk count in place of the original's
-    // card->GetFreeBlocks().
-    ResultParams(script)->PutInt(kSpaceAvailable, FreeDiskBlocks(card));
+    // card->get_free_blocks().
+    result_params(script)->put_int(kSpaceAvailable, free_disk_blocks(card));
     return true;
 }
 
@@ -75,22 +75,22 @@ bool GetMemCardSpaceAvailable(Scripts::CStruct*, Scripts::CScript* script)
 
 namespace {
 
-int OsLayer() { return GameConfig::g_platform; }
+int os_layer() { return game_config::g_platform; }
 
 // Pause (1), unpause (0) or restore (-1) the music and the music streams.
-void PauseMusic(int pause) { AudioStream::PauseMusic(pause); }
-void FreezeStream(int pause) { AudioStream::FreezeStream(pause); }
+void pause_music(int pause) { audio::pause_music(pause); }
+void freeze_stream(int pause) { audio::freeze_stream(pause); }
 
-Scripts::CStruct* NewParams()
+script::Struct* new_params()
 {
-    Scripts::CStruct* params = Scripts::SpawnParamBag();
-    return params ? params->PrepareAll() : nullptr;
+    script::Struct* params = script::spawn_param_bag();
+    return params ? params->prepare_all() : nullptr;
 }
-void DeleteParams(Scripts::CStruct* params)
+void delete_params(script::Struct* params)
 {
     if (params) {
-        params->Clear();
-        Scripts::DeleteStruct(params);
+        params->get_clear();
+        script::delete_struct(params);
     }
 }
 
@@ -104,9 +104,9 @@ struct SaveHeader {
     int version;       // must match the save type's (0x005A6210)
 };
 static_assert(sizeof(SaveHeader) == 0x14, "the structures follow at +0x14");
-uint8_t* ReadStructure(Scripts::CStruct* into, uint8_t* data)
+uint8_t* read_structure(script::Struct* into, uint8_t* data)
 {
-    return const_cast<uint8_t*>(Scripts::DecodeFromBytes(into, data));
+    return const_cast<uint8_t*>(script::decode_from_bytes(into, data));
 }
 
 constexpr uint32_t kNoApply = 0x8C6808D4;        // integer parameter: keep the contents in 0x007CECD4 instead
@@ -116,57 +116,57 @@ constexpr uint32_t kAlsoApplyType = 0x61A1BC57;  // applied even when kept
 
 } // namespace
 
-bool g_outOfSpace;
-Scripts::CStruct* g_keptParams;
-uint32_t g_keptType;
-uint32_t g_sectionsToApplyWhenLoading;
-bool g_loadedCustomSkater;
+bool g_out_of_space;
+script::Struct* g_kept_params;
+uint32_t g_kept_type;
+uint32_t g_sections_to_apply_when_loading;
+bool g_loaded_custom_skater;
 
 // 0x005A8730. LoadFromMemoryCard Name=<string> Type=<checksum> [<kNoApply>=<integer>]: reads the save file and
 // applies it (or keeps its contents in 0x007CECD4 and its type in 0x007CECD8 when kNoApply is non-zero). True if
 // the file was read. A file of the wrong size, too big, of another version or (originally) with a bad checksum
 // leaves kLoadFailed in the script's parameters. Originally from PartyMod Fixes: the checksum isn't checked.
-bool LoadFromMemoryCard(Scripts::CStruct* params, Scripts::CScript* script)
+bool load_from_memory_card(script::Struct* params, script::Script* script)
 {
-    if (OsLayer() != 4) {
-        PauseMusic(1);
-        FreezeStream(1);
+    if (os_layer() != 4) {
+        pause_music(1);
+        freeze_stream(1);
     }
-    Scripts::CStruct* header = NewParams();   // the file's first structure (read, then dropped)
-    Scripts::CStruct* contents = NewParams(); // the second: what's loaded
+    script::Struct* header = new_params();   // the file's first structure (read, then dropped)
+    script::Struct* contents = new_params(); // the second: what's loaded
     const char* name = ""; // ""
     uint32_t type = 0;
     uint8_t* data = nullptr;
     bool loaded = false;
-    int noApply = 0;
-    params->FetchIntValue(kNoApply, &noApply, 0);
-    SaveCard* card = g_theCard->GetStorageSlot(0, 0);
+    int no_apply = 0;
+    params->fetch_int_value(kNoApply, &no_apply, 0);
+    SaveCard* card = g_the_card->get_storage_slot(0, 0);
     // (the second test is a card method that's the shared always-true stub, 0x005B9760: always true)
-    if (card && Stubs::ReturnTrue()) {
-        params->FetchText("Name", &name, 0);
-        params->ReadHashValue("Type", &type, 0);
+    if (card && stubs::return_true()) {
+        params->fetch_text("Name", &name, 0);
+        params->read_hash_value("Type", &type, 0);
         char path[104];
         path[0] = '\0';
         bool named = true;
-        switch (OsLayer()) {
+        switch (os_layer()) {
         case 1:
         case 2:
         case 3: { // console folders: /<dir><file>/<dir><file>
-            const char* folder = GameConfig::GetPathPrefix();
+            const char* folder = game_config::get_path_prefix();
             char file[20];
-            MakeFileName(name, file, type);
+            make_file_name(name, file, type);
             std::snprintf(path, sizeof(path), "/%s%s/%s%s", folder, file, folder, file);
             break;
         }
         case 5: {
             char file[104];
-            MakeFolderFileName(type, name, file);
+            make_folder_file_name(type, name, file);
             std::snprintf(path, sizeof(path), "%s%s", file, file);
             break;
         }
         case 4:
         case 7: {
-            const char* converted = card->ConvertFilename(TypeFileName(type, name));
+            const char* converted = card->convert_filename(get_type_file_name(type, name));
             if (!converted)
                 named = false;
             else
@@ -177,58 +177,58 @@ bool LoadFromMemoryCard(Scripts::CStruct* params, Scripts::CScript* script)
             named = false;
             break;
         }
-        FileLoad* file = named ? card->Unseal(path, 1, 0) : nullptr;
+        FileLoad* file = named ? card->unseal(path, 1, 0) : nullptr;
         if (file) {
-            int size = static_cast<int>(file->SeekTo(0, 2));
-            bool bad = size != TypeFileSize(type);
+            int size = static_cast<int>(file->seek_to(0, 2));
+            bool bad = size != type_file_size(type);
             if (!bad) {
-                data = static_cast<uint8_t*>(MemSys::AllocBlock(size));
-                file->SeekTo(0, 0);
-                if (file->TakeIn(data, size) == size) {
-                    auto* fileHeader = reinterpret_cast<SaveHeader*>(data);
-                    fileHeader->checksum = 0;
+                data = static_cast<uint8_t*>(memory::alloc_block(size));
+                file->seek_to(0, 0);
+                if (file->get_take_in(data, size) == size) {
+                    auto* file_header = reinterpret_cast<SaveHeader*>(data);
+                    file_header->checksum = 0;
                     // The original also rejected the file unless
-                    //     Checksums::GenerateCRCFromBuffer(data, fileHeader->size) == <the checksum read>
+                    //     Checksums::generate_crc_from_buffer(data, file_header->size) == <the checksum read>
                     // - the test PartyMod NOPs (its patch at 0x005A8A01).
-                    bad = fileHeader->size > 500000 || fileHeader->version != TypeVersion(type);
+                    bad = file_header->size > 500000 || file_header->version != type_version(type);
                     if (!bad) {
-                        uint8_t* rest = ReadStructure(header, data + sizeof(SaveHeader));
+                        uint8_t* rest = read_structure(header, data + sizeof(SaveHeader));
                         if (type == kObfuscatedType) {
-                            int count = static_cast<int>(data + fileHeader->size - rest);
+                            int count = static_cast<int>(data + file_header->size - rest);
                             for (int i = 0; i < count; ++i)
                                 rest[i] -= 0x69;
                         }
-                        ReadStructure(contents, rest);
-                        if (noApply == 0) {
-                            ApplyLoadedContents(type, contents, script, params);
+                        read_structure(contents, rest);
+                        if (no_apply == 0) {
+                            apply_loaded_contents(type, contents, script, params);
                         } else {
                             // (a null structure here would crash, as in the original; the previous one leaks)
-                            Scripts::CStruct* kept = NewParams();
-                            g_keptParams = kept;
-                            kept->AppendStructureIfAny(contents);
-                            g_keptType = type;
+                            script::Struct* kept = new_params();
+                            g_kept_params = kept;
+                            kept->append_structure_if_any(contents);
+                            g_kept_type = type;
                             if (type == kAlsoApplyType)
-                                ApplyLoadedContents(type, contents, script, nullptr);
+                                apply_loaded_contents(type, contents, script, nullptr);
                         }
                         loaded = true;
-                        if (noApply == 0)
-                            Scripts::LaunchScript(0x0EB9402Du, params, nullptr, false, nullptr);
+                        if (no_apply == 0)
+                            script::launch_script(0x0EB9402Du, params, nullptr, false, nullptr);
                     }
                 }
             }
             if (bad)
-                ResultParams(script)->PutNameKey(0u, kLoadFailed);
-            file->Shut();
-            reinterpret_cast<void(__thiscall*)(FileLoad*, int)>(file->m_listLink.vtable[0])(file, 1); // delete
+                result_params(script)->put_name_key(0u, kLoadFailed);
+            file->shut();
+            reinterpret_cast<void(__thiscall*)(FileLoad*, int)>(file->list_link_.vtable[0])(file, 1); // delete
             if (data)
-                MemSys::FreeMalloc(data);
+                memory::free_malloc(data);
         }
     }
-    DeleteParams(header);
-    DeleteParams(contents);
-    if (OsLayer() != 4) {
-        PauseMusic(-1);
-        FreezeStream(-1);
+    delete_params(header);
+    delete_params(contents);
+    if (os_layer() != 4) {
+        pause_music(-1);
+        freeze_stream(-1);
     }
     return loaded;
 }
@@ -236,154 +236,154 @@ bool LoadFromMemoryCard(Scripts::CStruct* params, Scripts::CScript* script)
 // --- the save state flags -----------------------------------------------------------------------------------
 
 // 0x005A6550
-bool SaveFailedDueToInsufficientSpace(Scripts::CStruct*, Scripts::CScript*) { return g_outOfSpace; }
+bool save_failed_due_to_insufficient_space(script::Struct*, script::Script*) { return g_out_of_space; }
 
 // 0x005A6560
-bool SetSectionsToApplyWhenLoading(Scripts::CStruct* params, Scripts::CScript*)
+bool set_sections_to_apply_when_loading(script::Struct* params, script::Script*)
 {
-    DebugOut::Printf("ScriptSetSectionsToApplyWhenLoading was called.........................\n"); // "ScriptSetSectionsToApplyWhenLoading was called..."
-    uint32_t& sections = SectionsToApplyWhenLoading();
+    debug::printf("ScriptSetSectionsToApplyWhenLoading was called.........................\n"); // "ScriptSetSectionsToApplyWhenLoading was called..."
+    uint32_t& sections = sections_to_apply_when_loading();
     sections = 0;
-    if (params->HasBareFlag(0x16B506C0u)) // ApplyCustomSkater
+    if (params->has_bare_flag(0x16B506C0u)) // ApplyCustomSkater
         sections |= 8;
-    if (params->HasBareFlag(0xDC7EA3CEu)) // ApplyStorySkater
+    if (params->has_bare_flag(0xDC7EA3CEu)) // ApplyStorySkater
         sections |= 4;
-    if (params->HasBareFlag(0x33EC233Fu)) // ApplyStory
+    if (params->has_bare_flag(0x33EC233Fu)) // ApplyStory
         sections |= 2;
-    if (params->HasBareFlag(0xB39D7CC4u)) // (name unknown)
+    if (params->has_bare_flag(0xB39D7CC4u)) // (name unknown)
         sections |= 1;
-    if (params->HasBareFlag(0xC4E78E22u)) // all
+    if (params->has_bare_flag(0xC4E78E22u)) // all
         sections = 0xFFFFFFFF;
     return true;
 }
 
 // 0x005A6600
-bool LoadedCustomSkater(Scripts::CStruct*, Scripts::CScript*) { return g_loadedCustomSkater; }
+bool get_loaded_custom_skater(script::Struct*, script::Script*) { return g_loaded_custom_skater; }
 
-uint32_t& SectionsToApplyWhenLoading() { return g_sectionsToApplyWhenLoading; }
+uint32_t& sections_to_apply_when_loading() { return g_sections_to_apply_when_loading; }
 
 // --- the card and the saves' summaries ----------------------------------------------------------------------
 
 namespace {
 
-SaveCard* TheCard() { return g_theCard->GetStorageSlot(0, 0); }
+SaveCard* the_card() { return g_the_card->get_storage_slot(0, 0); }
 
 // The script pools' pairs whose current pool the temporary pools switch: components, structures, vectors.
-MemSys::PoolPair& ComponentPools() { return Scripts::g_componentPools; }
-MemSys::PoolPair& StructPools() { return Scripts::g_structPools; }
-MemSys::PoolPair& VectorPools() { return Scripts::g_vectorPools; }
+memory::PoolPair& component_pools() { return script::g_component_pools; }
+memory::PoolPair& struct_pools() { return script::g_struct_pools; }
+memory::PoolPair& vector_pools() { return script::g_vector_pools; }
 
 } // namespace
 
 // 0x005A6D30
-bool GetMostRecentSave(Scripts::CStruct* params, Scripts::CScript* script)
+bool get_most_recent_save(script::Struct* params, script::Script* script)
 {
-    ResultParams(script)->EraseModule("MostRecentSave");
-    Scripts::CArray* saves = nullptr;
-    params->FetchList(0u, &saves, 0);
+    result_params(script)->erase_module("MostRecentSave");
+    script::Array* saves = nullptr;
+    params->fetch_list(0u, &saves, 0);
     if (!saves)
         return false;
     uint32_t type = 0;
-    params->ReadHashValue(0u, &type, 0);
-    Scripts::CStruct* best = nullptr;
-    for (uint32_t i = 0; i < saves->m_extent; ++i) {
-        auto* save = reinterpret_cast<Scripts::CStruct*>(saves->FetchPart(i));
-        uint32_t fileType = 0;
-        save->ReadHashValue("file_type", &fileType, 0);
-        if (type != 0 && fileType != type) // (any type when none is asked for)
+    params->read_hash_value(0u, &type, 0);
+    script::Struct* best = nullptr;
+    for (uint32_t i = 0; i < saves->extent_; ++i) {
+        auto* save = reinterpret_cast<script::Struct*>(saves->fetch_part(i));
+        uint32_t file_type = 0;
+        save->read_hash_value("file_type", &file_type, 0);
+        if (type != 0 && file_type != type) // (any type when none is asked for)
             continue;
         // a bad save only counts on the PC (4) and platform 5
-        if ((save->HasBareFlag("BadVersion") || save->HasBareFlag("Corrupt")) && OsLayer() != 4 && OsLayer() != 5)
+        if ((save->has_bare_flag("BadVersion") || save->has_bare_flag("Corrupt")) && os_layer() != 4 && os_layer() != 5)
             continue;
-        if (!best || IsLater(save, best))
+        if (!best || is_later(save, best))
             best = save;
     }
     if (!best)
         return false;
-    ResultParams(script)->PutSubStruct("MostRecentSave", best);
+    result_params(script)->put_sub_struct("MostRecentSave", best);
     return true;
 }
 
 // 0x005A7210
-bool FormatCard(Scripts::CStruct*, Scripts::CScript*)
+bool format_card(script::Struct*, script::Script*)
 {
-    PauseMusic(1);
-    FreezeStream(1);
+    pause_music(1);
+    freeze_stream(1);
     bool formatted = false;
-    if (TheCard())
-        formatted = Stubs::ReturnFalse(); // (the card's Format: the shared always-false stub, 0x005B9E50)
-    PauseMusic(-1);
-    FreezeStream(-1);
+    if (the_card())
+        formatted = stubs::return_false(); // (the card's Format: the shared always-false stub, 0x005B9E50)
+    pause_music(-1);
+    freeze_stream(-1);
     return formatted;
 }
 
 // 0x005A7260
-bool CardIsInSlot(Scripts::CStruct*, Scripts::CScript*) { return TheCard() != nullptr; }
+bool card_is_in_slot(script::Struct*, script::Script*) { return the_card() != nullptr; }
 
 // 0x005A7280
-bool CardIsFormatted(Scripts::CStruct*, Scripts::CScript*)
+bool card_is_formatted(script::Struct*, script::Script*)
 {
-    if (!TheCard())
+    if (!the_card())
         return false;
-    return Stubs::ReturnTrue(); // (the card's IsFormatted: the shared always-true stub, 0x005B9760)
+    return stubs::return_true(); // (the card's IsFormatted: the shared always-true stub, 0x005B9760)
 }
 
 // 0x005A72A0
-bool GetSummaryInfo(Scripts::CStruct* params, Scripts::CScript* script)
+bool get_summary_info(script::Struct* params, script::Script* script)
 {
     constexpr uint32_t kVaultData = 0xC78DABF6; // "VaultData": the kept contents' summary
     uint32_t type = 0;
-    params->ReadHashValue(0u, &type, 0);
-    int vaultData = 0;
-    params->FetchIntValue(kVaultData, &vaultData, 0);
-    if (vaultData) {
-        WriteSummary(g_keptParams, ResultParams(script), g_keptType);
+    params->read_hash_value(0u, &type, 0);
+    int vault_data = 0;
+    params->fetch_int_value(kVaultData, &vault_data, 0);
+    if (vault_data) {
+        write_summary(g_kept_params, result_params(script), g_kept_type);
         return true;
     }
     if (type == kSaveOptionsAndPros) {
         // the goal manager's totals brought up to date (0x0055C090, no source yet)
-        GoalSystem::GetObjectiveBoard()->LevelUnload();
+        goals::get_objective_board()->level_unload();
     }
-    WriteSummary(nullptr, ResultParams(script), type);
+    write_summary(nullptr, result_params(script), type);
     return true;
 }
 
 // 0x005A7430
-bool GetMemCardDataForUpload(Scripts::CStruct*, Scripts::CScript* script)
+bool get_mem_card_data_for_upload(script::Struct*, script::Script* script)
 {
-    ResultParams(script)->PutNameKey(0x7321A8D6u, g_keptType); // type
+    result_params(script)->put_name_key(0x7321A8D6u, g_kept_type); // type
     return true;
 }
 
 // 0x005A7450
-bool GetMaxTHPS4FilesAllowed(Scripts::CStruct*, Scripts::CScript* script)
+bool get_max_thps4_files_allowed(script::Struct*, script::Script* script)
 {
-    ResultParams(script)->PutInt(0x7CC9E431u, 75); // MaxTHPS4FilesAllowed
+    result_params(script)->put_int(0x7CC9E431u, 75); // MaxTHPS4FilesAllowed
     return true;
 }
 
 // 0x005A7470
-bool SwitchToTempPoolsIfTheyExist(Scripts::CStruct*, Scripts::CScript*)
+bool switch_to_temp_pools_if_they_exist(script::Struct*, script::Script*)
 {
-    ++ComponentPools().current;
-    ++StructPools().current;
-    ++VectorPools().current;
-    if (ComponentPools().pools[ComponentPools().current] && StructPools().pools[StructPools().current] &&
-        VectorPools().pools[VectorPools().current])
+    ++component_pools().current;
+    ++struct_pools().current;
+    ++vector_pools().current;
+    if (component_pools().pools[component_pools().current] && struct_pools().pools[struct_pools().current] &&
+        vector_pools().pools[vector_pools().current])
         return true;
-    --ComponentPools().current;
-    --StructPools().current;
-    --VectorPools().current;
+    --component_pools().current;
+    --struct_pools().current;
+    --vector_pools().current;
     return false;
 }
 
 // 0x005A74F0
-bool SwitchToRegularPools(Scripts::CStruct*, Scripts::CScript*)
+bool switch_to_regular_pools(script::Struct*, script::Script*)
 {
-    if (ComponentPools().current || StructPools().current || VectorPools().current) {
-        --ComponentPools().current;
-        --StructPools().current;
-        --VectorPools().current;
+    if (component_pools().current || struct_pools().current || vector_pools().current) {
+        --component_pools().current;
+        --struct_pools().current;
+        --vector_pools().current;
     }
     return true;
 }

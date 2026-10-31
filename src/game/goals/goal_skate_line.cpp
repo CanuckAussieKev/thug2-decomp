@@ -1,4 +1,4 @@
-// The skate-the-line goal (CSkateLineGoal, 0x005691F0-0x0056952F; see goal_skate_line.h).
+// The skate-the-line goal (SkateLineGoal, 0x005691F0-0x0056952F; see goal_skate_line.h).
 
 #include <cstdint>
 
@@ -13,7 +13,7 @@
 #include "engine/gfx/weather.h"
 #include "engine/core/code_address.h"
 
-namespace GoalSystem {
+namespace goals {
 
 namespace {
 
@@ -25,117 +25,117 @@ constexpr uint32_t kGoalObjectsIndex = 0x89B927D0;      // goal_objects_index
 constexpr uint32_t kFirstSpotParams = 0xDB5515AA;       // first_spot_params
 constexpr uint32_t kNextCluster = 0x918C00F2;           // goal_skate_the_line_next_cluster
 
-static VtableSlot kSkateLineVtable_slots[] = {&GoalSystem::CSkateLineGoal::Teardown, &GoalSystem::CObjective::WantsToEnd, &GoalSystem::CObjective::HasRunOut,
-                 &GoalSystem::CObjective::IsOperative, Engine3D::VirtualSlot3Jump, &GoalSystem::CObjective::Expire, &GoalSystem::CObjective::RestoreSaveBlock,
-                 &GoalSystem::CObjective::CaptureSaveBlock, &GoalSystem::CObjective::HasTimeLimit, Stubs::ReturnTrue,
-                 &GoalSystem::CObjective::HasComponentA302D7CD, &GoalSystem::CObjective::Activate, &GoalSystem::CObjective::ChangeLive,
-                 &GoalSystem::CObjective::Disengage, &GoalSystem::CObjective::ClearEngagedBit, &GoalSystem::CObjective::Win, &GoalSystem::CObjective::Lose,
-                 &GoalSystem::CObjective::TickFrame, &GoalSystem::CObjective::IsFrozen, &GoalSystem::CSkateLineGoal::SetFlag,
-                 &GoalSystem::CObjective::StageFlagSet, &GoalSystem::CObjective::HasWon, &GoalSystem::CObjective::NetStageFlagSet,
-                 &GoalSystem::CObjective::HasWonGoalOrChild, &GoalSystem::CObjective::IsPrepared, &GoalSystem::CObjective::MayTryAgain,
-                 &GoalSystem::CObjective::MarkWon, &GoalSystem::CObjective::SetStageFlag,
-                 &GoalSystem::CObjective::SetNetStageFlag,
-                 &GoalSystem::CObjective::UnBeat};
-void** const kSkateLineVtable = reinterpret_cast<void**>(kSkateLineVtable_slots);
+static VtableSlot g_skate_line_vtable_slots[] = {&goals::SkateLineGoal::teardown, &goals::Objective::wants_to_end, &goals::Objective::has_run_out,
+                 &goals::Objective::is_operative, render::virtual_slot3_jump, &goals::Objective::expire, &goals::Objective::restore_save_block,
+                 &goals::Objective::capture_save_block, &goals::Objective::has_time_limit, stubs::return_true,
+                 &goals::Objective::has_component_a_302d_7c_d, &goals::Objective::activate, &goals::Objective::change_live,
+                 &goals::Objective::disengage, &goals::Objective::clear_engaged_bit, &goals::Objective::get_win, &goals::Objective::lose,
+                 &goals::Objective::tick_frame, &goals::Objective::is_frozen, &goals::SkateLineGoal::set_flag,
+                 &goals::Objective::stage_flag_set, &goals::Objective::has_won, &goals::Objective::net_stage_flag_set,
+                 &goals::Objective::has_won_goal_or_child, &goals::Objective::is_prepared, &goals::Objective::may_try_again,
+                 &goals::Objective::mark_won, &goals::Objective::set_stage_flag,
+                 &goals::Objective::set_net_stage_flag,
+                 &goals::Objective::un_beat};
+void** const kSkateLineVtable = reinterpret_cast<void**>(g_skate_line_vtable_slots);
 
-Scripts::CStruct* SpawnParamTable()
+script::Struct* spawn_param_table()
 {
-    Scripts::CStruct* made = Scripts::SpawnParamBag();
-    return made ? made->PrepareAll() : nullptr;
+    script::Struct* made = script::spawn_param_bag();
+    return made ? made->prepare_all() : nullptr;
 }
-void DeleteStructure(Scripts::CStruct* structure)
+void delete_structure(script::Struct* structure)
 {
     if (structure) {
-        structure->Clear();
-        Scripts::DeleteStruct(structure);
+        structure->get_clear();
+        script::delete_struct(structure);
     }
 }
 
 } // namespace
 
 // 0x005691F0
-CSkateLineGoal* CSkateLineGoal::MakeNew(Scripts::CStruct* params)
+SkateLineGoal* SkateLineGoal::make_new(script::Struct* params)
 {
-    CObjective::MakeNew(params);
-    m_listLink.vtable = kSkateLineVtable;
+    Objective::make_new(params);
+    list_link_.vtable = kSkateLineVtable;
     return this;
 }
 
 // 0x00569210
-void CSkateLineGoal::DestroyBody()
+void SkateLineGoal::destroy_body()
 {
-    m_listLink.vtable = kSkateLineVtable;
-    CObjective::DestroyBody();
+    list_link_.vtable = kSkateLineVtable;
+    Objective::destroy_body();
 }
 
 // 0x00569290
-CSkateLineGoal* CSkateLineGoal::Teardown(uint8_t flags)
+SkateLineGoal* SkateLineGoal::teardown(uint8_t flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
 // 0x00569220
-bool CSkateLineGoal::Land()
+bool SkateLineGoal::land()
 {
-    if (!RequiresCombo())
+    if (!requires_combo())
         return false;
-    if (!m_args->HasBareFlag(kRequiresLine))
+    if (!args_->has_bare_flag(kRequiresLine))
         return false;
-    CGoalManager* manager = GetObjectiveBoard();
-    if (HasEveryBit())
-        return manager->CompleteObjective(GetObjectiveKey());
-    DebugOut::Printf("all flags not set\n"); // "all flags not set\n"
-    return manager->FailObjective(GetObjectiveKey());
+    GoalManager* manager = get_objective_board();
+    if (has_every_bit())
+        return manager->complete_objective(get_objective_key());
+    debug::printf("all flags not set\n"); // "all flags not set\n"
+    return manager->fail_objective(get_objective_key());
 }
 
 // 0x005692C0
-void CSkateLineGoal::NextCluster()
+void SkateLineGoal::next_cluster()
 {
-    Scripts::CArray* objects = nullptr;
-    m_args->FetchList(kGoalObjects, &objects, 1);
-    auto* cluster = reinterpret_cast<Scripts::CStruct*>(objects->FetchPart(static_cast<uint32_t>(m_numFlagsSet)));
+    script::Array* objects = nullptr;
+    args_->fetch_list(kGoalObjects, &objects, 1);
+    auto* cluster = reinterpret_cast<script::Struct*>(objects->fetch_part(static_cast<uint32_t>(num_flags_set_)));
     int time;
-    if (cluster->FetchIntValue(kTime, &time, 1))
-        SetSecondsRemaining(time);
-    Scripts::CStruct* params = SpawnParamTable();
-    params->AppendStructureIfAny(m_args);
-    params->AppendStructureIfAny(cluster);
-    params->PutInt(kGoalObjectsIndex, m_numFlagsSet);
-    if (m_numFlagsSet == 1)
-        params->PutSubStruct(kFirstSpotParams, reinterpret_cast<Scripts::CStruct*>(objects->FetchPart(0)));
-    Scripts::LaunchScript(kNextCluster, params, nullptr, false, nullptr);
-    DeleteStructure(params);
+    if (cluster->fetch_int_value(kTime, &time, 1))
+        set_seconds_remaining(time);
+    script::Struct* params = spawn_param_table();
+    params->append_structure_if_any(args_);
+    params->append_structure_if_any(cluster);
+    params->put_int(kGoalObjectsIndex, num_flags_set_);
+    if (num_flags_set_ == 1)
+        params->put_sub_struct(kFirstSpotParams, reinterpret_cast<script::Struct*>(objects->fetch_part(0)));
+    script::launch_script(kNextCluster, params, nullptr, false, nullptr);
+    delete_structure(params);
 }
 
 // 0x00569410 (vtable +0x4C)
-bool CSkateLineGoal::SetFlag(uint32_t flag, int value, uint32_t sub)
+bool SkateLineGoal::set_flag(uint32_t flag, int value, uint32_t sub)
 {
-    if (Virtual<bool>(this, kVtHasWon) || IsLatched())
+    if (Virtual<bool>(this, kVtHasWon) || is_latched())
         return false;
-    if (HasEveryBit() && RequiresCombo())
+    if (has_every_bit() && requires_combo())
         return false;
-    Scripts::CArray* objects = nullptr;
-    m_args->FetchList(kGoalObjects, &objects, 1);
-    uint32_t clusterFlag;
-    reinterpret_cast<Scripts::CStruct*>(objects->FetchPart(static_cast<uint32_t>(m_numFlagsSet)))
-        ->ReadHashValue(kFlag, &clusterFlag, 1);
+    script::Array* objects = nullptr;
+    args_->fetch_list(kGoalObjects, &objects, 1);
+    uint32_t cluster_flag;
+    reinterpret_cast<script::Struct*>(objects->fetch_part(static_cast<uint32_t>(num_flags_set_)))
+        ->read_hash_value(kFlag, &cluster_flag, 1);
     bool set = false;
-    if (clusterFlag != flag)
+    if (cluster_flag != flag)
         return set; // (only the line's next cluster)
     if (!Virtual<bool>(this, kVtIsActive))
-        GetObjectiveBoard()->EngageObjective(GetObjectiveKey(), false);
-    set = CObjective::SetFlag(flag, value, sub);
+        get_objective_board()->engage_objective(get_objective_key(), false);
+    set = Objective::set_flag(flag, value, sub);
     if (!Virtual<bool>(this, kVtIsActive))
         return set;
-    if (!HasEveryBit()) {
-        NextCluster();
+    if (!has_every_bit()) {
+        next_cluster();
         return set;
     }
-    if (!RequiresCombo())
-        GetObjectiveBoard()->CompleteObjective(GetObjectiveKey());
+    if (!requires_combo())
+        get_objective_board()->complete_objective(get_objective_key());
     return set;
 }
 

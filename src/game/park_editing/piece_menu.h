@@ -7,38 +7,38 @@
 
 #include "game/park_editing/park.h"
 
-namespace ParkEditing {
+namespace park_editing {
 
-class CTopBarMenus;
-extern CTopBarMenus* g_topBarMenus;
+class TopBarMenus;
+extern TopBarMenus* g_top_bar_menus;
 
-class CTopBarMenus {
+class TopBarMenus {
 public:
     // The one instance.
-    static CTopBarMenus*& Sole() { return g_topBarMenus; }
+    static TopBarMenus*& sole() { return g_top_bar_menus; }
 
     // 0x00598DA0: close the menus and delete the instance
-    static void DiscardOccurrence();
-    // 0x0059A9E0: show the pieces of `set` (set number `familyNumber`): a new piece menu when the set changes, the
+    static void discard_occurrence();
+    // 0x0059A9E0: show the pieces of `set` (set number `family_number`): a new piece menu when the set changes, the
     // selected piece focused, the slider and the name. (`unused`: the callers' second argument)
-    void SelectPieceFamily(CPieceFamily* set, int unused, int familyNumber);
+    void select_piece_family(PieceFamily* set, int unused, int family_number);
 
     // upper_menu.cpp:
     // 0x00595570 (the getter the game calls)
-    static CTopBarMenus* sSingleton();
+    static TopBarMenus* singleton();
     // 0x00597400: create the instance (on the bottom-up heap) if there isn't one
-    static void Fabricate();
+    static void fabricate();
     // 0x00597490: build the piece menu and the set menu (an item for each shown piece set)
-    void TurnOn();
+    void turn_on();
     // 0x00595580: destroy both menus
-    void TurnOffNow();
+    void turn_off_now();
 
-    CParkLayout* m_parkOwner; // +0x00
-    CPieceFamily* m_pointGroup;        // +0x04: the set shown
-    int m_setNumber;          // +0x08
-    int m_selected;           // +0x0C: the entry focused
+    ParkLayout* park_owner_; // +0x00
+    PieceFamily* point_group_;        // +0x04: the set shown
+    int set_number_;          // +0x08
+    int selected_;           // +0x0C: the entry focused
 };
-static_assert(offsetof(CTopBarMenus, m_selected) == 0xC);
+static_assert(offsetof(TopBarMenus, selected_) == 0xC);
 
 
 } // namespace Ed

@@ -11,9 +11,9 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 
-namespace GameObjects {
+namespace objects {
 
-CPathManager* g_pathManager;
+PathManager* g_path_manager;
 
 namespace {
 
@@ -21,222 +21,222 @@ constexpr uint32_t kPathNum = 0x9C91C3CA;   // PathNum
 constexpr uint32_t kClass = 0x12B4E660;     // class
 constexpr uint32_t kType = 0x7321A8D6;      // type
 
-CPathManager*& InstancePointer() { return g_pathManager; }
+PathManager*& instance_pointer() { return g_path_manager; }
 
 // An array new[] of `count` elements of `size` bytes from the current heap: the count in the word before them.
-void* AllocScriptArray(int count, unsigned int size)
+void* alloc_script_array(int count, unsigned int size)
 {
-    auto* block = static_cast<int*>(MemSys::Alloc(static_cast<unsigned int>(count) * size + 4));
+    auto* block = static_cast<int*>(memory::alloc(static_cast<unsigned int>(count) * size + 4));
     if (!block)
         return nullptr;
     block[0] = count;
     return block + 1;
 }
-void DeleteArray(void* elements) { MemSys::Hub::Pull()->Dealloc(static_cast<int*>(elements) - 1); }
-int ElementTotal(const void* elements) { return static_cast<const int*>(elements)[-1]; }
+void delete_array(void* elements) { memory::Hub::get_pull()->dealloc(static_cast<int*>(elements) - 1); }
+int element_total(const void* elements) { return static_cast<const int*>(elements)[-1]; }
 
 // A slot let go (and cleared again, as the original).
-void ReleaseSlot(CSharedRef<CEntity>* slot)
+void release_slot(SharedRef<Entity>* slot)
 {
-    slot->Release();
-    slot->m_ownerObject = nullptr;
+    slot->get_release();
+    slot->owner_object_ = nullptr;
 }
 
 } // namespace
 
 // 0x004694A0
-void CObjectGroup::Destruct()
+void ObjectGroup::destruct()
 {
-    if (!m_slots)
+    if (!slots_)
         return;
-    for (int i = ElementTotal(m_slots) - 1; i >= 0; --i)
-        m_slots[i].Release();
-    DeleteArray(m_slots);
-    m_slots = nullptr;
+    for (int i = element_total(slots_) - 1; i >= 0; --i)
+        slots_[i].get_release();
+    delete_array(slots_);
+    slots_ = nullptr;
 }
 
 // 0x004698C0
-void CObjectGroup::PrepareAll(int size)
+void ObjectGroup::prepare_all(int size)
 {
-    auto* slots = static_cast<CSharedRef<CEntity>*>(AllocScriptArray(size, sizeof(CSharedRef<CEntity>)));
+    auto* slots = static_cast<SharedRef<Entity>*>(alloc_script_array(size, sizeof(SharedRef<Entity>)));
     if (slots) {
         for (int i = 0; i < size; ++i)
-            new (&slots[i]) CSharedRef<CEntity>(); // (0x0042B580: all three words cleared)
+            new (&slots[i]) SharedRef<Entity>(); // (0x0042B580: all three words cleared)
     }
-    m_slots = slots;
-    m_extent = size;
-    ReleaseAll();
+    slots_ = slots;
+    extent_ = size;
+    release_all();
 }
 
 // 0x00469540
-void CObjectGroup::ReleaseAll()
+void ObjectGroup::release_all()
 {
-    for (int i = 0; i < m_extent; ++i)
-        ReleaseSlot(&m_slots[i]);
+    for (int i = 0; i < extent_; ++i)
+        release_slot(&slots_[i]);
 }
 
 // 0x00469580
-void CObjectGroup::DropOut(CEntity* object)
+void ObjectGroup::drop_out(Entity* object)
 {
-    for (int i = 0; i < m_extent; ++i) {
-        if (m_slots[i].m_ownerObject == object)
-            ReleaseSlot(&m_slots[i]);
+    for (int i = 0; i < extent_; ++i) {
+        if (slots_[i].owner_object_ == object)
+            release_slot(&slots_[i]);
     }
 }
 
 // 0x004695D0
-void CObjectGroup::AppendOne(CEntity* object)
+void ObjectGroup::append_one(Entity* object)
 {
-    for (int i = 0; i < m_extent; ++i) {
-        if (!m_slots[i].m_ownerObject) {
-            m_slots[i].AssignValue(object);
+    for (int i = 0; i < extent_; ++i) {
+        if (!slots_[i].owner_object_) {
+            slots_[i].assign_value(object);
             return;
         }
     }
 }
 
 // 0x004694E0
-CPathManager* CPathManager::Sole()
+PathManager* PathManager::sole()
 {
-    if (!InstancePointer()) {
-        auto* manager = static_cast<CPathManager*>(MemSys::Alloc(sizeof(CPathManager)));
+    if (!instance_pointer()) {
+        auto* manager = static_cast<PathManager*>(memory::alloc(sizeof(PathManager)));
         if (manager) {
-            manager->m_pathCount = 0;
-            manager->m_groupCount = 0;
-            manager->m_groups = nullptr;
-            manager->m_extra = nullptr;
+            manager->path_count_ = 0;
+            manager->group_count_ = 0;
+            manager->groups_ = nullptr;
+            manager->extra_ = nullptr;
         }
-        InstancePointer() = manager;
+        instance_pointer() = manager;
     }
-    return InstancePointer();
+    return instance_pointer();
 }
 
 // 0x00469620
-CObjectGroup* CPathManager::AddToPath(CEntity* object, uint32_t node)
+ObjectGroup* PathManager::add_to_path(Entity* object, uint32_t node)
 {
-    Scripts::CStruct* params = LevelNodes::FetchVertex(node, true);
+    script::Struct* params = level_nodes::fetch_vertex(node, true);
     int path = 0;
-    params->FetchIntValue(kPathNum, &path, 0);
-    m_groups[path].AppendOne(object);
-    return &m_groups[path];
+    params->fetch_int_value(kPathNum, &path, 0);
+    groups_[path].append_one(object);
+    return &groups_[path];
 }
 
 // 0x00469670
-CObjectGroup* CPathManager::AddToExtraGroup(CEntity* object, uint32_t node)
+ObjectGroup* PathManager::add_to_extra_group(Entity* object, uint32_t node)
 {
-    Scripts::CStruct* params = LevelNodes::FetchVertex(node, true);
+    script::Struct* params = level_nodes::fetch_vertex(node, true);
     int path = 0;
-    params->FetchIntValue(kPathNum, &path, 0); // (not used)
-    m_extra->AppendOne(object);
-    return m_extra;
+    params->fetch_int_value(kPathNum, &path, 0); // (not used)
+    extra_->append_one(object);
+    return extra_;
 }
 
 // 0x004696C0
-void CPathManager::NumberPaths()
+void PathManager::number_paths()
 {
-    if (!m_groups)
+    if (!groups_)
         return;
-    for (int i = 0; i < m_groupCount; ++i)
-        m_groups[i].ReleaseAll();
-    m_pathCount = 0;
-    LevelNodes::StartNodeWalk(0);
-    for (Scripts::CStruct* start = LevelNodes::NextNode(); start; start = LevelNodes::NextNode()) {
-        uint32_t nodeClass = 0;
-        start->ReadHashValue(kClass, &nodeClass, 0);
-        if (nodeClass == 0x8E6B02AD || nodeClass == 0x30C19600)
+    for (int i = 0; i < group_count_; ++i)
+        groups_[i].release_all();
+    path_count_ = 0;
+    level_nodes::start_node_walk(0);
+    for (script::Struct* start = level_nodes::get_next_node(); start; start = level_nodes::get_next_node()) {
+        uint32_t node_class = 0;
+        start->read_hash_value(kClass, &node_class, 0);
+        if (node_class == 0x8E6B02AD || node_class == 0x30C19600)
             continue;
         uint32_t type;
-        if (nodeClass == 0x4C23A77E && start->ReadHashValue(kType, &type, 0) && type == 0xCBA10FFA)
+        if (node_class == 0x4C23A77E && start->read_hash_value(kType, &type, 0) && type == 0xCBA10FFA)
             continue;
-        if (LevelNodes::GetLinkCount(start) == 0 && nodeClass != 0x4C23A77E)
+        if (level_nodes::get_link_count(start) == 0 && node_class != 0x4C23A77E)
             continue;
-        if (start->HasEntryNamed(kPathNum))
+        if (start->has_entry_named(kPathNum))
             continue;
         // down the first links, numbering; a node numbered already gives its number to the chain, from the start
-        int path = m_pathCount;
-        Scripts::CStruct* node = start;
+        int path = path_count_;
+        script::Struct* node = start;
         for (;;) {
             int existing;
-            if (node->FetchIntValue(kPathNum, &existing, 0)) {
+            if (node->fetch_int_value(kPathNum, &existing, 0)) {
                 if (existing == path)
                     break;
                 path = existing;
                 node = start;
             }
-            node->PutInt(kPathNum, path);
-            if (LevelNodes::GetLinkCount(node) == 0)
+            node->put_int(kPathNum, path);
+            if (level_nodes::get_link_count(node) == 0)
                 break;
-            node = LevelNodes::FetchNeighbourNode(node, 0);
+            node = level_nodes::fetch_neighbour_node(node, 0);
         }
-        if (path == m_pathCount)
-            ++m_pathCount;
+        if (path == path_count_)
+            ++path_count_;
     }
-    LevelNodes::EndNodeWalk();
+    level_nodes::end_node_walk();
 }
 
 // 0x00469820
-void CPathManager::Dealloc()
+void PathManager::dealloc()
 {
-    if (!m_groups)
+    if (!groups_)
         return;
-    for (int i = 0; i < m_groupCount; ++i)
-        m_groups[i].ReleaseAll();
-    if (CObjectGroup* groups = m_groups) {
-        for (int i = ElementTotal(groups) - 1; i >= 0; --i)
-            groups[i].Destruct();
-        DeleteArray(groups);
+    for (int i = 0; i < group_count_; ++i)
+        groups_[i].release_all();
+    if (ObjectGroup* groups = groups_) {
+        for (int i = element_total(groups) - 1; i >= 0; --i)
+            groups[i].destruct();
+        delete_array(groups);
     }
-    CObjectGroup* extra = m_extra;
-    m_groups = nullptr;
+    ObjectGroup* extra = extra_;
+    groups_ = nullptr;
     if (extra) {
-        if (extra->m_slots) {
-            for (int i = ElementTotal(extra->m_slots) - 1; i >= 0; --i)
-                extra->m_slots[i].Release();
-            DeleteArray(extra->m_slots);
-            extra->m_slots = nullptr;
+        if (extra->slots_) {
+            for (int i = element_total(extra->slots_) - 1; i >= 0; --i)
+                extra->slots_[i].get_release();
+            delete_array(extra->slots_);
+            extra->slots_ = nullptr;
         }
-        MemSys::Hub::Pull()->Dealloc(extra);
+        memory::Hub::get_pull()->dealloc(extra);
     }
-    m_extra = nullptr;
+    extra_ = nullptr;
 }
 
 // 0x00469960
-void CPathManager::Carve(int groups, int groupSize, int extraSize)
+void PathManager::carve(int groups, int group_size, int extra_size)
 {
-    m_groupCount = groups;
-    MemSys::Hub* memory = MemSys::Hub::Pull();
-    memory->EnterHeapScope(memory->m_bottomUpHeap);
-    auto* made = static_cast<CObjectGroup*>(AllocScriptArray(m_groupCount, sizeof(CObjectGroup)));
+    group_count_ = groups;
+    memory::Hub* memory = memory::Hub::get_pull();
+    memory->enter_heap_scope(memory->bottom_up_heap_);
+    auto* made = static_cast<ObjectGroup*>(alloc_script_array(group_count_, sizeof(ObjectGroup)));
     if (made) {
-        for (int i = 0; i < m_groupCount; ++i) {
-            made[i].m_slots = nullptr; // (0x00414D70)
-            made[i].m_extent = 0;
+        for (int i = 0; i < group_count_; ++i) {
+            made[i].slots_ = nullptr; // (0x00414D70)
+            made[i].extent_ = 0;
         }
     }
-    m_groups = made;
-    for (int i = 0; i < m_groupCount; ++i)
-        m_groups[i].PrepareAll(groupSize);
-    auto* extra = static_cast<CObjectGroup*>(MemSys::Alloc(sizeof(CObjectGroup)));
+    groups_ = made;
+    for (int i = 0; i < group_count_; ++i)
+        groups_[i].prepare_all(group_size);
+    auto* extra = static_cast<ObjectGroup*>(memory::alloc(sizeof(ObjectGroup)));
     if (extra) {
-        extra->m_slots = nullptr;
-        extra->m_extent = 0;
+        extra->slots_ = nullptr;
+        extra->extent_ = 0;
     }
-    m_extra = extra;
-    extra->PrepareAll(extraSize);
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    extra_ = extra;
+    extra->prepare_all(extra_size);
+    memory::Hub::get_pull()->leave_heap_scope();
 }
 
 // 0x00469A80
-bool CFunc_AllocatePathManMemory(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+bool cfunc_allocate_path_man_memory(script::Struct* params, script::Script* /*script*/)
 {
-    CPathManager* manager = CPathManager::Sole();
+    PathManager* manager = PathManager::sole();
     int groups = 200;
-    params->FetchIntValue(0x0C230B04, &groups, 0);
-    int groupSize = 20;
-    params->FetchIntValue(0xF6A4081D, &groupSize, 0);
-    int extraSize = 200;
-    params->FetchIntValue(0x13AFFFF9, &extraSize, 0);
-    manager->Carve(groups, groupSize, extraSize);
+    params->fetch_int_value(0x0C230B04, &groups, 0);
+    int group_size = 20;
+    params->fetch_int_value(0xF6A4081D, &group_size, 0);
+    int extra_size = 200;
+    params->fetch_int_value(0x13AFFFF9, &extra_size, 0);
+    manager->carve(groups, group_size, extra_size);
     return true;
 }
 

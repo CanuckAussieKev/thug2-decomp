@@ -23,8 +23,8 @@ struct ImFont;
 //     (MaxEditedGoalsReached). Its member functions (a table at 0x00684270 filled at start-up by 0x00643960) are the
 //     menus' whole interface: NewEditorGoal 0x004EA7C0, SetEditorGoalType 0x004E89A0, EditGoal 0x004EA810 (the cursor:
 //     each X press stores the editor camera's cursor - place, height, heading - as the next point, 0x004E77C0),
-//     SetGoalSpecificParams 0x004E8780, AddEditedGoalToGoalManager 0x004EC1D0, WriteEditedGoalNodePositions
-//     0x004E8B90, GetEditedGoalsInfo 0x004EC010, FlagGoalAsWon 0x004E87A0...
+//     set_goal_specific_params 0x004E8780, AddEditedGoalToGoalManager 0x004EC1D0, write_edited_goal_node_positions
+//     0x004E8B90, GetEditedGoalsInfo 0x004EC010, flag_goal_as_won 0x004E87A0...
 //   - A created goal (the 0x338-byte record, `CEditGoal` here - GoalImage below): +0x0 its level (the level's load
 //     script; Load_Sk5Ed_gameplay counts as Load_Sk5Ed), +0x4 view_goals_text (its name), +0x36 ped_name, +0x4B
 //     goal_description, +0xAF win_message, +0x114 its type, from +0x118 thirteen 0x1C-byte points {kind (1 the pro, 2
@@ -35,8 +35,8 @@ struct ImFont;
 //     +0x2C8 the trick goals' acceleration_interval, acceleration_percent, trick_time, time_to_stop_adding_tricks,
 //     max_tricks, spin, single_combo, combo_size, tricktris_block_size, tricktris_total_to_win, +0x2CC ten key combo
 //     sets {set, require_perfect, spin / 180, num_taps} counted at +0x2F4, +0x2F8 ten gap numbers counted at +0x302,
-//     +0x303 required_trick_name. InitEditedGoal 0x004E69D0 (game/park_editing/goal_editor_util.h) gives its defaults,
-//     ChangeSpecies 0x004E6DA0 its points' kinds and counts; DecodeFromStruct 0x004E96D0 / ExportToStruct 0x004EB260 turn
+//     +0x303 required_trick_name. init_edited_goal 0x004E69D0 (game/park_editing/goal_editor_util.h) gives its defaults,
+//     change_species 0x004E6DA0 its points' kinds and counts; decode_from_struct 0x004E96D0 / export_to_struct 0x004EB260 turn
 //     it into a script structure and back (GetEditedGoalsInfo's entries - and the CreatedGoals save, memcard.qb's own
 //     save type, version 5).
 //   - Playing one: the level's load script (levels.qb) adds the goal editor's nodes only in create-a-goal mode, net
@@ -46,9 +46,9 @@ struct ImFont;
 //     goals only there: AddEditedGoalToGoalManager (0x004EB6B0 on the goal: its goal manager parameters made by
 //     0x004EA850 - the type's generic parameters, EditedGoal_ExtraParams_<type>, trigger_obj_id / restart_node /
 //     letters' obj_id / race_waypoints naming its nodes, edited_goal - added as CreatedGoal<n>, 0x0055BA10), then
-//     WriteEditedGoalNodePositions (0x004E7A80: each point's node gets Pos = place + (0, height, 0), Angles = (0, angle
+//     write_edited_goal_node_positions (0x004E7A80: each point's node gets Pos = place + (0, height, 0), Angles = (0, angle
 //     - pi, 0), a letter's Type / model) and GoalManager_InitializeGoal (its pro made). The goal is started by talking
-//     to its pro; goal_success (goal_utilities.qb) marks it won in the goal editor (FlagGoalAsWon). The goal manager
+//     to its pro; goal_success (goal_utilities.qb) marks it won in the goal editor (flag_goal_as_won). The goal manager
 //     leaves `edited_goal` goals out of the level's saved goal state (0x005542B0) - created goals never reach the
 //     career save.
 //
@@ -62,10 +62,10 @@ struct ImFont;
 //   - Played: while the editor isn't running and the level is its edited copy (free skate / single session - never a
 //     refused mode, level_editor_layout.h), each complete goal is put in the goal manager as Create-a-Goal's own
 //     InitialiseCreatedGoals does: its play nodes TRG_EditedGoal<n>_Pro / _Restart / _Object_<k> made in the overlay
-//     (owned, with EditedGoal_*_Node's fields, placed as WriteEditedGoalNodePositions places them), a 0x338-byte
+//     (owned, with EditedGoal_*_Node's fields, placed as write_edited_goal_node_positions places them), a 0x338-byte
 //     record of it filled here (GoalImage) and handed to the game's own AddEditedGoalToGoalManager (0x004EB6B0, mark
 //     unbeaten), then GoalManager_InitializeGoal. <n> is 20 + its place in the list: never 0..9, Create-a-Goal's own -
-//     its goals (and the user's own created goals, in the goal editor's table) are never touched: FlagGoalAsWon finds
+//     its goals (and the user's own created goals, in the goal editor's table) are never touched: flag_goal_as_won finds
 //     no CreatedGoal2x there and does nothing. The editor starting takes them out of play (deactivated if running,
 //     GoalManager_RemoveGoal, the pro killed as edit_goal_menu_exit does, the play nodes removed); leaving it puts them
 //     back with their changes.
@@ -85,36 +85,36 @@ struct ImFont;
 //        tricktime=<ms> stopat=<s> maxtricks=<n> single=<0|1> combo=<n> block=<n> towin=<n>]
 // A text holds no '"', '#' (the layout's comment) or control characters (cleaned when set). Unknown keys skipped; a key
 // twice, a bad number or a point missing refuses the file (as the other records).
-namespace MenuSystem::LevelEditor::Goals {
+namespace frontend::level_editor::goal_edit {
 
 // --- the pure parts -------------------------------------------------------------------------------------------------
 
 // Create-a-Goal's goal types, in its SELECT GOAL TYPE order (goal_editor_menu.qb's goals_menu_info).
-enum class KindTag : uint8_t { Skate, Combo, HighScore, HighCombo, Skatetris, ComboSkatetris, TrickTris, TrickBeat, Race, Gap };
+enum class KindTag : uint8_t { kSkate, kCombo, kHighScore, kHighCombo, kSkatetris, kComboSkatetris, kTrickTris, kTrickBeat, kRace, kGap };
 constexpr int kTypes = 10;
-const char* TypeName(KindTag type);    // the record's word: the type's checksum name ("Skate"...)
-const char* TypeTitle(KindTag type);   // Create-a-Goal's menu name ("SKATE letters"...)
-uint32_t KindHash(KindTag type);   // 0x54166ACD...
-bool TypeOf(const std::string& name, KindTag* type);
-bool KindOfKey(uint32_t checksum, KindTag* type);
+const char* current_type_name(KindTag type);    // the record's word: the type's checksum name ("Skate"...)
+const char* type_title(KindTag type);   // Create-a-Goal's menu name ("SKATE letters"...)
+uint32_t get_kind_hash(KindTag type);   // 0x54166ACD...
+bool type_of(const std::string& name, KindTag* type);
+bool kind_of_key(uint32_t checksum, KindTag* type);
 // Whether the type is one of the trick goals (key combo sets, spin...): Skatetris, ComboSkatetris, TrickTris, TrickBeat.
-bool TrickType(KindTag type);
+bool get_trick_type(KindTag type);
 // How many key combo sets the type offers (cag_key_combos: 8; Trick to the Beat the first 4).
-int ComboSetCount(KindTag type);
-const char* ComboSetName(int set); // cag_key_combos' text
+int combo_set_count(KindTag type);
+const char* combo_set_name(int set); // cag_key_combos' text
 
-// The points, as ChangeSpecies (0x004E6DA0) makes them: the fewest (a complete goal) and the most, and point `index`'s kind
+// The points, as change_species (0x004E6DA0) makes them: the fewest (a complete goal) and the most, and point `index`'s kind
 // (0 unused, 1 the pro, 2 the start, 3 a letter, 4 a checkpoint) for index 0..12.
 constexpr int kMaxPoints = 13;
-int MinPoints(KindTag type);
-int MaxPoints(KindTag type);
-int PointKind(KindTag type, int index);
+int min_points(KindTag type);
+int max_points(KindTag type);
+int point_kind(KindTag type, int index);
 // A point's label ("Pro", "Start", "S"... "O", "Checkpoint 1"...) and its node's suffix ("pro", "start", "s"... "o2",
 // "cp1"...).
-std::string PointLabel(KindTag type, int index);
-std::string PointSuffix(KindTag type, int index);
+std::string point_label(KindTag type, int index);
+std::string point_suffix(KindTag type, int index);
 // The default height of a point above its node (letters: GoalEditor_ObjectHeight, 27; others 0).
-float StartingHeight(KindTag type, int index);
+float starting_height(KindTag type, int index);
 
 struct Point {
     V3 pos = {};          // its node's place (on the ground)
@@ -125,113 +125,113 @@ struct Point {
 // A goal: what Create-a-Goal's record holds, by name.
 struct Goal {
     std::string id; // ed_goalNN: its points' nodes are <id>_<suffix>
-    KindTag type = KindTag::Skate;
+    KindTag type = KindTag::kSkate;
     std::string name, ped, text, win; // view_goals_text, ped_name, goal_description, win_message
     int time = 120;                   // time_limit (15..3600)
     int score = 100;                  // score (HighScore / HighCombo: 1000..10000000)
     bool walk = false;                // control_type Walk (else Skate)
-    int laps = 1, checkpointTime = 0; // Race: race_total_laps (1..10), race_per_checkpoint_time (0..60, 0 off)
+    int laps = 1, checkpoint_time_ = 0; // Race: race_total_laps (1..10), race_per_checkpoint_time (0..60, 0 off)
     std::vector<std::string> gaps;    // Gap: the gaps (names - their numbers are the gap list's order when played)
     std::string trick;                // Gap: required_trick_name
-    // The trick goals (InitEditedGoal's defaults):
+    // The trick goals (init_edited_goal's defaults):
     uint32_t sets = 0;                // key combo sets chosen (bit per cag_key_combos entry)
     int spin = 360;                   // 0..900 (Trick to the Beat: 0)
-    int accelInterval = 5;            // 1..10
-    float accelPercent = 0.1f;        // 0.01..1
-    int comboTime = 3000;             // 5..3000
-    int stopAt = 5;                   // time_to_stop_adding_tricks
-    int maxTricks = 11;               // 1..15
-    bool singleCombo = false;         // Combo Skate-Tricks
-    int comboSize = 2;                // 1..15
-    int blockSize = 3, toWin = 8;     // Tricktris: 1..15, 1..1000
-    std::vector<Point> points;        // MinPoints..MaxPoints of them
+    int accel_interval_ = 5;            // 1..10
+    float accel_percent_ = 0.1f;        // 0.01..1
+    int combo_time_ = 3000;             // 5..3000
+    int stop_at_ = 5;                   // time_to_stop_adding_tricks
+    int max_tricks_ = 11;               // 1..15
+    bool single_combo_ = false;         // Combo Skate-Tricks
+    int combo_size_ = 2;                // 1..15
+    int block_size_ = 3, to_win_ = 8;     // Tricktris: 1..15, 1..1000
+    std::vector<Point> points;        // min_points..max_points of them
 };
-bool Same(const Goal& a, const Goal& b);
-// A new goal of `type` with Create-a-Goal's defaults (its menu's name, ChangeSpecies's score - HighScore 15000, HighCombo
+bool get_same(const Goal& a, const Goal& b);
+// A new goal of `type` with Create-a-Goal's defaults (its menu's name, change_species's score - HighScore 15000, HighCombo
 // 10000 - Trick to the Beat's spin 0) and no points.
-Goal Defaults(KindTag type, const std::string& id);
+Goal get_defaults(KindTag type, const std::string& id);
 // Whether it has every point it needs - and (Gap) a gap, (trick goals) a key combo set: played only then. `why` says what
 // is missing.
-bool Complete(const Goal& goal, std::string* why = nullptr);
+bool get_complete(const Goal& goal, std::string* why = nullptr);
 // A text as a record keeps it: no '"', '#' or control characters, at most `limit` characters (the record's field:
 // name 49, ped 20, text / win 99, trick 49).
-std::string CleanText(const std::string& text, size_t limit);
+std::string clean_text(const std::string& text, size_t limit);
 // The record's text (after the word "goal") and one read (false: malformed).
-std::string WriteRecord(const Goal& goal);
-bool ReadRecord(const std::string& text, Goal* out);
+std::string write_record(const Goal& goal);
+bool read_record(const std::string& text, Goal* out);
 
-// The 0x338-byte created-goal record (CEditGoal) the game's own functions take: filled from a goal as DecodeFromStruct
-// (0x004E96D0) fills it from the goal's structure - InitEditedGoal's defaults, used, its level, its level_goal_index,
-// ChangeSpecies's points, then every field; `gapNumbers` the gaps' numbers in the level's gap list now (those not found
+// The 0x338-byte created-goal record (CEditGoal) the game's own functions take: filled from a goal as decode_from_struct
+// (0x004E96D0) fills it from the goal's structure - init_edited_goal's defaults, used, its level, its level_goal_index,
+// change_species's points, then every field; `gap_numbers` the gaps' numbers in the level's gap list now (those not found
 // left out).
 constexpr size_t kTexelEdge = 0x338;
 struct GoalImage {
     alignas(4) uint8_t bytes[kTexelEdge];
 };
-void FillImage(const Goal& goal, uint32_t level, int levelGoalIndex, const std::vector<int>& gapNumbers, GoalImage* out);
+void fill_image(const Goal& goal, uint32_t level, int level_goal_index, const std::vector<int>& gap_numbers, GoalImage* out);
 // The angle the record keeps for a point (the cursor's heading: its node gets angle - pi) and back.
-float ImageAngle(float heading);
-float HeadingOf(float imageAngle);
+float get_image_angle(float heading);
+float get_heading_of(float image_angle);
 
 // The goal's play number (level_goal_index) for its place in the list: 20 + place - never Create-a-Goal's 0..9.
 constexpr int kFirstPlayIndex = 20, kMaxGoals = 10;
-inline int PlayIndex(int place) { return kFirstPlayIndex + place; }
+inline int play_index(int place) { return kFirstPlayIndex + place; }
 // Its play nodes' names: TRG_EditedGoal<n>_Pro (which 0), _Restart (1), _Object_<which - 2>; its goal manager id.
-std::string PlayNodeName(int which, int index);
-std::string GoalId(int index); // CreatedGoal<n>
+std::string play_node_name(int which, int index);
+std::string get_goal_id(int index); // CreatedGoal<n>
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
 // The goals now (their points' places read from their nodes).
-std::vector<Goal> All();
-bool IsGoalPoint(uint32_t node);
+std::vector<Goal> get_all();
+bool is_goal_point(uint32_t node);
 // A new goal of `type` laid out where the editor's view looks (the pro facing the camera, the start beside it, letters
 // / checkpoints ahead) - one undo step; selected (its pro's node). False: no view, ten goals already.
-bool Fabricate(KindTag type);
+bool fabricate(KindTag type);
 // Changed (one undo step a change; `done` false while a field is dragged - the drag is one step).
-bool Edit(const std::string& id, const Goal& changed, bool done);
+bool get_edit(const std::string& id, const Goal& changed, bool done);
 // Removed with its points (one undo step).
-bool DropOut(const std::string& id);
+bool drop_out(const std::string& id);
 // A race checkpoint added after the last / the last removed (one undo step).
-bool AddCheckpoint(const std::string& id);
-bool RemoveCheckpoint(const std::string& id);
+bool add_checkpoint(const std::string& id);
+bool remove_checkpoint(const std::string& id);
 // Copied into the goal editor's own table (Create-a-Goal's created goals of this level - in memory; its SAVE GOALS
 // saves it). `message` says what happened.
 bool Export(const std::string& id, std::string* message);
 
 // Layouts: the goals now; a layout's made (how many); every goal removed (and out of play); a new level (forgotten -
 // any of ours still in the goal manager removed: their nodes went with the level).
-std::vector<Goal> Capture();
-int Apply(const std::vector<Goal>& goals);
-void ResetAll();
-void ForgetLevel();
+std::vector<Goal> get_capture();
+int get_apply(const std::vector<Goal>& goals);
+void reset_all();
+void forget_level();
 
 // The editor starting / stopping: the goals out of play / put back in play (with their changes).
-void Kickoff();
-void Halt();
+void kickoff();
+void halt();
 // Once a frame while the editor runs: what the UI asked for.
-void TickFrame();
+void tick_frame();
 // Labels and lines over the view (the goal of `selected` - a node name, 0 none - brighter).
-void AddOverlay(V3 cameraPos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
-                uint32_t selected, std::vector<Ui::Seg>* lines, std::vector<Ui::Overlay::Text>* texts);
+void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+                uint32_t selected, std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts);
 // The Inspector: the selected point's goal (`node`: its name, 0 none), and the Goals section (the list, new goals).
-void InspectorSection(uint32_t node, ImFont* mono, ImFont* smallFont);
-void ListSection(ImFont* mono, ImFont* smallFont);
+void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font);
+void list_section(ImFont* mono, ImFont* small_font);
 // For the screenshot sidecar: "N goals (M complete)".
-std::string Describe();
+std::string describe();
 // A point to select (the one just made; -1: none) - a Nodes::All() index (the editor selects it).
-int TakeSelect();
+int take_select();
 
 // For the UI (level_editor_goals_ui.cpp): an action done in Update (as the other modules' UIs queue theirs); a field
 // drag ended; the goal's point nodes deleted (with Delete - Restore points makes them again where they were); the goal
 // and point a node is; a point selected; whether goals are in the goal manager now; the level's gap list's names.
-void Queue(std::function<void()> action);
-void EndDrag();
-int Missing(const std::string& id);
-bool RestorePoints(const std::string& id);
-bool PointOfNode(uint32_t node, std::string* id, int* point);
-void ChooseOne(const std::string& id, int point);
-bool InPlay();
-std::vector<std::string> LevelGaps();
+void get_queue(std::function<void()> action);
+void end_drag();
+int get_missing(const std::string& id);
+bool restore_points(const std::string& id);
+bool point_of_node(uint32_t node, std::string* id, int* point);
+void choose_one(const std::string& id, int point);
+bool in_play();
+std::vector<std::string> get_level_gaps();
 
-} // namespace MenuSystem::LevelEditor::Goals
+} // namespace MenuSystem::level_editor::Goals

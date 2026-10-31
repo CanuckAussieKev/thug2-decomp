@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace Util {
+namespace util {
 
 // Reads or writes values packed at bit level, a 32-bit word at a time, least significant bits first.
 class PackedBitBuffer {
@@ -10,29 +10,29 @@ public:
     PackedBitBuffer();
 
     // Prepare to read `size` bytes from `data`. The word buffer starts empty, so the first read loads it.
-    void ChangeIntakeContents(void* data, int size);
+    void change_intake_contents(void* data, int size);
     // Prepare to write into `data` (capacity `size` bytes).
-    void BindOutputBuffer(void* data, int size);
+    void bind_output_buffer(void* data, int size);
     // Bytes touched so far, rounding a partial byte up.
-    int GetByteCount() const;
+    int get_byte_count() const;
     // Write out a partially filled word (writing only).
-    void Drain();
+    void drain();
 
     // Append the low `count` bits of `value` (count 0..32). Bits of `value` above `count` are not masked
     // off, matching the original; callers pass clean values.
-    void WriteBits(uint32_t value, int count);
+    void write_bits(uint32_t value, int count);
     // Read `count` bits (0..32) as an unsigned value.
-    uint32_t ReadBits(int count);
+    uint32_t read_bits(int count);
     // Read `count` bits and sign-extend from the top bit read. (Quirk kept from the original: for count 32,
     // any negative value comes back as -1.)
-    int32_t ReadSignedBits(int count);
+    int32_t read_signed_bits(int count);
 
-    uint32_t* m_cursor;   // next word to read/write
-    uint32_t* m_outset;    // start of the data
-    uint32_t m_octets;    // bits waiting to be written / not yet read
-    int m_freeBitsInWord;       // writing: free bits in m_octets (32 = empty); reading: unread bits (0 = empty)
-    int m_extent;           // size of the data in bytes
-    int m_bitsUsed;       // bits read or written so far
+    uint32_t* cursor_;   // next word to read/write
+    uint32_t* outset_;    // start of the data
+    uint32_t octets_;    // bits waiting to be written / not yet read
+    int free_bits_in_word_;       // writing: free bits in octets_ (32 = empty); reading: unread bits (0 = empty)
+    int extent_;           // size of the data in bytes
+    int bits_used_;       // bits read or written so far
 };
 
 } // namespace Util

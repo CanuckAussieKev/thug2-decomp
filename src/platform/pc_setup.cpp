@@ -18,14 +18,14 @@
 #include "platform/debug_log.h"
 #include "platform/sdl_events.h"
 
-namespace SystemCore {
+namespace sys {
 
-void InitPcSetup()
+void init_pc_setup()
 {
-    using DebugLog::StageMap;
-    BuildInfo::PrepareAll();
-    bool debug = BuildInfo::FetchFlag(BuildInfo::kMiscellaneous, "Debug", false);
-    DebugLog::Configure(debug);
+    using debug_log::StageMap;
+    build_info::prepare_all();
+    bool debug = build_info::fetch_flag(build_info::kMiscellaneous, "Debug", false);
+    debug_log::configure(debug);
     if (debug) {
         AllocConsole();
         FILE* unused;
@@ -33,22 +33,22 @@ void InitPcSetup()
         freopen_s(&unused, "CONOUT$", "w", stderr);
         freopen_s(&unused, "CONOUT$", "w", stdout);
     }
-    DebugLog::Printf(StageMap::kInfo, "PC set-up\n");
-    DebugLog::Printf(StageMap::kInfo, "DIRECTORY: %s\n", BuildInfo::ExecutableDirectory());
+    debug_log::printf(StageMap::kInfo, "PC set-up\n");
+    debug_log::printf(StageMap::kInfo, "DIRECTORY: %s\n", build_info::executable_directory());
 
-    Scripts::InitScriptPatches();
-    OsLayer::InitEvents();
-    // the music shuffle's randomness (AudioStream::ShuffleRandom)
+    script::init_script_patches();
+    os_layer::init_events();
+    // the music shuffle's randomness (audio::shuffle_random)
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
-    DebugLog::Printf(StageMap::kInfo, "Patch Initialized\n");
+    debug_log::printf(StageMap::kInfo, "Patch Initialized\n");
 
-    NetLink::SetUpOnlineHosts();
-    NetLink::SetUpOnlineIdentity();
-    Engine3D::LoadGlyphSettings();
-    Engine3D::LoadGraphicsSettings();
+    net::set_up_online_hosts();
+    net::set_up_online_identity();
+    render::load_glyph_settings();
+    render::load_graphics_settings();
 }
 
-void FastExit()
+void fast_exit()
 {
     ExitProcess(0);
 }

@@ -5,10 +5,10 @@
 #include <cstdarg>
 #include <cstdio>
 
-namespace DebugOut {
+namespace debug {
 
 // 0x00401C30
-int Printf(const char* format, ...)
+int printf(const char* format, ...)
 {
     // The original uses unbounded vsprintf into a 1 KB buffer; this version truncates instead of overflowing.
     char message[1024];

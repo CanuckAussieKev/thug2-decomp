@@ -17,66 +17,66 @@
 #include "engine/gfx/render_state.h"
 #include "engine/sys/startup_init.h"
 
-namespace Engine3D {
+namespace render {
 
-int g_gradientWidth;
-void* g_screenMutex; // the loading screen's lock (a HANDLE), held while it is drawn
-float g_tickSeconds;
-float g_elapsedSeconds;
-float g_totalSeconds;
+int g_gradient_width;
+void* g_screen_mutex; // the loading screen's lock (a HANDLE), held while it is drawn
+float g_tick_seconds;
+float g_elapsed_seconds;
+float g_total_seconds;
 
-float g_floatTen{10.0f};
-int g_barPosition[2]{258, 400};
-int g_progressWidth{140};
-int g_progressHeight{8};
-int g_barBorder[2]{5, 5};
-uint8_t g_progressFromColor[4]{0x00, 0x4C, 0x81, 0x80};
-uint8_t g_progressToColor[4]{0xAC, 0xD3, 0x73, 0x80};
-uint8_t g_progressEdgeColor[4]{0x28, 0x28, 0x28, 0x80};
+float g_float_ten{10.0f};
+int g_bar_position[2]{258, 400};
+int g_progress_width{140};
+int g_progress_height{8};
+int g_bar_border[2]{5, 5};
+uint8_t g_progress_from_color[4]{0x00, 0x4C, 0x81, 0x80};
+uint8_t g_progress_to_color[4]{0xAC, 0xD3, 0x73, 0x80};
+uint8_t g_progress_edge_color[4]{0x28, 0x28, 0x28, 0x80};
 namespace {
 
 // PartyMod's gradient table: 100000 bytes, enough for high resolutions (PartyMod's resbuffer, which its
 // patchWindow pointed the table at).
-uint8_t s_gradientBuffer[100000];
+uint8_t s_gradient_buffer[100000];
 
 struct Rgb {
     int r, g, b;
 };
 
-float g_floatFive{5.0f};
-float g_floatTwenty{20.0f};
+float g_float_five{5.0f};
+float g_float_twenty{20.0f};
 float g_per640{0.0015625f};
 float g_float420{420.0f};
 float g_per480{0.0020833334f};
-uint32_t g_borderArgb;
-Rgb g_gradientEnd;
-Rgb g_gradientStart;
+uint32_t g_border_argb;
+Rgb g_gradient_end;
+Rgb g_gradient_start;
 
 // The bar's settings (SetLoadingBarStartColor etc.): colours as r, g, b(, a) bytes, and its width (in
 // 640-wide screen units).
-const uint8_t* StartColor() { return g_progressFromColor; }
-const uint8_t* EndColor() { return g_progressToColor; }
-const uint8_t* BorderColor() { return g_progressEdgeColor; }
-int& ProgressBarPixels() { return g_progressWidth; }
-int& ScreenWidth() { return g_backBufferWidth; }
-float& HorizScreenRatio() { return g_displayFactorX; }
+const uint8_t* start_color() { return g_progress_from_color; }
+const uint8_t* end_color() { return g_progress_to_color; }
+const uint8_t* border_color() { return g_progress_edge_color; }
+int& progress_bar_pixels() { return g_progress_width; }
+int& get_screen_width() { return g_back_buffer_width; }
+float& horiz_screen_ratio() { return g_display_factor_x; }
 
-Rgb& GradientStart() { return g_gradientStart; }
-Rgb& GradientEnd() { return g_gradientEnd; }
-int& GradientWidth() { return g_gradientWidth; }
-uint32_t& BorderArgb() { return g_borderArgb; }
+Rgb& gradient_start() { return g_gradient_start; }
+Rgb& gradient_end() { return g_gradient_end; }
+int& gradient_width() { return g_gradient_width; }
+uint32_t& border_argb() { return g_border_argb; }
 
-Rgb* GradientTable() { return reinterpret_cast<Rgb*>(s_gradientBuffer); }
+Rgb* gradient_table() { return reinterpret_cast<Rgb*>(s_gradient_buffer); }
 
 // The bar's timing (0x004B7400): seconds per tick, seconds so far, seconds for the whole bar.
-float& TickSeconds() { return g_tickSeconds; }
-float& ElapsedSeconds() { return g_elapsedSeconds; }
-float& TotalSeconds() { return g_totalSeconds; }
-int& ScreenHeight() { return g_backBufferHeight; }
-uint32_t& BarTimer() { return g_loadingBarTimer; }    // the timer's id (timeSetEvent)
-bool& LoadScreenShown() { return g_loadingScreenUp; }           // shown (0x004B78B0): the main loop doesn't draw
-HANDLE& ScreenMutex() { return reinterpret_cast<HANDLE&>(g_screenMutex); }    // held while the loading screen is drawn
-IDirect3DDevice9* InputPort() { return g_d3dDevice; }
+float& tick_seconds() { return g_tick_seconds; }
+float& elapsed_seconds() { return g_elapsed_seconds; }
+float& get_total_seconds() { return g_total_seconds; }
+int& get_screen_height() { return g_back_buffer_height; }
+uint32_t& bar_timer() { return g_loading_bar_timer; }    // the timer's id (timeSetEvent)
+bool& load_screen_shown() { return g_loading_screen_up; }           // shown (0x004B78B0): the main loop doesn't draw
+HANDLE& screen_mutex() { return reinterpret_cast<HANDLE&>(g_screen_mutex); }    // held while the loading screen is drawn
+IDirect3DDevice9* input_port() { return g_d3d_device; }
 
 struct BarVertex {
     float x, y, z, rhw;
@@ -85,41 +85,41 @@ struct BarVertex {
 static_assert(sizeof(BarVertex) == 0x14, "the original's vertex");
 constexpr uint32_t kBarVertexFormat = D3DFVF_XYZRHW | D3DFVF_DIFFUSE; // 0x44
 
-void DrawQuad(float x0, float y0, float x1, float y1, uint32_t left, uint32_t right)
+void draw_quad(float x0, float y0, float x1, float y1, uint32_t left, uint32_t right)
 {
     // (a strip: top left, bottom left, top right, bottom right)
     BarVertex quad[4] = {{x0, y0, 1.0f, 1.0f, left}, {x0, y1, 1.0f, 1.0f, left}, {x1, y0, 1.0f, 1.0f, right},
                          {x1, y1, 1.0f, 1.0f, right}};
-    InputPort()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad, sizeof(BarVertex));
+    input_port()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad, sizeof(BarVertex));
 }
 // The C runtime's _ftol2 (0x006236FC): truncated to a 64-bit integer, its low half (NaN and infinities: 0).
-int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
-uint32_t Opaque(const Rgb& c) { return 0xFF000000u | (c.r & 0xFF) << 16 | (c.g & 0xFF) << 8 | (c.b & 0xFF); }
+int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
+uint32_t opaque(const Rgb& c) { return 0xFF000000u | (c.r & 0xFF) << 16 | (c.g & 0xFF) << 8 | (c.b & 0xFF); }
 
 } // namespace
 
-uint8_t* LoadingBarGradientBuffer() { return s_gradientBuffer; }
+uint8_t* loading_bar_gradient_buffer() { return s_gradient_buffer; }
 
 // 0x004B6B80
-void UpdateLoadingBarColors()
+void update_loading_bar_colors()
 {
-    GradientStart() = {StartColor()[0], StartColor()[1], StartColor()[2]};
-    GradientEnd() = {EndColor()[0], EndColor()[1], EndColor()[2]};
-    GradientWidth() = static_cast<int>(static_cast<double>(ScreenWidth()) * ProgressBarPixels() * (1.0f / 640.0f));
-    BorderArgb() = 0x80000000u | BorderColor()[0] << 16 | BorderColor()[1] << 8 | BorderColor()[2];
+    gradient_start() = {start_color()[0], start_color()[1], start_color()[2]};
+    gradient_end() = {end_color()[0], end_color()[1], end_color()[2]};
+    gradient_width() = static_cast<int>(static_cast<double>(get_screen_width()) * progress_bar_pixels() * (1.0f / 640.0f));
+    border_argb() = 0x80000000u | border_color()[0] << 16 | border_color()[1] << 8 | border_color()[2];
 
     // One colour per pixel column, from the start colour towards the end colour. The original's table is at
     // 0x00701688 and overflows at high resolutions; PartyMod pointed it at a bigger buffer instead, though 4
     // bytes too early (it replaced the instruction's base, which is the table's address + 4). Here the table is
     // at the start of the buffer. Nothing reads the table.
-    int steps = static_cast<int>(static_cast<double>(GradientWidth()) * HorizScreenRatio());
-    const Rgb start = GradientStart();
-    const Rgb delta = {GradientEnd().r - start.r, GradientEnd().g - start.g, GradientEnd().b - start.b};
-    Rgb* table = GradientTable();
+    int steps = static_cast<int>(static_cast<double>(gradient_width()) * horiz_screen_ratio());
+    const Rgb start = gradient_start();
+    const Rgb delta = {gradient_end().r - start.r, gradient_end().g - start.g, gradient_end().b - start.b};
+    Rgb* table = gradient_table();
     for (int i = 0; i < steps; ++i) {
-        table[i].r = delta.r * i / steps + GradientStart().r;
-        table[i].g = delta.g * i / steps + GradientStart().g;
-        table[i].b = delta.b * i / steps + GradientStart().b;
+        table[i].r = delta.r * i / steps + gradient_start().r;
+        table[i].g = delta.g * i / steps + gradient_start().g;
+        table[i].b = delta.b * i / steps + gradient_start().b;
     }
 }
 
@@ -128,65 +128,65 @@ void UpdateLoadingBarColors()
 // transparent), the gradient over its whole width, and the part not reached yet covered with the border colour
 // again. The bar fills with time (the seconds DisplayLoadingScreen was given), not with what has loaded; it stops
 // full. Not original: the loading console's panel (engine/gfx/loading_console.h) is drawn before the scene ends.
-void __stdcall DrawLoadingScreenFrame(unsigned int, unsigned int, unsigned long, unsigned long, unsigned long)
+void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned long, unsigned long, unsigned long)
 {
-    if (!BarTimer() || !LoadScreenShown())
+    if (!bar_timer() || !load_screen_shown())
         return;
-    WaitForSingleObject(ScreenMutex(), INFINITE);
-    InputPort()->BeginScene();
-    Engine3D::DrawLoadingScreenPicture(); // the picture, full screen
+    WaitForSingleObject(screen_mutex(), INFINITE);
+    input_port()->BeginScene();
+    render::draw_loading_screen_picture(); // the picture, full screen
 
     // (x87 at double precision: the intermediate results unrounded, as in the original - only the ones it stores
     // are floats)
-    double xScale = static_cast<double>(ScreenWidth()) * g_per640; // 1 / 640
-    float yScale = static_cast<float>(static_cast<double>(ScreenHeight()) * g_per480); // 1 / 480
-    double elapsed = static_cast<double>(TickSeconds()) + ElapsedSeconds();
-    ElapsedSeconds() = static_cast<float>(elapsed);
-    double fraction = elapsed / TotalSeconds();
+    double x_scale = static_cast<double>(get_screen_width()) * g_per640; // 1 / 640
+    float y_scale = static_cast<float>(static_cast<double>(get_screen_height()) * g_per480); // 1 / 480
+    double elapsed = static_cast<double>(tick_seconds()) + elapsed_seconds();
+    elapsed_seconds() = static_cast<float>(elapsed);
+    double fraction = elapsed / get_total_seconds();
     if (fraction > 1.0)
         fraction = 1.0;
-    int left = (ScreenWidth() - GradientWidth()) / 2;
-    int frameLeft = Ftol(static_cast<double>(static_cast<float>(left)) - xScale * g_floatFive); // 5
-    int filled = Ftol(GradientWidth() * fraction) + left;
-    int frameRight = Ftol((GradientWidth() + frameLeft) + xScale * g_floatTen); // 10
-    int top = Ftol(yScale * static_cast<double>(g_float420));                  // 420
-    int bottom = Ftol(top + yScale * static_cast<double>(g_floatTwenty));         // 20
-    float topF = static_cast<float>(top), bottomF = static_cast<float>(bottom);
-    float frameLeftF = static_cast<float>(frameLeft), frameRightF = static_cast<float>(frameRight);
+    int left = (get_screen_width() - gradient_width()) / 2;
+    int frame_left = ftol(static_cast<double>(static_cast<float>(left)) - x_scale * g_float_five); // 5
+    int filled = ftol(gradient_width() * fraction) + left;
+    int frame_right = ftol((gradient_width() + frame_left) + x_scale * g_float_ten); // 10
+    int top = ftol(y_scale * static_cast<double>(g_float420));                  // 420
+    int bottom = ftol(top + y_scale * static_cast<double>(g_float_twenty));         // 20
+    float top_f = static_cast<float>(top), bottom_f = static_cast<float>(bottom);
+    float frame_left_f = static_cast<float>(frame_left), frame_right_f = static_cast<float>(frame_right);
 
-    SetTexture(0, nullptr);
-    InputPort()->SetRenderState(D3DRS_ZENABLE, FALSE);
-    SetVertexFormat(kBarVertexFormat);
-    if (Engine3D::SelectPictureUp()) {
+    set_texture(0, nullptr);
+    input_port()->SetRenderState(D3DRS_ZENABLE, FALSE);
+    set_vertex_format(kBarVertexFormat);
+    if (render::select_picture_up()) {
         // Not original - the level select pictures' plate: ink behind the bar (opaque, so it reads on any picture) with a
         // safety yellow rule on top, a little wider and taller than the bar's frame.
-        float padX = static_cast<float>(xScale * 18.0), padY = yScale * 14.0f;
-        float rule = yScale * 2.0f;
-        DrawQuad(frameLeftF - padX, topF - padY, frameRightF + padX, bottomF + padY, 0xFF0A0A0A, 0xFF0A0A0A);
-        DrawQuad(frameLeftF - padX, topF - padY, frameRightF + padX, topF - padY + rule, 0xFFF2E205, 0xFFF2E205);
+        float pad_x = static_cast<float>(x_scale * 18.0), pad_y = y_scale * 14.0f;
+        float rule = y_scale * 2.0f;
+        draw_quad(frame_left_f - pad_x, top_f - pad_y, frame_right_f + pad_x, bottom_f + pad_y, 0xFF0A0A0A, 0xFF0A0A0A);
+        draw_quad(frame_left_f - pad_x, top_f - pad_y, frame_right_f + pad_x, top_f - pad_y + rule, 0xFFF2E205, 0xFFF2E205);
     }
-    DrawQuad(frameLeftF, topF, frameRightF, bottomF, BorderArgb(), BorderArgb());
+    draw_quad(frame_left_f, top_f, frame_right_f, bottom_f, border_argb(), border_argb());
     // the gradient, inset 5/480 of the screen's height top and bottom
-    double inset = yScale * static_cast<double>(g_floatFive); // 5
-    float gradientTop = static_cast<float>(topF + inset);
-    float gradientBottom = static_cast<float>(bottomF - static_cast<double>(static_cast<float>(inset)));
-    DrawQuad(static_cast<float>(left), gradientTop, static_cast<float>(GradientWidth() + left), gradientBottom,
-             Opaque(GradientStart()), Opaque(GradientEnd()));
+    double inset = y_scale * static_cast<double>(g_float_five); // 5
+    float gradient_top = static_cast<float>(top_f + inset);
+    float gradient_bottom = static_cast<float>(bottom_f - static_cast<double>(static_cast<float>(inset)));
+    draw_quad(static_cast<float>(left), gradient_top, static_cast<float>(gradient_width() + left), gradient_bottom,
+             opaque(gradient_start()), opaque(gradient_end()));
     // what isn't filled yet - from the fill's end to the frame's right edge, the frame's height: its colour again
-    DrawQuad(static_cast<float>(filled), topF, frameRightF, bottomF, BorderArgb(), BorderArgb());
-    InputPort()->SetRenderState(D3DRS_ZENABLE, TRUE);
+    draw_quad(static_cast<float>(filled), top_f, frame_right_f, bottom_f, border_argb(), border_argb());
+    input_port()->SetRenderState(D3DRS_ZENABLE, TRUE);
     // Not original - the loading console (nothing unless a loading screen is up with [features] loading_console on).
-    Gfx2D::LoadingConsole::DrawPanel();
-    InputPort()->EndScene();
-    InputPort()->Present(nullptr, nullptr, nullptr, nullptr);
-    ReleaseMutex(ScreenMutex());
+    gfx::loading_console::draw_panel();
+    input_port()->EndScene();
+    input_port()->Present(nullptr, nullptr, nullptr, nullptr);
+    ReleaseMutex(screen_mutex());
 }
 
 } // namespace Nx
 
-namespace Engine3D {
+namespace render {
 
 // 0x00640D10 (a static initialiser): the loading screen's lock, a mutex nobody owns.
-void CreateScreenMutex() { g_screenMutex = CreateMutexA(nullptr, FALSE, nullptr); }
+void create_screen_mutex() { g_screen_mutex = CreateMutexA(nullptr, FALSE, nullptr); }
 
 } // namespace Nx

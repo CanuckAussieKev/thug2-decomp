@@ -2,23 +2,23 @@
 
 #include <cstdint>
 
-namespace Scripts {
-class CStruct;
-class CScript;
+namespace script {
+class Struct;
+class Script;
 } // namespace Script
 
 // "Pip" file loading: data files are loaded whole into memory, either one at a time (up to 200, reference
 // counted) or as .pre archives - packs of files loaded in one go (up to 100 at once). Files are found by
 // the checksum of their name.
-namespace Packs {
+namespace packs {
 
 // A file inside a loaded .pre archive. The file's name (nameSize bytes) follows this header, then its data
 // (compressedSize bytes if compressed, else size), each padded.
 struct PreEntry {
     int size;           // uncompressed
-    int compressedSize; // 0 if stored uncompressed
-    uint16_t nameSize;
-    uint16_t useCount; // how many Packs::ReadIn calls are using it
+    int compressed_size_; // 0 if stored uncompressed
+    uint16_t name_size_;
+    uint16_t use_count_; // how many packs::ReadIn calls are using it
     uint32_t checksum;
 };
 
@@ -27,48 +27,48 @@ struct LoadedFile {
     void* data;
     uint32_t checksum;
     int size;
-    int refCount;
+    int ref_count_;
 };
 
 // The file tables' static object (0x007CFFA8, no fields of its own): its constructor, a static initialiser's
 // (0x005B70F0), empties the .pre archive and loaded file tables. Returns this.
 struct FileTables {
-    FileTables* MakeNew();
+    FileTables* make_new();
 };
 
 // Load a file into memory, or add a use to it if it's already loaded (on its own or inside a .pre
 // archive). Returns its data, or null. `async` loads through the asynchronous file loader, with an
 // optional completion callback and two arguments for it.
-void* ReadIn(const char* name, bool async, void* callback, void* hookUserA, void* hookUserB);
+void* read_in(const char* name, bool async, void* callback, void* hook_user_a, void* hook_user_b);
 
 // Release one use of a file; a file loaded on its own is freed when its last use goes.
-void Offload(uint32_t checksum);
-void Offload(const char* name);
+void offload(uint32_t checksum);
+void offload(const char* name);
 // Size of a loaded file (0 if it isn't loaded).
-int GetFileSize(uint32_t checksum);
-int GetFileSize(const char* name);
+int get_file_size(uint32_t checksum);
+int get_file_size(const char* name);
 
 // Load the .pre archive pre\<name> (unless it's loaded already) into the next free slot, repacked so that
 // every file in it is stored uncompressed and 16-byte aligned - files are then used in place. French and
 // German use a localised archive (.prf/.prd) if there is one.
-void LoadPre(const char* name);
+void load_pre(const char* name);
 // Load `name` into `buffer` (or a new block if null) from a .pre archive or disk; `*size` (if given) gets its
 // size. Returns the data, or null.
-void* LoadFileInto(const char* name, int* size, void* buffer);
+void* load_file_into(const char* name, int* size, void* buffer);
 
 // Free every loaded .pre archive with this name. True if there was one.
-bool UnloadPre(const char* name);
+bool unload_pre(const char* name);
 // The loaded .pre archive after the one named `previous` (null for the first), or null.
-const char* TakeNextFinishedArchive(const char* previous);
+const char* take_next_finished_archive(const char* previous);
 // True if any file in the named .pre archive is in use.
-bool ArchiveIsBusy(const char* name);
+bool archive_is_busy(const char* name);
 
 // Look a file up in the loaded .pre archives.
-PreEntry* FindPreEntry(uint32_t checksum);
+PreEntry* find_pre_entry(uint32_t checksum);
 
-// Script functions (in the CFunction table)
-bool __cdecl CFunc_LoadPipPre(Scripts::CStruct* params, Scripts::CScript* script);
-bool __cdecl CFunc_UnLoadPipPre(Scripts::CStruct* params, Scripts::CScript* script);
-bool __cdecl CFunc_DumpPipPreStatus(Scripts::CStruct* params, Scripts::CScript* script);
+// Script functions (in the Function table)
+bool __cdecl cfunc_load_pip_pre(script::Struct* params, script::Script* script);
+bool __cdecl cfunc_un_load_pip_pre(script::Struct* params, script::Script* script);
+bool __cdecl cfunc_dump_pip_pre_status(script::Struct* params, script::Script* script);
 
 } // namespace Pip

@@ -6,76 +6,76 @@
 
 // The script expression evaluator: a stack machine for the expressions in scripts' parentheses. Values and
 // operators are fed in as the expression is read; operators of higher precedence run first.
-namespace Scripts {
+namespace script {
 
 // Whether a component refers to a structure / array it doesn't own (types 20 / 21).
-bool IsReference(const CComponent* component);
+bool is_reference(const Component* component);
 // Turn a structure / array component into a reference to it, and back.
-void MakeReference(CComponent* component);
-void MakeOwning(CComponent* component);
+void make_reference(Component* component);
+void make_owning(Component* component);
 // A component's truth value: an integer's value itself, 1 for a non-zero float, else 0.
-int FetchFlag(const CComponent* component);
+int fetch_flag(const Component* component);
 // a < b and a > b: numbers by value, strings by their lengths, structures by one being a subset of the other
 // (names standing for global symbols are looked up).
-bool LessThan(CComponent* a, CComponent* b);
-bool GreaterThan(CComponent* a, CComponent* b);
+bool less_than(Component* a, Component* b);
+bool greater_than(Component* a, Component* b);
 // A copy of array element `index` in `to` (with `reference`, structures and arrays are referred to). Local
 // strings and other types leave `to` empty.
-void CopyArrayElementToComponent(CArray* array, uint32_t index, CComponent* to, int reference);
+void copy_array_element_to_component(Array* array, uint32_t index, Component* to, int reference);
 
 // The operators (the token values the parser gives them).
-enum EOperator : int {
-    OPERATOR_NONE = 0,
-    OPERATOR_ARRAY_ELEMENT = 5, // a[i]
-    OPERATOR_EQUALS = 7,
-    OPERATOR_DOT = 8,           // dot product, or a structure's member
-    OPERATOR_MINUS = 10,
-    OPERATOR_ADD = 11,
-    OPERATOR_DIVIDE = 12,
-    OPERATOR_MULTIPLY = 13,     // also the cross product of vectors
-    OPERATOR_LESS_THAN = 18,
-    OPERATOR_GREATER_THAN = 20,
-    OPERATOR_OR = 50,
-    OPERATOR_AND = 51,
+enum Operator : int {
+    kOperatorNone = 0,
+    kOperatorArrayElement = 5, // a[i]
+    kOperatorEquals = 7,
+    kOperatorDot = 8,           // dot product, or a structure's member
+    kOperatorMinus = 10,
+    kOperatorAdd = 11,
+    kOperatorDivide = 12,
+    kOperatorMultiply = 13,     // also the cross product of vectors
+    kOperatorLessThan = 18,
+    kOperatorGreaterThan = 20,
+    kOperatorOr = 50,
+    kOperatorAnd = 51,
 };
 
-class CValueResolver {
+class ValueResolver {
 public:
-    CValueResolver* PrepareAll(); // the constructor
+    ValueResolver* prepare_all(); // the constructor
 
     // Free the values and empty both stacks (and the error).
-    void Clear();
-    void ResetIfDirty();
-    void SetReadCursor(const uint8_t* token) { m_token = token; }
-    void ChangeFault(const char* error);
+    void get_clear();
+    void reset_if_dirty();
+    void set_read_cursor(const uint8_t* token) { token_ = token; }
+    void change_fault(const char* error);
 
-    void Intake(const CComponent* value);
+    void intake(const Component* value);
     // An operator: pending operators of higher or equal precedence (in the same parentheses) run first.
-    void Intake(int op);
-    void OpenBracket();
+    void intake(int op);
+    void open_bracket();
     // Runs the operators inside the parentheses.
-    void CloseBracket();
+    void close_bracket();
     // Run what's left, and copy the result to `result`. False (with an error) if the expression is incomplete.
-    bool FetchVerdict(CComponent* result);
+    bool fetch_verdict(Component* result);
 
     // Run the top operator on the top two values, leaving the result in their place.
-    void Execute();
-    void PushOperator(int op);
+    void execute();
+    void push_operator(int op);
 
     struct Operator {
         int op;
-        int openParentheses;
+        int open_parentheses_;
     };
 
-    CComponent m_values[20];
-    int m_valueTop;
-    Operator m_operators[20];
-    int m_operatorTop;
-    bool m_hasOperators;
-    const uint8_t* m_token;
-    const char* m_fault;
-    bool m_unknown1F4;
+    Component values_[20];
+    int value_top_;
+    Operator operators_[20];
+    int operator_top_;
+    bool has_operators_;
+    const uint8_t* token_;
+    const char* fault_;
+    bool unknown1f4_;
 };
-static_assert(sizeof(CComponent) * 20 == 0x140, "layout must match the original");
+static_assert(sizeof(Component) * 20 == 0x140, "layout must match the original");
 
 } // namespace Script

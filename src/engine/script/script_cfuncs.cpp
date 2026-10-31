@@ -17,19 +17,19 @@
 #include "engine/script/param_struct.h"
 #include "engine/gfx/tod_manager.h"
 
-namespace ScriptCommands {
+namespace commands {
 
-float g_scriptFrameMilliseconds{16.666666f};
-bool g_scriptPrintfEnabled{true};
-bool g_firstTimeNotCalled{true};
-char g_formatTextBuffer[1004];
-Scripts::CComponent g_formatTextValue;
-int g_scriptWarningLevel;
+float g_script_frame_milliseconds{16.666666f};
+bool g_script_printf_enabled{true};
+bool g_first_time_not_called{true};
+char g_format_text_buffer[1004];
+script::Component g_format_text_value;
+int g_script_warning_level;
 
 namespace {
 
-using Scripts::CComponent;
-using Scripts::CSymbolTableEntry;
+using script::Component;
+using script::SymbolTableEntry;
 
 constexpr uint32_t kGlobalName = 0x60F6F242;   // (a guess: "globalname") Change's name of the global
 constexpr uint32_t kNewValue = 0x4B40630D;     // "newValue"
@@ -69,19 +69,19 @@ constexpr uint32_t kLevelWarn = 0xD6454EFA;    // (a guess: "warn")
 constexpr uint32_t kLevelAssert = 0x4E10B054;  // (a guess: "assert")
 
 // Whether FirstTimeThisIsCalled hasn't been called yet (0x0067D6D5, true at start).
-bool& FirstTimeNotCalled() { return g_firstTimeNotCalled; }
+bool& first_time_not_called() { return g_first_time_not_called; }
 
 // Whether the scripts' printf prints (0x0067D6D4).
-bool& ScriptPrintfEnabled() { return g_scriptPrintfEnabled; }
+bool& script_printf_enabled() { return g_script_printf_enabled; }
 
 // The value FormatText is writing (0x00696D2C, a component of its own: its flag bit is kept).
-CComponent& FormatTextValue() { return g_formatTextValue; }
+Component& format_text_value() { return g_format_text_value; }
 
 // IfDebugOn / IfDebugOff's work on the calling script - compiled out of this build (an empty call, 0x005480A0).
-inline void SetScriptDebug(Scripts::CScript* /*script*/) {}
+inline void set_script_debug(script::Script* /*script*/) {}
 
 // `text` appended at `out`; returns the new end.
-char* Append(char* out, const char* text)
+char* get_append(char* out, const char* text)
 {
     size_t length = std::strlen(text);
     std::memcpy(out, text, length + 1);
@@ -89,64 +89,64 @@ char* Append(char* out, const char* text)
 }
 
 // _ftol: truncated towards zero, through 64 bits.
-int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
+int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // Wait `ms` milliseconds of the game clock or of frame time.
-void WaitMs(Scripts::CScript* script, bool realTime, int ms)
+void wait_ms(script::Script* script, bool real_time, int ms)
 {
-    if (realTime)
-        script->WaitRealTime(ms);
+    if (real_time)
+        script->wait_real_time(ms);
     else
-        script->Lull(ms);
+        script->lull(ms);
 }
 
 // GlobalExists' type names: the symbol type each stands for (0 for any other name).
-Scripts::EQbValueKind TypeFromName(uint32_t name)
+script::QbValueKind type_from_name(uint32_t name)
 {
     switch (name) {
     case 0x90FEC815: // "Structure"
     case 0x456D28D1: // "struct"
-        return Scripts::QBVAL_STRUCT;
+        return script::kQbvalStruct;
     case 0x21902065: // "checksum"
     case 0xA1DC81F9: // "name"
-        return Scripts::QBVAL_NAME;
+        return script::kQbvalName;
     case 0x365AA16A: // "float"
-        return Scripts::QBVAL_FLOAT;
+        return script::kQbvalFloat;
     case 0x5EF31148: // "array"
-        return Scripts::QBVAL_ARRAY;
+        return script::kQbvalArray;
     case 0x61414D56: // "string"
-        return Scripts::QBVAL_STRING;
+        return script::kQbvalString;
     case 0xE491B7A4: // "vector"
-        return Scripts::QBVAL_VECTOR;
+        return script::kQbvalVector;
     case 0xA5F054F4: // "Integer"
     case 0xEBAE254E: // "int"
-        return Scripts::QBVAL_INTEGER;
+        return script::kQbvalInteger;
     case 0xF6A5E196: // "pair"
-        return Scripts::QBVAL_PAIR;
+        return script::kQbvalPair;
     default:
-        return Scripts::QBVAL_NONE;
+        return script::kQbvalNone;
     }
 }
 
 } // namespace
 
-char* FormatTextBuffer() { return g_formatTextBuffer; }
-int& ScriptWarningLevel() { return g_scriptWarningLevel; }
+char* format_text_buffer() { return g_format_text_buffer; }
+int& script_warning_level() { return g_script_warning_level; }
 
 // 0x0044A480
-int FormatText(Scripts::CStruct* results, Scripts::CStruct* params)
+int format_text(script::Struct* results, script::Struct* params)
 {
-    uint32_t textName = 0;
-    params->ReadHashValue(kTextName, &textName, 0);
-    uint32_t nameKeyHash = 0;
-    params->ReadHashValue(kHashFieldName, &nameKeyHash, 0);
+    uint32_t text_name = 0;
+    params->read_hash_value(kTextName, &text_name, 0);
+    uint32_t name_key_hash = 0;
+    params->read_hash_value(kHashFieldName, &name_key_hash, 0);
     int result = 1;
     const char* format = "";
-    if (!params->FetchText(0u, &format, 0)) {
-        DebugOut::Printf("Expected text format parameters to contain a format string\n");
+    if (!params->fetch_text(0u, &format, 0)) {
+        debug::printf("Expected text format parameters to contain a format string\n");
         return 0;
     }
-    char* out = FormatTextBuffer();
+    char* out = format_text_buffer();
     const char* p = format;
     while (*p) {
         if (*p == '\\' && p[1] == '%') {
@@ -170,67 +170,67 @@ int FormatText(Scripts::CStruct* results, Scripts::CStruct* params)
             *n++ = key;
         }
         *n = '\0';
-        CComponent* found = params->FindLastComponent(Checksums::HashFromText(name));
+        Component* found = params->find_last_component(checksums::hash_from_text(name));
         if (!found) {
-            DebugOut::Printf("Missing text formatting parameter '%s'\n", name);
+            debug::printf("Missing text formatting parameter '%s'\n", name);
             return 0;
         }
-        CComponent& value = FormatTextValue();
-        value.typeAndFlag = static_cast<uint8_t>((found->typeAndFlag & ~1) | (value.typeAndFlag & 1));
+        Component& value = format_text_value();
+        value.type_and_flag_ = static_cast<uint8_t>((found->type_and_flag_ & ~1) | (value.type_and_flag_ & 1));
         value.raw = found->raw;
-        Scripts::EvaluateNameToken(&value);
+        script::evaluate_name_token(&value);
         char text[100]; // (the original's sprintf into it is unbounded)
-        switch (value.KindTag()) {
-        case Scripts::QBVAL_INTEGER:
-            if (params->HasBareFlag(kUseCommas)) {
-                std::snprintf(text, sizeof(text), "%s", TextUtil::FormatWithSeparators(value.integer));
+        switch (value.kind_tag()) {
+        case script::kQbvalInteger:
+            if (params->has_bare_flag(kUseCommas)) {
+                std::snprintf(text, sizeof(text), "%s", text::format_with_separators(value.integer));
             } else {
                 int width = 0;
-                if (params->FetchIntValue(kIntegerWidth, &width, 0))
+                if (params->fetch_int_value(kIntegerWidth, &width, 0))
                     std::snprintf(text, sizeof(text), "%0*d", width, value.integer);
                 else
                     std::snprintf(text, sizeof(text), "%d", value.integer);
             }
-            out = Append(out, text);
+            out = get_append(out, text);
             break;
-        case Scripts::QBVAL_FLOAT: {
+        case script::kQbvalFloat: {
             int places = 3;
-            params->FetchIntValue(kDecimalPlaces, &places, 0);
-            char floatFormat[16];
-            std::snprintf(floatFormat, sizeof(floatFormat), "%%.%df", places);
-            std::snprintf(text, sizeof(text), floatFormat, static_cast<double>(value.floatValue));
-            out = Append(out, text);
+            params->fetch_int_value(kDecimalPlaces, &places, 0);
+            char float_format[16];
+            std::snprintf(float_format, sizeof(float_format), "%%.%df", places);
+            std::snprintf(text, sizeof(text), float_format, static_cast<double>(value.float_value_));
+            out = get_append(out, text);
             break;
         }
-        case Scripts::QBVAL_STRING:
-        case Scripts::QBVAL_INLINE_TEXT:
+        case script::kQbvalString:
+        case script::kQbvalInlineText:
             for (const char* c = value.string; *c; ++c)
                 *out++ = *c;
             break;
-        case Scripts::QBVAL_PAIR:
+        case script::kQbvalPair:
             std::snprintf(text, sizeof(text), "(%.3f,%.3f)", static_cast<double>(value.pair->x),
                           static_cast<double>(value.pair->y));
-            out = Append(out, text);
+            out = get_append(out, text);
             break;
-        case Scripts::QBVAL_VECTOR:
+        case script::kQbvalVector:
             std::snprintf(text, sizeof(text), "(%.3f,%.3f,%.3f)", static_cast<double>(value.vector->x),
                          static_cast<double>(value.vector->y), static_cast<double>(value.vector->z));
-            out = Append(out, text);
+            out = get_append(out, text);
             break;
-        case Scripts::QBVAL_NAME:
+        case script::kQbvalName:
             result = 2;
-            std::snprintf(text, sizeof(text), "%s", Scripts::FindChecksumNameOrUnknown(value.checksum));
-            out = Append(out, text);
+            std::snprintf(text, sizeof(text), "%s", script::find_checksum_name_or_unknown(value.checksum));
+            out = get_append(out, text);
             break;
         default:
             break;
         }
     }
     *out = '\0';
-    if (textName)
-        results->AppendWord(textName, FormatTextBuffer());
-    if (nameKeyHash)
-        results->PutNameKey(nameKeyHash, Checksums::HashFromText(FormatTextBuffer()));
+    if (text_name)
+        results->append_word(text_name, format_text_buffer());
+    if (name_key_hash)
+        results->put_name_key(name_key_hash, checksums::hash_from_text(format_text_buffer()));
     return result;
 }
 
@@ -238,62 +238,62 @@ int FormatText(Scripts::CStruct* results, Scripts::CStruct* params)
 // with the new value (its +0x08 word kept). Integers, floats and names are stored as they are, structures and arrays
 // copied; with `resolve`, a name standing for another global takes that global's value. Any other type leaves the
 // global made again but empty. False if the name isn't a global, or is a script or a C / member function.
-bool __cdecl CFunc_Change(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_change(script::Struct* params, script::Script*)
 {
     uint32_t name = 0;
-    params->ReadHashValue(kGlobalName, &name, 0);
-    CComponent* value;
+    params->read_hash_value(kGlobalName, &name, 0);
+    Component* value;
     if (name) {
-        value = params->FindComponent(kNewValue);
+        value = params->find_component(kNewValue);
         if (!value)
             return false;
     } else {
-        value = params->StepToEntry(nullptr);
+        value = params->step_to_entry(nullptr);
         if (!value)
             return false;
         name = value->name;
     }
-    CSymbolTableEntry* old = Scripts::FindSymbol(name);
-    if (!old || old->type == Scripts::QBVAL_SCRIPT_BODY || old->type == Scripts::QBVAL_NATIVE_FUNC ||
-        old->type == Scripts::QBVAL_NATIVE_METHOD)
+    SymbolTableEntry* old = script::find_symbol(name);
+    if (!old || old->type == script::kQbvalScriptBody || old->type == script::kQbvalNativeFunc ||
+        old->type == script::kQbvalNativeMethod)
         return false;
     uint32_t kept = old->unknown8;
-    Scripts::CleanUpAndRemoveSymbol(old);
-    CSymbolTableEntry* entry = Scripts::CreateSymbol(name);
+    script::clean_up_and_remove_symbol(old);
+    SymbolTableEntry* entry = script::create_symbol(name);
     entry->unknown8 = kept;
 
     // the value in a component of its own (the new component's flag bit kept)
-    CComponent copy;
-    Scripts::ConstructComponent(&copy);
-    copy.typeAndFlag = static_cast<uint8_t>((value->typeAndFlag & ~1) | (copy.typeAndFlag & 1));
+    Component copy;
+    script::construct_component(&copy);
+    copy.type_and_flag_ = static_cast<uint8_t>((value->type_and_flag_ & ~1) | (copy.type_and_flag_ & 1));
     copy.raw = value->raw;
-    if (copy.KindTag() == Scripts::QBVAL_NAME && params->HasBareFlag(kResolve)) {
-        if (CSymbolTableEntry* resolved = Scripts::ResolveSymbol(copy.checksum)) {
-            copy.typeAndFlag = static_cast<uint8_t>((resolved->type << 1) | (copy.typeAndFlag & 1));
+    if (copy.kind_tag() == script::kQbvalName && params->has_bare_flag(kResolve)) {
+        if (SymbolTableEntry* resolved = script::resolve_symbol(copy.checksum)) {
+            copy.type_and_flag_ = static_cast<uint8_t>((resolved->type << 1) | (copy.type_and_flag_ & 1));
             copy.raw = resolved->raw;
         }
     }
-    switch (copy.KindTag()) {
-    case Scripts::QBVAL_INTEGER:
-    case Scripts::QBVAL_FLOAT:
-    case Scripts::QBVAL_NAME:
-        entry->type = copy.KindTag();
+    switch (copy.kind_tag()) {
+    case script::kQbvalInteger:
+    case script::kQbvalFloat:
+    case script::kQbvalName:
+        entry->type = copy.kind_tag();
         entry->raw = copy.raw;
         break;
-    case Scripts::QBVAL_STRUCT: {
-        entry->type = Scripts::QBVAL_STRUCT;
-        Scripts::CStruct* memory = Scripts::SpawnParamBag();
-        Scripts::CStruct* structure = memory ? memory->PrepareAll() : nullptr;
+    case script::kQbvalStruct: {
+        entry->type = script::kQbvalStruct;
+        script::Struct* memory = script::spawn_param_bag();
+        script::Struct* structure = memory ? memory->prepare_all() : nullptr;
         entry->structure = structure;
-        structure->AppendStructureIfAny(copy.structure);
+        structure->append_structure_if_any(copy.structure);
         break;
     }
-    case Scripts::QBVAL_ARRAY: {
-        entry->type = Scripts::QBVAL_ARRAY;
-        Scripts::CArray* memory = Scripts::AllocScriptArray();
-        Scripts::CArray* array = memory ? memory->PrepareAll() : nullptr;
+    case script::kQbvalArray: {
+        entry->type = script::kQbvalArray;
+        script::Array* memory = script::alloc_script_array();
+        script::Array* array = memory ? memory->prepare_all() : nullptr;
         entry->raw = reinterpret_cast<uint32_t>(array);
-        Scripts::DuplicateArray(array, copy.array);
+        script::duplicate_array(array, copy.array);
         break;
     }
     default:
@@ -306,345 +306,345 @@ bool __cdecl CFunc_Change(Scripts::CStruct* params, Scripts::CScript*)
 // (times 1000) and frames (times 16.666666) wait as milliseconds, of the game clock with the 0xC847F2B9 flag or of
 // frame time otherwise; game frames count Updates; one_per_frame counts Updates one script a frame; a bare number is
 // milliseconds. Each count truncated.
-bool __cdecl CFunc_Wait(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_wait(script::Struct* params, script::Script* script)
 {
     float value = 0.0f;
-    params->FetchFloat(0u, &value, 0);
-    bool realTime = params->HasBareFlag(kRealTime);
-    if (params->HasBareFlag(kSeconds) || params->HasBareFlag(kSecond)) {
-        WaitMs(script, realTime, Truncate(static_cast<double>(value) * Gfx2D::g_thousand)); // 1000
-    } else if (params->HasBareFlag(kGameFrame) || params->HasBareFlag(kGameFrames) || params->HasBareFlag(kGame)) {
-        script->Stall(Truncate(value));
-    } else if (params->HasBareFlag(kFrame) || params->HasBareFlag(kFrames)) {
-        WaitMs(script, realTime, Truncate(static_cast<double>(value) * g_scriptFrameMilliseconds)); // 16.67
-    } else if (params->HasBareFlag(kOnePerFrame)) {
-        script->SuspendUntilNextFrame(Truncate(value));
+    params->fetch_float(0u, &value, 0);
+    bool real_time = params->has_bare_flag(kRealTime);
+    if (params->has_bare_flag(kSeconds) || params->has_bare_flag(kSecond)) {
+        wait_ms(script, real_time, truncate(static_cast<double>(value) * gfx::g_thousand)); // 1000
+    } else if (params->has_bare_flag(kGameFrame) || params->has_bare_flag(kGameFrames) || params->has_bare_flag(kGame)) {
+        script->get_stall(truncate(value));
+    } else if (params->has_bare_flag(kFrame) || params->has_bare_flag(kFrames)) {
+        wait_ms(script, real_time, truncate(static_cast<double>(value) * g_script_frame_milliseconds)); // 16.67
+    } else if (params->has_bare_flag(kOnePerFrame)) {
+        script->suspend_until_next_frame(truncate(value));
     } else {
-        WaitMs(script, realTime, Truncate(value));
+        wait_ms(script, real_time, truncate(value));
     }
     return true;
 }
 
 // 0x0044A200: IntegerEquals A=<int> B=<int> (missing: 0).
-bool __cdecl CFunc_IntegerEquals(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_integer_equals(script::Struct* params, script::Script*)
 {
     int a = 0;
-    params->FetchIntValue(kA, &a, 0);
+    params->fetch_int_value(kA, &a, 0);
     int b = 0;
-    params->FetchIntValue(kB, &b, 0);
+    params->fetch_int_value(kB, &b, 0);
     return a == b;
 }
 
 // 0x0044A260: ChecksumEquals A=<name> B=<name> (missing: 0).
-bool __cdecl CFunc_ChecksumEquals(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_checksum_equals(script::Struct* params, script::Script*)
 {
     uint32_t a = 0;
-    params->ReadHashValue(kA, &a, 0);
+    params->read_hash_value(kA, &a, 0);
     uint32_t b = 0;
-    params->ReadHashValue(kB, &b, 0);
+    params->read_hash_value(kB, &b, 0);
     return a == b;
 }
 
 // 0x0044A2C0: StringEquals A="..." B="...": compared by checksum (so case is ignored). Both asserted (missing: the
 // original's pointer is undefined - here "").
-bool __cdecl CFunc_StringEquals(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_string_equals(script::Struct* params, script::Script*)
 {
     const char* a = "";
     const char* b = "";
-    params->FetchText(kA, &a, 1);
-    params->FetchText(kB, &b, 1);
-    uint32_t checksumB = Checksums::HashFromText(b);
-    return Checksums::HashFromText(a) == checksumB;
+    params->fetch_text(kA, &a, 1);
+    params->fetch_text(kB, &b, 1);
+    uint32_t checksum_b = checksums::hash_from_text(b);
+    return checksums::hash_from_text(a) == checksum_b;
 }
 
 // 0x0044A320: SetScriptString index=<n> (0) string="..." ("").
-bool __cdecl CFunc_SetScriptString(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_set_script_string(script::Struct* params, script::Script*)
 {
     int index = 0;
-    params->FetchIntValue(kIndex, &index, 0);
+    params->fetch_int_value(kIndex, &index, 0);
     const char* string = "";
-    params->FetchText(kString, &string, 0);
-    Scripts::SetScriptString(index, string);
+    params->fetch_text(kString, &string, 0);
+    script::set_script_string(index, string);
     return true;
 }
 
 // 0x0044A380: GlobalExists name=<name> [type=<type name>]: whether the global exists with that type (Structure /
 // struct, checksum / name, float, array, string, vector, Integer / int, pair; no or another type name: type 0,
 // which no global has).
-bool __cdecl CFunc_GlobalExists(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_global_exists(script::Struct* params, script::Script*)
 {
     uint32_t name = 0;
-    params->ReadHashValue(kName, &name, 0);
-    uint32_t typeName = 0;
-    params->ReadHashValue(kType, &typeName, 0);
-    Scripts::EQbValueKind type = TypeFromName(typeName);
-    CSymbolTableEntry* entry = Scripts::FindSymbol(name);
+    params->read_hash_value(kName, &name, 0);
+    uint32_t type_name = 0;
+    params->read_hash_value(kType, &type_name, 0);
+    script::QbValueKind type = type_from_name(type_name);
+    SymbolTableEntry* entry = script::find_symbol(name);
     return entry && entry->type == type;
 }
 
 // 0x0044A900: EnableScriptPrintf <0 / 1> (1): the scripts' printf on or off.
-bool __cdecl CFunc_EnableScriptPrintf(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_enable_script_printf(script::Struct* params, script::Script*)
 {
     int enable = 1;
-    params->FetchIntValue(0u, &enable, 0);
-    ScriptPrintfEnabled() = enable != 0;
+    params->fetch_int_value(0u, &enable, 0);
+    script_printf_enabled() = enable != 0;
     return true;
 }
 
 // 0x0044A930: IfDebugOn / IfDebugOff (one function): compiled out - true.
-bool __cdecl CFunc_IfDebugOn(Scripts::CStruct*, Scripts::CScript* script)
+bool __cdecl cfunc_if_debug_on(script::Struct*, script::Script* script)
 {
-    SetScriptDebug(script);
+    set_script_debug(script);
     return true;
 }
 
 // 0x0044A940: StructureContains Structure={...} <name>: whether the structure has a component or a flag of that
 // name. False without a structure.
-bool __cdecl CFunc_StructureContains(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_structure_contains(script::Struct* params, script::Script*)
 {
-    Scripts::CStruct* structure;
-    if (!params->ReadSubStruct(kStructure, &structure, 0))
+    script::Struct* structure;
+    if (!params->read_sub_struct(kStructure, &structure, 0))
         return false;
     uint32_t name = 0;
-    params->ReadHashValue(0u, &name, 0);
-    if (structure->HasEntryNamed(name))
+    params->read_hash_value(0u, &name, 0);
+    if (structure->has_entry_named(name))
         return true;
-    return structure->HasBareFlag(name);
+    return structure->has_bare_flag(name);
 }
 
 // 0x0044A9B0: ClearStruct struct=<global>: the global structure emptied.
-bool __cdecl CFunc_ClearStruct(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_clear_struct(script::Struct* params, script::Script*)
 {
     uint32_t name = 0;
-    params->ReadHashValue(kStruct, &name, 1);
-    Scripts::ReadSubStruct(name)->Clear();
+    params->read_hash_value(kStruct, &name, 1);
+    script::read_sub_struct(name)->get_clear();
     return true;
 }
 
 // 0x0044A9E0: ScriptExists <name>: whether the name (following names of names) is a script.
-bool __cdecl CFunc_ScriptExists(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_script_exists(script::Struct* params, script::Script*)
 {
     uint32_t name = 0;
-    params->ReadHashValue(0u, &name, 0);
-    CSymbolTableEntry* entry = Scripts::ResolveSymbol(name);
-    return entry && entry->type == Scripts::QBVAL_SCRIPT_BODY;
+    params->read_hash_value(0u, &name, 0);
+    SymbolTableEntry* entry = script::resolve_symbol(name);
+    return entry && entry->type == script::kQbvalScriptBody;
 }
 
 // 0x0044AA20: IsArray <value>: whether the unnamed value is an array.
-bool __cdecl CFunc_IsArray(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_is_array(script::Struct* params, script::Script*)
 {
-    Scripts::CArray* array = nullptr;
-    return params->FetchList(0u, &array, 0);
+    script::Array* array = nullptr;
+    return params->fetch_list(0u, &array, 0);
 }
 
 // 0x0044AA50: Block [type=<event> | UntilEvent=<event>]: the script waits until an event of that type (none: until
 // unblocked).
-bool __cdecl CFunc_Block(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_block(script::Struct* params, script::Script* script)
 {
-    uint32_t eventType = 0;
-    if (!params->IsVacant()) {
-        if (!params->ReadHashValue(kType, &eventType, 0))
-            params->ReadHashValue(kUntilEvent, &eventType, 0);
+    uint32_t event_type = 0;
+    if (!params->is_vacant()) {
+        if (!params->read_hash_value(kType, &event_type, 0))
+            params->read_hash_value(kUntilEvent, &event_type, 0);
     }
-    script->GateOff(eventType);
+    script->gate_off(event_type);
     return true;
 }
 
 // 0x0044AAB0: IsTrue <integer>: whether it is non-zero (missing: false).
-bool __cdecl CFunc_IsTrue(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_is_true(script::Struct* params, script::Script*)
 {
     int value = 0;
-    params->FetchIntValue(0u, &value, 0);
+    params->fetch_int_value(0u, &value, 0);
     return value != 0;
 }
 
 // 0x0044AAE0: CleanUpAndRemoveSymbol <name>: the global freed and taken out of the table. False if there is none.
-bool __cdecl CFunc_CleanUpAndRemoveSymbol(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_clean_up_and_remove_symbol(script::Struct* params, script::Script*)
 {
     uint32_t name = 0;
-    params->ReadHashValue(0u, &name, 1);
-    CSymbolTableEntry* entry = Scripts::FindSymbol(name);
+    params->read_hash_value(0u, &name, 1);
+    SymbolTableEntry* entry = script::find_symbol(name);
     if (!entry)
         return false;
-    Scripts::CleanUpAndRemoveSymbol(entry);
+    script::clean_up_and_remove_symbol(entry);
     return true;
 }
 
 // 0x0044AB20: SetEventHandler ex=<event> scr=<script> [Group=<name> (default)] [Exception] [params={...}]: an
 // event handler of the calling script.
-bool __cdecl CFunc_SetEventHandler(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_set_event_handler(script::Struct* params, script::Script* script)
 {
-    uint32_t eventType = 0;
-    params->ReadHashValue(kEx, &eventType, 1);
+    uint32_t event_type = 0;
+    params->read_hash_value(kEx, &event_type, 1);
     uint32_t handler = 0;
-    params->ReadHashValue(kScr, &handler, 1);
+    params->read_hash_value(kScr, &handler, 1);
     uint32_t group = kDefaultGroup;
-    params->ReadHashValue(kGroup, &group, 0);
-    bool exception = params->HasBareFlag(kException);
-    Scripts::CStruct* handlerParams = nullptr;
-    params->ReadSubStruct(kParams, &handlerParams, 0);
-    script->SetEventHandler(eventType, handler, group, exception, handlerParams);
+    params->read_hash_value(kGroup, &group, 0);
+    bool exception = params->has_bare_flag(kException);
+    script::Struct* handler_params = nullptr;
+    params->read_sub_struct(kParams, &handler_params, 0);
+    script->set_event_handler(event_type, handler, group, exception, handler_params);
     return true;
 }
 
 // 0x0044ABD0: SetExceptionHandler / SetException (one function): SetEventHandler, always as an exception.
-bool __cdecl CFunc_SetExceptionHandler(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_set_exception_handler(script::Struct* params, script::Script* script)
 {
-    uint32_t eventType = 0;
-    params->ReadHashValue(kEx, &eventType, 1);
+    uint32_t event_type = 0;
+    params->read_hash_value(kEx, &event_type, 1);
     uint32_t handler = 0;
-    params->ReadHashValue(kScr, &handler, 1);
+    params->read_hash_value(kScr, &handler, 1);
     uint32_t group = kDefaultGroup;
-    params->ReadHashValue(kGroup, &group, 0);
-    Scripts::CStruct* handlerParams = nullptr;
-    params->ReadSubStruct(kParams, &handlerParams, 0);
-    script->SetEventHandler(eventType, handler, group, true, handlerParams);
+    params->read_hash_value(kGroup, &group, 0);
+    script::Struct* handler_params = nullptr;
+    params->read_sub_struct(kParams, &handler_params, 0);
+    script->set_event_handler(event_type, handler, group, true, handler_params);
     return true;
 }
 
 // 0x0044AC70: ResetEventHandlersFromTable <global array> [Group=<name> (default)].
-bool __cdecl CFunc_ResetEventHandlersFromTable(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_reset_event_handlers_from_table(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0;
-    params->ReadHashValue(0u, &name, 1);
-    Scripts::CArray* table = Scripts::FetchList(name);
+    params->read_hash_value(0u, &name, 1);
+    script::Array* table = script::fetch_list(name);
     uint32_t group = kDefaultGroup;
-    params->ReadHashValue(kGroup, &group, 0);
-    script->ResetEventHandlersFromTable(table, group);
+    params->read_hash_value(kGroup, &group, 0);
+    script->reset_event_handlers_from_table(table, group);
     return true;
 }
 
 // 0x0044ACD0: ClearEventHandler <event>.
-bool __cdecl CFunc_ClearEventHandler(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_clear_event_handler(script::Struct* params, script::Script* script)
 {
-    uint32_t eventType = 0;
-    params->ReadHashValue(0u, &eventType, 1);
-    script->ClearEventHandler(eventType);
+    uint32_t event_type = 0;
+    params->read_hash_value(0u, &event_type, 1);
+    script->clear_event_handler(event_type);
     return true;
 }
 
 // 0x0044AD00: ClearEventHandlerGroup [<group> (default)].
-bool __cdecl CFunc_ClearEventHandlerGroup(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_clear_event_handler_group(script::Struct* params, script::Script* script)
 {
     uint32_t group = kDefaultGroup;
-    params->ReadHashValue(0u, &group, 0);
-    script->ClearEventHandlerGroup(group);
+    params->read_hash_value(0u, &group, 0);
+    script->clear_event_handler_group(group);
     return true;
 }
 
 // 0x0044AD30: OnExceptionRun [<script>] (none: 0 - cleared).
-bool __cdecl CFunc_OnExceptionRun(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_on_exception_run(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0;
-    params->ReadHashValue(0u, &name, 0);
-    script->SetOnExceptionScript(name);
+    params->read_hash_value(0u, &name, 0);
+    script->set_on_exception_script(name);
     return true;
 }
 
 // 0x0044AD60: OnExitRun [<script>] (none: 0 - cleared).
-bool __cdecl CFunc_OnExitRun(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_on_exit_run(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0;
-    params->ReadHashValue(0u, &name, 0);
-    script->SetOnExitScript(name);
+    params->read_hash_value(0u, &name, 0);
+    script->set_on_exit_script(name);
     return true;
 }
 
 // 0x0044AD90: PrintEventHandlerTable.
-bool __cdecl CFunc_PrintEventHandlerTable(Scripts::CStruct*, Scripts::CScript* script)
+bool __cdecl cfunc_print_event_handler_table(script::Struct*, script::Script* script)
 {
-    script->PrintEventHandlerTable();
+    script->print_event_handler_table();
     return true;
 }
 
 // 0x0044ADA0: StopAllScripts.
-bool __cdecl CFunc_StopAllScripts(Scripts::CStruct*, Scripts::CScript*)
+bool __cdecl cfunc_stop_all_scripts(script::Struct*, script::Script*)
 {
-    Scripts::StopAllScripts();
+    script::stop_all_scripts();
     return true;
 }
 
 // 0x0044ADB0: FirstTimeThisIsCalled: true the first time only (for the whole game).
-bool __cdecl CFunc_FirstTimeThisIsCalled(Scripts::CStruct*, Scripts::CScript*)
+bool __cdecl cfunc_first_time_this_is_called(script::Struct*, script::Script*)
 {
-    if (!FirstTimeNotCalled())
+    if (!first_time_not_called())
         return false;
-    FirstTimeNotCalled() = false;
+    first_time_not_called() = false;
     return true;
 }
 
 // 0x0044ADD0: SetScriptWarningLevel [level=none (default) | warn | assert]: 0 / 1 / 2; another name changes nothing.
-bool __cdecl CFunc_SetScriptWarningLevel(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_set_script_warning_level(script::Struct* params, script::Script*)
 {
     uint32_t level = kLevelNone;
-    params->ReadHashValue(kLevel, &level, 0);
+    params->read_hash_value(kLevel, &level, 0);
     if (level == kLevelAssert)
-        ScriptWarningLevel() = 2;
+        script_warning_level() = 2;
     else if (level == kLevelNone)
-        ScriptWarningLevel() = 0;
+        script_warning_level() = 0;
     else if (level == kLevelWarn)
-        ScriptWarningLevel() = 1;
+        script_warning_level() = 1;
     return true;
 }
 
 // 0x0044AE30: CastToInteger <name>: the calling script's float parameter of that name made an integer (truncated).
 // False if there's no name or no such float.
-bool __cdecl CFunc_CastToInteger(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_cast_to_integer(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0;
-    if (!params->ReadHashValue(0u, &name, 0))
+    if (!params->read_hash_value(0u, &name, 0))
         return false;
     float value = 0.0f;
-    if (!script->m_args->FetchFloat(name, &value, 0))
+    if (!script->args_->fetch_float(name, &value, 0))
         return false;
-    script->m_args->EraseModule(name);
-    script->m_args->PutInt(name, Truncate(value));
+    script->args_->erase_module(name);
+    script->args_->put_int(name, truncate(value));
     return true;
 }
 
 // 0x0044AEB0: StringToInteger <name>: the calling script's string parameter of that name made an integer (each
 // character taken as a digit: c - '0', no checks). False if there's no name or no such string. (The string is read
 // after its component was removed - freed memory, as in the original.)
-bool __cdecl CFunc_StringToInteger(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_string_to_integer(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0;
-    if (!params->ReadHashValue(0u, &name, 0))
+    if (!params->read_hash_value(0u, &name, 0))
         return false;
     const char* string = "";
-    if (!script->m_args->FetchText(name, &string, 0))
+    if (!script->args_->fetch_text(name, &string, 0))
         return false;
-    script->m_args->EraseModule(name);
+    script->args_->erase_module(name);
     int value = 0;
     for (int length = static_cast<int>(std::strlen(string)); length > 0; --length)
         value = value * 10 + (*string++ - '0');
-    script->m_args->PutInt(name, value);
+    script->args_->put_int(name, value);
     return true;
 }
 
 // 0x0044B720: AddParams {...}: the command's parameters added to the calling script's.
-bool __cdecl CFunc_AddParams(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_add_params(script::Struct* params, script::Script* script)
 {
-    script->m_args->AppendStructureIfAny(params);
+    script->args_->append_structure_if_any(params);
     return true;
 }
 
-// 0x0044B740: EraseModule name=<name> (or the unnamed name): taken out of the calling script's parameters.
-bool __cdecl CFunc_RemoveComponent(Scripts::CStruct* params, Scripts::CScript* script)
+// 0x0044B740: erase_module name=<name> (or the unnamed name): taken out of the calling script's parameters.
+bool __cdecl cfunc_remove_component(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0;
-    if (!params->ReadHashValue(kName, &name, 0))
-        params->ReadHashValue(0u, &name, 1);
-    script->m_args->EraseModule(name);
+    if (!params->read_hash_value(kName, &name, 0))
+        params->read_hash_value(0u, &name, 1);
+    script->args_->erase_module(name);
     return true;
 }
 
 // 0x0044B790: GetScriptString index=<n> (0): string = the script string.
-bool __cdecl CFunc_GetScriptString(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_get_script_string(script::Struct* params, script::Script* script)
 {
     int index = 0;
-    params->FetchIntValue(kIndex, &index, 0);
-    script->m_args->AppendWord(kString, Scripts::GetScriptString(index));
+    params->fetch_int_value(kIndex, &index, 0);
+    script->args_->append_word(kString, script::get_script_string(index));
     return true;
 }
 
-} // namespace ScriptCommands
+} // namespace commands

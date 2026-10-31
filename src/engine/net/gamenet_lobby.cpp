@@ -21,9 +21,9 @@
 
 #pragma warning(disable : 4996) // (strcpy: the original's copy of the server's name)
 
-namespace OnlinePlay {
+namespace online {
 
-using namespace Detail;
+using namespace detail;
 
 namespace {
 
@@ -57,135 +57,135 @@ constexpr uint32_t kUiString = 0x96875C0F;   // ui_string
 constexpr uint32_t kNetLobby = 0x1C471C60;   // netlobby
 constexpr uint16_t kHostPort = 0x1421;       // 5153
 
-void BufferAdd(void* buffer, const char* text) { GameSpy::Qr2BufferAdd(buffer, text); }
-void BufferAddInt(void* buffer, int value) { GameSpy::Qr2BufferAddInt(buffer, value); }
-void KeyBufferAdd(void* keyBuffer, int key) { GameSpy::Qr2KeyBufferAdd(keyBuffer, key); }
+void buffer_add(void* buffer, const char* text) { game_spy::call_qr2_buffer_add(buffer, text); }
+void buffer_add_int(void* buffer, int value) { game_spy::get_qr2_buffer_add_int(buffer, value); }
+void key_buffer_add(void* key_buffer, int key) { game_spy::qr2_key_buffer_add(key_buffer, key); }
 
 } // namespace
 
 // 0x0053F7E0
-void RoomManager::StopHosting()
+void RoomManager::stop_hosting()
 {
-    if (m_remote) {
-        GameSpy::PeerStopGame(m_remote); // peerStopGame
-        m_hostingTask->DropOut();
+    if (remote_) {
+        game_spy::peer_stop_game(remote_); // peerStopGame
+        hosting_task_->drop_out();
     }
-    m_hosting = false;
+    hosting_ = false;
 }
 
 // 0x0053F810
-bool RoomManager::IsHosting() { return m_hosting; }
+bool RoomManager::is_hosting() { return hosting_; }
 // 0x0053F820
-char* RoomManager::GetRoomName() { return m_roomName; }
+char* RoomManager::get_room_name() { return room_name_; }
 // 0x0053F830
-void RoomManager::ChangeHostName(const char* name) { std::strcpy(m_serverName, name); }
+void RoomManager::change_host_name(const char* name) { std::strcpy(server_name_, name); }
 // 0x0053F850
-char* RoomManager::FetchHostName() { return m_serverName; }
+char* RoomManager::fetch_host_name() { return server_name_; }
 // 0x0053F860
-void RoomManager::ClearLostConnection() { m_lostConnection = false; }
+void RoomManager::clear_lost_connection() { lost_connection_ = false; }
 // 0x0053F870
-void RoomManager::SetLostConnection() { m_lostConnection = true; }
+void RoomManager::set_lost_connection() { lost_connection_ = true; }
 // 0x0053F880
-void* RoomManager::GetLobbyHandle() { return m_remote; }
+void* RoomManager::get_lobby_handle() { return remote_; }
 // 0x0053F890
-bool RoomManager::InGroupRoom() { return m_inGroupRoom; }
+bool RoomManager::in_group_room() { return in_group_room_; }
 
 // 0x0053F8B0
-void LobbySearchA::DestroyBody() { m_vtable = kLobbySearchAVtable; }
+void LobbySearchA::destroy_body() { vtable_ = kLobbySearchAVtable; }
 // 0x0053F8C0
-void LobbySearchB::DestroyBody() { m_vtable = kLobbySearchBVtable; }
+void LobbySearchB::destroy_body() { vtable_ = kLobbySearchBVtable; }
 
 // 0x0053F8A0
-bool __cdecl CFunc_ResetConnectionTimer(Scripts::CStruct*, Scripts::CScript*)
+bool __cdecl cfunc_reset_connection_timer(script::Struct*, script::Script*)
 {
-    g_connectionTimer = FrameClock::GetTime();
+    g_connection_timer = frame_clock::get_time();
     return true;
 }
 
 // 0x0053F8D0
-void __cdecl RoomManager::ServerKeyCallback(void*, int key, void* buffer, void*)
+void __cdecl RoomManager::server_key_callback(void*, int key, void* buffer, void*)
 {
-    Hub* manager = g_onlineHub;
-    OptionStore::Preferences* prefs = manager->GetOnlineSettings();
+    Hub* manager = g_online_hub;
+    prefs::Preferences* prefs = manager->get_online_settings();
     switch (key) {
     case kKeyHostname: {
         const char* text = nullptr;
-        prefs->FetchSetting(kServerName)->FetchText(kUiString, &text, 1);
-        BufferAdd(buffer, text);
+        prefs->fetch_setting(kServerName)->fetch_text(kUiString, &text, 1);
+        buffer_add(buffer, text);
         break;
     }
     case kKeyGamename:
-        BufferAdd(buffer, NetLink::GameName()); // (the original: "thps6pc")
+        buffer_add(buffer, net::get_game_name()); // (the original: "thps6pc")
         break;
     case kKeyHostport:
-        BufferAddInt(buffer, kHostPort);
+        buffer_add_int(buffer, kHostPort);
         break;
     case kKeyMapname:
-        BufferAdd(buffer, manager->GetMapName(true)); // (null passed on, unlike the qr2 callback)
+        buffer_add(buffer, manager->get_map_name(true)); // (null passed on, unlike the qr2 callback)
         break;
     case kKeyGametype:
     case kKeyGamemode:
-        BufferAdd(buffer, manager->GetGameTypeName()); // the game type's name
+        buffer_add(buffer, manager->get_game_type_name()); // the game type's name
         break;
     case kKeyNumplayers:
-        BufferAddInt(buffer, manager->CountPlayers());
+        buffer_add_int(buffer, manager->count_players());
         break;
     case kKeyMaxplayers:
-        BufferAddInt(buffer, manager->GetPlayerLimit());
+        buffer_add_int(buffer, manager->get_player_limit());
         break;
     case kKeyTeamplay:
-        BufferAddInt(buffer, 0);
+        buffer_add_int(buffer, 0);
         break;
     case kKeyPassword:
-        BufferAddInt(buffer, *manager->FetchSecret() != '\0' ? 1 : 0);
+        buffer_add_int(buffer, *manager->fetch_secret() != '\0' ? 1 : 0);
         break;
     case kKeyObservers:
-        BufferAddInt(buffer, manager->CountObservers());
+        buffer_add_int(buffer, manager->count_observers());
         break;
     case kKeyMaxObservers:
-        BufferAddInt(buffer, manager->GetSpectatorLimit());
+        buffer_add_int(buffer, manager->get_spectator_limit());
         break;
     case kKeySkillLevel:
-        BufferAddInt(buffer, manager->GetDifficultyTier());
+        buffer_add_int(buffer, manager->get_difficulty_tier());
         break;
     case kKeyInProgress:
-        BufferAddInt(buffer, GameType() == kNetLobby ? 0 : 1);
+        buffer_add_int(buffer, get_game_type() == kNetLobby ? 0 : 1);
         break;
     case kKeyHostMode:
-        BufferAddInt(buffer, manager->GetHostingRole());
+        buffer_add_int(buffer, manager->get_hosting_role());
         break;
     case kKeyLoggedIn:
-        BufferAddInt(buffer, Prop<bool>(manager->m_presenceService, 0x10) ? 1 : 0); // (the presence)
+        buffer_add_int(buffer, prop<bool>(manager->presence_service_, 0x10) ? 1 : 0); // (the presence)
         break;
     default:
-        BufferAdd(buffer, "");
+        buffer_add(buffer, "");
         break;
     }
-    g_gamePosted = true;
+    g_game_posted = true;
 }
 
 // 0x0053FEC0
-int __cdecl RoomManager::CountCallback(void*, int type, void*)
+int __cdecl RoomManager::count_callback(void*, int type, void*)
 {
     if (type == kKeyTypeServer)
         return kServerKeyCount;
     if (type == kKeyTypePlayer)
-        return g_onlineHub->CountPlayers();
+        return g_online_hub->count_players();
     return 0;
 }
 
 // 0x0053F620
-void __cdecl RoomManager::KeyListCallback(void*, int type, void* keyBuffer, void*)
+void __cdecl RoomManager::key_list_callback(void*, int type, void* key_buffer, void*)
 {
     if (type == kKeyTypeServer) {
         for (int key : {kKeyHostport, kKeyMapname, kKeyGametype, kKeyTeamplay, kKeyNumplayers, kKeyMaxplayers,
                         kKeyPassword, kKeyObservers, kKeyMaxObservers, kKeyLoggedIn, kKeySkillLevel, kKeyInProgress,
                         kKeyHostMode})
-            KeyBufferAdd(keyBuffer, key);
+            key_buffer_add(key_buffer, key);
     } else if (type == kKeyTypePlayer) {
-        KeyBufferAdd(keyBuffer, kKeyForPlayer);
-        KeyBufferAdd(keyBuffer, kKeyPlayerRating);
+        key_buffer_add(key_buffer, kKeyForPlayer);
+        key_buffer_add(key_buffer, kKeyPlayerRating);
     }
 }
 
-} // namespace OnlinePlay
+} // namespace online

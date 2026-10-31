@@ -18,9 +18,9 @@
 #include "game/skate/skate_module.h"
 #include "engine/core/code_address.h"
 
-namespace GoalSystem {
+namespace goals {
 
-CGapTally* g_buildingGapChecklist;
+GapTally* g_building_gap_checklist;
 
 namespace {
 
@@ -51,290 +51,290 @@ constexpr uint32_t kMultipleNewGaps = 0xD2E7D353;    // multiple_new_gaps
 constexpr uint32_t kGapText = 0xC69CE365;            // gap_text
 constexpr uint32_t kGotGapForFirstTime = 0x318EAF64; // got_gap_for_first_time (a script)
 
-static VtableSlot kGapVtable_slots[] = {&GoalSystem::CGapEntry::Teardown};
-void** const kGapVtable = reinterpret_cast<void**>(kGapVtable_slots);
-static VtableSlot kGapNodeVtable_slots[] = {&GoalSystem::CGapCheckNode::Teardown};
-void** const kGapNodeVtable = reinterpret_cast<void**>(kGapNodeVtable_slots);  // ListKit::Elem<CGapEntry>
-static VtableSlot kGapHeadVtable_slots[] = {&GoalSystem::CGapCheckNode::Destroy2};
-void** const kGapHeadVtable = reinterpret_cast<void**>(kGapHeadVtable_slots);  // ListKit::Foremost<CGapEntry>
+static VtableSlot g_gap_vtable_slots[] = {&goals::GapEntry::teardown};
+void** const kGapVtable = reinterpret_cast<void**>(g_gap_vtable_slots);
+static VtableSlot g_gap_node_vtable_slots[] = {&goals::GapCheckNode::teardown};
+void** const kGapNodeVtable = reinterpret_cast<void**>(g_gap_node_vtable_slots);  // lists::Elem<GapEntry>
+static VtableSlot g_gap_head_vtable_slots[] = {&goals::GapCheckNode::destroy2};
+void** const kGapHeadVtable = reinterpret_cast<void**>(g_gap_head_vtable_slots);  // lists::Foremost<GapEntry>
 
-CGapTally*& Building() { return g_buildingGapChecklist; }
+GapTally*& building() { return g_building_gap_checklist; }
 
 // The list's nodes: the head's data is -1.
-CGapEntry* GapOf(MemSys::ListNode* node)
+GapEntry* gap_of(memory::ListNode* node)
 {
-    return node->data == reinterpret_cast<void*>(-1) ? nullptr : reinterpret_cast<CGapEntry*>(node);
+    return node->data == reinterpret_cast<void*>(-1) ? nullptr : reinterpret_cast<GapEntry*>(node);
 }
-CGapEntry* Next(CGapEntry* gap) { return GapOf(gap->m_listLink.next); }
+GapEntry* get_next(GapEntry* gap) { return gap_of(gap->list_link_.next); }
 
-Scripts::CStruct* SpawnParamTable()
+script::Struct* spawn_param_table()
 {
-    Scripts::CStruct* memory = Scripts::SpawnParamBag();
-    return memory ? memory->PrepareAll() : nullptr;
+    script::Struct* memory = script::spawn_param_bag();
+    return memory ? memory->prepare_all() : nullptr;
 }
-void DeleteStructure(Scripts::CStruct* structure)
+void delete_structure(script::Struct* structure)
 {
     if (structure) {
-        structure->Clear();
-        Scripts::DeleteStruct(structure);
+        structure->get_clear();
+        script::delete_struct(structure);
     }
 }
 
 // The skate module's checklist (0x005656C0) and the career's of a level (0x00584110; the current level 0x00584130).
-CGapTally* SkateChecklist()
+GapTally* skate_checklist()
 {
-    return static_cast<CGapTally*>(GameModules::Skate::Sole()->FetchGapList());
+    return static_cast<GapTally*>(modules::Skate::sole()->fetch_gap_list());
 }
-void* Career() { return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule) + 0x20); }
-CGapTally* LevelChecklist(void* career, int level)
+void* get_career() { return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(modules::g_skate_module) + 0x20); }
+GapTally* level_checklist(void* career, int level)
 {
-    return static_cast<GameObjects::CRiderStoryProgress*>(career)->FetchGapList(level);
+    return static_cast<objects::RiderStoryProgress*>(career)->fetch_gap_list(level);
 }
-int CurrentLevel(void* career) { return static_cast<GameObjects::CRiderStoryProgress*>(career)->FetchStage(); }
+int current_level(void* career) { return static_cast<objects::RiderStoryProgress*>(career)->fetch_stage(); }
 
 } // namespace
 
 // 0x00578680
-void CGapCheckNode::DestroyBody() { m_listLink.UnlinkAs(kGapNodeVtable); }
+void GapCheckNode::destroy_body() { list_link_.unlink_as(kGapNodeVtable); }
 
 // 0x005786A0
-CGapCheckNode* CGapCheckNode::Teardown(unsigned int flags)
+GapCheckNode* GapCheckNode::teardown(unsigned int flags)
 {
-    m_listLink.UnlinkAs(kGapNodeVtable);
+    list_link_.unlink_as(kGapNodeVtable);
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x005794B0
-CGapCheckNode* CGapCheckNode::Destroy2(unsigned int flags)
+GapCheckNode* GapCheckNode::destroy2(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x005786E0
-CGapEntry* CGapEntry::MakeNew()
+GapEntry* GapEntry::make_new()
 {
-    m_listLink.data = this;
-    m_listLink.priority = 0;
-    m_listLink.next = &m_listLink;
-    m_listLink.prev = &m_listLink;
-    m_listLink.vtable = kGapVtable;
-    new (&m_label) TextUtil::Chars();
-    m_num = 0;
-    m_pending = 0;
-    m_inLevel = true;
+    list_link_.data = this;
+    list_link_.priority = 0;
+    list_link_.next = &list_link_;
+    list_link_.prev = &list_link_;
+    list_link_.vtable = kGapVtable;
+    new (&label_) text::Chars();
+    num_ = 0;
+    pending_ = 0;
+    in_level_ = true;
     return this;
 }
 
 // 0x00579510
-void CGapEntry::DestroyBody()
+void GapEntry::destroy_body()
 {
-    m_label.~Chars();
-    m_listLink.UnlinkAs(kGapNodeVtable);
+    label_.~Chars();
+    list_link_.unlink_as(kGapNodeVtable);
 }
 
 // 0x005794E0
-CGapEntry* CGapEntry::Teardown(unsigned int flags)
+GapEntry* GapEntry::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00579690
-CGapTally* CGapTally::MakeNew()
+GapTally* GapTally::make_new()
 {
-    m_gaps.data = reinterpret_cast<void*>(-1);
-    m_gaps.priority = 0;
-    m_gaps.next = &m_gaps;
-    m_gaps.prev = &m_gaps;
-    m_gaps.vtable = kGapHeadVtable;
-    m_built = false;
+    gaps_.data = reinterpret_cast<void*>(-1);
+    gaps_.priority = 0;
+    gaps_.next = &gaps_;
+    gaps_.prev = &gaps_;
+    gaps_.vtable = kGapHeadVtable;
+    built_ = false;
     return this;
 }
 
 // 0x00578840
-void CGapTally::Clear()
+void GapTally::get_clear()
 {
-    while (CGapEntry* gap = GapOf(m_gaps.next))
-        reinterpret_cast<void*(__thiscall*)(CGapEntry*, int)>(gap->m_listLink.vtable[0])(gap, 1);
-    m_built = false;
+    while (GapEntry* gap = gap_of(gaps_.next))
+        reinterpret_cast<void*(__thiscall*)(GapEntry*, int)>(gap->list_link_.vtable[0])(gap, 1);
+    built_ = false;
 }
 
 // 0x00578880
-void CGapTally::RegisterGapEntry(const char* name, int count, int score)
+void GapTally::register_gap_entry(const char* name, int count, int score)
 {
-    m_built = true;
-    CGapEntry* after = nullptr;
-    for (CGapEntry* gap = GapOf(m_gaps.next); gap; gap = Next(gap)) {
-        if (std::strcmp(gap->m_label.c_str(), name) == 0 && gap->m_pointsHeld == score) {
-            gap->m_inLevel = true;
+    built_ = true;
+    GapEntry* after = nullptr;
+    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap)) {
+        if (std::strcmp(gap->label_.c_str(), name) == 0 && gap->points_held_ == score) {
+            gap->in_level_ = true;
             return;
         }
-        if (gap->m_pointsHeld < score || (gap->m_pointsHeld == score && TextUtil::CompareCaseless(gap->m_label.c_str(), name) < 0))
+        if (gap->points_held_ < score || (gap->points_held_ == score && text::compare_caseless(gap->label_.c_str(), name) < 0))
             after = gap;
     }
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(manager->m_scriptHeap);
-    void* memory = MemSys::AllocZeroed(sizeof(CGapEntry));
-    CGapEntry* gap = memory ? static_cast<CGapEntry*>(memory)->MakeNew() : nullptr;
-    gap->m_num = 0;
-    gap->m_label = name;
-    gap->m_num = count;
-    gap->m_pointsHeld = score;
-    MemSys::ListNode* before = after ? &after->m_listLink : &m_gaps;
-    gap->m_listLink.prev = before;
-    gap->m_listLink.next = before->next;
-    before->next->prev = &gap->m_listLink;
-    before->next = &gap->m_listLink;
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(manager->script_heap_);
+    void* memory = memory::alloc_zeroed(sizeof(GapEntry));
+    GapEntry* gap = memory ? static_cast<GapEntry*>(memory)->make_new() : nullptr;
+    gap->num_ = 0;
+    gap->label_ = name;
+    gap->num_ = count;
+    gap->points_held_ = score;
+    memory::ListNode* before = after ? &after->list_link_ : &gaps_;
+    gap->list_link_.prev = before;
+    gap->list_link_.next = before->next;
+    before->next->prev = &gap->list_link_;
+    before->next = &gap->list_link_;
+    memory::Hub::get_pull()->leave_heap_scope();
 }
 
 // 0x00578A00
-void CGapTally::AddGapFromNode(Scripts::CStruct* params, const uint8_t* /*call*/)
+void GapTally::add_gap_from_node(script::Struct* params, const uint8_t* /*call*/)
 {
     int score = 0;
-    params->FetchIntValue(kScore, &score, 0);
+    params->fetch_int_value(kScore, &score, 0);
     const char* text = "";
-    params->FetchText(kText, &text, 0);
+    params->fetch_text(kText, &text, 0);
     if (score && *text) {
-        RegisterGapEntry(text, 0, score);
+        register_gap_entry(text, 0, score);
         return;
     }
-    if (Scripts::FetchIntValue(kPrintGaps))
-        DebugOut::Printf("(Name '%s' Score %d - not in checklist)\n", text, score);
+    if (script::fetch_int_value(kPrintGaps))
+        debug::printf("(Name '%s' Score %d - not in checklist)\n", text, score);
 }
 
 // 0x00578AA0
-void __cdecl AddGapFromNodeCallback(Scripts::CStruct* params, const uint8_t* call)
+void __cdecl add_gap_from_node_callback(script::Struct* params, const uint8_t* call)
 {
-    Building()->AddGapFromNode(params, call);
+    building()->add_gap_from_node(params, call);
 }
 
 // 0x00578AC0
-void CGapTally::Build()
+void GapTally::get_build()
 {
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(manager->m_scriptHeap);
-    Building() = this;
-    m_built = true;
-    if (Scripts::FetchIntValue("PrintGaps"))
-        DebugOut::Printf("\nGAP LIST\n--------------------------------------\n");
-    LevelNodes::ForEachNodeScriptCall(kTriggerScript, kEndGap, &AddGapFromNodeCallback);
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(manager->script_heap_);
+    building() = this;
+    built_ = true;
+    if (script::fetch_int_value("PrintGaps"))
+        debug::printf("\nGAP LIST\n--------------------------------------\n");
+    level_nodes::for_each_node_script_call(kTriggerScript, kEndGap, &add_gap_from_node_callback);
+    memory::Hub::get_pull()->leave_heap_scope();
 }
 
 // 0x00578B30
-int CGapTally::FindGap(const char* name)
+int GapTally::find_gap(const char* name)
 {
     int index = 0;
-    for (CGapEntry* gap = GapOf(m_gaps.next); gap; gap = Next(gap), ++index) {
-        if (std::strcmp(gap->m_label.c_str(), name) == 0)
+    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap), ++index) {
+        if (std::strcmp(gap->label_.c_str(), name) == 0)
             return index;
     }
     return -1;
 }
 
 // 0x00578BC0
-void CGapTally::SetGapPositions(const char* name, Maths::Vec4 pos, Maths::Vec4 dir)
+void GapTally::set_gap_positions(const char* name, maths::Vec4 pos, maths::Vec4 dir)
 {
-    for (CGapEntry* gap = GapOf(m_gaps.next); gap; gap = Next(gap)) {
-        if (std::strcmp(gap->m_label.c_str(), name) == 0) {
-            gap->m_skaterStartPos = pos;
-            gap->m_skaterStartDir = dir;
+    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap)) {
+        if (std::strcmp(gap->label_.c_str(), name) == 0) {
+            gap->skater_start_pos_ = pos;
+            gap->skater_start_dir_ = dir;
             return;
         }
     }
 }
 
 // 0x00578C70
-void CGapTally::RegisterGapHit(const char* name)
+void GapTally::register_gap_hit(const char* name)
 {
-    for (CGapEntry* gap = GapOf(m_gaps.next); gap; gap = Next(gap)) {
-        if (std::strcmp(gap->m_label.c_str(), name) == 0) {
-            ++gap->m_pending;
+    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap)) {
+        if (std::strcmp(gap->label_.c_str(), name) == 0) {
+            ++gap->pending_;
             return;
         }
     }
 }
 
 // 0x00578CF0
-void CGapTally::ClearPending()
+void GapTally::clear_pending()
 {
-    for (CGapEntry* gap = GapOf(m_gaps.next); gap; gap = Next(gap))
-        gap->m_pending = 0;
+    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap))
+        gap->pending_ = 0;
 }
 
 // 0x00578D20
-int CGapTally::TotalOf()
+int GapTally::total_of()
 {
     int count = 0;
-    for (CGapEntry* gap = GapOf(m_gaps.next); gap; gap = Next(gap))
+    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap))
         ++count;
     return count;
 }
 
 // 0x00578D50
-bool CGapTally::AllGot()
+bool GapTally::all_got()
 {
-    for (CGapEntry* gap = GapOf(m_gaps.next); gap; gap = Next(gap)) {
-        if (!gap->m_num)
+    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap)) {
+        if (!gap->num_)
             return false;
     }
     return true;
 }
 
 // 0x00578D90
-void CGapTally::Reset()
+void GapTally::get_reset()
 {
-    for (CGapEntry* gap = GapOf(m_gaps.next); gap; gap = Next(gap)) {
-        gap->m_num = 0;
-        gap->m_pending = 0;
-        gap->m_inLevel = true;
+    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap)) {
+        gap->num_ = 0;
+        gap->pending_ = 0;
+        gap->in_level_ = true;
     }
 }
 
 // 0x00578DD0
-bool CGapTally::GetGapTotals(Scripts::CStruct* /*params*/, Scripts::CScript* script)
+bool GapTally::get_gap_totals(script::Struct* /*params*/, script::Script* script)
 {
     int total = 0, collected = 0;
-    for (CGapEntry* gap = GapOf(m_gaps.next); gap; gap = Next(gap)) {
+    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap)) {
         ++total;
-        if (gap->m_num)
+        if (gap->num_)
             ++collected;
     }
-    script->m_args->PutInt(kNumGaps, total);
-    script->m_args->PutInt(kNumCollectedGaps, collected);
+    script->args_->put_int(kNumGaps, total);
+    script->args_->put_int(kNumCollectedGaps, collected);
     return true;
 }
 
 // 0x00578E40
-bool CGapTally::AddGapsToMenu(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+bool GapTally::add_gaps_to_menu(script::Struct* params, script::Script* /*script*/)
 {
-    uint32_t chooseScript = kNullScript;
-    params->ReadHashValue(kChooseScript, &chooseScript, 0);
+    uint32_t choose_script = kNullScript;
+    params->read_hash_value(kChooseScript, &choose_script, 0);
     int index = 0;
-    for (CGapEntry* gap = GapOf(m_gaps.next); gap;) {
-        Scripts::CStruct* item = SpawnParamTable();
-        CGapEntry* next = Next(gap);
+    for (GapEntry* gap = gap_of(gaps_.next); gap;) {
+        script::Struct* item = spawn_param_table();
+        GapEntry* next = get_next(gap);
         if (index == 0)
-            item->PutNameKey(0u, kFirstItem);
+            item->put_name_key(0u, kFirstItem);
         else if (!next)
-            item->PutNameKey(0u, kLastItem);
-        item->PutInt(kGapScore, gap->m_pointsHeld);
-        item->AppendWord(kGapName, gap->m_label.c_str());
-        item->PutInt(kTimes, gap->m_num);
-        item->PutInt(kGapNumber, index);
-        item->PutVec3(kSkaterStartPos, gap->m_skaterStartPos.x, gap->m_skaterStartPos.y, gap->m_skaterStartPos.z);
-        item->PutVec3(kSkaterStartDir, gap->m_skaterStartDir.x, gap->m_skaterStartDir.y, gap->m_skaterStartDir.z);
-        item->PutNameKey(kChooseScript, chooseScript);
-        Scripts::LaunchScript(kGapMenuAddItem, item, nullptr, false, nullptr);
-        DeleteStructure(item);
+            item->put_name_key(0u, kLastItem);
+        item->put_int(kGapScore, gap->points_held_);
+        item->append_word(kGapName, gap->label_.c_str());
+        item->put_int(kTimes, gap->num_);
+        item->put_int(kGapNumber, index);
+        item->put_vec3(kSkaterStartPos, gap->skater_start_pos_.x, gap->skater_start_pos_.y, gap->skater_start_pos_.z);
+        item->put_vec3(kSkaterStartDir, gap->skater_start_dir_.x, gap->skater_start_dir_.y, gap->skater_start_dir_.z);
+        item->put_name_key(kChooseScript, choose_script);
+        script::launch_script(kGapMenuAddItem, item, nullptr, false, nullptr);
+        delete_structure(item);
         ++index;
         gap = next;
     }
@@ -342,43 +342,43 @@ bool CGapTally::AddGapsToMenu(Scripts::CStruct* params, Scripts::CScript* /*scri
 }
 
 // 0x00579080
-bool CGapTally::CreateGapList(Scripts::CStruct* /*params*/, Scripts::CScript* script)
+bool GapTally::create_gap_list(script::Struct* /*params*/, script::Script* script)
 {
     int count = 0;
-    for (CGapEntry* gap = GapOf(m_gaps.next); gap; gap = Next(gap))
+    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap))
         ++count;
-    script->m_args->PutInt(kArraySize, count);
+    script->args_->put_int(kArraySize, count);
     if (count == 0) {
-        script->m_args->PutInt(kGapsFoundCount, count);
+        script->args_->put_int(kGapsFoundCount, count);
         return false;
     }
-    Scripts::CArray* memory = Scripts::AllocScriptArray();
-    Scripts::CArray* list = memory ? memory->PrepareAll() : nullptr;
-    list->ConfigureSizeKind(count, Scripts::QBVAL_STRUCT);
+    script::Array* memory = script::alloc_script_array();
+    script::Array* list = memory ? memory->prepare_all() : nullptr;
+    list->configure_size_kind(count, script::kQbvalStruct);
     int got = 0;
     int index = 0;
-    for (CGapEntry* gap = GapOf(m_gaps.next); gap; gap = Next(gap), ++index) {
-        if (gap->m_num)
+    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap), ++index) {
+        if (gap->num_)
             ++got;
-        Scripts::CStruct* item = SpawnParamTable();
-        item->PutInt("gap_score", gap->m_pointsHeld);
-        item->AppendWord("gap_name", gap->m_label.c_str());
-        item->PutInt("times", gap->m_num);
-        item->PutInt("gap_number", index);
-        item->PutVec3(kSkaterStartPos, gap->m_skaterStartPos.x, gap->m_skaterStartPos.y, gap->m_skaterStartPos.z);
-        item->PutVec3(kSkaterStartDir, gap->m_skaterStartDir.x, gap->m_skaterStartDir.y, gap->m_skaterStartDir.z);
-        list->SetElement(index, reinterpret_cast<uint32_t>(item));
+        script::Struct* item = spawn_param_table();
+        item->put_int("gap_score", gap->points_held_);
+        item->append_word("gap_name", gap->label_.c_str());
+        item->put_int("times", gap->num_);
+        item->put_int("gap_number", index);
+        item->put_vec3(kSkaterStartPos, gap->skater_start_pos_.x, gap->skater_start_pos_.y, gap->skater_start_pos_.z);
+        item->put_vec3(kSkaterStartDir, gap->skater_start_dir_.x, gap->skater_start_dir_.y, gap->skater_start_dir_.z);
+        list->set_element(index, reinterpret_cast<uint32_t>(item));
     }
-    script->m_args->AppendArrayRef(kGapList, list);
-    script->m_args->PutInt(kGapsFoundCount, got);
+    script->args_->append_array_ref(kGapList, list);
+    script->args_->put_int(kGapsFoundCount, got);
     return true;
 }
 
 // 0x005793D0
-CGapEntry* CGapTally::GetGap(int index)
+GapEntry* GapTally::get_gap(int index)
 {
     int i = 0;
-    for (CGapEntry* gap = GapOf(m_gaps.next); gap; gap = Next(gap), ++i) {
+    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap), ++i) {
         if (i == index)
             return gap;
     }
@@ -386,80 +386,80 @@ CGapEntry* CGapTally::GetGap(int index)
 }
 
 // 0x00579420
-const char* CGapTally::GetGapTitle(int index) { return GetGap(index)->m_label.c_str(); }
+const char* GapTally::get_gap_title(int index) { return get_gap(index)->label_.c_str(); }
 // 0x00579440
-int CGapTally::CountGapsFound(int index) { return GetGap(index)->m_num; }
+int GapTally::count_gaps_found(int index) { return get_gap(index)->num_; }
 // 0x00579450
-int CGapTally::GetGapPoints(int index) { return GetGap(index)->m_pointsHeld; }
+int GapTally::get_gap_points(int index) { return get_gap(index)->points_held_; }
 
 // 0x00579460
-void CGapTally::GetGapPositions(int index, Maths::Vec4* pos, Maths::Vec4* dir)
+void GapTally::get_gap_positions(int index, maths::Vec4* pos, maths::Vec4* dir)
 {
-    CGapEntry* gap = GetGap(index);
-    *pos = gap->m_skaterStartPos;
-    *dir = gap->m_skaterStartDir;
+    GapEntry* gap = get_gap(index);
+    *pos = gap->skater_start_pos_;
+    *dir = gap->skater_start_dir_;
 }
 
 // 0x005796C0
-void CGapTally::PayOutQueuedGaps()
+void GapTally::pay_out_queued_gaps()
 {
-    int8_t newGaps = 0;
+    int8_t new_gaps = 0;
     int index = 0;
-    for (CGapEntry* gap = GapOf(m_gaps.next); gap; gap = Next(gap), ++index) {
-        if (gap->m_pending) {
-            CGoalManager* goals = GetObjectiveBoard(); // the goal manager
-            if (goals->HasActiveGapGoal())
-                goals->RegisterGapHit(index);
-            if (gap->m_num == 0) {
-                ++newGaps;
-                Scripts::CStruct* params = SpawnParamTable();
-                if (newGaps > 1)
-                    params->PutInt(kMultipleNewGaps, newGaps);
-                params->AppendWord(kGapText, gap->m_label.c_str());
-                Scripts::LaunchScript(kGotGapForFirstTime, params, nullptr, false, nullptr);
-                DeleteStructure(params);
+    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap), ++index) {
+        if (gap->pending_) {
+            GoalManager* goals = get_objective_board(); // the goal manager
+            if (goals->has_active_gap_goal())
+                goals->register_gap_hit(index);
+            if (gap->num_ == 0) {
+                ++new_gaps;
+                script::Struct* params = spawn_param_table();
+                if (new_gaps > 1)
+                    params->put_int(kMultipleNewGaps, new_gaps);
+                params->append_word(kGapText, gap->label_.c_str());
+                script::launch_script(kGotGapForFirstTime, params, nullptr, false, nullptr);
+                delete_structure(params);
             }
-            gap->m_num += gap->m_pending;
-            gap->m_pending = 0;
+            gap->num_ += gap->pending_;
+            gap->pending_ = 0;
         }
-        gap->m_pending = 0;
+        gap->pending_ = 0;
     }
 }
 
 // 0x005792E0
-bool __cdecl CFunc_AddGapsToMenu(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_add_gaps_to_menu(script::Struct* params, script::Script* script)
 {
-    return SkateChecklist()->AddGapsToMenu(params, script);
+    return skate_checklist()->add_gaps_to_menu(params, script);
 }
 
 // 0x00579300
-bool __cdecl CFunc_CreateGapList(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_create_gap_list(script::Struct* params, script::Script* script)
 {
-    return SkateChecklist()->CreateGapList(params, script);
+    return skate_checklist()->create_gap_list(params, script);
 }
 
 // 0x00579320
-bool __cdecl CFunc_GetLevelGapTotals(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_get_level_gap_totals(script::Struct* params, script::Script* script)
 {
     int level = 0; // (the original's is uninitialised: level= is required)
-    params->FetchIntValue(kLevel, &level, 1);
-    return LevelChecklist(Career(), level)->GetGapTotals(params, script);
+    params->fetch_int_value(kLevel, &level, 1);
+    return level_checklist(get_career(), level)->get_gap_totals(params, script);
 }
 
 // 0x00579360
-bool __cdecl CFunc_GiveAllGaps(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+bool __cdecl cfunc_give_all_gaps(script::Struct* params, script::Script* /*script*/)
 {
-    void* career = Career();
+    void* career = get_career();
     int level;
-    if (!params->FetchIntValue(kLevel, &level, 0))
-        level = CurrentLevel(career);
-    CGapTally* checklist = LevelChecklist(career, level);
-    for (CGapEntry* gap = GapOf(checklist->m_gaps.next); gap; gap = Next(gap))
-        ++gap->m_num;
+    if (!params->fetch_int_value(kLevel, &level, 0))
+        level = current_level(career);
+    GapTally* checklist = level_checklist(career, level);
+    for (GapEntry* gap = gap_of(checklist->gaps_.next); gap; gap = get_next(gap))
+        ++gap->num_;
     return true;
 }
 
 // 0x00585520
-void CGapTally::DestroyBody() { m_gaps.UnlinkAs(kGapNodeVtable); }
+void GapTally::destroy_body() { gaps_.unlink_as(kGapNodeVtable); }
 
 } // namespace Game

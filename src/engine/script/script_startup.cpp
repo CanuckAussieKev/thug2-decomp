@@ -16,7 +16,7 @@
 #include "engine/script/script_tables.h"
 #include "engine/script/param_struct.h"
 
-namespace Scripts {
+namespace script {
 
 namespace {
 
@@ -25,66 +25,66 @@ constexpr uint32_t kDebuggerNames = 0xC2F97BA7;  // "debugger_names": removed on
 
 // Compiled-out debug output (the empty function 0x005480A0): a .qb file's name before it loads, and a call with
 // nothing after.
-inline void PrintLoading(const char* /*filename*/) {}
-inline void PrintDone() {}
+inline void print_loading(const char* /*filename*/) {}
+inline void print_done() {}
 
 // The pool pairs of the classes AllocatePools makes pools for.
-void CreatePoolOf(MemSys::PoolPair& pools, int itemSize, int count, const char* name) { CreatePool(pools, itemSize, count, name); }
+void create_pool_of(memory::PoolPair& pools, int item_size, int count, const char* name) { create_pool(pools, item_size, count, name); }
 
 } // namespace
 
 // 0x005A5660
-uint32_t GetNumCFunctions() { return 1254; }
+uint32_t get_num_c_functions() { return 1254; }
 // 0x005A5670
-uint32_t CountMethodEntries() { return 250; }
+uint32_t count_method_entries() { return 250; }
 
-CNativeCommand* FindCFunction(const char* name)
+NativeCommand* find_c_function(const char* name)
 {
-    for (CNativeCommand& entry : g_cfunctionTable) {
+    for (NativeCommand& entry : g_cfunction_table) {
         if (std::strcmp(entry.name, name) == 0)
             return &entry;
     }
     return nullptr;
 }
 
-void BindNativeCommand(CNativeCommand& entry, void* function)
+void bind_native_command(NativeCommand& entry, void* function)
 {
     entry.function = function;
 }
 
 // 0x005A5960
-void LoadQBFile(const char* filename, int unused)
+void load_qb_file(const char* filename, int unused)
 {
-    PrintLoading(filename);
-    LoadQB(filename, unused, 0);
-    PrintDone();
+    print_loading(filename);
+    load_qb(filename, unused, 0);
+    print_done();
 }
 
 // 0x005A5990
-void LoadQBFileData(const char* filename, const uint8_t* data, int unused, int useQbNames)
+void load_qb_file_data(const char* filename, const uint8_t* data, int unused, int use_qb_names)
 {
-    LoadQBData(filename, data, unused, useQbNames, 0);
+    load_qb_data(filename, data, unused, use_qb_names, 0);
 }
 
 // 0x005A59B0
-void UnloadQBFile(uint32_t fileChecksum)
+void unload_qb_file(uint32_t file_checksum)
 {
-    UnloadQB(fileChecksum);
-    FetchList(kNodeArray);
+    unload_qb(file_checksum);
+    fetch_list(kNodeArray);
 }
 
 // 0x005A59D0
-void LoadStartupQBFiles()
+void load_startup_qb_files()
 {
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(manager->m_topDownHeap);
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(manager->top_down_heap_);
     // (the reference build's name, 0x00657698; THUG2.exe has "qb_scripts.prx" there - the file layer opens a .pre
     // as .prx either way)
-    Packs::LoadPre("qb_scripts.pre");
-    MemSys::Hub::Pull()->LeaveHeapScope();
-    auto* text = static_cast<const char*>(Packs::ReadIn("scripts\\qdir.txt", false, nullptr, nullptr, nullptr));
-    int size = Packs::GetFileSize("scripts\\qdir.txt");
-    BeginPermanentStrings();
+    packs::load_pre("qb_scripts.pre");
+    memory::Hub::get_pull()->leave_heap_scope();
+    auto* text = static_cast<const char*>(packs::read_in("scripts\\qdir.txt", false, nullptr, nullptr, nullptr));
+    int size = packs::get_file_size("scripts\\qdir.txt");
+    begin_permanent_strings();
     const char* end = text + size;
     const char* p = text;
     while (p < end) {
@@ -99,64 +99,64 @@ void LoadStartupQBFiles()
             continue;
         if (const char* data = std::strstr(line, "data\\"))
             std::memmove(line, data + 5, std::strlen(data + 5) + 1);
-        UnloadQB(Checksums::HashFromText(line));
-        FetchList(kNodeArray);
-        PrintLoading(line);
-        LoadQB(line, 1, 0);
-        PrintDone();
+        unload_qb(checksums::hash_from_text(line));
+        fetch_list(kNodeArray);
+        print_loading(line);
+        load_qb(line, 1, 0);
+        print_done();
     }
-    EndPermanentStrings();
-    Packs::Offload("scripts\\qdir.txt");
-    Packs::UnloadPre("qb_scripts.pre");
-    if (CSymbolTableEntry* symbol = FindSymbol(kDebuggerNames))
-        CleanUpAndRemoveSymbol(symbol);
+    end_permanent_strings();
+    packs::offload("scripts\\qdir.txt");
+    packs::unload_pre("qb_scripts.pre");
+    if (SymbolTableEntry* symbol = find_symbol(kDebuggerNames))
+        clean_up_and_remove_symbol(symbol);
 }
 
 // 0x005A5B20
-void LoadBootScriptFiles()
+void load_boot_script_files()
 {
-    MemSys::PushMemProfile("All startup QB files");
-    LoadStartupQBFiles();
-    MemSys::PopMemProfile();
+    memory::push_mem_profile("All startup QB files");
+    load_startup_qb_files();
+    memory::pop_mem_profile();
 }
 
 // 0x005A5B40 ... 0x005A5DF0
-void CreateAnimCachePredictorPool(int count, const char* name) { CreatePoolOf(Gfx2D::g_animSlotPools, 0x1E4, count, name); }
-void CreateBlendChannelPool(int count, const char* name) { CreatePoolOf(Gfx2D::g_animTrackPools, 0x74, count, name); }
-void CreateBonedAnimControllerPool(int count, const char* name) { CreatePoolOf(Gfx2D::g_standardPools, 0x28, count, name); }
-void CreateAnimLookupPool(int count, const char* name) { CreatePoolOf(Engine3D::g_frameSourcePools, 0x214, count, name); }
-void CreateSpawnedPolyDetailsPool(int count, const char* name) { CreatePoolOf(Engine3D::g_spawnedPolyPools, 0xB8, count, name); }
-void CreateEventReceiverListPool(int count, const char* name) { CreatePoolOf(GameObjects::g_scriptListPools, 0x14, count, name); }
+void create_anim_cache_predictor_pool(int count, const char* name) { create_pool_of(gfx::g_anim_slot_pools, 0x1E4, count, name); }
+void create_blend_channel_pool(int count, const char* name) { create_pool_of(gfx::g_anim_track_pools, 0x74, count, name); }
+void create_boned_anim_controller_pool(int count, const char* name) { create_pool_of(gfx::g_standard_pools, 0x28, count, name); }
+void create_anim_lookup_pool(int count, const char* name) { create_pool_of(render::g_frame_source_pools, 0x214, count, name); }
+void create_spawned_poly_details_pool(int count, const char* name) { create_pool_of(render::g_spawned_poly_pools, 0xB8, count, name); }
+void create_event_receiver_list_pool(int count, const char* name) { create_pool_of(objects::g_script_list_pools, 0x14, count, name); }
 
 // 0x005A5E70
-void AllocatePools()
+void allocate_pools()
 {
-    MemSys::PushMemProfile("Script::AllocatePools");
-    CreateScriptPools();
-    MemSys::PopMemProfile();
-    MemSys::PopMemProfile(); // (a second empty call)
-    MemSys::PushMemProfile("CAnimCachePredictor");
-    CreateAnimCachePredictorPool(200, "CAnimCachePredictor");
-    MemSys::PopMemProfile();
-    MemSys::PushMemProfile("CBlendChannel");
-    CreateBlendChannelPool(150, "CBlendChannel");
-    MemSys::PopMemProfile();
-    MemSys::PushMemProfile("CBonedAnimController");
-    CreateBonedAnimControllerPool(150, "CBonedAnimController");
-    MemSys::PopMemProfile();
-    MemSys::PushMemProfile("CAnimLookup");
-    CreateAnimLookupPool(175, "CAnimLookup");
-    MemSys::PopMemProfile();
-    MemSys::PushMemProfile("sSpawnedPolyDetails");
-    CreateSpawnedPolyDetailsPool(75, "sSpawnedPolyDetails");
-    MemSys::PopMemProfile();
-    MemSys::PushMemProfile("Obj::CEventReceiverList");
-    CreateEventReceiverListPool(175, "Obj::CEventReceiverList");
-    MemSys::PopMemProfile();
-    MemSys::PushMemProfile("Registering script functions");
-    InstallScriptFunctions(g_cfunctionTable, GetNumCFunctions());
-    PublishMethodTable(g_memberFunctionNames, CountMethodEntries());
-    MemSys::PopMemProfile();
+    memory::push_mem_profile("Script::AllocatePools");
+    create_script_pools();
+    memory::pop_mem_profile();
+    memory::pop_mem_profile(); // (a second empty call)
+    memory::push_mem_profile("CAnimCachePredictor");
+    create_anim_cache_predictor_pool(200, "CAnimCachePredictor");
+    memory::pop_mem_profile();
+    memory::push_mem_profile("CBlendChannel");
+    create_blend_channel_pool(150, "CBlendChannel");
+    memory::pop_mem_profile();
+    memory::push_mem_profile("CBonedAnimController");
+    create_boned_anim_controller_pool(150, "CBonedAnimController");
+    memory::pop_mem_profile();
+    memory::push_mem_profile("CAnimLookup");
+    create_anim_lookup_pool(175, "CAnimLookup");
+    memory::pop_mem_profile();
+    memory::push_mem_profile("sSpawnedPolyDetails");
+    create_spawned_poly_details_pool(75, "sSpawnedPolyDetails");
+    memory::pop_mem_profile();
+    memory::push_mem_profile("Obj::CEventReceiverList");
+    create_event_receiver_list_pool(175, "Obj::CEventReceiverList");
+    memory::pop_mem_profile();
+    memory::push_mem_profile("Registering script functions");
+    install_script_functions(g_cfunction_table, get_num_c_functions());
+    publish_method_table(g_member_function_names, count_method_entries());
+    memory::pop_mem_profile();
 }
 
 } // namespace Script

@@ -13,143 +13,143 @@
 #include "engine/audio/stream_files.h"
 #include "platform/crt.h"
 
-namespace AudioStream {
+namespace audio {
 
-bool g_binkSoundSet;
-uint32_t g_streamFileUses;
-CachedStreamFile g_streamFiles[12];
+bool g_bink_sound_set;
+uint32_t g_stream_file_uses;
+CachedStreamFile g_stream_files[12];
 
 namespace {
 
-CachedStreamFile* StreamFiles() { return g_streamFiles; }
+CachedStreamFile* stream_files() { return g_stream_files; }
 constexpr int kStreamFiles = 12;
 
-bool g_streamFilesReady;
+bool g_stream_files_ready;
 
-bool& StreamFilesReady() { return g_streamFilesReady; }
-uint32_t& StreamFileUses() { return g_streamFileUses; }
+bool& stream_files_ready() { return g_stream_files_ready; }
+uint32_t& stream_file_uses() { return g_stream_file_uses; }
 
 // The game's C runtime (its heap and files; until the runtime is linked).
-FILE* CrtFopen(const char* path, const char* mode) { return Crt::Fopen(path, mode); }
-int CrtFseek(FILE* file, long offset, int origin) { return Crt::Fseek(file, offset, origin); }
-size_t CrtFread(void* buffer, size_t size, size_t count, FILE* file) { return Crt::Fread(buffer, size, count, file); }
-int CrtFclose(FILE* file) { return Crt::Fclose(file); }
-void* CrtMalloc(size_t size) { return Crt::AllocBlock(size); }
-void CrtFree(void* block) { Crt::Dealloc(block); }
+FILE* crt_fopen(const char* path, const char* mode) { return crt::get_fopen(path, mode); }
+int crt_fseek(FILE* file, long offset, int origin) { return crt::get_fseek(file, offset, origin); }
+size_t crt_fread(void* buffer, size_t size, size_t count, FILE* file) { return crt::get_fread(buffer, size, count, file); }
+int crt_fclose(FILE* file) { return crt::get_fclose(file); }
+void* get_crt_malloc(size_t size) { return crt::alloc_block(size); }
+void get_crt_free(void* block) { crt::dealloc(block); }
 
 // The Bink SDK (binkw32.dll), through the game's import table.
-int BinkSetSoundSystem(void* open, void* param)
+int bink_set_sound_system(void* open, void* param)
 {
-    return reinterpret_cast<int(__stdcall*)(void*, void*)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetSoundSystem@8"))(open, param);
+    return reinterpret_cast<int(__stdcall*)(void*, void*)>(crt::library_function("binkw32.dll", "_BinkSetSoundSystem@8"))(open, param);
 }
 // the function, passed to the above
-void* BinkOpenDirectSound() { return reinterpret_cast<void*>(Crt::LibraryFunction("binkw32.dll", "_BinkOpenDirectSound@4")); }
-void* VideoOpen(const void* source, uint32_t flags)
+void* bink_open_direct_sound() { return reinterpret_cast<void*>(crt::library_function("binkw32.dll", "_BinkOpenDirectSound@4")); }
+void* video_open(const void* source, uint32_t flags)
 {
-    return reinterpret_cast<void*(__stdcall*)(const void*, uint32_t)>(Crt::LibraryFunction("binkw32.dll", "_BinkOpen@8"))(source, flags);
+    return reinterpret_cast<void*(__stdcall*)(const void*, uint32_t)>(crt::library_function("binkw32.dll", "_BinkOpen@8"))(source, flags);
 }
-void BinkSetVideoOnOff(void* bink, int on)
+void bink_set_video_on_off(void* bink, int on)
 {
-    reinterpret_cast<int(__stdcall*)(void*, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetVideoOnOff@8"))(bink, on);
+    reinterpret_cast<int(__stdcall*)(void*, int)>(crt::library_function("binkw32.dll", "_BinkSetVideoOnOff@8"))(bink, on);
 }
 constexpr uint32_t kBinkFromMemory = 0x04000000;
 constexpr long kInvalidArg = static_cast<long>(0x80070057); // E_INVALIDARG
-bool& BinkSoundSet() { return g_binkSoundSet; }
+bool& bink_sound_set() { return g_bink_sound_set; }
 
 // The next of the platform's 256 OVERLAPPED blocks (0x14 bytes each, at 0x0069CBB8) not in use.
-void* NextStreamBuffer() { return NewOverlapped(); }
+void* next_stream_buffer() { return new_overlapped(); }
 
 } // namespace
 
 // 0x00452A90
-int __cdecl LoadStreamFile(uint32_t key, const char* path, long offset, size_t size)
+int __cdecl load_stream_file(uint32_t key, const char* path, long offset, size_t size)
 {
-    if (!StreamFilesReady()) {
+    if (!stream_files_ready()) {
         for (int i = 0; i < kStreamFiles; ++i)
-            StreamFiles()[i] = {0xFFFFFFFFu, nullptr, 0, 0};
-        StreamFilesReady() = true;
+            stream_files()[i] = {0xFFFFFFFFu, nullptr, 0, 0};
+        stream_files_ready() = true;
     }
-    uint32_t now = ++StreamFileUses();
+    uint32_t now = ++stream_file_uses();
     int slot = -1;
-    bool foundFree = false;
+    bool found_free = false;
     uint32_t longest = 0;
     for (int i = 0; i < kStreamFiles; ++i) {
-        CachedStreamFile& file = StreamFiles()[i];
+        CachedStreamFile& file = stream_files()[i];
         if (file.key == key) {
-            file.lastUse = now;
+            file.last_use_ = now;
             ++file.users;
             return i;
         }
         if (!file.data) { // (the last free slot wins)
-            foundFree = true;
+            found_free = true;
             slot = i;
-        } else if (!foundFree && file.users == 0 && now - file.lastUse > longest) {
-            longest = now - file.lastUse;
+        } else if (!found_free && file.users == 0 && now - file.last_use_ > longest) {
+            longest = now - file.last_use_;
             slot = i;
         }
     }
     if (slot == -1)
         return -1;
-    FILE* in = CrtFopen(path, "rb"); // "rb"
+    FILE* in = crt_fopen(path, "rb"); // "rb"
     if (!in)
         return -1;
-    CachedStreamFile& file = StreamFiles()[slot];
+    CachedStreamFile& file = stream_files()[slot];
     if (file.data)
-        CrtFree(file.data);
+        get_crt_free(file.data);
     ++file.users;
     file.data = nullptr;
-    file.lastUse = StreamFileUses();
-    CrtFseek(in, offset, SEEK_SET);
-    file.data = CrtMalloc(size);
-    CrtFread(file.data, size, 1, in);
+    file.last_use_ = stream_file_uses();
+    crt_fseek(in, offset, SEEK_SET);
+    file.data = get_crt_malloc(size);
+    crt_fread(file.data, size, 1, in);
     file.key = key;
-    CrtFclose(in);
+    crt_fclose(in);
     return slot;
 }
 
 // 0x00452C00
-BinkStreamView* BinkStreamView::MakeNew(bool unknown19, int unknown24)
+BinkStreamView* BinkStreamView::make_new(bool unknown19, int unknown24)
 {
-    At<int>(0xC) = -1; // the stream file's slot
-    At<uint8_t>(0x10) = 0;
-    At<uint8_t>(0x11) = 0;
-    At<void*>(0x28) = nullptr; // the Bink
-    At<uint32_t>(0x1A8) = 0;
-    At<uint32_t>(0x2C) = 0;
-    At<uint32_t>(0x1AC) = 0;
-    At<int>(0) = -1;
-    At<uint32_t>(4) = 0;
-    At<bool>(0x19) = unknown19;
-    At<uint8_t>(0x6B) = 1;
-    At<int>(0x24) = unknown24;
-    At<uint32_t>(0x58) = 0;
-    At<uint8_t>(0x61) = 0;
-    At<uint8_t>(0x60) = 0;
-    At<void*>(8) = NextStreamBuffer();
+    get_at<int>(0xC) = -1; // the stream file's slot
+    get_at<uint8_t>(0x10) = 0;
+    get_at<uint8_t>(0x11) = 0;
+    get_at<void*>(0x28) = nullptr; // the Bink
+    get_at<uint32_t>(0x1A8) = 0;
+    get_at<uint32_t>(0x2C) = 0;
+    get_at<uint32_t>(0x1AC) = 0;
+    get_at<int>(0) = -1;
+    get_at<uint32_t>(4) = 0;
+    get_at<bool>(0x19) = unknown19;
+    get_at<uint8_t>(0x6B) = 1;
+    get_at<int>(0x24) = unknown24;
+    get_at<uint32_t>(0x58) = 0;
+    get_at<uint8_t>(0x61) = 0;
+    get_at<uint8_t>(0x60) = 0;
+    get_at<void*>(8) = next_stream_buffer();
     return this;
 }
 
 // 0x00452C60
-long BinkStreamView::Unseal(uint32_t key, const char* path, long offset, size_t size)
+long BinkStreamView::unseal(uint32_t key, const char* path, long offset, size_t size)
 {
-    if (!BinkSoundSet()) {
-        if (!BinkSetSoundSystem(BinkOpenDirectSound(), g_soundDevice))
-            DebugOut::Printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
-        BinkSoundSet() = true;
+    if (!bink_sound_set()) {
+        if (!bink_set_sound_system(bink_open_direct_sound(), g_sound_device))
+            debug::printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
+        bink_sound_set() = true;
     }
-    int slot = LoadStreamFile(key, path, offset, size);
+    int slot = load_stream_file(key, path, offset, size);
     if (slot < 0)
         return kInvalidArg;
-    void* data = StreamFiles()[slot].data;
-    void* bink = VideoOpen(data, kBinkFromMemory);
-    At<void*>(0x28) = bink;
+    void* data = stream_files()[slot].data;
+    void* bink = video_open(data, kBinkFromMemory);
+    get_at<void*>(0x28) = bink;
     if (!bink)
         return kInvalidArg;
-    BinkSetVideoOnOff(bink, 0);
+    bink_set_video_on_off(bink, 0);
     // (the file's first four bytes, "BIKi"; unaligned)
-    At<uint32_t>(0x89) = *static_cast<const uint32_t*>(StreamFiles()[slot].data);
-    At<int>(0xC) = slot;
-    At<uint8_t>(0x88) = 1;
+    get_at<uint32_t>(0x89) = *static_cast<const uint32_t*>(stream_files()[slot].data);
+    get_at<int>(0xC) = slot;
+    get_at<uint8_t>(0x88) = 1;
     return 0;
 }
 

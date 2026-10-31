@@ -16,94 +16,94 @@
 //   0x2F / 0x37 / 0x40 / 0x41 jump tables (4-byte count, then 6 bytes each)
 //   0x43 / 0x44 / 0x46 a name already looked up: C function / member function (4-byte value)
 //   0x47 / 0x48 / 0x49 short jumps (2-byte offset)
-namespace MemSys {
+namespace memory {
 struct PoolPair;
 }
 
-namespace Scripts {
+namespace script {
 
 // The token after `token`.
-const uint8_t* StepOverToken(const uint8_t* token);
+const uint8_t* step_over_token(const uint8_t* token);
 // Past any end-of-line tokens.
-const uint8_t* SkipNewlineTokens(const uint8_t* token);
+const uint8_t* skip_newline_tokens(const uint8_t* token);
 // Past the end of the statement starting at `token` (its end of line, outside any brackets).
-const uint8_t* SkipToEndOfStatement(const uint8_t* token);
+const uint8_t* skip_to_end_of_statement(const uint8_t* token);
 // Past the script's '$' end token (and a line number after it).
-const uint8_t* SkipToEndOfScript(const uint8_t* token);
+const uint8_t* skip_to_end_of_script(const uint8_t* token);
 // A checksum of the script's tokens (line ends left out), up to its '$'.
-uint32_t CalculateScriptChecksum(const uint8_t* token);
+uint32_t calculate_script_checksum(const uint8_t* token);
 // Replace the names at the starts of statements that name C functions / member functions with direct
 // references (tokens 0x43 / 0x46, or 0x44 for a member function without a table entry).
-void PrepareScriptTokens(uint8_t* token);
+void prepare_script_tokens(uint8_t* token);
 
 // Little-endian values in the token stream; the writers return the position after the value.
-uint32_t FetchWord32(const uint8_t* p);
-uint16_t FetchWord16(const uint8_t* p);
-uint8_t* StoreWord32(uint8_t* p, uint32_t value);
-uint8_t* StoreWord16(uint8_t* p, uint16_t value);
+uint32_t fetch_word32(const uint8_t* p);
+uint16_t fetch_word16(const uint8_t* p);
+uint8_t* store_word32(uint8_t* p, uint32_t value);
+uint8_t* store_word16(uint8_t* p, uint16_t value);
 
 // The names of checksums given in the .qb files themselves (tokens 0x2B): a table of 0x1000 buckets.
-void AddScriptChecksumName(uint32_t checksum, const char* name);
-const char* FindScriptChecksumName(uint32_t checksum);
-void FreeScriptChecksumNames();
+void add_script_checksum_name(uint32_t checksum, const char* name);
+const char* find_script_checksum_name(uint32_t checksum);
+void free_script_checksum_names();
 // NOT ORIGINAL - every .qb's checksum names kept for our tools (the level editor's HUD: node names such as
-// Fire_Tender), once KeepQbNames(true) - ReadQbFile notes each (the game only keeps them with its debug names on).
-void KeepQbNames(bool keep);
-void NoteQbName(uint32_t checksum, const char* name);
-const char* KeptQbName(uint32_t checksum);
+// Fire_Tender), once keep_qb_names(true) - read_qb_file notes each (the game only keeps them with its debug names on).
+void keep_qb_names(bool keep);
+void note_qb_name(uint32_t checksum, const char* name);
+const char* kept_qb_name(uint32_t checksum);
 
 // Forget which script the stored random states belonging to `owner` (a script) were for.
-void ForgetStoredRandomsOf(uint32_t owner);
+void forget_stored_randoms_of(uint32_t owner);
 
 // Create all the script system's item pools (from the script heap) and the permanent string heap.
-void CreateScriptPools();
+void create_script_pools();
 // Create a pool of `count` items of `item_size` as `pools`' current pool (0x0046F090.. one per class).
-void CreatePool(MemSys::PoolPair& pools, int item_size, int count, const char* name);
+void create_pool(memory::PoolPair& pools, int item_size, int count, const char* name);
 // NOT ORIGINAL - the script pools' use logged (`script pools in use <when>: CComponent <used> (peak <peak>) of
 // <count>, CStruct ...`): what a level costs them (frontend/start_level.cpp logs it once the level is up).
-void LogScriptPoolUse(const char* when);
+void log_script_pool_use(const char* when);
 // The permanent string heap: `size` bytes of strings, at most `count` of them.
-void AllocatePermanentStringHeap(uint32_t size, uint32_t count);
+void allocate_permanent_string_heap(uint32_t size, uint32_t count);
 
 // The script cache (null when there isn't one), and telling it a script has changed (call only with a cache).
-struct CScriptStore;
-CScriptStore* ScriptStoreInstance();
-void RemoveFromScriptCache(uint32_t name);
+struct ScriptStore;
+ScriptStore* script_store_instance();
+void remove_from_script_cache(uint32_t name);
 
 // Symbol bookkeeping while loading .qb files.
-struct CSymbolTableEntry;
-void AllocateScriptChecksumNames(bool debugHeap);
-void FreePair(void* pair);
-void FreeVector(void* vector);
-void FreeStoredRandom(void* random);
-void FreeSymbol(CSymbolTableEntry* symbol);
+struct SymbolTableEntry;
+void allocate_script_checksum_names(bool debug_heap);
+void free_pair(void* pair);
+void free_vector(void* vector);
+void free_stored_random(void* random);
+void free_symbol(SymbolTableEntry* symbol);
 // Take `symbol` out of the table and free it and its value.
-void CleanUpAndRemoveSymbol(CSymbolTableEntry* symbol);
-// Pending changes, done by ProcessPendingSymbols once a file is loaded: remove `symbol`, or replace the
+void clean_up_and_remove_symbol(SymbolTableEntry* symbol);
+// Pending changes, done by process_pending_symbols once a file is loaded: remove `symbol`, or replace the
 // table's symbol of the same name with `symbol`.
-void RemoveSymbolLater(CSymbolTableEntry* symbol);
-void ReplaceSymbolLater(CSymbolTableEntry* symbol);
-void ProcessPendingSymbols();
-void ClearScriptFlag6F2564();
-void SetScriptFlag6F2564();
+void remove_symbol_later(SymbolTableEntry* symbol);
+void replace_symbol_later(SymbolTableEntry* symbol);
+void process_pending_symbols();
+void clear_script_flag_6f_2564();
+void set_script_flag_6f_2564();
 
 // A stored random sequence (the scripts' RandomNoRepeat / RandomPermute): a shuffled order of choices.
-struct CStoredRandom {
-    // Shuffle the order; with `avoidRepeat`, the new first choice isn't the old last one.
-    void Shuffle(bool avoidRepeat);
+struct StoredRandom {
+    // Shuffle the order; with `avoid_repeat`, the new first choice isn't the old last one.
+    void shuffle(bool avoid_repeat);
 
-    uint32_t m_owner;         // the script using it
-    const uint8_t* m_lookupTable;   // the random table's offsets in the script
-    uint16_t m_num;
-    uint16_t unknownA;
-    uint32_t m_kindTag;          // the token: 0x40 no-repeat, 0x41 permute
-    uint16_t m_ordinal;         // permute: the position in m_order
-    uint8_t m_order[0x42];    // permute: the shuffled order (from +0x12)
-    uint32_t m_last;          // no-repeat: the last choice
-    CStoredRandom* m_succ;    // older
-    CStoredRandom* m_previous; // newer
+    uint32_t owner_;         // the script using it
+    const uint8_t* lookup_table_;   // the random table's offsets in the script
+    uint16_t num_;
+    uint16_t unknowna_;
+    uint32_t kind_tag_;          // the token: 0x40 no-repeat, 0x41 permute
+    uint16_t ordinal_;         // permute: the position in order_
+    uint8_t order_[0x42];    // permute: the shuffled order (from +0x12)
+    uint32_t last_;          // no-repeat: the last choice
+    StoredRandom* succ_;    // older
+    StoredRandom* previous_; // newer
 };
 
-extern MemSys::PoolPair g_storedRandomPools;
+extern memory::PoolPair g_stored_random_pools;
 
 } // namespace Script

@@ -2,35 +2,35 @@
 
 #include <cstdint>
 
-namespace Scripts {
-class CStruct;
-class CScript;
+namespace script {
+class Struct;
+class Script;
 } // namespace Script
 
 // Script commands (CFunctions) 0x005B4260-0x005B45F0: the front end theme's colours. Each one names a global
 // (DE_HIGHLIGHTED_TEXT_COLOR, ...) - the theme's colour for that use - as the script's `return_value` parameter:
 // Theme_GetHighlightedTextColor return_value=<name> adds <name>=DE_HIGHLIGHTED_TEXT_COLOR. All are cdecl (params,
 // script) and true.
-namespace ScriptCommands {
+namespace commands {
 
-bool __cdecl CFunc_Theme_GetHighlightedTextColor(Scripts::CStruct* params, Scripts::CScript* script);
-bool __cdecl CFunc_Theme_GetUnhighlightedTextColor(Scripts::CStruct* params, Scripts::CScript* script);
-bool __cdecl CFunc_Theme_GetHighlightedTextColorNew(Scripts::CStruct* params, Scripts::CScript* script);
-bool __cdecl CFunc_Theme_GetUnhighlightedTextColorNew(Scripts::CStruct* params, Scripts::CScript* script);
-bool __cdecl CFunc_Theme_GetHighlightBarColor(Scripts::CStruct* params, Scripts::CScript* script);
-bool __cdecl CFunc_Theme_GetSpeechBoxColor(Scripts::CStruct* params, Scripts::CScript* script);
-bool __cdecl CFunc_Theme_GetPauseBarColor(Scripts::CStruct* params, Scripts::CScript* script);
-bool __cdecl CFunc_Theme_GetIconOnColor(Scripts::CStruct* params, Scripts::CScript* script);
-bool __cdecl CFunc_Theme_GetFontColors(Scripts::CStruct* params, Scripts::CScript* script);
-bool __cdecl CFunc_Theme_GetSupportPieceColor(Scripts::CStruct* params, Scripts::CScript* script);
-bool __cdecl CFunc_Theme_GetAltColor(Scripts::CStruct* params, Scripts::CScript* script);
-bool __cdecl CFunc_Theme_GetMenuTitleColor(Scripts::CStruct* params, Scripts::CScript* script);
-bool __cdecl CFunc_Theme_GetHUDColor(Scripts::CStruct* params, Scripts::CScript* script);
-bool __cdecl CFunc_Theme_GetHUDSpecialColor(Scripts::CStruct* params, Scripts::CScript* script);
-bool __cdecl CFunc_Theme_GetBalanceMeterColor(Scripts::CStruct* params, Scripts::CScript* script);
-bool __cdecl CFunc_Theme_GetBalanceArrowColor(Scripts::CStruct* params, Scripts::CScript* script);
-bool __cdecl CFunc_Theme_GetBGPartsColor(Scripts::CStruct* params, Scripts::CScript* script);
-bool __cdecl CFunc_Theme_GetKeyColor(Scripts::CStruct* params, Scripts::CScript* script);
-bool __cdecl CFunc_Theme_GetTextTwitchColor(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl cfunc_theme_get_highlighted_text_color(script::Struct* params, script::Script* script);
+bool __cdecl cfunc_theme_get_unhighlighted_text_color(script::Struct* params, script::Script* script);
+bool __cdecl cfunc_theme_get_highlighted_text_color_new(script::Struct* params, script::Script* script);
+bool __cdecl cfunc_theme_get_unhighlighted_text_color_new(script::Struct* params, script::Script* script);
+bool __cdecl cfunc_theme_get_highlight_bar_color(script::Struct* params, script::Script* script);
+bool __cdecl cfunc_theme_get_speech_box_color(script::Struct* params, script::Script* script);
+bool __cdecl cfunc_theme_get_pause_bar_color(script::Struct* params, script::Script* script);
+bool __cdecl cfunc_theme_get_icon_on_color(script::Struct* params, script::Script* script);
+bool __cdecl cfunc_theme_get_font_colors(script::Struct* params, script::Script* script);
+bool __cdecl cfunc_theme_get_support_piece_color(script::Struct* params, script::Script* script);
+bool __cdecl cfunc_theme_get_alt_color(script::Struct* params, script::Script* script);
+bool __cdecl cfunc_theme_get_menu_title_color(script::Struct* params, script::Script* script);
+bool __cdecl cfunc_theme_get_hud_color(script::Struct* params, script::Script* script);
+bool __cdecl cfunc_theme_get_hud_special_color(script::Struct* params, script::Script* script);
+bool __cdecl cfunc_theme_get_balance_meter_color(script::Struct* params, script::Script* script);
+bool __cdecl cfunc_theme_get_balance_arrow_color(script::Struct* params, script::Script* script);
+bool __cdecl cfunc_theme_get_bg_parts_color(script::Struct* params, script::Script* script);
+bool __cdecl cfunc_theme_get_key_color(script::Struct* params, script::Script* script);
+bool __cdecl cfunc_theme_get_text_twitch_color(script::Struct* params, script::Script* script);
 
-} // namespace ScriptCommands
+} // namespace commands

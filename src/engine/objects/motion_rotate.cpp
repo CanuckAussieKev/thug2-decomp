@@ -1,4 +1,4 @@
-// The motion component (GameObjects::CKinematicsModule, motion.h): turning - about its own axes at a speed (Obj_RotX / Y / Z),
+// The motion component (GameObjects::KinematicsModule, motion.h): turning - about its own axes at a speed (Obj_RotX / Y / Z),
 // to an orientation over time (Obj_Rotate's interpolation), to look at points, nodes and objects (Obj_LookAt*), and
 // to its node's angles.
 
@@ -16,9 +16,9 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 
-namespace GameObjects {
+namespace objects {
 
-using namespace MotionDetail;
+using namespace motion_detail;
 
 namespace {
 
@@ -37,21 +37,21 @@ constexpr uint32_t kGameObj = 0x3B5737A6;        // gameobj
 constexpr uint32_t kCar = 0x88C21962;            // Car
 
 // Degrees to radians (0x00645464).
-constexpr float kDegrees = Bits(0x3C8EFA35);
+constexpr float kDegrees = get_bits(0x3C8EFA35);
 
 // Each axis' value of a per-axis vector.
-float& Axis(Maths::Vec4& v, int axis) { return (&v.x)[axis]; }
+float& get_axis(maths::Vec4& v, int axis) { return (&v.x)[axis]; }
 
 // D3DXMatrixMultiply (0x005BFA8C, the D3DX library: not decompiled): out = a * b.
-void MatrixMultiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
+void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
 {
-    D3dx::MatrixMultiply(out, a, b);
+    d3dx::matrix_multiply(out, a, b);
 }
 
 // The node after `node` in a manager's object list (null at the end: the head's data is -1).
-MemSys::ListNode* NextObjectNode(MemSys::ListNode* node)
+memory::ListNode* next_object_node(memory::ListNode* node)
 {
-    MemSys::ListNode* next = node->next;
+    memory::ListNode* next = node->next;
     return next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
 }
 
@@ -60,124 +60,124 @@ MemSys::ListNode* NextObjectNode(MemSys::ListNode* node)
 // --- turning about the axes ---
 
 // 0x00423F10
-void CKinematicsModule::SetRotationDirection(int axis)
+void KinematicsModule::set_rotation_direction(int axis)
 {
-    float& speed = Axis(m_spinRates, axis);
-    float& maxSpeed = Axis(m_rotMaxSpeed, axis);
-    float& acceleration = Axis(m_rotAcceleration, axis);
-    float& deceleration = Axis(m_rotDeceleration, axis);
+    float& speed = get_axis(spin_rates_, axis);
+    float& max_speed = get_axis(rot_max_speed_, axis);
+    float& acceleration = get_axis(rot_acceleration_, axis);
+    float& deceleration = get_axis(rot_deceleration_, axis);
     speed = std::fabs(speed);
-    maxSpeed = std::fabs(maxSpeed);
+    max_speed = std::fabs(max_speed);
     acceleration = std::fabs(acceleration);
     deceleration = std::fabs(deceleration);
-    if (Axis(m_rotTarget, axis) < 0.0f) {
+    if (get_axis(rot_target_, axis) < 0.0f) {
         speed = -speed;
-        maxSpeed = -maxSpeed;
+        max_speed = -max_speed;
         acceleration = -acceleration;
         deceleration = -deceleration;
     }
 }
 
 // The body of Obj_RotX / RotY / RotZ (0x00424B90 / 0x00424D50 / 0x00424F50: three copies, the axis chosen before).
-void CKinematicsModule::RotateAboutAxisBy(Scripts::CStruct* params, int axis, float sign)
+void KinematicsModule::rotate_about_axis_by(script::Struct* params, int axis, float sign)
 {
-    float& target = Axis(m_rotTarget, axis);
-    float& speed = Axis(m_spinRates, axis);
-    float& deceleration = Axis(m_rotDeceleration, axis);
-    float& acceleration = Axis(m_rotAcceleration, axis);
+    float& target = get_axis(rot_target_, axis);
+    float& speed = get_axis(spin_rates_, axis);
+    float& deceleration = get_axis(rot_deceleration_, axis);
+    float& acceleration = get_axis(rot_acceleration_, axis);
     uint32_t bit = 1u << axis;
-    uint32_t forever = MOTION2_ROTATE_FOREVER_X << axis;
+    uint32_t forever = kMotion2RotateForeverX << axis;
     deceleration = 0.0f;
     acceleration = 0.0f;
     target = 0.0f;
-    if (params->FetchFloat(kAngle, &target, 0)) {
+    if (params->fetch_float(kAngle, &target, 0)) {
         target = static_cast<float>(static_cast<double>(target) * kDegrees * sign);
-        m_motionFlags2 &= ~forever;
-        Axis(m_rotDone, axis) = 0.0f;
+        motion_flags2_ &= ~forever;
+        get_axis(rot_done_, axis) = 0.0f;
         speed = 0.0f;
         if (target == 0.0f) {
-            m_motionFlags &= ~bit;
+            motion_flags_ &= ~bit;
             return;
         }
     }
-    float* speedParam;
-    if (params->FetchFloat(kDeceleration, &deceleration, 0)) {
+    float* speed_param;
+    if (params->fetch_float(kDeceleration, &deceleration, 0)) {
         deceleration = static_cast<float>(static_cast<double>(deceleration) * kDegrees);
-        speedParam = &Axis(m_rotMaxSpeed, axis);
-    } else if (params->FetchFloat(kAcceleration, &acceleration, 0)) {
+        speed_param = &get_axis(rot_max_speed_, axis);
+    } else if (params->fetch_float(kAcceleration, &acceleration, 0)) {
         acceleration = static_cast<float>(static_cast<double>(acceleration) * kDegrees);
-        float& maxSpeed = Axis(m_rotMaxSpeed, axis);
-        if (params->FetchFloat(kSpeed, &maxSpeed, 0))
-            maxSpeed = static_cast<float>(static_cast<double>(maxSpeed) * kDegrees);
-        if (!(m_motionFlags & bit))
+        float& max_speed = get_axis(rot_max_speed_, axis);
+        if (params->fetch_float(kSpeed, &max_speed, 0))
+            max_speed = static_cast<float>(static_cast<double>(max_speed) * kDegrees);
+        if (!(motion_flags_ & bit))
             speed = 0.0f;
-        speedParam = nullptr;
+        speed_param = nullptr;
     } else {
-        speedParam = &speed;
+        speed_param = &speed;
     }
-    if (speedParam && params->FetchFloat(kSpeed, speedParam, 0))
-        *speedParam = static_cast<float>(static_cast<double>(*speedParam) * kDegrees);
+    if (speed_param && params->fetch_float(kSpeed, speed_param, 0))
+        *speed_param = static_cast<float>(static_cast<double>(*speed_param) * kDegrees);
     // (no angle and no deceleration: round and round)
     if (target == 0.0f && deceleration == 0.0f)
-        m_motionFlags2 |= forever;
-    if (!(m_motionFlags2 & forever))
-        SetRotationDirection(axis);
-    m_motionFlags |= bit;
+        motion_flags2_ |= forever;
+    if (!(motion_flags2_ & forever))
+        set_rotation_direction(axis);
+    motion_flags_ |= bit;
 }
 
 // 0x00424B90
-bool CKinematicsModule::Obj_RotX(Scripts::CStruct* params, Scripts::CScript*)
+bool KinematicsModule::obj_rot_x(script::Struct* params, script::Script*)
 {
     float sign = 1.0f;
-    if (m_motionFlags & MOTION_LOOKING_AT)
-        m_motionFlags &= ~(MOTION_LOOKING_AT | MOTION_ROTATE_AXES);
-    if (params->HasBareFlag(kMaxCoords))
+    if (motion_flags_ & kMotionLookingAt)
+        motion_flags_ &= ~(kMotionLookingAt | kMotionRotateAxes);
+    if (params->has_bare_flag(kMaxCoords))
         sign = -1.0f;
-    RotateAboutAxisBy(params, 0, sign);
+    rotate_about_axis_by(params, 0, sign);
     return true;
 }
 
 // 0x00424D50
-bool CKinematicsModule::Obj_RotY(Scripts::CStruct* params, Scripts::CScript*)
+bool KinematicsModule::obj_rot_y(script::Struct* params, script::Script*)
 {
     int axis = 1;
-    if (m_motionFlags & MOTION_LOOKING_AT)
-        m_motionFlags &= ~(MOTION_LOOKING_AT | MOTION_ROTATE_AXES);
-    if (params->HasBareFlag(kMaxCoords))
+    if (motion_flags_ & kMotionLookingAt)
+        motion_flags_ &= ~(kMotionLookingAt | kMotionRotateAxes);
+    if (params->has_bare_flag(kMaxCoords))
         axis = 2;
-    RotateAboutAxisBy(params, axis, 1.0f);
+    rotate_about_axis_by(params, axis, 1.0f);
     return true;
 }
 
 // 0x00424F50
-bool CKinematicsModule::Obj_RotZ(Scripts::CStruct* params, Scripts::CScript*)
+bool KinematicsModule::obj_rot_z(script::Struct* params, script::Script*)
 {
     int axis = 2;
-    if (m_motionFlags & MOTION_LOOKING_AT)
-        m_motionFlags &= ~(MOTION_LOOKING_AT | MOTION_ROTATE_AXES);
-    if (params->HasBareFlag(kMaxCoords))
+    if (motion_flags_ & kMotionLookingAt)
+        motion_flags_ &= ~(kMotionLookingAt | kMotionRotateAxes);
+    if (params->has_bare_flag(kMaxCoords))
         axis = 1;
-    RotateAboutAxisBy(params, axis, 1.0f);
+    rotate_about_axis_by(params, axis, 1.0f);
     return true;
 }
 
 // 0x004258B0
-void CKinematicsModule::RotateAboutAxis(int axis, float angle)
+void KinematicsModule::rotate_about_axis(int axis, float angle)
 {
-    Maths::Mat4 rotation;
-    Maths::Mat4& matrix = m_entity->m_basisFrame;
+    maths::Mat4 rotation;
+    maths::Mat4& matrix = entity_->basis_frame_;
     switch (axis) {
     case 0:
-        MatrixMultiply(&matrix, &Maths::MakePitchMatrix(rotation, angle), &matrix);
-        matrix.SquareUpAxes(0);
+        matrix_multiply(&matrix, &maths::make_pitch_matrix(rotation, angle), &matrix);
+        matrix.square_up_axes(0);
         break;
     case 1:
-        MatrixMultiply(&matrix, &Maths::MakeYawMatrix(rotation, angle), &matrix);
-        matrix.SquareUpAxes(1);
+        matrix_multiply(&matrix, &maths::make_yaw_matrix(rotation, angle), &matrix);
+        matrix.square_up_axes(1);
         break;
     case 2:
-        MatrixMultiply(&matrix, &Maths::MakeRollMatrix(rotation, angle), &matrix);
-        matrix.SquareUpAxes(2);
+        matrix_multiply(&matrix, &maths::make_roll_matrix(rotation, angle), &matrix);
+        matrix.square_up_axes(2);
         break;
     default:
         break;
@@ -185,33 +185,33 @@ void CKinematicsModule::RotateAboutAxis(int axis, float angle)
 }
 
 // 0x00425A80
-bool CKinematicsModule::UpdateAxisRotation(int axis)
+bool KinematicsModule::update_axis_rotation(int axis)
 {
-    float& speed = Axis(m_spinRates, axis);
-    float& maxSpeed = Axis(m_rotMaxSpeed, axis);
-    float& acceleration = Axis(m_rotAcceleration, axis);
-    float& deceleration = Axis(m_rotDeceleration, axis);
+    float& speed = get_axis(spin_rates_, axis);
+    float& max_speed = get_axis(rot_max_speed_, axis);
+    float& acceleration = get_axis(rot_acceleration_, axis);
+    float& deceleration = get_axis(rot_deceleration_, axis);
     bool finished = false;
     if (!(acceleration == 0.0f)) {
-        speed = static_cast<float>(static_cast<double>(m_stepSeconds) * acceleration + speed);
+        speed = static_cast<float>(static_cast<double>(step_seconds_) * acceleration + speed);
         // (past the speed to reach, going its way: that speed)
-        if (std::fabs(maxSpeed) < std::fabs(speed) && (speed > 0.0f) == (maxSpeed > 0.0f))
-            speed = maxSpeed;
+        if (std::fabs(max_speed) < std::fabs(speed) && (speed > 0.0f) == (max_speed > 0.0f))
+            speed = max_speed;
     }
     if (!(deceleration == 0.0f)) {
-        double slowing = static_cast<double>(m_stepSeconds) * deceleration;
-        if (std::fabs(static_cast<double>(speed) - maxSpeed) < std::fabs(slowing)) {
+        double slowing = static_cast<double>(step_seconds_) * deceleration;
+        if (std::fabs(static_cast<double>(speed) - max_speed) < std::fabs(slowing)) {
             // (down to the speed to reach: done slowing - and, at a standstill, done turning; no turn this frame)
-            speed = maxSpeed;
+            speed = max_speed;
             deceleration = 0.0f;
-            return maxSpeed == 0.0f;
+            return max_speed == 0.0f;
         }
         speed = static_cast<float>(static_cast<double>(speed) - slowing);
     }
-    float step = static_cast<float>(static_cast<double>(speed) * m_stepSeconds);
-    if (!(m_motionFlags2 & (MOTION2_ROTATE_FOREVER_X << axis))) {
-        float target = Axis(m_rotTarget, axis);
-        float& done = Axis(m_rotDone, axis);
+    float step = static_cast<float>(static_cast<double>(speed) * step_seconds_);
+    if (!(motion_flags2_ & (kMotion2RotateForeverX << axis))) {
+        float target = get_axis(rot_target_, axis);
+        float& done = get_axis(rot_done_, axis);
         bool before = target > done;
         done = static_cast<float>(static_cast<double>(step) + done);
         if (before != (target > done)) {
@@ -220,128 +220,128 @@ bool CKinematicsModule::UpdateAxisRotation(int axis)
             step = static_cast<float>(static_cast<double>(step) - (static_cast<double>(done) - target));
         }
     }
-    RotateAboutAxis(axis, step);
+    rotate_about_axis(axis, step);
     return finished;
 }
 
 // 0x00425C70
-void CKinematicsModule::UpdateRotations()
+void KinematicsModule::update_rotations()
 {
     for (int axis = 0; axis < 3; ++axis) {
         uint32_t bit = 1u << axis;
-        if ((m_motionFlags & bit) && UpdateAxisRotation(axis))
-            m_motionFlags &= ~bit;
+        if ((motion_flags_ & bit) && update_axis_rotation(axis))
+            motion_flags_ &= ~bit;
     }
 }
 
 // --- Obj_Rotate's turn ---
 
 // 0x00425520
-void CKinematicsModule::StartRotation(Scripts::CStruct* params, const Maths::Mat4* target)
+void KinematicsModule::start_rotation(script::Struct* params, const maths::Mat4* target)
 {
-    if (!m_turnPtr) {
-        if (!MemSys::g_managerReady) // (the memory manager not set up yet)
-            MemSys::EnsureManager();
+    if (!turn_ptr_) {
+        if (!memory::g_manager_ready) // (the memory manager not set up yet)
+            memory::ensure_manager();
         // (its constructor, 0x005902E0, does nothing)
-        m_turnPtr = static_cast<Maths::ArcRotationBlender*>(MemSys::Hub::Pull()->Carve(0x98, 1, nullptr));
+        turn_ptr_ = static_cast<maths::ArcRotationBlender*>(memory::Hub::get_pull()->carve(0x98, 1, nullptr));
     }
-    Maths::Mat4 end;
+    maths::Mat4 end;
     end = *target;
-    m_turnPtr->SetMatrices(m_entity->m_basisFrame, end);
-    m_turnElapsed = 0.0f;
-    m_turnTime = 0.0f;
-    params->FetchFloat(kTime, &m_turnTime, 0);
-    m_motionFlags |= MOTION_TURNING;
+    turn_ptr_->set_matrices(entity_->basis_frame_, end);
+    turn_elapsed_ = 0.0f;
+    turn_time_ = 0.0f;
+    params->fetch_float(kTime, &turn_time_, 0);
+    motion_flags_ |= kMotionTurning;
 }
 
 // 0x00424440
-void CKinematicsModule::UpdateTurn()
+void KinematicsModule::update_turn()
 {
-    float elapsed = static_cast<float>(static_cast<double>(m_stepSeconds) + m_turnElapsed);
-    m_turnElapsed = elapsed;
+    float elapsed = static_cast<float>(static_cast<double>(step_seconds_) + turn_elapsed_);
+    turn_elapsed_ = elapsed;
     float t;
-    if (!(m_turnTime == 0.0f) && !(elapsed >= m_turnTime)) {
-        t = static_cast<float>(static_cast<double>(elapsed) / m_turnTime);
+    if (!(turn_time_ == 0.0f) && !(elapsed >= turn_time_)) {
+        t = static_cast<float>(static_cast<double>(elapsed) / turn_time_);
     } else {
         t = 1.0f;
-        m_motionFlags &= ~MOTION_TURNING;
+        motion_flags_ &= ~kMotionTurning;
     }
-    m_turnPtr->FetchMat(m_entity->m_basisFrame, t);
+    turn_ptr_->fetch_mat(entity_->basis_frame_, t);
 }
 
 // --- looking at things ---
 
 // 0x004240E0
-bool CKinematicsModule::SetupLookAxis(const Maths::Vec4* target, const Maths::Vec4* from, int referenceAxis, int axis,
+bool KinematicsModule::setup_look_axis(const maths::Vec4* target, const maths::Vec4* from, int reference_axis, int axis,
                                      float threshold)
 {
-    Maths::Vec4 offset = {static_cast<float>(static_cast<double>(target->x) - from->x),
+    maths::Vec4 offset = {static_cast<float>(static_cast<double>(target->x) - from->x),
                           static_cast<float>(static_cast<double>(target->y) - from->y),
                           static_cast<float>(static_cast<double>(target->z) - from->z),
                           static_cast<float>(static_cast<double>(target->w) - from->w)};
-    Axis(m_rotDone, axis) = 0.0f;
-    float angle = Maths::GetAngleInPlane(m_entity->m_basisFrame, offset, referenceAxis, axis);
-    Axis(m_rotTarget, axis) = angle;
+    get_axis(rot_done_, axis) = 0.0f;
+    float angle = maths::get_angle_in_plane(entity_->basis_frame_, offset, reference_axis, axis);
+    get_axis(rot_target_, axis) = angle;
     if (std::fabs(angle) > threshold) {
-        m_motionFlags |= 1u << axis;
+        motion_flags_ |= 1u << axis;
         return true;
     }
     return false;
 }
 
 // 0x004252E0
-bool CKinematicsModule::LookAt(Scripts::CStruct* params, const Maths::Vec4* target)
+bool KinematicsModule::get_look_at(script::Struct* params, const maths::Vec4* target)
 {
     float threshold = 0.0f;
-    params->FetchFloat(kAngleThreshold, &threshold, 0);
+    params->fetch_float(kAngleThreshold, &threshold, 0);
     threshold = static_cast<float>(static_cast<double>(threshold) * kDegrees);
-    if (params->HasBareFlag(kInstant)) {
-        const Maths::Vec4& pos = m_entity->m_atPoint;
-        Maths::Vec4 offset = {static_cast<float>(static_cast<double>(target->x) - pos.x),
+    if (params->has_bare_flag(kInstant)) {
+        const maths::Vec4& pos = entity_->at_point_;
+        maths::Vec4 offset = {static_cast<float>(static_cast<double>(target->x) - pos.x),
                               static_cast<float>(static_cast<double>(target->y) - pos.y),
                               static_cast<float>(static_cast<double>(target->z) - pos.z),
                               static_cast<float>(static_cast<double>(target->w) - pos.w)};
-        float angle = Maths::GetAngleInPlane(m_entity->m_basisFrame, offset, 2, 1);
+        float angle = maths::get_angle_in_plane(entity_->basis_frame_, offset, 2, 1);
         if (!(std::fabs(angle) > threshold))
             return false;
-        Maths::Mat4 rotation;
-        Maths::Mat4& matrix = m_entity->m_basisFrame;
-        MatrixMultiply(&matrix, &Maths::MakeYawMatrix(rotation, angle), &matrix);
+        maths::Mat4 rotation;
+        maths::Mat4& matrix = entity_->basis_frame_;
+        matrix_multiply(&matrix, &maths::make_yaw_matrix(rotation, angle), &matrix);
         return true;
     }
     int speed = 360;
     int acceleration = 0;
     int axes = 2; // (y)
     float time = 0.0f;
-    if (!(m_motionFlags & MOTION_LOOKING_AT)) {
-        m_motionFlags = (m_motionFlags & ~MOTION_ROTATE_AXES) | MOTION_LOOKING_AT;
-        m_motionFlags2 &= ~(MOTION2_ROTATE_FOREVER_X * 7);
+    if (!(motion_flags_ & kMotionLookingAt)) {
+        motion_flags_ = (motion_flags_ & ~kMotionRotateAxes) | kMotionLookingAt;
+        motion_flags2_ &= ~(kMotion2RotateForeverX * 7);
     }
-    params->FetchFloat(kTime, &time, 0);
+    params->fetch_float(kTime, &time, 0);
     if (time == 0.0f) {
-        params->FetchIntValue(kSpeed, &speed, 0);
-        params->FetchIntValue(kAcceleration, &acceleration, 0);
-        params->FetchIntValue(kAxes, &axes, 0);
+        params->fetch_int_value(kSpeed, &speed, 0);
+        params->fetch_int_value(kAcceleration, &acceleration, 0);
+        params->fetch_int_value(kAxes, &axes, 0);
     }
     bool turning = false;
     for (int axis = 0; axis < 3; ++axis) {
         if (!(axes & (1 << axis)))
             continue;
-        if (!SetupLookAxis(target, &m_entity->m_atPoint, (axis != 2) + 1, axis, threshold))
+        if (!setup_look_axis(target, &entity_->at_point_, (axis != 2) + 1, axis, threshold))
             continue;
         if (!(time == 0.0f)) {
-            Axis(m_rotAcceleration, axis) = 0.0f;
-            Axis(m_spinRates, axis) = static_cast<float>(static_cast<double>(Axis(m_rotTarget, axis)) / time);
+            get_axis(rot_acceleration_, axis) = 0.0f;
+            get_axis(spin_rates_, axis) = static_cast<float>(static_cast<double>(get_axis(rot_target_, axis)) / time);
         } else {
             double rate = static_cast<double>(acceleration) * kDegrees;
-            Axis(m_rotAcceleration, axis) = static_cast<float>(rate);
+            get_axis(rot_acceleration_, axis) = static_cast<float>(rate);
             if (rate == 0.0) {
-                Axis(m_spinRates, axis) = static_cast<float>(static_cast<double>(speed) * kDegrees);
+                get_axis(spin_rates_, axis) = static_cast<float>(static_cast<double>(speed) * kDegrees);
             } else {
-                Axis(m_spinRates, axis) = 0.0f;
-                Axis(m_rotMaxSpeed, axis) = 0.0f;
+                get_axis(spin_rates_, axis) = 0.0f;
+                get_axis(rot_max_speed_, axis) = 0.0f;
             }
-            SetRotationDirection(axis);
+            set_rotation_direction(axis);
         }
         turning = true;
     }
@@ -349,174 +349,174 @@ bool CKinematicsModule::LookAt(Scripts::CStruct* params, const Maths::Vec4* targ
 }
 
 // 0x00425710
-void CKinematicsModule::LookAtNodeLinked(Scripts::CStruct* params, Scripts::CScript*)
+void KinematicsModule::look_at_node_linked(script::Struct* params, script::Script*)
 {
-    int links = static_cast<int>(LevelNodes::GetLinkCount(m_listLink));
+    int links = static_cast<int>(level_nodes::get_link_count(list_link_));
     if (!links)
         return;
     int link = 1;
-    params->FetchIntValue(kLinkNum, &link, 0);
+    params->fetch_int_value(kLinkNum, &link, 0);
     link -= 1;
     if (link < 0 || link >= links)
         link = 0;
-    Maths::Vec4 pos;
-    LevelNodes::FetchPlace(LevelNodes::FetchNeighbourNode(m_listLink, link), &pos);
-    LookAt(params, &pos);
+    maths::Vec4 pos;
+    level_nodes::fetch_place(level_nodes::fetch_neighbour_node(list_link_, link), &pos);
+    get_look_at(params, &pos);
 }
 
 // 0x004257A0
-void CKinematicsModule::LookAtNode(Scripts::CStruct* params, Scripts::CScript*)
+void KinematicsModule::look_at_node(script::Struct* params, script::Script*)
 {
     uint32_t name = 0;
-    params->ReadHashValue(kName, &name, 0);
+    params->read_hash_value(kName, &name, 0);
     if (!name)
         return;
-    Maths::Vec4 pos;
-    LevelNodes::FetchPlace(LevelNodes::FetchVertex(name, true), &pos);
-    LookAt(params, &pos);
+    maths::Vec4 pos;
+    level_nodes::fetch_place(level_nodes::fetch_vertex(name, true), &pos);
+    get_look_at(params, &pos);
 }
 
 // 0x00425800
-void CKinematicsModule::LookAtPosition(Scripts::CStruct* params, bool absolute)
+void KinematicsModule::look_at_position(script::Struct* params, bool absolute)
 {
-    Maths::Vec4 pos = {0.0f, 0.0f, 0.0f, 1.0f};
-    params->FetchVec(0u, reinterpret_cast<Scripts::VectorValue*>(&pos), 0);
-    if (params->HasBareFlag(kMaxCoords))
-        pos.NegateXRotateX90();
+    maths::Vec4 pos = {0.0f, 0.0f, 0.0f, 1.0f};
+    params->fetch_vec(0u, reinterpret_cast<script::VectorValue*>(&pos), 0);
+    if (params->has_bare_flag(kMaxCoords))
+        pos.negate_x_rotate_x90();
     if (!absolute) {
-        const Maths::Vec4& at = m_entity->m_atPoint;
+        const maths::Vec4& at = entity_->at_point_;
         pos = {pos.x + at.x, pos.y + at.y, pos.z + at.z, pos.w + at.w};
     }
-    LookAt(params, &pos);
+    get_look_at(params, &pos);
 }
 
 // 0x00427500
-bool CKinematicsModule::LookAtObject(Scripts::CStruct* params, Scripts::CScript*)
+bool KinematicsModule::look_at_object(script::Struct* params, script::Script*)
 {
     uint32_t type;
-    if (params->ReadHashValue(kTypeName, &type, 0)) {
-        uint32_t objectType;
+    if (params->read_hash_value(kTypeName, &type, 0)) {
+        uint32_t object_type;
         switch (type) {
         case kSkater:
-            objectType = 0xBAF9B341; // OBJECT_TYPE_SKATER
+            object_type = 0xBAF9B341; // OBJECT_TYPE_SKATER
             break;
         case kPed:
-            objectType = 0xD2DB7F97; // OBJECT_TYPE_PED
+            object_type = 0xD2DB7F97; // OBJECT_TYPE_PED
             break;
         case kGameObj:
-            objectType = 0xBC0D91D8; // OBJECT_TYPE_GAME_OBJ
+            object_type = 0xBC0D91D8; // OBJECT_TYPE_GAME_OBJ
             break;
         case kCar:
-            objectType = 0x5C0312EB; // OBJECT_TYPE_CAR
+            object_type = 0x5C0312EB; // OBJECT_TYPE_CAR
             break;
         default:
             return false;
         }
-        CGameEntity* other = m_entity->FindNearestObjectOfType(objectType);
+        GameEntity* other = entity_->find_nearest_object_of_type(object_type);
         if (!other)
             return false;
-        return LookAt(params, &other->m_atPoint);
+        return get_look_at(params, &other->at_point_);
     }
     uint32_t name;
-    if (!params->ReadHashValue(kName, &name, 0))
+    if (!params->read_hash_value(kName, &name, 0))
         return false;
     // (the object of that id in its manager's list, not itself)
-    auto* list = reinterpret_cast<MemSys::ListNode*(__thiscall*)(CObjectHubBase*)>(m_entity->m_parkOwner->m_vtable[6])(
-        m_entity->m_parkOwner);
-    MemSys::ListNode* node = NextObjectNode(list);
-    auto* object = node ? static_cast<CEntity*>(node->data) : nullptr;
+    auto* list = reinterpret_cast<memory::ListNode*(__thiscall*)(ObjectHubBase*)>(entity_->park_owner_->vtable_[6])(
+        entity_->park_owner_);
+    memory::ListNode* node = next_object_node(list);
+    auto* object = node ? static_cast<Entity*>(node->data) : nullptr;
     while (object) {
-        CEntity* current = object;
-        node = NextObjectNode(node);
-        object = node ? static_cast<CEntity*>(node->data) : nullptr;
-        if (current != m_entity && current->m_ident == name)
-            return LookAt(params, &static_cast<CGameEntity*>(current)->m_atPoint);
+        Entity* current = object;
+        node = next_object_node(node);
+        object = node ? static_cast<Entity*>(node->data) : nullptr;
+        if (current != entity_ && current->ident_ == name)
+            return get_look_at(params, &static_cast<GameEntity*>(current)->at_point_);
     }
     return false;
 }
 
 // 0x00425970
-void CKinematicsModule::FaceNode(Scripts::CStruct* node)
+void KinematicsModule::face_node(script::Struct* node)
 {
-    Maths::Mat4& matrix = m_entity->m_basisFrame;
+    maths::Mat4& matrix = entity_->basis_frame_;
     matrix.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     matrix.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     matrix.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
     matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    Maths::Vec4 angles;
-    LevelNodes::ReadTurnAngles(node, &angles);
+    maths::Vec4 angles;
+    level_nodes::read_turn_angles(node, &angles);
     if (!(angles.x == 0.0f) || !(angles.y == 0.0f) || !(angles.z == 0.0f)) {
-        Maths::Mat4 rotation;
-        MatrixMultiply(&matrix, &matrix, &Maths::MakePitchMatrix(rotation, angles.x));
-        MatrixMultiply(&matrix, &matrix, &Maths::MakeYawMatrix(rotation, angles.y));
-        MatrixMultiply(&matrix, &matrix, &Maths::MakeRollMatrix(rotation, angles.z));
+        maths::Mat4 rotation;
+        matrix_multiply(&matrix, &matrix, &maths::make_pitch_matrix(rotation, angles.x));
+        matrix_multiply(&matrix, &matrix, &maths::make_yaw_matrix(rotation, angles.y));
+        matrix_multiply(&matrix, &matrix, &maths::make_roll_matrix(rotation, angles.z));
     }
-    m_entity->m_displayMatrix = matrix;
+    entity_->display_matrix_ = matrix;
 }
 
 // --- script member functions ---
 
 // 0x00426770
-bool CKinematicsModule::Obj_Rotate(Scripts::CStruct* params, Scripts::CScript*)
+bool KinematicsModule::obj_rotate(script::Struct* params, script::Script*)
 {
-    RotateTo(params);
+    rotate_to(params);
     return true;
 }
 
 // 0x00426790
-bool CKinematicsModule::Obj_LookAtNode(Scripts::CStruct* params, Scripts::CScript* script)
+bool KinematicsModule::obj_look_at_node(script::Struct* params, script::Script* script)
 {
-    LookAtNode(params, script);
+    look_at_node(params, script);
     return true;
 }
 
 // 0x004267B0
-bool CKinematicsModule::Obj_LookAtNodeLinked(Scripts::CStruct* params, Scripts::CScript* script)
+bool KinematicsModule::obj_look_at_node_linked(script::Struct* params, script::Script* script)
 {
-    LookAtNodeLinked(params, script);
+    look_at_node_linked(params, script);
     return true;
 }
 
 // 0x004267D0
-bool CKinematicsModule::Obj_LookAtNodeStored(Scripts::CStruct* params, Scripts::CScript*)
+bool KinematicsModule::obj_look_at_node_stored(script::Struct* params, script::Script*)
 {
-    Maths::Vec4 pos;
-    LevelNodes::FetchPlace(m_savedNodeId, &pos);
-    LookAt(params, &pos);
+    maths::Vec4 pos;
+    level_nodes::fetch_place(saved_node_id_, &pos);
+    get_look_at(params, &pos);
     return true;
 }
 
-// 0x00426810 (LookAtPosition's absolute case again, as its own code)
-bool CKinematicsModule::Obj_LookAtPos(Scripts::CStruct* params, Scripts::CScript*)
+// 0x00426810 (look_at_position's absolute case again, as its own code)
+bool KinematicsModule::obj_look_at_pos(script::Struct* params, script::Script*)
 {
-    Maths::Vec4 pos = {0.0f, 0.0f, 0.0f, 1.0f};
-    params->FetchVec(0u, reinterpret_cast<Scripts::VectorValue*>(&pos), 0);
-    if (params->HasBareFlag(kMaxCoords))
-        pos.NegateXRotateX90();
-    LookAt(params, &pos);
+    maths::Vec4 pos = {0.0f, 0.0f, 0.0f, 1.0f};
+    params->fetch_vec(0u, reinterpret_cast<script::VectorValue*>(&pos), 0);
+    if (params->has_bare_flag(kMaxCoords))
+        pos.negate_x_rotate_x90();
+    get_look_at(params, &pos);
     return true;
 }
 
 // 0x00426880
-bool CKinematicsModule::Obj_LookAtPosStored(Scripts::CStruct* params, Scripts::CScript*)
+bool KinematicsModule::obj_look_at_pos_stored(script::Struct* params, script::Script*)
 {
-    LookAt(params, &m_storedPos);
+    get_look_at(params, &stored_pos_);
     return true;
 }
 
 // 0x004268A0
-bool CKinematicsModule::Obj_LookAtRelPos(Scripts::CStruct* params, Scripts::CScript*)
+bool KinematicsModule::obj_look_at_rel_pos(script::Struct* params, script::Script*)
 {
-    LookAtPosition(params, false);
+    look_at_position(params, false);
     return true;
 }
 
 // 0x004276A0
-bool CKinematicsModule::Obj_LookAtObject(Scripts::CStruct* params, Scripts::CScript* script)
+bool KinematicsModule::obj_look_at_object(script::Struct* params, script::Script* script)
 {
-    return LookAtObject(params, script);
+    return look_at_object(params, script);
 }
 
 } // namespace Obj
 
-using GameObjects::CKinematicsModule;
+using objects::KinematicsModule;

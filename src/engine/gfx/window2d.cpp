@@ -7,96 +7,96 @@
 #include "engine/gfx/pc_billboards.h"
 #include "engine/core/code_address.h"
 
-namespace Engine3D {
+namespace render {
 
-CScreenWindow* g_freeWindows;
+ScreenWindow* g_free_windows;
 
 namespace {
 
 extern void** const kWindowVtable;
 
-CScreenWindow*& FreeWindows() { return g_freeWindows; }
-void Changed(CScreenWindow* window)
+ScreenWindow*& free_windows() { return g_free_windows; }
+void get_changed(ScreenWindow* window)
 {
-    reinterpret_cast<void(__thiscall*)(CScreenWindow*)>(window->m_vtable[1])(window);
+    reinterpret_cast<void(__thiscall*)(ScreenWindow*)>(window->vtable_[1])(window);
 }
 
 } // namespace
 
 // 0x004A1580
-CScreenWindow* CScreenWindow::MakeNew(int x, int y, int width, int height)
+ScreenWindow* ScreenWindow::make_new(int x, int y, int width, int height)
 {
-    m_posX = x;
-    m_y = y;
-    m_vtable = reinterpret_cast<void**>(kWindowVtable);
-    m_span = width;
-    m_levelY = height;
-    m_following = nullptr;
+    pos_x_ = x;
+    y_ = y;
+    vtable_ = reinterpret_cast<void**>(kWindowVtable);
+    span_ = width;
+    level_y_ = height;
+    following_ = nullptr;
     return this;
 }
 
 // 0x004A15B0
-void CScreenWindow::DestroyBody()
+void ScreenWindow::destroy_body()
 {
-    m_vtable = reinterpret_cast<void**>(kWindowVtable);
+    vtable_ = reinterpret_cast<void**>(kWindowVtable);
 }
 
 // 0x004A1690
-CScreenWindow* CScreenWindow::Teardown(unsigned int freeFlags)
+ScreenWindow* ScreenWindow::teardown(unsigned int free_flags)
 {
-    m_vtable = reinterpret_cast<void**>(kWindowVtable);
-    if (freeFlags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+    vtable_ = reinterpret_cast<void**>(kWindowVtable);
+    if (free_flags & 1)
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x004A1600
-void CScreenWindow::TickEngine()
+void ScreenWindow::tick_engine()
 {
-    DebugOut::Printf("STUB: PlatUpdateEngine\n");
+    debug::printf("STUB: PlatUpdateEngine\n");
 }
 
 // 0x004A15C0
-void CScreenWindow::ChangeLocation(int x, int y)
+void ScreenWindow::change_location(int x, int y)
 {
-    m_posX = x;
-    m_y = y;
-    Changed(this);
+    pos_x_ = x;
+    y_ = y;
+    get_changed(this);
 }
 
 // 0x004A15E0
-void CScreenWindow::ChangeExtent(int width, int height)
+void ScreenWindow::change_extent(int width, int height)
 {
-    m_span = width;
-    m_levelY = height;
-    Changed(this);
+    span_ = width;
+    level_y_ = height;
+    get_changed(this);
 }
 
 // 0x004A1620
-CScreenWindow* __cdecl AllocateWindow2D(int x, int y, int width, int height)
+ScreenWindow* __cdecl allocate_window_2d(int x, int y, int width, int height)
 {
-    CScreenWindow* window = FreeWindows();
+    ScreenWindow* window = free_windows();
     if (window)
-        FreeWindows() = window->m_following;
-    window->m_posX = x;
-    window->m_y = y;
-    Changed(window);
-    window->m_span = width;
-    window->m_levelY = height;
-    Changed(window);
+        free_windows() = window->following_;
+    window->pos_x_ = x;
+    window->y_ = y;
+    get_changed(window);
+    window->span_ = width;
+    window->level_y_ = height;
+    get_changed(window);
     return window;
 }
 
 // 0x004A1670
-void __cdecl FreeWindow2D(CScreenWindow* window)
+void __cdecl free_window_2d(ScreenWindow* window)
 {
-    window->m_following = FreeWindows();
-    FreeWindows() = window;
+    window->following_ = free_windows();
+    free_windows() = window;
 }
 
 namespace {
-static VtableSlot kWindowVtable_slots[] = {&Engine3D::CScreenWindow::Teardown, &Engine3D::CScreenWindow::TickEngine};
-void** const kWindowVtable = reinterpret_cast<void**>(kWindowVtable_slots);
+static VtableSlot g_window_vtable_slots[] = {&render::ScreenWindow::teardown, &render::ScreenWindow::tick_engine};
+void** const kWindowVtable = reinterpret_cast<void**>(g_window_vtable_slots);
 } // namespace
 
 } // namespace Nx

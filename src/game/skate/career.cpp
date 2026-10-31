@@ -17,19 +17,19 @@
 #include "engine/core/code_address.h"
 #include "engine/net/gamenet_manager.h"
 
-namespace GameObjects {
+namespace objects {
 
 // Levels left out of the totals (a byte each, up to the cheat flag at 0x007CE4FD).
-bool g_careerLeftOut[CRiderStoryProgress::kLevels];
+bool g_career_left_out[RiderStoryProgress::kLevels];
 
 namespace {
 
-bool* LeftOut() { return g_careerLeftOut; }
+bool* left_out() { return g_career_left_out; }
 
-uint32_t Bit(int index) { return 1u << (index & 0x1F); }
-int Word(int index) { return index >> 5; }
+uint32_t get_bit(int index) { return 1u << (index & 0x1F); }
+int get_word(int index) { return index >> 5; }
 
-int PopCount(uint32_t word)
+int pop_count(uint32_t word)
 {
     int count = 0;
     for (int i = 0; i < 32; ++i, word >>= 1)
@@ -40,256 +40,256 @@ int PopCount(uint32_t word)
 } // namespace
 
 // 0x00584110 / 0x00584130
-GoalSystem::CGapTally* CRiderStoryProgress::FetchGapList(int level) { return m_gaps[level == -1 ? m_level : level]; }
-int CRiderStoryProgress::FetchStage() { return m_level; }
+goals::GapTally* RiderStoryProgress::fetch_gap_list(int level) { return gaps_[level == -1 ? level_ : level]; }
+int RiderStoryProgress::fetch_stage() { return level_; }
 
 // 0x00584140
-void CRiderStoryProgress::SetGoal(int goal, int level)
+void RiderStoryProgress::set_goal(int goal, int level)
 {
     if (level == -1)
-        level = m_level;
-    GoalWords()[level * 8 + Word(goal)] |= Bit(goal);
+        level = level_;
+    goal_words()[level * 8 + get_word(goal)] |= get_bit(goal);
 }
 
 // 0x00584180
-void CRiderStoryProgress::UnSetGoal(int goal, int level)
+void RiderStoryProgress::un_set_goal(int goal, int level)
 {
     if (level == -1)
-        level = m_level;
-    uint32_t mask = ~Bit(goal);
-    GoalWords()[level * 8 + Word(goal)] &= mask;
-    m_startGoals[Word(goal)] &= mask;
+        level = level_;
+    uint32_t mask = ~get_bit(goal);
+    goal_words()[level * 8 + get_word(goal)] &= mask;
+    start_goals_[get_word(goal)] &= mask;
 }
 
 // 0x005841D0
-bool CRiderStoryProgress::GetGoal(int goal, int level)
+bool RiderStoryProgress::get_goal(int goal, int level)
 {
     if (level == -1)
-        level = m_level;
-    return (GoalWords()[level * 8 + Word(goal)] & Bit(goal)) != 0;
+        level = level_;
+    return (goal_words()[level * 8 + get_word(goal)] & get_bit(goal)) != 0;
 }
 
 // 0x00584210
-bool CRiderStoryProgress::JustGotGoal(int goal)
+bool RiderStoryProgress::just_got_goal(int goal)
 {
-    return ((m_startGoals[Word(goal)] ^ GoalWords()[m_level * 8 + Word(goal)]) & Bit(goal)) != 0;
+    return ((start_goals_[get_word(goal)] ^ goal_words()[level_ * 8 + get_word(goal)]) & get_bit(goal)) != 0;
 }
 
 // 0x00584250
-int CRiderStoryProgress::CountGoals(int level)
+int RiderStoryProgress::count_goals(int level)
 {
     if (level == -1)
-        level = m_level;
-    return PopCount(m_goals[level][0]) + PopCount(m_goals[level][1]);
+        level = level_;
+    return pop_count(goals_[level][0]) + pop_count(goals_[level][1]);
 }
 
 // 0x005842A0
-int CRiderStoryProgress::CountTotalGoals()
+int RiderStoryProgress::count_total_goals()
 {
     int total = 0;
     for (int level = 0; level < kLevels; ++level) {
-        if (!LeftOut()[level])
-            total += PopCount(m_goals[level][1]) + PopCount(m_goals[level][0]);
+        if (!left_out()[level])
+            total += pop_count(goals_[level][1]) + pop_count(goals_[level][0]);
     }
     return total;
 }
 
 // 0x00584320
-int CRiderStoryProgress::CountLevelsWithGoals()
+int RiderStoryProgress::count_levels_with_goals()
 {
     int count = 0;
     for (int level = 0; level < kLevels; ++level) {
-        if (LeftOut()[level])
-            count += PopCount(m_goals[level][1]) + PopCount(m_goals[level][0]) > 0 ? 1 : 0;
+        if (left_out()[level])
+            count += pop_count(goals_[level][1]) + pop_count(goals_[level][0]) > 0 ? 1 : 0;
     }
     return count;
 }
 
 // 0x005843A0 / 0x005843D0 / 0x00584400
-void CRiderStoryProgress::SetGlobalFlag(int flag) { m_globalFlags[Word(flag)] |= Bit(flag); }
-void CRiderStoryProgress::UnSetGlobalFlag(int flag) { m_globalFlags[Word(flag)] &= ~Bit(flag); }
-bool CRiderStoryProgress::GetGlobalFlag(int flag) { return (m_globalFlags[Word(flag)] & Bit(flag)) != 0; }
+void RiderStoryProgress::set_global_flag(int flag) { global_flags_[get_word(flag)] |= get_bit(flag); }
+void RiderStoryProgress::un_set_global_flag(int flag) { global_flags_[get_word(flag)] &= ~get_bit(flag); }
+bool RiderStoryProgress::get_global_flag(int flag) { return (global_flags_[get_word(flag)] & get_bit(flag)) != 0; }
 
 // 0x00584430
-void CRiderStoryProgress::SetFlag(int flag, int level)
+void RiderStoryProgress::set_flag(int flag, int level)
 {
     if (level == -1)
-        level = m_level;
-    FlagWords()[level * 8 + Word(flag)] |= Bit(flag);
+        level = level_;
+    flag_words()[level * 8 + get_word(flag)] |= get_bit(flag);
 }
 
 // 0x00584470
-void CRiderStoryProgress::UnSetFlag(int flag, int level)
+void RiderStoryProgress::un_set_flag(int flag, int level)
 {
     if (level == -1)
-        level = m_level;
-    uint32_t mask = ~Bit(flag);
-    FlagWords()[level * 8 + Word(flag)] &= mask;
-    m_startFlags[Word(flag)] &= mask;
+        level = level_;
+    uint32_t mask = ~get_bit(flag);
+    flag_words()[level * 8 + get_word(flag)] &= mask;
+    start_flags_[get_word(flag)] &= mask;
 }
 
 // 0x005844C0
-bool CRiderStoryProgress::FetchMarker(int flag, int level)
+bool RiderStoryProgress::fetch_marker(int flag, int level)
 {
     if (level == -1)
-        level = m_level;
-    return (FlagWords()[level * 8 + Word(flag)] & Bit(flag)) != 0;
+        level = level_;
+    return (flag_words()[level * 8 + get_word(flag)] & get_bit(flag)) != 0;
 }
 
 // 0x00584500
-bool CRiderStoryProgress::JustGotFlag(int flag)
+bool RiderStoryProgress::just_got_flag(int flag)
 {
-    return ((m_startFlags[Word(flag)] ^ FlagWords()[m_level * 8 + Word(flag)]) & Bit(flag)) != 0;
+    return ((start_flags_[get_word(flag)] ^ flag_words()[level_ * 8 + get_word(flag)]) & get_bit(flag)) != 0;
 }
 
 // 0x00584540 / 0x00584560
-int CRiderStoryProgress::GetInfoInteger(uint32_t name)
+int RiderStoryProgress::get_info_integer(uint32_t name)
 {
     int value;
-    m_details->FetchIntValue(name, &value, 1);
+    details_->fetch_int_value(name, &value, 1);
     return value;
 }
-bool CRiderStoryProgress::SetInfoInteger(uint32_t name, int value)
+bool RiderStoryProgress::set_info_integer(uint32_t name, int value)
 {
-    m_details->PutInt(name, value);
+    details_->put_int(name, value);
     return true;
 }
 
 // 0x00584580
-void CRiderStoryProgress::AddToInfo471FC4DD(int amount)
+void RiderStoryProgress::add_to_info_471f_c_4d_d(int amount)
 {
     int value;
-    m_details->FetchIntValue(0x471FC4DD, &value, 1);
-    m_details->PutInt(0x471FC4DD, value + amount);
+    details_->fetch_int_value(0x471FC4DD, &value, 1);
+    details_->put_int(0x471FC4DD, value + amount);
 }
 
 // 0x005845C0
-uint16_t* CRiderStoryProgress::DepositMoney(int amount)
+uint16_t* RiderStoryProgress::deposit_money(int amount)
 {
-    m_lifetimeFunds = static_cast<uint16_t>(m_lifetimeFunds + amount);
-    m_funds[m_level] = static_cast<uint16_t>(m_funds[m_level] + amount);
-    return &m_funds[m_level];
+    lifetime_funds_ = static_cast<uint16_t>(lifetime_funds_ + amount);
+    funds_[level_] = static_cast<uint16_t>(funds_[level_] + amount);
+    return &funds_[level_];
 }
 
 // 0x005845F0
-void CRiderStoryProgress::SetLevelAmount(int amount)
+void RiderStoryProgress::set_level_amount(int amount)
 {
-    uint16_t& level = m_amount[m_level];
-    m_totalAmount = static_cast<uint16_t>(m_totalAmount + static_cast<uint16_t>(amount - level));
+    uint16_t& level = amount_[level_];
+    total_amount_ = static_cast<uint16_t>(total_amount_ + static_cast<uint16_t>(amount - level));
     level = static_cast<uint16_t>(amount);
 }
 
 // 0x00584620 / 0x00584640 / 0x00584650
-uint8_t* CRiderStoryProgress::IncrementCounter()
+uint8_t* RiderStoryProgress::increment_counter()
 {
-    uint8_t* counter = &m_counter[m_level];
+    uint8_t* counter = &counter_[level_];
     ++*counter;
-    ++m_totalCounter;
+    ++total_counter_;
     return counter;
 }
-uint8_t CRiderStoryProgress::GetCounter(int level) { return m_counter[level]; }
-void CRiderStoryProgress::SetFlag5EF(uint8_t value) { m_flag5EF = value; }
+uint8_t RiderStoryProgress::get_counter(int level) { return counter_[level]; }
+void RiderStoryProgress::set_flag_5e_f(uint8_t value) { flag_5e_f_ = value; }
 
 // 0x00584660
-void CRiderStoryProgress::SetValue634(int value)
+void RiderStoryProgress::set_value634(int value)
 {
-    m_value634 = value;
-    if (value > m_maxValue634)
-        m_maxValue634 = value;
+    value634_ = value;
+    if (value > max_value634_)
+        max_value634_ = value;
 }
 
 // 0x00584680
-bool CRiderStoryProgress::Reset(bool resetGaps, uint32_t part)
+bool RiderStoryProgress::get_reset(bool reset_gaps, uint32_t part)
 {
-    if (resetGaps) {
+    if (reset_gaps) {
         for (int level = 0; level < kLevels; ++level)
-            m_gaps[level]->Reset();
-        MenuSystem::LevelEditor::Career::CareerReplaced(); // (NOT ORIGINAL: an edited copy's baseline taken again)
+            gaps_[level]->get_reset();
+        frontend::level_editor::career::career_replaced(); // (NOT ORIGINAL: an edited copy's baseline taken again)
     }
-    m_level = 0;
+    level_ = 0;
     // A flag and the goal of the same number cleared (and their level-start copies).
     auto clear = [this](int bit, int level) {
-        UnSetFlag(bit, level);
-        uint32_t mask = ~Bit(bit);
-        GoalWords()[level * 8 + Word(bit)] &= mask;
-        m_startGoals[Word(bit)] &= mask;
+        un_set_flag(bit, level);
+        uint32_t mask = ~get_bit(bit);
+        goal_words()[level * 8 + get_word(bit)] &= mask;
+        start_goals_[get_word(bit)] &= mask;
     };
     if (part == 0 || part == 0x4DA4937B) {
         for (int level = 0; level < kLevels; ++level) {
             for (int bit = 0; bit < 200; ++bit)
                 clear(bit, level);
-            LeftOut()[level] = false;
-            m_funds[level] = 0;
-            m_amount[level] = 1000;
+            left_out()[level] = false;
+            funds_[level] = 0;
+            amount_[level] = 1000;
         }
-        m_startGoals[0] = 0;
-        m_startFlags[0] = 0;
-        m_startGoals[1] = 0;
-        m_startFlags[1] = 0;
-        m_lifetimeFunds = 0;
-        m_value634 = 0;
-        m_maxValue634 = 0;
-        m_totalAmount = 6000;
+        start_goals_[0] = 0;
+        start_flags_[0] = 0;
+        start_goals_[1] = 0;
+        start_flags_[1] = 0;
+        lifetime_funds_ = 0;
+        value634_ = 0;
+        max_value634_ = 0;
+        total_amount_ = 6000;
     }
     if (part == 0 || part == 0x4C10DE52) {
         for (int level = 0; level < 18; ++level) {
-            m_counter[level] = 0;
+            counter_[level] = 0;
             for (int bit = 200; bit < 256; ++bit)
                 clear(bit, level);
         }
-        m_totalCounter = 0;
-        m_flag5EF = 0x82;
-        m_details->AppendStructureIfAny(Scripts::ReadSubStruct(0x0486FD79));
+        total_counter_ = 0;
+        flag_5e_f_ = 0x82;
+        details_->append_structure_if_any(script::read_sub_struct(0x0486FD79));
     }
     return true;
 }
 
 // 0x00584BA0
-bool CRiderStoryProgress::ResetPart(uint32_t part)
+bool RiderStoryProgress::reset_part(uint32_t part)
 {
-    Reset(false, part);
+    get_reset(false, part);
     return true;
 }
 
 // 0x00584BC0
-bool CRiderStoryProgress::AllGapsGot()
+bool RiderStoryProgress::all_gaps_got()
 {
-    Scripts::CArray* levels = Scripts::FetchList(0xEB1A4BC9);
-    uint32_t count = levels->m_extent;
+    script::Array* levels = script::fetch_list(0xEB1A4BC9);
+    uint32_t count = levels->extent_;
     for (int level = 0; level < kLevels; ++level) {
         uint32_t i = 0;
         for (; i < count; ++i) {
-            if (level == Scripts::FetchIntValue(levels->FetchPart(i)))
+            if (level == script::fetch_int_value(levels->fetch_part(i)))
                 break;
         }
         if (i == count)
             continue; // (not listed)
-        if (!m_visited[level] || !m_gaps[level]->AllGot())
+        if (!visited_[level] || !gaps_[level]->all_got())
             return false;
     }
     return true;
 }
 
 // 0x00584C60
-void CRiderStoryProgress::BeginLevel(int level)
+void RiderStoryProgress::begin_level(int level)
 {
     if (level == -1)
-        level = m_level;
+        level = level_;
     else
-        m_level = level;
-    m_visited[m_level] = true;
-    m_startGoals[0] = m_goals[level][0];
-    m_startGoals[1] = m_goals[level][1];
-    m_startFlags[0] = m_flagBits[level][0];
-    m_startFlags[1] = m_flagBits[level][1];
+        level_ = level;
+    visited_[level_] = true;
+    start_goals_[0] = goals_[level][0];
+    start_goals_[1] = goals_[level][1];
+    start_flags_[0] = flag_bits_[level][0];
+    start_flags_[1] = flag_bits_[level][1];
 }
 
 // 0x00584CC0
-bool CRiderStoryProgress::IsCodeOn(uint32_t name)
+bool RiderStoryProgress::is_code_on(uint32_t name)
 {
-    int flag = Scripts::FetchIntValue(name);
-    bool on = (m_globalFlags[Word(flag)] & Bit(flag)) != 0;
-    OnlinePlay::g_cheatFlag = on;
+    int flag = script::fetch_int_value(name);
+    bool on = (global_flags_[get_word(flag)] & get_bit(flag)) != 0;
+    online::g_cheat_flag = on;
     return on;
 }
 
@@ -316,270 +316,270 @@ constexpr uint32_t kCashBalanceKey = 0x0444419A;
 constexpr uint32_t kTotalAmount = 0x95947B61;
 constexpr uint32_t kCounterArray = 0xE888DD02;
 constexpr uint32_t kTotalCounter = 0x6C1A5E39;
-constexpr uint32_t kFlag5EF = 0x7A6BF912;
+constexpr uint32_t kFlag5eF = 0x7A6BF912;
 constexpr uint32_t kValue634 = 0xF884773C;
 constexpr uint32_t kMaxValue634 = 0x1C6CF075;
 constexpr uint32_t kCareerInfoKey = 0x55D761CF;
 
-static VtableSlot kCareerVtable_slots[] = {&GameObjects::CRiderStoryProgress::Teardown};
-void** const kCareerVtable = reinterpret_cast<void**>(kCareerVtable_slots);
+static VtableSlot g_career_vtable_slots[] = {&objects::RiderStoryProgress::teardown};
+void** const kCareerVtable = reinterpret_cast<void**>(g_career_vtable_slots);
 
-Scripts::CArray* AllocScriptArray(uint32_t size, Scripts::EQbValueKind type)
+script::Array* alloc_script_array(uint32_t size, script::QbValueKind type)
 {
-    Scripts::CArray* memory = Scripts::AllocScriptArray();
-    Scripts::CArray* array = memory ? memory->PrepareAll() : nullptr;
-    array->ConfigureSizeKind(size, type);
+    script::Array* memory = script::alloc_script_array();
+    script::Array* array = memory ? memory->prepare_all() : nullptr;
+    array->configure_size_kind(size, type);
     return array;
 }
-Scripts::CStruct* SpawnParamTable()
+script::Struct* spawn_param_table()
 {
-    Scripts::CStruct* memory = Scripts::SpawnParamBag();
-    return memory ? memory->PrepareAll() : nullptr;
+    script::Struct* memory = script::spawn_param_bag();
+    return memory ? memory->prepare_all() : nullptr;
 }
 
 } // namespace
 
 // 0x00585270
-CRiderStoryProgress* CRiderStoryProgress::MakeNew()
+RiderStoryProgress* RiderStoryProgress::make_new()
 {
-    m_vtable = kCareerVtable;
+    vtable_ = kCareerVtable;
     for (int level = 0; level < kLevels; ++level) {
-        void* memory = MemSys::Alloc(sizeof(GoalSystem::CGapTally));
-        m_gaps[level] = memory ? static_cast<GoalSystem::CGapTally*>(memory)->MakeNew() : nullptr;
-        m_visited[level] = false;
+        void* memory = memory::alloc(sizeof(goals::GapTally));
+        gaps_[level] = memory ? static_cast<goals::GapTally*>(memory)->make_new() : nullptr;
+        visited_[level] = false;
     }
-    m_details = SpawnParamTable();
-    Reset(true, 0);
+    details_ = spawn_param_table();
+    get_reset(true, 0);
     return this;
 }
 
 // 0x00585E40
-void CRiderStoryProgress::DestroyBody()
+void RiderStoryProgress::destroy_body()
 {
-    m_vtable = kCareerVtable;
-    for (GoalSystem::CGapTally* gaps : m_gaps) {
+    vtable_ = kCareerVtable;
+    for (goals::GapTally* gaps : gaps_) {
         if (gaps) {
-            gaps->DestroyBody();
-            MemSys::Hub::Pull()->Dealloc(gaps);
+            gaps->destroy_body();
+            memory::Hub::get_pull()->dealloc(gaps);
         }
     }
-    if (Scripts::CStruct* info = m_details) {
-        info->Clear();
-        Scripts::DeleteStruct(info);
+    if (script::Struct* info = details_) {
+        info->get_clear();
+        script::delete_struct(info);
     }
 }
 
 // 0x00585EA0
-CRiderStoryProgress* CRiderStoryProgress::Teardown(unsigned int flags)
+RiderStoryProgress* RiderStoryProgress::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00584D00
-void CRiderStoryProgress::DecodeFromStruct(Scripts::CStruct* save)
+void RiderStoryProgress::decode_from_struct(script::Struct* save)
 {
-    Scripts::CStruct* career = nullptr;
-    save->ReadSubStruct(kCareerStructure, &career, 0);
-    Scripts::CArray* goals = nullptr;
-    career->FetchList(kGoalListName, &goals, 0);
-    Scripts::CArray* flags = nullptr;
-    career->FetchList(kFlagsArray, &flags, 0);
+    script::Struct* career = nullptr;
+    save->read_sub_struct(kCareerStructure, &career, 0);
+    script::Array* goals = nullptr;
+    career->fetch_list(kGoalListName, &goals, 0);
+    script::Array* flags = nullptr;
+    career->fetch_list(kFlagsArray, &flags, 0);
     for (uint32_t first = 0; first < kLevels * 8; first += 8) {
         for (uint32_t i = 0; i < 8; ++i)
-            GoalWords()[first + i] = goals->FetchPart(first + i);
+            goal_words()[first + i] = goals->fetch_part(first + i);
         for (uint32_t i = 0; i < 8; ++i)
-            FlagWords()[first + i] = flags->FetchPart(first + i);
+            flag_words()[first + i] = flags->fetch_part(first + i);
     }
-    Scripts::CArray* globals = nullptr;
-    career->FetchList(kGlobalFlagsArray, &globals, 0);
+    script::Array* globals = nullptr;
+    career->fetch_list(kGlobalFlagsArray, &globals, 0);
     for (uint32_t i = 0; i < 16; ++i)
-        m_globalFlags[i] = globals->FetchPart(i);
+        global_flags_[i] = globals->fetch_part(i);
     // The gap checklists.
-    Scripts::CArray* gapLevels = nullptr;
-    career->FetchList(kGapLevelList, &gapLevels, 0);
-    if (gapLevels) {
+    script::Array* gap_levels = nullptr;
+    career->fetch_list(kGapLevelList, &gap_levels, 0);
+    if (gap_levels) {
         for (int level = 0; level < kLevels; ++level) {
-            GoalSystem::CGapTally* checklist = m_gaps[level];
-            checklist->Clear();
-            auto* entry = reinterpret_cast<Scripts::CStruct*>(gapLevels->FetchPart(level));
-            int savedLevel = 0, built = 0;
-            entry->FetchIntValue(kGapLevel, &savedLevel, 1);
-            entry->FetchIntValue(kGapsBuilt, &built, 1);
+            goals::GapTally* checklist = gaps_[level];
+            checklist->get_clear();
+            auto* entry = reinterpret_cast<script::Struct*>(gap_levels->fetch_part(level));
+            int saved_level = 0, built = 0;
+            entry->fetch_int_value(kGapLevel, &saved_level, 1);
+            entry->fetch_int_value(kGapsBuilt, &built, 1);
             if (!built)
                 continue;
-            Scripts::CArray* list = nullptr;
-            entry->FetchList(kGapList, &list, 0);
-            int count = static_cast<int>(list->m_extent);
+            script::Array* list = nullptr;
+            entry->fetch_list(kGapList, &list, 0);
+            int count = static_cast<int>(list->extent_);
             for (int i = 0; i < count; ++i) {
-                auto* gap = reinterpret_cast<Scripts::CStruct*>(list->FetchPart(i));
+                auto* gap = reinterpret_cast<script::Struct*>(list->fetch_part(i));
                 const char* name = nullptr;
                 int got = 0, score = 0;
-                gap->FetchText(kGapName, &name, 0);
-                gap->FetchIntValue(kGapCount, &got, 0);
-                gap->FetchIntValue(kGapScore, &score, 0);
-                checklist->RegisterGapEntry(name, got, score);
+                gap->fetch_text(kGapName, &name, 0);
+                gap->fetch_int_value(kGapCount, &got, 0);
+                gap->fetch_int_value(kGapScore, &score, 0);
+                checklist->register_gap_entry(name, got, score);
                 if (got) {
-                    Scripts::VectorValue pos, dir;
-                    gap->FetchVec(kGapPos, &pos, 0);
-                    gap->FetchVec(kGapDir, &dir, 0);
-                    checklist->SetGapPositions(name, {pos.x, pos.y, pos.z, pos.w}, {dir.x, dir.y, dir.z, dir.w});
+                    script::VectorValue pos, dir;
+                    gap->fetch_vec(kGapPos, &pos, 0);
+                    gap->fetch_vec(kGapDir, &dir, 0);
+                    checklist->set_gap_positions(name, {pos.x, pos.y, pos.z, pos.w}, {dir.x, dir.y, dir.z, dir.w});
                 }
             }
         }
     }
-    Scripts::CArray* visited = nullptr;
-    career->FetchList(kVisitedArray, &visited, 0);
+    script::Array* visited = nullptr;
+    career->fetch_list(kVisitedArray, &visited, 0);
     if (visited) {
         for (int level = 0; level < kLevels; ++level)
-            m_visited[level] = visited->FetchPart(level) != 0;
+            visited_[level] = visited->fetch_part(level) != 0;
     }
-    Scripts::CArray* cash = nullptr;
-    Scripts::CArray* amounts = nullptr;
-    career->FetchList(kCashArray, &cash, 0);
-    career->FetchList(kAmountArray, &amounts, 0);
+    script::Array* cash = nullptr;
+    script::Array* amounts = nullptr;
+    career->fetch_list(kCashArray, &cash, 0);
+    career->fetch_list(kAmountArray, &amounts, 0);
     for (int level = 0; level < kLevels; ++level) {
-        m_funds[level] = static_cast<uint16_t>(cash->FetchPart(level));
-        m_amount[level] = static_cast<uint16_t>(amounts->FetchPart(level));
+        funds_[level] = static_cast<uint16_t>(cash->fetch_part(level));
+        amount_[level] = static_cast<uint16_t>(amounts->fetch_part(level));
     }
     int value = 0; // (the original's is left as it was when a value is missing)
-    career->FetchIntValue(kCashBalanceKey, &value, 0);
-    m_lifetimeFunds = static_cast<uint16_t>(value);
-    career->FetchIntValue(kTotalAmount, &value, 0);
-    m_totalAmount = static_cast<uint16_t>(value);
-    Scripts::CArray* counters = nullptr;
-    career->FetchList(kCounterArray, &counters, 0);
+    career->fetch_int_value(kCashBalanceKey, &value, 0);
+    lifetime_funds_ = static_cast<uint16_t>(value);
+    career->fetch_int_value(kTotalAmount, &value, 0);
+    total_amount_ = static_cast<uint16_t>(value);
+    script::Array* counters = nullptr;
+    career->fetch_list(kCounterArray, &counters, 0);
     for (int level = 0; level < 18; ++level)
-        m_counter[level] = static_cast<uint8_t>(counters->FetchPart(level));
-    if (career->FetchIntValue(kTotalCounter, &value, 0)) {
-        m_totalCounter = static_cast<uint8_t>(value);
-        career->FetchIntValue(kFlag5EF, &value, 0);
-        m_flag5EF = static_cast<uint8_t>(value);
+        counter_[level] = static_cast<uint8_t>(counters->fetch_part(level));
+    if (career->fetch_int_value(kTotalCounter, &value, 0)) {
+        total_counter_ = static_cast<uint8_t>(value);
+        career->fetch_int_value(kFlag5eF, &value, 0);
+        flag_5e_f_ = static_cast<uint8_t>(value);
     } else {
         // An older save: the total from the counters (+0x5EF 0x8C once it passes it).
-        m_totalCounter = 0;
-        m_flag5EF = 0x82;
+        total_counter_ = 0;
+        flag_5e_f_ = 0x82;
         for (int level = 0; level < 18; ++level) {
-            m_totalCounter = static_cast<uint8_t>(m_totalCounter + m_counter[level]);
-            if (m_totalCounter > m_flag5EF)
-                m_flag5EF = 0x8C;
+            total_counter_ = static_cast<uint8_t>(total_counter_ + counter_[level]);
+            if (total_counter_ > flag_5e_f_)
+                flag_5e_f_ = 0x8C;
         }
     }
-    career->FetchIntValue(kValue634, &m_value634, 0);
-    career->FetchIntValue(kMaxValue634, &m_maxValue634, 0);
-    Scripts::CStruct* info = nullptr; // (the original's is left as it was)
-    career->ReadSubStruct(kCareerInfoKey, &info, 0);
-    m_details->AppendStructureIfAny(info);
-    MenuSystem::LevelEditor::Career::CareerReplaced(); // (NOT ORIGINAL: an edited copy's baseline taken again)
+    career->fetch_int_value(kValue634, &value634_, 0);
+    career->fetch_int_value(kMaxValue634, &max_value634_, 0);
+    script::Struct* info = nullptr; // (the original's is left as it was)
+    career->read_sub_struct(kCareerInfoKey, &info, 0);
+    details_->append_structure_if_any(info);
+    frontend::level_editor::career::career_replaced(); // (NOT ORIGINAL: an edited copy's baseline taken again)
 }
 
 // 0x00585550
-void CRiderStoryProgress::WriteToStructure(Scripts::CStruct* save)
+void RiderStoryProgress::write_to_structure(script::Struct* save)
 {
-    Scripts::CArray* goals = AllocScriptArray(kLevels * 8, Scripts::QBVAL_INTEGER);
+    script::Array* goals = alloc_script_array(kLevels * 8, script::kQbvalInteger);
     for (uint32_t first = 0; first < kLevels * 8; first += 8) {
         for (uint32_t i = 0; i < 8; ++i)
-            goals->SetElement(first + i, GoalWords()[first + i]);
+            goals->set_element(first + i, goal_words()[first + i]);
     }
-    Scripts::CArray* flags = AllocScriptArray(kLevels * 8, Scripts::QBVAL_INTEGER);
+    script::Array* flags = alloc_script_array(kLevels * 8, script::kQbvalInteger);
     for (uint32_t first = 0; first < kLevels * 8; first += 8) {
         for (uint32_t i = 0; i < 8; ++i)
-            flags->SetElement(first + i, FlagWords()[first + i]);
+            flags->set_element(first + i, flag_words()[first + i]);
     }
-    Scripts::CArray* globals = AllocScriptArray(16, Scripts::QBVAL_INTEGER);
+    script::Array* globals = alloc_script_array(16, script::kQbvalInteger);
     for (uint32_t i = 0; i < 16; ++i)
-        globals->SetElement(i, m_globalFlags[i]);
-    Scripts::CArray* gapLevels = AllocScriptArray(kLevels, Scripts::QBVAL_STRUCT);
+        globals->set_element(i, global_flags_[i]);
+    script::Array* gap_levels = alloc_script_array(kLevels, script::kQbvalStruct);
     for (int level = 0; level < kLevels; ++level) {
-        GoalSystem::CGapTally* checklist = m_gaps[level];
-        Scripts::CStruct* entry = SpawnParamTable();
-        entry->PutInt(kGapLevel, level);
+        goals::GapTally* checklist = gaps_[level];
+        script::Struct* entry = spawn_param_table();
+        entry->put_int(kGapLevel, level);
         // NOT ORIGINAL: an edited copy's checklist (level_editor_career.h) is written as before the edited copy - never
         // the editor's gaps, nor gaps landed in it.
-        MenuSystem::LevelEditor::Career::Checklist view;
-        if (MenuSystem::LevelEditor::Career::SaveView(checklist, &view)) {
-            entry->PutInt(kGapsBuilt, view.built ? 1 : 0);
+        frontend::level_editor::career::Checklist view;
+        if (frontend::level_editor::career::save_view(checklist, &view)) {
+            entry->put_int(kGapsBuilt, view.built ? 1 : 0);
             if (view.built) {
-                Scripts::CArray* list = AllocScriptArray(static_cast<uint32_t>(view.gaps.size()), Scripts::QBVAL_STRUCT);
+                script::Array* list = alloc_script_array(static_cast<uint32_t>(view.gaps.size()), script::kQbvalStruct);
                 for (size_t i = 0; i < view.gaps.size(); ++i) {
-                    const MenuSystem::LevelEditor::Career::Gap& g = view.gaps[i];
-                    Scripts::CStruct* gap = SpawnParamTable();
-                    gap->AppendWord(kGapName, g.name.c_str());
-                    gap->PutInt(kGapCount, g.count);
-                    gap->PutInt(kGapScore, g.score);
-                    gap->PutVec3(kGapPos, g.pos[0], g.pos[1], g.pos[2]);
-                    gap->PutVec3(kGapDir, g.dir[0], g.dir[1], g.dir[2]);
-                    list->SetElement(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(gap));
+                    const frontend::level_editor::career::Gap& g = view.gaps[i];
+                    script::Struct* gap = spawn_param_table();
+                    gap->append_word(kGapName, g.name.c_str());
+                    gap->put_int(kGapCount, g.count);
+                    gap->put_int(kGapScore, g.score);
+                    gap->put_vec3(kGapPos, g.pos[0], g.pos[1], g.pos[2]);
+                    gap->put_vec3(kGapDir, g.dir[0], g.dir[1], g.dir[2]);
+                    list->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(gap));
                 }
-                entry->AppendArrayRef(kGapList, list);
+                entry->append_array_ref(kGapList, list);
             }
-        } else if (!checklist->m_built) {
-            entry->PutInt(kGapsBuilt, 0);
+        } else if (!checklist->built_) {
+            entry->put_int(kGapsBuilt, 0);
         } else {
-            entry->PutInt(kGapsBuilt, 1);
-            int count = checklist->TotalOf();
-            Scripts::CArray* list = AllocScriptArray(static_cast<uint32_t>(count), Scripts::QBVAL_STRUCT);
+            entry->put_int(kGapsBuilt, 1);
+            int count = checklist->total_of();
+            script::Array* list = alloc_script_array(static_cast<uint32_t>(count), script::kQbvalStruct);
             for (int i = 0; i < count; ++i) {
-                Scripts::CStruct* gap = SpawnParamTable();
-                gap->AppendWord(kGapName, checklist->GetGapTitle(i));
-                gap->PutInt(kGapCount, checklist->CountGapsFound(i));
-                gap->PutInt(kGapScore, checklist->GetGapPoints(i));
-                Maths::Vec4 pos = {0.0f, 0.0f, 0.0f, 1.0f}, dir = {0.0f, 0.0f, 0.0f, 1.0f};
-                if (checklist->CountGapsFound(i))
-                    checklist->GetGapPositions(i, &pos, &dir);
-                gap->PutVec3(kGapPos, pos.x, pos.y, pos.z);
-                gap->PutVec3(kGapDir, dir.x, dir.y, dir.z);
-                list->SetElement(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(gap));
+                script::Struct* gap = spawn_param_table();
+                gap->append_word(kGapName, checklist->get_gap_title(i));
+                gap->put_int(kGapCount, checklist->count_gaps_found(i));
+                gap->put_int(kGapScore, checklist->get_gap_points(i));
+                maths::Vec4 pos = {0.0f, 0.0f, 0.0f, 1.0f}, dir = {0.0f, 0.0f, 0.0f, 1.0f};
+                if (checklist->count_gaps_found(i))
+                    checklist->get_gap_positions(i, &pos, &dir);
+                gap->put_vec3(kGapPos, pos.x, pos.y, pos.z);
+                gap->put_vec3(kGapDir, dir.x, dir.y, dir.z);
+                list->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(gap));
             }
-            entry->AppendArrayRef(kGapList, list);
+            entry->append_array_ref(kGapList, list);
         }
-        gapLevels->SetElement(static_cast<uint32_t>(level), reinterpret_cast<uint32_t>(entry));
+        gap_levels->set_element(static_cast<uint32_t>(level), reinterpret_cast<uint32_t>(entry));
     }
-    Scripts::CArray* visited = AllocScriptArray(kLevels, Scripts::QBVAL_INTEGER);
+    script::Array* visited = alloc_script_array(kLevels, script::kQbvalInteger);
     for (int level = 0; level < kLevels; ++level)
-        visited->SetElement(static_cast<uint32_t>(level), m_visited[level]);
-    Scripts::CStruct* career = SpawnParamTable();
-    career->AddComponentOfType(kGoalListName, Scripts::QBVAL_ARRAY, reinterpret_cast<uint32_t>(goals));
-    career->AddComponentOfType(kFlagsArray, Scripts::QBVAL_ARRAY, reinterpret_cast<uint32_t>(flags));
-    career->AddComponentOfType(kGlobalFlagsArray, Scripts::QBVAL_ARRAY, reinterpret_cast<uint32_t>(globals));
-    career->AddComponentOfType(kGapLevelList, Scripts::QBVAL_ARRAY, reinterpret_cast<uint32_t>(gapLevels));
-    career->AppendArrayRef(kVisitedArray, visited);
-    career->PutNameKey(0xE3335D2F, *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule) + 0x378)); // (the skate module's)
-    career->PutNameKey(0x2CC06F5E, static_cast<GoalSystem::CMatchRules*>(static_cast<void*>(GoalSystem::g_gameMode))->GetNameKey());
+        visited->set_element(static_cast<uint32_t>(level), visited_[level]);
+    script::Struct* career = spawn_param_table();
+    career->add_component_of_type(kGoalListName, script::kQbvalArray, reinterpret_cast<uint32_t>(goals));
+    career->add_component_of_type(kFlagsArray, script::kQbvalArray, reinterpret_cast<uint32_t>(flags));
+    career->add_component_of_type(kGlobalFlagsArray, script::kQbvalArray, reinterpret_cast<uint32_t>(globals));
+    career->add_component_of_type(kGapLevelList, script::kQbvalArray, reinterpret_cast<uint32_t>(gap_levels));
+    career->append_array_ref(kVisitedArray, visited);
+    career->put_name_key(0xE3335D2F, *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(modules::g_skate_module) + 0x378)); // (the skate module's)
+    career->put_name_key(0x2CC06F5E, static_cast<goals::MatchRules*>(static_cast<void*>(goals::g_game_mode))->get_name_key());
     // (both made first, then sized, as the original)
-    Scripts::CArray* cashMemory = Scripts::AllocScriptArray();
-    Scripts::CArray* cash = cashMemory ? cashMemory->PrepareAll() : nullptr;
-    Scripts::CArray* amountMemory = Scripts::AllocScriptArray();
-    Scripts::CArray* amounts = amountMemory ? amountMemory->PrepareAll() : nullptr;
-    cash->ConfigureSizeKind(kLevels, Scripts::QBVAL_INTEGER);
-    amounts->ConfigureSizeKind(kLevels, Scripts::QBVAL_INTEGER);
+    script::Array* cash_memory = script::alloc_script_array();
+    script::Array* cash = cash_memory ? cash_memory->prepare_all() : nullptr;
+    script::Array* amount_memory = script::alloc_script_array();
+    script::Array* amounts = amount_memory ? amount_memory->prepare_all() : nullptr;
+    cash->configure_size_kind(kLevels, script::kQbvalInteger);
+    amounts->configure_size_kind(kLevels, script::kQbvalInteger);
     for (int level = 0; level < kLevels; ++level) {
-        cash->SetElement(static_cast<uint32_t>(level), m_funds[level]);
-        amounts->SetElement(static_cast<uint32_t>(level), m_amount[level]);
+        cash->set_element(static_cast<uint32_t>(level), funds_[level]);
+        amounts->set_element(static_cast<uint32_t>(level), amount_[level]);
     }
-    career->AppendArrayRef(kCashArray, cash);
-    career->AppendArrayRef(kAmountArray, amounts);
-    career->PutInt(kCashBalanceKey, m_lifetimeFunds);
-    career->PutInt(kTotalAmount, m_totalAmount);
-    Scripts::CArray* counters = AllocScriptArray(18, Scripts::QBVAL_INTEGER);
+    career->append_array_ref(kCashArray, cash);
+    career->append_array_ref(kAmountArray, amounts);
+    career->put_int(kCashBalanceKey, lifetime_funds_);
+    career->put_int(kTotalAmount, total_amount_);
+    script::Array* counters = alloc_script_array(18, script::kQbvalInteger);
     for (int level = 0; level < 18; ++level)
-        counters->SetElement(static_cast<uint32_t>(level), m_counter[level]);
-    career->AppendArrayRef(kCounterArray, counters);
-    career->PutInt(kTotalCounter, m_totalCounter);
-    career->PutInt(kFlag5EF, m_flag5EF);
-    career->PutInt(kValue634, m_value634);
-    career->PutInt(kMaxValue634, m_maxValue634);
-    career->PutSubStruct(kCareerInfoKey, m_details);
-    save->AddComponentOfType(kCareerStructure, 11, reinterpret_cast<uint32_t>(career));
+        counters->set_element(static_cast<uint32_t>(level), counter_[level]);
+    career->append_array_ref(kCounterArray, counters);
+    career->put_int(kTotalCounter, total_counter_);
+    career->put_int(kFlag5eF, flag_5e_f_);
+    career->put_int(kValue634, value634_);
+    career->put_int(kMaxValue634, max_value634_);
+    career->put_sub_struct(kCareerInfoKey, details_);
+    save->add_component_of_type(kCareerStructure, 11, reinterpret_cast<uint32_t>(career));
 }
 
 // 0x00585E20 (GetCareerSaveInfo): the skate module's career written to the script's results.
-bool __cdecl CFunc_GetCareerSaveInfo(Scripts::CStruct* /*params*/, Scripts::CScript* script)
+bool __cdecl cfunc_get_career_save_info(script::Struct* /*params*/, script::Script* script)
 {
-    auto* career = *reinterpret_cast<CRiderStoryProgress**>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule) + 0x20);
-    career->WriteToStructure(*reinterpret_cast<Scripts::CStruct**>(reinterpret_cast<uint8_t*>(script) + 0x14));
+    auto* career = *reinterpret_cast<RiderStoryProgress**>(reinterpret_cast<uint8_t*>(modules::g_skate_module) + 0x20);
+    career->write_to_structure(*reinterpret_cast<script::Struct**>(reinterpret_cast<uint8_t*>(script) + 0x14));
     return true;
 }
 

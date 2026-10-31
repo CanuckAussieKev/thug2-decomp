@@ -14,9 +14,9 @@
 #include "game/rider/core_physics_fields.h"
 #include "game/rider/thaw_bmx.h"
 
-namespace Skater {
+namespace skater {
 
-using namespace Physics;
+using namespace physics;
 
 namespace {
 
@@ -36,91 +36,91 @@ constexpr uint32_t kSpeedOverrideMaxMax = 0x358;
 constexpr uint32_t kFrictionOn = 0x2D9;
 
 // The length of (x, y, z) as the original works it out: (x * x + y * y) + z * z, rounded to a float.
-float SpeedOf(const Maths::Vec4& v)
+float speed_of(const maths::Vec4& v)
 {
     double x = v.x, y = v.y, z = v.z;
     return static_cast<float>(std::sqrt(x * x + y * y + z * z));
 }
 
 // 0x004FE1F0 (not rewritten yet): the air friction `friction` applied to the velocity.
-void ApplyAirFriction(void* component, float friction)
+void apply_air_friction(void* component, float friction)
 {
-    static_cast<SkaterPhysicsModule*>(component)->ApplyFriction(friction);
+    static_cast<SkaterPhysicsModule*>(component)->apply_friction(friction);
 }
 
 } // namespace
 
 // 0x00501850
-void SkaterPhysicsModule::ClampSkaterSpeed()
+void SkaterPhysicsModule::clamp_skater_speed()
 {
-    void* object = ObjectOf(this);
-    Maths::Vec4& velocity = VectorAt(object, kVelocity);
+    void* object = object_of(this);
+    maths::Vec4& velocity = vector_at(object, kVelocity);
     // (The horizontal speed: y out of it while it's measured and limited.)
     float upward = velocity.y;
     velocity.y = 0.0f;
-    float speed = SpeedOf(velocity);
-    float maxMax = static_cast<float>(StatValue(object, kMaxMaxSpeedStat));
-    float max = static_cast<float>(StatValue(object, kMaxSpeedStat));
+    float speed = speed_of(velocity);
+    float max_max = static_cast<float>(stat_value(object, kMaxMaxSpeedStat));
+    float max = static_cast<float>(stat_value(object, kMaxSpeedStat));
     // Not original: THAW 0x005CA8F0 - on the bike, faster for a while after vert ground (thaw_bmx_physics.cpp).
-    bool heavyFriction = true;
-    if (ThawBmx::LiveNow(this))
-        heavyFriction = ThawBmx::VertSpeedAllowance(this, &maxMax);
-    float& timer = At<float>(this, kSpeedOverrideTimer);
+    bool heavy_friction = true;
+    if (thaw_bmx::live_now(this))
+        heavy_friction = thaw_bmx::vert_speed_allowance(this, &max_max);
+    float& timer = get_at<float>(this, kSpeedOverrideTimer);
     if (timer != 0.0f) {
-        uint32_t bits = At<uint32_t>(this, kSpeedOverrideTimer);
+        uint32_t bits = get_at<uint32_t>(this, kSpeedOverrideTimer);
         if (bits != 0xBF800000u && bits != 0xC0000000u) {
-            double left = static_cast<double>(timer) - At<float>(this, kFrameLength);
+            double left = static_cast<double>(timer) - get_at<float>(this, kFrameLength);
             timer = static_cast<float>(left);
             if (left < 0.0)
-                At<uint32_t>(this, kSpeedOverrideTimer) = 0;
+                get_at<uint32_t>(this, kSpeedOverrideTimer) = 0;
         }
-        maxMax = At<float>(this, kSpeedOverrideMaxMax);
-        max = At<float>(this, kSpeedOverrideMax);
+        max_max = get_at<float>(this, kSpeedOverrideMaxMax);
+        max = get_at<float>(this, kSpeedOverrideMax);
     }
-    if (speed > maxMax) {
-        speed = maxMax;
-        SetLength(VectorAt(ObjectOf(this), kVelocity), maxMax);
+    if (speed > max_max) {
+        speed = max_max;
+        set_length(vector_at(object_of(this), kVelocity), max_max);
     }
-    object = ObjectOf(this);
-    if (speed > max && heavyFriction)
-        ApplyAirFriction(this, Scripts::FetchFloat(kHeavyAirFriction));
-    VectorAt(ObjectOf(this), kVelocity).y = upward;
+    object = object_of(this);
+    if (speed > max && heavy_friction)
+        apply_air_friction(this, script::fetch_float(kHeavyAirFriction));
+    vector_at(object_of(this), kVelocity).y = upward;
 
-    float& rolling = At<float>(this, kRollingFrictionTimer);
+    float& rolling = get_at<float>(this, kRollingFrictionTimer);
     if (rolling != 0.0f) {
-        double left = static_cast<double>(rolling) - At<float>(this, kFrameLength);
+        double left = static_cast<double>(rolling) - get_at<float>(this, kFrameLength);
         rolling = static_cast<float>(left);
         if (left <= 0.0) {
-            At<uint32_t>(this, kRollingFrictionTimer) = 0;
-            At<float>(this, kRollingFrictionNow) = TuningFloatLookup(kCoastDrag, object);
+            get_at<uint32_t>(this, kRollingFrictionTimer) = 0;
+            get_at<float>(this, kRollingFrictionNow) = tuning_float_lookup(kCoastDrag, object);
         }
     }
 }
 
 // 0x005019E0
-void SkaterPhysicsModule::Brake()
+void SkaterPhysicsModule::get_brake()
 {
-    if (ThawBmx::LiveNow(this)) { // (not original: THAW's bike brakes, thaw_bmx_physics.cpp)
-        ThawBmx::Brake(this);
+    if (thaw_bmx::live_now(this)) { // (not original: THAW's bike brakes, thaw_bmx_physics.cpp)
+        thaw_bmx::get_brake(this);
         return;
     }
-    At<uint8_t>(this, kBraking) = 1;
-    if (MayTurnOnSlope()) { // (turning on the slope instead)
-        At<uint8_t>(this, kBraking) = 0;
+    get_at<uint8_t>(this, kBraking) = 1;
+    if (may_turn_on_slope()) { // (turning on the slope instead)
+        get_at<uint8_t>(this, kBraking) = 0;
         return;
     }
-    void* object = ObjectOf(this);
-    float speed = SpeedOf(VectorAt(object, kVelocity));
-    double slowing = static_cast<double>(TuningFloatLookup(kBrakeAcceleration, object)) * At<float>(this, kFrameLength);
+    void* object = object_of(this);
+    float speed = speed_of(vector_at(object, kVelocity));
+    double slowing = static_cast<double>(tuning_float_lookup(kBrakeAcceleration, object)) * get_at<float>(this, kFrameLength);
     if (slowing + slowing > speed) {
         // Less than two frames' worth left: stopped.
-        VectorAt(ObjectOf(this), kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
+        vector_at(object_of(this), kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
         return;
     }
-    Maths::Vec4 slow = VectorAt(ObjectOf(this), kVelocity);
-    SetLength(slow, static_cast<float>(-(static_cast<double>(TuningFloatLookup(kBrakeAcceleration, object)) *
-                                        At<float>(this, kFrameLength))));
-    Maths::Vec4& velocity = VectorAt(ObjectOf(this), kVelocity);
+    maths::Vec4 slow = vector_at(object_of(this), kVelocity);
+    set_length(slow, static_cast<float>(-(static_cast<double>(tuning_float_lookup(kBrakeAcceleration, object)) *
+                                        get_at<float>(this, kFrameLength))));
+    maths::Vec4& velocity = vector_at(object_of(this), kVelocity);
     velocity.x = slow.x + velocity.x;
     velocity.y = slow.y + velocity.y;
     velocity.z = slow.z + velocity.z;
@@ -128,34 +128,34 @@ void SkaterPhysicsModule::Brake()
 }
 
 // 0x00506DF0
-void SkaterPhysicsModule::ApplyGroundFriction()
+void SkaterPhysicsModule::apply_ground_friction()
 {
-    void* object = ObjectOf(this);
+    void* object = object_of(this);
     // (Not original: THAW 0x005D46C0 - on the bike the friction always applies.)
-    if (!At<uint8_t>(this, kFrictionOn) && !FlagsOf(this)[0x70] &&
-        At<float>(this, kRollingFrictionNow) == TuningFloatLookup(kCoastDrag, object) && !ThawBmx::LiveNow(this))
+    if (!get_at<uint8_t>(this, kFrictionOn) && !flags_of(this)[0x70] &&
+        get_at<float>(this, kRollingFrictionNow) == tuning_float_lookup(kCoastDrag, object) && !thaw_bmx::live_now(this))
         return;
-    ApplyStanceFriction(); // (the friction: crouched or standing)
-    if (TurnDownSlope()) // (turned down the slope)
+    apply_stance_friction(); // (the friction: crouched or standing)
+    if (turn_down_slope()) // (turned down the slope)
         return;
-    ApplyWheelDrag(); // (the rolling friction)
+    apply_wheel_drag(); // (the rolling friction)
 }
 
 // 0x005021D0
-void SkaterPhysicsModule::StartRidingHitObject()
+void SkaterPhysicsModule::start_riding_hit_object()
 {
-    if (FlagsOf(this)[0x88])
+    if (flags_of(this)[0x88])
         return;
-    void* ride = At<void*>(this, kRide);
-    if (!static_cast<GameObjects::CMovingSurfaceModule*>(ride)->StartRiding(&At<Engine3D::CProbeRay>(this, kFeeler)))
+    void* ride = get_at<void*>(this, kRide);
+    if (!static_cast<objects::MovingSurfaceModule*>(ride)->start_riding(&get_at<render::ProbeRay>(this, kFeeler)))
         return;
-    void* rideObject = *At<void**>(At<void*>(this, kRide), 0x18); // (the smart pointer's object)
-    const Maths::Vec4& rideVelocity = VectorAt(rideObject, kVelocity);
-    Maths::Vec4& velocity = VectorAt(ObjectOf(this), kVelocity);
-    velocity.x -= rideVelocity.x;
-    velocity.y -= rideVelocity.y;
-    velocity.z -= rideVelocity.z;
-    velocity.w -= rideVelocity.w;
+    void* ride_object = *get_at<void**>(get_at<void*>(this, kRide), 0x18); // (the smart pointer's object)
+    const maths::Vec4& ride_velocity = vector_at(ride_object, kVelocity);
+    maths::Vec4& velocity = vector_at(object_of(this), kVelocity);
+    velocity.x -= ride_velocity.x;
+    velocity.y -= ride_velocity.y;
+    velocity.z -= ride_velocity.z;
+    velocity.w -= ride_velocity.w;
 }
 
 } // namespace Skater

@@ -16,12 +16,12 @@
 // started (the copies from their source; a placed thing just moved / turned - its step is its existence). Only while
 // that action's step is still the newest on the undo stack (another action, an undo or a redo: the panel says so).
 // F4 hides / shows the panel.
-namespace MenuSystem::LevelEditor::Adjust {
+namespace frontend::level_editor::adjust {
 
-enum class Kind : uint8_t { None, ShiftBy, Turn, StretchBy, Duplicate, Justify, Distribute, Place };
+enum class Kind : uint8_t { kNone, kShiftBy, kTurn, scale_tool, kDuplicate, kJustify, kDistribute, kPlace };
 
 struct ActStep {
-    Kind kind = Kind::None;
+    Kind kind = Kind::kNone;
     V3 offset = {};        // Move: from where it was; Duplicate: each copy from the one before (before its turn)
     float degrees = 0.0f;  // Turn; Duplicate: each copy turned; Place: turned since it was placed
     bool quarters = false; // (scenery: turns are whole quarter turns)
@@ -36,35 +36,35 @@ struct ActStep {
 
 // --- the pure parts ---------------------------------------------------------------------------------------------
 
-const char* Title(Kind kind);
+const char* get_title(Kind kind);
 // The numbers as they'll be used: a count within 1..kMaxCopies, a factor within 0.05..20 (uniform: all three the x),
 // a turn of scenery the nearest whole quarter turns (degrees multiples of 90), an offset on `grid` (when asked; 0: as
 // it is).
 constexpr int kMaxCopies = 64;
-ActStep Normalised(const ActStep& action, float grid);
-bool Same(const ActStep& a, const ActStep& b);
-// A duplicate's step for the copies (Xform::RepeatStep: its offset, turn - or quarter turns for scenery).
-Xform::RepeatStep StepOf(const ActStep& action);
+ActStep normalised(const ActStep& action, float grid);
+bool get_same(const ActStep& a, const ActStep& b);
+// A duplicate's step for the copies (xform::RepeatStep: its offset, turn - or quarter turns for scenery).
+xform::RepeatStep step_of(const ActStep& action);
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
 // The editor made an adjustable action (its undo step just pushed - except Place's, whose step may be older): it
 // becomes the last action. Duplicate: `source` the selection it copied. Ignored while an adjustment is being made.
-void Note(const ActStep& action);
-void NoteDuplicate(const Edit::Selected& source, const ActStep& action);
-bool Applying();
+void get_note(const ActStep& action);
+void note_duplicate(const edit::Selected& source, const ActStep& action);
+bool applying();
 // The panel's numbers changed (the UI): made again in the next Tick.
-void Request(const ActStep& action, bool now);
+void get_request(const ActStep& action, bool now);
 // Once a frame while the editor runs (after the editor's keys: F4).
-void Tick();
+void tick();
 // What the panel shows: the last action (kind None: nothing), whether it can still be adjusted, shown or hidden (F4).
-const ActStep& FinalOne();
-bool Adjustable();
-bool& Shown();
+const ActStep& final_one();
+bool get_adjustable();
+bool& get_shown();
 // The panel (level_editor_arrange_ui.cpp): at the view's bottom left (`x`, `y`: its corner; back buffer pixels as the
 // UI's layout gives them).
-void Panel(float x, float y, float uiScale);
+void get_panel(float x, float y, float ui_scale);
 // The editor starting / a new level: forgotten.
-void Forget();
+void get_forget();
 
-} // namespace MenuSystem::LevelEditor::Adjust
+} // namespace MenuSystem::level_editor::Adjust

@@ -1,4 +1,4 @@
-// A component whose matrix becomes its object's display matrix (GameObjects::CMatrixComponent).
+// A component whose matrix becomes its object's display matrix (GameObjects::MatrixComponent).
 
 #include "engine/objects/matrix_component.h"
 
@@ -12,7 +12,7 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
@@ -21,64 +21,64 @@ extern void** const kVtable;
 } // namespace
 
 // 0x0041CB20
-CObjectModule* __cdecl CMatrixComponent::Fabricate()
+ObjectModule* __cdecl MatrixComponent::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CMatrixComponent));
-    return memory ? static_cast<CMatrixComponent*>(memory)->MakeNew() : nullptr;
+    void* memory = memory::alloc_zeroed(sizeof(MatrixComponent));
+    return memory ? static_cast<MatrixComponent*>(memory)->make_new() : nullptr;
 }
 
 // 0x0041CAD0
-CMatrixComponent* CMatrixComponent::MakeNew()
+MatrixComponent* MatrixComponent::make_new()
 {
-    CObjectModule::MakeNew();
-    m_vtable = kVtable;
-    m_kindTag = kType;
+    ObjectModule::make_new();
+    vtable_ = kVtable;
+    kind_tag_ = kType;
     for (int r = 0; r < 4; ++r)
-        m_basisFrame.row[r] = {r == 0 ? 1.0f : 0.0f, r == 1 ? 1.0f : 0.0f, r == 2 ? 1.0f : 0.0f, r == 3 ? 1.0f : 0.0f};
+        basis_frame_.row[r] = {r == 0 ? 1.0f : 0.0f, r == 1 ? 1.0f : 0.0f, r == 2 ? 1.0f : 0.0f, r == 3 ? 1.0f : 0.0f};
     return this;
 }
 
 // 0x0041CA60
-void CMatrixComponent::DestroyBody()
+void MatrixComponent::destroy_body()
 {
-    m_vtable = kVtable;
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    ObjectModule::destroy_body();
 }
 
 // 0x0041CA70
-CMatrixComponent* CMatrixComponent::Teardown(unsigned int flags)
+MatrixComponent* MatrixComponent::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x0041CAA0
-void CMatrixComponent::TickFrame() { m_entity->m_displayMatrix = m_basisFrame; }
+void MatrixComponent::tick_frame() { entity_->display_matrix_ = basis_frame_; }
 
 // 0x0041CAC0
-void CMatrixComponent::ChangeMat(const Maths::Mat4* matrix) { m_basisFrame = *matrix; }
+void MatrixComponent::change_mat(const maths::Mat4* matrix) { basis_frame_ = *matrix; }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CMatrixComponent::Teardown,
-         &GameObjects::CMatrixComponent::TickFrame,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         Stubs::IgnoreArgument,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
-         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::MatrixComponent::teardown,
+         &objects::MatrixComponent::tick_frame,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         stubs::ignore_argument,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
+         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

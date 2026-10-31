@@ -22,40 +22,40 @@
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/sector.h"
 
-namespace Engine3D {
+namespace render {
 
-MemSys::PoolPair g_frameSourcePools;
+memory::PoolPair g_frame_source_pools;
 
 namespace {
 
 // The engine's scenes and sectors (not rewritten yet; thiscall).
-uint8_t* NewPcScene(int hashBits)
+uint8_t* new_pc_scene(int hash_bits)
 {
-    void* memory = MemSys::Alloc(0x284);
-    return memory ? reinterpret_cast<uint8_t*>(static_cast<CPcScene*>(memory)->MakeNew(hashBits)) : nullptr;
+    void* memory = memory::alloc(0x284);
+    return memory ? reinterpret_cast<uint8_t*>(static_cast<PcScene*>(memory)->make_new(hash_bits)) : nullptr;
 }
-void* SpawnSector(uint8_t* scene) { return reinterpret_cast<CWorldScene*>(scene)->SpawnSector(); }
-void ChooseGeom(void* sector, void* geom) { static_cast<CWorldCell*>(sector)->ChooseGeom(geom); }
-void InsertSector(uint8_t* scene, void* sector) { reinterpret_cast<CWorldScene*>(scene)->InsertSector(static_cast<CWorldCell*>(sector)); }
-void SetUpSectors(uint8_t* scene, const char* name)
+void* spawn_sector(uint8_t* scene) { return reinterpret_cast<WorldScene*>(scene)->spawn_sector(); }
+void choose_geom(void* sector, void* geom) { static_cast<WorldCell*>(sector)->choose_geom(geom); }
+void insert_sector(uint8_t* scene, void* sector) { reinterpret_cast<WorldScene*>(scene)->insert_sector(static_cast<WorldCell*>(sector)); }
+void set_up_sectors(uint8_t* scene, const char* name)
 {
-    reinterpret_cast<CWorldScene*>(scene)->FinishLoad(name, nullptr);
+    reinterpret_cast<WorldScene*>(scene)->finish_load(name, nullptr);
 }
 // A PC geom for a scene's sector (0x64 bytes, zeroed; the scene at +0x34).
-uint8_t* NewSectorGeom(uint8_t* scene)
+uint8_t* new_sector_geom(uint8_t* scene)
 {
-    void* memory = MemSys::AllocZeroed(0x64);
-    auto* geom = memory ? reinterpret_cast<uint8_t*>(static_cast<CPcGeom*>(memory)->MakeNew()) : nullptr;
+    void* memory = memory::alloc_zeroed(0x64);
+    auto* geom = memory ? reinterpret_cast<uint8_t*>(static_cast<PcGeom*>(memory)->make_new()) : nullptr;
     // (no check: a failed allocation writes through null, as the original)
     *reinterpret_cast<uint8_t**>(geom + 0x34) = scene;
     return geom;
 }
-void PrepareGeometry(uint8_t* geom) { reinterpret_cast<CPcGeom*>(geom)->StartMeshList(); }
+void prepare_geometry(uint8_t* geom) { reinterpret_cast<PcGeom*>(geom)->start_mesh_list(); }
 // The 2D clip rectangle off (0x004D3CE0).
-void ClearScreenClip() { ClearSkinScaling(); }
+void clear_screen_clip() { clear_skin_scaling(); }
 
 // The scene's hash table size: 2^n entries (n 1-12), the first at least twice the sectors.
-int TableBitWidth(int sectors)
+int table_bit_width(int sectors)
 {
     unsigned int wanted = 2 * static_cast<unsigned int>(sectors);
     unsigned int size = 2;
@@ -68,162 +68,162 @@ int TableBitWidth(int sectors)
 }
 
 // The hierarchy's array (new[]: its count in the word before it), constructed.
-sHierarchyNode* NewHierarchy(int count)
+HierarchyNode* new_hierarchy(int count)
 {
-    void* memory = MemSys::Alloc(count * sizeof(sHierarchyNode) + 4);
+    void* memory = memory::alloc(count * sizeof(HierarchyNode) + 4);
     if (!memory)
         return nullptr;
     *static_cast<int*>(memory) = count;
-    auto* nodes = reinterpret_cast<sHierarchyNode*>(static_cast<uint8_t*>(memory) + 4);
+    auto* nodes = reinterpret_cast<HierarchyNode*>(static_cast<uint8_t*>(memory) + 4);
     for (int i = 0; i < count; ++i)
-        nodes[i].MakeNew();
+        nodes[i].make_new();
     return nodes;
 }
 
 // A new mesh list with the flag at +0x40.
-sceneRef* NewMeshList(bool meshFlag)
+SceneRef* new_mesh_list(bool mesh_flag)
 {
-    void* memory = MemSys::Alloc(sizeof(sceneRef));
-    sceneRef* list = memory ? static_cast<sceneRef*>(memory)->MakeNew() : nullptr;
-    list->unknown40 = meshFlag;
+    void* memory = memory::alloc(sizeof(SceneRef));
+    SceneRef* list = memory ? static_cast<SceneRef*>(memory)->make_new() : nullptr;
+    list->unknown40 = mesh_flag;
     return list;
 }
 
-uint8_t* BuildWorldScene(int sectors, bool withSuperSectors, bool flag8D, sceneRef* list)
+uint8_t* build_world_scene(int sectors, bool with_super_sectors, bool flag_8d, SceneRef* list)
 {
-    uint8_t* scene = NewPcScene(TableBitWidth(sectors));
-    scene[0x8C] = withSuperSectors;
-    scene[0x8D] = flag8D;
-    *reinterpret_cast<sceneRef**>(scene + 0x280) = list;
+    uint8_t* scene = new_pc_scene(table_bit_width(sectors));
+    scene[0x8C] = with_super_sectors;
+    scene[0x8D] = flag_8d;
+    *reinterpret_cast<SceneRef**>(scene + 0x280) = list;
     return scene;
 }
 
 // The mesh made around a loaded scene: the scene (+0xC4) and its hierarchy (+0xB4, +0xB8); the textures at +0x04.
-void SetMeshScene(CPcMesh* mesh, uint8_t* scene)
+void set_mesh_scene(PcMesh* mesh, uint8_t* scene)
 {
-    mesh->ChooseScene(scene);
+    mesh->choose_scene(scene);
 }
 
 } // namespace
 
 // 0x004B2D30
-sHierarchyNode* sHierarchyNode::MakeNew()
+HierarchyNode* HierarchyNode::make_new()
 {
     checksum = 0;
-    parentChecksum = 0;
-    parentIndex = 0xFFFF;
-    boneSlot = 0;
+    parent_checksum_ = 0;
+    parent_index_ = 0xFFFF;
+    bone_slot_ = 0;
     for (int i = 0; i < 16; ++i)
         matrix[i] = (i % 5 == 0) ? 1.0f : 0.0f;
     return this;
 }
 
 // 0x004B3490
-void* __cdecl LoadSceneFromMemory(const uint8_t* data, void* textures, bool withSuperSectors, bool flag8D, bool meshFlag)
+void* __cdecl load_scene_from_memory(const uint8_t* data, void* textures, bool with_super_sectors, bool flag_8d, bool mesh_flag)
 {
-    sceneRef* list = NewMeshList(meshFlag);
+    SceneRef* list = new_mesh_list(mesh_flag);
     const uint8_t* p = data + 0xC; // (past the header)
-    list->materials = ReadMaterialsFromBuffer(
+    list->materials = read_materials_from_buffer(
         const_cast<uint8_t**>(&p),
-        static_cast<const ListKit::KeyMap*>(*reinterpret_cast<void**>(static_cast<uint8_t*>(textures) + 0xC)));
+        static_cast<const lists::KeyMap*>(*reinterpret_cast<void**>(static_cast<uint8_t*>(textures) + 0xC)));
     int sectors = *reinterpret_cast<const int*>(p);
     p += 4;
-    uint8_t* scene = BuildWorldScene(sectors, withSuperSectors, flag8D, list);
+    uint8_t* scene = build_world_scene(sectors, with_super_sectors, flag_8d, list);
     for (int i = sectors; i > 0; --i) {
-        void* sector = SpawnSector(scene);
-        uint8_t* geom = NewSectorGeom(scene);
-        ChooseGeom(sector, geom);
-        PrepareGeometry(geom);
-        if (static_cast<CPcSector*>(sector)->ReadFromRamBlock(const_cast<uint8_t**>(&p)))
-            InsertSector(scene, sector);
+        void* sector = spawn_sector(scene);
+        uint8_t* geom = new_sector_geom(scene);
+        choose_geom(sector, geom);
+        prepare_geometry(geom);
+        if (static_cast<PcSector*>(sector)->read_from_ram_block(const_cast<uint8_t**>(&p)))
+            insert_sector(scene, sector);
     }
-    list->UpdateSphere();
+    list->update_sphere();
     int nodes = *reinterpret_cast<const int*>(p);
     p += 4;
     if (nodes > 0) {
-        sHierarchyNode* hierarchy = NewHierarchy(nodes);
+        HierarchyNode* hierarchy = new_hierarchy(nodes);
         list->extra = reinterpret_cast<uint8_t*>(hierarchy);
         // (no check: a failed allocation copies to null, as the original)
-        std::memcpy(hierarchy, p, nodes * sizeof(sHierarchyNode));
+        std::memcpy(hierarchy, p, nodes * sizeof(HierarchyNode));
         list->unknown78 = static_cast<uint32_t>(nodes);
     }
     return scene;
 }
 
 // 0x004B36D0
-void* __cdecl LoadSceneFromFile(const char* name, void* textures, bool withSuperSectors, bool flag8D, bool meshFlag,
-                                int sectorFlags)
+void* __cdecl load_scene_from_file(const char* name, void* textures, bool with_super_sectors, bool flag_8d, bool mesh_flag,
+                                int sector_flags)
 {
-    sceneRef* list = NewMeshList(meshFlag);
-    FileLoad::Hdl file = FileLoad::Unseal(name, "rb");
+    SceneRef* list = new_mesh_list(mesh_flag);
+    file::Hdl file = file::unseal(name, "rb");
     if (!file)
         return nullptr; // (the mesh list isn't freed, as the original)
     uint32_t header[3];
-    FileLoad::TakeIn(&header[0], 4, 1, file);
-    FileLoad::TakeIn(&header[1], 4, 1, file);
-    FileLoad::TakeIn(&header[2], 4, 1, file);
-    list->materials = LoadMaterialsFromFile(
-        file, static_cast<const ListKit::KeyMap*>(*reinterpret_cast<void**>(static_cast<uint8_t*>(textures) + 0xC)));
+    file::get_take_in(&header[0], 4, 1, file);
+    file::get_take_in(&header[1], 4, 1, file);
+    file::get_take_in(&header[2], 4, 1, file);
+    list->materials = load_materials_from_file(
+        file, static_cast<const lists::KeyMap*>(*reinterpret_cast<void**>(static_cast<uint8_t*>(textures) + 0xC)));
     int sectors;
-    FileLoad::TakeIn(&sectors, 4, 1, file);
-    uint8_t* scene = BuildWorldScene(sectors, withSuperSectors, flag8D, list);
+    file::get_take_in(&sectors, 4, 1, file);
+    uint8_t* scene = build_world_scene(sectors, with_super_sectors, flag_8d, list);
     for (int i = 0; i < sectors; ++i) {
-        void* sector = SpawnSector(scene);
-        uint8_t* geom = NewSectorGeom(scene);
-        ChooseGeom(sector, geom);
-        PrepareGeometry(geom);
-        if (static_cast<CPcSector*>(sector)->IngestFromFile(file, static_cast<uint32_t>(sectorFlags)))
-            InsertSector(scene, sector);
+        void* sector = spawn_sector(scene);
+        uint8_t* geom = new_sector_geom(scene);
+        choose_geom(sector, geom);
+        prepare_geometry(geom);
+        if (static_cast<PcSector*>(sector)->ingest_from_file(file, static_cast<uint32_t>(sector_flags)))
+            insert_sector(scene, sector);
     }
-    list->UpdateSphere();
+    list->update_sphere();
     int nodes;
-    FileLoad::TakeIn(&nodes, 4, 1, file);
+    file::get_take_in(&nodes, 4, 1, file);
     if (nodes > 0) {
-        sHierarchyNode* hierarchy = NewHierarchy(nodes);
+        HierarchyNode* hierarchy = new_hierarchy(nodes);
         list->extra = reinterpret_cast<uint8_t*>(hierarchy);
-        FileLoad::TakeIn(hierarchy, sizeof(sHierarchyNode), nodes, file); // (null when out of memory, as the original)
+        file::get_take_in(hierarchy, sizeof(HierarchyNode), nodes, file); // (null when out of memory, as the original)
         list->unknown78 = static_cast<uint32_t>(nodes);
     }
-    FileLoad::Shut(file);
+    file::shut(file);
     return scene;
 }
 
 // 0x004B3990
-void* __cdecl CreateFrameSource()
+void* __cdecl create_frame_source()
 {
-    void* memory = g_frameSourcePools.Carve(0x214);
-    return memory ? static_cast<CFrameSource*>(memory)->MakeNew() : nullptr;
+    void* memory = g_frame_source_pools.carve(0x214);
+    return memory ? static_cast<FrameSource*>(memory)->make_new() : nullptr;
 }
 
 // 0x004B3A20
-void* __cdecl LoadMeshFile(const char* name, void* textures)
+void* __cdecl load_mesh_file(const char* name, void* textures)
 {
-    auto* scene = static_cast<uint8_t*>(LoadSceneFromFile(name, textures, false, false, false, 0));
-    *reinterpret_cast<uint32_t*>(scene + 0x84) = Checksums::HashFromText(name);
+    auto* scene = static_cast<uint8_t*>(load_scene_from_file(name, textures, false, false, false, 0));
+    *reinterpret_cast<uint32_t*>(scene + 0x84) = checksums::hash_from_text(name);
     *reinterpret_cast<void**>(scene + 0x88) = textures;
-    SetUpSectors(scene, name);
-    ClearScreenClip();
-    void* memory = MemSys::AllocZeroed(0xC8);
-    CPcMesh* mesh = memory ? static_cast<CPcMesh*>(memory)->ConstructFromFile(name) : nullptr;
-    SetMeshScene(mesh, scene);
+    set_up_sectors(scene, name);
+    clear_screen_clip();
+    void* memory = memory::alloc_zeroed(0xC8);
+    PcMesh* mesh = memory ? static_cast<PcMesh*>(memory)->construct_from_file(name) : nullptr;
+    set_mesh_scene(mesh, scene);
     *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(mesh) + 4) = textures; // (the base mesh's)
     return mesh;
 }
 
 // 0x004B3AD0
-void* __cdecl LoadMeshFromMemory(uint32_t checksum, const uint8_t* data, int /*unused*/, void* skin, void* textures)
+void* __cdecl load_mesh_from_memory(uint32_t checksum, const uint8_t* data, int /*unused*/, void* skin, void* textures)
 {
     char name[16];
     std::snprintf(name, sizeof(name), "%d\n", static_cast<int>(checksum)); // (with a line feed, as the original)
-    auto* scene = static_cast<uint8_t*>(LoadSceneFromMemory(data, textures, false, false, false));
-    *reinterpret_cast<uint32_t*>(scene + 0x84) = Checksums::HashFromText(name);
+    auto* scene = static_cast<uint8_t*>(load_scene_from_memory(data, textures, false, false, false));
+    *reinterpret_cast<uint32_t*>(scene + 0x84) = checksums::hash_from_text(name);
     *reinterpret_cast<void**>(scene + 0x88) = textures;
-    SetUpSectors(scene, name);
-    void* memory = MemSys::AllocZeroed(0xC8);
-    CPcMesh* mesh = memory ? static_cast<CPcMesh*>(memory)->MakeNew() : nullptr;
-    mesh->LoadSkin(static_cast<const uint8_t*>(skin));
-    ClearScreenClip();
-    SetMeshScene(mesh, scene);
+    set_up_sectors(scene, name);
+    void* memory = memory::alloc_zeroed(0xC8);
+    PcMesh* mesh = memory ? static_cast<PcMesh*>(memory)->make_new() : nullptr;
+    mesh->load_skin(static_cast<const uint8_t*>(skin));
+    clear_screen_clip();
+    set_mesh_scene(mesh, scene);
     *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(mesh) + 4) = textures; // (the base mesh's)
     return mesh;
 }

@@ -1,10 +1,10 @@
 #pragma once
 
 // Neversoft's Singletons::LazyInstance<T>: a reference to one of the reference-counted singletons (the managers and
-// modules SystemCore::Main makes), taken when it's constructed - T's Fabricate(create): with `create` the first one makes
+// modules sys::Main makes), taken when it's constructed - T's Fabricate(create): with `create` the first one makes
 // the instance - and dropped when it's destroyed (T's Release: the last one deletes the instance).
 //
-// The game's LazyInstance objects are locals (SystemCore::Main, the movie player, the network code...): their
+// The game's LazyInstance objects are locals (sys::Main, the movie player, the network code...): their
 // constructors are inline (only one isn't, 0x004E1A90), and what's left out of line are each instance's
 // destructor (called from the exception-unwind code of the functions with such a local) and its scalar deleting
 // destructor, the only entry of each instance's vtable. Each instance here is named by a Singleton type:
@@ -20,36 +20,36 @@
 
 #include "engine/core/manager.h"
 
-namespace Singletons {
+namespace single {
 
 template <typename Singleton>
 struct LazyInstance {
     using KindTag = typename Singleton::KindTag;
 
-    void** m_vtable;
-    KindTag* m_instance;
+    void** vtable_;
+    KindTag* instance_;
 
-    static void** Vtable() { return Singleton::Vtable(); }
+    static void** get_vtable() { return Singleton::Vtable(); }
 
     // The constructor: a reference taken (and the instance made if `create` and there's none). Returns this.
-    LazyInstance* MakeNew(bool create)
+    LazyInstance* make_new(bool create)
     {
-        m_vtable = Vtable();
-        m_instance = Singleton::Fabricate(create);
+        vtable_ = get_vtable();
+        instance_ = Singleton::Fabricate(create);
         return this;
     }
     // The destructor: the reference dropped.
-    void DestroyBody()
+    void destroy_body()
     {
-        m_vtable = Vtable();
+        vtable_ = get_vtable();
         Singleton::Release();
     }
     // The scalar deleting destructor (vtable slot 0).
-    LazyInstance* Teardown(unsigned int flags)
+    LazyInstance* teardown(unsigned int flags)
     {
-        DestroyBody();
+        destroy_body();
         if (flags & 1)
-            MemSys::Hub::Pull()->Dealloc(this);
+            memory::Hub::get_pull()->dealloc(this);
         return this;
     }
 };
@@ -58,12 +58,12 @@ struct LazyInstance {
 // constructors of several such classes into this one: LazyInstance's out-of-line constructor (0x004E1A90) builds
 // its instance pointer with it, the network code (0x00597740-0x0059D410, 17 calls) its smart pointers.
 struct PointerMember {
-    void* m_pointer;
+    void* pointer_;
 
-    PointerMember* MakeNew(void* pointer);
+    PointerMember* make_new(void* pointer);
     // 0x00469490 (3 bytes: source only): its pointer - folded likewise (12 callers: the park editor's list
     // holders, ...).
-    void* Pull();
+    void* get_pull();
 };
 
 } // namespace Spt

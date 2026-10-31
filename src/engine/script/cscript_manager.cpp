@@ -2,22 +2,22 @@
 // the list of all scripts that stop, kill or look scripts up (0x00472D80-0x004759F5, group D of the CScript
 // batch - docs/script-runtime.md).
 //
-// Frame-level scheduling (TickChildScripts, the spec for a later port of the script runtime):
+// Frame-level scheduling (tick_child_scripts, the spec for a later port of the script runtime):
 // - Every CScript is on one list, the newest at the head. Spawned scripts belong to the list: they are updated
 //   here once per frame, from the head (newest) to the tail (oldest); the others (objects' scripts...) are
 //   skipped - their owners update them.
 // - Before a script is updated, the next spawned script after it is picked out; the walk goes on from that one
 //   whatever the update did. So a script spawned during the walk (at the head, behind the walk) first runs next
-//   frame; a script stopped during the walk (ResetScriptState: no code) is still reached this frame, its Update says
+//   frame; a script stopped during the walk (reset_script_state: no code) is still reached this frame, its Update says
 //   finished and it is deleted - its callback run first; a script DELETED during the walk while it's the next
 //   one is read after being freed (original behaviour - only KillSpawnedScript deletes outright).
 // - A spawned script is skipped (not updated) while paused - unless it has no code left, then it is updated,
-//   finishes and goes - and while SCRIPT_FLAG_PAUSE_WITH_OBJECT is set and its object says it is paused (the
+//   finishes and goes - and while kScriptFlagPauseWithObject is set and its object says it is paused (the
 //   object's vtable +0x1C returns false); with no object it runs.
 // - One Update per frame. When it returns FINISHED the callback script (if any) runs to its end at once
-//   (LaunchScript, with the callback parameters, on the script's object, not over the network), then the script is
+//   (launch_script, with the callback parameters, on the script's object, not over the network), then the script is
 //   deleted. Any other result (waiting, blocked, an interrupt that returned) keeps it for next frame.
-// - KillAllChildScripts called during the walk only sets a flag; the deletion happens after the walk, still in
+// - kill_all_child_scripts called during the walk only sets a flag; the deletion happens after the walk, still in
 //   this call. The one-per-frame wait's "a script was released this frame" flag is cleared at the start.
 #include <cstddef>
 #include <cstdint>
@@ -33,90 +33,90 @@
 #include "engine/script/param_struct.h"
 #include "engine/script/struct_buffer.h"
 
-namespace Scripts {
+namespace script {
 
 namespace {
 
 // How the original makes and frees a script (no C++ constructor or destructor runs): the pooled operator new
 // (0x00449970) and Construct (0x004738E0); Destroy (0x00474420) and the pooled operator delete (0x004499B0).
-CScript* NewScript()
+Script* new_script()
 {
-    void* memory = CScript::operator new(sizeof(CScript));
-    return memory ? static_cast<CScript*>(memory)->MakeNew() : nullptr;
+    void* memory = Script::operator new(sizeof(Script));
+    return memory ? static_cast<Script*>(memory)->make_new() : nullptr;
 }
-void DeleteScript(CScript* script)
+void delete_script(Script* script)
 {
     if (!script)
         return;
-    script->Teardown();
-    CScript::operator delete(script);
+    script->teardown();
+    Script::operator delete(script);
 }
-void BindScript(CScript* script, uint32_t name, const uint8_t* code, CStruct* params, GameObjects::CEntity* object)
+void bind_script(Script* script, uint32_t name, const uint8_t* code, Struct* params, objects::Entity* object)
 {
-    script->BindScript(name, code, params, object);
+    script->bind_script(name, code, params, object);
 }
-// Stop a script and report it (the walks have ReportStopped inlined).
-void Halt(CScript* script)
+// Stop a script and report it (the walks have report_stopped inlined).
+void halt(Script* script)
 {
-    script->ResetScriptState();
-    script->ReportStopped();
+    script->reset_script_state();
+    script->report_stopped();
 }
-EScriptOutcome UpdateScript(CScript* script) { return script->TickFrame(); }
-bool CallMemberFunctionOf(CMemberFunctionEntry* entry, CStruct* params, GameObjects::CEntity* object, CScript* script)
+ScriptOutcome get_update_script(Script* script) { return script->tick_frame(); }
+bool call_member_function_of(MemberFunctionEntry* entry, Struct* params, objects::Entity* object, Script* script)
 {
-    return InvokeMethodByName(entry, params, object, script);
+    return invoke_method_by_name(entry, params, object, script);
 }
 
-// A C function (the value of an QBVAL_NATIVE_FUNC symbol).
-using CFunction = bool(__cdecl*)(CStruct* params, CScript* script);
+// A C function (the value of an kQbvalNativeFunc symbol).
+using Function = bool(__cdecl*)(Struct* params, Script* script);
 
-// Game objects (GameObjects::CEntity, not decompiled yet): through their vtable.
-void** Vtable(GameObjects::CEntity* object) { return *reinterpret_cast<void***>(object); }
+// Game objects (GameObjects::Entity, not decompiled yet): through their vtable.
+void** get_vtable(objects::Entity* object) { return *reinterpret_cast<void***>(object); }
 // vtable +0x0C: run the member function `name`.
-bool CallMemberFunctionByName(GameObjects::CEntity* object, uint32_t name, CStruct* params, CScript* script)
+bool call_member_function_by_name(objects::Entity* object, uint32_t name, Struct* params, Script* script)
 {
-    return reinterpret_cast<bool(__thiscall*)(GameObjects::CEntity*, uint32_t, CStruct*, CScript*)>(Vtable(object)[3])(
+    return reinterpret_cast<bool(__thiscall*)(objects::Entity*, uint32_t, Struct*, Script*)>(get_vtable(object)[3])(
         object, name, params, script);
 }
-// vtable +0x1C: false while the object is paused (its SCRIPT_FLAG_PAUSE_WITH_OBJECT scripts wait).
-bool ObjectRunsScripts(GameObjects::CEntity* object)
+// vtable +0x1C: false while the object is paused (its kScriptFlagPauseWithObject scripts wait).
+bool object_runs_scripts(objects::Entity* object)
 {
-    return reinterpret_cast<bool(__thiscall*)(GameObjects::CEntity*)>(Vtable(object)[7])(object);
+    return reinterpret_cast<bool(__thiscall*)(objects::Entity*)>(get_vtable(object)[7])(object);
 }
 // +0x14: the object's id (sent to the other players).
-uint32_t ObjectId(GameObjects::CEntity* object) { return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(object) + 0x14); }
+uint32_t current_object_id(objects::Entity* object) { return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(object) + 0x14); }
 
-// The network game (OnlinePlay::Hub 0x007CCE14).
-using NetSessionSlot = OnlinePlay::Hub;
-NetSessionSlot* NetLink() { return reinterpret_cast<NetSessionSlot*>(OnlinePlay::g_onlineHub); }
+// The network game (online::Hub 0x007CCE14).
+using NetSessionSlot = online::Hub;
+NetSessionSlot* net_link() { return reinterpret_cast<NetSessionSlot*>(online::g_online_hub); }
 // 0x0044E4F0: whether a network game is on.
-bool InNetGame(NetSessionSlot* net) { return net->InNetGame(); }
+bool in_net_game(NetSessionSlot* net) { return net->in_net_game(); }
 // 0x00532EA0: the client connection `index` (+0x08 + 4 * index).
-void* FetchPatron(NetSessionSlot* net, int index) { return net->FetchPatron(index); }
+void* fetch_patron(NetSessionSlot* net, int index) { return net->fetch_patron(index); }
 // NetLink::NetMessageInfo (net_app.h): a message to be sent; the constructor 0x004549F0 sets the defaults.
-using ::NetLink::NetMessageInfo;
-void InitMsgDesc(NetMessageInfo* desc) { desc->MakeNew(); }
+using ::net::NetMessageInfo;
+void init_msg_desc(NetMessageInfo* desc) { desc->make_new(); }
 // 0x00459E50: queue a message for the server.
-void SendToHost(void* client, NetMessageInfo* desc)
+void send_to_host(void* client, NetMessageInfo* desc)
 {
-    static_cast<::NetLink::Guest*>(client)->SendToHost(desc);
+    static_cast<::net::Guest*>(client)->send_to_host(desc);
 }
 // 0x00479E20: `params` written into `buffer` (at most `size` bytes); returns the bytes written.
-int EmitIntoBuffer(CStruct* params, uint8_t* buffer, int size)
+int emit_into_buffer(Struct* params, uint8_t* buffer, int size)
 {
-    return static_cast<int>(Scripts::EmitIntoBuffer(params, buffer, static_cast<uint32_t>(size), 1, nullptr));
+    return static_cast<int>(script::emit_into_buffer(params, buffer, static_cast<uint32_t>(size), 1, nullptr));
 }
-constexpr uint8_t NETOP_SPAWN_SCRIPT = 0x48;
-constexpr uint8_t MSG_ID_SPAWN_SCRIPT = 0x49;
+constexpr uint8_t kNetopSpawnScript = 0x48;
+constexpr uint8_t kMsgIdSpawnScript = 0x49;
 
-bool IsSpawned(const CScript* script) { return (script->m_spawnFlags & SCRIPT_FLAG_SPAWNED) != 0; }
+bool is_spawned(const Script* script) { return (script->spawn_flags_ & kScriptFlagSpawned) != 0; }
 // Whether `object` is the object of `script` at any level (null matches levels with no object).
-bool UsesObject(const CScript* script, GameObjects::CEntity* object)
+bool uses_object(const Script* script, objects::Entity* object)
 {
-    if (script->m_entity.Pull() == object)
+    if (script->entity_.get_pull() == object)
         return true;
-    for (int i = 0; i < script->m_callDepth; ++i) {
-        if (script->m_frameRecords[i].m_ownerEntity == object)
+    for (int i = 0; i < script->call_depth_; ++i) {
+        if (script->frame_records_[i].owner_entity_ == object)
             return true;
     }
     return false;
@@ -125,249 +125,249 @@ bool UsesObject(const CScript* script, GameObjects::CEntity* object)
 } // namespace
 
 // 0x00475920
-void TickChildScripts()
+void tick_child_scripts()
 {
-    UpdatingSpawnedScripts() = true;
-    OnePerFrameReleased() = false;
-    for (CScript* script = ScriptListHead(); script;) {
-        CScript* next = script->m_following;
-        while (next && !IsSpawned(next))
-            next = next->m_following;
-        uint8_t flags = script->m_spawnFlags;
-        bool run = (flags & SCRIPT_FLAG_SPAWNED) && !((flags & SCRIPT_FLAG_PAUSED) && script->m_pc);
-        if (run && (flags & SCRIPT_FLAG_PAUSE_WITH_OBJECT) && script->m_entity.Pull())
-            run = ObjectRunsScripts(script->m_entity.Pull());
-        if (run && UpdateScript(script) == SCRIPT_OUTCOME_FINISHED) {
-            if (script->m_onFinishScript)
-                LaunchScript(script->m_onFinishScript, script->m_callbackParams, script->m_entity.Pull(), false, nullptr);
-            DeleteScript(script);
+    updating_spawned_scripts() = true;
+    one_per_frame_released() = false;
+    for (Script* script = script_list_head(); script;) {
+        Script* next = script->following_;
+        while (next && !is_spawned(next))
+            next = next->following_;
+        uint8_t flags = script->spawn_flags_;
+        bool run = (flags & kScriptFlagSpawned) && !((flags & kScriptFlagPaused) && script->pc_);
+        if (run && (flags & kScriptFlagPauseWithObject) && script->entity_.get_pull())
+            run = object_runs_scripts(script->entity_.get_pull());
+        if (run && get_update_script(script) == kScriptOutcomeFinished) {
+            if (script->on_finish_script_)
+                launch_script(script->on_finish_script_, script->callback_params_, script->entity_.get_pull(), false, nullptr);
+            delete_script(script);
         }
         script = next;
     }
-    UpdatingSpawnedScripts() = false;
-    if (DeleteSpawnedScriptsPending()) {
-        KillAllChildScripts();
-        DeleteSpawnedScriptsPending() = false;
+    updating_spawned_scripts() = false;
+    if (delete_spawned_scripts_pending()) {
+        kill_all_child_scripts();
+        delete_spawned_scripts_pending() = false;
     }
 }
 
 // 0x004753C0
-void KillAllChildScripts()
+void kill_all_child_scripts()
 {
-    if (UpdatingSpawnedScripts()) {
-        DeleteSpawnedScriptsPending() = true;
+    if (updating_spawned_scripts()) {
+        delete_spawned_scripts_pending() = true;
         return;
     }
-    for (CScript* script = ScriptListHead(); script;) {
-        CScript* next = script->m_following;
-        if (IsSpawned(script) && !(script->m_spawnFlags & SCRIPT_FLAG_NOT_SESSION_SPECIFIC))
-            DeleteScript(script);
+    for (Script* script = script_list_head(); script;) {
+        Script* next = script->following_;
+        if (is_spawned(script) && !(script->spawn_flags_ & kScriptFlagNotSessionSpecific))
+            delete_script(script);
         script = next;
     }
 }
 
 // 0x00475420
-CScript* SpawnScript(uint32_t name, CStruct* params, uint32_t callback, CStruct* callbackParams, int node,
-                     uint32_t id, bool replicateFlag, bool permanent, bool notSessionSpecific, bool pauseWithObject)
+Script* spawn_script(uint32_t name, Struct* params, uint32_t callback, Struct* callback_params, int node,
+                     uint32_t id, bool replicate_flag, bool permanent, bool not_session_specific, bool pause_with_object)
 {
-    CSymbolTableEntry* symbol = ResolveSymbol(name);
-    if (symbol && symbol->type == QBVAL_NATIVE_FUNC) {
+    SymbolTableEntry* symbol = resolve_symbol(name);
+    if (symbol && symbol->type == kQbvalNativeFunc) {
         // A C function is just called, with a temporary script (made on the script heap if not from the pool).
-        MemSys::Hub* manager = MemSys::Hub::Pull();
-        manager->EnterHeapScope(manager->m_scriptHeap);
-        CScript* script = NewScript();
-        MemSys::Hub::Pull()->LeaveHeapScope();
-        reinterpret_cast<CFunction>(symbol->raw)(params, script);
-        DeleteScript(script);
+        memory::Hub* manager = memory::Hub::get_pull();
+        manager->enter_heap_scope(manager->script_heap_);
+        Script* script = new_script();
+        memory::Hub::get_pull()->leave_heap_scope();
+        reinterpret_cast<Function>(symbol->raw)(params, script);
+        delete_script(script);
         return nullptr;
     }
-    // (with no such symbol too: BindScript then stops it at once, and it's deleted at its first update)
-    CScript* script = NewScript();
-    BindScript(script, name, nullptr, params, nullptr);
-    script->m_spawnId = id;
-    script->m_listLink = node;
-    script->m_spawnFlags = static_cast<uint8_t>((script->m_spawnFlags & 0xF1) | SCRIPT_FLAG_SPAWNED |
-                                                (notSessionSpecific ? SCRIPT_FLAG_NOT_SESSION_SPECIFIC : 0) |
-                                                (pauseWithObject ? SCRIPT_FLAG_PAUSE_WITH_OBJECT : 0));
+    // (with no such symbol too: bind_script then stops it at once, and it's deleted at its first update)
+    Script* script = new_script();
+    bind_script(script, name, nullptr, params, nullptr);
+    script->spawn_id_ = id;
+    script->list_link_ = node;
+    script->spawn_flags_ = static_cast<uint8_t>((script->spawn_flags_ & 0xF1) | kScriptFlagSpawned |
+                                                (not_session_specific ? kScriptFlagNotSessionSpecific : 0) |
+                                                (pause_with_object ? kScriptFlagPauseWithObject : 0));
     if (callback) {
-        script->m_onFinishScript = callback;
-        CStruct* copy = SpawnParamBag();
-        copy = copy ? copy->PrepareAll() : nullptr;
-        script->m_callbackParams = copy;
-        if (callbackParams)
-            copy->MergeStructure(callbackParams);
+        script->on_finish_script_ = callback;
+        Struct* copy = spawn_param_bag();
+        copy = copy ? copy->prepare_all() : nullptr;
+        script->callback_params_ = copy;
+        if (callback_params)
+            copy->merge_structure(callback_params);
     }
-    if (replicateFlag && InNetGame(NetLink()))
-        SendSpawnScriptMessage(name, nullptr, node, permanent);
+    if (replicate_flag && in_net_game(net_link()))
+        send_spawn_script_message(name, nullptr, node, permanent);
     return script;
 }
 
 // 0x00475670
-CScript* SpawnScript(const char* name, CStruct* params, uint32_t callback, CStruct* callbackParams, int node,
-                     uint32_t id, bool replicateFlag, bool permanent, bool notSessionSpecific, bool pauseWithObject)
+Script* spawn_script(const char* name, Struct* params, uint32_t callback, Struct* callback_params, int node,
+                     uint32_t id, bool replicate_flag, bool permanent, bool not_session_specific, bool pause_with_object)
 {
-    return SpawnScript(Checksums::HashFromText(name), params, callback, callbackParams, node, id, replicateFlag,
-                       permanent, notSessionSpecific, pauseWithObject);
+    return spawn_script(checksums::hash_from_text(name), params, callback, callback_params, node, id, replicate_flag,
+                       permanent, not_session_specific, pause_with_object);
 }
 
 // 0x004756C0
-void KillSpawnedScript(CScript* script)
+void kill_spawned_script(Script* script)
 {
-    if (script && IsSpawned(script))
-        DeleteScript(script);
+    if (script && is_spawned(script))
+        delete_script(script);
 }
 
 // 0x004756F0
-void EndScriptsBoundToEntity(GameObjects::CEntity* object) { StopScriptsUsingObject(object, 0); }
+void end_scripts_bound_to_entity(objects::Entity* object) { stop_scripts_using_object(object, 0); }
 
 // 0x00475700
-void DeleteFinishedScripts()
+void delete_finished_scripts()
 {
-    for (CScript* script = ScriptListHead(); script;) {
-        CScript* next = script->m_following;
-        if (!script->m_pc && !IsSpawned(script) && !script->m_signalRoutes)
-            DeleteScript(script);
+    for (Script* script = script_list_head(); script;) {
+        Script* next = script->following_;
+        if (!script->pc_ && !is_spawned(script) && !script->signal_routes_)
+            delete_script(script);
         script = next;
     }
 }
 
 // 0x00475790
-void LaunchScript(uint32_t name, CStruct* params, GameObjects::CEntity* object, bool replicateFlag, const char* /*nameString*/)
+void launch_script(uint32_t name, Struct* params, objects::Entity* object, bool replicate_flag, const char* /*nameString*/)
 {
-    CSymbolTableEntry* symbol = ResolveSymbol(name);
-    if (!symbol || (symbol->type != QBVAL_SCRIPT_BODY && symbol->type != QBVAL_NATIVE_FUNC &&
-                    symbol->type != QBVAL_NATIVE_METHOD))
+    SymbolTableEntry* symbol = resolve_symbol(name);
+    if (!symbol || (symbol->type != kQbvalScriptBody && symbol->type != kQbvalNativeFunc &&
+                    symbol->type != kQbvalNativeMethod))
         return;
-    if (replicateFlag)
-        SendRunScriptMessage(name, params, object);
+    if (replicate_flag)
+        send_run_script_message(name, params, object);
     switch (symbol->type) {
-    case QBVAL_NATIVE_METHOD:
+    case kQbvalNativeMethod:
         // (no check that there is an object)
-        if (auto* entry = reinterpret_cast<CMemberFunctionEntry*>(symbol->raw))
-            CallMemberFunctionOf(entry, params, object, nullptr);
+        if (auto* entry = reinterpret_cast<MemberFunctionEntry*>(symbol->raw))
+            call_member_function_of(entry, params, object, nullptr);
         else
-            CallMemberFunctionByName(object, name, params, nullptr);
+            call_member_function_by_name(object, name, params, nullptr);
         return;
-    case QBVAL_NATIVE_FUNC:
-        reinterpret_cast<CFunction>(symbol->raw)(params, nullptr);
+    case kQbvalNativeFunc:
+        reinterpret_cast<Function>(symbol->raw)(params, nullptr);
         return;
     default: {
-        MemSys::Hub* manager = MemSys::Hub::Pull();
-        manager->EnterHeapScope(manager->m_scriptHeap);
-        CScript* script = NewScript();
-        BindScript(script, name, nullptr, params, object);
-        MemSys::Hub::Pull()->LeaveHeapScope();
+        memory::Hub* manager = memory::Hub::get_pull();
+        manager->enter_heap_scope(manager->script_heap_);
+        Script* script = new_script();
+        bind_script(script, name, nullptr, params, object);
+        memory::Hub::get_pull()->leave_heap_scope();
         // To the end now: waits on frames or time just spin; a script that blocks never returns (original).
-        while (UpdateScript(script) != SCRIPT_OUTCOME_FINISHED) {
+        while (get_update_script(script) != kScriptOutcomeFinished) {
         }
-        DeleteScript(script);
+        delete_script(script);
         return;
     }
     }
 }
 
 // 0x004758F0
-void LaunchScript(const char* name, CStruct* params, GameObjects::CEntity* object, bool replicateFlag)
+void launch_script(const char* name, Struct* params, objects::Entity* object, bool replicate_flag)
 {
-    LaunchScript(Checksums::HashFromText(name), params, object, replicateFlag, name);
+    launch_script(checksums::hash_from_text(name), params, object, replicate_flag, name);
 }
 
 // 0x004752F0
-void RunScriptOnce(uint32_t name, CStruct* params, GameObjects::CEntity* object, CStruct* results)
+void run_script_once(uint32_t name, Struct* params, objects::Entity* object, Struct* results)
 {
-    CScript* script = NewScript();
-    BindScript(script, name, nullptr, params, object);
-    UpdateScript(script);
-    if (script->m_args)
-        results->MergeStructure(script->m_args); // (no check that there are results)
-    DeleteScript(script);
+    Script* script = new_script();
+    bind_script(script, name, nullptr, params, object);
+    get_update_script(script);
+    if (script->args_)
+        results->merge_structure(script->args_); // (no check that there are results)
+    delete_script(script);
 }
 
 // 0x00473350
-void SendRunScriptMessage(uint32_t name, CStruct* params, GameObjects::CEntity* object)
+void send_run_script_message(uint32_t name, Struct* params, objects::Entity* object)
 {
-    NetSessionSlot* net = NetLink();
-    if (!InNetGame(net))
+    NetSessionSlot* net = net_link();
+    if (!in_net_game(net))
         return;
     NetMessageInfo desc;
-    InitMsgDesc(&desc);
+    init_msg_desc(&desc);
     struct {
         uint32_t name;
-        uint32_t objectId; // -1: none
+        uint32_t object_id_; // -1: none
         uint8_t params[0x400];
     } message;
     message.name = name;
-    message.objectId = object ? ObjectId(object) : 0xFFFFFFFF;
-    int size = EmitIntoBuffer(params, message.params, sizeof(message.params));
-    void* client = FetchPatron(net, 0);
-    desc.m_content = &message;
-    desc.m_byteCount = static_cast<uint16_t>(size + 8);
-    desc.m_ident = NETOP_SPAWN_SCRIPT;
-    desc.m_queue = NetMessageInfo::kLaneOrdered;
-    desc.m_groupId = 8;
-    SendToHost(client, &desc);
+    message.object_id_ = object ? current_object_id(object) : 0xFFFFFFFF;
+    int size = emit_into_buffer(params, message.params, sizeof(message.params));
+    void* client = fetch_patron(net, 0);
+    desc.content_ = &message;
+    desc.byte_count_ = static_cast<uint16_t>(size + 8);
+    desc.ident_ = kNetopSpawnScript;
+    desc.queue_ = NetMessageInfo::kLaneOrdered;
+    desc.group_id_ = 8;
+    send_to_host(client, &desc);
 }
 
 // 0x00473420
-void SendSpawnScriptMessage(uint32_t name, GameObjects::CEntity* object, int node, bool permanent)
+void send_spawn_script_message(uint32_t name, objects::Entity* object, int node, bool permanent)
 {
-    NetSessionSlot* net = NetLink();
-    if (!InNetGame(net))
+    NetSessionSlot* net = net_link();
+    if (!in_net_game(net))
         return;
     NetMessageInfo desc;
-    InitMsgDesc(&desc);
+    init_msg_desc(&desc);
     struct {
         uint32_t name;
-        uint32_t objectId; // -1: none
+        uint32_t object_id_; // -1: none
         int node;
         bool permanent;
     } message = {}; // (16 bytes sent: the original leaves the last 3 as they were on the stack)
     message.name = name;
-    message.objectId = object ? ObjectId(object) : 0xFFFFFFFF;
+    message.object_id_ = object ? current_object_id(object) : 0xFFFFFFFF;
     message.node = node;
     message.permanent = permanent;
     static_assert(sizeof(message) == 0x10, "the message's size");
-    void* client = FetchPatron(net, 0);
-    desc.m_content = &message;
-    desc.m_byteCount = sizeof(message);
-    desc.m_ident = MSG_ID_SPAWN_SCRIPT;
-    desc.m_queue = NetMessageInfo::kLaneOrdered;
-    desc.m_groupId = 8;
-    SendToHost(client, &desc);
+    void* client = fetch_patron(net, 0);
+    desc.content_ = &message;
+    desc.byte_count_ = sizeof(message);
+    desc.ident_ = kMsgIdSpawnScript;
+    desc.queue_ = NetMessageInfo::kLaneOrdered;
+    desc.group_id_ = 8;
+    send_to_host(client, &desc);
 }
 
 // 0x00472D80
-void PauseSpawnedScripts(bool pause)
+void pause_spawned_scripts(bool pause)
 {
-    for (CScript* script = ScriptListHead(); script; script = script->m_following) {
-        if (IsSpawned(script))
-            script->m_spawnFlags = static_cast<uint8_t>((script->m_spawnFlags & ~SCRIPT_FLAG_PAUSED) |
-                                                        (pause ? SCRIPT_FLAG_PAUSED : 0));
+    for (Script* script = script_list_head(); script; script = script->following_) {
+        if (is_spawned(script))
+            script->spawn_flags_ = static_cast<uint8_t>((script->spawn_flags_ & ~kScriptFlagPaused) |
+                                                        (pause ? kScriptFlagPaused : 0));
     }
 }
 
 // 0x00472DC0
-void ResumeChildScript(CScript* script)
+void resume_child_script(Script* script)
 {
-    if (script && IsSpawned(script))
-        script->m_spawnFlags &= ~SCRIPT_FLAG_PAUSED;
+    if (script && is_spawned(script))
+        script->spawn_flags_ &= ~kScriptFlagPaused;
 }
 
 // 0x00472DE0
-bool ScriptExists(uint32_t name)
+bool script_exists(uint32_t name)
 {
-    CSymbolTableEntry* symbol = ResolveSymbol(name);
-    return symbol && symbol->type == QBVAL_SCRIPT_BODY;
+    SymbolTableEntry* symbol = resolve_symbol(name);
+    return symbol && symbol->type == kQbvalScriptBody;
 }
 
 // 0x00472E00
-uint32_t GetSpawnId(CScript* script) { return script && IsSpawned(script) ? script->m_spawnId : 0; }
+uint32_t get_spawn_id(Script* script) { return script && is_spawned(script) ? script->spawn_id_ : 0; }
 
 // 0x00472E20
-CScript* LookUpSpawnedScript(uint32_t id)
+Script* look_up_spawned_script(uint32_t id)
 {
-    for (CScript* script = ScriptListHead(); script; script = script->m_following) {
-        if (IsSpawned(script) && script->m_spawnId == id)
+    for (Script* script = script_list_head(); script; script = script->following_) {
+        if (is_spawned(script) && script->spawn_id_ == id)
             return script;
     }
     return nullptr;
@@ -376,48 +376,48 @@ CScript* LookUpSpawnedScript(uint32_t id)
 // The kill walks: spawned scripts only; each one's next is read before it is stopped.
 
 // 0x00473FA0
-void StopScriptsTargeting(uint32_t name)
+void stop_scripts_targeting(uint32_t name)
 {
-    for (CScript* script = ScriptListHead(); script;) {
-        CScript* next = script->m_following;
-        if (IsSpawned(script) && ScriptRefersTo(script, name))
-            Halt(script);
+    for (Script* script = script_list_head(); script;) {
+        Script* next = script->following_;
+        if (is_spawned(script) && script_refers_to(script, name))
+            halt(script);
         script = next;
     }
 }
 
-// 0x00474040: `id` is a spawn id, a unique id or a .qb file's checksum (m_spawnerFile: the scripts spawned by
-// that file's scripts) - the CFunction KillSpawnedScript id=... and the front end's elements, which pass the
+// 0x00474040: `id` is a spawn id, a unique id or a .qb file's checksum (spawner_file_: the scripts spawned by
+// that file's scripts) - the Function KillSpawnedScript id=... and the front end's elements, which pass the
 // name of the script they spawned (with spawn id 0 - so only a spawn id or file of that value matches).
-void StopScriptsByTag(uint32_t id)
+void stop_scripts_by_tag(uint32_t id)
 {
-    for (CScript* script = ScriptListHead(); script;) {
-        CScript* next = script->m_following;
-        if (IsSpawned(script) &&
-            (script->m_spawnId == id || script->m_uniqueId == id || script->m_spawnerFile == id))
-            Halt(script);
+    for (Script* script = script_list_head(); script;) {
+        Script* next = script->following_;
+        if (is_spawned(script) &&
+            (script->spawn_id_ == id || script->unique_id_ == id || script->spawner_file_ == id))
+            halt(script);
         script = next;
     }
 }
 
 // 0x004740D0
-void StopScriptsOfObjectAndTag(GameObjects::CEntity* object, uint32_t id, CScript* except)
+void stop_scripts_of_object_and_tag(objects::Entity* object, uint32_t id, Script* except)
 {
-    for (CScript* script = ScriptListHead(); script;) {
-        CScript* next = script->m_following;
-        if (IsSpawned(script) && script != except && UsesObject(script, object) && script->m_spawnId == id)
-            Halt(script);
+    for (Script* script = script_list_head(); script;) {
+        Script* next = script->following_;
+        if (is_spawned(script) && script != except && uses_object(script, object) && script->spawn_id_ == id)
+            halt(script);
         script = next;
     }
 }
 
 // 0x00474190
-void EndChildScriptsOfEntityByName(GameObjects::CEntity* object, uint32_t name, CScript* except)
+void end_child_scripts_of_entity_by_name(objects::Entity* object, uint32_t name, Script* except)
 {
-    for (CScript* script = ScriptListHead(); script;) {
-        CScript* next = script->m_following;
-        if (IsSpawned(script) && script != except && UsesObject(script, object) && script->m_scriptTitle == name)
-            Halt(script);
+    for (Script* script = script_list_head(); script;) {
+        Script* next = script->following_;
+        if (is_spawned(script) && script != except && uses_object(script, object) && script->script_title_ == name)
+            halt(script);
         script = next;
     }
 }
@@ -425,27 +425,27 @@ void EndChildScriptsOfEntityByName(GameObjects::CEntity* object, uint32_t name, 
 // The stop walks: every script (spawned or not); each one's next is read after it is stopped.
 
 // 0x00474250
-void StopAllScripts()
+void stop_all_scripts()
 {
-    for (CScript* script = ScriptListHead(); script; script = script->m_following)
-        Halt(script);
+    for (Script* script = script_list_head(); script; script = script->following_)
+        halt(script);
 }
 
 // 0x004742B0
-void StopScriptsUsingObject(GameObjects::CEntity* object, uint32_t name)
+void stop_scripts_using_object(objects::Entity* object, uint32_t name)
 {
-    for (CScript* script = ScriptListHead(); script; script = script->m_following) {
-        if (UsesObject(script, object) && (!name || script->m_scriptTitle == name))
-            Halt(script);
+    for (Script* script = script_list_head(); script; script = script->following_) {
+        if (uses_object(script, object) && (!name || script->script_title_ == name))
+            halt(script);
     }
 }
 
 // 0x00474350
-void StopScriptsUsingObjectThatReferTo(GameObjects::CEntity* object, uint32_t name)
+void stop_scripts_using_object_that_refer_to(objects::Entity* object, uint32_t name)
 {
-    for (CScript* script = ScriptListHead(); script; script = script->m_following) {
-        if (UsesObject(script, object) && (!name || ScriptRefersTo(script, name)))
-            Halt(script);
+    for (Script* script = script_list_head(); script; script = script->following_) {
+        if (uses_object(script, object) && (!name || script_refers_to(script, name)))
+            halt(script);
     }
 }
 

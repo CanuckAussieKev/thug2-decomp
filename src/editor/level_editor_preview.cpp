@@ -26,43 +26,43 @@
 #include "platform/run_log.h"
 #include "engine/gfx/pc_instance.h"
 
-namespace MenuSystem::LevelEditor::Preview {
+namespace frontend::level_editor::preview {
 
 // --- the pieces ---
 
-void Drag(Orbit* orbit, float dx, float dy, float radiansPerPixel)
+void get_drag(Orbit* orbit, float dx, float dy, float radians_per_pixel)
 {
-    orbit->yaw -= dx * radiansPerPixel;
-    orbit->pitch = std::clamp(orbit->pitch + dy * radiansPerPixel, kMinPitch, kMaxPitch);
+    orbit->yaw -= dx * radians_per_pixel;
+    orbit->pitch = std::clamp(orbit->pitch + dy * radians_per_pixel, kMinPitch, kMaxPitch);
     // (the yaw kept within a turn either way: it only ever matters as an angle)
     constexpr float kTurn = 6.2831853f;
     if (orbit->yaw > kTurn || orbit->yaw < -kTurn)
         orbit->yaw = std::fmod(orbit->yaw, kTurn);
 }
 
-void Wheel(Orbit* orbit, float steps)
+void get_wheel(Orbit* orbit, float steps)
 {
     orbit->zoom = std::clamp(orbit->zoom * std::pow(1.2f, steps), kMinZoom, kMaxZoom);
 }
 
-float FitDistance(float radius, float halfAngle, float margin)
+float fit_distance(float radius, float half_angle, float margin)
 {
-    float s = std::sin(halfAngle);
+    float s = std::sin(half_angle);
     return s > 1e-4f ? radius * margin / s : radius * margin * 1e4f;
 }
 
-void SphereOf(V3 min, V3 max, float minRadius, V3* centre, float* radius)
+void sphere_of(V3 min, V3 max, float min_radius, V3* centre, float* radius)
 {
     *centre = (min + max) * 0.5f;
     V3 half = (max - min) * 0.5f;
-    *radius = std::max(minRadius, std::sqrt(Dot(half, half)));
+    *radius = std::max(min_radius, std::sqrt(get_dot(half, half)));
 }
 
-Eye OrbitEye(V3 centre, float distance, const Orbit& orbit)
+Eye orbit_eye(V3 centre, float distance, const Orbit& orbit)
 {
     // (the view looks down by the eye's height angle)
     Eye eye;
-    eye.frame = FrameFromYawPitch(orbit.yaw, -orbit.pitch);
+    eye.frame = frame_from_yaw_pitch(orbit.yaw, -orbit.pitch);
     eye.pos = centre + eye.frame.back * distance;
     return eye;
 }
@@ -75,45 +75,45 @@ constexpr uint32_t kBackground = 0xFF2A2C30;
 constexpr float kRadiansPerPixel = 0.01f;
 
 Kind g_kind = Kind::kNone;
-uint32_t gId;
+uint32_t g_id;
 Orbit g_orbit;
-bool g_haveTime;
-std::chrono::steady_clock::time_point g_lastFrame, g_lastDrag;
-bool g_failedLogged;
+bool g_have_time;
+std::chrono::steady_clock::time_point g_last_frame, g_last_drag;
+bool g_failed_logged;
 
 // The renderer's calls (not rewritten yet; thiscall / cdecl).
-void SetMaterial(uint8_t* material) { reinterpret_cast<Engine3D::materialRef*>(material)->HandIn(); }
-void DrawMesh(uint8_t* mesh) { reinterpret_cast<Engine3D::meshRef*>(mesh)->Render(); }
+void set_material(uint8_t* material) { reinterpret_cast<render::MaterialRef*>(material)->hand_in(); }
+void draw_mesh(uint8_t* mesh) { reinterpret_cast<render::MeshRef*>(mesh)->render(); }
 // 0x004D16B0: one instance drawn (flag 8: not culled) - its world matrix, its bones, its lights.
-void DrawInstance(uint8_t* instance) { Engine3D::DrawOneInstance(reinterpret_cast<Engine3D::sSingleton*>(instance), 8); }
+void draw_instance(uint8_t* instance) { render::draw_one_instance(reinterpret_cast<render::Singleton*>(instance), 8); }
 // 0x004CDAA0 (thiscall on 0x00775B80): the view frustum from the camera's globals.
-void UpdateFrustum() { Engine3D::g_billboardPool.SetupAxes(); }
+void update_frustum() { render::g_billboard_pool.setup_axes(); }
 
-// The camera's globals Engine3D::ChooseCamera and the instance render change, saved and put back.
+// The camera's globals render::choose_camera and the instance render change, saved and put back.
 struct SavedRange {
     void* (*address)(); // (a function: the globals are set up after this table)
     uint32_t size;
 };
 constexpr SavedRange kSaved[] = {
-    {[]() -> void* { return &Engine3D::g_worldMatrix; }, sizeof(Maths::Mat4)},
-    {[]() -> void* { return &Engine3D::g_viewMatrix; }, sizeof(Maths::Mat4)},
-    {[]() -> void* { return &Engine3D::g_projectionMatrix; }, sizeof(Maths::Mat4)},
-    {[]() -> void* { return &Engine3D::g_headingMatrix; }, sizeof(Maths::Mat4)},
-    {[]() -> void* { return &Engine3D::g_deviceViewport; }, sizeof(Engine3D::DeviceViewport)},
-    {[]() -> void* { return &Engine3D::g_camera; }, sizeof(Engine3D::RenderCamera)},
-    {[]() -> void* { return &Engine3D::g_viewShape; }, sizeof(Engine3D::ViewShape)}, // (the view's shape: culling)
-    {[]() -> void* { return &Engine3D::g_worldTransform; }, sizeof(void*)},      // (the culling world matrix: none or the copy)
-    {[]() -> void* { return &Engine3D::g_worldTransformCopy; }, sizeof(float[16])},
+    {[]() -> void* { return &render::g_world_matrix; }, sizeof(maths::Mat4)},
+    {[]() -> void* { return &render::g_view_matrix; }, sizeof(maths::Mat4)},
+    {[]() -> void* { return &render::g_projection_matrix; }, sizeof(maths::Mat4)},
+    {[]() -> void* { return &render::g_heading_matrix; }, sizeof(maths::Mat4)},
+    {[]() -> void* { return &render::g_device_viewport; }, sizeof(render::DeviceViewport)},
+    {[]() -> void* { return &render::g_camera; }, sizeof(render::RenderCamera)},
+    {[]() -> void* { return &render::g_view_shape; }, sizeof(render::ViewShape)}, // (the view's shape: culling)
+    {[]() -> void* { return &render::g_world_transform; }, sizeof(void*)},      // (the culling world matrix: none or the copy)
+    {[]() -> void* { return &render::g_world_transform_copy; }, sizeof(float[16])},
 };
-constexpr uint32_t kSavedBytes = 4 * sizeof(Maths::Mat4) + sizeof(Engine3D::DeviceViewport) + sizeof(Engine3D::RenderCamera) +
-                                 sizeof(Engine3D::ViewShape) + sizeof(void*) + sizeof(float[16]);
+constexpr uint32_t kSavedBytes = 4 * sizeof(maths::Mat4) + sizeof(render::DeviceViewport) + sizeof(render::RenderCamera) +
+                                 sizeof(render::ViewShape) + sizeof(void*) + sizeof(float[16]);
 // (the camera's globals from the world matrix to the camera's end: 0x164 bytes; the view's shape: 0x18)
-static_assert(4 * sizeof(Maths::Mat4) + sizeof(Engine3D::DeviceViewport) + sizeof(Engine3D::RenderCamera) == 0x164 &&
-                  sizeof(Engine3D::ViewShape) == 0x18,
+static_assert(4 * sizeof(maths::Mat4) + sizeof(render::DeviceViewport) + sizeof(render::RenderCamera) == 0x164 &&
+                  sizeof(render::ViewShape) == 0x18,
               "the saved camera globals");
 struct SavedView {
     uint8_t bytes[kSavedBytes];
-    void StoreAway()
+    void store_away()
     {
         uint8_t* at = bytes;
         for (const SavedRange& range : kSaved) {
@@ -121,7 +121,7 @@ struct SavedView {
             at += range.size;
         }
     }
-    void Restore() const
+    void get_restore() const
     {
         const uint8_t* at = bytes;
         for (const SavedRange& range : kSaved) {
@@ -132,7 +132,7 @@ struct SavedView {
 };
 
 // A geometry's meshes as the world pass draws them: shown and not hidden; opaque ones first, then the transparent.
-void DrawMeshes(uint8_t* geom)
+void draw_meshes(uint8_t* geom)
 {
     auto** meshes = *reinterpret_cast<uint8_t***>(geom + 0x3C);
     uint32_t count = *reinterpret_cast<uint32_t*>(geom + 0x40);
@@ -153,155 +153,155 @@ void DrawMeshes(uint8_t* geom)
                 continue;
             if (material != current) {
                 current = material;
-                SetMaterial(material);
+                set_material(material);
             }
-            DrawMesh(mesh);
+            draw_mesh(mesh);
         }
     }
 }
 
 // An object's geometry: through its instance when it has one (+0x4C), else its meshes.
-void DrawGeometry(uint8_t* geom)
+void draw_geometry(uint8_t* geom)
 {
     if (auto* instance = *reinterpret_cast<uint8_t**>(geom + 0x4C))
-        DrawInstance(instance);
+        draw_instance(instance);
     else
-        DrawMeshes(geom);
+        draw_meshes(geom);
 }
 
 // A subject's box where it is (false: gone).
-bool BoxOf(Kind kind, uint32_t id, OrientedBox* box)
+bool box_of(Kind kind, uint32_t id, OrientedBox* box)
 {
     if (kind == Kind::kSector)
-        return Scenery::SectorGeometry(id) && Scenery::Cuboid(id, box);
+        return scenery::sector_geometry(id) && scenery::cuboid(id, box);
     if (kind != Kind::kObject)
         return false;
-    auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
-    return object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) && Objects::ModelBox(object, box);
+    auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
+    return object && !(object->object_flags_ & objects::kObjectFlagDead) && object_edit::model_box(object, box);
 }
-bool SubjectBox(OrientedBox* box) { return BoxOf(g_kind, gId, box); }
+bool subject_box(OrientedBox* box) { return box_of(g_kind, g_id, box); }
 
-void DrawSubject(Kind kind, uint32_t id)
+void draw_subject(Kind kind, uint32_t id)
 {
     if (kind == Kind::kSector) {
-        if (uint8_t* geom = Scenery::SectorGeometry(id))
-            DrawMeshes(geom);
+        if (uint8_t* geom = scenery::sector_geometry(id))
+            draw_meshes(geom);
         return;
     }
-    auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
+    auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
     for (int i = 0; object && i < 16; ++i) {
-        auto* geom = static_cast<uint8_t*>(Objects::Geometry(object, i));
+        auto* geom = static_cast<uint8_t*>(object_edit::get_geometry(object, i));
         if (!geom)
             break;
-        if (Scenery::Tintable(geom)) // (the PC geometry class: its fields as read here)
-            DrawGeometry(geom);
+        if (scenery::tintable(geom)) // (the PC geometry class: its fields as read here)
+            draw_geometry(geom);
     }
 }
 
 } // namespace
 
-void Show(Kind kind, uint32_t id)
+void get_show(Kind kind, uint32_t id)
 {
-    if (kind == g_kind && id == gId)
+    if (kind == g_kind && id == g_id)
         return;
     g_kind = kind;
-    gId = id;
+    g_id = id;
     g_orbit = Orbit{};
-    g_lastDrag = {};
+    g_last_drag = {};
 }
 
-void Intake(float dx, float dy, float wheel)
+void intake(float dx, float dy, float wheel)
 {
     if (dx != 0.0f || dy != 0.0f) {
-        Drag(&g_orbit, dx, dy, kRadiansPerPixel);
-        g_lastDrag = std::chrono::steady_clock::now();
+        get_drag(&g_orbit, dx, dy, kRadiansPerPixel);
+        g_last_drag = std::chrono::steady_clock::now();
     }
     if (wheel != 0.0f)
-        Wheel(&g_orbit, wheel);
+        get_wheel(&g_orbit, wheel);
 }
 
-uint64_t Render(int size)
+uint64_t render(int size)
 {
     auto now = std::chrono::steady_clock::now();
-    double elapsed = g_haveTime ? std::chrono::duration<double>(now - g_lastFrame).count() : 0.0;
-    g_lastFrame = now;
-    g_haveTime = true;
+    double elapsed = g_have_time ? std::chrono::duration<double>(now - g_last_frame).count() : 0.0;
+    g_last_frame = now;
+    g_have_time = true;
     if (g_kind == Kind::kNone)
         return 0;
     // The slow turn (paused for a while after a drag).
-    if (std::chrono::duration<double>(now - g_lastDrag).count() > kTurnWait)
+    if (std::chrono::duration<double>(now - g_last_drag).count() > kTurnWait)
         g_orbit.yaw += kTurnSpeed * static_cast<float>(std::min(elapsed, 0.1));
 
     OrientedBox box;
-    if (!SubjectBox(&box))
+    if (!subject_box(&box))
         return 0;
-    if (!UiBackend::BeginOffscreen(size, kBackground)) {
-        if (!g_failedLogged)
-            Log("level editor: the Add palette's preview has no target - shown without one");
-        g_failedLogged = true;
+    if (!ui_backend::begin_offscreen(size, kBackground)) {
+        if (!g_failed_logged)
+            get_log("level editor: the Add palette's preview has no target - shown without one");
+        g_failed_logged = true;
         return 0;
     }
-    DrawView(g_kind, gId, g_orbit);
-    UiBackend::EndOffscreen();
-    return UiBackend::OffscreenTexture();
+    draw_view(g_kind, g_id, g_orbit);
+    ui_backend::end_offscreen();
+    return ui_backend::offscreen_texture();
 }
 
-bool DrawView(Kind kind, uint32_t id, const Orbit& orbit)
+bool draw_view(Kind kind, uint32_t id, const Orbit& orbit)
 {
     OrientedBox box;
-    if (!BoxOf(kind, id, &box))
+    if (!box_of(kind, id, &box))
         return false;
     V3 min, max;
-    BoundsOf(box, &min, &max);
+    bounds_of(box, &min, &max);
     V3 centre;
     float radius;
-    SphereOf(min, max, 4.0f, &centre, &radius);
-    Lens lens = LensFor(kAngle, kSquareAspect);
-    float halfAngle = std::atan(std::min(lens.tanX, lens.tanY));
-    Eye eye = OrbitEye(centre, FitDistance(radius, halfAngle, kMargin) / orbit.zoom, orbit);
+    sphere_of(min, max, 4.0f, &centre, &radius);
+    Lens lens = lens_for(kAngle, kSquareAspect);
+    float half_angle = std::atan(std::min(lens.tan_x_, lens.tan_y_));
+    Eye eye = orbit_eye(centre, fit_distance(radius, half_angle, kMargin) / orbit.zoom, orbit);
     SavedView saved;
-    saved.StoreAway();
-    Maths::Mat4 orientation = {};
+    saved.store_away();
+    maths::Mat4 orientation = {};
     orientation.row[0] = {eye.frame.right.x, eye.frame.right.y, eye.frame.right.z, 0.0f};
     orientation.row[1] = {eye.frame.up.x, eye.frame.up.y, eye.frame.up.z, 0.0f};
     orientation.row[2] = {eye.frame.back.x, eye.frame.back.y, eye.frame.back.z, 0.0f};
     orientation.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    Maths::Vec4 position = {eye.pos.x, eye.pos.y, eye.pos.z, 1.0f};
-    Engine3D::ChooseCamera(&orientation, &position, kAngle, kSquareAspect, 1.0f, false);
-    Engine3D::SetWorldTransform(nullptr);
-    Engine3D::ChangePhase(Engine3D::kZWrite, 1);
-    Engine3D::ChangePhase(Engine3D::kZTest, 1);
-    DrawSubject(kind, id);
+    maths::Vec4 position = {eye.pos.x, eye.pos.y, eye.pos.z, 1.0f};
+    render::choose_camera(&orientation, &position, kAngle, kSquareAspect, 1.0f, false);
+    render::set_world_transform(nullptr);
+    render::change_phase(render::kZWrite, 1);
+    render::change_phase(render::kZTest, 1);
+    draw_subject(kind, id);
     // Put back: the camera's globals, the frustum from them, no instance's lights taken as set (0x007825BC: the
     // next instance sets its own); the device's target and transforms are the caller's (the backend's) to put back.
-    saved.Restore();
-    UpdateFrustum();
-    Engine3D::g_lastBones = nullptr;
+    saved.get_restore();
+    update_frustum();
+    render::g_last_bones = nullptr;
     return true;
 }
 
-void Conceal()
+void conceal()
 {
     g_kind = Kind::kNone;
-    gId = 0;
-    g_haveTime = false;
-    UiBackend::FreeOffscreen();
+    g_id = 0;
+    g_have_time = false;
+    ui_backend::free_offscreen();
 }
 
-void TickCycle(Ui::ShapeMesh* model)
+void tick_cycle(ui::ShapeMesh* model)
 {
-    Ui::ShapeMesh::PreviewView& view = model->preview;
-    const std::vector<Ui::BrowserItem>* items = model->browserItems;
+    ui::ShapeMesh::PreviewView& view = model->preview;
+    const std::vector<ui::BrowserItem>* items = model->browser_items_;
     if (!model->browser || !items || view.index < 0 || view.index >= static_cast<int>(items->size())) {
         if (g_kind != Kind::kNone)
-            Conceal();
+            conceal();
         return;
     }
     uint32_t id = (*items)[view.index].id;
-    Show(model->browserTab == 0 ? Kind::kSector : Kind::kObject, id);
-    view.name = Objects::Caption(id);
+    get_show(model->browser_tab_ == 0 ? Kind::kSector : Kind::kObject, id);
+    view.name = object_edit::caption(id);
     OrientedBox box;
-    if (SubjectBox(&box)) {
+    if (subject_box(&box)) {
         char size[96];
         std::snprintf(size, sizeof(size), "%.0f x %.0f x %.0f  (x by y by z)", box.max.x - box.min.x,
                       box.max.y - box.min.y, box.max.z - box.min.z);
@@ -310,12 +310,12 @@ void TickCycle(Ui::ShapeMesh* model)
     if (g_kind == Kind::kSector) {
         view.type = "scene sector (scenery)";
     } else {
-        view.type = Objects::ClassOf(id);
-        std::string file = Objects::ModelFile(id);
+        view.type = object_edit::class_of(id);
+        std::string file = object_edit::get_model_file(id);
         if (!file.empty())
             view.type += "  -  " + file;
     }
-    view.texture = Render(Ui::PreviewPixels());
+    view.texture = render(ui::preview_pixels());
 }
 
-} // namespace MenuSystem::LevelEditor::Preview
+} // namespace MenuSystem::level_editor::Preview

@@ -17,51 +17,51 @@
 #include "platform/stopwatch.h"
 #include "engine/gfx/engine_effects.h"
 
-namespace Engine3D {
+namespace render {
 
-MemSys::PoolPair g_spawnedPolyPools;
+memory::PoolPair g_spawned_poly_pools;
 
 namespace {
 
-ListKit::KeyMap* SpawnedPolys() { return g_spawnedPolys; }
+lists::KeyMap* spawned_polys() { return g_spawned_polys; }
 
-void* NextValue(ListKit::KeyMap* table)
+void* next_value(lists::KeyMap* table)
 {
-    if (!table->StepIterator() || !table->m_iterItem)
+    if (!table->step_iterator() || !table->iter_item_)
         return nullptr;
-    return table->m_iterItem->value;
+    return table->iter_item_->value;
 }
-void* FirstValue(ListKit::KeyMap* table)
+void* get_first_value(lists::KeyMap* table)
 {
-    table->m_iterBucket = -1;
-    table->m_iterItem = nullptr;
-    return NextValue(table);
+    table->iter_bucket_ = -1;
+    table->iter_item_ = nullptr;
+    return next_value(table);
 }
 
 // The primitive's calls: its virtual slots ([0] destroyed, [7] a corner's position, [15] a corner's colour, [16] a
 // corner's texture coordinates) and the engine's dispatchers for [1] (the texture, 0x004A1090), [3] (the layout, type
 // and count, 0x004A10A0) and [4] (readied, then +0x15 set: 0x0049C6C0).
 template <typename... A>
-void PrimitiveVirtual(CPcPrimitive* primitive, int slot, A... args)
+void primitive_virtual(PcPrimitive* primitive, int slot, A... args)
 {
-    reinterpret_cast<void(__thiscall*)(CPcPrimitive*, A...)>(primitive->vtable[slot])(primitive, args...);
+    reinterpret_cast<void(__thiscall*)(PcPrimitive*, A...)>(primitive->vtable[slot])(primitive, args...);
 }
-void SetCorner(CPcPrimitive* primitive, int corner, const Maths::Vec4& at)
+void set_corner(PcPrimitive* primitive, int corner, const maths::Vec4& at)
 {
-    PrimitiveVirtual(primitive, 7, corner, at.x, at.y, at.z);
+    primitive_virtual(primitive, 7, corner, at.x, at.y, at.z);
 }
-void SetCornerColour(CPcPrimitive* primitive, int corner, const uint8_t* colour)
+void set_corner_colour(PcPrimitive* primitive, int corner, const uint8_t* colour)
 {
     uint32_t rgba;
     std::memcpy(&rgba, colour, 4);
-    PrimitiveVirtual(primitive, 15, corner, rgba);
+    primitive_virtual(primitive, 15, corner, rgba);
 }
 
 // Four corners turned by the polygon's matrix and moved to its position.
-void PlaceCorners(sSpawnedPoly* poly, Maths::Vec4* corners)
+void place_corners(SpawnedPoly* poly, maths::Vec4* corners)
 {
     for (int i = 0; i < 4; ++i)
-        corners[i].MultiplyBy(poly->matrix);
+        corners[i].multiply_by(poly->matrix);
     for (int i = 0; i < 4; ++i) {
         corners[i].x = static_cast<float>(static_cast<double>(corners[i].x) + poly->pos.x);
         corners[i].y = static_cast<float>(static_cast<double>(corners[i].y) + poly->pos.y);
@@ -72,30 +72,30 @@ void PlaceCorners(sSpawnedPoly* poly, Maths::Vec4* corners)
 } // namespace
 
 // 0x00491990
-sSpawnedPoly* sSpawnedPoly::MakeNew()
+SpawnedPoly* SpawnedPoly::make_new()
 {
     std::memset(this, 0, sizeof(*this));
-    alignH = 0.0f;
-    alignV = 0.0f;
-    blendMode = 0x54628ED7;
+    align_h_ = 0.0f;
+    align_v_ = 0.0f;
+    blend_mode_ = 0x54628ED7;
     return this;
 }
 
-namespace Engine {
+namespace engine {
 
 // 0x00492450
-void __cdecl SpawnPoly(sSpawnedPoly* poly, Maths::Vec4* direction, Maths::Vec4* up)
+void __cdecl spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up)
 {
-    void* memory = MemSys::Alloc(0x158);
-    poly->primitive = memory ? static_cast<CPcPrimitive*>(memory)->MakeNew(1) : nullptr;
-    Maths::Mat4& m = poly->matrix;
+    void* memory = memory::alloc(0x158);
+    poly->primitive = memory ? static_cast<PcPrimitive*>(memory)->make_new(1) : nullptr;
+    maths::Mat4& m = poly->matrix;
     std::memset(&m, 0, sizeof(m));
     m.row[0].x = m.row[1].y = m.row[2].z = m.row[3].w = 1.0f;
-    direction->MakeUnit();
-    up->MakeUnit();
+    direction->make_unit();
+    up->make_unit();
     m.row[0] = *direction;
     // Row 2 across the direction and up, row 1 across row 2 and the direction.
-    const Maths::Vec4& r0 = m.row[0];
+    const maths::Vec4& r0 = m.row[0];
     double s0 = static_cast<double>(r0.z) * up->y - static_cast<double>(r0.y) * up->z;
     double s1 = static_cast<double>(up->z) * r0.x - static_cast<double>(r0.z) * up->x;
     double s2 = static_cast<double>(r0.y) * up->x - static_cast<double>(up->y) * r0.x;
@@ -103,7 +103,7 @@ void __cdecl SpawnPoly(sSpawnedPoly* poly, Maths::Vec4* direction, Maths::Vec4* 
     m.row[2].z = static_cast<float>(s2);
     m.row[2].x = static_cast<float>(s0);
     m.row[2].y = static_cast<float>(s1);
-    const Maths::Vec4& r2 = m.row[2];
+    const maths::Vec4& r2 = m.row[2];
     double t0 = static_cast<double>(r2.y) * r0.z - static_cast<double>(r2.z) * r0.y;
     double t1 = static_cast<double>(r0.x) * r2.z - static_cast<double>(r2.x) * r0.z;
     double t2 = static_cast<double>(r2.x) * r0.y - static_cast<double>(r0.x) * r2.y;
@@ -114,14 +114,14 @@ void __cdecl SpawnPoly(sSpawnedPoly* poly, Maths::Vec4* direction, Maths::Vec4* 
     uint32_t layout = 1; // (colours; 3: and texture coordinates)
     if (poly->texture) {
         // (the primitive's slot 1, through the jump 0x004A1090)
-        reinterpret_cast<void(__thiscall*)(CPcPrimitive*, uint8_t*, int, int)>(
+        reinterpret_cast<void(__thiscall*)(PcPrimitive*, uint8_t*, int, int)>(
             (*reinterpret_cast<void***>(poly->primitive))[1])(poly->primitive, poly->texture, 0, 0);
         layout = 3;
     }
-    std::memcpy(poly->colours, poly->startColours, sizeof(poly->colours));
-    float height = poly->startDims[1];
+    std::memcpy(poly->colours, poly->start_colours_, sizeof(poly->colours));
+    float height = poly->start_dims_[1];
     poly->dims[1] = height;
-    float width = poly->startDims[0];
+    float width = poly->start_dims_[0];
     poly->dims[0] = width;
     poly->age = 0.0f;
     // The corners about the centre (w: see the header).
@@ -129,37 +129,37 @@ void __cdecl SpawnPoly(sSpawnedPoly* poly, Maths::Vec4* direction, Maths::Vec4* 
     double top = height * -0.5;
     double right = width * 0.5;
     double bottom = height * 0.5;
-    Maths::Vec4 corners[4] = {{static_cast<float>(left), static_cast<float>(top), 0.0f, 0.0f},
+    maths::Vec4 corners[4] = {{static_cast<float>(left), static_cast<float>(top), 0.0f, 0.0f},
                               {static_cast<float>(right), static_cast<float>(top), 0.0f, 0.0f},
                               {static_cast<float>(right), static_cast<float>(bottom), 0.0f, 0.0f},
                               {static_cast<float>(left), static_cast<float>(bottom), 0.0f, 0.0f}};
-    PlaceCorners(poly, corners);
-    CPcPrimitive* primitive = poly->primitive;
-    primitive->blendMode = poly->blendMode;
+    place_corners(poly, corners);
+    PcPrimitive* primitive = poly->primitive;
+    primitive->blend_mode_ = poly->blend_mode_;
     // (slot 3, through the jump 0x004A10A0)
-    reinterpret_cast<void(__thiscall*)(CPcPrimitive*, uint32_t, int, int)>((*reinterpret_cast<void***>(primitive))[3])(
+    reinterpret_cast<void(__thiscall*)(PcPrimitive*, uint32_t, int, int)>((*reinterpret_cast<void***>(primitive))[3])(
         primitive, layout, 4, 4);
     const float uvs[4][2] = {{0.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 1.0f}};
     for (int i = 0; i < 4; ++i) {
-        SetCornerColour(poly->primitive, i, poly->colours[i]);
+        set_corner_colour(poly->primitive, i, poly->colours[i]);
         if (layout & 2)
-            PrimitiveVirtual(poly->primitive, 16, i, uvs[i][0], uvs[i][1]);
-        SetCorner(poly->primitive, i, corners[i]);
+            primitive_virtual(poly->primitive, 16, i, uvs[i][0], uvs[i][1]);
+        set_corner(poly->primitive, i, corners[i]);
     }
     reinterpret_cast<uint8_t*>(poly->primitive)[0x14] = (poly->flags >> 1) & 1;
-    reinterpret_cast<CPrimitive*>(poly->primitive)->Ready();
+    reinterpret_cast<Primitive*>(poly->primitive)->get_ready();
     uint32_t key = reinterpret_cast<uint32_t>(poly);
-    SpawnedPolys()->StoreEntry(key, poly);
+    spawned_polys()->store_entry(key, poly);
 }
 
 // 0x004919C0
-void __cdecl UpdateSpawnedPolys()
+void __cdecl update_spawned_polys()
 {
-    float elapsed = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
-    for (void* value = FirstValue(SpawnedPolys()); value;) {
-        auto* poly = static_cast<sSpawnedPoly*>(value);
+    float elapsed = static_cast<float>(frame_clock::get_slomo_frame_seconds());
+    for (void* value = get_first_value(spawned_polys()); value;) {
+        auto* poly = static_cast<SpawnedPoly*>(value);
         if (poly->flags & 1) {
-            value = NextValue(SpawnedPolys());
+            value = next_value(spawned_polys());
             continue;
         }
         double age = static_cast<double>(elapsed) + poly->age;
@@ -168,66 +168,66 @@ void __cdecl UpdateSpawnedPolys()
             // Done: its primitive destroyed, the polygon taken out and freed.
             poly->flags |= 1;
             poly->age = 0.0f;
-            value = NextValue(SpawnedPolys());
+            value = next_value(spawned_polys());
             if (poly->primitive)
-                PrimitiveVirtual(poly->primitive, 0, 1u);
+                primitive_virtual(poly->primitive, 0, 1u);
             poly->primitive = nullptr;
             uint32_t key = reinterpret_cast<uint32_t>(poly);
-            SpawnedPolys()->EraseEntry(key);
-            ScriptCommands::FreeSpawnedPolyDetails(poly);
+            spawned_polys()->erase_entry(key);
+            commands::free_spawned_poly_details(poly);
             continue;
         }
         double t = age / poly->lifetime;
         for (int c = 0; c < 4; ++c) {
             for (int k = 0; k < 4; ++k) {
                 int change = static_cast<int>(static_cast<int64_t>(
-                    static_cast<double>(poly->endColours[c][k] - poly->startColours[c][k]) * t));
-                poly->colours[c][k] = static_cast<uint8_t>(poly->startColours[c][k] + change);
+                    static_cast<double>(poly->end_colours_[c][k] - poly->start_colours_[c][k]) * t));
+                poly->colours[c][k] = static_cast<uint8_t>(poly->start_colours_[c][k] + change);
             }
         }
         for (int i = 0; i < 2; ++i)
-            poly->dims[i] = static_cast<float>((static_cast<double>(poly->endDims[i]) - poly->startDims[i]) * t +
-                                               poly->startDims[i]);
+            poly->dims[i] = static_cast<float>((static_cast<double>(poly->end_dims_[i]) - poly->start_dims_[i]) * t +
+                                               poly->start_dims_[i]);
         for (int c = 0; c < 4; ++c)
-            SetCornerColour(poly->primitive, c, poly->colours[c]);
+            set_corner_colour(poly->primitive, c, poly->colours[c]);
         // Where the corners go, by the justification: right / bottom of the position, centred, or left / top.
-        float xOffset = 0.0f;
-        if (poly->alignH > 0.0f)
-            xOffset = poly->dims[0];
-        else if (poly->alignH == 0.0f)
-            xOffset = static_cast<float>(poly->dims[0] * 0.5);
-        double yOffset = 0.0;
-        if (poly->alignV > 0.0f)
-            yOffset = poly->dims[1];
-        else if (poly->alignV == 0.0f)
-            yOffset = poly->dims[1] * 0.5;
-        float left = -xOffset;
-        float top = static_cast<float>(-yOffset);
+        float x_offset = 0.0f;
+        if (poly->align_h_ > 0.0f)
+            x_offset = poly->dims[0];
+        else if (poly->align_h_ == 0.0f)
+            x_offset = static_cast<float>(poly->dims[0] * 0.5);
+        double y_offset = 0.0;
+        if (poly->align_v_ > 0.0f)
+            y_offset = poly->dims[1];
+        else if (poly->align_v_ == 0.0f)
+            y_offset = poly->dims[1] * 0.5;
+        float left = -x_offset;
+        float top = static_cast<float>(-y_offset);
         float right = static_cast<float>(static_cast<double>(left) + poly->dims[0]);
         float bottom = static_cast<float>(static_cast<double>(top) + poly->dims[1]);
-        Maths::Vec4 corners[4] = {{left, top, 0.0f, 0.0f},
+        maths::Vec4 corners[4] = {{left, top, 0.0f, 0.0f},
                                   {right, top, 0.0f, 0.0f},
                                   {right, bottom, 0.0f, 0.0f},
                                   {left, bottom, 0.0f, 0.0f}};
-        PlaceCorners(poly, corners);
+        place_corners(poly, corners);
         for (int c = 0; c < 4; ++c)
-            SetCorner(poly->primitive, c, corners[c]);
-        value = NextValue(SpawnedPolys());
+            set_corner(poly->primitive, c, corners[c]);
+        value = next_value(spawned_polys());
     }
 }
 
 // 0x00491E10
-void __cdecl KillAllSpawnedPolys()
+void __cdecl kill_all_spawned_polys()
 {
-    for (void* value = FirstValue(SpawnedPolys()); value;) {
-        auto* poly = static_cast<sSpawnedPoly*>(value);
-        value = NextValue(SpawnedPolys());
+    for (void* value = get_first_value(spawned_polys()); value;) {
+        auto* poly = static_cast<SpawnedPoly*>(value);
+        value = next_value(spawned_polys());
         if (poly->primitive)
-            PrimitiveVirtual(poly->primitive, 0, 1u);
+            primitive_virtual(poly->primitive, 0, 1u);
         poly->primitive = nullptr;
         uint32_t key = reinterpret_cast<uint32_t>(poly);
-        SpawnedPolys()->EraseEntry(key);
-        g_spawnedPolyPools.Dealloc(poly);
+        spawned_polys()->erase_entry(key);
+        g_spawned_poly_pools.dealloc(poly);
     }
 }
 

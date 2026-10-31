@@ -8,12 +8,12 @@
 #include "engine/script/param_struct.h"
 #include "engine/gfx/model_appearance.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
-using Scripts::CArray;
-using Scripts::CStruct;
+using script::Array;
+using script::Struct;
 
 constexpr uint32_t kDescId = 0x4BB2084E;          // desc_id
 constexpr uint32_t kCreatedGraphic = 0x79DAA2F9;  // (the created graphic's desc_id)
@@ -24,60 +24,60 @@ constexpr uint32_t kAllowRandom = 0xF1E3CD22;     // allow_random
 constexpr uint32_t kAlreadySelected = 0x92BDDFD9; // already_selected
 constexpr uint32_t kShuffleIndex = 0x4B833E64;     // random_index
 
-CStruct* Option(CArray* list, uint32_t index) { return reinterpret_cast<CStruct*>(list->FetchPart(index)); }
+Struct* current_option(Array* list, uint32_t index) { return reinterpret_cast<Struct*>(list->fetch_part(index)); }
 
 // allow_random, by default true unless no_random.
-int AllowRandom(CStruct* option)
+int allow_random(Struct* option)
 {
-    int allow = option->HasBareFlag(kNoRandom) ? 0 : 1;
-    option->FetchIntValue(kAllowRandom, &allow, 1);
+    int allow = option->has_bare_flag(kNoRandom) ? 0 : 1;
+    option->fetch_int_value(kAllowRandom, &allow, 1);
     return allow;
 }
 
 } // namespace
 
 // 0x00485CB0
-bool __cdecl PartIsCreatedGraphic(void* appearance, uint32_t part)
+bool __cdecl part_is_created_graphic(void* appearance, uint32_t part)
 {
-    auto* option = static_cast<Gfx2D::CModelLook*>(appearance)->GetPart(part);
+    auto* option = static_cast<gfx::ModelLook*>(appearance)->get_part(part);
     if (!option)
         return false;
-    uint32_t descriptorId = 0;
-    option->ReadHashValue(kDescId, &descriptorId, 0);
-    return descriptorId == kCreatedGraphic;
+    uint32_t descriptor_id = 0;
+    option->read_hash_value(kDescId, &descriptor_id, 0);
+    return descriptor_id == kCreatedGraphic;
 }
 
 // 0x00485CF0
-CStruct* __cdecl FindCasOption(uint32_t part, uint32_t descriptorId, bool)
+Struct* __cdecl find_cas_option(uint32_t part, uint32_t descriptor_id, bool)
 {
-    CArray* list = Scripts::FetchList(part);
-    if (!descriptorId)
+    Array* list = script::fetch_list(part);
+    if (!descriptor_id)
         return nullptr;
-    uint32_t found = descriptorId; // (the argument's own word: kept from option to option)
-    for (uint32_t i = 0; i < list->m_extent; ++i) {
-        CStruct* option = Option(list, i);
-        option->ReadHashValue(kDescId, &found, 1);
-        if (found == descriptorId)
+    uint32_t found = descriptor_id; // (the argument's own word: kept from option to option)
+    for (uint32_t i = 0; i < list->extent_; ++i) {
+        Struct* option = current_option(list, i);
+        option->read_hash_value(kDescId, &found, 1);
+        if (found == descriptor_id)
             return option;
     }
     return nullptr;
 }
 
 // 0x00485D70
-void __cdecl GetMatchingCasOptions(uint32_t part, uint32_t filter, CStruct** out, int* count)
+void __cdecl get_matching_cas_options(uint32_t part, uint32_t filter, Struct** out, int* count)
 {
-    CArray* list = Scripts::FetchList(part);
+    Array* list = script::fetch_list(part);
     *count = 0;
-    int size = static_cast<int>(list->m_extent);
+    int size = static_cast<int>(list->extent_);
     for (int i = 0; i < size; ++i) {
-        CStruct* option = Option(list, static_cast<uint32_t>(i));
+        Struct* option = current_option(list, static_cast<uint32_t>(i));
         int allowed = 0;
-        option->FetchIntValue(kPickPermitted, &allowed, 1);
+        option->fetch_int_value(kPickPermitted, &allowed, 1);
         if (!allowed)
             continue;
-        uint32_t optionFilter = 0;
-        option->ReadHashValue(kFilter, &optionFilter, 0);
-        if (optionFilter == filter) {
+        uint32_t option_filter = 0;
+        option->read_hash_value(kFilter, &option_filter, 0);
+        if (option_filter == filter) {
             *out++ = option;
             ++*count;
         }
@@ -85,27 +85,27 @@ void __cdecl GetMatchingCasOptions(uint32_t part, uint32_t filter, CStruct** out
 }
 
 // 0x00485E20
-CStruct* __cdecl PickRandomCasOption(uint32_t part, uint32_t filter)
+Struct* __cdecl pick_random_cas_option(uint32_t part, uint32_t filter)
 {
-    CStruct* options[32];
+    Struct* options[32];
     bool selected[32];
-    CArray* list = Scripts::FetchList(part);
-    int size = static_cast<int>(list->m_extent);
+    Array* list = script::fetch_list(part);
+    int size = static_cast<int>(list->extent_);
     int count = 0;
-    int alreadyPicked = 0; // (uninitialised in the original: an option without it takes the one before's)
+    int already_picked = 0; // (uninitialised in the original: an option without it takes the one before's)
     for (int i = 0; i < size; ++i) {
-        CStruct* option = Option(list, static_cast<uint32_t>(i));
-        int allow = AllowRandom(option);
+        Struct* option = current_option(list, static_cast<uint32_t>(i));
+        int allow = allow_random(option);
         if (filter) {
-            uint32_t optionFilter = 0;
-            if (option->ReadHashValue(kFilter, &optionFilter, 0) && optionFilter != filter)
+            uint32_t option_filter = 0;
+            if (option->read_hash_value(kFilter, &option_filter, 0) && option_filter != filter)
                 continue;
         }
         if (!allow)
             continue;
         options[count] = option;
-        option->FetchIntValue(kAlreadySelected, &alreadyPicked, 1);
-        selected[count] = alreadyPicked != 0;
+        option->fetch_int_value(kAlreadySelected, &already_picked, 1);
+        selected[count] = already_picked != 0;
         ++count;
     }
     // Every one selected already: all of them again
@@ -126,32 +126,32 @@ CStruct* __cdecl PickRandomCasOption(uint32_t part, uint32_t filter)
             ++candidates;
         }
     }
-    CStruct* option = options[Maths::Rnd(candidates)];
-    option->PutInt(kAlreadySelected, 1);
+    Struct* option = options[maths::rnd(candidates)];
+    option->put_int(kAlreadySelected, 1);
     return option;
 }
 
 // 0x00485FC0
-CStruct* __cdecl GetCasOptionByIndex(uint32_t part, int index, uint32_t filter)
+Struct* __cdecl get_cas_option_by_index(uint32_t part, int index, uint32_t filter)
 {
-    CArray* list = Scripts::FetchList(part);
-    int size = static_cast<int>(list->m_extent);
+    Array* list = script::fetch_list(part);
+    int size = static_cast<int>(list->extent_);
     if (!filter) {
         for (int i = 0; i < size; ++i) {
-            CStruct* option = Option(list, static_cast<uint32_t>(i));
-            int rolledSlot = -1;
-            if (option->FetchIntValue(kShuffleIndex, &rolledSlot, 1) && rolledSlot == index)
+            Struct* option = current_option(list, static_cast<uint32_t>(i));
+            int rolled_slot = -1;
+            if (option->fetch_int_value(kShuffleIndex, &rolled_slot, 1) && rolled_slot == index)
                 return option;
         }
         return nullptr;
     }
     for (;;) {
         for (int i = 0; i < size; ++i) {
-            CStruct* option = Option(list, static_cast<uint32_t>(i));
-            int allow = AllowRandom(option);
-            uint32_t optionFilter = 0;
-            option->ReadHashValue(kFilter, &optionFilter, 0);
-            if (allow && (optionFilter == filter || optionFilter == 0)) {
+            Struct* option = current_option(list, static_cast<uint32_t>(i));
+            int allow = allow_random(option);
+            uint32_t option_filter = 0;
+            option->read_hash_value(kFilter, &option_filter, 0);
+            if (allow && (option_filter == filter || option_filter == 0)) {
                 if (index <= 0)
                     return option;
                 --index;

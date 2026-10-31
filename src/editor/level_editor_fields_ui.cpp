@@ -1,6 +1,6 @@
 // NOT ORIGINAL - the level editor's full Inspector (phase 6, ours): a node's every field with a typed editor, and the
 // level properties (level_editor_fields.h, level_editor_level_props.h, level_editor_ui.h). Only ImGui's own API here
-// and the editor's pure / read-only calls (the node layer, Fields::RowsOf); what's changed goes to the editor as
+// and the editor's pure / read-only calls (the node layer, Fields::rows_of); what's changed goes to the editor as
 // requests.
 
 #include <array>
@@ -17,7 +17,7 @@
 #include "editor/level_editor_ui.h"
 #include "imgui.h"
 
-namespace MenuSystem::LevelEditor::Ui {
+namespace frontend::level_editor::ui {
 
 namespace {
 
@@ -33,19 +33,19 @@ struct Typing {
     int node = -1;
     uint32_t generation = 0;
     uint32_t active = 0;
-    bool activeSet = false;
+    bool active_set_ = false;
     std::unordered_map<uint32_t, ScratchBuf> buffers;
     // The "add a field" row.
-    ScratchBuf newName = {}, newValue = {};
-    int newKind = 0;
+    ScratchBuf new_name_ = {}, new_value_ = {};
+    int new_kind_ = 0;
 } g_typing;
 
-void DupFrom(ScratchBuf* buffer, const std::string& text)
+void dup_from(ScratchBuf* buffer, const std::string& text)
 {
     std::snprintf(buffer->data(), buffer->size(), "%s", text.c_str());
 }
 
-void SetField(std::vector<Request>* requests, uint32_t node, uint32_t key, Fields::Kind kind, const std::string& text,
+void set_field(std::vector<Request>* requests, uint32_t node, uint32_t key, fields::Kind kind, const std::string& text,
               const std::string& label = "")
 {
     Request request = {Request::kFieldSet};
@@ -57,7 +57,7 @@ void SetField(std::vector<Request>* requests, uint32_t node, uint32_t key, Field
     requests->push_back(request);
 }
 
-void Simple(std::vector<Request>* requests, Request::Kind kind, uint32_t node, uint32_t key)
+void simple(std::vector<Request>* requests, Request::Kind kind, uint32_t node, uint32_t key)
 {
     Request request = {kind};
     request.node = node;
@@ -65,79 +65,79 @@ void Simple(std::vector<Request>* requests, Request::Kind kind, uint32_t node, u
     requests->push_back(request);
 }
 
-const char* WhenLabel(Fields::When when)
+const char* when_label(fields::When when)
 {
     switch (when) {
-    case Fields::When::Live: return "live";
-    case Fields::When::Reload: return "on reload";
-    case Fields::When::Elsewhere: return "above";
+    case fields::When::kLive: return "live";
+    case fields::When::kReload: return "on reload";
+    case fields::When::kElsewhere: return "above";
     default: return "read-only";
     }
 }
 
 // A typed value checked as it's typed: the error ("" when fine) and a note (a name the game doesn't know).
-std::string Check(const Fields::Row& row, uint32_t self, const char* text, std::string* note)
+std::string get_check(const fields::Row& row, uint32_t self, const char* text, std::string* note)
 {
-    Fields::Value value;
+    fields::Value value;
     std::string error;
     note->clear();
-    if (!Fields::Parse(row.value.kind, text, &value, &error))
+    if (!fields::parse(row.value.kind, text, &value, &error))
         return error;
-    if (row.key == Fields::KeyLinks()) {
-        if (!Fields::ValidLinks(value.list, self, [](uint32_t c) { return Nodes::Find(c) >= 0; }, Fields::NameOf, &error))
+    if (row.key == fields::key_links()) {
+        if (!fields::valid_links(value.list, self, [](uint32_t c) { return nodes::get_find(c) >= 0; }, fields::get_name_of, &error))
             return error;
-    } else if (value.kind == Fields::Kind::Name && !Fields::NameOf(value.checksum)) {
+    } else if (value.kind == fields::Kind::kName && !fields::get_name_of(value.checksum)) {
         *note = "unknown name (checksum used)";
-    } else if (value.kind == Fields::Kind::Names) {
+    } else if (value.kind == fields::Kind::kNames) {
         for (uint32_t c : value.list) {
-            if (!Fields::NameOf(c))
+            if (!fields::get_name_of(c))
                 *note = "contains an unknown name";
         }
     }
     return "";
 }
 
-const Fields::Kind kAddKinds[] = {Fields::Kind::Integer, Fields::Kind::Float, Fields::Kind::Name,
-                                  Fields::Kind::Chars,  Fields::Kind::Vec4, Fields::Kind::BitMark,
-                                  Fields::Kind::Names};
+const fields::Kind kAddKinds[] = {fields::Kind::kInteger, fields::Kind::kFloat, fields::Kind::kName,
+                                  fields::Kind::kChars,  fields::Kind::kVec4, fields::Kind::kBitMark,
+                                  fields::Kind::kNames};
 
 } // namespace
 
-void FieldsSection(int nodeIndex, ImFont* mono, ImFont* smallFont, std::vector<Request>* requests)
+void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vector<Request>* requests)
 {
-    const std::vector<Nodes::Elem>& nodes = Nodes::All();
-    if (nodeIndex < 0 || nodeIndex >= static_cast<int>(nodes.size()))
+    const std::vector<nodes::Elem>& nodes = nodes::get_all();
+    if (node_index < 0 || node_index >= static_cast<int>(nodes.size()))
         return;
-    const Nodes::Elem& node = nodes[nodeIndex];
-    if (g_typing.node != nodeIndex || g_typing.generation != Nodes::Generation()) {
-        if (g_typing.node != nodeIndex) {
+    const nodes::Elem& node = nodes[node_index];
+    if (g_typing.node != node_index || g_typing.generation != nodes::get_generation()) {
+        if (g_typing.node != node_index) {
             g_typing.buffers.clear();
-            g_typing.activeSet = false;
+            g_typing.active_set_ = false;
         }
-        g_typing.node = nodeIndex;
-        g_typing.generation = Nodes::Generation();
+        g_typing.node = node_index;
+        g_typing.generation = nodes::get_generation();
     }
-    std::vector<Fields::Row> rows = Fields::RowsOf(node);
-    bool anyEdited = false;
-    for (const Fields::Row& row : rows)
-        anyEdited = anyEdited || row.edited;
+    std::vector<fields::Row> rows = fields::rows_of(node);
+    bool any_edited = false;
+    for (const fields::Row& row : rows)
+        any_edited = any_edited || row.edited;
     ImGui::Spacing();
     char header[64];
     std::snprintf(header, sizeof(header), "All fields (%d)%s###fields", static_cast<int>(rows.size()),
-                  anyEdited ? " - edited" : "");
+                  any_edited ? " - edited" : "");
     if (!ImGui::CollapsingHeader(header, ImGuiTreeNodeFlags_DefaultOpen))
         return;
-    bool stillActive = false;
+    bool still_active = false;
     if (ImGui::BeginTable("##fields", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp)) {
         ImGui::TableSetupColumn("##name", ImGuiTableColumnFlags_WidthStretch, 0.9f);
         ImGui::TableSetupColumn("##value", ImGuiTableColumnFlags_WidthStretch, 1.6f);
         ImGui::TableSetupColumn("##when", ImGuiTableColumnFlags_WidthFixed);
         ImGui::PushFont(mono);
-        for (const Fields::Row& row : rows) {
+        for (const fields::Row& row : rows) {
             ImGui::PushID(static_cast<int>(row.key));
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
-            std::string name = Fields::NameText(row.key, Fields::NameOf);
+            std::string name = fields::get_name_text(row.key, fields::get_name_of);
             if (row.included)
                 ImGui::TextDisabled("%s", name.c_str());
             else if (row.edited)
@@ -145,73 +145,73 @@ void FieldsSection(int nodeIndex, ImFont* mono, ImFont* smallFont, std::vector<R
             else
                 ImGui::TextUnformatted(name.c_str());
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("%s%s%s", Fields::KindName(row.value.kind),
+                ImGui::SetTooltip("%s%s%s", fields::kind_name(row.value.kind),
                                   row.included     ? " (shared by the class)"
                                   : row.overridden ? " (overrides the class)"
                                                    : "",
                                   row.edited ? "\nModified" : "");
             ImGui::TableNextColumn();
             ImGui::SetNextItemWidth(-FLT_MIN);
-            std::string text = Fields::Format(row.value, Fields::NameOf);
+            std::string text = fields::get_format(row.value, fields::get_name_of);
             if (!row.editable) {
                 ImGui::BeginDisabled(true);
                 ImGui::TextWrapped("%s", text.c_str());
                 ImGui::EndDisabled();
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
                     ImGui::SetTooltip("%s", row.why.c_str());
-            } else if (row.value.kind == Fields::Kind::BitMark) {
+            } else if (row.value.kind == fields::Kind::kBitMark) {
                 bool on = row.value.on;
                 if (ImGui::Checkbox("##flag", &on))
-                    SetField(requests, node.name, row.key, Fields::Kind::BitMark, on ? "on" : "off");
+                    set_field(requests, node.name, row.key, fields::Kind::kBitMark, on ? "on" : "off");
             } else {
-                bool active = g_typing.activeSet && g_typing.active == row.key;
+                bool active = g_typing.active_set_ && g_typing.active == row.key;
                 ScratchBuf& buffer = g_typing.buffers[row.key];
                 if (!active)
-                    DupFrom(&buffer, text);
+                    dup_from(&buffer, text);
                 bool enter = ImGui::InputText("##value", buffer.data(), buffer.size(),
                                               ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
                 bool left = ImGui::IsItemDeactivatedAfterEdit();
                 if (ImGui::IsItemActive()) {
                     g_typing.active = row.key;
-                    g_typing.activeSet = true;
-                    stillActive = true;
+                    g_typing.active_set_ = true;
+                    still_active = true;
                 }
                 std::string note;
-                std::string error = active || enter || left ? Check(row, node.name, buffer.data(), &note) : "";
+                std::string error = active || enter || left ? get_check(row, node.name, buffer.data(), &note) : "";
                 if ((enter || left) && std::strcmp(buffer.data(), text.c_str()) != 0) {
                     if (error.empty())
-                        SetField(requests, node.name, row.key, row.value.kind, buffer.data());
-                    g_typing.activeSet = false;
+                        set_field(requests, node.name, row.key, row.value.kind, buffer.data());
+                    g_typing.active_set_ = false;
                 } else if (enter || left) {
-                    g_typing.activeSet = false;
+                    g_typing.active_set_ = false;
                 }
                 if (!error.empty() || !note.empty()) {
-                    ImGui::PushFont(smallFont);
+                    ImGui::PushFont(small_font);
                     ImGui::TextColored(error.empty() ? kWarn : kError, "%s", error.empty() ? note.c_str() : error.c_str());
                     ImGui::PopFont();
                 }
             }
             ImGui::TableNextColumn();
-            ImGui::PushFont(smallFont);
-            ImVec4 colour = row.when == Fields::When::Live     ? kLive
-                            : row.when == Fields::When::Reload ? kReload
+            ImGui::PushFont(small_font);
+            ImVec4 colour = row.when == fields::When::kLive     ? kLive
+                            : row.when == fields::When::kReload ? kReload
                                                                : ImGui::GetStyle().Colors[ImGuiCol_TextDisabled];
-            ImGui::TextColored(row.editable || row.when == Fields::When::Elsewhere ? colour
+            ImGui::TextColored(row.editable || row.when == fields::When::kElsewhere ? colour
                                                                                     : ImGui::GetStyle().Colors[ImGuiCol_TextDisabled],
-                               "%s", row.editable || row.when == Fields::When::Elsewhere ? WhenLabel(row.when) : "read-only");
+                               "%s", row.editable || row.when == fields::When::kElsewhere ? when_label(row.when) : "read-only");
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("%s", row.editable ? row.note : row.why.c_str());
             if (row.edited) {
                 ImGui::SameLine();
                 if (ImGui::SmallButton("Home"))
-                    Simple(requests, Request::kFieldHome, node.name, row.key);
+                    simple(requests, Request::kFieldHome, node.name, row.key);
                 if (ImGui::IsItemHovered())
                     ImGui::SetTooltip("Revert");
             }
-            if (row.editable && !row.included && row.value.kind != Fields::Kind::BitMark && row.key != Fields::KeyLinks()) {
+            if (row.editable && !row.included && row.value.kind != fields::Kind::kBitMark && row.key != fields::key_links()) {
                 ImGui::SameLine();
                 if (ImGui::SmallButton("x"))
-                    Simple(requests, Request::kFieldRemove, node.name, row.key);
+                    simple(requests, Request::kFieldRemove, node.name, row.key);
                 if (ImGui::IsItemHovered())
                     ImGui::SetTooltip(row.overridden ? "Remove override" : "Remove field");
             }
@@ -221,67 +221,67 @@ void FieldsSection(int nodeIndex, ImFont* mono, ImFont* smallFont, std::vector<R
         ImGui::PopFont();
         ImGui::EndTable();
     }
-    if (!stillActive && g_typing.activeSet) {
+    if (!still_active && g_typing.active_set_) {
         // (the active box went away without being let go: a row that's gone)
         bool there = false;
-        for (const Fields::Row& row : rows)
+        for (const fields::Row& row : rows)
             there = there || row.key == g_typing.active;
-        g_typing.activeSet = there && g_typing.activeSet;
+        g_typing.active_set_ = there && g_typing.active_set_;
     }
     // A field the node doesn't have yet.
     if (!node.added) {
-        ImGui::PushFont(smallFont);
+        ImGui::PushFont(small_font);
         ImGui::TextDisabled("Add Field:");
         ImGui::PopFont();
         ImGui::PushFont(mono);
         ImGui::SetNextItemWidth(130.0f * ImGui::GetFontSize() / 13.0f);
-        ImGui::InputTextWithHint("##newname", "name", g_typing.newName.data(), g_typing.newName.size());
+        ImGui::InputTextWithHint("##newname", "name", g_typing.new_name_.data(), g_typing.new_name_.size());
         ImGui::SameLine();
         ImGui::SetNextItemWidth(90.0f * ImGui::GetFontSize() / 13.0f);
-        if (ImGui::BeginCombo("##newkind", Fields::KindName(kAddKinds[g_typing.newKind]))) {
+        if (ImGui::BeginCombo("##newkind", fields::kind_name(kAddKinds[g_typing.new_kind_]))) {
             for (int i = 0; i < static_cast<int>(sizeof(kAddKinds) / sizeof(kAddKinds[0])); ++i) {
-                if (ImGui::Selectable(Fields::KindName(kAddKinds[i]), i == g_typing.newKind))
-                    g_typing.newKind = i;
+                if (ImGui::Selectable(fields::kind_name(kAddKinds[i]), i == g_typing.new_kind_))
+                    g_typing.new_kind_ = i;
             }
             ImGui::EndCombo();
         }
         ImGui::SameLine();
         ImGui::SetNextItemWidth(-60.0f * ImGui::GetFontSize() / 13.0f);
-        ImGui::InputTextWithHint("##newvalue", "value", g_typing.newValue.data(), g_typing.newValue.size());
+        ImGui::InputTextWithHint("##newvalue", "value", g_typing.new_value_.data(), g_typing.new_value_.size());
         ImGui::PopFont();
         uint32_t key = 0;
-        Fields::Value value;
+        fields::Value value;
         std::string error;
-        std::string name = g_typing.newName.data();
-        bool nameOk = Fields::ParseName(name, &key) && name[0] != '#' && name[0] != '0';
-        bool valueOk = Fields::Parse(kAddKinds[g_typing.newKind], g_typing.newValue.data(), &value, &error);
+        std::string name = g_typing.new_name_.data();
+        bool name_ok = fields::parse_name(name, &key) && name[0] != '#' && name[0] != '0';
+        bool value_ok = fields::parse(kAddKinds[g_typing.new_kind_], g_typing.new_value_.data(), &value, &error);
         bool exists = false;
-        for (const Fields::Row& row : rows)
+        for (const fields::Row& row : rows)
             exists = exists || row.key == key;
         const char* why = name.empty()  ? "Enter a field name"
-                          : !nameOk     ? "Use letters, digits and _"
+                          : !name_ok     ? "Use letters, digits and _"
                           : exists      ? "Field already exists"
-                          : key == Fields::KeyName() || key == Fields::KeyClass() || key == Fields::KeyType() ||
-                                    key == Fields::KeyPos() || key == Fields::KeyAngles() || key == Fields::KeyLinks()
+                          : key == fields::get_key_name() || key == fields::key_class() || key == fields::get_key_type() ||
+                                    key == fields::key_pos() || key == fields::key_angles() || key == fields::key_links()
                               ? "Edited elsewhere"
-                          : !valueOk ? "Invalid value"
+                          : !value_ok ? "Invalid value"
                                      : nullptr;
         ImGui::SameLine();
         ImGui::BeginDisabled(why != nullptr);
         if (ImGui::Button("Add")) {
-            SetField(requests, node.name, key, kAddKinds[g_typing.newKind], g_typing.newValue.data(), name);
-            g_typing.newName = {};
-            g_typing.newValue = {};
+            set_field(requests, node.name, key, kAddKinds[g_typing.new_kind_], g_typing.new_value_.data(), name);
+            g_typing.new_name_ = {};
+            g_typing.new_value_ = {};
         }
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
             ImGui::SetTooltip("%s", why ? (why == std::string("Invalid value") ? error.c_str() : why)
                                         : "Add field (applies on reload)");
     }
-    ImGui::PushFont(smallFont);
-    if (anyEdited) {
+    ImGui::PushFont(small_font);
+    if (any_edited) {
         if (ImGui::SmallButton("Revert All Fields"))
-            Simple(requests, Request::kFieldHome, node.name, 0);
+            simple(requests, Request::kFieldHome, node.name, 0);
         ImGui::SameLine();
     }
     ImGui::TextDisabled("Grey: shared by the class");
@@ -294,10 +294,10 @@ namespace {
 
 struct LevelTyping {
     ScratchBuf name = {};
-    bool nameActive = false;
+    bool name_active_ = false;
 } g_level;
 
-void SendProps(std::vector<Request>* requests, const LevelProps::Props& props, bool done)
+void send_props(std::vector<Request>* requests, const level_props::Props& props, bool done)
 {
     Request request = {Request::kLevelProps};
     request.props = props;
@@ -306,10 +306,10 @@ void SendProps(std::vector<Request>* requests, const LevelProps::Props& props, b
         requests->push_back(Request{Request::kLevelPropsDone});
 }
 
-void When(ImFont* smallFont, const char* when, const char* tip)
+void get_when(ImFont* small_font, const char* when, const char* tip)
 {
     ImGui::SameLine();
-    ImGui::PushFont(smallFont);
+    ImGui::PushFont(small_font);
     ImGui::TextColored(std::strcmp(when, "on reload") == 0 ? kReload : kLive, "%s", when);
     ImGui::PopFont();
     if (ImGui::IsItemHovered())
@@ -318,21 +318,21 @@ void When(ImFont* smallFont, const char* when, const char* tip)
 
 } // namespace
 
-void LevelSection(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smallFont, std::vector<Request>* requests)
+void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* small_font, std::vector<Request>* requests)
 {
     ImGui::Spacing();
     ImGui::Separator();
     if (!ImGui::CollapsingHeader("Level properties###levelprops"))
         return;
-    if (!level.inLevel) {
+    if (!level.in_level_) {
         ImGui::TextDisabled("No level loaded");
         return;
     }
-    ImGui::PushFont(smallFont);
+    ImGui::PushFont(small_font);
     ImGui::TextDisabled("Saved with the layout");
     ImGui::PopFont();
-    LevelProps::Props props = level.props;
-    const LevelProps::Props& own = level.defaults;
+    level_props::Props props = level.props;
+    const level_props::Props& own = level.defaults;
     if (ImGui::BeginTable("##level", 2, ImGuiTableFlags_SizingStretchProp)) {
         ImGui::TableSetupColumn("##label", ImGuiTableColumnFlags_WidthFixed);
         ImGui::TableSetupColumn("##value", ImGuiTableColumnFlags_WidthStretch);
@@ -341,18 +341,18 @@ void LevelSection(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* small
         ImGui::TableNextColumn();
         ImGui::TextDisabled("Name");
         ImGui::TableNextColumn();
-        if (!g_level.nameActive)
-            DupFrom(&g_level.name, props.name);
+        if (!g_level.name_active_)
+            dup_from(&g_level.name, props.name);
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
-        bool enter = ImGui::InputTextWithHint("##name", level.haveDefaults ? own.name.c_str() : "Original",
+        bool enter = ImGui::InputTextWithHint("##name", level.have_defaults_ ? own.name.c_str() : "Original",
                                               g_level.name.data(), 65, ImGuiInputTextFlags_EnterReturnsTrue);
         bool left = ImGui::IsItemDeactivatedAfterEdit();
-        g_level.nameActive = ImGui::IsItemActive();
+        g_level.name_active_ = ImGui::IsItemActive();
         if ((enter || left) && props.name != g_level.name.data()) {
             props.name = g_level.name.data();
-            SendProps(requests, props, true);
+            send_props(requests, props, true);
         }
-        When(smallFont, "level select", "Name in the level select. Empty: original name.");
+        get_when(small_font, "level select", "Name in the level select. Empty: original name.");
         // Where the skater starts.
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
@@ -368,24 +368,24 @@ void LevelSection(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* small
         if (ImGui::BeginCombo("##start", current.c_str())) {
             if (ImGui::Selectable("(original)", props.start == 0)) {
                 props.start = 0;
-                SendProps(requests, props, true);
+                send_props(requests, props, true);
             }
             for (const auto& r : level.restarts) {
                 ImGui::PushID(static_cast<int>(r.first));
                 if (ImGui::Selectable(r.second.c_str(), props.start == r.first)) {
                     props.start = r.first;
-                    SendProps(requests, props, true);
+                    send_props(requests, props, true);
                 }
                 ImGui::PopID();
             }
             ImGui::EndCombo();
         }
         ImGui::PopFont();
-        When(smallFont, "on reload", "Start position");
-        if (level.selectedRestart && level.selectedRestart != props.start) {
+        get_when(small_font, "on reload", "Start position");
+        if (level.selected_restart_ && level.selected_restart_ != props.start) {
             if (ImGui::SmallButton("Use Selected Restart")) {
-                props.start = level.selectedRestart;
-                SendProps(requests, props, true);
+                props.start = level.selected_restart_;
+                send_props(requests, props, true);
             }
         }
         // Time of day.
@@ -394,134 +394,134 @@ void LevelSection(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* small
         ImGui::TableNextColumn();
         ImGui::TextDisabled("Time of day");
         ImGui::TableNextColumn();
-        char ownState[48];
-        std::snprintf(ownState, sizeof(ownState), "(original: %s)",
-                      level.haveDefaults && LevelProps::TodName(own.tod) ? LevelProps::TodName(own.tod) : "afternoon");
+        char own_state[48];
+        std::snprintf(own_state, sizeof(own_state), "(original: %s)",
+                      level.have_defaults_ && level_props::tod_name(own.tod) ? level_props::tod_name(own.tod) : "afternoon");
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
-        if (ImGui::BeginCombo("##tod", props.tod >= 0 ? kStates[props.tod] : ownState)) {
-            if (ImGui::Selectable(ownState, props.tod < 0)) {
+        if (ImGui::BeginCombo("##tod", props.tod >= 0 ? kStates[props.tod] : own_state)) {
+            if (ImGui::Selectable(own_state, props.tod < 0)) {
                 props.tod = -1;
-                SendProps(requests, props, true);
+                send_props(requests, props, true);
             }
             for (int i = 0; i < 4; ++i) {
                 if (ImGui::Selectable(kStates[i], props.tod == i)) {
                     props.tod = i;
-                    SendProps(requests, props, true);
+                    send_props(requests, props, true);
                 }
             }
             ImGui::EndCombo();
         }
-        When(smallFont, "live", "Time of day");
+        get_when(small_font, "live", "Time of day");
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
         ImGui::TextDisabled("Time passes");
         ImGui::TableNextColumn();
-        const char* ownTime = level.haveDefaults && own.time == 0 ? "(original: no)" : "(original: yes)";
+        const char* own_time = level.have_defaults_ && own.time == 0 ? "(original: no)" : "(original: yes)";
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
-        if (ImGui::BeginCombo("##time", props.time == 1 ? "yes" : props.time == 0 ? "no" : ownTime)) {
-            const char* labels[] = {ownTime, "no", "yes"};
+        if (ImGui::BeginCombo("##time", props.time == 1 ? "yes" : props.time == 0 ? "no" : own_time)) {
+            const char* labels[] = {own_time, "no", "yes"};
             for (int i = -1; i <= 1; ++i) {
                 if (ImGui::Selectable(labels[i + 1], props.time == i)) {
                     props.time = i;
-                    SendProps(requests, props, true);
+                    send_props(requests, props, true);
                 }
             }
             ImGui::EndCombo();
         }
-        When(smallFont, "on reload", "Advance time of day (career only)");
+        get_when(small_font, "on reload", "Advance time of day (career only)");
         // Its sky (the feature map's sky row): another level's sky scene.
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
         ImGui::TextDisabled("Sky");
         ImGui::TableNextColumn();
-        std::string ownSky = "(original: " + (level.haveDefaults && !own.sky.empty() ? own.sky : std::string("none")) + ")";
+        std::string own_sky = "(original: " + (level.have_defaults_ && !own.sky.empty() ? own.sky : std::string("none")) + ")";
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
         ImGui::PushFont(mono);
-        if (ImGui::BeginCombo("##sky", props.sky.empty() ? ownSky.c_str() : props.sky.c_str())) {
-            if (ImGui::Selectable(ownSky.c_str(), props.sky.empty())) {
+        if (ImGui::BeginCombo("##sky", props.sky.empty() ? own_sky.c_str() : props.sky.c_str())) {
+            if (ImGui::Selectable(own_sky.c_str(), props.sky.empty())) {
                 props.sky.clear();
-                SendProps(requests, props, true);
+                send_props(requests, props, true);
             }
-            for (const std::string& sky : LevelProps::Skies()) {
+            for (const std::string& sky : level_props::skies()) {
                 if (ImGui::Selectable(sky.c_str(), _stricmp(sky.c_str(), props.sky.c_str()) == 0)) {
                     props.sky = sky;
-                    SendProps(requests, props, true);
+                    send_props(requests, props, true);
                 }
             }
             ImGui::EndCombo();
         }
         ImGui::PopFont();
-        When(smallFont, "on reload", "Sky scene");
+        get_when(small_font, "on reload", "Sky scene");
         // Ambient light.
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
         ImGui::TextDisabled("Ambient");
         ImGui::TableNextColumn();
-        bool ambient = props.hasAmbient;
+        bool ambient = props.has_ambient_;
         if (ImGui::Checkbox("##ambient", &ambient)) {
-            props.hasAmbient = ambient;
-            if (ambient && level.haveDefaults)
+            props.has_ambient_ = ambient;
+            if (ambient && level.have_defaults_)
                 std::memcpy(props.ambient, own.ambient, sizeof(props.ambient));
-            SendProps(requests, props, true);
+            send_props(requests, props, true);
         }
         ImGui::SameLine();
-        ImGui::BeginDisabled(!props.hasAmbient);
-        const int* shown = props.hasAmbient ? props.ambient : own.ambient;
+        ImGui::BeginDisabled(!props.has_ambient_);
+        const int* shown = props.has_ambient_ ? props.ambient : own.ambient;
         float colour[3] = {shown[0] / 255.0f, shown[1] / 255.0f, shown[2] / 255.0f};
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
         if (ImGui::ColorEdit3("##ambientcolour", colour, ImGuiColorEditFlags_Uint8 | ImGuiColorEditFlags_DisplayRGB)) {
             for (int i = 0; i < 3; ++i)
-                props.ambient[i] = LevelProps::Channel(static_cast<int>(colour[i] * 255.0f + 0.5f));
-            SendProps(requests, props, false);
+                props.ambient[i] = level_props::get_channel(static_cast<int>(colour[i] * 255.0f + 0.5f));
+            send_props(requests, props, false);
         }
         if (ImGui::IsItemDeactivatedAfterEdit())
             requests->push_back(Request{Request::kLevelPropsDone});
         ImGui::EndDisabled();
-        When(smallFont, "live", "Ambient light colour");
+        get_when(small_font, "live", "Ambient light colour");
         // Fog.
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
         ImGui::TextDisabled("Fog");
         ImGui::TableNextColumn();
-        bool fog = props.hasFog;
+        bool fog = props.has_fog_;
         if (ImGui::Checkbox("##fog", &fog)) {
-            props.hasFog = fog;
-            if (fog && level.haveDefaults)
+            props.has_fog_ = fog;
+            if (fog && level.have_defaults_)
                 std::memcpy(props.fog, own.fog, sizeof(props.fog));
-            SendProps(requests, props, true);
+            send_props(requests, props, true);
         }
         ImGui::SameLine();
-        ImGui::BeginDisabled(!props.hasFog);
-        const int* f = props.hasFog ? props.fog : own.fog;
-        float fogColour[4] = {f[0] / 255.0f, f[1] / 255.0f, f[2] / 255.0f, f[3] / 255.0f};
+        ImGui::BeginDisabled(!props.has_fog_);
+        const int* f = props.has_fog_ ? props.fog : own.fog;
+        float fog_colour[4] = {f[0] / 255.0f, f[1] / 255.0f, f[2] / 255.0f, f[3] / 255.0f};
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
         bool changed = false;
-        if (ImGui::ColorEdit4("##fogcolour", fogColour,
+        if (ImGui::ColorEdit4("##fogcolour", fog_colour,
                               ImGuiColorEditFlags_Uint8 | ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_AlphaBar)) {
             for (int i = 0; i < 4; ++i)
-                props.fog[i] = LevelProps::Channel(static_cast<int>(fogColour[i] * 255.0f + 0.5f));
+                props.fog[i] = level_props::get_channel(static_cast<int>(fog_colour[i] * 255.0f + 0.5f));
             changed = true;
         }
         bool done = ImGui::IsItemDeactivatedAfterEdit();
         int distance = f[4];
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
         if (ImGui::DragInt("##fogdist", &distance, 10.0f, 0, 100000, "distance %d")) {
-            props.fog[4] = LevelProps::SpanTo(distance);
+            props.fog[4] = level_props::span_to(distance);
             changed = true;
         }
         done = done || ImGui::IsItemDeactivatedAfterEdit();
         if (changed)
-            SendProps(requests, props, false);
+            send_props(requests, props, false);
         if (done)
             requests->push_back(Request{Request::kLevelPropsDone});
         ImGui::EndDisabled();
-        When(smallFont, "live", "Fog colour, alpha and distance (alpha 0: no fog)");
+        get_when(small_font, "live", "Fog colour, alpha and distance (alpha 0: no fog)");
         ImGui::EndTable();
     }
-    if (!LevelProps::Vacant(level.props)) {
+    if (!level_props::vacant(level.props)) {
         if (ImGui::SmallButton("Revert All"))
-            SendProps(requests, LevelProps::Props{}, true);
+            send_props(requests, level_props::Props{}, true);
     }
 }
 
-} // namespace MenuSystem::LevelEditor::Ui
+} // namespace MenuSystem::level_editor::Ui

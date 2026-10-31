@@ -17,24 +17,24 @@
 #include "platform/run_log.h"
 #include "engine/objects/movie_manager.h"
 
-namespace SystemCore::DebugMode {
+namespace sys::debug_mode {
 
 namespace {
 
-uint32_t NameHash(const char* name) { return Checksums::HashFromText(name); }
+uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 
 // The start-up scripts, which keep the disc build's CD: false there makes default_system_startup take the
 // developers' path - no UsePreFilesForLevelLoading (their loose files: the retail data's archives aren't loaded, the
 // front end's peds lose their animations - a crash at 0x00482BA0), auto_launch_viewer, the script debugger -
 // instead of the main menu; autolaunch and startup_loading_screen run with it.
-bool IsStartupScript(const Scripts::CScript* script)
+bool is_startup_script(const script::Script* script)
 {
     if (!script)
         return false;
     // (the script it's running now: CScript +0xC8)
     uint32_t name = *reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(script) + 0xC8);
-    static const uint32_t kStartup[] = {NameHash("default_system_startup"), NameHash("autolaunch"),
-                                        NameHash("startup_loading_screen")};
+    static const uint32_t kStartup[] = {name_hash("default_system_startup"), name_hash("autolaunch"),
+                                        name_hash("startup_loading_screen")};
     for (uint32_t startup : kStartup) {
         if (name == startup)
             return true;
@@ -43,26 +43,26 @@ bool IsStartupScript(const Scripts::CScript* script)
 }
 
 // The table's CD entry is {"CD", function 0x005B9760 - return true}, and NotCD's {"NotCD", 0x005B9E50 - return false}.
-void Point(const char* name, void* function)
+void get_point(const char* name, void* function)
 {
-    if (Scripts::CNativeCommand* entry = Scripts::FindCFunction(name))
-        Scripts::BindNativeCommand(*entry, function);
+    if (script::NativeCommand* entry = script::find_c_function(name))
+        script::bind_native_command(*entry, function);
 }
 
-void Run(const char* script) { Scripts::LaunchScript(NameHash(script), nullptr, nullptr, false, script); }
+void get_run(const char* script) { script::launch_script(name_hash(script), nullptr, nullptr, false, script); }
 
-// The view mode (the viewer's free camera): the script global view_mode, which ChangeViewMode copies to 0x007CE4A4.
-bool InViewMode() { return GameObjects::g_viewMode != 0; }
+// The view mode (the viewer's free camera): the script global view_mode, which change_view_mode copies to 0x007CE4A4.
+bool in_view_mode() { return objects::g_view_mode != 0; }
 
 // A key's press (down now, up the frame before).
 struct Key {
     SDL_Scancode code;
-    bool wasDown;
-    bool Squeezed(const uint8_t* keys)
+    bool was_down_;
+    bool squeezed(const uint8_t* keys)
     {
         bool down = keys[code] != 0;
-        bool pressed = down && !wasDown;
-        wasDown = down;
+        bool pressed = down && !was_down_;
+        was_down_ = down;
         return pressed;
     }
 };
@@ -71,35 +71,35 @@ bool s_started;
 
 } // namespace
 
-bool& IsSwitchedOn()
+bool& is_switched_on()
 {
-    static bool on = ConfigInt("features", "debug_mode", 0) != 0;
+    static bool on = config_int("features", "debug_mode", 0) != 0;
     return on;
 }
 
-bool __cdecl CFunc_CD(Scripts::CStruct* /*params*/, Scripts::CScript* script)
+bool __cdecl cfunc_cd(script::Struct* /*params*/, script::Script* script)
 {
-    return !IsSwitchedOn() || IsStartupScript(script); // (the original: true - 0x005B9760)
+    return !is_switched_on() || is_startup_script(script); // (the original: true - 0x005B9760)
 }
 
-bool __cdecl CFunc_NotCD(Scripts::CStruct* /*params*/, Scripts::CScript* script)
+bool __cdecl cfunc_not_cd(script::Struct* /*params*/, script::Script* script)
 {
-    return !CFunc_CD(nullptr, script); // (the original: false - 0x005B9E50)
+    return !cfunc_cd(nullptr, script); // (the original: false - 0x005B9E50)
 }
 
-void Install()
+void install()
 {
-    if (!IsSwitchedOn())
+    if (!is_switched_on())
         return;
-    Point("CD", reinterpret_cast<void*>(&CFunc_CD));
-    Point("NotCD", reinterpret_cast<void*>(&CFunc_NotCD));
-    Log("debug mode: on (CD false / NotCD true after start-up: the developers' menus - DEBUG OPTIONS in the pause "
+    get_point("CD", reinterpret_cast<void*>(&cfunc_cd));
+    get_point("NotCD", reinterpret_cast<void*>(&cfunc_not_cd));
+    get_log("debug mode: on (CD false / NotCD true after start-up: the developers' menus - DEBUG OPTIONS in the pause "
         "menu - and the viewer: F9 free camera)");
 }
 
-void TickFrame(GameModules::FrontEnd* frontEnd)
+void tick_frame(modules::FrontEnd* front_end)
 {
-    if (!IsSwitchedOn() || FrameLoop::FramesRun() == 0) // (not in the early self-tests, which run this on stand-in state)
+    if (!is_switched_on() || frame_loop::frames_run() == 0) // (not in the early self-tests, which run this on stand-in state)
         return;
     const uint8_t* keys = SDL_GetKeyboardState(nullptr);
     if (!keys)
@@ -108,10 +108,10 @@ void TickFrame(GameModules::FrontEnd* frontEnd)
         f12{SDL_SCANCODE_F12, false}, tab{SDL_SCANCODE_TAB, false}, t{SDL_SCANCODE_T, false},
         home{SDL_SCANCODE_HOME, false};
     // (every key's state noted each frame, so a press counts once wherever it happened)
-    bool pressedF9 = f9.Squeezed(keys), pressedF10 = f10.Squeezed(keys), pressedF11 = f11.Squeezed(keys),
-         pressedF12 = f12.Squeezed(keys), pressedTab = tab.Squeezed(keys), pressedT = t.Squeezed(keys),
-         pressedHome = home.Squeezed(keys);
-    if (MenuSystem::LevelEditor::LiveNow() || (frontEnd && frontEnd->m_isHalted) || Engine3D::CurrentLevel() == 0)
+    bool pressed_f9 = f9.squeezed(keys), pressed_f10 = f10.squeezed(keys), pressed_f11 = f11.squeezed(keys),
+         pressed_f12 = f12.squeezed(keys), pressed_tab = tab.squeezed(keys), pressed_t = t.squeezed(keys),
+         pressed_home = home.squeezed(keys);
+    if (frontend::level_editor::live_now() || (front_end && front_end->is_halted_) || render::current_level() == 0)
         return;
     if (!s_started) {
         // In the first level (start-up long over; not the early self-tests, which run the front end's input logic
@@ -119,33 +119,33 @@ void TickFrame(GameModules::FrontEnd* frontEnd)
         // the viewer (LaunchViewer: the viewer module and its camera object viewer_cam, kept across levels; the PC
         // tool's network handler isn't made in this exe - 0x00684FA8 is set).
         s_started = true;
-        Run("cheat_select_shift");
-        Run("LaunchViewer");
-        Log("debug mode: the viewer launched (select_shift on)");
+        get_run("cheat_select_shift");
+        get_run("LaunchViewer");
+        get_log("debug mode: the viewer launched (select_shift on)");
     }
     // The Select combos (ButtonScripts.qb's UserSelect scripts, as the viewer's task runs them).
-    if (pressedF9)
-        Run("UserSelectX"); // the free camera on / off (ToggleViewMode)
-    if (pressedF10)
-        Run("UserSelectTriangle"); // render mode: wireframe, wireframe skins, normal
-    if (pressedF11)
-        Run("UserSelectCircle"); // in a wireframe mode its style; else the skater put at the camera, camera off
-    if (pressedF12)
-        Run("UserSelectSquare"); // a screenshot
-    if (pressedHome)
-        Run("UserSelectStart"); // rendering back to normal
+    if (pressed_f9)
+        get_run("UserSelectX"); // the free camera on / off (ToggleViewMode)
+    if (pressed_f10)
+        get_run("UserSelectTriangle"); // render mode: wireframe, wireframe skins, normal
+    if (pressed_f11)
+        get_run("UserSelectCircle"); // in a wireframe mode its style; else the skater put at the camera, camera off
+    if (pressed_f12)
+        get_run("UserSelectSquare"); // a screenshot
+    if (pressed_home)
+        get_run("UserSelectStart"); // rendering back to normal
     // The free camera's buttons (the UserViewer scripts).
-    if (InViewMode()) {
-        if (pressedTab)
-            Run("UserViewerCircle"); // speed: medium, fast, super slow
-        if (pressedT)
-            Run("UserViewerTriangle"); // the next time of day
+    if (in_view_mode()) {
+        if (pressed_tab)
+            get_run("UserViewerCircle"); // speed: medium, fast, super slow
+        if (pressed_t)
+            get_run("UserViewerTriangle"); // the next time of day
     }
 }
 
-bool KeyboardViewer(float* leftX, float* leftY, float* rightX, float* rightY, uint32_t* commands)
+bool keyboard_viewer(float* left_x, float* left_y, float* right_x, float* right_y, uint32_t* commands)
 {
-    if (!IsSwitchedOn() || MenuSystem::LevelEditor::LiveNow())
+    if (!is_switched_on() || frontend::level_editor::live_now())
         return false;
     const uint8_t* keys = SDL_GetKeyboardState(nullptr);
     if (!keys)
@@ -153,22 +153,22 @@ bool KeyboardViewer(float* leftX, float* leftY, float* rightX, float* rightY, ui
     auto axis = [keys](SDL_Scancode minus, SDL_Scancode plus) {
         return (keys[plus] ? 127.0f : 0.0f) - (keys[minus] ? 127.0f : 0.0f);
     };
-    float moveX = axis(SDL_SCANCODE_A, SDL_SCANCODE_D), moveZ = axis(SDL_SCANCODE_W, SDL_SCANCODE_S);
-    float turnX = axis(SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT), turnY = axis(SDL_SCANCODE_UP, SDL_SCANCODE_DOWN);
+    float move_x = axis(SDL_SCANCODE_A, SDL_SCANCODE_D), move_z = axis(SDL_SCANCODE_W, SDL_SCANCODE_S);
+    float turn_x = axis(SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT), turn_y = axis(SDL_SCANCODE_UP, SDL_SCANCODE_DOWN);
     bool up = keys[SDL_SCANCODE_E] || keys[SDL_SCANCODE_PAGEUP];
     bool down = keys[SDL_SCANCODE_Q] || keys[SDL_SCANCODE_PAGEDOWN];
-    if (!moveX && !moveZ && !turnX && !turnY && !up && !down)
+    if (!move_x && !move_z && !turn_x && !turn_y && !up && !down)
         return false;
     // (the right stick moves - x across, y along the view: up is -127 -, the left stick turns; a key held wins over
     // the stick)
-    if (moveX)
-        *rightX = moveX;
-    if (moveZ)
-        *rightY = moveZ;
-    if (turnX)
-        *leftX = turnX;
-    if (turnY)
-        *leftY = turnY;
+    if (move_x)
+        *right_x = move_x;
+    if (move_z)
+        *right_y = move_z;
+    if (turn_x)
+        *left_x = turn_x;
+    if (turn_y)
+        *left_y = turn_y;
     if (up)
         *commands |= 0x2;
     else if (down)
@@ -176,4 +176,4 @@ bool KeyboardViewer(float* leftX, float* leftY, float* rightX, float* rightY, ui
     return true;
 }
 
-} // namespace SystemCore::DebugMode
+} // namespace sys::debug_mode

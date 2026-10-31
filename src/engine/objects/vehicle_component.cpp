@@ -39,14 +39,14 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 
-namespace GameObjects {
+namespace objects {
 
 // The contacts of the colliders with the world (one array for every vehicle), up to the lens flare's globals at
 // 0x00696878: 132 of them.
-CDrivableModule::Contact g_vehicleContacts[132];
-CDrivableModule::Contact* CDrivableModule::Contacts() { return g_vehicleContacts; }
+DrivableModule::Contact g_vehicle_contacts[132];
+DrivableModule::Contact* DrivableModule::get_contacts() { return g_vehicle_contacts; }
 
-using namespace Vehicle;
+using namespace vehicle;
 
 namespace {
 
@@ -62,22 +62,22 @@ const float kHundredth = 0.00999999978f;       // 0x0064544C
 } // namespace
 
 // 0x00435870
-CDrivableModule::Wheel* CDrivableModule::Wheel::MakeNew()
+DrivableModule::Wheel* DrivableModule::Wheel::make_new()
 {
-    feeler.MakeNew();
+    feeler.make_new();
     return this;
 }
 
 // 0x00437CF0
-void CDrivableModule::Wheel::Destruct() { feeler.m_entity.Release(); }
+void DrivableModule::Wheel::destruct() { feeler.entity_.get_release(); }
 
 // 0x004351C0
-void CDrivableModule::UpdateWheelRotations()
+void DrivableModule::update_wheel_rotations()
 {
-    for (int i = m_wheelCount - 1; i >= 0; --i) {
-        Wheel& wheel = m_wheels[i];
+    for (int i = wheel_count_ - 1; i >= 0; --i) {
+        Wheel& wheel = wheels_[i];
         double rotation =
-            (static_cast<double>(wheel.spin) - static_cast<double>(wheel.torque) * m_stepLength * kHalf) * m_stepLength +
+            (static_cast<double>(wheel.spin) - static_cast<double>(wheel.torque) * step_length_ * kHalf) * step_length_ +
             wheel.rotation;
         wheel.rotation = static_cast<float>(rotation);
         if (rotation > kTwoHundredPi)
@@ -88,52 +88,52 @@ void CDrivableModule::UpdateWheelRotations()
 }
 
 // 0x00435250
-double CDrivableModule::GetTyreFriction(Wheel* wheel, float slip)
+double DrivableModule::get_tyre_friction(Wheel* wheel, float slip)
 {
-    if (m_handbrake) {
+    if (handbrake_) {
         double friction;
-        if (m_throttle) {
-            friction = wheel->parkingGripPowered;
+        if (throttle_) {
+            friction = wheel->parking_grip_powered_;
             wheel->state = kWheelHandbrakeThrottle;
         } else {
-            friction = wheel->parkingGripLocked;
+            friction = wheel->parking_grip_locked_;
             wheel->state = kWheelHandbrakeLocked;
         }
-        if (slip < wheel->minStaticGripVel) {
+        if (slip < wheel->min_static_grip_vel_) {
             wheel->state = kWheelStaticSlow;
-            return friction / wheel->minStaticGripVel * slip;
+            return friction / wheel->min_static_grip_vel_ * slip;
         }
         return friction;
     }
-    double scale = m_brake ? 2.0 : 1.0; // (0x00645448 / 0x006453A8)
-    if (slip < wheel->minStaticGripVel) {
+    double scale = brake_ ? 2.0 : 1.0; // (0x00645448 / 0x006453A8)
+    if (slip < wheel->min_static_grip_vel_) {
         wheel->state = kWheelStaticSlow;
-        return static_cast<double>(wheel->staticFriction) / wheel->minStaticGripVel * slip;
+        return static_cast<double>(wheel->static_friction_) / wheel->min_static_grip_vel_ * slip;
     }
-    if (slip < wheel->maxStaticGripVel) {
+    if (slip < wheel->max_static_grip_vel_) {
         wheel->state = kWheelStatic;
-        return scale * wheel->staticFriction;
+        return scale * wheel->static_friction_;
     }
-    if (slip < wheel->minDynamicGripVel) {
+    if (slip < wheel->min_dynamic_grip_vel_) {
         wheel->state = kWheelStaticToDynamic;
-        double blend = (static_cast<double>(wheel->staticFriction) - wheel->dynamicFriction) *
-                       (static_cast<double>(slip) - wheel->maxStaticGripVel) /
-                       (static_cast<double>(wheel->minDynamicGripVel) - wheel->maxStaticGripVel);
-        return scale * wheel->dynamicFriction + blend;
+        double blend = (static_cast<double>(wheel->static_friction_) - wheel->dynamic_friction_) *
+                       (static_cast<double>(slip) - wheel->max_static_grip_vel_) /
+                       (static_cast<double>(wheel->min_dynamic_grip_vel_) - wheel->max_static_grip_vel_);
+        return scale * wheel->dynamic_friction_ + blend;
     }
     wheel->state = kWheelDynamic;
-    return scale * wheel->dynamicFriction;
+    return scale * wheel->dynamic_friction_;
 }
 
 // 0x00435380
-int CDrivableModule::GetGear(float spin)
+int DrivableModule::get_gear(float spin)
 {
-    float upshift = m_upshiftSpeed;
+    float upshift = upshift_speed_;
     int gear = 0;
-    if (!(static_cast<double>(m_transmissionRatios[0]) * m_finalDriveRatio * spin > upshift))
+    if (!(static_cast<double>(transmission_ratios_[0]) * final_drive_ratio_ * spin > upshift))
         return gear;
-    while (gear < m_gearCount - 1) {
-        double engine = static_cast<double>(m_transmissionRatios[gear + 1]) * m_finalDriveRatio * spin;
+    while (gear < gear_count_ - 1) {
+        double engine = static_cast<double>(transmission_ratios_[gear + 1]) * final_drive_ratio_ * spin;
         ++gear;
         if (!(engine > upshift))
             break;
@@ -142,90 +142,90 @@ int CDrivableModule::GetGear(float spin)
 }
 
 // 0x00435520
-void CDrivableModule::StepVehicleSpeeds()
+void DrivableModule::step_vehicle_speeds()
 {
-    double invMass = m_invMass;
-    m_vel.z = static_cast<float>(invMass * m_linearMomentum.z);
-    m_vel.w = static_cast<float>(invMass * m_linearMomentum.w);
-    m_vel.x = static_cast<float>(invMass * m_linearMomentum.x);
-    m_vel.y = static_cast<float>(invMass * m_linearMomentum.y);
-    m_vel.w = 0.0f;
-    Maths::Vec4 rotvel;
-    m_rotvel = m_invInertia.RotateVector(rotvel, m_rotmom);
+    double inv_mass = inv_mass_;
+    vel_.z = static_cast<float>(inv_mass * linear_momentum_.z);
+    vel_.w = static_cast<float>(inv_mass * linear_momentum_.w);
+    vel_.x = static_cast<float>(inv_mass * linear_momentum_.x);
+    vel_.y = static_cast<float>(inv_mass * linear_momentum_.y);
+    vel_.w = 0.0f;
+    maths::Vec4 rotvel;
+    rotvel_ = inv_inertia_.rotate_vector(rotvel, rotmom_);
 }
 
 // 0x004355B0
-Maths::Vec4* CDrivableModule::GetPointVelocity(Maths::Vec4* out, const Maths::Vec4* offset)
+maths::Vec4* DrivableModule::get_point_velocity(maths::Vec4* out, const maths::Vec4* offset)
 {
     // The angular velocity across the offset, plus the velocity.
-    float x = static_cast<float>(static_cast<double>(offset->z) * m_rotvel.y - static_cast<double>(offset->y) * m_rotvel.z);
-    float y = static_cast<float>(static_cast<double>(m_rotvel.z) * offset->x - static_cast<double>(m_rotvel.x) * offset->z);
-    float z = static_cast<float>(static_cast<double>(m_rotvel.x) * offset->y - static_cast<double>(m_rotvel.y) * offset->x);
-    float w = m_vel.w;
-    out->x = static_cast<float>(static_cast<double>(x) + m_vel.x);
-    out->y = static_cast<float>(static_cast<double>(y) + m_vel.y);
-    out->z = static_cast<float>(static_cast<double>(z) + m_vel.z);
+    float x = static_cast<float>(static_cast<double>(offset->z) * rotvel_.y - static_cast<double>(offset->y) * rotvel_.z);
+    float y = static_cast<float>(static_cast<double>(rotvel_.z) * offset->x - static_cast<double>(rotvel_.x) * offset->z);
+    float z = static_cast<float>(static_cast<double>(rotvel_.x) * offset->y - static_cast<double>(rotvel_.y) * offset->x);
+    float w = vel_.w;
+    out->x = static_cast<float>(static_cast<double>(x) + vel_.x);
+    out->y = static_cast<float>(static_cast<double>(y) + vel_.y);
+    out->z = static_cast<float>(static_cast<double>(z) + vel_.z);
     out->w = w;
     return out;
 }
 
 // 0x00435640
-void CDrivableModule::AddForceAtPoint(const Maths::Vec4* force, const Maths::Vec4* point, uint32_t)
+void DrivableModule::add_force_at_point(const maths::Vec4* force, const maths::Vec4* point, uint32_t)
 {
-    m_force.x = static_cast<float>(static_cast<double>(m_force.x) + force->x);
-    m_force.y = static_cast<float>(static_cast<double>(force->y) + m_force.y);
-    m_force.z = static_cast<float>(static_cast<double>(force->z) + m_force.z);
-    m_force.w = static_cast<float>(static_cast<double>(force->w) + m_force.w);
+    force_.x = static_cast<float>(static_cast<double>(force_.x) + force->x);
+    force_.y = static_cast<float>(static_cast<double>(force->y) + force_.y);
+    force_.z = static_cast<float>(static_cast<double>(force->z) + force_.z);
+    force_.w = static_cast<float>(static_cast<double>(force->w) + force_.w);
     // The lever from the centre of mass; its torque's x and y rounded, z not.
-    double rx = static_cast<double>(point->x) - m_comOffset.x;
-    double ry = static_cast<double>(point->y) - m_comOffset.y;
-    double rz = static_cast<double>(point->z) - m_comOffset.z;
+    double rx = static_cast<double>(point->x) - com_offset_.x;
+    double ry = static_cast<double>(point->y) - com_offset_.y;
+    double rz = static_cast<double>(point->z) - com_offset_.z;
     float tx = static_cast<float>(ry * force->z - rz * force->y);
     float ty = static_cast<float>(rz * force->x - rx * force->z);
     double tz = rx * force->y - ry * force->x;
-    m_twistForce.x = static_cast<float>(static_cast<double>(tx) + m_twistForce.x);
-    m_twistForce.y = static_cast<float>(static_cast<double>(ty) + m_twistForce.y);
-    m_twistForce.z = static_cast<float>(tz + m_twistForce.z);
+    twist_force_.x = static_cast<float>(static_cast<double>(tx) + twist_force_.x);
+    twist_force_.y = static_cast<float>(static_cast<double>(ty) + twist_force_.y);
+    twist_force_.z = static_cast<float>(tz + twist_force_.z);
     // (the colour was for a debug line, compiled out)
 }
 
 // 0x00435710
-void CDrivableModule::AddForceAtOffset(const Maths::Vec4* force, const Maths::Vec4* offset)
+void DrivableModule::add_force_at_offset(const maths::Vec4* force, const maths::Vec4* offset)
 {
-    m_force.x = static_cast<float>(static_cast<double>(m_force.x) + force->x);
-    m_force.y = static_cast<float>(static_cast<double>(force->y) + m_force.y);
-    m_force.z = static_cast<float>(static_cast<double>(force->z) + m_force.z);
-    m_force.w = static_cast<float>(static_cast<double>(force->w) + m_force.w);
+    force_.x = static_cast<float>(static_cast<double>(force_.x) + force->x);
+    force_.y = static_cast<float>(static_cast<double>(force->y) + force_.y);
+    force_.z = static_cast<float>(static_cast<double>(force->z) + force_.z);
+    force_.w = static_cast<float>(static_cast<double>(force->w) + force_.w);
     // The torque: x and y unrounded, z rounded.
     double tx = static_cast<double>(offset->y) * force->z - static_cast<double>(force->y) * offset->z;
     double ty = static_cast<double>(offset->z) * force->x - static_cast<double>(force->z) * offset->x;
     float tz = static_cast<float>(static_cast<double>(force->y) * offset->x - static_cast<double>(offset->y) * force->x);
-    m_twistForce.x = static_cast<float>(tx + m_twistForce.x);
-    m_twistForce.y = static_cast<float>(ty + m_twistForce.y);
-    m_twistForce.z = static_cast<float>(static_cast<double>(tz) + m_twistForce.z);
+    twist_force_.x = static_cast<float>(tx + twist_force_.x);
+    twist_force_.y = static_cast<float>(ty + twist_force_.y);
+    twist_force_.z = static_cast<float>(static_cast<double>(tz) + twist_force_.z);
 }
 
 // 0x004357C0
-void CDrivableModule::ApplyImpulseAtOffset(const Maths::Vec4* impulse, const Maths::Vec4* offset)
+void DrivableModule::apply_impulse_at_offset(const maths::Vec4* impulse, const maths::Vec4* offset)
 {
-    m_linearMomentum.x = static_cast<float>(static_cast<double>(m_linearMomentum.x) + impulse->x);
-    m_linearMomentum.y = static_cast<float>(static_cast<double>(impulse->y) + m_linearMomentum.y);
-    m_linearMomentum.z = static_cast<float>(static_cast<double>(impulse->z) + m_linearMomentum.z);
-    m_linearMomentum.w = static_cast<float>(static_cast<double>(impulse->w) + m_linearMomentum.w);
+    linear_momentum_.x = static_cast<float>(static_cast<double>(linear_momentum_.x) + impulse->x);
+    linear_momentum_.y = static_cast<float>(static_cast<double>(impulse->y) + linear_momentum_.y);
+    linear_momentum_.z = static_cast<float>(static_cast<double>(impulse->z) + linear_momentum_.z);
+    linear_momentum_.w = static_cast<float>(static_cast<double>(impulse->w) + linear_momentum_.w);
     double tx = static_cast<double>(offset->y) * impulse->z - static_cast<double>(impulse->y) * offset->z;
     double ty = static_cast<double>(offset->z) * impulse->x - static_cast<double>(impulse->z) * offset->x;
     float tz = static_cast<float>(static_cast<double>(impulse->y) * offset->x - static_cast<double>(offset->y) * impulse->x);
-    m_rotmom.x = static_cast<float>(tx + m_rotmom.x);
-    m_rotmom.y = static_cast<float>(ty + m_rotmom.y);
-    m_rotmom.z = static_cast<float>(static_cast<double>(tz) + m_rotmom.z);
-    StepVehicleSpeeds();
+    rotmom_.x = static_cast<float>(tx + rotmom_.x);
+    rotmom_.y = static_cast<float>(ty + rotmom_.y);
+    rotmom_.z = static_cast<float>(static_cast<double>(tz) + rotmom_.z);
+    step_vehicle_speeds();
 }
 
 // 0x00435850
-bool CDrivableModule::IsKicked() { return m_kickTime > 0.0f; }
+bool DrivableModule::is_kicked() { return kick_time_ > 0.0f; }
 
 // 0x00435890
-void CDrivableModule::KickRandomlyAlong(const Maths::Vec4* along)
+void DrivableModule::kick_randomly_along(const maths::Vec4* along)
 {
     // The direction flattened (y 0) and made unit (w kept), and its sideways (-z, 0, x).
     float dx = along->x, dy = 0.0f, dz = along->z, dw = along->w;
@@ -240,57 +240,57 @@ void CDrivableModule::KickRandomlyAlong(const Maths::Vec4* along)
 
     // The push: along the direction (0x3DB3FA83 * (1 + +-0.5)), sideways (0x39E99FEC * +-1.5), up
     // (0x738500FD * (1 + +-0.2)).
-    float forwardScale = static_cast<float>(Maths::SignedSpread(0.5f) + 1.0);
-    float forward = static_cast<float>(Scripts::FetchFloat(0x3DB3FA83) * static_cast<double>(forwardScale));
-    float sideScale = Scripts::FetchFloat(0x39E99FEC);
-    double side = static_cast<double>(Maths::SignedSpread(1.5f)) * sideScale;
-    double sideX = sideways * side;
-    float sideY = static_cast<float>(side * 0.0);
-    float sideZ = static_cast<float>(dx * side);
-    float sideW = static_cast<float>(side);
-    float pushX = static_cast<float>(static_cast<double>(dx) * forward + sideX);
-    float pushY = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(dy) * forward)) + sideY);
-    float pushZ = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(dz) * forward)) + sideZ);
-    float pushW = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(dw) * forward)) + sideW);
-    float upScale = static_cast<float>(Maths::SignedSpread(0.2f) + 1.0);
-    pushY = static_cast<float>(static_cast<double>(pushY) + Scripts::FetchFloat(0x738500FD) * static_cast<double>(upScale));
+    float forward_scale = static_cast<float>(maths::signed_spread(0.5f) + 1.0);
+    float forward = static_cast<float>(script::fetch_float(0x3DB3FA83) * static_cast<double>(forward_scale));
+    float side_scale = script::fetch_float(0x39E99FEC);
+    double side = static_cast<double>(maths::signed_spread(1.5f)) * side_scale;
+    double side_x = sideways * side;
+    float side_y = static_cast<float>(side * 0.0);
+    float side_z = static_cast<float>(dx * side);
+    float side_w = static_cast<float>(side);
+    float push_x = static_cast<float>(static_cast<double>(dx) * forward + side_x);
+    float push_y = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(dy) * forward)) + side_y);
+    float push_z = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(dz) * forward)) + side_z);
+    float push_w = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(dw) * forward)) + side_w);
+    float up_scale = static_cast<float>(maths::signed_spread(0.2f) + 1.0);
+    push_y = static_cast<float>(static_cast<double>(push_y) + script::fetch_float(0x738500FD) * static_cast<double>(up_scale));
 
     // The spin: about the up axis (0x14DDB3EF * +-1.5) and about the sideways one (0x4088E6EC * (1 + +-0.8)).
-    float yawScale = Scripts::FetchFloat(0x14DDB3EF);
-    float yaw = static_cast<float>(static_cast<double>(Maths::SignedSpread(1.5f)) * yawScale);
-    float rollScale = static_cast<float>(Maths::SignedSpread(0.8f) + 1.0);
-    double roll = static_cast<double>(Scripts::FetchFloat(0x4088E6EC)) * rollScale;
-    double spinX = sideways * roll;
-    float spinY = static_cast<float>(roll * 0.0 + yaw);
-    float spinZ = static_cast<float>(dx * roll);
-    float spinW = static_cast<float>(roll);
+    float yaw_scale = script::fetch_float(0x14DDB3EF);
+    float yaw = static_cast<float>(static_cast<double>(maths::signed_spread(1.5f)) * yaw_scale);
+    float roll_scale = static_cast<float>(maths::signed_spread(0.8f) + 1.0);
+    double roll = static_cast<double>(script::fetch_float(0x4088E6EC)) * roll_scale;
+    double spin_x = sideways * roll;
+    float spin_y = static_cast<float>(roll * 0.0 + yaw);
+    float spin_z = static_cast<float>(dx * roll);
+    float spin_w = static_cast<float>(roll);
 
     // Into the momenta: the push times the mass, the spin times the first moment of inertia (for every axis).
-    double mass = 1.0 / m_invMass;
-    float momY = static_cast<float>(pushY * mass), momZ = static_cast<float>(pushZ * mass);
-    float momW = static_cast<float>(pushW * mass);
-    m_linearMomentum.x = static_cast<float>(pushX * mass + m_linearMomentum.x);
-    m_linearMomentum.y = static_cast<float>(static_cast<double>(momY) + m_linearMomentum.y);
-    m_linearMomentum.z = static_cast<float>(static_cast<double>(momZ) + m_linearMomentum.z);
-    m_linearMomentum.w = static_cast<float>(static_cast<double>(momW) + m_linearMomentum.w);
-    float moment = static_cast<float>(1.0 / m_invMoments[0]);
-    float turnZ = static_cast<float>(static_cast<double>(spinZ) * moment);
-    float rotW = static_cast<float>(static_cast<double>(spinW) * moment);
-    m_rotmom.x = static_cast<float>(spinX * moment + m_rotmom.x);
-    m_rotmom.y = static_cast<float>(static_cast<double>(spinY) * moment + m_rotmom.y);
-    m_rotmom.z = static_cast<float>(static_cast<double>(turnZ) + m_rotmom.z);
-    m_rotmom.w = static_cast<float>(static_cast<double>(rotW) + m_rotmom.w);
-    StepVehicleSpeeds();
-    m_kickTime = Scripts::FetchFloat(0x771922A6);
-    m_awake = 1;
-    m_stillFrames = 0;
+    double mass = 1.0 / inv_mass_;
+    float mom_y = static_cast<float>(push_y * mass), mom_z = static_cast<float>(push_z * mass);
+    float mom_w = static_cast<float>(push_w * mass);
+    linear_momentum_.x = static_cast<float>(push_x * mass + linear_momentum_.x);
+    linear_momentum_.y = static_cast<float>(static_cast<double>(mom_y) + linear_momentum_.y);
+    linear_momentum_.z = static_cast<float>(static_cast<double>(mom_z) + linear_momentum_.z);
+    linear_momentum_.w = static_cast<float>(static_cast<double>(mom_w) + linear_momentum_.w);
+    float moment = static_cast<float>(1.0 / inv_moments_[0]);
+    float turn_z = static_cast<float>(static_cast<double>(spin_z) * moment);
+    float rot_w = static_cast<float>(static_cast<double>(spin_w) * moment);
+    rotmom_.x = static_cast<float>(spin_x * moment + rotmom_.x);
+    rotmom_.y = static_cast<float>(static_cast<double>(spin_y) * moment + rotmom_.y);
+    rotmom_.z = static_cast<float>(static_cast<double>(turn_z) + rotmom_.z);
+    rotmom_.w = static_cast<float>(static_cast<double>(rot_w) + rotmom_.w);
+    step_vehicle_speeds();
+    kick_time_ = script::fetch_float(0x771922A6);
+    awake_ = 1;
+    still_frames_ = 0;
 }
 
 // 0x004354C0 (cdecl)
-Maths::Vec4* QuatProduct(Maths::Vec4* out, const Maths::Vec4* a, const Maths::Vec4* b)
+maths::Vec4* quat_product(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b)
 {
-    Maths::Vec4 product = *a;
-    QuatMultiply(&product, b);
+    maths::Vec4 product = *a;
+    quat_multiply(&product, b);
     *out = product;
     return out;
 }
@@ -298,72 +298,72 @@ Maths::Vec4* QuatProduct(Maths::Vec4* out, const Maths::Vec4* a, const Maths::Ve
 // --- script member functions ---
 
 // 0x00437A60
-bool CDrivableModule::Kick(Scripts::CStruct* params, Scripts::CScript*)
+bool DrivableModule::get_kick(script::Struct* params, script::Script*)
 {
-    m_awake = 1;
-    m_stillFrames = 0;
+    awake_ = 1;
+    still_frames_ = 0;
     // (Without linear or angular the original uses whatever was on its stack.)
-    Maths::Vec4 linear, angular, turned;
-    params->FetchVec("linear", reinterpret_cast<Scripts::VectorValue*>(&linear), 0);
-    params->FetchVec("angular", reinterpret_cast<Scripts::VectorValue*>(&angular), 0);
-    linear = m_basisFrame.RotateVector(turned, linear);
-    angular = m_basisFrame.RotateVector(turned, angular);
-    double mass = 1.0 / m_invMass;
-    float momY = static_cast<float>(linear.y * mass), momZ = static_cast<float>(linear.z * mass);
-    float momW = static_cast<float>(linear.w * mass);
-    m_linearMomentum.x = static_cast<float>(linear.x * mass + m_linearMomentum.x);
-    m_linearMomentum.y = static_cast<float>(static_cast<double>(momY) + m_linearMomentum.y);
-    m_linearMomentum.z = static_cast<float>(static_cast<double>(momZ) + m_linearMomentum.z);
-    m_linearMomentum.w = static_cast<float>(static_cast<double>(momW) + m_linearMomentum.w);
-    double moment = 1.0 / m_invMoments[0];
-    float spinAboutY = static_cast<float>(angular.y * moment), turnZ = static_cast<float>(angular.z * moment);
-    float rotW = static_cast<float>(angular.w * moment);
-    m_rotmom.x = static_cast<float>(angular.x * moment + m_rotmom.x);
-    m_rotmom.y = static_cast<float>(static_cast<double>(spinAboutY) + m_rotmom.y);
-    m_rotmom.z = static_cast<float>(static_cast<double>(turnZ) + m_rotmom.z);
-    m_rotmom.w = static_cast<float>(static_cast<double>(rotW) + m_rotmom.w);
-    StepVehicleSpeeds();
+    maths::Vec4 linear, angular, turned;
+    params->fetch_vec("linear", reinterpret_cast<script::VectorValue*>(&linear), 0);
+    params->fetch_vec("angular", reinterpret_cast<script::VectorValue*>(&angular), 0);
+    linear = basis_frame_.rotate_vector(turned, linear);
+    angular = basis_frame_.rotate_vector(turned, angular);
+    double mass = 1.0 / inv_mass_;
+    float mom_y = static_cast<float>(linear.y * mass), mom_z = static_cast<float>(linear.z * mass);
+    float mom_w = static_cast<float>(linear.w * mass);
+    linear_momentum_.x = static_cast<float>(linear.x * mass + linear_momentum_.x);
+    linear_momentum_.y = static_cast<float>(static_cast<double>(mom_y) + linear_momentum_.y);
+    linear_momentum_.z = static_cast<float>(static_cast<double>(mom_z) + linear_momentum_.z);
+    linear_momentum_.w = static_cast<float>(static_cast<double>(mom_w) + linear_momentum_.w);
+    double moment = 1.0 / inv_moments_[0];
+    float spin_about_y = static_cast<float>(angular.y * moment), turn_z = static_cast<float>(angular.z * moment);
+    float rot_w = static_cast<float>(angular.w * moment);
+    rotmom_.x = static_cast<float>(angular.x * moment + rotmom_.x);
+    rotmom_.y = static_cast<float>(static_cast<double>(spin_about_y) + rotmom_.y);
+    rotmom_.z = static_cast<float>(static_cast<double>(turn_z) + rotmom_.z);
+    rotmom_.w = static_cast<float>(static_cast<double>(rot_w) + rotmom_.w);
+    step_vehicle_speeds();
     return true;
 }
 
 // 0x004353F0
-bool CDrivableModule::Wake(Scripts::CStruct*, Scripts::CScript*)
+bool DrivableModule::wake(script::Struct*, script::Script*)
 {
-    m_awake = 1;
-    m_stillFrames = 0;
+    awake_ = 1;
+    still_frames_ = 0;
     return true;
 }
 
 // 0x00435410
-bool CDrivableModule::AdjustGravity(Scripts::CStruct* params, Scripts::CScript*)
+bool DrivableModule::adjust_gravity(script::Struct* params, script::Script*)
 {
-    params->FetchFloat(kPercent, &m_gravityScale, 1);
-    m_gravityScale = static_cast<float>(static_cast<double>(m_gravityScale) * kHundredth);
-    params->FetchFloat(kDuration, &m_gravityTime, 1);
-    DebugOut::Printf(kDebugFormat, kDebugFile, 0xD78, "Initiating vehicle gravity override"); // "Initiating vehicle gravity override"
+    params->fetch_float(kPercent, &gravity_scale_, 1);
+    gravity_scale_ = static_cast<float>(static_cast<double>(gravity_scale_) * kHundredth);
+    params->fetch_float(kDuration, &gravity_time_, 1);
+    debug::printf(kDebugFormat, kDebugFile, 0xD78, "Initiating vehicle gravity override"); // "Initiating vehicle gravity override"
     return true;
 }
 
 // 0x00435480
-bool CDrivableModule::HandbrakeActive(Scripts::CStruct*, Scripts::CScript*) { return m_handbrakeActive; }
+bool DrivableModule::handbrake_active(script::Struct*, script::Script*) { return handbrake_active_; }
 
 // 0x00435490
-bool CDrivableModule::AllWheelsAreInContact(Scripts::CStruct*, Scripts::CScript*)
+bool DrivableModule::all_wheels_are_in_contact(script::Struct*, script::Script*)
 {
-    return m_wheelsInContact == m_wheelCount;
+    return wheels_in_contact_ == wheel_count_;
 }
 
 // 0x00437BC0
-bool CDrivableModule::KickRandomly(Scripts::CStruct* params, Scripts::CScript*)
+bool DrivableModule::kick_randomly(script::Struct* params, script::Script*)
 {
-    Maths::Vec4 along;
-    params->FetchVec(kOffset, reinterpret_cast<Scripts::VectorValue*>(&along), 1);
-    KickRandomlyAlong(&along);
+    maths::Vec4 along;
+    params->fetch_vec(kOffset, reinterpret_cast<script::VectorValue*>(&along), 1);
+    kick_randomly_along(&along);
     return true;
 }
 
 // 0x004354B0
-bool CDrivableModule::IsRiderShown(Scripts::CStruct*, Scripts::CScript*) { return m_riderShown; }
+bool DrivableModule::is_rider_shown(script::Struct*, script::Script*) { return rider_shown_; }
 
 // --- the component's life ---
 
@@ -396,154 +396,154 @@ const double kTwoTo32 = 4294967296.0;                         // 0x006453B4
 double Unsigned(int value) { return value < 0 ? value + kTwoTo32 : value; }
 
 // 0x00434F20 (the previous range; stdcall): a wheel's parameters from a structure.
-void ReadWheel(CDrivableModule::Wheel* wheel, Scripts::CStruct* params)
+void read_wheel(DrivableModule::Wheel* wheel, script::Struct* params)
 {
-    ReadWheelSettings(reinterpret_cast<uint8_t*>(wheel), params);
+    read_wheel_settings(reinterpret_cast<uint8_t*>(wheel), params);
 }
 // The skate module's local skater (0x00566520) and a restart node's name (0x00566100).
-CGameEntity* LocalSkater()
+GameEntity* local_skater()
 {
-    return static_cast<CGameEntity*>(GameModules::Skate::Sole()->GetHomeRider());
+    return static_cast<GameEntity*>(modules::Skate::sole()->get_home_rider());
 }
-uint32_t SkateRestart(int index)
+uint32_t skate_restart(int index)
 {
-    return GameModules::Skate::Sole()->WarpToRestart(static_cast<uint32_t>(index));
+    return modules::Skate::sole()->warp_to_restart(static_cast<uint32_t>(index));
 }
 // The model's geometry (0x00493040 on the model's +0x208): its matrix at +0x60, the wheels' places (z up) at +0xE0 +
 // 0x50 each.
-const uint8_t* ModelGeometry(CObjectModule* model)
+const uint8_t* model_geometry(ObjectModule* model)
 {
     void* instance = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(model) + 0x208);
-    return reinterpret_cast<const uint8_t*>(static_cast<Engine3D::CRenderModel*>(instance)->GetAssetHierarchy());
+    return reinterpret_cast<const uint8_t*>(static_cast<render::RenderModel*>(instance)->get_asset_hierarchy());
 }
-const float* WheelPlace(const uint8_t* geometry, int i) { return reinterpret_cast<const float*>(geometry + 0xE0 + i * 0x50); }
+const float* wheel_place(const uint8_t* geometry, int i) { return reinterpret_cast<const float*>(geometry + 0xE0 + i * 0x50); }
 // The skeleton (0x005480F0): its bone matrices (0x005480C0) and how many (0x004A2BA0).
-void* SkeletonOf(CObjectModule* skeleton)
+void* skeleton_of(ObjectModule* skeleton)
 {
-    return reinterpret_cast<void*>(reinterpret_cast<OnlinePlay::FoldedGetters*>(skeleton)->Word18());
+    return reinterpret_cast<void*>(reinterpret_cast<online::FoldedGetters*>(skeleton)->word18());
 }
 // The viewport's camera (0x004A09C0; null if none), its position (0x00485A00) and matrix (0x00485A10).
-void* ViewportCamera(int viewport) { return Engine3D::FetchLiveCamera(viewport); }
+void* viewport_camera(int viewport) { return render::fetch_live_camera(viewport); }
 // 0x0041A730 (not rewritten yet): the rotation of a node's angles.
-void MatrixFromAngles(Maths::Mat4* matrix, const Maths::Vec4* angles)
+void matrix_from_angles(maths::Mat4* matrix, const maths::Vec4* angles)
 {
-    matrix->InitFromAngles(*angles);
+    matrix->init_from_angles(*angles);
 }
 
-void ClearToW1(Maths::Vec4& v) { v = {0.0f, 0.0f, 0.0f, 1.0f}; }
+void clear_to_w1(maths::Vec4& v) { v = {0.0f, 0.0f, 0.0f, 1.0f}; }
 
 } // namespace
 
 // 0x0043AA30
-CObjectModule* __cdecl CDrivableModule::Fabricate()
+ObjectModule* __cdecl DrivableModule::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CDrivableModule));
-    return memory ? static_cast<CDrivableModule*>(memory)->MakeNew() : nullptr;
+    void* memory = memory::alloc_zeroed(sizeof(DrivableModule));
+    return memory ? static_cast<DrivableModule*>(memory)->make_new() : nullptr;
 }
 
 // 0x00437C00
-CDrivableModule* CDrivableModule::MakeNew()
+DrivableModule* DrivableModule::make_new()
 {
-    CObjectModule::MakeNew();
-    m_vtable = kVtable;
-    ClearToW1(m_orientation);
+    ObjectModule::make_new();
+    vtable_ = kVtable;
+    clear_to_w1(orientation_);
     // (the colliders' vectors' constructors do nothing: 0x005902E0)
-    m_contactMemo.MakeNew();
-    m_inputPtr = nullptr;
-    m_debugMode = 0;
-    m_passive = false;
-    m_displaySteering = 0.0f;
-    m_kindTag = kType;
-    ClearToW1(m_skaterPos);
-    m_wheels = nullptr;
-    m_contactCount = 0;
-    m_kickTime = 0.0f;
-    m_stillFrames = 0;
-    m_soundsName = 0x1CA1FF20;
-    m_awake = 1;
+    contact_memo_.make_new();
+    input_ptr_ = nullptr;
+    debug_mode_ = 0;
+    passive_ = false;
+    display_steering_ = 0.0f;
+    kind_tag_ = kType;
+    clear_to_w1(skater_pos_);
+    wheels_ = nullptr;
+    contact_count_ = 0;
+    kick_time_ = 0.0f;
+    still_frames_ = 0;
+    sounds_name_ = 0x1CA1FF20;
+    awake_ = 1;
     return this;
 }
 
 // 0x0043B990
-void CDrivableModule::DestroyBody()
+void DrivableModule::destroy_body()
 {
-    m_vtable = kVtable;
-    if (m_wheels) {
+    vtable_ = kVtable;
+    if (wheels_) {
         // (as `delete[]`: the count before the array, the wheels destroyed last to first)
-        int* block = reinterpret_cast<int*>(m_wheels) - 1;
+        int* block = reinterpret_cast<int*>(wheels_) - 1;
         for (int i = *block - 1; i >= 0; --i)
-            m_wheels[i].Destruct();
-        MemSys::Hub::Pull()->Dealloc(block);
+            wheels_[i].destruct();
+        memory::Hub::get_pull()->dealloc(block);
     }
-    m_contactMemo.Destruct();
-    CObjectModule::DestroyBody();
+    contact_memo_.destruct();
+    ObjectModule::destroy_body();
 }
 
 // 0x0043C1A0
-CDrivableModule* CDrivableModule::Teardown(unsigned int flags)
+DrivableModule* DrivableModule::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00437D10
-void CDrivableModule::ConfigureFromData(Scripts::CStruct* params)
+void DrivableModule::configure_from_data(script::Struct* params)
 {
     // debug / 0xE6B5FCD9 / 0x751DA48B: the debug drawing's next mode, the previous one, off.
-    if (params->HasBareFlag(0x935AB858))
-        m_debugMode = (m_debugMode + 1) % 3;
-    else if (params->HasBareFlag(0xE6B5FCD9))
-        m_debugMode = (m_debugMode + 2) % 3;
-    else if (params->HasBareFlag(0x751DA48B))
-        m_debugMode = 0;
-    if (params->HasEntryNamed(0x93346B8C)) {
+    if (params->has_bare_flag(0x935AB858))
+        debug_mode_ = (debug_mode_ + 1) % 3;
+    else if (params->has_bare_flag(0xE6B5FCD9))
+        debug_mode_ = (debug_mode_ + 2) % 3;
+    else if (params->has_bare_flag(0x751DA48B))
+        debug_mode_ = 0;
+    if (params->has_entry_named(0x93346B8C)) {
         // (read into the original's argument slot: missing, the height is that pointer's bits)
         float height = std::bit_cast<float>(reinterpret_cast<uint32_t>(params));
-        params->FetchFloat(0x93346B8C, &height, 0);
-        m_balancePoint = {0.0f, height, 0.0f, 1.0f};
+        params->fetch_float(0x93346B8C, &height, 0);
+        balance_point_ = {0.0f, height, 0.0f, 1.0f};
     }
-    if (params->HasEntryNamed(0x93FCA499)) { // mass
-        params->FetchFloat(0x93FCA499, &m_invMass, 0);
-        m_invMass = static_cast<float>(static_cast<double>(kGravity) / m_invMass);
+    if (params->has_entry_named(0x93FCA499)) { // mass
+        params->fetch_float(0x93FCA499, &inv_mass_, 0);
+        inv_mass_ = static_cast<float>(static_cast<double>(kGravity) / inv_mass_);
     }
-    if (params->HasEntryNamed(0x8C6473EC)) { // moment_of_inertia (its w into +0x168)
-        params->FetchVec(0x8C6473EC, reinterpret_cast<Scripts::VectorValue*>(m_invMoments), 0);
-        for (float& moment : m_invMoments)
+    if (params->has_entry_named(0x8C6473EC)) { // moment_of_inertia (its w into +0x168)
+        params->fetch_vec(0x8C6473EC, reinterpret_cast<script::VectorValue*>(inv_moments_), 0);
+        for (float& moment : inv_moments_)
             moment = static_cast<float>(static_cast<double>(kGravity) / moment);
     }
-    params->FetchFloat(0x79C3B862, &m_restitution, 0);
-    params->FetchFloat(0xF476273C, &m_dragFactor, 0);
-    params->FetchFloat(0x4A23A53C, &m_tippedFriction, 0);
-    params->FetchFloat(0x01DD4890, &m_depthCorrection, 0);
-    params->FetchFloat(0xB9F026ED, &m_wallSteering, 0);
-    params->FetchFloat(0x8C14709E, &m_alignSpeed, 0);
-    params->FetchFloat(0x2C91E49B, &m_alignTime, 0);
-    params->FetchFloat(0x280F0E0B, &m_alignRate, 0);
-    m_alignWhenSlow = params->HasBareFlag(0x5341806A);
-    if (params->HasEntryNamed(0xC1E5ABDD)) { // max_steering_angle (degrees)
-        params->FetchFloat(0xC1E5ABDD, &m_maxSteeringAngle, 0);
-        m_maxSteeringAngle = static_cast<float>(static_cast<double>(m_maxSteeringAngle) * kToRadians);
+    params->fetch_float(0x79C3B862, &restitution_, 0);
+    params->fetch_float(0xF476273C, &drag_factor_, 0);
+    params->fetch_float(0x4A23A53C, &tipped_friction_, 0);
+    params->fetch_float(0x01DD4890, &depth_correction_, 0);
+    params->fetch_float(0xB9F026ED, &wall_steering_, 0);
+    params->fetch_float(0x8C14709E, &align_speed_, 0);
+    params->fetch_float(0x2C91E49B, &align_time_, 0);
+    params->fetch_float(0x280F0E0B, &align_rate_, 0);
+    align_when_slow_ = params->has_bare_flag(0x5341806A);
+    if (params->has_entry_named(0xC1E5ABDD)) { // max_steering_angle (degrees)
+        params->fetch_float(0xC1E5ABDD, &max_steering_angle_, 0);
+        max_steering_angle_ = static_cast<float>(static_cast<double>(max_steering_angle_) * kToRadians);
     }
-    params->FetchFloat(0x386837DB, &m_yawDamping, 0);
-    params->FetchFloat(0x469CF79A, &m_spinDamping, 0);
-    m_canDismount = params->HasBareFlag(0xC2A136CC);
-    m_handbrakeDisabled = params->HasBareFlag(0xAD6C0A46);
+    params->fetch_float(0x386837DB, &yaw_damping_, 0);
+    params->fetch_float(0x469CF79A, &spin_damping_, 0);
+    can_dismount_ = params->has_bare_flag(0xC2A136CC);
+    handbrake_disabled_ = params->has_bare_flag(0xAD6C0A46);
 
     // colliders: each three points, a corner and the ends of its two edges (the edges kept relative to the corner -
     // their w less the corner's, which nothing sets). The points' average distance from the body's origin, less 48,
-    // goes to the skater (CRider 0x005802C0).
-    if (params->HasEntryNamed(0xFC8C4AC6)) {
-        Scripts::CArray* colliders;
-        params->FetchList(0xFC8C4AC6, &colliders, 1);
-        int count = static_cast<int>(colliders->m_extent);
+    // goes to the skater (Rider 0x005802C0).
+    if (params->has_entry_named(0xFC8C4AC6)) {
+        script::Array* colliders;
+        params->fetch_list(0xFC8C4AC6, &colliders, 1);
+        int count = static_cast<int>(colliders->extent_);
         float sum = 0.0f;
         for (int k = count - 1; k >= 0; --k) {
-            auto* points = reinterpret_cast<Scripts::CArray*>(colliders->FetchPart(static_cast<uint32_t>(k)));
-            Collider& c = m_colliders[k];
+            auto* points = reinterpret_cast<script::Array*>(colliders->fetch_part(static_cast<uint32_t>(k)));
+            Collider& c = colliders_[k];
             auto point = [points](int i) {
-                return reinterpret_cast<const float*>(points->FetchPart(static_cast<uint32_t>(i))) + 1; // (x, y, z)
+                return reinterpret_cast<const float*>(points->fetch_part(static_cast<uint32_t>(i))) + 1; // (x, y, z)
             };
             const float* p = point(0);
             c.corner.x = p[0];
@@ -551,7 +551,7 @@ void CDrivableModule::ConfigureFromData(Scripts::CStruct* params)
             c.corner.z = p[2];
             for (int e = 0; e < 2; ++e) {
                 p = point(1 + e);
-                Maths::Vec4& edge = c.edges[e];
+                maths::Vec4& edge = c.edges[e];
                 edge.x = p[0];
                 edge.y = p[1];
                 edge.z = p[2];
@@ -560,325 +560,325 @@ void CDrivableModule::ConfigureFromData(Scripts::CStruct* params)
                 edge.z = static_cast<float>(static_cast<double>(edge.z) - c.corner.z);
                 edge.w = static_cast<float>(static_cast<double>(edge.w) - c.corner.w);
             }
-            auto lengthSquared = [](double x, double y, double z) { return (x * x + y * y) + z * z; };
-            const Maths::Vec4& o = c.corner;
-            const Maths::Vec4& a = c.edges[0];
-            const Maths::Vec4& b = c.edges[1];
-            double s0 = lengthSquared(o.x, o.y, o.z);
-            double s1 = lengthSquared(static_cast<double>(o.x) + a.x, static_cast<double>(a.y) + o.y, static_cast<double>(a.z) + o.z);
+            auto length_squared = [](double x, double y, double z) { return (x * x + y * y) + z * z; };
+            const maths::Vec4& o = c.corner;
+            const maths::Vec4& a = c.edges[0];
+            const maths::Vec4& b = c.edges[1];
+            double s0 = length_squared(o.x, o.y, o.z);
+            double s1 = length_squared(static_cast<double>(o.x) + a.x, static_cast<double>(a.y) + o.y, static_cast<double>(a.z) + o.z);
             float s2 = static_cast<float>(
-                lengthSquared(static_cast<double>(o.x) + b.x, static_cast<double>(b.y) + o.y, static_cast<double>(b.z) + o.z));
+                length_squared(static_cast<double>(o.x) + b.x, static_cast<double>(b.y) + o.y, static_cast<double>(b.z) + o.z));
             sum = static_cast<float>(((std::sqrt(s0) + sum) + std::sqrt(s1)) + std::sqrt(static_cast<double>(s2)));
-            c.lengths[0] = static_cast<float>(std::sqrt(lengthSquared(a.y, a.z, a.x)));
-            c.lengths[1] = static_cast<float>(std::sqrt(lengthSquared(b.y, b.z, b.x)));
+            c.lengths[0] = static_cast<float>(std::sqrt(length_squared(a.y, a.z, a.x)));
+            c.lengths[1] = static_cast<float>(std::sqrt(length_squared(b.y, b.z, b.x)));
         }
         float distance = static_cast<float>(static_cast<double>(sum) * kThird / count - kCameraBack);
-        reinterpret_cast<CRider*>(LocalSkater())->Set42BD60(distance);
+        reinterpret_cast<Rider*>(local_skater())->set_42b_d60(distance);
     }
 
     // engine: drive_torque and 0xB2268648 in foot-pounds, upshift_rpm, differential_ratio, reverse_torque_ratio,
     // gear_ratios (as many as there are - room for six).
-    if (params->HasEntryNamed(0x1757E572)) {
-        Scripts::CStruct* engine;
-        params->ReadSubStruct(0x1757E572, &engine, 1);
-        if (engine->HasEntryNamed(0x9AA9FAEE)) {
-            engine->FetchFloat(0x9AA9FAEE, &m_engineTorque, 0);
-            m_engineTorque = static_cast<float>(static_cast<double>(m_engineTorque) * kFeet);
+    if (params->has_entry_named(0x1757E572)) {
+        script::Struct* engine;
+        params->read_sub_struct(0x1757E572, &engine, 1);
+        if (engine->has_entry_named(0x9AA9FAEE)) {
+            engine->fetch_float(0x9AA9FAEE, &engine_torque_, 0);
+            engine_torque_ = static_cast<float>(static_cast<double>(engine_torque_) * kFeet);
         }
-        if (engine->HasEntryNamed(0xB2268648)) {
-            engine->FetchFloat(0xB2268648, &m_engineBraking, 0);
-            m_engineBraking = static_cast<float>(static_cast<double>(m_engineBraking) * kFeet);
+        if (engine->has_entry_named(0xB2268648)) {
+            engine->fetch_float(0xB2268648, &engine_braking_, 0);
+            engine_braking_ = static_cast<float>(static_cast<double>(engine_braking_) * kFeet);
         }
-        if (engine->HasEntryNamed(0x33921583)) {
-            engine->FetchFloat(0x33921583, &m_upshiftSpeed, 0);
-            m_upshiftSpeed = static_cast<float>(static_cast<double>(m_upshiftSpeed) * kRpmToRadians);
+        if (engine->has_entry_named(0x33921583)) {
+            engine->fetch_float(0x33921583, &upshift_speed_, 0);
+            upshift_speed_ = static_cast<float>(static_cast<double>(upshift_speed_) * kRpmToRadians);
         }
-        engine->FetchFloat(0x94EA6601, &m_finalDriveRatio, 0);
-        engine->FetchFloat(0x82BCBB10, &m_reverseRatio, 0);
-        if (engine->HasEntryNamed(0xC023FA75)) {
-            Scripts::CArray* ratios;
-            engine->FetchList(0xC023FA75, &ratios, 1);
-            m_gearCount = static_cast<int>(ratios->m_extent);
-            for (int i = 0; i < m_gearCount; ++i)
-                m_transmissionRatios[i] = ratios->FetchFloat(static_cast<uint32_t>(i));
+        engine->fetch_float(0x94EA6601, &final_drive_ratio_, 0);
+        engine->fetch_float(0x82BCBB10, &reverse_ratio_, 0);
+        if (engine->has_entry_named(0xC023FA75)) {
+            script::Array* ratios;
+            engine->fetch_list(0xC023FA75, &ratios, 1);
+            gear_count_ = static_cast<int>(ratios->extent_);
+            for (int i = 0; i < gear_count_; ++i)
+                transmission_ratios_[i] = ratios->fetch_float(static_cast<uint32_t>(i));
         }
     }
 
     // Wheels: made the first time (as `new[]`: the count before them), each read from its structure; all_wheels
     // for every one.
-    if (params->HasEntryNamed(0xB3F8557E)) {
-        Scripts::CArray* wheels = nullptr;
-        params->FetchList(0xB3F8557E, &wheels, 1);
-        int count = static_cast<int>(wheels->m_extent);
-        m_wheelCount = count;
-        if (!m_wheels) {
-            if (!MemSys::g_managerReady)
-                MemSys::EnsureManager();
+    if (params->has_entry_named(0xB3F8557E)) {
+        script::Array* wheels = nullptr;
+        params->fetch_list(0xB3F8557E, &wheels, 1);
+        int count = static_cast<int>(wheels->extent_);
+        wheel_count_ = count;
+        if (!wheels_) {
+            if (!memory::g_manager_ready)
+                memory::ensure_manager();
             auto* block = static_cast<int*>(
-                MemSys::Hub::Pull()->Carve(static_cast<uint32_t>(count) * sizeof(Wheel) + 4, 1, nullptr));
+                memory::Hub::get_pull()->carve(static_cast<uint32_t>(count) * sizeof(Wheel) + 4, 1, nullptr));
             Wheel* array = nullptr;
             if (block) {
                 *block = count;
                 array = reinterpret_cast<Wheel*>(block + 1);
                 for (int i = 0; i < count; ++i)
-                    array[i].MakeNew();
+                    array[i].make_new();
             }
-            m_wheels = array;
+            wheels_ = array;
         }
-        for (int i = m_wheelCount - 1; i >= 0; --i)
-            ReadWheel(&m_wheels[i], reinterpret_cast<Scripts::CStruct*>(wheels->FetchPart(static_cast<uint32_t>(i))));
+        for (int i = wheel_count_ - 1; i >= 0; --i)
+            read_wheel(&wheels_[i], reinterpret_cast<script::Struct*>(wheels->fetch_part(static_cast<uint32_t>(i))));
     }
-    if (params->HasEntryNamed(0x371BADFF)) {
-        Scripts::CStruct* all;
-        params->ReadSubStruct(0x371BADFF, &all, 1);
-        for (int i = m_wheelCount - 1; i >= 0; --i)
-            ReadWheel(&m_wheels[i], all);
+    if (params->has_entry_named(0x371BADFF)) {
+        script::Struct* all;
+        params->read_sub_struct(0x371BADFF, &all, 1);
+        for (int i = wheel_count_ - 1; i >= 0; --i)
+            read_wheel(&wheels_[i], all);
     }
-    m_driveWheelCount = 0;
-    for (int i = m_wheelCount - 1; i >= 0; --i)
-        if (m_wheels[i].drive)
-            ++m_driveWheelCount;
+    drive_wheel_count_ = 0;
+    for (int i = wheel_count_ - 1; i >= 0; --i)
+        if (wheels_[i].drive)
+            ++drive_wheel_count_;
 
     // The orientation from the object's matrix (or Save's Orientation: the object's matrix from it); the position
     // from the object's (or Pos: the object's too).
-    Maths::Vec4 quat;
-    MatrixToQuat(&quat, &m_entity->m_basisFrame);
-    m_orientation = quat;
-    QuatNormalize(&m_orientation, 1.0f);
-    if (params->HasEntryNamed(0xAA99C521)) {
-        Maths::Vec4 saved{0.0f, 0.0f, 0.0f, 1.0f};
-        params->FetchVec(0xC97F3AA9, reinterpret_cast<Scripts::VectorValue*>(&saved), 0);
-        m_orientation.x = saved.x;
-        m_orientation.y = saved.y;
-        m_orientation.z = saved.z;
-        QuatNormalize(&m_orientation, 1.0f);
-        QuatToMatrix(&m_orientation, &m_basisFrame);
-        ClearToW1(m_basisFrame.row[3]);
-        m_entity->m_basisFrame = m_basisFrame;
-        m_entity->m_displayMatrix = m_basisFrame;
+    maths::Vec4 quat;
+    matrix_to_quat(&quat, &entity_->basis_frame_);
+    orientation_ = quat;
+    quat_normalize(&orientation_, 1.0f);
+    if (params->has_entry_named(0xAA99C521)) {
+        maths::Vec4 saved{0.0f, 0.0f, 0.0f, 1.0f};
+        params->fetch_vec(0xC97F3AA9, reinterpret_cast<script::VectorValue*>(&saved), 0);
+        orientation_.x = saved.x;
+        orientation_.y = saved.y;
+        orientation_.z = saved.z;
+        quat_normalize(&orientation_, 1.0f);
+        quat_to_matrix(&orientation_, &basis_frame_);
+        clear_to_w1(basis_frame_.row[3]);
+        entity_->basis_frame_ = basis_frame_;
+        entity_->display_matrix_ = basis_frame_;
     }
-    m_atPoint = m_entity->m_atPoint;
-    if (params->HasEntryNamed(0x7F261953)) {
-        params->FetchVec(0x7F261953, reinterpret_cast<Scripts::VectorValue*>(&m_atPoint), 0);
-        m_entity->m_atPoint = m_atPoint;
+    at_point_ = entity_->at_point_;
+    if (params->has_entry_named(0x7F261953)) {
+        params->fetch_vec(0x7F261953, reinterpret_cast<script::VectorValue*>(&at_point_), 0);
+        entity_->at_point_ = at_point_;
     }
-    m_riderShown = m_riderShown || params->HasBareFlag(kSkater);
-    if (params->HasBareFlag(kSkater)) {
-        params->FetchVec(0xEC86EF7A, reinterpret_cast<Scripts::VectorValue*>(&m_skaterPos), 1); // skater_pos
-        params->ReadHashValue(0xDA75A33E, &m_riderAnimName, 1);                                       // skater_anim
+    rider_shown_ = rider_shown_ || params->has_bare_flag(kSkater);
+    if (params->has_bare_flag(kSkater)) {
+        params->fetch_vec(0xEC86EF7A, reinterpret_cast<script::VectorValue*>(&skater_pos_), 1); // skater_pos
+        params->read_hash_value(0xDA75A33E, &rider_anim_name_, 1);                                       // skater_anim
     }
-    params->ReadHashValue(0x0EDCF90E, &m_soundsName, 0); // sounds
+    params->read_hash_value(0x0EDCF90E, &sounds_name_, 0); // sounds
 
     // At rest: no momenta or forces; the wheels in the air at their rest extension, each with an even share of the
     // weight.
-    ClearToW1(m_linearMomentum);
-    ClearToW1(m_rotmom);
-    ClearToW1(m_force);
-    ClearToW1(m_twistForce);
-    for (int i = m_wheelCount - 1; i >= 0; --i) {
-        Wheel& wheel = m_wheels[i];
-        wheel.y = wheel.restY;
+    clear_to_w1(linear_momentum_);
+    clear_to_w1(rotmom_);
+    clear_to_w1(force_);
+    clear_to_w1(twist_force_);
+    for (int i = wheel_count_ - 1; i >= 0; --i) {
+        Wheel& wheel = wheels_[i];
+        wheel.y = wheel.rest_y_;
         wheel.state = kWheelInAir;
         wheel.rotation = 0.0f;
         wheel.spin = 0.0f;
         wheel.steering = 0.0f;
-        wheel.displaySteering = 0.0f;
+        wheel.display_steering_ = 0.0f;
         wheel.torque = 0.0f;
         for (int k = 9; k >= 0; --k)
-            wheel.loadHistory[k] = static_cast<float>(static_cast<double>(kGravity) / m_invMass / Unsigned(m_wheelCount));
+            wheel.load_history_[k] = static_cast<float>(static_cast<double>(kGravity) / inv_mass_ / Unsigned(wheel_count_));
     }
-    m_loadIndex = 0;
-    m_gravityTime = 0.0f;
-    m_gravityScale = 1.0f;
-    m_righting = false;
-    m_boneRig = m_entity->FetchModule(kSkeleton);
+    load_index_ = 0;
+    gravity_time_ = 0.0f;
+    gravity_scale_ = 1.0f;
+    righting_ = false;
+    bone_rig_ = entity_->fetch_module(kSkeleton);
 }
 
 // 0x0043BA20
-void CDrivableModule::Seal()
+void DrivableModule::seal()
 {
-    m_inputPtr = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kInput));
-    m_meshInstance = m_entity->FetchModule(kModel);
-    const uint8_t* geometry = ModelGeometry(m_entity->FetchModule(kModel));
+    input_ptr_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kInput));
+    mesh_instance_ = entity_->fetch_module(kModel);
+    const uint8_t* geometry = model_geometry(entity_->fetch_module(kModel));
     // The wheels' places from the model (z up there; always four).
     for (int i = 3; i >= 0; --i) {
-        const float* place = WheelPlace(geometry, i);
-        m_wheels[i].offset = {-place[0], place[2], -place[1], 1.0f};
+        const float* place = wheel_place(geometry, i);
+        wheels_[i].offset = {-place[0], place[2], -place[1], 1.0f};
     }
-    Maths::Mat4 bone = *reinterpret_cast<const Maths::Mat4*>(geometry + 0x60);
-    m_skaterBone = {-bone.row[3].x, bone.row[3].z, -bone.row[3].y, 1.0f};
+    maths::Mat4 bone = *reinterpret_cast<const maths::Mat4*>(geometry + 0x60);
+    skater_bone_ = {-bone.row[3].x, bone.row[3].z, -bone.row[3].y, 1.0f};
     // The wheelbase (a left wheel to a fixed one) and the track (left to right), from the lowest-numbered wheel of
     // each kind (-1 when there's none - read before the first, as the original).
     int fixed = -1, left = -1, right = -1;
     for (int i = 3; i >= 0; --i) {
-        switch (m_wheels[i].steeringSide) {
+        switch (wheels_[i].steering_side_) {
         case 0: fixed = i; break;
         case 1: left = i; break;
         case 2: right = i; break;
         default: break;
         }
     }
-    m_wheelbase = static_cast<float>(std::fabs(static_cast<double>(WheelPlace(geometry, left)[1]) - WheelPlace(geometry, fixed)[1]));
-    m_track = static_cast<float>(std::fabs(static_cast<double>(WheelPlace(geometry, left)[0]) - WheelPlace(geometry, right)[0]));
+    wheelbase_ = static_cast<float>(std::fabs(static_cast<double>(wheel_place(geometry, left)[1]) - wheel_place(geometry, fixed)[1]));
+    track_ = static_cast<float>(std::fabs(static_cast<double>(wheel_place(geometry, left)[0]) - wheel_place(geometry, right)[0]));
     // The suspension: the wheel's place raised by its diameter; its rest extension down from there, sagged by its
     // share of the weight.
-    for (int i = m_wheelCount - 1; i >= 0; --i) {
-        Wheel& wheel = m_wheels[i];
+    for (int i = wheel_count_ - 1; i >= 0; --i) {
+        Wheel& wheel = wheels_[i];
         double y = wheel.offset.y;
         double raised = (static_cast<double>(wheel.radius) + wheel.radius) + y;
         wheel.offset.y = static_cast<float>(raised);
-        wheel.restY = static_cast<float>(
-            (y - raised) - static_cast<double>(kGravity) / (Unsigned(m_wheelCount) * wheel.springRate * m_invMass));
+        wheel.rest_y_ = static_cast<float>(
+            (y - raised) - static_cast<double>(kGravity) / (Unsigned(wheel_count_) * wheel.spring_rate_ * inv_mass_));
     }
     // The colliders' lowest point.
-    float lowest = m_colliders[0].corner.y;
+    float lowest = colliders_[0].corner.y;
     for (int i = 1; i >= 0; --i) {
-        const Collider& c = m_colliders[i];
+        const Collider& c = colliders_[i];
         if (c.corner.y < lowest)
             lowest = c.corner.y;
-        for (const Maths::Vec4& edge : c.edges) {
+        for (const maths::Vec4& edge : c.edges) {
             double end = static_cast<double>(edge.y) + c.corner.y;
             if (end < lowest)
                 lowest = static_cast<float>(end);
         }
     }
     // The skater's components (hidden unless shown driving).
-    m_riderRef = LocalSkater();
-    m_skaterCorePhysics = m_riderRef->FetchModule(kSkaterCorePhysics);
-    m_triggerPtr = m_riderRef->FetchModule(kTrigger);
-    if (!m_riderShown)
-        m_riderRef->Conceal(true);
+    rider_ref_ = local_skater();
+    skater_core_physics_ = rider_ref_->fetch_module(kSkaterCorePhysics);
+    trigger_ptr_ = rider_ref_->fetch_module(kTrigger);
+    if (!rider_shown_)
+        rider_ref_->conceal(true);
     else
-        m_animBlenderPtr = m_riderRef->FetchModule(kAnimBlender);
+        anim_blender_ptr_ = rider_ref_->fetch_module(kAnimBlender);
     // Everything made relative to the wheels' centre (x, z) and the colliders' lowest point.
-    double sumX = 0.0, sumZ = 0.0;
-    for (int i = m_wheelCount - 1; i >= 0; --i) {
-        sumX += m_wheels[i].offset.x;
-        sumZ += m_wheels[i].offset.z;
+    double sum_x = 0.0, sum_z = 0.0;
+    for (int i = wheel_count_ - 1; i >= 0; --i) {
+        sum_x += wheels_[i].offset.x;
+        sum_z += wheels_[i].offset.z;
     }
-    double share = 1.0 / Unsigned(m_wheelCount);
-    float centreX = static_cast<float>(sumX * share);
-    double centreZ = sumZ * share;
-    auto recentre = [centreX, centreZ, lowest](Maths::Vec4& v) {
-        v.x = static_cast<float>(static_cast<double>(v.x) - centreX);
+    double share = 1.0 / Unsigned(wheel_count_);
+    float centre_x = static_cast<float>(sum_x * share);
+    double centre_z = sum_z * share;
+    auto recentre = [centre_x, centre_z, lowest](maths::Vec4& v) {
+        v.x = static_cast<float>(static_cast<double>(v.x) - centre_x);
         v.y = static_cast<float>(static_cast<double>(v.y) - lowest);
-        v.z = static_cast<float>(v.z - centreZ);
+        v.z = static_cast<float>(v.z - centre_z);
     };
-    for (int i = m_wheelCount - 1; i >= 0; --i)
-        recentre(m_wheels[i].offset);
+    for (int i = wheel_count_ - 1; i >= 0; --i)
+        recentre(wheels_[i].offset);
     for (int i = 1; i >= 0; --i)
-        recentre(m_colliders[i].corner);
-    recentre(m_skaterBone);
-    recentre(m_skaterPos);
-    UpdateDependents();
-    m_entity->m_atPoint = m_atPoint;
-    m_entity->m_vel = m_vel;
-    m_entity->m_basisFrame = m_basisFrame;
-    m_entity->m_displayMatrix = m_entity->m_basisFrame;
-    RefreshBoneRig();
+        recentre(colliders_[i].corner);
+    recentre(skater_bone_);
+    recentre(skater_pos_);
+    update_dependents();
+    entity_->at_point_ = at_point_;
+    entity_->vel_ = vel_;
+    entity_->basis_frame_ = basis_frame_;
+    entity_->display_matrix_ = entity_->basis_frame_;
+    refresh_bone_rig();
 }
 
 // 0x0043C1D0
-void CDrivableModule::TickFrame()
+void DrivableModule::tick_frame()
 {
-    m_cutShort = false;
-    if (!m_passive) {
-        ReadControls();
+    cut_short_ = false;
+    if (!passive_) {
+        read_controls();
     } else {
-        m_brake = false;
-        m_handbrake = false;
-        m_throttle = false;
-        m_reverse = false;
-        m_steering = 0.0f;
+        brake_ = false;
+        handbrake_ = false;
+        throttle_ = false;
+        reverse_ = false;
+        steering_ = 0.0f;
     }
-    if (m_awake == 0) {
+    if (awake_ == 0) {
         // Asleep: only the steering, the wheels' roll (stopped by the brake), the model and the skater.
-        m_entity->m_displayMatrix = m_entity->m_basisFrame;
-        UpdateSteering();
-        if (m_brake)
-            for (int i = m_wheelCount - 1; i >= 0; --i)
-                m_wheels[i].spin = 0.0f;
-        UpdateWheelRotations();
-        RefreshBoneRig();
-        UpdateSkater();
+        entity_->display_matrix_ = entity_->basis_frame_;
+        update_steering();
+        if (brake_)
+            for (int i = wheel_count_ - 1; i >= 0; --i)
+                wheels_[i].spin = 0.0f;
+        update_wheel_rotations();
+        refresh_bone_rig();
+        update_skater();
         return;
     }
-    float frame = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
-    if (m_kickTime > 0.0f)
-        m_kickTime = static_cast<float>(static_cast<double>(m_kickTime) - frame);
-    if (!(m_gravityTime == 0.0f)) {
+    float frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
+    if (kick_time_ > 0.0f)
+        kick_time_ = static_cast<float>(static_cast<double>(kick_time_) - frame);
+    if (!(gravity_time_ == 0.0f)) {
         // Vehicle_AdjustGravity's override: over when its time is up or two wheels touch.
-        double left = static_cast<double>(m_gravityTime) - frame;
-        m_gravityTime = static_cast<float>(left);
-        if (left <= 0.0 || static_cast<uint32_t>(m_wheelsInContact) > 1) {
-            DebugOut::Printf(kDebugFormat, kDebugFile, 0x2A0, "Ending vehicle gravity override"); // "Ending vehicle gravity override"
-            m_gravityTime = 0.0f;
-            m_gravityScale = 1.0f;
+        double left = static_cast<double>(gravity_time_) - frame;
+        gravity_time_ = static_cast<float>(left);
+        if (left <= 0.0 || static_cast<uint32_t>(wheels_in_contact_) > 1) {
+            debug::printf(kDebugFormat, kDebugFile, 0x2A0, "Ending vehicle gravity override"); // "Ending vehicle gravity override"
+            gravity_time_ = 0.0f;
+            gravity_scale_ = 1.0f;
         }
     }
     // Equal steps of at most 1/30 s - six at most.
     int steps = 1;
     if (!(frame >= kMaxStep)) {
-        m_stepLength = frame;
+        step_length_ = frame;
     } else {
         steps = static_cast<int>(static_cast<int64_t>(std::ceil(static_cast<double>(frame) * kStepsPerSecond)));
         if (steps > 6)
             steps = 6;
-        m_stepLength = static_cast<float>(frame / static_cast<double>(steps));
+        step_length_ = static_cast<float>(frame / static_cast<double>(steps));
     }
     while (steps != 0) {
         --steps;
-        Integrate();
-        ClearToW1(m_force);
-        ClearToW1(m_twistForce);
-        for (int i = m_wheelCount - 1; i >= 0; --i)
-            m_wheels[i].torque = 0.0f;
-        if (!m_passive) {
-            Collide();
-            if (m_cutShort || (m_entity->m_objectFlags & OBJECT_FLAG_DEAD))
+        integrate();
+        clear_to_w1(force_);
+        clear_to_w1(twist_force_);
+        for (int i = wheel_count_ - 1; i >= 0; --i)
+            wheels_[i].torque = 0.0f;
+        if (!passive_) {
+            collide();
+            if (cut_short_ || (entity_->object_flags_ & kObjectFlagDead))
                 return;
         }
-        UpdateWheelContacts();
-        if (m_cutShort || (m_entity->m_objectFlags & OBJECT_FLAG_DEAD))
+        update_wheel_contacts();
+        if (cut_short_ || (entity_->object_flags_ & kObjectFlagDead))
             return;
-        UpdateSteering();
-        ApplyDamping();
-        ApplyWheelForces();
-        if (m_wheelsInContact != 0)
-            m_airTime = 0.0f;
+        update_steering();
+        apply_damping();
+        apply_wheel_forces();
+        if (wheels_in_contact_ != 0)
+            air_time_ = 0.0f;
         else
-            m_airTime = static_cast<float>(static_cast<double>(m_stepLength) + m_airTime);
-        if (m_wheelsInContact == 0 && !(m_collisionImpulse > 0.0f))
-            m_freeFallTime = static_cast<float>(static_cast<double>(m_stepLength) + m_freeFallTime);
+            air_time_ = static_cast<float>(static_cast<double>(step_length_) + air_time_);
+        if (wheels_in_contact_ == 0 && !(collision_impulse_ > 0.0f))
+            free_fall_time_ = static_cast<float>(static_cast<double>(step_length_) + free_fall_time_);
         else
-            m_freeFallTime = 0.0f;
+            free_fall_time_ = 0.0f;
     }
-    if (m_passive)
+    if (passive_)
         return;
-    DebugDraw();
-    m_entity->m_atPoint = m_atPoint;
-    m_entity->m_vel = m_vel;
-    m_entity->m_basisFrame = m_basisFrame;
-    m_entity->m_displayMatrix = m_entity->m_basisFrame;
-    CheckSleep();
-    RefreshBoneRig();
-    UpdateSkater();
+    debug_draw();
+    entity_->at_point_ = at_point_;
+    entity_->vel_ = vel_;
+    entity_->basis_frame_ = basis_frame_;
+    entity_->display_matrix_ = entity_->basis_frame_;
+    check_sleep();
+    refresh_bone_rig();
+    update_skater();
 }
 
 // 0x0043A070
-void CDrivableModule::RefreshBoneRig()
+void DrivableModule::refresh_bone_rig()
 {
-    if (Engine3D::g_suppressDraw) // (rendering off)
+    if (render::g_suppress_draw) // (rendering off)
         return;
     // (the skeleton's +0x04, through the getter folded at 0x005480C0)
-    auto* bones = reinterpret_cast<Maths::Mat4*>(static_cast<OnlinePlay::FoldedGetters*>(SkeletonOf(m_boneRig))->Word04());
-    int count = reinterpret_cast<int(__thiscall*)(void*)>(CodeAddress(&Gfx2D::CRig::GetNumBones))(SkeletonOf(m_boneRig));
+    auto* bones = reinterpret_cast<maths::Mat4*>(static_cast<online::FoldedGetters*>(skeleton_of(bone_rig_))->word04());
+    int count = reinterpret_cast<int(__thiscall*)(void*)>(code_address(&gfx::Rig::get_num_bones))(skeleton_of(bone_rig_));
     // Bone 0 the body (left as nothing), 1 the skater's place, 2 on the wheels: steered and rolled, at their place
-    // with the suspension's extension, but no lower than maxDrawnY. In debug mode 2 all of them nothing.
+    // with the suspension's extension, but no lower than max_drawn_y_. In debug mode 2 all of them nothing.
     for (int b = count - 1; b >= 0; --b) {
-        Maths::Mat4& bone = bones[b];
+        maths::Mat4& bone = bones[b];
         std::memset(&bone, 0, sizeof(bone));
-        if (m_debugMode == 2)
+        if (debug_mode_ == 2)
             continue;
         if (b == 0)
             return;
@@ -886,59 +886,59 @@ void CDrivableModule::RefreshBoneRig()
             bone.row[0].x = 1.0f;
             bone.row[1].z = -1.0f;
             bone.row[2].y = 1.0f;
-            bone.row[3] = m_skaterBone;
+            bone.row[3] = skater_bone_;
             continue;
         }
-        const Wheel& wheel = m_wheels[b - 2];
+        const Wheel& wheel = wheels_[b - 2];
         bone.row[0].x = -1.0f;
         bone.row[1].z = 1.0f;
         bone.row[2].y = 1.0f;
-        Maths::Mat4 turn;
-        MatrixMultiply(&bone, &Maths::MakeRollMatrix(turn, wheel.displaySteering), &bone);
-        MatrixMultiply(&bone, &Maths::MakePitchMatrix(turn, -wheel.rotation), &bone);
+        maths::Mat4 turn;
+        matrix_multiply(&bone, &maths::make_roll_matrix(turn, wheel.display_steering_), &bone);
+        matrix_multiply(&bone, &maths::make_pitch_matrix(turn, -wheel.rotation), &bone);
         bone.row[3] = wheel.offset;
-        float drop = wheel.y > wheel.maxDrawnY ? wheel.maxDrawnY : wheel.y;
+        float drop = wheel.y > wheel.max_drawn_y_ ? wheel.max_drawn_y_ : wheel.y;
         bone.row[3].y = static_cast<float>(static_cast<double>(drop) + bone.row[3].y);
         bone.row[3].w = 1.0f;
     }
 }
 
 // 0x0043A2C0
-Maths::Vec4* CDrivableModule::GetWheelRimPoint(Maths::Vec4* out, const Wheel* wheel, int spoke, bool outer)
+maths::Vec4* DrivableModule::get_wheel_rim_point(maths::Vec4* out, const Wheel* wheel, int spoke, bool outer)
 {
-    Maths::Vec4 point;
+    maths::Vec4 point;
     point.x = static_cast<float>((outer ? 1.0f : -1.0f) * static_cast<double>(kRimHalfWidth));
     double angle = static_cast<double>(spoke) * kSpokeAngle + wheel->rotation;
-    point.y = static_cast<float>(Skater::X87Cos(angle) * wheel->radius);
-    point.z = static_cast<float>(Skater::X87Sin(angle) * wheel->radius);
+    point.y = static_cast<float>(skater::x87_cos(angle) * wheel->radius);
+    point.z = static_cast<float>(skater::x87_sin(angle) * wheel->radius);
     point.w = 1.0f;
-    Maths::Vec4 up{0.0f, 1.0f, 0.0f, 1.0f};
-    Maths::Mat4 steer;
-    Maths::BuildAxisAngleMatrix(steer, up, wheel->steering);
-    Maths::Vec4 turned;
-    steer.RotateVector(turned, point);
-    Maths::Vec4 placed{static_cast<float>(static_cast<double>(turned.x) + wheel->offset.x),
+    maths::Vec4 up{0.0f, 1.0f, 0.0f, 1.0f};
+    maths::Mat4 steer;
+    maths::build_axis_angle_matrix(steer, up, wheel->steering);
+    maths::Vec4 turned;
+    steer.rotate_vector(turned, point);
+    maths::Vec4 placed{static_cast<float>(static_cast<double>(turned.x) + wheel->offset.x),
                        static_cast<float>((static_cast<double>(turned.y) + wheel->y) + wheel->offset.y),
                        static_cast<float>(static_cast<double>(turned.z) + wheel->offset.z),
                        static_cast<float>(static_cast<double>(turned.w) + wheel->offset.w)};
-    Maths::Vec4 world;
-    m_basisFrame.RotateVector(world, placed);
-    out->x = static_cast<float>(static_cast<double>(m_atPoint.x) + world.x);
-    out->y = static_cast<float>(static_cast<double>(m_atPoint.y) + world.y);
-    out->z = static_cast<float>(static_cast<double>(m_atPoint.z) + world.z);
-    out->w = static_cast<float>(static_cast<double>(m_atPoint.w) + world.w);
+    maths::Vec4 world;
+    basis_frame_.rotate_vector(world, placed);
+    out->x = static_cast<float>(static_cast<double>(at_point_.x) + world.x);
+    out->y = static_cast<float>(static_cast<double>(at_point_.y) + world.y);
+    out->z = static_cast<float>(static_cast<double>(at_point_.z) + world.z);
+    out->w = static_cast<float>(static_cast<double>(at_point_.w) + world.w);
     return out;
 }
 
 // 0x0043A400
-void CDrivableModule::DebugDraw()
+void DrivableModule::debug_draw()
 {
     // Each wheel's tyre (two rims of twelve spokes and the tread between them, coloured by its grip state) and its
     // axle; then (two spheres, compiled out as well) the centre of mass and the position. Nothing else is touched.
-    if (!m_debugMode)
+    if (!debug_mode_)
         return;
-    for (int i = m_wheelCount - 1; i >= 0; --i) {
-        const Wheel& wheel = m_wheels[i];
+    for (int i = wheel_count_ - 1; i >= 0; --i) {
+        const Wheel& wheel = wheels_[i];
         uint32_t colour;
         switch (wheel.state) {
         case kWheelStaticSlow: colour = 0xFF00FF00; break;
@@ -950,179 +950,179 @@ void CDrivableModule::DebugDraw()
         default: colour = 0xFFFFFFFF; break;
         }
         for (int spoke = 11; spoke >= 0; --spoke) {
-            Maths::Vec4 a, b;
+            maths::Vec4 a, b;
             for (bool outer : {true, false}) {
-                GetWheelRimPoint(&a, &wheel, spoke, outer);
-                GetWheelRimPoint(&b, &wheel, spoke + 1, outer);
-                Gfx2D::PushDiagLine(&a, &b, colour, colour, 1);
+                get_wheel_rim_point(&a, &wheel, spoke, outer);
+                get_wheel_rim_point(&b, &wheel, spoke + 1, outer);
+                gfx::push_diag_line(&a, &b, colour, colour, 1);
             }
-            GetWheelRimPoint(&a, &wheel, spoke, true);
-            GetWheelRimPoint(&b, &wheel, spoke, false);
-            Gfx2D::PushDiagLine(&a, &b, colour, colour, 1);
+            get_wheel_rim_point(&a, &wheel, spoke, true);
+            get_wheel_rim_point(&b, &wheel, spoke, false);
+            gfx::push_diag_line(&a, &b, colour, colour, 1);
             // The axle: 240 either side of the wheel along its steered x, in the world.
-            Maths::Vec4 up{0.0f, 1.0f, 0.0f, 1.0f};
-            Maths::Mat4 steer;
-            Maths::BuildAxisAngleMatrix(steer, up, wheel.steering);
-            Maths::Vec4 ends[2];
+            maths::Vec4 up{0.0f, 1.0f, 0.0f, 1.0f};
+            maths::Mat4 steer;
+            maths::build_axis_angle_matrix(steer, up, wheel.steering);
+            maths::Vec4 ends[2];
             for (int e = 0; e < 2; ++e) {
                 float side = e ? kBelow : -kBelow;
-                Maths::Vec4 local{steer.row[0].x * side + wheel.offset.x, steer.row[0].y * side + wheel.offset.y + wheel.y,
+                maths::Vec4 local{steer.row[0].x * side + wheel.offset.x, steer.row[0].y * side + wheel.offset.y + wheel.y,
                                   steer.row[0].z * side + wheel.offset.z, 1.0f};
-                Maths::Vec4 world;
-                m_basisFrame.RotateVector(world, local);
-                ends[e] = {world.x + m_atPoint.x, world.y + m_atPoint.y, world.z + m_atPoint.z, world.w + m_atPoint.w};
+                maths::Vec4 world;
+                basis_frame_.rotate_vector(world, local);
+                ends[e] = {world.x + at_point_.x, world.y + at_point_.y, world.z + at_point_.z, world.w + at_point_.w};
             }
-            Gfx2D::PushDiagLine(&ends[0], &ends[1], 0xFF000000, 0xFF000000, 1);
+            gfx::push_diag_line(&ends[0], &ends[1], 0xFF000000, 0xFF000000, 1);
         }
     }
 }
 
 // 0x0043AA90 (not a Ghidra function)
-void CDrivableModule::GlideToNode(Scripts::CStruct* node)
+void DrivableModule::glide_to_node(script::Struct* node)
 {
-    Maths::Vec4 pos, angles;
-    LevelNodes::FetchPlace(node, &pos);
-    LevelNodes::ReadTurnAngles(node, &angles);
-    Maths::Mat4 matrix;
-    MatrixFromAngles(&matrix, &angles);
+    maths::Vec4 pos, angles;
+    level_nodes::fetch_place(node, &pos);
+    level_nodes::read_turn_angles(node, &angles);
+    maths::Mat4 matrix;
+    matrix_from_angles(&matrix, &angles);
     // How far the body's origin sits above the ground: the wheels' rest heights (sagged by their share of the
     // weight) less their radii, averaged (always four wheels).
-    double count = Unsigned(m_wheelCount);
+    double count = Unsigned(wheel_count_);
     double height = 0.0;
     for (int i = 3; i >= 0; --i) {
-        const Wheel& wheel = m_wheels[i];
-        double rest = static_cast<double>(kGravity) / (static_cast<double>(wheel.springRate) * m_invMass * count) +
-                      wheel.offset.y + wheel.restY;
+        const Wheel& wheel = wheels_[i];
+        double rest = static_cast<double>(kGravity) / (static_cast<double>(wheel.spring_rate_) * inv_mass_ * count) +
+                      wheel.offset.y + wheel.rest_y_;
         height = (height + rest) - wheel.radius;
     }
     float above = static_cast<float>(height * kQuarter);
     // The ground under the node (from 24 above to 240 below).
-    Maths::Vec4 start{pos.x, static_cast<float>(static_cast<double>(pos.y) + kAbove), pos.z,
+    maths::Vec4 start{pos.x, static_cast<float>(static_cast<double>(pos.y) + kAbove), pos.z,
                       static_cast<float>(static_cast<double>(pos.w) + 1.0)};
-    Maths::Vec4 end{pos.x, static_cast<float>(static_cast<double>(pos.y) - kBelow), pos.z, start.w};
-    Engine3D::CProbeRay feeler;
-    feeler.MakeNew(&start, &end);
-    if (feeler.GetHitShape(false, false))
-        pos.y = static_cast<float>(static_cast<double>(feeler.m_contactPos.y) - above);
+    maths::Vec4 end{pos.x, static_cast<float>(static_cast<double>(pos.y) - kBelow), pos.z, start.w};
+    render::ProbeRay feeler;
+    feeler.make_new(&start, &end);
+    if (feeler.get_hit_shape(false, false))
+        pos.y = static_cast<float>(static_cast<double>(feeler.contact_pos_.y) - above);
     // The node marks the fixed axle (the first fixed wheel from the last): back along the node's facing by its place.
     int fixed = -1;
     for (int i = 3; i >= 0; --i) {
-        if (m_wheels[i].steeringSide == 0) {
+        if (wheels_[i].steering_side_ == 0) {
             fixed = i;
             break;
         }
     }
-    double back = m_wheels[fixed].offset.z;
-    const Maths::Vec4& at = matrix.row[2];
-    m_atPoint.x = pos.x = static_cast<float>(pos.x - at.x * back);
-    m_atPoint.y = pos.y = static_cast<float>(pos.y - at.y * back);
-    m_atPoint.z = pos.z = static_cast<float>(pos.z - at.z * back);
-    m_atPoint.w = static_cast<float>(pos.w - at.w * back);
-    Maths::Vec4 quat;
-    MatrixToQuat(&quat, &matrix);
-    m_orientation = quat;
-    ClearToW1(m_linearMomentum);
-    ClearToW1(m_rotmom);
+    double back = wheels_[fixed].offset.z;
+    const maths::Vec4& at = matrix.row[2];
+    at_point_.x = pos.x = static_cast<float>(pos.x - at.x * back);
+    at_point_.y = pos.y = static_cast<float>(pos.y - at.y * back);
+    at_point_.z = pos.z = static_cast<float>(pos.z - at.z * back);
+    at_point_.w = static_cast<float>(pos.w - at.w * back);
+    maths::Vec4 quat;
+    matrix_to_quat(&quat, &matrix);
+    orientation_ = quat;
+    clear_to_w1(linear_momentum_);
+    clear_to_w1(rotmom_);
     // Settled by sixty updates without input, collision or debug drawing, the wheels kept from turning.
-    m_passive = true;
+    passive_ = true;
     for (int n = 60; n != 0; --n) {
-        for (int i = m_wheelCount - 1; i >= 0; --i)
-            m_wheels[i].spin = 0.0f;
-        CObjectModule::TickFrame();
+        for (int i = wheel_count_ - 1; i >= 0; --i)
+            wheels_[i].spin = 0.0f;
+        ObjectModule::tick_frame();
     }
-    m_passive = false;
-    ClearToW1(m_linearMomentum);
-    ClearToW1(m_rotmom);
-    m_cutShort = true;
-    m_awake = 0;
-    m_entity->m_atPoint = m_atPoint;
-    m_entity->m_vel = m_vel;
-    m_entity->m_basisFrame = m_basisFrame;
-    m_entity->m_displayMatrix = m_entity->m_basisFrame;
-    RefreshBoneRig();
-    UpdateSkater();
-    m_entity->MarkJumpedAhead(true);
-    m_riderRef->MarkJumpedAhead(true);
+    passive_ = false;
+    clear_to_w1(linear_momentum_);
+    clear_to_w1(rotmom_);
+    cut_short_ = true;
+    awake_ = 0;
+    entity_->at_point_ = at_point_;
+    entity_->vel_ = vel_;
+    entity_->basis_frame_ = basis_frame_;
+    entity_->display_matrix_ = entity_->basis_frame_;
+    refresh_bone_rig();
+    update_skater();
+    entity_->mark_jumped_ahead(true);
+    rider_ref_->mark_jumped_ahead(true);
 }
 
 // 0x0043B670 (not a Ghidra function)
-bool CDrivableModule::TeleportToSpawn(Scripts::CStruct* params, Scripts::CScript* script)
+bool DrivableModule::teleport_to_spawn(script::Struct* params, script::Script* script)
 {
     // The node named; else the first restart linked from the script's node; else (outside the park editor) the skate
     // module's first restart.
     uint32_t name;
-    if (params->ReadHashValue(0u, &name, 0)) {
-        GlideToNode(LevelNodes::FetchVertex(name, true));
+    if (params->read_hash_value(0u, &name, 0)) {
+        glide_to_node(level_nodes::fetch_vertex(name, true));
         return true;
     }
     uint32_t from = *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(script) + 0xB8);
-    int links = static_cast<int>(LevelNodes::GetLinkCount(from));
+    int links = static_cast<int>(level_nodes::get_link_count(from));
     for (int i = 0; i < links; ++i) {
-        uint32_t link = LevelNodes::FetchLink(from, i);
-        if (IsRestartNode(link)) {
-            GlideToNode(LevelNodes::FetchVertex(link, true));
+        uint32_t link = level_nodes::fetch_link(from, i);
+        if (is_restart_node(link)) {
+            glide_to_node(level_nodes::fetch_vertex(link, true));
             return true;
         }
     }
-    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(ParkEditing::g_parkEditor) + 0x40) == kParkEditor)
+    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor) + 0x40) == kParkEditor)
         return true;
-    GlideToNode(LevelNodes::FetchVertex(SkateRestart(0), true));
+    glide_to_node(level_nodes::fetch_vertex(skate_restart(0), true));
     return true;
 }
 
 // 0x0043B720
-bool CDrivableModule::PlaceBeforeCamera(Scripts::CStruct*, Scripts::CScript*)
+bool DrivableModule::place_before_camera(script::Struct*, script::Script*)
 {
-    void* camera = ViewportCamera(0);
+    void* camera = viewport_camera(0);
     if (!camera)
         return true;
-    const Maths::Vec4& eye = *static_cast<Gfx2D::ViewCam*>(camera)->FetchLocation();
-    const Maths::Mat4& view = *static_cast<Gfx2D::ViewCam*>(camera)->FetchMat();
-    m_atPoint = eye;
+    const maths::Vec4& eye = *static_cast<gfx::ViewCam*>(camera)->fetch_location();
+    const maths::Mat4& view = *static_cast<gfx::ViewCam*>(camera)->fetch_mat();
+    at_point_ = eye;
     // 144 along the camera's up, then 144 back along its at (12 feet each, scaled twice - as the original).
-    const Maths::Vec4& up = view.row[1];
-    double upX = static_cast<double>(up.x) * kFeet, upY = static_cast<double>(up.y) * kFeet;
-    float upZ = static_cast<float>(static_cast<double>(up.z) * kFeet);
-    float upW = static_cast<float>(static_cast<double>(up.w) * kFeet);
-    m_atPoint.x = static_cast<float>(static_cast<double>(static_cast<float>(upX * kFeet)) + m_atPoint.x);
-    m_atPoint.y = static_cast<float>(upY * kFeet + m_atPoint.y);
-    m_atPoint.z = static_cast<float>(static_cast<double>(upZ) * kFeet + m_atPoint.z);
-    m_atPoint.w = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(upW) * kFeet)) + m_atPoint.w);
-    const Maths::Vec4& at = view.row[2];
-    double atX = static_cast<double>(at.x) * kFeet, atY = static_cast<double>(at.y) * kFeet;
-    float atZ = static_cast<float>(static_cast<double>(at.z) * kFeet);
-    float atW = static_cast<float>(static_cast<double>(at.w) * kFeet);
-    m_atPoint.x = static_cast<float>(static_cast<double>(m_atPoint.x) - static_cast<float>(atX * kFeet));
-    m_atPoint.y = static_cast<float>(m_atPoint.y - atY * kFeet);
-    m_atPoint.z = static_cast<float>(m_atPoint.z - static_cast<double>(atZ) * kFeet);
-    m_atPoint.w = static_cast<float>(static_cast<double>(m_atPoint.w) - static_cast<float>(static_cast<double>(atW) * kFeet));
-    m_entity->m_atPoint = m_atPoint;
+    const maths::Vec4& up = view.row[1];
+    double up_x = static_cast<double>(up.x) * kFeet, up_y = static_cast<double>(up.y) * kFeet;
+    float up_z = static_cast<float>(static_cast<double>(up.z) * kFeet);
+    float up_w = static_cast<float>(static_cast<double>(up.w) * kFeet);
+    at_point_.x = static_cast<float>(static_cast<double>(static_cast<float>(up_x * kFeet)) + at_point_.x);
+    at_point_.y = static_cast<float>(up_y * kFeet + at_point_.y);
+    at_point_.z = static_cast<float>(static_cast<double>(up_z) * kFeet + at_point_.z);
+    at_point_.w = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(up_w) * kFeet)) + at_point_.w);
+    const maths::Vec4& at = view.row[2];
+    double at_x = static_cast<double>(at.x) * kFeet, at_y = static_cast<double>(at.y) * kFeet;
+    float at_z = static_cast<float>(static_cast<double>(at.z) * kFeet);
+    float at_w = static_cast<float>(static_cast<double>(at.w) * kFeet);
+    at_point_.x = static_cast<float>(static_cast<double>(at_point_.x) - static_cast<float>(at_x * kFeet));
+    at_point_.y = static_cast<float>(at_point_.y - at_y * kFeet);
+    at_point_.z = static_cast<float>(at_point_.z - static_cast<double>(at_z) * kFeet);
+    at_point_.w = static_cast<float>(static_cast<double>(at_point_.w) - static_cast<float>(static_cast<double>(at_w) * kFeet));
+    entity_->at_point_ = at_point_;
     // Facing away from the camera.
-    m_basisFrame.row[0] = {-view.row[0].x, -view.row[0].y, -view.row[0].z, -view.row[0].w};
-    m_basisFrame.row[1] = view.row[1];
-    m_basisFrame.row[2] = {-view.row[2].x, -view.row[2].y, -view.row[2].z, -view.row[2].w};
-    Maths::Vec4 quat;
-    MatrixToQuat(&quat, &m_basisFrame);
-    m_orientation = quat;
-    QuatNormalize(&m_orientation, 1.0f);
-    QuatToMatrix(&m_orientation, &m_basisFrame);
-    ClearToW1(m_basisFrame.row[3]);
-    m_entity->m_basisFrame = m_basisFrame;
-    UpdateDependents();
+    basis_frame_.row[0] = {-view.row[0].x, -view.row[0].y, -view.row[0].z, -view.row[0].w};
+    basis_frame_.row[1] = view.row[1];
+    basis_frame_.row[2] = {-view.row[2].x, -view.row[2].y, -view.row[2].z, -view.row[2].w};
+    maths::Vec4 quat;
+    matrix_to_quat(&quat, &basis_frame_);
+    orientation_ = quat;
+    quat_normalize(&orientation_, 1.0f);
+    quat_to_matrix(&orientation_, &basis_frame_);
+    clear_to_w1(basis_frame_.row[3]);
+    entity_->basis_frame_ = basis_frame_;
+    update_dependents();
     return true;
 }
 
 namespace {
 
-void __fastcall UpdateWheelRotationsOf(CDrivableModule* vehicle) { vehicle->UpdateWheelRotations(); }
+void __fastcall update_wheel_rotations_of(DrivableModule* vehicle) { vehicle->update_wheel_rotations(); }
 
-// 0x004351C0 as the game calls it: the original update (0x0043C1D0, asleep) calls RefreshBoneRig right after it
+// 0x004351C0 as the game calls it: the original update (0x0043C1D0, asleep) calls refresh_bone_rig right after it
 // without loading ECX again - kept.
-__declspec(naked) void UpdateWheelRotationsStub()
+__declspec(naked) void update_wheel_rotations_stub()
 {
     __asm {
         push ecx
-        call UpdateWheelRotationsOf
+        call update_wheel_rotations_of
         pop ecx
         ret
     }
@@ -1132,23 +1132,23 @@ __declspec(naked) void UpdateWheelRotationsStub()
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CDrivableModule::Teardown,
-         &GameObjects::CDrivableModule::TickFrame,
-         &GameObjects::CDrivableModule::ConfigureFromData,
-         &GameObjects::CDrivableModule::Seal,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::DispatchScriptMethod,
-         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::DrivableModule::teardown,
+         &objects::DrivableModule::tick_frame,
+         &objects::DrivableModule::configure_from_data,
+         &objects::DrivableModule::seal,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         &objects::ObjectModule::dispatch_script_method,
+         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

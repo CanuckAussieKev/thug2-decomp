@@ -1,4 +1,4 @@
-// GameObjects::CEntity: the base of the game's objects - id, type, tags, flags, its own script, and the member functions
+// GameObjects::Entity: the base of the game's objects - id, type, tags, flags, its own script, and the member functions
 // scripts call on any object (entity.h).
 
 #include "engine/objects/entity.h"
@@ -16,12 +16,12 @@
 #include "engine/core/stubs.h"
 #include "engine/objects/entity.h"
 
-namespace GameObjects {
+namespace objects {
 
-using Scripts::CArray;
-using Scripts::CComponent;
-using Scripts::CScript;
-using Scripts::CStruct;
+using script::Array;
+using script::Component;
+using script::Script;
+using script::Struct;
 
 namespace {
 
@@ -49,599 +49,599 @@ constexpr uint32_t kClear = 0x1A4E0EF9;           // clear
 constexpr uint32_t kNoSpawnerFile = 0x01917DF2;   // (name unknown): the spawned script keeps no spawner file
 
 // The tracker's LaunchEvent (to `target`, -1: everyone; its answer isn't used).
-void LaunchEvent(uint32_t type, uint32_t target, uint32_t source, CStruct* data, bool broadcast, float radius)
+void launch_event(uint32_t type, uint32_t target, uint32_t source, Struct* data, bool broadcast, float radius)
 {
-    Tracker()->LaunchEvent(type, target, source, data, broadcast, radius);
+    get_tracker()->launch_event(type, target, source, data, broadcast, radius);
 }
 
-// The object's vtable: slot 1 ChangeTraits, 6 FlagAsDead.
-void VirtualSetProperties(CEntity* object, CStruct* params)
+// The object's vtable: slot 1 change_traits, 6 flag_as_dead.
+void virtual_set_properties(Entity* object, Struct* params)
 {
-    reinterpret_cast<void(__thiscall*)(CEntity*, CStruct*)>(object->m_vtable[1])(object, params);
+    reinterpret_cast<void(__thiscall*)(Entity*, Struct*)>(object->vtable_[1])(object, params);
 }
-void VirtualMarkAsDead(CEntity* object) { reinterpret_cast<void(__thiscall*)(CEntity*)>(object->m_vtable[6])(object); }
+void virtual_mark_as_dead(Entity* object) { reinterpret_cast<void(__thiscall*)(Entity*)>(object->vtable_[6])(object); }
 
 // How the original makes and frees a script: the pooled operator new and Construct; Destroy and the pooled
 // operator delete.
-CScript* NewScript()
+Script* new_script()
 {
-    void* memory = CScript::operator new(sizeof(CScript));
-    return memory ? static_cast<CScript*>(memory)->MakeNew() : nullptr;
+    void* memory = Script::operator new(sizeof(Script));
+    return memory ? static_cast<Script*>(memory)->make_new() : nullptr;
 }
-void DeleteScript(CScript* script)
+void delete_script(Script* script)
 {
-    script->Teardown();
-    CScript::operator delete(script);
+    script->teardown();
+    Script::operator delete(script);
 }
 // `new CStruct` (the structure pool) / `delete`.
-CStruct* NewEmptyStruct()
+Struct* new_empty_struct()
 {
-    CStruct* structure = Scripts::SpawnParamBag();
-    return structure ? structure->PrepareAll() : nullptr;
+    Struct* structure = script::spawn_param_bag();
+    return structure ? structure->prepare_all() : nullptr;
 }
-void FreeStruct(CStruct* structure)
+void free_struct(Struct* structure)
 {
-    structure->Clear();
-    Scripts::DeleteStruct(structure);
+    structure->get_clear();
+    script::delete_struct(structure);
 }
 // A copy of `component` (from the component pool) added to `dest`.
-void AddCopy(CStruct* dest, CComponent* component)
+void add_copy(Struct* dest, Component* component)
 {
-    CComponent* copy = Scripts::NewComponent();
-    Scripts::DuplicateComponent(copy, component, 0);
-    dest->AttachModule(copy);
+    Component* copy = script::new_component();
+    script::duplicate_component(copy, component, 0);
+    dest->attach_module(copy);
 }
 
 } // namespace
 
 // 0x00460920
-void CObjectRef::DestroyBody() { Destruct(); }
+void ObjectRef::destroy_body() { destruct(); }
 
 // 0x00460AF0
-CObjectRef* CObjectRef::Teardown(unsigned int flags)
+ObjectRef* ObjectRef::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00460B20
-void CEntityListEntry::DestroyBody() { UnlinkAs(g_objectNodeVtable); }
+void EntityListEntry::destroy_body() { unlink_as(kObjectNodeVtable); }
 
 // 0x00460B40
-CEntityListEntry* CEntityListEntry::Teardown(unsigned int flags)
+EntityListEntry* EntityListEntry::teardown(unsigned int flags)
 {
-    UnlinkAs(g_objectNodeVtable);
+    unlink_as(kObjectNodeVtable);
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00460B80
-CEntity* CEntity::MakeNew()
+Entity* Entity::make_new()
 {
-    CSharedBase::MakeNew();
-    m_vtable = kObjectVtable;
-    m_listLink.vtable = g_objectNodeVtable;
-    m_listLink.data = this;
-    m_listLink.priority = 0;
-    m_listLink.next = &m_listLink;
-    m_listLink.prev = &m_listLink;
-    m_ref.CSharedBase::MakeNew();
-    m_ref.m_ownerObject = this;
-    m_ref.m_vtable = kObjectRefVtable;
-    m_ident = kUnassignedId;
-    m_kindTag = kNoObjectType;
-    m_tagTable = nullptr;
-    m_ownScript = nullptr;
-    m_parkOwner = nullptr;
-    m_objectFlags = 0;
-    m_aliasCount = 0;
-    m_visitedMask = 0;
+    SharedBase::make_new();
+    vtable_ = kObjectVtable;
+    list_link_.vtable = kObjectNodeVtable;
+    list_link_.data = this;
+    list_link_.priority = 0;
+    list_link_.next = &list_link_;
+    list_link_.prev = &list_link_;
+    ref_.SharedBase::make_new();
+    ref_.owner_object_ = this;
+    ref_.vtable_ = kObjectRefVtable;
+    ident_ = kUnassignedId;
+    kind_tag_ = kNoObjectType;
+    tag_table_ = nullptr;
+    own_script_ = nullptr;
+    park_owner_ = nullptr;
+    object_flags_ = 0;
+    alias_count_ = 0;
+    visited_mask_ = 0;
     return this;
 }
 
 // 0x004615D0
-void CEntity::DestroyBody()
+void Entity::destroy_body()
 {
-    m_vtable = kObjectVtable;
-    if (m_tagTable)
-        FreeStruct(m_tagTable); // (the pointer is left as it is)
-    if (m_parkOwner)
-        m_parkOwner->VirtualUnregisterObject(this);
-    if (m_ownScript) {
-        m_ownScript->ClearOnExitScripts();
-        if (m_ownScript)
-            DeleteScript(m_ownScript);
-        m_ownScript = nullptr;
+    vtable_ = kObjectVtable;
+    if (tag_table_)
+        free_struct(tag_table_); // (the pointer is left as it is)
+    if (park_owner_)
+        park_owner_->virtual_unregister_object(this);
+    if (own_script_) {
+        own_script_->clear_on_exit_scripts();
+        if (own_script_)
+            delete_script(own_script_);
+        own_script_ = nullptr;
     }
-    Scripts::EndScriptsBoundToEntity(this);
-    m_ref.DestroyBody();
-    m_listLink.UnlinkAs(g_objectNodeVtable);
-    Destruct();
+    script::end_scripts_bound_to_entity(this);
+    ref_.destroy_body();
+    list_link_.unlink_as(kObjectNodeVtable);
+    destruct();
 }
 
 // 0x00461900
-CEntity* CEntity::Teardown(unsigned int flags)
+Entity* Entity::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00460930
-void CEntity::DisposeWhenFree()
+void Entity::dispose_when_free()
 {
-    if (!(m_objectFlags & OBJECT_FLAG_LOCKED))
-        VirtualDestroy(1);
+    if (!(object_flags_ & kObjectFlagLocked))
+        virtual_destroy(1);
 }
 
 // 0x00461710
-void CEntity::ChangeTraits(CStruct* params)
+void Entity::change_traits(Struct* params)
 {
-    bool replace = params->HasBareFlag(kReplaceHandlers);
-    CArray* handlers = nullptr;
-    if (params->FetchList(kReactionList, &handlers, 0)) {
-        CreateScriptIfNeeded();
-        m_ownScript->InstallEventTable(handlers, replace);
+    bool replace = params->has_bare_flag(kReplaceHandlers);
+    Array* handlers = nullptr;
+    if (params->fetch_list(kReactionList, &handlers, 0)) {
+        create_script_if_needed();
+        own_script_->install_event_table(handlers, replace);
     }
-    CStruct* tags = nullptr;
-    if (params->ReadSubStruct(kTags, &tags, 0)) {
-        CreateTagsIfNeeded();
-        m_tagTable->AppendStructureIfAny(tags);
+    Struct* tags = nullptr;
+    if (params->read_sub_struct(kTags, &tags, 0)) {
+        create_tags_if_needed();
+        tag_table_->append_structure_if_any(tags);
     }
-    CArray* removeTags = nullptr;
-    if (params->FetchList(kRemoveTags, &removeTags, 0))
-        RemoveTags(removeTags);
+    Array* remove_tags = nullptr;
+    if (params->fetch_list(kRemoveTags, &remove_tags, 0))
+        get_remove_tags(remove_tags);
 }
 
 // 0x004608F0
-bool CEntity::InvokeMethodByName(uint32_t name, CStruct* params, CScript* /*script*/)
+bool Entity::invoke_method_by_name(uint32_t name, Struct* params, Script* /*script*/)
 {
     if (name == kSetProps)
-        VirtualSetProperties(this, params);
+        virtual_set_properties(this, params);
     else if (name == kDie)
-        VirtualMarkAsDead(this);
+        virtual_mark_as_dead(this);
     return true;
 }
 
 // 0x00461140
-bool CEntity::PassEventToScript(CSignal* event)
+bool Entity::pass_event_to_script(Signal* event)
 {
-    if (!m_ownScript)
+    if (!own_script_)
         return true;
-    CSharedRef<CEntity> self;
-    self.AssignValue(this);
-    m_ownScript->ReceiveEvent(event);
+    SharedRef<Entity> self;
+    self.assign_value(this);
+    own_script_->receive_event(event);
     return static_cast<bool>(self); // (cleared if the object was deleted meanwhile)
 }
 
 // 0x00460A50
-void CEntity::FlagAsDead()
+void Entity::flag_as_dead()
 {
-    if (m_ownScript)
-        m_ownScript->GateOff(0); // (until unblocked: for good)
-    Scripts::EndScriptsBoundToEntity(this);
-    m_objectFlags &= ~OBJECT_FLAG_LOCKED;
-    CObjectHubBase* manager = m_parkOwner; // (unregistering clears m_parkOwner: the manager read first is used)
-    manager->VirtualUnregisterObject(this);
-    manager->VirtualKillObject(this);
-    m_objectFlags |= OBJECT_FLAG_DEAD;
-    m_ref.ClearSmartPointers();
+    if (own_script_)
+        own_script_->gate_off(0); // (until unblocked: for good)
+    script::end_scripts_bound_to_entity(this);
+    object_flags_ &= ~kObjectFlagLocked;
+    ObjectHubBase* manager = park_owner_; // (unregistering clears park_owner_: the manager read first is used)
+    manager->virtual_unregister_object(this);
+    manager->virtual_kill_object(this);
+    object_flags_ |= kObjectFlagDead;
+    ref_.clear_smart_pointers();
 }
 
 // 0x00461290
-void CEntity::CreateScriptIfNeeded()
+void Entity::create_script_if_needed()
 {
-    if (m_ownScript)
+    if (own_script_)
         return;
-    MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_scriptHeap);
-    CScript* script = NewScript();
-    m_ownScript = script;
-    script->BindScript(kEmptyScript, nullptr, this);
-    MemSys::LeaveHeapScope();
+    memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
+    Script* script = new_script();
+    own_script_ = script;
+    script->bind_script(kEmptyScript, nullptr, this);
+    memory::leave_heap_scope();
 }
 
 // 0x00461350
-CScript* CEntity::ReplaceScript(uint32_t name, CStruct* params)
+Script* Entity::replace_script(uint32_t name, Struct* params)
 {
-    if (!m_ownScript)
-        m_ownScript = NewScript();
-    m_ownScript->BindScript(name, params, this);
-    m_ownScript->HasAttachedScript(); // (the answer isn't used)
-    return m_ownScript;
+    if (!own_script_)
+        own_script_ = new_script();
+    own_script_->bind_script(name, params, this);
+    own_script_->has_attached_script(); // (the answer isn't used)
+    return own_script_;
 }
 
 // 0x00461500
-int CEntity::RunSubScript(uint32_t name, CStruct* params)
+int Entity::run_sub_script(uint32_t name, Struct* params)
 {
-    if (!m_ownScript) {
-        CScript* script = NewScript();
-        m_ownScript = script;
-        script->m_entity.AssignValue(this);
+    if (!own_script_) {
+        Script* script = new_script();
+        own_script_ = script;
+        script->entity_.assign_value(this);
     }
-    return m_ownScript->Preempt(name, params);
+    return own_script_->preempt(name, params);
 }
 
 // 0x00461410
-CScript* CEntity::SpawnScript(uint32_t name, CStruct* params, uint32_t id, bool pauseWithObject)
+Script* Entity::spawn_script(uint32_t name, Struct* params, uint32_t id, bool pause_with_object)
 {
-    CScript* script = Scripts::SpawnScript(name, params, 0, nullptr, -1, id, false, false, false, pauseWithObject);
-    script->m_entity.AssignValue(this);
+    Script* script = script::spawn_script(name, params, 0, nullptr, -1, id, false, false, false, pause_with_object);
+    script->entity_.assign_value(this);
     return script;
 }
 
 // 0x00461480
-CScript* CEntity::StartScriptTask(uint32_t name, int node, bool replicateFlag, bool permanent, CStruct* params)
+Script* Entity::start_script_task(uint32_t name, int node, bool replicate_flag, bool permanent, Struct* params)
 {
-    if (replicateFlag)
-        Scripts::SendSpawnScriptMessage(name, nullptr, node, permanent);
-    CScript* script = Scripts::SpawnScript(name, params, 0, nullptr, node, 0, false, false, false, false);
-    script->m_entity.AssignValue(this);
-    script->TickFrame();
+    if (replicate_flag)
+        script::send_spawn_script_message(name, nullptr, node, permanent);
+    Script* script = script::spawn_script(name, params, 0, nullptr, node, 0, false, false, false, false);
+    script->entity_.assign_value(this);
+    script->tick_frame();
     return script;
 }
 
 // 0x004609F0
-void CEntity::PostOwnEvent(uint32_t type, CStruct* data) { LaunchEvent(type, m_ident, m_ident, data, false, -1.0f); }
+void Entity::post_own_event(uint32_t type, Struct* data) { launch_event(type, ident_, ident_, data, false, -1.0f); }
 
 // 0x00460A20
-void CEntity::Announce(uint32_t type, CStruct* data, float /*radius*/)
+void Entity::announce(uint32_t type, Struct* data, float /*radius*/)
 {
-    LaunchEvent(type, kUnassignedId, m_ident, data, true, -1.0f);
+    launch_event(type, kUnassignedId, ident_, data, true, -1.0f);
 }
 
 // 0x00461930
-void CEntity::ChangeSerial(uint32_t id)
+void Entity::change_serial(uint32_t id)
 {
-    if (m_ident != kUnassignedId && m_parkOwner)
-        m_parkOwner->VirtualReassignObjectId(this, id);
-    m_ident = id;
-    CreateTagsIfNeeded();
-    m_tagTable->PutNameKey(kId, id);
+    if (ident_ != kUnassignedId && park_owner_)
+        park_owner_->virtual_reassign_object_id(this, id);
+    ident_ = id;
+    create_tags_if_needed();
+    tag_table_->put_name_key(kId, id);
 }
 
 // 0x00461970
-void CEntity::ChangeSpecies(uint32_t type)
+void Entity::change_species(uint32_t type)
 {
-    m_kindTag = type;
-    CreateTagsIfNeeded();
-    m_tagTable->PutNameKey(kType, type);
+    kind_tag_ = type;
+    create_tags_if_needed();
+    tag_table_->put_name_key(kType, type);
 }
 
 // 0x004611E0
-void CEntity::CreateTagsIfNeeded()
+void Entity::create_tags_if_needed()
 {
-    if (m_tagTable)
+    if (tag_table_)
         return;
-    MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_frontEndHeap);
-    m_tagTable = NewEmptyStruct();
-    MemSys::LeaveHeapScope();
+    memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
+    tag_table_ = new_empty_struct();
+    memory::leave_heap_scope();
 }
 
 // 0x004616B0
-void CEntity::StoreIntTag(uint32_t name, int value)
+void Entity::store_int_tag(uint32_t name, int value)
 {
-    CreateTagsIfNeeded();
-    m_tagTable->PutInt(name, value);
+    create_tags_if_needed();
+    tag_table_->put_int(name, value);
 }
 
 // 0x004616D0
-void CEntity::WriteHashTag(uint32_t name, uint32_t value)
+void Entity::write_hash_tag(uint32_t name, uint32_t value)
 {
-    CreateTagsIfNeeded();
-    m_tagTable->PutNameKey(name, value);
+    create_tags_if_needed();
+    tag_table_->put_name_key(name, value);
 }
 
 // 0x004616F0
-void CEntity::SetTagsFromStruct(CStruct* tags)
+void Entity::set_tags_from_struct(Struct* tags)
 {
-    CreateTagsIfNeeded();
-    m_tagTable->AppendStructureIfAny(tags);
+    create_tags_if_needed();
+    tag_table_->append_structure_if_any(tags);
 }
 
 // 0x00460C20
-void CEntity::RemoveTags(CArray* names)
+void Entity::get_remove_tags(Array* names)
 {
-    if (!m_tagTable)
+    if (!tag_table_)
         return;
     if (names) {
-        for (uint32_t i = 0; i < names->m_extent; ++i) {
-            uint32_t name = names->FetchPart(i);
-            m_tagTable->EraseModule(name);
-            m_tagTable->RemoveFlag(name);
+        for (uint32_t i = 0; i < names->extent_; ++i) {
+            uint32_t name = names->fetch_part(i);
+            tag_table_->erase_module(name);
+            tag_table_->remove_flag(name);
         }
-        if (!m_tagTable->IsVacant())
+        if (!tag_table_->is_vacant())
             return;
     }
-    if (m_tagTable)
-        FreeStruct(m_tagTable);
-    m_tagTable = nullptr;
+    if (tag_table_)
+        free_struct(tag_table_);
+    tag_table_ = nullptr;
 }
 
 // 0x00460CA0
-bool CEntity::GetTag(CStruct* params, CStruct* dest)
+bool Entity::get_tag(Struct* params, Struct* dest)
 {
-    if (!m_tagTable)
+    if (!tag_table_)
         return false;
     // The name is read into the argument's own slot: with no unnamed checksum, the pointer `params` is the name.
     uint32_t name = reinterpret_cast<uint32_t>(params);
-    params->ReadHashValue(kUnnamed, &name, 1);
-    CComponent* tag = m_tagTable->FindComponent(name);
+    params->read_hash_value(kUnnamed, &name, 1);
+    Component* tag = tag_table_->find_component(name);
     if (!tag)
         return false;
-    AddCopy(dest, tag);
+    add_copy(dest, tag);
     return true;
 }
 
 // 0x00460D90
-bool CEntity::FetchLabels(CArray* names, CStruct* dest)
+bool Entity::fetch_labels(Array* names, Struct* dest)
 {
-    if (!m_tagTable)
+    if (!tag_table_)
         return true;
-    for (uint32_t i = names->m_extent; i != 0;) {
+    for (uint32_t i = names->extent_; i != 0;) {
         --i;
-        if (CComponent* tag = m_tagTable->FindComponent(names->FetchPart(i)))
-            AddCopy(dest, tag);
+        if (Component* tag = tag_table_->find_component(names->fetch_part(i)))
+            add_copy(dest, tag);
     }
     return true;
 }
 
 // 0x004607A0
-void CEntity::ClearEventHandler(uint32_t type)
+void Entity::clear_event_handler(uint32_t type)
 {
-    if (m_ownScript)
-        m_ownScript->ClearEventHandler(type);
+    if (own_script_)
+        own_script_->clear_event_handler(type);
 }
 
 // 0x004607B0
-void CEntity::RemoveTagFlag(uint32_t flag)
+void Entity::remove_tag_flag(uint32_t flag)
 {
-    if (m_tagTable)
-        m_tagTable->RemoveFlag(flag);
+    if (tag_table_)
+        tag_table_->remove_flag(flag);
 }
 
 // 0x004607C0
-bool CEntity::ReadIntTag(uint32_t name, int* value) { return m_tagTable ? m_tagTable->FetchIntValue(name, value, 0) : false; }
+bool Entity::read_int_tag(uint32_t name, int* value) { return tag_table_ ? tag_table_->fetch_int_value(name, value, 0) : false; }
 
 // 0x004607E0
-bool CEntity::ReadHashTag(uint32_t name, uint32_t* value)
+bool Entity::read_hash_tag(uint32_t name, uint32_t* value)
 {
-    return m_tagTable ? m_tagTable->ReadHashValue(name, value, 0) : false;
+    return tag_table_ ? tag_table_->read_hash_value(name, value, 0) : false;
 }
 
 // 0x00460800
-bool CEntity::ContainsTagFlag(uint32_t flag) { return m_tagTable ? m_tagTable->HasBareFlag(flag) : false; }
+bool Entity::contains_tag_flag(uint32_t flag) { return tag_table_ ? tag_table_->has_bare_flag(flag) : false; }
 
 // 0x00460820
-void CEntity::CopyTagsTo(CStruct* dest)
+void Entity::copy_tags_to(Struct* dest)
 {
-    if (m_tagTable)
-        dest->AppendStructureIfAny(m_tagTable);
+    if (tag_table_)
+        dest->append_structure_if_any(tag_table_);
 }
 
 // 0x00460960
-uint32_t CEntity::GetFlagMask(CStruct* params, CScript* /*script*/)
+uint32_t Entity::get_flag_mask(Struct* params, Script* /*script*/)
 {
     uint32_t mask = 0;
-    CArray* names = nullptr;
+    Array* names = nullptr;
     int bit = 0;
-    params->FetchList(kUnnamed, &names, 0);
+    params->fetch_list(kUnnamed, &names, 0);
     if (names) {
-        for (uint32_t i = 0; i < names->m_extent; ++i)
-            mask |= 1u << (Scripts::FetchIntValue(names->FetchPart(i)) & 31);
+        for (uint32_t i = 0; i < names->extent_; ++i)
+            mask |= 1u << (script::fetch_int_value(names->fetch_part(i)) & 31);
         return mask;
     }
-    if (params->FetchIntValue(kUnnamed, &bit, 0))
+    if (params->fetch_int_value(kUnnamed, &bit, 0))
         return 1u << (bit & 31);
     return mask;
 }
 
 // 0x00460840: the calling script lets go of the object (at every level; it stops waiting). True.
-bool CEntity::Obj_LeaveScript(CStruct* /*params*/, CScript* script)
+bool Entity::obj_leave_script(Struct* /*params*/, Script* script)
 {
-    script->ObjectDestroyed(this);
+    script->object_destroyed(this);
     return true;
 }
 
 // 0x00460850: kill the scripts spawned on the object with the name `name` - else with the spawn id `id` - except
 // the one calling. True.
-bool CEntity::Obj_KillSpawnedScript(CStruct* params, CScript* script)
+bool Entity::obj_kill_spawned_script(Struct* params, Script* script)
 {
     uint32_t name = 0;
-    if (params->ReadHashValue(kName, &name, 0)) {
-        Scripts::EndChildScriptsOfEntityByName(this, name, script);
+    if (params->read_hash_value(kName, &name, 0)) {
+        script::end_child_scripts_of_entity_by_name(this, name, script);
         return true;
     }
     uint32_t id = 0;
-    if (params->ReadHashValue(kId, &id, 0))
-        Scripts::StopScriptsOfObjectAndTag(this, id, script);
+    if (params->read_hash_value(kId, &id, 0))
+        script::stop_scripts_of_object_and_tag(this, id, script);
     return true;
 }
 
 // 0x004608D0
-bool CEntity::Obj_Visible(CStruct* /*params*/, CScript* /*script*/)
+bool Entity::obj_visible(Struct* /*params*/, Script* /*script*/)
 {
-    m_objectFlags &= ~ENTITY_HIDDEN_BIT;
+    object_flags_ &= ~kEntityHiddenBit;
     return true;
 }
 
 // 0x004608E0
-bool CEntity::Obj_Invisible(CStruct* /*params*/, CScript* /*script*/)
+bool Entity::obj_invisible(Struct* /*params*/, Script* /*script*/)
 {
-    m_objectFlags |= ENTITY_HIDDEN_BIT;
+    object_flags_ |= kEntityHiddenBit;
     return true;
 }
 
 // 0x00460940: ObjId = the object's id, in the calling script's parameters.
-bool CEntity::Obj_GetId(CStruct* /*params*/, CScript* script)
+bool Entity::obj_get_id(Struct* /*params*/, Script* script)
 {
-    script->m_args->PutNameKey(kObjId, m_ident);
+    script->args_->put_name_key(kObjId, ident_);
     return true;
 }
 
 // 0x00460EB0: the tags into the calling script's parameters - as a new structure named by structure=, else
 // added to them.
-bool CEntity::Obj_GetTags(CStruct* params, CScript* script)
+bool Entity::obj_get_tags(Struct* params, Script* script)
 {
     uint32_t name = 0;
-    if (params->ReadHashValue(kStructure, &name, 0)) {
-        CStruct* copy = NewEmptyStruct();
-        if (m_tagTable)
-            copy->AppendStructureIfAny(m_tagTable);
-        script->m_args->AppendStructRef(name, copy);
+    if (params->read_hash_value(kStructure, &name, 0)) {
+        Struct* copy = new_empty_struct();
+        if (tag_table_)
+            copy->append_structure_if_any(tag_table_);
+        script->args_->append_struct_ref(name, copy);
         return true;
     }
-    if (m_tagTable)
-        script->m_args->AppendStructureIfAny(m_tagTable);
+    if (tag_table_)
+        script->args_->append_structure_if_any(tag_table_);
     return true;
 }
 
 // 0x00460FB0: the tag named by the unnamed checksum, into the calling script's parameters.
-bool CEntity::Obj_GetSingleTag(CStruct* params, CScript* script) { return GetTag(params, script->m_args); }
+bool Entity::obj_get_single_tag(Struct* params, Script* script) { return get_tag(params, script->args_); }
 
 // 0x00460FC0: the tags named in the unnamed array, into the calling script's parameters. With no array, the
 // pointer `params` is taken for one [bug].
-bool CEntity::Obj_GetNamedTags(CStruct* params, CScript* script)
+bool Entity::obj_get_named_tags(Struct* params, Script* script)
 {
-    auto* names = reinterpret_cast<CArray*>(params);
-    params->FetchList(kUnnamed, &names, 1);
-    return FetchLabels(names, script->m_args);
+    auto* names = reinterpret_cast<Array*>(params);
+    params->fetch_list(kUnnamed, &names, 1);
+    return fetch_labels(names, script->args_);
 }
 
 // 0x00460FF0: remove the tags named in tags= (else the unnamed array); with neither, every tag goes. True.
-bool CEntity::Obj_RemoveTags(CStruct* params, CScript* /*script*/)
+bool Entity::obj_remove_tags(Struct* params, Script* /*script*/)
 {
-    CArray* names = nullptr;
-    if (!params->FetchList(kTags, &names, 0))
-        params->FetchList(kUnnamed, &names, 0);
-    RemoveTags(names);
+    Array* names = nullptr;
+    if (!params->fetch_list(kTags, &names, 0))
+        params->fetch_list(kUnnamed, &names, 0);
+    get_remove_tags(names);
     return true;
 }
 
 // 0x00461040: none of the flags is set (no flags named: false).
-bool CEntity::Obj_FlagNotSet(CStruct* params, CScript* script)
+bool Entity::obj_flag_not_set(Struct* params, Script* script)
 {
-    uint32_t mask = GetFlagMask(params, script);
+    uint32_t mask = get_flag_mask(params, script);
     if (!mask)
         return false;
-    return (m_flagBits & mask) == 0;
+    return (flag_bits_ & mask) == 0;
 }
 
 // 0x00461070: clear the flags (all: every flag). No flags named: false.
-bool CEntity::Obj_ClearFlag(CStruct* params, CScript* script)
+bool Entity::obj_clear_flag(Struct* params, Script* script)
 {
-    if (params->HasBareFlag(kAll)) {
-        m_flagBits = 0;
+    if (params->has_bare_flag(kAll)) {
+        flag_bits_ = 0;
         return true;
     }
-    uint32_t mask = GetFlagMask(params, script);
+    uint32_t mask = get_flag_mask(params, script);
     if (!mask)
         return false;
-    m_flagBits &= ~mask;
+    flag_bits_ &= ~mask;
     return true;
 }
 
 // 0x004610C0: set the flags. No flags named: false.
-bool CEntity::Obj_SetFlag(CStruct* params, CScript* script)
+bool Entity::obj_set_flag(Struct* params, Script* script)
 {
-    uint32_t mask = GetFlagMask(params, script);
+    uint32_t mask = get_flag_mask(params, script);
     if (!mask)
         return false;
-    m_flagBits |= mask;
+    flag_bits_ |= mask;
     return true;
 }
 
 // 0x004610F0: any of the flags was set (clear: then they're cleared). No flags named: false.
-bool CEntity::Obj_FlagSet(CStruct* params, CScript* script)
+bool Entity::obj_flag_set(Struct* params, Script* script)
 {
-    uint32_t flags = m_flagBits;
-    uint32_t mask = GetFlagMask(params, script);
+    uint32_t flags = flag_bits_;
+    uint32_t mask = get_flag_mask(params, script);
     if (!mask)
         return false;
-    if (params->HasBareFlag(kClear))
-        m_flagBits &= ~mask;
+    if (params->has_bare_flag(kClear))
+        flag_bits_ &= ~mask;
     return (flags & mask) != 0;
 }
 
 // 0x004617C0: add the parameters to the tags. True.
-bool CEntity::Obj_SetTags(CStruct* params, CScript* /*script*/)
+bool Entity::obj_set_tags(Struct* params, Script* /*script*/)
 {
-    CreateTagsIfNeeded();
-    m_tagTable->AppendStructureIfAny(params);
+    create_tags_if_needed();
+    tag_table_->append_structure_if_any(params);
     return true;
 }
 
 // 0x004617E0: spawn the script named first (a bare name) on the object, with params=, id= (default: the
 // calling script's spawn id) and PauseWithObject. Unless 0x01917DF2 is given, it gets the calling script's
 // spawner file. True (also when the first parameter isn't a name: nothing is spawned).
-bool CEntity::Obj_SpawnScript(CStruct* params, CScript* script)
+bool Entity::obj_spawn_script(Struct* params, Script* script)
 {
-    CComponent* first = params->StepToEntry(nullptr);
-    if (!first || first->KindTag() != Scripts::QBVAL_NAME)
+    Component* first = params->step_to_entry(nullptr);
+    if (!first || first->kind_tag() != script::kQbvalName)
         return true;
     uint32_t name = first->checksum;
-    uint32_t id = Scripts::GetSpawnId(script);
-    params->ReadHashValue(kId, &id, 0);
-    CStruct* scriptParams = nullptr;
-    params->ReadSubStruct(kParams, &scriptParams, 0);
-    bool pauseWithObject = params->HasBareFlag(kPauseWithObject);
-    CScript* spawned = SpawnScript(name, scriptParams, id, pauseWithObject);
-    if (!params->HasBareFlag(kNoSpawnerFile))
-        spawned->SetSpawnerFile(script);
+    uint32_t id = script::get_spawn_id(script);
+    params->read_hash_value(kId, &id, 0);
+    Struct* script_params = nullptr;
+    params->read_sub_struct(kParams, &script_params, 0);
+    bool pause_with_object = params->has_bare_flag(kPauseWithObject);
+    Script* spawned = spawn_script(name, script_params, id, pause_with_object);
+    if (!params->has_bare_flag(kNoSpawnerFile))
+        spawned->set_spawner_file(script);
     return true;
 }
 
 // 0x004618A0: the object's script switches to the unnamed name, with params=. True.
-bool CEntity::Obj_SwitchScript(CStruct* params, CScript* /*script*/)
+bool Entity::obj_switch_script(Struct* params, Script* /*script*/)
 {
     uint32_t name = 0;
-    if (params->ReadHashValue(kUnnamed, &name, 0)) {
-        CStruct* scriptParams = nullptr;
-        params->ReadSubStruct(kParams, &scriptParams, 0);
-        ReplaceScript(name, scriptParams);
+    if (params->read_hash_value(kUnnamed, &name, 0)) {
+        Struct* script_params = nullptr;
+        params->read_sub_struct(kParams, &script_params, 0);
+        replace_script(name, script_params);
     }
     return true;
 }
 
 // 0x00460AD0
-CEntity* FindObject(uint32_t id) { return Tracker()->LookUpObject(id); }
+Entity* find_object(uint32_t id) { return get_tracker()->look_up_object(id); }
 
 // 0x00460AC0
-void Unlock(CEntity* object, void* /*data*/) { object->m_objectFlags &= ~OBJECT_FLAG_LOCKED; }
+void get_unlock(Entity* object, void* /*data*/) { object->object_flags_ &= ~kObjectFlagLocked; }
 
 // 0x00460AA0
-void DisposeWhenFree(CEntity* object, void* /*data*/)
+void dispose_when_free(Entity* object, void* /*data*/)
 {
-    if (!(object->m_objectFlags & OBJECT_FLAG_LOCKED))
-        object->VirtualDestroy(1);
+    if (!(object->object_flags_ & kObjectFlagLocked))
+        object->virtual_destroy(1);
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kObjectRefVtable_slots[] = {&GameObjects::CObjectRef::Teardown};
-void** const kObjectRefVtable = reinterpret_cast<void**>(kObjectRefVtable_slots);
-static VtableSlot kObjectVtable_slots[] = {&GameObjects::CEntity::Teardown,
-         &GameObjects::CEntity::ChangeTraits,
-         static_cast<bool (GameObjects::CEntity::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CEntity::InvokeMethodByName),
-         static_cast<bool (GameObjects::CEntity::*)(uint32_t, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CEntity::InvokeMethodByName),
-         Stubs::IgnoreArgument,
-         &GameObjects::CEntity::PassEventToScript,
-         &GameObjects::CEntity::FlagAsDead,
-         Stubs::ReturnTrue};
-void** const kObjectVtable = reinterpret_cast<void**>(kObjectVtable_slots);
+static VtableSlot g_object_ref_vtable_slots[] = {&objects::ObjectRef::teardown};
+void** const kObjectRefVtable = reinterpret_cast<void**>(g_object_ref_vtable_slots);
+static VtableSlot g_object_vtable_slots[] = {&objects::Entity::teardown,
+         &objects::Entity::change_traits,
+         static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
+         static_cast<bool (objects::Entity::*)(uint32_t, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
+         stubs::ignore_argument,
+         &objects::Entity::pass_event_to_script,
+         &objects::Entity::flag_as_dead,
+         stubs::return_true};
+void** const kObjectVtable = reinterpret_cast<void**>(g_object_vtable_slots);
 
 } // namespace
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 
-static VtableSlot g_objectNodeVtable_slots[] = {&GameObjects::CEntityListEntry::Teardown};
-void** const g_objectNodeVtable = reinterpret_cast<void**>(g_objectNodeVtable_slots);
+static VtableSlot g_object_node_vtable_slots[] = {&objects::EntityListEntry::teardown};
+void** const kObjectNodeVtable = reinterpret_cast<void**>(g_object_node_vtable_slots);
 
 } // namespace Obj

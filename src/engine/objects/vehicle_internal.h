@@ -15,7 +15,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/trigger_component.h"
 
-namespace GameObjects::Vehicle {
+namespace objects::vehicle {
 
 inline const float kGravity = std::bit_cast<float>(0x43C13333u); // 0x006466A4: 386.4 (inches a second squared)
 
@@ -25,39 +25,39 @@ inline const char* const kDebugFile = "omponents\\vehiclecomponent.cpp";   // "o
 
 // The trigger component's 0x00434BF0 / 0x00434CE0: a feeler / a rect feeler reported for
 // `events` (const int[3]).
-inline void TriggerFeeler(CObjectModule* trigger, const int* events, Engine3D::CProbeRay* feeler)
+inline void trigger_feeler(ObjectModule* trigger, const int* events, render::ProbeRay* feeler)
 {
-    static_cast<CActivationZoneModule*>(trigger)->ProbeTouchesZone(events, feeler);
+    static_cast<ActivationZoneModule*>(trigger)->probe_touches_zone(events, feeler);
 }
-inline void TriggerRect(CObjectModule* trigger, const int* events, Engine3D::CBoxProbe* feeler)
+inline void trigger_rect(ObjectModule* trigger, const int* events, render::BoxProbe* feeler)
 {
-    // (TriggerHits reads the rect feeler's hit flags)
-    static_cast<CActivationZoneModule*>(trigger)->TriggerHits(events, reinterpret_cast<const uint8_t*>(feeler));
+    // (trigger_hits reads the rect feeler's hit flags)
+    static_cast<ActivationZoneModule*>(trigger)->trigger_hits(events, reinterpret_cast<const uint8_t*>(feeler));
 }
 
 // Quaternions: 0x0042BC40 a quaternion's rotation matrix (its 3x3), 0x0042E1F0 a matrix's
 // quaternion, 0x0042E310 normalised to a length, 0x00420140 *=.
-inline void QuatToMatrix(const Maths::Vec4* quat, Maths::Mat4* matrix)
+inline void quat_to_matrix(const maths::Vec4* quat, maths::Mat4* matrix)
 {
-    reinterpret_cast<const Maths::QuatRotation*>(quat)->FetchMat(matrix);
+    reinterpret_cast<const maths::QuatRotation*>(quat)->fetch_mat(matrix);
 }
-inline void MatrixToQuat(Maths::Vec4* quat, const Maths::Mat4* matrix)
+inline void matrix_to_quat(maths::Vec4* quat, const maths::Mat4* matrix)
 {
-    reinterpret_cast<Maths::QuatRotation*>(quat)->FromMatrix(*matrix);
+    reinterpret_cast<maths::QuatRotation*>(quat)->from_matrix(*matrix);
 }
-inline void QuatNormalize(Maths::Vec4* quat, float length)
+inline void quat_normalize(maths::Vec4* quat, float length)
 {
-    reinterpret_cast<Maths::QuatRotation*>(quat)->MakeUnit(length);
+    reinterpret_cast<maths::QuatRotation*>(quat)->make_unit(length);
 }
-inline void QuatMultiply(Maths::Vec4* a, const Maths::Vec4* b)
+inline void quat_multiply(maths::Vec4* a, const maths::Vec4* b)
 {
-    *reinterpret_cast<Maths::QuatRotation*>(a) *= *reinterpret_cast<const Maths::QuatRotation*>(b);
+    *reinterpret_cast<maths::QuatRotation*>(a) *= *reinterpret_cast<const maths::QuatRotation*>(b);
 }
 
 // D3DXMatrixMultiply (linked library code; stdcall).
-inline void MatrixMultiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
+inline void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
 {
-    D3dx::MatrixMultiply(out, a, b);
+    d3dx::matrix_multiply(out, a, b);
 }
 
 } // namespace GameObjects::Vehicle

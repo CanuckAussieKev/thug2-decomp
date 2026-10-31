@@ -14,10 +14,10 @@
 #include "platform/game_clock.h"
 #include "game/rider/core_physics.h"
 
-namespace Skater::Physics {
+namespace skater::physics {
 
 template <typename T>
-T& At(void* object, uint32_t offset)
+T& get_at(void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
@@ -29,7 +29,7 @@ constexpr uint32_t kFloorUpVector = 0x68;      // (and +0x58, +0x78: copies of t
 constexpr uint32_t kFrameLength = 0x8C;       // the frame's length (seconds)
 constexpr uint32_t kFirstTick = 0x90;        // (the clock when the physics was reset)
 constexpr uint32_t kSafePosition = 0x98;      // (the object's position when reset)
-constexpr uint32_t kFeeler = 0xA8;            // a collision feeler (Engine3D::CProbeRay, 0xB0 bytes)
+constexpr uint32_t kFeeler = 0xA8;            // a collision feeler (render::ProbeRay, 0xB0 bytes)
 constexpr uint32_t kHitFlags = 0xF8;          // the feeler's hit face's flags (16 bits)
 constexpr uint32_t kHitPoint = 0x120;         // the feeler's hit: point, then normal
 constexpr uint32_t kHitNormal = 0x130;
@@ -58,69 +58,69 @@ constexpr uint32_t kVelocity = 0xAC;
 // --- the timed flags (offsets into the flags block) ---
 constexpr uint32_t kState = 0x18;             // an int: 0 on the ground, 1 in the air, ...
 
-inline Maths::Vec4& VectorAt(void* object, uint32_t offset) { return At<Maths::Vec4>(object, offset); }
-inline void* ObjectOf(void* component) { return At<void*>(component, kObject); }
-inline uint8_t* FlagsOf(void* component) { return At<uint8_t*>(component, kTimedFlags); }
-inline uint8_t* InputOf(void* component) { return At<uint8_t*>(component, kInput); }
+inline maths::Vec4& vector_at(void* object, uint32_t offset) { return get_at<maths::Vec4>(object, offset); }
+inline void* object_of(void* component) { return get_at<void*>(component, kObject); }
+inline uint8_t* flags_of(void* component) { return get_at<uint8_t*>(component, kTimedFlags); }
+inline uint8_t* input_of(void* component) { return get_at<uint8_t*>(component, kInput); }
 
 // The game's clock (0x0044ECE0) plus the offset at 0x00696D60: the time a flag or button changed.
-inline int Now() { return FrameClock::GameClockElapsed() + GameObjects::g_clockOffset; }
+inline int get_now() { return frame_clock::game_clock_elapsed() + objects::g_clock_offset; }
 // The time since `stamp` (unsigned, as the original compares it): the clock, plus (the offset - stamp).
-inline uint32_t Since(uint32_t stamp)
+inline uint32_t get_since(uint32_t stamp)
 {
-    uint32_t now = static_cast<uint32_t>(FrameClock::GameClockElapsed());
-    return now + (static_cast<uint32_t>(GameObjects::g_clockOffset) - stamp);
+    uint32_t now = static_cast<uint32_t>(frame_clock::game_clock_elapsed());
+    return now + (static_cast<uint32_t>(objects::g_clock_offset) - stamp);
 }
 
 // A timed flag set to `value` (the time noted if it changes).
-inline void SetTimedFlag(void* component, uint32_t flag, uint8_t value)
+inline void set_timed_flag(void* component, uint32_t flag, uint8_t value)
 {
-    uint8_t* f = FlagsOf(component) + flag;
+    uint8_t* f = flags_of(component) + flag;
     if (*f == value)
         return;
     *f = value;
-    At<int>(f, 4) = Now();
+    get_at<int>(f, 4) = get_now();
 }
 
 // A physics value (0x00580400 / 0x00580440): the skater's tuning structure's `name`, else the global script value
 // (asserted when `required`). The float comes back on the x87 stack, rounded (it's a stored float).
-inline float TuningFloatLookup(uint32_t name, void* object, int required = 1)
+inline float tuning_float_lookup(uint32_t name, void* object, int required = 1)
 {
-    return GameObjects::ReadTuningFloat(name, required, static_cast<GameObjects::CGameEntity*>(object));
+    return objects::read_tuning_float(name, required, static_cast<objects::GameEntity*>(object));
 }
-inline int PhysicsInteger(uint32_t name, void* object, int required = 1)
+inline int physics_integer(uint32_t name, void* object, int required = 1)
 {
-    return GameObjects::ReadTuningInt(name, required, static_cast<GameObjects::CGameEntity*>(object));
+    return objects::read_tuning_int(name, required, static_cast<objects::GameEntity*>(object));
 }
 // A value set by the skater's stats (0x00580790, thiscall on the object: a script range scaled by the stat level).
 // (Ours returns a float.)
-inline double StatValue(void* object, uint32_t name)
+inline double stat_value(void* object, uint32_t name)
 {
-    return static_cast<GameObjects::CRider*>(object)->GetScaledPhysics(name);
+    return static_cast<objects::Rider*>(object)->get_scaled_physics(name);
 }
 // 0x004FF470: the gravity (a physics value over a script one; in some states times another). It may come back
 // unrounded (a product left on the x87 stack).
-inline double Gravity(void* component) { return static_cast<Skater::SkaterPhysicsModule*>(component)->GetGravity(); }
+inline double current_gravity(void* component) { return static_cast<skater::SkaterPhysicsModule*>(component)->get_gravity(); }
 // 0x004FDED0: the physics state (+0x18 of the flags) changed to `state`, with what goes with it.
-inline void ChangePhase(void* component, int state)
+inline void change_phase(void* component, int state)
 {
-    static_cast<Skater::SkaterPhysicsModule*>(component)->SetPhysicsState(state);
+    static_cast<skater::SkaterPhysicsModule*>(component)->set_physics_state(state);
 }
 
-// 0x0042BBF0 (Maths::Vec4::SetLength): x, y and z scaled to `length` (left alone at length 0).
-inline void SetLength(Maths::Vec4& v, float length) { v.SetLength(length); }
+// 0x0042BBF0 (maths::Vec4::set_length): x, y and z scaled to `length` (left alone at length 0).
+inline void set_length(maths::Vec4& v, float length) { v.set_length(length); }
 
 // A button's times: since it was last pressed (0x0046B920) / released (0x0046B900); its press this frame taken
 // (0x0046B7E0).
-inline int TimeSincePress(uint8_t* button) { return reinterpret_cast<GameObjects::CControlButton*>(button)->GetHeldMillis(); }
-inline int TimeSinceRelease(uint8_t* button)
+inline int time_since_press(uint8_t* button) { return reinterpret_cast<objects::ControlButton*>(button)->get_held_millis(); }
+inline int time_since_release(uint8_t* button)
 {
-    return reinterpret_cast<GameObjects::CControlButton*>(button)->ReadLetGoTime();
+    return reinterpret_cast<objects::ControlButton*>(button)->read_let_go_time();
 }
-inline void TakePress(uint8_t* button) { reinterpret_cast<GameObjects::CControlButton*>(button)->ResetActivation(); }
+inline void take_press(uint8_t* button) { reinterpret_cast<objects::ControlButton*>(button)->reset_activation(); }
 
 // x87 sine and cosine (fsin / fcos), as the original computes them inline.
-inline double X87Sin(double angle)
+inline double x87_sin(double angle)
 {
     double result;
     __asm {
@@ -130,7 +130,7 @@ inline double X87Sin(double angle)
     }
     return result;
 }
-inline double X87Cos(double angle)
+inline double x87_cos(double angle)
 {
     double result;
     __asm {
@@ -141,16 +141,16 @@ inline double X87Cos(double angle)
     return result;
 }
 
-// A vector's squared length and length as the original's Vec4::MagnitudeSquared (0x004023A0) / Length (0x004023C0)
+// A vector's squared length and length as the original's Vec4::magnitude_squared (0x004023A0) / Length (0x004023C0)
 // leave them on the x87 stack: x * x + y * y + z * z, unrounded.
-inline double LengthSqrUnrounded(const Maths::Vec4& v)
+inline double length_sqr_unrounded(const maths::Vec4& v)
 {
     double x = v.x, y = v.y, z = v.z;
     return x * x + y * y + z * z;
 }
-inline double LengthUnrounded(const Maths::Vec4& v) { return std::sqrt(LengthSqrUnrounded(v)); }
+inline double length_unrounded(const maths::Vec4& v) { return std::sqrt(length_sqr_unrounded(v)); }
 
 // The C runtime's _ftol2 (0x006236FC): truncated to a 64-bit integer, the low half kept.
-inline uint32_t Ftol(double value) { return static_cast<uint32_t>(static_cast<int64_t>(value)); }
+inline uint32_t ftol(double value) { return static_cast<uint32_t>(static_cast<int64_t>(value)); }
 
 } // namespace Skater::Physics

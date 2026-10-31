@@ -5,7 +5,7 @@
 
 #include "engine/net/gamenet_manager.h"
 
-// NOT ORIGINAL - the join handshake of the THUGPRO peer mode (thugpro_peer.h: PeerMode()), as THUGPRO's release
+// NOT ORIGINAL - the join handshake of the THUGPRO peer mode (thugpro_peer.h: peer_mode()), as THUGPRO's release
 // (thugpro.dll, its protocol version 0.7) speaks it. Register: tools/pipeline/compat/thugpro/README.md, TP-R11 ... TP-R13.
 //
 // What THUGPRO's release changes in THUG2's join (read from the installed thugpro.dll, with the insight of Morten1337's
@@ -21,7 +21,7 @@
 //   - its client shows reasons 31-37 in its own words.
 // (The source snapshot of thugpro_proxy has a different, 48-byte request - an unreleased version: a release host
 // takes THUG2's version from its first 4 bytes and refuses anything else, so this mode sends what the release does.)
-namespace OnlinePlay::Thugpro {
+namespace online::thugpro {
 
 // The release's scripts hash: the CRC-32 of THUGPRO's data\pre\thugpro_qb.prx (THUGPRO's own toolchain computes it with
 // calculate_qb_prx_hash.bat). The user's decision (2026-10-21): our client sends THUGPRO's release hash, hard-coded,
@@ -33,8 +33,8 @@ namespace OnlinePlay::Thugpro {
 constexpr uint32_t kReleaseScriptsHash = 0x09FC08B0; // THUGPRO's release scripts (thugpro_qb.prx of 2026-10-17)
 
 // The hash we send: [online] thugpro_scripts_hash=<hex> if set, else kReleaseScriptsHash.
-uint32_t ScriptsHash();
-void SetScriptsHashOverride(uint32_t hash); // (tests; 0: the settings again)
+uint32_t scripts_hash();
+void set_scripts_hash_override(uint32_t hash); // (tests; 0: the settings again)
 
 // THUGPRO's connection request trailer (after THUG2's 92 bytes).
 constexpr char kMagic[10] = {'_', 'T', 'H', 'U', 'G', '_', 'P', 'R', 'O', '_'};
@@ -47,9 +47,9 @@ struct ConnectTrailer {
     uint8_t pad66[2];
     uint32_t version;        // +0x68
     uint32_t release;        // +0x6C
-    uint32_t scriptsHash;    // +0x70
-    uint32_t machineId;      // +0x74
-    bool modifiedScripts;    // +0x78
+    uint32_t scripts_hash_;    // +0x70
+    uint32_t machine_id_;      // +0x74
+    bool modified_scripts_;    // +0x78
     uint8_t pad79[3];
 };
 struct ConnectRequest {
@@ -57,16 +57,16 @@ struct ConnectRequest {
     ConnectTrailer thugpro;
 };
 static_assert(sizeof(ConnectRequest) == 124 && offsetof(ConnectRequest, thugpro.version) == 0x68 &&
-              offsetof(ConnectRequest, thugpro.machineId) == 0x74 && offsetof(ConnectRequest, thugpro.modifiedScripts) == 0x78);
+              offsetof(ConnectRequest, thugpro.machine_id_) == 0x74 && offsetof(ConnectRequest, thugpro.modified_scripts_) == 0x78);
 
-// THUG2's connection request with THUGPRO's trailer: the hash ScriptsHash(), "modified" when that isn't the release's,
+// THUG2's connection request with THUGPRO's trailer: the hash scripts_hash(), "modified" when that isn't the release's,
 // our machine id. Returns the length to send (124).
-uint16_t MakeConnectRequest(const ConnectInfo& thug2, ConnectRequest* out);
+uint16_t make_connect_request(const ConnectInfo& thug2, ConnectRequest* out);
 // What a connection request from a THUGPRO client carries (for the host's log): false if it has no trailer.
-bool ReadConnectTrailer(const void* message, uint32_t length, ConnectTrailer* out);
+bool read_connect_trailer(const void* message, uint32_t length, ConnectTrailer* out);
 
 // THUGPRO's refusal reasons (its client's words: ours - the texts are global strings made when first needed, under
-// THUGPRO's own names; CreateJoinRefusedDialog shows the one named by the manager's m_refusedReason).
+// THUGPRO's own names; CreateJoinRefusedDialog shows the one named by the manager's refused_reason_).
 enum : int8_t {
     kRefusedVersionLow = 31,
     kRefusedModifications = 32,
@@ -77,8 +77,8 @@ enum : int8_t {
     kRefusedTest = 37,
 };
 // The text's name for THUGPRO reason `reason` (31-37; 0 for any other), the text made if it isn't yet.
-uint32_t RefusedReasonText(int reason);
+uint32_t refused_reason_text(int reason);
 // The words of reason `reason` (31-37; null for any other).
-const char* RefusedReasonWords(int reason);
+const char* refused_reason_words(int reason);
 
-} // namespace OnlinePlay::Thugpro
+} // namespace online::Thugpro

@@ -1,4 +1,4 @@
-// The skater's end-of-run component (GameObjects::CRiderSessionEnd): see end_run.h.
+// The skater's end-of-run component (GameObjects::RiderSessionEnd): see end_run.h.
 
 #include "game/rider/end_run.h"
 
@@ -17,7 +17,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
@@ -31,99 +31,99 @@ constexpr uint32_t kIsInEndOfRun = 0x95BDCFCD, kEndOfRunStarted = 0x962DEA01, kE
 // Events and scripts
 constexpr uint32_t kRunHasEnded = 0x822E13A9, kGoalHasEnded = 0xAB676175, kForceEndOfRun = 0xF4CE3E97;
 
-// GameModules::Skate (0x007CE478) and its 0x005651F0: a multiplayer game (a network game, or a game mode for more than one
+// modules::Skate (0x007CE478) and its 0x005651F0: a multiplayer game (a network game, or a game mode for more than one
 // player). Not rewritten yet.
-bool IsVersusSession()
+bool is_versus_session()
 {
-    return GameModules::Skate::IsMultiplayer() != 0;
+    return modules::Skate::is_multiplayer() != 0;
 }
 // The game mode (0x007CE470)'s 0x00553550: whether a run is over at its end here (multiplayer, and the mode's
 // stop_at_zero if it has the setting). Not rewritten yet.
-bool GameModeEndsRuns()
+bool game_mode_ends_runs()
 {
-    return static_cast<GoalSystem::CMatchRules*>(static_cast<void*>(GoalSystem::g_gameMode))->ClockHaltsAtZero();
+    return static_cast<goals::MatchRules*>(static_cast<void*>(goals::g_game_mode))->clock_halts_at_zero();
 }
 // The network manager (0x007CCE14): whether it has told the server the local run is over (0x005332A0: its +0x39
 // matches +0x38), and telling it (0x00533250).
-bool ServerToldRunEnded()
+bool server_told_run_ended()
 {
-    return OnlinePlay::g_onlineHub->GameEndedSent();
+    return online::g_online_hub->game_ended_sent();
 }
-void TellServerRunEnded() { OnlinePlay::g_onlineHub->SendGameEnded(); }
+void tell_server_run_ended() { online::g_online_hub->send_game_ended(); }
 
 // The skater object's +0xBC: a local skater (this machine's player).
-bool IsLocalSkater(CGameEntity* object) { return object->m_unknownBC != 0; }
+bool is_local_skater(GameEntity* object) { return object->unknownbc_ != 0; }
 
 } // namespace
 
 // 0x00510F90
-CObjectModule* __cdecl CRiderSessionEnd::Fabricate()
+ObjectModule* __cdecl RiderSessionEnd::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CRiderSessionEnd));
+    void* memory = memory::alloc_zeroed(sizeof(RiderSessionEnd));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CRiderSessionEnd*>(memory);
-    component->CObjectModule::MakeNew();
-    component->m_vtable = kVtable;
-    component->m_flagBits = 0;
-    component->m_kindTag = kSkaterEndRun;
+    auto* component = static_cast<RiderSessionEnd*>(memory);
+    component->ObjectModule::make_new();
+    component->vtable_ = kVtable;
+    component->flag_bits_ = 0;
+    component->kind_tag_ = kSkaterEndRun;
     return component;
 }
 
 // 0x00510D20
-void CRiderSessionEnd::DestroyBody()
+void RiderSessionEnd::destroy_body()
 {
-    m_vtable = kVtable;
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    ObjectModule::destroy_body();
 }
 
 // 0x00510D40
-CRiderSessionEnd* CRiderSessionEnd::Teardown(unsigned int flags)
+RiderSessionEnd* RiderSessionEnd::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00510D70
-void CRiderSessionEnd::TickFrame()
+void RiderSessionEnd::tick_frame()
 {
-    if (!IsVersusSession()) {
-        VirtualSuspend(true);
+    if (!is_versus_session()) {
+        virtual_suspend(true);
         return;
     }
-    if (IsLocalSkater(m_entity) && (m_flagBits & END_RUN_DONE) && !ServerToldRunEnded())
-        TellServerRunEnded();
+    if (is_local_skater(entity_) && (flag_bits_ & kEndRunDone) && !server_told_run_ended())
+        tell_server_run_ended();
 }
 
 // 0x00510DC0
-int CRiderSessionEnd::InvokeMethodByName(uint32_t name, Scripts::CStruct* /*params*/,
-                                               Scripts::CScript* /*script*/)
+int RiderSessionEnd::invoke_method_by_name(uint32_t name, script::Struct* /*params*/,
+                                               script::Script* /*script*/)
 {
     switch (name) {
     case kIsInEndOfRun:
-        return (m_flagBits & END_RUN_STARTED) && !(m_flagBits & END_RUN_DONE) ? 1 : 0;
+        return (flag_bits_ & kEndRunStarted) && !(flag_bits_ & kEndRunDone) ? 1 : 0;
     case kGoalEndOfRunStarted:
-        m_flagBits |= END_RUN_GOAL_STARTED;
+        flag_bits_ |= kEndRunGoalStarted;
         return 1;
     case kEndofRunDone:
-        m_flagBits |= END_RUN_DONE;
-        m_flagBits &= ~END_RUN_FORCED;
+        flag_bits_ |= kEndRunDone;
+        flag_bits_ &= ~kEndRunForced;
         return 1;
     case kGoalEndOfRunDone:
-        m_flagBits |= END_RUN_GOAL_DONE;
-        m_flagBits &= ~END_RUN_FLAG_20;
+        flag_bits_ |= kEndRunGoalDone;
+        flag_bits_ &= ~kEndRunFlag20;
         return 1;
     case kEndOfRunStarted:
-        m_flagBits |= END_RUN_STARTED;
+        flag_bits_ |= kEndRunStarted;
         return 1;
     case kRunStarted:
-        m_flagBits &= ~(END_RUN_STARTED | END_RUN_GOAL_STARTED | END_RUN_DONE | END_RUN_GOAL_DONE | END_RUN_FORCED |
-                     END_RUN_FLAG_20);
+        flag_bits_ &= ~(kEndRunStarted | kEndRunGoalStarted | kEndRunDone | kEndRunGoalDone | kEndRunForced |
+                     kEndRunFlag20);
         return 1;
     case kClearEndofRunStarted:
-        m_flagBits &= ~(END_RUN_STARTED | END_RUN_FORCED);
+        flag_bits_ &= ~(kEndRunStarted | kEndRunForced);
         return 1;
     default:
         return 2;
@@ -131,66 +131,66 @@ int CRiderSessionEnd::InvokeMethodByName(uint32_t name, Scripts::CStruct* /*para
 }
 
 // 0x00510D30
-uint32_t* CRiderSessionEnd::FetchBits(uint32_t* out)
+uint32_t* RiderSessionEnd::fetch_bits(uint32_t* out)
 {
-    *out = m_flagBits;
+    *out = flag_bits_;
     return out;
 }
 
 // 0x00510EA0
-void CRiderSessionEnd::EndRun(bool force)
+void RiderSessionEnd::end_run(bool force)
 {
-    if (!force && !GameModeEndsRuns()) {
-        m_entity->PostOwnEvent(kRunHasEnded, nullptr);
-        m_flagBits &= ~END_RUN_DONE;
+    if (!force && !game_mode_ends_runs()) {
+        entity_->post_own_event(kRunHasEnded, nullptr);
+        flag_bits_ &= ~kEndRunDone;
         return;
     }
-    if (!(m_flagBits & END_RUN_FORCED) && !(m_flagBits & END_RUN_DONE)) {
-        m_flagBits |= END_RUN_FORCED;
-        if (IsLocalSkater(m_entity))
-            Scripts::LaunchScript(kForceEndOfRun, nullptr, m_entity, false, nullptr);
+    if (!(flag_bits_ & kEndRunForced) && !(flag_bits_ & kEndRunDone)) {
+        flag_bits_ |= kEndRunForced;
+        if (is_local_skater(entity_))
+            script::launch_script(kForceEndOfRun, nullptr, entity_, false, nullptr);
     }
 }
 
 // 0x00510F10
-void CRiderSessionEnd::FinishObjectiveRun(void* /*unused*/)
+void RiderSessionEnd::finish_objective_run(void* /*unused*/)
 {
-    m_flagBits &= ~END_RUN_GOAL_DONE;
-    m_entity->PostOwnEvent(kGoalHasEnded, nullptr);
+    flag_bits_ &= ~kEndRunGoalDone;
+    entity_->post_own_event(kGoalHasEnded, nullptr);
 }
 
 // 0x00510F30
-bool CRiderSessionEnd::RunDone() { return (m_flagBits & END_RUN_DONE) != 0; }
+bool RiderSessionEnd::run_done() { return (flag_bits_ & kEndRunDone) != 0; }
 // 0x00510F40
-bool CRiderSessionEnd::GoalRunDone() { return (m_flagBits & END_RUN_GOAL_DONE) != 0; }
+bool RiderSessionEnd::goal_run_done() { return (flag_bits_ & kEndRunGoalDone) != 0; }
 // 0x00510F50
-bool CRiderSessionEnd::EndOfRunStarted() { return (m_flagBits & END_RUN_STARTED) != 0; }
+bool RiderSessionEnd::end_of_run_started() { return (flag_bits_ & kEndRunStarted) != 0; }
 // 0x00510F60
-void CRiderSessionEnd::ClearEndOfRunStarted() { m_flagBits &= ~END_RUN_STARTED; }
+void RiderSessionEnd::clear_end_of_run_started() { flag_bits_ &= ~kEndRunStarted; }
 // 0x00510F70
-void CRiderSessionEnd::ClearGoalEndOfRunStarted() { m_flagBits &= ~END_RUN_GOAL_STARTED; }
+void RiderSessionEnd::clear_goal_end_of_run_started() { flag_bits_ &= ~kEndRunGoalStarted; }
 // 0x00510F80
-void CRiderSessionEnd::ClearForced() { m_flagBits &= ~END_RUN_FORCED; }
+void RiderSessionEnd::clear_forced() { flag_bits_ &= ~kEndRunForced; }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CRiderSessionEnd::Teardown,
-         &GameObjects::CRiderSessionEnd::TickFrame,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
-         &GameObjects::CRiderSessionEnd::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::RiderSessionEnd::teardown,
+         &objects::RiderSessionEnd::tick_frame,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
+         &objects::RiderSessionEnd::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

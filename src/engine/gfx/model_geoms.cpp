@@ -34,9 +34,9 @@
 #include "engine/core/stubs.h"
 #include "game/save_cards/memcard.h"
 
-namespace Engine3D {
+namespace render {
 
-using namespace ModelGeoms;
+using namespace model_geoms;
 
 namespace {
 
@@ -55,357 +55,357 @@ constexpr uint32_t kPass = 0x318F2BDB;
 constexpr uint32_t kSkinColor = 0xA435752C; // the profile's skin colour structure
 constexpr uint32_t kFaceImage = 0xB00B0DC0; // the face texture's name in the dictionary
 
-// A geom list node (std::list<sModelGeom*>, the game's): one inserted before `where` (0x004964A0), a range erased
+// A geom list node (std::list<SModelGeom*>, the game's): one inserted before `where` (0x004964A0), a range erased
 // (0x004ECC30; the result iterator out).
-void InsertGeom(CRenderModel* model, sModelGeomNode* where, sModelGeom** entry)
+void insert_geom(RenderModel* model, ModelGeomNode* where, ModelGeom** entry)
 {
-    reinterpret_cast<GameObjects::PointerList*>(&model->m_geoms)
-        ->Splice(reinterpret_cast<GameObjects::PointerListNode*>(where), reinterpret_cast<void* const*>(entry));
+    reinterpret_cast<objects::PointerList*>(&model->geoms_)
+        ->splice(reinterpret_cast<objects::PointerListNode*>(where), reinterpret_cast<void* const*>(entry));
 }
-void EraseGeoms(CRenderModel* model, sModelGeomNode* first, sModelGeomNode* last)
+void erase_geoms(RenderModel* model, ModelGeomNode* first, ModelGeomNode* last)
 {
-    sModelGeomNode* result;
-    reinterpret_cast<GameObjects::PointerList*>(&model->m_geoms)
-        ->Erase(reinterpret_cast<GameObjects::PointerListNode**>(&result), reinterpret_cast<GameObjects::PointerListNode*>(first),
-                reinterpret_cast<GameObjects::PointerListNode*>(last));
+    ModelGeomNode* result;
+    reinterpret_cast<objects::PointerList*>(&model->geoms_)
+        ->get_erase(reinterpret_cast<objects::PointerListNode**>(&result), reinterpret_cast<objects::PointerListNode*>(first),
+                reinterpret_cast<objects::PointerListNode*>(last));
 }
 
 // A node's memory: from the default heap, or the current one (0x00658555: whether to assert when out of it).
-sModelGeom* NewEntry(bool defaultHeap)
+ModelGeom* new_entry(bool default_heap)
 {
-    if (defaultHeap)
-        return static_cast<sModelGeom*>(MemSys::Alloc(sizeof(sModelGeom)));
-    return static_cast<sModelGeom*>(
-        MemSys::Hub::Pull()->Carve(sizeof(sModelGeom), g_allocAssertFlag, nullptr));
+    if (default_heap)
+        return static_cast<ModelGeom*>(memory::alloc(sizeof(ModelGeom)));
+    return static_cast<ModelGeom*>(
+        memory::Hub::get_pull()->carve(sizeof(ModelGeom), g_alloc_assert_flag, nullptr));
 }
 
 // A scene's texture dictionary (its +4).
-uint8_t* TexturesOf(uint8_t* scene) { return *reinterpret_cast<uint8_t**>(scene + 4); }
+uint8_t* textures_of(uint8_t* scene) { return *reinterpret_cast<uint8_t**>(scene + 4); }
 
 // A geom's own scene deleted with its textures.
-void DeleteOwnScene(uint8_t* scene)
+void delete_own_scene(uint8_t* scene)
 {
-    uint8_t* textures = TexturesOf(scene);
-    DiscardScene(scene, 1);
-    UnloadTextures(textures);
+    uint8_t* textures = textures_of(scene);
+    discard_scene(scene, 1);
+    unload_textures(textures);
 }
 
 // The engine (not rewritten yet): a model file's textures (0x0049F180) and scene (0x0048C3D0) loaded; bone volumes
 // let go (0x0048B400); a line tested against bone volumes (0x0048B580) and a bone's volume (0x0048BC40); a skeleton
 // drawn (0x004A31E0).
-void* LoadTextures(const char* fileName, int texDictOffset, bool forceTexDict)
+void* load_textures(const char* file_name, int tex_dict_offset, bool force_tex_dict)
 {
-    return LoadModelTextures(fileName, texDictOffset, forceTexDict);
+    return load_model_textures(file_name, tex_dict_offset, force_tex_dict);
 }
-uint8_t* LoadScene(const char* fileName, void* textures, int texDictOffset, bool shadowVolume)
+uint8_t* load_scene(const char* file_name, void* textures, int tex_dict_offset, bool shadow_volume)
 {
-    return static_cast<uint8_t*>(Engine::LoadModelFile(fileName, textures, texDictOffset, shadowVolume));
+    return static_cast<uint8_t*>(engine::load_model_file(file_name, textures, tex_dict_offset, shadow_volume));
 }
-void ReleaseBoneVolumes(void* volumes) { Gfx2D::ReleaseBoneVolumes(reinterpret_cast<uint32_t>(volumes)); }
+void release_bone_volumes(void* volumes) { gfx::release_bone_volumes(reinterpret_cast<uint32_t>(volumes)); }
 
 // The texture dictionary (0x00700F1C): a texture by checksum (0x0049F540), one taken out (0x0049F500), a texture
 // made from an image (0x0049FA20) or loaded (0x0049F9B0); a texture's own replaced in a dictionary by name (0x0049FB20)
 // or by a texture (0x0049F800).
-void* Textures() { return reinterpret_cast<void*>(g_gameTextureDict); }
-void* FindTexture(uint32_t checksum)
+void* get_textures() { return reinterpret_cast<void*>(g_game_texture_dict); }
+void* find_texture(uint32_t checksum)
 {
-    return static_cast<CTextureSet*>(Textures())->FetchSkin(checksum);
+    return static_cast<TextureSet*>(get_textures())->fetch_skin(checksum);
 }
-void DetachTexture(void* texture)
+void detach_texture(void* texture)
 {
-    static_cast<CTextureSet*>(Textures())->UnloadTexture(static_cast<CBitmapTexture*>(texture));
+    static_cast<TextureSet*>(get_textures())->unload_texture(static_cast<BitmapTexture*>(texture));
 }
 
 // The texture's checksum (+4, the folded getter 0x005480C0).
-uint32_t TextureHash(void* texture) { return static_cast<OnlinePlay::FoldedGetters*>(texture)->Word04(); }
+uint32_t texture_hash(void* texture) { return static_cast<online::FoldedGetters*>(texture)->word04(); }
 
 // A colour channel (0-1) as a byte: x * 255 + 0.5, truncated (the original's x87 and _ftol).
-uint32_t ColorByte(float value)
+uint32_t color_byte(float value)
 {
     return static_cast<uint8_t>(static_cast<int64_t>(static_cast<double>(value) * 255.0 + 0.5));
 }
-uint32_t RgbaFromHsv(float h, float s, float v)
+uint32_t rgba_from_hsv(float h, float s, float v)
 {
     float r, g, b;
-    HsvToRgb(&r, &g, &b, h, s, v);
-    return ColorByte(r) | (ColorByte(g) << 8) | (ColorByte(b) << 16) | 0xFF000000u;
+    hsv_to_rgb(&r, &g, &b, h, s, v);
+    return color_byte(r) | (color_byte(g) << 8) | (color_byte(b) << 16) | 0xFF000000u;
 }
 
 // Strings copied and appended (no length limit, as the original's).
-void CopyString(char* into, const char* from) { std::memcpy(into, from, std::strlen(from) + 1); }
-void AppendString(char* into, const char* from) { CopyString(into + std::strlen(into), from); }
+void copy_string(char* into, const char* from) { std::memcpy(into, from, std::strlen(from) + 1); }
+void append_string(char* into, const char* from) { copy_string(into + std::strlen(into), from); }
 
 // A texture name made lower case with ".png" on the end (unless it has it).
-void PngName(char* into, const char* name)
+void get_png_name(char* into, const char* name)
 {
-    CopyString(into, name);
-    TextUtil::ToLowerText(into);
+    copy_string(into, name);
+    text::to_lower_text(into);
     if (!std::strstr(into, ".png"))
-        AppendString(into, ".png");
+        append_string(into, ".png");
 }
 
 } // namespace
 
 // 0x00494C40
-CRenderModel* CRenderModel::MakeNew()
+RenderModel* RenderModel::make_new()
 {
     vtable = reinterpret_cast<void**>(kModelVtable);
-    m_geomListSize = 0;
+    geom_list_size_ = 0;
     // The list's head: a node linked to itself (none when out of memory).
-    auto* head = static_cast<sModelGeomNode*>(MemSys::Alloc(sizeof(sModelGeomNode)));
+    auto* head = static_cast<ModelGeomNode*>(memory::alloc(sizeof(ModelGeomNode)));
     if (head)
         head->next = head->prev = head;
-    m_geoms = head;
-    m_boneTotal = 0;
-    m_skinPalette = nullptr;
-    if (m_displayMode != 6 && ModelVirtual<bool>(this, 3, 6))
-        m_displayMode = 6;
-    m_geomTotal = 0;
-    m_sourcePath = kNone;
-    m_flagBits = static_cast<uint8_t>((m_flagBits & ~kModelHidden) | kModelEnabledBit);
-    m_sizeFactor = {1.0f, 1.0f, 1.0f, 1.0f};
-    m_flagBits &= ~(kModelSphereValid | kModelScaled | kModelShadow | kModelShadowVolume);
-    m_lightsPtr = nullptr;
+    geoms_ = head;
+    bone_total_ = 0;
+    skin_palette_ = nullptr;
+    if (display_mode_ != 6 && model_virtual<bool>(this, 3, 6))
+        display_mode_ = 6;
+    geom_total_ = 0;
+    source_path_ = kNone;
+    flag_bits_ = static_cast<uint8_t>((flag_bits_ & ~kModelHidden) | kModelEnabledBit);
+    size_factor_ = {1.0f, 1.0f, 1.0f, 1.0f};
+    flag_bits_ &= ~(kModelSphereValid | kModelScaled | kModelShadow | kModelShadowVolume);
+    lights_ptr_ = nullptr;
     return this;
 }
 
 // 0x00494D00
-void CRenderModel::DestroyBody()
+void RenderModel::destroy_body()
 {
     vtable = reinterpret_cast<void**>(kModelVtable);
-    if (m_lightsPtr)
-        DiscardScene(m_lightsPtr);
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next) {
-        if (uint8_t* volumes = TableRow(node)->boneVolumes)
-            ReleaseBoneVolumes(*reinterpret_cast<void**>(volumes + 4));
+    if (lights_ptr_)
+        discard_scene(lights_ptr_);
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
+        if (uint8_t* volumes = table_row(node)->bone_volumes_)
+            release_bone_volumes(*reinterpret_cast<void**>(volumes + 4));
     }
-    DropGeoms();
-    EraseGeoms(this, First(this), m_geoms);
-    MemSys::Hub::Pull()->Dealloc(m_geoms);
+    drop_geoms();
+    erase_geoms(this, get_first(this), geoms_);
+    memory::Hub::get_pull()->dealloc(geoms_);
 }
 
 // 0x00494DC0
-CRenderModel* CRenderModel::Teardown(unsigned int flags)
+RenderModel* RenderModel::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00494BA0
-void CRenderModel::DropGeoms()
+void RenderModel::drop_geoms()
 {
-    sModelGeomNode* head = m_geoms;
-    for (sModelGeomNode* node = First(this); node != head; node = node->next) {
-        sModelGeom* entry = TableRow(node);
-        DeleteGeomObject(entry->geom);
+    ModelGeomNode* head = geoms_;
+    for (ModelGeomNode* node = get_first(this); node != head; node = node->next) {
+        ModelGeom* entry = table_row(node);
+        delete_geom_object(entry->geom);
         if (entry->scene)
-            DeleteOwnScene(entry->scene);
-        MemSys::Hub::Pull()->Dealloc(entry);
+            delete_own_scene(entry->scene);
+        memory::Hub::get_pull()->dealloc(entry);
     }
-    EraseGeoms(this, First(this), m_geoms);
-    m_geomTotal = 0;
-    m_numFileGeoms = 0;
-    m_numAssetGeoms = 0;
+    erase_geoms(this, get_first(this), geoms_);
+    geom_total_ = 0;
+    num_file_geoms_ = 0;
+    num_asset_geoms_ = 0;
 }
 
 // 0x00494730
-void CRenderModel::DetachGeom(uint32_t name)
+void RenderModel::detach_geom(uint32_t name)
 {
-    sModelGeomNode* node = First(this);
-    while (node != m_geoms && TableRow(node)->name != name)
+    ModelGeomNode* node = get_first(this);
+    while (node != geoms_ && table_row(node)->name != name)
         node = node->next;
-    if (node == m_geoms)
+    if (node == geoms_)
         return;
-    DebugOut::Printf("Uninitializing geometry named %s\n", Scripts::FindChecksumNameOrUnknown(name));
-    sModelGeom* entry = TableRow(node);
-    DeleteGeomObject(entry->geom);
+    debug::printf("Uninitializing geometry named %s\n", script::find_checksum_name_or_unknown(name));
+    ModelGeom* entry = table_row(node);
+    delete_geom_object(entry->geom);
     if (entry->scene)
-        DeleteOwnScene(entry->scene);
+        delete_own_scene(entry->scene);
     if (entry->scene)
-        --m_numFileGeoms;
+        --num_file_geoms_;
     else
-        --m_numAssetGeoms;
-    --m_geomTotal;
-    MemSys::Hub::Pull()->Dealloc(entry);
-    if (node != m_geoms) {
+        --num_asset_geoms_;
+    --geom_total_;
+    memory::Hub::get_pull()->dealloc(entry);
+    if (node != geoms_) {
         node->prev->next = node->next;
         node->next->prev = node->prev;
-        MemSys::Hub::Pull()->Dealloc(node);
-        --m_geomListSize;
+        memory::Hub::get_pull()->dealloc(node);
+        --geom_list_size_;
     }
 }
 
 // 0x004934A0
-bool CRenderModel::AddAssetGeom(uint32_t assetName, uint32_t name, bool multicolor, bool defaultHeap)
+bool RenderModel::add_asset_geom(uint32_t asset_name, uint32_t name, bool multicolor, bool default_heap)
 {
-    m_flagBits &= ~kModelSphereValid;
-    auto* scene = static_cast<uint8_t*>(AssetStore::AssetManager()->GetAssetData(assetName, 0));
-    sModelGeom* entry = NewEntry(defaultHeap);
-    if (!defaultHeap && !entry)
+    flag_bits_ &= ~kModelSphereValid;
+    auto* scene = static_cast<uint8_t*>(assets::asset_manager()->get_asset_data(asset_name, 0));
+    ModelGeom* entry = new_entry(default_heap);
+    if (!default_heap && !entry)
         return false;
-    entry->assetName = assetName;
-    ++m_numAssetGeoms;
+    entry->asset_name_ = asset_name;
+    ++num_asset_geoms_;
     entry->scene = nullptr;
-    entry->geom = CreateGeom();
-    if (!defaultHeap && !entry->geom)
+    entry->geom = create_geom();
+    if (!default_heap && !entry->geom)
         return false; // (the node isn't freed)
-    LoadGeom(entry->geom, scene, this, multicolor);
-    entry->textures = TexturesOf(scene);
-    SetGeomShadow(entry->geom, (m_flagBits >> 4) & 1);
+    load_geom(entry->geom, scene, this, multicolor);
+    entry->textures = textures_of(scene);
+    set_geom_shadow(entry->geom, (flag_bits_ >> 4) & 1);
     entry->name = name;
-    m_visibleGeoms |= GeomBit(m_geomTotal);
-    if (m_lightsPtr)
-        SetGeomLights(entry->geom, m_lightsPtr);
-    ++m_geomTotal;
-    if (m_displayMode != 0 && ModelVirtual<bool>(this, 3, 0))
-        m_displayMode = 0;
-    entry->boneVolumes = nullptr;
-    InsertGeom(this, m_geoms, &entry);
-    if (m_geomTotal == 1)
-        m_sourcePath = kFirstAssetGeom;
+    visible_geoms_ |= geom_bit(geom_total_);
+    if (lights_ptr_)
+        set_geom_lights(entry->geom, lights_ptr_);
+    ++geom_total_;
+    if (display_mode_ != 0 && model_virtual<bool>(this, 3, 0))
+        display_mode_ = 0;
+    entry->bone_volumes_ = nullptr;
+    insert_geom(this, geoms_, &entry);
+    if (geom_total_ == 1)
+        source_path_ = kFirstAssetGeom;
     return true;
 }
 
 // 0x004935E0
-bool CRenderModel::AddFileGeom(const char* fileName, uint32_t name, bool viaResourceStore, int texDictOffset,
-                         bool forceTexDict, bool multicolor, bool defaultHeap, bool byName)
+bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_resource_store, int tex_dict_offset,
+                         bool force_tex_dict, bool multicolor, bool default_heap, bool by_name)
 {
-    m_flagBits &= ~kModelSphereValid;
-    AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
-    sModelGeom* entry = NewEntry(defaultHeap);
-    if (!defaultHeap && !entry)
+    flag_bits_ &= ~kModelSphereValid;
+    assets::ResourceRegistry* assets = assets::asset_manager();
+    ModelGeom* entry = new_entry(default_heap);
+    if (!default_heap && !entry)
         return false;
     uint8_t* scene;
-    if (viaResourceStore) {
+    if (via_resource_store) {
         // The textures first ("<file without its .skin / .mdl>.tex"), then the file itself: the texture
         // dictionary's parameters (only these fields set - the rest as the stack left it in the original).
         struct TexDictParams {
             uint8_t flag0;
             uint8_t pad01[3];
-            int texDictOffset;
-            uint8_t hasSkinning;
-            uint8_t forceTexDict;
+            int tex_dict_offset_;
+            uint8_t has_skinning_;
+            uint8_t force_tex_dict_;
             uint8_t rest[0x42];
-        } texParams;
-        std::memset(&texParams, 0, sizeof(texParams));
-        char texName[0xF0];
-        texParams.flag0 = 0;
-        texParams.texDictOffset = texDictOffset;
-        texParams.forceTexDict = forceTexDict;
-        texParams.hasSkinning = Engine::SplitSkinName(fileName, texName);
-        AppendString(texName, ".tex");
-        if (byName)
-            assets->GetAssetDataByName(texName, 1);
+        } tex_params;
+        std::memset(&tex_params, 0, sizeof(tex_params));
+        char tex_name[0xF0];
+        tex_params.flag0 = 0;
+        tex_params.tex_dict_offset_ = tex_dict_offset;
+        tex_params.force_tex_dict_ = force_tex_dict;
+        tex_params.has_skinning_ = engine::split_skin_name(file_name, tex_name);
+        append_string(tex_name, ".tex");
+        if (by_name)
+            assets->get_asset_data_by_name(tex_name, 1);
         else
-            assets->FetchOrLoadResource(texName, 0, 0, 0, false, false, assets->GetPermanentByDefault(), &texParams, 0);
-        AssetStore::SkinParams skinParams;
-        skinParams.Clear();
-        skinParams.flag0 = (m_flagBits >> 5) & 1;
-        skinParams.value = texDictOffset;
-        if (byName)
-            scene = static_cast<uint8_t*>(assets->GetAssetDataByName(fileName, 1));
+            assets->fetch_or_load_resource(tex_name, 0, 0, 0, false, false, assets->get_permanent_by_default(), &tex_params, 0);
+        assets::SkinParams skin_params;
+        skin_params.get_clear();
+        skin_params.flag0 = (flag_bits_ >> 5) & 1;
+        skin_params.value = tex_dict_offset;
+        if (by_name)
+            scene = static_cast<uint8_t*>(assets->get_asset_data_by_name(file_name, 1));
         else
-            scene = static_cast<uint8_t*>(assets->FetchOrLoadResource(fileName, 0, 0, Checksums::HashFromText(texName),
-                                                                 false, false, assets->GetPermanentByDefault(),
-                                                                 &skinParams, 0));
-        entry->assetName = Checksums::HashFromText(fileName);
-        ++m_numAssetGeoms;
+            scene = static_cast<uint8_t*>(assets->fetch_or_load_resource(file_name, 0, 0, checksums::hash_from_text(tex_name),
+                                                                 false, false, assets->get_permanent_by_default(),
+                                                                 &skin_params, 0));
+        entry->asset_name_ = checksums::hash_from_text(file_name);
+        ++num_asset_geoms_;
         entry->scene = nullptr;
     } else {
-        MemSys::PushMemProfile(fileName);
-        void* textures = LoadTextures(fileName, texDictOffset, forceTexDict);
-        scene = LoadScene(fileName, textures, texDictOffset, (m_flagBits >> 5) & 1);
-        MemSys::PopMemProfile();
+        memory::push_mem_profile(file_name);
+        void* textures = load_textures(file_name, tex_dict_offset, force_tex_dict);
+        scene = load_scene(file_name, textures, tex_dict_offset, (flag_bits_ >> 5) & 1);
+        memory::pop_mem_profile();
         entry->scene = scene;
-        ++m_numFileGeoms;
-        entry->assetName = 0;
+        ++num_file_geoms_;
+        entry->asset_name_ = 0;
     }
-    entry->geom = CreateGeom();
-    if (!defaultHeap && !entry->geom)
+    entry->geom = create_geom();
+    if (!default_heap && !entry->geom)
         return false; // (the node isn't freed)
-    LoadGeom(entry->geom, scene, this, multicolor);
-    entry->textures = TexturesOf(scene);
-    SetGeomShadow(entry->geom, (m_flagBits >> 4) & 1);
+    load_geom(entry->geom, scene, this, multicolor);
+    entry->textures = textures_of(scene);
+    set_geom_shadow(entry->geom, (flag_bits_ >> 4) & 1);
     entry->name = name;
-    m_visibleGeoms |= GeomBit(m_geomTotal);
-    if (m_lightsPtr)
-        SetGeomLights(entry->geom, m_lightsPtr);
-    ++m_geomTotal;
-    if (m_displayMode != 0 && ModelVirtual<bool>(this, 3, 0))
-        m_displayMode = 0;
-    entry->boneVolumes = nullptr;
-    InsertGeom(this, m_geoms, &entry);
-    if (m_geomTotal == 1)
-        m_sourcePath = Checksums::HashFromText(fileName);
+    visible_geoms_ |= geom_bit(geom_total_);
+    if (lights_ptr_)
+        set_geom_lights(entry->geom, lights_ptr_);
+    ++geom_total_;
+    if (display_mode_ != 0 && model_virtual<bool>(this, 3, 0))
+        display_mode_ = 0;
+    entry->bone_volumes_ = nullptr;
+    insert_geom(this, geoms_, &entry);
+    if (geom_total_ == 1)
+        source_path_ = checksums::hash_from_text(file_name);
     return true;
 }
 
 // 0x004938E0
-bool CRenderModel::AddGeom(void* geom, uint32_t name, bool defaultHeap)
+bool RenderModel::add_geom(void* geom, uint32_t name, bool default_heap)
 {
-    m_flagBits &= ~kModelSphereValid;
-    sModelGeom* entry = NewEntry(defaultHeap);
-    if (!defaultHeap && !entry)
+    flag_bits_ &= ~kModelSphereValid;
+    ModelGeom* entry = new_entry(default_heap);
+    if (!default_heap && !entry)
         return false;
     entry->geom = geom;
-    SetGeomShadow(geom, (m_flagBits >> 4) & 1);
+    set_geom_shadow(geom, (flag_bits_ >> 4) & 1);
     entry->name = name;
-    m_visibleGeoms |= GeomBit(m_geomTotal);
+    visible_geoms_ |= geom_bit(geom_total_);
     entry->textures = nullptr;
-    if (m_lightsPtr)
-        SetGeomLights(entry->geom, m_lightsPtr);
-    entry->boneVolumes = nullptr;
+    if (lights_ptr_)
+        set_geom_lights(entry->geom, lights_ptr_);
+    entry->bone_volumes_ = nullptr;
     entry->scene = nullptr;
-    entry->assetName = 0;
-    InsertGeom(this, m_geoms, &entry);
-    ++m_geomTotal;
-    if (m_displayMode != 0 && ModelVirtual<bool>(this, 3, 0))
-        m_displayMode = 0;
-    if (m_geomTotal == 1)
-        m_sourcePath = kFirstAddedGeom;
+    entry->asset_name_ = 0;
+    insert_geom(this, geoms_, &entry);
+    ++geom_total_;
+    if (display_mode_ != 0 && model_virtual<bool>(this, 3, 0))
+        display_mode_ = 0;
+    if (geom_total_ == 1)
+        source_path_ = kFirstAddedGeom;
     return true;
 }
 
 // 0x00493090
-bool CRenderModel::Render(Maths::Mat4* matrix, bool noBones, uint8_t* skeleton)
+bool RenderModel::render(maths::Mat4* matrix, bool no_bones, uint8_t* skeleton)
 {
-    bool normal = m_displayMode == 0;
+    bool normal = display_mode_ == 0;
     int index = 0;
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next, ++index) {
-        bool active = normal && (m_flagBits & kModelEnabledBit) && (m_visibleGeoms & GeomBit(index));
-        SetGeomActive(Geom(node), active);
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next, ++index) {
+        bool active = normal && (flag_bits_ & kModelEnabledBit) && (visible_geoms_ & geom_bit(index));
+        set_geom_active(get_geom(node), active);
     }
-    if (m_flagBits & kModelScaled) {
+    if (flag_bits_ & kModelScaled) {
         for (int row = 0; row < 3; ++row) {
-            float factor = (&m_sizeFactor.x)[row];
+            float factor = (&size_factor_.x)[row];
             for (int i = 0; i < 4; ++i)
                 (*matrix)[row][i] *= factor;
         }
     }
-    switch (m_displayMode) {
+    switch (display_mode_) {
     case 0:
         (*matrix)[0][3] = 0.0f;
         (*matrix)[1][3] = 0.0f;
         (*matrix)[2][3] = 0.0f;
         (*matrix)[3][3] = 1.0f;
-        if (!skeleton || noBones) {
-            for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
-                SetGeomBoneMatrices(Geom(node), matrix, nullptr, 0, 0, 0);
+        if (!skeleton || no_bones) {
+            for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+                set_geom_bone_matrices(get_geom(node), matrix, nullptr, 0, 0, 0);
         } else {
-            uint8_t* bones = SkeletonBones(skeleton);
-            int count = SkeletonBoneCount(skeleton);
-            int flag = ModelVirtual<int>(this, 2, count);
+            uint8_t* bones = skeleton_bones(skeleton);
+            int count = skeleton_bone_count(skeleton);
+            int flag = model_virtual<int>(this, 2, count);
             int geom = 0;
-            for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next, ++geom)
-                SetGeomBoneMatrices(Geom(node), matrix, bones, count, flag, geom);
+            for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next, ++geom)
+                set_geom_bone_matrices(get_geom(node), matrix, bones, count, flag, geom);
         }
         break;
     case 1:
         if (skeleton)
             // (the original passes the floats 0.5, 0.5 and 1 as its colours and frame count: their bits)
-            reinterpret_cast<Gfx2D::CRig*>(skeleton)->Blit(matrix, std::bit_cast<uint32_t>(0.5f),
+            reinterpret_cast<gfx::Rig*>(skeleton)->blit(matrix, std::bit_cast<uint32_t>(0.5f),
                                                               std::bit_cast<uint32_t>(0.5f),
                                                               std::bit_cast<int>(1.0f));
         break;
@@ -416,11 +416,11 @@ bool CRenderModel::Render(Maths::Mat4* matrix, bool noBones, uint8_t* skeleton)
         break;
     default: {
         // A box about the position (compiled out).
-        Maths::Mat4 orientation = *matrix;
-        Maths::Vec4 position = (*matrix)[3];
+        maths::Mat4 orientation = *matrix;
+        maths::Vec4 position = (*matrix)[3];
         orientation[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-        Maths::Vec4 box[2] = {{10.0f, 10.0f, 10.0f, 1.0f}, {-10.0f, -10.0f, -10.0f, 1.0f}};
-        Gfx2D::DrawDebugCube(&orientation, &position, box, 0, 1, 0, 0xFF0000C8);
+        maths::Vec4 box[2] = {{10.0f, 10.0f, 10.0f, 1.0f}, {-10.0f, -10.0f, -10.0f, 1.0f}};
+        gfx::draw_debug_cube(&orientation, &position, box, 0, 1, 0, 0xFF0000C8);
         break;
     }
     }
@@ -428,101 +428,101 @@ bool CRenderModel::Render(Maths::Mat4* matrix, bool noBones, uint8_t* skeleton)
 }
 
 // 0x004939E0
-int CRenderModel::TestBoneVolumes(uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e, uint32_t f, uint32_t* out)
+int RenderModel::test_bone_volumes(uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e, uint32_t f, uint32_t* out)
 {
     int hit = 0;
-    uint32_t hitExtra = 0;
+    uint32_t hit_extra = 0;
     float nearest = 0.01f;
     uint32_t extra = e; // (the original's argument slot: each test's extra result lands there, kept between geoms)
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next) {
-        uint8_t* volumes = TableRow(node)->boneVolumes;
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
+        uint8_t* volumes = table_row(node)->bone_volumes_;
         if (!volumes)
             continue;
         float distance = nearest;
-        int result = reinterpret_cast<Gfx2D::CBoneVolumes*>(volumes)->SegmentHitsBone(
-            reinterpret_cast<const Maths::Seg*>(a), reinterpret_cast<Gfx2D::CRig*>(b),
-            reinterpret_cast<const Maths::Mat4*>(c), d, std::bit_cast<float>(e), std::bit_cast<float>(f), &distance,
+        int result = reinterpret_cast<gfx::BoneVolumes*>(volumes)->segment_hits_bone(
+            reinterpret_cast<const maths::Seg*>(a), reinterpret_cast<gfx::Rig*>(b),
+            reinterpret_cast<const maths::Mat4*>(c), d, std::bit_cast<float>(e), std::bit_cast<float>(f), &distance,
             reinterpret_cast<float*>(&extra));
         if (!hit || distance < nearest) {
             nearest = distance;
-            hitExtra = extra;
+            hit_extra = extra;
             hit = result;
         }
     }
     if (out)
-        *out = hitExtra;
+        *out = hit_extra;
     return hit;
 }
 
 // 0x00493AB0
-float CRenderModel::GetBoneVolume(uint32_t a, uint32_t b, uint32_t bone)
+float RenderModel::get_bone_volume(uint32_t a, uint32_t b, uint32_t bone)
 {
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next) {
-        uint8_t* volumes = TableRow(node)->boneVolumes;
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
+        uint8_t* volumes = table_row(node)->bone_volumes_;
         if (!volumes)
             continue;
         float value = 0.0f;
-        if (reinterpret_cast<Gfx2D::CBoneVolumes*>(volumes)->GetBoneVolume(
-                reinterpret_cast<Gfx2D::CRig*>(a), reinterpret_cast<const Maths::Mat4*>(b), bone, &value))
+        if (reinterpret_cast<gfx::BoneVolumes*>(volumes)->get_bone_volume(
+                reinterpret_cast<gfx::Rig*>(a), reinterpret_cast<const maths::Mat4*>(b), bone, &value))
             return value;
     }
     return 0.0f;
 }
 
 // 0x00493D10
-bool CRenderModel::SwapTexture(uint32_t name, const char* source, const char* dest)
+bool RenderModel::swap_texture(uint32_t name, const char* source, const char* dest)
 {
     bool all = name == kAllGeoms;
     bool replaced = false;
-    ModelVirtual<bool>(this, 10);
+    model_virtual<bool>(this, 10);
     char from[0x200];
-    PngName(from, source);
+    get_png_name(from, source);
     char to[0x200];
-    CopyString(to, dest);
-    TextUtil::ToLowerText(to);
+    copy_string(to, dest);
+    text::to_lower_text(to);
     if (char* extension = std::strstr(to, ".png"))
         *extension = 0;
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next) {
-        sModelGeom* entry = TableRow(node);
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
+        ModelGeom* entry = table_row(node);
         if ((name == entry->name || all || entry->name == 0) && entry->textures &&
-            reinterpret_cast<CTextureSet*>(entry->textures)->ReplaceTextureFromFile(from, to))
+            reinterpret_cast<TextureSet*>(entry->textures)->replace_texture_from_file(from, to))
             replaced = true;
     }
     if (!replaced)
-        Scripts::FetchIntValue(kTextureReplaceDebug);
-    ModelVirtual<bool>(this, 11);
+        script::fetch_int_value(kTextureReplaceDebug);
+    model_virtual<bool>(this, 11);
     return replaced;
 }
 
 // 0x00493E80
-bool CRenderModel::ReplaceTextureWith(uint32_t name, const char* source, uint32_t dest)
+bool RenderModel::replace_texture_with(uint32_t name, const char* source, uint32_t dest)
 {
     bool all = name == kAllGeoms;
     bool replaced = false;
-    ModelVirtual<bool>(this, 10);
+    model_virtual<bool>(this, 10);
     char from[0x200];
-    PngName(from, source);
-    void* texture = FindTexture(dest);
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next) {
-        sModelGeom* entry = TableRow(node);
+    get_png_name(from, source);
+    void* texture = find_texture(dest);
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
+        ModelGeom* entry = table_row(node);
         if ((name == entry->name || all) && entry->textures &&
-            reinterpret_cast<CTextureSet*>(entry->textures)->SwapTexture(from, static_cast<CBitmapTexture*>(texture)))
+            reinterpret_cast<TextureSet*>(entry->textures)->swap_texture(from, static_cast<BitmapTexture*>(texture)))
             replaced = true;
     }
     if (!replaced)
-        Scripts::FetchIntValue(kTextureReplaceDebug);
-    ModelVirtual<bool>(this, 11);
+        script::fetch_int_value(kTextureReplaceDebug);
+    model_virtual<bool>(this, 11);
     return replaced;
 }
 
 // 0x00494010
-bool CRenderModel::SetGeomColorHsv(uint32_t name, float h, float s, float v)
+bool RenderModel::set_geom_color_hsv(uint32_t name, float h, float s, float v)
 {
     bool all = name == kAllGeoms;
     bool any = false;
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next) {
-        if ((name == TableRow(node)->name || all) && !IsGeomMulticolor(Geom(node))) {
-            SetGeomColor(Geom(node), RgbaFromHsv(h, s, v));
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
+        if ((name == table_row(node)->name || all) && !is_geom_multicolor(get_geom(node))) {
+            set_geom_color(get_geom(node), rgba_from_hsv(h, s, v));
             any = true;
         }
     }
@@ -530,40 +530,40 @@ bool CRenderModel::SetGeomColorHsv(uint32_t name, float h, float s, float v)
 }
 
 // 0x00494200
-bool CRenderModel::SetColorFromScript(Scripts::CStruct* params, float h, float s, float v)
+bool RenderModel::set_color_from_script(script::Struct* params, float h, float s, float v)
 {
     bool any = false;
     uint32_t name;
-    params->ReadHashValue(kName, &name, 1);
-    uint32_t rgba = RgbaFromHsv(h, s, v);
+    params->read_hash_value(kName, &name, 1);
+    uint32_t rgba = rgba_from_hsv(h, s, v);
     bool all = name == kAllGeoms;
     uint32_t material = 0; // (uninitialised in the original; kept from one geom and pass to the next)
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next) {
-        void* geom = Geom(node);
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
+        void* geom = get_geom(node);
         int pass = 0;
-        if (!IsGeomMulticolor(geom)) {
-            if (name == TableRow(node)->name || all) {
-                SetGeomColor(geom, rgba);
+        if (!is_geom_multicolor(geom)) {
+            if (name == table_row(node)->name || all) {
+                set_geom_color(geom, rgba);
                 any = true;
             }
             continue;
         }
         // A multicolour geom: its material passes.
-        Scripts::CArray* materials;
-        if (params->FetchList(kMaterials, &materials, 0)) {
-            for (uint32_t i = 0; i < materials->m_extent; ++i) {
-                auto* entry = reinterpret_cast<Scripts::CStruct*>(materials->FetchPart(i));
-                entry->ReadHashValue(0u, &material, 1);
-                entry->FetchIntValue(0u, &pass, 1);
-                any |= SetGeomMaterialColor(geom, material, pass, rgba);
+        script::Array* materials;
+        if (params->fetch_list(kMaterials, &materials, 0)) {
+            for (uint32_t i = 0; i < materials->extent_; ++i) {
+                auto* entry = reinterpret_cast<script::Struct*>(materials->fetch_part(i));
+                entry->read_hash_value(0u, &material, 1);
+                entry->fetch_int_value(0u, &pass, 1);
+                any |= set_geom_material_color(geom, material, pass, rgba);
             }
-        } else if (params->ReadHashValue(kMaterial, &material, 0)) {
-            Scripts::CArray* passes;
-            if (params->FetchList(kPass, &passes, 0)) {
-                for (uint32_t i = 0; i < passes->m_extent; ++i)
-                    any |= SetGeomMaterialColor(geom, material, static_cast<int>(passes->FetchPart(i)), rgba);
-            } else if (params->FetchIntValue(kPass, &pass, 1)) {
-                any |= SetGeomMaterialColor(geom, material, pass, rgba);
+        } else if (params->read_hash_value(kMaterial, &material, 0)) {
+            script::Array* passes;
+            if (params->fetch_list(kPass, &passes, 0)) {
+                for (uint32_t i = 0; i < passes->extent_; ++i)
+                    any |= set_geom_material_color(geom, material, static_cast<int>(passes->fetch_part(i)), rgba);
+            } else if (params->fetch_int_value(kPass, &pass, 1)) {
+                any |= set_geom_material_color(geom, material, pass, rgba);
             }
         }
     }
@@ -571,39 +571,39 @@ bool CRenderModel::SetColorFromScript(Scripts::CStruct* params, float h, float s
 }
 
 // 0x00494450
-bool CRenderModel::ClearColorFromScript(Scripts::CStruct* params)
+bool RenderModel::clear_color_from_script(script::Struct* params)
 {
     constexpr uint32_t kGray = 0x80808080;
     bool any = false;
     uint32_t name;
-    params->ReadHashValue(kName, &name, 1);
+    params->read_hash_value(kName, &name, 1);
     bool all = name == kAllGeoms;
-    uint32_t material = 0; // (as SetColorFromScript)
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next) {
-        void* geom = Geom(node);
+    uint32_t material = 0; // (as set_color_from_script)
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
+        void* geom = get_geom(node);
         int pass = 0;
-        if (!IsGeomMulticolor(geom)) {
-            if (name == TableRow(node)->name || all) {
-                ModelGeoms::ClearGeomColor(geom);
+        if (!is_geom_multicolor(geom)) {
+            if (name == table_row(node)->name || all) {
+                model_geoms::clear_geom_color(geom);
                 any = true;
             }
             continue;
         }
-        Scripts::CArray* materials;
-        if (params->FetchList(kMaterials, &materials, 0)) {
-            for (uint32_t i = 0; i < materials->m_extent; ++i) {
-                auto* entry = reinterpret_cast<Scripts::CStruct*>(materials->FetchPart(i));
-                entry->ReadHashValue(0u, &material, 1);
-                entry->FetchIntValue(0u, &pass, 1);
-                any |= SetGeomMaterialColor(geom, material, pass, kGray);
+        script::Array* materials;
+        if (params->fetch_list(kMaterials, &materials, 0)) {
+            for (uint32_t i = 0; i < materials->extent_; ++i) {
+                auto* entry = reinterpret_cast<script::Struct*>(materials->fetch_part(i));
+                entry->read_hash_value(0u, &material, 1);
+                entry->fetch_int_value(0u, &pass, 1);
+                any |= set_geom_material_color(geom, material, pass, kGray);
             }
-        } else if (params->ReadHashValue(kMaterial, &material, 0)) {
-            Scripts::CArray* passes;
-            if (params->FetchList(kPass, &passes, 0)) {
-                for (uint32_t i = 0; i < passes->m_extent; ++i)
-                    any |= SetGeomMaterialColor(geom, material, static_cast<int>(passes->FetchPart(i)), kGray);
-            } else if (params->FetchIntValue(kPass, &pass, 1)) {
-                any |= SetGeomMaterialColor(geom, material, pass, kGray);
+        } else if (params->read_hash_value(kMaterial, &material, 0)) {
+            script::Array* passes;
+            if (params->fetch_list(kPass, &passes, 0)) {
+                for (uint32_t i = 0; i < passes->extent_; ++i)
+                    any |= set_geom_material_color(geom, material, static_cast<int>(passes->fetch_part(i)), kGray);
+            } else if (params->fetch_int_value(kPass, &pass, 1)) {
+                any |= set_geom_material_color(geom, material, pass, kGray);
             }
         }
     }
@@ -611,45 +611,45 @@ bool CRenderModel::ClearColorFromScript(Scripts::CStruct* params)
 }
 
 // 0x00494A00
-bool CRenderModel::ReplaceFaceTexture(void* face, const char* source, uint32_t name)
+bool RenderModel::replace_face_texture(void* face, const char* source, uint32_t name)
 {
     // The face texture: its image's size (0x00487540) and data (0x00487530), its overlay's file name (0x004875B0),
     // its colour parameters (0x00487550, into a buffer).
-    auto* faceTexture = static_cast<Gfx2D::CFaceSkin*>(face);
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(manager->m_topDownHeap);
-    int size = faceTexture->FetchSkinResolution();
-    void* data = faceTexture->GetImage();
-    void* image = static_cast<CTextureSet*>(Textures())
-                      ->ReadTextureBuffer(static_cast<const uint8_t*>(data), size, kFaceImage, 1, 1, false, 1);
-    void* overlay = static_cast<CTextureSet*>(Textures())->IngestSkin(faceTexture->GetOverlayName(), 1, 1, true);
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    auto* face_texture = static_cast<gfx::FaceSkin*>(face);
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(manager->top_down_heap_);
+    int size = face_texture->fetch_skin_resolution();
+    void* data = face_texture->get_image();
+    void* image = static_cast<TextureSet*>(get_textures())
+                      ->read_texture_buffer(static_cast<const uint8_t*>(data), size, kFaceImage, 1, 1, false, 1);
+    void* overlay = static_cast<TextureSet*>(get_textures())->ingest_skin(face_texture->get_overlay_name(), 1, 1, true);
+    memory::Hub::get_pull()->leave_heap_scope();
     // The profile's skin colour (0x004869D0 reads it, 0x004869A0 makes it current) and the overlay (0x004869C0)
     // applied to the image (0x00486F70) with the face's colour parameters.
     uint8_t color[0x30];
-    Gfx2D::ReadFacePoints(reinterpret_cast<Gfx2D::SFaceAnchors*>(color), Scripts::ReadSubStruct(kSkinColor));
-    Gfx2D::ChangeFaceAnchors(reinterpret_cast<const Gfx2D::SFaceAnchors*>(color));
-    Gfx2D::SetFaceOverlay(static_cast<CBitmapTexture*>(overlay));
+    gfx::read_face_points(reinterpret_cast<gfx::FaceAnchors*>(color), script::read_sub_struct(kSkinColor));
+    gfx::change_face_anchors(reinterpret_cast<const gfx::FaceAnchors*>(color));
+    gfx::set_face_overlay(static_cast<BitmapTexture*>(overlay));
     uint8_t parameters[0x38];
-    auto getParameters = [faceTexture](uint8_t* out) {
-        return reinterpret_cast<uint8_t*>(faceTexture->GetPoints(reinterpret_cast<Gfx2D::SFaceAnchors*>(out)));
+    auto get_parameters = [face_texture](uint8_t* out) {
+        return reinterpret_cast<uint8_t*>(face_texture->get_points(reinterpret_cast<gfx::FaceAnchors*>(out)));
     };
-    uint8_t generatePalette = getParameters(parameters)[0x20]; // (the byte as it is - not made 0 / 1)
-    Gfx2D::MassageFaceTexture(static_cast<CBitmapTexture*>(image),
-                            reinterpret_cast<const Gfx2D::SFaceAnchors*>(getParameters(parameters)), generatePalette,
+    uint8_t generate_palette = get_parameters(parameters)[0x20]; // (the byte as it is - not made 0 / 1)
+    gfx::massage_face_texture(static_cast<BitmapTexture*>(image),
+                            reinterpret_cast<const gfx::FaceAnchors*>(get_parameters(parameters)), generate_palette,
                             false, 0x80808080);
-    bool replaced = ReplaceTextureWith(name, source, TextureHash(image));
-    DetachTexture(image);
-    DetachTexture(overlay);
+    bool replaced = replace_texture_with(name, source, texture_hash(image));
+    detach_texture(image);
+    detach_texture(overlay);
     return replaced;
 }
 
 namespace {
-static VtableSlot kModelVtable_slots[] = {&Engine3D::CRenderModel::Teardown, &MemCard::SaveCard::AlwaysTrue, Stubs::ReturnZero1,
-                &MemCard::SaveCard::AlwaysTrue, &Engine3D::CRenderModel::VirtualTrue4, &MemCard::SaveCard::AlwaysTrue, &MemCard::SaveCard::AlwaysTrue,
-                &MemCard::SaveCard::AlwaysTrue, Stubs::ReturnTrue2, &NetLink::Hub::LoadNetworkDrivers, Stubs::ReturnTrue,
-                Stubs::ReturnTrue, &Engine3D::CRenderModel::PlatGetBoundingSphere, Stubs::IgnoreArgument};
-void** const kModelVtable = reinterpret_cast<void**>(kModelVtable_slots);
+static VtableSlot g_model_vtable_slots[] = {&render::RenderModel::teardown, &save_cards::SaveCard::always_true, stubs::return_zero1,
+                &save_cards::SaveCard::always_true, &render::RenderModel::virtual_true4, &save_cards::SaveCard::always_true, &save_cards::SaveCard::always_true,
+                &save_cards::SaveCard::always_true, stubs::return_true2, &net::Hub::load_network_drivers, stubs::return_true,
+                stubs::return_true, &render::RenderModel::plat_get_bounding_sphere, stubs::ignore_argument};
+void** const kModelVtable = reinterpret_cast<void**>(g_model_vtable_slots);
 } // namespace
 
 } // namespace Nx

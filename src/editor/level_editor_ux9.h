@@ -4,7 +4,7 @@
 
 #include "editor/level_editor.h"
 
-namespace MenuSystem::LevelEditor::Overlays {
+namespace frontend::level_editor::overlays {
 struct Painter;
 }
 
@@ -17,28 +17,28 @@ struct Painter;
 //     piece; a click on a piece with the tool armed edits it (Apply / Remove). Pieces are saved as `ground` records (the
 //     layout's extension records) and baked by tools/pipeline/game/apply_layout.ts.
 // The keys are the action registry's (level_editor_actions.h: gap_wizard, skateability, ground_tool - rebindable).
-namespace MenuSystem::LevelEditor::Ux9 {
+namespace frontend::level_editor::ux9 {
 
-// The actions and the layout records registered (once, from LevelEditor::PrepareAll).
-void PrepareAll();
+// The actions and the layout records registered (once, from level_editor::prepare_all).
+void prepare_all();
 // The editor starting / stopping.
-void Kickoff();
-void Halt();
+void kickoff();
+void halt();
 // Once a frame while the editor runs (after the actions' frame): the keys, the forms' requests.
-void TickFrame();
+void tick_frame();
 // A tool armed or a form open: Escape goes to Cancel first.
-bool Occupied();
-bool Cancel();
+bool occupied();
+bool get_cancel();
 // For the status bar's hints (level_editor_hints.h): 1 the gap wizard picking its ends, 2 the ground tool marking its
 // rectangle, 0 neither (a form open counts as neither).
-int PickingTool();
+int picking_tool();
 // The mouse ray each frame (`x`, `y`: the cursor in back buffer pixels), and a left click (true: taken by a tool).
-void Hover(V3 origin, V3 unitDir, float x, float y, bool haveRay);
-bool Click(V3 origin, V3 unitDir, float x, float y);
+void get_hover(V3 origin, V3 unit_dir, float x, float y, bool have_ray);
+bool get_click(V3 origin, V3 unit_dir, float x, float y);
 // Over the view (the tools' previews, the skateability colours) and the windows (forms, the legend).
-void AddOverlay(const Overlays::Painter& painter);
-void Windows(float viewX, float viewY, float viewWidth, float viewHeight, float scale);
+void add_overlay(const overlays::Painter& painter);
+void get_windows(float view_x, float view_y, float view_width, float view_height, float scale);
 // For the screenshot sidecar: a line ("" when nothing to say).
-std::string Describe();
+std::string describe();
 
-} // namespace MenuSystem::LevelEditor::Ux9
+} // namespace MenuSystem::level_editor::ux9

@@ -1,4 +1,4 @@
-// The network manager's network settings (OnlinePlay::Hub, 0x00535040-0x00535CB0): the network preferences handed
+// The network manager's network settings (online::Hub, 0x00535040-0x00535CB0): the network preferences handed
 // to the net library (master servers, addresses, DNS, dial-up, the device), the preferences of the game being set up,
 // and connecting to / disconnecting from the internet.
 
@@ -35,21 +35,21 @@
 #include "engine/net/stats_man.h"
 #include "engine/assets/resource_registry.h"
 
-namespace OnlinePlay {
+namespace online {
 
-uint32_t g_networkTeamMode;
+uint32_t g_network_team_mode;
 
-int g_netSkillLevel{3};
+int g_net_skill_level{3};
 
-int g_netMaxPlayers{8};
+int g_net_max_players{8};
 
-using namespace Detail;
+using namespace detail;
 
 namespace {
 
 constexpr uint32_t kMasterHostTable = 0x9954;  // char[10][16]: the master servers' names
 constexpr int kMasterServerCount = 10;
-constexpr uint32_t kConnectTask = 0xD8;      // Scheduling::SchedulerTask* (the online state's)
+constexpr uint32_t kConnectTask = 0xD8;      // tasks::SchedulerTask* (the online state's)
 constexpr uint32_t kOnlineState = 0x1A8;     // int (-1: starting)
 constexpr uint32_t kOnlineScript = 0x1C4;    // uint32_t: run once online
 constexpr uint32_t kOfflineScript = 0x1C8;   // uint32_t: run when connecting fails / after disconnecting
@@ -107,29 +107,29 @@ const char* const kDefaultDns2 = "205.147.0.102"; // "205.147.0.102"
 const char* const kEmpty = "";       // ""
 const char* const kHashFieldName = "checksum"; // "checksum"
 
-Scheduling::PileUp* LogicTasks() { return reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4 /* the main loop's task stacks (+4: the logic tasks) */); }
+tasks::PileUp* get_logic_tasks() { return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 4 /* the main loop's task stacks (+4: the logic tasks) */); }
 
-bool Filled(const char* text) { return text && *text; }
+bool get_filled(const char* text) { return text && *text; }
 
 // A preference's ui_string set to `text` (the parameters freed again).
-void SetPreferenceText(OptionStore::Preferences* preferences, uint32_t name, const char* text)
+void set_preference_text(prefs::Preferences* preferences, uint32_t name, const char* text)
 {
-    Scripts::CStruct* values = NewParams();
-    values->AppendWord(kUiString, Scripts::QBVAL_STRING, text);
-    preferences->ChangeSetting(name, values);
-    DeleteParams(values);
+    script::Struct* values = new_params();
+    values->append_word(kUiString, script::kQbvalString, text);
+    preferences->change_setting(name, values);
+    delete_params(values);
 }
 
 } // namespace
 
 // 0x00535040
-void Hub::UseNetworkPreferences()
+void Hub::use_network_preferences()
 {
-    NetLink::Hub* net = NetLink::Hub::Sole();
+    net::Hub* net = net::Hub::sole();
     char(*servers)[16] = reinterpret_cast<char(*)[16]>(reinterpret_cast<uint8_t*>(this) + kMasterHostTable);
     for (int i = 0; i < kMasterServerCount; ++i)
         servers[i][0] = 0;
-    OptionStore::Preferences* preferences = GetOnlineSettings();
+    prefs::Preferences* preferences = get_online_settings();
 
     // (the original's locals, each reused as it reuses its stack slots: a missing value leaves the last one read -
     // uninitialised at first, zero here)
@@ -137,286 +137,286 @@ void Hub::UseNetworkPreferences()
     uint32_t check = 0;
 
     // The master servers: the default list, or the two set (unless "0.0.0.0") before it.
-    Scripts::CArray* defaults = Scripts::FetchList(kDefaultMasterServers);
-    preferences->FetchSetting(kUseDefaultMasterServers)->ReadHashValue(kChecksum, &check, 1);
+    script::Array* defaults = script::fetch_list(kDefaultMasterServers);
+    preferences->fetch_setting(kUseDefaultMasterServers)->read_hash_value(kChecksum, &check, 1);
     int next = 0;
     if (check != kBooleanTrue) {
-        preferences->FetchSetting(kMasterServer1)->FetchText(kUiString, &text, 1);
+        preferences->fetch_setting(kMasterServer1)->fetch_text(kUiString, &text, 1);
         if (std::strcmp(text, kNoAddress) != 0)
             std::strcpy(servers[next++], text);
-        preferences->FetchSetting(kMasterServer2)->FetchText(kUiString, &text, 1);
+        preferences->fetch_setting(kMasterServer2)->fetch_text(kUiString, &text, 1);
         if (std::strcmp(text, kNoAddress) != 0)
             std::strcpy(servers[next++], text);
     }
     // (no bounds check: more than 10 names run over what follows, as in the original)
-    for (int i = 0; i < static_cast<int>(defaults->m_extent); ++i) {
-        auto* entry = reinterpret_cast<Scripts::CStruct*>(defaults->FetchPart(i));
-        entry->FetchText(kName, &text, 1);
+    for (int i = 0; i < static_cast<int>(defaults->extent_); ++i) {
+        auto* entry = reinterpret_cast<script::Struct*>(defaults->fetch_part(i));
+        entry->fetch_text(kName, &text, 1);
         std::strcpy(servers[next + i], text);
     }
 
-    uint32_t broadbandType = 0;
-    preferences->FetchSetting(kBroadbandType)->ReadHashValue(kChecksum, &broadbandType, 1);
-    bool dhcp = broadbandType == kIpDhcp;
+    uint32_t broadband_type = 0;
+    preferences->fetch_setting(kBroadbandType)->read_hash_value(kChecksum, &broadband_type, 1);
+    bool dhcp = broadband_type == kIpDhcp;
 
     // Addresses given outside the preferences (set into them; an address of our own means no DHCP).
-    const char* ipOverride = Scripts::FetchText(kIpAddressOverride);
-    const char* gatewayOverride = Scripts::FetchText(kGatewayOverride);
-    const char* subnetOverride = Scripts::FetchText(kSubnetMaskOverride);
-    const char* dnsOverride = Scripts::FetchText(kDnsServerOverride);
-    if (ipOverride) {
-        if (!*ipOverride) {
-            ipOverride = nullptr;
+    const char* ip_override = script::fetch_text(kIpAddressOverride);
+    const char* gateway_override = script::fetch_text(kGatewayOverride);
+    const char* subnet_override = script::fetch_text(kSubnetMaskOverride);
+    const char* dns_override = script::fetch_text(kDnsServerOverride);
+    if (ip_override) {
+        if (!*ip_override) {
+            ip_override = nullptr;
         } else {
             dhcp = false;
-            SetPreferenceText(preferences, kIpAddress, ipOverride);
-            if (Filled(gatewayOverride))
-                SetPreferenceText(preferences, kGateway, gatewayOverride);
-            if (Filled(subnetOverride))
-                SetPreferenceText(preferences, kSubnetMask, subnetOverride);
+            set_preference_text(preferences, kIpAddress, ip_override);
+            if (get_filled(gateway_override))
+                set_preference_text(preferences, kGateway, gateway_override);
+            if (get_filled(subnet_override))
+                set_preference_text(preferences, kSubnetMask, subnet_override);
         }
     }
-    if (Filled(dnsOverride))
-        SetPreferenceText(preferences, kDnsServer, dnsOverride);
+    if (get_filled(dns_override))
+        set_preference_text(preferences, kDnsServer, dns_override);
 
-    net->SetAutoAddress(dhcp);
+    net->set_auto_address(dhcp);
     if (dhcp) {
-        const char* hostName = nullptr;
-        const char* domainName = nullptr;
-        preferences->FetchSetting(kHostName)->FetchText(kUiString, &hostName, 1);
-        net->SetMachineLabel(hostName);
-        preferences->FetchSetting(kDomainName)->FetchText(kUiString, &domainName, 1);
-        net->SetNetworkDomain(domainName);
+        const char* host_name = nullptr;
+        const char* domain_name = nullptr;
+        preferences->fetch_setting(kHostName)->fetch_text(kUiString, &host_name, 1);
+        net->set_machine_label(host_name);
+        preferences->fetch_setting(kDomainName)->fetch_text(kUiString, &domain_name, 1);
+        net->set_network_domain(domain_name);
     } else {
-        preferences->FetchSetting(kIpAddress)->FetchText(kUiString, &text, 1);
-        net->SetOwnAddress(text);
-        preferences->FetchSetting(kGateway)->FetchText(kUiString, &text, 1);
-        net->SetRouterAddr(text);
-        preferences->FetchSetting(kSubnetMask)->FetchText(kUiString, &text, 1);
-        net->SetAddressMask(text);
+        preferences->fetch_setting(kIpAddress)->fetch_text(kUiString, &text, 1);
+        net->set_own_address(text);
+        preferences->fetch_setting(kGateway)->fetch_text(kUiString, &text, 1);
+        net->set_router_addr(text);
+        preferences->fetch_setting(kSubnetMask)->fetch_text(kUiString, &text, 1);
+        net->set_address_mask(text);
     }
 
     // DNS: none with auto_dns (and no address of our own); with an address of our own but no DNS server, the two
     // defaults; else the preferences'.
-    preferences->FetchSetting(kAutoDns)->ReadHashValue(kChecksum, &check, 1);
-    if (check == kBooleanTrue && !ipOverride) {
-        net->SetNameResolver(0, kEmpty);
-        net->SetNameResolver(1, kEmpty);
-        net->SetNameResolver(2, kEmpty);
-    } else if (ipOverride && !Filled(dnsOverride)) {
-        net->SetNameResolver(0, kDefaultDns1);
-        net->SetNameResolver(1, kDefaultDns2);
+    preferences->fetch_setting(kAutoDns)->read_hash_value(kChecksum, &check, 1);
+    if (check == kBooleanTrue && !ip_override) {
+        net->set_name_resolver(0, kEmpty);
+        net->set_name_resolver(1, kEmpty);
+        net->set_name_resolver(2, kEmpty);
+    } else if (ip_override && !get_filled(dns_override)) {
+        net->set_name_resolver(0, kDefaultDns1);
+        net->set_name_resolver(1, kDefaultDns2);
     } else {
-        preferences->FetchSetting(kDnsServer)->FetchText(kUiString, &text, 1);
-        net->SetNameResolver(0, text);
-        preferences->FetchSetting(kDnsServer2)->FetchText(kUiString, &text, 1);
-        net->SetNameResolver(1, text);
+        preferences->fetch_setting(kDnsServer)->fetch_text(kUiString, &text, 1);
+        net->set_name_resolver(0, text);
+        preferences->fetch_setting(kDnsServer2)->fetch_text(kUiString, &text, 1);
+        net->set_name_resolver(1, text);
     }
 
     // Dial-up.
     const char* number = nullptr;
     for (int i = 0; i < 3; ++i) {
-        preferences->FetchSetting(kDialupNumber[i])->FetchText(kUiString, &number, 1);
-        net->SetDialupNumber(i, number);
+        preferences->fetch_setting(kDialupNumber[i])->fetch_text(kUiString, &number, 1);
+        net->set_dialup_number(i, number);
     }
     const char* username = nullptr;
-    preferences->FetchSetting(kDialupUsername)->FetchText(kUiString, &username, 1);
-    net->SetDialupUserName(username);
+    preferences->fetch_setting(kDialupUsername)->fetch_text(kUiString, &username, 1);
+    net->set_dialup_user_name(username);
     const char* password = nullptr;
-    preferences->FetchSetting(kDialupPassword)->FetchText(kUiString, &password, 1);
-    net->SetDialupPassword(password);
+    preferences->fetch_setting(kDialupPassword)->fetch_text(kUiString, &password, 1);
+    net->set_dialup_password(password);
 
     // The device: its type and the connection type.
     uint32_t device = 0;
-    preferences->FetchSetting(kDeviceType)->ReadHashValue(kChecksum, &device, 1);
-    bool forceBroadbandPc = *Scripts::FetchText(kForceBroadbandPc) != 0;
-    if (*Scripts::FetchText(kForcePcmcia)) {
-        if (ipOverride)
-            Run(kSpoofPcmciaAdaptorSetup);
-        net->SetAdapterKind(3);
-        net->SetNetLinkKind(4);
-    } else if (device == kDeviceBroadbandPc || forceBroadbandPc) {
-        Run(kSpoofPcmciaAdaptorSetup);
-        net->SetAdapterKind(3);
-        net->SetNetLinkKind(2);
-    } else if (device == kDeviceBroadbandUsb || ipOverride) {
-        if (ipOverride)
-            Run(kSpoofUsbAdaptorSetup);
-        net->SetAdapterKind(1);
-        net->SetNetLinkKind(2);
+    preferences->fetch_setting(kDeviceType)->read_hash_value(kChecksum, &device, 1);
+    bool force_broadband_pc = *script::fetch_text(kForceBroadbandPc) != 0;
+    if (*script::fetch_text(kForcePcmcia)) {
+        if (ip_override)
+            get_run(kSpoofPcmciaAdaptorSetup);
+        net->set_adapter_kind(3);
+        net->set_net_link_kind(4);
+    } else if (device == kDeviceBroadbandPc || force_broadband_pc) {
+        get_run(kSpoofPcmciaAdaptorSetup);
+        net->set_adapter_kind(3);
+        net->set_net_link_kind(2);
+    } else if (device == kDeviceBroadbandUsb || ip_override) {
+        if (ip_override)
+            get_run(kSpoofUsbAdaptorSetup);
+        net->set_adapter_kind(1);
+        net->set_net_link_kind(2);
     } else if (device == kDeviceBroadbandUsbPppoe) {
-        net->SetAdapterKind(1);
-        net->SetNetLinkKind(3);
+        net->set_adapter_kind(1);
+        net->set_net_link_kind(3);
     } else if (device == kDeviceUsbModem || device == kDeviceSonyModem) {
         // A modem: at most 3 players, no observers.
-        net->SetAdapterKind(device == kDeviceUsbModem ? 2 : 4);
-        net->SetNetLinkKind(1);
-        if (GetPlayerLimit() > 3)
-            SetMaxPlayersPreference(3);
-        SetMaxObserversPreference(0);
+        net->set_adapter_kind(device == kDeviceUsbModem ? 2 : 4);
+        net->set_net_link_kind(1);
+        if (get_player_limit() > 3)
+            set_max_players_preference(3);
+        set_max_observers_preference(0);
     } else if (device == kDeviceBroadbandPcPppoe) {
-        net->SetAdapterKind(3);
-        net->SetNetLinkKind(3);
+        net->set_adapter_kind(3);
+        net->set_net_link_kind(3);
     } else {
-        net->SetNetLinkKind(0);
-        net->SetAdapterKind(0);
+        net->set_net_link_kind(0);
+        net->set_adapter_kind(0);
     }
 
-    preferences->FetchSetting(kDialupAuthentication)->ReadHashValue(kChecksum, &check, 1);
-    net->SetFlag2E6(check == kBooleanTrue);
+    preferences->fetch_setting(kDialupAuthentication)->read_hash_value(kChecksum, &check, 1);
+    net->set_flag_2e_6(check == kBooleanTrue);
 }
 
 // 0x00535AD0
-uint32_t Hub::GetTeamGraffitiMode()
+uint32_t Hub::get_team_graffiti_mode()
 {
     uint32_t mode = kGraffitiIndividualScoring;
-    if (InNetGame() && IsSquadMatch())
-        GetOnlineSettings()->FetchSetting(kTeamGraffitiMode)->ReadHashValue(kChecksum, &mode, 1);
+    if (in_net_game() && is_squad_match())
+        get_online_settings()->fetch_setting(kTeamGraffitiMode)->read_hash_value(kChecksum, &mode, 1);
     return mode;
 }
 
 // The preferences of the game being set up: the network game's, else the skate module's (+0x58: split screen's).
-OptionStore::Preferences* Hub::GetGamePreferences()
+prefs::Preferences* Hub::get_game_preferences()
 {
-    uint8_t* skate = Detail::Skate();
-    if (InNetGame())
-        return GetOnlineSettings();
-    return Call<OptionStore::Preferences*>(CodeAddress(&GameModules::Skate::GetSplitViewSettings), skate);
+    uint8_t* skate = detail::get_skate();
+    if (in_net_game())
+        return get_online_settings();
+    return get_call<prefs::Preferences*>(code_address(&modules::Skate::get_split_view_settings), skate);
 }
 
 // 0x00535B20
-uint32_t Hub::GetGoalsPreference()
+uint32_t Hub::get_goals_preference()
 {
     // On a miss the original returns its uninitialised local: the slot ECX was pushed into - the manager.
     auto goals = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(this));
-    GetGamePreferences()->FetchSetting(kGoals)->ReadHashValue(kHashFieldName, &goals, 1);
+    get_game_preferences()->fetch_setting(kGoals)->read_hash_value(kHashFieldName, &goals, 1);
     return goals;
 }
 
 // 0x00535B70
-uint32_t Hub::GetGameTypePreference()
+uint32_t Hub::get_game_type_preference()
 {
     auto type = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(this)); // (as above)
-    GetGamePreferences()->FetchSetting(kGameType)->ReadHashValue(kChecksum, &type, 1);
+    get_game_preferences()->fetch_setting(kGameType)->read_hash_value(kChecksum, &type, 1);
     return type;
 }
 
 // 0x00535C10
-bool Hub::ConnectToInternet(uint32_t onlineScript, uint32_t failScript)
+bool Hub::connect_to_internet(uint32_t online_script, uint32_t fail_script)
 {
-    Scheduling::PileUp* tasks = LogicTasks();
-    NetLink::Hub* net = NetLink::Hub::Sole();
-    Prop<uint32_t>(this, kOfflineScript) = failScript;
-    Prop<uint32_t>(this, kOnlineScript) = onlineScript;
+    tasks::PileUp* tasks = get_logic_tasks();
+    net::Hub* net = net::Hub::sole();
+    prop<uint32_t>(this, kOfflineScript) = fail_script;
+    prop<uint32_t>(this, kOnlineScript) = online_script;
     bool online;
-    if (net->IsOnline()) {
+    if (net->is_online()) {
         online = true;
     } else {
-        Prop<int>(this, kOnlineState) = -1;
-        online = net->ConnectToInternet();
+        prop<int>(this, kOnlineState) = -1;
+        online = net->connect_to_internet();
         if (!online) {
             // A modem or a PPPoE connection carries on in the online state's task.
-            if (net->GetNetLinkKind() == 1 || net->GetNetLinkKind() == 3)
-                tasks->QueueJob(Prop<Scheduling::SchedulerTask*>(this, kConnectTask));
+            if (net->get_net_link_kind() == 1 || net->get_net_link_kind() == 3)
+                tasks->queue_job(prop<tasks::SchedulerTask*>(this, kConnectTask));
             return online;
         }
     }
-    if (Prop<uint32_t>(this, kOnlineScript))
-        Run(Prop<uint32_t>(this, kOnlineScript));
+    if (prop<uint32_t>(this, kOnlineScript))
+        get_run(prop<uint32_t>(this, kOnlineScript));
     return online;
 }
 
 // 0x00535CB0
-void Hub::DisconnectFromInternet(uint32_t script)
+void Hub::disconnect_from_internet(uint32_t script)
 {
-    Scheduling::PileUp* tasks = LogicTasks();
-    NetLink::Hub* net = NetLink::Hub::Sole();
-    Prop<int>(this, kOnlineState) = -1;
+    tasks::PileUp* tasks = get_logic_tasks();
+    net::Hub* net = net::Hub::sole();
+    prop<int>(this, kOnlineState) = -1;
     if (script)
-        Prop<uint32_t>(this, kOfflineScript) = script;
-    tasks->QueueJob(Prop<Scheduling::SchedulerTask*>(this, kConnectTask));
-    SetServiceState(2);
-    net->DisconnectFromInternet();
+        prop<uint32_t>(this, kOfflineScript) = script;
+    tasks->queue_job(prop<tasks::SchedulerTask*>(this, kConnectTask));
+    set_service_state(2);
+    net->disconnect_from_internet();
 }
 
 // 0x00536C10
-void __cdecl Hub::CancelConnectToInternet()
+void __cdecl Hub::cancel_connect_to_internet()
 {
-    Hub* manager = g_onlineHub;
-    NetLink::Hub* net = NetLink::Hub::Sole();
-    Scheduling::SchedulerTask* task = Prop<Scheduling::SchedulerTask*>(manager, kConnectTask);
-    switch (net->GetDialupStatus()) {
+    Hub* manager = g_online_hub;
+    net::Hub* net = net::Hub::sole();
+    tasks::SchedulerTask* task = prop<tasks::SchedulerTask*>(manager, kConnectTask);
+    switch (net->get_dialup_status()) {
     case 0:
     case 1:
-        task->DropOut();
-        Prop<int>(manager, kOnlineState) = -1;
-        LogicTasks()->QueueJob(Prop<Scheduling::SchedulerTask*>(manager, kConnectTask));
-        manager->SetServiceState(2);
-        NetLink::Hub::Sole()->DisconnectFromInternet();
+        task->drop_out();
+        prop<int>(manager, kOnlineState) = -1;
+        get_logic_tasks()->queue_job(prop<tasks::SchedulerTask*>(manager, kConnectTask));
+        manager->set_service_state(2);
+        net::Hub::sole()->disconnect_from_internet();
         break;
     case 2:
-        net->SetDialupStatus(6);
+        net->set_dialup_status(6);
         break;
     case 5:
-        task->DropOut();
-        Run(Prop<uint32_t>(manager, kOfflineScript));
+        task->drop_out();
+        get_run(prop<uint32_t>(manager, kOfflineScript));
         break;
     case 9:
-        task->DropOut();
+        task->drop_out();
         break;
     default:
         break;
     }
 }
 
-uint32_t g_askedFor;
-bool g_joinServerIPSucceeded;
+uint32_t g_asked_for;
+bool g_join_server_ip_succeeded;
 
 // 0x00536490
-void Hub::FindServerAt(uint32_t ip)
+void Hub::find_server_at(uint32_t ip)
 {
-    StopServerList(); // (the server lists cleared)
-    EmptyServerListing();
-    StartServerList();
-    g_joinServerIPSucceeded = false;
-    if (!m_browserClient)
-        StartMatchmakingClient();
+    stop_server_list(); // (the server lists cleared)
+    empty_server_listing();
+    start_server_list();
+    g_join_server_ip_succeeded = false;
+    if (!browser_client_)
+        start_matchmaking_client();
     if (!ip) {
-        g_askedFor = 0;
+        g_asked_for = 0;
         return;
     }
-    if (m_browserClient) {
+    if (browser_client_) {
         uint32_t request[3]; // (the time; the rest is the original's stack)
-        request[0] = FrameClock::GetTime();
+        request[0] = frame_clock::get_time();
         request[1] = request[2] = 0;
-        g_askedFor = ip;
-        m_browserClient->DeliverTo(kMsgServerQuery, sizeof(request), request, ip, kLanPort, 0);
+        g_asked_for = ip;
+        browser_client_->deliver_to(kMsgServerQuery, sizeof(request), request, ip, kLanPort, 0);
     }
 }
 
 // 0x00536640
-void __cdecl Hub::ServiceGameSpy()
+void __cdecl Hub::service_game_spy()
 {
-    GameSpy::CdKeyThink();
-    if (g_onlineActive && g_onlineHub->InNetGame() &&
-        g_queryReporting)
-        GameSpy::Qr2Think(nullptr);
+    game_spy::cd_key_think();
+    if (g_online_active && g_online_hub->in_net_game() &&
+        g_query_reporting)
+        game_spy::get_qr2_think(nullptr);
 }
 
 // 0x00536A40
-const char* Hub::GetGameTypeName()
+const char* Hub::get_game_type_name()
 {
-    Scripts::CArray* modes = Scripts::FetchList(kModeInfo);
+    script::Array* modes = script::fetch_list(kModeInfo);
     // (the original's locals, reused: a missing checksum compares the last value read - uninitialised at first)
     uint32_t type = 0;
     uint32_t mode = 0;
-    for (int i = 0; i < static_cast<int>(modes->m_extent); ++i) {
-        auto* entry = reinterpret_cast<Scripts::CStruct*>(modes->FetchPart(i));
-        GetGamePreferences()->FetchSetting(kGameType)->ReadHashValue(kChecksum, &type, 1);
-        entry->ReadHashValue(kChecksum, &mode, 0);
+    for (int i = 0; i < static_cast<int>(modes->extent_); ++i) {
+        auto* entry = reinterpret_cast<script::Struct*>(modes->fetch_part(i));
+        get_game_preferences()->fetch_setting(kGameType)->read_hash_value(kChecksum, &type, 1);
+        entry->read_hash_value(kChecksum, &mode, 0);
         if (type == mode) {
             const char* name = reinterpret_cast<const char*>(type);
-            entry->FetchText(kName, &name, 1);
+            entry->fetch_text(kName, &name, 1);
             return name;
         }
     }
@@ -424,17 +424,17 @@ const char* Hub::GetGameTypeName()
 }
 
 // 0x00536B90
-void Hub::ChangeArena(uint32_t level)
+void Hub::change_arena(uint32_t level)
 {
-    m_level = level;
-    void* peer = static_cast<RoomManager*>(m_lobbyService)->GetLobbyHandle();
-    if (peer && GameSpy::PeerIsConnected(peer) && static_cast<RoomManager*>(m_lobbyService)->IsHosting())
-        GameSpy::PeerStateChanged(peer); // (the peer's state changed: the GameSpy SDK)
+    level_ = level;
+    void* peer = static_cast<RoomManager*>(lobby_service_)->get_lobby_handle();
+    if (peer && game_spy::peer_is_connected(peer) && static_cast<RoomManager*>(lobby_service_)->is_hosting())
+        game_spy::peer_state_changed(peer); // (the peer's state changed: the GameSpy SDK)
     // (cleared just before it's tested: the reporting's state-changed call below never happens)
-    g_openWaiting = false;
-    if (g_onlineActive && g_onlineHub->InNetGame() &&
-        g_queryReporting && g_openWaiting)
-        GameSpy::Qr2SendStateChanged(nullptr);
+    g_open_waiting = false;
+    if (g_online_active && g_online_hub->in_net_game() &&
+        g_query_reporting && g_open_waiting)
+        game_spy::qr2_send_state_changed(nullptr);
 }
 
-} // namespace OnlinePlay
+} // namespace online

@@ -15,31 +15,31 @@
 #include "engine/gfx/movie.h"
 #include "engine/sys/startup_init.h"
 
-namespace Scripts {
+namespace script {
 
-float g_parseNudge{0.1f};
-float g_parseRandomScale{0.000030525032f};
-CStoredRandom* g_storedRandomsNewest;
-CStoredRandom* g_storedRandomsOldest;
-int g_storedRandomCount;
-CValueResolver g_evaluator;
-CComponent g_parseScratch;
+float g_parse_nudge{0.1f};
+float g_parse_random_scale{0.000030525032f};
+StoredRandom* g_stored_randoms_newest;
+StoredRandom* g_stored_randoms_oldest;
+int g_stored_random_count;
+ValueResolver g_evaluator;
+Component g_parse_scratch;
 
 namespace {
 
-float AsFloat(uint32_t bits)
+float get_as_float(uint32_t bits)
 {
     float value;
     std::memcpy(&value, &bits, 4);
     return value;
 }
 
-void ChangeSpecies(CComponent* component, uint32_t type)
+void change_species(Component* component, uint32_t type)
 {
-    component->typeAndFlag = static_cast<uint8_t>((component->typeAndFlag & 1) | (type << 1));
+    component->type_and_flag_ = static_cast<uint8_t>((component->type_and_flag_ & 1) | (type << 1));
 }
 
-const uint8_t* SkipEndOfLinesIn(const uint8_t* p)
+const uint8_t* skip_end_of_lines_in(const uint8_t* p)
 {
     for (;;) {
         if (*p == 0x01)
@@ -51,54 +51,54 @@ const uint8_t* SkipEndOfLinesIn(const uint8_t* p)
     }
 }
 
-CStruct* NewInitStruct()
+Struct* new_init_struct()
 {
-    CStruct* structure = SpawnParamBag();
-    return structure ? structure->PrepareAll() : nullptr;
+    Struct* structure = spawn_param_bag();
+    return structure ? structure->prepare_all() : nullptr;
 }
-CArray* NewInitArray()
+Array* new_init_array()
 {
-    CArray* array = AllocScriptArray();
-    return array ? array->PrepareAll() : nullptr;
+    Array* array = alloc_script_array();
+    return array ? array->prepare_all() : nullptr;
 }
 
 // The evaluator expressions are parsed with, and the component values go through on the way.
-CValueResolver& Evaluator() { return g_evaluator; }
-CComponent& Scratch() { return g_parseScratch; }
+ValueResolver& get_evaluator() { return g_evaluator; }
+Component& get_scratch() { return g_parse_scratch; }
 
 // The stored randoms: newest first (next = older), at most 100.
-CStoredRandom*& StoredRandomsNewest() { return g_storedRandomsNewest; }
-CStoredRandom*& StoredRandomsOldest() { return g_storedRandomsOldest; }
-int& StoredRandomCount() { return g_storedRandomCount; }
+StoredRandom*& stored_randoms_newest() { return g_stored_randoms_newest; }
+StoredRandom*& stored_randoms_oldest() { return g_stored_randoms_oldest; }
+int& stored_random_count() { return g_stored_random_count; }
 
 // An expression parameter of a structure / call: merged if it gives a structure, added (unnamed) otherwise.
-const uint8_t* AddExpression(const uint8_t* token, CStruct* dest, CStruct* args)
+const uint8_t* add_expression(const uint8_t* token, Struct* dest, Struct* args)
 {
-    CComponent* value = NewComponent();
-    token = ParseExpression(token, args, value);
-    if (value->KindTag() == QBVAL_STRUCT) {
-        dest->AppendStructureIfAny(value->structure);
-        ReleaseComponent(value);
-        FreeComponent(value);
-    } else if (value->KindTag() != QBVAL_NONE) {
+    Component* value = new_component();
+    token = parse_expression(token, args, value);
+    if (value->kind_tag() == kQbvalStruct) {
+        dest->append_structure_if_any(value->structure);
+        release_component(value);
+        free_component(value);
+    } else if (value->kind_tag() != kQbvalNone) {
         value->name = 0;
-        dest->AttachModule(value);
+        dest->attach_module(value);
     } else {
-        FreeComponent(value);
+        free_component(value);
     }
     return token;
 }
 
 // A `name = (expression)` parameter.
-const uint8_t* AddNamedExpression(const uint8_t* token, uint32_t name, CStruct* dest, CStruct* args)
+const uint8_t* add_named_expression(const uint8_t* token, uint32_t name, Struct* dest, Struct* args)
 {
-    CComponent* value = NewComponent();
-    token = ParseExpression(token, args, value);
-    if (value->typeAndFlag & 0xFE) {
+    Component* value = new_component();
+    token = parse_expression(token, args, value);
+    if (value->type_and_flag_ & 0xFE) {
         value->name = name;
-        dest->AttachModule(value);
+        dest->attach_module(value);
     } else {
-        FreeComponent(value);
+        free_component(value);
     }
     return token;
 }
@@ -106,130 +106,130 @@ const uint8_t* AddNamedExpression(const uint8_t* token, uint32_t name, CStruct* 
 } // namespace
 
 // 0x004728C0
-CScript* GetRunningScript() { return g_runningScript; }
+Script* get_running_script() { return g_running_script; }
 
 // 0x004728D0
-CScript* StepScriptList(CScript* script)
+Script* step_script_list(Script* script)
 {
-    return script ? *reinterpret_cast<CScript**>(script) : g_scriptListHead;
+    return script ? *reinterpret_cast<Script**>(script) : g_script_list_head;
 }
 
 // 0x0046F7A0 (the table in EBX, the type in EDI, the count in ESI)
-CStoredRandom* LookUpSavedRandom(const uint8_t* table, uint32_t type, uint32_t count)
+StoredRandom* look_up_saved_random(const uint8_t* table, uint32_t type, uint32_t count)
 {
-    uint32_t script = reinterpret_cast<uint32_t>(GetRunningScript());
-    for (CStoredRandom* stored = StoredRandomsNewest(); stored; stored = stored->m_succ) {
-        if (stored->m_lookupTable == table && stored->m_kindTag == type && stored->m_num == count &&
-            (stored->m_owner == script || stored->m_owner == 0))
+    uint32_t script = reinterpret_cast<uint32_t>(get_running_script());
+    for (StoredRandom* stored = stored_randoms_newest(); stored; stored = stored->succ_) {
+        if (stored->lookup_table_ == table && stored->kind_tag_ == type && stored->num_ == count &&
+            (stored->owner_ == script || stored->owner_ == 0))
             return stored;
     }
     return nullptr;
 }
 
 // 0x00470BB0
-CStoredRandom* NewStoredRandom()
+StoredRandom* new_stored_random()
 {
-    if (StoredRandomCount() >= 100) {
-        CStoredRandom* oldest = StoredRandomsOldest();
-        CStoredRandom* newer = oldest->m_previous;
-        --StoredRandomCount();
-        FreeStoredRandom(oldest);
-        StoredRandomsOldest() = newer;
+    if (stored_random_count() >= 100) {
+        StoredRandom* oldest = stored_randoms_oldest();
+        StoredRandom* newer = oldest->previous_;
+        --stored_random_count();
+        free_stored_random(oldest);
+        stored_randoms_oldest() = newer;
         if (newer)
-            newer->m_succ = nullptr;
+            newer->succ_ = nullptr;
     }
-    auto* stored = static_cast<CStoredRandom*>(g_storedRandomPools.Carve(sizeof(CStoredRandom)));
+    auto* stored = static_cast<StoredRandom*>(g_stored_random_pools.carve(sizeof(StoredRandom)));
     if (stored) {
-        ++StoredRandomCount();
-        stored->m_succ = nullptr;
-        stored->m_previous = nullptr;
+        ++stored_random_count();
+        stored->succ_ = nullptr;
+        stored->previous_ = nullptr;
     }
-    CStoredRandom* newest = StoredRandomsNewest();
-    stored->m_previous = nullptr;
-    stored->m_succ = newest;
-    StoredRandomsNewest() = stored;
+    StoredRandom* newest = stored_randoms_newest();
+    stored->previous_ = nullptr;
+    stored->succ_ = newest;
+    stored_randoms_newest() = stored;
     if (newest)
-        newest->m_previous = stored;
+        newest->previous_ = stored;
     else
-        StoredRandomsOldest() = stored;
+        stored_randoms_oldest() = stored;
     return stored;
 }
 
 // 0x00470C60
-const uint8_t* ResolveRandomJumps(const uint8_t* token)
+const uint8_t* resolve_random_jumps(const uint8_t* token)
 {
     for (;;) {
         switch (*token) {
         case 0x2E: // jump
-            token += 5 + FetchWord32(token + 1);
+            token += 5 + fetch_word32(token + 1);
             break;
         case 0x2F:   // Random(@a @b ...): weighted
         case 0x37: { // the same, from the second random stream
-            uint32_t count = FetchWord32(token + 1);
+            uint32_t count = fetch_word32(token + 1);
             const uint8_t* weights = token + 5;
             int total = 0;
             for (uint32_t i = 0; i < count; ++i)
-                total += static_cast<int16_t>(FetchWord16(weights + 2 * i));
-            int pick = *token == 0x2F ? Maths::Rnd(total) : Maths::RollSideStream(total);
+                total += static_cast<int16_t>(fetch_word16(weights + 2 * i));
+            int pick = *token == 0x2F ? maths::rnd(total) : maths::roll_side_stream(total);
             int choice = 0;
-            pick -= static_cast<int16_t>(FetchWord16(weights));
+            pick -= static_cast<int16_t>(fetch_word16(weights));
             while (pick >= 0) {
                 ++choice;
-                pick -= static_cast<int16_t>(FetchWord16(weights + 2 * choice));
+                pick -= static_cast<int16_t>(fetch_word16(weights + 2 * choice));
             }
             const uint8_t* offset = weights + 2 * count + 4 * choice;
-            token = offset + FetchWord32(offset) + 4;
+            token = offset + fetch_word32(offset) + 4;
             break;
         }
         case 0x40: { // RandomNoRepeat
-            uint32_t count = FetchWord32(token + 1);
+            uint32_t count = fetch_word32(token + 1);
             const uint8_t* table = token + 5 + 2 * count;
-            CStoredRandom* stored = LookUpSavedRandom(table, 0x40, count);
+            StoredRandom* stored = look_up_saved_random(table, 0x40, count);
             if (!stored) {
-                stored = NewStoredRandom();
-                stored->m_lookupTable = table;
-                stored->m_kindTag = 0x40;
-                stored->m_num = static_cast<uint16_t>(count);
-                stored->m_last = static_cast<uint32_t>(Maths::Rnd(static_cast<int>(count)));
+                stored = new_stored_random();
+                stored->lookup_table_ = table;
+                stored->kind_tag_ = 0x40;
+                stored->num_ = static_cast<uint16_t>(count);
+                stored->last_ = static_cast<uint32_t>(maths::rnd(static_cast<int>(count)));
             }
-            stored->m_owner = reinterpret_cast<uint32_t>(GetRunningScript());
-            int pick = Maths::Rnd(static_cast<int>(count));
-            for (int tries = 0; static_cast<uint16_t>(pick) == stored->m_last;) {
+            stored->owner_ = reinterpret_cast<uint32_t>(get_running_script());
+            int pick = maths::rnd(static_cast<int>(count));
+            for (int tries = 0; static_cast<uint16_t>(pick) == stored->last_;) {
                 if (++tries > 100)
                     break;
-                pick = Maths::Rnd(static_cast<int>(count));
+                pick = maths::rnd(static_cast<int>(count));
             }
             uint32_t choice = static_cast<uint16_t>(pick);
-            stored->m_last = choice;
+            stored->last_ = choice;
             const uint8_t* offset = table + 4 * choice;
-            token = offset + FetchWord32(offset) + 4;
+            token = offset + fetch_word32(offset) + 4;
             break;
         }
         case 0x41: { // RandomPermute
-            uint32_t count = FetchWord32(token + 1);
+            uint32_t count = fetch_word32(token + 1);
             const uint8_t* table = token + 5 + 2 * count;
-            CStoredRandom* stored = LookUpSavedRandom(table, 0x41, count);
+            StoredRandom* stored = look_up_saved_random(table, 0x41, count);
             if (!stored) {
-                stored = NewStoredRandom();
-                stored->m_lookupTable = table;
-                stored->m_kindTag = 0x41;
-                stored->m_num = static_cast<uint16_t>(count);
-                stored->m_ordinal = 0;
-                for (uint16_t i = 0; i < stored->m_num; ++i)
-                    stored->m_order[i] = static_cast<uint8_t>(i);
-                stored->Shuffle(false);
+                stored = new_stored_random();
+                stored->lookup_table_ = table;
+                stored->kind_tag_ = 0x41;
+                stored->num_ = static_cast<uint16_t>(count);
+                stored->ordinal_ = 0;
+                for (uint16_t i = 0; i < stored->num_; ++i)
+                    stored->order_[i] = static_cast<uint8_t>(i);
+                stored->shuffle(false);
             }
-            stored->m_owner = reinterpret_cast<uint32_t>(GetRunningScript());
-            if (++stored->m_ordinal >= stored->m_num) {
-                stored->Shuffle(true);
-                stored->m_ordinal = 0;
+            stored->owner_ = reinterpret_cast<uint32_t>(get_running_script());
+            if (++stored->ordinal_ >= stored->num_) {
+                stored->shuffle(true);
+                stored->ordinal_ = 0;
             }
-            const uint8_t* offset = table + 4 * stored->m_order[stored->m_ordinal];
-            token = offset + FetchWord32(offset) + 4;
+            const uint8_t* offset = table + 4 * stored->order_[stored->ordinal_];
+            token = offset + fetch_word32(offset) + 4;
             break;
         }
         case 0x49: // short jump
-            token += 1 + FetchWord16(token + 1);
+            token += 1 + fetch_word16(token + 1);
             break;
         default:
             return token;
@@ -238,14 +238,14 @@ const uint8_t* ResolveRandomJumps(const uint8_t* token)
 }
 
 // 0x0046FD60 (the token in EAX)
-const uint8_t* SkipValue(const uint8_t* token)
+const uint8_t* skip_value(const uint8_t* token)
 {
     switch (*token) {
     case 0x03: case 0x05: {
         uint8_t open = *token, close = static_cast<uint8_t>(open + 1);
         int depth = 1;
         do {
-            token = StepOverToken(token);
+            token = step_over_token(token);
             if (*token == open)
                 ++depth;
             else if (*token == close)
@@ -256,7 +256,7 @@ const uint8_t* SkipValue(const uint8_t* token)
     case 0x16: case 0x17: case 0x18: case 0x1A:
         return token + 5;
     case 0x1B: case 0x1C:
-        return token + 5 + FetchWord32(token + 1);
+        return token + 5 + fetch_word32(token + 1);
     case 0x1E:
         return token + 13;
     case 0x1F:
@@ -267,13 +267,13 @@ const uint8_t* SkipValue(const uint8_t* token)
 }
 
 // 0x0046FBD0 (the token in EAX, `deterministic` in BL)
-const uint8_t* ParseRandomRange(const uint8_t* token, CComponent* out, bool deterministic)
+const uint8_t* parse_random_range(const uint8_t* token, Component* out, bool deterministic)
 {
-    float a = AsFloat(FetchWord32(token + 1));
-    float b = AsFloat(FetchWord32(token + 5));
+    float a = get_as_float(fetch_word32(token + 1));
+    float b = get_as_float(fetch_word32(token + 5));
     // (rounded with the game's 0.1 nudge, as the x87 does it)
-    const double nudge = g_parseNudge;
-    const double tolerance = Gfx2D::g_tinyLength;
+    const double nudge = g_parse_nudge;
+    const double tolerance = gfx::g_tiny_length;
     auto nearest = [&](float f) {
         return static_cast<int>(f >= 0.0f || std::isnan(f) ? static_cast<double>(f) + nudge
                                                            : static_cast<double>(f) - nudge);
@@ -289,9 +289,9 @@ const uint8_t* ParseRandomRange(const uint8_t* token, CComponent* out, bool dete
             high = swapped;
         }
         int range = high - low + 1;
-        int pick = deterministic ? Maths::RollSideStream(range) : Maths::Rnd(range);
+        int pick = deterministic ? maths::roll_side_stream(range) : maths::rnd(range);
         out->raw = static_cast<uint32_t>(pick + low);
-        ChangeSpecies(out, QBVAL_INTEGER);
+        change_species(out, kQbvalInteger);
         return token + 9;
     }
     if (a > b) {
@@ -299,26 +299,26 @@ const uint8_t* ParseRandomRange(const uint8_t* token, CComponent* out, bool dete
         a = b;
         b = swapped;
     }
-    int pick = deterministic ? Maths::RollSideStream(0x7FF9) : Maths::Rnd(0x7FF9);
-    ChangeSpecies(out, QBVAL_FLOAT);
-    double scale = g_parseRandomScale;
-    out->floatValue = static_cast<float>((static_cast<double>(b) - a) * pick * scale + a);
+    int pick = deterministic ? maths::roll_side_stream(0x7FF9) : maths::rnd(0x7FF9);
+    change_species(out, kQbvalFloat);
+    double scale = g_parse_random_scale;
+    out->float_value_ = static_cast<float>((static_cast<double>(b) - a) * pick * scale + a);
     return token + 9;
 }
 
 // 0x00479730
-void EvaluateNameToken(CComponent* component)
+void evaluate_name_token(Component* component)
 {
-    if ((component->typeAndFlag & 0xFE) != (QBVAL_NAME << 1))
+    if ((component->type_and_flag_ & 0xFE) != (kQbvalName << 1))
         return;
-    CSymbolTableEntry* symbol = ResolveSymbol(component->checksum);
+    SymbolTableEntry* symbol = resolve_symbol(component->checksum);
     if (!symbol)
         return;
     switch (symbol->type) {
-    case QBVAL_INTEGER: case QBVAL_FLOAT: case QBVAL_STRING: case QBVAL_INLINE_TEXT:
-    case QBVAL_PAIR: case QBVAL_VECTOR: case QBVAL_STRUCT: case QBVAL_ARRAY:
-    case QBVAL_NAME:
-        ChangeSpecies(component, symbol->type);
+    case kQbvalInteger: case kQbvalFloat: case kQbvalString: case kQbvalInlineText:
+    case kQbvalPair: case kQbvalVector: case kQbvalStruct: case kQbvalArray:
+    case kQbvalName:
+        change_species(component, symbol->type);
         component->raw = symbol->raw;
         break;
     default:
@@ -327,50 +327,50 @@ void EvaluateNameToken(CComponent* component)
 }
 
 // 0x004706F0
-const uint8_t* ParseValue(const uint8_t* token, CStruct* args, CComponent* out)
+const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
 {
     const uint8_t* p = token + 1;
     switch (*token) {
     case 0x03: {
-        CStruct* structure = NewInitStruct();
-        p = ParseStructure(structure, token, args);
-        ChangeSpecies(out, QBVAL_STRUCT);
+        Struct* structure = new_init_struct();
+        p = parse_structure(structure, token, args);
+        change_species(out, kQbvalStruct);
         out->structure = structure;
         return p;
     }
     case 0x05: {
-        MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_scriptHeap);
-        CArray* array = NewInitArray();
-        MemSys::LeaveHeapScope();
-        p = ParseArray(array, token, args);
-        ChangeSpecies(out, QBVAL_ARRAY);
+        memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
+        Array* array = new_init_array();
+        memory::leave_heap_scope();
+        p = parse_array(array, token, args);
+        change_species(out, kQbvalArray);
         out->array = array;
         return p;
     }
     case 0x16:
-        ChangeSpecies(out, QBVAL_NAME);
-        out->raw = FetchWord32(p);
+        change_species(out, kQbvalName);
+        out->raw = fetch_word32(p);
         return token + 5;
     case 0x17:
-        ChangeSpecies(out, QBVAL_INTEGER);
-        out->raw = FetchWord32(p);
+        change_species(out, kQbvalInteger);
+        out->raw = fetch_word32(p);
         return token + 5;
     case 0x1A:
-        ChangeSpecies(out, QBVAL_FLOAT);
-        out->raw = FetchWord32(p);
+        change_species(out, kQbvalFloat);
+        out->raw = fetch_word32(p);
         return token + 5;
     case 0x1B:
     case 0x1C: {
-        ChangeSpecies(out, *token == 0x1B ? QBVAL_STRING : QBVAL_INLINE_TEXT);
-        uint32_t length = FetchWord32(p);
-        out->string = SpawnText(reinterpret_cast<const char*>(token + 5));
+        change_species(out, *token == 0x1B ? kQbvalString : kQbvalInlineText);
+        uint32_t length = fetch_word32(p);
+        out->string = spawn_text(reinterpret_cast<const char*>(token + 5));
         return token + 5 + length;
     }
     case 0x1E: {
-        ChangeSpecies(out, QBVAL_VECTOR);
-        uint32_t x = FetchWord32(p), y = FetchWord32(token + 5), z = FetchWord32(token + 9);
-        CVector* vector = AllocScriptVector();
-        vector = vector ? vector->PrepareAll() : nullptr;
+        change_species(out, kQbvalVector);
+        uint32_t x = fetch_word32(p), y = fetch_word32(token + 5), z = fetch_word32(token + 9);
+        Vector* vector = alloc_script_vector();
+        vector = vector ? vector->prepare_all() : nullptr;
         out->vector = vector;
         std::memcpy(&vector->x, &x, 4);
         std::memcpy(&out->vector->y, &y, 4);
@@ -378,24 +378,24 @@ const uint8_t* ParseValue(const uint8_t* token, CStruct* args, CComponent* out)
         return token + 13;
     }
     case 0x1F: {
-        ChangeSpecies(out, QBVAL_PAIR);
-        uint32_t x = FetchWord32(p), y = FetchWord32(token + 5);
-        CPair* pair = NewPair();
-        pair = pair ? pair->PrepareAll() : nullptr;
+        change_species(out, kQbvalPair);
+        uint32_t x = fetch_word32(p), y = fetch_word32(token + 5);
+        Pair* pair = new_pair();
+        pair = pair ? pair->prepare_all() : nullptr;
         out->pair = pair;
         std::memcpy(&pair->x, &x, 4);
         std::memcpy(&out->pair->y, &y, 4);
         return token + 9;
     }
     case 0x23: { // a script: its name goes in the component's name
-        out->name = FetchWord32(token + 2);
+        out->name = fetch_word32(token + 2);
         const uint8_t* start = token + 6;
-        const uint8_t* end = SkipToEndOfScript(start);
-        ChangeSpecies(out, QBVAL_SCRIPT_BODY);
+        const uint8_t* end = skip_to_end_of_script(start);
+        change_species(out, kQbvalScriptBody);
         uint32_t size = static_cast<uint32_t>(end - start);
-        MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_scriptHeap);
-        auto* code = static_cast<uint8_t*>(MemSys::AllocBlock(size));
-        MemSys::LeaveHeapScope();
+        memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
+        auto* code = static_cast<uint8_t*>(memory::alloc_block(size));
+        memory::leave_heap_scope();
         for (uint32_t i = 0; i < size; ++i)
             code[i] = start[i];
         out->raw = reinterpret_cast<uint32_t>(code);
@@ -403,113 +403,113 @@ const uint8_t* ParseValue(const uint8_t* token, CStruct* args, CComponent* out)
     }
     case 0x2C: // <...>: all the caller's parameters
         if (args) {
-            CStruct* structure = NewInitStruct();
-            structure->Assign(args);
-            ChangeSpecies(out, QBVAL_STRUCT);
+            Struct* structure = new_init_struct();
+            structure->get_assign(args);
+            change_species(out, kQbvalStruct);
             out->structure = structure;
         }
         return token + 1;
     case 0x2D: { // <name>: one of the caller's parameters
-        uint32_t name = FetchWord32(token + 2);
+        uint32_t name = fetch_word32(token + 2);
         if (args) {
-            if (CComponent* found = args->FindLastComponent(name))
-                DuplicateComponent(out, found, 0);
+            if (Component* found = args->find_last_component(name))
+                duplicate_component(out, found, 0);
         }
         return token + 6;
     }
     case 0x30:
-        return ParseRandomRange(p, out, false);
+        return parse_random_range(p, out, false);
     case 0x38:
-        return ParseRandomRange(p, out, true);
+        return parse_random_range(p, out, true);
     default:
         return token + 1;
     }
 }
 
 // 0x00470130 (the token in ECX, the name in EDX)
-const uint8_t* AddParameter(const uint8_t* token, uint32_t name, CStruct* dest, CStruct* args)
+const uint8_t* add_parameter(const uint8_t* token, uint32_t name, Struct* dest, Struct* args)
 {
     const uint8_t* p = token + 1;
     bool deterministic = false;
     switch (*token) {
     case 0x16:
-        dest->PutNameKey(name, FetchWord32(p));
+        dest->put_name_key(name, fetch_word32(p));
         return token + 5;
     case 0x17:
-        dest->PutInt(name, static_cast<int>(FetchWord32(p)));
+        dest->put_int(name, static_cast<int>(fetch_word32(p)));
         return token + 5;
     case 0x1A:
-        dest->PushFloat(name, AsFloat(FetchWord32(p)));
+        dest->push_float(name, get_as_float(fetch_word32(p)));
         return token + 5;
     case 0x1E: {
-        float x = AsFloat(FetchWord32(p)), y = AsFloat(FetchWord32(token + 5)), z = AsFloat(FetchWord32(token + 9));
+        float x = get_as_float(fetch_word32(p)), y = get_as_float(fetch_word32(token + 5)), z = get_as_float(fetch_word32(token + 9));
         // (a zero vector named 0x9D2D0915 isn't added)
-        const float tolerance = Engine3D::g_onePercent;
+        const float tolerance = render::g_one_percent;
         if (name != 0x9D2D0915 || !(std::fabs(x) < tolerance) || !(std::fabs(y) < tolerance) ||
             !(std::fabs(z) < tolerance))
-            dest->PutVec3(name, x, y, z);
+            dest->put_vec3(name, x, y, z);
         return token + 13;
     }
     case 0x1F:
-        dest->InsertPair(name, AsFloat(FetchWord32(p)), AsFloat(FetchWord32(token + 5)));
+        dest->insert_pair(name, get_as_float(fetch_word32(p)), get_as_float(fetch_word32(token + 5)));
         return token + 9;
     case 0x1B: {
-        uint32_t length = FetchWord32(p);
-        dest->AppendWord(name, reinterpret_cast<const char*>(token + 5));
+        uint32_t length = fetch_word32(p);
+        dest->append_word(name, reinterpret_cast<const char*>(token + 5));
         return token + 5 + length;
     }
     case 0x1C: {
-        uint32_t length = FetchWord32(p);
-        dest->AppendInlineText(name, reinterpret_cast<const char*>(token + 5));
+        uint32_t length = fetch_word32(p);
+        dest->append_inline_text(name, reinterpret_cast<const char*>(token + 5));
         return token + 5 + length;
     }
     case 0x03: {
-        CStruct* structure = NewInitStruct();
-        p = ParseStructure(structure, token, args);
-        dest->AppendStructRef(name, structure);
+        Struct* structure = new_init_struct();
+        p = parse_structure(structure, token, args);
+        dest->append_struct_ref(name, structure);
         return p;
     }
     case 0x05: {
-        MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_scriptHeap);
-        CArray* array = NewInitArray();
-        MemSys::LeaveHeapScope();
-        p = ParseArray(array, token, args);
-        dest->AppendArrayRef(name, array);
+        memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
+        Array* array = new_init_array();
+        memory::leave_heap_scope();
+        p = parse_array(array, token, args);
+        dest->append_array_ref(name, array);
         return p;
     }
     case 0x23: { // a script, under its own name
-        uint32_t scriptName = FetchWord32(token + 2);
+        uint32_t script_name = fetch_word32(token + 2);
         const uint8_t* start = token + 6;
-        const uint8_t* end = SkipToEndOfScript(start);
-        dest->AppendScript(scriptName, start, static_cast<uint32_t>(end - start));
+        const uint8_t* end = skip_to_end_of_script(start);
+        dest->append_script(script_name, start, static_cast<uint32_t>(end - start));
         return end;
     }
     case 0x2D: { // <name>
-        uint32_t reference = FetchWord32(token + 2);
+        uint32_t reference = fetch_word32(token + 2);
         p = token + 6;
         if (!args)
             return p;
-        CComponent* found = args->FindLastComponent(reference);
+        Component* found = args->find_last_component(reference);
         if (!found)
             return p;
-        if (name == 0 && (found->typeAndFlag & 0xFE) == (QBVAL_STRUCT << 1)) {
-            dest->AppendStructureIfAny(found->structure);
+        if (name == 0 && (found->type_and_flag_ & 0xFE) == (kQbvalStruct << 1)) {
+            dest->append_structure_if_any(found->structure);
             return p;
         }
-        CComponent* copy = NewComponent();
-        DuplicateComponent(copy, found, 0);
+        Component* copy = new_component();
+        duplicate_component(copy, found, 0);
         copy->name = name;
-        dest->AttachModule(copy);
+        dest->attach_module(copy);
         return p;
     }
     case 0x2C: // <...>
         if (args) {
             if (name) {
-                CStruct* structure = NewInitStruct();
-                structure->Assign(args);
-                dest->AppendStructRef(name, structure);
+                Struct* structure = new_init_struct();
+                structure->get_assign(args);
+                dest->append_struct_ref(name, structure);
             } else {
-                dest->MergeStructure(args);
+                dest->merge_structure(args);
             }
         }
         return p;
@@ -517,10 +517,10 @@ const uint8_t* AddParameter(const uint8_t* token, uint32_t name, CStruct* dest, 
         deterministic = true;
         [[fallthrough]];
     case 0x30: {
-        CComponent* value = NewComponent();
-        p = ParseRandomRange(p, value, deterministic);
+        Component* value = new_component();
+        p = parse_random_range(p, value, deterministic);
         value->name = name;
-        dest->AttachModule(value);
+        dest->attach_module(value);
         return p;
     }
     case 0x09:
@@ -531,16 +531,16 @@ const uint8_t* AddParameter(const uint8_t* token, uint32_t name, CStruct* dest, 
 }
 
 // 0x00470F30
-const uint8_t* ParseArguments(CStruct* dest, const uint8_t* token, CStruct* args)
+const uint8_t* parse_arguments(Struct* dest, const uint8_t* token, Struct* args)
 {
     for (;;) {
-        token = ResolveRandomJumps(token);
+        token = resolve_random_jumps(token);
         uint8_t t = *token;
         if (t == 0x01 || t == 0x02 || t == 0x00 || t == 0x0F)
             return token;
         switch (t) {
         case 0x03:
-            token = ParseStructure(dest, token, args);
+            token = parse_structure(dest, token, args);
             break;
         case 0x09:
             ++token;
@@ -548,86 +548,86 @@ const uint8_t* ParseArguments(CStruct* dest, const uint8_t* token, CStruct* args
         case 0x2C:
             ++token;
             if (args)
-                dest->MergeStructure(args);
+                dest->merge_structure(args);
             break;
         case 0x2D:
-            token = AddParameter(token, 0, dest, args);
+            token = add_parameter(token, 0, dest, args);
             break;
         case 0x16: {
-            uint32_t name = FetchWord32(token + 1);
-            const uint8_t* next = ResolveRandomJumps(token + 5);
+            uint32_t name = fetch_word32(token + 1);
+            const uint8_t* next = resolve_random_jumps(token + 5);
             if (*next != 0x07) {
                 // A bare name: a flag.
-                token = AddParameter(token, 0, dest, args);
+                token = add_parameter(token, 0, dest, args);
                 break;
             }
-            next = ResolveRandomJumps(next + 1);
+            next = resolve_random_jumps(next + 1);
             if (*next == 0x0E)
-                token = AddNamedExpression(next, name, dest, args);
+                token = add_named_expression(next, name, dest, args);
             else
-                token = AddParameter(next, name, dest, args);
+                token = add_parameter(next, name, dest, args);
             break;
         }
         default:
             if (t == 0x0E)
-                token = AddExpression(token, dest, args);
+                token = add_expression(token, dest, args);
             else
-                token = AddParameter(token, 0, dest, args);
+                token = add_parameter(token, 0, dest, args);
             break;
         }
     }
 }
 
 // 0x00471860
-const uint8_t* ParseStructure(CStruct* dest, const uint8_t* token, CStruct* args)
+const uint8_t* parse_structure(Struct* dest, const uint8_t* token, Struct* args)
 {
     const uint8_t* p = token + 1;
     for (;;) {
-        p = SkipEndOfLinesIn(p);
-        p = ResolveRandomJumps(p);
+        p = skip_end_of_lines_in(p);
+        p = resolve_random_jumps(p);
         uint8_t t = *p;
         if (t == 0x04)
             return p + 1;
         switch (t) {
         case 0x01:
         case 0x02:
-            p = SkipEndOfLinesIn(p);
+            p = skip_end_of_lines_in(p);
             break;
         case 0x03:
-            p = ParseStructure(dest, p, args);
+            p = parse_structure(dest, p, args);
             break;
         case 0x09:
             ++p;
             break;
         case 0x16: {
-            uint32_t name = FetchWord32(p + 1);
-            const uint8_t* next = ResolveRandomJumps(SkipEndOfLinesIn(p + 5));
+            uint32_t name = fetch_word32(p + 1);
+            const uint8_t* next = resolve_random_jumps(skip_end_of_lines_in(p + 5));
             if (*next != 0x07) {
-                p = AddParameter(p, 0, dest, args);
+                p = add_parameter(p, 0, dest, args);
                 break;
             }
-            next = ResolveRandomJumps(SkipEndOfLinesIn(next + 1));
+            next = resolve_random_jumps(skip_end_of_lines_in(next + 1));
             if (*next == 0x0E)
-                p = AddNamedExpression(next, name, dest, args);
+                p = add_named_expression(next, name, dest, args);
             else
-                p = AddParameter(next, name, dest, args);
+                p = add_parameter(next, name, dest, args);
             break;
         }
         default:
             if (t == 0x0E)
-                p = AddExpression(p, dest, args);
+                p = add_expression(p, dest, args);
             else
-                p = AddParameter(p, 0, dest, args);
+                p = add_parameter(p, 0, dest, args);
             break;
         }
     }
 }
 
 // 0x00471B00
-const uint8_t* ParseArray(CArray* dest, const uint8_t* token, CStruct* args)
+const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
 {
     const uint8_t* first = token + 1;
-    const uint8_t* p = ResolveRandomJumps(first);
+    const uint8_t* p = resolve_random_jumps(first);
     uint32_t type = 0;
     uint32_t count = 0;
     if (*p == 0x06)
@@ -635,121 +635,121 @@ const uint8_t* ParseArray(CArray* dest, const uint8_t* token, CStruct* args)
     do {
         uint8_t t = *p;
         switch (t) {
-        case 0x03: type = QBVAL_STRUCT; break;
-        case 0x05: type = QBVAL_ARRAY; break;
-        case 0x16: type = QBVAL_NAME; break;
+        case 0x03: type = kQbvalStruct; break;
+        case 0x05: type = kQbvalArray; break;
+        case 0x16: type = kQbvalName; break;
         case 0x17: case 0x18:
-            if (type != QBVAL_FLOAT)
-                type = QBVAL_INTEGER;
+            if (type != kQbvalFloat)
+                type = kQbvalInteger;
             break;
-        case 0x1A: type = QBVAL_FLOAT; break;
-        case 0x1B: type = QBVAL_STRING; break;
-        case 0x1C: type = QBVAL_INLINE_TEXT; break;
-        case 0x1E: type = QBVAL_VECTOR; break;
-        case 0x1F: type = QBVAL_PAIR; break;
+        case 0x1A: type = kQbvalFloat; break;
+        case 0x1B: type = kQbvalString; break;
+        case 0x1C: type = kQbvalInlineText; break;
+        case 0x1E: type = kQbvalVector; break;
+        case 0x1F: type = kQbvalPair; break;
         default: break;
         }
         switch (t) {
         case 0x01: case 0x02: case 0x09:
-            p = StepOverToken(p);
+            p = step_over_token(p);
             break;
         case 0x03: case 0x05: case 0x16: case 0x17: case 0x18: case 0x1A: case 0x1B: case 0x1C: case 0x1E:
         case 0x1F:
             ++count;
-            p = SkipValue(p);
+            p = skip_value(p);
             break;
         default:
             // (anything else doesn't move on: the original loops here)
             break;
         }
-        p = ResolveRandomJumps(p);
+        p = resolve_random_jumps(p);
     } while (*p != 0x06);
     if (type == 0)
         return p + 1;
 
-    MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_scriptHeap);
-    dest->ConfigureSizeKind(count, static_cast<EQbValueKind>(type));
-    MemSys::LeaveHeapScope();
+    memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
+    dest->configure_size_kind(count, static_cast<QbValueKind>(type));
+    memory::leave_heap_scope();
     if (type == 7 || type == 8 || type == 9 || type == 11)
         return token;
-    uint32_t* element = dest->FindArrayValue();
-    p = ResolveRandomJumps(first);
+    uint32_t* element = dest->find_array_value();
+    p = resolve_random_jumps(first);
     while (*p != 0x06) {
         uint8_t t = *p;
         switch (type) {
-        case QBVAL_STRUCT:
+        case kQbvalStruct:
             // (no step first; unknown tokens don't move on: the original loops here)
             if (t == 0x01 || t == 0x09) {
                 ++p;
             } else if (t == 0x02) {
                 p += 5;
             } else if (t == 0x03) {
-                CStruct* structure = NewInitStruct();
-                p = ParseStructure(structure, p, args);
+                Struct* structure = new_init_struct();
+                p = parse_structure(structure, p, args);
                 *element++ = reinterpret_cast<uint32_t>(structure);
             }
             break;
-        case QBVAL_ARRAY:
+        case kQbvalArray:
             ++p;
             if (t == 0x02) {
                 p += 4;
             } else if (t == 0x05) {
-                CArray* array = NewInitArray();
-                p = ParseArray(array, p - 1, args);
+                Array* array = new_init_array();
+                p = parse_array(array, p - 1, args);
                 *element++ = reinterpret_cast<uint32_t>(array);
             }
             break;
-        case QBVAL_INTEGER:
+        case kQbvalInteger:
             ++p;
             if (t == 0x02) {
                 p += 4;
             } else if (t == 0x17 || t == 0x18) {
-                *element++ = FetchWord32(p);
+                *element++ = fetch_word32(p);
                 p += 4;
             }
             break;
-        case QBVAL_FLOAT:
+        case kQbvalFloat:
             ++p;
             if (t == 0x02) {
                 p += 4;
             } else if (t == 0x17 || t == 0x18) {
-                float value = static_cast<float>(static_cast<int32_t>(FetchWord32(p)));
+                float value = static_cast<float>(static_cast<int32_t>(fetch_word32(p)));
                 std::memcpy(element++, &value, 4);
                 p += 4;
             } else if (t == 0x1A) {
-                *element++ = FetchWord32(p);
+                *element++ = fetch_word32(p);
                 p += 4;
             }
             break;
-        case QBVAL_NAME:
+        case kQbvalName:
             ++p;
             if (t == 0x02) {
                 p += 4;
             } else if (t == 0x16) {
-                *element++ = FetchWord32(p);
+                *element++ = fetch_word32(p);
                 p += 4;
             }
             break;
-        case QBVAL_STRING:
-        case QBVAL_INLINE_TEXT:
+        case kQbvalString:
+        case kQbvalInlineText:
             ++p;
             if (t == 0x02) {
                 p += 4;
-            } else if (t == (type == QBVAL_STRING ? 0x1B : 0x1C)) {
-                uint32_t length = FetchWord32(p);
+            } else if (t == (type == kQbvalString ? 0x1B : 0x1C)) {
+                uint32_t length = fetch_word32(p);
                 p += 4;
-                *element++ = reinterpret_cast<uint32_t>(SpawnText(reinterpret_cast<const char*>(p)));
+                *element++ = reinterpret_cast<uint32_t>(spawn_text(reinterpret_cast<const char*>(p)));
                 p += length;
             }
             break;
-        case QBVAL_VECTOR:
+        case kQbvalVector:
             ++p;
             if (t == 0x02) {
                 p += 4;
             } else if (t == 0x1E) {
-                CVector* vector = AllocScriptVector();
-                vector = vector ? vector->PrepareAll() : nullptr;
-                uint32_t x = FetchWord32(p), y = FetchWord32(p + 4), z = FetchWord32(p + 8);
+                Vector* vector = alloc_script_vector();
+                vector = vector ? vector->prepare_all() : nullptr;
+                uint32_t x = fetch_word32(p), y = fetch_word32(p + 4), z = fetch_word32(p + 8);
                 std::memcpy(&vector->x, &x, 4);
                 std::memcpy(&vector->y, &y, 4);
                 std::memcpy(&vector->z, &z, 4);
@@ -757,14 +757,14 @@ const uint8_t* ParseArray(CArray* dest, const uint8_t* token, CStruct* args)
                 *element++ = reinterpret_cast<uint32_t>(vector);
             }
             break;
-        case QBVAL_PAIR:
+        case kQbvalPair:
             ++p;
             if (t == 0x02) {
                 p += 4;
             } else if (t == 0x1F) {
-                CPair* pair = NewPair();
-                pair = pair ? pair->PrepareAll() : nullptr;
-                uint32_t x = FetchWord32(p), y = FetchWord32(p + 4);
+                Pair* pair = new_pair();
+                pair = pair ? pair->prepare_all() : nullptr;
+                uint32_t x = fetch_word32(p), y = fetch_word32(p + 4);
                 std::memcpy(&pair->x, &x, 4);
                 std::memcpy(&pair->y, &y, 4);
                 p += 8;
@@ -774,29 +774,29 @@ const uint8_t* ParseArray(CArray* dest, const uint8_t* token, CStruct* args)
         default:
             break;
         }
-        p = ResolveRandomJumps(p);
+        p = resolve_random_jumps(p);
     }
     return p + 1;
 }
 
 // 0x004712B0
-const uint8_t* ParseExpression(const uint8_t* token, CStruct* args, CComponent* result)
+const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* result)
 {
-    CValueResolver& evaluator = Evaluator();
-    CComponent& value = Scratch();
-    evaluator.ResetIfDirty();
-    evaluator.SetReadCursor(token);
+    ValueResolver& evaluator = get_evaluator();
+    Component& value = get_scratch();
+    evaluator.reset_if_dirty();
+    evaluator.set_read_cursor(token);
     const uint8_t* p = token + 1;
     int parentheses = 0;
-    bool afterDot = false;  // a name after '.' is a member name, not a global value
-    bool haveValue = false; // (for a negative number to be taken as a subtraction)
-    bool expectValue = true;
+    bool after_dot = false;  // a name after '.' is a member name, not a global value
+    bool have_value = false; // (for a negative number to be taken as a subtraction)
+    bool expect_value = true;
     auto pushed = [&] {
-        haveValue = true;
-        expectValue = false;
+        have_value = true;
+        expect_value = false;
     };
     for (;;) {
-        p = ResolveRandomJumps(p);
+        p = resolve_random_jumps(p);
         uint8_t t = *p;
         switch (t) {
         case 0x01: case 0x06:
@@ -806,140 +806,140 @@ const uint8_t* ParseExpression(const uint8_t* token, CStruct* args, CComponent* 
             p += 5;
             continue;
         case 0x03: case 0x1B: case 0x1C: case 0x1E: case 0x1F: case 0x30:
-            if (!expectValue)
+            if (!expect_value)
                 break;
-            p = ParseValue(p, args, &value);
-            evaluator.Intake(&value);
-            ReleaseComponent(&value);
+            p = parse_value(p, args, &value);
+            evaluator.intake(&value);
+            release_component(&value);
             pushed();
             continue;
         case 0x05: case 0x07: case 0x08: case 0x0A: case 0x0B: case 0x0C: case 0x0D: case 0x12: case 0x14:
         case 0x32: case 0x33: // operators
-            evaluator.Intake(static_cast<int>(t));
+            evaluator.intake(static_cast<int>(t));
             ++p;
-            afterDot = t == 0x08;
-            haveValue = false;
-            expectValue = true;
+            after_dot = t == 0x08;
+            have_value = false;
+            expect_value = true;
             continue;
         case 0x0E:
-            if (!expectValue)
+            if (!expect_value)
                 break;
             ++p;
-            evaluator.OpenBracket();
+            evaluator.open_bracket();
             ++parentheses;
-            haveValue = false;
-            expectValue = true;
+            have_value = false;
+            expect_value = true;
             continue;
         case 0x0F:
             ++p;
             if (parentheses == 0)
                 break;
-            evaluator.CloseBracket();
-            expectValue = false;
+            evaluator.close_bracket();
+            expect_value = false;
             --parentheses;
-            haveValue = true;
+            have_value = true;
             continue;
         case 0x16: {
-            if (!expectValue)
+            if (!expect_value)
                 break;
-            p = ParseValue(p, args, &value);
-            CSymbolTableEntry* symbol = afterDot ? nullptr : ResolveSymbol(value.checksum);
+            p = parse_value(p, args, &value);
+            SymbolTableEntry* symbol = after_dot ? nullptr : resolve_symbol(value.checksum);
             if (symbol) {
                 bool push = true;
                 switch (symbol->type) {
-                case QBVAL_INTEGER: case QBVAL_FLOAT: case QBVAL_STRING:
-                case QBVAL_INLINE_TEXT: case QBVAL_PAIR: case QBVAL_VECTOR: case QBVAL_NAME:
-                    ChangeSpecies(&value, symbol->type);
+                case kQbvalInteger: case kQbvalFloat: case kQbvalString:
+                case kQbvalInlineText: case kQbvalPair: case kQbvalVector: case kQbvalName:
+                    change_species(&value, symbol->type);
                     value.raw = symbol->raw;
                     break;
-                case QBVAL_STRUCT:
-                    ChangeSpecies(&value, QBVAL_STRUCT_REF);
+                case kQbvalStruct:
+                    change_species(&value, kQbvalStructRef);
                     value.raw = symbol->raw;
                     break;
-                case QBVAL_ARRAY:
-                    ChangeSpecies(&value, ESYMBOLTYPE_ARRAYPOINTER);
+                case kQbvalArray:
+                    change_species(&value, kEsymboltypeArraypointer);
                     value.raw = symbol->raw;
                     break;
-                case QBVAL_NATIVE_FUNC: {
+                case kQbvalNativeFunc: {
                     // Called now, with the arguments that follow.
-                    CScript* script = GetRunningScript();
-                    ChangeSpecies(&value, QBVAL_INTEGER);
-                    CStruct* params = NewInitStruct();
-                    p = ParseArguments(params, p, args);
+                    Script* script = get_running_script();
+                    change_species(&value, kQbvalInteger);
+                    Struct* params = new_init_struct();
+                    p = parse_arguments(params, p, args);
                     // (the byte the function returns, as it is)
-                    using Routine = uint8_t(__cdecl*)(CStruct*, CScript*);
+                    using Routine = uint8_t(__cdecl*)(Struct*, Script*);
                     value.raw = reinterpret_cast<Routine>(symbol->raw)(params, script);
                     if (params) {
-                        params->Clear();
-                        DeleteStruct(params);
+                        params->get_clear();
+                        delete_struct(params);
                     }
                     break;
                 }
-                case QBVAL_NATIVE_METHOD:
+                case kQbvalNativeMethod:
                     push = false;
                     break;
                 default:
                     break;
                 }
                 if (push)
-                    evaluator.Intake(&value);
+                    evaluator.intake(&value);
             } else {
-                evaluator.Intake(&value);
+                evaluator.intake(&value);
             }
-            value.typeAndFlag &= 1;
+            value.type_and_flag_ &= 1;
             value.raw = 0;
             pushed();
             continue;
         }
         case 0x17:
         case 0x1A: {
-            if (expectValue) {
-                p = ParseValue(p, args, &value);
-                evaluator.Intake(&value);
-                ReleaseComponent(&value);
+            if (expect_value) {
+                p = parse_value(p, args, &value);
+                evaluator.intake(&value);
+                release_component(&value);
                 pushed();
                 continue;
             }
             // A negative number right after a value: a subtraction ("a -1" is compiled as "a" "-1").
-            const uint8_t* next = ParseValue(p, args, &value);
-            bool negative = t == 0x17 ? value.integer < 0 : value.floatValue < 0.0f;
-            if (!negative || !haveValue)
+            const uint8_t* next = parse_value(p, args, &value);
+            bool negative = t == 0x17 ? value.integer < 0 : value.float_value_ < 0.0f;
+            if (!negative || !have_value)
                 break;
-            evaluator.Intake(static_cast<int>(OPERATOR_MINUS));
+            evaluator.intake(static_cast<int>(kOperatorMinus));
             if (t == 0x17)
                 value.integer = -value.integer;
             else
-                value.floatValue = -value.floatValue;
-            evaluator.Intake(&value);
-            ReleaseComponent(&value);
+                value.float_value_ = -value.float_value_;
+            evaluator.intake(&value);
+            release_component(&value);
             p = next;
             pushed();
             continue;
         }
         case 0x2C: // <...>
-            if (!expectValue)
+            if (!expect_value)
                 break;
             ++p;
             if (args) {
-                ChangeSpecies(&value, QBVAL_STRUCT_REF);
+                change_species(&value, kQbvalStructRef);
                 value.structure = args;
-                evaluator.Intake(&value);
+                evaluator.intake(&value);
             }
             pushed();
             continue;
         case 0x2D: { // <name>
-            if (!expectValue)
+            if (!expect_value)
                 break;
-            uint32_t name = FetchWord32(p + 2);
+            uint32_t name = fetch_word32(p + 2);
             p += 6;
-            CComponent* found = args ? args->FindLastComponent(name) : nullptr;
+            Component* found = args ? args->find_last_component(name) : nullptr;
             if (found) {
-                value.typeAndFlag = static_cast<uint8_t>((value.typeAndFlag & 1) | (found->typeAndFlag & 0xFE));
+                value.type_and_flag_ = static_cast<uint8_t>((value.type_and_flag_ & 1) | (found->type_and_flag_ & 0xFE));
                 value.raw = found->raw;
-                EvaluateNameToken(&value);
-                MakeReference(&value);
-                evaluator.Intake(&value);
-                value.typeAndFlag &= 1;
+                evaluate_name_token(&value);
+                make_reference(&value);
+                evaluator.intake(&value);
+                value.type_and_flag_ &= 1;
                 value.raw = 0;
             }
             pushed();
@@ -951,7 +951,7 @@ const uint8_t* ParseExpression(const uint8_t* token, CStruct* args, CComponent* 
         }
         break; // the end of the expression
     }
-    evaluator.FetchVerdict(result);
+    evaluator.fetch_verdict(result);
     return p;
 }
 
@@ -961,80 +961,80 @@ const uint8_t* ParseExpression(const uint8_t* token, CStruct* args, CComponent* 
 
 namespace {
 
-using Scripts::CComponent;
-using Scripts::CStruct;
+using script::Component;
+using script::Struct;
 
-const Scripts::CStoredRandom* __cdecl FindStoredRandomRegisters(const uint8_t* table, uint32_t type, uint32_t count)
+const script::StoredRandom* __cdecl find_stored_random_registers(const uint8_t* table, uint32_t type, uint32_t count)
 {
-    return Scripts::LookUpSavedRandom(table, type, count);
+    return script::look_up_saved_random(table, type, count);
 }
-const uint8_t* __cdecl SkipValueRegisters(const uint8_t* token) { return Scripts::SkipValue(token); }
-const uint8_t* __cdecl ParseRandomRangeRegisters(const uint8_t* token, CComponent* out, uint32_t deterministic)
+const uint8_t* __cdecl skip_value_registers(const uint8_t* token) { return script::skip_value(token); }
+const uint8_t* __cdecl parse_random_range_registers(const uint8_t* token, Component* out, uint32_t deterministic)
 {
-    return Scripts::ParseRandomRange(token, out, (deterministic & 0xFF) != 0);
+    return script::parse_random_range(token, out, (deterministic & 0xFF) != 0);
 }
-const uint8_t* __cdecl AddParameterRegisters(const uint8_t* token, uint32_t name, CStruct* dest, CStruct* args)
+const uint8_t* __cdecl add_parameter_registers(const uint8_t* token, uint32_t name, Struct* dest, Struct* args)
 {
-    return Scripts::AddParameter(token, name, dest, args);
+    return script::add_parameter(token, name, dest, args);
 }
 
 } // namespace
 
 // 0x0046F7A0: the table in EBX, the type in EDI, the count in ESI.
-__declspec(naked) void Scripts::FindStoredRandomStub()
+__declspec(naked) void script::find_stored_random_stub()
 {
     __asm {
         push esi
         push edi
         push ebx
-        call FindStoredRandomRegisters
+        call find_stored_random_registers
         add esp, 12
         ret
     }
 }
 
 // 0x0046FD60: the token in EAX.
-__declspec(naked) void Scripts::SkipValueStub()
+__declspec(naked) void script::skip_value_stub()
 {
     __asm {
         push eax
-        call SkipValueRegisters
+        call skip_value_registers
         add esp, 4
         ret
     }
 }
 
 // 0x0046FBD0: the token in EAX, the stream choice in BL, the component on the stack (the caller pops it).
-__declspec(naked) void Scripts::ParseRandomRangeStub()
+__declspec(naked) void script::parse_random_range_stub()
 {
     __asm {
         movzx ecx, bl
         push ecx
         push dword ptr [esp + 8]
         push eax
-        call ParseRandomRangeRegisters
+        call parse_random_range_registers
         add esp, 12
         ret
     }
 }
 
 // 0x00470130: the token in ECX, the name in EDX, the structures on the stack (the caller pops them).
-__declspec(naked) void Scripts::AddParameterStub()
+__declspec(naked) void script::add_parameter_stub()
 {
     __asm {
         push dword ptr [esp + 8]
         push dword ptr [esp + 8]
         push edx
         push ecx
-        call AddParameterRegisters
+        call add_parameter_registers
         add esp, 16
         ret
     }
 }
 
-namespace Scripts {
+namespace script {
 
 // 0x00640A70 (a static initialiser): the expression evaluator, cleared.
-void ConstructEvaluator() { g_evaluator.PrepareAll(); }
+void construct_evaluator() { g_evaluator.prepare_all(); }
 
 } // namespace Script

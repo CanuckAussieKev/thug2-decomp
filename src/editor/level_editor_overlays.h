@@ -16,17 +16,17 @@
 //   - Overlays (Blender's overlay popover): one dropdown with a checkbox for every overlay - the node families' gizmos
 //     (the Outliner's chips, [editor] families=), the collision (C, [editor] collision=), the trigger volumes (T), and
 //     the ones kept here as bits of [editor] overlays= in thug2-decomp.ini (Bit below): labels over the view, the
-//     collision's legend, the feature map (speed-ups, boosts, breakables - level_editor_triggers.h's AddExtras), a
+//     collision's legend, the feature map (speed-ups, boosts, breakables - level_editor_triggers.h's add_extras), a
 //     ground grid, what a scenery move carries (level_editor_carry.h), the Outliner's markers, jump arcs (Y,
 //     level_editor_arcs.h), the grind-line preview (level_editor_grind_preview.h) and the ruler (M,
 //     level_editor_ruler.h). Every key that switched one before still does.
 // Also here: Painter, which the overlay modules draw with (world lines, labels and dots projected to the view).
-namespace MenuSystem::LevelEditor::Overlays {
+namespace frontend::level_editor::overlays {
 
 enum Bit : uint32_t {
     kLabels = 1u << 0,        // texts over the view (gizmo labels, trigger names, the feature map's numbers)
     kLegend = 1u << 1,        // the collision's legend (bottom left)
-    kFeatureMap = 1u << 2,    // speed-ups' chevrons, boosts, proximity shapes, breakables (Triggers::AddExtras)
+    kFeatureMap = 1u << 2,    // speed-ups' chevrons, boosts, proximity shapes, breakables (Triggers::add_extras)
     kGrid = 1u << 3,          // a 100-unit grid on the ground below the camera (or the selection)
     kCarryHints = 1u << 4,    // what a scenery move carries, outlined while it moves
     kOutlinerMarks = 1u << 5, // the Outliner rows' change letters (M, A, H...)
@@ -44,21 +44,21 @@ struct BitInfo {
     const char* tip;
 };
 // The bits in the menu's order.
-const std::vector<BitInfo>& Bits();
+const std::vector<BitInfo>& get_bits();
 
 // The setting ([editor] overlays=, read once) and a bit switched (written to the ini).
-uint32_t AtHand();
-bool Shown(uint32_t bit);
-void AssignValue(uint32_t bit, bool on);
+uint32_t at_hand();
+bool get_shown(uint32_t bit);
+void assign_value(uint32_t bit, bool on);
 
 // The editor starting / stopping (Stop: the view mode back to Lit; Collision only's forced collision view undone).
-void Kickoff();
-void Halt();
-// The view mode (Engine3D::ViewMode::Mode as an int; 0 Lit .. 3 Collision only) - Alt+1..4 and the View menu. Collision
+void kickoff();
+void halt();
+// The view mode (render::view_mode::Mode as an int; 0 Lit .. 3 Collision only) - Alt+1..4 and the View menu. Collision
 // only turns the collision view on for as long as it lasts.
-int ViewMode();
-void ChangeViewMode(int mode);
-const char* ViewModeName(int mode);
+int view_mode();
+void change_view_mode(int mode);
+const char* view_mode_name(int mode);
 constexpr int kViewModes = 4;
 
 // --- drawing over the view (the modules' overlays) ---------------------------------------------------------------
@@ -69,29 +69,29 @@ struct Painter {
     TickCycle frame;
     Lens lens;
     uint32_t viewport[4];
-    float nearZ;
-    Ui::Overlay* overlay;
+    float near_z_;
+    ui::Overlay* overlay;
     // False when it is wholly behind the near plane.
-    bool Seg(V3 a, V3 b, uint32_t argb, float thickness = 1.0f) const;
+    bool get_seg(V3 a, V3 b, uint32_t argb, float thickness = 1.0f) const;
     // A point's pixel (false: behind the camera).
-    bool Pixel(V3 p, float* x, float* y) const;
-    void Dot(V3 p, float radius, uint32_t argb, bool filled = true) const;
+    bool get_pixel(V3 p, float* x, float* y) const;
+    void get_dot(V3 p, float radius, uint32_t argb, bool filled = true) const;
     // A label just right of / above the point (pixels: `dx`, `dy`).
-    void Text(V3 p, uint32_t argb, const std::string& text, float dx = 6.0f, float dy = -8.0f) const;
+    void text_tools(V3 p, uint32_t argb, const std::string& text, float dx = 6.0f, float dy = -8.0f) const;
     // A cross on the ground (in the plane y = p.y), `size` units.
-    void Perpendicular(V3 p, float size, uint32_t argb, float thickness = 1.0f) const;
-    float SpanTo(V3 p) const;
+    void perpendicular(V3 p, float size, uint32_t argb, float thickness = 1.0f) const;
+    float span_to(V3 p) const;
 };
 // The painter for this frame's view (false: the editor's view isn't known yet).
-bool PainterNow(Ui::Overlay* overlay, Painter* painter);
+bool painter_now(ui::Overlay* overlay, Painter* painter);
 
-// The grid (kGrid) and the carried things (kCarryHints) - LevelEditor::Blit, with the other overlays.
-void AddOverlay(const Painter& painter, bool moving, V3 selectionBase, bool haveSelection);
+// The grid (kGrid) and the carried things (kCarryHints) - level_editor::Blit, with the other overlays.
+void add_overlay(const Painter& painter, bool moving, V3 selection_base, bool have_selection);
 
 // The menu bar's View menu parts (level_editor_ui_menus.cpp): the view modes (Alt+1..4), and the overlays' switches
 // with the gizmo families as a submenu; `requests`: the editor's (the families, the collision).
-void ViewModeItems();
-void OverlayItems(const Ui::ShapeMesh& model, std::vector<Ui::Request>* requests);
+void view_mode_items();
+void overlay_items(const ui::ShapeMesh& model, std::vector<ui::Request>* requests);
 // F1's rows for the keys bound here and in the modules (the view modes, arcs, ruler, palette, grind preview): a section
 // (empty: the one before), the keys, what they do.
 struct HelpRow {
@@ -99,7 +99,7 @@ struct HelpRow {
     const char* keys;
     const char* what;
 };
-const std::vector<HelpRow>& HelpRows();
+const std::vector<HelpRow>& help_rows();
 
 // --- the pieces (pure) -------------------------------------------------------------------------------------------
 
@@ -109,8 +109,8 @@ struct GridLine {
     V3 a, b;
     bool major;
 };
-std::vector<GridLine> GridLines(V3 centre, float y, float radius, float spacing);
+std::vector<GridLine> grid_lines(V3 centre, float y, float radius, float spacing);
 // The ini's overlays= value read back (unknown bits dropped; a missing value: kDefaultBits).
-uint32_t ParseBits(int value, bool present);
+uint32_t parse_bits(int value, bool present);
 
-} // namespace MenuSystem::LevelEditor::Overlays
+} // namespace MenuSystem::level_editor::Overlays

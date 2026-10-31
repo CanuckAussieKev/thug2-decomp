@@ -21,58 +21,58 @@ struct IDirect3D9;
 struct IDirect3DDevice9;
 struct IDirect3DTexture9;
 
-namespace Engine3D::GraphicsOptions {
+namespace render::graphics_options {
 
 struct Options {
     int anisotropy = 0;           // 0, or 2-16
     int msaa = 0;                 // 0, or 2-16
-    float drawDistanceScale = 1.0f;
-    float lodDistanceScale = 1.0f;
+    float draw_distance_scale_ = 1.0f;
+    float lod_distance_scale_ = 1.0f;
 };
 
 // The options as read (defaults until Load runs).
-Options& Pull();
+Options& get_pull();
 // Read them from [Graphics] (at start-up, with the other graphics settings).
-void ReadIn();
+void read_in();
 
 // --- The parsing and choices (no device: the self-tests check these) ---
 
 // An anisotropy setting: below 2 off (0), above 16 16.
-int ParseAnisotropy(int value);
+int parse_anisotropy(int value);
 // A sample count setting: below 2 off (0), above 16 16.
-int ParseMultisample(int value);
+int parse_multisample(int value);
 // A scale setting ("1.5"): empty, unreadable, not a number or not above 0 -> 1; else clamped to 0.25-8.
-float ParseScale(const char* text);
+float parse_scale(const char* text);
 // The anisotropy to use on a device: 0 (the original's filtering) when the option is off or the device can't
 // filter anisotropically, else the option clamped to its MaxAnisotropy (0 if that's below 2).
-int DeviceAnisotropy(int option, bool deviceCanFilter, uint32_t maxAnisotropy);
+int device_anisotropy(int option, bool device_can_filter, uint32_t max_anisotropy);
 // The minification filter a sampler gets where the original picks linear (`linear`) or point: anisotropic in place
 // of linear when `anisotropy` is on. (D3DTEXF_* values.)
-uint32_t MinFilter(bool linear, int anisotropy);
+uint32_t get_min_filter(bool linear, int anisotropy);
 // The sample count to ask for: the most, from the option down to 2, `supported` says yes to; 0 when none (or off).
-int PickSamples(int option, bool (*supported)(int samples, void* context), void* context);
+int pick_samples(int option, bool (*supported)(int samples, void* context), void* context);
 // A distance multiplied by a scale - the same float when the scale is 1 (the default: bit for bit the original).
-float Scaled(float distance, float scale);
+float get_scaled(float distance, float scale);
 
 // --- On the device ---
 
-// The device's anisotropy (DeviceAnisotropy), set from its caps by CreateRenderTargets; 0 = the original's filters.
-int& ActiveAnisotropy();
-// The sample count and quality chosen for the device (InitDirect3D, by the msaa option); 0 samples = the option off.
-int ChosenSamples();
-uint32_t ChosenQuality();
+// The device's anisotropy (device_anisotropy), set from its caps by create_render_targets; 0 = the original's filters.
+int& active_anisotropy();
+// The sample count and quality chosen for the device (init_direct_3d, by the msaa option); 0 samples = the option off.
+int chosen_samples();
+uint32_t chosen_quality();
 // Choose them (before the device is made) for this back buffer / depth format pair and window mode.
-void ChooseMultisample(IDirect3D9* d3d, uint32_t backBufferFormat, uint32_t depthFormat, bool windowed);
+void choose_multisample(IDirect3D9* d3d, uint32_t back_buffer_format, uint32_t depth_format, bool windowed);
 
 // The multisampled scene surface (with the msaa option, while the device is multisampled): the screen copies' full
 // size ones (0x00786D1C / 0x00786D20) are drawn through it. Made / released with the other default-pool objects.
-void CreateSceneTarget();
-void ReleaseSceneTarget();
+void create_scene_target();
+void release_scene_target();
 // Instead of a full-size screen copy as the render target: the multisampled surface and its depth. False (nothing
 // done) when not in use or for any other texture.
-bool SetSceneTarget(IDirect3DTexture9* texture);
+bool set_scene_target(IDirect3DTexture9* texture);
 // Before a full-size screen copy is read as a texture: what was drawn into the multisampled surface for it,
 // resolved into it (only if anything was since the last time).
-void ResolveSceneTarget(IDirect3DTexture9* texture);
+void resolve_scene_target(IDirect3DTexture9* texture);
 
-} // namespace Engine3D::GraphicsOptions
+} // namespace render::graphics_options

@@ -7,24 +7,24 @@
 
 // Events and the scripts' event handlers (0x0045F7F0-0x00460792).
 //
-// An event (CSignal) is a type checksum plus who sent it, who it's for and an optional structure of data. The
-// tracker (0x006F0FC0, CEventWaitBoard) hands it to every script listening for its type (Scripts::CScript::ReceiveEvent),
-// and each script's CSignalRouteTable runs the handlers of that type: as an interrupt of the receiving script,
+// An event (Signal) is a type checksum plus who sent it, who it's for and an optional structure of data. The
+// tracker (0x006F0FC0, EventWaitBoard) hands it to every script listening for its type (Scripts::CScript::receive_event),
+// and each script's SignalRouteTable runs the handlers of that type: as an interrupt of the receiving script,
 // as a new spawned script on its object, or - an exception handler - by replacing what the script runs.
 // The rules (order, removal while running, the in-use / alive protocol) are in docs/script-runtime.md
 // section 11.
 //
-// Every method is __thiscall, callee-pops; ListWaitTable is __cdecl. No register arguments.
+// Every method is __thiscall, callee-pops; list_wait_table is __cdecl. No register arguments.
 
-namespace Scripts {
-class CArray;
-class CScript;
-class CStruct;
+namespace script {
+class Array;
+class Script;
+class Struct;
 } // namespace Script
 
-namespace GameObjects {
+namespace objects {
 
-class CEntity;
+class Entity;
 
 // The checksums of `null_script` (the script of a removed handler entry), `all_groups` and `default`.
 constexpr uint32_t kNullScript = 0xC377C572;
@@ -32,123 +32,123 @@ constexpr uint32_t kAllGroups = 0x8B713E0E;
 constexpr uint32_t kDefaultGroup = 0x1CA1FF20;
 
 // An event (made on the stack by the tracker's launch function 0x00462F00).
-struct CSignal {
+struct Signal {
     enum : uint32_t {
-        FLAG_READ = 0x01,     // a script read it
-        FLAG_HANDLED = 0x02,  // a handler ran for it
-        FLAG_OWNS_DATA = 0x04, // m_payload is deleted with the event
+        kFlagRead = 0x01,     // a script read it
+        kFlagHandled = 0x02,  // a handler ran for it
+        kFlagOwnsData = 0x04, // payload_ is deleted with the event
     };
 
     // 0x0045F7F0: the constructor (flags 0; returns this).
-    CSignal* MakeNew(uint32_t type, uint32_t source, uint32_t target, Scripts::CStruct* data);
-    // 0x0045F980: `script` read it: the tracker's event log is told how, then FLAG_READ.
-    void SetEventConsumed(uint32_t how, uint32_t script);
+    Signal* make_new(uint32_t type, uint32_t source, uint32_t target, script::Struct* data);
+    // 0x0045F980: `script` read it: the tracker's event log is told how, then kFlagRead.
+    void set_event_consumed(uint32_t how, uint32_t script);
     // 0x0045F9B0: `script` dealt with it: the tracker's event log is told how (0: an event handler ran, 2: a
-    // script blocked on it was released), then FLAG_HANDLED.
-    void SetEventHandled(uint32_t how, uint32_t script);
+    // script blocked on it was released), then kFlagHandled.
+    void set_event_handled(uint32_t how, uint32_t script);
     // 0x00460150: the destructor: the data goes if the event owns it.
-    void Teardown();
+    void teardown();
 
-    uint32_t m_kindTag;          // +0x00
-    uint32_t m_fromWhere;        // +0x04 the id of the sender
-    uint32_t m_aimPoint;        // +0x08 the id of the object (or spawned script) it is for
-    uint32_t m_flagBits;         // +0x0C
-    Scripts::CStruct* m_payload; // +0x10 added to each handler's parameters
+    uint32_t kind_tag_;          // +0x00
+    uint32_t from_where_;        // +0x04 the id of the sender
+    uint32_t aim_point_;        // +0x08 the id of the object (or spawned script) it is for
+    uint32_t flag_bits_;         // +0x0C
+    script::Struct* payload_; // +0x10 added to each handler's parameters
 };
-static_assert(offsetof(CSignal, m_flagBits) == 0x0C && offsetof(CSignal, m_payload) == 0x10, "layout must match the original");
+static_assert(offsetof(Signal, flag_bits_) == 0x0C && offsetof(Signal, payload_) == 0x10, "layout must match the original");
 
 // 0x0045F9E0: the controller an event came from (its data's `controller`; 0 without one).
-int __cdecl EventController(CSignal* event);
+int __cdecl event_controller(Signal* event);
 
 // Something the tracker tells about events (an abstract class: vtable 0x006477D8, slot 0 the deleting
 // destructor, slot 1 pure - the subclasses' event filter). The tracker keeps them in a singly linked list.
-class CSignalReceiver {
+class SignalReceiver {
 public:
     // 0x0045FAA0
-    CSignalReceiver* MakeNew();
+    SignalReceiver* make_new();
     // 0x0045FAC0: off the tracker's list; the object is let go.
-    void Teardown();
+    void teardown();
     // 0x00460170 (vtable slot 0): Destroy, then freed if `flags` bit 0.
-    CSignalReceiver* DeletingDestructor(unsigned int flags);
+    SignalReceiver* deleting_destructor(unsigned int flags);
     // 0x0045FB30: listen on behalf of `object`: point at it, onto the tracker's list.
-    void EnterWaitBoard(CEntity* object);
+    void enter_wait_board(Entity* object);
 
-    void** m_vtable;
-    CSharedRef<CEntity> m_ownerObject;       // +0x04
-    CSignalReceiver* m_nextSubscriber;  // +0x10 the tracker's list (set by the tracker)
-    bool m_onBoard;                // +0x14 on the tracker's list
-    uint8_t m_pad15[3];
-    int m_busy;                       // +0x18 raised by the tracker while it asks this listener (0x00462F00)
+    void** vtable_;
+    SharedRef<Entity> owner_object_;       // +0x04
+    SignalReceiver* next_subscriber_;  // +0x10 the tracker's list (set by the tracker)
+    bool on_board_;                // +0x14 on the tracker's list
+    uint8_t pad15_[3];
+    int busy_;                       // +0x18 raised by the tracker while it asks this listener (0x00462F00)
 };
-static_assert(offsetof(CSignalReceiver, m_nextSubscriber) == 0x10 && offsetof(CSignalReceiver, m_onBoard) == 0x14 &&
-                  sizeof(CSignalReceiver) == 0x1C,
+static_assert(offsetof(SignalReceiver, next_subscriber_) == 0x10 && offsetof(SignalReceiver, on_board_) == 0x14 &&
+                  sizeof(SignalReceiver) == 0x1C,
               "layout must match the original");
 
-// A script's event handlers (Scripts::CScript::m_signalRoutes, 0x10 bytes, on the front-end heap).
+// A script's event handlers (Scripts::CScript::signal_routes_, 0x10 bytes, on the front-end heap).
 // Entries are never taken out while the table might be running them: removing one sets its script to
 // kNullScript (and frees its parameters); Compact drops those later.
-class CSignalRouteTable {
+class SignalRouteTable {
 public:
     struct TableRow {
         enum : uint8_t {
-            FLAG_REPLACES_RUNNING = 0x01, // replaces the running script instead of interrupting it
-            FLAG_MARKED = 0x02,    // marked for removal (MarkGroup / RemoveMarked)
+            kFlagReplacesRunning = 0x01, // replaces the running script instead of interrupting it
+            kFlagMarked = 0x02,    // marked for removal (mark_group / remove_marked)
         };
-        uint32_t type;            // +0x00 the event type (0 after RemoveType)
+        uint32_t type;            // +0x00 the event type (0 after remove_type)
         uint32_t script;          // +0x04 the handler script; kNullScript = removed
         uint32_t group;           // +0x08
-        Scripts::CStruct* params;  // +0x0C a copy, owned
+        script::Struct* params;  // +0x0C a copy, owned
         uint8_t flags;            // +0x10 (bits 2-7 are left as they were - uninitialised in new entries)
         uint8_t pad[3];
     };
     static_assert(sizeof(TableRow) == 0x14, "layout must match the original");
 
     // 0x0045F820
-    CSignalRouteTable* MakeNew();
+    SignalRouteTable* make_new();
     // 0x0045FB70: the destructor: every entry's parameters, then the array (the fields aren't cleared).
-    void Teardown();
+    void teardown();
 
     // 0x0045FBC0: a handler for `type`: replaces the entry of that type, else reuses a removed entry, else a new
     // one at the end. The tracker is told `script` listens for `type` unless the entry of that type was live.
-    void AppendListener(Scripts::CScript* script, uint32_t type, uint32_t scriptName, uint32_t group, bool exception,
-                    Scripts::CStruct* params);
+    void append_listener(script::Script* script, uint32_t type, uint32_t script_name, uint32_t group, bool exception,
+                    script::Struct* params);
     // 0x004601A0: the handler structures of `handlers` ({type, script, [params = {...}], [group = g], [exception]})
     // go in front of the existing entries; with `replace`, existing entries of each type are removed first, and
     // an empty array removes (and drops) them all. The tracker isn't told.
-    void AddHandlers(Scripts::CArray* handlers, bool replace);
+    void add_handlers(script::Array* handlers, bool replace);
 
     // 0x0045FDF0: remove the entries of `type` (the tracker isn't told).
-    void RemoveType(uint32_t type);
+    void remove_type(uint32_t type);
     // 0x0045FE60: remove the entries of `group` (kAllGroups: all; the tracker isn't told).
-    void RemoveGroup(uint32_t group);
+    void remove_group(uint32_t group);
     // 0x004600E0: the same, and the tracker forgets `script` listens for their types.
-    void RemoveGroup(Scripts::CScript* script, uint32_t group);
-    // 0x0045F840: mark the live entries of `group` (not kAllGroups) for RemoveMarked.
-    void MarkGroup(uint32_t group);
+    void remove_group(script::Script* script, uint32_t group);
+    // 0x0045F840: mark the live entries of `group` (not kAllGroups) for remove_marked.
+    void mark_group(uint32_t group);
     // 0x0045FED0: remove the marked entries; the tracker forgets `script` listens for their types.
-    void RemoveMarked(Scripts::CScript* script);
+    void remove_marked(script::Script* script);
     // 0x0045FF50: drop the removed entries (a new array on the front-end heap).
-    void Compact();
+    void compact();
 
     // 0x0045FA10 / 0x0045FA60: tell the tracker `script` listens for the live entries' types / no longer
     // listens for any entry's type.
-    void EnterWaitBoard(Scripts::CScript* script);
-    void UnregisterWithTracker(Scripts::CScript* script);
+    void enter_wait_board(script::Script* script);
+    void unregister_with_tracker(script::Script* script);
 
     // 0x00460470: run the handlers of `event` for `script` (the table's owner), in table order.
-    void ForwardTrigger(CSignal* event, Scripts::CScript* script);
+    void forward_trigger(Signal* event, script::Script* script);
 
-    // 0x0045F880 (cdecl): print the table (null: "Emtpy" [sic]); returns DebugOut::Printf's result.
-    static int ListWaitTable(CSignalRouteTable* table);
+    // 0x0045F880 (cdecl): print the table (null: "Emtpy" [sic]); returns debug::Printf's result.
+    static int list_wait_table(SignalRouteTable* table);
 
-    TableRow* m_entries;   // +0x00
-    int m_num;        // +0x04
-    bool m_alive;       // +0x08 cleared when the script dies while ForwardTrigger runs (ForwardTrigger then frees the table)
-    bool m_altered;     // +0x09 entries were added or moved (ForwardTrigger stops: its entry pointer may be stale)
-    uint8_t m_pad0A[2];
-    int m_inUse;        // +0x0C ForwardTrigger nesting depth
+    TableRow* entries_;   // +0x00
+    int num_;        // +0x04
+    bool alive_;       // +0x08 cleared when the script dies while forward_trigger runs (forward_trigger then frees the table)
+    bool altered_;     // +0x09 entries were added or moved (forward_trigger stops: its entry pointer may be stale)
+    uint8_t pad0a_[2];
+    int in_use_;        // +0x0C forward_trigger nesting depth
 };
-static_assert(sizeof(CSignalRouteTable) == 0x10 && offsetof(CSignalRouteTable, m_inUse) == 0x0C,
+static_assert(sizeof(SignalRouteTable) == 0x10 && offsetof(SignalRouteTable, in_use_) == 0x0C,
               "layout must match the original");
 
 } // namespace Obj

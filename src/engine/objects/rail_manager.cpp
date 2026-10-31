@@ -21,7 +21,7 @@
 #include "game/rider/walk_physics.h"
 #include "game/park_editing/park_editor.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
@@ -48,47 +48,47 @@ constexpr uint32_t kLinks = 0x2E7D5EE7;          // Links
 constexpr uint32_t kLadderTrigger = 0xF5B17B09;  // TRG_Ladder03 (a node: counted 4 times as far)
 
 // A collision probe along a line (Nx's feeler, 0xB0 bytes; as park_floor.cpp's): constructed by 0x00417760, its line
-// set by 0x004171D0 (from, to), tested by 0x004172F0; what it hit (m_contactPos) and the object hit, held by a smart pointer
+// set by 0x004171D0 (from, to), tested by 0x004172F0; what it hit (contact_pos_) and the object hit, held by a smart pointer
 // (+0x98). Going away: the smart pointer let go of (the destructor inlined), or the destructor 0x0041C350 - the
 // original uses either (no C++ destructor here: callers say which).
 struct Feeler {
-    Maths::Vec4 m_outset;   // +0x00
-    Maths::Vec4 m_finish;     // +0x10
-    uint8_t m_unknown20[0x58];
-    Maths::Vec4 m_contactPos;   // +0x78
-    uint8_t m_unknown88[0x10];
-    GameObjects::CSharedBase* m_entity; // +0x98 (a CSharedRef<CSharedBase>: the object, then its links)
-    uint32_t m_links[2];
-    uint8_t m_unknownA4[0xC];
+    maths::Vec4 outset_;   // +0x00
+    maths::Vec4 finish_;     // +0x10
+    uint8_t unknown20_[0x58];
+    maths::Vec4 contact_pos_;   // +0x78
+    uint8_t unknown88_[0x10];
+    objects::SharedBase* entity_; // +0x98 (a SharedRef<SharedBase>: the object, then its links)
+    uint32_t links_[2];
+    uint8_t unknowna4_[0xC];
 
-    // (Engine3D::CProbeRay, seen by its fields here)
-    Engine3D::CProbeRay* AsFeeler() { return reinterpret_cast<Engine3D::CProbeRay*>(this); }
-    Feeler* MakeNew()
+    // (render::ProbeRay, seen by its fields here)
+    render::ProbeRay* as_feeler() { return reinterpret_cast<render::ProbeRay*>(this); }
+    Feeler* make_new()
     {
-        AsFeeler()->MakeNew();
+        as_feeler()->make_new();
         return this;
     }
-    void ChangeStrand(const Maths::Vec4* from, const Maths::Vec4* to) { AsFeeler()->ChangeStrand(from, to); }
-    bool GetHitShape(int a, int b) { return AsFeeler()->GetHitShape(a != 0, b != 0) != 0; }
-    void ReleaseObject()
+    void change_strand(const maths::Vec4* from, const maths::Vec4* to) { as_feeler()->change_strand(from, to); }
+    bool get_hit_shape(int a, int b) { return as_feeler()->get_hit_shape(a != 0, b != 0) != 0; }
+    void release_object()
     {
-        if (m_entity)
-            m_entity->DetachSharedRef(reinterpret_cast<GameObjects::CSharedRef<GameObjects::CSharedBase>*>(&m_entity));
+        if (entity_)
+            entity_->detach_shared_ref(reinterpret_cast<objects::SharedRef<objects::SharedBase>*>(&entity_));
     }
-    void Teardown() { AsFeeler()->Destruct(); }
+    void teardown() { as_feeler()->destruct(); }
 };
-static_assert(offsetof(Feeler, m_contactPos) == 0x78 && offsetof(Feeler, m_entity) == 0x98 && sizeof(Feeler) == 0xB0);
+static_assert(offsetof(Feeler, contact_pos_) == 0x78 && offsetof(Feeler, entity_) == 0x98 && sizeof(Feeler) == 0xB0);
 
 // The matrix times `in` (all four components; 0x0040AF60, returns `out`).
-Maths::Vec4* Xform(const Maths::Mat4* matrix, Maths::Vec4* out, const Maths::Vec4* in)
+maths::Vec4* xform(const maths::Mat4* matrix, maths::Vec4* out, const maths::Vec4* in)
 {
-    return &matrix->Xform(*out, *in);
+    return &matrix->xform(*out, *in);
 }
 
 } // namespace
 
 // 0x0057C170
-double __cdecl Span4(float a, float b, float c, float d)
+double __cdecl span4(float a, float b, float c, float d)
 {
     double low = a;
     if (b < a)
@@ -108,61 +108,61 @@ double __cdecl Span4(float a, float b, float c, float d)
 }
 
 // 0x0057C200
-bool CGrindPoint::IsNamed(uint32_t name) { return m_label == name; }
+bool GrindPoint::is_named(uint32_t name) { return label_ == name; }
 
 // 0x0057C210
-void BoxPair::Exchange()
+void BoxPair::get_exchange()
 {
-    Maths::Vec4 held = second;
+    maths::Vec4 held = second;
     second = first;
     first = held;
 }
 
 // 0x0057C260
-void __cdecl BoxOf(const Maths::Vec4* a, const Maths::Vec4* b, Maths::Vec4* min, Maths::Vec4* max)
+void __cdecl box_of(const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* min, maths::Vec4* max)
 {
-    float minX, maxX, minY, maxY, minZ, maxZ;
+    float min_x, max_x, min_y, max_y, min_z, max_z;
     if (a->x < b->x)
-        minX = a->x, maxX = b->x;
+        min_x = a->x, max_x = b->x;
     else
-        minX = b->x, maxX = a->x;
+        min_x = b->x, max_x = a->x;
     if (a->y < b->y)
-        minY = a->y, maxY = b->y;
+        min_y = a->y, max_y = b->y;
     else
-        minY = b->y, maxY = a->y;
+        min_y = b->y, max_y = a->y;
     if (a->z < b->z)
-        minZ = a->z, maxZ = b->z;
+        min_z = a->z, max_z = b->z;
     else
-        minZ = b->z, maxZ = a->z;
-    min->x = minX;
-    min->y = minY;
+        min_z = b->z, max_z = a->z;
+    min->x = min_x;
+    min->y = min_y;
     min->w = 1.0f;
-    min->z = minZ;
-    max->y = maxY;
-    max->x = maxX;
+    min->z = min_z;
+    max->y = max_y;
+    max->x = max_x;
     max->w = 1.0f;
-    max->z = maxZ;
+    max->z = max_z;
 }
 
 // 0x0057C330
-void CGrindRailHub::TidyUp()
+void GrindRailHub::tidy_up()
 {
-    m_num = 0;
-    MemSys::FreeMalloc(m_nodes);
-    m_nodes = nullptr;
-    m_onObject = false;
-    m_nodeArray = nullptr;
+    num_ = 0;
+    memory::free_malloc(nodes_);
+    nodes_ = nullptr;
+    on_object_ = false;
+    node_array_ = nullptr;
 }
 
 // 0x0057C360
-double __cdecl Overlap(float a, float b, float c, float d)
+double __cdecl get_overlap(float a, float b, float c, float d)
 {
     float lengths = static_cast<float>(std::fabs(static_cast<double>(d) - c) + std::fabs(static_cast<double>(b) - a));
-    return lengths - Span4(a, b, c, d);
+    return lengths - span4(a, b, c, d);
 }
 
 // 0x0057C3A0
-int __cdecl NearlyEqual4(float a, float b, float c, float d, float tolerance)
+int __cdecl nearly_equal4(float a, float b, float c, float d, float tolerance)
 {
     if (std::fabs(static_cast<double>(a) - b) < tolerance && std::fabs(static_cast<double>(b) - c) < tolerance &&
         std::fabs(static_cast<double>(c) - d) < tolerance)
@@ -171,41 +171,41 @@ int __cdecl NearlyEqual4(float a, float b, float c, float d, float tolerance)
 }
 
 // 0x0057C3F0
-void CGrindRailHub::MoveNode(uint32_t name, const Maths::Vec4* pos)
+void GrindRailHub::move_node(uint32_t name, const maths::Vec4* pos)
 {
     int index = 0;
-    CGrindPoint* node = m_nodes;
-    for (; index < m_num; ++index, ++node) {
-        if (node->m_label == name)
+    GrindPoint* node = nodes_;
+    for (; index < num_; ++index, ++node) {
+        if (node->label_ == name)
             break;
     }
-    if (index >= m_num)
+    if (index >= num_)
         return;
-    node->m_atPoint = *pos;
-    if (CGrindPoint* next = node->m_succ) {
-        Maths::Vec4 here = node->m_atPoint;
-        Maths::Vec4 there = next->m_atPoint;
-        BoxOf(&here, &there, &node->m_lowerLimit, &node->m_upperLimit);
+    node->at_point_ = *pos;
+    if (GrindPoint* next = node->succ_) {
+        maths::Vec4 here = node->at_point_;
+        maths::Vec4 there = next->at_point_;
+        box_of(&here, &there, &node->lower_limit_, &node->upper_limit_);
     }
-    if (node->m_lastValue) {
+    if (node->last_value_) {
         // (the original tests the found node's own link each time, not each node's)
-        for (int i = 0; i < m_num; ++i) {
-            CGrindPoint* each = &m_nodes[index];
-            if (each->m_succ == node)
-                BoxOf(&each->m_atPoint, &node->m_atPoint, &each->m_lowerLimit, &each->m_upperLimit);
+        for (int i = 0; i < num_; ++i) {
+            GrindPoint* each = &nodes_[index];
+            if (each->succ_ == node)
+                box_of(&each->at_point_, &node->at_point_, &each->lower_limit_, &each->upper_limit_);
         }
     }
 }
 
 // 0x0057C4F0
-Maths::Mat4& CGrindRailHub::ChangeBodyTransform(const Maths::Mat4& matrix)
+maths::Mat4& GrindRailHub::change_body_transform(const maths::Mat4& matrix)
 {
-    m_onObject = true;
-    return m_frameXform = matrix;
+    on_object_ = true;
+    return frame_xform_ = matrix;
 }
 
 // 0x0057C500
-Record24* Record24::Assign(const Record24* other)
+Record24* Record24::get_assign(const Record24* other)
 {
     for (int i = 0; i < 9; ++i)
         words[i] = other->words[i];
@@ -213,7 +213,7 @@ Record24* Record24::Assign(const Record24* other)
 }
 
 // 0x0057C540
-Record34* Record34::Assign(const Record34* other)
+Record34* Record34::get_assign(const Record34* other)
 {
     for (int i = 0; i < 13; ++i)
         words[i] = other->words[i];
@@ -221,307 +221,307 @@ Record34* Record34::Assign(const Record34* other)
 }
 
 // 0x0057C5A0
-bool __stdcall NodesTogether(const CGrindPoint* a, const CGrindPoint* b)
+bool __stdcall nodes_together(const GrindPoint* a, const GrindPoint* b)
 {
     // (NaN counts as near: the original only fails on "greater")
-    return !(std::fabs(static_cast<double>(a->m_atPoint.x) - b->m_atPoint.x) > 1.0) &&
-           !(std::fabs(static_cast<double>(a->m_atPoint.y) - b->m_atPoint.y) > 1.0) &&
-           !(std::fabs(static_cast<double>(a->m_atPoint.z) - b->m_atPoint.z) > 1.0);
+    return !(std::fabs(static_cast<double>(a->at_point_.x) - b->at_point_.x) > 1.0) &&
+           !(std::fabs(static_cast<double>(a->at_point_.y) - b->at_point_.y) > 1.0) &&
+           !(std::fabs(static_cast<double>(a->at_point_.z) - b->at_point_.z) > 1.0);
 }
 
 namespace {
-RailClearOverride g_railClearOverride; // (NOT ORIGINAL: SetRailClearOverride)
+RailClearOverride g_rail_clear_override; // (NOT ORIGINAL: set_rail_clear_override)
 } // namespace
 
-void SetRailClearOverride(RailClearOverride override) { g_railClearOverride = override; }
+void set_rail_clear_override(RailClearOverride override) { g_rail_clear_override = override; }
 
 // 0x0057C600
-bool __cdecl RailClear(Maths::Vec4 a, Maths::Vec4 b)
+bool __cdecl rail_clear(maths::Vec4 a, maths::Vec4 b)
 {
-    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(ParkEditing::g_parkEditor) + 0x40) == 0xD443A2BC) // (the park editor's)
+    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor) + 0x40) == 0xD443A2BC) // (the park editor's)
         return true;
-    if (g_railClearOverride && g_railClearOverride(&a, &b)) // (NOT ORIGINAL: the level editor's flat-ground rails)
+    if (g_rail_clear_override && g_rail_clear_override(&a, &b)) // (NOT ORIGINAL: the level editor's flat-ground rails)
         return true;
     Feeler feeler;
-    feeler.MakeNew();
+    feeler.make_new();
     // A quarter of the way from a to b, 6 above (the original's rounding: some sums kept unrounded).
-    double sumW = static_cast<double>(b.w) + a.w;
-    double sumZ = static_cast<double>(b.z) + a.z;
-    float sumY = static_cast<float>(static_cast<double>(b.y) + a.y);
-    float sumX = static_cast<float>(static_cast<double>(b.x) + a.x);
-    float halfW = static_cast<float>(sumW * 0.5);
-    double halfZ = sumZ * 0.5;
-    double halfY = sumY * 0.5;
-    float halfX = static_cast<float>(sumX * 0.5);
-    float toW = static_cast<float>(static_cast<double>(halfW) - a.w);
-    float toZ = static_cast<float>(halfZ - a.z);
-    double toY = halfY - a.y;
-    double toX = static_cast<double>(halfX) - a.x;
-    float quarterW = static_cast<float>(toW * 0.5);
-    float quarterZ = static_cast<float>(toZ * 0.5);
-    float quarterY = static_cast<float>(toY * 0.5);
-    double quarterX = toX * 0.5;
-    float atW = static_cast<float>(static_cast<double>(a.w) + quarterW);
-    float atZ = static_cast<float>(static_cast<double>(a.z) + quarterZ);
-    double atY = static_cast<double>(a.y) + quarterY;
-    float atX = static_cast<float>(static_cast<double>(a.x) + quarterX);
-    float highY = static_cast<float>(atY + 6.0);
+    double sum_w = static_cast<double>(b.w) + a.w;
+    double sum_z = static_cast<double>(b.z) + a.z;
+    float sum_y = static_cast<float>(static_cast<double>(b.y) + a.y);
+    float sum_x = static_cast<float>(static_cast<double>(b.x) + a.x);
+    float half_w = static_cast<float>(sum_w * 0.5);
+    double half_z = sum_z * 0.5;
+    double half_y = sum_y * 0.5;
+    float half_x = static_cast<float>(sum_x * 0.5);
+    float to_w = static_cast<float>(static_cast<double>(half_w) - a.w);
+    float to_z = static_cast<float>(half_z - a.z);
+    double to_y = half_y - a.y;
+    double to_x = static_cast<double>(half_x) - a.x;
+    float quarter_w = static_cast<float>(to_w * 0.5);
+    float quarter_z = static_cast<float>(to_z * 0.5);
+    float quarter_y = static_cast<float>(to_y * 0.5);
+    double quarter_x = to_x * 0.5;
+    float at_w = static_cast<float>(static_cast<double>(a.w) + quarter_w);
+    float at_z = static_cast<float>(static_cast<double>(a.z) + quarter_z);
+    double at_y = static_cast<double>(a.y) + quarter_y;
+    float at_x = static_cast<float>(static_cast<double>(a.x) + quarter_x);
+    float high_y = static_cast<float>(at_y + 6.0);
     // Across the rail (horizontally), 7 long (0x0042BBF0: the length set).
-    Maths::Vec4 along = {static_cast<float>(static_cast<double>(b.x) - a.x), 0.0f,
+    maths::Vec4 along = {static_cast<float>(static_cast<double>(b.x) - a.x), 0.0f,
                          static_cast<float>(static_cast<double>(b.z) - a.z),
                          static_cast<float>(static_cast<double>(b.w) - a.w)};
-    along.SetLength(7.0f);
-    const float acrossX = along.z, acrossY = along.y, acrossZ = static_cast<float>(-static_cast<double>(along.x)),
-                acrossW = along.w;
+    along.set_length(7.0f);
+    const float across_x = along.z, across_y = along.y, across_z = static_cast<float>(-static_cast<double>(along.x)),
+                across_w = along.w;
     auto sub = [](float p, float q) { return static_cast<float>(static_cast<double>(p) - q); };
     auto add = [](float p, float q) { return static_cast<float>(static_cast<double>(p) + q); };
-    const Maths::Vec4 minus = {sub(atX, acrossX), sub(highY, acrossY), sub(atZ, acrossZ), sub(atW, acrossW)};
-    const Maths::Vec4 plus = {add(acrossX, atX), add(acrossY, highY), add(acrossZ, atZ), add(acrossW, atW)};
+    const maths::Vec4 minus = {sub(at_x, across_x), sub(high_y, across_y), sub(at_z, across_z), sub(at_w, across_w)};
+    const maths::Vec4 plus = {add(across_x, at_x), add(across_y, high_y), add(across_z, at_z), add(across_w, at_w)};
     // Anything across it (either way): not clear.
-    feeler.ChangeStrand(&plus, &minus);
-    if (feeler.GetHitShape(1, 0)) {
-        feeler.ReleaseObject();
+    feeler.change_strand(&plus, &minus);
+    if (feeler.get_hit_shape(1, 0)) {
+        feeler.release_object();
         return false;
     }
-    reinterpret_cast<BoxPair*>(&feeler)->Exchange();
-    if (feeler.GetHitShape(1, 0)) {
-        feeler.ReleaseObject();
+    reinterpret_cast<BoxPair*>(&feeler)->get_exchange();
+    if (feeler.get_hit_shape(1, 0)) {
+        feeler.release_object();
         return false;
     }
     // Down 12 from one side: nothing there, clear.
-    Maths::Vec4 top = plus;
-    Maths::Vec4 bottom = {plus.x, static_cast<float>(plus.y - 12.0), plus.z, static_cast<float>(plus.w + 1.0)};
-    feeler.ChangeStrand(&top, &bottom);
-    if (!feeler.GetHitShape(1, 0)) {
-        feeler.ReleaseObject();
+    maths::Vec4 top = plus;
+    maths::Vec4 bottom = {plus.x, static_cast<float>(plus.y - 12.0), plus.z, static_cast<float>(plus.w + 1.0)};
+    feeler.change_strand(&top, &bottom);
+    if (!feeler.get_hit_shape(1, 0)) {
+        feeler.release_object();
         return true;
     }
-    float base = static_cast<float>(highY - 6.0);
-    float heightOne = static_cast<float>(static_cast<double>(feeler.m_contactPos.y) - base);
+    float base = static_cast<float>(high_y - 6.0);
+    float height_one = static_cast<float>(static_cast<double>(feeler.contact_pos_.y) - base);
     // And from the other.
     top = minus;
     bottom = {minus.x, static_cast<float>(minus.y - 12.0), minus.z, static_cast<float>(minus.w + 1.0)};
-    feeler.ChangeStrand(&top, &bottom);
-    if (!feeler.GetHitShape(1, 0)) {
-        feeler.Teardown();
+    feeler.change_strand(&top, &bottom);
+    if (!feeler.get_hit_shape(1, 0)) {
+        feeler.teardown();
         return true;
     }
-    double heightTwo = static_cast<double>(feeler.m_contactPos.y) - base;
+    double height_two = static_cast<double>(feeler.contact_pos_.y) - base;
     // Ground on both sides: clear only if one side is at the rail's height (within 1) or 2 below it.
-    if (heightOne > -1.0f && heightTwo > -1.0) { // (NaN: on to the next test)
-        feeler.Teardown();
+    if (height_one > -1.0f && height_two > -1.0) { // (NaN: on to the next test)
+        feeler.teardown();
         return false;
     }
     double higher, lower;
-    if (heightOne < heightTwo) {
-        higher = static_cast<float>(heightTwo);
-        lower = heightOne;
+    if (height_one < height_two) {
+        higher = static_cast<float>(height_two);
+        lower = height_one;
     } else {
-        higher = heightOne;
-        lower = heightTwo;
+        higher = height_one;
+        lower = height_two;
     }
-    feeler.Teardown();
+    feeler.teardown();
     if (!(higher > 1.0))
         return true;
     return !(lower > -2.0);
 }
 
 // 0x0057CB20
-Maths::Vec4* CGrindRailHub::ToWorld(Maths::Vec4* out, const Maths::Vec4* in)
+maths::Vec4* GrindRailHub::to_world(maths::Vec4* out, const maths::Vec4* in)
 {
-    if (!m_onObject) {
+    if (!on_object_) {
         *out = *in;
         return out;
     }
-    Xform(&m_frameXform, out, in);
+    xform(&frame_xform_, out, in);
     return out;
 }
 
 // 0x0057CB60
-Maths::Vec4* CGrindRailHub::GetAbsolutePos(Maths::Vec4* out, const CGrindPoint* node)
+maths::Vec4* GrindRailHub::get_absolute_pos(maths::Vec4* out, const GrindPoint* node)
 {
-    if (!m_onObject) {
-        *out = node->m_atPoint;
+    if (!on_object_) {
+        *out = node->at_point_;
         return out;
     }
-    Maths::Vec4 world;
-    Xform(&m_frameXform, &world, &node->m_atPoint);
+    maths::Vec4 world;
+    xform(&frame_xform_, &world, &node->at_point_);
     *out = world;
     return out;
 }
 
 // 0x0057CBD0
-CGrindPoint* CGrindRailHub::FindNode(uint32_t name)
+GrindPoint* GrindRailHub::find_node(uint32_t name)
 {
-    if (!m_nodes)
+    if (!nodes_)
         return nullptr;
-    for (int i = 0; i < m_num; ++i) {
-        if (m_nodes[i].m_label == name)
-            return &m_nodes[i];
+    for (int i = 0; i < num_; ++i) {
+        if (nodes_[i].label_ == name)
+            return &nodes_[i];
     }
     return nullptr;
 }
 
 // 0x0057CC30
-int CGrindPoint::GetWallSide(const Maths::Vec4* direction)
+int GrindPoint::get_wall_side(const maths::Vec4* direction)
 {
-    const Maths::Vec4 p = m_atPoint;
-    const Maths::Vec4 q = m_succ->m_atPoint;
+    const maths::Vec4 p = at_point_;
+    const maths::Vec4 q = succ_->at_point_;
     Feeler feeler;
-    feeler.MakeNew();
+    feeler.make_new();
     // A quarter of the way along the segment, 6 below it (the original's rounding: some sums kept unrounded).
-    float sumY = static_cast<float>(static_cast<double>(q.y) + p.y);
-    float sumX = static_cast<float>(static_cast<double>(q.x) + p.x);
-    float halfW = static_cast<float>((static_cast<double>(q.w) + p.w) * 0.5);
-    double halfZ = (static_cast<double>(q.z) + p.z) * 0.5;
-    double halfY = sumY * 0.5;
-    float halfX = static_cast<float>(sumX * 0.5);
-    float toW = static_cast<float>(halfW - static_cast<double>(p.w));
-    float toZ = static_cast<float>(halfZ - p.z);
-    double toY = halfY - p.y;
-    double toX = static_cast<double>(halfX) - p.x;
-    float quarterW = static_cast<float>(toW * 0.5);
-    float quarterZ = static_cast<float>(toZ * 0.5);
-    float quarterY = static_cast<float>(toY * 0.5);
-    double quarterX = toX * 0.5;
-    float atW = static_cast<float>(static_cast<double>(p.w) + quarterW);
-    float atZ = static_cast<float>(static_cast<double>(p.z) + quarterZ);
-    double atY = static_cast<double>(p.y) + quarterY;
-    float atX = static_cast<float>(quarterX + p.x);
-    float lowY = static_cast<float>(atY - 6.0);
+    float sum_y = static_cast<float>(static_cast<double>(q.y) + p.y);
+    float sum_x = static_cast<float>(static_cast<double>(q.x) + p.x);
+    float half_w = static_cast<float>((static_cast<double>(q.w) + p.w) * 0.5);
+    double half_z = (static_cast<double>(q.z) + p.z) * 0.5;
+    double half_y = sum_y * 0.5;
+    float half_x = static_cast<float>(sum_x * 0.5);
+    float to_w = static_cast<float>(half_w - static_cast<double>(p.w));
+    float to_z = static_cast<float>(half_z - p.z);
+    double to_y = half_y - p.y;
+    double to_x = static_cast<double>(half_x) - p.x;
+    float quarter_w = static_cast<float>(to_w * 0.5);
+    float quarter_z = static_cast<float>(to_z * 0.5);
+    float quarter_y = static_cast<float>(to_y * 0.5);
+    double quarter_x = to_x * 0.5;
+    float at_w = static_cast<float>(static_cast<double>(p.w) + quarter_w);
+    float at_z = static_cast<float>(static_cast<double>(p.z) + quarter_z);
+    double at_y = static_cast<double>(p.y) + quarter_y;
+    float at_x = static_cast<float>(quarter_x + p.x);
+    float low_y = static_cast<float>(at_y - 6.0);
     // Across the segment (horizontally), 4 long.
     double dw = static_cast<double>(q.w) - p.w;
     float dz = static_cast<float>(static_cast<double>(q.z) - p.z);
     double dx = static_cast<double>(q.x) - p.x;
-    float dxStored = static_cast<float>(dx);
-    float acrossY = 0.0f;
-    float acrossX = dz;
+    float dx_stored = static_cast<float>(dx);
+    float across_y = 0.0f;
+    float across_x = dz;
     double length = std::sqrt(dx * dx + static_cast<double>(dz) * dz);
-    double alongX = dx;
+    double along_x = dx;
     if (length > 0.0) {
         double scale = 4.0 / length;
-        alongX = dx * scale;
-        acrossY = static_cast<float>(0.0 * scale);
-        acrossX = static_cast<float>(dz * scale);
+        along_x = dx * scale;
+        across_y = static_cast<float>(0.0 * scale);
+        across_x = static_cast<float>(dz * scale);
     }
-    float acrossZ = static_cast<float>(-alongX);
-    Maths::Vec4 from = {static_cast<float>(static_cast<double>(acrossX) + atX),
-                        static_cast<float>(static_cast<double>(acrossY) + lowY),
-                        static_cast<float>(static_cast<double>(acrossZ) + atZ), static_cast<float>(dw + atW)};
-    Maths::Vec4 to = {static_cast<float>(static_cast<double>(atX) - acrossX),
-                      static_cast<float>(static_cast<double>(lowY) - acrossY),
-                      static_cast<float>(static_cast<double>(atZ) - acrossZ),
-                      static_cast<float>(static_cast<double>(atW) - dw)};
-    feeler.ChangeStrand(&from, &to);
-    bool hitOneWay = feeler.GetHitShape(1, 0);
-    Maths::Vec4 start = feeler.m_outset;
-    feeler.m_outset = feeler.m_finish;
-    feeler.m_finish = start;
-    bool hitOtherWay = feeler.GetHitShape(1, 0);
+    float across_z = static_cast<float>(-along_x);
+    maths::Vec4 from = {static_cast<float>(static_cast<double>(across_x) + at_x),
+                        static_cast<float>(static_cast<double>(across_y) + low_y),
+                        static_cast<float>(static_cast<double>(across_z) + at_z), static_cast<float>(dw + at_w)};
+    maths::Vec4 to = {static_cast<float>(static_cast<double>(at_x) - across_x),
+                      static_cast<float>(static_cast<double>(low_y) - across_y),
+                      static_cast<float>(static_cast<double>(at_z) - across_z),
+                      static_cast<float>(static_cast<double>(at_w) - dw)};
+    feeler.change_strand(&from, &to);
+    bool hit_one_way = feeler.get_hit_shape(1, 0);
+    maths::Vec4 start = feeler.outset_;
+    feeler.outset_ = feeler.finish_;
+    feeler.finish_ = start;
+    bool hit_other_way = feeler.get_hit_shape(1, 0);
     int side = 0;
-    if (hitOneWay != hitOtherWay) {
-        side = hitOneWay ? -1 : 1;
-        double dot = static_cast<double>(dxStored) * direction->x +
+    if (hit_one_way != hit_other_way) {
+        side = hit_one_way ? -1 : 1;
+        double dot = static_cast<double>(dx_stored) * direction->x +
                      ((static_cast<double>(q.y) - p.y) * direction->y + static_cast<double>(dz) * direction->z);
         if (dot < 0.0)
             side = -side;
     }
-    feeler.ReleaseObject();
+    feeler.release_object();
     return side;
 }
 
 // 0x0057CFB0
-Maths::Mat4* CGrindRailHub::GetClimbMatrix(Maths::Mat4* out, const CGrindPoint* node)
+maths::Mat4* GrindRailHub::get_climb_matrix(maths::Mat4* out, const GrindPoint* node)
 {
-    Maths::Mat4 local;
-    reinterpret_cast<const Maths::QuatRotation*>(&node->m_climb)->FetchMat(&local); // the quaternion's
+    maths::Mat4 local;
+    reinterpret_cast<const maths::QuatRotation*>(&node->climb_)->fetch_mat(&local); // the quaternion's
     local.row[0].w = 0.0f;
     local.row[1].w = 0.0f;
     local.row[2].w = 0.0f;
     local.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    if (!m_onObject) {
+    if (!on_object_) {
         *out = local;
     } else {
-        Maths::Mat4 world;
-        Maths::Multiply(world, m_frameXform, local);
+        maths::Mat4 world;
+        maths::get_multiply(world, frame_xform_, local);
         *out = world;
     }
     return out;
 }
 
 // 0x0057D090
-void CGrindRailHub::AppendVertex(uint32_t name, Scripts::CStruct* params)
+void GrindRailHub::append_vertex(uint32_t name, script::Struct* params)
 {
-    CGrindPoint* node = &m_nodes[m_adding];
-    uint32_t nodeClass = 0; // (the original's are uninitialised: read only if the node has them)
-    params->ReadHashValue(kClass, &nodeClass, 0);
-    bool climbing = nodeClass == kClimbingNode;
+    GrindPoint* node = &nodes_[adding_];
+    uint32_t node_class = 0; // (the original's are uninitialised: read only if the node has them)
+    params->read_hash_value(kClass, &node_class, 0);
+    bool climbing = node_class == kClimbingNode;
     uint32_t type = 0;
-    params->ReadHashValue(kType, &type, 0);
-    node->m_succ = nullptr;
-    node->m_lastValue = nullptr;
-    node->m_label = name;
-    node->m_flagBits = 0;
-    if (params->HasBareFlag(kCreatedAtStart))
-        node->m_flagBits |= RAIL_FLAG_ACTIVE;
+    params->read_hash_value(kType, &type, 0);
+    node->succ_ = nullptr;
+    node->last_value_ = nullptr;
+    node->label_ = name;
+    node->flag_bits_ = 0;
+    if (params->has_bare_flag(kCreatedAtStart))
+        node->flag_bits_ |= kRailFlagActive;
     else
-        node->m_flagBits &= ~RAIL_FLAG_ACTIVE;
-    LevelNodes::FetchPlace(params, &node->m_atPoint);
-    if (params->HasBareFlag(kLipOverride))
-        node->m_flagBits |= RAIL_FLAG_LIP_OVERRIDE;
-    if (params->HasBareFlag(kStockRailFlag))
-        node->m_flagBits |= RAIL_FLAG_DEFAULT_LINE;
+        node->flag_bits_ &= ~kRailFlagActive;
+    level_nodes::fetch_place(params, &node->at_point_);
+    if (params->has_bare_flag(kLipOverride))
+        node->flag_bits_ |= kRailFlagLipOverride;
+    if (params->has_bare_flag(kStockRailFlag))
+        node->flag_bits_ |= kRailFlagDefaultLine;
     if (climbing) {
-        node->m_flagBits |= RAIL_FLAG_CLIMBING;
+        node->flag_bits_ |= kRailFlagClimbing;
         if (type == kLadder)
-            node->m_flagBits |= RAIL_FLAG_LADDER;
+            node->flag_bits_ |= kRailFlagLadder;
         else
-            node->m_flagBits &= ~RAIL_FLAG_LADDER;
+            node->flag_bits_ &= ~kRailFlagLadder;
     }
     auto flag = [&](uint32_t name, uint32_t bit) {
-        if (params->HasBareFlag(name))
-            node->m_flagBits |= bit;
+        if (params->has_bare_flag(name))
+            node->flag_bits_ |= bit;
         else
-            node->m_flagBits &= ~bit;
+            node->flag_bits_ &= ~bit;
     };
-    flag(kHangLeft, RAIL_FLAG_HANG_LEFT);
-    flag(kHangRight, RAIL_FLAG_HANG_RIGHT);
-    flag(kNoClimbing, RAIL_FLAG_NO_CLIMBING);
+    flag(kHangLeft, kRailFlagHangLeft);
+    flag(kHangRight, kRailFlagHangRight);
+    flag(kNoClimbing, kRailFlagNoClimbing);
     if (climbing) {
         // Its orientation from its angles, as a quaternion.
-        Maths::Vec4 angles;
-        LevelNodes::ReadTurnAngles(params, &angles);
-        Maths::Mat4 matrix;
-        Maths::Mat4* built = &matrix.InitFromAngles(angles);
-        Maths::Vec4 quat;
-        reinterpret_cast<Maths::QuatRotation*>(&quat)->FromMatrix(*built);
-        node->m_climb = quat;
+        maths::Vec4 angles;
+        level_nodes::read_turn_angles(params, &angles);
+        maths::Mat4 matrix;
+        maths::Mat4* built = &matrix.init_from_angles(angles);
+        maths::Vec4 quat;
+        reinterpret_cast<maths::QuatRotation*>(&quat)->from_matrix(*built);
+        node->climb_ = quat;
     } else {
-        node->m_surfaceType = 0;
+        node->surface_type_ = 0;
         uint32_t terrain = 0; // (the original's: its params argument's slot, the low byte the climbing flag)
-        params->ReadHashValue(kSurfaceKindKey, &terrain, 1);
-        node->m_surfaceType = static_cast<uint8_t>(SurfaceKind::GetTerrainIndex(terrain));
+        params->read_hash_value(kSurfaceKindKey, &terrain, 1);
+        node->surface_type_ = static_cast<uint8_t>(surface_kind::get_terrain_index(terrain));
     }
-    BoxOf(&node->m_atPoint, &node->m_atPoint, &node->m_lowerLimit, &node->m_upperLimit);
+    box_of(&node->at_point_, &node->at_point_, &node->lower_limit_, &node->upper_limit_);
 }
 
 // 0x0057D260
-void CGrindRailHub::RemoveOverlaps()
+void GrindRailHub::remove_overlaps()
 {
-    DebugOut::Printf("Starting overlapping rail removal\n");
+    debug::printf("Starting overlapping rail removal\n");
     int removed = 0;
-    for (int i = 0; i < m_num; ++i) {
-        CGrindPoint* a = &m_nodes[i];
-        CGrindPoint* aNext = a->m_succ;
-        if (!aNext)
+    for (int i = 0; i < num_; ++i) {
+        GrindPoint* a = &nodes_[i];
+        GrindPoint* a_next = a->succ_;
+        if (!a_next)
             continue;
-        const Maths::Vec4 p = a->m_atPoint;
-        const Maths::Vec4 q = aNext->m_atPoint;
+        const maths::Vec4 p = a->at_point_;
+        const maths::Vec4 q = a_next->at_point_;
         // Its direction (each step stored as a float, as the original), made unit length.
         float dx = static_cast<float>(static_cast<double>(q.x) - p.x);
         float dy = static_cast<float>(static_cast<double>(q.y) - p.y);
         float dz = static_cast<float>(static_cast<double>(q.z) - p.z);
-        const float rawX = dx, rawY = dy, rawZ = dz;
+        const float raw_x = dx, raw_y = dy, raw_z = dz;
         double length = std::sqrt(static_cast<double>(dy) * dy + static_cast<double>(dx) * dx + static_cast<double>(dz) * dz);
         if (length > 0.0) {
             double inverse = 1.0 / length;
@@ -530,139 +530,139 @@ void CGrindRailHub::RemoveOverlaps()
             dz = static_cast<float>(dz * inverse);
         }
         // Its box, 16 bigger each way.
-        const float loX = static_cast<float>(a->m_lowerLimit.x - 16.0), loY = static_cast<float>(a->m_lowerLimit.y - 16.0),
-                    loZ = static_cast<float>(a->m_lowerLimit.z - 16.0);
-        const float hiX = static_cast<float>(a->m_upperLimit.x + 16.0), hiY = static_cast<float>(a->m_upperLimit.y + 16.0),
-                    hiZ = static_cast<float>(a->m_upperLimit.z + 16.0);
-        for (int j = i + 1; j < m_num; ++j) {
-            if (!(a->m_flagBits & RAIL_FLAG_ACTIVE))
+        const float lo_x = static_cast<float>(a->lower_limit_.x - 16.0), lo_y = static_cast<float>(a->lower_limit_.y - 16.0),
+                    lo_z = static_cast<float>(a->lower_limit_.z - 16.0);
+        const float hi_x = static_cast<float>(a->upper_limit_.x + 16.0), hi_y = static_cast<float>(a->upper_limit_.y + 16.0),
+                    hi_z = static_cast<float>(a->upper_limit_.z + 16.0);
+        for (int j = i + 1; j < num_; ++j) {
+            if (!(a->flag_bits_ & kRailFlagActive))
                 break;
-            CGrindPoint* b = &m_nodes[j];
-            CGrindPoint* bNext = b->m_succ;
-            if (!bNext)
+            GrindPoint* b = &nodes_[j];
+            GrindPoint* b_next = b->succ_;
+            if (!b_next)
                 continue;
             // (the tests as the original's: NaN passes them)
-            if (b->m_lowerLimit.x > hiX || b->m_upperLimit.x < loX || b->m_lowerLimit.z > hiZ || b->m_upperLimit.z < loZ || b->m_lowerLimit.y > hiY ||
-                b->m_upperLimit.y < loY)
+            if (b->lower_limit_.x > hi_x || b->upper_limit_.x < lo_x || b->lower_limit_.z > hi_z || b->upper_limit_.z < lo_z || b->lower_limit_.y > hi_y ||
+                b->upper_limit_.y < lo_y)
                 continue;
-            const Maths::Vec4 r = b->m_atPoint;
-            const Maths::Vec4 s = bNext->m_atPoint;
-            Maths::Vec4 along = {static_cast<float>(static_cast<double>(s.x) - r.x),
+            const maths::Vec4 r = b->at_point_;
+            const maths::Vec4 s = b_next->at_point_;
+            maths::Vec4 along = {static_cast<float>(static_cast<double>(s.x) - r.x),
                                  static_cast<float>(static_cast<double>(s.y) - r.y),
                                  static_cast<float>(static_cast<double>(s.z) - r.z),
                                  static_cast<float>(static_cast<double>(s.w) - r.w)};
-            along.MakeUnit();
+            along.make_unit();
             double dot = static_cast<double>(along.y) * dy + static_cast<double>(along.x) * dx +
                          static_cast<double>(along.z) * dz;
             // Parallel (or opposite) to within about 8 degrees.
             if (!(dot < -0.99f) && !(dot > 0.99f))
                 continue;
-            Maths::Vec4 offset = {static_cast<float>(static_cast<double>(r.x) - p.x),
+            maths::Vec4 offset = {static_cast<float>(static_cast<double>(r.x) - p.x),
                                   static_cast<float>(static_cast<double>(r.y) - p.y),
                                   static_cast<float>(static_cast<double>(r.z) - p.z),
                                   static_cast<float>(static_cast<double>(r.w) - p.w)};
-            Maths::Vec4 direction = {rawX, rawY, rawZ, static_cast<float>(static_cast<double>(q.w) - p.w)};
-            direction.MakeUnit();
-            Maths::Vec4 apart = offset;
-            apart.FlattenOntoPlane(direction);
+            maths::Vec4 direction = {raw_x, raw_y, raw_z, static_cast<float>(static_cast<double>(q.w) - p.w)};
+            direction.make_unit();
+            maths::Vec4 apart = offset;
+            apart.flatten_onto_plane(direction);
             double distance = std::sqrt(static_cast<double>(apart.x) * apart.x + static_cast<double>(apart.z) * apart.z +
                                         static_cast<double>(apart.y) * apart.y);
             if (!(distance < 6.0))
                 continue;
-            int matches = Overlap(p.x, q.x, r.x, s.x) > 6.0 ? 1 : 0;
-            if (Overlap(p.z, q.z, r.z, s.z) > 6.0)
+            int matches = get_overlap(p.x, q.x, r.x, s.x) > 6.0 ? 1 : 0;
+            if (get_overlap(p.z, q.z, r.z, s.z) > 6.0)
                 ++matches;
-            int same = NearlyEqual4(p.x, q.x, r.x, s.x, 6.0f) ? 1 : 0;
-            if (NearlyEqual4(p.z, q.z, r.z, s.z, 6.0f))
+            int same = nearly_equal4(p.x, q.x, r.x, s.x, 6.0f) ? 1 : 0;
+            if (nearly_equal4(p.z, q.z, r.z, s.z, 6.0f))
                 ++same;
             if (same + matches < 2)
                 continue;
             // Overlapping: the lower one goes.
             ++removed;
-            if (a->m_atPoint.y < b->m_atPoint.y)
-                a->m_flagBits &= ~RAIL_FLAG_ACTIVE;
+            if (a->at_point_.y < b->at_point_.y)
+                a->flag_bits_ &= ~kRailFlagActive;
             else
-                b->m_flagBits &= ~RAIL_FLAG_ACTIVE;
+                b->flag_bits_ &= ~kRailFlagActive;
             break;
         }
     }
-    DebugOut::Printf("Done overlapping rail removal, removed %d\n", removed);
+    debug::printf("Done overlapping rail removal, removed %d\n", removed);
 }
 
 // 0x0057D7A0
-void CGrindRailHub::RemoveOverlapsIfNotPark()
+void GrindRailHub::remove_overlaps_if_not_park()
 {
-    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(ParkEditing::g_parkEditor) + 0x40) == 0xD443A2BC) // (the park editor's level)
+    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor) + 0x40) == 0xD443A2BC) // (the park editor's level)
         return;
-    RemoveOverlaps();
+    remove_overlaps();
 }
 
 // 0x0057D7C0
-void CGrindRailHub::ChangeLive(uint32_t name, int active, bool entireRail)
+void GrindRailHub::change_live(uint32_t name, int active, bool entire_rail)
 {
     int index = 0;
-    CGrindPoint* node = m_nodes;
-    for (; index < m_num; ++index, ++node) {
-        if (node->m_label == name)
+    GrindPoint* node = nodes_;
+    for (; index < num_; ++index, ++node) {
+        if (node->label_ == name)
             break;
     }
-    if (index >= m_num)
+    if (index >= num_)
         return;
-    if (entireRail) {
+    if (entire_rail) {
         // This node and every one after it.
-        for (; node; node = node->m_succ) {
+        for (; node; node = node->succ_) {
             if (active)
-                node->m_flagBits |= RAIL_FLAG_ACTIVE;
+                node->flag_bits_ |= kRailFlagActive;
             else
-                node->m_flagBits &= ~RAIL_FLAG_ACTIVE;
+                node->flag_bits_ &= ~kRailFlagActive;
         }
         return;
     }
     if (active)
-        node->m_flagBits |= RAIL_FLAG_ACTIVE;
+        node->flag_bits_ |= kRailFlagActive;
     else
-        node->m_flagBits &= ~RAIL_FLAG_ACTIVE;
+        node->flag_bits_ &= ~kRailFlagActive;
 }
 
 // 0x0057D840
-bool CGrindRailHub::IsOperative(uint32_t name)
+bool GrindRailHub::is_operative(uint32_t name)
 {
-    for (int index = 0; index < m_num; ++index) {
-        if (m_nodes[index].m_label == name)
-            return (m_nodes[index].m_flagBits & RAIL_FLAG_ACTIVE) != 0;
+    for (int index = 0; index < num_; ++index) {
+        if (nodes_[index].label_ == name)
+            return (nodes_[index].flag_bits_ & kRailFlagActive) != 0;
     }
     return false;
 }
 
 // 0x0057D880
-bool CGrindRailHub::FindLadder(const Maths::Vec4* pos, float radius, float height, bool up, void* checker, uint32_t extra,
-                              CGrindPoint** found)
+bool GrindRailHub::find_ladder(const maths::Vec4* pos, float radius, float height, bool up, void* checker, uint32_t extra,
+                              GrindPoint** found)
 {
-    float radiusSquared = static_cast<float>(static_cast<double>(radius) * radius);
-    for (int index = m_num; index != 0;) {
-        CGrindPoint* node = &m_nodes[--index];
-        if (!(node->m_flagBits & RAIL_FLAG_LADDER) || !(node->m_flagBits & RAIL_FLAG_ACTIVE))
+    float radius_squared = static_cast<float>(static_cast<double>(radius) * radius);
+    for (int index = num_; index != 0;) {
+        GrindPoint* node = &nodes_[--index];
+        if (!(node->flag_bits_ & kRailFlagLadder) || !(node->flag_bits_ & kRailFlagActive))
             continue;
-        if (std::fabs(static_cast<double>(node->m_atPoint.x) - pos->x) > radius ||
-            std::fabs(static_cast<double>(node->m_atPoint.z) - pos->z) > radius ||
-            std::fabs(static_cast<double>(node->m_atPoint.y) - pos->y) > height)
+        if (std::fabs(static_cast<double>(node->at_point_.x) - pos->x) > radius ||
+            std::fabs(static_cast<double>(node->at_point_.z) - pos->z) > radius ||
+            std::fabs(static_cast<double>(node->at_point_.y) - pos->y) > height)
             continue;
-        double dx = static_cast<double>(node->m_atPoint.x) - pos->x;
-        double dz = static_cast<double>(node->m_atPoint.z) - pos->z;
-        if (dz * dz + dx * dx > radiusSquared)
+        double dx = static_cast<double>(node->at_point_.x) - pos->x;
+        double dz = static_cast<double>(node->at_point_.z) - pos->z;
+        if (dz * dz + dx * dx > radius_squared)
             continue;
-        CGrindPoint* other = node->m_succ ? node->m_succ : node->m_lastValue;
-        Maths::Mat4 matrix;
+        GrindPoint* other = node->succ_ ? node->succ_ : node->last_value_;
+        maths::Mat4 matrix;
         if (up) {
-            Maths::Mat4* orientation = GetClimbMatrix(&matrix, node);
-            if (static_cast<CFootMovement*>(checker)->CheckLadderBottom(&node->m_atPoint, &other->m_atPoint, orientation,
+            maths::Mat4* orientation = get_climb_matrix(&matrix, node);
+            if (static_cast<FootMovement*>(checker)->check_ladder_bottom(&node->at_point_, &other->at_point_, orientation,
                                                                           reinterpret_cast<Record24*>(extra))) {
                 *found = node;
                 return true;
             }
         } else {
-            Maths::Mat4* orientation = GetClimbMatrix(&matrix, other);
-            if (static_cast<CFootMovement*>(checker)->CheckLadderTop(&other->m_atPoint, &node->m_atPoint, orientation,
+            maths::Mat4* orientation = get_climb_matrix(&matrix, other);
+            if (static_cast<FootMovement*>(checker)->check_ladder_top(&other->at_point_, &node->at_point_, orientation,
                                                                        reinterpret_cast<Record24*>(extra))) {
                 *found = other;
                 return true;
@@ -673,16 +673,16 @@ bool CGrindRailHub::FindLadder(const Maths::Vec4* pos, float radius, float heigh
 }
 
 // 0x0057DA20
-bool CGrindRailHub::FindLadderOnLine(const Maths::Vec4* start, const Maths::Vec4* end, void* checker, Record24* result,
-                                    CGrindPoint** found)
+bool GrindRailHub::find_ladder_on_line(const maths::Vec4* start, const maths::Vec4* end, void* checker, Record24* result,
+                                    GrindPoint** found)
 {
     *found = nullptr;
-    Maths::Seg line;
+    maths::Seg line;
     line.start = *start;
     line.end = *end;
-    Maths::Vec4 min, max;
-    BoxOf(&line.start, &line.end, &min, &max);
-    double snap = Scripts::FetchFloat(kClimbMaxSnap);
+    maths::Vec4 min, max;
+    box_of(&line.start, &line.end, &min, &max);
+    double snap = script::fetch_float(kClimbMaxSnap);
     min.x = static_cast<float>(min.x - snap);
     float best = 1e14f;
     min.y = static_cast<float>(min.y - snap);
@@ -690,61 +690,61 @@ bool CGrindRailHub::FindLadderOnLine(const Maths::Vec4* start, const Maths::Vec4
     max.x = static_cast<float>(max.x + snap);
     max.y = static_cast<float>(max.y + snap);
     max.z = static_cast<float>(max.z + snap);
-    float snapSquared = static_cast<float>(snap * snap);
-    for (int index = 0; index < m_num; ++index) {
-        CGrindPoint* node = &m_nodes[index];
-        if (!(node->m_flagBits & RAIL_FLAG_LADDER) || !(node->m_flagBits & RAIL_FLAG_ACTIVE) || !node->m_succ)
+    float snap_squared = static_cast<float>(snap * snap);
+    for (int index = 0; index < num_; ++index) {
+        GrindPoint* node = &nodes_[index];
+        if (!(node->flag_bits_ & kRailFlagLadder) || !(node->flag_bits_ & kRailFlagActive) || !node->succ_)
             continue;
         // (the tests as the original's: NaN passes them)
-        if (min.x > node->m_upperLimit.x || max.x < node->m_lowerLimit.x || min.z > node->m_upperLimit.z || max.z < node->m_lowerLimit.z ||
-            min.y > node->m_upperLimit.y || max.y < node->m_lowerLimit.y)
+        if (min.x > node->upper_limit_.x || max.x < node->lower_limit_.x || min.z > node->upper_limit_.z || max.z < node->lower_limit_.z ||
+            min.y > node->upper_limit_.y || max.y < node->lower_limit_.y)
             continue;
-        CGrindPoint* next = node->m_succ;
-        Maths::Seg rail;
-        rail.start = node->m_atPoint;
-        rail.end = next->m_atPoint;
-        Maths::Vec4 onLine, onRail;
+        GrindPoint* next = node->succ_;
+        maths::Seg rail;
+        rail.start = node->at_point_;
+        rail.end = next->at_point_;
+        maths::Vec4 on_line, on_rail;
         float s, t;
-        if (!Maths::ClosestPointsBetweenLines(line, rail, onLine, onRail, s, t, true))
+        if (!maths::closest_points_between_lines(line, rail, on_line, on_rail, s, t, true))
             continue;
-        Maths::Vec4 apart = onRail - onLine;
-        float distanceSquared = apart.MagnitudeSquared();
-        if (node->m_label == kLadderTrigger || next->m_label == kLadderTrigger)
-            distanceSquared = static_cast<float>(distanceSquared * 4.0);
-        if (distanceSquared > snapSquared || distanceSquared > best)
+        maths::Vec4 apart = on_rail - on_line;
+        float distance_squared = apart.magnitude_squared();
+        if (node->label_ == kLadderTrigger || next->label_ == kLadderTrigger)
+            distance_squared = static_cast<float>(distance_squared * 4.0);
+        if (distance_squared > snap_squared || distance_squared > best)
             continue;
         Record24 record;
-        Maths::Mat4 matrix;
-        if (node->m_atPoint.y < next->m_atPoint.y) {
+        maths::Mat4 matrix;
+        if (node->at_point_.y < next->at_point_.y) {
             // Climbing up from this node.
-            Maths::Mat4* orientation = GetClimbMatrix(&matrix, node);
-            if (!static_cast<CFootMovement*>(checker)->CheckLadderLine(&node->m_atPoint, &next->m_atPoint, orientation, &onRail, t,
+            maths::Mat4* orientation = get_climb_matrix(&matrix, node);
+            if (!static_cast<FootMovement*>(checker)->check_ladder_line(&node->at_point_, &next->at_point_, orientation, &on_rail, t,
                                                                          &record))
                 continue;
             *found = node;
         } else {
-            Maths::Mat4* orientation = GetClimbMatrix(&matrix, next);
-            if (!static_cast<CFootMovement*>(checker)->CheckLadderLine(&next->m_atPoint, &node->m_atPoint, orientation, &onRail,
+            maths::Mat4* orientation = get_climb_matrix(&matrix, next);
+            if (!static_cast<FootMovement*>(checker)->check_ladder_line(&next->at_point_, &node->at_point_, orientation, &on_rail,
                                                                          static_cast<float>(1.0 - t), &record))
                 continue;
             *found = next;
         }
-        best = distanceSquared;
-        result->Assign(&record);
+        best = distance_squared;
+        result->get_assign(&record);
     }
     return *found != nullptr;
 }
 
 // 0x0057DDA0
-bool CGrindRailHub::FindRail(const Maths::Vec4* start, const Maths::Vec4* end, const Maths::Vec4* direction, void* checker,
+bool GrindRailHub::find_rail(const maths::Vec4* start, const maths::Vec4* end, const maths::Vec4* direction, void* checker,
                             Record34* result, float margin)
 {
     bool found = false;
-    Maths::Seg line;
+    maths::Seg line;
     line.start = *start;
     line.end = *end;
-    Maths::Vec4 min, max;
-    BoxOf(&line.start, &line.end, &min, &max);
+    maths::Vec4 min, max;
+    box_of(&line.start, &line.end, &min, &max);
     min.x = static_cast<float>(static_cast<double>(min.x) - margin);
     float best = 1e14f;
     min.y = static_cast<float>(static_cast<double>(min.y) - margin);
@@ -752,87 +752,87 @@ bool CGrindRailHub::FindRail(const Maths::Vec4* start, const Maths::Vec4* end, c
     max.x = static_cast<float>(static_cast<double>(max.x) + margin);
     max.y = static_cast<float>(static_cast<double>(max.y) + margin);
     max.z = static_cast<float>(static_cast<double>(max.z) + margin);
-    float marginSquared = static_cast<float>(static_cast<double>(margin) * margin);
-    for (int index = 0; index < m_num; ++index) {
-        CGrindPoint* node = &m_nodes[index];
-        if ((node->m_flagBits & RAIL_FLAG_LADDER) || (node->m_flagBits & RAIL_FLAG_NO_CLIMBING) ||
-            !(node->m_flagBits & RAIL_FLAG_ACTIVE) || !node->m_succ)
+    float margin_squared = static_cast<float>(static_cast<double>(margin) * margin);
+    for (int index = 0; index < num_; ++index) {
+        GrindPoint* node = &nodes_[index];
+        if ((node->flag_bits_ & kRailFlagLadder) || (node->flag_bits_ & kRailFlagNoClimbing) ||
+            !(node->flag_bits_ & kRailFlagActive) || !node->succ_)
             continue;
         // (the tests as the original's: NaN passes them)
-        if (min.x > node->m_upperLimit.x || max.x < node->m_lowerLimit.x || min.z > node->m_upperLimit.z || max.z < node->m_lowerLimit.z ||
-            min.y > node->m_upperLimit.y || max.y < node->m_lowerLimit.y)
+        if (min.x > node->upper_limit_.x || max.x < node->lower_limit_.x || min.z > node->upper_limit_.z || max.z < node->lower_limit_.z ||
+            min.y > node->upper_limit_.y || max.y < node->lower_limit_.y)
             continue;
-        CGrindPoint* next = node->m_succ;
-        Maths::Seg rail;
-        rail.start = node->m_atPoint;
-        rail.end = next->m_atPoint;
-        Maths::Vec4 onLine, onRail;
+        GrindPoint* next = node->succ_;
+        maths::Seg rail;
+        rail.start = node->at_point_;
+        rail.end = next->at_point_;
+        maths::Vec4 on_line, on_rail;
         float s, t;
-        if (!Maths::ClosestPointsBetweenLines(line, rail, onLine, onRail, s, t, true))
+        if (!maths::closest_points_between_lines(line, rail, on_line, on_rail, s, t, true))
             continue;
-        Maths::Vec4 apart = onRail - onLine;
-        if (apart.MagnitudeSquared() > marginSquared)
+        maths::Vec4 apart = on_rail - on_line;
+        if (apart.magnitude_squared() > margin_squared)
             continue;
         // Distance along `direction` counts a third.
         double along = static_cast<double>(apart.z) * direction->z + static_cast<double>(apart.y) * direction->y +
                        static_cast<double>(apart.x) * direction->x;
         if (along > 0.0)
             apart -= static_cast<float>(along * 0.6666667f) * *direction;
-        float distanceSquared = apart.MagnitudeSquared();
-        if (distanceSquared > best)
+        float distance_squared = apart.magnitude_squared();
+        if (distance_squared > best)
             continue;
-        Maths::Vec4 nodeWorld, nextWorld;
-        GetAbsolutePos(&nextWorld, next);
-        GetAbsolutePos(&nodeWorld, node);
-        if (!RailClear(nodeWorld, nextWorld))
+        maths::Vec4 node_world, next_world;
+        get_absolute_pos(&next_world, next);
+        get_absolute_pos(&node_world, node);
+        if (!rail_clear(node_world, next_world))
             continue;
         Record34 record;
         record.words[12] = reinterpret_cast<uint32_t>(node);
-        Maths::Vec4 lineWorld, railWorld, nextAt, nodeAt;
-        Maths::Vec4* lineAt = ToWorld(&lineWorld, &onLine);
-        Maths::Vec4* railAt = ToWorld(&railWorld, &onRail);
-        Maths::Vec4* nextPos = GetAbsolutePos(&nextAt, next);
-        Maths::Vec4* nodePos = GetAbsolutePos(&nodeAt, node);
-        if (!static_cast<CFootMovement*>(checker)->CheckRail(nodePos, nextPos, railAt, lineAt, t, &record, false))
+        maths::Vec4 line_world, rail_world, next_at, node_at;
+        maths::Vec4* line_at = to_world(&line_world, &on_line);
+        maths::Vec4* rail_at = to_world(&rail_world, &on_rail);
+        maths::Vec4* next_pos = get_absolute_pos(&next_at, next);
+        maths::Vec4* node_pos = get_absolute_pos(&node_at, node);
+        if (!static_cast<FootMovement*>(checker)->check_rail(node_pos, next_pos, rail_at, line_at, t, &record, false))
             continue;
-        best = distanceSquared;
-        result->Assign(&record);
+        best = distance_squared;
+        result->get_assign(&record);
         found = true;
     }
     return found;
 }
 
 // 0x0057E170
-bool CGrindRailHub::FindJoiningRail(const CGrindPoint* from, uint32_t excludeFlags, CGrindPoint** found)
+bool GrindRailHub::find_joining_rail(const GrindPoint* from, uint32_t exclude_flags, GrindPoint** found)
 {
-    for (int index = 0; index < m_num; ++index) {
-        CGrindPoint* node = &m_nodes[index];
+    for (int index = 0; index < num_; ++index) {
+        GrindPoint* node = &nodes_[index];
         // (the tests as the original's: NaN passes them)
-        if (std::fabs(static_cast<double>(node->m_atPoint.x) - from->m_atPoint.x) > 1.0 ||
-            std::fabs(static_cast<double>(node->m_atPoint.y) - from->m_atPoint.y) > 1.0 ||
-            std::fabs(static_cast<double>(node->m_atPoint.z) - from->m_atPoint.z) > 1.0)
+        if (std::fabs(static_cast<double>(node->at_point_.x) - from->at_point_.x) > 1.0 ||
+            std::fabs(static_cast<double>(node->at_point_.y) - from->at_point_.y) > 1.0 ||
+            std::fabs(static_cast<double>(node->at_point_.z) - from->at_point_.z) > 1.0)
             continue;
-        CGrindPoint* next = node->m_succ;
-        if (!next && !node->m_lastValue)
+        GrindPoint* next = node->succ_;
+        if (!next && !node->last_value_)
             continue;
         if (node == from)
             continue;
-        if (next && (node->m_flagBits & RAIL_FLAG_ACTIVE) && !(excludeFlags & node->m_flagBits)) {
-            Maths::Vec4 nodeWorld, nextWorld;
-            GetAbsolutePos(&nextWorld, next);
-            GetAbsolutePos(&nodeWorld, node);
-            if (RailClear(nodeWorld, nextWorld)) {
+        if (next && (node->flag_bits_ & kRailFlagActive) && !(exclude_flags & node->flag_bits_)) {
+            maths::Vec4 node_world, next_world;
+            get_absolute_pos(&next_world, next);
+            get_absolute_pos(&node_world, node);
+            if (rail_clear(node_world, next_world)) {
                 *found = node;
                 return true;
             }
         }
-        CGrindPoint* prev = node->m_lastValue;
-        if (prev && (prev->m_flagBits & RAIL_FLAG_ACTIVE) && !(excludeFlags & prev->m_flagBits)) {
-            Maths::Vec4 prevWorld, nodeWorld;
-            GetAbsolutePos(&nodeWorld, node);
-            GetAbsolutePos(&prevWorld, node->m_lastValue);
-            if (RailClear(prevWorld, nodeWorld)) {
-                *found = node->m_lastValue;
+        GrindPoint* prev = node->last_value_;
+        if (prev && (prev->flag_bits_ & kRailFlagActive) && !(exclude_flags & prev->flag_bits_)) {
+            maths::Vec4 prev_world, node_world;
+            get_absolute_pos(&node_world, node);
+            get_absolute_pos(&prev_world, node->last_value_);
+            if (rail_clear(prev_world, node_world)) {
+                *found = node->last_value_;
                 return true;
             }
         }
@@ -841,176 +841,176 @@ bool CGrindRailHub::FindJoiningRail(const CGrindPoint* from, uint32_t excludeFla
 }
 
 // 0x0057E960
-void CGrindRailHub::AddFromNodeArray(Scripts::CArray* nodes)
+void GrindRailHub::add_from_node_array(script::Array* nodes)
 {
-    m_nodeArray = nodes;
-    auto skipped = [](Scripts::CStruct* node) { // (the skate module's 0x00565BB0: a node this game leaves out)
-        return GameModules::Skate::ShouldBeAbsent(node) != 0;
+    node_array_ = nodes;
+    auto skipped = [](script::Struct* node) { // (the skate module's 0x00565BB0: a node this game leaves out)
+        return modules::Skate::should_be_absent(node) != 0;
     };
-    auto isRail = [](Scripts::CStruct* node) {
-        uint32_t nodeClass = 0;
-        node->ReadHashValue(kClass, &nodeClass, 0);
-        return nodeClass == kRailNode || nodeClass == kClimbingNode;
+    auto is_rail = [](script::Struct* node) {
+        uint32_t node_class = 0;
+        node->read_hash_value(kClass, &node_class, 0);
+        return node_class == kRailNode || node_class == kClimbingNode;
     };
-    m_num = 0;
-    for (uint32_t i = 0; i < nodes->m_extent; ++i) {
-        auto* node = reinterpret_cast<Scripts::CStruct*>(nodes->FetchPart(i));
-        if (!skipped(node) && isRail(node))
-            ++m_num;
+    num_ = 0;
+    for (uint32_t i = 0; i < nodes->extent_; ++i) {
+        auto* node = reinterpret_cast<script::Struct*>(nodes->fetch_part(i));
+        if (!skipped(node) && is_rail(node))
+            ++num_;
     }
-    if (!m_num)
+    if (!num_)
         return;
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(manager->m_bottomUpHeap);
-    m_nodes = static_cast<CGrindPoint*>(MemSys::AllocBlock(m_num * sizeof(CGrindPoint)));
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(manager->bottom_up_heap_);
+    nodes_ = static_cast<GrindPoint*>(memory::alloc_block(num_ * sizeof(GrindPoint)));
     // A hash table of the nodes' names (0x4000 slots, linear probing) to their indexes.
     // NOT ORIGINAL: with 0x2000 rail nodes or more (THP8's whole town has ~18,000; past 0x4000 the original's table
     // was full and adding went round it for ever) a bigger one, 32-bit indexes, at most a quarter full. Original
     // behaviour: 0x4000 16-bit slots whatever the count.
-    const bool big = m_num >= 0x2000;
+    const bool big = num_ >= 0x2000;
     uint32_t slots = 0x4000;
-    while (big && slots < static_cast<uint32_t>(m_num) * 4)
+    while (big && slots < static_cast<uint32_t>(num_) * 4)
         slots <<= 1;
     const uint32_t mask = slots - 1;
-    void* tableMemory = MemSys::AllocBlock(big ? slots * 4 : 0x8000);
-    MemSys::Hub::Pull()->LeaveHeapScope();
-    std::memset(tableMemory, 0xFF, big ? slots * 4 : 0x8000);
-    auto* small = static_cast<int16_t*>(tableMemory);
-    auto* wide = static_cast<int32_t*>(tableMemory);
+    void* table_memory = memory::alloc_block(big ? slots * 4 : 0x8000);
+    memory::Hub::get_pull()->leave_heap_scope();
+    std::memset(table_memory, 0xFF, big ? slots * 4 : 0x8000);
+    auto* small = static_cast<int16_t*>(table_memory);
+    auto* wide = static_cast<int32_t*>(table_memory);
     auto entry = [&](uint32_t slot) { return big ? wide[slot] : small[slot]; };
-    m_adding = 0;
-    bool allTrickObjects = Scripts::FetchIntValue(kAllRailsTrickObjects) != 0;
-    for (uint32_t i = 0; i < nodes->m_extent; ++i) {
-        auto* node = reinterpret_cast<Scripts::CStruct*>(nodes->FetchPart(i));
-        if (skipped(node) || !isRail(node))
+    adding_ = 0;
+    bool all_trick_objects = script::fetch_int_value(kAllRailsTrickObjects) != 0;
+    for (uint32_t i = 0; i < nodes->extent_; ++i) {
+        auto* node = reinterpret_cast<script::Struct*>(nodes->fetch_part(i));
+        if (skipped(node) || !is_rail(node))
             continue;
-        uint32_t name = LevelNodes::GetNodeName(node);
-        AppendVertex(name, node);
+        uint32_t name = level_nodes::get_node_name(node);
+        append_vertex(name, node);
         uint32_t slot = name & mask;
         while (entry(slot) != -1)
             slot = (slot + 1) & mask;
         if (big)
-            wide[slot] = m_adding;
+            wide[slot] = adding_;
         else
-            small[slot] = static_cast<int16_t>(m_adding);
-        bool trickObject = node->HasEntryNamed(kTrickObject);
-        if (allTrickObjects || trickObject) {
+            small[slot] = static_cast<int16_t>(adding_);
+        bool trick_object = node->has_entry_named(kTrickObject);
+        if (all_trick_objects || trick_object) {
             // A trick object of its cluster (the park / trick object manager 0x007CE500).
-            uint32_t nodeName = 0;
-            node->ReadHashValue(kName, &nodeName, 1);
-            uint32_t cluster = nodeName;
-            node->ReadHashValue(kCluster, &cluster, 1);
-            auto* trickObjects = g_trickSpotHub;
-            trickObjects->AddCluster(cluster);
-            trickObjects->AddObjectToCluster(nodeName, cluster);
+            uint32_t node_name = 0;
+            node->read_hash_value(kName, &node_name, 1);
+            uint32_t cluster = node_name;
+            node->read_hash_value(kCluster, &cluster, 1);
+            auto* trick_objects = g_trick_spot_hub;
+            trick_objects->add_cluster(cluster);
+            trick_objects->add_object_to_cluster(node_name, cluster);
         }
-        ++m_adding;
+        ++adding_;
     }
     // The links: each node's Links (by name, through the table).
-    for (int i = 0; i < m_num; ++i) {
-        CGrindPoint* node = &m_nodes[i];
-        Scripts::CStruct* params = LevelNodes::FetchVertex(node->m_label, 1);
-        Scripts::CArray* links = nullptr;
-        params->FetchList(kLinks, &links, 0);
+    for (int i = 0; i < num_; ++i) {
+        GrindPoint* node = &nodes_[i];
+        script::Struct* params = level_nodes::fetch_vertex(node->label_, 1);
+        script::Array* links = nullptr;
+        params->fetch_list(kLinks, &links, 0);
         if (!links)
             continue;
-        int linkCount = static_cast<int>(links->m_extent);
-        for (int l = 0; l < linkCount; ++l) {
-            uint32_t link = links->FetchPart(l);
+        int link_count = static_cast<int>(links->extent_);
+        for (int l = 0; l < link_count; ++l) {
+            uint32_t link = links->fetch_part(l);
             uint32_t slot = link & mask;
-            CGrindPoint* other = &m_nodes[entry(slot)];
-            while (other->m_label != link) {
+            GrindPoint* other = &nodes_[entry(slot)];
+            while (other->label_ != link) {
                 slot = (slot + 1) & mask;
-                other = &m_nodes[entry(slot)];
+                other = &nodes_[entry(slot)];
             }
-            if (!node->m_succ || (other->m_flagBits & RAIL_FLAG_DEFAULT_LINE)) {
-                node->m_succ = other;
-                BoxOf(&node->m_atPoint, &other->m_atPoint, &node->m_lowerLimit, &node->m_upperLimit);
+            if (!node->succ_ || (other->flag_bits_ & kRailFlagDefaultLine)) {
+                node->succ_ = other;
+                box_of(&node->at_point_, &other->at_point_, &node->lower_limit_, &node->upper_limit_);
             }
-            if (!other->m_lastValue || (node->m_flagBits & RAIL_FLAG_DEFAULT_LINE))
-                other->m_lastValue = node;
+            if (!other->last_value_ || (node->flag_bits_ & kRailFlagDefaultLine))
+                other->last_value_ = node;
         }
     }
-    MemSys::FreeMalloc(tableMemory);
+    memory::free_malloc(table_memory);
 }
 
 // 0x0057E2D0
-bool CGrindRailHub::FindGrindRail(const Maths::Vec4* start, const Maths::Vec4* end, Maths::Vec4* point, CGrindPoint** found,
-                                 const CGrindPoint* exclude, float minAlignment, int side)
+bool GrindRailHub::find_grind_rail(const maths::Vec4* start, const maths::Vec4* end, maths::Vec4* point, GrindPoint** found,
+                                 const GrindPoint* exclude, float min_alignment, int side)
 {
-    Maths::Seg line;
+    maths::Seg line;
     line.start = *start;
     line.end = *end;
-    Maths::Vec4 min, max;
-    BoxOf(&line.start, &line.end, &min, &max);
-    float snap = Scripts::FetchFloat(kRailMaxSnap);
+    maths::Vec4 min, max;
+    box_of(&line.start, &line.end, &min, &max);
+    float snap = script::fetch_float(kRailMaxSnap);
     min.x = static_cast<float>(static_cast<double>(min.x) - snap);
     float best = 1e7f;
-    CGrindPoint* bestNode = nullptr;
+    GrindPoint* best_node = nullptr;
     bool any = false;
     min.y = static_cast<float>(static_cast<double>(min.y) - snap);
     min.z = static_cast<float>(static_cast<double>(min.z) - snap);
     max.x = static_cast<float>(static_cast<double>(max.x) + snap);
     max.y = static_cast<float>(static_cast<double>(max.y) + snap);
     max.z = static_cast<float>(static_cast<double>(max.z) + snap);
-    Maths::Vec4 bestPoint;
-    for (int index = 0; index < m_num; ++index) {
-        CGrindPoint* node = &m_nodes[index];
-        if ((node->m_flagBits & RAIL_FLAG_CLIMBING) || node == exclude || !(node->m_flagBits & RAIL_FLAG_ACTIVE))
+    maths::Vec4 best_point;
+    for (int index = 0; index < num_; ++index) {
+        GrindPoint* node = &nodes_[index];
+        if ((node->flag_bits_ & kRailFlagClimbing) || node == exclude || !(node->flag_bits_ & kRailFlagActive))
             continue;
         // (the tests as the original's: NaN passes them)
-        bool outside = min.x > node->m_upperLimit.x || max.x < node->m_lowerLimit.x || min.z > node->m_upperLimit.z ||
-                       max.z < node->m_lowerLimit.z || min.y > node->m_upperLimit.y || max.y < node->m_lowerLimit.y;
-        if (CGrindPoint* next = node->m_succ) {
-            if (outside || !RailClear(node->m_atPoint, next->m_atPoint))
+        bool outside = min.x > node->upper_limit_.x || max.x < node->lower_limit_.x || min.z > node->upper_limit_.z ||
+                       max.z < node->lower_limit_.z || min.y > node->upper_limit_.y || max.y < node->lower_limit_.y;
+        if (GrindPoint* next = node->succ_) {
+            if (outside || !rail_clear(node->at_point_, next->at_point_))
                 continue;
-            Maths::Seg rail;
-            rail.start = node->m_atPoint;
-            rail.end = next->m_atPoint;
-            Maths::Vec4 onLine, onRail;
+            maths::Seg rail;
+            rail.start = node->at_point_;
+            rail.end = next->at_point_;
+            maths::Vec4 on_line, on_rail;
             float s, t;
-            if (!Maths::ClosestPointsBetweenLines(line, rail, onLine, onRail, s, t, true))
+            if (!maths::closest_points_between_lines(line, rail, on_line, on_rail, s, t, true))
                 continue;
-            float distance = (onRail - onLine).LenOf();
+            float distance = (on_rail - on_line).len_of();
             // How well the rail lines up with the line (flat).
-            Maths::Vec4 railDir = next->m_atPoint - node->m_atPoint;
-            railDir.y = 0.0f;
-            Maths::Vec4 segDirection = *end - *start;
-            segDirection.y = 0.0f;
-            railDir.MakeUnit();
-            segDirection.MakeUnit();
+            maths::Vec4 rail_dir = next->at_point_ - node->at_point_;
+            rail_dir.y = 0.0f;
+            maths::Vec4 seg_direction = *end - *start;
+            seg_direction.y = 0.0f;
+            rail_dir.make_unit();
+            seg_direction.make_unit();
             float alignment = static_cast<float>(std::fabs(
-                static_cast<double>(segDirection.x) * railDir.x + static_cast<double>(segDirection.z) * railDir.z +
-                static_cast<double>(segDirection.y) * railDir.y));
-            if (segDirection.x == 0.0f && segDirection.z == 0.0f && alignment == 0.0f)
+                static_cast<double>(seg_direction.x) * rail_dir.x + static_cast<double>(seg_direction.z) * rail_dir.z +
+                static_cast<double>(seg_direction.y) * rail_dir.y));
+            if (seg_direction.x == 0.0f && seg_direction.z == 0.0f && alignment == 0.0f)
                 alignment = 1.0f;
             float score = static_cast<float>((1.122f - static_cast<double>(alignment)) * distance);
             float reach = static_cast<float>((2.0 - alignment) * distance);
             if (side) {
-                Maths::Vec4 direction = *end - *start;
-                if (node->GetWallSide(&direction) != side)
+                maths::Vec4 direction = *end - *start;
+                if (node->get_wall_side(&direction) != side)
                     score = score + score;
             }
             if (!(score < best))
                 continue;
-            if (minAlignment != 1.0f && std::fabs(alignment) < minAlignment)
+            if (min_alignment != 1.0f && std::fabs(alignment) < min_alignment)
                 continue;
             best = score;
             if (reach > snap) { // (out of reach: but it still sets the best - and clears what was found)
                 any = false;
                 continue;
             }
-            bestPoint = onRail;
-            bestNode = node;
+            best_point = on_rail;
+            best_node = node;
             any = true;
-        } else if (!node->m_lastValue) {
+        } else if (!node->last_value_) {
             // A rail of one node: its point.
             if (outside)
                 continue;
-            Maths::Vec4 offset = node->m_atPoint - *start;
-            Maths::Vec4 direction = *end - *start;
-            Maths::Vec4& unit = direction.MakeUnit();
-            Maths::Vec4 along = unit;
+            maths::Vec4 offset = node->at_point_ - *start;
+            maths::Vec4 direction = *end - *start;
+            maths::Vec4& unit = direction.make_unit();
+            maths::Vec4 along = unit;
             double k = static_cast<double>(offset.x) * along.x + static_cast<double>(offset.z) * along.z +
                        static_cast<double>(offset.y) * along.y;
             offset -= static_cast<float>(k) * along;
@@ -1022,26 +1022,26 @@ bool CGrindRailHub::FindGrindRail(const Maths::Vec4* start, const Maths::Vec4* e
             double twice = distance + distance;
             if (best < twice)
                 continue;
-            bestPoint = node->m_atPoint;
+            best_point = node->at_point_;
             best = static_cast<float>(twice);
-            bestNode = node;
+            best_node = node;
             any = true;
         }
     }
     if (any) {
-        *point = bestPoint;
-        *found = bestNode;
+        *point = best_point;
+        *found = best_node;
     }
     return any;
 }
 
 // 0x0057CC10
-CGrindRailHub* CGrindRailHub::PrepareAll()
+GrindRailHub* GrindRailHub::prepare_all()
 {
-    m_nodes = nullptr;
-    m_num = 0;
-    m_onObject = false;
-    m_nodeArray = nullptr;
+    nodes_ = nullptr;
+    num_ = 0;
+    on_object_ = false;
+    node_array_ = nullptr;
     return this;
 }
 

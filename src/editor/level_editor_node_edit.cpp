@@ -24,7 +24,7 @@
 #include "engine/gfx/light_manager.h"
 #include "engine/gfx/scene_lights.h"
 
-namespace MenuSystem::LevelEditor::NodeEdit {
+namespace frontend::level_editor::node_edit {
 
 namespace {
 
@@ -33,7 +33,7 @@ constexpr float kStep = 15.0f * kPi / 180.0f; // (Z / X: as objects turn)
 
 } // namespace
 
-bool Same(const Values& a, const Values& b)
+bool get_same(const Values& a, const Values& b)
 {
     return a.pos.x == b.pos.x && a.pos.y == b.pos.y && a.pos.z == b.pos.z && a.angles.x == b.angles.x &&
            a.angles.y == b.angles.y && a.angles.z == b.angles.z;
@@ -41,7 +41,7 @@ bool Same(const Values& a, const Values& b)
 
 // --- the pure parts ---------------------------------------------------------------------------------------------
 
-float WrapAngle(float radians)
+float wrap_angle(float radians)
 {
     if (!std::isfinite(radians))
         return 0.0f;
@@ -56,25 +56,25 @@ float WrapAngle(float radians)
     return static_cast<float>(a);
 }
 
-V3 Turned(V3 angles, int notches)
+V3 get_turned(V3 angles, int notches)
 {
-    angles.y = WrapAngle(angles.y + static_cast<float>(notches) * kStep);
+    angles.y = wrap_angle(angles.y + static_cast<float>(notches) * kStep);
     return angles;
 }
 
-float HeadingDegrees(V3 angles)
+float get_heading_degrees(V3 angles)
 {
-    float degrees = WrapAngle(angles.y) * (180.0f / kPi);
+    float degrees = wrap_angle(angles.y) * (180.0f / kPi);
     return degrees <= -180.0f ? 180.0f : degrees;
 }
 
-V3 WithHeading(V3 angles, float degrees)
+V3 with_heading(V3 angles, float degrees)
 {
-    angles.y = WrapAngle(degrees * (kPi / 180.0f));
+    angles.y = wrap_angle(degrees * (kPi / 180.0f));
     return angles;
 }
 
-Step Capture(const std::vector<uint32_t>& names, const Reader& read)
+Step get_capture(const std::vector<uint32_t>& names, const Reader& read)
 {
     Step step;
     for (uint32_t name : names) {
@@ -85,17 +85,17 @@ Step Capture(const std::vector<uint32_t>& names, const Reader& read)
     return step;
 }
 
-void PlaceIn(const Step& step, const Writer& write)
+void place_in(const Step& step, const Writer& write)
 {
     for (const auto& node : step.nodes)
         write(node.first, node.second);
 }
 
-bool Differs(const Step& step, const Reader& read)
+bool differs(const Step& step, const Reader& read)
 {
     for (const auto& node : step.nodes) {
         Values now;
-        if (read(node.first, &now) && !Same(now, node.second))
+        if (read(node.first, &now) && !get_same(now, node.second))
             return true;
     }
     return false;
@@ -114,59 +114,59 @@ constexpr uint32_t kShape = 0x22CF0027;  // Shape
 struct Touched {
     uint32_t name;
     Values origin;
-    Scripts::CStruct* node;
+    script::Struct* node;
 };
 std::vector<Touched> g_touched;
-std::unordered_map<uint32_t, size_t> g_touchedIndex;
-// Rail points' places as the level has them (Origin's answer: the rail manager keeps them - Scenery::RailOrigin).
-std::unordered_map<uint32_t, Values> g_railOrigins;
+std::unordered_map<uint32_t, size_t> g_touched_index;
+// Rail points' places as the level has them (Origin's answer: the rail manager keeps them - Scenery::rail_origin).
+std::unordered_map<uint32_t, Values> g_rail_origins;
 
 // The node's own pos= / angles= component (the last, as CStruct::Hunt reads them - never one in an included
 // structure, which the game doesn't read for these either).
-Scripts::CComponent* OwnVector(Scripts::CStruct* node, uint32_t name)
+script::Component* own_vector(script::Struct* node, uint32_t name)
 {
-    Scripts::CComponent* found = nullptr;
-    for (Scripts::CComponent* c = node->m_head; c; c = c->next) {
-        if (c->name == name && c->KindTag() == Scripts::QBVAL_VECTOR && c->vector)
+    script::Component* found = nullptr;
+    for (script::Component* c = node->head_; c; c = c->next) {
+        if (c->name == name && c->kind_tag() == script::kQbvalVector && c->vector)
             found = c;
     }
     return found;
 }
 
-void StoreNodeVector(Scripts::CStruct* node, uint32_t name, V3 value)
+void store_node_vector(script::Struct* node, uint32_t name, V3 value)
 {
-    if (Scripts::CComponent* c = OwnVector(node, name)) {
+    if (script::Component* c = own_vector(node, name)) {
         c->vector->x = value.x;
         c->vector->y = value.y;
         c->vector->z = value.z;
         return;
     }
-    node->PutVec3(name, value.x, value.y, value.z);
+    node->put_vec3(name, value.x, value.y, value.z);
 }
 
 // The light lists 0x00490570 fills (by the node's name; read in 0x0048FCA0, which takes a light away): the dynamic
 // lights - up to 256 pointers at 0x006FAAF0, the count at 0x006FAEF0, each with its place at +0x04 and its name at
 // +0x28 - and the level lights - up to 150 entries of 0x24 bytes at 0x006FAF80, the count at 0x006FAEF4, the place at
 // +0x00 and the name at +0x18.
-void MoveLights(uint32_t name, V3 pos)
+void move_lights(uint32_t name, V3 pos)
 {
-    auto** dynamic = reinterpret_cast<uint8_t**>(Engine3D::g_dynamicLights);
-    int dynamicCount = Engine3D::g_dynamicLightCount;
-    for (int i = 0; i < dynamicCount && i < 256; ++i) {
+    auto** dynamic = reinterpret_cast<uint8_t**>(render::g_dynamic_lights);
+    int dynamic_count = render::g_dynamic_light_count;
+    for (int i = 0; i < dynamic_count && i < 256; ++i) {
         uint8_t* light = dynamic[i];
         if (light && *reinterpret_cast<uint32_t*>(light + 0x28) == name) {
-            auto* place = reinterpret_cast<Maths::Vec4*>(light + 0x04);
+            auto* place = reinterpret_cast<maths::Vec4*>(light + 0x04);
             place->x = pos.x;
             place->y = pos.y;
             place->z = pos.z;
         }
     }
-    auto* level = reinterpret_cast<uint8_t*>(Engine3D::g_levelLamps);
-    int levelCount = Engine3D::g_sceneLightCount;
-    for (int i = 0; i < levelCount && i < 150; ++i) {
+    auto* level = reinterpret_cast<uint8_t*>(render::g_level_lamps);
+    int level_count = render::g_scene_light_count;
+    for (int i = 0; i < level_count && i < 150; ++i) {
         uint8_t* entry = level + i * 0x24;
         if (*reinterpret_cast<uint32_t*>(entry + 0x18) == name) {
-            auto* place = reinterpret_cast<Maths::Vec4*>(entry);
+            auto* place = reinterpret_cast<maths::Vec4*>(entry);
             place->x = pos.x;
             place->y = pos.y;
             place->z = pos.z;
@@ -175,244 +175,244 @@ void MoveLights(uint32_t name, V3 pos)
 }
 
 // What the game keeps of the node, brought up to date (level_editor_node_edit.h's list).
-void ApplyLive(const Nodes::Elem* node, uint32_t name, const Values& values)
+void apply_live(const nodes::Elem* node, uint32_t name, const Values& values)
 {
-    Maths::Vec4 pos = {values.pos.x, values.pos.y, values.pos.z, 1.0f};
-    Nodes::Family family = node ? node->family : Nodes::Family::Other;
-    if (family == Nodes::Family::FireOff && reinterpret_cast<GameObjects::ProximityRegistry*>(GameObjects::g_proximityHub)) {
-        if (GameObjects::ProximNode* proxim = GameObjects::Proxim_GetNode(name))
-            proxim->m_atPoint = pos;
+    maths::Vec4 pos = {values.pos.x, values.pos.y, values.pos.z, 1.0f};
+    nodes::Family family = node ? node->family : nodes::Family::kOther;
+    if (family == nodes::Family::kFireOff && reinterpret_cast<objects::ProximityRegistry*>(objects::g_proximity_hub)) {
+        if (objects::ProximNode* proxim = objects::proxim_get_node(name))
+            proxim->at_point_ = pos;
     }
-    if (family == Nodes::Family::Sound && GameObjects::g_emitterTable) {
-        if (GameObjects::EmitterNode* emitter = GameObjects::Emitter_GetNode(name))
-            emitter->m_atPoint = pos;
+    if (family == nodes::Family::kSound && objects::g_emitter_table) {
+        if (objects::EmitterNode* emitter = objects::emitter_get_node(name))
+            emitter->at_point_ = pos;
     }
-    if (family == Nodes::Family::Light)
-        MoveLights(name, values.pos);
+    if (family == nodes::Family::kLight)
+        move_lights(name, values.pos);
     // Its object (a flag a CTF or team game made; any object of the node's name): moved and turned as the node.
-    auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(name));
-    if (object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD)) {
-        Objects::State state = Objects::StoreAway(object);
+    auto* object = static_cast<objects::GameEntity*>(objects::find_object(name));
+    if (object && !(object->object_flags_ & objects::kObjectFlagDead)) {
+        object_edit::State state = object_edit::store_away(object);
         state.pos = pos;
-        Maths::Mat4 matrix;
-        Maths::Vec4 angles = {values.angles.x, values.angles.y, values.angles.z, 1.0f};
-        matrix.InitFromAngles(angles);
+        maths::Mat4 matrix;
+        maths::Vec4 angles = {values.angles.x, values.angles.y, values.angles.z, 1.0f};
+        matrix.init_from_angles(angles);
         for (int r = 0; r < 3; ++r)
-            state.matrix.row[r] = state.drawMatrix.row[r] = matrix.row[r];
-        Objects::Restore(state);
+            state.matrix.row[r] = state.draw_matrix_.row[r] = matrix.row[r];
+        object_edit::get_restore(state);
     }
 }
 
 // The level's node named `name` (the node manager's: the one the game finds), null if none or no level.
-Scripts::CStruct* StructNamed(uint32_t name)
+script::Struct* struct_named(uint32_t name)
 {
-    return name && LevelNodes::NodeManagerInstance() ? LevelNodes::FetchVertex(name, false) : nullptr;
+    return name && level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(name, false) : nullptr;
 }
 
-const Nodes::Elem* NodeNamed(uint32_t name)
+const nodes::Elem* node_named(uint32_t name)
 {
-    int index = Nodes::Find(name);
-    return index >= 0 ? &Nodes::All()[index] : nullptr;
+    int index = nodes::get_find(name);
+    return index >= 0 ? &nodes::get_all()[index] : nullptr;
 }
 
 } // namespace
 
-bool Movable(const Nodes::Elem& node)
+bool get_movable(const nodes::Elem& node)
 {
-    if (!node.hasPos || !node.name)
+    if (!node.has_pos_ || !node.name)
         return false;
     switch (node.family) {
-    case Nodes::Family::Rail:
-    case Nodes::Family::Ladder:
-        return IsRail(node.name); // (a point of the rail manager: where skaters grind / climb)
-    case Nodes::Family::RouteWay:
+    case nodes::Family::kRail:
+    case nodes::Family::kLadder:
+        return is_rail(node.name); // (a point of the rail manager: where skaters grind / climb)
+    case nodes::Family::kRouteWay:
         return true; // (a waypoint: its pos=, read when a ped or car heads for it - level_editor_chains.h)
-    case Nodes::Family::Spawn:
-    case Nodes::Family::Crown:
-    case Nodes::Family::BitMark:
-    case Nodes::Family::Light:
-    case Nodes::Family::Sound:
-    case Nodes::Family::FireOff:
-    case Nodes::Family::Other:
+    case nodes::Family::kSpawn:
+    case nodes::Family::kCrown:
+    case nodes::Family::kBitMark:
+    case nodes::Family::kLight:
+    case nodes::Family::kSound:
+    case nodes::Family::kFireOff:
+    case nodes::Family::kOther:
         return true;
     default:
         // (particle systems, objects the level hasn't made - level_editor_entities.h)
-        return Entities::PickedNodeIndex(node.name, static_cast<int>(node.family));
+        return entities::picked_node_index(node.name, static_cast<int>(node.family));
     }
 }
 
-const char* WhenApplied(const Nodes::Elem& node)
+const char* when_applied(const nodes::Elem& node)
 {
-    Scripts::CStruct* s = Nodes::StructOf(node);
+    script::Struct* s = nodes::struct_of(node);
     uint32_t shape = 0;
-    bool sectorShape = s && s->ReadHashValue(kShape, &shape, 0) && shape != 0xAA069978; // (a sphere's)
+    bool sector_shape = s && s->read_hash_value(kShape, &shape, 0) && shape != 0xAA069978; // (a sphere's)
     switch (node.family) {
-    case Nodes::Family::Rail:
+    case nodes::Family::kRail:
         return "Live";
-    case Nodes::Family::Ladder:
+    case nodes::Family::kLadder:
         return "Live";
-    case Nodes::Family::RouteWay:
+    case nodes::Family::kRouteWay:
         return "When next reached";
-    case Nodes::Family::Spawn:
+    case nodes::Family::kSpawn:
         return "Next respawn";
-    case Nodes::Family::Crown:
+    case nodes::Family::kCrown:
         return "Next crown spawn";
-    case Nodes::Family::BitMark:
+    case nodes::Family::kBitMark:
         return "Live";
-    case Nodes::Family::Light:
+    case nodes::Family::kLight:
         return "Live; baked lighting on reload";
-    case Nodes::Family::Sound:
-        return sectorShape ? "Live; area unchanged" : "Live";
-    case Nodes::Family::FireOff:
-        return sectorShape ? "Live; area unchanged" : "Live";
-    case Nodes::Family::Particle:
-    case Nodes::Family::Object:
-        return Entities::WhenApplied(node.name, static_cast<int>(node.family));
+    case nodes::Family::kSound:
+        return sector_shape ? "Live; area unchanged" : "Live";
+    case nodes::Family::kFireOff:
+        return sector_shape ? "Live; area unchanged" : "Live";
+    case nodes::Family::kParticle:
+    case nodes::Family::kObject:
+        return entities::when_applied(node.name, static_cast<int>(node.family));
     default:
         return "When next read";
     }
 }
 
-bool IsRail(uint32_t name)
+bool is_rail(uint32_t name)
 {
     V3 pos;
-    return name && Scenery::RailPoint(name, &pos, true); // (a ladder's point too)
+    return name && scenery::get_rail_point(name, &pos, true); // (a ladder's point too)
 }
 
-bool IsChain(uint32_t name) { return IsRail(name) || Chains::IsPath(name); }
+bool is_chain(uint32_t name) { return is_rail(name) || chains::is_path(name); }
 
-std::vector<uint32_t> MovedWith(uint32_t name, bool entireRail)
+std::vector<uint32_t> moved_with(uint32_t name, bool entire_rail)
 {
-    if (entireRail && IsRail(name)) {
-        std::vector<uint32_t> rail = Scenery::RailOf(name);
+    if (entire_rail && is_rail(name)) {
+        std::vector<uint32_t> rail = scenery::rail_of(name);
         if (!rail.empty())
             return rail;
     }
-    if (entireRail && Chains::IsPath(name))
-        return Chains::ChainOf(name); // (a path: its waypoints linked either way)
+    if (entire_rail && chains::is_path(name))
+        return chains::chain_of(name); // (a path: its waypoints linked either way)
     return {name};
 }
 
-bool TakeIn(uint32_t name, Values* values)
+bool get_take_in(uint32_t name, Values* values)
 {
     // (a rail point: where the rail manager has it - its node keeps the level's pos=; no angles of its own)
     V3 point;
-    if (name && Scenery::RailPoint(name, &point, true)) {
+    if (name && scenery::get_rail_point(name, &point, true)) {
         values->pos = point;
         values->angles = {0.0f, 0.0f, 0.0f};
         return true;
     }
-    Scripts::CStruct* node = StructNamed(name);
+    script::Struct* node = struct_named(name);
     if (!node)
         return false;
-    Maths::Vec4 pos, angles;
-    LevelNodes::FetchPlace(node, &pos);
-    LevelNodes::ReadTurnAngles(node, &angles);
+    maths::Vec4 pos, angles;
+    level_nodes::fetch_place(node, &pos);
+    level_nodes::read_turn_angles(node, &angles);
     values->pos = {pos.x, pos.y, pos.z};
     values->angles = {angles.x, angles.y, angles.z};
     return true;
 }
 
-void NoteOrigin(uint32_t name)
+void note_origin(uint32_t name)
 {
-    if (IsRail(name) && !NodeCreate::IsAdded(name))
+    if (is_rail(name) && !node_create::is_added(name))
         return; // (the rail manager notes where the level has it)
-    if (g_touchedIndex.count(name))
+    if (g_touched_index.count(name))
         return;
     Values origin;
-    if (!TakeIn(name, &origin))
+    if (!get_take_in(name, &origin))
         return;
-    g_touchedIndex[name] = g_touched.size();
-    g_touched.push_back({name, origin, StructNamed(name)});
+    g_touched_index[name] = g_touched.size();
+    g_touched.push_back({name, origin, struct_named(name)});
 }
 
-const Values* Origin(uint32_t name)
+const Values* get_origin(uint32_t name)
 {
     V3 origin;
-    if (IsRail(name) && !NodeCreate::IsAdded(name) && Scenery::RailOrigin(name, &origin)) {
-        Values& values = g_railOrigins[name];
+    if (is_rail(name) && !node_create::is_added(name) && scenery::rail_origin(name, &origin)) {
+        Values& values = g_rail_origins[name];
         values = {origin, {0.0f, 0.0f, 0.0f}};
         return &values;
     }
-    auto it = g_touchedIndex.find(name);
-    return it == g_touchedIndex.end() ? nullptr : &g_touched[it->second].origin;
+    auto it = g_touched_index.find(name);
+    return it == g_touched_index.end() ? nullptr : &g_touched[it->second].origin;
 }
 
-bool AssignValue(uint32_t name, const Values& values)
+bool assign_value(uint32_t name, const Values& values)
 {
     // A rail point: moved in the rail manager (Scenery's rail records - saved as `rail`, reset with the level's
     // scenery), its segments' boxes made again; its node and its angles stay. A point the editor added: its node and its
     // rail manager node both (its `point` record has its place - level_editor_chains.h).
-    if (Chains::IsAddedPoint(name)) {
-        NoteOrigin(name);
-        return Chains::MoveAddedPoint(name, values.pos);
+    if (chains::is_added_point(name)) {
+        note_origin(name);
+        return chains::move_added_point(name, values.pos);
     }
-    if (IsRail(name)) {
-        if (!Scenery::SetRailPoint(name, values.pos))
+    if (is_rail(name)) {
+        if (!scenery::set_rail_point(name, values.pos))
             return false;
-        int index = Nodes::Find(name);
+        int index = nodes::get_find(name);
         if (index >= 0)
-            Nodes::Reread(index);
+            nodes::reread(index);
         return true;
     }
-    Scripts::CStruct* node = StructNamed(name);
+    script::Struct* node = struct_named(name);
     if (!node)
         return false;
-    NoteOrigin(name);
-    StoreNodeVector(node, kPos, values.pos);
-    StoreNodeVector(node, kAngles, values.angles);
-    const Nodes::Elem* layer = NodeNamed(name);
-    ApplyLive(layer, name, values);
-    Entities::NodeMoved(name, values.pos, values.angles); // (a particle system: its emitter turned and moved, remade)
-    int index = Nodes::Find(name);
+    note_origin(name);
+    store_node_vector(node, kPos, values.pos);
+    store_node_vector(node, kAngles, values.angles);
+    const nodes::Elem* layer = node_named(name);
+    apply_live(layer, name, values);
+    entities::node_moved(name, values.pos, values.angles); // (a particle system: its emitter turned and moved, remade)
+    int index = nodes::get_find(name);
     if (index >= 0)
-        Nodes::Reread(index);
+        nodes::reread(index);
     return true;
 }
 
-std::vector<LinkRecord> Changed()
+std::vector<LinkRecord> get_changed()
 {
     std::vector<LinkRecord> out;
     for (const Touched& t : g_touched) {
         Values now;
-        if (TakeIn(t.name, &now) && !Same(now, t.origin))
+        if (get_take_in(t.name, &now) && !get_same(now, t.origin))
             out.push_back({t.name, now});
     }
     return out;
 }
 
-void Forget(uint32_t name)
+void get_forget(uint32_t name)
 {
-    auto it = g_touchedIndex.find(name);
-    if (it == g_touchedIndex.end())
+    auto it = g_touched_index.find(name);
+    if (it == g_touched_index.end())
         return;
     g_touched.erase(g_touched.begin() + static_cast<std::ptrdiff_t>(it->second));
-    g_touchedIndex.clear();
+    g_touched_index.clear();
     for (size_t i = 0; i < g_touched.size(); ++i)
-        g_touchedIndex[g_touched[i].name] = i;
+        g_touched_index[g_touched[i].name] = i;
 }
 
-void ResetAll()
+void reset_all()
 {
     std::vector<Touched> touched = g_touched;
     for (const Touched& t : touched)
-        AssignValue(t.name, t.origin);
+        assign_value(t.name, t.origin);
 }
 
-void ForgetLevel()
+void forget_level()
 {
     // (a level whose node array stays loaded - the same structures under the same names - gets its places back: the
     // layout puts them in again; another level's nodes of the same name aren't touched)
     for (const Touched& t : g_touched) {
-        Scripts::CStruct* node = StructNamed(t.name);
+        script::Struct* node = struct_named(t.name);
         if (node && node == t.node) {
-            StoreNodeVector(node, kPos, t.origin.pos);
-            StoreNodeVector(node, kAngles, t.origin.angles);
+            store_node_vector(node, kPos, t.origin.pos);
+            store_node_vector(node, kAngles, t.origin.angles);
         }
     }
     g_touched.clear();
-    g_touchedIndex.clear();
-    g_railOrigins.clear();
+    g_touched_index.clear();
+    g_rail_origins.clear();
 }
 
-} // namespace MenuSystem::LevelEditor::NodeEdit
+} // namespace MenuSystem::level_editor::node_edit

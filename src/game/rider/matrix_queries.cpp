@@ -1,4 +1,4 @@
-// The skater's matrix queries component (GameObjects::CRiderFrameLookups): see matrix_queries.h.
+// The skater's matrix queries component (GameObjects::RiderFrameLookups): see matrix_queries.h.
 
 #include "game/rider/matrix_queries.h"
 
@@ -18,7 +18,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
@@ -38,124 +38,124 @@ constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
 constexpr float kFullCircle = 360.0f;                  // 0x00645EA8
 
 // The core physics' vector at +0x78 (the plane PitchGreaterThan and RollGreaterThan measure against).
-const Maths::Vec4& CoreVector78(uint8_t* corePhysics) { return *reinterpret_cast<Maths::Vec4*>(corePhysics + 0x78); }
+const maths::Vec4& core_vector78(uint8_t* core_physics) { return *reinterpret_cast<maths::Vec4*>(core_physics + 0x78); }
 
 // The unnamed float parameter (0 without one; asserted).
-float AngleParameter(Scripts::CStruct* params)
+float angle_parameter(script::Struct* params)
 {
     float angle = 0.0f;
-    params->FetchFloat(uint32_t{0}, &angle, 1);
+    params->fetch_float(uint32_t{0}, &angle, 1);
     return angle;
 }
 // The cosine of `degrees`, as the original's x87.
-double CosDegrees(float degrees) { return Skater::X87Cos(static_cast<double>(degrees) * kRadiansPerDegree); }
+double cos_degrees(float degrees) { return skater::x87_cos(static_cast<double>(degrees) * kRadiansPerDegree); }
 
 } // namespace
 
 // 0x00514430
-CObjectModule* __cdecl CRiderFrameLookups::Fabricate()
+ObjectModule* __cdecl RiderFrameLookups::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CRiderFrameLookups));
+    void* memory = memory::alloc_zeroed(sizeof(RiderFrameLookups));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CRiderFrameLookups*>(memory);
-    component->CObjectModule::MakeNew();
-    component->m_vtable = kVtable;
-    component->m_kindTag = kSkaterMatrixQueries;
-    component->m_corePhysics = nullptr;
+    auto* component = static_cast<RiderFrameLookups*>(memory);
+    component->ObjectModule::make_new();
+    component->vtable_ = kVtable;
+    component->kind_tag_ = kSkaterMatrixQueries;
+    component->core_physics_ = nullptr;
     return component;
 }
 
 // 0x00513FD0
-void CRiderFrameLookups::DestroyBody()
+void RiderFrameLookups::destroy_body()
 {
-    m_vtable = kVtable;
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    ObjectModule::destroy_body();
 }
 
 // 0x00513FE0
-CRiderFrameLookups* CRiderFrameLookups::Teardown(unsigned int flags)
+RiderFrameLookups* RiderFrameLookups::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00514010
-void CRiderFrameLookups::Seal()
+void RiderFrameLookups::seal()
 {
-    m_corePhysics = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSkaterCorePhysics));
+    core_physics_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterCorePhysics));
 }
 
 // 0x00514030
-void CRiderFrameLookups::TickFrame() { m_basisFrame = *reinterpret_cast<Maths::Mat4*>(m_corePhysics + 0x18); }
+void RiderFrameLookups::tick_frame() { basis_frame_ = *reinterpret_cast<maths::Mat4*>(core_physics_ + 0x18); }
 
 // 0x00514040
-int CRiderFrameLookups::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script)
+int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
 {
-    const Maths::Vec4& right = m_basisFrame.row[0];
-    const Maths::Vec4& up = m_basisFrame.row[1];
-    const Maths::Vec4& at = m_basisFrame.row[2];
+    const maths::Vec4& right = basis_frame_.row[0];
+    const maths::Vec4& up = basis_frame_.row[1];
+    const maths::Vec4& at = basis_frame_.row[2];
     switch (name) {
     case kGetHeading: {
-        const Maths::Vec4& facing = m_entity->m_basisFrame.row[2];
-        float heading = static_cast<float>(static_cast<double>(Maths::FastACos(facing.x)) * kDegreesPerRadian);
+        const maths::Vec4& facing = entity_->basis_frame_.row[2];
+        float heading = static_cast<float>(static_cast<double>(maths::fast_a_cos(facing.x)) * kDegreesPerRadian);
         if (facing.z < 0.0f)
             heading = kFullCircle - heading;
-        script->m_args->PushFloat(kHeading, heading);
-        script->m_args->PushFloat(kCosine, m_entity->m_basisFrame.row[2].x);
-        script->m_args->PushFloat(kSine, m_entity->m_basisFrame.row[2].z);
+        script->args_->push_float(kHeading, heading);
+        script->args_->push_float(kCosine, entity_->basis_frame_.row[2].x);
+        script->args_->push_float(kSine, entity_->basis_frame_.row[2].z);
         return 1;
     }
     case kAbsolutePitchGreaterThan: {
-        float angle = AngleParameter(params);
-        return CosDegrees(angle) > up.y ? 1 : 0;
+        float angle = angle_parameter(params);
+        return cos_degrees(angle) > up.y ? 1 : 0;
     }
     case kGetSlope: {
         // The at row's angle from its own flattened copy (negative when it points down).
-        const Maths::Vec4& facing = m_entity->m_basisFrame.row[2];
-        Maths::Vec4 flat = facing;
+        const maths::Vec4& facing = entity_->basis_frame_.row[2];
+        maths::Vec4 flat = facing;
         flat.y = 0.0f;
-        float slope = static_cast<float>(Maths::ReadTurnAngle(facing, flat));
-        if (m_entity->m_basisFrame.row[2].y < 0.0f)
+        float slope = static_cast<float>(maths::read_turn_angle(facing, flat));
+        if (entity_->basis_frame_.row[2].y < 0.0f)
             slope = -slope;
-        script->m_args->PushFloat(kSlope, slope);
-        script->m_args->PushFloat(kChangeInSlope, slope - m_prevGradient);
-        m_prevGradient = slope;
+        script->args_->push_float(kSlope, slope);
+        script->args_->push_float(kChangeInSlope, slope - prev_gradient_);
+        prev_gradient_ = slope;
         return 1;
     }
     case kPitchGreaterThan: {
-        float angle = AngleParameter(params);
-        const Maths::Vec4& v = CoreVector78(m_corePhysics);
+        float angle = angle_parameter(params);
+        const maths::Vec4& v = core_vector78(core_physics_);
         double dot = static_cast<double>(up.z) * v.z + static_cast<double>(up.y) * v.y + static_cast<double>(v.x) * up.x;
-        return CosDegrees(angle) > dot ? 1 : 0;
+        return cos_degrees(angle) > dot ? 1 : 0;
     }
     case kYawingLeft: {
-        Maths::Vec4 v = m_entity->m_vel;
-        v.AlignToPlane(up);
+        maths::Vec4 v = entity_->vel_;
+        v.align_to_plane(up);
         return static_cast<double>(v.z) * at.x - static_cast<double>(v.x) * at.z > 0.0 ? 1 : 0;
     }
     case kYawingRight: {
-        Maths::Vec4 v = m_entity->m_vel;
-        v.AlignToPlane(up);
-        return Maths::CrossVec(v, at).y < 0.0f ? 1 : 0;
+        maths::Vec4 v = entity_->vel_;
+        v.align_to_plane(up);
+        return maths::cross_vec(v, at).y < 0.0f ? 1 : 0;
     }
     case kRollGreaterThan: {
-        float angle = AngleParameter(params);
-        Maths::Vec4 v = right;
-        v.AlignToPlane(CoreVector78(m_corePhysics));
-        return Maths::IsAngleBeyond(v, right, angle) ? 1 : 0;
+        float angle = angle_parameter(params);
+        maths::Vec4 v = right;
+        v.align_to_plane(core_vector78(core_physics_));
+        return maths::is_angle_beyond(v, right, angle) ? 1 : 0;
     }
     case kYawBetween: {
-        Scripts::CPair range;
-        range.PrepareAll();
-        params->FetchPair(uint32_t{0}, &range, true);
-        Maths::Vec4 v = m_entity->m_vel;
-        v.AlignToPlane(up);
-        if (!Maths::IsAngleBeyond(v, at, range.x))
+        script::Pair range;
+        range.prepare_all();
+        params->fetch_pair(uint32_t{0}, &range, true);
+        maths::Vec4 v = entity_->vel_;
+        v.align_to_plane(up);
+        if (!maths::is_angle_beyond(v, at, range.x))
             return 0;
-        return Maths::IsAngleBeyond(v, at, range.y) ? 0 : 1;
+        return maths::is_angle_beyond(v, at, range.y) ? 0 : 1;
     }
     default:
         return 2;
@@ -164,23 +164,23 @@ int CRiderFrameLookups::InvokeMethodByName(uint32_t name, Scripts::CStruct* para
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CRiderFrameLookups::Teardown,
-         &GameObjects::CRiderFrameLookups::TickFrame,
-         Stubs::IgnoreArgument,
-         &GameObjects::CRiderFrameLookups::Seal,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
-         &GameObjects::CRiderFrameLookups::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::RiderFrameLookups::teardown,
+         &objects::RiderFrameLookups::tick_frame,
+         stubs::ignore_argument,
+         &objects::RiderFrameLookups::seal,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
+         &objects::RiderFrameLookups::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

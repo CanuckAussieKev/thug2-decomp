@@ -9,7 +9,7 @@
 
 #include "editor/level_editor_prefs.h"
 
-namespace MenuSystem::LevelEditor::Xform {
+namespace frontend::level_editor::xform {
 
 namespace {
 
@@ -20,77 +20,77 @@ Repeat g_repeat;
 
 } // namespace
 
-Settings& AtHand() { return g_settings; }
+Settings& at_hand() { return g_settings; }
 
-bool FlyAlways() { return OptionStore::Pull().wasdFlies; }
-void SetFlyAlways(bool always)
+bool fly_always() { return prefs::get_pull().wasd_flies_; }
+void set_fly_always(bool always)
 {
-    OptionStore::Values v = OptionStore::Pull();
-    v.wasdFlies = always;
-    OptionStore::AssignValue(v);
+    prefs::Values v = prefs::get_pull();
+    v.wasd_flies_ = always;
+    prefs::assign_value(v);
 }
-float Grid() { return static_cast<float>(OptionStore::Pull().snapMove); }
-void SetGrid(float grid)
+float get_grid() { return static_cast<float>(prefs::get_pull().snap_move_); }
+void set_grid(float grid)
 {
-    OptionStore::Values v = OptionStore::Pull();
-    v.snapMove = static_cast<int>(grid);
-    OptionStore::AssignValue(v);
+    prefs::Values v = prefs::get_pull();
+    v.snap_move_ = static_cast<int>(grid);
+    prefs::assign_value(v);
 }
-float AngleStep() { return static_cast<float>(OptionStore::Pull().snapTurn); }
-void SetAngleStep(float degrees)
+float angle_step() { return static_cast<float>(prefs::get_pull().snap_turn_); }
+void set_angle_step(float degrees)
 {
-    OptionStore::Values v = OptionStore::Pull();
-    v.snapTurn = static_cast<int>(degrees);
-    OptionStore::AssignValue(v);
-}
-
-const std::vector<float>& GridSizes()
-{
-    static const std::vector<float> sizes = {1.0f, 5.0f, 10.0f, 25.0f, 50.0f, 100.0f};
-    return sizes;
-}
-const std::vector<float>& AngleSteps()
-{
-    static const std::vector<float> steps = {5.0f, 10.0f, 15.0f, 30.0f, 45.0f, 90.0f};
-    return steps;
+    prefs::Values v = prefs::get_pull();
+    v.snap_turn_ = static_cast<int>(degrees);
+    prefs::assign_value(v);
 }
 
-const char* ModeName(Mode mode)
+const std::vector<float>& grid_sizes()
+{
+    static const std::vector<float> kSizes = {1.0f, 5.0f, 10.0f, 25.0f, 50.0f, 100.0f};
+    return kSizes;
+}
+const std::vector<float>& angle_steps()
+{
+    static const std::vector<float> kSteps = {5.0f, 10.0f, 15.0f, 30.0f, 45.0f, 90.0f};
+    return kSteps;
+}
+
+const char* mode_name(Mode mode)
 {
     switch (mode) {
-    case Mode::ShiftBy: return "Move";
-    case Mode::SpinBy: return "Rotate";
-    case Mode::StretchBy: return "Scale";
+    case Mode::kShiftBy: return "Move";
+    case Mode::kSpinBy: return "Rotate";
+    case Mode::scale_tool: return "Scale";
     }
     return "?";
 }
-const char* PivotName(Pivot pivot)
+const char* pivot_name(Pivot pivot)
 {
     switch (pivot) {
-    case Pivot::Base: return "Base";
-    case Pivot::Centre: return "Centre";
-    case Pivot::Own: return "Own";
+    case Pivot::kBase: return "Base";
+    case Pivot::kCentre: return "Centre";
+    case Pivot::kOwn: return "Own";
     }
     return "?";
 }
-const char* TargetName(SnapTarget target)
+const char* target_name(SnapTarget target)
 {
     switch (target) {
-    case SnapTarget::Grid: return "Grid";
-    case SnapTarget::WorldGrid: return "World grid";
-    case SnapTarget::Surface: return "Surface";
-    case SnapTarget::Vertex: return "Vertex";
+    case SnapTarget::kGrid: return "Grid";
+    case SnapTarget::kWorldGrid: return "World grid";
+    case SnapTarget::kSurface: return "Surface";
+    case SnapTarget::kVertex: return "Vertex";
     }
     return "?";
 }
-Mode NextMode(Mode mode)
+Mode next_mode(Mode mode)
 {
-    return mode == Mode::ShiftBy ? Mode::SpinBy : mode == Mode::SpinBy ? Mode::StretchBy : Mode::ShiftBy;
+    return mode == Mode::kShiftBy ? Mode::kSpinBy : mode == Mode::kSpinBy ? Mode::scale_tool : Mode::kShiftBy;
 }
 
 // --- the pure parts ---
 
-void HeadingAxes(float yaw, V3 out[3])
+void heading_axes(float yaw, V3 out[3])
 {
     float c = std::cos(yaw), s = std::sin(yaw);
     out[0] = {c, 0.0f, -s};
@@ -98,18 +98,18 @@ void HeadingAxes(float yaw, V3 out[3])
     out[2] = {s, 0.0f, c};
 }
 
-float HeadingOf(V3 at) { return std::atan2(at.x, at.z); }
+float get_heading_of(V3 at) { return std::atan2(at.x, at.z); }
 
-void UnitAxes(const V3 rows[3], V3 out[3])
+void unit_axes(const V3 rows[3], V3 out[3])
 {
     static const V3 kWorld[3] = {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}};
     for (int i = 0; i < 3; ++i)
-        out[i] = Dot(rows[i], rows[i]) > 1e-12f ? MakeUnit(rows[i]) : kWorld[i];
+        out[i] = get_dot(rows[i], rows[i]) > 1e-12f ? make_unit(rows[i]) : kWorld[i];
 }
 
-float TurnAroundAxis(V3 pivot, V3 point) { return std::atan2(point.x - pivot.x, point.z - pivot.z); }
+float turn_around_axis(V3 pivot, V3 point) { return std::atan2(point.x - pivot.x, point.z - pivot.z); }
 
-float Wrap(float radians)
+float get_wrap(float radians)
 {
     float r = std::fmod(radians, 2.0f * kPi);
     if (r <= -kPi)
@@ -119,35 +119,35 @@ float Wrap(float radians)
     return r;
 }
 
-float SnapAngle(float radians, float stepDegrees)
+float snap_angle(float radians, float step_degrees)
 {
-    if (stepDegrees <= 0.0f)
+    if (step_degrees <= 0.0f)
         return radians;
-    float step = stepDegrees * kPi / 180.0f;
+    float step = step_degrees * kPi / 180.0f;
     return std::round(radians / step) * step;
 }
 
-int Quarters(float radians) { return static_cast<int>(std::lround(radians / (kPi * 0.5f))); }
+int get_quarters(float radians) { return static_cast<int>(std::lround(radians / (kPi * 0.5f))); }
 
-float SnapRelative(float distance, float grid) { return grid > 0.0f ? std::round(distance / grid) * grid : distance; }
+float snap_relative(float distance, float grid) { return grid > 0.0f ? std::round(distance / grid) * grid : distance; }
 
-float FactorAlong(float s0, float s)
+float factor_along(float s0, float s)
 {
     if (std::fabs(s0) < 1e-3f)
         return 1.0f;
     return std::max(0.05f, std::min(20.0f, s / s0));
 }
 
-float FactorFromPixels(float d0, float d)
+float factor_from_pixels(float d0, float d)
 {
     if (d0 < 4.0f)
         return 1.0f; // (grabbed on the pivot itself: the distance says nothing)
     return std::max(0.05f, std::min(20.0f, d / d0));
 }
 
-float SnapFactor(float factor) { return std::max(0.1f, std::round(factor * 10.0f) / 10.0f); }
+float snap_factor(float factor) { return std::max(0.1f, std::round(factor * 10.0f) / 10.0f); }
 
-std::vector<V3> Ring(V3 pivot, float radius, int count)
+std::vector<V3> get_ring(V3 pivot, float radius, int count)
 {
     std::vector<V3> points;
     for (int i = 0; i < count; ++i) {
@@ -157,31 +157,31 @@ std::vector<V3> Ring(V3 pivot, float radius, int count)
     return points;
 }
 
-std::vector<Segment> GizmoSegments(const Gizmo& gizmo)
+std::vector<Segment> gizmo_segments(const Gizmo& gizmo)
 {
     std::vector<Segment> out;
     V3 p = gizmo.pivot;
     float length = gizmo.length;
     switch (gizmo.mode) {
-    case Mode::ShiftBy:
+    case Mode::kShiftBy:
         for (int axis = 0; axis < 3; ++axis)
             out.push_back({p, p + gizmo.axes[axis] * length, axis, true});
         break;
-    case Mode::SpinBy: {
+    case Mode::kSpinBy: {
         if (!gizmo.rotates)
             break;
         // (the heading ring, and a spoke towards the local z: which way it faces)
-        std::vector<V3> ring = Ring(p, length * 0.8f, 48);
+        std::vector<V3> ring = get_ring(p, length * 0.8f, 48);
         for (size_t i = 0; i < ring.size(); ++i)
             out.push_back({ring[i], ring[(i + 1) % ring.size()], 1, false});
         V3 forward = {gizmo.axes[2].x, 0.0f, gizmo.axes[2].z};
-        if (Dot(forward, forward) > 1e-6f)
-            out.push_back({p, p + MakeUnit(forward) * (length * 0.8f), 1, false});
+        if (get_dot(forward, forward) > 1e-6f)
+            out.push_back({p, p + make_unit(forward) * (length * 0.8f), 1, false});
         break;
     }
-    case Mode::StretchBy: {
+    case Mode::scale_tool: {
         float cube = length * 0.06f;
-        auto addCube = [&](V3 c, int handle) {
+        auto add_cube = [&](V3 c, int handle) {
             V3 corners[8];
             for (int i = 0; i < 8; ++i)
                 corners[i] = c + V3{(i & 1) ? cube : -cube, (i & 2) ? cube : -cube, (i & 4) ? cube : -cube};
@@ -195,38 +195,38 @@ std::vector<Segment> GizmoSegments(const Gizmo& gizmo)
         for (int axis = 0; axis < 3; ++axis) {
             V3 end = p + gizmo.axes[axis] * length;
             out.push_back({p, end, axis, false});
-            addCube(end, axis);
+            add_cube(end, axis);
         }
-        addCube(p, kCentre);
+        add_cube(p, kCentre);
         break;
     }
     }
     return out;
 }
 
-int HandleAt(const Gizmo& gizmo, const Projector& project, float x, float y, float grab)
+int handle_at(const Gizmo& gizmo, const Projector& project, float x, float y, float grab)
 {
     int best = -1;
-    float bestDistance = grab;
+    float best_distance = grab;
     // (Scale's centre cube wins near the pivot: it sits where the three axes start)
     float px, py;
-    if (gizmo.mode == Mode::StretchBy && project(gizmo.pivot, &px, &py) &&
+    if (gizmo.mode == Mode::scale_tool && project(gizmo.pivot, &px, &py) &&
         (x - px) * (x - px) + (y - py) * (y - py) <= grab * grab * 2.25f)
         return kCentre;
-    for (const Segment& s : GizmoSegments(gizmo)) {
+    for (const Segment& s : gizmo_segments(gizmo)) {
         float ax, ay, bx, by;
         if (!project(s.a, &ax, &ay) || !project(s.b, &bx, &by))
             continue;
-        float d = DistanceToSegment(x, y, ax, ay, bx, by);
-        if (d < bestDistance) {
-            bestDistance = d;
+        float d = distance_to_segment(x, y, ax, ay, bx, by);
+        if (d < best_distance) {
+            best_distance = d;
             best = s.handle;
         }
     }
     return best;
 }
 
-uint32_t HandleColour(int handle, bool lit)
+uint32_t handle_colour(int handle, bool lit)
 {
     if (lit)
         return 0xFFFFFF40;
@@ -240,12 +240,12 @@ uint32_t HandleColour(int handle, bool lit)
 
 // --- typed values ---
 
-bool TypeKey(Typed* typed, char c)
+bool type_key(Typed* typed, char c)
 {
     if (c >= 'x' && c <= 'z') {
         int axis = c - 'x';
         typed->axis = typed->axis == axis ? -1 : axis;
-        typed->axisChanged = true;
+        typed->axis_changed_ = true;
         return true;
     }
     if (c >= '0' && c <= '9') {
@@ -270,7 +270,7 @@ bool TypeKey(Typed* typed, char c)
             typed->text.pop_back();
         else if (typed->axis >= 0) {
             typed->axis = -1;
-            typed->axisChanged = true;
+            typed->axis_changed_ = true;
         } else
             return false;
         return true;
@@ -278,7 +278,7 @@ bool TypeKey(Typed* typed, char c)
     return false;
 }
 
-bool TypedValue(const Typed& typed, float* value)
+bool typed_value(const Typed& typed, float* value)
 {
     const std::string& t = typed.text;
     if (t.empty() || t == "-" || t == "." || t == "-.")
@@ -291,20 +291,20 @@ bool TypedValue(const Typed& typed, float* value)
     return true;
 }
 
-std::string Describe(Mode mode, const Typed& typed, int defaultAxis)
+std::string describe(Mode mode, const Typed& typed, int default_axis)
 {
-    static const char* kAxis[3] = {"X", "Y", "Z"};
-    int axis = typed.axis >= 0 ? typed.axis : defaultAxis;
+    static const char* g_axis[3] = {"X", "Y", "Z"};
+    int axis = typed.axis >= 0 ? typed.axis : default_axis;
     std::string text;
     switch (mode) {
-    case Mode::ShiftBy:
-        text = std::string("Move along ") + kAxis[axis >= 0 && axis < 3 ? axis : 0];
+    case Mode::kShiftBy:
+        text = std::string("Move along ") + g_axis[axis >= 0 && axis < 3 ? axis : 0];
         break;
-    case Mode::SpinBy:
+    case Mode::kSpinBy:
         text = "Turn (degrees of heading)";
         break;
-    case Mode::StretchBy:
-        text = axis >= 0 && axis < 3 ? std::string("Scale along ") + kAxis[axis] : std::string("Scale (all axes)");
+    case Mode::scale_tool:
+        text = axis >= 0 && axis < 3 ? std::string("Scale along ") + g_axis[axis] : std::string("Scale (all axes)");
         break;
     }
     text += ": ";
@@ -314,28 +314,28 @@ std::string Describe(Mode mode, const Typed& typed, int defaultAxis)
 
 // --- the repeat of the last duplicate ---
 
-void NoteDuplicate(Repeat* memory, Kind kind, const std::vector<uint32_t>& made, V3 sourcePos, float sourceHeading)
+void note_duplicate(Repeat* memory, Kind kind, const std::vector<uint32_t>& made, V3 source_pos, float source_heading)
 {
     memory->kind = kind;
     memory->made = made;
-    memory->sourcePos = sourcePos;
-    memory->sourceHeading = sourceHeading;
+    memory->source_pos_ = source_pos;
+    memory->source_heading_ = source_heading;
 }
 
-bool RepeatFor(const Repeat& memory, Kind kind, const std::vector<uint32_t>& selected, V3 pos, float heading,
+bool repeat_for(const Repeat& memory, Kind kind, const std::vector<uint32_t>& selected, V3 pos, float heading,
                RepeatStep* step)
 {
-    if (memory.kind == Kind::None || kind != memory.kind || selected.empty())
+    if (memory.kind == Kind::kNone || kind != memory.kind || selected.empty())
         return false;
     std::vector<uint32_t> a = memory.made, b = selected;
     std::sort(a.begin(), a.end());
     std::sort(b.begin(), b.end());
     if (a != b)
         return false;
-    step->offset = pos - memory.sourcePos;
-    float turn = Wrap(heading - memory.sourceHeading);
-    if (kind == Kind::Scenery) {
-        step->quarters = Quarters(turn) & 3;
+    step->offset = pos - memory.source_pos_;
+    float turn = get_wrap(heading - memory.source_heading_);
+    if (kind == Kind::kScenery) {
+        step->quarters = get_quarters(turn) & 3;
         step->turn = 0.0f;
     } else {
         step->quarters = 0;
@@ -344,13 +344,13 @@ bool RepeatFor(const Repeat& memory, Kind kind, const std::vector<uint32_t>& sel
     return true;
 }
 
-V3 RepeatTarget(V3 from, const RepeatStep& step)
+V3 repeat_target(V3 from, const RepeatStep& step)
 {
-    V3 offset = step.quarters ? QuarterTurn(step.offset, step.quarters)
-                              : step.turn != 0.0f ? TurnAboutUp(step.offset, step.turn) : step.offset;
+    V3 offset = step.quarters ? get_quarter_turn(step.offset, step.quarters)
+                              : step.turn != 0.0f ? turn_about_up(step.offset, step.turn) : step.offset;
     return from + offset;
 }
 
-Repeat& LastDuplicate() { return g_repeat; }
+Repeat& last_duplicate() { return g_repeat; }
 
-} // namespace MenuSystem::LevelEditor::Xform
+} // namespace MenuSystem::level_editor::xform

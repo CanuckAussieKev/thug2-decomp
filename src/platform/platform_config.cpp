@@ -8,38 +8,38 @@
 #include <cstdio>
 #include <cstring>
 
-namespace BuildInfo {
+namespace build_info {
 
 namespace {
 
 constexpr size_t kPathLength = 1024;
-char s_executableDirectory[kPathLength];
+char s_executable_directory[kPathLength];
 char s_file[kPathLength];
 
 } // namespace
 
-void PrepareAll()
+void prepare_all()
 {
-    GetModuleFileNameA(nullptr, s_executableDirectory, kPathLength);
+    GetModuleFileNameA(nullptr, s_executable_directory, kPathLength);
     // up to the last backslash
-    if (char* exe = std::strrchr(s_executableDirectory, '\\'))
+    if (char* exe = std::strrchr(s_executable_directory, '\\'))
         exe[1] = '\0';
-    std::snprintf(s_file, sizeof(s_file), "%s%s", s_executableDirectory, kFileName);
+    std::snprintf(s_file, sizeof(s_file), "%s%s", s_executable_directory, kFileName);
 }
 
-const char* ExecutableDirectory() { return s_executableDirectory; }
+const char* executable_directory() { return s_executable_directory; }
 
-bool FetchFlag(const char* section, const char* key, bool fallback)
+bool fetch_flag(const char* section, const char* key, bool fallback)
 {
     return GetPrivateProfileIntA(section, key, fallback ? 1 : 0, s_file) != 0;
 }
 
-int GetInt(const char* section, const char* key, int fallback)
+int get_int(const char* section, const char* key, int fallback)
 {
     return static_cast<int>(GetPrivateProfileIntA(section, key, fallback, s_file));
 }
 
-int FetchText(const char* section, const char* key, const char* fallback, char* out, size_t size)
+int fetch_text(const char* section, const char* key, const char* fallback, char* out, size_t size)
 {
     return static_cast<int>(GetPrivateProfileStringA(section, key, fallback, out, static_cast<DWORD>(size), s_file));
 }

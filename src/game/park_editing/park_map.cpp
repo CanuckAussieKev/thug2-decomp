@@ -1,4 +1,4 @@
-// The park manager's compressed map (ParkEditing::CParkLayout): the park read from a script structure, a file or the
+// The park manager's compressed map (park_editing::ParkLayout): the park read from a script structure, a file or the
 // map itself, and a new empty park.
 
 #include "game/park_editing/park.h"
@@ -17,9 +17,9 @@
 #include "game/park_editing/rail_editor.h"
 #include "game/park_editing/goal_editor.h"
 
-namespace ParkEditing {
+namespace park_editing {
 
-bool g_railEditorFlag{true};
+bool g_rail_editor_flag{true};
 
 namespace {
 
@@ -35,240 +35,240 @@ constexpr uint32_t kOldDeadPiece = 0xE2730BC0;    // the older parks' dead piece
 constexpr uint32_t kEditLevel = 0x7ECA21E5;       // "edit": the park editor's level
 
 // The goal editor (0x004E8470 looks it up): its goals cleared (0x004E8280), read from a structure (0x004EA470).
-void* GoalEditor() { return CObjectiveAuthoring::Pull(); }
-void ClearGoals(void* goalEditor) { static_cast<CObjectiveAuthoring*>(goalEditor)->ClearParkGoals(); }
-void ReadGoals(void* goalEditor, Scripts::CStruct* goals, int flag)
+void* get_goal_editor() { return ObjectiveAuthoring::get_pull(); }
+void clear_goals(void* goal_editor) { static_cast<ObjectiveAuthoring*>(goal_editor)->clear_park_goals(); }
+void read_goals(void* goal_editor, script::Struct* goals, int flag)
 {
-    static_cast<CObjectiveAuthoring*>(goalEditor)->ReadGoals(goals, flag);
+    static_cast<ObjectiveAuthoring*>(goal_editor)->read_goals(goals, flag);
 }
 // The rail editor (0x004F4970 looks it up): its rails read from a structure (0x004F7ED0).
-void ReadRails(Scripts::CStruct* params)
+void read_rails(script::Struct* params)
 {
-    CRailAuthoring::Sole()->DecodeFromStruct(params);
+    RailAuthoring::sole()->decode_from_struct(params);
 }
 // A flag the rail editor reads (cleared while rails are read outside the park editor's level).
-bool& RailEditorFlag() { return g_railEditorFlag; }
+bool& rail_editor_flag() { return g_rail_editor_flag; }
 
 // The park editor's theme.
-void SetTheme(uint32_t theme) { CParkBuilderMode::Sole()->SetDaylightScript(theme); }
+void set_theme(uint32_t theme) { ParkBuilderMode::sole()->set_daylight_script(theme); }
 
 // The script structure written to a buffer and read back (0x0047A070 sizes it, 0x00479E20 writes it,
 // 0x0047A0C0 reads it).
-uint32_t StructureBufferSize(Scripts::CStruct* structure, uint32_t maximum)
+uint32_t structure_buffer_size(script::Struct* structure, uint32_t maximum)
 {
-    return Scripts::MeasureBufferBytes(structure, maximum);
+    return script::measure_buffer_bytes(structure, maximum);
 }
-void WriteStructure(Scripts::CStruct* structure, void* buffer, uint32_t size, int a, int b)
+void write_structure(script::Struct* structure, void* buffer, uint32_t size, int a, int b)
 {
-    Scripts::EmitIntoBuffer(structure, static_cast<uint8_t*>(buffer), size, a, reinterpret_cast<void (*)()>(b));
+    script::emit_into_buffer(structure, static_cast<uint8_t*>(buffer), size, a, reinterpret_cast<void (*)()>(b));
 }
-void ReadStructure(Scripts::CStruct* structure, void* buffer)
+void read_structure(script::Struct* structure, void* buffer)
 {
-    Scripts::DecodeFromBytes(structure, static_cast<const uint8_t*>(buffer));
+    script::decode_from_bytes(structure, static_cast<const uint8_t*>(buffer));
 }
 
 // strcpy (inline in the original: no limit).
-void CopyString(char* dest, const char* source)
+void copy_string(char* dest, const char* source)
 {
     while ((*dest++ = *source++) != '\0') {
     }
 }
 
-Scripts::CStruct* SpawnParamTable()
+script::Struct* spawn_param_table()
 {
-    Scripts::CStruct* memory = Scripts::SpawnParamBag();
-    return memory ? memory->PrepareAll() : nullptr;
+    script::Struct* memory = script::spawn_param_bag();
+    return memory ? memory->prepare_all() : nullptr;
 }
-void DeleteStructure(Scripts::CStruct* structure)
+void delete_structure(script::Struct* structure)
 {
     if (structure) {
-        structure->Clear();
-        Scripts::DeleteStruct(structure);
+        structure->get_clear();
+        script::delete_struct(structure);
     }
 }
 
 } // namespace
 
 // 0x00598FC0
-void CParkLayout::DecodeFromStruct(Scripts::CStruct* params, bool applyToEditor)
+void ParkLayout::decode_from_struct(script::Struct* params, bool apply_to_editor)
 {
-    void* goalEditor = GoalEditor();
-    ClearGoals(goalEditor);
-    Scripts::CStruct* goals = nullptr;
-    if (params->ReadSubStruct(kParkEditorGoals, &goals, 0))
-        ReadGoals(goalEditor, goals, 1);
+    void* goal_editor = get_goal_editor();
+    clear_goals(goal_editor);
+    script::Struct* goals = nullptr;
+    if (params->read_sub_struct(kParkEditorGoals, &goals, 0))
+        read_goals(goal_editor, goals, 1);
 
-    CParkBuilderMode* editor = CParkBuilderMode::Fabricate(false);
-    if (editor->m_curPhase != kEditLevel)
-        RailEditorFlag() = false;
-    ReadRails(params);
-    RailEditorFlag() = true;
+    ParkBuilderMode* editor = ParkBuilderMode::fabricate(false);
+    if (editor->cur_phase_ != kEditLevel)
+        rail_editor_flag() = false;
+    read_rails(params);
+    rail_editor_flag() = true;
 
-    int maxPlayers = 2;
-    params->FetchIntValue(kMaxPlayers, &maxPlayers, 0);
-    Sole()->m_builder->SetPlayerCap(maxPlayers);
+    int max_players = 2;
+    params->fetch_int_value(kMaxPlayers, &max_players, 0);
+    sole()->builder_->set_player_cap(max_players);
 
-    uint16_t mapSize = (m_flagBits & kMapLoaded) ? m_map.m_shellSize : 0;
-    if (m_parkBuilt)
-        WriteCompressedMap();
-    Scripts::CArray* map = nullptr;
-    if (params->FetchList("Park_editor_map", &map, 1)) {
+    uint16_t map_size = (flag_bits_ & kMapLoaded) ? map_.shell_size_ : 0;
+    if (park_built_)
+        write_compressed_map();
+    script::Array* map = nullptr;
+    if (params->fetch_list("Park_editor_map", &map, 1)) {
         for (int i = 0; i < static_cast<int>(sizeof(CompressedMap) / 4); ++i)
-            reinterpret_cast<uint32_t*>(&m_map)[i] = map->FetchPart(i);
-        if (applyToEditor) {
-            CParkBuilderMode::Fabricate(false)->ApplyMap(&m_map, mapSize);
-            CParkBuilderMode::Release();
+            reinterpret_cast<uint32_t*>(&map_)[i] = map->fetch_part(i);
+        if (apply_to_editor) {
+            ParkBuilderMode::fabricate(false)->apply_map(&map_, map_size);
+            ParkBuilderMode::get_release();
         }
     }
-    CParkBuilderMode::Release();
+    ParkBuilderMode::get_release();
 }
 
 // 0x00599140
-void CParkLayout::TransferParkFile(bool save, int slot)
+void ParkLayout::transfer_park_file(bool save, int slot)
 {
     char name[64];
     std::snprintf(name, sizeof(name), "CustomParks\\custom%d.prk", slot);
     if (save) {
-        Scripts::CStruct* params = SpawnParamTable();
-        ExportToStruct(params);
-        uint32_t size = StructureBufferSize(params, 100000);
-        void* buffer = MemSys::AllocBlock(size);
-        WriteStructure(params, buffer, size, 1, 0);
-        FileLoad::Hdl file = FileLoad::Unseal(name, "wb");
-        FileLoad::EmitOut(buffer, static_cast<int>(size), 1, file);
-        FileLoad::Shut(file);
-        MemSys::FreeMalloc(buffer);
-        DeleteStructure(params);
+        script::Struct* params = spawn_param_table();
+        export_to_struct(params);
+        uint32_t size = structure_buffer_size(params, 100000);
+        void* buffer = memory::alloc_block(size);
+        write_structure(params, buffer, size, 1, 0);
+        file::Hdl file = file::unseal(name, "wb");
+        file::emit_out(buffer, static_cast<int>(size), 1, file);
+        file::shut(file);
+        memory::free_malloc(buffer);
+        delete_structure(params);
         return;
     }
 
-    FileLoad::Hdl file = FileLoad::Unseal(name, "rb");
-    uint32_t size = FileLoad::GetFileSize(file);
-    void* buffer = MemSys::AllocBlock(size);
-    FileLoad::TakeIn(buffer, static_cast<int>(size), 1, file);
-    FileLoad::Shut(file);
-    Scripts::CStruct* params = SpawnParamTable();
-    ReadStructure(params, buffer);
-    MemSys::FreeMalloc(buffer);
-    DecodeFromStruct(params, false);
-    DeleteStructure(params);
-    m_flagBits = (m_flagBits & ~(kMapUpToDate | kFlag8)) | kMapLoaded | kMapSaved;
+    file::Hdl file = file::unseal(name, "rb");
+    uint32_t size = file::get_file_size(file);
+    void* buffer = memory::alloc_block(size);
+    file::get_take_in(buffer, static_cast<int>(size), 1, file);
+    file::shut(file);
+    script::Struct* params = spawn_param_table();
+    read_structure(params, buffer);
+    memory::free_malloc(buffer);
+    decode_from_struct(params, false);
+    delete_structure(params);
+    flag_bits_ = (flag_bits_ & ~(kMapUpToDate | kFlag8)) | kMapLoaded | kMapSaved;
 
     // A premade park keeps its name.
-    if (Scripts::CArray* premade = Scripts::FetchList(kPremadeParksInfo)) {
-        int count = static_cast<int>(premade->m_extent);
+    if (script::Array* premade = script::fetch_list(kPremadeParksInfo)) {
+        int count = static_cast<int>(premade->extent_);
         for (int i = 0; i < count; ++i) {
-            auto* info = reinterpret_cast<Scripts::CStruct*>(premade->FetchPart(i));
+            auto* info = reinterpret_cast<script::Struct*>(premade->fetch_part(i));
             if (!info)
                 continue;
-            int infoSlot = 0;
-            info->FetchIntValue(kSlot, &infoSlot, 0);
-            const char* parkName = nullptr;
-            if (slot == infoSlot && info->FetchText(kName, &parkName, 0))
-                SetParkName(parkName);
+            int info_slot = 0;
+            info->fetch_int_value(kSlot, &info_slot, 0);
+            const char* park_name = nullptr;
+            if (slot == info_slot && info->fetch_text(kName, &park_name, 0))
+                set_park_name(park_name);
         }
     }
-    m_builder->SetPlayerCap(8);
+    builder_->set_player_cap(8);
 }
 
 // 0x00599EB0: an older park (gaps of 0x2C bytes, another dead piece).
-void CParkLayout::ReadFromOldCompressedMap()
+void ParkLayout::read_from_old_compressed_map()
 {
-    ReadCompressedMap(Scripts::FetchList(kEdSaveMap), false);
+    read_compressed_map(script::fetch_list(kEdSaveMap), false);
 }
 
 // 0x0059B750
-void CParkLayout::ReadFromCompressedMap()
+void ParkLayout::read_from_compressed_map()
 {
-    Scripts::CArray* names = Scripts::FetchList(kEdSaveMap);
-    if (m_map.m_rev != kMapVersion) {
-        ReadFromOldCompressedMap();
-        m_builder->SetPlayerCap(1);
+    script::Array* names = script::fetch_list(kEdSaveMap);
+    if (map_.rev_ != kMapVersion) {
+        read_from_old_compressed_map();
+        builder_->set_player_cap(1);
         return;
     }
-    ReadCompressedMap(names, true);
+    read_compressed_map(names, true);
 }
 
 // The two readers' common body (the original has it twice, once for each version). The gap read in starts out
 // zeroed here; the original leaves the parts the map doesn't give (+0x4C, and +0x50 in older parks) as they were
 // on the stack.
-void CParkLayout::ReadCompressedMap(Scripts::CArray* names, bool current)
+void ParkLayout::read_compressed_map(script::Array* names, bool current)
 {
-    m_buildArea.x = m_map.m_posX;
-    m_buildArea.z = m_map.m_depthCell;
-    m_buildArea.w = m_map.m_w;
-    m_buildArea.l = m_map.m_l;
-    m_shellSize = m_map.m_shellSize;
-    SetTheme(m_map.m_styleSet);
-    m_builder->SetPlayerCap(m_map.m_maxPlayers);
-    const int8_t* heights = m_map.m_floorHeights;
+    build_area_.x = map_.pos_x_;
+    build_area_.z = map_.depth_cell_;
+    build_area_.w = map_.w_;
+    build_area_.l = map_.l_;
+    shell_size_ = map_.shell_size_;
+    set_theme(map_.style_set_);
+    builder_->set_player_cap(map_.max_players_);
+    const int8_t* heights = map_.floor_heights_;
     for (int x = 0; x < kFloorSize; ++x) {
         for (int z = 0; z < kFloorSize; ++z) {
-            m_floor[x][z].m_levelY = *heights++;
-            m_floor[x][z].m_heightsUsed = 0;
+            floor_[x][z].level_y_ = *heights++;
+            floor_[x][z].heights_used_ = 0;
         }
     }
 
     // The metapieces (8 bytes each): the name's index, x, z; the height and rotation.
     auto* entry = reinterpret_cast<const uint32_t*>(heights);
-    for (int i = 0; i < m_map.m_compositeCount; ++i, entry += 2) {
+    for (int i = 0; i < map_.composite_count_; ++i, entry += 2) {
         uint32_t where = entry[0];
         uint32_t how = entry[1];
-        uint32_t checksum = names->FetchPart(where & 0x3FF);
+        uint32_t checksum = names->fetch_part(where & 0x3FF);
         if (checksum == (current ? kDeadPiece : kOldDeadPiece))
             continue;
-        CPieceGroup* meta = MakePlacedPiece(FindPieceTemplate(checksum), 0);
-        SCellBox pos = SCellBox::Make(0, 0, 0, 0, 0, 0);
+        PieceGroup* meta = make_placed_piece(find_piece_template(checksum), 0);
+        CellBox pos = CellBox::get_make(0, 0, 0, 0, 0, 0);
         pos.x = static_cast<uint8_t>(where >> 10);
         pos.z = static_cast<uint8_t>(where >> 18);
         pos.y = static_cast<int8_t>(((how >> 2) & 0x1F) - 16);
-        meta->SetQuarterTurns(how & 3);
-        PlaceMetaPieceInPark(pos, meta);
+        meta->set_quarter_turns(how & 3);
+        place_meta_piece_in_park(pos, meta);
     }
 
     // The gaps (0x30 bytes each, 0x2C in older parks): both ends, their sides, the name and score.
     auto* gap = reinterpret_cast<const uint8_t*>(entry);
-    int gapSize = current ? 0x30 : 0x2C;
-    for (int i = 0; i < m_map.m_numGaps; ++i, gap += gapSize) {
-        SGapDetails info = {};
+    int gap_size = current ? 0x30 : 0x2C;
+    for (int i = 0; i < map_.num_gaps_; ++i, gap += gap_size) {
+        GapDetails info = {};
         for (int end = 0; end < 2; ++end) {
-            info.m_atPoint[end] = SCellBox::Make(0, 0, 0, 0, 0, 0);
-            info.m_atPoint[end].x = gap[end];
-            info.m_atPoint[end].y = static_cast<int8_t>(gap[2 + end] - 8);
-            info.m_atPoint[end].z = gap[4 + end];
-            info.m_quarterTurns[end] = (gap[8] >> (end * 4)) & 0xF;
-            info.m_reachLeft[end] = gap[6 + end] >> 4;
-            info.m_reachRight[end] = gap[6 + end] & 0xF;
+            info.at_point_[end] = CellBox::get_make(0, 0, 0, 0, 0, 0);
+            info.at_point_[end].x = gap[end];
+            info.at_point_[end].y = static_cast<int8_t>(gap[2 + end] - 8);
+            info.at_point_[end].z = gap[4 + end];
+            info.quarter_turns_[end] = (gap[8] >> (end * 4)) & 0xF;
+            info.reach_left_[end] = gap[6 + end] >> 4;
+            info.reach_right_[end] = gap[6 + end] & 0xF;
         }
-        CopyString(info.m_text, reinterpret_cast<const char*>(gap + 0xA));
-        info.m_pointsHeld = *reinterpret_cast<const uint16_t*>(gap + 0x2A);
-        info.m_halvesPlaced = 2;
+        copy_string(info.text_, reinterpret_cast<const char*>(gap + 0xA));
+        info.points_held_ = *reinterpret_cast<const uint16_t*>(gap + 0x2A);
+        info.halves_placed_ = 2;
         if (current)
-            info.m_cancelFlags = *reinterpret_cast<const uint32_t*>(gap + 0x2C);
-        RegisterGapEntry(&info);
+            info.cancel_flags_ = *reinterpret_cast<const uint32_t*>(gap + 0x2C);
+        register_gap_entry(&info);
     }
-    m_flagBits = (m_flagBits & ~kMapSaved) | kMapUpToDate;
+    flag_bits_ = (flag_bits_ & ~kMapSaved) | kMapUpToDate;
 }
 
 // 0x0059BE20
-void CParkLayout::ResetPark()
+void ParkLayout::reset_park()
 {
-    DestroyConcreteMetas(0);
+    destroy_concrete_metas(0);
     for (int z = 0; z < kFloorSize; ++z) {
         for (int x = 0; x < kFloorSize; ++x) {
-            FloorCell& cell = m_floor[x][z];
-            cell.m_levelY = 0;
-            cell.m_heightsUsed = 0;
-            cell.m_touched = false;
-            cell.m_delta = 0;
+            FloorCell& cell = floor_[x][z];
+            cell.level_y_ = 0;
+            cell.heights_used_ = 0;
+            cell.touched_ = false;
+            cell.delta_ = 0;
         }
     }
-    WriteCompressedMap();
-    if (m_map.m_rev == kMapVersion) {
-        CopyString(m_map.m_label, "unnamed park");
-        CopyString(m_parkName, "unnamed park");
+    write_compressed_map();
+    if (map_.rev_ == kMapVersion) {
+        copy_string(map_.label_, "unnamed park");
+        copy_string(park_name_, "unnamed park");
     }
-    m_flagBits = (m_flagBits & ~kFlag8) | kMapUpToDate;
+    flag_bits_ = (flag_bits_ & ~kFlag8) | kMapUpToDate;
 }
 
 } // namespace Ed

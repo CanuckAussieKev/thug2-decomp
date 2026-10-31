@@ -16,8 +16,8 @@
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/rider.h"
 
-namespace GameModules {
-namespace ScoreInternal {
+namespace modules {
+namespace score_internal {
 
 constexpr uint32_t kTheTrickText = 0x44727DAE;        // the_trick_text (+ the skater's number)
 constexpr uint32_t kTheScorePotText = 0xF4D3A70E;     // the_score_pot_text
@@ -38,32 +38,32 @@ constexpr uint32_t kAnimBlender = 0x7149B753;         // animblender
 
 // A trick's points by its repeats (percent: 100, 75, 50, 25, 10) and its spin (half the multiplier: 2 none ... 7),
 // read from the exe as the original does (an index outside the tables reads past them, as there).
-extern int g_trickReduction[5]; // (0x0064E280)
-extern int g_spinMultiplier[6]; // (0x0064E268)
-inline int Reduction(int repeats) { return repeats < 5 ? g_trickReduction[repeats] : 10; }
-inline int SpinMultiplier(int spin) { return spin < 6 ? g_spinMultiplier[spin] : 7; }
+extern int g_trick_reduction[5]; // (0x0064E280)
+extern int g_spin_multiplier[6]; // (0x0064E268)
+inline int get_reduction(int repeats) { return repeats < 5 ? g_trick_reduction[repeats] : 10; }
+inline int spin_multiplier(int spin) { return spin < 6 ? g_spin_multiplier[spin] : 7; }
 
 // The C runtime's _ftol (0x006236FC): truncated toward zero, the low 32 bits of the 64-bit result.
-inline int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
+inline int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-inline GoalSystem::CMatchRules* GameMode() { return GoalSystem::g_gameMode; }
-inline OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
-inline GameObjects::CTrickSpotHub* TrickObjects() { return GameObjects::g_trickSpotHub; }
-inline GameObjects::CRider* RiderForSlot(int id)
+inline goals::MatchRules* get_game_mode() { return goals::g_game_mode; }
+inline online::Hub* net_session_slot() { return online::g_online_hub; }
+inline objects::TrickSpotHub* get_trick_objects() { return objects::g_trick_spot_hub; }
+inline objects::Rider* rider_for_slot(int id)
 {
-    return static_cast<GameObjects::CRider*>(SkateCalls::GetRiderByNumber(static_cast<uint32_t>(id)));
+    return static_cast<objects::Rider*>(skate_calls::get_rider_by_number(static_cast<uint32_t>(id)));
 }
 
 // The screen element with this id (its smart pointer let go at once: the raw pointer kept, as the original).
-inline MenuSystem::CUiWidget* FindElement(uint32_t id)
+inline frontend::UiWidget* find_element(uint32_t id)
 {
-    MenuSystem::ElementPtr found;
-    return MenuSystem::CUiTree::Sole()->FetchPart(&found, id, 0)->m_ownerObject;
+    frontend::ElementPtr found;
+    return frontend::UiTree::sole()->fetch_part(&found, id, 0)->owner_object_;
 }
 
 // A structure from the pool (null if that fails: the original goes on with it) / deleted.
-Scripts::CStruct* SpawnParamTable();
-void DeleteStructure(Scripts::CStruct* structure);
+script::Struct* spawn_param_table();
+void delete_structure(script::Struct* structure);
 
-} // namespace ScoreInternal
+} // namespace score_internal
 } // namespace Mdl

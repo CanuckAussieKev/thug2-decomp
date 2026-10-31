@@ -24,103 +24,103 @@
 #include "engine/net/stats_man.h"
 #include "engine/gfx/shader_slots.h"
 
-namespace Engine3D {
+namespace render {
 
-using MemSys::ListNode;
+using memory::ListNode;
 
 namespace {
 
-void** const& kPcGeomVtable = Vt::kPcGeom;
-extern void** const kMeshNodeVtable; // the load list's nodes (ListKit::Elem<meshRef>)
+void** const& g_pc_geom_vtable = vt::kPcGeom;
+extern void** const kMeshNodeVtable; // the load list's nodes (lists::Elem<MeshRef>)
 extern void** const kMeshHeadVtable; // and its head
 constexpr float kPer255 = 1.0f / 255.0f;          // 0x00645D70 (0x3B808081)
 constexpr float kQuarterTurn = 1.57079637f;      // 0x00645484
 
 // A mesh's vertex buffers (not rewritten yet): buffer `index`, locked (offset, size - 0: all, flags; the vertices
 // into *data) and unlocked.
-sVertexBuffer* VertexBuffer(meshRef* mesh, int index)
+VertexBuffer* get_vertex_buffer(MeshRef* mesh, int index)
 {
-    return mesh->FetchVertexStore(index);
+    return mesh->fetch_vertex_store(index);
 }
-uint8_t* Lock(sVertexBuffer* buffer, uint32_t flags)
+uint8_t* get_lock(VertexBuffer* buffer, uint32_t flags)
 {
     uint8_t* data;
-    buffer->Lock(0, 0, &data, flags);
+    buffer->get_lock(0, 0, &data, flags);
     return data;
 }
-void Unlock(sVertexBuffer* buffer) { buffer->Unlock(); }
+void get_unlock(VertexBuffer* buffer) { buffer->get_unlock(); }
 constexpr uint32_t kReadOnly = 0x10; // D3DLOCK_READONLY
 
 // A mesh's per-vertex colour's offset in a vertex, and the position its transform says (0x004D4D30).
-uint8_t ColorOffset(const meshRef* mesh) { return mesh->unknown1C[0]; }
-void MeshPosition(meshRef* mesh, Maths::Vec4* out)
+uint8_t color_offset(const MeshRef* mesh) { return mesh->unknown1c_[0]; }
+void mesh_position(MeshRef* mesh, maths::Vec4* out)
 {
-    mesh->FetchPlace(reinterpret_cast<float*>(out));
+    mesh->fetch_place(reinterpret_cast<float*>(out));
 }
-materialRef* MaterialOf(meshRef* mesh) { return reinterpret_cast<materialRef*>(mesh->material); }
+MaterialRef* material_of(MeshRef* mesh) { return reinterpret_cast<MaterialRef*>(mesh->material); }
 // A mesh's colour (flag 4): the floats at +0x80; its vertex shader at +0x38.
-float* MeshTintPtr(meshRef* mesh) { return reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(mesh) + 0x80); }
-uint32_t& MeshVertexShader(meshRef* mesh) { return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(mesh) + 0x38); }
+float* mesh_tint_ptr(MeshRef* mesh) { return reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(mesh) + 0x80); }
+uint32_t& mesh_vertex_shader(MeshRef* mesh) { return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(mesh) + 0x38); }
 
 // The instance's meshes (its mesh list's).
-meshRef** SceneMeshes(sceneRef* scene) { return reinterpret_cast<meshRef**>(scene->meshes); }
+MeshRef** scene_meshes(SceneRef* scene) { return reinterpret_cast<MeshRef**>(scene->meshes); }
 
 // A new instance (0x64 bytes from the heap) of its mesh list, transform and bones.
-sSingleton* NewInstance(sceneRef* scene, const Maths::Mat4* transform, int boneCount, Maths::Mat4* bones)
+Singleton* new_instance(SceneRef* scene, const maths::Mat4* transform, int bone_count, maths::Mat4* bones)
 {
-    void* memory = MemSys::Alloc(sizeof(sSingleton));
+    void* memory = memory::alloc(sizeof(Singleton));
     if (!memory)
         return nullptr;
-    return static_cast<sSingleton*>(memory)->MakeNew(scene, transform, boneCount, bones);
+    return static_cast<Singleton*>(memory)->make_new(scene, transform, bone_count, bones);
 }
 // A new UV wibble (0x004D1A60, on 0x30 bytes from the heap).
-sUVOscillator* NewUVWibble()
+UvOscillator* new_uv_wibble()
 {
-    void* memory = MemSys::Alloc(sizeof(sUVOscillator));
-    return memory ? static_cast<sUVOscillator*>(memory)->MakeNew() : nullptr;
+    void* memory = memory::alloc(sizeof(UvOscillator));
+    return memory ? static_cast<UvOscillator*>(memory)->make_new() : nullptr;
 }
 
-void Identity(Maths::Mat4* m)
+void get_identity(maths::Mat4* m)
 {
     auto* f = reinterpret_cast<float*>(m);
     for (int i = 0; i < 16; ++i)
         f[i] = (i % 5 == 0) ? 1.0f : 0.0f;
 }
 
-void CallVirtual(CPcGeom* geom, int slot, int argument)
+void call_virtual(PcGeom* geom, int slot, int argument)
 {
-    reinterpret_cast<void(__thiscall*)(CPcGeom*, int)>(geom->vtable[slot])(geom, argument);
+    reinterpret_cast<void(__thiscall*)(PcGeom*, int)>(geom->vtable[slot])(geom, argument);
 }
 
 // A byte colour channel as the float the meshes keep (x87: the integer times the float 1/255, rounded once).
-float ChannelToFloat(uint32_t channel) { return static_cast<float>(static_cast<double>(channel) * kPer255); }
+float channel_to_float(uint32_t channel) { return static_cast<float>(static_cast<double>(channel) * kPer255); }
 // And back (the C runtime's _ftol of the float times 255: truncated).
-uint8_t FloatToChannel(float value) { return static_cast<uint8_t>(static_cast<int>(static_cast<double>(value) * 255.0)); }
+uint8_t float_to_channel(float value) { return static_cast<uint8_t>(static_cast<int>(static_cast<double>(value) * 255.0)); }
 
-Maths::Vec4 g_staticPosition;
-uint32_t g_staticPositionGuard;
-Maths::Mat4 g_staticOrientation;
-uint32_t g_staticOrientationGuard;
-uint32_t g_vertexShaderUv58;
-uint32_t g_vertexShaderUv5C;
-uint32_t g_vertexShaderUv60;
+maths::Vec4 g_static_position;
+uint32_t g_static_position_guard;
+maths::Mat4 g_static_orientation;
+uint32_t g_static_orientation_guard;
+uint32_t g_vertex_shader_uv58;
+uint32_t g_vertex_shader_uv_5c;
+uint32_t g_vertex_shader_uv60;
 
-// The static results of GetAbsolutePoint / FetchFacing (with their initialisation guards' bits).
-Maths::Vec4& StaticPosition()
+// The static results of get_absolute_point / fetch_facing (with their initialisation guards' bits).
+maths::Vec4& static_position()
 {
-    g_staticPositionGuard |= 1;
-    return g_staticPosition;
+    g_static_position_guard |= 1;
+    return g_static_position;
 }
-Maths::Mat4& StaticOrientation()
+maths::Mat4& static_orientation()
 {
-    g_staticOrientationGuard |= 1;
-    return g_staticOrientation;
+    g_static_orientation_guard |= 1;
+    return g_static_orientation;
 }
 
 } // namespace
 
 // 0x004B5EC0
-void sMeshListNode::DestroyBody()
+void MeshListNode::destroy_body()
 {
     vtable = reinterpret_cast<void**>(kMeshNodeVtable);
     prev->next = next;
@@ -130,30 +130,30 @@ void sMeshListNode::DestroyBody()
 }
 
 // 0x004B5E50
-sMeshListNode* sMeshListNode::Teardown(unsigned int flags)
+MeshListNode* MeshListNode::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x004B5E90
-sMeshListNode* sMeshListNode::DestroyHead(unsigned int flags)
+MeshListNode* MeshListNode::destroy_head(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x004B4460
-CPcGeom* CPcGeom::MakeNew()
+PcGeom* PcGeom::make_new()
 {
-    reinterpret_cast<CGeom*>(this)->CGeom::MakeNew();
-    vtable = reinterpret_cast<void**>(kPcGeomVtable);
-    new (&bounds) Maths::BBox();
-    loadList = nullptr;
+    reinterpret_cast<Geom*>(this)->Geom::make_new();
+    vtable = reinterpret_cast<void**>(g_pc_geom_vtable);
+    new (&bounds) maths::BBox();
+    load_list_ = nullptr;
     meshes = nullptr;
     instance = nullptr;
     visibility = 0xDEADBEEF;
@@ -163,33 +163,33 @@ CPcGeom* CPcGeom::MakeNew()
 }
 
 // 0x004B5EE0
-void CPcGeom::DestroyBody()
+void PcGeom::destroy_body()
 {
-    vtable = reinterpret_cast<void**>(kPcGeomVtable);
-    FreeMeshTable();
-    if (sSingleton* inst = instance) {
-        inst->DestroyBody();
-        MemSys::Hub::Pull()->Dealloc(inst);
+    vtable = reinterpret_cast<void**>(g_pc_geom_vtable);
+    free_mesh_table();
+    if (Singleton* inst = instance) {
+        inst->destroy_body();
+        memory::Hub::get_pull()->dealloc(inst);
         instance = nullptr;
     }
-    reinterpret_cast<CGeom*>(this)->CGeom::DestroyBody();
+    reinterpret_cast<Geom*>(this)->Geom::destroy_body();
 }
 
 // 0x004B5FC0
-CPcGeom* CPcGeom::Teardown(unsigned int flags)
+PcGeom* PcGeom::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x004B5F60
-void CPcGeom::StartMeshList()
+void PcGeom::start_mesh_list()
 {
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(manager->m_topDownHeap);
-    auto* head = static_cast<ListNode*>(MemSys::AllocZeroed(sizeof(ListNode)));
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(manager->top_down_heap_);
+    auto* head = static_cast<ListNode*>(memory::alloc_zeroed(sizeof(ListNode)));
     if (head) {
         head->data = reinterpret_cast<void*>(-1); // (the head's mark)
         head->priority = 0;
@@ -197,16 +197,16 @@ void CPcGeom::StartMeshList()
         head->prev = head;
         head->vtable = reinterpret_cast<void**>(kMeshHeadVtable);
     }
-    loadList = head;
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    load_list_ = head;
+    memory::Hub::get_pull()->leave_heap_scope();
 }
 
 // 0x004B52F0
-void CPcGeom::AppendMesh(meshRef* mesh)
+void PcGeom::append_mesh(MeshRef* mesh)
 {
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(manager->m_topDownHeap);
-    auto* node = static_cast<ListNode*>(MemSys::AllocZeroed(sizeof(ListNode)));
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(manager->top_down_heap_);
+    auto* node = static_cast<ListNode*>(memory::alloc_zeroed(sizeof(ListNode)));
     if (node) {
         node->vtable = reinterpret_cast<void**>(kMeshNodeVtable);
         node->data = mesh;
@@ -215,122 +215,122 @@ void CPcGeom::AppendMesh(meshRef* mesh)
         node->prev = node;
     }
     // at the end: before the head (no check: a failed allocation writes through null, as the original)
-    ListNode* head = loadList;
+    ListNode* head = load_list_;
     node->prev = head->prev;
     node->next = head;
     head->prev->next = node;
     head->prev = node;
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    memory::Hub::get_pull()->leave_heap_scope();
 }
 
 // 0x004B5360
-void CPcGeom::MakeMeshTable(void* vertexArena)
+void PcGeom::make_mesh_table(void* vertex_arena)
 {
     if (meshes)
         return;
-    auto isHead = [](const ListNode* node) { return node->data == reinterpret_cast<void*>(-1); };
+    auto is_head = [](const ListNode* node) { return node->data == reinterpret_cast<void*>(-1); };
     uint32_t count = 0;
-    for (ListNode* node = loadList->next; !isHead(node) && node; node = node->next)
+    for (ListNode* node = load_list_->next; !is_head(node) && node; node = node->next)
         ++count;
-    meshCount = count;
+    mesh_count_ = count;
     if (count) {
-        meshes = static_cast<meshRef**>(MemSys::Alloc(4 * count));
-        ListNode* node = loadList->next;
-        if (!isHead(node) && node) {
+        meshes = static_cast<MeshRef**>(memory::alloc(4 * count));
+        ListNode* node = load_list_->next;
+        if (!is_head(node) && node) {
             for (int i = 0; node; ++i) {
-                ListNode* next = isHead(node->next) ? nullptr : node->next;
-                meshes[i] = static_cast<meshRef*>(node->data);
+                ListNode* next = is_head(node->next) ? nullptr : node->next;
+                meshes[i] = static_cast<MeshRef*>(node->data);
                 reinterpret_cast<void*(__thiscall*)(ListNode*, int)>(node->vtable[0])(node, 1); // (unlinked, freed)
-                if (vertexArena)
-                    meshes[i]->MoveIntoArena(static_cast<sVertexArena*>(vertexArena));
+                if (vertex_arena)
+                    meshes[i]->move_into_arena(static_cast<VertexArena*>(vertex_arena));
                 node = next;
             }
         }
     }
-    if (loadList)
-        reinterpret_cast<void*(__thiscall*)(ListNode*, int)>(loadList->vtable[0])(loadList, 1);
-    loadList = nullptr;
+    if (load_list_)
+        reinterpret_cast<void*(__thiscall*)(ListNode*, int)>(load_list_->vtable[0])(load_list_, 1);
+    load_list_ = nullptr;
 }
 
 // 0x004B5440
-void CPcGeom::FreeMeshTable()
+void PcGeom::free_mesh_table()
 {
     if (!meshes)
         return;
     if (scene) {
-        if (auto* list = *reinterpret_cast<sceneRef**>(scene + 0x280))
-            list->DetachMeshes(static_cast<int>(meshCount), reinterpret_cast<uint8_t* const*>(meshes));
+        if (auto* list = *reinterpret_cast<SceneRef**>(scene + 0x280))
+            list->detach_meshes(static_cast<int>(mesh_count_), reinterpret_cast<uint8_t* const*>(meshes));
     }
-    for (uint32_t i = 0; i < meshCount; ++i) {
-        if (meshRef* mesh = meshes[i]) {
-            mesh->DestroyBody(); // (the destructor's body)
-            MemSys::Hub::Pull()->Dealloc(mesh);
+    for (uint32_t i = 0; i < mesh_count_; ++i) {
+        if (MeshRef* mesh = meshes[i]) {
+            mesh->destroy_body(); // (the destructor's body)
+            memory::Hub::get_pull()->dealloc(mesh);
         }
     }
-    MemSys::Hub::Pull()->Dealloc(meshes);
+    memory::Hub::get_pull()->dealloc(meshes);
     meshes = nullptr;
 }
 
 // 0x004B44D0
-bool CPcGeom::AddToMeshList(bool count)
+bool PcGeom::add_to_mesh_list(bool count)
 {
-    auto* list = *reinterpret_cast<sceneRef**>(scene + 0x280);
+    auto* list = *reinterpret_cast<SceneRef**>(scene + 0x280);
     if (count)
-        list->MeshTotal(static_cast<int>(meshCount), reinterpret_cast<uint8_t* const*>(meshes));
+        list->mesh_total(static_cast<int>(mesh_count_), reinterpret_cast<uint8_t* const*>(meshes));
     else
-        list->AppendMeshes(static_cast<int>(meshCount), reinterpret_cast<uint8_t* const*>(meshes));
+        list->append_meshes(static_cast<int>(mesh_count_), reinterpret_cast<uint8_t* const*>(meshes));
     return true;
 }
 
 // 0x004B4510
-sceneRef* CPcGeom::CreateMeshList()
+SceneRef* PcGeom::create_mesh_list()
 {
-    void* memory = MemSys::Alloc(sizeof(sceneRef));
-    sceneRef* list = memory ? static_cast<sceneRef*>(memory)->MakeNew() : nullptr;
-    list->MeshTotal(static_cast<int>(meshCount), reinterpret_cast<uint8_t* const*>(meshes));
-    list->AllocateMeshList();
-    list->AppendMeshes(static_cast<int>(meshCount), reinterpret_cast<uint8_t* const*>(meshes));
-    list->OrderMeshes();
+    void* memory = memory::alloc(sizeof(SceneRef));
+    SceneRef* list = memory ? static_cast<SceneRef*>(memory)->make_new() : nullptr;
+    list->mesh_total(static_cast<int>(mesh_count_), reinterpret_cast<uint8_t* const*>(meshes));
+    list->allocate_mesh_list();
+    list->append_meshes(static_cast<int>(mesh_count_), reinterpret_cast<uint8_t* const*>(meshes));
+    list->order_meshes();
     std::memcpy(&list->bounds, &bounds, sizeof(bounds));
-    list->UpdateSphere();
+    list->update_sphere();
     return list;
 }
 
 // 0x004B58C0
-CPcGeom* CPcGeom::Replicate(bool share, uint8_t* newScene)
+PcGeom* PcGeom::replicate(bool share, uint8_t* new_scene)
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CPcGeom));
-    CPcGeom* geom = memory ? static_cast<CPcGeom*>(memory)->MakeNew() : nullptr;
+    void* memory = memory::alloc_zeroed(sizeof(PcGeom));
+    PcGeom* geom = memory ? static_cast<PcGeom*>(memory)->make_new() : nullptr;
     // (no check: a failed allocation writes through null, as the original)
-    geom->meshes = static_cast<meshRef**>(MemSys::Alloc(4 * meshCount));
-    geom->meshCount = meshCount;
-    for (uint32_t i = 0; i < geom->meshCount; ++i)
-        geom->meshes[i] = meshes[i]->Replicate(share);
+    geom->meshes = static_cast<MeshRef**>(memory::alloc(4 * mesh_count_));
+    geom->mesh_count_ = mesh_count_;
+    for (uint32_t i = 0; i < geom->mesh_count_; ++i)
+        geom->meshes[i] = meshes[i]->replicate(share);
     if (!share) {
-        CallVirtual(geom, 13, 1); // ChangeLive
+        call_virtual(geom, 13, 1); // change_live
         // into the scene's mesh list: its meshes kept aside, room made for these ones too, all added back
-        auto* list = *reinterpret_cast<sceneRef**>(newScene + 0x280);
-        uint8_t** kept = list->meshCount > 0 ? static_cast<uint8_t**>(MemSys::Alloc(4 * list->meshCount)) : nullptr;
-        geom->scene = newScene;
-        for (int i = 0; i < list->meshCount; ++i)
+        auto* list = *reinterpret_cast<SceneRef**>(new_scene + 0x280);
+        uint8_t** kept = list->mesh_count_ > 0 ? static_cast<uint8_t**>(memory::alloc(4 * list->mesh_count_)) : nullptr;
+        geom->scene = new_scene;
+        for (int i = 0; i < list->mesh_count_; ++i)
             kept[i] = list->meshes[i];
-        int keptCount = list->meshCount;
-        MemSys::Hub::Pull()->Dealloc(list->meshes);
+        int kept_count = list->mesh_count_;
+        memory::Hub::get_pull()->dealloc(list->meshes);
         list->meshes = nullptr;
-        list->MeshTotal(static_cast<int>(meshCount), reinterpret_cast<uint8_t* const*>(meshes)); // (this one's)
-        list->AllocateMeshList();
-        for (int i = 0; i < keptCount; ++i)
+        list->mesh_total(static_cast<int>(mesh_count_), reinterpret_cast<uint8_t* const*>(meshes)); // (this one's)
+        list->allocate_mesh_list();
+        for (int i = 0; i < kept_count; ++i)
             list->meshes[i] = kept[i];
-        MemSys::Hub::Pull()->Dealloc(kept);
-        list->AppendMeshes(static_cast<int>(geom->meshCount), reinterpret_cast<uint8_t* const*>(geom->meshes));
-        list->OrderMeshes();
+        memory::Hub::get_pull()->dealloc(kept);
+        list->append_meshes(static_cast<int>(geom->mesh_count_), reinterpret_cast<uint8_t* const*>(geom->meshes));
+        list->order_meshes();
     } else {
         std::memcpy(&geom->bounds, &bounds, sizeof(bounds));
-        sceneRef* list = geom->CreateMeshList();
-        CallVirtual(geom, 13, 1); // ChangeLive
-        Maths::Mat4 identity;
-        Identity(&identity);
-        sSingleton* inst = NewInstance(list, &identity, 1, nullptr);
+        SceneRef* list = geom->create_mesh_list();
+        call_virtual(geom, 13, 1); // change_live
+        maths::Mat4 identity;
+        get_identity(&identity);
+        Singleton* inst = new_instance(list, &identity, 1, nullptr);
         inst->flags |= 1;
         geom->instance = inst;
     }
@@ -338,53 +338,53 @@ CPcGeom* CPcGeom::Replicate(bool share, uint8_t* newScene)
 }
 
 // 0x004B5B80
-CPcGeom* CPcGeom::CloneInstance(bool share, uint8_t* model)
+PcGeom* PcGeom::clone_instance(bool share, uint8_t* model)
 {
-    void* memory = MemSys::Alloc(0x284);
-    uint8_t* tempScene = memory ? reinterpret_cast<uint8_t*>(static_cast<CPcScene*>(memory)->MakeNew(10)) : nullptr;
-    sceneRef* sourceList = instance->scene;
-    *reinterpret_cast<sceneRef**>(tempScene + 0x280) = sourceList;
-    memory = MemSys::AllocZeroed(sizeof(CPcGeom));
-    CPcGeom* geom = memory ? static_cast<CPcGeom*>(memory)->MakeNew() : nullptr;
-    geom->scene = tempScene;
-    uint32_t count = static_cast<uint32_t>(instance->scene->meshCount);
-    geom->meshes = count ? static_cast<meshRef**>(MemSys::Alloc(4 * count)) : nullptr;
-    geom->meshCount = count;
-    for (uint32_t i = 0; i < geom->meshCount; ++i)
-        geom->meshes[i] = SceneMeshes(instance->scene)[i]->Replicate(share);
+    void* memory = memory::alloc(0x284);
+    uint8_t* temp_scene = memory ? reinterpret_cast<uint8_t*>(static_cast<PcScene*>(memory)->make_new(10)) : nullptr;
+    SceneRef* source_list = instance->scene;
+    *reinterpret_cast<SceneRef**>(temp_scene + 0x280) = source_list;
+    memory = memory::alloc_zeroed(sizeof(PcGeom));
+    PcGeom* geom = memory ? static_cast<PcGeom*>(memory)->make_new() : nullptr;
+    geom->scene = temp_scene;
+    uint32_t count = static_cast<uint32_t>(instance->scene->mesh_count_);
+    geom->meshes = count ? static_cast<MeshRef**>(memory::alloc(4 * count)) : nullptr;
+    geom->mesh_count_ = count;
+    for (uint32_t i = 0; i < geom->mesh_count_; ++i)
+        geom->meshes[i] = scene_meshes(instance->scene)[i]->replicate(share);
     std::memcpy(&geom->bounds, &bounds, sizeof(bounds));
-    sceneRef* list = geom->CreateMeshList();
+    SceneRef* list = geom->create_mesh_list();
     // the scene was only for the copy: destroyed without its mesh list
-    *reinterpret_cast<sceneRef**>(tempScene + 0x280) = nullptr;
-    reinterpret_cast<void*(__thiscall*)(uint8_t*, int)>((*reinterpret_cast<void***>(tempScene))[0])(tempScene, 1);
+    *reinterpret_cast<SceneRef**>(temp_scene + 0x280) = nullptr;
+    reinterpret_cast<void*(__thiscall*)(uint8_t*, int)>((*reinterpret_cast<void***>(temp_scene))[0])(temp_scene, 1);
     geom->scene = nullptr;
-    CallVirtual(geom, 13, 1); // ChangeLive
+    call_virtual(geom, 13, 1); // change_live
     // bones: the model's count (room for one more), each the identity
-    int boneCount = *reinterpret_cast<int*>(model + 8);
-    auto* bones = static_cast<Maths::Mat4*>(MemSys::Alloc((boneCount + 1) * sizeof(Maths::Mat4)));
-    for (int i = 0; i < boneCount; ++i)
-        Identity(&bones[i]);
-    Maths::Mat4 identity;
-    Identity(&identity);
-    sSingleton* inst = NewInstance(list, &identity, boneCount, bones);
+    int bone_count = *reinterpret_cast<int*>(model + 8);
+    auto* bones = static_cast<maths::Mat4*>(memory::alloc((bone_count + 1) * sizeof(maths::Mat4)));
+    for (int i = 0; i < bone_count; ++i)
+        get_identity(&bones[i]);
+    maths::Mat4 identity;
+    get_identity(&identity);
+    Singleton* inst = new_instance(list, &identity, bone_count, bones);
     inst->flags |= 1;
     geom->instance = inst;
     return geom;
 }
 
 // 0x004B54B0
-bool CPcGeom::InitInstance(uint8_t* mesh, uint8_t* model, int /*unused*/)
+bool PcGeom::init_instance(uint8_t* mesh, uint8_t* model, int /*unused*/)
 {
-    int boneCount = *reinterpret_cast<int*>(model + 8);
+    int bone_count = *reinterpret_cast<int*>(model + 8);
     source = mesh;
-    Maths::Mat4 identity;
-    Identity(&identity);
-    void* memory = MemSys::Alloc(sizeof(sSingleton));
-    sSingleton* inst = nullptr;
+    maths::Mat4 identity;
+    get_identity(&identity);
+    void* memory = memory::alloc(sizeof(Singleton));
+    Singleton* inst = nullptr;
     if (memory) {
-        auto* list = *reinterpret_cast<sceneRef**>(*reinterpret_cast<uint8_t**>(mesh + 0xC4) + 0x280);
-        auto* bones = *reinterpret_cast<Maths::Mat4**>(model + 0xC); // (the model's bones: 0x00492E50)
-        inst = static_cast<sSingleton*>(memory)->MakeNew(list, &identity, boneCount, bones);
+        auto* list = *reinterpret_cast<SceneRef**>(*reinterpret_cast<uint8_t**>(mesh + 0xC4) + 0x280);
+        auto* bones = *reinterpret_cast<maths::Mat4**>(model + 0xC); // (the model's bones: 0x00492E50)
+        inst = static_cast<Singleton*>(memory)->make_new(list, &identity, bone_count, bones);
     }
     instance = inst;
     inst->model = model; // (no check, as the original)
@@ -392,21 +392,21 @@ bool CPcGeom::InitInstance(uint8_t* mesh, uint8_t* model, int /*unused*/)
 }
 
 // 0x004B45F0
-void CPcGeom::CleanInstanceStrips()
+void PcGeom::clean_instance_strips()
 {
     if (!instance || !instance->scene)
         return;
-    sceneRef* list = instance->scene;
-    for (int i = 0; i < list->meshCount; ++i)
-        SceneMeshes(list)[i]->CleanStrip();
+    SceneRef* list = instance->scene;
+    for (int i = 0; i < list->mesh_count_; ++i)
+        scene_meshes(list)[i]->clean_strip();
 }
 
 // 0x004B48B0
-void CPcGeom::ChangeTint(uint32_t rgba)
+void PcGeom::change_tint(uint32_t rgba)
 {
     uint8_t r = rgba & 0xFF, g = (rgba >> 8) & 0xFF, b = (rgba >> 16) & 0xFF;
     if ((r == 0x80 || r == 0x81) && g == 0x80 && b == 0x80) {
-        reinterpret_cast<void(__thiscall*)(CPcGeom*)>(vtable[8])(this); // WipeTint
+        reinterpret_cast<void(__thiscall*)(PcGeom*)>(vtable[8])(this); // wipe_tint
         return;
     }
     if (instance) {
@@ -416,38 +416,38 @@ void CPcGeom::ChangeTint(uint32_t rgba)
     }
     if (!meshes)
         return;
-    float red = ChannelToFloat(r), green = ChannelToFloat(g), blue = ChannelToFloat(b);
-    for (uint32_t i = 0; i < meshCount; ++i) {
-        meshRef* mesh = meshes[i];
-        MeshTintPtr(mesh)[0] = red;
-        MeshTintPtr(mesh)[1] = green;
+    float red = channel_to_float(r), green = channel_to_float(g), blue = channel_to_float(b);
+    for (uint32_t i = 0; i < mesh_count_; ++i) {
+        MeshRef* mesh = meshes[i];
+        mesh_tint_ptr(mesh)[0] = red;
+        mesh_tint_ptr(mesh)[1] = green;
         mesh->flags |= 4;
-        MeshTintPtr(mesh)[2] = blue;
+        mesh_tint_ptr(mesh)[2] = blue;
     }
 }
 
 // 0x004B4B20
-uint32_t* CPcGeom::FetchTint(uint32_t* out)
+uint32_t* PcGeom::fetch_tint(uint32_t* out)
 {
     uint8_t color[4] = {0, 0, 0, 0};
-    meshRef* mesh = nullptr;
+    MeshRef* mesh = nullptr;
     if (instance) {
-        if (instance->scene->meshCount > 0)
-            mesh = SceneMeshes(instance->scene)[0];
+        if (instance->scene->mesh_count_ > 0)
+            mesh = scene_meshes(instance->scene)[0];
     } else if (meshes) {
         mesh = meshes[0];
     }
     if (mesh && (mesh->flags & 4)) {
-        color[0] = FloatToChannel(MeshTintPtr(mesh)[0]);
-        color[1] = FloatToChannel(MeshTintPtr(mesh)[1]);
-        color[2] = FloatToChannel(MeshTintPtr(mesh)[2]);
+        color[0] = float_to_channel(mesh_tint_ptr(mesh)[0]);
+        color[1] = float_to_channel(mesh_tint_ptr(mesh)[1]);
+        color[2] = float_to_channel(mesh_tint_ptr(mesh)[2]);
     }
     std::memcpy(out, color, 4);
     return out;
 }
 
 // 0x004B4970
-void CPcGeom::WipeTint()
+void PcGeom::wipe_tint()
 {
     if (instance) {
         std::memset(instance->color, 0x80, 4);
@@ -456,51 +456,51 @@ void CPcGeom::WipeTint()
     }
     if (!meshes)
         return;
-    for (uint32_t i = 0; i < meshCount; ++i)
+    for (uint32_t i = 0; i < mesh_count_; ++i)
         meshes[i]->flags &= ~4u;
 }
 
 // 0x004B49C0
-bool CPcGeom::ChangeMaterialTint(uint32_t checksum, int pass, uint32_t rgba)
+bool PcGeom::change_material_tint(uint32_t checksum, int pass, uint32_t rgba)
 {
     bool found = false;
     if (!instance || !instance->scene)
         return false;
-    for (int i = 0; i < instance->scene->meshCount; ++i) {
-        materialRef* material = MaterialOf(SceneMeshes(instance->scene)[i]);
+    for (int i = 0; i < instance->scene->mesh_count_; ++i) {
+        MaterialRef* material = material_of(scene_meshes(instance->scene)[i]);
         if (!material)
             continue;
-        int index = PassFromChecksum(material, checksum, pass);
-        if (index < 0 || static_cast<uint32_t>(index) >= material->passCount)
+        int index = pass_from_checksum(material, checksum, pass);
+        if (index < 0 || static_cast<uint32_t>(index) >= material->pass_count_)
             continue;
-        if (static_cast<int8_t>(material->passFlags[index] & 0xFF) < 0) // (the colour is fixed)
+        if (static_cast<int8_t>(material->pass_flags_[index] & 0xFF) < 0) // (the colour is fixed)
             continue;
         found = true;
-        material->passColor[index][0] = ChannelToFloat(rgba & 0xFF);
-        material->passColor[index][1] = ChannelToFloat((rgba >> 8) & 0xFF);
-        material->passColor[index][2] = ChannelToFloat((rgba >> 16) & 0xFF);
+        material->pass_color_[index][0] = channel_to_float(rgba & 0xFF);
+        material->pass_color_[index][1] = channel_to_float((rgba >> 8) & 0xFF);
+        material->pass_color_[index][2] = channel_to_float((rgba >> 16) & 0xFF);
     }
     return found;
 }
 
 // 0x004B4870
-void CPcGeom::ToggleShown(uint32_t mask)
+void PcGeom::toggle_shown(uint32_t mask)
 {
     visibility = mask;
     if (!meshes)
         return;
-    for (uint32_t i = 0; i < meshCount; ++i)
+    for (uint32_t i = 0; i < mesh_count_; ++i)
         meshes[i]->viewports = static_cast<uint8_t>(mask);
 }
 
 // 0x004B4120
-uint32_t CPcGeom::FetchShown()
+uint32_t PcGeom::fetch_shown()
 {
     return visibility | 0xFFFFFF00u;
 }
 
 // 0x004B4630
-void CPcGeom::ChangeLive(bool on)
+void PcGeom::change_live(bool on)
 {
     if (instance) {
         instance->active = on;
@@ -509,7 +509,7 @@ void CPcGeom::ChangeLive(bool on)
     active = on;
     if (!meshes)
         return;
-    for (uint32_t i = 0; i < meshCount; ++i) {
+    for (uint32_t i = 0; i < mesh_count_; ++i) {
         if (on)
             meshes[i]->flags |= 0x40;
         else
@@ -518,26 +518,26 @@ void CPcGeom::ChangeLive(bool on)
 }
 
 // 0x004B4690
-bool CPcGeom::IsOperative()
+bool PcGeom::is_operative()
 {
     return instance ? instance->active : active;
 }
 
 // 0x004B4730
-void CPcGeom::ChangeBoundSphere(const Maths::Vec4* sphere)
+void PcGeom::change_bound_sphere(const maths::Vec4* sphere)
 {
     if (instance && instance->scene) {
-        sceneRef* list = instance->scene;
+        SceneRef* list = instance->scene;
         std::memcpy(list->centre, sphere, 12);
         std::memcpy(&list->radius, &sphere->w, 4);
     }
 }
 
 // 0x004B4760
-Maths::Vec4* CPcGeom::FetchBoundSphere(Maths::Vec4* out)
+maths::Vec4* PcGeom::fetch_bound_sphere(maths::Vec4* out)
 {
     if (instance && instance->scene) {
-        sceneRef* list = instance->scene;
+        SceneRef* list = instance->scene;
         *out = {list->centre[0], list->centre[1], list->centre[2], list->radius};
     } else {
         *out = {0.0f, 0.0f, 0.0f, 10000.0f};
@@ -546,37 +546,37 @@ Maths::Vec4* CPcGeom::FetchBoundSphere(Maths::Vec4* out)
 }
 
 // 0x004B55D0
-void CPcGeom::PlaceAtAbsolutePoint(const Maths::Vec4* position)
+void PcGeom::place_at_absolute_point(const maths::Vec4* position)
 {
-    Maths::Vec4 pos = {position->x, position->y, position->z, 1.0f};
+    maths::Vec4 pos = {position->x, position->y, position->z, 1.0f};
     if (instance) {
         instance->transform.row[3] = pos;
         return;
     }
-    for (uint32_t i = 0; i < meshCount; ++i)
-        meshes[i]->MoveTo(&pos);
+    for (uint32_t i = 0; i < mesh_count_; ++i)
+        meshes[i]->move_to(&pos);
 }
 
 // 0x004B46A0
-Maths::Vec4* CPcGeom::GetAbsolutePoint()
+maths::Vec4* PcGeom::get_absolute_point()
 {
-    Maths::Vec4& pos = StaticPosition();
+    maths::Vec4& pos = static_position();
     if (instance) {
         pos = instance->transform.row[3];
         return &pos;
     }
     pos = {0.0f, 0.0f, 0.0f, 1.0f};
     if (meshes[0]) // (no check of the array itself, as the original)
-        MeshPosition(meshes[0], &pos);
+        mesh_position(meshes[0], &pos);
     return &pos;
 }
 
 // 0x004B5650
-void CPcGeom::ChangeFacing(const Maths::Mat4* orientation)
+void PcGeom::change_facing(const maths::Mat4* orientation)
 {
     if (!instance)
         return;
-    Maths::Mat4 m;
+    maths::Mat4 m;
     m = instance->transform;
     m.row[0] = orientation->row[0];
     m.row[1] = orientation->row[1];
@@ -585,151 +585,151 @@ void CPcGeom::ChangeFacing(const Maths::Mat4* orientation)
 }
 
 // 0x004B56E0
-Maths::Mat4* CPcGeom::FetchFacing()
+maths::Mat4* PcGeom::fetch_facing()
 {
-    Maths::Mat4& m = StaticOrientation();
+    maths::Mat4& m = static_orientation();
     if (instance)
         m = instance->transform;
     else
-        Identity(&m);
+        get_identity(&m);
     m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     return &m;
 }
 
 // 0x004B57C0
-void CPcGeom::RotateY(int turns)
+void PcGeom::rotate_y(int turns)
 {
     if (!turns)
         return;
     if (!instance) {
-        for (uint32_t i = 0; i < meshCount; ++i)
-            meshes[i]->TurnY(turns);
+        for (uint32_t i = 0; i < mesh_count_; ++i)
+            meshes[i]->turn_y(turns);
         return;
     }
-    Maths::Mat4 m;
+    maths::Mat4 m;
     m = instance->transform;
     m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    Maths::Mat4 rotation;
-    Maths::MakeYawMatrix(rotation, static_cast<float>(static_cast<double>(turns) * kQuarterTurn));
+    maths::Mat4 rotation;
+    maths::make_yaw_matrix(rotation, static_cast<float>(static_cast<double>(turns) * kQuarterTurn));
     // D3DX (linked library code): rotation = m * rotation
-    D3dx::MatrixMultiply(&rotation, &m,
+    d3dx::matrix_multiply(&rotation, &m,
                                                                                                  &rotation);
     rotation.row[3] = instance->transform.row[3];
     instance->transform = rotation;
 }
 
 // 0x004B4DB0
-void CPcGeom::ChangeScale(const Maths::Vec4* newScale)
+void PcGeom::change_scale(const maths::Vec4* new_scale)
 {
-    scale = *newScale;
+    scale = *new_scale;
     if (!meshes)
         return;
-    for (uint32_t i = 0; i < meshCount; ++i) {
-        meshRef* mesh = meshes[i];
-        Maths::Vec4 centre = {0.0f, 0.0f, 0.0f, 1.0f};
-        MeshPosition(mesh, &centre);
-        sVertexBuffer* buffer = VertexBuffer(mesh, 0);
-        uint8_t* vertex = Lock(buffer, 0);
-        for (uint32_t v = 0; v < mesh->vertexCount; ++v, vertex += mesh->stride) {
+    for (uint32_t i = 0; i < mesh_count_; ++i) {
+        MeshRef* mesh = meshes[i];
+        maths::Vec4 centre = {0.0f, 0.0f, 0.0f, 1.0f};
+        mesh_position(mesh, &centre);
+        VertexBuffer* buffer = get_vertex_buffer(mesh, 0);
+        uint8_t* vertex = get_lock(buffer, 0);
+        for (uint32_t v = 0; v < mesh->vertex_count_; ++v, vertex += mesh->stride) {
             auto* p = reinterpret_cast<float*>(vertex);
             for (int k = 0; k < 3; ++k) {
                 double c = (&centre.x)[k];
-                p[k] = static_cast<float>((static_cast<double>(p[k]) - c) * (&newScale->x)[k] + c);
+                p[k] = static_cast<float>((static_cast<double>(p[k]) - c) * (&new_scale->x)[k] + c);
             }
         }
-        Unlock(VertexBuffer(mesh, 0));
+        get_unlock(get_vertex_buffer(mesh, 0));
     }
 }
 
 // 0x004B4ED0
-Maths::Vec4* CPcGeom::FetchMagnification(Maths::Vec4* out)
+maths::Vec4* PcGeom::fetch_magnification(maths::Vec4* out)
 {
     *out = scale;
     return out;
 }
 
 // 0x004B47B0
-bool CPcGeom::UploadSkinningPalette(const Maths::Mat4* transform, const Maths::Mat4* bones, int count, int, int)
+bool PcGeom::upload_skinning_palette(const maths::Mat4* transform, const maths::Mat4* bones, int count, int, int)
 {
     if (instance) {
         instance->transform = *transform;
-        std::memcpy(instance->bones, bones, count * sizeof(Maths::Mat4));
+        std::memcpy(instance->bones, bones, count * sizeof(maths::Mat4));
     }
     return true;
 }
 
 // 0x004B47F0
-void CPcGeom::CopyBones(const Maths::Mat4* bones, int count)
+void PcGeom::copy_bones(const maths::Mat4* bones, int count)
 {
     if (instance)
-        std::memcpy(instance->bones, bones, count * sizeof(Maths::Mat4));
+        std::memcpy(instance->bones, bones, count * sizeof(maths::Mat4));
 }
 
 // 0x004B4820
-void CPcGeom::SetBones(Maths::Mat4* bones, int count)
+void PcGeom::set_bones(maths::Mat4* bones, int count)
 {
     if (instance) {
         instance->bones = bones;
-        instance->boneCount = count;
+        instance->bone_count_ = count;
     }
 }
 
 // 0x004B4840
-bool CPcGeom::BreakStrips(uint32_t mask)
+bool PcGeom::break_strips(uint32_t mask)
 {
     if (source)
-        instance->scene->BreakStrips(mask, *reinterpret_cast<uint32_t**>(source + 0xBC),
+        instance->scene->break_strips(mask, *reinterpret_cast<uint32_t**>(source + 0xBC),
                                      *reinterpret_cast<uint32_t*>(source + 0xC0));
     return true;
 }
 
 // 0x004B4130
-uint32_t CPcGeom::FetchVertexTally()
+uint32_t PcGeom::fetch_vertex_tally()
 {
     uint32_t total = 0;
     if (meshes) {
-        for (uint32_t i = 0; i < meshCount; ++i)
-            total += meshes[i]->vertexCount;
+        for (uint32_t i = 0; i < mesh_count_; ++i)
+            total += meshes[i]->vertex_count_;
     }
     return total;
 }
 
 // 0x004B4BB0
-void CPcGeom::GetVertices(Maths::Vec4* out)
+void PcGeom::get_vertices(maths::Vec4* out)
 {
     if (!meshes)
         return;
-    for (uint32_t i = 0; i < meshCount; ++i) {
-        meshRef* mesh = meshes[i];
-        uint8_t* vertex = Lock(VertexBuffer(mesh, 0), kReadOnly);
-        for (uint32_t v = 0; v < mesh->vertexCount; ++v, vertex += mesh->stride, ++out) {
+    for (uint32_t i = 0; i < mesh_count_; ++i) {
+        MeshRef* mesh = meshes[i];
+        uint8_t* vertex = get_lock(get_vertex_buffer(mesh, 0), kReadOnly);
+        for (uint32_t v = 0; v < mesh->vertex_count_; ++v, vertex += mesh->stride, ++out) {
             auto* p = reinterpret_cast<float*>(vertex);
             *out = {p[0], p[1], p[2], 1.0f};
         }
-        Unlock(VertexBuffer(mesh, 0));
+        get_unlock(get_vertex_buffer(mesh, 0));
     }
 }
 
 // 0x004B4C50
-void CPcGeom::SetVertices(const Maths::Vec4* in)
+void PcGeom::set_vertices(const maths::Vec4* in)
 {
     if (!meshes)
         return;
-    for (uint32_t i = 0; i < meshCount; ++i) {
-        meshRef* mesh = meshes[i];
-        uint8_t* vertex = Lock(VertexBuffer(mesh, 0), 0);
-        Maths::BBox box;
-        for (uint32_t v = 0; v < mesh->vertexCount; ++v, vertex += mesh->stride, ++in) {
+    for (uint32_t i = 0; i < mesh_count_; ++i) {
+        MeshRef* mesh = meshes[i];
+        uint8_t* vertex = get_lock(get_vertex_buffer(mesh, 0), 0);
+        maths::BBox box;
+        for (uint32_t v = 0; v < mesh->vertex_count_; ++v, vertex += mesh->stride, ++in) {
             std::memcpy(vertex, in, 12);
-            box.AppendSpot(*in);
+            box.append_spot(*in);
         }
-        Unlock(VertexBuffer(mesh, 0));
+        get_unlock(get_vertex_buffer(mesh, 0));
         // the sphere around the box (x87: the half sizes and the centre's z kept in double where the original does)
         double dx = static_cast<double>(box.max.x) - box.min.x;
         double dy = static_cast<double>(box.max.y) - box.min.y;
         float dz = static_cast<float>(static_cast<double>(box.max.z) - box.min.z);
-        float halfX = static_cast<float>(dx * 0.5);
-        float cx = static_cast<float>(static_cast<double>(box.min.x) + halfX);
+        float half_x = static_cast<float>(dx * 0.5);
+        float cx = static_cast<float>(static_cast<double>(box.min.x) + half_x);
         float cy = static_cast<float>(dy * 0.5 + box.min.y);
         double cz = static_cast<double>(dz) * 0.5 + box.min.z;
         mesh->centre[0] = cx;
@@ -743,65 +743,65 @@ void CPcGeom::SetVertices(const Maths::Vec4* in)
 }
 
 // 0x004B4160
-void CPcGeom::FetchTints(uint8_t* out)
+void PcGeom::fetch_tints(uint8_t* out)
 {
     if (!meshes)
         return;
-    for (uint32_t i = 0; i < meshCount; ++i) {
-        meshRef* mesh = meshes[i];
-        uint8_t* color = Lock(VertexBuffer(mesh, 0), kReadOnly) + ColorOffset(mesh);
-        for (uint32_t v = 0; v < mesh->vertexCount; ++v, color += mesh->stride, out += 4) {
+    for (uint32_t i = 0; i < mesh_count_; ++i) {
+        MeshRef* mesh = meshes[i];
+        uint8_t* color = get_lock(get_vertex_buffer(mesh, 0), kReadOnly) + color_offset(mesh);
+        for (uint32_t v = 0; v < mesh->vertex_count_; ++v, color += mesh->stride, out += 4) {
             out[0] = color[2];
             out[1] = color[1];
             out[2] = color[0];
             out[3] = color[3];
         }
-        Unlock(VertexBuffer(mesh, 0));
+        get_unlock(get_vertex_buffer(mesh, 0));
     }
 }
 
 // 0x004B4210
-void CPcGeom::ChangeColors(const uint8_t* in)
+void PcGeom::change_colors(const uint8_t* in)
 {
     if (!meshes)
         return;
-    for (uint32_t i = 0; i < meshCount; ++i) {
-        meshRef* mesh = meshes[i];
-        const uint8_t* meshColors = in;
-        for (int b = 0; b < mesh->vertexBufferCount; ++b) {
-            in = meshColors;
-            uint8_t* color = Lock(VertexBuffer(mesh, b), 0) + ColorOffset(mesh);
-            for (uint32_t v = 0; v < mesh->vertexCount; ++v, color += mesh->stride, in += 4) {
+    for (uint32_t i = 0; i < mesh_count_; ++i) {
+        MeshRef* mesh = meshes[i];
+        const uint8_t* mesh_colors = in;
+        for (int b = 0; b < mesh->vertex_buffer_count_; ++b) {
+            in = mesh_colors;
+            uint8_t* color = get_lock(get_vertex_buffer(mesh, b), 0) + color_offset(mesh);
+            for (uint32_t v = 0; v < mesh->vertex_count_; ++v, color += mesh->stride, in += 4) {
                 color[2] = in[0];
                 color[1] = in[1];
                 color[0] = in[2];
                 color[3] = in[3];
             }
-            Unlock(VertexBuffer(mesh, b));
+            get_unlock(get_vertex_buffer(mesh, b));
         }
     }
 }
 
 // 0x004B4300
-void CPcGeom::SetUVWibbleParams(float uVel, float uAmp, float uFreq, float uPhase, float vVel, float vAmp, float vFreq,
-                                float vPhase)
+void PcGeom::set_uv_wibble_params(float u_vel, float u_amp, float u_freq, float u_phase, float v_vel, float v_amp, float v_freq,
+                                float v_phase)
 {
     if (!meshes)
         return;
-    for (uint32_t i = 0; i < meshCount; ++i) {
-        materialRef* material = MaterialOf(meshes[i]);
+    for (uint32_t i = 0; i < mesh_count_; ++i) {
+        MaterialRef* material = material_of(meshes[i]);
         if (!material)
             continue;
-        for (uint32_t p = 0; p < material->passCount; ++p) {
-            if (sUVOscillator* wibble = material->uvWibble[p]) {
-                wibble->velocity[0] = uVel;
-                wibble->velocity[1] = vVel;
-                wibble->amplitude[0] = uAmp;
-                wibble->amplitude[1] = vAmp;
-                wibble->frequency[0] = uFreq;
-                wibble->frequency[1] = vFreq;
-                wibble->phase[0] = uPhase;
-                wibble->phase[1] = vPhase;
+        for (uint32_t p = 0; p < material->pass_count_; ++p) {
+            if (UvOscillator* wibble = material->uv_wibble_[p]) {
+                wibble->velocity[0] = u_vel;
+                wibble->velocity[1] = v_vel;
+                wibble->amplitude[0] = u_amp;
+                wibble->amplitude[1] = v_amp;
+                wibble->frequency[0] = u_freq;
+                wibble->frequency[1] = v_freq;
+                wibble->phase[0] = u_phase;
+                wibble->phase[1] = v_phase;
                 break;
             }
         }
@@ -809,35 +809,35 @@ void CPcGeom::SetUVWibbleParams(float uVel, float uAmp, float uFreq, float uPhas
 }
 
 // 0x004B4EF0
-void CPcGeom::EnableExplicitUVWibble(int /*unused*/)
+void PcGeom::enable_explicit_uv_wibble(int /*unused*/)
 {
     if (!instance || !instance->scene)
         return;
-    for (int i = 0; i < instance->scene->meshCount; ++i) {
-        materialRef* material = MaterialOf(SceneMeshes(instance->scene)[i]);
+    for (int i = 0; i < instance->scene->mesh_count_; ++i) {
+        MaterialRef* material = material_of(scene_meshes(instance->scene)[i]);
         if (!material)
             continue;
-        for (uint32_t p = 0; p < material->passCount; ++p) {
-            if (material->uvWibble[p])
-                material->passFlags[p] |= 0x4000;
+        for (uint32_t p = 0; p < material->pass_count_; ++p) {
+            if (material->uv_wibble_[p])
+                material->pass_flags_[p] |= 0x4000;
         }
     }
 }
 
 // 0x004B43E0
-void CPcGeom::SetUVWibbleOffsets(float u, float v)
+void PcGeom::set_uv_wibble_offsets(float u, float v)
 {
     if (!meshes)
         return;
-    for (uint32_t i = 0; i < meshCount; ++i) {
-        materialRef* material = MaterialOf(meshes[i]);
+    for (uint32_t i = 0; i < mesh_count_; ++i) {
+        MaterialRef* material = material_of(meshes[i]);
         if (!material)
             continue;
-        for (uint32_t p = 0; p < material->passCount; ++p) {
-            if (sUVOscillator* wibble = material->uvWibble[p]) {
+        for (uint32_t p = 0; p < material->pass_count_; ++p) {
+            if (UvOscillator* wibble = material->uv_wibble_[p]) {
                 wibble->offset[0] = u;
                 wibble->offset[1] = v;
-                CallVirtual(this, 43, 1); // EnableExplicitUVWibble
+                call_virtual(this, 43, 1); // EnableExplicitUVWibble
                 break;
             }
         }
@@ -845,32 +845,32 @@ void CPcGeom::SetUVWibbleOffsets(float u, float v)
 }
 
 // 0x004B4F60
-bool CPcGeom::ChooseUvMatrix(uint32_t checksum, int pass, const Maths::Mat4* matrix)
+bool PcGeom::choose_uv_matrix(uint32_t checksum, int pass, const maths::Mat4* matrix)
 {
     if (!instance || !instance->scene)
         return true;
-    for (int i = 0; i < instance->scene->meshCount; ++i) {
-        meshRef* mesh = SceneMeshes(instance->scene)[i];
-        materialRef* material = MaterialOf(mesh);
+    for (int i = 0; i < instance->scene->mesh_count_; ++i) {
+        MeshRef* mesh = scene_meshes(instance->scene)[i];
+        MaterialRef* material = material_of(mesh);
         if (!material)
             continue;
-        int index = PassFromChecksum(material, checksum, pass);
-        if (index < 0 || static_cast<uint32_t>(index) >= material->passCount)
+        int index = pass_from_checksum(material, checksum, pass);
+        if (index < 0 || static_cast<uint32_t>(index) >= material->pass_count_)
             continue;
-        if (!material->uvWibble[index]) {
-            material->uvWibble[index] = NewUVWibble();
-            material->hasUVWibble = true;
-            material->passFlags[index] |= 0x4001;
+        if (!material->uv_wibble_[index]) {
+            material->uv_wibble_[index] = new_uv_wibble();
+            material->has_uv_wibble_ = true;
+            material->pass_flags_[index] |= 0x4001;
         }
         // the vertex shader for the UV matrix (0x00775B70-78 -> 0x00775B58-60)
-        uint32_t& shader = MeshVertexShader(mesh);
-        if (shader == g_vertexShaders[5])
-            shader = g_vertexShaderUv60;
-        else if (shader == g_vertexShaders[4])
-            shader = g_vertexShaderUv5C;
-        else if (shader == g_vertexShaders[3])
-            shader = g_vertexShaderUv58;
-        sUVOscillator* wibble = material->uvWibble[index];
+        uint32_t& shader = mesh_vertex_shader(mesh);
+        if (shader == g_vertex_shaders[5])
+            shader = g_vertex_shader_uv60;
+        else if (shader == g_vertex_shaders[4])
+            shader = g_vertex_shader_uv_5c;
+        else if (shader == g_vertex_shaders[3])
+            shader = g_vertex_shader_uv58;
+        UvOscillator* wibble = material->uv_wibble_[index];
         wibble->matrix[0] = matrix->row[0].x;
         wibble->matrix[1] = matrix->row[0].y;
         wibble->offset[0] = matrix->row[3].x;
@@ -880,65 +880,65 @@ bool CPcGeom::ChooseUvMatrix(uint32_t checksum, int pass, const Maths::Mat4* mat
 }
 
 // 0x004B5130
-bool CPcGeom::CreateUvAnimParams(uint32_t checksum, int pass)
+bool PcGeom::create_uv_anim_params(uint32_t checksum, int pass)
 {
     if (!instance || !instance->scene)
         return false;
     bool made = false;
-    for (int i = 0; i < instance->scene->meshCount; ++i) {
-        materialRef* material = MaterialOf(SceneMeshes(instance->scene)[i]);
+    for (int i = 0; i < instance->scene->mesh_count_; ++i) {
+        MaterialRef* material = material_of(scene_meshes(instance->scene)[i]);
         if (!material)
             continue;
-        int index = PassFromChecksum(material, checksum, pass);
-        if (index < 0 || static_cast<uint32_t>(index) >= material->passCount || material->uvWibble[index])
+        int index = pass_from_checksum(material, checksum, pass);
+        if (index < 0 || static_cast<uint32_t>(index) >= material->pass_count_ || material->uv_wibble_[index])
             continue;
-        material->uvWibble[index] = NewUVWibble();
-        material->hasUVWibble = true;
-        material->passFlags[index] |= 0x4001;
+        material->uv_wibble_[index] = new_uv_wibble();
+        material->has_uv_wibble_ = true;
+        material->pass_flags_[index] |= 0x4001;
         made = true;
     }
     return made;
 }
 
 // 0x004B52A0
-void CPcGeom::ResetTextureAnims()
+void PcGeom::reset_texture_anims()
 {
     if (instance || !meshes)
         return;
-    for (uint32_t i = 0; i < meshCount; ++i) {
-        materialRef* material = MaterialOf(meshes[i]);
-        if (material && material->textureAnim)
-            material->textureAnim->Relaunch();
+    for (uint32_t i = 0; i < mesh_count_; ++i) {
+        MaterialRef* material = material_of(meshes[i]);
+        if (material && material->texture_anim_)
+            material->texture_anim_->relaunch();
     }
 }
 
 namespace {
-static VtableSlot kMeshNodeVtable_slots[] = {&Engine3D::sMeshListNode::Teardown};
-void** const kMeshNodeVtable = reinterpret_cast<void**>(kMeshNodeVtable_slots);
-static VtableSlot kMeshHeadVtable_slots[] = {&Engine3D::sMeshListNode::DestroyHead};
-void** const kMeshHeadVtable = reinterpret_cast<void**>(kMeshHeadVtable_slots);
+static VtableSlot g_mesh_node_vtable_slots[] = {&render::MeshListNode::teardown};
+void** const kMeshNodeVtable = reinterpret_cast<void**>(g_mesh_node_vtable_slots);
+static VtableSlot g_mesh_head_vtable_slots[] = {&render::MeshListNode::destroy_head};
+void** const kMeshHeadVtable = reinterpret_cast<void**>(g_mesh_head_vtable_slots);
 } // namespace
 
 } // namespace Nx
 
-namespace Vt {
-// (slot 15, the bounding box getter, is the same code as OnlinePlay::RankingsManager::GetPersonalStats: the linker folded them)
-static VtableSlot kPcGeom_slots[] = {&Engine3D::CPcGeom::Teardown, &Engine3D::CPcGeom::CloneInstance, &Engine3D::CPcGeom::Replicate,
-                &Engine3D::CPcGeom::InitInstance, &Engine3D::CPcGeom::CleanInstanceStrips, &Engine3D::CGeom::PlatGetChecksum,
-                &Engine3D::CPcGeom::ChangeTint, &Engine3D::CPcGeom::FetchTint, &Engine3D::CPcGeom::WipeTint,
-                &Engine3D::CPcGeom::ChangeMaterialTint, &Engine3D::CGeom::PlatGetMaterialColor, &Engine3D::CPcGeom::ToggleShown,
-                &Engine3D::CPcGeom::FetchShown, &Engine3D::CPcGeom::ChangeLive, &Engine3D::CPcGeom::IsOperative,
-                &OnlinePlay::RankingsManager::GetPersonalStats, &Engine3D::CPcGeom::ChangeBoundSphere, &Engine3D::CPcGeom::FetchBoundSphere,
-                &Engine3D::CPcGeom::PlaceAtAbsolutePoint, &Engine3D::CPcGeom::GetAbsolutePoint, &Engine3D::CPcGeom::ChangeFacing,
-                &Engine3D::CPcGeom::FetchFacing, &Engine3D::CPcGeom::RotateY, &Engine3D::CGeom::PlatSetTransform,
-                &Engine3D::CGeom::PlatGetTransform, &Engine3D::CPcGeom::ChangeScale, &Engine3D::CPcGeom::FetchMagnification, Stubs::IgnoreArgument,
-                &Engine3D::CPcGeom::UploadSkinningPalette, &Engine3D::CPcGeom::CopyBones, &Engine3D::CPcGeom::SetBones,
-                &Engine3D::CPcGeom::BreakStrips, &MemCard::SaveCard::AlwaysTrue, Stubs::ReturnZero,
-                &Engine3D::CGeom::PlatGetNumRenderBasePolys, Stubs::ReturnZero, &Engine3D::CPcGeom::FetchVertexTally,
-                &Engine3D::CPcGeom::GetVertices, &Engine3D::CPcGeom::FetchTints, &Engine3D::CPcGeom::SetVertices, &Engine3D::CPcGeom::ChangeColors,
-                Stubs::IgnoreArguments3, &Engine3D::CPcGeom::SetUVWibbleParams, &Engine3D::CPcGeom::EnableExplicitUVWibble,
-                &Engine3D::CRenderModel::VirtualTrue4, &Engine3D::CPcGeom::SetUVWibbleOffsets, &Engine3D::CPcGeom::ChooseUvMatrix,
-                &Engine3D::CPcGeom::CreateUvAnimParams, &Engine3D::CPcGeom::ResetTextureAnims, Stubs::IgnoreArgument,
-                Stubs::DoNothing};
-void** const kPcGeom = reinterpret_cast<void**>(kPcGeom_slots);
+namespace vt {
+// (slot 15, the bounding box getter, is the same code as online::RankingsManager::get_personal_stats: the linker folded them)
+static VtableSlot g_pc_geom_slots[] = {&render::PcGeom::teardown, &render::PcGeom::clone_instance, &render::PcGeom::replicate,
+                &render::PcGeom::init_instance, &render::PcGeom::clean_instance_strips, &render::Geom::plat_get_checksum,
+                &render::PcGeom::change_tint, &render::PcGeom::fetch_tint, &render::PcGeom::wipe_tint,
+                &render::PcGeom::change_material_tint, &render::Geom::plat_get_material_color, &render::PcGeom::toggle_shown,
+                &render::PcGeom::fetch_shown, &render::PcGeom::change_live, &render::PcGeom::is_operative,
+                &online::RankingsManager::get_personal_stats, &render::PcGeom::change_bound_sphere, &render::PcGeom::fetch_bound_sphere,
+                &render::PcGeom::place_at_absolute_point, &render::PcGeom::get_absolute_point, &render::PcGeom::change_facing,
+                &render::PcGeom::fetch_facing, &render::PcGeom::rotate_y, &render::Geom::plat_set_transform,
+                &render::Geom::plat_get_transform, &render::PcGeom::change_scale, &render::PcGeom::fetch_magnification, stubs::ignore_argument,
+                &render::PcGeom::upload_skinning_palette, &render::PcGeom::copy_bones, &render::PcGeom::set_bones,
+                &render::PcGeom::break_strips, &save_cards::SaveCard::always_true, stubs::return_zero,
+                &render::Geom::plat_get_num_render_base_polys, stubs::return_zero, &render::PcGeom::fetch_vertex_tally,
+                &render::PcGeom::get_vertices, &render::PcGeom::fetch_tints, &render::PcGeom::set_vertices, &render::PcGeom::change_colors,
+                stubs::ignore_arguments3, &render::PcGeom::set_uv_wibble_params, &render::PcGeom::enable_explicit_uv_wibble,
+                &render::RenderModel::virtual_true4, &render::PcGeom::set_uv_wibble_offsets, &render::PcGeom::choose_uv_matrix,
+                &render::PcGeom::create_uv_anim_params, &render::PcGeom::reset_texture_anims, stubs::ignore_argument,
+                stubs::do_nothing};
+void** const kPcGeom = reinterpret_cast<void**>(g_pc_geom_slots);
 } // namespace Vt

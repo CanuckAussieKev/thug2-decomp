@@ -22,95 +22,95 @@
 #include "game/park/park_memory.h"
 #include "engine/objects/compositemgr.h"
 
-namespace ParkEditing {
+namespace park_editing {
 
-MemSys::PoolPair g_railPointPools;
+memory::PoolPair g_rail_point_pools;
 
-namespace RailEditorInternal {
+namespace rail_editor_internal {
 
-MemSys::PoolPair& PointPools() { return g_railPointPools; }
-MemSys::PoolPair& RailPools() { return g_railPools; }
-bool& UpdateSuperSectors() { return g_railEditorFlag; }
+memory::PoolPair& point_pools() { return g_rail_point_pools; }
+memory::PoolPair& rail_pools() { return g_rail_pools; }
+bool& get_update_super_sectors() { return g_rail_editor_flag; }
 
-void RemoveSceneSector(uint8_t*& sector)
+void remove_scene_sector(uint8_t*& sector)
 {
     if (!sector)
         return;
-    CParkAssembler* generator = CParkLayout::sSingleton()->m_builder;
-    generator->RemoveSceneSector(SectorKeyFromSpec(sector), 0);
-    SetCountsDirty();
-    if (UpdateSuperSectors())
-        CParkLayout::sSingleton()->m_builder->RebuildCollision();
+    ParkAssembler* generator = ParkLayout::singleton()->builder_;
+    generator->remove_scene_sector(sector_key_from_spec(sector), 0);
+    set_counts_dirty();
+    if (get_update_super_sectors())
+        ParkLayout::singleton()->builder_->rebuild_collision();
     sector = nullptr;
 }
 
-} // namespace RailEditorInternal
+} // namespace rail_editor_internal
 
-using namespace RailEditorInternal;
+using namespace rail_editor_internal;
 
-uint32_t g_nextRailId{1};
+uint32_t g_next_rail_id{1};
 
 namespace {
 
-static VtableSlot kVtable_slots[] = {&ParkEditing::CRailAuthoring::Teardown,
-         &ParkEditing::CRailAuthoring::TickFrame,
-         Stubs::IgnoreArgument,
-         &ParkEditing::CRailAuthoring::Seal,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         &ParkEditing::CRailAuthoring::Conceal,
-         Stubs::DoNothing,
-         &ParkEditing::CRailAuthoring::FetchDiagnostics,
-         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(
-             &GameObjects::CObjectModule::InvokeMethodByName),
-         &ParkEditing::CRailAuthoring::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
-uint32_t& NextRailId() { return g_nextRailId; }
+static VtableSlot g_vtable_slots[] = {&park_editing::RailAuthoring::teardown,
+         &park_editing::RailAuthoring::tick_frame,
+         stubs::ignore_argument,
+         &park_editing::RailAuthoring::seal,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         &park_editing::RailAuthoring::conceal,
+         stubs::do_nothing,
+         &park_editing::RailAuthoring::fetch_diagnostics,
+         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+             &objects::ObjectModule::invoke_method_by_name),
+         &park_editing::RailAuthoring::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
+uint32_t& next_rail_id() { return g_next_rail_id; }
 
 constexpr uint32_t kInput = 0x27D7CD28, kEditorCamera = 0xAC8946E2;
 
 // A pool pair's "made here" flags (one byte each, +0x04).
-uint8_t& Owned(MemSys::PoolPair& pair, int which) { return reinterpret_cast<uint8_t*>(&pair.unknown4)[which]; }
+uint8_t& get_owned(memory::PoolPair& pair, int which) { return reinterpret_cast<uint8_t*>(&pair.unknown4)[which]; }
 
 // A pool made for a pair's current slot (owned).
-void MakePool(MemSys::PoolPair& pair, int itemSize, int count, const char* name)
+void make_pool(memory::PoolPair& pair, int item_size, int count, const char* name)
 {
-    void* memory = MemSys::Alloc(sizeof(MemSys::SlabBank));
-    pair.pools[pair.current] = memory ? new (memory) MemSys::SlabBank(itemSize, count, name) : nullptr;
-    Owned(pair, pair.current) = 1;
+    void* memory = memory::alloc(sizeof(memory::SlabBank));
+    pair.pools[pair.current] = memory ? new (memory) memory::SlabBank(item_size, count, name) : nullptr;
+    get_owned(pair, pair.current) = 1;
 }
 
 // The current pool freed if it was made here; the slot cleared.
-void FreePool(MemSys::PoolPair& pair)
+void free_pool(memory::PoolPair& pair)
 {
-    MemSys::SlabBank* pool = pair.pools[pair.current];
+    memory::SlabBank* pool = pair.pools[pair.current];
     if (!pool)
         return;
-    if (Owned(pair, pair.current)) {
-        MemSys::Dealloc(pool->m_outset);
-        MemSys::Hub::Pull()->Dealloc(pool);
+    if (get_owned(pair, pair.current)) {
+        memory::dealloc(pool->outset_);
+        memory::Hub::get_pull()->dealloc(pool);
     }
     pair.pools[pair.current] = nullptr;
 }
 
 // A rail taken out of the editor's list (the head and the current rail moved on past it).
-void Uncouple(CRailAuthoring* editor, CEditedRail* rail)
+void uncouple(RailAuthoring* editor, EditedRail* rail)
 {
-    if (editor->m_railGroups == rail)
-        editor->m_railGroups = rail->m_following;
-    if (editor->m_activeNode == rail)
-        editor->m_activeNode = rail->m_following;
-    if (rail->m_following)
-        rail->m_following->m_preceding = rail->m_preceding;
-    if (rail->m_preceding)
-        rail->m_preceding->m_following = rail->m_following;
+    if (editor->rail_groups_ == rail)
+        editor->rail_groups_ = rail->following_;
+    if (editor->active_node_ == rail)
+        editor->active_node_ = rail->following_;
+    if (rail->following_)
+        rail->following_->preceding_ = rail->preceding_;
+    if (rail->preceding_)
+        rail->preceding_->following_ = rail->following_;
 }
 
-bool Inside(const CEditedRailPoint* p, float x0, float z0, float x1, float z1)
+bool get_inside(const EditedRailPoint* p, float x0, float z0, float x1, float z1)
 {
-    return p->m_atPoint.x > x0 && p->m_atPoint.x < x1 && p->m_atPoint.z > z0 && p->m_atPoint.z < z1;
+    return p->at_point_.x > x0 && p->at_point_.x < x1 && p->at_point_.z > z0 && p->at_point_.z < z1;
 }
 
 } // namespace
@@ -118,138 +118,138 @@ bool Inside(const CEditedRailPoint* p, float x0, float z0, float x1, float z1)
 // --- CEditedRailPoint ---------------------------------------------------------------------------------------------
 
 // 0x004F3AD0
-void CEditedRailPoint::ClearGlow()
+void EditedRailPoint::clear_glow()
 {
-    if (!m_highlighted)
+    if (!highlighted_)
         return;
     auto restore = [](uint8_t* sector) {
-        ClearSectorColour(sector);
-        SetSectorVisibility(sector, 0xFFFFFFFF);
+        clear_sector_colour(sector);
+        set_sector_visibility(sector, 0xFFFFFFFF);
     };
-    if (m_post)
-        restore(m_post);
-    if (m_segment)
-        restore(m_segment);
-    if (m_preceding && m_preceding->m_segment)
-        restore(m_preceding->m_segment);
-    if (m_following && !m_following->m_following && m_following->m_post)
-        restore(m_following->m_post);
-    if (m_preceding && !m_preceding->m_preceding && m_preceding->m_post)
-        restore(m_preceding->m_post);
-    m_highlighted = false;
+    if (post_)
+        restore(post_);
+    if (segment_)
+        restore(segment_);
+    if (preceding_ && preceding_->segment_)
+        restore(preceding_->segment_);
+    if (following_ && !following_->following_ && following_->post_)
+        restore(following_->post_);
+    if (preceding_ && !preceding_->preceding_ && preceding_->post_)
+        restore(preceding_->post_);
+    highlighted_ = false;
 }
 
 // 0x004F40A0
-void CEditedRailPoint::DeleteSegment() { RemoveSceneSector(m_segment); }
+void EditedRailPoint::delete_segment() { remove_scene_sector(segment_); }
 
 // 0x004F40F0
-void CEditedRailPoint::DeletePost() { RemoveSceneSector(m_post); }
+void EditedRailPoint::delete_post() { remove_scene_sector(post_); }
 
 // 0x004F4140
-void CEditedRailPoint::Pack(uint16_t* record) const
+void EditedRailPoint::get_pack(uint16_t* record) const
 {
-    record[4] = m_hasPost;
-    if (m_levelY < 0.0f)
+    record[4] = has_post_;
+    if (level_y_ < 0.0f)
         record[3] = 0;
     else
-        record[3] = static_cast<uint16_t>(static_cast<int>(static_cast<double>(m_levelY) * 16.0f));
-    record[0] = static_cast<uint16_t>(static_cast<int>(static_cast<double>(m_atPoint.x) * 8.0f));
-    record[1] = static_cast<uint16_t>(static_cast<int>(static_cast<double>(m_atPoint.y) * 8.0f));
-    record[2] = static_cast<uint16_t>(static_cast<int>(static_cast<double>(m_atPoint.z) * 8.0f));
+        record[3] = static_cast<uint16_t>(static_cast<int>(static_cast<double>(level_y_) * 16.0f));
+    record[0] = static_cast<uint16_t>(static_cast<int>(static_cast<double>(at_point_.x) * 8.0f));
+    record[1] = static_cast<uint16_t>(static_cast<int>(static_cast<double>(at_point_.y) * 8.0f));
+    record[2] = static_cast<uint16_t>(static_cast<int>(static_cast<double>(at_point_.z) * 8.0f));
 }
 
 // --- CEditedRail --------------------------------------------------------------------------------------------------
 
 // 0x004F70C0
-CEditedRail* CEditedRail::MakeNew()
+EditedRail* EditedRail::make_new()
 {
-    m_ident = NextRailId()++;
-    m_pointChain = nullptr;
-    m_following = nullptr;
-    m_preceding = nullptr;
-    Clear();
+    ident_ = next_rail_id()++;
+    point_chain_ = nullptr;
+    following_ = nullptr;
+    preceding_ = nullptr;
+    get_clear();
     return this;
 }
 
 // 0x004F6E20
-void CEditedRail::Clear()
+void EditedRail::get_clear()
 {
-    CEditedRailPoint* point = m_pointChain;
+    EditedRailPoint* point = point_chain_;
     while (point) {
-        CEditedRailPoint* next = point->m_following;
-        RemoveSceneSector(point->m_segment);
-        RemoveSceneSector(point->m_post);
-        PointPools().Dealloc(point);
+        EditedRailPoint* next = point->following_;
+        remove_scene_sector(point->segment_);
+        remove_scene_sector(point->post_);
+        point_pools().dealloc(point);
         point = next;
     }
-    m_pointChain = nullptr;
+    point_chain_ = nullptr;
 }
 
 // 0x004F3B90
-int CEditedRail::RailPointTotal() const
+int EditedRail::rail_point_total() const
 {
     int count = 0;
-    for (CEditedRailPoint* p = m_pointChain; p; p = p->m_following)
+    for (EditedRailPoint* p = point_chain_; p; p = p->following_)
         ++count;
     return count;
 }
 
 // 0x004F3BB0
-CEditedRailPoint* CEditedRail::FetchVertexAt(int index) const
+EditedRailPoint* EditedRail::fetch_vertex_at(int index) const
 {
-    CEditedRailPoint* p = m_pointChain;
+    EditedRailPoint* p = point_chain_;
     while (index != 0) {
         if (!p)
             return nullptr;
-        p = p->m_following;
+        p = p->following_;
         --index;
     }
     return p;
 }
 
 // 0x004F3BD0
-void CEditedRail::ClearColours()
+void EditedRail::clear_colours()
 {
-    for (CEditedRailPoint* p = m_pointChain; p; p = p->m_following) {
-        if (p->m_post)
-            ClearSectorColour(p->m_post);
-        if (p->m_segment)
-            ClearSectorColour(p->m_segment);
+    for (EditedRailPoint* p = point_chain_; p; p = p->following_) {
+        if (p->post_)
+            clear_sector_colour(p->post_);
+        if (p->segment_)
+            clear_sector_colour(p->segment_);
     }
 }
 
 // 0x004F41C0
-void CEditedRail::DeleteSegments()
+void EditedRail::delete_segments()
 {
-    for (CEditedRailPoint* p = m_pointChain; p; p = p->m_following)
-        RemoveSceneSector(p->m_segment);
+    for (EditedRailPoint* p = point_chain_; p; p = p->following_)
+        remove_scene_sector(p->segment_);
 }
 
 // 0x004F4220
-void CEditedRail::DeletePosts()
+void EditedRail::delete_posts()
 {
-    for (CEditedRailPoint* p = m_pointChain; p; p = p->m_following)
-        RemoveSceneSector(p->m_post);
+    for (EditedRailPoint* p = point_chain_; p; p = p->following_)
+        remove_scene_sector(p->post_);
 }
 
 // 0x004F4280
-bool CEditedRail::FindNearestPoint(const Maths::Vec4* position, Maths::Vec4* point, float* distanceSquared, int* index,
+bool EditedRail::find_nearest_point(const maths::Vec4* position, maths::Vec4* point, float* distance_squared, int* index,
                                    int skip) const
 {
-    const CEditedRailPoint* p = m_pointChain;
+    const EditedRailPoint* p = point_chain_;
     if (!p)
         return false;
     float best = 1e8f;
-    for (int i = 0; p; p = p->m_following, ++i) {
+    for (int i = 0; p; p = p->following_, ++i) {
         if (i == skip)
             continue;
-        double dx = static_cast<double>(p->m_atPoint.x) - position->x;
-        double dz = static_cast<double>(p->m_atPoint.z) - position->z;
+        double dx = static_cast<double>(p->at_point_.x) - position->x;
+        double dz = static_cast<double>(p->at_point_.z) - position->z;
         double d = dx * dx + dz * dz;
         if (d < best) {
             best = static_cast<float>(d);
-            *point = p->m_atPoint;
-            *distanceSquared = static_cast<float>(d);
+            *point = p->at_point_;
+            *distance_squared = static_cast<float>(d);
             *index = i;
         }
     }
@@ -257,307 +257,307 @@ bool CEditedRail::FindNearestPoint(const Maths::Vec4* position, Maths::Vec4* poi
 }
 
 // 0x004F4310
-int CEditedRail::CountPointsInside(float x0, float z0, float x1, float z1) const
+int EditedRail::count_points_inside(float x0, float z0, float x1, float z1) const
 {
     int count = 0;
-    for (const CEditedRailPoint* p = m_pointChain; p; p = p->m_following) {
-        if (Inside(p, x0, z0, x1, z1))
+    for (const EditedRailPoint* p = point_chain_; p; p = p->following_) {
+        if (get_inside(p, x0, z0, x1, z1))
             ++count;
     }
     return count;
 }
 
 // 0x004F4420
-void CEditedRail::ChangeColour(int index)
+void EditedRail::change_colour(int index)
 {
-    Scripts::CArray* colours = Scripts::FetchList(kGraffitiColors);
-    auto* colour = reinterpret_cast<Scripts::CArray*>(colours->FetchPart(static_cast<uint32_t>(index)));
-    uint32_t rgba = static_cast<uint8_t>(colour->FetchPart(0)) | static_cast<uint8_t>(colour->FetchPart(1)) << 8 |
-                    static_cast<uint32_t>(static_cast<uint8_t>(colour->FetchPart(2))) << 16 | 0x80000000u;
-    for (CEditedRailPoint* p = m_pointChain; p; p = p->m_following) {
-        if (p->m_post)
-            SetSectorColour(p->m_post, rgba);
-        if (p->m_segment)
-            SetSectorColour(p->m_segment, rgba);
+    script::Array* colours = script::fetch_list(kGraffitiColors);
+    auto* colour = reinterpret_cast<script::Array*>(colours->fetch_part(static_cast<uint32_t>(index)));
+    uint32_t rgba = static_cast<uint8_t>(colour->fetch_part(0)) | static_cast<uint8_t>(colour->fetch_part(1)) << 8 |
+                    static_cast<uint32_t>(static_cast<uint8_t>(colour->fetch_part(2))) << 16 | 0x80000000u;
+    for (EditedRailPoint* p = point_chain_; p; p = p->following_) {
+        if (p->post_)
+            set_sector_colour(p->post_, rgba);
+        if (p->segment_)
+            set_sector_colour(p->segment_, rgba);
     }
 }
 
 // 0x004F44B0
-bool CEditedRail::AnyPointOutside(float x0, float z0, float x1, float z1) const
+bool EditedRail::any_point_outside(float x0, float z0, float x1, float z1) const
 {
-    for (const CEditedRailPoint* p = m_pointChain; p; p = p->m_following) {
-        if (p->m_atPoint.x < x0 || p->m_atPoint.x > x1 || p->m_atPoint.z < z0 || p->m_atPoint.z > z1)
+    for (const EditedRailPoint* p = point_chain_; p; p = p->following_) {
+        if (p->at_point_.x < x0 || p->at_point_.x > x1 || p->at_point_.z < z0 || p->at_point_.z > z1)
             return true;
     }
     return false;
 }
 
 // 0x004F6240
-CEditedRailPoint* CEditedRail::AppendRailVertex()
+EditedRailPoint* EditedRail::append_rail_vertex()
 {
-    MemSys::PoolPair& pools = PointPools();
-    if (pools.pools[pools.current]->m_takenCount == CRailAuthoring::kMaxPoints)
+    memory::PoolPair& pools = point_pools();
+    if (pools.pools[pools.current]->taken_count_ == RailAuthoring::kMaxPoints)
         return nullptr;
-    auto* point = static_cast<CEditedRailPoint*>(pools.Carve(sizeof(CEditedRailPoint)));
+    auto* point = static_cast<EditedRailPoint*>(pools.carve(sizeof(EditedRailPoint)));
     if (point) {
-        point->m_atPoint = {0.0f, 0.0f, 0.0f, 1.0f};
-        point->m_hasPost = false;
-        point->m_highlighted = false;
-        point->m_levelY = 0.0f;
-        point->m_following = nullptr;
-        point->m_preceding = nullptr;
-        point->m_segment = nullptr;
-        point->m_post = nullptr;
+        point->at_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
+        point->has_post_ = false;
+        point->highlighted_ = false;
+        point->level_y_ = 0.0f;
+        point->following_ = nullptr;
+        point->preceding_ = nullptr;
+        point->segment_ = nullptr;
+        point->post_ = nullptr;
     }
     // (a failed allocation crashes here, as in the original)
-    point->m_following = m_pointChain;
-    if (m_pointChain)
-        m_pointChain->m_preceding = point;
-    point->m_preceding = nullptr;
-    m_pointChain = point;
+    point->following_ = point_chain_;
+    if (point_chain_)
+        point_chain_->preceding_ = point;
+    point->preceding_ = nullptr;
+    point_chain_ = point;
     return point;
 }
 
 // 0x004F62D0
-void CEditedRail::AddPointCopy(const CEditedRailPoint* source)
+void EditedRail::add_point_copy(const EditedRailPoint* source)
 {
-    CEditedRailPoint* point = AppendRailVertex();
-    point->m_atPoint = source->m_atPoint;
-    point->m_hasPost = source->m_hasPost;
-    point->m_levelY = source->m_levelY;
+    EditedRailPoint* point = append_rail_vertex();
+    point->at_point_ = source->at_point_;
+    point->has_post_ = source->has_post_;
+    point->level_y_ = source->level_y_;
 }
 
 // 0x004F6300
-CEditedRailPoint* CEditedRail::CutAt(CEditedRailPoint* point)
+EditedRailPoint* EditedRail::cut_at(EditedRailPoint* point)
 {
     if (!point)
         return nullptr;
-    CEditedRailPoint* prev = point->m_preceding;
-    if (prev && point->m_following) {
-        MemSys::PoolPair& rails = RailPools();
-        if (rails.pools[rails.current]->m_takenCount == CRailAuthoring::kMaxRails)
+    EditedRailPoint* prev = point->preceding_;
+    if (prev && point->following_) {
+        memory::PoolPair& rails = rail_pools();
+        if (rails.pools[rails.current]->taken_count_ == RailAuthoring::kMaxRails)
             return nullptr;
     }
-    if (point == m_pointChain) {
-        m_pointChain = point->m_following;
-        if (point->m_following)
-            point->m_following->m_preceding = nullptr;
-        point->DeleteSegment();
-        point->DeletePost();
-        CRailAuthoring::FreePoint(point);
+    if (point == point_chain_) {
+        point_chain_ = point->following_;
+        if (point->following_)
+            point->following_->preceding_ = nullptr;
+        point->delete_segment();
+        point->delete_post();
+        RailAuthoring::free_point(point);
         return nullptr;
     }
-    prev->DeleteSegment();
-    point->m_preceding->m_following = nullptr;
-    CEditedRailPoint* rest = point->m_following;
-    point->DeleteSegment();
-    point->DeletePost();
-    CRailAuthoring::FreePoint(point);
+    prev->delete_segment();
+    point->preceding_->following_ = nullptr;
+    EditedRailPoint* rest = point->following_;
+    point->delete_segment();
+    point->delete_post();
+    RailAuthoring::free_point(point);
     if (rest)
-        rest->m_preceding = nullptr;
+        rest->preceding_ = nullptr;
     return rest;
 }
 
 // 0x004F6F40
-void CEditedRail::CopyFrom(const CEditedRail* source)
+void EditedRail::copy_from(const EditedRail* source)
 {
-    Clear();
-    for (const CEditedRailPoint* p = source->m_pointChain; p; p = p->m_following)
-        AddPointCopy(p);
+    get_clear();
+    for (const EditedRailPoint* p = source->point_chain_; p; p = p->following_)
+        add_point_copy(p);
 }
 
 // 0x004F7100
-CEditedRail* CEditedRail::CopyInside(float x0, float z0, float x1, float z1, CEditedRail* list) const
+EditedRail* EditedRail::copy_inside(float x0, float z0, float x1, float z1, EditedRail* list) const
 {
-    bool lastInside = false;
-    const CEditedRailPoint* first = nullptr; // an inside point waiting for a second
-    for (const CEditedRailPoint* p = m_pointChain; p; p = p->m_following) {
-        if (!Inside(p, x0, z0, x1, z1)) {
+    bool last_inside = false;
+    const EditedRailPoint* first = nullptr; // an inside point waiting for a second
+    for (const EditedRailPoint* p = point_chain_; p; p = p->following_) {
+        if (!get_inside(p, x0, z0, x1, z1)) {
             first = nullptr;
-            lastInside = false;
-        } else if (!lastInside) {
+            last_inside = false;
+        } else if (!last_inside) {
             first = p;
-            lastInside = true;
+            last_inside = true;
         } else {
             if (first) {
-                void* memory = CRailAuthoring::NewRailMemory(sizeof(CEditedRail));
-                auto* rail = memory ? static_cast<CEditedRail*>(memory)->MakeNew() : nullptr;
-                rail->m_following = list;
+                void* memory = RailAuthoring::new_rail_memory(sizeof(EditedRail));
+                auto* rail = memory ? static_cast<EditedRail*>(memory)->make_new() : nullptr;
+                rail->following_ = list;
                 list = rail;
-                rail->AddPointCopy(first);
+                rail->add_point_copy(first);
                 first = nullptr;
             }
-            list->AddPointCopy(p);
-            lastInside = true;
+            list->add_point_copy(p);
+            last_inside = true;
         }
     }
     return list;
 }
 
-// --- CRailAuthoring -----------------------------------------------------------------------------------------
+// --- RailAuthoring -----------------------------------------------------------------------------------------
 
 // 0x004F4970
-CRailAuthoring* __cdecl CRailAuthoring::Sole()
+RailAuthoring* __cdecl RailAuthoring::sole()
 {
-    auto* object = reinterpret_cast<GameObjects::CGameEntity*>(
-        reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeRegistry)->LookUpEntity(kType));
-    return static_cast<CRailAuthoring*>(object->FetchModule(kType));
+    auto* object = reinterpret_cast<objects::GameEntity*>(
+        reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry)->look_up_entity(kType));
+    return static_cast<RailAuthoring*>(object->fetch_module(kType));
 }
 
 // 0x004F7FB0
-GameObjects::CObjectModule* __cdecl CRailAuthoring::Fabricate()
+objects::ObjectModule* __cdecl RailAuthoring::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CRailAuthoring));
-    return memory ? static_cast<CRailAuthoring*>(memory)->MakeNew() : nullptr;
+    void* memory = memory::alloc_zeroed(sizeof(RailAuthoring));
+    return memory ? static_cast<RailAuthoring*>(memory)->make_new() : nullptr;
 }
 
 // 0x004F7C90
-CRailAuthoring* CRailAuthoring::MakeNew()
+RailAuthoring* RailAuthoring::make_new()
 {
-    CObjectModule::MakeNew();
-    m_vtable = kVtable;
-    m_kindTag = kType;
-    MakePointPool(kMaxPoints, "CEditedRailPoint");
-    MakeRailPool(kMaxRails, "CEditedRail");
-    m_inputPtr = nullptr;
-    m_viewCamera = nullptr;
-    m_dottedLine = nullptr;
-    m_dottedLineName = 0;
-    m_railGroups = nullptr;
-    std::memset(&m_packed, 0, sizeof(m_packed));
-    Clear();
+    ObjectModule::make_new();
+    vtable_ = kVtable;
+    kind_tag_ = kType;
+    make_point_pool(kMaxPoints, "CEditedRailPoint");
+    make_rail_pool(kMaxRails, "CEditedRail");
+    input_ptr_ = nullptr;
+    view_camera_ = nullptr;
+    dotted_line_ = nullptr;
+    dotted_line_name_ = 0;
+    rail_groups_ = nullptr;
+    std::memset(&packed_, 0, sizeof(packed_));
+    get_clear();
     return this;
 }
 
 // 0x004F7D20
-void CRailAuthoring::DestroyBody()
+void RailAuthoring::destroy_body()
 {
-    m_vtable = kVtable;
-    Clear();
-    FreePool(PointPools());
-    FreePool(RailPools());
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    get_clear();
+    free_pool(point_pools());
+    free_pool(rail_pools());
+    ObjectModule::destroy_body();
 }
 
 // 0x004F8010
-CRailAuthoring* CRailAuthoring::Teardown(unsigned int flags)
+RailAuthoring* RailAuthoring::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x004F47E0
-void CRailAuthoring::Seal()
+void RailAuthoring::seal()
 {
-    m_inputPtr = m_entity->FetchModule(kInput);
-    m_viewCamera = m_entity->FetchModule(kEditorCamera);
+    input_ptr_ = entity_->fetch_module(kInput);
+    view_camera_ = entity_->fetch_module(kEditorCamera);
 }
 
 // 0x004F4990
-void __cdecl CRailAuthoring::MakePointPool(int count, const char* name)
+void __cdecl RailAuthoring::make_point_pool(int count, const char* name)
 {
-    MakePool(PointPools(), sizeof(CEditedRailPoint), count, name);
+    make_pool(point_pools(), sizeof(EditedRailPoint), count, name);
 }
 
 // 0x004F4A70
-void __cdecl CRailAuthoring::MakeRailPool(int count, const char* name)
+void __cdecl RailAuthoring::make_rail_pool(int count, const char* name)
 {
-    MakePool(RailPools(), sizeof(CEditedRail), count, name);
+    make_pool(rail_pools(), sizeof(EditedRail), count, name);
 }
 
 // 0x004F4AF0
-void* __cdecl CRailAuthoring::NewRailMemory(unsigned int size) { return RailPools().Carve(size); }
+void* __cdecl RailAuthoring::new_rail_memory(unsigned int size) { return rail_pools().carve(size); }
 
 // 0x004F4B30
-void __cdecl CRailAuthoring::FreeRail(void* rail) { RailPools().Dealloc(rail); }
+void __cdecl RailAuthoring::free_rail(void* rail) { rail_pools().dealloc(rail); }
 
 // 0x004F4A10
-void __cdecl CRailAuthoring::FreePoint(void* point) { PointPools().Dealloc(point); }
+void __cdecl RailAuthoring::free_point(void* point) { point_pools().dealloc(point); }
 
 // 0x004F6BF0
-int __cdecl CRailAuthoring::FreePoints()
+int __cdecl RailAuthoring::free_points()
 {
-    MemSys::PoolPair& pools = PointPools();
-    return kMaxPoints - pools.pools[pools.current]->m_takenCount;
+    memory::PoolPair& pools = point_pools();
+    return kMaxPoints - pools.pools[pools.current]->taken_count_;
 }
 
 // 0x004F7550
-void CRailAuthoring::Clear()
+void RailAuthoring::get_clear()
 {
-    CEditedRail* rail = m_railGroups;
+    EditedRail* rail = rail_groups_;
     while (rail) {
-        CEditedRail* next = rail->m_following;
-        rail->Clear();
-        FreeRail(rail);
+        EditedRail* next = rail->following_;
+        rail->get_clear();
+        free_rail(rail);
         rail = next;
     }
-    m_railGroups = nullptr;
-    m_activeNode = nullptr;
-    m_modeSel = 0;
-    DeleteDottedLine();
+    rail_groups_ = nullptr;
+    active_node_ = nullptr;
+    mode_sel_ = 0;
+    delete_dotted_line();
 }
 
 // 0x004F72C0
-CEditedRail* CRailAuthoring::NewRail()
+EditedRail* RailAuthoring::get_new_rail()
 {
-    void* memory = NewRailMemory(sizeof(CEditedRail));
-    CEditedRail* rail = memory ? static_cast<CEditedRail*>(memory)->MakeNew() : nullptr;
+    void* memory = new_rail_memory(sizeof(EditedRail));
+    EditedRail* rail = memory ? static_cast<EditedRail*>(memory)->make_new() : nullptr;
     // (out of rails: a crash here, as in the original)
-    rail->m_following = m_railGroups;
-    rail->m_preceding = nullptr;
-    if (m_railGroups)
-        m_railGroups->m_preceding = rail;
-    m_railGroups = rail;
-    m_activeNode = rail;
+    rail->following_ = rail_groups_;
+    rail->preceding_ = nullptr;
+    if (rail_groups_)
+        rail_groups_->preceding_ = rail;
+    rail_groups_ = rail;
+    active_node_ = rail;
     return rail;
 }
 
 // 0x004F7270
-void CRailAuthoring::DeleteRail(CEditedRail* rail)
+void RailAuthoring::delete_rail(EditedRail* rail)
 {
-    Uncouple(this, rail);
-    rail->Clear();
-    FreeRail(rail);
+    uncouple(this, rail);
+    rail->get_clear();
+    free_rail(rail);
 }
 
 // 0x004F7370
-void CRailAuthoring::DeleteShortRails()
+void RailAuthoring::delete_short_rails()
 {
-    CEditedRail* rail = m_railGroups;
+    EditedRail* rail = rail_groups_;
     while (rail) {
-        CEditedRail* next = rail->m_following;
-        if (!rail->m_pointChain || !rail->m_pointChain->m_following) {
-            Uncouple(this, rail);
-            rail->Clear();
-            FreeRail(rail);
+        EditedRail* next = rail->following_;
+        if (!rail->point_chain_ || !rail->point_chain_->following_) {
+            uncouple(this, rail);
+            rail->get_clear();
+            free_rail(rail);
         }
         rail = next;
     }
 }
 
 // 0x004F73E0
-bool CRailAuthoring::CutRail(CEditedRail* rail, CEditedRailPoint* point)
+bool RailAuthoring::cut_rail(EditedRail* rail, EditedRailPoint* point)
 {
-    CEditedRailPoint* rest = rail->CutAt(point);
+    EditedRailPoint* rest = rail->cut_at(point);
     if (!rest)
         return false;
-    NewRail()->m_pointChain = rest;
+    get_new_rail()->point_chain_ = rest;
     return true;
 }
 
 // 0x004F7410
-bool CRailAuthoring::CutPointInOrOut(CEditedRail* rail, float x0, float z0, float x1, float z1, int inside)
+bool RailAuthoring::cut_point_in_or_out(EditedRail* rail, float x0, float z0, float x1, float z1, int inside)
 {
-    CEditedRailPoint* p = rail->m_pointChain;
+    EditedRailPoint* p = rail->point_chain_;
     while (p) {
-        CEditedRailPoint* next = p->m_following;
-        bool cut = Inside(p, x0, z0, x1, z1) ? inside == 1 : inside == 0;
+        EditedRailPoint* next = p->following_;
+        bool cut = get_inside(p, x0, z0, x1, z1) ? inside == 1 : inside == 0;
         if (cut) {
-            CEditedRailPoint* rest = rail->CutAt(p);
+            EditedRailPoint* rest = rail->cut_at(p);
             if (rest) {
-                NewRail()->m_pointChain = rest;
+                get_new_rail()->point_chain_ = rest;
                 return true;
             }
         }
@@ -567,7 +567,7 @@ bool CRailAuthoring::CutPointInOrOut(CEditedRail* rail, float x0, float z0, floa
 }
 
 // 0x004F74B0
-void CRailAuthoring::DeletePoints(float x0, float z0, float x1, float z1, int inside)
+void RailAuthoring::delete_points(float x0, float z0, float x1, float z1, int inside)
 {
     if (x0 > x1) {
         float t = x0;
@@ -582,100 +582,100 @@ void CRailAuthoring::DeletePoints(float x0, float z0, float x1, float z1, int in
     bool changed;
     do {
         changed = false;
-        for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following) {
-            if (CutPointInOrOut(rail, x0, z0, x1, z1, inside))
+        for (EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
+            if (cut_point_in_or_out(rail, x0, z0, x1, z1, inside))
                 changed = true;
         }
     } while (changed);
-    DeleteShortRails();
+    delete_short_rails();
 }
 
 // 0x004F3C50
-CEditedRail* CRailAuthoring::FindRail(uint32_t id) const
+EditedRail* RailAuthoring::find_rail(uint32_t id) const
 {
-    for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following) {
-        if (rail->m_ident == id)
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
+        if (rail->ident_ == id)
             return rail;
     }
     return nullptr;
 }
 
 // 0x004F3CA0
-CEditedRail* CRailAuthoring::FindRailByCluster(uint32_t name) const
+EditedRail* RailAuthoring::find_rail_by_cluster(uint32_t name) const
 {
     int i = 0;
-    for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following, ++i) {
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_, ++i) {
         char cluster[52];
         std::snprintf(cluster, sizeof(cluster), "CreatedRailCluster%d", i);
-        if (name == Checksums::HashFromText(cluster))
+        if (name == checksums::hash_from_text(cluster))
             return rail;
     }
     return nullptr;
 }
 
 // 0x004F3D10
-void CRailAuthoring::ClearClusterColours(uint32_t name)
+void RailAuthoring::clear_cluster_colours(uint32_t name)
 {
-    if (CEditedRail* rail = FindRailByCluster(name))
-        rail->ClearColours();
+    if (EditedRail* rail = find_rail_by_cluster(name))
+        rail->clear_colours();
 }
 
 // 0x004F4950
-void CRailAuthoring::SetClusterColour(uint32_t name, int colourIndex)
+void RailAuthoring::set_cluster_colour(uint32_t name, int colour_index)
 {
-    if (CEditedRail* rail = FindRailByCluster(name))
-        rail->ChangeColour(colourIndex);
+    if (EditedRail* rail = find_rail_by_cluster(name))
+        rail->change_colour(colour_index);
 }
 
 // 0x004F3C70
-int CRailAuthoring::RailPointTotal() const
+int RailAuthoring::rail_point_total() const
 {
     int count = 0;
-    for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following) {
-        for (CEditedRailPoint* p = rail->m_pointChain; p; p = p->m_following)
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
+        for (EditedRailPoint* p = rail->point_chain_; p; p = p->following_)
             ++count;
     }
     return count;
 }
 
 // 0x004F3C20
-void CRailAuthoring::UnHighlightAll()
+void RailAuthoring::un_highlight_all()
 {
-    for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following) {
-        for (CEditedRailPoint* p = rail->m_pointChain; p; p = p->m_following)
-            p->ClearGlow();
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
+        for (EditedRailPoint* p = rail->point_chain_; p; p = p->following_)
+            p->clear_glow();
     }
 }
 
 // 0x004F3D30
-void CRailAuthoring::ChangeLive(bool active)
+void RailAuthoring::change_live(bool active)
 {
-    for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following) {
-        for (CEditedRailPoint* p = rail->m_pointChain; p; p = p->m_following) {
-            if (p->m_post)
-                EnableSector(p->m_post, active);
-            if (p->m_segment)
-                EnableSector(p->m_segment, active);
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
+        for (EditedRailPoint* p = rail->point_chain_; p; p = p->following_) {
+            if (p->post_)
+                enable_sector(p->post_, active);
+            if (p->segment_)
+                enable_sector(p->segment_, active);
         }
     }
 }
 
 // 0x004F45C0
-void CRailAuthoring::DeleteAllSegments()
+void RailAuthoring::delete_all_segments()
 {
-    for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following)
-        rail->DeleteSegments();
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_)
+        rail->delete_segments();
 }
 
 // 0x004F45E0
-void CRailAuthoring::DeleteAllPosts()
+void RailAuthoring::delete_all_posts()
 {
-    for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following)
-        rail->DeletePosts();
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_)
+        rail->delete_posts();
 }
 
 // 0x004F4600
-bool CRailAuthoring::AnyPointOutside(float x0, float z0, float x1, float z1) const
+bool RailAuthoring::any_point_outside(float x0, float z0, float x1, float z1) const
 {
     if (x0 > x1) {
         float t = x0;
@@ -687,15 +687,15 @@ bool CRailAuthoring::AnyPointOutside(float x0, float z0, float x1, float z1) con
         z0 = z1;
         z1 = t;
     }
-    for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following) {
-        if (rail->AnyPointOutside(x0, z0, x1, z1))
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
+        if (rail->any_point_outside(x0, z0, x1, z1))
             return true;
     }
     return false;
 }
 
 // 0x004F4690
-int CRailAuthoring::CountPointsInside(float x0, float z0, float x1, float z1) const
+int RailAuthoring::count_points_inside(float x0, float z0, float x1, float z1) const
 {
     if (x0 > x1) {
         float t = x0;
@@ -708,31 +708,31 @@ int CRailAuthoring::CountPointsInside(float x0, float z0, float x1, float z1) co
         z1 = t;
     }
     int count = 0;
-    for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following)
-        count += rail->CountPointsInside(x0, z0, x1, z1);
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_)
+        count += rail->count_points_inside(x0, z0, x1, z1);
     return count;
 }
 
 // 0x004F4710
-bool CRailAuthoring::FindNearestPoint(const Maths::Vec4* position, Maths::Vec4* point, float* distanceSquared,
-                                            uint32_t* railId, int* index, uint32_t skipRail, int bypassIdx) const
+bool RailAuthoring::find_nearest_point(const maths::Vec4* position, maths::Vec4* point, float* distance_squared,
+                                            uint32_t* rail_id, int* index, uint32_t skip_rail, int bypass_idx) const
 {
     bool found = false;
     float best = 1e8f;
     // The original keeps the callee's results in locals it never initialises: a rail whose only point is skipped
     // still "finds" one - the distance left from an earlier rail (or, for the first, the bits of the `index` pointer
     // the slot held), the point unset (here zero: what a cleared stack holds).
-    Maths::Vec4 nearest = {0.0f, 0.0f, 0.0f, 0.0f};
+    maths::Vec4 nearest = {0.0f, 0.0f, 0.0f, 0.0f};
     float distance;
     std::memcpy(&distance, &index, sizeof(distance));
-    for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following) {
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
         int i = 0;
-        if (rail->FindNearestPoint(position, &nearest, &distance, &i, rail->m_ident == skipRail ? bypassIdx : -1) &&
+        if (rail->find_nearest_point(position, &nearest, &distance, &i, rail->ident_ == skip_rail ? bypass_idx : -1) &&
             distance < best) {
             best = distance;
             *point = nearest;
-            *distanceSquared = distance;
-            *railId = rail->m_ident;
+            *distance_squared = distance;
+            *rail_id = rail->ident_;
             *index = i;
             found = true;
         }
@@ -741,73 +741,73 @@ bool CRailAuthoring::FindNearestPoint(const Maths::Vec4* position, Maths::Vec4* 
 }
 
 // 0x004F48F0
-void CRailAuthoring::DeleteDottedLine()
+void RailAuthoring::delete_dotted_line()
 {
-    if (!m_dottedLine)
+    if (!dotted_line_)
         return;
-    RemoveSceneSector(m_dottedLine);
-    m_dottedLineName = 0;
+    remove_scene_sector(dotted_line_);
+    dotted_line_name_ = 0;
 }
 
 // 0x004F4500
-void CRailAuthoring::Pack()
+void RailAuthoring::get_pack()
 {
-    std::memset(&m_packed, 0, sizeof(m_packed));
+    std::memset(&packed_, 0, sizeof(packed_));
     uint16_t rails = 0;
-    for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following)
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_)
         ++rails;
-    m_packed.m_railCount = rails;
-    CEditedRail* rail = m_railGroups;
+    packed_.rail_count_ = rails;
+    EditedRail* rail = rail_groups_;
     if (!rail)
         return;
-    while (rail->m_following)
-        rail = rail->m_following;
-    uint16_t* count = m_packed.m_pointCounts;
-    uint16_t* record = m_packed.m_records[0];
+    while (rail->following_)
+        rail = rail->following_;
+    uint16_t* count = packed_.point_counts_;
+    uint16_t* record = packed_.records_[0];
     // From the first rail laid (the tail) back to the head, each rail's points from its first laid.
-    for (; rail; rail = rail->m_preceding) {
+    for (; rail; rail = rail->preceding_) {
         uint16_t points = 0;
-        for (CEditedRailPoint* p = rail->m_pointChain; p; p = p->m_following)
+        for (EditedRailPoint* p = rail->point_chain_; p; p = p->following_)
             ++points;
         *count++ = points;
-        CEditedRailPoint* p = rail->m_pointChain;
+        EditedRailPoint* p = rail->point_chain_;
         if (!p)
             continue;
-        while (p->m_following)
-            p = p->m_following;
-        for (; p; p = p->m_preceding) {
-            p->Pack(record);
+        while (p->following_)
+            p = p->following_;
+        for (; p; p = p->preceding_) {
+            p->get_pack(record);
             record += 5;
         }
     }
 }
 
 // 0x004F45B0
-RailBuffer* CRailAuthoring::GetPacked()
+RailBuffer* RailAuthoring::get_packed()
 {
-    Pack();
-    return &m_packed;
+    get_pack();
+    return &packed_;
 }
 
 // 0x004F3C00
-void CRailAuthoring::SetPacked(const RailBuffer* buffer) { std::memcpy(&m_packed, buffer, sizeof(m_packed)); }
+void RailAuthoring::set_packed(const RailBuffer* buffer) { std::memcpy(&packed_, buffer, sizeof(packed_)); }
 
 // 0x004F7DF0
-void CRailAuthoring::Unpack()
+void RailAuthoring::unpack()
 {
-    Clear();
-    const uint16_t* count = m_packed.m_pointCounts;
-    const uint16_t* record = m_packed.m_records[0];
-    for (unsigned int rails = m_packed.m_railCount; rails != 0; --rails) {
+    get_clear();
+    const uint16_t* count = packed_.point_counts_;
+    const uint16_t* record = packed_.records_[0];
+    for (unsigned int rails = packed_.rail_count_; rails != 0; --rails) {
         uint16_t points = *count++;
-        CEditedRail* rail = NewRail();
+        EditedRail* rail = get_new_rail();
         for (unsigned int i = points; i != 0; --i) {
-            if (CEditedRailPoint* p = rail->AppendRailVertex()) {
-                p->m_hasPost = record[4] != 0;
-                p->m_levelY = static_cast<float>(static_cast<double>(record[3]) * 0.0625f);
-                p->m_atPoint.x = static_cast<float>(static_cast<double>(static_cast<int16_t>(record[0])) * 0.125f);
-                p->m_atPoint.y = static_cast<float>(static_cast<double>(static_cast<int16_t>(record[1])) * 0.125f);
-                p->m_atPoint.z = static_cast<float>(static_cast<double>(static_cast<int16_t>(record[2])) * 0.125f);
+            if (EditedRailPoint* p = rail->append_rail_vertex()) {
+                p->has_post_ = record[4] != 0;
+                p->level_y_ = static_cast<float>(static_cast<double>(record[3]) * 0.0625f);
+                p->at_point_.x = static_cast<float>(static_cast<double>(static_cast<int16_t>(record[0])) * 0.125f);
+                p->at_point_.y = static_cast<float>(static_cast<double>(static_cast<int16_t>(record[1])) * 0.125f);
+                p->at_point_.z = static_cast<float>(static_cast<double>(static_cast<int16_t>(record[2])) * 0.125f);
             }
             record += 5;
         }
@@ -815,11 +815,11 @@ void CRailAuthoring::Unpack()
 }
 
 // 0x004F7230
-CEditedRail* CRailAuthoring::CopyRailsInside(float x0, float z0, float x1, float z1) const
+EditedRail* RailAuthoring::copy_rails_inside(float x0, float z0, float x1, float z1) const
 {
-    CEditedRail* list = nullptr;
-    for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following)
-        list = rail->CopyInside(x0, z0, x1, z1, list);
+    EditedRail* list = nullptr;
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_)
+        list = rail->copy_inside(x0, z0, x1, z1, list);
     return list;
 }
 

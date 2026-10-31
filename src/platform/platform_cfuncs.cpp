@@ -9,31 +9,31 @@
 #include "engine/script/script_tables.h"
 #include "engine/pad_input/sdl_input.h"
 
-namespace SystemCore {
+namespace sys {
 
 namespace {
 
 constexpr uint32_t kVehicleGrindScript = 0x47F15883;
 
 // The script's name (the one it's running now: CScript +0xC8).
-uint32_t ScriptName(const Scripts::CScript* script)
+uint32_t get_script_name(const script::Script* script)
 {
     return *reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(script) + 0xC8);
 }
 
 } // namespace
 
-bool __cdecl CFunc_IsPS2(Scripts::CStruct* /*params*/, Scripts::CScript* script)
+bool __cdecl cfunc_is_ps2(script::Struct* /*params*/, script::Script* script)
 {
-    if (!Sio::TheInputSettings().ps2Controls)
+    if (!sio::the_input_settings().ps2_controls_)
         return false; // (the original: 0x005B9E50)
-    return script && ScriptName(script) == kVehicleGrindScript;
+    return script && get_script_name(script) == kVehicleGrindScript;
 }
 
-void InstallIsPS2()
+void install_is_ps2()
 {
-    if (Scripts::CNativeCommand* entry = Scripts::FindCFunction("IsPS2"))
-        Scripts::BindNativeCommand(*entry, reinterpret_cast<void*>(&CFunc_IsPS2));
+    if (script::NativeCommand* entry = script::find_c_function("IsPS2"))
+        script::bind_native_command(*entry, reinterpret_cast<void*>(&cfunc_is_ps2));
 }
 
 } // namespace Sys

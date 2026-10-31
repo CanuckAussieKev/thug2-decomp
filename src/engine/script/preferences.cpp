@@ -7,117 +7,117 @@
 #include "engine/core/manager.h"
 #include "engine/core/code_address.h"
 
-namespace OptionStore {
+namespace prefs {
 
 namespace {
 
-static VtableSlot kPreferencesVtable_slots[] = {&OptionStore::Preferences::Teardown};
-void** const kPreferencesVtable = reinterpret_cast<void**>(kPreferencesVtable_slots);
+static VtableSlot g_preferences_vtable_slots[] = {&prefs::Preferences::teardown};
+void** const kPreferencesVtable = reinterpret_cast<void**>(g_preferences_vtable_slots);
 
-void** Vtable() { return kPreferencesVtable; }
+void** get_vtable() { return kPreferencesVtable; }
 
 } // namespace
 
 // 0x0046C470
-Preferences* Preferences::PrepareAll()
+Preferences* Preferences::prepare_all()
 {
-    m_vtable = Vtable();
-    m_topEntry.PrepareAll();
+    vtable_ = get_vtable();
+    top_entry_.prepare_all();
     return this;
 }
 
 // 0x0046C490
-void Preferences::TearDownState()
+void Preferences::tear_down_state()
 {
-    m_vtable = Vtable();
-    m_topEntry.Clear();
+    vtable_ = get_vtable();
+    top_entry_.get_clear();
 }
 
 // 0x0046C680
-Preferences* Preferences::Teardown(unsigned int flags)
+Preferences* Preferences::teardown(unsigned int flags)
 {
-    TearDownState();
+    tear_down_state();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x0046C4A0
-Scripts::CStruct* Preferences::FetchSetting(uint32_t name)
+script::Struct* Preferences::fetch_setting(uint32_t name)
 {
-    Scripts::CStruct* preference = nullptr;
-    m_topEntry.ReadSubStruct(name, &preference, 0);
+    script::Struct* preference = nullptr;
+    top_entry_.read_sub_struct(name, &preference, 0);
     return preference;
 }
 
 // 0x0046C4D0
-Scripts::CArray* Preferences::GetSettingList(uint32_t name)
+script::Array* Preferences::get_setting_list(uint32_t name)
 {
-    Scripts::CArray* array = nullptr;
-    m_topEntry.FetchList(name, &array, 0);
+    script::Array* array = nullptr;
+    top_entry_.fetch_list(name, &array, 0);
     return array;
 }
 
 // 0x0046C500
-void Preferences::SetPreferences(Scripts::CStruct* preferences)
+void Preferences::set_preferences(script::Struct* preferences)
 {
-    m_topEntry.AppendStructureIfAny(preferences);
+    top_entry_.append_structure_if_any(preferences);
 }
 
 // 0x0046C510
-const char* Preferences::GetPreferenceString(uint32_t name, uint32_t field)
+const char* Preferences::get_preference_string(uint32_t name, uint32_t field)
 {
-    Scripts::CStruct* preference = nullptr;
-    m_topEntry.ReadSubStruct(name, &preference, 0);
+    script::Struct* preference = nullptr;
+    top_entry_.read_sub_struct(name, &preference, 0);
     const char* value = reinterpret_cast<const char*>(name); // (the argument's slot, as the original)
-    preference->FetchText(field, &value, 1);
+    preference->fetch_text(field, &value, 1);
     return value;
 }
 
 // 0x0046C550
-int Preferences::GetSettingValue(uint32_t name, uint32_t field)
+int Preferences::get_setting_value(uint32_t name, uint32_t field)
 {
-    Scripts::CStruct* preference = nullptr;
-    m_topEntry.ReadSubStruct(name, &preference, 0);
+    script::Struct* preference = nullptr;
+    top_entry_.read_sub_struct(name, &preference, 0);
     int value = static_cast<int>(name);
-    preference->FetchIntValue(field, &value, 1);
+    preference->fetch_int_value(field, &value, 1);
     return value;
 }
 
 // 0x0046C590
-uint32_t Preferences::GetPreferenceChecksum(uint32_t name, uint32_t field)
+uint32_t Preferences::get_preference_checksum(uint32_t name, uint32_t field)
 {
-    Scripts::CStruct* preference = nullptr;
-    m_topEntry.ReadSubStruct(name, &preference, 1);
+    script::Struct* preference = nullptr;
+    top_entry_.read_sub_struct(name, &preference, 1);
     uint32_t value = name;
-    preference->ReadHashValue(field, &value, 1);
+    preference->read_hash_value(field, &value, 1);
     return value;
 }
 
 // 0x0046C5D0
-bool Preferences::ChangeSetting(uint32_t name, Scripts::CStruct* values)
+bool Preferences::change_setting(uint32_t name, script::Struct* values)
 {
-    Scripts::CStruct* preference = nullptr;
-    if (!m_topEntry.ReadSubStruct(name, &preference, 0))
+    script::Struct* preference = nullptr;
+    if (!top_entry_.read_sub_struct(name, &preference, 0))
         return false;
-    preference->AppendStructureIfAny(values);
+    preference->append_structure_if_any(values);
     return true;
 }
 
 // 0x0046C610
-bool Preferences::ChangeOptionList(uint32_t name, Scripts::CArray* array)
+bool Preferences::change_option_list(uint32_t name, script::Array* array)
 {
-    Scripts::CArray* existing = nullptr;
-    if (!m_topEntry.FetchList(name, &existing, 0))
+    script::Array* existing = nullptr;
+    if (!top_entry_.fetch_list(name, &existing, 0))
         return false;
-    m_topEntry.AppendArrayValue(name, array);
+    top_entry_.append_array_value(name, array);
     return true;
 }
 
 // 0x0046C650
-bool Preferences::ReadIn(uint32_t name)
+bool Preferences::read_in(uint32_t name)
 {
-    m_topEntry.AppendStructureIfAny(Scripts::ReadSubStruct(name));
+    top_entry_.append_structure_if_any(script::read_sub_struct(name));
     return true;
 }
 

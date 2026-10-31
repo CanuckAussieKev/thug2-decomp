@@ -19,7 +19,7 @@
 #include "game/skate/game_mode.h"
 #include "game/rider/rider.h"
 
-namespace GameModules {
+namespace modules {
 
 namespace {
 
@@ -41,107 +41,107 @@ constexpr uint32_t kNetKing = 0x6EF8FDA0;            // netking
 constexpr uint32_t kKing = 0x5D32129C;               // king
 constexpr uint32_t kFirstLine = 0x00039447;          // the first score line's id
 
-GoalSystem::CMatchRules* GameMode() { return GoalSystem::g_gameMode; }
-OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
-bool IsCrownRuleActive() { return GameMode()->GetNameKey() == kNetKing || GameMode()->GetNameKey() == kKing; }
+goals::MatchRules* get_game_mode() { return goals::g_game_mode; }
+online::Hub* net_session_slot() { return online::g_online_hub; }
+bool is_crown_rule_active() { return get_game_mode()->get_name_key() == kNetKing || get_game_mode()->get_name_key() == kKing; }
 
 struct PlayerSearch {
-    void** m_vtable = GameModules::kPlayerSearchVtable;
-    void* m_listLink = nullptr;
+    void** vtable_ = modules::kPlayerSearchVtable;
+    void* list_link_ = nullptr;
 };
-OnlinePlay::PlayerRecord* AsPlayer(void* player) { return static_cast<OnlinePlay::PlayerRecord*>(player); }
+online::PlayerRecord* as_player(void* player) { return static_cast<online::PlayerRecord*>(player); }
 
-// The ranking's list (ListKit::Foremost<ScoreEntry>, the entries' vtable 0x0064CCF8): highest priority (score) first.
+// The ranking's list (lists::Foremost<ScoreEntry>, the entries' vtable 0x0064CCF8): highest priority (score) first.
 struct RankingList {
-    MemSys::ListNode m_head;
+    memory::ListNode head_;
     RankingList()
     {
-        m_head.vtable = OnlinePlay::kScoreEntryVtable;
-        m_head.data = reinterpret_cast<void*>(-1);
-        m_head.priority = 0;
-        m_head.next = &m_head;
-        m_head.prev = &m_head;
+        head_.vtable = online::kScoreEntryVtable;
+        head_.data = reinterpret_cast<void*>(-1);
+        head_.priority = 0;
+        head_.next = &head_;
+        head_.prev = &head_;
     }
     ~RankingList()
     {
-        m_head.prev->next = m_head.next; // (the head out of the list: as its destructor)
-        m_head.next->prev = m_head.prev;
+        head_.prev->next = head_.next; // (the head out of the list: as its destructor)
+        head_.next->prev = head_.prev;
     }
     // The entry after `node` (null at the head).
-    static OnlinePlay::ScoreEntry* After(MemSys::ListNode* node)
+    static online::ScoreEntry* get_after(memory::ListNode* node)
     {
-        MemSys::ListNode* next = node->next;
-        return next->data == reinterpret_cast<void*>(-1) ? nullptr : static_cast<OnlinePlay::ScoreEntry*>(next->data);
+        memory::ListNode* next = node->next;
+        return next->data == reinterpret_cast<void*>(-1) ? nullptr : static_cast<online::ScoreEntry*>(next->data);
     }
 };
 
-OnlinePlay::ScoreEntry* NewEntry()
+online::ScoreEntry* new_entry()
 {
-    auto* entry = static_cast<OnlinePlay::ScoreEntry*>(MemSys::AllocZeroed(sizeof(OnlinePlay::ScoreEntry)));
+    auto* entry = static_cast<online::ScoreEntry*>(memory::alloc_zeroed(sizeof(online::ScoreEntry)));
     if (!entry)
         return nullptr;
     entry->data = entry;
     entry->priority = 0;
     entry->next = entry;
     entry->prev = entry;
-    entry->vtable = OnlinePlay::kScoreEntryVtable;
+    entry->vtable = online::kScoreEntryVtable;
     return entry;
 }
-void DeleteEntry(OnlinePlay::ScoreEntry* entry)
+void delete_entry(online::ScoreEntry* entry)
 {
-    reinterpret_cast<void(__thiscall*)(OnlinePlay::ScoreEntry*, int)>(entry->vtable[0])(entry, 1);
+    reinterpret_cast<void(__thiscall*)(online::ScoreEntry*, int)>(entry->vtable[0])(entry, 1);
 }
 
-Scripts::CStruct* SpawnParamTable()
+script::Struct* spawn_param_table()
 {
-    Scripts::CStruct* made = Scripts::SpawnParamBag();
-    return made ? made->PrepareAll() : nullptr;
+    script::Struct* made = script::spawn_param_bag();
+    return made ? made->prepare_all() : nullptr;
 }
-void DeleteStructure(Scripts::CStruct* structure)
+void delete_structure(script::Struct* structure)
 {
     if (structure) {
-        structure->Clear();
-        Scripts::DeleteStruct(structure);
+        structure->get_clear();
+        script::delete_struct(structure);
     }
 }
 
 // A player's (or team's) line in the player list.
-void AddPlayerLine(const char* text, bool teamScore)
+void add_player_line(const char* text, bool team_score)
 {
-    Scripts::CStruct* params = SpawnParamTable();
-    params->AppendWord(kText, text);
-    if (teamScore)
-        params->PutNameKey(0u, kTeamScore);
-    params->PutNameKey(kParent, kPlayerListMenu);
-    Scripts::LaunchScript(kPlayerMenuAddItem, params, nullptr, false, nullptr);
-    DeleteStructure(params);
+    script::Struct* params = spawn_param_table();
+    params->append_word(kText, text);
+    if (team_score)
+        params->put_name_key(0u, kTeamScore);
+    params->put_name_key(kParent, kPlayerListMenu);
+    script::launch_script(kPlayerMenuAddItem, params, nullptr, false, nullptr);
+    delete_structure(params);
 }
 
 // Its score's line in the rankings list (a team's players': the font before the id) - the text written by `format`
 // once the line's structure is made, as the original.
 template <typename Format>
-void AddScoreLine(Format format, uint32_t id, bool teamScore, bool fontFirst = false)
+void add_score_line(Format format, uint32_t id, bool team_score, bool font_first = false)
 {
-    Scripts::CStruct* params = SpawnParamTable();
+    script::Struct* params = spawn_param_table();
     char text[0x40];
     format(text, sizeof(text));
-    params->AppendWord(kText, text);
-    if (fontFirst)
-        params->PutNameKey(kFont, kDialog);
-    params->PutNameKey(kId, id);
-    if (!fontFirst)
-        params->PutNameKey(kFont, kDialog);
-    if (teamScore)
-        params->PutNameKey(0u, kTeamScore);
-    params->PutNameKey(kParent, kRankingsListMenu);
-    Scripts::LaunchScript(kScoreMenuAddItem, params, nullptr, false, nullptr);
-    DeleteStructure(params);
+    params->append_word(kText, text);
+    if (font_first)
+        params->put_name_key(kFont, kDialog);
+    params->put_name_key(kId, id);
+    if (!font_first)
+        params->put_name_key(kFont, kDialog);
+    if (team_score)
+        params->put_name_key(0u, kTeamScore);
+    params->put_name_key(kParent, kRankingsListMenu);
+    script::launch_script(kScoreMenuAddItem, params, nullptr, false, nullptr);
+    delete_structure(params);
 }
 
 // A score as shown: a time (minutes:seconds) in king of the hill, else the number.
-void FormatScore(char* out, size_t size, uint32_t score, int colour, bool coloured)
+void format_score(char* out, size_t size, uint32_t score, int colour, bool coloured)
 {
-    if (IsCrownRuleActive()) {
+    if (is_crown_rule_active()) {
         uint32_t seconds = score / 1000;
         if (coloured)
             std::snprintf(out, size, "\\c%d%.2d:%.2d", colour, seconds / 60, seconds % 60); // "\c%d%.2d:%.2d"
@@ -158,126 +158,126 @@ void FormatScore(char* out, size_t size, uint32_t score, int colour, bool colour
 } // namespace
 
 // 0x00567C70: elimiskate's rankings - by the time each player was out (the last out first; still in: 100000).
-void __cdecl FillEliminationRanking()
+void __cdecl fill_elimination_ranking()
 {
-    OnlinePlay::Hub* net = NetSessionSlot();
+    online::Hub* net = net_session_slot();
     PlayerSearch search;
     RankingList list;
-    MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_frontEndHeap);
-    bool resetScores = GameMode()->IsTrue(kShouldResetScores);
-    for (void* player = net->BeginPlayerWalk(&search, false); player; player = net->StepPlayerWalk(&search, false)) {
-        OnlinePlay::PlayerRecord* info = AsPlayer(player);
-        OnlinePlay::ScoreEntry* entry = NewEntry();
-        const char* name = info->m_skater->FetchShownName();
-        char* out = entry->m_text;
+    memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
+    bool reset_scores = get_game_mode()->is_true(kShouldResetScores);
+    for (void* player = net->begin_player_walk(&search, false); player; player = net->step_player_walk(&search, false)) {
+        online::PlayerRecord* info = as_player(player);
+        online::ScoreEntry* entry = new_entry();
+        const char* name = info->skater_->fetch_shown_name();
+        char* out = entry->text_;
         while ((*out++ = *name++) != 0) {
         }
-        entry->m_teamScore = resetScores ? info->GetAccumulatedScore() : net->GetEntrantPoints(info->m_skater->m_ident);
-        entry->m_shade = static_cast<uint8_t>(GameMode()->IsSquadMatch()) ? info->m_team + 2 : 0;
-        entry->priority = info->m_eliminatedTime ? static_cast<int>(info->m_eliminatedTime) : 100000;
-        reinterpret_cast<ListKit::Foremost*>(&list.m_head)->AppendVertex(entry); // (inlined there)
+        entry->team_score_ = reset_scores ? info->get_accumulated_score() : net->get_entrant_points(info->skater_->ident_);
+        entry->shade_ = static_cast<uint8_t>(get_game_mode()->is_squad_match()) ? info->team_ + 2 : 0;
+        entry->priority = info->eliminated_time_ ? static_cast<int>(info->eliminated_time_) : 100000;
+        reinterpret_cast<lists::Foremost*>(&list.head_)->append_vertex(entry); // (inlined there)
     }
     uint32_t id = kFirstLine;
-    for (OnlinePlay::ScoreEntry* entry = RankingList::After(&list.m_head); entry; ++id) {
-        OnlinePlay::ScoreEntry* next = RankingList::After(entry);
+    for (online::ScoreEntry* entry = RankingList::get_after(&list.head_); entry; ++id) {
+        online::ScoreEntry* next = RankingList::get_after(entry);
         char text[0x40];
-        std::snprintf(text, sizeof(text), "\\c%d%s", entry->m_shade, entry->m_text); // "\c%d%s"
-        AddPlayerLine(text, false);
-        AddScoreLine([&](char* score, size_t size) {
-            std::snprintf(score, size, "%d", entry->m_teamScore); // "%d"
+        std::snprintf(text, sizeof(text), "\\c%d%s", entry->shade_, entry->text_); // "\c%d%s"
+        add_player_line(text, false);
+        add_score_line([&](char* score, size_t size) {
+            std::snprintf(score, size, "%d", entry->team_score_); // "%d"
         }, id, false);
-        DeleteEntry(entry);
+        delete_entry(entry);
         entry = next;
     }
-    MemSys::LeaveHeapScope();
+    memory::leave_heap_scope();
 }
 
 // 0x00568120
-bool __cdecl Skate::CFunc_FillRankingScreen(Scripts::CStruct*, Scripts::CScript*)
+bool __cdecl Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
 {
-    OnlinePlay::Hub* net = NetSessionSlot();
+    online::Hub* net = net_session_slot();
     PlayerSearch search;
     RankingList list;
-    if (GameMode()->GetNameKey() == kElimiskate || GameMode()->GetNameKey() == kNetElimiskate) {
-        FillEliminationRanking();
+    if (get_game_mode()->get_name_key() == kElimiskate || get_game_mode()->get_name_key() == kNetElimiskate) {
+        fill_elimination_ranking();
         return true;
     }
-    MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_frontEndHeap);
-    bool goalAttack = GameMode()->GetNameKey() == kNetGoalAttack;
+    memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
+    bool goal_attack = get_game_mode()->get_name_key() == kNetGoalAttack;
     // A player's score: the goals beaten in goal attack.
-    auto scoreOf = [&](OnlinePlay::PlayerRecord* info) -> uint32_t {
-        if (goalAttack)
-            return static_cast<uint32_t>(GoalSystem::GetObjectiveBoard()->CountClearedByPlayer(static_cast<int>(info->m_skater->m_ident)));
-        return static_cast<uint32_t>(net->GetEntrantPoints(info->m_skater->m_ident));
+    auto score_of = [&](online::PlayerRecord* info) -> uint32_t {
+        if (goal_attack)
+            return static_cast<uint32_t>(goals::get_objective_board()->count_cleared_by_player(static_cast<int>(info->skater_->ident_)));
+        return static_cast<uint32_t>(net->get_entrant_points(info->skater_->ident_));
     };
-    if (static_cast<uint8_t>(GameMode()->IsSquadMatch())) {
+    if (static_cast<uint8_t>(get_game_mode()->is_squad_match())) {
         // The teams with players, by their scores; under each its players, then its total.
-        for (int team = 0; team < GameMode()->NumTeams(); ++team) {
-            if (!net->CountTeamPlayers(team))
+        for (int team = 0; team < get_game_mode()->current_num_teams(); ++team) {
+            if (!net->count_team_players(team))
                 continue;
-            OnlinePlay::ScoreEntry* entry = NewEntry();
-            entry->m_king = false;
-            entry->m_shade = team + 2;
-            entry->m_unknown44 = static_cast<uint32_t>(team);
-            entry->m_teamScore = net->GetSquadPoints(team);
+            online::ScoreEntry* entry = new_entry();
+            entry->king_ = false;
+            entry->shade_ = team + 2;
+            entry->unknown44_ = static_cast<uint32_t>(team);
+            entry->team_score_ = net->get_squad_points(team);
             char name[0x40];
             std::snprintf(name, sizeof(name), "team_%d_name", team + 1); // "team_%d_name"
-            const char* total = Scripts::FetchText("total_str"); // "total_str"
-            const char* teamName = Scripts::FetchText(name);
-            std::snprintf(entry->m_text, sizeof(OnlinePlay::ScoreEntry) - offsetof(OnlinePlay::ScoreEntry, m_text),
-                          "\\c%d%s %s", entry->m_shade, teamName, total); // "\c%d%s %s" (unbounded there)
-            entry->priority = net->GetSquadPoints(team);
-            reinterpret_cast<ListKit::Foremost*>(&list.m_head)->AppendVertex(entry);
+            const char* total = script::fetch_text("total_str"); // "total_str"
+            const char* team_name = script::fetch_text(name);
+            std::snprintf(entry->text_, sizeof(online::ScoreEntry) - offsetof(online::ScoreEntry, text_),
+                          "\\c%d%s %s", entry->shade_, team_name, total); // "\c%d%s %s" (unbounded there)
+            entry->priority = net->get_squad_points(team);
+            reinterpret_cast<lists::Foremost*>(&list.head_)->append_vertex(entry);
         }
         uint32_t line = 0;
-        for (OnlinePlay::ScoreEntry* entry = RankingList::After(&list.m_head); entry;) {
-            OnlinePlay::ScoreEntry* next = RankingList::After(entry);
-            for (void* player = net->BeginPlayerWalk(&search, false); player; player = net->StepPlayerWalk(&search, false)) {
-                OnlinePlay::PlayerRecord* info = AsPlayer(player);
-                if (static_cast<uint32_t>(info->m_team) != entry->m_unknown44)
+        for (online::ScoreEntry* entry = RankingList::get_after(&list.head_); entry;) {
+            online::ScoreEntry* next = RankingList::get_after(entry);
+            for (void* player = net->begin_player_walk(&search, false); player; player = net->step_player_walk(&search, false)) {
+                online::PlayerRecord* info = as_player(player);
+                if (static_cast<uint32_t>(info->team_) != entry->unknown44_)
                     continue;
-                uint32_t score = scoreOf(info);
+                uint32_t score = score_of(info);
                 char text[0x40];
                 std::snprintf(text, sizeof(text),
-                              (static_cast<uint8_t>(info->IsOwnPlayer()) ? "\\c%d> %s" : "\\c%d%s"), // "\c%d> %s" / "\c%d%s"
-                              entry->m_shade, info->m_label);
-                AddPlayerLine(text, false);
-                AddScoreLine([&](char* shown, size_t size) { FormatScore(shown, size, score, 0, false); },
+                              (static_cast<uint8_t>(info->is_own_player()) ? "\\c%d> %s" : "\\c%d%s"), // "\c%d> %s" / "\c%d%s"
+                              entry->shade_, info->label_);
+                add_player_line(text, false);
+                add_score_line([&](char* shown, size_t size) { format_score(shown, size, score, 0, false); },
                              kFirstLine + line, false, true);
                 ++line;
             }
-            AddPlayerLine(entry->m_text, true);
-            AddScoreLine([&](char* total, size_t size) {
-                FormatScore(total, size, static_cast<uint32_t>(entry->priority), entry->m_shade, true);
+            add_player_line(entry->text_, true);
+            add_score_line([&](char* total, size_t size) {
+                format_score(total, size, static_cast<uint32_t>(entry->priority), entry->shade_, true);
             }, kFirstLine + line, true);
-            DeleteEntry(entry);
+            delete_entry(entry);
             ++line;
             entry = next;
         }
     } else {
-        for (void* player = net->BeginPlayerWalk(&search, false); player; player = net->StepPlayerWalk(&search, false)) {
-            OnlinePlay::PlayerRecord* info = AsPlayer(player);
-            uint32_t score = scoreOf(info);
-            OnlinePlay::ScoreEntry* entry = NewEntry();
-            const char* name = info->m_skater->FetchShownName();
-            char* out = entry->m_text;
+        for (void* player = net->begin_player_walk(&search, false); player; player = net->step_player_walk(&search, false)) {
+            online::PlayerRecord* info = as_player(player);
+            uint32_t score = score_of(info);
+            online::ScoreEntry* entry = new_entry();
+            const char* name = info->skater_->fetch_shown_name();
+            char* out = entry->text_;
             while ((*out++ = *name++) != 0) {
             }
             entry->priority = static_cast<int>(score);
-            reinterpret_cast<ListKit::Foremost*>(&list.m_head)->AppendVertex(entry);
+            reinterpret_cast<lists::Foremost*>(&list.head_)->append_vertex(entry);
         }
         uint32_t id = kFirstLine;
-        for (OnlinePlay::ScoreEntry* entry = RankingList::After(&list.m_head); entry; ++id) {
-            OnlinePlay::ScoreEntry* next = RankingList::After(entry);
-            AddPlayerLine(entry->m_text, false);
-            AddScoreLine([&](char* shown, size_t size) {
-                FormatScore(shown, size, static_cast<uint32_t>(entry->priority), 0, false);
+        for (online::ScoreEntry* entry = RankingList::get_after(&list.head_); entry; ++id) {
+            online::ScoreEntry* next = RankingList::get_after(entry);
+            add_player_line(entry->text_, false);
+            add_score_line([&](char* shown, size_t size) {
+                format_score(shown, size, static_cast<uint32_t>(entry->priority), 0, false);
             }, id, false);
-            DeleteEntry(entry);
+            delete_entry(entry);
             entry = next;
         }
     }
-    MemSys::LeaveHeapScope();
+    memory::leave_heap_scope();
     return true;
 }
 

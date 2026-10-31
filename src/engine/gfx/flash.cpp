@@ -10,7 +10,7 @@
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/viewport_list.h"
 
-namespace Engine3D {
+namespace render {
 
 namespace {
 
@@ -21,18 +21,18 @@ struct FlashVertex {
 };
 static_assert(sizeof(FlashVertex) == 0x1C, "the draw's stride");
 
-// A render state by the renderer's numbering (ChangePhase).
-void SetSamplerState(int state, int value) { ChangePhase(state, static_cast<uint32_t>(value)); }
+// A render state by the renderer's numbering (change_phase).
+void set_sampler_state(int state, int value) { change_phase(state, static_cast<uint32_t>(value)); }
 
 } // namespace
 
 // 0x004B9030
-void DrawFlash(const Flash* flash)
+void draw_flash(const Flash* flash)
 {
     // The viewport (fractions of the screen) the flash belongs to.
-    const float* view = reinterpret_cast<const float*>(FetchCurrentView(flash->viewport));
-    double width = g_backBufferWidth;
-    double height = g_backBufferHeight;
+    const float* view = reinterpret_cast<const float*>(fetch_current_view(flash->viewport));
+    double width = g_back_buffer_width;
+    double height = g_back_buffer_height;
     // (x87: each product is rounded once, each sum to float)
     float left = static_cast<float>(width * view[1]);
     float top = static_cast<float>(height * view[2]);
@@ -49,25 +49,25 @@ void DrawFlash(const Flash* flash)
     if (uint8_t* texture = flash->texture) {
         uint8_t* image = (texture[8] & 1) ? **reinterpret_cast<uint8_t***>(texture + 0x10)
                                           : *reinterpret_cast<uint8_t**>(texture + 0x10);
-        SetTexture(0, *reinterpret_cast<void**>(image + 0x10)); // (the original also passes 0, unused)
-        SetSamplerState(4, 0x10001);
+        set_texture(0, *reinterpret_cast<void**>(image + 0x10)); // (the original also passes 0, unused)
+        set_sampler_state(4, 0x10001);
     } else {
-        SetTexture(0, nullptr);
+        set_texture(0, nullptr);
     }
-    ChooseBlendMode(5);
-    SetSamplerState(1, 0);
-    SetSamplerState(2, 0);
-    SetPixelShader(nullptr, nullptr); // (no pixel shader)
-    SetVertexFormat(0x144);
-    ++g_drawCalls; // draw calls
-    g_drawnTriangles += 2; // triangles
+    choose_blend_mode(5);
+    set_sampler_state(1, 0);
+    set_sampler_state(2, 0);
+    set_pixel_shader(nullptr, nullptr); // (no pixel shader)
+    set_vertex_format(0x144);
+    ++g_draw_calls; // draw calls
+    g_drawn_triangles += 2; // triangles
     // Originally from PartyMod Fixes (its reorder_flash_vertices at 0x004B91E7): the original passes the first three vertices in the
     // wrong order; rotate them.
     FlashVertex first = vertices[0];
     vertices[0] = vertices[1];
     vertices[1] = vertices[2];
     vertices[2] = first;
-    void** device = reinterpret_cast<void**>(g_drawDevice);
+    void** device = reinterpret_cast<void**>(g_draw_device);
     using DrawPrimitiveUP = long(__stdcall*)(void*, int, unsigned int, const void*, unsigned int);
     reinterpret_cast<DrawPrimitiveUP>((*reinterpret_cast<void***>(device))[83])(device, 5 /* triangle strip */, 2,
                                                                                  vertices, sizeof(FlashVertex));

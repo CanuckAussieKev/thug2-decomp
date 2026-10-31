@@ -15,9 +15,9 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 
-namespace GameObjects {
+namespace objects {
 
-void* g_emitterTable;
+void* g_emitter_table;
 
 namespace {
 
@@ -26,26 +26,26 @@ constexpr uint32_t kShape = 0x7321A8D6;    // (the shape's parameter; the proxim
 constexpr uint32_t kRadius = 0xC48391A5;   // radius
 constexpr uint32_t kScript = 0x2CA8A299;   // (the node's script)
 
-ListKit::KeyMap*& Table() { return reinterpret_cast<ListKit::KeyMap*&>(g_emitterTable); }
+lists::KeyMap*& get_table() { return reinterpret_cast<lists::KeyMap*&>(g_emitter_table); }
 
 // The level sector named `name` (null if none) and its bounding box (not rewritten yet).
-void* LookUpSector(uint32_t name) { return Engine3D::Engine::LookUpSector(name); }
-const Maths::BBox* SectorBox(void* sector)
+void* look_up_sector(uint32_t name) { return render::engine::look_up_sector(name); }
+const maths::BBox* sector_box(void* sector)
 {
-    return static_cast<Engine3D::CWorldCell*>(sector)->FetchBounds();
+    return static_cast<render::WorldCell*>(sector)->fetch_bounds();
 }
 
 // The node whose item the table's iteration is at (null at the end).
-EmitterNode* StepIterator(ListKit::KeyMap* table)
+EmitterNode* step_iterator(lists::KeyMap* table)
 {
-    if (!table->StepIterator() || !table->m_iterItem)
+    if (!table->step_iterator() || !table->iter_item_)
         return nullptr;
-    return static_cast<EmitterNode*>(table->m_iterItem->value);
+    return static_cast<EmitterNode*>(table->iter_item_->value);
 }
-void StartIteration(ListKit::KeyMap* table)
+void start_iteration(lists::KeyMap* table)
 {
-    table->m_iterBucket = -1;
-    table->m_iterItem = nullptr;
+    table->iter_bucket_ = -1;
+    table->iter_item_ = nullptr;
 }
 
 constexpr float kTrailSpacingSquared = 1600.0f;  // 0x006479F4
@@ -54,25 +54,25 @@ constexpr float kFacingWeight = 10.0f;           // 0x00646710
 } // namespace
 
 // 0x004680E0
-EmitterNode* Emitter_GetNode(uint32_t name)
+EmitterNode* emitter_get_node(uint32_t name)
 {
-    return static_cast<EmitterNode*>(Table()->FetchEntry(name));
+    return static_cast<EmitterNode*>(get_table()->fetch_entry(name));
 }
 
 // 0x00468120
-bool EmitterNode::IsWithin(const Maths::Vec4* point)
+bool EmitterNode::is_within(const maths::Vec4* point)
 {
-    float dx = point->x - m_atPoint.x;
-    float dy = point->y - m_atPoint.y;
-    float dz = point->z - m_atPoint.z;
-    switch (m_form) {
-    case EMITTER_SHAPE_BOX:
-        return m_box.ContainsPoint(*point) != 0;
-    case EMITTER_SHAPE_SPHERE: {
+    float dx = point->x - at_point_.x;
+    float dy = point->y - at_point_.y;
+    float dz = point->z - at_point_.z;
+    switch (form_) {
+    case kEmitterShapeBox:
+        return box_.contains_point(*point) != 0;
+    case kEmitterShapeSphere: {
         // (summed unrounded: z, x, then y)
         double distance = static_cast<double>(dz) * dz + static_cast<double>(dx) * dx;
         distance += static_cast<double>(dy) * dy;
-        return distance <= m_reachSq;
+        return distance <= reach_sq_;
     }
     default:
         return false;
@@ -80,27 +80,27 @@ bool EmitterNode::IsWithin(const Maths::Vec4* point)
 }
 
 // 0x004681A0
-Maths::Vec4* EmitterNode::NearestPointOn(Maths::Vec4* out, const Maths::Vec4* point)
+maths::Vec4* EmitterNode::nearest_point_on(maths::Vec4* out, const maths::Vec4* point)
 {
-    if (IsWithin(point)) {
+    if (is_within(point)) {
         *out = *point;
         return out;
     }
-    switch (m_form) {
-    case EMITTER_SHAPE_BOX: {
-        Maths::Vec4 closest;
-        m_box.GetClosestSurfacePoint(*point, closest);
+    switch (form_) {
+    case kEmitterShapeBox: {
+        maths::Vec4 closest;
+        box_.get_closest_surface_point(*point, closest);
         *out = closest;
         break;
     }
-    case EMITTER_SHAPE_SPHERE: {
-        Maths::Vec4 direction = *point - m_atPoint;
-        direction.MakeUnit();
-        out->x = direction.x * m_radius + m_atPoint.x;
-        out->y = direction.y * m_radius + m_atPoint.y;
-        out->z = direction.z * m_radius + m_atPoint.z;
+    case kEmitterShapeSphere: {
+        maths::Vec4 direction = *point - at_point_;
+        direction.make_unit();
+        out->x = direction.x * radius_ + at_point_.x;
+        out->y = direction.y * radius_ + at_point_.y;
+        out->z = direction.z * radius_ + at_point_.z;
         // (w's product unrounded before the add, as the original)
-        out->w = static_cast<float>(static_cast<double>(m_radius) * direction.w + m_atPoint.w);
+        out->w = static_cast<float>(static_cast<double>(radius_) * direction.w + at_point_.w);
         break;
     }
     default:
@@ -110,137 +110,137 @@ Maths::Vec4* EmitterNode::NearestPointOn(Maths::Vec4* out, const Maths::Vec4* po
 }
 
 // 0x004682B0
-void Emitter_Cleanup()
+void emitter_cleanup()
 {
-    ListKit::KeyMap* table = Table();
+    lists::KeyMap* table = get_table();
     if (!table)
         return;
-    StartIteration(table);
-    for (EmitterNode* node = StepIterator(Table()); node;) {
-        EmitterNode* next = StepIterator(Table());
-        uint32_t name = node->m_label;
-        MemSys::Hub::Pull()->Dealloc(node);
-        Table()->EraseEntry(name);
+    start_iteration(table);
+    for (EmitterNode* node = step_iterator(get_table()); node;) {
+        EmitterNode* next = step_iterator(get_table());
+        uint32_t name = node->label_;
+        memory::Hub::get_pull()->dealloc(node);
+        get_table()->erase_entry(name);
         node = next;
     }
 }
 
 // 0x00468340
-void Emitter_SetActive(uint32_t name, int active)
+void emitter_set_active(uint32_t name, int active)
 {
     // (no table: a null write, as the original)
-    StartIteration(Table());
-    for (EmitterNode* node = StepIterator(Table()); node; node = StepIterator(Table())) {
-        if (node->m_label == name) {
-            node->m_active = active != 0;
+    start_iteration(get_table());
+    for (EmitterNode* node = step_iterator(get_table()); node; node = step_iterator(get_table())) {
+        if (node->label_ == name) {
+            node->active_ = active != 0;
             return;
         }
     }
 }
 
 // 0x004683B0
-void Emitter_Init()
+void emitter_init()
 {
-    if (Table()) {
-        Emitter_Cleanup();
+    if (get_table()) {
+        emitter_cleanup();
         return;
     }
-    void* memory = MemSys::Alloc(sizeof(ListKit::KeyMap));
-    Table() = memory ? new (memory) ListKit::KeyMap(4) : nullptr;
+    void* memory = memory::alloc(sizeof(lists::KeyMap));
+    get_table() = memory ? new (memory) lists::KeyMap(4) : nullptr;
 }
 
 // 0x00468450
-void Emitter_AddNode(uint32_t name, bool active)
+void emitter_add_node(uint32_t name, bool active)
 {
-    auto* node = static_cast<EmitterNode*>(MemSys::AllocZeroed(sizeof(EmitterNode)));
+    auto* node = static_cast<EmitterNode*>(memory::alloc_zeroed(sizeof(EmitterNode)));
     if (node)
-        new (&node->m_box) Maths::BBox();
-    node->m_label = name;
-    node->m_active = active;
-    node->m_sector = nullptr;
-    node->m_form = EMITTER_SHAPE_SPHERE;
-    Scripts::CStruct* params = LevelNodes::FetchVertex(name, true);
-    params->ReadHashValue(kName, &node->m_label, 0);
-    Table()->StoreEntry(node->m_label, node);
+        new (&node->box_) maths::BBox();
+    node->label_ = name;
+    node->active_ = active;
+    node->sector_ = nullptr;
+    node->form_ = kEmitterShapeSphere;
+    script::Struct* params = level_nodes::fetch_vertex(name, true);
+    params->read_hash_value(kName, &node->label_, 0);
+    get_table()->store_entry(node->label_, node);
     uint32_t shape;
-    if (params->ReadHashValue(kShape, &shape, 0)) {
+    if (params->read_hash_value(kShape, &shape, 0)) {
         if (shape == 0x03F1E5A7)
-            node->m_form = EMITTER_SHAPE_OTHER;
+            node->form_ = kEmitterShapeOther;
         else if (shape == 0xAA069978)
-            node->m_form = EMITTER_SHAPE_SPHERE;
+            node->form_ = kEmitterShapeSphere;
         else
-            node->m_form = shape == 0xE460ABDE ? EMITTER_SHAPE_BOX : EMITTER_SHAPE_SPHERE;
+            node->form_ = shape == 0xE460ABDE ? kEmitterShapeBox : kEmitterShapeSphere;
     }
-    node->m_sector = LookUpSector(node->m_label);
-    if (node->m_sector && node->m_form == EMITTER_SHAPE_BOX)
-        node->m_box = *SectorBox(node->m_sector);
-    LevelNodes::FetchPlace(params, &node->m_atPoint);
-    params->FetchFloat(kRadius, &node->m_radius, 0);
-    node->m_reachSq = node->m_radius * node->m_radius;
-    params->ReadHashValue(kScript, &node->m_ownScript, 0);
+    node->sector_ = look_up_sector(node->label_);
+    if (node->sector_ && node->form_ == kEmitterShapeBox)
+        node->box_ = *sector_box(node->sector_);
+    level_nodes::fetch_place(params, &node->at_point_);
+    params->fetch_float(kRadius, &node->radius_, 0);
+    node->reach_sq_ = node->radius_ * node->radius_;
+    params->read_hash_value(kScript, &node->own_script_, 0);
 }
 
 // 0x00468AC0
-CFollowTrail* CFollowTrail::PrepareAll()
+FollowTrail* FollowTrail::prepare_all()
 {
-    Reset();
+    get_reset();
     return this;
 }
 
 // 0x004685D0
-void CFollowTrail::Reset()
+void FollowTrail::get_reset()
 {
-    m_num = 0;
-    m_head = 0;
-    m_entityKey = 0;
-    m_aimPoint = {0.0f, 0.0f, 0.0f, 1.0f};
-    m_reach = 0.0f;
-    m_freeFacing = false;
+    num_ = 0;
+    head_ = 0;
+    entity_key_ = 0;
+    aim_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    reach_ = 0.0f;
+    free_facing_ = false;
 }
 
 // 0x00468610
-void CFollowTrail::TickFrame()
+void FollowTrail::tick_frame()
 {
-    auto* object = static_cast<CGameEntity*>(FindObject(m_entityKey));
+    auto* object = static_cast<GameEntity*>(find_object(entity_key_));
     if (!object)
         return;
-    m_aimPoint = object->m_atPoint;
-    if (m_num == 0) {
-        m_head = 0;
-        m_pathVertices[0] = m_aimPoint;
-        m_num = 1;
+    aim_point_ = object->at_point_;
+    if (num_ == 0) {
+        head_ = 0;
+        path_vertices_[0] = aim_point_;
+        num_ = 1;
         return;
     }
-    const Maths::Vec4& last = m_pathVertices[m_head];
-    float dx = last.x - m_aimPoint.x;
-    float dy = last.y - m_aimPoint.y;
-    float dz = last.z - m_aimPoint.z;
+    const maths::Vec4& last = path_vertices_[head_];
+    float dx = last.x - aim_point_.x;
+    float dy = last.y - aim_point_.y;
+    float dz = last.z - aim_point_.z;
     // (summed unrounded: z, x, then y)
     double distance = static_cast<double>(dz) * dz + static_cast<double>(dx) * dx;
     distance += static_cast<double>(dy) * dy;
     if (!(distance > kTrailSpacingSquared))
         return;
-    if (++m_head >= 64)
-        m_head = 0;
-    m_pathVertices[m_head] = m_aimPoint;
-    if (m_num < 64)
-        ++m_num;
+    if (++head_ >= 64)
+        head_ = 0;
+    path_vertices_[head_] = aim_point_;
+    if (num_ < 64)
+        ++num_;
 }
 
 // 0x00468730
-void CFollowTrail::FetchPlace(Maths::Vec4* position, Maths::Mat4* matrix)
+void FollowTrail::fetch_place(maths::Vec4* position, maths::Mat4* matrix)
 {
-    int left = m_num;
+    int left = num_;
     if (left < 1)
         return;
     // walk back from the object through the trail until the distance is used up (the remainder is kept
     // unrounded, as the original's x87 register)
-    double remaining = m_reach;
-    Maths::Vec4 previous = m_aimPoint;
-    int index = m_head;
+    double remaining = reach_;
+    maths::Vec4 previous = aim_point_;
+    int index = head_;
     float dx, dy, dz, dw, length;
     for (;;) {
-        const Maths::Vec4& point = m_pathVertices[index];
+        const maths::Vec4& point = path_vertices_[index];
         dx = static_cast<float>(static_cast<double>(point.x) - previous.x);
         dy = point.y - previous.y;
         dz = point.z - previous.z;
@@ -276,7 +276,7 @@ void CFollowTrail::FetchPlace(Maths::Vec4* position, Maths::Mat4* matrix)
     position->w = 1.0f;
 
     // the facing: the old front x10 plus the direction (x unrounded before the add, as the original)
-    Maths::Vec4& front = matrix->row[2];
+    maths::Vec4& front = matrix->row[2];
     float fy = front.y * kFacingWeight;
     float fz = front.z * kFacingWeight;
     float fw = front.w * kFacingWeight;
@@ -284,19 +284,19 @@ void CFollowTrail::FetchPlace(Maths::Vec4* position, Maths::Mat4* matrix)
     front.y = fy + ny;
     front.z = fz + nz;
     front.w = fw + nw;
-    if (m_freeFacing) {
+    if (free_facing_) {
         front.w = 1.0f;
-        front.MakeUnit();
-        const Maths::Vec4 up = {0.0f, 1.0f, 0.0f, 1.0f};
-        matrix->row[0] = Maths::CrossVec(up, front);
-        matrix->row[0].MakeUnit();
-        matrix->row[1] = Maths::CrossVec(front, matrix->row[0]);
+        front.make_unit();
+        const maths::Vec4 up = {0.0f, 1.0f, 0.0f, 1.0f};
+        matrix->row[0] = maths::cross_vec(up, front);
+        matrix->row[0].make_unit();
+        matrix->row[1] = maths::cross_vec(front, matrix->row[0]);
     } else {
         front.y = 0.0f;
         front.w = 1.0f;
-        front.MakeUnit();
+        front.make_unit();
         matrix->row[1] = {0.0f, 1.0f, 0.0f, 1.0f};
-        matrix->row[0] = Maths::CrossVec(matrix->row[1], front);
+        matrix->row[0] = maths::cross_vec(matrix->row[1], front);
     }
 }
 

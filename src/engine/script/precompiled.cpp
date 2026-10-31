@@ -6,73 +6,73 @@
 #include "engine/core/checksums.h"
 #include "engine/script/qb.h"
 
-namespace Scripts {
+namespace script {
 
 namespace {
 
 // A stored offset made an address.
-void Relocate(uint32_t& offset, uint32_t base) { offset += base; }
+void relocate(uint32_t& offset, uint32_t base) { offset += base; }
 template <typename T>
-void Relocate(T*& pointer, uint32_t base)
+void relocate(T*& pointer, uint32_t base)
 {
     pointer = reinterpret_cast<T*>(reinterpret_cast<uint32_t>(pointer) + base);
 }
-uint32_t Align4(uint32_t size) { return (size + 3) & ~3u; }
+uint32_t align4(uint32_t size) { return (size + 3) & ~3u; }
 // The size of a string's text in the file (with its terminator, padded).
-uint32_t StoredStringSize(const char* text) { return Align4(static_cast<uint32_t>(std::strlen(text)) + 1); }
+uint32_t stored_string_size(const char* text) { return align4(static_cast<uint32_t>(std::strlen(text)) + 1); }
 
 } // namespace
 
 // 0x0046C7B0 (a CArray method)
-void RelocateArrayElements(CArray* array, uint32_t base)
+void relocate_array_elements(Array* array, uint32_t base)
 {
-    if (array->m_extent > 1) {
-        for (uint32_t i = 0; i < array->m_extent; ++i)
-            array->m_elements[i] += base;
-    } else if (array->m_extent == 1) {
-        array->m_single += base;
+    if (array->extent_ > 1) {
+        for (uint32_t i = 0; i < array->extent_; ++i)
+            array->elements_[i] += base;
+    } else if (array->extent_ == 1) {
+        array->single_ += base;
     }
 }
 
 // 0x0046C830
-uint8_t* RelocateArray(CArray* array, uint32_t base)
+uint8_t* relocate_array(Array* array, uint32_t base)
 {
-    uint32_t size = array->m_extent;
+    uint32_t size = array->extent_;
     auto* end = reinterpret_cast<uint8_t*>(array + 1);
     uint32_t* elements;
     if (size > 1) {
-        if (array->m_elements)
-            Relocate(array->m_elements, base);
-        elements = array->m_elements;
+        if (array->elements_)
+            relocate(array->elements_, base);
+        elements = array->elements_;
         end += size * 4; // (the element table follows the array)
     } else {
-        elements = &array->m_single;
+        elements = &array->single_;
     }
-    switch (array->m_kindTag) {
-    case QBVAL_STRING:
-    case QBVAL_INLINE_TEXT: {
-        RelocateArrayElements(array, base);
+    switch (array->kind_tag_) {
+    case kQbvalString:
+    case kQbvalInlineText: {
+        relocate_array_elements(array, base);
         // (the texts one after another, padded once at the end)
         uint32_t total = 0;
         for (uint32_t i = 0; i < size; ++i)
             total += static_cast<uint32_t>(std::strlen(reinterpret_cast<const char*>(elements[i]))) + 1;
-        return end + Align4(total);
+        return end + align4(total);
     }
-    case QBVAL_PAIR:
-        RelocateArrayElements(array, base);
-        return end + size * sizeof(CPair);
-    case QBVAL_VECTOR:
-        RelocateArrayElements(array, base);
-        return end + size * sizeof(CVector);
-    case QBVAL_STRUCT:
-        RelocateArrayElements(array, base);
+    case kQbvalPair:
+        relocate_array_elements(array, base);
+        return end + size * sizeof(Pair);
+    case kQbvalVector:
+        relocate_array_elements(array, base);
+        return end + size * sizeof(Vector);
+    case kQbvalStruct:
+        relocate_array_elements(array, base);
         for (uint32_t i = 0; i < size; ++i)
-            end = RelocateStruct(reinterpret_cast<CStruct*>(elements[i]), base);
+            end = relocate_struct(reinterpret_cast<Struct*>(elements[i]), base);
         return end;
-    case QBVAL_ARRAY:
-        RelocateArrayElements(array, base);
+    case kQbvalArray:
+        relocate_array_elements(array, base);
         for (uint32_t i = 0; i < size; ++i)
-            end = RelocateArray(reinterpret_cast<CArray*>(elements[i]), base);
+            end = relocate_array(reinterpret_cast<Array*>(elements[i]), base);
         return end;
     default: // (values kept in the element table: nothing to relocate)
         return end;
@@ -80,86 +80,86 @@ uint8_t* RelocateArray(CArray* array, uint32_t base)
 }
 
 // 0x0046C6B0
-uint8_t* RelocateComponent(CComponent* component, uint32_t base)
+uint8_t* relocate_component(Component* component, uint32_t base)
 {
     if (component->next)
-        Relocate(component->next, base);
+        relocate(component->next, base);
     auto* end = reinterpret_cast<uint8_t*>(component + 1);
-    switch (component->KindTag()) {
-    case QBVAL_STRING:
-    case QBVAL_INLINE_TEXT:
-        Relocate(component->string, base);
-        return end + StoredStringSize(component->string);
-    case QBVAL_PAIR:
-        Relocate(component->pair, base);
-        return end + sizeof(CPair);
-    case QBVAL_VECTOR:
-        Relocate(component->vector, base);
-        return end + sizeof(CVector);
-    case QBVAL_SCRIPT_BODY: {
+    switch (component->kind_tag()) {
+    case kQbvalString:
+    case kQbvalInlineText:
+        relocate(component->string, base);
+        return end + stored_string_size(component->string);
+    case kQbvalPair:
+        relocate(component->pair, base);
+        return end + sizeof(Pair);
+    case kQbvalVector:
+        relocate(component->vector, base);
+        return end + sizeof(Vector);
+    case kQbvalScriptBody: {
         // A script component: its tokens, up to and including the '$'.
-        Relocate(component->raw, base);
+        relocate(component->raw, base);
         auto* code = reinterpret_cast<const uint8_t*>(component->raw);
-        return end + Align4(static_cast<uint32_t>(SkipToEndOfScript(code) - code));
+        return end + align4(static_cast<uint32_t>(skip_to_end_of_script(code) - code));
     }
-    case QBVAL_STRUCT:
-        Relocate(component->structure, base);
-        return RelocateStruct(component->structure, base);
-    case QBVAL_ARRAY:
-        Relocate(component->array, base);
-        return RelocateArray(component->array, base);
+    case kQbvalStruct:
+        relocate(component->structure, base);
+        return relocate_struct(component->structure, base);
+    case kQbvalArray:
+        relocate(component->array, base);
+        return relocate_array(component->array, base);
     default:
         return end;
     }
 }
 
 // 0x0046C7F0
-uint8_t* RelocateStruct(CStruct* structure, uint32_t base)
+uint8_t* relocate_struct(Struct* structure, uint32_t base)
 {
-    if (structure->m_head)
-        Relocate(structure->m_head, base);
+    if (structure->head_)
+        relocate(structure->head_, base);
     // (the end of the last component's data, or of the structure itself when it has none)
     auto* end = reinterpret_cast<uint8_t*>(structure + 1);
-    for (CComponent* component = structure->m_head; component; component = component->next)
-        end = RelocateComponent(component, base);
+    for (Component* component = structure->head_; component; component = component->next)
+        end = relocate_component(component, base);
     return end;
 }
 
 // 0x0046C970
-uint8_t* RelocateSymbol(CSymbolTableEntry* symbol, uint32_t base)
+uint8_t* relocate_symbol(SymbolTableEntry* symbol, uint32_t base)
 {
     auto* end = reinterpret_cast<uint8_t*>(symbol + 1);
     switch (symbol->type) {
-    case QBVAL_STRING:
-    case QBVAL_INLINE_TEXT:
-        Relocate(symbol->raw, base);
-        return end + StoredStringSize(reinterpret_cast<const char*>(symbol->raw));
-    case QBVAL_PAIR:
-        Relocate(symbol->raw, base);
-        return end + sizeof(CPair);
-    case QBVAL_VECTOR:
-        Relocate(symbol->raw, base);
-        return end + sizeof(CVector);
-    case QBVAL_SCRIPT_BODY: {
+    case kQbvalString:
+    case kQbvalInlineText:
+        relocate(symbol->raw, base);
+        return end + stored_string_size(reinterpret_cast<const char*>(symbol->raw));
+    case kQbvalPair:
+        relocate(symbol->raw, base);
+        return end + sizeof(Pair);
+    case kQbvalVector:
+        relocate(symbol->raw, base);
+        return end + sizeof(Vector);
+    case kQbvalScriptBody: {
         // {checksum, size, stored size, code}: the stored size is read from right after the entry (where the
         // script is), not through the value.
         uint32_t stored = reinterpret_cast<const uint32_t*>(end)[2];
-        Relocate(symbol->raw, base);
-        return end + 12 + Align4(stored);
+        relocate(symbol->raw, base);
+        return end + 12 + align4(stored);
     }
-    case QBVAL_STRUCT:
-        Relocate(symbol->structure, base);
-        return RelocateStruct(symbol->structure, base);
-    case QBVAL_ARRAY:
-        Relocate(symbol->raw, base);
-        return RelocateArray(reinterpret_cast<CArray*>(symbol->raw), base);
+    case kQbvalStruct:
+        relocate(symbol->structure, base);
+        return relocate_struct(symbol->structure, base);
+    case kQbvalArray:
+        relocate(symbol->raw, base);
+        return relocate_array(reinterpret_cast<Array*>(symbol->raw), base);
     default: // (integers, floats, names, C functions...: the value is in the entry)
         return end;
     }
 }
 
 // 0x0046CA50
-void RelocatePrecompiledSymbols(uint8_t* file, uint32_t base, PrecompiledSymbolCallback callback, uint32_t argument,
+void relocate_precompiled_symbols(uint8_t* file, uint32_t base, PrecompiledSymbolCallback callback, uint32_t argument,
                                 uint32_t flag)
 {
     uint8_t* end = file + *reinterpret_cast<const uint32_t*>(file + 4);
@@ -168,8 +168,8 @@ void RelocatePrecompiledSymbols(uint8_t* file, uint32_t base, PrecompiledSymbolC
         return;
     // (the symbols must end exactly at the file's end: there's no other check)
     do {
-        auto* symbol = reinterpret_cast<CSymbolTableEntry*>(p);
-        uint8_t* next = RelocateSymbol(symbol, base);
+        auto* symbol = reinterpret_cast<SymbolTableEntry*>(p);
+        uint8_t* next = relocate_symbol(symbol, base);
         if (callback)
             callback(symbol, argument, flag);
         p = next;
@@ -177,27 +177,27 @@ void RelocatePrecompiledSymbols(uint8_t* file, uint32_t base, PrecompiledSymbolC
 }
 
 // 0x00478DE0
-void DefinePrecompiledSymbol(CSymbolTableEntry* symbol, uint32_t fileChecksum, uint32_t unused)
+void define_precompiled_symbol(SymbolTableEntry* symbol, uint32_t file_checksum, uint32_t unused)
 {
     (void)unused;
-    symbol->unknown8 = fileChecksum;
-    if (CSymbolTableEntry* existing = FindSymbol(symbol->name))
-        CleanUpAndRemoveSymbol(existing);
-    LinkSymbol(symbol);
+    symbol->unknown8 = file_checksum;
+    if (SymbolTableEntry* existing = find_symbol(symbol->name))
+        clean_up_and_remove_symbol(existing);
+    link_symbol(symbol);
 }
 
 // 0x0046FBA0
-void ParsePrecompiledQB(const char* filename, uint8_t* data, int unused)
+void parse_precompiled_qb(const char* filename, uint8_t* data, int unused)
 {
     uint32_t flag = unused != 0;
-    RelocatePrecompiledSymbols(data, reinterpret_cast<uint32_t>(data), DefinePrecompiledSymbol,
-                               Checksums::HashFromText(filename), flag);
+    relocate_precompiled_symbols(data, reinterpret_cast<uint32_t>(data), define_precompiled_symbol,
+                               checksums::hash_from_text(filename), flag);
 }
 
 } // namespace Script
 
 namespace {
 struct ArrayAdapter {
-    void RelocateElements(uint32_t base) { Scripts::RelocateArrayElements(reinterpret_cast<Scripts::CArray*>(this), base); }
+    void relocate_elements(uint32_t base) { script::relocate_array_elements(reinterpret_cast<script::Array*>(this), base); }
 };
 } // namespace

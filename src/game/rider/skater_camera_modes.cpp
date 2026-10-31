@@ -13,7 +13,7 @@
 #include "engine/gfx/viewport_list.h"
 #include "game/rider/skater_camera_component.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
@@ -22,7 +22,7 @@ constexpr uint32_t kCameraLookaround = 0x81C7122D, kCamera = 0xC4E311FA;
 constexpr uint32_t kHorizFov = 0x94DF1603, kBehind = 0x52E6C41B, kAbove = 0x0B96AE2D, kTilt = 0xE3C07609,
                    kOriginOffset = 0x012F6992, kLipTrickTilt = 0x7F0032AC, kLipTrickAbove = 0xADB6390E,
                    kSlerp = 0xF54FB9C5, kVertAirSlerp = 0x2FA11029, kVertAirLandedSlerp = 0x042FD4A0,
-                   kLerpXZ = 0xAE47899B, kLerpY = 0xE1E4E104, kVertAirLerpXZ = 0xF386F4D9, kHalfpipeAirBlendY = 0x4882A1FE,
+                   kLerpXz = 0xAE47899B, kLerpY = 0xE1E4E104, kVertAirLerpXz = 0xF386F4D9, kHalfpipeAirBlendY = 0x4882A1FE,
                    kLookRate = 0xBEF0D195, kWallrideOffsetAngle = 0x3396BE2A, kZoomBlend = 0x748743A7,
                    kRailZoom = 0x5A7F5CC5, kBigAirTrickZoom = 0xD790B83D, kLipTrickZoom = 0xD414C22E,
                    kName = 0xA1DC81F9;
@@ -31,7 +31,7 @@ constexpr float kFeet = 12.0f;  // 0x0064546C
 constexpr float kHalf = 0.5f;   // 0x006453BC
 constexpr float kPi = 3.14159274f, kHalfPi = 1.57079637f;
 
-float OneFrame()
+float one_frame()
 {
     uint32_t bits = 0x3C888889; // 0x0064BA64 (1/60)
     float value;
@@ -40,117 +40,117 @@ float OneFrame()
 }
 
 // The screen mode (0x004A0710: 1 a vertical split, 2 a horizontal one).
-int ScreenMode() { return Engine3D::GetViewLayout(); }
+int screen_mode() { return render::get_view_layout(); }
 
 } // namespace
 
 // 0x004F99F0
-void CRiderChaseView::DestroyBody()
+void RiderChaseView::destroy_body()
 {
-    Maths::ArcRotationBlender* slerp = m_arcBlender;
-    m_vtable = g_skaterCameraVtable;
-    MemSys::Hub::Pull()->Dealloc(slerp);
-    CObjectModule::DestroyBody();
+    maths::ArcRotationBlender* slerp = arc_blender_;
+    vtable_ = kSkaterCameraVtable;
+    memory::Hub::get_pull()->dealloc(slerp);
+    ObjectModule::destroy_body();
 }
 
 // 0x004F9A20
-void CRiderChaseView::Seal()
+void RiderChaseView::seal()
 {
-    m_freeLookModule = static_cast<CFreeLookModule*>(m_entity->FetchModule(kCameraLookaround));
+    free_look_module_ = static_cast<FreeLookModule*>(entity_->fetch_module(kCameraLookaround));
 }
 
 // 0x004F9A40
-void CRiderChaseView::ChangePhase(const WalkCameraState* state)
+void RiderChaseView::change_phase(const WalkCameraState* state)
 {
-    std::memcpy(m_orientation, &state->orientation, sizeof(m_orientation));
-    std::memcpy(&m_aimPoint, &state->target, sizeof(m_aimPoint));
-    m_turnCosine = state->turnCosine;
-    m_zoom = state->zoom;
-    m_settleTime = 0.0f;
-    m_instantFrames = 0;
-    m_freeLookModule->m_heading = 0.0f;
-    m_freeLookModule->m_locked = false;
+    std::memcpy(orientation_, &state->orientation, sizeof(orientation_));
+    std::memcpy(&aim_point_, &state->target, sizeof(aim_point_));
+    turn_cosine_ = state->turn_cosine_;
+    zoom_ = state->zoom;
+    settle_time_ = 0.0f;
+    instant_frames_ = 0;
+    free_look_module_->heading_ = 0.0f;
+    free_look_module_->locked_ = false;
 }
 
 // 0x004F9970
-void CRiderChaseView::UpdateLerps()
+void RiderChaseView::update_lerps()
 {
-    if (m_behindTime > 0.0f) {
-        m_behindTime = static_cast<float>(static_cast<double>(m_behindTime) - OneFrame());
-        m_behind = static_cast<float>(static_cast<double>(m_behindStep) + m_behind);
+    if (behind_time_ > 0.0f) {
+        behind_time_ = static_cast<float>(static_cast<double>(behind_time_) - one_frame());
+        behind_ = static_cast<float>(static_cast<double>(behind_step_) + behind_);
     } else {
-        m_behindTime = 0.0f;
+        behind_time_ = 0.0f;
     }
-    if (m_aboveTime > 0.0f) {
-        m_aboveTime = static_cast<float>(static_cast<double>(m_aboveTime) - OneFrame());
-        m_above = static_cast<float>(static_cast<double>(m_aboveStep) + m_above);
+    if (above_time_ > 0.0f) {
+        above_time_ = static_cast<float>(static_cast<double>(above_time_) - one_frame());
+        above_ = static_cast<float>(static_cast<double>(above_step_) + above_);
     } else {
-        m_aboveTime = 0.0f;
+        above_time_ = 0.0f;
     }
 }
 
 // 0x004F9AE0
-void CRiderChaseView::ChangeRegime(int mode, float time)
+void RiderChaseView::change_regime(int mode, float time)
 {
-    auto* camera = m_entity->FetchModule(kCamera);
-    int screen = ScreenMode();
-    const char* arrayName = screen == 1   ? "Skater_Camera_2P_Vert_Array"
+    auto* camera = entity_->fetch_module(kCamera);
+    int screen = screen_mode();
+    const char* array_name = screen == 1   ? "Skater_Camera_2P_Vert_Array"
                             : screen == 2 ? "Skater_Camera_2P_Horiz_Array"
                                           : "Skater_Camera_Array";
-    Scripts::CArray* modes = Scripts::FetchList(arrayName);
-    Scripts::CStruct* params = Scripts::ReadSubStruct(modes->FetchPart(static_cast<uint32_t>(mode)));
-    m_modeSel = mode;
-    m_lipTrickTilt = 0.0f;
+    script::Array* modes = script::fetch_list(array_name);
+    script::Struct* params = script::read_sub_struct(modes->fetch_part(static_cast<uint32_t>(mode)));
+    mode_sel_ = mode;
+    lip_trick_tilt_ = 0.0f;
     float fov, behind, above, tilt, offset;
-    params->FetchFloat(kHorizFov, &fov, 0);
-    params->FetchFloat(kBehind, &behind, 0);
-    params->FetchFloat(kAbove, &above, 0);
-    params->FetchFloat(kTilt, &tilt, 0);
-    params->FetchFloat(kOriginOffset, &offset, 0);
-    params->FetchFloat(kLipTrickTilt, &m_lipTrickTilt, 0);
-    params->FetchFloat(kLipTrickAbove, &m_lipTrickAbove, 0);
-    params->FetchFloat(kSlerp, &m_slerp, 0);
-    params->FetchFloat(kVertAirSlerp, &m_vertAirSlerp, 0);
-    params->FetchFloat(kVertAirLandedSlerp, &m_vertAirLandedSlerp, 0);
-    params->FetchFloat(kLerpXZ, &m_lerpXZ, 0);
-    params->FetchFloat(kLerpY, &m_lerpY, 0);
-    params->FetchFloat(kVertAirLerpXZ, &m_vertAirLerpXZ, 0);
-    params->FetchFloat(kHalfpipeAirBlendY, &m_halfpipeUpBlend, 0);
-    params->FetchFloat(kLookRate, &m_lookRate, 0);
-    params->FetchFloat(kWallrideOffsetAngle, &m_wallrideOffsetAngle, 0);
-    float zoomLerp;
-    m_railZoomFactor = 1.0f;
-    m_lipTrickZoom = 1.0f;
-    m_bigAirTrickZoom = 1.0f;
-    params->FetchFloat(kZoomBlend, &zoomLerp, 0);
-    params->FetchFloat(kRailZoom, &m_railZoomFactor, 0);
-    params->FetchFloat(kBigAirTrickZoom, &m_bigAirTrickZoom, 0);
-    params->FetchFloat(kLipTrickZoom, &m_lipTrickZoom, 0);
-    m_zoomEaseRate = zoomLerp;
+    params->fetch_float(kHorizFov, &fov, 0);
+    params->fetch_float(kBehind, &behind, 0);
+    params->fetch_float(kAbove, &above, 0);
+    params->fetch_float(kTilt, &tilt, 0);
+    params->fetch_float(kOriginOffset, &offset, 0);
+    params->fetch_float(kLipTrickTilt, &lip_trick_tilt_, 0);
+    params->fetch_float(kLipTrickAbove, &lip_trick_above_, 0);
+    params->fetch_float(kSlerp, &slerp_, 0);
+    params->fetch_float(kVertAirSlerp, &vert_air_slerp_, 0);
+    params->fetch_float(kVertAirLandedSlerp, &vert_air_landed_slerp_, 0);
+    params->fetch_float(kLerpXz, &lerp_xz_, 0);
+    params->fetch_float(kLerpY, &lerp_y_, 0);
+    params->fetch_float(kVertAirLerpXz, &vert_air_lerp_xz_, 0);
+    params->fetch_float(kHalfpipeAirBlendY, &halfpipe_up_blend_, 0);
+    params->fetch_float(kLookRate, &look_rate_, 0);
+    params->fetch_float(kWallrideOffsetAngle, &wallride_offset_angle_, 0);
+    float zoom_lerp;
+    rail_zoom_factor_ = 1.0f;
+    lip_trick_zoom_ = 1.0f;
+    big_air_trick_zoom_ = 1.0f;
+    params->fetch_float(kZoomBlend, &zoom_lerp, 0);
+    params->fetch_float(kRailZoom, &rail_zoom_factor_, 0);
+    params->fetch_float(kBigAirTrickZoom, &big_air_trick_zoom_, 0);
+    params->fetch_float(kLipTrickZoom, &lip_trick_zoom_, 0);
+    zoom_ease_rate_ = zoom_lerp;
     const char* name;
-    params->FetchText(kName, &name, 0);
-    m_originOffset = static_cast<float>(static_cast<double>(offset) * kFeet);
-    m_horizFov = fov;
-    m_leanAngle = tilt;
-    double behindFeet = static_cast<double>(behind) * kFeet;
+    params->fetch_text(kName, &name, 0);
+    origin_offset_ = static_cast<float>(static_cast<double>(offset) * kFeet);
+    horiz_fov_ = fov;
+    lean_angle_ = tilt;
+    double behind_feet = static_cast<double>(behind) * kFeet;
     if (time > 0.0f) {
         // lerped there a frame (1/60 s) at a time
-        float behindTarget = static_cast<float>(behindFeet);
-        float aboveTarget = static_cast<float>(static_cast<double>(above) * kFeet);
-        m_behindTime = time;
-        m_aboveTime = time;
-        double perFrame = static_cast<double>(OneFrame()) / time;
-        m_behindStep = static_cast<float>((static_cast<double>(behindTarget) - m_behind) * perFrame);
-        m_aboveStep = static_cast<float>((static_cast<double>(aboveTarget) - m_above) * perFrame);
+        float behind_target = static_cast<float>(behind_feet);
+        float above_target = static_cast<float>(static_cast<double>(above) * kFeet);
+        behind_time_ = time;
+        above_time_ = time;
+        double per_frame = static_cast<double>(one_frame()) / time;
+        behind_step_ = static_cast<float>((static_cast<double>(behind_target) - behind_) * per_frame);
+        above_step_ = static_cast<float>((static_cast<double>(above_target) - above_) * per_frame);
     } else {
-        m_behind = static_cast<float>(behindFeet);
-        m_behindTime = 0.0f;
-        m_aboveTime = 0.0f;
-        m_above = static_cast<float>(static_cast<double>(above) * kFeet);
+        behind_ = static_cast<float>(behind_feet);
+        behind_time_ = 0.0f;
+        above_time_ = 0.0f;
+        above_ = static_cast<float>(static_cast<double>(above) * kFeet);
     }
     // The camera component's camera (+0x18): its field of view (half across a vertical split).
-    auto* view = *reinterpret_cast<Gfx2D::ViewCam**>(reinterpret_cast<uint8_t*>(camera) + 0x18);
-    view->ChangeHFov(screen == 1 ? static_cast<float>(static_cast<double>(fov) * kHalf) : fov);
+    auto* view = *reinterpret_cast<gfx::ViewCam**>(reinterpret_cast<uint8_t*>(camera) + 0x18);
+    view->change_h_fov(screen == 1 ? static_cast<float>(static_cast<double>(fov) * kHalf) : fov);
     float heading;
     switch (mode) {
     case 5:
@@ -169,7 +169,7 @@ void CRiderChaseView::ChangeRegime(int mode, float time)
         heading = 0.0f;
         break;
     }
-    m_freeLookModule->m_modeHeading = heading;
+    free_look_module_->mode_heading_ = heading;
 }
 
 } // namespace Obj

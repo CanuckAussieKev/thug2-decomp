@@ -13,82 +13,82 @@
 // - a camera animation (vtable 0x0064F020, 0x94 bytes; the manager's cutscene type): the movie's camera follows
 //   the asset, optionally aimed at an object ("target", with offsets).
 // Their other vtable slots are the base movie's (0x00468xxx) or shared stubs.
-namespace GameObjects {
+namespace objects {
 
-struct CObjectAnimMovie {
-    CMovie m_base;
-    void* m_anim;                // +0x2C the animation asset (null: just a timer)
-    Gfx2D::CAnimTimeline m_timeline; // +0x30
+struct ObjectAnimMovie {
+    Movie base_;
+    void* anim_;                // +0x2C the animation asset (null: just a timer)
+    gfx::AnimTimeline timeline_; // +0x30
 
     // 0x005871B0: the constructor. 0x00587210: the destructor body. 0x00587370 (slot 0): the scalar deleting
     // destructor.
-    CObjectAnimMovie* MakeNew();
-    void DestroyBody();
-    CObjectAnimMovie* Teardown(uint8_t flags);
+    ObjectAnimMovie* make_new();
+    void destroy_body();
+    ObjectAnimMovie* teardown(uint8_t flags);
     // 0x005875D0 (slot 1): ReadIn(params): the base's, then the asset named like the movie (none: false) played
     // (looping with 0x5EA0E211, backwards with 0xF8CFD515) - or, with 0xEE721991, no asset: a timer of `frames`
     // (0x019176C5) frames; then started. True.
-    bool ReadIn(Scripts::CStruct* params);
+    bool read_in(script::Struct* params);
     // 0x005873A0: the timeline set to play `anim` (its length first), forwards or backwards.
-    void Perform(void* anim, int loopType, bool backwards);
+    void perform(void* anim, int loop_type, bool backwards);
     // 0x00587270 (slot 3): Start: the asset's start (0x00482F10), if any. True.
-    bool Kickoff();
-    // 0x00587280 (slot 5): IsFinished: +0x1A set: true; +0x18 set: false; otherwise whether the timeline is complete.
+    bool kickoff();
+    // 0x00587280 (slot 5): is_finished: +0x1A set: true; +0x18 set: false; otherwise whether the timeline is complete.
     // 0x005872A0 (slot 6): +0x18 set and the timeline complete.
-    bool IsFinished();
-    int IsHeldAndComplete();
+    bool is_finished();
+    int is_held_and_complete();
     // 0x005876A0 (slot 2, through the jump 0x00587F60): Update: the timeline stepped, the asset told the step, and
     // every object it names (by id) given its frame's rotation (matrix and display matrix) and position, and its
     // model told (component 0x286A8D26, slot 1); a missing object is reported. With the script global 0x2F510F45
     // each is printed too.
-    void TickFrame();
+    void tick_frame();
 };
-static_assert(offsetof(CObjectAnimMovie, m_timeline) == 0x30 && sizeof(CObjectAnimMovie) == 0x64,
+static_assert(offsetof(ObjectAnimMovie, timeline_) == 0x30 && sizeof(ObjectAnimMovie) == 0x64,
               "layout must match the original");
 
-struct CCameraAnimMovie {
-    CMovie m_base;
-    float m_fieldOfView;                 // +0x2C (0: the script global 0x99529205)
-    bool m_hasGoal;            // +0x30
+struct CameraAnimMovie {
+    Movie base_;
+    float field_of_view_;                 // +0x2C (0: the script global 0x99529205)
+    bool has_goal_;            // +0x30
     uint8_t pad31[3];
-    uint32_t m_aimPoint;           // +0x34 the target object's name (0xC588EEBC: a fixed point, m_goalShift)
-    float m_goalShift[4];     // +0x38 (0x906642BF)
-    float m_lookOffset[4];       // +0x48 (0xA00D3D6E)
-    bool m_targetOffsetSet;      // +0x58 (any of x, y, z not 0)
-    bool m_lookOffsetSet;        // +0x59
-    uint8_t pad5A[2];
-    void* m_anim;                // +0x5C
-    Gfx2D::CAnimTimeline m_timeline; // +0x60
+    uint32_t aim_point_;           // +0x34 the target object's name (0xC588EEBC: a fixed point, goal_shift_)
+    float goal_shift_[4];     // +0x38 (0x906642BF)
+    float look_offset_[4];       // +0x48 (0xA00D3D6E)
+    bool target_offset_set_;      // +0x58 (any of x, y, z not 0)
+    bool look_offset_set_;        // +0x59
+    uint8_t pad5a_[2];
+    void* anim_;                // +0x5C
+    gfx::AnimTimeline timeline_; // +0x60
 
     // 0x005873F0 / 0x005872C0 / 0x00587450: the constructor, the destructor body, the scalar deleting destructor.
-    CCameraAnimMovie* MakeNew();
-    void DestroyBody();
-    CCameraAnimMovie* Teardown(uint8_t flags);
+    CameraAnimMovie* make_new();
+    void destroy_body();
+    CameraAnimMovie* teardown(uint8_t flags);
     // 0x00587F70 (slot 1): ReadIn(params): the base's; the field of view (0x17E7321E, if there); the asset or a timer
-    // as CObjectAnimMovie's; the target; started; the camera placed (0x00587A50) and told the asset's first frame.
-    bool ReadIn(Scripts::CStruct* params);
+    // as ObjectAnimMovie's; the target; started; the camera placed (0x00587A50) and told the asset's first frame.
+    bool read_in(script::Struct* params);
     // 0x00587480: the target from params (0x531E4D28) and its two offsets.
-    void LoadTarget(Scripts::CStruct* params);
-    // 0x00587540: CObjectAnimMovie::Perform's twin.
-    void Perform(void* anim, int loopType, bool backwards);
-    // 0x00587320 / 0x00587330 / 0x00587350 (slots 3, 5, 6): as CObjectAnimMovie's.
-    bool Kickoff();
-    bool IsFinished();
-    int IsHeldAndComplete();
+    void load_target(script::Struct* params);
+    // 0x00587540: ObjectAnimMovie::Perform's twin.
+    void perform(void* anim, int loop_type, bool backwards);
+    // 0x00587320 / 0x00587330 / 0x00587350 (slots 3, 5, 6): as ObjectAnimMovie's.
+    bool kickoff();
+    bool is_finished();
+    int is_held_and_complete();
     // 0x00587590 (slot 4): 0xA8D5A188 the target from params; 0xD7241A6C the target cleared; anything else the
     // base's (0x004A0CF0).
-    bool InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
+    bool invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
     // 0x00588090 (slot 2): Update: the timeline stepped, the camera updated, the asset told the step, the camera
     // placed (0x00587A50).
-    void TickFrame();
+    void tick_frame();
     // 0x00587A50: the camera placed and aimed.
-    void PlaceCamera();
+    void place_camera();
 };
-static_assert(offsetof(CCameraAnimMovie, m_aimPoint) == 0x34 && offsetof(CCameraAnimMovie, m_lookOffsetSet) == 0x59 &&
-                  offsetof(CCameraAnimMovie, m_timeline) == 0x60 && sizeof(CCameraAnimMovie) == 0x94,
+static_assert(offsetof(CameraAnimMovie, aim_point_) == 0x34 && offsetof(CameraAnimMovie, look_offset_set_) == 0x59 &&
+                  offsetof(CameraAnimMovie, timeline_) == 0x60 && sizeof(CameraAnimMovie) == 0x94,
               "layout must match the original");
 
-extern float g_floatZero;
+extern float g_float_zero;
 
-extern float g_animMoviesOne;
+extern float g_anim_movies_one;
 } // namespace Obj

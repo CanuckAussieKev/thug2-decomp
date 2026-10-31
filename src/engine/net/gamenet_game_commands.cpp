@@ -41,13 +41,13 @@
 #include "engine/net/score_list.h"
 #include "engine/net/stats_man.h"
 
-namespace OnlinePlay {
+namespace online {
 
-using namespace Detail;
-using Scripts::CScript;
-using Scripts::CStruct;
+using namespace detail;
+using script::Script;
+using script::Struct;
 
-uint8_t g_gameReported;
+uint8_t g_game_reported;
 
 namespace {
 
@@ -68,10 +68,10 @@ constexpr uint32_t kPlayerFlags = 0x1D0;
 constexpr uint32_t kProfileIdField = 0x28; // PlayerRecord: the GameSpy profile id
 constexpr uint32_t kRemoveMark = 0x400;   // a player's flags: being removed (its options dialog is up)
 
-constexpr uint32_t kGameStartTask = 0xE8;  // Scheduling::SchedulerTask*
+constexpr uint32_t kGameStartTask = 0xE8;  // tasks::SchedulerTask*
 constexpr uint32_t kLevelSwitchJob = 0xEC;
 constexpr uint32_t kCrownSpawn = 0x68;     // int
-constexpr uint32_t kCrown = 0x6C;          // GameObjects::CCrownObject*
+constexpr uint32_t kCrown = 0x6C;          // GameObjects::CrownObject*
 
 // Checksums.
 constexpr uint32_t kChecksum = 0x21902065;            // checksum
@@ -111,75 +111,75 @@ constexpr int kPlayerMenuIdBase = 123456;  // the menu items' ids: this plus the
 constexpr uint32_t kJoinTeamInterval = 150; // ms between team requests
 constexpr int kMaxCrownSpawns = 10;
 
-Hub* NetLink() { return g_onlineHub; }
-Scheduling::PileUp* LogicTasks() { return reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4); }
+Hub* net_link() { return g_online_hub; }
+tasks::PileUp* get_logic_tasks() { return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 4); }
 
-uint32_t g_lastTeamRequest;
+uint32_t g_last_team_request;
 
-uint32_t& LastTeamRequest() { return g_lastTeamRequest; }
-uint32_t& NetGameStartTime() { return g_netGameStartTime; }
-uint8_t& GameReported() { return g_gameReported; } // GameSpy told a game is on
+uint32_t& last_team_request() { return g_last_team_request; }
+uint32_t& net_game_start_time() { return g_net_game_start_time; }
+uint8_t& game_reported() { return g_game_reported; } // GameSpy told a game is on
 
-bool IsHead(const MemSys::ListNode* node) { return reinterpret_cast<intptr_t>(node->data) == -1; }
-MemSys::ListNode* NextNode(const MemSys::ListNode* node) { return IsHead(node->next) ? nullptr : node->next; }
-uint8_t* DataOf(const MemSys::ListNode* node) { return node ? static_cast<uint8_t*>(node->data) : nullptr; }
-MemSys::ListNode* FirstPlayerNode(Hub* manager) { return NextNode(&Prop<MemSys::ListNode>(manager, 0x11C)); }
+bool is_head(const memory::ListNode* node) { return reinterpret_cast<intptr_t>(node->data) == -1; }
+memory::ListNode* get_next_node(const memory::ListNode* node) { return is_head(node->next) ? nullptr : node->next; }
+uint8_t* data_of(const memory::ListNode* node) { return node ? static_cast<uint8_t*>(node->data) : nullptr; }
+memory::ListNode* first_player_node(Hub* manager) { return get_next_node(&prop<memory::ListNode>(manager, 0x11C)); }
 
 enum class Recipients { kAll, kRemote, kObservers };
 // `desc` through the server to the players (all, those not local, the observers).
-void SendToPlayers(Hub* manager, NetLink::AppHost* server, NetLink::NetMessageInfo* desc, Recipients recipients)
+void send_to_players(Hub* manager, net::AppHost* server, net::NetMessageInfo* desc, Recipients recipients)
 {
-    for (MemSys::ListNode* node = FirstPlayerNode(manager); uint8_t* player = DataOf(node); node = NextNode(node)) {
-        if (recipients == Recipients::kRemote && IsOwnPlayer(player))
+    for (memory::ListNode* node = first_player_node(manager); uint8_t* player = data_of(node); node = get_next_node(node)) {
+        if (recipients == Recipients::kRemote && is_own_player(player))
             continue;
-        if (recipients == Recipients::kObservers && !IsObserver(player))
+        if (recipients == Recipients::kObservers && !is_observer(player))
             continue;
-        server->PutOnOutbox(PlayerHandle(player), desc);
+        server->put_on_outbox(player_handle(player), desc);
     }
 }
-void InitDesc(NetLink::NetMessageInfo& desc, uint8_t id)
+void init_desc(net::NetMessageInfo& desc, uint8_t id)
 {
-    desc.MakeNew();
-    desc.m_ident = id;
-    desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
-    desc.m_groupId = kGroupGame;
+    desc.make_new();
+    desc.ident_ = id;
+    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
+    desc.group_id_ = kGroupGame;
 }
 
 // The lobby's GameSpy peer told the game's state changed (connected and hosting), and GameSpy's reporting told the
 // game is on / off (once, as `on` changes).
-void ReportGameState(Hub* manager, bool on)
+void report_game_state(Hub* manager, bool on)
 {
-    auto* lobby = static_cast<RoomManager*>(manager->m_lobbyService);
-    void* peer = lobby->GetLobbyHandle();
-    if (peer && GameSpy::PeerIsConnected(peer) && lobby->IsHosting())
-        GameSpy::PeerStateChanged(peer);
+    auto* lobby = static_cast<RoomManager*>(manager->lobby_service_);
+    void* peer = lobby->get_lobby_handle();
+    if (peer && game_spy::peer_is_connected(peer) && lobby->is_hosting())
+        game_spy::peer_state_changed(peer);
     // (the byte compared with 1 when starting, tested for non-zero when ending, as in the original)
-    uint8_t& reported = GameReported();
+    uint8_t& reported = game_reported();
     if (on ? reported == 1 : reported == 0)
         return;
     reported = on ? 1 : 0;
-    if (g_onlineActive && g_onlineHub->InNetGame() &&
-        g_queryReporting)
-        GameSpy::Qr2SendStateChanged(nullptr);
+    if (g_online_active && g_online_hub->in_net_game() &&
+        g_query_reporting)
+        game_spy::qr2_send_state_changed(nullptr);
 }
 
 // The GameSpy presence (+0x18): logged in (its flag at +0x10, through the getter folded at 0x005480B0), `profile` a
 // buddy (0x00549CB0).
-bool MarkFriendOnline(Hub* manager) { return static_cast<FoldedGetters*>(manager->m_presenceService)->Byte10(); }
-bool IsBuddy(Hub* manager, int profile) { return static_cast<FriendsManager*>(manager->m_presenceService)->IsBuddy(profile); }
+bool mark_friend_online(Hub* manager) { return static_cast<FoldedGetters*>(manager->presence_service_)->byte10(); }
+bool is_buddy(Hub* manager, int profile) { return static_cast<FriendsManager*>(manager->presence_service_)->is_buddy(profile); }
 
 } // namespace
 
 // 0x00538050: TeamFlagTaken team=<n> - a player (no observers) carries that team's flag (0x005433D0).
-bool __cdecl CFunc_TeamFlagTaken(CStruct* params, CScript*)
+bool __cdecl cfunc_team_flag_taken(Struct* params, Script*)
 {
-    Hub* manager = NetLink();
+    Hub* manager = net_link();
     PlayerSearch search;
     int team = 0; // (uninitialised in the original)
-    params->FetchIntValue(kTeam, &team, 0);
-    for (void* player = manager->BeginPlayerWalk(&search, false); player;
-         player = manager->StepPlayerWalk(&search, false)) {
-        if (static_cast<PlayerRecord*>(player)->GetFlagTeam() == team)
+    params->fetch_int_value(kTeam, &team, 0);
+    for (void* player = manager->begin_player_walk(&search, false); player;
+         player = manager->step_player_walk(&search, false)) {
+        if (static_cast<PlayerRecord*>(player)->get_flag_team() == team)
             return true;
     }
     return false;
@@ -187,137 +187,137 @@ bool __cdecl CFunc_TeamFlagTaken(CStruct* params, CScript*)
 
 // 0x00538170: SpawnCrown - the crown made (+0x6C), placed at a node of the crown's type (the manager's random +0x68
 // modulo their count; at most 10 counted, no bounds check) and worn by the king of the hill if there is one.
-bool __cdecl CFunc_SpawnCrown(CStruct*, CScript*)
+bool __cdecl cfunc_spawn_crown(Struct*, Script*)
 {
-    Hub* manager = NetLink();
-    void* memory = MemSys::AllocZeroed(sizeof(GameObjects::CCrownObject));
-    auto* crown = memory ? static_cast<GameObjects::CCrownObject*>(memory)->MakeNew() : nullptr;
-    int spawn = Prop<int>(manager, kCrownSpawn);
-    Prop<GameObjects::CCrownObject*>(manager, kCrown) = crown;
+    Hub* manager = net_link();
+    void* memory = memory::alloc_zeroed(sizeof(objects::CrownObject));
+    auto* crown = memory ? static_cast<objects::CrownObject*>(memory)->make_new() : nullptr;
+    int spawn = prop<int>(manager, kCrownSpawn);
+    prop<objects::CrownObject*>(manager, kCrown) = crown;
     uint32_t names[kMaxCrownSpawns];
-    CStruct* nodes[kMaxCrownSpawns];
+    Struct* nodes[kMaxCrownSpawns];
     int count = 0;
-    LevelNodes::StartNodeWalk(0);
-    for (CStruct* node = LevelNodes::NextNode(); node; node = LevelNodes::NextNode()) {
+    level_nodes::start_node_walk(0);
+    for (Struct* node = level_nodes::get_next_node(); node; node = level_nodes::get_next_node()) {
         uint32_t type = 0;
-        node->ReadHashValue(kType, &type, 0);
+        node->read_hash_value(kType, &type, 0);
         if (type == kCrownSpawnType) {
-            names[count] = LevelNodes::GetNodeName(node); // (kept, never used)
+            names[count] = level_nodes::get_node_name(node); // (kept, never used)
             nodes[count] = node;
             ++count;
         }
     }
-    LevelNodes::EndNodeWalk();
+    level_nodes::end_node_walk();
     (void)names;
-    CStruct* node = nodes[spawn % count]; // (no node of the type divides by zero, as in the original)
-    Maths::Vec4 position;
-    LevelNodes::FetchPlace(node, &position);
-    Prop<GameObjects::CCrownObject*>(manager, kCrown)->InitFromNode(GameObjects::g_compositeRegistry,
+    Struct* node = nodes[spawn % count]; // (no node of the type divides by zero, as in the original)
+    maths::Vec4 position;
+    level_nodes::fetch_place(node, &position);
+    prop<objects::CrownObject*>(manager, kCrown)->init_from_node(objects::g_composite_registry,
                                                              node);
-    if (auto* king = static_cast<uint8_t*>(manager->GetHillRuler()))
-        Prop<GameObjects::CCrownObject*>(manager, kCrown)->PutOn(reinterpret_cast<GameObjects::CGameEntity*>(PlayerSkater(king)));
+    if (auto* king = static_cast<uint8_t*>(manager->get_hill_ruler()))
+        prop<objects::CrownObject*>(manager, kCrown)->put_on(reinterpret_cast<objects::GameEntity*>(player_skater(king)));
     return true;
 }
 
 // 0x00538280: StartNetworkGame - GameSpy told; unless the game start or level change is under way: the game pending,
 // its start time (now, or 3 seconds ahead in a network game - 8 for goal attack), the start task added; in a network
 // game the players told (the panel message; 0x7A in a team game; for goal attack the selected goals, 0x6D).
-bool __cdecl CFunc_StartNetworkGame(CStruct*, CScript*)
+bool __cdecl cfunc_start_network_game(Struct*, Script*)
 {
-    Hub* manager = NetLink();
-    Scheduling::PileUp* tasks = LogicTasks();
-    ReportGameState(manager, true);
-    if (Prop<Scheduling::SchedulerTask*>(manager, kGameStartTask)->IsOnTaskList() ||
-        Prop<Scheduling::SchedulerTask*>(manager, kLevelSwitchJob)->IsOnTaskList())
+    Hub* manager = net_link();
+    tasks::PileUp* tasks = get_logic_tasks();
+    report_game_state(manager, true);
+    if (prop<tasks::SchedulerTask*>(manager, kGameStartTask)->is_on_task_list() ||
+        prop<tasks::SchedulerTask*>(manager, kLevelSwitchJob)->is_on_task_list())
         return true;
-    manager->m_matchBeingSetUp = true;
-    if (!manager->InNetGame())
-        NetGameStartTime() = FrameClock::GetTime();
-    else if (manager->GetGameTypePreference() == kNetGoalAttack)
-        NetGameStartTime() = FrameClock::GetTime() + 8000;
+    manager->match_being_set_up_ = true;
+    if (!manager->in_net_game())
+        net_game_start_time() = frame_clock::get_time();
+    else if (manager->get_game_type_preference() == kNetGoalAttack)
+        net_game_start_time() = frame_clock::get_time() + 8000;
     else
-        NetGameStartTime() = FrameClock::GetTime() + 3000;
-    tasks->QueueJob(Prop<Scheduling::SchedulerTask*>(manager, kGameStartTask));
-    if (manager->InNetGame()) {
-        uint32_t text = manager->m_hostMode == 1 ? kAutoStarting : kStarting;
-        manager->BuildNetNotice(true, text, manager->GetGameTypeName(), nullptr, nullptr, kNetStatusProps, true,
+        net_game_start_time() = frame_clock::get_time() + 3000;
+    tasks->queue_job(prop<tasks::SchedulerTask*>(manager, kGameStartTask));
+    if (manager->in_net_game()) {
+        uint32_t text = manager->host_mode_ == 1 ? kAutoStarting : kStarting;
+        manager->build_net_notice(true, text, manager->get_game_type_name(), nullptr, nullptr, kNetStatusProps, true,
                                        3000);
-        if (IsSquadMatch()) {
-            NetLink::NetMessageInfo desc;
-            NetLink::AppHost* server = manager->m_host;
-            InitDesc(desc, kMsgTeamGame);
-            SendToPlayers(manager, server, &desc, Recipients::kAll);
+        if (is_squad_match()) {
+            net::NetMessageInfo desc;
+            net::AppHost* server = manager->host_;
+            init_desc(desc, kMsgTeamGame);
+            send_to_players(manager, server, &desc, Recipients::kAll);
         }
     }
-    if (manager->InNetGame() && manager->GetGameTypePreference() == kNetGoalAttack) {
+    if (manager->in_net_game() && manager->get_game_type_preference() == kNetGoalAttack) {
         // The selected goals: a byte 1, then each selected goal's id (each told first - its slot 29), then 0.
         uint8_t buffer[0x1000];
-        NetLink::NetMessageInfo desc;
-        desc.MakeNew();
-        uint8_t* goals = ObjectiveBoard();
-        NetLink::AppHost* server = manager->m_host;
+        net::NetMessageInfo desc;
+        desc.make_new();
+        uint8_t* goals = objective_board();
+        net::AppHost* server = manager->host_;
         buffer[0] = 1;
         uint8_t* end = buffer + 1;
-        int count = Prop<int>(goals, 0); // (its first word, read by the getter folded at 0x00469490)
+        int count = prop<int>(goals, 0); // (its first word, read by the getter folded at 0x00469490)
         for (int i = 0; i < count; ++i) {
-            uint8_t* goal = Call<uint8_t*>(CodeAddress(&GoalSystem::CGoalManager::GetObjectiveAt), goals, i);
-            if (Call<bool>(CodeAddress(&GoalSystem::CObjective::IsPicked), goal)) {
+            uint8_t* goal = get_call<uint8_t*>(code_address(&goals::GoalManager::get_objective_at), goals, i);
+            if (get_call<bool>(code_address(&goals::Objective::is_picked), goal)) {
                 reinterpret_cast<void(__thiscall*)(void*)>((*reinterpret_cast<void***>(goal))[29])(goal);
-                uint32_t id = Call<uint32_t>(CodeAddress(&GoalSystem::CObjective::GetObjectiveKey), goal);
+                uint32_t id = get_call<uint32_t>(code_address(&goals::Objective::get_objective_key), goal);
                 std::memcpy(end, &id, 4);
                 end += 4;
             }
         }
         std::memset(end, 0, 4);
-        desc.m_content = buffer;
-        desc.m_ident = kMsgSelectedGoals;
-        desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
-        desc.m_groupId = kGroupGame;
-        desc.m_byteCount = static_cast<uint16_t>(static_cast<uint16_t>(end - buffer) + 4);
-        SendToPlayers(manager, server, &desc, Recipients::kRemote);
+        desc.content_ = buffer;
+        desc.ident_ = kMsgSelectedGoals;
+        desc.queue_ = net::NetMessageInfo::kLaneOrdered;
+        desc.group_id_ = kGroupGame;
+        desc.byte_count_ = static_cast<uint16_t>(static_cast<uint16_t>(end - buffer) + 4);
+        send_to_players(manager, server, &desc, Recipients::kRemote);
     }
     return true;
 }
 
 // 0x00538620: SendGameOverToObservers - on the server, game over (0x5A) to every observer.
-bool __cdecl CFunc_SendGameOverToObservers(CStruct*, CScript*)
+bool __cdecl cfunc_send_game_over_to_observers(Struct*, Script*)
 {
-    Hub* manager = NetLink();
-    if (!(manager->m_flagBits & kFlagsServer))
+    Hub* manager = net_link();
+    if (!(manager->flag_bits_ & kFlagsServer))
         return true;
-    NetLink::NetMessageInfo desc;
-    InitDesc(desc, kMsgGameOver);
-    SendToPlayers(manager, manager->m_host, &desc, Recipients::kObservers);
+    net::NetMessageInfo desc;
+    init_desc(desc, kMsgGameOver);
+    send_to_players(manager, manager->host_, &desc, Recipients::kObservers);
     return true;
 }
 
 // 0x00538720: EndNetworkGame - GameSpy told; on the server do_backend_retry and "game ended" (0x6A) to the remote
 // players, on a client the request to end it (0x65) to the server.
-bool __cdecl CFunc_EndNetworkGame(CStruct*, CScript*)
+bool __cdecl cfunc_end_network_game(Struct*, Script*)
 {
-    Hub* manager = NetLink();
-    ReportGameState(manager, false);
-    NetLink::NetMessageInfo desc;
-    if (manager->m_flagBits & kFlagsServer) {
-        desc.MakeNew();
-        NetLink::AppHost* server = manager->m_host;
-        Run(kDoBackendRetry);
-        desc.m_ident = kMsgGameEnded;
-        desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
-        desc.m_groupId = kGroupGame;
-        SendToPlayers(manager, server, &desc, Recipients::kRemote);
+    Hub* manager = net_link();
+    report_game_state(manager, false);
+    net::NetMessageInfo desc;
+    if (manager->flag_bits_ & kFlagsServer) {
+        desc.make_new();
+        net::AppHost* server = manager->host_;
+        get_run(kDoBackendRetry);
+        desc.ident_ = kMsgGameEnded;
+        desc.queue_ = net::NetMessageInfo::kLaneOrdered;
+        desc.group_id_ = kGroupGame;
+        send_to_players(manager, server, &desc, Recipients::kRemote);
     } else {
-        InitDesc(desc, kMsgEndGameRequest);
-        SendToServer(manager->m_clientApp, &desc);
+        init_desc(desc, kMsgEndGameRequest);
+        send_to_server(manager->client_app_, &desc);
     }
     return true;
 }
 
 // 0x005388C0: GetMyTeam - the local player's team into the script's team.
-bool __cdecl CFunc_GetMyTeam(CStruct*, CScript* script)
+bool __cdecl cfunc_get_my_team(Struct*, Script* script)
 {
-    if (auto* local = static_cast<uint8_t*>(NetLink()->GetOwnPlayer()))
-        script->m_args->PutInt(kTeam, PlayerTeam(local));
+    if (auto* local = static_cast<uint8_t*>(net_link()->get_own_player()))
+        script->args_->put_int(kTeam, player_team(local));
     return true;
 }
 
@@ -325,113 +325,113 @@ bool __cdecl CFunc_GetMyTeam(CStruct*, CScript* script)
 // count set (a local skater put back to be moved when teams start now - PrepareSkaterForMove, 0x00566370), then (with a
 // server app) the count to the remote players (0x69) and every player of a team no longer there (no observers) moved
 // to team 0 - each told to the remote players (0x68: its skater's id, 0).
-bool __cdecl CFunc_SetNumTeams(CStruct* params, CScript*)
+bool __cdecl cfunc_set_num_teams(Struct* params, Script*)
 {
-    Hub* manager = NetLink();
-    uint8_t* skate = Detail::Skate();
+    Hub* manager = net_link();
+    uint8_t* skate = detail::get_skate();
     PlayerSearch search;
-    NetLink::NetMessageInfo desc;
-    desc.MakeNew();
+    net::NetMessageInfo desc;
+    desc.make_new();
     int teams = 0;
-    params->FetchIntValue(0u, &teams, 0);
-    if (!(manager->m_flagBits & kFlagsServer)) {
-        NetLink::NetMessageInfo request;
-        request.MakeNew();
+    params->fetch_int_value(0u, &teams, 0);
+    if (!(manager->flag_bits_ & kFlagsServer)) {
+        net::NetMessageInfo request;
+        request.make_new();
         uint8_t count = static_cast<uint8_t>(teams);
-        request.m_content = &count;
-        request.m_byteCount = 1;
-        request.m_ident = kMsgNumTeamsRequest;
-        request.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
-        request.m_groupId = kGroupGame;
-        SendToServer(manager->m_clientApp, &request);
+        request.content_ = &count;
+        request.byte_count_ = 1;
+        request.ident_ = kMsgNumTeamsRequest;
+        request.queue_ = net::NetMessageInfo::kLaneOrdered;
+        request.group_id_ = kGroupGame;
+        send_to_server(manager->client_app_, &request);
         return true;
     }
-    if (teams < 1 || IsSquadMatch()) {
-        Call(CodeAddress(&GoalSystem::CMatchRules::SetNumTeams), GameMode(), teams);
+    if (teams < 1 || is_squad_match()) {
+        get_call(code_address(&goals::MatchRules::set_num_teams), get_game_mode(), teams);
     } else {
-        Call(CodeAddress(&GoalSystem::CMatchRules::SetNumTeams), GameMode(), teams);
-        if (Call<GameObjects::CEntity*>(CodeAddress(GameModules::Skate::GetLocalSkaterStub), skate)) { // the local skater
-            Run(kPrepareSkaterForMove, nullptr, Call<GameObjects::CEntity*>(CodeAddress(GameModules::Skate::GetLocalSkaterStub), skate));
-            Call(CodeAddress(&GameModules::Skate::TeleportToSpawn), skate, Call<GameObjects::CEntity*>(CodeAddress(GameModules::Skate::GetLocalSkaterStub), skate), 0, 0);
+        get_call(code_address(&goals::MatchRules::set_num_teams), get_game_mode(), teams);
+        if (get_call<objects::Entity*>(code_address(modules::Skate::get_local_skater_stub), skate)) { // the local skater
+            get_run(kPrepareSkaterForMove, nullptr, get_call<objects::Entity*>(code_address(modules::Skate::get_local_skater_stub), skate));
+            get_call(code_address(&modules::Skate::teleport_to_spawn), skate, get_call<objects::Entity*>(code_address(modules::Skate::get_local_skater_stub), skate), 0, 0);
         }
     }
-    NetLink::AppHost* server = manager->m_host;
+    net::AppHost* server = manager->host_;
     if (!server)
         return true;
     uint8_t count = static_cast<uint8_t>(teams);
-    desc.m_content = &count;
-    desc.m_byteCount = 1;
-    desc.m_ident = kMsgNumTeams;
-    desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
-    desc.m_groupId = kGroupGame;
-    SendToPlayers(manager, server, &desc, Recipients::kRemote);
+    desc.content_ = &count;
+    desc.byte_count_ = 1;
+    desc.ident_ = kMsgNumTeams;
+    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
+    desc.group_id_ = kGroupGame;
+    send_to_players(manager, server, &desc, Recipients::kRemote);
     uint8_t change[2];
-    desc.m_content = change;
-    desc.m_byteCount = 2;
-    desc.m_ident = kMsgTeamChange;
-    desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
-    desc.m_groupId = kGroupGame;
-    for (auto* player = static_cast<uint8_t*>(manager->BeginPlayerWalk(&search, false)); player;
-         player = static_cast<uint8_t*>(manager->StepPlayerWalk(&search, false))) {
-        if (PlayerTeam(player) < teams)
+    desc.content_ = change;
+    desc.byte_count_ = 2;
+    desc.ident_ = kMsgTeamChange;
+    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
+    desc.group_id_ = kGroupGame;
+    for (auto* player = static_cast<uint8_t*>(manager->begin_player_walk(&search, false)); player;
+         player = static_cast<uint8_t*>(manager->step_player_walk(&search, false))) {
+        if (player_team(player) < teams)
             continue;
         change[1] = 0;
-        change[0] = static_cast<uint8_t>(SkaterId(PlayerSkater(player)));
-        SendToPlayers(manager, server, &desc, Recipients::kRemote);
-        Prop<int>(player, 0x30) = 0;
+        change[0] = static_cast<uint8_t>(get_skater_id(player_skater(player)));
+        send_to_players(manager, server, &desc, Recipients::kRemote);
+        prop<int>(player, 0x30) = 0;
     }
     return true;
 }
 
 // 0x00538C90: JoinTeam <blue | red | green | other> - the local player's skater's request (0x67: its id, the team
 // 1 / 0 / 2 / 3) to the server, at most every 150 ms. False without a local player with a skater.
-bool __cdecl CFunc_JoinTeam(CStruct* params, CScript*)
+bool __cdecl cfunc_join_team(Struct* params, Script*)
 {
-    Hub* manager = NetLink();
-    NetLink::NetMessageInfo desc;
-    desc.MakeNew();
-    auto* local = static_cast<uint8_t*>(manager->GetOwnPlayer());
-    if (!local || !PlayerSkater(local))
+    Hub* manager = net_link();
+    net::NetMessageInfo desc;
+    desc.make_new();
+    auto* local = static_cast<uint8_t*>(manager->get_own_player());
+    if (!local || !player_skater(local))
         return false;
     uint32_t color = 0; // (uninitialised in the original: without one, its slot decides - most likely team 3)
-    params->ReadHashValue(0u, &color, 0);
+    params->read_hash_value(0u, &color, 0);
     uint8_t request[2];
     request[1] = color == kBlue ? 1 : color == kRed ? 0 : color == kGreen ? 2 : 3;
-    request[0] = static_cast<uint8_t>(SkaterId(PlayerSkater(local)));
-    NetLink::AppHost* client = manager->m_clientApp;
-    if (FrameClock::GetTime() - LastTeamRequest() >= kJoinTeamInterval) {
-        LastTeamRequest() = FrameClock::GetTime();
-        desc.m_content = request;
-        desc.m_byteCount = 2;
-        desc.m_ident = kMsgJoinTeamRequest;
-        desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
-        desc.m_groupId = kGroupGame;
-        SendToServer(client, &desc);
+    request[0] = static_cast<uint8_t>(get_skater_id(player_skater(local)));
+    net::AppHost* client = manager->client_app_;
+    if (frame_clock::get_time() - last_team_request() >= kJoinTeamInterval) {
+        last_team_request() = frame_clock::get_time();
+        desc.content_ = request;
+        desc.byte_count_ = 2;
+        desc.ident_ = kMsgJoinTeamRequest;
+        desc.queue_ = net::NetMessageInfo::kLaneOrdered;
+        desc.group_id_ = kGroupGame;
+        send_to_server(client, &desc);
     }
     return true;
 }
 
 // 0x00538D70: IsHost - in a network game: on the server, host mode 0 (serving); on a client, the local player is the
 // server's.
-bool __cdecl CFunc_IsHost(CStruct*, CScript*)
+bool __cdecl cfunc_is_host(Struct*, Script*)
 {
-    Hub* manager = NetLink();
-    if (!manager->InNetGame())
+    Hub* manager = net_link();
+    if (!manager->in_net_game())
         return false;
-    if (manager->m_flagBits & kFlagsServer)
-        return manager->m_hostMode == 0;
-    void* local = manager->GetOwnPlayer();
-    return local && static_cast<PlayerRecord*>(local)->IsHostPlayer() != 0;
+    if (manager->flag_bits_ & kFlagsServer)
+        return manager->host_mode_ == 0;
+    void* local = manager->get_own_player();
+    return local && static_cast<PlayerRecord*>(local)->is_host_player() != 0;
 }
 
 // 0x00538DC0: AllPlayersAreReady - on the server, every player's connection is ready (+0x60 bit 0); true elsewhere.
-bool __cdecl CFunc_AllPlayersAreReady(CStruct*, CScript*)
+bool __cdecl cfunc_all_players_are_ready(Struct*, Script*)
 {
-    Hub* manager = NetLink();
-    if (!(manager->m_flagBits & kFlagsServer))
+    Hub* manager = net_link();
+    if (!(manager->flag_bits_ & kFlagsServer))
         return true;
-    for (MemSys::ListNode* node = FirstPlayerNode(manager); uint8_t* player = DataOf(node); node = NextNode(node)) {
-        if (!(Prop<uint8_t>(Prop<void*>(player, 0x18), 0x60) & 1))
+    for (memory::ListNode* node = first_player_node(manager); uint8_t* player = data_of(node); node = get_next_node(node)) {
+        if (!(prop<uint8_t>(prop<void*>(player, 0x18), 0x60) & 1))
             return false;
     }
     return true;
@@ -440,37 +440,37 @@ bool __cdecl CFunc_AllPlayersAreReady(CStruct*, CScript*)
 // 0x00538E70: CreatePlayerOptions index=<n> name=<string> - the index'th player (observers too), if its name is
 // `name` (case aside): marked (flags 0x400) and create_player_options_dialog {[profile, nick, allow_add_homie /
 // allow_remove_homie - on the internet, logged in to GameSpy, the player has a profile], name}.
-bool __cdecl CFunc_CreatePlayerOptions(CStruct* params, CScript*)
+bool __cdecl cfunc_create_player_options(Struct* params, Script*)
 {
-    Hub* manager = NetLink();
+    Hub* manager = net_link();
     int index = 0;
     const char* name = nullptr;
-    params->FetchIntValue(kIndex, &index, 0);
-    params->FetchText(kName, &name, 0);
-    MemSys::ListNode* node = FirstPlayerNode(manager);
-    uint8_t* player = DataOf(node);
+    params->fetch_int_value(kIndex, &index, 0);
+    params->fetch_text(kName, &name, 0);
+    memory::ListNode* node = first_player_node(manager);
+    uint8_t* player = data_of(node);
     if (!player)
         return true;
     while (index != 0) {
         --index;
-        node = NextNode(node);
-        player = DataOf(node);
+        node = get_next_node(node);
+        player = data_of(node);
         if (!player)
             return true;
     }
-    if (_stricmp(PlayerName(player), name) != 0)
+    if (_stricmp(player_name(player), name) != 0)
         return true;
-    Prop<uint32_t>(player, kPlayerFlags) |= kRemoveMark;
-    CStruct* dialog = NewParams();
-    int profile = Prop<int>(player, kProfileIdField);
-    if ((manager->m_flagBits & kFlagsInternet) && profile && MarkFriendOnline(manager)) {
-        dialog->PutInt(kProfile, Prop<int>(player, kProfileIdField));
-        dialog->AppendWord(kNick, PlayerName(player));
-        dialog->PutNameKey(0u, IsBuddy(manager, Prop<int>(player, kProfileIdField)) ? kAllowRemoveHomie : kAllowAddHomie);
+    prop<uint32_t>(player, kPlayerFlags) |= kRemoveMark;
+    Struct* dialog = new_params();
+    int profile = prop<int>(player, kProfileIdField);
+    if ((manager->flag_bits_ & kFlagsInternet) && profile && mark_friend_online(manager)) {
+        dialog->put_int(kProfile, prop<int>(player, kProfileIdField));
+        dialog->append_word(kNick, player_name(player));
+        dialog->put_name_key(0u, is_buddy(manager, prop<int>(player, kProfileIdField)) ? kAllowRemoveHomie : kAllowAddHomie);
     }
-    dialog->AppendWord(kName, Scripts::QBVAL_STRING, name);
-    Run(kCreatePlayerOptionsDialog, dialog);
-    DeleteParams(dialog);
+    dialog->append_word(kName, script::kQbvalString, name);
+    get_run(kCreatePlayerOptionsDialog, dialog);
+    delete_params(dialog);
     return true;
 }
 
@@ -478,91 +478,91 @@ bool __cdecl CFunc_CreatePlayerOptions(CStruct* params, CScript*)
 // theme_menu_add_item {text = its name, centered, id = 123456 + its place in the list, pad_choose_script =
 // choose_selected_player, rgba (grey; a buddy's red channel 0... - see below), unfocus_params {rgba},
 // pad_choose_params {index, name}}.
-bool __cdecl CFunc_FillPlayerListMenu(CStruct*, CScript*)
+bool __cdecl cfunc_fill_player_list_menu(Struct*, Script*)
 {
-    Hub* manager = NetLink();
-    MemSys::Hub* memory = MemSys::Hub::Pull();
-    memory->EnterHeapScope(memory->m_frontEndHeap);
+    Hub* manager = net_link();
+    memory::Hub* memory = memory::Hub::get_pull();
+    memory->enter_heap_scope(memory->front_end_heap_);
     int index = 0;
-    for (MemSys::ListNode* node = FirstPlayerNode(manager); uint8_t* player = DataOf(node); node = NextNode(node)) {
-        if (IsOwnPlayer(player)) {
+    for (memory::ListNode* node = first_player_node(manager); uint8_t* player = data_of(node); node = get_next_node(node)) {
+        if (is_own_player(player)) {
             ++index;
             continue;
         }
         // The colour: grey (128, 128, 128, 128); a GameSpy buddy's (128, 128, 0, 128); another logged-in player's
         // with a profile (0, 128, 0, 128).
-        Scripts::CArray* arrayMemory = Scripts::AllocScriptArray();
-        Scripts::CArray* rgba = arrayMemory ? arrayMemory->PrepareAll() : nullptr;
-        rgba->ConfigureSizeKind(4, Scripts::QBVAL_INTEGER);
+        script::Array* array_memory = script::alloc_script_array();
+        script::Array* rgba = array_memory ? array_memory->prepare_all() : nullptr;
+        rgba->configure_size_kind(4, script::kQbvalInteger);
         uint32_t blue;
-        int profile = Prop<int>(player, kProfileIdField);
-        if (profile && MarkFriendOnline(manager)) {
-            if (IsBuddy(manager, Prop<int>(player, kProfileIdField))) {
-                rgba->SetElement(0, 0x80);
-                rgba->SetElement(1, 0x80);
+        int profile = prop<int>(player, kProfileIdField);
+        if (profile && mark_friend_online(manager)) {
+            if (is_buddy(manager, prop<int>(player, kProfileIdField))) {
+                rgba->set_element(0, 0x80);
+                rgba->set_element(1, 0x80);
             } else {
-                rgba->SetElement(0, 0);
-                rgba->SetElement(1, 0x80);
+                rgba->set_element(0, 0);
+                rgba->set_element(1, 0x80);
             }
             blue = 0;
         } else {
-            rgba->SetElement(0, 0x80);
-            rgba->SetElement(1, 0x80);
+            rgba->set_element(0, 0x80);
+            rgba->set_element(1, 0x80);
             blue = 0x80;
         }
-        rgba->SetElement(2, blue);
-        rgba->SetElement(3, 0x80);
-        CStruct* item = NewParams();
-        item->AppendWord(kText, PlayerName(player));
-        item->PutNameKey(kCentered, kCentered);
-        item->PutNameKey(kId, static_cast<uint32_t>(index + kPlayerMenuIdBase));
-        item->PutNameKey(kPadChooseScript, kChooseSelectedPlayer);
-        CStruct* unfocus = NewParams();
-        unfocus->AppendArrayValue(kRgba, rgba);
-        item->AppendArrayValue(kRgba, rgba);
-        item->PutSubStruct(kUnfocusParams, unfocus);
-        CStruct* choose = NewParams();
-        choose->PutInt(kIndex, index);
-        choose->AppendWord(kName, PlayerName(player));
-        item->PutSubStruct(kPadChooseParams, choose);
-        Run(kThemeMenuAddItem, item);
-        DeleteParams(item);
-        DeleteParams(choose);
-        DeleteParams(unfocus);
+        rgba->set_element(2, blue);
+        rgba->set_element(3, 0x80);
+        Struct* item = new_params();
+        item->append_word(kText, player_name(player));
+        item->put_name_key(kCentered, kCentered);
+        item->put_name_key(kId, static_cast<uint32_t>(index + kPlayerMenuIdBase));
+        item->put_name_key(kPadChooseScript, kChooseSelectedPlayer);
+        Struct* unfocus = new_params();
+        unfocus->append_array_value(kRgba, rgba);
+        item->append_array_value(kRgba, rgba);
+        item->put_sub_struct(kUnfocusParams, unfocus);
+        Struct* choose = new_params();
+        choose->put_int(kIndex, index);
+        choose->append_word(kName, player_name(player));
+        item->put_sub_struct(kPadChooseParams, choose);
+        get_run(kThemeMenuAddItem, item);
+        delete_params(item);
+        delete_params(choose);
+        delete_params(unfocus);
         if (rgba) {
-            rgba->Clear();
-            Scripts::DeleteArray(rgba);
+            rgba->get_clear();
+            script::delete_array(rgba);
         }
         ++index;
     }
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    memory::Hub::get_pull()->leave_heap_scope();
     return true;
 }
 
 // 0x00539470: RemovePlayer - a jump to CreatePlayerOptions (the same command under a second name).
-bool __cdecl CFunc_RemovePlayer(CStruct* params, CScript* script) { return CFunc_CreatePlayerOptions(params, script); }
+bool __cdecl cfunc_remove_player(Struct* params, Script* script) { return cfunc_create_player_options(params, script); }
 
 // 0x00539480: CancelRemovePlayer - every player's (no observers) removal mark (flags 0x400) cleared.
-bool __cdecl CFunc_CancelRemovePlayer(CStruct*, CScript*)
+bool __cdecl cfunc_cancel_remove_player(Struct*, Script*)
 {
-    Hub* manager = NetLink();
+    Hub* manager = net_link();
     PlayerSearch search;
-    for (auto* player = static_cast<uint8_t*>(manager->BeginPlayerWalk(&search, false)); player;
-         player = static_cast<uint8_t*>(manager->StepPlayerWalk(&search, false)))
-        Prop<uint32_t>(player, kPlayerFlags) &= ~kRemoveMark;
+    for (auto* player = static_cast<uint8_t*>(manager->begin_player_walk(&search, false)); player;
+         player = static_cast<uint8_t*>(manager->step_player_walk(&search, false)))
+        prop<uint32_t>(player, kPlayerFlags) &= ~kRemoveMark;
     return true;
 }
 
 // 0x00539570: ToggleProSet bit=<n> param_id=<checksum> - Hub::ToggleProSet.
-bool __cdecl CFunc_ToggleProSet(CStruct* params, CScript*)
+bool __cdecl cfunc_toggle_pro_set(Struct* params, Script*)
 {
-    Hub* manager = NetLink();
+    Hub* manager = net_link();
     int bit;
     uint32_t id;
-    params->FetchIntValue(kBit, &bit, 1);
-    params->ReadHashValue(kParamId, &id, 1);
-    manager->ToggleProSet(static_cast<uint8_t>(bit), id);
+    params->fetch_int_value(kBit, &bit, 1);
+    params->read_hash_value(kParamId, &id, 1);
+    manager->toggle_pro_set(static_cast<uint8_t>(bit), id);
     return true;
 }
 
-} // namespace OnlinePlay
+} // namespace online

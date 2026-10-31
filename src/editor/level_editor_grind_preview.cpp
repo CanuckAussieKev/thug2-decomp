@@ -16,11 +16,11 @@
 #include "engine/objects/rail_manager.h"
 #include "game/skate/skate_module.h"
 
-namespace MenuSystem::LevelEditor::GrindPreview {
+namespace frontend::level_editor::grind_preview {
 
 // --- the pieces -------------------------------------------------------------------------------------------------
 
-Rail RailOf(const Graph& graph, int start)
+Rail rail_of(const Graph& graph, int start)
 {
     Rail rail;
     if (start < 0 || start >= graph.count)
@@ -57,7 +57,7 @@ Rail RailOf(const Graph& graph, int start)
 
 namespace {
 
-std::unordered_map<int, int> Degrees(const Rail& rail)
+std::unordered_map<int, int> get_degrees(const Rail& rail)
 {
     std::unordered_map<int, int> degree;
     for (int p : rail.points)
@@ -71,9 +71,9 @@ std::unordered_map<int, int> Degrees(const Rail& rail)
 
 } // namespace
 
-std::vector<int> Ends(const Rail& rail)
+std::vector<int> get_ends(const Rail& rail)
 {
-    std::unordered_map<int, int> degree = Degrees(rail);
+    std::unordered_map<int, int> degree = get_degrees(rail);
     std::vector<int> ends;
     for (int p : rail.points)
         if (degree[p] == 1)
@@ -81,9 +81,9 @@ std::vector<int> Ends(const Rail& rail)
     return ends;
 }
 
-std::vector<int> Branches(const Rail& rail)
+std::vector<int> get_branches(const Rail& rail)
 {
-    std::unordered_map<int, int> degree = Degrees(rail);
+    std::unordered_map<int, int> degree = get_degrees(rail);
     std::vector<int> branches;
     for (int p : rail.points)
         if (degree[p] >= 3)
@@ -91,11 +91,11 @@ std::vector<int> Branches(const Rail& rail)
     return branches;
 }
 
-std::vector<V3> ChevronTips(V3 a, V3 b, float spacing)
+std::vector<V3> chevron_tips(V3 a, V3 b, float spacing)
 {
     std::vector<V3> tips;
     V3 d = b - a;
-    float length = std::sqrt(Dot(d, d));
+    float length = std::sqrt(get_dot(d, d));
     if (length < 1e-3f || !(spacing > 0.0f))
         return tips;
     int count = std::max(1, static_cast<int>(length / spacing));
@@ -106,7 +106,7 @@ std::vector<V3> ChevronTips(V3 a, V3 b, float spacing)
     return tips;
 }
 
-float LenOf(const Rail& rail, const std::vector<V3>& positions)
+float len_of(const Rail& rail, const std::vector<V3>& positions)
 {
     float total = 0.0f;
     for (const auto& link : rail.links) {
@@ -114,7 +114,7 @@ float LenOf(const Rail& rail, const std::vector<V3>& positions)
             link.second >= static_cast<int>(positions.size()))
             continue;
         V3 d = positions[link.second] - positions[link.first];
-        total += std::sqrt(Dot(d, d));
+        total += std::sqrt(get_dot(d, d));
     }
     return total;
 }
@@ -125,107 +125,107 @@ namespace {
 
 // The rail manager (the skate module's +0x24 - as level_editor_chains.cpp reads it): the grindable points where they
 // are now; not one on an object.
-GameObjects::CGrindRailHub* Rails()
+objects::GrindRailHub* get_rails()
 {
-    uint8_t* skate = reinterpret_cast<uint8_t*>(GameModules::g_skateModule);
-    auto* manager = skate ? *reinterpret_cast<GameObjects::CGrindRailHub**>(skate + 0x24) : nullptr;
-    return manager && !manager->m_onObject && manager->m_nodes ? manager : nullptr;
+    uint8_t* skate = reinterpret_cast<uint8_t*>(modules::g_skate_module);
+    auto* manager = skate ? *reinterpret_cast<objects::GrindRailHub**>(skate + 0x24) : nullptr;
+    return manager && !manager->on_object_ && manager->nodes_ ? manager : nullptr;
 }
 
 std::string g_describe;
 
 // (the terrain's name, asked once per rail shown)
-uint32_t g_terrainFor;
+uint32_t g_terrain_for;
 std::string g_terrain;
 
 } // namespace
 
-void AddOverlay(const Overlays::Painter& painter, int hovered, int selected)
+void add_overlay(const overlays::Painter& painter, int hovered, int selected)
 {
     g_describe.clear();
-    if (!Overlays::Shown(Overlays::kGrindPreview))
+    if (!overlays::get_shown(overlays::kGrindPreview))
         return;
-    const std::vector<Nodes::Elem>& all = Nodes::All();
-    auto railNode = [&](int index) {
-        return index >= 0 && index < static_cast<int>(all.size()) && all[index].family == Nodes::Family::Rail;
+    const std::vector<nodes::Elem>& all = nodes::get_all();
+    auto rail_node = [&](int index) {
+        return index >= 0 && index < static_cast<int>(all.size()) && all[index].family == nodes::Family::kRail;
     };
-    int index = railNode(hovered) ? hovered : railNode(selected) ? selected : -1;
-    GameObjects::CGrindRailHub* rails = Rails();
+    int index = rail_node(hovered) ? hovered : rail_node(selected) ? selected : -1;
+    objects::GrindRailHub* rails = get_rails();
     if (index < 0 || !rails)
         return;
     uint32_t name = all[index].name;
     // The rail manager's graph (a point to its next), and the point named.
     Graph graph;
-    graph.count = rails->m_num;
+    graph.count = rails->num_;
     std::vector<V3> positions(graph.count);
     int start = -1;
-    for (int i = 0; i < rails->m_num; ++i) {
-        const GameObjects::CGrindPoint& node = rails->m_nodes[i];
-        positions[i] = {node.m_atPoint.x, node.m_atPoint.y, node.m_atPoint.z};
-        if (node.m_label == name && !(node.m_flagBits & GameObjects::RAIL_FLAG_CLIMBING))
+    for (int i = 0; i < rails->num_; ++i) {
+        const objects::GrindPoint& node = rails->nodes_[i];
+        positions[i] = {node.at_point_.x, node.at_point_.y, node.at_point_.z};
+        if (node.label_ == name && !(node.flag_bits_ & objects::kRailFlagClimbing))
             start = i;
-        if (node.m_succ && !(node.m_flagBits & GameObjects::RAIL_FLAG_CLIMBING)) {
-            int next = static_cast<int>(node.m_succ - rails->m_nodes);
-            if (next >= 0 && next < rails->m_num)
+        if (node.succ_ && !(node.flag_bits_ & objects::kRailFlagClimbing)) {
+            int next = static_cast<int>(node.succ_ - rails->nodes_);
+            if (next >= 0 && next < rails->num_)
                 graph.links.push_back({i, next});
         }
     }
     if (start < 0)
         return;
-    Rail rail = RailOf(graph, start);
-    bool active = (rails->m_nodes[start].m_flagBits & GameObjects::RAIL_FLAG_ACTIVE) != 0;
+    Rail rail = rail_of(graph, start);
+    bool active = (rails->nodes_[start].flag_bits_ & objects::kRailFlagActive) != 0;
     // The segments with their direction; the points; the ends; branches.
     constexpr uint32_t kSegment = 0xF0FFFFFF, kChevron = 0xFF40E0FF, kInactive = 0xA0909090;
-    uint32_t segmentColour = active ? kSegment : kInactive;
+    uint32_t segment_colour = active ? kSegment : kInactive;
     for (const auto& link : rail.links) {
         V3 a = positions[link.first], b = positions[link.second];
-        painter.Seg(a, b, segmentColour, 3.0f);
+        painter.get_seg(a, b, segment_colour, 3.0f);
         V3 d = b - a;
-        float length = std::sqrt(Dot(d, d));
+        float length = std::sqrt(get_dot(d, d));
         if (length < 1e-3f)
             continue;
         V3 along = d * (1.0f / length);
         // (a chevron: two short strokes back from the tip, either side across the rail - in the horizontal plane, or
         // about x for a vertical rail)
-        V3 side = Perpendicular(along, {0.0f, 1.0f, 0.0f});
-        if (Dot(side, side) < 1e-4f)
+        V3 side = perpendicular(along, {0.0f, 1.0f, 0.0f});
+        if (get_dot(side, side) < 1e-4f)
             side = {1.0f, 0.0f, 0.0f};
-        side = MakeUnit(side);
-        float size = std::clamp(painter.SpanTo(a + d * 0.5f) * 0.012f, 4.0f, 24.0f);
-        for (V3 tip : ChevronTips(a, b, std::max(kChevronSpacing, size * 4.0f))) {
-            painter.Seg(tip, tip - along * size + side * size * 0.6f, kChevron, 2.0f);
-            painter.Seg(tip, tip - along * size - side * size * 0.6f, kChevron, 2.0f);
+        side = make_unit(side);
+        float size = std::clamp(painter.span_to(a + d * 0.5f) * 0.012f, 4.0f, 24.0f);
+        for (V3 tip : chevron_tips(a, b, std::max(kChevronSpacing, size * 4.0f))) {
+            painter.get_seg(tip, tip - along * size + side * size * 0.6f, kChevron, 2.0f);
+            painter.get_seg(tip, tip - along * size - side * size * 0.6f, kChevron, 2.0f);
         }
     }
     for (int p : rail.points)
-        painter.Dot(positions[p], p == start ? 6.0f : 3.5f, p == start ? 0xFFFFF060 : 0xFFE0F0FF);
-    std::vector<int> ends = Ends(rail);
+        painter.get_dot(positions[p], p == start ? 6.0f : 3.5f, p == start ? 0xFFFFF060 : 0xFFE0F0FF);
+    std::vector<int> ends = get_ends(rail);
     for (int e : ends)
-        painter.Dot(positions[e], 8.0f, 0xFFFFFFFF, false);
-    for (int b : Branches(rail)) {
-        painter.Dot(positions[b], 9.0f, 0xFFFFC040, false);
-        painter.Text(positions[b], 0xFFFFC040, "branch");
+        painter.get_dot(positions[e], 8.0f, 0xFFFFFFFF, false);
+    for (int b : get_branches(rail)) {
+        painter.get_dot(positions[b], 9.0f, 0xFFFFC040, false);
+        painter.text_tools(positions[b], 0xFFFFC040, "branch");
     }
     // Speed-ups on it (the level's and the editor's).
-    int speedUps = 0;
+    int speed_ups = 0;
     V3 near = positions[start];
-    for (const Chains::SpeedSegment& s : Chains::SpeedSegments(near, 50000.0f)) {
+    for (const chains::SpeedSegment& s : chains::speed_segments(near, 50000.0f)) {
         for (const auto& link : rail.links) {
             V3 da = s.a - positions[link.first], db = s.b - positions[link.second];
-            if (Dot(da, da) > 1.0f || Dot(db, db) > 1.0f)
+            if (get_dot(da, da) > 1.0f || get_dot(db, db) > 1.0f)
                 continue;
-            ++speedUps;
-            painter.Seg(s.a, s.b, 0xFF40FF70, 5.0f);
+            ++speed_ups;
+            painter.get_seg(s.a, s.b, 0xFF40FF70, 5.0f);
             char text[48];
             std::snprintf(text, sizeof(text), "speed-up %.1f%%%s", s.rate * 100.0f, s.level ? " (level)" : "");
-            painter.Text((s.a + s.b) * 0.5f, 0xFF40FF70, text);
+            painter.text_tools((s.a + s.b) * 0.5f, 0xFF40FF70, text);
             break;
         }
     }
     // Transfers: other rails' ends near this one's ends.
-    std::vector<uint8_t> inRail(graph.count, 0);
+    std::vector<uint8_t> in_rail(graph.count, 0);
     for (int p : rail.points)
-        inRail[p] = 1;
+        in_rail[p] = 1;
     std::vector<int> degree(graph.count, 0);
     for (const auto& link : graph.links) {
         ++degree[link.first];
@@ -234,42 +234,42 @@ void AddOverlay(const Overlays::Painter& painter, int hovered, int selected)
     int transfers = 0;
     for (int e : ends) {
         for (int q = 0; q < graph.count && transfers < 24; ++q) {
-            if (inRail[q] || degree[q] != 1 || (rails->m_nodes[q].m_flagBits & GameObjects::RAIL_FLAG_CLIMBING))
+            if (in_rail[q] || degree[q] != 1 || (rails->nodes_[q].flag_bits_ & objects::kRailFlagClimbing))
                 continue;
             V3 d = positions[q] - positions[e];
-            float distance = std::sqrt(Dot(d, d));
+            float distance = std::sqrt(get_dot(d, d));
             if (distance > kTransferReach)
                 continue;
             ++transfers;
-            painter.Seg(positions[e], positions[q], 0xC0FF80FF, 1.5f);
-            painter.Dot(positions[q], 6.0f, 0xFFFF80FF, false);
+            painter.get_seg(positions[e], positions[q], 0xC0FF80FF, 1.5f);
+            painter.get_dot(positions[q], 6.0f, 0xFFFF80FF, false);
             char text[48];
             std::snprintf(text, sizeof(text), "transfer %.0f", distance);
-            painter.Text((positions[e] + positions[q]) * 0.5f, 0xFFFF80FF, text);
+            painter.text_tools((positions[e] + positions[q]) * 0.5f, 0xFFFF80FF, text);
         }
     }
     // The label at the point: the rail, its size, terrain, speed-ups, connections.
-    if (g_terrainFor != name) {
-        g_terrainFor = name;
-        Chains::View view = Chains::ViewOf(name);
+    if (g_terrain_for != name) {
+        g_terrain_for = name;
+        chains::View view = chains::view_of(name);
         g_terrain = view.terrain >= 0 && view.terrain < static_cast<int>(view.terrains.size()) ? view.terrains[view.terrain]
                                                                                                  : std::string("terrain ?");
     }
     char text[256];
-    std::snprintf(text, sizeof(text), "%s: %d points, %d segments, %.0f long, %s%s%s%s", Nodes::Caption(name).c_str(),
-                  static_cast<int>(rail.points.size()), static_cast<int>(rail.links.size()), LenOf(rail, positions),
-                  g_terrain.c_str(), active ? "" : ", off", speedUps ? ", speed-ups" : "",
+    std::snprintf(text, sizeof(text), "%s: %d points, %d segments, %.0f long, %s%s%s%s", nodes::caption(name).c_str(),
+                  static_cast<int>(rail.points.size()), static_cast<int>(rail.links.size()), len_of(rail, positions),
+                  g_terrain.c_str(), active ? "" : ", off", speed_ups ? ", speed-ups" : "",
                   rail.links.empty() ? ", a single point (not grindable)" : "");
-    painter.Text(positions[start], 0xFFFFF060, text, 10.0f, -24.0f);
+    painter.text_tools(positions[start], 0xFFFFF060, text, 10.0f, -24.0f);
     g_describe = text;
-    if (transfers || !Branches(rail).empty()) {
+    if (transfers || !get_branches(rail).empty()) {
         std::snprintf(text, sizeof(text), "%d transfers within %.0f, %d branches", transfers, kTransferReach,
-                      static_cast<int>(Branches(rail).size()));
-        painter.Text(positions[start], 0xFFFF80FF, text, 10.0f, -8.0f);
+                      static_cast<int>(get_branches(rail).size()));
+        painter.text_tools(positions[start], 0xFFFF80FF, text, 10.0f, -8.0f);
         g_describe += std::string("; ") + text;
     }
 }
 
-std::string Describe() { return g_describe; }
+std::string describe() { return g_describe; }
 
-} // namespace MenuSystem::LevelEditor::GrindPreview
+} // namespace MenuSystem::level_editor::grind_preview

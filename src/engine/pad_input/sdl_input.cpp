@@ -26,21 +26,21 @@
 #include "platform/sdl_events.h"
 #include "platform/platform_input.h"
 
-namespace Sio {
+namespace sio {
 
-bool g_keyboardOnScreen;
-bool g_inMenuFlag;
+bool g_keyboard_on_screen;
+bool g_in_menu_flag;
 
 namespace {
 
-using DebugLog::StageMap;
+using debug_log::StageMap;
 
 // --- settings -----------------------------------------------------------------------------------------------
 
 struct KeyBinds {
     SDL_Scancode menu;
-    SDL_Scancode cameraToggle;
-    SDL_Scancode cameraSwivelLock;
+    SDL_Scancode camera_toggle_;
+    SDL_Scancode camera_swivel_lock_;
     SDL_Scancode focus;
     SDL_Scancode caveman;
 
@@ -49,10 +49,10 @@ struct KeyBinds {
     SDL_Scancode ollie;
     SDL_Scancode kick;
 
-    SDL_Scancode leftSpin;
-    SDL_Scancode rightSpin;
+    SDL_Scancode left_spin_;
+    SDL_Scancode right_spin_;
     SDL_Scancode nollie;
-    SDL_Scancode switchRevert;
+    SDL_Scancode switch_revert_;
 
     SDL_Scancode right;
     SDL_Scancode left;
@@ -60,15 +60,15 @@ struct KeyBinds {
     SDL_Scancode down;
     SDL_Scancode feeble;
 
-    SDL_Scancode cameraRight;
-    SDL_Scancode cameraLeft;
-    SDL_Scancode cameraUp;
-    SDL_Scancode cameraDown;
+    SDL_Scancode camera_right_;
+    SDL_Scancode camera_left_;
+    SDL_Scancode camera_up_;
+    SDL_Scancode camera_down_;
 
-    SDL_Scancode itemRight;
-    SDL_Scancode itemLeft;
-    SDL_Scancode itemUp;
-    SDL_Scancode itemDown;
+    SDL_Scancode item_right_;
+    SDL_Scancode item_left_;
+    SDL_Scancode item_up_;
+    SDL_Scancode item_down_;
 };
 
 // SDL_GameControllerButton, plus the two triggers.
@@ -96,8 +96,8 @@ enum PadStick : int { kStickUnbound = -1, kStickLeft = 0, kStickRight = 1 };
 
 struct PadBinds {
     PadButton menu;
-    PadButton cameraToggle;
-    PadButton cameraSwivelLock;
+    PadButton camera_toggle_;
+    PadButton camera_swivel_lock_;
     PadButton focus;
     PadButton caveman;
 
@@ -106,10 +106,10 @@ struct PadBinds {
     PadButton ollie;
     PadButton kick;
 
-    PadButton leftSpin;
-    PadButton rightSpin;
+    PadButton left_spin_;
+    PadButton right_spin_;
     PadButton nollie;
-    PadButton switchRevert;
+    PadButton switch_revert_;
 
     PadButton right;
     PadButton left;
@@ -123,52 +123,52 @@ struct PadBinds {
 InputSettings s_settings;
 KeyBinds s_keys;
 PadBinds s_pad;
-bool s_usingKeyboard = true;
+bool s_using_keyboard = true;
 
 // --- the game's state ---------------------------------------------------------------------------------------
 
 // The on-screen keyboard (text entry) is up.
-bool KeyboardOnScreen() { return g_keyboardOnScreen != 0; }
-uint8_t InMenuFlag() { return g_inMenuFlag; }
+bool get_keyboard_on_screen() { return g_keyboard_on_screen != 0; }
+uint8_t in_menu_flag() { return g_in_menu_flag; }
 
 // --- controllers and players ----------------------------------------------------------------------------------
 
 // The open controllers (a list that only grows; removed ones shift the rest down).
-int s_controllerCount;
-int s_controllerCapacity;
+int s_controller_count;
+int s_controller_capacity;
 SDL_GameController** s_controllers;
 
 struct PlayerSlot {
     SDL_GameController* controller;
-    uint8_t lockedOut; // after joining: locked out until all of its buttons are up (counts buttons down)
+    uint8_t locked_out_; // after joining: locked out until all of its buttons are up (counts buttons down)
 };
 constexpr int kMaxPlayers = 2;
-uint8_t s_seatsInUse = 0;
+uint8_t s_seats_in_use = 0;
 PlayerSlot s_players[kMaxPlayers] = {{nullptr, 0}, {nullptr, 0}};
 
-void AttachController(int index)
+void attach_controller(int index)
 {
-    DebugLog::Printf(StageMap::kInfo, "Detected controller \"%s\"\n", SDL_GameControllerNameForIndex(index));
+    debug_log::printf(StageMap::kInfo, "Detected controller \"%s\"\n", SDL_GameControllerNameForIndex(index));
     SDL_GameController* controller = SDL_GameControllerOpen(index);
     SDL_GameControllerSetPlayerIndex(controller, -1);
     if (!controller)
         return;
-    if (s_controllerCount == s_controllerCapacity) {
-        int capacity = s_controllerCapacity + 1;
+    if (s_controller_count == s_controller_capacity) {
+        int capacity = s_controller_capacity + 1;
         auto* grown = static_cast<SDL_GameController**>(
             std::realloc(s_controllers, sizeof(SDL_GameController*) * capacity));
         if (!grown)
             return;
-        s_controllerCapacity = capacity;
+        s_controller_capacity = capacity;
         s_controllers = grown;
     }
-    s_controllers[s_controllerCount++] = controller;
+    s_controllers[s_controller_count++] = controller;
 }
 
-void EnrollPlayer(SDL_GameController* controller)
+void enroll_player(SDL_GameController* controller)
 {
-    if (s_seatsInUse >= 2) {
-        DebugLog::Printf(StageMap::kInfo, "Already two players, not adding\n");
+    if (s_seats_in_use >= 2) {
+        debug_log::printf(StageMap::kInfo, "Already two players, not adding\n");
         return;
     }
     int slot = 0;
@@ -178,73 +178,73 @@ void EnrollPlayer(SDL_GameController* controller)
         return;
     SDL_GameControllerSetPlayerIndex(controller, slot);
     s_players[slot].controller = controller;
-    if (s_seatsInUse > 0) {
-        s_players[slot].lockedOut = 1;
+    if (s_seats_in_use > 0) {
+        s_players[slot].locked_out_ = 1;
         SDL_JoystickRumble(SDL_GameControllerGetJoystick(controller), 0x7FFF, 0x7FFF, 250);
     }
-    ++s_seatsInUse;
-    DebugLog::Printf(StageMap::kInfo, "Added player %d: %s\n", slot + 1, SDL_GameControllerName(controller));
+    ++s_seats_in_use;
+    debug_log::printf(StageMap::kInfo, "Added player %d: %s\n", slot + 1, SDL_GameControllerName(controller));
 }
 
-void PrunePlayers()
+void prune_players()
 {
     for (int i = 0; i < kMaxPlayers; ++i) {
         if (s_players[i].controller && !SDL_GameControllerGetAttached(s_players[i].controller)) {
-            DebugLog::Printf(StageMap::kInfo, "Pruned player %d\n", i + 1);
+            debug_log::printf(StageMap::kInfo, "Pruned player %d\n", i + 1);
             s_players[i].controller = nullptr;
-            --s_seatsInUse;
-            DebugLog::Printf(StageMap::kInfo, "Remaining players: %d\n", s_seatsInUse);
+            --s_seats_in_use;
+            debug_log::printf(StageMap::kInfo, "Remaining players: %d\n", s_seats_in_use);
         }
     }
 }
 
-void DetachAnimDriver(SDL_GameController* controller)
+void detach_anim_driver(SDL_GameController* controller)
 {
-    DebugLog::Printf(StageMap::kInfo, "Controller \"%s\" disconnected\n", SDL_GameControllerName(controller));
+    debug_log::printf(StageMap::kInfo, "Controller \"%s\" disconnected\n", SDL_GameControllerName(controller));
     int i = 0;
-    while (i < s_controllerCount && s_controllers[i] != controller)
+    while (i < s_controller_count && s_controllers[i] != controller)
         ++i;
     // (as in PartyMod: when it isn't found this looks one past the last entry, which can be a stale copy)
     if (s_controllers[i] != controller) {
-        DebugLog::Printf(StageMap::kWarn, "Did not find disconnected controller in list\n");
+        debug_log::printf(StageMap::kWarn, "Did not find disconnected controller in list\n");
         return;
     }
     SDL_GameControllerClose(controller);
     int player = SDL_GameControllerGetPlayerIndex(controller);
     if (player != -1) {
-        DebugLog::Printf(StageMap::kInfo, "Removed player %d\n", player + 1);
+        debug_log::printf(StageMap::kInfo, "Removed player %d\n", player + 1);
         s_players[player].controller = nullptr;
-        --s_seatsInUse;
+        --s_seats_in_use;
     }
-    PrunePlayers();
-    for (; i < s_controllerCount - 1; ++i)
+    prune_players();
+    for (; i < s_controller_count - 1; ++i)
         s_controllers[i] = s_controllers[i + 1];
-    --s_controllerCount;
+    --s_controller_count;
 }
 
-void InitControllers()
+void init_controllers()
 {
-    DebugLog::Printf(StageMap::kInfo, "Initializing Controller Input\n");
-    s_controllerCount = 0;
-    s_controllerCapacity = 1;
-    s_controllers = static_cast<SDL_GameController**>(std::malloc(sizeof(SDL_GameController*) * s_controllerCapacity));
+    debug_log::printf(StageMap::kInfo, "Initializing Controller Input\n");
+    s_controller_count = 0;
+    s_controller_capacity = 1;
+    s_controllers = static_cast<SDL_GameController**>(std::malloc(sizeof(SDL_GameController*) * s_controller_capacity));
     for (int i = 0; i < SDL_NumJoysticks(); ++i) {
         if (SDL_IsGameController(i))
-            AttachController(i);
+            attach_controller(i);
     }
 }
 
 // --- reading a controller -------------------------------------------------------------------------------------
 
 // How far a stick axis (0-255, 128 the centre) is from the centre.
-uint8_t StickDeflection(uint8_t value)
+uint8_t stick_deflection(uint8_t value)
 {
     if (value > 127)
         return value & 0x7F;
     return ~value & 0x7F;
 }
 
-uint8_t IsControllerButtonHeld(SDL_GameController* controller, PadButton button)
+uint8_t is_controller_button_held(SDL_GameController* controller, PadButton button)
 {
     if (button == kLeftTrigger) {
         auto pressure = static_cast<uint8_t>(SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT) >> 7);
@@ -258,51 +258,51 @@ uint8_t IsControllerButtonHeld(SDL_GameController* controller, PadButton button)
 }
 
 // A stick into (x, y), where it's further from the centre than what's there (the keyboard's).
-void ReadStick(SDL_GameController* controller, PadStick stick, uint8_t* x, uint8_t* y)
+void read_stick(SDL_GameController* controller, PadStick stick, uint8_t* x, uint8_t* y)
 {
-    uint8_t padAxisX;
-    uint8_t stickY;
+    uint8_t pad_axis_x;
+    uint8_t stick_y;
     if (stick == kStickLeft) {
-        padAxisX = static_cast<uint8_t>((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX) >> 8) + 128);
-        stickY = static_cast<uint8_t>((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY) >> 8) + 128);
+        pad_axis_x = static_cast<uint8_t>((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX) >> 8) + 128);
+        stick_y = static_cast<uint8_t>((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY) >> 8) + 128);
     } else if (stick == kStickRight) {
-        padAxisX = static_cast<uint8_t>((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTX) >> 8) + 128);
-        stickY = static_cast<uint8_t>((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTY) >> 8) + 128);
+        pad_axis_x = static_cast<uint8_t>((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTX) >> 8) + 128);
+        stick_y = static_cast<uint8_t>((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTY) >> 8) + 128);
     } else {
-        padAxisX = 0x80;
-        stickY = 0x80;
+        pad_axis_x = 0x80;
+        stick_y = 0x80;
     }
-    if (StickDeflection(padAxisX) > StickDeflection(*x))
-        *x = padAxisX;
-    if (StickDeflection(stickY) > StickDeflection(*y))
-        *y = stickY;
+    if (stick_deflection(pad_axis_x) > stick_deflection(*x))
+        *x = pad_axis_x;
+    if (stick_deflection(stick_y) > stick_deflection(*y))
+        *y = stick_y;
 }
 
 // Whether the park editor is up: the screen element 0x5999551E exists (the screen element manager 0x00701440's
-// FetchPart 0x004AAE20 - it returns a smart pointer, released by its destructor).
-uint8_t InParkEditor()
+// fetch_part 0x004AAE20 - it returns a smart pointer, released by its destructor).
+uint8_t in_park_editor()
 {
-    MenuSystem::CUiTree* manager = MenuSystem::CUiTree::Sole();
+    frontend::UiTree* manager = frontend::UiTree::sole();
     if (!manager)
         return 0;
-    MenuSystem::ElementPtr element;
-    return manager->FetchPart(&element, 0x5999551E, 0)->Pull() ? 1 : 0;
+    frontend::ElementPtr element;
+    return manager->fetch_part(&element, 0x5999551E, 0)->get_pull() ? 1 : 0;
 }
 
-uint8_t s_inMenu = 0;
-uint8_t s_editingPark = 0;
+uint8_t s_in_menu = 0;
+uint8_t s_editing_park = 0;
 
 // Not original (PartyMod reads a Caveman binding and never uses it) - the Caveman key / button steps off the board
 // and back on, pressing what the game's SwitchControl_Trigger (game\rider\switch_control.qb) waits for in the
-// trigger set it reads (Skater::Component::PlatformStructure): with UsePS2Controls the PS2 one, L1 and R1 together
+// trigger set it reads (Skater::Component::platform_structure): with UsePS2Controls the PS2 one, L1 and R1 together
 // (PressTwoAnyOrder, 400 ms); without, the Xbox one, black (the original PC game's Key Pad 1 / spin left key). Not in a
 // menu or while editing a park, where those mean something else.
 // Original behaviour (PartyMod v1.0.4): the binding is read, nothing presses it.
-void PressCaveman(uint8_t* data)
+void press_caveman(uint8_t* data)
 {
-    if (s_inMenu || s_editingPark)
+    if (s_in_menu || s_editing_park)
         return;
-    if (!s_settings.ps2Controls) {
+    if (!s_settings.ps2_controls_) {
         data[20] |= 1 << 0; // black
         return;
     }
@@ -314,100 +314,100 @@ void PressCaveman(uint8_t* data)
 // The control data's bytes: 2 and 3 the button bits (set while down here; inverted at the end - the game's
 // format has a bit set while a button is up), 4-7 the sticks, 8-19 the pressures, 20 the Xbox's black (bit 0)
 // and white (bit 1).
-void PollController(InputPort* device, SDL_GameController* controller)
+void poll_controller(InputPort* device, SDL_GameController* controller)
 {
     if (!SDL_GameControllerGetAttached(controller))
         return;
-    uint8_t* data = device->m_controlData;
-    device->m_isUsable = 1;
-    device->m_isConnected = true;
+    uint8_t* data = device->control_data_;
+    device->is_usable_ = 1;
+    device->is_connected_ = true;
 
-    if (IsControllerButtonHeld(controller, s_pad.menu))
+    if (is_controller_button_held(controller, s_pad.menu))
         data[2] |= 1 << 3;
-    if (IsControllerButtonHeld(controller, s_pad.cameraToggle))
+    if (is_controller_button_held(controller, s_pad.camera_toggle_))
         data[2] |= 1 << 0;
-    if (IsControllerButtonHeld(controller, s_pad.cameraSwivelLock))
+    if (is_controller_button_held(controller, s_pad.camera_swivel_lock_))
         data[2] |= 1 << 2;
-    if (IsControllerButtonHeld(controller, s_pad.focus))
+    if (is_controller_button_held(controller, s_pad.focus))
         data[2] |= 1 << 1;
 
-    if (IsControllerButtonHeld(controller, s_pad.grind)) {
+    if (is_controller_button_held(controller, s_pad.grind)) {
         data[3] |= 1 << 4;
         data[12] = 0xFF;
     }
-    if (IsControllerButtonHeld(controller, s_pad.grab)) {
+    if (is_controller_button_held(controller, s_pad.grab)) {
         data[3] |= 1 << 5;
         data[13] = 0xFF;
     }
-    if (IsControllerButtonHeld(controller, s_pad.ollie)) {
+    if (is_controller_button_held(controller, s_pad.ollie)) {
         data[3] |= 1 << 6;
         data[14] = 0xFF;
     }
-    if (IsControllerButtonHeld(controller, s_pad.kick)) {
+    if (is_controller_button_held(controller, s_pad.kick)) {
         data[3] |= 1 << 7;
         data[15] = 0xFF;
     }
 
     // the shoulders
-    if (s_settings.ps2Controls) {
-        if (IsControllerButtonHeld(controller, s_pad.leftSpin)) {
+    if (s_settings.ps2_controls_) {
+        if (is_controller_button_held(controller, s_pad.left_spin_)) {
             data[3] |= 1 << 2;
             data[16] = 0xFF;
         }
-        if (IsControllerButtonHeld(controller, s_pad.rightSpin)) {
+        if (is_controller_button_held(controller, s_pad.right_spin_)) {
             data[3] |= 1 << 3;
             data[17] = 0xFF;
-            if (s_editingPark)
+            if (s_editing_park)
                 data[20] |= 1 << 0; // black, editing a park
         }
-        if (IsControllerButtonHeld(controller, s_pad.nollie)) {
+        if (is_controller_button_held(controller, s_pad.nollie)) {
             data[3] |= 1 << 0;
             data[18] = 0xFF;
-            if (s_inMenu)
+            if (s_in_menu)
                 data[20] |= 1 << 1; // white, in a menu
         }
-        if (IsControllerButtonHeld(controller, s_pad.switchRevert)) {
+        if (is_controller_button_held(controller, s_pad.switch_revert_)) {
             data[3] |= 1 << 1;
             data[19] = 0xFF;
-            if (s_inMenu)
+            if (s_in_menu)
                 data[20] |= 1 << 0; // black, in a menu
-            else if (s_editingPark)
+            else if (s_editing_park)
                 data[20] |= 1 << 1; // white, editing a park
         }
-    } else if (s_editingPark && !KeyboardOnScreen()) {
+    } else if (s_editing_park && !get_keyboard_on_screen()) {
         // editing a park: the right trigger is L1
-        if (IsControllerButtonHeld(controller, s_pad.switchRevert)) {
+        if (is_controller_button_held(controller, s_pad.switch_revert_)) {
             data[3] |= 1 << 2;
             data[16] = 0xFF;
         }
-        if (IsControllerButtonHeld(controller, s_pad.nollie)) {
+        if (is_controller_button_held(controller, s_pad.nollie)) {
             data[3] |= 1 << 0;
             data[18] = 0xFF;
         }
-        if (IsControllerButtonHeld(controller, s_pad.leftSpin))
+        if (is_controller_button_held(controller, s_pad.left_spin_))
             data[20] |= 1 << 1;
-        if (IsControllerButtonHeld(controller, s_pad.rightSpin))
+        if (is_controller_button_held(controller, s_pad.right_spin_))
             data[20] |= 1 << 0;
     } else {
-        if (IsControllerButtonHeld(controller, s_pad.nollie)) {
+        if (is_controller_button_held(controller, s_pad.nollie)) {
             data[3] |= 1 << 2;
             data[16] = 0xFF;
             data[3] |= 1 << 0;
             data[18] = 0xFF;
         }
-        if (IsControllerButtonHeld(controller, s_pad.switchRevert)) {
+        if (is_controller_button_held(controller, s_pad.switch_revert_)) {
             data[3] |= 1 << 3;
             data[17] = 0xFF;
             data[3] |= 1 << 1;
             data[19] = 0xFF;
         }
-        if (IsControllerButtonHeld(controller, s_pad.leftSpin))
+        if (is_controller_button_held(controller, s_pad.left_spin_))
             data[20] |= 1 << 1;
-        if (IsControllerButtonHeld(controller, s_pad.rightSpin))
+        if (is_controller_button_held(controller, s_pad.right_spin_))
             data[20] |= 1 << 0;
     }
-    if (IsControllerButtonHeld(controller, s_pad.caveman))
-        PressCaveman(data);
+    if (is_controller_button_held(controller, s_pad.caveman))
+        press_caveman(data);
 
     // the d-pad (plain buttons: not the triggers)
     if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(s_pad.up))) {
@@ -427,8 +427,8 @@ void PollController(InputPort* device, SDL_GameController* controller)
         data[9] = 0xFF;
     }
 
-    ReadStick(controller, s_pad.camera, &data[4], &data[5]);
-    ReadStick(controller, s_pad.movement, &data[6], &data[7]);
+    read_stick(controller, s_pad.camera, &data[4], &data[5]);
+    read_stick(controller, s_pad.movement, &data[6], &data[7]);
 }
 
 // --- the keyboard -----------------------------------------------------------------------------------------------
@@ -446,52 +446,52 @@ struct MenuKeys {
     uint8_t down;
     uint8_t left;
     uint8_t right;
-    uint8_t rotateLeft;  // LB / L1
-    uint8_t rotateRight; // RB / R1
+    uint8_t rotate_left_;  // LB / L1
+    uint8_t rotate_right_; // RB / R1
     uint8_t zoom;        // black (R2 too, rerouted to black)
 };
-MenuKeys s_menuKeys;
+MenuKeys s_menu_keys;
 
-uint8_t s_wasInMenu = 0;
-uint8_t s_wasKeyboardOnScreen = 0;
+uint8_t s_was_in_menu = 0;
+uint8_t s_was_keyboard_on_screen = 0;
 
-void UpdateMenuKeys(const uint8_t* keys)
+void update_menu_keys(const uint8_t* keys)
 {
-    uint8_t keyboardOnScreen = g_keyboardOnScreen;
-    if (s_inMenu != s_wasInMenu || keyboardOnScreen != s_wasKeyboardOnScreen) {
-        if (s_keys.ollie != SDL_SCANCODE_RETURN && s_menuKeys.affirmative == 1)
-            s_menuKeys.affirmative = kLockedOut;
-        if (s_keys.grab != SDL_SCANCODE_ESCAPE && s_menuKeys.negative == 1)
-            s_menuKeys.negative = kLockedOut;
-        if (s_keys.kick != SDL_SCANCODE_E && s_menuKeys.menu == 1)
-            s_menuKeys.menu = kLockedOut;
-        if (s_keys.grind != SDL_SCANCODE_R && s_menuKeys.extra == 1)
-            s_menuKeys.extra = kLockedOut;
-        if (s_keys.up != SDL_SCANCODE_UP && s_menuKeys.up == 1)
-            s_menuKeys.up = kLockedOut;
-        if (s_keys.down != SDL_SCANCODE_DOWN && s_menuKeys.down == 1)
-            s_menuKeys.down = kLockedOut;
-        if (s_keys.left != SDL_SCANCODE_LEFT && s_menuKeys.left == 1)
-            s_menuKeys.left = kLockedOut;
-        if (s_keys.right != SDL_SCANCODE_RIGHT && s_menuKeys.right == 1)
-            s_menuKeys.right = kLockedOut;
-        if (s_settings.ps2Controls) {
-            if (s_keys.leftSpin != SDL_SCANCODE_1 && s_menuKeys.rotateLeft == 1)
-                s_menuKeys.rotateLeft = kLockedOut;
-            if (s_keys.rightSpin != SDL_SCANCODE_2 && s_menuKeys.rotateRight == 1)
-                s_menuKeys.rotateRight = kLockedOut;
-            if (s_keys.switchRevert != SDL_SCANCODE_MINUS && s_menuKeys.zoom == 1)
-                s_menuKeys.zoom = kLockedOut;
+    uint8_t keyboard_on_screen = g_keyboard_on_screen;
+    if (s_in_menu != s_was_in_menu || keyboard_on_screen != s_was_keyboard_on_screen) {
+        if (s_keys.ollie != SDL_SCANCODE_RETURN && s_menu_keys.affirmative == 1)
+            s_menu_keys.affirmative = kLockedOut;
+        if (s_keys.grab != SDL_SCANCODE_ESCAPE && s_menu_keys.negative == 1)
+            s_menu_keys.negative = kLockedOut;
+        if (s_keys.kick != SDL_SCANCODE_E && s_menu_keys.menu == 1)
+            s_menu_keys.menu = kLockedOut;
+        if (s_keys.grind != SDL_SCANCODE_R && s_menu_keys.extra == 1)
+            s_menu_keys.extra = kLockedOut;
+        if (s_keys.up != SDL_SCANCODE_UP && s_menu_keys.up == 1)
+            s_menu_keys.up = kLockedOut;
+        if (s_keys.down != SDL_SCANCODE_DOWN && s_menu_keys.down == 1)
+            s_menu_keys.down = kLockedOut;
+        if (s_keys.left != SDL_SCANCODE_LEFT && s_menu_keys.left == 1)
+            s_menu_keys.left = kLockedOut;
+        if (s_keys.right != SDL_SCANCODE_RIGHT && s_menu_keys.right == 1)
+            s_menu_keys.right = kLockedOut;
+        if (s_settings.ps2_controls_) {
+            if (s_keys.left_spin_ != SDL_SCANCODE_1 && s_menu_keys.rotate_left_ == 1)
+                s_menu_keys.rotate_left_ = kLockedOut;
+            if (s_keys.right_spin_ != SDL_SCANCODE_2 && s_menu_keys.rotate_right_ == 1)
+                s_menu_keys.rotate_right_ = kLockedOut;
+            if (s_keys.switch_revert_ != SDL_SCANCODE_MINUS && s_menu_keys.zoom == 1)
+                s_menu_keys.zoom = kLockedOut;
         } else {
-            if (s_keys.nollie != SDL_SCANCODE_1 && s_menuKeys.rotateLeft == 1)
-                s_menuKeys.rotateLeft = kLockedOut;
-            if (s_keys.switchRevert != SDL_SCANCODE_2 && s_menuKeys.rotateRight == 1)
-                s_menuKeys.rotateRight = kLockedOut;
-            if (s_keys.rightSpin != SDL_SCANCODE_MINUS && s_menuKeys.zoom == 1)
-                s_menuKeys.zoom = kLockedOut;
+            if (s_keys.nollie != SDL_SCANCODE_1 && s_menu_keys.rotate_left_ == 1)
+                s_menu_keys.rotate_left_ = kLockedOut;
+            if (s_keys.switch_revert_ != SDL_SCANCODE_2 && s_menu_keys.rotate_right_ == 1)
+                s_menu_keys.rotate_right_ = kLockedOut;
+            if (s_keys.right_spin_ != SDL_SCANCODE_MINUS && s_menu_keys.zoom == 1)
+                s_menu_keys.zoom = kLockedOut;
         }
-        s_wasInMenu = s_inMenu;
-        s_wasKeyboardOnScreen = keyboardOnScreen;
+        s_was_in_menu = s_in_menu;
+        s_was_keyboard_on_screen = keyboard_on_screen;
     }
 
     // a key's state, except while it's locked out and still down
@@ -499,119 +499,119 @@ void UpdateMenuKeys(const uint8_t* keys)
         if (!(state == kLockedOut && keys[key]))
             state = keys[key];
     };
-    update(s_menuKeys.affirmative, SDL_SCANCODE_RETURN);
-    update(s_menuKeys.negative, SDL_SCANCODE_ESCAPE);
-    update(s_menuKeys.menu, SDL_SCANCODE_E);
-    update(s_menuKeys.extra, SDL_SCANCODE_R);
-    update(s_menuKeys.up, SDL_SCANCODE_UP);
-    update(s_menuKeys.down, SDL_SCANCODE_DOWN);
-    update(s_menuKeys.left, SDL_SCANCODE_LEFT);
-    update(s_menuKeys.right, SDL_SCANCODE_RIGHT);
-    update(s_menuKeys.rotateLeft, SDL_SCANCODE_1);
-    update(s_menuKeys.rotateRight, SDL_SCANCODE_2);
-    update(s_menuKeys.zoom, SDL_SCANCODE_MINUS);
+    update(s_menu_keys.affirmative, SDL_SCANCODE_RETURN);
+    update(s_menu_keys.negative, SDL_SCANCODE_ESCAPE);
+    update(s_menu_keys.menu, SDL_SCANCODE_E);
+    update(s_menu_keys.extra, SDL_SCANCODE_R);
+    update(s_menu_keys.up, SDL_SCANCODE_UP);
+    update(s_menu_keys.down, SDL_SCANCODE_DOWN);
+    update(s_menu_keys.left, SDL_SCANCODE_LEFT);
+    update(s_menu_keys.right, SDL_SCANCODE_RIGHT);
+    update(s_menu_keys.rotate_left_, SDL_SCANCODE_1);
+    update(s_menu_keys.rotate_right_, SDL_SCANCODE_2);
+    update(s_menu_keys.zoom, SDL_SCANCODE_MINUS);
 }
 
 // A bound key (its scan code's low byte, as the bindings are passed): a menu key doesn't count as a binding in a
 // menu or while locked out.
-uint8_t KeyDown(const uint8_t* keys, uint8_t key)
+uint8_t get_key_down(const uint8_t* keys, uint8_t key)
 {
-    auto menuKey = [keys, key](uint8_t state) -> uint8_t { return state != kLockedOut && (!s_inMenu && keys[key]); };
+    auto menu_key = [keys, key](uint8_t state) -> uint8_t { return state != kLockedOut && (!s_in_menu && keys[key]); };
     switch (key) {
-    case SDL_SCANCODE_RETURN: return menuKey(s_menuKeys.affirmative);
-    case SDL_SCANCODE_ESCAPE: return menuKey(s_menuKeys.negative);
-    case SDL_SCANCODE_E: return menuKey(s_menuKeys.menu);
-    case SDL_SCANCODE_R: return menuKey(s_menuKeys.extra);
-    case SDL_SCANCODE_UP: return menuKey(s_menuKeys.up);
-    case SDL_SCANCODE_DOWN: return menuKey(s_menuKeys.down);
-    case SDL_SCANCODE_LEFT: return menuKey(s_menuKeys.left);
-    case SDL_SCANCODE_RIGHT: return menuKey(s_menuKeys.right);
-    case SDL_SCANCODE_1: return menuKey(s_menuKeys.rotateLeft);
-    case SDL_SCANCODE_2: return menuKey(s_menuKeys.rotateRight);
-    case SDL_SCANCODE_MINUS: return menuKey(s_menuKeys.zoom);
+    case SDL_SCANCODE_RETURN: return menu_key(s_menu_keys.affirmative);
+    case SDL_SCANCODE_ESCAPE: return menu_key(s_menu_keys.negative);
+    case SDL_SCANCODE_E: return menu_key(s_menu_keys.menu);
+    case SDL_SCANCODE_R: return menu_key(s_menu_keys.extra);
+    case SDL_SCANCODE_UP: return menu_key(s_menu_keys.up);
+    case SDL_SCANCODE_DOWN: return menu_key(s_menu_keys.down);
+    case SDL_SCANCODE_LEFT: return menu_key(s_menu_keys.left);
+    case SDL_SCANCODE_RIGHT: return menu_key(s_menu_keys.right);
+    case SDL_SCANCODE_1: return menu_key(s_menu_keys.rotate_left_);
+    case SDL_SCANCODE_2: return menu_key(s_menu_keys.rotate_right_);
+    case SDL_SCANCODE_MINUS: return menu_key(s_menu_keys.zoom);
     default: return keys[key];
     }
 }
 
-void PollKeyboard(InputPort* device)
+void poll_keyboard(InputPort* device)
 {
-    uint8_t* data = device->m_controlData;
-    device->m_isUsable = 1;
-    device->m_isConnected = true;
+    uint8_t* data = device->control_data_;
+    device->is_usable_ = 1;
+    device->is_connected_ = true;
 
     const uint8_t* keys = SDL_GetKeyboardState(nullptr);
-    UpdateMenuKeys(keys);
-    if (KeyboardOnScreen())
+    update_menu_keys(keys);
+    if (get_keyboard_on_screen())
         return;
     // (a binding's scan code is passed as its low byte)
-    auto down = [keys](SDL_Scancode key) { return KeyDown(keys, static_cast<uint8_t>(key)) != 0; };
-    auto menuDown = [](uint8_t state) { return s_inMenu && state == 1; };
+    auto down = [keys](SDL_Scancode key) { return get_key_down(keys, static_cast<uint8_t>(key)) != 0; };
+    auto menu_down = [](uint8_t state) { return s_in_menu && state == 1; };
 
     // Not original - the level editor (editor/level_editor.h) flies on W/A/S/D/Q/E/Shift/Ctrl/Space: while it
     // runs, the keyboard gives the game only the Pause key (Start: leaves the editor), once it has been up since the
     // editor started; nothing else.
     // Original behaviour: every binding is read.
-    if (MenuSystem::LevelEditor::LiveNow()) {
-        if (MenuSystem::LevelEditor::PassPauseKey(keys[s_keys.menu] != 0))
+    if (frontend::level_editor::live_now()) {
+        if (frontend::level_editor::pass_pause_key(keys[s_keys.menu] != 0))
             data[2] |= 1 << 3;
         return;
     }
 
     if (down(s_keys.menu))
         data[2] |= 1 << 3;
-    if (down(s_keys.cameraToggle))
+    if (down(s_keys.camera_toggle_))
         data[2] |= 1 << 0;
     if (down(s_keys.focus))
         data[2] |= 1 << 1;
-    if (down(s_keys.cameraSwivelLock))
+    if (down(s_keys.camera_swivel_lock_))
         data[2] |= 1 << 2;
 
-    if (down(s_keys.grind) || menuDown(s_menuKeys.extra)) {
+    if (down(s_keys.grind) || menu_down(s_menu_keys.extra)) {
         data[3] |= 1 << 4;
         data[12] = 0xFF;
     }
-    if (down(s_keys.grab) || menuDown(s_menuKeys.negative)) {
+    if (down(s_keys.grab) || menu_down(s_menu_keys.negative)) {
         data[3] |= 1 << 5;
         data[13] = 0xFF;
     }
-    if (down(s_keys.ollie) || menuDown(s_menuKeys.affirmative)) {
+    if (down(s_keys.ollie) || menu_down(s_menu_keys.affirmative)) {
         data[3] |= 1 << 6;
         data[14] = 0xFF;
     }
-    if (down(s_keys.kick) || menuDown(s_menuKeys.menu)) {
+    if (down(s_keys.kick) || menu_down(s_menu_keys.menu)) {
         data[3] |= 1 << 7;
         data[15] = 0xFF;
     }
 
     // the shoulders
-    if (s_settings.ps2Controls) {
-        if (down(s_keys.leftSpin) || menuDown(s_menuKeys.rotateLeft)) {
+    if (s_settings.ps2_controls_) {
+        if (down(s_keys.left_spin_) || menu_down(s_menu_keys.rotate_left_)) {
             data[3] |= 1 << 2;
             data[16] = 0xFF;
         }
-        if (down(s_keys.rightSpin) || menuDown(s_menuKeys.rotateRight)) {
+        if (down(s_keys.right_spin_) || menu_down(s_menu_keys.rotate_right_)) {
             data[3] |= 1 << 3;
             data[17] = 0xFF;
-            if (s_editingPark)
+            if (s_editing_park)
                 data[20] |= 1 << 0; // black, editing a park
         }
         if (down(s_keys.nollie)) {
             data[3] |= 1 << 0;
             data[18] = 0xFF;
-            if (s_inMenu)
+            if (s_in_menu)
                 data[20] |= 1 << 1; // white, in a menu
         }
-        if (down(s_keys.switchRevert) || menuDown(s_menuKeys.zoom)) {
+        if (down(s_keys.switch_revert_) || menu_down(s_menu_keys.zoom)) {
             data[3] |= 1 << 1;
             data[19] = 0xFF;
-            if (s_inMenu)
+            if (s_in_menu)
                 data[20] |= 1 << 0; // black, in a menu
-            else if (s_editingPark)
+            else if (s_editing_park)
                 data[20] |= 1 << 1; // white, editing a park
         }
-    } else if (s_editingPark && !KeyboardOnScreen()) {
+    } else if (s_editing_park && !get_keyboard_on_screen()) {
         // editing a park: the right trigger is L1
-        if (down(s_keys.switchRevert)) {
+        if (down(s_keys.switch_revert_)) {
             data[3] |= 1 << 2;
             data[16] = 0xFF;
         }
@@ -619,18 +619,18 @@ void PollKeyboard(InputPort* device)
             data[3] |= 1 << 0;
             data[18] = 0xFF;
         }
-        if (down(s_keys.leftSpin))
+        if (down(s_keys.left_spin_))
             data[20] |= 1 << 1;
-        if (down(s_keys.rightSpin))
+        if (down(s_keys.right_spin_))
             data[20] |= 1 << 0;
     } else {
-        if (down(s_keys.nollie) || menuDown(s_menuKeys.rotateLeft)) {
+        if (down(s_keys.nollie) || menu_down(s_menu_keys.rotate_left_)) {
             data[3] |= 1 << 2;
             data[16] = 0xFF;
             data[3] |= 1 << 0;
             data[18] = 0xFF;
         }
-        if (down(s_keys.switchRevert) || menuDown(s_menuKeys.rotateRight)) {
+        if (down(s_keys.switch_revert_) || menu_down(s_menu_keys.rotate_right_)) {
             data[3] |= 1 << 3;
             data[17] = 0xFF;
             data[3] |= 1 << 1;
@@ -638,52 +638,52 @@ void PollKeyboard(InputPort* device)
         }
         // Not PartyMod's - without UsePS2Controls, the spin keys the original PC game's way round (its keyboard,
         // 0x005F5BC0: the key table's spin left -> the Xbox pad's black, spin right -> white). The game reads the Xbox
-        // triggers then (Component::PlatformStructure), where black steps off the board (SwitchControl_Trigger's
+        // triggers then (Component::platform_structure), where black steps off the board (SwitchControl_Trigger's
         // Xbox_Trigger): spin left alone does it, as in the original game.
         // Original behaviour (PartyMod v1.0.4): the other way round - spin left white, spin right black:
-        //     if (down(s_keys.leftSpin)) data[20] |= 1 << 1;
-        //     if (down(s_keys.rightSpin) || menuDown(s_menuKeys.zoom)) data[20] |= 1 << 0;
-        if (down(s_keys.leftSpin))
+        //     if (down(s_keys.left_spin_)) data[20] |= 1 << 1;
+        //     if (down(s_keys.right_spin_) || menu_down(s_menu_keys.zoom)) data[20] |= 1 << 0;
+        if (down(s_keys.left_spin_))
             data[20] |= 1 << 0; // black
-        if (down(s_keys.rightSpin))
+        if (down(s_keys.right_spin_))
             data[20] |= 1 << 1; // white
-        if (menuDown(s_menuKeys.zoom))
+        if (menu_down(s_menu_keys.zoom))
             data[20] |= 1 << 0;
     }
     if (down(s_keys.caveman))
-        PressCaveman(data);
+        press_caveman(data);
 
     // the d-pad: the item keys
-    if (down(s_keys.itemUp) || menuDown(s_menuKeys.up)) {
+    if (down(s_keys.item_up_) || menu_down(s_menu_keys.up)) {
         data[2] |= 1 << 4;
         data[10] = 0xFF;
     }
-    if (down(s_keys.itemRight) || menuDown(s_menuKeys.right)) {
+    if (down(s_keys.item_right_) || menu_down(s_menu_keys.right)) {
         data[2] |= 1 << 5;
         data[8] = 0xFF;
     }
-    if (down(s_keys.itemDown) || menuDown(s_menuKeys.down)) {
+    if (down(s_keys.item_down_) || menu_down(s_menu_keys.down)) {
         data[2] |= 1 << 6;
         data[11] = 0xFF;
     }
-    if (down(s_keys.itemLeft) || menuDown(s_menuKeys.left)) {
+    if (down(s_keys.item_left_) || menu_down(s_menu_keys.left)) {
         data[2] |= 1 << 7;
         data[9] = 0xFF;
     }
 
     // the sticks: opposite keys together cancel out
-    if (down(s_keys.cameraLeft) && !down(s_keys.cameraRight))
+    if (down(s_keys.camera_left_) && !down(s_keys.camera_right_))
         data[4] = 0;
-    if (down(s_keys.cameraRight) && !down(s_keys.cameraLeft))
+    if (down(s_keys.camera_right_) && !down(s_keys.camera_left_))
         data[4] = 255;
-    if (down(s_keys.cameraUp) && !down(s_keys.cameraDown))
+    if (down(s_keys.camera_up_) && !down(s_keys.camera_down_))
         data[5] = 0;
-    if (down(s_keys.cameraDown) && !down(s_keys.cameraUp))
+    if (down(s_keys.camera_down_) && !down(s_keys.camera_up_))
         data[5] = 255;
     // Not original - THAW's half-stick key (PartyMod's THAW build: Feeble, 64 / 192 instead of 0 / 255) while THAW's
-    // BMX is ridden (game/rider/thaw_bmx.h HalfStickKey): its grind pick reads how far the stick is pushed.
+    // BMX is ridden (game/rider/thaw_bmx.h half_stick_key): its grind pick reads how far the stick is pushed.
     // Original behaviour: the Feeble binding is read but unused - the movement keys always give 0 / 255.
-    const bool half = down(s_keys.feeble) && Skater::ThawBmx::HalfStickKey();
+    const bool half = down(s_keys.feeble) && skater::thaw_bmx::half_stick_key();
     const uint8_t low = half ? 64 : 0, high = half ? 192 : 255;
     if (down(s_keys.left) && !down(s_keys.right))
         data[6] = low;
@@ -699,19 +699,19 @@ void PollKeyboard(InputPort* device)
 
 // A key press: with the on-screen keyboard up, Enter / Backspace / Escape / keypad Enter as typed characters;
 // otherwise Enter and F1-F4 as the game's special keys (0x19, 0x1F, 0x1C-0x1E: the chat's F1...).
-void KeyPressed(SDL_Keycode key)
+void key_pressed(SDL_Keycode key)
 {
-    if (!KeyboardOnScreen()) {
+    if (!get_keyboard_on_screen()) {
         if (key == SDLK_RETURN)
-            KeyInput(0x19, 0);
+            key_input(0x19, 0);
         else if (key == SDLK_F1)
-            KeyInput(0x1F, 0);
+            key_input(0x1F, 0);
         else if (key == SDLK_F2)
-            KeyInput(0x1C, 0);
+            key_input(0x1C, 0);
         else if (key == SDLK_F3)
-            KeyInput(0x1D, 0);
+            key_input(0x1D, 0);
         else if (key == SDLK_F4)
-            KeyInput(0x1E, 0);
+            key_input(0x1E, 0);
         return;
     }
     int typed;
@@ -726,66 +726,66 @@ void KeyPressed(SDL_Keycode key)
     else
         typed = -1;
     if (typed != -1)
-        KeyInput(typed, 0);
+        key_input(typed, 0);
 }
 
 // Typed text, one character at a time, while the on-screen keyboard is up.
-void TextTyped(const char* text)
+void text_typed(const char* text)
 {
-    if (!KeyboardOnScreen())
+    if (!get_keyboard_on_screen())
         return;
     if (std::strlen(text) == 1)
-        KeyInput(text[0], 0);
+        key_input(text[0], 0);
     else
-        DebugLog::Printf(StageMap::kDebug, "Input text '%s' > 1 byte!!\n", text);
+        debug_log::printf(StageMap::kDebug, "Input text '%s' > 1 byte!!\n", text);
 }
 
-void HandleInputEvent(SDL_Event* event)
+void handle_input_event(SDL_Event* event)
 {
     switch (event->type) {
     case SDL_CONTROLLERDEVICEADDED:
         if (SDL_IsGameController(event->cdevice.which))
-            AttachController(event->cdevice.which);
+            attach_controller(event->cdevice.which);
         else
-            DebugLog::Printf(StageMap::kInfo, "Not a game controller: %s\n", SDL_JoystickNameForIndex(event->cdevice.which));
+            debug_log::printf(StageMap::kInfo, "Not a game controller: %s\n", SDL_JoystickNameForIndex(event->cdevice.which));
         return;
     case SDL_CONTROLLERDEVICEREMOVED:
         if (SDL_GameController* controller = SDL_GameControllerFromInstanceID(event->cdevice.which))
-            DetachAnimDriver(controller);
+            detach_anim_driver(controller);
         return;
     case SDL_JOYDEVICEADDED:
-        DebugLog::Printf(StageMap::kInfo, "Joystick added: %s\n", SDL_JoystickNameForIndex(event->jdevice.which));
+        debug_log::printf(StageMap::kInfo, "Joystick added: %s\n", SDL_JoystickNameForIndex(event->jdevice.which));
         return;
     case SDL_KEYDOWN:
-        s_usingKeyboard = true;
+        s_using_keyboard = true;
         // (not original: Enter / F1-F4 aren't the game's special keys while the new front end has the keyboard -
         // frontend/new_frontend.h)
-        if (!MenuSystem::NewFrontend::BlocksGameInput())
-            KeyPressed(event->key.keysym.sym);
+        if (!frontend::new_frontend::blocks_game_input())
+            key_pressed(event->key.keysym.sym);
         return;
     case SDL_CONTROLLERBUTTONDOWN: {
         // (the event's controller, read through cdevice: the same place as cbutton's)
         SDL_GameController* controller = SDL_GameControllerFromInstanceID(event->cdevice.which);
         int player = SDL_GameControllerGetPlayerIndex(controller);
         if (player == -1)
-            EnrollPlayer(controller);
-        else if (s_players[player].lockedOut)
-            ++s_players[player].lockedOut;
-        s_usingKeyboard = false;
+            enroll_player(controller);
+        else if (s_players[player].locked_out_)
+            ++s_players[player].locked_out_;
+        s_using_keyboard = false;
         return;
     }
     case SDL_CONTROLLERBUTTONUP: {
         SDL_GameController* controller = SDL_GameControllerFromInstanceID(event->cdevice.which);
         int player = SDL_GameControllerGetPlayerIndex(controller);
-        if (player != -1 && s_players[player].lockedOut)
-            --s_players[player].lockedOut;
+        if (player != -1 && s_players[player].locked_out_)
+            --s_players[player].locked_out_;
         return;
     }
     case SDL_CONTROLLERAXISMOTION:
-        s_usingKeyboard = false;
+        s_using_keyboard = false;
         return;
     case SDL_TEXTINPUT:
-        TextTyped(event->text.text);
+        text_typed(event->text.text);
         return;
     default:
         return;
@@ -830,190 +830,190 @@ const uint32_t kDirectInputKeys[256] = {
     0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, // 248..255
 };
 
-int32_t DirectInputKey(SDL_Scancode scanCode)
+int32_t direct_input_key(SDL_Scancode scan_code)
 {
-    if (static_cast<int>(scanCode) < 256)
-        return static_cast<int32_t>(kDirectInputKeys[scanCode]);
+    if (static_cast<int>(scan_code) < 256)
+        return static_cast<int32_t>(kDirectInputKeys[scan_code]);
     return -1;
 }
 
 // The bindings in the game's table (0x007D6770, port 0's actions), for the menus' key hints.
-void WriteGameKeyBindings()
+void write_game_key_bindings()
 {
-    int32_t* binds = OsLayer::g_inputMap;
-    binds[0] = DirectInputKey(s_keys.up);
-    binds[1] = DirectInputKey(s_keys.down);
-    binds[2] = DirectInputKey(s_keys.left);
-    binds[3] = DirectInputKey(s_keys.right);
+    int32_t* binds = os_layer::g_input_map;
+    binds[0] = direct_input_key(s_keys.up);
+    binds[1] = direct_input_key(s_keys.down);
+    binds[2] = direct_input_key(s_keys.left);
+    binds[3] = direct_input_key(s_keys.right);
 
-    binds[4] = DirectInputKey(s_keys.cameraUp);
-    binds[5] = DirectInputKey(s_keys.cameraDown);
-    binds[6] = DirectInputKey(s_keys.cameraLeft);
-    binds[7] = DirectInputKey(s_keys.cameraRight);
+    binds[4] = direct_input_key(s_keys.camera_up_);
+    binds[5] = direct_input_key(s_keys.camera_down_);
+    binds[6] = direct_input_key(s_keys.camera_left_);
+    binds[7] = direct_input_key(s_keys.camera_right_);
 
-    binds[8] = DirectInputKey(s_keys.ollie);
-    binds[9] = DirectInputKey(s_keys.grab);
-    binds[10] = DirectInputKey(s_keys.kick);
-    binds[11] = DirectInputKey(s_keys.grind);
+    binds[8] = direct_input_key(s_keys.ollie);
+    binds[9] = direct_input_key(s_keys.grab);
+    binds[10] = direct_input_key(s_keys.kick);
+    binds[11] = direct_input_key(s_keys.grind);
 
-    binds[13] = DirectInputKey(s_keys.cameraToggle);
-    binds[14] = DirectInputKey(s_keys.leftSpin);
-    binds[15] = DirectInputKey(s_keys.rightSpin);
-    binds[16] = DirectInputKey(s_keys.nollie);
-    binds[17] = DirectInputKey(s_keys.switchRevert);
-    binds[18] = DirectInputKey(s_keys.focus);
+    binds[13] = direct_input_key(s_keys.camera_toggle_);
+    binds[14] = direct_input_key(s_keys.left_spin_);
+    binds[15] = direct_input_key(s_keys.right_spin_);
+    binds[16] = direct_input_key(s_keys.nollie);
+    binds[17] = direct_input_key(s_keys.switch_revert_);
+    binds[18] = direct_input_key(s_keys.focus);
 
-    binds[20] = DirectInputKey(s_keys.itemUp);
-    binds[21] = DirectInputKey(s_keys.itemDown);
-    binds[22] = DirectInputKey(s_keys.itemLeft);
-    binds[23] = DirectInputKey(s_keys.itemRight);
+    binds[20] = direct_input_key(s_keys.item_up_);
+    binds[21] = direct_input_key(s_keys.item_down_);
+    binds[22] = direct_input_key(s_keys.item_left_);
+    binds[23] = direct_input_key(s_keys.item_right_);
 }
 
 // --- reading the settings -----------------------------------------------------------------------------------------
 
-void LoadInputSettings()
+void load_input_settings()
 {
-    s_settings.ps2Controls = BuildInfo::FetchFlag(BuildInfo::kMiscellaneous, "UsePS2Controls", true);
-    s_settings.uiControls = static_cast<uint8_t>(BuildInfo::GetInt(BuildInfo::kMiscellaneous, "UIControls", 1));}
+    s_settings.ps2_controls_ = build_info::fetch_flag(build_info::kMiscellaneous, "UsePS2Controls", true);
+    s_settings.ui_controls_ = static_cast<uint8_t>(build_info::get_int(build_info::kMiscellaneous, "UIControls", 1));}
 
-SDL_Scancode Key(const char* name, SDL_Scancode fallback)
+SDL_Scancode get_key(const char* name, SDL_Scancode fallback)
 {
-    return static_cast<SDL_Scancode>(BuildInfo::GetInt(BuildInfo::kKeybinds, name, fallback));
+    return static_cast<SDL_Scancode>(build_info::get_int(build_info::kKeybinds, name, fallback));
 }
 
-void LoadKeyBinds()
+void load_key_binds()
 {
-    s_keys.menu = Key("Pause", SDL_SCANCODE_RETURN);
-    s_keys.cameraToggle = Key("ViewToggle", SDL_SCANCODE_F);
-    s_keys.cameraSwivelLock = Key("SwivelLock", SDL_SCANCODE_GRAVE);
-    s_keys.focus = Key("Focus", SDL_SCANCODE_KP_ENTER);
-    s_keys.caveman = Key("Caveman", SDL_SCANCODE_E);
+    s_keys.menu = get_key("Pause", SDL_SCANCODE_RETURN);
+    s_keys.camera_toggle_ = get_key("ViewToggle", SDL_SCANCODE_F);
+    s_keys.camera_swivel_lock_ = get_key("SwivelLock", SDL_SCANCODE_GRAVE);
+    s_keys.focus = get_key("Focus", SDL_SCANCODE_KP_ENTER);
+    s_keys.caveman = get_key("Caveman", SDL_SCANCODE_E);
 
-    s_keys.grind = Key("Grind", SDL_SCANCODE_KP_8);
-    s_keys.grab = Key("Grab", SDL_SCANCODE_KP_6);
-    s_keys.ollie = Key("Ollie", SDL_SCANCODE_KP_2);
-    s_keys.kick = Key("Flip", SDL_SCANCODE_KP_4);
+    s_keys.grind = get_key("Grind", SDL_SCANCODE_KP_8);
+    s_keys.grab = get_key("Grab", SDL_SCANCODE_KP_6);
+    s_keys.ollie = get_key("Ollie", SDL_SCANCODE_KP_2);
+    s_keys.kick = get_key("Flip", SDL_SCANCODE_KP_4);
 
-    s_keys.leftSpin = Key("SpinLeft", SDL_SCANCODE_KP_1);
-    s_keys.rightSpin = Key("SpinRight", SDL_SCANCODE_KP_3);
-    s_keys.nollie = Key("Nollie", SDL_SCANCODE_KP_7);
-    s_keys.switchRevert = Key("Switch", SDL_SCANCODE_KP_9);
+    s_keys.left_spin_ = get_key("SpinLeft", SDL_SCANCODE_KP_1);
+    s_keys.right_spin_ = get_key("SpinRight", SDL_SCANCODE_KP_3);
+    s_keys.nollie = get_key("Nollie", SDL_SCANCODE_KP_7);
+    s_keys.switch_revert_ = get_key("Switch", SDL_SCANCODE_KP_9);
 
-    s_keys.right = Key("Right", SDL_SCANCODE_D);
-    s_keys.left = Key("Left", SDL_SCANCODE_A);
-    s_keys.up = Key("Forward", SDL_SCANCODE_W);
-    s_keys.down = Key("Backward", SDL_SCANCODE_S);
-    s_keys.feeble = Key("Feeble", SDL_SCANCODE_LSHIFT);
+    s_keys.right = get_key("Right", SDL_SCANCODE_D);
+    s_keys.left = get_key("Left", SDL_SCANCODE_A);
+    s_keys.up = get_key("Forward", SDL_SCANCODE_W);
+    s_keys.down = get_key("Backward", SDL_SCANCODE_S);
+    s_keys.feeble = get_key("Feeble", SDL_SCANCODE_LSHIFT);
 
-    s_keys.cameraRight = Key("CameraRight", SDL_SCANCODE_KP_MULTIPLY);
-    s_keys.cameraLeft = Key("CameraLeft", SDL_SCANCODE_KP_DIVIDE);
-    s_keys.cameraUp = Key("CameraUp", SDL_SCANCODE_KP_PLUS);
-    s_keys.cameraDown = Key("CameraDown", SDL_SCANCODE_KP_MINUS);
+    s_keys.camera_right_ = get_key("CameraRight", SDL_SCANCODE_KP_MULTIPLY);
+    s_keys.camera_left_ = get_key("CameraLeft", SDL_SCANCODE_KP_DIVIDE);
+    s_keys.camera_up_ = get_key("CameraUp", SDL_SCANCODE_KP_PLUS);
+    s_keys.camera_down_ = get_key("CameraDown", SDL_SCANCODE_KP_MINUS);
 
-    s_keys.itemRight = Key("ItemRight", SDL_SCANCODE_L);
-    s_keys.itemLeft = Key("ItemLeft", SDL_SCANCODE_J);
-    s_keys.itemUp = Key("ItemUp", SDL_SCANCODE_I);
-    s_keys.itemDown = Key("ItemDown", SDL_SCANCODE_K);
+    s_keys.item_right_ = get_key("ItemRight", SDL_SCANCODE_L);
+    s_keys.item_left_ = get_key("ItemLeft", SDL_SCANCODE_J);
+    s_keys.item_up_ = get_key("ItemUp", SDL_SCANCODE_I);
+    s_keys.item_down_ = get_key("ItemDown", SDL_SCANCODE_K);
 }
 
-PadButton Button(const char* name, int fallback)
+PadButton get_button(const char* name, int fallback)
 {
-    return static_cast<PadButton>(BuildInfo::GetInt(BuildInfo::kGamepad, name, fallback));
+    return static_cast<PadButton>(build_info::get_int(build_info::kGamepad, name, fallback));
 }
 
-void LoadPadBinds()
+void load_pad_binds()
 {
-    s_pad.menu = Button("Pause", kButtonStart);
-    s_pad.cameraToggle = Button("ViewToggle", kButtonBack);
-    s_pad.cameraSwivelLock = Button("SwivelLock", kButtonRightStick);
-    s_pad.focus = Button("Focus", kButtonLeftStick);
+    s_pad.menu = get_button("Pause", kButtonStart);
+    s_pad.camera_toggle_ = get_button("ViewToggle", kButtonBack);
+    s_pad.camera_swivel_lock_ = get_button("SwivelLock", kButtonRightStick);
+    s_pad.focus = get_button("Focus", kButtonLeftStick);
     // (unbound unless set: PartyMod's fallback 0 is the A button - Ollie - harmless only while nothing used it)
-    s_pad.caveman = Button("Caveman", kUnbound);
+    s_pad.caveman = get_button("Caveman", kUnbound);
 
-    s_pad.grind = Button("Grind", kButtonY);
-    s_pad.grab = Button("Grab", kButtonB);
-    s_pad.ollie = Button("Ollie", kButtonA);
-    s_pad.kick = Button("Flip", kButtonX);
+    s_pad.grind = get_button("Grind", kButtonY);
+    s_pad.grab = get_button("Grab", kButtonB);
+    s_pad.ollie = get_button("Ollie", kButtonA);
+    s_pad.kick = get_button("Flip", kButtonX);
 
-    s_pad.leftSpin = Button("SpinLeft", kButtonLeftShoulder);
-    s_pad.rightSpin = Button("SpinRight", kButtonRightShoulder);
-    s_pad.nollie = Button("Nollie", kLeftTrigger);
-    s_pad.switchRevert = Button("Switch", kRightTrigger);
+    s_pad.left_spin_ = get_button("SpinLeft", kButtonLeftShoulder);
+    s_pad.right_spin_ = get_button("SpinRight", kButtonRightShoulder);
+    s_pad.nollie = get_button("Nollie", kLeftTrigger);
+    s_pad.switch_revert_ = get_button("Switch", kRightTrigger);
 
-    s_pad.right = Button("Right", kDpadRight);
-    s_pad.left = Button("Left", kDpadLeft);
-    s_pad.up = Button("Forward", kDpadUp);
-    s_pad.down = Button("Backward", kDpadDown);
+    s_pad.right = get_button("Right", kDpadRight);
+    s_pad.left = get_button("Left", kDpadLeft);
+    s_pad.up = get_button("Forward", kDpadUp);
+    s_pad.down = get_button("Backward", kDpadDown);
 
-    s_pad.movement = static_cast<PadStick>(BuildInfo::GetInt(BuildInfo::kGamepad, "MovementStick", kStickLeft));
-    s_pad.camera = static_cast<PadStick>(BuildInfo::GetInt(BuildInfo::kGamepad, "CameraStick", kStickRight));
+    s_pad.movement = static_cast<PadStick>(build_info::get_int(build_info::kGamepad, "MovementStick", kStickLeft));
+    s_pad.camera = static_cast<PadStick>(build_info::get_int(build_info::kGamepad, "CameraStick", kStickRight));
 }
 
 // Stores 32 bits at `offset` into the device. PartyMod's view of the device has these fields as 32-bit (the game's
-// are bytes followed by padding - and +0xEC's second byte is m_keyboardControl, cleared this way); its last one,
+// are bytes followed by padding - and +0xEC's second byte is keyboard_control_, cleared this way); its last one,
 // "start or A pressed" at +0xF0, lies just past the end of the 0xF0-byte device. Kept as it was.
-void PutWord32(InputPort* device, uint32_t offset, uint32_t value)
+void put_word32(InputPort* device, uint32_t offset, uint32_t value)
 {
     std::memcpy(reinterpret_cast<uint8_t*>(device) + offset, &value, sizeof(value));
 }
 
 } // namespace
 
-InputSettings& TheInputSettings() { return s_settings; }
-bool& UsingKeyboard() { return s_usingKeyboard; }
+InputSettings& the_input_settings() { return s_settings; }
+bool& using_keyboard() { return s_using_keyboard; }
 
-void InitSdlInput()
+void init_sdl_input()
 {
-    DebugLog::Printf(StageMap::kInfo, "Initializing Input Manager!\n");
+    debug_log::printf(StageMap::kInfo, "Initializing Input Manager!\n");
     SDL_Init(SDL_INIT_GAMECONTROLLER);
     SDL_SetHint(SDL_HINT_GAMECONTROLLER_USE_BUTTON_LABELS, "false");
 
     char mappings[1024];
-    int length = sprintf_s(mappings, sizeof(mappings), "%s%s", BuildInfo::ExecutableDirectory(), "gamecontrollerdb.txt");
+    int length = sprintf_s(mappings, sizeof(mappings), "%s%s", build_info::executable_directory(), "gamecontrollerdb.txt");
     if (length) {
         // (-1, a failure, counts as loaded too)
         if (SDL_GameControllerAddMappingsFromFile(mappings))
-            DebugLog::Printf(StageMap::kInfo, "Loaded mappings\n");
+            debug_log::printf(StageMap::kInfo, "Loaded mappings\n");
         else
-            DebugLog::Printf(StageMap::kWarn, "Failed to load %s\n", mappings);
+            debug_log::printf(StageMap::kWarn, "Failed to load %s\n", mappings);
     }
 
-    LoadInputSettings();
-    LoadKeyBinds();
-    LoadPadBinds();
-    InitControllers();
-    if (s_settings.ps2Controls)
-        SystemCore::InstallIsPS2();
+    load_input_settings();
+    load_key_binds();
+    load_pad_binds();
+    init_controllers();
+    if (s_settings.ps2_controls_)
+        sys::install_is_ps2();
     // (not PartyMod's - [features] debug_mode: CD false, the developers' menus - engine/sys/debug_mode.h)
-    SystemCore::DebugMode::Install();
-    WriteGameKeyBindings();
-    OsLayer::RegisterEventHandler(HandleInputEvent);
+    sys::debug_mode::install();
+    write_game_key_bindings();
+    os_layer::register_event_handler(handle_input_event);
     // (not PartyMod's - the mouse_menus feature: the mouse's events, when it's on)
-    MouseMenus::PrepareAll();
+    mouse_menus::prepare_all();
     // (not PartyMod's either - the level editor: its mouse and Escape key)
-    MenuSystem::LevelEditor::PrepareAll();
+    frontend::level_editor::prepare_all();
     // (nor the new front end's input - frontend/new_frontend.h; nothing when it's off)
-    MenuSystem::NewFrontend::PrepareAll();
+    frontend::new_frontend::prepare_all();
     // (nor the screenshot key - platform/screenshot.h)
-    SystemCore::Screenshot::PrepareAll();
+    sys::screenshot::prepare_all();
 }
 
-void ProcessSdlDevice(InputPort* device)
+void process_sdl_device(InputPort* device)
 {
-    s_editingPark = InParkEditor();
-    s_inMenu = InMenuFlag() && !s_editingPark;
+    s_editing_park = in_park_editor();
+    s_in_menu = in_menu_flag() && !s_editing_park;
 
-    device->m_capabilities = 3;
-    device->m_rumbleMotorCount = 2;
-    device->m_rumbleCap[0] = 255;
-    device->m_rumbleCap[1] = 255;
-    device->m_curPhase = InputPort::kReady;
+    device->capabilities_ = 3;
+    device->rumble_motor_count_ = 2;
+    device->rumble_cap_[0] = 255;
+    device->rumble_cap_[1] = 255;
+    device->cur_phase_ = InputPort::kReady;
 
-    OsLayer::PumpSdlEvents();
+    os_layer::pump_sdl_events();
 
-    PutWord32(device, 0x14, 0); // m_isUsable
-    PutWord32(device, 0xE0, 0); // m_isConnected
-    uint8_t* data = device->m_controlData;
+    put_word32(device, 0x14, 0); // is_usable_
+    put_word32(device, 0xE0, 0); // is_connected_
+    uint8_t* data = device->control_data_;
     data[0] = 0;
     data[1] = 0x70;
     // The button bits are set for buttons down while the keyboard and the controller are read (so both can add
@@ -1031,32 +1031,32 @@ void ProcessSdlDevice(InputPort* device)
     // Not original - the new front end (frontend/new_frontend.h): while it's up (and until the keys that chose for it
     // are let go) it has the keyboard and the controllers - the game reads nothing pressed.
     // Original behaviour: the keyboard and the controller always read.
-    bool newFrontend = MenuSystem::NewFrontend::BlocksGameInput();
-    if (device->m_portNo == 0) {
-        PutWord32(device, 0x14, 1);
-        PutWord32(device, 0xE0, 1);
-        if (!KeyboardOnScreen() && !newFrontend)
-            PollKeyboard(device);
+    bool new_frontend = frontend::new_frontend::blocks_game_input();
+    if (device->port_no_ == 0) {
+        put_word32(device, 0x14, 1);
+        put_word32(device, 0xE0, 1);
+        if (!get_keyboard_on_screen() && !new_frontend)
+            poll_keyboard(device);
     }
-    auto port = static_cast<uint32_t>(device->m_portNo);
-    if (port < kMaxPlayers && s_players[port].controller && !s_players[port].lockedOut && !newFrontend)
-        PollController(device, s_players[port].controller);
+    auto port = static_cast<uint32_t>(device->port_no_);
+    if (port < kMaxPlayers && s_players[port].controller && !s_players[port].locked_out_ && !new_frontend)
+        poll_controller(device, s_players[port].controller);
     // (not original: the buttons the test-automation channel presses - frontend/automation.h)
-    MenuSystem::Automation::AddPadButtons(device->m_portNo, data);
+    frontend::automation::add_pad_buttons(device->port_no_, data);
 
     data[2] = static_cast<uint8_t>(~data[2]);
     data[3] = static_cast<uint8_t>(~data[3]);
-    PutWord32(device, 0xEC, (0xFFFF ^ (data[2] << 8 | data[3])) ? 1 : 0); // m_heldDown (and m_keyboardControl)
-    PutWord32(device, 0xF0, ((~data[2] & (1 << 3)) || (~data[3] & (1 << 6))) ? 1 : 0); // start or A (past the end)
+    put_word32(device, 0xEC, (0xFFFF ^ (data[2] << 8 | data[3])) ? 1 : 0); // held_down_ (and keyboard_control_)
+    put_word32(device, 0xF0, ((~data[2] & (1 << 3)) || (~data[3] & (1 << 6))) ? 1 : 0); // start or A (past the end)
 
     // (typed text only works with these set)
-    OnlinePlay::g_textEntry = 1;
-    g_inMenuFlag = 0;
+    online::g_text_entry = 1;
+    g_in_menu_flag = 0;
 }
 
-void __cdecl SetSdlActuators(int port, uint16_t high, uint16_t low)
+void __cdecl set_sdl_actuators(int port, uint16_t high, uint16_t low)
 {
-    for (int i = 0; i < s_controllerCount; ++i) {
+    for (int i = 0; i < s_controller_count; ++i) {
         if (SDL_GameControllerGetAttached(s_controllers[i]) && SDL_GameControllerGetPlayerIndex(s_controllers[i]) == port)
             SDL_JoystickRumble(SDL_GameControllerGetJoystick(s_controllers[i]), low, high, 0);
     }

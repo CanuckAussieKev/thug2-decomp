@@ -25,78 +25,78 @@
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine.h"
 
-namespace Engine3D {
+namespace render {
 
 namespace {
 extern void** const kSTextVtable;
 } // namespace
 
 // The vertices' store (0x7000 bytes, as words) and the quads' triangle indices (256 quads of six).
-uint32_t g_textVertexStore[0x1C00];
-uint16_t g_textQuadIndices[0x100 * 6];
+uint32_t g_text_vertex_store[0x1C00];
+uint16_t g_text_quad_indices[0x100 * 6];
 
-STypeface* g_typefaceHead;
-STypeface* g_glyphTypeface;
-STypeface* g_textureFont;
-uint32_t g_textVertexCount;
-TextVertex* g_textVertexBuffer;
-bool g_quadIndicesMade;
+TypefaceData* g_typeface_head;
+TypefaceData* g_glyph_typeface;
+TypefaceData* g_texture_font;
+uint32_t g_text_vertex_count;
+TextVertex* g_text_vertex_buffer;
+bool g_quad_indices_made;
 
 namespace {
 
-constexpr float Bits(uint32_t bits) { return std::bit_cast<float>(bits); }
-constexpr float kEffectScale = Bits(0x38800000); // 0x006487C8, 1 / 16384
-constexpr float kMinusHalf = Bits(0xBF000000);   // 0x0064642C
+constexpr float get_bits(uint32_t bits) { return std::bit_cast<float>(bits); }
+constexpr float kEffectScale = get_bits(0x38800000); // 0x006487C8, 1 / 16384
+constexpr float kMinusHalf = get_bits(0xBF000000);   // 0x0064642C
 
-// The 640x480 -> back buffer conversion (set up by InitDirect3D).
-float HorizScreenRatio() { return g_displayFactorX; }
-float VertScreenRatio() { return g_displayFactorY; }
-int ScreenOffsetX() { return g_screenOffsetX; }
-int ScreenOffsetY() { return g_screenOffsetY; }
+// The 640x480 -> back buffer conversion (set up by init_direct_3d).
+float horiz_screen_ratio() { return g_display_factor_x; }
+float vert_screen_ratio() { return g_display_factor_y; }
+int screen_offset_x() { return g_screen_offset_x; }
+int screen_offset_y() { return g_screen_offset_y; }
 
-// The text vertex buffer (OpenSketch points it at 0x00779FD8) and how many vertices it holds.
-TextVertex*& VertexBuffer() { return g_textVertexBuffer; }
-uint32_t& VertexCount() { return g_textVertexCount; }
+// The text vertex buffer (open_sketch points it at 0x00779FD8) and how many vertices it holds.
+TextVertex*& get_vertex_buffer() { return g_text_vertex_buffer; }
+uint32_t& get_vertex_count() { return g_text_vertex_count; }
 constexpr uint32_t kVertexLimit = 0x400;
 // The font button glyphs come from, and the font whose texture the buffer is drawn with.
-STypeface* PadGlyphTypeface() { return g_glyphTypeface; }
-STypeface*& TextureFont() { return g_textureFont; }
+TypefaceData* pad_glyph_typeface() { return g_glyph_typeface; }
+TypefaceData*& get_texture_font() { return g_texture_font; }
 
 // A button tag's digit through the meta button map (0x0048D6A0, also used by 0x004AF8C0; not rewritten yet).
-char MetaButton(const char* digit) { return Engine3D::ButtonGlyph(digit); }
+char meta_button(const char* digit) { return render::button_glyph(digit); }
 // The name of the key a button is mapped to.
-const char* ButtonKeyName(int button) { return Sio::GetButtonKeyName(button); }
+const char* button_key_name(int button) { return sio::get_button_key_name(button); }
 
 // "\b<d>" / "\m<d>" (the pointer at d): which button.
-int GlyphForButtonTag(char tag, const char* digit)
+int glyph_for_button_tag(char tag, const char* digit)
 {
     if (tag == 'M' || tag == 'm') {
-        char mapped = MetaButton(digit);
-        return TextUtil::HexDigitValue(&mapped);
+        char mapped = meta_button(digit);
+        return text::hex_digit_value(&mapped);
     }
     // Originally from PartyMod Fixes (its call at 0x004CED4B / 0x004CFF0C): with a controller (or PreferGlyphs) the PC's
-    // explicit button tags are turned back into the controller's. The original: TextUtil::HexDigitValue(digit).
-    return static_cast<int>(ButtonForTag(reinterpret_cast<uint8_t*>(const_cast<char*>(digit))));
+    // explicit button tags are turned back into the controller's. The original: TextUtil::hex_digit_value(digit).
+    return static_cast<int>(button_for_tag(reinterpret_cast<uint8_t*>(const_cast<char*>(digit))));
 }
 
 // Whether a button is drawn as a glyph of the button font (otherwise its key's name is spelled out).
-bool UseButtonGlyph(int button)
+bool use_button_glyph(int button)
 {
     // Originally from PartyMod Fixes (its test at 0x004CED6D / 0x004CFF36). The original, where 4-7 and 10-13 are the glyphs:
     //   uint8_t b = static_cast<uint8_t>(button);
     //   return (b >= 4 && b <= 7) || (b >= 10 && b <= 13);
-    return ShouldUseGlyph(static_cast<uint8_t>(button)) == 1;
+    return should_use_glyph(static_cast<uint8_t>(button)) == 1;
 }
 
 // RGBA bytes (as stored) -> the vertex's ARGB: red and blue swap.
-uint32_t VertexColor(uint32_t c) { return (c & 0xFF) << 16 | (c & 0xFF00FF00) | (c >> 16 & 0xFF); }
+uint32_t get_vertex_color(uint32_t c) { return (c & 0xFF) << 16 | (c & 0xFF00FF00) | (c >> 16 & 0xFF); }
 
 // The CRT's _ftol (0x006236FC): truncation; the low 32 bits of the 64-bit result.
-int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
+int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // The x87's own FSIN / FCOS, which the original uses (the CRT's sin/cos round differently). A result stored as
 // a float is rounded once, from the x87's extended precision.
-float X87Cos(double angle)
+float x87_cos(double angle)
 {
     float result;
     __asm {
@@ -106,7 +106,7 @@ float X87Cos(double angle)
     }
     return result;
 }
-float X87Sin(double angle)
+float x87_sin(double angle)
 {
     float result;
     __asm {
@@ -117,7 +117,7 @@ float X87Sin(double angle)
     return result;
 }
 // sin(angle) * value, with the sine kept at extended precision as the original keeps it on the x87 stack.
-double X87SinTimes(double angle, float value)
+double x87_sin_times(double angle, float value)
 {
     double result;
     __asm {
@@ -132,13 +132,13 @@ double X87SinTimes(double angle, float value)
 } // namespace
 
 // 0x004CECB0
-void STypeface::ReadStringParam(const char* text, float* outWidth, float* outHeight)
+void TypefaceData::read_string_param(const char* text, float* out_width, float* out_height)
 {
     int total = 0;
     const char* p = text;
     for (;;) {
-        const SChar* glyph = nullptr; // set by an escape that draws a glyph in place of the next character
-        const STypeface* font = this;
+        const Char* glyph = nullptr; // set by an escape that draws a glyph in place of the next character
+        const TypefaceData* font = this;
         bool counted = true;
         bool done = false;
         while (*p == '\\' && !done) {
@@ -149,7 +149,7 @@ void STypeface::ReadStringParam(const char* text, float* outWidth, float* outHei
             case 'S':
             case 's':
                 ++p;
-                glyph = &chars[specialMap[TextUtil::HexDigitValue(p)]];
+                glyph = &chars[special_map_[text::hex_digit_value(p)]];
                 done = true;
                 break;
             case 'B':
@@ -157,15 +157,15 @@ void STypeface::ReadStringParam(const char* text, float* outWidth, float* outHei
             case 'M':
             case 'm': {
                 ++p;
-                int button = GlyphForButtonTag(tag, p);
-                if (UseButtonGlyph(button)) {
-                    font = PadGlyphTypeface();
-                    glyph = &font->chars[font->specialMap[button]];
+                int button = glyph_for_button_tag(tag, p);
+                if (use_button_glyph(button)) {
+                    font = pad_glyph_typeface();
+                    glyph = &font->chars[font->special_map_[button]];
                 } else {
                     // the key's name, in this font (the map indexed by signed chars)
-                    const uint8_t* nameMap = map;
-                    for (const char* name = ButtonKeyName(button); *name; ++name)
-                        total += chars[nameMap[static_cast<signed char>(*name)]].w + glyphGap;
+                    const uint8_t* name_map = map;
+                    for (const char* name = button_key_name(button); *name; ++name)
+                        total += chars[name_map[static_cast<signed char>(*name)]].w + glyph_gap_;
                     counted = false; // not the digit
                 }
                 done = true;
@@ -191,72 +191,72 @@ void STypeface::ReadStringParam(const char* text, float* outWidth, float* outHei
             if (glyph)
                 w = glyph->w;
             else if (*p == ' ')
-                w = blankGap;
+                w = blank_gap_;
             else
                 w = font->chars[font->map[static_cast<uint8_t>(*p)]].w;
-            total += w + glyphGap;
+            total += w + glyph_gap_;
         }
         ++p;
     }
-    *outWidth = static_cast<float>(total);
-    *outHeight = static_cast<float>(static_cast<double>(height));
+    *out_width = static_cast<float>(total);
+    *out_height = static_cast<float>(static_cast<double>(height));
 }
 
 // 0x004CFB20
-void SGlyphRun::DrawKeyChar(char c, float* penX, float penY)
+void GlyphRun::draw_key_char(char c, float* pen_x, float pen_y)
 {
-    double scaleX = HorizScreenRatio();
-    double scaleY = VertScreenRatio();
-    float spacing = static_cast<float>(font->glyphGap * static_cast<double>(xscale));
+    double scale_x = horiz_screen_ratio();
+    double scale_y = vert_screen_ratio();
+    float spacing = static_cast<float>(font->glyph_gap_ * static_cast<double>(xscale));
     if (c == ' ') {
-        *penX = static_cast<float>((font->blankGap * static_cast<double>(xscale) + spacing) * scaleX + *penX);
+        *pen_x = static_cast<float>((font->blank_gap_ * static_cast<double>(xscale) + spacing) * scale_x + *pen_x);
         return;
     }
-    const SChar* glyph = &font->chars[font->map[static_cast<uint8_t>(c)]];
+    const Char* glyph = &font->chars[font->map[static_cast<uint8_t>(c)]];
     // (x87: top and bottom stay at double precision until stored)
-    double top = static_cast<double>(font->base - glyph->baseline) * yscale * scaleY + penY;
-    float left = *penX;
-    float right = static_cast<float>(glyph->w * scaleX * xscale + left);
-    double bottom = glyph->h * scaleY * yscale + top;
-    uint32_t vertexColor = VertexColor(color);
-    TextVertex* v = VertexBuffer() + VertexCount();
-    v[0] = {left, static_cast<float>(top), z, 1.0f, vertexColor, glyph->u0, glyph->v0};
-    v[1] = {left, static_cast<float>(bottom), z, 1.0f, vertexColor, glyph->u0, glyph->v1};
-    v[2] = {right, static_cast<float>(bottom), z, 1.0f, vertexColor, glyph->u1, glyph->v1};
-    v[3] = {right, static_cast<float>(top), z, 1.0f, vertexColor, glyph->u1, glyph->v0};
-    VertexCount() += 4;
-    if (VertexCount() >= kVertexLimit) {
-        CloseSketch();
-        OpenSketch();
+    double top = static_cast<double>(font->base - glyph->baseline) * yscale * scale_y + pen_y;
+    float left = *pen_x;
+    float right = static_cast<float>(glyph->w * scale_x * xscale + left);
+    double bottom = glyph->h * scale_y * yscale + top;
+    uint32_t vertex_color = get_vertex_color(color);
+    TextVertex* v = get_vertex_buffer() + get_vertex_count();
+    v[0] = {left, static_cast<float>(top), z, 1.0f, vertex_color, glyph->u0, glyph->v0};
+    v[1] = {left, static_cast<float>(bottom), z, 1.0f, vertex_color, glyph->u0, glyph->v1};
+    v[2] = {right, static_cast<float>(bottom), z, 1.0f, vertex_color, glyph->u1, glyph->v1};
+    v[3] = {right, static_cast<float>(top), z, 1.0f, vertex_color, glyph->u1, glyph->v0};
+    get_vertex_count() += 4;
+    if (get_vertex_count() >= kVertexLimit) {
+        close_sketch();
+        open_sketch();
     }
-    *penX = static_cast<float>(scaleX * spacing + right);
+    *pen_x = static_cast<float>(scale_x * spacing + right);
 }
 
 // 0x004CFD00
-void SGlyphRun::Blit()
+void GlyphRun::blit()
 {
-    double scaleX = HorizScreenRatio();
-    double scaleY = VertScreenRatio();
-    double offsetX = ScreenOffsetX();
-    double offsetY = ScreenOffsetY();
+    double scale_x = horiz_screen_ratio();
+    double scale_y = vert_screen_ratio();
+    double offset_x = screen_offset_x();
+    double offset_y = screen_offset_y();
     // Screen positions (x87: each sum rounded to float once, when stored).
-    float posX = static_cast<float>(scaleX * x + offsetX);
-    float posY = static_cast<float>(scaleY * y + offsetY);
-    float pivotScreenX = static_cast<float>((static_cast<double>(pivotX) + x) * scaleX + offsetX);
-    float pivotScreenY = static_cast<float>((static_cast<double>(pivotY) + y) * scaleY + offsetY);
-    float glyphGap = static_cast<float>(font->glyphGap * static_cast<double>(xscale));
-    float blankGap = static_cast<float>(font->blankGap * static_cast<double>(xscale));
+    float pos_x = static_cast<float>(scale_x * x + offset_x);
+    float pos_y = static_cast<float>(scale_y * y + offset_y);
+    float pivot_screen_x = static_cast<float>((static_cast<double>(pivot_x_) + x) * scale_x + offset_x);
+    float pivot_screen_y = static_cast<float>((static_cast<double>(pivot_y_) + y) * scale_y + offset_y);
+    float glyph_gap = static_cast<float>(font->glyph_gap_ * static_cast<double>(xscale));
+    float blank_gap = static_cast<float>(font->blank_gap_ * static_cast<double>(xscale));
     if (xscale == 0.0f || yscale == 0.0f) // (0x0066D520)
         return;
-    float cosA = X87Cos(angle);
-    float sinA = X87Sin(angle);
-    uint32_t vertexColor = VertexColor(color);
+    float cos_a = x87_cos(angle);
+    float sin_a = x87_sin(angle);
+    uint32_t vertex_color = get_vertex_color(color);
     int effect = 0; // byte offset of this character's effect record
     const char* p = text;
     for (;;) {
-        TextVertex* v = VertexBuffer() + VertexCount();
-        STypeface* charFont = font;
-        const SChar* glyph = nullptr;
+        TextVertex* v = get_vertex_buffer() + get_vertex_count();
+        TypefaceData* char_font = font;
+        const Char* glyph = nullptr;
         bool drawn = true;
         bool done = false;
         while (*p == '\\' && !done) {
@@ -268,16 +268,16 @@ void SGlyphRun::Blit()
             case 'C':
             case 'c': {
                 ++p;
-                int index = TextUtil::HexDigitValue(p);
+                int index = text::hex_digit_value(p);
                 ++p;
                 // colour 0, or any colour while the text's is fixed, is the text's own
-                vertexColor = VertexColor(index != 0 && !fixedColor ? font->Color(index) : color);
+                vertex_color = get_vertex_color(index != 0 && !fixed_color_ ? font->get_color(index) : color);
                 break;
             }
             case 'S':
             case 's':
                 ++p;
-                glyph = &font->chars[font->specialMap[TextUtil::HexDigitValue(p)]];
+                glyph = &font->chars[font->special_map_[text::hex_digit_value(p)]];
                 done = true;
                 break;
             case 'B':
@@ -285,23 +285,23 @@ void SGlyphRun::Blit()
             case 'M':
             case 'm': {
                 ++p;
-                int button = GlyphForButtonTag(tag, p);
-                if (UseButtonGlyph(button)) {
+                int button = glyph_for_button_tag(tag, p);
+                if (use_button_glyph(button)) {
                     // drawn with the button font's texture: draw what's buffered first
-                    STypeface* buttons = PadGlyphTypeface();
-                    glyph = &buttons->chars[buttons->specialMap[button]];
-                    charFont = buttons;
-                    CloseSketch();
-                    OpenSketch();
-                    v = VertexBuffer() + VertexCount();
-                    TextureFont() = buttons;
+                    TypefaceData* buttons = pad_glyph_typeface();
+                    glyph = &buttons->chars[buttons->special_map_[button]];
+                    char_font = buttons;
+                    close_sketch();
+                    open_sketch();
+                    v = get_vertex_buffer() + get_vertex_count();
+                    get_texture_font() = buttons;
                 } else {
-                    CloseSketch();
-                    OpenSketch();
-                    v = VertexBuffer() + VertexCount();
+                    close_sketch();
+                    open_sketch();
+                    v = get_vertex_buffer() + get_vertex_count();
                     drawn = false; // not the digit
-                    for (const char* name = ButtonKeyName(button); *name; ++name)
-                        DrawKeyChar(*name, &posX, posY);
+                    for (const char* name = button_key_name(button); *name; ++name)
+                        draw_key_char(*name, &pos_x, pos_y);
                 }
                 done = true;
                 break;
@@ -321,66 +321,66 @@ void SGlyphRun::Blit()
             return;
         if (drawn) {
             if (*p == ' ' && !glyph) {
-                posX = static_cast<float>((static_cast<double>(blankGap) + glyphGap) * scaleX + posX);
+                pos_x = static_cast<float>((static_cast<double>(blank_gap) + glyph_gap) * scale_x + pos_x);
                 ++p;
-                effect += sizeof(STextEffect);
+                effect += sizeof(TextEffect);
                 continue;
             }
             if (!glyph)
-                glyph = &charFont->chars[charFont->map[static_cast<uint8_t>(*p)]];
-            float top = static_cast<float>(static_cast<double>(charFont->base - glyph->baseline) * yscale * scaleY + posY);
-            const STextEffect* e =
-                effects ? reinterpret_cast<const STextEffect*>(reinterpret_cast<const uint8_t*>(effects) + effect) : nullptr;
+                glyph = &char_font->chars[char_font->map[static_cast<uint8_t>(*p)]];
+            float top = static_cast<float>(static_cast<double>(char_font->base - glyph->baseline) * yscale * scale_y + pos_y);
+            const TextEffect* e =
+                effects ? reinterpret_cast<const TextEffect*>(reinterpret_cast<const uint8_t*>(effects) + effect) : nullptr;
             float right, bottom;
             if (e) {
-                int w = Ftol(e->xscale * static_cast<double>(kEffectScale) * glyph->w * xscale * scaleX);
-                right = static_cast<float>(static_cast<double>(w) + e->x + posX);
-                int h = Ftol(e->yscale * static_cast<double>(kEffectScale) * glyph->h * yscale * scaleY);
+                int w = ftol(e->xscale * static_cast<double>(kEffectScale) * glyph->w * xscale * scale_x);
+                right = static_cast<float>(static_cast<double>(w) + e->x + pos_x);
+                int h = ftol(e->yscale * static_cast<double>(kEffectScale) * glyph->h * yscale * scale_y);
                 bottom = static_cast<float>(static_cast<double>(h) + e->y + top);
             } else {
-                int w = Ftol(static_cast<double>(glyph->w) * xscale * scaleX);
-                right = static_cast<float>(static_cast<double>(w) + posX);
-                int h = Ftol(static_cast<double>(glyph->h) * yscale * scaleY);
+                int w = ftol(static_cast<double>(glyph->w) * xscale * scale_x);
+                right = static_cast<float>(static_cast<double>(w) + pos_x);
+                int h = ftol(static_cast<double>(glyph->h) * yscale * scale_y);
                 bottom = static_cast<float>(static_cast<double>(h) + top);
             }
 
             // The corners, relative to the pivot (whole pixels), rotated by the text's angle. The left and top
             // offsets go through floats; the right and bottom ones don't (the same unless they're huge).
-            int pivotYi = Ftol(pivotScreenY);
-            int topRel = Ftol(static_cast<double>(top) - pivotYi);
-            int pivotXi = Ftol(pivotScreenX);
-            int leftRel = Ftol(static_cast<double>(posX) - pivotXi);
-            double l = static_cast<float>(leftRel);
-            double t = static_cast<float>(topRel);
-            int x0 = Ftol(l * cosA - t * sinA) + pivotXi; // left, top
-            int y0 = Ftol(t * cosA + l * sinA) + pivotYi;
-            double r = Ftol(static_cast<double>(right) - pivotXi);
-            int x1 = Ftol(r * cosA - t * sinA) + pivotXi; // right, top
-            int y1 = Ftol(t * cosA + r * sinA) + pivotYi;
-            double b = Ftol(static_cast<double>(bottom) - pivotYi);
-            l = leftRel;
-            int x2 = Ftol(l * cosA - b * sinA) + pivotXi; // left, bottom
-            int y2 = Ftol(b * cosA + l * sinA) + pivotYi;
-            int x3 = Ftol(r * cosA - b * sinA) + pivotXi; // right, bottom
-            int y3 = Ftol(b * cosA + r * sinA) + pivotYi;
+            int pivot_yi = ftol(pivot_screen_y);
+            int top_rel = ftol(static_cast<double>(top) - pivot_yi);
+            int pivot_xi = ftol(pivot_screen_x);
+            int left_rel = ftol(static_cast<double>(pos_x) - pivot_xi);
+            double l = static_cast<float>(left_rel);
+            double t = static_cast<float>(top_rel);
+            int x0 = ftol(l * cos_a - t * sin_a) + pivot_xi; // left, top
+            int y0 = ftol(t * cos_a + l * sin_a) + pivot_yi;
+            double r = ftol(static_cast<double>(right) - pivot_xi);
+            int x1 = ftol(r * cos_a - t * sin_a) + pivot_xi; // right, top
+            int y1 = ftol(t * cos_a + r * sin_a) + pivot_yi;
+            double b = ftol(static_cast<double>(bottom) - pivot_yi);
+            l = left_rel;
+            int x2 = ftol(l * cos_a - b * sin_a) + pivot_xi; // left, bottom
+            int y2 = ftol(b * cos_a + l * sin_a) + pivot_yi;
+            int x3 = ftol(r * cos_a - b * sin_a) + pivot_xi; // right, bottom
+            int y3 = ftol(b * cos_a + r * sin_a) + pivot_yi;
 
             if (e && e->rotation != 0) {
                 // The character's own rotation about its centre - as the original computes it: the centre is
                 // negated and offset by the pivot's x on both axes, then turned by the text's angle, and the
                 // corners are turned by (angle - 90 degrees) mirrored. Kept as it is.
                 double a = e->rotation * static_cast<double>(kEffectScale);
-                float cosR = X87Cos(a);
-                int cy = Ftol((static_cast<double>(bottom) + top) * kMinusHalf);
-                double oy = static_cast<float>(-pivotXi - cy);
-                int cx = Ftol((static_cast<double>(right) + posX) * kMinusHalf);
-                double ox = static_cast<float>(-pivotXi - cx);
-                int centreX = Ftol(ox * cosA - oy * sinA) + pivotXi;
-                int centreY = Ftol(oy * cosA + ox * sinA) + pivotXi;
+                float cos_r = x87_cos(a);
+                int cy = ftol((static_cast<double>(bottom) + top) * kMinusHalf);
+                double oy = static_cast<float>(-pivot_xi - cy);
+                int cx = ftol((static_cast<double>(right) + pos_x) * kMinusHalf);
+                double ox = static_cast<float>(-pivot_xi - cx);
+                int centre_x = ftol(ox * cos_a - oy * sin_a) + pivot_xi;
+                int centre_y = ftol(oy * cos_a + ox * sin_a) + pivot_xi;
                 auto turn = [&](int& px, int& py) {
-                    float dx = static_cast<float>(px - centreX);
-                    float dy = static_cast<float>(py - centreY);
-                    px = Ftol(X87SinTimes(a, dx) - static_cast<double>(dy) * cosR) + centreX;
-                    py = Ftol(X87SinTimes(a, dy) + static_cast<double>(dx) * cosR) + centreY;
+                    float dx = static_cast<float>(px - centre_x);
+                    float dy = static_cast<float>(py - centre_y);
+                    px = ftol(x87_sin_times(a, dx) - static_cast<double>(dy) * cos_r) + centre_x;
+                    py = ftol(x87_sin_times(a, dy) + static_cast<double>(dx) * cos_r) + centre_y;
                 };
                 turn(x0, y0);
                 turn(x1, y1);
@@ -389,62 +389,62 @@ void SGlyphRun::Blit()
             }
 
             auto at = [](int i) { return static_cast<float>(i); };
-            v[0] = {at(x0), at(y0), z, 1.0f, vertexColor, glyph->u0, glyph->v0};
-            v[1] = {at(x2), at(y2), z, 1.0f, vertexColor, glyph->u0, glyph->v1};
-            v[2] = {at(x3), at(y3), z, 1.0f, vertexColor, glyph->u1, glyph->v1};
-            v[3] = {at(x1), at(y1), z, 1.0f, vertexColor, glyph->u1, glyph->v0};
-            VertexCount() += 4;
-            if (VertexCount() >= kVertexLimit) {
-                CloseSketch();
-                OpenSketch();
+            v[0] = {at(x0), at(y0), z, 1.0f, vertex_color, glyph->u0, glyph->v0};
+            v[1] = {at(x2), at(y2), z, 1.0f, vertex_color, glyph->u0, glyph->v1};
+            v[2] = {at(x3), at(y3), z, 1.0f, vertex_color, glyph->u1, glyph->v1};
+            v[3] = {at(x1), at(y1), z, 1.0f, vertex_color, glyph->u1, glyph->v0};
+            get_vertex_count() += 4;
+            if (get_vertex_count() >= kVertexLimit) {
+                close_sketch();
+                open_sketch();
             }
-            posX = static_cast<float>(scaleX * glyphGap + right);
-            if (charFont != font) { // back to this font's texture
-                CloseSketch();
-                OpenSketch();
+            pos_x = static_cast<float>(scale_x * glyph_gap + right);
+            if (char_font != font) { // back to this font's texture
+                close_sketch();
+                open_sketch();
             }
         }
         ++p;
-        effect += sizeof(STextEffect);
+        effect += sizeof(TextEffect);
     }
 }
 
 namespace {
 
 // The D3D9 device, its methods by vtable offset.
-void** InputPort() { return reinterpret_cast<void**>(g_d3dDevice); }
+void** input_port() { return reinterpret_cast<void**>(g_d3d_device); }
 template <typename F>
-F DeviceMethod(int offset)
+F device_method(int offset)
 {
-    return reinterpret_cast<F>((*reinterpret_cast<void***>(InputPort()))[offset / 4]);
+    return reinterpret_cast<F>((*reinterpret_cast<void***>(input_port()))[offset / 4]);
 }
-void SetTextureStageState(int stage, int type, int value)
+void set_texture_stage_state(int stage, int type, int value)
 {
-    DeviceMethod<long(__stdcall*)(void*, int, int, int)>(0x10C)(InputPort(), stage, type, value);
+    device_method<long(__stdcall*)(void*, int, int, int)>(0x10C)(input_port(), stage, type, value);
 }
 template <typename F>
-F TextureMethod(void* texture, int offset)
+F texture_method(void* texture, int offset)
 {
     return reinterpret_cast<F>((*reinterpret_cast<void***>(texture))[offset / 4]);
 }
 
-// The vertices' store (OpenSketch points the buffer at it) and the quads' triangles as indices into it (made the
+// The vertices' store (open_sketch points the buffer at it) and the quads' triangles as indices into it (made the
 // first time they're drawn).
-TextVertex* VertexStore() { return reinterpret_cast<TextVertex*>(g_textVertexStore); }
-uint16_t* QuadIndices() { return g_textQuadIndices; }
-bool& QuadIndicesMade() { return g_quadIndicesMade; }
+TextVertex* vertex_store() { return reinterpret_cast<TextVertex*>(g_text_vertex_store); }
+uint16_t* quad_indices() { return g_text_quad_indices; }
+bool& quad_indices_made() { return g_quad_indices_made; }
 constexpr int kQuads = 0x100;
 
-// The loaded fonts (through STypeface::next).
-STypeface*& TypefaceChain() { return g_typefaceHead; }
+// The loaded fonts (through TypefaceData::next).
+TypefaceData*& typeface_chain() { return g_typeface_head; }
 
-uint16_t U16(const uint8_t* p)
+uint16_t u16(const uint8_t* p)
 {
     uint16_t value;
     std::memcpy(&value, p, sizeof(value));
     return value;
 }
-uint32_t U32(const uint8_t* p)
+uint32_t get_u32(const uint8_t* p)
 {
     uint32_t value;
     std::memcpy(&value, p, sizeof(value));
@@ -454,39 +454,39 @@ uint32_t U32(const uint8_t* p)
 } // namespace
 
 // 0x004CEED0
-SGlyphRun* SGlyphRun::MakeNew(float priority)
+GlyphRun* GlyphRun::make_new(float priority)
 {
-    reinterpret_cast<SOverlayDraw*>(this)->MakeNew(priority, true);
+    reinterpret_cast<OverlayDraw*>(this)->make_new(priority, true);
     vtable = kSTextVtable;
     return this;
 }
 
 // 0x004CEEF0
-void SGlyphRun::DestroyBody()
+void GlyphRun::destroy_body()
 {
     vtable = kSTextVtable;
-    reinterpret_cast<SOverlayDraw*>(this)->DestroyBody();
+    reinterpret_cast<OverlayDraw*>(this)->destroy_body();
 }
 
 // 0x004CFAF0
-SGlyphRun* SGlyphRun::Teardown(unsigned int flags)
+GlyphRun* GlyphRun::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
 // 0x004CEF00
-void SGlyphRun::ResetVertices() { VertexBuffer() = VertexStore(); }
+void GlyphRun::reset_vertices() { get_vertex_buffer() = vertex_store(); }
 
 // 0x004CEF10
-void SGlyphRun::DrawVertices()
+void GlyphRun::draw_vertices()
 {
-    if (!QuadIndicesMade()) {
+    if (!quad_indices_made()) {
         for (int quad = 0; quad < kQuads; ++quad) {
             uint16_t first = static_cast<uint16_t>(quad * 4);
-            uint16_t* triangles = QuadIndices() + quad * 6;
+            uint16_t* triangles = quad_indices() + quad * 6;
             triangles[0] = first;
             triangles[1] = static_cast<uint16_t>(first + 1);
             triangles[2] = static_cast<uint16_t>(first + 2);
@@ -494,95 +494,95 @@ void SGlyphRun::DrawVertices()
             triangles[4] = static_cast<uint16_t>(first + 2);
             triangles[5] = static_cast<uint16_t>(first + 3);
         }
-        QuadIndicesMade() = true;
+        quad_indices_made() = true;
     }
-    int count = static_cast<int>(VertexCount());
+    int count = static_cast<int>(get_vertex_count());
     if (count <= 0)
         return;
-    STypeface* textureFont = TextureFont() ? TextureFont() : font;
-    SetPixelShader(nullptr, nullptr); // (no pixel shader)
-    SetTextureStageState(0, 1, 5); // colour: texture x diffuse, doubled
-    SetTextureStageState(0, 2, 2);
-    SetTextureStageState(0, 3, 1);
-    SetTextureStageState(0, 4, 5); // alpha: the same
-    SetTextureStageState(0, 5, 2);
-    SetTextureStageState(0, 6, 1);
-    SetTextureStageState(1, 1, 1); // stage 1 off
-    SetVertexFormat(0x144);        // position (pre-transformed), colour, one texture coordinate
-    SetTexture(0, textureFont->texture); // (the original also passes unknown17C, which SetTexture doesn't take)
-    DeviceMethod<long(__stdcall*)(void*, int, int)>(0xE4)(InputPort(), 22, 1); // D3DRS_CULLMODE: none
-    if (!g_suppressDraw) { // (rendering not skipped)
-        ++g_drawCalls;            // draw calls
-        g_drawnTriangles += count / 2; // "triangles"
+    TypefaceData* texture_font = get_texture_font() ? get_texture_font() : font;
+    set_pixel_shader(nullptr, nullptr); // (no pixel shader)
+    set_texture_stage_state(0, 1, 5); // colour: texture x diffuse, doubled
+    set_texture_stage_state(0, 2, 2);
+    set_texture_stage_state(0, 3, 1);
+    set_texture_stage_state(0, 4, 5); // alpha: the same
+    set_texture_stage_state(0, 5, 2);
+    set_texture_stage_state(0, 6, 1);
+    set_texture_stage_state(1, 1, 1); // stage 1 off
+    set_vertex_format(0x144);        // position (pre-transformed), colour, one texture coordinate
+    set_texture(0, texture_font->texture); // (the original also passes unknown17c_, which SetTexture doesn't take)
+    device_method<long(__stdcall*)(void*, int, int)>(0xE4)(input_port(), 22, 1); // D3DRS_CULLMODE: none
+    if (!g_suppress_draw) { // (rendering not skipped)
+        ++g_draw_calls;            // draw calls
+        g_drawn_triangles += count / 2; // "triangles"
         using DrawIndexedPrimitiveUP = long(__stdcall*)(void*, int, unsigned int, unsigned int, unsigned int, const void*,
                                                         int, const void*, unsigned int);
-        DeviceMethod<DrawIndexedPrimitiveUP>(0x150)(InputPort(), 4 /* triangle list */, 0, count, count / 2, QuadIndices(),
-                                                    0x65 /* 16-bit indices */, VertexStore(), sizeof(TextVertex));
+        device_method<DrawIndexedPrimitiveUP>(0x150)(input_port(), 4 /* triangle list */, 0, count, count / 2, quad_indices(),
+                                                    0x65 /* 16-bit indices */, vertex_store(), sizeof(TextVertex));
     }
-    SetTextureStageState(0, 1, 4); // colour and alpha back to texture x diffuse
-    SetTextureStageState(0, 4, 4);
-    VertexCount() = 0;
-    TextureFont() = nullptr;
+    set_texture_stage_state(0, 1, 4); // colour and alpha back to texture x diffuse
+    set_texture_stage_state(0, 4, 4);
+    get_vertex_count() = 0;
+    get_texture_font() = nullptr;
 }
 
 // 0x004CF0F0. The file: a header (+4 the character map format, +8 the number of glyphs, +0xC the height, +0x10
 // the base), the glyphs' character map entries (6 bytes each), the texture's header (+4 width, +6 height, 16-bit),
 // its pixels (one byte each, rounded up to 4), its palette (256 RGBA, PS2 alpha: 0x80 = opaque), and the glyphs'
 // rectangles in the texture (after 4 bytes: x, y, width, height, 16-bit).
-STypeface* STypeface::ReadIn(const char* name, bool fromMemory)
+TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
 {
     const uint8_t* data = reinterpret_cast<const uint8_t*>(name); // (from memory: the next bytes)
-    FileLoad::Hdl file = nullptr;
-    if (!fromMemory) {
+    file::Hdl file = nullptr;
+    if (!from_memory) {
         char path[128]; // (the original strcpy/strcats into it: a longer name overflows; here it's cut short)
         std::snprintf(path, sizeof(path), "fonts/%s.fnt.xbx", name);
-        file = FileLoad::Unseal(path, "rb");
+        file = file::unseal(path, "rb");
     }
     // The next size * count bytes into `to` (as the original reads them: the header as 0x14 of 1 byte, the rest
     // as one block each; from memory, the glyph rectangles - read last - don't move on).
     auto read = [&](void* to, int size, int count, bool advance) {
-        if (fromMemory) {
+        if (from_memory) {
             std::memcpy(to, data, static_cast<size_t>(size) * count);
             if (advance)
                 data += size * count;
         } else {
-            FileLoad::TakeIn(to, size, count, file);
+            file::get_take_in(to, size, count, file);
         }
     };
     uint8_t buffer[0x808]; // (the original's: the tables of more than 256 glyphs overflow it)
 
-    auto* font = static_cast<STypeface*>(MemSys::Alloc(sizeof(STypeface)));
+    auto* font = static_cast<TypefaceData*>(memory::alloc(sizeof(TypefaceData)));
     if (font)
-        std::memset(font, 0, sizeof(STypeface));
+        std::memset(font, 0, sizeof(TypefaceData));
     read(buffer, 1, 0x14, true);
     font->format = buffer[4];
-    int count = static_cast<int>(U32(buffer + 8));
-    font->height = U32(buffer + 0xC);
-    font->base = U32(buffer + 0x10);
+    int count = static_cast<int>(get_u32(buffer + 8));
+    font->height = get_u32(buffer + 0xC);
+    font->base = get_u32(buffer + 0x10);
     std::memset(font->map, 0, sizeof(font->map));
-    std::memset(font->specialMap, 0, sizeof(font->specialMap));
-    font->chars = static_cast<SChar*>(MemSys::Alloc(static_cast<uint32_t>(count) * sizeof(SChar)));
+    std::memset(font->special_map_, 0, sizeof(font->special_map_));
+    font->chars = static_cast<Char*>(memory::alloc(static_cast<uint32_t>(count) * sizeof(Char)));
 
     // The character map: which glyph each character (and special glyph) is.
     read(buffer, count * 6, 1, true);
-    uint8_t* fontBytes = reinterpret_cast<uint8_t*>(font);
+    uint8_t* font_bytes = reinterpret_cast<uint8_t*>(font);
     if (font->format == 1) {
         // Each glyph: its baseline, then a character (>= 0) or a special glyph (-1 - index; past the special map
         // for indexes over 0x1F, as in the original).
         for (int i = 0; i < count; ++i) {
             const uint8_t* entry = buffer + 6 * i;
-            font->chars[i].baseline = U16(entry);
-            int16_t code = static_cast<int16_t>(U16(entry + 2));
+            font->chars[i].baseline = u16(entry);
+            int16_t code = static_cast<int16_t>(u16(entry + 2));
             if (code >= 0)
                 font->map[code & 0xFF] = static_cast<uint8_t>(i);
             else
-                fontBytes[offsetof(STypeface, specialMap) + static_cast<uint8_t>(0xFF - (code & 0xFF))] = static_cast<uint8_t>(i);
+                font_bytes[offsetof(TypefaceData, special_map_) + static_cast<uint8_t>(0xFF - (code & 0xFF))] = static_cast<uint8_t>(i);
         }
     } else if (font->format == 2) {
         // Each glyph: its baseline, then up to four characters (0xFF ends them early).
         for (int i = 0; i < count; ++i) {
             const uint8_t* entry = buffer + 6 * i;
-            font->chars[i].baseline = U16(entry);
+            font->chars[i].baseline = u16(entry);
             const uint8_t* codes = entry + 2;
             font->map[codes[0]] = static_cast<uint8_t>(i);
             for (int c = 1; c < 4 && codes[c] != 0xFF; ++c)
@@ -590,39 +590,39 @@ STypeface* STypeface::ReadIn(const char* name, bool fromMemory)
         }
     }
     // Characters and special glyphs without one get the default glyph (glyph 0 counts as none, but for 'A'/'a').
-    if (font->specialMap[0x1F]) {
+    if (font->special_map_[0x1F]) {
         for (int c = 0; c < 256; ++c) {
             if (!font->map[c] && c != 'A' && c != 'a')
-                font->map[c] = font->specialMap[0x1F];
-            if (c < 0x1F && !font->specialMap[c])
-                font->specialMap[c] = font->specialMap[0x1F];
+                font->map[c] = font->special_map_[0x1F];
+            if (c < 0x1F && !font->special_map_[c])
+                font->special_map_[c] = font->special_map_[0x1F];
         }
     }
 
     // The texture: created on the device, its palette's colours (RGBA, PS2 alpha) made ARGB with alpha doubled
     // (0x80 and over: opaque), and the pixels written through it (the rows packed: the pitch isn't used).
     read(buffer, 0x10, 1, true);
-    uint32_t width = U16(buffer + 4);
-    uint32_t height = U16(buffer + 6);
+    uint32_t width = u16(buffer + 4);
+    uint32_t height = u16(buffer + 6);
     // Not original - HD menu UI (engine/gfx/hd_ui.h): an upscaled page (marked at +8, the scale at +0xC) has 32-bit
     // BGRA texels and no palette; its glyph rectangles are in the original page's pixels.
-    uint32_t hdScale = HdUi::FontScale(U32(buffer + 8), U32(buffer + 0xC));
-    if (hdScale != 1)
-        HdUi::NoteFont(fromMemory ? nullptr : name, hdScale, width, height);
+    uint32_t hd_scale = hd_ui::font_scale(get_u32(buffer + 8), get_u32(buffer + 0xC));
+    if (hd_scale != 1)
+        hd_ui::note_font(from_memory ? nullptr : name, hd_scale, width, height);
     using CreateTexture = long(__stdcall*)(void*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, void**, void*);
-    if (DeviceMethod<CreateTexture>(0x5C)(InputPort(), width, height, 1, 0, 21 /* A8R8G8B8 */, 1 /* managed */,
+    if (device_method<CreateTexture>(0x5C)(input_port(), width, height, 1, 0, 21 /* A8R8G8B8 */, 1 /* managed */,
                                          &font->texture, nullptr) != 0)
         return nullptr;
     uint32_t size = (height * width + 3) & ~3u;
     uint8_t* indices = nullptr;
     uint32_t* pixels;
-    if (hdScale != 1) {
+    if (hd_scale != 1) {
         // (not original - HD menu UI: the texels as they are, in a buffer from the C runtime's heap - 4-16 MB, more
         // than the game's heap may have free while the front end loads)
         pixels = static_cast<uint32_t*>(std::malloc(size * 4));
         read(pixels, static_cast<int>(size * 4), 1, true);
     } else {
-        indices = static_cast<uint8_t*>(MemSys::Alloc(size));
+        indices = static_cast<uint8_t*>(memory::alloc(size));
         uint32_t palette[256];
         read(indices, static_cast<int>(size), 1, true);
         read(palette, 0x400, 1, true);
@@ -632,22 +632,22 @@ STypeface* STypeface::ReadIn(const char* name, bool fromMemory)
             alpha = alpha >= 0x80 ? 0xFF : alpha << 1;
             color = alpha << 24 | (argb & 0xFFFFFF);
         }
-        pixels = static_cast<uint32_t*>(MemSys::Alloc(size * 4));
+        pixels = static_cast<uint32_t*>(memory::alloc(size * 4));
         // palette indices -> colours
-        OsLayer::ExpandPalette(pixels, indices, static_cast<int>(size), palette);
+        os_layer::expand_palette(pixels, indices, static_cast<int>(size), palette);
     }
     struct SurfaceLock {
         int pitch;
         void* bits;
     } locked;
-    if (TextureMethod<long(__stdcall*)(void*, uint32_t, SurfaceLock*, const void*, uint32_t)>(font->texture, 0x4C)(
+    if (texture_method<long(__stdcall*)(void*, uint32_t, SurfaceLock*, const void*, uint32_t)>(font->texture, 0x4C)(
             font->texture, 0, &locked, nullptr, 0) != 0)
         return nullptr;
     std::memcpy(locked.bits, pixels, size * 4);
-    TextureMethod<long(__stdcall*)(void*, uint32_t)>(font->texture, 0x50)(font->texture, 0);
+    texture_method<long(__stdcall*)(void*, uint32_t)>(font->texture, 0x50)(font->texture, 0);
     if (indices) {
-        MemSys::Dealloc(indices);
-        MemSys::Dealloc(pixels);
+        memory::dealloc(indices);
+        memory::dealloc(pixels);
     } else {
         std::free(pixels); // (not original - HD menu UI)
     }
@@ -655,50 +655,50 @@ STypeface* STypeface::ReadIn(const char* name, bool fromMemory)
     // The glyphs' rectangles: texture coordinates (the right/bottom ones from the unrounded left/top) and sizes.
     read(buffer, count * 8 + 4, 1, false);
     // (not original - HD menu UI: an upscaled page's size divided by its scale, the rectangles' own pixels)
-    double texelsWide = static_cast<int>(width / hdScale);
-    double texelsHigh = static_cast<int>(height / hdScale);
+    double texels_wide = static_cast<int>(width / hd_scale);
+    double texels_high = static_cast<int>(height / hd_scale);
     for (int i = 0; i < count; ++i) {
         const uint8_t* rect = buffer + 4 + 8 * i;
-        SChar& glyph = font->chars[i];
-        glyph.w = U16(rect + 4);
-        glyph.h = U16(rect + 6);
-        double u0 = U16(rect) / texelsWide;
-        double v0 = U16(rect + 2) / texelsHigh;
+        Char& glyph = font->chars[i];
+        glyph.w = u16(rect + 4);
+        glyph.h = u16(rect + 6);
+        double u0 = u16(rect) / texels_wide;
+        double v0 = u16(rect + 2) / texels_high;
         glyph.u0 = static_cast<float>(u0);
         glyph.v0 = static_cast<float>(v0);
-        glyph.u1 = static_cast<float>(glyph.w / texelsWide + u0);
-        glyph.v1 = static_cast<float>(glyph.h / texelsHigh + v0);
+        glyph.u1 = static_cast<float>(glyph.w / texels_wide + u0);
+        glyph.v1 = static_cast<float>(glyph.h / texels_high + v0);
     }
 
-    font->next = TypefaceChain();
-    TypefaceChain() = font;
-    if (!fromMemory)
-        FileLoad::Shut(file);
-    font->blankGap = static_cast<int16_t>(font->chars[font->map['I']].w);
+    font->next = typeface_chain();
+    typeface_chain() = font;
+    if (!from_memory)
+        file::shut(file);
+    font->blank_gap_ = static_cast<int16_t>(font->chars[font->map['I']].w);
     return font;
 }
 
 // 0x004CFA80
-void STypeface::Offload(STypeface* font)
+void TypefaceData::offload(TypefaceData* font)
 {
-    if (TypefaceChain() == font) {
-        TypefaceChain() = font->next;
+    if (typeface_chain() == font) {
+        typeface_chain() = font->next;
     } else {
-        for (STypeface* p = TypefaceChain(); p->next; p = p->next) {
+        for (TypefaceData* p = typeface_chain(); p->next; p = p->next) {
             if (p->next == font) {
                 p->next = font->next;
                 break;
             }
         }
     }
-    MemSys::Dealloc(font->chars);
-    MemSys::Dealloc(font);
+    memory::dealloc(font->chars);
+    memory::dealloc(font);
 }
 
 namespace {
-static VtableSlot kSTextVtable_slots[] = {&Engine3D::SGlyphRun::Teardown, &Engine3D::SGlyphRun::ResetVertices, &Engine3D::SGlyphRun::Blit,
-                &Engine3D::SGlyphRun::DrawVertices};
-void** const kSTextVtable = reinterpret_cast<void**>(kSTextVtable_slots);
+static VtableSlot g_s_text_vtable_slots[] = {&render::GlyphRun::teardown, &render::GlyphRun::reset_vertices, &render::GlyphRun::blit,
+                &render::GlyphRun::draw_vertices};
+void** const kSTextVtable = reinterpret_cast<void**>(g_s_text_vtable_slots);
 } // namespace
 
 } // namespace Nx

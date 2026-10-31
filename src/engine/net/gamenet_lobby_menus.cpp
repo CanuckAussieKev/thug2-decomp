@@ -1,4 +1,4 @@
-// The GameSpy lobby's menus and chat (OnlinePlay::RoomManager): the buddy / player list / regions menu items, the room
+// The GameSpy lobby's menus and chat (online::RoomManager): the buddy / player list / regions menu items, the room
 // messages, SendMessage, the group room list; and the lobby's destructors (0x005407B0-0x00541690). See gamenet_lobby.h.
 
 #include <cstdint>
@@ -23,18 +23,18 @@
 
 #pragma warning(disable : 4996) // (sprintf / strncpy: the original's own)
 
-namespace OnlinePlay {
+namespace online {
 
-static VtableSlot kLobbySearchAVtable_slots[] = {&OnlinePlay::LobbySearchA::Teardown};
-void** const kLobbySearchAVtable = reinterpret_cast<void**>(kLobbySearchAVtable_slots);
-static VtableSlot kLobbySearchBVtable_slots[] = {&OnlinePlay::LobbySearchB::Teardown};
-void** const kLobbySearchBVtable = reinterpret_cast<void**>(kLobbySearchBVtable_slots);
-static VtableSlot kLobbyListNodeVtable_slots[] = {&OnlinePlay::LobbyListNode::Teardown};
-void** const kLobbyListNodeVtable = reinterpret_cast<void**>(kLobbyListNodeVtable_slots);
-static VtableSlot kLobbyNodeVtable_slots[] = {&OnlinePlay::LobbyNode::Teardown};
-void** const kLobbyNodeVtable = reinterpret_cast<void**>(kLobbyNodeVtable_slots);
+static VtableSlot g_lobby_search_a_vtable_slots[] = {&online::LobbySearchA::teardown};
+void** const kLobbySearchAVtable = reinterpret_cast<void**>(g_lobby_search_a_vtable_slots);
+static VtableSlot g_lobby_search_b_vtable_slots[] = {&online::LobbySearchB::teardown};
+void** const kLobbySearchBVtable = reinterpret_cast<void**>(g_lobby_search_b_vtable_slots);
+static VtableSlot g_lobby_list_node_vtable_slots[] = {&online::LobbyListNode::teardown};
+void** const kLobbyListNodeVtable = reinterpret_cast<void**>(g_lobby_list_node_vtable_slots);
+static VtableSlot g_lobby_node_vtable_slots[] = {&online::LobbyNode::teardown};
+void** const kLobbyNodeVtable = reinterpret_cast<void**>(g_lobby_node_vtable_slots);
 
-using namespace Detail;
+using namespace detail;
 
 namespace {
 
@@ -80,305 +80,305 @@ constexpr int kLobbyStateListed = 15;
 constexpr int kLobbyStateFailed = 16;
 constexpr float kItemScale = 1.1f; // (0x3F8CCCCD)
 
-Hub* NetSessionSlot() { return g_onlineHub; }
-void PushInternetHeap()
+Hub* net_session_slot() { return g_online_hub; }
+void push_internet_heap()
 {
-    MemSys::Hub* memory = MemSys::Hub::Pull();
-    memory->EnterHeapScope(memory->m_internetTopDownHeap);
+    memory::Hub* memory = memory::Hub::get_pull();
+    memory->enter_heap_scope(memory->internet_top_down_heap_);
 }
-void PopHeap() { MemSys::Hub::Pull()->LeaveHeapScope(); }
+void pop_heap() { memory::Hub::get_pull()->leave_heap_scope(); }
 
 // A script array of four integers (an rgba).
-Scripts::CArray* NewScriptArray()
+script::Array* new_script_array()
 {
-    Scripts::CArray* memory = Scripts::AllocScriptArray();
-    return memory ? memory->PrepareAll() : nullptr;
+    script::Array* memory = script::alloc_script_array();
+    return memory ? memory->prepare_all() : nullptr;
 }
-void DeleteScriptArray(Scripts::CArray* array)
+void delete_script_array(script::Array* array)
 {
     if (array) {
-        array->Clear();
-        Scripts::DeleteArray(array);
+        array->get_clear();
+        script::delete_array(array);
     }
 }
-void SetRgba(Scripts::CArray* rgba, int r, int g, int b, int a)
+void set_rgba(script::Array* rgba, int r, int g, int b, int a)
 {
-    rgba->SetElement(0, r);
-    rgba->SetElement(1, g);
-    rgba->SetElement(2, b);
-    rgba->SetElement(3, a);
+    rgba->set_element(0, r);
+    rgba->set_element(1, g);
+    rgba->set_element(2, b);
+    rgba->set_element(3, a);
 }
 
-// The presence (OnlinePlay's FriendsManager: +4 the player's profile, +0x10 logged in).
-bool MarkFriendOnline(void* buddy) { return Prop<bool>(buddy, 0x10); }
-int OwnProfile(void* buddy) { return Prop<int>(buddy, 4); }
+// The presence (online's FriendsManager: +4 the player's profile, +0x10 logged in).
+bool mark_friend_online(void* buddy) { return prop<bool>(buddy, 0x10); }
+int own_profile(void* buddy) { return prop<int>(buddy, 4); }
 
 } // namespace
 
 // 0x00540900
-void RoomManager::AddBuddyMenuItem(LobbyPlayer* player)
+void RoomManager::add_buddy_menu_item(LobbyPlayer* player)
 {
-    PushInternetHeap();
-    Scripts::CStruct* params = NewParams();
-    params->AppendWord(kText, player->m_nick);
-    params->PutNameKey(kPadChooseScript, kLobbyAddBuddy);
-    params->PutNameKey(kParentMenuId, kBuddyMenu);
-    Scripts::CStruct* choose = NewParams();
-    choose->PutInt(kProfile, player->m_account);
-    choose->AppendWord(kNick, player->m_nick);
-    choose->AppendWord(kNetName, player->m_nick);
-    params->PutSubStruct(kPadChooseParams, choose);
-    Run(kMakeTextSubMenuItem, params);
-    DeleteParams(params);
-    DeleteParams(choose);
-    PopHeap();
+    push_internet_heap();
+    script::Struct* params = new_params();
+    params->append_word(kText, player->nick_);
+    params->put_name_key(kPadChooseScript, kLobbyAddBuddy);
+    params->put_name_key(kParentMenuId, kBuddyMenu);
+    script::Struct* choose = new_params();
+    choose->put_int(kProfile, player->account_);
+    choose->append_word(kNick, player->nick_);
+    choose->append_word(kNetName, player->nick_);
+    params->put_sub_struct(kPadChooseParams, choose);
+    get_run(kMakeTextSubMenuItem, params);
+    delete_params(params);
+    delete_params(choose);
+    pop_heap();
 }
 
 // 0x00540B60
-void __cdecl RoomManager::RoomMessageCallback(void*, int, const char* nick, const char* message, int, void*)
+void __cdecl RoomManager::room_message_callback(void*, int, const char* nick, const char* message, int, void*)
 {
-    PushInternetHeap();
+    push_internet_heap();
     char text[1024];
     std::sprintf(text, "%s: %s", nick, message);
-    Scripts::CStruct* params = NewParams();
-    params->AppendWord(kText, text);
-    Run(kCreateConsoleMessage, params);
-    DeleteParams(params);
-    PopHeap();
+    script::Struct* params = new_params();
+    params->append_word(kText, text);
+    get_run(kCreateConsoleMessage, params);
+    delete_params(params);
+    pop_heap();
 }
 
 // 0x00540E00
-bool __cdecl CFunc_SendMessage(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_send_message(script::Struct* params, script::Script*)
 {
-    Hub* manager = NetSessionSlot();
+    Hub* manager = net_session_slot();
     const char* message = nullptr;
-    if (!params->FetchText(kText, &message, 0))
+    if (!params->fetch_text(kText, &message, 0))
         return true;
-    if (params->HasBareFlag(kSystemMessage)) {
+    if (params->has_bare_flag(kSystemMessage)) {
         char text[1024];
         std::sprintf(text, "<System> %s", message);
-        Scripts::CStruct* console = NewParams();
-        console->AppendWord(kText, text);
-        Run(kCreateConsoleMessage, console);
-        DeleteParams(console);
+        script::Struct* console = new_params();
+        console->append_word(kText, text);
+        get_run(kCreateConsoleMessage, console);
+        delete_params(console);
         return true;
     }
-    PushInternetHeap();
-    GameSpy::PeerMessageRoom(
-        static_cast<RoomManager*>(manager->m_lobbyService)->m_remote, kRoomGroupKind, message, 0); // to the group room
-    PopHeap();
+    push_internet_heap();
+    game_spy::peer_message_room(
+        static_cast<RoomManager*>(manager->lobby_service_)->remote_, kRoomGroupKind, message, 0); // to the group room
+    pop_heap();
     return true;
 }
 
 // 0x00540FB0
-void RoomManager::AddRoomMenuItem(LobbyRoom* room, int index)
+void RoomManager::add_room_menu_item(LobbyRoom* room, int index)
 {
-    PushInternetHeap();
+    push_internet_heap();
     char text[64];
-    if (room->m_full)
-        std::sprintf(text, "%s - %d/%d (%s)", room->m_label, room->m_numPlayers, room->m_maxPlayers,
-                     Scripts::FetchText(kNetLobbyFull));
+    if (room->full_)
+        std::sprintf(text, "%s - %d/%d (%s)", room->label_, room->num_players_, room->max_players_,
+                     script::fetch_text(kNetLobbyFull));
     else
-        std::sprintf(text, "%s - %d/%d", room->m_label, room->m_numPlayers, room->m_maxPlayers);
-    Scripts::CStruct* params = NewParams();
-    params->AppendWord(kText, text);
-    bool available = !room->m_full && !room->m_outOfRange;
+        std::sprintf(text, "%s - %d/%d", room->label_, room->num_players_, room->max_players_);
+    script::Struct* params = new_params();
+    params->append_word(kText, text);
+    bool available = !room->full_ && !room->out_of_range_;
     if (available) {
-        params->PutNameKey(kPadChooseScript, kChooseSelectedLobby);
-        params->PutNameKey(kFocusScript, kRegionsMenuSetFocus);
+        params->put_name_key(kPadChooseScript, kChooseSelectedLobby);
+        params->put_name_key(kFocusScript, kRegionsMenuSetFocus);
     } else {
-        params->PutNameKey(0u, kNotFocusable);
-        params->PutNameKey(kPadChooseScript, kUnavailableLobby);
+        params->put_name_key(0u, kNotFocusable);
+        params->put_name_key(kPadChooseScript, kUnavailableLobby);
     }
-    Scripts::CStruct* choose = NewParams();
-    choose->PutInt(kIndex, index);
+    script::Struct* choose = new_params();
+    choose->put_int(kIndex, index);
     if (available)
-        params->PutSubStruct(kPadChooseParams, choose);
-    Run(kRegionsMenuAddItem, params);
-    DeleteParams(params);
-    DeleteParams(choose);
-    PopHeap();
+        params->put_sub_struct(kPadChooseParams, choose);
+    get_run(kRegionsMenuAddItem, params);
+    delete_params(params);
+    delete_params(choose);
+    pop_heap();
 }
 
 // 0x005411E0
-void RoomManager::AddPlayerListItem(LobbyPlayer* player)
+void RoomManager::add_player_list_item(LobbyPlayer* player)
 {
-    Hub* manager = NetSessionSlot();
-    PushInternetHeap();
-    Scripts::CStruct* choose = NewParams();
-    Scripts::CStruct* params = NewParams();
-    Scripts::CArray* rgba = NewScriptArray();
-    Scripts::CStruct* unfocus = NewParams();
-    params->AppendWord(kText, player->m_nick);
-    rgba->ConfigureSizeKind(4, Scripts::QBVAL_INTEGER);
-    void* buddy = manager->m_presenceService;
+    Hub* manager = net_session_slot();
+    push_internet_heap();
+    script::Struct* choose = new_params();
+    script::Struct* params = new_params();
+    script::Array* rgba = new_script_array();
+    script::Struct* unfocus = new_params();
+    params->append_word(kText, player->nick_);
+    rgba->configure_size_kind(4, script::kQbvalInteger);
+    void* buddy = manager->presence_service_;
     uint32_t script;
-    if (player->m_account && MarkFriendOnline(buddy)) {
-        if (player->m_account != OwnProfile(buddy) &&
-            !static_cast<FriendsManager*>(buddy)->IsBuddy(player->m_account)) { // not a buddy yet
-            SetRgba(rgba, 0, 128, 0, 128);
-            choose->PutInt(kProfile, player->m_account);
-            choose->AppendWord(kNick, player->m_nick);
-            choose->AppendWord(kNetName, player->m_nick);
-            params->PutSubStruct(kPadChooseParams, choose);
-            script = static_cast<FriendsManager*>(buddy)->CountBuddies() < kMaxBuddies ? kAddBuddyPrompt : kCantAddBuddyPrompt3;
-        } else if (OwnProfile(buddy) == player->m_account) {
-            SetRgba(rgba, 0, 0, 128, 128);
+    if (player->account_ && mark_friend_online(buddy)) {
+        if (player->account_ != own_profile(buddy) &&
+            !static_cast<FriendsManager*>(buddy)->is_buddy(player->account_)) { // not a buddy yet
+            set_rgba(rgba, 0, 128, 0, 128);
+            choose->put_int(kProfile, player->account_);
+            choose->append_word(kNick, player->nick_);
+            choose->append_word(kNetName, player->nick_);
+            params->put_sub_struct(kPadChooseParams, choose);
+            script = static_cast<FriendsManager*>(buddy)->count_buddies() < kMaxBuddies ? kAddBuddyPrompt : kCantAddBuddyPrompt3;
+        } else if (own_profile(buddy) == player->account_) {
+            set_rgba(rgba, 0, 0, 128, 128);
             script = kCantAddSelfPrompt;
         } else {
-            SetRgba(rgba, 128, 128, 0, 128);
+            set_rgba(rgba, 128, 128, 0, 128);
             script = kAlreadyBuddyPrompt;
         }
     } else {
-        SetRgba(rgba, 128, 128, 128, 128);
-        script = MarkFriendOnline(buddy) ? kCantAddBuddyPrompt1 : kCantAddBuddyPrompt2;
+        set_rgba(rgba, 128, 128, 128, 128);
+        script = mark_friend_online(buddy) ? kCantAddBuddyPrompt1 : kCantAddBuddyPrompt2;
     }
-    params->PutNameKey(kPadChooseScript, script);
+    params->put_name_key(kPadChooseScript, script);
     // (x87: the rating times two floats, truncated)
-    int rank = static_cast<int>(static_cast<double>(player->m_skillPoints) * static_cast<double>(g_rankScale) *
-                                static_cast<double>(Engine3D::g_floatTen));
+    int rank = static_cast<int>(static_cast<double>(player->skill_points_) * static_cast<double>(g_rank_scale) *
+                                static_cast<double>(render::g_float_ten));
     if (rank > kMaxRank)
         rank = kMaxRank;
-    params->PutInt(kRank, rank);
-    params->PutNameKey(kId, Checksums::HashFromText(player->m_nick));
-    params->PutNameKey(kParentMenuId, kLobbyPlayerListMenu);
-    params->PushFloat(kScale, kItemScale);
-    unfocus->AppendArrayValue(kRgba, rgba);
-    params->AppendArrayValue(kRgba, rgba);
-    params->PutSubStruct(kUnfocusParams, unfocus);
-    Run(kAddLobbyPlayer, params);
-    DeleteScriptArray(rgba);
-    DeleteParams(choose);
-    DeleteParams(params);
-    DeleteParams(unfocus);
-    PopHeap();
+    params->put_int(kRank, rank);
+    params->put_name_key(kId, checksums::hash_from_text(player->nick_));
+    params->put_name_key(kParentMenuId, kLobbyPlayerListMenu);
+    params->push_float(kScale, kItemScale);
+    unfocus->append_array_value(kRgba, rgba);
+    params->append_array_value(kRgba, rgba);
+    params->put_sub_struct(kUnfocusParams, unfocus);
+    get_run(kAddLobbyPlayer, params);
+    delete_script_array(rgba);
+    delete_params(choose);
+    delete_params(params);
+    delete_params(unfocus);
+    pop_heap();
 }
 
-bool g_listingAsked;
-bool g_listingFound;
+bool g_listing_asked;
+bool g_listing_found;
 
 // 0x00541690
-void __cdecl RoomManager::GroupRoomCallback(void*, int success, int groupId, void* server, const char* name,
-                                         int numWaiting, int maxWaiting, int numGames, int, void* param)
+void __cdecl RoomManager::group_room_callback(void*, int success, int group_id, void* server, const char* name,
+                                         int num_waiting, int max_waiting, int num_games, int, void* param)
 {
-    Hub* manager = NetSessionSlot();
-    auto setState = [manager](int state) { manager->SetServiceState(state); };
+    Hub* manager = net_session_slot();
+    auto set_state = [manager](int state) { manager->set_service_state(state); };
     if (!success) {
-        setState(kLobbyStateFailed);
+        set_state(kLobbyStateFailed);
         return;
     }
-    bool& asked = g_listingAsked;    // a room was asked for (by its lobby_num)
-    bool& found = g_listingFound;
-    if (groupId == 0) { // the list's end
-        setState(!asked || found ? kLobbyStateListed : kLobbyStateFailed);
+    bool& asked = g_listing_asked;    // a room was asked for (by its lobby_num)
+    bool& found = g_listing_found;
+    if (group_id == 0) { // the list's end
+        set_state(!asked || found ? kLobbyStateListed : kLobbyStateFailed);
         return;
     }
-    MemSys::Hub* memory = MemSys::Hub::Pull();
-    memory->EnterHeapScope(memory->m_internetBottomUpHeap);
-    void* block = MemSys::AllocZeroed(sizeof(LobbyRoom));
-    auto* room = block ? static_cast<LobbyRoom*>(block)->MakeNew() : nullptr;
-    std::strncpy(room->m_label, name, sizeof(room->m_label) - 1);
-    room->m_label[sizeof(room->m_label) - 1] = '\0';
-    room->m_numPlayers = numGames;
-    room->m_groupId = groupId;
-    room->m_maxPlayers = maxWaiting;
-    if (numWaiting >= maxWaiting)
-        room->m_full = true;
-    auto serverInt = [server](const char* key, int fallback) {
-        return GameSpy::ServerGetIntValue(server, key, fallback);
+    memory::Hub* memory = memory::Hub::get_pull();
+    memory->enter_heap_scope(memory->internet_bottom_up_heap_);
+    void* block = memory::alloc_zeroed(sizeof(LobbyRoom));
+    auto* room = block ? static_cast<LobbyRoom*>(block)->make_new() : nullptr;
+    std::strncpy(room->label_, name, sizeof(room->label_) - 1);
+    room->label_[sizeof(room->label_) - 1] = '\0';
+    room->num_players_ = num_games;
+    room->group_id_ = group_id;
+    room->max_players_ = max_waiting;
+    if (num_waiting >= max_waiting)
+        room->full_ = true;
+    auto server_int = [server](const char* key, int fallback) {
+        return game_spy::server_get_int_value(server, key, fallback);
     };
-    int lobby = serverInt("lobby_num", 0);
+    int lobby = server_int("lobby_num", 0);
     if (lobby) {
         uint32_t size;
-        void* data = manager->GetPendingData(&size);
-        if (static_cast<uint32_t>(lobby) == Checksums::GenerateCRCCaseless(static_cast<const char*>(data), static_cast<int>(size)))
+        void* data = manager->get_pending_data(&size);
+        if (static_cast<uint32_t>(lobby) == checksums::generate_crc_caseless(static_cast<const char*>(data), static_cast<int>(size)))
             found = true;
         asked = true;
     }
-    room->m_maxRating = serverInt("maxrating", 100000);
-    room->m_minRating = serverInt("minrating", 0);
+    room->max_rating_ = server_int("maxrating", 100000);
+    room->min_rating_ = server_int("minrating", 0);
     auto rating = [manager] {
         // (the original reads the stats' first word, the rating, through the folded getter 0x00469490 -
         // Singletons::PointerMember::Pull)
-        return static_cast<RankingsManager*>(manager->m_ratingService)->GetPersonalStats()->m_skillPoints;
+        return static_cast<RankingsManager*>(manager->rating_service_)->get_personal_stats()->skill_points_;
     };
-    if (rating() > room->m_maxRating)
-        room->m_outOfRange = true;
-    if (rating() < room->m_minRating)
-        room->m_outOfRange = true;
-    if (serverInt("neversoft", 0))
-        room->m_neversoft = true;
-    if (room->m_numPlayers > room->m_maxPlayers)
-        room->m_maxPlayers = room->m_numPlayers;
-    reinterpret_cast<MemSys::ListNode*>(room)->priority = -groupId;
-    static_cast<ListKit::Foremost*>(param)->AppendVertex(reinterpret_cast<MemSys::ListNode*>(room));
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    if (rating() > room->max_rating_)
+        room->out_of_range_ = true;
+    if (rating() < room->min_rating_)
+        room->out_of_range_ = true;
+    if (server_int("neversoft", 0))
+        room->neversoft_ = true;
+    if (room->num_players_ > room->max_players_)
+        room->max_players_ = room->num_players_;
+    reinterpret_cast<memory::ListNode*>(room)->priority = -group_id;
+    static_cast<lists::Foremost*>(param)->append_vertex(reinterpret_cast<memory::ListNode*>(room));
+    memory::Hub::get_pull()->leave_heap_scope();
 }
 
 // --- the destructors ---
 
 // 0x00540D50
-void RoomManager::DestroyBody()
+void RoomManager::destroy_body()
 {
-    for (Scheduling::SchedulerTask* task : {m_thinkTask, m_natTask, m_hostingTask})
+    for (tasks::SchedulerTask* task : {think_task_, nat_task_, hosting_task_})
         if (task) // (the scalar deleting destructor, vtable slot 2)
-            reinterpret_cast<void(__thiscall*)(Scheduling::SchedulerTask*, unsigned int)>(task->m_vtable[2])(task, 1);
-    m_participants.UnlinkAs(kLobbyListNodeVtable);
-    reinterpret_cast<MemSys::ListNode*>(this)->UnlinkAs(kLobbyNodeVtable);
+            reinterpret_cast<void(__thiscall*)(tasks::SchedulerTask*, unsigned int)>(task->vtable_[2])(task, 1);
+    participants_.unlink_as(kLobbyListNodeVtable);
+    reinterpret_cast<memory::ListNode*>(this)->unlink_as(kLobbyNodeVtable);
 }
 
 // 0x00540840
-void LobbyNode::DestroyBody() { UnlinkAs(kLobbyNodeVtable); }
+void LobbyNode::destroy_body() { unlink_as(kLobbyNodeVtable); }
 // 0x00540860
-void LobbyListNode::DestroyBody() { UnlinkAs(kLobbyListNodeVtable); }
+void LobbyListNode::destroy_body() { unlink_as(kLobbyListNodeVtable); }
 
 // 0x00540880
-LobbyNode* LobbyNode::Teardown(unsigned int flags)
+LobbyNode* LobbyNode::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x005408C0
-LobbyListNode* LobbyListNode::Teardown(unsigned int flags)
+LobbyListNode* LobbyListNode::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00540F80
-LobbyNode* LobbyNode::DestroyOther(unsigned int flags) { return Teardown(flags); }
+LobbyNode* LobbyNode::destroy_other(unsigned int flags) { return teardown(flags); }
 
 // 0x005407E0
-LobbySearchA* LobbySearchA::Teardown(unsigned int flags)
+LobbySearchA* LobbySearchA::teardown(unsigned int flags)
 {
-    m_vtable = kLobbySearchAVtable;
+    vtable_ = kLobbySearchAVtable;
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00540810
-LobbySearchB* LobbySearchB::Teardown(unsigned int flags)
+LobbySearchB* LobbySearchB::teardown(unsigned int flags)
 {
-    m_vtable = kLobbySearchBVtable;
+    vtable_ = kLobbySearchBVtable;
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x005407B0
-Scheduling::SchedulerTask* TaskDeleter::Teardown(unsigned int flags)
+tasks::SchedulerTask* TaskDeleter::teardown(unsigned int flags)
 {
-    auto* task = reinterpret_cast<Scheduling::SchedulerTask*>(this);
-    task->Destruct(); // (Task<T>'s destructor, 0x00577290, is a jump to it)
+    auto* task = reinterpret_cast<tasks::SchedulerTask*>(this);
+    task->destruct(); // (Task<T>'s destructor, 0x00577290, is a jump to it)
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(task);
+        memory::Hub::get_pull()->dealloc(task);
     return task;
 }
 
-} // namespace OnlinePlay
+} // namespace online

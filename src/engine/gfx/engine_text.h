@@ -3,98 +3,98 @@
 #include <cstddef>
 #include <cstdint>
 
-// The engine's text (Engine3D::CGlyphString - the platform-independent part of the PC text, CPcText in pc_font.h, its first 0x48
+// The engine's text (render::GlyphString - the platform-independent part of the PC text, PcText in pc_font.h, its first 0x48
 // bytes): a string drawn in a font, its position, pivot, scale, rotation, priority or depth, colour and per-character
 // effects, each change passed on to the platform (vtable slots 2-5); texts come from a free list (0x006FA804).
-namespace Engine3D {
+namespace render {
 
-class CTypeface;
+class Typeface;
 
 // A character's effect (10 bytes): an offset, a scale and a rotation, in 1/16384ths.
-struct sCharEffect {
+struct CharEffect {
     int16_t x, y;            // +0 (as given)
     int16_t xscale, yscale;  // +4 (16384: 1)
     int16_t rotation;        // +8
 
     // 0x0048D0A0 (Ghidra never made it: the array constructor's callback): no offset, scale 1, no rotation.
     // Returns this.
-    sCharEffect* MakeNew();
+    CharEffect* make_new();
 };
-static_assert(sizeof(sCharEffect) == 10, "layout must match the original");
+static_assert(sizeof(CharEffect) == 10, "layout must match the original");
 
 // The effects array: 96 characters (an array new: its count before it).
 constexpr int kCharEffects = 96;
 // The string's buffer: 0x60 characters.
 constexpr int kTextLength = 0x60;
 
-// (vtable 0x00648AA0: [0] the destructor, [1]-[5] empty - CPcText's update the screen text: [2] shown / hidden, [3]
+// (vtable 0x00648AA0: [0] the destructor, [1]-[5] empty - PcText's update the screen text: [2] shown / hidden, [3]
 // the properties, [4] the priority, [5] the window.)
-struct CGlyphString {
-    void** m_vtable;
-    CTypeface* m_typeface;          // +0x04
-    sCharEffect* m_effects; // +0x08 (null until one is set)
-    char* m_textBuffer;         // +0x0C (a buffer of its own, null until set)
-    float m_posX, m_y;          // +0x10
-    float m_pivotX, m_pivotY; // +0x18
-    float m_scaleH, m_scaleV; // +0x20
-    float m_angle;           // +0x28
-    float m_rank;        // +0x2C
-    uint32_t m_unknown30;
-    float m_layer;           // +0x34 (with m_zEnabled)
-    uint32_t m_shade;       // +0x38: RGBA as bytes
-    bool m_fixedColour;      // +0x3C: the string's colour codes ignored
-    bool m_overrideAlpha;    // +0x3D
-    bool m_invisible;           // +0x3E
-    bool m_zEnabled;         // +0x3F
-    void* m_screenRegion;         // +0x40: the 2D window it's drawn in
-    CGlyphString* m_nextFree;      // +0x44
+struct GlyphString {
+    void** vtable_;
+    Typeface* typeface_;          // +0x04
+    CharEffect* effects_; // +0x08 (null until one is set)
+    char* text_buffer_;         // +0x0C (a buffer of its own, null until set)
+    float pos_x_, y_;          // +0x10
+    float pivot_x_, pivot_y_; // +0x18
+    float scale_h_, scale_v_; // +0x20
+    float angle_;           // +0x28
+    float rank_;        // +0x2C
+    uint32_t unknown30_;
+    float layer_;           // +0x34 (with z_enabled_)
+    uint32_t shade_;       // +0x38: RGBA as bytes
+    bool fixed_colour_;      // +0x3C: the string's colour codes ignored
+    bool override_alpha_;    // +0x3D
+    bool invisible_;           // +0x3E
+    bool z_enabled_;         // +0x3F
+    void* screen_region_;         // +0x40: the 2D window it's drawn in
+    GlyphString* next_free_;      // +0x44
 
     // 0x0048D220: construct in `window` - no font, string or effects, at 0, unrotated, scale 1, grey, hidden.
     // Returns this.
-    CGlyphString* MakeNew(void* window);
+    GlyphString* make_new(void* window);
     // 0x0048D620: the destructor's body - its string and effects freed.
-    void DestroyBody();
+    void destroy_body();
     // 0x0048D670 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CGlyphString* Teardown(unsigned int flags);
+    GlyphString* teardown(unsigned int flags);
     // 0x0048D5A0: the string's buffer and the effects freed.
-    void FreeBuffers();
+    void free_buffers();
 
     // The setters (each followed by the platform's update, virtual [2]-[5]):
     // 0x0048D0C0 (not a Ghidra function) shown / hidden ([2]); 0x0048D0D0 (not a Ghidra function) the font ([3]).
-    void ChangeConcealed(bool hidden);
-    void ChangeTypeface(CTypeface* font);
+    void change_concealed(bool hidden);
+    void change_typeface(Typeface* font);
     // 0x0048D0E0 / 0x0048D100 (not Ghidra functions) the position / the scale ([3]).
-    void ChangeLocation(float x, float y);
-    void ChangeScale(float x, float y);
+    void change_location(float x, float y);
+    void change_scale(float x, float y);
     // 0x0048D120: the rotation about a pivot ([3]).
-    void ChangeSpin(float angle, float pivotX, float pivotY);
+    void change_spin(float angle, float pivot_x, float pivot_y);
     // 0x0048D140 / 0x0048D160 (not Ghidra functions): drawn by priority / at a depth ([4]).
-    void ChangeRank(float priority);
-    void SetDepth(float depth);
+    void change_rank(float priority);
+    void set_depth(float depth);
     // 0x0048D180 / 0x0048D1A0 (not Ghidra functions): the colour and whether the string's colours are ignored;
     // its alpha overridden ([3]).
-    void ChangeColour(uint32_t rgba, bool fixed);
-    void SetOverrideAlpha(bool on);
+    void change_colour(uint32_t rgba, bool fixed);
+    void set_override_alpha(bool on);
     // 0x0048D1B0 (folded with the sprite's: +0x40 and [5]): the window it's drawn in.
-    void ChangePane(void* window);
+    void change_pane(void* window);
     // 0x0048D530: the string copied into its buffer (made on the front end's heap the first time; no length
     // limit, as the original) ([3]).
-    void ChangeText(const char* string);
+    void change_text(const char* string);
     // 0x0048D280 / 0x0048D360 / 0x0048D450: character `index`'s offset, scale (times 16384, truncated) and
     // rotation (the same) - the effects made on the front end's heap the first time (none: a write through null,
     // as the original) ([3]).
-    void SetCharOffset(int index, int16_t x, int16_t y);
-    void SetCharScale(int index, float x, float y);
-    void SetCharRotation(int index, float rotation);
+    void set_char_offset(int index, int16_t x, int16_t y);
+    void set_char_scale(int index, float x, float y);
+    void set_char_rotation(int index, float rotation);
 };
-static_assert(offsetof(CGlyphString, m_rank) == 0x2C && offsetof(CGlyphString, m_layer) == 0x34 &&
-                  offsetof(CGlyphString, m_invisible) == 0x3E && offsetof(CGlyphString, m_nextFree) == 0x44 && sizeof(CGlyphString) == 0x48,
+static_assert(offsetof(GlyphString, rank_) == 0x2C && offsetof(GlyphString, layer_) == 0x34 &&
+                  offsetof(GlyphString, invisible_) == 0x3E && offsetof(GlyphString, next_free_) == 0x44 && sizeof(GlyphString) == 0x48,
               "layout must match the original");
 
 // 0x0048D1D0: a text from the free list (null when it's empty).
-CGlyphString* __cdecl NewText();
+GlyphString* __cdecl new_text();
 // 0x0048D5F0: a text hidden, its buffers freed, and put back on the free list.
-void __cdecl FreeText(CGlyphString* text);
+void __cdecl free_text(GlyphString* text);
 
-extern CGlyphString* g_freeTexts;
+extern GlyphString* g_free_texts;
 } // namespace Nx

@@ -9,148 +9,148 @@
 
 #include "engine/core/arena_alloc.h"
 
-namespace GameObjects {
-class CAnimBlenderComponent;
-class CObjectModule;
-class CGameEntity;
+namespace objects {
+class AnimBlenderComponent;
+class ObjectModule;
+class GameEntity;
 } // namespace Obj
-namespace Scripts {
-class CScript;
-class CStruct;
+namespace script {
+class Script;
+class Struct;
 } // namespace Script
 
-namespace Gfx2D {
+namespace gfx {
 
-struct CAnimTimeline;
+struct AnimTimeline;
 
 // A pose (0x840 bytes): a rotation (quaternion) and a translation per bone, and whether each bone has one.
-struct CStance {
+struct Stance {
     float rotations[64][4];    // +0x000
     float translations[64][4]; // +0x400
     uint8_t valid[64];         // +0x800
 };
-static_assert(sizeof(CStance) == 0x840 && offsetof(CStance, valid) == 0x800, "layout must match the original");
+static_assert(sizeof(Stance) == 0x840 && offsetof(Stance, valid) == 0x800, "layout must match the original");
 
 // 0x0047D470: the rotation a fraction `t` of the way from `from` to `to` (the shorter way: `to` is negated first
 // when the two point apart), normalised. As the original, `to` is overwritten with the result too.
-float* __cdecl InterpolateRotation(float* out, const float* from, float* to, float t);
+float* __cdecl interpolate_rotation(float* out, const float* from, float* to, float t);
 
 // 0x0047D680: `count` poses mixed into the first by `weights` (weights[0] becomes 1 minus the others), `bones`
 // bones each; the result copied to `out` if that isn't `poses`. The poses' rotations change on the way.
-void __cdecl MixPoses(CStance* poses, float* weights, int bones, CStance* out, int count);
+void __cdecl mix_poses(Stance* poses, float* weights, int bones, Stance* out, int count);
 // 0x0047D8F0: the same for the poses whose `ids` are `id` only (weights below 0.00001 left out); a bone a pose
 // takes from a higher one is marked valid.
-void __cdecl BlendPosesById(CStance* poses, float* weights, const uint32_t* ids, int bones, CStance* out, int count,
+void __cdecl blend_poses_by_id(Stance* poses, float* weights, const uint32_t* ids, int bones, Stance* out, int count,
                             uint32_t id);
 
 // 0x0047D580 (code nothing calls): the timeline's animation, speed, loop type and times added to `info`.
-void __stdcall AddTimelineInfo(CAnimTimeline* timeline, Scripts::CStruct* info);
+void __stdcall add_timeline_info(AnimTimeline* timeline, script::Struct* info);
 
-class CAnimTrack;
+class AnimTrack;
 
 // An animation blender's channel (0x74 bytes, vtable 0x00648714; the blender keeps them on a list, so it's a list node
-// itself): its timelines (CAnimTrack, the newest - the one playing - first; older ones blend out) and a blend
-// value moving to a target. Vtable slots: 0 Destroy, 1 TickFrame(pose index, blend), 2 Finalize, 3 ConfigureFromData
-// (0x00480410), 4 InvokeMethodByName (0x0047FA00), 5 (0x005BAB90), 6 ReleaseWaitingScript.
-class CBlendChannel {
+// itself): its timelines (AnimTrack, the newest - the one playing - first; older ones blend out) and a blend
+// value moving to a target. Vtable slots: 0 Destroy, 1 tick_frame(pose index, blend), 2 Finalize, 3 configure_from_data
+// (0x00480410), 4 invoke_method_by_name (0x0047FA00), 5 (0x005BAB90), 6 release_waiting_script.
+class BlendChannel {
 public:
     // 0x0047D420
-    void SetFlag4C(bool value);
+    void set_flag_4c(bool value);
     // 0x0047D430: blending to `target` over `period` (at once when it's 0: the current value is the target too);
     // the blend starts from the current value.
-    void BlendTo(uint32_t target, float period);
+    void blend_to(uint32_t target, float period);
     // 0x0047D620 / 0x0047D640: the value `offset` past the channel's key (0x0048CF50 finds it), and whether there
     // is one.
-    float FetchValue(uint32_t offset);
-    bool HasValue(uint32_t offset);
+    float fetch_value(uint32_t offset);
+    bool has_value(uint32_t offset);
     // 0x0047D660 (code nothing calls): flag 0x5DB4115F taken out of the owner's parameters.
-    void ClearFlag();
+    void clear_flag();
 
     // --- 0x0047DC40-0x0047F24E ---
     // 0x0047F150: on `object` / `blender`, no timelines, events on, the blend value 1 (with `full`) or 0; the
     // rest as Reset (it reads +0x60 before setting it, as the original). Returns this.
-    CBlendChannel* MakeNew(GameObjects::CGameEntity* object, GameObjects::CAnimBlenderComponent* blender, bool full);
+    BlendChannel* make_new(objects::GameEntity* object, objects::AnimBlenderComponent* blender, bool full);
     // 0x0047EE90: its timelines deleted, the head and its own node unlinked (the blender's node vtable 0x00645D84).
     // 0x0047F230 (slot 0): that, then freed.
-    void DestroyBody();
-    CBlendChannel* Teardown(uint8_t flags);
+    void destroy_body();
+    BlendChannel* teardown(uint8_t flags);
     // 0x0047EF20: its timelines deleted, no next blend period, no time waited for (the script stops waiting), no
     // first time.
-    void Reset();
+    void get_reset();
     // 0x0047DCF0 (slot 2): the object's skeleton component kept.
-    void Seal();
+    void seal();
     // 0x0047EFB0 (slot 1): the blend value moved on, each timeline updated, the done ones deleted; with `blend` and
-    // the blender's model ready, its pose blended into the blend buffer's `index` (BlendPose). Whether it was.
-    bool TickFrame(int index, bool blend);
+    // the blender's model ready, its pose blended into the blend buffer's `index` (blend_pose). Whether it was.
+    bool tick_frame(int index, bool blend);
     // 0x0047EF60 (slot 6): a script waiting on the animation (wait type 6) let go once it's complete.
-    void ReleaseWaitingScript(Scripts::CScript* script);
+    void release_waiting_script(script::Script* script);
     // 0x0047E030: the playing timeline's time kept (+0x5C), the blend value a frame on, and the time waited for
     // checked (the object's own script made if it has none).
-    void UpdateBlend();
+    void update_blend();
     // 0x0047E1B0: each timeline's Update (slot 2).
-    void UpdateTimelines();
+    void update_timelines();
     // 0x0047DDC0: the timelines no longer active unlinked and deleted.
-    void RemoveDoneTimelines();
+    void remove_done_timelines();
     // 0x0047DE20: the timelines past the most there may be (0x006F8A68) deleted, the playing one blended out over
-    // `period` with the weight the others leave it, and a new timeline (0x00481EE0, CAnimTrack::MakeNew) put
+    // `period` with the weight the others leave it, and a new timeline (0x00481EE0, AnimTrack::make_new) put
     // first.
-    void PushTimeline(float period);
-    // 0x0047ED60: each timeline's pose (FetchPose) from the skeleton's base translations, blended (MixPoses) and
+    void push_timeline(float period);
+    // 0x0047ED60: each timeline's pose (fetch_pose) from the skeleton's base translations, blended (mix_poses) and
     // copied to the blend buffer's `index`; false with rendering skipped (0x007D1EC0), no anim set or no skeleton.
-    bool BlendPose(int index);
-    // 0x0047EFF0: BlendPose(0).
-    bool BlendFirstPose();
+    bool blend_pose(int index);
+    // 0x0047EFF0: blend_pose(0).
+    bool blend_first_pose();
     // 0x0047EAA0: timeline `index`'s weight into `weight` and (when above 0 or NaN) its pose into `pose` (a missing
     // timeline crashes, as the original).
-    void FetchPose(int index, void* pose, float* weight);
+    void fetch_pose(int index, void* pose, float* weight);
 
     // 0x0047DC40: the flip flag (bit 29 of +0x54) set to `flip` - with `send` (channel 0 of this machine's player's
     // skater) the server told (message 0x2C); the flag it had. `unused` isn't.
-    bool SetFlipped(uint32_t objectId, bool flip, uint32_t unused, bool send);
+    bool set_flipped(uint32_t object_id, bool flip, uint32_t unused, bool send);
     // 0x0047DD80: flipped the other way, the server told.
-    void ToggleFlipped();
-    // 0x0047E010: `frames` added to the playing timeline's time (CAnimTimeline::AdvanceClock).
-    void AdvanceClock(float frames);
+    void toggle_flipped();
+    // 0x0047E010: `frames` added to the playing timeline's time (AnimTimeline::advance_clock).
+    void advance_clock(float frames);
     // 0x0047E210 / 0x0047E240 (not a Ghidra function): whether the playing animation is complete / cycles or
     // ping-pongs (false without one).
-    bool IsClipDone();
-    bool IsCycling();
+    bool is_clip_done();
+    bool is_cycling();
     // 0x0047DF50 (not a Ghidra function): whether the playing animation (+0x30) is one of the unnamed checksums - or
     // in the unnamed arrays, or the arrays a checksum names - of `params`. `script` isn't used.
-    bool IsAnimOneOf(Scripts::CStruct* params, Scripts::CScript* script);
+    bool is_anim_one_of(script::Struct* params, script::Script* script);
     // 0x0047E280: the wobble target (0..1 when sent: message 0x2B with it x 255, only when it changed) to the playing
-    // timeline's controllers (ChooseWobbleGoal 0xD0209498 with 0x4D747FA0).
-    void ChooseWobbleGoal(float target, bool send);
+    // timeline's controllers (choose_wobble_goal 0xD0209498 with 0x4D747FA0).
+    void choose_wobble_goal(float target, bool send);
     // 0x0047E450: the five wobble details (message 0x3C: which of two known values each is, when it changed) to the
     // playing timeline's controllers (SetWobbleDetails 0xEA6D0EFD).
-    void SetWobbleDetails(const float* details, bool send);
+    void set_wobble_details(const float* details, bool send);
     // 0x0047E740: the playing timeline's loop type (message 0x3D when it changed).
-    void ChangeRepeatMode(int loopType, bool send);
+    void change_repeat_mode(int loop_type, bool send);
     // 0x0047E810: the playing timeline turned round. (`unused` isn't.)
-    void Reverse(uint32_t unused);
+    void get_reverse(uint32_t unused);
     // 0x0047E850: the playing timeline's speed (message 0x41; unless `all`, nothing when within 0.05 of it); with
-    // `all` every timeline's - with `keepRatio` each one's range times the first's speed per frame of range.
-    void SetSpeed(float speed, bool send, bool all, bool keepRatio);
+    // `all` every timeline's - with `keep_ratio` each one's range times the first's speed per frame of range.
+    void set_speed(float speed, bool send, bool all, bool keep_ratio);
     // 0x0047EA40 (not a Ghidra function): the playing timeline's speed per second (unrounded, ST0), 0 without one.
-    double GetSpeed(Scripts::CStruct* params, Scripts::CScript* script);
+    double get_speed(script::Struct* params, script::Script* script);
     // 0x0047EA80: events on or off (here and on the playing timeline; nothing without one).
-    void SetEventsOn(bool on);
-    // 0x0047F000: the object's tags (SetTagsFromStruct) set to AnimTags 0x5DB4115F = the structure `anim` names in
+    void set_events_on(bool on);
+    // 0x0047F000: the object's tags (set_tags_from_struct) set to AnimTags 0x5DB4115F = the structure `anim` names in
     // the global structure 0x95807202.
-    void SetAnimTags(uint32_t anim);
+    void set_anim_tags(uint32_t anim);
 
     // 0x00480410 (slot 3): SubsetId, the blend value (0x4D786F62), priority (0x3D836C96), AnimEventTableName, the
     // anim set (0x52A864B0, else 0x09794932 asserted); Default played (0 to 1000), reset, then 0xEAE64B47 (Default)
     // played over its length (looping when it was given), flag4C (0xCF466AA2), events (0xE1B3F630).
-    void ConfigureFromData(Scripts::CStruct* params);
+    void configure_from_data(script::Struct* params);
     // 0x0047F260: `anim` (Default when 0) played from `from` to `to`: with `send` the server told (message 0x29: loop
     // type, object, anim, the times, blend period and speed x 4096); the older timelines deleted when there's no
     // blend period or no flag4C; a new timeline pushed and given the play (its slot 6, with the flip flag and
-    // `params`); the object's AnimTags taken out and set again from `anim` (SetAnimTags).
-    void PlayAnim(uint32_t anim, bool send, float from, float to, int loopType, float blendPeriod, float speed,
-                  Scripts::CStruct* params);
+    // `params`); the object's AnimTags taken out and set again from `anim` (set_anim_tags).
+    void play_anim(uint32_t anim, bool send, float from, float to, int loop_type, float blend_period, float speed,
+                  script::Struct* params);
     // 0x004803D0: `anim` played once over its length (0x0048CF50's first value) at speed 1, not sent.
-    void PlayAnimation(uint32_t anim, float blendPeriod);
+    void play_animation(uint32_t anim, float blend_period);
     // 0x0047F470 (not a Ghidra function): PlayAnim / Obj_PlayAnim's parameters played (sent) - the anim (Default when
     // it isn't one; Current: the playing one; nothing with NoRestart when it plays), speed, the blend period (the
     // one set for the next play, a percentage 0x4F3ABD6C of its length or BlendPeriod, else `blendPeriod`), the
@@ -158,69 +158,69 @@ public:
     // -, at its speed), the range and loop type (0x004877E0 / 0x00487770), 0x84F13067 (flag4E: wait for the playing
     // one to complete), Duration 0x23272E4D, and a partial animation 0x6C565F57 added as a controller. The anim
     // played, or 0 (none: no anim set, or still waiting with flag4E).
-    uint32_t PlayAnimFromScript(Scripts::CStruct* params, Scripts::CScript* script, float blendPeriod);
+    uint32_t play_anim_from_script(script::Struct* params, script::Script* script, float blend_period);
     // 0x0047FA00 (slot 4): the channel's script member functions (the timelines' too: anything else passed on to the
     // playing timeline); 0 false, 1 true / handled, 2 not its own.
-    int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
-    // Pieces of InvokeMethodByName: WaitAnim (0x74CF5C94), 0x922E7D14 (whether a time was passed this frame) and
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    // Pieces of invoke_method_by_name: wait_anim (0x74CF5C94), 0x922E7D14 (whether a time was passed this frame) and
     // 0xC68365EB (anim and its length to a timeline's controllers).
-    int WaitAnim(Scripts::CStruct* params);
-    int TimePassed(Scripts::CStruct* params);
-    int PassAnimToTimeline(Scripts::CStruct* params, Scripts::CScript* script);
+    int wait_anim(script::Struct* params);
+    int time_passed(script::Struct* params);
+    int pass_anim_to_timeline(script::Struct* params, script::Script* script);
 
     // 0x0047EB30 (cdecl): the blend buffers on the AnimScratch heap (0x7C0B34B4): `subsets` poses (0x006F8A60), and
     // `blends` poses (0x006F8A64), sets (0x006F8A58) and weights (0x006F8A5C) - the poses' rotations the identity.
-    static void __cdecl InitBuffers(int blends, int subsets);
+    static void __cdecl init_buffers(int blends, int subsets);
 
-    MemSys::ListNode m_listLink;                 // +0x00 (vtable 0x00648714; data = this)
-    MemSys::ListNode m_timelines;            // +0x14 the head (vtable 0x00648710, data -1)
-    uint32_t m_ident;                        // +0x28
-    int m_rank;                       // +0x2C (0x3D836C96)
-    uint32_t m_ongoing;                   // +0x30 the blend value (a float)
-    uint32_t m_aimPoint;                    // +0x34
-    uint32_t m_outset;                     // +0x38
-    float m_period;                       // +0x3C
-    float m_periodLeft;                   // +0x40
-    bool m_hasNextBlend;                  // +0x44 (the next play blends over m_nextBlend)
-    uint8_t m_pad45[3];
-    float m_nextBlend;                    // +0x48
-    bool m_flag4C;                        // +0x4C (without it each play deletes the older timelines)
-    bool m_eventsOn;                      // +0x4D
-    bool m_flag4E;                        // +0x4E
-    uint8_t m_pad4F;
-    uint32_t m_lookupKey;                       // +0x50 the anim set
-    uint32_t m_flagBits;                     // +0x54 (bit 29: flipped)
-    uint32_t m_eventTable;                // +0x58 (AnimEventTableName 0x5B8C6DC2)
-    float m_prevTimelinePos;                    // +0x5C the playing timeline's time last frame
-    bool m_waiting;                       // +0x60 a time waited for
-    uint8_t m_pad61[3];
-    float m_waitTime;                     // +0x64
-    uint8_t* m_ownerPtr;                    // +0x68 the object (its script at +0x10, id at +0x14, parameters at +0x20)
-    GameObjects::CAnimBlenderComponent* m_blender; // +0x6C
-    GameObjects::CObjectModule* m_boneRig;     // +0x70 the object's skeleton component
+    memory::ListNode list_link_;                 // +0x00 (vtable 0x00648714; data = this)
+    memory::ListNode timelines_;            // +0x14 the head (vtable 0x00648710, data -1)
+    uint32_t ident_;                        // +0x28
+    int rank_;                       // +0x2C (0x3D836C96)
+    uint32_t ongoing_;                   // +0x30 the blend value (a float)
+    uint32_t aim_point_;                    // +0x34
+    uint32_t outset_;                     // +0x38
+    float period_;                       // +0x3C
+    float period_left_;                   // +0x40
+    bool has_next_blend_;                  // +0x44 (the next play blends over next_blend_)
+    uint8_t pad45_[3];
+    float next_blend_;                    // +0x48
+    bool flag_4c_;                        // +0x4C (without it each play deletes the older timelines)
+    bool events_on_;                      // +0x4D
+    bool flag_4e_;                        // +0x4E
+    uint8_t pad4f_;
+    uint32_t lookup_key_;                       // +0x50 the anim set
+    uint32_t flag_bits_;                     // +0x54 (bit 29: flipped)
+    uint32_t event_table_;                // +0x58 (AnimEventTableName 0x5B8C6DC2)
+    float prev_timeline_pos_;                    // +0x5C the playing timeline's time last frame
+    bool waiting_;                       // +0x60 a time waited for
+    uint8_t pad61_[3];
+    float wait_time_;                     // +0x64
+    uint8_t* owner_ptr_;                    // +0x68 the object (its script at +0x10, id at +0x14, parameters at +0x20)
+    objects::AnimBlenderComponent* blender_; // +0x6C
+    objects::ObjectModule* bone_rig_;     // +0x70 the object's skeleton component
 };
-static_assert(offsetof(CBlendChannel, m_timelines) == 0x14 && offsetof(CBlendChannel, m_ident) == 0x28 &&
-                  offsetof(CBlendChannel, m_ongoing) == 0x30 && offsetof(CBlendChannel, m_flag4C) == 0x4C &&
-                  offsetof(CBlendChannel, m_lookupKey) == 0x50 && offsetof(CBlendChannel, m_waiting) == 0x60 &&
-                  offsetof(CBlendChannel, m_ownerPtr) == 0x68 && sizeof(CBlendChannel) == 0x74,
+static_assert(offsetof(BlendChannel, timelines_) == 0x14 && offsetof(BlendChannel, ident_) == 0x28 &&
+                  offsetof(BlendChannel, ongoing_) == 0x30 && offsetof(BlendChannel, flag_4c_) == 0x4C &&
+                  offsetof(BlendChannel, lookup_key_) == 0x50 && offsetof(BlendChannel, waiting_) == 0x60 &&
+                  offsetof(BlendChannel, owner_ptr_) == 0x68 && sizeof(BlendChannel) == 0x74,
               "layout must match the original");
 
-// The node type of the channel's timeline list (vtable 0x006486CC; CAnimTimeline::DestroyBody is its destructor
+// The node type of the channel's timeline list (vtable 0x006486CC; AnimTimeline::destroy_body is its destructor
 // body): 0x0047DD40, its scalar deleting destructor.
 struct AnimListNode {
-    AnimListNode* Teardown(uint8_t flags);
-    MemSys::ListNode m_listLink;
+    AnimListNode* teardown(uint8_t flags);
+    memory::ListNode list_link_;
 };
 
-// A list's head (ListKit::Foremost; the channel's timelines, a server list): 0x0047DD10, how many items it has.
+// A list's head (lists::Foremost; the channel's timelines, a server list): 0x0047DD10, how many items it has.
 struct AnimListHead {
-    int TallyEntries();
-    MemSys::ListNode m_head;
+    int tally_entries();
+    memory::ListNode head_;
 };
 
 // The blend's shared buffers: the weights, the bone set of each channel, the pose.
-extern CStance* g_blendBuffer;
-extern float* g_blendWeights;
-extern uint32_t* g_blendSets;
+extern Stance* g_blend_buffer;
+extern float* g_blend_weights;
+extern uint32_t* g_blend_sets;
 
 } // namespace Gfx

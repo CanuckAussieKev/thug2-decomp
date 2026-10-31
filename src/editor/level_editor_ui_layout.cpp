@@ -6,28 +6,28 @@
 #include <algorithm>
 #include <cmath>
 
-namespace MenuSystem::LevelEditor::UiLayout {
+namespace frontend::level_editor::ui_layout {
 
 constexpr double kMinScale = 0.875;
 
-float ScaleFor(int windowWidth, int windowHeight)
+float scale_for(int window_width, int window_height)
 {
-    if (windowWidth <= 0 || windowHeight <= 0)
+    if (window_width <= 0 || window_height <= 0)
         return 1.0f;
     // 1 at 1920 x 1080 (Blender's and Unreal's 100 %), quarter steps from the smaller ratio - 1.25 at 2560 x 1440
     // (Windows' suggested 125 % for a 1440p screen), 2 at 4K; never below 0.875 (Inter at 12 px).
-    double scale = std::min(windowWidth / 1920.0, windowHeight / 1080.0);
+    double scale = std::min(window_width / 1920.0, window_height / 1080.0);
     scale = std::floor(scale * 4.0 + 1e-6) / 4.0;
     return static_cast<float>(std::max(kMinScale, std::min(3.0, scale)));
 }
 
-FontSizes FontSizesFor(float scale)
+FontSizes font_sizes_for(float scale)
 {
     auto px = [scale](float base) { return std::round(base * scale); };
     return {px(14.0f), px(12.0f), px(13.0f), px(15.0f)};
 }
 
-Layout Compute(float width, float height, float scale, bool outlinerOpen, bool inspectorOpen)
+Layout compute(float width, float height, float scale, bool outliner_open, bool inspector_open)
 {
     Layout layout = {};
     // The menu bar (the font and its frame padding: 14 + 2 x 4 at scale 1) over the tool strip (its buttons, 14 + 2 x 3,
@@ -37,13 +37,13 @@ Layout Compute(float width, float height, float scale, bool outlinerOpen, bool i
     strip = std::min(strip, height * 0.13f);
     status = std::min(status, height * 0.25f);
     float toolbar = menu + strip;
-    float middleTop = toolbar, middleHeight = std::max(0.0f, height - toolbar - status);
+    float middle_top = toolbar, middle_height = std::max(0.0f, height - toolbar - status);
     layout.toolbar = {0.0f, 0.0f, width, toolbar};
     layout.menu = {0.0f, 0.0f, width, menu};
     layout.strip = {0.0f, menu, width, strip};
     layout.status = {0.0f, height - status, width, status};
     // The side panels: 280 / 320 at scale 1, narrowed to 180 each so the viewport keeps 40% of the width.
-    float left = outlinerOpen ? 280.0f * scale : 0.0f, right = inspectorOpen ? 320.0f * scale : 0.0f;
+    float left = outliner_open ? 280.0f * scale : 0.0f, right = inspector_open ? 320.0f * scale : 0.0f;
     float room = width * 0.6f;
     if (left + right > room) {
         float minimum = 180.0f * scale;
@@ -58,40 +58,40 @@ Layout Compute(float width, float height, float scale, bool outlinerOpen, bool i
     }
     left = std::round(left);
     right = std::round(right);
-    layout.outlinerShown = left > 0.0f;
-    layout.inspectorShown = right > 0.0f;
-    layout.outliner = {0.0f, middleTop, left, middleHeight};
-    layout.inspector = {width - right, middleTop, right, middleHeight};
-    layout.viewport = {left, middleTop, std::max(0.0f, width - left - right), middleHeight};
+    layout.outliner_shown_ = left > 0.0f;
+    layout.inspector_shown_ = right > 0.0f;
+    layout.outliner = {0.0f, middle_top, left, middle_height};
+    layout.inspector = {width - right, middle_top, right, middle_height};
+    layout.viewport = {left, middle_top, std::max(0.0f, width - left - right), middle_height};
     return layout;
 }
 
-bool OnPanel(const Layout& layout, float x, float y)
+bool on_panel(const Layout& layout, float x, float y)
 {
-    return layout.toolbar.Holds(x, y) || layout.status.Holds(x, y) ||
-           (layout.outlinerShown && layout.outliner.Holds(x, y)) ||
-           (layout.inspectorShown && layout.inspector.Holds(x, y));
+    return layout.toolbar.get_holds(x, y) || layout.status.get_holds(x, y) ||
+           (layout.outliner_shown_ && layout.outliner.get_holds(x, y)) ||
+           (layout.inspector_shown_ && layout.inspector.get_holds(x, y));
 }
 
-Route Decide(const RouteInput& input)
+Route decide(const RouteInput& input)
 {
     Route route = {};
-    if (input.editorCapture) {
-        route.mouseToEditor = true;
-    } else if (input.uiWantsMouse || input.overPanel) {
-        route.mouseToUi = true;
+    if (input.editor_capture_) {
+        route.mouse_to_editor_ = true;
+    } else if (input.ui_wants_mouse_ || input.over_panel_) {
+        route.mouse_to_ui_ = true;
     } else {
-        route.mouseToUi = true;
-        route.mouseToEditor = true;
+        route.mouse_to_ui_ = true;
+        route.mouse_to_editor_ = true;
     }
-    route.keysToEditor = !input.uiWantsKeyboard;
+    route.keys_to_editor_ = !input.ui_wants_keyboard_;
     return route;
 }
 
-} // namespace MenuSystem::LevelEditor::UiLayout
+} // namespace MenuSystem::level_editor::ui_layout
 
 // The Outliner's markers (level_editor_ui.h) - pure, beside the layout's other pure parts.
-namespace MenuSystem::LevelEditor::Ui {
+namespace frontend::level_editor::ui {
 
 namespace {
 struct MarkInfo {
@@ -109,13 +109,13 @@ const MarkInfo kMarks[kMaxMarkers] = {
 };
 } // namespace
 
-char MarkLetter(int bit) { return bit >= 0 && bit < kMaxMarkers ? kMarks[bit].letter : '?'; }
-uint32_t MarkColour(int bit) { return bit >= 0 && bit < kMaxMarkers ? kMarks[bit].colour : 0xFFFFFFFFu; }
-const char* MarkName(int bit) { return bit >= 0 && bit < kMaxMarkers ? kMarks[bit].name : ""; }
+char mark_letter(int bit) { return bit >= 0 && bit < kMaxMarkers ? kMarks[bit].letter : '?'; }
+uint32_t mark_colour(int bit) { return bit >= 0 && bit < kMaxMarkers ? kMarks[bit].colour : 0xFFFFFFFFu; }
+const char* mark_name(int bit) { return bit >= 0 && bit < kMaxMarkers ? kMarks[bit].name : ""; }
 
-bool MarkShown(uint8_t marks, bool changedOnly) { return !changedOnly || (marks & ((1u << kMaxMarkers) - 1)) != 0; }
+bool mark_shown(uint8_t marks, bool changed_only) { return !changed_only || (marks & ((1u << kMaxMarkers) - 1)) != 0; }
 
-std::string MarkLetters(uint8_t marks)
+std::string mark_letters(uint8_t marks)
 {
     std::string letters;
     for (int bit = 0; bit < kMaxMarkers; ++bit) {
@@ -125,4 +125,4 @@ std::string MarkLetters(uint8_t marks)
     return letters;
 }
 
-} // namespace MenuSystem::LevelEditor::Ui
+} // namespace MenuSystem::level_editor::Ui

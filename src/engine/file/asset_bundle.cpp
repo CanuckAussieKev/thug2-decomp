@@ -9,7 +9,7 @@
 #include "engine/file/packs.h"
 #include "engine/core/code_address.h"
 
-namespace FileLoad {
+namespace file {
 
 namespace {
 extern void** const kAssetBundleVtable;
@@ -18,149 +18,149 @@ extern void** const kAssetBundleVtable;
 // 0x005B6CF0
 AssetBundle::AssetBundle()
 {
-    m_vtable = kAssetBundleVtable;
-    m_bundleBytes = nullptr;
-    m_loadedData = nullptr;
-    m_fileRef = nullptr;
-    m_readyFlag = false;
-    m_fileHeap = nullptr;
-    m_assetHeap = nullptr;
-    m_unknown234C = 0;
-    m_unknown2350 = 0;
+    vtable_ = kAssetBundleVtable;
+    bundle_bytes_ = nullptr;
+    loaded_data_ = nullptr;
+    file_ref_ = nullptr;
+    ready_flag_ = false;
+    file_heap_ = nullptr;
+    asset_heap_ = nullptr;
+    unknown234c_ = 0;
+    unknown2350_ = 0;
 }
 
 // 0x005B6EA0
-AssetBundle* AssetBundle::Teardown(unsigned int flags)
+AssetBundle* AssetBundle::teardown(unsigned int flags)
 {
-    m_vtable = kAssetBundleVtable;
-    if (m_bundleBytes) {
-        MemSys::FreeMalloc(m_bundleBytes);
-        m_bundleBytes = nullptr;
+    vtable_ = kAssetBundleVtable;
+    if (bundle_bytes_) {
+        memory::free_malloc(bundle_bytes_);
+        bundle_bytes_ = nullptr;
     }
-    if (m_fileRef)
-        AsyncClose(m_fileRef);
+    if (file_ref_)
+        async_close(file_ref_);
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
 // 0x005B6D30
-void AssetBundle::SetHeaps(MemSys::Arena* fileHeap, MemSys::Arena* assetHeap)
+void AssetBundle::set_heaps(memory::Arena* file_heap, memory::Arena* asset_heap)
 {
-    m_fileHeap = fileHeap;
-    m_assetHeap = assetHeap;
+    file_heap_ = file_heap;
+    asset_heap_ = asset_heap;
 }
 
 // 0x005B7090
-bool AssetBundle::ReadIn(const char* name, int unused1, int /*unused2*/)
+bool AssetBundle::read_in(const char* name, int unused1, int /*unused2*/)
 {
     int size = 0;
-    MemSys::EnterHeapScope(m_fileHeap);
-    m_bundleBytes = Packs::LoadFileInto(name, &size, nullptr);
-    m_loadedData = static_cast<uint8_t*>(m_bundleBytes);
-    MemSys::LeaveHeapScope();
-    return Split(unused1, size);
+    memory::enter_heap_scope(file_heap_);
+    bundle_bytes_ = packs::load_file_into(name, &size, nullptr);
+    loaded_data_ = static_cast<uint8_t*>(bundle_bytes_);
+    memory::leave_heap_scope();
+    return get_split(unused1, size);
 }
 
 // 0x005B6EF0: copy each asset into its own block (from the last, shrinking the file's block as it goes),
 // then free the file
-bool AssetBundle::Split(int /*unused*/, int size)
+bool AssetBundle::get_split(int /*unused*/, int size)
 {
-    if (m_fileRef) {
-        AsyncClose(m_fileRef);
-        m_fileRef = nullptr;
+    if (file_ref_) {
+        async_close(file_ref_);
+        file_ref_ = nullptr;
     }
-    uint8_t* end = m_loadedData + size;
-    auto* header = reinterpret_cast<uint32_t*>(m_loadedData);
-    auto* entries = m_loadedData + 8;
+    uint8_t* end = loaded_data_ + size;
+    auto* header = reinterpret_cast<uint32_t*>(loaded_data_);
+    auto* entries = loaded_data_ + 8;
     if (entries > end)
         return false;
-    m_num = static_cast<int>(header[1]);
+    num_ = static_cast<int>(header[1]);
     // The entries are copied before the table is checked against the file size (and the count against
     // kBundleCapacity is never checked) - as in the original.
-    uint32_t tableSize = static_cast<uint32_t>(m_num) * sizeof(TableRow);
-    std::memcpy(m_entries, entries, tableSize);
-    if (entries + tableSize > end)
+    uint32_t table_size = static_cast<uint32_t>(num_) * sizeof(TableRow);
+    std::memcpy(entries_, entries, table_size);
+    if (entries + table_size > end)
         return false;
 
-    for (int i = 0; i < m_num; ++i)
-        m_assets[i] = m_loadedData + m_entries[i].offset;
-    for (int i = m_num - 1; i >= 0; --i) {
-        uint32_t assetSize = m_entries[i].size;
-        void* source = m_assets[i];
-        MemSys::EnterHeapScope(m_assetHeap);
-        m_assets[i] = MemSys::AllocBlock(assetSize);
-        std::memcpy(m_assets[i], source, assetSize);
-        MemSys::LeaveHeapScope();
+    for (int i = 0; i < num_; ++i)
+        assets_[i] = loaded_data_ + entries_[i].offset;
+    for (int i = num_ - 1; i >= 0; --i) {
+        uint32_t asset_size = entries_[i].size;
+        void* source = assets_[i];
+        memory::enter_heap_scope(asset_heap_);
+        assets_[i] = memory::alloc_block(asset_size);
+        std::memcpy(assets_[i], source, asset_size);
+        memory::leave_heap_scope();
 
         // The asset has its own copy: give the end of the file's block back.
-        MemSys::EnterHeapScope(m_fileHeap);
-        m_bundleBytes = MemSys::TrimBlockEnd(MemSys::MallocSize(m_bundleBytes) - assetSize, m_bundleBytes);
-        MemSys::LeaveHeapScope();
+        memory::enter_heap_scope(file_heap_);
+        bundle_bytes_ = memory::trim_block_end(memory::malloc_size(bundle_bytes_) - asset_size, bundle_bytes_);
+        memory::leave_heap_scope();
     }
-    MemSys::FreeMalloc(m_bundleBytes);
-    m_bundleBytes = nullptr;
-    m_loadedData = nullptr;
-    m_readyFlag = true;
+    memory::free_malloc(bundle_bytes_);
+    bundle_bytes_ = nullptr;
+    loaded_data_ = nullptr;
+    ready_flag_ = true;
     return true;
 }
 
 // 0x005B6D50
-bool AssetBundle::IsLoaded()
+bool AssetBundle::is_loaded()
 {
-    return m_readyFlag;
+    return ready_flag_;
 }
 
 // 0x005B6D60
-void* AssetBundle::ObtainLoadedItem(int index)
+void* AssetBundle::obtain_loaded_item(int index)
 {
-    return m_assets[index];
+    return assets_[index];
 }
 
 // 0x005B6D70
-AssetBundle::TableRow* AssetBundle::GetEntry(int index)
+AssetBundle::TableRow* AssetBundle::get_entry(int index)
 {
-    return &m_entries[index];
+    return &entries_[index];
 }
 
 // 0x005B6D80
-AssetBundle::TableRow* AssetBundle::FindEntry(uint32_t name, uint32_t type, int /*unused*/)
+AssetBundle::TableRow* AssetBundle::find_entry(uint32_t name, uint32_t type, int /*unused*/)
 {
-    for (int i = 0; i < m_num; ++i) {
-        if (m_entries[i].name == name && m_entries[i].type == type)
-            return &m_entries[i];
+    for (int i = 0; i < num_; ++i) {
+        if (entries_[i].name == name && entries_[i].type == type)
+            return &entries_[i];
     }
     return nullptr;
 }
 
 // 0x005B6DC0
-void* AssetBundle::FindAsset(uint32_t name, uint32_t type, int /*unused*/)
+void* AssetBundle::find_asset(uint32_t name, uint32_t type, int /*unused*/)
 {
-    for (int i = 0; i < m_num; ++i) {
-        if (m_entries[i].name == name && m_entries[i].type == type)
-            return m_assets[i];
+    for (int i = 0; i < num_; ++i) {
+        if (entries_[i].name == name && entries_[i].type == type)
+            return assets_[i];
     }
     return nullptr;
 }
 
 // 0x005B6E60
-bool AssetBundle::HasAsset(uint32_t name, uint32_t type)
+bool AssetBundle::has_asset(uint32_t name, uint32_t type)
 {
-    for (int i = 0; i < m_num; ++i) {
-        if (m_entries[i].name == name && m_entries[i].type == type)
+    for (int i = 0; i < num_; ++i) {
+        if (entries_[i].name == name && entries_[i].type == type)
             return true;
     }
     return false;
 }
 
 // 0x005B6E00
-bool AssetBundle::FreeAsset(uint32_t name, uint32_t type)
+bool AssetBundle::free_asset(uint32_t name, uint32_t type)
 {
     bool found = false;
-    for (int i = 0; i < m_num; ++i) {
-        if (m_entries[i].name == name && m_entries[i].type == type) {
-            MemSys::FreeMalloc(m_assets[i]);
-            m_assets[i] = nullptr;
+    for (int i = 0; i < num_; ++i) {
+        if (entries_[i].name == name && entries_[i].type == type) {
+            memory::free_malloc(assets_[i]);
+            assets_[i] = nullptr;
             found = true;
         }
     }
@@ -168,8 +168,8 @@ bool AssetBundle::FreeAsset(uint32_t name, uint32_t type)
 }
 
 namespace {
-static VtableSlot kAssetBundleVtable_slots[] = {&FileLoad::AssetBundle::Teardown};
-void** const kAssetBundleVtable = reinterpret_cast<void**>(kAssetBundleVtable_slots);
+static VtableSlot g_asset_bundle_vtable_slots[] = {&file::AssetBundle::teardown};
+void** const kAssetBundleVtable = reinterpret_cast<void**>(g_asset_bundle_vtable_slots);
 } // namespace
 
 } // namespace File
@@ -178,7 +178,7 @@ namespace {
 
 // The constructor returns `this` in EAX (callers use it).
 struct AssetBundleAdapter {
-    FileLoad::AssetBundle* MakeNew() { return new (this) FileLoad::AssetBundle; }
+    file::AssetBundle* make_new() { return new (this) file::AssetBundle; }
 };
 
 } // namespace

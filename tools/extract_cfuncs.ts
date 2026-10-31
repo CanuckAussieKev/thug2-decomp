@@ -1,4 +1,4 @@
-// NOT ORIGINAL - extracts the script runtime's CFunction table (0x67F3A0: 1254 {name pointer, function pointer}
+// NOT ORIGINAL - extracts the script runtime's Function table (0x67F3A0: 1254 {name pointer, function pointer}
 // pairs) from the reference build into a CSV of address,script_name (data/derived/cfuncs.csv), and prints how many functions
 // several names share.
 //

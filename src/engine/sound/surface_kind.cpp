@@ -18,10 +18,10 @@
 #include "engine/sound/sfx.h"
 #include "engine/sys/startup_init.h"
 
-namespace SurfaceKind {
+namespace surface_kind {
 
-using Scripts::CArray;
-using Scripts::CStruct;
+using script::Array;
+using script::Struct;
 
 namespace {
 
@@ -40,8 +40,8 @@ constexpr uint32_t kSound = 0x07713C7B;                   // "sound"
 constexpr uint32_t kMaxPitch = 0xFA3E14C5;                // "maxPitch"
 constexpr uint32_t kMinPitch = 0x1C5EBB24;                // "minPitch"
 constexpr uint32_t kMaxVol = 0x0693DAAF;                  // "maxVol"
-constexpr uint32_t kMinVol = 0x4391992D;                  // "floorLoudness"
-constexpr uint32_t kInitialPitchKey = 0xF573682F;               // "loadPitch"
+constexpr uint32_t kMinVol = 0x4391992D;                  // "floor_loudness_"
+constexpr uint32_t kInitialPitchKey = 0xF573682F;               // "load_pitch_"
 constexpr uint32_t kLoadVol = 0x312CCBCF;                 // "loadVol"
 
 constexpr float kHundred = 100.0f;
@@ -63,18 +63,18 @@ struct ActionItem {
 };
 static_assert(sizeof(TypeItem) == 8 && sizeof(ActionItem) == 12, "layout must match the original");
 
-ListKit::KeyMap g_terrainTypes{ListKit::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
-ListKit::KeyMap& TerrainTypes() { return g_terrainTypes; }
-ListKit::KeyMap g_terrainActions{ListKit::KeyMap::Unconstructed{}}; // (KeyMap(8) at start-up)
-ListKit::KeyMap& TerrainActions() { return g_terrainActions; }
+lists::KeyMap g_terrain_types{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
+lists::KeyMap& terrain_types() { return g_terrain_types; }
+lists::KeyMap g_terrain_actions{lists::KeyMap::Unconstructed{}}; // (KeyMap(8) at start-up)
+lists::KeyMap& get_terrain_actions() { return g_terrain_actions; }
 
-SoundFx::CAudioMixer* SoundManager() { return SoundFx::g_audioMixer; }
+sound::AudioMixer* sound_manager() { return sound::g_audio_mixer; }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits.
-int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
+int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // `percent` of the range min..max (a range of 0 to 100 is the percentage itself).
-float ScaledPercent(float percent, float max, float min)
+float scaled_percent(float percent, float max, float min)
 {
     if (min == 0.0f && max == kHundred)
         return percent;
@@ -82,9 +82,9 @@ float ScaledPercent(float percent, float max, float min)
 }
 
 // The soundAction's sound loaded: permanent (load type 1), its load pitch and volume.
-void IngestSound(const SoundInfo& info)
+void ingest_sound(const SoundInfo& info)
 {
-    SoundManager()->IngestSound(info.name, 0, 1, 0, 0.0f, info.loadPitch, info.loadVol);
+    sound_manager()->ingest_sound(info.name, 0, 1, 0, 0.0f, info.load_pitch_, info.load_vol_);
 }
 
 // The network message a propagated terrain sound sends (0x35, 12 bytes).
@@ -95,7 +95,7 @@ struct SoundMessage {
     uint8_t volume;         // +8 the percentages, truncated
     uint8_t pitch;          // +9
     uint8_t value;          // +A
-    uint8_t padB;
+    uint8_t padb_;
 };
 static_assert(sizeof(SoundMessage) == 12, "the original sends 12 bytes");
 constexpr uint8_t kMsgTerrainSound = 0x35;
@@ -103,29 +103,29 @@ constexpr uint8_t kMsgTerrainSound = 0x35;
 } // namespace
 
 // 0x004442C0
-uint8_t __cdecl GetTerrainIndex(uint32_t checksum)
+uint8_t __cdecl get_terrain_index(uint32_t checksum)
 {
     // (an unknown terrain: the original reads its index through null)
-    auto* item = static_cast<volatile TypeItem*>(TerrainTypes().FetchEntry(checksum));
+    auto* item = static_cast<volatile TypeItem*>(terrain_types().fetch_entry(checksum));
     return item->index;
 }
 
 // 0x00444310
-uint32_t __cdecl GetTableAction(uint8_t table)
+uint32_t __cdecl get_table_action(uint8_t table)
 {
     // (an unknown table: the original reads the action through null)
-    auto* item = static_cast<volatile ActionItem*>(TerrainActions().FetchEntry(table));
+    auto* item = static_cast<volatile ActionItem*>(get_terrain_actions().fetch_entry(table));
     return item->action;
 }
 
 // 0x00444360 (the walk stops at an item without a value - as the original)
-uint32_t __cdecl FetchSurfaceKey(uint8_t terrain)
+uint32_t __cdecl fetch_surface_key(uint8_t terrain)
 {
-    ListKit::KeyMap& types = TerrainTypes();
-    types.m_iterBucket = -1;
-    types.m_iterItem = nullptr;
-    while (types.StepIterator() && types.m_iterItem && types.m_iterItem->value) {
-        auto* item = static_cast<TypeItem*>(types.m_iterItem->value);
+    lists::KeyMap& types = terrain_types();
+    types.iter_bucket_ = -1;
+    types.iter_item_ = nullptr;
+    while (types.step_iterator() && types.iter_item_ && types.iter_item_->value) {
+        auto* item = static_cast<TypeItem*>(types.iter_item_->value);
         if (item->index == terrain)
             return item->checksum;
     }
@@ -133,13 +133,13 @@ uint32_t __cdecl FetchSurfaceKey(uint8_t terrain)
 }
 
 // 0x004443B0
-uint8_t __cdecl GetTableIndex(uint32_t type)
+uint8_t __cdecl get_table_index(uint32_t type)
 {
-    ListKit::KeyMap& actions = TerrainActions();
-    actions.m_iterBucket = -1;
-    actions.m_iterItem = nullptr;
-    while (actions.StepIterator() && actions.m_iterItem && actions.m_iterItem->value) {
-        auto* item = static_cast<ActionItem*>(actions.m_iterItem->value);
+    lists::KeyMap& actions = get_terrain_actions();
+    actions.iter_bucket_ = -1;
+    actions.iter_item_ = nullptr;
+    while (actions.step_iterator() && actions.iter_item_ && actions.iter_item_->value) {
+        auto* item = static_cast<ActionItem*>(actions.iter_item_->value);
         if (item->type == type)
             return item->index;
     }
@@ -147,63 +147,63 @@ uint8_t __cdecl GetTableIndex(uint32_t type)
 }
 
 // 0x00444400
-bool __cdecl GetTerrainStructure(uint8_t terrain, CStruct** out, uint32_t name)
+bool __cdecl get_terrain_structure(uint8_t terrain, Struct** out, uint32_t name)
 {
-    CStruct* settings = Scripts::ReadSubStruct(FetchSurfaceKey(terrain));
-    if (settings && settings->ReadSubStruct(name, out, 0))
+    Struct* settings = script::read_sub_struct(fetch_surface_key(terrain));
+    if (settings && settings->read_sub_struct(name, out, 0))
         return true;
-    CStruct* standard = Scripts::ReadSubStruct(kStandardTerrainDefault);
-    return standard && standard->ReadSubStruct(name, out, 0);
+    Struct* standard = script::read_sub_struct(kStandardTerrainDefault);
+    return standard && standard->read_sub_struct(name, out, 0);
 }
 
 // 0x00444460
-void __cdecl ClearTerrainTypes()
+void __cdecl clear_terrain_types()
 {
-    TerrainTypes().EmptyTable();
-    TerrainActions().EmptyTable();
+    terrain_types().empty_table();
+    get_terrain_actions().empty_table();
 }
 
 // 0x00444480
-bool __cdecl GetTerrainStructureInto(CStruct** out, uint8_t terrain, uint32_t name)
+bool __cdecl get_terrain_structure_into(Struct** out, uint8_t terrain, uint32_t name)
 {
-    return GetTerrainStructure(terrain, out, name);
+    return get_terrain_structure(terrain, out, name);
 }
 
 // 0x004444A0
-void __cdecl LoadTerrainTypes()
+void __cdecl load_terrain_types()
 {
-    CArray* types = Scripts::FetchList(kTerrainTypes);
-    for (uint32_t i = 0; i < types->m_extent; ++i) {
-        auto* item = static_cast<TypeItem*>(MemSys::Alloc(sizeof(TypeItem)));
+    Array* types = script::fetch_list(kTerrainTypes);
+    for (uint32_t i = 0; i < types->extent_; ++i) {
+        auto* item = static_cast<TypeItem*>(memory::alloc(sizeof(TypeItem)));
         item->index = static_cast<uint8_t>(i);
-        reinterpret_cast<CStruct*>(types->FetchPart(i))->ReadHashValue(kChecksum, &item->checksum, 0);
-        TerrainTypes().StoreEntry(item->checksum, item);
+        reinterpret_cast<Struct*>(types->fetch_part(i))->read_hash_value(kChecksum, &item->checksum, 0);
+        terrain_types().store_entry(item->checksum, item);
     }
-    CArray* actions = Scripts::FetchList(kTerrainActions);
-    for (uint32_t i = 0; i < actions->m_extent; ++i) {
-        auto* item = static_cast<ActionItem*>(MemSys::Alloc(sizeof(ActionItem)));
+    Array* actions = script::fetch_list(kTerrainActions);
+    for (uint32_t i = 0; i < actions->extent_; ++i) {
+        auto* item = static_cast<ActionItem*>(memory::alloc(sizeof(ActionItem)));
         item->index = static_cast<uint8_t>(i);
-        reinterpret_cast<CStruct*>(actions->FetchPart(i))->ReadHashValue(kType, &item->type, 1);
-        reinterpret_cast<CStruct*>(actions->FetchPart(i))->ReadHashValue(kAction, &item->action, 1);
-        TerrainActions().StoreEntry(i, item);
+        reinterpret_cast<Struct*>(actions->fetch_part(i))->read_hash_value(kType, &item->type, 1);
+        reinterpret_cast<Struct*>(actions->fetch_part(i))->read_hash_value(kAction, &item->action, 1);
+        get_terrain_actions().store_entry(i, item);
     }
 }
 
 // 0x004445B0
-bool __cdecl GetSoundInfo(CStruct* soundAction, SoundInfo* info)
+bool __cdecl get_sound_info(Struct* sound_action, SoundInfo* info)
 {
-    if (SoundFx::NoSound())
+    if (sound::no_sound())
         return false;
-    info->minPitch = kHundred;
-    info->maxVol = kHundred;
-    info->floorLoudness = 0.0f;
-    info->loadPitch = kHundred;
-    info->loadVol = kHundred;
+    info->min_pitch_ = kHundred;
+    info->max_vol_ = kHundred;
+    info->floor_loudness_ = 0.0f;
+    info->load_pitch_ = kHundred;
+    info->load_vol_ = kHundred;
     info->name[0] = '\0';
     info->checksum = 0;
-    info->maxPitch = kHundred;
+    info->max_pitch_ = kHundred;
     const char* sound = "";
-    if (!soundAction->FetchText(kSound, &sound, 0))
+    if (!sound_action->fetch_text(kSound, &sound, 0))
         return false;
     // (copied unchecked, as the original)
     int length = 0;
@@ -215,221 +215,221 @@ bool __cdecl GetSoundInfo(CStruct* soundAction, SoundInfo* info)
         if (info->name[i] == '\\' || info->name[i] == '/')
             base = info->name + i + 1;
     }
-    info->checksum = Checksums::HashFromText(base);
-    soundAction->FetchFloat(kMaxPitch, &info->maxPitch, 0);
-    soundAction->FetchFloat(kMinPitch, &info->minPitch, 0);
-    soundAction->FetchFloat(kMaxVol, &info->maxVol, 0);
-    soundAction->FetchFloat(kMinVol, &info->floorLoudness, 0);
-    soundAction->FetchFloat(kInitialPitchKey, &info->loadPitch, 0);
-    soundAction->FetchFloat(kLoadVol, &info->loadVol, 0);
+    info->checksum = checksums::hash_from_text(base);
+    sound_action->fetch_float(kMaxPitch, &info->max_pitch_, 0);
+    sound_action->fetch_float(kMinPitch, &info->min_pitch_, 0);
+    sound_action->fetch_float(kMaxVol, &info->max_vol_, 0);
+    sound_action->fetch_float(kMinVol, &info->floor_loudness_, 0);
+    sound_action->fetch_float(kInitialPitchKey, &info->load_pitch_, 0);
+    sound_action->fetch_float(kLoadVol, &info->load_vol_, 0);
     return true;
 }
 
 // 0x00444710 (maxVol is compared with 100 by its bits)
-double __cdecl GetScaledVolume(const SoundInfo* info, float percent, bool clamp)
+double __cdecl get_scaled_volume(const SoundInfo* info, float percent, bool clamp)
 {
     double volume;
-    uint32_t maxBits;
-    std::memcpy(&maxBits, &info->maxVol, 4);
-    if (info->floorLoudness == 0.0f && maxBits == kHundredBits)
+    uint32_t max_bits;
+    std::memcpy(&max_bits, &info->max_vol_, 4);
+    if (info->floor_loudness_ == 0.0f && max_bits == kHundredBits)
         volume = percent;
     else
-        volume = (static_cast<double>(info->maxVol) - info->floorLoudness) * percent * kPercent + info->floorLoudness;
-    if (clamp && volume > info->maxVol)
-        volume = info->maxVol;
+        volume = (static_cast<double>(info->max_vol_) - info->floor_loudness_) * percent * kPercent + info->floor_loudness_;
+    if (clamp && volume > info->max_vol_)
+        volume = info->max_vol_;
     return volume;
 }
 
 // 0x00444760
-CStruct* __cdecl PickSoundAction(CStruct* entry)
+Struct* __cdecl pick_sound_action(Struct* entry)
 {
-    CStruct* soundAction;
-    if (entry->ReadSubStruct(kSoundAction, &soundAction, 0))
-        return soundAction;
-    CArray* choices;
-    entry->FetchList(kSoundAction, &choices, 1);
+    Struct* sound_action;
+    if (entry->read_sub_struct(kSoundAction, &sound_action, 0))
+        return sound_action;
+    Array* choices;
+    entry->fetch_list(kSoundAction, &choices, 1);
     int chance = 0; // (kept from one element to the next when one has none; uninitialised for the first in the original)
     int total = 0;
-    for (uint32_t i = choices->m_extent; i != 0;) {
+    for (uint32_t i = choices->extent_; i != 0;) {
         --i;
-        soundAction = reinterpret_cast<CStruct*>(choices->FetchPart(i));
-        soundAction->FetchIntValue(kChance, &chance, 1);
+        sound_action = reinterpret_cast<Struct*>(choices->fetch_part(i));
+        sound_action->fetch_int_value(kChance, &chance, 1);
         total += chance;
     }
-    int pick = Maths::Rnd(total);
-    for (uint32_t i = choices->m_extent; i != 0;) {
+    int pick = maths::rnd(total);
+    for (uint32_t i = choices->extent_; i != 0;) {
         --i;
-        soundAction = reinterpret_cast<CStruct*>(choices->FetchPart(i));
-        soundAction->FetchIntValue(kChance, &chance, 1);
+        sound_action = reinterpret_cast<Struct*>(choices->fetch_part(i));
+        sound_action->fetch_int_value(kChance, &chance, 1);
         pick -= chance;
         if (pick < 0)
-            return soundAction;
+            return sound_action;
     }
     return nullptr;
 }
 
 // 0x00444830
-CStruct* __cdecl FindSoundAction(CStruct* soundActions, uint8_t table, float value)
+Struct* __cdecl find_sound_action(Struct* sound_actions, uint8_t table, float value)
 {
-    uint32_t action = GetTableAction(table);
-    CStruct* entry;
-    if (soundActions->ReadSubStruct(action, &entry, 0))
+    uint32_t action = get_table_action(table);
+    Struct* entry;
+    if (sound_actions->read_sub_struct(action, &entry, 0))
         return entry;
-    CArray* entries;
-    soundActions->FetchList(action, &entries, 1);
-    for (uint32_t i = 0; i < entries->m_extent; ++i) {
-        entry = reinterpret_cast<CStruct*>(entries->FetchPart(i));
-        float useUpTo;
+    Array* entries;
+    sound_actions->fetch_list(action, &entries, 1);
+    for (uint32_t i = 0; i < entries->extent_; ++i) {
+        entry = reinterpret_cast<Struct*>(entries->fetch_part(i));
+        float use_up_to;
         // (a NaN value never fits)
-        if (!entry->FetchFloat(kUseUpTo, &useUpTo, 0) || value <= useUpTo)
-            return PickSoundAction(entry);
+        if (!entry->fetch_float(kUseUpTo, &use_up_to, 0) || value <= use_up_to)
+            return pick_sound_action(entry);
     }
     return nullptr;
 }
 
 // 0x004448E0 (with sound off the info isn't filled and the load gets what's there - as the original)
-void __cdecl LoadSoundAction(CStruct* soundAction)
+void __cdecl load_sound_action(Struct* sound_action)
 {
     SoundInfo info;
-    GetSoundInfo(soundAction, &info);
-    IngestSound(info);
+    get_sound_info(sound_action, &info);
+    ingest_sound(info);
 }
 
 // 0x00444950 (TERRAIN_DEFAULT's own structure for the action counts only if it names the action again inside)
-void __cdecl LoadTableSounds(CStruct* soundActions, uint8_t table)
+void __cdecl load_table_sounds(Struct* sound_actions, uint8_t table)
 {
-    uint32_t action = GetTableAction(table);
-    CStruct* defaultActions;
-    Scripts::ReadSubStruct(kTerrainDefault)->ReadSubStruct(kSoundActions, &defaultActions, 1);
-    CStruct* entry = nullptr;
-    if (!soundActions->ReadSubStruct(action, &entry, 0)) {
-        defaultActions->ReadSubStruct(action, &entry, 0);
-        if (entry && !entry->HasEntryNamed(action))
+    uint32_t action = get_table_action(table);
+    Struct* default_actions;
+    script::read_sub_struct(kTerrainDefault)->read_sub_struct(kSoundActions, &default_actions, 1);
+    Struct* entry = nullptr;
+    if (!sound_actions->read_sub_struct(action, &entry, 0)) {
+        default_actions->read_sub_struct(action, &entry, 0);
+        if (entry && !entry->has_entry_named(action))
             entry = nullptr;
     }
     if (entry) {
-        LoadSoundAction(entry);
+        load_sound_action(entry);
         return;
     }
-    CArray* entries;
-    if (!soundActions->FetchList(action, &entries, 0))
-        defaultActions->FetchList(action, &entries, 1);
-    for (uint32_t i = 0; i < entries->m_extent; ++i) {
-        auto* element = reinterpret_cast<CStruct*>(entries->FetchPart(i));
-        CStruct* soundAction;
-        if (element->ReadSubStruct(kSoundAction, &soundAction, 0)) {
-            LoadSoundAction(soundAction);
+    Array* entries;
+    if (!sound_actions->fetch_list(action, &entries, 0))
+        default_actions->fetch_list(action, &entries, 1);
+    for (uint32_t i = 0; i < entries->extent_; ++i) {
+        auto* element = reinterpret_cast<Struct*>(entries->fetch_part(i));
+        Struct* sound_action;
+        if (element->read_sub_struct(kSoundAction, &sound_action, 0)) {
+            load_sound_action(sound_action);
             continue;
         }
-        CArray* choices;
-        element->FetchList(kSoundAction, &choices, 1);
-        for (uint32_t j = 0; j < choices->m_extent; ++j) {
+        Array* choices;
+        element->fetch_list(kSoundAction, &choices, 1);
+        for (uint32_t j = 0; j < choices->extent_; ++j) {
             SoundInfo info;
-            GetSoundInfo(reinterpret_cast<CStruct*>(choices->FetchPart(j)), &info);
-            IngestSound(info);
+            get_sound_info(reinterpret_cast<Struct*>(choices->fetch_part(j)), &info);
+            ingest_sound(info);
         }
     }
 }
 
 // 0x00444B10
-bool __cdecl GetTerrainSound(SoundInfo* info, uint8_t terrain, uint8_t table, float value)
+bool __cdecl get_terrain_sound(SoundInfo* info, uint8_t terrain, uint8_t table, float value)
 {
-    if (SoundFx::NoSound())
+    if (sound::no_sound())
         return false;
-    CStruct* soundActions = nullptr;
-    if (!GetTerrainStructure(terrain, &soundActions, kSoundActions))
+    Struct* sound_actions = nullptr;
+    if (!get_terrain_structure(terrain, &sound_actions, kSoundActions))
         return false;
-    if (!soundActions->HasEntryNamed(GetTableAction(table)))
-        Scripts::ReadSubStruct(kTerrainDefault)->ReadSubStruct(kSoundActions, &soundActions, 1);
-    CStruct* soundAction = FindSoundAction(soundActions, table, value);
-    return soundAction && GetSoundInfo(soundAction, info);
+    if (!sound_actions->has_entry_named(get_table_action(table)))
+        script::read_sub_struct(kTerrainDefault)->read_sub_struct(kSoundActions, &sound_actions, 1);
+    Struct* sound_action = find_sound_action(sound_actions, table, value);
+    return sound_action && get_sound_info(sound_action, info);
 }
 
 // 0x00444BB0
-void __cdecl PlayTerrainSound(uint8_t table, uint8_t terrain, const Maths::Vec4* position, float loudnessPercent,
-                              float pitchPercent, float value, bool propagate)
+void __cdecl play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec4* position, float loudness_percent,
+                              float pitch_percent, float value, bool propagate)
 {
-    if (SoundFx::NoSound())
+    if (sound::no_sound())
         return;
-    SoundFx::CAudioMixer* sounds = SoundManager();
-    void* net = OnlinePlay::g_onlineHub;
-    CStruct* soundActions;
-    if (!GetTerrainStructureInto(&soundActions, terrain, kSoundActions))
+    sound::AudioMixer* sounds = sound_manager();
+    void* net = online::g_online_hub;
+    Struct* sound_actions;
+    if (!get_terrain_structure_into(&sound_actions, terrain, kSoundActions))
         return;
-    if (!soundActions->HasEntryNamed(GetTableAction(table)))
-        Scripts::ReadSubStruct(kTerrainDefault)->ReadSubStruct(kSoundActions, &soundActions, 1);
-    CStruct* soundAction = FindSoundAction(soundActions, table, value);
-    if (!soundAction)
+    if (!sound_actions->has_entry_named(get_table_action(table)))
+        script::read_sub_struct(kTerrainDefault)->read_sub_struct(kSoundActions, &sound_actions, 1);
+    Struct* sound_action = find_sound_action(sound_actions, table, value);
+    if (!sound_action)
         return;
     SoundInfo info;
-    if (!GetSoundInfo(soundAction, &info))
+    if (!get_sound_info(sound_action, &info))
         return;
     if (propagate) {
-        NetLink::NetMessageInfo desc;
-        desc.MakeNew();
-        auto* client = static_cast<NetLink::Guest*>(static_cast<OnlinePlay::Hub*>(net)->FetchPatron(0));
+        net::NetMessageInfo desc;
+        desc.make_new();
+        auto* client = static_cast<net::Guest*>(static_cast<online::Hub*>(net)->fetch_patron(0));
         SoundMessage message;
         message.table = table;
         message.terrain = terrain;
-        message.x = static_cast<int16_t>(Truncated(position->x));
-        message.y = static_cast<int16_t>(Truncated(position->y));
-        message.z = static_cast<int16_t>(Truncated(position->z));
-        message.volume = static_cast<uint8_t>(Truncated(loudnessPercent));
-        message.pitch = static_cast<uint8_t>(Truncated(pitchPercent));
-        message.value = static_cast<uint8_t>(Truncated(value));
-        desc.m_content = &message;
-        desc.m_byteCount = sizeof(SoundMessage);
-        desc.m_ident = kMsgTerrainSound;
-        client->SendToHost(&desc);
+        message.x = static_cast<int16_t>(get_truncated(position->x));
+        message.y = static_cast<int16_t>(get_truncated(position->y));
+        message.z = static_cast<int16_t>(get_truncated(position->z));
+        message.volume = static_cast<uint8_t>(get_truncated(loudness_percent));
+        message.pitch = static_cast<uint8_t>(get_truncated(pitch_percent));
+        message.value = static_cast<uint8_t>(get_truncated(value));
+        desc.content_ = &message;
+        desc.byte_count_ = sizeof(SoundMessage);
+        desc.ident_ = kMsgTerrainSound;
+        client->send_to_host(&desc);
     }
-    SoundFx::volumeRef volume;
-    volume.PrepareAll();
-    sounds->FetchLoudness(&volume, position, sounds->GetDropoffDistance(info.checksum), 0, nullptr, nullptr);
-    volume.PercentTweak(ScaledPercent(loudnessPercent, info.maxVol, info.floorLoudness));
-    if (!volume.IsAudioOff()) {
-        float pitch = ScaledPercent(pitchPercent, info.maxPitch, info.minPitch);
-        sounds->EmitSound(info.checksum, &volume, pitch, 0, nullptr,
+    sound::VolumeRef volume;
+    volume.prepare_all();
+    sounds->fetch_loudness(&volume, position, sounds->get_dropoff_distance(info.checksum), 0, nullptr, nullptr);
+    volume.percent_tweak(scaled_percent(loudness_percent, info.max_vol_, info.floor_loudness_));
+    if (!volume.is_audio_off()) {
+        float pitch = scaled_percent(pitch_percent, info.max_pitch_, info.min_pitch_);
+        sounds->emit_sound(info.checksum, &volume, pitch, 0, nullptr,
                           static_cast<int>(reinterpret_cast<uintptr_t>(&info)));
     }
 }
 
-// NOT ORIGINAL: PlayTerrainSound's playing, for a sound found elsewhere (THAW's BMX: its own sound tables).
-void PlaySoundInfo(const SoundInfo& info, const Maths::Vec4* position, float loudnessPercent, float pitchPercent)
+// NOT ORIGINAL: play_terrain_sound's playing, for a sound found elsewhere (THAW's BMX: its own sound tables).
+void play_sound_info(const SoundInfo& info, const maths::Vec4* position, float loudness_percent, float pitch_percent)
 {
-    if (SoundFx::NoSound())
+    if (sound::no_sound())
         return;
-    SoundFx::CAudioMixer* sounds = SoundManager();
-    SoundFx::volumeRef volume;
-    volume.PrepareAll();
-    sounds->FetchLoudness(&volume, position, sounds->GetDropoffDistance(info.checksum), 0, nullptr, nullptr);
-    volume.PercentTweak(ScaledPercent(loudnessPercent, info.maxVol, info.floorLoudness));
-    if (!volume.IsAudioOff()) {
-        float pitch = ScaledPercent(pitchPercent, info.maxPitch, info.minPitch);
-        sounds->EmitSound(info.checksum, &volume, pitch, 0, nullptr,
+    sound::AudioMixer* sounds = sound_manager();
+    sound::VolumeRef volume;
+    volume.prepare_all();
+    sounds->fetch_loudness(&volume, position, sounds->get_dropoff_distance(info.checksum), 0, nullptr, nullptr);
+    volume.percent_tweak(scaled_percent(loudness_percent, info.max_vol_, info.floor_loudness_));
+    if (!volume.is_audio_off()) {
+        float pitch = scaled_percent(pitch_percent, info.max_pitch_, info.min_pitch_);
+        sounds->emit_sound(info.checksum, &volume, pitch, 0, nullptr,
                           static_cast<int>(reinterpret_cast<uintptr_t>(&info)));
     }
 }
 
 // 0x00444EB0
-bool __cdecl LoadTerrainSounds(uint32_t checksum)
+bool __cdecl load_terrain_sounds(uint32_t checksum)
 {
-    if (SoundFx::NoSound())
+    if (sound::no_sound())
         return false;
-    uint8_t terrain = GetTerrainIndex(checksum);
-    CStruct* defaultActions;
-    Scripts::ReadSubStruct(kTerrainDefault)->ReadSubStruct(kSoundActions, &defaultActions, 1);
-    CStruct* terrainActions = nullptr;
-    if (GetTerrainStructure(terrain, &terrainActions, kSoundActions)) {
-        CStruct* merged = Scripts::SpawnParamBag();
+    uint8_t terrain = get_terrain_index(checksum);
+    Struct* default_actions;
+    script::read_sub_struct(kTerrainDefault)->read_sub_struct(kSoundActions, &default_actions, 1);
+    Struct* terrain_actions = nullptr;
+    if (get_terrain_structure(terrain, &terrain_actions, kSoundActions)) {
+        Struct* merged = script::spawn_param_bag();
         if (merged)
-            merged->PrepareAll();
-        merged->AppendStructureIfAny(defaultActions);
-        merged->AppendStructureIfAny(terrainActions);
-        for (uint32_t table = 0; table < static_cast<uint32_t>(TerrainActions().m_extent); ++table)
-            LoadTableSounds(merged, static_cast<uint8_t>(table));
+            merged->prepare_all();
+        merged->append_structure_if_any(default_actions);
+        merged->append_structure_if_any(terrain_actions);
+        for (uint32_t table = 0; table < static_cast<uint32_t>(get_terrain_actions().extent_); ++table)
+            load_table_sounds(merged, static_cast<uint8_t>(table));
         if (merged) {
-            merged->Clear();
-            Scripts::DeleteStruct(merged);
+            merged->get_clear();
+            script::delete_struct(merged);
         }
     }
     return true;
@@ -437,10 +437,10 @@ bool __cdecl LoadTerrainSounds(uint32_t checksum)
 
 } // namespace Terrain
 
-namespace SurfaceKind {
+namespace surface_kind {
 
 // 0x00640950, 0x00640970 (static initialisers): the terrain tables, 256 buckets each.
-void ConstructTerrainTypes() { new (&g_terrainTypes) ListKit::KeyMap(8); }
-void ConstructTerrainActions() { new (&g_terrainActions) ListKit::KeyMap(8); }
+void construct_terrain_types() { new (&g_terrain_types) lists::KeyMap(8); }
+void construct_terrain_actions() { new (&g_terrain_actions) lists::KeyMap(8); }
 
 } // namespace Terrain

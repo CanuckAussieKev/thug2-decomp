@@ -29,7 +29,7 @@
 #include "engine/core/stubs.h"
 #include "engine/gfx/viewport.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
@@ -38,7 +38,7 @@ extern void** const kCutsceneDetailsVtable;
 constexpr uint32_t kUnnamed = 0;
 constexpr uint32_t kModelModuleName = 0x286A8D26;
 constexpr uint32_t kSkeletonModuleName = 0x222756D5;
-constexpr uint32_t kMatrixComponent = 0x208353AC; // (told the object's new matrix: a CMatrixComponent)
+constexpr uint32_t kMatrixComponent = 0x208353AC; // (told the object's new matrix: a MatrixComponent)
 constexpr uint32_t kVersion = 0x40E32C3C;
 constexpr uint32_t kObjects = 0x4DE5330C;
 constexpr uint32_t kName = 0x2BFC2486;
@@ -58,14 +58,14 @@ constexpr float kPartEnd = 0.03343333676457405f;  // (0x0064791C)
 
 // The vblank count since the cutscene started, minus the time it was paused, in seconds (x87: the count as an
 // unsigned 64-bit number - the low 63 bits plus 2^63 - over the rate, as the original).
-float VblankSeconds(uint64_t vblanks, int rate)
+float vblank_seconds(uint64_t vblanks, int rate)
 {
-    uint64_t lowPart[1] = {vblanks & 0x7FFFFFFFFFFFFFFFull};
-    uint64_t highPart[1] = {vblanks & 0x8000000000000000ull};
+    uint64_t low_part[1] = {vblanks & 0x7FFFFFFFFFFFFFFFull};
+    uint64_t high_part[1] = {vblanks & 0x8000000000000000ull};
     float result;
     __asm {
-        fild qword ptr [lowPart]
-        fild qword ptr [highPart]
+        fild qword ptr [low_part]
+        fild qword ptr [high_part]
         fchs
         faddp st(1), st
         fidiv dword ptr [rate]
@@ -74,329 +74,329 @@ float VblankSeconds(uint64_t vblanks, int rate)
     return result;
 }
 
-void* NewAnimSource()
+void* new_anim_source()
 {
-    void* memory = AnimSourceAllocate(0x214);
-    return memory ? static_cast<Engine3D::CFrameSource*>(memory)->MakeNew() : nullptr;
+    void* memory = anim_source_allocate(0x214);
+    return memory ? static_cast<render::FrameSource*>(memory)->make_new() : nullptr;
 }
-void DeleteVirtual(void* object)
+void delete_virtual(void* object)
 {
     reinterpret_cast<void(__thiscall*)(void*, int)>((*static_cast<void***>(object))[0])(object, 1);
 }
-void* ModelOf(CObjectModule* component)
+void* model_of(ObjectModule* component)
 {
     return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x208);
 }
 // The model's fader (cutscene.h) fading to `target` by 0.02 a frame.
-void* FaderOf(void* model) { return ModelFader(model); }
-void FadeModel(void* model, float target)
+void* fader_of(void* model) { return model_fader(model); }
+void fade_model(void* model, float target)
 {
-    void* fader = FaderOf(model);
-    static_cast<Engine3D::CModelLights*>(fader)->MoveBrightness(target, 0.02f);
+    void* fader = fader_of(model);
+    static_cast<render::ModelLights*>(fader)->move_brightness(target, 0.02f);
 }
-uint8_t* Bytes(void* object)
+uint8_t* get_bytes(void* object)
 {
     return static_cast<uint8_t*>(object);
 }
 // An object's two matrices (+0x6C and +0xC0) set to `matrix`.
-void SetMatrices(CGameEntity* object, const float* matrix)
+void set_matrices(GameEntity* object, const float* matrix)
 {
-    std::memcpy(Bytes(object) + 0x6C, matrix, 64);
-    std::memcpy(Bytes(object) + 0xC0, matrix, 64);
+    std::memcpy(get_bytes(object) + 0x6C, matrix, 64);
+    std::memcpy(get_bytes(object) + 0xC0, matrix, 64);
 }
-float* Rotations() { return g_cutsceneRotations; }
-float* Translations() { return g_cutsceneTranslations; }
+float* get_rotations() { return g_cutscene_rotations; }
+float* get_translations() { return g_cutscene_translations; }
 
 // (debug drawing, compiled out: the object's box)
-inline void DebugDrawBox(const void*, const void*, const float*, int, int, int, uint32_t) {}
+inline void debug_draw_box(const void*, const void*, const float*, int, int, int, uint32_t) {}
 
 } // namespace
 
 // 0x00465510
-bool __stdcall ObjectsFromTable(Scripts::CStruct* params, const uint32_t* table)
+bool __stdcall objects_from_table(script::Struct* params, const uint32_t* table)
 {
-    params->PutInt(kVersion, static_cast<int>(table[0]));
+    params->put_int(kVersion, static_cast<int>(table[0]));
     int count = static_cast<int>(table[1]);
     const uint32_t* entry = table + 2;
-    Scripts::CArray* memory = Scripts::AllocScriptArray();
-    Scripts::CArray* objects = memory ? memory->PrepareAll() : nullptr;
-    objects->ConfigureSizeKind(static_cast<uint32_t>(count), Scripts::QBVAL_STRUCT);
+    script::Array* memory = script::alloc_script_array();
+    script::Array* objects = memory ? memory->prepare_all() : nullptr;
+    objects->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalStruct);
     for (int i = 0; i < count; ++i, entry += 5) {
-        Scripts::CStruct* block = Scripts::SpawnParamBag();
-        Scripts::CStruct* object = block ? block->PrepareAll() : nullptr;
-        object->PutNameKey(kName, entry[0]);
-        object->PutNameKey(kModel, entry[1]);
-        object->PutNameKey(kSkeleton, entry[2]);
-        object->PutNameKey(kAnim, entry[3]);
+        script::Struct* block = script::spawn_param_bag();
+        script::Struct* object = block ? block->prepare_all() : nullptr;
+        object->put_name_key(kName, entry[0]);
+        object->put_name_key(kModel, entry[1]);
+        object->put_name_key(kSkeleton, entry[2]);
+        object->put_name_key(kAnim, entry[3]);
         uint32_t flags = entry[4];
         if (flags >> 30 & 1)
-            object->PutNameKey(kUnnamed, kIsSkaterMarker);
+            object->put_name_key(kUnnamed, kIsSkaterMarker);
         if (flags >> 31 & 1)
-            object->PutNameKey(kUnnamed, kSkaterFlag2);
-        objects->SetElement(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(object));
+            object->put_name_key(kUnnamed, kSkaterFlag2);
+        objects->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(object));
     }
-    params->AppendArrayRef(kObjects, objects);
+    params->append_array_ref(kObjects, objects);
     return true;
 }
 
 // 0x004656E0
-void CCinematicTable::UpdateTime(int /*unused*/)
+void CinematicTable::update_time(int /*unused*/)
 {
-    m_unknown3478 = *reinterpret_cast<uint32_t*>(&m_clock);
-    if (Scripts::FetchIntValue(kFixedTime) != 0) {
-        m_clock = static_cast<float>(g_cutsceneFixedFrame * static_cast<double>(kFrame));
-    } else if (m_unknown3474) {
+    unknown3478_ = *reinterpret_cast<uint32_t*>(&clock_);
+    if (script::fetch_int_value(kFixedTime) != 0) {
+        clock_ = static_cast<float>(g_cutscene_fixed_frame * static_cast<double>(kFrame));
+    } else if (unknown3474_) {
         // a fixed step a frame (looping back at the end)
-        double time = static_cast<double>(m_unknown3470) * kStep + m_clock;
-        m_clock = static_cast<float>(time);
-        if (m_unknown348C > 0.0f && !(time < m_unknown348C) && !std::isnan(time)) {
-            m_clock = *reinterpret_cast<float*>(&m_unknown3488);
-            m_unknown3478 = 0;
-            Scripts::LaunchScript(kEndScript, nullptr, nullptr, false, nullptr);
-            Scripts::LaunchScript(kEndScript2, nullptr, nullptr, false, nullptr);
+        double time = static_cast<double>(unknown3470_) * kStep + clock_;
+        clock_ = static_cast<float>(time);
+        if (unknown348c_ > 0.0f && !(time < unknown348c_) && !std::isnan(time)) {
+            clock_ = *reinterpret_cast<float*>(&unknown3488_);
+            unknown3478_ = 0;
+            script::launch_script(kEndScript, nullptr, nullptr, false, nullptr);
+            script::launch_script(kEndScript2, nullptr, nullptr, false, nullptr);
         }
     } else {
-        int rate = GameConfig::g_frameRate;
-        uint64_t vblanks = FrameClock::FetchRetraceCount() - m_vblanks - m_pausedVblanks;
-        m_clock = VblankSeconds(vblanks, rate);
+        int rate = game_config::g_frame_rate;
+        uint64_t vblanks = frame_clock::fetch_retrace_count() - vblanks_ - paused_vblanks_;
+        clock_ = vblank_seconds(vblanks, rate);
     }
-    if (!m_flag34B0)
+    if (!flag_34b_0_)
         return;
     // the camera and object animations come in parts: the next part when this one's over
-    float length = *static_cast<float*>(m_cameraAnim);
-    if (!(m_clock >= static_cast<double>(kPartEnd) + length)) { // (unordered too)
-        m_cameraStart = static_cast<float>(m_clock / (static_cast<double>(length) + kFrame) * kFrame);
+    float length = *static_cast<float*>(camera_anim_);
+    if (!(clock_ >= static_cast<double>(kPartEnd) + length)) { // (unordered too)
+        camera_start_ = static_cast<float>(clock_ / (static_cast<double>(length) + kFrame) * kFrame);
         return;
     }
-    m_unknown3480 = m_clock;
-    m_cameraStart = 0.0f;
-    if (m_cameraPart < m_cameraParts) {
-        ++m_cameraPart;
-        uint32_t name = HashOfName("_CAM", m_cameraPart); // (the game's string 0x00647914)
-        if (m_cameraSource)
-            DeleteVirtual(m_cameraSource);
-        m_cameraSource = NewAnimSource();
-        static_cast<Engine3D::CFrameSource*>(m_cameraSource)->SetDone(true);
-        m_cameraAnim = static_cast<Engine3D::CFrameSource*>(m_cameraSource)->PlayClip(name);
-        static_cast<Gfx2D::CJointClipFrames*>(m_cameraAnim)->ArmEvents();
+    unknown3480_ = clock_;
+    camera_start_ = 0.0f;
+    if (camera_part_ < camera_parts_) {
+        ++camera_part_;
+        uint32_t name = hash_of_name("_CAM", camera_part_); // (the game's string 0x00647914)
+        if (camera_source_)
+            delete_virtual(camera_source_);
+        camera_source_ = new_anim_source();
+        static_cast<render::FrameSource*>(camera_source_)->set_done(true);
+        camera_anim_ = static_cast<render::FrameSource*>(camera_source_)->play_clip(name);
+        static_cast<gfx::JointClipFrames*>(camera_anim_)->arm_events();
     }
-    if (m_objectPart < m_objectParts) {
-        ++m_objectPart;
-        uint32_t name = HashOfName("_OBA", m_objectPart); // (the game's string 0x0064790C)
-        if (m_objectSource)
-            DeleteVirtual(m_objectSource);
-        m_objectSource = NewAnimSource();
-        m_animList = static_cast<Engine3D::CFrameSource*>(m_objectSource)->PlayClip(name);
-        static_cast<Gfx2D::CJointClipFrames*>(m_animList)->ArmEvents();
+    if (object_part_ < object_parts_) {
+        ++object_part_;
+        uint32_t name = hash_of_name("_OBA", object_part_); // (the game's string 0x0064790C)
+        if (object_source_)
+            delete_virtual(object_source_);
+        object_source_ = new_anim_source();
+        anim_list_ = static_cast<render::FrameSource*>(object_source_)->play_clip(name);
+        static_cast<gfx::JointClipFrames*>(anim_list_)->arm_events();
     }
-    for (int i = 0; i < m_objectCount; ++i) {
-        ObjectEntry& entry = m_entities[i];
+    for (int i = 0; i < object_count_; ++i) {
+        ObjectEntry& entry = entities_[i];
         ++entry.part;
         if (entry.animation && entry.animation->source) {
-            DeleteVirtual(entry.animation->source);
+            delete_virtual(entry.animation->source);
             entry.animation->source = nullptr;
         }
         uint32_t anim = entry.name + entry.part * 10;
         entry.animation = nullptr;
-        for (int j = 0; j < m_animationCount; ++j) {
-            if (m_animations[j].name == anim) {
-                entry.animation = &m_animations[j];
+        for (int j = 0; j < animation_count_; ++j) {
+            if (animations_[j].name == anim) {
+                entry.animation = &animations_[j];
                 break;
             }
         }
         if (entry.animation) {
-            entry.animation->source = NewAnimSource();
-            static_cast<Engine3D::CFrameSource*>(entry.animation->source)->PlayClip(anim);
-            static_cast<Engine3D::CFrameSource*>(entry.animation->source)->SetDone(true);
+            entry.animation->source = new_anim_source();
+            static_cast<render::FrameSource*>(entry.animation->source)->play_clip(anim);
+            static_cast<render::FrameSource*>(entry.animation->source)->set_done(true);
         }
     }
 }
 
 // 0x00465AB0
-void CCinematicTable::UpdateStandIn(CGameEntity* object)
+void CinematicTable::update_stand_in(GameEntity* object)
 {
-    if (CObjectModule* component = object->FetchModule(kModelModuleName)) {
-        void* model = ModelOf(component);
-        if (*(Bytes(model) + 0x44) & 4) // (hidden)
+    if (ObjectModule* component = object->fetch_module(kModelModuleName)) {
+        void* model = model_of(component);
+        if (*(get_bytes(model) + 0x44) & 4) // (hidden)
             return;
-        if (Bytes(component)[0x234]) {
+        if (get_bytes(component)[0x234]) {
             // the level object it stands in for: faded out, moved along
-            auto* level = static_cast<CGameEntity*>(
-                FindObject(static_cast<CMeshInstanceModule*>(component)->GetLinkedEntityName()));
-            CObjectModule* levelComponent = level->FetchModule(kModelModuleName);
-            void* levelModel = ModelOf(levelComponent);
-            FadeModel(levelModel, 0.0f);
-            static_cast<CMeshInstanceModule*>(levelComponent)->UpdateBrightness();
-            CObjectModule* skeleton = object->FetchModule(kSkeletonModuleName);
+            auto* level = static_cast<GameEntity*>(
+                find_object(static_cast<MeshInstanceModule*>(component)->get_linked_entity_name()));
+            ObjectModule* level_component = level->fetch_module(kModelModuleName);
+            void* level_model = model_of(level_component);
+            fade_model(level_model, 0.0f);
+            static_cast<MeshInstanceModule*>(level_component)->get_update_brightness();
+            ObjectModule* skeleton = object->fetch_module(kSkeletonModuleName);
             float matrix[16];
-            *reinterpret_cast<Maths::Mat4*>(matrix) = *reinterpret_cast<const Maths::Mat4*>(Bytes(object) + 0xC0);
-            std::memcpy(matrix + 12, Bytes(object) + 0x4C, 16);
-            static_cast<Engine3D::CRenderModel*>(levelModel)->Render(
-                reinterpret_cast<Maths::Mat4*>(matrix), false,
-                reinterpret_cast<uint8_t*>(reinterpret_cast<OnlinePlay::FoldedGetters*>(skeleton)->Word18()));
-            std::memcpy(Bytes(level) + 0x4C, Bytes(object) + 0x4C, 16);
+            *reinterpret_cast<maths::Mat4*>(matrix) = *reinterpret_cast<const maths::Mat4*>(get_bytes(object) + 0xC0);
+            std::memcpy(matrix + 12, get_bytes(object) + 0x4C, 16);
+            static_cast<render::RenderModel*>(level_model)->render(
+                reinterpret_cast<maths::Mat4*>(matrix), false,
+                reinterpret_cast<uint8_t*>(reinterpret_cast<online::FoldedGetters*>(skeleton)->word18()));
+            std::memcpy(get_bytes(level) + 0x4C, get_bytes(object) + 0x4C, 16);
         } else {
-            if (FaderOf(model)) {
-                FadeModel(ModelOf(component), 1.0f);
-                static_cast<CMeshInstanceModule*>(component)->UpdateBrightness();
+            if (fader_of(model)) {
+                fade_model(model_of(component), 1.0f);
+                static_cast<MeshInstanceModule*>(component)->get_update_brightness();
             }
-            reinterpret_cast<void(__thiscall*)(CObjectModule*)>((*reinterpret_cast<void***>(component))[1])(
+            reinterpret_cast<void(__thiscall*)(ObjectModule*)>((*reinterpret_cast<void***>(component))[1])(
                 component);
         }
     }
-    if (CObjectModule* matrix = object->FetchModule(kMatrixComponent))
-        static_cast<CMatrixComponent*>(matrix)->ChangeMat(reinterpret_cast<const Maths::Mat4*>(Bytes(object) + 0xC0));
+    if (ObjectModule* matrix = object->fetch_module(kMatrixComponent))
+        static_cast<MatrixComponent*>(matrix)->change_mat(reinterpret_cast<const maths::Mat4*>(get_bytes(object) + 0xC0));
 }
 
 // 0x00465C00
-void CCinematicTable::UpdateObjectTransforms()
+void CinematicTable::update_object_transforms()
 {
-    if (!m_objectSource)
+    if (!object_source_)
         return;
-    static_cast<Gfx2D::CJointClipFrames*>(m_animList)->GetFloatKeyPose(
-        Rotations(), Translations(), g_cutsceneCameraSlot,
-        static_cast<float>(m_clock - static_cast<double>(m_cameraStart)),
-        static_cast<int>(reinterpret_cast<uint32_t>(m_objectSource)));
+    static_cast<gfx::JointClipFrames*>(anim_list_)->get_float_key_pose(
+        get_rotations(), get_translations(), g_cutscene_camera_slot,
+        static_cast<float>(clock_ - static_cast<double>(camera_start_)),
+        static_cast<int>(reinterpret_cast<uint32_t>(object_source_)));
     // the animated objects of the level (not the cutscene's own)
-    for (int j = 0; j < *reinterpret_cast<int*>(Bytes(m_animList) + 8); ++j) {
-        uint32_t name = static_cast<Gfx2D::CJointClipFrames*>(m_animList)->FetchJointName(j);
+    for (int j = 0; j < *reinterpret_cast<int*>(get_bytes(anim_list_) + 8); ++j) {
+        uint32_t name = static_cast<gfx::JointClipFrames*>(anim_list_)->fetch_joint_name(j);
         bool own = false;
-        for (int k = m_objectCount - 1; k >= 0; --k) {
-            if (m_entities[k].name == name)
+        for (int k = object_count_ - 1; k >= 0; --k) {
+            if (entities_[k].name == name)
                 own = true;
         }
         if (own)
             continue;
-        auto* object = static_cast<CGameEntity*>(FindObject(name));
+        auto* object = static_cast<GameEntity*>(find_object(name));
         if (!object)
             continue;
         float origin[4] = {0.0f, 0.0f, 0.0f, 1.0f};
         float matrix[16];
-        QuatToMatrix(Rotations() + 4 * j, origin, matrix);
-        SetMatrices(object, matrix);
-        std::memcpy(Bytes(object) + 0x4C, Translations() + 4 * j, 16);
+        quat_to_matrix(get_rotations() + 4 * j, origin, matrix);
+        set_matrices(object, matrix);
+        std::memcpy(get_bytes(object) + 0x4C, get_translations() + 4 * j, 16);
     }
-    for (int i = 0; i < m_objectCount; ++i) {
-        ObjectEntry& entry = m_entities[i];
-        CGameEntity* object = entry.object;
-        if (CGameEntity* parent = entry.parent) {
+    for (int i = 0; i < object_count_; ++i) {
+        ObjectEntry& entry = entities_[i];
+        GameEntity* object = entry.object;
+        if (GameEntity* parent = entry.parent) {
             // hanging from the parent's bone 0x5A0E0860
             auto* skeleton = reinterpret_cast<void*>(
-                reinterpret_cast<OnlinePlay::FoldedGetters*>(parent->FetchModule(kSkeletonModuleName))->Word18());
+                reinterpret_cast<online::FoldedGetters*>(parent->fetch_module(kSkeletonModuleName))->word18());
             float bone[4], turned[4];
-            static_cast<Gfx2D::CRig*>(skeleton)->GetBonePosition(kAttachBone, reinterpret_cast<Maths::Vec4*>(bone));
-            *reinterpret_cast<Maths::Vec4*>(turned) =
-                *reinterpret_cast<const Maths::Vec4*>(bone) * *reinterpret_cast<const Maths::Mat4*>(Bytes(parent) + 0xC0);
+            static_cast<gfx::Rig*>(skeleton)->get_bone_position(kAttachBone, reinterpret_cast<maths::Vec4*>(bone));
+            *reinterpret_cast<maths::Vec4*>(turned) =
+                *reinterpret_cast<const maths::Vec4*>(bone) * *reinterpret_cast<const maths::Mat4*>(get_bytes(parent) + 0xC0);
             const float* offset = turned;
-            const float* at = reinterpret_cast<const float*>(Bytes(parent) + 0x4C);
-            auto* position = reinterpret_cast<float*>(Bytes(object) + 0x4C);
+            const float* at = reinterpret_cast<const float*>(get_bytes(parent) + 0x4C);
+            auto* position = reinterpret_cast<float*>(get_bytes(object) + 0x4C);
             position[2] = static_cast<float>(static_cast<double>(at[2]) + offset[2]);
             position[3] = static_cast<float>(static_cast<double>(at[3]) + offset[3]);
             position[0] = static_cast<float>(static_cast<double>(offset[0]) + at[0]);
             position[1] = static_cast<float>(static_cast<double>(at[1]) + offset[1]);
             position[3] = 1.0f;
-            float jointMat[16];
-            static_cast<Gfx2D::CRig*>(skeleton)->ReadJointMatrix(kAttachBone, reinterpret_cast<Maths::Mat4*>(jointMat));
-            float ownerMat[16];
-            std::memcpy(ownerMat, Bytes(parent) + 0xC0, 64);
-            std::memcpy(ownerMat + 12, at, 16);
-            ownerMat[3] = 0.0f;
-            ownerMat[7] = 0.0f;
-            ownerMat[11] = 0.0f;
-            D3dx::MatrixMultiply(jointMat, jointMat,
-                                                                                         ownerMat);
+            float joint_mat[16];
+            static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(kAttachBone, reinterpret_cast<maths::Mat4*>(joint_mat));
+            float owner_mat[16];
+            std::memcpy(owner_mat, get_bytes(parent) + 0xC0, 64);
+            std::memcpy(owner_mat + 12, at, 16);
+            owner_mat[3] = 0.0f;
+            owner_mat[7] = 0.0f;
+            owner_mat[11] = 0.0f;
+            d3dx::matrix_multiply(joint_mat, joint_mat,
+                                                                                         owner_mat);
             float matrix[16];
-            std::memcpy(matrix, jointMat, 48);
+            std::memcpy(matrix, joint_mat, 48);
             matrix[12] = 0.0f;
             matrix[13] = 0.0f;
             matrix[14] = 0.0f;
             matrix[15] = 1.0f;
-            SetMatrices(object, matrix);
-            UpdateStandIn(object);
-        } else if (entry.animIndex != -1) {
+            set_matrices(object, matrix);
+            update_stand_in(object);
+        } else if (entry.anim_index_ != -1) {
             float origin[4] = {0.0f, 0.0f, 0.0f, 1.0f};
             float matrix[16];
-            QuatToMatrix(Rotations() + 4 * entry.animIndex, origin, matrix);
-            SetMatrices(object, matrix);
-            std::memcpy(Bytes(object) + 0x4C, Translations() + 4 * entry.animIndex, 16);
-            UpdateStandIn(object);
+            quat_to_matrix(get_rotations() + 4 * entry.anim_index_, origin, matrix);
+            set_matrices(object, matrix);
+            std::memcpy(get_bytes(object) + 0x4C, get_translations() + 4 * entry.anim_index_, 16);
+            update_stand_in(object);
         }
-        if (Scripts::FetchIntValue(kDebugBoxes)) {
+        if (script::fetch_int_value(kDebugBoxes)) {
             const float box[8] = {1.0f, 10.0f, 1.0f, 1.0f, -1.0f, -1.0f, -1.0f, 1.0f};
-            DebugDrawBox(Bytes(object) + 0xC0, Bytes(object) + 0x4C, box, 0, 1, 0, 0xFF0000C8);
+            debug_draw_box(get_bytes(object) + 0xC0, get_bytes(object) + 0x4C, box, 0, 1, 0, 0xFF0000C8);
         }
     }
 }
 
 // 0x00466450
-void CCinematicTable::RestartObjects()
+void CinematicTable::restart_objects()
 {
-    if (m_flag34B0)
+    if (flag_34b_0_)
         return;
-    m_clock = 0.0f;
-    m_unknown3478 = 0;
-    DestroyObjects();
-    AddObjects(m_callArgs);
+    clock_ = 0.0f;
+    unknown3478_ = 0;
+    destroy_objects();
+    add_objects(call_args_);
 }
 
 // 0x00466490
-CCinematicEntry* CCinematicEntry::MakeNew(const uint32_t* settings)
+CinematicEntry* CinematicEntry::make_new(const uint32_t* settings)
 {
-    reinterpret_cast<CVideoEntry*>(this)->MakeNew();
-    m_vtable = kCutsceneDetailsVtable;
-    m_content = nullptr;
-    m_asset = 0;
-    Scripts::CStruct* block = Scripts::SpawnParamBag();
-    m_args = block ? block->PrepareAll() : nullptr;
-    std::memcpy(m_settings, settings, 12);
-    m_ownsData = static_cast<uint8_t>(m_settings[2] & 0xFF);
-    m_flag5D = false;
-    m_unknown60 = -1;
+    reinterpret_cast<VideoEntry*>(this)->make_new();
+    vtable_ = kCutsceneDetailsVtable;
+    content_ = nullptr;
+    asset_ = 0;
+    script::Struct* block = script::spawn_param_bag();
+    args_ = block ? block->prepare_all() : nullptr;
+    std::memcpy(settings_, settings, 12);
+    owns_data_ = static_cast<uint8_t>(settings_[2] & 0xFF);
+    flag_5d_ = false;
+    unknown60_ = -1;
     return this;
 }
 
 // 0x00466560
-void CCinematicEntry::DestroyBody()
+void CinematicEntry::destroy_body()
 {
-    m_vtable = kCutsceneDetailsVtable;
-    if (Scripts::CStruct* params = m_args) {
-        params->Clear();
-        Scripts::DeleteStruct(params);
+    vtable_ = kCutsceneDetailsVtable;
+    if (script::Struct* params = args_) {
+        params->get_clear();
+        script::delete_struct(params);
     }
-    if (m_ownsData) {
-        if (m_content) {
-            auto* assets = AssetStore::g_assetManager;
-            AssetStore::CResource* asset = assets->ObtainLoadedItem(m_asset, 1);
-            assets->DiscardLoadedItem(asset);
-            m_content = nullptr;
+    if (owns_data_) {
+        if (content_) {
+            auto* assets = assets::g_asset_manager;
+            assets::Resource* asset = assets->obtain_loaded_item(asset_, 1);
+            assets->discard_loaded_item(asset);
+            content_ = nullptr;
         }
-        Engine3D::ChangeAmbientScale(m_musicVolume, 0.0f);
-        Engine3D::ChangeDiffuseScale(0, m_streamVolume0, 0.0f);
-        Engine3D::ChangeDiffuseScale(1, m_streamVolume1, 0.0f);
+        render::change_ambient_scale(music_volume_, 0.0f);
+        render::change_diffuse_scale(0, stream_volume0_, 0.0f);
+        render::change_diffuse_scale(1, stream_volume1_, 0.0f);
     }
-    reinterpret_cast<CVideoEntry*>(this)->DestroyBody();
+    reinterpret_cast<VideoEntry*>(this)->destroy_body();
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kCutsceneDetailsVtable_slots[] = {&GameObjects::CCinematicEntry::Teardown,
-         &GameObjects::CCinematicEntry::ConfigureFromData,
-         &GameObjects::CCinematicEntry::TickFrame,
-         Stubs::ReturnTrue,
-         &Engine3D::CViewRegion::QueryPoint,
-         &GameObjects::CCinematicEntry::IsFinished,
-         Stubs::ReturnFalse,
-         &GameObjects::CCinematicEntry::IsReady,
-         &GameObjects::CCinematicEntry::End,
-         &GameObjects::CCinematicEntry::CanBeSkipped,
-         Stubs::ReturnFalse,
-         &GameObjects::CCinematicEntry::CallSlot12WithNotFlag5D,
-         Stubs::IgnoreArgument,
-         &GameObjects::CCinematicEntry::UpdateSlot12};
-void** const kCutsceneDetailsVtable = reinterpret_cast<void**>(kCutsceneDetailsVtable_slots);
+static VtableSlot g_cutscene_details_vtable_slots[] = {&objects::CinematicEntry::teardown,
+         &objects::CinematicEntry::configure_from_data,
+         &objects::CinematicEntry::tick_frame,
+         stubs::return_true,
+         &render::ViewRegion::query_point,
+         &objects::CinematicEntry::is_finished,
+         stubs::return_false,
+         &objects::CinematicEntry::is_ready,
+         &objects::CinematicEntry::get_end,
+         &objects::CinematicEntry::can_be_skipped,
+         stubs::return_false,
+         &objects::CinematicEntry::call_slot12_with_not_flag_5d,
+         stubs::ignore_argument,
+         &objects::CinematicEntry::update_slot12};
+void** const kCutsceneDetailsVtable = reinterpret_cast<void**>(g_cutscene_details_vtable_slots);
 
 } // namespace
 } // namespace Obj

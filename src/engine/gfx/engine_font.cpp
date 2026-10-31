@@ -1,4 +1,4 @@
-// The engine's font (CTypeface, the base of the PC font) and the loaded fonts' table: see font.h.
+// The engine's font (Typeface, the base of the PC font) and the loaded fonts' table: see font.h.
 
 #include <cstdint>
 #include <cstring>
@@ -14,111 +14,111 @@
 #include "engine/core/code_address.h"
 #include "engine/core/stubs.h"
 
-namespace Engine3D {
+namespace render {
 
-char g_glyphAliasTable[32];
-FontSlot g_fontSlots[16];
+char g_glyph_alias_table[32];
+FontSlot g_font_slots[16];
 
 namespace {
 
 extern void** const kFontVtable;
 
-FontSlot* Slots() { return g_fontSlots; }
-ListKit::KeyMap& FontTable() { return g_fontTable; }
-char* GlyphEscapeTable() { return g_glyphAliasTable; }
+FontSlot* get_slots() { return g_font_slots; }
+lists::KeyMap& font_table() { return g_font_table; }
+char* glyph_escape_table() { return g_glyph_alias_table; }
 
 template <typename R = void, typename... A>
-R Virtual(CTypeface* font, int slot, A... args)
+R Virtual(Typeface* font, int slot, A... args)
 {
-    return reinterpret_cast<R(__thiscall*)(CTypeface*, A...)>(font->m_vtable[slot])(font, args...);
+    return reinterpret_cast<R(__thiscall*)(Typeface*, A...)>(font->vtable_[slot])(font, args...);
 }
 
 } // namespace
 
 // 0x0048D020
-CTypeface* CTypeface::MakeNew()
+Typeface* Typeface::make_new()
 {
-    m_vtable = reinterpret_cast<void**>(kFontVtable);
-    m_unknown4 = 0;
+    vtable_ = reinterpret_cast<void**>(kFontVtable);
+    unknown4_ = 0;
     return this;
 }
 
 // 0x0048D030
-void CTypeface::DestroyBody()
+void Typeface::destroy_body()
 {
-    m_vtable = reinterpret_cast<void**>(kFontVtable);
+    vtable_ = reinterpret_cast<void**>(kFontVtable);
 }
 
 // 0x0048D1F0
-CTypeface* CTypeface::Teardown(unsigned int flags)
+Typeface* Typeface::teardown(unsigned int flags)
 {
-    m_vtable = reinterpret_cast<void**>(kFontVtable);
+    vtable_ = reinterpret_cast<void**>(kFontVtable);
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x0048D040
-void CTypeface::Offload()
+void Typeface::offload()
 {
     Virtual(this, 5);
-    m_unknown4 = 0;
+    unknown4_ = 0;
 }
 
 // 0x0048D070
-void CTypeface::SetGlyphGaps(int /*glyphGap*/, int /*blankGap*/)
+void Typeface::set_glyph_gaps(int /*glyphGap*/, int /*blankGap*/)
 {
-    DebugOut::Printf("STUB A DUB DUB"); // "STUB A DUB DUB"
+    debug::printf("STUB A DUB DUB"); // "STUB A DUB DUB"
 }
 
 // 0x0048D080
-void CTypeface::PlatSetColors(const uint32_t* /*colors*/)
+void Typeface::plat_set_colors(const uint32_t* /*colors*/)
 {
-    DebugOut::Printf("STUB A DUB DUB"); // "STUB A DUB DUB"
+    debug::printf("STUB A DUB DUB"); // "STUB A DUB DUB"
 }
 
 // 0x0048D6A0
-char __cdecl ButtonGlyph(const char* digit)
+char __cdecl button_glyph(const char* digit)
 {
-    return GlyphEscapeTable()[TextUtil::HexDigitValue(digit)];
+    return glyph_escape_table()[text::hex_digit_value(digit)];
 }
 
 // 0x0048D6C0
-void __cdecl UnloadFont(const char* name)
+void __cdecl unload_font(const char* name)
 {
-    FontSlot* slots = Slots();
+    FontSlot* slots = get_slots();
     int index = 0;
     while (std::strcmp(slots[index].name, name) != 0) {
         if (++index >= kFontSlots)
             return;
     }
-    uint32_t key = Checksums::HashFromText(name);
-    FontTable().EraseEntry(key);
-    UnloadPcFont(reinterpret_cast<CPcFont*>(slots[index].font));
+    uint32_t key = checksums::hash_from_text(name);
+    font_table().erase_entry(key);
+    unload_pc_font(reinterpret_cast<PcFont*>(slots[index].font));
     slots[index].font = nullptr;
 }
 
 // 0x0048D760
-CTypeface* __cdecl GetFont(uint32_t name)
+Typeface* __cdecl get_font(uint32_t name)
 {
-    auto* slot = static_cast<FontSlot*>(FontTable().FetchEntry(name));
+    auto* slot = static_cast<FontSlot*>(font_table().fetch_entry(name));
     return slot ? slot->font : nullptr;
 }
 
 // 0x0048D7B0
-bool __cdecl CFunc_UnloadFont(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+bool __cdecl cfunc_unload_font(script::Struct* params, script::Script* /*script*/)
 {
     const char* name = nullptr; // (the original leaves it unset when the name is missing)
-    params->FetchText(0u, &name, 0);
-    UnloadFont(name);
+    params->fetch_text(0u, &name, 0);
+    unload_font(name);
     return true;
 }
 
 namespace {
-static VtableSlot kFontVtable_slots[] = {&Engine3D::CTypeface::Teardown, Stubs::ReturnFalse1, &Engine3D::CTypeface::SetGlyphGaps,
-                &Engine3D::CTypeface::PlatSetColors, &Engine3D::CTypeface::PlatSetColors, Stubs::DoNothing, Stubs::ReturnZero,
-                Stubs::ReturnZero, Stubs::IgnoreArguments3};
-void** const kFontVtable = reinterpret_cast<void**>(kFontVtable_slots);
+static VtableSlot g_font_vtable_slots[] = {&render::Typeface::teardown, stubs::return_false1, &render::Typeface::set_glyph_gaps,
+                &render::Typeface::plat_set_colors, &render::Typeface::plat_set_colors, stubs::do_nothing, stubs::return_zero,
+                stubs::return_zero, stubs::ignore_arguments3};
+void** const kFontVtable = reinterpret_cast<void**>(g_font_vtable_slots);
 } // namespace
 
 } // namespace Nx

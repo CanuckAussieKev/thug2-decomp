@@ -4,19 +4,19 @@
 
 #include "engine/core/manager.h"
 
-namespace MemSys {
+namespace memory {
 
 namespace {
 
-bool& SystemReady() { return g_managerReady; }
+bool& system_ready() { return g_manager_ready; }
 
-void EnsureSystemReady()
+void ensure_system_ready()
 {
-    if (!SystemReady())
-        EnsureManager();
+    if (!system_ready())
+        ensure_manager();
 }
 
-void* Zeroed(void* memory, unsigned int size)
+void* zeroed(void* memory, unsigned int size)
 {
     if (memory)
         std::memset(memory, 0, size);
@@ -25,16 +25,16 @@ void* Zeroed(void* memory, unsigned int size)
 
 } // namespace
 
-void* Carve(unsigned int size, int mode, Arena* heap)
+void* carve(unsigned int size, int mode, Arena* heap)
 {
-    return Hub::Pull()->Carve(size, mode, heap);
+    return Hub::get_pull()->carve(size, mode, heap);
 }
 
-Arena* BottomUpHeap() { return Hub::Pull()->m_bottomUpHeap; }
-Arena* TopDownHeap() { return Hub::Pull()->m_topDownHeap; }
+Arena* bottom_up_heap() { return Hub::get_pull()->bottom_up_heap_; }
+Arena* top_down_heap() { return Hub::get_pull()->top_down_heap_; }
 
 // 0x00401C90
-void* Clear(unsigned int size, void* dest)
+void* get_clear(unsigned int size, void* dest)
 {
     if (dest)
         std::memset(dest, 0, size);
@@ -42,44 +42,44 @@ void* Clear(unsigned int size, void* dest)
 }
 
 // 0x004015D0
-void* Alloc(unsigned int size)
+void* alloc(unsigned int size)
 {
-    EnsureSystemReady();
-    return Carve(size, 1, nullptr);
+    ensure_system_ready();
+    return carve(size, 1, nullptr);
 }
 
 // 0x00401000
-void Dealloc(void* memory)
+void dealloc(void* memory)
 {
-    Hub::Pull()->Dealloc(memory);
+    Hub::get_pull()->dealloc(memory);
 }
 
 // 0x00401CC0
-void* AllocZeroed(unsigned int size)
+void* alloc_zeroed(unsigned int size)
 {
-    return Zeroed(Carve(size, 1, nullptr), size);
+    return zeroed(carve(size, 1, nullptr), size);
 }
 
 // 0x00401D00
-void* AllocZeroed(unsigned int size, int mode)
+void* alloc_zeroed(unsigned int size, int mode)
 {
-    return Zeroed(Carve(size, mode, nullptr), size);
+    return zeroed(carve(size, mode, nullptr), size);
 }
 
 // 0x00401D40
-void* AllocZeroed(unsigned int size, Arena* heap, int mode)
+void* alloc_zeroed(unsigned int size, Arena* heap, int mode)
 {
-    return Zeroed(Carve(size, mode, heap), size);
+    return zeroed(carve(size, mode, heap), size);
 }
 
-void EnterHeapScope(Arena* heap)
+void enter_heap_scope(Arena* heap)
 {
-    Hub::Pull()->EnterHeapScope(heap);
+    Hub::get_pull()->enter_heap_scope(heap);
 }
 
-void LeaveHeapScope()
+void leave_heap_scope()
 {
-    Hub::Pull()->LeaveHeapScope();
+    Hub::get_pull()->leave_heap_scope();
 }
 
 } // namespace Mem

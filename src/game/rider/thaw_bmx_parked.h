@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace GameModules {
+namespace modules {
 struct FrontEnd;
 }
 
@@ -24,7 +24,7 @@ struct FrontEnd;
 // - the offer is a polling script on each bike (its distance to the skater, THAW's 12 feet) and THUG2's speech box
 //   (create_speech_box, as its ped_speech_got_trigger shows one; THUG2's own setup_ped_speech needs a node, which these
 //   bikes aren't); the walk is ThawBmx_WalkToBike below, a frame at a time.
-namespace Skater::ThawBmx {
+namespace skater::thaw_bmx {
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
@@ -32,7 +32,7 @@ struct Point {
     float x, y, z;
 };
 // The walk's speed (THAW's skater_walk_to_bike: Obj_MoveToPos speed=10 - 10 feet a second, 2 units a frame) and its
-// turn (Obj_LookAtPos speed=360: a turn a second, 6 degrees a frame).
+// turn (obj_look_at_pos speed=360: a turn a second, 6 degrees a frame).
 constexpr float kWalkStep = 2.0f;
 constexpr float kWalkTurnDegrees = 6.0f;
 // How far from the start the level's bike goes when THAW has no place for it (feet x 12).
@@ -40,25 +40,25 @@ constexpr float kStartSpotDistance = 96.0f;
 
 // One step from `from` towards `to`: `step` along the ground (x / z), the height in proportion. True (and `to`) when
 // it's within the step.
-bool StepToward(Point from, Point to, float step, Point* out);
-// A heading (degrees; 0 = +z, 90 = +x) turned towards `target` by at most `maxStep` (the short way round), in
+bool step_toward(Point from, Point to, float step, Point* out);
+// A heading (degrees; 0 = +z, 90 = +x) turned towards `target` by at most `max_step` (the short way round), in
 // [-180, 180). True when it got there.
-bool TurnToward(float heading, float target, float maxStep, float* out);
+bool turn_toward(float heading, float target, float max_step, float* out);
 // The heading of a direction along the ground (0 for none).
-float HeadingOf(float x, float z);
+float get_heading_of(float x, float z);
 // Where the level's bike may go near a start at `pos` facing `heading`: `distance` to the right, the left, behind,
 // ahead (in that order).
-void StartSpotCandidates(Point pos, float heading, float distance, Point out[4]);
+void start_spot_candidates(Point pos, float heading, float distance, Point out[4]);
 
 // --- the game ---------------------------------------------------------------------------------------------------
 
 // ThawBmx_HomeSpot (pos, heading: the level's bike - THAW's place, else the start spot; false: neither),
 // ThawBmx_WalkToBike id=<object> (the local skater a step towards it; true once there, facing as it faces - or when
 // it's gone), ThawBmx_BikeReachable id=<object> (false when collision lies between the skater and it: THAW's
-// CollisionBetweenSkaterAndPoint). With RegisterScriptFunctions while the feature is on.
-void RegisterParkedFunctions();
+// CollisionBetweenSkaterAndPoint). With register_script_functions while the feature is on.
+void register_parked_functions();
 // From Update, every frame in a level: the start spot noted once a level is up, the level's bike made again when it's
 // missing and the skater is off the bike.
-void UpdateParked(GameModules::FrontEnd* frontEnd);
+void update_parked(modules::FrontEnd* front_end);
 
 } // namespace Skater::ThawBmx

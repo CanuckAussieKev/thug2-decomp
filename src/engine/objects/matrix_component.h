@@ -6,33 +6,33 @@
 #include "engine/maths/mat4.h"
 #include "engine/objects/entity.h"
 
-namespace GameObjects {
+namespace objects {
 
 // A component holding a matrix that becomes its object's display matrix after each of the object's updates (type
 // 0x208353AC, vtable 0x00645F24, 0x58 bytes; made by 0x0041CB20). A cutscene's stand-in hands it the object's display
 // matrix (cutscene_update.cpp, where the type is called kSfxModuleSlot). Vtable: 0 the scalar deleting destructor;
 // 1 Update; 2 and 7 / 8 / 10 the empty 0x005BAB90; 3 / 4 / 9 the empty 0x005480A0; 5 the shared 0x004E3F90; 12
-// InvokeMethodByName 0x0051ADC0.
-class CMatrixComponent : public CObjectModule {
+// invoke_method_by_name 0x0051ADC0.
+class MatrixComponent : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x208353AC;
 
     // 0x0041CB20 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Fabricate();
+    static ObjectModule* __cdecl fabricate();
     // 0x0041CAD0: the base's constructor, its vtable and type, the matrix the identity. Returns this.
-    CMatrixComponent* MakeNew();
+    MatrixComponent* make_new();
     // 0x0041CA60: the base's body.
-    void DestroyBody();
+    void destroy_body();
     // 0x0041CA70 (vtable slot 0)
-    CMatrixComponent* Teardown(unsigned int flags);
+    MatrixComponent* teardown(unsigned int flags);
     // 0x0041CAA0 (vtable slot 1): the object's display matrix = the matrix.
-    void TickFrame();
+    void tick_frame();
     // 0x0041CAC0: the matrix set.
-    void ChangeMat(const Maths::Mat4* matrix);
+    void change_mat(const maths::Mat4* matrix);
 
-    Maths::Mat4 m_basisFrame; // +0x18
+    maths::Mat4 basis_frame_; // +0x18
 };
-static_assert(offsetof(CMatrixComponent, m_basisFrame) == 0x18 && sizeof(CMatrixComponent) == 0x58,
+static_assert(offsetof(MatrixComponent, basis_frame_) == 0x18 && sizeof(MatrixComponent) == 0x58,
               "layout must match the original");
 
 } // namespace Obj

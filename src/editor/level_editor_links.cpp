@@ -19,11 +19,11 @@
 #include "engine/objects/entity.h"
 #include "platform/run_log.h"
 
-namespace MenuSystem::LevelEditor::Links {
+namespace frontend::level_editor::links {
 
 // --- the pure parts ---------------------------------------------------------------------------------------------
 
-bool SameState(const State& a, const State& b)
+bool same_state(const State& a, const State& b)
 {
     if (a.size() != b.size())
         return false;
@@ -38,18 +38,18 @@ bool SameState(const State& a, const State& b)
     return true;
 }
 
-int GroupOf(const State& state, uint32_t id, bool* isSource)
+int group_of(const State& state, uint32_t id, bool* is_source)
 {
     for (size_t i = 0; i < state.size(); ++i) {
         if (state[i].source == id) {
-            if (isSource)
-                *isSource = true;
+            if (is_source)
+                *is_source = true;
             return static_cast<int>(i);
         }
         for (const Member& m : state[i].members) {
             if (m.id == id) {
-                if (isSource)
-                    *isSource = false;
+                if (is_source)
+                    *is_source = false;
                 return static_cast<int>(i);
             }
         }
@@ -57,11 +57,11 @@ int GroupOf(const State& state, uint32_t id, bool* isSource)
     return -1;
 }
 
-void Join(State* state, bool scenery, uint32_t source, const std::vector<Member>& copies)
+void get_join(State* state, bool scenery, uint32_t source, const std::vector<Member>& copies)
 {
-    bool isSource = false;
-    int index = GroupOf(*state, source, &isSource);
-    if (index >= 0 && !isSource)
+    bool is_source = false;
+    int index = group_of(*state, source, &is_source);
+    if (index >= 0 && !is_source)
         source = (*state)[index].source; // (a copy of a linked copy: its group's source)
     if (index < 0) {
         state->push_back({scenery, source, {}});
@@ -69,7 +69,7 @@ void Join(State* state, bool scenery, uint32_t source, const std::vector<Member>
     }
     GroupSet& group = (*state)[index];
     for (const Member& m : copies) {
-        if (m.id == source || GroupOf(*state, m.id) >= 0)
+        if (m.id == source || group_of(*state, m.id) >= 0)
             continue;
         group.members.push_back({m.id, m.quarters & 3});
     }
@@ -77,26 +77,26 @@ void Join(State* state, bool scenery, uint32_t source, const std::vector<Member>
         state->erase(state->begin() + index);
 }
 
-bool Uncouple(State* state, uint32_t id)
+bool uncouple(State* state, uint32_t id)
 {
-    bool isSource = false;
-    int index = GroupOf(*state, id, &isSource);
+    bool is_source = false;
+    int index = group_of(*state, id, &is_source);
     if (index < 0)
         return false;
     GroupSet& group = (*state)[index];
-    if (!isSource) {
+    if (!is_source) {
         group.members.erase(std::remove_if(group.members.begin(), group.members.end(),
                                            [&](const Member& m) { return m.id == id; }),
                             group.members.end());
     }
-    if (isSource || group.members.empty())
+    if (is_source || group.members.empty())
         state->erase(state->begin() + index);
     return true;
 }
 
 namespace {
 
-std::string RefText(const RefTo& ref, bool member, bool scenery)
+std::string ref_text(const RefTo& ref, bool member, bool scenery)
 {
     char text[32];
     if (ref.clone >= 0)
@@ -111,7 +111,7 @@ std::string RefText(const RefTo& ref, bool member, bool scenery)
     return out;
 }
 
-bool ParseRef(const std::string& text, bool member, bool scenery, RefTo* ref)
+bool parse_ref(const std::string& text, bool member, bool scenery, RefTo* ref)
 {
     *ref = RefTo{};
     std::string body = text;
@@ -144,21 +144,21 @@ bool ParseRef(const std::string& text, bool member, bool scenery, RefTo* ref)
 
 } // namespace
 
-std::string WriteRecord(const LinkRecord& record)
+std::string write_record(const LinkRecord& record)
 {
     std::string out = "link ";
     out += record.scenery ? "sector " : "object ";
-    out += RefText(record.source, false, record.scenery);
+    out += ref_text(record.source, false, record.scenery);
     out += ' ';
     for (size_t i = 0; i < record.members.size(); ++i) {
         if (i)
             out += ',';
-        out += RefText(record.members[i], true, record.scenery);
+        out += ref_text(record.members[i], true, record.scenery);
     }
     return out;
 }
 
-bool ReadRecord(std::istringstream& in, LinkRecord* record)
+bool read_record(std::istringstream& in, LinkRecord* record)
 {
     *record = LinkRecord{};
     std::string kind, source, members;
@@ -167,14 +167,14 @@ bool ReadRecord(std::istringstream& in, LinkRecord* record)
     if (kind != "sector" && kind != "object")
         return false;
     record->scenery = kind == "sector";
-    if (!ParseRef(source, false, record->scenery, &record->source))
+    if (!parse_ref(source, false, record->scenery, &record->source))
         return false;
     size_t start = 0;
     while (start <= members.size()) {
         size_t comma = members.find(',', start);
         std::string word = members.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
         RefTo ref;
-        if (!ParseRef(word, true, record->scenery, &ref))
+        if (!parse_ref(word, true, record->scenery, &ref))
             return false;
         record->members.push_back(ref);
         if (comma == std::string::npos)
@@ -199,32 +199,32 @@ std::map<uint32_t, Watch> g_watch;
 // Copies being made again from their source's node (waiting for the game to remove the old one).
 struct Remake {
     uint32_t name, source;
-    Objects::State state;
+    object_edit::State state;
     int frames = 0;
 };
 std::vector<Remake> g_remakes;
 
-GameObjects::CGameEntity* LiveObject(uint32_t id)
+objects::GameEntity* live_object(uint32_t id)
 {
-    auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
-    return object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) ? object : nullptr;
+    auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
+    return object && !(object->object_flags_ & objects::kObjectFlagDead) ? object : nullptr;
 }
 
-Placement PlacementOf(uint32_t sector)
+Placement placement_of(uint32_t sector)
 {
     Placement placement = {0, {0.0f, 0.0f, 0.0f}};
-    Scenery::PlacementNow(sector, &placement);
+    scenery::placement_now(sector, &placement);
     return placement;
 }
 
 // A piece's own axes against its group source's, in quarter turns (a source: its own turns; a linked copy: the
 // source's when it was copied and its own since).
-int RelativeQuarters(uint32_t sector)
+int relative_quarters(uint32_t sector)
 {
-    int q = PlacementOf(sector).quarters;
-    bool isSource = false;
-    int index = GroupOf(g_state, sector, &isSource);
-    if (index >= 0 && !isSource) {
+    int q = placement_of(sector).quarters;
+    bool is_source = false;
+    int index = group_of(g_state, sector, &is_source);
+    if (index >= 0 && !is_source) {
         for (const Member& m : g_state[index].members) {
             if (m.id == sector)
                 q += m.quarters;
@@ -234,26 +234,26 @@ int RelativeQuarters(uint32_t sector)
 }
 
 // The source node's edited fields as their record tokens (a level node; "" for anything else).
-std::string FieldsOf(uint32_t source)
+std::string fields_of(uint32_t source)
 {
-    if (Nodes::Find(source) < 0)
+    if (nodes::get_find(source) < 0)
         return {};
     std::string out;
-    for (uint32_t key : Fields::TouchedKeys(source)) {
-        Fields::Own own;
-        if (!Fields::Capture(source, key, &own))
+    for (uint32_t key : fields::touched_keys(source)) {
+        fields::Own own;
+        if (!fields::get_capture(source, key, &own))
             continue;
         char hex[16];
         std::snprintf(hex, sizeof(hex), "%08X=", key);
         out += hex;
-        out += own.present ? Fields::EncodeValue(own.value, Fields::NameOf) : std::string("-");
+        out += own.present ? fields::encode_value(own.value, fields::get_name_of) : std::string("-");
         out += ';';
     }
     return out;
 }
 
-bool SameV3(V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
-V3 Ratio(V3 now, V3 before)
+bool same_v3(V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
+V3 get_ratio(V3 now, V3 before)
 {
     return {before.x != 0.0f ? now.x / before.x : 1.0f, before.y != 0.0f ? now.y / before.y : 1.0f,
             before.z != 0.0f ? now.z / before.z : 1.0f};
@@ -261,8 +261,8 @@ V3 Ratio(V3 now, V3 before)
 
 struct Step : ModuleStep {
     State state;
-    void Restore() override { g_state = state; }
-    std::shared_ptr<ModuleStep> Now() const override
+    void get_restore() override { g_state = state; }
+    std::shared_ptr<ModuleStep> get_now() const override
     {
         auto now = std::make_shared<Step>();
         now->state = g_state;
@@ -270,91 +270,91 @@ struct Step : ModuleStep {
     }
 };
 
-void PropagateScenery(const GroupSet& group)
+void propagate_scenery(const GroupSet& group)
 {
-    if (Scenery::Hidden(group.source) || !Scenery::SectorOf(group.source))
+    if (scenery::get_hidden(group.source) || !scenery::sector_of(group.source))
         return;
     Watch& w = g_watch[group.source];
-    V3 scale = PlacementOf(group.source).scale;
+    V3 scale = placement_of(group.source).scale;
     if (!w.init) {
         w.init = true;
         w.scale = scale;
         return;
     }
-    if (SameV3(scale, w.scale))
+    if (same_v3(scale, w.scale))
         return;
-    V3 f = Ratio(scale, w.scale);
+    V3 f = get_ratio(scale, w.scale);
     w.scale = scale;
-    std::vector<uint32_t> saved = Scenery::Selection();
+    std::vector<uint32_t> saved = scenery::get_selection();
     int done = 0;
     for (const Member& m : group.members) {
-        if (!Scenery::SectorOf(m.id) || Scenery::Hidden(m.id))
+        if (!scenery::sector_of(m.id) || scenery::get_hidden(m.id))
             continue;
-        Scenery::SetSelection({m.id});
-        Scenery::ScaleSelection(TurnedScale(f, m.quarters + PlacementOf(m.id).quarters), IsUniformScale(f));
-        Scenery::Finalise();
+        scenery::set_selection({m.id});
+        scenery::scale_selection(turned_scale(f, m.quarters + placement_of(m.id).quarters), is_uniform_scale(f));
+        scenery::finalise();
         ++done;
     }
     if (saved.empty())
-        Scenery::ClearSelection();
+        scenery::clear_selection();
     else
-        Scenery::SetSelection(saved);
+        scenery::set_selection(saved);
     if (done)
-        Log("level editor: linked copies of %s scaled with it (%d)", Objects::Caption(group.source).c_str(), done);
+        get_log("level editor: linked copies of %s scaled with it (%d)", object_edit::caption(group.source).c_str(), done);
 }
 
-void PropagateObjects(const GroupSet& group)
+void propagate_objects(const GroupSet& group)
 {
-    GameObjects::CGameEntity* source = LiveObject(group.source);
+    objects::GameEntity* source = live_object(group.source);
     if (!source)
         return;
     Watch& w = g_watch[group.source];
-    V3 scale = StretchBy::ObjectScale(source);
-    std::string fields = FieldsOf(group.source);
+    V3 scale = scale_tool::get_object_scale(source);
+    std::string fields = fields_of(group.source);
     if (!w.init) {
         w = {true, scale, fields};
         return;
     }
-    if (!SameV3(scale, w.scale)) {
-        V3 f = Ratio(scale, w.scale);
+    if (!same_v3(scale, w.scale)) {
+        V3 f = get_ratio(scale, w.scale);
         w.scale = scale;
         for (const Member& m : group.members) {
-            if (GameObjects::CGameEntity* copy = LiveObject(m.id); copy && StretchBy::ObjectScalable(copy))
-                StretchBy::SetObjectScale(copy, PerAxis(StretchBy::ObjectScale(copy), f));
+            if (objects::GameEntity* copy = live_object(m.id); copy && scale_tool::object_scalable(copy))
+                scale_tool::set_object_scale(copy, per_axis(scale_tool::get_object_scale(copy), f));
         }
     }
     if (fields != w.fields) {
         w.fields = fields;
         // (each copy made again from the source's node as it is now - where it stood, as it was turned and scaled)
         for (const Member& m : group.members) {
-            GameObjects::CGameEntity* copy = LiveObject(m.id);
-            if (!copy || !Objects::IsCopy(m.id))
+            objects::GameEntity* copy = live_object(m.id);
+            if (!copy || !object_edit::is_copy(m.id))
                 continue;
-            g_remakes.push_back({m.id, group.source, Objects::StoreAway(copy)});
-            Objects::RemoveCopy(m.id);
+            g_remakes.push_back({m.id, group.source, object_edit::store_away(copy)});
+            object_edit::remove_copy(m.id);
         }
-        Log("level editor: the fields of %s changed - its linked copies made again", Objects::Caption(group.source).c_str());
+        get_log("level editor: the fields of %s changed - its linked copies made again", object_edit::caption(group.source).c_str());
     }
 }
 
-void RunRemakes()
+void run_remakes()
 {
     for (size_t i = 0; i < g_remakes.size();) {
         Remake& r = g_remakes[i];
         ++r.frames;
-        bool gone = GameObjects::FindObject(r.name) == nullptr;
+        bool gone = objects::find_object(r.name) == nullptr;
         if (gone) {
             V3 pos = {r.state.pos.x, r.state.pos.y, r.state.pos.z};
-            if (GameObjects::CGameEntity* made = Objects::MakeCopy(r.source, pos, r.name)) {
-                Objects::State state = r.state;
-                state.id = made->m_ident;
-                Objects::Restore(state);
+            if (objects::GameEntity* made = object_edit::make_copy(r.source, pos, r.name)) {
+                object_edit::State state = r.state;
+                state.id = made->ident_;
+                object_edit::get_restore(state);
                 g_remakes.erase(g_remakes.begin() + static_cast<long>(i));
                 continue;
             }
         }
         if (r.frames > 600) {
-            Log("level editor: a linked copy (%08X) couldn't be made again", r.name);
+            get_log("level editor: a linked copy (%08X) couldn't be made again", r.name);
             g_remakes.erase(g_remakes.begin() + static_cast<long>(i));
             continue;
         }
@@ -364,23 +364,23 @@ void RunRemakes()
 
 } // namespace
 
-const State& AtHand() { return g_state; }
-void AssignValue(const State& state) { g_state = state; }
+const State& at_hand() { return g_state; }
+void assign_value(const State& state) { g_state = state; }
 
-bool LinkedDuplicate()
+bool linked_duplicate()
 {
-    Edit::Selected selection = Edit::Selection();
-    if (selection.kind != Edit::Kind::Objects && selection.kind != Edit::Kind::Scenery) {
-        Hud::Message("Only objects and scenery can be linked", 4.0);
+    edit::Selected selection = edit::get_selection();
+    if (selection.kind != edit::Kind::object_edit && selection.kind != edit::Kind::kScenery) {
+        hud::get_message("Only objects and scenery can be linked", 4.0);
         return false;
     }
-    bool scenery = selection.kind == Edit::Kind::Scenery;
+    bool scenery = selection.kind == edit::Kind::kScenery;
     std::vector<std::pair<uint32_t, int>> quarters;
     if (scenery) {
         for (uint32_t s : selection.ids)
-            quarters.push_back({s, RelativeQuarters(s)});
+            quarters.push_back({s, relative_quarters(s)});
     }
-    std::vector<std::pair<uint32_t, uint32_t>> pairs = Edit::Duplicate(nullptr);
+    std::vector<std::pair<uint32_t, uint32_t>> pairs = edit::get_duplicate(nullptr);
     if (pairs.empty())
         return false;
     for (const auto& pair : pairs) {
@@ -389,83 +389,83 @@ bool LinkedDuplicate()
             if (s.first == pair.first)
                 q = s.second;
         }
-        Join(&g_state, scenery, pair.first, {{pair.second, q}});
+        get_join(&g_state, scenery, pair.first, {{pair.second, q}});
     }
-    Adjust::Note(Adjust::ActStep{}); // (a linked copy isn't adjusted afterwards: its count would make plain copies)
-    Hud::Message(std::string("Linked copy created"),
+    adjust::get_note(adjust::ActStep{}); // (a linked copy isn't adjusted afterwards: its count would make plain copies)
+    hud::get_message(std::string("Linked copy created"),
                  5.0);
-    Log("level editor: %u linked cop%s made", static_cast<unsigned>(pairs.size()), pairs.size() == 1 ? "y" : "ies");
+    get_log("level editor: %u linked cop%s made", static_cast<unsigned>(pairs.size()), pairs.size() == 1 ? "y" : "ies");
     return true;
 }
 
-bool UnlinkSelection()
+bool unlink_selection()
 {
-    Edit::Selected selection = Edit::Selection();
+    edit::Selected selection = edit::get_selection();
     State next = g_state;
     bool any = false;
     for (uint32_t id : selection.ids)
-        any = Uncouple(&next, id) || any;
+        any = uncouple(&next, id) || any;
     if (!any) {
-        Hud::Message("Selection is not linked");
+        hud::get_message("Selection is not linked");
         return false;
     }
     auto before = std::make_shared<Step>();
     before->state = g_state;
-    PushModuleUndo(before);
+    push_module_undo(before);
     g_state = next;
-    Hud::Message("Unlinked");
+    hud::get_message("Unlinked");
     return true;
 }
 
-std::string Describe()
+std::string describe()
 {
-    Edit::Selected selection = Edit::Selection();
+    edit::Selected selection = edit::get_selection();
     if (selection.ids.empty())
         return {};
-    bool isSource = false;
-    int index = GroupOf(g_state, selection.ids.front(), &isSource);
+    bool is_source = false;
+    int index = group_of(g_state, selection.ids.front(), &is_source);
     if (index < 0)
         return {};
     const GroupSet& group = g_state[index];
     char text[160];
-    if (isSource)
+    if (is_source)
         std::snprintf(text, sizeof(text), "Linked: the source of %d cop%s", static_cast<int>(group.members.size()),
                       group.members.size() == 1 ? "y" : "ies");
     else
-        std::snprintf(text, sizeof(text), "Linked copy of %s (%d copies)", Objects::Caption(group.source).c_str(),
+        std::snprintf(text, sizeof(text), "Linked copy of %s (%d copies)", object_edit::caption(group.source).c_str(),
                       static_cast<int>(group.members.size()));
     return text;
 }
 
-void Tick()
+void tick()
 {
     // (watches of groups gone forgotten: a group linked again starts afresh)
     for (auto it = g_watch.begin(); it != g_watch.end();) {
-        bool isSource = false;
-        int index = GroupOf(g_state, it->first, &isSource);
-        it = index >= 0 && isSource ? std::next(it) : g_watch.erase(it);
+        bool is_source = false;
+        int index = group_of(g_state, it->first, &is_source);
+        it = index >= 0 && is_source ? std::next(it) : g_watch.erase(it);
     }
-    RunRemakes();
-    if (Edit::Dragging())
+    run_remakes();
+    if (edit::get_dragging())
         return; // (a drag's scale reaches the copies once it's let go)
     for (const GroupSet& group : g_state) {
         if (group.scenery)
-            PropagateScenery(group);
+            propagate_scenery(group);
         else
-            PropagateObjects(group);
+            propagate_objects(group);
     }
 }
 
-std::vector<LinkRecord> Capture(const std::vector<uint32_t>& clones)
+std::vector<LinkRecord> get_capture(const std::vector<uint32_t>& clones)
 {
     std::vector<LinkRecord> out;
-    auto refOf = [&](uint32_t id, bool scenery, RefTo* ref) {
+    auto ref_of = [&](uint32_t id, bool scenery, RefTo* ref) {
         *ref = RefTo{};
         if (!scenery) {
             ref->id = id;
-            return GameObjects::FindObject(id) != nullptr;
+            return objects::find_object(id) != nullptr;
         }
-        if (Scenery::IsClone(id)) {
+        if (scenery::is_clone(id)) {
             auto it = std::find(clones.begin(), clones.end(), id);
             if (it == clones.end())
                 return false; // (a hidden copy isn't written)
@@ -473,16 +473,16 @@ std::vector<LinkRecord> Capture(const std::vector<uint32_t>& clones)
             return true;
         }
         ref->id = id;
-        return !Scenery::Hidden(id);
+        return !scenery::get_hidden(id);
     };
     for (const GroupSet& group : g_state) {
         LinkRecord record;
         record.scenery = group.scenery;
-        if (!refOf(group.source, group.scenery, &record.source))
+        if (!ref_of(group.source, group.scenery, &record.source))
             continue;
         for (const Member& m : group.members) {
             RefTo ref;
-            if (!refOf(m.id, group.scenery, &ref))
+            if (!ref_of(m.id, group.scenery, &ref))
                 continue;
             ref.quarters = m.quarters;
             record.members.push_back(ref);
@@ -493,7 +493,7 @@ std::vector<LinkRecord> Capture(const std::vector<uint32_t>& clones)
     return out;
 }
 
-int Apply(const std::vector<LinkRecord>& records, const std::vector<uint32_t>& made)
+int get_apply(const std::vector<LinkRecord>& records, const std::vector<uint32_t>& made)
 {
     auto resolve = [&](const RefTo& ref) -> uint32_t {
         if (ref.clone < 0)
@@ -512,20 +512,20 @@ int Apply(const std::vector<LinkRecord>& records, const std::vector<uint32_t>& m
         }
         if (members.empty())
             continue;
-        Join(&g_state, record.scenery, source, members);
+        get_join(&g_state, record.scenery, source, members);
         ++groups;
     }
     g_watch.clear();
     return groups;
 }
 
-void ResetAll()
+void reset_all()
 {
     g_state.clear();
     g_watch.clear();
     g_remakes.clear();
 }
 
-void ForgetLevel() { ResetAll(); }
+void forget_level() { reset_all(); }
 
-} // namespace MenuSystem::LevelEditor::Links
+} // namespace MenuSystem::level_editor::Links

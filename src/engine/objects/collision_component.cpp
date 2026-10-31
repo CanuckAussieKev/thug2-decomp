@@ -1,4 +1,4 @@
-// The collision component (GameObjects::CContactShapeModule): an object's own movable collision object, made from its node's
+// The collision component (GameObjects::ContactShapeModule): an object's own movable collision object, made from its node's
 // CollisionMode and its model's (or its level sector's) collision, placed where the object is.
 
 #include <cstdint>
@@ -27,7 +27,7 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
@@ -40,148 +40,148 @@ constexpr uint32_t kLevelObject = 0xB7B3BD86;    // LevelObject
 constexpr uint32_t kName = 0xA1DC81F9;           // Name
 
 // The model component's model (+0x208).
-uint8_t* ModelOf(CObjectModule* model) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(model) + 0x208); }
+uint8_t* model_of(ObjectModule* model) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(model) + 0x208); }
 
 // A level sector by name in any scene (0x0048C510) and its collision object (0x005480F0: +0x18).
-uint8_t* LookUpSector(uint32_t name) { return static_cast<uint8_t*>(Engine3D::Engine::LookUpSector(name)); }
-Engine3D::CHitMesh* SectorCollision(uint8_t* sector)
+uint8_t* look_up_sector(uint32_t name) { return static_cast<uint8_t*>(render::engine::look_up_sector(name)); }
+render::HitMesh* sector_collision(uint8_t* sector)
 {
-    return reinterpret_cast<Engine3D::CHitMesh*>(reinterpret_cast<OnlinePlay::FoldedGetters*>(sector)->Word18());
+    return reinterpret_cast<render::HitMesh*>(reinterpret_cast<online::FoldedGetters*>(sector)->word18());
 }
 
 // The model's bone matrix (0x00493040: a single-bone model's, from the asset manager; null otherwise): its rotation at
 // +0x10, its translation at +0x40 (the matrix's fourth row).
-const uint8_t* BoneOf(uint8_t* model) { return reinterpret_cast<const uint8_t*>(reinterpret_cast<Engine3D::CRenderModel*>(model)->GetAssetHierarchy()); }
+const uint8_t* bone_of(uint8_t* model) { return reinterpret_cast<const uint8_t*>(reinterpret_cast<render::RenderModel*>(model)->get_asset_hierarchy()); }
 
-void D3dxMultiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
+void d3dx_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
 {
-    D3dx::MatrixMultiply(out, a, b);
+    d3dx::matrix_multiply(out, a, b);
 }
 
 // The collision object's slots 5 / 6: its world position, its orientation.
-void PlaceAtAbsolutePoint(Engine3D::CHitMesh* collision, const Maths::Vec4* position) { collision->Call<void>(5, position); }
-void ChangeFacing(Engine3D::CHitMesh* collision, const Maths::Mat4* orientation) { collision->Call<void>(6, orientation); }
+void place_at_absolute_point(render::HitMesh* collision, const maths::Vec4* position) { collision->get_call<void>(5, position); }
+void change_facing(render::HitMesh* collision, const maths::Mat4* orientation) { collision->get_call<void>(6, orientation); }
 
 } // namespace
 
 // 0x0041C920
-CObjectModule* __cdecl CContactShapeModule::Fabricate()
+ObjectModule* __cdecl ContactShapeModule::fabricate()
 {
-    auto* component = static_cast<CContactShapeModule*>(MemSys::AllocZeroed(sizeof(CContactShapeModule)));
+    auto* component = static_cast<ContactShapeModule*>(memory::alloc_zeroed(sizeof(ContactShapeModule)));
     if (!component)
         return nullptr;
-    component->CObjectModule::MakeNew();
-    component->m_vtable = kVtable;
-    component->m_kindTag = kType;
+    component->ObjectModule::make_new();
+    component->vtable_ = kVtable;
+    component->kind_tag_ = kType;
     return component;
 }
 
 // 0x0041C710
-void CContactShapeModule::DestroyBody()
+void ContactShapeModule::destroy_body()
 {
-    m_vtable = kVtable;
-    if (m_hitShape) {
-        Engine3D::UnregisterMovable(m_hitShape);
-        if (m_hitShape)
-            m_hitShape->Call<void*>(0, 1); // (its scalar deleting destructor)
+    vtable_ = kVtable;
+    if (hit_shape_) {
+        render::unregister_movable(hit_shape_);
+        if (hit_shape_)
+            hit_shape_->get_call<void*>(0, 1); // (its scalar deleting destructor)
     }
-    CObjectModule::DestroyBody();
+    ObjectModule::destroy_body();
 }
 
 // 0x0041C780
-CContactShapeModule* CContactShapeModule::Teardown(unsigned int flags)
+ContactShapeModule* ContactShapeModule::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x0041C7B0
-void CContactShapeModule::ConfigureFromData(Scripts::CStruct* params)
+void ContactShapeModule::configure_from_data(script::Struct* params)
 {
     uint32_t mode = 0;
-    params->ReadHashValue(kCollisionMode, &mode, 0);
-    int type = Engine3D::ShapeTypeFromChecksum(mode);
+    params->read_hash_value(kCollisionMode, &mode, 0);
+    int type = render::shape_type_from_checksum(mode);
     if (!type)
         return;
-    using InitCollisionSlot = void(__thiscall*)(CContactShapeModule*, int, Engine3D::CTriMeshSource*);
-    auto initCollision = reinterpret_cast<InitCollisionSlot>(m_vtable[13]);
+    using InitCollisionSlot = void(__thiscall*)(ContactShapeModule*, int, render::TriMeshSource*);
+    auto init_collision = reinterpret_cast<InitCollisionSlot>(vtable_[13]);
     uint32_t cls = 0;
-    params->ReadHashValue(kClass, &cls, 0);
+    params->read_hash_value(kClass, &cls, 0);
     if (cls != kLevelObject) {
-        initCollision(this, type, nullptr);
+        init_collision(this, type, nullptr);
         return;
     }
     // (the original passes on whatever was in the name's slot when there's no Name - an assertion's case; ours 0)
     uint32_t name = 0;
-    params->ReadHashValue(kName, &name, 1);
-    uint8_t* sector = LookUpSector(name); // (no such sector: a crash, as in the original)
-    if (SectorCollision(sector))
-        initCollision(this, type, SectorCollision(sector)->m_geometry);
+    params->read_hash_value(kName, &name, 1);
+    uint8_t* sector = look_up_sector(name); // (no such sector: a crash, as in the original)
+    if (sector_collision(sector))
+        init_collision(this, type, sector_collision(sector)->geometry_);
     else
-        initCollision(this, type, nullptr);
+        init_collision(this, type, nullptr);
 }
 
 // 0x0041C890
-void CContactShapeModule::SetUpHitShape(int type, Engine3D::CTriMeshSource* geometry)
+void ContactShapeModule::set_up_hit_shape(int type, render::TriMeshSource* geometry)
 {
     if (geometry) {
-        m_hitShape = Engine3D::BuildDynamicHitMesh(type, geometry, 1, reinterpret_cast<int>(m_entity));
+        hit_shape_ = render::build_dynamic_hit_mesh(type, geometry, 1, reinterpret_cast<int>(entity_));
         return;
     }
-    uint8_t* model = ModelOf(m_entity->FetchModule(kModelModuleName));
-    auto* data = static_cast<uint8_t*>(AssetStore::AssetManager()->GetAssetData(*reinterpret_cast<uint32_t*>(model + 0x30), 0));
+    uint8_t* model = model_of(entity_->fetch_module(kModelModuleName));
+    auto* data = static_cast<uint8_t*>(assets::asset_manager()->get_asset_data(*reinterpret_cast<uint32_t*>(model + 0x30), 0));
     if (data) {
-        m_hitShape = Engine3D::BuildDynamicHitMesh(type, *reinterpret_cast<Engine3D::CTriMeshSource**>(data + 0x8C),
-                                                  *reinterpret_cast<int*>(data + 0x88), reinterpret_cast<int>(m_entity));
+        hit_shape_ = render::build_dynamic_hit_mesh(type, *reinterpret_cast<render::TriMeshSource**>(data + 0x8C),
+                                                  *reinterpret_cast<int*>(data + 0x88), reinterpret_cast<int>(entity_));
     } else {
-        m_hitShape = Engine3D::BuildDynamicHitMesh(type, nullptr, 0, reinterpret_cast<int>(m_entity));
+        hit_shape_ = render::build_dynamic_hit_mesh(type, nullptr, 0, reinterpret_cast<int>(entity_));
     }
 }
 
 // 0x0041C980
-void CContactShapeModule::TickFrame()
+void ContactShapeModule::tick_frame()
 {
-    Engine3D::CHitMesh* collision = m_hitShape;
+    render::HitMesh* collision = hit_shape_;
     if (!collision)
         return;
-    CObjectModule* model = m_entity->FetchModule(kModelModuleName);
-    const uint8_t* bone = model ? BoneOf(ModelOf(model)) : nullptr;
+    ObjectModule* model = entity_->fetch_module(kModelModuleName);
+    const uint8_t* bone = model ? bone_of(model_of(model)) : nullptr;
     if (!bone) {
-        PlaceAtAbsolutePoint(collision, &m_entity->m_atPoint);
-        ChangeFacing(collision, &m_entity->m_displayMatrix);
+        place_at_absolute_point(collision, &entity_->at_point_);
+        change_facing(collision, &entity_->display_matrix_);
         return;
     }
     const auto* translation = reinterpret_cast<const float*>(bone + 0x40);
-    const Maths::Vec4& pos = m_entity->m_atPoint;
-    Maths::Vec4 position = {translation[0] + pos.x, translation[1] + pos.y, translation[2] + pos.z, pos.w};
-    PlaceAtAbsolutePoint(collision, &position);
-    Maths::Mat4 orientation;
-    D3dxMultiply(&orientation, reinterpret_cast<const Maths::Mat4*>(bone + 0x10), &m_entity->m_displayMatrix);
-    ChangeFacing(collision, &orientation);
+    const maths::Vec4& pos = entity_->at_point_;
+    maths::Vec4 position = {translation[0] + pos.x, translation[1] + pos.y, translation[2] + pos.z, pos.w};
+    place_at_absolute_point(collision, &position);
+    maths::Mat4 orientation;
+    d3dx_multiply(&orientation, reinterpret_cast<const maths::Mat4*>(bone + 0x10), &entity_->display_matrix_);
+    change_facing(collision, &orientation);
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CContactShapeModule::Teardown,
-         &GameObjects::CContactShapeModule::TickFrame,
-         &GameObjects::CContactShapeModule::ConfigureFromData,
-         Stubs::DoNothing,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Engine3D::VirtualSlot1Jump,
-         Stubs::IgnoreArgument,
-         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
-         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName,
-         &GameObjects::CContactShapeModule::SetUpHitShape};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::ContactShapeModule::teardown,
+         &objects::ContactShapeModule::tick_frame,
+         &objects::ContactShapeModule::configure_from_data,
+         stubs::do_nothing,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         render::virtual_slot1_jump,
+         stubs::ignore_argument,
+         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
+         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name,
+         &objects::ContactShapeModule::set_up_hit_shape};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

@@ -21,11 +21,11 @@
 #include "engine/core/game_vtables.h"
 #include "engine/core/stubs.h"
 
-namespace Gfx2D {
+namespace gfx {
 
 namespace {
 
-using Scripts::CStruct;
+using script::Struct;
 
 // Member function and parameter names (checksums; those not recovered are only numbers).
 constexpr uint32_t kAddAnimController = 0x83654874, kRemoveAnimController = 0x986D274E, kNewAnim = 0xC68365EB;
@@ -46,7 +46,7 @@ constexpr uint32_t kAnimBlender = 0x7149B753;
 constexpr int kLoopWobble = 3;
 enum : int { kNotMine = 2 };
 
-void** const& kEventVtable = Vt::kVtblAnimCue; void** const& kEventBaseVtable = Vt::kAnimEventBase; void** const& kTrackVtable = Vt::kAnimTrack;
+void** const& g_event_vtable = vt::kVtblAnimCue; void** const& g_event_base_vtable = vt::kAnimEventBase; void** const& g_track_vtable = vt::kAnimTrack;
 
 template <typename R, typename... A>
 R Virtual(void* object, int slot, A... args)
@@ -56,37 +56,37 @@ R Virtual(void* object, int slot, A... args)
 }
 
 // The original's _ftol (0x006236FC): truncated towards zero.
-int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
+int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // --- calls into code not rewritten here ---
 // An event's set-up, arming, firing and destructor body.
-void SetUpEvent(CTimedClipEvent* e, int frame, uint32_t type, CStruct* params)
+void set_up_event(TimedClipEvent* e, int frame, uint32_t type, Struct* params)
 {
-    reinterpret_cast<CAnimScriptKey*>(e)->AssignValue(frame, type, params);
+    reinterpret_cast<AnimScriptKey*>(e)->assign_value(frame, type, params);
 }
-void ArmEvent(CTimedClipEvent* e, bool armed) { reinterpret_cast<CUserClipKey*>(e)->ChangeLive(armed); }
-bool FireEvent(CTimedClipEvent* e, GameObjects::CGameEntity* object)
+void arm_event(TimedClipEvent* e, bool armed) { reinterpret_cast<UserClipKey*>(e)->change_live(armed); }
+bool fire_event(TimedClipEvent* e, objects::GameEntity* object)
 {
-    return reinterpret_cast<CUserClipKey*>(e)->ProcessIfActive(object);
+    return reinterpret_cast<UserClipKey*>(e)->process_if_active(object);
 }
-void DestroyEventBody(CTimedClipEvent* e) { reinterpret_cast<CAnimScriptKey*>(e)->DestroyBody(); }
+void destroy_event_body(TimedClipEvent* e) { reinterpret_cast<AnimScriptKey*>(e)->destroy_body(); }
 // The 0x26205DB6 controller (0x1A4 bytes).
-CAnimDriver* ConstructProceduralController(void* memory, CAnimTimeline* timeline)
+AnimDriver* construct_procedural_controller(void* memory, AnimTimeline* timeline)
 {
-    return reinterpret_cast<CAnimDriver*>(static_cast<CBoneLookAt*>(memory)->MakeNew(timeline, nullptr));
+    return reinterpret_cast<AnimDriver*>(static_cast<BoneLookAt*>(memory)->make_new(timeline, nullptr));
 }
 
 // A script structure from the structures' pools, and back.
-CStruct* NewParams()
+Struct* new_params()
 {
-    CStruct* params = Scripts::SpawnParamBag();
-    return params ? params->PrepareAll() : nullptr;
+    Struct* params = script::spawn_param_bag();
+    return params ? params->prepare_all() : nullptr;
 }
-void DeleteParams(CStruct* params)
+void delete_params(Struct* params)
 {
     if (params) {
-        params->Clear();
-        Scripts::DeleteStruct(params);
+        params->get_clear();
+        script::delete_struct(params);
     }
 }
 
@@ -95,136 +95,136 @@ void DeleteParams(CStruct* params)
 // --- the events ---------------------------------------------------------------------------------------------
 
 // 0x004819F0
-CAnimEventBase* CAnimEventBase::Teardown(uint8_t flags)
+AnimEventBase* AnimEventBase::teardown(uint8_t flags)
 {
-    m_vtable = kEventBaseVtable;
+    vtable_ = g_event_base_vtable;
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00481A20
-CTimedClipEvent* CTimedClipEvent::MakeNew()
+TimedClipEvent* TimedClipEvent::make_new()
 {
-    m_vtable = kEventVtable;
-    m_callArgs = nullptr;
+    vtable_ = g_event_vtable;
+    call_args_ = nullptr;
     return this;
 }
 
 // 0x00481DB0
-CTimedClipEvent* CTimedClipEvent::Teardown(uint8_t flags)
+TimedClipEvent* TimedClipEvent::teardown(uint8_t flags)
 {
     if (flags & 2) {
         // (the compiler's array-destructor helper, 0x0062382B: last to first)
         uint32_t* block = reinterpret_cast<uint32_t*>(this) - 1;
         for (uint32_t i = *block; i > 0; --i)
-            DestroyEventBody(this + (i - 1));
+            destroy_event_body(this + (i - 1));
         if (flags & 1)
-            MemSys::Hub::Pull()->Dealloc(block);
-        return reinterpret_cast<CTimedClipEvent*>(block);
+            memory::Hub::get_pull()->dealloc(block);
+        return reinterpret_cast<TimedClipEvent*>(block);
     }
-    DestroyEventBody(this);
+    destroy_event_body(this);
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // --- the track ----------------------------------------------------------------------------------------------
 
-MemSys::PoolPair g_animTrackPools;
+memory::PoolPair g_anim_track_pools;
 
-MemSys::PoolPair& CAnimTrack::Pools() { return g_animTrackPools; }
+memory::PoolPair& AnimTrack::get_pools() { return g_anim_track_pools; }
 
 // 0x00481EE0
-void* CAnimTrack::operator new(size_t size) { return Pools().Carve(static_cast<unsigned int>(size)); }
+void* AnimTrack::operator new(size_t size) { return get_pools().carve(static_cast<unsigned int>(size)); }
 
 // 0x00482360
-void CAnimTrack::operator delete(void* item) { Pools().Dealloc(item); }
+void AnimTrack::operator delete(void* item) { get_pools().dealloc(item); }
 
 // 0x00481F20
-void CAnimTrack::DestroyBody()
+void AnimTrack::destroy_body()
 {
-    m_vtable = kTrackVtable;
-    DeleteControllers();
-    DeleteEvents();
-    CAnimTimeline::DestroyBody();
+    vtable_ = g_track_vtable;
+    delete_controllers();
+    delete_events();
+    AnimTimeline::destroy_body();
 }
 
 // 0x00482340
-CAnimTrack* CAnimTrack::Teardown(uint8_t flags)
+AnimTrack* AnimTrack::teardown(uint8_t flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
         operator delete(this);
     return this;
 }
 
 // 0x00481A30
-void CAnimTrack::InsertController(CAnimDriver* controller, int priority)
+void AnimTrack::insert_controller(AnimDriver* controller, int priority)
 {
     // (no room check: six at most by the callers)
-    int count = m_controllerCount;
+    int count = controller_count_;
     int at = 0;
     if (count > 0) {
-        while (at < m_controllerCount && priority <= m_controllerList[at]->m_rank)
+        while (at < controller_count_ && priority <= controller_list_[at]->rank_)
             ++at;
-        if (at < m_controllerCount) {
+        if (at < controller_count_) {
             for (int i = count; i > at; --i)
-                m_controllerList[i] = m_controllerList[i - 1];
+                controller_list_[i] = controller_list_[i - 1];
         }
     }
-    m_controllerList[at] = controller;
-    ++m_controllerCount;
+    controller_list_[at] = controller;
+    ++controller_count_;
 }
 
 // 0x00481A80
-CAnimDriver* CAnimTrack::FindController(uint32_t id)
+AnimDriver* AnimTrack::find_controller(uint32_t id)
 {
-    for (int i = 0; i < m_controllerCount; ++i) {
-        if (m_controllerList[i]->m_ident == id)
-            return m_controllerList[i];
+    for (int i = 0; i < controller_count_; ++i) {
+        if (controller_list_[i]->ident_ == id)
+            return controller_list_[i];
     }
     return nullptr;
 }
 
 // 0x00481AC0
-void CAnimTrack::TickFrame()
+void AnimTrack::tick_frame()
 {
-    m_complete = false;
-    if (m_curPhase == kFading) {
+    complete_ = false;
+    if (cur_phase_ == kFading) {
         // (x87 at 53 bits: the frame's share of the rate, taken off the weight left; the comparisons use the
         // unrounded result)
-        double step = FrameClock::GetSlomoFrameSeconds() * 60.0;
-        step *= m_fadeRate;
-        double left = static_cast<double>(m_fadeLeft) - step;
-        m_fadeLeft = static_cast<float>(left);
-        if (left <= 0.0 || left * m_fadeScale < 0.0)
-            m_curPhase = kOff;
+        double step = frame_clock::get_slomo_frame_seconds() * 60.0;
+        step *= fade_rate_;
+        double left = static_cast<double>(fade_left_) - step;
+        fade_left_ = static_cast<float>(left);
+        if (left <= 0.0 || left * fade_scale_ < 0.0)
+            cur_phase_ = kOff;
     }
-    if (m_curPhase == kPlaying || m_curPhase == kFading) {
-        for (int i = 0; i < m_controllerCount; ++i)
-            Virtual<void>(m_controllerList[i], 5);
+    if (cur_phase_ == kPlaying || cur_phase_ == kFading) {
+        for (int i = 0; i < controller_count_; ++i)
+            Virtual<void>(controller_list_[i], 5);
     }
 }
 
 // 0x00481B40
-bool CAnimTrack::StartFade(float period)
+bool AnimTrack::start_fade(float period)
 {
     if (period == 0.0f)
-        m_curPhase = kOff;
-    if (m_curPhase != kPlaying)
+        cur_phase_ = kOff;
+    if (cur_phase_ != kPlaying)
         return false;
-    m_curPhase = kFading;
-    m_fadeLeft = period;
+    cur_phase_ = kFading;
+    fade_left_ = period;
     return true;
 }
 
 // 0x00481B80
-double CAnimTrack::GetWeight()
+double AnimTrack::get_weight()
 {
-    switch (m_curPhase) {
+    switch (cur_phase_) {
     case kFading:
-        return static_cast<double>(m_fadeScale) * m_fadeLeft;
+        return static_cast<double>(fade_scale_) * fade_left_;
     case kPlaying:
         return 1.0;
     default:
@@ -233,173 +233,173 @@ double CAnimTrack::GetWeight()
 }
 
 // 0x00481BB0
-void CAnimTrack::DeleteEvents()
+void AnimTrack::delete_events()
 {
-    if (!m_eventCount || !m_eventsPtr)
+    if (!event_count_ || !events_ptr_)
         return;
-    m_eventCount = 0;
-    uint32_t* block = reinterpret_cast<uint32_t*>(m_eventsPtr) - 1;
+    event_count_ = 0;
+    uint32_t* block = reinterpret_cast<uint32_t*>(events_ptr_) - 1;
     if (*block)
-        Virtual<CTimedClipEvent*>(m_eventsPtr, 0, 3); // (the vector deleting destructor)
+        Virtual<TimedClipEvent*>(events_ptr_, 0, 3); // (the vector deleting destructor)
     else
-        MemSys::Hub::Pull()->Dealloc(block);
-    m_eventsPtr = nullptr;
+        memory::Hub::get_pull()->dealloc(block);
+    events_ptr_ = nullptr;
 }
 
 // 0x00481C00
-void CAnimTrack::LoadEvents(uint32_t anim)
+void AnimTrack::load_events(uint32_t anim)
 {
-    GameObjects::CObjectModule* component = m_ownerObject->FetchModule(kAnimBlender);
+    objects::ObjectModule* component = owner_object_->fetch_module(kAnimBlender);
     if (!component)
         return;
-    uint32_t tableName = static_cast<GameObjects::CAnimBlenderComponent*>(component)->GetFirstChannel58();
-    if (!tableName)
+    uint32_t table_name = static_cast<objects::AnimBlenderComponent*>(component)->get_first_channel58();
+    if (!table_name)
         return;
-    CStruct* table = Scripts::ReadSubStruct(tableName);
+    Struct* table = script::read_sub_struct(table_name);
     if (!table)
         return;
-    Scripts::CArray* list;
-    if (!table->FetchList(anim, &list, 0))
+    script::Array* list;
+    if (!table->fetch_list(anim, &list, 0))
         return;
-    uint32_t count = list->m_extent;
-    m_eventCount = count;
+    uint32_t count = list->extent_;
+    event_count_ = count;
     if (!count)
         return;
-    auto* block = static_cast<uint32_t*>(MemSys::Alloc(count * sizeof(CTimedClipEvent) + 4));
-    CTimedClipEvent* events = nullptr;
+    auto* block = static_cast<uint32_t*>(memory::alloc(count * sizeof(TimedClipEvent) + 4));
+    TimedClipEvent* events = nullptr;
     if (block) {
         *block = count;
-        events = reinterpret_cast<CTimedClipEvent*>(block + 1);
+        events = reinterpret_cast<TimedClipEvent*>(block + 1);
         // (the compiler's array-constructor helper, 0x0062388B)
         for (uint32_t i = 0; i < count; ++i)
-            events[i].MakeNew();
+            events[i].make_new();
     }
-    m_eventsPtr = events;
-    for (uint32_t i = 0; i < m_eventCount; ++i) {
-        auto* entry = reinterpret_cast<CStruct*>(list->FetchPart(i));
+    events_ptr_ = events;
+    for (uint32_t i = 0; i < event_count_; ++i) {
+        auto* entry = reinterpret_cast<Struct*>(list->fetch_part(i));
         int frame = 0;
-        if (!entry->FetchIntValue(kFrame, &frame, 0)) {
+        if (!entry->fetch_int_value(kFrame, &frame, 0)) {
             float seconds = 0.0f;
-            entry->FetchFloat(kTime, &seconds, 1);
-            frame = Truncated(static_cast<double>(seconds) * 60.0);
+            entry->fetch_float(kTime, &seconds, 1);
+            frame = get_truncated(static_cast<double>(seconds) * 60.0);
         }
         uint32_t type = 0; // (the original's is left as it was found on the stack when missing - an assert)
-        entry->ReadHashValue(kEvent, &type, 1);
-        CStruct* params = nullptr;
-        entry->ReadSubStruct(kParams, &params, 0);
-        SetUpEvent(&m_eventsPtr[i], frame, type, params);
-        ArmEvent(&m_eventsPtr[i], true);
+        entry->read_hash_value(kEvent, &type, 1);
+        Struct* params = nullptr;
+        entry->read_sub_struct(kParams, &params, 0);
+        set_up_event(&events_ptr_[i], frame, type, params);
+        arm_event(&events_ptr_[i], true);
     }
 }
 
 // 0x00481E10
-void CAnimTrack::FireEvents(float from, float to)
+void AnimTrack::fire_events(float from, float to)
 {
-    if (!m_eventsOn || m_curPhase != kPlaying)
+    if (!events_on_ || cur_phase_ != kPlaying)
         return;
     // (frames: compared unrounded, passed on as floats)
     double first = static_cast<double>(from) * 60.0;
     double last = static_cast<double>(to) * 60.0;
-    float firstFrame = static_cast<float>(first);
-    float lastFrame = static_cast<float>(last);
-    bool looped = m_direction == 0 ? first > last : last > first;
+    float first_frame = static_cast<float>(first);
+    float last_frame = static_cast<float>(last);
+    bool looped = direction_ == 0 ? first > last : last > first;
     if (looped) {
-        ArmEvents();
-        firstFrame = m_outset; // (as the original: the start itself, not in frames)
+        arm_events();
+        first_frame = outset_; // (as the original: the start itself, not in frames)
     }
-    for (uint32_t i = 0; i < m_eventCount; ++i) {
-        ArmEvent(&m_eventsPtr[i], true);
-        if (Virtual<bool>(&m_eventsPtr[i], 1, firstFrame, lastFrame, 0))
-            FireEvent(&m_eventsPtr[i], m_ownerObject);
+    for (uint32_t i = 0; i < event_count_; ++i) {
+        arm_event(&events_ptr_[i], true);
+        if (Virtual<bool>(&events_ptr_[i], 1, first_frame, last_frame, 0))
+            fire_event(&events_ptr_[i], owner_object_);
     }
 }
 
 // 0x00481FB0
-CAnimDriver* CAnimTrack::AttachController(CStruct* params)
+AnimDriver* AnimTrack::attach_controller(Struct* params)
 {
     uint32_t type;
-    params->ReadHashValue(kType, &type, 1);
+    params->read_hash_value(kType, &type, 1);
     int priority = 500;
-    CAnimDriver* controller;
+    AnimDriver* controller;
     void* memory;
     switch (type) {
     case kWeightedController:
-        memory = MemSys::AllocZeroed(sizeof(CWeightedAnimController));
-        controller = memory ? static_cast<CWeightedAnimController*>(memory)->MakeNew(this, nullptr) : nullptr;
+        memory = memory::alloc_zeroed(sizeof(WeightedAnimController));
+        controller = memory ? static_cast<WeightedAnimController*>(memory)->make_new(this, nullptr) : nullptr;
         break;
     case kProceduralController:
-        memory = MemSys::AllocZeroed(0x1A4);
-        controller = memory ? ConstructProceduralController(memory, this) : nullptr;
+        memory = memory::alloc_zeroed(0x1A4);
+        controller = memory ? construct_procedural_controller(memory, this) : nullptr;
         break;
     case kPartialController:
-        memory = MemSys::AllocZeroed(sizeof(CPartialClipDriver));
-        controller = memory ? static_cast<CPartialClipDriver*>(memory)->MakeNew(this) : nullptr;
+        memory = memory::alloc_zeroed(sizeof(PartialClipDriver));
+        controller = memory ? static_cast<PartialClipDriver*>(memory)->make_new(this) : nullptr;
         break;
     case kShakeController:
-        memory = MemSys::AllocZeroed(sizeof(CWobbleDriver));
-        controller = memory ? static_cast<CWobbleDriver*>(memory)->MakeNew(this) : nullptr;
+        memory = memory::alloc_zeroed(sizeof(WobbleDriver));
+        controller = memory ? static_cast<WobbleDriver*>(memory)->make_new(this) : nullptr;
         break;
     case kStandardController:
-        memory = CStandardAnimController::operator new(sizeof(CStandardAnimController), 0);
-        controller = memory ? static_cast<CStandardAnimController*>(memory)->MakeNew(this) : nullptr;
+        memory = StandardAnimController::operator new(sizeof(StandardAnimController), 0);
+        controller = memory ? static_cast<StandardAnimController*>(memory)->make_new(this) : nullptr;
         break;
     case kStaticPoseCtl:
-        memory = MemSys::AllocZeroed(sizeof(CStanceDriver));
-        controller = memory ? static_cast<CStanceDriver*>(memory)->MakeNew(this) : nullptr;
+        memory = memory::alloc_zeroed(sizeof(StanceDriver));
+        controller = memory ? static_cast<StanceDriver*>(memory)->make_new(this) : nullptr;
         break;
     case kTumbleController:
-        memory = MemSys::AllocZeroed(sizeof(GameObjects::CFlipRotateComponent));
-        controller = memory ? reinterpret_cast<CAnimDriver*>(
-                                  static_cast<GameObjects::CFlipRotateComponent*>(memory)->MakeNew(this))
+        memory = memory::alloc_zeroed(sizeof(objects::FlipRotateComponent));
+        controller = memory ? reinterpret_cast<AnimDriver*>(
+                                  static_cast<objects::FlipRotateComponent*>(memory)->make_new(this))
                             : nullptr;
         priority = 100;
         break;
     default:
         return nullptr;
     }
-    params->FetchIntValue(kPriority, &priority, 0);
+    params->fetch_int_value(kPriority, &priority, 0);
     // (a failed allocation goes on with null: the call below crashes, as in the original)
     Virtual<void>(controller, 4, params);
-    controller->m_rank = priority;
-    InsertController(controller, priority);
+    controller->rank_ = priority;
+    insert_controller(controller, priority);
     return controller;
 }
 
 // 0x00482200
-int CAnimTrack::InvokeMethodByName(uint32_t name, CStruct* params, Scripts::CScript* script)
+int AnimTrack::invoke_method_by_name(uint32_t name, Struct* params, script::Script* script)
 {
     if (name == kAddAnimController) {
-        AttachController(params);
+        attach_controller(params);
         return 1;
     }
     if (name == kRemoveAnimController) {
         uint32_t id = reinterpret_cast<uint32_t>(params); // (the argument's own slot: the params' address if missing)
-        params->ReadHashValue(kId, &id, 1);
-        if (CAnimDriver* controller = FindController(id))
-            DetachAnimDriver(controller);
+        params->read_hash_value(kId, &id, 1);
+        if (AnimDriver* controller = find_controller(id))
+            detach_anim_driver(controller);
     } else if (name == kNewAnim) {
         uint32_t anim = 0; // (the original's is left as it was found on the stack when missing - an assert)
-        params->ReadHashValue(kAnim, &anim, 1);
+        params->read_hash_value(kAnim, &anim, 1);
         float duration;
         std::memcpy(&duration, &params, sizeof(duration)); // (the argument's own slot, as above)
-        params->FetchFloat(kDuration, &duration, 1);
-        bool sync = params->HasBareFlag(kSync);
-        m_anim = anim;
-        DeleteEvents();
-        LoadEvents(m_anim);
+        params->fetch_float(kDuration, &duration, 1);
+        bool sync = params->has_bare_flag(kSync);
+        anim_ = anim;
+        delete_events();
+        load_events(anim_);
         float current = 0.0f;
         if (sync) {
             // (x87 at 53 bits: the place on the old timeline in proportion, rounded once)
-            double place = static_cast<double>(m_ongoing);
-            m_ongoing = 0.0f;
-            current = static_cast<float>(place / m_finish * duration);
+            double place = static_cast<double>(ongoing_);
+            ongoing_ = 0.0f;
+            current = static_cast<float>(place / finish_ * duration);
         }
-        m_finish = duration;
-        m_outset = 0.0f;
-        AdvanceClock(current);
+        finish_ = duration;
+        outset_ = 0.0f;
+        advance_clock(current);
     }
-    for (int i = 0; i < m_controllerCount; ++i) {
-        int result = Virtual<int>(m_controllerList[i], 3, name, params, script);
+    for (int i = 0; i < controller_count_; ++i) {
+        int result = Virtual<int>(controller_list_[i], 3, name, params, script);
         if (result != kNotMine)
             return result;
     }
@@ -407,75 +407,75 @@ int CAnimTrack::InvokeMethodByName(uint32_t name, CStruct* params, Scripts::CScr
 }
 
 // 0x004823C0
-void CAnimTrack::PlayAnim(uint32_t anim, float start, float end, int loopType, float blendPeriod, float speed,
-                          bool flipped, CStruct* params)
+void AnimTrack::play_anim(uint32_t anim, float start, float end, int loop_type, float blend_period, float speed,
+                          bool flipped, Struct* params)
 {
-    DeleteEvents();
-    LoadEvents(anim);
-    m_curPhase = kPlaying;
-    m_fadeRate = 1.0f / 60.0f; // (0x3C888889)
+    delete_events();
+    load_events(anim);
+    cur_phase_ = kPlaying;
+    fade_rate_ = 1.0f / 60.0f; // (0x3C888889)
 
-    CStruct* settings = NewParams();
-    settings->PutNameKey(kType, loopType == kLoopWobble ? kShakeController : kStandardController);
-    AttachController(settings);
-    DeleteParams(settings);
+    Struct* settings = new_params();
+    settings->put_name_key(kType, loop_type == kLoopWobble ? kShakeController : kStandardController);
+    attach_controller(settings);
+    delete_params(settings);
 
-    uint32_t weightedAnim = anim;
+    uint32_t weighted_anim = anim;
     float weight = 0.0f;
     if (params) {
-        if (params->ReadHashValue(kWeightedAnim, &weightedAnim, 0) || params->HasBareFlag(kWeightedFlag)) {
-            params->FetchFloat(kWeight, &weight, 0);
-            settings = NewParams();
-            settings->PutNameKey(kType, kWeightedController);
-            AttachController(settings);
-            DeleteParams(settings);
+        if (params->read_hash_value(kWeightedAnim, &weighted_anim, 0) || params->has_bare_flag(kWeightedFlag)) {
+            params->fetch_float(kWeight, &weight, 0);
+            settings = new_params();
+            settings->put_name_key(kType, kWeightedController);
+            attach_controller(settings);
+            delete_params(settings);
         }
-        CStruct* controllerParams = nullptr;
-        if (params->ReadSubStruct(kControllerParams, &controllerParams, 0)) {
-            settings = NewParams();
-            settings->PutNameKey(kType, kProceduralController);
-            settings->PutSubStruct(0u, controllerParams); // (no name)
-            AttachController(settings);
-            DeleteParams(settings);
+        Struct* controller_params = nullptr;
+        if (params->read_sub_struct(kControllerParams, &controller_params, 0)) {
+            settings = new_params();
+            settings->put_name_key(kType, kProceduralController);
+            settings->put_sub_struct(0u, controller_params); // (no name)
+            attach_controller(settings);
+            delete_params(settings);
         }
     }
-    settings = NewParams();
-    settings->PutNameKey(kType, kTumbleController);
-    settings->PutInt(kFlipped, flipped);
-    AttachController(settings);
-    DeleteParams(settings);
+    settings = new_params();
+    settings->put_name_key(kType, kTumbleController);
+    settings->put_int(kFlipped, flipped);
+    attach_controller(settings);
+    delete_params(settings);
 
-    settings = NewParams();
-    settings->PushFloat(kFraction, 0.0f);
-    for (int i = 0; i < m_controllerCount; ++i)
-        Virtual<int>(m_controllerList[i], 3, kSetTarget, settings, static_cast<Scripts::CScript*>(nullptr));
-    DeleteParams(settings);
+    settings = new_params();
+    settings->push_float(kFraction, 0.0f);
+    for (int i = 0; i < controller_count_; ++i)
+        Virtual<int>(controller_list_[i], 3, kSetTarget, settings, static_cast<script::Script*>(nullptr));
+    delete_params(settings);
 
-    settings = NewParams();
-    settings->PutNameKey(kAnimName, anim);
-    settings->PushFloat(kStartTime, start);
-    settings->PushFloat(kEndTime, end);
-    settings->PutInt(kRepeatMode, loopType);
-    settings->PushFloat(kBlendPeriod, blendPeriod);
-    settings->PushFloat(kSpeed, speed);
-    settings->PutNameKey(kWeightedAnim, weightedAnim);
-    settings->PushFloat(kWeight, weight);
-    for (int i = 0; i < m_controllerCount; ++i)
-        Virtual<int>(m_controllerList[i], 3, kPlayAnim, settings, static_cast<Scripts::CScript*>(nullptr));
-    DeleteParams(settings);
+    settings = new_params();
+    settings->put_name_key(kAnimName, anim);
+    settings->push_float(kStartTime, start);
+    settings->push_float(kEndTime, end);
+    settings->put_int(kRepeatMode, loop_type);
+    settings->push_float(kBlendPeriod, blend_period);
+    settings->push_float(kSpeed, speed);
+    settings->put_name_key(kWeightedAnim, weighted_anim);
+    settings->push_float(kWeight, weight);
+    for (int i = 0; i < controller_count_; ++i)
+        Virtual<int>(controller_list_[i], 3, kPlayAnim, settings, static_cast<script::Script*>(nullptr));
+    delete_params(settings);
 }
 
 } // namespace Gfx
 
-namespace Vt {
-static VtableSlot kAnimTrack_slots[] = {&Gfx2D::CAnimTrack::Teardown, &Gfx2D::CAnimTrack::Reset, &Gfx2D::CAnimTrack::TickFrame,
-                &Gfx2D::CAnimTimeline::PlayAnim, Stubs::IgnoreArgument, &Gfx2D::CAnimTrack::InvokeMethodByName,
-                &Gfx2D::CAnimTrack::PlayAnim};
-void** const kAnimTrack = reinterpret_cast<void**>(kAnimTrack_slots);
-static VtableSlot kAnimEventBase_slots[] = {&Gfx2D::CAnimEventBase::Teardown, &Gfx2D::CUserClipKey::InsideRange,
+namespace vt {
+static VtableSlot g_anim_track_slots[] = {&gfx::AnimTrack::teardown, &gfx::AnimTrack::get_reset, &gfx::AnimTrack::tick_frame,
+                &gfx::AnimTimeline::play_anim, stubs::ignore_argument, &gfx::AnimTrack::invoke_method_by_name,
+                &gfx::AnimTrack::play_anim};
+void** const kAnimTrack = reinterpret_cast<void**>(g_anim_track_slots);
+static VtableSlot g_anim_event_base_slots[] = {&gfx::AnimEventBase::teardown, &gfx::UserClipKey::inside_range,
                 &_purecall};
-void** const kAnimEventBase = reinterpret_cast<void**>(kAnimEventBase_slots);
-static VtableSlot kAnimEvent_slots[] = {&Gfx2D::CTimedClipEvent::Teardown, &Gfx2D::CUserClipKey::InsideRange,
-                &Gfx2D::CAnimScriptKey::WorkOn};
-void** const kVtblAnimCue = reinterpret_cast<void**>(kAnimEvent_slots);
+void** const kAnimEventBase = reinterpret_cast<void**>(g_anim_event_base_slots);
+static VtableSlot g_anim_event_slots[] = {&gfx::TimedClipEvent::teardown, &gfx::UserClipKey::inside_range,
+                &gfx::AnimScriptKey::work_on};
+void** const kVtblAnimCue = reinterpret_cast<void**>(g_anim_event_slots);
 } // namespace Vt

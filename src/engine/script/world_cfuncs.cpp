@@ -19,127 +19,127 @@
 #include "engine/gfx/engine_glue.h"
 #include "engine/sys/game_config.h"
 
-namespace ScriptCommands {
+namespace commands {
 
-GameModules::Hub* g_moduleManager;
-bool g_viewerLaunched;
+modules::Hub* g_module_manager;
+bool g_viewer_launched;
 
 namespace {
 
-using Scripts::CScript;
-using Scripts::CStruct;
+using script::Script;
+using script::Struct;
 
 constexpr uint32_t kViewerCam = 0xEB17151B; // "viewer_cam": the viewer camera object's name (its id)
 
 // 0x005A4EF0 (no source yet): a command (7 light group, 5 alive...) applied to the node name= or the nodes
 // prefix= names; true unless neither is given.
-bool NodeCommand(CStruct* params, CScript* script, int command)
+bool node_command(Struct* params, Script* script, int command)
 {
-    return ScriptCommands::NodeCommandByName(params, script, command);
+    return commands::node_command_by_name(params, script, command);
 }
 
 // The skater's own pause and unpause (its vtable +0x2C / +0x30).
-void PauseSkater(GameObjects::CGameEntity* skater)
+void pause_skater(objects::GameEntity* skater)
 {
-    reinterpret_cast<void(__thiscall*)(GameObjects::CGameEntity*)>(skater->m_vtable[11])(skater);
+    reinterpret_cast<void(__thiscall*)(objects::GameEntity*)>(skater->vtable_[11])(skater);
 }
-void UnpauseSkater(GameObjects::CGameEntity* skater)
+void unpause_skater(objects::GameEntity* skater)
 {
-    reinterpret_cast<void(__thiscall*)(GameObjects::CGameEntity*)>(skater->m_vtable[12])(skater);
+    reinterpret_cast<void(__thiscall*)(objects::GameEntity*)>(skater->vtable_[12])(skater);
 }
 
 // Whether LaunchViewer has made the viewer (0x007CEBF0).
-bool& ViewerLaunched() { return g_viewerLaunched; }
+bool& viewer_launched() { return g_viewer_launched; }
 
 // The weather (0x006FA7C8) and the screen effects (0x006FA7CC).
-void* Weather() { return Engine3D::g_weather; }
-void* ScreenEffects() { return Engine3D::g_screenEffects; }
-using Setter = bool(__thiscall*)(void*, CStruct*, CScript*);
+void* get_weather() { return render::g_weather; }
+void* screen_effects() { return render::g_screen_effects; }
+using Setter = bool(__thiscall*)(void*, Struct*, Script*);
 
 } // namespace
 
 // 0x005A5360
-bool __cdecl CFunc_SetLightGroup(CStruct* params, CScript* script) { return NodeCommand(params, script, 7); }
+bool __cdecl cfunc_set_light_group(Struct* params, Script* script) { return node_command(params, script, 7); }
 
 // 0x005A5380
-bool __cdecl CFunc_IsAlive(CStruct* params, CScript* script) { return NodeCommand(params, script, 5); }
+bool __cdecl cfunc_is_alive(Struct* params, Script* script) { return node_command(params, script, 5); }
 
 // 0x005A53A0
-bool __cdecl CFunc_PauseSkaters(CStruct* params, CScript*)
+bool __cdecl cfunc_pause_skaters(Struct* params, Script*)
 {
-    bool hide = params->HasBareFlag("hide");
-    GameModules::Skate* skate = GameModules::Skate::Sole();
-    uint32_t count = static_cast<uint32_t>(skate->CountRiders());
+    bool hide = params->has_bare_flag("hide");
+    modules::Skate* skate = modules::Skate::sole();
+    uint32_t count = static_cast<uint32_t>(skate->count_riders());
     for (uint32_t i = 0; i < count; ++i) {
-        GameObjects::CGameEntity* skater = skate->GetRiderAt(static_cast<int>(i));
-        if (skater && skater->m_unknownBC) {
-            PauseSkater(skater);
-            skater->Conceal(hide);
+        objects::GameEntity* skater = skate->get_rider_at(static_cast<int>(i));
+        if (skater && skater->unknownbc_) {
+            pause_skater(skater);
+            skater->conceal(hide);
         }
     }
     return true;
 }
 
 // 0x005A5420
-bool __cdecl CFunc_UnPauseSkaters(CStruct*, CScript*)
+bool __cdecl cfunc_un_pause_skaters(Struct*, Script*)
 {
-    GameModules::Skate* skate = GameModules::Skate::Sole();
-    uint32_t count = static_cast<uint32_t>(skate->CountRiders());
+    modules::Skate* skate = modules::Skate::sole();
+    uint32_t count = static_cast<uint32_t>(skate->count_riders());
     for (uint32_t i = 0; i < count; ++i) {
-        GameObjects::CGameEntity* skater = skate->GetRiderAt(static_cast<int>(i));
+        objects::GameEntity* skater = skate->get_rider_at(static_cast<int>(i));
         if (skater) {
-            UnpauseSkater(skater);
-            skater->Conceal(false);
+            unpause_skater(skater);
+            skater->conceal(false);
         }
     }
     return true;
 }
 
 // 0x005A5480
-bool __cdecl CFunc_SkatersAreReady(CStruct*, CScript*)
+bool __cdecl cfunc_skaters_are_ready(Struct*, Script*)
 {
-    if (!OnlinePlay::g_onlineHub->m_clearedToStart)
+    if (!online::g_online_hub->cleared_to_start_)
         return false;
-    if (GameModules::Skate::Sole()->CountRiders() > 0)
+    if (modules::Skate::sole()->count_riders() > 0)
         return true;
     // IsObserving (0x005A0D90, no source yet)
-    return ScriptCommands::CFunc_IsObserving(nullptr, nullptr);
+    return commands::cfunc_is_observing(nullptr, nullptr);
 }
 
 // 0x005A54E0
-bool __cdecl CFunc_LaunchViewer(CStruct*, CScript*)
+bool __cdecl cfunc_launch_viewer(Struct*, Script*)
 {
-    if (ViewerLaunched())
+    if (viewer_launched())
         return true;
-    GameModules::Hub* modules = g_moduleManager;
-    void* memory = MemSys::AllocZeroed(sizeof(GameModules::Viewer));
-    GameModules::Viewer* viewer = memory ? static_cast<GameModules::Viewer*>(memory)->MakeNew() : nullptr;
-    modules->EnrolUnit(viewer);
-    modules->LaunchModule(viewer);
-    ViewerLaunched() = true;
+    modules::Hub* modules = g_module_manager;
+    void* memory = memory::alloc_zeroed(sizeof(modules::Viewer));
+    modules::Viewer* viewer = memory ? static_cast<modules::Viewer*>(memory)->make_new() : nullptr;
+    modules->enrol_unit(viewer);
+    modules->launch_module(viewer);
+    viewer_launched() = true;
 
-    CStruct* nodeData = Scripts::SpawnParamBag();
-    if (nodeData)
-        nodeData = nodeData->PrepareAll();
-    nodeData->PutNameKey("name", kViewerCam);
-    GameObjects::CGameEntity* camera = GameObjects::ObjectHubSlot()->SpawnEntityFromNode(
-        Scripts::FetchList("viewercam_composite_structure"), nodeData, true);
-    if (nodeData) {
-        nodeData->Clear();
-        Scripts::DeleteStruct(nodeData);
+    Struct* node_data = script::spawn_param_bag();
+    if (node_data)
+        node_data = node_data->prepare_all();
+    node_data->put_name_key("name", kViewerCam);
+    objects::GameEntity* camera = objects::object_hub_slot()->spawn_entity_from_node(
+        script::fetch_list("viewercam_composite_structure"), node_data, true);
+    if (node_data) {
+        node_data->get_clear();
+        script::delete_struct(node_data);
     }
-    camera->m_objectFlags |= 2;
+    camera->object_flags_ |= 2;
     return true;
 }
 
 // 0x005A5610
-bool __cdecl CFunc_AddSkaterEarly(CStruct*, CScript*)
+bool __cdecl cfunc_add_skater_early(Struct*, Script*)
 {
-    if (GameModules::Skate::Sole()->CountRiders() == 0) {
-        GameModules::Skate* skate = GameModules::Skate::Sole();
+    if (modules::Skate::sole()->count_riders() == 0) {
+        modules::Skate* skate = modules::Skate::sole();
         // its profile 0 (0x00564FC0) as a new local skater (0x00567180), no id, heap 0
-        GameObjects::CRiderIdentity* profile = skate->FetchAccount(static_cast<int>(0));
-        skate->SpawnSkaterEntity(profile, true, 0, 0);
+        objects::RiderIdentity* profile = skate->fetch_account(static_cast<int>(0));
+        skate->spawn_skater_entity(profile, true, 0, 0);
     }
     return true;
 }
@@ -147,126 +147,126 @@ bool __cdecl CFunc_AddSkaterEarly(CStruct*, CScript*)
 // --- the weather ---
 
 // 0x005A5680: its vtable +0x04 (through 0x004A1090).
-bool __cdecl CFunc_WeatherUpdateGrid(CStruct*, CScript*)
+bool __cdecl cfunc_weather_update_grid(Struct*, Script*)
 {
-    reinterpret_cast<void(__thiscall*)(void*)>((*static_cast<void***>(Weather()))[1])(Weather()); // (0x004A1090: a jump through the vtable +0x04)
+    reinterpret_cast<void(__thiscall*)(void*)>((*static_cast<void***>(get_weather()))[1])(get_weather()); // (0x004A1090: a jump through the vtable +0x04)
     return true;
 }
 // 0x005A5690
-bool __cdecl CFunc_WeatherSetRainHeight(CStruct* params, CScript* script)
+bool __cdecl cfunc_weather_set_rain_height(Struct* params, Script* script)
 {
-    return static_cast<Engine3D::CWeatherSystem*>(Weather())->ScriptSetRainHeight(params, script);
+    return static_cast<render::WeatherSystem*>(get_weather())->script_set_rain_height(params, script);
 }
 // 0x005A56B0
-bool __cdecl CFunc_WeatherSetRainFrames(CStruct* params, CScript* script)
+bool __cdecl cfunc_weather_set_rain_frames(Struct* params, Script* script)
 {
-    return static_cast<Engine3D::CWeatherSystem*>(Weather())->ScriptSetRainFrames(params, script);
+    return static_cast<render::WeatherSystem*>(get_weather())->script_set_rain_frames(params, script);
 }
 // 0x005A56D0
-bool __cdecl CFunc_WeatherSetRainLength(CStruct* params, CScript* script)
+bool __cdecl cfunc_weather_set_rain_length(Struct* params, Script* script)
 {
-    return static_cast<Engine3D::CWeatherSystem*>(Weather())->ScriptSetRainLength(params, script);
+    return static_cast<render::WeatherSystem*>(get_weather())->script_set_rain_length(params, script);
 }
 // 0x005A56F0
-bool __cdecl CFunc_WeatherSetRainBlendMode(CStruct* params, CScript* script)
+bool __cdecl cfunc_weather_set_rain_blend_mode(Struct* params, Script* script)
 {
-    return static_cast<Engine3D::CWeatherSystem*>(Weather())->ScriptSetRainBlendMode(params, script);
+    return static_cast<render::WeatherSystem*>(get_weather())->script_set_rain_blend_mode(params, script);
 }
 // 0x005A5710
-bool __cdecl CFunc_WeatherSetRainRate(CStruct* params, CScript* script)
+bool __cdecl cfunc_weather_set_rain_rate(Struct* params, Script* script)
 {
-    return static_cast<Engine3D::CWeatherSystem*>(Weather())->ScriptSetRainRate(params, script);
+    return static_cast<render::WeatherSystem*>(get_weather())->script_set_rain_rate(params, script);
 }
 // 0x005A5730
-bool __cdecl CFunc_WeatherSetRainColor(CStruct* params, CScript* script)
+bool __cdecl cfunc_weather_set_rain_color(Struct* params, Script* script)
 {
-    return static_cast<Engine3D::CWeatherSystem*>(Weather())->ScriptSetRainColor(params, script);
+    return static_cast<render::WeatherSystem*>(get_weather())->script_set_rain_color(params, script);
 }
 // 0x005A5750
-bool __cdecl CFunc_WeatherSetSplashRate(CStruct* params, CScript* script)
+bool __cdecl cfunc_weather_set_splash_rate(Struct* params, Script* script)
 {
-    return static_cast<Engine3D::CWeatherSystem*>(Weather())->ScriptSetSplashRate(params, script);
+    return static_cast<render::WeatherSystem*>(get_weather())->script_set_splash_rate(params, script);
 }
 // 0x005A5770
-bool __cdecl CFunc_WeatherSetSplashLife(CStruct* params, CScript* script)
+bool __cdecl cfunc_weather_set_splash_life(Struct* params, Script* script)
 {
-    return static_cast<Engine3D::CWeatherSystem*>(Weather())->ScriptSetSplashLife(params, script);
+    return static_cast<render::WeatherSystem*>(get_weather())->script_set_splash_life(params, script);
 }
 // 0x005A5790
-bool __cdecl CFunc_WeatherSetSplashSize(CStruct* params, CScript* script)
+bool __cdecl cfunc_weather_set_splash_size(Struct* params, Script* script)
 {
-    return static_cast<Engine3D::CWeatherSystem*>(Weather())->ScriptSetSplashSize(params, script);
+    return static_cast<render::WeatherSystem*>(get_weather())->script_set_splash_size(params, script);
 }
 // 0x005A57B0
-bool __cdecl CFunc_WeatherSetSplashColor(CStruct* params, CScript* script)
+bool __cdecl cfunc_weather_set_splash_color(Struct* params, Script* script)
 {
-    return static_cast<Engine3D::CWeatherSystem*>(Weather())->ScriptSetSplashColor(params, script);
+    return static_cast<render::WeatherSystem*>(get_weather())->script_set_splash_color(params, script);
 }
 // 0x005A57D0
-bool __cdecl CFunc_WeatherSetSplashBlendMode(CStruct* params, CScript* script)
+bool __cdecl cfunc_weather_set_splash_blend_mode(Struct* params, Script* script)
 {
-    return static_cast<Engine3D::CWeatherSystem*>(Weather())->ScriptSetSplashBlendMode(params, script);
+    return static_cast<render::WeatherSystem*>(get_weather())->script_set_splash_blend_mode(params, script);
 }
 // 0x005A57F0
-bool __cdecl CFunc_WeatherSetSnowHeight(CStruct* params, CScript* script)
+bool __cdecl cfunc_weather_set_snow_height(Struct* params, Script* script)
 {
-    return static_cast<Engine3D::CWeatherSystem*>(Weather())->ScriptSetSnowHeight(params, script);
+    return static_cast<render::WeatherSystem*>(get_weather())->script_set_snow_height(params, script);
 }
 // 0x005A5810
-bool __cdecl CFunc_WeatherSetSnowFrames(CStruct* params, CScript* script)
+bool __cdecl cfunc_weather_set_snow_frames(Struct* params, Script* script)
 {
-    return static_cast<Engine3D::CWeatherSystem*>(Weather())->ScriptSetSnowFrames(params, script);
+    return static_cast<render::WeatherSystem*>(get_weather())->script_set_snow_frames(params, script);
 }
 // 0x005A5830
-bool __cdecl CFunc_WeatherSetSnowSize(CStruct* params, CScript* script)
+bool __cdecl cfunc_weather_set_snow_size(Struct* params, Script* script)
 {
-    return static_cast<Engine3D::CWeatherSystem*>(Weather())->ScriptSetSnowSize(params, script);
+    return static_cast<render::WeatherSystem*>(get_weather())->script_set_snow_size(params, script);
 }
 // 0x005A5850
-bool __cdecl CFunc_WeatherSetSnowBlendMode(CStruct* params, CScript* script)
+bool __cdecl cfunc_weather_set_snow_blend_mode(Struct* params, Script* script)
 {
-    return static_cast<Engine3D::CWeatherSystem*>(Weather())->ScriptSetSnowBlendMode(params, script);
+    return static_cast<render::WeatherSystem*>(get_weather())->script_set_snow_blend_mode(params, script);
 }
 // 0x005A5870
-bool __cdecl CFunc_WeatherSetSnowRate(CStruct* params, CScript* script)
+bool __cdecl cfunc_weather_set_snow_rate(Struct* params, Script* script)
 {
-    return static_cast<Engine3D::CWeatherSystem*>(Weather())->ScriptSetSnowRate(params, script);
+    return static_cast<render::WeatherSystem*>(get_weather())->script_set_snow_rate(params, script);
 }
 // 0x005A5890
-bool __cdecl CFunc_WeatherSetSnowColor(CStruct* params, CScript* script)
+bool __cdecl cfunc_weather_set_snow_color(Struct* params, Script* script)
 {
-    return static_cast<Engine3D::CWeatherSystem*>(Weather())->ScriptSetSnowColor(params, script);
+    return static_cast<render::WeatherSystem*>(get_weather())->script_set_snow_color(params, script);
 }
 // 0x005A58B0
-bool __cdecl CFunc_WeatherSetSnowActive(CStruct* params, CScript* script)
+bool __cdecl cfunc_weather_set_snow_active(Struct* params, Script* script)
 {
-    return static_cast<Engine3D::CWeatherSystem*>(Weather())->ScriptSetSnowActive(params, script);
+    return static_cast<render::WeatherSystem*>(get_weather())->script_set_snow_active(params, script);
 }
 // 0x005A58D0
-bool __cdecl CFunc_WeatherSetRainActive(CStruct* params, CScript* script)
+bool __cdecl cfunc_weather_set_rain_active(Struct* params, Script* script)
 {
-    return static_cast<Engine3D::CWeatherSystem*>(Weather())->ScriptSetRainActive(params, script);
+    return static_cast<render::WeatherSystem*>(get_weather())->script_set_rain_active(params, script);
 }
 
 // --- the screen effects ---
 
 // 0x005A58F0
-bool __cdecl CFunc_SetScreenEffectsOn(CStruct* params, CScript* script)
+bool __cdecl cfunc_set_screen_effects_on(Struct* params, Script* script)
 {
-    return static_cast<Engine3D::CScreenEffects*>(ScreenEffects())->SetOn(params, script);
+    return static_cast<render::ScreenEffects*>(screen_effects())->set_on(params, script);
 }
 // 0x005A5910
-bool __cdecl CFunc_SetScreenEffectsOff(CStruct* params, CScript* script)
+bool __cdecl cfunc_set_screen_effects_off(Struct* params, Script* script)
 {
-    return static_cast<Engine3D::CScreenEffects*>(ScreenEffects())->SetOff(params, script);
+    return static_cast<render::ScreenEffects*>(screen_effects())->set_off(params, script);
 }
 // 0x005A5930
-bool __cdecl CFunc_SetScreenEffectsDOFParams(CStruct* params, CScript* script)
+bool __cdecl cfunc_set_screen_effects_dof_params(Struct* params, Script* script)
 {
-    return static_cast<Engine3D::CScreenEffects*>(ScreenEffects())->SetDOFParams(params, script);
+    return static_cast<render::ScreenEffects*>(screen_effects())->set_dof_params(params, script);
 }
 
 // 0x005A5950
-bool __cdecl CFunc_IsPal(CStruct*, CScript*) { return GameConfig::g_language != 2; }
+bool __cdecl cfunc_is_pal(Struct*, Script*) { return game_config::g_language != 2; }
 
-} // namespace ScriptCommands
+} // namespace commands

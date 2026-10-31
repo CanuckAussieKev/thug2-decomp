@@ -26,113 +26,113 @@
 #include "engine/gfx/bitmap_texture.h"
 #include "engine/sys/startup_init.h"
 
-namespace Engine3D {
+namespace render {
 
-float g_grassDetailUvScale{0.010416667f};
-float g_grassUvScale{0.0052083335f};
-float g_grassCopyUvScale{0.020833334f};
-uint8_t g_grassTexture0[0x20]; // the grass materials' texture slots (0x20 bytes each)
-uint8_t g_grassTexture1[0x20];
-uint8_t g_grassTextureAnimation[17 * 0x20]; // (17 slots of 0x20)
+float g_grass_detail_uv_scale{0.010416667f};
+float g_grass_uv_scale{0.0052083335f};
+float g_grass_copy_uv_scale{0.020833334f};
+uint8_t g_grass_texture0[0x20]; // the grass materials' texture slots (0x20 bytes each)
+uint8_t g_grass_texture1[0x20];
+uint8_t g_grass_texture_animation[17 * 0x20]; // (17 slots of 0x20)
 
 namespace {
 
 constexpr uint32_t kAnimatedGrass = 0x8000000; // pass 0's flag: animated rather than layered
 constexpr int kMaxLayers = 5;
 
-void* LookUpTexture(void* dictionary, uint32_t checksum)
+void* look_up_texture(void* dictionary, uint32_t checksum)
 {
-    return static_cast<CTextureSet*>(dictionary)->FetchSkin(checksum);
+    return static_cast<TextureSet*>(dictionary)->fetch_skin(checksum);
 }
 
 } // namespace
 
 // 0x004D08A0
-void __cdecl SetUpAnimatedGrassMaterial(materialRef* m)
+void __cdecl set_up_animated_grass_material(MaterialRef* m)
 {
-    m->textures[0] = g_grassTexture0;
-    m->textures[1] = g_grassTexture1;
-    m->blendModes[0] = 0x40000006;
-    m->passColor[0][3] = 0.5f;
-    m->passCount = 2;
-    m->passFlags[1] = 0x400;
-    m->hasUVWibble = false;
-    m->mipLodBias[0] = 0;
-    m->mipLodBias[1] = 0;
-    m->addressModes[0] = 0;
-    m->addressModes[1] = 0;
-    m->sortFlag = 0;
-    m->sortKey = 1501.0f;
-    m->hasTextureAnim = true;
-    m->passFlags[0] = (m->passFlags[0] & ~9u) | 0xA40;
-    auto* anim = static_cast<sTextureAnim*>(MemSys::Alloc(sizeof(sTextureAnim)));
-    m->textureAnim = anim;
-    anim->keyCounts[0] = 18;
-    m->textureAnim->phases[0] = 0;
-    m->textureAnim->loops[0] = 0;
-    m->textureAnim->keys[0] = static_cast<sTextureKey*>(MemSys::Alloc(18 * sizeof(sTextureKey)));
-    m->textureAnim->keys[1] = nullptr;
-    m->textureAnim->keys[2] = nullptr;
-    m->textureAnim->keys[3] = nullptr;
+    m->textures[0] = g_grass_texture0;
+    m->textures[1] = g_grass_texture1;
+    m->blend_modes_[0] = 0x40000006;
+    m->pass_color_[0][3] = 0.5f;
+    m->pass_count_ = 2;
+    m->pass_flags_[1] = 0x400;
+    m->has_uv_wibble_ = false;
+    m->mip_lod_bias_[0] = 0;
+    m->mip_lod_bias_[1] = 0;
+    m->address_modes_[0] = 0;
+    m->address_modes_[1] = 0;
+    m->sort_flag_ = 0;
+    m->sort_key_ = 1501.0f;
+    m->has_texture_anim_ = true;
+    m->pass_flags_[0] = (m->pass_flags_[0] & ~9u) | 0xA40;
+    auto* anim = static_cast<TextureAnim*>(memory::alloc(sizeof(TextureAnim)));
+    m->texture_anim_ = anim;
+    anim->key_counts_[0] = 18;
+    m->texture_anim_->phases[0] = 0;
+    m->texture_anim_->loops[0] = 0;
+    m->texture_anim_->keys[0] = static_cast<TextureKey*>(memory::alloc(18 * sizeof(TextureKey)));
+    m->texture_anim_->keys[1] = nullptr;
+    m->texture_anim_->keys[2] = nullptr;
+    m->texture_anim_->keys[3] = nullptr;
     for (int k = 0; k < 18; ++k) { // (a frame every 1000 / 30 ms, through 17 textures)
-        m->textureAnim->keys[0][k].time = k * 1000 / 30;
-        m->textureAnim->keys[0][k].texture = g_grassTextureAnimation + (k % 17) * 0x20;
+        m->texture_anim_->keys[0][k].time = k * 1000 / 30;
+        m->texture_anim_->keys[0][k].texture = g_grass_texture_animation + (k % 17) * 0x20;
     }
 }
 
 // 0x004D0B60
-bool __cdecl MakeAnimatedGrass(CPcGeom* /*geom*/, meshRef* mesh)
+bool __cdecl make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
 {
-    void* dictionary = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(GetSkyScene()) + 0x88); // the sky's
-    auto* entry = static_cast<uint8_t*>(LookUpTexture(dictionary, 0x96D0BF08));
+    void* dictionary = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(get_sky_scene()) + 0x88); // the sky's
+    auto* entry = static_cast<uint8_t*>(look_up_texture(dictionary, 0x96D0BF08));
     if (!entry)
         return false;
     auto* texture = *reinterpret_cast<uint8_t**>(entry + 0x10);
     if (entry[8] & 1)
         texture = *reinterpret_cast<uint8_t**>(texture);
-    std::memcpy(g_grassTexture1, texture, 0x20);
-    if ((mesh->stride - mesh->unknown1C[2]) / 8 == 1) { // (one texture coordinate set: room made for a second)
-        sVertexBuffer* wider = NewVertexBuffer((mesh->stride + 8u) * mesh->vertexCount, 0, 0);
+    std::memcpy(g_grass_texture1, texture, 0x20);
+    if ((mesh->stride - mesh->unknown1c_[2]) / 8 == 1) { // (one texture coordinate set: room made for a second)
+        VertexBuffer* wider = new_vertex_buffer((mesh->stride + 8u) * mesh->vertex_count_, 0, 0);
         uint8_t* from = nullptr;
         uint8_t* to = nullptr;
-        mesh->FetchVertexStore(0)->Lock(0, 0, &from, D3DLOCK_READONLY);
-        wider->Lock(0, 0, &to, 0);
-        for (int i = 0; i < mesh->vertexCount; ++i) {
+        mesh->fetch_vertex_store(0)->get_lock(0, 0, &from, D3DLOCK_READONLY);
+        wider->get_lock(0, 0, &to, 0);
+        for (int i = 0; i < mesh->vertex_count_; ++i) {
             std::memcpy(to, from, mesh->stride);
             to += mesh->stride + 8;
             from += mesh->stride;
         }
-        mesh->FetchVertexStore(0)->Teardown();
-        mesh->bufferUsage = 0;
-        mesh->SetVertexBuffer(0, wider);
+        mesh->fetch_vertex_store(0)->teardown();
+        mesh->buffer_usage_ = 0;
+        mesh->set_vertex_buffer(0, wider);
         mesh->stride = static_cast<uint8_t>(mesh->stride + 8);
         mesh->fvf = (mesh->fvf & ~0x100u) | 0x200; // (D3DFVF_TEX1 -> TEX2)
     }
-    SetUpAnimatedGrassMaterial(reinterpret_cast<materialRef*>(mesh->material));
+    set_up_animated_grass_material(reinterpret_cast<MaterialRef*>(mesh->material));
     mesh->flags |= 0x402;
-    mesh->pixelShader = g_pixelShaders[kPixelShader924];
+    mesh->pixel_shader_ = g_pixel_shaders[kPixelShader924];
     uint8_t* vertices = nullptr;
-    mesh->FetchVertexStore(0)->Lock(0, 0, &vertices, 0); // (not unlocked: the copy is what's changed)
-    for (uint32_t i = 0; i < mesh->vertexCount; ++i) {
+    mesh->fetch_vertex_store(0)->get_lock(0, 0, &vertices, 0); // (not unlocked: the copy is what's changed)
+    for (uint32_t i = 0; i < mesh->vertex_count_; ++i) {
         auto* v = reinterpret_cast<float*>(vertices + mesh->stride * i);
-        auto* uv = reinterpret_cast<float*>(vertices + mesh->stride * i + mesh->unknown1C[2]);
+        auto* uv = reinterpret_cast<float*>(vertices + mesh->stride * i + mesh->unknown1c_[2]);
         float x = v[0], z = v[2];
-        uv[0] = static_cast<float>(static_cast<double>(x) * g_grassUvScale);
-        uv[1] = static_cast<float>(static_cast<double>(z) * g_grassUvScale);
-        uv[2] = static_cast<float>(static_cast<double>(x) * g_grassDetailUvScale);
-        uv[3] = static_cast<float>(static_cast<double>(z) * g_grassDetailUvScale);
+        uv[0] = static_cast<float>(static_cast<double>(x) * g_grass_uv_scale);
+        uv[1] = static_cast<float>(static_cast<double>(z) * g_grass_uv_scale);
+        uv[2] = static_cast<float>(static_cast<double>(x) * g_grass_detail_uv_scale);
+        uv[3] = static_cast<float>(static_cast<double>(z) * g_grass_detail_uv_scale);
     }
     return true;
 }
 
 // 0x004D0D30
-bool __cdecl MakeGrass(CPcGeom* geom, meshRef* mesh)
+bool __cdecl make_grass(PcGeom* geom, MeshRef* mesh)
 {
-    auto* m = reinterpret_cast<materialRef*>(mesh->material);
+    auto* m = reinterpret_cast<MaterialRef*>(mesh->material);
     if (!m)
         return false;
-    if (m->passFlags[0] & kAnimatedGrass)
-        return MakeAnimatedGrass(geom, mesh);
+    if (m->pass_flags_[0] & kAnimatedGrass)
+        return make_animated_grass(geom, mesh);
     int layers = static_cast<int>(m->unknown18);
     if (!layers)
         return false;
@@ -140,34 +140,34 @@ bool __cdecl MakeGrass(CPcGeom* geom, meshRef* mesh)
         layers = kMaxLayers;
     float step = static_cast<float>(*reinterpret_cast<const float*>(&m->unknown14) / static_cast<double>(layers));
     for (int layer = 0; layer < layers; ++layer) {
-        MemSys::Hub::Pull()->EnterHeapScope(MemSys::BottomUpHeap());
-        meshRef* copy = mesh->Replicate(false);
-        MemSys::Hub::Pull()->LeaveHeapScope();
+        memory::Hub::get_pull()->enter_heap_scope(memory::bottom_up_heap());
+        MeshRef* copy = mesh->replicate(false);
+        memory::Hub::get_pull()->leave_heap_scope();
         copy->flags |= 0x182;
         char name[64];
         std::snprintf(name, sizeof(name), "Grass-Grass_Layer%d", layer);
-        uint32_t checksum = Checksums::GenerateCRCFromBuffer(name, static_cast<int>(std::strlen(name)));
-        auto* scene = *reinterpret_cast<sceneRef**>(geom->scene + 0x280);
-        auto* material = static_cast<materialRef*>(scene->FindMaterial(checksum));
+        uint32_t checksum = checksums::generate_crc_from_buffer(name, static_cast<int>(std::strlen(name)));
+        auto* scene = *reinterpret_cast<SceneRef**>(geom->scene + 0x280);
+        auto* material = static_cast<MaterialRef*>(scene->find_material(checksum));
         copy->material = reinterpret_cast<uint8_t*>(material);
-        MaterialPixelShader(material, &copy->pixelShader);
+        material_pixel_shader(material, &copy->pixel_shader_);
         float height = static_cast<float>(layer * 0.1f + 1100.0f); // (drawn after the ground, in order)
-        material->passFlags[0] |= 0x40;
-        material->mipLodBias[0] = 0xC0000000; // (-2)
-        material->sortFlag = 0;
-        material->sortKey = height;
+        material->pass_flags_[0] |= 0x40;
+        material->mip_lod_bias_[0] = 0xC0000000; // (-2)
+        material->sort_flag_ = 0;
+        material->sort_key_ = height;
         uint8_t* vertices = nullptr;
-        copy->FetchVertexStore(0)->Lock(0, 0, &vertices, 0); // (not unlocked)
+        copy->fetch_vertex_store(0)->get_lock(0, 0, &vertices, 0); // (not unlocked)
         double lift = static_cast<double>(layer + 1) * step;
-        for (uint32_t i = 0; i < copy->vertexCount; ++i) {
+        for (uint32_t i = 0; i < copy->vertex_count_; ++i) {
             auto* v = reinterpret_cast<float*>(vertices + copy->stride * i);
             v[1] = static_cast<float>(lift + v[1]);
-            auto* uv = reinterpret_cast<float*>(vertices + copy->stride * i + copy->unknown1C[2]);
+            auto* uv = reinterpret_cast<float*>(vertices + copy->stride * i + copy->unknown1c_[2]);
             float x = v[0], z = v[2];
-            uv[0] = static_cast<float>(static_cast<double>(x) * g_grassCopyUvScale);
-            uv[1] = static_cast<float>(static_cast<double>(z) * g_grassCopyUvScale);
+            uv[0] = static_cast<float>(static_cast<double>(x) * g_grass_copy_uv_scale);
+            uv[1] = static_cast<float>(static_cast<double>(z) * g_grass_copy_uv_scale);
         }
-        geom->AppendMesh(copy);
+        geom->append_mesh(copy);
     }
     mesh->flags |= 0x80; // (the ground mesh itself isn't drawn as grass)
     return true;
@@ -175,20 +175,20 @@ bool __cdecl MakeGrass(CPcGeom* geom, meshRef* mesh)
 
 } // namespace Nx
 
-namespace Engine3D {
+namespace render {
 
 // 0x00640D90 (a static initialiser): the grass materials' two textures (each listed among the textures).
-void ConstructGrassTextures()
+void construct_grass_textures()
 {
-    reinterpret_cast<textureRef*>(g_grassTexture0)->MakeNew();
-    reinterpret_cast<textureRef*>(g_grassTexture1)->MakeNew();
+    reinterpret_cast<TextureRef*>(g_grass_texture0)->make_new();
+    reinterpret_cast<TextureRef*>(g_grass_texture1)->make_new();
 }
 
 // 0x00640DC0 (a static initialiser): the grass animation's 17 textures.
-void ConstructGrassTextureAnimation()
+void construct_grass_texture_animation()
 {
     for (int i = 0; i < 17; ++i)
-        reinterpret_cast<textureRef*>(g_grassTextureAnimation + 0x20 * i)->MakeNew();
+        reinterpret_cast<TextureRef*>(g_grass_texture_animation + 0x20 * i)->make_new();
 }
 
 } // namespace Nx

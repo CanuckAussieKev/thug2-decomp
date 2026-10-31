@@ -21,39 +21,39 @@
 #include "engine/core/stubs.h"
 #include "engine/objects/movie_manager.h"
 
-namespace Engine3D {
+namespace render {
 
 namespace {
 
-void** const& kParticleVtable = Vt::kEngineParticles;
+void** const& g_particle_vtable = vt::kEngineParticles;
 extern void** const kManagerVtable;
 constexpr float kByteToUnit = 1.0f / 255.0f;   // 0x00645D70 (the bit pattern 0x3B808081)
 constexpr uint32_t kObjectIdParam = 0x40C698AF; // (the emit script's parameter: the object's id)
 
-bool IsGameHalted() { return GameObjects::g_simulationHalted; }
+bool is_game_halted() { return objects::g_simulation_halted; }
 
 // The system's virtual functions.
-CSparkle* EraseOne(CSparkle* particle, unsigned int flags)
+Sparkle* erase_one(Sparkle* particle, unsigned int flags)
 {
-    return reinterpret_cast<CSparkle*(__thiscall*)(CSparkle*, unsigned int)>(particle->vtable[0])(particle, flags);
+    return reinterpret_cast<Sparkle*(__thiscall*)(Sparkle*, unsigned int)>(particle->vtable[0])(particle, flags);
 }
-void Initialise(CSparkle* particle) { reinterpret_cast<void(__thiscall*)(CSparkle*)>(particle->vtable[1])(particle); }
-void ColourChanged(CSparkle* particle)
+void initialise(Sparkle* particle) { reinterpret_cast<void(__thiscall*)(Sparkle*)>(particle->vtable[1])(particle); }
+void colour_changed(Sparkle* particle)
 {
-    reinterpret_cast<void(__thiscall*)(CSparkle*)>(particle->vtable[6])(particle);
+    reinterpret_cast<void(__thiscall*)(Sparkle*)>(particle->vtable[6])(particle);
 }
 
-Scripts::CStruct* SpawnParamTable()
+script::Struct* spawn_param_table()
 {
-    Scripts::CStruct* structure = Scripts::SpawnParamBag();
-    return structure ? structure->PrepareAll() : nullptr;
+    script::Struct* structure = script::spawn_param_bag();
+    return structure ? structure->prepare_all() : nullptr;
 }
 
 // The engine's helpers (not yet rewritten; register arguments).
 // 0x00495130 / 0x004951B0 (ECX a, EDX b, ESI out; returns out): each component b's where it's below / above a's.
-Maths::Vec4* CallMinOrMax(uint32_t code, const Maths::Vec4* a, const Maths::Vec4* b, Maths::Vec4* destination)
+maths::Vec4* call_min_or_max(uint32_t code, const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* destination)
 {
-    Maths::Vec4* result;
+    maths::Vec4* result;
     __asm {
         mov ecx, a
         mov edx, b
@@ -64,28 +64,28 @@ Maths::Vec4* CallMinOrMax(uint32_t code, const Maths::Vec4* a, const Maths::Vec4
     }
     return result;
 }
-Maths::Vec4* MinOf(const Maths::Vec4* a, const Maths::Vec4* b, Maths::Vec4* out)
+maths::Vec4* min_of(const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* out)
 {
-    return CallMinOrMax(reinterpret_cast<uint32_t>(CodeAddress(&MinVectorStub)), a, b, out);
+    return call_min_or_max(reinterpret_cast<uint32_t>(code_address(&min_vector_stub)), a, b, out);
 }
-Maths::Vec4* MaxOf(const Maths::Vec4* a, const Maths::Vec4* b, Maths::Vec4* out)
+maths::Vec4* max_of(const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* out)
 {
-    return CallMinOrMax(reinterpret_cast<uint32_t>(CodeAddress(&MaxVectorStub)), a, b, out);
+    return call_min_or_max(reinterpret_cast<uint32_t>(code_address(&max_vector_stub)), a, b, out);
 }
 // 0x00494F10 (thiscall on `out`, the 14 words of arguments popped by the caller): per component, the extreme of the
 // quadratic through `start` (at 0), `mid` (at `midTime`) and `end` (at `life`); w 0. Returns out.
-Maths::Vec4* CurveExtremes(Maths::Vec4* destination, const Maths::Vec4& start, const Maths::Vec4& mid, const Maths::Vec4& end,
-                           float midTime, float life)
+maths::Vec4* curve_extremes(maths::Vec4* destination, const maths::Vec4& start, const maths::Vec4& mid, const maths::Vec4& end,
+                           float mid_time, float life)
 {
     uint32_t args[14];
     std::memcpy(args, &start, 16);
     std::memcpy(args + 4, &mid, 16);
     std::memcpy(args + 8, &end, 16);
-    std::memcpy(args + 12, &midTime, 4);
+    std::memcpy(args + 12, &mid_time, 4);
     std::memcpy(args + 13, &life, 4);
     uint32_t* words = args;
-    void* code = CodeAddress(&QuadraticLowestStub);
-    Maths::Vec4* result;
+    void* code = code_address(&quadratic_lowest_stub);
+    maths::Vec4* result;
     __asm {
         sub esp, 0x38
         mov esi, words
@@ -101,347 +101,347 @@ Maths::Vec4* CurveExtremes(Maths::Vec4* destination, const Maths::Vec4& start, c
     return result;
 }
 
-float Round(double value) { return static_cast<float>(value); }
+float current_round(double value) { return static_cast<float>(value); }
 
 } // namespace
 
 // --- the parameters ---
 
 // 0x00496240
-CSparkleConfig* CSparkleConfig::MakeNew()
+SparkleConfig* SparkleConfig::make_new()
 {
-    m_unknown04 = 0xDEDFC057;
-    m_flag151 = true;
-    m_localPositions = false;
-    m_orientWithObject = false;
+    unknown04_ = 0xDEDFC057;
+    flag151_ = true;
+    local_positions_ = false;
+    orient_with_object_ = false;
     for (int i = 0; i < 3; ++i) {
-        m_extent[i] = 1.0f;
-        m_radius[i] = 0.0f;
-        m_atPoint[i] = Maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f};
-        m_box[i] = Maths::Vec4{20.0f, 20.0f, 20.0f, 0.0f};
-        m_offsetPos[i] = Maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f};
+        extent_[i] = 1.0f;
+        radius_[i] = 0.0f;
+        at_point_[i] = maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f};
+        box_[i] = maths::Vec4{20.0f, 20.0f, 20.0f, 0.0f};
+        offset_pos_[i] = maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f};
         for (int k = 0; k < 4; ++k)
-            m_shade[i][k] = 0x80;
+            shade_[i][k] = 0x80;
     }
-    m_flag153 = false;
-    m_unknown140 = 0;
-    m_unknown138 = 0;
-    m_unknown30 = 50.0f;
-    m_unknown24 = 2;
-    m_unknown28 = 300.0f;
-    m_unknown2C = 4.0f;
-    m_unknown34 = 1.0f;
-    m_unknown124 = 50.0f;
-    m_unknown134 = 0xA86285A1;
-    m_unknown13C = 1;
-    for (float& scale : m_colourScale)
+    flag153_ = false;
+    unknown140_ = 0;
+    unknown138_ = 0;
+    unknown30_ = 50.0f;
+    unknown24_ = 2;
+    unknown28_ = 300.0f;
+    unknown2c_ = 4.0f;
+    unknown34_ = 1.0f;
+    unknown124_ = 50.0f;
+    unknown134_ = 0xA86285A1;
+    unknown13c_ = 1;
+    for (float& scale : colour_scale_)
         scale = 1.0f;
-    m_unknown14C = 0;
+    unknown14c_ = 0;
     unknown155[0] = 0;
     unknown155[1] = 0;
-    m_flag158 = false;
-    m_entityKey = 0;
-    m_unknown144 = 400;
-    m_unknown148 = 401;
+    flag158_ = false;
+    entity_key_ = 0;
+    unknown144_ = 400;
+    unknown148_ = 401;
     return this;
 }
 
 // 0x00495C80
-CSparkleConfig* CSparkleConfig::Assign(const CSparkleConfig& other)
+SparkleConfig* SparkleConfig::get_assign(const SparkleConfig& other)
 {
-    std::memcpy(this, &other, offsetof(CSparkleConfig, unknown159));
+    std::memcpy(this, &other, offsetof(SparkleConfig, unknown159));
     return this;
 }
 
 // --- the system ---
 
 // 0x00496360
-CSparkle* CSparkle::MakeNew()
+Sparkle* Sparkle::make_new()
 {
-    vtable = kParticleVtable;
-    m_args.MakeNew();
-    new (&m_extentBox) Maths::BBox();
+    vtable = g_particle_vtable;
+    args_.make_new();
+    new (&extent_box_) maths::BBox();
     return this;
 }
 
 // 0x00496380
-void CSparkle::PrepareAll(const CSparkleConfig* params)
+void Sparkle::prepare_all(const SparkleConfig* params)
 {
-    m_args.Assign(*params);
-    UpdateBounds();
-    Initialise(this);
+    args_.get_assign(*params);
+    update_bounds();
+    initialise(this);
 }
 
 // 0x00495260. The corners are (position, size) less / plus (half the box, half the radius), the size and half the
 // radius; the original's x87 code rounds some of the sums to floats and keeps others at 53 bits - followed term by term.
-void CSparkle::UpdateBounds()
+void Sparkle::update_bounds()
 {
-    const CSparkleConfig& p = m_args;
+    const SparkleConfig& p = args_;
     float hb[3][3], hr[3], s[3];
     for (int i = 0; i < 3; ++i) {
-        hb[i][0] = p.m_box[i].x * 0.5f;
-        hb[i][1] = p.m_box[i].y * 0.5f;
-        hb[i][2] = p.m_box[i].z * 0.5f;
-        hr[i] = p.m_radius[i] * 0.5f;
-        s[i] = p.m_extent[i];
+        hb[i][0] = p.box_[i].x * 0.5f;
+        hb[i][1] = p.box_[i].y * 0.5f;
+        hb[i][2] = p.box_[i].z * 0.5f;
+        hr[i] = p.radius_[i] * 0.5f;
+        s[i] = p.extent_[i];
     }
-    Maths::Vec4 lo[3], hi[3];
+    maths::Vec4 lo[3], hi[3];
     for (int i = 0; i < 3; ++i) {
-        const Maths::Vec4& at = p.m_atPoint[i];
-        lo[i].x = Round(Round(Round(static_cast<double>(at.x) - hb[i][0]) - s[i]) - hr[i]);
-        lo[i].y = Round(Round(Round(static_cast<double>(at.y) - hb[i][1]) - s[i]) - hr[i]);
-        lo[i].z = Round(Round(Round(static_cast<double>(at.z) - hb[i][2]) - s[i]) - hr[i]);
-        lo[i].w = Round(Round(Round(static_cast<double>(s[i]) - hr[i]) - s[i]) - hr[i]);
+        const maths::Vec4& at = p.at_point_[i];
+        lo[i].x = current_round(current_round(current_round(static_cast<double>(at.x) - hb[i][0]) - s[i]) - hr[i]);
+        lo[i].y = current_round(current_round(current_round(static_cast<double>(at.y) - hb[i][1]) - s[i]) - hr[i]);
+        lo[i].z = current_round(current_round(current_round(static_cast<double>(at.z) - hb[i][2]) - s[i]) - hr[i]);
+        lo[i].w = current_round(current_round(current_round(static_cast<double>(s[i]) - hr[i]) - s[i]) - hr[i]);
     }
     {
-        const Maths::Vec4& at = p.m_atPoint[0];
-        hi[0].x = Round((static_cast<double>(Round(static_cast<double>(hb[0][0]) + at.x)) + s[0]) + hr[0]);
-        hi[0].y = Round(((static_cast<double>(at.y) + hb[0][1]) + s[0]) + hr[0]);
-        hi[0].z = Round(static_cast<double>(Round(s[0] + static_cast<double>(Round(static_cast<double>(at.z) +
+        const maths::Vec4& at = p.at_point_[0];
+        hi[0].x = current_round((static_cast<double>(current_round(static_cast<double>(hb[0][0]) + at.x)) + s[0]) + hr[0]);
+        hi[0].y = current_round(((static_cast<double>(at.y) + hb[0][1]) + s[0]) + hr[0]);
+        hi[0].z = current_round(static_cast<double>(current_round(s[0] + static_cast<double>(current_round(static_cast<double>(at.z) +
                                                                                     hb[0][2])))) + hr[0]);
-        hi[0].w = Round(static_cast<double>(Round(s[0] + static_cast<double>(Round(static_cast<double>(hr[0]) +
+        hi[0].w = current_round(static_cast<double>(current_round(s[0] + static_cast<double>(current_round(static_cast<double>(hr[0]) +
                                                                                     s[0])))) + hr[0]);
     }
     for (int i = 1; i < 3; ++i) {
-        const Maths::Vec4& at = p.m_atPoint[i];
-        hi[i].x = Round(Round(Round(static_cast<double>(hb[i][0]) + at.x) + s[i]) + hr[i]);
-        hi[i].y = Round(Round(Round(static_cast<double>(at.y) + hb[i][1]) + s[i]) + hr[i]);
-        hi[i].z = Round((s[i] + static_cast<double>(Round(static_cast<double>(at.z) + hb[i][2]))) + hr[i]);
-        hi[i].w = Round(static_cast<double>(Round(s[i] + (static_cast<double>(hr[i]) + s[i]))) + hr[i]);
+        const maths::Vec4& at = p.at_point_[i];
+        hi[i].x = current_round(current_round(current_round(static_cast<double>(hb[i][0]) + at.x) + s[i]) + hr[i]);
+        hi[i].y = current_round(current_round(current_round(static_cast<double>(at.y) + hb[i][1]) + s[i]) + hr[i]);
+        hi[i].z = current_round((s[i] + static_cast<double>(current_round(static_cast<double>(at.z) + hb[i][2]))) + hr[i]);
+        hi[i].w = current_round(static_cast<double>(current_round(s[i] + (static_cast<double>(hr[i]) + s[i]))) + hr[i]);
     }
-    Maths::Vec4 low, high, curve;
-    low = *MinOf(&lo[0], &lo[2], &curve);
-    high = *MaxOf(&hi[0], &hi[2], &curve);
-    if (p.m_flag151) { // (the paths go through the mid: their extremes on the way)
-        float life = p.m_unknown2C;
-        float midTime = Round(static_cast<double>(life) * p.m_unknown30 * 0.01f);
-        Maths::Vec4 extreme;
-        CurveExtremes(&extreme, lo[0], lo[1], lo[2], midTime, life);
-        low = *MinOf(&low, &extreme, &curve);
-        CurveExtremes(&extreme, hi[0], hi[1], hi[2], midTime, life);
-        high = *MaxOf(&high, &extreme, &curve);
+    maths::Vec4 low, high, curve;
+    low = *min_of(&lo[0], &lo[2], &curve);
+    high = *max_of(&hi[0], &hi[2], &curve);
+    if (p.flag151_) { // (the paths go through the mid: their extremes on the way)
+        float life = p.unknown2c_;
+        float mid_time = current_round(static_cast<double>(life) * p.unknown30_ * 0.01f);
+        maths::Vec4 extreme;
+        curve_extremes(&extreme, lo[0], lo[1], lo[2], mid_time, life);
+        low = *min_of(&low, &extreme, &curve);
+        curve_extremes(&extreme, hi[0], hi[1], hi[2], mid_time, life);
+        high = *max_of(&high, &extreme, &curve);
     }
-    m_extentBox.min = low;
-    m_extentBox.max = high;
+    extent_box_.min = low;
+    extent_box_.max = high;
     // the sphere about the box
-    float halfX = Round((static_cast<double>(high.x) - low.x) * 0.5f);
-    double halfY = (static_cast<double>(high.y) - low.y) * 0.5f;
-    double halfZ = static_cast<double>(Round(static_cast<double>(high.z) - low.z)) * 0.5f;
-    m_boundBall.w = low.w; // (overwritten below, as the original)
-    m_boundBall.z = Round(halfZ + low.z);
-    m_boundBall.x = Round(static_cast<double>(halfX) + low.x);
-    m_boundBall.y = Round(halfY + low.y);
-    m_boundBall.w = Round(std::sqrt((static_cast<double>(halfX) * halfX + halfZ * halfZ) + halfY * halfY));
+    float half_x = current_round((static_cast<double>(high.x) - low.x) * 0.5f);
+    double half_y = (static_cast<double>(high.y) - low.y) * 0.5f;
+    double half_z = static_cast<double>(current_round(static_cast<double>(high.z) - low.z)) * 0.5f;
+    bound_ball_.w = low.w; // (overwritten below, as the original)
+    bound_ball_.z = current_round(half_z + low.z);
+    bound_ball_.x = current_round(static_cast<double>(half_x) + low.x);
+    bound_ball_.y = current_round(half_y + low.y);
+    bound_ball_.w = current_round(std::sqrt((static_cast<double>(half_x) * half_x + half_z * half_z) + half_y * half_y));
 }
 
 // 0x00496030
-void CSparkle::ChangePlace(int which, const Maths::Vec4* pos) { m_args.m_atPoint[which] = *pos; }
+void Sparkle::change_place(int which, const maths::Vec4* pos) { args_.at_point_[which] = *pos; }
 
 // 0x00496160
-void CSparkle::SetBox(int which, const Maths::Vec4* box) { m_args.m_box[which] = *box; }
+void Sparkle::set_box(int which, const maths::Vec4* box) { args_.box_[which] = *box; }
 
 // 0x00496060
-void CSparkle::SpinBy(int which, const Maths::Mat4* matrix)
+void Sparkle::spin_by(int which, const maths::Mat4* matrix)
 {
-    const Maths::Vec4 start = m_args.m_atPoint[0];
-    Maths::Vec4& pos = m_args.m_atPoint[which];
+    const maths::Vec4 start = args_.at_point_[0];
+    maths::Vec4& pos = args_.at_point_[which];
     pos.x -= start.x;
     pos.y -= start.y;
     pos.z -= start.z;
     pos.w -= start.w;
-    Maths::Vec4 turned;
-    pos = matrix->Xform(turned, pos);
-    Maths::Vec4& box = m_args.m_box[which];
-    box = matrix->Xform(turned, box);
+    maths::Vec4 turned;
+    pos = matrix->xform(turned, pos);
+    maths::Vec4& box = args_.box_[which];
+    box = matrix->xform(turned, box);
     pos.x = start.x + pos.x;
     pos.y = start.y + pos.y;
     pos.z = start.z + pos.z;
     pos.w = start.w + pos.w;
-    m_args.m_orientationTurn = *matrix;
+    args_.orientation_turn_ = *matrix;
 }
 
 // 0x00496190
-void CSparkle::ChangeColour(const uint8_t* rgba)
+void Sparkle::change_colour(const uint8_t* rgba)
 {
     if (!rgba) {
-        ColourChanged(this);
+        colour_changed(this);
         return;
     }
-    if (m_args.m_flag158) {
+    if (args_.flag158_) {
         for (int i = 0; i < 4; ++i)
-            m_args.m_colourScale[i] = static_cast<float>(rgba[i]) * kByteToUnit;
-        ColourChanged(this);
+            args_.colour_scale_[i] = static_cast<float>(rgba[i]) * kByteToUnit;
+        colour_changed(this);
     }
 }
 
 // 0x00496210
-void CSparkle::SetColourScale(const float* rgba)
+void Sparkle::set_colour_scale(const float* rgba)
 {
-    if (m_args.m_flag158) {
+    if (args_.flag158_) {
         for (int i = 0; i < 4; ++i)
-            m_args.m_colourScale[i] = rgba[i];
-        ColourChanged(this);
+            args_.colour_scale_[i] = rgba[i];
+        colour_changed(this);
     }
 }
 
 // 0x004963B0
-void CSparkle::SetEmitScript(uint32_t script, uint32_t objectId)
+void Sparkle::set_emit_script(uint32_t script, uint32_t object_id)
 {
-    if (m_args.m_emitScript)
-        Scripts::StopScriptsByTag(m_args.m_emitScript);
-    m_args.m_emitScript = script;
-    m_args.m_entityKey = objectId;
-    Scripts::CStruct* params = SpawnParamTable();
-    params->PutNameKey(kObjectIdParam, m_args.m_entityKey); // (not checked for null, as the original)
-    Scripts::SpawnScript(m_args.m_emitScript, params, 0, nullptr, 0, 0, false, false, false, false);
+    if (args_.emit_script_)
+        script::stop_scripts_by_tag(args_.emit_script_);
+    args_.emit_script_ = script;
+    args_.entity_key_ = object_id;
+    script::Struct* params = spawn_param_table();
+    params->put_name_key(kObjectIdParam, args_.entity_key_); // (not checked for null, as the original)
+    script::spawn_script(args_.emit_script_, params, 0, nullptr, 0, 0, false, false, false, false);
     if (params) {
-        params->Clear();
-        Scripts::DeleteStruct(params);
+        params->get_clear();
+        script::delete_struct(params);
     }
 }
 
-void CSparkle::Render(bool advance) { reinterpret_cast<CPcParticleSystem*>(this)->EngineRender(advance); }
-void CSparkle::TickFrame() { reinterpret_cast<CPcParticleSystem*>(this)->EngineUpdate(); }
-void CSparkle::Release() { reinterpret_cast<CPcParticleSystem*>(this)->EngineRelease(); }
+void Sparkle::render(bool advance) { reinterpret_cast<PcParticleSystem*>(this)->engine_render(advance); }
+void Sparkle::tick_frame() { reinterpret_cast<PcParticleSystem*>(this)->engine_update(); }
+void Sparkle::get_release() { reinterpret_cast<PcParticleSystem*>(this)->engine_release(); }
 
 // --- the manager ---
 
 // 0x00496770
-CEffectsDirector* CEffectsDirector::MakeNew()
+EffectsDirector* EffectsDirector::make_new()
 {
     vtable = kManagerVtable;
-    m_systems.size = 0;
-    auto* head = static_cast<GameObjects::PointerListNode*>(MemSys::Alloc(sizeof(GameObjects::PointerListNode)));
+    systems_.size = 0;
+    auto* head = static_cast<objects::PointerListNode*>(memory::alloc(sizeof(objects::PointerListNode)));
     if (head) {
         head->next = head;
         head->prev = head;
     }
-    m_systems.head = head;
-    for (float& c : m_shade)
+    systems_.head = head;
+    for (float& c : shade_)
         c = 1.0f;
     return this;
 }
 
 // 0x004967D0
-void CEffectsDirector::DestroyBody()
+void EffectsDirector::destroy_body()
 {
     vtable = kManagerVtable;
-    GameObjects::PointerListNode* result;
+    objects::PointerListNode* result;
     for (int pass = 0; pass < 2; ++pass) {
-        GameObjects::PointerListNode* head = m_systems.head;
-        m_systems.Erase(&result, head ? head->next : nullptr, head);
+        objects::PointerListNode* head = systems_.head;
+        systems_.get_erase(&result, head ? head->next : nullptr, head);
     }
-    MemSys::Dealloc(m_systems.head);
+    memory::dealloc(systems_.head);
 }
 
 // 0x00496860
-CEffectsDirector* CEffectsDirector::Teardown(unsigned int flags)
+EffectsDirector* EffectsDirector::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
 // 0x00496510
-CSparkle* CEffectsDirector::SpawnParticle(const CSparkleConfig* params)
+Sparkle* EffectsDirector::spawn_particle(const SparkleConfig* params)
 {
-    CSparkle* particle = reinterpret_cast<CSparkle*(__thiscall*)(CEffectsDirector*)>(vtable[1])(this);
+    Sparkle* particle = reinterpret_cast<Sparkle*(__thiscall*)(EffectsDirector*)>(vtable[1])(this);
     if (particle) {
-        particle->PrepareAll(params);
-        if (particle->m_args.m_flag158) {
+        particle->prepare_all(params);
+        if (particle->args_.flag158_) {
             for (int i = 0; i < 4; ++i)
-                particle->m_args.m_colourScale[i] = m_shade[i];
-            particle->SetColourScale(m_shade);
+                particle->args_.colour_scale_[i] = shade_[i];
+            particle->set_colour_scale(shade_);
         }
-        m_systems.Splice(m_systems.head, reinterpret_cast<void* const*>(&particle));
+        systems_.splice(systems_.head, reinterpret_cast<void* const*>(&particle));
     }
     return particle;
 }
 
 // 0x00496590
-void CEffectsDirector::RetireParticle(CSparkle* particle)
+void EffectsDirector::retire_particle(Sparkle* particle)
 {
-    if (particle->m_args.m_emitScript) {
-        Scripts::StopScriptsByTag(particle->m_args.m_emitScript);
-        particle->m_args.m_emitScript = 0;
+    if (particle->args_.emit_script_) {
+        script::stop_scripts_by_tag(particle->args_.emit_script_);
+        particle->args_.emit_script_ = 0;
     }
-    GameObjects::PointerListNode* node = m_systems.head ? m_systems.head->next : nullptr;
-    if (node == m_systems.head)
+    objects::PointerListNode* node = systems_.head ? systems_.head->next : nullptr;
+    if (node == systems_.head)
         return;
-    while (static_cast<CSparkle*>(node->data)->m_args.m_label != particle->m_args.m_label) {
+    while (static_cast<Sparkle*>(node->data)->args_.label_ != particle->args_.label_) {
         node = node->next;
-        if (node == m_systems.head)
+        if (node == systems_.head)
             return;
     }
-    auto* found = static_cast<CSparkle*>(node->data);
-    found->Release();
+    auto* found = static_cast<Sparkle*>(node->data);
+    found->get_release();
     if (found)
-        EraseOne(found, 1);
-    if (node != m_systems.head) {
+        erase_one(found, 1);
+    if (node != systems_.head) {
         node->prev->next = node->next;
         node->next->prev = node->prev;
-        MemSys::Dealloc(node);
-        --m_systems.size;
+        memory::dealloc(node);
+        --systems_.size;
     }
 }
 
 // 0x00496640
-void CEffectsDirector::DrawParticles()
+void EffectsDirector::draw_particles()
 {
-    if (!m_systems.size)
+    if (!systems_.size)
         return;
-    for (GameObjects::PointerListNode* node = m_systems.head ? m_systems.head->next : nullptr; node != m_systems.head;
+    for (objects::PointerListNode* node = systems_.head ? systems_.head->next : nullptr; node != systems_.head;
          node = node->next)
-        static_cast<CSparkle*>(node->data)->Render(!IsGameHalted());
+        static_cast<Sparkle*>(node->data)->render(!is_game_halted());
 }
 
 // 0x00496680
-void CEffectsDirector::TickParticles()
+void EffectsDirector::tick_particles()
 {
-    for (GameObjects::PointerListNode* node = m_systems.head ? m_systems.head->next : nullptr; node != m_systems.head;
+    for (objects::PointerListNode* node = systems_.head ? systems_.head->next : nullptr; node != systems_.head;
          node = node->next)
-        static_cast<CSparkle*>(node->data)->TickFrame();
+        static_cast<Sparkle*>(node->data)->tick_frame();
 }
 
 // 0x004966B0
-void CEffectsDirector::ChangeColour(const float* rgba)
+void EffectsDirector::change_colour(const float* rgba)
 {
-    for (GameObjects::PointerListNode* node = m_systems.head ? m_systems.head->next : nullptr; node != m_systems.head;
+    for (objects::PointerListNode* node = systems_.head ? systems_.head->next : nullptr; node != systems_.head;
          node = node->next)
-        static_cast<CSparkle*>(node->data)->SetColourScale(rgba);
+        static_cast<Sparkle*>(node->data)->set_colour_scale(rgba);
     for (int i = 0; i < 4; ++i)
-        m_shade[i] = rgba[i];
+        shade_[i] = rgba[i];
 }
 
 // 0x00496700
-void CEffectsDirector::KillEveryParticle()
+void EffectsDirector::kill_every_particle()
 {
-    for (GameObjects::PointerListNode* node = m_systems.head ? m_systems.head->next : nullptr; node != m_systems.head;
+    for (objects::PointerListNode* node = systems_.head ? systems_.head->next : nullptr; node != systems_.head;
          node = node->next) {
-        auto* particle = static_cast<CSparkle*>(node->data);
-        particle->Release();
+        auto* particle = static_cast<Sparkle*>(node->data);
+        particle->get_release();
         if (particle)
-            EraseOne(particle, 1);
+            erase_one(particle, 1);
     }
-    GameObjects::PointerListNode* result;
-    GameObjects::PointerListNode* head = m_systems.head;
-    m_systems.Erase(&result, head ? head->next : nullptr, head);
+    objects::PointerListNode* result;
+    objects::PointerListNode* head = systems_.head;
+    systems_.get_erase(&result, head ? head->next : nullptr, head);
 }
 
 namespace {
-static VtableSlot kManagerVtable_slots[] = {&Engine3D::CEffectsDirector::Teardown, Stubs::ReturnZero};
-void** const kManagerVtable = reinterpret_cast<void**>(kManagerVtable_slots);
+static VtableSlot g_manager_vtable_slots[] = {&render::EffectsDirector::teardown, stubs::return_zero};
+void** const kManagerVtable = reinterpret_cast<void**>(g_manager_vtable_slots);
 } // namespace
 
 } // namespace Nx
 
-namespace GameObjects {
+namespace objects {
 
 // 0x004964A0
-void PointerList::Splice(PointerListNode* position, void* const* value)
+void PointerList::splice(PointerListNode* position, void* const* value)
 {
-    auto* node = static_cast<PointerListNode*>(MemSys::Alloc(sizeof(PointerListNode)));
+    auto* node = static_cast<PointerListNode*>(memory::alloc(sizeof(PointerListNode)));
     if (node) {
         node->data = *value;
         node->prev = position->prev;
@@ -454,8 +454,8 @@ void PointerList::Splice(PointerListNode* position, void* const* value)
 
 } // namespace Obj
 
-namespace Vt {
-static VtableSlot kEngineParticles_slots[] = {&Engine3D::CPcParticleSystem::EngineDestroy, Stubs::DoNothing, Stubs::DoNothing,
-                Stubs::IgnoreArgument, Stubs::IgnoreArgument, Stubs::DoNothing, Stubs::DoNothing, Stubs::ReturnTrue};
-void** const kEngineParticles = reinterpret_cast<void**>(kEngineParticles_slots);
+namespace vt {
+static VtableSlot g_engine_particles_slots[] = {&render::PcParticleSystem::engine_destroy, stubs::do_nothing, stubs::do_nothing,
+                stubs::ignore_argument, stubs::ignore_argument, stubs::do_nothing, stubs::do_nothing, stubs::return_true};
+void** const kEngineParticles = reinterpret_cast<void**>(g_engine_particles_slots);
 } // namespace Vt

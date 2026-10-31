@@ -1,13 +1,13 @@
 #pragma once
 
-// GoalSystem::CObjective (0x70 bytes; 0x00553E00-0x00557ABF): the goal base class. Every goal of a level is one (or one of its
+// goals::Objective (0x70 bytes; 0x00553E00-0x00557ABF): the goal base class. Every goal of a level is one (or one of its
 // types: competition, film, find gaps, horse, net, race, skate line, tetris, trick beat... - their own files): its
 // parameters (the goal's script structure, also its state as flags and integers), its flags structure (the
 // goal_flags that must be set to win), the goals linked to it (children it starts, the parent that started it), its
 // timer, its records. The goal manager (goal_manager.h) owns them, in a lookup table by goal id, and drives them
 // from its script commands and its update.
 //
-// Not C++ virtual: the vtable pointer is the game's (CObjective's own 0x0064DDD0, a type's another), called through the
+// Not C++ virtual: the vtable pointer is the game's (Objective's own 0x0064DDD0, a type's another), called through the
 // table (Virtual below) - the engine calls the same entries. Every slot returns
 // what the callers read (AL for the bool ones; the setters' EAX is left unread - checked at the callers).
 
@@ -16,42 +16,42 @@
 
 #include "engine/core/arena_alloc.h"
 
-namespace Scripts {
-class CArray;
-class CScript;
-class CStruct;
+namespace script {
+class Array;
+class Script;
+class Struct;
 } // namespace Script
 
-namespace GoalSystem {
+namespace goals {
 
 extern void** const kGoalNodeVtable; // 0x0064DDCC (defined in goal_life.cpp)
 
-class CObjectiveNpc;
+class ObjectiveNpc;
 
 // A link to another goal by id (0xC bytes): the children (+0x28) and the parents (+0x2C) are singly linked lists of
 // these; a child's link is marked when that child is won (Win, 0x005576D0).
 struct GoalEdge {
-    uint32_t m_objectiveKey;  // +0x00 (0: the list's first link, not yet used)
-    GoalEdge* m_succ;   // +0x04
-    bool m_won;         // +0x08
-    uint8_t m_pad09[3];
+    uint32_t objective_key_;  // +0x00 (0: the list's first link, not yet used)
+    GoalEdge* succ_;   // +0x04
+    bool won_;         // +0x08
+    uint8_t pad09_[3];
 };
 static_assert(sizeof(GoalEdge) == 0xC, "layout must match the original");
 
-class CObjective {
+class Objective {
 public:
-    // The vtable slots (CObjective's own entries at 0x0064DDD0).
+    // The vtable slots (Objective's own entries at 0x0064DDD0).
     enum Bay : uint32_t {
         kVtDestroy = 0x00,         // 0x005566A0 (flags; bit 0: free) - returns this
         kVtShouldExpire = 0x04,    // 0x00556230
         kVtIsExpired = 0x08,       // 0x00554CD0
         kVtIsActive = 0x0C,        // 0x00553F90
-        kVtIsActive2 = 0x10,       // 0x004A10A0 (a jump to IsOperative's slot: not in this range)
+        kVtIsActive2 = 0x10,       // 0x004A10A0 (a jump to is_operative's slot: not in this range)
         kVtExpire = 0x14,          // 0x00554F40
         kVtLoadSaveData = 0x18,    // 0x00554610
         kVtGetSaveData = 0x1C,     // 0x00554770
         kVtHasTimeLimit = 0x20,    // 0x005545A0
-        kVtTimerBeeps = 0x24,      // 0x005B9760 (Stubs::ReturnTrue)
+        kVtTimerBeeps = 0x24,      // 0x005B9760 (stubs::return_true)
         kVtSlot28 = 0x28,          // 0x005545F0
         kVtActivate = 0x2C,        // 0x00557360
         kVtSetActive = 0x30,       // 0x00553F50
@@ -74,7 +74,7 @@ public:
         kVtUnBeat = 0x74,          // 0x00555930
     };
 
-    // +0x6C (m_flagBits)
+    // +0x6C (flag_bits_)
     enum Flags : uint8_t {
         kFlagInitialized = 0x01,       // Init / Uninitialize
         kFlagSeen = 0x02,              // the player has started it (hasSeen)
@@ -83,9 +83,9 @@ public:
         kFlagSelected = 0x10,          // chosen for a net game
         kFlagLocked = 0x20,            // locked until another goal unlocks it (unlocked_by_another, pro_goal)
         kFlagDeactivateOnExpire = 0x40,
-        kFlagEndOfRunStarted = 0x80,   // the skater's end of run started by the goal (HasRunOut)
+        kFlagEndOfRunStarted = 0x80,   // the skater's end of run started by the goal (has_run_out)
     };
-    // +0x6D (m_curPhase)
+    // +0x6D (cur_phase_)
     enum State : uint8_t {
         kStateActive = 0x01,
         kState02 = 0x02,           // (read by 0x005543E0, never set in this range)
@@ -93,294 +93,294 @@ public:
         kStateNoTimeLimit = 0x10,
     };
 
-    MemSys::ListNode m_listLink;          // +0x00: the vtable, then a list node (data this, priority 0, linked to itself
+    memory::ListNode list_link_;          // +0x00: the vtable, then a list node (data this, priority 0, linked to itself
                                    // while not in a list; Deactivate unlinks it)
-    CObjectiveNpc* m_ped;               // +0x14: the goal's pro (0x14 bytes)
-    uint32_t m_inherited;          // +0x18: passed to the children (2: single_timer, 4: retry_stage)
-    Scripts::CStruct* m_args;     // +0x1C
-    Scripts::CStruct* m_goalFlags;  // +0x20: goal_flags, each an integer (1: set); skater_flags: a structure each
-    int m_runEnding;              // +0x24: 0 the goal's own end of run (GoalRunDone...), 1 the normal one
-    GoalEdge* m_subNodes;          // +0x28
-    GoalEdge* m_parents;           // +0x2C
-    uint32_t m_skater;             // +0x30: skater (none 0x806FFF30)
-    int m_level;                   // +0x34: the career's level when made
-    int m_bundle;                   // +0x38: group_number (-1: none) - locked while the manager's group is
-    uint32_t m_stageFlags;         // +0x3C: bits by number (SetStageFlag)
-    uint32_t m_netStageFlags;      // +0x40
-    int m_timesStarted;            // +0x44
-    int m_bestTime;                // +0x48: ms (record_type time; 0x7FFFFFFF none)
-    int m_recordPoints;               // +0x4C (record_type score)
-    int m_secondsRemaining;                // +0x50: ms
-    uint32_t m_unknown54;
-    int m_numFlags;                // +0x58
-    int m_numFlagsSet;             // +0x5C (also the number collected without number_collected)
-    int m_elapsed;                 // +0x60: ms since activated
-    int m_unknown64;               // +0x64 (-1)
-    int m_unknown68;               // +0x68 (-1)
-    uint8_t m_flagBits;               // +0x6C (Flags)
-    uint8_t m_curPhase;               // +0x6D (State)
-    uint8_t m_pad6E[2];
+    ObjectiveNpc* ped_;               // +0x14: the goal's pro (0x14 bytes)
+    uint32_t inherited_;          // +0x18: passed to the children (2: single_timer, 4: retry_stage)
+    script::Struct* args_;     // +0x1C
+    script::Struct* goal_flags_;  // +0x20: goal_flags, each an integer (1: set); skater_flags: a structure each
+    int run_ending_;              // +0x24: 0 the goal's own end of run (goal_run_done...), 1 the normal one
+    GoalEdge* sub_nodes_;          // +0x28
+    GoalEdge* parents_;           // +0x2C
+    uint32_t skater_;             // +0x30: skater (none 0x806FFF30)
+    int level_;                   // +0x34: the career's level when made
+    int bundle_;                   // +0x38: group_number (-1: none) - locked while the manager's group is
+    uint32_t stage_flags_;         // +0x3C: bits by number (set_stage_flag)
+    uint32_t net_stage_flags_;      // +0x40
+    int times_started_;            // +0x44
+    int best_time_;                // +0x48: ms (record_type time; 0x7FFFFFFF none)
+    int record_points_;               // +0x4C (record_type score)
+    int seconds_remaining_;                // +0x50: ms
+    uint32_t unknown54_;
+    int num_flags_;                // +0x58
+    int num_flags_set_;             // +0x5C (also the number collected without number_collected)
+    int elapsed_;                 // +0x60: ms since activated
+    int unknown64_;               // +0x64 (-1)
+    int unknown68_;               // +0x68 (-1)
+    uint8_t flag_bits_;               // +0x6C (Flags)
+    uint8_t cur_phase_;               // +0x6D (State)
+    uint8_t pad6e_[2];
 
-    void** Vtable() const { return m_listLink.vtable; }
+    void** get_vtable() const { return list_link_.vtable; }
 
     // 0x00553E00: this goal's inherited bits passed to every child, down the tree. 0x00553E50: the children's links'
     // won marks cleared, down the tree. (The depth argument is only passed on.)
-    void PassInheritedFlags(int depth);
-    void ClearChildWins();
+    void pass_inherited_flags(int depth);
+    void clear_child_wins();
     // 0x00553E90
-    Scripts::CStruct* FetchArgs();
+    script::Struct* fetch_args();
     // 0x00553EA0: the timer from time (120 if none) seconds, plus 20 ms - unless unlimited_Time is 1.
-    void ResetTimer();
+    void reset_timer();
     // 0x00553F10 / 0x00553F20 / 0x00553F30: the time left set (seconds, no extra 20 ms) / read (ms) / added to.
-    void SetSecondsRemaining(int seconds);
-    int GetSecondsRemaining();
-    void AdvanceClock(int seconds);
+    void set_seconds_remaining(int seconds);
+    int get_seconds_remaining();
+    void advance_clock(int seconds);
     // 0x00553F50 / 0x00553F60 (vtable +0x30 / +0x38): the active bit.
-    void ChangeLive();
-    void ClearEngagedBit();
+    void change_live();
+    void clear_engaged_bit();
     // 0x00553F70: `params` added to the goal's parameters. False.
-    bool RewriteArgs(Scripts::CStruct* params);
+    bool rewrite_args(script::Struct* params);
     // 0x00553F90 (vtable +0x0C)
-    bool IsOperative();
+    bool is_operative();
     // 0x00553FA0
-    bool HasSeen();
+    bool has_seen();
     // 0x00553FB0 / 0x00553FC0
-    void Freeze();
-    void UnPause();
+    void get_freeze();
+    void un_pause();
     // 0x00553FD0: goal flag `flag` (of the skater_flags structure `sub`, if any) is there and equals `value`.
-    bool BitMatches(uint32_t flag, int value, uint32_t sub);
+    bool bit_matches(uint32_t flag, int value, uint32_t sub);
     // 0x00554030 (cdecl): every flag of `flags` but num_flags cleared.
-    static void ClearFlagValues(Scripts::CStruct* flags);
+    static void clear_flag_values(script::Struct* flags);
     // 0x00554070: every goal flag cleared (each skater's structure's), none set.
-    void ZeroObjectiveBits();
+    void zero_objective_bits();
     // 0x00554110: enough flags set to win (num_flags_to_win, else all; every skater's structure's all).
-    bool HasEveryBit();
+    bool has_every_bit();
     // 0x005541E0: goal flag `flag` (of `sub`'s structure, if any) is non-zero (asserted).
-    bool BitIsOn(uint32_t flag, uint32_t sub);
+    bool bit_is_on(uint32_t flag, uint32_t sub);
     // 0x00554220: locked (its own lock, or its group's - the goal manager's).
-    bool IsLatched();
+    bool is_latched();
     // 0x00554250 / 0x00554260 / 0x00554270: the Graffiti, special and tetris flags.
-    bool IsGraffiti();
-    bool IsSpecial();
-    bool IsTetris();
+    bool is_graffiti();
+    bool is_special();
+    bool is_tetris();
     // 0x00554280: goal_id (asserted).
-    uint32_t GetObjectiveKey();
+    uint32_t get_objective_key();
     // 0x005542B0 / 0x00554300: the edited_goal flag (Create-a-Goal's).
-    bool IsUserMadeObjective();
-    bool IsEditedGoal2();
+    bool is_user_made_objective();
+    bool is_edited_goal2();
     // 0x005542C0 (vtable +0x5C): won, or one of its children's links marked.
-    bool HasWonGoalOrChild();
+    bool has_won_goal_or_child();
     // 0x005542F0
-    bool IsPicked();
+    bool is_picked();
     // 0x005519F0 (vtable +0x60): initialised (Init, until Uninitialize).
-    bool IsPrepared();
+    bool is_prepared();
     // 0x00554320: number_collected counted up (goal_update_counter run with use_hud_counter).
-    void PickedUpCountable();
+    void picked_up_countable();
     // 0x00554390: number_collected reached number.
-    bool TallyObjectiveFinished();
+    bool tally_objective_finished();
     // 0x005543E0
-    bool State02();
+    bool state02();
     // 0x005543F0: proset_prefix is `prefix` (any case).
-    bool HasProsetPrefix(const char* prefix);
+    bool has_proset_prefix(const char* prefix);
     // 0x00554430 / 0x00554440 / 0x00554450
-    void MarkViewed();
-    void ChooseOne();
-    void Unpick();
+    void mark_viewed();
+    void choose_one();
+    void unpick();
     // 0x00554460 (vtable +0x64): can_retry_goal.
-    bool MayTryAgain();
+    bool may_try_again();
     // 0x00554470: current_time 0. 0x00554480: unless paused, current_time counted up by the frame (ms), and its
     // seconds and hundredths (current_time_seconds, current_time_fraction).
-    void ResetCurrentTime();
-    void UpdateCurrentTime();
+    void reset_current_time();
+    void update_current_time();
     // 0x00554510 / 0x00554520: the quick_start flag.
-    void SetQuickStart();
-    void UnsetQuickStart();
+    void set_quick_start();
+    void unset_quick_start();
     // 0x00554530 / 0x00554540 / 0x00554550: pro_goal, net (components), competition (flag).
-    bool IsProChallenge();
-    bool IsOnlineObjective();
-    bool IsContestObjective();
+    bool is_pro_challenge();
+    bool is_online_objective();
+    bool is_contest_objective();
     // 0x00554560 (vtable +0x48)
-    bool IsFrozen();
+    bool is_frozen();
     // 0x00554570: view_goals_text.
-    bool GetObjectiveListCaption(const char** text);
+    bool get_objective_list_caption(const char** text);
     // 0x00554590
-    bool EndOfRunStarted();
+    bool end_of_run_started();
     // 0x005545A0 (vtable +0x20): not unlimited_Time.
-    bool HasTimeLimit();
+    bool has_time_limit();
     // 0x005545F0 (vtable +0x28): the 0xA302D7CD component.
-    bool HasComponentA302D7CD();
+    bool has_component_a_302d_7c_d();
     // 0x00554610 (vtable +0x18) / 0x00554770 (vtable +0x1C): the saved state (hasBeaten, isLocked, hasSeen, the
     // record, the goal flags) read / written.
-    void RestoreSaveBlock(Scripts::CStruct* data);
-    void CaptureSaveBlock(Scripts::CStruct* data);
+    void restore_save_block(script::Struct* data);
+    void capture_save_block(script::Struct* data);
     // 0x00554890 (cdecl): `text` copied to `out` with \t<n> / \k<n> (one or two digits, from 1) replaced by trick
     // `n`'s / key combo `n`'s text. (`size` isn't used: no bounds checks, as the original.)
-    static void ReplaceTrickTokens(const char* text, char* out, Scripts::CArray* keyCombos, Scripts::CArray* tricks,
+    static void replace_trick_tokens(const char* text, char* out, script::Array* key_combos, script::Array* tricks,
                                    int size);
     // 0x005549A0: number_collected, else the flags set.
-    int CountPickedUp();
+    int count_picked_up();
     // 0x005549D0: num_flags_to_win, else the number of flags (0: -1).
-    int GetNumFlagsToWin();
+    int get_num_flags_to_win();
     // 0x00554A00 / 0x00554A10 / 0x00554A20
-    int GetTimesStarted();
-    void ChooseRunEnding(int type);
-    void ChangeEndsOnTimeout(bool deactivate);
+    int get_times_started();
+    void choose_run_ending(int type);
+    void change_ends_on_timeout(bool deactivate);
     // 0x00554A40 / 0x00554A50 / 0x00554A70: the Horse, findGaps and require_combo flags.
-    bool IsHorse();
-    bool IsFindGaps();
-    bool RequiresCombo();
+    bool is_horse();
+    bool is_find_gaps();
+    bool requires_combo();
     // 0x00554A60: the no-time-limit state bit (unlimited_Time).
-    bool HasNoTimeLimit();
+    bool has_no_time_limit();
 
     // 0x00554A80: the parameters' script named `name` (a checksum component) run with them. Whether there was one.
-    bool InvokeHookScript(uint32_t name);
+    bool invoke_hook_script(uint32_t name);
     // 0x00554AC0 / 0x00554B40: a parent / child linked (the list's first link reused while it has no goal; a child
     // only once). A failed allocation writes through null, as the original.
-    void AttachUpperLink(uint32_t id);
-    void AttachChild(uint32_t id);
+    void attach_upper_link(uint32_t id);
+    void attach_child(uint32_t id);
     // 0x00554BD0: uninitialized (deactivated first if active; the uninit script); with `children`, every child too.
-    void Uninitialize(bool children, int depth);
+    void uninitialize(bool children, int depth);
     // 0x00554C70 (vtable +0x40): lost - the fail script, deactivated. False if it wasn't active.
-    bool Lose();
+    bool lose();
     // 0x00554CD0 (vtable +0x08): no local skater or no players, or out of time (never without a time limit).
-    bool HasRunOut();
+    bool has_run_out();
     // 0x00554D10: the same, but out of time only once the skater's run is done (the goal's or the normal one, by the
     // end of run type); out of time before that, the run is ended (`force` passed on) and false.
-    bool IsExpiredAtEndOfRun(bool force);
-    // 0x00556230 (vtable +0x04): IsExpiredAtEndOfRun(false).
-    bool WantsToEnd();
+    bool is_expired_at_end_of_run(bool force);
+    // 0x00556230 (vtable +0x04): is_expired_at_end_of_run(false).
+    bool wants_to_end();
     // 0x00554DD0 (vtable +0x44): while active and not paused: the active script, the timer (and its beeps under
     // ten seconds), require_combo's combo_started, expired. True.
-    bool TickFrame();
+    bool tick_frame();
     // 0x00554F40 (vtable +0x14): the expire script; deactivated if it's to be on expiring.
-    void Expire();
+    void expire();
     // 0x00554F90: gap `gap` is one of required_gaps (and required_trick_name, if any, has been done: by its name or
     // as a grind's BS / FS): its flag got_<n> set (n from 1). Whether it was.
-    bool RegisterGapHit(uint32_t gap);
+    bool register_gap_hit(uint32_t gap);
     // 0x00555100: the first of the waypoints (0x160B3220, else the asserted 0x92C6E839) whose flag isn't set yet
     // started: paused, its time (added, with 0xFB11CB01, else the goal's), the goal's id and the first_spot flag
     // passed, spawned (the horse's or the race's script). True.
-    bool StepToNextWaypoint();
+    bool step_to_next_waypoint();
     // 0x005552D0: cluster `cluster` taken with a score above its kill_clusters entry's (else the goal's) score: the
     // cluster turned to the player's colour (0) and the entry's flag set.
-    void KillCluster(uint32_t cluster, int score);
+    void kill_cluster(uint32_t cluster, int score);
     // 0x005553C0: trick_string has been done (a grind's FS / BS name first).
-    bool DidTrickString();
+    bool did_trick_string();
     // 0x00555540: the topmost parent's goal_id (this goal's if it has none).
-    uint32_t GetTopObjectiveKey();
+    uint32_t get_top_objective_key();
     // 0x00555590 (vtable +0x54): beaten (in a goal attack or net lobby game: kFlagWonInNetGame).
-    bool HasWon();
+    bool has_won();
     // 0x005555E0 (vtable +0x68): beaten - and every parent.
-    void MarkWon();
+    void mark_won();
     // 0x00555650 / 0x00555670 (vtable +0x6C / +0x70): stage bit `bit` set. 0x00555690 / 0x005556B0 (vtable +0x50 /
     // +0x58): whether it is (0 / 1 in all of EAX).
-    void SetStageFlag(int bit);
-    void SetNetStageFlag(int bit);
-    int StageFlagSet(int bit);
-    int NetStageFlagSet(int bit);
+    void set_stage_flag(int bit);
+    void set_net_stage_flag(int bit);
+    int stage_flag_set(int bit);
+    int net_stage_flag_set(int bit);
     // 0x005556D0: start_height: the local skater's height now (feet).
-    void SetLaunchAltitude();
+    void set_launch_altitude();
     // 0x00555710: unless paused: the skater's height above start_height (feet and inches) - a new record (above
     // 0x78FFB85C, at least 10000) kept with its feet and inches. Whether it was one.
-    bool TestHighestAir();
+    bool test_highest_air();
     // 0x00555800: the same for the distance from the 0x8E18F3B3 object (current_distance_feet / _inches).
-    bool TestLongestJump();
+    bool test_longest_jump();
     // 0x00555930 (vtable +0x74): not beaten any more (in a net game the stage bits cleared too). Whether it was.
-    bool UnBeat();
+    bool un_beat();
     // 0x00555970: the end of run done (the goal's or the normal one): the skater told, the started flag cleared.
-    void EndOfRunDone(Scripts::CScript* script);
+    void end_of_run_done(script::Script* script);
     // 0x005559E0 / 0x00555A20: the end of run (the goal's or the normal one) done / started.
-    bool RunDone();
-    bool RunStarted();
+    bool run_done();
+    bool run_started();
 
     // --- goal_life.cpp ---
     // 0x00556FE0: the constructor: a copy of `params` (the goal's own), its pro, an empty flags structure, the
     // links' first entries, the career's level, group_number, the goal flags, single_timer / retry_stage (passed to
-    // the children), skater, locked by unlocked_by_another / pro_goal. (m_inherited isn't cleared first, as the
+    // the children), skater, locked by unlocked_by_another / pro_goal. (inherited_ isn't cleared first, as the
     // original.) Returns this.
-    CObjective* MakeNew(Scripts::CStruct* params);
+    Objective* make_new(script::Struct* params);
     // 0x00556110: the destructor body: the destroy script, the pro, the structures, the links freed, the node
     // unlinked. 0x005566A0 (vtable +0x00): the scalar deleting destructor.
-    void DestroyBody();
-    CObjective* Teardown(uint8_t flags);
-    // 0x005560D0: the destructor of the goal's list node (ListKit::Elem<CObjective>, vtable 0x0064DDCC): unlinked; freed with
+    void destroy_body();
+    Objective* teardown(uint8_t flags);
+    // 0x005560D0: the destructor of the goal's list node (lists::Elem<Objective>, vtable 0x0064DDCC): unlinked; freed with
     // flags bit 0.
-    CObjective* DestroyNode(uint8_t flags);
+    Objective* destroy_node(uint8_t flags);
     // 0x00557270: initialized: the difficulty level's parameters, the init script, the trick texts, unlimited_Time,
     // dont_deactivate_upon_expiration (in the bottom-up heap).
-    void PrepareAll();
+    void prepare_all();
     // 0x00556F90: the difficulty level's parameters added (and the goal flags made again).
-    void MergeSkillTierArgs();
+    void merge_skill_tier_args();
     // 0x00557360 (vtable +0x2C): started (if not active): counted, reset_score, the timer (a child with
     // single_timer: its root's), the root uninitialized for it, initialized, the activate script, seen, active, the
     // goal manager's active list. False if it was active.
-    bool Activate();
+    bool activate();
     // 0x00557560 (vtable +0x34): stopped (if active): special's key combos dropped, inactive, the goal flags reset
-    // (unless kept), the deactivate script, testing_goal; not won: the skater readied, and with `resetTree` the root
+    // (unless kept), the deactivate script, testing_goal; not won: the skater readied, and with `reset_tree` the root
     // made ready again; unlinked. (`unused` isn't read.) False if it wasn't active.
-    bool Disengage(bool unused, bool resetTree);
+    bool disengage(bool unused, bool reset_tree);
     // 0x005576D0 (vtable +0x3C): won. With a child: the child started instead. Otherwise the record (score - the
     // custom one, high combo or total - or time), the rewards (first win, not in a net game), the success script,
     // deactivated, marked won, the cash / chapter (career) or the counter (classic). True.
-    bool Win();
+    bool get_win();
     // 0x00557A40: unlocked (if locked): initialized unless won (classic / always_initialize_goal / edited_goal
     // anyway), the unlock script - not in a net game.
-    void Unlock();
+    void get_unlock();
     // 0x00555DF0: the reward parameters into `rewards` (the goal points shown, a trick slot, goal_rewards' entry for
     // the goal, reward_stat).
-    void GetPrizeStruct(Scripts::CStruct* rewards);
+    void get_prize_struct(script::Struct* rewards);
     // 0x00555FB0: Reward_Goal's goal(s) unlocked.
-    void OpenUpPrizeObjectives();
+    void open_up_prize_objectives();
     // 0x00556050: reward_points (an array: by the difficulty level), else 0.
-    int GetRewardPoints();
+    int get_reward_points();
     // 0x00556330 (vtable +0x4C): goal flag `flag` (of skater structure `sub`, if any) set to `value` - while active,
     // or silent_activation and not won; not locked. A change counts the flags set (the flag sound, the counter); a
     // silently activated goal is won once all are set (TrickObjects aside), else Gaps shows the gap. Whether it
     // changed (or was already set).
-    bool SetFlag(uint32_t flag, int value, uint32_t sub);
+    bool set_flag(uint32_t flag, int value, uint32_t sub);
     // 0x005566D0: the goal flags from `params`' goal_flags (names: each 0; structures: skater_flags, one structure
     // per skater with its flags and counts); num_flags.
-    void AllocObjectiveBits(Scripts::CStruct* params);
+    void alloc_objective_bits(script::Struct* params);
     // 0x00556240: every player's run (by the end of run type) is done (in horse, those not playing aside).
-    bool AllSkatersRunDone();
+    bool all_skaters_run_done();
 
     // --- goal_tricks.cpp ---
     // 0x005565C0: goal_no_valid_key_combos run (with the goal's id).
-    void NoComboSequenceLeft();
+    void no_combo_sequence_left();
     // 0x005568B0: a random key combo of `combos` that the skater has a trick on (100 tries, then each in turn - which
-    // returns the last random one, as the original); -1 (NoComboSequenceLeft) if none.
-    int PickKeyCombo(Scripts::CArray* combos);
+    // returns the last random one, as the original); -1 (no_combo_sequence_left) if none.
+    int pick_key_combo(script::Array* combos);
     // 0x00555B50 (cdecl): each key combo's text (goal_tetris_trick_text) and trick's name (the skater's trick
     // mapping: a special slot's trick, a premade create-a-trick, or the trick's own) into the two arrays. False if a
     // key combo has no trick.
-    static bool BuildTrickTexts(Scripts::CArray* keyCombos, Scripts::CArray* keyTexts, Scripts::CArray* trickTexts,
-                                int premadeCat);
+    static bool build_trick_texts(script::Array* key_combos, script::Array* key_texts, script::Array* trick_texts,
+                                int premade_cat);
     // 0x00556A00: the texts' \t / \k tokens replaced by the key combos' tricks (the originals kept as original_*).
     // False without key_combos or a trick for one.
-    bool SwapMoveCaption();
+    bool swap_move_caption();
     // 0x00555A60: a special trick slot given as a reward taken back (should_remove_trick), the key combos dropped.
-    void RemoveRewardTrick();
+    void remove_reward_trick();
     // 0x00555D40: the kill_clusters turned to `player`'s colour (or cleared with `clear`).
-    void TintTaggedProps(int player, bool clear);
+    void tint_tagged_props(int player, bool clear);
     // 0x00557AC0: the goal's trick made a special (a free key combo of the trick type's - or the slot it already
     // has), key_combos set to it, the texts redone. Whether it was new.
-    bool AwardSpecialTrick();
+    bool award_special_trick();
 };
-static_assert(offsetof(CObjective, m_ped) == 0x14 && offsetof(CObjective, m_args) == 0x1C &&
-                  offsetof(CObjective, m_runEnding) == 0x24 && offsetof(CObjective, m_subNodes) == 0x28 &&
-                  offsetof(CObjective, m_skater) == 0x30 && offsetof(CObjective, m_bundle) == 0x38 &&
-                  offsetof(CObjective, m_timesStarted) == 0x44 && offsetof(CObjective, m_secondsRemaining) == 0x50 &&
-                  offsetof(CObjective, m_numFlags) == 0x58 && offsetof(CObjective, m_elapsed) == 0x60 &&
-                  offsetof(CObjective, m_flagBits) == 0x6C && offsetof(CObjective, m_curPhase) == 0x6D && sizeof(CObjective) == 0x70,
+static_assert(offsetof(Objective, ped_) == 0x14 && offsetof(Objective, args_) == 0x1C &&
+                  offsetof(Objective, run_ending_) == 0x24 && offsetof(Objective, sub_nodes_) == 0x28 &&
+                  offsetof(Objective, skater_) == 0x30 && offsetof(Objective, bundle_) == 0x38 &&
+                  offsetof(Objective, times_started_) == 0x44 && offsetof(Objective, seconds_remaining_) == 0x50 &&
+                  offsetof(Objective, num_flags_) == 0x58 && offsetof(Objective, elapsed_) == 0x60 &&
+                  offsetof(Objective, flag_bits_) == 0x6C && offsetof(Objective, cur_phase_) == 0x6D && sizeof(Objective) == 0x70,
               "layout must match the original");
 
 // A goal's virtual function at vtable offset `slot` (the game's table).
 template <typename R, typename... A>
-R Virtual(CObjective* goal, uint32_t slot, A... args)
+R Virtual(Objective* goal, uint32_t slot, A... args)
 {
-    return reinterpret_cast<R(__thiscall*)(CObjective*, A...)>(goal->Vtable()[slot / 4])(goal, args...);
+    return reinterpret_cast<R(__thiscall*)(Objective*, A...)>(goal->get_vtable()[slot / 4])(goal, args...);
 }
 
-extern float g_goalLifeSecondsPerMillisecond;
+extern float g_goal_life_seconds_per_millisecond;
 
 } // namespace Game

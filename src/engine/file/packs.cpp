@@ -17,75 +17,75 @@
 #include "engine/util/lzss.h"
 #include "engine/gfx/loading_console.h"
 
-namespace Packs {
+namespace packs {
 
 namespace {
 
 constexpr int kMaxLoadedFiles = 200;
 constexpr int kPreloadCapacity = 100;
 
-LoadedFile g_loadedFiles[kMaxLoadedFiles];
-char* g_preFiles[kPreloadCapacity];
+LoadedFile g_loaded_files[kMaxLoadedFiles];
+char* g_pre_files[kPreloadCapacity];
 
-LoadedFile* LoadedFiles() { return g_loadedFiles; }
+LoadedFile* loaded_files() { return g_loaded_files; }
 // Each loaded .pre archive's memory starts with the archive's name (see PackLeadIn).
-char** PreFiles() { return g_preFiles; }
+char** pre_files() { return g_pre_files; }
 
-void* AllocateFileMemory(unsigned int size) { return MemSys::AllocBlock(size); }
-void ShrinkFileMemory(unsigned int size, void* memory) { MemSys::TrimBlockEnd(size, memory); }
-void FreeFileMemory(void* memory) { MemSys::FreeMalloc(memory); }
+void* allocate_file_memory(unsigned int size) { return memory::alloc_block(size); }
+void shrink_file_memory(unsigned int size, void* memory) { memory::trim_block_end(size, memory); }
+void free_file_memory(void* memory) { memory::free_malloc(memory); }
 
 // Buffers are allocated in whole 2 KB sectors.
-unsigned int SectorAligned(unsigned int size) { return (size + 0x7FF) & ~0x7FFu; }
+unsigned int sector_aligned(unsigned int size) { return (size + 0x7FF) & ~0x7FFu; }
 
 // The pre manager instance finds files inside .pre archives registered with it. (Like the original, this
 // assumes it exists.)
-void* PreManagerLoadFile(const char* name, int* size)
+void* pre_manager_load_file(const char* name, int* size)
 {
-    return Pre::Sole()->IngestFile(name, size, nullptr);
+    return pre::sole()->ingest_file(name, size, nullptr);
 }
 
 // A loaded .pre archive: its name, padded to 16 bytes, then the archive's own header and its files.
 struct PackLeadIn {
-    int totalSize;
+    int total_size_;
     int version;
-    int numFiles;
+    int num_files_;
 };
 
-PackLeadIn* HeaderOf(char* pre)
+PackLeadIn* header_of(char* pre)
 {
     return reinterpret_cast<PackLeadIn*>(pre + ((std::strlen(pre) + 0x10) & ~0xFu));
 }
 
-PreEntry* FirstEntry(PackLeadIn* header) { return reinterpret_cast<PreEntry*>(header + 1); }
+PreEntry* first_entry(PackLeadIn* header) { return reinterpret_cast<PreEntry*>(header + 1); }
 
 // Archives as stored on disk: the name follows the header directly, the data the name, padded to 4 bytes.
-// (Loaded archives are repacked with 16-byte aligned data - see NextEntry.)
-PreEntry* NextRawEntry(PreEntry* entry)
+// (Loaded archives are repacked with 16-byte aligned data - see next_entry.)
+PreEntry* next_raw_entry(PreEntry* entry)
 {
-    uint32_t stored = static_cast<uint32_t>(entry->compressedSize ? entry->compressedSize : entry->size);
-    return reinterpret_cast<PreEntry*>(reinterpret_cast<uint8_t*>(entry + 1) + entry->nameSize + ((stored + 3) & ~3u));
+    uint32_t stored = static_cast<uint32_t>(entry->compressed_size_ ? entry->compressed_size_ : entry->size);
+    return reinterpret_cast<PreEntry*>(reinterpret_cast<uint8_t*>(entry + 1) + entry->name_size_ + ((stored + 3) & ~3u));
 }
 
-PreEntry* NextEntry(PreEntry* entry)
+PreEntry* next_entry(PreEntry* entry)
 {
-    uint32_t stored = static_cast<uint32_t>(entry->compressedSize ? entry->compressedSize : entry->size);
-    uintptr_t after_name = (reinterpret_cast<uintptr_t>(entry) + entry->nameSize + 0x1F) & ~uintptr_t(0xF);
+    uint32_t stored = static_cast<uint32_t>(entry->compressed_size_ ? entry->compressed_size_ : entry->size);
+    uintptr_t after_name = (reinterpret_cast<uintptr_t>(entry) + entry->name_size_ + 0x1F) & ~uintptr_t(0xF);
     return reinterpret_cast<PreEntry*>(after_name + ((stored + 3) & ~3u));
 }
 
 } // namespace
 
 // 0x005B7180
-PreEntry* FindPreEntry(uint32_t checksum)
+PreEntry* find_pre_entry(uint32_t checksum)
 {
     for (int i = 0; i < kPreloadCapacity; ++i) {
-        char* pre = PreFiles()[i];
+        char* pre = pre_files()[i];
         if (!pre)
             continue;
-        PackLeadIn* header = HeaderOf(pre);
-        PreEntry* entry = FirstEntry(header);
-        for (int n = 0; n < header->numFiles; ++n, entry = NextEntry(entry)) {
+        PackLeadIn* header = header_of(pre);
+        PreEntry* entry = first_entry(header);
+        for (int n = 0; n < header->num_files_; ++n, entry = next_entry(entry)) {
             if (entry->checksum == checksum)
                 return entry;
         }
@@ -94,25 +94,25 @@ PreEntry* FindPreEntry(uint32_t checksum)
 }
 
 // 0x005B7C00 (PartyMod's script patching wraps calls to this, and calls it by address)
-void* ReadIn(const char* name, bool async, void* callback, void* hookUserA, void* hookUserB)
+void* read_in(const char* name, bool async, void* callback, void* hook_user_a, void* hook_user_b)
 {
-    uint32_t checksum = Checksums::HashFromText(name);
+    uint32_t checksum = checksums::hash_from_text(name);
     // Not original - the data overlay (frontend/data_overlay.h): a file of the data overlay is read from it,
-    // before any archive (synchronously, through FileLoad::Unseal, which opens the overlay's file).
+    // before any archive (synchronously, through FileLoad::unseal, which opens the overlay's file).
     // Original behaviour: archives first, then the cache and the data folder.
     char overlay_path[260];
-    bool overlay = MenuSystem::DataOverlay::OverlayPath(name, overlay_path);
+    bool overlay = frontend::data_overlay::get_overlay_path(name, overlay_path);
 
     // Already loaded?
-    if (PreEntry* entry = overlay ? nullptr : FindPreEntry(checksum)) {
-        ++entry->useCount;
-        auto after_name = (reinterpret_cast<uintptr_t>(entry) + entry->nameSize + 0x1F) & ~uintptr_t(0xF);
+    if (PreEntry* entry = overlay ? nullptr : find_pre_entry(checksum)) {
+        ++entry->use_count_;
+        auto after_name = (reinterpret_cast<uintptr_t>(entry) + entry->name_size_ + 0x1F) & ~uintptr_t(0xF);
         return reinterpret_cast<void*>(after_name);
     }
     for (int i = 0; i < kMaxLoadedFiles; ++i) {
-        LoadedFile& file = LoadedFiles()[i];
+        LoadedFile& file = loaded_files()[i];
         if (file.data && file.checksum == checksum) {
-            ++file.refCount;
+            ++file.ref_count_;
             return file.data;
         }
     }
@@ -120,8 +120,8 @@ void* ReadIn(const char* name, bool async, void* callback, void* hookUserA, void
     // The original assumes a free slot exists.
     LoadedFile* slot = nullptr;
     for (int i = 0; i < kMaxLoadedFiles; ++i) {
-        if (!LoadedFiles()[i].data) {
-            slot = &LoadedFiles()[i];
+        if (!loaded_files()[i].data) {
+            slot = &loaded_files()[i];
             break;
         }
     }
@@ -129,42 +129,42 @@ void* ReadIn(const char* name, bool async, void* callback, void* hookUserA, void
     void* data;
     int size;
     if (async && !overlay) {
-        FileLoad::AsyncFileRef* file = FileLoad::AsyncOpen(name);
-        size = FileLoad::AsyncGetFileSize(file);
-        data = AllocateFileMemory(SectorAligned(static_cast<unsigned int>(size)));
+        file::AsyncFileRef* file = file::async_open(name);
+        size = file::async_get_file_size(file);
+        data = allocate_file_memory(sector_aligned(static_cast<unsigned int>(size)));
         if (callback) {
-            FileLoad::AsyncSetCallbackMask(file, 1u << FileLoad::kOpReadFile); // call back when the read completes
-            FileLoad::AsyncSetCallback(file, reinterpret_cast<FileLoad::IoCompletionHook>(callback), hookUserA,
-                                   hookUserB);
+            file::async_set_callback_mask(file, 1u << file::kOpReadFile); // call back when the read completes
+            file::async_set_callback(file, reinterpret_cast<file::IoCompletionHook>(callback), hook_user_a,
+                                   hook_user_b);
         }
-        FileLoad::StartBackgroundRead(file, data, size);
-        FileLoad::AsyncClose(file);
+        file::start_background_read(file, data, size);
+        file::async_close(file);
         if (data)
-            ShrinkFileMemory(static_cast<unsigned int>(size), data);
-        Gfx2D::LoadingConsole::NoteFile("read (async)", name, size); // (not original: the loading console)
+            shrink_file_memory(static_cast<unsigned int>(size), data);
+        gfx::loading_console::note_file("read (async)", name, size); // (not original: the loading console)
     } else {
         size = 0;
-        data = overlay ? nullptr : PreManagerLoadFile(name, &size);
+        data = overlay ? nullptr : pre_manager_load_file(name, &size);
         if (data)
-            Gfx2D::LoadingConsole::NoteFile("unpack", name, size); // (not original: the loading console)
+            gfx::loading_console::note_file("unpack", name, size); // (not original: the loading console)
         if (!data) {
-            size = overlay ? 0 : FileLoad::CachedFileSize(name);
+            size = overlay ? 0 : file::cached_file_size(name);
             if (size != 0) {
-                data = AllocateFileMemory(SectorAligned(static_cast<unsigned int>(size)));
-                if (!FileLoad::LoadCachedFile(name, data)) {
-                    FreeFileMemory(data);
+                data = allocate_file_memory(sector_aligned(static_cast<unsigned int>(size)));
+                if (!file::load_cached_file(name, data)) {
+                    free_file_memory(data);
                     data = nullptr;
                 }
-                Gfx2D::LoadingConsole::NoteFile("read (cache)", name, size); // (not original: the loading console)
+                gfx::loading_console::note_file("read (cache)", name, size); // (not original: the loading console)
             } else {
-                FileLoad::Hdl file = FileLoad::Unseal(name, "rb");
-                size = static_cast<int>(FileLoad::GetFileSize(file));
-                data = AllocateFileMemory(SectorAligned(static_cast<unsigned int>(size)));
-                FileLoad::TakeIn(data, 1, size, file);
-                FileLoad::Shut(file);
+                file::Hdl file = file::unseal(name, "rb");
+                size = static_cast<int>(file::get_file_size(file));
+                data = allocate_file_memory(sector_aligned(static_cast<unsigned int>(size)));
+                file::get_take_in(data, 1, size, file);
+                file::shut(file);
             }
             if (data)
-                ShrinkFileMemory(static_cast<unsigned int>(size), data);
+                shrink_file_memory(static_cast<unsigned int>(size), data);
         }
     }
 
@@ -174,34 +174,34 @@ void* ReadIn(const char* name, bool async, void* callback, void* hookUserA, void
 
 // 0x005B7B00: load `name` into `buffer` (or a new block if null), from a .pre archive or from disk, and set
 // `*size` (if given) to its size. Returns the data, or null if it couldn't be loaded.
-void* LoadFileInto(const char* name, int* size, void* buffer)
+void* load_file_into(const char* name, int* size, void* buffer)
 {
     int file_size = 0;
-    // Not original - the data overlay: a file of it is read from there (FileLoad::Unseal), not an archive.
+    // Not original - the data overlay: a file of it is read from there (FileLoad::unseal), not an archive.
     // Original behaviour: archives first, then the cache and the data folder.
     char overlay_path[260];
-    bool overlay = MenuSystem::DataOverlay::OverlayPath(name, overlay_path);
-    void* data = overlay ? nullptr : Pre::Sole()->IngestFile(name, &file_size, static_cast<uint8_t*>(buffer));
+    bool overlay = frontend::data_overlay::get_overlay_path(name, overlay_path);
+    void* data = overlay ? nullptr : pre::sole()->ingest_file(name, &file_size, static_cast<uint8_t*>(buffer));
     if (data)
-        Gfx2D::LoadingConsole::NoteFile("unpack", name, file_size); // (not original: the loading console)
+        gfx::loading_console::note_file("unpack", name, file_size); // (not original: the loading console)
     if (!data) {
-        file_size = overlay ? 0 : FileLoad::CachedFileSize(name);
+        file_size = overlay ? 0 : file::cached_file_size(name);
         if (file_size != 0) {
-            data = buffer ? buffer : AllocateFileMemory(SectorAligned(static_cast<unsigned int>(file_size)));
-            if (!FileLoad::LoadCachedFile(name, data)) {
+            data = buffer ? buffer : allocate_file_memory(sector_aligned(static_cast<unsigned int>(file_size)));
+            if (!file::load_cached_file(name, data)) {
                 if (!buffer)
-                    FreeFileMemory(data);
+                    free_file_memory(data);
                 data = nullptr;
             }
         } else {
-            FileLoad::Hdl file = FileLoad::Unseal(name, "rb");
-            file_size = static_cast<int>(FileLoad::GetFileSize(file));
-            data = buffer ? buffer : AllocateFileMemory(SectorAligned(static_cast<unsigned int>(file_size)));
-            FileLoad::TakeIn(data, 1, file_size, file);
-            FileLoad::Shut(file);
+            file::Hdl file = file::unseal(name, "rb");
+            file_size = static_cast<int>(file::get_file_size(file));
+            data = buffer ? buffer : allocate_file_memory(sector_aligned(static_cast<unsigned int>(file_size)));
+            file::get_take_in(data, 1, file_size, file);
+            file::shut(file);
         }
         if (!buffer && data)
-            ShrinkFileMemory(static_cast<unsigned int>(file_size), data);
+            shrink_file_memory(static_cast<unsigned int>(file_size), data);
     }
     if (size)
         *size = file_size;
@@ -209,15 +209,15 @@ void* LoadFileInto(const char* name, int* size, void* buffer)
 }
 
 // 0x005B75A0
-void LoadPre(const char* name)
+void load_pre(const char* name)
 {
     for (int i = 0; i < kPreloadCapacity; ++i) {
-        if (PreFiles()[i] && _stricmp(PreFiles()[i], name) == 0)
+        if (pre_files()[i] && _stricmp(pre_files()[i], name) == 0)
             return; // already loaded
     }
     int slot = -1;
     for (int i = 0; i < kPreloadCapacity; ++i) {
-        if (!PreFiles()[i]) {
+        if (!pre_files()[i]) {
             slot = i;
             break;
         }
@@ -236,17 +236,17 @@ void LoadPre(const char* name)
     uint8_t* block = nullptr;
     unsigned int file_size = 0, allocated = 0;
     bool loaded = false;
-    char letter = GameConfig::g_language == 3 ? 'f' : GameConfig::g_language == 5 ? 'd' : '\0';
+    char letter = game_config::g_language == 3 ? 'f' : game_config::g_language == 5 ? 'd' : '\0';
     if (letter) {
         path[length - 1] = letter;
-        if (!FileLoad::IsPresent(path)) {
+        if (!file::is_present(path)) {
             path[length - 2] = 'p';
-            if (FileLoad::IsPresent(path)) {
-                FileLoad::Hdl file = FileLoad::Unseal(path, "rb");
-                file_size = FileLoad::GetFileSize(file);
-                patch = static_cast<uint32_t*>(MemSys::Alloc(file_size));
-                FileLoad::TakeIn(patch, 1, static_cast<int>(file_size), file);
-                FileLoad::Shut(file);
+            if (file::is_present(path)) {
+                file::Hdl file = file::unseal(path, "rb");
+                file_size = file::get_file_size(file);
+                patch = static_cast<uint32_t*>(memory::alloc(file_size));
+                file::get_take_in(patch, 1, static_cast<int>(file_size), file);
+                file::shut(file);
                 path[length - 2] = 'r';
                 path[length - 1] = 'e';
                 patched = true;
@@ -255,10 +255,10 @@ void LoadPre(const char* name)
                     // then carries on patching through a null block - it crashes here. (Patch files aren't
                     // shipped with the PC version.)
                     allocated = ((file_size + 0x7FF) & ~0x7FFu) + prefix;
-                    block = static_cast<uint8_t*>(AllocateFileMemory(allocated));
+                    block = static_cast<uint8_t*>(allocate_file_memory(allocated));
                     std::memcpy(block, name, std::strlen(name) + 1);
-                    if (!FileLoad::LoadCachedFile(path, block + prefix)) {
-                        FreeFileMemory(block);
+                    if (!file::load_cached_file(path, block + prefix)) {
+                        free_file_memory(block);
                         block = nullptr;
                     }
                     loaded = true;
@@ -271,14 +271,14 @@ void LoadPre(const char* name)
     }
 
     if (!loaded) {
-        FileLoad::Hdl file = FileLoad::Unseal(path, "rb");
-        file_size = FileLoad::GetFileSize(file);
+        file::Hdl file = file::unseal(path, "rb");
+        file_size = file::get_file_size(file);
         unsigned int needed = patched && patch[0] >= file_size ? patch[0] : file_size;
         allocated = ((needed + 0x7FF) & ~0x7FFu) + prefix;
-        block = static_cast<uint8_t*>(AllocateFileMemory(allocated));
+        block = static_cast<uint8_t*>(allocate_file_memory(allocated));
         std::memcpy(block, name, std::strlen(name) + 1);
-        FileLoad::TakeIn(block + prefix, 1, static_cast<int>(file_size), file);
-        FileLoad::Shut(file);
+        file::get_take_in(block + prefix, 1, static_cast<int>(file_size), file);
+        file::shut(file);
     }
 
     if (patched) {
@@ -294,57 +294,57 @@ void LoadPre(const char* name)
             std::memcpy(reinterpret_cast<void*>(data + offset), p, count);
             p += count;
         }
-        MemSys::Dealloc(patch);
+        memory::dealloc(patch);
     }
 
     // Repack: every file stored uncompressed, its data 16-byte aligned after its header and name, so files
     // can be used in place. First the new size (plus slack), then the copy.
     auto* old_header = reinterpret_cast<PackLeadIn*>(block + ((std::strlen(reinterpret_cast<char*>(block)) + 0x10) &
                                                              ~size_t(0xF)));
-    int count = old_header->numFiles;
+    int count = old_header->num_files_;
     uintptr_t new_size = prefix + sizeof(PackLeadIn);
     {
         auto* entry = reinterpret_cast<PreEntry*>(old_header + 1);
         for (int n = count; n != 0; --n) {
-            new_size = ((entry->nameSize + new_size + 0x1F) & ~uintptr_t(0xF)) + ((entry->size + 3) & ~3u);
-            entry = NextRawEntry(entry);
+            new_size = ((entry->name_size_ + new_size + 0x1F) & ~uintptr_t(0xF)) + ((entry->size + 3) & ~3u);
+            entry = next_raw_entry(entry);
         }
     }
-    auto* repacked = static_cast<uint8_t*>(AllocateFileMemory(static_cast<unsigned int>(new_size + 0xC00)));
+    auto* repacked = static_cast<uint8_t*>(allocate_file_memory(static_cast<unsigned int>(new_size + 0xC00)));
     for (unsigned int i = 0; static_cast<int>(i) < static_cast<int>(prefix); ++i)
         repacked[i] = block[i];
 
     auto* new_header = reinterpret_cast<PackLeadIn*>(repacked + prefix);
-    new_header->numFiles = old_header->numFiles;
+    new_header->num_files_ = old_header->num_files_;
     new_header->version = old_header->version;
     auto* from = reinterpret_cast<PreEntry*>(old_header + 1);
     auto* to = reinterpret_cast<PreEntry*>(new_header + 1);
     for (int n = count; n != 0; --n) {
         to->size = from->size;
         to->checksum = from->checksum;
-        to->compressedSize = 0;
-        to->useCount = 0;
-        to->nameSize = from->nameSize;
-        std::memcpy(to + 1, from + 1, from->nameSize);
+        to->compressed_size_ = 0;
+        to->use_count_ = 0;
+        to->name_size_ = from->name_size_;
+        std::memcpy(to + 1, from + 1, from->name_size_);
 
-        PreEntry* next_from = NextRawEntry(from);
-        const uint8_t* source = reinterpret_cast<const uint8_t*>(from + 1) + from->nameSize;
-        auto* target = reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(to) + to->nameSize + 0x1F) &
+        PreEntry* next_from = next_raw_entry(from);
+        const uint8_t* source = reinterpret_cast<const uint8_t*>(from + 1) + from->name_size_;
+        auto* target = reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(to) + to->name_size_ + 0x1F) &
                                                   ~uintptr_t(0xF));
-        if (from->compressedSize) {
-            uint8_t* end = Lzss::Decode(source, target, from->compressedSize);
+        if (from->compressed_size_) {
+            uint8_t* end = lzss::decode(source, target, from->compressed_size_);
             for (uint32_t pad = static_cast<uint32_t>(to->size); pad & 3; ++pad)
                 *end++ = 0;
         } else {
             std::memcpy(target, source, ((static_cast<uint32_t>(from->size) + 3) >> 2) * 4);
         }
-        to = NextEntry(to);
+        to = next_entry(to);
         from = next_from;
     }
-    new_header->totalSize = static_cast<int>(reinterpret_cast<uint8_t*>(to) - reinterpret_cast<uint8_t*>(new_header));
-    FreeFileMemory(block);
+    new_header->total_size_ = static_cast<int>(reinterpret_cast<uint8_t*>(to) - reinterpret_cast<uint8_t*>(new_header));
+    free_file_memory(block);
     // With all 100 slots taken the original writes to slot -1 (the last loaded file's reference count).
-    (&PreFiles()[0])[slot] = reinterpret_cast<char*>(repacked);
+    (&pre_files()[0])[slot] = reinterpret_cast<char*>(repacked);
 }
 
 // --- script functions -----------------------------------------------------------------------------------
@@ -355,58 +355,58 @@ constexpr uint32_t kHeapParam = 0x42D6DD1E;    // LoadPipPre ... heap = <name>
 constexpr uint32_t kHeapTopDown = 0x477FC6DE;  // the two heap names it accepts
 constexpr uint32_t kHeapBottomUp = 0xC80BF12D;
 
-const char* PreName(Scripts::CStruct* params)
+const char* pre_name(script::Struct* params)
 {
     const char* name = nullptr;
-    Scripts::FetchText(params, 0, &name, true);
+    script::fetch_text(params, 0, &name, true);
     return name;
 }
 
 } // namespace
 
 // 0x005B7A60: LoadPipPre <name> [heap = ...]
-bool __cdecl CFunc_LoadPipPre(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+bool __cdecl cfunc_load_pip_pre(script::Struct* params, script::Script* /*script*/)
 {
-    const char* name = PreName(params);
+    const char* name = pre_name(params);
     uint32_t heap = 0;
-    Scripts::ReadHashValue(params, kHeapParam, &heap, false);
+    script::read_hash_value(params, kHeapParam, &heap, false);
     if (heap == kHeapTopDown)
-        MemSys::EnterHeapScope(MemSys::TopDownHeap());
+        memory::enter_heap_scope(memory::top_down_heap());
     else if (heap == kHeapBottomUp)
-        MemSys::EnterHeapScope(MemSys::BottomUpHeap());
+        memory::enter_heap_scope(memory::bottom_up_heap());
     else
         heap = 0;
-    LoadPre(name);
+    load_pre(name);
     if (heap)
-        MemSys::LeaveHeapScope();
+        memory::leave_heap_scope();
     return true;
 }
 
 // 0x005B7410: UnLoadPipPre <name>
-bool __cdecl CFunc_UnLoadPipPre(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+bool __cdecl cfunc_un_load_pip_pre(script::Struct* params, script::Script* /*script*/)
 {
-    return UnloadPre(PreName(params));
+    return unload_pre(pre_name(params));
 }
 
 // 0x005B7430: DumpPipPreStatus [ShowPreedFiles] [ShowUnPreedFiles] [ShowOnlyOpenFiles] - debug output
-bool __cdecl CFunc_DumpPipPreStatus(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+bool __cdecl cfunc_dump_pip_pre_status(script::Struct* params, script::Script* /*script*/)
 {
-    bool show_files = Scripts::HasBareFlag(params, "ShowPreedFiles");
-    bool show_loose_files = Scripts::HasBareFlag(params, "ShowUnPreedFiles");
-    bool only_open = Scripts::HasBareFlag(params, "ShowOnlyOpenFiles");
-    DebugOut::Printf("Currently loaded pre files:\n");
+    bool show_files = script::has_bare_flag(params, "ShowPreedFiles");
+    bool show_loose_files = script::has_bare_flag(params, "ShowUnPreedFiles");
+    bool only_open = script::has_bare_flag(params, "ShowOnlyOpenFiles");
+    debug::printf("Currently loaded pre files:\n");
     for (int i = 0; i < kPreloadCapacity; ++i) {
-        char* pre = PreFiles()[i];
+        char* pre = pre_files()[i];
         if (!pre)
             continue;
-        DebugOut::Printf("### %s ###\n", pre);
+        debug::printf("### %s ###\n", pre);
         if (!show_files)
             continue;
-        PackLeadIn* header = HeaderOf(pre);
-        PreEntry* entry = FirstEntry(header);
-        for (int n = header->numFiles; n > 0; --n, entry = NextEntry(entry)) {
-            if (!only_open || entry->useCount != 0) {
-                DebugOut::Printf("Usage:%d  File: %s\n", entry->useCount, reinterpret_cast<const char*>(entry + 1));
+        PackLeadIn* header = header_of(pre);
+        PreEntry* entry = first_entry(header);
+        for (int n = header->num_files_; n > 0; --n, entry = next_entry(entry)) {
+            if (!only_open || entry->use_count_ != 0) {
+                debug::printf("Usage:%d  File: %s\n", entry->use_count_, reinterpret_cast<const char*>(entry + 1));
                 for (volatile int wait = 0; wait < 100000; ++wait) {
                     // the original pauses after each line (presumably so the debug output keeps up)
                 }
@@ -414,78 +414,78 @@ bool __cdecl CFunc_DumpPipPreStatus(Scripts::CStruct* params, Scripts::CScript* 
         }
     }
     if (show_loose_files) {
-        DebugOut::Printf("Currently loaded un-preed files:\n");
+        debug::printf("Currently loaded un-preed files:\n");
         for (int i = 0; i < kMaxLoadedFiles; ++i) {
-            const LoadedFile& file = LoadedFiles()[i];
+            const LoadedFile& file = loaded_files()[i];
             if (file.data)
-                DebugOut::Printf("Usage:%d  File: %s\n", file.refCount, Scripts::FindChecksumNameOrUnknown(file.checksum));
+                debug::printf("Usage:%d  File: %s\n", file.ref_count_, script::find_checksum_name_or_unknown(file.checksum));
         }
     }
     return true;
 }
 
 // 0x005B7200
-void Offload(uint32_t checksum)
+void offload(uint32_t checksum)
 {
     for (int i = 0; i < kMaxLoadedFiles; ++i) {
-        LoadedFile& file = LoadedFiles()[i];
+        LoadedFile& file = loaded_files()[i];
         if (!file.data || file.checksum != checksum)
             continue;
-        if (file.refCount != 0)
-            --file.refCount;
-        if (file.refCount == 0) {
-            FreeFileMemory(file.data);
+        if (file.ref_count_ != 0)
+            --file.ref_count_;
+        if (file.ref_count_ == 0) {
+            free_file_memory(file.data);
             file = {};
         }
     }
-    if (PreEntry* entry = FindPreEntry(checksum)) {
-        if (entry->useCount != 0)
-            --entry->useCount;
+    if (PreEntry* entry = find_pre_entry(checksum)) {
+        if (entry->use_count_ != 0)
+            --entry->use_count_;
     }
 }
 
 // 0x005B7270
-void Offload(const char* name)
+void offload(const char* name)
 {
-    Offload(Checksums::HashFromText(name));
+    offload(checksums::hash_from_text(name));
 }
 
 // 0x005B7290
-int GetFileSize(uint32_t checksum)
+int get_file_size(uint32_t checksum)
 {
     for (int i = 0; i < kMaxLoadedFiles; ++i) {
-        const LoadedFile& file = LoadedFiles()[i];
+        const LoadedFile& file = loaded_files()[i];
         if (file.data && file.checksum == checksum)
             return file.size;
     }
-    PreEntry* entry = FindPreEntry(checksum);
+    PreEntry* entry = find_pre_entry(checksum);
     return entry ? entry->size : 0;
 }
 
 // 0x005B72E0
-int GetFileSize(const char* name)
+int get_file_size(const char* name)
 {
-    return GetFileSize(Checksums::HashFromText(name));
+    return get_file_size(checksums::hash_from_text(name));
 }
 
 // 0x005B70F0
-FileTables* FileTables::MakeNew()
+FileTables* FileTables::make_new()
 {
     for (int i = 0; i < kPreloadCapacity; ++i)
-        PreFiles()[i] = nullptr;
+        pre_files()[i] = nullptr;
     for (int i = 0; i < kMaxLoadedFiles; ++i)
-        LoadedFiles()[i] = {};
+        loaded_files()[i] = {};
     return this;
 }
 
 // 0x005B7130
-bool UnloadPre(const char* name)
+bool unload_pre(const char* name)
 {
     bool unloaded = false;
     for (int i = 0; i < kPreloadCapacity; ++i) {
-        char*& pre = PreFiles()[i];
+        char*& pre = pre_files()[i];
         if (pre && _stricmp(pre, name) == 0) {
-            FreeFileMemory(pre);
+            free_file_memory(pre);
             pre = nullptr;
             unloaded = true;
         }
@@ -494,11 +494,11 @@ bool UnloadPre(const char* name)
 }
 
 // 0x005B7300
-const char* TakeNextFinishedArchive(const char* previous)
+const char* take_next_finished_archive(const char* previous)
 {
     bool found_previous = previous == nullptr;
     for (int i = 0; i < kPreloadCapacity; ++i) {
-        const char* pre = PreFiles()[i];
+        const char* pre = pre_files()[i];
         if (!pre)
             continue;
         if (found_previous)
@@ -510,16 +510,16 @@ const char* TakeNextFinishedArchive(const char* previous)
 }
 
 // 0x005B7370
-bool ArchiveIsBusy(const char* name)
+bool archive_is_busy(const char* name)
 {
     for (int i = 0; i < kPreloadCapacity; ++i) {
-        char* pre = PreFiles()[i];
+        char* pre = pre_files()[i];
         if (!pre || _stricmp(pre, name) != 0)
             continue;
-        PackLeadIn* header = HeaderOf(pre);
-        PreEntry* entry = FirstEntry(header);
-        for (int n = 0; n < header->numFiles; ++n, entry = NextEntry(entry)) {
-            if (entry->useCount != 0)
+        PackLeadIn* header = header_of(pre);
+        PreEntry* entry = first_entry(header);
+        for (int n = 0; n < header->num_files_; ++n, entry = next_entry(entry)) {
+            if (entry->use_count_ != 0)
                 return true;
         }
     }
@@ -528,4 +528,4 @@ bool ArchiveIsBusy(const char* name)
 
 } // namespace Pip
 
-static_assert(sizeof(Packs::PreEntry) == 16 && sizeof(Packs::LoadedFile) == 16, "layout must match the original");
+static_assert(sizeof(packs::PreEntry) == 16 && sizeof(packs::LoadedFile) == 16, "layout must match the original");

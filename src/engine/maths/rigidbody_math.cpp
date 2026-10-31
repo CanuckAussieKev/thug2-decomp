@@ -1,4 +1,4 @@
-// Two maths helpers the rigid body's code sits next to: Vec4::SetLength (vec4.h) and QuatRotation::FetchMat (quat_rotation.h).
+// Two maths helpers the rigid body's code sits next to: Vec4::set_length (vec4.h) and QuatRotation::fetch_mat (quat_rotation.h).
 // The x87 work is at 53 bits: what the original keeps on the FPU stack is a double here, what it stores a float.
 
 #include <cmath>
@@ -7,57 +7,57 @@
 #include "engine/maths/quat_rotation.h"
 #include "engine/maths/vec4.h"
 
-namespace Maths {
+namespace maths {
 
 namespace {
 
-double Wide(float value) { return value; }
-float Narrow(double value) { return static_cast<float>(value); }
+double get_wide(float value) { return value; }
+float get_narrow(double value) { return static_cast<float>(value); }
 
 } // namespace
 
 // 0x0042BBF0
-Vec4* Vec4::SetLength(float length)
+Vec4* Vec4::set_length(float length)
 {
-    double current = std::sqrt((Wide(x) * x + Wide(y) * y) + Wide(z) * z);
+    double current = std::sqrt((get_wide(x) * x + get_wide(y) * y) + get_wide(z) * z);
     if (!(current > 0.0))
         return this;
     double scale = length / current;
-    x = Narrow(scale * x);
-    y = Narrow(scale * y);
-    z = Narrow(scale * z);
+    x = get_narrow(scale * x);
+    y = get_narrow(scale * y);
+    z = get_narrow(scale * z);
     return this;
 }
 
 // 0x0042BC40: with s = 2 / |q|^2 - x * s kept unrounded, y * s and z * s rounded; the products by x unrounded, the
 // others rounded (as the original keeps them).
-Mat4* QuatRotation::FetchMat(Mat4* out) const
+Mat4* QuatRotation::fetch_mat(Mat4* out) const
 {
-    double lengthSqr = ((Wide(x) * x + Wide(y) * y) + Wide(z) * z) + Wide(w) * w;
-    double s = lengthSqr > 0.0 ? 2.0 / lengthSqr : 0.0;
+    double length_sqr = ((get_wide(x) * x + get_wide(y) * y) + get_wide(z) * z) + get_wide(w) * w;
+    double s = length_sqr > 0.0 ? 2.0 / length_sqr : 0.0;
     double xs = s * x;
-    float ys = Narrow(s * y);
-    float zs = Narrow(s * z);
-    float wx = Narrow(xs * w);
-    float wy = Narrow(Wide(ys) * w);
-    float wz = Narrow(Wide(zs) * w);
+    float ys = get_narrow(s * y);
+    float zs = get_narrow(s * z);
+    float wx = get_narrow(xs * w);
+    float wy = get_narrow(get_wide(ys) * w);
+    float wz = get_narrow(get_wide(zs) * w);
     double xx = xs * x;
-    double xy = Wide(ys) * x;
-    double xz = Wide(zs) * x;
-    float yy = Narrow(Wide(ys) * y);
-    float yz = Narrow(Wide(zs) * y);
-    double zz = Wide(zs) * z;
+    double xy = get_wide(ys) * x;
+    double xz = get_wide(zs) * x;
+    float yy = get_narrow(get_wide(ys) * y);
+    float yz = get_narrow(get_wide(zs) * y);
+    double zz = get_wide(zs) * z;
 
     float* m = reinterpret_cast<float*>(out);
-    m[0] = Narrow(1.0 - (yy + zz));
-    m[4] = Narrow(xy + wz);
-    m[8] = Narrow(xz - wy);
-    m[1] = Narrow(xy - wz);
-    m[5] = Narrow(1.0 - (zz + xx));
-    m[9] = Narrow(Wide(yz) + wx);
-    m[2] = Narrow(xz + wy);
-    m[6] = Narrow(Wide(yz) - wx);
-    m[10] = Narrow(1.0 - (Wide(yy) + xx));
+    m[0] = get_narrow(1.0 - (yy + zz));
+    m[4] = get_narrow(xy + wz);
+    m[8] = get_narrow(xz - wy);
+    m[1] = get_narrow(xy - wz);
+    m[5] = get_narrow(1.0 - (zz + xx));
+    m[9] = get_narrow(get_wide(yz) + wx);
+    m[2] = get_narrow(xz + wy);
+    m[6] = get_narrow(get_wide(yz) - wx);
+    m[10] = get_narrow(1.0 - (get_wide(yy) + xx));
     return out;
 }
 

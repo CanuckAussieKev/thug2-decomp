@@ -2,11 +2,11 @@
 
 #include <cstdint>
 
-namespace MemSys {
+namespace memory {
 class Arena;
 }
 
-namespace FileLoad {
+namespace file {
 
 class AsyncFileHandle;
 
@@ -27,38 +27,38 @@ public:
 
     AssetBundle();
     // The vtable's only slot (scalar deleting destructor). Doesn't free the assets themselves.
-    AssetBundle* Teardown(unsigned int flags);
+    AssetBundle* teardown(unsigned int flags);
 
-    // The heap the bundle file is loaded into (`fileHeap`), and the heap each asset is copied out to.
-    void SetHeaps(MemSys::Arena* fileHeap, MemSys::Arena* assetHeap);
+    // The heap the bundle file is loaded into (`file_heap`), and the heap each asset is copied out to.
+    void set_heaps(memory::Arena* file_heap, memory::Arena* asset_heap);
     // Load `name` and split it. `unused` arguments are ignored (as in the original).
-    bool ReadIn(const char* name, int unused1, int unused2);
-    // Split the loaded file (`size` bytes at m_loadedData) into the assets.
-    bool Split(int unused, int size);
+    bool read_in(const char* name, int unused1, int unused2);
+    // Split the loaded file (`size` bytes at loaded_data_) into the assets.
+    bool get_split(int unused, int size);
 
-    bool IsLoaded();
-    void* ObtainLoadedItem(int index);
-    TableRow* GetEntry(int index);
-    TableRow* FindEntry(uint32_t name, uint32_t type, int unused);
-    void* FindAsset(uint32_t name, uint32_t type, int unused);
-    bool HasAsset(uint32_t name, uint32_t type);
+    bool is_loaded();
+    void* obtain_loaded_item(int index);
+    TableRow* get_entry(int index);
+    TableRow* find_entry(uint32_t name, uint32_t type, int unused);
+    void* find_asset(uint32_t name, uint32_t type, int unused);
+    bool has_asset(uint32_t name, uint32_t type);
     // Free every asset with this name and type; whether there was one.
-    bool FreeAsset(uint32_t name, uint32_t type);
+    bool free_asset(uint32_t name, uint32_t type);
 
-    void** m_vtable;                 // 0x0065822C
-    AsyncFileHandle* m_fileRef;         // an async load in progress (closed when the bundle is split / destroyed)
-    void* m_bundleBytes;                // the whole file, as loaded (shrinks as the assets are split off)
-    uint8_t* m_loadedData;           // the start of the file
-    int m_num;                     // number of entries
-    int m_unknown14;
-    TableRow m_entries[kBundleCapacity];
-    void* m_assets[kBundleCapacity];     // each asset's own copy
-    bool m_readyFlag;
-    uint8_t m_pad2341[3];
-    MemSys::Arena* m_assetHeap;
-    MemSys::Arena* m_fileHeap;
-    int m_unknown234C;
-    int m_unknown2350;
+    void** vtable_;                 // 0x0065822C
+    AsyncFileHandle* file_ref_;         // an async load in progress (closed when the bundle is split / destroyed)
+    void* bundle_bytes_;                // the whole file, as loaded (shrinks as the assets are split off)
+    uint8_t* loaded_data_;           // the start of the file
+    int num_;                     // number of entries
+    int unknown14_;
+    TableRow entries_[kBundleCapacity];
+    void* assets_[kBundleCapacity];     // each asset's own copy
+    bool ready_flag_;
+    uint8_t pad2341_[3];
+    memory::Arena* asset_heap_;
+    memory::Arena* file_heap_;
+    int unknown234c_;
+    int unknown2350_;
 };
 static_assert(sizeof(AssetBundle) == 0x2354, "allocated as 0x2354 bytes by the original");
 

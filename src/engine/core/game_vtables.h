@@ -3,7 +3,7 @@
 // The virtual tables (and node / member tables) of the exe that several files use, by name. Each is defined once, with
 // the functions it holds (a plain table of the functions), in the file given here.
 
-namespace Vt {
+namespace vt {
 
 extern void** const kVtblCompoundColl; // 0x00645AA8: front/level_editor_scale.cpp
 extern void** const kVtblMovingBoxColl; // 0x00645BC0: front/level_editor_scale.cpp

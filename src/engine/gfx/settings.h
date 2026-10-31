@@ -8,18 +8,18 @@
 // (0x005F34D0, the registry): AntiAliasing, HQShadows, DistanceClipping, ClippingDistance (1-100), Fog, and
 // DisableBlur (on by default: SetScreenBlur keeps the motion blur off), and (NOT ORIGINAL) OcclusionCulling (on by
 // default, as the original: engine/gfx/occlusion.h).
-namespace Engine3D {
+namespace render {
 
-// Read them (at start-up, before OsLayer::InitInput writes them).
-void LoadGraphicsSettings();
-// Put them where the engine reads its options (0x007D6434...): OsLayer::InitInput.
-void WriteGraphicsSettings();
+// Read them (at start-up, before os_layer::init_input writes them).
+void load_graphics_settings();
+// Put them where the engine reads its options (0x007D6434...): os_layer::init_input.
+void write_graphics_settings();
 
 // The DisableBlur setting (see SetScreenBlur).
-bool& BlurDisabled();
+bool& blur_disabled();
 
-extern bool g_fogSetting;
-extern bool g_distanceClipping;
+extern bool g_fog_setting;
+extern bool g_distance_clipping;
 
-extern uint8_t g_hqShadows;
+extern uint8_t g_hq_shadows;
 } // namespace Nx

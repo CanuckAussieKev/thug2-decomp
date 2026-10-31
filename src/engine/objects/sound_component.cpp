@@ -23,9 +23,9 @@
 #include "engine/gfx/weather.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace GameObjects {
+namespace objects {
 
-uint32_t g_soundComponentMemberFunctions[12]{
+uint32_t g_sound_component_member_functions[12]{
             0xAFA20E18, 0x07713C7B, 0, 0, 0, 0,
             0, 0x07713C7B, 0, 0, 0, 0};
 
@@ -47,23 +47,23 @@ constexpr float kRetryPerDistance = -0.0016666667070239782f; // 0x00646554
 constexpr uint32_t kRetryDelay = 0x14D;                // (ms)
 constexpr uint32_t kWaitTime = 2000;                   // (ms)
 
-SoundFx::CAudioMixer* AudioMixerHandle() { return SoundFx::g_audioMixer; }
-CEntity* AsSoundObject(CAudioEmitterModule* component) { return reinterpret_cast<CEntity*>(component); }
+sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer; }
+Entity* as_sound_object(AudioEmitterModule* component) { return reinterpret_cast<Entity*>(component); }
 
 // The camera nearest to `position` (0x004A09E0; its distance through `distance`) and a camera's position (0x00485A00).
-void* NearestCamera(const Maths::Vec4* position, float* distance)
+void* nearest_camera(const maths::Vec4* position, float* distance)
 {
-    return Engine3D::FetchNearestCamera(position, distance);
+    return render::fetch_nearest_camera(position, distance);
 }
-const Maths::Vec4* ViewerLocation(void* camera)
+const maths::Vec4* viewer_location(void* camera)
 {
-    return static_cast<Gfx2D::ViewCam*>(camera)->FetchLocation();
+    return static_cast<gfx::ViewCam*>(camera)->fetch_location();
 }
 
 // The CRT's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
-int Ftol(double x) { return static_cast<int>(static_cast<int64_t>(x)); }
+int ftol(double x) { return static_cast<int>(static_cast<int64_t>(x)); }
 
-// The play parameters PlayObjectSound takes.
+// The play parameters play_object_sound takes.
 struct SoundParams {
     float pitch;
     float volume;
@@ -74,92 +74,92 @@ struct SoundParams {
 } // namespace
 
 // 0x00433100
-CObjectModule* __cdecl CAudioEmitterModule::Fabricate()
+ObjectModule* __cdecl AudioEmitterModule::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CAudioEmitterModule));
-    return memory ? static_cast<CAudioEmitterModule*>(memory)->MakeNew() : nullptr;
+    void* memory = memory::alloc_zeroed(sizeof(AudioEmitterModule));
+    return memory ? static_cast<AudioEmitterModule*>(memory)->make_new() : nullptr;
 }
 
 // 0x00432C80
-void __cdecl CAudioEmitterModule::PublishMethodTable()
+void __cdecl AudioEmitterModule::publish_method_table()
 {
-    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_soundComponentMemberFunctions, 0x18);
+    script::register_member_function_table(reinterpret_cast<void*>(kType), g_sound_component_member_functions, 0x18);
 }
 
 // 0x00432D90
-CAudioEmitterModule* CAudioEmitterModule::MakeNew()
+AudioEmitterModule* AudioEmitterModule::make_new()
 {
-    CObjectModule::MakeNew();
-    m_spewer = nullptr;
-    m_proxim = nullptr;
-    m_vtable = kVtable;
-    m_kindTag = kType;
-    m_atPoint = {0.0f, 0.0f, 0.0f, 1.0f};
-    m_lastPos = {0.0f, 0.0f, 0.0f, 1.0f};
+    ObjectModule::make_new();
+    spewer_ = nullptr;
+    proxim_ = nullptr;
+    vtable_ = kVtable;
+    kind_tag_ = kType;
+    at_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    last_pos_ = {0.0f, 0.0f, 0.0f, 1.0f};
     return this;
 }
 
 // 0x00432DF0
-void CAudioEmitterModule::DestroyBody()
+void AudioEmitterModule::destroy_body()
 {
-    m_vtable = kVtable;
-    AudioMixerHandle()->StopObjectSounds(AsSoundObject(this));
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    audio_mixer_handle()->stop_object_sounds(as_sound_object(this));
+    ObjectModule::destroy_body();
 }
 
 // 0x00433160
-CAudioEmitterModule* CAudioEmitterModule::Teardown(unsigned int flags)
+AudioEmitterModule* AudioEmitterModule::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00432CA0
-void CAudioEmitterModule::ConfigureFromData(Scripts::CStruct* params)
+void AudioEmitterModule::configure_from_data(script::Struct* params)
 {
     uint32_t node = reinterpret_cast<uint32_t>(params); // (read into the parameters' own argument slot)
-    if (params->ReadHashValue(0x08470F2E, &node, 0)) // ProximNode
-        m_proxim = Proxim_GetNode(node);
+    if (params->read_hash_value(0x08470F2E, &node, 0)) // ProximNode
+        proxim_ = proxim_get_node(node);
 }
 
 // 0x004335D0
-void CAudioEmitterModule::TickFrame()
+void AudioEmitterModule::tick_frame()
 {
-    m_lastPos = m_atPoint;
-    m_atPoint = m_entity->m_atPoint;
-    UpdateWaitingSounds();
+    last_pos_ = at_point_;
+    at_point_ = entity_->at_point_;
+    update_waiting_sounds();
 }
 
 // 0x00433190
-int CAudioEmitterModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script)
+int AudioEmitterModule::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
 {
     if (name == kObjAdjustSound) {
-        AdjustSound(params, script);
+        adjust_sound(params, script);
         return 1;
     }
     if (name == kObjStopSound) {
         uint32_t sound = 0; // (read into the name's argument slot, cleared first)
-        params->ReadHashValue(0u, &sound, 0);
-        AudioMixerHandle()->HaltObjectSound(AsSoundObject(this), sound);
-        if (m_waiting[0].props.checksum == sound)
-            m_waiting[0].props.checksum = 0;
-        if (m_waiting[1].props.checksum == sound)
-            m_waiting[1].props.checksum = 0;
+        params->read_hash_value(0u, &sound, 0);
+        audio_mixer_handle()->halt_object_sound(as_sound_object(this), sound);
+        if (waiting_[0].props.checksum == sound)
+            waiting_[0].props.checksum = 0;
+        if (waiting_[1].props.checksum == sound)
+            waiting_[1].props.checksum = 0;
         return 1;
     }
     if (name == kObjSetSound) {
-        AssignSoundCue(params);
+        assign_sound_cue(params);
         return 1;
     }
     return 2;
 }
 
 // 0x00432D40
-void CAudioEmitterModule::KeepLoopingSound(const SoundFx::PlaybackProps* props, uint32_t time)
+void AudioEmitterModule::keep_looping_sound(const sound::PlaybackProps* props, uint32_t time)
 {
-    for (WaitingSound& waiting : m_waiting) {
+    for (WaitingSound& waiting : waiting_) {
         if (waiting.props.checksum)
             continue;
         // (the original copies 0x30 bytes - 4 past the props - then overwrites them with the time)
@@ -170,71 +170,71 @@ void CAudioEmitterModule::KeepLoopingSound(const SoundFx::PlaybackProps* props, 
 }
 
 // 0x00432E50
-Maths::Vec4* CAudioEmitterModule::GetSoundPosition(Maths::Vec4* out, void* camera)
+maths::Vec4* AudioEmitterModule::get_sound_position(maths::Vec4* out, void* camera)
 {
-    if (m_spewer && camera) {
-        m_spewer->NearestPointOn(out, ViewerLocation(camera));
+    if (spewer_ && camera) {
+        spewer_->nearest_point_on(out, viewer_location(camera));
         return out;
     }
-    *out = m_atPoint;
+    *out = at_point_;
     return out;
 }
 
 // 0x00432EB0
-Maths::Vec4* CAudioEmitterModule::GetPreviousSoundPosition(Maths::Vec4* out, void* camera)
+maths::Vec4* AudioEmitterModule::get_previous_sound_position(maths::Vec4* out, void* camera)
 {
-    if (m_spewer && camera) {
-        m_spewer->NearestPointOn(out, ViewerLocation(camera));
+    if (spewer_ && camera) {
+        spewer_->nearest_point_on(out, viewer_location(camera));
         return out;
     }
-    *out = m_lastPos;
+    *out = last_pos_;
     return out;
 }
 
 // 0x00432F10
-bool CAudioEmitterModule::GetSoundExtent(void* camera, Maths::Vec4* out)
+bool AudioEmitterModule::get_sound_extent(void* camera, maths::Vec4* out)
 {
-    if (!camera || !m_proxim)
+    if (!camera || !proxim_)
         return false;
-    Maths::Vec4 nearest;
-    *out = *m_proxim->NearestPointOn(&nearest, ViewerLocation(camera));
+    maths::Vec4 nearest;
+    *out = *proxim_->nearest_point_on(&nearest, viewer_location(camera));
     return true;
 }
 
 // 0x00432F70
-void CAudioEmitterModule::UpdateProps(SoundFx::PlaybackProps* props)
+void AudioEmitterModule::update_props(sound::PlaybackProps* props)
 {
     if (props->pitch3 != props->pitch) { // (not a number: moved too)
-        float step = static_cast<float>(FrameClock::GetSlomoFrameSeconds() * kFramesPerSecond * reinterpret_cast<float&>(props->unknown20));
-        props->pitch = Maths::KeepWithin(props->pitch3, props->pitch, step);
+        float step = static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * reinterpret_cast<float&>(props->unknown20));
+        props->pitch = maths::keep_within(props->pitch3, props->pitch, step);
     }
     if (props->volume3 != props->volume) {
-        float step = static_cast<float>(FrameClock::GetSlomoFrameSeconds() * kFramesPerSecond * reinterpret_cast<float&>(props->unknown24));
-        props->volume = Maths::KeepWithin(props->volume3, props->volume, step);
+        float step = static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * reinterpret_cast<float&>(props->unknown24));
+        props->volume = maths::keep_within(props->volume3, props->volume, step);
     }
 }
 
 // 0x00433480
-void CAudioEmitterModule::UpdateWaitingSounds()
+void AudioEmitterModule::update_waiting_sounds()
 {
-    uint32_t now = FrameClock::GetTime();
-    for (WaitingSound& waiting : m_waiting) {
-        SoundFx::PlaybackProps& props = waiting.props;
+    uint32_t now = frame_clock::get_time();
+    for (WaitingSound& waiting : waiting_) {
+        sound::PlaybackProps& props = waiting.props;
         if (!props.checksum)
             continue;
-        UpdateProps(&props);
+        update_props(&props);
         if (waiting.time > now)
             continue;
         float distance = 0.0f; // (no camera: the original's is whatever its stack held)
-        void* camera = NearestCamera(&m_atPoint, &distance);
+        void* camera = nearest_camera(&at_point_, &distance);
         // (a dropoff of exactly 0 means the default)
         float dropoff = props.dropoff == 0.0f ? kDefaultDropoff : props.dropoff;
         if (camera && static_cast<double>(kHearingMargin) + dropoff > distance) {
             SoundParams params = {props.pitch2, props.volume2, props.dropoff, static_cast<int>(props.falloff)};
-            uint32_t id = AudioMixerHandle()->PlayObjectSound(props.checksum, &params, AsSoundObject(this), false, true);
+            uint32_t id = audio_mixer_handle()->play_object_sound(props.checksum, &params, as_sound_object(this), false, true);
             if (!id)
                 continue;
-            if (SoundFx::PlaybackProps* playing = AudioMixerHandle()->GetPositionalProps(AsSoundObject(this), id, false)) {
+            if (sound::PlaybackProps* playing = audio_mixer_handle()->get_positional_props(as_sound_object(this), id, false)) {
                 // Faded in from silence to its volume, at a hundredth of it a frame.
                 playing->volume3 = props.volume3;
                 playing->pitch3 = props.pitch3;
@@ -245,71 +245,71 @@ void CAudioEmitterModule::UpdateWaitingSounds()
             props.checksum = 0;
         } else {
             // Looked at again later: the further beyond hearing, the later.
-            int sooner = Ftol((static_cast<double>(distance) - dropoff) * kThousand * kRetryPerDistance);
+            int sooner = ftol((static_cast<double>(distance) - dropoff) * kThousand * kRetryPerDistance);
             waiting.time = now - static_cast<uint32_t>(sooner) + kRetryDelay;
         }
     }
 }
 
 // 0x00433240
-void CAudioEmitterModule::EmitSound(Scripts::CStruct* params)
+void AudioEmitterModule::emit_sound(script::Struct* params)
 {
     uint32_t sound = 0;
     float volume = 100.0f, pitch = 100.0f, dropoff = 0.0f;
     uint32_t emitter = 0;
-    bool keepPlacement = false;
+    bool keep_placement = false;
     int falloff = 0;
-    params->ReadHashValue(0u, &sound, 0);
-    params->FetchFloat(0xF6A36814, &volume, 0); // vol
-    params->FetchFloat(0xD8604126, &pitch, 0);  // pitch
-    if (params->HasEntryNamed(0x9E497FC6)) { // Percent: between the min and max
-        float minVolume = 0.0f, maxVolume = 100.0f, minPitch = 100.0f, maxPitch = 100.0f, percent = 0.0f;
-        params->FetchFloat(0x0693DAAF, &maxVolume, 0); // maxVol
-        params->FetchFloat(0x4391992D, &minVolume, 0); // floorLoudness
-        params->FetchFloat(0xFA3E14C5, &maxPitch, 0);  // maxPitch
-        params->FetchFloat(0x1C5EBB24, &minPitch, 0);  // minPitch
-        params->FetchFloat(0x9E497FC6, &percent, 1);   // Percent
+    params->read_hash_value(0u, &sound, 0);
+    params->fetch_float(0xF6A36814, &volume, 0); // vol
+    params->fetch_float(0xD8604126, &pitch, 0);  // pitch
+    if (params->has_entry_named(0x9E497FC6)) { // Percent: between the min and max
+        float min_volume = 0.0f, max_volume = 100.0f, min_pitch = 100.0f, max_pitch = 100.0f, percent = 0.0f;
+        params->fetch_float(0x0693DAAF, &max_volume, 0); // maxVol
+        params->fetch_float(0x4391992D, &min_volume, 0); // floor_loudness_
+        params->fetch_float(0xFA3E14C5, &max_pitch, 0);  // maxPitch
+        params->fetch_float(0x1C5EBB24, &min_pitch, 0);  // minPitch
+        params->fetch_float(0x9E497FC6, &percent, 1);   // Percent
         double fraction = static_cast<double>(percent) * kPercent;
-        volume = static_cast<float>((static_cast<double>(maxVolume) - minVolume) * fraction + minVolume);
-        pitch = static_cast<float>((static_cast<double>(maxPitch) - minPitch) * fraction + minPitch);
+        volume = static_cast<float>((static_cast<double>(max_volume) - min_volume) * fraction + min_volume);
+        pitch = static_cast<float>((static_cast<double>(max_pitch) - min_pitch) * fraction + min_pitch);
     }
-    if (params->FetchFloat(0xFF2020EC, &dropoff, 0)) // dropoff (feet)
+    if (params->fetch_float(0xFF2020EC, &dropoff, 0)) // dropoff (feet)
         dropoff = dropoff * kInchesPerFoot;
     uint32_t function = 0; // (the original's slot holds Percent's value, or garbage)
-    if (params->ReadHashValue(0x0C6AC50A, &function, 0)) // dropoff_function
-        falloff = SoundFx::FalloffFromChecksum(function);
-    if (params->HasBareFlag(0xBB39837F)) // NoPosUpdate
-        keepPlacement = true;
-    if (params->ReadHashValue(0x8A7132CE, &emitter, 0)) // emitter
-        m_spewer = Emitter_GetNode(emitter);
+    if (params->read_hash_value(0x0C6AC50A, &function, 0)) // dropoff_function
+        falloff = sound::falloff_from_checksum(function);
+    if (params->has_bare_flag(0xBB39837F)) // NoPosUpdate
+        keep_placement = true;
+    if (params->read_hash_value(0x8A7132CE, &emitter, 0)) // emitter
+        spewer_ = emitter_get_node(emitter);
     else
-        m_spewer = nullptr;
+        spewer_ = nullptr;
     if (!sound) {
         // The sound set for a type (Obj_SetSound). (Read into the parameters' own argument slot.)
         int type = -1;
-        params->FetchIntValue("Type", &type, 0);
+        params->fetch_int_value("Type", &type, 0);
         if (type == -1 || type > 8)
             return;
-        sound = m_soundCues[type]; // (type 8 reads the first waiting sound's checksum, as the original)
+        sound = sound_cues_[type]; // (type 8 reads the first waiting sound's checksum, as the original)
         if (!sound)
             return;
     }
-    reinterpret_cast<void(__thiscall*)(CAudioEmitterModule*, uint32_t, float, float)>(m_vtable[13])(this, sound, volume,
+    reinterpret_cast<void(__thiscall*)(AudioEmitterModule*, uint32_t, float, float)>(vtable_[13])(this, sound, volume,
                                                                                                pitch);
     SoundParams play = {pitch, volume, dropoff, falloff};
-    AudioMixerHandle()->PlayObjectSound(sound, &play, AsSoundObject(this), keepPlacement, false);
+    audio_mixer_handle()->play_object_sound(sound, &play, as_sound_object(this), keep_placement, false);
 }
 
 // 0x00432FF0
-void CAudioEmitterModule::AdjustSound(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+void AudioEmitterModule::adjust_sound(script::Struct* params, script::Script* /*script*/)
 {
-    float loudnessPercent = 100.0f, pitchPercent = 100.0f;
+    float loudness_percent = 100.0f, pitch_percent = 100.0f;
     // (read into the parameters' own argument slot: none, the pointer's value)
     uint32_t sound = reinterpret_cast<uint32_t>(params);
-    params->ReadHashValue(0u, &sound, 0);
-    SoundFx::PlaybackProps* props = AudioMixerHandle()->GetPositionalProps(AsSoundObject(this), sound, true);
+    params->read_hash_value(0u, &sound, 0);
+    sound::PlaybackProps* props = audio_mixer_handle()->get_positional_props(as_sound_object(this), sound, true);
     if (!props) {
-        for (WaitingSound& waiting : m_waiting) {
+        for (WaitingSound& waiting : waiting_) {
             if (waiting.props.checksum == sound) {
                 props = &waiting.props;
                 break;
@@ -318,56 +318,56 @@ void CAudioEmitterModule::AdjustSound(Scripts::CStruct* params, Scripts::CScript
         if (!props)
             return;
     }
-    if (params->FetchFloat(0x330F3415, &loudnessPercent, 0)) { // loudnessPercent
-        props->volume3 = static_cast<float>(static_cast<double>(loudnessPercent) * props->volume2 * kPercent);
-        if (!params->FetchFloat(0xDAA9A3C2, reinterpret_cast<float*>(&props->unknown24), 0)) // volumeStep
+    if (params->fetch_float(0x330F3415, &loudness_percent, 0)) { // loudness_percent
+        props->volume3 = static_cast<float>(static_cast<double>(loudness_percent) * props->volume2 * kPercent);
+        if (!params->fetch_float(0xDAA9A3C2, reinterpret_cast<float*>(&props->unknown24), 0)) // volumeStep
             props->volume = props->volume3;
     }
-    if (params->FetchFloat(0xEE616C13, &pitchPercent, 0)) { // pitchPercent
-        props->pitch3 = static_cast<float>(static_cast<double>(pitchPercent) * props->pitch2 * kPercent);
-        if (!params->FetchFloat(0x7B090774, reinterpret_cast<float*>(&props->unknown20), 0)) // pitchStep
+    if (params->fetch_float(0xEE616C13, &pitch_percent, 0)) { // pitchPercent
+        props->pitch3 = static_cast<float>(static_cast<double>(pitch_percent) * props->pitch2 * kPercent);
+        if (!params->fetch_float(0x7B090774, reinterpret_cast<float*>(&props->unknown20), 0)) // pitchStep
             props->pitch = props->pitch3;
     }
 }
 
 // 0x00432CE0
-void CAudioEmitterModule::AssignSoundCue(Scripts::CStruct* params)
+void AudioEmitterModule::assign_sound_cue(script::Struct* params)
 {
     int type = -1;
     uint32_t sound = 0;
-    params->FetchIntValue(0x7321A8D6, &type, 0); // type
-    params->ReadHashValue(0u, &sound, 0);
+    params->fetch_int_value(0x7321A8D6, &type, 0); // type
+    params->read_hash_value(0u, &sound, 0);
     if (type != -1 && sound && type <= 8)
-        m_soundCues[type] = sound; // (8 is the first waiting sound's checksum; a negative type writes before the slots)
+        sound_cues_[type] = sound; // (8 is the first waiting sound's checksum; a negative type writes before the slots)
 }
 
 // 0x00433630
-bool CAudioEmitterModule::Obj_PlaySound(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+bool AudioEmitterModule::obj_play_sound(script::Struct* params, script::Script* /*script*/)
 {
-    EmitSound(params);
+    emit_sound(params);
     return true;
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CAudioEmitterModule::Teardown,
-         &GameObjects::CAudioEmitterModule::TickFrame,
-         &GameObjects::CAudioEmitterModule::ConfigureFromData,
-         Stubs::DoNothing,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Engine3D::VirtualSlot1Jump,
-         Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::DispatchScriptMethod,
-         &GameObjects::CAudioEmitterModule::InvokeMethodByName,
-         Stubs::IgnoreArguments3};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::AudioEmitterModule::teardown,
+         &objects::AudioEmitterModule::tick_frame,
+         &objects::AudioEmitterModule::configure_from_data,
+         stubs::do_nothing,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         render::virtual_slot1_jump,
+         stubs::ignore_argument,
+         &objects::ObjectModule::dispatch_script_method,
+         &objects::AudioEmitterModule::invoke_method_by_name,
+         stubs::ignore_arguments3};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

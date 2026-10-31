@@ -1,4 +1,4 @@
-// The flexible particle component (GameObjects::CFlexibleParticleComponent) and the particle system's flag setter: see
+// The flexible particle component (GameObjects::FlexibleParticleComponent) and the particle system's flag setter: see
 // flexible_particle.h. From the disassembly of 0x0041D6E0-0x0041E25E.
 
 #include "engine/objects/flexible_particle.h"
@@ -22,23 +22,23 @@
 #include "engine/core/stubs.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace Engine3D {
+namespace render {
 
 // 0x0041D9C0
-void CEmitterInstance::SetFlag(int bit, bool on)
+void EmitterInstance::set_flag(int bit, bool on)
 {
     if (on)
-        m_flagBits |= 1u << bit;
+        flag_bits_ |= 1u << bit;
     else
-        m_flagBits &= ~(1u << bit);
+        flag_bits_ &= ~(1u << bit);
 }
 
 } // namespace Nx
 
-namespace GameObjects {
+namespace objects {
 
-float g_particleUpdateTime{1.0f};
-uint32_t g_flexibleParticleMemberFunctions[156]{
+float g_particle_update_time{1.0f};
+uint32_t g_flexible_particle_member_functions[156]{
             0x63274395, 0xC5BCEB9E, 0, 0, 0, 0,
             0x8FFDEF38, 0xC5BCEB9E, 0, 0, 0, 0,
             0x7911855B, 0xC5BCEB9E, 0, 0, 0, 0,
@@ -76,10 +76,10 @@ constexpr uint32_t kMaxStreams = 0x9E52A20F;           // MaxStreams
 constexpr uint32_t kTexture = 0x7D99F28D;              // texture
 constexpr uint32_t kBlendMode = 0xDD6BB3D5;            // blendmode
 constexpr uint32_t kTypeParam = 0x7321A8D6;            // type
-constexpr uint32_t kUnknown184197D5 = 0x184197D5;
-constexpr uint32_t kUnknownA605B89F = 0xA605B89F;
+constexpr uint32_t kUnknown184197d5 = 0x184197D5;
+constexpr uint32_t kUnknownA605b89f = 0xA605B89F;
 constexpr uint32_t kSegments = 0xD93124D6;             // segments
-constexpr uint32_t kUnknown4E0A65EE = 0x4E0A65EE;
+constexpr uint32_t kUnknown4e0a65eE = 0x4E0A65EE;
 constexpr uint32_t kHistory = 0xD8458FB4;              // history
 constexpr uint32_t kPerm = 0xD5928F25;                 // perm
 constexpr uint32_t kEmitterIndependent = 0x03D4E483;   // emitterIndependent
@@ -93,10 +93,10 @@ constexpr uint32_t kUpdateScript = 0x092276DB;         // UpdateScript
 constexpr uint32_t kEnableRotate = 0xA2487CC3;         // EnableRotate
 constexpr uint32_t kUpdateBrightness = 0xBBFA4B06;     // update_Brightness
 constexpr uint32_t kObjId = 0x0830ECAF;                // ObjID
-constexpr uint32_t kUseRandomUVQuadrants = 0x47580C70; // UseRandomUVQuadrants
-constexpr uint32_t kUnknown5446AF14 = 0x5446AF14;
+constexpr uint32_t kUseRandomUvQuadrants = 0x47580C70; // UseRandomUVQuadrants
+constexpr uint32_t kUnknown5446aF14 = 0x5446AF14;
 constexpr uint32_t kFillPath = 0x9B9381E2;             // FillPath
-constexpr uint32_t kUnknownDE45A90D = 0xDE45A90D;
+constexpr uint32_t kUnknownDe45a90d = 0xDE45A90D;
 constexpr uint32_t kPriority = 0x9D5923D8;             // priority
 constexpr uint32_t kAlignTo = 0xE4247A6B;              // align_to
 constexpr uint32_t kForceParticleUpdateTime = 0x0CF3CBA1; // Force_Particle_Update_Time (a script global)
@@ -106,308 +106,308 @@ constexpr uint32_t kApplyEnvBrightness = 0x96896315;   // ApplyEnvBrightness
 constexpr uint32_t kSuspend = 0xCE0CA665;
 
 // The particle manager's update time (0x0067D6D0: Force_Particle_Update_Time as a float).
-float& ParticleUpdateTime() { return g_particleUpdateTime; }
+float& particle_update_time() { return g_particle_update_time; }
 
 // The particle manager (0x006FA7C0; no source yet).
-void* ParticleHubHandle() { return Engine3D::g_flexibleParticleManager; }
-Engine3D::CEmitterInstance* FindSystem(uint32_t name)
+void* particle_hub_handle() { return render::g_flexible_particle_manager; }
+render::EmitterInstance* find_system(uint32_t name)
 {
-    return static_cast<Engine3D::CFlexibleParticleManager*>(ParticleHubHandle())->FindSystem(name);
+    return static_cast<render::FlexibleParticleManager*>(particle_hub_handle())->find_system(name);
 }
 // 0x0049AC60: a new system (named `name`) from the parameters.
-Engine3D::CEmitterInstance* StartSubsystem(uint32_t name, uint32_t type, int max, int maxStreams, uint32_t texture,
-                                  uint32_t blendMode, int unknownA605B89F, int segments, float unknown4E0A65EE,
-                                  int history, int perm, bool useGlobalColorModulation, const char* model)
+render::EmitterInstance* start_subsystem(uint32_t name, uint32_t type, int max, int max_streams, uint32_t texture,
+                                  uint32_t blend_mode, int unknowna605b89f, int segments, float unknown4e0a65ee,
+                                  int history, int perm, bool use_global_color_modulation, const char* model)
 {
-    return static_cast<Engine3D::CFlexibleParticleManager*>(ParticleHubHandle())
-        ->StartSubsystem(name, type, max, maxStreams, texture, blendMode, unknownA605B89F, segments, unknown4E0A65EE,
-                       history, perm, useGlobalColorModulation, model);
+    return static_cast<render::FlexibleParticleManager*>(particle_hub_handle())
+        ->start_subsystem(name, type, max, max_streams, texture, blend_mode, unknowna605b89f, segments, unknown4e0a65ee,
+                       history, perm, use_global_color_modulation, model);
 }
-void DestroySystemNow(uint32_t name)
+void destroy_system_now(uint32_t name)
 {
-    static_cast<Engine3D::CFlexibleParticleManager*>(ParticleHubHandle())->DestroySystemNow(name);
+    static_cast<render::FlexibleParticleManager*>(particle_hub_handle())->destroy_system_now(name);
 }
-void DestroySystemWhenEmpty(uint32_t name)
+void destroy_system_when_empty(uint32_t name)
 {
-    static_cast<Engine3D::CFlexibleParticleManager*>(ParticleHubHandle())->DestroySystemWhenEmpty(name);
+    static_cast<render::FlexibleParticleManager*>(particle_hub_handle())->destroy_system_when_empty(name);
 }
 
 // The system's own (no source yet).
-bool SystemCallMemberFunction(Engine3D::CEmitterInstance* system, uint32_t name, Scripts::CStruct* params,
-                              Scripts::CScript* script)
+bool system_call_member_function(render::EmitterInstance* system, uint32_t name, script::Struct* params,
+                              script::Script* script)
 {
-    return system->InvokeMethodByName(name, params, script);
+    return system->invoke_method_by_name(name, params, script);
 }
-void SetEmitScript(Engine3D::CEmitterInstance* system, uint32_t script, Scripts::CStruct* params, CEntity* object)
+void set_emit_script(render::EmitterInstance* system, uint32_t script, script::Struct* params, Entity* object)
 {
-    system->SetEmitScript(script, params, object);
+    system->set_emit_script(script, params, object);
 }
-void SetUpdateScript(Engine3D::CEmitterInstance* system, uint32_t script, Scripts::CStruct* params, CEntity* object)
+void set_update_script(render::EmitterInstance* system, uint32_t script, script::Struct* params, Entity* object)
 {
-    system->SetUpdateScript(script, params, object);
+    system->set_update_script(script, params, object);
 }
-void UpdateSystem(Engine3D::CEmitterInstance* system, float time, int unknown)
+void update_system(render::EmitterInstance* system, float time, int unknown)
 {
-    system->TickFrame(time, unknown != 0);
+    system->tick_frame(time, unknown != 0);
 }
-void IdleSystem(Engine3D::CEmitterInstance* system)
+void idle_system(render::EmitterInstance* system)
 {
-    system->RunEmitScript();
+    system->run_emit_script();
 }
 // 0x00497AB0: the matrix of the system's rotation, into `out` (returned).
-Maths::Mat4* SystemRotation(Engine3D::CEmitterInstance* system, Maths::Mat4* out)
+maths::Mat4* system_rotation(render::EmitterInstance* system, maths::Mat4* out)
 {
-    return system->BuildEmitterOrientation(out);
+    return system->build_emitter_orientation(out);
 }
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
-void MatrixMultiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
+void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
 {
-    D3dx::MatrixMultiply(out, a, b);
+    d3dx::matrix_multiply(out, a, b);
 }
 
 // The suspend component (no source yet): whether its object should be updated (0x00433EA0), suspended (+0x30, the
 // getter 0x00433E90), told to start (0x00433E70).
-bool SuspendShouldUpdate(uint8_t* suspend)
+bool suspend_should_update(uint8_t* suspend)
 {
-    return reinterpret_cast<CDormancyModule*>(suspend)->WantsAnimating(nullptr);
+    return reinterpret_cast<DormancyModule*>(suspend)->wants_animating(nullptr);
 }
-void SuspendStart(uint8_t* suspend) { reinterpret_cast<CDormancyModule*>(suspend)->DisableLod(); }
+void suspend_start(uint8_t* suspend) { reinterpret_cast<DormancyModule*>(suspend)->disable_lod(); }
 
-// The object dies (its vtable slot 6, FlagAsDead).
-void Kill(CGameEntity* object) { reinterpret_cast<void(__thiscall*)(CGameEntity*)>(object->m_vtable[6])(object); }
+// The object dies (its vtable slot 6, flag_as_dead).
+void get_kill(GameEntity* object) { reinterpret_cast<void(__thiscall*)(GameEntity*)>(object->vtable_[6])(object); }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
-int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
+int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 } // namespace
 
 // 0x0041E1E0
-CObjectModule* __cdecl CFlexibleParticleComponent::Fabricate()
+ObjectModule* __cdecl FlexibleParticleComponent::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CFlexibleParticleComponent));
-    return memory ? static_cast<CFlexibleParticleComponent*>(memory)->MakeNew() : nullptr;
+    void* memory = memory::alloc_zeroed(sizeof(FlexibleParticleComponent));
+    return memory ? static_cast<FlexibleParticleComponent*>(memory)->make_new() : nullptr;
 }
 
 // 0x0041D6E0
-void __cdecl CFlexibleParticleComponent::PublishMethodTable()
+void __cdecl FlexibleParticleComponent::publish_method_table()
 {
-    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(CFlexibleParticleComponent::kType),
-                                        g_flexibleParticleMemberFunctions, 0x18);
+    script::register_member_function_table(reinterpret_cast<void*>(FlexibleParticleComponent::kType),
+                                        g_flexible_particle_member_functions, 0x18);
 }
 
 // 0x0041DA00
-CFlexibleParticleComponent* CFlexibleParticleComponent::MakeNew()
+FlexibleParticleComponent* FlexibleParticleComponent::make_new()
 {
-    CObjectModule::MakeNew();
-    m_vtable = kVtable;
-    m_system.m_preceding = nullptr;
-    m_system.m_following = nullptr;
-    m_system.m_ownerObject = nullptr;
-    m_kindTag = CFlexibleParticleComponent::kType;
-    m_system.Release(); // (the original lets go of the null it was just given)
-    m_system.m_ownerObject = nullptr;
-    m_label = 0;
-    m_unknown28 = 0;
-    m_suspend = nullptr;
-    m_brightnessModel = nullptr;
-    m_rotate = false;
-    m_clock = 0.0f;
+    ObjectModule::make_new();
+    vtable_ = kVtable;
+    system_.preceding_ = nullptr;
+    system_.following_ = nullptr;
+    system_.owner_object_ = nullptr;
+    kind_tag_ = FlexibleParticleComponent::kType;
+    system_.get_release(); // (the original lets go of the null it was just given)
+    system_.owner_object_ = nullptr;
+    label_ = 0;
+    unknown28_ = 0;
+    suspend_ = nullptr;
+    brightness_model_ = nullptr;
+    rotate_ = false;
+    clock_ = 0.0f;
     return this;
 }
 
 // 0x0041DA80
-void CFlexibleParticleComponent::DestroyBody()
+void FlexibleParticleComponent::destroy_body()
 {
-    m_vtable = kVtable;
-    if (Engine3D::CEmitterInstance* system = m_system.Pull())
-        reinterpret_cast<void*(__thiscall*)(Engine3D::CEmitterInstance*, unsigned int)>(system->m_vtable[0])(system, 1);
-    m_system.Release();
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    if (render::EmitterInstance* system = system_.get_pull())
+        reinterpret_cast<void*(__thiscall*)(render::EmitterInstance*, unsigned int)>(system->vtable_[0])(system, 1);
+    system_.get_release();
+    ObjectModule::destroy_body();
 }
 
 // 0x0041E240
-CFlexibleParticleComponent* CFlexibleParticleComponent::Teardown(unsigned int flags)
+FlexibleParticleComponent* FlexibleParticleComponent::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x0041DB00
-void CFlexibleParticleComponent::ConfigureFromData(Scripts::CStruct* params)
+void FlexibleParticleComponent::configure_from_data(script::Struct* params)
 {
-    params->ReadHashValue(kName, &m_label, 0);
-    float maxFloat = 1.0f;
-    params->FetchFloat(kMax, &maxFloat, 0);
-    int max = Truncated(maxFloat);
-    int maxStreams = 2;
-    params->FetchIntValue(kMaxStreams, &maxStreams, 0);
+    params->read_hash_value(kName, &label_, 0);
+    float max_float = 1.0f;
+    params->fetch_float(kMax, &max_float, 0);
+    int max = get_truncated(max_float);
+    int max_streams = 2;
+    params->fetch_int_value(kMaxStreams, &max_streams, 0);
     uint32_t texture = 0;
-    params->ReadHashValue(kTexture, &texture, 0);
-    uint32_t blendMode = 0x515E298E;
-    params->ReadHashValue(kBlendMode, &blendMode, 0);
+    params->read_hash_value(kTexture, &texture, 0);
+    uint32_t blend_mode = 0x515E298E;
+    params->read_hash_value(kBlendMode, &blend_mode, 0);
     uint32_t type = 0xAAB555BB;
-    params->ReadHashValue(kTypeParam, &type, 0);
-    params->ReadHashValue(kUnknown184197D5, &m_unknown28, 0);
-    int unknownA605B89F = 0;
-    params->FetchIntValue(kUnknownA605B89F, &unknownA605B89F, 0);
+    params->read_hash_value(kTypeParam, &type, 0);
+    params->read_hash_value(kUnknown184197d5, &unknown28_, 0);
+    int unknowna605b89f = 0;
+    params->fetch_int_value(kUnknownA605b89f, &unknowna605b89f, 0);
     int segments = 8;
-    params->FetchIntValue(kSegments, &segments, 0);
-    float unknown4E0A65EE = 0.5f;
-    params->FetchFloat(kUnknown4E0A65EE, &unknown4E0A65EE, 0);
+    params->fetch_int_value(kSegments, &segments, 0);
+    float unknown4e0a65ee = 0.5f;
+    params->fetch_float(kUnknown4e0a65eE, &unknown4e0a65ee, 0);
     int history = 1;
-    params->FetchIntValue(kHistory, &history, 0);
+    params->fetch_int_value(kHistory, &history, 0);
     int perm = 0;
-    params->FetchIntValue(kPerm, &perm, 0);
-    int emitterIndependent = 0;
-    params->FetchIntValue(kEmitterIndependent, &emitterIndependent, 0);
-    float emitRate = 0.0f;
-    params->FetchFloat(kEmitRate, &emitRate, 0);
+    params->fetch_int_value(kPerm, &perm, 0);
+    int emitter_independent = 0;
+    params->fetch_int_value(kEmitterIndependent, &emitter_independent, 0);
+    float emit_rate = 0.0f;
+    params->fetch_float(kEmitRate, &emit_rate, 0);
     const char* model = nullptr;
-    params->FetchText(kModel, &model, 0);
-    bool useGlobalColorModulation = params->HasBareFlag(kUseGlobalColorModulation);
+    params->fetch_text(kModel, &model, 0);
+    bool use_global_color_modulation = params->has_bare_flag(kUseGlobalColorModulation);
     // A permanent system of this name, if there's one; else a new one, named by the component's address.
     bool found = false;
     if (perm) {
-        m_system.AssignValue(FindSystem(m_label));
-        found = m_system.Pull() != nullptr;
+        system_.assign_value(find_system(label_));
+        found = system_.get_pull() != nullptr;
     }
     if (!found) {
-        m_label = reinterpret_cast<uint32_t>(this);
-        m_system.AssignValue(StartSubsystem(reinterpret_cast<uint32_t>(this), type, max, maxStreams, texture, blendMode,
-                                   unknownA605B89F, segments, unknown4E0A65EE, history, perm, useGlobalColorModulation,
+        label_ = reinterpret_cast<uint32_t>(this);
+        system_.assign_value(start_subsystem(reinterpret_cast<uint32_t>(this), type, max, max_streams, texture, blend_mode,
+                                   unknowna605b89f, segments, unknown4e0a65ee, history, perm, use_global_color_modulation,
                                    model));
-        if (!m_system.Pull())
+        if (!system_.get_pull())
             return;
     }
-    uint32_t groupId = 0;
-    if (params->ReadHashValue(kGroupId, &groupId, 0))
-        m_system.Pull()->m_groupId = groupId;
-    m_system.Pull()->m_emitterIndependent = emitterIndependent > 0;
-    m_system.Pull()->m_unknown78 = m_unknown28;
-    m_system.Pull()->m_emitRate = emitRate;
-    Scripts::CStruct* scriptParams = nullptr;
-    params->ReadSubStruct(kParams, &scriptParams, 0);
-    uint32_t emitScript = 0;
-    if (params->ReadHashValue(kEmitScript, &emitScript, 0))
-        SetEmitScript(m_system.Pull(), emitScript, scriptParams, m_entity);
-    uint32_t updateScript = 0;
-    if (params->ReadHashValue(kUpdateScript, &updateScript, 0))
-        SetUpdateScript(m_system.Pull(), updateScript, scriptParams, m_entity);
-    if (params->HasBareFlag(kEnableRotate))
-        m_rotate = true;
-    bool updateBrightness = params->HasBareFlag(kUpdateBrightness);
-    m_system.Pull()->m_updateBrightness = false;
-    if (updateBrightness) {
-        uint32_t objectId = m_unknown28;
-        params->ReadHashValue(kObjId, &objectId, 0);
-        if (objectId)
-            m_brightnessModel = static_cast<CGameEntity*>(FindObject(objectId))->FetchModule(kModel);
+    uint32_t group_id = 0;
+    if (params->read_hash_value(kGroupId, &group_id, 0))
+        system_.get_pull()->group_id_ = group_id;
+    system_.get_pull()->emitter_independent_ = emitter_independent > 0;
+    system_.get_pull()->unknown78_ = unknown28_;
+    system_.get_pull()->emit_rate_ = emit_rate;
+    script::Struct* script_params = nullptr;
+    params->read_sub_struct(kParams, &script_params, 0);
+    uint32_t emit_script = 0;
+    if (params->read_hash_value(kEmitScript, &emit_script, 0))
+        set_emit_script(system_.get_pull(), emit_script, script_params, entity_);
+    uint32_t update_script = 0;
+    if (params->read_hash_value(kUpdateScript, &update_script, 0))
+        set_update_script(system_.get_pull(), update_script, script_params, entity_);
+    if (params->has_bare_flag(kEnableRotate))
+        rotate_ = true;
+    bool update_brightness = params->has_bare_flag(kUpdateBrightness);
+    system_.get_pull()->update_brightness_ = false;
+    if (update_brightness) {
+        uint32_t object_id = unknown28_;
+        params->read_hash_value(kObjId, &object_id, 0);
+        if (object_id)
+            brightness_model_ = static_cast<GameEntity*>(find_object(object_id))->fetch_module(kModel);
     }
-    if (params->HasBareFlag(kUseRandomUVQuadrants))
-        m_system.Pull()->m_flagBits |= 0x4000;
-    if (params->HasBareFlag(kUnknown5446AF14))
-        m_system.Pull()->m_flagBits |= 0x8000;
-    if (params->HasBareFlag(kFillPath))
-        m_system.Pull()->m_fillPath = true;
-    if (params->HasBareFlag(kUnknownDE45A90D))
-        m_system.Pull()->m_unknown133 = false;
+    if (params->has_bare_flag(kUseRandomUvQuadrants))
+        system_.get_pull()->flag_bits_ |= 0x4000;
+    if (params->has_bare_flag(kUnknown5446aF14))
+        system_.get_pull()->flag_bits_ |= 0x8000;
+    if (params->has_bare_flag(kFillPath))
+        system_.get_pull()->fill_path_ = true;
+    if (params->has_bare_flag(kUnknownDe45a90d))
+        system_.get_pull()->unknown133_ = false;
     int priority = 0;
-    params->FetchIntValue(kPriority, &priority, 0);
-    m_system.Pull()->m_rank = static_cast<uint8_t>(priority);
-    Scripts::VectorValue alignTo;
-    if (params->FetchVec(kAlignTo, &alignTo, 0)) {
-        Engine3D::CEmitterInstance* aligned = m_system.Pull();
-        aligned->m_alignTo = {alignTo.x, alignTo.y, alignTo.z, alignTo.w};
-        aligned->m_aligned = true;
+    params->fetch_int_value(kPriority, &priority, 0);
+    system_.get_pull()->rank_ = static_cast<uint8_t>(priority);
+    script::VectorValue align_to;
+    if (params->fetch_vec(kAlignTo, &align_to, 0)) {
+        render::EmitterInstance* aligned = system_.get_pull();
+        aligned->align_to_ = {align_to.x, align_to.y, align_to.z, align_to.w};
+        aligned->aligned_ = true;
     }
-    ParticleUpdateTime() = static_cast<float>(Scripts::FetchIntValue(kForceParticleUpdateTime));
+    particle_update_time() = static_cast<float>(script::fetch_int_value(kForceParticleUpdateTime));
 }
 
 // 0x0041D740
-void CFlexibleParticleComponent::Seal()
+void FlexibleParticleComponent::seal()
 {
-    m_suspend = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSuspend));
-    if (m_suspend)
-        SuspendStart(m_suspend);
+    suspend_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSuspend));
+    if (suspend_)
+        suspend_start(suspend_);
 }
 
 // 0x0041DF80
-void CFlexibleParticleComponent::TickFrame()
+void FlexibleParticleComponent::tick_frame()
 {
-    if (!m_system.Pull()) {
-        Kill(m_entity);
+    if (!system_.get_pull()) {
+        get_kill(entity_);
         return;
     }
-    m_clock = static_cast<float>(FrameClock::GetSlomoFrameSeconds() + m_clock);
+    clock_ = static_cast<float>(frame_clock::get_slomo_frame_seconds() + clock_);
     bool update = true;
-    if (m_suspend && !SuspendShouldUpdate(m_suspend))
+    if (suspend_ && !suspend_should_update(suspend_))
         update = false;
-    if (m_suspend && m_suspend[0x30] && !g_onlineHub->InNetGame()) {
+    if (suspend_ && suspend_[0x30] && !g_online_hub->in_net_game()) {
         // Suspended: only catching up, once the time reaches the particle manager's update time.
-        if (m_clock >= ParticleUpdateTime()) {
-            Engine3D::CEmitterInstance* system = m_system.Pull();
-            system->m_flagBits |= 1;
-            m_system.Pull()->m_unknown12F = true;
-            if (m_system.Pull()->m_wantsTime) {
-                UpdateSystem(m_system.Pull(), m_clock, 0);
-                m_clock = 0.0f;
+        if (clock_ >= particle_update_time()) {
+            render::EmitterInstance* system = system_.get_pull();
+            system->flag_bits_ |= 1;
+            system_.get_pull()->unknown12f_ = true;
+            if (system_.get_pull()->wants_time_) {
+                update_system(system_.get_pull(), clock_, 0);
+                clock_ = 0.0f;
             }
-            if (Engine3D::CEmitterInstance* after = m_system.Pull()) {
-                after->m_flagBits &= ~1u;
-                m_system.Pull()->m_unknown12F = false;
+            if (render::EmitterInstance* after = system_.get_pull()) {
+                after->flag_bits_ &= ~1u;
+                system_.get_pull()->unknown12f_ = false;
             }
         }
     } else {
-        m_system.Pull()->m_flagBits |= 1;
-        m_system.Pull()->m_unknown12F = true;
+        system_.get_pull()->flag_bits_ |= 1;
+        system_.get_pull()->unknown12f_ = true;
         if (update) {
-            if (m_rotate) {
-                Maths::Mat4 orientation = m_entity->m_displayMatrix;
+            if (rotate_) {
+                maths::Mat4 orientation = entity_->display_matrix_;
                 orientation.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-                Maths::Mat4 rotation;
-                MatrixMultiply(&m_entity->m_displayMatrix, SystemRotation(m_system.Pull(), &rotation), &orientation);
-                m_system.Pull()->m_xformRef = &m_entity->m_displayMatrix;
+                maths::Mat4 rotation;
+                matrix_multiply(&entity_->display_matrix_, system_rotation(system_.get_pull(), &rotation), &orientation);
+                system_.get_pull()->xform_ref_ = &entity_->display_matrix_;
             }
-            m_system.Pull()->m_atPoint = m_entity->m_atPoint;
-            Engine3D::CEmitterInstance* system = m_system.Pull();
-            if (system->m_wantsTime) {
-                if (m_brightnessModel)
-                    system->m_unknownEC = *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(m_brightnessModel) +
+            system_.get_pull()->at_point_ = entity_->at_point_;
+            render::EmitterInstance* system = system_.get_pull();
+            if (system->wants_time_) {
+                if (brightness_model_)
+                    system->unknownec_ = *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(brightness_model_) +
                                                                        0x22C);
-                UpdateSystem(m_system.Pull(), m_clock, 0);
-                m_clock = 0.0f;
+                update_system(system_.get_pull(), clock_, 0);
+                clock_ = 0.0f;
             }
         } else {
-            IdleSystem(m_system.Pull());
+            idle_system(system_.get_pull());
         }
     }
-    if (m_entity->m_compositeFlags & COMPOSITE_FLAG_HIDDEN) {
-        m_system.Pull()->m_unknown12F = false;
-        m_system.Pull()->m_unknown130 = false;
+    if (entity_->composite_flags_ & kCompositeFlagHidden) {
+        system_.get_pull()->unknown12f_ = false;
+        system_.get_pull()->unknown130_ = false;
     }
 }
 
 // 0x0041D760
-void CFlexibleParticleComponent::Conceal(bool hide)
+void FlexibleParticleComponent::conceal(bool hide)
 {
-    if (Engine3D::CEmitterInstance* system = m_system.Pull())
-        system->m_unknown12F = hide;
+    if (render::EmitterInstance* system = system_.get_pull())
+        system->unknown12f_ = hide;
 }
 
 // 0x0041D780
-int CFlexibleParticleComponent::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script)
+int FlexibleParticleComponent::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
 {
     switch (name) {
     case kIsEmitting: {
-        Engine3D::CEmitterInstance* system = m_system.Pull(); // (no null check, as the original)
-        return system->m_spewing || system->m_emitRate > 0.0f ? 1 : 0;
+        render::EmitterInstance* system = system_.get_pull(); // (no null check, as the original)
+        return system->spewing_ || system->emit_rate_ > 0.0f ? 1 : 0;
     }
     case kApplyEnvBrightness:
-        if (Engine3D::CEmitterInstance* system = m_system.Pull())
-            return SystemCallMemberFunction(system, kApplyEnvBrightness, params, script) ? 1 : 0;
+        if (render::EmitterInstance* system = system_.get_pull())
+            return system_call_member_function(system, kApplyEnvBrightness, params, script) ? 1 : 0;
         return 0;
     default:
         return 2;
@@ -415,119 +415,119 @@ int CFlexibleParticleComponent::InvokeMethodByName(uint32_t name, Scripts::CStru
 }
 
 // 0x0041D700
-int CFlexibleParticleComponent::CallMemberFunctionEntry(Scripts::CMemberFunctionEntry* entry, Scripts::CStruct* params,
-                                                        Scripts::CScript* script)
+int FlexibleParticleComponent::call_member_function_entry(script::MemberFunctionEntry* entry, script::Struct* params,
+                                                        script::Script* script)
 {
-    if (entry->m_methodCode) {
-        using Member = int(__thiscall*)(void*, uint32_t, Scripts::CStruct*, Scripts::CScript*);
-        return reinterpret_cast<Member>(entry->m_methodCode)(reinterpret_cast<uint8_t*>(this) + entry->m_thisAdjustment,
-                                                      entry->m_callsign, params, script);
+    if (entry->method_code_) {
+        using Member = int(__thiscall*)(void*, uint32_t, script::Struct*, script::Script*);
+        return reinterpret_cast<Member>(entry->method_code_)(reinterpret_cast<uint8_t*>(this) + entry->this_adjustment_,
+                                                      entry->callsign_, params, script);
     }
-    return reinterpret_cast<int(__thiscall*)(CObjectModule*, uint32_t, Scripts::CStruct*, Scripts::CScript*)>(
-        m_vtable[12])(this, entry->m_callsign, params, script);
+    return reinterpret_cast<int(__thiscall*)(ObjectModule*, uint32_t, script::Struct*, script::Script*)>(
+        vtable_[12])(this, entry->callsign_, params, script);
 }
 
 // 0x0041D7F0
-int CFlexibleParticleComponent::PassToSystem(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script)
+int FlexibleParticleComponent::pass_to_system(uint32_t name, script::Struct* params, script::Script* script)
 {
-    Engine3D::CEmitterInstance* system = m_system.Pull();
+    render::EmitterInstance* system = system_.get_pull();
     if (!system)
         return 0;
-    return SystemCallMemberFunction(system, name, params, script) ? 1 : 0;
+    return system_call_member_function(system, name, params, script) ? 1 : 0;
 }
 
 // 0x0041D820
-int CFlexibleParticleComponent::EmptySystem(uint32_t, Scripts::CStruct*, Scripts::CScript*)
+int FlexibleParticleComponent::empty_system(uint32_t, script::Struct*, script::Script*)
 {
-    if (Engine3D::CEmitterInstance* system = m_system.Pull())
-        system->m_unknown8C = 0;
+    if (render::EmitterInstance* system = system_.get_pull())
+        system->unknown8c_ = 0;
     return 1;
 }
 
 // 0x0041D840
-int CFlexibleParticleComponent::SetScripts(uint32_t, Scripts::CStruct* params, Scripts::CScript*)
+int FlexibleParticleComponent::set_scripts(uint32_t, script::Struct* params, script::Script*)
 {
-    Scripts::CStruct* scriptParams = nullptr;
-    params->ReadSubStruct(kParams, &scriptParams, 0);
-    if (m_system.Pull()) {
-        uint32_t emitScript = 0;
-        if (params->ReadHashValue(kEmitScript, &emitScript, 0))
-            SetEmitScript(m_system.Pull(), emitScript, scriptParams, m_entity);
-        uint32_t updateScript = 0;
-        if (params->ReadHashValue(kUpdateScript, &updateScript, 0))
-            SetUpdateScript(m_system.Pull(), updateScript, scriptParams, m_entity);
+    script::Struct* script_params = nullptr;
+    params->read_sub_struct(kParams, &script_params, 0);
+    if (system_.get_pull()) {
+        uint32_t emit_script = 0;
+        if (params->read_hash_value(kEmitScript, &emit_script, 0))
+            set_emit_script(system_.get_pull(), emit_script, script_params, entity_);
+        uint32_t update_script = 0;
+        if (params->read_hash_value(kUpdateScript, &update_script, 0))
+            set_update_script(system_.get_pull(), update_script, script_params, entity_);
     }
     return 1;
 }
 
 // 0x0041D8F0
-int CFlexibleParticleComponent::ShouldEmit(uint32_t, Scripts::CStruct*, Scripts::CScript*)
+int FlexibleParticleComponent::should_emit(uint32_t, script::Struct*, script::Script*)
 {
-    Engine3D::CEmitterInstance* system = m_system.Pull();
+    render::EmitterInstance* system = system_.get_pull();
     if (!system)
         return 0;
-    return system->m_spewing || system->m_emitRate > 0.0f ? 1 : 0;
+    return system->spewing_ || system->emit_rate_ > 0.0f ? 1 : 0;
 }
 
 // 0x0041D920
-int CFlexibleParticleComponent::EmitOn(uint32_t, Scripts::CStruct*, Scripts::CScript*)
+int FlexibleParticleComponent::emit_on(uint32_t, script::Struct*, script::Script*)
 {
-    if (Engine3D::CEmitterInstance* system = m_system.Pull())
-        system->m_spewing = true;
+    if (render::EmitterInstance* system = system_.get_pull())
+        system->spewing_ = true;
     return 1;
 }
 
 // 0x0041D940
-int CFlexibleParticleComponent::EmitOff(uint32_t, Scripts::CStruct*, Scripts::CScript*)
+int FlexibleParticleComponent::emit_off(uint32_t, script::Struct*, script::Script*)
 {
-    if (Engine3D::CEmitterInstance* system = m_system.Pull())
-        system->m_spewing = false;
+    if (render::EmitterInstance* system = system_.get_pull())
+        system->spewing_ = false;
     return 1;
 }
 
 // 0x0041D960
-int CFlexibleParticleComponent::DestroySystem(uint32_t, Scripts::CStruct* params, Scripts::CScript*)
+int FlexibleParticleComponent::destroy_system(uint32_t, script::Struct* params, script::Script*)
 {
-    int ifEmpty = 0;
-    params->FetchIntValue(kIfEmpty, &ifEmpty, 0);
-    if (ifEmpty)
-        DestroySystemWhenEmpty(m_label);
+    int if_empty = 0;
+    params->fetch_int_value(kIfEmpty, &if_empty, 0);
+    if (if_empty)
+        destroy_system_when_empty(label_);
     else
-        DestroySystemNow(m_label);
+        destroy_system_now(label_);
     return 1;
 }
 
 // 0x0041E190
-int CFlexibleParticleComponent::DestroyParticles(uint32_t, Scripts::CStruct*, Scripts::CScript*)
+int FlexibleParticleComponent::destroy_particles(uint32_t, script::Struct*, script::Script*)
 {
-    if (m_system.Pull()) {
-        DestroySystemNow(m_label);
-        m_system.Release();
-        m_system.m_ownerObject = nullptr;
+    if (system_.get_pull()) {
+        destroy_system_now(label_);
+        system_.get_release();
+        system_.owner_object_ = nullptr;
     }
-    Kill(m_entity);
+    get_kill(entity_);
     return 1;
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CFlexibleParticleComponent::Teardown,
-         &GameObjects::CFlexibleParticleComponent::TickFrame,
-         &GameObjects::CFlexibleParticleComponent::ConfigureFromData,
-         &GameObjects::CFlexibleParticleComponent::Seal,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         Stubs::IgnoreArgument,
-         &GameObjects::CFlexibleParticleComponent::Conceal,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         &GameObjects::CFlexibleParticleComponent::CallMemberFunctionEntry,
-         &GameObjects::CFlexibleParticleComponent::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::FlexibleParticleComponent::teardown,
+         &objects::FlexibleParticleComponent::tick_frame,
+         &objects::FlexibleParticleComponent::configure_from_data,
+         &objects::FlexibleParticleComponent::seal,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         stubs::ignore_argument,
+         &objects::FlexibleParticleComponent::conceal,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         &objects::FlexibleParticleComponent::call_member_function_entry,
+         &objects::FlexibleParticleComponent::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

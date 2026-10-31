@@ -29,82 +29,82 @@ struct ImFont;
 //
 // Layout record (version 2 still; an older reader skips the kind):
 //   camera <name> pos=x,y,z angles=x,y,z dist=d
-namespace MenuSystem::LevelEditor::Cameras {
+namespace frontend::level_editor::cameras {
 
 // --- the pure parts ------------------------------------------------------------------------------------------------
 
 constexpr float kDefaultDistance = 1000.0f;
 constexpr float kMinDistance = 50.0f, kMaxDistance = 20000.0f;
-float ClampDistance(float d);
-// A node's angles for the editor's view (yaw / pitch as FrameFromYawPitch takes them), and back.
-V3 AnglesFor(float yaw, float pitch);
-void YawPitchOf(V3 angles, float* yaw, float* pitch);
+float clamp_distance(float d);
+// A node's angles for the editor's view (yaw / pitch as frame_from_yaw_pitch takes them), and back.
+V3 angles_for(float yaw, float pitch);
+void yaw_pitch_of(V3 angles, float* yaw, float* pitch);
 // Where it looks: the view direction of those angles.
-V3 Forward(V3 angles);
+V3 get_forward(V3 angles);
 // The point looked at `distance` ahead, and the camera's place relative to it (virtual_cam's targetOffset /
 // positionOffset).
-V3 TargetOf(V3 pos, V3 angles, float distance);
-V3 PositionOffset(V3 pos, V3 angles, float distance);
+V3 target_of(V3 pos, V3 angles, float distance);
+V3 position_offset(V3 pos, V3 angles, float distance);
 // The frustum's far corners `depth` ahead (the lens's half-angle tangents): right-up, left-up, left-down, right-down.
-void FrustumCorners(V3 pos, V3 angles, float tanX, float tanY, float depth, V3 out[4]);
+void frustum_corners(V3 pos, V3 angles, float tan_x, float tan_y, float depth, V3 out[4]);
 
 struct ViewCam {
     std::string name;
     V3 pos = {}, angles = {};
     float distance = kDefaultDistance;
 };
-bool Same(const ViewCam& a, const ViewCam& b);
+bool get_same(const ViewCam& a, const ViewCam& b);
 // The record's text and one read (after the word "camera"; false: malformed - no pos, a bad name or number, a key
 // twice).
-std::string WriteRecord(const ViewCam& camera);
-bool ReadRecord(std::istringstream& in, ViewCam* out);
+std::string write_record(const ViewCam& camera);
+bool read_record(std::istringstream& in, ViewCam* out);
 // The stem of fresh names.
 constexpr const char* kStem = "ed_camera";
 
 // (map4) Playing a camera: the script command LevelEditor_PlayCamera camera=<node> [time=<seconds>] (the editor's
 // Camera triggers call it - level_editor_triggers.h - and so may a level's own scripts) plays the node as the game
 // plays its goal / view-goals cameras: PlaySkaterCamAnim {name=ed_camera_shot virtual_cam targetid=world
-// targetOffset=... positionOffset=... frames=<n> skippable=1} (CFunc_PlaySkaterCamAnim 0x005AD830 - view_goals_menu.qb's
+// targetOffset=... positionOffset=... frames=<n> skippable=1} (cfunc_play_skater_cam_anim 0x005AD830 - view_goals_menu.qb's
 // play_single_view_goals_cam is the same call), without play_hold: after its frames the camera animation ends and
-// the skater's camera is back (a button skips it). The offsets: an editor camera's from its place now (TargetOf /
+// the skater's camera is back (a button skips it). The offsets: an editor camera's from its place now (target_of /
 // PositionOffset), else the node's targetOffset / positionOffset, else its Pos / Angles looking kDefaultDistance
 // ahead. A shot still playing is killed first (KillSkaterCamAnim name=ed_camera_shot, 0x005ADD70). Refused while the
 // editor runs (its own camera; Look through is the preview there).
 constexpr float kShotDefaultSeconds = 3.0f, kShotMinSeconds = 0.5f, kShotMaxSeconds = 60.0f;
 // The animation's frames for `seconds` (kept within the limits; not a number: the default) - 60 a second.
-int ShotFrames(float seconds);
+int shot_frames(float seconds);
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
 // The cameras there are now (their nodes' places).
-std::vector<ViewCam> All();
-// LevelEditor_PlayCamera (registered with the editor's other commands - level_editor.h's RegisterScriptFunctions).
-bool __cdecl CFunc_PlayCamera(Scripts::CStruct* params, Scripts::CScript* script);
-bool IsCamera(uint32_t name);
+std::vector<ViewCam> get_all();
+// LevelEditor_PlayCamera (registered with the editor's other commands - level_editor.h's register_script_functions).
+bool __cdecl cfunc_play_camera(script::Struct* params, script::Script* script);
+bool is_camera(uint32_t name);
 // A camera made where the editor's view is, looking its way - one undo step (its name; "" when it couldn't be).
-std::string CreateFromView();
+std::string create_from_view();
 // Looking through it (the editor's camera put there).
-bool Preview(uint32_t name);
+bool get_preview(uint32_t name);
 // The camera put where the view is now (one undo step).
-bool AimFromView(uint32_t name);
+bool aim_from_view(uint32_t name);
 // Its pitch (degrees) / target distance set (one undo step a change, `done` false while a field is dragged).
-bool SetPitch(uint32_t name, float degrees, bool done);
-bool PlaceAtRange(uint32_t name, float distance, bool done);
+bool set_pitch(uint32_t name, float degrees, bool done);
+bool place_at_range(uint32_t name, float distance, bool done);
 // Removed (one undo step).
-bool DropOut(uint32_t name);
+bool drop_out(uint32_t name);
 // Layouts: the cameras now; records made (how many); every camera removed; a new level (forgotten).
-std::vector<ViewCam> Capture();
-int Apply(const std::vector<ViewCam>& cameras);
-void ResetAll();
-void ForgetLevel();
+std::vector<ViewCam> get_capture();
+int get_apply(const std::vector<ViewCam>& cameras);
+void reset_all();
+void forget_level();
 // Once a frame while the editor runs: what the UI asked for; the nodes' offsets kept in step with their places.
-void TickFrame();
+void tick_frame();
 // The frustums (the selected camera - `selected`: its node name, 0 none - brighter) over the view.
-void AddOverlay(V3 cameraPos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
-                uint32_t selected, std::vector<Ui::Seg>* lines);
+void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+                uint32_t selected, std::vector<ui::Seg>* lines);
 // The Inspector: the selected camera's section (`node`: its name, 0 none), and the Cameras section (new from the
 // view, the list with Look through).
-void InspectorSection(uint32_t node, ImFont* mono, ImFont* smallFont);
-void ListSection(ImFont* mono, ImFont* smallFont);
+void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font);
+void list_section(ImFont* mono, ImFont* small_font);
 
-} // namespace MenuSystem::LevelEditor::Cameras
+} // namespace MenuSystem::level_editor::Cameras

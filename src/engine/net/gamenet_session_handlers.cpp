@@ -1,4 +1,4 @@
-// The network manager's session handlers (OnlinePlay::Hub): the server's answer to a LAN search, the host's options,
+// The network manager's session handlers (online::Hub): the server's answer to a LAN search, the host's options,
 // the game's state for a joining player, the level change and the start of a game. See gamenet_handlers.h.
 
 #include <cstddef>
@@ -40,9 +40,9 @@
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
 
-namespace OnlinePlay {
+namespace online {
 
-using namespace Detail;
+using namespace detail;
 
 namespace {
 
@@ -110,18 +110,18 @@ constexpr uint8_t kMsgGoalsData = 0x87;
 // The server's answer to a LAN search (message 0x10, 0xE0 bytes).
 #pragma pack(push, 1)
 struct HostListing {
-    int8_t numPlayers;          // +0x00
-    int8_t maxPlayers;          // +0x01
-    int8_t numObservers;        // +0x02
-    int8_t maxObservers;        // +0x03
+    int8_t num_players_;          // +0x00
+    int8_t max_players_;          // +0x01
+    int8_t num_observers_;        // +0x02
+    int8_t max_observers_;        // +0x03
     bool password;              // +0x04
-    bool inGame;                // +0x05 (not in the lobby)
-    uint8_t hostMode;           // +0x06
-    bool loggedIn;              // +0x07 internet play, logged in to GameSpy
+    bool in_game_;                // +0x05 (not in the lobby)
+    uint8_t host_mode_;           // +0x06
+    bool logged_in_;              // +0x07 internet play, logged in to GameSpy
     char name[16];              // +0x08
     char level[32];             // +0x18
     char mode[32];              // +0x38
-    uint8_t skillLevel;         // +0x58
+    uint8_t skill_level_;         // +0x58
     uint8_t pad59[3];
     uint32_t time;              // +0x5C the asker's
     char players[8][16];        // +0x60
@@ -131,94 +131,94 @@ static_assert(sizeof(HostListing) == 0xE0);
 
 // A joining player's game information (message 0x33, 0x50 bytes).
 struct GameInfo {
-    uint8_t crownStartSlot;    // +0x00
-    bool notLan;                // +0x01 (the connection type isn't 1)
-    uint8_t gameId;             // +0x02
-    uint8_t proOptionBits;        // +0x03
-    uint8_t maxPlayers;         // +0x04
+    uint8_t crown_start_slot_;    // +0x00
+    bool not_lan_;                // +0x01 (the connection type isn't 1)
+    uint8_t game_id_;             // +0x02
+    uint8_t pro_option_bits_;        // +0x03
+    uint8_t max_players_;         // +0x04
     uint8_t pad05[3];
-    uint32_t timeLimit;         // +0x08 seconds
-    uint32_t gameType;          // +0x0C
+    uint32_t time_limit_;         // +0x08 seconds
+    uint32_t game_type_;          // +0x0C
     uint32_t level;             // +0x10
     uint32_t teams;             // +0x14
     uint32_t value18;           // +0x18 (0x00535B20)
-    uint32_t value1C;           // +0x1C (0x00535AD0)
+    uint32_t value_1c_;           // +0x1C (0x00535AD0)
     uint32_t value20;           // +0x20 (the game mode's 0x00553170)
-    uint32_t targetScore;       // +0x24
-    uint32_t startInfo[8];      // +0x28 the manager's start info words
+    uint32_t target_score_;       // +0x24
+    uint32_t start_info_[8];      // +0x28 the manager's start info words
     uint32_t value48;           // +0x48 (the game mode's 0x00553270)
     uint8_t variant;            // +0x4C scavenger hunt / elimiskate: which of its three goals is running
-    uint8_t pad4D[3];
+    uint8_t pad4d_[3];
 };
 static_assert(sizeof(GameInfo) == 0x50);
 
 // strncpy(dest, source, 15) and the 16th byte zeroed.
-void CopyName(char* dest, const char* source)
+void copy_name(char* dest, const char* source)
 {
     size_t length = strnlen(source, kNameSize - 1);
     std::memcpy(dest, source, length);
     std::memset(dest + length, 0, kNameSize - length);
 }
 
-OptionStore::Preferences* NetGameOptions(Hub* manager) { return manager->GetOnlineSettings(); }
+prefs::Preferences* net_game_options(Hub* manager) { return manager->get_online_settings(); }
 
 // A goal's virtual +0xC: running.
-bool GoalRunning(uint8_t* goal) { return reinterpret_cast<bool(__thiscall*)(uint8_t*)>(Prop<void**>(goal, 0)[3])(goal); }
+bool goal_running(uint8_t* goal) { return reinterpret_cast<bool(__thiscall*)(uint8_t*)>(prop<void**>(goal, 0)[3])(goal); }
 
 } // namespace
 
 // 0x0052DD40
-int __cdecl OnServerQueryMsg(NetLink::InboundMsgCtx* context)
+int __cdecl on_server_query_msg(net::InboundMsgCtx* context)
 {
     PlayerSearch players;
-    NewPlayerSearch newPlayers;
-    if (context->m_bodySize != 0xC)
+    NewPlayerSearch new_players;
+    if (context->body_size_ != 0xC)
         return kDone;
-    Hub* manager = ManagerOf(context);
-    const char* serverName;
-    manager->GetOnlineSettings()->FetchSetting(kServerName)->FetchText(kUiString, &serverName, 1);
-    const uint8_t* msg = Message(context);
+    Hub* manager = manager_of(context);
+    const char* server_name;
+    manager->get_online_settings()->fetch_setting(kServerName)->fetch_text(kUiString, &server_name, 1);
+    const uint8_t* msg = get_message(context);
     HostListing info;
     std::memset(&info, 0, sizeof(info));
     char name[kNameSize];
-    CopyName(name, serverName);
-    NetLink::AppHost* server = manager->m_host;
-    info.skillLevel = static_cast<uint8_t>(manager->GetDifficultyTier());
-    info.numPlayers = static_cast<int8_t>(manager->CountPlayers());
-    info.maxPlayers = static_cast<int8_t>(manager->GetPlayerLimit());
-    info.numObservers = static_cast<int8_t>(manager->CountObservers());
-    info.maxObservers = static_cast<int8_t>(manager->GetSpectatorLimit());
-    if (info.maxPlayers < info.numPlayers)
-        info.maxPlayers = info.numPlayers;
-    if (info.maxObservers < info.numObservers)
-        info.maxObservers = info.numObservers;
-    info.password = *manager->FetchSecret() != '\0';
-    info.inGame = GameType() != kNetLobby;
-    info.hostMode = static_cast<uint8_t>(manager->GetHostingRole());
-    info.loggedIn = manager->InInternetMode() && Prop<bool>(manager->m_presenceService, 0x10);
-    CopyName(info.name, name);
-    std::sprintf(info.level, "%s", manager->GetMapName(true));
-    std::sprintf(info.mode, "%s", manager->GetGameTypeName());
+    copy_name(name, server_name);
+    net::AppHost* server = manager->host_;
+    info.skill_level_ = static_cast<uint8_t>(manager->get_difficulty_tier());
+    info.num_players_ = static_cast<int8_t>(manager->count_players());
+    info.max_players_ = static_cast<int8_t>(manager->get_player_limit());
+    info.num_observers_ = static_cast<int8_t>(manager->count_observers());
+    info.max_observers_ = static_cast<int8_t>(manager->get_spectator_limit());
+    if (info.max_players_ < info.num_players_)
+        info.max_players_ = info.num_players_;
+    if (info.max_observers_ < info.num_observers_)
+        info.max_observers_ = info.num_observers_;
+    info.password = *manager->fetch_secret() != '\0';
+    info.in_game_ = get_game_type() != kNetLobby;
+    info.host_mode_ = static_cast<uint8_t>(manager->get_hosting_role());
+    info.logged_in_ = manager->in_internet_mode() && prop<bool>(manager->presence_service_, 0x10);
+    copy_name(info.name, name);
+    std::sprintf(info.level, "%s", manager->get_map_name(true));
+    std::sprintf(info.mode, "%s", manager->get_game_type_name());
     // The players' names (not observers, unless 0x005434C0), then the new players' not among them yet.
     uint8_t ids[8] = {};
-    int idCount = 0;
-    info.time = Prop<uint32_t>(msg, 0);
+    int id_count = 0;
+    info.time = prop<uint32_t>(msg, 0);
     int named = 0;
-    for (uint8_t* player = StartRosterSweep(manager, &players, true); player; player = StepRosterSweep(manager, &players, true)) {
-        if (IsObserver(player) && !AsPlayer(player)->IsPendingObserver())
+    for (uint8_t* player = start_roster_sweep(manager, &players, true); player; player = step_roster_sweep(manager, &players, true)) {
+        if (is_observer(player) && !as_player(player)->is_pending_observer())
             continue;
-        if (PlayerSkater(player))
-            ids[idCount++] = static_cast<uint8_t>(SkaterId(PlayerSkater(player)));
-        CopyName(info.players[named], PlayerName(player));
+        if (player_skater(player))
+            ids[id_count++] = static_cast<uint8_t>(get_skater_id(player_skater(player)));
+        copy_name(info.players[named], player_name(player));
         ++named;
     }
     char* slot = info.players[named];
-    for (uint8_t* added = FirstNewPlayer(manager, &newPlayers); added; added = NextNewPlayer(manager, &newPlayers)) {
-        uint32_t flags = Prop<uint32_t>(added, 0x20);
+    for (uint8_t* added = first_new_player(manager, &new_players); added; added = next_new_player(manager, &new_players)) {
+        uint32_t flags = prop<uint32_t>(added, 0x20);
         if (!(flags & 0x18) && (flags & 4))
             continue;
         bool known = false;
-        for (int i = 0; i < idCount; ++i) {
+        for (int i = 0; i < id_count; ++i) {
             if (ids[i] == added[0x10])
                 known = true;
         }
@@ -227,37 +227,37 @@ int __cdecl OnServerQueryMsg(NetLink::InboundMsgCtx* context)
         std::sprintf(slot, reinterpret_cast<const char*>(added)); // (the name as the format, the original's)
         slot += kNameSize;
     }
-    server->DeliverTo(kMsgServerInfo, sizeof(info), &info, context->m_senderConn->m_remoteIp, context->m_senderConn->m_portNo, 0);
+    server->deliver_to(kMsgServerInfo, sizeof(info), &info, context->sender_conn_->remote_ip_, context->sender_conn_->port_no_, 0);
     return kContinue;
 }
 
 // 0x005301A0
-int __cdecl HandleHostOptions(NetLink::InboundMsgCtx* context)
+int __cdecl handle_host_options(net::InboundMsgCtx* context)
 {
-    Hub* manager = ManagerOf(context);
-    auto* host = static_cast<uint8_t*>(manager->GetHostPlayer()); // (the host's own player)
-    if (!host || Prop<NetLink::Conn*>(host, 0x18) != context->m_senderConn)
+    Hub* manager = manager_of(context);
+    auto* host = static_cast<uint8_t*>(manager->get_host_player()); // (the host's own player)
+    if (!host || prop<net::Conn*>(host, 0x18) != context->sender_conn_)
         return kDone;
-    const uint8_t* msg = Message(context);
-    auto word = [msg](uint32_t offset) { return Prop<uint32_t>(msg, offset); };
+    const uint8_t* msg = get_message(context);
+    auto word = [msg](uint32_t offset) { return prop<uint32_t>(msg, offset); };
     // (the text / a field of the entry with that checksum in a global list)
-    auto optionText = [manager](uint32_t list, uint32_t value) { return manager->GetChoiceName(list, value); };
-    auto optionField = [manager](uint32_t list, uint32_t value, uint32_t field) {
-        return manager->GetChoiceInteger(list, value, field);
+    auto option_text = [manager](uint32_t list, uint32_t value) { return manager->get_choice_name(list, value); };
+    auto option_field = [manager](uint32_t list, uint32_t value, uint32_t field) {
+        return manager->get_choice_integer(list, value, field);
     };
-    switch (context->m_typeCode) {
+    switch (context->type_code_) {
     case 0x60: {
         // The game's options, each a preference: its text and checksum.
-        OptionStore::Preferences* prefs = NetGameOptions(manager);
+        prefs::Preferences* prefs = net_game_options(manager);
         auto set = [&](uint32_t preference, uint32_t list, uint32_t value, bool fireball = false) {
-            Scripts::CStruct* params = NewParams();
-            const char* text = optionText(list, value);
+            script::Struct* params = new_params();
+            const char* text = option_text(list, value);
             if (fireball)
-                optionField(list, value, kFireballLevel); // (looked up for nothing)
-            params->AppendWord(kUiString, Scripts::QBVAL_STRING, text);
-            params->AddComponentOfType(kChecksum, Scripts::QBVAL_NAME, value);
-            prefs->ChangeSetting(preference, params);
-            DeleteParams(params);
+                option_field(list, value, kFireballLevel); // (looked up for nothing)
+            params->append_word(kUiString, script::kQbvalString, text);
+            params->add_component_of_type(kChecksum, script::kQbvalName, value);
+            prefs->change_setting(preference, params);
+            delete_params(params);
         };
         set(0x9834C4FA, 0x2F94C542, word(0x00));        // game_type: net_game_type_info
         set(0x403DA0D0, 0x48DAE9CB, word(0x08));        // skill_level: skill_level_info
@@ -270,101 +270,101 @@ int __cdecl HandleHostOptions(NetLink::InboundMsgCtx* context)
         set(0x38DBE1D0, 0x38DBE1D0, word(0x2C));        // goals: goals
         set(0xA8774BF7, 0xA8774BF7, word(0x30));        // team_graffiti_mode
         {   // time_limit: time_limit_options, with its time
-            Scripts::CStruct* params = NewParams();
-            const char* text = optionText(0x834A7C01, word(0x04));
-            int time = optionField(0x834A7C01, word(0x04), kTime);
-            params->AppendWord(kUiString, Scripts::QBVAL_STRING, text);
-            params->AddComponentOfType(kChecksum, Scripts::QBVAL_NAME, word(0x04));
-            params->AddComponentOfType(kTime, Scripts::QBVAL_INTEGER, static_cast<uint32_t>(time));
-            prefs->ChangeSetting(0xC51BF6E3, params);
-            DeleteParams(params);
+            script::Struct* params = new_params();
+            const char* text = option_text(0x834A7C01, word(0x04));
+            int time = option_field(0x834A7C01, word(0x04), kTime);
+            params->append_word(kUiString, script::kQbvalString, text);
+            params->add_component_of_type(kChecksum, script::kQbvalName, word(0x04));
+            params->add_component_of_type(kTime, script::kQbvalInteger, static_cast<uint32_t>(time));
+            prefs->change_setting(0xC51BF6E3, params);
+            delete_params(params);
         }
         {   // target_score: target_score_options, else capture_options, else time_limit_options (its time, in ms)
-            Scripts::CStruct* params = NewParams();
-            const char* text = optionText(0x52CE135D, word(0x1C));
-            int score = optionField(0x52CE135D, word(0x1C), kScore);
+            script::Struct* params = new_params();
+            const char* text = option_text(0x52CE135D, word(0x1C));
+            int score = option_field(0x52CE135D, word(0x1C), kScore);
             if (!text) {
-                text = optionText(0x5D67D0BE, word(0x1C));
-                score = optionField(0x5D67D0BE, word(0x1C), kScore);
+                text = option_text(0x5D67D0BE, word(0x1C));
+                score = option_field(0x5D67D0BE, word(0x1C), kScore);
                 if (!text) {
-                    text = optionText(0x834A7C01, word(0x1C));
-                    score = optionField(0x834A7C01, word(0x1C), kTime) * 1000;
+                    text = option_text(0x834A7C01, word(0x1C));
+                    score = option_field(0x834A7C01, word(0x1C), kTime) * 1000;
                 }
             }
-            params->AppendWord(kUiString, Scripts::QBVAL_STRING, text);
-            params->AddComponentOfType(kChecksum, Scripts::QBVAL_NAME, word(0x1C));
+            params->append_word(kUiString, script::kQbvalString, text);
+            params->add_component_of_type(kChecksum, script::kQbvalName, word(0x1C));
             if (score > 0)
-                params->AddComponentOfType(kScore, Scripts::QBVAL_INTEGER, static_cast<uint32_t>(score));
-            prefs->ChangeSetting(kTargetScore, params);
-            DeleteParams(params);
+                params->add_component_of_type(kScore, script::kQbvalInteger, static_cast<uint32_t>(score));
+            prefs->change_setting(kTargetScore, params);
+            delete_params(params);
         }
-        Run(kChosenStartGame);
+        get_run(kChosenStartGame);
         break;
     }
     case 0x61: {
         // Kick (msg[0] = 1) or ban the msg[1]'th player, whose name must be msg + 2.
         PlayerSearch search;
         int index = 0;
-        uint8_t* player = StartRosterSweep(manager, &search, true);
-        for (; player; player = StepRosterSweep(manager, &search, true), ++index) {
+        uint8_t* player = start_roster_sweep(manager, &search, true);
+        for (; player; player = step_roster_sweep(manager, &search, true), ++index) {
             if (static_cast<int8_t>(msg[1]) == index)
                 break;
         }
         if (!player)
             return kDone;
-        if (_stricmp(reinterpret_cast<const char*>(msg + 2), PlayerName(player)) != 0)
+        if (_stricmp(reinterpret_cast<const char*>(msg + 2), player_name(player)) != 0)
             return kDone;
-        GameObjects::CEntity* skater = PlayerSkater(player);
-        bool observer = IsObserver(player);
-        manager->EvictPlayer(player, msg[0] == 1 ? 3 : 4);
+        objects::Entity* skater = player_skater(player);
+        bool observer = is_observer(player);
+        manager->evict_player(player, msg[0] == 1 ? 3 : 4);
         if (!observer)
-            Call(CodeAddress(&GameModules::Skate::DropSkaterFromRoster), Skate(), skater);
+            get_call(code_address(&modules::Skate::drop_skater_from_roster), get_skate(), skater);
         break;
     }
     case 0x62: {
-        Scripts::CStruct* params = NewParams();
-        params->AddComponentOfType(kLevel, Scripts::QBVAL_NAME, word(0));
-        params->PutNameKey(kChangeLevelFlag, kChangeLevelFlag);
-        params->PutNameKey(kShowWarning, kShowWarning);
-        Run(kChangeLevel, params);
-        DeleteParams(params);
+        script::Struct* params = new_params();
+        params->add_component_of_type(kLevel, script::kQbvalName, word(0));
+        params->put_name_key(kChangeLevelFlag, kChangeLevelFlag);
+        params->put_name_key(kShowWarning, kShowWarning);
+        get_run(kChangeLevel, params);
+        delete_params(params);
         break;
     }
     case 0x64:
-        Call(CodeAddress(&GoalSystem::CGoalManager::FlipObjectivePick), ObjectiveBoard(), word(0));
+        get_call(code_address(&goals::GoalManager::flip_objective_pick), objective_board(), word(0));
         break;
     case 0x65: {
         // End the game: everyone else told.
         PlayerSearch search;
-        NetLink::NetMessageInfo desc;
-        desc.MakeNew();
-        NetLink::AppHost* server = manager->m_host;
-        Run(kEndGameSelected);
-        desc.m_ident = kMsgGameEnded;
-        desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
-        desc.m_groupId = kGroupGame;
-        for (uint8_t* p = StartRosterSweep(manager, &search, true); p; p = StepRosterSweep(manager, &search, true)) {
-            if (!IsOwnPlayer(p))
-                server->PutOnOutbox(PlayerHandle(p), &desc);
+        net::NetMessageInfo desc;
+        desc.make_new();
+        net::AppHost* server = manager->host_;
+        get_run(kEndGameSelected);
+        desc.ident_ = kMsgGameEnded;
+        desc.queue_ = net::NetMessageInfo::kLaneOrdered;
+        desc.group_id_ = kGroupGame;
+        for (uint8_t* p = start_roster_sweep(manager, &search, true); p; p = step_roster_sweep(manager, &search, true)) {
+            if (!is_own_player(p))
+                server->put_on_outbox(player_handle(p), &desc);
         }
         break;
     }
     case 0x66: {
         // The number of teams.
         int teams = static_cast<int8_t>(msg[0]);
-        Scripts::CStruct* count = NewParams();
-        count->PutInt(0u, teams);
-        Scripts::CStruct* params = NewParams();
+        script::Struct* count = new_params();
+        count->put_int(0u, teams);
+        script::Struct* params = new_params();
         static const char* const kTexts[] = {"None", nullptr, "2", "3", "4"};
         static const uint32_t kTeams[] = {kTeamsNone, 0, kTeamsTwo, kTeamsThree, kTeamsFour};
         if (teams >= 0 && teams <= 4 && teams != 1) {
-            params->AppendWord(kUiString, kTexts[teams]);
-            params->PutNameKey(kChecksum, kTeams[teams]);
+            params->append_word(kUiString, kTexts[teams]);
+            params->put_name_key(kChecksum, kTeams[teams]);
         }
-        NetGameOptions(manager)->ChangeSetting(kTeamMode, params);
-        DeleteParams(params);
-        CFunc_SetNumTeams(count, nullptr);
-        DeleteParams(count);
+        net_game_options(manager)->change_setting(kTeamMode, params);
+        delete_params(params);
+        cfunc_set_num_teams(count, nullptr);
+        delete_params(count);
         break;
     }
     default: // (0x63: nothing)
@@ -375,285 +375,285 @@ int __cdecl HandleHostOptions(NetLink::InboundMsgCtx* context)
 
 // 0x0052F4A0 is the level change's wait task (gamenet_tasks.cpp).
 
-uint32_t g_levelChangeTime;
+uint32_t g_level_change_time;
 
 // 0x005311F0
-int __cdecl OnLevelSwitchMsg(NetLink::InboundMsgCtx* context)
+int __cdecl on_level_switch_msg(net::InboundMsgCtx* context)
 {
-    Hub* manager = ManagerOf(context);
-    const uint8_t* msg = Message(context);
-    manager->ClearQueuedScripts();
-    manager->m_matchEnded = false;
+    Hub* manager = manager_of(context);
+    const uint8_t* msg = get_message(context);
+    manager->clear_queued_scripts();
+    manager->match_ended_ = false;
     if (!msg[4])
         return kContinue;
-    auto* logicTasks = reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04);
-    auto* changeTask = Prop<Scheduling::SchedulerTask*>(manager, 0xEC);
-    if (changeTask->IsOnTaskList()) {
-        if (!manager->OnServer())
-            manager->m_level = Prop<uint32_t>(msg, 0);
+    auto* logic_tasks = reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 0x04);
+    auto* change_task = prop<tasks::SchedulerTask*>(manager, 0xEC);
+    if (change_task->is_on_task_list()) {
+        if (!manager->get_on_server())
+            manager->level_ = prop<uint32_t>(msg, 0);
         return kDone;
     }
-    uint32_t oldLevel = manager->m_level;
-    manager->m_level = Prop<uint32_t>(msg, 0);
-    g_levelChangeTime = FrameClock::GetTime() + 3000; // when to change
-    if (manager->OnServer()) {
-        Scripts::CStruct* params = NewParams();
-        params->AppendWord(kUiString, Scripts::QBVAL_STRING, manager->GetMapName(false));
-        params->AddComponentOfType(kChecksum, Scripts::QBVAL_NAME, manager->m_level);
-        manager->GetOnlineSettings()->ChangeSetting(kLevel, params);
-        DeleteParams(params);
-        if (manager->m_level == kLoadSk5edGameplay)
-            g_levelChangeTime += 1000;
-    } else if (oldLevel == kLoadSk5edGameplay && manager->m_level != oldLevel) {
-        ParkEditing::CRailAuthoring::Sole()->Clear(); // the created park's rails gone
+    uint32_t old_level = manager->level_;
+    manager->level_ = prop<uint32_t>(msg, 0);
+    g_level_change_time = frame_clock::get_time() + 3000; // when to change
+    if (manager->get_on_server()) {
+        script::Struct* params = new_params();
+        params->append_word(kUiString, script::kQbvalString, manager->get_map_name(false));
+        params->add_component_of_type(kChecksum, script::kQbvalName, manager->level_);
+        manager->get_online_settings()->change_setting(kLevel, params);
+        delete_params(params);
+        if (manager->level_ == kLoadSk5edGameplay)
+            g_level_change_time += 1000;
+    } else if (old_level == kLoadSk5edGameplay && manager->level_ != old_level) {
+        park_editing::RailAuthoring::sole()->get_clear(); // the created park's rails gone
     }
-    logicTasks->QueueJob(changeTask);
-    manager->BuildNetNotice(false, kChangingLevels, manager->GetMapName(true), nullptr, nullptr, nullptr, false,
+    logic_tasks->queue_job(change_task);
+    manager->build_net_notice(false, kChangingLevels, manager->get_map_name(true), nullptr, nullptr, nullptr, false,
                                    5000);
-    Run(kHideConsoleWindow);
+    get_run(kHideConsoleWindow);
     return kDone;
 }
 
 // 0x005313C0
-int __cdecl HandleStartGame(NetLink::InboundMsgCtx* context)
+int __cdecl handle_start_game(net::InboundMsgCtx* context)
 {
     PlayerSearch search;
-    MemSys::Hub* memory = MemSys::Hub::Pull();
-    uint8_t* skate = Skate();
-    memory->EnterHeapScope(Prop<MemSys::MemSource*>(memory, 0x5D4));
-    const uint8_t* msg = Message(context);
-    Hub* manager = ManagerOf(context);
-    auto word = [msg](uint32_t offset) { return Prop<uint32_t>(msg, offset); };
-    manager->SetStartInfoWords(reinterpret_cast<const uint32_t*>(msg + 0x28));
-    Prop<int>(manager, 0x68) = static_cast<int8_t>(msg[0x24]); // the crown's spawn point
-    Prop<bool>(manager, 0x1B5) = false;
-    for (uint8_t* p = StartRosterSweep(manager, &search, false); p; p = StepRosterSweep(manager, &search, false)) {
-        if (!IsOwnPlayer(p)) {
-            static_cast<GameObjects::CRider*>(PlayerSkater(p))->ConcealSkater();
-            static_cast<GameObjects::CRider*>(PlayerSkater(p))->Reset27C();
+    memory::Hub* memory = memory::Hub::get_pull();
+    uint8_t* skate = get_skate();
+    memory->enter_heap_scope(prop<memory::MemSource*>(memory, 0x5D4));
+    const uint8_t* msg = get_message(context);
+    Hub* manager = manager_of(context);
+    auto word = [msg](uint32_t offset) { return prop<uint32_t>(msg, offset); };
+    manager->set_start_info_words(reinterpret_cast<const uint32_t*>(msg + 0x28));
+    prop<int>(manager, 0x68) = static_cast<int8_t>(msg[0x24]); // the crown's spawn point
+    prop<bool>(manager, 0x1B5) = false;
+    for (uint8_t* p = start_roster_sweep(manager, &search, false); p; p = step_roster_sweep(manager, &search, false)) {
+        if (!is_own_player(p)) {
+            static_cast<objects::Rider*>(player_skater(p))->conceal_skater();
+            static_cast<objects::Rider*>(player_skater(p))->reset_27c();
         }
     }
-    Call(CodeAddress(&GoalSystem::CMatchRules::ApplyMatchStyle), GameMode(), word(0));
-    Call(CodeAddress(&GoalSystem::CGoalManager::DisengageEveryObjective), Call<void*>(CodeAddress(&GameModules::Skate::GetObjectiveBoard), skate, 0));
-    Scripts::CArray* types = Scripts::FetchList(manager->InNetGame() ? kNetGameTypeInfo : kMpGameTypeInfo);
+    get_call(code_address(&goals::MatchRules::apply_match_style), get_game_mode(), word(0));
+    get_call(code_address(&goals::GoalManager::disengage_every_objective), get_call<void*>(code_address(&modules::Skate::get_objective_board), skate, 0));
+    script::Array* types = script::fetch_list(manager->in_net_game() ? kNetGameTypeInfo : kMpGameTypeInfo);
     // The victory conditions.
-    Scripts::CStruct* victory = NewParams();
+    script::Struct* victory = new_params();
     if (word(4) == 0 && word(0) != kNetGoalAttack) {
-        victory->AddComponentOfType(kDefaultTimeLimit, Scripts::QBVAL_INTEGER, 0);
+        victory->add_component_of_type(kDefaultTimeLimit, script::kQbvalInteger, 0);
         if (word(0) != kFirefight && word(0) != kNetFirefight) {
-            Scripts::CArray* conditions = Scripts::AllocScriptArray();
-            conditions = conditions ? conditions->PrepareAll() : nullptr;
-            Scripts::DuplicateArray(conditions, Scripts::FetchList(kTargetScoreArray));
-            auto* condition = reinterpret_cast<Scripts::CStruct*>(conditions->FetchPart(0));
-            condition->AddComponentOfType(kScore, Scripts::QBVAL_INTEGER, word(8));
-            victory->AppendArrayValue(kVictoryConditions, conditions);
+            script::Array* conditions = script::alloc_script_array();
+            conditions = conditions ? conditions->prepare_all() : nullptr;
+            script::duplicate_array(conditions, script::fetch_list(kTargetScoreArray));
+            auto* condition = reinterpret_cast<script::Struct*>(conditions->fetch_part(0));
+            condition->add_component_of_type(kScore, script::kQbvalInteger, word(8));
+            victory->append_array_value(kVictoryConditions, conditions);
         }
     } else {
-        victory->AddComponentOfType(kDefaultTimeLimit, Scripts::QBVAL_INTEGER, word(4));
+        victory->add_component_of_type(kDefaultTimeLimit, script::kQbvalInteger, word(4));
         if (word(0) == kNetCtf) {
-            Scripts::CArray* conditions = Scripts::AllocScriptArray();
-            conditions = conditions ? conditions->PrepareAll() : nullptr;
-            Scripts::DuplicateArray(conditions, Scripts::FetchList(kHighestScoreArray));
-            victory->AppendArrayValue(kVictoryConditions, conditions);
+            script::Array* conditions = script::alloc_script_array();
+            conditions = conditions ? conditions->prepare_all() : nullptr;
+            script::duplicate_array(conditions, script::fetch_list(kHighestScoreArray));
+            victory->append_array_value(kVictoryConditions, conditions);
         }
     }
-    victory->AddComponentOfType(kFireballLevel, Scripts::QBVAL_INTEGER, word(0xC));
-    victory->AddComponentOfType(kStopAtZero, Scripts::QBVAL_INTEGER, static_cast<uint32_t>(static_cast<int8_t>(msg[0x14])));
-    victory->AddComponentOfType(kShouldResetScores, Scripts::QBVAL_INTEGER,
+    victory->add_component_of_type(kFireballLevel, script::kQbvalInteger, word(0xC));
+    victory->add_component_of_type(kStopAtZero, script::kQbvalInteger, static_cast<uint32_t>(static_cast<int8_t>(msg[0x14])));
+    victory->add_component_of_type(kShouldResetScores, script::kQbvalInteger,
                                 static_cast<uint32_t>(static_cast<int8_t>(msg[0x15])));
-    Call(CodeAddress(&GameModules::Skate::SetUnknown370), skate, word(4));
-    Call(CodeAddress(&GoalSystem::CMatchRules::ForceMatchSettings), GameMode(), victory);
-    Call(CodeAddress(&GoalSystem::CMatchRules::SetNumTeams), GameMode(), word(0x18));
-    Call(CodeAddress(&GoalSystem::CMatchRules::SetGoalsMode), GameMode(), word(0x1C));
-    Call(CodeAddress(&GoalSystem::CMatchRules::SetTeamGraffitiMode), GameMode(), word(0x20));
-    DeleteParams(victory);
-    Run(kStartingNewNetGame);
-    Call(CodeAddress(&GameModules::Skate::LaunchGame), skate);
-    manager->ClearRoster();
-    Prop<bool>(manager, 0x1B4) = false;
-    Prop<bool>(manager, 0x3B) = false;
-    manager->SetFinalScoresReceived(false);
-    manager->SetLastLeader(nullptr);
+    get_call(code_address(&modules::Skate::set_unknown370), skate, word(4));
+    get_call(code_address(&goals::MatchRules::force_match_settings), get_game_mode(), victory);
+    get_call(code_address(&goals::MatchRules::set_num_teams), get_game_mode(), word(0x18));
+    get_call(code_address(&goals::MatchRules::set_goals_mode), get_game_mode(), word(0x1C));
+    get_call(code_address(&goals::MatchRules::set_team_graffiti_mode), get_game_mode(), word(0x20));
+    delete_params(victory);
+    get_run(kStartingNewNetGame);
+    get_call(code_address(&modules::Skate::launch_game), skate);
+    manager->clear_roster();
+    prop<bool>(manager, 0x1B4) = false;
+    prop<bool>(manager, 0x3B) = false;
+    manager->set_final_scores_received(false);
+    manager->set_last_leader(nullptr);
     // The last leading team (+0x1D4) none: the original calls the setter folded at 0x005430D0 (PlayerRecord's
-    // SetReadyQueryOwed, the same offset) on the manager.
-    Prop<int>(manager, 0x1D4) = -1;
-    manager->SetGameId(msg[0x16]);
+    // set_ready_query_owed, the same offset) on the manager.
+    prop<int>(manager, 0x1D4) = -1;
+    manager->set_game_id(msg[0x16]);
     if (word(0) == kNetGoalAttack)
-        Run(kInitSelectedGoals);
-    manager->m_matchEnded = false;
+        get_run(kInitSelectedGoals);
+    manager->match_ended_ = false;
     // Every player's flags and score reset.
-    for (uint8_t* p = StartRosterSweep(manager, &search, true); p; p = StepRosterSweep(manager, &search, true)) {
-        AsPlayer(p)->ClearFlags();
-        AsPlayer(p)->ClearLastHitTime();
-        if (GameObjects::CEntity* skater = PlayerSkater(p)) {
-            auto* score = reinterpret_cast<uint8_t*>(static_cast<GameObjects::CGameEntity*>(skater)->FetchModule(kSkaterScore)); // its score component
-            if (Prop<void*>(score, 0x18))
-                Call(CodeAddress(&GameModules::PointTally::Reset), Prop<void*>(score, 0x18));
+    for (uint8_t* p = start_roster_sweep(manager, &search, true); p; p = step_roster_sweep(manager, &search, true)) {
+        as_player(p)->clear_flags();
+        as_player(p)->clear_last_hit_time();
+        if (objects::Entity* skater = player_skater(p)) {
+            auto* score = reinterpret_cast<uint8_t*>(static_cast<objects::GameEntity*>(skater)->fetch_module(kSkaterScore)); // its score component
+            if (prop<void*>(score, 0x18))
+                get_call(code_address(&modules::PointTally::get_reset), prop<void*>(score, 0x18));
         }
     }
-    if (uint8_t* king = IsCrownRuleActive(manager))
-        AsPlayer(king)->GiveCrown(false);
+    if (uint8_t* king = is_crown_rule_active(manager))
+        as_player(king)->give_crown(false);
     // The mode's goal script. (The original reads each type's checksum into its argument's slot, holding the type
     // info array at first: a type without one compares that - or the previous type's checksum.)
     auto checksum = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(types));
-    for (int i = 0; i < static_cast<int>(types->m_extent); ++i) {
-        auto* type = reinterpret_cast<Scripts::CStruct*>(types->FetchPart(static_cast<uint32_t>(i)));
-        type->ReadHashValue(kChecksum, &checksum, 1);
+    for (int i = 0; i < static_cast<int>(types->extent_); ++i) {
+        auto* type = reinterpret_cast<script::Struct*>(types->fetch_part(static_cast<uint32_t>(i)));
+        type->read_hash_value(kChecksum, &checksum, 1);
         if (checksum != word(0))
             continue;
-        Scripts::CStruct* params = NewParams();
-        params->PutInt(kTime, static_cast<int>(word(4)));
-        params->PutInt(kScore, static_cast<int>(word(8)));
-        params->PutInt(kUnlimitedTime, word(4) == 0 ? 1 : 0);
+        script::Struct* params = new_params();
+        params->put_int(kTime, static_cast<int>(word(4)));
+        params->put_int(kScore, static_cast<int>(word(8)));
+        params->put_int(kUnlimitedTime, word(4) == 0 ? 1 : 0);
         // (with no goal_script the original runs whatever its local held: the skate module's address)
         auto script = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(skate));
-        type->ReadHashValue(kGoalScript, &script, 1);
-        Run(script, params);
-        DeleteParams(params);
+        type->read_hash_value(kGoalScript, &script, 1);
+        get_run(script, params);
+        delete_params(params);
         break;
     }
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    memory::Hub::get_pull()->leave_heap_scope();
     return kContinue;
 }
 
 // 0x00532460
-int __cdecl HandleSendGameState(NetLink::InboundMsgCtx* context)
+int __cdecl handle_send_game_state(net::InboundMsgCtx* context)
 {
-    NetLink::Hub* net = NetLink::Hub::Sole();
-    uint8_t* skate = Skate();
-    Hub* manager = ManagerOf(context);
-    uint8_t* player = FindPlayerBySender(manager, context->m_senderConn);
-    if (!player || (Prop<uint32_t>(player, 0x1D0) & 0x40))
+    net::Hub* net = net::Hub::sole();
+    uint8_t* skate = get_skate();
+    Hub* manager = manager_of(context);
+    uint8_t* player = find_player_by_sender(manager, context->sender_conn_);
+    if (!player || (prop<uint32_t>(player, 0x1D0) & 0x40))
         return kContinue;
-    NetLink::NetMessageInfo desc;
-    desc.MakeNew();
-    FrameClock::GetTime(); // (not used)
-    Prop<uint32_t>(player, 0x1D0) |= 0x40; // told
+    net::NetMessageInfo desc;
+    desc.make_new();
+    frame_clock::get_time(); // (not used)
+    prop<uint32_t>(player, 0x1D0) |= 0x40; // told
     GameInfo info;
     std::memset(&info, 0, sizeof(info));
-    info.maxPlayers = static_cast<uint8_t>(manager->GetPlayerLimit());
-    info.value48 = Call<uint32_t>(CodeAddress(&GoalSystem::CMatchRules::GetRound), GameMode());
+    info.max_players_ = static_cast<uint8_t>(manager->get_player_limit());
+    info.value48 = get_call<uint32_t>(code_address(&goals::MatchRules::get_round), get_game_mode());
     info.variant = 0;
-    NetLink::AppHost* server = manager->m_host;
-    if (IsOwnPlayer(player)) {
-        manager->SetReadyState(true); // (ready to play)
+    net::AppHost* server = manager->host_;
+    if (is_own_player(player)) {
+        manager->set_ready_state(true); // (ready to play)
     } else {
-        if (manager->HasMatchEnded()) {
-            info.gameType = kNetLobby;
-            info.timeLimit = 0;
+        if (manager->has_match_ended()) {
+            info.game_type_ = kNetLobby;
+            info.time_limit_ = 0;
             info.value20 = 0;
-            info.targetScore = 0;
+            info.target_score_ = 0;
         } else {
-            info.gameType = GameType();
-            info.timeLimit = Call<uint32_t>(CodeAddress(&GoalSystem::CMatchRules::GetGoalTimeLeft), GameMode()) / 1000;
-            info.value20 = Call<uint32_t>(CodeAddress(&GoalSystem::CMatchRules::GetTimeLimit), GameMode());
-            info.targetScore = static_cast<uint32_t>(manager->GetOnlineSettings()->GetSettingValue(kTargetScore, kScore));
-            if (GameType() == kNetScavengerHunt || GameType() == kNetElimiskate) {
-                bool scavenger = GameType() == kNetScavengerHunt;
-                uint8_t* goals = ObjectiveBoard();
-                if (GoalRunning(GetGoal(goals, scavenger ? kScavenger : kElimiskate)))
+            info.game_type_ = get_game_type();
+            info.time_limit_ = get_call<uint32_t>(code_address(&goals::MatchRules::get_goal_time_left), get_game_mode()) / 1000;
+            info.value20 = get_call<uint32_t>(code_address(&goals::MatchRules::get_time_limit), get_game_mode());
+            info.target_score_ = static_cast<uint32_t>(manager->get_online_settings()->get_setting_value(kTargetScore, kScore));
+            if (get_game_type() == kNetScavengerHunt || get_game_type() == kNetElimiskate) {
+                bool scavenger = get_game_type() == kNetScavengerHunt;
+                uint8_t* goals = objective_board();
+                if (goal_running(get_goal(goals, scavenger ? kScavenger : kElimiskate)))
                     info.variant = 0;
-                else if (GoalRunning(GetGoal(goals, scavenger ? kScavengerInterval : kElimiskateInterval)))
+                else if (goal_running(get_goal(goals, scavenger ? kScavengerInterval : kElimiskateInterval)))
                     info.variant = 1;
-                else if (GoalRunning(GetGoal(goals, scavenger ? kScavengerCollect : kElimiskateBreak)))
+                else if (goal_running(get_goal(goals, scavenger ? kScavengerCollect : kElimiskateBreak)))
                     info.variant = 2;
             }
         }
-        info.gameId = manager->GetGameId();
-        info.level = manager->FetchStage();
-        info.teams = Call<uint32_t>(CodeAddress(&GoalSystem::CMatchRules::NumTeams), GameMode());
-        info.value18 = manager->GetGoalsPreference();
-        info.value1C = manager->GetTeamGraffitiMode();
-        info.proOptionBits = Prop<uint8_t>(manager, 0x194);
-        info.crownStartSlot = Prop<uint8_t>(manager, 0x68);
-        std::memcpy(info.startInfo, &Prop<uint32_t>(manager, 0x48), sizeof(info.startInfo));
-        info.notLan = net->GetNetLinkKind() != 1;
-        desc.m_content = &info;
-        desc.m_byteCount = sizeof(info);
-        desc.m_ident = kMsgSessionBrief;
-        desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
-        desc.m_groupId = kGroupGame;
-        server->PutOnOutbox(PlayerHandle(player), &desc);
-        if (manager->HasCreatedGoals()) {
-            manager->PrepareCreatedGoals(manager->FetchStage());
-            void* goals = manager->GetCreatedGoalsMessage();
-            auto size = static_cast<uint16_t>(manager->GetCreatedGoalsSize());
-            server->SendBulkMessage(PlayerHandle(player), kMsgGoalsData, size, goals, "goals data", kGroupGame, false,
+        info.game_id_ = manager->get_game_id();
+        info.level = manager->fetch_stage();
+        info.teams = get_call<uint32_t>(code_address(&goals::MatchRules::current_num_teams), get_game_mode());
+        info.value18 = manager->get_goals_preference();
+        info.value_1c_ = manager->get_team_graffiti_mode();
+        info.pro_option_bits_ = prop<uint8_t>(manager, 0x194);
+        info.crown_start_slot_ = prop<uint8_t>(manager, 0x68);
+        std::memcpy(info.start_info_, &prop<uint32_t>(manager, 0x48), sizeof(info.start_info_));
+        info.not_lan_ = net->get_net_link_kind() != 1;
+        desc.content_ = &info;
+        desc.byte_count_ = sizeof(info);
+        desc.ident_ = kMsgSessionBrief;
+        desc.queue_ = net::NetMessageInfo::kLaneOrdered;
+        desc.group_id_ = kGroupGame;
+        server->put_on_outbox(player_handle(player), &desc);
+        if (manager->has_created_goals()) {
+            manager->prepare_created_goals(manager->fetch_stage());
+            void* goals = manager->get_created_goals_message();
+            auto size = static_cast<uint16_t>(manager->get_created_goals_size());
+            server->send_bulk_message(player_handle(player), kMsgGoalsData, size, goals, "goals data", kGroupGame, false,
                                   true);
         }
         // The scripts spawned so far (the list at +0x150): 0x49 each.
-        auto* node = Prop<MemSys::ListNode*>(manager, 0x150);
+        auto* node = prop<memory::ListNode*>(manager, 0x150);
         node = node->data == reinterpret_cast<void*>(-1) ? nullptr : node;
         for (auto* item = node ? static_cast<uint8_t*>(node->data) : nullptr; item;) {
-            desc.MakeNew();
-            uint32_t spawned[4] = {Prop<uint32_t>(item, 0x1C), Prop<uint32_t>(item, 0x18), Prop<uint32_t>(item, 0x14),
+            desc.make_new();
+            uint32_t spawned[4] = {prop<uint32_t>(item, 0x1C), prop<uint32_t>(item, 0x18), prop<uint32_t>(item, 0x14),
                                    0};
-            desc.m_content = spawned;
-            desc.m_byteCount = sizeof(spawned);
-            desc.m_ident = kMsgSpawnedScript;
-            desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
-            desc.m_groupId = kGroupGame;
-            server->PutOnOutbox(PlayerHandle(player), &desc);
+            desc.content_ = spawned;
+            desc.byte_count_ = sizeof(spawned);
+            desc.ident_ = kMsgSpawnedScript;
+            desc.queue_ = net::NetMessageInfo::kLaneOrdered;
+            desc.group_id_ = kGroupGame;
+            server->put_on_outbox(player_handle(player), &desc);
             node = node->next->data == reinterpret_cast<void*>(-1) ? nullptr : node->next;
             if (!node)
                 break;
             item = static_cast<uint8_t*>(node->data);
         }
-        if (!IsOwnPlayer(player))
-            Call(CodeAddress(&GameModules::Skate::SendCheats), skate, player);
-        if (IsObserver(player) && GameType() == kNetGraffiti) {
+        if (!is_own_player(player))
+            get_call(code_address(&modules::Skate::send_cheats), skate, player);
+        if (is_observer(player) && get_game_type() == kNetGraffiti) {
             // An observer of graffiti: the trick objects' state.
-            desc.MakeNew();
+            desc.make_new();
             static uint8_t buffer[0x1100]; // (the original's is on its stack)
-            int size = GameObjects::g_trickSpotHub->WriteGraffitiState(buffer);
-            server->SendBulkMessage(PlayerHandle(player), kMsgTrickObjects, static_cast<uint16_t>(size), buffer,
+            int size = objects::g_trick_spot_hub->write_graffiti_state(buffer);
+            server->send_bulk_message(player_handle(player), kMsgTrickObjects, static_cast<uint16_t>(size), buffer,
                                   "TrickObj Buffer", kGroupGame, true, false);
         }
         // The goals chosen (goal attack): a byte, then the selected goals' names, then 0.
-        desc.MakeNew();
-        uint8_t* goals = ObjectiveBoard();
+        desc.make_new();
+        uint8_t* goals = objective_board();
         static uint8_t selected[0x1000];
         selected[0] = 0;
         uint8_t* out = selected + 1;
-        int count = Prop<int>(goals, 0); // (its first word, read by the getter folded at 0x00469490)
+        int count = prop<int>(goals, 0); // (its first word, read by the getter folded at 0x00469490)
         for (int i = 0; i < count; ++i) {
-            uint8_t* goal = Call<uint8_t*>(CodeAddress(&GoalSystem::CGoalManager::GetObjectiveAt), goals, i);
-            if (Call<bool>(CodeAddress(&GoalSystem::CObjective::IsPicked), goal)) {
-                uint32_t name = Call<uint32_t>(CodeAddress(&GoalSystem::CObjective::GetObjectiveKey), goal);
+            uint8_t* goal = get_call<uint8_t*>(code_address(&goals::GoalManager::get_objective_at), goals, i);
+            if (get_call<bool>(code_address(&goals::Objective::is_picked), goal)) {
+                uint32_t name = get_call<uint32_t>(code_address(&goals::Objective::get_objective_key), goal);
                 std::memcpy(out, &name, 4);
                 out += 4;
             }
         }
         std::memset(out, 0, 4);
-        desc.m_content = selected;
-        desc.m_ident = kMsgSelectedGoals;
-        desc.m_byteCount = static_cast<uint16_t>(out - selected + 4);
-        desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
-        desc.m_groupId = kGroupGame;
-        server->PutOnOutbox(PlayerHandle(player), &desc);
-        if (uint8_t* king = IsCrownRuleActive(manager)) {
-            desc.MakeNew();
-            uint8_t id = static_cast<uint8_t>(SkaterId(PlayerSkater(king)));
-            desc.m_content = &id;
-            desc.m_byteCount = 1;
-            desc.m_ident = kMsgKing;
-            desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
-            desc.m_groupId = kGroupGame;
-            server->PutOnOutbox(PlayerHandle(player), &desc);
+        desc.content_ = selected;
+        desc.ident_ = kMsgSelectedGoals;
+        desc.byte_count_ = static_cast<uint16_t>(out - selected + 4);
+        desc.queue_ = net::NetMessageInfo::kLaneOrdered;
+        desc.group_id_ = kGroupGame;
+        server->put_on_outbox(player_handle(player), &desc);
+        if (uint8_t* king = is_crown_rule_active(manager)) {
+            desc.make_new();
+            uint8_t id = static_cast<uint8_t>(get_skater_id(player_skater(king)));
+            desc.content_ = &id;
+            desc.byte_count_ = 1;
+            desc.ident_ = kMsgKing;
+            desc.queue_ = net::NetMessageInfo::kLaneOrdered;
+            desc.group_id_ = kGroupGame;
+            server->put_on_outbox(player_handle(player), &desc);
         }
     }
     // The end of the game's state (0x42).
-    NetLink::NetMessageInfo done;
-    done.MakeNew();
-    done.m_ident = kMsgGameStateSent;
-    done.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
-    done.m_groupId = kGroupGame;
-    server->PutOnOutbox(PlayerHandle(player), &done);
-    if (manager->InNetGame()) {
-        manager->SendFacesTo(player);
-        manager->SendTagTexturesTo(player);
+    net::NetMessageInfo done;
+    done.make_new();
+    done.ident_ = kMsgGameStateSent;
+    done.queue_ = net::NetMessageInfo::kLaneOrdered;
+    done.group_id_ = kGroupGame;
+    server->put_on_outbox(player_handle(player), &done);
+    if (manager->in_net_game()) {
+        manager->send_faces_to(player);
+        manager->send_tag_textures_to(player);
     }
     return kContinue;
 }
 
-} // namespace OnlinePlay
+} // namespace online

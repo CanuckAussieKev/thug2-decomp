@@ -5,14 +5,14 @@
 #include <algorithm>
 #include <cmath>
 
-namespace MenuSystem::LevelEditor::Nav {
+namespace frontend::level_editor::nav {
 
 namespace {
 
 constexpr float kPi = 3.14159265358979f;
 
 // Whether the feet can go from `from` by `move` (horizontal): no wall at knee or head height, up to the radius past it.
-bool Clear(V3 from, V3 move, const Cast& cast)
+bool get_clear(V3 from, V3 move, const Cast& cast)
 {
     float length = std::sqrt(move.x * move.x + move.z * move.z);
     if (length <= 0.0f)
@@ -36,18 +36,18 @@ bool Clear(V3 from, V3 move, const Cast& cast)
 
 } // namespace
 
-Walker WalkerAt(V3 camera)
+Walker walker_at(V3 camera)
 {
     Walker w;
     w.feet = {camera.x, camera.y - kEyeHeight, camera.z};
     return w;
 }
 
-void Step(Walker* w, float yaw, const WalkInput& input, float seconds, const Cast& cast)
+void get_step(Walker* w, float yaw, const WalkInput& input, float seconds, const Cast& cast)
 {
     if (seconds <= 0.0f)
         return;
-    // Along the ground: the heading's forward and right (as FrameFromYawPitch's at pitch 0).
+    // Along the ground: the heading's forward and right (as frame_from_yaw_pitch's at pitch 0).
     V3 forward = {std::sin(yaw), 0.0f, std::cos(yaw)};
     V3 right = {-std::cos(yaw), 0.0f, std::sin(yaw)}; // (the frame's right: up x back)
     float f = std::clamp(input.forward, -1.0f, 1.0f), r = std::clamp(input.right, -1.0f, 1.0f);
@@ -57,26 +57,26 @@ void Step(Walker* w, float yaw, const WalkInput& input, float seconds, const Cas
         wish = wish * (1.0f / length);
     V3 move = wish * ((input.run ? kRunSpeed : kWalkSpeed) * seconds);
     if (move.x != 0.0f || move.z != 0.0f) {
-        if (Clear(w->feet, move, cast)) {
+        if (get_clear(w->feet, move, cast)) {
             w->feet = w->feet + move;
         } else {
             // (sliding: each axis by itself)
-            V3 alongX = {move.x, 0.0f, 0.0f}, alongZ = {0.0f, 0.0f, move.z};
-            if (move.x != 0.0f && Clear(w->feet, alongX, cast))
-                w->feet = w->feet + alongX;
-            if (move.z != 0.0f && Clear(w->feet, alongZ, cast))
-                w->feet = w->feet + alongZ;
+            V3 along_x = {move.x, 0.0f, 0.0f}, along_z = {0.0f, 0.0f, move.z};
+            if (move.x != 0.0f && get_clear(w->feet, along_x, cast))
+                w->feet = w->feet + along_x;
+            if (move.z != 0.0f && get_clear(w->feet, along_z, cast))
+                w->feet = w->feet + along_z;
         }
     }
     // The ground below (from a step's height up: a kerb walked onto is stood on).
     V3 top = {w->feet.x, w->feet.y + kStepHeight, w->feet.z};
     V3 ground;
-    bool haveGround = cast(top, {top.x, top.y - kGroundSearch, top.z}, &ground);
+    bool have_ground = cast(top, {top.x, top.y - kGroundSearch, top.z}, &ground);
     if (input.jump && w->grounded) {
         w->vy = kJumpSpeed;
         w->grounded = false;
     }
-    if (!haveGround) {
+    if (!have_ground) {
         // (no ground at all: the level's edge - stay at this height)
         w->vy = 0.0f;
         w->grounded = false;
@@ -108,18 +108,18 @@ void Step(Walker* w, float yaw, const WalkInput& input, float seconds, const Cas
     }
 }
 
-bool IsDoubleClick(uint32_t firstMs, float firstX, float firstY, uint32_t secondMs, float secondX, float secondY,
-                   uint32_t maxMs, float maxPixels)
+bool is_double_click(uint32_t first_ms, float first_x, float first_y, uint32_t second_ms, float second_x, float second_y,
+                   uint32_t max_ms, float max_pixels)
 {
-    if (secondMs < firstMs || secondMs - firstMs > maxMs)
+    if (second_ms < first_ms || second_ms - first_ms > max_ms)
         return false;
-    return std::fabs(secondX - firstX) <= maxPixels && std::fabs(secondY - firstY) <= maxPixels;
+    return std::fabs(second_x - first_x) <= max_pixels && std::fabs(second_y - first_y) <= max_pixels;
 }
 
-V3 TeleportTarget(V3 camera, V3 hit)
+V3 teleport_target(V3 camera, V3 hit)
 {
     V3 along = hit - camera;
-    float distance = std::sqrt(Dot(along, along));
+    float distance = std::sqrt(get_dot(along, along));
     if (distance < 1.0f)
         return {hit.x, std::max(camera.y, hit.y + kLift), hit.z};
     V3 dir = along * (1.0f / distance);
@@ -129,7 +129,7 @@ V3 TeleportTarget(V3 camera, V3 hit)
     return to;
 }
 
-V3 FollowStep(Follower* f, bool active, V3 target)
+V3 follow_step(Follower* f, bool active, V3 target)
 {
     if (!active) {
         f->have = false;
@@ -141,7 +141,7 @@ V3 FollowStep(Follower* f, bool active, V3 target)
     return delta;
 }
 
-int DrillIndex(int current, int steps, int count)
+int drill_index(int current, int steps, int count)
 {
     if (count <= 0)
         return -1;
@@ -149,7 +149,7 @@ int DrillIndex(int current, int steps, int count)
     return ((base + steps) % count + count) % count;
 }
 
-int SliceAt(float dx, float dy, int count, float deadzone)
+int slice_at(float dx, float dy, int count, float deadzone)
 {
     if (count <= 0 || dx * dx + dy * dy < deadzone * deadzone)
         return -1;
@@ -162,14 +162,14 @@ int SliceAt(float dx, float dy, int count, float deadzone)
     return index % count;
 }
 
-void SliceDirection(int index, int count, float* dx, float* dy)
+void slice_direction(int index, int count, float* dx, float* dy)
 {
     float angle = count > 0 ? 2.0f * kPi * static_cast<float>(index) / static_cast<float>(count) : 0.0f;
     *dx = std::sin(angle);
     *dy = -std::cos(angle);
 }
 
-float Stick(int raw, float deadzone)
+float get_stick(int raw, float deadzone)
 {
     float v = static_cast<float>(raw) / (raw < 0 ? 32768.0f : 32767.0f);
     float a = std::fabs(v);
@@ -179,9 +179,9 @@ float Stick(int raw, float deadzone)
     return (v < 0.0f ? -1.0f : 1.0f) * t * t;
 }
 
-std::string QuickSetName(int number) { return "Set " + std::to_string(number); }
+std::string quick_set_name(int number) { return "Set " + std::to_string(number); }
 
-int FindGroup(const Organize::State& state, const std::string& name)
+int find_group(const organize::State& state, const std::string& name)
 {
     for (int i = 0; i < static_cast<int>(state.groups.size()); ++i) {
         if (state.groups[i].name == name)
@@ -190,15 +190,15 @@ int FindGroup(const Organize::State& state, const std::string& name)
     return -1;
 }
 
-bool StoreGroup(Organize::State* state, const std::string& name, const std::vector<Organize::Member>& members)
+bool store_group(organize::State* state, const std::string& name, const std::vector<organize::Member>& members)
 {
     if (members.empty())
         return false;
-    int at = FindGroup(*state, name);
+    int at = find_group(*state, name);
     if (at >= 0) {
         state->groups[at].members = members;
     } else {
-        Organize::GroupSet g;
+        organize::GroupSet g;
         g.name = name;
         g.members = members;
         state->groups.push_back(g);
@@ -206,18 +206,18 @@ bool StoreGroup(Organize::State* state, const std::string& name, const std::vect
     return true;
 }
 
-bool RemoveFromGroup(Organize::State* state, int index, const std::vector<Organize::Member>& members)
+bool remove_from_group(organize::State* state, int index, const std::vector<organize::Member>& members)
 {
     if (index < 0 || index >= static_cast<int>(state->groups.size()))
         return false;
-    std::vector<Organize::Member>& in = state->groups[index].members;
+    std::vector<organize::Member>& in = state->groups[index].members;
     size_t before = in.size();
     in.erase(std::remove_if(in.begin(), in.end(),
-                            [&](const Organize::Member& m) {
+                            [&](const organize::Member& m) {
                                 return std::find(members.begin(), members.end(), m) != members.end();
                             }),
              in.end());
     return in.size() != before;
 }
 
-} // namespace MenuSystem::LevelEditor::Nav
+} // namespace MenuSystem::level_editor::nav

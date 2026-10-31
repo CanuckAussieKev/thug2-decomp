@@ -1,6 +1,6 @@
-// The scene side of the park (ParkEditing::CParkAssembler, first part: 0x00591C70-0x00592740): the source pieces and the
+// The scene side of the park (park_editing::ParkAssembler, first part: 0x00591C70-0x00592740): the source pieces and the
 // pieces cloned from them into the park's scene, the park's restart points' slots, its lights, its scene's bounds and
-// collision; and the lists of metapieces the park manager hands out (CMapListNode, CCellChainScratch).
+// collision; and the lists of metapieces the park manager hands out (CMapListNode, CellChainScratch).
 
 #include "game/park_editing/park.h"
 
@@ -17,122 +17,122 @@
 #include "engine/script/param_struct.h"
 #include "game/park_editing/park_editor.h"
 
-namespace ParkEditing {
+namespace park_editing {
 
-int g_cloningPiece;
+int g_cloning_piece;
 
 namespace {
 
 // Whether the generator rebuilds its collision (off while every piece is deleted).
-bool& RebuildsCollision() { return g_collisionAllowed; }
-// Raised while CreatePiece clones a sector.
-int& CloningPiece() { return g_cloningPiece; }
+bool& rebuilds_collision() { return g_collision_allowed; }
+// Raised while create_piece clones a sector.
+int& cloning_piece() { return g_cloning_piece; }
 
 // The members at +0x24 and +0x58 have empty destructors (calls to the empty function 0x005480A0).
-inline void DestroyEmptyMember(void* /*member*/) {}
+inline void destroy_empty_member(void* /*member*/) {}
 
 // 0x0049F4B0 (a folded `return false`): a colour to give a new piece's geometry - never.
-inline bool GetPieceColor(CParkTile* /*piece*/, uint32_t* /*rgba*/) { return false; }
+inline bool get_piece_color(ParkTile* /*piece*/, uint32_t* /*rgba*/) { return false; }
 
 // The park's main memory a player takes (the bottom-up heap's free memory per player, 0x0008EF1C).
 constexpr int kMemoryPerPlayer = 585500;
 
 } // namespace
 
-// --- CMapListNode / CCellChainScratch ---------------------------------------------------------------------------------
+// --- CMapListNode / CellChainScratch ---------------------------------------------------------------------------------
 
-void CCellChainScratch::DumpToLog()
+void CellChainScratch::dump_to_log()
 {
-    DebugOut::Printf("contents of map list:\n"); // "contents of map list:\n"
-    for (const CMapListNode* node = list; node; node = node->m_following) {
-        DebugOut::Printf("   address=%p area=", node->m_pieceGroup); // "   address=%p area="
-        node->m_pieceGroup->m_cellFootprint.DumpToLog();
+    debug::printf("contents of map list:\n"); // "contents of map list:\n"
+    for (const MapListNode* node = list; node; node = node->following_) {
+        debug::printf("   address=%p area=", node->piece_group_); // "   address=%p area="
+        node->piece_group_->cell_footprint_.dump_to_log();
     }
 }
 
-void CCellChainScratch::Teardown()
+void CellChainScratch::teardown()
 {
     if (list)
-        CMapListNode::FreeNodeChain(list);
+        MapListNode::free_node_chain(list);
 }
 
-// --- CParkAssembler ---------------------------------------------------------------------------------------------
+// --- ParkAssembler ---------------------------------------------------------------------------------------------
 
 namespace {
 
-uint8_t* SceneOf(void* scene) { return static_cast<uint8_t*>(scene); }
+uint8_t* scene_of(void* scene) { return static_cast<uint8_t*>(scene); }
 
 } // namespace
 
-void CParkAssembler::DestroyBody()
+void ParkAssembler::destroy_body()
 {
-    if (m_sceneHandle)
-        m_sceneHandle = nullptr;
-    if (m_sourceWorld)
-        m_sourceWorld = nullptr;
-    // (the node array's owner: 0x00407810 is CResource's destructor body, folded with CNodeTableResource's)
-    reinterpret_cast<AssetStore::CResource*>(m_nodeArray)->Destruct();
-    DestroyEmptyMember(&m_rails);
-    DestroyEmptyMember(&m_sourceRails);
+    if (scene_handle_)
+        scene_handle_ = nullptr;
+    if (source_world_)
+        source_world_ = nullptr;
+    // (the node array's owner: 0x00407810 is Resource's destructor body, folded with NodeTableResource's)
+    reinterpret_cast<assets::Resource*>(node_array_)->destruct();
+    destroy_empty_member(&rails_);
+    destroy_empty_member(&source_rails_);
 }
 
-void CParkAssembler::GlowEveryPiece(bool on)
+void ParkAssembler::glow_every_piece(bool on)
 {
-    for (CParkTile* piece = m_pieces; piece;) {
-        CParkTile* next = piece->m_following;
-        piece->SetHighlight(on, false);
+    for (ParkTile* piece = pieces_; piece;) {
+        ParkTile* next = piece->following_;
+        piece->set_highlight(on, false);
         piece = next;
     }
 }
 
-void CParkAssembler::SetPlayerCap(int count) { m_maxPlayers = count; }
+void ParkAssembler::set_player_cap(int count) { max_players_ = count; }
 
-int CParkAssembler::GetPlayerCapLimit()
+int ParkAssembler::get_player_cap_limit()
 {
     MemoryStats stats;
-    GetMemoryStats(&stats);
+    get_memory_stats(&stats);
     // (the original's 32-bit arithmetic, wrapping)
-    const int memory = static_cast<int>(static_cast<uint32_t>(stats.mainHeapFree) +
-                                        static_cast<uint32_t>(m_maxPlayers) *
+    const int memory = static_cast<int>(static_cast<uint32_t>(stats.main_heap_free_) +
+                                        static_cast<uint32_t>(max_players_) *
                                             static_cast<uint32_t>(kMemoryPerPlayer) -
                                         static_cast<uint32_t>(kMemoryPerPlayer));
     return memory / kMemoryPerPlayer + 1;
 }
 
-CTileTemplate* CParkAssembler::GetPieceSource(uint32_t name)
+TileTemplate* ParkAssembler::get_piece_source(uint32_t name)
 {
-    for (CTileTemplate* source = m_sources; source; source = source->m_following) {
-        if (source->m_label == name)
+    for (TileTemplate* source = sources_; source; source = source->following_) {
+        if (source->label_ == name)
             return source;
     }
     return nullptr;
 }
 
-bool CParkAssembler::RemoveSceneSector(uint32_t name, int /*unused*/)
+bool ParkAssembler::remove_scene_sector(uint32_t name, int /*unused*/)
 {
-    return Scene::RemoveSceneSector(SceneOf(m_sceneHandle), name);
+    return scene::remove_scene_sector(scene_of(scene_handle_), name);
 }
 
-void CParkAssembler::DestroyRails()
+void ParkAssembler::destroy_rails()
 {
-    m_rails.Clear();
-    m_rails.FreePools();
+    rails_.get_clear();
+    rails_.free_pools();
 }
 
-void CParkAssembler::ConfigureLighting(int count, float ambientR, float ambientG, float ambientB, float falloffR,
-                               float falloffG, float falloffB, float cursorAmbience)
+void ParkAssembler::configure_lighting(int count, float ambient_r, float ambient_g, float ambient_b, float falloff_r,
+                               float falloff_g, float falloff_b, float cursor_ambience)
 {
-    m_lightTotal = count;
-    m_ambient[0] = ambientR;
-    m_ambient[1] = ambientG;
-    m_ambient[2] = ambientB;
-    m_falloff[0] = falloffR;
-    m_falloff[1] = falloffG;
-    m_falloff[2] = falloffB;
-    std::memcpy(&m_43C, &cursorAmbience, 4); // (the cursor's ambience)
+    light_total_ = count;
+    ambient_[0] = ambient_r;
+    ambient_[1] = ambient_g;
+    ambient_[2] = ambient_b;
+    falloff_[0] = falloff_r;
+    falloff_[1] = falloff_g;
+    falloff_[2] = falloff_b;
+    std::memcpy(&field_43c_, &cursor_ambience, 4); // (the cursor's ambience)
 }
 
-void CParkAssembler::FetchSpawnSlots(int type, int* first, int* last)
+void ParkAssembler::fetch_spawn_slots(int type, int* first, int* last)
 {
     switch (type) {
     case RestartPoint::kPlayer1:
@@ -163,216 +163,216 @@ void CParkAssembler::FetchSpawnSlots(int type, int* first, int* last)
     }
 }
 
-bool CParkAssembler::HasFreeRestartSlot(int type)
+bool ParkAssembler::has_free_restart_slot(int type)
 {
     int first = 0;
     int last = 0;
-    FetchSpawnSlots(type, &first, &last);
+    fetch_spawn_slots(type, &first, &last);
     for (int i = first; i <= last; ++i) {
-        if (!m_restarts[i].m_kindTag || m_restarts[i].m_automatic)
+        if (!restarts_[i].kind_tag_ || restarts_[i].automatic_)
             return true;
     }
     return false;
 }
 
-void CParkAssembler::ClearRestarts()
+void ParkAssembler::clear_restarts()
 {
-    for (RestartPoint& slot : m_restarts)
-        slot.m_kindTag = RestartPoint::kFree;
+    for (RestartPoint& slot : restarts_)
+        slot.kind_tag_ = RestartPoint::kFree;
 }
 
-void CParkAssembler::PurgeAutoRestartPoints()
+void ParkAssembler::purge_auto_restart_points()
 {
-    for (RestartPoint& slot : m_restarts) {
-        if (slot.m_automatic)
-            slot.m_kindTag = RestartPoint::kFree;
+    for (RestartPoint& slot : restarts_) {
+        if (slot.automatic_)
+            slot.kind_tag_ = RestartPoint::kFree;
     }
 }
 
-void CParkAssembler::SetUpBounds()
+void ParkAssembler::set_up_bounds()
 {
     // The most the park can take up: 56 x 56 cells, 16 steps down and 66 up.
-    Maths::BBox box;
-    Maths::Vec4 low = {-3360.0f, -768.0f, -3360.0f, 1.0f};
-    box.AppendSpot(low);
-    Maths::Vec4 high = {3360.0f, 3168.0f, 3360.0f, 1.0f};
-    box.AppendSpot(high);
-    Scene::AssignSceneBounds(SceneOf(m_sceneHandle), &box);
+    maths::BBox box;
+    maths::Vec4 low = {-3360.0f, -768.0f, -3360.0f, 1.0f};
+    box.append_spot(low);
+    maths::Vec4 high = {3360.0f, 3168.0f, 3360.0f, 1.0f};
+    box.append_spot(high);
+    scene::assign_scene_bounds(scene_of(scene_handle_), &box);
 }
 
-void CParkAssembler::RebuildCollision()
+void ParkAssembler::rebuild_collision()
 {
-    if (!RebuildsCollision())
+    if (!rebuilds_collision())
         return;
-    m_flagBits &= ~CParkAssembler::kSceneChanged;
-    MemSys::EnterHeapScope(MemSys::BottomUpHeap());
-    Scene::UpdateSuperSectors(SceneOf(m_sceneHandle), nullptr);
-    MemSys::LeaveHeapScope();
-    m_flagBits |= CParkAssembler::kSuperSectorsUpdated;
+    flag_bits_ &= ~ParkAssembler::kSceneChanged;
+    memory::enter_heap_scope(memory::bottom_up_heap());
+    scene::get_update_super_sectors(scene_of(scene_handle_), nullptr);
+    memory::leave_heap_scope();
+    flag_bits_ |= ParkAssembler::kSuperSectorsUpdated;
 }
 
-void CParkAssembler::UpdateBounds(uint32_t /*unused*/)
+void ParkAssembler::update_bounds(uint32_t /*unused*/)
 {
-    CParkLayout* manager = CParkLayout::sSingleton();
-    uint8_t* shell = Scene::LookUpScene(manager->GetShellChecksum());
+    ParkLayout* manager = ParkLayout::singleton();
+    uint8_t* shell = scene::look_up_scene(manager->get_shell_checksum());
     if (!shell)
         return;
     // The shell's first box: as big as can be.
-    Maths::Vec4 far = {200000.0f, 200000.0f, 200000.0f, 1.0f};
-    Maths::Vec4 near = {-200000.0f, -200000.0f, -200000.0f, 1.0f};
-    Maths::Seg everything(near, far);
-    Scene::SetBox(shell, &everything, 1, 0);
+    maths::Vec4 far = {200000.0f, 200000.0f, 200000.0f, 1.0f};
+    maths::Vec4 near = {-200000.0f, -200000.0f, -200000.0f, 1.0f};
+    maths::Seg everything(near, far);
+    scene::set_box(shell, &everything, 1, 0);
     // The second: the park's bounds, from the middle of its first cell to the middle of its last, every height.
-    SCellBox area;
-    area.AssignValue(0, 0, 0, 0, 0, 0);
-    area = CParkLayout::sSingleton()->m_buildArea;
-    Maths::Vec4 corner = CParkLayout::sSingleton()->CellToWorldPos(area, nullptr);
+    CellBox area;
+    area.assign_value(0, 0, 0, 0, 0, 0);
+    area = ParkLayout::singleton()->build_area_;
+    maths::Vec4 corner = ParkLayout::singleton()->cell_to_world_pos(area, nullptr);
     area.x = static_cast<uint8_t>(area.x + (area.w - 1));
     area.z = static_cast<uint8_t>(area.z + (area.l - 1));
-    Maths::Vec4 farCorner = CParkLayout::sSingleton()->CellToWorldPos(area, nullptr);
+    maths::Vec4 far_corner = ParkLayout::singleton()->cell_to_world_pos(area, nullptr);
     corner.x = static_cast<float>(static_cast<double>(corner.x) + 60.0);
     corner.y = -100000.0f;
     corner.z = static_cast<float>(static_cast<double>(corner.z) + 60.0);
-    farCorner.y = 100000.0f;
-    farCorner.x = static_cast<float>(static_cast<double>(farCorner.x) + 60.0);
-    farCorner.z = static_cast<float>(static_cast<double>(farCorner.z) + 60.0);
-    Maths::Seg park(corner, farCorner);
-    Scene::SetBox(shell, &park, 0, 0);
+    far_corner.y = 100000.0f;
+    far_corner.x = static_cast<float>(static_cast<double>(far_corner.x) + 60.0);
+    far_corner.z = static_cast<float>(static_cast<double>(far_corner.z) + 60.0);
+    maths::Seg park(corner, far_corner);
+    scene::set_box(shell, &park, 0, 0);
 }
 
-void CParkAssembler::SetPiecesHighlighted(int on)
+void ParkAssembler::set_pieces_highlighted(int on)
 {
-    for (CParkTile* piece = m_pieces; piece;) {
-        CParkTile* next = piece->m_following;
-        if (piece->m_flagBits & CParkTile::kGap)
-            piece->SetVisible(on != 0);
+    for (ParkTile* piece = pieces_; piece;) {
+        ParkTile* next = piece->following_;
+        if (piece->flag_bits_ & ParkTile::kGap)
+            piece->set_visible(on != 0);
         piece = next;
     }
 }
 
-void CParkAssembler::SetRestartPiecesActive(bool active)
+void ParkAssembler::set_restart_pieces_active(bool active)
 {
-    for (CParkTile* piece = m_pieces; piece;) {
-        CParkTile* next = piece->m_following;
-        if (CParkLayout::sSingleton()->GetRestartIndex(piece->m_blendSource->m_label))
-            piece->ChangeLive(active);
+    for (ParkTile* piece = pieces_; piece;) {
+        ParkTile* next = piece->following_;
+        if (ParkLayout::singleton()->get_restart_index(piece->blend_source_->label_))
+            piece->change_live(active);
         piece = next;
     }
 }
 
-uint32_t CParkAssembler::DuplicateSceneSector(uint32_t name, int a, int b, int /*unused*/)
+uint32_t ParkAssembler::duplicate_scene_sector(uint32_t name, int a, int b, int /*unused*/)
 {
-    m_flagBits |= CParkAssembler::kSceneChanged;
-    MemSys::EnterHeapScope(MemSys::BottomUpHeap());
-    uint32_t clone = Scene::DuplicateSceneSector(SceneOf(m_sourceWorld), name, SceneOf(m_sceneHandle), a, b, 0);
-    MemSys::LeaveHeapScope();
+    flag_bits_ |= ParkAssembler::kSceneChanged;
+    memory::enter_heap_scope(memory::bottom_up_heap());
+    uint32_t clone = scene::duplicate_scene_sector(scene_of(source_world_), name, scene_of(scene_handle_), a, b, 0);
+    memory::leave_heap_scope();
     return clone;
 }
 
-bool CParkAssembler::DestroySector(uint32_t name, int /*unused*/)
+bool ParkAssembler::destroy_sector(uint32_t name, int /*unused*/)
 {
-    bool deleted = Scene::RemoveSceneSector(SceneOf(m_sceneHandle), name);
-    RebuildCollision();
+    bool deleted = scene::remove_scene_sector(scene_of(scene_handle_), name);
+    rebuild_collision();
     return deleted;
 }
 
-CParkTile* CParkAssembler::CreatePiece(CParkTile* source, uint32_t flags)
+ParkTile* ParkAssembler::create_piece(ParkTile* source, uint32_t flags)
 {
-    flags &= CParkTile::kCursor | CParkTile::kNoNode20 | CParkTile::kNoRails | CParkTile::kDestroyNow;
-    CTileTemplate* from = (source->m_flagBits & CParkTile::kSource) ? reinterpret_cast<CTileTemplate*>(source) : source->m_blendSource;
+    flags &= ParkTile::kCursor | ParkTile::kNoNode20 | ParkTile::kNoRails | ParkTile::kDestroyNow;
+    TileTemplate* from = (source->flag_bits_ & ParkTile::kSource) ? reinterpret_cast<TileTemplate*>(source) : source->blend_source_;
     // The source's sector copied into the park's scene (on the bottom-up heap).
-    CloningPiece() = 1;
-    const uint32_t name = from->m_label;
-    m_flagBits |= CParkAssembler::kSceneChanged;
-    MemSys::EnterHeapScope(MemSys::BottomUpHeap());
-    uint32_t clone = (flags & CParkTile::kCursor)
-                         ? Scene::DuplicateSceneSector(SceneOf(m_sourceWorld), name, SceneOf(m_sceneHandle), 1, 0, 0)
-                         : Scene::DuplicateSceneSector(SceneOf(m_sourceWorld), name, SceneOf(m_sceneHandle), 0, 1, 0);
-    MemSys::LeaveHeapScope();
-    CloningPiece() = 0;
+    cloning_piece() = 1;
+    const uint32_t name = from->label_;
+    flag_bits_ |= ParkAssembler::kSceneChanged;
+    memory::enter_heap_scope(memory::bottom_up_heap());
+    uint32_t clone = (flags & ParkTile::kCursor)
+                         ? scene::duplicate_scene_sector(scene_of(source_world_), name, scene_of(scene_handle_), 1, 0, 0)
+                         : scene::duplicate_scene_sector(scene_of(source_world_), name, scene_of(scene_handle_), 0, 1, 0);
+    memory::leave_heap_scope();
+    cloning_piece() = 0;
     // The piece itself on the park editor's heap.
-    MemSys::EnterHeapScope(GetParkHeap());
-    void* memory = MemSys::Alloc(sizeof(CCopiedPiece));
-    CCopiedPiece* piece = memory ? static_cast<CCopiedPiece*>(memory)->MakeNew() : nullptr;
-    MemSys::LeaveHeapScope();
-    piece->m_sector = clone; // (out of memory crashes, as in the original)
-    piece->m_ident = m_nextPieceId++;
-    piece->m_blendSource = from;
-    piece->SetQuarterTurns(0, 0);
-    piece->m_flagBits |= flags;
+    memory::enter_heap_scope(get_park_heap());
+    void* memory = memory::alloc(sizeof(CopiedPiece));
+    CopiedPiece* piece = memory ? static_cast<CopiedPiece*>(memory)->make_new() : nullptr;
+    memory::leave_heap_scope();
+    piece->sector_ = clone; // (out of memory crashes, as in the original)
+    piece->ident_ = next_piece_id_++;
+    piece->blend_source_ = from;
+    piece->set_quarter_turns(0, 0);
+    piece->flag_bits_ |= flags;
     uint32_t rgba;
-    if (GetPieceColor(piece, &rgba)) { // (never)
-        if (uint8_t* sector = Scene::LookUpSector(clone)) {
-            if (uint8_t* geometry = Scene::FetchShape(sector))
-                Scene::ChangeTint(geometry, rgba);
+    if (get_piece_color(piece, &rgba)) { // (never)
+        if (uint8_t* sector = scene::look_up_sector(clone)) {
+            if (uint8_t* geometry = scene::fetch_shape(sector))
+                scene::change_tint(geometry, rgba);
         }
     }
-    SetCountsDirty();
-    m_flagBits |= CParkAssembler::kPiecesCreated;
+    set_counts_dirty();
+    flag_bits_ |= ParkAssembler::kPiecesCreated;
     return piece;
 }
 
-void CParkAssembler::InsertTile(CParkTile* piece)
+void ParkAssembler::insert_tile(ParkTile* piece)
 {
-    piece->m_flagBits |= CParkTile::kInList;
-    piece->m_following = m_pieces;
-    m_pieces = piece;
-    m_flagBits |= CParkAssembler::kHasPieces;
+    piece->flag_bits_ |= ParkTile::kInList;
+    piece->following_ = pieces_;
+    pieces_ = piece;
+    flag_bits_ |= ParkAssembler::kHasPieces;
 }
 
-void CParkAssembler::DeletePiece(CParkTile* piece, int keepSector)
+void ParkAssembler::delete_piece(ParkTile* piece, int keep_sector)
 {
-    if (!(piece->m_flagBits & CParkTile::kCursor)) {
-        CParkTile* previous = nullptr;
-        for (CParkTile* p = m_pieces; p; previous = p, p = p->m_following) {
+    if (!(piece->flag_bits_ & ParkTile::kCursor)) {
+        ParkTile* previous = nullptr;
+        for (ParkTile* p = pieces_; p; previous = p, p = p->following_) {
             if (p != piece)
                 continue;
             if (previous)
-                previous->m_following = p->m_following;
+                previous->following_ = p->following_;
             else
-                m_pieces = p->m_following;
+                pieces_ = p->following_;
             break;
         }
     }
-    if (!keepSector)
-        DestroySector(piece->m_sector, static_cast<int>(piece->m_flagBits));
-    SetCountsDirty();
-    piece->EraseOne();
-    if (!m_pieces)
-        m_flagBits &= ~CParkAssembler::kHasPieces;
+    if (!keep_sector)
+        destroy_sector(piece->sector_, static_cast<int>(piece->flag_bits_));
+    set_counts_dirty();
+    piece->erase_one();
+    if (!pieces_)
+        flag_bits_ &= ~ParkAssembler::kHasPieces;
 }
 
-void CParkAssembler::ReadPieceFlags(Scripts::CArray* nodes)
+void ParkAssembler::read_piece_flags(script::Array* nodes)
 {
-    for (uint32_t i = 0; i < nodes->m_extent; ++i) {
-        auto* node = reinterpret_cast<Scripts::CStruct*>(nodes->FetchPart(i));
-        uint32_t nodeClass = 0;
-        node->ReadHashValue(0x12B4E660u, &nodeClass, 0); // Class
-        if (nodeClass != 0xBF4D3536u && nodeClass != 0xEF59C100u) // LevelGeometry, GameObject
+    for (uint32_t i = 0; i < nodes->extent_; ++i) {
+        auto* node = reinterpret_cast<script::Struct*>(nodes->fetch_part(i));
+        uint32_t node_class = 0;
+        node->read_hash_value(0x12B4E660u, &node_class, 0); // Class
+        if (node_class != 0xBF4D3536u && node_class != 0xEF59C100u) // LevelGeometry, GameObject
             continue;
         uint32_t name = 0;
-        node->ReadHashValue(0xA1DC81F9u, &name, 0); // name
+        node->read_hash_value(0xA1DC81F9u, &name, 0); // name
         if (!name)
             continue;
-        CTileTemplate* source = GetPieceSource(name);
+        TileTemplate* source = get_piece_source(name);
         if (!source)
             continue;
-        if (nodeClass == 0xEF59C100u) {
-            source->m_flagBits |= CTileTemplate::kGameObject;
-            if (node->HasBareFlag(0x68910AC6u))
-                source->m_flagBits |= CTileTemplate::kAbsentInNetGames;
+        if (node_class == 0xEF59C100u) {
+            source->flag_bits_ |= TileTemplate::kGameObject;
+            if (node->has_bare_flag(0x68910AC6u))
+                source->flag_bits_ |= TileTemplate::kAbsentInNetGames;
         }
         uint32_t script = 0;
-        node->ReadHashValue(0x2CA8A299u, &script, 0); // TriggerScript
+        node->read_hash_value(0x2CA8A299u, &script, 0); // TriggerScript
         if (!script)
             continue;
-        source->m_triggerScript = script;
-        switch (script) { // (four scripts that change their pieces: rebuilt by RebuildMarked)
+        source->trigger_script_ = script;
+        switch (script) { // (four scripts that change their pieces: rebuilt by rebuild_marked)
         case 0x3DEDAFE9u:
         case 0x22C20ED8u:
         case 0x28673697u:
         case 0xF6187E48u:
-            source->m_flagBits |= CTileTemplate::kRebuilt;
+            source->flag_bits_ |= TileTemplate::kRebuilt;
             break;
         default:
             break;
@@ -382,6 +382,6 @@ void CParkAssembler::ReadPieceFlags(Scripts::CArray* nodes)
 
 } // namespace Ed
 
-using ParkEditing::CMapListNode;
-using ParkEditing::CCellChainScratch;
-using ParkEditing::CParkAssembler;
+using park_editing::MapListNode;
+using park_editing::CellChainScratch;
+using park_editing::ParkAssembler;

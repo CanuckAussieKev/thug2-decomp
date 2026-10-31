@@ -12,73 +12,73 @@
 #include "engine/core/stubs.h"
 #include "game/save_cards/memcard.h"
 
-namespace Engine3D {
+namespace render {
 
 namespace {
 
 extern void** const kModelVtable;
 
-void* GeomOf(const sModelGeomNode* node) { return *node->entry; }
+void* geom_of(const ModelGeomNode* node) { return *node->entry; }
 
 // The engine's CGeom calls (jumps through the geom's vtable).
-Maths::Vec4* GetGeomBoundingSphere(void* geom, Maths::Vec4* out)
+maths::Vec4* get_geom_bounding_sphere(void* geom, maths::Vec4* out)
 {
-    return static_cast<CGeom*>(geom)->FetchBoundSphere(out);
+    return static_cast<Geom*>(geom)->fetch_bound_sphere(out);
 }
-void SetGeomBoundingSphere(void* geom, const Maths::Vec4* sphere)
+void set_geom_bounding_sphere(void* geom, const maths::Vec4* sphere)
 {
     // (slot 16, through the jump 0x0048DEB0)
-    reinterpret_cast<void(__thiscall*)(void*, const Maths::Vec4*)>((*static_cast<void***>(geom))[16])(geom, sphere);
+    reinterpret_cast<void(__thiscall*)(void*, const maths::Vec4*)>((*static_cast<void***>(geom))[16])(geom, sphere);
 }
 
 } // namespace
 
 // 0x004BAD90
-CPcModel* CPcModel::MakeNew()
+PcModel* PcModel::make_new()
 {
-    reinterpret_cast<CRenderModel*>(this)->CRenderModel::MakeNew();
+    reinterpret_cast<RenderModel*>(this)->RenderModel::make_new();
     vtable = reinterpret_cast<void**>(kModelVtable);
-    unknown4C = 0;
+    unknown4c_ = 0;
     return this;
 }
 
 // 0x004BADB0
-void CPcModel::DestroyBody()
+void PcModel::destroy_body()
 {
     vtable = reinterpret_cast<void**>(kModelVtable);
-    reinterpret_cast<CRenderModel*>(this)->CRenderModel::DestroyBody();
+    reinterpret_cast<RenderModel*>(this)->RenderModel::destroy_body();
 }
 
 // 0x004BADC0
-CPcModel* CPcModel::Teardown(unsigned int flags)
+PcModel* PcModel::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x004BADF0
-void CPcModel::ChangeBoundSphere(const Maths::Vec4* sphere)
+void PcModel::change_bound_sphere(const maths::Vec4* sphere)
 {
-    sModelGeomNode* head = geoms;
-    for (sModelGeomNode* node = head ? head->next : nullptr; node != head; node = node->next)
-        SetGeomBoundingSphere(GeomOf(node), sphere);
+    ModelGeomNode* head = geoms;
+    for (ModelGeomNode* node = head ? head->next : nullptr; node != head; node = node->next)
+        set_geom_bounding_sphere(geom_of(node), sphere);
 }
 
 // 0x004BAE30
-Maths::Vec4* CPcModel::FetchBoundSphere(Maths::Vec4* out)
+maths::Vec4* PcModel::fetch_bound_sphere(maths::Vec4* out)
 {
-    if (geomCount == 0) {
+    if (geom_count_ == 0) {
         *out = {0.0f, 0.0f, 0.0f, 0.0f};
         return out;
     }
-    sModelGeomNode* head = geoms;
-    sModelGeomNode* node = head ? head->next : nullptr;
-    Maths::Vec4 scratch;
-    Maths::Vec4 sphere = *GetGeomBoundingSphere(GeomOf(node), &scratch);
+    ModelGeomNode* head = geoms;
+    ModelGeomNode* node = head ? head->next : nullptr;
+    maths::Vec4 scratch;
+    maths::Vec4 sphere = *get_geom_bounding_sphere(geom_of(node), &scratch);
     for (node = node->next; node != head; node = node->next) {
-        Maths::Vec4 other = *GetGeomBoundingSphere(GeomOf(node), &scratch);
+        maths::Vec4 other = *get_geom_bounding_sphere(geom_of(node), &scratch);
         float dx = static_cast<float>(static_cast<double>(other.x) - sphere.x);
         float dy = static_cast<float>(static_cast<double>(other.y) - sphere.y);
         float dz = static_cast<float>(static_cast<double>(other.z) - sphere.z);
@@ -93,18 +93,18 @@ Maths::Vec4* CPcModel::FetchBoundSphere(Maths::Vec4* out)
         }
         // Both: the sphere around the two - its centre half way between their far sides.
         double t = static_cast<double>(dw) / distance;
-        double sumX = static_cast<double>(other.x) + sphere.x;
-        double sumY = static_cast<double>(other.y) + sphere.y;
-        float sumZ = static_cast<float>(static_cast<double>(other.z) + sphere.z);
-        float sumW = static_cast<float>(static_cast<double>(other.w) + sphere.w);
-        float offsetY = static_cast<float>(dy * t);
-        float offsetZ = static_cast<float>(dz * t);
-        float x = static_cast<float>(dx * t + sumX);
-        float y = static_cast<float>(offsetY + sumY);
-        sphere.z = static_cast<float>((static_cast<double>(offsetZ) + sumZ) * 0.5f);
+        double sum_x = static_cast<double>(other.x) + sphere.x;
+        double sum_y = static_cast<double>(other.y) + sphere.y;
+        float sum_z = static_cast<float>(static_cast<double>(other.z) + sphere.z);
+        float sum_w = static_cast<float>(static_cast<double>(other.w) + sphere.w);
+        float offset_y = static_cast<float>(dy * t);
+        float offset_z = static_cast<float>(dz * t);
+        float x = static_cast<float>(dx * t + sum_x);
+        float y = static_cast<float>(offset_y + sum_y);
+        sphere.z = static_cast<float>((static_cast<double>(offset_z) + sum_z) * 0.5f);
         sphere.x = static_cast<float>(static_cast<double>(x) * 0.5f);
         sphere.y = static_cast<float>(static_cast<double>(y) * 0.5f);
-        sphere.w = static_cast<float>((static_cast<double>(sumW) + distance) * 0.5f);
+        sphere.w = static_cast<float>((static_cast<double>(sum_w) + distance) * 0.5f);
     }
     out->x = sphere.x;
     out->y = sphere.y;
@@ -114,11 +114,11 @@ Maths::Vec4* CPcModel::FetchBoundSphere(Maths::Vec4* out)
 }
 
 namespace {
-static VtableSlot kModelVtable_slots[] = {&Engine3D::CPcModel::Teardown, &MemCard::SaveCard::AlwaysTrue, Stubs::ReturnZero1,
-                &MemCard::SaveCard::AlwaysTrue, &Engine3D::CRenderModel::VirtualTrue4, &MemCard::SaveCard::AlwaysTrue, &MemCard::SaveCard::AlwaysTrue,
-                &MemCard::SaveCard::AlwaysTrue, Stubs::ReturnTrue2, &NetLink::Hub::LoadNetworkDrivers, Stubs::ReturnTrue,
-                Stubs::ReturnTrue, &Engine3D::CPcModel::FetchBoundSphere, &Engine3D::CPcModel::ChangeBoundSphere};
-void** const kModelVtable = reinterpret_cast<void**>(kModelVtable_slots);
+static VtableSlot g_model_vtable_slots[] = {&render::PcModel::teardown, &save_cards::SaveCard::always_true, stubs::return_zero1,
+                &save_cards::SaveCard::always_true, &render::RenderModel::virtual_true4, &save_cards::SaveCard::always_true, &save_cards::SaveCard::always_true,
+                &save_cards::SaveCard::always_true, stubs::return_true2, &net::Hub::load_network_drivers, stubs::return_true,
+                stubs::return_true, &render::PcModel::fetch_bound_sphere, &render::PcModel::change_bound_sphere};
+void** const kModelVtable = reinterpret_cast<void**>(g_model_vtable_slots);
 } // namespace
 
 } // namespace Nx

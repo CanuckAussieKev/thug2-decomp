@@ -19,13 +19,13 @@
 #include "game/rider/thaw_bmx.h"
 #include "platform/run_log.h"
 
-namespace Skater::ThawBmx {
+namespace skater::thaw_bmx {
 
 namespace {
 
 constexpr double kPi = 3.14159265358979323846;
 
-uint32_t NameHash(const char* name) { return Checksums::HashFromText(name); }
+uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 
 // The scripts and globals (tools/pipeline/thaw_bmx/ride.ts, convert.ts).
 constexpr const char* kHomeBike = "thaw_bmx_home";          // the level's bike's object
@@ -53,164 +53,164 @@ struct StageMap {
     Kickoff start;
 } g_level;
 
-GameObjects::CRider* LocalSkater()
+objects::Rider* local_skater()
 {
-    if (!GameModules::Skate::Sole())
+    if (!modules::Skate::sole())
         return nullptr;
-    return static_cast<GameObjects::CRider*>(SkateCalls::GetHomeRider());
+    return static_cast<objects::Rider*>(skate_calls::get_home_rider());
 }
 
-Point PointOf(const Maths::Vec4& v) { return {v.x, v.y, v.z}; }
+Point point_of(const maths::Vec4& v) { return {v.x, v.y, v.z}; }
 
 // The game's collision ray (static collision, the nearest hit): true and the point when something is hit.
-bool Hit(Point from, Point to, Point* at)
+bool get_hit(Point from, Point to, Point* at)
 {
-    alignas(16) uint8_t memory[sizeof(Engine3D::CProbeRay)] = {};
-    auto* feeler = reinterpret_cast<Engine3D::CProbeRay*>(memory);
-    feeler->MakeNew();
-    Maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
-    if (!feeler->GetCollisionAlong(&start, &end, false))
+    alignas(16) uint8_t memory[sizeof(render::ProbeRay)] = {};
+    auto* feeler = reinterpret_cast<render::ProbeRay*>(memory);
+    feeler->make_new();
+    maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    if (!feeler->get_collision_along(&start, &end, false))
         return false;
     if (at)
-        *at = PointOf(feeler->m_contactPos);
+        *at = point_of(feeler->contact_pos_);
     return true;
 }
 
-bool Clear(Point a, Point b)
+bool get_clear(Point a, Point b)
 {
-    return !Hit({a.x, a.y + kEyeHeight, a.z}, {b.x, b.y + kEyeHeight, b.z}, nullptr);
+    return !get_hit({a.x, a.y + kEyeHeight, a.z}, {b.x, b.y + kEyeHeight, b.z}, nullptr);
 }
 
 // The start spot: the first candidate with ground near the start's height and a clear line from the start.
-Kickoff FindStartSpot(Point pos, float heading)
+Kickoff find_start_spot(Point pos, float heading)
 {
     Point candidates[4];
-    StartSpotCandidates(pos, heading, kStartSpotDistance, candidates);
+    start_spot_candidates(pos, heading, kStartSpotDistance, candidates);
     for (const Point& c : candidates) {
         Point ground;
-        if (!Hit({c.x, pos.y + kGroundAbove, c.z}, {c.x, pos.y - kGroundBelow, c.z}, &ground))
+        if (!get_hit({c.x, pos.y + kGroundAbove, c.z}, {c.x, pos.y - kGroundBelow, c.z}, &ground))
             continue;
-        if (std::fabs(ground.y - pos.y) > kGroundStep || !Clear(pos, ground))
+        if (std::fabs(ground.y - pos.y) > kGroundStep || !get_clear(pos, ground))
             continue;
         return {true, ground, heading};
     }
     return {};
 }
 
-Scripts::CStruct* LevelParamsRef()
+script::Struct* level_params_ref()
 {
-    uint32_t name = SkateCalls::SkateField<uint32_t>(kLevelDataKey);
-    return name ? Scripts::ReadSubStruct(name) : nullptr;
+    uint32_t name = skate_calls::skate_field<uint32_t>(kLevelDataKey);
+    return name ? script::read_sub_struct(name) : nullptr;
 }
 
 // THAW's place for the current level (thaw_bmx_home_bikes, by the level structure's `level`).
-bool ThawSpot(Point* pos, float* heading)
+bool thaw_spot(Point* pos, float* heading)
 {
-    Scripts::CStruct* level = LevelParamsRef();
+    script::Struct* level = level_params_ref();
     const char* name = nullptr;
-    if (!level || !level->FetchText("level", &name, 0) || !name)
+    if (!level || !level->fetch_text("level", &name, 0) || !name)
         return false;
-    Scripts::CArray* bikes = Scripts::FetchList(kHomeBikes);
-    if (!bikes || bikes->m_kindTag != Scripts::QBVAL_STRUCT)
+    script::Array* bikes = script::fetch_list(kHomeBikes);
+    if (!bikes || bikes->kind_tag_ != script::kQbvalStruct)
         return false;
-    const uint32_t want = NameHash(name);
-    for (uint32_t i = 0; i < bikes->m_extent; ++i) {
-        auto* bike = reinterpret_cast<Scripts::CStruct*>(bikes->FetchPart(i));
-        uint32_t levelName = 0;
-        Scripts::VectorValue p = {};
-        if (!bike || !bike->ReadHashValue("level", &levelName, 0) || levelName != want || !bike->FetchVec("pos", &p, 0))
+    const uint32_t want = name_hash(name);
+    for (uint32_t i = 0; i < bikes->extent_; ++i) {
+        auto* bike = reinterpret_cast<script::Struct*>(bikes->fetch_part(i));
+        uint32_t level_name = 0;
+        script::VectorValue p = {};
+        if (!bike || !bike->read_hash_value("level", &level_name, 0) || level_name != want || !bike->fetch_vec("pos", &p, 0))
             continue;
         *pos = {p.x, p.y, p.z};
         *heading = 0.0f;
-        bike->FetchFloat("heading", heading, 0);
+        bike->fetch_float("heading", heading, 0);
         return true;
     }
     return false;
 }
 
-GameObjects::CGameEntity* ObjectOf(Scripts::CStruct* params)
+objects::GameEntity* object_of(script::Struct* params)
 {
     uint32_t id = 0;
-    if (!params || !params->ReadHashValue("id", &id, 0))
+    if (!params || !params->read_hash_value("id", &id, 0))
         return nullptr;
-    return static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
+    return static_cast<objects::GameEntity*>(objects::find_object(id));
 }
 
 // The skater put at `pos` facing `heading` (standing upright), its drawn matrix and the core physics' with it.
-void PlaceSkater(GameObjects::CRider* skater, Point pos, float heading)
+void place_skater(objects::Rider* skater, Point pos, float heading)
 {
     double h = static_cast<double>(heading) * kPi / 180.0;
     float s = static_cast<float>(std::sin(h)), c = static_cast<float>(std::cos(h));
-    for (Maths::Mat4* m : {&skater->m_basisFrame, &skater->m_displayMatrix}) {
+    for (maths::Mat4* m : {&skater->basis_frame_, &skater->display_matrix_}) {
         m->row[0] = {c, 0.0f, -s, 0.0f};
         m->row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
         m->row[2] = {s, 0.0f, c, 0.0f};
     }
-    if (skater->m_corePhysics)
-        *reinterpret_cast<Maths::Mat4*>(skater->m_corePhysics + 0x18) = skater->m_basisFrame; // (its display matrix)
-    skater->m_atPoint = {pos.x, pos.y, pos.z, 1.0f};
-    skater->m_oldPos = skater->m_atPoint;
+    if (skater->core_physics_)
+        *reinterpret_cast<maths::Mat4*>(skater->core_physics_ + 0x18) = skater->basis_frame_; // (its display matrix)
+    skater->at_point_ = {pos.x, pos.y, pos.z, 1.0f};
+    skater->old_pos_ = skater->at_point_;
 }
 
 // ThawBmx_HomeSpot: pos / heading of the level's bike.
-bool __cdecl CFunc_HomeSpot(Scripts::CStruct*, Scripts::CScript* script)
+bool __cdecl cfunc_home_spot(script::Struct*, script::Script* script)
 {
     Point pos{};
     float heading = 0.0f;
     const char* from = "THAW's place";
-    if (!ThawSpot(&pos, &heading)) {
+    if (!thaw_spot(&pos, &heading)) {
         if (!g_level.start.valid)
             return false;
         pos = g_level.start.pos;
         heading = g_level.start.heading;
         from = "near the start";
     }
-    script->m_args->PutVec3("pos", pos.x, pos.y, pos.z);
-    script->m_args->PushFloat("heading", heading);
-    Log("thaw_bmx: the level's bike at (%.0f, %.0f, %.0f) heading %.0f (%s)", pos.x, pos.y, pos.z, heading, from);
+    script->args_->put_vec3("pos", pos.x, pos.y, pos.z);
+    script->args_->push_float("heading", heading);
+    get_log("thaw_bmx: the level's bike at (%.0f, %.0f, %.0f) heading %.0f (%s)", pos.x, pos.y, pos.z, heading, from);
     return true;
 }
 
 // ThawBmx_WalkToBike id=<object>
-bool __cdecl CFunc_WalkToBike(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_walk_to_bike(script::Struct* params, script::Script*)
 {
-    GameObjects::CRider* skater = LocalSkater();
-    GameObjects::CGameEntity* bike = ObjectOf(params);
+    objects::Rider* skater = local_skater();
+    objects::GameEntity* bike = object_of(params);
     if (!skater || !bike)
         return true;
-    Point from = PointOf(skater->m_atPoint), to = PointOf(bike->m_atPoint);
-    float heading = HeadingOf(skater->m_basisFrame.row[2].x, skater->m_basisFrame.row[2].z);
+    Point from = point_of(skater->at_point_), to = point_of(bike->at_point_);
+    float heading = get_heading_of(skater->basis_frame_.row[2].x, skater->basis_frame_.row[2].z);
     Point next;
-    if (StepToward(from, to, kWalkStep, &next)) {
-        PlaceSkater(skater, to, HeadingOf(bike->m_basisFrame.row[2].x, bike->m_basisFrame.row[2].z));
+    if (step_toward(from, to, kWalkStep, &next)) {
+        place_skater(skater, to, get_heading_of(bike->basis_frame_.row[2].x, bike->basis_frame_.row[2].z));
         return true;
     }
     // (turned towards it first, then walked)
     float turned = heading;
-    if (!TurnToward(heading, HeadingOf(to.x - from.x, to.z - from.z), kWalkTurnDegrees, &turned))
+    if (!turn_toward(heading, get_heading_of(to.x - from.x, to.z - from.z), kWalkTurnDegrees, &turned))
         next = from;
-    PlaceSkater(skater, next, turned);
+    place_skater(skater, next, turned);
     return false;
 }
 
 // ThawBmx_BikeReachable id=<object>
-bool __cdecl CFunc_BikeReachable(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_bike_reachable(script::Struct* params, script::Script*)
 {
-    GameObjects::CRider* skater = LocalSkater();
-    GameObjects::CGameEntity* bike = ObjectOf(params);
-    return skater && bike && Clear(PointOf(skater->m_atPoint), PointOf(bike->m_atPoint));
+    objects::Rider* skater = local_skater();
+    objects::GameEntity* bike = object_of(params);
+    return skater && bike && get_clear(point_of(skater->at_point_), point_of(bike->at_point_));
 }
 
-void LaunchScript(const char* name)
+void launch_script(const char* name)
 {
-    uint32_t checksum = NameHash(name);
-    if (Scripts::ScriptExists(checksum))
-        Scripts::LaunchScript(checksum, nullptr, nullptr, false, name);
+    uint32_t checksum = name_hash(name);
+    if (script::script_exists(checksum))
+        script::launch_script(checksum, nullptr, nullptr, false, name);
 }
 
 } // namespace
 
-bool StepToward(Point from, Point to, float step, Point* out)
+bool step_toward(Point from, Point to, float step, Point* out)
 {
     float dx = to.x - from.x, dz = to.z - from.z;
     float distance = std::sqrt(dx * dx + dz * dz);
@@ -223,7 +223,7 @@ bool StepToward(Point from, Point to, float step, Point* out)
     return false;
 }
 
-bool TurnToward(float heading, float target, float maxStep, float* out)
+bool turn_toward(float heading, float target, float max_step, float* out)
 {
     auto wrap = [](float a) {
         a = std::fmod(a + 180.0f, 360.0f);
@@ -232,22 +232,22 @@ bool TurnToward(float heading, float target, float maxStep, float* out)
         return a - 180.0f;
     };
     float difference = wrap(target - heading);
-    if (std::fabs(difference) <= maxStep) {
+    if (std::fabs(difference) <= max_step) {
         *out = wrap(target);
         return true;
     }
-    *out = wrap(heading + (difference > 0.0f ? maxStep : -maxStep));
+    *out = wrap(heading + (difference > 0.0f ? max_step : -max_step));
     return false;
 }
 
-float HeadingOf(float x, float z)
+float get_heading_of(float x, float z)
 {
     if (x == 0.0f && z == 0.0f)
         return 0.0f;
     return static_cast<float>(std::atan2(static_cast<double>(x), static_cast<double>(z)) * 180.0 / kPi);
 }
 
-void StartSpotCandidates(Point pos, float heading, float distance, Point out[4])
+void start_spot_candidates(Point pos, float heading, float distance, Point out[4])
 {
     double h = static_cast<double>(heading) * kPi / 180.0;
     float ax = static_cast<float>(std::sin(h)), az = static_cast<float>(std::cos(h)); // (at)
@@ -258,23 +258,23 @@ void StartSpotCandidates(Point pos, float heading, float distance, Point out[4])
     out[3] = {pos.x + ax * distance, pos.y, pos.z + az * distance};
 }
 
-void RegisterParkedFunctions()
+void register_parked_functions()
 {
-    static const Scripts::CNativeCommand functions[] = {
-        {"ThawBmx_HomeSpot", reinterpret_cast<void*>(&CFunc_HomeSpot)},
-        {"ThawBmx_WalkToBike", reinterpret_cast<void*>(&CFunc_WalkToBike)},
-        {"ThawBmx_BikeReachable", reinterpret_cast<void*>(&CFunc_BikeReachable)},
+    static const script::NativeCommand kFunctions[] = {
+        {"ThawBmx_HomeSpot", reinterpret_cast<void*>(&cfunc_home_spot)},
+        {"ThawBmx_WalkToBike", reinterpret_cast<void*>(&cfunc_walk_to_bike)},
+        {"ThawBmx_BikeReachable", reinterpret_cast<void*>(&cfunc_bike_reachable)},
     };
-    Scripts::InstallScriptFunctions(functions, sizeof(functions) / sizeof(functions[0]));
+    script::install_script_functions(kFunctions, sizeof(kFunctions) / sizeof(kFunctions[0]));
 }
 
-void UpdateParked(GameModules::FrontEnd* frontEnd)
+void update_parked(modules::FrontEnd* front_end)
 {
-    if ((frontEnd && frontEnd->m_isHalted) || MenuSystem::LevelEditor::LiveNow())
+    if ((front_end && front_end->is_halted_) || frontend::level_editor::live_now())
         return;
-    GameObjects::CRider* skater = LocalSkater();
-    uint32_t structure = GameModules::Skate::Sole() ? SkateCalls::SkateField<uint32_t>(kLevelDataKey) : 0;
-    if (!skater || !structure || Engine3D::CurrentLevel() == 0) {
+    objects::Rider* skater = local_skater();
+    uint32_t structure = modules::Skate::sole() ? skate_calls::skate_field<uint32_t>(kLevelDataKey) : 0;
+    if (!skater || !structure || render::current_level() == 0) {
         g_level.frames = 0;
         return;
     }
@@ -287,17 +287,17 @@ void UpdateParked(GameModules::FrontEnd* frontEnd)
         if (g_level.frames < kSettleFrames)
             return;
         // (where the skater is now: where the level started it)
-        Point pos = PointOf(skater->m_atPoint);
-        float heading = HeadingOf(skater->m_basisFrame.row[2].x, skater->m_basisFrame.row[2].z);
-        g_level.start = FindStartSpot(pos, heading);
+        Point pos = point_of(skater->at_point_);
+        float heading = get_heading_of(skater->basis_frame_.row[2].x, skater->basis_frame_.row[2].z);
+        g_level.start = find_start_spot(pos, heading);
         g_level.noted = true;
         if (!g_level.start.valid)
-            Log("thaw_bmx: no room for the level's bike near the start (%.0f, %.0f, %.0f)", pos.x, pos.y, pos.z);
-        LaunchScript(kLevelStartScript);
+            get_log("thaw_bmx: no room for the level's bike near the start (%.0f, %.0f, %.0f)", pos.x, pos.y, pos.z);
+        launch_script(kLevelStartScript);
     }
-    if (g_level.frames % kCheckFrames != 0 || OnBike(skater->m_corePhysics) || GameObjects::FindObject(NameHash(kHomeBike)))
+    if (g_level.frames % kCheckFrames != 0 || on_bike(skater->core_physics_) || objects::find_object(name_hash(kHomeBike)))
         return;
-    LaunchScript(kHomeScript);
+    launch_script(kHomeScript);
 }
 
 } // namespace Skater::ThawBmx

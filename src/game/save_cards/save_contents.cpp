@@ -28,19 +28,19 @@
 #include "game/goals/objective.h"
 #include "engine/gfx/rig.h"
 
-namespace MemCard {
+namespace save_cards {
 
 namespace {
 
-using Scripts::CArray;
-using Scripts::CScript;
-using Scripts::CStruct;
+using script::Array;
+using script::Script;
+using script::Struct;
 
 // The names of the save's parts.
 constexpr uint32_t kOptions = 0x2FCA0578;                // "Options"
 constexpr uint32_t kSplitScreenPreferences = 0xF7720C3F; // "SplitScreenPreferences"
 constexpr uint32_t kSoundOptions = 0x89EB9738;           // "SoundOptions"
-constexpr uint32_t kMasterGainKey = 0x6F016DFB;             // "MasterLoudness"
+constexpr uint32_t kMasterGainKey = 0x6F016DFB;             // "master_loudness"
 constexpr uint32_t kMusicVolume = 0xABD4A575;            // "MusicVolume"
 constexpr uint32_t kMusicVolOutsideBox = 0xE3C22B01;     // "MusicVolOutsideBox"
 constexpr uint32_t kForbiddenTracks1 = 0x595D2C95;       // "PlayListForbiddenTrackFlags1"
@@ -64,235 +64,235 @@ constexpr uint32_t kLayerInfos = 0x9A5FF0A3;             // "layer_infos"
 constexpr uint32_t kGoalEditor = 0x81F01058;             // "GoalEditor": the object and its component
 constexpr int kControllers = 8;
 
-GameModules::Skate* Skate() { return GameModules::Skate::Sole(); }
-GameObjects::CProfileRoster* Profiles() { return GameObjects::g_profileRoster; }
-Highscores::CBestResults* GameRecords() { return Highscores::g_gameRecords; }
-OnlinePlay::Hub* OnlineHubHandle() { return OnlinePlay::g_onlineHub; }
-GameObjects::CRiderStoryProgress* Career() { return *reinterpret_cast<GameObjects::CRiderStoryProgress**>(reinterpret_cast<uint8_t*>(Skate()) + 0x20); }
-int OsLayer() { return GameConfig::g_platform; }
+modules::Skate* get_skate() { return modules::Skate::sole(); }
+objects::ProfileRoster* get_profiles() { return objects::g_profile_roster; }
+highscores::BestResults* game_records() { return highscores::g_game_records; }
+online::Hub* online_hub_handle() { return online::g_online_hub; }
+objects::RiderStoryProgress* get_career() { return *reinterpret_cast<objects::RiderStoryProgress**>(reinterpret_cast<uint8_t*>(get_skate()) + 0x20); }
+int os_layer() { return game_config::g_platform; }
 
 // The skate module's split-screen preferences (0x00564D80, no source yet).
-OptionStore::Preferences* SplitScreenPreferences()
+prefs::Preferences* split_screen_preferences()
 {
-    return reinterpret_cast<OptionStore::Preferences*(__thiscall*)(GameModules::Skate*)>(CodeAddress(&GameModules::Skate::GetSplitViewSettings))(Skate());
+    return reinterpret_cast<prefs::Preferences*(__thiscall*)(modules::Skate*)>(code_address(&modules::Skate::get_split_view_settings))(get_skate());
 }
 // A preferences object's structure (+4).
-CStruct* PreferencesStructure(OptionStore::Preferences* preferences)
+Struct* preferences_structure(prefs::Preferences* preferences)
 {
-    return reinterpret_cast<CStruct*>(reinterpret_cast<uint8_t*>(preferences) + 4);
+    return reinterpret_cast<Struct*>(reinterpret_cast<uint8_t*>(preferences) + 4);
 }
 
 // The goal editor's component (its object's, both named GoalEditor).
-GameObjects::CObjectModule* GoalEditorComponent()
+objects::ObjectModule* goal_editor_component()
 {
-    GameObjects::CEntity* object = GameObjects::g_tracker->LookUpObject(kGoalEditor);
-    return static_cast<GameObjects::CGameEntity*>(object)->FetchModule(kGoalEditor);
+    objects::Entity* object = objects::g_tracker->look_up_object(kGoalEditor);
+    return static_cast<objects::GameEntity*>(object)->fetch_module(kGoalEditor);
 }
 
 // The skate module's controller settings: each controller's three flags (+0x394 + 8 * n: vibration, autokick,
 // spin taps).
-uint8_t* ControllerFlags(int controller) { return reinterpret_cast<uint8_t*>(Skate()) + 0x394 + 8 * controller; }
+uint8_t* controller_flags(int controller) { return reinterpret_cast<uint8_t*>(get_skate()) + 0x394 + 8 * controller; }
 
-CStruct* SpawnParamTable()
+Struct* spawn_param_table()
 {
-    CStruct* structure = Scripts::SpawnParamBag();
-    return structure ? structure->PrepareAll() : nullptr;
+    Struct* structure = script::spawn_param_bag();
+    return structure ? structure->prepare_all() : nullptr;
 }
-void DeleteStructure(CStruct* structure)
+void delete_structure(Struct* structure)
 {
     if (structure) {
-        structure->Clear();
-        Scripts::DeleteStruct(structure);
+        structure->get_clear();
+        script::delete_struct(structure);
     }
 }
 
 } // namespace
 
 // 0x005A7560
-void WriteGlobalInfo(CStruct* global)
+void write_global_info(Struct* global)
 {
-    CStruct* options = SpawnParamTable();
-    OptionStore::Preferences* splitScreen = SplitScreenPreferences();
-    CStruct* splitScreenCopy = SpawnParamTable();
-    splitScreenCopy->AppendStructureIfAny(PreferencesStructure(splitScreen));
-    options->AppendStructRef(kSplitScreenPreferences, splitScreenCopy);
+    Struct* options = spawn_param_table();
+    prefs::Preferences* split_screen = split_screen_preferences();
+    Struct* split_screen_copy = spawn_param_table();
+    split_screen_copy->append_structure_if_any(preferences_structure(split_screen));
+    options->append_struct_ref(kSplitScreenPreferences, split_screen_copy);
 
-    CStruct* sound = SpawnParamTable();
-    sound->PushFloat(kMasterGainKey, SoundFx::FetchMasterLoudness());
-    sound->PushFloat(kMusicVolume, Scripts::FetchFloat(kMusicVolOutsideBox));
-    uint64_t tracksOff[2];
-    AudioStream::GetTracksOff(&tracksOff[0], &tracksOff[1]);
-    sound->PutInt(kForbiddenTracks1, static_cast<int>(tracksOff[0] >> 32));
-    sound->PutInt(kForbiddenTracks2, static_cast<int>(tracksOff[0]));
-    sound->PutInt(kForbiddenTracks3, static_cast<int>(tracksOff[1] >> 32));
-    sound->PutInt(kForbiddenTracks4, static_cast<int>(tracksOff[1]));
-    if (OsLayer() == 4)
-        sound->PutNameKey(kCurrentSoundtrack, Scripts::GetSymbolValue("current_soundtrack"));
-    if (AudioStream::RandomTrackOrder())
-        sound->PutNameKey(0u, kRandomMode);
-    options->AppendStructRef(kSoundOptions, sound);
+    Struct* sound = spawn_param_table();
+    sound->push_float(kMasterGainKey, sound::fetch_master_loudness());
+    sound->push_float(kMusicVolume, script::fetch_float(kMusicVolOutsideBox));
+    uint64_t tracks_off[2];
+    audio::get_tracks_off(&tracks_off[0], &tracks_off[1]);
+    sound->put_int(kForbiddenTracks1, static_cast<int>(tracks_off[0] >> 32));
+    sound->put_int(kForbiddenTracks2, static_cast<int>(tracks_off[0]));
+    sound->put_int(kForbiddenTracks3, static_cast<int>(tracks_off[1] >> 32));
+    sound->put_int(kForbiddenTracks4, static_cast<int>(tracks_off[1]));
+    if (os_layer() == 4)
+        sound->put_name_key(kCurrentSoundtrack, script::get_symbol_value("current_soundtrack"));
+    if (audio::random_track_order())
+        sound->put_name_key(0u, kRandomMode);
+    options->append_struct_ref(kSoundOptions, sound);
 
-    CArray* controllers = Scripts::AllocScriptArray();
+    Array* controllers = script::alloc_script_array();
     if (controllers)
-        controllers = controllers->PrepareAll();
-    controllers->ConfigureSizeKind(kControllers, Scripts::QBVAL_STRUCT);
+        controllers = controllers->prepare_all();
+    controllers->configure_size_kind(kControllers, script::kQbvalStruct);
     for (int i = 0; i < kControllers; ++i) {
-        CStruct* controller = SpawnParamTable();
-        const uint8_t* flags = ControllerFlags(i);
+        Struct* controller = spawn_param_table();
+        const uint8_t* flags = controller_flags(i);
         if (flags[1])
-            controller->PutNameKey(0u, kAutokickOn);
+            controller->put_name_key(0u, kAutokickOn);
         if (flags[2])
-            controller->PutNameKey(0u, kSpinTapsOn);
+            controller->put_name_key(0u, kSpinTapsOn);
         if (flags[0])
-            controller->PutNameKey(0u, kVibrationOn);
-        controllers->SetElement(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(controller));
+            controller->put_name_key(0u, kVibrationOn);
+        controllers->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(controller));
     }
-    options->AppendArrayRef(kPadSettingsKey, controllers);
-    options->PutSubStruct(kTaunts, PreferencesStructure(OnlineHubHandle()->GetTauntSettings()));
-    global->AppendStructRef(kOptions, options);
+    options->append_array_ref(kPadSettingsKey, controllers);
+    options->put_sub_struct(kTaunts, preferences_structure(online_hub_handle()->get_taunt_settings()));
+    global->append_struct_ref(kOptions, options);
 
-    Career()->WriteToStructure(global);
-    GameRecords()->WriteToStructure(global);
-    CStruct* pros = SpawnParamTable();
-    Profiles()->WritePros(pros);
-    global->AppendStructRef(kPros, pros);
+    get_career()->write_to_structure(global);
+    game_records()->write_to_structure(global);
+    Struct* pros = spawn_param_table();
+    get_profiles()->write_pros(pros);
+    global->append_struct_ref(kPros, pros);
 }
 
 // 0x005A7CF0
-void ReadSaveHeader(CStruct* global, CScript* script)
+void read_save_header(Struct* global, Script* script)
 {
-    CStruct* options = nullptr;
-    global->ReadSubStruct(kOptions, &options, 0);
-    CStruct* splitScreen = nullptr;
-    options->ReadSubStruct(kSplitScreenPreferences, &splitScreen, 0);
-    SplitScreenPreferences()->SetPreferences(splitScreen);
-    CStruct* taunts = nullptr;
-    options->ReadSubStruct(kTaunts, &taunts, 0);
-    OnlineHubHandle()->GetTauntSettings()->SetPreferences(taunts);
+    Struct* options = nullptr;
+    global->read_sub_struct(kOptions, &options, 0);
+    Struct* split_screen = nullptr;
+    options->read_sub_struct(kSplitScreenPreferences, &split_screen, 0);
+    split_screen_preferences()->set_preferences(split_screen);
+    Struct* taunts = nullptr;
+    options->read_sub_struct(kTaunts, &taunts, 0);
+    online_hub_handle()->get_taunt_settings()->set_preferences(taunts);
 
-    CStruct* sound = nullptr;
-    options->ReadSubStruct(kSoundOptions, &sound, 0);
-    auto* sfx = SoundFx::g_audioMixer;
-    float mainVolume = 0.0f;
-    if (sound->FetchFloat(kMasterGainKey, &mainVolume, 0))
-        sfx->ChangeMasterLoudness(mainVolume);
-    float musicVolume = 0.0f;
-    if (sound->FetchFloat(kMusicVolume, &musicVolume, 0)) {
-        AudioStream::SetMusicVolume(musicVolume);
-        CStruct* change = SpawnParamTable();
-        change->PushFloat(kMusicVolOutsideBox, musicVolume);
-        Scripts::LaunchScript("Change", change, nullptr, false);
-        DeleteStructure(change);
+    Struct* sound = nullptr;
+    options->read_sub_struct(kSoundOptions, &sound, 0);
+    auto* sfx = sound::g_audio_mixer;
+    float main_volume = 0.0f;
+    if (sound->fetch_float(kMasterGainKey, &main_volume, 0))
+        sfx->change_master_loudness(main_volume);
+    float music_volume = 0.0f;
+    if (sound->fetch_float(kMusicVolume, &music_volume, 0)) {
+        audio::set_music_volume(music_volume);
+        Struct* change = spawn_param_table();
+        change->push_float(kMusicVolOutsideBox, music_volume);
+        script::launch_script("Change", change, nullptr, false);
+        delete_structure(change);
     }
     int tracks[4] = {};
-    if (sound->FetchIntValue(kForbiddenTracks1, &tracks[0], 0)) {
-        sound->FetchIntValue(kForbiddenTracks2, &tracks[1], 0);
-        sound->FetchIntValue(kForbiddenTracks3, &tracks[2], 0);
-        sound->FetchIntValue(kForbiddenTracks4, &tracks[3], 0);
+    if (sound->fetch_int_value(kForbiddenTracks1, &tracks[0], 0)) {
+        sound->fetch_int_value(kForbiddenTracks2, &tracks[1], 0);
+        sound->fetch_int_value(kForbiddenTracks3, &tracks[2], 0);
+        sound->fetch_int_value(kForbiddenTracks4, &tracks[3], 0);
         uint64_t low = (static_cast<uint64_t>(static_cast<uint32_t>(tracks[0])) << 32) | static_cast<uint32_t>(tracks[1]);
         uint64_t high = (static_cast<uint64_t>(static_cast<uint32_t>(tracks[2])) << 32) | static_cast<uint32_t>(tracks[3]);
-        AudioStream::SetTracksOff(low, high);
+        audio::set_tracks_off(low, high);
     }
-    AudioStream::SetRandomMode(sound->HasBareFlag(kRandomMode) ? 1 : 0);
-    if (OsLayer() == 4) {
+    audio::set_random_mode(sound->has_bare_flag(kRandomMode) ? 1 : 0);
+    if (os_layer() == 4) {
         uint32_t soundtrack = 0xFFFFFFFF;
-        sound->ReadHashValue(kCurrentSoundtrack, &soundtrack, 0);
-        if (Scripts::CSymbolTableEntry* symbol = Scripts::FindSymbol(kCurrentSoundtrack))
+        sound->read_hash_value(kCurrentSoundtrack, &soundtrack, 0);
+        if (script::SymbolTableEntry* symbol = script::find_symbol(kCurrentSoundtrack))
             symbol->checksum = soundtrack;
-        CStruct* change = SpawnParamTable();
-        change->PutNameKey(0x8C465905u, soundtrack); // trackchecksum
-        Scripts::LaunchScript(0xD44400C2u, change, nullptr, false, nullptr); // set_loaded_soundtrack
-        DeleteStructure(change);
+        Struct* change = spawn_param_table();
+        change->put_name_key(0x8C465905u, soundtrack); // trackchecksum
+        script::launch_script(0xD44400C2u, change, nullptr, false, nullptr); // set_loaded_soundtrack
+        delete_structure(change);
     }
 
-    CArray* controllers = nullptr;
-    if (options->FetchList(kPadSettingsKey, &controllers, 0)) {
-        GameModules::Skate* skate = Skate();
+    Array* controllers = nullptr;
+    if (options->fetch_list(kPadSettingsKey, &controllers, 0)) {
+        modules::Skate* skate = get_skate();
         for (int i = 0; i < kControllers; ++i) {
-            auto* controller = reinterpret_cast<CStruct*>(controllers->FetchPart(static_cast<uint32_t>(i)));
+            auto* controller = reinterpret_cast<Struct*>(controllers->fetch_part(static_cast<uint32_t>(i)));
             // the skate module's setters (no source yet): vibration, autokick, spin taps
-            skate->ChangeRumble(i, controller->HasBareFlag(kVibrationOn));
-            skate->SetAutoEject(i, controller->HasBareFlag(kAutokickOn));
-            skate->SetTurnTapCount(i, controller->HasBareFlag(kSpinTapsOn));
+            skate->change_rumble(i, controller->has_bare_flag(kVibrationOn));
+            skate->set_auto_eject(i, controller->has_bare_flag(kAutokickOn));
+            skate->set_turn_tap_count(i, controller->has_bare_flag(kSpinTapsOn));
         }
     }
-    GameRecords()->DecodeFromStruct(global);
-    CStruct* pros = nullptr;
-    global->ReadSubStruct(kPros, &pros, 1);
-    Profiles()->ReadPros(pros);
-    Career()->DecodeFromStruct(global);
+    game_records()->decode_from_struct(global);
+    Struct* pros = nullptr;
+    global->read_sub_struct(kPros, &pros, 1);
+    get_profiles()->read_pros(pros);
+    get_career()->decode_from_struct(global);
 
     constexpr uint32_t kLastLevelLoadScript = 0xE3335D2F, kLastGameMode = 0x2CC06F5E;
-    CStruct* career = nullptr;
-    global->ReadSubStruct(0x4DA4937Bu, &career, 0); // career
-    uint32_t lastLevel = 0;
-    uint32_t lastMode = 0;
+    Struct* career = nullptr;
+    global->read_sub_struct(0x4DA4937Bu, &career, 0); // career
+    uint32_t last_level = 0;
+    uint32_t last_mode = 0;
     if (career) {
-        career->ReadHashValue(kLastLevelLoadScript, &lastLevel, 0);
-        career->ReadHashValue(kLastGameMode, &lastMode, 0);
+        career->read_hash_value(kLastLevelLoadScript, &last_level, 0);
+        career->read_hash_value(kLastGameMode, &last_mode, 0);
     }
-    CStruct* results = *reinterpret_cast<CStruct**>(reinterpret_cast<uint8_t*>(script) + 0x14);
-    if (lastLevel)
-        results->PutNameKey(kLastLevelLoadScript, lastLevel);
-    if (lastMode)
-        results->PutNameKey(kLastGameMode, lastMode);
+    Struct* results = *reinterpret_cast<Struct**>(reinterpret_cast<uint8_t*>(script) + 0x14);
+    if (last_level)
+        results->put_name_key(kLastLevelLoadScript, last_level);
+    if (last_mode)
+        results->put_name_key(kLastGameMode, last_mode);
 
     // the first profile: a custom skater keeps its CAS file name
-    // (0x00564F80, the overload taking the params - none: not FetchAccount(int))
-    auto* profile = Skate()->FetchAccount(static_cast<CStruct*>(nullptr));
-    if (!profile->IsPro()) {
-        const char* casFileName = "Unimplemented"; // "Unimplemented"
-        global->FetchText(0xF36C1878u, &casFileName, 0); // CASFileName
-        profile->SetStringF36C1878(casFileName);
+    // (0x00564F80, the overload taking the params - none: not fetch_account(int))
+    auto* profile = get_skate()->fetch_account(static_cast<Struct*>(nullptr));
+    if (!profile->is_pro()) {
+        const char* cas_file_name = "Unimplemented"; // "Unimplemented"
+        global->fetch_text(0xF36C1878u, &cas_file_name, 0); // CASFileName
+        profile->set_string_f_36c_1878(cas_file_name);
     }
 }
 
 // 0x005A79A0
-void WriteSaveContents(CStruct* contents, uint32_t type)
+void write_save_contents(Struct* contents, uint32_t type)
 {
     switch (type) {
     case kSaveCreatedGoals:
         // the goal editor's goals written (0x004EB850, no source yet)
-        static_cast<ParkEditing::CObjectiveAuthoring*>(GoalEditorComponent())->WriteGoals(contents);
+        static_cast<park_editing::ObjectiveAuthoring*>(goal_editor_component())->write_goals(contents);
         return;
     case kSaveCat: {
-        auto* skater = static_cast<GameObjects::CRider*>(Skate()->GetRiderAt(0));
-        uint8_t* trickRecord = skater->m_trickSlots[0];
-        contents->PutSubStruct("other_params", *reinterpret_cast<CStruct**>(trickRecord + 4));
-        contents->AppendArrayValue("rotation_info", *reinterpret_cast<CArray**>(trickRecord + 8));
-        contents->AppendArrayValue("animation_info", *reinterpret_cast<CArray**>(trickRecord + 0xC));
+        auto* skater = static_cast<objects::Rider*>(get_skate()->get_rider_at(0));
+        uint8_t* trick_record = skater->trick_slots_[0];
+        contents->put_sub_struct("other_params", *reinterpret_cast<Struct**>(trick_record + 4));
+        contents->append_array_value("rotation_info", *reinterpret_cast<Array**>(trick_record + 8));
+        contents->append_array_value("animation_info", *reinterpret_cast<Array**>(trick_record + 0xC));
         return;
     }
     case kSavePark:
-        ParkEditing::CParkBuilderMode::Sole()->ExportToStruct(contents);
+        park_editing::ParkBuilderMode::sole()->export_to_struct(contents);
         return;
     case kSaveNetworkSettings:
-        contents->AppendStructureIfAny(PreferencesStructure(OnlineHubHandle()->GetOnlineSettings()));
+        contents->append_structure_if_any(preferences_structure(online_hub_handle()->get_online_settings()));
         return;
     case kSaveOptionsAndPros: {
-        CStruct* global = SpawnParamTable();
-        WriteGlobalInfo(global);
-        contents->AppendStructRef(kGlobalInfo, global);
-        CStruct* story = SpawnParamTable();
-        void* goalManager = GoalSystem::GetObjectiveBoard();
+        Struct* global = spawn_param_table();
+        write_global_info(global);
+        contents->append_struct_ref(kGlobalInfo, global);
+        Struct* story = spawn_param_table();
+        void* goal_manager = goals::get_objective_board();
         // the goal manager's parameters (a folded getter, +0x14)
-        story->PutSubStruct(kGoalManagerParams, reinterpret_cast<CStruct*(__thiscall*)(void*)>(CodeAddress(&Gfx2D::CRig::GetNumBones))(goalManager));
-        contents->AppendStructRef(kStory, story);
-        CStruct* storySkater = SpawnParamTable();
-        auto* skater = static_cast<GameObjects::CRider*>(Skate()->GetRiderAt(0));
-        skater->WriteCATInfo(storySkater);
-        skater->WriteList44B66A9F(storySkater);
-        skater->WriteChapterInfo(storySkater);
-        contents->AppendStructRef(kStorySkater, storySkater);
-        CStruct* customSkater = SpawnParamTable();
-        Profiles()->WriteCustomSkaters(customSkater);
-        contents->AppendStructRef(kCustomSkater, customSkater);
+        story->put_sub_struct(kGoalManagerParams, reinterpret_cast<Struct*(__thiscall*)(void*)>(code_address(&gfx::Rig::get_num_bones))(goal_manager));
+        contents->append_struct_ref(kStory, story);
+        Struct* story_skater = spawn_param_table();
+        auto* skater = static_cast<objects::Rider*>(get_skate()->get_rider_at(0));
+        skater->write_cat_info(story_skater);
+        skater->write_list_44b_66a_9f(story_skater);
+        skater->write_chapter_info(story_skater);
+        contents->append_struct_ref(kStorySkater, story_skater);
+        Struct* custom_skater = spawn_param_table();
+        get_profiles()->write_custom_skaters(custom_skater);
+        contents->append_struct_ref(kCustomSkater, custom_skater);
         // (on into CreatedGraphic's layer_infos, as the original does)
-        contents->AppendArrayValue(kLayerInfos, Scripts::FetchList(0x8EAD7D43u)); // edit_graphic_layer_infos
+        contents->append_array_value(kLayerInfos, script::fetch_list(0x8EAD7D43u)); // edit_graphic_layer_infos
         return;
     }
     case kSaveCreatedGraphic:
-        contents->AppendArrayValue(kLayerInfos, Scripts::FetchList(0x8EAD7D43u)); // edit_graphic_layer_infos
+        contents->append_array_value(kLayerInfos, script::fetch_list(0x8EAD7D43u)); // edit_graphic_layer_infos
         return;
     default:
         return;
@@ -300,78 +300,78 @@ void WriteSaveContents(CStruct* contents, uint32_t type)
 }
 
 // 0x005A81B0
-void ApplyLoadedContents(uint32_t type, CStruct* contents, CScript* script, CStruct* params)
+void apply_loaded_contents(uint32_t type, Struct* contents, Script* script, Struct* params)
 {
-    bool& loadedCustomSkater = g_loadedCustomSkater;
-    loadedCustomSkater = false;
+    bool& loaded_custom_skater = g_loaded_custom_skater;
+    loaded_custom_skater = false;
     switch (type) {
     case kSaveCreatedGoals:
         // the goal editor's goals read (0x004EA470, no source yet)
-        static_cast<ParkEditing::CObjectiveAuthoring*>(GoalEditorComponent())->ReadGoals(contents, 0);
+        static_cast<park_editing::ObjectiveAuthoring*>(goal_editor_component())->read_goals(contents, 0);
         return;
     case kSaveCat: {
         // the local skater (0x00566520, no source yet)
-        GameObjects::CRider* skater = Skate()->GetHomeRider();
+        objects::Rider* skater = get_skate()->get_home_rider();
         if (!skater)
             return;
-        CStruct* other = nullptr;
-        contents->ReadSubStruct("other_params", &other, 1);
-        reinterpret_cast<CStruct*>(*reinterpret_cast<CStruct**>(skater->m_trickSlots[0] + 4))->AppendStructureIfAny(other);
-        CArray* rotation = nullptr;
-        contents->FetchList("rotation_info", &rotation, 1);
-        Scripts::DuplicateArray(*reinterpret_cast<CArray**>(skater->m_trickSlots[0] + 8), rotation);
-        CArray* animation = nullptr;
-        contents->FetchList("animation_info", &animation, 1);
-        Scripts::DuplicateArray(*reinterpret_cast<CArray**>(skater->m_trickSlots[0] + 0xC), animation);
+        Struct* other = nullptr;
+        contents->read_sub_struct("other_params", &other, 1);
+        reinterpret_cast<Struct*>(*reinterpret_cast<Struct**>(skater->trick_slots_[0] + 4))->append_structure_if_any(other);
+        Array* rotation = nullptr;
+        contents->fetch_list("rotation_info", &rotation, 1);
+        script::duplicate_array(*reinterpret_cast<Array**>(skater->trick_slots_[0] + 8), rotation);
+        Array* animation = nullptr;
+        contents->fetch_list("animation_info", &animation, 1);
+        script::duplicate_array(*reinterpret_cast<Array**>(skater->trick_slots_[0] + 0xC), animation);
         return;
     }
     case kSavePark:
-        ParkEditing::CParkBuilderMode::Sole()->DecodeFromStruct(contents, true);
+        park_editing::ParkBuilderMode::sole()->decode_from_struct(contents, true);
         return;
     case kSaveCreatedGraphic: {
-        CArray* layers = nullptr;
-        contents->FetchList(kLayerInfos, &layers, 1);
-        params->AppendArrayValue(kLayerInfos, layers);
+        Array* layers = nullptr;
+        contents->fetch_list(kLayerInfos, &layers, 1);
+        params->append_array_value(kLayerInfos, layers);
         return;
     }
     case kSaveNetworkSettings:
-        OnlineHubHandle()->GetOnlineSettings()->SetPreferences(contents);
+        online_hub_handle()->get_online_settings()->set_preferences(contents);
         return;
     case kSaveOptionsAndPros: {
-        uint32_t& sections = SectionsToApplyWhenLoading();
+        uint32_t& sections = sections_to_apply_when_loading();
         if (sections & 1) {
-            DebugOut::Printf("APPLY_GLOBAL_INFO\n"); // "APPLY_GLOBAL_INFO\n"
-            CStruct* global = nullptr;
-            contents->ReadSubStruct(kGlobalInfo, &global, 1);
-            ReadSaveHeader(global, script);
+            debug::printf("APPLY_GLOBAL_INFO\n"); // "APPLY_GLOBAL_INFO\n"
+            Struct* global = nullptr;
+            contents->read_sub_struct(kGlobalInfo, &global, 1);
+            read_save_header(global, script);
         }
         if (sections & 2) {
-            DebugOut::Printf("APPLY_STORY\n"); // "APPLY_STORY\n"
-            CStruct* story = nullptr;
-            contents->ReadSubStruct(kStory, &story, 1);
-            ApplyGoalManagerParams(story);
+            debug::printf("APPLY_STORY\n"); // "APPLY_STORY\n"
+            Struct* story = nullptr;
+            contents->read_sub_struct(kStory, &story, 1);
+            apply_goal_manager_params(story);
         }
         if (sections & 8) {
-            DebugOut::Printf("APPLY_CUSTOM_SKATER\n"); // "APPLY_CUSTOM_SKATER\n"
-            CStruct* customSkater = nullptr;
-            contents->ReadSubStruct(kCustomSkater, &customSkater, 1);
-            GameObjects::CProfileRoster* profiles = Profiles();
+            debug::printf("APPLY_CUSTOM_SKATER\n"); // "APPLY_CUSTOM_SKATER\n"
+            Struct* custom_skater = nullptr;
+            contents->read_sub_struct(kCustomSkater, &custom_skater, 1);
+            objects::ProfileRoster* profiles = get_profiles();
             // the stats kept unless the current skater is the first (the manager's +0x1C, 0x00553E90)
-            bool keep = reinterpret_cast<int(__thiscall*)(void*)>(CodeAddress(&GoalSystem::CObjective::FetchArgs))(profiles) != 0;
-            profiles->ReadCustomSkater(customSkater, keep);
-            loadedCustomSkater = true;
+            bool keep = reinterpret_cast<int(__thiscall*)(void*)>(code_address(&goals::Objective::fetch_args))(profiles) != 0;
+            profiles->read_custom_skater(custom_skater, keep);
+            loaded_custom_skater = true;
         }
         if (sections & 4) {
-            DebugOut::Printf("APPLY_STORY_SKATER\n"); // "APPLY_STORY_SKATER\n"
-            CStruct* storySkater = nullptr;
-            contents->ReadSubStruct(kStorySkater, &storySkater, 1);
-            CStruct* customSkater = nullptr;
-            contents->ReadSubStruct(kCustomSkater, &customSkater, 1);
-            ApplyCatAndCustomSkater(storySkater, customSkater);
+            debug::printf("APPLY_STORY_SKATER\n"); // "APPLY_STORY_SKATER\n"
+            Struct* story_skater = nullptr;
+            contents->read_sub_struct(kStorySkater, &story_skater, 1);
+            Struct* custom_skater = nullptr;
+            contents->read_sub_struct(kCustomSkater, &custom_skater, 1);
+            apply_cat_and_custom_skater(story_skater, custom_skater);
         }
-        CArray* layers = nullptr;
-        contents->FetchList(kLayerInfos, &layers, 1);
-        params->AppendArrayValue(kLayerInfos, layers);
+        Array* layers = nullptr;
+        contents->fetch_list(kLayerInfos, &layers, 1);
+        params->append_array_value(kLayerInfos, layers);
         sections = 0;
         return;
     }
@@ -384,35 +384,35 @@ void ApplyLoadedContents(uint32_t type, CStruct* contents, CScript* script, CStr
 
 namespace {
 
-void __cdecl WriteSaveContentsRegisters(CStruct* contents, uint32_t type) { WriteSaveContents(contents, type); }
-void __cdecl ApplyLoadedContentsRegisters(uint32_t type, CStruct* contents, CScript* script, CStruct* params)
+void __cdecl write_save_contents_registers(Struct* contents, uint32_t type) { write_save_contents(contents, type); }
+void __cdecl apply_loaded_contents_registers(uint32_t type, Struct* contents, Script* script, Struct* params)
 {
-    ApplyLoadedContents(type, contents, script, params);
+    apply_loaded_contents(type, contents, script, params);
 }
 
 } // namespace
 
 // 0x005A79A0: the structure in EBX, the type on the stack (the caller pops it).
-__declspec(naked) void WriteSaveContentsStub()
+__declspec(naked) void write_save_contents_stub()
 {
     __asm {
         push dword ptr [esp + 4]
         push ebx
-        call WriteSaveContentsRegisters
+        call write_save_contents_registers
         add esp, 8
         ret
     }
 }
 
 // 0x005A81B0: the type in EAX, the contents in ESI, the script and params on the stack (the caller pops them).
-__declspec(naked) void ApplyLoadedContentsStub()
+__declspec(naked) void apply_loaded_contents_stub()
 {
     __asm {
         push dword ptr [esp + 8]
         push dword ptr [esp + 8]
         push esi
         push eax
-        call ApplyLoadedContentsRegisters
+        call apply_loaded_contents_registers
         add esp, 16
         ret
     }

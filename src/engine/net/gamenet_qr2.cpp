@@ -38,9 +38,9 @@
 
 #pragma warning(disable : 4996) // (strcpy: the original's copy of the level's name)
 
-namespace OnlinePlay {
+namespace online {
 
-using namespace Detail;
+using namespace detail;
 
 namespace {
 
@@ -71,142 +71,142 @@ constexpr uint16_t kHostPort = 0x1421;       // 5153 (reported)
 constexpr int kQueryPort = 0x1423;           // 5155 (qr2's own)
 
 // The SDK.
-void BufferAdd(void* buffer, const char* text) { GameSpy::Qr2BufferAdd(buffer, text); }
-void BufferAddInt(void* buffer, int value) { GameSpy::Qr2BufferAddInt(buffer, value); }
+void buffer_add(void* buffer, const char* text) { game_spy::call_qr2_buffer_add(buffer, text); }
+void buffer_add_int(void* buffer, int value) { game_spy::get_qr2_buffer_add_int(buffer, value); }
 
-Hub* NetSessionSlot() { return g_onlineHub; }
-OptionStore::Preferences* NetGameOptions(Hub* m) { return reinterpret_cast<OptionStore::Preferences*>(m->m_netOptions); }
+Hub* net_session_slot() { return g_online_hub; }
+prefs::Preferences* net_game_options(Hub* m) { return reinterpret_cast<prefs::Preferences*>(m->net_options_); }
 
-char g_fallbackMapName[128]{"Boston"};
+char g_fallback_map_name[128]{"Boston"};
 
 // The level's name for qr2's mapname when the level select has none (0x0067F0A0, "Boston" until set up).
-char* FallbackMapName() { return g_fallbackMapName; }
+char* fallback_map_name() { return g_fallback_map_name; }
 
 } // namespace
 
-int g_lobbyGroupId;
+int g_lobby_group_id;
 
 // 0x0053B9C0
-void __cdecl ServerKeyCallback(int key, void* buffer, void*)
+void __cdecl server_key_callback(int key, void* buffer, void*)
 {
-    Hub* manager = NetSessionSlot();
+    Hub* manager = net_session_slot();
     switch (key) {
     case kKeyHostname: {
         const char* text = nullptr;
-        NetGameOptions(manager)->FetchSetting(kServerName)->FetchText("ui_string", &text, 0);
-        BufferAdd(buffer, text);
+        net_game_options(manager)->fetch_setting(kServerName)->fetch_text("ui_string", &text, 0);
+        buffer_add(buffer, text);
         return;
     }
     case kKeyGamename:
-        BufferAdd(buffer, NetLink::GameName()); // (the original: "thps6pc")
+        buffer_add(buffer, net::get_game_name()); // (the original: "thps6pc")
         return;
     case kKeyGamever:
-        BufferAdd(buffer, "1.00");
+        buffer_add(buffer, "1.00");
         return;
     case kKeyHostport:
-        BufferAddInt(buffer, kHostPort);
+        buffer_add_int(buffer, kHostPort);
         return;
     case kKeyMapname: {
-        const char* name = manager->GetMapName(true);
-        BufferAdd(buffer, name ? name : FallbackMapName());
+        const char* name = manager->get_map_name(true);
+        buffer_add(buffer, name ? name : fallback_map_name());
         return;
     }
     case kKeyGametype:
-        BufferAdd(buffer, manager->GetGameTypeName()); // the game type's name
+        buffer_add(buffer, manager->get_game_type_name()); // the game type's name
         return;
     case kKeyNumplayers:
-        BufferAddInt(buffer, manager->CountPlayers());
+        buffer_add_int(buffer, manager->count_players());
         return;
     case kKeyNumteams:
-        BufferAddInt(buffer, manager->GetNumTeams());
+        buffer_add_int(buffer, manager->get_num_teams());
         return;
     case kKeyMaxplayers:
-        BufferAddInt(buffer, manager->GetPlayerLimit());
+        buffer_add_int(buffer, manager->get_player_limit());
         return;
     case kKeyGamemode:
-        if (g_gameReported)
-            BufferAdd(buffer, "openplaying");
-        else if (g_openWaiting)
-            BufferAdd(buffer, "openwaiting");
+        if (g_game_reported)
+            buffer_add(buffer, "openplaying");
+        else if (g_open_waiting)
+            buffer_add(buffer, "openwaiting");
         else
-            BufferAdd(buffer, "closedwaiting");
+            buffer_add(buffer, "closedwaiting");
         return;
     case kKeyPassword:
-        BufferAddInt(buffer, *manager->FetchSecret() != '\0' ? 1 : 0);
+        buffer_add_int(buffer, *manager->fetch_secret() != '\0' ? 1 : 0);
         return;
     case kKeyGroupid:
-        BufferAddInt(buffer, g_lobbyGroupId); // (the lobby's group room)
+        buffer_add_int(buffer, g_lobby_group_id); // (the lobby's group room)
         return;
     default:
-        BufferAdd(buffer, "");
+        buffer_add(buffer, "");
         return;
     }
 }
 
 // 0x0053BBC0
-void __cdecl PlayerKeyCallback(int key, int index, void* buffer, void*)
+void __cdecl player_key_callback(int key, int index, void* buffer, void*)
 {
-    Hub* manager = NetSessionSlot();
-    if (index >= manager->CountPlayers()) {
-        BufferAdd(buffer, "");
+    Hub* manager = net_session_slot();
+    if (index >= manager->count_players()) {
+        buffer_add(buffer, "");
         return;
     }
     // QUIRK kept: the original never counts `index` down - only player 0 is found; for the others the walk runs off
     // the end and they're reported empty.
     PlayerSearch search;
-    uint8_t* player = StartRosterSweep(manager, &search, false);
+    uint8_t* player = start_roster_sweep(manager, &search, false);
     if (index != 0)
         while (player)
-            player = StepRosterSweep(manager, &search, false);
+            player = step_roster_sweep(manager, &search, false);
     if (!player) {
-        BufferAdd(buffer, "");
+        buffer_add(buffer, "");
         return;
     }
     switch (key) {
     case kKeyForPlayer:
-        BufferAdd(buffer, PlayerName(player));
+        buffer_add(buffer, player_name(player));
         return;
     case kKeyPing: {
-        NetLink::Conn* conn = Prop<NetLink::Conn*>(player, 0x18);
-        BufferAddInt(buffer, conn->IsHostLocal() ? 0 : conn->m_pingProbe.m_averageLatency);
+        net::Conn* conn = prop<net::Conn*>(player, 0x18);
+        buffer_add_int(buffer, conn->is_host_local() ? 0 : conn->ping_probe_.average_latency_);
         return;
     }
     case kKeyTeam:
-        BufferAddInt(buffer, PlayerTeam(player));
+        buffer_add_int(buffer, player_team(player));
         return;
     default:
-        BufferAdd(buffer, "");
+        buffer_add(buffer, "");
         return;
     }
 }
 
 // 0x0053BD90
-int __cdecl CountCallback(int type, void*)
+int __cdecl count_callback(int type, void*)
 {
     if (type == kKeyTypePlayer)
-        return NetSessionSlot()->CountPlayers();
+        return net_session_slot()->count_players();
     if (type == kKeyTypeTeam)
-        return NetSessionSlot()->GetNumTeams();
+        return net_session_slot()->get_num_teams();
     return 0;
 }
 
 // 0x0053BDC0
-void __cdecl StartQueryReporting(bool keepMapName)
+void __cdecl start_query_reporting(bool keep_map_name)
 {
-    if (!keepMapName) { // the level's name, for mapname when the level select has none
+    if (!keep_map_name) { // the level's name, for mapname when the level select has none
         const char* text = nullptr;
-        NetGameOptions(NetSessionSlot())->FetchSetting(kLevel)->FetchText("ui_string", &text, 0);
-        std::strcpy(FallbackMapName(), text);
+        net_game_options(net_session_slot())->fetch_setting(kLevel)->fetch_text("ui_string", &text, 0);
+        std::strcpy(fallback_map_name(), text);
     }
-    bool& reporting = g_queryReporting;
+    bool& reporting = g_query_reporting;
     if (reporting)
         return;
-    const char* key = NetLink::GameKey(); // (given to the SDK: nothing written into data)
-    int error = GameSpy::Qr2Init(nullptr, nullptr, kQueryPort, NetLink::GameName(), key, 1, 0, &ServerKeyCallback, &PlayerKeyCallback,
-                        CodeAddress(OnlinePlay::PlayerTeamKeyCallback), CodeAddress(OnlinePlay::KeyListCallback), &CountCallback,
-                        CodeAddress(OnlinePlay::AddErrorCallback), nullptr);
+    const char* key = net::game_key(); // (given to the SDK: nothing written into data)
+    int error = game_spy::call_qr2_init(nullptr, nullptr, kQueryPort, net::get_game_name(), key, 1, 0, &server_key_callback, &player_key_callback,
+                        code_address(online::player_team_key_callback), code_address(online::key_list_callback), &count_callback,
+                        code_address(online::add_error_callback), nullptr);
     if (error == 0)
         reporting = true;
 }
 
-} // namespace OnlinePlay
+} // namespace online

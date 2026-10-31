@@ -1,6 +1,6 @@
 #pragma once
 
-namespace GameModules {
+namespace modules {
 struct FrontEnd;
 }
 
@@ -14,10 +14,10 @@ struct FrontEnd;
 // level (node array) loads.
 //
 // thug2-decomp.ini [features] restart_tester=0 turns it off (default 1).
-namespace MenuSystem::RestartTester {
+namespace frontend::restart_tester {
 
-bool& IsSwitchedOn();
-// Once a frame from the front end's input logic (MouseMenus::TickFrame).
-void TickFrame(GameModules::FrontEnd* frontEnd);
+bool& is_switched_on();
+// Once a frame from the front end's input logic (mouse_menus::tick_frame).
+void tick_frame(modules::FrontEnd* front_end);
 
-} // namespace MenuSystem::RestartTester
+} // namespace MenuSystem::restart_tester

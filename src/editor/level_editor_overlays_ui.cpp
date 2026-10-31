@@ -9,11 +9,11 @@
 #include "editor/level_editor_triggers.h"
 #include "imgui.h"
 
-namespace MenuSystem::LevelEditor::Overlays {
+namespace frontend::level_editor::overlays {
 
 namespace {
 
-void Tip(const char* text)
+void get_tip(const char* text)
 {
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("%s", text);
@@ -21,7 +21,7 @@ void Tip(const char* text)
 
 } // namespace
 
-void ViewModeItems()
+void view_mode_items()
 {
     static const char* const kTips[kViewModes] = {
         "As in play",
@@ -32,53 +32,53 @@ void ViewModeItems()
     for (int mode = 0; mode < kViewModes; ++mode) {
         char keys[16];
         std::snprintf(keys, sizeof(keys), "Alt+%d", mode + 1);
-        if (ImGui::MenuItem(ViewModeName(mode), keys, ViewMode() == mode))
-            ChangeViewMode(mode);
-        Tip(kTips[mode]);
+        if (ImGui::MenuItem(view_mode_name(mode), keys, view_mode() == mode))
+            change_view_mode(mode);
+        get_tip(kTips[mode]);
     }
 }
 
-void OverlayItems(const Ui::ShapeMesh& model, std::vector<Ui::Request>* requests)
+void overlay_items(const ui::ShapeMesh& model, std::vector<ui::Request>* requests)
 {
     if (ImGui::MenuItem("Collision", "C", model.view.collision)) {
-        Ui::Request r{Ui::Request::kCollision};
+        ui::Request r{ui::Request::kCollision};
         r.value = model.view.collision ? 0 : 1;
         requests->push_back(r);
     }
-    Tip("Collision near the camera, coloured by surface");
-    if (ImGui::MenuItem("Trigger Volumes", "T", Triggers::Shown()))
-        Triggers::SetShown(!Triggers::Shown());
-    Tip("Kill zones, teleports, gaps and script triggers");
-    for (const BitInfo& info : Bits()) {
+    get_tip("Collision near the camera, coloured by surface");
+    if (ImGui::MenuItem("Trigger Volumes", "T", triggers::get_shown()))
+        triggers::set_shown(!triggers::get_shown());
+    get_tip("Kill zones, teleports, gaps and script triggers");
+    for (const BitInfo& info : get_bits()) {
         char item[64];
         std::snprintf(item, sizeof(item), "%s##ov%u", info.label, info.bit);
-        if (ImGui::MenuItem(item, info.key[0] ? info.key : nullptr, Shown(info.bit)))
-            AssignValue(info.bit, !Shown(info.bit));
-        Tip(info.tip);
+        if (ImGui::MenuItem(item, info.key[0] ? info.key : nullptr, get_shown(info.bit)))
+            assign_value(info.bit, !get_shown(info.bit));
+        get_tip(info.tip);
     }
     if (ImGui::BeginMenu("Gizmos")) {
         uint32_t families = model.nodes.families;
-        for (int f = 0; f < Nodes::kFamilies; ++f) {
-            auto family = static_cast<Nodes::Family>(f);
-            if (Nodes::ShapeOf(family) == Nodes::Shape::None)
+        for (int f = 0; f < nodes::kFamilies; ++f) {
+            auto family = static_cast<nodes::Family>(f);
+            if (nodes::shape_of(family) == nodes::Shape::kNone)
                 continue; // (scenery: its own geometry shows it)
-            bool on = (families & Nodes::Bit(family)) != 0;
+            bool on = (families & nodes::get_bit(family)) != 0;
             char item[48];
-            std::snprintf(item, sizeof(item), "%s##fam%d", Nodes::FamilyName(family), f);
+            std::snprintf(item, sizeof(item), "%s##fam%d", nodes::family_name(family), f);
             if (ImGui::MenuItem(item, nullptr, on)) {
-                Ui::Request r{Ui::Request::kFamilies};
-                r.id = on ? families & ~Nodes::Bit(family) : families | Nodes::Bit(family);
+                ui::Request r{ui::Request::kFamilies};
+                r.id = on ? families & ~nodes::get_bit(family) : families | nodes::get_bit(family);
                 requests->push_back(r);
             }
         }
         ImGui::Separator();
         if (ImGui::MenuItem("Show All")) {
-            Ui::Request r{Ui::Request::kFamilies};
-            r.id = Nodes::kAllFamilies;
+            ui::Request r{ui::Request::kFamilies};
+            r.id = nodes::kAllFamilies;
             requests->push_back(r);
         }
         if (ImGui::MenuItem("Hide All")) {
-            Ui::Request r{Ui::Request::kFamilies};
+            ui::Request r{ui::Request::kFamilies};
             r.id = 0;
             requests->push_back(r);
         }
@@ -86,16 +86,16 @@ void OverlayItems(const Ui::ShapeMesh& model, std::vector<Ui::Request>* requests
     }
 }
 
-const std::vector<HelpRow>& HelpRows()
+const std::vector<HelpRow>& help_rows()
 {
-    static const std::vector<HelpRow> rows = {
+    static const std::vector<HelpRow> kRows = {
         {"View", "Alt+1 / 2 / 3 / 4", "Lit / Unlit / Wireframe / Collision only"},
         {"", "Y", "Jump arcs from the selected ramp"},
         {"", "M, Shift+M", "Ruler; clear measurement (Alt: no snap)"},
         {"", "Hover a rail", "Grind preview"},
         {"Add Piece", "Grid / List", "Thumbnail or list view; star to add to Favourites"},
     };
-    return rows;
+    return kRows;
 }
 
-} // namespace MenuSystem::LevelEditor::Overlays
+} // namespace MenuSystem::level_editor::Overlays

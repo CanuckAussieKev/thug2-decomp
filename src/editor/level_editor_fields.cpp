@@ -19,76 +19,76 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 
-namespace MenuSystem::LevelEditor::Fields {
+namespace frontend::level_editor::fields {
 
 // --- the pure parts ---------------------------------------------------------------------------------------------
 
-const char* KindName(Kind kind)
+const char* kind_name(Kind kind)
 {
     switch (kind) {
-    case Kind::Integer: return "integer";
-    case Kind::Float: return "float";
-    case Kind::Name: return "name";
-    case Kind::Chars: return "string";
-    case Kind::LocalisedText: return "local string";
-    case Kind::Vec4: return "vector";
-    case Kind::Pair: return "pair";
-    case Kind::BitMark: return "flag";
-    case Kind::Names: return "names";
-    case Kind::Integers: return "integers";
-    case Kind::Floats: return "floats";
+    case Kind::kInteger: return "integer";
+    case Kind::kFloat: return "float";
+    case Kind::kName: return "name";
+    case Kind::kChars: return "string";
+    case Kind::kLocalisedText: return "local string";
+    case Kind::kVec4: return "vector";
+    case Kind::kPair: return "pair";
+    case Kind::kBitMark: return "flag";
+    case Kind::kNames: return "names";
+    case Kind::kIntegers: return "integers";
+    case Kind::kFloats: return "floats";
     default: return "other";
     }
 }
 
-bool SameValue(const Value& a, const Value& b)
+bool same_value(const Value& a, const Value& b)
 {
     if (a.kind != b.kind)
         return false;
     switch (a.kind) {
-    case Kind::Integer: return a.integer == b.integer;
-    case Kind::Float: return a.numbers[0] == b.numbers[0];
-    case Kind::Pair: return a.numbers[0] == b.numbers[0] && a.numbers[1] == b.numbers[1];
-    case Kind::Vec4:
+    case Kind::kInteger: return a.integer == b.integer;
+    case Kind::kFloat: return a.numbers[0] == b.numbers[0];
+    case Kind::kPair: return a.numbers[0] == b.numbers[0] && a.numbers[1] == b.numbers[1];
+    case Kind::kVec4:
         return a.numbers[0] == b.numbers[0] && a.numbers[1] == b.numbers[1] && a.numbers[2] == b.numbers[2];
-    case Kind::Name: return a.checksum == b.checksum;
-    case Kind::Chars:
-    case Kind::LocalisedText:
-    case Kind::Other: return a.text == b.text;
-    case Kind::BitMark: return a.on == b.on;
-    case Kind::Names:
-    case Kind::Integers: return a.list == b.list;
-    case Kind::Floats: return a.floats == b.floats;
+    case Kind::kName: return a.checksum == b.checksum;
+    case Kind::kChars:
+    case Kind::kLocalisedText:
+    case Kind::kOther: return a.text == b.text;
+    case Kind::kBitMark: return a.on == b.on;
+    case Kind::kNames:
+    case Kind::kIntegers: return a.list == b.list;
+    case Kind::kFloats: return a.floats == b.floats;
     }
     return false;
 }
 
 namespace {
 
-bool IdentifierChar(char c, bool first)
+bool identifier_char(char c, bool first)
 {
     return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_' || (!first && c >= '0' && c <= '9');
 }
 
-bool IsIdentifier(const std::string& text)
+bool is_identifier(const std::string& text)
 {
     if (text.empty() || text.size() > 120)
         return false;
     for (size_t i = 0; i < text.size(); ++i) {
-        if (!IdentifierChar(text[i], i == 0))
+        if (!identifier_char(text[i], i == 0))
             return false;
     }
     return true;
 }
 
-std::string Hex8(uint32_t value)
+std::string hex8(uint32_t value)
 {
     char text[16];
     std::snprintf(text, sizeof(text), "%08X", value);
     return text;
 }
 
-std::string Trim(const std::string& text)
+std::string get_trim(const std::string& text)
 {
     size_t a = text.find_first_not_of(" \t\r\n");
     if (a == std::string::npos)
@@ -98,7 +98,7 @@ std::string Trim(const std::string& text)
 }
 
 // The parts of a list: split at commas and white space (empty parts dropped).
-std::vector<std::string> Parts(const std::string& text)
+std::vector<std::string> get_parts(const std::string& text)
 {
     std::vector<std::string> parts;
     std::string part;
@@ -116,9 +116,9 @@ std::vector<std::string> Parts(const std::string& text)
     return parts;
 }
 
-bool ParseInt(const std::string& text, int32_t* out)
+bool parse_int(const std::string& text, int32_t* out)
 {
-    std::string t = Trim(text);
+    std::string t = get_trim(text);
     if (t.empty())
         return false;
     errno = 0;
@@ -130,9 +130,9 @@ bool ParseInt(const std::string& text, int32_t* out)
     return true;
 }
 
-bool ParseFloat(const std::string& text, float* out)
+bool parse_float(const std::string& text, float* out)
 {
-    std::string t = Trim(text);
+    std::string t = get_trim(text);
     if (t.empty())
         return false;
     errno = 0;
@@ -145,7 +145,7 @@ bool ParseFloat(const std::string& text, float* out)
 }
 
 // A float as short as it reads back exactly.
-std::string FloatText(float value)
+std::string float_text(float value)
 {
     char text[32];
     for (int digits = 6; digits <= 9; ++digits) {
@@ -156,7 +156,7 @@ std::string FloatText(float value)
     return text;
 }
 
-std::string Join(const std::vector<std::string>& parts, const char* separator)
+std::string get_join(const std::vector<std::string>& parts, const char* separator)
 {
     std::string text;
     for (size_t i = 0; i < parts.size(); ++i)
@@ -166,25 +166,25 @@ std::string Join(const std::vector<std::string>& parts, const char* separator)
 
 } // namespace
 
-uint32_t HashOfName(const std::string& name) { return Checksums::HashFromText(name.c_str()); }
+uint32_t hash_of_name(const std::string& name) { return checksums::hash_from_text(name.c_str()); }
 
-std::string NameText(uint32_t checksum, const NameLookup& names)
+std::string get_name_text(uint32_t checksum, const NameLookup& names)
 {
     const char* name = names ? names(checksum) : nullptr;
-    return name && *name ? std::string(name) : "#" + Hex8(checksum);
+    return name && *name ? std::string(name) : "#" + hex8(checksum);
 }
 
-std::string RecordName(uint32_t checksum, const NameLookup& names)
+std::string record_name(uint32_t checksum, const NameLookup& names)
 {
     const char* name = names ? names(checksum) : nullptr;
-    if (name && IsIdentifier(name) && HashOfName(name) == checksum)
+    if (name && is_identifier(name) && hash_of_name(name) == checksum)
         return name;
-    return "0x" + Hex8(checksum);
+    return "0x" + hex8(checksum);
 }
 
-bool ParseName(const std::string& typed, uint32_t* checksum)
+bool parse_name(const std::string& typed, uint32_t* checksum)
 {
-    std::string text = Trim(typed);
+    std::string text = get_trim(typed);
     std::string hex;
     if (text.size() == 9 && text[0] == '#')
         hex = text.substr(1);
@@ -201,96 +201,96 @@ bool ParseName(const std::string& typed, uint32_t* checksum)
         *checksum = value;
         return true;
     }
-    if (!IsIdentifier(text))
+    if (!is_identifier(text))
         return false;
-    *checksum = HashOfName(text);
+    *checksum = hash_of_name(text);
     return true;
 }
 
-std::string Format(const Value& value, const NameLookup& names)
+std::string get_format(const Value& value, const NameLookup& names)
 {
     switch (value.kind) {
-    case Kind::Integer: return std::to_string(value.integer);
-    case Kind::Float: return FloatText(value.numbers[0]);
-    case Kind::Pair: return FloatText(value.numbers[0]) + ", " + FloatText(value.numbers[1]);
-    case Kind::Vec4:
-        return FloatText(value.numbers[0]) + ", " + FloatText(value.numbers[1]) + ", " + FloatText(value.numbers[2]);
-    case Kind::Name: return NameText(value.checksum, names);
-    case Kind::Chars:
-    case Kind::LocalisedText:
-    case Kind::Other: return value.text;
-    case Kind::BitMark: return value.on ? "on" : "off";
-    case Kind::Names: {
+    case Kind::kInteger: return std::to_string(value.integer);
+    case Kind::kFloat: return float_text(value.numbers[0]);
+    case Kind::kPair: return float_text(value.numbers[0]) + ", " + float_text(value.numbers[1]);
+    case Kind::kVec4:
+        return float_text(value.numbers[0]) + ", " + float_text(value.numbers[1]) + ", " + float_text(value.numbers[2]);
+    case Kind::kName: return get_name_text(value.checksum, names);
+    case Kind::kChars:
+    case Kind::kLocalisedText:
+    case Kind::kOther: return value.text;
+    case Kind::kBitMark: return value.on ? "on" : "off";
+    case Kind::kNames: {
         std::vector<std::string> parts;
         for (uint32_t c : value.list)
-            parts.push_back(NameText(c, names));
-        return Join(parts, ", ");
+            parts.push_back(get_name_text(c, names));
+        return get_join(parts, ", ");
     }
-    case Kind::Integers: {
+    case Kind::kIntegers: {
         std::vector<std::string> parts;
         for (uint32_t i : value.list)
             parts.push_back(std::to_string(static_cast<int32_t>(i)));
-        return Join(parts, ", ");
+        return get_join(parts, ", ");
     }
-    case Kind::Floats: {
+    case Kind::kFloats: {
         std::vector<std::string> parts;
         for (float f : value.floats)
-            parts.push_back(FloatText(f));
-        return Join(parts, ", ");
+            parts.push_back(float_text(f));
+        return get_join(parts, ", ");
     }
     }
     return "";
 }
 
-bool Parse(Kind kind, const std::string& text, Value* value, std::string* error)
+bool parse(Kind kind, const std::string& text, Value* value, std::string* error)
 {
     Value v;
     v.kind = kind;
-    std::vector<std::string> parts = Parts(text);
+    std::vector<std::string> parts = get_parts(text);
     switch (kind) {
-    case Kind::Integer:
-        if (!ParseInt(text, &v.integer)) {
+    case Kind::kInteger:
+        if (!parse_int(text, &v.integer)) {
             *error = "not a whole number";
             return false;
         }
         break;
-    case Kind::Float:
-        if (!ParseFloat(text, &v.numbers[0])) {
+    case Kind::kFloat:
+        if (!parse_float(text, &v.numbers[0])) {
             *error = "not a number";
             return false;
         }
         break;
-    case Kind::Pair:
-    case Kind::Vec4: {
-        size_t want = kind == Kind::Pair ? 2 : 3;
+    case Kind::kPair:
+    case Kind::kVec4: {
+        size_t want = kind == Kind::kPair ? 2 : 3;
         if (parts.size() != want) {
-            *error = kind == Kind::Pair ? "two numbers (x, y)" : "three numbers (x, y, z)";
+            *error = kind == Kind::kPair ? "two numbers (x, y)" : "three numbers (x, y, z)";
             return false;
         }
         for (size_t i = 0; i < want; ++i) {
-            if (!ParseFloat(parts[i], &v.numbers[i])) {
+            if (!parse_float(parts[i], &v.numbers[i])) {
                 *error = "'" + parts[i] + "' isn't a number";
                 return false;
             }
         }
         break;
     }
-    case Kind::Name:
-        if (!ParseName(text, &v.checksum)) {
+    case Kind::kName:
+        if (!parse_name(text, &v.checksum)) {
             *error = "a name (letters, digits, _) or #XXXXXXXX";
             return false;
         }
         break;
-    case Kind::Chars:
-    case Kind::LocalisedText:
+    case Kind::kChars:
+    case Kind::kLocalisedText:
         if (text.size() > 255) {
             *error = "too long (255 characters at most)";
             return false;
         }
         v.text = text;
         break;
-    case Kind::BitMark: {
-        std::string t = Trim(text);
+    case Kind::kBitMark: {
+        std::string t = get_trim(text);
         for (char& c : t)
             c = static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
         if (t == "1" || t == "on" || t == "true" || t == "yes")
@@ -303,41 +303,41 @@ bool Parse(Kind kind, const std::string& text, Value* value, std::string* error)
         }
         break;
     }
-    case Kind::Names:
+    case Kind::kNames:
         for (const std::string& part : parts) {
             uint32_t c = 0;
-            if (!ParseName(part, &c)) {
+            if (!parse_name(part, &c)) {
                 *error = "'" + part + "' isn't a name";
                 return false;
             }
             v.list.push_back(c);
         }
         break;
-    case Kind::Integers:
+    case Kind::kIntegers:
         for (const std::string& part : parts) {
             int32_t i = 0;
-            if (!ParseInt(part, &i)) {
+            if (!parse_int(part, &i)) {
                 *error = "'" + part + "' isn't a whole number";
                 return false;
             }
             v.list.push_back(static_cast<uint32_t>(i));
         }
         break;
-    case Kind::Floats:
+    case Kind::kFloats:
         for (const std::string& part : parts) {
             float f = 0.0f;
-            if (!ParseFloat(part, &f)) {
+            if (!parse_float(part, &f)) {
                 *error = "'" + part + "' isn't a number";
                 return false;
             }
             v.floats.push_back(f);
         }
         break;
-    case Kind::Other:
+    case Kind::kOther:
         *error = "not editable";
         return false;
     }
-    if (kind == Kind::Names || kind == Kind::Integers || kind == Kind::Floats) {
+    if (kind == Kind::kNames || kind == Kind::kIntegers || kind == Kind::kFloats) {
         if (v.list.size() > 256 || v.floats.size() > 256) {
             *error = "too many (256 at most)";
             return false;
@@ -348,7 +348,7 @@ bool Parse(Kind kind, const std::string& text, Value* value, std::string* error)
     return true;
 }
 
-std::string Escape(const std::string& text)
+std::string escape(const std::string& text)
 {
     std::string out;
     for (unsigned char c : text) {
@@ -365,7 +365,7 @@ std::string Escape(const std::string& text)
     return out;
 }
 
-bool Unescape(const std::string& text, std::string* out)
+bool unescape(const std::string& text, std::string* out)
 {
     out->clear();
     for (size_t i = 0; i < text.size(); ++i) {
@@ -392,52 +392,52 @@ bool Unescape(const std::string& text, std::string* out)
     return true;
 }
 
-std::string EncodeValue(const Value& value, const NameLookup& names)
+std::string encode_value(const Value& value, const NameLookup& names)
 {
     char text[96];
     switch (value.kind) {
-    case Kind::Integer: return "i:" + std::to_string(value.integer);
-    case Kind::Float:
+    case Kind::kInteger: return "i:" + std::to_string(value.integer);
+    case Kind::kFloat:
         std::snprintf(text, sizeof(text), "f:%.9g", static_cast<double>(value.numbers[0]));
         return text;
-    case Kind::Pair:
+    case Kind::kPair:
         std::snprintf(text, sizeof(text), "p:%.9g,%.9g", static_cast<double>(value.numbers[0]),
                       static_cast<double>(value.numbers[1]));
         return text;
-    case Kind::Vec4:
+    case Kind::kVec4:
         std::snprintf(text, sizeof(text), "v:%.9g,%.9g,%.9g", static_cast<double>(value.numbers[0]),
                       static_cast<double>(value.numbers[1]), static_cast<double>(value.numbers[2]));
         return text;
-    case Kind::Name: return "n:" + RecordName(value.checksum, names);
-    case Kind::Chars: return "s:" + Escape(value.text);
-    case Kind::LocalisedText: return "l:" + Escape(value.text);
-    case Kind::BitMark: return value.on ? "flag:1" : "flag:0";
-    case Kind::Names: {
+    case Kind::kName: return "n:" + record_name(value.checksum, names);
+    case Kind::kChars: return "s:" + escape(value.text);
+    case Kind::kLocalisedText: return "l:" + escape(value.text);
+    case Kind::kBitMark: return value.on ? "flag:1" : "flag:0";
+    case Kind::kNames: {
         std::vector<std::string> parts;
         for (uint32_t c : value.list)
-            parts.push_back(RecordName(c, names));
-        return "an:" + Join(parts, ",");
+            parts.push_back(record_name(c, names));
+        return "an:" + get_join(parts, ",");
     }
-    case Kind::Integers: {
+    case Kind::kIntegers: {
         std::vector<std::string> parts;
         for (uint32_t i : value.list)
             parts.push_back(std::to_string(static_cast<int32_t>(i)));
-        return "ai:" + Join(parts, ",");
+        return "ai:" + get_join(parts, ",");
     }
-    case Kind::Floats: {
+    case Kind::kFloats: {
         std::vector<std::string> parts;
         for (float f : value.floats) {
             std::snprintf(text, sizeof(text), "%.9g", static_cast<double>(f));
             parts.push_back(text);
         }
-        return "af:" + Join(parts, ",");
+        return "af:" + get_join(parts, ",");
     }
-    case Kind::Other: break;
+    case Kind::kOther: break;
     }
     return "";
 }
 
-bool DecodeValue(const std::string& text, Value* value)
+bool decode_value(const std::string& text, Value* value)
 {
     size_t colon = text.find(':');
     if (colon == std::string::npos)
@@ -446,92 +446,92 @@ bool DecodeValue(const std::string& text, Value* value)
     std::string error, plain;
     // (lists are comma-separated in records; Parse takes commas)
     if (type == "i")
-        return Parse(Kind::Integer, body, value, &error);
+        return parse(Kind::kInteger, body, value, &error);
     if (type == "f")
-        return Parse(Kind::Float, body, value, &error);
+        return parse(Kind::kFloat, body, value, &error);
     if (type == "p")
-        return Parse(Kind::Pair, body, value, &error);
+        return parse(Kind::kPair, body, value, &error);
     if (type == "v")
-        return Parse(Kind::Vec4, body, value, &error);
+        return parse(Kind::kVec4, body, value, &error);
     if (type == "n")
-        return Parse(Kind::Name, body, value, &error);
+        return parse(Kind::kName, body, value, &error);
     if (type == "s" || type == "l")
-        return Unescape(body, &plain) && Parse(type == "s" ? Kind::Chars : Kind::LocalisedText, plain, value, &error);
+        return unescape(body, &plain) && parse(type == "s" ? Kind::kChars : Kind::kLocalisedText, plain, value, &error);
     if (type == "flag") {
         if (body != "0" && body != "1")
             return false;
-        return Parse(Kind::BitMark, body, value, &error);
+        return parse(Kind::kBitMark, body, value, &error);
     }
     if (type == "an")
-        return Parse(Kind::Names, body, value, &error);
+        return parse(Kind::kNames, body, value, &error);
     if (type == "ai")
-        return Parse(Kind::Integers, body, value, &error);
+        return parse(Kind::kIntegers, body, value, &error);
     if (type == "af")
-        return Parse(Kind::Floats, body, value, &error);
+        return parse(Kind::kFloats, body, value, &error);
     return false;
 }
 
-std::string Token(const Edit& edit, const NameLookup& names)
+std::string get_token(const Edit& edit, const NameLookup& names)
 {
-    return "f." + RecordName(edit.key, names) + "=" + (edit.removed ? std::string("del") : EncodeValue(edit.value, names));
+    return "f." + record_name(edit.key, names) + "=" + (edit.removed ? std::string("del") : encode_value(edit.value, names));
 }
 
-bool IsFieldKey(const std::string& key) { return key.size() > 2 && key[0] == 'f' && key[1] == '.'; }
+bool is_field_key(const std::string& key) { return key.size() > 2 && key[0] == 'f' && key[1] == '.'; }
 
-bool ReadToken(const std::string& key, const std::string& value, Edit* edit)
+bool read_token(const std::string& key, const std::string& value, Edit* edit)
 {
-    if (!IsFieldKey(key))
+    if (!is_field_key(key))
         return false;
     Edit e;
-    if (!ParseName(key.substr(2), &e.key))
+    if (!parse_name(key.substr(2), &e.key))
         return false;
     if (value == "del") {
         e.removed = true;
-    } else if (!DecodeValue(value, &e.value)) {
+    } else if (!decode_value(value, &e.value)) {
         return false;
     }
     *edit = e;
     return true;
 }
 
-uint32_t KeyName() { static const uint32_t k = HashOfName("name"); return k; }
-uint32_t KeyClass() { static const uint32_t k = HashOfName("Class"); return k; }
-uint32_t KeyType() { static const uint32_t k = HashOfName("Type"); return k; }
-uint32_t KeyPos() { static const uint32_t k = HashOfName("pos"); return k; }
-uint32_t KeyAngles() { static const uint32_t k = HashOfName("angles"); return k; }
-uint32_t KeyLinks() { static const uint32_t k = HashOfName("links"); return k; }
-uint32_t KeyTerrain() { static const uint32_t k = HashOfName("TerrainType"); return k; }
-uint32_t KeyRestartTypes() { static const uint32_t k = HashOfName("restart_types"); return k; }
+uint32_t get_key_name() { static const uint32_t kK = hash_of_name("name"); return kK; }
+uint32_t key_class() { static const uint32_t kK = hash_of_name("Class"); return kK; }
+uint32_t get_key_type() { static const uint32_t kK = hash_of_name("Type"); return kK; }
+uint32_t key_pos() { static const uint32_t kK = hash_of_name("pos"); return kK; }
+uint32_t key_angles() { static const uint32_t kK = hash_of_name("angles"); return kK; }
+uint32_t key_links() { static const uint32_t kK = hash_of_name("links"); return kK; }
+uint32_t key_terrain() { static const uint32_t kK = hash_of_name("TerrainType"); return kK; }
+uint32_t key_restart_types() { static const uint32_t kK = hash_of_name("restart_types"); return kK; }
 
-When WhenApplied(Nodes::Family family, uint32_t key, const char** note)
+When when_applied(nodes::Family family, uint32_t key, const char** note)
 {
     const char* dummy = nullptr;
     const char** out = note ? note : &dummy;
-    if (key == KeyName() || key == KeyClass() || key == KeyType()) {
+    if (key == get_key_name() || key == key_class() || key == get_key_type()) {
         *out = "Read-only";
-        return When::ReadOnly;
+        return When::kReadOnly;
     }
-    if (key == KeyPos() || key == KeyAngles()) {
+    if (key == key_pos() || key == key_angles()) {
         *out = "Edit with Position / Heading";
-        return When::Elsewhere;
+        return When::kElsewhere;
     }
-    if (key == KeyLinks()) {
+    if (key == key_links()) {
         *out = "Live";
-        return When::Live;
+        return When::kLive;
     }
-    if (key == KeyTerrain() && family == Nodes::Family::Rail) {
+    if (key == key_terrain() && family == nodes::Family::kRail) {
         *out = "Edit with Terrain";
-        return When::Elsewhere;
+        return When::kElsewhere;
     }
-    if (key == KeyRestartTypes() && family == Nodes::Family::Spawn) {
+    if (key == key_restart_types() && family == nodes::Family::kSpawn) {
         *out = "Live";
-        return When::Live;
+        return When::kLive;
     }
     *out = "Applies on level reload";
-    return When::Reload;
+    return When::kReload;
 }
 
-bool ValidLinks(const std::vector<uint32_t>& links, uint32_t self, const std::function<bool(uint32_t)>& exists,
+bool valid_links(const std::vector<uint32_t>& links, uint32_t self, const std::function<bool(uint32_t)>& exists,
                 const NameLookup& names, std::string* error)
 {
     for (size_t i = 0; i < links.size(); ++i) {
@@ -540,12 +540,12 @@ bool ValidLinks(const std::vector<uint32_t>& links, uint32_t self, const std::fu
             return false;
         }
         if (!exists(links[i])) {
-            *error = "no node named " + NameText(links[i], names) + " in this level";
+            *error = "no node named " + get_name_text(links[i], names) + " in this level";
             return false;
         }
         for (size_t j = 0; j < i; ++j) {
             if (links[j] == links[i]) {
-                *error = NameText(links[i], names) + " is linked twice";
+                *error = get_name_text(links[i], names) + " is linked twice";
                 return false;
             }
         }
@@ -554,10 +554,10 @@ bool ValidLinks(const std::vector<uint32_t>& links, uint32_t self, const std::fu
     return true;
 }
 
-void MoveLastTo(Scripts::CStruct* s, int index)
+void move_last_to(script::Struct* s, int index)
 {
-    Scripts::CComponent* previous = nullptr;
-    Scripts::CComponent* last = s->m_head;
+    script::Component* previous = nullptr;
+    script::Component* last = s->head_;
     while (last && last->next) {
         previous = last;
         last = last->next;
@@ -565,8 +565,8 @@ void MoveLastTo(Scripts::CStruct* s, int index)
     if (!last || !previous || index < 0)
         return; // (the only one, or none: in its place already)
     int others = 0;
-    Scripts::CComponent* before = nullptr;
-    for (Scripts::CComponent* c = s->m_head; c != last && others < index; c = c->next) {
+    script::Component* before = nullptr;
+    for (script::Component* c = s->head_; c != last && others < index; c = c->next) {
         before = c;
         ++others;
     }
@@ -577,8 +577,8 @@ void MoveLastTo(Scripts::CStruct* s, int index)
         last->next = before->next;
         before->next = last;
     } else {
-        last->next = s->m_head;
-        s->m_head = last;
+        last->next = s->head_;
+        s->head_ = last;
     }
 }
 
@@ -588,100 +588,100 @@ namespace {
 
 std::unordered_map<uint32_t, std::string> g_names; // (names typed in this session)
 
-Scripts::CStruct* Included(const Scripts::CComponent* c)
+script::Struct* get_included(const script::Component* c)
 {
-    if (c->name != 0 || c->KindTag() != Scripts::QBVAL_NAME)
+    if (c->name != 0 || c->kind_tag() != script::kQbvalName)
         return nullptr;
-    Scripts::CSymbolTableEntry* symbol = Scripts::ResolveSymbol(c->checksum);
-    return symbol && symbol->type == Scripts::QBVAL_STRUCT ? symbol->structure : nullptr;
+    script::SymbolTableEntry* symbol = script::resolve_symbol(c->checksum);
+    return symbol && symbol->type == script::kQbvalStruct ? symbol->structure : nullptr;
 }
 
-bool IsFlag(const Scripts::CComponent* c)
+bool is_flag(const script::Component* c)
 {
-    return c->name == 0 && c->KindTag() == Scripts::QBVAL_NAME && !Included(c);
+    return c->name == 0 && c->kind_tag() == script::kQbvalName && !get_included(c);
 }
 
 // The key a component goes by: its name, a bare flag's name.
-uint32_t KeyOf(const Scripts::CComponent* c) { return IsFlag(c) ? c->checksum : c->name; }
+uint32_t get_key_of(const script::Component* c) { return is_flag(c) ? c->checksum : c->name; }
 
-Value ValueOf(const Scripts::CComponent* c)
+Value value_of(const script::Component* c)
 {
     Value v;
-    if (IsFlag(c)) {
-        v.kind = Kind::BitMark;
+    if (is_flag(c)) {
+        v.kind = Kind::kBitMark;
         v.on = true;
         return v;
     }
-    switch (c->KindTag()) {
-    case Scripts::QBVAL_INTEGER:
-        v.kind = Kind::Integer;
+    switch (c->kind_tag()) {
+    case script::kQbvalInteger:
+        v.kind = Kind::kInteger;
         v.integer = c->integer;
         break;
-    case Scripts::QBVAL_FLOAT:
-        v.kind = Kind::Float;
-        v.numbers[0] = c->floatValue;
+    case script::kQbvalFloat:
+        v.kind = Kind::kFloat;
+        v.numbers[0] = c->float_value_;
         break;
-    case Scripts::QBVAL_NAME:
-        v.kind = Kind::Name;
+    case script::kQbvalName:
+        v.kind = Kind::kName;
         v.checksum = c->checksum;
         break;
-    case Scripts::QBVAL_STRING:
-        v.kind = Kind::Chars;
+    case script::kQbvalString:
+        v.kind = Kind::kChars;
         v.text = c->string ? c->string : "";
         break;
-    case Scripts::QBVAL_INLINE_TEXT:
-        v.kind = Kind::LocalisedText;
+    case script::kQbvalInlineText:
+        v.kind = Kind::kLocalisedText;
         v.text = c->string ? c->string : "";
         break;
-    case Scripts::QBVAL_PAIR:
-        v.kind = Kind::Pair;
+    case script::kQbvalPair:
+        v.kind = Kind::kPair;
         if (c->pair) {
             v.numbers[0] = c->pair->x;
             v.numbers[1] = c->pair->y;
         }
         break;
-    case Scripts::QBVAL_VECTOR:
-        v.kind = Kind::Vec4;
+    case script::kQbvalVector:
+        v.kind = Kind::kVec4;
         if (c->vector) {
             v.numbers[0] = c->vector->x;
             v.numbers[1] = c->vector->y;
             v.numbers[2] = c->vector->z;
         }
         break;
-    case Scripts::QBVAL_ARRAY:
-    case Scripts::ESYMBOLTYPE_ARRAYPOINTER: {
-        Scripts::CArray* array = c->array;
-        uint32_t size = array ? array->m_extent : 0;
-        uint8_t type = array ? static_cast<uint8_t>(array->m_kindTag) : 0;
-        if (size == 0 || type == Scripts::QBVAL_NAME) {
-            v.kind = Kind::Names;
+    case script::kQbvalArray:
+    case script::kEsymboltypeArraypointer: {
+        script::Array* array = c->array;
+        uint32_t size = array ? array->extent_ : 0;
+        uint8_t type = array ? static_cast<uint8_t>(array->kind_tag_) : 0;
+        if (size == 0 || type == script::kQbvalName) {
+            v.kind = Kind::kNames;
             for (uint32_t i = 0; i < size; ++i)
-                v.list.push_back(array->FetchPart(i));
-        } else if (type == Scripts::QBVAL_INTEGER) {
-            v.kind = Kind::Integers;
+                v.list.push_back(array->fetch_part(i));
+        } else if (type == script::kQbvalInteger) {
+            v.kind = Kind::kIntegers;
             for (uint32_t i = 0; i < size; ++i)
-                v.list.push_back(array->FetchPart(i));
-        } else if (type == Scripts::QBVAL_FLOAT) {
-            v.kind = Kind::Floats;
+                v.list.push_back(array->fetch_part(i));
+        } else if (type == script::kQbvalFloat) {
+            v.kind = Kind::kFloats;
             for (uint32_t i = 0; i < size; ++i)
-                v.floats.push_back(array->FetchFloat(i));
+                v.floats.push_back(array->fetch_float(i));
         } else {
-            v.kind = Kind::Other;
+            v.kind = Kind::kOther;
             v.text = "[" + std::to_string(size) + " items]";
         }
         break;
     }
-    case Scripts::QBVAL_STRUCT:
-    case Scripts::QBVAL_STRUCT_REF:
-        v.kind = Kind::Other;
+    case script::kQbvalStruct:
+    case script::kQbvalStructRef:
+        v.kind = Kind::kOther;
         v.text = "{a structure}";
         break;
-    case Scripts::QBVAL_SCRIPT_BODY:
-        v.kind = Kind::Other;
+    case script::kQbvalScriptBody:
+        v.kind = Kind::kOther;
         v.text = "(a script)";
         break;
     default:
-        v.kind = Kind::Other;
+        v.kind = Kind::kOther;
         v.text = "?";
         break;
     }
@@ -689,56 +689,56 @@ Value ValueOf(const Scripts::CComponent* c)
 }
 
 // The value added to `s` as a new component at its end.
-void AddValue(Scripts::CStruct* s, uint32_t key, const Value& v)
+void add_value(script::Struct* s, uint32_t key, const Value& v)
 {
     switch (v.kind) {
-    case Kind::Integer: s->PutInt(key, v.integer); break;
-    case Kind::Float: s->PushFloat(key, v.numbers[0]); break;
-    case Kind::Name: s->PutNameKey(key, v.checksum); break;
-    case Kind::Chars: s->AppendWord(key, v.text.c_str()); break;
-    case Kind::LocalisedText: s->AppendInlineText(key, v.text.c_str()); break;
-    case Kind::Pair: s->InsertPair(key, v.numbers[0], v.numbers[1]); break;
-    case Kind::Vec4: s->PutVec3(key, v.numbers[0], v.numbers[1], v.numbers[2]); break;
-    case Kind::BitMark:
+    case Kind::kInteger: s->put_int(key, v.integer); break;
+    case Kind::kFloat: s->push_float(key, v.numbers[0]); break;
+    case Kind::kName: s->put_name_key(key, v.checksum); break;
+    case Kind::kChars: s->append_word(key, v.text.c_str()); break;
+    case Kind::kLocalisedText: s->append_inline_text(key, v.text.c_str()); break;
+    case Kind::kPair: s->insert_pair(key, v.numbers[0], v.numbers[1]); break;
+    case Kind::kVec4: s->put_vec3(key, v.numbers[0], v.numbers[1], v.numbers[2]); break;
+    case Kind::kBitMark:
         if (v.on)
-            s->PutNameKey(0u, key);
+            s->put_name_key(0u, key);
         break;
-    case Kind::Names:
-    case Kind::Integers:
-    case Kind::Floats: {
-        Scripts::CArray* array = Scripts::AllocScriptArray()->PrepareAll();
-        uint32_t size = static_cast<uint32_t>(v.kind == Kind::Floats ? v.floats.size() : v.list.size());
-        array->ConfigureSizeKind(size, v.kind == Kind::Names      ? Scripts::QBVAL_NAME
-                                    : v.kind == Kind::Integers ? Scripts::QBVAL_INTEGER
-                                                               : Scripts::QBVAL_FLOAT);
+    case Kind::kNames:
+    case Kind::kIntegers:
+    case Kind::kFloats: {
+        script::Array* array = script::alloc_script_array()->prepare_all();
+        uint32_t size = static_cast<uint32_t>(v.kind == Kind::kFloats ? v.floats.size() : v.list.size());
+        array->configure_size_kind(size, v.kind == Kind::kNames      ? script::kQbvalName
+                                    : v.kind == Kind::kIntegers ? script::kQbvalInteger
+                                                               : script::kQbvalFloat);
         for (uint32_t i = 0; i < size; ++i) {
-            if (v.kind == Kind::Floats)
-                array->ChangeFloat(i, v.floats[i]);
+            if (v.kind == Kind::kFloats)
+                array->change_float(i, v.floats[i]);
             else
-                array->SetElement(i, v.list[i]);
+                array->set_element(i, v.list[i]);
         }
-        s->AppendArrayRef(key, array);
+        s->append_array_ref(key, array);
         break;
     }
-    case Kind::Other: break;
+    case Kind::kOther: break;
     }
 }
 
-bool Matches(const Scripts::CComponent* c, uint32_t key, bool flag)
+bool get_matches(const script::Component* c, uint32_t key, bool flag)
 {
-    return flag ? IsFlag(c) && c->checksum == key : c->name == key && !IsFlag(c);
+    return flag ? is_flag(c) && c->checksum == key : c->name == key && !is_flag(c);
 }
 
 // The node's own field: the last own component of that key (flags: the bare name), and its place - how many of the
 // node's other components come before it.
-Own OwnOf(Scripts::CStruct* s, uint32_t key, bool flag)
+Own own_of(script::Struct* s, uint32_t key, bool flag)
 {
     Own own;
     int others = 0;
-    for (Scripts::CComponent* c = s->m_head; c; c = c->next) {
-        if (Matches(c, key, flag)) {
+    for (script::Component* c = s->head_; c; c = c->next) {
+        if (get_matches(c, key, flag)) {
             own.present = true;
-            own.value = ValueOf(c);
+            own.value = value_of(c);
             own.index = others;
         } else {
             ++others;
@@ -749,15 +749,15 @@ Own OwnOf(Scripts::CStruct* s, uint32_t key, bool flag)
 
 // Whether a shared structure of `s` after its own component's place (`index` others before it; -1: anywhere) has the
 // key - which then counts over the node's own.
-bool IncludedAfter(Scripts::CStruct* s, uint32_t key, bool flag, int index)
+bool included_after(script::Struct* s, uint32_t key, bool flag, int index)
 {
     int others = 0;
-    for (Scripts::CComponent* c = s->m_head; c; c = c->next) {
-        if (Matches(c, key, flag))
+    for (script::Component* c = s->head_; c; c = c->next) {
+        if (get_matches(c, key, flag))
             continue;
-        if (Scripts::CStruct* included = Included(c)) {
+        if (script::Struct* included = get_included(c)) {
             if (others >= index &&
-                (flag ? included->HasBareFlag(key) : included->FindLastComponent(key) != nullptr))
+                (flag ? included->has_bare_flag(key) : included->find_last_component(key) != nullptr))
                 return true;
         }
         ++others;
@@ -766,31 +766,31 @@ bool IncludedAfter(Scripts::CStruct* s, uint32_t key, bool flag, int index)
 }
 
 // The node's own field made `own`: the old one(s) taken out, the new one put where `own` says (-1: at the end).
-void PutOwn(Scripts::CStruct* s, uint32_t key, bool flag, const Own& own)
+void put_own(script::Struct* s, uint32_t key, bool flag, const Own& own)
 {
     if (flag)
-        s->RemoveFlag(key);
+        s->remove_flag(key);
     else
-        s->EraseModule(key);
+        s->erase_module(key);
     if (!own.present || (flag && !own.value.on))
         return;
-    Value flagOn;
-    flagOn.kind = Kind::BitMark;
-    flagOn.on = true;
-    AddValue(s, key, flag ? flagOn : own.value);
+    Value flag_on;
+    flag_on.kind = Kind::kBitMark;
+    flag_on.on = true;
+    add_value(s, key, flag ? flag_on : own.value);
     if (own.index >= 0)
-        MoveLastTo(s, own.index);
+        move_last_to(s, own.index);
 }
 
 struct Touched {
     uint32_t node, key;
     bool flag;
     Own origin;
-    Scripts::CStruct* structure;
+    script::Struct* structure;
 };
 std::vector<Touched> g_touched;
 
-Touched* FindTouched(uint32_t node, uint32_t key)
+Touched* find_touched(uint32_t node, uint32_t key)
 {
     for (Touched& t : g_touched) {
         if (t.node == node && t.key == key)
@@ -799,119 +799,119 @@ Touched* FindTouched(uint32_t node, uint32_t key)
     return nullptr;
 }
 
-Scripts::CStruct* LevelNode(uint32_t name)
+script::Struct* level_node(uint32_t name)
 {
-    return name && LevelNodes::NodeManagerInstance() ? LevelNodes::FetchVertex(name, false) : nullptr;
+    return name && level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(name, false) : nullptr;
 }
 
 // Whether `key` is a flag of the node (its own or a shared structure's), or should be taken as one (`value` a flag).
-bool KeyIsFlag(Scripts::CStruct* s, uint32_t key, const Value* value)
+bool key_is_flag(script::Struct* s, uint32_t key, const Value* value)
 {
-    if (value && value->kind == Kind::BitMark)
+    if (value && value->kind == Kind::kBitMark)
         return true;
-    for (Scripts::CComponent* c = s->m_head; c; c = c->next) {
-        if (Matches(c, key, true))
+    for (script::Component* c = s->head_; c; c = c->next) {
+        if (get_matches(c, key, true))
             return true;
-        if (Matches(c, key, false))
+        if (get_matches(c, key, false))
             return false;
-        if (Scripts::CStruct* included = Included(c)) {
-            if (included->HasBareFlag(key) && !included->FindLastComponent(key))
+        if (script::Struct* included = get_included(c)) {
+            if (included->has_bare_flag(key) && !included->find_last_component(key))
                 return true;
         }
     }
     return false;
 }
 
-bool SameOwn(const Own& a, const Own& b, bool flag)
+bool same_own(const Own& a, const Own& b, bool flag)
 {
     if (flag)
         return a.present == b.present;
-    return a.present == b.present && (!a.present || (SameValue(a.value, b.value) && a.index == b.index));
+    return a.present == b.present && (!a.present || (same_value(a.value, b.value) && a.index == b.index));
 }
 
-const Nodes::Elem* LayerNode(uint32_t name)
+const nodes::Elem* layer_node(uint32_t name)
 {
-    int index = Nodes::Find(name);
-    return index >= 0 ? &Nodes::All()[index] : nullptr;
+    int index = nodes::get_find(name);
+    return index >= 0 ? &nodes::get_all()[index] : nullptr;
 }
 
 } // namespace
 
-Own OwnIn(Scripts::CStruct* s, uint32_t key, bool flag) { return OwnOf(s, key, flag); }
-void PutIn(Scripts::CStruct* s, uint32_t key, bool flag, const Own& own) { PutOwn(s, key, flag, own); }
+Own own_in(script::Struct* s, uint32_t key, bool flag) { return own_of(s, key, flag); }
+void put_in(script::Struct* s, uint32_t key, bool flag, const Own& own) { put_own(s, key, flag, own); }
 
-const char* NameOf(uint32_t checksum)
+const char* get_name_of(uint32_t checksum)
 {
     auto it = g_names.find(checksum);
     if (it != g_names.end())
         return it->second.c_str();
-    return Objects::NameOf(checksum);
+    return object_edit::get_name_of(checksum);
 }
 
-void Remember(const std::string& name)
+void remember(const std::string& name)
 {
-    if (IsIdentifier(name))
-        g_names[HashOfName(name)] = name;
+    if (is_identifier(name))
+        g_names[hash_of_name(name)] = name;
 }
 
-std::vector<Row> RowsOf(const Nodes::Elem& node)
+std::vector<Row> rows_of(const nodes::Elem& node)
 {
     std::vector<Row> rows;
-    Scripts::CStruct* s = Nodes::StructOf(node);
+    script::Struct* s = nodes::struct_of(node);
     if (!s)
         return rows;
     struct TableRow {
         uint32_t key;
-        Scripts::CComponent* c;
+        script::Component* c;
         bool included;
     };
     std::vector<TableRow> entries;
-    for (Scripts::CComponent* c = s->m_head; c; c = c->next) {
-        if (Scripts::CStruct* included = Included(c)) {
-            for (Scripts::CComponent* inner = included->m_head; inner; inner = inner->next) {
-                if (!Included(inner)) // (one level of shared structures: the node arrays have no deeper ones)
-                    entries.push_back({KeyOf(inner), inner, true});
+    for (script::Component* c = s->head_; c; c = c->next) {
+        if (script::Struct* included = get_included(c)) {
+            for (script::Component* inner = included->head_; inner; inner = inner->next) {
+                if (!get_included(inner)) // (one level of shared structures: the node arrays have no deeper ones)
+                    entries.push_back({get_key_of(inner), inner, true});
             }
             continue;
         }
-        entries.push_back({KeyOf(c), c, false});
+        entries.push_back({get_key_of(c), c, false});
     }
     std::vector<uint32_t> order;
     for (const TableRow& e : entries) {
         if (std::find(order.begin(), order.end(), e.key) == order.end())
             order.push_back(e.key);
     }
-    NameLookup names = NameOf;
+    NameLookup names = get_name_of;
     for (uint32_t key : order) {
         const TableRow* effective = nullptr;
-        bool anyIncluded = false, anyOwn = false;
+        bool any_included = false, any_own = false;
         for (const TableRow& e : entries) {
             if (e.key != key)
                 continue;
             effective = &e;
-            anyIncluded = anyIncluded || e.included;
-            anyOwn = anyOwn || !e.included;
+            any_included = any_included || e.included;
+            any_own = any_own || !e.included;
         }
         Row row;
         row.key = key;
-        row.value = ValueOf(effective->c);
+        row.value = value_of(effective->c);
         row.included = effective->included;
-        row.overridden = !effective->included && anyIncluded;
-        row.when = WhenApplied(node.family, key, &row.note);
-        if (Touched* t = FindTouched(node.name, key)) {
-            Own now = OwnOf(s, key, t->flag);
-            row.edited = !SameOwn(now, t->origin, t->flag);
+        row.overridden = !effective->included && any_included;
+        row.when = when_applied(node.family, key, &row.note);
+        if (Touched* t = find_touched(node.name, key)) {
+            Own now = own_of(s, key, t->flag);
+            row.edited = !same_own(now, t->origin, t->flag);
         }
         row.editable = true;
         if (node.added) {
             row.why = "Set by the node type";
-        } else if (row.when == When::ReadOnly || row.when == When::Elsewhere) {
+        } else if (row.when == When::kReadOnly || row.when == When::kElsewhere) {
             row.why = row.note;
-        } else if (row.value.kind == Kind::Other) {
+        } else if (row.value.kind == Kind::kOther) {
             row.why = "Not editable here";
-        } else if (row.value.kind == Kind::BitMark && effective->included && !anyOwn) {
+        } else if (row.value.kind == Kind::kBitMark && effective->included && !any_own) {
             row.why = "Shared by the class";
-        } else if (node.hidden && (key == Nodes::HiddenClassKey() || key == Nodes::HiddenTypeKey())) {
+        } else if (node.hidden && (key == nodes::hidden_class_key() || key == nodes::hidden_type_key())) {
             row.why = "Editor data for a hidden node";
         }
         row.editable = row.why.empty();
@@ -923,24 +923,24 @@ std::vector<Row> RowsOf(const Nodes::Elem& node)
 namespace {
 
 // The field set on structure `s` of node `name` (of `family`: what may be set - see Set).
-bool SetOn(Scripts::CStruct* s, uint32_t name, Nodes::Family family, uint32_t key, const Value& value, bool removed,
+bool set_on(script::Struct* s, uint32_t name, nodes::Family family, uint32_t key, const Value& value, bool removed,
            std::string* error)
 {
-    When when = WhenApplied(family, key, nullptr);
-    if (when == When::ReadOnly || when == When::Elsewhere || key == KeyLinks() || key == 0) {
+    When when = when_applied(family, key, nullptr);
+    if (when == When::kReadOnly || when == When::kElsewhere || key == key_links() || key == 0) {
         *error = "Field not editable";
         return false;
     }
-    if (!removed && value.kind == Kind::Other) {
+    if (!removed && value.kind == Kind::kOther) {
         *error = "Not an editable value";
         return false;
     }
-    bool flag = KeyIsFlag(s, key, removed ? nullptr : &value);
-    Own now = OwnOf(s, key, flag);
+    bool flag = key_is_flag(s, key, removed ? nullptr : &value);
+    Own now = own_of(s, key, flag);
     Own want;
     if (flag) {
         bool on = !removed && value.on;
-        if (!on && !now.present && IncludedAfter(s, key, true, -1)) {
+        if (!on && !now.present && included_after(s, key, true, -1)) {
             *error = "Shared by the class";
             return false;
         }
@@ -951,90 +951,90 @@ bool SetOn(Scripts::CStruct* s, uint32_t name, Nodes::Family family, uint32_t ke
         want.present = !removed;
         want.value = value;
         // (in its place, unless a shared structure after it would count over it: then at the end)
-        want.index = now.present && !IncludedAfter(s, key, false, now.index) ? now.index : -1;
+        want.index = now.present && !included_after(s, key, false, now.index) ? now.index : -1;
     }
-    if (!FindTouched(name, key))
+    if (!find_touched(name, key))
         g_touched.push_back({name, key, flag, now, s});
-    PutOwn(s, key, flag, want);
+    put_own(s, key, flag, want);
     error->clear();
     return true;
 }
 
 } // namespace
 
-bool AssignValue(uint32_t name, uint32_t key, const Value& value, bool removed, std::string* error)
+bool assign_value(uint32_t name, uint32_t key, const Value& value, bool removed, std::string* error)
 {
-    Scripts::CStruct* s = LevelNode(name);
+    script::Struct* s = level_node(name);
     if (!s) {
         *error = "No such node in this level";
         return false;
     }
-    if (NodeCreate::IsAdded(name)) {
+    if (node_create::is_added(name)) {
         *error = "Set by the node type";
         return false;
     }
-    const Nodes::Elem* layer = LayerNode(name);
-    if (!SetOn(s, name, layer ? layer->family : Nodes::Family::Other, key, value, removed, error))
+    const nodes::Elem* layer = layer_node(name);
+    if (!set_on(s, name, layer ? layer->family : nodes::Family::kOther, key, value, removed, error))
         return false;
-    Nodes::MarkStale(); // (the node layer's copies: restart types, radius, colour...)
+    nodes::mark_stale(); // (the node layer's copies: restart types, radius, colour...)
     return true;
 }
 
-bool Capture(uint32_t name, uint32_t key, Own* own)
+bool get_capture(uint32_t name, uint32_t key, Own* own)
 {
-    Scripts::CStruct* s = LevelNode(name);
+    script::Struct* s = level_node(name);
     if (!s)
         return false;
-    Touched* t = FindTouched(name, key);
-    *own = OwnOf(s, key, t ? t->flag : KeyIsFlag(s, key, nullptr));
+    Touched* t = find_touched(name, key);
+    *own = own_of(s, key, t ? t->flag : key_is_flag(s, key, nullptr));
     return true;
 }
 
-bool PlaceIn(uint32_t name, uint32_t key, const Own& own)
+bool place_in(uint32_t name, uint32_t key, const Own& own)
 {
-    Scripts::CStruct* s = LevelNode(name);
+    script::Struct* s = level_node(name);
     if (!s)
         return false;
-    Touched* t = FindTouched(name, key);
-    bool flag = t ? t->flag : own.value.kind == Kind::BitMark;
-    PutOwn(s, key, flag, own);
-    Nodes::MarkStale();
+    Touched* t = find_touched(name, key);
+    bool flag = t ? t->flag : own.value.kind == Kind::kBitMark;
+    put_own(s, key, flag, own);
+    nodes::mark_stale();
     return true;
 }
 
-bool Origin(uint32_t name, uint32_t key, Own* own)
+bool get_origin(uint32_t name, uint32_t key, Own* own)
 {
-    Touched* t = FindTouched(name, key);
+    Touched* t = find_touched(name, key);
     if (!t)
         return false;
     *own = t->origin;
     return true;
 }
 
-bool ResetNode(uint32_t name)
+bool reset_node(uint32_t name)
 {
     bool any = false;
     for (const Touched& t : g_touched) {
-        if (t.node == name && LevelNode(name) == t.structure) {
-            PutOwn(t.structure, t.key, t.flag, t.origin);
+        if (t.node == name && level_node(name) == t.structure) {
+            put_own(t.structure, t.key, t.flag, t.origin);
             any = true;
         }
     }
     if (any)
-        Nodes::MarkStale();
+        nodes::mark_stale();
     return any;
 }
 
-bool NodeEdited(uint32_t name)
+bool node_edited(uint32_t name)
 {
     for (const Touched& t : g_touched) {
-        if (t.node == name && LevelNode(name) == t.structure && !SameOwn(OwnOf(t.structure, t.key, t.flag), t.origin, t.flag))
+        if (t.node == name && level_node(name) == t.structure && !same_own(own_of(t.structure, t.key, t.flag), t.origin, t.flag))
             return true;
     }
     return false;
 }
 
-std::vector<uint32_t> TouchedKeys(uint32_t name)
+std::vector<uint32_t> touched_keys(uint32_t name)
 {
     std::vector<uint32_t> keys;
     for (const Touched& t : g_touched) {
@@ -1044,20 +1044,20 @@ std::vector<uint32_t> TouchedKeys(uint32_t name)
     return keys;
 }
 
-std::vector<NodeEdits> Changed()
+std::vector<NodeEdits> get_changed()
 {
     std::vector<NodeEdits> out;
     for (const Touched& t : g_touched) {
-        Scripts::CStruct* s = LevelNode(t.node);
+        script::Struct* s = level_node(t.node);
         if (!s || s != t.structure)
             continue;
-        Own now = OwnOf(s, t.key, t.flag);
-        if (SameOwn(now, t.origin, t.flag))
+        Own now = own_of(s, t.key, t.flag);
+        if (same_own(now, t.origin, t.flag))
             continue;
         Edit edit;
         edit.key = t.key;
         if (t.flag) {
-            edit.value.kind = Kind::BitMark;
+            edit.value.kind = Kind::kBitMark;
             edit.value.on = now.present;
         } else if (now.present) {
             edit.value = now.value;
@@ -1074,55 +1074,55 @@ std::vector<NodeEdits> Changed()
     return out;
 }
 
-int Apply(const std::vector<NodeEdits>& edits)
+int get_apply(const std::vector<NodeEdits>& edits)
 {
     int applied = 0;
     for (const NodeEdits& node : edits) {
         for (const Edit& edit : node.edits) {
             std::string error;
-            if (edit.key == KeyLinks())
+            if (edit.key == key_links())
                 continue; // (links: the chains' records)
-            if (AssignValue(node.name, edit.key, edit.value, edit.removed, &error))
+            if (assign_value(node.name, edit.key, edit.value, edit.removed, &error))
                 ++applied;
         }
     }
     return applied;
 }
 
-void ResetAll()
+void reset_all()
 {
     for (const Touched& t : g_touched) {
-        if (LevelNode(t.node) == t.structure)
-            PutOwn(t.structure, t.key, t.flag, t.origin);
+        if (level_node(t.node) == t.structure)
+            put_own(t.structure, t.key, t.flag, t.origin);
     }
     if (!g_touched.empty())
-        Nodes::MarkStale();
+        nodes::mark_stale();
 }
 
-void ForgetLevel()
+void forget_level()
 {
-    ResetAll(); // (only where the structure is still the one changed: the same level's array kept loaded)
+    reset_all(); // (only where the structure is still the one changed: the same level's array kept loaded)
     g_touched.clear();
 }
 
-int ApplyEarly(uint32_t array, const std::vector<NodeEdits>& edits)
+int apply_early(uint32_t array, const std::vector<NodeEdits>& edits)
 {
     // (the level's objects aren't made yet: the node layer isn't asked - only the node manager's structures)
-    if (!array || !LevelNodes::NodeManagerInstance())
+    if (!array || !level_nodes::node_manager_instance())
         return 0;
     int applied = 0;
     for (const NodeEdits& node : edits) {
-        Scripts::CStruct* s = LevelNode(node.name);
+        script::Struct* s = level_node(node.name);
         if (!s)
             continue;
         for (const Edit& edit : node.edits) {
             std::string error;
-            if (edit.key != KeyLinks() &&
-                SetOn(s, node.name, Nodes::Family::Other, edit.key, edit.value, edit.removed, &error))
+            if (edit.key != key_links() &&
+                set_on(s, node.name, nodes::Family::kOther, edit.key, edit.value, edit.removed, &error))
                 ++applied;
         }
     }
     return applied;
 }
 
-} // namespace MenuSystem::LevelEditor::Fields
+} // namespace MenuSystem::level_editor::Fields

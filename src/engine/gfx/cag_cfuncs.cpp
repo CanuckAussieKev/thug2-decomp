@@ -14,12 +14,12 @@
 #include "game/skate/skate_module.h"
 #include "game/rider/tagging.h"
 
-namespace ScriptCommands {
+namespace commands {
 
 namespace {
 
-using Scripts::CArray;
-using Scripts::CStruct;
+using script::Array;
+using script::Struct;
 
 constexpr uint32_t kLayerInfoList = 0x54AAD4BD;      // "info_array"
 constexpr uint32_t kCustomTag = 0xAA286543;      // (name unknown) the custom tag texture (in the dictionary 0x00700F20)
@@ -52,33 +52,33 @@ constexpr uint32_t kHeadBoneGroups[4] = {
 
 // The texture dictionaries (0x00700F1C the game's, 0x00700F20 the skater's) and a texture by checksum (0x0049F540),
 // a new texture (0x0049FAA0: name, width, height, then 4 / 8, 0x20, 1, 1) and one taken out (0x0049F500).
-void* Textures() { return reinterpret_cast<void*>(Engine3D::g_gameTextureDict); }
-void* SkaterTextures() { return reinterpret_cast<void*>(Engine3D::g_particleTextureDict); }
-void* FindTexture(void* dictionary, uint32_t name)
+void* get_textures() { return reinterpret_cast<void*>(render::g_game_texture_dict); }
+void* skater_textures() { return reinterpret_cast<void*>(render::g_particle_texture_dict); }
+void* find_texture(void* dictionary, uint32_t name)
 {
-    return static_cast<Engine3D::CTextureSet*>(dictionary)->FetchSkin(name);
+    return static_cast<render::TextureSet*>(dictionary)->fetch_skin(name);
 }
-void* AllocPcTexture(uint32_t name, int width, int height, int a, int b)
+void* alloc_pc_texture(uint32_t name, int width, int height, int a, int b)
 {
-    return static_cast<Engine3D::CTextureSet*>(Textures())->CreateTexture(name, width, height, a, b, 1, true);
+    return static_cast<render::TextureSet*>(get_textures())->create_texture(name, width, height, a, b, 1, true);
 }
 
 // A texture's methods (each a jump through its vtable).
 template <typename R, typename... A>
-R TextureCall(uint32_t slot, void* texture, A... args)
+R texture_call(uint32_t slot, void* texture, A... args)
 {
     // (the texture's virtual slot `slot`: the original goes through a jump stub for each)
     return reinterpret_cast<R(__thiscall*)(void*, A...)>((*static_cast<void***>(texture))[slot])(texture, args...);
 }
 
 // The C runtime's _ftol (0x006236FC): truncated to a 64-bit integer, the low half kept.
-int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
+int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-GameModules::Skate* Skate() { return GameModules::Skate::Sole(); }
+modules::Skate* get_skate() { return modules::Skate::sole(); }
 
 } // namespace
 
-float g_degreeToRadianRatio{0.017453292f}; // pi / 180
+float g_degree_to_radian_ratio{0.017453292f}; // pi / 180
 
 // 0x005B3A90: GenerateCAGTexture info_array=[{texture_id scale flip_h flip_v rot pos_x pos_y rgba layer_id}...]
 // player=n [Test=1]: the custom tag texture composed from its layers: cleared, then each layer's texture drawn into a
@@ -86,134 +86,134 @@ float g_degreeToRadianRatio{0.017453292f}; // pi / 180
 // tinted, and blended onto the tag; the tag's palette made again (kept to opaque when no layer was translucent and
 // it's an 8-bit tag); the workspace thrown away. Player 0's skater's tag is then marked custom and put on its graffiti
 // texture; with Test, the result also shown on cag_workspace_sprite. Always true.
-bool __cdecl CFunc_GenerateCAGTexture(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_generate_cag_texture(script::Struct* params, script::Script*)
 {
     uint8_t palette[0x400]; // (filled by the tag's palette call, not here)
-    CArray* layers = nullptr;
-    params->FetchList(kLayerInfoList, &layers, 1);
-    void* tag = FindTexture(SkaterTextures(), kCustomTag);
-    TextureCall<void>(8, tag, 0, 0);
-    TextureCall<void>(12, tag, 0u, false);
-    uint32_t size = TextureCall<uint32_t>(33, tag);
+    Array* layers = nullptr;
+    params->fetch_list(kLayerInfoList, &layers, 1);
+    void* tag = find_texture(skater_textures(), kCustomTag);
+    texture_call<void>(8, tag, 0, 0);
+    texture_call<void>(12, tag, 0u, false);
+    uint32_t size = texture_call<uint32_t>(33, tag);
     int width = static_cast<uint16_t>(size);
-    void* workspace = AllocPcTexture(kWorkspace, width, width, 4, 0x20);
-    TextureCall<void>(8, workspace, 0, 0);
+    void* workspace = alloc_pc_texture(kWorkspace, width, width, 4, 0x20);
+    texture_call<void>(8, workspace, 0, 0);
 
-    uint32_t count = layers->m_extent;
+    uint32_t count = layers->extent_;
     bool translucent = false;
-    int lastLayer = -1;
+    int last_layer = -1;
     for (uint32_t i = 0; i < count; ++i) {
-        auto* info = reinterpret_cast<CStruct*>(layers->FetchPart(i));
-        uint32_t textureId;
-        info->ReadHashValue(kTextureId, &textureId, 1);
-        void* source = FindTexture(Textures(), textureId);
-        TextureCall<void>(8, source, 0, 0);
-        TextureCall<void>(10, workspace);
-        TextureCall<void>(8, workspace, 0, 0);
-        TextureCall<void>(15, workspace, source, 0);
-        TextureCall<void>(10, source);
-        TextureCall<void>(19, workspace, 0u);
+        auto* info = reinterpret_cast<Struct*>(layers->fetch_part(i));
+        uint32_t texture_id;
+        info->read_hash_value(kTextureId, &texture_id, 1);
+        void* source = find_texture(get_textures(), texture_id);
+        texture_call<void>(8, source, 0, 0);
+        texture_call<void>(10, workspace);
+        texture_call<void>(8, workspace, 0, 0);
+        texture_call<void>(15, workspace, source, 0);
+        texture_call<void>(10, source);
+        texture_call<void>(19, workspace, 0u);
         float scale;
-        info->FetchFloat(kScale, &scale, 1);
-        TextureCall<void>(16, workspace, scale, scale);
-        int flipH;
-        info->FetchIntValue(kFlipH, &flipH, 1);
-        int flipV;
-        info->FetchIntValue(kFlipV, &flipV, 1);
-        if (flipH)
-            TextureCall<void>(13, workspace);
-        if (flipV)
-            TextureCall<void>(14, workspace);
+        info->fetch_float(kScale, &scale, 1);
+        texture_call<void>(16, workspace, scale, scale);
+        int flip_h;
+        info->fetch_int_value(kFlipH, &flip_h, 1);
+        int flip_v;
+        info->fetch_int_value(kFlipV, &flip_v, 1);
+        if (flip_h)
+            texture_call<void>(13, workspace);
+        if (flip_v)
+            texture_call<void>(14, workspace);
         float rot;
-        info->FetchFloat(kRot, &rot, 1);
-        float radians = static_cast<float>(static_cast<double>(rot) * g_degreeToRadianRatio); // pi / 180
-        TextureCall<void>(17, workspace, radians, -1.0f, -1.0f);
+        info->fetch_float(kRot, &rot, 1);
+        float radians = static_cast<float>(static_cast<double>(rot) * g_degree_to_radian_ratio); // pi / 180
+        texture_call<void>(17, workspace, radians, -1.0f, -1.0f);
         float x;
-        info->FetchFloat(kPosX, &x, 1);
+        info->fetch_float(kPosX, &x, 1);
         float y;
-        info->FetchFloat(kPosY, &y, 1);
+        info->fetch_float(kPosY, &y, 1);
         if (static_cast<uint16_t>(size) == 0x80) {
             x = x + x;
             y = y + y;
         }
-        TextureCall<void>(18, workspace, Ftol(x), Ftol(y), 0, 0u);
-        CArray* rgba;
-        info->FetchList(kRgba, &rgba, 1);
-        uint8_t a = static_cast<uint8_t>(Ftol(rgba->FetchFloat(3)));
-        uint8_t b = static_cast<uint8_t>(Ftol(rgba->FetchFloat(2)));
-        uint8_t g = static_cast<uint8_t>(Ftol(rgba->FetchFloat(1)));
-        uint8_t r = static_cast<uint8_t>(Ftol(rgba->FetchFloat(0)));
+        texture_call<void>(18, workspace, ftol(x), ftol(y), 0, 0u);
+        Array* rgba;
+        info->fetch_list(kRgba, &rgba, 1);
+        uint8_t a = static_cast<uint8_t>(ftol(rgba->fetch_float(3)));
+        uint8_t b = static_cast<uint8_t>(ftol(rgba->fetch_float(2)));
+        uint8_t g = static_cast<uint8_t>(ftol(rgba->fetch_float(1)));
+        uint8_t r = static_cast<uint8_t>(ftol(rgba->fetch_float(0)));
         uint32_t colour = r | g << 8 | b << 16 | static_cast<uint32_t>(a) << 24;
-        TextureCall<void>(12, workspace, colour, false);
+        texture_call<void>(12, workspace, colour, false);
         if (a < 0x80)
             translucent = true;
         int layer;
-        info->FetchIntValue(kLayerId, &layer, 1);
-        if (lastLayer != layer)
-            lastLayer = layer; // (kept, never used)
-        TextureCall<void>(9, workspace, 1, static_cast<void*>(nullptr));
-        TextureCall<void>(41, tag, workspace, 1);
+        info->fetch_int_value(kLayerId, &layer, 1);
+        if (last_layer != layer)
+            last_layer = layer; // (kept, never used)
+        texture_call<void>(9, workspace, 1, static_cast<void*>(nullptr));
+        texture_call<void>(41, tag, workspace, 1);
     }
 
-    TextureCall<void>(19, tag, 0u);
-    if (!translucent && TextureCall<uint8_t>(35, tag) == 8)
-        TextureCall<void>(9, tag, 0, static_cast<void*>(palette));
+    texture_call<void>(19, tag, 0u);
+    if (!translucent && texture_call<uint8_t>(35, tag) == 8)
+        texture_call<void>(9, tag, 0, static_cast<void*>(palette));
     else
-        TextureCall<void>(9, tag, 1, static_cast<void*>(nullptr));
-    static_cast<Engine3D::CTextureSet*>(Textures())->UnloadTexture(static_cast<Engine3D::CBitmapTexture*>(workspace));
+        texture_call<void>(9, tag, 1, static_cast<void*>(nullptr));
+    static_cast<render::TextureSet*>(get_textures())->unload_texture(static_cast<render::BitmapTexture*>(workspace));
 
     int player;
-    params->FetchIntValue(kPlayer, &player, 1);
+    params->fetch_int_value(kPlayer, &player, 1);
     if (player == 0) {
-        auto* tagging = static_cast<GameObjects::CTaggingComponent*>(Skate()->GetRiderAt(0)->FetchModule(GameObjects::CTaggingComponent::kType));
-        tagging->m_customTag = true; // (0x004E4000, a setter folded with others)
-        tagging->ApplyCustomTagTexture();
+        auto* tagging = static_cast<objects::TaggingComponent*>(get_skate()->get_rider_at(0)->fetch_module(objects::TaggingComponent::kType));
+        tagging->custom_tag_ = true; // (0x004E4000, a setter folded with others)
+        tagging->apply_custom_tag_texture();
     }
     int test = 0;
-    params->FetchIntValue(kTest, &test, 0);
+    params->fetch_int_value(kTest, &test, 0);
     if (test) {
-        void* sprite = AllocPcTexture(kWorkspaceSprite, 0x80, 0x80, 8, 0x20);
-        TextureCall<void>(4, sprite, tag);
+        void* sprite = alloc_pc_texture(kWorkspaceSprite, 0x80, 0x80, 8, 0x20);
+        texture_call<void>(4, sprite, tag);
     }
     return true;
 }
 
 // 0x005B3ED0: SyncCAGWorkspace Skater=n: the custom tag texture copied from skater n's graffiti texture, if it has one
 // (the current profile is fetched and not used). Always true.
-bool __cdecl CFunc_SyncCAGWorkspace(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_sync_cag_workspace(script::Struct* params, script::Script*)
 {
     int index;
-    params->FetchIntValue(kSkater, &index, 1);
-    GameObjects::CGameEntity* skater = Skate()->GetRiderAt(index);
-    Skate()->FetchAccount(static_cast<CStruct*>(nullptr));
-    auto* tagging = static_cast<GameObjects::CTaggingComponent*>(skater->FetchModule(GameObjects::CTaggingComponent::kType));
-    void* graffiti = tagging->m_graffiti; // (0x00553E90, a getter folded with others)
+    params->fetch_int_value(kSkater, &index, 1);
+    objects::GameEntity* skater = get_skate()->get_rider_at(index);
+    get_skate()->fetch_account(static_cast<Struct*>(nullptr));
+    auto* tagging = static_cast<objects::TaggingComponent*>(skater->fetch_module(objects::TaggingComponent::kType));
+    void* graffiti = tagging->graffiti_; // (0x00553E90, a getter folded with others)
     if (graffiti)
-        TextureCall<void>(4, FindTexture(SkaterTextures(), kCustomTag), graffiti);
+        texture_call<void>(4, find_texture(skater_textures(), kCustomTag), graffiti);
     return true;
 }
 
 // 0x005B3F40: Get2DPosFrom2DVec magnitude=m theta=degrees: x and Y, the vector's components (theta brought into the
 // first quadrant first, the signs put back after; the axes exactly for 0, 90, 180, 270 and 360; otherwise the fast
 // sine and cosine). Always true.
-bool __cdecl CFunc_Get2DPosFrom2DVec(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_get_2d_pos_from_2d_vec(script::Struct* params, script::Script* script)
 {
     float magnitude;
-    params->FetchFloat(kMagnitude, &magnitude, 1);
+    params->fetch_float(kMagnitude, &magnitude, 1);
     float theta;
-    params->FetchFloat(kTheta, &theta, 1);
-    bool negateX = false;
-    bool negateY = false;
+    params->fetch_float(kTheta, &theta, 1);
+    bool negate_x = false;
+    bool negate_y = false;
     if (theta > 90.0f && theta < 180.0f) {
-        negateX = true;
+        negate_x = true;
         theta = static_cast<float>(90.0 - (static_cast<double>(theta) - 90.0));
     } else if (theta > 180.0f && theta < 270.0f) {
-        negateX = true;
+        negate_x = true;
         theta = static_cast<float>(static_cast<double>(theta) - 180.0);
-        negateY = true;
+        negate_y = true;
     } else if (theta > 270.0f && theta < 360.0f) {
         theta = static_cast<float>(360.0 - theta);
-        negateY = true;
+        negate_y = true;
     }
     float x;
     float y;
@@ -226,58 +226,58 @@ bool __cdecl CFunc_Get2DPosFrom2DVec(Scripts::CStruct* params, Scripts::CScript*
     } else if (theta == 180.0f) {
         x = magnitude;
         y = 0.0f;
-        negateX = true; // (the original goes straight to the negation)
+        negate_x = true; // (the original goes straight to the negation)
     } else if (theta == 270.0f) {
         x = 0.0f;
         y = magnitude;
-        negateY = true;
+        negate_y = true;
     } else {
-        float radians = static_cast<float>(static_cast<double>(theta) * g_degreeToRadianRatio); // pi / 180
-        y = static_cast<float>(static_cast<double>(Maths::FastSin(radians)) * magnitude);
-        x = static_cast<float>(static_cast<double>(Maths::FastCos(radians)) * magnitude);
+        float radians = static_cast<float>(static_cast<double>(theta) * g_degree_to_radian_ratio); // pi / 180
+        y = static_cast<float>(static_cast<double>(maths::fast_sin(radians)) * magnitude);
+        x = static_cast<float>(static_cast<double>(maths::fast_cos(radians)) * magnitude);
     }
-    if (negateX)
+    if (negate_x)
         x = x * -1.0f;
-    if (negateY)
+    if (negate_y)
         y = y * -1.0f;
-    script->m_args->PushFloat(kX, x);
-    script->m_args->PushFloat(kY, y);
+    script->args_->push_float(kX, x);
+    script->args_->push_float(kY, y);
     return true;
 }
 
 // 0x005B4150: ResolveHeadBoneScale player=n: player n's profile's appearance given each head bone group (head, nose,
 // jaw, headtop) it lacks, from its head part (skater_m_head, else skater_f_head). False without a head part; true
 // otherwise (also without a profile).
-bool __cdecl CFunc_ResolveHeadBoneScale(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_resolve_head_bone_scale(script::Struct* params, script::Script*)
 {
     int player = 0;
-    params->FetchIntValue(kPlayer, &player, 1);
-    auto* profile = Skate()->FetchAccount(player);
+    params->fetch_int_value(kPlayer, &player, 1);
+    auto* profile = get_skate()->fetch_account(player);
     if (!profile)
         return true;
     // the appearance's part structures (0x00489050: a part's, through its description; 0x004890B0: the appearance's
     // own component of that name)
-    auto partOf = [&](uint32_t name) {
-        return reinterpret_cast<Gfx2D::CModelLook*>(profile)->GetPartOption(name);
+    auto part_of = [&](uint32_t name) {
+        return reinterpret_cast<gfx::ModelLook*>(profile)->get_part_option(name);
     };
-    CStruct* head = partOf(kSkaterMHead);
+    Struct* head = part_of(kSkaterMHead);
     if (!head) {
-        head = partOf(kSkaterFHead);
+        head = part_of(kSkaterFHead);
         if (!head)
             return false;
     }
     void* has[4];
     for (int i = 0; i < 4; ++i)
-        has[i] = reinterpret_cast<Gfx2D::CModelLook*>(profile)->GetPart(kHeadBoneGroups[i]);
-    auto* appearance = reinterpret_cast<CStruct*>(profile->m_lookData + 0x4C);
+        has[i] = reinterpret_cast<gfx::ModelLook*>(profile)->get_part(kHeadBoneGroups[i]);
+    auto* appearance = reinterpret_cast<Struct*>(profile->look_data_ + 0x4C);
     for (int i = 0; i < 4; ++i) {
         if (has[i])
             continue;
-        CStruct* group;
-        if (head->ReadSubStruct(kHeadBoneGroups[i], &group, 0))
-            appearance->PutSubStruct(kHeadBoneGroups[i], group);
+        Struct* group;
+        if (head->read_sub_struct(kHeadBoneGroups[i], &group, 0))
+            appearance->put_sub_struct(kHeadBoneGroups[i], group);
     }
     return true;
 }
 
-} // namespace ScriptCommands
+} // namespace commands

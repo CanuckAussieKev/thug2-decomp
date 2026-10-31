@@ -29,11 +29,11 @@
 #include "engine/gfx/model_utils.h"
 #include "game/skate/cas_options.h"
 
-namespace ScriptCommands {
+namespace commands {
 
 namespace {
 
-using namespace SkateCalls;
+using namespace skate_calls;
 
 constexpr uint32_t kClass = 0x12B4E660;           // Class
 constexpr uint32_t kType = 0x7321A8D6;            // type
@@ -71,31 +71,31 @@ constexpr uint32_t kPedPartLists[] = {0xF56A8CFB, 0x26D93E89, 0xAF8139ED, 0xE5DC
 
 // Nx (not rewritten yet): a new model (0x0048BFA0, cdecl) and its deletion (0x0048C3C0); a model loaded from a file
 // (0x004935E0, eight arguments); its geom count (0x00492E40) and a geom's texture dictionary (0x004946C0).
-void* SpawnRenderModel(int) { return Engine3D::SpawnModel(); } // (0x0048BFA0 jumps to 0x004B29C0; its argument isn't used)
-void DeleteModel(void* model) { Engine3D::Engine::DeleteGeomObject(model); }
-void IngestMesh(void* model, const char* file, int a, int b, int c, uint32_t d, int e, int f, int g)
+void* spawn_render_model(int) { return render::spawn_model(); } // (0x0048BFA0 jumps to 0x004B29C0; its argument isn't used)
+void delete_model(void* model) { render::engine::delete_geom_object(model); }
+void ingest_mesh(void* model, const char* file, int a, int b, int c, uint32_t d, int e, int f, int g)
 {
-    static_cast<Engine3D::CRenderModel*>(model)->AddFileGeom(file, static_cast<uint32_t>(a), b != 0, c, d != 0, e != 0, f != 0, g != 0);
+    static_cast<render::RenderModel*>(model)->add_file_geom(file, static_cast<uint32_t>(a), b != 0, c, d != 0, e != 0, f != 0, g != 0);
 }
 // 0x004879D0 (cdecl): the model file's path for `name` with `extension` (a String made in `out`, returned).
-TextUtil::Chars* ModelPath(void* out, const char* name, const char* extension)
+text::Chars* model_path(void* out, const char* name, const char* extension)
 {
-    return Gfx2D::MakeModelPath(static_cast<TextUtil::Chars*>(out), name, extension);
+    return gfx::make_model_path(static_cast<text::Chars*>(out), name, extension);
 }
 // 0x0048BFE0 (cdecl): a model file's base name (without its extension) into `base`.
-void BaseName(const char* name, char* base) { Engine3D::Engine::SplitSkinName(name, base); }
+void get_base_name(const char* name, char* base) { render::engine::split_skin_name(name, base); }
 
 // 0x00565BB0: the skate module's: whether a node isn't for this game (its own 0x68910AC6 test).
-bool SkipNode(Scripts::CStruct* node)
+bool skip_node(script::Struct* node)
 {
-    return GameModules::Skate::ShouldBeAbsent(node) != 0;
+    return modules::Skate::should_be_absent(node) != 0;
 }
 
 // 0x005AAAA0 (gamenet-2's range: the list's name in EAX): every part of a global CAS part list with allow_random
 // preloaded (its mesh kept in memory).
-void PreloadPartList(uint32_t list)
+void preload_part_list(uint32_t list)
 {
-    void* stub = CodeAddress(ScriptCommands::PreloadMeshesStub);
+    void* stub = code_address(commands::preload_meshes_stub);
     __asm {
         mov eax, list
         mov ecx, stub
@@ -103,37 +103,37 @@ void PreloadPartList(uint32_t list)
     }
 }
 
-// The CAS option lists (no source yet): 0x00485CF0 the option `descriptorId` of a slot's global list; 0x00485D70 the
+// The CAS option lists (no source yet): 0x00485CF0 the option `descriptor_id` of a slot's global list; 0x00485D70 the
 // options of a slot's list matching a filter (0: any of them allowed to pick) into `out`, their count in `count`.
-Scripts::CStruct* CustomiseChoice(uint32_t part, uint32_t descriptorId, bool assert)
+script::Struct* customise_choice(uint32_t part, uint32_t descriptor_id, bool assert)
 {
-    return GameObjects::FindCasOption(part, descriptorId, assert);
+    return objects::find_cas_option(part, descriptor_id, assert);
 }
-void MatchingOptions(uint32_t part, uint32_t filter, Scripts::CStruct** out, int* count)
+void matching_options(uint32_t part, uint32_t filter, script::Struct** out, int* count)
 {
-    GameObjects::GetMatchingCasOptions(part, filter, out, count);
+    objects::get_matching_cas_options(part, filter, out, count);
 }
 
-// The appearance a pedestrian profile describes (Gfx2D::CModelLook, 0x5C bytes: constructor 0x00488EA0,
-// SetAppearance 0x00488F40, destructor body 0x004890F0) and the model builder (constructor 0x004897D0 with (1, 8),
-// its build 0x0048A2F0, destroyed as the CEntity it is - 0x004615D0).
+// The appearance a pedestrian profile describes (gfx::ModelLook, 0x5C bytes: constructor 0x00488EA0,
+// set_appearance 0x00488F40, destructor body 0x004890F0) and the model builder (constructor 0x004897D0 with (1, 8),
+// its build 0x0048A2F0, destroyed as the Entity it is - 0x004615D0).
 struct Appearance {
-    alignas(4) uint8_t m_bytes[0x5C];
+    alignas(4) uint8_t bytes_[0x5C];
 };
 struct ModelAssembler {
-    alignas(4) uint8_t m_bytes[0x54];
+    alignas(4) uint8_t bytes_[0x54];
 };
 
-Scripts::CStruct* Element(Scripts::CArray* array, uint32_t index)
+script::Struct* get_element(script::Array* array, uint32_t index)
 {
-    return reinterpret_cast<Scripts::CStruct*>(array->FetchPart(index));
+    return reinterpret_cast<script::Struct*>(array->fetch_part(index));
 }
 // A pedestrian part chosen at random: allowed, not to be picked again, its place among the random choices.
-void Choose(Scripts::CStruct* option, int index)
+void get_choose(script::Struct* option, int index)
 {
-    option->PutInt(kAllowRandom, 1);
-    option->PutInt(kPickPermitted, 0);
-    option->PutInt(kShuffleIndex, index);
+    option->put_int(kAllowRandom, 1);
+    option->put_int(kPickPermitted, 0);
+    option->put_int(kShuffleIndex, index);
 }
 
 } // namespace
@@ -141,132 +141,132 @@ void Choose(Scripts::CStruct* option, int index)
 // 0x005AAFA0: PreloadModels - every vehicle and game object node's model (not "none"; a flag's only in a game of
 // more than one player) loaded and dropped, keeping its data: AllowReplaceTex passed on; unless nocollision, its
 // .col file too; a vehicle's .qb too.
-bool __cdecl CFunc_PreloadModels(Scripts::CStruct*, Scripts::CScript*)
+bool __cdecl cfunc_preload_models(script::Struct*, script::Script*)
 {
-    MemSys::PushMemProfile("PreLoadModels");
-    LevelNodes::StartNodeWalk(0);
-    for (Scripts::CStruct* node = LevelNodes::NextNode(); node; node = LevelNodes::NextNode()) {
-        if (SkipNode(node))
+    memory::push_mem_profile("PreLoadModels");
+    level_nodes::start_node_walk(0);
+    for (script::Struct* node = level_nodes::get_next_node(); node; node = level_nodes::get_next_node()) {
+        if (skip_node(node))
             continue;
-        uint32_t nodeClass = 0, type = 0;
-        node->ReadHashValue(kClass, &nodeClass, 0);
-        node->ReadHashValue(kType, &type, 0);
-        if (!IsMultiplayer()) {
+        uint32_t node_class = 0, type = 0;
+        node->read_hash_value(kClass, &node_class, 0);
+        node->read_hash_value(kType, &type, 0);
+        if (!is_multiplayer()) {
             bool flag = false;
-            for (uint32_t flagType : kFlagTypes)
-                flag = flag || type == flagType;
+            for (uint32_t flag_type : kFlagTypes)
+                flag = flag || type == flag_type;
             if (flag)
                 continue;
         }
-        if (nodeClass != kVehicle && nodeClass != kGameObject)
+        if (node_class != kVehicle && node_class != kGameObject)
             continue;
         const char* model = nullptr;
-        if (!node->FetchText(kModel, &model, 0))
+        if (!node->fetch_text(kModel, &model, 0))
             continue;
-        node->FetchText(kModel, &model, 1);
+        node->fetch_text(kModel, &model, 1);
         if (_stricmp("none", model) == 0)
             continue;
-        TextUtil::Chars path;
+        text::Chars path;
         {
-            alignas(4) uint8_t storage[sizeof(TextUtil::Chars)];
-            TextUtil::Chars* made = ModelPath(storage, model, ".mdl");
+            alignas(4) uint8_t storage[sizeof(text::Chars)];
+            text::Chars* made = model_path(storage, model, ".mdl");
             path = *made;
             made->~Chars();
         }
-        void* nxModel = SpawnRenderModel(1);
-        IngestMesh(nxModel, path.c_str(), 0, 1, 0, node->HasBareFlag(kAllowReplaceTex), 0, 1, 0);
-        if (!node->HasBareFlag(kNoCollision)) {
+        void* nx_model = spawn_render_model(1);
+        ingest_mesh(nx_model, path.c_str(), 0, 1, 0, node->has_bare_flag(kAllowReplaceTex), 0, 1, 0);
+        if (!node->has_bare_flag(kNoCollision)) {
             const char* file = path.c_str();
             char name[0x100];
             std::memcpy(name, file, std::strlen(file) + 1); // (no bound: as the original)
-            TextUtil::ToLowerText(name);
+            text::to_lower_text(name);
             if (std::strstr(name, ".mdl")) {
-                BaseName(file, name);
+                get_base_name(file, name);
                 std::memcpy(name + std::strlen(name), ".col", 5);
-                AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
-                bool permanent = assets->GetPermanentByDefault();
-                assets->FetchOrLoadResource(name, 8, 0, Checksums::HashFromText(file), false, false, permanent, nullptr, 0);
+                assets::ResourceRegistry* assets = assets::asset_manager();
+                bool permanent = assets->get_permanent_by_default();
+                assets->fetch_or_load_resource(name, 8, 0, checksums::hash_from_text(file), false, false, permanent, nullptr, 0);
             }
         }
-        if (nodeClass == kVehicle) {
+        if (node_class == kVehicle) {
             char script[0x100];
-            BaseName(path.c_str(), script);
+            get_base_name(path.c_str(), script);
             std::memcpy(script + std::strlen(script), ".qb", 4);
-            AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
-            bool permanent = assets->GetPermanentByDefault();
-            assets->FetchOrLoadResource(script, 0xA, 0, 0, false, false, permanent, nullptr, 0);
+            assets::ResourceRegistry* assets = assets::asset_manager();
+            bool permanent = assets->get_permanent_by_default();
+            assets->fetch_or_load_resource(script, 0xA, 0, 0, false, false, permanent, nullptr, 0);
         }
-        DeleteModel(nxModel);
+        delete_model(nx_model);
     }
-    LevelNodes::EndNodeWalk();
-    MemSys::PopMemProfile();
+    level_nodes::end_node_walk();
+    memory::pop_mem_profile();
     return true;
 }
 
 // 0x005AB300: PreloadPedestrians [no_random] - not in a network game, nor with the global 0x2CAA92ED set (false):
 // the pedestrians' CAS part lists (unless no_random), every pedestrian node's .skin and second (.mdl) models, and the
 // model its profile's appearance builds (preload_model_from_appearance) loaded and dropped.
-bool __cdecl CFunc_PreloadPedestrians(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_preload_pedestrians(script::Struct* params, script::Script*)
 {
-    if (OnlinePlay::g_onlineHub->InNetGame())
+    if (online::g_online_hub->in_net_game())
         return false;
-    if (Scripts::FetchIntValue(kNoPedestrians))
+    if (script::fetch_int_value(kNoPedestrians))
         return false;
-    MemSys::PushMemProfile("Random Ped Parts");
-    if (!params->HasBareFlag(kNoRandom)) {
+    memory::push_mem_profile("Random Ped Parts");
+    if (!params->has_bare_flag(kNoRandom)) {
         for (uint32_t list : kPedPartLists)
-            PreloadPartList(list);
+            preload_part_list(list);
     }
-    MemSys::PopMemProfile();
-    MemSys::PushMemProfile("Unique Ped Parts");
-    LevelNodes::StartNodeWalk(0);
-    for (Scripts::CStruct* node = LevelNodes::NextNode(); node; node = LevelNodes::NextNode()) {
-        uint32_t nodeClass = 0;
-        node->ReadHashValue(kClass, &nodeClass, 0);
-        if (nodeClass != kPedestrian)
+    memory::pop_mem_profile();
+    memory::push_mem_profile("Unique Ped Parts");
+    level_nodes::start_node_walk(0);
+    for (script::Struct* node = level_nodes::get_next_node(); node; node = level_nodes::get_next_node()) {
+        uint32_t node_class = 0;
+        node->read_hash_value(kClass, &node_class, 0);
+        if (node_class != kPedestrian)
             continue;
         const char* model;
-        if (node->FetchText(kModel, &model, 0) && Checksums::HashFromText(model) != kNone) {
-            TextUtil::Chars path;
-            alignas(4) uint8_t storage[sizeof(TextUtil::Chars)];
-            TextUtil::Chars* made = ModelPath(storage, model, ".skin");
+        if (node->fetch_text(kModel, &model, 0) && checksums::hash_from_text(model) != kNone) {
+            text::Chars path;
+            alignas(4) uint8_t storage[sizeof(text::Chars)];
+            text::Chars* made = model_path(storage, model, ".skin");
             path = *made;
             made->~Chars();
-            void* nxModel = SpawnRenderModel(1);
-            IngestMesh(nxModel, path.c_str(), 0, 1, 8, 0, 0, 1, 0);
-            DeleteModel(nxModel);
+            void* nx_model = spawn_render_model(1);
+            ingest_mesh(nx_model, path.c_str(), 0, 1, 8, 0, 0, 1, 0);
+            delete_model(nx_model);
         }
-        if (node->FetchText(kSecondModel, &model, 0)) {
-            TextUtil::Chars path;
-            alignas(4) uint8_t storage[sizeof(TextUtil::Chars)];
-            TextUtil::Chars* made = ModelPath(storage, model, ".mdl");
+        if (node->fetch_text(kSecondModel, &model, 0)) {
+            text::Chars path;
+            alignas(4) uint8_t storage[sizeof(text::Chars)];
+            text::Chars* made = model_path(storage, model, ".mdl");
             path = *made;
             made->~Chars();
-            void* nxModel = SpawnRenderModel(1);
-            IngestMesh(nxModel, path.c_str(), 0, 1, 8, 0, 0, 1, 0);
-            DeleteModel(nxModel);
+            void* nx_model = spawn_render_model(1);
+            ingest_mesh(nx_model, path.c_str(), 0, 1, 8, 0, 0, 1, 0);
+            delete_model(nx_model);
         }
-        uint32_t profileName;
-        if (!node->ReadHashValue(kProfile, &profileName, 0))
+        uint32_t profile_name;
+        if (!node->read_hash_value(kProfile, &profile_name, 0))
             continue;
-        Scripts::CStruct* profile = Scripts::ReadSubStruct(profileName);
+        script::Struct* profile = script::read_sub_struct(profile_name);
         if (!profile)
             continue;
-        void* nxModel = SpawnRenderModel(1);
+        void* nx_model = spawn_render_model(1);
         Appearance appearance;
-        auto* gfxAppearance = reinterpret_cast<Gfx2D::CModelLook*>(&appearance);
-        gfxAppearance->MakeNew();
-        gfxAppearance->ReadIn(profile, false);
+        auto* gfx_appearance = reinterpret_cast<gfx::ModelLook*>(&appearance);
+        gfx_appearance->make_new();
+        gfx_appearance->read_in(profile, false);
         ModelAssembler builder;
-        auto* gfxBuilder = reinterpret_cast<Gfx2D::CModelAssembler*>(&builder);
-        gfxBuilder->MakeNew(true, 8);
-        gfxBuilder->Build(gfxAppearance, static_cast<Engine3D::CRenderModel*>(nxModel), nullptr, kPreloadModelFromAppearance);
-        DeleteModel(nxModel);
-        reinterpret_cast<GameObjects::CEntity*>(&builder)->DestroyBody();
-        gfxAppearance->DestroyBody();
+        auto* gfx_builder = reinterpret_cast<gfx::ModelAssembler*>(&builder);
+        gfx_builder->make_new(true, 8);
+        gfx_builder->get_build(gfx_appearance, static_cast<render::RenderModel*>(nx_model), nullptr, kPreloadModelFromAppearance);
+        delete_model(nx_model);
+        reinterpret_cast<objects::Entity*>(&builder)->destroy_body();
+        gfx_appearance->destroy_body();
     }
-    LevelNodes::EndNodeWalk();
-    MemSys::PopMemProfile();
+    level_nodes::end_node_walk();
+    memory::pop_mem_profile();
     return true;
 }
 
@@ -275,134 +275,134 @@ bool __cdecl CFunc_PreloadPedestrians(Scripts::CStruct* params, Scripts::CScript
 // candidates; the pedestrian nodes' own parts are taken; then one option of any kind (failing that one light, one
 // tan and one dark) and the rest at random among the candidates, n (the candidates) in all, numbered by
 // random_index. (No candidate left while choosing: the original loops for ever - kept.)
-bool __cdecl CFunc_PreselectRandomPedestrians(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_preselect_random_pedestrians(script::Struct* params, script::Script*)
 {
     uint32_t part = 0; // (uninitialised in the original when missing)
-    params->ReadHashValue(kPart, &part, 1);
-    Scripts::CArray* list = Scripts::FetchList(part);
-    uint32_t size = list->m_extent;
-    uint32_t level = SkateField<uint32_t>(0x374); // (the level the parts are chosen for)
+    params->read_hash_value(kPart, &part, 1);
+    script::Array* list = script::fetch_list(part);
+    uint32_t size = list->extent_;
+    uint32_t level = skate_field<uint32_t>(0x374); // (the level the parts are chosen for)
     for (uint32_t i = 0; i < size; ++i) {
-        Scripts::CStruct* option = Element(list, i);
-        option->EraseModule(kPickPermitted);
-        option->PutInt(kAllowRandom, 0);
-        option->PutInt(kAlreadySelected, 0);
-        option->PutInt(kShuffleIndex, -1);
+        script::Struct* option = get_element(list, i);
+        option->erase_module(kPickPermitted);
+        option->put_int(kAllowRandom, 0);
+        option->put_int(kAlreadySelected, 0);
+        option->put_int(kShuffleIndex, -1);
     }
     int candidates = 0;
     for (uint32_t i = 0; i < size; ++i) {
-        Scripts::CStruct* option = Element(list, i);
-        Scripts::CStruct* levels;
+        script::Struct* option = get_element(list, i);
+        script::Struct* levels;
         bool candidate;
-        if (option->HasEntryNamed(kNoRandom)) {
-            if (option->ReadSubStruct(kLevelSpecific, &levels, 0))
-                Scripts::DumpToLog(option);
+        if (option->has_entry_named(kNoRandom)) {
+            if (option->read_sub_struct(kLevelSpecific, &levels, 0))
+                script::dump_to_log(option);
             candidate = false;
-        } else if (option->ReadSubStruct(kLevelSpecific, &levels, 0)) {
-            candidate = levels->HasEntryNamed(level);
-        } else if (option->ReadSubStruct(kExcludeFromLevels, &levels, 0)) {
-            candidate = !levels->HasEntryNamed(level);
+        } else if (option->read_sub_struct(kLevelSpecific, &levels, 0)) {
+            candidate = levels->has_entry_named(level);
+        } else if (option->read_sub_struct(kExcludeFromLevels, &levels, 0)) {
+            candidate = !levels->has_entry_named(level);
         } else {
             candidate = true;
         }
         if (candidate) {
             ++candidates;
-            option->PutInt(kPickPermitted, 1);
+            option->put_int(kPickPermitted, 1);
         } else {
-            option->PutInt(kPickPermitted, 0);
-            Scripts::FetchIntValue(kCasArtist); // (read and not used)
+            option->put_int(kPickPermitted, 0);
+            script::fetch_int_value(kCasArtist); // (read and not used)
         }
     }
-    LevelNodes::StartNodeWalk(0);
-    for (Scripts::CStruct* node = LevelNodes::NextNode(); node; node = LevelNodes::NextNode()) {
-        uint32_t nodeClass = 0;
-        node->ReadHashValue(kClass, &nodeClass, 0);
-        if (nodeClass != kPedestrian)
+    level_nodes::start_node_walk(0);
+    for (script::Struct* node = level_nodes::get_next_node(); node; node = level_nodes::get_next_node()) {
+        uint32_t node_class = 0;
+        node->read_hash_value(kClass, &node_class, 0);
+        if (node_class != kPedestrian)
             continue;
-        uint32_t profileName;
-        if (!node->ReadHashValue(kProfile, &profileName, 0))
+        uint32_t profile_name;
+        if (!node->read_hash_value(kProfile, &profile_name, 0))
             continue;
-        Scripts::CStruct* profile = Scripts::ReadSubStruct(profileName);
+        script::Struct* profile = script::read_sub_struct(profile_name);
         if (!profile)
             continue;
-        Scripts::CStruct* slot;
-        if (!profile->ReadSubStruct(part, &slot, 0))
+        script::Struct* slot;
+        if (!profile->read_sub_struct(part, &slot, 0))
             continue;
-        uint32_t descriptorId;
-        if (!slot->ReadHashValue(kDescId, &descriptorId, 0))
+        uint32_t descriptor_id;
+        if (!slot->read_hash_value(kDescId, &descriptor_id, 0))
             continue;
-        Scripts::CStruct* option = CustomiseChoice(part, descriptorId, false);
-        if (!option || option->HasEntryNamed(kNoRandom))
+        script::Struct* option = customise_choice(part, descriptor_id, false);
+        if (!option || option->has_entry_named(kNoRandom))
             continue;
-        Scripts::FetchIntValue(kCasArtist); // (read and not used)
-        option->PutInt(kAllowRandom, 1);
-        option->PutInt(kPickPermitted, 1);
-        option->PutInt(kAlreadySelected, 1);
+        script::fetch_int_value(kCasArtist); // (read and not used)
+        option->put_int(kAllowRandom, 1);
+        option->put_int(kPickPermitted, 1);
+        option->put_int(kAlreadySelected, 1);
     }
-    LevelNodes::EndNodeWalk();
+    level_nodes::end_node_walk();
     int wanted = candidates;
-    params->FetchIntValue(kNum, &wanted, 0);
+    params->fetch_int_value(kNum, &wanted, 0);
     if (wanted > candidates)
         wanted = candidates;
-    Scripts::CStruct* matching[64];
+    script::Struct* matching[64];
     int count = 0;
-    MatchingOptions(part, 0, matching, &count);
+    matching_options(part, 0, matching, &count);
     if (count) {
-        Choose(matching[Maths::Rnd(count)], wanted - 1);
+        get_choose(matching[maths::rnd(count)], wanted - 1);
     } else {
-        MatchingOptions(part, kLight, matching, &count);
-        Choose(matching[Maths::Rnd(count)], wanted - 1);
+        matching_options(part, kLight, matching, &count);
+        get_choose(matching[maths::rnd(count)], wanted - 1);
         --wanted;
-        MatchingOptions(part, kTan, matching, &count);
-        Choose(matching[Maths::Rnd(count)], wanted - 1);
+        matching_options(part, kTan, matching, &count);
+        get_choose(matching[maths::rnd(count)], wanted - 1);
         --wanted;
-        MatchingOptions(part, kDark, matching, &count);
-        Choose(matching[Maths::Rnd(count)], wanted - 1);
+        matching_options(part, kDark, matching, &count);
+        get_choose(matching[maths::rnd(count)], wanted - 1);
     }
     --wanted;
     for (int n = 0; n < wanted; ++n) {
         int allowed = 0;
-        Scripts::CStruct* option;
+        script::Struct* option;
         do {
-            option = Element(list, static_cast<uint32_t>(Maths::Rnd(static_cast<int>(size))));
-            option->FetchIntValue(kPickPermitted, &allowed, 1);
+            option = get_element(list, static_cast<uint32_t>(maths::rnd(static_cast<int>(size))));
+            option->fetch_int_value(kPickPermitted, &allowed, 1);
         } while (!allowed);
-        Choose(option, n);
+        get_choose(option, n);
     }
     return true;
 }
 
 // 0x005ABB20: ReplaceCarTextures ... - every car's model component whose geoms use a texture dictionary not met yet
 // (in this walk) runs Obj_ReplaceTexture with the parameters.
-bool __cdecl CFunc_ReplaceCarTextures(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_replace_car_textures(script::Struct* params, script::Script* script)
 {
-    auto* objects = GameObjects::g_compositeRegistry;
+    auto* objects = objects::g_composite_registry;
     // (the original keeps 32 on its stack without a bound: more would overwrite its frame; here the rest aren't kept)
     uint32_t seen[32];
-    int seenCount = 0;
-    for (GameObjects::CObjectModule* component = objects->FindFirstModuleOfKind(kModel); component;
-         component = component->m_nextOfType) {
-        if (component->m_entity->m_kindTag != kCarType)
+    int seen_count = 0;
+    for (objects::ObjectModule* component = objects->find_first_module_of_kind(kModel); component;
+         component = component->next_of_type_) {
+        if (component->entity_->kind_tag_ != kCarType)
             continue;
         void* model = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x208);
         bool added = false;
-        for (int i = 0; i < static_cast<Engine3D::CRenderModel*>(model)->FetchGeomTotal(); ++i) {
+        for (int i = 0; i < static_cast<render::RenderModel*>(model)->fetch_geom_total(); ++i) {
             uint32_t textures =
-                static_cast<uint32_t>(reinterpret_cast<uintptr_t>(static_cast<Engine3D::CRenderModel*>(model)->GetGeomTextures(i)));
+                static_cast<uint32_t>(reinterpret_cast<uintptr_t>(static_cast<render::RenderModel*>(model)->get_geom_textures(i)));
             bool found = false;
-            for (int k = 0; k < seenCount; ++k) {
+            for (int k = 0; k < seen_count; ++k) {
                 if (seen[k] == textures)
                     found = true;
             }
-            if (!found && seenCount < 32) {
-                seen[seenCount++] = textures;
+            if (!found && seen_count < 32) {
+                seen[seen_count++] = textures;
                 added = true;
             }
         }
         if (added)
-            component->InvokeMethodByName(kObjReplaceTexture, params, script);
+            component->invoke_method_by_name(kObjReplaceTexture, params, script);
     }
     return true;
 }
 
-} // namespace ScriptCommands
+} // namespace commands

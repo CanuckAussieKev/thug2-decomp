@@ -11,7 +11,7 @@
 
 union SDL_Event;
 struct ImFont;
-namespace MenuSystem::LevelEditor::Ux8 {
+namespace frontend::level_editor::ux8 {
 struct Fonts;
 }
 
@@ -29,31 +29,31 @@ struct Fonts;
 //     rules: level_editor_ui_backend.h).
 //   - Input: over a panel (or while ImGui holds the mouse or wants the keyboard) ImGui gets it; in the viewport the
 //     editor's camera, picking and keys work as before (level_editor_ui_layout.h's Decide).
-//   - Drawn after the game's 2D pass, where the editor draws (Engine3D::DrawWorld -> LevelEditor::Blit); nothing is drawn
-//     and nothing runs while the editor is closed. Device lost / reset (alt-tab): FrameLoop::ResetDeviceIfLost drops
-//     ImGui's device objects first (DeviceLost), the next frame makes them again; a new window size re-sizes the fonts.
+//   - Drawn after the game's 2D pass, where the editor draws (render::draw_world -> level_editor::Blit); nothing is drawn
+//     and nothing runs while the editor is closed. Device lost / reset (alt-tab): frame_loop::reset_device_if_lost drops
+//     ImGui's device objects first (device_lost), the next frame makes them again; a new window size re-sizes the fonts.
 // thug2-decomp.ini [features] editor_ui=0 brings back the old HUD (cheap to keep: the HUD is a few script calls the
 // editor already makes); the UI also falls back to it when ImGui can't start on the game's window or device.
-namespace MenuSystem::LevelEditor::Ui {
+namespace frontend::level_editor::ui {
 
 // [features] editor_ui (default 1; read once).
-bool& IsSwitchedOn();
+bool& is_switched_on();
 // The UI is up (between Start and Stop, enabled and started).
-bool Underway();
+bool underway();
 // The editor starting (LevelEditor_Start): ImGui made once, its backends started on the game's window and device.
 // False (the old HUD then) when off or when it can't start.
-bool Kickoff();
-void Halt();
-// FrameLoop::ResetDeviceIfLost, before the device is reset.
-void DeviceLost();
+bool kickoff();
+void halt();
+// frame_loop::reset_device_if_lost, before the device is reset.
+void device_lost();
 
 // An SDL event while the editor runs: given to ImGui as the routing decides (level_editor_ui_layout.h);
 // `editorCapture`: the editor holds the mouse (a drag or a look started in the viewport). Returns whether the editor
 // should see it too.
-bool RouteEvent(const SDL_Event* event, bool editorCapture);
+bool route_event(const SDL_Event* event, bool editor_capture);
 // Whether the editor gets the mouse (not over a panel, ImGui not holding it) and the keys (ImGui not typing) now.
-bool MouseToEditor();
-bool KeysToEditor();
+bool mouse_to_editor();
+bool keys_to_editor();
 
 // --- what the editor shows, a frame at a time --------------------------------------------------------------------
 
@@ -73,19 +73,19 @@ enum Mark : uint8_t {
 };
 constexpr int kMaxMarkers = 6;
 // A mark's letter on the row, its colour (ARGB) and what it means (the tooltip / legend); `bit` 0..kMaxMarkers-1.
-char MarkLetter(int bit);
-uint32_t MarkColour(int bit);
-const char* MarkName(int bit);
+char mark_letter(int bit);
+uint32_t mark_colour(int bit);
+const char* mark_name(int bit);
 // Whether a row shows with the Outliner's "Changed only" (any mark) - and its marks as letters ("MH": moved, hidden).
-bool MarkShown(uint8_t marks, bool changedOnly);
-std::string MarkLetters(uint8_t marks);
+bool mark_shown(uint8_t marks, bool changed_only);
+std::string mark_letters(uint8_t marks);
 struct ShapeMesh {
     std::string level;    // the level's scene name
     // Which level is edited (level_editor_layout.h): its title ("Training"), always its edited copy - whether that has
     // a saved layout yet.
-    std::string levelTitle;
-    bool editedSaved = false;
-    bool confirmReset = false; // (Reset level's confirm window)
+    std::string level_title_;
+    bool edited_saved_ = false;
+    bool confirm_reset_ = false; // (Reset level's confirm window)
     const char* mode;     // FLYING, SELECTED, MOVING..., ADD
     std::string selected; // the selection described
     std::string hover;    // what's under the cursor
@@ -95,8 +95,8 @@ struct ShapeMesh {
     float speed;
     int changes, moved;
     bool unsaved, offer; // unsaved changes; an older autosave offered
-    bool canUndo, canRedo;
-    bool snapAlways;
+    bool can_undo_, can_redo_;
+    bool snap_always_;
     // Carrying (level_editor_carry.h): the toolbar's "Carry objects", and how many things the move under way carries.
     bool carry = true;
     int carried = 0;
@@ -105,13 +105,13 @@ struct ShapeMesh {
     std::unordered_map<uint32_t, uint8_t> marks;
     // Picking (level_editor_picking.h): the filter's bits; the locks (each with a label: Unlock in the Inspector);
     // whether the selection is locked (the Inspector's Lock / Unlock).
-    uint32_t pickFilter = 0;
+    uint32_t pick_filter_ = 0;
     struct LockView {
         uint32_t kind, id;
         std::string label;
     };
     std::vector<LockView> locks;
-    bool selectionLockable = false, selectionLocked = false;
+    bool selection_lockable_ = false, selection_locked_ = false;
     // The view options (level_editor_view.h): the collision shown and what was drawn of it, how many pieces are hidden
     // while editing, whether there's a selection to hide / isolate, an invisible wall selected (Shift+click).
     struct ViewOptions {
@@ -120,23 +120,23 @@ struct ShapeMesh {
         int companions = 0, taken = 0, triggers = 0; // (moved pieces' shared collision; faces taken; trigger faces)
         bool capped = false;
         int hidden = 0;
-        bool canHide = false;
+        bool can_hide_ = false;
         uint32_t wall = 0;
-        std::string wallName, wallInfo;
+        std::string wall_name_, wall_info_;
         // (level_editor_walls.h) the wall's collision switched off, moved, both in words; how many pieces drawn have
         // their collision off; the selected scenery's Collision checkbox (-1 none, 0 off, 1 on, 2 mixed).
-        bool wallOff = false, wallMoved = false;
-        std::string wallState;
+        bool wall_off_ = false, wall_moved_ = false;
+        std::string wall_state_;
         int off = 0;
-        int sceneryCollision = -1;
+        int scenery_collision_ = -1;
     } view;
     // The selection, for the Inspector.
     struct Selection {
         int objects = 0, sectors = 0;
         std::string kind, name;
         V3 pos = {};
-        bool hasHeading = false;
-        float headingDegrees = 0.0f;
+        bool has_heading_ = false;
+        float heading_degrees_ = 0.0f;
         uint32_t checksum = 0;
         // Scenery or an object with a model: its scale along its own axes (level_editor_scale.h - the Inspector's
         // Scale X / Y / Z).
@@ -155,9 +155,9 @@ struct ShapeMesh {
     // The help (F1) and the browser (B).
     bool help;
     bool browser;
-    int browserTab; // 0 scenery, 1 objects
-    int browserIndex;
-    const std::vector<BrowserItem>* browserItems;
+    int browser_tab_; // 0 scenery, 1 objects
+    int browser_index_;
+    const std::vector<BrowserItem>* browser_items_;
     // The browser's preview (level_editor_preview.h): the entry shown (the one hovered in the list, else the
     // highlighted one; -1: none), its picture (an ImGui texture id; 0: none drawn) and what it is.
     struct PreviewView {
@@ -169,35 +169,35 @@ struct ShapeMesh {
     } preview;
     // The node layer (level_editor_nodes.h): the families shown (the chips' bits), the node selected (by a gizmo or
     // in the Outliner; or the selected object's / scenery's own node) and the one under the cursor - indices into
-    // Nodes::All(), -1 for none - and whether the level is one shared with THUGPRO (a ported level: `sharedGame`).
+    // Nodes::All(), -1 for none - and whether the level is one shared with THUGPRO (a ported level: `shared_game_`).
     struct NodeView {
         uint32_t families = 0;
         int selected = -1, hovered = -1;
-        bool nodeOnly = false; // (the selection is the node itself - not an object or scenery)
-        bool levelShared = false;
-        const char* sharedGame = "";
+        bool node_only_ = false; // (the selection is the node itself - not an object or scenery)
+        bool level_shared_ = false;
+        const char* shared_game_ = "";
         // A point node selected by itself: the editor moves it (level_editor_node_edit.h) - its place now, whether
         // it's away from the level's (Home), and when a change shows in the game.
         bool movable = false;
         V3 pos = {}, angles = {};
         bool moved = false;
-        const char* whenApplied = "";
+        const char* when_applied_ = "";
         // The warning for a spawn, crown or flag moved in a level shared with THUGPRO (once a run, until dismissed).
-        bool onlineWarning = false;
+        bool online_warning_ = false;
         // Phase 3 (level_editor_node_create.h): added by the editor (Delete removes it) or a level's node hidden
         // (Home shows it again); whether a level's node can be hidden (else why not); an added crown's moves.
         bool added = false, hidden = false;
-        bool canHide = false;
-        std::string whyNoHide;
-        bool crownUp = false, crownDown = false;
+        bool can_hide_ = false;
+        std::string why_no_hide_;
+        bool crown_up_ = false, crown_down_ = false;
         // A rail node: it moves with its whole rail (else alone - L), how many points that is.
-        bool rail = false, entireRail = true;
-        int railPoints = 0;
-        const char* chainNoun = "rail"; // (phase 4: "rail", "ladder" or "path" - the Whole ... checkbox)
+        bool rail = false, entire_rail_ = true;
+        int rail_points_ = 0;
+        const char* chain_noun_ = "rail"; // (phase 4: "rail", "ladder" or "path" - the Whole ... checkbox)
     } nodes;
     // Phase 4 (level_editor_chains.h): the selected node's chain - a rail's, a path's, or a ped's / car's path - and
     // what the editor waits for (drawing, a pick).
-    Chains::View chain;
+    chains::View chain;
     // The Place palette (N): what can be added - each entry's label, gizmo colour and, when it can't be now, why -
     // and the one armed (a click in the view places it; -1: none).
     struct PlaceView {
@@ -219,12 +219,12 @@ struct ShapeMesh {
     // Phase 6: the level's properties (level_editor_level_props.h) - as edited, and the level's own; its restarts
     // (name, label) for the start; the selected node when it's a restart.
     struct LevelView {
-        bool inLevel = false;
-        LevelProps::Props props, defaults;
-        bool haveDefaults = false;
+        bool in_level_ = false;
+        level_props::Props props, defaults;
+        bool have_defaults_ = false;
         std::vector<std::pair<uint32_t, std::string>> restarts;
-        uint32_t selectedRestart = 0;
-    } levelProps;
+        uint32_t selected_restart_ = 0;
+    } level_props_;
 };
 
 // What's drawn over the view, under the panels: in back buffer pixels (as the editor projects; the UI scales them to
@@ -245,7 +245,7 @@ struct Overlay {
         float ax, ay, bx, by, cx, cy;
         uint32_t argb;
     };
-    struct Text {
+    struct text_tools {
         float x, y;
         uint32_t argb;
         std::string text;
@@ -254,8 +254,8 @@ struct Overlay {
     std::vector<Circle> circles;
     std::vector<Triangle> triangles;
     std::vector<Triangle> under; // (drawn first, under the lines: the collision view - level_editor_view.h)
-    std::vector<Text> texts;
-    void Clear()
+    std::vector<text_tools> texts;
+    void get_clear()
     {
         lines.clear();
         circles.clear();
@@ -333,31 +333,31 @@ struct Request {
     float a[3] = {}, b[3] = {};
     uint32_t node = 0;
     std::string text, label;
-    LevelProps::Props props;
+    level_props::Props props;
 };
-std::vector<Request> TakeRequests();
+std::vector<Request> take_requests();
 // A request from another module's panel (level_editor_ux3.h: the command search's settings), as the UI's own.
-void PushRequest(const Request& request);
+void push_request(const Request& request);
 
 // The menu bar's menus (level_editor_ui_menus.cpp), drawn between BeginMenuBar and EndMenuBar: File, Edit, View, Tools,
 // Help - the registry's actions with their keys.
-void MenuBar(const ShapeMesh& model, const Ux8::Fonts& fonts, std::vector<Request>* requests);
+void menu_bar(const ShapeMesh& model, const ux8::Fonts& fonts, std::vector<Request>* requests);
 
 // The Inspector's chain section (level_editor_chains_ui.cpp): drawn inside the node's section; what's asked for added
 // to `requests`.
-void ChainSection(const Chains::View& chain, std::vector<Request>* requests);
+void chain_section(const chains::View& chain, std::vector<Request>* requests);
 // The feature map (level_editor_spots_ui.cpp): a spawn's Horse checkbox (its restart_types, through kFieldSet).
-void SpawnSection(int nodeIndex, std::vector<Request>* requests);
+void spawn_section(int node_index, std::vector<Request>* requests);
 // Phase 6 (level_editor_fields_ui.cpp): the Inspector's typed fields of node `nodeIndex` (Nodes::All()) - drawn inside
 // the node's section - and the level properties' section at the Inspector's foot; what's asked for added to
 // `requests`. `mono` / `small`: the UI's fonts.
-void FieldsSection(int nodeIndex, ImFont* mono, ImFont* smallFont, std::vector<Request>* requests);
-void LevelSection(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smallFont, std::vector<Request>* requests);
+void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vector<Request>* requests);
+void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* small_font, std::vector<Request>* requests);
 
 // The preview picture's size in pixels for the window's size now (256 at 1280 x 720, up to 512).
-int PreviewPixels();
+int preview_pixels();
 
-// The frame (LevelEditor::Blit): the overlay (under the panels), the panels from the model, drawn.
-void TickCycle(const ShapeMesh& model, const Overlay& overlay);
+// The frame (level_editor::Blit): the overlay (under the panels), the panels from the model, drawn.
+void tick_cycle(const ShapeMesh& model, const Overlay& overlay);
 
-} // namespace MenuSystem::LevelEditor::Ui
+} // namespace MenuSystem::level_editor::Ui

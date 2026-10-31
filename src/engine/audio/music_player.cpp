@@ -22,189 +22,189 @@
 #include "engine/sound/sfx.h"
 #include "engine/sys/game_config.h"
 
-namespace AudioStream {
+namespace audio {
 
-bool g_musicHeaderLoaded{true};
-bool g_streamsOn{true};
-float g_musicVolume{50.0f};
-float g_musicStreamVolume{100.0f};
-int g_bgmStreamKind;
-bool g_shuffleUser;
-void* g_soundDevice;
+bool g_music_header_loaded{true};
+bool g_streams_on{true};
+float g_music_volume{50.0f};
+float g_music_stream_volume{100.0f};
+int g_bgm_stream_kind;
+bool g_shuffle_user;
+void* g_sound_device;
 Playlist g_playlists[2];       // (the music's two playlists; 0 is the game's, 1 the script's)
-char g_trackTitles[80][100];
+char g_track_titles[80][100];
 Stream g_streams[3];
-void* g_streamOwners[3];
-int g_userOrder[600];
-int g_trackOrder[600];          // the shuffled order (the word before it, 0x00696D9C, is read once)
-char g_specialTrack[44];
-char g_soundtrackName[100];
+void* g_stream_owners[3];
+int g_user_order[600];
+int g_track_order[600];          // the shuffled order (the word before it, 0x00696D9C, is read once)
+char g_special_track[44];
+char g_soundtrack_name[100];
 
 namespace {
 
-Playlist* Playlists() { return g_playlists; }
-int& CurrentPlaylist() { return g_currentPlaylist; }
+Playlist* get_playlists() { return g_playlists; }
+int& current_playlist() { return g_current_playlist; }
 // The track playing (40 bytes, just before the playlists) and whether it loops (SetMusicLooping).
-void* SpecialTrack() { return g_specialTrack; }
+void* special_track() { return g_special_track; }
 
-uint8_t g_randomOrder{1};
+uint8_t g_random_order{1};
 bool g_reshuffle{true};
-int g_orderCount{1};
+int g_order_count{1};
 bool g_looping;
-int g_clearedByClearPlaylist;
-bool g_bgmHeld;
-int g_orderPosition;
-bool g_musicPausedBefore;
+int g_cleared_by_clear_playlist;
+bool g_bgm_held;
+int g_order_position;
+bool g_music_paused_before;
 
-bool& Looping() { return g_looping; }
-int& CurrentTrack() { return g_currentTrackIndex; }
+bool& get_looping() { return g_looping; }
+int& current_track() { return g_current_track_index; }
 
 // The shuffled order: the indices of the tracks that are on, how many, and the position of the last one
 // played. The track played before the shuffle is read at order[count - 1] - with an empty order that's the
 // word before it (0x00696D9C, the movie frame dump counter).
-int* Order() { return g_trackOrder; }
-int& OrderCount() { return g_orderCount; }
-int& OrderPosition() { return g_orderPosition; }
-bool& Reshuffle() { return g_reshuffle; }
+int* get_order() { return g_track_order; }
+int& order_count() { return g_order_count; }
+int& order_position() { return g_order_position; }
+bool& reshuffle() { return g_reshuffle; }
 
-bool MusicOn()
+bool music_on()
 {
-    return g_soundDevice && GameConfig::g_platform != 2 && g_musicHeaderLoaded;
+    return g_sound_device && game_config::g_platform != 2 && g_music_header_loaded;
 }
 // The same for streamed sound effects (0x0067D7E1).
-bool StreamsOn()
+bool streams_on()
 {
-    return g_soundDevice && GameConfig::g_platform != 2 && g_streamsOn;
+    return g_sound_device && game_config::g_platform != 2 && g_streams_on;
 }
 
-Stream* Streams() { return g_streams; }
+Stream* get_streams() { return g_streams; }
 constexpr int kStreams = 3;
-// Whether the platform's stream `channel` is playing (StreamStatus: 1 free, 2 playing).
-bool Playing(const Stream& stream) { return StreamStatus(stream.channel) != 1; }
+// Whether the platform's stream `channel` is playing (stream_status: 1 free, 2 playing).
+bool get_playing(const Stream& stream) { return stream_status(stream.channel) != 1; }
 // The objects that started each stream (null: none); they note the stream's id at +0x18 + 4 * stream.
-uint32_t** StreamOwners() { return reinterpret_cast<uint32_t**>(g_streamOwners); }
-int& FrameCount() { return g_frameCount; }
+uint32_t** stream_owners() { return reinterpret_cast<uint32_t**>(g_stream_owners); }
+int& frame_count() { return g_frame_count; }
 
 // The user soundtrack: which, whether it's playing (in place of the game's music), its shuffled order and the
 // track in it, whether it's shuffled.
-int& UserSoundtrack() { return g_userSoundtrack; }
-bool& CustomSoundtrackActive() { return g_customPlaylistOn; }
-int* UserOrder() { return g_userOrder; }
+int& user_soundtrack() { return g_user_soundtrack; }
+bool& custom_soundtrack_active() { return g_custom_playlist_on; }
+int* user_order() { return g_user_order; }
 constexpr int kUserOrderSize = 600;
-int& UserTrack() { return reinterpret_cast<int&>(g_userTrack); }
-int& UserPosition() { return reinterpret_cast<int&>(g_userPosition); }
-bool ShuffleUser() { return g_shuffleUser; }
+int& user_track() { return reinterpret_cast<int&>(g_user_track); }
+int& user_position() { return reinterpret_cast<int&>(g_user_position); }
+bool shuffle_user() { return g_shuffle_user; }
 
 // 1 << n as the C runtime's 64-bit shift (__allshl) does it: by n's low byte, 0 from 64 up.
-uint64_t Bit(int n)
+uint64_t get_bit(int n)
 {
     uint8_t shift = static_cast<uint8_t>(n);
     return shift >= 64 ? 0 : uint64_t{1} << shift;
 }
-bool IsOff(const Playlist& list, int track)
+bool is_off(const Playlist& list, int track)
 {
-    return track < 64 ? (Bit(track) & list.off[0]) != 0 : (Bit(track - 64) & list.off[1]) != 0;
+    return track < 64 ? (get_bit(track) & list.off[0]) != 0 : (get_bit(track - 64) & list.off[1]) != 0;
 }
 
 // The track's start: the stream played, and the script told which track it is.
-void StartTrack(Playlist& list, int track)
+void start_track(Playlist& list, int track)
 {
-    PlayTrack(reinterpret_cast<const char*>(list.tracks[track]), false);
-    CurrentTrack() = track;
-    Scripts::CStruct* params = Scripts::SpawnParamBag();
-    params = params ? params->PrepareAll() : nullptr;
-    params->PutInt(0x8D02705Du, CurrentTrack());
-    Scripts::LaunchScript(0x300CAD34u, params, nullptr, false, nullptr);
+    play_track(reinterpret_cast<const char*>(list.tracks[track]), false);
+    current_track() = track;
+    script::Struct* params = script::spawn_param_bag();
+    params = params ? params->prepare_all() : nullptr;
+    params->put_int(0x8D02705Du, current_track());
+    script::launch_script(0x300CAD34u, params, nullptr, false, nullptr);
     if (params) {
-        params->Clear();
-        Scripts::DeleteStruct(params);
+        params->get_clear();
+        script::delete_struct(params);
     }
 }
 
 // The volumes (0-100): the music's, and that of streams played on the music's channel.
-float& MusicVolume() { return g_musicVolume; }
-float& MusicStreamVolume() { return g_musicStreamVolume; }
+float& current_music_volume() { return g_music_volume; }
+float& music_stream_volume() { return g_music_stream_volume; }
 // What the music's channel plays: 0 a track, 1 a music stream (0x00450EF0), 2 another kind of stream (0x004509E0).
-int& MusicChannelKind() { return g_bgmStreamKind; }
+int& music_channel_kind() { return g_bgm_stream_kind; }
 // Set by the music's initialisation (0x00450D60).
-bool Initialised() { return g_initialised; }
-bool& MusicHalted() { return g_bgmHeld; }
-bool& MusicPausedBefore() { return g_musicPausedBefore; }
-bool& MusicHeaderLoaded() { return g_musicHeaderLoaded; }
-uint8_t& RandomOrder() { return g_randomOrder; }
-bool& ShuffleUserFlag() { return g_shuffleUser; }
+bool initialised() { return g_initialised; }
+bool& music_halted() { return g_bgm_held; }
+bool& music_paused_before() { return g_music_paused_before; }
+bool& music_header_loaded() { return g_music_header_loaded; }
+uint8_t& random_order() { return g_random_order; }
+bool& shuffle_user_flag() { return g_shuffle_user; }
 // Playlist 0's track titles, by the track's index (100 characters each).
-char* Title(int track) { return g_trackTitles[track]; }
-// A global EmptyQueue clears (just past the three streams; nothing else uses it).
-int& ClearedByClearPlaylist() { return g_clearedByClearPlaylist; }
+char* get_title(int track) { return g_track_titles[track]; }
+// A global empty_queue clears (just past the three streams; nothing else uses it).
+int& cleared_by_clear_playlist() { return g_cleared_by_clear_playlist; }
 
 // The platform's music: its volume and pause (music 1 / streams 0).
-void SetPlatformVolume(float volume) { PlatformSetMusicVolume(volume); }
-void PlatformPause(bool pause, int music) { PauseStreams(pause, music); }
+void set_platform_volume(float volume) { platform_set_music_volume(volume); }
+void platform_pause(bool pause, int music) { pause_streams(pause, music); }
 // The sound effects manager's volume (the original calls it as a method of 0x006F85A8; it reads a global).
-float SfxVolume() { return SoundFx::FetchMasterLoudness(); }
+float sfx_volume() { return sound::fetch_master_loudness(); }
 // 0x005B9760 (the shared `return true` stub): whether the file is there (the PS2's check, nothing on the PC).
-bool FileThere(const char*, int) { return Stubs::ReturnTrue(); }
+bool file_there(const char*, int) { return stubs::return_true(); }
 // A script integer that's read and ignored: what used it is compiled out (debug output).
-void ReadDebugFlag() { Scripts::FetchIntValue(0xD7BB618Du); }
+void read_debug_flag() { script::fetch_int_value(0xD7BB618Du); }
 // Set: playlists other than 0 play at the music volume, not the sound effects one.
-bool OtherListsAtMusicVolume() { return Scripts::FetchIntValue(0x450BAE2Du) != 0; }
+bool other_lists_at_music_volume() { return script::fetch_int_value(0x450BAE2Du) != 0; }
 
-bool InRange(float volume) { return !(volume > 100.0f) && !(volume < 0.0f); } // (NaN passes)
+bool in_range(float volume) { return !(volume > 100.0f) && !(volume < 0.0f); } // (NaN passes)
 
 } // namespace
 
 // 0x00450F70
-void __cdecl PauseMusic(int pause)
+void __cdecl pause_music(int pause)
 {
-    if (!MusicOn())
+    if (!music_on())
         return;
     if (pause == -1) {
-        if (MusicPausedBefore())
+        if (music_paused_before())
             return;
         pause = 0;
     }
     if (pause == 0) {
-        ReadDebugFlag();
-        MusicHalted() = false;
-        PlatformPause(false, 1);
+        read_debug_flag();
+        music_halted() = false;
+        platform_pause(false, 1);
     } else if (pause == 1) {
-        ReadDebugFlag();
-        MusicPausedBefore() = MusicHalted();
-        MusicHalted() = true;
-        PlatformPause(true, 1);
+        read_debug_flag();
+        music_paused_before() = music_halted();
+        music_halted() = true;
+        platform_pause(true, 1);
     }
 }
 
 // 0x004510B0
-void __cdecl SetMusicVolume(float volume)
+void __cdecl set_music_volume(float volume)
 {
-    if (!MusicOn() || !InRange(volume))
+    if (!music_on() || !in_range(volume))
         return;
-    MusicVolume() = volume;
-    if (!Initialised() || MusicChannelKind() != 0)
+    current_music_volume() = volume;
+    if (!initialised() || music_channel_kind() != 0)
         return;
-    if (CurrentPlaylist() != 0 && !OtherListsAtMusicVolume())
+    if (current_playlist() != 0 && !other_lists_at_music_volume())
         return;
-    SetPlatformVolume(volume);
+    set_platform_volume(volume);
 }
 
 // 0x00451130
-void __cdecl SetMusicStreamVolume(float volume)
+void __cdecl set_music_stream_volume(float volume)
 {
-    if (!MusicOn() || !InRange(volume))
+    if (!music_on() || !in_range(volume))
         return;
-    MusicStreamVolume() = volume;
-    if (Initialised() && MusicChannelKind() == 1)
-        SetPlatformVolume(volume);
+    music_stream_volume() = volume;
+    if (initialised() && music_channel_kind() == 1)
+        set_platform_volume(volume);
 }
 
 // 0x004511A0
-void __cdecl QueueTrack(const char* name, int list, const char* title)
+void __cdecl queue_track(const char* name, int list, const char* title)
 {
-    if (!MusicOn())
+    if (!music_on())
         return;
-    Playlist& playlist = Playlists()[list];
+    Playlist& playlist = get_playlists()[list];
     if (playlist.count >= 80)
         return;
     char* track = reinterpret_cast<char*>(playlist.tracks[playlist.count]);
@@ -216,7 +216,7 @@ void __cdecl QueueTrack(const char* name, int list, const char* title)
             track[i] = static_cast<char>(c - 0x20);
     }
     if (list == 0) {
-        char* slot = Title(playlist.count);
+        char* slot = get_title(playlist.count);
         if (title) {
 #pragma warning(suppress : 4996) // (terminated by hand, as in the original)
             std::strncpy(slot, title, 100);
@@ -225,84 +225,84 @@ void __cdecl QueueTrack(const char* name, int list, const char* title)
             std::memcpy(slot, "No title provided", 18); // "No title provided"
         }
     }
-    if (FileThere(track, 1)) {
-        playlist.unknownCA8 = 0;
+    if (file_there(track, 1)) {
+        playlist.unknownca8_ = 0;
         ++playlist.count;
     }
 }
 
 // 0x004512D0
-void __cdecl EmptyQueue(int list)
+void __cdecl empty_queue(int list)
 {
-    if (!MusicOn())
+    if (!music_on())
         return;
-    Playlist& playlist = Playlists()[list];
+    Playlist& playlist = get_playlists()[list];
     playlist.count = 0;
-    playlist.unknownCA8 = 1;
+    playlist.unknownca8_ = 1;
     playlist.off[0] = 0;
     playlist.off[1] = 0;
     playlist.played[0] = 0;
     playlist.played[1] = 0;
-    ClearedByClearPlaylist() = 0;
+    cleared_by_clear_playlist() = 0;
 }
 
 // 0x00451350
-void __cdecl SkipMusicTrack()
+void __cdecl skip_music_track()
 {
-    if (MusicOn() && CurrentPlaylist() == 0)
-        StopMusic();
+    if (music_on() && current_playlist() == 0)
+        stop_music();
 }
 
 // 0x00451380
-void __cdecl SetRandomMode(int mode)
+void __cdecl set_random_mode(int mode)
 {
-    if (!MusicOn())
+    if (!music_on())
         return;
-    RandomOrder() = mode != 0;
-    ShuffleUserFlag() = mode > 0;
+    random_order() = mode != 0;
+    shuffle_user_flag() = mode > 0;
     if (mode != 0) {
-        ShuffleUserSoundtrack();
-        UserPosition() = 0;
-        UserTrack() = UserOrder()[0];
+        shuffle_user_soundtrack();
+        user_position() = 0;
+        user_track() = user_order()[0];
     }
-    Playlist& playlist = Playlists()[CurrentPlaylist()];
+    Playlist& playlist = get_playlists()[current_playlist()];
     playlist.played[0] = 0;
     playlist.played[1] = 0;
 }
 
 // 0x00451400
-void __cdecl ApplyTrackVolume()
+void __cdecl apply_track_volume()
 {
-    bool atMusicVolume = OtherListsAtMusicVolume();
-    if (CustomSoundtrackActive())
-        SetPlatformVolume(MusicVolume());
-    else if (CurrentPlaylist() == 1 && !atMusicVolume)
-        SetPlatformVolume(SfxVolume());
+    bool at_music_volume = other_lists_at_music_volume();
+    if (custom_soundtrack_active())
+        set_platform_volume(current_music_volume());
+    else if (current_playlist() == 1 && !at_music_volume)
+        set_platform_volume(sfx_volume());
 }
 
 // 0x00451450
-bool __cdecl IsTrackPlaying(int list, int track)
+bool __cdecl is_track_playing(int list, int track)
 {
-    if (!MusicOn() || MusicStatus() == 1) // 1: no stream playing
+    if (!music_on() || music_status() == 1) // 1: no stream playing
         return false;
-    if (track >= Playlists()[list].count)
+    if (track >= get_playlists()[list].count)
         return false;
-    uint32_t name = Checksums::HashFromText(reinterpret_cast<const char*>(Playlists()[list].tracks[track]));
-    return Checksums::HashFromText(static_cast<const char*>(SpecialTrack())) == name;
+    uint32_t name = checksums::hash_from_text(reinterpret_cast<const char*>(get_playlists()[list].tracks[track]));
+    return checksums::hash_from_text(static_cast<const char*>(special_track())) == name;
 }
 
 // 0x004514C0
-int __cdecl TrackTotal(int list) { return MusicOn() ? Playlists()[list].count : 0; }
+int __cdecl track_total(int list) { return music_on() ? get_playlists()[list].count : 0; }
 
 // 0x00451500
-const char* __cdecl TrackLabelAt(int track, int list)
+const char* __cdecl track_label_at(int track, int list)
 {
-    if (!MusicOn()) {
-        char* first = reinterpret_cast<char*>(Playlists()[0].tracks[0]);
+    if (!music_on()) {
+        char* first = reinterpret_cast<char*>(get_playlists()[0].tracks[0]);
         std::memcpy(first, "Empty.", 7); // "Empty."
         return first;
     }
-    const char* name = reinterpret_cast<const char*>(Playlists()[list].tracks[track]);
+    const char* name = reinterpret_cast<const char*>(get_playlists()[list].tracks[track]);
     const char* file = name;
     int length = static_cast<int>(std::strlen(name));
     for (int i = 0; i < length; ++i)
@@ -312,77 +312,77 @@ const char* __cdecl TrackLabelAt(int track, int list)
 }
 
 // 0x004515A0
-void __cdecl SetMusicMode(int list)
+void __cdecl set_music_mode(int list)
 {
-    if (!MusicOn())
+    if (!music_on())
         return;
-    if (CurrentPlaylist() != list)
-        StopMusic();
-    CurrentPlaylist() = list;
+    if (current_playlist() != list)
+        stop_music();
+    current_playlist() = list;
 }
 
 // 0x004515E0
-bool __cdecl LoadMusicHeader(const char* name)
+bool __cdecl load_music_header(const char* name)
 {
-    if (!MusicOn())
+    if (!music_on())
         return false;
-    MusicHeaderLoaded() = FileThere(name, 0) != 0;
-    return MusicHeaderLoaded();
+    music_header_loaded() = file_there(name, 0) != 0;
+    return music_header_loaded();
 }
 
 // 0x00451C70
-void __cdecl ChangeTrackState(int track, bool off, int list)
+void __cdecl change_track_state(int track, bool off, int list)
 {
-    if (!MusicOn())
+    if (!music_on())
         return;
-    Playlist& playlist = Playlists()[list];
-    Reshuffle() = true;
+    Playlist& playlist = get_playlists()[list];
+    reshuffle() = true;
     if (!off) {
         if (track < 64)
-            playlist.off[0] &= ~Bit(track);
+            playlist.off[0] &= ~get_bit(track);
         else
-            playlist.off[1] &= ~Bit(track - 64);
-        playlist.unknownCA8 = 0;
+            playlist.off[1] &= ~get_bit(track - 64);
+        playlist.unknownca8_ = 0;
         return;
     }
     if (track < 64)
-        playlist.off[0] |= Bit(track);
+        playlist.off[0] |= get_bit(track);
     else
-        playlist.off[1] |= Bit(track - 64);
-    if (IsTrackPlaying(list, track))
-        StopMusic();
+        playlist.off[1] |= get_bit(track - 64);
+    if (is_track_playing(list, track))
+        stop_music();
     // Original quirk: every track is tested against both masks (1 << (i - 64) is 0 for i < 64), so any track at
     // all counts as one that's on - only an empty playlist is marked.
     uint64_t low = playlist.off[0];
     for (int i = 0; i < playlist.count; ++i) {
-        if ((Bit(i) & low) == 0 || (Bit(i - 64) & playlist.off[1]) == 0) {
-            playlist.unknownCA8 = 0;
+        if ((get_bit(i) & low) == 0 || (get_bit(i - 64) & playlist.off[1]) == 0) {
+            playlist.unknownca8_ = 0;
             return;
         }
     }
-    playlist.unknownCA8 = 1;
+    playlist.unknownca8_ = 1;
 }
 
 // 0x004520D0
-void __cdecl PlayTrack(const char* name, bool loop)
+void __cdecl play_track(const char* name, bool loop)
 {
-    if (!MusicOn() || MusicChannelKind() != 0)
+    if (!music_on() || music_channel_kind() != 0)
         return;
-    char* playing = static_cast<char*>(SpecialTrack());
+    char* playing = static_cast<char*>(special_track());
 #pragma warning(suppress : 4996) // (40 bytes, as in the original)
     std::strcpy(playing, name);
-    int list = CurrentPlaylist();
-    bool atMusicVolume = OtherListsAtMusicVolume();
-    float volume = list != 0 && !atMusicVolume ? SfxVolume() : MusicVolume();
-    Looping() = loop;
-    if (PlayTrackByName(playing, volume) || GameConfig::g_fromCD) // (the debug checks)
+    int list = current_playlist();
+    bool at_music_volume = other_lists_at_music_volume();
+    float volume = list != 0 && !at_music_volume ? sfx_volume() : current_music_volume();
+    get_looping() = loop;
+    if (play_track_by_name(playing, volume) || game_config::g_from_cd) // (the debug checks)
         return;
     // It doesn't play: switch it off.
-    Playlist& playlist = Playlists()[list];
+    Playlist& playlist = get_playlists()[list];
     for (int i = 0; i < playlist.count; ++i) {
-        uint32_t crc = Checksums::HashFromText(reinterpret_cast<const char*>(playlist.tracks[i]));
-        if (Checksums::HashFromText(name) == crc) {
-            ChangeTrackState(i, true, list);
+        uint32_t crc = checksums::hash_from_text(reinterpret_cast<const char*>(playlist.tracks[i]));
+        if (checksums::hash_from_text(name) == crc) {
+            change_track_state(i, true, list);
             return;
         }
     }
@@ -391,116 +391,116 @@ void __cdecl PlayTrack(const char* name, bool loop)
 // PartyMod's our_random, at the shuffle's two draws (0x004523A7 / 0x004523B4). It keeps drawing the
 // game's number so the game's random stream advances as before. (rand() % 0 would divide by zero; the game's
 // Rnd(0) is 0, so that's kept for an empty order.)
-int ShuffleRandom(int n)
+int shuffle_random(int n)
 {
-    int game = Maths::Rnd(n);
+    int game = maths::rnd(n);
     if (n == 0)
         return game;
     return std::rand() % n;
 }
 
 // 0x00452200
-void __cdecl PlayNextTrack()
+void __cdecl play_next_track()
 {
-    Playlist& list = Playlists()[CurrentPlaylist()];
-    if (!MusicOn() || list.unknownCA8)
+    Playlist& list = get_playlists()[current_playlist()];
+    if (!music_on() || list.unknownca8_)
         return;
-    if (MusicStatus() != 1) // 1: no stream playing
+    if (music_status() != 1) // 1: no stream playing
         return;
-    g_bgmStreamKind = 0;
-    ApplyTrackVolume(); // the music volume
-    if (CurrentPlaylist() == 1) {
-        int track = Scripts::FetchIntValue(0xF18AB1F9u);
-        if (track < Playlists()[1].count)
-            PlayTrack(reinterpret_cast<const char*>(Playlists()[1].tracks[track]), false);
+    g_bgm_stream_kind = 0;
+    apply_track_volume(); // the music volume
+    if (current_playlist() == 1) {
+        int track = script::fetch_int_value(0xF18AB1F9u);
+        if (track < get_playlists()[1].count)
+            play_track(reinterpret_cast<const char*>(get_playlists()[1].tracks[track]), false);
         return;
     }
-    if (Looping()) {
-        PlayTrack(static_cast<const char*>(SpecialTrack()), true);
+    if (get_looping()) {
+        play_track(static_cast<const char*>(special_track()), true);
         return;
     }
     if (list.count == 0)
         return;
 
     int position;
-    if (Reshuffle()) {
+    if (reshuffle()) {
         // (an empty order: the original reads the word before it, which is the movie frame dump counter - by name
         // here, as our globals aren't laid out as the original's)
-        int last = OrderCount() > 0 ? Order()[OrderCount() - 1] : Engine3D::g_movieDumpCount;
-        OrderCount() = 0;
+        int last = order_count() > 0 ? get_order()[order_count() - 1] : render::g_movie_dump_count;
+        order_count() = 0;
         int count = 0;
         for (int track = 0; track < list.count; ++track)
-            if (!IsOff(list, track))
-                Order()[count++] = track;
-        OrderCount() = count;
-        DebugOut::Printf("shuffling random song order num_songs=%i\n", count); // "shuffling random song order num_songs=%i\n"
-        // 2000 swaps of two random places. PartyMod draws them with ShuffleRandom; the original with
-        // Maths::Rnd(OrderCount()).
+            if (!is_off(list, track))
+                get_order()[count++] = track;
+        order_count() = count;
+        debug::printf("shuffling random song order num_songs=%i\n", count); // "shuffling random song order num_songs=%i\n"
+        // 2000 swaps of two random places. PartyMod draws them with shuffle_random; the original with
+        // maths::Rnd(order_count()).
         for (int i = 0; i < 2000; ++i) {
-            int a = ShuffleRandom(OrderCount());
-            int b = ShuffleRandom(OrderCount());
+            int a = shuffle_random(order_count());
+            int b = shuffle_random(order_count());
             if (a != b) {
-                int swap = Order()[a];
-                Order()[a] = Order()[b];
-                Order()[b] = swap;
+                int swap = get_order()[a];
+                get_order()[a] = get_order()[b];
+                get_order()[b] = swap;
             }
         }
         // Not the last one again first: swap it with another place (this draw is the game's, under PartyMod too).
-        if (Order()[0] == last) {
-            int other = OrderCount() > 1 ? Maths::Rnd(OrderCount() - 1) + 1 : 0;
-            int swap = Order()[0];
-            Order()[0] = Order()[other];
-            Order()[other] = swap;
+        if (get_order()[0] == last) {
+            int other = order_count() > 1 ? maths::rnd(order_count() - 1) + 1 : 0;
+            int swap = get_order()[0];
+            get_order()[0] = get_order()[other];
+            get_order()[other] = swap;
         }
-        OrderPosition() = 0;
-        Reshuffle() = false;
+        order_position() = 0;
+        reshuffle() = false;
         list.played[0] = 0;
         list.played[1] = 0;
         position = 0;
     } else {
-        position = ++OrderPosition();
-        if (position >= OrderCount() - 1)
-            Reshuffle() = true;
+        position = ++order_position();
+        if (position >= order_count() - 1)
+            reshuffle() = true;
     }
     if (list.count <= 0)
         return;
     // The track at that position, unless it's off or already played (then nothing). (The original repeats
     // this same test list.count times.)
-    int track = Order()[position];
-    if ((Bit(track) & list.off[0]) == 0 && track < 64 && (Bit(track) & list.played[0]) == 0) {
-        list.played[0] |= Bit(track);
-        StartTrack(list, track);
-    } else if ((Bit(track - 64) & list.off[1]) == 0 && track >= 64 && (Bit(track - 64) & list.played[1]) == 0) {
-        list.played[1] |= Bit(track - 64);
-        StartTrack(list, track);
+    int track = get_order()[position];
+    if ((get_bit(track) & list.off[0]) == 0 && track < 64 && (get_bit(track) & list.played[0]) == 0) {
+        list.played[0] |= get_bit(track);
+        start_track(list, track);
+    } else if ((get_bit(track - 64) & list.off[1]) == 0 && track >= 64 && (get_bit(track - 64) & list.played[1]) == 0) {
+        list.played[1] |= get_bit(track - 64);
+        start_track(list, track);
     }
 }
 
 // 0x00452680
-void __cdecl PlayNextTrackInOrder()
+void __cdecl play_next_track_in_order()
 {
-    if (!MusicOn())
+    if (!music_on())
         return;
-    Playlist& list = Playlists()[CurrentPlaylist()];
-    if (list.unknownCA8)
+    Playlist& list = get_playlists()[current_playlist()];
+    if (list.unknownca8_)
         return;
-    if (MusicStatus() != 1) // 1: no stream playing
+    if (music_status() != 1) // 1: no stream playing
         return;
-    g_bgmStreamKind = 0;
-    ApplyTrackVolume(); // the music volume
-    if (Looping()) {
-        PlayTrack(static_cast<const char*>(SpecialTrack()), true);
+    g_bgm_stream_kind = 0;
+    apply_track_volume(); // the music volume
+    if (get_looping()) {
+        play_track(static_cast<const char*>(special_track()), true);
         return;
     }
     for (int track = 0; track < list.count; ++track) {
-        if ((Bit(track) & list.off[0]) == 0 && track < 64 && (Bit(track) & list.played[0]) == 0) {
-            list.played[0] |= Bit(track);
-            StartTrack(list, track);
+        if ((get_bit(track) & list.off[0]) == 0 && track < 64 && (get_bit(track) & list.played[0]) == 0) {
+            list.played[0] |= get_bit(track);
+            start_track(list, track);
             return;
         }
-        if ((Bit(track - 64) & list.off[1]) == 0 && track >= 64 && (Bit(track - 64) & list.played[1]) == 0) {
-            list.played[1] |= Bit(track - 64);
-            StartTrack(list, track);
+        if ((get_bit(track - 64) & list.off[1]) == 0 && track >= 64 && (get_bit(track - 64) & list.played[1]) == 0) {
+            list.played[1] |= get_bit(track - 64);
+            start_track(list, track);
             return;
         }
     }
@@ -509,30 +509,30 @@ void __cdecl PlayNextTrackInOrder()
 }
 
 // 0x00452910
-void __cdecl TickFrame()
+void __cdecl tick_frame()
 {
-    if (!g_soundDevice || GameConfig::g_platform == 2)
+    if (!g_sound_device || game_config::g_platform == 2)
         return;
-    if (!g_musicHeaderLoaded && !g_streamsOn)
+    if (!g_music_header_loaded && !g_streams_on)
         return;
-    int streams = UpdateStreams(); // the stream system's update
+    int streams = update_streams(); // the stream system's update
     if (streams != 0) {
-        if (StreamsOn())
-            HaltStreams();
+        if (streams_on())
+            halt_streams();
         if (streams < 0)
-            StopMusic(); // pause the music
+            stop_music(); // pause the music
     }
-    ++FrameCount();
+    ++frame_count();
     for (int i = 0; i < kStreams; ++i) {
-        uint32_t*& owner = StreamOwners()[i];
-        if (owner && !UpdateStreamVolume(i)) { // (false: the stream is over)
+        uint32_t*& owner = stream_owners()[i];
+        if (owner && !update_stream_volume(i)) { // (false: the stream is over)
             owner[6 + i] = 0;
             owner = nullptr;
         }
     }
     for (int i = 0; i < kStreams; ++i) {
-        Stream& stream = Streams()[i];
-        if (stream.listener && !Playing(stream)) {
+        Stream& stream = get_streams()[i];
+        if (stream.listener && !get_playing(stream)) {
             if (stream.listener[0]) {
                 stream.listener[0] = 0;
                 stream.listener[1] = 0;
@@ -540,106 +540,106 @@ void __cdecl TickFrame()
             stream.listener = nullptr;
         }
     }
-    if (FrameCount() & 0x3F)
+    if (frame_count() & 0x3F)
         return;
-    int playlist = CurrentPlaylist();
-    if (g_musicVolume == 0.0f && playlist != 1) // (the music volume)
+    int playlist = current_playlist();
+    if (g_music_volume == 0.0f && playlist != 1) // (the music volume)
         return;
-    if (MusicIsPaused())
+    if (music_is_paused())
         return;
-    if (!RandomTrackOrder() && playlist != 1)
-        PlayNextTrackInOrder();
+    if (!random_track_order() && playlist != 1)
+        play_next_track_in_order();
     else
-        PlayNextTrack();
+        play_next_track();
 }
 
 // 0x00450220
-bool __cdecl StreamIdFinished(uint32_t id)
+bool __cdecl stream_id_finished(uint32_t id)
 {
     for (int i = 0; i < kStreams; ++i)
-        if (Streams()[i].id == id && Playing(Streams()[i]))
+        if (get_streams()[i].id == id && get_playing(get_streams()[i]))
             return false;
     return true;
 }
 
 // 0x00450260
-int __cdecl FindPlayingStream(uint32_t idOrName)
+int __cdecl find_playing_stream(uint32_t id_or_name)
 {
     for (int i = 0; i < kStreams; ++i)
-        if (Streams()[i].id == idOrName && Playing(Streams()[i]))
+        if (get_streams()[i].id == id_or_name && get_playing(get_streams()[i]))
             return i;
     for (int i = 0; i < kStreams; ++i)
-        if (Streams()[i].name == idOrName && Playing(Streams()[i]))
+        if (get_streams()[i].name == id_or_name && get_playing(get_streams()[i]))
             return i;
     return -1;
 }
 
 // 0x004502D0
-uint32_t __cdecl FreeStreamId(uint32_t id)
+uint32_t __cdecl free_stream_id(uint32_t id)
 {
     for (;; ++id) {
         bool used = false;
         for (int i = 0; i < kStreams && !used; ++i)
-            used = Streams()[i].id == id && Playing(Streams()[i]);
+            used = get_streams()[i].id == id && get_playing(get_streams()[i]);
         if (!used)
             return id;
     }
 }
 
-// 0x00450310 (with the game's random numbers: PartyMod's shuffle change is only in PlayNextTrack's)
-void __cdecl ShuffleUserSoundtrack()
+// 0x00450310 (with the game's random numbers: PartyMod's shuffle change is only in play_next_track's)
+void __cdecl shuffle_user_soundtrack()
 {
-    int count = UserSoundtrackTracks(UserSoundtrack()); // the soundtrack's tracks
+    int count = user_soundtrack_tracks(user_soundtrack()); // the soundtrack's tracks
     if (count == 0)
         return;
     if (count > kUserOrderSize)
         count = kUserOrderSize;
-    int last = UserOrder()[count - 1]; // (the last of the order before - not the track played last)
+    int last = user_order()[count - 1]; // (the last of the order before - not the track played last)
     for (int i = 0; i < count; ++i)
-        UserOrder()[i] = i;
+        user_order()[i] = i;
     for (int i = 0; i < 2000; ++i) {
-        int a = Maths::Rnd(count);
-        int b = Maths::Rnd(count);
-        int swap = UserOrder()[a];
-        UserOrder()[a] = UserOrder()[b];
-        UserOrder()[b] = swap;
+        int a = maths::rnd(count);
+        int b = maths::rnd(count);
+        int swap = user_order()[a];
+        user_order()[a] = user_order()[b];
+        user_order()[b] = swap;
     }
-    if (UserOrder()[0] == last) {
-        int other = count > 1 ? Maths::Rnd(count - 1) + 1 : 0;
-        int swap = UserOrder()[0];
-        UserOrder()[0] = UserOrder()[other];
-        UserOrder()[other] = swap;
+    if (user_order()[0] == last) {
+        int other = count > 1 ? maths::rnd(count - 1) + 1 : 0;
+        int swap = user_order()[0];
+        user_order()[0] = user_order()[other];
+        user_order()[other] = swap;
     }
 }
 
 // 0x004503D0
-void __cdecl UseUserSoundtrack(int soundtrack)
+void __cdecl use_user_soundtrack(int soundtrack)
 {
-    UserSoundtrack() = soundtrack;
-    CustomSoundtrackActive() = true;
-    if (ShuffleUser()) {
-        ShuffleUserSoundtrack();
-        UserPosition() = 0;
-        UserTrack() = UserOrder()[0];
+    user_soundtrack() = soundtrack;
+    custom_soundtrack_active() = true;
+    if (shuffle_user()) {
+        shuffle_user_soundtrack();
+        user_position() = 0;
+        user_track() = user_order()[0];
     } else {
-        UserTrack() = 0;
+        user_track() = 0;
     }
 }
 
 // 0x00450410
-void __cdecl UseStandardSoundtrack() { CustomSoundtrackActive() = false; }
+void __cdecl use_standard_soundtrack() { custom_soundtrack_active() = false; }
 
 // 0x00450420
-void __cdecl StopUserSoundtrack() { StopStreamThread(); }
+void __cdecl stop_user_soundtrack() { stop_stream_thread(); }
 
 // 0x004B2350
-int __cdecl GetNumSoundtracks() { return UserSoundtrackCount(); }
+int __cdecl get_num_soundtracks() { return user_soundtrack_count(); }
 
 // 0x004B2360
-const char* __cdecl GetSoundtrackName(int index)
+const char* __cdecl get_soundtrack_name(int index)
 {
-    char* name = g_soundtrackName;
-    const wchar_t* wide = UserSoundtrackName(index); // (null past the last)
+    char* name = g_soundtrack_name;
+    const wchar_t* wide = user_soundtrack_name(index); // (null past the last)
     if (wide) {
         char* out = name;
         int length = 0;
@@ -666,39 +666,39 @@ const char* __cdecl GetSoundtrackName(int index)
 }
 
 // 0x00450430
-bool __cdecl MusicIsPaused() { return g_bgmHeld; }
+bool __cdecl music_is_paused() { return g_bgm_held; }
 
 // 0x00450440
-float __cdecl GetMusicVolume() { return g_musicVolume; }
+float __cdecl get_music_volume() { return g_music_volume; }
 
 // 0x00450450
-float __cdecl GetSfxVolume() { return g_musicStreamVolume; }
+float __cdecl get_sfx_volume() { return g_music_stream_volume; }
 
 // 0x00450460
-int __cdecl RandomTrackOrder() { return g_randomOrder; }
+int __cdecl random_track_order() { return g_random_order; }
 
 // 0x00450470
-void __cdecl SetMusicLooping(bool loop) { Looping() = loop; }
+void __cdecl set_music_looping(bool loop) { get_looping() = loop; }
 
 // 0x00450480
-void __cdecl GetTracksOff(uint64_t* low, uint64_t* high)
+void __cdecl get_tracks_off(uint64_t* low, uint64_t* high)
 {
-    *low = Playlists()[0].off[0];
-    *high = Playlists()[0].off[1];
+    *low = get_playlists()[0].off[0];
+    *high = get_playlists()[0].off[1];
 }
 
 // 0x004504B0
-void __cdecl SetTracksOff(uint64_t low, uint64_t high)
+void __cdecl set_tracks_off(uint64_t low, uint64_t high)
 {
-    Playlists()[0].off[0] = low;
-    Playlists()[0].off[1] = high;
+    get_playlists()[0].off[0] = low;
+    get_playlists()[0].off[1] = high;
 }
 
 // 0x004504E0
-void __cdecl SetUserSoundtrackVolume(float volume)
+void __cdecl set_user_soundtrack_volume(float volume)
 {
-    if (CurrentPlaylist() == 1)
-        PlatformSetMusicVolume(volume);
+    if (current_playlist() == 1)
+        platform_set_music_volume(volume);
 }
 
 } // namespace Pcm

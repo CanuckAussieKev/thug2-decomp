@@ -4,7 +4,7 @@
 
 #include "engine/maths/vec4.h"
 
-namespace Maths {
+namespace maths {
 
 // Integer rectangle. Field meanings are assumed (left, top, right, bottom) until its users are decompiled.
 struct Rect2 {
@@ -16,7 +16,7 @@ struct Rect2 {
 // Axis-aligned bounding box.
 class BBox {
 public:
-    // An "empty" box: min at +10,000,000 and max at -10,000,000, so the first AppendSpot sets both.
+    // An "empty" box: min at +10,000,000 and max at -10,000,000, so the first append_spot sets both.
     BBox();
     // A zero-size box at `point`.
     explicit BBox(const Vec4& point);
@@ -24,26 +24,26 @@ public:
     // 0x0040AB00
     BBox& operator=(const BBox& other);
     // Grow the box to include `point` (x, y, z only).
-    void AppendSpot(const Vec4& point);
+    void append_spot(const Vec4& point);
     // 0x0040B170: whether the boxes overlap (edges touching counts; NaN doesn't rule it out).
-    bool Intersects(const BBox& other) const;
+    bool intersects(const BBox& other) const;
     // 0x0040B1D0: whether `other` lies within this box (edges included; NaN rules it out).
-    bool Holds(const BBox& other) const;
+    bool get_holds(const BBox& other) const;
     // Centre of the box (w = 1).
-    Vec4& GetCenter(Vec4& out) const;
+    Vec4& get_center(Vec4& out) const;
 
     // 1 if min <= point <= max on every axis (edges included; NaN gives 0). Returns int: the original sets
     // all of EAX.
-    int ContainsPoint(const Vec4& point) const;
+    int contains_point(const Vec4& point) const;
     // Number of axes (0-3) on which point lies within the box; `axes` gets a bit per axis (1 = x, 2 = y, 4 = z).
-    int CountAxesContaining(const Vec4& point, uint32_t& axes) const;
+    int count_axes_containing(const Vec4& point, uint32_t& axes) const;
     // Where the segment first enters the box through a face, checking +X, -X, +Y, -Y, +Z, -Z in that order.
     // Fills `hit` (w = 1) and the face's outward normal. False if both ends are inside, both are beyond the
     // same face, or the segment misses every face.
-    bool SegmentCrossing(const Seg& line, Vec4& hit, Vec4& normal) const;
+    bool segment_crossing(const Seg& line, Vec4& hit, Vec4& normal) const;
     // For a point inside: the nearest point on the surface (moving along one axis; ties go to the earlier
     // axis, and to max over min). For a point outside: the point clamped onto the box, w = 1.
-    void GetClosestSurfacePoint(const Vec4& point, Vec4& out) const;
+    void get_closest_surface_point(const Vec4& point, Vec4& out) const;
 
     Vec4 min;
     Vec4 max;
@@ -59,16 +59,16 @@ public:
     Capsule(const Seg& line, float radius);
 
     // Sphere volume plus the cylinder along the segment.
-    float Loudness() const;
+    float get_loudness() const;
 
     // True if `point` is within the capsule. If `offset` is given it receives the point's offset from the
     // closest point on the segment (whether or not the point is inside).
-    bool ContainsPoint(const Vec4& point, Vec4* offset) const;
+    bool contains_point(const Vec4& point, Vec4* offset) const;
 
     // 1 if `segment` passes within the capsule, else 0. Optionally reports where (s on the capsule's line,
-    // t on the segment, see Seg::DistanceSqrToLine) and the squared distance between them. Returns int, not
+    // t on the segment, see Seg::distance_sqr_to_line) and the squared distance between them. Returns int, not
     // bool: the original sets all of EAX.
-    int IntersectsSegment(const Seg& segment, float* s, float* t, float* squaredGap) const;
+    int intersects_segment(const Seg& segment, float* s, float* t, float* squared_gap) const;
 
     Seg line;
     float radius;
@@ -86,6 +86,6 @@ struct Sphere {
 
 // 0x004817D0 (cdecl): whether `point` is no further than `max` and no nearer than `min` on x, y and z (edges
 // included; a NaN rules nothing out).
-bool __cdecl PointInBox(const Vec4* point, const Vec4* max, const Vec4* min);
+bool __cdecl point_in_box(const Vec4* point, const Vec4* max, const Vec4* min);
 
 } // namespace Mth

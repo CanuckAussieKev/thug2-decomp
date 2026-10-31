@@ -1,6 +1,6 @@
 #pragma once
 
-// The net library's list types (Neversoft's ListKit::Elem<T> / ListKit::Foremost<T> / ListKit::Hunt<T> instances): their
+// The net library's list types (Neversoft's lists::Elem<T> / lists::Foremost<T> / lists::Hunt<T> instances): their
 // destructors, and BlockedConnEntry (an address an App refuses connections from). Each type has its own vtable
 // holding only its scalar deleting destructor; the linker folded identical vtables, so one may stand for a
 // node type and a head type at once.
@@ -10,84 +10,84 @@
 
 #include "engine/core/arena_alloc.h"
 
-namespace NetLink {
+namespace net {
 
-extern void** const kConnNodeVtable;       // ListKit::Elem<Conn>
-extern void** const kConnHeadVtable;       // ListKit::Foremost<Conn>
-extern void** const kBannedConnNodeVtable; // ListKit::Elem<BlockedConnEntry>
-extern void** const kBannedConnVtable;     // BlockedConnEntry, ListKit::Foremost<BlockedConnEntry>
-extern void** const kMsgHandlerNodeVtable; // ListKit::Elem<NoteHandler>
-extern void** const kMsgHandlerHeadVtable; // ListKit::Foremost<NoteHandler>
-extern void** const kConnSearchVtable;       // ListKit::Hunt<Conn>
-extern void** const kBannedConnSearchVtable; // ListKit::Hunt<BlockedConnEntry>
+extern void** const kConnNodeVtable;       // lists::Elem<Conn>
+extern void** const kConnHeadVtable;       // lists::Foremost<Conn>
+extern void** const kBannedConnNodeVtable; // lists::Elem<BlockedConnEntry>
+extern void** const kBannedConnVtable;     // BlockedConnEntry, lists::Foremost<BlockedConnEntry>
+extern void** const kMsgHandlerNodeVtable; // lists::Elem<NoteHandler>
+extern void** const kMsgHandlerHeadVtable; // lists::Foremost<NoteHandler>
+extern void** const kConnSearchVtable;       // lists::Hunt<Conn>
+extern void** const kBannedConnSearchVtable; // lists::Hunt<BlockedConnEntry>
 
-// A node (or head) of a Dispatcher's handler lists (ListKit::Elem<NoteHandler>).
-struct MsgHandlerNode : MemSys::ListNode {
-    // 0x00457010: a head's constructor (ListKit::Foremost<NoteHandler>, vtable 0x006475E8): an empty list.
-    MsgHandlerNode* ConstructHead();
+// A node (or head) of a Dispatcher's handler lists (lists::Elem<NoteHandler>).
+struct MsgHandlerNode : memory::ListNode {
+    // 0x00457010: a head's constructor (lists::Foremost<NoteHandler>, vtable 0x006475E8): an empty list.
+    MsgHandlerNode* construct_head();
     // 0x00457030: the destructor body: out of its list (and linked to itself).
-    void DestroyBody();
+    void destroy_body();
     // 0x00457090: the scalar deleting destructor.
-    MsgHandlerNode* Teardown(unsigned int flags);
+    MsgHandlerNode* teardown(unsigned int flags);
 };
 
 // The handler lists a Dispatcher (wt/netC) starts with: one per message id 0..254.
 struct HandlerLists {
     static constexpr int kCount = 255;
-    MsgHandlerNode m_lists[kCount];
+    MsgHandlerNode lists_[kCount];
 
     // 0x00457260: the Dispatcher's destructor: each list's, last to first (the compiler's array-destructor
     // helper 0x0062382B).
-    void Teardown();
+    void teardown();
 };
 static_assert(sizeof(HandlerLists) == 0x13EC, "layout must match the original");
 
-// A connection's node in its App's connection list, and that list's head (ListKit::Elem<Conn> / ListKit::Foremost<Conn>).
-struct ConnNode : MemSys::ListNode {
+// A connection's node in its App's connection list, and that list's head (lists::Elem<Conn> / lists::Foremost<Conn>).
+struct ConnNode : memory::ListNode {
     // 0x00457050: the destructor body.
-    void DestroyBody();
+    void destroy_body();
     // 0x004573A0: the head's scalar deleting destructor.
-    ConnNode* DestroyHead(unsigned int flags);
+    ConnNode* destroy_head(unsigned int flags);
     // 0x00455BD0: the node's scalar deleting destructor (vtable 0x00647574).
-    ConnNode* Teardown(unsigned int flags);
+    ConnNode* teardown(unsigned int flags);
 };
 
-// ListKit::Elem<BlockedConnEntry> (the head of an App's banned list is one too).
-struct BannedConnNode : MemSys::ListNode {
+// lists::Elem<BlockedConnEntry> (the head of an App's banned list is one too).
+struct BannedConnNode : memory::ListNode {
     // 0x00457070: the destructor body.
-    void DestroyBody();
+    void destroy_body();
     // 0x004570D0: the scalar deleting destructor.
-    BannedConnNode* Teardown(unsigned int flags);
+    BannedConnNode* teardown(unsigned int flags);
 };
 
-// An address an App doesn't accept connections from: a node whose data is itself (made by AppHost::BlockConnection).
+// An address an App doesn't accept connections from: a node whose data is itself (made by AppHost::block_connection).
 struct BlockedConnEntry : BannedConnNode {
-    uint32_t m_remoteIp; // +0x14
+    uint32_t remote_ip_; // +0x14
 
-    // 0x00457460: the scalar deleting destructor (BlockedConnEntry's and ListKit::Foremost<BlockedConnEntry>'s).
-    BlockedConnEntry* DestroyBanned(unsigned int flags);
+    // 0x00457460: the scalar deleting destructor (BlockedConnEntry's and lists::Foremost<BlockedConnEntry>'s).
+    BlockedConnEntry* destroy_banned(unsigned int flags);
 };
-static_assert(offsetof(BlockedConnEntry, m_remoteIp) == 0x14 && sizeof(BlockedConnEntry) == 0x18, "layout must match the original");
+static_assert(offsetof(BlockedConnEntry, remote_ip_) == 0x14 && sizeof(BlockedConnEntry) == 0x18, "layout must match the original");
 
 // A list search as the game lays it out: the vtable (its virtual destructor), then the current node (see
-// ListKit::Hunt). The destructors only reset the vtable.
+// lists::Hunt). The destructors only reset the vtable.
 struct ConnSearch {
-    void** m_vtable;
-    MemSys::ListNode* m_listLink;
+    void** vtable_;
+    memory::ListNode* list_link_;
 
     // 0x00456B80
-    void DestroyBody();
+    void destroy_body();
     // 0x00456FB0 (scalar deleting)
-    ConnSearch* Teardown(unsigned int flags);
+    ConnSearch* teardown(unsigned int flags);
 };
 struct BannedConnSearch {
-    void** m_vtable;
-    MemSys::ListNode* m_listLink;
+    void** vtable_;
+    memory::ListNode* list_link_;
 
     // 0x00456B90
-    void DestroyBody();
+    void destroy_body();
     // 0x00456FE0 (scalar deleting)
-    BannedConnSearch* Teardown(unsigned int flags);
+    BannedConnSearch* teardown(unsigned int flags);
 };
 
 } // namespace Net

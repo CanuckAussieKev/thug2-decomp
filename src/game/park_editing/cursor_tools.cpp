@@ -8,145 +8,145 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 
-namespace ParkEditing {
+namespace park_editing {
 
-MemSys::PoolPair g_clipboardPools;
-CBuildPointer* g_cursor;
+memory::PoolPair g_clipboard_pools;
+BuildPointer* g_cursor;
 
 namespace {
 
-// The gap manager in use's StoreGapDetails.
-void StoreGapDetails(int tab, SGapDetails* info) { CGapRegistry::Sole()->StoreGapDetails(tab, info); }
+// The gap manager in use's store_gap_details.
+void store_gap_details(int tab, GapDetails* info) { GapRegistry::sole()->store_gap_details(tab, info); }
 
 } // namespace
 
-void CClipboard::Dealloc(void* item) { g_clipboardPools.Dealloc(item); }
+void Clipboard::dealloc(void* item) { g_clipboard_pools.dealloc(item); }
 
-CBuildPointer* CBuildPointer::sSingleton() { return g_cursor; }
+BuildPointer* BuildPointer::singleton() { return g_cursor; }
 
-void CBuildPointer::HideClipboards()
+void BuildPointer::hide_clipboards()
 {
-    for (CClipboard* clipboard = m_copyBuffers; clipboard; clipboard = clipboard->m_following)
-        clipboard->FreeAllPieceGroups();
+    for (Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following_)
+        clipboard->free_all_piece_groups();
 }
 
-void CBuildPointer::SetGapLabelAndPoints(const char* name, int score)
+void BuildPointer::set_gap_label_and_points(const char* name, int score)
 {
     if (name) {
         if (*name == '\0') {
-            m_gap.m_text[0] = 'x';
-            m_gap.m_text[1] = '\0';
+            gap_.text_[0] = 'x';
+            gap_.text_[1] = '\0';
         } else {
-            char* to = m_gap.m_text;
+            char* to = gap_.text_;
             while ((*to++ = *name++) != '\0') { // (no length limit, as in the original)
             }
         }
     }
     if (score >= 0)
-        m_gap.m_pointsHeld = score;
-    StoreGapDetails(m_gap.m_slotIndex, &m_gap);
+        gap_.points_held_ = score;
+    store_gap_details(gap_.slot_index_, &gap_);
 }
 
-void CBuildPointer::SetGapVoidMask(Scripts::CStruct* flags)
+void BuildPointer::set_gap_void_mask(script::Struct* flags)
 {
     if (!flags)
         return;
     uint32_t cancel = 0;
-    for (Scripts::CComponent* component = flags->StepToEntry(nullptr); component;
-         component = flags->StepToEntry(component))
-        cancel |= static_cast<uint32_t>(Scripts::FetchIntValue(component->checksum));
-    m_gap.m_cancelFlags = cancel;
-    StoreGapDetails(m_gap.m_slotIndex, &m_gap);
+    for (script::Component* component = flags->step_to_entry(nullptr); component;
+         component = flags->step_to_entry(component))
+        cancel |= static_cast<uint32_t>(script::fetch_int_value(component->checksum));
+    gap_.cancel_flags_ = cancel;
+    store_gap_details(gap_.slot_index_, &gap_);
 }
 
-void CBuildPointer::ShowClipboard()
+void BuildPointer::show_clipboard()
 {
-    if (m_clipboard)
-        m_clipboard->ShowAt(this);
+    if (clipboard_)
+        clipboard_->show_at(this);
 }
 
-void CBuildPointer::SelectClipboard(int index)
+void BuildPointer::select_clipboard(int index)
 {
-    HideClipboards();
-    CClipboard* clipboard = m_copyBuffers;
+    hide_clipboards();
+    Clipboard* clipboard = copy_buffers_;
     for (int i = 0; i < index && clipboard; ++i)
-        clipboard = clipboard->m_following;
-    m_clipboard = clipboard;
+        clipboard = clipboard->following_;
+    clipboard_ = clipboard;
 }
 
-void CBuildPointer::ToggleShown(bool visible)
+void BuildPointer::toggle_shown(bool visible)
 {
-    if (m_pieceGroup)
-        m_pieceGroup->ToggleShown(visible);
-    if (!visible && m_clipboard)
-        m_clipboard->FreeAllPieceGroups();
-    m_areaHighlighted = false;
+    if (piece_group_)
+        piece_group_->toggle_shown(visible);
+    if (!visible && clipboard_)
+        clipboard_->free_all_piece_groups();
+    area_highlighted_ = false;
 }
 
-void CBuildPointer::OnModeChanged()
+void BuildPointer::on_mode_changed()
 {
-    Scripts::CStruct params;
-    params.PrepareAll();
+    script::Struct params;
+    params.prepare_all();
     uint32_t mode;
-    if (m_modeSel == kModeGapAdjust)
+    if (mode_sel_ == kModeGapAdjust)
         mode = 0xE75A3A17; // gap_adjust
-    else if (m_modeSel == kModeGap)
+    else if (mode_sel_ == kModeGap)
         mode = 0x780A5CF3; // gap_regular
-    else if (m_modeSel == kModeRailPlacement)
+    else if (mode_sel_ == kModeRailPlacement)
         mode = 0xFFD81C08; // rail_placement
     else
         mode = 0xB58EFC2B; // regular
-    params.PutNameKey(0x6835B854, mode); // mode
-    Scripts::LaunchScript(0x9DB065AD, &params, nullptr, false, nullptr); // parked_set_helper_text_mode
-    params.Clear();
+    params.put_name_key(0x6835B854, mode); // mode
+    script::launch_script(0x9DB065AD, &params, nullptr, false, nullptr); // parked_set_helper_text_mode
+    params.get_clear();
 }
 
-void CBuildPointer::GetMarqueeBounds(SCellBox* area)
+void BuildPointer::get_marquee_bounds(CellBox* area)
 {
-    if (m_boxSelectStage == 0) {
-        area->AssignValue(0, 0, 0, 0, 0, 0);
+    if (box_select_stage_ == 0) {
+        area->assign_value(0, 0, 0, 0, 0, 0);
         return;
     }
-    uint8_t lowX = m_areaStart.x, highX = m_areaLast.x;
-    if (highX < lowX) {
-        lowX = m_areaLast.x;
-        highX = m_areaStart.x;
+    uint8_t low_x = area_start_.x, high_x = area_last_.x;
+    if (high_x < low_x) {
+        low_x = area_last_.x;
+        high_x = area_start_.x;
     }
-    uint8_t lowZ = m_areaStart.z, highZ = m_areaLast.z;
-    if (highZ < lowZ) {
-        lowZ = m_areaLast.z;
-        highZ = m_areaStart.z;
+    uint8_t low_z = area_start_.z, high_z = area_last_.z;
+    if (high_z < low_z) {
+        low_z = area_last_.z;
+        high_z = area_start_.z;
     }
-    area->x = lowX;
-    area->z = lowZ;
+    area->x = low_x;
+    area->z = low_z;
     area->y = 0;
-    area->w = static_cast<uint8_t>(highX - lowX + 1);
+    area->w = static_cast<uint8_t>(high_x - low_x + 1);
     area->h = 1;
-    area->l = static_cast<uint8_t>(highZ - lowZ + 1);
+    area->l = static_cast<uint8_t>(high_z - low_z + 1);
 }
 
-void CBuildPointer::RemoveOldestClipboard()
+void BuildPointer::remove_oldest_clipboard()
 {
-    CClipboard* previous = nullptr;
-    CClipboard* last = m_copyBuffers;
+    Clipboard* previous = nullptr;
+    Clipboard* last = copy_buffers_;
     if (!last)
         return;
-    while (last->m_following) {
+    while (last->following_) {
         previous = last;
-        last = last->m_following;
+        last = last->following_;
     }
-    last->Teardown();
-    CClipboard::Dealloc(last);
+    last->teardown();
+    Clipboard::dealloc(last);
     if (previous)
-        previous->m_following = nullptr;
+        previous->following_ = nullptr;
     else
-        m_copyBuffers = nullptr;
+        copy_buffers_ = nullptr;
 }
 
-void CBuildPointer::ClampToPark()
+void BuildPointer::clamp_to_park()
 {
-    const SCellBox& bounds = m_parkOwner->m_buildArea;
-    SCellBox& pos = m_cellFootprint;
+    const CellBox& bounds = park_owner_->build_area_;
+    CellBox& pos = cell_footprint_;
     if (pos.x < bounds.x)
         pos.x = bounds.x;
     if (pos.w + pos.x > bounds.w + bounds.x)
@@ -156,12 +156,12 @@ void CBuildPointer::ClampToPark()
     if (pos.l + pos.z > bounds.l + bounds.z)
         pos.z = static_cast<uint8_t>(bounds.l - pos.l + bounds.z);
 
-    if (m_modeSel != kModePaste || !m_clipboard)
+    if (mode_sel_ != kModePaste || !clipboard_)
         return;
     // the pasted area (whose corner may be off the grid: signed) is pushed back inside too
-    SCellBox area;
-    area.AssignValue(0, 0, 0, 0, 0, 0);
-    m_clipboard->FetchExtent(this, &area);
+    CellBox area;
+    area.assign_value(0, 0, 0, 0, 0, 0);
+    clipboard_->fetch_extent(this, &area);
     int last = bounds.w + bounds.x - 1;
     int shift = 0;
     if (static_cast<int8_t>(area.x) < bounds.x)
@@ -180,50 +180,50 @@ void CBuildPointer::ClampToPark()
     pos.z = static_cast<uint8_t>(pos.z + shift);
 }
 
-void CBuildPointer::FreeCopyBuffers()
+void BuildPointer::free_copy_buffers()
 {
-    CClipboard* clipboard = m_copyBuffers;
+    Clipboard* clipboard = copy_buffers_;
     while (clipboard) {
-        CClipboard* next = clipboard->m_following;
-        clipboard->Teardown();
-        CClipboard::Dealloc(clipboard);
+        Clipboard* next = clipboard->following_;
+        clipboard->teardown();
+        Clipboard::dealloc(clipboard);
         clipboard = next;
     }
-    m_clipboard = nullptr;
+    clipboard_ = nullptr;
 }
 
-void CBuildPointer::ForgetGapAt(CPieceGroup* meta)
+void BuildPointer::forget_gap_at(PieceGroup* meta)
 {
-    SCellBox area = meta->m_cellFootprint;
+    CellBox area = meta->cell_footprint_;
     int half;
-    SGapDetails* gap = m_parkOwner->GetGapInfo(&area, &half);
+    GapDetails* gap = park_owner_->get_gap_info(&area, &half);
     if (!gap)
         return;
-    if (m_gap.m_halvesPlaced != 1 ||
-        (gap->m_atPoint[0].x == m_gap.m_atPoint[0].x && gap->m_atPoint[0].y == m_gap.m_atPoint[0].y &&
-         gap->m_atPoint[0].z == m_gap.m_atPoint[0].z))
-        m_gap.m_halvesPlaced = 0;
+    if (gap_.halves_placed_ != 1 ||
+        (gap->at_point_[0].x == gap_.at_point_[0].x && gap->at_point_[0].y == gap_.at_point_[0].y &&
+         gap->at_point_[0].z == gap_.at_point_[0].z))
+        gap_.halves_placed_ = 0;
 }
 
-int CBuildPointer::AdvanceAreaSelection()
+int BuildPointer::advance_area_selection()
 {
-    if (m_boxSelectStage == 0) {
-        m_areaStart = m_cellFootprint;
-        m_areaLast = m_cellFootprint;
-        m_boxSelectStage = 1;
-        m_areaHighlighted = false;
-        return m_boxSelectStage;
+    if (box_select_stage_ == 0) {
+        area_start_ = cell_footprint_;
+        area_last_ = cell_footprint_;
+        box_select_stage_ = 1;
+        area_highlighted_ = false;
+        return box_select_stage_;
     }
-    if (m_boxSelectStage == 1) {
-        SCellBox area;
-        area.AssignValue(0, 0, 0, 0, 0, 0);
-        GetMarqueeBounds(&area);
+    if (box_select_stage_ == 1) {
+        CellBox area;
+        area.assign_value(0, 0, 0, 0, 0, 0);
+        get_marquee_bounds(&area);
         if (area.w <= 10 && area.l <= 10)
-            m_boxSelectStage = 2;
+            box_select_stage_ = 2;
     }
-    return m_boxSelectStage;
+    return box_select_stage_;
 }
 
 } // namespace Ed
 
-using ParkEditing::CBuildPointer;
+using park_editing::BuildPointer;

@@ -24,27 +24,27 @@
 #include "engine/objects/entity.h"
 #include "platform/run_log.h"
 
-namespace MenuSystem::LevelEditor::Organize {
+namespace frontend::level_editor::organize {
 
 // --- the pure parts --------------------------------------------------------------------------------------------------
 
 namespace {
 
-std::string Lower(std::string text)
+std::string get_lower(std::string text)
 {
     for (char& c : text)
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     return text;
 }
 
-std::string HexText(uint32_t value)
+std::string hex_text(uint32_t value)
 {
     char text[16];
     std::snprintf(text, sizeof(text), "%08X", value);
     return text;
 }
 
-bool ParseHex8(const std::string& text, uint32_t* value)
+bool parse_hex8(const std::string& text, uint32_t* value)
 {
     if (text.size() != 8)
         return false;
@@ -56,7 +56,7 @@ bool ParseHex8(const std::string& text, uint32_t* value)
     return true;
 }
 
-bool SameGroups(const std::vector<GroupSet>& a, const std::vector<GroupSet>& b)
+bool same_groups(const std::vector<GroupSet>& a, const std::vector<GroupSet>& b)
 {
     if (a.size() != b.size())
         return false;
@@ -69,52 +69,52 @@ bool SameGroups(const std::vector<GroupSet>& a, const std::vector<GroupSet>& b)
 
 } // namespace
 
-bool SameState(const State& a, const State& b)
+bool same_state(const State& a, const State& b)
 {
-    return SameGroups(a.groups, b.groups) && a.labels == b.labels && a.locked == b.locked &&
+    return same_groups(a.groups, b.groups) && a.labels == b.labels && a.locked == b.locked &&
            a.unpickable == b.unpickable && a.snapshot == b.snapshot;
 }
 
-std::string WriteRecords(const State& state)
+std::string write_records(const State& state)
 {
     std::string out;
     for (const GroupSet& g : state.groups) {
-        out += "group " + Fields::Escape(g.name) + " ";
+        out += "group " + fields::escape(g.name) + " ";
         if (g.members.empty())
             out += "-";
         for (size_t i = 0; i < g.members.size(); ++i) {
             out += i ? "," : "";
             out += g.members[i].kind;
-            out += ":" + HexText(g.members[i].id);
+            out += ":" + hex_text(g.members[i].id);
         }
         out += "\n";
     }
     for (const auto& l : state.labels)
-        out += "label " + HexText(l.first) + " " + Fields::Escape(l.second) + "\n";
+        out += "label " + hex_text(l.first) + " " + fields::escape(l.second) + "\n";
     for (uint32_t id : state.locked)
-        out += "edlock " + HexText(id) + "\n";
+        out += "edlock " + hex_text(id) + "\n";
     for (uint32_t id : state.unpickable)
-        out += "nopick " + HexText(id) + "\n";
+        out += "nopick " + hex_text(id) + "\n";
     if (!state.snapshot.empty())
         out += "snapshot " + state.snapshot + "\n";
     return out;
 }
 
-bool IsRecord(const std::string& keyword)
+bool is_record(const std::string& keyword)
 {
     return keyword == "group" || keyword == "label" || keyword == "edlock" || keyword == "nopick" || keyword == "snapshot";
 }
 
-bool ReadRecord(const std::string& line, State* state)
+bool read_record(const std::string& line, State* state)
 {
     std::istringstream in(line);
     std::string keyword, a, b;
-    if (!(in >> keyword) || !IsRecord(keyword) || !(in >> a))
+    if (!(in >> keyword) || !is_record(keyword) || !(in >> a))
         return false;
     if (keyword == "group") {
         GroupSet g;
         std::string name;
-        if (!(in >> b) || !Fields::Unescape(a, &name) || !CleanName(name, &g.name))
+        if (!(in >> b) || !fields::unescape(a, &name) || !clean_name(name, &g.name))
             return false;
         if (b != "-") {
             std::istringstream list(b);
@@ -122,7 +122,7 @@ bool ReadRecord(const std::string& line, State* state)
             while (std::getline(list, item, ',')) {
                 Member m;
                 if (item.size() != 10 || item[1] != ':' || (item[0] != 'o' && item[0] != 's' && item[0] != 'n') ||
-                    !ParseHex8(item.substr(2), &m.id))
+                    !parse_hex8(item.substr(2), &m.id))
                     return false;
                 m.kind = item[0];
                 if (std::find(g.members.begin(), g.members.end(), m) == g.members.end())
@@ -137,26 +137,26 @@ bool ReadRecord(const std::string& line, State* state)
         return true;
     }
     if (keyword == "snapshot") {
-        if (!ValidSnapshotName(a))
+        if (!valid_snapshot_name(a))
             return false;
         state->snapshot = a;
         return true;
     }
     uint32_t id = 0;
-    if (!ParseHex8(a, &id))
+    if (!parse_hex8(a, &id))
         return false;
     if (keyword == "label") {
         std::string text, clean;
-        if (!(in >> b) || !Fields::Unescape(b, &text) || !CleanName(text, &clean))
+        if (!(in >> b) || !fields::unescape(b, &text) || !clean_name(text, &clean))
             return false;
-        SetLabel(state, id, clean);
+        set_label(state, id, clean);
         return true;
     }
     Switch(keyword == "edlock" ? &state->locked : &state->unpickable, id, true);
     return true;
 }
 
-bool CleanName(const std::string& text, std::string* out)
+bool clean_name(const std::string& text, std::string* out)
 {
     size_t a = text.find_first_not_of(" \t"), b = text.find_last_not_of(" \t");
     if (a == std::string::npos)
@@ -172,7 +172,7 @@ bool CleanName(const std::string& text, std::string* out)
     return true;
 }
 
-std::string LabelOf(const State& state, uint32_t id)
+std::string get_label_of(const State& state, uint32_t id)
 {
     for (const auto& l : state.labels) {
         if (l.first == id)
@@ -181,7 +181,7 @@ std::string LabelOf(const State& state, uint32_t id)
     return "";
 }
 
-void SetLabel(State* state, uint32_t id, const std::string& text)
+void set_label(State* state, uint32_t id, const std::string& text)
 {
     auto it = std::find_if(state->labels.begin(), state->labels.end(), [&](const auto& l) { return l.first == id; });
     if (text.empty()) {
@@ -195,7 +195,7 @@ void SetLabel(State* state, uint32_t id, const std::string& text)
         state->labels.push_back({id, text});
 }
 
-bool Has(const std::vector<uint32_t>& list, uint32_t id) { return std::find(list.begin(), list.end(), id) != list.end(); }
+bool get_has(const std::vector<uint32_t>& list, uint32_t id) { return std::find(list.begin(), list.end(), id) != list.end(); }
 
 void Switch(std::vector<uint32_t>* list, uint32_t id, bool on)
 {
@@ -206,9 +206,9 @@ void Switch(std::vector<uint32_t>* list, uint32_t id, bool on)
         list->erase(it);
 }
 
-bool FamilyOfWord(const std::string& word, Nodes::Family* family)
+bool family_of_word(const std::string& word, nodes::Family* family)
 {
-    std::string w = Lower(word);
+    std::string w = get_lower(word);
     if (w.empty())
         return false;
     // (a few words of our own beside the families' names)
@@ -220,18 +220,18 @@ bool FamilyOfWord(const std::string& word, Nodes::Family* family)
         w = "triggers";
     else if (w == "piece" || w == "pieces")
         w = "scenery";
-    for (int f = 0; f < Nodes::kFamilies; ++f) {
-        std::string name = Lower(Nodes::FamilyName(static_cast<Nodes::Family>(f)));
+    for (int f = 0; f < nodes::kFamilies; ++f) {
+        std::string name = get_lower(nodes::family_name(static_cast<nodes::Family>(f)));
         std::string singular = !name.empty() && name.back() == 's' ? name.substr(0, name.size() - 1) : name;
         if (w == name || w == singular) {
-            *family = static_cast<Nodes::Family>(f);
+            *family = static_cast<nodes::Family>(f);
             return true;
         }
     }
     return false;
 }
 
-Filter ParseFilter(const std::string& search)
+Filter parse_filter(const std::string& search)
 {
     Filter filter;
     std::istringstream in(search);
@@ -239,8 +239,8 @@ Filter ParseFilter(const std::string& search)
     while (in >> word) {
         size_t colon = word.find(':');
         if (colon != std::string::npos && colon > 0) {
-            std::string key = Lower(word.substr(0, colon)), value = word.substr(colon + 1);
-            Nodes::Family family;
+            std::string key = get_lower(word.substr(0, colon)), value = word.substr(colon + 1);
+            nodes::Family family;
             if (key == "group") {
                 filter.group = value;
                 // ("group:Name With Spaces" - the rest of the words up to the next filter belong to it)
@@ -260,8 +260,8 @@ Filter ParseFilter(const std::string& search)
                 filter.hidden = true;
                 continue;
             }
-            if (FamilyOfWord(key, &family)) {
-                filter.families |= Nodes::Bit(family);
+            if (family_of_word(key, &family)) {
+                filter.families |= nodes::get_bit(family);
                 if (!value.empty())
                     rest += (rest.empty() ? "" : " ") + value;
                 continue;
@@ -273,12 +273,12 @@ Filter ParseFilter(const std::string& search)
     return filter;
 }
 
-bool RowPasses(const Filter& filter, Nodes::Family family, const std::string& name, const std::string& label,
-               bool inGroup, bool locked, bool hidden)
+bool row_passes(const Filter& filter, nodes::Family family, const std::string& name, const std::string& label,
+               bool in_group, bool locked, bool hidden)
 {
-    if (filter.families && !(filter.families & Nodes::Bit(family)))
+    if (filter.families && !(filter.families & nodes::get_bit(family)))
         return false;
-    if (!filter.group.empty() && !inGroup)
+    if (!filter.group.empty() && !in_group)
         return false;
     if (filter.labeled && label.empty())
         return false;
@@ -288,8 +288,8 @@ bool RowPasses(const Filter& filter, Nodes::Family family, const std::string& na
         return false;
     if (filter.text.empty())
         return true;
-    std::string haystack = Lower(name + " " + label);
-    std::istringstream words(Lower(filter.text));
+    std::string haystack = get_lower(name + " " + label);
+    std::istringstream words(get_lower(filter.text));
     for (std::string w; words >> w;) {
         if (haystack.find(w) == std::string::npos)
             return false;
@@ -297,25 +297,25 @@ bool RowPasses(const Filter& filter, Nodes::Family family, const std::string& na
     return true;
 }
 
-Rect2 RectOf(float ax, float ay, float bx, float by)
+Rect2 rect_of(float ax, float ay, float bx, float by)
 {
     return {std::min(ax, bx), std::min(ay, by), std::max(ax, bx), std::max(ay, by)};
 }
 
-bool CrossingDrag(float originCoordX, float lastColumn) { return lastColumn < originCoordX; }
+bool crossing_drag(float origin_coord_x, float last_column) { return last_column < origin_coord_x; }
 
-bool BoxTakes(const Rect2& box, const Rect2& thing, bool crossing)
+bool box_takes(const Rect2& box, const Rect2& thing, bool crossing)
 {
     if (crossing)
         return thing.x0 <= box.x1 && thing.x1 >= box.x0 && thing.y0 <= box.y1 && thing.y1 >= box.y0;
     return thing.x0 >= box.x0 && thing.x1 <= box.x1 && thing.y0 >= box.y0 && thing.y1 <= box.y1;
 }
 
-std::vector<uint32_t> Combine(const std::vector<uint32_t>& current, const std::vector<uint32_t>& found, int op)
+std::vector<uint32_t> combine(const std::vector<uint32_t>& current, const std::vector<uint32_t>& found, int op)
 {
     std::vector<uint32_t> out;
     auto add = [&](uint32_t id) {
-        if (!Has(out, id))
+        if (!get_has(out, id))
             out.push_back(id);
     };
     if (op == 0) {
@@ -328,18 +328,18 @@ std::vector<uint32_t> Combine(const std::vector<uint32_t>& current, const std::v
             add(id);
     } else {
         for (uint32_t id : current) {
-            if (!Has(found, id))
+            if (!get_has(found, id))
                 add(id);
         }
     }
     return out;
 }
 
-bool Alike(const Thing& a, const Thing& b, Similar by)
+bool alike(const Thing& a, const Thing& b, Similar by)
 {
     switch (by) {
-    case Similar::Mesh:
-        if (a.family == Nodes::Family::Scenery || b.family == Nodes::Family::Scenery) {
+    case Similar::kMesh:
+        if (a.family == nodes::Family::kScenery || b.family == nodes::Family::kScenery) {
             if (a.family != b.family)
                 return false;
             if (a.source && a.source == b.source)
@@ -347,20 +347,20 @@ bool Alike(const Thing& a, const Thing& b, Similar by)
             return std::fabs(a.size.x - b.size.x) <= 0.5f && std::fabs(a.size.y - b.size.y) <= 0.5f &&
                    std::fabs(a.size.z - b.size.z) <= 0.5f;
         }
-        return !a.model.empty() && Lower(a.model) == Lower(b.model);
-    case Similar::Class:
+        return !a.model.empty() && get_lower(a.model) == get_lower(b.model);
+    case Similar::kClass:
         return a.cls != 0 && a.cls == b.cls;
-    case Similar::Family:
+    case Similar::kFamily:
         return a.family == b.family;
-    case Similar::KindTag:
+    case Similar::kKindTag:
         return a.type != 0 && a.type == b.type;
     }
     return false;
 }
 
-bool ValidSnapshotName(const std::string& name)
+bool valid_snapshot_name(const std::string& name)
 {
-    if (name.empty() || name.size() > 32 || Lower(name) == "autosave")
+    if (name.empty() || name.size() > 32 || get_lower(name) == "autosave")
         return false;
     for (char c : name) {
         if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_' && c != '-')
@@ -369,16 +369,16 @@ bool ValidSnapshotName(const std::string& name)
     return true;
 }
 
-std::string SnapshotFileName(uint32_t scene, const std::string& name) { return HexText(scene) + "." + name + ".txt"; }
+std::string snapshot_file_name(uint32_t scene, const std::string& name) { return hex_text(scene) + "." + name + ".txt"; }
 
-bool SnapshotOf(const std::string& fileName, uint32_t scene, std::string* name)
+bool snapshot_of(const std::string& file_name, uint32_t scene, std::string* name)
 {
-    std::string prefix = HexText(scene) + ".";
-    if (fileName.size() <= prefix.size() + 4 || Lower(fileName.substr(0, prefix.size())) != Lower(prefix) ||
-        Lower(fileName.substr(fileName.size() - 4)) != ".txt")
+    std::string prefix = hex_text(scene) + ".";
+    if (file_name.size() <= prefix.size() + 4 || get_lower(file_name.substr(0, prefix.size())) != get_lower(prefix) ||
+        get_lower(file_name.substr(file_name.size() - 4)) != ".txt")
         return false;
-    std::string middle = fileName.substr(prefix.size(), fileName.size() - prefix.size() - 4);
-    if (!ValidSnapshotName(middle))
+    std::string middle = file_name.substr(prefix.size(), file_name.size() - prefix.size() - 4);
+    if (!valid_snapshot_name(middle))
         return false;
     *name = middle;
     return true;
@@ -389,7 +389,7 @@ bool SnapshotOf(const std::string& fileName, uint32_t scene, std::string* name)
 namespace {
 
 State g_state;
-std::vector<uint32_t> g_hiddenGizmos; // (the eye on a node: its gizmo hidden while editing - never saved)
+std::vector<uint32_t> g_hidden_gizmos; // (the eye on a node: its gizmo hidden while editing - never saved)
 
 struct BoxDrag {
     bool armed = false, pressed = false, active = false;
@@ -400,70 +400,70 @@ struct BoxDrag {
 struct OrganizeStep : ModuleStep {
     State state;
     explicit OrganizeStep(const State& s) : state(s) {}
-    void Restore() override { g_state = state; }
-    std::shared_ptr<ModuleStep> Now() const override { return std::make_shared<OrganizeStep>(g_state); }
+    void get_restore() override { g_state = state; }
+    std::shared_ptr<ModuleStep> get_now() const override { return std::make_shared<OrganizeStep>(g_state); }
 };
 
-std::string LayoutsFolder() { return GameFolderPath("thug2-decomp-layouts"); }
+std::string layouts_folder() { return game_folder_path("thug2-decomp-layouts"); }
 
-uint32_t SceneNow()
+uint32_t scene_now()
 {
-    uint8_t* scene = Scenery::MainScene();
-    return scene ? Scenery::WorldSceneKey(scene) : 0;
+    uint8_t* scene = scenery::main_scene();
+    return scene ? scenery::world_scene_key(scene) : 0;
 }
 
-GameObjects::CGameEntity* LiveObject(uint32_t id)
+objects::GameEntity* live_object(uint32_t id)
 {
-    auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
-    return object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) ? object : nullptr;
+    auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
+    return object && !(object->object_flags_ & objects::kObjectFlagDead) ? object : nullptr;
 }
 
 // Every object with a model the editor can select (the level's object nodes and the copies), once each.
-std::vector<uint32_t> SelectableObjects()
+std::vector<uint32_t> selectable_objects()
 {
     std::vector<uint32_t> ids;
     auto add = [&](uint32_t id) {
-        GameObjects::CGameEntity* object = LiveObject(id);
+        objects::GameEntity* object = live_object(id);
         OrientedBox box;
-        if (object && !Has(ids, id) && !View::HiddenObject(id) && !Picking::Latched(Picking::kObjects, id) &&
-            Objects::ModelBox(object, &box))
+        if (object && !get_has(ids, id) && !view::hidden_object(id) && !picking::latched(picking::kObjects, id) &&
+            object_edit::model_box(object, &box))
             ids.push_back(id);
     };
-    for (const Nodes::Elem& n : Nodes::All()) {
-        if (n.family == Nodes::Family::Object && n.name)
+    for (const nodes::Elem& n : nodes::get_all()) {
+        if (n.family == nodes::Family::kObject && n.name)
             add(n.name);
     }
-    for (const Objects::DupFrom& c : Objects::Copies())
+    for (const object_edit::DupFrom& c : object_edit::get_copies())
         add(c.name);
     return ids;
 }
 
 // Every scenery piece that moves (the level's movable pieces and the copies), not hidden, not locked.
-std::vector<uint32_t> SelectableSectors()
+std::vector<uint32_t> selectable_sectors()
 {
     std::vector<uint32_t> ids;
     auto add = [&](uint32_t checksum) {
-        if (!Has(ids, checksum) && !Scenery::WhyNotMovable(checksum) && !Scenery::Hidden(checksum) &&
-            !View::HiddenSector(checksum) && !Picking::Latched(Picking::kScenery, checksum))
+        if (!get_has(ids, checksum) && !scenery::why_not_movable(checksum) && !scenery::get_hidden(checksum) &&
+            !view::hidden_sector(checksum) && !picking::latched(picking::kScenery, checksum))
             ids.push_back(checksum);
     };
-    for (uint32_t checksum : Scenery::MovablePieces())
+    for (uint32_t checksum : scenery::movable_pieces())
         add(checksum);
-    for (const Scenery::Replicate& c : Scenery::Clones())
+    for (const scenery::Replicate& c : scenery::get_clones())
         add(c.checksum);
     return ids;
 }
 
 // A thing's screen box from a placed box's corners (false: a corner behind the camera when `whole`, none in front).
-bool ScreenBox(const OrientedBox& box, bool whole, Rect2* rect)
+bool screen_box(const OrientedBox& box, bool whole, Rect2* rect)
 {
     V3 corners[8];
-    BoxCorners(box.origin, box.axes, box.min, box.max, corners);
+    box_corners(box.origin, box.axes, box.min, box.max, corners);
     bool any = false;
     Rect2 r = {0, 0, 0, 0};
     for (const V3& c : corners) {
         float x, y;
-        if (!ProjectToBack(c, &x, &y)) {
+        if (!project_to_back(c, &x, &y)) {
             if (whole)
                 return false;
             continue;
@@ -477,36 +477,36 @@ bool ScreenBox(const OrientedBox& box, bool whole, Rect2* rect)
     return any;
 }
 
-Thing ThingOf(uint32_t id, bool sector)
+Thing thing_of(uint32_t id, bool sector)
 {
     Thing t;
     t.id = id;
-    int index = Nodes::Find(id);
+    int index = nodes::get_find(id);
     uint32_t source = id;
     if (sector) {
-        t.family = Nodes::Family::Scenery;
-        for (const Scenery::Replicate& c : Scenery::Clones()) {
+        t.family = nodes::Family::kScenery;
+        for (const scenery::Replicate& c : scenery::get_clones()) {
             if (c.checksum == id)
                 source = c.source;
         }
         t.source = source;
         OrientedBox box;
-        if (Scenery::Cuboid(id, &box))
-            t.size = BoxSize(box);
+        if (scenery::cuboid(id, &box))
+            t.size = box_size(box);
         if (index < 0)
-            index = Nodes::Find(source);
+            index = nodes::get_find(source);
     } else {
-        t.family = Nodes::Family::Object;
-        for (const Objects::DupFrom& c : Objects::Copies()) {
+        t.family = nodes::Family::kObject;
+        for (const object_edit::DupFrom& c : object_edit::get_copies()) {
             if (c.name == id)
                 source = c.source; // (a copy: as its source)
         }
         if (index < 0)
-            index = Nodes::Find(source);
-        t.model = Objects::ModelFile(source);
+            index = nodes::get_find(source);
+        t.model = object_edit::get_model_file(source);
     }
     if (index >= 0) {
-        const Nodes::Elem& n = Nodes::All()[index];
+        const nodes::Elem& n = nodes::get_all()[index];
         t.family = n.family;
         t.cls = n.cls;
         t.type = n.type;
@@ -514,39 +514,39 @@ Thing ThingOf(uint32_t id, bool sector)
     return t;
 }
 
-const char* SimilarName(Similar by)
+const char* similar_name(Similar by)
 {
     switch (by) {
-    case Similar::Mesh: return "mesh";
-    case Similar::Class: return "class";
-    case Similar::Family: return "family";
-    case Similar::KindTag: return "type";
+    case Similar::kMesh: return "mesh";
+    case Similar::kClass: return "class";
+    case Similar::kFamily: return "family";
+    case Similar::kKindTag: return "type";
     }
     return "?";
 }
 
-std::string g_outlinerSearch; // (asked for by Select similar on a node: the Outliner shows the family)
+std::string g_outliner_search; // (asked for by Select similar on a node: the Outliner shows the family)
 
 } // namespace
 
-std::string TakeOutlinerSearch()
+std::string take_outliner_search()
 {
     std::string text;
-    text.swap(g_outlinerSearch);
+    text.swap(g_outliner_search);
     return text;
 }
 
-void PrepareAll()
+void prepare_all()
 {
     static bool done = false;
     if (done)
         return;
     done = true;
-    Layout::Extension e;
+    layout::Extension e;
     e.keywords = {"group", "label", "edlock", "nopick", "snapshot"};
     e.capture = []() {
         std::vector<std::string> lines;
-        std::istringstream in(WriteRecords(g_state));
+        std::istringstream in(write_records(g_state));
         for (std::string line; std::getline(in, line);)
             lines.push_back(line);
         return lines;
@@ -554,107 +554,107 @@ void PrepareAll()
     e.apply = [](const std::vector<std::string>& lines) {
         State next;
         for (const std::string& line : lines) {
-            if (!ReadRecord(line, &next))
-                Log("level editor: a layout's editor record isn't readable - skipped: %s", line.c_str());
+            if (!read_record(line, &next))
+                get_log("level editor: a layout's editor record isn't readable - skipped: %s", line.c_str());
         }
         g_state = next;
     };
     e.reset = []() {
         g_state = State{};
-        g_hiddenGizmos.clear();
+        g_hidden_gizmos.clear();
     };
-    Layout::AddExtension(e);
+    layout::add_extension(e);
 }
 
-const State& AtHand() { return g_state; }
+const State& at_hand() { return g_state; }
 
-void Change(const State& next, const char* label)
+void get_change(const State& next, const char* label)
 {
-    if (SameState(next, g_state))
+    if (same_state(next, g_state))
         return;
-    PushModuleUndoLabelled(std::make_shared<OrganizeStep>(g_state), label);
+    push_module_undo_labelled(std::make_shared<OrganizeStep>(g_state), label);
     g_state = next;
 }
 
-bool HiddenInEditor(const Nodes::Elem& node)
+bool hidden_in_editor(const nodes::Elem& node)
 {
-    if (node.family == Nodes::Family::Object)
-        return View::HiddenObject(node.name);
-    if (node.family == Nodes::Family::Scenery)
-        return View::HiddenSector(node.name);
-    return Has(g_hiddenGizmos, node.name);
+    if (node.family == nodes::Family::kObject)
+        return view::hidden_object(node.name);
+    if (node.family == nodes::Family::kScenery)
+        return view::hidden_sector(node.name);
+    return get_has(g_hidden_gizmos, node.name);
 }
 
-void SetHiddenInEditor(const Nodes::Elem& node, bool hidden)
+void set_hidden_in_editor(const nodes::Elem& node, bool hidden)
 {
-    if (node.family == Nodes::Family::Object || node.family == Nodes::Family::Scenery) {
+    if (node.family == nodes::Family::kObject || node.family == nodes::Family::kScenery) {
         std::vector<uint32_t> one = {node.name}, none;
-        bool object = node.family == Nodes::Family::Object;
+        bool object = node.family == nodes::Family::kObject;
         if (hidden)
-            View::Conceal(object ? none : one, object ? one : none);
+            view::conceal(object ? none : one, object ? one : none);
         else
-            View::Show(object ? none : one, object ? one : none);
+            view::get_show(object ? none : one, object ? one : none);
         return;
     }
-    Switch(&g_hiddenGizmos, node.name, hidden);
+    Switch(&g_hidden_gizmos, node.name, hidden);
 }
 
-bool Latched(uint32_t id) { return Has(g_state.locked, id); }
+bool latched(uint32_t id) { return get_has(g_state.locked, id); }
 
-void SetLocked(uint32_t id, bool locked)
+void set_locked(uint32_t id, bool locked)
 {
     State next = g_state;
     Switch(&next.locked, id, locked);
-    Change(next, locked ? "Lock (no changes)" : "Unlock");
+    get_change(next, locked ? "Lock (no changes)" : "Unlock");
 }
 
-bool Selectable(const Nodes::Elem& node)
+bool get_selectable(const nodes::Elem& node)
 {
-    if (node.family == Nodes::Family::Object)
-        return !Picking::Latched(Picking::kObjects, node.name);
-    if (node.family == Nodes::Family::Scenery)
-        return !Picking::Latched(Picking::kScenery, node.name);
-    return !Has(g_state.unpickable, node.name);
+    if (node.family == nodes::Family::kObject)
+        return !picking::latched(picking::kObjects, node.name);
+    if (node.family == nodes::Family::kScenery)
+        return !picking::latched(picking::kScenery, node.name);
+    return !get_has(g_state.unpickable, node.name);
 }
 
-void SetSelectable(const Nodes::Elem& node, bool selectable)
+void set_selectable(const nodes::Elem& node, bool selectable)
 {
-    if (node.family == Nodes::Family::Object || node.family == Nodes::Family::Scenery) {
-        uint32_t kind = node.family == Nodes::Family::Object ? Picking::kObjects : Picking::kScenery;
-        if (Picking::Latched(kind, node.name) == !selectable)
+    if (node.family == nodes::Family::kObject || node.family == nodes::Family::kScenery) {
+        uint32_t kind = node.family == nodes::Family::kObject ? picking::kObjects : picking::kScenery;
+        if (picking::latched(kind, node.name) == !selectable)
             return;
-        PushLocksUndoLabelled(selectable ? "Selectable" : "Not selectable");
-        Picking::SetLocked(kind, node.name, !selectable);
+        push_locks_undo_labelled(selectable ? "Selectable" : "Not selectable");
+        picking::set_locked(kind, node.name, !selectable);
         return;
     }
     State next = g_state;
     Switch(&next.unpickable, node.name, !selectable);
-    Change(next, selectable ? "Selectable" : "Not selectable");
+    get_change(next, selectable ? "Selectable" : "Not selectable");
 }
 
-bool GizmoHidden(uint32_t name) { return !g_hiddenGizmos.empty() && Has(g_hiddenGizmos, name); }
-bool GizmoPickable(uint32_t name) { return g_state.unpickable.empty() || !Has(g_state.unpickable, name); }
+bool gizmo_hidden(uint32_t name) { return !g_hidden_gizmos.empty() && get_has(g_hidden_gizmos, name); }
+bool gizmo_pickable(uint32_t name) { return g_state.unpickable.empty() || !get_has(g_state.unpickable, name); }
 
-bool SelectionLocked(bool say)
+bool selection_locked(bool say)
 {
     if (g_state.locked.empty())
         return false;
-    SelectionIds s = CurrentSelection();
-    bool locked = (s.node && Latched(s.node));
+    SelectionIds s = current_selection();
+    bool locked = (s.node && latched(s.node));
     for (uint32_t id : s.objects)
-        locked = locked || Latched(id);
+        locked = locked || latched(id);
     for (uint32_t id : s.sectors)
-        locked = locked || Latched(id);
+        locked = locked || latched(id);
     if (locked && say)
-        ShowMessage("Locked: unlock in the Outliner to edit");
+        show_message("Locked: unlock in the Outliner to edit");
     return locked;
 }
 
 // --- groups ---
 
-void MakeGroup(const std::string& wanted)
+void make_group(const std::string& wanted)
 {
-    SelectionIds s = CurrentSelection();
+    SelectionIds s = current_selection();
     GroupSet g;
     for (uint32_t id : s.objects)
         g.members.push_back({'o', id});
@@ -663,11 +663,11 @@ void MakeGroup(const std::string& wanted)
     if (s.node)
         g.members.push_back({'n', s.node});
     if (g.members.empty()) {
-        ShowMessage("Nothing selected");
+        show_message("Nothing selected");
         return;
     }
     std::string name;
-    if (!CleanName(wanted, &name))
+    if (!clean_name(wanted, &name))
         name = "Group";
     // (a name of its own: "Group 2" when "Group" is taken)
     std::string base = name;
@@ -680,11 +680,11 @@ void MakeGroup(const std::string& wanted)
     g.name = name;
     State next = g_state;
     next.groups.push_back(g);
-    Change(next, "Make group");
-    ShowMessage("Created group \"" + name + "\" (" + std::to_string(g.members.size()) + ")");
+    get_change(next, "Make group");
+    show_message("Created group \"" + name + "\" (" + std::to_string(g.members.size()) + ")");
 }
 
-void SelectGroup(int index)
+void select_group(int index)
 {
     if (index < 0 || index >= static_cast<int>(g_state.groups.size()))
         return;
@@ -693,13 +693,13 @@ void SelectGroup(int index)
     int missing = 0;
     for (const Member& m : g_state.groups[index].members) {
         if (m.kind == 'o') {
-            if (LiveObject(m.id))
+            if (live_object(m.id))
                 ids.objects.push_back(m.id);
             else
                 ++missing;
         } else if (m.kind == 's') {
             OrientedBox box;
-            if (Scenery::Cuboid(m.id, &box))
+            if (scenery::cuboid(m.id, &box))
                 ids.sectors.push_back(m.id);
             else
                 ++missing;
@@ -718,41 +718,41 @@ void SelectGroup(int index)
     } else {
         ids.node = node;
     }
-    SetSelection(ids);
-    ShowMessage("Group \"" + g_state.groups[index].name + "\" selected" + note +
+    set_selection(ids);
+    show_message("Group \"" + g_state.groups[index].name + "\" selected" + note +
                 (missing ? " - " + std::to_string(missing) + " missing" : ""));
 }
 
-void DeleteGroup(int index)
+void delete_group(int index)
 {
     if (index < 0 || index >= static_cast<int>(g_state.groups.size()))
         return;
     State next = g_state;
     next.groups.erase(next.groups.begin() + index);
-    Change(next, "Delete group");
+    get_change(next, "Delete group");
 }
 
-void RenameGroup(int index, const std::string& wanted)
+void rename_group(int index, const std::string& wanted)
 {
     std::string name;
-    if (index < 0 || index >= static_cast<int>(g_state.groups.size()) || !CleanName(wanted, &name))
+    if (index < 0 || index >= static_cast<int>(g_state.groups.size()) || !clean_name(wanted, &name))
         return;
     for (int i = 0; i < static_cast<int>(g_state.groups.size()); ++i) {
         if (i != index && g_state.groups[i].name == name) {
-            ShowMessage("Group name already in use");
+            show_message("Group name already in use");
             return;
         }
     }
     State next = g_state;
     next.groups[index].name = name;
-    Change(next, "Rename group");
+    get_change(next, "Rename group");
 }
 
-void AddToGroup(int index)
+void add_to_group(int index)
 {
     if (index < 0 || index >= static_cast<int>(g_state.groups.size()))
         return;
-    SelectionIds s = CurrentSelection();
+    SelectionIds s = current_selection();
     State next = g_state;
     std::vector<Member>& members = next.groups[index].members;
     auto add = [&](char kind, uint32_t id) {
@@ -766,13 +766,13 @@ void AddToGroup(int index)
         add('s', id);
     if (s.node)
         add('n', s.node);
-    Change(next, "Add to group");
+    get_change(next, "Add to group");
 }
 
-bool InGroup(const std::string& group, const Nodes::Elem& node)
+bool in_group(const std::string& group, const nodes::Elem& node)
 {
     for (const GroupSet& g : g_state.groups) {
-        if (Lower(g.name).compare(0, group.size(), Lower(group)) != 0)
+        if (get_lower(g.name).compare(0, group.size(), get_lower(group)) != 0)
             continue;
         for (const Member& m : g.members) {
             if (m.id == node.name)
@@ -784,14 +784,14 @@ bool InGroup(const std::string& group, const Nodes::Elem& node)
 
 // --- box select ---
 
-void ArmBox()
+void arm_box()
 {
     g_box.armed = true;
-    ShowMessage("Box Select: drag in the view");
+    show_message("Box Select: drag in the view");
 }
-bool BoxArmed() { return g_box.armed; }
+bool box_armed() { return g_box.armed; }
 
-void BoxPress(float x, float y, uint8_t mods)
+void box_press(float x, float y, uint8_t mods)
 {
     g_box.armed = false;
     g_box.pressed = true;
@@ -803,58 +803,58 @@ void BoxPress(float x, float y, uint8_t mods)
 
 namespace {
 
-void ApplyBox()
+void apply_box()
 {
-    Rect2 box = RectOf(g_box.x0, g_box.y0, g_box.x1, g_box.y1);
-    bool crossing = CrossingDrag(g_box.x0, g_box.x1);
-    int op = (g_box.mods & Actions::kShift) ? 1 : (g_box.mods & Actions::kCtrl) ? 2 : 0;
-    uint32_t filter = PickFilterNow();
+    Rect2 box = rect_of(g_box.x0, g_box.y0, g_box.x1, g_box.y1);
+    bool crossing = crossing_drag(g_box.x0, g_box.x1);
+    int op = (g_box.mods & actions::kShift) ? 1 : (g_box.mods & actions::kCtrl) ? 2 : 0;
+    uint32_t filter = pick_filter_now();
     std::vector<uint32_t> objects, sectors;
-    if (filter & Picking::kObjects) {
-        for (uint32_t id : SelectableObjects()) {
+    if (filter & picking::kObjects) {
+        for (uint32_t id : selectable_objects()) {
             OrientedBox ob;
             Rect2 r;
-            if (Objects::ModelBox(LiveObject(id), &ob) && ScreenBox(ob, !crossing, &r) && BoxTakes(box, r, crossing))
+            if (object_edit::model_box(live_object(id), &ob) && screen_box(ob, !crossing, &r) && box_takes(box, r, crossing))
                 objects.push_back(id);
         }
     }
-    if (filter & Picking::kScenery) {
-        for (uint32_t checksum : SelectableSectors()) {
+    if (filter & picking::kScenery) {
+        for (uint32_t checksum : selectable_sectors()) {
             OrientedBox ob;
             Rect2 r;
-            if (Scenery::Cuboid(checksum, &ob) && ScreenBox(ob, !crossing, &r) && BoxTakes(box, r, crossing))
+            if (scenery::cuboid(checksum, &ob) && screen_box(ob, !crossing, &r) && box_takes(box, r, crossing))
                 sectors.push_back(checksum);
         }
     }
-    SelectionIds now = CurrentSelection(), next;
+    SelectionIds now = current_selection(), next;
     const char* how = crossing ? "crossing" : "inside";
     char text[160];
     if (!objects.empty() || (op == 2 && !now.objects.empty())) {
-        next.objects = Combine(now.objects, objects, op);
+        next.objects = combine(now.objects, objects, op);
         std::snprintf(text, sizeof(text), "Box (%s): %d objects - %d selected", how, static_cast<int>(objects.size()),
                       static_cast<int>(next.objects.size()));
     } else if (!sectors.empty() || (op == 2 && !now.sectors.empty())) {
-        next.sectors = Combine(now.sectors, sectors, op);
+        next.sectors = combine(now.sectors, sectors, op);
         std::snprintf(text, sizeof(text), "Box (%s): %d scenery pieces - %d selected", how,
                       static_cast<int>(sectors.size()), static_cast<int>(next.sectors.size()));
     } else {
         // (no objects or scenery: the point node nearest the box's middle - nodes select one at a time)
         uint32_t best = 0;
-        float bestD = 1e30f;
-        int inBox = 0;
-        if (filter & Picking::kNodes) {
+        float best_d = 1e30f;
+        int in_box = 0;
+        if (filter & picking::kNodes) {
             float cx = (box.x0 + box.x1) * 0.5f, cy = (box.y0 + box.y1) * 0.5f;
-            for (const Nodes::Elem& n : Nodes::All()) {
-                if (!n.hasPos || !n.name || n.family == Nodes::Family::Object || n.family == Nodes::Family::Scenery ||
-                    Nodes::ShapeOf(n.family) == Nodes::Shape::None || GizmoHidden(n.name) || !GizmoPickable(n.name))
+            for (const nodes::Elem& n : nodes::get_all()) {
+                if (!n.has_pos_ || !n.name || n.family == nodes::Family::kObject || n.family == nodes::Family::kScenery ||
+                    nodes::shape_of(n.family) == nodes::Shape::kNone || gizmo_hidden(n.name) || !gizmo_pickable(n.name))
                     continue;
                 float x, y;
-                if (!ProjectToBack(n.pos, &x, &y) || x < box.x0 || x > box.x1 || y < box.y0 || y > box.y1)
+                if (!project_to_back(n.pos, &x, &y) || x < box.x0 || x > box.x1 || y < box.y0 || y > box.y1)
                     continue;
-                ++inBox;
+                ++in_box;
                 float d = (x - cx) * (x - cx) + (y - cy) * (y - cy);
-                if (d < bestD) {
-                    bestD = d;
+                if (d < best_d) {
+                    best_d = d;
                     best = n.name;
                 }
             }
@@ -862,20 +862,20 @@ void ApplyBox()
         if (best && op != 2) {
             next.node = best;
             std::snprintf(text, sizeof(text), "Box: %d nodes, nearest selected",
-                          inBox);
+                          in_box);
         } else if (op == 0) {
             std::snprintf(text, sizeof(text), "Box (%s): nothing there", how);
         } else {
             return; // (adding / removing nothing: the selection stays)
         }
     }
-    SetSelection(next);
-    ShowMessage(text);
+    set_selection(next);
+    show_message(text);
 }
 
 } // namespace
 
-void BoxTrack(bool down, float x, float y)
+void box_track(bool down, float x, float y)
 {
     if (!g_box.pressed)
         return;
@@ -888,114 +888,114 @@ void BoxTrack(bool down, float x, float y)
     }
     g_box.pressed = false;
     if (g_box.active)
-        ApplyBox();
+        apply_box();
     g_box.active = false;
 }
 
-bool BoxActive() { return g_box.pressed && g_box.active; }
+bool box_active() { return g_box.pressed && g_box.active; }
 
-bool BoxOutline(Rect2* rect, bool* crossing)
+bool box_outline(Rect2* rect, bool* crossing)
 {
-    if (!BoxActive())
+    if (!box_active())
         return false;
-    *rect = RectOf(g_box.x0, g_box.y0, g_box.x1, g_box.y1);
-    *crossing = CrossingDrag(g_box.x0, g_box.x1);
+    *rect = rect_of(g_box.x0, g_box.y0, g_box.x1, g_box.y1);
+    *crossing = crossing_drag(g_box.x0, g_box.x1);
     return true;
 }
 
 // --- select similar / all / invert ---
 
-void SelectSimilar(Similar by)
+void select_similar(Similar by)
 {
-    SelectionIds s = CurrentSelection();
+    SelectionIds s = current_selection();
     if (!s.objects.empty() || !s.sectors.empty()) {
         bool sectors = s.objects.empty();
         std::vector<Thing> chosen;
         for (uint32_t id : sectors ? s.sectors : s.objects)
-            chosen.push_back(ThingOf(id, sectors));
+            chosen.push_back(thing_of(id, sectors));
         SelectionIds next;
         std::vector<uint32_t>& out = sectors ? next.sectors : next.objects;
-        for (uint32_t id : sectors ? SelectableSectors() : SelectableObjects()) {
-            Thing t = ThingOf(id, sectors);
-            if (std::any_of(chosen.begin(), chosen.end(), [&](const Thing& c) { return Alike(c, t, by); }))
+        for (uint32_t id : sectors ? selectable_sectors() : selectable_objects()) {
+            Thing t = thing_of(id, sectors);
+            if (std::any_of(chosen.begin(), chosen.end(), [&](const Thing& c) { return alike(c, t, by); }))
                 out.push_back(id);
         }
         // (the selection's own first: the primary stays)
-        out = Combine(sectors ? s.sectors : s.objects, out, 1);
-        SetSelection(next);
-        ShowMessage("Selected " + std::to_string(out.size()) + (sectors ? " scenery pieces" : " objects") + " of the same " +
-                    SimilarName(by));
+        out = combine(sectors ? s.sectors : s.objects, out, 1);
+        set_selection(next);
+        show_message("Selected " + std::to_string(out.size()) + (sectors ? " scenery pieces" : " objects") + " of the same " +
+                    similar_name(by));
         return;
     }
     if (s.node) {
         // (nodes select one at a time: the Outliner shows the similar ones - its search set to the family)
-        int index = Nodes::Find(s.node);
+        int index = nodes::get_find(s.node);
         if (index < 0)
             return;
-        const Nodes::Elem& n = Nodes::All()[index];
+        const nodes::Elem& n = nodes::get_all()[index];
         int count = 0;
-        for (const Nodes::Elem& m : Nodes::All()) {
+        for (const nodes::Elem& m : nodes::get_all()) {
             Thing a, b;
             a.family = n.family, a.cls = n.cls, a.type = n.type;
             b.family = m.family, b.cls = m.cls, b.type = m.type;
-            count += Alike(a, b, by == Similar::Mesh ? Similar::KindTag : by) ? 1 : 0;
+            count += alike(a, b, by == Similar::kMesh ? Similar::kKindTag : by) ? 1 : 0;
         }
-        std::string family = Nodes::FamilyName(n.family);
-        g_outlinerSearch = Lower(family) + ":";
-        ShowMessage(std::to_string(count) + " similar nodes listed in the Outliner: " + family);
+        std::string family = nodes::family_name(n.family);
+        g_outliner_search = get_lower(family) + ":";
+        show_message(std::to_string(count) + " similar nodes listed in the Outliner: " + family);
         return;
     }
-    ShowMessage("Nothing selected");
+    show_message("Nothing selected");
 }
 
-void SelectFamily() { SelectSimilar(Similar::Family); }
+void select_family() { select_similar(Similar::kFamily); }
 
-void SelectAll()
+void select_all()
 {
-    SelectionIds s = CurrentSelection(), next;
-    if (!s.sectors.empty() || !(PickFilterNow() & Picking::kObjects))
-        next.sectors = Combine(s.sectors, SelectableSectors(), 1);
+    SelectionIds s = current_selection(), next;
+    if (!s.sectors.empty() || !(pick_filter_now() & picking::kObjects))
+        next.sectors = combine(s.sectors, selectable_sectors(), 1);
     else
-        next.objects = Combine(s.objects, SelectableObjects(), 1);
-    SetSelection(next);
-    ShowMessage("Selected " + std::to_string(next.objects.empty() ? next.sectors.size() : next.objects.size()) +
+        next.objects = combine(s.objects, selectable_objects(), 1);
+    set_selection(next);
+    show_message("Selected " + std::to_string(next.objects.empty() ? next.sectors.size() : next.objects.size()) +
                 (next.objects.empty() ? " scenery pieces" : " objects"));
 }
 
-void InvertSelection()
+void invert_selection()
 {
-    SelectionIds s = CurrentSelection(), next;
+    SelectionIds s = current_selection(), next;
     if (!s.sectors.empty()) {
-        for (uint32_t id : SelectableSectors()) {
-            if (!Has(s.sectors, id))
+        for (uint32_t id : selectable_sectors()) {
+            if (!get_has(s.sectors, id))
                 next.sectors.push_back(id);
         }
     } else {
-        for (uint32_t id : SelectableObjects()) {
-            if (!Has(s.objects, id))
+        for (uint32_t id : selectable_objects()) {
+            if (!get_has(s.objects, id))
                 next.objects.push_back(id);
         }
     }
-    SetSelection(next);
-    ShowMessage("Inverted: " + std::to_string(next.objects.empty() ? next.sectors.size() : next.objects.size()) +
+    set_selection(next);
+    show_message("Inverted: " + std::to_string(next.objects.empty() ? next.sectors.size() : next.objects.size()) +
                 (next.objects.empty() && !s.sectors.empty() ? " scenery pieces" : " objects"));
 }
 
 // --- snapshots ---
 
-std::vector<std::string> Snapshots()
+std::vector<std::string> snapshots()
 {
     std::vector<std::string> names;
-    uint32_t scene = SceneNow();
+    uint32_t scene = scene_now();
     if (!scene)
         return names;
     WIN32_FIND_DATAA found;
-    HANDLE find = FindFirstFileA((LayoutsFolder() + "\\" + HexText(scene) + ".*.txt").c_str(), &found);
+    HANDLE find = FindFirstFileA((layouts_folder() + "\\" + hex_text(scene) + ".*.txt").c_str(), &found);
     if (find == INVALID_HANDLE_VALUE)
         return names;
     do {
         std::string name;
-        if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && SnapshotOf(found.cFileName, scene, &name))
+        if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && snapshot_of(found.cFileName, scene, &name))
             names.push_back(name);
     } while (FindNextFileA(find, &found));
     FindClose(find);
@@ -1003,19 +1003,19 @@ std::vector<std::string> Snapshots()
     return names;
 }
 
-std::string ActiveSnapshot() { return g_state.snapshot; }
+std::string active_snapshot() { return g_state.snapshot; }
 
 namespace {
 
-bool WriteSnapshotFile(const std::string& name, std::string* message)
+bool write_snapshot_file(const std::string& name, std::string* message)
 {
     std::string text;
-    if (!Layout::CaptureText(&text)) {
+    if (!layout::capture_text(&text)) {
         *message = "Not in a level";
         return false;
     }
-    CreateDirectoryA(LayoutsFolder().c_str(), nullptr);
-    std::string path = LayoutsFolder() + "\\" + SnapshotFileName(SceneNow(), name);
+    CreateDirectoryA(layouts_folder().c_str(), nullptr);
+    std::string path = layouts_folder() + "\\" + snapshot_file_name(scene_now(), name);
     std::ofstream out(path, std::ios::binary | std::ios::trunc);
     out << text;
     out.close();
@@ -1023,21 +1023,21 @@ bool WriteSnapshotFile(const std::string& name, std::string* message)
         *message = "Couldn't write " + path;
         return false;
     }
-    Log("level editor: layout snapshot %s written - %s", name.c_str(), path.c_str());
+    get_log("level editor: layout snapshot %s written - %s", name.c_str(), path.c_str());
     return true;
 }
 
 } // namespace
 
-bool SaveSnapshot(const std::string& name, std::string* message)
+bool save_snapshot(const std::string& name, std::string* message)
 {
-    if (!ValidSnapshotName(name)) {
+    if (!valid_snapshot_name(name)) {
         *message = "Invalid name: use letters, digits, _ and - (max 32)";
         return false;
     }
     std::string before = g_state.snapshot;
     g_state.snapshot = name; // (the layout knows which snapshot it is: the active one)
-    if (!WriteSnapshotFile(name, message)) {
+    if (!write_snapshot_file(name, message)) {
         g_state.snapshot = before;
         return false;
     }
@@ -1045,11 +1045,11 @@ bool SaveSnapshot(const std::string& name, std::string* message)
     return true;
 }
 
-bool SwitchSnapshot(const std::string& name, std::string* message)
+bool switch_snapshot(const std::string& name, std::string* message)
 {
-    std::string path = LayoutsFolder() + "\\" + SnapshotFileName(SceneNow(), name);
+    std::string path = layouts_folder() + "\\" + snapshot_file_name(scene_now(), name);
     std::ifstream in(path, std::ios::binary);
-    if (!SceneNow() || !in) {
+    if (!scene_now() || !in) {
         *message = "No snapshot \"" + name + "\" for this level";
         return false;
     }
@@ -1061,22 +1061,22 @@ bool SwitchSnapshot(const std::string& name, std::string* message)
         std::string kept = g_state.snapshot;
         g_state.snapshot = keep;
         std::string why;
-        if (!WriteSnapshotFile(keep, &why))
-            Log("level editor: the layout before the switch couldn't be kept - %s", why.c_str());
+        if (!write_snapshot_file(keep, &why))
+            get_log("level editor: the layout before the switch couldn't be kept - %s", why.c_str());
         g_state.snapshot = kept;
     }
-    if (!ApplyLayoutStep(text.str(), "Switch snapshot", message))
+    if (!apply_layout_step(text.str(), "Switch snapshot", message))
         return false;
     g_state.snapshot = name;
-    Actions::FireOff(Actions::kSave); // (saved as the edited copy's layout - the (EDITED) entry's: the active one)
+    actions::fire_off(actions::kSave); // (saved as the edited copy's layout - the (EDITED) entry's: the active one)
     *message = "Snapshot \"" + name + "\" loaded (previous kept as \"" + keep + "\")";
     return true;
 }
 
-bool DeleteSnapshot(const std::string& name, std::string* message)
+bool delete_snapshot(const std::string& name, std::string* message)
 {
-    std::string path = LayoutsFolder() + "\\" + SnapshotFileName(SceneNow(), name);
-    if (!ValidSnapshotName(name) || !DeleteFileA(path.c_str())) {
+    std::string path = layouts_folder() + "\\" + snapshot_file_name(scene_now(), name);
+    if (!valid_snapshot_name(name) || !DeleteFileA(path.c_str())) {
         *message = "Couldn't delete the snapshot \"" + name + "\"";
         return false;
     }
@@ -1086,4 +1086,4 @@ bool DeleteSnapshot(const std::string& name, std::string* message)
     return true;
 }
 
-} // namespace MenuSystem::LevelEditor::Organize
+} // namespace MenuSystem::level_editor::organize

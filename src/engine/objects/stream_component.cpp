@@ -23,9 +23,9 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace GameObjects {
+namespace objects {
 
-uint32_t g_streamComponentMemberFunctions[30]{
+uint32_t g_stream_component_member_functions[30]{
             0xDB05A233, 0x0F1641E3, 0, 0, 0, 0,
             0xC66E1B17, 0x0F1641E3, 0, 0, 0, 0,
             0x82EC1DDD, 0x0F1641E3, 0, 0, 0, 0,
@@ -37,179 +37,179 @@ namespace {
 extern void** const kVtable;
 constexpr float kInchesPerFoot = 12.0f; // 0x0064546C
 
-const Maths::Vec4* ViewerLocation(void* camera)
+const maths::Vec4* viewer_location(void* camera)
 {
-    return static_cast<Gfx2D::ViewCam*>(camera)->FetchLocation();
+    return static_cast<gfx::ViewCam*>(camera)->fetch_location();
 }
 
 } // namespace
 
 // 0x00433D90
-CObjectModule* __cdecl CAudioStreamModule::Fabricate()
+ObjectModule* __cdecl AudioStreamModule::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CAudioStreamModule));
+    void* memory = memory::alloc_zeroed(sizeof(AudioStreamModule));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CAudioStreamModule*>(memory);
-    component->CObjectModule::MakeNew();
-    component->m_vtable = kVtable;
-    component->m_kindTag = kType;
-    component->m_spewer = nullptr;
-    component->m_proxim = nullptr;
+    auto* component = static_cast<AudioStreamModule*>(memory);
+    component->ObjectModule::make_new();
+    component->vtable_ = kVtable;
+    component->kind_tag_ = kType;
+    component->spewer_ = nullptr;
+    component->proxim_ = nullptr;
     return component;
 }
 
 // 0x00433870
-void __cdecl CAudioStreamModule::PublishMethodTable()
+void __cdecl AudioStreamModule::publish_method_table()
 {
-    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_streamComponentMemberFunctions, 0x18);
+    script::register_member_function_table(reinterpret_cast<void*>(kType), g_stream_component_member_functions, 0x18);
 }
 
 // 0x00433C10
-CAudioStreamModule* CAudioStreamModule::MakeNew()
+AudioStreamModule* AudioStreamModule::make_new()
 {
-    CObjectModule::MakeNew();
-    m_spewer = nullptr;
-    m_proxim = nullptr;
-    m_vtable = kVtable;
-    m_kindTag = kType;
+    ObjectModule::make_new();
+    spewer_ = nullptr;
+    proxim_ = nullptr;
+    vtable_ = kVtable;
+    kind_tag_ = kType;
     return this;
 }
 
 // 0x00433890
-void CAudioStreamModule::DestroyBody()
+void AudioStreamModule::destroy_body()
 {
-    m_vtable = kVtable;
-    for (uint32_t stream : m_streams) {
+    vtable_ = kVtable;
+    for (uint32_t stream : streams_) {
         if (stream)
-            AudioStream::HaltStream(stream);
+            audio::halt_stream(stream);
     }
-    CObjectModule::DestroyBody();
+    ObjectModule::destroy_body();
 }
 
 // 0x00433C40
-CAudioStreamModule* CAudioStreamModule::Teardown(unsigned int flags)
+AudioStreamModule* AudioStreamModule::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00433900
-void CAudioStreamModule::ConfigureFromData(Scripts::CStruct* params)
+void AudioStreamModule::configure_from_data(script::Struct* params)
 {
     uint32_t node = reinterpret_cast<uint32_t>(params); // (read into the parameters' own argument slot)
-    if (params->ReadHashValue(0x08470F2E, &node, 0)) // ProximNode
-        m_proxim = Proxim_GetNode(node);
+    if (params->read_hash_value(0x08470F2E, &node, 0)) // ProximNode
+        proxim_ = proxim_get_node(node);
 }
 
 // 0x00433CD0
-Maths::Vec4* CAudioStreamModule::GetStreamPosition(Maths::Vec4* out, void* camera)
+maths::Vec4* AudioStreamModule::get_stream_position(maths::Vec4* out, void* camera)
 {
-    if (m_spewer && camera) {
-        m_spewer->NearestPointOn(out, ViewerLocation(camera));
+    if (spewer_ && camera) {
+        spewer_->nearest_point_on(out, viewer_location(camera));
         return out;
     }
-    *out = m_entity->m_atPoint;
+    *out = entity_->at_point_;
     return out;
 }
 
 // 0x00433D30
-bool CAudioStreamModule::GetStreamExtent(void* camera, Maths::Vec4* out)
+bool AudioStreamModule::get_stream_extent(void* camera, maths::Vec4* out)
 {
-    if (!camera || !m_proxim)
+    if (!camera || !proxim_)
         return false;
-    Maths::Vec4 nearest;
-    *out = *m_proxim->NearestPointOn(&nearest, ViewerLocation(camera));
+    maths::Vec4 nearest;
+    *out = *proxim_->nearest_point_on(&nearest, viewer_location(camera));
     return true;
 }
 
 // 0x00433970
-bool CAudioStreamModule::PlayStream(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+bool AudioStreamModule::play_stream(script::Struct* params, script::Script* /*script*/)
 {
     bool room = false;
-    for (uint32_t stream : m_streams)
+    for (uint32_t stream : streams_)
         room = room || !stream;
     if (!room)
         return false;
     float volume = 100.0f, pitch = 100.0f, dropoff = 0.0f;
     int priority = 50, loops = 0, falloff = 0;
     uint32_t id = 0;
-    params->FetchFloat(0xF6A36814, &volume, 0);    // vol
-    params->FetchFloat(0xD8604126, &pitch, 0);     // pitch
-    params->FetchIntValue(0x9D5923D8, &priority, 0); // priority
-    params->FetchIntValue(0xE46111E0, &loops, 0);    // num_loops
-    params->ReadHashValue(0x40C698AF, &id, 0);      // id
-    if (params->FetchFloat(0xFF2020EC, &dropoff, 0)) // dropoff (feet)
+    params->fetch_float(0xF6A36814, &volume, 0);    // vol
+    params->fetch_float(0xD8604126, &pitch, 0);     // pitch
+    params->fetch_int_value(0x9D5923D8, &priority, 0); // priority
+    params->fetch_int_value(0xE46111E0, &loops, 0);    // num_loops
+    params->read_hash_value(0x40C698AF, &id, 0);      // id
+    if (params->fetch_float(0xFF2020EC, &dropoff, 0)) // dropoff (feet)
         dropoff = dropoff * kInchesPerFoot;
     uint32_t function = 0; // (uninitialised in the original: only read when found)
-    if (params->ReadHashValue(0x0C6AC50A, &function, 0)) // dropoff_function
-        falloff = SoundFx::FalloffFromChecksum(function);
+    if (params->read_hash_value(0x0C6AC50A, &function, 0)) // dropoff_function
+        falloff = sound::falloff_from_checksum(function);
     uint32_t emitter = 0;
-    if (params->ReadHashValue(0x8A7132CE, &emitter, 0)) // emitter
-        m_spewer = Emitter_GetNode(emitter);
+    if (params->read_hash_value(0x8A7132CE, &emitter, 0)) // emitter
+        spewer_ = emitter_get_node(emitter);
     else
-        m_spewer = nullptr;
+        spewer_ = nullptr;
     uint32_t stream = 0;
-    if (!params->ReadHashValue(0u, &stream, 0))
+    if (!params->read_hash_value(0u, &stream, 0))
         return false;
-    int usePosInfo = 1; // (read into the parameters' own argument slot)
-    params->FetchIntValue(0xC9B0DEB7, &usePosInfo, 0); // use_pos_info
-    return AudioStream::PlayStreamAtObject(this, stream, dropoff, volume, pitch, loops, priority, usePosInfo, falloff, id) != 0;
+    int use_pos_info = 1; // (read into the parameters' own argument slot)
+    params->fetch_int_value(0xC9B0DEB7, &use_pos_info, 0); // use_pos_info
+    return audio::play_stream_at_object(this, stream, dropoff, volume, pitch, loops, priority, use_pos_info, falloff, id) != 0;
 }
 
 // 0x00433B30
-bool CAudioStreamModule::AddStream(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+bool AudioStreamModule::add_stream(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t stream = 0;
-    if (!params->ReadHashValue(0u, &stream, 0))
+    if (!params->read_hash_value(0u, &stream, 0))
         return false;
     uint32_t name = 0; // (read into the parameters' own argument slot, cleared first)
-    if (!params->ReadHashValue(0x02E58C18, &name, 0)) // Add
+    if (!params->read_hash_value(0x02E58C18, &name, 0)) // Add
         return false;
-    return AudioStream::AddStream(stream, name, this);
+    return audio::add_stream(stream, name, this);
 }
 
 // 0x00433BA0
-bool CAudioStreamModule::RemoveStream(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+bool AudioStreamModule::remove_stream(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t stream = 0;
-    if (!params->ReadHashValue(0u, &stream, 0))
+    if (!params->read_hash_value(0u, &stream, 0))
         return false;
     uint32_t name = 0; // (read into the parameters' own argument slot, cleared first)
-    if (!params->ReadHashValue(0x977FE2CF, &name, 0)) // remove
+    if (!params->read_hash_value(0x977FE2CF, &name, 0)) // remove
         return false;
-    return AudioStream::RemoveStream(stream, name, this);
+    return audio::remove_stream(stream, name, this);
 }
 
 // 0x00433C70
-bool CAudioStreamModule::Obj_PlayStream(Scripts::CStruct* params, Scripts::CScript* script)
+bool AudioStreamModule::obj_play_stream(script::Struct* params, script::Script* script)
 {
-    PlayStream(params, script);
+    play_stream(params, script);
     return true;
 }
 
 // 0x00433C90
-bool CAudioStreamModule::Obj_AddStream(Scripts::CStruct* params, Scripts::CScript* script)
+bool AudioStreamModule::obj_add_stream(script::Struct* params, script::Script* script)
 {
-    AddStream(params, script);
+    add_stream(params, script);
     return true;
 }
 
 // 0x00433CB0
-bool CAudioStreamModule::Obj_RemoveStream(Scripts::CStruct* params, Scripts::CScript* script)
+bool AudioStreamModule::obj_remove_stream(script::Struct* params, script::Script* script)
 {
-    RemoveStream(params, script);
+    remove_stream(params, script);
     return true;
 }
 
 // 0x00433930
-bool CAudioStreamModule::Obj_StopStream(Scripts::CStruct* /*params*/, Scripts::CScript* /*script*/)
+bool AudioStreamModule::obj_stop_stream(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    for (uint32_t& stream : m_streams) {
+    for (uint32_t& stream : streams_) {
         if (stream) {
-            AudioStream::HaltStream(stream);
+            audio::halt_stream(stream);
             stream = 0;
         }
     }
@@ -218,23 +218,23 @@ bool CAudioStreamModule::Obj_StopStream(Scripts::CStruct* /*params*/, Scripts::C
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CAudioStreamModule::Teardown,
-         &GameObjects::ComponentWithoutUpdate::TickFrame,
-         &GameObjects::CAudioStreamModule::ConfigureFromData,
-         Stubs::DoNothing,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::DispatchScriptMethod,
-         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::AudioStreamModule::teardown,
+         &objects::ComponentWithoutUpdate::tick_frame,
+         &objects::AudioStreamModule::configure_from_data,
+         stubs::do_nothing,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         &objects::ObjectModule::dispatch_script_method,
+         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

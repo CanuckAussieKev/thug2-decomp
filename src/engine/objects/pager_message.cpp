@@ -1,4 +1,4 @@
-// The pager message component (GameObjects::CPagerMessageComponent) and the game's std::list<T*>::erase: see
+// The pager message component (GameObjects::PagerMessageComponent) and the game's std::list<T*>::erase: see
 // pager_message.h. From the disassembly of 0x004EC960-0x004ECF9E (the member functions 0x004EC980, 0x004ECB50,
 // 0x004ECBD0 and 0x004ECDF0 aren't Ghidra functions).
 
@@ -19,9 +19,9 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace GameObjects {
+namespace objects {
 
-uint32_t g_pagerMessageMemberFunctions[36]{
+uint32_t g_pager_message_member_functions[36]{
             0x4824484A, 0xD1515392, 0, 0, 0, 0,
             0xD65B2BB5, 0xD1515392, 0, 0, 0, 0,
             0x5B64BFEC, 0xD1515392, 0, 0, 0, 0,
@@ -35,31 +35,31 @@ extern void** const kVtable;
 constexpr uint32_t kPagerMessage = 0xD1515392;
 constexpr uint32_t kPagerScript = 0xE8DA4931;
 
-void Dealloc(void* block) { MemSys::Hub::Pull()->Dealloc(block); }
+void dealloc(void* block) { memory::Hub::get_pull()->dealloc(block); }
 
-Scripts::CStruct* SpawnParamTable()
+script::Struct* spawn_param_table()
 {
-    Scripts::CStruct* structure = Scripts::SpawnParamBag();
-    return structure ? structure->PrepareAll() : nullptr;
+    script::Struct* structure = script::spawn_param_bag();
+    return structure ? structure->prepare_all() : nullptr;
 }
-void DeleteStructure(Scripts::CStruct* structure)
+void delete_structure(script::Struct* structure)
 {
     if (structure) {
-        structure->Clear();
-        Scripts::DeleteStruct(structure);
+        structure->get_clear();
+        script::delete_struct(structure);
     }
 }
 
 // std::list<PagerMessage*>::push_back (0x004964A0, the game's: inserts before the sentinel).
-void PushBack(PointerList* list, PagerMessage** message)
+void get_push_back(PointerList* list, PagerMessage** message)
 {
-    list->Splice(list->head, reinterpret_cast<void* const*>(message));
+    list->splice(list->head, reinterpret_cast<void* const*>(message));
 }
 
 } // namespace
 
 // 0x004ECC30
-PointerListNode** PointerList::Erase(PointerListNode** out, PointerListNode* first, PointerListNode* last)
+PointerListNode** PointerList::get_erase(PointerListNode** out, PointerListNode* first, PointerListNode* last)
 {
     while (first != last) {
         PointerListNode* node = first;
@@ -67,7 +67,7 @@ PointerListNode** PointerList::Erase(PointerListNode** out, PointerListNode* fir
         if (node != head) {
             node->prev->next = first;
             first->prev = node->prev;
-            Dealloc(node);
+            dealloc(node);
             --size;
         }
     }
@@ -76,131 +76,131 @@ PointerListNode** PointerList::Erase(PointerListNode** out, PointerListNode* fir
 }
 
 // 0x004ECF20
-CObjectModule* __cdecl CPagerMessageComponent::Fabricate()
+ObjectModule* __cdecl PagerMessageComponent::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CPagerMessageComponent));
-    return memory ? static_cast<CPagerMessageComponent*>(memory)->MakeNew() : nullptr;
+    void* memory = memory::alloc_zeroed(sizeof(PagerMessageComponent));
+    return memory ? static_cast<PagerMessageComponent*>(memory)->make_new() : nullptr;
 }
 
 // 0x004EC960
-void __cdecl CPagerMessageComponent::PublishMethodTable()
+void __cdecl PagerMessageComponent::publish_method_table()
 {
-    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kPagerMessage), g_pagerMessageMemberFunctions, 0x18);
+    script::register_member_function_table(reinterpret_cast<void*>(kPagerMessage), g_pager_message_member_functions, 0x18);
 }
 
 // 0x004ECE10
-CPagerMessageComponent* CPagerMessageComponent::MakeNew()
+PagerMessageComponent* PagerMessageComponent::make_new()
 {
-    CObjectModule::MakeNew();
-    m_vtable = kVtable;
-    m_messages.size = 0;
-    auto* sentinel = static_cast<PointerListNode*>(MemSys::Alloc(sizeof(PointerListNode)));
+    ObjectModule::make_new();
+    vtable_ = kVtable;
+    messages_.size = 0;
+    auto* sentinel = static_cast<PointerListNode*>(memory::alloc(sizeof(PointerListNode)));
     if (sentinel) {
         sentinel->next = sentinel;
         sentinel->prev = sentinel;
     }
-    m_messages.head = sentinel;
-    m_kindTag = kPagerMessage;
+    messages_.head = sentinel;
+    kind_tag_ = kPagerMessage;
     return this;
 }
 
 // 0x004ECE90
-void CPagerMessageComponent::DestroyBody()
+void PagerMessageComponent::destroy_body()
 {
-    m_vtable = kVtable;
-    ClearMessages(nullptr);
-    PointerListNode* head = m_messages.head;
+    vtable_ = kVtable;
+    clear_messages(nullptr);
+    PointerListNode* head = messages_.head;
     PointerListNode* end;
-    m_messages.Erase(&end, head ? head->next : nullptr, head);
-    Dealloc(m_messages.head);
-    CObjectModule::DestroyBody();
+    messages_.get_erase(&end, head ? head->next : nullptr, head);
+    dealloc(messages_.head);
+    ObjectModule::destroy_body();
 }
 
 // 0x004ECF80
-CPagerMessageComponent* CPagerMessageComponent::Teardown(unsigned int flags)
+PagerMessageComponent* PagerMessageComponent::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        Dealloc(this);
+        dealloc(this);
     return this;
 }
 
 // 0x004ECC80
-void CPagerMessageComponent::ClearMessages(Scripts::CStruct* params)
+void PagerMessageComponent::clear_messages(script::Struct* params)
 {
     int keep = 0;
     if (params)
-        params->FetchIntValue(0x340FB7F4, &keep, 0);
-    PointerListNode* node = m_messages.head ? m_messages.head->next : nullptr;
-    while (m_messages.size > keep) {
+        params->fetch_int_value(0x340FB7F4, &keep, 0);
+    PointerListNode* node = messages_.head ? messages_.head->next : nullptr;
+    while (messages_.size > keep) {
         if (auto* message = static_cast<PagerMessage*>(node->data)) {
-            DeleteStructure(message->params);
-            Dealloc(message);
+            delete_structure(message->params);
+            dealloc(message);
             node->data = nullptr;
         }
         PointerListNode* next = node->next;
-        if (node != m_messages.head) {
+        if (node != messages_.head) {
             node->prev->next = next;
             next->prev = node->prev;
-            Dealloc(node);
-            --m_messages.size;
+            dealloc(node);
+            --messages_.size;
         }
         node = next;
     }
-    Scripts::CStruct* data = SpawnParamTable();
-    data->PutNameKey(0x14C4B1CC, 1u);
-    Scripts::EndChildScriptsOfEntityByName(m_entity, kPagerScript, nullptr);
-    m_entity->SpawnScript(kPagerScript, data, 0, false);
-    DeleteStructure(data);
+    script::Struct* data = spawn_param_table();
+    data->put_name_key(0x14C4B1CC, 1u);
+    script::end_child_scripts_of_entity_by_name(entity_, kPagerScript, nullptr);
+    entity_->spawn_script(kPagerScript, data, 0, false);
+    delete_structure(data);
 }
 
 // 0x004EC9A0
-bool CPagerMessageComponent::SendPagerMessage(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+bool PagerMessageComponent::send_pager_message(script::Struct* params, script::Script* /*script*/)
 {
-    auto* message = static_cast<PagerMessage*>(MemSys::Alloc(sizeof(PagerMessage)));
+    auto* message = static_cast<PagerMessage*>(memory::alloc(sizeof(PagerMessage)));
     if (message)
         message->params = nullptr;
-    message->params = SpawnParamTable();
-    message->params->MergeStructure(params);
+    message->params = spawn_param_table();
+    message->params->merge_structure(params);
     message->read = false;
-    PushBack(&m_messages, &message);
-    Scripts::CStruct* data = SpawnParamTable();
-    data->PutNameKey(0x34406F14, 1u);
-    if (message->params->HasBareFlag(0x8E6DFA5D))
-        data->PutNameKey(0u, 0x8E6DFA5Du);
-    Scripts::EndChildScriptsOfEntityByName(m_entity, kPagerScript, nullptr);
-    m_entity->SpawnScript(kPagerScript, data, 0, false);
-    DeleteStructure(data);
+    get_push_back(&messages_, &message);
+    script::Struct* data = spawn_param_table();
+    data->put_name_key(0x34406F14, 1u);
+    if (message->params->has_bare_flag(0x8E6DFA5D))
+        data->put_name_key(0u, 0x8E6DFA5Du);
+    script::end_child_scripts_of_entity_by_name(entity_, kPagerScript, nullptr);
+    entity_->spawn_script(kPagerScript, data, 0, false);
+    delete_structure(data);
     return true;
 }
 
 // 0x004ECB50
-bool CPagerMessageComponent::GetPagerMessage(Scripts::CStruct* params, Scripts::CScript* script)
+bool PagerMessageComponent::get_pager_message(script::Struct* params, script::Script* script)
 {
     int number = 1;
-    params->FetchIntValue(0x0A89DA7D, &number, 0);
+    params->fetch_int_value(0x0A89DA7D, &number, 0);
     int index = number - 1;
-    PointerListNode* node = m_messages.head ? m_messages.head->next : nullptr;
-    for (int i = 0; i < index && i < m_messages.size; ++i)
+    PointerListNode* node = messages_.head ? messages_.head->next : nullptr;
+    for (int i = 0; i < index && i < messages_.size; ++i)
         node = node->next;
     auto* message = static_cast<PagerMessage*>(node->data);
-    script->m_args->PutSubStruct(kPagerMessage, message->params);
+    script->args_->put_sub_struct(kPagerMessage, message->params);
     static_cast<PagerMessage*>(node->data)->read = true;
     return true;
 }
 
 // 0x004EC980
-bool CPagerMessageComponent::GetPagerMessageCount(Scripts::CStruct* /*params*/, Scripts::CScript* script)
+bool PagerMessageComponent::get_pager_message_count(script::Struct* /*params*/, script::Script* script)
 {
-    script->m_args->PutInt(0xC4D8D79A, m_messages.size);
+    script->args_->put_int(0xC4D8D79A, messages_.size);
     return true;
 }
 
 // 0x004ECBD0
-bool CPagerMessageComponent::GetFirstUnreadMessageNum(Scripts::CStruct* /*params*/, Scripts::CScript* script)
+bool PagerMessageComponent::get_first_unread_message_num(script::Struct* /*params*/, script::Script* script)
 {
-    PointerListNode* node = m_messages.head ? m_messages.head->next : nullptr;
-    int count = m_messages.size;
+    PointerListNode* node = messages_.head ? messages_.head->next : nullptr;
+    int count = messages_.size;
     int index = 0;
     if (count != 0) {
         for (; index < count; ++index) {
@@ -211,36 +211,36 @@ bool CPagerMessageComponent::GetFirstUnreadMessageNum(Scripts::CStruct* /*params
         if (index == count)
             --index;
     }
-    script->m_args->PutInt(0x8FD8B4C3, index + 1);
+    script->args_->put_int(0x8FD8B4C3, index + 1);
     return true;
 }
 
 // 0x004ECDF0
-bool CPagerMessageComponent::ClearPagerMessages(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+bool PagerMessageComponent::clear_pager_messages(script::Struct* params, script::Script* /*script*/)
 {
-    ClearMessages(params);
+    clear_messages(params);
     return true;
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CPagerMessageComponent::Teardown,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::DispatchScriptMethod,
-         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::PagerMessageComponent::teardown,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         &objects::ObjectModule::dispatch_script_method,
+         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

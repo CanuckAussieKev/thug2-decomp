@@ -26,7 +26,7 @@
 #include "engine/gfx/scene_load.h"
 #include "engine/objects/cutscene.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
@@ -34,7 +34,7 @@ constexpr uint32_t kUnnamed = 0; // (a flag: a checksum without a name)
 constexpr uint32_t kModelModuleName = 0x286A8D26;
 constexpr uint32_t kSkeletonModuleName = 0x222756D5;
 constexpr uint32_t kFlagParam = 0x82C84419;
-constexpr uint32_t kRefreshScript = 0x2E20EA32;     // (CreateObject's second script)
+constexpr uint32_t kRefreshScript = 0x2E20EA32;     // (create_object's second script)
 constexpr uint32_t kRefreshGlobal = 0x4AF50A5B;     // a global integer: refresh the objects once
 
 // The objects' parameters (names unknown).
@@ -61,327 +61,327 @@ constexpr uint32_t kModelFileOffset = 0xFD8697E1;
 // The skater appearance parts asked about (names unknown).
 constexpr uint32_t kPartA = 0x650FAB6D, kPartB = 0x0FC85BAE, kPartC = 0x6DF453B6, kHidden = 0xC4C5B2CC;
 
-MemSys::PoolPair& StructPools() { return Scripts::g_structPools; }
-MemSys::PoolPair& SourcePools() { return Engine3D::g_frameSourcePools; }
+memory::PoolPair& struct_pools() { return script::g_struct_pools; }
+memory::PoolPair& source_pools() { return render::g_frame_source_pools; }
 
-Scripts::CStruct* MakeStruct()
+script::Struct* make_struct()
 {
-    void* memory = StructPools().Carve(8);
-    return memory ? static_cast<Scripts::CStruct*>(memory)->PrepareAll() : nullptr;
+    void* memory = struct_pools().carve(8);
+    return memory ? static_cast<script::Struct*>(memory)->prepare_all() : nullptr;
 }
-void FreeStruct(Scripts::CStruct* s)
+void free_struct(script::Struct* s)
 {
     if (!s)
         return;
-    s->Clear();
-    Scripts::DeleteStruct(s);
+    s->get_clear();
+    script::delete_struct(s);
 }
 
-void* ModelOf(CObjectModule* component)
+void* model_of(ObjectModule* component)
 {
     return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x208);
 }
-bool StandsIn(CObjectModule* model)
+bool stands_in(ObjectModule* model)
 {
     return *(reinterpret_cast<uint8_t*>(model) + 0x234) != 0;
 }
-uint32_t StandInId(CObjectModule* model)
+uint32_t stand_in_id(ObjectModule* model)
 {
-    return static_cast<CMeshInstanceModule*>(model)->GetLinkedEntityName();
+    return static_cast<MeshInstanceModule*>(model)->get_linked_entity_name();
 }
 } // namespace
 
 // (no address: the getters folded at 0x00576E60 / 0x00532EB0 - cutscene.h)
-void* __fastcall ModelFader(void* model) { return *reinterpret_cast<void**>(static_cast<uint8_t*>(model) + 0x2C); }
-void* __fastcall AppearanceFace(void* appearance) { return *reinterpret_cast<void**>(static_cast<uint8_t*>(appearance) + 0x54); }
+void* __fastcall model_fader(void* model) { return *reinterpret_cast<void**>(static_cast<uint8_t*>(model) + 0x2C); }
+void* __fastcall appearance_face(void* appearance) { return *reinterpret_cast<void**>(static_cast<uint8_t*>(appearance) + 0x54); }
 
 namespace {
 
-void* SkeletonOf(CObjectModule* component)
+void* skeleton_of(ObjectModule* component)
 {
     // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
-    return reinterpret_cast<void*>(reinterpret_cast<OnlinePlay::FoldedGetters*>(component)->Word18());
+    return reinterpret_cast<void*>(reinterpret_cast<online::FoldedGetters*>(component)->word18());
 }
 // The level object a cutscene object stands in for.
-CGameEntity* LevelObjectOf(CGameEntity* object)
+GameEntity* level_object_of(GameEntity* object)
 {
-    return static_cast<CGameEntity*>(FindObject(StandInId(object->FetchModule(kModelModuleName))));
+    return static_cast<GameEntity*>(find_object(stand_in_id(object->fetch_module(kModelModuleName))));
 }
-void ModelSetOffset(void* model, const float* offset)
+void model_set_offset(void* model, const float* offset)
 {
-    static_cast<Engine3D::CRenderModel*>(model)->ChangeBoundSphere(reinterpret_cast<const Maths::Vec4*>(offset));
+    static_cast<render::RenderModel*>(model)->change_bound_sphere(reinterpret_cast<const maths::Vec4*>(offset));
 }
 // The skater's appearance (+0x34A8) and its parts.
-void* AppearancePart(void* appearance, uint32_t part)
+void* appearance_part(void* appearance, uint32_t part)
 {
-    return static_cast<Gfx2D::CModelLook*>(appearance)->GetPartOption(part);
+    return static_cast<gfx::ModelLook*>(appearance)->get_part_option(part);
 }
 
 } // namespace
 
 // 0x004645A0
-void* __cdecl AnimSourceAllocate(unsigned int size)
+void* __cdecl anim_source_allocate(unsigned int size)
 {
-    return SourcePools().Carve(size);
+    return source_pools().carve(size);
 }
 
 // 0x004645E0
-void __cdecl AnimSourceFree(void* item)
+void __cdecl anim_source_free(void* item)
 {
-    SourcePools().Dealloc(item);
+    source_pools().dealloc(item);
 }
 
 // 0x00464640
-CCinematicTable* CCinematicTable::MakeNew()
+CinematicTable* CinematicTable::make_new()
 {
-    m_vtable = g_cutsceneDataVtable;
-    m_bundlePtr = nullptr;
-    m_objectPart = 0;
-    m_cameraPart = 0;
-    m_cameraParts = 0;
-    m_cameraSource = nullptr;
-    m_objectParts = 0;
-    m_objectSource = nullptr;
-    m_objectCount = 0;
-    m_assetCount = 0;
-    m_ready = false;
-    m_unknown3470 = 1.0f;
-    m_unknown3474 = 0;
-    m_clock = 0.0f;
-    m_unknown3480 = 0.0f;
-    m_cameraStart = 0.0f;
-    m_unknown348C = 0.0f;
-    m_vblanks = 0;
-    m_prevRetraces = 0;
-    m_endTime = 0.0f;
-    m_colourSaved = false;
-    m_unknown34A8 = nullptr;
-    m_unknown34AC = nullptr;
-    m_subtitles = nullptr;
-    m_nextSubtitle = 0;
-    m_subtitleTime = 0.0f;
-    m_nextSubtitleTime = -1.0f;
-    m_callArgs = MakeStruct();
+    vtable_ = kCutsceneDataVtable;
+    bundle_ptr_ = nullptr;
+    object_part_ = 0;
+    camera_part_ = 0;
+    camera_parts_ = 0;
+    camera_source_ = nullptr;
+    object_parts_ = 0;
+    object_source_ = nullptr;
+    object_count_ = 0;
+    asset_count_ = 0;
+    ready_ = false;
+    unknown3470_ = 1.0f;
+    unknown3474_ = 0;
+    clock_ = 0.0f;
+    unknown3480_ = 0.0f;
+    camera_start_ = 0.0f;
+    unknown348c_ = 0.0f;
+    vblanks_ = 0;
+    prev_retraces_ = 0;
+    end_time_ = 0.0f;
+    colour_saved_ = false;
+    unknown34a8_ = nullptr;
+    unknown34ac_ = nullptr;
+    subtitles_ = nullptr;
+    next_subtitle_ = 0;
+    subtitle_time_ = 0.0f;
+    next_subtitle_time_ = -1.0f;
+    call_args_ = make_struct();
     return this;
 }
 
 // 0x00464780
-void CCinematicTable::RefreshObjects()
+void CinematicTable::refresh_objects()
 {
-    if (!m_flag34B0 || Scripts::FetchIntValue(kRefreshGlobal) == 0)
+    if (!flag_34b_0_ || script::fetch_int_value(kRefreshGlobal) == 0)
         return;
-    Scripts::CStruct* params = MakeStruct();
-    params->PutNameKey(kUnnamed, kFlagParam);
-    for (int i = 0; i < m_objectCount; ++i) {
-        CGameEntity* object = m_entities[i].object;
-        if (object->FetchModule(kModelModuleName))
-            Scripts::LaunchScript(kRefreshScript, params, object, false, nullptr);
+    script::Struct* params = make_struct();
+    params->put_name_key(kUnnamed, kFlagParam);
+    for (int i = 0; i < object_count_; ++i) {
+        GameEntity* object = entities_[i].object;
+        if (object->fetch_module(kModelModuleName))
+            script::launch_script(kRefreshScript, params, object, false, nullptr);
     }
     auto* skater =
-        static_cast<CGameEntity*>(GameModules::Skate::Sole()->GetHomeRider());
+        static_cast<GameEntity*>(modules::Skate::sole()->get_home_rider());
     if (skater)
-        Scripts::LaunchScript(kRefreshScript, params, skater, false, nullptr);
-    FreeStruct(params);
-    Scripts::FindSymbol(kRefreshGlobal)->integer = 0;
+        script::launch_script(kRefreshScript, params, skater, false, nullptr);
+    free_struct(params);
+    script::find_symbol(kRefreshGlobal)->integer = 0;
 }
 
 // 0x004648D0
-void CCinematicTable::AddObjects(Scripts::CStruct* params)
+void CinematicTable::add_objects(script::Struct* params)
 {
     int version = 0;
-    params->FetchIntValue(kVersion, &version, 1);
-    Scripts::CArray* objects = nullptr;
-    params->FetchList(kObjects, &objects, 1);
-    bool wantsSkater = false; // (an object of kind 0x6218C3C9: script 0xF37D9F53 runs...)
-    bool hasSkater = false;   // (...unless a skater object was added)
-    for (uint32_t i = 0; i < objects->m_extent; ++i) {
-        auto* object = reinterpret_cast<Scripts::CStruct*>(objects->FetchPart(i));
-        Scripts::CStruct* params2 = MakeStruct();
+    params->fetch_int_value(kVersion, &version, 1);
+    script::Array* objects = nullptr;
+    params->fetch_list(kObjects, &objects, 1);
+    bool wants_skater = false; // (an object of kind 0x6218C3C9: script 0xF37D9F53 runs...)
+    bool has_skater = false;   // (...unless a skater object was added)
+    for (uint32_t i = 0; i < objects->extent_; ++i) {
+        auto* object = reinterpret_cast<script::Struct*>(objects->fetch_part(i));
+        script::Struct* params2 = make_struct();
         uint32_t name = 0, kind = 0, model = 0, skeleton = 0, anim = 0;
-        bool isSkater, isSkater2, special;
-        uint32_t modelFile;
+        bool is_skater, is_skater2, special;
+        uint32_t model_file;
         if (version >= 2) {
-            object->ReadHashValue(kName, &name, 1);
-            object->ReadHashValue(kKind, &kind, 1);
-            object->ReadHashValue(kSkeleton, &skeleton, 0);
+            object->read_hash_value(kName, &name, 1);
+            object->read_hash_value(kKind, &kind, 1);
+            object->read_hash_value(kSkeleton, &skeleton, 0);
             model = name;
-            modelFile = name + kModelFileOffset;
+            model_file = name + kModelFileOffset;
             anim = name;
-            isSkater = object->HasBareFlag(kIsSkaterMarker);
-            if (isSkater) {
-                isSkater2 = kind == 0x01815FB3;
+            is_skater = object->has_bare_flag(kIsSkaterMarker);
+            if (is_skater) {
+                is_skater2 = kind == 0x01815FB3;
                 special = false;
-                if (isSkater2)
+                if (is_skater2)
                     skeleton = 0x9954F90F;
             } else {
-                isSkater2 = kind == 0x6218C3C9;
-                special = isSkater2;
-                if (isSkater2) {
-                    wantsSkater = true;
+                is_skater2 = kind == 0x6218C3C9;
+                special = is_skater2;
+                if (is_skater2) {
+                    wants_skater = true;
                     skeleton = 0x9FE476E2;
                 }
             }
         } else {
-            object->ReadHashValue(kName, &name, 1);
-            object->ReadHashValue(kModel, &model, 1);
-            modelFile = model + kModelFileOffset;
-            object->ReadHashValue(kSkeleton, &skeleton, 1);
-            object->ReadHashValue(kAnim, &anim, 1);
-            isSkater = object->HasBareFlag(kIsSkaterMarker);
-            isSkater2 = object->HasBareFlag(kSkaterFlag2);
+            object->read_hash_value(kName, &name, 1);
+            object->read_hash_value(kModel, &model, 1);
+            model_file = model + kModelFileOffset;
+            object->read_hash_value(kSkeleton, &skeleton, 1);
+            object->read_hash_value(kAnim, &anim, 1);
+            is_skater = object->has_bare_flag(kIsSkaterMarker);
+            is_skater2 = object->has_bare_flag(kSkaterFlag2);
             special = model == 0x5B8AB877 || model == 0x67E6859A;
         }
-        if (isSkater2 && isSkater)
-            hasSkater = true;
-        bool skater = isSkater && isSkater2;
+        if (is_skater2 && is_skater)
+            has_skater = true;
+        bool skater = is_skater && is_skater2;
         bool add = true;
         if (!special) {
-            void* asset = AssetStore::g_assetManager->GetAssetData(modelFile, 0);
+            void* asset = assets::g_asset_manager->get_asset_data(model_file, 0);
             if (!asset && !skater)
-                params2->PutNameKey(kUnnamed, kNoModelFile);
-            if (object->HasBareFlag(kKeepSkeleton)) {
-                params2->PutNameKey(kUnnamed, kKeepSkeleton);
+                params2->put_name_key(kUnnamed, kNoModelFile);
+            if (object->has_bare_flag(kKeepSkeleton)) {
+                params2->put_name_key(kUnnamed, kKeepSkeleton);
             } else {
                 skeleton = 0;
                 anim = 0;
             }
             if (skater) {
-                void* face = AppearanceFace(m_unknown34A8);
-                if (face && reinterpret_cast<bool(__thiscall*)(void*)>(CodeAddress(&Gfx2D::CFaceSkin::IsSound))(face))
-                    ++modelFile;
+                void* face = appearance_face(unknown34a8_);
+                if (face && reinterpret_cast<bool(__thiscall*)(void*)>(code_address(&gfx::FaceSkin::is_sound))(face))
+                    ++model_file;
                 int male = 0;
-                static_cast<Scripts::CStruct*>(m_unknown34AC)->FetchIntValue(kMale, &male, 1);
+                static_cast<script::Struct*>(unknown34ac_)->fetch_int_value(kMale, &male, 1);
                 if (male == 0)
-                    modelFile += 2;
-                params2->PutInt(kMaleParam, male);
+                    model_file += 2;
+                params2->put_int(kMaleParam, male);
             }
-            params2->PutNameKey(kModelFile, modelFile);
-        } else if (!m_flag34B0) {
+            params2->put_name_key(kModelFile, model_file);
+        } else if (!flag_34b_0_) {
             add = false;
         } else {
-            params2->PutNameKey(kPlayingCutsceneKey, 0);
+            params2->put_name_key(kPlayingCutsceneKey, 0);
         }
         if (add && skater) {
             // the skater's object isn't made when a part of its appearance is hidden
-            void* part = AppearancePart(m_unknown34A8, kPartA);
+            void* part = appearance_part(unknown34a8_, kPartA);
             if (!part)
-                part = AppearancePart(m_unknown34A8, kPartB);
-            bool hidden = part && static_cast<Scripts::CStruct*>(part)->HasBareFlag(kHidden);
+                part = appearance_part(unknown34a8_, kPartB);
+            bool hidden = part && static_cast<script::Struct*>(part)->has_bare_flag(kHidden);
             if (!hidden) {
-                part = AppearancePart(m_unknown34A8, kPartC);
-                hidden = part && static_cast<Scripts::CStruct*>(part)->HasBareFlag(kHidden);
+                part = appearance_part(unknown34a8_, kPartC);
+                hidden = part && static_cast<script::Struct*>(part)->has_bare_flag(kHidden);
             }
             if (hidden) {
-                hasSkater = false;
+                has_skater = false;
                 add = false;
             }
         }
         if (add) {
             if (skeleton) {
-                params2->PutNameKey(kSkeleton, skeleton);
-                params2->PutInt(kSkeletonParam, 0);
+                params2->put_name_key(kSkeleton, skeleton);
+                params2->put_int(kSkeletonParam, 0);
             }
-            ObjectEntry& entry = m_entities[m_objectCount];
-            entry.object = CreateObject(params2);
-            CObjectModule* standIn = entry.object->FetchModule(kModelModuleName);
-            if (standIn) {
+            ObjectEntry& entry = entities_[object_count_];
+            entry.object = create_object(params2);
+            ObjectModule* stand_in = entry.object->fetch_module(kModelModuleName);
+            if (stand_in) {
                 float offset[4] = {0.0f, 0.0f, 0.0f, 150.0f};
-                ModelSetOffset(ModelOf(standIn), offset);
-                if (StandsIn(standIn)) {
+                model_set_offset(model_of(stand_in), offset);
+                if (stands_in(stand_in)) {
                     // the level object's model lends its settings (saved once) and is hidden
-                    auto* level = static_cast<CGameEntity*>(FindObject(StandInId(standIn)));
-                    CObjectModule* levelModel = level->FetchModule(kModelModuleName);
-                    void* model2 = ModelOf(levelModel);
-                    if (!m_colourSaved) {
+                    auto* level = static_cast<GameEntity*>(find_object(stand_in_id(stand_in)));
+                    ObjectModule* level_model = level->fetch_module(kModelModuleName);
+                    void* model2 = model_of(level_model);
+                    if (!colour_saved_) {
                         float saved[4];
                         const float* settings =
-                            reinterpret_cast<const float*>(static_cast<Engine3D::CRenderModel*>(model2)->FetchBoundSphere(reinterpret_cast<Maths::Vec4*>(saved)));
-                        std::memcpy(m_lent2C, settings, 16);
+                            reinterpret_cast<const float*>(static_cast<render::RenderModel*>(model2)->fetch_bound_sphere(reinterpret_cast<maths::Vec4*>(saved)));
+                        std::memcpy(lent_2c_, settings, 16);
                         uint8_t flags = *(static_cast<uint8_t*>(model2) + 0x44);
-                        m_lent3C = flags >> 2 & 1;
-                        m_lent3D = flags >> 3 & 1;
-                        std::memcpy(m_shade, reinterpret_cast<uint8_t*>(level) + 0x4C, 16);
-                        m_colourSaved = true;
+                        lent_3c_ = flags >> 2 & 1;
+                        lent_3d_ = flags >> 3 & 1;
+                        std::memcpy(shade_, reinterpret_cast<uint8_t*>(level) + 0x4C, 16);
+                        colour_saved_ = true;
                     }
                     float offset2[4] = {0.0f, 0.0f, 0.0f, 150.0f};
-                    ModelSetOffset(model2, offset2);
-                    static_cast<Engine3D::CRenderModel*>(model2)->Conceal(0);
-                    static_cast<Engine3D::CRenderModel*>(model2)->AllowResizing(0);
-                    uint32_t mine = reinterpret_cast<uint32_t(__thiscall*)(void*)>(CodeAddress(&Engine3D::CRenderModel::FetchSkinningPalette))(model2);
-                    uint32_t theirs = reinterpret_cast<uint32_t(__thiscall*)(void*)>(CodeAddress(&Engine3D::CRenderModel::FetchSkinningPalette))(ModelOf(standIn));
-                    static_cast<Engine3D::CRenderModel*>(model2)->UploadSkinningPalette(reinterpret_cast<uint8_t*>(theirs));
-                    static_cast<Engine3D::CRenderModel*>(ModelOf(standIn))->UploadSkinningPalette(reinterpret_cast<uint8_t*>(mine));
-                    static_cast<CMeshInstanceModule*>(levelModel)->UpdateBrightness();
+                    model_set_offset(model2, offset2);
+                    static_cast<render::RenderModel*>(model2)->conceal(0);
+                    static_cast<render::RenderModel*>(model2)->allow_resizing(0);
+                    uint32_t mine = reinterpret_cast<uint32_t(__thiscall*)(void*)>(code_address(&render::RenderModel::fetch_skinning_palette))(model2);
+                    uint32_t theirs = reinterpret_cast<uint32_t(__thiscall*)(void*)>(code_address(&render::RenderModel::fetch_skinning_palette))(model_of(stand_in));
+                    static_cast<render::RenderModel*>(model2)->upload_skinning_palette(reinterpret_cast<uint8_t*>(theirs));
+                    static_cast<render::RenderModel*>(model_of(stand_in))->upload_skinning_palette(reinterpret_cast<uint8_t*>(mine));
+                    static_cast<MeshInstanceModule*>(level_model)->get_update_brightness();
                 }
-                reinterpret_cast<void(__thiscall*)(CObjectModule*, int)>((*reinterpret_cast<void***>(standIn))[7])(
-                    standIn, 1);
+                reinterpret_cast<void(__thiscall*)(ObjectModule*, int)>((*reinterpret_cast<void***>(stand_in))[7])(
+                    stand_in, 1);
             }
             entry.name = name;
-            entry.object->ChangeSerial(name);
+            entry.object->change_serial(name);
             entry.skeleton = skeleton;
             entry.active = special;
             entry.animation = nullptr;
             entry.parent = nullptr;
-            entry.animIndex = -1;
+            entry.anim_index_ = -1;
             if (anim) {
-                for (int j = 0; j < m_animationCount; ++j) {
-                    if (m_animations[j].name != anim)
+                for (int j = 0; j < animation_count_; ++j) {
+                    if (animations_[j].name != anim)
                         continue;
-                    AnimationEntry* animation = &m_animations[j];
+                    AnimationEntry* animation = &animations_[j];
                     entry.animation = animation;
-                    void* memory = AnimSourceAllocate(0x214);
+                    void* memory = anim_source_allocate(0x214);
                     animation->source =
-                        memory ? static_cast<Engine3D::CFrameSource*>(memory)->MakeNew() : nullptr;
-                    static_cast<Engine3D::CFrameSource*>(animation->source)->PlayClip(anim);
-                    static_cast<Engine3D::CFrameSource*>(animation->source)->SetDone(true);
+                        memory ? static_cast<render::FrameSource*>(memory)->make_new() : nullptr;
+                    static_cast<render::FrameSource*>(animation->source)->play_clip(anim);
+                    static_cast<render::FrameSource*>(animation->source)->set_done(true);
                     break;
                 }
             }
-            ++m_objectCount;
+            ++object_count_;
         }
-        FreeStruct(params2);
+        free_struct(params2);
     }
-    if (objects->m_extent != 0 && wantsSkater && !hasSkater)
-        Scripts::LaunchScript(kSkaterScript, nullptr, nullptr, false, nullptr);
+    if (objects->extent_ != 0 && wants_skater && !has_skater)
+        script::launch_script(kSkaterScript, nullptr, nullptr, false, nullptr);
 
     // the objects that stand in for level objects (and their children) take those's skeletons
-    for (int i = 0; i < m_objectCount; ++i) {
-        ObjectEntry& entry = m_entities[i];
+    for (int i = 0; i < object_count_; ++i) {
+        ObjectEntry& entry = entities_[i];
         if (entry.active)
-            CopySkeleton(entry, entry);
-        if (ObjectEntry* parent = FindEntry(entry.name - 1)) {
+            copy_skeleton(entry, entry);
+        if (ObjectEntry* parent = find_entry(entry.name - 1)) {
             if (parent->active)
-                CopySkeleton(*parent, entry);
+                copy_skeleton(*parent, entry);
         }
     }
     // their models' flags 0x00493B30 merged with their parents' level objects'
-    for (int i = 0; i < m_objectCount; ++i) {
-        ObjectEntry& entry = m_entities[i];
-        CObjectModule* component = entry.object->FetchModule(kModelModuleName);
+    for (int i = 0; i < object_count_; ++i) {
+        ObjectEntry& entry = entities_[i];
+        ObjectModule* component = entry.object->fetch_module(kModelModuleName);
         if (!component)
             continue;
-        void* model = ModelOf(component);
-        uint32_t flags = static_cast<Engine3D::CRenderModel*>(model)->GetStripBreakFlags();
-        ObjectEntry* parent = FindEntry(entry.name - 1);
+        void* model = model_of(component);
+        uint32_t flags = static_cast<render::RenderModel*>(model)->get_strip_break_flags();
+        ObjectEntry* parent = find_entry(entry.name - 1);
         if (parent && parent->active) {
-            CGameEntity* level = LevelObjectOf(parent->object);
-            flags |= static_cast<Engine3D::CRenderModel*>(ModelOf(level->FetchModule(kModelModuleName)))->GetStripBreakFlags();
+            GameEntity* level = level_object_of(parent->object);
+            flags |= static_cast<render::RenderModel*>(model_of(level->fetch_module(kModelModuleName)))->get_strip_break_flags();
         }
-        static_cast<Engine3D::CRenderModel*>(model)->BreakStrips(flags);
+        static_cast<render::RenderModel*>(model)->break_strips(flags);
     }
     // children: their parent, the skater's look (colours from its appearance parts), their animation index
-    for (int i = 0; i < m_objectCount; ++i) {
-        ObjectEntry& entry = m_entities[i];
-        ObjectEntry* parent = FindEntry(entry.name - 1);
+    for (int i = 0; i < object_count_; ++i) {
+        ObjectEntry& entry = entities_[i];
+        ObjectEntry* parent = find_entry(entry.name - 1);
         if (parent) {
             entry.parent = parent->object;
             if (parent->active)
-                ApplySkaterLook(entry);
+                apply_skater_look(entry);
         }
-        void* anims = m_animList;
+        void* anims = anim_list_;
         for (int j = 0; j < *reinterpret_cast<int*>(static_cast<uint8_t*>(anims) + 8); ++j) {
-            if (entry.name == static_cast<Gfx2D::CJointClipFrames*>(m_animList)->FetchJointName(j)) {
-                entry.animIndex = j;
+            if (entry.name == static_cast<gfx::JointClipFrames*>(anim_list_)->fetch_joint_name(j)) {
+                entry.anim_index_ = j;
                 break;
             }
         }
@@ -389,72 +389,72 @@ void CCinematicTable::AddObjects(Scripts::CStruct* params)
 }
 
 // The entry with this name (the first).
-CCinematicTable::ObjectEntry* CCinematicTable::FindEntry(uint32_t name)
+CinematicTable::ObjectEntry* CinematicTable::find_entry(uint32_t name)
 {
-    for (int i = 0; i < m_objectCount; ++i) {
-        if (m_entities[i].name == name)
-            return &m_entities[i];
+    for (int i = 0; i < object_count_; ++i) {
+        if (entities_[i].name == name)
+            return &entities_[i];
     }
     return nullptr;
 }
 
 // `to`'s object takes the skeleton of the level object `from`'s object stands in for (when it has a skeleton and
 // stands in itself).
-void CCinematicTable::CopySkeleton(ObjectEntry& from, ObjectEntry& to)
+void CinematicTable::copy_skeleton(ObjectEntry& from, ObjectEntry& to)
 {
-    void* skeleton = SkeletonOf(LevelObjectOf(from.object)->FetchModule(kSkeletonModuleName));
-    CGameEntity* object = to.object;
-    CObjectModule* own = object->FetchModule(kSkeletonModuleName);
-    if (own && StandsIn(object->FetchModule(kModelModuleName)))
-        static_cast<Gfx2D::CRig*>(SkeletonOf(own))->CopyBoneScales(static_cast<Gfx2D::CRig*>(skeleton), false);
+    void* skeleton = skeleton_of(level_object_of(from.object)->fetch_module(kSkeletonModuleName));
+    GameEntity* object = to.object;
+    ObjectModule* own = object->fetch_module(kSkeletonModuleName);
+    if (own && stands_in(object->fetch_module(kModelModuleName)))
+        static_cast<gfx::Rig*>(skeleton_of(own))->copy_bone_scales(static_cast<gfx::Rig*>(skeleton), false);
 }
 
 // A child of an object that stands in: the skater's look from its appearance (a colour from part A or B, or
 // from 0x949BC47B's alternatives when 0x97DBDDE6 is set).
-void CCinematicTable::ApplySkaterLook(ObjectEntry& entry)
+void CinematicTable::apply_skater_look(ObjectEntry& entry)
 {
-    CObjectModule* component = entry.object->FetchModule(kModelModuleName);
-    reinterpret_cast<void(__thiscall*)(CObjectModule*, void*, int, int, uint32_t)>(
-        (*reinterpret_cast<void***>(component))[0x34 / 4])(component, m_unknown34A8, 0, 0, 0x8FB01036);
-    uint32_t partName = kPartA;
-    auto* part = static_cast<Scripts::CStruct*>(
-        static_cast<Gfx2D::CModelLook*>(m_unknown34A8)->GetPart(kPartA));
+    ObjectModule* component = entry.object->fetch_module(kModelModuleName);
+    reinterpret_cast<void(__thiscall*)(ObjectModule*, void*, int, int, uint32_t)>(
+        (*reinterpret_cast<void***>(component))[0x34 / 4])(component, unknown34a8_, 0, 0, 0x8FB01036);
+    uint32_t part_name = kPartA;
+    auto* part = static_cast<script::Struct*>(
+        static_cast<gfx::ModelLook*>(unknown34a8_)->get_part(kPartA));
     if (!part) {
-        partName = kPartB;
-        part = static_cast<Scripts::CStruct*>(
-            static_cast<Gfx2D::CModelLook*>(m_unknown34A8)->GetPart(kPartB));
+        part_name = kPartB;
+        part = static_cast<script::Struct*>(
+            static_cast<gfx::ModelLook*>(unknown34a8_)->get_part(kPartB));
         if (!part)
             return;
     }
-    void* model = ModelOf(component);
-    int useOther = 1;
-    uint32_t hueName = 0x6E94F918, saturationName = 0xE4F130F4, valueName = 0x949BC47B;
-    part->FetchIntValue(0x97DBDDE6, &useOther, 0);
-    if (useOther) {
-        part = static_cast<Scripts::CStruct*>(AppearancePart(m_unknown34A8, partName));
-        hueName = 0xC6CC7F7F;
-        saturationName = 0x4CA9B693;
-        valueName = 0x3CC3421C;
+    void* model = model_of(component);
+    int use_other = 1;
+    uint32_t hue_name = 0x6E94F918, saturation_name = 0xE4F130F4, value_name = 0x949BC47B;
+    part->fetch_int_value(0x97DBDDE6, &use_other, 0);
+    if (use_other) {
+        part = static_cast<script::Struct*>(appearance_part(unknown34a8_, part_name));
+        hue_name = 0xC6CC7F7F;
+        saturation_name = 0x4CA9B693;
+        value_name = 0x3CC3421C;
     }
     int hue, saturation, value;
-    if (!part->FetchIntValue(hueName, &hue, 0) || !part->FetchIntValue(saturationName, &saturation, 0) ||
-        !part->FetchIntValue(valueName, &value, 0))
+    if (!part->fetch_int_value(hue_name, &hue, 0) || !part->fetch_int_value(saturation_name, &saturation, 0) ||
+        !part->fetch_int_value(value_name, &value, 0))
         return;
-    Scripts::CStruct* colour = MakeStruct();
-    colour->PutNameKey(0xB6F08F39, 0);
-    colour->PutNameKey(0x83418A6A, 0xAA2206EF);
-    colour->PutInt(0x318F2BDB, 0);
-    static_cast<Engine3D::CRenderModel*>(model)->SetColorFromScript(
+    script::Struct* colour = make_struct();
+    colour->put_name_key(0xB6F08F39, 0);
+    colour->put_name_key(0x83418A6A, 0xAA2206EF);
+    colour->put_int(0x318F2BDB, 0);
+    static_cast<render::RenderModel*>(model)->set_color_from_script(
         colour, static_cast<float>(hue), static_cast<float>(saturation * static_cast<double>(0.0099999998f)),
         static_cast<float>(value * static_cast<double>(0.0099999998f)));
-    FreeStruct(colour);
+    free_struct(colour);
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 
-static VtableSlot g_cutsceneDataVtable_slots[] = {&GameObjects::CCinematicTable::Teardown};
-void** const g_cutsceneDataVtable = reinterpret_cast<void**>(g_cutsceneDataVtable_slots);
+static VtableSlot g_cutscene_data_vtable_slots[] = {&objects::CinematicTable::teardown};
+void** const kCutsceneDataVtable = reinterpret_cast<void**>(g_cutscene_data_vtable_slots);
 
 } // namespace Obj

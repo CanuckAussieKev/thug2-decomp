@@ -9,35 +9,35 @@
 
 #include "engine/gfx/movie.h"
 
-namespace OsLayer {
+namespace os_layer {
 
 namespace {
 
-std::vector<EventHandler>* s_handlers = nullptr; // (made by InitEvents, never freed)
+std::vector<EventHandler>* s_handlers = nullptr; // (made by init_events, never freed)
 
-bool& QuitRequested() { return Engine3D::g_quitRequested; }
+bool& quit_requested() { return render::g_quit_requested; }
 
-void HandleQuit(SDL_Event* event)
+void handle_quit(SDL_Event* event)
 {
     if (event->type == SDL_QUIT)
-        QuitRequested() = true;
+        quit_requested() = true;
 }
 
 } // namespace
 
-void InitEvents()
+void init_events()
 {
     s_handlers = new std::vector<EventHandler>();
     s_handlers->reserve(4);
-    RegisterEventHandler(HandleQuit);
+    register_event_handler(handle_quit);
 }
 
-void RegisterEventHandler(EventHandler handler)
+void register_event_handler(EventHandler handler)
 {
     s_handlers->push_back(handler);
 }
 
-void PumpSdlEvents()
+void pump_sdl_events()
 {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {

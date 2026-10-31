@@ -40,7 +40,7 @@
 #include "platform/sdl_events.h"
 #include "platform/run_log.h"
 
-namespace MenuSystem::LevelEditor::PlayTest {
+namespace frontend::level_editor::play_test {
 
 // --- the pure parts -------------------------------------------------------------------------------------------------
 
@@ -52,23 +52,23 @@ const char* const kMotionNames[kMotions] = {"ground", "air", "grind", "lip", "wa
 const uint32_t kMotionColours[kMotions] = {0xFFB4B4B4, 0xFF48A8FF, 0xFFFF9A20, 0xFFFF60C8, 0xFFB070FF,
                                            0xFF40E070, 0xFFFF3030, 0xFFA0A060, 0xFF50E0E0};
 
-float LenOf(V3 v) { return std::sqrt(Dot(v, v)); }
+float len_of(V3 v) { return std::sqrt(get_dot(v, v)); }
 
 } // namespace
 
-const char* MotionName(Motion motion)
+const char* motion_name(Motion motion)
 {
     int i = static_cast<int>(motion);
     return i >= 0 && i < kMotions ? kMotionNames[i] : "?";
 }
 
-uint32_t MotionColour(Motion motion)
+uint32_t motion_colour(Motion motion)
 {
     int i = static_cast<int>(motion);
     return i >= 0 && i < kMotions ? kMotionColours[i] : 0xFFFFFFFF;
 }
 
-bool MotionFromName(const std::string& name, Motion* motion)
+bool motion_from_name(const std::string& name, Motion* motion)
 {
     for (int i = 0; i < kMotions; ++i) {
         if (name == kMotionNames[i]) {
@@ -79,30 +79,30 @@ bool MotionFromName(const std::string& name, Motion* motion)
     return false;
 }
 
-Motion Classify(int physicsState, bool bailing, uint32_t balanceTrick, bool walking, bool driving)
+Motion get_classify(int physics_state, bool bailing, uint32_t balance_trick, bool walking, bool driving)
 {
     if (bailing)
-        return Motion::Bail;
+        return Motion::kBail;
     if (driving)
-        return Motion::Drive;
+        return Motion::kDrive;
     if (walking)
-        return Motion::Walk;
-    switch (physicsState) {
+        return Motion::kWalk;
+    switch (physics_state) {
     case kStateAir:
-        return Motion::Air;
+        return Motion::kAir;
     case kStateWall:
     case kStateWallplant:
-        return Motion::Wall;
+        return Motion::kWall;
     case kStateLip:
-        return Motion::Lip;
+        return Motion::kLip;
     case kStateRail:
-        return Motion::Grind;
+        return Motion::kGrind;
     default:
-        return balanceTrick == kManual || balanceTrick == kNoseManual ? Motion::Manual : Motion::Ground;
+        return balance_trick == kManual || balance_trick == kNoseManual ? Motion::kManual : Motion::kGround;
     }
 }
 
-void Recorder::Feed(V3 pos, Motion motion)
+void Recorder::feed(V3 pos, Motion motion)
 {
     if (full)
         return;
@@ -115,47 +115,47 @@ void Recorder::Feed(V3 pos, Motion motion)
         return true;
     };
     Sample now = {pos, motion, false};
-    if (!haveLast || samples.empty()) {
-        haveLast = true;
+    if (!have_last_ || samples.empty()) {
+        have_last_ = true;
         last = now;
-        lastKept = push(now);
+        last_kept_ = push(now);
         return;
     }
     V3 step = pos - last.pos;
-    if (Dot(step, step) > kJump * kJump) {
+    if (get_dot(step, step) > kJump * kJump) {
         // (moved there: the stretch before ends where it was, the new one starts unlinked)
-        if (!lastKept)
+        if (!last_kept_)
             push(last);
         now.jump = true;
-        lastKept = push(now);
+        last_kept_ = push(now);
         last = now;
         return;
     }
     bool keep = false;
     if (motion != last.motion) {
-        if (!lastKept)
+        if (!last_kept_)
             push(last); // (the last frame of the motion before: its stretch keeps its colour up to here)
         keep = true;
     } else {
         const Sample& kept = samples.back();
         V3 d = pos - kept.pos;
-        float distance = LenOf(d);
+        float distance = len_of(d);
         if (distance >= kMaxStep) {
             keep = true;
         } else if (distance >= kMinStep && samples.size() >= 2 && !kept.jump) {
             V3 before = kept.pos - samples[samples.size() - 2].pos;
-            float lb = LenOf(before);
+            float lb = len_of(before);
             if (lb > 0.001f) {
-                float c = Dot(before, d) / (lb * distance);
+                float c = get_dot(before, d) / (lb * distance);
                 keep = c < std::cos(kTurnDegrees * 3.14159265f / 180.0f);
             }
         }
     }
-    lastKept = keep && push(now);
+    last_kept_ = keep && push(now);
     last = now;
 }
 
-std::vector<GapChange> GapTracker::TickFrame(const std::vector<GapRead>& now)
+std::vector<GapChange> GapTracker::tick_frame(const std::vector<GapRead>& now)
 {
     std::vector<GapChange> changes;
     if (!known) {
@@ -171,23 +171,23 @@ std::vector<GapChange> GapTracker::TickFrame(const std::vector<GapRead>& now)
                 break;
             }
         }
-        int oldPending = old ? old->pending : 0, oldCount = old ? old->count : g.count;
-        if (g.pending > oldPending)
-            changes.push_back({GapChange::Got, g.name, g.score});
-        if (g.count > oldCount) {
+        int old_pending = old ? old->pending : 0, old_count = old ? old->count : g.count;
+        if (g.pending > old_pending)
+            changes.push_back({GapChange::kGot, g.name, g.score});
+        if (g.count > old_count) {
             // (got and landed between two reads: the got first)
-            if (oldPending == 0 && g.pending <= oldPending)
-                changes.push_back({GapChange::Got, g.name, g.score});
-            changes.push_back({GapChange::Landed, g.name, g.score});
-        } else if (oldPending > 0 && g.pending == 0) {
-            changes.push_back({GapChange::Lost, g.name, g.score});
+            if (old_pending == 0 && g.pending <= old_pending)
+                changes.push_back({GapChange::kGot, g.name, g.score});
+            changes.push_back({GapChange::kLanded, g.name, g.score});
+        } else if (old_pending > 0 && g.pending == 0) {
+            changes.push_back({GapChange::kLost, g.name, g.score});
         }
     }
     last = now;
     return changes;
 }
 
-bool ComboTracker::TickFrame(int pendingNow, bool bailing, ComboEnd* end)
+bool ComboTracker::tick_frame(int pending_now, bool bailing, ComboEnd* end)
 {
     bool decided = false;
     if (ending > 0) {
@@ -201,7 +201,7 @@ bool ComboTracker::TickFrame(int pendingNow, bool bailing, ComboEnd* end)
             decided = true;
         }
     }
-    if (pending > 0 && pendingNow <= 0) {
+    if (pending > 0 && pending_now <= 0) {
         if (!decided && bailing) {
             *end = {pending, false};
             decided = true;
@@ -210,41 +210,41 @@ bool ComboTracker::TickFrame(int pendingNow, bool bailing, ComboEnd* end)
             settle = kSettleFrames;
         }
     }
-    pending = pendingNow > 0 ? pendingNow : 0;
+    pending = pending_now > 0 ? pending_now : 0;
     return decided;
 }
 
-int Run::GapsLanded() const
+int Run::gaps_landed() const
 {
     int n = 0;
     for (const Occurrence& e : events)
-        n += e.kind == EventKind::Gap && e.status == GapStatus::Landed;
+        n += e.kind == EventKind::kGap && e.status == GapStatus::kLanded;
     return n;
 }
 
-int Run::Bails() const
+int Run::bails() const
 {
     int n = 0;
     for (const Occurrence& e : events)
-        n += e.kind == EventKind::Bail;
+        n += e.kind == EventKind::kBail;
     return n;
 }
 
-int Run::TopComboValue() const
+int Run::top_combo_value() const
 {
     int best = 0;
     for (const Occurrence& e : events) {
-        if (e.kind == EventKind::Combo && e.status == GapStatus::Landed)
+        if (e.kind == EventKind::kCombo && e.status == GapStatus::kLanded)
             best = std::max(best, e.value);
     }
     return best;
 }
 
-void LevelTrails::AppendOne(Run run)
+void LevelTrails::append_one(Run run)
 {
     if (run.number <= 0)
-        run.number = nextNumber;
-    nextNumber = std::max(nextNumber, run.number + 1);
+        run.number = next_number_;
+    next_number_ = std::max(next_number_, run.number + 1);
     runs.push_back(std::move(run));
     while (runs.size() > kMaxRuns)
         runs.erase(runs.begin());
@@ -253,13 +253,13 @@ void LevelTrails::AppendOne(Run run)
 namespace {
 
 const char* const kHeader = "thug2-decomp trails 1";
-const char* EventWord(EventKind kind) { return kind == EventKind::Gap ? "gap" : kind == EventKind::Bail ? "bail" : "combo"; }
-const char* StatusWord(GapStatus status)
+const char* event_word(EventKind kind) { return kind == EventKind::kGap ? "gap" : kind == EventKind::kBail ? "bail" : "combo"; }
+const char* status_word(GapStatus status)
 {
-    return status == GapStatus::Landed ? "landed" : status == GapStatus::Lost ? "lost" : "pending";
+    return status == GapStatus::kLanded ? "landed" : status == GapStatus::kLost ? "lost" : "pending";
 }
 // (a name kept to one line)
-std::string OneLine(const std::string& text)
+std::string one_line(const std::string& text)
 {
     std::string out = text;
     for (char& c : out) {
@@ -271,30 +271,30 @@ std::string OneLine(const std::string& text)
 
 } // namespace
 
-std::string Format(const LevelTrails& trails)
+std::string get_format(const LevelTrails& trails)
 {
     std::string out = std::string(kHeader) + "\n";
     char line[256];
     for (const std::string& gap : trails.landed)
-        out += "gap " + OneLine(gap) + "\n";
+        out += "gap " + one_line(gap) + "\n";
     for (const Run& run : trails.runs) {
         std::snprintf(line, sizeof(line), "run %d %.2f %d\n", run.number, run.seconds, run.visible ? 1 : 0);
         out += line;
         for (const Sample& s : run.samples) {
-            std::snprintf(line, sizeof(line), "s %.1f %.1f %.1f %s %d\n", s.pos.x, s.pos.y, s.pos.z, MotionName(s.motion),
+            std::snprintf(line, sizeof(line), "s %.1f %.1f %.1f %s %d\n", s.pos.x, s.pos.y, s.pos.z, motion_name(s.motion),
                           s.jump ? 1 : 0);
             out += line;
         }
         for (const Occurrence& e : run.events) {
-            std::snprintf(line, sizeof(line), "e %s %.1f %.1f %.1f %d %s ", EventWord(e.kind), e.pos.x, e.pos.y, e.pos.z,
-                          e.value, StatusWord(e.status));
-            out += line + OneLine(e.name) + "\n";
+            std::snprintf(line, sizeof(line), "e %s %.1f %.1f %.1f %d %s ", event_word(e.kind), e.pos.x, e.pos.y, e.pos.z,
+                          e.value, status_word(e.status));
+            out += line + one_line(e.name) + "\n";
         }
     }
     return out;
 }
 
-bool Parse(const std::string& text, LevelTrails* trails)
+bool parse(const std::string& text, LevelTrails* trails)
 {
     std::istringstream in(text);
     std::string line;
@@ -324,14 +324,14 @@ bool Parse(const std::string& text, LevelTrails* trails)
             r.seconds = seconds;
             r.visible = visible != 0;
             out.runs.push_back(r);
-            out.nextNumber = std::max(out.nextNumber, number + 1);
+            out.next_number_ = std::max(out.next_number_, number + 1);
             run = &out.runs.back();
         } else if (line.rfind("s ", 0) == 0 && run) {
             std::istringstream fields(line.substr(2));
             Sample s;
             std::string motion;
             int jump = 0;
-            if (!(fields >> s.pos.x >> s.pos.y >> s.pos.z >> motion >> jump) || !MotionFromName(motion, &s.motion))
+            if (!(fields >> s.pos.x >> s.pos.y >> s.pos.z >> motion >> jump) || !motion_from_name(motion, &s.motion))
                 continue;
             s.jump = jump != 0;
             run->samples.push_back(s);
@@ -342,14 +342,14 @@ bool Parse(const std::string& text, LevelTrails* trails)
             if (!(fields >> kind >> e.pos.x >> e.pos.y >> e.pos.z >> e.value >> status))
                 continue;
             if (kind == "gap")
-                e.kind = EventKind::Gap;
+                e.kind = EventKind::kGap;
             else if (kind == "bail")
-                e.kind = EventKind::Bail;
+                e.kind = EventKind::kBail;
             else if (kind == "combo")
-                e.kind = EventKind::Combo;
+                e.kind = EventKind::kCombo;
             else
                 continue;
-            e.status = status == "landed" ? GapStatus::Landed : status == "lost" ? GapStatus::Lost : GapStatus::Awaiting;
+            e.status = status == "landed" ? GapStatus::kLanded : status == "lost" ? GapStatus::kLost : GapStatus::kAwaiting;
             std::string rest;
             std::getline(fields, rest);
             if (!rest.empty() && rest[0] == ' ')
@@ -364,14 +364,14 @@ bool Parse(const std::string& text, LevelTrails* trails)
     return true;
 }
 
-std::string FileName(uint32_t scene)
+std::string get_file_name(uint32_t scene)
 {
     char name[32];
     std::snprintf(name, sizeof(name), "%08X.trails.txt", scene);
     return name;
 }
 
-bool SimulateKeyKeeps(int scancode, bool ctrl, bool alt, bool flyKeysSafe)
+bool simulate_key_keeps(int scancode, bool ctrl, bool alt, bool fly_keys_safe)
 {
     switch (scancode) {
     case SDL_SCANCODE_LCTRL:
@@ -401,7 +401,7 @@ bool SimulateKeyKeeps(int scancode, bool ctrl, bool alt, bool flyKeysSafe)
     case SDL_SCANCODE_Q:
     case SDL_SCANCODE_E:
     case SDL_SCANCODE_SPACE:
-        return flyKeysSafe; // (flying - not when they nudge a selection)
+        return fly_keys_safe; // (flying - not when they nudge a selection)
     case SDL_SCANCODE_F:
     case SDL_SCANCODE_C:
     case SDL_SCANCODE_O:
@@ -435,17 +435,17 @@ constexpr uint32_t kSkaterScore = 0xD262802F;        // SkaterScore
 constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D; // (skaters)
 constexpr uint32_t kCamModuleName = 0xC4E311FA;    // (camera objects)
 
-template <typename T> T At(const void* base, uint32_t offset)
+template <typename T> T get_at(const void* base, uint32_t offset)
 {
     return *reinterpret_cast<const T*>(reinterpret_cast<const uint8_t*>(base) + offset);
 }
 
-uint8_t* Skate() { return reinterpret_cast<uint8_t*>(GameModules::g_skateModule); } // GameModules::Skate
+uint8_t* get_skate() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); } // modules::Skate
 
-GoalSystem::CGapTally* Checklist()
+goals::GapTally* get_checklist()
 {
-    uint8_t* skate = Skate();
-    return skate ? static_cast<GoalSystem::CGapTally*>(reinterpret_cast<GameModules::Skate*>(skate)->FetchGapList()) : nullptr;
+    uint8_t* skate = get_skate();
+    return skate ? static_cast<goals::GapTally*>(reinterpret_cast<modules::Skate*>(skate)->fetch_gap_list()) : nullptr;
 }
 
 // The skater's state (the header's offsets).
@@ -455,24 +455,24 @@ struct SkaterNow {
     bool bailing;
     int pending; // the combo's points
 };
-bool ReadSkater(GameObjects::CGameEntity* skater, SkaterNow* out)
+bool read_skater(objects::GameEntity* skater, SkaterNow* out)
 {
-    GameObjects::CObjectModule* state = skater->FetchModule(kSkaterState);
+    objects::ObjectModule* state = skater->fetch_module(kSkaterState);
     if (!state)
         return false;
-    int physics = At<int>(state, 0x18);
-    bool bailing = At<uint8_t>(state, 0x70) != 0;
-    bool driving = At<uint8_t>(state, 0x118) != 0;
-    bool walking = !driving && At<int>(state, 0x1C) == 1;
-    GameObjects::CObjectModule* balance = skater->FetchModule(kSkaterBalanceTrick);
-    uint32_t trick = balance ? At<uint32_t>(balance, 0x18) : 0;
-    out->pos = {skater->m_atPoint.x, skater->m_atPoint.y, skater->m_atPoint.z};
-    out->motion = Classify(physics, bailing, trick, walking, driving);
+    int physics = get_at<int>(state, 0x18);
+    bool bailing = get_at<uint8_t>(state, 0x70) != 0;
+    bool driving = get_at<uint8_t>(state, 0x118) != 0;
+    bool walking = !driving && get_at<int>(state, 0x1C) == 1;
+    objects::ObjectModule* balance = skater->fetch_module(kSkaterBalanceTrick);
+    uint32_t trick = balance ? get_at<uint32_t>(balance, 0x18) : 0;
+    out->pos = {skater->at_point_.x, skater->at_point_.y, skater->at_point_.z};
+    out->motion = get_classify(physics, bailing, trick, walking, driving);
     out->bailing = bailing;
     out->pending = 0;
-    if (GameObjects::CObjectModule* score = skater->FetchModule(kSkaterScore)) {
-        if (const uint8_t* s = At<const uint8_t*>(score, 0x18)) {
-            double points = static_cast<double>(At<int>(s, 0x14)) * At<float>(s, 0x60);
+    if (objects::ObjectModule* score = skater->fetch_module(kSkaterScore)) {
+        if (const uint8_t* s = get_at<const uint8_t*>(score, 0x18)) {
+            double points = static_cast<double>(get_at<int>(s, 0x14)) * get_at<float>(s, 0x60);
             if (points > 0.0 && points < 2.0e9)
                 out->pending = static_cast<int>(points);
         }
@@ -489,90 +489,90 @@ struct Recording {
     Recorder recorder;
     GapTracker gaps;
     ComboTracker combo;
-    bool wasBailing = false;
-    uint32_t lastTicks = 0;
-    int refusedCheck = 0;
+    bool was_bailing_ = false;
+    uint32_t last_ticks_ = 0;
+    int refused_check_ = 0;
     bool refused = false;
 };
 Recording g_rec;
 
 std::map<uint32_t, LevelTrails> g_levels;
-std::set<uint32_t> g_fileTried;
-uint32_t g_editorScene; // (the level the editor shows)
-bool g_showTrails = true;
-bool g_recordOn = ConfigInt("editor", "trail_record", 1) != 0;
-bool g_windowOpen;
-Ask g_ask = Ask::None;
+std::set<uint32_t> g_file_tried;
+uint32_t g_editor_scene; // (the level the editor shows)
+bool g_show_trails = true;
+bool g_record_on = config_int("editor", "trail_record", 1) != 0;
+bool g_window_open;
+Ask g_ask = Ask::kNone;
 
 // Play from a restart.
 uint32_t g_restart;
-uint32_t g_restartAsked;
-int g_restartFrames;
+uint32_t g_restart_asked;
+int g_restart_frames;
 
 // Simulate.
 struct Snapshot {
-    Objects::State state;
-    Maths::Vec4 vel;
+    object_edit::State state;
+    maths::Vec4 vel;
 };
 bool g_simulating;
-bool g_keepSimulation;
+bool g_keep_simulation;
 std::vector<Snapshot> g_snapshots;
-std::vector<uint32_t> g_touchedBefore;
-bool g_handlerRegistered;
-uint32_t g_simStarted;
+std::vector<uint32_t> g_touched_before;
+bool g_handler_registered;
+uint32_t g_sim_started;
 
-uint32_t SceneNow() { return Scenery::WorldSceneKey(Scenery::MainScene()); }
+uint32_t scene_now() { return scenery::world_scene_key(scenery::main_scene()); }
 
-std::string TrailsPath(uint32_t scene) { return GameFolderPath("thug2-decomp-layouts") + "\\" + FileName(scene); }
+std::string trails_path(uint32_t scene) { return game_folder_path("thug2-decomp-layouts") + "\\" + get_file_name(scene); }
 
-bool IngestFile(uint32_t scene, bool quiet)
+bool ingest_file(uint32_t scene, bool quiet)
 {
-    std::ifstream file(TrailsPath(scene), std::ios::binary);
+    std::ifstream file(trails_path(scene), std::ios::binary);
     if (!file)
         return false;
     std::stringstream text;
     text << file.rdbuf();
     LevelTrails read;
-    if (!Parse(text.str(), &read)) {
-        Log("level editor: %s isn't a trails file - not read", TrailsPath(scene).c_str());
+    if (!parse(text.str(), &read)) {
+        get_log("level editor: %s isn't a trails file - not read", trails_path(scene).c_str());
         return false;
     }
     g_levels[scene] = std::move(read);
     if (!quiet)
-        Hud::Message("Trails read from " + FileName(scene));
-    Log("level editor: trails read: %u runs, %u gaps landed (%s)", static_cast<unsigned>(g_levels[scene].runs.size()),
-        static_cast<unsigned>(g_levels[scene].landed.size()), TrailsPath(scene).c_str());
+        hud::get_message("Trails read from " + get_file_name(scene));
+    get_log("level editor: trails read: %u runs, %u gaps landed (%s)", static_cast<unsigned>(g_levels[scene].runs.size()),
+        static_cast<unsigned>(g_levels[scene].landed.size()), trails_path(scene).c_str());
     return true;
 }
 
-bool SaveFile(uint32_t scene)
+bool save_file(uint32_t scene)
 {
-    CreateDirectoryA(GameFolderPath("thug2-decomp-layouts").c_str(), nullptr);
-    std::ofstream file(TrailsPath(scene), std::ios::binary | std::ios::trunc);
+    CreateDirectoryA(game_folder_path("thug2-decomp-layouts").c_str(), nullptr);
+    std::ofstream file(trails_path(scene), std::ios::binary | std::ios::trunc);
     if (!file)
         return false;
-    file << Format(g_levels[scene]);
+    file << get_format(g_levels[scene]);
     return static_cast<bool>(file);
 }
 
-std::vector<GapRead> ReadGaps()
+std::vector<GapRead> read_gaps()
 {
     std::vector<GapRead> out;
-    GoalSystem::CGapTally* list = Checklist();
+    goals::GapTally* list = get_checklist();
     if (!list)
         return out;
     // (the list's nodes: the head's data is -1 - gap_checklist.cpp)
     int guard = 0;
-    for (MemSys::ListNode* node = list->m_gaps.next; node && node != &list->m_gaps && ++guard < 4096; node = node->next) {
+    for (memory::ListNode* node = list->gaps_.next; node && node != &list->gaps_ && ++guard < 4096; node = node->next) {
         if (node->data == reinterpret_cast<void*>(-1))
             break;
-        auto* gap = reinterpret_cast<GoalSystem::CGapEntry*>(node);
-        out.push_back({gap->m_label.c_str() ? gap->m_label.c_str() : "", gap->m_pending, gap->m_num, gap->m_pointsHeld});
+        auto* gap = reinterpret_cast<goals::GapEntry*>(node);
+        out.push_back({gap->label_.c_str() ? gap->label_.c_str() : "", gap->pending_, gap->num_, gap->points_held_});
     }
     return out;
 }
 
-void CloseRun(const char* why)
+void close_run(const char* why)
 {
     if (!g_rec.open)
         return;
@@ -581,121 +581,121 @@ void CloseRun(const char* why)
     g_rec.run.full = g_rec.recorder.full;
     // (a combo still settling counts as landed)
     if (g_rec.combo.ending > 0 && !g_rec.run.samples.empty())
-        g_rec.run.events.push_back({EventKind::Combo, g_rec.run.samples.back().pos, "", g_rec.combo.ending, GapStatus::Landed});
+        g_rec.run.events.push_back({EventKind::kCombo, g_rec.run.samples.back().pos, "", g_rec.combo.ending, GapStatus::kLanded});
     if (g_rec.run.samples.size() < 2) {
-        Log("level editor: trail - a run too short to keep (%s)", why);
+        get_log("level editor: trail - a run too short to keep (%s)", why);
         return;
     }
     LevelTrails& level = g_levels[g_rec.scene];
-    g_rec.run.number = level.nextNumber;
-    Log("level editor: trail run %d recorded (%s): %.1f s, %u points, %d gaps landed, %d bails, best combo %d%s",
-        g_rec.run.number, why, g_rec.run.seconds, static_cast<unsigned>(g_rec.run.samples.size()), g_rec.run.GapsLanded(),
-        g_rec.run.Bails(), g_rec.run.TopComboValue(), g_rec.run.full ? " (full)" : "");
-    level.AppendOne(std::move(g_rec.run));
+    g_rec.run.number = level.next_number_;
+    get_log("level editor: trail run %d recorded (%s): %.1f s, %u points, %d gaps landed, %d bails, best combo %d%s",
+        g_rec.run.number, why, g_rec.run.seconds, static_cast<unsigned>(g_rec.run.samples.size()), g_rec.run.gaps_landed(),
+        g_rec.run.bails(), g_rec.run.top_combo_value(), g_rec.run.full ? " (full)" : "");
+    level.append_one(std::move(g_rec.run));
 }
 
-void OpenRun(int load)
+void open_run(int load)
 {
     g_rec = Recording{};
     g_rec.open = true;
     g_rec.load = load;
-    g_rec.scene = SceneNow();
-    Log("level editor: trail - recording a run (the level's edited copy in play)");
+    g_rec.scene = scene_now();
+    get_log("level editor: trail - recording a run (the level's edited copy in play)");
 }
 
-void LinkRecord(GameModules::FrontEnd* frontEnd)
+void link_record(modules::FrontEnd* front_end)
 {
-    int load = Layout::LevelLoads();
-    if (g_rec.open && (g_rec.load != load || !g_recordOn))
-        CloseRun(g_rec.load != load ? "another level loaded" : "recording turned off");
-    bool paused = frontEnd && frontEnd->m_isHalted;
-    auto* skater = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(kSkater));
-    if (!g_recordOn || paused || !skater || Engine3D::CurrentLevel() == 0 || !Layout::EditingCopy()) {
-        g_rec.lastTicks = 0;
+    int load = layout::level_loads();
+    if (g_rec.open && (g_rec.load != load || !g_record_on))
+        close_run(g_rec.load != load ? "another level loaded" : "recording turned off");
+    bool paused = front_end && front_end->is_halted_;
+    auto* skater = static_cast<objects::GameEntity*>(objects::find_object(kSkater));
+    if (!g_record_on || paused || !skater || render::current_level() == 0 || !layout::editing_copy()) {
+        g_rec.last_ticks_ = 0;
         return;
     }
     // (a network session or a refused mode: looked at now and then)
-    if (--g_rec.refusedCheck <= 0) {
-        g_rec.refusedCheck = 60;
-        g_rec.refused = Layout::Refused();
+    if (--g_rec.refused_check_ <= 0) {
+        g_rec.refused_check_ = 60;
+        g_rec.refused = layout::get_refused();
     }
     if (g_rec.refused) {
         if (g_rec.open)
-            CloseRun("refused here");
+            close_run("refused here");
         return;
     }
     SkaterNow now;
-    if (!ReadSkater(skater, &now))
+    if (!read_skater(skater, &now))
         return;
     if (!g_rec.open) {
-        OpenRun(load);
-        g_rec.refusedCheck = 60;
+        open_run(load);
+        g_rec.refused_check_ = 60;
     }
     uint32_t ticks = SDL_GetTicks();
-    float dt = g_rec.lastTicks ? std::min(0.1f, static_cast<float>(ticks - g_rec.lastTicks) / 1000.0f) : 0.0f;
-    g_rec.lastTicks = ticks;
+    float dt = g_rec.last_ticks_ ? std::min(0.1f, static_cast<float>(ticks - g_rec.last_ticks_) / 1000.0f) : 0.0f;
+    g_rec.last_ticks_ = ticks;
     Run& run = g_rec.run;
     run.seconds += dt;
-    run.motionSeconds[static_cast<int>(now.motion)] += dt;
-    g_rec.recorder.Feed(now.pos, now.motion);
-    if (now.bailing && !g_rec.wasBailing)
-        run.events.push_back({EventKind::Bail, now.pos, "", 0, GapStatus::Lost});
-    g_rec.wasBailing = now.bailing;
+    run.motion_seconds_[static_cast<int>(now.motion)] += dt;
+    g_rec.recorder.feed(now.pos, now.motion);
+    if (now.bailing && !g_rec.was_bailing_)
+        run.events.push_back({EventKind::kBail, now.pos, "", 0, GapStatus::kLost});
+    g_rec.was_bailing_ = now.bailing;
     // The gaps: got, landed, lost.
     LevelTrails& level = g_levels[g_rec.scene];
-    for (const GapChange& c : g_rec.gaps.TickFrame(ReadGaps())) {
-        if (c.kind == GapChange::Got) {
-            run.events.push_back({EventKind::Gap, now.pos, c.name, c.score, GapStatus::Awaiting});
+    for (const GapChange& c : g_rec.gaps.tick_frame(read_gaps())) {
+        if (c.kind == GapChange::kGot) {
+            run.events.push_back({EventKind::kGap, now.pos, c.name, c.score, GapStatus::kAwaiting});
             continue;
         }
         bool marked = false;
         for (auto e = run.events.rbegin(); e != run.events.rend(); ++e) {
-            if (e->kind == EventKind::Gap && e->status == GapStatus::Awaiting && e->name == c.name) {
-                e->status = c.kind == GapChange::Landed ? GapStatus::Landed : GapStatus::Lost;
+            if (e->kind == EventKind::kGap && e->status == GapStatus::kAwaiting && e->name == c.name) {
+                e->status = c.kind == GapChange::kLanded ? GapStatus::kLanded : GapStatus::kLost;
                 marked = true;
-                if (c.kind == GapChange::Landed)
+                if (c.kind == GapChange::kLanded)
                     break; // (one landing a got)
             }
         }
-        if (c.kind == GapChange::Landed) {
+        if (c.kind == GapChange::kLanded) {
             if (!marked)
-                run.events.push_back({EventKind::Gap, now.pos, c.name, c.score, GapStatus::Landed});
+                run.events.push_back({EventKind::kGap, now.pos, c.name, c.score, GapStatus::kLanded});
             if (level.landed.insert(c.name).second)
-                Log("level editor: trail - gap \"%s\" landed for the first time in a test run", c.name.c_str());
+                get_log("level editor: trail - gap \"%s\" landed for the first time in a test run", c.name.c_str());
         }
     }
     ComboEnd end;
-    if (g_rec.combo.TickFrame(now.pending, now.bailing, &end) && end.points > 0)
-        run.events.push_back({EventKind::Combo, now.pos, "", end.points, end.landed ? GapStatus::Landed : GapStatus::Lost});
+    if (g_rec.combo.tick_frame(now.pending, now.bailing, &end) && end.points > 0)
+        run.events.push_back({EventKind::kCombo, now.pos, "", end.points, end.landed ? GapStatus::kLanded : GapStatus::kLost});
 }
 
-void RestartStep(GameModules::FrontEnd* frontEnd)
+void restart_step(modules::FrontEnd* front_end)
 {
     if (!g_restart)
         return;
-    if (SDL_GetTicks() - g_restartAsked > 15000 && g_restartFrames == 0) {
-        Log("level editor: play from a restart - dropped (the editor didn't close)");
+    if (SDL_GetTicks() - g_restart_asked > 15000 && g_restart_frames == 0) {
+        get_log("level editor: play from a restart - dropped (the editor didn't close)");
         g_restart = 0;
         return;
     }
-    if (++g_restartFrames > 300) {
-        Log("level editor: play from a restart - the game didn't come back from the pause menu; not moved");
+    if (++g_restart_frames > 300) {
+        get_log("level editor: play from a restart - the game didn't come back from the pause menu; not moved");
         g_restart = 0;
         return;
     }
-    bool paused = frontEnd && frontEnd->m_isHalted;
-    if (paused || g_restartFrames < 4 || !GameObjects::FindObject(kSkater) || Engine3D::CurrentLevel() == 0)
+    bool paused = front_end && front_end->is_halted_;
+    if (paused || g_restart_frames < 4 || !objects::find_object(kSkater) || render::current_level() == 0)
         return;
     uint32_t restart = g_restart;
     g_restart = 0;
-    Scripts::CStruct* params = Scripts::SpawnParamBag()->PrepareAll();
-    params->PutNameKey(Checksums::HashFromText("node_name"), restart);
-    Scripts::LaunchScript(Checksums::HashFromText("ResetSkaters"), params, nullptr, false, "ResetSkaters");
-    params->Clear();
-    Scripts::DeleteStruct(params);
-    std::string label = Nodes::Caption(restart);
-    Log("level editor: play from the restart %s (ResetSkaters)", label.c_str());
-    Layout::PanelMessage(("Playing from " + label + " (F5: return to editor)").c_str());
+    script::Struct* params = script::spawn_param_bag()->prepare_all();
+    params->put_name_key(checksums::hash_from_text("node_name"), restart);
+    script::launch_script(checksums::hash_from_text("ResetSkaters"), params, nullptr, false, "ResetSkaters");
+    params->get_clear();
+    script::delete_struct(params);
+    std::string label = nodes::caption(restart);
+    get_log("level editor: play from the restart %s (ResetSkaters)", label.c_str());
+    layout::panel_message(("Playing from " + label + " (F5: return to editor)").c_str());
 }
 
 // --- simulate ---
@@ -703,22 +703,22 @@ void RestartStep(GameModules::FrontEnd* frontEnd)
 struct SnapWalk {
     std::vector<Snapshot>* out;
 };
-void __cdecl SnapOne(GameObjects::CEntity* object, void* data)
+void __cdecl snap_one(objects::Entity* object, void* data)
 {
     auto* walk = static_cast<SnapWalk*>(data);
-    auto* composite = static_cast<GameObjects::CGameEntity*>(object);
-    if ((composite->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) || (composite->m_compositeFlags & GameObjects::COMPOSITE_FLAG_DESTROYING))
+    auto* composite = static_cast<objects::GameEntity*>(object);
+    if ((composite->object_flags_ & objects::kObjectFlagDead) || (composite->composite_flags_ & objects::kCompositeFlagDestroying))
         return;
-    if (composite->FetchModule(kSkaterPhysicsControl) || composite->FetchModule(kCamModuleName))
+    if (composite->fetch_module(kSkaterPhysicsControl) || composite->fetch_module(kCamModuleName))
         return;
-    walk->out->push_back({Objects::StoreAway(composite), composite->m_vel});
+    walk->out->push_back({object_edit::store_away(composite), composite->vel_});
 }
 
 // The skaters paused again after the game is unpaused (the front end's own walk of them - FrontEnd::PauseGame: their
 // vtable +0x2C pauses one).
-void PauseSkaters()
+void pause_skaters()
 {
-    uint8_t* skate = Skate();
+    uint8_t* skate = get_skate();
     if (!skate)
         return;
     uint32_t count = 0;
@@ -726,100 +726,100 @@ void PauseSkaters()
          node = *reinterpret_cast<uint8_t**>(node + 0xC))
         ++count;
     for (uint32_t i = 0; i < count; ++i) {
-        auto* skater = reinterpret_cast<void***>(reinterpret_cast<GameModules::Skate*>(skate)->GetRiderAt(static_cast<int>(i)));
+        auto* skater = reinterpret_cast<void***>(reinterpret_cast<modules::Skate*>(skate)->get_rider_at(static_cast<int>(i)));
         if (skater)
             reinterpret_cast<void(__thiscall*)(void*)>((*skater)[0x2C / 4])(skater);
     }
 }
 
-void StopSimulation(const char* why);
+void stop_simulation(const char* why);
 
-void SimulateEvent(SDL_Event* event)
+void simulate_event(SDL_Event* event)
 {
-    if (!g_simulating || !LevelEditor::LiveNow())
+    if (!g_simulating || !level_editor::live_now())
         return;
-    if (event->type == SDL_KEYDOWN && !event->key.repeat && Ui::KeysToEditor()) {
+    if (event->type == SDL_KEYDOWN && !event->key.repeat && ui::keys_to_editor()) {
         const uint8_t* keys = SDL_GetKeyboardState(nullptr);
         bool ctrl = (event->key.keysym.mod & KMOD_CTRL) != 0, alt = (event->key.keysym.mod & KMOD_ALT) != 0;
         int x, y;
         bool right = (SDL_GetMouseState(&x, &y) & SDL_BUTTON(SDL_BUTTON_RIGHT)) != 0;
-        bool flyKeysSafe = right || !Xform::FlyAlways();
+        bool fly_keys_safe = right || !xform::fly_always();
         (void)keys;
-        if (!SimulateKeyKeeps(event->key.keysym.scancode, ctrl, alt, flyKeysSafe))
-            StopSimulation("a key that edits");
-    } else if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT && Ui::MouseToEditor()) {
-        StopSimulation("a click in the view");
+        if (!simulate_key_keeps(event->key.keysym.scancode, ctrl, alt, fly_keys_safe))
+            stop_simulation("a key that edits");
+    } else if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT && ui::mouse_to_editor()) {
+        stop_simulation("a click in the view");
     }
 }
 
-void StartSimulation()
+void start_simulation()
 {
-    GameModules::FrontEnd* frontEnd = GameModules::FrontEndInstance();
-    if (g_simulating || !frontEnd)
+    modules::FrontEnd* front_end = modules::front_end_instance();
+    if (g_simulating || !front_end)
         return;
-    if (!frontEnd->m_isHalted) {
-        Hud::Message("Simulate unavailable here");
+    if (!front_end->is_halted_) {
+        hud::get_message("Simulate unavailable here");
         return;
     }
-    if (Layout::Refused()) {
-        Hud::Message("Simulate unavailable here");
+    if (layout::get_refused()) {
+        hud::get_message("Simulate unavailable here");
         return;
     }
     g_snapshots.clear();
-    if (GameObjects::CEntityHub* manager = GameObjects::ObjectHubSlot()) {
+    if (objects::EntityHub* manager = objects::object_hub_slot()) {
         SnapWalk walk = {&g_snapshots};
-        manager->ForEach(SnapOne, &walk);
+        manager->for_each(snap_one, &walk);
     }
-    g_touchedBefore = Objects::Touched();
-    if (!g_handlerRegistered) {
+    g_touched_before = object_edit::get_touched();
+    if (!g_handler_registered) {
         // (not from inside the event pump: Tick runs in the render)
-        OsLayer::RegisterEventHandler(SimulateEvent);
-        g_handlerRegistered = true;
+        os_layer::register_event_handler(simulate_event);
+        g_handler_registered = true;
     }
-    frontEnd->PauseGame(false);
-    PauseSkaters(); // (frozen - and still hidden, as the editor keeps the skater)
+    front_end->get_pause_game(false);
+    pause_skaters(); // (frozen - and still hidden, as the editor keeps the skater)
     g_simulating = true;
-    g_simStarted = SDL_GetTicks();
-    Log("level editor: simulate on (%u objects noted to put back)", static_cast<unsigned>(g_snapshots.size()));
-    Hud::Message("Simulating (F6: stop)",
+    g_sim_started = SDL_GetTicks();
+    get_log("level editor: simulate on (%u objects noted to put back)", static_cast<unsigned>(g_snapshots.size()));
+    hud::get_message("Simulating (F6: stop)",
                  3.0);
 }
 
-void StopSimulation(const char* why)
+void stop_simulation(const char* why)
 {
     if (!g_simulating)
         return;
     g_simulating = false;
-    if (GameModules::FrontEnd* frontEnd = GameModules::FrontEndInstance())
-        frontEnd->PauseGame(true);
+    if (modules::FrontEnd* front_end = modules::front_end_instance())
+        front_end->get_pause_game(true);
     int restored = 0, gone = 0, kept = 0;
-    if (!g_keepSimulation) {
-        const std::vector<uint32_t>& touched = Objects::Touched();
+    if (!g_keep_simulation) {
+        const std::vector<uint32_t>& touched = object_edit::get_touched();
         for (const Snapshot& s : g_snapshots) {
             // (one the editor moved while it ran keeps the editor's change)
-            bool editedNow = std::find(touched.begin(), touched.end(), s.state.id) != touched.end() &&
-                             std::find(g_touchedBefore.begin(), g_touchedBefore.end(), s.state.id) == g_touchedBefore.end();
-            if (editedNow) {
+            bool edited_now = std::find(touched.begin(), touched.end(), s.state.id) != touched.end() &&
+                             std::find(g_touched_before.begin(), g_touched_before.end(), s.state.id) == g_touched_before.end();
+            if (edited_now) {
                 ++kept;
                 continue;
             }
-            if (!Objects::Restore(s.state)) {
+            if (!object_edit::get_restore(s.state)) {
                 ++gone;
                 continue;
             }
-            if (auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(s.state.id)))
-                object->m_vel = s.vel;
+            if (auto* object = static_cast<objects::GameEntity*>(objects::find_object(s.state.id)))
+                object->vel_ = s.vel;
             ++restored;
         }
     }
     g_snapshots.clear();
-    Log("level editor: simulate off (%s) after %.1f s: %s", why, (SDL_GetTicks() - g_simStarted) / 1000.0,
-        g_keepSimulation ? "objects left where they got to"
+    get_log("level editor: simulate off (%s) after %.1f s: %s", why, (SDL_GetTicks() - g_sim_started) / 1000.0,
+        g_keep_simulation ? "objects left where they got to"
                          : ("put back " + std::to_string(restored) + " objects" +
                             (gone ? ", " + std::to_string(gone) + " gone" : "") +
                             (kept ? ", " + std::to_string(kept) + " moved in the editor meanwhile kept" : ""))
                                .c_str());
-    Hud::Message("Simulation stopped",
+    hud::get_message("Simulation stopped",
                  2.0);
 }
 
@@ -827,102 +827,102 @@ void StopSimulation(const char* why)
 
 // --- the game side's entry points ---
 
-void TickFrame(GameModules::FrontEnd* frontEnd)
+void tick_frame(modules::FrontEnd* front_end)
 {
-    if (!LevelEditor::IsSwitchedOn() || FrameLoop::FramesRun() == 0)
+    if (!level_editor::is_switched_on() || frame_loop::frames_run() == 0)
         return;
     if (g_simulating) // (the editor closed some other way: the world put back first)
-        StopSimulation("the editor closed");
-    RestartStep(frontEnd);
-    LinkRecord(frontEnd);
+        stop_simulation("the editor closed");
+    restart_step(front_end);
+    link_record(front_end);
 }
 
-void OnEditorStart()
+void on_editor_start()
 {
-    CloseRun("the editor opened");
-    g_editorScene = SceneNow();
-    if (g_editorScene && g_fileTried.insert(g_editorScene).second) {
-        auto it = g_levels.find(g_editorScene);
+    close_run("the editor opened");
+    g_editor_scene = scene_now();
+    if (g_editor_scene && g_file_tried.insert(g_editor_scene).second) {
+        auto it = g_levels.find(g_editor_scene);
         if (it == g_levels.end() || it->second.runs.empty())
-            IngestFile(g_editorScene, true);
+            ingest_file(g_editor_scene, true);
     }
 }
 
-void OnEditorStop() { StopSimulation("the editor closed"); }
+void on_editor_stop() { stop_simulation("the editor closed"); }
 
-void Tick(bool dragging)
+void tick(bool dragging)
 {
-    g_editorScene = SceneNow();
-    if (g_simulating && Layout::NetworkActive())
-        StopSimulation("a network session");
+    g_editor_scene = scene_now();
+    if (g_simulating && layout::network_active())
+        stop_simulation("a network session");
     // (the keymap's - level_editor_actions.h: F6, F7 by default)
-    if (Actions::Squeezed(Actions::kSimulate) && !dragging)
-        g_ask = Ask::ToggleSimulate;
-    if (Actions::Squeezed(Actions::kTrailWindow)) {
-        if (Ui::Underway())
-            g_windowOpen = !g_windowOpen;
+    if (actions::squeezed(actions::kSimulate) && !dragging)
+        g_ask = Ask::kToggleSimulate;
+    if (actions::squeezed(actions::kTrailWindow)) {
+        if (ui::underway())
+            g_window_open = !g_window_open;
         else
-            Hud::Message("Requires the editor UI (editor_ui=1)");
+            hud::get_message("Requires the editor UI (editor_ui=1)");
     }
     Ask ask = g_ask;
-    g_ask = Ask::None;
+    g_ask = Ask::kNone;
     switch (ask) {
-    case Ask::ToggleSimulate:
+    case Ask::kToggleSimulate:
         if (g_simulating)
-            StopSimulation("F6");
+            stop_simulation("F6");
         else if (!dragging)
-            StartSimulation();
+            start_simulation();
         break;
-    case Ask::Clear: {
-        g_levels[g_editorScene] = LevelTrails{};
-        Hud::Message("Trails cleared");
-        break;
-    }
-    case Ask::StoreAway: {
-        bool ok = g_editorScene && SaveFile(g_editorScene);
-        Hud::Message(ok ? "Trails saved: " + FileName(g_editorScene) : std::string("Trails couldn't be saved"));
-        Log("level editor: trails %s %s", ok ? "saved to" : "not saved to", TrailsPath(g_editorScene).c_str());
+    case Ask::kClear: {
+        g_levels[g_editor_scene] = LevelTrails{};
+        hud::get_message("Trails cleared");
         break;
     }
-    case Ask::ReadIn:
-        if (!g_editorScene || !IngestFile(g_editorScene, false))
-            Hud::Message("No trails file for this level");
+    case Ask::kStoreAway: {
+        bool ok = g_editor_scene && save_file(g_editor_scene);
+        hud::get_message(ok ? "Trails saved: " + get_file_name(g_editor_scene) : std::string("Trails couldn't be saved"));
+        get_log("level editor: trails %s %s", ok ? "saved to" : "not saved to", trails_path(g_editor_scene).c_str());
         break;
-    case Ask::ToggleKeepSimulation:
-        g_keepSimulation = !g_keepSimulation;
+    }
+    case Ask::kReadIn:
+        if (!g_editor_scene || !ingest_file(g_editor_scene, false))
+            hud::get_message("No trails file for this level");
         break;
-    case Ask::None:
+    case Ask::kToggleKeepSimulation:
+        g_keep_simulation = !g_keep_simulation;
+        break;
+    case Ask::kNone:
         break;
     }
 }
 
-void AddOverlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
-                std::vector<Ui::Seg>* lines, std::vector<Ui::Overlay::Circle>* circles,
-                std::vector<Ui::Overlay::Text>* texts)
+void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+                std::vector<ui::Seg>* lines, std::vector<ui::Overlay::Circle>* circles,
+                std::vector<ui::Overlay::text_tools>* texts)
 {
     if (g_simulating) {
         texts->push_back({static_cast<float>(viewport[0]) + static_cast<float>(viewport[2]) * 0.5f - 150.0f,
                           static_cast<float>(viewport[1]) + 36.0f, 0xFFFFD040,
-                          g_keepSimulation ? "SIMULATING - F6 stops (objects stay)" : "SIMULATING - F6 stops (objects put back)"});
+                          g_keep_simulation ? "SIMULATING - F6 stops (objects stay)" : "SIMULATING - F6 stops (objects put back)"});
     }
-    if (!g_showTrails)
+    if (!g_show_trails)
         return;
-    auto it = g_levels.find(g_editorScene);
+    auto it = g_levels.find(g_editor_scene);
     if (it == g_levels.end())
         return;
     const std::vector<Run>& runs = it->second.runs;
-    auto toScreen = [&](V3 p, float* x, float* y) {
+    auto to_screen = [&](V3 p, float* x, float* y) {
         float nx, ny;
-        if (!CastOnto(camera, frame, lens, p, nearZ, &nx, &ny))
+        if (!cast_onto(camera, frame, lens, p, near_z, &nx, &ny))
             return false;
-        NdcToPixel(viewport, nx, ny, x, y);
+        ndc_to_pixel(viewport, nx, ny, x, y);
         return true;
     };
     auto line = [&](V3 a, V3 b, uint32_t argb, float thickness) {
-        if (!ClipToNear(camera, frame, nearZ + 0.01f, &a, &b))
+        if (!clip_to_near(camera, frame, near_z + 0.01f, &a, &b))
             return;
         float ax, ay, bx, by;
-        if (toScreen(a, &ax, &ay) && toScreen(b, &bx, &by))
+        if (to_screen(a, &ax, &ay) && to_screen(b, &bx, &by))
             lines->push_back({ax, ay, bx, by, argb, thickness});
     };
     constexpr float kFar = 20000.0f, kLabelFar = 5000.0f;
@@ -940,9 +940,9 @@ void AddOverlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
             if (b.jump)
                 continue;
             V3 da = a.pos - camera, db = b.pos - camera;
-            if (Dot(da, da) > kFar * kFar && Dot(db, db) > kFar * kFar)
+            if (get_dot(da, da) > kFar * kFar && get_dot(db, db) > kFar * kFar)
                 continue;
-            line(a.pos, b.pos, (MotionColour(b.motion) & 0x00FFFFFF) | alpha, thickness);
+            line(a.pos, b.pos, (motion_colour(b.motion) & 0x00FFFFFF) | alpha, thickness);
             --budget;
         }
         // The run's start.
@@ -950,7 +950,7 @@ void AddOverlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
             V3 s = run.samples.front().pos;
             V3 d = s - camera;
             float x, y;
-            if (Dot(d, d) < kLabelFar * kLabelFar && toScreen(s, &x, &y)) {
+            if (get_dot(d, d) < kLabelFar * kLabelFar && to_screen(s, &x, &y)) {
                 circles->push_back({x, y, 5.0f, 0xFFFFFFFF, false, 1.5f});
                 texts->push_back({x + 8.0f, y - 8.0f, 0xFFFFFFFF, "Run " + std::to_string(run.number)});
             }
@@ -958,70 +958,70 @@ void AddOverlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
         // The markers.
         for (const Occurrence& e : run.events) {
             V3 d = e.pos - camera;
-            float distance2 = Dot(d, d);
+            float distance2 = get_dot(d, d);
             if (distance2 > kFar * kFar)
                 continue;
             float x, y;
-            if (e.kind == EventKind::Bail) {
-                constexpr float s = 30.0f;
-                line(e.pos + V3{-s, 0.0f, -s}, e.pos + V3{s, 0.0f, s}, 0xFFFF3030, 2.0f);
-                line(e.pos + V3{-s, 0.0f, s}, e.pos + V3{s, 0.0f, -s}, 0xFFFF3030, 2.0f);
-                line(e.pos, e.pos + V3{0.0f, 2.0f * s, 0.0f}, 0xFFFF3030, 1.0f);
+            if (e.kind == EventKind::kBail) {
+                constexpr float kS = 30.0f;
+                line(e.pos + V3{-kS, 0.0f, -kS}, e.pos + V3{kS, 0.0f, kS}, 0xFFFF3030, 2.0f);
+                line(e.pos + V3{-kS, 0.0f, kS}, e.pos + V3{kS, 0.0f, -kS}, 0xFFFF3030, 2.0f);
+                line(e.pos, e.pos + V3{0.0f, 2.0f * kS, 0.0f}, 0xFFFF3030, 1.0f);
                 continue;
             }
-            if (!toScreen(e.pos, &x, &y))
+            if (!to_screen(e.pos, &x, &y))
                 continue;
-            if (e.kind == EventKind::Gap) {
-                uint32_t colour = e.status == GapStatus::Landed ? 0xFF40FF60 : e.status == GapStatus::Lost ? 0xFFFF4040 : 0xFFFFE040;
+            if (e.kind == EventKind::kGap) {
+                uint32_t colour = e.status == GapStatus::kLanded ? 0xFF40FF60 : e.status == GapStatus::kLost ? 0xFFFF4040 : 0xFFFFE040;
                 circles->push_back({x, y, 7.0f, colour, true, 1.0f});
                 circles->push_back({x, y, 9.0f, 0xFF000000, false, 1.0f});
                 if (distance2 < kLabelFar * kLabelFar)
                     texts->push_back({x + 10.0f, y - 7.0f, colour,
-                                      e.name + (e.status == GapStatus::Landed ? "" : e.status == GapStatus::Lost ? " (lost)" : " (pending)")});
-            } else if (e.kind == EventKind::Combo && distance2 < (kLabelFar * 0.6f) * (kLabelFar * 0.6f)) {
-                texts->push_back({x + 6.0f, y + 4.0f, e.status == GapStatus::Landed ? 0xFFE0E0E0 : 0xFFFF8080,
-                                  (e.status == GapStatus::Landed ? "+" : "lost ") + std::to_string(e.value)});
+                                      e.name + (e.status == GapStatus::kLanded ? "" : e.status == GapStatus::kLost ? " (lost)" : " (pending)")});
+            } else if (e.kind == EventKind::kCombo && distance2 < (kLabelFar * 0.6f) * (kLabelFar * 0.6f)) {
+                texts->push_back({x + 6.0f, y + 4.0f, e.status == GapStatus::kLanded ? 0xFFE0E0E0 : 0xFFFF8080,
+                                  (e.status == GapStatus::kLanded ? "+" : "lost ") + std::to_string(e.value)});
             }
         }
     }
 }
 
-bool Simulating() { return g_simulating; }
+bool get_simulating() { return g_simulating; }
 
-bool GapLanded(const std::string& name)
+bool gap_landed(const std::string& name)
 {
-    auto it = g_levels.find(g_editorScene ? g_editorScene : SceneNow());
+    auto it = g_levels.find(g_editor_scene ? g_editor_scene : scene_now());
     return it != g_levels.end() && it->second.landed.count(name) != 0;
 }
 
-const char* GapNote(const std::string& name) { return GapLanded(name) ? "landed" : "untested"; }
+const char* gap_note(const std::string& name) { return gap_landed(name) ? "landed" : "untested"; }
 
-void PlayFromRestart(uint32_t restart)
+void play_from_restart(uint32_t restart)
 {
-    if (!restart || !LevelEditor::LiveNow())
+    if (!restart || !level_editor::live_now())
         return;
     g_restart = restart;
-    g_restartAsked = SDL_GetTicks();
-    g_restartFrames = 0;
-    Log("level editor: play from the restart %s - closing the editor", Nodes::Caption(restart).c_str());
-    Perform::Request(); // (closes into play as F5 does - back with F5 / Ctrl+P)
+    g_restart_asked = SDL_GetTicks();
+    g_restart_frames = 0;
+    get_log("level editor: play from the restart %s - closing the editor", nodes::caption(restart).c_str());
+    perform::get_request(); // (closes into play as F5 does - back with F5 / Ctrl+P)
 }
 
-bool& WindowOpen() { return g_windowOpen; }
-void Request(Ask ask) { g_ask = ask; }
+bool& window_open() { return g_window_open; }
+void get_request(Ask ask) { g_ask = ask; }
 
-void DeleteRun(int number)
+void delete_run(int number)
 {
-    auto it = g_levels.find(g_editorScene);
+    auto it = g_levels.find(g_editor_scene);
     if (it == g_levels.end())
         return;
     std::vector<Run>& runs = it->second.runs;
     runs.erase(std::remove_if(runs.begin(), runs.end(), [number](const Run& r) { return r.number == number; }), runs.end());
 }
 
-void SetRunVisible(int number, bool visible)
+void set_run_visible(int number, bool visible)
 {
-    auto it = g_levels.find(g_editorScene);
+    auto it = g_levels.find(g_editor_scene);
     if (it == g_levels.end())
         return;
     for (Run& r : it->second.runs) {
@@ -1030,26 +1030,26 @@ void SetRunVisible(int number, bool visible)
     }
 }
 
-bool& ShowTrails() { return g_showTrails; }
+bool& show_trails() { return g_show_trails; }
 
-const LevelTrails* CurrentTrails()
+const LevelTrails* current_trails()
 {
-    auto it = g_levels.find(g_editorScene);
+    auto it = g_levels.find(g_editor_scene);
     return it == g_levels.end() ? nullptr : &it->second;
 }
 
-std::vector<GapRead> LevelGaps() { return ReadGaps(); }
-bool& Recording() { return g_recordOn; }
-bool& KeepSimulation() { return g_keepSimulation; }
+std::vector<GapRead> get_level_gaps() { return read_gaps(); }
+bool& recording() { return g_record_on; }
+bool& keep_simulation() { return g_keep_simulation; }
 
-std::string Standing()
+std::string get_standing()
 {
-    const LevelTrails* t = CurrentTrails();
-    std::string s = g_recordOn ? "recording runs in play" : "not recording";
+    const LevelTrails* t = current_trails();
+    std::string s = g_record_on ? "recording runs in play" : "not recording";
     s += ", " + std::to_string(t ? t->runs.size() : 0) + " runs kept";
     if (g_simulating)
         s += ", simulating";
     return s;
 }
 
-} // namespace MenuSystem::LevelEditor::PlayTest
+} // namespace MenuSystem::level_editor::play_test

@@ -10,165 +10,165 @@
 #include "engine/gfx/model_internal.h"
 #include "engine/gfx/pc_lights.h"
 
-namespace Engine3D {
+namespace render {
 
-using namespace ModelGeoms;
+using namespace model_geoms;
 
 namespace {
 
-// A flag of m_flagBits set from a bit (the setters take a flag's low bit, as the original's shifts and masks).
-uint8_t SetFlag(uint8_t flags, uint8_t flag, int bit) { return static_cast<uint8_t>(bit ? flags | flag : flags & ~flag); }
+// A flag of flag_bits_ set from a bit (the setters take a flag's low bit, as the original's shifts and masks).
+uint8_t set_flag(uint8_t flags, uint8_t flag, int bit) { return static_cast<uint8_t>(bit ? flags | flag : flags & ~flag); }
 
 // The first geom's entry (as the original: through the head's next even when there's no head).
-sModelGeom* FirstEntry(CRenderModel* model) { return TableRow(First(model)); }
+ModelGeom* first_entry(RenderModel* model) { return table_row(get_first(model)); }
 
 // An asset's scene data's +0xB8 / +0xB4 (the folded getters 0x00490AC0 / 0x00490AB0).
-uint32_t SceneB8(void* scene) { return static_cast<CSubMesh*>(scene)->GetHierarchyCount(); }
-uint32_t SceneB4(void* scene) { return reinterpret_cast<uint32_t>(static_cast<CSubMesh*>(scene)->FetchBoneTree()); }
+uint32_t scene_b8(void* scene) { return static_cast<SubMesh*>(scene)->get_hierarchy_count(); }
+uint32_t scene_b4(void* scene) { return reinterpret_cast<uint32_t>(static_cast<SubMesh*>(scene)->fetch_bone_tree()); }
 
 // Lights made and deleted (the engine's 0x0048EA80 / 0x0048C080).
-uint8_t* NewLights() { return reinterpret_cast<uint8_t*>(SpawnModelLights()); }
+uint8_t* new_lights() { return reinterpret_cast<uint8_t*>(spawn_model_lights()); }
 
 } // namespace
 
 // 0x00492DC0
-bool CRenderModel::VirtualTrue4(int, int, int, int) { return true; }
+bool RenderModel::virtual_true4(int, int, int, int) { return true; }
 
 // 0x00492EB0
-Maths::Vec4* CRenderModel::PlatGetBoundingSphere(Maths::Vec4* out)
+maths::Vec4* RenderModel::plat_get_bounding_sphere(maths::Vec4* out)
 {
     out->z = 0.0f;
     out->y = 36.0f;
     out->x = 0.0f;
-    out->w = m_boneTotal > 0 ? 48.0f : 1200.0f;
+    out->w = bone_total_ > 0 ? 48.0f : 1200.0f;
     return out;
 }
 
 // 0x00492DD0
-bool CRenderModel::ChooseRig(uint8_t* skeleton)
+bool RenderModel::choose_rig(uint8_t* skeleton)
 {
-    if (!m_skinPalette) {
-        m_boneTotal = SkeletonBoneCount(skeleton);
-        ModelVirtual<bool>(this, 1, SkeletonBoneCount(skeleton));
-        m_skinPalette = SkeletonBones(skeleton);
+    if (!skin_palette_) {
+        bone_total_ = skeleton_bone_count(skeleton);
+        model_virtual<bool>(this, 1, skeleton_bone_count(skeleton));
+        skin_palette_ = skeleton_bones(skeleton);
     }
     return true;
 }
 
 // 0x00492E10
-bool CRenderModel::SetDisplayMode(int mode)
+bool RenderModel::set_display_mode(int mode)
 {
-    if (mode == m_displayMode)
+    if (mode == display_mode_)
         return false;
-    bool allowed = ModelVirtual<bool>(this, 3, mode);
+    bool allowed = model_virtual<bool>(this, 3, mode);
     if (allowed)
-        m_displayMode = mode;
+        display_mode_ = mode;
     return allowed;
 }
 
 // 0x00492E40
-int CRenderModel::FetchGeomTotal() { return m_geomTotal; }
+int RenderModel::fetch_geom_total() { return geom_total_; }
 
 // 0x00492E50
-uint8_t* CRenderModel::FetchSkinningPalette() { return m_skinPalette; }
+uint8_t* RenderModel::fetch_skinning_palette() { return skin_palette_; }
 
 // 0x00493460
-void CRenderModel::UploadSkinningPalette(uint8_t* matrices)
+void RenderModel::upload_skinning_palette(uint8_t* matrices)
 {
-    m_skinPalette = matrices;
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
-        SetGeomBones(Geom(node), m_skinPalette, m_boneTotal);
+    skin_palette_ = matrices;
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+        set_geom_bones(get_geom(node), skin_palette_, bone_total_);
 }
 
 // 0x00492E60
-void CRenderModel::AllowResizing(uint8_t on) { m_flagBits = SetFlag(m_flagBits, kModelScaled, on & 1); }
+void RenderModel::allow_resizing(uint8_t on) { flag_bits_ = set_flag(flag_bits_, kModelScaled, on & 1); }
 
 // 0x00492E80
-void CRenderModel::ChangeBoundSphere(const Maths::Vec4* sphere)
+void RenderModel::change_bound_sphere(const maths::Vec4* sphere)
 {
-    m_flagBits &= ~kModelSphereValid;
-    ModelVirtual<void>(this, 13, sphere);
+    flag_bits_ &= ~kModelSphereValid;
+    model_virtual<void>(this, 13, sphere);
 }
 
 // 0x00492E90
-void CRenderModel::ActivateShadowVolume(uint8_t on) { m_flagBits = SetFlag(m_flagBits, kModelShadowVolume, on & 1); }
+void RenderModel::activate_shadow_volume(uint8_t on) { flag_bits_ = set_flag(flag_bits_, kModelShadowVolume, on & 1); }
 
 // 0x00492EE0
-bool CRenderModel::ChangeScale(const Maths::Vec4* scale)
+bool RenderModel::change_scale(const maths::Vec4* scale)
 {
-    m_sizeFactor = *scale;
+    size_factor_ = *scale;
     // (compared as bit patterns)
     const auto* bits = reinterpret_cast<const uint32_t*>(scale);
     bool scaled = !(bits[0] == 0x3F800000 && bits[1] == 0x3F800000 && bits[2] == 0x3F800000);
-    m_flagBits = SetFlag(m_flagBits, kModelScaled, scaled);
+    flag_bits_ = set_flag(flag_bits_, kModelScaled, scaled);
     return true;
 }
 
 // 0x00492F30
-Maths::Vec4* CRenderModel::FetchBoundSphere(Maths::Vec4* out)
+maths::Vec4* RenderModel::fetch_bound_sphere(maths::Vec4* out)
 {
-    if (!(m_flagBits & kModelSphereValid)) {
-        Maths::Vec4 sphere;
-        m_enclosingBall = *ModelVirtual<Maths::Vec4*>(this, 12, &sphere);
-        m_flagBits |= kModelSphereValid;
+    if (!(flag_bits_ & kModelSphereValid)) {
+        maths::Vec4 sphere;
+        enclosing_ball_ = *model_virtual<maths::Vec4*>(this, 12, &sphere);
+        flag_bits_ |= kModelSphereValid;
     }
-    *out = m_enclosingBall;
+    *out = enclosing_ball_;
     return out;
 }
 
 // 0x00492F90
-void CRenderModel::SetBoneVolumes(uint8_t* volumes)
+void RenderModel::set_bone_volumes(uint8_t* volumes)
 {
-    if (!m_geomListSize)
+    if (!geom_list_size_)
         return;
-    sModelGeom* first = FirstEntry(this);
-    if (first && !first->boneVolumes)
-        first->boneVolumes = volumes;
+    ModelGeom* first = first_entry(this);
+    if (first && !first->bone_volumes_)
+        first->bone_volumes_ = volumes;
 }
 
 // 0x00492FC0
-uint8_t* CRenderModel::GetBoneVolumes()
+uint8_t* RenderModel::get_bone_volumes()
 {
-    if (!m_geomListSize)
+    if (!geom_list_size_)
         return nullptr;
-    sModelGeom* first = FirstEntry(this);
-    return first ? first->boneVolumes : nullptr;
+    ModelGeom* first = first_entry(this);
+    return first ? first->bone_volumes_ : nullptr;
 }
 
 // 0x00492FF0
-uint32_t CRenderModel::GetAssetBoneCount()
+uint32_t RenderModel::get_asset_bone_count()
 {
-    if (m_numAssetGeoms != 1)
+    if (num_asset_geoms_ != 1)
         return 0;
-    return SceneB8(AssetStore::AssetManager()->GetAssetData(FirstEntry(this)->assetName, 1));
+    return scene_b8(assets::asset_manager()->get_asset_data(first_entry(this)->asset_name_, 1));
 }
 
 // 0x00493040
-uint32_t CRenderModel::GetAssetHierarchy()
+uint32_t RenderModel::get_asset_hierarchy()
 {
-    if (m_numAssetGeoms != 1)
+    if (num_asset_geoms_ != 1)
         return 0;
-    return SceneB4(AssetStore::AssetManager()->GetAssetData(FirstEntry(this)->assetName, 1));
+    return scene_b4(assets::asset_manager()->get_asset_data(first_entry(this)->asset_name_, 1));
 }
 
 // 0x00493410
-bool CRenderModel::CopyBones(uint8_t* skeleton)
+bool RenderModel::copy_bones(uint8_t* skeleton)
 {
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
-        CopyGeomBones(Geom(node), SkeletonBones(skeleton), SkeletonBoneCount(skeleton));
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+        copy_geom_bones(get_geom(node), skeleton_bones(skeleton), skeleton_bone_count(skeleton));
     return true;
 }
 
 // 0x00493B30
-uint32_t CRenderModel::GetStripBreakFlags()
+uint32_t RenderModel::get_strip_break_flags()
 {
     uint32_t flags = 0;
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next) {
-        sModelGeom* entry = TableRow(node);
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
+        ModelGeom* entry = table_row(node);
         if (entry->scene) {
             flags |= *reinterpret_cast<uint32_t*>(entry->scene + 0xB0);
-        } else if (entry->assetName) {
-            auto* scene = static_cast<uint8_t*>(AssetStore::AssetManager()->GetAssetData(entry->assetName, 1));
+        } else if (entry->asset_name_) {
+            auto* scene = static_cast<uint8_t*>(assets::asset_manager()->get_asset_data(entry->asset_name_, 1));
             if (scene)
                 flags |= *reinterpret_cast<uint32_t*>(scene + 0xB0);
         }
@@ -177,118 +177,118 @@ uint32_t CRenderModel::GetStripBreakFlags()
 }
 
 // 0x00493B90
-void CRenderModel::BreakStrips(uint32_t mask)
+void RenderModel::break_strips(uint32_t mask)
 {
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
-        BreakGeomStrips(Geom(node), mask);
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+        break_geom_strips(get_geom(node), mask);
 }
 
 // 0x00494700
-void CRenderModel::CleanInstanceStrips()
+void RenderModel::clean_instance_strips()
 {
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
-        CleanGeomInstanceStrips(Geom(node));
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+        clean_geom_instance_strips(get_geom(node));
 }
 
 // 0x00494B30
-bool CRenderModel::BreakOwnStrips()
+bool RenderModel::break_own_strips()
 {
-    uint32_t mask = GetStripBreakFlags();
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
-        BreakGeomStrips(Geom(node), mask);
+    uint32_t mask = get_strip_break_flags();
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+        break_geom_strips(get_geom(node), mask);
     return true;
 }
 
 // 0x00493BD0
-bool CRenderModel::CreateLights()
+bool RenderModel::create_lights()
 {
-    m_lightsPtr = NewLights();
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
-        SetGeomLights(Geom(node), m_lightsPtr);
+    lights_ptr_ = new_lights();
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+        set_geom_lights(get_geom(node), lights_ptr_);
     return true;
 }
 
 // 0x00493C10
-bool CRenderModel::DestroyLights()
+bool RenderModel::destroy_lights()
 {
-    DiscardScene(m_lightsPtr);
-    m_lightsPtr = nullptr;
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
-        SetGeomLights(Geom(node), nullptr);
+    discard_scene(lights_ptr_);
+    lights_ptr_ = nullptr;
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+        set_geom_lights(get_geom(node), nullptr);
     return true;
 }
 
 // 0x00493C60
-bool CRenderModel::ChangeLive(uint8_t active)
+bool RenderModel::change_live(uint8_t active)
 {
-    if ((m_flagBits & kModelHidden) && active)
+    if ((flag_bits_ & kModelHidden) && active)
         return false;
-    if (((m_flagBits >> 1) & 1) != active) {
-        for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
-            SetGeomActive(Geom(node), active);
-        m_flagBits = SetFlag(m_flagBits, kModelEnabledBit, active & 1);
+    if (((flag_bits_ >> 1) & 1) != active) {
+        for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+            set_geom_active(get_geom(node), active);
+        flag_bits_ = set_flag(flag_bits_, kModelEnabledBit, active & 1);
     }
     return true;
 }
 
 // 0x00494B70
-bool CRenderModel::Conceal(uint8_t hide)
+bool RenderModel::conceal(uint8_t hide)
 {
-    m_flagBits = SetFlag(m_flagBits, kModelHidden, hide & 1);
-    return ChangeLive(hide == 0);
+    flag_bits_ = set_flag(flag_bits_, kModelHidden, hide & 1);
+    return change_live(hide == 0);
 }
 
 // 0x00493CD0
-void* CRenderModel::GetGeomByName(uint32_t name)
+void* RenderModel::get_geom_by_name(uint32_t name)
 {
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next) {
-        if (name == TableRow(node)->name)
-            return Geom(node);
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
+        if (name == table_row(node)->name)
+            return get_geom(node);
     }
     return nullptr;
 }
 
 // 0x00494640
-void* CRenderModel::FetchGeom(int index)
+void* RenderModel::fetch_geom(int index)
 {
     int i = 0;
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next, ++i) {
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next, ++i) {
         if (index == i)
-            return Geom(node);
+            return get_geom(node);
     }
     return nullptr;
 }
 
 // 0x00494680
-uint32_t CRenderModel::FetchPartLabel(int index)
+uint32_t RenderModel::fetch_part_label(int index)
 {
     int i = 0;
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next, ++i) {
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next, ++i) {
         if (index == i)
-            return TableRow(node)->name;
+            return table_row(node)->name;
     }
     return 0;
 }
 
 // 0x004946C0
-uint8_t* CRenderModel::GetGeomTextures(int index)
+uint8_t* RenderModel::get_geom_textures(int index)
 {
     int i = 0;
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next, ++i) {
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next, ++i) {
         if (index == i)
-            return TableRow(node)->textures;
+            return table_row(node)->textures;
     }
     return nullptr;
 }
 
 // 0x00493FB0
-bool CRenderModel::ClearGeomColor(uint32_t name)
+bool RenderModel::clear_geom_color(uint32_t name)
 {
     bool all = name == kAllGeoms;
     bool any = false;
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next) {
-        if (name == TableRow(node)->name || all) {
-            ModelGeoms::ClearGeomColor(Geom(node));
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
+        if (name == table_row(node)->name || all) {
+            model_geoms::clear_geom_color(get_geom(node));
             any = true;
         }
     }
@@ -296,44 +296,44 @@ bool CRenderModel::ClearGeomColor(uint32_t name)
 }
 
 // 0x00494110
-bool CRenderModel::ChooseUvShift(uint32_t material, int pass, float u, float v)
+bool RenderModel::choose_uv_shift(uint32_t material, int pass, float u, float v)
 {
     bool any = false;
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
-        any |= GeomCall<bool>(44, Geom(node), material, pass, u, v);
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+        any |= geom_call<bool>(44, get_geom(node), material, pass, u, v);
     return any;
 }
 
 // 0x00494160
-bool CRenderModel::ChooseUvMatrix(uint32_t material, int pass, const Maths::Mat4* matrix)
+bool RenderModel::choose_uv_matrix(uint32_t material, int pass, const maths::Mat4* matrix)
 {
     bool any = false;
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
-        any |= GeomCall<bool>(46, Geom(node), material, pass, matrix);
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+        any |= geom_call<bool>(46, get_geom(node), material, pass, matrix);
     return any;
 }
 
 // 0x004941B0
-bool CRenderModel::CreateUvAnimParams(uint32_t material, int pass)
+bool RenderModel::create_uv_anim_params(uint32_t material, int pass)
 {
     bool any = false;
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
-        any |= GeomCall<bool>(47, Geom(node), material, pass);
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+        any |= geom_call<bool>(47, get_geom(node), material, pass);
     return any;
 }
 
 // 0x00494800
-bool CRenderModel::ConcealMesh(uint32_t name, bool hide)
+bool RenderModel::conceal_mesh(uint32_t name, bool hide)
 {
     bool all = name == kAllGeoms;
     bool any = false;
     int index = 0;
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next, ++index) {
-        if (name == TableRow(node)->name || all) {
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next, ++index) {
+        if (name == table_row(node)->name || all) {
             if (hide)
-                m_visibleGeoms &= ~GeomBit(index);
+                visible_geoms_ &= ~geom_bit(index);
             else
-                m_visibleGeoms |= GeomBit(index);
+                visible_geoms_ |= geom_bit(index);
             any = true;
         }
     }
@@ -341,50 +341,50 @@ bool CRenderModel::ConcealMesh(uint32_t name, bool hide)
 }
 
 // 0x00494880
-bool CRenderModel::IsPartConcealed(uint32_t name)
+bool RenderModel::is_part_concealed(uint32_t name)
 {
     bool hidden = true;
     int index = 0;
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next, ++index) {
-        if (name == TableRow(node)->name && (m_visibleGeoms & GeomBit(index)))
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next, ++index) {
+        if (name == table_row(node)->name && (visible_geoms_ & geom_bit(index)))
             hidden = false;
     }
     return hidden;
 }
 
 // 0x004948D0
-bool CRenderModel::ChangeTint(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+bool RenderModel::change_tint(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 {
     uint32_t rgba = r | (static_cast<uint32_t>(g) << 8) | (static_cast<uint32_t>(b) << 16) |
                     (static_cast<uint32_t>(a) << 24);
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
-        SetGeomColor(Geom(node), rgba);
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+        set_geom_color(get_geom(node), rgba);
     return true;
 }
 
 // 0x00494930
-uint32_t CRenderModel::FetchShown()
+uint32_t RenderModel::fetch_shown()
 {
     uint32_t mask = 0;
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
-        mask |= GetGeomVisibility(Geom(node));
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+        mask |= get_geom_visibility(get_geom(node));
     return mask;
 }
 
 // 0x00494970
-bool CRenderModel::ToggleShown(uint32_t mask)
+bool RenderModel::toggle_shown(uint32_t mask)
 {
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
-        SetGeomVisibility(Geom(node), mask);
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+        set_geom_visibility(get_geom(node), mask);
     return true;
 }
 
 // 0x004949B0
-void CRenderModel::ActivateShadow(uint8_t on)
+void RenderModel::activate_shadow(uint8_t on)
 {
-    m_flagBits = SetFlag(m_flagBits, kModelShadow, on & 1);
-    for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
-        SetGeomShadow(Geom(node), on);
+    flag_bits_ = set_flag(flag_bits_, kModelShadow, on & 1);
+    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+        set_geom_shadow(get_geom(node), on);
 }
 
 } // namespace Nx

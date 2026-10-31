@@ -18,11 +18,11 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module_calls.h"
 
-namespace GoalSystem {
+namespace goals {
 
 namespace {
 
-using namespace GoalNames;
+using namespace goal_names;
 
 constexpr uint32_t kName = 0xA1DC81F9;            // Name
 constexpr uint32_t kGoalType = 0x6D11ED74;        // Goal_Type
@@ -38,192 +38,192 @@ constexpr uint32_t kProStuff = 0x18653764;        // pro_stuff
 constexpr uint32_t kShowGoalPoints = 0x888EF05E;  // GoalManager_ShowGoalPoints
 
 // strcpy / strcat (no bounds, as the original).
-void DupFrom(char* dest, const char* text)
+void dup_from(char* dest, const char* text)
 {
     while ((*dest++ = *text++) != 0) {
     }
 }
-void Append(char* dest, const char* text) { DupFrom(dest + std::strlen(dest), text); }
+void get_append(char* dest, const char* text) { dup_from(dest + std::strlen(dest), text); }
 
-CMatchRules* GameMode() { return g_gameMode; }
+MatchRules* get_game_mode() { return g_game_mode; }
 // The level structure being played (the skate module's +0x380 names it).
-Scripts::CStruct* LevelParamsRef() { return Scripts::ReadSubStruct(SkateCalls::SkateField<uint32_t>(0x380)); }
+script::Struct* level_params_ref() { return script::read_sub_struct(skate_calls::skate_field<uint32_t>(0x380)); }
 
-uint32_t GoalName(Scripts::CStruct* params)
+uint32_t get_goal_name(script::Struct* params)
 {
     uint32_t name;
-    params->ReadHashValue(kName, &name, 1);
+    params->read_hash_value(kName, &name, 1);
     return name;
 }
 
 // The goal the command names, the manager fetched first (most commands) / after the name.
-CObjective* ManagerThenGoal(Scripts::CStruct* params)
+Objective* manager_then_goal(script::Struct* params)
 {
-    CGoalManager* manager = GetObjectiveBoard();
-    return manager->m_goals.Pull(GoalName(params));
+    GoalManager* manager = get_objective_board();
+    return manager->goals_.get_pull(get_goal_name(params));
 }
-CObjective* NameThenGoal(Scripts::CStruct* params)
+Objective* name_then_goal(script::Struct* params)
 {
-    uint32_t name = GoalName(params);
-    return GetObjectiveBoard()->m_goals.Pull(name);
+    uint32_t name = get_goal_name(params);
+    return get_objective_board()->goals_.get_pull(name);
 }
 
 } // namespace
 
 // 0x00559980: the goal's id and name made from the level's name, _classic (classic, or a classic_mode_goal), _goal_
 // and Goal_Type - into the script's goal_id / goal_name.
-bool __cdecl CFunc_GoalManager_CreateGoalName(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_goal_manager_create_goal_name(script::Struct* params, script::Script* script)
 {
     const char* type;
-    params->FetchText(kGoalType, &type, true);
+    params->fetch_text(kGoalType, &type, true);
     const char* level;
-    LevelParamsRef()->FetchText(kLevel, &level, 1);
+    level_params_ref()->fetch_text(kLevel, &level, 1);
     char name[128];
-    DupFrom(name, level);
-    if (GameMode()->IsTrue(kIsClassicMode) || params->HasBareFlag(kClassicModeGoal))
-        Append(name, "_classic"); // "_classic"
-    Append(name, "_goal_");     // "_goal_"
-    Append(name, type);
-    script->m_args->PutNameKey(kGoalIdChecksum, Checksums::HashFromText(name));
-    script->m_args->AppendWord(kGoalName, name);
+    dup_from(name, level);
+    if (get_game_mode()->is_true(kIsClassicMode) || params->has_bare_flag(kClassicModeGoal))
+        get_append(name, "_classic"); // "_classic"
+    get_append(name, "_goal_");     // "_goal_"
+    get_append(name, type);
+    script->args_->put_name_key(kGoalIdChecksum, checksums::hash_from_text(name));
+    script->args_->append_word(kGoalName, name);
     return true;
 }
 
 // 0x00559AF0: the level's name into the script's level_prefix.
-bool __cdecl CFunc_GoalManager_GetLevelPrefix(Scripts::CStruct*, Scripts::CScript* script)
+bool __cdecl cfunc_goal_manager_get_level_prefix(script::Struct*, script::Script* script)
 {
     const char* level;
-    LevelParamsRef()->FetchText(kLevel, &level, 1);
-    script->m_args->AppendWord(kLevelPrefix, level);
+    level_params_ref()->fetch_text(kLevel, &level, 1);
+    script->args_->append_word(kLevelPrefix, level);
     return true;
 }
 
 // 0x00559B40: the graffiti mode (the unnamed integer; 1 without one).
-bool __cdecl CFunc_GoalManager_SetGraffitiMode(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_set_graffiti_mode(script::Struct* params, script::Script*)
 {
-    CGoalManager* manager = GetObjectiveBoard();
+    GoalManager* manager = get_objective_board();
     int mode = 1;
-    params->FetchIntValue(0u, &mode, 0);
-    manager->m_taggingStyle = mode;
+    params->fetch_int_value(0u, &mode, 0);
+    manager->tagging_style_ = mode;
     return true;
 }
 
 // 0x00559B80
-bool __cdecl CFunc_GoalManager_HasWonGoal(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_has_won_goal(script::Struct* params, script::Script*)
 {
-    CGoalManager* manager = GetObjectiveBoard();
-    return static_cast<uint8_t>(manager->HasBeatenGoal(GoalName(params))) != 0; // (AL)
+    GoalManager* manager = get_objective_board();
+    return static_cast<uint8_t>(manager->has_beaten_goal(get_goal_name(params))) != 0; // (AL)
 }
 
 // 0x00559BC0
-bool __cdecl CFunc_GoalManager_GoalIsSelected(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_goal_is_selected(script::Struct* params, script::Script*)
 {
-    return ManagerThenGoal(params)->IsPicked();
+    return manager_then_goal(params)->is_picked();
 }
 
 // 0x00559C10
-bool __cdecl CFunc_GoalManager_ToggleGoalSelection(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_toggle_goal_selection(script::Struct* params, script::Script*)
 {
-    CObjective* goal = ManagerThenGoal(params);
-    if (goal->IsPicked())
-        goal->Unpick();
+    Objective* goal = manager_then_goal(params);
+    if (goal->is_picked())
+        goal->unpick();
     else
-        goal->ChooseOne();
+        goal->choose_one();
     return true;
 }
 
 // 0x00559C80
-bool __cdecl CFunc_GoalManager_DeselectAllGoals(Scripts::CStruct*, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_deselect_all_goals(script::Struct*, script::Script*)
 {
-    GetObjectiveBoard()->UnpickEveryObjective();
+    get_objective_board()->unpick_every_objective();
     return true;
 }
 
 // 0x00559CA0
-bool __cdecl CFunc_GoalManager_GoalsAreSelected(Scripts::CStruct*, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_goals_are_selected(script::Struct*, script::Script*)
 {
-    return GetObjectiveBoard()->CountPickedObjectives() > 0;
+    return get_objective_board()->count_picked_objectives() > 0;
 }
 
 // 0x00559CC0: an object of the goal's counter got (if it's active). False without Name.
-bool __cdecl CFunc_GoalManager_GotCounterObject(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_got_counter_object(script::Struct* params, script::Script*)
 {
     uint32_t name;
-    if (!params->ReadHashValue(kName, &name, 0))
+    if (!params->read_hash_value(kName, &name, 0))
         return false;
-    CObjective* goal = GetObjectiveBoard()->m_goals.Pull(name);
-    if (Virtual<bool>(goal, CObjective::kVtIsActive))
-        goal->PickedUpCountable();
+    Objective* goal = get_objective_board()->goals_.get_pull(name);
+    if (Virtual<bool>(goal, Objective::kVtIsActive))
+        goal->picked_up_countable();
     return true;
 }
 
 // 0x00559D20
-bool __cdecl CFunc_GoalManager_CounterGoalDone(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_counter_goal_done(script::Struct* params, script::Script*)
 {
-    return NameThenGoal(params)->TallyObjectiveFinished();
+    return name_then_goal(params)->tally_objective_finished();
 }
 
 // 0x00559D70
-bool __cdecl CFunc_GoalManager_AddGoalPoint(Scripts::CStruct*, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_add_goal_point(script::Struct*, script::Script*)
 {
-    CGoalManager* manager = GetObjectiveBoard();
-    ++manager->m_objectiveScore;
-    ++manager->m_totalGoalPoints;
-    Scripts::LaunchScript(kShowGoalPoints, nullptr, nullptr, false, nullptr);
+    GoalManager* manager = get_objective_board();
+    ++manager->objective_score_;
+    ++manager->total_goal_points_;
+    script::launch_script(kShowGoalPoints, nullptr, nullptr, false, nullptr);
     return true;
 }
 
 // 0x00559DB0: the unnamed integer's goal points spent.
-bool __cdecl CFunc_GoalManager_SpendGoalPoints(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_spend_goal_points(script::Struct* params, script::Script*)
 {
-    CGoalManager* manager = GetObjectiveBoard();
+    GoalManager* manager = get_objective_board();
     int points;
-    params->FetchIntValue(0u, &points, 1);
-    manager->m_objectiveScore -= points;
+    params->fetch_int_value(0u, &points, 1);
+    manager->objective_score_ -= points;
     return true;
 }
 
 // 0x00559DF0: at least the unnamed integer's goal points.
-bool __cdecl CFunc_GoalManager_HasGoalPoints(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_has_goal_points(script::Struct* params, script::Script*)
 {
-    CGoalManager* manager = GetObjectiveBoard();
+    GoalManager* manager = get_objective_board();
     int points;
-    params->FetchIntValue(0u, &points, 1);
-    return manager->m_objectiveScore >= points;
+    params->fetch_int_value(0u, &points, 1);
+    return manager->objective_score_ >= points;
 }
 
 // 0x00559E30
-bool __cdecl CFunc_GoalManager_ClearGoalPoints(Scripts::CStruct*, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_clear_goal_points(script::Struct*, script::Script*)
 {
-    CGoalManager* manager = GetObjectiveBoard();
-    manager->m_objectiveScore = 0;
-    manager->m_totalGoalPoints = 0;
+    GoalManager* manager = get_objective_board();
+    manager->objective_score_ = 0;
+    manager->total_goal_points_ = 0;
     return true;
 }
 
 // 0x00559E50: the goal points (with total: all ever got) into the script's goal_points.
-bool __cdecl CFunc_GoalManager_GetNumberOfGoalPoints(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_goal_manager_get_number_of_goal_points(script::Struct* params, script::Script* script)
 {
-    CGoalManager* manager = GetObjectiveBoard();
-    int points = params->HasBareFlag(kTotal) ? manager->m_totalGoalPoints : manager->m_objectiveScore;
-    script->m_args->PutInt(kGoalScoreValue, points);
+    GoalManager* manager = get_objective_board();
+    int points = params->has_bare_flag(kTotal) ? manager->total_goal_points_ : manager->objective_score_;
+    script->args_->put_int(kGoalScoreValue, points);
     return true;
 }
 
 // 0x00559E90: a goal of the proset named by the unnamed string is beaten.
-bool __cdecl CFunc_GoalManager_HasBeatenGoalWithProset(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_has_beaten_goal_with_proset(script::Struct* params, script::Script*)
 {
     const char* prefix;
-    params->FetchText(0u, &prefix, 1);
-    return GetObjectiveBoard()->HasWonProsetGoal(prefix);
+    params->fetch_text(0u, &prefix, 1);
+    return get_objective_board()->has_won_proset_goal(prefix);
 }
 
 // 0x00559EC0: the unnamed string without its last character, then NOT_ - into the script's proset_not_prefix.
 // (An empty string reads the byte after its end, as the original.)
-bool __cdecl CFunc_GoalManager_GetProsetNotPrefix(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_goal_manager_get_proset_not_prefix(script::Struct* params, script::Script* script)
 {
     const char* prefix;
-    params->FetchText(0u, &prefix, 1);
+    params->fetch_text(0u, &prefix, 1);
     char text[128];
     text[0] = 0;
     int length = 0;
@@ -234,202 +234,202 @@ bool __cdecl CFunc_GoalManager_GetProsetNotPrefix(Scripts::CStruct* params, Scri
         } while (prefix[length + 1]);
     }
     text[length] = 0;
-    Append(text, "NOT_"); // "NOT_"
-    script->m_args->AppendWord(kProsetNotPrefix, text);
+    get_append(text, "NOT_"); // "NOT_"
+    script->args_->append_word(kProsetNotPrefix, text);
     return true;
 }
 
 // 0x00559F70: the saved state given to the level's goals.
-bool __cdecl CFunc_GoalManager_LevelLoad(Scripts::CStruct*, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_level_load(script::Struct*, script::Script*)
 {
-    GetObjectiveBoard()->RestoreGoalData();
+    get_objective_board()->restore_goal_data();
     return true;
 }
 
 // 0x00559F90
-bool __cdecl CFunc_GoalManager_UnlockAllGoals(Scripts::CStruct*, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_unlock_all_goals(script::Struct*, script::Script*)
 {
-    GetObjectiveBoard()->OpenUpEveryObjective();
+    get_objective_board()->open_up_every_objective();
     return true;
 }
 
 // 0x00559FB0: stubbed in the game (a message only).
-bool __cdecl CFunc_GoalManager_DeactivateCurrentGoal(Scripts::CStruct*, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_deactivate_current_goal(script::Struct*, script::Script*)
 {
-    GetObjectiveBoard();
-    DebugOut::Printf("CGoalManager::DeactivateCurrentGoal stubbed\n"); // "CGoalManager::DeactivateCurrentGoal stubbed\n"
+    get_objective_board();
+    debug::printf("CGoalManager::DeactivateCurrentGoal stubbed\n"); // "CGoalManager::DeactivateCurrentGoal stubbed\n"
     return true;
 }
 
 // 0x00559FD0
-bool __cdecl CFunc_GoalManager_SetStartTime(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_set_start_time(script::Struct* params, script::Script*)
 {
-    NameThenGoal(params)->ResetCurrentTime();
+    name_then_goal(params)->reset_current_time();
     return true;
 }
 
 // 0x0055A020
-bool __cdecl CFunc_GoalManager_UpdateComboTimer(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_update_combo_timer(script::Struct* params, script::Script*)
 {
-    NameThenGoal(params)->UpdateCurrentTime();
+    name_then_goal(params)->update_current_time();
     return true;
 }
 
 // 0x0055A070
-bool __cdecl CFunc_GoalManager_SetStartHeight(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_set_start_height(script::Struct* params, script::Script*)
 {
-    NameThenGoal(params)->SetLaunchAltitude();
+    name_then_goal(params)->set_launch_altitude();
     return true;
 }
 
 // 0x0055A0C0
-bool __cdecl CFunc_GoalManager_CheckHeightRecord(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_check_height_record(script::Struct* params, script::Script*)
 {
-    return NameThenGoal(params)->TestHighestAir();
+    return name_then_goal(params)->test_highest_air();
 }
 
 // 0x0055A110
-bool __cdecl CFunc_GoalManager_CheckDistanceRecord(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_check_distance_record(script::Struct* params, script::Script*)
 {
-    return NameThenGoal(params)->TestLongestJump();
+    return name_then_goal(params)->test_longest_jump();
 }
 
 // 0x0055A160: the goal's pro's start stream (with the command's parameters).
-bool __cdecl CFunc_GoalManager_PlayGoalStartStream(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_play_goal_start_stream(script::Struct* params, script::Script*)
 {
-    ManagerThenGoal(params)->m_ped->PlayOpeningVoiceLine(params);
+    manager_then_goal(params)->ped_->play_opening_voice_line(params);
     return true;
 }
 
 // 0x0055A1B0: the goal's pro's wait stream.
-bool __cdecl CFunc_GoalManager_PlayGoalWaitStream(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_play_goal_wait_stream(script::Struct* params, script::Script*)
 {
-    NameThenGoal(params)->m_ped->PlayIdleVoiceLine();
+    name_then_goal(params)->ped_->play_idle_voice_line();
     return true;
 }
 
 // 0x0055A200: the goal's pro's win stream (with the command's parameters).
-bool __cdecl CFunc_GoalManager_PlayGoalWinStream(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_play_goal_win_stream(script::Struct* params, script::Script*)
 {
-    ManagerThenGoal(params)->m_ped->PlayVictoryVoiceLine(params);
+    manager_then_goal(params)->ped_->play_victory_voice_line(params);
     return true;
 }
 
 // 0x0055A250: the goal's pro's stream stopped.
-bool __cdecl CFunc_GoalManager_StopCurrentStream(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_stop_current_stream(script::Struct* params, script::Script*)
 {
-    NameThenGoal(params)->m_ped->CutVoiceLine();
+    name_then_goal(params)->ped_->cut_voice_line();
     return true;
 }
 
 // 0x0055A2A0: every locked pro goal unlocked.
-bool __cdecl CFunc_GoalManager_TurnPro(Scripts::CStruct*, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_turn_pro(script::Struct*, script::Script*)
 {
-    GetObjectiveBoard()->UnlockAllProGoals();
+    get_objective_board()->unlock_all_pro_goals();
     return true;
 }
 
 // 0x0055A2C0
-bool __cdecl CFunc_GoalManager_PauseGoal(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_pause_goal(script::Struct* params, script::Script*)
 {
-    NameThenGoal(params)->Freeze();
+    name_then_goal(params)->get_freeze();
     return true;
 }
 
 // 0x0055A310
-bool __cdecl CFunc_GoalManager_UnPauseGoal(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_un_pause_goal(script::Struct* params, script::Script*)
 {
-    NameThenGoal(params)->UnPause();
+    name_then_goal(params)->un_pause();
     return true;
 }
 
 // 0x0055A360 (the goal taken to be a competition)
-bool __cdecl CFunc_GoalManager_PauseCompetition(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_pause_competition(script::Struct* params, script::Script*)
 {
-    reinterpret_cast<CContestObjective*>(NameThenGoal(params))->FreezeContest();
+    reinterpret_cast<ContestObjective*>(name_then_goal(params))->freeze_contest();
     return true;
 }
 
 // 0x0055A3B0
-bool __cdecl CFunc_GoalManager_UnPauseCompetition(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_un_pause_competition(script::Struct* params, script::Script*)
 {
-    reinterpret_cast<CContestObjective*>(NameThenGoal(params))->ThawContest();
+    reinterpret_cast<ContestObjective*>(name_then_goal(params))->thaw_contest();
     return true;
 }
 
 // 0x0055A400
-bool __cdecl CFunc_GoalManager_GoalIsLocked(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_goal_is_locked(script::Struct* params, script::Script*)
 {
-    uint32_t name = GoalName(params);
-    return static_cast<uint8_t>(GetObjectiveBoard()->IsGoalBlocked(name)) != 0; // (AL)
+    uint32_t name = get_goal_name(params);
+    return static_cast<uint8_t>(get_objective_board()->is_goal_blocked(name)) != 0; // (AL)
 }
 
 // 0x0055A430: an active competition's goal_id into the script's. False if none.
-bool __cdecl CFunc_GoalManager_IsInCompetition(Scripts::CStruct*, Scripts::CScript* script)
+bool __cdecl cfunc_goal_manager_is_in_competition(script::Struct*, script::Script* script)
 {
-    CObjective* competition = GetObjectiveBoard()->GetActiveCompetition();
+    Objective* competition = get_objective_board()->get_active_competition();
     if (!competition)
         return false;
-    script->m_args->PutNameKey(kGoalIdChecksum, competition->GetObjectiveKey());
+    script->args_->put_name_key(kGoalIdChecksum, competition->get_objective_key());
     return true;
 }
 
 // 0x0055A470: the goal's pro's animations of `type` as the script's pro_stuff (none: removed).
-bool __cdecl CFunc_GoalManager_GetGoalAnimations(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_goal_manager_get_goal_animations(script::Struct* params, script::Script* script)
 {
-    uint32_t name = GoalName(params);
+    uint32_t name = get_goal_name(params);
     const char* type = nullptr;
-    params->FetchText(kType, &type, 0);
-    CObjective* goal = GetObjectiveBoard()->m_goals.Pull(name);
-    uint32_t animations = goal->m_ped->GetObjectiveAnimSets(type);
-    script->m_args->EraseModule(kProStuff);
+    params->fetch_text(kType, &type, 0);
+    Objective* goal = get_objective_board()->goals_.get_pull(name);
+    uint32_t animations = goal->ped_->get_objective_anim_sets(type);
+    script->args_->erase_module(kProStuff);
     if (animations)
-        script->m_args->PutNameKey(kProStuff, animations);
+        script->args_->put_name_key(kProStuff, animations);
     return true;
 }
 
 // 0x0055A500
-bool __cdecl CFunc_GoalManager_PlayGoalStream(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_play_goal_stream(script::Struct* params, script::Script*)
 {
-    GetObjectiveBoard()->PlayObjectiveVoiceLine(params);
+    get_objective_board()->play_objective_voice_line(params);
     return true;
 }
 
 // 0x0055A520
-bool __cdecl CFunc_GoalManager_EndRunCalled(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_end_run_called(script::Struct* params, script::Script*)
 {
-    return NameThenGoal(params)->EndOfRunStarted();
+    return name_then_goal(params)->end_of_run_started();
 }
 
 // 0x0055A570
-bool __cdecl CFunc_GoalManager_ClearEndRun(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_goal_manager_clear_end_run(script::Struct* params, script::Script* script)
 {
-    NameThenGoal(params)->EndOfRunDone(script);
+    name_then_goal(params)->end_of_run_done(script);
     return true;
 }
 
 // 0x0055A5C0
-bool __cdecl CFunc_GoalManager_FinishedEndOfRun(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_finished_end_of_run(script::Struct* params, script::Script*)
 {
-    return NameThenGoal(params)->RunDone();
+    return name_then_goal(params)->run_done();
 }
 
 // 0x0055A610
-bool __cdecl CFunc_GoalManager_StartedEndOfRun(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_started_end_of_run(script::Struct* params, script::Script*)
 {
-    return NameThenGoal(params)->RunStarted();
+    return name_then_goal(params)->run_started();
 }
 
 // 0x0055A660
-bool __cdecl CFunc_GoalManager_AddTempSpecialTrick(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_add_temp_special_trick(script::Struct* params, script::Script*)
 {
-    return NameThenGoal(params)->AwardSpecialTrick();
+    return name_then_goal(params)->award_special_trick();
 }
 
 // 0x0055A6B0
-bool __cdecl CFunc_GoalManager_RemoveTempSpecialTrick(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_goal_manager_remove_temp_special_trick(script::Struct* params, script::Script*)
 {
-    NameThenGoal(params)->RemoveRewardTrick();
+    name_then_goal(params)->remove_reward_trick();
     return true;
 }
 

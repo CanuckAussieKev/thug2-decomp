@@ -22,16 +22,16 @@
 #include "engine/gfx/sector.h"
 #include "engine/gfx/engine_geom.h"
 
-namespace ParkEditing {
+namespace park_editing {
 
-using namespace RailEditorInternal;
-using Maths::Vec4;
+using namespace rail_editor_internal;
+using maths::Vec4;
 
-int g_railFlashCounter;
+int g_rail_flash_counter;
 
 namespace {
 
-float FloatBits(uint32_t bits)
+float float_bits(uint32_t bits)
 {
     float value;
     std::memcpy(&value, &bits, sizeof(value));
@@ -54,23 +54,23 @@ constexpr uint32_t kRedLineFlashRate = 0xEEBE4394;      // RailEditorRedLineFlas
 constexpr uint32_t kHighlightR = 0xAD28B18B, kHighlightG = 0xC0F55560, kHighlightB = 0xB09FA1EF;
 constexpr uint32_t kBadR = 0x89B66FB9, kBadG = 0xE46B8B52, kBadB = 0x94017FDD;
 
-const float kAngleScaleToRad = FloatBits(0x3C8EFA35);  // 0x00645464
+const float kAngleScaleToRad = float_bits(0x3C8EFA35);  // 0x00645464
 constexpr float kMaxSegment = 4000.0f;          // 0x0064B8F8
 constexpr float kMaxReach = 4500.0f;            // 0x0064B8FC
-const float kNearlyVertical = FloatBits(0x3F7FFF58); // 0x0064B900 (0.99999)
+const float kNearlyVertical = float_bits(0x3F7FFF58); // 0x0064B900 (0.99999)
 constexpr float kPostWidth = 2.625f;            // 0x0064B908 (also the least post height drawn)
 constexpr float kGroundProbe = 10000.0f;        // 0x0064B308
 constexpr float kFar = 1e6f;                    // 0x0064B904
 
 // The flashing's frame counter (shared by the highlight and the dotted line).
-int& FlashCounter() { return g_railFlashCounter; }
+int& flash_counter() { return g_rail_flash_counter; }
 // A zero vector (0x007CCD30): drawing in place (no move).
-const Vec4& Zero() { return g_railOrigin; }
+const Vec4& get_zero() { return g_rail_origin; }
 
 // The visibility mask for a flashing frame: shown in the first half of every `rate` frames.
-uint32_t FlashMask(int rate)
+uint32_t flash_mask(int rate)
 {
-    int& counter = FlashCounter();
+    int& counter = flash_counter();
     uint32_t mask = counter >= rate / 2 ? 0u : 0xFFFFFFFFu;
     if (++counter >= rate)
         counter = 0;
@@ -79,69 +79,69 @@ uint32_t FlashMask(int rate)
 
 // The sector calls (the geometry's slots are virtual calls through its vtable; its collision is the word at +8).
 template <typename Fn>
-Fn GeometrySlot(const uint8_t* geometry, int slot)
+Fn geometry_slot(const uint8_t* geometry, int slot)
 {
     return reinterpret_cast<Fn>((*reinterpret_cast<void* const* const*>(geometry))[slot]);
 }
-uint8_t* LookUpSector(uint32_t name) { return static_cast<uint8_t*>(Engine3D::Engine::LookUpSector(name)); }
-uint8_t* FetchShape(uint8_t* sector) { return static_cast<uint8_t*>(reinterpret_cast<Engine3D::CWorldCell*>(sector)->m_geomHandle); }
-int VertexCount(uint8_t* geometry) { return GeometrySlot<int(__thiscall*)(uint8_t*)>(geometry, 36)(geometry); }
-void GetVertices(uint8_t* geometry, Vec4* out)
+uint8_t* look_up_sector(uint32_t name) { return static_cast<uint8_t*>(render::engine::look_up_sector(name)); }
+uint8_t* fetch_shape(uint8_t* sector) { return static_cast<uint8_t*>(reinterpret_cast<render::WorldCell*>(sector)->geom_handle_); }
+int get_vertex_count(uint8_t* geometry) { return geometry_slot<int(__thiscall*)(uint8_t*)>(geometry, 36)(geometry); }
+void get_vertices(uint8_t* geometry, Vec4* out)
 {
-    GeometrySlot<void(__thiscall*)(uint8_t*, Vec4*)>(geometry, 37)(geometry, out);
+    geometry_slot<void(__thiscall*)(uint8_t*, Vec4*)>(geometry, 37)(geometry, out);
 }
-void SetVertices(uint8_t* geometry, Vec4* vertices)
+void set_vertices(uint8_t* geometry, Vec4* vertices)
 {
-    GeometrySlot<void(__thiscall*)(uint8_t*, Vec4*)>(geometry, 39)(geometry, vertices);
+    geometry_slot<void(__thiscall*)(uint8_t*, Vec4*)>(geometry, 39)(geometry, vertices);
 }
-Engine3D::CTriMeshSource* GetHitShape(uint8_t* geometry)
+render::TriMeshSource* get_hit_shape(uint8_t* geometry)
 {
-    return static_cast<Engine3D::CTriMeshSource*>(reinterpret_cast<Engine3D::CGeom*>(geometry)->m_hitTriangles);
+    return static_cast<render::TriMeshSource*>(reinterpret_cast<render::Geom*>(geometry)->hit_triangles_);
 }
-uint16_t CollisionVertexCount(const Engine3D::CTriMeshSource* collision)
+uint16_t collision_vertex_count(const render::TriMeshSource* collision)
 {
     return *reinterpret_cast<const uint16_t*>(reinterpret_cast<const uint8_t*>(collision) + 6);
 }
-void SetCollisionVertices(uint8_t* sector, Vec4* vertices)
+void set_collision_vertices(uint8_t* sector, Vec4* vertices)
 {
-    reinterpret_cast<Engine3D::CWorldCell*>(sector)->ChooseRawVerts(vertices);
+    reinterpret_cast<render::WorldCell*>(sector)->choose_raw_verts(vertices);
 }
 
 // One point turned about y: x' = x cos + z sin, z' = z cos - x sin from the 53-bit differences, the sine rounded to
 // float and the cosine at full precision, as the original's x87 code does it (x' rounded to float, z' to 53 bits).
-void TurnAboutY(double deltaX, double deltaZ, float angle, float* outX, double* outZ)
+void turn_about_y(double delta_x, double delta_z, float angle, float* out_x, double* out_z)
 {
     float sine;
     float x;
     double z;
-    float degreeFactor = kAngleScaleToRad;
+    float degree_factor = kAngleScaleToRad;
     __asm {
         fld angle
-        fmul degreeFactor
+        fmul degree_factor
         fld st(0)
         fsin
         fstp sine
         fcos
-        fld deltaX
+        fld delta_x
         fmul st(0), st(1)
-        fld deltaZ
+        fld delta_z
         fmul sine
         faddp st(1), st(0)
         fstp x
-        fld deltaZ
+        fld delta_z
         fmul st(0), st(1)
-        fld deltaX
+        fld delta_x
         fmul sine
         fsubp st(1), st(0)
         fstp z
         fstp st(0)
     }
-    *outX = x;
-    *outZ = z;
+    *out_x = x;
+    *out_z = z;
 }
 
 // Whether sin(angle) (at full precision) is at least `value` (or either isn't a number).
-bool SinAtLeast(double angle, float value)
+bool sin_at_least(double angle, float value)
 {
     uint16_t status;
     __asm {
@@ -154,18 +154,18 @@ bool SinAtLeast(double angle, float value)
 }
 
 // The clone of a source sector made for the park (its pieces' counts marked dirty, the collision rebuilt).
-uint8_t* DuplicateSceneSector(uint32_t source)
+uint8_t* duplicate_scene_sector(uint32_t source)
 {
-    uint32_t name = CParkLayout::sSingleton()->m_builder->DuplicateSceneSector(source, 0, 1, 0);
-    SetCountsDirty();
-    CParkLayout::sSingleton()->m_builder->RebuildCollision();
-    return LookUpSector(name);
+    uint32_t name = ParkLayout::singleton()->builder_->duplicate_scene_sector(source, 0, 1, 0);
+    set_counts_dirty();
+    ParkLayout::singleton()->builder_->rebuild_collision();
+    return look_up_sector(name);
 }
 
 // The bytes of a colour word (red, green, blue; alpha 0) as the highlight writes them.
 struct Colour {
     uint8_t r, g, b;
-    uint32_t Word() const { return r | static_cast<uint32_t>(g) << 8 | static_cast<uint32_t>(b) << 16; }
+    uint32_t get_word() const { return r | static_cast<uint32_t>(g) << 8 | static_cast<uint32_t>(b) << 16; }
 };
 
 // The template's vertices of the segment as Stretch turns them: the 10 at the start of the piece, then the 10 at its
@@ -176,17 +176,17 @@ const int kEndVertices[10] = {6, 11, 7, 8, 15, 18, 4, 12, 5, 17};
 } // namespace
 
 // 0x004F3E00 (cdecl)
-uint8_t* __cdecl CloneRailSector(uint32_t source) { return DuplicateSceneSector(source); }
+uint8_t* __cdecl clone_rail_sector(uint32_t source) { return duplicate_scene_sector(source); }
 
 // 0x004F3D80
-Vec4* TransformRailPoint(Vec4* out, const Vec4* point, const Vec4* origin, const Vec4* position, float angle)
+Vec4* transform_rail_point(Vec4* out, const Vec4* point, const Vec4* origin, const Vec4* position, float angle)
 {
     double dx = static_cast<double>(point->x) - origin->x;
     float dy = static_cast<float>(static_cast<double>(point->y) - origin->y);
     double dz = static_cast<double>(point->z) - origin->z;
     float x;
     double z;
-    TurnAboutY(dx, dz, angle, &x, &z);
+    turn_about_y(dx, dz, angle, &x, &z);
     // (w: the original adds an unset local - garbage - to the position's; here 0)
     out->x = static_cast<float>(static_cast<double>(x) + position->x);
     out->y = static_cast<float>(static_cast<double>(dy) + position->y);
@@ -196,7 +196,7 @@ Vec4* TransformRailPoint(Vec4* out, const Vec4* point, const Vec4* origin, const
 }
 
 // 0x004F3E40
-bool RailCornerOk(const Vec4* a, const Vec4* b, const Vec4* c)
+bool rail_corner_ok(const Vec4* a, const Vec4* b, const Vec4* c)
 {
     // The two directions on the ground plane, each normalised by its length rounded to float (y 0, times the
     // inverse); the cosine between them rounded to float.
@@ -204,7 +204,7 @@ bool RailCornerOk(const Vec4* a, const Vec4* b, const Vec4* c)
         *x = static_cast<double>(to->x) - from->x;
         *z = static_cast<double>(to->z) - from->z;
         *y = 0.0;
-        double exact = X87::Sqrt(*z * *z + *x * *x);
+        double exact = x87::get_sqrt(*z * *z + *x * *x);
         float length = static_cast<float>(exact);
         if (exact > 0.0) {
             float inverse = static_cast<float>(1.0 / length);
@@ -217,60 +217,60 @@ bool RailCornerOk(const Vec4* a, const Vec4* b, const Vec4* c)
     direction(a, b, &x1, &y1, &z1);
     direction(b, c, &x2, &y2, &z2);
     float dot = static_cast<float>((z2 * z1 + y2 * y1) + x2 * x1);
-    return !X87::CosAbove(static_cast<double>(Scripts::FetchFloat(kCornerLeaveAngle)) * kAngleScaleToRad, dot);
+    return !x87::cos_above(static_cast<double>(script::fetch_float(kCornerLeaveAngle)) * kAngleScaleToRad, dot);
 }
 
 namespace {
 // The distance between two points (the squares summed z, x, then y - as 0x004F3F30 does).
-double SpanTo(const Vec4* a, const Vec4* b)
+double span_to(const Vec4* a, const Vec4* b)
 {
     double dx = static_cast<double>(a->x) - b->x;
     double dy = static_cast<double>(a->y) - b->y;
     double dz = static_cast<double>(a->z) - b->z;
-    return X87::Sqrt((dz * dz + dx * dx) + dy * dy);
+    return x87::get_sqrt((dz * dz + dx * dx) + dy * dy);
 }
-// The same summed z, y, then x (as MovePoint does).
-double DistanceZYX(const Vec4* a, const Vec4* b)
+// The same summed z, y, then x (as move_point does).
+double distance_zyx(const Vec4* a, const Vec4* b)
 {
     double dx = static_cast<double>(a->x) - b->x;
     double dy = static_cast<double>(a->y) - b->y;
     double dz = static_cast<double>(a->z) - b->z;
-    return X87::Sqrt((dz * dz + dy * dy) + dx * dx);
+    return x87::get_sqrt((dz * dz + dy * dy) + dx * dx);
 }
 } // namespace
 
 // 0x004F3F30
-int RailTooFar(const Vec4* a, const Vec4* b) { return SpanTo(a, b) > kMaxSegment ? 1 : 0; }
+int rail_too_far(const Vec4* a, const Vec4* b) { return span_to(a, b) > kMaxSegment ? 1 : 0; }
 
 // 0x004F3F70
-int RailOutOfReach(const Vec4* a, const Vec4* b) { return SpanTo(a, b) > kMaxReach ? 1 : 0; }
+int rail_out_of_reach(const Vec4* a, const Vec4* b) { return span_to(a, b) > kMaxReach ? 1 : 0; }
 
 // 0x004F3FB0
-bool RailSegmentValid(const Vec4* a, const Vec4* b)
+bool rail_segment_valid(const Vec4* a, const Vec4* b)
 {
     double dx = static_cast<double>(b->x) - a->x;
     double dy = static_cast<double>(b->y) - a->y;
     double dz = static_cast<double>(b->z) - a->z;
-    if (X87::Sqrt((dz * dz + dy * dy) + dx * dx) > kMaxSegment)
+    if (x87::get_sqrt((dz * dz + dy * dy) + dx * dx) > kMaxSegment)
         return false;
     Vec4 d = {static_cast<float>(dx), static_cast<float>(dy), static_cast<float>(dz),
                 static_cast<float>(static_cast<double>(b->w) - a->w)};
-    float length = static_cast<float>(X87::Sqrt((static_cast<double>(d.z) * d.z + static_cast<double>(d.y) * d.y) +
+    float length = static_cast<float>(x87::get_sqrt((static_cast<double>(d.z) * d.z + static_cast<double>(d.y) * d.y) +
                                                 static_cast<double>(d.x) * d.x));
-    if (Scripts::FetchFloat(kMinimumSeparation) > length)
+    if (script::fetch_float(kMinimumSeparation) > length)
         return false;
-    d.MakeUnit();
+    d.make_unit();
     float slope = d.y < 0.0f ? -d.y : d.y;
-    return SinAtLeast(static_cast<double>(Scripts::FetchFloat(kMaxSlope)) * kAngleScaleToRad, slope);
+    return sin_at_least(static_cast<double>(script::fetch_float(kMaxSlope)) * kAngleScaleToRad, slope);
 }
 
 // 0x004F4B90
-void OrientRailVertices(const Vec4* direction, const Vec4* translation, Vec4* vertices, const int* indices,
+void orient_rail_vertices(const Vec4* direction, const Vec4* translation, Vec4* vertices, const int* indices,
                         int count)
 {
     const Vec4 origin = vertices[indices[0]];
     float x = direction->x, y = direction->y, z = direction->z;
-    double length = X87::Sqrt((static_cast<double>(z) * z + static_cast<double>(y) * y) + static_cast<double>(x) * x);
+    double length = x87::get_sqrt((static_cast<double>(z) * z + static_cast<double>(y) * y) + static_cast<double>(x) * x);
     if (length > 0.0) {
         double inverse = 1.0 / length;
         x = static_cast<float>(x * inverse);
@@ -279,32 +279,32 @@ void OrientRailVertices(const Vec4* direction, const Vec4* translation, Vec4* ve
     }
     // A side across the direction on the ground (straight up or down: z), and the up between them.
     Vec4 side;
-    float sideW;
+    float side_w;
     if ((y < 0.0f ? -y : y) > kNearlyVertical) {
         side = {0.0f, 0.0f, 1.0f, 0.0f}; // (its w isn't written: the last row's w is 1)
-        sideW = 1.0f;
+        side_w = 1.0f;
     } else {
         double a = static_cast<double>(y) * 0.0f;
         side = {static_cast<float>(z - a), static_cast<float>(static_cast<double>(x) * 0.0f - static_cast<double>(z) * 0.0f),
                 static_cast<float>(a - x), 0.0f};
-        side.MakeUnit();
-        sideW = side.w;
+        side.make_unit();
+        side_w = side.w;
     }
     double ux = static_cast<double>(side.z) * y - static_cast<double>(side.y) * z;
     double uy = static_cast<double>(z) * side.x - static_cast<double>(side.z) * x;
     double uz = static_cast<double>(side.y) * x - static_cast<double>(y) * side.x;
-    float uzF = static_cast<float>(uz);
-    double upLength = X87::Sqrt((uz * uzF + uy * uy) + ux * ux);
-    if (upLength > 0.0) {
-        double inverse = 1.0 / upLength;
+    float uz_f = static_cast<float>(uz);
+    double up_length = x87::get_sqrt((uz * uz_f + uy * uy) + ux * ux);
+    if (up_length > 0.0) {
+        double inverse = 1.0 / up_length;
         ux *= inverse;
         uy *= inverse;
-        uzF = static_cast<float>(uzF * inverse);
+        uz_f = static_cast<float>(uz_f * inverse);
     }
-    Maths::Mat4 m;
+    maths::Mat4 m;
     m.row[0] = {x, y, z, direction->w};
-    m.row[1] = {static_cast<float>(ux), static_cast<float>(uy), uzF, 0.0f};
-    m.row[2] = {side.x, side.y, side.z, sideW};
+    m.row[1] = {static_cast<float>(ux), static_cast<float>(uy), uz_f, 0.0f};
+    m.row[2] = {side.x, side.y, side.z, side_w};
     // (the original leaves the last row's x, y, z unset - only its w is written; here 0)
     m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     for (int i = 0; i < count; ++i) {
@@ -322,19 +322,19 @@ void OrientRailVertices(const Vec4* direction, const Vec4* translation, Vec4* ve
 }
 
 // 0x004F4E70
-void StretchRailSector(uint32_t source, const Vec4* from, const Vec4* previous, const Vec4* to, uint8_t* sector,
-                       uint8_t* previousSector, bool updateCollision)
+void stretch_rail_sector(uint32_t source, const Vec4* from, const Vec4* previous, const Vec4* to, uint8_t* sector,
+                       uint8_t* previous_sector, bool update_collision)
 {
-    uint8_t* sourceGeometry = FetchShape(LookUpSector(source));
-    int count = VertexCount(sourceGeometry);
+    uint8_t* source_geometry = fetch_shape(look_up_sector(source));
+    int count = get_vertex_count(source_geometry);
     uint32_t bytes = static_cast<uint32_t>(count) << 4;
-    auto* vertices = static_cast<Vec4*>(MemSys::AllocBlock(bytes));
-    GetVertices(sourceGeometry, vertices);
+    auto* vertices = static_cast<Vec4*>(memory::alloc_block(bytes));
+    get_vertices(source_geometry, vertices);
     double dx = static_cast<double>(to->x) - from->x;
     double dy = static_cast<double>(to->y) - from->y;
     float dz = static_cast<float>(static_cast<double>(to->z) - from->z);
     float dw = static_cast<float>(static_cast<double>(to->w) - from->w);
-    if (previousSector) {
+    if (previous_sector) {
         // Joined on: the start turned halfway between the previous segment's direction and this one's, and the
         // previous segment's end vertices moved onto this one's start.
         double px = static_cast<double>(from->x) - previous->x;
@@ -348,34 +348,34 @@ void StretchRailSector(uint32_t source, const Vec4* from, const Vec4* previous, 
         Vec4 halfway = {static_cast<float>(static_cast<double>(sx) * 0.5f),
                           static_cast<float>(static_cast<double>(sy) * 0.5f), static_cast<float>(sz * 0.5f),
                           static_cast<float>(static_cast<double>(sw) * 0.5f)};
-        OrientRailVertices(&halfway, from, vertices, kStartVertices, 10);
-        uint8_t* previousGeometry = FetchShape(previousSector);
-        auto* previousVertices = static_cast<Vec4*>(MemSys::AllocBlock(static_cast<uint32_t>(VertexCount(previousGeometry)) << 4));
-        GetVertices(previousGeometry, previousVertices);
+        orient_rail_vertices(&halfway, from, vertices, kStartVertices, 10);
+        uint8_t* previous_geometry = fetch_shape(previous_sector);
+        auto* previous_vertices = static_cast<Vec4*>(memory::alloc_block(static_cast<uint32_t>(get_vertex_count(previous_geometry)) << 4));
+        get_vertices(previous_geometry, previous_vertices);
         for (int i = 0; i < 10; ++i)
-            previousVertices[kEndVertices[i]] = vertices[kStartVertices[i]];
-        SetVertices(previousGeometry, previousVertices);
-        MemSys::FreeMalloc(previousVertices);
+            previous_vertices[kEndVertices[i]] = vertices[kStartVertices[i]];
+        set_vertices(previous_geometry, previous_vertices);
+        memory::free_malloc(previous_vertices);
     } else {
         Vec4 direction = {static_cast<float>(dx), static_cast<float>(dy), dz, dw};
-        OrientRailVertices(&direction, from, vertices, kStartVertices, 10);
+        orient_rail_vertices(&direction, from, vertices, kStartVertices, 10);
     }
     Vec4 direction = {static_cast<float>(static_cast<double>(to->x) - from->x),
                         static_cast<float>(static_cast<double>(to->y) - from->y),
                         static_cast<float>(static_cast<double>(to->z) - from->z),
                         static_cast<float>(static_cast<double>(to->w) - from->w)};
-    OrientRailVertices(&direction, to, vertices, kEndVertices, 10);
-    SetVertices(FetchShape(sector), vertices);
-    if (updateCollision) {
+    orient_rail_vertices(&direction, to, vertices, kEndVertices, 10);
+    set_vertices(fetch_shape(sector), vertices);
+    if (update_collision) {
         // The collision's vertices moved as the drawn ones were: each found among the source geometry's (as read
         // back now) by its position - or by x and z alone, keeping its height over that vertex.
-        auto* before = static_cast<Vec4*>(MemSys::AllocBlock(bytes));
-        GetVertices(sourceGeometry, before);
-        Engine3D::CTriMeshSource* collision = GetHitShape(sourceGeometry);
-        int collisionCount = CollisionVertexCount(collision);
-        auto* raw = static_cast<Vec4*>(MemSys::AllocBlock(static_cast<uint32_t>(collisionCount) << 4));
-        collision->GetStoredVertexArray(raw);
-        for (int v = 0; v < collisionCount; ++v) {
+        auto* before = static_cast<Vec4*>(memory::alloc_block(bytes));
+        get_vertices(source_geometry, before);
+        render::TriMeshSource* collision = get_hit_shape(source_geometry);
+        int collision_count = collision_vertex_count(collision);
+        auto* raw = static_cast<Vec4*>(memory::alloc_block(static_cast<uint32_t>(collision_count) << 4));
+        collision->get_stored_vertex_array(raw);
+        for (int v = 0; v < collision_count; ++v) {
             Vec4 vertex = raw[v];
             bool found = false;
             for (int i = 0; i < count && !found; ++i) {
@@ -393,69 +393,69 @@ void StretchRailSector(uint32_t source, const Vec4* from, const Vec4* previous, 
                 }
             }
             if (!found)
-                vertex.EchoOut();
+                vertex.echo_out();
         }
-        SetCollisionVertices(sector, raw);
-        MemSys::FreeMalloc(raw);
-        MemSys::FreeMalloc(before);
-        CParkLayout::sSingleton()->m_builder->RebuildCollision();
+        set_collision_vertices(sector, raw);
+        memory::free_malloc(raw);
+        memory::free_malloc(before);
+        ParkLayout::singleton()->builder_->rebuild_collision();
     }
-    MemSys::FreeMalloc(vertices);
+    memory::free_malloc(vertices);
 }
 
 // --- CEditedRailPoint ---------------------------------------------------------------------------------------------
 
 // 0x004F5460
-void CEditedRailPoint::DrawSegment(const Vec4* origin, const Vec4* position, float angle)
+void EditedRailPoint::draw_segment(const Vec4* origin, const Vec4* position, float angle)
 {
-    if (!m_following) {
-        DeleteSegment();
+    if (!following_) {
+        delete_segment();
         return;
     }
-    if (!m_segment)
-        m_segment = CloneRailSector(kRailSource);
-    CEditedRailPoint* next = m_following;
-    if (next->m_following) {
+    if (!segment_)
+        segment_ = clone_rail_sector(kRailSource);
+    EditedRailPoint* next = following_;
+    if (next->following_) {
         // Joined on to the previous segment unless the turn is sharper than RailEditorMaxJoinAngle.
-        CEditedRailPoint* nextNext = next->m_following;
-        Vec4 before = {static_cast<float>(static_cast<double>(next->m_atPoint.x) - nextNext->m_atPoint.x),
-                         static_cast<float>(static_cast<double>(next->m_atPoint.y) - nextNext->m_atPoint.y),
-                         static_cast<float>(static_cast<double>(next->m_atPoint.z) - nextNext->m_atPoint.z),
-                         static_cast<float>(static_cast<double>(next->m_atPoint.w) - nextNext->m_atPoint.w)};
-        Vec4 here = {static_cast<float>(static_cast<double>(m_atPoint.x) - next->m_atPoint.x),
-                       static_cast<float>(static_cast<double>(m_atPoint.y) - next->m_atPoint.y),
-                       static_cast<float>(static_cast<double>(m_atPoint.z) - next->m_atPoint.z),
-                       static_cast<float>(static_cast<double>(m_atPoint.w) - next->m_atPoint.w)};
-        before.MakeUnit();
-        here.MakeUnit();
+        EditedRailPoint* next_next = next->following_;
+        Vec4 before = {static_cast<float>(static_cast<double>(next->at_point_.x) - next_next->at_point_.x),
+                         static_cast<float>(static_cast<double>(next->at_point_.y) - next_next->at_point_.y),
+                         static_cast<float>(static_cast<double>(next->at_point_.z) - next_next->at_point_.z),
+                         static_cast<float>(static_cast<double>(next->at_point_.w) - next_next->at_point_.w)};
+        Vec4 here = {static_cast<float>(static_cast<double>(at_point_.x) - next->at_point_.x),
+                       static_cast<float>(static_cast<double>(at_point_.y) - next->at_point_.y),
+                       static_cast<float>(static_cast<double>(at_point_.z) - next->at_point_.z),
+                       static_cast<float>(static_cast<double>(at_point_.w) - next->at_point_.w)};
+        before.make_unit();
+        here.make_unit();
         float dot = static_cast<float>((static_cast<double>(here.z) * before.z + static_cast<double>(here.y) * before.y) +
                                        static_cast<double>(here.x) * before.x);
-        bool join = !X87::CosAbove(static_cast<double>(Scripts::FetchFloat(kMaxJoinAngle)) * kAngleScaleToRad, dot);
+        bool join = !x87::cos_above(static_cast<double>(script::fetch_float(kMaxJoinAngle)) * kAngleScaleToRad, dot);
         Vec4 c, b, a;
-        TransformRailPoint(&c, &nextNext->m_atPoint, origin, position, angle);
-        TransformRailPoint(&b, &next->m_atPoint, origin, position, angle);
-        TransformRailPoint(&a, &m_atPoint, origin, position, angle);
-        StretchRailSector(kRailSource, &b, &c, &a, m_segment, join ? next->m_segment : nullptr, true);
+        transform_rail_point(&c, &next_next->at_point_, origin, position, angle);
+        transform_rail_point(&b, &next->at_point_, origin, position, angle);
+        transform_rail_point(&a, &at_point_, origin, position, angle);
+        stretch_rail_sector(kRailSource, &b, &c, &a, segment_, join ? next->segment_ : nullptr, true);
         return;
     }
     Vec4 b, a;
-    TransformRailPoint(&b, &next->m_atPoint, origin, position, angle);
-    TransformRailPoint(&a, &m_atPoint, origin, position, angle);
+    transform_rail_point(&b, &next->at_point_, origin, position, angle);
+    transform_rail_point(&a, &at_point_, origin, position, angle);
     // (the original passes an unset local as the previous point: unread without a previous sector)
-    StretchRailSector(kRailSource, &b, &b, &a, m_segment, nullptr, true);
+    stretch_rail_sector(kRailSource, &b, &b, &a, segment_, nullptr, true);
 }
 
 // 0x004F56D0
-void CEditedRailPoint::DrawPost(const Vec4* origin, const Vec4* position, float angle)
+void EditedRailPoint::draw_post(const Vec4* origin, const Vec4* position, float angle)
 {
-    if (!m_hasPost || m_levelY < kPostWidth) {
-        DeletePost();
+    if (!has_post_ || level_y_ < kPostWidth) {
+        delete_post();
         return;
     }
-    uint8_t* geometry = FetchShape(LookUpSector(kPostSource));
-    int count = VertexCount(geometry);
-    auto* vertices = static_cast<Vec4*>(MemSys::AllocBlock(static_cast<uint32_t>(count) << 4));
-    GetVertices(geometry, vertices);
+    uint8_t* geometry = fetch_shape(look_up_sector(kPostSource));
+    int count = get_vertex_count(geometry);
+    auto* vertices = static_cast<Vec4*>(memory::alloc_block(static_cast<uint32_t>(count) << 4));
+    get_vertices(geometry, vertices);
     float low = kFar, high = -kFar;
     for (int i = 0; i < count; ++i) {
         float y = vertices[i].y;
@@ -466,26 +466,26 @@ void CEditedRailPoint::DrawPost(const Vec4* origin, const Vec4* position, float 
     }
     // Leaning along the rail at an inner point: the post narrower as the rail climbs.
     float width = kPostWidth;
-    if (m_following && m_preceding) {
-        double ax = static_cast<double>(m_preceding->m_atPoint.x) - m_atPoint.x;
-        double ay = static_cast<double>(m_preceding->m_atPoint.y) - m_atPoint.y;
-        float az = static_cast<float>(static_cast<double>(m_preceding->m_atPoint.z) - m_atPoint.z);
-        float aw = static_cast<float>(static_cast<double>(m_preceding->m_atPoint.w) - m_atPoint.w);
-        double bx = static_cast<double>(m_atPoint.x) - m_following->m_atPoint.x;
-        float by = static_cast<float>(static_cast<double>(m_atPoint.y) - m_following->m_atPoint.y);
-        float bz = static_cast<float>(static_cast<double>(m_atPoint.z) - m_following->m_atPoint.z);
-        float bw = static_cast<float>(static_cast<double>(m_atPoint.w) - m_following->m_atPoint.w);
+    if (following_ && preceding_) {
+        double ax = static_cast<double>(preceding_->at_point_.x) - at_point_.x;
+        double ay = static_cast<double>(preceding_->at_point_.y) - at_point_.y;
+        float az = static_cast<float>(static_cast<double>(preceding_->at_point_.z) - at_point_.z);
+        float aw = static_cast<float>(static_cast<double>(preceding_->at_point_.w) - at_point_.w);
+        double bx = static_cast<double>(at_point_.x) - following_->at_point_.x;
+        float by = static_cast<float>(static_cast<double>(at_point_.y) - following_->at_point_.y);
+        float bz = static_cast<float>(static_cast<double>(at_point_.z) - following_->at_point_.z);
+        float bw = static_cast<float>(static_cast<double>(at_point_.w) - following_->at_point_.w);
         float sx = static_cast<float>(bx + ax);
         double sy = static_cast<double>(by) + ay;
         double sz = static_cast<double>(bz) + az;
         float sw = static_cast<float>(static_cast<double>(bw) + aw);
         Vec4 along = {static_cast<float>(static_cast<double>(sx) * 0.5f), static_cast<float>(sy * 0.5f),
                         static_cast<float>(sz * 0.5f), static_cast<float>(static_cast<double>(sw) * 0.5f)};
-        along.MakeUnit();
-        width = static_cast<float>(X87::Sqrt(1.0f - static_cast<double>(along.y) * along.y) * kPostWidth);
+        along.make_unit();
+        width = static_cast<float>(x87::get_sqrt(1.0f - static_cast<double>(along.y) * along.y) * kPostWidth);
     }
     Vec4 at;
-    TransformRailPoint(&at, &m_atPoint, origin, position, angle);
+    transform_rail_point(&at, &at_point_, origin, position, angle);
     double drop = static_cast<double>(width) + high;
     for (int i = 0; i < count; ++i) {
         Vec4& v = vertices[i];
@@ -496,244 +496,244 @@ void CEditedRailPoint::DrawPost(const Vec4* origin, const Vec4* position, float 
         v.y = static_cast<float>(static_cast<double>(v.y) - drop);
     }
     // The foot's vertices down to the ground.
-    double foot = (static_cast<double>(m_levelY) - drop) - high;
+    double foot = (static_cast<double>(level_y_) - drop) - high;
     for (int i : {8, 9, 10, 11, 1, 2, 5, 6})
         vertices[i].y = static_cast<float>(static_cast<double>(vertices[i].y) - foot);
-    if (m_following) {
+    if (following_) {
         // Turned to face along the rail.
-        double dx = static_cast<double>(m_atPoint.x) - m_following->m_atPoint.x;
-        double dz = static_cast<double>(m_atPoint.z) - m_following->m_atPoint.z;
-        double length = X87::Sqrt(dz * dz + dx * dx);
+        double dx = static_cast<double>(at_point_.x) - following_->at_point_.x;
+        double dz = static_cast<double>(at_point_.z) - following_->at_point_.z;
+        double length = x87::get_sqrt(dz * dz + dx * dx);
         if (length > 0.0) {
             double inverse = 1.0 / length;
             dx *= inverse;
             dz *= inverse;
         }
-        float minusZ = static_cast<float>(-dz);
+        float minus_z = static_cast<float>(-dz);
         for (int i = 0; i < count; ++i) {
             Vec4& v = vertices[i];
             double rx = static_cast<double>(v.x) - at.x;
             double rz = static_cast<double>(v.z) - at.z;
-            v.x = static_cast<float>((dx * rx + rz * minusZ) + at.x);
+            v.x = static_cast<float>((dx * rx + rz * minus_z) + at.x);
             v.z = static_cast<float>((dz * rx + dx * rz) + at.z);
         }
     }
-    if (!m_post)
-        m_post = DuplicateSceneSector(kPostSource);
-    SetVertices(FetchShape(m_post), vertices);
-    MemSys::FreeMalloc(vertices);
+    if (!post_)
+        post_ = duplicate_scene_sector(kPostSource);
+    set_vertices(fetch_shape(post_), vertices);
+    memory::free_malloc(vertices);
 }
 
 // 0x004F5D10
-float __fastcall CEditedRailPoint::GroundHeight(const Vec4* position)
+float __fastcall EditedRailPoint::ground_height(const Vec4* position)
 {
-    Engine3D::CProbeRay feeler;
-    feeler.MakeNew();
+    render::ProbeRay feeler;
+    feeler.make_new();
     Vec4 start = {position->x, static_cast<float>(static_cast<double>(position->y) + kGroundProbe), position->z,
                     position->w};
-    feeler.ChangeOrigin(&start);
+    feeler.change_origin(&start);
     Vec4 end = {position->x, static_cast<float>(static_cast<double>(position->y) - kGroundProbe), position->z,
                   position->w};
-    feeler.ChangeFinish(&end);
-    if (feeler.GetHitShape(true, false)) {
-        float height = feeler.m_contactPos.y;
-        feeler.m_entity.Release();
+    feeler.change_finish(&end);
+    if (feeler.get_hit_shape(true, false)) {
+        float height = feeler.contact_pos_.y;
+        feeler.entity_.get_release();
         return height;
     }
-    feeler.m_entity.Release();
+    feeler.entity_.get_release();
     return 0.0f;
 }
 
 // 0x004F5E30
-void CEditedRailPoint::Spotlight(bool flash, bool includeEndPosts)
+void EditedRailPoint::spotlight(bool flash, bool include_end_posts)
 {
-    if (m_highlighted)
+    if (highlighted_)
         return;
-    uint32_t mask = flash ? FlashMask(Scripts::FetchIntValue(kPulseRateKey)) : 0xFFFFFFFFu;
-    Colour normal = {static_cast<uint8_t>(Scripts::FetchIntValue(kHighlightR)),
-                     static_cast<uint8_t>(Scripts::FetchIntValue(kHighlightG)),
-                     static_cast<uint8_t>(Scripts::FetchIntValue(kHighlightB))};
-    Colour bad = {static_cast<uint8_t>(Scripts::FetchIntValue(kBadR)), static_cast<uint8_t>(Scripts::FetchIntValue(kBadG)),
-                  static_cast<uint8_t>(Scripts::FetchIntValue(kBadB))};
+    uint32_t mask = flash ? flash_mask(script::fetch_int_value(kPulseRateKey)) : 0xFFFFFFFFu;
+    Colour normal = {static_cast<uint8_t>(script::fetch_int_value(kHighlightR)),
+                     static_cast<uint8_t>(script::fetch_int_value(kHighlightG)),
+                     static_cast<uint8_t>(script::fetch_int_value(kHighlightB))};
+    Colour bad = {static_cast<uint8_t>(script::fetch_int_value(kBadR)), static_cast<uint8_t>(script::fetch_int_value(kBadG)),
+                  static_cast<uint8_t>(script::fetch_int_value(kBadB))};
     // Too long a segment either side: everything in the bad colour.
-    bool tooLong = false;
-    if (m_following && RailTooFar(&m_atPoint, &m_following->m_atPoint))
-        tooLong = true;
-    if (m_preceding && RailTooFar(&m_atPoint, &m_preceding->m_atPoint))
-        tooLong = true;
-    auto cornerOk = [](const CEditedRailPoint* p) {
-        return !p->m_following || !p->m_preceding || RailCornerOk(&p->m_following->m_atPoint, &p->m_atPoint, &p->m_preceding->m_atPoint);
+    bool too_long = false;
+    if (following_ && rail_too_far(&at_point_, &following_->at_point_))
+        too_long = true;
+    if (preceding_ && rail_too_far(&at_point_, &preceding_->at_point_))
+        too_long = true;
+    auto corner_ok = [](const EditedRailPoint* p) {
+        return !p->following_ || !p->preceding_ || rail_corner_ok(&p->following_->at_point_, &p->at_point_, &p->preceding_->at_point_);
     };
     auto paint = [mask](uint8_t* sector, const Colour& colour) {
-        SetSectorColour(sector, colour.Word());
-        SetSectorVisibility(sector, mask);
+        set_sector_colour(sector, colour.get_word());
+        set_sector_visibility(sector, mask);
     };
     // (the colour last chosen carries on to the segment when there's no next point to judge it by)
     Colour colour = normal;
-    if (m_post) {
-        colour = cornerOk(this) && !tooLong ? normal : bad;
-        paint(m_post, colour);
+    if (post_) {
+        colour = corner_ok(this) && !too_long ? normal : bad;
+        paint(post_, colour);
     }
-    if (m_segment) {
-        if (m_following)
-            colour = cornerOk(m_following) && cornerOk(this) && !tooLong ? normal : bad;
-        paint(m_segment, colour);
+    if (segment_) {
+        if (following_)
+            colour = corner_ok(following_) && corner_ok(this) && !too_long ? normal : bad;
+        paint(segment_, colour);
     }
-    if (m_preceding && m_preceding->m_segment)
-        paint(m_preceding->m_segment, cornerOk(m_preceding) && cornerOk(this) && !tooLong ? normal : bad);
-    if (includeEndPosts) {
-        if (m_following && !m_following->m_following && m_following->m_post)
-            paint(m_following->m_post, normal);
-        if (m_preceding && !m_preceding->m_preceding && m_preceding->m_post)
-            paint(m_preceding->m_post, normal);
+    if (preceding_ && preceding_->segment_)
+        paint(preceding_->segment_, corner_ok(preceding_) && corner_ok(this) && !too_long ? normal : bad);
+    if (include_end_posts) {
+        if (following_ && !following_->following_ && following_->post_)
+            paint(following_->post_, normal);
+        if (preceding_ && !preceding_->preceding_ && preceding_->post_)
+            paint(preceding_->post_, normal);
     }
-    m_highlighted = true;
+    highlighted_ = true;
 }
 
 // --- CEditedRail --------------------------------------------------------------------------------------------------
 
 // 0x004F4370
-void CEditedRail::Xform(const Vec4* origin, const Vec4* position, float angle)
+void EditedRail::xform(const Vec4* origin, const Vec4* position, float angle)
 {
-    // (TransformRailPoint's turn, but z' not rounded to float before the position is added)
-    for (CEditedRailPoint* p = m_pointChain; p; p = p->m_following) {
-        double dx = static_cast<double>(p->m_atPoint.x) - origin->x;
-        float dy = static_cast<float>(static_cast<double>(p->m_atPoint.y) - origin->y);
-        double dz = static_cast<double>(p->m_atPoint.z) - origin->z;
+    // (transform_rail_point's turn, but z' not rounded to float before the position is added)
+    for (EditedRailPoint* p = point_chain_; p; p = p->following_) {
+        double dx = static_cast<double>(p->at_point_.x) - origin->x;
+        float dy = static_cast<float>(static_cast<double>(p->at_point_.y) - origin->y);
+        double dz = static_cast<double>(p->at_point_.z) - origin->z;
         float x;
         double z;
-        TurnAboutY(dx, dz, angle, &x, &z);
-        p->m_atPoint.z = static_cast<float>(z + position->z);
-        p->m_atPoint.w = static_cast<float>(0.0 + position->w); // (the original adds an unset local - here 0)
-        p->m_atPoint.x = static_cast<float>(static_cast<double>(x) + position->x);
-        p->m_atPoint.y = static_cast<float>(static_cast<double>(dy) + position->y);
+        turn_about_y(dx, dz, angle, &x, &z);
+        p->at_point_.z = static_cast<float>(z + position->z);
+        p->at_point_.w = static_cast<float>(0.0 + position->w); // (the original adds an unset local - here 0)
+        p->at_point_.x = static_cast<float>(static_cast<double>(x) + position->x);
+        p->at_point_.y = static_cast<float>(static_cast<double>(dy) + position->y);
     }
 }
 
 // 0x004F61C0
-void CEditedRail::DrawSegments(const Vec4* origin, const Vec4* position, float angle)
+void EditedRail::draw_segments(const Vec4* origin, const Vec4* position, float angle)
 {
-    CEditedRailPoint* last = nullptr;
-    for (CEditedRailPoint* p = m_pointChain; p; p = p->m_following)
+    EditedRailPoint* last = nullptr;
+    for (EditedRailPoint* p = point_chain_; p; p = p->following_)
         last = p;
-    for (CEditedRailPoint* p = last; p; p = p->m_preceding)
-        p->DrawSegment(origin, position, angle);
+    for (EditedRailPoint* p = last; p; p = p->preceding_)
+        p->draw_segment(origin, position, angle);
 }
 
 // 0x004F6210
-void CEditedRail::DrawPosts(const Vec4* origin, const Vec4* position, float angle)
+void EditedRail::draw_posts(const Vec4* origin, const Vec4* position, float angle)
 {
-    for (CEditedRailPoint* p = m_pointChain; p; p = p->m_following)
-        p->DrawPost(origin, position, angle);
+    for (EditedRailPoint* p = point_chain_; p; p = p->following_)
+        p->draw_post(origin, position, angle);
 }
 
 // 0x004F63B0
-bool CEditedRail::MovePoint(int index, const Vec4* position, bool /*updateSuperSectors*/)
+bool EditedRail::move_point(int index, const Vec4* position, bool /*updateSuperSectors*/)
 {
-    CEditedRailPoint* p = FetchVertexAt(index);
+    EditedRailPoint* p = fetch_vertex_at(index);
     bool valid = true;
-    if (p->m_following && !RailSegmentValid(&p->m_following->m_atPoint, position))
+    if (p->following_ && !rail_segment_valid(&p->following_->at_point_, position))
         valid = false;
-    if (p->m_preceding && !RailSegmentValid(&p->m_preceding->m_atPoint, position))
+    if (p->preceding_ && !rail_segment_valid(&p->preceding_->at_point_, position))
         valid = false;
-    if (!CParkBuilderMode::IsInsidePark(*position, 10.0f))
+    if (!ParkBuilderMode::is_inside_park(*position, 10.0f))
         valid = false;
     // Moved (even when not valid) unless a neighbour would be out of reach.
-    if (p->m_following && DistanceZYX(position, &p->m_following->m_atPoint) > kMaxReach)
+    if (p->following_ && distance_zyx(position, &p->following_->at_point_) > kMaxReach)
         return valid;
-    if (p->m_preceding && DistanceZYX(position, &p->m_preceding->m_atPoint) > kMaxReach)
+    if (p->preceding_ && distance_zyx(position, &p->preceding_->at_point_) > kMaxReach)
         return valid;
-    p->m_atPoint = *position;
-    p->m_levelY = static_cast<float>(static_cast<double>(p->m_atPoint.y) - CEditedRailPoint::GroundHeight(&p->m_atPoint));
-    p->DrawPost(&Zero(), &Zero(), 0.0f);
-    p->DrawSegment(&Zero(), &Zero(), 0.0f);
-    if (p->m_preceding)
-        p->m_preceding->DrawSegment(&Zero(), &Zero(), 0.0f);
+    p->at_point_ = *position;
+    p->level_y_ = static_cast<float>(static_cast<double>(p->at_point_.y) - EditedRailPoint::ground_height(&p->at_point_));
+    p->draw_post(&get_zero(), &get_zero(), 0.0f);
+    p->draw_segment(&get_zero(), &get_zero(), 0.0f);
+    if (p->preceding_)
+        p->preceding_->draw_segment(&get_zero(), &get_zero(), 0.0f);
     return valid;
 }
 
-// --- CRailAuthoring -----------------------------------------------------------------------------------------
+// --- RailAuthoring -----------------------------------------------------------------------------------------
 
 // 0x004F6510
-void CRailAuthoring::RestoreHeights()
+void RailAuthoring::restore_heights()
 {
-    ChangeLive(false);
-    for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following) {
-        for (CEditedRailPoint* p = rail->m_pointChain; p; p = p->m_following) {
-            if (p->m_hasPost)
-                p->m_atPoint.y = static_cast<float>(static_cast<double>(CEditedRailPoint::GroundHeight(&p->m_atPoint)) +
-                                                p->m_levelY);
+    change_live(false);
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
+        for (EditedRailPoint* p = rail->point_chain_; p; p = p->following_) {
+            if (p->has_post_)
+                p->at_point_.y = static_cast<float>(static_cast<double>(EditedRailPoint::ground_height(&p->at_point_)) +
+                                                p->level_y_);
         }
     }
-    ChangeLive(true);
+    change_live(true);
 }
 
 // 0x004F6560
-void CRailAuthoring::StoreHeights()
+void RailAuthoring::store_heights()
 {
-    for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following) {
-        for (CEditedRailPoint* p = rail->m_pointChain; p; p = p->m_following)
-            p->m_levelY = static_cast<float>(static_cast<double>(p->m_atPoint.y) - CEditedRailPoint::GroundHeight(&p->m_atPoint));
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
+        for (EditedRailPoint* p = rail->point_chain_; p; p = p->following_)
+            p->level_y_ = static_cast<float>(static_cast<double>(p->at_point_.y) - EditedRailPoint::ground_height(&p->at_point_));
     }
 }
 
 // 0x004F65A0
-void CRailAuthoring::DrawAllSegments()
+void RailAuthoring::draw_all_segments()
 {
-    for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following)
-        rail->DrawSegments(&Zero(), &Zero(), 0.0f);
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_)
+        rail->draw_segments(&get_zero(), &get_zero(), 0.0f);
 }
 
 // 0x004F6600
-void CRailAuthoring::DrawAllPosts()
+void RailAuthoring::draw_all_posts()
 {
-    for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following)
-        rail->DrawPosts(&Zero(), &Zero(), 0.0f);
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_)
+        rail->draw_posts(&get_zero(), &get_zero(), 0.0f);
 }
 
 // 0x004F6650
-void CRailAuthoring::Reassemble()
+void RailAuthoring::reassemble()
 {
-    CParkLayout::sSingleton()->m_builder->RebuildCollision();
-    StoreHeights();
-    DrawAllSegments();
-    DrawAllPosts();
+    ParkLayout::singleton()->builder_->rebuild_collision();
+    store_heights();
+    draw_all_segments();
+    draw_all_posts();
 }
 
 // 0x004F6AF0
-void CRailAuthoring::DrawDottedLine(const Vec4* position)
+void RailAuthoring::draw_dotted_line(const Vec4* position)
 {
-    if (!m_activeNode)
+    if (!active_node_)
         return;
-    CEditedRailPoint* head = m_activeNode->m_pointChain;
+    EditedRailPoint* head = active_node_->point_chain_;
     if (!head)
         return;
     uint32_t source = kDottedGreen;
-    if (RailTooFar(&head->m_atPoint, position)) {
-        if (RailOutOfReach(&head->m_atPoint, position)) {
-            DeleteDottedLine();
+    if (rail_too_far(&head->at_point_, position)) {
+        if (rail_out_of_reach(&head->at_point_, position)) {
+            delete_dotted_line();
             return;
         }
         source = kDottedRed;
-    } else if (head->m_following && !RailCornerOk(&head->m_following->m_atPoint, &head->m_atPoint, position)) {
+    } else if (head->following_ && !rail_corner_ok(&head->following_->at_point_, &head->at_point_, position)) {
         source = kDottedRed;
     }
-    if (!m_dottedLine || source != m_dottedLineName) {
-        DeleteDottedLine();
-        m_dottedLine = CloneRailSector(source);
-        m_dottedLineName = source;
+    if (!dotted_line_ || source != dotted_line_name_) {
+        delete_dotted_line();
+        dotted_line_ = clone_rail_sector(source);
+        dotted_line_name_ = source;
     }
     // (the original passes an unset local as the previous point: unread without a previous sector)
-    StretchRailSector(m_dottedLineName, &head->m_atPoint, position, position, m_dottedLine, nullptr, false);
+    stretch_rail_sector(dotted_line_name_, &head->at_point_, position, position, dotted_line_, nullptr, false);
     if (source == kDottedRed)
-        SetSectorVisibility(m_dottedLine, FlashMask(Scripts::FetchIntValue(kRedLineFlashRate)));
+        set_sector_visibility(dotted_line_, flash_mask(script::fetch_int_value(kRedLineFlashRate)));
 }
 
 // --- The register-argument entry points ---------------------------------------------------------------------------
 
 // 0x004F3D80: EAX out, ECX position, EDX origin, ESI the point; the angle on the stack (the caller pops it). EAX
 // back; ECX and EDX kept (a caller reuses ECX).
-__declspec(naked) void TransformRailPointStub()
+__declspec(naked) void transform_rail_point_stub()
 {
     __asm {
         push edx
@@ -743,7 +743,7 @@ __declspec(naked) void TransformRailPointStub()
         push edx
         push esi
         push eax
-        call TransformRailPoint
+        call transform_rail_point
         add esp, 0x14
         pop ecx
         pop edx
@@ -752,7 +752,7 @@ __declspec(naked) void TransformRailPointStub()
 }
 
 // 0x004F3E40: EAX, ECX, EDX the three points; AL back.
-__declspec(naked) void RailCornerOkStub()
+__declspec(naked) void rail_corner_ok_stub()
 {
     __asm {
         push ecx
@@ -760,7 +760,7 @@ __declspec(naked) void RailCornerOkStub()
         push edx
         push ecx
         push eax
-        call RailCornerOk
+        call rail_corner_ok
         add esp, 0xc
         pop edx
         pop ecx
@@ -769,14 +769,14 @@ __declspec(naked) void RailCornerOkStub()
 }
 
 // 0x004F3F30 / 0x004F3F70: ECX and EAX the two points; EAX back (ECX kept: a caller reuses it).
-__declspec(naked) void RailTooFarStub()
+__declspec(naked) void rail_too_far_stub()
 {
     __asm {
         push ecx
         push edx
         push eax
         push ecx
-        call RailTooFar
+        call rail_too_far
         add esp, 8
         pop edx
         pop ecx
@@ -784,14 +784,14 @@ __declspec(naked) void RailTooFarStub()
     }
 }
 
-__declspec(naked) void RailOutOfReachStub()
+__declspec(naked) void rail_out_of_reach_stub()
 {
     __asm {
         push ecx
         push edx
         push eax
         push ecx
-        call RailOutOfReach
+        call rail_out_of_reach
         add esp, 8
         pop edx
         pop ecx
@@ -800,14 +800,14 @@ __declspec(naked) void RailOutOfReachStub()
 }
 
 // 0x004F3FB0: ECX and EDX the two points; AL back.
-__declspec(naked) void RailSegmentValidStub()
+__declspec(naked) void rail_segment_valid_stub()
 {
     __asm {
         push ecx
         push edx
         push edx
         push ecx
-        call RailSegmentValid
+        call rail_segment_valid
         add esp, 8
         pop edx
         pop ecx
@@ -817,7 +817,7 @@ __declspec(naked) void RailSegmentValidStub()
 
 // 0x004F4B90: ECX the direction, EDI the translation; the vertices, indices and count on the stack (the caller pops
 // them).
-__declspec(naked) void OrientRailVerticesStub()
+__declspec(naked) void orient_rail_vertices_stub()
 {
     __asm {
         push ecx
@@ -827,7 +827,7 @@ __declspec(naked) void OrientRailVerticesStub()
         push dword ptr [esp + 0x14]
         push edi
         push ecx
-        call OrientRailVertices
+        call orient_rail_vertices
         add esp, 0x14
         pop edx
         pop ecx
@@ -837,7 +837,7 @@ __declspec(naked) void OrientRailVerticesStub()
 
 // 0x004F4E70: EAX the source sector's name, ECX the start; the previous point, the end, the sector, the previous
 // sector and the collision flag on the stack (the caller pops them).
-__declspec(naked) void StretchRailSectorStub()
+__declspec(naked) void stretch_rail_sector_stub()
 {
     __asm {
         push ecx
@@ -849,7 +849,7 @@ __declspec(naked) void StretchRailSectorStub()
         push dword ptr [esp + 0x1c]
         push ecx
         push eax
-        call StretchRailSector
+        call stretch_rail_sector
         add esp, 0x1c
         pop edx
         pop ecx

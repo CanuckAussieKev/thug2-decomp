@@ -1,4 +1,4 @@
-// The CameraLookAround component (GameObjects::CFreeLookModule): see camera_lookaround.h. From the
+// The CameraLookAround component (GameObjects::FreeLookModule): see camera_lookaround.h. From the
 // disassembly of 0x004E3F60-0x004E4336 (0x004E3FA0 isn't a Ghidra function).
 
 #include "engine/objects/camera_lookaround.h"
@@ -19,7 +19,7 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
@@ -41,10 +41,10 @@ constexpr float kNear = 0.0010000000474974513f;    // 0x006461D8
 constexpr float kEase = 3.75f;                     // 0x0064B2C0
 
 // A button's press this frame forgotten.
-void TakePress(uint8_t* button) { reinterpret_cast<CControlButton*>(button)->ResetActivation(); }
+void take_press(uint8_t* button) { reinterpret_cast<ControlButton*>(button)->reset_activation(); }
 
 // One angle eased toward `target` (the original's x87 sequence: the difference rounded, its size unrounded).
-void Ease(float& angle, double target, float frame)
+void get_ease(float& angle, double target, float frame)
 {
     double difference = target - angle;
     float rounded = static_cast<float>(difference);
@@ -57,145 +57,145 @@ void Ease(float& angle, double target, float frame)
 } // namespace
 
 // 0x004E42E0
-CObjectModule* __cdecl CFreeLookModule::Fabricate()
+ObjectModule* __cdecl FreeLookModule::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CFreeLookModule));
+    void* memory = memory::alloc_zeroed(sizeof(FreeLookModule));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CFreeLookModule*>(memory);
-    component->CObjectModule::MakeNew();
-    component->m_vtable = kVtable;
-    component->m_kindTag = kCameraLookAround;
+    auto* component = static_cast<FreeLookModule*>(memory);
+    component->ObjectModule::make_new();
+    component->vtable_ = kVtable;
+    component->kind_tag_ = kCameraLookAround;
     return component;
 }
 
 // 0x004E3F60
-void CFreeLookModule::DestroyBody()
+void FreeLookModule::destroy_body()
 {
-    m_vtable = kVtable;
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    ObjectModule::destroy_body();
 }
 
 // 0x004E4010
-CFreeLookModule* CFreeLookModule::Teardown(unsigned int flags)
+FreeLookModule* FreeLookModule::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x004E3F70
-void CFreeLookModule::ConfigureFromData(Scripts::CStruct* /*params*/)
+void FreeLookModule::configure_from_data(script::Struct* /*params*/)
 {
-    m_leanAngle = 0.0f;
-    m_heading = 0.0f;
-    m_factor = 1.0f;
-    m_locked = false;
-    m_turning = false;
+    lean_angle_ = 0.0f;
+    heading_ = 0.0f;
+    factor_ = 1.0f;
+    locked_ = false;
+    turning_ = false;
 }
 
 // 0x004E4040
-void CFreeLookModule::Seal()
+void FreeLookModule::seal()
 {
-    m_inputPtr = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kInput));
+    input_ptr_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kInput));
 }
 
 // 0x004E4000
-void CFreeLookModule::SetLocked(bool locked)
+void FreeLookModule::set_locked(bool locked)
 {
-    m_locked = locked;
+    locked_ = locked;
 }
 
 // 0x004E3FA0
-void CFreeLookModule::TurnTo(float heading, float tilt, float time, float factor)
+void FreeLookModule::turn_to(float heading, float tilt, float time, float factor)
 {
-    m_targetHeading = heading;
-    m_turning = true;
-    m_targetTilt = tilt;
+    target_heading_ = heading;
+    turning_ = true;
+    target_tilt_ = tilt;
     if (time > 0.0f) {
         double inverse = 1.0 / time;
-        m_headingRate = static_cast<float>((static_cast<double>(heading) - m_heading) * inverse);
-        m_tiltRate = static_cast<float>((static_cast<double>(tilt) - m_leanAngle) * inverse);
+        heading_rate_ = static_cast<float>((static_cast<double>(heading) - heading_) * inverse);
+        tilt_rate_ = static_cast<float>((static_cast<double>(tilt) - lean_angle_) * inverse);
     }
-    m_secondsRemaining = time;
-    m_factor = factor;
+    seconds_remaining_ = time;
+    factor_ = factor;
 }
 
 // 0x004E4060
-void CFreeLookModule::TickFrame()
+void FreeLookModule::tick_frame()
 {
-    uint8_t* pad = m_inputPtr + (Scripts::FetchIntValue(kSecondPad) ? 0x258 : 0x20);
-    if (!Scripts::FetchIntValue(kNoButton) && pad[0x1F0]) {
-        TakePress(pad + 0x1E0);
-        Scripts::LaunchScript(m_entity->m_ident == kSpecialObject ? kSpecialScript : kScript, nullptr, nullptr, false,
+    uint8_t* pad = input_ptr_ + (script::fetch_int_value(kSecondPad) ? 0x258 : 0x20);
+    if (!script::fetch_int_value(kNoButton) && pad[0x1F0]) {
+        take_press(pad + 0x1E0);
+        script::launch_script(entity_->ident_ == kSpecialObject ? kSpecialScript : kScript, nullptr, nullptr, false,
                           nullptr);
     }
     if (pad[0x130]) {
-        m_locked = !m_locked;
-        TakePress(pad + 0x120);
+        locked_ = !locked_;
+        take_press(pad + 0x120);
     }
-    float frame = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
-    if (!m_locked && !m_turning && m_dpadLook && Skater::ThawBmx::IsSwitchedOn()) {
+    float frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
+    if (!locked_ && !turning_ && dpad_look_ && skater::thaw_bmx::is_switched_on()) {
         // NOT ORIGINAL - THAW's BMX (THAW 0x5B08F0 with its +0x40 set): the d-pad's inputs instead of
         // the right stick's - with THAW's default inversion -, eased as the stick's (the heading without the stick's
         // x 3). Original behaviour: the stick's, below, always.
-        auto* p = reinterpret_cast<CPadSnapshot*>(pad);
-        Skater::ThawBmx::LookInputs in =
-            Skater::ThawBmx::DPadLookInputs(p->m_upDir.m_heldDown != 0, p->m_btnDown.m_heldDown != 0, p->m_leftSide.m_heldDown != 0,
-                                            p->m_rightSide.m_heldDown != 0, Skater::ThawBmx::kLookInvertDefault);
+        auto* p = reinterpret_cast<PadSnapshot*>(pad);
+        skater::thaw_bmx::LookInputs in =
+            skater::thaw_bmx::d_pad_look_inputs(p->up_dir_.held_down_ != 0, p->btn_down_.held_down_ != 0, p->left_side_.held_down_ != 0,
+                                            p->right_side_.held_down_ != 0, skater::thaw_bmx::kLookInvertDefault);
         float tilt = in.tilt * (in.tilt < 0.0f ? kUpScale : kDownScale) * kTiltScale;
-        Ease(m_leanAngle, tilt, frame);
-        Ease(m_heading, in.heading, frame);
-    } else if (!m_locked && !m_turning) {
-        float stickY = *reinterpret_cast<float*>(pad + 0x214);
-        double tilt = static_cast<double>(stickY) * (stickY < 0.0f ? kUpScale : kDownScale) * kTiltScale;
-        Ease(m_leanAngle, tilt, frame);
+        get_ease(lean_angle_, tilt, frame);
+        get_ease(heading_, in.heading, frame);
+    } else if (!locked_ && !turning_) {
+        float stick_y = *reinterpret_cast<float*>(pad + 0x214);
+        double tilt = static_cast<double>(stick_y) * (stick_y < 0.0f ? kUpScale : kDownScale) * kTiltScale;
+        get_ease(lean_angle_, tilt, frame);
         double heading = static_cast<double>(*reinterpret_cast<float*>(pad + 0x210)) * kHeadingScale;
-        Ease(m_heading, heading, frame);
+        get_ease(heading_, heading, frame);
     }
-    float step = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
-    if (m_turning && m_secondsRemaining > 0.0f) {
-        if (m_secondsRemaining > step) {
-            m_heading = static_cast<float>(static_cast<double>(step) * m_headingRate + m_heading);
-            m_leanAngle = static_cast<float>(static_cast<double>(step) * m_tiltRate + m_leanAngle);
-            m_secondsRemaining = m_secondsRemaining - step;
+    float step = static_cast<float>(frame_clock::get_slomo_frame_seconds());
+    if (turning_ && seconds_remaining_ > 0.0f) {
+        if (seconds_remaining_ > step) {
+            heading_ = static_cast<float>(static_cast<double>(step) * heading_rate_ + heading_);
+            lean_angle_ = static_cast<float>(static_cast<double>(step) * tilt_rate_ + lean_angle_);
+            seconds_remaining_ = seconds_remaining_ - step;
         } else {
-            m_heading = m_targetHeading;
-            m_leanAngle = m_targetTilt;
-            m_secondsRemaining = 0.0f;
+            heading_ = target_heading_;
+            lean_angle_ = target_tilt_;
+            seconds_remaining_ = 0.0f;
         }
     }
 }
 
 // 0x004E4220
-int CFreeLookModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* /*script*/)
+int FreeLookModule::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
     if (name == kTurnTo) {
         float heading, tilt, time, factor = 1.0f;
-        params->FetchFloat(kHeading, &heading, 1);
-        params->FetchFloat(kTilt, &tilt, 1);
-        params->FetchFloat(kTime, &time, 1);
-        params->FetchFloat(kFactor, &factor, 0);
-        TurnTo(heading, tilt, time, factor);
+        params->fetch_float(kHeading, &heading, 1);
+        params->fetch_float(kTilt, &tilt, 1);
+        params->fetch_float(kTime, &time, 1);
+        params->fetch_float(kFactor, &factor, 0);
+        turn_to(heading, tilt, time, factor);
         return 1;
     }
     if (name == kStopTurning) {
-        m_turning = false;
+        turning_ = false;
         return 1;
     }
     // NOT ORIGINAL - THAW's BMX: THAW's members (its 0x5B0B50 / 0x5B0B60: +0x40 on / off), bike_start's and
     // bmx_finish_off's - only while the feature is on (else 2, as THUG2's).
-    if ((name == kLookaroundOnDPadOn || name == kLookaroundOnDPadOff) && Skater::ThawBmx::IsSwitchedOn()) {
-        m_dpadLook = name == kLookaroundOnDPadOn;
-        Skater::ThawBmx::NoteDPadCamera(m_dpadLook);
+    if ((name == kLookaroundOnDPadOn || name == kLookaroundOnDPadOff) && skater::thaw_bmx::is_switched_on()) {
+        dpad_look_ = name == kLookaroundOnDPadOn;
+        skater::thaw_bmx::note_d_pad_camera(dpad_look_);
         return 1;
     }
     return 2;
 }
 
 // 0x004E3F90: a tail jump to the component's slot 2 (its arguments left as they are).
-__declspec(naked) void ReapplyFromData()
+__declspec(naked) void reapply_from_data()
 {
     __asm {
         mov eax, dword ptr [ecx]
@@ -205,23 +205,23 @@ __declspec(naked) void ReapplyFromData()
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CFreeLookModule::Teardown,
-         &GameObjects::CFreeLookModule::TickFrame,
-         &GameObjects::CFreeLookModule::ConfigureFromData,
-         &GameObjects::CFreeLookModule::Seal,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
-         &GameObjects::CFreeLookModule::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::FreeLookModule::teardown,
+         &objects::FreeLookModule::tick_frame,
+         &objects::FreeLookModule::configure_from_data,
+         &objects::FreeLookModule::seal,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
+         &objects::FreeLookModule::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

@@ -14,22 +14,22 @@
 #include "engine/render/coll_obj.h"
 #include "engine/core/code_address.h"
 
-namespace Engine3D {
+namespace render {
 
 namespace {
 
 // The engine's CGeom calls (each a jump through the geom's vtable; not rewritten yet).
 template <typename R, typename... A>
-R GeomCall(uint32_t slot, void* geom, A... args)
+R geom_call(uint32_t slot, void* geom, A... args)
 {
     // (the geom's virtual slot `slot`: the original goes through a jump stub for each)
     return reinterpret_cast<R(__thiscall*)(void*, A...)>((*static_cast<void***>(geom))[slot])(geom, args...);
 }
-const Maths::Vec4* GeomWorldPosition(void* geom) { return GeomCall<const Maths::Vec4*>(19, geom); }
-void SetGeomCollTriData(void* geom, CTriMeshSource* faces) { static_cast<CGeom*>(geom)->ChooseTriSource(faces); }
+const maths::Vec4* geom_world_position(void* geom) { return geom_call<const maths::Vec4*>(19, geom); }
+void set_geom_coll_tri_data(void* geom, TriMeshSource* faces) { static_cast<Geom*>(geom)->choose_tri_source(faces); }
 
 // The collision object's flag byte (+8): 2 not collided with, 4 inactive, 0x80 an occluder.
-uint8_t& CollFlags(CHitMesh* coll) { return *reinterpret_cast<uint8_t*>(&coll->m_flagBits); }
+uint8_t& coll_flags(HitMesh* coll) { return *reinterpret_cast<uint8_t*>(&coll->flag_bits_); }
 
 constexpr uint32_t kDefaultTerrain = 0xE3714DC1;
 extern void** const kSectorVtable;
@@ -37,119 +37,119 @@ extern void** const kSectorVtable;
 } // namespace
 
 // 0x0049E900
-CWorldCell* CWorldCell::MakeNew()
+WorldCell* WorldCell::make_new()
 {
     vtable = reinterpret_cast<void**>(kSectorVtable);
-    m_flagBits = kSectorCollidable;
-    m_geomHandle = nullptr;
-    m_hitBody = nullptr;
-    m_rotY = 0;
-    m_surfaceType = kDefaultTerrain;
+    flag_bits_ = kSectorCollidable;
+    geom_handle_ = nullptr;
+    hit_body_ = nullptr;
+    rot_y_ = 0;
+    surface_type_ = kDefaultTerrain;
     return this;
 }
 
 // 0x0049E630
-void CWorldCell::DestroyBody()
+void WorldCell::destroy_body()
 {
     vtable = reinterpret_cast<void**>(kSectorVtable);
-    if (m_hitBody && (m_flagBits & kSectorClone))
-        m_hitBody->Call<void*>(0, 1u);
-    if (m_geomHandle)
-        (*reinterpret_cast<void* (__thiscall***)(void*, unsigned int)>(m_geomHandle))[0](m_geomHandle, 1);
+    if (hit_body_ && (flag_bits_ & kSectorClone))
+        hit_body_->get_call<void*>(0, 1u);
+    if (geom_handle_)
+        (*reinterpret_cast<void* (__thiscall***)(void*, unsigned int)>(geom_handle_))[0](geom_handle_, 1);
 }
 
 // 0x0049E930
-CWorldCell* CWorldCell::Teardown(unsigned int freeFlags)
+WorldCell* WorldCell::teardown(unsigned int free_flags)
 {
-    DestroyBody();
-    if (freeFlags & 1)
-        MemSys::Dealloc(this);
+    destroy_body();
+    if (free_flags & 1)
+        memory::dealloc(this);
     return this;
 }
 
 // 0x0049E8C0
-void CWorldCell::PlatSetShatter(bool) { DebugOut::Printf("STUB: PlatSetShatter\n"); } // "STUB: PlatSetShatter\n"
+void WorldCell::plat_set_shatter(bool) { debug::printf("STUB: PlatSetShatter\n"); } // "STUB: PlatSetShatter\n"
 
 // 0x0049E8D0
-bool CWorldCell::PlatGetShatter()
+bool WorldCell::plat_get_shatter()
 {
-    DebugOut::Printf("STUB: PlatGetShatter\n"); // "STUB: PlatGetShatter\n"
+    debug::printf("STUB: PlatGetShatter\n"); // "STUB: PlatGetShatter\n"
     return false;
 }
 
 // 0x0049E8E0 (not a function in Ghidra: only the vtable reaches it)
-CWorldCell* CWorldCell::PlatClone(int, void*)
+WorldCell* WorldCell::plat_clone(int, void*)
 {
-    DebugOut::Printf("STUB: PlatClone\n"); // "STUB: PlatClone\n"
+    debug::printf("STUB: PlatClone\n"); // "STUB: PlatClone\n"
     return nullptr;
 }
 
 // 0x0049EAD0
-CWorldCell* CWorldCell::Replicate(int instance, bool flag, void* scene)
+WorldCell* WorldCell::replicate(int instance, bool flag, void* scene)
 {
-    auto* clone = reinterpret_cast<CWorldCell* (__thiscall*)(CWorldCell*, int, void*)>(vtable[3])(this, instance, scene);
+    auto* clone = reinterpret_cast<WorldCell* (__thiscall*)(WorldCell*, int, void*)>(vtable[3])(this, instance, scene);
     if (!clone)
         return nullptr;
-    clone->m_checksum = NewSectorName();
-    clone->m_flagBits = m_flagBits | kSectorClone;
-    clone->m_rotY = m_rotY;
-    if (m_geomHandle)
-        clone->m_geomHandle = static_cast<CGeom*>(m_geomHandle)->Replicate(instance, scene);
-    if (!m_hitBody)
+    clone->checksum_ = new_sector_name();
+    clone->flag_bits_ = flag_bits_ | kSectorClone;
+    clone->rot_y_ = rot_y_;
+    if (geom_handle_)
+        clone->geom_handle_ = static_cast<Geom*>(geom_handle_)->replicate(instance, scene);
+    if (!hit_body_)
         return clone;
-    auto* coll = m_hitBody->Call<CHitMesh*>(12, instance);
+    auto* coll = hit_body_->get_call<HitMesh*>(12, instance);
     if (coll) {
-        clone->m_hitBody = coll;
-        coll->SetChecksum(clone->m_checksum);
-        clone->m_flagBits &= ~kSectorInGrid;
+        clone->hit_body_ = coll;
+        coll->set_checksum(clone->checksum_);
+        clone->flag_bits_ &= ~kSectorInGrid;
         if (flag)
-            clone->m_flagBits |= kSectorAddToGrid;
-        if (clone->m_geomHandle)
-            SetGeomCollTriData(clone->m_geomHandle, coll->m_geometry);
+            clone->flag_bits_ |= kSectorAddToGrid;
+        if (clone->geom_handle_)
+            set_geom_coll_tri_data(clone->geom_handle_, coll->geometry_);
     } else {
-        clone->m_flagBits &= ~kSectorInGrid;
-        clone->m_hitBody = nullptr;
-        if (clone->m_geomHandle)
-            SetGeomCollTriData(clone->m_geomHandle, nullptr);
+        clone->flag_bits_ &= ~kSectorInGrid;
+        clone->hit_body_ = nullptr;
+        if (clone->geom_handle_)
+            set_geom_coll_tri_data(clone->geom_handle_, nullptr);
     }
     return clone;
 }
 
 // 0x0049E660
-void CWorldCell::ChooseGeom(void* geom) { m_geomHandle = geom; }
+void WorldCell::choose_geom(void* geom) { geom_handle_ = geom; }
 
 // 0x0049EAA0
-bool CWorldCell::SetCollObj(CHitMesh* coll)
+bool WorldCell::set_coll_obj(HitMesh* coll)
 {
-    if (m_hitBody)
+    if (hit_body_)
         return false;
-    m_hitBody = coll;
-    if (m_geomHandle)
-        SetGeomCollTriData(m_geomHandle, coll->m_geometry);
+    hit_body_ = coll;
+    if (geom_handle_)
+        set_geom_coll_tri_data(geom_handle_, coll->geometry_);
     return true;
 }
 
 // 0x0049E810
-uint32_t CWorldCell::FetchBits() { return m_flagBits; }
+uint32_t WorldCell::fetch_bits() { return flag_bits_; }
 
 // 0x0049E890
-void CWorldCell::ChangeBits(uint32_t flags) { m_flagBits |= flags; }
+void WorldCell::change_bits(uint32_t flags) { flag_bits_ |= flags; }
 
 // 0x0049E8A0
-void CWorldCell::ClearFlags(uint32_t flags) { m_flagBits &= ~flags; }
+void WorldCell::clear_flags(uint32_t flags) { flag_bits_ &= ~flags; }
 
 // 0x0049E670
-void CWorldCell::WipeTint()
+void WorldCell::wipe_tint()
 {
-    if (m_geomHandle)
-        GeomCall<void>(8, m_geomHandle);
+    if (geom_handle_)
+        geom_call<void>(8, geom_handle_);
 }
 
 // 0x0049E980
-uint8_t* CWorldCell::FetchTint(uint8_t* out)
+uint8_t* WorldCell::fetch_tint(uint8_t* out)
 {
-    if (m_geomHandle) {
-        static_cast<CGeom*>(m_geomHandle)->FetchTint(reinterpret_cast<uint32_t*>(out));
+    if (geom_handle_) {
+        static_cast<Geom*>(geom_handle_)->fetch_tint(reinterpret_cast<uint32_t*>(out));
         return out;
     }
     out[0] = 0;
@@ -160,193 +160,193 @@ uint8_t* CWorldCell::FetchTint(uint8_t* out)
 }
 
 // 0x0049E680
-void CWorldCell::ToggleShown(uint32_t mask)
+void WorldCell::toggle_shown(uint32_t mask)
 {
-    if (m_geomHandle)
-        GeomCall<void>(11, m_geomHandle, mask);
+    if (geom_handle_)
+        geom_call<void>(11, geom_handle_, mask);
 }
 
 // 0x0049E690
-uint32_t CWorldCell::FetchShown() { return m_geomHandle ? GeomCall<uint32_t>(12, m_geomHandle) : 0; }
+uint32_t WorldCell::fetch_shown() { return geom_handle_ ? geom_call<uint32_t>(12, geom_handle_) : 0; }
 
 // 0x0049E9B0
-void CWorldCell::ChangeLive(bool active)
+void WorldCell::change_live(bool active)
 {
-    if (m_hitBody) {
+    if (hit_body_) {
         if (active)
-            CollFlags(m_hitBody) &= ~4;
+            coll_flags(hit_body_) &= ~4;
         else
-            CollFlags(m_hitBody) |= 4;
+            coll_flags(hit_body_) |= 4;
     }
-    if (m_geomHandle)
-        GeomCall<void>(13, m_geomHandle, active);
+    if (geom_handle_)
+        geom_call<void>(13, geom_handle_, active);
 }
 
 // 0x0049E9E0 (no geometry and no collision: the original reads through null)
-bool CWorldCell::IsOperative()
+bool WorldCell::is_operative()
 {
-    if (m_geomHandle)
-        return GeomCall<bool>(14, m_geomHandle);
-    return !(CollFlags(m_hitBody) & 4);
+    if (geom_handle_)
+        return geom_call<bool>(14, geom_handle_);
+    return !(coll_flags(hit_body_) & 4);
 }
 
 // 0x0049EA30
-void CWorldCell::EnableCollision(bool collidable)
+void WorldCell::enable_collision(bool collidable)
 {
     if (collidable)
-        m_flagBits |= kSectorCollidable;
+        flag_bits_ |= kSectorCollidable;
     else
-        m_flagBits &= ~kSectorCollidable;
-    if (m_hitBody) {
+        flag_bits_ &= ~kSectorCollidable;
+    if (hit_body_) {
         if (collidable)
-            CollFlags(m_hitBody) &= ~2;
+            coll_flags(hit_body_) &= ~2;
         else
-            CollFlags(m_hitBody) |= 2;
+            coll_flags(hit_body_) |= 2;
     }
 }
 
 // 0x0049EA60
-void CWorldCell::MarkAsOccluder(bool occluder)
+void WorldCell::mark_as_occluder(bool occluder)
 {
-    if (!m_hitBody)
+    if (!hit_body_)
         return;
     if (!occluder) {
-        CollFlags(m_hitBody) &= 0x7F;
+        coll_flags(hit_body_) &= 0x7F;
         return;
     }
-    if (!(CollFlags(m_hitBody) & 0x80)) {
-        m_hitBody->m_flagBits |= 0x80;
-        static_cast<CollGeometryForwarders*>(m_hitBody)->AddOcclusionPolys(); // its occlusion polygons added
+    if (!(coll_flags(hit_body_) & 0x80)) {
+        hit_body_->flag_bits_ |= 0x80;
+        static_cast<CollGeometryForwarders*>(hit_body_)->add_occlusion_polys(); // its occlusion polygons added
     }
 }
 
 // 0x0049E6A0
-const Maths::BBox* CWorldCell::FetchBounds()
+const maths::BBox* WorldCell::fetch_bounds()
 {
-    if (m_geomHandle)
-        return GeomCall<const Maths::BBox*>(15, m_geomHandle);
-    return m_hitBody->Call<const Maths::BBox*>(21);
+    if (geom_handle_)
+        return geom_call<const maths::BBox*>(15, geom_handle_);
+    return hit_body_->get_call<const maths::BBox*>(21);
 }
 
 // 0x0049E740 (both of the original's branches call the collision's: there must be one)
-const Maths::Mat4* CWorldCell::FetchFacing() { return m_hitBody->Call<const Maths::Mat4*>(8); }
+const maths::Mat4* WorldCell::fetch_facing() { return hit_body_->get_call<const maths::Mat4*>(8); }
 
 // 0x0049E6C0
-void CWorldCell::PlaceAtAbsolutePoint(const Maths::Vec4* position)
+void WorldCell::place_at_absolute_point(const maths::Vec4* position)
 {
-    if (m_hitBody) {
-        m_hitBody->Call<void>(5, position);
-        if (m_flagBits & kSectorInGrid)
-            m_flagBits |= kSectorMoved;
+    if (hit_body_) {
+        hit_body_->get_call<void>(5, position);
+        if (flag_bits_ & kSectorInGrid)
+            flag_bits_ |= kSectorMoved;
     }
-    if (m_geomHandle)
-        GeomCall<void>(18, m_geomHandle, position);
+    if (geom_handle_)
+        geom_call<void>(18, geom_handle_, position);
 }
 
 // 0x0049E700
-void CWorldCell::ChangeFacing(const Maths::Mat4* orientation)
+void WorldCell::change_facing(const maths::Mat4* orientation)
 {
-    if (m_hitBody) {
-        m_hitBody->Call<void>(6, orientation);
-        if (m_flagBits & kSectorInGrid)
-            m_flagBits |= kSectorMoved;
+    if (hit_body_) {
+        hit_body_->get_call<void>(6, orientation);
+        if (flag_bits_ & kSectorInGrid)
+            flag_bits_ |= kSectorMoved;
     }
-    if (m_geomHandle)
-        GeomCall<void>(20, m_geomHandle, orientation);
+    if (geom_handle_)
+        geom_call<void>(20, geom_handle_, orientation);
 }
 
-// 0x0049E760 (the difference's remainder as C's: (turns - m_rotY + 4) % 4 may be negative)
-void CWorldCell::SpinAroundUp(int turns)
+// 0x0049E760 (the difference's remainder as C's: (turns - rot_y_ + 4) % 4 may be negative)
+void WorldCell::spin_around_up(int turns)
 {
-    int delta = (turns - m_rotY + 4) % 4;
-    if (m_hitBody) {
-        const Maths::Vec4* about = m_geomHandle ? GeomWorldPosition(m_geomHandle) : m_hitBody->Call<const Maths::Vec4*>(7);
-        m_hitBody->Call<void>(22, about, delta);
+    int delta = (turns - rot_y_ + 4) % 4;
+    if (hit_body_) {
+        const maths::Vec4* about = geom_handle_ ? geom_world_position(geom_handle_) : hit_body_->get_call<const maths::Vec4*>(7);
+        hit_body_->get_call<void>(22, about, delta);
     }
-    if (m_geomHandle)
-        GeomCall<void>(22, m_geomHandle, delta);
-    m_rotY = turns;
+    if (geom_handle_)
+        geom_call<void>(22, geom_handle_, delta);
+    rot_y_ = turns;
 }
 
 // 0x0049E7C0
-void CWorldCell::ChangeScale(const Maths::Vec4* scale)
+void WorldCell::change_scale(const maths::Vec4* scale)
 {
-    if (m_hitBody) {
-        const Maths::Vec4* about = m_geomHandle ? GeomWorldPosition(m_geomHandle) : m_hitBody->Call<const Maths::Vec4*>(7);
-        m_hitBody->Call<void>(23, about, scale);
-        if (m_flagBits & kSectorInGrid)
-            m_flagBits |= kSectorMoved;
+    if (hit_body_) {
+        const maths::Vec4* about = geom_handle_ ? geom_world_position(geom_handle_) : hit_body_->get_call<const maths::Vec4*>(7);
+        hit_body_->get_call<void>(23, about, scale);
+        if (flag_bits_ & kSectorInGrid)
+            flag_bits_ |= kSectorMoved;
     }
-    if (m_geomHandle)
-        GeomCall<void>(25, m_geomHandle, scale);
+    if (geom_handle_)
+        geom_call<void>(25, geom_handle_, scale);
 }
 
 // 0x0049EA00
-void CWorldCell::ChooseRawVerts(const Maths::Vec4* vertices)
+void WorldCell::choose_raw_verts(const maths::Vec4* vertices)
 {
-    if (!m_hitBody || !m_hitBody->m_geometry)
+    if (!hit_body_ || !hit_body_->geometry_)
         return;
-    // CTriMeshSource: every vertex set (0x00415C10)
-    m_hitBody->m_geometry->ChooseRawVerts(vertices);
-    if (m_flagBits & kSectorInGrid)
-        m_flagBits |= kSectorMoved;
+    // TriMeshSource: every vertex set (0x00415C10)
+    hit_body_->geometry_->choose_raw_verts(vertices);
+    if (flag_bits_ & kSectorInGrid)
+        flag_bits_ |= kSectorMoved;
 }
 
 // 0x0049E820 (through the geom's slot 41, the dispatcher 0x0049F420)
-void CWorldCell::PlayVCWibbleFromKeyframe(int sequence, int keyframe, int timeMs)
+void WorldCell::play_vc_wibble_from_keyframe(int sequence, int keyframe, int time_ms)
 {
-    if (m_geomHandle)
-        reinterpret_cast<void(__thiscall*)(void*, int, int, int)>(&VirtualSlot41Jump)(m_geomHandle, sequence, keyframe,
-                                                                                    timeMs);
+    if (geom_handle_)
+        reinterpret_cast<void(__thiscall*)(void*, int, int, int)>(&virtual_slot41_jump)(geom_handle_, sequence, keyframe,
+                                                                                    time_ms);
 }
 
 // 0x0049E830
-void CWorldCell::SetUVWibbleParams(float uVel, float uAmp, float uFreq, float uPhase, float vVel, float vAmp, float vFreq,
-                                float vPhase)
+void WorldCell::set_uv_wibble_params(float u_vel, float u_amp, float u_freq, float u_phase, float v_vel, float v_amp, float v_freq,
+                                float v_phase)
 {
-    if (m_geomHandle)
-        GeomCall<void>(42, m_geomHandle, uVel, uAmp, uFreq, uPhase, vVel, vAmp, vFreq, vPhase);
+    if (geom_handle_)
+        geom_call<void>(42, geom_handle_, u_vel, u_amp, u_freq, u_phase, v_vel, v_amp, v_freq, v_phase);
 }
 
 // 0x0049E840
-void CWorldCell::ForceUvWobble(bool on)
+void WorldCell::force_uv_wobble(bool on)
 {
-    if (m_geomHandle)
-        GeomCall<void>(43, m_geomHandle, on);
+    if (geom_handle_)
+        geom_call<void>(43, geom_handle_, on);
 }
 
 // 0x0049E850
-void CWorldCell::SetUVWibbleOffsets(float u, float v)
+void WorldCell::set_uv_wibble_offsets(float u, float v)
 {
-    if (m_geomHandle)
-        GeomCall<void>(45, m_geomHandle, u, v);
+    if (geom_handle_)
+        geom_call<void>(45, geom_handle_, u, v);
 }
 
 // 0x0049E860
-void CWorldCell::ResetTextureAnim()
+void WorldCell::reset_texture_anim()
 {
-    if (m_geomHandle)
-        GeomCall<void>(48, m_geomHandle);
+    if (geom_handle_)
+        geom_call<void>(48, geom_handle_);
 }
 
 // 0x0049E870
-void CWorldCell::StartTextureAnim(bool reset)
+void WorldCell::start_texture_anim(bool reset)
 {
-    if (m_geomHandle)
-        GeomCall<void>(49, m_geomHandle, reset);
+    if (geom_handle_)
+        geom_call<void>(49, geom_handle_, reset);
 }
 
 // 0x0049E880
-void CWorldCell::StopTextureAnim()
+void WorldCell::stop_texture_anim()
 {
-    if (m_geomHandle)
-        GeomCall<void>(50, m_geomHandle);
+    if (geom_handle_)
+        geom_call<void>(50, geom_handle_);
 }
 
 namespace {
-static VtableSlot kSectorVtable_slots[] = {&Engine3D::CWorldCell::Teardown, &Engine3D::CWorldCell::PlatSetShatter,
-                &Engine3D::CWorldCell::PlatGetShatter, &Engine3D::CWorldCell::PlatClone};
-void** const kSectorVtable = reinterpret_cast<void**>(kSectorVtable_slots);
+static VtableSlot g_sector_vtable_slots[] = {&render::WorldCell::teardown, &render::WorldCell::plat_set_shatter,
+                &render::WorldCell::plat_get_shatter, &render::WorldCell::plat_clone};
+void** const kSectorVtable = reinterpret_cast<void**>(g_sector_vtable_slots);
 } // namespace
 
 } // namespace Nx

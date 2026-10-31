@@ -16,7 +16,7 @@
 #include "engine/sys/mlp.h"
 #include "platform/run_log.h"
 
-namespace MenuSystem::TestView {
+namespace frontend::test_view {
 
 namespace {
 
@@ -24,9 +24,9 @@ constexpr double kPi = 3.14159265358979323846;
 constexpr float kProbeAbove = 12.0f;  // the ground ray starts this far above the point...
 constexpr float kProbeBelow = 4000.0f; // ...and ends this far below it
 
-Vec3 Perpendicular(Vec3 a, Vec3 b) { return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x}; }
-float LenOf(Vec3 v) { return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
-Vec3 StretchBy(Vec3 v, float s) { return {v.x * s, v.y * s, v.z * s}; }
+Vec3 perpendicular(Vec3 a, Vec3 b) { return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x}; }
+float len_of(Vec3 v) { return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
+Vec3 scale_tool(Vec3 v, float s) { return {v.x * s, v.y * s, v.z * s}; }
 
 struct Lock {
     bool on;
@@ -34,45 +34,45 @@ struct Lock {
     uint32_t frame; // (the game frame it was locked at)
 } g_lock;
 
-Maths::Vec4 Row(Vec3 v, float w) { return {v.x, v.y, v.z, w}; }
+maths::Vec4 get_row(Vec3 v, float w) { return {v.x, v.y, v.z, w}; }
 
 // The local skater (the skate module's 0x00566520; null with none).
-GameObjects::CRider* LocalSkater()
+objects::Rider* local_skater()
 {
-    uint8_t* skate = reinterpret_cast<uint8_t*>(GameModules::g_skateModule);
-    return skate ? reinterpret_cast<GameModules::Skate*>(skate)->GetHomeRider()
+    uint8_t* skate = reinterpret_cast<uint8_t*>(modules::g_skate_module);
+    return skate ? reinterpret_cast<modules::Skate*>(skate)->get_home_rider()
                  : nullptr;
 }
 
-// The game's collision ray (Engine3D::CProbeRay: static collision, the nearest hit) from `from` to `to`.
-bool GroundBelow(Vec3 point, float* y)
+// The game's collision ray (render::ProbeRay: static collision, the nearest hit) from `from` to `to`.
+bool ground_below(Vec3 point, float* y)
 {
-    // (the game's memory layout, as level_editor_carry.cpp's FirstHit: static collision only, nothing to release)
-    alignas(16) uint8_t memory[sizeof(Engine3D::CProbeRay)] = {};
-    auto* feeler = reinterpret_cast<Engine3D::CProbeRay*>(memory);
-    feeler->MakeNew();
-    Maths::Vec4 start = {point.x, point.y + kProbeAbove, point.z, 1.0f};
-    Maths::Vec4 end = {point.x, point.y - kProbeBelow, point.z, 1.0f};
-    if (!feeler->GetCollisionAlong(&start, &end, false))
+    // (the game's memory layout, as level_editor_carry.cpp's first_hit: static collision only, nothing to release)
+    alignas(16) uint8_t memory[sizeof(render::ProbeRay)] = {};
+    auto* feeler = reinterpret_cast<render::ProbeRay*>(memory);
+    feeler->make_new();
+    maths::Vec4 start = {point.x, point.y + kProbeAbove, point.z, 1.0f};
+    maths::Vec4 end = {point.x, point.y - kProbeBelow, point.z, 1.0f};
+    if (!feeler->get_collision_along(&start, &end, false))
         return false;
-    *y = feeler->m_contactPos.y;
+    *y = feeler->contact_pos_.y;
     return true;
 }
 
 // TeleportSkaterStanding pos=(x, y, z) [heading=<degrees>]
-bool __cdecl CFunc_TeleportSkaterStanding(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_teleport_skater_standing(script::Struct* params, script::Script*)
 {
-    Scripts::VectorValue pos = {};
-    if (!params || !params->FetchVec("pos", &pos, 0)) {
-        Log("TeleportSkaterStanding: pos=(x, y, z) needed");
+    script::VectorValue pos = {};
+    if (!params || !params->fetch_vec("pos", &pos, 0)) {
+        get_log("TeleportSkaterStanding: pos=(x, y, z) needed");
         return false;
     }
     float heading = 0.0f;
-    bool hasHeading = params->FetchFloat("heading", &heading, 0);
+    bool has_heading = params->fetch_float("heading", &heading, 0);
     Vec3 at = {};
-    std::string why = JumpTo({pos.x, pos.y, pos.z}, hasHeading, heading, &at);
+    std::string why = jump_to({pos.x, pos.y, pos.z}, has_heading, heading, &at);
     if (!why.empty()) {
-        Log("TeleportSkaterStanding: %s", why.c_str());
+        get_log("TeleportSkaterStanding: %s", why.c_str());
         return false;
     }
     return true;
@@ -82,112 +82,112 @@ bool __cdecl CFunc_TeleportSkaterStanding(Scripts::CStruct* params, Scripts::CSc
 
 // --- the pieces -------------------------------------------------------------------------------------------------
 
-bool CameraRows(Vec3 direction, Vec3* right, Vec3* up, Vec3* back)
+bool camera_rows(Vec3 direction, Vec3* right, Vec3* up, Vec3* back)
 {
-    float length = LenOf(direction);
+    float length = len_of(direction);
     if (!(length > 1e-6f))
         return false;
-    Vec3 b = StretchBy(direction, -1.0f / length);
-    Vec3 r = Perpendicular({0.0f, 1.0f, 0.0f}, b);
-    float rl = LenOf(r);
+    Vec3 b = scale_tool(direction, -1.0f / length);
+    Vec3 r = perpendicular({0.0f, 1.0f, 0.0f}, b);
+    float rl = len_of(r);
     if (!(rl > 1e-4f))
         return false;
-    r = StretchBy(r, 1.0f / rl);
-    Vec3 u = Perpendicular(b, r);
-    u = StretchBy(u, 1.0f / LenOf(u));
+    r = scale_tool(r, 1.0f / rl);
+    Vec3 u = perpendicular(b, r);
+    u = scale_tool(u, 1.0f / len_of(u));
     *right = r;
     *up = u;
     *back = b;
     return true;
 }
 
-void StandingRows(float headingDegrees, Vec3* right, Vec3* up, Vec3* at)
+void standing_rows(float heading_degrees, Vec3* right, Vec3* up, Vec3* at)
 {
-    double h = static_cast<double>(headingDegrees) * kPi / 180.0;
+    double h = static_cast<double>(heading_degrees) * kPi / 180.0;
     float s = static_cast<float>(std::sin(h)), c = static_cast<float>(std::cos(h));
     *at = {s, 0.0f, c};
     *up = {0.0f, 1.0f, 0.0f};
-    *right = Perpendicular(*up, *at); // (cos, 0, -sin): heading 0 gives the identity
+    *right = perpendicular(*up, *at); // (cos, 0, -sin): heading 0 gives the identity
 }
 
 // --- the game ---------------------------------------------------------------------------------------------------
 
-std::string JumpTo(Vec3 position, bool hasHeading, float headingDegrees, Vec3* outPosition, bool onBoard)
+std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3* out_position, bool on_board)
 {
-    GameObjects::CRider* skater = LocalSkater();
+    objects::Rider* skater = local_skater();
     if (!skater)
         return "no local skater";
-    if (!hasHeading) {
-        const Maths::Vec4& at = skater->m_basisFrame.row[2];
-        headingDegrees = static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * 180.0 / kPi);
+    if (!has_heading) {
+        const maths::Vec4& at = skater->basis_frame_.row[2];
+        heading_degrees = static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * 180.0 / kPi);
     }
     float ground = 0.0f;
-    bool grounded = GroundBelow(position, &ground);
+    bool grounded = ground_below(position, &ground);
     if (grounded)
         position.y = ground;
     Vec3 right, up, at;
-    StandingRows(headingDegrees, &right, &up, &at);
+    standing_rows(heading_degrees, &right, &up, &at);
     // (the skater's own custom restart kept and put back: only the restart's code is borrowed)
-    Maths::Vec4 savedPos = skater->m_customRestartPos;
-    Maths::Mat4 savedMatrix = skater->m_customRestartMatrix;
-    bool savedWalking = skater->m_customRestartWalking;
-    skater->m_customRestartPos = Row(position, 1.0f);
-    skater->m_customRestartMatrix.row[0] = Row(right, 0.0f);
-    skater->m_customRestartMatrix.row[1] = Row(up, 0.0f);
-    skater->m_customRestartMatrix.row[2] = Row(at, 0.0f);
-    skater->m_customRestartMatrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    skater->m_customRestartWalking = !onBoard;
-    skater->SkipToCustomRestart();
-    skater->m_customRestartPos = savedPos;
-    skater->m_customRestartMatrix = savedMatrix;
-    skater->m_customRestartWalking = savedWalking;
-    Log("test view: skater teleported %s to (%.1f, %.1f, %.1f) heading %.1f degrees%s", onBoard ? "on its board" : "standing",
-        position.x, position.y, position.z, headingDegrees, grounded ? " (on the ground below)" : " (no ground below: as given)");
-    if (outPosition)
-        *outPosition = position;
+    maths::Vec4 saved_pos = skater->custom_restart_pos_;
+    maths::Mat4 saved_matrix = skater->custom_restart_matrix_;
+    bool saved_walking = skater->custom_restart_walking_;
+    skater->custom_restart_pos_ = get_row(position, 1.0f);
+    skater->custom_restart_matrix_.row[0] = get_row(right, 0.0f);
+    skater->custom_restart_matrix_.row[1] = get_row(up, 0.0f);
+    skater->custom_restart_matrix_.row[2] = get_row(at, 0.0f);
+    skater->custom_restart_matrix_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    skater->custom_restart_walking_ = !on_board;
+    skater->skip_to_custom_restart();
+    skater->custom_restart_pos_ = saved_pos;
+    skater->custom_restart_matrix_ = saved_matrix;
+    skater->custom_restart_walking_ = saved_walking;
+    get_log("test view: skater teleported %s to (%.1f, %.1f, %.1f) heading %.1f degrees%s", on_board ? "on its board" : "standing",
+        position.x, position.y, position.z, heading_degrees, grounded ? " (on the ground below)" : " (no ground below: as given)");
+    if (out_position)
+        *out_position = position;
     return {};
 }
 
-bool LockCamera(Vec3 position, Vec3 direction, Vec3 drift)
+bool lock_camera(Vec3 position, Vec3 direction, Vec3 drift)
 {
     Vec3 right, up, back;
-    if (!CameraRows(direction, &right, &up, &back))
+    if (!camera_rows(direction, &right, &up, &back))
         return false;
-    g_lock = {true, position, right, up, back, drift, FrameLoop::FramesRun()};
-    Log("test view: camera locked at (%.1f, %.1f, %.1f) looking along (%.3f, %.3f, %.3f), drifting (%.3f, %.3f, %.3f) a "
+    g_lock = {true, position, right, up, back, drift, frame_loop::frames_run()};
+    get_log("test view: camera locked at (%.1f, %.1f, %.1f) looking along (%.3f, %.3f, %.3f), drifting (%.3f, %.3f, %.3f) a "
         "frame",
         position.x, position.y, position.z, -back.x, -back.y, -back.z, drift.x, drift.y, drift.z);
     return true;
 }
 
-void UnlockCamera()
+void unlock_camera()
 {
     if (g_lock.on)
-        Log("test view: camera unlocked");
+        get_log("test view: camera unlocked");
     g_lock.on = false;
 }
 
-bool CameraLocked() { return g_lock.on; }
+bool camera_locked() { return g_lock.on; }
 
-void PlaceCamera(Gfx2D::ViewCam* camera, int viewport)
+void place_camera(gfx::ViewCam* camera, int viewport)
 {
     if (!g_lock.on || !camera || viewport != 0)
         return;
-    float frames = static_cast<float>(FrameLoop::FramesRun() - g_lock.frame);
-    camera->m_atPoint = Row({g_lock.pos.x + g_lock.drift.x * frames, g_lock.pos.y + g_lock.drift.y * frames,
+    float frames = static_cast<float>(frame_loop::frames_run() - g_lock.frame);
+    camera->at_point_ = get_row({g_lock.pos.x + g_lock.drift.x * frames, g_lock.pos.y + g_lock.drift.y * frames,
                          g_lock.pos.z + g_lock.drift.z * frames},
                         1.0f);
-    camera->m_basisFrame.row[0] = Row(g_lock.right, 0.0f);
-    camera->m_basisFrame.row[1] = Row(g_lock.up, 0.0f);
-    camera->m_basisFrame.row[2] = Row(g_lock.back, 0.0f);
+    camera->basis_frame_.row[0] = get_row(g_lock.right, 0.0f);
+    camera->basis_frame_.row[1] = get_row(g_lock.up, 0.0f);
+    camera->basis_frame_.row[2] = get_row(g_lock.back, 0.0f);
 }
 
-void RegisterScriptFunctions()
+void register_script_functions()
 {
-    static const Scripts::CNativeCommand functions[] = {
-        {"TeleportSkaterStanding", reinterpret_cast<void*>(&CFunc_TeleportSkaterStanding)},
+    static const script::NativeCommand kFunctions[] = {
+        {"TeleportSkaterStanding", reinterpret_cast<void*>(&cfunc_teleport_skater_standing)},
     };
-    Scripts::InstallScriptFunctions(functions, sizeof(functions) / sizeof(functions[0]));
+    script::install_script_functions(kFunctions, sizeof(kFunctions) / sizeof(kFunctions[0]));
 }
 
-} // namespace MenuSystem::TestView
+} // namespace MenuSystem::test_view

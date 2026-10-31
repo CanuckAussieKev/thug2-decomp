@@ -35,12 +35,12 @@
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
 
-namespace OnlinePlay {
+namespace online {
 
-static VtableSlot kScoreEntryVtable_slots[] = {&OnlinePlay::ScoreNode::DestroyCalling};
-void** const kScoreEntryVtable = reinterpret_cast<void**>(kScoreEntryVtable_slots);
+static VtableSlot g_score_entry_vtable_slots[] = {&online::ScoreNode::destroy_calling};
+void** const kScoreEntryVtable = reinterpret_cast<void**>(g_score_entry_vtable_slots);
 
-using namespace Detail;
+using namespace detail;
 
 namespace {
 
@@ -63,42 +63,42 @@ constexpr uint32_t kScoreLines[8] = {0x2B083809, 0xB20169B3, 0xC5065925, 0x5B62C
                                      0x2C65FC10, 0xB56CADAA, 0xC26B9D3C, 0x52D480AD}; // net_score_5 ... 8
 
 constexpr uint32_t kUpdateInterval = 1000; // ms
-uint32_t g_scoreRefreshStamp;
+uint32_t g_score_refresh_stamp;
 
-uint32_t& ScoreSyncStampSlot() { return g_scoreRefreshStamp; }
+uint32_t& score_sync_stamp_slot() { return g_score_refresh_stamp; }
 
 // A player's SkaterScore's score object (no null checks: as the original).
-void* ScoreOf(PlayerRecord* player)
+void* get_score_of(PlayerRecord* player)
 {
-    auto* skater = reinterpret_cast<GameObjects::CGameEntity*>(player->m_skater);
-    return Prop<void*>(skater->FetchModule(kSkaterScore), 0x18);
+    auto* skater = reinterpret_cast<objects::GameEntity*>(player->skater_);
+    return prop<void*>(skater->fetch_module(kSkaterScore), 0x18);
 }
-int PointsOf(void* score) { return Call<int>(CodeAddress(&GameModules::PointTally::GetTotalScore), score); }
+int points_of(void* score) { return get_call<int>(code_address(&modules::PointTally::get_total_score), score); }
 
-PlayerRecord* First(Hub* manager, PlayerSearch* search)
+PlayerRecord* get_first(Hub* manager, PlayerSearch* search)
 {
-    return reinterpret_cast<PlayerRecord*>(StartRosterSweep(manager, search, false));
+    return reinterpret_cast<PlayerRecord*>(start_roster_sweep(manager, search, false));
 }
-PlayerRecord* Next(Hub* manager, PlayerSearch* search)
+PlayerRecord* get_next(Hub* manager, PlayerSearch* search)
 {
-    return reinterpret_cast<PlayerRecord*>(StepRosterSweep(manager, search, false));
+    return reinterpret_cast<PlayerRecord*>(step_roster_sweep(manager, search, false));
 }
 
 // A player that gets a score line: fully in (or local), not eliminated, and in netfirefight not out of lives.
-bool HasScoreLine(PlayerRecord* p)
+bool has_score_line(PlayerRecord* p)
 {
-    if (!(p->m_flagBits & (kPlayerFullyIn | kPlayerLocal)) || (p->m_flagBits & kPlayerEliminated))
+    if (!(p->flag_bits_ & (kPlayerFullyIn | kPlayerLocal)) || (p->flag_bits_ & kPlayerEliminated))
         return false;
-    if (GameType() != kNetFirefight || !p->m_skater)
+    if (get_game_type() != kNetFirefight || !p->skater_)
         return true;
-    GameObjects::CObjectModule* score = reinterpret_cast<GameObjects::CGameEntity*>(p->m_skater)->FetchModule(kSkaterScore);
-    return !score || PointsOf(Prop<void*>(score, 0x18)) != 0;
+    objects::ObjectModule* score = reinterpret_cast<objects::GameEntity*>(p->skater_)->fetch_module(kSkaterScore);
+    return !score || points_of(prop<void*>(score, 0x18)) != 0;
 }
 
 // A new line (null if out of memory: then used anyway, as the original).
-ScoreEntry* NewEntry()
+ScoreEntry* new_entry()
 {
-    auto* entry = static_cast<ScoreEntry*>(MemSys::AllocZeroed(sizeof(ScoreEntry)));
+    auto* entry = static_cast<ScoreEntry*>(memory::alloc_zeroed(sizeof(ScoreEntry)));
     if (entry) {
         entry->data = entry;
         entry->priority = 0;
@@ -110,162 +110,162 @@ ScoreEntry* NewEntry()
 }
 
 // The lowest team whose flag the player carries (-1: none - a shift by 31 then, as the original's).
-uint32_t FlagBit(PlayerRecord* p) { return 1u << (static_cast<uint32_t>(p->GetFlagTeam()) & 31); }
+uint32_t flag_bit(PlayerRecord* p) { return 1u << (static_cast<uint32_t>(p->get_flag_team()) & 31); }
 
 // At the end of the list.
-void Append(ListKit::Foremost* head, ScoreEntry* entry)
+void get_append(lists::Foremost* head, ScoreEntry* entry)
 {
-    entry->prev = head->m_listLink.prev;
-    entry->next = &head->m_listLink;
-    head->m_listLink.prev->next = entry;
-    head->m_listLink.prev = entry;
+    entry->prev = head->list_link_.prev;
+    entry->next = &head->list_link_;
+    head->list_link_.prev->next = entry;
+    head->list_link_.prev = entry;
 }
 
 } // namespace
 
 // 0x005435F0
-int Hub::GetSquadPoints(int team)
+int Hub::get_squad_points(int team)
 {
     PlayerSearch search;
     int total = 0;
-    PlayerRecord* local = reinterpret_cast<PlayerRecord*>(FindOwnPlayerRecord(this));
-    bool goalAttack = GameType() == kNetGoalAttack;
-    for (PlayerRecord* p = First(this, &search); p; p = Next(this, &search)) {
-        if (!(p->m_flagBits & (kPlayerFullyIn | kPlayerLocal)) || p->m_team != team)
+    PlayerRecord* local = reinterpret_cast<PlayerRecord*>(find_own_player_record(this));
+    bool goal_attack = get_game_type() == kNetGoalAttack;
+    for (PlayerRecord* p = get_first(this, &search); p; p = get_next(this, &search)) {
+        if (!(p->flag_bits_ & (kPlayerFullyIn | kPlayerLocal)) || p->team_ != team)
             continue;
-        if (goalAttack && !(local->m_flagBits & kPlayerObserver))
-            return Call<int>(CodeAddress(&GoalSystem::CGoalManager::NumGoalsNetBeatenBy), ObjectiveBoard(), team);
-        total += PointsOf(ScoreOf(p));
+        if (goal_attack && !(local->flag_bits_ & kPlayerObserver))
+            return get_call<int>(code_address(&goals::GoalManager::num_goals_net_beaten_by), objective_board(), team);
+        total += points_of(get_score_of(p));
     }
     return total;
 }
 
 // 0x005436E0
-int Hub::GetEntrantPoints(uint32_t id)
+int Hub::get_entrant_points(uint32_t id)
 {
-    PlayerRecord* local = reinterpret_cast<PlayerRecord*>(FindOwnPlayerRecord(this));
-    if (GameType() == kNetGoalAttack && !(local->m_flagBits & kPlayerObserver))
-        return Call<int>(CodeAddress(&GoalSystem::CGoalManager::CountClearedByPlayer), ObjectiveBoard(), id);
-    auto* player = reinterpret_cast<PlayerRecord*>(FindPlayerSlotByObj(static_cast<uint16_t>(id)));
-    return PointsOf(ScoreOf(player));
+    PlayerRecord* local = reinterpret_cast<PlayerRecord*>(find_own_player_record(this));
+    if (get_game_type() == kNetGoalAttack && !(local->flag_bits_ & kPlayerObserver))
+        return get_call<int>(code_address(&goals::GoalManager::count_cleared_by_player), objective_board(), id);
+    auto* player = reinterpret_cast<PlayerRecord*>(find_player_slot_by_obj(static_cast<uint16_t>(id)));
+    return points_of(get_score_of(player));
 }
 
 // 0x00544780
-void __cdecl ScoreBroadcastTick(void* task)
+void __cdecl score_broadcast_tick(void* task)
 {
-    void* elements = MenuSystem::g_uiElementHub; // (the screen element manager: unused by the lookup)
+    void* elements = frontend::g_ui_element_hub; // (the screen element manager: unused by the lookup)
     (void)elements;
-    Hub* manager = Prop<Hub*>(task, 0x1C);
-    ListKit::Foremost list;
-    list.m_listLink.vtable = kScoreEntryVtable;
-    list.m_listLink.data = reinterpret_cast<void*>(-1);
-    list.m_listLink.priority = 0;
-    list.m_listLink.next = &list.m_listLink;
-    list.m_listLink.prev = &list.m_listLink;
+    Hub* manager = prop<Hub*>(task, 0x1C);
+    lists::Foremost list;
+    list.list_link_.vtable = kScoreEntryVtable;
+    list.list_link_.data = reinterpret_cast<void*>(-1);
+    list.list_link_.priority = 0;
+    list.list_link_.next = &list.list_link_;
+    list.list_link_.prev = &list.list_link_;
     PlayerSearch search;
-    bool notLobby = GameType() != kNetLobby;
-    bool hillMode = GameType() == kNetKing || GameType() == kKing;
-    bool scavengerHunt = false;
-    if (GameType() == kNetScavengerHunt) {
-        uint8_t* goal = Call<uint8_t*>(CodeAddress(&GoalSystem::CGoalManager::GetGoal), ObjectiveBoard(), kScavenger, 0);
+    bool not_lobby = get_game_type() != kNetLobby;
+    bool hill_mode = get_game_type() == kNetKing || get_game_type() == kKing;
+    bool scavenger_hunt = false;
+    if (get_game_type() == kNetScavengerHunt) {
+        uint8_t* goal = get_call<uint8_t*>(code_address(&goals::GoalManager::get_goal), objective_board(), kScavenger, 0);
         if (goal && reinterpret_cast<bool(__thiscall*)(void*)>((*reinterpret_cast<void***>(goal))[3])(goal))
-            scavengerHunt = true; // (the goal is active)
+            scavenger_hunt = true; // (the goal is active)
     }
-    uint32_t now = FrameClock::GetTime();
-    if (now - ScoreSyncStampSlot() < kUpdateInterval) {
-        list.m_listLink.prev->next = list.m_listLink.next; // (the head's destructor)
-        list.m_listLink.next->prev = list.m_listLink.prev;
+    uint32_t now = frame_clock::get_time();
+    if (now - score_sync_stamp_slot() < kUpdateInterval) {
+        list.list_link_.prev->next = list.list_link_.next; // (the head's destructor)
+        list.list_link_.next->prev = list.list_link_.prev;
         return;
     }
-    ScoreSyncStampSlot() = now;
-    Run(kClearScores);
+    score_sync_stamp_slot() = now;
+    get_run(kClearScores);
 
-    if (notLobby && manager->ShowTeamScores()) {
+    if (not_lobby && manager->show_team_scores()) {
         // A line per team with players: the team's name, its players' marks.
         ScoreEntry* teams[4];
-        for (int team = 0; team < Call<int>(CodeAddress(&GoalSystem::CMatchRules::NumTeams), GameMode()); ++team) {
-            if (manager->CountTeamPlayers(team) <= 0)
+        for (int team = 0; team < get_call<int>(code_address(&goals::MatchRules::current_num_teams), get_game_mode()); ++team) {
+            if (manager->count_team_players(team) <= 0)
                 continue;
             uint32_t name = team < 4 ? kTeamNames[team] : 0;
-            ScoreEntry* entry = NewEntry();
+            ScoreEntry* entry = new_entry();
             teams[team] = entry;
-            std::strcpy(entry->m_text, Scripts::FetchText(name));
-            entry->m_king = false;
-            entry->m_local = false;
-            entry->m_hasFlag = false;
-            entry->m_flagBits = 0;
-            entry->m_shade = team + 2;
-            entry->m_teamScore = manager->GetSquadPoints(team);
+            std::strcpy(entry->text_, script::fetch_text(name));
+            entry->king_ = false;
+            entry->local_ = false;
+            entry->has_flag_ = false;
+            entry->flag_bits_ = 0;
+            entry->shade_ = team + 2;
+            entry->team_score_ = manager->get_squad_points(team);
         }
-        for (PlayerRecord* p = First(manager, &search); p; p = Next(manager, &search)) {
-            if (!HasScoreLine(p))
+        for (PlayerRecord* p = get_first(manager, &search); p; p = get_next(manager, &search)) {
+            if (!has_score_line(p))
                 continue;
-            if (p->m_flagBits & kPlayerLocal) {
+            if (p->flag_bits_ & kPlayerLocal) {
                 char marked[64];
-                std::sprintf(marked, "> %s", teams[p->m_team]->m_text);
-                std::strcpy(teams[p->m_team]->m_text, marked);
+                std::sprintf(marked, "> %s", teams[p->team_]->text_);
+                std::strcpy(teams[p->team_]->text_, marked);
             }
-            if (p->m_flagBits & kPlayerKing)
-                teams[p->m_team]->m_king = true;
-            if (p->m_flagBits & kPlayerLocal)
-                teams[p->m_team]->m_local = true;
-            if (p->m_flagBits & kPlayerCarryingFlags) {
-                teams[p->m_team]->m_hasFlag = true;
-                teams[p->m_team]->m_flagBits |= FlagBit(p);
+            if (p->flag_bits_ & kPlayerKing)
+                teams[p->team_]->king_ = true;
+            if (p->flag_bits_ & kPlayerLocal)
+                teams[p->team_]->local_ = true;
+            if (p->flag_bits_ & kPlayerCarryingFlags) {
+                teams[p->team_]->has_flag_ = true;
+                teams[p->team_]->flag_bits_ |= flag_bit(p);
             }
         }
-        for (int team = 0; team < Call<int>(CodeAddress(&GoalSystem::CMatchRules::NumTeams), GameMode()); ++team) {
-            if (manager->CountTeamPlayers(team) <= 0)
+        for (int team = 0; team < get_call<int>(code_address(&goals::MatchRules::current_num_teams), get_game_mode()); ++team) {
+            if (manager->count_team_players(team) <= 0)
                 continue;
             ScoreEntry* entry = teams[team];
-            entry->priority = entry->m_teamScore;
-            list.AppendVertex(entry); // (inlined in the original)
+            entry->priority = entry->team_score_;
+            list.append_vertex(entry); // (inlined in the original)
         }
     } else {
         // A line per player.
-        for (PlayerRecord* p = First(manager, &search); p; p = Next(manager, &search)) {
-            if (!HasScoreLine(p))
+        for (PlayerRecord* p = get_first(manager, &search); p; p = get_next(manager, &search)) {
+            if (!has_score_line(p))
                 continue;
-            ScoreEntry* entry = NewEntry();
-            if (p->m_flagBits & kPlayerLocal)
-                std::sprintf(entry->m_text, "> %s", p->m_label);
+            ScoreEntry* entry = new_entry();
+            if (p->flag_bits_ & kPlayerLocal)
+                std::sprintf(entry->text_, "> %s", p->label_);
             else
-                std::strcpy(entry->m_text, p->m_label);
-            entry->m_king = (p->m_flagBits >> 7) & 1;
-            entry->m_local = p->m_flagBits & 1;
-            if (IsSquadMatch())
-                entry->m_shade = p->m_team + 2;
+                std::strcpy(entry->text_, p->label_);
+            entry->king_ = (p->flag_bits_ >> 7) & 1;
+            entry->local_ = p->flag_bits_ & 1;
+            if (is_squad_match())
+                entry->shade_ = p->team_ + 2;
             else
-                entry->m_shade = static_cast<int>(SkaterId(p->m_skater)) + 2;
-            if (p->m_flagBits & kPlayerCarryingFlags) {
-                entry->m_hasFlag = true;
-                entry->m_flagBits |= FlagBit(p);
+                entry->shade_ = static_cast<int>(get_skater_id(p->skater_)) + 2;
+            if (p->flag_bits_ & kPlayerCarryingFlags) {
+                entry->has_flag_ = true;
+                entry->flag_bits_ |= flag_bit(p);
             }
-            if (!notLobby) {
-                Append(&list, entry);
+            if (!not_lobby) {
+                get_append(&list, entry);
             } else {
-                entry->priority = scavengerHunt ? 5 - p->m_unknown34 : manager->GetEntrantPoints(SkaterId(p->m_skater));
-                list.AppendVertex(entry);
+                entry->priority = scavenger_hunt ? 5 - p->unknown34_ : manager->get_entrant_points(get_skater_id(p->skater_));
+                list.append_vertex(entry);
             }
         }
     }
 
     // The lines, best first.
-    MemSys::ListNode* cursor = list.m_listLink.next->data == reinterpret_cast<void*>(-1) ? nullptr : list.m_listLink.next;
+    memory::ListNode* cursor = list.list_link_.next->data == reinterpret_cast<void*>(-1) ? nullptr : list.list_link_.next;
     auto* entry = cursor ? static_cast<ScoreEntry*>(cursor->data) : nullptr;
     for (int line = 0; entry; ++line) {
         char prefix[64]; // (16 bytes in the original: a long crown abbreviation overran it)
         prefix[0] = '\0';
-        if (entry->m_king) {
-            std::sprintf(prefix, Scripts::FetchText(kKingAbbreviation)); // (the text is the format, as the original)
-        } else if (entry->m_hasFlag) {
-            if (entry->m_flagBits & 1)
+        if (entry->king_) {
+            std::sprintf(prefix, script::fetch_text(kKingAbbreviation)); // (the text is the format, as the original)
+        } else if (entry->has_flag_) {
+            if (entry->flag_bits_ & 1)
                 std::strcat(prefix, "\\s0");
-            if (entry->m_flagBits & 2)
+            if (entry->flag_bits_ & 2)
                 std::strcat(prefix, "\\s1");
-            if (entry->m_flagBits & 4)
+            if (entry->flag_bits_ & 4)
                 std::strcat(prefix, "\\s2");
-            if (entry->m_flagBits & 8)
+            if (entry->flag_bits_ & 8)
                 std::strcat(prefix, "\\s3");
         } else {
             prefix[0] = '\0';
@@ -274,42 +274,42 @@ void __cdecl ScoreBroadcastTick(void* task)
         auto* following = cursor ? static_cast<ScoreEntry*>(cursor->data) : nullptr;
 
         char text[128]; // (64 in the original: the longest king of the hill lines overran it)
-        if (!notLobby) {
-            std::sprintf(text, "\\c%d%s", entry->m_shade, entry->m_text);
-        } else if (hillMode) {
+        if (!not_lobby) {
+            std::sprintf(text, "\\c%d%s", entry->shade_, entry->text_);
+        } else if (hill_mode) {
             int seconds = static_cast<int>(static_cast<uint32_t>(entry->priority) / 1000);
             if (seconds < 3600)
-                std::sprintf(text, "\\c4%s\\c%d %s \\c%d %d:%.2d", prefix, entry->m_shade, entry->m_text,
-                             entry->m_shade, seconds / 60, seconds % 60);
+                std::sprintf(text, "\\c4%s\\c%d %s \\c%d %d:%.2d", prefix, entry->shade_, entry->text_,
+                             entry->shade_, seconds / 60, seconds % 60);
             else
-                std::sprintf(text, "\\c4%s\\c%d %s \\c%d %d:%.2d:%.2d", prefix, entry->m_shade, entry->m_text,
-                             entry->m_shade, seconds / 3600, seconds % 3600 / 60, seconds % 60);
-        } else if (scavengerHunt && !entry->m_local) {
-            std::sprintf(text, "%s\\c%d %s", prefix, entry->m_shade, entry->m_text);
+                std::sprintf(text, "\\c4%s\\c%d %s \\c%d %d:%.2d:%.2d", prefix, entry->shade_, entry->text_,
+                             entry->shade_, seconds / 3600, seconds % 3600 / 60, seconds % 60);
+        } else if (scavenger_hunt && !entry->local_) {
+            std::sprintf(text, "%s\\c%d %s", prefix, entry->shade_, entry->text_);
         } else {
-            std::sprintf(text, "%s\\c%d %s \\c%d %d", prefix, entry->m_shade, entry->m_text, entry->m_shade,
+            std::sprintf(text, "%s\\c%d %s \\c%d %d", prefix, entry->shade_, entry->text_, entry->shade_,
                          entry->priority);
         }
         uint32_t id = line < 8 ? kScoreLines[line] : 0;
-        Scripts::CStruct* params = NewParams();
-        params->AppendWord(kText, Scripts::QBVAL_STRING, text);
-        params->AddComponentOfType(kId, Scripts::QBVAL_NAME, id);
-        MenuSystem::CUiWidget* element;
+        script::Struct* params = new_params();
+        params->append_word(kText, script::kQbvalString, text);
+        params->add_component_of_type(kId, script::kQbvalName, id);
+        frontend::UiWidget* element;
         {
-            MenuSystem::ElementPtr found;
-            MenuSystem::FetchPart(&found, id);
-            element = found.m_ownerObject;
+            frontend::ElementPtr found;
+            frontend::fetch_part(&found, id);
+            element = found.owner_object_;
         }
-        if (element) // (ChangeTraits, virtual slot 1)
-            reinterpret_cast<void(__thiscall*)(void*, Scripts::CStruct*)>((*reinterpret_cast<void***>(element))[1])(
+        if (element) // (change_traits, virtual slot 1)
+            reinterpret_cast<void(__thiscall*)(void*, script::Struct*)>((*reinterpret_cast<void***>(element))[1])(
                 element, params);
-        Run(kUpdateScore, params);
-        DeleteParams(params);
+        get_run(kUpdateScore, params);
+        delete_params(params);
         reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(entry->vtable[0])(entry, 1); // (deleted: out of the list)
         entry = following;
     }
-    list.m_listLink.prev->next = list.m_listLink.next; // (the head's destructor)
-    list.m_listLink.next->prev = list.m_listLink.prev;
+    list.list_link_.prev->next = list.list_link_.next; // (the head's destructor)
+    list.list_link_.next->prev = list.list_link_.prev;
 }
 
-} // namespace OnlinePlay
+} // namespace online

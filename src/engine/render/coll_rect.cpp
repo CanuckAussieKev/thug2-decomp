@@ -17,90 +17,90 @@
 #include "engine/render/coll_tri.h"
 #include "engine/gfx/engine_scene_list.h"
 
-namespace Engine3D {
+namespace render {
 
 namespace {
 
-CHitMeshCache* g_rectCache;
+HitMeshCache* g_rect_cache;
 
 // The cache the rect feelers use when they have none (0x0069198C).
-CHitMeshCache*& s_rectCache = g_rectCache;
+HitMeshCache*& s_rect_cache = g_rect_cache;
 
 // Hit ends this close on every axis are the same point; normals and directions this close are parallel.
 constexpr float kSamePoint = 0.1f;   // 0x00645D74
 constexpr float kParallel = 0.99f;   // 0x00645450
 
-float Difference(float a, float b) { return static_cast<float>(static_cast<double>(a) - b); }
+float get_difference(float a, float b) { return static_cast<float>(static_cast<double>(a) - b); }
 
 // The scene grid holding the rect (0x0048C940; null: none) and the grids along a line (0x0048C980).
-CCollGrid* GridOf(const CollRect*) { return GetFirstCollGrid(); }
-CCollGrid** GridsAlong(const Maths::Seg* line)
+CollGrid* grid_of(const CollRect*) { return get_first_coll_grid(); }
+CollGrid** grids_along(const maths::Seg* line)
 {
-    return GetCollGridsOnLine(line);
+    return get_coll_grids_on_line(line);
 }
 
-bool CollideWithRect(CHitMesh* object, const CollRect* rect, const Maths::BBox* box, RectHits* hits)
+bool collide_with_rect(HitMesh* object, const CollRect* rect, const maths::BBox* box, RectHits* hits)
 {
-    return object->Call<bool>(15, rect, box, hits);
+    return object->get_call<bool>(15, rect, box, hits);
 }
 
-// One face's crossing (points and kinds from RectHitsTriangle) added to the hits: the face's normal (v1 - v0) x
+// One face's crossing (points and kinds from rect_hits_triangle) added to the hits: the face's normal (v1 - v0) x
 // (v2 - v0) normalised (an entry is only counted when it has one), its flag 0x40 and the object's checksum, and each
 // end's triangle edge. For an instance (`placed`) the points are scaled and placed, the normals turned back.
-void AddRectHit(RectHits* hits, const Maths::Vec4& v0, const Maths::Vec4& v1, const Maths::Vec4& v2,
-                const Maths::Vec4* points, const int* kinds, uint16_t faceFlags, uint32_t checksum,
-                const CCollScaled* placed)
+void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, const maths::Vec4& v2,
+                const maths::Vec4* points, const int* kinds, uint16_t face_flags, uint32_t checksum,
+                const CollScaled* placed)
 {
     RectHit& hit = hits->hits[hits->count];
     double e2x = static_cast<double>(v2.x) - v0.x;
     double e2y = static_cast<double>(v2.y) - v0.y;
     double e2z = static_cast<double>(v2.z) - v0.z;
-    float e1x = Difference(v1.x, v0.x);
-    float e1y = Difference(v1.y, v0.y);
+    float e1x = get_difference(v1.x, v0.x);
+    float e1y = get_difference(v1.y, v0.y);
     double e1z = static_cast<double>(v1.z) - v0.z;
-    Maths::Vec4 normal{static_cast<float>(e1y * e2z - e1z * e2y), static_cast<float>(e1z * e2x - e2z * e1x),
+    maths::Vec4 normal{static_cast<float>(e1y * e2z - e1z * e2y), static_cast<float>(e1z * e2x - e2z * e1x),
                        static_cast<float>(e2y * e1x - e1y * e2x), 0.0f};
-    hit.normal = normal.MakeUnit();
-    double lengthSquared = (static_cast<double>(hit.normal.x) * hit.normal.x +
+    hit.normal = normal.make_unit();
+    double length_squared = (static_cast<double>(hit.normal.x) * hit.normal.x +
                             static_cast<double>(hit.normal.y) * hit.normal.y) +
                            static_cast<double>(hit.normal.z) * hit.normal.z;
-    if (lengthSquared <= 0.0)
+    if (length_squared <= 0.0)
         return;
-    hit.faceFlag40 = static_cast<uint8_t>(faceFlags & 0x40);
+    hit.face_flag40_ = static_cast<uint8_t>(face_flags & 0x40);
     hit.checksum = checksum;
     hit.ends[0].point = points[0];
     hit.ends[1].point = points[1];
     if (placed) {
         for (RectHitEnd& end : hit.ends) {
-            Maths::Vec4 scaled{end.point.x * placed->m_sizeFactor.x, placed->m_sizeFactor.y * end.point.y,
-                               placed->m_sizeFactor.z * end.point.z, placed->m_sizeFactor.w * end.point.w};
-            placed->m_basisFrame.CarryPointThrough(end.point, scaled);
+            maths::Vec4 scaled{end.point.x * placed->size_factor_.x, placed->size_factor_.y * end.point.y,
+                               placed->size_factor_.z * end.point.z, placed->size_factor_.w * end.point.w};
+            placed->basis_frame_.carry_point_through(end.point, scaled);
         }
-        Maths::Vec4 turned;
-        placed->m_basisFrame.RotateVector(turned, hit.normal);
+        maths::Vec4 turned;
+        placed->basis_frame_.rotate_vector(turned, hit.normal);
         hit.normal = turned;
     }
     for (int e = 1; e >= 0; --e) {
         RectHitEnd& end = hit.ends[e];
-        end.onTriangleEdge = kinds[e] != 0;
-        Maths::Vec4 edge;
+        end.on_triangle_edge_ = kinds[e] != 0;
+        maths::Vec4 edge;
         switch (kinds[e]) {
         case 1:
-            edge = {e1x, e1y, static_cast<float>(e1z), Difference(v1.w, v0.w)};
+            edge = {e1x, e1y, static_cast<float>(e1z), get_difference(v1.w, v0.w)};
             break;
         case 2:
-            edge = {Difference(v2.x, v1.x), Difference(v2.y, v1.y), Difference(v2.z, v1.z), Difference(v2.w, v1.w)};
+            edge = {get_difference(v2.x, v1.x), get_difference(v2.y, v1.y), get_difference(v2.z, v1.z), get_difference(v2.w, v1.w)};
             break;
         case 3:
-            edge = {Difference(v0.x, v2.x), Difference(v0.y, v2.y), Difference(v0.z, v2.z), Difference(v0.w, v2.w)};
+            edge = {get_difference(v0.x, v2.x), get_difference(v0.y, v2.y), get_difference(v0.z, v2.z), get_difference(v0.w, v2.w)};
             break;
         default:
             continue;
         }
-        end.edge = edge.MakeUnit();
+        end.edge = edge.make_unit();
         if (placed) {
-            Maths::Vec4 turned;
-            placed->m_basisFrame.RotateVector(turned, end.edge);
+            maths::Vec4 turned;
+            placed->basis_frame_.rotate_vector(turned, end.edge);
             end.edge = turned;
         }
     }
@@ -109,48 +109,48 @@ void AddRectHit(RectHits* hits, const Maths::Vec4& v0, const Maths::Vec4& v1, co
 
 // A sector's (or an instance's, in its space) faces against the rect: each crossing a hit. True as soon as one is
 // found with the list full.
-bool RectAgainstFaces(const CHitMesh* object, const CollRect* rect, const Maths::BBox* box, RectHits* hits,
-                      const CCollScaled* placed)
+bool rect_against_faces(const HitMesh* object, const CollRect* rect, const maths::BBox* box, RectHits* hits,
+                      const CollScaled* placed)
 {
     int count;
     uint16_t buffer[0x800];
-    const uint16_t* faces = object->m_geometry->GetFacesInBox(box, &count, buffer, 0x800);
+    const uint16_t* faces = object->geometry_->get_faces_in_box(box, &count, buffer, 0x800);
     for (uint32_t i = 0; i < static_cast<uint32_t>(count); ++i) {
-        const CTriMeshSource* geometry = object->m_geometry;
+        const TriMeshSource* geometry = object->geometry_;
         uint32_t face = faces[i];
-        uint16_t flags = *reinterpret_cast<const uint16_t*>(geometry->m_faces + face * (geometry->m_smallFaces ? 8 : 10));
-        if ((flags & hits->ignoreFlags) || (~flags & hits->requireFlags))
+        uint16_t flags = *reinterpret_cast<const uint16_t*>(geometry->faces_ + face * (geometry->small_faces_ ? 8 : 10));
+        if ((flags & hits->ignore_flags_) || (~flags & hits->require_flags_))
             continue;
-        Maths::Vec4 v0, v1, v2;
-        geometry->ReadStoredVertex(geometry->FaceVertex(face, 0), &v0);
-        geometry->ReadStoredVertex(geometry->FaceVertex(face, 1), &v1);
-        geometry->ReadStoredVertex(geometry->FaceVertex(face, 2), &v2);
-        Maths::Vec4 points[2];
+        maths::Vec4 v0, v1, v2;
+        geometry->read_stored_vertex(geometry->face_vertex(face, 0), &v0);
+        geometry->read_stored_vertex(geometry->face_vertex(face, 1), &v1);
+        geometry->read_stored_vertex(geometry->face_vertex(face, 2), &v2);
+        maths::Vec4 points[2];
         int kinds[2];
-        if (!RectHitsTriangle(*rect, v0, v1, v2, points, kinds))
+        if (!rect_hits_triangle(*rect, v0, v1, v2, points, kinds))
             continue;
         if (hits->count == RectHits::kMost)
             return true;
-        AddRectHit(hits, v0, v1, v2, points, kinds, flags, object->m_checksum, placed);
+        add_rect_hit(hits, v0, v1, v2, points, kinds, flags, object->checksum_, placed);
     }
     return hits->count > 0;
 }
 
 // 0x00411840 (thiscall on the vector): turned by the matrix's rotation, in place. Returns it.
-struct VectorTurn : Maths::Vec4 {
-    Maths::Vec4* TurnBy(const Maths::Mat4* matrix)
+struct VectorTurn : maths::Vec4 {
+    maths::Vec4* turn_by(const maths::Mat4* matrix)
     {
-        Maths::Vec4 turned;
-        matrix->RotateVector(turned, *this);
-        *static_cast<Maths::Vec4*>(this) = turned;
+        maths::Vec4 turned;
+        matrix->rotate_vector(turned, *this);
+        *static_cast<maths::Vec4*>(this) = turned;
         return this;
     }
 };
 
-bool Near(float a, float b) { return std::fabs(static_cast<double>(a) - b) <= kSamePoint; }
-bool SamePoint(const Maths::Vec4& a, const Maths::Vec4& b) { return Near(a.x, b.x) && Near(a.y, b.y) && Near(a.z, b.z); }
+bool get_near(float a, float b) { return std::fabs(static_cast<double>(a) - b) <= kSamePoint; }
+bool same_point(const maths::Vec4& a, const maths::Vec4& b) { return get_near(a.x, b.x) && get_near(a.y, b.y) && get_near(a.z, b.z); }
 
-double Dot3(float ax, float ay, float az, float bx, float by, float bz)
+double dot3(float ax, float ay, float az, float bx, float by, float bz)
 {
     return (static_cast<double>(ax) * bx + static_cast<double>(ay) * by) + static_cast<double>(az) * bz;
 }
@@ -158,157 +158,157 @@ double Dot3(float ax, float ay, float az, float bx, float by, float bz)
 } // namespace
 
 // 0x00417AD0
-RectHit* RectHit::CopyFrom(const RectHit* other)
+RectHit* RectHit::copy_from(const RectHit* other)
 {
     for (int e = 0; e < 2; ++e) {
         ends[e].point = other->ends[e].point;
         ends[e].edge = other->ends[e].edge;
-        ends[e].onTriangleEdge = other->ends[e].onTriangleEdge;
+        ends[e].on_triangle_edge_ = other->ends[e].on_triangle_edge_;
     }
     normal = other->normal;
     checksum = other->checksum;
-    faceFlag40 = other->faceFlag40;
+    face_flag40_ = other->face_flag40_;
     return this;
 }
 
 // 0x00417B60
-RectHit* RectHit::Assign(const RectHit* other) { return CopyFrom(other); }
+RectHit* RectHit::get_assign(const RectHit* other) { return copy_from(other); }
 
 // 0x0040FEE0 (the far corner's x part, and its y part for the box, summed in double precision first)
-bool CollideRectWithStatics(const CollRect* rect, RectHits* hits, CHitMeshCache* cache)
+bool collide_rect_with_statics(const CollRect* rect, RectHits* hits, HitMeshCache* cache)
 {
-    const Maths::Vec4& o = rect->origin;
-    const Maths::Vec4& a = rect->sideA;
-    const Maths::Vec4& b = rect->sideB;
-    Maths::BBox box(o);
-    box.AppendSpot({a.x + o.x, a.y + o.y, a.z + o.z, a.w + o.w});
-    box.AppendSpot({o.x + b.x, b.y + o.y, b.z + o.z, b.w + o.w});
-    box.AppendSpot({static_cast<float>((static_cast<double>(o.x) + a.x) + b.x),
+    const maths::Vec4& o = rect->origin;
+    const maths::Vec4& a = rect->side_a_;
+    const maths::Vec4& b = rect->side_b_;
+    maths::BBox box(o);
+    box.append_spot({a.x + o.x, a.y + o.y, a.z + o.z, a.w + o.w});
+    box.append_spot({o.x + b.x, b.y + o.y, b.z + o.z, b.w + o.w});
+    box.append_spot({static_cast<float>((static_cast<double>(o.x) + a.x) + b.x),
                   static_cast<float>((static_cast<double>(a.y) + o.y) + b.y), (a.z + o.z) + b.z, (a.w + o.w) + b.w});
-    bool useCache = cache && cache->m_box.Holds(box);
-    if (!useCache) {
-        CCollGrid* grid = GridOf(rect);
+    bool use_cache = cache && cache->box_.get_holds(box);
+    if (!use_cache) {
+        CollGrid* grid = grid_of(rect);
         if (!grid)
             return false;
-        grid->ObjectsInBox(&box); // (the answer isn't used)
+        grid->objects_in_box(&box); // (the answer isn't used)
     }
-    Maths::BBox grown;
+    maths::BBox grown;
     grown.min = {box.min.x - 0.5f, box.min.y - 0.5f, box.min.z - 0.5f, box.min.w - 1.0f};
     grown.max = {box.max.x + 0.5f, box.max.y + 0.5f, box.max.z + 0.5f, box.max.w + 1.0f};
     hits->count = 0;
-    if (useCache) {
-        for (int i = 0; i < cache->m_statics; ++i) {
-            const CHitMeshCache::TableRow& entry = cache->m_entries[i];
-            if (grown.Intersects(*static_cast<const Maths::BBox*>(entry.geometry)))
-                CollideWithRect(entry.object, rect, &grown, hits);
+    if (use_cache) {
+        for (int i = 0; i < cache->statics_; ++i) {
+            const HitMeshCache::TableRow& entry = cache->entries_[i];
+            if (grown.intersects(*static_cast<const maths::BBox*>(entry.geometry)))
+                collide_with_rect(entry.object, rect, &grown, hits);
         }
         return hits->count > 0;
     }
     // the rect's diagonal
-    Maths::Seg diagonal;
+    maths::Seg diagonal;
     diagonal.start = o;
     diagonal.end = {static_cast<float>((static_cast<double>(a.x) + o.x) + b.x), (a.y + o.y) + b.y, (a.z + o.z) + b.z,
                     (a.w + o.w) + b.w};
-    CCollGrid** grids = GridsAlong(&diagonal);
+    CollGrid** grids = grids_along(&diagonal);
     if (!grids)
         return false;
     for (; *grids; ++grids) {
         int count;
-        for (CHitMesh** objects = (*grids)->ObjectsAlongLine(&diagonal, &count); *objects; ++objects) {
-            if ((*objects)->Call<bool>(13, &grown))
-                CollideWithRect(*objects, rect, &grown, hits);
+        for (HitMesh** objects = (*grids)->objects_along_line(&diagonal, &count); *objects; ++objects) {
+            if ((*objects)->get_call<bool>(13, &grown))
+                collide_with_rect(*objects, rect, &grown, hits);
         }
     }
     return hits->count > 0;
 }
 
 // 0x00410C90
-bool CStaticCollider::CollideWithRect(const CollRect* rect, const Maths::BBox* box, RectHits* hits)
+bool StaticCollider::collide_with_rect(const CollRect* rect, const maths::BBox* box, RectHits* hits)
 {
-    return RectAgainstFaces(this, rect, box, hits, nullptr);
+    return rect_against_faces(this, rect, box, hits, nullptr);
 }
 
 // 0x004128B0
-bool CCollStaticInstance::CollideWithRect(const CollRect* rect, const Maths::BBox*, RectHits* hits)
+bool CollStaticInstance::collide_with_rect(const CollRect* rect, const maths::BBox*, RectHits* hits)
 {
     CollRect local;
-    RectToLocal(rect, &local);
-    const Maths::Vec4& o = local.origin;
-    const Maths::Vec4& a = local.sideA;
-    const Maths::Vec4& b = local.sideB;
-    Maths::BBox box(o);
-    box.AppendSpot({a.x + o.x, a.y + o.y, a.z + o.z, a.w + o.w});
-    box.AppendSpot({b.x + o.x, b.y + o.y, b.z + o.z, b.w + o.w});
-    box.AppendSpot({static_cast<float>(b.x + (static_cast<double>(a.x) + o.x)),
+    rect_to_local(rect, &local);
+    const maths::Vec4& o = local.origin;
+    const maths::Vec4& a = local.side_a_;
+    const maths::Vec4& b = local.side_b_;
+    maths::BBox box(o);
+    box.append_spot({a.x + o.x, a.y + o.y, a.z + o.z, a.w + o.w});
+    box.append_spot({b.x + o.x, b.y + o.y, b.z + o.z, b.w + o.w});
+    box.append_spot({static_cast<float>(b.x + (static_cast<double>(a.x) + o.x)),
                   static_cast<float>((static_cast<double>(a.y) + o.y) + b.y), (a.z + o.z) + b.z, (a.w + o.w) + b.w});
-    return RectAgainstFaces(this, &local, &box, hits, this);
+    return rect_against_faces(this, &local, &box, hits, this);
 }
 
 // 0x00410AA0
-void CCollScaled::RectToLocal(const CollRect* rect, CollRect* out) const
+void CollScaled::rect_to_local(const CollRect* rect, CollRect* out) const
 {
-    m_inverse.CarryPointThrough(out->origin, rect->origin);
-    Maths::Vec4 corner;
-    const Maths::Vec4& o = rect->origin;
-    m_inverse.CarryPointThrough(corner, {o.x + rect->sideA.x, rect->sideA.y + o.y, rect->sideA.z + o.z,
-                                      rect->sideA.w + o.w});
-    out->sideA = {corner.x - out->origin.x, corner.y - out->origin.y, corner.z - out->origin.z,
+    inverse_.carry_point_through(out->origin, rect->origin);
+    maths::Vec4 corner;
+    const maths::Vec4& o = rect->origin;
+    inverse_.carry_point_through(corner, {o.x + rect->side_a_.x, rect->side_a_.y + o.y, rect->side_a_.z + o.z,
+                                      rect->side_a_.w + o.w});
+    out->side_a_ = {corner.x - out->origin.x, corner.y - out->origin.y, corner.z - out->origin.z,
                   corner.w - out->origin.w};
-    m_inverse.CarryPointThrough(corner, {rect->sideB.x + o.x, rect->sideB.y + o.y, rect->sideB.z + o.z,
-                                      rect->sideB.w + o.w});
-    out->sideB = {corner.x - out->origin.x, corner.y - out->origin.y, corner.z - out->origin.z,
+    inverse_.carry_point_through(corner, {rect->side_b_.x + o.x, rect->side_b_.y + o.y, rect->side_b_.z + o.z,
+                                      rect->side_b_.w + o.w});
+    out->side_b_ = {corner.x - out->origin.x, corner.y - out->origin.y, corner.z - out->origin.z,
                   corner.w - out->origin.w};
 }
 
 // 0x0040FEC0
-void CHitMesh::SetChecksum(uint32_t checksum)
+void HitMesh::set_checksum(uint32_t checksum)
 {
-    m_checksum = checksum;
-    if (m_geometry)
-        m_geometry->m_checksum = checksum;
+    checksum_ = checksum;
+    if (geometry_)
+        geometry_->checksum_ = checksum;
 }
 
 // 0x00410BC0
-uint8_t* CStaticCollider::TakeBuffer(uint8_t* block, const CTriMeshSource* geometry)
+uint8_t* StaticCollider::take_buffer(uint8_t* block, const TriMeshSource* geometry)
 {
-    m_unknown14 = static_cast<int>(geometry->m_unknown3C);
-    if (geometry->m_smallFaces)
+    unknown14_ = static_cast<int>(geometry->unknown3c_);
+    if (geometry->small_faces_)
         return block;
-    m_octets = block;
-    return block + geometry->m_triCount;
+    octets_ = block;
+    return block + geometry->tri_count_;
 }
 
 // 0x004182D0
-CBoxProbe* CBoxProbe::MakeNew()
+BoxProbe* BoxProbe::make_new()
 {
-    m_hitCache = nullptr;
-    m_hits.count = 0;
-    m_joinedCount = 0;
-    m_hits.requireFlags = 0;
-    m_hits.ignoreFlags = 0x10;
+    hit_cache_ = nullptr;
+    hits_.count = 0;
+    joined_count_ = 0;
+    hits_.require_flags_ = 0;
+    hits_.ignore_flags_ = 0x10;
     return this;
 }
 
 // 0x00417840
-bool CBoxProbe::Query(int)
+bool BoxProbe::get_query(int)
 {
-    return CollideRectWithStatics(&m_rect, &m_hits, m_hitCache ? m_hitCache : s_rectCache);
+    return collide_rect_with_statics(&rect_, &hits_, hit_cache_ ? hit_cache_ : s_rect_cache);
 }
 
 // 0x00417C00
-void CBoxProbe::JoinHits()
+void BoxProbe::join_hits()
 {
-    int count = m_hits.count;
-    const RectHit* hits = m_hits.hits;
+    int count = hits_.count;
+    const RectHit* hits = hits_.hits;
     bool used[RectHits::kMost];
-    Maths::Vec4 direction[RectHits::kMost];
+    maths::Vec4 direction[RectHits::kMost];
     // each hit's direction (x, y, z made unit when they have a length; w as it is)
     for (int i = count - 1; i >= 0; --i) {
         used[i] = false;
-        const Maths::Vec4& p0 = hits[i].ends[0].point;
-        const Maths::Vec4& p1 = hits[i].ends[1].point;
-        Maths::Vec4& d = direction[i];
-        d = {Difference(p1.x, p0.x), Difference(p1.y, p0.y), Difference(p1.z, p0.z), Difference(p1.w, p0.w)};
+        const maths::Vec4& p0 = hits[i].ends[0].point;
+        const maths::Vec4& p1 = hits[i].ends[1].point;
+        maths::Vec4& d = direction[i];
+        d = {get_difference(p1.x, p0.x), get_difference(p1.y, p0.y), get_difference(p1.z, p0.z), get_difference(p1.w, p0.w)};
         double length = std::sqrt((static_cast<double>(d.y) * d.y + static_cast<double>(d.x) * d.x) +
                                   static_cast<double>(d.z) * d.z);
         if (length > 0.0) {
@@ -325,75 +325,75 @@ void CBoxProbe::JoinHits()
         const RectHit& later = hits[j];
         for (int k = j - 1; k >= 0; --k) {
             const RectHit& earlier = hits[k];
-            bool same = (SamePoint(later.ends[0].point, earlier.ends[0].point) &&
-                         SamePoint(later.ends[1].point, earlier.ends[1].point)) ||
-                        (SamePoint(later.ends[0].point, earlier.ends[1].point) &&
-                         SamePoint(later.ends[1].point, earlier.ends[0].point));
-            if (same && Dot3(earlier.normal.z, earlier.normal.y, earlier.normal.x, later.normal.z, later.normal.y,
+            bool same = (same_point(later.ends[0].point, earlier.ends[0].point) &&
+                         same_point(later.ends[1].point, earlier.ends[1].point)) ||
+                        (same_point(later.ends[0].point, earlier.ends[1].point) &&
+                         same_point(later.ends[1].point, earlier.ends[0].point));
+            if (same && dot3(earlier.normal.z, earlier.normal.y, earlier.normal.x, later.normal.z, later.normal.y,
                              later.normal.x) > kParallel)
                 used[k] = true;
         }
     }
     // each hit left, extended by the earlier ones it lines up with
-    m_joinedCount = 0;
+    joined_count_ = 0;
     for (int j = count - 1; j >= 0; --j) {
         RectHit joined;
-        joined.CopyFrom(&hits[j]);
+        joined.copy_from(&hits[j]);
         if (used[j])
             continue;
         for (int k = j - 1; k >= 0; --k) {
             if (used[k])
                 continue;
             const RectHit& other = hits[k];
-            if (Dot3(joined.normal.z, joined.normal.x, joined.normal.y, other.normal.z, other.normal.x,
+            if (dot3(joined.normal.z, joined.normal.x, joined.normal.y, other.normal.z, other.normal.x,
                      other.normal.y) < kParallel)
                 continue;
-            if (std::fabs(Dot3(direction[j].x, direction[j].z, direction[k].y, direction[k].x, direction[k].z,
+            if (std::fabs(dot3(direction[j].x, direction[j].z, direction[k].y, direction[k].x, direction[k].z,
                                direction[j].y)) < kParallel)
                 continue;
             const RectHitEnd& near0 = other.ends[0];
-            const RectHitEnd& closeA = other.ends[1];
-            Maths::Vec4& start = joined.ends[0].point;
-            Maths::Vec4& end = joined.ends[1].point;
-            if (SamePoint(start, near0.point)) {
-                joined.ends[0] = closeA;
-            } else if (SamePoint(start, closeA.point)) {
+            const RectHitEnd& close_a = other.ends[1];
+            maths::Vec4& start = joined.ends[0].point;
+            maths::Vec4& end = joined.ends[1].point;
+            if (same_point(start, near0.point)) {
+                joined.ends[0] = close_a;
+            } else if (same_point(start, close_a.point)) {
                 joined.ends[0] = near0;
-            } else if (SamePoint(end, near0.point)) {
-                joined.ends[1] = closeA;
-            } else if (SamePoint(end, closeA.point)) {
+            } else if (same_point(end, near0.point)) {
+                joined.ends[1] = close_a;
+            } else if (same_point(end, close_a.point)) {
                 joined.ends[1] = near0;
             } else {
                 continue;
             }
             used[k] = true;
         }
-        m_joined[m_joinedCount++].Assign(&joined);
+        joined_[joined_count_++].get_assign(&joined);
     }
 }
 
-// 0x00417860 (the colour as in CProbeRay::DebugDraw; each hit drawn in a colour of its own)
-void CBoxProbe::DebugDraw(uint32_t r, uint32_t g, uint32_t b, int frames)
+// 0x00417860 (the colour as in ProbeRay::debug_draw; each hit drawn in a colour of its own)
+void BoxProbe::debug_draw(uint32_t r, uint32_t g, uint32_t b, int frames)
 {
-    const Maths::Vec4& o = m_rect.origin;
-    const Maths::Vec4& a = m_rect.sideA;
-    const Maths::Vec4& s = m_rect.sideB;
+    const maths::Vec4& o = rect_.origin;
+    const maths::Vec4& a = rect_.side_a_;
+    const maths::Vec4& s = rect_.side_b_;
     uint32_t colour = ((((b | 0xFFFFFF00u) << 8) | g) << 8) | r;
-    Maths::Vec4 oa{o.x + a.x, a.y + o.y, a.z + o.z, a.w + o.w};
-    Maths::Vec4 oab{oa.x + s.x, oa.y + s.y, oa.z + s.z, oa.w + s.w};
-    Maths::Vec4 ob{o.x + s.x, s.y + o.y, s.z + o.z, s.w + o.w};
-    Gfx2D::PushDiagLine(&o, &oa, colour, colour, frames);
-    Gfx2D::PushDiagLine(&oa, &oab, colour, colour, frames);
-    Gfx2D::PushDiagLine(&oab, &ob, colour, colour, frames);
-    Gfx2D::PushDiagLine(&ob, &o, colour, colour, frames);
-    const RectHit* hits = m_joinedCount > 0 ? m_joined : m_hits.hits;
-    int count = m_joinedCount > 0 ? m_joinedCount : m_hits.count;
+    maths::Vec4 oa{o.x + a.x, a.y + o.y, a.z + o.z, a.w + o.w};
+    maths::Vec4 oab{oa.x + s.x, oa.y + s.y, oa.z + s.z, oa.w + s.w};
+    maths::Vec4 ob{o.x + s.x, s.y + o.y, s.z + o.z, s.w + o.w};
+    gfx::push_diag_line(&o, &oa, colour, colour, frames);
+    gfx::push_diag_line(&oa, &oab, colour, colour, frames);
+    gfx::push_diag_line(&oab, &ob, colour, colour, frames);
+    gfx::push_diag_line(&ob, &o, colour, colour, frames);
+    const RectHit* hits = joined_count_ > 0 ? joined_ : hits_.hits;
+    int count = joined_count_ > 0 ? joined_count_ : hits_.count;
     for (int i = count - 1; i >= 0; --i) {
         b += 0x1F;
         g += 0x63;
         r += 0xC9;
-        uint32_t hitColour = ((((b | 0xFFFFFF00u) << 8) | g) << 8) | r;
-        Gfx2D::PushDiagLine(&hits[i].ends[0].point, &hits[i].ends[1].point, hitColour, hitColour, 1);
+        uint32_t hit_colour = ((((b | 0xFFFFFF00u) << 8) | g) << 8) | r;
+        gfx::push_diag_line(&hits[i].ends[0].point, &hits[i].ends[1].point, hit_colour, hit_colour, 1);
     }
 }
 

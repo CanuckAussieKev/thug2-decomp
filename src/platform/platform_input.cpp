@@ -15,69 +15,69 @@
 
 #pragma warning(disable : 4996) // (sprintf / wcscpy: the original's own, into its fixed buffers)
 
-namespace OsLayer {
+namespace os_layer {
 
-IDirectInput8A* g_directInput;
-IDirectInputDevice8A* g_keyboardDevice;
+IDirectInput8A* g_direct_input;
+IDirectInputDevice8A* g_keyboard_device;
 
 // The key bindings (0x98 actions: -1 for none; the menus' hints and the pads' keyboard actions read them).
-int32_t g_inputMap[0x98];
+int32_t g_input_map[0x98];
 IDirectInputDevice8A* g_joysticks[kPorts];
 IDirectInputEffect* g_effects[kPorts]; // each joystick's constant-force effect (rumble)
-uint32_t g_forceAxisCounts[kPorts];
-uint32_t g_forceResolutions[2 * kPorts];
+uint32_t g_force_axis_counts[kPorts];
+uint32_t g_force_resolutions[2 * kPorts];
 constexpr int kKeyNameLength = 15;
-wchar_t g_keyNames[256][kKeyNameLength];
+wchar_t g_key_names[256][kKeyNameLength];
 uint8_t g_keys[256];
-uint8_t g_lastKeys[256];
+uint8_t g_last_keys[256];
 // The joysticks' states: this frame's and the last.
-DIJOYSTATE2 g_joystickStates[2];
-DIJOYSTATE2 g_lastJoystickStates[2];
+DIJOYSTATE2 g_joystick_states[2];
+DIJOYSTATE2 g_last_joystick_states[2];
 
 namespace {
 
 // DirectInput and its devices (the keyboard and mouse are the first of each found).
-IDirectInput8A*& DirectInput() { return g_directInput; }
-IDirectInputDevice8A*& Keyboard() { return g_keyboardDevice; }
+IDirectInput8A*& get_direct_input() { return g_direct_input; }
+IDirectInputDevice8A*& get_keyboard() { return g_keyboard_device; }
 
-int g_defaultEscapeControl{1};
-DIMOUSESTATE2 g_lastMouseState;
-DIMOUSESTATE2 g_mouseState;
+int g_default_escape_control{1};
+DIMOUSESTATE2 g_last_mouse_state;
+DIMOUSESTATE2 g_mouse_state;
 IDirectInputDevice8A* g_mouse;
-int g_padModeSetting;
-int g_defaultEnterControl;
-uint8_t g_mouseInvertX;
-uint8_t g_mouseInvertY;
+int g_pad_mode_setting;
+int g_default_enter_control;
+uint8_t g_mouse_invert_x;
+uint8_t g_mouse_invert_y;
 
-IDirectInputDevice8A*& Mouse() { return g_mouse; }
-IDirectInputDevice8A** Joysticks() { return g_joysticks; }
-// Each joystick's constant-force effect (rumble: SetActuators).
-IDirectInputEffect** Effects() { return g_effects; }
+IDirectInputDevice8A*& get_mouse() { return g_mouse; }
+IDirectInputDevice8A** joysticks() { return g_joysticks; }
+// Each joystick's constant-force effect (rumble: set_actuators).
+IDirectInputEffect** get_effects() { return g_effects; }
 
 // The devices' states: this frame's and the last.
-DIJOYSTATE2* JoystickStates() { return g_joystickStates; }
-DIJOYSTATE2* LastJoystickStates() { return g_lastJoystickStates; }
-uint8_t* Keys() { return g_keys; }
-uint8_t* LastKeys() { return g_lastKeys; }
-DIMOUSESTATE2& MouseState() { return g_mouseState; }
-DIMOUSESTATE2& LastMouseState() { return g_lastMouseState; }
+DIJOYSTATE2* joystick_states() { return g_joystick_states; }
+DIJOYSTATE2* last_joystick_states() { return g_last_joystick_states; }
+uint8_t* get_keys() { return g_keys; }
+uint8_t* last_keys() { return g_last_keys; }
+DIMOUSESTATE2& mouse_state() { return g_mouse_state; }
+DIMOUSESTATE2& last_mouse_state() { return g_last_mouse_state; }
 
 // Per joystick: how many force-feedback axes it has (at most two) and their force resolutions (two each).
-uint32_t* ForceAxisCounts() { return g_forceAxisCounts; }
-uint32_t* ForceResolutions() { return g_forceResolutions; }
+uint32_t* force_axis_counts() { return g_force_axis_counts; }
+uint32_t* force_resolutions() { return g_force_resolutions; }
 
-wchar_t (*KeyNames())[kKeyNameLength] { return g_keyNames; }
+wchar_t (*key_names())[kKeyNameLength] { return g_key_names; }
 
-HWND GameWindow() { return Engine3D::g_gameWindow; }
+HWND game_window() { return render::g_game_window; }
 
 // dinput8.lib's data formats and the constant-force effect's GUID, as the exe has them.
-const DIDATAFORMAT* JoystickFormat() { return reinterpret_cast<const DIDATAFORMAT*>(0x00667204); } // c_dfDIJoystick2
-const DIDATAFORMAT* KeyboardFormat() { return reinterpret_cast<const DIDATAFORMAT*>(0x00666FFC); } // c_dfDIKeyboard
-const DIDATAFORMAT* MouseFormat() { return reinterpret_cast<const DIDATAFORMAT*>(0x00666DF4); }    // c_dfDIMouse2
-const GUID& ConstantForceGuid() { return *reinterpret_cast<const GUID*>(0x00666B54); }             // GUID_ConstantForce
+const DIDATAFORMAT* joystick_format() { return reinterpret_cast<const DIDATAFORMAT*>(0x00667204); } // c_dfDIJoystick2
+const DIDATAFORMAT* keyboard_format() { return reinterpret_cast<const DIDATAFORMAT*>(0x00666FFC); } // c_dfDIKeyboard
+const DIDATAFORMAT* mouse_format() { return reinterpret_cast<const DIDATAFORMAT*>(0x00666DF4); }    // c_dfDIMouse2
+const GUID& constant_force_guid() { return *reinterpret_cast<const GUID*>(0x00666B54); }             // GUID_ConstantForce
 
 // Any of `count` controls set (not -1).
-bool AnyBinding(const int32_t* controls, int count)
+bool any_binding(const int32_t* controls, int count)
 {
     for (int i = 0; i < count; ++i) {
         if (controls[i] != -1)
@@ -89,31 +89,31 @@ bool AnyBinding(const int32_t* controls, int count)
 // "pad<n>": a GUID as text - XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX - parsed digit group by digit group: the
 // fourth group's last four digits are copied out first (the group runs on into the last one otherwise). A
 // single character (or none) gives the zero GUID.
-GUID ParseJoystickGuid(const char* text, DWORD size)
+GUID parse_joystick_guid(const char* text, DWORD size)
 {
     GUID guid{};
     if (size <= 1)
         return guid;
     const char* cursor = text;
-    guid.Data1 = ParseHex(&cursor);
+    guid.Data1 = parse_hex(&cursor);
     ++cursor;
-    guid.Data2 = static_cast<uint16_t>(ParseHex(&cursor));
+    guid.Data2 = static_cast<uint16_t>(parse_hex(&cursor));
     ++cursor;
-    guid.Data3 = static_cast<uint16_t>(ParseHex(&cursor));
+    guid.Data3 = static_cast<uint16_t>(parse_hex(&cursor));
     ++cursor;
-    uint32_t value = ParseHex(&cursor);
+    uint32_t value = parse_hex(&cursor);
     guid.Data4[0] = static_cast<uint8_t>(value >> 8);
     guid.Data4[1] = static_cast<uint8_t>(value);
     const char* group = cursor + 1;
     char four[5];
     std::memcpy(four, group, 4);
     four[4] = 0;
-    const char* fourCursor = four;
-    value = ParseHex(&fourCursor);
+    const char* four_cursor = four;
+    value = parse_hex(&four_cursor);
     guid.Data4[2] = static_cast<uint8_t>(value >> 8);
     guid.Data4[3] = static_cast<uint8_t>(value);
     cursor = group + 4;
-    value = ParseHex(&cursor);
+    value = parse_hex(&cursor);
     guid.Data4[4] = static_cast<uint8_t>(value >> 24);
     guid.Data4[5] = static_cast<uint8_t>(value >> 16);
     guid.Data4[6] = static_cast<uint8_t>(value >> 8);
@@ -122,13 +122,13 @@ GUID ParseJoystickGuid(const char* text, DWORD size)
 }
 
 // "distance": 1-100, the clipping distance from it; anything above 100 is none.
-void PlaceAtRange(uint32_t distance)
+void place_at_range(uint32_t distance)
 {
-    g_distanceSetting = distance;
+    g_distance_setting = distance;
     if (distance > 100)
-        g_distanceSetting = 0;
+        g_distance_setting = 0;
     else if (distance != 0)
-        Gfx2D::g_drawDistanceSetting = static_cast<int32_t>(static_cast<double>(distance) * 5.0f + 95.0f);
+        gfx::g_draw_distance_setting = static_cast<int32_t>(static_cast<double>(distance) * 5.0f + 95.0f);
 }
 
 struct KeyNameEntry {
@@ -164,37 +164,37 @@ const KeyNameEntry kKeyNames[] = {
 } // namespace
 
 // 0x005F2E00
-DIJOYSTATE2* ReadJoystick(int port)
+DIJOYSTATE2* read_joystick(int port)
 {
-    if (!Joysticks()[port])
+    if (!joysticks()[port])
         return nullptr;
-    if (FAILED(Joysticks()[port]->Poll())) {
-        if (FAILED(Joysticks()[port]->Acquire()) || FAILED(Joysticks()[port]->Poll()))
+    if (FAILED(joysticks()[port]->Poll())) {
+        if (FAILED(joysticks()[port]->Acquire()) || FAILED(joysticks()[port]->Poll()))
             return nullptr;
     }
-    IDirectInputDevice8A* joystick = Joysticks()[port];
-    DIJOYSTATE2* state = &JoystickStates()[port];
-    LastJoystickStates()[port] = *state;
+    IDirectInputDevice8A* joystick = joysticks()[port];
+    DIJOYSTATE2* state = &joystick_states()[port];
+    last_joystick_states()[port] = *state;
     if (FAILED(joystick->GetDeviceState(sizeof(DIJOYSTATE2), state)))
         return nullptr;
     return state;
 }
 
 // 0x005F2E90
-DIMOUSESTATE2* ReadMouse()
+DIMOUSESTATE2* read_mouse()
 {
-    if (!Mouse())
+    if (!get_mouse())
         return nullptr;
-    if (FAILED(Mouse()->Poll())) {
-        if (FAILED(Mouse()->Acquire()) || FAILED(Mouse()->Poll()))
+    if (FAILED(get_mouse()->Poll())) {
+        if (FAILED(get_mouse()->Acquire()) || FAILED(get_mouse()->Poll()))
             return nullptr;
     }
-    DIMOUSESTATE2& state = MouseState();
-    DIMOUSESTATE2& last = LastMouseState();
+    DIMOUSESTATE2& state = mouse_state();
+    DIMOUSESTATE2& last = last_mouse_state();
     last.lY = state.lY;
     last.lX = state.lX;
     std::memcpy(&last.lZ, &state.lZ, 3 * sizeof(LONG)); // (z and the first eight buttons)
-    HRESULT result = Mouse()->GetDeviceState(sizeof(DIMOUSESTATE2), &state);
+    HRESULT result = get_mouse()->GetDeviceState(sizeof(DIMOUSESTATE2), &state);
     if (state.lX == 0 && state.lY == 0) {
         // No movement this frame: x, then y, keep the last frame's less 2 (none within 2 of 0).
         LONG x = last.lX, y = last.lY;
@@ -215,19 +215,19 @@ DIMOUSESTATE2* ReadMouse()
 }
 
 // 0x005F2F80
-bool HasKeyBindings(int port)
+bool has_key_bindings(int port)
 {
-    return AnyBinding(Controls()[port].keys, kBindings);
+    return any_binding(get_controls()[port].keys, kBindings);
 }
 
 // 0x005F2FC0
-bool HasMouseBindings(int port)
+bool has_mouse_bindings(int port)
 {
-    return AnyBinding(Controls()[port].mouse, kBindings);
+    return any_binding(get_controls()[port].mouse, kBindings);
 }
 
 // 0x005F3000
-int JoystickAxis(const DIJOYSTATE2* state, int control)
+int joystick_axis(const DIJOYSTATE2* state, int control)
 {
     switch (control) {
     case 1:
@@ -272,23 +272,23 @@ int JoystickAxis(const DIJOYSTATE2* state, int control)
 }
 
 // 0x005F30E0
-bool KeyDown(int code)
+bool get_key_down(int code)
 {
     if (code == -1)
         return false;
     if (code == DIK_ESCAPE)
-        return Keys()[DIK_ESCAPE] && !LastKeys()[DIK_ESCAPE];
-    return Keys()[code] != 0;
+        return get_keys()[DIK_ESCAPE] && !last_keys()[DIK_ESCAPE];
+    return get_keys()[code] != 0;
 }
 
 // 0x005F3120
-wchar_t* KeyName(int code)
+wchar_t* get_key_name(int code)
 {
-    return KeyNames()[code];
+    return key_names()[code];
 }
 
 // 0x005F3130
-BOOL CALLBACK AddJoystickAxis(LPCDIDEVICEOBJECTINSTANCEA object, LPVOID device)
+BOOL CALLBACK add_joystick_axis(LPCDIDEVICEOBJECTINSTANCEA object, LPVOID device)
 {
     auto* joystick = static_cast<IDirectInputDevice8A*>(device);
     DIPROPRANGE range;
@@ -299,35 +299,35 @@ BOOL CALLBACK AddJoystickAxis(LPCDIDEVICEOBJECTINSTANCEA object, LPVOID device)
     range.lMin = -1000;
     range.lMax = 1000;
     joystick->SetProperty(DIPROP_RANGE, &range.diph);
-    int port = Joysticks()[1] == joystick ? 1 : 0;
-    if ((object->dwFlags & DIDOI_FFACTUATOR) && ForceAxisCounts()[port] < 2) {
-        uint32_t count = ForceAxisCounts()[port];
-        ForceResolutions()[2 * port + count] = object->dwFFForceResolution;
-        ForceAxisCounts()[port] = count + 1;
+    int port = joysticks()[1] == joystick ? 1 : 0;
+    if ((object->dwFlags & DIDOI_FFACTUATOR) && force_axis_counts()[port] < 2) {
+        uint32_t count = force_axis_counts()[port];
+        force_resolutions()[2 * port + count] = object->dwFFForceResolution;
+        force_axis_counts()[port] = count + 1;
     }
     return DIENUM_CONTINUE;
 }
 
 // 0x005F31D0
-BOOL CALLBACK AddInputDevice(LPCDIDEVICEINSTANCEA device, LPVOID /*context*/)
+BOOL CALLBACK add_input_device(LPCDIDEVICEINSTANCEA device, LPVOID /*context*/)
 {
     DWORD type = device->dwDevType & 0xFF;
     IDirectInputDevice8A* created;
     if (type == DI8DEVTYPE_GAMEPAD || type == DI8DEVTYPE_JOYSTICK) {
         int port = -1;
         for (int i = 0; i < kPorts; ++i) {
-            if (std::memcmp(&Controls()[i].joystick, &device->guidInstance, sizeof(GUID)) == 0)
+            if (std::memcmp(&get_controls()[i].joystick, &device->guidInstance, sizeof(GUID)) == 0)
                 port = i;
         }
         if (port < 0)
             return DIENUM_CONTINUE;
-        if (SUCCEEDED(DirectInput()->CreateDevice(device->guidInstance, &created, nullptr))) {
-            Joysticks()[port] = created;
-            created->SetDataFormat(JoystickFormat());
-            created->SetCooperativeLevel(GameWindow(), DISCL_EXCLUSIVE | DISCL_FOREGROUND);
-            created->EnumObjects(AddJoystickAxis, created, DIDFT_AXIS);
-            if (ForceAxisCounts()[port] > 0) {
-                // Rumble: an endless constant force along X and Y, started by SetActuators.
+        if (SUCCEEDED(get_direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
+            joysticks()[port] = created;
+            created->SetDataFormat(joystick_format());
+            created->SetCooperativeLevel(game_window(), DISCL_EXCLUSIVE | DISCL_FOREGROUND);
+            created->EnumObjects(add_joystick_axis, created, DIDFT_AXIS);
+            if (force_axis_counts()[port] > 0) {
+                // Rumble: an endless constant force along X and Y, started by set_actuators.
                 DWORD axes[2] = {DIJOFS_X, DIJOFS_Y};
                 LONG direction[2] = {0, 0};
                 DICONSTANTFORCE force = {0};
@@ -346,23 +346,23 @@ BOOL CALLBACK AddInputDevice(LPCDIDEVICEINSTANCEA device, LPVOID /*context*/)
                 effect.cbTypeSpecificParams = sizeof(DICONSTANTFORCE);
                 effect.lpvTypeSpecificParams = &force;
                 effect.dwStartDelay = 0;
-                created->CreateEffect(ConstantForceGuid(), &effect, &Effects()[port], nullptr);
+                created->CreateEffect(constant_force_guid(), &effect, &get_effects()[port], nullptr);
             }
             created->Acquire();
         }
     }
     if (type == DI8DEVTYPE_KEYBOARD) {
-        if (!Keyboard() && SUCCEEDED(DirectInput()->CreateDevice(device->guidInstance, &created, nullptr))) {
-            Keyboard() = created;
-            created->SetDataFormat(KeyboardFormat());
-            created->SetCooperativeLevel(GameWindow(), DISCL_NONEXCLUSIVE | DISCL_FOREGROUND);
+        if (!get_keyboard() && SUCCEEDED(get_direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
+            get_keyboard() = created;
+            created->SetDataFormat(keyboard_format());
+            created->SetCooperativeLevel(game_window(), DISCL_NONEXCLUSIVE | DISCL_FOREGROUND);
             created->Acquire();
         }
     } else if (type == DI8DEVTYPE_MOUSE) {
-        if (!Mouse() && SUCCEEDED(DirectInput()->CreateDevice(device->guidInstance, &created, nullptr))) {
-            Mouse() = created;
-            created->SetDataFormat(MouseFormat());
-            created->SetCooperativeLevel(GameWindow(), DISCL_EXCLUSIVE | DISCL_FOREGROUND);
+        if (!get_mouse() && SUCCEEDED(get_direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
+            get_mouse() = created;
+            created->SetDataFormat(mouse_format());
+            created->SetCooperativeLevel(game_window(), DISCL_EXCLUSIVE | DISCL_FOREGROUND);
             created->Acquire();
         }
     }
@@ -370,21 +370,21 @@ BOOL CALLBACK AddInputDevice(LPCDIDEVICEINSTANCEA device, LPVOID /*context*/)
 }
 
 // 0x005F3400
-void ReadKeyboard()
+void read_keyboard()
 {
-    IDirectInputDevice8A* keyboard = Keyboard();
-    std::memcpy(LastKeys(), Keys(), 256);
-    HRESULT result = keyboard->GetDeviceState(256, Keys());
+    IDirectInputDevice8A* keyboard = get_keyboard();
+    std::memcpy(last_keys(), get_keys(), 256);
+    HRESULT result = keyboard->GetDeviceState(256, get_keys());
     if (result != DIERR_INPUTLOST && result != DIERR_NOTACQUIRED)
         return;
-    if (SUCCEEDED(Keyboard()->Acquire()))
-        Keyboard()->GetDeviceState(256, Keys());
+    if (SUCCEEDED(get_keyboard()->Acquire()))
+        get_keyboard()->GetDeviceState(256, get_keys());
     else
-        std::memset(Keys(), 0, 256);
+        std::memset(get_keys(), 0, 256);
 }
 
 // 0x005F3470
-uint32_t ParseHex(const char** cursor)
+uint32_t parse_hex(const char** cursor)
 {
     auto digit = [](char c) { return c >= '0' && c <= '9'; };
     uint32_t value = 0;
@@ -396,7 +396,7 @@ uint32_t ParseHex(const char** cursor)
 }
 
 // 0x005F34D0
-void LoadRegistryOptions(const char* key)
+void load_registry_options(const char* key)
 {
     HKEY options;
     if (RegOpenKeyExA(HKEY_CURRENT_USER, key, 0, KEY_QUERY_VALUE, &options) != ERROR_SUCCESS)
@@ -407,41 +407,41 @@ void LoadRegistryOptions(const char* key)
     DWORD size = 1;
     if (RegQueryValueExA(options, "distance", nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) ==
         ERROR_SUCCESS)
-        PlaceAtRange(value);
+        place_at_range(value);
     if (RegQueryValueExA(options, "options", nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) ==
         ERROR_SUCCESS) {
         if (value & 1)
-            Engine3D::g_fogSetting = true;
+            render::g_fog_setting = true;
         if (value & 2)
-            Engine3D::g_hqShadows = 1;
+            render::g_hq_shadows = 1;
         if (value & 4)
-            reinterpret_cast<uint8_t*>(&g_options38And39)[0] = 1;
+            reinterpret_cast<uint8_t*>(&g_options38_and39)[0] = 1;
         if (value & 8)
-            reinterpret_cast<uint8_t*>(&g_options38And39)[1] = 1;
+            reinterpret_cast<uint8_t*>(&g_options38_and39)[1] = 1;
         if (value & 0x10)
             g_option37 = 1;
         if (value & 0x20)
-            reinterpret_cast<uint8_t&>(Engine3D::g_antialiasing) = 1;
+            reinterpret_cast<uint8_t&>(render::g_antialiasing) = 1;
         if (value & 0x100)
-            Engine3D::g_distanceClipping = true;
+            render::g_distance_clipping = true;
     }
     if (RegQueryValueExA(options, "distance", nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) ==
         ERROR_SUCCESS)
-        PlaceAtRange(value);
+        place_at_range(value);
     if (RegQueryValueExA(options, "resolution", nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) ==
         ERROR_SUCCESS)
-        Engine3D::g_resolutionSetting = value > 3 ? 0 : value;
+        render::g_resolution_setting = value > 3 ? 0 : value;
 
     // The joystick each port plays with (the text buffer isn't cleared before the first: a short value leaves
     // whatever was there after it).
     char text[0x400];
     size = sizeof(text);
     if (RegQueryValueExA(options, "pad0", nullptr, &type, reinterpret_cast<BYTE*>(text), &size) == ERROR_SUCCESS)
-        Controls()[0].joystick = ParseJoystickGuid(text, size);
+        get_controls()[0].joystick = parse_joystick_guid(text, size);
     std::memset(text, 0, sizeof(text));
     size = sizeof(text);
     if (RegQueryValueExA(options, "pad1", nullptr, &type, reinterpret_cast<BYTE*>(text), &size) == ERROR_SUCCESS)
-        Controls()[1].joystick = ParseJoystickGuid(text, size);
+        get_controls()[1].joystick = parse_joystick_guid(text, size);
 
     // Each port's keys and joystick controls (the ones not there stay as they are).
     for (int port = 0; port < kPorts; ++port) {
@@ -450,7 +450,7 @@ void LoadRegistryOptions(const char* key)
             size = 4;
             if (RegQueryValueExA(options, text, nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) ==
                 ERROR_SUCCESS)
-                Controls()[port].keys[i] = static_cast<int32_t>(value);
+                get_controls()[port].keys[i] = static_cast<int32_t>(value);
         }
     }
     for (int port = 0; port < kPorts; ++port) {
@@ -459,47 +459,47 @@ void LoadRegistryOptions(const char* key)
             size = 4;
             if (RegQueryValueExA(options, text, nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) ==
                 ERROR_SUCCESS)
-                Controls()[port].gamepad[i] = static_cast<int32_t>(value);
+                get_controls()[port].gamepad[i] = static_cast<int32_t>(value);
         }
     }
     RegCloseKey(options);
 }
 
 // 0x005F39E0
-void ReleaseInput()
+void release_input()
 {
     for (int port = 0; port < kPorts; ++port) {
-        if (Joysticks()[port]) {
-            Joysticks()[port]->Release();
-            Joysticks()[port] = nullptr;
+        if (joysticks()[port]) {
+            joysticks()[port]->Release();
+            joysticks()[port] = nullptr;
         }
-        if (Effects()[port])
-            Effects()[port]->Release(); // (left set)
+        if (get_effects()[port])
+            get_effects()[port]->Release(); // (left set)
     }
-    if (Keyboard()) {
-        Keyboard()->Release();
-        Keyboard() = nullptr;
+    if (get_keyboard()) {
+        get_keyboard()->Release();
+        get_keyboard() = nullptr;
     }
     // (The mouse isn't released.)
-    if (DirectInput()) {
-        DirectInput()->Release();
-        DirectInput() = nullptr;
+    if (get_direct_input()) {
+        get_direct_input()->Release();
+        get_direct_input() = nullptr;
     }
 }
 
 // 0x005F3BF0
-wchar_t* SetKeyName(int code, const wchar_t* name)
+wchar_t* set_key_name(int code, const wchar_t* name)
 {
-    return std::wcscpy(KeyNames()[code], name);
+    return std::wcscpy(key_names()[code], name);
 }
 
 // 0x005F3C10
-void InitKeyNames()
+void init_key_names()
 {
     for (int code = 0; code < 256; ++code)
-        std::wcscpy(KeyNames()[code], L"(NONE)");
+        std::wcscpy(key_names()[code], L"(NONE)");
     for (const KeyNameEntry& key : kKeyNames)
-        std::wcscpy(KeyNames()[key.code], key.name);
+        std::wcscpy(key_names()[key.code], key.name);
 }
 
 // --- the pad read ---
@@ -507,12 +507,12 @@ void InitKeyNames()
 namespace {
 
 // The pad mode and the default keys' Enter and Escape.
-int& PadModeSetting() { return g_padModeSetting; }
-int& DefaultEnterControl() { return g_defaultEnterControl; }
-int& DefaultEscapeControl() { return g_defaultEscapeControl; }
+int& pad_mode_setting() { return g_pad_mode_setting; }
+int& default_enter_control() { return g_default_enter_control; }
+int& default_escape_control() { return g_default_escape_control; }
 // The mouse's x / y sticks reversed (nothing sets them).
-bool MouseInvertX() { return g_mouseInvertX != 0; }
-bool MouseInvertY() { return g_mouseInvertY != 0; }
+bool mouse_invert_x() { return g_mouse_invert_x != 0; }
+bool mouse_invert_y() { return g_mouse_invert_y != 0; }
 
 constexpr float kStickMax = 32767.0f;                 // 0x0065BF80
 constexpr float kStickMin = -32768.0f;                // 0x00666B00
@@ -522,10 +522,10 @@ constexpr float kStickMaxReversed = -32767.0f;        // 0x00666B30 (the joystic
 constexpr int16_t kStickFull = 32767;
 
 // The original's _ftol: truncated toward zero.
-int32_t Truncate(double value) { return static_cast<int32_t>(value); }
+int32_t truncate(double value) { return static_cast<int32_t>(value); }
 
 // A mouse axis as a stick: its movement scaled, within the stick's range.
-double MouseAxisStick(const DIMOUSESTATE2* state, int control)
+double mouse_axis_stick(const DIMOUSESTATE2* state, int control)
 {
     LONG value = control == 1 ? state->lX : control == 2 ? state->lY : control == 3 ? state->lZ : 0;
     double stick = static_cast<double>(value) * kMouseStickScale;
@@ -537,24 +537,24 @@ double MouseAxisStick(const DIMOUSESTATE2* state, int control)
 }
 
 // One of the pad's eight pressure buttons held.
-void Press(Sio::PadSnapshot* pad, int button) { pad->pressure[button] = 0xFF; }
+void get_press(sio::PadSnapshot* pad, int button) { pad->pressure[button] = 0xFF; }
 
 } // namespace
 
 // 0x005F4280
-bool JoystickControlDown(const DIJOYSTATE2* state, int control)
+bool joystick_control_down(const DIJOYSTATE2* state, int control)
 {
     if (control >= 11 && control <= 39)
         return state->rgbButtons[control - 11] != 0;
     if (control >= 1 && control <= 10) {
-        int value = JoystickAxis(state, control);
+        int value = joystick_axis(state, control);
         return value > 200 || value < -200;
     }
     return false;
 }
 
 // 0x005F42D0
-bool MouseControlDown(const DIMOUSESTATE2* state, int control)
+bool mouse_control_down(const DIMOUSESTATE2* state, int control)
 {
     if (control >= 4 && control <= 11)
         return (state->rgbButtons[control - 4] >> 7) != 0;
@@ -566,86 +566,86 @@ bool MouseControlDown(const DIMOUSESTATE2* state, int control)
 }
 
 // 0x005F4330
-double MouseStickValue(const DIMOUSESTATE2* state, int negative, int positive)
+double mouse_stick_value(const DIMOUSESTATE2* state, int negative, int positive)
 {
     double value = 0.0;
     if (negative >= 4 && negative <= 11) {
         if (state->rgbButtons[negative - 4] & 0x80)
             value = -1.0;
     } else if (negative >= 1 && negative <= 3) {
-        value = MouseAxisStick(state, negative);
+        value = mouse_axis_stick(state, negative);
     }
     if (positive >= 4 && positive <= 11)
         return (state->rgbButtons[positive - 4] & 0x80) ? value + 1.0 : value;
     if (positive >= 1 && positive <= 3)
-        return MouseAxisStick(state, positive); // (in place of the first)
+        return mouse_axis_stick(state, positive); // (in place of the first)
     return value;
 }
 
 // 0x005F4450
-double JoystickStickValue(const DIJOYSTATE2* state, int negative, int positive)
+double joystick_stick_value(const DIJOYSTATE2* state, int negative, int positive)
 {
     double value = 0.0;
     if (negative >= 11 && negative <= 39) {
         if (state->rgbButtons[negative - 11])
             value = -1.0;
     } else if (negative >= 1 && negative <= 10) {
-        value = JoystickAxis(state, negative) * static_cast<double>(kJoystickStickScale);
+        value = joystick_axis(state, negative) * static_cast<double>(kJoystickStickScale);
     }
     if (positive >= 11 && positive <= 39)
         return state->rgbButtons[positive - 11] ? value + 1.0 : value;
     if (positive >= 1 && positive <= 10)
-        return JoystickAxis(state, positive) * static_cast<double>(kJoystickStickScale); // (in place of the first)
+        return joystick_axis(state, positive) * static_cast<double>(kJoystickStickScale); // (in place of the first)
     return value;
 }
 
 // 0x005F5BC0
-int ReadPad(int port, Sio::PadSnapshot* pad)
+int read_pad(int port, sio::PadSnapshot* pad)
 {
     --port;
-    ReadKeyboard();
-    DIJOYSTATE2* joystick = ReadJoystick(port);
-    DIMOUSESTATE2* mouse = ReadMouse();
+    read_keyboard();
+    DIJOYSTATE2* joystick = read_joystick(port);
+    DIMOUSESTATE2* mouse = read_mouse();
     pad->buttons = 0;
     for (int16_t& stick : pad->sticks)
         stick = 0;
     std::memset(pad->pressure, 0, sizeof(pad->pressure));
-    if (!joystick && !HasKeyBindings(port) && !HasMouseBindings(port))
+    if (!joystick && !has_key_bindings(port) && !has_mouse_bindings(port))
         return 0;
-    const PortControls& controls = Controls()[port];
+    const PortControls& controls = get_controls()[port];
 
-    if (mouse && PadModeSetting() == kPadKeyBindings) {
+    if (mouse && pad_mode_setting() == kPadKeyBindings) {
         // The sticks: each mouse axis's movement scaled twice - x 6553.4 within the stick's range, then x 32767 -
         // and only the low 16 bits kept.
         const int32_t* m = controls.mouse;
         auto stick = [&](int index, int negative, int positive, bool reversed) {
-            auto value = static_cast<int16_t>(Truncate(MouseStickValue(mouse, negative, positive) * kStickMax));
+            auto value = static_cast<int16_t>(truncate(mouse_stick_value(mouse, negative, positive) * kStickMax));
             if (value != 0)
                 pad->sticks[index] = static_cast<int16_t>(reversed ? -value : value);
         };
-        stick(0, m[2], m[3], MouseInvertX());
-        stick(1, m[0], m[1], MouseInvertY());
-        stick(2, m[6], m[7], MouseInvertX());
-        stick(3, m[4], m[5], MouseInvertY());
+        stick(0, m[2], m[3], mouse_invert_x());
+        stick(1, m[0], m[1], mouse_invert_y());
+        stick(2, m[6], m[7], mouse_invert_x());
+        stick(3, m[4], m[5], mouse_invert_y());
         for (int i = 0; i < 4; ++i) {
-            if (MouseControlDown(mouse, m[8 + i]))
-                Press(pad, i);
+            if (mouse_control_down(mouse, m[8 + i]))
+                get_press(pad, i);
         }
         for (int i = 0; i < 4; ++i) {
-            if (MouseControlDown(mouse, m[14 + i]))
-                Press(pad, 4 + i);
+            if (mouse_control_down(mouse, m[14 + i]))
+                get_press(pad, 4 + i);
         }
         for (int i = 0; i < 4; ++i) {
-            if (MouseControlDown(mouse, m[20 + i]))
+            if (mouse_control_down(mouse, m[20 + i]))
                 pad->buttons |= static_cast<uint16_t>(1 << i);
         }
-        if (MouseControlDown(mouse, m[12]))
+        if (mouse_control_down(mouse, m[12]))
             pad->buttons |= 0x10;
-        if (MouseControlDown(mouse, m[13]))
+        if (mouse_control_down(mouse, m[13]))
             pad->buttons |= 0x20;
-        if (MouseControlDown(mouse, m[18]))
+        if (mouse_control_down(mouse, m[18]))
             pad->buttons |= 0x40;
-        if (MouseControlDown(mouse, m[19]))
+        if (mouse_control_down(mouse, m[19]))
             pad->buttons |= 0x80;
     }
 
@@ -654,7 +654,7 @@ int ReadPad(int port, Sio::PadSnapshot* pad)
         // there never counts) and the other buttons.
         const int32_t* g = controls.gamepad;
         auto stick = [&](int index, int negative, int positive, float scale) {
-            auto value = static_cast<int16_t>(Truncate(JoystickStickValue(joystick, negative, positive) * scale));
+            auto value = static_cast<int16_t>(truncate(joystick_stick_value(joystick, negative, positive) * scale));
             if (value != 0 && std::abs(static_cast<int>(pad->sticks[index])) < std::abs(static_cast<int>(value)))
                 pad->sticks[index] = value;
         };
@@ -663,36 +663,36 @@ int ReadPad(int port, Sio::PadSnapshot* pad)
         stick(2, g[6], g[7], kStickMax);
         stick(3, g[4], g[5], kStickMaxReversed);
         for (int i = 0; i < 4; ++i) {
-            if (JoystickControlDown(joystick, g[8 + i]))
-                Press(pad, i);
+            if (joystick_control_down(joystick, g[8 + i]))
+                get_press(pad, i);
         }
         for (int i = 0; i < 4; ++i) {
-            if (JoystickControlDown(joystick, g[14 + i]))
-                Press(pad, 4 + i);
+            if (joystick_control_down(joystick, g[14 + i]))
+                get_press(pad, 4 + i);
         }
-        if (JoystickAxis(joystick, g[20]) < -200)
+        if (joystick_axis(joystick, g[20]) < -200)
             pad->buttons |= 1;
-        if (JoystickAxis(joystick, g[21]) > 200)
+        if (joystick_axis(joystick, g[21]) > 200)
             pad->buttons |= 2;
-        if (JoystickAxis(joystick, g[22]) < -200)
+        if (joystick_axis(joystick, g[22]) < -200)
             pad->buttons |= 4;
-        if (JoystickAxis(joystick, g[23]) > 200)
+        if (joystick_axis(joystick, g[23]) > 200)
             pad->buttons |= 8;
-        if (JoystickControlDown(joystick, g[12]))
+        if (joystick_control_down(joystick, g[12]))
             pad->buttons |= 0x10;
-        if (JoystickControlDown(joystick, g[13]))
+        if (joystick_control_down(joystick, g[13]))
             pad->buttons |= 0x20;
-        if (JoystickControlDown(joystick, g[18]))
+        if (joystick_control_down(joystick, g[18]))
             pad->buttons |= 0x40;
-        if (JoystickControlDown(joystick, g[19]))
+        if (joystick_control_down(joystick, g[19]))
             pad->buttons |= 0x80;
     }
 
-    int mode = PadModeSetting();
+    int mode = pad_mode_setting();
     if (mode == kPadNoKeys)
         return 0;
     auto stick = [&](int index, int key, int16_t value) {
-        if (KeyDown(key))
+        if (get_key_down(key))
             pad->sticks[index] = value;
     };
     if (mode != kPadDefaultKeys && !(mode == kPadDefaultKeysPort0 && port == 0)) {
@@ -707,24 +707,24 @@ int ReadPad(int port, Sio::PadSnapshot* pad)
         stick(3, k[4], kStickFull);
         stick(3, k[5], -kStickFull);
         for (int i = 0; i < 4; ++i) {
-            if (KeyDown(k[20 + i]))
+            if (get_key_down(k[20 + i]))
                 pad->buttons |= static_cast<uint16_t>(1 << i);
         }
         for (int i = 0; i < 4; ++i) {
-            if (KeyDown(k[14 + i]))
-                Press(pad, 4 + i);
+            if (get_key_down(k[14 + i]))
+                get_press(pad, 4 + i);
         }
-        if (KeyDown(k[18]))
+        if (get_key_down(k[18]))
             pad->buttons |= 0x40;
-        if (KeyDown(k[19]))
+        if (get_key_down(k[19]))
             pad->buttons |= 0x80;
-        if (KeyDown(DIK_ESCAPE) && port == 0)
+        if (get_key_down(DIK_ESCAPE) && port == 0)
             pad->buttons |= 0x10;
         for (int i = 0; i < 4; ++i) {
-            if (KeyDown(k[8 + i]))
-                Press(pad, i);
+            if (get_key_down(k[8 + i]))
+                get_press(pad, i);
         }
-        if (KeyDown(k[13]))
+        if (get_key_down(k[13]))
             pad->buttons |= 0x20;
         return 0;
     }
@@ -733,7 +733,7 @@ int ReadPad(int port, Sio::PadSnapshot* pad)
     // Backspace, - = 1 2, 3 4. Enter and Escape are a pressure button or the button 0x10 / 0x20 (any other value:
     // the byte that far into the pressures).
     auto control = [&](int key, int setting) {
-        if (!KeyDown(key))
+        if (!get_key_down(key))
             return;
         if (setting == 0x20 || setting == 0x10)
             pad->buttons |= static_cast<uint16_t>(setting);
@@ -744,54 +744,54 @@ int ReadPad(int port, Sio::PadSnapshot* pad)
     stick(0, DIK_RIGHT, kStickFull);
     stick(1, DIK_UP, kStickFull);
     stick(1, DIK_DOWN, -kStickFull);
-    if (KeyDown(DIK_SPACE))
+    if (get_key_down(DIK_SPACE))
         pad->buttons |= 0x10;
-    control(DIK_RETURN, DefaultEnterControl());
-    control(DIK_ESCAPE, DefaultEscapeControl());
+    control(DIK_RETURN, default_enter_control());
+    control(DIK_ESCAPE, default_escape_control());
     stick(3, DIK_S, kStickFull);
     stick(3, DIK_X, -kStickFull);
     stick(2, DIK_Z, -kStickFull);
     stick(2, DIK_C, kStickFull);
     const int dpad[] = {DIK_HOME, DIK_END, DIK_DELETE, DIK_NEXT};
     for (int i = 0; i < 4; ++i) {
-        if (KeyDown(dpad[i]))
+        if (get_key_down(dpad[i]))
             pad->buttons |= static_cast<uint16_t>(1 << i);
     }
     const int pressure[] = {DIK_Q, DIK_W, DIK_E, DIK_R};
     for (int i = 0; i < 4; ++i) {
-        if (KeyDown(pressure[i]))
-            Press(pad, i);
+        if (get_key_down(pressure[i]))
+            get_press(pad, i);
     }
-    if (KeyDown(DIK_BACK))
+    if (get_key_down(DIK_BACK))
         pad->buttons |= 0x20;
-    const int morePressure[] = {DIK_MINUS, DIK_EQUALS, DIK_1, DIK_2};
+    const int more_pressure[] = {DIK_MINUS, DIK_EQUALS, DIK_1, DIK_2};
     for (int i = 0; i < 4; ++i) {
-        if (KeyDown(morePressure[i]))
-            Press(pad, 4 + i);
+        if (get_key_down(more_pressure[i]))
+            get_press(pad, 4 + i);
     }
-    if (KeyDown(DIK_3))
+    if (get_key_down(DIK_3))
         pad->buttons |= 0x40;
-    if (KeyDown(DIK_4))
+    if (get_key_down(DIK_4))
         pad->buttons |= 0x80;
     return 0;
 }
 
 // 0x005F6610
-void SetPadMode(int mode)
+void set_pad_mode(int mode)
 {
-    PadModeSetting() = mode;
+    pad_mode_setting() = mode;
 }
 
 // 0x005F6620
-void SetDefaultEnterControl(int control)
+void set_default_enter_control(int control)
 {
-    DefaultEnterControl() = control;
+    default_enter_control() = control;
 }
 
 // 0x005F6630
-void SetDefaultEscapeControl(int control)
+void set_default_escape_control(int control)
 {
-    DefaultEscapeControl() = control;
+    default_escape_control() = control;
 }
 
 } // namespace Platform

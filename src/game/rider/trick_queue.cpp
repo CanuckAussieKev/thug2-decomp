@@ -1,4 +1,4 @@
-// The Trick component's tricks, button buffer and trick object list (GameObjects::CMoveExecutor): see trick_component.h. From
+// The Trick component's tricks, button buffer and trick object list (GameObjects::MoveExecutor): see trick_component.h. From
 // the disassembly of 0x00521BA0-0x00524411 (0x005222F0 and 0x005232E0 aren't Ghidra functions).
 
 #include "game/rider/trick_component.h"
@@ -32,12 +32,12 @@
 #include "engine/objects/camera_lookaround.h"
 #include "platform/crt.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
 template <typename T>
-T& At(void* object, uint32_t offset)
+T& get_at(void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
@@ -58,8 +58,8 @@ constexpr uint32_t kAltTrigger = 0x68B74085, kDuration = 0x79A07F3F, kParams = 0
                    kCurrentBailEndpose = 0xA3B7CFC2, kNone = 0x806FFF30, kSkaterType = 0xBAF9B341;
 
 // The fields (offsets into the component).
-constexpr uint32_t kBusy = 0x18;            // int: tries in progress (TryTrick)
-constexpr uint32_t kFlags1C = 0x1C;         // (+0x74: a flag the special arrays need)
+constexpr uint32_t kBusy = 0x18;            // int: tries in progress (try_trick)
+constexpr uint32_t kFlags1c = 0x1C;         // (+0x74: a flag the special arrays need)
 constexpr uint32_t kInput = 0x20;           // the Input component (+0x1C its button mask)
 constexpr uint32_t kBalanceTrick = 0x24;    // SkaterBalanceTrick
 constexpr uint32_t kCorePhysics = 0x28;     // SkaterCorePhysics
@@ -88,9 +88,9 @@ constexpr uint32_t kExtraArrayCount = 0x12D4, kExtraArrays = 0x12D8, kExtraMasks
                    kExtraSpecialMask = 0x132C;
 constexpr uint32_t kBashOn = 0x1330;
 constexpr uint32_t kTrickCount = 0x13AC;
-constexpr uint32_t kFlag13A8 = 0x13A8, kFlag13A9 = 0x13A9;
+constexpr uint32_t kFlag13a8 = 0x13A8, kFlag13a9 = 0x13A9;
 constexpr uint32_t kTrickObjectsOn = 0x13B0;
-constexpr uint32_t kTrickObjects = 0x13B4;  // CHitClusterLog
+constexpr uint32_t kTrickObjects = 0x13B4;  // HitClusterLog
 constexpr uint32_t kQuickGetupDone = 0x1BB8;
 constexpr uint32_t kBailEndpose = 0x1BBC;
 
@@ -99,83 +99,83 @@ constexpr float kPercent = 0.01f;              // 0x0064544C (0.0099999998f)
 constexpr double kMashedFastEnough = 1.5;      // 0x0064C578
 
 // The rest of the component (trick_component.cpp), under the names this code uses.
-bool TrickHasScript(CMoveExecutor* self, Scripts::CStruct* trick) { return self->IsTrickEntry(trick); }
-bool TriggerDone(CMoveExecutor* self, Scripts::CStruct* trigger, uint32_t kind, int ignore, bool option)
+bool trick_has_script(MoveExecutor* self, script::Struct* trick) { return self->is_trick_entry(trick); }
+bool trigger_done(MoveExecutor* self, script::Struct* trigger, uint32_t kind, int ignore, bool option)
 {
-    return self->CheckTrigger(trigger, kind, static_cast<uint32_t>(ignore), option);
+    return self->check_trigger(trigger, kind, static_cast<uint32_t>(ignore), option);
 }
-// (TrickNamed: `ignore` is the trick name to compare, a string pointer kept in a word)
-bool MatchesIgnore(CMoveExecutor* self, Scripts::CStruct* trick, uint32_t ignore)
+// (trick_named: `ignore` is the trick name to compare, a string pointer kept in a word)
+bool matches_ignore(MoveExecutor* self, script::Struct* trick, uint32_t ignore)
 {
-    return self->TrickNamed(trick, reinterpret_cast<const char*>(static_cast<uintptr_t>(ignore)));
+    return self->trick_named(trick, reinterpret_cast<const char*>(static_cast<uintptr_t>(ignore)));
 }
-void SetButton(CMoveExecutor* self, int button, bool pressed) { self->UpdateButton(button, pressed); }
-void CheckManualTricks(CMoveExecutor* self, uint32_t array, int ignore, bool special)
+void set_button(MoveExecutor* self, int button, bool pressed) { self->update_button(button, pressed); }
+void check_manual_tricks(MoveExecutor* self, uint32_t array, int ignore, bool special)
 {
-    self->SetPendingTrick(array, static_cast<uint32_t>(ignore), special);
+    self->set_pending_trick(array, static_cast<uint32_t>(ignore), special);
 }
-bool PressedWithin(CMoveExecutor* self, uint32_t button, int ms, int ignore)
+bool pressed_within(MoveExecutor* self, uint32_t button, int ms, int ignore)
 {
-    return self->FindPress(button, static_cast<uint32_t>(ms), static_cast<uint32_t>(ignore));
+    return self->find_press(button, static_cast<uint32_t>(ms), static_cast<uint32_t>(ignore));
 }
 
-void* Component(CMoveExecutor* self, uint32_t offset) { return At<void*>(self, offset); }
-// SkaterFlipAndRotate's DoAfterAnim (before a trick's script starts).
-void PrepareFlipAndRotate(CMoveExecutor* self)
+void* get_component(MoveExecutor* self, uint32_t offset) { return get_at<void*>(self, offset); }
+// SkaterFlipAndRotate's do_after_anim (before a trick's script starts).
+void prepare_flip_and_rotate(MoveExecutor* self)
 {
-    static_cast<CRiderSpinAndFlip*>(Component(self, kFlipAndRotate))->DoAfterAnim();
+    static_cast<RiderSpinAndFlip*>(get_component(self, kFlipAndRotate))->do_after_anim();
 }
 // The state component told a trick started.
-void TrickStarted(CMoveExecutor* self) { At<bool>(Component(self, kState), 0xE0) = true; }
+void trick_started(MoveExecutor* self) { get_at<bool>(get_component(self, kState), 0xE0) = true; }
 
-Scripts::CScript* ObjectScript(CMoveExecutor* self) { return self->m_entity->m_ownScript; }
+script::Script* object_script(MoveExecutor* self) { return self->entity_->own_script_; }
 
 // A new structure, as the original's inlined `new CStruct` (from the structure pool; null if that fails).
-Scripts::CStruct* MakeStruct()
+script::Struct* make_struct()
 {
-    Scripts::CStruct* structure = Scripts::SpawnParamBag();
-    return structure ? structure->PrepareAll() : nullptr;
+    script::Struct* structure = script::spawn_param_bag();
+    return structure ? structure->prepare_all() : nullptr;
 }
-Scripts::CStruct* NewStructCopy(Scripts::CStruct* source)
+script::Struct* new_struct_copy(script::Struct* source)
 {
-    Scripts::CStruct* structure = Scripts::SpawnParamBag();
-    return structure ? structure->InitCopy(source) : nullptr;
+    script::Struct* structure = script::spawn_param_bag();
+    return structure ? structure->init_copy(source) : nullptr;
 }
-void FreeStruct(Scripts::CStruct* structure)
+void free_struct(script::Struct* structure)
 {
-    structure->Clear();
-    Scripts::DeleteStruct(structure);
+    structure->get_clear();
+    script::delete_struct(structure);
 }
 
 // The goal manager told a mapped trick is about to start (0x005591B0 / 0x0055E790).
-void TellGoalManager(Scripts::CStruct* trick)
+void tell_goal_manager(script::Struct* trick)
 {
-    GoalSystem::GetObjectiveBoard()->TrickLanded(trick);
+    goals::get_objective_board()->trick_landed(trick);
 }
 
 // A trick's mapped structure: its trickSlot's checksum in the trick mappings, as a global structure (null if any
 // step finds nothing).
-Scripts::CStruct* MappedTrick(CMoveExecutor* self, Scripts::CStruct* trick)
+script::Struct* mapped_trick(MoveExecutor* self, script::Struct* trick)
 {
     uint32_t slot = 0;
-    trick->ReadHashValue(kTrickSlot, &slot, 0);
+    trick->read_hash_value(kTrickSlot, &slot, 0);
     if (!slot)
         return nullptr;
     uint32_t mapped = 0;
-    At<Scripts::CStruct*>(self, kTrickBindingsSlot)->ReadHashValue(slot, &mapped, 0);
+    get_at<script::Struct*>(self, kTrickBindingsSlot)->read_hash_value(slot, &mapped, 0);
     if (!mapped)
         return nullptr;
-    return Scripts::ReadSubStruct(mapped);
+    return script::read_sub_struct(mapped);
 }
 
 // The button buffer from the newest event back, while `period` ms hasn't passed: `visit(event)` for each.
 template <typename Visit>
-void ForRecentEvents(CMoveExecutor* self, uint32_t period, Visit visit)
+void for_recent_events(MoveExecutor* self, uint32_t period, Visit visit)
 {
-    int index = At<uint16_t>(self, kEventNewest);
-    for (int i = 0; i < At<uint16_t>(self, kEventCount); ++i) {
+    int index = get_at<uint16_t>(self, kEventNewest);
+    for (int i = 0; i < get_at<uint16_t>(self, kEventCount); ++i) {
         uint8_t* event = reinterpret_cast<uint8_t*>(self) + kEventRing + index * 0x18;
-        if (FrameClock::GetTime() - At<uint32_t>(event, 0) >= period)
+        if (frame_clock::get_time() - get_at<uint32_t>(event, 0) >= period)
             break;
         visit(event);
         if (--index < 0)
@@ -186,226 +186,226 @@ void ForRecentEvents(CMoveExecutor* self, uint32_t period, Visit visit)
 } // namespace
 
 // 0x00523490
-CObjectModule* __cdecl CMoveExecutor::Fabricate()
+ObjectModule* __cdecl MoveExecutor::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(0x1BC0);
+    void* memory = memory::alloc_zeroed(0x1BC0);
     if (!memory)
         return nullptr;
-    return static_cast<CMoveExecutor*>(memory)->MakeNew();
+    return static_cast<MoveExecutor*>(memory)->make_new();
 }
 
 // 0x00522390
-CMoveExecutor* CMoveExecutor::MakeNew()
+MoveExecutor* MoveExecutor::make_new()
 {
-    CObjectModule::MakeNew();
-    m_vtable = kVtable;
-    At<CHitClusterLog>(this, kTrickObjects).MakeNew();
-    m_kindTag = kTrick;
-    At<void*>(this, kTrickBindingsSlot) = nullptr;
+    ObjectModule::make_new();
+    vtable_ = kVtable;
+    get_at<HitClusterLog>(this, kTrickObjects).make_new();
+    kind_tag_ = kTrick;
+    get_at<void*>(this, kTrickBindingsSlot) = nullptr;
     for (uint32_t offset = 0x1C; offset <= 0x34; offset += 4)
-        At<void*>(this, offset) = nullptr;
-    Reset();
+        get_at<void*>(this, offset) = nullptr;
+    get_reset();
     return this;
 }
 
 // 0x005234F0
-void CMoveExecutor::DestroyBody()
+void MoveExecutor::destroy_body()
 {
-    m_vtable = kVtable;
-    if (Scripts::CStruct* mappings = At<Scripts::CStruct*>(this, kTrickBindingsSlot))
-        FreeStruct(mappings);
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    if (script::Struct* mappings = get_at<script::Struct*>(this, kTrickBindingsSlot))
+        free_struct(mappings);
+    ObjectModule::destroy_body();
 }
 
 // 0x005243F0
-CMoveExecutor* CMoveExecutor::Teardown(unsigned int flags)
+MoveExecutor* MoveExecutor::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00522410
-void CMoveExecutor::ApplyTrickBindings(CRiderIdentity* profile)
+void MoveExecutor::apply_trick_bindings(RiderIdentity* profile)
 {
-    Scripts::CStruct*& mappings = At<Scripts::CStruct*>(this, kTrickBindingsSlot);
+    script::Struct*& mappings = get_at<script::Struct*>(this, kTrickBindingsSlot);
     if (!mappings)
-        mappings = MakeStruct();
-    mappings->Clear();
+        mappings = make_struct();
+    mappings->get_clear();
     for (int i = 0; i < 12; ++i) {
-        CRiderIdentity::SpecialTrick special;
-        profile->GetSpecialTrick(&special, i);
-        if (!special.IsVacant())
-            mappings->AddComponentOfType(special.keys, special.flag ? Scripts::QBVAL_INTEGER
-                                                                     : Scripts::QBVAL_NAME,
+        RiderIdentity::SpecialTrick special;
+        profile->get_special_trick(&special, i);
+        if (!special.is_vacant())
+            mappings->add_component_of_type(special.keys, special.flag ? script::kQbvalInteger
+                                                                     : script::kQbvalName,
                                          special.trick);
     }
-    mappings->AppendStructureIfAny(profile->FetchDetailsParams(kTrickMapping));
+    mappings->append_structure_if_any(profile->fetch_details_params(kTrickMapping));
 }
 
 // 0x00521E50
-void CMoveExecutor::UpdateButtons()
+void MoveExecutor::update_buttons()
 {
-    uint32_t mask = At<uint32_t>(Component(this, kInput), 0x1C);
+    uint32_t mask = get_at<uint32_t>(get_component(this, kInput), 0x1C);
     auto bit = [mask](int n) { return ((mask >> n) & 1) != 0; };
-    int direction = DPadDirection(bit(6), bit(7), bit(5), bit(4));
+    int direction = d_pad_direction(bit(6), bit(7), bit(5), bit(4));
     for (int i = 1; i <= 8; ++i)
-        SetButton(this, i, direction == i);
+        set_button(this, i, direction == i);
     static const struct {
         int button;
         int bit;
     } kButtonBits[] = {{9, 9},     {0xA, 0xB},  {0xC, 8},    {0xB, 0xA},  {0xD, 0xC},  {0xE, 0xE},  {0xF, 0x10},
                        {0x10, 0xD}, {0x11, 0xF}, {0x12, 0x11}, {0x13, 0x16}, {0x14, 0x17}, {0x15, 0x18}};
     for (const auto& b : kButtonBits)
-        SetButton(this, b.button, bit(b.bit));
+        set_button(this, b.button, bit(b.bit));
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's stick directions as events while the skater rides the bike
     // (THAW 0x471D20's 16 more buttons - game/rider/thaw_bmx.h). Original behaviour: none.
-    if (Skater::ThawBmx::IsSwitchedOn())
-        Skater::ThawBmx::UpdateTrickSticks(this);
+    if (skater::thaw_bmx::is_switched_on())
+        skater::thaw_bmx::update_trick_sticks(this);
 }
 
 // 0x00522030
-double CMoveExecutor::GetBashSpeed()
+double MoveExecutor::get_bash_speed()
 {
-    uint32_t period = static_cast<uint32_t>(Scripts::FetchIntValue(kBashPeriod));
+    uint32_t period = static_cast<uint32_t>(script::fetch_int_value(kBashPeriod));
     int mashes = 0;
-    ForRecentEvents(this, period, [&](uint8_t* event) {
-        int kind = At<int>(event, 4);
-        if ((kind == 1 || kind == 2) && At<uint32_t>(event, 8) != kTriangle) {
+    for_recent_events(this, period, [&](uint8_t* event) {
+        int kind = get_at<int>(event, 4);
+        if ((kind == 1 || kind == 2) && get_at<uint32_t>(event, 8) != kTriangle) {
             ++mashes;
-            At<uint32_t>(event, 0x14) = 0xFFFFFFFF;
+            get_at<uint32_t>(event, 0x14) = 0xFFFFFFFF;
         }
     });
-    float speed = static_cast<float>(static_cast<double>(Scripts::FetchFloat(kBashSpeedupFactor)) * mashes);
-    double most = static_cast<double>(Scripts::FetchFloat(kBashMaxPercentSpeedup)) * kPercent;
+    float speed = static_cast<float>(static_cast<double>(script::fetch_float(kBashSpeedupFactor)) * mashes);
+    double most = static_cast<double>(script::fetch_float(kBashMaxPercentSpeedup)) * kPercent;
     return (speed > most ? most : speed) + 1.0f;
 }
 
 // 0x00522170
-double CMoveExecutor::CountTriangleBashes()
+double MoveExecutor::count_triangle_bashes()
 {
-    uint32_t period = static_cast<uint32_t>(Scripts::FetchIntValue(kBashPeriod));
+    uint32_t period = static_cast<uint32_t>(script::fetch_int_value(kBashPeriod));
     int mashes = 0;
-    ForRecentEvents(this, period, [&](uint8_t* event) {
-        int kind = At<int>(event, 4);
-        if ((kind == 1 || kind == 2) && At<uint32_t>(event, 8) == kTriangle) {
+    for_recent_events(this, period, [&](uint8_t* event) {
+        int kind = get_at<int>(event, 4);
+        if ((kind == 1 || kind == 2) && get_at<uint32_t>(event, 8) == kTriangle) {
             ++mashes;
-            At<uint32_t>(event, 0x14) = 0xFFFFFFFF;
+            get_at<uint32_t>(event, 0x14) = 0xFFFFFFFF;
         }
     });
     return mashes;
 }
 
 // 0x00522280
-int CMoveExecutor::Squeezed(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+int MoveExecutor::squeezed(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t button = 0;
     int duration = 15;
-    params->ReadHashValue(0u, &button, 0);
-    params->FetchIntValue("dur", &duration, 0);
+    params->read_hash_value(0u, &button, 0);
+    params->fetch_int_value("dur", &duration, 0);
     if (!button)
         return 0;
-    return PressedWithin(this, button, duration, -1) ? 1 : 0;
+    return pressed_within(this, button, duration, -1) ? 1 : 0;
 }
 
 // 0x005222F0
-int CMoveExecutor::GetCurrentBailEndpose(Scripts::CStruct* /*params*/, Scripts::CScript* script)
+int MoveExecutor::get_current_bail_endpose(script::Struct* /*params*/, script::Script* script)
 {
-    uint32_t endpose = At<uint32_t>(this, kBailEndpose);
-    script->m_args->PutNameKey(kCurrentBailEndpose, endpose ? endpose : kNone);
+    uint32_t endpose = get_at<uint32_t>(this, kBailEndpose);
+    script->args_->put_name_key(kCurrentBailEndpose, endpose ? endpose : kNone);
     return 1;
 }
 
 // 0x00522340
-void CMoveExecutor::CountTrick()
+void MoveExecutor::count_trick()
 {
-    if (++At<int>(this, kTrickCount) > 3)
-        m_entity->Announce(kTricksDone, nullptr, 0.0f);
+    if (++get_at<int>(this, kTrickCount) > 3)
+        entity_->announce(kTricksDone, nullptr, 0.0f);
 }
 
 // 0x00522370
-void CMoveExecutor::PassToTrickObjects(uint32_t value)
+void MoveExecutor::pass_to_trick_objects(uint32_t value)
 {
-    if (At<bool>(this, kTrickObjectsOn))
-        At<CHitClusterLog>(this, kTrickObjects).AppendOne(value);
+    if (get_at<bool>(this, kTrickObjectsOn))
+        get_at<HitClusterLog>(this, kTrickObjects).append_one(value);
 }
 
 // 0x005232A0
-void CMoveExecutor::SetTrickObjects(bool on)
+void MoveExecutor::set_trick_objects(bool on)
 {
-    At<bool>(this, kTrickObjectsOn) = on;
-    CHitClusterLog& list = At<CHitClusterLog>(this, kTrickObjects);
+    get_at<bool>(this, kTrickObjectsOn) = on;
+    HitClusterLog& list = get_at<HitClusterLog>(this, kTrickObjects);
     if (!on) {
-        list.Clear();
+        list.get_clear();
         return;
     }
-    list.AppendOne(At<uint32_t>(Component(this, kCorePhysics), 0x1B0));
+    list.append_one(get_at<uint32_t>(get_component(this, kCorePhysics), 0x1B0));
 }
 
 // 0x005232E0
-void CMoveExecutor::ResetTrickObjects()
+void MoveExecutor::reset_trick_objects()
 {
-    At<int>(this, kTrickCount) = 0;
-    At<bool>(this, kFlag13A9) = false;
-    At<bool>(this, kFlag13A8) = false;
-    At<bool>(this, kTrickObjectsOn) = false;
-    CHitClusterLog& list = At<CHitClusterLog>(this, kTrickObjects);
-    list.Clear();
-    list.Clear();
+    get_at<int>(this, kTrickCount) = 0;
+    get_at<bool>(this, kFlag13a9) = false;
+    get_at<bool>(this, kFlag13a8) = false;
+    get_at<bool>(this, kTrickObjectsOn) = false;
+    HitClusterLog& list = get_at<HitClusterLog>(this, kTrickObjects);
+    list.get_clear();
+    list.get_clear();
 }
 
 // 0x00523310
-uint32_t CMoveExecutor::EndTrickObjects(uint32_t a, uint32_t b)
+uint32_t MoveExecutor::end_trick_objects(uint32_t a, uint32_t b)
 {
-    CHitClusterLog& list = At<CHitClusterLog>(this, kTrickObjects);
-    uint32_t result = list.CopyClusterNames(reinterpret_cast<uint32_t*>(a), b);
-    At<bool>(this, kTrickObjectsOn) = false;
-    list.Clear();
+    HitClusterLog& list = get_at<HitClusterLog>(this, kTrickObjects);
+    uint32_t result = list.copy_cluster_names(reinterpret_cast<uint32_t*>(a), b);
+    get_at<bool>(this, kTrickObjectsOn) = false;
+    list.get_clear();
     return result;
 }
 
 // 0x00522520
-bool CMoveExecutor::TryTrick(Scripts::CStruct* trick, uint32_t flag, Scripts::CStruct* extraParams)
+bool MoveExecutor::try_trick(script::Struct* trick, uint32_t flag, script::Struct* extra_params)
 {
     uint32_t script = 0;
-    trick->ReadHashValue(kScr, &script, 0);
+    trick->read_hash_value(kScr, &script, 0);
     if (script == kGrind) {
-        uint8_t* rail = At<uint8_t*>(Component(this, kCorePhysics), 0x22C);
-        if (!rail || !At<void*>(rail, 0x4C))
+        uint8_t* rail = get_at<uint8_t*>(get_component(this, kCorePhysics), 0x22C);
+        if (!rail || !get_at<void*>(rail, 0x4C))
             return false;
     }
-    Scripts::CStruct* params;
-    if (trick->ReadSubStruct(kParams, &params, 0) && !params->HasEntryNamed(kIsExtra))
-        static_cast<CAttributeTracker*>(Component(this, kComponent34))->TotalOf(script);
+    script::Struct* params;
+    if (trick->read_sub_struct(kParams, &params, 0) && !params->has_entry_named(kIsExtra))
+        static_cast<AttributeTracker*>(get_component(this, kComponent34))->total_of(script);
     if (!script)
         return false;
-    ++At<int>(this, kBusy);
-    At<bool>(this, kManualPending) = false;
-    At<bool>(this, kGrindPending) = false;
-    At<uint32_t>(this, 0x1234) = 0;
-    Scripts::CStruct* trickParams = nullptr;
-    trick->ReadSubStruct(kParams, &trickParams, 0);
-    PrepareFlipAndRotate(this);
-    CEntity* object = m_entity;
-    object->ReplaceScript(script, trickParams);
+    ++get_at<int>(this, kBusy);
+    get_at<bool>(this, kManualPending) = false;
+    get_at<bool>(this, kGrindPending) = false;
+    get_at<uint32_t>(this, 0x1234) = 0;
+    script::Struct* trick_params = nullptr;
+    trick->read_sub_struct(kParams, &trick_params, 0);
+    prepare_flip_and_rotate(this);
+    Entity* object = entity_;
+    object->replace_script(script, trick_params);
     if (flag)
-        object->m_ownScript->m_args->PutNameKey(0u, flag);
-    object->m_ownScript->m_args->AppendStructureIfAny(extraParams);
-    object->m_ownScript->TickFrame();
-    TrickStarted(this);
-    CountTrick();
-    --At<int>(this, kBusy);
+        object->own_script_->args_->put_name_key(0u, flag);
+    object->own_script_->args_->append_structure_if_any(extra_params);
+    object->own_script_->tick_frame();
+    trick_started(this);
+    count_trick();
+    --get_at<int>(this, kBusy);
     return true;
 }
 
 // 0x00522670
-void CMoveExecutor::DoNextTrick(uint32_t first, Scripts::CStruct* params, Scripts::CStruct* trickParams)
+void MoveExecutor::do_next_trick(uint32_t first, script::Struct* params, script::Struct* trick_params)
 {
-    At<bool>(Component(this, kState), 0xE0) = false;
-    At<bool>(this, kIsSpecial) = false;
-    int& head = At<int>(this, kQueueHead);
-    int& tail = At<int>(this, kQueueTail);
+    get_at<bool>(get_component(this, kState), 0xE0) = false;
+    get_at<bool>(this, kIsSpecial) = false;
+    int& head = get_at<int>(this, kQueueHead);
+    int& tail = get_at<int>(this, kQueueTail);
     if (head == -1)
         return;
     uint32_t array;
@@ -413,9 +413,9 @@ void CMoveExecutor::DoNextTrick(uint32_t first, Scripts::CStruct* params, Script
     for (;;) {
         int entry = head;
         uint8_t* queued = reinterpret_cast<uint8_t*>(this) + kQueue + entry * 0x14;
-        array = At<uint32_t>(queued, 0);
-        index = At<uint32_t>(queued, 4);
-        At<bool>(this, kIsSpecial) = At<bool>(queued, 0x10);
+        array = get_at<uint32_t>(queued, 0);
+        index = get_at<uint32_t>(queued, 4);
+        get_at<bool>(this, kIsSpecial) = get_at<bool>(queued, 0x10);
         if (entry != -1) {
             if (entry == tail) {
                 tail = -1;
@@ -430,418 +430,418 @@ void CMoveExecutor::DoNextTrick(uint32_t first, Scripts::CStruct* params, Script
             return;
     }
     if (first) {
-        m_entity->CreateScriptIfNeeded();
-        m_entity->m_ownScript->Preempt(first, params);
+        entity_->create_script_if_needed();
+        entity_->own_script_->preempt(first, params);
     }
-    auto* trick = reinterpret_cast<Scripts::CStruct*>(Scripts::FetchList(array)->FetchPart(index));
-    if (TryTrick(trick, 0, trickParams))
+    auto* trick = reinterpret_cast<script::Struct*>(script::fetch_list(array)->fetch_part(index));
+    if (try_trick(trick, 0, trick_params))
         return;
     uint32_t slot = 0;
-    trick->ReadHashValue(kTrickSlot, &slot, 0);
+    trick->read_hash_value(kTrickSlot, &slot, 0);
     if (!slot)
         return;
-    Scripts::CStruct* mappings = At<Scripts::CStruct*>(this, kTrickBindingsSlot);
+    script::Struct* mappings = get_at<script::Struct*>(this, kTrickBindingsSlot);
     int created = 0;
-    if (mappings->FetchIntValue(slot, &created, 0)) {
+    if (mappings->fetch_int_value(slot, &created, 0)) {
         // A created trick: CreateATrick with its index.
-        Scripts::CStruct* createParams = MakeStruct();
-        createParams->PutInt(kTrickIndex, created);
-        createParams->AppendStructureIfAny(trickParams);
-        CEntity* object = m_entity;
-        object->ReplaceScript(kCreateATrick, createParams);
-        if (createParams)
-            FreeStruct(createParams);
-        object->m_ownScript->TickFrame();
-        TrickStarted(this);
-        CountTrick();
+        script::Struct* create_params = make_struct();
+        create_params->put_int(kTrickIndex, created);
+        create_params->append_structure_if_any(trick_params);
+        Entity* object = entity_;
+        object->replace_script(kCreateATrick, create_params);
+        if (create_params)
+            free_struct(create_params);
+        object->own_script_->tick_frame();
+        trick_started(this);
+        count_trick();
         return;
     }
     uint32_t mapped = 0;
-    mappings->ReadHashValue(slot, &mapped, 0);
+    mappings->read_hash_value(slot, &mapped, 0);
     if (!mapped)
         return;
-    Scripts::CStruct* structure = Scripts::ReadSubStruct(mapped);
+    script::Struct* structure = script::read_sub_struct(mapped);
     if (!structure)
         return;
-    TellGoalManager(structure);
-    TryTrick(structure, 0, trickParams);
+    tell_goal_manager(structure);
+    try_trick(structure, 0, trick_params);
 }
 
 // 0x005228B0
-void CMoveExecutor::DoNextManualTrick(Scripts::CStruct* params)
+void MoveExecutor::do_next_manual_trick(script::Struct* params)
 {
     uint32_t first = 0;
-    Scripts::CStruct* firstParams = nullptr;
-    params->ReadHashValue(kScriptToRunFirst, &first, 0);
-    params->ReadSubStruct(kParams, &firstParams, 0);
-    At<bool>(this, kIsSpecial) = false;
-    if (!At<bool>(this, kManualPending))
+    script::Struct* first_params = nullptr;
+    params->read_hash_value(kScriptToRunFirst, &first, 0);
+    params->read_sub_struct(kParams, &first_params, 0);
+    get_at<bool>(this, kIsSpecial) = false;
+    if (!get_at<bool>(this, kManualPending))
         return;
-    At<bool>(this, kManualPending) = false;
+    get_at<bool>(this, kManualPending) = false;
     if (first) {
-        Scripts::CStruct copy;
-        copy.InitCopy(params);
-        m_entity->CreateScriptIfNeeded();
-        m_entity->m_ownScript->Preempt(first, firstParams);
-        params->Assign(&copy);
-        copy.Clear();
+        script::Struct copy;
+        copy.init_copy(params);
+        entity_->create_script_if_needed();
+        entity_->own_script_->preempt(first, first_params);
+        params->get_assign(&copy);
+        copy.get_clear();
     }
-    Scripts::CArray* array = Scripts::FetchList(At<uint32_t>(this, kManualArray));
+    script::Array* array = script::fetch_list(get_at<uint32_t>(this, kManualArray));
     if (!array)
         return;
-    auto* trick = reinterpret_cast<Scripts::CStruct*>(array->FetchPart(At<uint32_t>(this, kManualIndex)));
-    if (Scripts::CStruct* mapped = MappedTrick(this, trick))
+    auto* trick = reinterpret_cast<script::Struct*>(array->fetch_part(get_at<uint32_t>(this, kManualIndex)));
+    if (script::Struct* mapped = mapped_trick(this, trick))
         trick = mapped;
     uint32_t script = 0;
-    trick->ReadHashValue(kScr, &script, 0);
+    trick->read_hash_value(kScr, &script, 0);
     if (!script)
         return;
-    PrepareFlipAndRotate(this);
-    At<bool>(this, kIsSpecial) = At<bool>(this, kManualIsSpecial);
-    Scripts::CStruct* trickParams = nullptr;
-    trick->ReadSubStruct(kParams, &trickParams, 0);
-    CEntity* object = m_entity;
+    prepare_flip_and_rotate(this);
+    get_at<bool>(this, kIsSpecial) = get_at<bool>(this, kManualIsSpecial);
+    script::Struct* trick_params = nullptr;
+    trick->read_sub_struct(kParams, &trick_params, 0);
+    Entity* object = entity_;
     if (params) {
-        params->AppendStructureIfAny(trickParams);
-        object->ReplaceScript(script, params);
+        params->append_structure_if_any(trick_params);
+        object->replace_script(script, params);
     } else {
-        object->ReplaceScript(script, trickParams);
+        object->replace_script(script, trick_params);
     }
-    object->m_ownScript->TickFrame();
-    TrickStarted(this);
-    if (++At<int>(this, kTrickCount) > 3)
-        m_entity->Announce(kTricksDone, nullptr, 0.0f);
+    object->own_script_->tick_frame();
+    trick_started(this);
+    if (++get_at<int>(this, kTrickCount) > 3)
+        entity_->announce(kTricksDone, nullptr, 0.0f);
 }
 
 // 0x00522E80
-bool CMoveExecutor::DoExtraGrindTrick(bool a, bool b, bool c, bool d)
+bool MoveExecutor::do_extra_grind_trick(bool a, bool b, bool c, bool d)
 {
-    if (!At<bool>(this, kGrindPending))
+    if (!get_at<bool>(this, kGrindPending))
         return false;
-    At<bool>(this, kGrindPending) = false;
-    Scripts::CArray* array = Scripts::FetchList(At<uint32_t>(this, kGrindArray));
+    get_at<bool>(this, kGrindPending) = false;
+    script::Array* array = script::fetch_list(get_at<uint32_t>(this, kGrindArray));
     if (!array)
         return false;
-    auto* trick = reinterpret_cast<Scripts::CStruct*>(array->FetchPart(At<uint32_t>(this, kGrindIndex)));
-    Scripts::CArray* scripts = nullptr;
-    Scripts::CArray* templates = nullptr;
+    auto* trick = reinterpret_cast<script::Struct*>(array->fetch_part(get_at<uint32_t>(this, kGrindIndex)));
+    script::Array* scripts = nullptr;
+    script::Array* templates = nullptr;
     const char* prefix = nullptr;
-    trick->FetchList(kScripts, &scripts, 0);
-    trick->FetchList(kTemplate, &templates, 0);
-    trick->FetchText(kPrefix, &prefix, 0);
+    trick->fetch_list(kScripts, &scripts, 0);
+    trick->fetch_list(kTemplate, &templates, 0);
+    trick->fetch_text(kPrefix, &prefix, 0);
     if (!scripts && !templates) {
-        if (Scripts::CStruct* mapped = MappedTrick(this, trick)) {
-            mapped->FetchList(kScripts, &scripts, 0);
-            mapped->FetchList(kTemplate, &templates, 0);
-            mapped->FetchText(kPrefix, &prefix, 0);
+        if (script::Struct* mapped = mapped_trick(this, trick)) {
+            mapped->fetch_list(kScripts, &scripts, 0);
+            mapped->fetch_list(kTemplate, &templates, 0);
+            mapped->fetch_text(kPrefix, &prefix, 0);
         }
     }
     uint32_t which = (a ? 1 : 0) | (b ? 2 : 0) | (c ? 4 : 0) | (d ? 8 : 0);
     uint32_t script;
     if (scripts) {
-        script = scripts->FetchPart(which);
+        script = scripts->fetch_part(which);
     } else {
         char name[100];
-        Crt::Sprintf(name, "%s%s", prefix,
-                                                                           templates->FindInlineText(which));
-        script = Checksums::HashFromText(name);
+        crt::get_sprintf(name, "%s%s", prefix,
+                                                                           templates->find_inline_text(which));
+        script = checksums::hash_from_text(name);
     }
-    Scripts::CStruct* trickParams = nullptr;
-    trick->ReadSubStruct(kParams, &trickParams, 0);
-    CEntity* object = m_entity;
-    if (object->m_kindTag == kSkaterType)
-        At<uint32_t>(Component(this, kCorePhysics), 0x3A8) = 0;
-    At<bool>(this, kIsSpecial) = At<bool>(this, kGrindIsSpecial);
-    PrepareFlipAndRotate(this);
-    object->ReplaceScript(script, trickParams);
-    object->m_ownScript->TickFrame();
-    TrickStarted(this);
-    if (++At<int>(this, kTrickCount) > 3)
-        m_entity->Announce(kTricksDone, nullptr, 0.0f);
+    script::Struct* trick_params = nullptr;
+    trick->read_sub_struct(kParams, &trick_params, 0);
+    Entity* object = entity_;
+    if (object->kind_tag_ == kSkaterType)
+        get_at<uint32_t>(get_component(this, kCorePhysics), 0x3A8) = 0;
+    get_at<bool>(this, kIsSpecial) = get_at<bool>(this, kGrindIsSpecial);
+    prepare_flip_and_rotate(this);
+    object->replace_script(script, trick_params);
+    object->own_script_->tick_frame();
+    trick_started(this);
+    if (++get_at<int>(this, kTrickCount) > 3)
+        entity_->announce(kTricksDone, nullptr, 0.0f);
     return true;
 }
 
 // 0x00521BA0
-void CMoveExecutor::UpdateManualTricks()
+void MoveExecutor::update_manual_tricks()
 {
-    uint32_t special = At<uint32_t>(this, kManualSpecial);
-    if (special && At<bool>(Component(this, kFlags1C), 0x74)) {
-        CheckManualTricks(this, special, -5, true);
-        if (At<bool>(this, kManualPending))
+    uint32_t special = get_at<uint32_t>(this, kManualSpecial);
+    if (special && get_at<bool>(get_component(this, kFlags1c), 0x74)) {
+        check_manual_tricks(this, special, -5, true);
+        if (get_at<bool>(this, kManualPending))
             return;
     }
-    for (int i = 0; i < At<int>(this, kManualArrayCount); ++i)
-        CheckManualTricks(this, At<uint32_t>(this, kManualArrays + 4 * i), -1, false);
+    for (int i = 0; i < get_at<int>(this, kManualArrayCount); ++i)
+        check_manual_tricks(this, get_at<uint32_t>(this, kManualArrays + 4 * i), -1, false);
 }
 
 // 0x00521C10
-void CMoveExecutor::CheckExtraGrindTricks(uint32_t array, bool special)
+void MoveExecutor::check_extra_grind_tricks(uint32_t array, bool special)
 {
-    Scripts::CArray* tricks = Scripts::FetchList(array);
+    script::Array* tricks = script::fetch_list(array);
     if (!tricks)
         return;
-    int count = static_cast<int>(tricks->m_extent);
+    int count = static_cast<int>(tricks->extent_);
     for (int i = 0; i < count; ++i) {
-        auto* trick = reinterpret_cast<Scripts::CStruct*>(tricks->FetchPart(i));
-        if (!TrickHasScript(this, trick))
+        auto* trick = reinterpret_cast<script::Struct*>(tricks->fetch_part(i));
+        if (!trick_has_script(this, trick))
             continue;
-        Scripts::CStruct* trigger = reinterpret_cast<Skater::Component*>(this)->PlatformStructure(trick);
-        Scripts::CStruct* altTrigger = nullptr;
-        trick->ReadSubStruct(kAltTrigger, &altTrigger, 0);
-        if (!TriggerDone(this, trigger, 8, -5, false) && !TriggerDone(this, altTrigger, 8, -5, false))
+        script::Struct* trigger = reinterpret_cast<skater::Component*>(this)->platform_structure(trick);
+        script::Struct* alt_trigger = nullptr;
+        trick->read_sub_struct(kAltTrigger, &alt_trigger, 0);
+        if (!trigger_done(this, trigger, 8, -5, false) && !trigger_done(this, alt_trigger, 8, -5, false))
             continue;
-        At<uint32_t>(this, kGrindArray) = array;
-        At<int>(this, kGrindIndex) = i;
-        At<uint32_t>(this, kGrindTime) = FrameClock::GetTime();
-        At<bool>(this, kGrindIsSpecial) = special;
-        At<int>(this, kGrindDuration) = -1;
-        trick->FetchIntValue(kDuration, &At<int>(this, kGrindDuration), 0);
-        At<bool>(this, kGrindPending) = true;
+        get_at<uint32_t>(this, kGrindArray) = array;
+        get_at<int>(this, kGrindIndex) = i;
+        get_at<uint32_t>(this, kGrindTime) = frame_clock::get_time();
+        get_at<bool>(this, kGrindIsSpecial) = special;
+        get_at<int>(this, kGrindDuration) = -1;
+        trick->fetch_int_value(kDuration, &get_at<int>(this, kGrindDuration), 0);
+        get_at<bool>(this, kGrindPending) = true;
     }
 }
 
 // 0x00521D20
-void CMoveExecutor::UpdateExtraGrindTricks()
+void MoveExecutor::update_extra_grind_tricks()
 {
-    uint32_t special = At<uint32_t>(this, kGrindSpecial);
-    if (special && At<bool>(Component(this, kFlags1C), 0x74))
-        CheckExtraGrindTricks(special, true);
-    for (int i = 0; i < At<int>(this, kGrindArrayCount); ++i)
-        CheckExtraGrindTricks(At<uint32_t>(this, kGrindArrays + 4 * i), false);
+    uint32_t special = get_at<uint32_t>(this, kGrindSpecial);
+    if (special && get_at<bool>(get_component(this, kFlags1c), 0x74))
+        check_extra_grind_tricks(special, true);
+    for (int i = 0; i < get_at<int>(this, kGrindArrayCount); ++i)
+        check_extra_grind_tricks(get_at<uint32_t>(this, kGrindArrays + 4 * i), false);
 }
 
 // 0x00521D80
-uint32_t CMoveExecutor::FetchSkipMask(uint32_t array, uint32_t ignore)
+uint32_t MoveExecutor::fetch_skip_mask(uint32_t array, uint32_t ignore)
 {
-    Scripts::CArray* tricks = Scripts::FetchList(array);
-    int count = static_cast<int>(tricks->m_extent); // (the original doesn't check the array exists)
+    script::Array* tricks = script::fetch_list(array);
+    int count = static_cast<int>(tricks->extent_); // (the original doesn't check the array exists)
     uint32_t mask = 0;
     for (int i = 0; i < count; ++i) {
-        if (MatchesIgnore(this, reinterpret_cast<Scripts::CStruct*>(tricks->FetchPart(i)), ignore))
+        if (matches_ignore(this, reinterpret_cast<script::Struct*>(tricks->fetch_part(i)), ignore))
             mask |= 1u << i;
     }
     return mask;
 }
 
 // 0x00521DF0
-void CMoveExecutor::IgnoreTricks(uint32_t ignore)
+void MoveExecutor::ignore_tricks(uint32_t ignore)
 {
-    for (int i = 0; i < At<int>(this, kExtraArrayCount); ++i)
-        At<uint32_t>(this, kExtraMasks + 4 * i) |= FetchSkipMask(At<uint32_t>(this, kExtraArrays + 4 * i), ignore);
-    if (uint32_t special = At<uint32_t>(this, kExtraSpecial))
-        At<uint32_t>(this, kExtraSpecialMask) |= FetchSkipMask(special, ignore);
+    for (int i = 0; i < get_at<int>(this, kExtraArrayCount); ++i)
+        get_at<uint32_t>(this, kExtraMasks + 4 * i) |= fetch_skip_mask(get_at<uint32_t>(this, kExtraArrays + 4 * i), ignore);
+    if (uint32_t special = get_at<uint32_t>(this, kExtraSpecial))
+        get_at<uint32_t>(this, kExtraSpecialMask) |= fetch_skip_mask(special, ignore);
 }
 
 // 0x00522AA0
-bool CMoveExecutor::TryExtraTricks(uint32_t array, uint32_t skip)
+bool MoveExecutor::try_extra_tricks(uint32_t array, uint32_t skip)
 {
     bool started = false;
-    Scripts::CArray* tricks = Scripts::FetchList(array);
+    script::Array* tricks = script::fetch_list(array);
     if (!tricks)
         return false;
-    int count = static_cast<int>(tricks->m_extent);
+    int count = static_cast<int>(tricks->extent_);
     for (int i = 0; i < count; ++i) {
         if (skip & (1u << i))
             continue;
-        auto* trick = reinterpret_cast<Scripts::CStruct*>(tricks->FetchPart(i));
-        if (!TrickHasScript(this, trick))
+        auto* trick = reinterpret_cast<script::Struct*>(tricks->fetch_part(i));
+        if (!trick_has_script(this, trick))
             continue;
-        Scripts::CStruct* trigger = reinterpret_cast<Skater::Component*>(this)->PlatformStructure(trick);
-        Scripts::CStruct* altTrigger = nullptr;
-        trick->ReadSubStruct(kAltTrigger, &altTrigger, 0);
-        if (TriggerDone(this, trigger, 2, -5, false) || TriggerDone(this, altTrigger, 2, -5, false)) {
-            if (TryTrick(trick, kIsExtra, nullptr)) {
+        script::Struct* trigger = reinterpret_cast<skater::Component*>(this)->platform_structure(trick);
+        script::Struct* alt_trigger = nullptr;
+        trick->read_sub_struct(kAltTrigger, &alt_trigger, 0);
+        if (trigger_done(this, trigger, 2, -5, false) || trigger_done(this, alt_trigger, 2, -5, false)) {
+            if (try_trick(trick, kIsExtra, nullptr)) {
                 started = true;
             } else {
                 uint32_t slot = 0;
-                trick->ReadHashValue(kTrickSlot, &slot, 0);
+                trick->read_hash_value(kTrickSlot, &slot, 0);
                 if (slot) {
                     uint32_t mapped = 0;
-                    At<Scripts::CStruct*>(this, kTrickBindingsSlot)->ReadHashValue(slot, &mapped, 0);
+                    get_at<script::Struct*>(this, kTrickBindingsSlot)->read_hash_value(slot, &mapped, 0);
                     if (mapped) {
-                        Scripts::CStruct* structure = Scripts::ReadSubStruct(mapped);
-                        if (structure && TryTrick(structure, kIsExtra, nullptr))
+                        script::Struct* structure = script::read_sub_struct(mapped);
+                        if (structure && try_trick(structure, kIsExtra, nullptr))
                             started = true;
                     }
                 }
             }
         }
-        if (!At<bool>(this, kExtraOn))
+        if (!get_at<bool>(this, kExtraOn))
             return started;
     }
     return started;
 }
 
 // 0x00522C00
-void CMoveExecutor::UpdateExtraTricks()
+void MoveExecutor::update_extra_tricks()
 {
-    if (!At<bool>(this, kExtraOn))
+    if (!get_at<bool>(this, kExtraOn))
         return;
-    if (!At<bool>(this, kExtraForever) &&
-        FrameClock::GetTime() - At<uint32_t>(this, kExtraStart) > At<uint32_t>(this, kExtraDuration)) {
-        At<bool>(this, kExtraOn) = false;
+    if (!get_at<bool>(this, kExtraForever) &&
+        frame_clock::get_time() - get_at<uint32_t>(this, kExtraStart) > get_at<uint32_t>(this, kExtraDuration)) {
+        get_at<bool>(this, kExtraOn) = false;
         return;
     }
-    if (uint32_t special = At<uint32_t>(this, kExtraSpecial)) {
-        if (At<bool>(Component(this, kFlags1C), 0x74)) {
-            At<bool>(this, kIsSpecial) = true;
-            if (!TryExtraTricks(special, At<uint32_t>(this, kExtraSpecialMask)))
-                At<bool>(this, kIsSpecial) = false;
-            if (!At<bool>(this, kExtraOn))
+    if (uint32_t special = get_at<uint32_t>(this, kExtraSpecial)) {
+        if (get_at<bool>(get_component(this, kFlags1c), 0x74)) {
+            get_at<bool>(this, kIsSpecial) = true;
+            if (!try_extra_tricks(special, get_at<uint32_t>(this, kExtraSpecialMask)))
+                get_at<bool>(this, kIsSpecial) = false;
+            if (!get_at<bool>(this, kExtraOn))
                 return;
         } else {
-            At<bool>(this, kIsSpecial) = false;
+            get_at<bool>(this, kIsSpecial) = false;
         }
     }
-    for (int i = 0; i < At<int>(this, kExtraArrayCount); ++i) {
-        if (TryExtraTricks(At<uint32_t>(this, kExtraArrays + 4 * i), At<uint32_t>(this, kExtraMasks + 4 * i)))
-            At<bool>(this, kIsSpecial) = false;
-        if (!At<bool>(this, kExtraOn))
+    for (int i = 0; i < get_at<int>(this, kExtraArrayCount); ++i) {
+        if (try_extra_tricks(get_at<uint32_t>(this, kExtraArrays + 4 * i), get_at<uint32_t>(this, kExtraMasks + 4 * i)))
+            get_at<bool>(this, kIsSpecial) = false;
+        if (!get_at<bool>(this, kExtraOn))
             return;
     }
 }
 
 // 0x00522CD0
-void CMoveExecutor::SetExtraTricks(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+void MoveExecutor::set_extra_tricks(script::Struct* params, script::Script* /*script*/)
 {
-    At<bool>(this, kExtraOn) = true;
-    At<bool>(this, kExtraForever) = true;
+    get_at<bool>(this, kExtraOn) = true;
+    get_at<bool>(this, kExtraForever) = true;
     float duration = 0.0f;
-    if (params->FetchFloat(kDuration, &duration, 0)) {
-        At<bool>(this, kExtraForever) = false;
-        At<uint32_t>(this, kExtraStart) = FrameClock::GetTime();
-        At<int>(this, kExtraDuration) = static_cast<int>(static_cast<int64_t>(static_cast<double>(duration) * kFrameMs));
+    if (params->fetch_float(kDuration, &duration, 0)) {
+        get_at<bool>(this, kExtraForever) = false;
+        get_at<uint32_t>(this, kExtraStart) = frame_clock::get_time();
+        get_at<int>(this, kExtraDuration) = static_cast<int>(static_cast<int64_t>(static_cast<double>(duration) * kFrameMs));
     }
-    int& count = At<int>(this, kExtraArrayCount);
+    int& count = get_at<int>(this, kExtraArrayCount);
     count = 0;
     uint32_t tricks = 0;
-    if (params->ReadHashValue(kTricks, &tricks, 0)) {
+    if (params->read_hash_value(kTricks, &tricks, 0)) {
         count = 1;
-        At<uint32_t>(this, kExtraArrays) = tricks;
+        get_at<uint32_t>(this, kExtraArrays) = tricks;
     } else {
-        for (Scripts::CComponent* c = params->StepToEntry(nullptr); c; c = params->StepToEntry(c)) {
-            if (c->name == 0 && (c->typeAndFlag & 0xFE) == Scripts::QBVAL_NAME << 1)
-                At<uint32_t>(this, kExtraArrays + 4 * count++) = c->checksum;
+        for (script::Component* c = params->step_to_entry(nullptr); c; c = params->step_to_entry(c)) {
+            if (c->name == 0 && (c->type_and_flag_ & 0xFE) == script::kQbvalName << 1)
+                get_at<uint32_t>(this, kExtraArrays + 4 * count++) = c->checksum;
         }
     }
-    uint32_t& special = At<uint32_t>(this, kExtraSpecial);
+    uint32_t& special = get_at<uint32_t>(this, kExtraSpecial);
     special = 0;
-    params->ReadHashValue(kSpecial, &special, 0);
+    params->read_hash_value(kSpecial, &special, 0);
     for (int i = 0; i < 10; ++i)
-        At<uint32_t>(this, kExtraMasks + 4 * i) = 0;
-    At<uint32_t>(this, kExtraSpecialMask) = 0;
+        get_at<uint32_t>(this, kExtraMasks + 4 * i) = 0;
+    get_at<uint32_t>(this, kExtraSpecialMask) = 0;
     const char* ignore = ""; // ("")
-    if (params->FetchText(kIgnore, &ignore, 0)) {
-        IgnoreTricks(reinterpret_cast<uint32_t>(ignore)); // (the string's address as a name, as the original)
+    if (params->fetch_text(kIgnore, &ignore, 0)) {
+        ignore_tricks(reinterpret_cast<uint32_t>(ignore)); // (the string's address as a name, as the original)
         return;
     }
-    Scripts::CArray* ignored = nullptr;
-    if (params->FetchList(kIgnore, &ignored, 0)) {
-        int n = static_cast<int>(ignored->m_extent);
+    script::Array* ignored = nullptr;
+    if (params->fetch_list(kIgnore, &ignored, 0)) {
+        int n = static_cast<int>(ignored->extent_);
         for (int i = 0; i < n; ++i)
-            IgnoreTricks(reinterpret_cast<uint32_t>(ignored->FetchText(i)));
+            ignore_tricks(reinterpret_cast<uint32_t>(ignored->fetch_text(i)));
     }
 }
 
 // 0x005230E0
-void CMoveExecutor::UpdateBash()
+void MoveExecutor::update_bash()
 {
-    if (!At<bool>(this, kBashOn))
+    if (!get_at<bool>(this, kBashOn))
         return;
-    auto* blender = static_cast<CAnimBlenderComponent*>(m_entity->FetchModule(kAnimBlender));
-    if (blender->GetTimeline30() != kRunOut && blender->GetTimeline30() != kRunOutQuick) {
-        if (!(GetBashSpeed() > kMashedFastEnough))
+    auto* blender = static_cast<AnimBlenderComponent*>(entity_->fetch_module(kAnimBlender));
+    if (blender->get_timeline30() != kRunOut && blender->get_timeline30() != kRunOutQuick) {
+        if (!(get_bash_speed() > kMashedFastEnough))
             return;
-        if (At<uint32_t>(Component(this, kState), 0x1C)) {
+        if (get_at<uint32_t>(get_component(this, kState), 0x1C)) {
             float one;
             uint32_t bits = 1;
             std::memcpy(&one, &bits, 4);
-            blender->FirstChannel47E850(2.0f, one, 0.0f, 0.0f);
+            blender->first_channel_47e_850(2.0f, one, 0.0f, 0.0f);
             return;
         }
-        Scripts::LaunchScript(kTantrumOff, nullptr, m_entity, false, nullptr);
-        if (At<uint32_t>(this, kBailEndpose) && !At<bool>(this, kQuickGetupDone)) {
-            DebugOut::Printf("ButtonMash - trigger quick getup..........................\n"); // "ButtonMash - trigger quick getup..."
-            At<bool>(this, kQuickGetupDone) = true;
-            Scripts::LaunchScript(kBailQuickGetup, nullptr, m_entity, false, nullptr);
+        script::launch_script(kTantrumOff, nullptr, entity_, false, nullptr);
+        if (get_at<uint32_t>(this, kBailEndpose) && !get_at<bool>(this, kQuickGetupDone)) {
+            debug::printf("ButtonMash - trigger quick getup..........................\n"); // "ButtonMash - trigger quick getup..."
+            get_at<bool>(this, kQuickGetupDone) = true;
+            script::launch_script(kBailQuickGetup, nullptr, entity_, false, nullptr);
             return;
         }
     }
     float one;
     uint32_t bits = 1;
     std::memcpy(&one, &bits, 4);
-    blender->FirstChannel47E850(static_cast<float>(GetBashSpeed()), one, 0.0f, 0.0f);
+    blender->first_channel_47e_850(static_cast<float>(get_bash_speed()), one, 0.0f, 0.0f);
 }
 
 // 0x005231D0
-void CMoveExecutor::TickFrame()
+void MoveExecutor::tick_frame()
 {
-    if (!reinterpret_cast<CGameEntity*>(m_entity)->m_unknownBC) {
-        VirtualSuspend(true);
+    if (!reinterpret_cast<GameEntity*>(entity_)->unknownbc_) {
+        virtual_suspend(true);
         return;
     }
-    UpdateButtons();
-    static_cast<CRiderTeeterMoves*>(Component(this, kBalanceTrick))
-        ->GetButtons(&At<int>(this, kButtonsHeld), reinterpret_cast<uint32_t*>(&At<int>(this, kButtonsHeld + 4)));
-    UpdateExtraTricks();
-    QueueAllDoneTricks();
-    UpdateManualTricks();
-    if (At<bool>(this, kManualPending) && At<int>(this, kManualDuration) != -1 &&
-        static_cast<uint32_t>(FrameClock::GameClockElapsed() + (g_clockOffset - At<int>(this, kManualTime))) >
-            At<uint32_t>(this, kManualDuration))
-        At<bool>(this, kManualPending) = false;
-    UpdateExtraGrindTricks();
-    if (At<bool>(this, kGrindPending) && At<int>(this, kGrindDuration) != -1 &&
-        FrameClock::GetTime() - At<uint32_t>(this, kGrindTime) > At<uint32_t>(this, kGrindDuration))
-        At<bool>(this, kGrindPending) = false;
-    UpdateBash();
+    update_buttons();
+    static_cast<RiderTeeterMoves*>(get_component(this, kBalanceTrick))
+        ->get_buttons(&get_at<int>(this, kButtonsHeld), reinterpret_cast<uint32_t*>(&get_at<int>(this, kButtonsHeld + 4)));
+    update_extra_tricks();
+    queue_all_done_tricks();
+    update_manual_tricks();
+    if (get_at<bool>(this, kManualPending) && get_at<int>(this, kManualDuration) != -1 &&
+        static_cast<uint32_t>(frame_clock::game_clock_elapsed() + (g_clock_offset - get_at<int>(this, kManualTime))) >
+            get_at<uint32_t>(this, kManualDuration))
+        get_at<bool>(this, kManualPending) = false;
+    update_extra_grind_tricks();
+    if (get_at<bool>(this, kGrindPending) && get_at<int>(this, kGrindDuration) != -1 &&
+        frame_clock::get_time() - get_at<uint32_t>(this, kGrindTime) > get_at<uint32_t>(this, kGrindDuration))
+        get_at<bool>(this, kGrindPending) = false;
+    update_bash();
     // NOT ORIGINAL - THAW's BMX (the feature on; THAW 0x4723D0 ends its update): the right stick centred or not, for
     // BikePress. Original behaviour: none.
-    if (Skater::ThawBmx::IsSwitchedOn())
-        Skater::ThawBmx::EndTrickUpdate(this);
+    if (skater::thaw_bmx::is_switched_on())
+        skater::thaw_bmx::end_trick_update(this);
 }
 
 // 0x00523350
-bool __cdecl CFunc_DoNextTrick(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_do_next_trick(script::Struct* params, script::Script* script)
 {
-    auto* trick = static_cast<CMoveExecutor*>(
-        reinterpret_cast<CGameEntity*>(script->m_entity.Pull())->FetchModule(kTrick));
+    auto* trick = static_cast<MoveExecutor*>(
+        reinterpret_cast<GameEntity*>(script->entity_.get_pull())->fetch_module(kTrick));
     uint32_t first = 0;
-    Scripts::CStruct* firstParams = nullptr;
-    params->ReadHashValue(kScriptToRunFirst, &first, 0);
-    params->ReadSubStruct(kParams, &firstParams, 0);
-    Scripts::CStruct* trickParams = nullptr;
-    params->ReadSubStruct(kTrickParams, &trickParams, 0);
-    if (!trickParams) {
-        trick->DoNextTrick(first, firstParams, nullptr);
+    script::Struct* first_params = nullptr;
+    params->read_hash_value(kScriptToRunFirst, &first, 0);
+    params->read_sub_struct(kParams, &first_params, 0);
+    script::Struct* trick_params = nullptr;
+    params->read_sub_struct(kTrickParams, &trick_params, 0);
+    if (!trick_params) {
+        trick->do_next_trick(first, first_params, nullptr);
         return true;
     }
-    Scripts::CStruct* copy = NewStructCopy(trickParams);
-    trick->DoNextTrick(first, firstParams, copy);
+    script::Struct* copy = new_struct_copy(trick_params);
+    trick->do_next_trick(first, first_params, copy);
     if (copy)
-        FreeStruct(copy);
+        free_struct(copy);
     return true;
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CMoveExecutor::Teardown,
-         &GameObjects::CMoveExecutor::TickFrame,
-         Stubs::IgnoreArgument,
-         &GameObjects::CMoveExecutor::Seal,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::DispatchScriptMethod,
-         &GameObjects::CMoveExecutor::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::MoveExecutor::teardown,
+         &objects::MoveExecutor::tick_frame,
+         stubs::ignore_argument,
+         &objects::MoveExecutor::seal,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         &objects::ObjectModule::dispatch_script_method,
+         &objects::MoveExecutor::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

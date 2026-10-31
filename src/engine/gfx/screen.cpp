@@ -15,122 +15,122 @@
 #include "engine/gfx/device.h"
 #include "game/skate/skate_module.h"
 
-namespace Engine3D {
+namespace render {
 
-float g_widthOverHeight;
-float g_baseFovAngle;
-int g_scriptScreenBlur;
+float g_width_over_height;
+float g_base_fov_angle;
+int g_script_screen_blur;
 
-float g_angleFactor{1.0f};
+float g_angle_factor{1.0f};
 
 namespace {
 
 // Whether the device can do the blur (its render-target textures were made).
-auto& BlurAvailable() { return reinterpret_cast<uint32_t&>(g_screenSurfaces[0]); }
-auto& ScreenBlur() { return g_screenBlur; }
+auto& blur_available() { return reinterpret_cast<uint32_t&>(g_screen_surfaces[0]); }
+auto& screen_blur() { return g_screen_blur; }
 // The last amount the script asked for (kept even when the blur is off).
-auto& ScriptScreenBlur() { return g_scriptScreenBlur; }
+auto& script_screen_blur() { return g_script_screen_blur; }
 
 // The screen's aspect (width / height), and the original's angle factor constant (1.0).
-float& ViewRatioSlot() { return g_widthOverHeight; }
-float AngleFactorConstant() { return g_angleFactor; }
+float& view_ratio_slot() { return g_width_over_height; }
+float angle_factor_constant() { return g_angle_factor; }
 
-// The 640x480 -> back buffer conversion (InitDirect3D) and the letterbox flag.
-uint8_t& CinemaBarsOn() { return g_camera.letterboxActive; }
-float& HorizScreenRatio() { return g_displayFactorX; }
-float& VertScreenRatio() { return g_displayFactorY; }
-uint32_t& ScreenOffsetX() { return reinterpret_cast<uint32_t&>(g_screenOffsetX); }
-uint32_t& ScreenOffsetY() { return reinterpret_cast<uint32_t&>(g_screenOffsetY); }
-uint32_t BackBufferWidth() { return reinterpret_cast<uint32_t&>(g_backBufferWidth); }
-uint32_t BackBufferHeight() { return reinterpret_cast<uint32_t&>(g_backBufferHeight); }
+// The 640x480 -> back buffer conversion (init_direct_3d) and the letterbox flag.
+uint8_t& cinema_bars_on() { return g_camera.letterbox_active_; }
+float& horiz_screen_ratio() { return g_display_factor_x; }
+float& vert_screen_ratio() { return g_display_factor_y; }
+uint32_t& screen_offset_x() { return reinterpret_cast<uint32_t&>(g_screen_offset_x); }
+uint32_t& screen_offset_y() { return reinterpret_cast<uint32_t&>(g_screen_offset_y); }
+uint32_t get_back_buffer_width() { return reinterpret_cast<uint32_t&>(g_back_buffer_width); }
+uint32_t get_back_buffer_height() { return reinterpret_cast<uint32_t&>(g_back_buffer_height); }
 
 } // namespace
 
-uint8_t CurrentLevel()
+uint8_t current_level()
 {
-    uint8_t* skate = reinterpret_cast<uint8_t*>(GameModules::g_skateModule);
+    uint8_t* skate = reinterpret_cast<uint8_t*>(modules::g_skate_module);
     if (!skate)
         return 0;
     return (*reinterpret_cast<uint8_t**>(skate + 0x20))[0x630];
 }
 
-float DesiredAspectRatio()
+float desired_aspect_ratio()
 {
     // (the window's size as unsigned numbers)
-    auto width = static_cast<uint32_t>(SystemCore::WindowWidth());
-    auto height = static_cast<uint32_t>(SystemCore::WindowHeight());
-    if (CurrentLevel() == 0)
+    auto width = static_cast<uint32_t>(sys::get_window_width());
+    auto height = static_cast<uint32_t>(sys::get_window_height());
+    if (current_level() == 0)
         return 4.0f / 3.0f;
     return static_cast<float>(width) / static_cast<float>(height);
 }
 
-bool& WidescreenMenus()
+bool& widescreen_menus()
 {
-    static bool on = ConfigInt("features", "widescreen_menus", 1) != 0;
+    static bool on = config_int("features", "widescreen_menus", 1) != 0;
     return on;
 }
 
-bool FrontEndWidescreen() { return WidescreenMenus() && CurrentLevel() == 0; }
+bool get_front_end_widescreen() { return widescreen_menus() && current_level() == 0; }
 
-float Desired3DAspectRatio()
+float desired_3d_aspect_ratio()
 {
-    if (!FrontEndWidescreen())
-        return DesiredAspectRatio();
-    auto width = static_cast<uint32_t>(SystemCore::WindowWidth());
-    auto height = static_cast<uint32_t>(SystemCore::WindowHeight());
+    if (!get_front_end_widescreen())
+        return desired_aspect_ratio();
+    auto width = static_cast<uint32_t>(sys::get_window_width());
+    auto height = static_cast<uint32_t>(sys::get_window_height());
     return static_cast<float>(width) / static_cast<float>(height);
 }
 
 // 0x004A0780. The original stores `aspect` as the screen's aspect (0x00701340). Originally from PartyMod Fixes: the aspect
 // wanted instead (4:3 in the front end, the window's shape in a level); `aspect` is ignored. (The 3D view's
 // aspect: with widescreen_menus the window's shape in the front end too.)
-void SetScreenAspectRatio(float /*aspect*/)
+void set_screen_aspect_ratio(float /*aspect*/)
 {
-    ViewRatioSlot() = Desired3DAspectRatio();
+    view_ratio_slot() = desired_3d_aspect_ratio();
 }
 
 // 0x004A0790
-float FetchViewRatio()
+float fetch_view_ratio()
 {
-    return ViewRatioSlot();
+    return view_ratio_slot();
 }
 
 // 0x004A07A0
-void SetScreenAngle(float angle)
+void set_screen_angle(float angle)
 {
-    g_baseFovAngle = angle;
+    g_base_fov_angle = angle;
 }
 
 // 0x004A07B0
-float GetScreenAngle()
+float get_screen_angle()
 {
-    return g_baseFovAngle;
+    return g_base_fov_angle;
 }
 
 // 0x004A07C0. The original returns the constant at 0x0067E544 (1.0). Originally from PartyMod Fixes: the view is widened for
 // screens wider than 4:3 (the aspect / (4/3)) - unless that constant isn't 1 - and the screen's aspect
 // (0x00701340) is updated too.
-float FetchFovRatio()
+float fetch_fov_ratio()
 {
-    float aspect = Desired3DAspectRatio();
+    float aspect = desired_3d_aspect_ratio();
     // (narrower than 4:3: the horizontal view isn't narrowed - the vertical one grows instead)
     float factor = aspect > 4.0f / 3.0f ? aspect / (4.0f / 3.0f) : 1.0f;
-    ViewRatioSlot() = aspect;
-    if (AngleFactorConstant() != 1.0f)
-        return AngleFactorConstant();
+    view_ratio_slot() = aspect;
+    if (angle_factor_constant() != 1.0f)
+        return angle_factor_constant();
     return factor;
 }
 
-// 0x004B2330. The original: if (BlurAvailable()) ScreenBlur() = amount;
+// 0x004B2330. The original: if (blur_available()) screen_blur() = amount;
 // Originally from PartyMod Fixes: the DisableBlur setting (on by default) turns the blur off for good instead.
-void SetScreenBlur(uint32_t amount)
+void set_screen_blur(uint32_t amount)
 {
-    if (BlurDisabled()) {
-        ScreenBlur() = 0;
+    if (blur_disabled()) {
+        screen_blur() = 0;
         return;
     }
-    if (BlurAvailable())
-        ScreenBlur() = amount;
+    if (blur_available())
+        screen_blur() = amount;
 }
 
 // 0x004B2440. The original squashes the 3D view vertically to 3/4 of the screen, centred, and back:
@@ -139,37 +139,37 @@ void SetScreenBlur(uint32_t amount)
 //     else if (active) { offsetY += -quarter / 2; scaleY = 1.0f; active = false; }
 // (active 0x00786CBE, scaleY 0x00786D84, offsetY 0x00786D8C, backbufferHeight 0x00786D70). Originally from PartyMod Fixes:
 // the 640x480 screen layout is fitted to the aspect wanted (pillarbox or letterbox) and the flag set, which then
-// selects the fitted display region (SetDisplayRegion).
-void SetLetterbox(bool letterbox)
+// selects the fitted display region (set_display_region).
+void set_letterbox(bool letterbox)
 {
-    float backBufferAspect = static_cast<float>(BackBufferWidth()) / static_cast<float>(BackBufferHeight());
-    float desired = DesiredAspectRatio();
-    if (backBufferAspect > desired) {
+    float back_buffer_aspect = static_cast<float>(get_back_buffer_width()) / static_cast<float>(get_back_buffer_height());
+    float desired = desired_aspect_ratio();
+    if (back_buffer_aspect > desired) {
         // wider: bars left and right
-        HorizScreenRatio() = desired / backBufferAspect * (static_cast<float>(BackBufferWidth()) / 640.0f);
-        VertScreenRatio() = static_cast<float>(BackBufferHeight()) / 480.0f;
-        auto width = static_cast<uint32_t>(HorizScreenRatio() * 640.0f);
-        ScreenOffsetX() = (BackBufferWidth() - width) / 2;
-        ScreenOffsetY() = static_cast<uint32_t>(16.0f * VertScreenRatio());
+        horiz_screen_ratio() = desired / back_buffer_aspect * (static_cast<float>(get_back_buffer_width()) / 640.0f);
+        vert_screen_ratio() = static_cast<float>(get_back_buffer_height()) / 480.0f;
+        auto width = static_cast<uint32_t>(horiz_screen_ratio() * 640.0f);
+        screen_offset_x() = (get_back_buffer_width() - width) / 2;
+        screen_offset_y() = static_cast<uint32_t>(16.0f * vert_screen_ratio());
     } else {
-        HorizScreenRatio() = static_cast<float>(BackBufferWidth()) / 640.0f;
-        VertScreenRatio() = backBufferAspect / desired * (static_cast<float>(BackBufferHeight()) / 480.0f);
-        auto height = static_cast<uint32_t>(VertScreenRatio() * 480.0f);
-        ScreenOffsetX() = 0;
-        ScreenOffsetY() =
-            static_cast<uint32_t>(16.0f * VertScreenRatio() + static_cast<float>((BackBufferHeight() - height) / 2));
+        horiz_screen_ratio() = static_cast<float>(get_back_buffer_width()) / 640.0f;
+        vert_screen_ratio() = back_buffer_aspect / desired * (static_cast<float>(get_back_buffer_height()) / 480.0f);
+        auto height = static_cast<uint32_t>(vert_screen_ratio() * 480.0f);
+        screen_offset_x() = 0;
+        screen_offset_y() =
+            static_cast<uint32_t>(16.0f * vert_screen_ratio() + static_cast<float>((get_back_buffer_height() - height) / 2));
     }
-    CinemaBarsOn() = letterbox;
+    cinema_bars_on() = letterbox;
 }
 
 // 0x0048C170: SetScreenBlur <amount>. (PartyMod rewrote this function's first bytes with what they already are
 // when DisableBlur is off - some patched executables "in the wild" remove the blur here.)
-bool __cdecl CFunc_SetScreenBlur(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+bool __cdecl cfunc_set_screen_blur(script::Struct* params, script::Script* /*script*/)
 {
     int amount = 0;
-    params->FetchIntValue(0u, &amount, false); // the unnamed integer
-    ScriptScreenBlur() = amount;
-    SetScreenBlur(static_cast<uint32_t>(amount));
+    params->fetch_int_value(0u, &amount, false); // the unnamed integer
+    script_screen_blur() = amount;
+    set_screen_blur(static_cast<uint32_t>(amount));
     return true;
 }
 

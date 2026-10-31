@@ -8,9 +8,9 @@
 // NOT ORIGINAL - the level editor's pie menus: their slices (ours; see level_editor_ux8.h). Each slice runs a registry
 // action (level_editor_actions.h: Actions::Run - the editor's own key code does it, under its own conditions) or sets
 // a tool / a view mode directly; its keys are shown beside its name.
-namespace MenuSystem::LevelEditor::Ux8::Pie {
+namespace frontend::level_editor::ux8::pie {
 
-enum class Kind : uint8_t { CtxInfo, View };
+enum class Kind : uint8_t { kCtxInfo, kView };
 struct Item {
     std::string label;
     std::string keys;                // as bound now ("" none)
@@ -21,13 +21,13 @@ struct Item {
 };
 struct State {
     bool open = false;
-    Kind kind = Kind::CtxInfo;
+    Kind kind = Kind::kCtxInfo;
     std::vector<Item> items;
     float x = 0, y = 0; // the centre (window pixels)
     int key = -1;       // the registry action that opened it (-1: a controller button)
-    bool padButton = false;
+    bool pad_button_ = false;
     bool sticky = false; // (tapped open: stays until a click)
-    uint32_t openedAt = 0;
+    uint32_t opened_at_ = 0;
     int hovered = -1;
 };
 // Pixels from the centre before a slice is pointed at.
@@ -36,7 +36,7 @@ constexpr float kDeadzone = 28.0f;
 // (UX7's); without - Add, Place, Box
 // select, Ruler, Walk, Simulate, Play, Trails. The view's: Lit, Unlit, Wireframe, Collision only, Collision, Trigger
 // volumes, Jump arcs, Top / perspective.
-std::vector<Item> ContextItems(bool haveSelection);
-std::vector<Item> ViewItems();
+std::vector<Item> context_items(bool have_selection);
+std::vector<Item> view_items();
 
-} // namespace MenuSystem::LevelEditor::Ux8::Pie
+} // namespace MenuSystem::level_editor::ux8::Pie

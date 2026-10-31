@@ -23,7 +23,7 @@
 #include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
@@ -41,314 +41,314 @@ constexpr uint32_t kPlainObjectFlag = 0x69C257E9;
 constexpr uint32_t kPlainObjectScript = 0xA98F5C63;
 constexpr uint32_t kGameObjectComponentType = 0x286A8D26;
 
-CEntityHub* EntityHubHandle() { return g_compositeRegistry; }
+EntityHub* entity_hub_handle() { return g_composite_registry; }
 
-void Seal(CGameEntity* object)
+void seal(GameEntity* object)
 {
-    reinterpret_cast<void(__thiscall*)(CGameEntity*)>(object->m_vtable[0x20 / 4])(object);
+    reinterpret_cast<void(__thiscall*)(GameEntity*)>(object->vtable_[0x20 / 4])(object);
 }
 
 // The two components a game object gets after its array's (not rewritten yet).
-CObjectModule* NewGameObjectComponentA()
+ObjectModule* new_game_object_component_a()
 {
-    void* memory = MemSys::AllocZeroed(0x90);
-    return memory ? static_cast<CPinnedObjectModule*>(memory)->MakeNew() : nullptr;
+    void* memory = memory::alloc_zeroed(0x90);
+    return memory ? static_cast<PinnedObjectModule*>(memory)->make_new() : nullptr;
 }
-CObjectModule* NewGameObjectComponentB()
+ObjectModule* new_game_object_component_b()
 {
-    void* memory = MemSys::AllocZeroed(0x4C);
-    return memory ? static_cast<CBBoxComponent*>(memory)->MakeNew() : nullptr;
+    void* memory = memory::alloc_zeroed(0x4C);
+    return memory ? static_cast<CbBoxComponent*>(memory)->make_new() : nullptr;
 }
 
 // The creation script 0x413B766D with the node's name and its integer 0x99A9B716 (if it has one).
-void RunCreationScript(CGameEntity* object, Scripts::CStruct* params)
+void run_creation_script(GameEntity* object, script::Struct* params)
 {
     int value;
-    if (!params->FetchIntValue(kCreationValue, &value, 0))
+    if (!params->fetch_int_value(kCreationValue, &value, 0))
         return;
-    uint32_t name = LevelNodes::GetNodeName(params);
-    Scripts::CStruct* data = Scripts::SpawnParamBag();
+    uint32_t name = level_nodes::get_node_name(params);
+    script::Struct* data = script::spawn_param_bag();
     if (data)
-        data->PrepareAll();
-    data->PutNameKey(kName, name);
-    data->PutInt(kCreationValue, value);
-    Scripts::LaunchScript(kCreationScript, data, object, false, nullptr);
+        data->prepare_all();
+    data->put_name_key(kName, name);
+    data->put_int(kCreationValue, value);
+    script::launch_script(kCreationScript, data, object, false, nullptr);
     if (data) {
-        data->Clear();
-        Scripts::DeleteStruct(data);
+        data->get_clear();
+        script::delete_struct(data);
     }
 }
 
 // The node's script, switched to with the node's params.
-void SwitchToNodeScript(CGameEntity* object, Scripts::CStruct* params)
+void switch_to_node_script(GameEntity* object, script::Struct* params)
 {
     uint32_t script = 0;
-    if (!params->ReadHashValue(kNodeScript, &script, 0))
+    if (!params->read_hash_value(kNodeScript, &script, 0))
         return;
-    Scripts::CStruct* scriptParams = nullptr;
-    params->ReadSubStruct(kNodeParams, &scriptParams, 0);
-    object->ReplaceScript(script, scriptParams);
+    script::Struct* script_params = nullptr;
+    params->read_sub_struct(kNodeParams, &script_params, 0);
+    object->replace_script(script, script_params);
 }
 
 // Whether a viewport is looking through `camera` (not rewritten yet).
-bool IsCameraInUse(Gfx2D::ViewCam* camera) { return Engine3D::FlagCameraForRemoval(camera); }
+bool is_camera_in_use(gfx::ViewCam* camera) { return render::flag_camera_for_removal(camera); }
 
-void** MovieDetailsVtable() { return kMovieDetailsVtable; }
-void** NodeVtable() { return kMovieNodeVtable; }
+void** movie_details_vtable() { return kMovieDetailsVtable; }
+void** get_node_vtable() { return kMovieNodeVtable; }
 
 } // namespace
 
 // 0x00468B00
-void SpawnEffectEntity(Scripts::CStruct* params)
+void spawn_effect_entity(script::Struct* params)
 {
-    const char* structure = params->HasEntryNamed("HasMotion") ? "moving_particle_composite_structure"
+    const char* structure = params->has_entry_named("HasMotion") ? "moving_particle_composite_structure"
                                                                           : "particle_composite_structure";
-    EntityHubHandle()->SpawnEntityFromNode(Scripts::FetchList(structure), params, true);
+    entity_hub_handle()->spawn_entity_from_node(script::fetch_list(structure), params, true);
 }
 
 // 0x00468B60
-void StartNodeObject(CGameEntity* object, Scripts::CStruct* params)
+void start_node_object(GameEntity* object, script::Struct* params)
 {
-    Seal(object);
-    SwitchToNodeScript(object, params);
-    RunCreationScript(object, params);
+    seal(object);
+    switch_to_node_script(object, params);
+    run_creation_script(object, params);
 }
 
 // 0x00468CB0
-CGameEntity* CreateGameObject(Scripts::CStruct* params, int /*unused*/)
+GameEntity* create_game_object(script::Struct* params, int /*unused*/)
 {
-    CGameEntity* object = EntityHubHandle()->SpawnEntityFromNode(
-        Scripts::FetchList(kGameObjectComponents), params, false);
-    object->AttachModule(NewGameObjectComponentA());
-    Scripts::LaunchScript(kGameObjectScript, params, object, false, nullptr);
-    object->AttachModule(NewGameObjectComponentB());
-    Seal(object);
-    RunCreationScript(object, params);
-    if (CObjectModule* component = object->FetchModule(kGameObjectComponentType))
-        static_cast<CMeshInstanceModule*>(component)->JumpTo();
-    SwitchToNodeScript(object, params);
+    GameEntity* object = entity_hub_handle()->spawn_entity_from_node(
+        script::fetch_list(kGameObjectComponents), params, false);
+    object->attach_module(new_game_object_component_a());
+    script::launch_script(kGameObjectScript, params, object, false, nullptr);
+    object->attach_module(new_game_object_component_b());
+    seal(object);
+    run_creation_script(object, params);
+    if (ObjectModule* component = object->fetch_module(kGameObjectComponentType))
+        static_cast<MeshInstanceModule*>(component)->jump_to();
+    switch_to_node_script(object, params);
     return object;
 }
 
 // 0x00468EB0
-CGameEntity* CreateGameObjectFromNode(Scripts::CStruct* params)
+GameEntity* create_game_object_from_node(script::Struct* params)
 {
-    return CreateGameObject(params, 0);
+    return create_game_object(params, 0);
 }
 
 // 0x00468EC0
-void CreateNodeObject(Scripts::CStruct* params)
+void create_node_object(script::Struct* params)
 {
-    if (!params->HasBareFlag(kPlainObjectFlag)) {
-        CreateGameObject(params, 1);
+    if (!params->has_bare_flag(kPlainObjectFlag)) {
+        create_game_object(params, 1);
         return;
     }
-    CGameEntity* object = EntityHubHandle()->CreateCompositeObject();
-    object->ConfigureFromData(params);
-    Scripts::LaunchScript(kPlainObjectScript, params, object, false, nullptr);
-    StartNodeObject(object, params);
+    GameEntity* object = entity_hub_handle()->create_composite_object();
+    object->configure_from_data(params);
+    script::launch_script(kPlainObjectScript, params, object, false, nullptr);
+    start_node_object(object, params);
 }
 
 // 0x00468FB0
-CVideoEntry* CVideoEntry::MakeNew()
+VideoEntry* VideoEntry::make_new()
 {
-    m_listLink.data = this;
-    m_listLink.priority = 0;
-    m_listLink.next = &m_listLink;
-    m_listLink.prev = &m_listLink;
-    m_listLink.vtable = MovieDetailsVtable();
-    m_args = nullptr;
-    m_flag19 = false;
-    m_flag18 = false;
-    m_flag1C = false;
-    void* memory = MemSys::AllocZeroed(0xC4);
-    m_viewer = memory ? static_cast<Gfx2D::ViewCam*>(memory)->MakeNew() : nullptr;
+    list_link_.data = this;
+    list_link_.priority = 0;
+    list_link_.next = &list_link_;
+    list_link_.prev = &list_link_;
+    list_link_.vtable = movie_details_vtable();
+    args_ = nullptr;
+    flag19_ = false;
+    flag18_ = false;
+    flag_1c_ = false;
+    void* memory = memory::alloc_zeroed(0xC4);
+    viewer_ = memory ? static_cast<gfx::ViewCam*>(memory)->make_new() : nullptr;
     return this;
 }
 
 // 0x00469230
-void CVideoEntry::DestroyBody()
+void VideoEntry::destroy_body()
 {
-    m_listLink.vtable = MovieDetailsVtable();
-    if (Scripts::CStruct* params = m_args) {
-        params->Clear();
-        Scripts::DeleteStruct(params);
+    list_link_.vtable = movie_details_vtable();
+    if (script::Struct* params = args_) {
+        params->get_clear();
+        script::delete_struct(params);
     }
-    if (m_viewer && !IsCameraInUse(m_viewer) && m_viewer)
-        m_viewer->VirtualDestroy(1);
-    m_listLink.UnlinkAs(NodeVtable());
+    if (viewer_ && !is_camera_in_use(viewer_) && viewer_)
+        viewer_->virtual_destroy(1);
+    list_link_.unlink_as(get_node_vtable());
 }
 
 // 0x004692D0
-CVideoEntry* CVideoEntry::Teardown(unsigned int flags)
+VideoEntry* VideoEntry::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00468F70
-CVideoEntry* CVideoEntry::DestroyNode(unsigned int flags)
+VideoEntry* VideoEntry::destroy_node(unsigned int flags)
 {
-    m_listLink.UnlinkAs(NodeVtable());
+    list_link_.unlink_as(get_node_vtable());
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00469050
-void CVideoEntry::ConfigureFromData(Scripts::CStruct* params)
+void VideoEntry::configure_from_data(script::Struct* params)
 {
-    if (!m_args) {
-        Scripts::CStruct* created = Scripts::SpawnParamBag();
-        m_args = created ? created->PrepareAll() : nullptr;
+    if (!args_) {
+        script::Struct* created = script::spawn_param_bag();
+        args_ = created ? created->prepare_all() : nullptr;
     }
-    m_args->Clear();
-    if (params->ReadHashValue(0x1A005041, &m_label, 0)) {
-        Scripts::CStruct* movieParams = nullptr;
-        if (params->ReadSubStruct(0x894FD988, &movieParams, 0))
-            m_args->AppendStructureIfAny(movieParams);
+    args_->get_clear();
+    if (params->read_hash_value(0x1A005041, &label_, 0)) {
+        script::Struct* movie_params = nullptr;
+        if (params->read_sub_struct(0x894FD988, &movie_params, 0))
+            args_->append_structure_if_any(movie_params);
     }
     int value = 0;
-    params->FetchIntValue(0x8DDE72C0, &value, 0);
-    m_flag19 = value != 0;
-    m_flag18 = params->HasBareFlag(0xEB300C29);
+    params->fetch_int_value(0x8DDE72C0, &value, 0);
+    flag19_ = value != 0;
+    flag18_ = params->has_bare_flag(0xEB300C29);
     value = 0;
-    params->FetchIntValue(0xB8CA12C5, &value, 0);
-    m_flag1C = value != 0;
+    params->fetch_int_value(0xB8CA12C5, &value, 0);
+    flag_1c_ = value != 0;
 }
 
 // 0x00469180
-Scripts::CStruct* CVideoEntry::GetSettings()
+script::Struct* VideoEntry::get_settings()
 {
-    Scripts::CStruct* settings = Scripts::SpawnParamBag();
+    script::Struct* settings = script::spawn_param_bag();
     if (settings)
-        settings = settings->PrepareAll();
-    settings->PutInt(0x8DDE72C0, m_flag19);
-    settings->PutInt(0xB8CA12C5, m_flag1C);
+        settings = settings->prepare_all();
+    settings->put_int(0x8DDE72C0, flag19_);
+    settings->put_int(0xB8CA12C5, flag_1c_);
     return settings;
 }
 
 // 0x00468F20
-bool CVideoEntry::CheckDone(bool playing)
+bool VideoEntry::check_done(bool playing)
 {
     if (!playing)
-        m_isFinished = true;
-    if (m_flag19)
-        m_isFinished = true;
-    return m_isFinished;
+        is_finished_ = true;
+    if (flag19_)
+        is_finished_ = true;
+    return is_finished_;
 }
 
 // 0x00468F40
-bool CVideoEntry::SetFlag19(uint8_t value)
+bool VideoEntry::set_flag19(uint8_t value)
 {
-    m_flag19 = value;
+    flag19_ = value;
     return true;
 }
 
 // 0x00468F50
-bool CVideoEntry::SetFlag1B(uint8_t value)
+bool VideoEntry::set_flag_1b(uint8_t value)
 {
-    m_flag1B = value;
+    flag_1b_ = value;
     return true;
 }
 
 // 0x00468F60
-bool CVideoEntry::SetValue20(uint32_t value)
+bool VideoEntry::set_value20(uint32_t value)
 {
-    m_value20 = value;
+    value20_ = value;
     return true;
 }
 
 // 0x004693C0
-CClassNodeList* CClassNodeList::PrepareAll()
+ClassNodeList* ClassNodeList::prepare_all()
 {
-    m_entries = nullptr;
-    m_transformed = false;
-    m_nodes = nullptr;
+    entries_ = nullptr;
+    transformed_ = false;
+    nodes_ = nullptr;
     return this;
 }
 
 // 0x00469300
-void CClassNodeList::Clear()
+void ClassNodeList::get_clear()
 {
-    while (TableRow* entry = m_entries) {
+    while (TableRow* entry = entries_) {
         TableRow* next = entry->next;
-        MemSys::Hub::Pull()->Dealloc(entry);
-        m_entries = next;
+        memory::Hub::get_pull()->dealloc(entry);
+        entries_ = next;
     }
-    m_transformed = false;
-    m_nodes = nullptr;
+    transformed_ = false;
+    nodes_ = nullptr;
 }
 
 // 0x00469340
-void CClassNodeList::SetTransform(const Maths::Mat4* matrix)
+void ClassNodeList::set_transform(const maths::Mat4* matrix)
 {
-    m_transformed = true;
-    m_placementMat = *matrix;
+    transformed_ = true;
+    placement_mat_ = *matrix;
 }
 
 // 0x00469350
-Maths::Vec4* CClassNodeList::Xform(Maths::Vec4* out, const Maths::Vec4* point)
+maths::Vec4* ClassNodeList::xform(maths::Vec4* out, const maths::Vec4* point)
 {
-    if (!m_transformed) {
+    if (!transformed_) {
         *out = *point;
         return out;
     }
-    Maths::Vec4 result;
-    m_placementMat.Xform(result, *point);
+    maths::Vec4 result;
+    placement_mat_.xform(result, *point);
     *out = result;
     return out;
 }
 
 // 0x004693E0
-void CClassNodeList::AddRow(uint16_t index, Scripts::CStruct* params)
+void ClassNodeList::add_row(uint16_t index, script::Struct* params)
 {
-    auto* entry = static_cast<TableRow*>(MemSys::AllocZeroed(sizeof(TableRow)));
-    entry->next = m_entries;
-    m_entries = entry;
+    auto* entry = static_cast<TableRow*>(memory::alloc_zeroed(sizeof(TableRow)));
+    entry->next = entries_;
+    entries_ = entry;
     entry->index = index;
-    entry->flag = params->HasBareFlag(0x7C2552B9);
+    entry->flag = params->has_bare_flag(0x7C2552B9);
     entry->unknown17 = false;
-    LevelNodes::FetchPlace(params, &entry->pos);
+    level_nodes::fetch_place(params, &entry->pos);
 }
 
 // 0x00469430
-void CClassNodeList::SetNodes(Scripts::CArray* nodes)
+void ClassNodeList::set_nodes(script::Array* nodes)
 {
-    m_nodes = nodes;
-    for (uint32_t i = 0; i < nodes->m_extent; ++i) {
-        auto* node = reinterpret_cast<Scripts::CStruct*>(nodes->FetchPart(i));
-        uint32_t nodeClass = 0;
-        node->ReadHashValue(0x12B4E660, &nodeClass, 0);
-        if (nodeClass == 0xD18719D5)
-            AddRow(static_cast<uint16_t>(i), node);
+    nodes_ = nodes;
+    for (uint32_t i = 0; i < nodes->extent_; ++i) {
+        auto* node = reinterpret_cast<script::Struct*>(nodes->fetch_part(i));
+        uint32_t node_class = 0;
+        node->read_hash_value(0x12B4E660, &node_class, 0);
+        if (node_class == 0xD18719D5)
+            add_row(static_cast<uint16_t>(i), node);
     }
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kMovieDetailsVtable_slots[] = {&GameObjects::CVideoEntry::Teardown,
+static VtableSlot g_movie_details_vtable_slots[] = {&objects::VideoEntry::teardown,
          &_purecall,
          &_purecall,
          &_purecall,
-         &Engine3D::CViewRegion::QueryPoint,
+         &render::ViewRegion::query_point,
          &_purecall,
          &_purecall,
          &_purecall,
-         Stubs::DoNothing,
+         stubs::do_nothing,
          &_purecall,
-         Stubs::ReturnFalse,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing};
-void** const kMovieDetailsVtable = reinterpret_cast<void**>(kMovieDetailsVtable_slots);
-static VtableSlot kMovieNodeVtable_slots[] = {&GameObjects::CVideoEntry::DestroyNode};
-void** const kMovieNodeVtable = reinterpret_cast<void**>(kMovieNodeVtable_slots);
+         stubs::return_false,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         stubs::do_nothing};
+void** const kMovieDetailsVtable = reinterpret_cast<void**>(g_movie_details_vtable_slots);
+static VtableSlot g_movie_node_vtable_slots[] = {&objects::VideoEntry::destroy_node};
+void** const kMovieNodeVtable = reinterpret_cast<void**>(g_movie_node_vtable_slots);
 
 } // namespace
 } // namespace Obj

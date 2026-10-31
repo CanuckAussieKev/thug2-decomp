@@ -14,208 +14,208 @@
 #include "engine/sys/game_config.h"
 #include "platform/crt.h"
 
-namespace AudioStream {
+namespace audio {
 
 namespace {
 
-HANDLE StreamLock() { return g_streamLock; }
-HANDLE WadFile() { return g_wadFile; }
-WadEntry* WadEntries() { return g_wadEntries; }
+HANDLE stream_lock() { return g_stream_lock; }
+HANDLE get_wad_file() { return g_wad_file; }
+WadEntry* wad_entries() { return g_wad_entries; }
 
-uint32_t g_lastMusicTrack;
+uint32_t g_last_music_track;
 
-uint32_t& LastMusicTrack() { return g_lastMusicTrack; }
-uint32_t g_lastStreams[3];
-uint32_t* LastStreams() { return g_lastStreams; }
+uint32_t& last_music_track() { return g_last_music_track; }
+uint32_t g_last_streams[3];
+uint32_t* last_streams() { return g_last_streams; }
 // Where a user soundtrack's track is read to, and each stream's buffer (0x14000 bytes each).
-uint8_t g_userTrackBuffer[0x14000];
-void* UserTrackBuffer() { return g_userTrackBuffer; }
-uint8_t g_streamBuffers[3 * 0x14000];
-void* StreamBuffer(int slot) { return g_streamBuffers + slot * 0x14000; }
+uint8_t g_user_track_buffer[0x14000];
+void* user_track_buffer() { return g_user_track_buffer; }
+uint8_t g_stream_buffers[3 * 0x14000];
+void* stream_buffer(int slot) { return g_stream_buffers + slot * 0x14000; }
 
 // 0x005B6250: the root data paths are under ("THUG2\" or "", by 0x007CEFAD; not rewritten yet).
-const char* DataRoot() { return GameConfig::GetBootstrapPrefix(); }
+const char* data_root() { return game_config::get_bootstrap_prefix(); }
 // The sound effects manager (a reference-counted singleton) and its main volume (the original calls it as a
 // method of the manager; it reads a global).
-void CreateSoundManager() { SoundFx::CreateManager(false); }
-void ReleaseSoundManager() { SoundFx::ReleaseManager(); }
-float SoundVolume() { return SoundFx::FetchMasterLoudness(); }
+void create_sound_manager() { sound::create_manager(false); }
+void release_sound_manager() { sound::release_manager(); }
+float sound_volume() { return sound::fetch_master_loudness(); }
 
-void BinkGoto(Engine3D::Bink* bink, uint32_t frame, int flags)
+void bink_goto(render::Bink* bink, uint32_t frame, int flags)
 {
-    reinterpret_cast<void(__stdcall*)(Engine3D::Bink*, uint32_t, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkGoto@12"))(bink, frame, flags);
+    reinterpret_cast<void(__stdcall*)(render::Bink*, uint32_t, int)>(crt::library_function("binkw32.dll", "_BinkGoto@12"))(bink, frame, flags);
 }
 
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
-int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
+int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 constexpr float kPercent = 0.01f;
 constexpr float kFifth = 0.2f;
 
-void FreezeStream(StreamSlot& slot)
+void freeze_stream(StreamSlot& slot)
 {
     if (slot.wad)
-        slot.wad->Freeze(1);
+        slot.wad->get_freeze(1);
     else if (slot.bink)
-        slot.bink->Freeze(1);
+        slot.bink->get_freeze(1);
 }
 
 // The flag the "start" calls set and loading clears (nothing on PC reads it).
-void SetStarted(StreamSlot& slot, bool started)
+void set_started(StreamSlot& slot, bool started)
 {
     if (slot.wad)
-        slot.wad->m_unknown5F = started;
+        slot.wad->unknown5f_ = started;
     else if (slot.bink)
-        slot.bink->m_unknown6B = started;
+        slot.bink->unknown6b_ = started;
 }
 
-// Freed now if it may go, else asked to stop (UpdateStreams frees it later).
-void Halt(StreamSlot& slot)
+// Freed now if it may go, else asked to stop (update_streams frees it later).
+void halt(StreamSlot& slot)
 {
-    WaitForSingleObject(StreamLock(), INFINITE);
-    if (slot.Playing()) {
-        bool ready = slot.wad ? slot.wad->ReadyToFree() : slot.bink->ReadyToFree();
+    WaitForSingleObject(stream_lock(), INFINITE);
+    if (slot.get_playing()) {
+        bool ready = slot.wad ? slot.wad->ready_to_free() : slot.bink->ready_to_free();
         if (ready)
-            slot.Dealloc();
+            slot.dealloc();
         else if (slot.wad)
-            slot.wad->m_stopRequested = true;
+            slot.wad->stop_requested_ = true;
         else if (slot.bink)
-            slot.bink->m_stopRequested = true;
+            slot.bink->stop_requested_ = true;
     }
-    ReleaseMutex(StreamLock());
+    ReleaseMutex(stream_lock());
 }
 
 } // namespace
 
-// The original calls 0x0047C790, a linker-folded `return -1` (also SoundFx::GroupCount).
-Hdl __cdecl OpenUserTrack(int, int) { return INVALID_HANDLE_VALUE; }
+// The original calls 0x0047C790, a linker-folded `return -1` (also sound::group_count).
+Hdl __cdecl open_user_track(int, int) { return INVALID_HANDLE_VALUE; }
 
 // --- The music ---------------------------------------------------------------------------------------------
 
 // 0x00453C20
-bool __cdecl LoadMusicTrack(uint32_t checksum)
+bool __cdecl load_music_track(uint32_t checksum)
 {
-    StreamSlot& music = MusicSlot();
-    if (music.Playing())
+    StreamSlot& music = music_slot();
+    if (music.get_playing())
         return false;
-    WaitForSingleObject(StreamLock(), INFINITE);
-    music.Fabricate(1, false, 1);
+    WaitForSingleObject(stream_lock(), INFINITE);
+    music.fabricate(1, false, 1);
     char path[256];
-    std::snprintf(path, sizeof(path), "%s%s%.8x.bik", DataRoot(), "data\\streams\\music\\", checksum);
-    Result result = music.bink ? music.bink->Unseal(path) : -1;
+    std::snprintf(path, sizeof(path), "%s%s%.8x.bik", data_root(), "data\\streams\\music\\", checksum);
+    Result result = music.bink ? music.bink->unseal(path) : -1;
     if (music.wad)
-        music.wad->ChangeLoudness(music.volume);
+        music.wad->change_loudness(music.volume);
     else if (music.bink)
-        music.bink->ChangeLoudness(music.volume);
+        music.bink->change_loudness(music.volume);
     if (result != 0) {
-        music.Dealloc();
-        ReleaseMutex(StreamLock());
+        music.dealloc();
+        ReleaseMutex(stream_lock());
         return false;
     }
     if (music.paused) {
         music.paused = true;
-        FreezeStream(music);
+        freeze_stream(music);
     }
-    ReleaseMutex(StreamLock());
+    ReleaseMutex(stream_lock());
     return true;
 }
 
 // 0x00453D70
-bool __cdecl LoadMusicTrackByName(const char* path)
+bool __cdecl load_music_track_by_name(const char* path)
 {
     if (const char* slash = std::strrchr(path, '\\'))
         path = slash + 1;
     if (const char* slash = std::strrchr(path, '/'))
         path = slash + 1;
-    return LoadMusicTrack(Checksums::HashFromText(path));
+    return load_music_track(checksums::hash_from_text(path));
 }
 
 // 0x00453DB0
-bool __cdecl StartTrackPlayback(uint32_t checksum)
+bool __cdecl start_track_playback(uint32_t checksum)
 {
-    LastMusicTrack() = checksum;
-    if (!LoadMusicTrack(checksum))
+    last_music_track() = checksum;
+    if (!load_music_track(checksum))
         return false;
-    SetStarted(MusicSlot(), false);
+    set_started(music_slot(), false);
     return true;
 }
 
 // 0x00453BF0
-bool __cdecl StartPreloadedMusic()
+bool __cdecl start_preloaded_music()
 {
-    if (!MusicSlot().Playing())
+    if (!music_slot().get_playing())
         return false;
-    SetStarted(MusicSlot(), true);
-    UpdateStreams();
+    set_started(music_slot(), true);
+    update_streams();
     return true;
 }
 
 // 0x00453850
-bool __cdecl PlayUserTrack(int soundtrack, int track)
+bool __cdecl play_user_track(int soundtrack, int track)
 {
-    StreamSlot& music = MusicSlot();
-    if (music.Playing())
+    StreamSlot& music = music_slot();
+    if (music.get_playing())
         return false;
-    music.Fabricate(0, false, 1);
-    Hdl file = OpenUserTrack(soundtrack, track);
+    music.fabricate(0, false, 1);
+    Hdl file = open_user_track(soundtrack, track);
     if (file == INVALID_HANDLE_VALUE || !music.wad)
         return false;
-    if (music.wad->Unseal(file, UserTrackBuffer()) != 0)
+    if (music.wad->unseal(file, user_track_buffer()) != 0)
         return false;
     if (music.paused) {
         music.paused = true;
-        FreezeStream(music);
+        freeze_stream(music);
     }
     return true;
 }
 
 // 0x00453AA0
-void __cdecl PlatformStopMusic()
+void __cdecl platform_stop_music()
 {
-    Halt(MusicSlot());
+    halt(music_slot());
 }
 
 // 0x00453400
-int __cdecl PlatformSetMusicVolume(float volume)
+int __cdecl platform_set_music_volume(float volume)
 {
-    WaitForSingleObject(StreamLock(), INFINITE);
-    StreamSlot& music = MusicSlot();
-    if (music.Playing()) {
+    WaitForSingleObject(stream_lock(), INFINITE);
+    StreamSlot& music = music_slot();
+    if (music.get_playing()) {
         music.volume = volume;
         if (music.wad)
-            music.wad->ChangeLoudness(volume);
+            music.wad->change_loudness(volume);
         else if (music.bink)
-            music.bink->ChangeLoudness(volume);
+            music.bink->change_loudness(volume);
     }
-    ReleaseMutex(StreamLock());
+    ReleaseMutex(stream_lock());
     return 1;
 }
 
 // 0x00453470
-void __cdecl SyncMusicToTime(float seconds)
+void __cdecl sync_music_to_time(float seconds)
 {
-    if (!MusicSlot().Playing())
+    if (!music_slot().get_playing())
         return;
-    WaitForSingleObject(StreamLock(), INFINITE);
-    Engine3D::Bink* bink = MusicSlot().bink->m_bink; // (a WadStream, or a paused Bink stream, would crash here)
-    int frame = Ftol(static_cast<double>(bink->frameRate) * seconds / static_cast<double>(bink->frameRateDiv));
-    uint32_t off = bink->frameNum - static_cast<uint32_t>(frame);
+    WaitForSingleObject(stream_lock(), INFINITE);
+    render::Bink* bink = music_slot().bink->bink_; // (a WadStream, or a paused Bink stream, would crash here)
+    int frame = ftol(static_cast<double>(bink->frame_rate_) * seconds / static_cast<double>(bink->frame_rate_div_));
+    uint32_t off = bink->frame_num_ - static_cast<uint32_t>(frame);
     if (static_cast<int>(off) < 0)
         off = 0u - off;
     if (static_cast<int>(off) > 5)
-        BinkGoto(bink, static_cast<uint32_t>(frame), 1);
-    ReleaseMutex(StreamLock());
+        bink_goto(bink, static_cast<uint32_t>(frame), 1);
+    ReleaseMutex(stream_lock());
 }
 
 // --- The sound streams -------------------------------------------------------------------------------------
 
 // 0x00453DF0
-bool __cdecl ChangeStreamLoudness(const StreamGain* volume, int slotIndex)
+bool __cdecl change_stream_loudness(const StreamGain* volume, int slot_index)
 {
-    WaitForSingleObject(StreamLock(), INFINITE);
-    StreamSlot& slot = StreamSlots()[slotIndex];
-    if (slot.Playing()) {
-        CreateSoundManager();
+    WaitForSingleObject(stream_lock(), INFINITE);
+    StreamSlot& slot = stream_slots()[slot_index];
+    if (slot.get_playing()) {
+        create_sound_manager();
         switch (volume->type) {
         case 2: {
             // Five channels; the slot's volume is their mean (the last added unrounded, as the original's x87
@@ -223,97 +223,97 @@ bool __cdecl ChangeStreamLoudness(const StreamGain* volume, int slotIndex)
             float level[5];
             double last = 0;
             for (int i = 0; i < 5; ++i) {
-                double scaled = static_cast<double>(SoundVolume()) * volume->level[i] * kPercent;
+                double scaled = static_cast<double>(sound_volume()) * volume->level[i] * kPercent;
                 level[i] = static_cast<float>(scaled);
                 last = scaled;
             }
             double sum = last + level[3] + level[2] + level[1] + level[0];
             slot.volume = static_cast<float>(sum * kFifth);
             if (slot.wad)
-                slot.wad->SetChannelVolumes(level[0], level[1], level[2], level[3], level[4]);
+                slot.wad->set_channel_volumes(level[0], level[1], level[2], level[3], level[4]);
             else if (slot.bink)
-                slot.bink->SetChannelVolumes(level[0], level[1], level[2], level[3], level[4]);
+                slot.bink->set_channel_volumes(level[0], level[1], level[2], level[3], level[4]);
             break;
         }
         case 0:
         case 1:
         case 3: {
-            // Left and right (the original has this twice: through StreamSlot::SetVolumeAndPan for 1, inline
+            // Left and right (the original has this twice: through StreamSlot::set_volume_and_pan for 1, inline
             // for 0 and 3).
-            float left = static_cast<float>(static_cast<double>(SoundVolume()) * volume->level[0] * kPercent);
-            float right = static_cast<float>(static_cast<double>(SoundVolume()) * volume->level[1] * kPercent);
+            float left = static_cast<float>(static_cast<double>(sound_volume()) * volume->level[0] * kPercent);
+            float right = static_cast<float>(static_cast<double>(sound_volume()) * volume->level[1] * kPercent);
             slot.volume = left;
-            slot.SetVolumeAndPan(left, right);
+            slot.set_volume_and_pan(left, right);
             break;
         }
         default:
             break;
         }
-        ReleaseSoundManager();
+        release_sound_manager();
     }
-    ReleaseMutex(StreamLock());
+    ReleaseMutex(stream_lock());
     return true;
 }
 
 // 0x00454080
-bool __cdecl LoadStream(uint32_t checksum, int slotIndex, const StreamGain* volume, int, int, bool preload, int plays)
+bool __cdecl load_stream(uint32_t checksum, int slot_index, const StreamGain* volume, int, int, bool preload, int plays)
 {
-    int entry = FindWadEntry(checksum);
+    int entry = find_wad_entry(checksum);
     if (entry < 0)
         return false;
-    uint32_t offset = WadEntries()[entry].offset;
-    uint32_t size = WadEntries()[entry].size;
-    if (StreamStatus(slotIndex) != 1)
+    uint32_t offset = wad_entries()[entry].offset;
+    uint32_t size = wad_entries()[entry].size;
+    if (stream_status(slot_index) != 1)
         return false;
-    WaitForSingleObject(StreamLock(), INFINITE);
-    StreamSlot& slot = StreamSlots()[slotIndex];
-    slot.Fabricate(1, true, plays);
+    WaitForSingleObject(stream_lock(), INFINITE);
+    StreamSlot& slot = stream_slots()[slot_index];
+    slot.fabricate(1, true, plays);
     if (preload)
-        SetStarted(slot, false);
+        set_started(slot, false);
     char path[256];
-    std::snprintf(path, sizeof(path), "%s%s", DataRoot(), "data\\streams\\pcm\\pcm.wad");
-    if (slot.Unseal(checksum, path, WadFile(), offset, size, StreamBuffer(slotIndex)) != 0) {
-        slot.Dealloc();
-        ReleaseMutex(StreamLock());
+    std::snprintf(path, sizeof(path), "%s%s", data_root(), "data\\streams\\pcm\\pcm.wad");
+    if (slot.unseal(checksum, path, get_wad_file(), offset, size, stream_buffer(slot_index)) != 0) {
+        slot.dealloc();
+        ReleaseMutex(stream_lock());
         return false;
     }
     if (volume)
-        ChangeStreamLoudness(volume, slotIndex);
-    ReleaseMutex(StreamLock());
+        change_stream_loudness(volume, slot_index);
+    ReleaseMutex(stream_lock());
     return true;
 }
 
 // 0x00454200
-bool __cdecl PlayStream(uint32_t checksum, int slot, int unused)
+bool __cdecl play_stream(uint32_t checksum, int slot, int unused)
 {
-    LastStreams()[slot] = checksum;
-    if (!LoadStream(checksum, slot, nullptr, 0, unused, false, 1))
+    last_streams()[slot] = checksum;
+    if (!load_stream(checksum, slot, nullptr, 0, unused, false, 1))
         return false;
-    SetStarted(StreamSlots()[slot], false);
+    set_started(stream_slots()[slot], false);
     return true;
 }
 
 // 0x00454270
-bool __cdecl StartPreloadedStream(int slot, const StreamGain* volume)
+bool __cdecl start_preloaded_stream(int slot, const StreamGain* volume)
 {
-    if (!StreamSlots()[slot].Playing())
+    if (!stream_slots()[slot].get_playing())
         return false;
-    SetStarted(StreamSlots()[slot], true);
-    ChangeStreamLoudness(volume, slot);
+    set_started(stream_slots()[slot], true);
+    change_stream_loudness(volume, slot);
     return true;
 }
 
 // 0x00453B30
-void __cdecl HaltStream(int slot, int)
+void __cdecl halt_stream(int slot, int)
 {
-    Halt(StreamSlots()[slot]);
+    halt(stream_slots()[slot]);
 }
 
 // 0x00453BD0
-void __cdecl HaltStreams()
+void __cdecl halt_streams()
 {
     for (int i = 0; i < kStreamSlots; ++i)
-        HaltStream(i, 0);
+        halt_stream(i, 0);
 }
 
 } // namespace Pcm

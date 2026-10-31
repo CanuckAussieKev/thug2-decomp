@@ -17,17 +17,17 @@
 #include "platform/run_log.h"
 #include "imgui.h"
 
-namespace MenuSystem::LevelEditor::Notes {
+namespace frontend::level_editor::notes {
 
 // --- the pure parts -------------------------------------------------------------------------------------------------
 
-bool Same(const Note& a, const Note& b)
+bool get_same(const Note& a, const Note& b)
 {
     return a.name == b.name && a.pos.x == b.pos.x && a.pos.y == b.pos.y && a.pos.z == b.pos.z && a.colour == b.colour &&
            a.text == b.text;
 }
 
-std::string PackUp(const std::string& text)
+std::string pack_up(const std::string& text)
 {
     std::string out;
     for (unsigned char c : text.substr(0, kMaxText)) {
@@ -42,7 +42,7 @@ std::string PackUp(const std::string& text)
     return out;
 }
 
-bool Decode(const std::string& encoded, std::string* text)
+bool decode(const std::string& encoded, std::string* text)
 {
     text->clear();
     for (size_t i = 0; i < encoded.size(); ++i) {
@@ -66,7 +66,7 @@ bool Decode(const std::string& encoded, std::string* text)
 
 namespace {
 
-bool ValidName(const std::string& name)
+bool valid_name(const std::string& name)
 {
     if (name.empty() || name.size() > 63) // (as layout_file.ts's validWord)
         return false;
@@ -77,7 +77,7 @@ bool ValidName(const std::string& name)
     return true;
 }
 
-bool ReadTriple(const std::string& text, V3* out)
+bool read_triple(const std::string& text, V3* out)
 {
     float v[3];
     const char* at = text.c_str();
@@ -101,18 +101,18 @@ bool ReadTriple(const std::string& text, V3* out)
 
 } // namespace
 
-std::string WriteRecord(const Note& note)
+std::string write_record(const Note& note)
 {
     char text[160];
     std::snprintf(text, sizeof(text), "note %s pos=%.9g,%.9g,%.9g color=%06X text=\"", note.name.c_str(), note.pos.x,
                   note.pos.y, note.pos.z, note.colour & 0xFFFFFF);
-    return text + PackUp(note.text) + "\"";
+    return text + pack_up(note.text) + "\"";
 }
 
-bool ReadRecord(std::istringstream& in, Note* out)
+bool read_record(std::istringstream& in, Note* out)
 {
     *out = Note{};
-    if (!(in >> out->name) || !ValidName(out->name))
+    if (!(in >> out->name) || !valid_name(out->name))
         return false;
     std::string rest;
     std::getline(in, rest);
@@ -134,7 +134,7 @@ bool ReadRecord(std::istringstream& in, Note* out)
             if (equals + 1 >= rest.size() || rest[equals + 1] != '"')
                 return false;
             size_t close = rest.find('"', equals + 2);
-            if (close == std::string::npos || !Decode(rest.substr(equals + 2, close - equals - 2), &out->text))
+            if (close == std::string::npos || !decode(rest.substr(equals + 2, close - equals - 2), &out->text))
                 return false;
             text = true;
             at = close + 1;
@@ -144,7 +144,7 @@ bool ReadRecord(std::istringstream& in, Note* out)
         std::string value = rest.substr(equals + 1, end == std::string::npos ? std::string::npos : end - equals - 1);
         at = end == std::string::npos ? rest.size() : end;
         if (key == "pos") {
-            if (pos || !ReadTriple(value, &out->pos))
+            if (pos || !read_triple(value, &out->pos))
                 return false;
             pos = true;
         } else if (key == "color") {
@@ -159,7 +159,7 @@ bool ReadRecord(std::istringstream& in, Note* out)
     return pos;
 }
 
-std::string FreshName(const std::vector<Note>& notes)
+std::string fresh_name(const std::vector<Note>& notes)
 {
     for (int n = 1;; ++n) {
         char name[32];
@@ -169,7 +169,7 @@ std::string FreshName(const std::vector<Note>& notes)
     }
 }
 
-std::string Caption(const std::string& text, size_t most)
+std::string caption(const std::string& text, size_t most)
 {
     std::string first = text.substr(0, text.find('\n'));
     while (!first.empty() && (first.back() == '\r' || first.back() == ' '))
@@ -189,67 +189,67 @@ namespace {
 
 std::vector<Note> g_notes;
 std::string g_selected;                       // (the note whose window is open; "" none)
-char g_editText[kMaxText + 1];                // (the window's text while typed)
-std::string g_editFor;                        // (the note the text buffer holds)
+char g_edit_text[kMaxText + 1];                // (the window's text while typed)
+std::string g_edit_for;                        // (the note the text buffer holds)
 std::vector<Note> g_before;                   // (the notes as they were when a field was taken: its undo step)
 std::vector<std::function<void()>> g_queue;
 
 struct NotesStep : ModuleStep {
     std::vector<Note> notes;
     explicit NotesStep(std::vector<Note> list) : notes(std::move(list)) {}
-    void Restore() override
+    void get_restore() override
     {
         g_notes = notes;
-        g_editFor.clear(); // (the window reads the text again)
+        g_edit_for.clear(); // (the window reads the text again)
     }
-    std::shared_ptr<ModuleStep> Now() const override { return std::make_shared<NotesStep>(g_notes); }
+    std::shared_ptr<ModuleStep> get_now() const override { return std::make_shared<NotesStep>(g_notes); }
 };
 
-void PushUndo() { PushModuleUndo(std::make_shared<NotesStep>(g_notes)); }
+void push_undo() { push_module_undo(std::make_shared<NotesStep>(g_notes)); }
 
-Note* Find(const std::string& name)
+Note* get_find(const std::string& name)
 {
     auto it = std::find_if(g_notes.begin(), g_notes.end(), [&](const Note& n) { return n.name == name; });
     return it == g_notes.end() ? nullptr : &*it;
 }
 
 // Where the view looks: the first surface under the middle of the view (else 800 units ahead).
-bool ViewPoint(V3* point)
+bool view_point(V3* point)
 {
     ViewNow view;
-    if (!CurrentView(&view))
+    if (!current_view(&view))
         return false;
-    TickCycle frame = FrameFromYawPitch(view.yaw, view.pitch);
-    V3 dir = MakeUnit(frame.back * -1.0f);
+    TickCycle frame = frame_from_yaw_pitch(view.yaw, view.pitch);
+    V3 dir = make_unit(frame.back * -1.0f);
     V3 hit;
-    if (Checks::Cast(view.pos, view.pos + dir * 20000.0f, &hit))
+    if (checks::get_cast(view.pos, view.pos + dir * 20000.0f, &hit))
         *point = hit;
     else
         *point = view.pos + dir * 800.0f;
     return true;
 }
 
-void AddHere()
+void add_here()
 {
     V3 at;
-    if (!ViewPoint(&at))
+    if (!view_point(&at))
         return;
-    PushUndo();
+    push_undo();
     Note note;
-    note.name = FreshName(g_notes);
+    note.name = fresh_name(g_notes);
     note.pos = at;
     g_notes.push_back(note);
     g_selected = note.name;
-    g_editFor.clear();
-    Hud::Message(("Added note " + note.name).c_str());
+    g_edit_for.clear();
+    hud::get_message(("Added note " + note.name).c_str());
 }
 
-ImU32 Colour(uint32_t rgb, int alpha = 255)
+ImU32 get_colour(uint32_t rgb, int alpha = 255)
 {
     return IM_COL32((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF, alpha);
 }
 
-bool Matches(const std::string& text, const char* filter)
+bool get_matches(const std::string& text, const char* filter)
 {
     if (!filter || !*filter)
         return true;
@@ -265,58 +265,58 @@ bool Matches(const std::string& text, const char* filter)
 
 } // namespace
 
-const std::vector<Note>& All() { return g_notes; }
+const std::vector<Note>& get_all() { return g_notes; }
 
-std::vector<Note> Capture() { return g_notes; }
+std::vector<Note> get_capture() { return g_notes; }
 
-int Apply(const std::vector<Note>& notes)
+int get_apply(const std::vector<Note>& notes)
 {
     g_notes.clear();
     for (const Note& note : notes) {
-        if (!Find(note.name))
+        if (!get_find(note.name))
             g_notes.push_back(note);
     }
     g_selected.clear();
-    g_editFor.clear();
+    g_edit_for.clear();
     return static_cast<int>(g_notes.size());
 }
 
-void ResetAll()
+void reset_all()
 {
     g_notes.clear();
     g_selected.clear();
-    g_editFor.clear();
+    g_edit_for.clear();
 }
 
-void ForgetLevel() { ResetAll(); }
+void forget_level() { reset_all(); }
 
-void TickFrame()
+void tick_frame()
 {
     std::vector<std::function<void()>> queue;
     queue.swap(g_queue);
     for (const auto& action : queue)
         action();
-    if (!g_selected.empty() && !Find(g_selected))
+    if (!g_selected.empty() && !get_find(g_selected))
         g_selected.clear();
 }
 
-void AddOverlay(V3 cameraPos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
-                std::vector<Ui::Seg>* lines, std::vector<Ui::Overlay::Circle>* circles,
-                std::vector<Ui::Overlay::Text>* texts)
+void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+                std::vector<ui::Seg>* lines, std::vector<ui::Overlay::Circle>* circles,
+                std::vector<ui::Overlay::text_tools>* texts)
 {
     for (const Note& note : g_notes) {
         bool selected = note.name == g_selected;
         // (a pin: a stem from the point up to its head - longer far away, so it stands out - and the text beside the head)
-        float distance = std::sqrt(Dot(note.pos - cameraPos, note.pos - cameraPos));
+        float distance = std::sqrt(get_dot(note.pos - camera_pos, note.pos - camera_pos));
         float height = std::max(40.0f, std::min(400.0f, distance * 0.06f));
         V3 top = note.pos + V3{0.0f, height, 0.0f};
         float ax, ay, bx, by;
         float px, py, tx, ty;
-        if (!CastOnto(cameraPos, frame, lens, note.pos, nearZ, &ax, &ay) ||
-            !CastOnto(cameraPos, frame, lens, top, nearZ, &bx, &by))
+        if (!cast_onto(camera_pos, frame, lens, note.pos, near_z, &ax, &ay) ||
+            !cast_onto(camera_pos, frame, lens, top, near_z, &bx, &by))
             continue;
-        NdcToPixel(viewport, ax, ay, &px, &py);
-        NdcToPixel(viewport, bx, by, &tx, &ty);
+        ndc_to_pixel(viewport, ax, ay, &px, &py);
+        ndc_to_pixel(viewport, bx, by, &tx, &ty);
         uint32_t argb = 0xFF000000u | (note.colour & 0xFFFFFF);
         uint32_t stem = selected ? 0xFFFFFFFFu : (0xC0000000u | (note.colour & 0xFFFFFF));
         lines->push_back({px, py, tx, ty, stem, selected ? 2.0f : 1.5f});
@@ -326,11 +326,11 @@ void AddOverlay(V3 cameraPos, const TickCycle& frame, const Lens& lens, const ui
         circles->push_back({px, py, 2.5f, argb, true, 1.0f});
         // (the label: the first line - all of it when selected - cut short when far)
         size_t most = selected ? 60 : distance > 6000.0f ? 18 : 36;
-        texts->push_back({tx + 10.0f, ty - 8.0f, argb, Caption(note.text, most)});
+        texts->push_back({tx + 10.0f, ty - 8.0f, argb, caption(note.text, most)});
     }
 }
 
-void OutlinerSection(ImFont* mono, const char* search)
+void outliner_section(ImFont* mono, const char* search)
 {
     ImGui::Spacing();
     bool open = ImGui::TreeNodeEx("Notes###notesSection", ImGuiTreeNodeFlags_SpanAvailWidth);
@@ -342,7 +342,7 @@ void OutlinerSection(ImFont* mono, const char* search)
         ImGui::PopFont();
     ImGui::SameLine();
     if (ImGui::SmallButton("+ Note here"))
-        g_queue.push_back([] { AddHere(); });
+        g_queue.push_back([] { add_here(); });
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Add a note at the view center");
     if (!open)
@@ -351,15 +351,15 @@ void OutlinerSection(ImFont* mono, const char* search)
         ImGui::TextDisabled("No notes");
     for (size_t i = 0; i < g_notes.size(); ++i) {
         const Note& note = g_notes[i];
-        if (!Matches(note.name + " " + note.text, search))
+        if (!get_matches(note.name + " " + note.text, search))
             continue;
         ImGui::PushID(static_cast<int>(i));
         ImVec2 pos = ImGui::GetCursorScreenPos();
         float h = ImGui::GetTextLineHeight();
         ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(pos.x + h * 0.25f, pos.y + h * 0.5f), h * 0.22f,
-                                                     Colour(note.colour));
+                                                     get_colour(note.colour));
         ImGui::SetCursorScreenPos(ImVec2(pos.x + h * 0.6f, pos.y));
-        std::string label = Caption(note.text, 40);
+        std::string label = caption(note.text, 40);
         bool clicked = ImGui::Selectable(label.c_str(), note.name == g_selected, ImGuiSelectableFlags_AllowDoubleClick);
         if (clicked) {
             std::string name = note.name;
@@ -367,9 +367,9 @@ void OutlinerSection(ImFont* mono, const char* search)
             bool go = ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
             g_queue.push_back([name, at, go] {
                 g_selected = name;
-                g_editFor.clear();
+                g_edit_for.clear();
                 if (go)
-                    GoToPoint(at, 400.0f);
+                    go_to_point(at, 400.0f);
             });
         }
         if (ImGui::IsItemHovered())
@@ -380,17 +380,17 @@ void OutlinerSection(ImFont* mono, const char* search)
     ImGui::TreePop();
 }
 
-void Pane(float viewX, float viewY, float viewWidth, float viewHeight, float scale)
+void pane(float view_x, float view_y, float view_width, float view_height, float scale)
 {
-    (void)viewWidth;
-    Note* note = g_selected.empty() ? nullptr : Find(g_selected);
+    (void)view_width;
+    Note* note = g_selected.empty() ? nullptr : get_find(g_selected);
     if (!note)
         return;
-    if (g_editFor != note->name) {
-        std::snprintf(g_editText, sizeof(g_editText), "%s", note->text.c_str());
-        g_editFor = note->name;
+    if (g_edit_for != note->name) {
+        std::snprintf(g_edit_text, sizeof(g_edit_text), "%s", note->text.c_str());
+        g_edit_for = note->name;
     }
-    ImGui::SetNextWindowPos(ImVec2(viewX + 12.0f * scale, viewY + viewHeight - 12.0f * scale), ImGuiCond_FirstUseEver,
+    ImGui::SetNextWindowPos(ImVec2(view_x + 12.0f * scale, view_y + view_height - 12.0f * scale), ImGuiCond_FirstUseEver,
                             ImVec2(0.0f, 1.0f));
     ImGui::SetNextWindowSize(ImVec2(340.0f * scale, 0.0f), ImGuiCond_FirstUseEver);
     bool open = true;
@@ -412,16 +412,16 @@ void Pane(float viewX, float viewY, float viewWidth, float viewHeight, float sca
             g_queue.push_back([] {
                 bool same = g_before.size() == g_notes.size();
                 for (size_t i = 0; same && i < g_notes.size(); ++i)
-                    same = Same(g_before[i], g_notes[i]);
+                    same = get_same(g_before[i], g_notes[i]);
                 if (!same)
-                    PushModuleUndo(std::make_shared<NotesStep>(g_before));
+                    push_module_undo(std::make_shared<NotesStep>(g_before));
             });
     };
-    ImGui::InputTextMultiline("##text", g_editText, sizeof(g_editText), ImVec2(-1.0f, 90.0f * scale));
+    ImGui::InputTextMultiline("##text", g_edit_text, sizeof(g_edit_text), ImVec2(-1.0f, 90.0f * scale));
     if (ImGui::IsItemEdited()) {
-        std::string text = g_editText;
+        std::string text = g_edit_text;
         g_queue.push_back([name, text] {
-            if (Note* n = Find(name))
+            if (Note* n = get_find(name))
                 n->text = text;
         });
     }
@@ -432,14 +432,14 @@ void Pane(float viewX, float viewY, float viewWidth, float viewHeight, float sca
         ImGui::SameLine();
         ImGui::PushID(c);
         bool on = note->colour == kColours[c];
-        ImVec4 colour = ImGui::ColorConvertU32ToFloat4(Colour(kColours[c]));
+        ImVec4 colour = ImGui::ColorConvertU32ToFloat4(get_colour(kColours[c]));
         if (ImGui::ColorButton("##colour", colour, ImGuiColorEditFlags_NoTooltip, ImVec2(18.0f * scale, 18.0f * scale))) {
             uint32_t rgb = kColours[c];
             g_queue.push_back([name, rgb] {
-                Note* n = Find(name);
+                Note* n = get_find(name);
                 if (!n || n->colour == rgb)
                     return;
-                PushUndo();
+                push_undo();
                 n->colour = rgb;
             });
         }
@@ -456,24 +456,24 @@ void Pane(float viewX, float viewY, float viewWidth, float viewHeight, float sca
     if (ImGui::DragFloat3("##pos", pos, 5.0f, 0.0f, 0.0f, "%.0f")) {
         V3 to = {pos[0], pos[1], pos[2]};
         g_queue.push_back([name, to] {
-            if (Note* n = Find(name))
+            if (Note* n = get_find(name))
                 n->pos = to;
         });
     }
     held();
     if (ImGui::Button("Go to"))
         g_queue.push_back([name] {
-            if (Note* n = Find(name))
-                GoToPoint(n->pos, 400.0f);
+            if (Note* n = get_find(name))
+                go_to_point(n->pos, 400.0f);
         });
     ImGui::SameLine();
     if (ImGui::Button("Move here"))
         g_queue.push_back([name] {
             V3 at;
-            Note* n = Find(name);
-            if (!n || !ViewPoint(&at))
+            Note* n = get_find(name);
+            if (!n || !view_point(&at))
                 return;
-            PushUndo();
+            push_undo();
             n->pos = at;
         });
     if (ImGui::IsItemHovered())
@@ -481,23 +481,23 @@ void Pane(float viewX, float viewY, float viewWidth, float viewHeight, float sca
     ImGui::SameLine();
     if (ImGui::Button("Delete"))
         g_queue.push_back([name] {
-            if (!Find(name))
+            if (!get_find(name))
                 return;
-            PushUndo();
+            push_undo();
             g_notes.erase(std::remove_if(g_notes.begin(), g_notes.end(), [&](const Note& n) { return n.name == name; }),
                           g_notes.end());
             g_selected.clear();
-            Hud::Message(("Deleted note " + name).c_str());
+            hud::get_message(("Deleted note " + name).c_str());
         });
     ImGui::End();
     if (!open)
         g_queue.push_back([] { g_selected.clear(); });
 }
 
-} // namespace MenuSystem::LevelEditor::Notes
+} // namespace MenuSystem::level_editor::Notes
 
-namespace MenuSystem::LevelEditor::Notes {
+namespace frontend::level_editor::notes {
 
-void AddHereQueued() { g_queue.push_back([] { AddHere(); }); }
+void add_here_queued() { g_queue.push_back([] { add_here(); }); }
 
-} // namespace MenuSystem::LevelEditor::Notes
+} // namespace MenuSystem::level_editor::Notes

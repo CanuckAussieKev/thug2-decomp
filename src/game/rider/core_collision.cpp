@@ -16,9 +16,9 @@
 #include "game/rider/skater_sound.h"
 #include "engine/objects/trigger_events.h"
 
-namespace Skater {
+namespace skater {
 
-using namespace CoreFields;
+using namespace core_fields;
 
 namespace {
 
@@ -32,35 +32,35 @@ constexpr uint32_t kSideHeight = 0xB45B39E2;       // Skater_side_collide_height
 constexpr uint32_t kSideLength = 0x406B425F;       // Skater_side_collide_length
 constexpr uint32_t kAirExtraSide = 0x1C58C8B4;     // Skater_air_extra_side_col
 
-// A stack feeler: raw storage (see CopyFeeler).
+// A stack feeler: raw storage (see copy_feeler).
 struct alignas(16) FeelerStorage {
-    uint8_t bytes[sizeof(Engine3D::CProbeRay)];
-    Engine3D::CProbeRay* operator->() { return reinterpret_cast<Engine3D::CProbeRay*>(bytes); }
-    Engine3D::CProbeRay* get() { return reinterpret_cast<Engine3D::CProbeRay*>(bytes); }
+    uint8_t bytes[sizeof(render::ProbeRay)];
+    render::ProbeRay* operator->() { return reinterpret_cast<render::ProbeRay*>(bytes); }
+    render::ProbeRay* get() { return reinterpret_cast<render::ProbeRay*>(bytes); }
 };
 
 // The smart pointer of a stack feeler let go inline (the original's code on some paths instead of the destructor).
-void ReleaseFeelerObject(FeelerStorage& feeler)
+void release_feeler_object(FeelerStorage& feeler)
 {
-    auto& object = reinterpret_cast<GameObjects::CSharedRef<GameObjects::CSharedBase>&>(feeler->m_entity);
-    if (object.m_ownerObject)
-        object.m_ownerObject->DetachSharedRef(&object);
+    auto& object = reinterpret_cast<objects::SharedRef<objects::SharedBase>&>(feeler->entity_);
+    if (object.owner_object_)
+        object.owner_object_->detach_shared_ref(&object);
 }
 
 } // namespace
 
 // 0x00508780
-bool SkaterPhysicsModule::CheckAirForwardCollision(const Maths::Vec4* from)
+bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
 {
-    void* object = ObjectOf(this);
-    const Maths::Vec4 entryVelocity = VectorAt(object, kVelocity); // (not original: for NotePath)
+    void* object = object_of(this);
+    const maths::Vec4 entry_velocity = vector_at(object, kVelocity); // (not original: for note_path)
     // The move's direction (x, y, z normalised - z's difference kept unrounded, as the original does; w as it is).
-    const Maths::Vec4& position = VectorAt(object, kPosition);
-    float moveW = position.w - from->w;
+    const maths::Vec4& position = vector_at(object, kPosition);
+    float move_w = position.w - from->w;
     double dz = static_cast<double>(position.z) - from->z;
     float dy = position.y - from->y;
     float dx = position.x - from->x;
-    Maths::Vec4 direction = {dx, dy, static_cast<float>(dz), 0.0f};
+    maths::Vec4 direction = {dx, dy, static_cast<float>(dz), 0.0f};
     double length = std::sqrt((static_cast<double>(dx) * dx + static_cast<double>(dy) * dy) + dz * dz);
     if (length > 0.0) {
         double scale = 1.0 / length;
@@ -71,33 +71,33 @@ bool SkaterPhysicsModule::CheckAirForwardCollision(const Maths::Vec4* from)
 
     // The feeler: from `from` raised to the collision height, to the new position raised, plus the length along the
     // move.
-    float height = TuningFloatLookup(kForwardHeight, object);
-    const Maths::Vec4& up = VectorAt(object, kUp);
-    Maths::Vec4 raise = {height * up.x, height * up.y, height * up.z, height * up.w};
-    Maths::Vec4& start = VectorAt(this, kProbeOrigin);
+    float height = tuning_float_lookup(kForwardHeight, object);
+    const maths::Vec4& up = vector_at(object, kUp);
+    maths::Vec4 raise = {height * up.x, height * up.y, height * up.z, height * up.w};
+    maths::Vec4& start = vector_at(this, kProbeOrigin);
     start.x = raise.x + from->x;
     start.y = raise.y + from->y;
     start.z = raise.z + from->z;
     start.w = raise.w + from->w;
-    float reach = TuningFloatLookup(kForwardLength, object);
-    float aheadW = moveW * reach, aheadZ = direction.z * reach, aheadY = direction.y * reach,
-          aheadX = reach * direction.x;
-    const Maths::Vec4& now = VectorAt(ObjectOf(this), kPosition);
-    double raisedW = static_cast<double>(raise.w) + now.w; // (unrounded)
-    float raisedZ = raise.z + now.z, raisedY = raise.y + now.y, raisedX = raise.x + now.x;
-    Maths::Vec4& end = VectorAt(this, kProbeTip);
-    end.x = raisedX + aheadX;
-    end.y = raisedY + aheadY;
-    end.z = raisedZ + aheadZ;
-    end.w = static_cast<float>(raisedW + aheadW);
-    if (!Feel(this, 0x10, 0))
+    float reach = tuning_float_lookup(kForwardLength, object);
+    float ahead_w = move_w * reach, ahead_z = direction.z * reach, ahead_y = direction.y * reach,
+          ahead_x = reach * direction.x;
+    const maths::Vec4& now = vector_at(object_of(this), kPosition);
+    double raised_w = static_cast<double>(raise.w) + now.w; // (unrounded)
+    float raised_z = raise.z + now.z, raised_y = raise.y + now.y, raised_x = raise.x + now.x;
+    maths::Vec4& end = vector_at(this, kProbeTip);
+    end.x = raised_x + ahead_x;
+    end.y = raised_y + ahead_y;
+    end.z = raised_z + ahead_z;
+    end.w = static_cast<float>(raised_w + ahead_w);
+    if (!get_feel(this, 0x10, 0))
         return false;
 
-    const Maths::Vec4 normal = VectorAt(this, kHitNormal);
-    const Maths::Vec4* hitNormal = &VectorAt(this, kHitNormal);
-    if (At<uint8_t>(this, kHitSkatable)) {
+    const maths::Vec4 normal = vector_at(this, kHitNormal);
+    const maths::Vec4* hit_normal = &vector_at(this, kHitNormal);
+    if (get_at<uint8_t>(this, kHitSkatable)) {
         // Something to skate on: only a wall when it's unlike the ground (and not facing up).
-        const Maths::Vec4& ground = VectorAt(this, kFloorUpVector);
+        const maths::Vec4& ground = vector_at(this, kFloorUpVector);
         double dot = (static_cast<double>(normal.z) * ground.z + static_cast<double>(normal.y) * ground.y) +
                      static_cast<double>(normal.x) * ground.x;
         if (!(dot < static_cast<double>(0.8f)) || !(normal.y < 0.5f))
@@ -105,244 +105,244 @@ bool SkaterPhysicsModule::CheckAirForwardCollision(const Maths::Vec4* from)
     }
 
     FeelerStorage hit;
-    CopyFeeler(hit.get(), &At<uint8_t>(this, kFeeler));
-    bool steep = VectorAt(this, kHitNormal).y < 0.1f;
+    copy_feeler(hit.get(), &get_at<uint8_t>(this, kFeeler));
+    bool steep = vector_at(this, kHitNormal).y < 0.1f;
     // Try the skater at the feeler's end (lowered back): 0x004FFDB0 may take it there - then stopped, when going up
     // fast or the wall is steep (left there).
-    Maths::Vec4& p = VectorAt(ObjectOf(this), kPosition);
-    Maths::Vec4 saved = p;
+    maths::Vec4& p = vector_at(object_of(this), kPosition);
+    maths::Vec4 saved = p;
     p.x = end.x - raise.x;
     p.y = end.y - raise.y;
     p.z = end.z - raise.z;
     p.w = end.w - raise.w;
-    if (StepUp(from) &&
-        (VectorAt(ObjectOf(this), kVelocity).y > 10.0f || steep)) {
-        ReleaseFeelerObject(hit);
+    if (step_up(from) &&
+        (vector_at(object_of(this), kVelocity).y > 10.0f || steep)) {
+        release_feeler_object(hit);
         return true;
     }
-    VectorAt(ObjectOf(this), kPosition) = saved;
-    AssignFeeler(&At<uint8_t>(this, kFeeler), hit.get());
+    vector_at(object_of(this), kPosition) = saved;
+    assign_feeler(&get_at<uint8_t>(this, kFeeler), hit.get());
 
     // A ledge: snap up onto it (going up, upright, against a flat-topped wall) - the feeler raised by the snap height,
     // then lowered 2 at a time until it hits (the snap height going down with it, to 4).
-    void* o = ObjectOf(this);
-    if (VectorAt(o, kUp).y > 0.5f && VectorAt(o, kVelocity).y > 0.0f && normal.y < 0.01f) {
-        float snap = TuningFloatLookup(kAirSnapUp, object);
-        hit->m_line.start.y = hit->m_line.start.y + snap;
-        hit->m_line.end.y = hit->m_line.end.y + snap;
-        if (!hit->GetHitShape(true, false)) {
+    void* o = object_of(this);
+    if (vector_at(o, kUp).y > 0.5f && vector_at(o, kVelocity).y > 0.0f && normal.y < 0.01f) {
+        float snap = tuning_float_lookup(kAirSnapUp, object);
+        hit->line_.start.y = hit->line_.start.y + snap;
+        hit->line_.end.y = hit->line_.end.y + snap;
+        if (!hit->get_hit_shape(true, false)) {
             if (snap > 4.0f) {
                 double lower;
                 do {
-                    hit->m_line.start.y = hit->m_line.start.y - 2.0f;
-                    hit->m_line.end.y = hit->m_line.end.y - 2.0f;
-                    if (hit->GetHitShape(true, false))
+                    hit->line_.start.y = hit->line_.start.y - 2.0f;
+                    hit->line_.end.y = hit->line_.end.y - 2.0f;
+                    if (hit->get_hit_shape(true, false))
                         break;
                     lower = static_cast<double>(snap) - 2.0;
                     snap = static_cast<float>(lower);
                 } while (lower > 4.0); // (the unrounded value compared)
             }
-            Maths::Vec4& position2 = VectorAt(ObjectOf(this), kPosition);
+            maths::Vec4& position2 = vector_at(object_of(this), kPosition);
             position2.y = snap + position2.y;
-            DestroyFeeler(hit.get());
+            destroy_feeler(hit.get());
             return true;
         }
     }
 
-    if (BitMark(this, 0x30)) {
+    if (bit_mark(this, 0x30)) {
         // On vert: back at the hit, kept the min distance off it, the velocity along it.
-        const Maths::Vec4& point = VectorAt(this, kHitPoint);
-        Maths::Vec4& q = VectorAt(ObjectOf(this), kPosition);
+        const maths::Vec4& point = vector_at(this, kHitPoint);
+        maths::Vec4& q = vector_at(object_of(this), kPosition);
         q.x = point.x - raise.x;
         q.y = point.y - raise.y;
         q.z = point.z - raise.z;
         q.w = point.w - raise.w;
-        float distance = TuningFloatLookup(kMinDistanceToWall, object);
-        Maths::Vec4& r = VectorAt(ObjectOf(this), kPosition);
+        float distance = tuning_float_lookup(kMinDistanceToWall, object);
+        maths::Vec4& r = vector_at(object_of(this), kPosition);
         r.x = static_cast<float>(static_cast<double>(distance) * normal.x + r.x);
         r.y = static_cast<float>(static_cast<double>(normal.y) * distance + r.y);
         r.z = static_cast<float>(static_cast<double>(normal.z) * distance + r.z);
         r.w = static_cast<float>(static_cast<double>(normal.w) * distance + r.w);
-        Maths::Vec4& velocity = VectorAt(ObjectOf(this), kVelocity);
-        if (BitMark(this, 0x78))
-            velocity.AlignToPlane(*hitNormal);
+        maths::Vec4& velocity = vector_at(object_of(this), kVelocity);
+        if (bit_mark(this, 0x78))
+            velocity.align_to_plane(*hit_normal);
         else
-            velocity.FlattenOntoPlane(normal);
-        CollisionEvents::NotePath(this, CollisionEvents::RouteWay::AirWallVert, entryVelocity); // (not original)
-        ReleaseFeelerObject(hit);
+            velocity.flatten_onto_plane(normal);
+        collision_events::note_path(this, collision_events::RouteWay::kAirWallVert, entry_velocity); // (not original)
+        release_feeler_object(hit);
         return false;
     }
 
     // A bonk - unless a wallplant (not with +0x302) or 0x00508140 takes over.
     bool done = false;
-    if (!BitMark(this, 0xE0) && !BitMark(this, 0x70)) {
-        if (!At<uint8_t>(this, 0x302) && WallPlant(false, false, false))
+    if (!bit_mark(this, 0xE0) && !bit_mark(this, 0x70)) {
+        if (!get_at<uint8_t>(this, 0x302) && wall_plant(false, false, false))
             done = true;
-        else if (StartWallRide())
+        else if (start_wall_ride())
             done = true;
     }
     if (!done) {
-        SetFlag(this, 0xB0, 1);
-        TriggerFeeler(this, g_bonkEvents, kFeeler);
-        done = TriggerTookOver(this);
+        set_flag(this, 0xB0, 1);
+        trigger_feeler(this, kBonkEvents, kFeeler);
+        done = trigger_took_over(this);
     }
     if (!done) {
-        if (VectorAt(this, kHitNormal).y < 0.05f) {
+        if (vector_at(this, kHitNormal).y < 0.05f) {
             // The bonk's sound: by speed and terrain - on a vehicle its own script.
-            if (!At<uint8_t>(this, 0x2ED)) {
-                uint8_t terrain = At<uint8_t>(this, kSurfaceFlags);
-                void* skater = ObjectOf(this);
-                float speed = static_cast<float>(LengthOf(VectorAt(skater, kVelocity)));
-                float fraction = speed / static_cast<GameObjects::CRider*>(skater)->GetScaledPhysics(kSpeedCapStat);
-                static_cast<GameObjects::CRiderSfxPlayer*>(At<void*>(this, kSfxModuleSlot))->PlayBonk(fraction, terrain);
+            if (!get_at<uint8_t>(this, 0x2ED)) {
+                uint8_t terrain = get_at<uint8_t>(this, kSurfaceFlags);
+                void* skater = object_of(this);
+                float speed = static_cast<float>(length_of(vector_at(skater, kVelocity)));
+                float fraction = speed / static_cast<objects::Rider*>(skater)->get_scaled_physics(kSpeedCapStat);
+                static_cast<objects::RiderSfxPlayer*>(get_at<void*>(this, kSfxModuleSlot))->play_bonk(fraction, terrain);
             } else {
-                Scripts::LaunchScript(kVehicleLandSound, nullptr, static_cast<GameObjects::CEntity*>(ObjectOf(this)), false,
+                script::launch_script(kVehicleLandSound, nullptr, static_cast<objects::Entity*>(object_of(this)), false,
                                   nullptr);
             }
         }
         // The velocity along the wall (keeping its height when the wall isn't facing down), pushed off it by a
         // tenth of the speed.
-        float keptY = 0.0f;
+        float kept_y = 0.0f;
         if (normal.y > -0.1f) {
-            Maths::Vec4& v = VectorAt(ObjectOf(this), kVelocity);
-            keptY = v.y;
+            maths::Vec4& v = vector_at(object_of(this), kVelocity);
+            kept_y = v.y;
             v.y = 0.0f;
         }
-        VectorAt(ObjectOf(this), kVelocity).FlattenOntoPlane(normal);
-        Maths::Vec4& velocity = VectorAt(ObjectOf(this), kVelocity);
-        float push = static_cast<float>(LengthOf(velocity) * 0.1f);
+        vector_at(object_of(this), kVelocity).flatten_onto_plane(normal);
+        maths::Vec4& velocity = vector_at(object_of(this), kVelocity);
+        float push = static_cast<float>(length_of(velocity) * 0.1f);
         velocity += normal * push;
         if (normal.y > -0.1f)
-            VectorAt(ObjectOf(this), kVelocity).y = keptY;
+            vector_at(object_of(this), kVelocity).y = kept_y;
         // (The original clears the facing's y around this copy and puts it back.)
-        VectorAt(this, 0x14F0) = normal;
+        vector_at(this, 0x14F0) = normal;
         // The facing turned a little away from the wall; the matrix made square again around it.
-        void* s = ObjectOf(this);
-        VectorAt(s, kFacing) += 0.05f * normal;
-        VectorAt(ObjectOf(this), kFacing).MakeUnit();
-        s = ObjectOf(this);
-        VectorAt(s, kRight) = Maths::CrossVec(VectorAt(s, kUp), VectorAt(s, kFacing));
-        VectorAt(ObjectOf(this), kRight).MakeUnit();
-        s = ObjectOf(this);
-        VectorAt(s, kUp) = Maths::CrossVec(VectorAt(s, kFacing), VectorAt(s, kRight));
-        VectorAt(ObjectOf(this), kUp).MakeUnit();
+        void* s = object_of(this);
+        vector_at(s, kFacing) += 0.05f * normal;
+        vector_at(object_of(this), kFacing).make_unit();
+        s = object_of(this);
+        vector_at(s, kRight) = maths::cross_vec(vector_at(s, kUp), vector_at(s, kFacing));
+        vector_at(object_of(this), kRight).make_unit();
+        s = object_of(this);
+        vector_at(s, kUp) = maths::cross_vec(vector_at(s, kFacing), vector_at(s, kRight));
+        vector_at(object_of(this), kUp).make_unit();
         // A moving object that was hit pushes the skater along (when it's moving into the skater).
-        auto& feeler = At<Engine3D::CProbeRay>(this, kFeeler);
-        if (feeler.HitObjectAlive()) {
-            Maths::Vec4 carried = VectorAt(feeler.GetHitObject(), kVelocity);
-            double into = (static_cast<double>(carried.z) * hitNormal->z + static_cast<double>(carried.y) * hitNormal->y) +
-                          static_cast<double>(carried.x) * hitNormal->x;
+        auto& feeler = get_at<render::ProbeRay>(this, kFeeler);
+        if (feeler.hit_object_alive()) {
+            maths::Vec4 carried = vector_at(feeler.get_hit_object(), kVelocity);
+            double into = (static_cast<double>(carried.z) * hit_normal->z + static_cast<double>(carried.y) * hit_normal->y) +
+                          static_cast<double>(carried.x) * hit_normal->x;
             if (into > 0.0) {
-                float frame = At<float>(this, kFrameLength);
-                void* t = ObjectOf(this);
-                VectorAt(t, kPosition) += (carried * frame) * 2.0f;
-                VectorAt(ObjectOf(this), kVelocity) += carried;
+                float frame = get_at<float>(this, kFrameLength);
+                void* t = object_of(this);
+                vector_at(t, kPosition) += (carried * frame) * 2.0f;
+                vector_at(object_of(this), kVelocity) += carried;
             }
         }
-        CollisionEvents::NotePath(this, CollisionEvents::RouteWay::AirBonk, entryVelocity); // (not original)
+        collision_events::note_path(this, collision_events::RouteWay::kAirBonk, entry_velocity); // (not original)
     }
-    DestroyFeeler(hit.get());
+    destroy_feeler(hit.get());
     return false;
 }
 
 // 0x0050A2C0
-bool SkaterPhysicsModule::CheckSideCollision(float side, float length)
+bool SkaterPhysicsModule::check_side_collision(float side, float length)
 {
-    if (StateOf(this) == kWallRide)
+    if (state_of(this) == kWallRide)
         return false;
-    void* object = ObjectOf(this);
-    float height = Scripts::FetchFloat(kSideHeight);
-    const Maths::Vec4& up = VectorAt(object, kUp);
-    float raiseW = height * up.w, raiseZ = height * up.z, raiseY = height * up.y, raiseX = height * up.x;
-    const Maths::Vec4& position = VectorAt(ObjectOf(this), kPosition);
-    Maths::Vec4& start = VectorAt(this, kProbeOrigin);
-    start.x = raiseX + position.x;
-    start.y = raiseY + position.y;
-    start.z = raiseZ + position.z;
-    start.w = raiseW + position.w;
+    void* object = object_of(this);
+    float height = script::fetch_float(kSideHeight);
+    const maths::Vec4& up = vector_at(object, kUp);
+    float raise_w = height * up.w, raise_z = height * up.z, raise_y = height * up.y, raise_x = height * up.x;
+    const maths::Vec4& position = vector_at(object_of(this), kPosition);
+    maths::Vec4& start = vector_at(this, kProbeOrigin);
+    start.x = raise_x + position.x;
+    start.y = raise_y + position.y;
+    start.z = raise_z + position.z;
+    start.w = raise_w + position.w;
     float reach = length;
-    if (StateOf(this) == kAir)
-        reach = Scripts::FetchFloat(kAirExtraSide) + length;
+    if (state_of(this) == kAir)
+        reach = script::fetch_float(kAirExtraSide) + length;
     // Out along the right (z and w from the unrounded side products, as the original).
-    const Maths::Vec4& right = VectorAt(ObjectOf(this), kRight);
-    float outY = (side * right.y) * reach;
-    float outX = (side * right.x) * reach;
-    float outW = static_cast<float>(static_cast<double>(side) * right.w * reach);
-    float outZ = static_cast<float>(static_cast<double>(side) * right.z * reach);
-    Maths::Vec4& end = VectorAt(this, kProbeTip);
-    end.x = outX + start.x;
-    end.y = outY + start.y;
-    end.z = outZ + start.z;
-    end.w = outW + start.w;
-    if (!Feel(this, 0x10, 0))
+    const maths::Vec4& right = vector_at(object_of(this), kRight);
+    float out_y = (side * right.y) * reach;
+    float out_x = (side * right.x) * reach;
+    float out_w = static_cast<float>(static_cast<double>(side) * right.w * reach);
+    float out_z = static_cast<float>(static_cast<double>(side) * right.z * reach);
+    maths::Vec4& end = vector_at(this, kProbeTip);
+    end.x = out_x + start.x;
+    end.y = out_y + start.y;
+    end.z = out_z + start.z;
+    end.w = out_w + start.w;
+    if (!get_feel(this, 0x10, 0))
         return false;
 
-    Maths::Vec4 normal = VectorAt(this, kHitNormal);
+    maths::Vec4 normal = vector_at(this, kHitNormal);
     float overlap = 0.0f; // (uninitialised in the original when not in the air)
-    if (StateOf(this) == kAir) {
-        if (!BitMark(this, 0xE0) && !BitMark(this, 0x70) && StartWallRide())
+    if (state_of(this) == kAir) {
+        if (!bit_mark(this, 0xE0) && !bit_mark(this, 0x70) && start_wall_ride())
             return true;
         // Pushed out of it by a tenth of how far into it the skater is (the hit's distance under the reach, less
         // the extra air reach).
-        const Maths::Vec4& point = VectorAt(this, kHitPoint);
-        Maths::Vec4 into = {point.x - start.x, point.y - start.y, point.z - start.z, point.w - start.w};
+        const maths::Vec4& point = vector_at(this, kHitPoint);
+        maths::Vec4 into = {point.x - start.x, point.y - start.y, point.z - start.z, point.w - start.w};
         double distance = std::sqrt((static_cast<double>(into.z) * into.z + static_cast<double>(into.y) * into.y) +
                                     static_cast<double>(into.x) * into.x);
         double depth = distance - (static_cast<double>(reach) - length);
         overlap = static_cast<float>(depth);
         if (!(depth > 0.0))
             return false;
-        into.SetLength(overlap);
-        VectorAt(ObjectOf(this), kPosition) -= into / 10.0f;
-        const uint8_t* input = InputOf(this);
-        if (StateOf(this) != kAir && !input[0x100] && !input[0xA0] && !input[0x60] && !input[0x80])
-            DeflectFromWall(&normal, &overlap, 0.2f); // (never: the state is the air's)
+        into.set_length(overlap);
+        vector_at(object_of(this), kPosition) -= into / 10.0f;
+        const uint8_t* input = input_of(this);
+        if (state_of(this) != kAir && !input[0x100] && !input[0xA0] && !input[0x60] && !input[0x80])
+            deflect_from_wall(&normal, &overlap, 0.2f); // (never: the state is the air's)
         return false;
     }
     // On the ground: a near-vertical wall puts the skater back where it was (+0x98) ...
-    double facingUp = (static_cast<double>(normal.z) * up.z + static_cast<double>(normal.y) * up.y) +
+    double facing_up = (static_cast<double>(normal.z) * up.z + static_cast<double>(normal.y) * up.y) +
                       static_cast<double>(normal.x) * up.x;
-    if (!(facingUp < static_cast<double>(0.25f)) || !(facingUp > static_cast<double>(-0.25f)))
+    if (!(facing_up < static_cast<double>(0.25f)) || !(facing_up > static_cast<double>(-0.25f)))
         return false;
-    const Maths::Vec4 entryVelocity = VectorAt(ObjectOf(this), kVelocity); // (not original: for NotePath)
-    VectorAt(ObjectOf(this), kPosition) = VectorAt(this, 0x98);
-    DeflectFromWall(&normal, &overlap, 0.2f);
-    CollisionEvents::NotePath(this, CollisionEvents::RouteWay::SideWall, entryVelocity); // (not original)
+    const maths::Vec4 entry_velocity = vector_at(object_of(this), kVelocity); // (not original: for note_path)
+    vector_at(object_of(this), kPosition) = vector_at(this, 0x98);
+    deflect_from_wall(&normal, &overlap, 0.2f);
+    collision_events::note_path(this, collision_events::RouteWay::kSideWall, entry_velocity); // (not original)
     // ... then, unless there's something between (a feeler from just off the hit out to the length) or a trigger's
     // script takes over, onto the wall: at that feeler's end, lowered by the side height.
-    const Maths::Vec4& point = VectorAt(this, kHitPoint);
-    Maths::Vec4 outer = point + normal * length;
-    Maths::Vec4 inner = point + normal;
+    const maths::Vec4& point = vector_at(this, kHitPoint);
+    maths::Vec4 outer = point + normal * length;
+    maths::Vec4 inner = point + normal;
     FeelerStorage feeler;
-    feeler->MakeNew(&inner, &outer);
-    if (feeler->GetHitShape(true, false)) {
-        DestroyFeeler(feeler.get());
+    feeler->make_new(&inner, &outer);
+    if (feeler->get_hit_shape(true, false)) {
+        destroy_feeler(feeler.get());
         return false;
     }
-    TriggerFeeler(this, g_bonkEvents, kFeeler);
-    if (TriggerTookOver(this)) {
-        DestroyFeeler(feeler.get());
+    trigger_feeler(this, kBonkEvents, kFeeler);
+    if (trigger_took_over(this)) {
+        destroy_feeler(feeler.get());
         return false;
     }
-    void* skater = ObjectOf(this);
-    float lower = Scripts::FetchFloat(kSideHeight);
-    VectorAt(skater, kPosition) = feeler->m_line.end - VectorAt(skater, kUp) * lower;
-    DestroyFeeler(feeler.get());
+    void* skater = object_of(this);
+    float lower = script::fetch_float(kSideHeight);
+    vector_at(skater, kPosition) = feeler->line_.end - vector_at(skater, kUp) * lower;
+    destroy_feeler(feeler.get());
     return true;
 }
 
 // 0x0050C930
-void SkaterPhysicsModule::TestLateralHits()
+void SkaterPhysicsModule::test_lateral_hits()
 {
-    Maths::Vec4 saved = VectorAt(ObjectOf(this), kPosition);
-    float length = Scripts::FetchFloat(kSideLength);
+    maths::Vec4 saved = vector_at(object_of(this), kPosition);
+    float length = script::fetch_float(kSideLength);
     bool both;
-    if (CheckSideCollision(-1.0f, length))
-        both = CheckSideCollision(1.0f, length);
+    if (check_side_collision(-1.0f, length))
+        both = check_side_collision(1.0f, length);
     else
-        both = CheckSideCollision(1.0f, length) && CheckSideCollision(-1.0f, length);
+        both = check_side_collision(1.0f, length) && check_side_collision(-1.0f, length);
     if (both)
-        VectorAt(ObjectOf(this), kPosition) = saved;
+        vector_at(object_of(this), kPosition) = saved;
 }
 
 } // namespace Skater

@@ -11,37 +11,37 @@
 // gamecontrollerdb.txt next to the exe adds controller mappings.
 //
 // Players: a controller becomes player 1 or 2 when one of its buttons is pressed (the second rumbles once and is
-// locked out until all its buttons are up). Port 0 also reads the keyboard. Each frame Sio::InputPort::WorkOn
+// locked out until all its buttons are up). Port 0 also reads the keyboard. Each frame sio::InputPort::work_on
 // fills the device's PS2-format control data from them.
-namespace Sio {
+namespace sio {
 
 class InputPort;
 
 struct InputSettings {
-    uint8_t ps2Controls; // UsePS2Controls
-    uint8_t uiControls;  // UIControls (read, unused)
+    uint8_t ps2_controls_; // UsePS2Controls
+    uint8_t ui_controls_;  // UIControls (read, unused)
 };
-// The settings (read by InitSdlInput).
-InputSettings& TheInputSettings();
+// The settings (read by init_sdl_input).
+InputSettings& the_input_settings();
 
 // Whether the keyboard was used last (a key went down; a controller button or stick moves it to the
 // controller). Button glyphs depend on it.
-bool& UsingKeyboard();
+bool& using_keyboard();
 
-// Set input up (from OsLayer::InitInput): SDL's game controllers, the settings and bindings, the game's key
+// Set input up (from os_layer::init_input): SDL's game controllers, the settings and bindings, the game's key
 // binding table (0x007D6770, DirectInput codes, for the menus' hints), the event handler; with PS2 controls,
-// the IsPS2 script command (SystemCore::InstallIsPS2).
-void InitSdlInput();
+// the IsPS2 script command (sys::install_is_ps2).
+void init_sdl_input();
 
-// A device's frame (Sio::InputPort::WorkOn): pending events handled, then the control data from the keyboard
+// A device's frame (sio::InputPort::work_on): pending events handled, then the control data from the keyboard
 // (port 0) and the port's controller.
-void ProcessSdlDevice(InputPort* device);
+void process_sdl_device(InputPort* device);
 
-// Rumble on the controller playing as `port` (OsLayer::SetActuators): `high` and `low` frequency motors,
+// Rumble on the controller playing as `port` (os_layer::set_actuators): `high` and `low` frequency motors,
 // 0-65535.
-void __cdecl SetSdlActuators(int port, uint16_t high, uint16_t low);
+void __cdecl set_sdl_actuators(int port, uint16_t high, uint16_t low);
 
-extern bool g_keyboardOnScreen;
-extern bool g_inMenuFlag;
+extern bool g_keyboard_on_screen;
+extern bool g_in_menu_flag;
 
 } // namespace Sio

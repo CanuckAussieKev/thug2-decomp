@@ -1,6 +1,6 @@
 // The rigid body component's code before its life and physics (engine/objects/rigidbody_component.h): the debug switch,
 // the member function table and three of its members, the pushers' reach, Finalize, Sleep, the world points, the
-// damping and the check for sleep; and the components' shared vtable slot 11 (DispatchScriptMethod).
+// damping and the check for sleep; and the components' shared vtable slot 11 (dispatch_script_method).
 //
 // The original's arithmetic is x87 code at 53-bit precision: what it keeps on the FPU stack is a double here, what
 // it stores to memory a float - each value rounded where the original rounds it, and sums keep its grouping.
@@ -23,9 +23,9 @@
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 
-namespace GameObjects {
+namespace objects {
 
-uint32_t g_rigidBodyMemberFunctions[78]{
+uint32_t g_rigid_body_member_functions[78]{
             0xCC12CF87, 0xFFB39248, 0, 0, 0, 0,
             0x9599C10F, 0xFFB39248, 0, 0, 0, 0,
             0xCD5BA67B, 0xFFB39248, 0, 0, 0, 0,
@@ -39,7 +39,7 @@ uint32_t g_rigidBodyMemberFunctions[78]{
             0xD4A0946B, 0xFFB39248, 0, 0, 0, 0,
             0x949BE8A9, 0xFFB39248, 0, 0, 0, 0,
             0, 0xFFB39248, 0, 0, 0, 0};
-int g_nextCollideSoundTime;
+int g_next_collide_sound_time;
 
 namespace {
 
@@ -50,146 +50,146 @@ constexpr float kFrameSeconds = 1.0f / 60;       // 0x006463B8
 constexpr float kSettledDistanceSqr = 2304.0f;   // 0x006463DC (48 squared)
 constexpr float kDieAfterSettling = 1.5f;        // (an immediate)
 
-double Wide(float value) { return value; }
-float Narrow(double value) { return static_cast<float>(value); }
+double get_wide(float value) { return value; }
+float get_narrow(double value) { return static_cast<float>(value); }
 
 // The debug drawing switches (rigidbody_physics.cpp reads them): the shapes, the details.
-bool& DrawShape() { return g_rigidBodyDrawShape; }
-bool& DrawDetails() { return g_rigidBodyDrawDetails; }
+bool& draw_shape() { return g_rigid_body_draw_shape; }
+bool& draw_details() { return g_rigid_body_draw_details; }
 
 // The 8 objects rigid bodies feel (smart pointers, 0x00695150) and each one's extra reach (0x006939B0).
-CSharedRef<CGameEntity>* Pushers() { return g_rigidBodyPushers; }
-float* PusherReach() { return g_rigidBodyPusherReach; }
+SharedRef<GameEntity>* get_pushers() { return g_rigid_body_pushers; }
+float* pusher_reach() { return g_rigid_body_pusher_reach; }
 
 // The matrix's element at byte offset `offset` from its start.
-double M(const Maths::Mat4& m, int offset) { return *reinterpret_cast<const float*>(reinterpret_cast<const uint8_t*>(&m) + offset); }
+double get_m(const maths::Mat4& m, int offset) { return *reinterpret_cast<const float*>(reinterpret_cast<const uint8_t*>(&m) + offset); }
 
 } // namespace
 
 // 0x0042BAC0
-bool __cdecl CFunc_ToggleRigidBodyDebug(Scripts::CStruct*, Scripts::CScript*)
+bool __cdecl cfunc_toggle_rigid_body_debug(script::Struct*, script::Script*)
 {
-    if (!DrawShape()) {
-        DrawShape() = true;
-    } else if (!DrawDetails()) {
-        DrawDetails() = true;
+    if (!draw_shape()) {
+        draw_shape() = true;
+    } else if (!draw_details()) {
+        draw_details() = true;
     } else {
-        DrawDetails() = false;
-        DrawShape() = false;
+        draw_details() = false;
+        draw_shape() = false;
     }
     return true;
 }
 
 // 0x0042BB00
-void __cdecl CBodyDynamicsModule::PublishMethodTable()
+void __cdecl BodyDynamicsModule::publish_method_table()
 {
-    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_rigidBodyMemberFunctions, 0x18);
+    script::register_member_function_table(reinterpret_cast<void*>(kType), g_rigid_body_member_functions, 0x18);
 }
 
 // 0x0042BB20
-int CObjectModule::DispatchScriptMethod(Scripts::CMemberFunctionEntry* entry, Scripts::CStruct* params,
-                                      Scripts::CScript* script)
+int ObjectModule::dispatch_script_method(script::MemberFunctionEntry* entry, script::Struct* params,
+                                      script::Script* script)
 {
-    if (entry->m_methodCode) {
-        void* self = reinterpret_cast<uint8_t*>(this) + entry->m_thisAdjustment;
-        return reinterpret_cast<int(__thiscall*)(void*, Scripts::CStruct*, Scripts::CScript*)>(entry->m_methodCode)(self, params,
+    if (entry->method_code_) {
+        void* self = reinterpret_cast<uint8_t*>(this) + entry->this_adjustment_;
+        return reinterpret_cast<int(__thiscall*)(void*, script::Struct*, script::Script*)>(entry->method_code_)(self, params,
                                                                                                          script);
     }
-    return InvokeMethodByName(entry->m_callsign, params, script);
+    return invoke_method_by_name(entry->callsign_, params, script);
 }
 
 // 0x0042BB60
-bool CBodyDynamicsModule::RigidBody_IgnoreSkater(Scripts::CStruct* params, Scripts::CScript*)
+bool BodyDynamicsModule::rigid_body_ignore_skater(script::Struct* params, script::Script*)
 {
-    params->FetchFloat(0u, &m_pushCooldown, 1);
-    if (params->HasBareFlag(kFrames) || params->HasBareFlag(kFrame))
-        m_pushCooldown = Narrow(Wide(m_pushCooldown) * kFrameSeconds);
+    params->fetch_float(0u, &push_cooldown_, 1);
+    if (params->has_bare_flag(kFrames) || params->has_bare_flag(kFrame))
+        push_cooldown_ = get_narrow(get_wide(push_cooldown_) * kFrameSeconds);
     return true;
 }
 
 // 0x0042BBB0
-bool CBodyDynamicsModule::RigidBody_Disable(Scripts::CStruct*, Scripts::CScript*)
+bool BodyDynamicsModule::rigid_body_disable(script::Struct*, script::Script*)
 {
-    m_curPhase = STATE_DISABLED;
+    cur_phase_ = kStateDisabled;
     return true;
 }
 
 // 0x0042BBD0
-bool CBodyDynamicsModule::RigidBody_Reset(Scripts::CStruct* params, Scripts::CScript*)
+bool BodyDynamicsModule::rigid_body_reset(script::Struct* params, script::Script*)
 {
-    CObjectModule::ConfigureFromData(params);
+    ObjectModule::configure_from_data(params);
     return true;
 }
 
 // 0x0042BD60
-void __cdecl SetRigidBodyPusherReach(CGameEntity* object, float reach)
+void __cdecl set_rigid_body_pusher_reach(GameEntity* object, float reach)
 {
     for (int i = 7; i >= 0; --i) {
-        if (Pushers()[i].m_ownerObject == object) {
-            PusherReach()[i] = reach;
+        if (get_pushers()[i].owner_object_ == object) {
+            pusher_reach()[i] = reach;
             return;
         }
     }
 }
 
 // 0x0042BD90
-void CBodyDynamicsModule::Seal()
+void BodyDynamicsModule::seal()
 {
-    m_audioModule = static_cast<CAudioEmitterModule*>(m_entity->FetchModule(kSound));
-    const Maths::Mat4& m = m_basisFrame;
-    for (int i = 0; i < m_springCount; ++i) {
-        Spring& spring = m_springs[i];
-        const Maths::Vec4& p = spring.point;
-        double x = (Wide(p.y) * M(m, 0x10) + Wide(p.x) * M(m, 0x00)) + Wide(p.z) * M(m, 0x20);
-        float y = Narrow((Wide(p.x) * M(m, 0x04) + Wide(p.z) * M(m, 0x24)) + Wide(p.y) * M(m, 0x14));
-        float z = Narrow((Wide(p.x) * M(m, 0x08) + Wide(p.z) * M(m, 0x28)) + Wide(p.y) * M(m, 0x18));
-        spring.anchor.z = Narrow(Wide(z) + m_atPoint.z);
-        spring.anchor.w = Narrow(Wide(p.w) + m_atPoint.w);
-        spring.anchor.x = Narrow(x + m_atPoint.x);
-        spring.anchor.y = Narrow(Wide(y) + m_atPoint.y);
+    audio_module_ = static_cast<AudioEmitterModule*>(entity_->fetch_module(kSound));
+    const maths::Mat4& m = basis_frame_;
+    for (int i = 0; i < spring_count_; ++i) {
+        Spring& spring = springs_[i];
+        const maths::Vec4& p = spring.point;
+        double x = (get_wide(p.y) * get_m(m, 0x10) + get_wide(p.x) * get_m(m, 0x00)) + get_wide(p.z) * get_m(m, 0x20);
+        float y = get_narrow((get_wide(p.x) * get_m(m, 0x04) + get_wide(p.z) * get_m(m, 0x24)) + get_wide(p.y) * get_m(m, 0x14));
+        float z = get_narrow((get_wide(p.x) * get_m(m, 0x08) + get_wide(p.z) * get_m(m, 0x28)) + get_wide(p.y) * get_m(m, 0x18));
+        spring.anchor.z = get_narrow(get_wide(z) + at_point_.z);
+        spring.anchor.w = get_narrow(get_wide(p.w) + at_point_.w);
+        spring.anchor.x = get_narrow(x + at_point_.x);
+        spring.anchor.y = get_narrow(get_wide(y) + at_point_.y);
     }
 }
 
 // 0x0042BE90
-void CBodyDynamicsModule::Sleep()
+void BodyDynamicsModule::sleep()
 {
-    if (m_settleScript)
-        m_entity->SpawnScript(m_settleScript, m_callbackParamsPtr, 0, false)->TickFrame();
-    m_vel = {0.0f, 0.0f, 0.0f, 1.0f};
-    m_rotVel = {0.0f, 0.0f, 0.0f, 1.0f};
-    m_curPhase = STATE_ASLEEP;
+    if (settle_script_)
+        entity_->spawn_script(settle_script_, callback_params_ptr_, 0, false)->tick_frame();
+    vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    rot_vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    cur_phase_ = kStateAsleep;
 }
 
 // 0x0042BF00 (each array from its last element back)
-void CBodyDynamicsModule::UpdateWorldPoints()
+void BodyDynamicsModule::update_world_points()
 {
-    const Maths::Mat4& m = m_basisFrame;
-    for (int i = m_contactCount - 1; i >= 0; --i) {
-        const Maths::Vec4& p = m_contacts[i];
-        Maths::Vec4& out = WorldContactPoints()[i];
-        double x = (Wide(p.y) * M(m, 0x10) + Wide(p.z) * M(m, 0x20)) + Wide(p.x) * M(m, 0x00);
-        double y = (Wide(p.x) * M(m, 0x04) + Wide(p.z) * M(m, 0x24)) + Wide(p.y) * M(m, 0x14);
-        double z = (Wide(p.z) * M(m, 0x28) + Wide(p.y) * M(m, 0x18)) + Wide(p.x) * M(m, 0x08);
-        out = {Narrow(x), Narrow(y), Narrow(z), p.w};
+    const maths::Mat4& m = basis_frame_;
+    for (int i = contact_count_ - 1; i >= 0; --i) {
+        const maths::Vec4& p = contacts_[i];
+        maths::Vec4& out = world_contact_points()[i];
+        double x = (get_wide(p.y) * get_m(m, 0x10) + get_wide(p.z) * get_m(m, 0x20)) + get_wide(p.x) * get_m(m, 0x00);
+        double y = (get_wide(p.x) * get_m(m, 0x04) + get_wide(p.z) * get_m(m, 0x24)) + get_wide(p.y) * get_m(m, 0x14);
+        double z = (get_wide(p.z) * get_m(m, 0x28) + get_wide(p.y) * get_m(m, 0x18)) + get_wide(p.x) * get_m(m, 0x08);
+        out = {get_narrow(x), get_narrow(y), get_narrow(z), p.w};
     }
-    for (int i = m_sphereCount - 1; i >= 0; --i) {
-        const Maths::Vec4& p = m_spheres[i].center;
-        Maths::Vec4& out = WorldSphereCenters()[i];
-        double x = (Wide(p.y) * M(m, 0x10) + Wide(p.z) * M(m, 0x20)) + Wide(p.x) * M(m, 0x00);
-        double y = (Wide(p.x) * M(m, 0x04) + Wide(p.z) * M(m, 0x24)) + Wide(p.y) * M(m, 0x14);
-        double z = (Wide(p.x) * M(m, 0x08) + Wide(p.z) * M(m, 0x28)) + Wide(p.y) * M(m, 0x18);
-        out = {Narrow(x), Narrow(y), Narrow(z), p.w};
+    for (int i = sphere_count_ - 1; i >= 0; --i) {
+        const maths::Vec4& p = spheres_[i].center;
+        maths::Vec4& out = world_sphere_centers()[i];
+        double x = (get_wide(p.y) * get_m(m, 0x10) + get_wide(p.z) * get_m(m, 0x20)) + get_wide(p.x) * get_m(m, 0x00);
+        double y = (get_wide(p.x) * get_m(m, 0x04) + get_wide(p.z) * get_m(m, 0x24)) + get_wide(p.y) * get_m(m, 0x14);
+        double z = (get_wide(p.x) * get_m(m, 0x08) + get_wide(p.z) * get_m(m, 0x28)) + get_wide(p.y) * get_m(m, 0x18);
+        out = {get_narrow(x), get_narrow(y), get_narrow(z), p.w};
     }
-    for (int i = m_springCount - 1; i >= 0; --i) {
-        const Spring& spring = m_springs[i];
+    for (int i = spring_count_ - 1; i >= 0; --i) {
+        const Spring& spring = springs_[i];
         if (!spring.active)
             continue;
-        const Maths::Vec4& p = spring.point;
-        Maths::Vec4& out = WorldSpringPoints()[i];
-        double x = (Wide(p.z) * M(m, 0x20) + Wide(p.y) * M(m, 0x10)) + Wide(p.x) * M(m, 0x00);
-        double y = (Wide(p.z) * M(m, 0x24) + Wide(p.y) * M(m, 0x14)) + Wide(p.x) * M(m, 0x04);
-        double z = (Wide(p.z) * M(m, 0x28) + Wide(p.y) * M(m, 0x18)) + Wide(p.x) * M(m, 0x08);
-        out = {Narrow(x), Narrow(y), Narrow(z), p.w};
+        const maths::Vec4& p = spring.point;
+        maths::Vec4& out = world_spring_points()[i];
+        double x = (get_wide(p.z) * get_m(m, 0x20) + get_wide(p.y) * get_m(m, 0x10)) + get_wide(p.x) * get_m(m, 0x00);
+        double y = (get_wide(p.z) * get_m(m, 0x24) + get_wide(p.y) * get_m(m, 0x14)) + get_wide(p.x) * get_m(m, 0x04);
+        double z = (get_wide(p.z) * get_m(m, 0x28) + get_wide(p.y) * get_m(m, 0x18)) + get_wide(p.x) * get_m(m, 0x08);
+        out = {get_narrow(x), get_narrow(y), get_narrow(z), p.w};
     }
 }
 
@@ -197,50 +197,50 @@ namespace {
 
 // A velocity slowed by `drag` (a speed; 0: left alone): stopped (w 1) at or below it, else each component, w too,
 // less its share (a not-a-number speed or drag: that).
-void Slow(Maths::Vec4& v, float drag)
+void get_slow(maths::Vec4& v, float drag)
 {
     if (drag == 0.0f)
         return;
-    double speed = std::sqrt((Wide(v.x) * v.x + Wide(v.y) * v.y) + Wide(v.z) * v.z);
+    double speed = std::sqrt((get_wide(v.x) * v.x + get_wide(v.y) * v.y) + get_wide(v.z) * v.z);
     if (speed <= drag) {
         v = {0.0f, 0.0f, 0.0f, 1.0f};
         return;
     }
     double f = -(drag / speed);
     double dx = f * v.x;
-    float dy = Narrow(f * v.y);
-    float dz = Narrow(f * v.z);
-    float dw = Narrow(f * v.w);
-    v.x = Narrow(dx + v.x);
-    v.y = Narrow(Wide(dy) + v.y);
-    v.z = Narrow(Wide(dz) + v.z);
-    v.w = Narrow(Wide(dw) + v.w);
+    float dy = get_narrow(f * v.y);
+    float dz = get_narrow(f * v.z);
+    float dw = get_narrow(f * v.w);
+    v.x = get_narrow(dx + v.x);
+    v.y = get_narrow(get_wide(dy) + v.y);
+    v.z = get_narrow(get_wide(dz) + v.z);
+    v.w = get_narrow(get_wide(dw) + v.w);
 }
 
 // x * x + y * y + z * z, as the original sums it.
-double MagnitudeSquared(const Maths::Vec4& v) { return (Wide(v.x) * v.x + Wide(v.y) * v.y) + Wide(v.z) * v.z; }
+double magnitude_squared(const maths::Vec4& v) { return (get_wide(v.x) * v.x + get_wide(v.y) * v.y) + get_wide(v.z) * v.z; }
 
 } // namespace
 
 // 0x0042C6D0
-void CBodyDynamicsModule::Damp()
+void BodyDynamicsModule::damp()
 {
-    Slow(m_vel, m_unknown38);
-    Slow(m_rotVel, m_unknown3C);
+    get_slow(vel_, unknown38_);
+    get_slow(rot_vel_, unknown3c_);
 }
 
 // 0x0042C890 (the comparisons let a not-a-number speed through)
-void CBodyDynamicsModule::CheckSleep()
+void BodyDynamicsModule::check_sleep()
 {
-    if (m_unknown191 < 3)
+    if (unknown191_ < 3)
         return;
-    if (MagnitudeSquared(m_vel) > m_linearSleepSquared)
+    if (magnitude_squared(vel_) > linear_sleep_squared_)
         return;
-    if (MagnitudeSquared(m_rotVel) > m_angularSleepSquared)
+    if (magnitude_squared(rot_vel_) > angular_sleep_squared_)
         return;
-    Sleep();
-    if ((m_flagBits & FLAG_DIE_UPON_SETTLING) && !(Maths::DistanceSquared(m_atPoint, m_wakePos) < kSettledDistanceSqr))
-        m_dieTimer = kDieAfterSettling;
+    sleep();
+    if ((flag_bits_ & kFlagDieUponSettling) && !(maths::get_distance_squared(at_point_, wake_pos_) < kSettledDistanceSqr))
+        die_timer_ = kDieAfterSettling;
 }
 
 namespace {
@@ -255,26 +255,26 @@ constexpr float kTurnShare = 0.6f;        // 0x006463C4
 constexpr float kSoundScale = 0.1f;       // 0x00645D74: the push's size to the collide sound's percent
 constexpr uint32_t kPercent = 0x9E497FC6; // percent
 
-// The pushers' height (0x006939D0: 77, set by ConfigureFromData) and the time the next collide sound of any rigid
+// The pushers' height (0x006939D0: 77, set by configure_from_data) and the time the next collide sound of any rigid
 // body may play (0x006939D8).
-float PusherHeight() { return g_rigidBodyPusherHeight; }
-int& NextCollideSoundTime() { return g_nextCollideSoundTime; }
+float pusher_height() { return g_rigid_body_pusher_height; }
+int& next_collide_sound_time() { return g_next_collide_sound_time; }
 
 // The scene's sector named `checksum` hidden (0x0048C770 the first scene - the name pushed as its argument slot,
 // which 0x0049CB00 then takes as its own; neither rewritten yet).
-void HideSector(uint32_t checksum)
+void hide_sector(uint32_t checksum)
 {
-    Engine3D::CWorldScene* scene = Engine3D::GetMainScene();
-    void* sector = scene->LookUpSector(checksum);
+    render::WorldScene* scene = render::get_main_scene();
+    void* sector = scene->look_up_sector(checksum);
     if (sector)
-        static_cast<Engine3D::CWorldCell*>(sector)->ChangeLive(false);
+        static_cast<render::WorldCell*>(sector)->change_live(false);
 }
 
 // A mute delay: 50-149 % of `delay` milliseconds from now (the product divided unsigned).
-int MuteUntil(int delay)
+int mute_until(int delay)
 {
-    uint32_t scaled = static_cast<uint32_t>((Maths::Rnd(100) + 50) * delay) / 100u;
-    return static_cast<int>(scaled + FrameClock::GetTime());
+    uint32_t scaled = static_cast<uint32_t>((maths::rnd(100) + 50) * delay) / 100u;
+    return static_cast<int>(scaled + frame_clock::get_time());
 }
 
 } // namespace
@@ -286,37 +286,37 @@ int MuteUntil(int delay)
 // its feet, or 12 below); then it wakes, ignores pushers for a while, runs CollideScript, hides its shadow sector
 // and plays the collide sound (mute delays allowing). A pusher not moving relative to it (0.01 on each axis) ends
 // the look at once - the pushers after it aren't felt.
-void CBodyDynamicsModule::FeelPushers()
+void BodyDynamicsModule::feel_pushers()
 {
     for (int i = 7; i >= 0; --i) {
-        CGameEntity* pusher = Pushers()[i].m_ownerObject;
+        GameEntity* pusher = get_pushers()[i].owner_object_;
         if (!pusher)
             continue;
-        const float reach = PusherReach()[i];
-        const Maths::Vec4& at = pusher->m_atPoint;
-        double outer = Wide(reach) + m_skaterRadius;
-        double dz = Wide(m_atPoint.z) - at.z;
-        double dx = Wide(m_atPoint.x) - at.x;
+        const float reach = pusher_reach()[i];
+        const maths::Vec4& at = pusher->at_point_;
+        double outer = get_wide(reach) + skater_radius_;
+        double dz = get_wide(at_point_.z) - at.z;
+        double dx = get_wide(at_point_.x) - at.x;
         if (outer * outer < dx * dx + dz * dz)
             continue;
-        float dy = Narrow(Wide(at.y) - m_atPoint.y);
-        if (Wide(reach) + m_skaterApplicationRadius < dy)
+        float dy = get_narrow(get_wide(at.y) - at_point_.y);
+        if (get_wide(reach) + skater_application_radius_ < dy)
             continue;
-        if (-((Wide(PusherHeight()) + m_skaterApplicationRadius) + reach) > dy)
+        if (-((get_wide(pusher_height()) + skater_application_radius_) + reach) > dy)
             continue;
 
         // Away from the pusher (horizontally), and how they move relative to each other.
-        float ex = Narrow(Wide(m_atPoint.x) - at.x);
-        double ez = Wide(m_atPoint.z) - at.z;
-        double inverse = 1.0 / std::sqrt(ez * ez + Wide(ex) * ex);
-        float nx = Narrow(Wide(ex) * inverse);
-        float nz = Narrow(ez * inverse);
-        float rx = Narrow(Wide(pusher->m_vel.x) - m_vel.x);
-        double ry = Wide(pusher->m_vel.y) - m_vel.y;
-        float rz = Narrow(Wide(pusher->m_vel.z) - m_vel.z);
+        float ex = get_narrow(get_wide(at_point_.x) - at.x);
+        double ez = get_wide(at_point_.z) - at.z;
+        double inverse = 1.0 / std::sqrt(ez * ez + get_wide(ex) * ex);
+        float nx = get_narrow(get_wide(ex) * inverse);
+        float nz = get_narrow(ez * inverse);
+        float rx = get_narrow(get_wide(pusher->vel_.x) - vel_.x);
+        double ry = get_wide(pusher->vel_.y) - vel_.y;
+        float rz = get_narrow(get_wide(pusher->vel_.z) - vel_.z);
         if (std::fabs(rx) <= kSlow && std::fabs(ry) <= kSlow && std::fabs(rz) <= kSlow)
             return;
-        double approach = (std::fabs(ry * kUpShare) + Wide(rx) * nx) + Wide(rz) * nz;
+        double approach = (std::fabs(ry * kUpShare) + get_wide(rx) * nx) + get_wide(rz) * nz;
         if (approach <= 0.0)
             continue;
         double push;
@@ -328,70 +328,70 @@ void CBodyDynamicsModule::FeelPushers()
             push = approach + approach;
 
         // The direction: the relative motion's (horizontal, unit) plus the normal, made unit, tilted up.
-        double h = std::sqrt(Wide(rx) * rx + Wide(rz) * rz);
+        double h = std::sqrt(get_wide(rx) * rx + get_wide(rz) * rz);
         if (h == 0.0)
             h = kSlow;
         double ih = 1.0 / h;
-        float ax = Narrow(Wide(rx) * ih + nx);
-        double az = Wide(rz) * ih + nz;
-        double g = std::sqrt(Wide(ax) * ax + az * az);
+        float ax = get_narrow(get_wide(rx) * ih + nx);
+        double az = get_wide(rz) * ih + nz;
+        double g = std::sqrt(get_wide(ax) * ax + az * az);
         if (g == 0.0)
             g = kSlow;
         double ig = 1.0 / g;
-        float jz = Narrow(az * ig);
-        float jx = Narrow(Wide(ax) * ig * m_skaterAssentCos);
-        jz = Narrow(Wide(jz) * m_skaterAssentCos);
-        double size = push * m_skaterImpulseFactor;
-        Maths::Vec4 impulse = {Narrow(Wide(jx) * size), Narrow(Wide(m_skaterAssentSin) * size),
-                               Narrow(Wide(jz) * size), 0.0f};
+        float jz = get_narrow(az * ig);
+        float jx = get_narrow(get_wide(ax) * ig * skater_assent_cos_);
+        jz = get_narrow(get_wide(jz) * skater_assent_cos_);
+        double size = push * skater_impulse_factor_;
+        maths::Vec4 impulse = {get_narrow(get_wide(jx) * size), get_narrow(get_wide(skater_assent_sin_) * size),
+                               get_narrow(get_wide(jz) * size), 0.0f};
 
         // Where it's applied (from the centre).
-        double px = Wide(at.x) - m_atPoint.x;
-        float pz = Narrow(Wide(at.z) - m_atPoint.z);
-        double across = std::sqrt(px * px + Wide(pz) * pz);
+        double px = get_wide(at.x) - at_point_.x;
+        float pz = get_narrow(get_wide(at.z) - at_point_.z);
+        double across = std::sqrt(px * px + get_wide(pz) * pz);
         if (across > 0.0) {
-            double scale = m_skaterApplicationRadius / across;
+            double scale = skater_application_radius_ / across;
             px = px * scale;
-            pz = Narrow(Wide(pz) * scale);
+            pz = get_narrow(get_wide(pz) * scale);
         }
         double py;
         if (dy > 0.0f)
-            py = Wide(at.y) - m_atPoint.y;
-        else if (-PusherHeight() > dy)
-            py = (Wide(PusherHeight()) + at.y) - m_atPoint.y;
+            py = get_wide(at.y) - at_point_.y;
+        else if (-pusher_height() > dy)
+            py = (get_wide(pusher_height()) + at.y) - at_point_.y;
         else
             py = kBelowFeet;
 
-        m_vel.x = Narrow(Wide(impulse.x) + m_vel.x);
-        m_vel.y = Narrow(Wide(impulse.y) + m_vel.y);
-        m_vel.z = Narrow(Wide(impulse.z) + m_vel.z);
-        m_vel.w = Narrow(size + m_vel.w);
-        float tx = Narrow(Wide(impulse.z) * py - Wide(pz) * impulse.y);
-        float ty = Narrow(Wide(pz) * impulse.x - Wide(impulse.z) * px);
-        double tz = Wide(impulse.y) * px - py * impulse.x;
-        double turn = (Wide(m_skaterRotationFactor) * m_massOverMoment) * kTurnShare;
-        float wx = Narrow(Wide(tx) * turn);
-        float wy = Narrow(Wide(ty) * turn);
-        float wz = Narrow(tz * turn);
-        m_rotVel.x = Narrow(Wide(wx) + m_rotVel.x);
-        m_rotVel.y = Narrow(Wide(wy) + m_rotVel.y);
-        m_rotVel.z = Narrow(Wide(wz) + m_rotVel.z);
-        m_rotVel.w = Narrow(turn * 0.0f + m_rotVel.w);
+        vel_.x = get_narrow(get_wide(impulse.x) + vel_.x);
+        vel_.y = get_narrow(get_wide(impulse.y) + vel_.y);
+        vel_.z = get_narrow(get_wide(impulse.z) + vel_.z);
+        vel_.w = get_narrow(size + vel_.w);
+        float tx = get_narrow(get_wide(impulse.z) * py - get_wide(pz) * impulse.y);
+        float ty = get_narrow(get_wide(pz) * impulse.x - get_wide(impulse.z) * px);
+        double tz = get_wide(impulse.y) * px - py * impulse.x;
+        double turn = (get_wide(skater_rotation_factor_) * mass_over_moment_) * kTurnShare;
+        float wx = get_narrow(get_wide(tx) * turn);
+        float wy = get_narrow(get_wide(ty) * turn);
+        float wz = get_narrow(tz * turn);
+        rot_vel_.x = get_narrow(get_wide(wx) + rot_vel_.x);
+        rot_vel_.y = get_narrow(get_wide(wy) + rot_vel_.y);
+        rot_vel_.z = get_narrow(get_wide(wz) + rot_vel_.z);
+        rot_vel_.w = get_narrow(turn * 0.0f + rot_vel_.w);
 
-        Wake();
-        m_pushCooldown = m_pushCooldownTime;
-        if (m_collideScript)
-            m_entity->SpawnScript(m_collideScript, m_callbackParamsPtr, 0, false)->TickFrame();
-        HideSector(Checksums::FoldTextIntoChecksum(m_entity->m_ident, "_Shadow"));
-        int now = static_cast<int>(FrameClock::GetTime());
-        if (now - static_cast<int>(m_unknownF0) > 0 && now - NextCollideSoundTime() > 0 && m_audioModule &&
-            m_collideSoundPtr) {
-            double length = std::sqrt((Wide(impulse.x) * impulse.x + Wide(impulse.z) * impulse.z) +
-                                      Wide(impulse.y) * impulse.y);
-            m_collideSoundPtr->PushFloat(kPercent, Narrow(length * kSoundScale));
-            m_audioModule->EmitSound(m_collideSoundPtr);
-            m_unknownF0 = static_cast<uint32_t>(MuteUntil(m_impactQuietMs));
-            NextCollideSoundTime() = MuteUntil(m_globalCollideMuteDelay);
+        wake();
+        push_cooldown_ = push_cooldown_time_;
+        if (collide_script_)
+            entity_->spawn_script(collide_script_, callback_params_ptr_, 0, false)->tick_frame();
+        hide_sector(checksums::fold_text_into_checksum(entity_->ident_, "_Shadow"));
+        int now = static_cast<int>(frame_clock::get_time());
+        if (now - static_cast<int>(unknownf0_) > 0 && now - next_collide_sound_time() > 0 && audio_module_ &&
+            collide_sound_ptr_) {
+            double length = std::sqrt((get_wide(impulse.x) * impulse.x + get_wide(impulse.z) * impulse.z) +
+                                      get_wide(impulse.y) * impulse.y);
+            collide_sound_ptr_->push_float(kPercent, get_narrow(length * kSoundScale));
+            audio_module_->emit_sound(collide_sound_ptr_);
+            unknownf0_ = static_cast<uint32_t>(mute_until(impact_quiet_ms_));
+            next_collide_sound_time() = mute_until(global_collide_mute_delay_);
         }
         return;
     }
@@ -399,4 +399,4 @@ void CBodyDynamicsModule::FeelPushers()
 
 } // namespace Obj
 
-using GameObjects::CBodyDynamicsModule;
+using objects::BodyDynamicsModule;

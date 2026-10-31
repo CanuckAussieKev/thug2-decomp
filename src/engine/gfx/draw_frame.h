@@ -9,20 +9,20 @@
 // The per-frame 3D render (Nx engine, PC/D3D9): the camera's matrices, the world passes per viewport and the
 // motion blur pass. PartyMod (whose code this contains: MIT, (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md) changes
 // all three (widescreen viewports, black bars, a further far plane); the original's code is given in comments.
-namespace Engine3D {
+namespace render {
 
 // The camera's state (globals, 0x00786CA8).
 struct RenderCamera {
-    float nearZ;      // 0x00786CA8
-    float farZ;       // 0x00786CAC
+    float near_z_;      // 0x00786CA8
+    float far_z_;       // 0x00786CAC
     float angle;      // 0x00786CB0: horizontal field of view, degrees
-    float nearWidth;  // 0x00786CB4: the view's size at the near plane
-    float nearHeight; // 0x00786CB8
-    uint8_t customTransforms; // 0x00786CBC: the view / projection set by hand, not the camera's (shadow_base.cpp)
-    bool clearColourAndDepth;  // 0x00786CBD (a global the camera's lie around)
-    uint8_t letterboxActive; // 0x00786CBE
+    float near_width_;  // 0x00786CB4: the view's size at the near plane
+    float near_height_; // 0x00786CB8
+    uint8_t custom_transforms_; // 0x00786CBC: the view / projection set by hand, not the camera's (shadow_base.cpp)
+    bool clear_colour_and_depth_;  // 0x00786CBD (a global the camera's lie around)
+    uint8_t letterbox_active_; // 0x00786CBE
     uint8_t unknown17;
-    uint32_t backgroundColour; // 0x00786CC0 (another)
+    uint32_t background_colour_; // 0x00786CC0 (another)
     float position[3]; // 0x00786CC4
     uint8_t unknown28[0x0C];
     float backward[3]; // 0x00786CDC: the orientation's row 2
@@ -33,57 +33,57 @@ static_assert(offsetof(RenderCamera, backward) == 0x34, "0x00786CDC");
 
 // The view's half-angle shape, for culling (0x00786E18).
 struct ViewShape {
-    float tanX;  // tan(half the horizontal angle)
-    float tanY;  // -tanX / (aspect / 1.1): the vertical one, negated
-    float sinX;  // sin and cos of the two half-angles
-    float sinY;
-    float cosX;
-    float cosY;
+    float tan_x_;  // tan(half the horizontal angle)
+    float tan_y_;  // -tanX / (aspect / 1.1): the vertical one, negated
+    float sin_x_;  // sin and cos of the two half-angles
+    float sin_y_;
+    float cos_x_;
+    float cos_y_;
 };
 
 // The device's viewport (D3DVIEWPORT9, 0x00786C90).
 struct DeviceViewport {
     uint32_t x, y, width, height;
-    float minZ, maxZ;
+    float min_z_, max_z_;
 };
 
 // While letterboxed: the viewport (0x00786C90) set to the 640x480 layout's fitted area on the back buffer
-// (SetLetterbox's scales), centred.
-void SetDisplayRegion();
+// (set_letterbox's scales), centred.
+void set_display_region();
 // The 2D pass (0x004DFB90), then black bars over what was drawn outside the area fitted to the aspect wanted
 // (left and right on wider back buffers, top and bottom on narrower ones).
-void Draw2DWithBlackBars();
+void draw_2d_with_black_bars();
 
 // 0x004DB200: the camera's view and projection. `orientation`'s rows 1 and 2 are the camera's up and backward
 // directions; `angle` is the horizontal field of view in degrees; `zoom` scales the projection (1 = none);
 // `infinite` pushes the far plane to infinity.
-void ChooseCamera(const Maths::Mat4* orientation, const Maths::Vec4* position, float angle, float aspect, float zoom,
+void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, float angle, float aspect, float zoom,
                bool infinite);
 
 // 0x004DF390: the motion blur pass - blends the previous frame (one of two textures) over the screen.
-void DrawScreenBlur();
+void draw_screen_blur();
 
 // 0x004B2D80: the frame's 3D: per viewport with a camera, the world, the sky, the later passes; then the blur and
 // the 2D over the whole screen.
-void DrawWorld();
+void draw_world();
 
 extern bool g_radeon8500;
-extern int g_framesRendered;
-extern Maths::Mat4 g_worldMatrix;
-extern Maths::Mat4 g_viewMatrix;
-extern Maths::Mat4 g_projectionMatrix;
-extern Maths::Mat4 g_headingMatrix;
-extern int g_stepSeconds;
-extern int g_screenCopyIndex;
-extern int g_backBufferWidth;
-extern int g_backBufferHeight;
-extern int g_drawCalls;
-extern int g_drawnTriangles;
-extern float g_fogBeginDistance;
-extern float g_fogEnd;
+extern int g_frames_rendered;
+extern maths::Mat4 g_world_matrix;
+extern maths::Mat4 g_view_matrix;
+extern maths::Mat4 g_projection_matrix;
+extern maths::Mat4 g_heading_matrix;
+extern int g_step_seconds;
+extern int g_screen_copy_index;
+extern int g_back_buffer_width;
+extern int g_back_buffer_height;
+extern int g_draw_calls;
+extern int g_drawn_triangles;
+extern float g_fog_begin_distance;
+extern float g_fog_end;
 
-extern DeviceViewport g_deviceViewport;
+extern DeviceViewport g_device_viewport;
 extern RenderCamera g_camera;
-extern ViewShape g_viewShape;
+extern ViewShape g_view_shape;
 
 } // namespace Nx

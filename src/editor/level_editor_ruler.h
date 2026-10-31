@@ -6,7 +6,7 @@
 
 #include "editor/level_editor.h"
 
-namespace MenuSystem::LevelEditor::Overlays {
+namespace frontend::level_editor::overlays {
 struct Painter;
 }
 
@@ -15,7 +15,7 @@ struct Painter;
 // piece within kSnapPixels, Alt: no snap) are its ends; the distance, the horizontal gap and the height difference are
 // drawn and stay until Shift+M clears them (a third click starts a new measurement; M again disarms it, the measurement
 // stays). While armed, clicks measure instead of selecting. Shown with the Overlays menu's Ruler.
-namespace MenuSystem::LevelEditor::Ruler {
+namespace frontend::level_editor::ruler {
 
 // --- the pieces (pure) -------------------------------------------------------------------------------------------
 
@@ -24,26 +24,26 @@ struct Measure {
     float horizontal = 0.0f; // in x / z
     float height = 0.0f;     // b.y - a.y (up positive)
 };
-Measure MeasureOf(V3 a, V3 b);
+Measure measure_of(V3 a, V3 b);
 // The candidate nearest the cursor (x, y) within `radius` pixels (-1: none).
-int NearestWithin(const std::vector<std::pair<float, float>>& pixels, float x, float y, float radius);
+int nearest_within(const std::vector<std::pair<float, float>>& pixels, float x, float y, float radius);
 constexpr float kSnapPixels = 12.0f;
 // The text of a measurement ("312 (26.0 ft) - across 300 (25.0 ft), up 86 (7.2 ft)").
-std::string Describe(const Measure& m);
+std::string describe(const Measure& m);
 
 // --- the game side ----------------------------------------------------------------------------------------------
 
-bool Armed();
-void SetArmed(bool on);
+bool get_armed();
+void set_armed(bool on);
 // The measurement dropped (Shift+M).
-void Clear();
-// Once a frame while armed: where a click would put an end - the collision under the cursor (`origin`, `unitDir`: the
-// mouse ray; `x`, `y` the cursor in back buffer pixels), snapped unless `noSnap`.
-void Hover(V3 origin, V3 unitDir, float x, float y, bool noSnap);
+void get_clear();
+// Once a frame while armed: where a click would put an end - the collision under the cursor (`origin`, `unit_dir`: the
+// mouse ray; `x`, `y` the cursor in back buffer pixels), snapped unless `no_snap`.
+void get_hover(V3 origin, V3 unit_dir, float x, float y, bool no_snap);
 // A click while armed: an end put where Hover found (nothing when it found no collision). Returns what it did.
-std::string Click();
-void AddOverlay(const Overlays::Painter& painter);
+std::string get_click();
+void add_overlay(const overlays::Painter& painter);
 // The measurement now ("" when there's none) - the status bar, the screenshot sidecar.
-std::string Describe();
+std::string describe();
 
-} // namespace MenuSystem::LevelEditor::Ruler
+} // namespace MenuSystem::level_editor::Ruler

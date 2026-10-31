@@ -8,24 +8,24 @@
 // (--thug2: the game folder whose scripts' checksum names - Data\pre\*.prx - name the components and table members in
 // the output's comments; the data itself comes from the exe alone.)
 //
-// A script calls a member function by name; the name is a QBVAL_NATIVE_METHOD symbol registered in one of two
+// A script calls a member function by name; the name is a kQbvalNativeMethod symbol registered in one of two
 // ways (src/engine/script/names.cpp):
-//   - a table (RegisterMemberFunctionTable 0x0046F060, called with `push 0x18; push <table>; push <component type>`
+//   - a table (register_member_function_table 0x0046F060, called with `push 0x18; push <table>; push <component type>`
 //     by each component's register function and the composite object manager): 0x18-byte entries {name, component
 //     type, member function pointer} up to a zero name. The script runs the entry on that component of the object
-//     (Scripts::InvokeMethodByName 0x00472980: FetchModule(type) - **a null component when the object hasn't it: a
+//     (Scripts::invoke_method_by_name 0x00472980: fetch_module(type) - **a null component when the object hasn't it: a
 //     crash**), or on the object itself for the types 0x57525413 (object) / 0x0ADA4E74 (compositeobject).
-//   - by name (PublishMethodTable 0x0046F020, called once at 0x005A5F62 with the names at 0x00681AD0, 0xFA of
-//     them - the count is 0x005A5670's `mov eax, imm32`): the object's InvokeMethodByName(name) (vtable slot 3) runs
-//     it - a composite object asks each of its components in turn (CObjectModule vtable slot 12: 0 false, 1 done, 2
-//     not mine), then CEntity's own (SetProps, Die; anything else: true). **No crash when no component takes it**: the
+//   - by name (publish_method_table 0x0046F020, called once at 0x005A5F62 with the names at 0x00681AD0, 0xFA of
+//     them - the count is 0x005A5670's `mov eax, imm32`): the object's invoke_method_by_name(name) (vtable slot 3) runs
+//     it - a composite object asks each of its components in turn (ObjectModule vtable slot 12: 0 false, 1 done, 2
+//     not mine), then Entity's own (SetProps, Die; anything else: true). **No crash when no component takes it**: the
 //     statement does nothing (and is true as a condition).
 // Which component takes a by-name member: the member's checksum compared (cmp / sub with an imm32) in that component's
-// slot-12 function. The components are the 81 types RegisterComponentTypes (0x004E4860) registers: `push <register>
+// slot-12 function. The components are the 81 types register_component_types (0x004E4860) registers: `push <register>
 // (or 0); push <create>; push <type>; mov ecx, esi; call 0x0045F270`. A component's vtable: the last one stored to
 // [reg] (C7 0x imm32) by its create function or a constructor it calls (3 deep) that also has the type's checksum - the
-// constructor stores the vtable and the type. Object classes (CEntity's vtable slot 2 is 0x0045D850, the entry runner):
-// their slot 3; CEntity's (0x004608F0) is "object", CRider's (vtable 0x0064EF48, the skater's constructor) "skater".
+// constructor stores the vtable and the type. Object classes (Entity's vtable slot 2 is 0x0045D850, the entry runner):
+// their slot 3; Entity's (0x004608F0) is "object", Rider's (vtable 0x0064EF48, the skater's constructor) "skater".
 // A function's end for the scan: the next int3 padding (CC CC) or the next known function start (a call target or a
 // pointer to code in .rdata), whichever is first.
 
@@ -40,14 +40,14 @@ import { decodeLatin1, hex8, isMain, print, pyExit, runMain } from "./pipeline/l
 import { unpackNumbers } from "./pipeline/lib/struct.ts";
 
 const REGISTER_TABLE = 0x46f060;
-const REGISTER_NAMES_CALL = 0x5a5f62; // call PublishMethodTable
+const REGISTER_NAMES_CALL = 0x5a5f62; // call publish_method_table
 const REGISTER_COMPONENTS = 0x4e4860;
 const REGISTER_COMPONENT = 0x45f270;
 const ALLOC = 0x401cc0;
 const BASE_CONSTRUCT = 0x45d730;
-const BASE_VTABLE = 0x647618; // CObjectModule's
-const OBJECT_ENTRY_RUNNER = 0x45d850; // CEntity vtable slot 2
-const OBJECT_CMF = 0x4608f0; // CEntity::InvokeMethodByName(name)
+const BASE_VTABLE = 0x647618; // ObjectModule's
+const OBJECT_ENTRY_RUNNER = 0x45d850; // Entity vtable slot 2
+const OBJECT_CMF = 0x4608f0; // Entity::invoke_method_by_name(name)
 const SKATER_VTABLE = 0x64ef48;
 const COMPONENT_COUNT = 81;
 // Component names THUG2's scripts don't use (their checksums match the types; used only when they do).
@@ -185,7 +185,7 @@ export interface Component {
     create: number;
     register: number;
     vtable: number | null;
-    handler: number | null; // vtable slot 12: InvokeMethodByName(name)
+    handler: number | null; // vtable slot 12: invoke_method_by_name(name)
 }
 
 export function components(exe: Exe): Component[] {
@@ -259,7 +259,7 @@ export function tableMembers(exe: Exe): [number, number][] {
 
 // The by-name members' names.
 export function namedMembers(exe: Exe): string[] {
-    // ... 68 <names> E8 <PublishMethodTable>, after `call <count function>; push eax`
+    // ... 68 <names> E8 <publish_method_table>, after `call <count function>; push eax`
     const call = REGISTER_NAMES_CALL;
     if (exe.u8(call) !== 0xe8 || exe.u8(call - 5) !== 0x68 || exe.u8(call - 6) !== 0x50 || exe.u8(call - 11) !== 0xe8)
         throw new RangeError("RegisterMemberFunctions' call isn't where expected");
@@ -272,7 +272,7 @@ export function namedMembers(exe: Exe): string[] {
     return out;
 }
 
-// [label, InvokeMethodByName(name)] of the object classes (vtables whose slot 2 runs table entries).
+// [label, invoke_method_by_name(name)] of the object classes (vtables whose slot 2 runs table entries).
 export function objectHandlers(exe: Exe): [string, number][] {
     const out: [string, number][] = [];
     const seen = new Set<number>();
@@ -353,13 +353,13 @@ export function render(m: Members, names: ReadonlyMap<number, string>): string {
         "// (npm run format afterwards). It is committed so that the level converters work without data/derived.",
         "//",
         `// THUG2's script member functions (from the reference build): see tools/extract_members.ts for how each is found.`,
-        "//   COMPONENTS     the component types (RegisterComponentTypes 0x004E4860), named from THUG2's scripts",
+        "//   COMPONENTS     the component types (register_component_types 0x004E4860), named from THUG2's scripts",
         "//                  (hex where no script names one).",
         "//   TABLE_MEMBERS  the members registered in tables: [name checksum, component] - run on that component of the",
-        "//                  object; an object without it crashes (Scripts::InvokeMethodByName 0x00472980).",
-        "//   NAMED_MEMBERS  the members registered by name: [name, the components / objects whose InvokeMethodByName(name)",
+        "//                  object; an object without it crashes (Scripts::invoke_method_by_name 0x00472980).",
+        "//   NAMED_MEMBERS  the members registered by name: [name, the components / objects whose invoke_method_by_name(name)",
         "//                  takes it] - an object none of whose components takes it does nothing (no crash). `object`:",
-        "//                  every object (CEntity); `skater`: the skater object itself (CRider).",
+        "//                  every object (Entity); `skater`: the skater object itself (Rider).",
         "",
         "export const COMPONENTS: readonly (readonly [number, string])[] = [",
         ...m.components.map(([t, n]) => `    [${hex(t)}, "${n}"],`),

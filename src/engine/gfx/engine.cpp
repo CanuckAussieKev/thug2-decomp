@@ -1,4 +1,4 @@
-// The engine's own entry points (Engine3D::Engine): see engine.h. From the disassembly of 0x0048BF20-0x0048C741.
+// The engine's own entry points (render::Engine): see engine.h. From the disassembly of 0x0048BF20-0x0048C741.
 
 #include "engine/gfx/engine.h"
 
@@ -35,15 +35,15 @@
 
 #pragma warning(disable : 4996) // (sprintf / strcpy: the original's file names, unbounded as it builds them)
 
-namespace Engine3D {
+namespace render {
 
-bool g_suppressDraw; // rendering skipped (frames not drawn or shown)
+bool g_suppress_draw; // rendering skipped (frames not drawn or shown)
 
-void* g_flexibleParticleManager;
-void* g_imposterManager;
-int g_renderMode;
+void* g_flexible_particle_manager;
+void* g_imposter_manager;
+int g_render_mode;
 // The scenes' list (its head: data -1 once made; its first node, the head's next, is at +0xC, the last at +0x10).
-MemSys::ListNode g_sceneList;
+memory::ListNode g_scene_list;
 namespace {
 
 extern void** const kSceneNodeVtable;
@@ -54,149 +54,149 @@ const char* const kSceneFileFormat = "levels\\%s\\%s%s.scn.%s"; // 0x00648A20 (t
 const char* const kModelFileFormat = "%s.%s.%s";                // 0x006458F4
 
 // The scenes' list (0x006FA7E0: its head, data -1; the first node at +0xC, the last at +0x10).
-MemSys::ListNode& SceneList() { return g_sceneList; }
+memory::ListNode& scene_list() { return g_scene_list; }
 const auto kNoScene = reinterpret_cast<void*>(static_cast<uintptr_t>(0xFFFFFFFF));
 // The node after `node`, null at the end (the head).
-CSceneNode* NextScene(MemSys::ListNode* node)
+SceneNode* next_scene(memory::ListNode* node)
 {
-    return node->next->data == kNoScene ? nullptr : static_cast<CSceneNode*>(node->next);
+    return node->next->data == kNoScene ? nullptr : static_cast<SceneNode*>(node->next);
 }
 // The first node (null when there's none - the original reads the head's data before checking for no list).
-CSceneNode* FirstScene()
+SceneNode* first_scene()
 {
-    MemSys::ListNode* first = SceneList().next;
+    memory::ListNode* first = scene_list().next;
     if (first->data == kNoScene || !first)
         return nullptr;
-    return static_cast<CSceneNode*>(first);
+    return static_cast<SceneNode*>(first);
 }
-CWorldScene* SceneOf(MemSys::ListNode* node) { return static_cast<CWorldScene*>(node->data); }
+WorldScene* scene_of(memory::ListNode* node) { return static_cast<WorldScene*>(node->data); }
 
-void* g_sceneObjects;
-int g_renderIgnore0;
-int g_renderIgnore1;
-bool g_statsOverlayOn;
-Engine::IdleFunction g_idleFunction;
+void* g_scene_objects;
+int g_render_ignore0;
+int g_render_ignore1;
+bool g_stats_overlay_on;
+engine::IdleFunction g_idle_function;
 
 // The engine's managers: the flexible particle manager (0x006FA7C0), the imposter manager (0x006FA7BC, 8 bytes:
 // constructor 0x0048E3E0, its frame 0x0048E2D0 - not rewritten yet), the particle manager and the weather (made by
-// StartEngine).
-void*& FlexibleParticleManager() { return g_flexibleParticleManager; }
-void*& ImposterManager() { return g_imposterManager; }
-CEffectsDirector* ParticleHubHandle() { return GameObjects::g_particleHub; }
-void* Weather() { return g_weather; }
-bool OmitFromDraw() { return g_suppressDraw; }
-int ViewportCount() { return GameModules::g_viewportCount; }
+// start_engine).
+void*& flexible_particle_manager() { return g_flexible_particle_manager; }
+void*& imposter_manager() { return g_imposter_manager; }
+EffectsDirector* particle_hub_handle() { return objects::g_particle_hub; }
+void* get_weather() { return g_weather; }
+bool omit_from_draw() { return g_suppress_draw; }
+int viewport_count() { return modules::g_viewport_count; }
 
 // (0x004904E0, not rewritten yet: the frame's ... after the imposters)
-void UpdateAfterImposters() { UpdateSceneLightQueue(); }
+void update_after_imposters() { update_scene_light_queue(); }
 
-// The compiled-out call (0x005480A0, no arguments) DeleteGeomObject and UnloadScene make first.
-inline void DebugBeforeDelete() {}
+// The compiled-out call (0x005480A0, no arguments) delete_geom_object and UnloadScene make first.
+inline void debug_before_delete() {}
 
 } // namespace
 
 // 0x0048C4B0
-void CSceneNode::DestroyBody() { UnlinkAs(kSceneNodeVtable); }
+void SceneNode::destroy_body() { unlink_as(kSceneNodeVtable); }
 
 // 0x0048C4D0
-CSceneNode* CSceneNode::Teardown(unsigned int flags)
+SceneNode* SceneNode::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
-namespace Engine {
+namespace engine {
 
 // 0x0048C1D0
-void __cdecl PrepareAll(uint32_t textPoolSize)
+void __cdecl prepare_all(uint32_t text_pool_size)
 {
-    MemSys::PushMemProfile("sAllocTextPool");
-    AllocateTextPool(textPoolSize);
-    MemSys::PopMemProfile();
-    MemSys::PushMemProfile("sAllocWindow2DPool");
-    CreateWindowPool();
-    MemSys::PopMemProfile();
-    SetScreenAspectRatio(kAspectRatio);
-    SetScreenAngle(Scripts::FetchFloat(kCameraFov));
-    SetScreenFieldOfView(0.0f);
-    MemSys::PushMemProfile("CViewportManager");
-    CreateViewports();
-    SetScreenMode(0);
-    MemSys::PopMemProfile();
-    MemSys::PushMemProfile("CFlexibleParticleManager");
-    void* memory = MemSys::Alloc(sizeof(CFlexibleParticleManager));
-    FlexibleParticleManager() = memory ? static_cast<CFlexibleParticleManager*>(memory)->MakeNew() : nullptr;
-    MemSys::PopMemProfile();
-    MemSys::PushMemProfile("CImposterManager");
-    memory = MemSys::Alloc(8);
-    ImposterManager() = memory ? static_cast<CImposterManager*>(memory)->MakeNew() : nullptr;
-    MemSys::PopMemProfile();
-    MemSys::PushMemProfile("MiscFXInitialize");
-    InitEffects();
-    MemSys::PopMemProfile();
-    StartEngine();
+    memory::push_mem_profile("sAllocTextPool");
+    allocate_text_pool(text_pool_size);
+    memory::pop_mem_profile();
+    memory::push_mem_profile("sAllocWindow2DPool");
+    create_window_pool();
+    memory::pop_mem_profile();
+    set_screen_aspect_ratio(kAspectRatio);
+    set_screen_angle(script::fetch_float(kCameraFov));
+    set_screen_field_of_view(0.0f);
+    memory::push_mem_profile("CViewportManager");
+    create_viewports();
+    set_screen_mode(0);
+    memory::pop_mem_profile();
+    memory::push_mem_profile("CFlexibleParticleManager");
+    void* memory = memory::alloc(sizeof(FlexibleParticleManager));
+    flexible_particle_manager() = memory ? static_cast<FlexibleParticleManager*>(memory)->make_new() : nullptr;
+    memory::pop_mem_profile();
+    memory::push_mem_profile("CImposterManager");
+    memory = memory::alloc(8);
+    imposter_manager() = memory ? static_cast<ImposterManager*>(memory)->make_new() : nullptr;
+    memory::pop_mem_profile();
+    memory::push_mem_profile("MiscFXInitialize");
+    init_effects();
+    memory::pop_mem_profile();
+    start_engine();
 }
 
 // 0x0048BF20
-void __cdecl EndRender()
+void __cdecl end_render()
 {
-    FinishRendering();
-    PurgeDoomedCameras();
+    finish_rendering();
+    purge_doomed_cameras();
 }
 
 // 0x0048C330
-void __cdecl RenderFrame()
+void __cdecl render_frame()
 {
-    UpdateFlashes();
-    UpdateSpawnedPolys();
-    AgeAllTextureSplats();
-    UpdateShatters();
-    ParticleHubHandle()->TickParticles();
+    update_flashes();
+    update_spawned_polys();
+    age_all_texture_splats();
+    update_shatters();
+    particle_hub_handle()->tick_particles();
     // the weather's frame (vtable slot 2 - through the folded jump 0x004E3F90), by the slow-motion frame time
-    void* weather = Weather();
+    void* weather = get_weather();
     reinterpret_cast<void(__thiscall*)(void*, float)>((*static_cast<void***>(weather))[2])(
-        weather, static_cast<float>(FrameClock::GetSlomoFrameSeconds()));
-    static_cast<CImposterManager*>(ImposterManager())->TickFrame();
-    UpdateAfterImposters();
-    if (!OmitFromDraw())
-        DrawWorld();
+        weather, static_cast<float>(frame_clock::get_slomo_frame_seconds()));
+    static_cast<ImposterManager*>(imposter_manager())->tick_frame();
+    update_after_imposters();
+    if (!omit_from_draw())
+        draw_world();
 }
 
 // 0x0048C0A0
-void __cdecl ChangeEntityHub(void* manager) { g_sceneObjects = manager; }
+void __cdecl change_entity_hub(void* manager) { g_scene_objects = manager; }
 
 // 0x0048C0B0
-uint32_t* __cdecl GetCollisionScenes() { return reinterpret_cast<uint32_t*>(g_collisionScenes); }
+uint32_t* __cdecl get_collision_scenes() { return reinterpret_cast<uint32_t*>(g_collision_scenes); }
 
 // 0x0048C0D0
-void __cdecl ToggleRenderMode()
+void __cdecl toggle_render_mode()
 {
-    int& mode = g_renderMode;
+    int& mode = g_render_mode;
     if (++mode == 4)
         mode = 0;
 }
 
 // 0x0048C0F0
-void __cdecl ToggleMetrics()
+void __cdecl toggle_metrics()
 {
-    bool& on = g_statsOverlayOn;
+    bool& on = g_stats_overlay_on;
     on = !on;
 }
 
 // 0x0048C110
-void __cdecl SetRenderIgnore(int ignore1, int ignore0)
+void __cdecl set_render_ignore(int ignore1, int ignore0)
 {
-    g_renderIgnore0 = ignore0;
-    g_renderIgnore1 = ignore1;
+    g_render_ignore0 = ignore0;
+    g_render_ignore1 = ignore1;
 }
 
 // 0x0048C1C0
-IdleFunction __cdecl GetIdleFunction() { return g_idleFunction; }
+IdleFunction __cdecl get_idle_function() { return g_idle_function; }
 
 // 0x0048BFE0
-bool __cdecl SplitSkinName(const char* name, char* base)
+bool __cdecl split_skin_name(const char* name, char* base)
 {
     std::strcpy(base, name);
     char* skin = std::strstr(base, ".skin");
@@ -209,58 +209,58 @@ bool __cdecl SplitSkinName(const char* name, char* base)
 }
 
 // 0x0048C030
-void* __cdecl LoadModelFromMemory(uint32_t checksum, const uint8_t* data, int size, void* skin, void* textures, int,
+void* __cdecl load_model_from_memory(uint32_t checksum, const uint8_t* data, int size, void* skin, void* textures, int,
                                   uint32_t, uint32_t)
 {
-    MemSys::PushMemProfile("model_data_buffer");
-    void* model = LoadMeshFromMemory(checksum, data, size, skin, textures);
-    MemSys::PopMemProfile();
+    memory::push_mem_profile("model_data_buffer");
+    void* model = load_mesh_from_memory(checksum, data, size, skin, textures);
+    memory::pop_mem_profile();
     return model;
 }
 
 // 0x0048C390
-void __cdecl BuildSceneFilePath(char* out, const char* name, uint32_t)
+void __cdecl build_scene_file_path(char* out, const char* name, uint32_t)
 {
-    std::sprintf(out, kSceneFileFormat, name, name, "", PlatformSuffix());
+    std::sprintf(out, kSceneFileFormat, name, name, "", platform_suffix());
 }
 
 // 0x0048C3C0
-bool __cdecl DeleteGeomObject(void* object)
+bool __cdecl delete_geom_object(void* object)
 {
-    DebugBeforeDelete();
-    return DeleteModelLights(static_cast<CPcModelLights*>(object));
+    debug_before_delete();
+    return delete_model_lights(static_cast<PcModelLights*>(object));
 }
 
 // 0x0048C3D0
-void* __cdecl LoadModelFile(const char* fileName, void* textures, int, bool)
+void* __cdecl load_model_file(const char* file_name, void* textures, int, bool)
 {
     char base[0x200];
-    bool skinned = SplitSkinName(fileName, base);
-    TextUtil::ToLowerText(base);
+    bool skinned = split_skin_name(file_name, base);
+    text::to_lower_text(base);
     char path[0x200];
-    std::sprintf(path, kModelFileFormat, base, skinned ? "skin" : "mdl", PlatformSuffix());
-    MemSys::PushMemProfile(path);
+    std::sprintf(path, kModelFileFormat, base, skinned ? "skin" : "mdl", platform_suffix());
+    memory::push_mem_profile(path);
     // (the original also passes the texture dictionary offset, whether it's skinned and the shadow volume flag: the
     // mesh load doesn't read them)
-    void* mesh = LoadMeshFile(path, textures);
-    MemSys::PopMemProfile();
+    void* mesh = load_mesh_file(path, textures);
+    memory::pop_mem_profile();
     return mesh;
 }
 
 // 0x0048C490
-int __cdecl SphereVisibleInOneViewport(const Maths::Vec4* centre, float radius)
+int __cdecl sphere_visible_in_one_viewport(const maths::Vec4* centre, float radius)
 {
-    if (ViewportCount() > 1)
+    if (viewport_count() > 1)
         return 0;
-    return SphereVisible(centre, radius);
+    return sphere_visible(centre, radius);
 }
 
 // 0x0048C510
-void* __cdecl LookUpSector(uint32_t checksum)
+void* __cdecl look_up_sector(uint32_t checksum)
 {
-    for (CSceneNode* node = FirstScene(); node;) {
-        CSceneNode* next = NextScene(node);
-        if (void* sector = SceneOf(node)->LookUpSector(checksum))
+    for (SceneNode* node = first_scene(); node;) {
+        SceneNode* next = next_scene(node);
+        if (void* sector = scene_of(node)->look_up_sector(checksum))
             return sector;
         node = next;
     }
@@ -268,16 +268,16 @@ void* __cdecl LookUpSector(uint32_t checksum)
 }
 
 // 0x0048C560
-void __cdecl AddScene(CWorldScene* scene, const char* name, void* textures, bool loaded, void* arena)
+void __cdecl add_scene(WorldScene* scene, const char* name, void* textures, bool loaded, void* arena)
 {
     char file[0x80];
-    std::sprintf(file, kSceneFileFormat, name, name, "", PlatformSuffix());
-    scene->m_checksum = Checksums::HashFromText(name);
-    scene->m_textureSet = static_cast<CTextureSet*>(textures);
+    std::sprintf(file, kSceneFileFormat, name, name, "", platform_suffix());
+    scene->checksum_ = checksums::hash_from_text(name);
+    scene->texture_set_ = static_cast<TextureSet*>(textures);
     if (!loaded)
-        scene->FinishLoad(file, arena);
-    MemSys::PushMemProfile("Asset Overhead");
-    auto* node = static_cast<CSceneNode*>(MemSys::AllocZeroed(sizeof(CSceneNode)));
+        scene->finish_load(file, arena);
+    memory::push_mem_profile("Asset Overhead");
+    auto* node = static_cast<SceneNode*>(memory::alloc_zeroed(sizeof(SceneNode)));
     if (node) {
         node->vtable = kSceneNodeVtable;
         node->data = scene;
@@ -286,37 +286,37 @@ void __cdecl AddScene(CWorldScene* scene, const char* name, void* textures, bool
         node->prev = node;
     }
     // at the end of the list (no memory: a crash, as the original)
-    MemSys::ListNode& head = SceneList();
+    memory::ListNode& head = scene_list();
     node->prev = head.prev;
     node->next = &head;
     head.prev->next = node;
     head.prev = node;
-    MemSys::PopMemProfile();
+    memory::pop_mem_profile();
 }
 
 // 0x0048C650
-void __cdecl ToggleAddScenes()
+void __cdecl toggle_add_scenes()
 {
-    for (CSceneNode* node = FirstScene(); node;) {
-        CSceneNode* next = NextScene(node);
-        SceneOf(node)->FlipExtraScene();
+    for (SceneNode* node = first_scene(); node;) {
+        SceneNode* next = next_scene(node);
+        scene_of(node)->flip_extra_scene();
         node = next;
     }
 }
 
 // 0x0048C690
-bool __cdecl UnloadScene(CWorldScene* scene, int /*flags*/)
+bool __cdecl unload_scene(WorldScene* scene, int /*flags*/)
 {
-    DebugBeforeDelete();
-    scene->UnloadAddedScene();
-    if (!Engine3D::UnloadScene(scene)) // (the platform's: the original passes `flags` on too - unused)
+    debug_before_delete();
+    scene->unload_added_scene();
+    if (!render::unload_scene(scene)) // (the platform's: the original passes `flags` on too - unused)
         return false;
     if (scene)
-        reinterpret_cast<void*(__thiscall*)(CWorldScene*, unsigned int)>((*reinterpret_cast<void***>(scene))[0])(scene, 1);
-    for (CSceneNode* node = FirstScene(); node;) {
-        CSceneNode* next = NextScene(node);
-        if (SceneOf(node) == scene) {
-            reinterpret_cast<void*(__thiscall*)(CSceneNode*, unsigned int)>(node->vtable[0])(node, 1);
+        reinterpret_cast<void*(__thiscall*)(WorldScene*, unsigned int)>((*reinterpret_cast<void***>(scene))[0])(scene, 1);
+    for (SceneNode* node = first_scene(); node;) {
+        SceneNode* next = next_scene(node);
+        if (scene_of(node) == scene) {
+            reinterpret_cast<void*(__thiscall*)(SceneNode*, unsigned int)>(node->vtable[0])(node, 1);
             return true;
         }
         node = next;
@@ -325,12 +325,12 @@ bool __cdecl UnloadScene(CWorldScene* scene, int /*flags*/)
 }
 
 // 0x0048C700
-CWorldScene* __cdecl FindScene(uint32_t checksum)
+WorldScene* __cdecl find_scene(uint32_t checksum)
 {
-    for (CSceneNode* node = FirstScene(); node;) {
-        CSceneNode* next = NextScene(node);
-        if (SceneOf(node)->m_checksum == checksum)
-            return SceneOf(node);
+    for (SceneNode* node = first_scene(); node;) {
+        SceneNode* next = next_scene(node);
+        if (scene_of(node)->checksum_ == checksum)
+            return scene_of(node);
         node = next;
     }
     return nullptr;
@@ -339,15 +339,15 @@ CWorldScene* __cdecl FindScene(uint32_t checksum)
 } // namespace Engine
 
 namespace {
-static VtableSlot kSceneNodeVtable_slots[] = {&Engine3D::CSceneNode::Teardown};
-void** const kSceneNodeVtable = reinterpret_cast<void**>(kSceneNodeVtable_slots);
+static VtableSlot g_scene_node_vtable_slots[] = {&render::SceneNode::teardown};
+void** const kSceneNodeVtable = reinterpret_cast<void**>(g_scene_node_vtable_slots);
 } // namespace
 
 } // namespace Nx
 
-namespace Engine3D {
+namespace render {
 
 // 0x00640B00 (a static initialiser): the scene list, an empty head.
-void ConstructSceneList() { reinterpret_cast<CSceneListHead*>(&g_sceneList)->MakeNew(); }
+void construct_scene_list() { reinterpret_cast<SceneListHead*>(&g_scene_list)->make_new(); }
 
 } // namespace Nx

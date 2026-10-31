@@ -6,9 +6,9 @@
 #include "engine/maths/mat4.h"
 #include "engine/objects/entity.h"
 
-namespace Scripts {
-class CScript;
-class CStruct;
+namespace script {
+class Script;
+class Struct;
 } // namespace Script
 
 // The skater's matrix queries component (SkaterMatrixQueries, type 0xBF518E27, vtable 0x0064BF70, 0x60 bytes): the
@@ -16,21 +16,21 @@ class CStruct;
 // of the core physics' matrix taken each frame. From the disassembly of 0x00513FD0-0x005144A1 (0x00514040 isn't a
 // Ghidra function).
 //
-// Vtable: 0 Destroy, 1 Update, 3 Finalize, 12 InvokeMethodByName.
-namespace GameObjects {
+// Vtable: 0 Destroy, 1 Update, 3 Finalize, 12 invoke_method_by_name.
+namespace objects {
 
-class CRiderFrameLookups : public CObjectModule {
+class RiderFrameLookups : public ObjectModule {
 public:
-    // 0x00514430 (registered by RegisterComponentTypes): a new one (0 if out of memory), no core physics yet.
-    static CObjectModule* __cdecl Fabricate();
+    // 0x00514430 (registered by register_component_types): a new one (0 if out of memory), no core physics yet.
+    static ObjectModule* __cdecl fabricate();
     // 0x00513FD0: the destructor body (the base's).
-    void DestroyBody();
+    void destroy_body();
     // 0x00513FE0 (vtable slot 0)
-    CRiderFrameLookups* Teardown(unsigned int flags);
+    RiderFrameLookups* teardown(unsigned int flags);
     // 0x00514010 (vtable +0x0C): the core physics component found.
-    void Seal();
+    void seal();
     // 0x00514030 (vtable +0x04): the core physics' matrix (+0x18) copied.
-    void TickFrame();
+    void tick_frame();
     // 0x00514040 (vtable +0x30): the script member functions (the unnamed parameter an angle in degrees):
     // GetHeading (heading 0-360 from the at row's x - turned for a negative z -, cosine, sine into the script's
     // parameters), GetSlope (Slope - the at row's angle above the horizontal, negative when it points down - and
@@ -39,16 +39,16 @@ public:
     // into the plane across that vector more than the angle away), YawingLeft / YawingRight (the velocity, turned
     // into the up row's plane, to that side of the at row), YawBetween (more than the pair's first angle and not
     // more than its second away from the at row). 1 / 0; 2 for any other name.
-    int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
 
-    Maths::Mat4 m_basisFrame;   // +0x18 the core physics' (rows: right, up, at, position)
-    float m_prevGradient;      // +0x58 GetSlope's last
-    uint8_t* m_corePhysics; // +0x5C SkaterCorePhysics (0x5BD63B29)
+    maths::Mat4 basis_frame_;   // +0x18 the core physics' (rows: right, up, at, position)
+    float prev_gradient_;      // +0x58 GetSlope's last
+    uint8_t* core_physics_; // +0x5C SkaterCorePhysics (0x5BD63B29)
 };
-static_assert(offsetof(CRiderFrameLookups, m_basisFrame) == 0x18 &&
-                  offsetof(CRiderFrameLookups, m_prevGradient) == 0x58 &&
-                  offsetof(CRiderFrameLookups, m_corePhysics) == 0x5C &&
-                  sizeof(CRiderFrameLookups) == 0x60,
+static_assert(offsetof(RiderFrameLookups, basis_frame_) == 0x18 &&
+                  offsetof(RiderFrameLookups, prev_gradient_) == 0x58 &&
+                  offsetof(RiderFrameLookups, core_physics_) == 0x5C &&
+                  sizeof(RiderFrameLookups) == 0x60,
               "layout must match the original (0x00514430 allocates 0x60 bytes)");
 
 } // namespace Obj

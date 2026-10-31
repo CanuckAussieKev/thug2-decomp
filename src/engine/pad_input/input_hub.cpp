@@ -12,27 +12,27 @@
 #include "engine/core/task_list.h"
 #include "engine/pad_input/device.h"
 
-namespace PadInput {
+namespace pad_input {
 
-PadInput::Hub* g_inputManager;
+pad_input::Hub* g_input_manager;
 
 namespace {
 
-Hub*& Sole() { return g_inputManager; }
+Hub*& sole() { return g_input_manager; }
 
-unsigned int g_inputManagerReferences;
+unsigned int g_input_manager_references;
 // The buttons' name checksums (index 0: none).
-uint32_t g_padButtonKeys[22]{0x00000000, 0xBC6B118F, 0xE3006FC4, 0x85981897, 0x4B358AEB, 0xB7231A95, 0xA50950C5, 0xD8847EFA, 0x786B8B68, 0x2B489A86, 0x321C9756, 0x7323E97C, 0x20689278, 0x26B0C991, 0xBFB9982B, 0xC8BEA8BD, 0xF2F1F64E, 0x6BF8A7F4, 0x1CFF9762, 0x767A45D7, 0xBD30325B, 0x9D2D8850};
+uint32_t g_pad_button_keys[22]{0x00000000, 0xBC6B118F, 0xE3006FC4, 0x85981897, 0x4B358AEB, 0xB7231A95, 0xA50950C5, 0xD8847EFA, 0x786B8B68, 0x2B489A86, 0x321C9756, 0x7323E97C, 0x20689278, 0x26B0C991, 0xBFB9982B, 0xC8BEA8BD, 0xF2F1F64E, 0x6BF8A7F4, 0x1CFF9762, 0x767A45D7, 0xBD30325B, 0x9D2D8850};
 
-unsigned int& RefTally() { return g_inputManagerReferences; }
+unsigned int& ref_tally() { return g_input_manager_references; }
 
 // Each device index's buttons this frame: down, pressed, released (two of each).
-uint32_t g_deviceMakes[2];
-uint32_t g_deviceBreaks[2];
-uint32_t g_deviceButtons[2];
-uint32_t* DeviceMakes() { return g_deviceMakes; }
-uint32_t* DeviceBreaks() { return g_deviceBreaks; }
-uint32_t* DeviceButtons() { return g_deviceButtons; }
+uint32_t g_device_makes[2];
+uint32_t g_device_breaks[2];
+uint32_t g_device_buttons[2];
+uint32_t* device_makes() { return g_device_makes; }
+uint32_t* device_breaks() { return g_device_breaks; }
+uint32_t* device_buttons() { return g_device_buttons; }
 
 // The digital-to-analogue table: a button mask and the analogue value its pressure goes to.
 struct DigitalToAnalog {
@@ -40,285 +40,285 @@ struct DigitalToAnalog {
     int event;
 };
 // (pairs of {mask, event} up to and including the first with a mask of 0 or less)
-DigitalToAnalog g_digitalToAnalog[18]{{0x200, 16}, {0x400, 17}, {0x1, 14}, {0x2, 15}, {0x4, 12}, {0x8, 13}, {0x10, 8}, {0x20, 9}, {0x40, 10}, {0x80, 11}, {0x1000, 6}, {0x2000, 4}, {0x4000, 7}, {0x8000, 5}, {0x10000, 22}, {0x20000, 23}, {0x40000, 24}, {0x0, 0}};
-const DigitalToAnalog* DigitalToAnalogTable() { return g_digitalToAnalog; }
+DigitalToAnalog g_digital_to_analog[18]{{0x200, 16}, {0x400, 17}, {0x1, 14}, {0x2, 15}, {0x4, 12}, {0x8, 13}, {0x10, 8}, {0x20, 9}, {0x40, 10}, {0x80, 11}, {0x1000, 6}, {0x2000, 4}, {0x4000, 7}, {0x8000, 5}, {0x10000, 22}, {0x20000, 23}, {0x40000, 24}, {0x0, 0}};
+const DigitalToAnalog* digital_to_analog_table() { return g_digital_to_analog; }
 
-void ConstructTaskList(uint8_t* list) { reinterpret_cast<Scheduling::PileUp*>(list)->MakeNew(); }
-void RunTaskList(uint8_t* list) { reinterpret_cast<Scheduling::PileUp*>(list)->WorkOn(nullptr); }
-// Scheduling::Task<Manager>: the base task (with the priority), then its vtable, code and data.
-void* NewTask(int priority, uint32_t code, void* data)
+void construct_task_list(uint8_t* list) { reinterpret_cast<tasks::PileUp*>(list)->make_new(); }
+void run_task_list(uint8_t* list) { reinterpret_cast<tasks::PileUp*>(list)->work_on(nullptr); }
+// tasks::Task<Manager>: the base task (with the priority), then its vtable, code and data.
+void* new_task(int priority, uint32_t code, void* data)
 {
-    auto* task = static_cast<uint32_t*>(MemSys::AllocZeroed(0x20));
+    auto* task = static_cast<uint32_t*>(memory::alloc_zeroed(0x20));
     if (!task)
         return nullptr;
-    reinterpret_cast<Scheduling::SchedulerTask*>(task)->MakeNew(priority);
-    task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);
+    reinterpret_cast<tasks::SchedulerTask*>(task)->make_new(priority);
+    task[0] = reinterpret_cast<uint32_t>(game_code::kTaskVtable);
     task[6] = code;
     task[7] = reinterpret_cast<uint32_t>(data);
     return task;
 }
 
-bool PadFollowsStick(Hub* manager) { return manager->PadFollowsStick(); }
+bool pad_follows_stick(Hub* manager) { return manager->pad_follows_stick(); }
 
-int SpanTo(uint8_t value)
+int span_to(uint8_t value)
 {
     int distance = 0x80 - value;
     return distance < 0 ? -distance : distance;
 }
 // Within the dead zone: no more than 50 from the centre.
-bool Centred(uint8_t value) { return SpanTo(value) <= 0x32; }
+bool get_centred(uint8_t value) { return span_to(value) <= 0x32; }
 
 // The new buttons; the old ones become the previous.
-void SetButtons(Payload& data, uint32_t buttons)
+void set_buttons(Payload& data, uint32_t buttons)
 {
-    data.m_previous = data.m_ongoing;
-    uint32_t changes = data.m_previous ^ buttons;
-    data.m_ongoing = buttons;
-    data.m_changes = changes;
-    data.m_buttons = buttons;
-    data.m_makes = buttons & changes;
-    data.m_breaks = ~buttons & changes;
+    data.previous_ = data.ongoing_;
+    uint32_t changes = data.previous_ ^ buttons;
+    data.ongoing_ = buttons;
+    data.changes_ = changes;
+    data.buttons_ = buttons;
+    data.makes_ = buttons & changes;
+    data.breaks_ = ~buttons & changes;
 }
 
 } // namespace
 
 // 0x0044E840
-void Payload::BlockButtonInput(uint32_t mask)
+void Payload::block_button_input(uint32_t mask)
 {
-    m_buttons &= ~mask;
-    m_makes &= ~mask;
-    m_breaks &= ~mask;
+    buttons_ &= ~mask;
+    makes_ &= ~mask;
+    breaks_ &= ~mask;
 }
 
 // 0x0044E860
-void Payload::BlockStickInput(uint32_t mask)
+void Payload::block_stick_input(uint32_t mask)
 {
     for (int i = 0; i < kQueueCapacity; ++i) {
         if (!(mask & (1u << i)))
             continue;
         bool stick = i == kRightX || i == kRightY || i == kLeftX || i == kLeftY || i == kRawRightX ||
                      i == kRawRightY || i == kRawLeftX || i == kRawLeftY;
-        m_incident[i] = stick ? 0x80 : 0;
+        incident_[i] = stick ? 0x80 : 0;
     }
 }
 
 // 0x0044E8C0
-void Payload::DigitalAsStick()
+void Payload::digital_as_stick()
 {
-    for (const DigitalToAnalog* entry = DigitalToAnalogTable(); entry->mask > 0; ++entry)
-        m_incident[entry->event] = (m_buttons & entry->mask) ? 0xFF : 0;
+    for (const DigitalToAnalog* entry = digital_to_analog_table(); entry->mask > 0; ++entry)
+        incident_[entry->event] = (buttons_ & entry->mask) ? 0xFF : 0;
 }
 
 // 0x0044E900
-void Payload::ApplyDeadzoneRules()
+void Payload::apply_deadzone_rules()
 {
-    m_incident[kRawRightX] = m_incident[kRightX];
-    m_incident[kRawLeftX] = m_incident[kLeftX];
-    m_incident[kRawRightY] = m_incident[kRightY];
-    m_incident[kRawLeftY] = m_incident[kLeftY];
+    incident_[kRawRightX] = incident_[kRightX];
+    incident_[kRawLeftX] = incident_[kLeftX];
+    incident_[kRawRightY] = incident_[kRightY];
+    incident_[kRawLeftY] = incident_[kLeftY];
     for (int i = kRightX; i <= kLeftY; ++i) {
-        if (Centred(m_incident[i]))
-            m_incident[i] = 0x80;
+        if (get_centred(incident_[i]))
+            incident_[i] = 0x80;
     }
-    if (Centred(m_incident[kRawRightX]) && Centred(m_incident[kRawRightY]))
-        m_incident[kRawRightX] = m_incident[kRawRightY] = 0x80;
-    if (Centred(m_incident[kRawLeftX]) && Centred(m_incident[kRawLeftY]))
-        m_incident[kRawLeftX] = m_incident[kRawLeftY] = 0x80;
+    if (get_centred(incident_[kRawRightX]) && get_centred(incident_[kRawRightY]))
+        incident_[kRawRightX] = incident_[kRawRightY] = 0x80;
+    if (get_centred(incident_[kRawLeftX]) && get_centred(incident_[kRawLeftY]))
+        incident_[kRawLeftX] = incident_[kRawLeftY] = 0x80;
 }
 
 // 0x0044EA30
-void Payload::PadFollowsStick()
+void Payload::pad_follows_stick()
 {
-    if (m_buttons & (kReleaseEdge | kButtonRight | kPressEdge | kButtonLeft))
+    if (buttons_ & (kReleaseEdge | kButtonRight | kPressEdge | kButtonLeft))
         return;
-    uint8_t x = m_incident[kLeftX];
+    uint8_t x = incident_[kLeftX];
     if (x > 0x80) {
-        m_incident[kPadRight] = static_cast<uint8_t>(x + 0x80);
-        m_buttons |= kButtonRight;
+        incident_[kPadRight] = static_cast<uint8_t>(x + 0x80);
+        buttons_ |= kButtonRight;
     } else if (x < 0x80) {
-        m_incident[kPadLeft] = static_cast<uint8_t>(SpanTo(x));
-        m_buttons |= kButtonLeft;
+        incident_[kPadLeft] = static_cast<uint8_t>(span_to(x));
+        buttons_ |= kButtonLeft;
     }
-    uint8_t y = m_incident[kLeftY];
+    uint8_t y = incident_[kLeftY];
     if (y < 0x80) {
-        m_incident[kPadUp] = static_cast<uint8_t>(y + 0x80); // (not the distance from the centre, as the others)
-        m_buttons |= kReleaseEdge;
+        incident_[kPadUp] = static_cast<uint8_t>(y + 0x80); // (not the distance from the centre, as the others)
+        buttons_ |= kReleaseEdge;
     } else if (y > 0x80) {
-        m_incident[kPadDown] = static_cast<uint8_t>(SpanTo(y));
-        m_buttons |= kPressEdge;
+        incident_[kPadDown] = static_cast<uint8_t>(span_to(y));
+        buttons_ |= kPressEdge;
     }
 }
 
 // 0x0044E9E0
-HostEnd* HostEnd::MakeNew()
+HostEnd* HostEnd::make_new()
 {
-    ConstructTaskList(m_handlers);
-    std::memset(m_content.m_incident, 0, sizeof(m_content.m_incident));
-    m_content.m_buttons = 0;
-    m_content.m_ongoing = 0;
-    m_content.m_changes = 0;
-    m_content.m_previous = 0;
-    m_dataIn = nullptr;
-    m_dataOut = nullptr;
-    m_inBufLimit = nullptr;
-    m_outBufLimit = nullptr;
+    construct_task_list(handlers_);
+    std::memset(content_.incident_, 0, sizeof(content_.incident_));
+    content_.buttons_ = 0;
+    content_.ongoing_ = 0;
+    content_.changes_ = 0;
+    content_.previous_ = 0;
+    data_in_ = nullptr;
+    data_out_ = nullptr;
+    in_buf_limit_ = nullptr;
+    out_buf_limit_ = nullptr;
     return this;
 }
 
 // 0x0044EAA0
-void HostEnd::PollInputSinks()
+void HostEnd::poll_input_sinks()
 {
-    if (m_dataIn && m_dataIn->m_isUsable) {
-        SetButtons(m_content, m_dataIn->m_buttons);
-        std::memcpy(m_content.m_incident, m_dataIn->m_incident, sizeof(m_content.m_incident));
-        RunTaskList(m_handlers);
-        ++m_dataIn;
+    if (data_in_ && data_in_->is_usable_) {
+        set_buttons(content_, data_in_->buttons_);
+        std::memcpy(content_.incident_, data_in_->incident_, sizeof(content_.incident_));
+        run_task_list(handlers_);
+        ++data_in_;
         return;
     }
-    Sio::InputPort* device = m_dev;
-    if (!device || !device->m_isUsable)
+    sio::InputPort* device = dev_;
+    if (!device || !device->is_usable_)
         return;
-    Hub* manager = Sole();
-    if (m_dataOut)
-        m_dataOut->m_isUsable = 0;
-    const uint8_t* control = device->m_controlData;
+    Hub* manager = sole();
+    if (data_out_)
+        data_out_->is_usable_ = 0;
+    const uint8_t* control = device->control_data_;
     if (control[0] != 0) // no pad
         return;
     int type = control[1] >> 4;
     uint32_t buttons = ((control[2] << 8) | control[3]) ^ 0xFFFF; // (the bits are 0 when down)
-    SetButtons(m_content, buttons | (static_cast<uint32_t>(control[0x14]) << 16));
+    set_buttons(content_, buttons | (static_cast<uint32_t>(control[0x14]) << 16));
     switch (type) {
     case 4: // digital
-        m_content.DigitalAsStick();
+        content_.digital_as_stick();
         break;
     case 5: // the sticks, no pressures
-        std::memcpy(m_content.m_incident, control + 4, 4);
-        m_content.DigitalAsStick();
-        if (PadFollowsStick(manager))
-            m_content.PadFollowsStick();
+        std::memcpy(content_.incident_, control + 4, 4);
+        content_.digital_as_stick();
+        if (pad_follows_stick(manager))
+            content_.pad_follows_stick();
         break;
     case 7: // the sticks, and pressures if the device reads them
-        if (device->m_unknownC8 == 1) {
-            std::memcpy(m_content.m_incident, control + 4, Payload::kQueueCapacity);
+        if (device->unknownc8_ == 1) {
+            std::memcpy(content_.incident_, control + 4, Payload::kQueueCapacity);
             break;
         }
-        std::memcpy(m_content.m_incident, control + 4, 4);
-        m_content.DigitalAsStick();
-        m_content.ApplyDeadzoneRules();
-        if (PadFollowsStick(manager))
-            m_content.PadFollowsStick();
+        std::memcpy(content_.incident_, control + 4, 4);
+        content_.digital_as_stick();
+        content_.apply_deadzone_rules();
+        if (pad_follows_stick(manager))
+            content_.pad_follows_stick();
         break;
     }
-    if (m_dataOut) {
-        m_dataOut->m_buttons = m_content.m_ongoing;
-        m_dataOut->m_isUsable = 1;
-        std::memcpy(m_dataOut->m_incident, m_content.m_incident, sizeof(m_content.m_incident));
-        ++m_dataOut;
+    if (data_out_) {
+        data_out_->buttons_ = content_.ongoing_;
+        data_out_->is_usable_ = 1;
+        std::memcpy(data_out_->incident_, content_.incident_, sizeof(content_.incident_));
+        ++data_out_;
     }
-    if (m_dev) {
-        DeviceButtons()[m_dev->m_ordinal] = m_content.m_buttons;
-        DeviceMakes()[m_dev->m_ordinal] = m_content.m_makes;
-        DeviceBreaks()[m_dev->m_ordinal] = m_content.m_breaks;
+    if (dev_) {
+        device_buttons()[dev_->ordinal_] = content_.buttons_;
+        device_makes()[dev_->ordinal_] = content_.makes_;
+        device_breaks()[dev_->ordinal_] = content_.breaks_;
     }
-    RunTaskList(m_handlers);
+    run_task_list(handlers_);
 }
 
 // 0x0044E700
-Hub* Hub::MakeNew()
+Hub* Hub::make_new()
 {
-    for (HostEnd& server : m_hosts)
-        server.MakeNew();
-    Sio::Hub* devices = Sio::g_manager;
-    m_task = NewTask(2000, reinterpret_cast<uint32_t>(&Hub::ServiceTask), this);
+    for (HostEnd& server : hosts_)
+        server.make_new();
+    sio::Hub* devices = sio::g_manager;
+    task_ = new_task(2000, reinterpret_cast<uint32_t>(&Hub::service_task), this);
     for (int i = 0; i < kNumServers; ++i)
-        m_hosts[i].m_dev = devices->GetPadAtSlot(i);
-    m_stickReplacesPad = true;
-    m_unknown10D = false;
-    m_unknown110[0] = -1;
-    m_unknown110[1] = -1;
-    m_unknown110[0] = 0;
+        hosts_[i].dev_ = devices->get_pad_at_slot(i);
+    stick_replaces_pad_ = true;
+    unknown10d_ = false;
+    unknown110_[0] = -1;
+    unknown110_[1] = -1;
+    unknown110_[0] = 0;
     return this;
 }
 
 // 0x0044E7F0
-Hub* CreateManager(bool create)
+Hub* create_manager(bool create)
 {
-    if (!Sole() && create) {
-        if (void* memory = MemSys::AllocZeroed(sizeof(Hub), nullptr, 1)) {
-            Sole() = static_cast<Hub*>(memory)->MakeNew();
-            ++RefTally();
-            return Sole();
+    if (!sole() && create) {
+        if (void* memory = memory::alloc_zeroed(sizeof(Hub), nullptr, 1)) {
+            sole() = static_cast<Hub*>(memory)->make_new();
+            ++ref_tally();
+            return sole();
         }
-        Sole() = nullptr;
+        sole() = nullptr;
     }
-    ++RefTally();
-    return Sole();
+    ++ref_tally();
+    return sole();
 }
 
 // 0x0044E6B0
-void ReleaseManager()
+void release_manager()
 {
-    if (RefTally() > 1) {
-        --RefTally();
+    if (ref_tally() > 1) {
+        --ref_tally();
         return;
     }
-    if (Hub* manager = Sole()) {
-        manager->Destruct();
-        MemSys::Hub::Pull()->Dealloc(manager);
+    if (Hub* manager = sole()) {
+        manager->destruct();
+        memory::Hub::get_pull()->dealloc(manager);
     }
-    Sole() = nullptr;
-    RefTally() = 0;
+    sole() = nullptr;
+    ref_tally() = 0;
 }
 
 // 0x0044E520
-void HostEnd::Destruct() { reinterpret_cast<Scheduling::PileUp*>(m_handlers)->Destruct(); }
+void HostEnd::destruct() { reinterpret_cast<tasks::PileUp*>(handlers_)->destruct(); }
 
 // 0x0044E530
-void Hub::Destruct()
+void Hub::destruct()
 {
-    if (m_task) {
-        auto** vtable = *static_cast<void***>(m_task);
-        reinterpret_cast<void*(__thiscall*)(void*, int)>(vtable[2])(m_task, 1);
+    if (task_) {
+        auto** vtable = *static_cast<void***>(task_);
+        reinterpret_cast<void*(__thiscall*)(void*, int)>(vtable[2])(task_, 1);
     }
     // (the C runtime's eh vector destructor iterator: the last first)
     for (int i = kNumServers - 1; i >= 0; --i)
-        m_hosts[i].Destruct();
+        hosts_[i].destruct();
 }
 
 // 0x0044E5D0
-void Hub::StopRumble(int index)
+void Hub::stop_rumble(int index)
 {
-    if (Sio::InputPort* device = m_hosts[index].m_dev)
-        device->StopRumble();
+    if (sio::InputPort* device = hosts_[index].dev_)
+        device->stop_rumble();
 }
 
 // 0x0044E5F0
-void Hub::EnableActuators(int index)
+void Hub::enable_actuators(int index)
 {
-    if (Sio::InputPort* device = m_hosts[index].m_dev)
-        device->EnableActuators();
+    if (sio::InputPort* device = hosts_[index].dev_)
+        device->enable_actuators();
 }
 
 // 0x0044E660
-void __cdecl Hub::ServiceTask(void* task)
+void __cdecl Hub::service_task(void* task)
 {
     auto* manager = *reinterpret_cast<Hub**>(static_cast<uint8_t*>(task) + 0x1C);
-    for (HostEnd& server : manager->m_hosts) {
-        if (server.m_dataIn && server.m_dataIn >= server.m_inBufLimit)
-            server.m_dataIn = nullptr;
-        if (server.m_dataOut && server.m_dataOut >= server.m_outBufLimit)
-            server.m_dataOut = nullptr;
-        server.PollInputSinks();
+    for (HostEnd& server : manager->hosts_) {
+        if (server.data_in_ && server.data_in_ >= server.in_buf_limit_)
+            server.data_in_ = nullptr;
+        if (server.data_out_ && server.data_out_ >= server.out_buf_limit_)
+            server.data_out_ = nullptr;
+        server.poll_input_sinks();
     }
 }
 
 // 0x0044E590
-uint32_t __cdecl ButtonHash(int index) { return g_padButtonKeys[index]; }
+uint32_t __cdecl button_hash(int index) { return g_pad_button_keys[index]; }
 
 // 0x0044E5A0
-int __cdecl GlyphForButtonTag(uint32_t checksum)
+int __cdecl glyph_for_button_tag(uint32_t checksum)
 {
-    const uint32_t* table = g_padButtonKeys;
+    const uint32_t* table = g_pad_button_keys;
     for (int i = 1; i < 22; ++i) {
         if (table[i] == checksum)
             return i;

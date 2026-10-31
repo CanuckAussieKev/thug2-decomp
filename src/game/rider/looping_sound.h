@@ -7,9 +7,9 @@
 #include "engine/objects/entity.h"
 #include "engine/sound/sfx.h"
 
-namespace Scripts {
-class CScript;
-class CStruct;
+namespace script {
+class Script;
+class Struct;
 } // namespace Script
 
 // The skater's looping sound component (SkaterLoopingSound, type 0xB5F1E9D2, vtable 0x0064BF38, 0x110 bytes): the
@@ -18,85 +18,85 @@ class CStruct;
 // physics component gives the fraction of the top speed each frame, and the state, terrain and rail flags). From
 // the disassembly of 0x00513860-0x00513FBE (0x00513860 isn't a Ghidra function).
 //
-// Vtable: 0 Destroy, 1 Update, 2 ConfigureFromData, 3 Finalize, 7 Suspend, 11 the shared 0x0042BB20, 12
-// InvokeMethodByName.
-namespace GameObjects {
+// Vtable: 0 Destroy, 1 Update, 2 configure_from_data, 3 Finalize, 7 Suspend, 11 the shared 0x0042BB20, 12
+// invoke_method_by_name.
+namespace objects {
 
-class CRiderRollingAudio : public CObjectModule {
+class RiderRollingAudio : public ObjectModule {
 public:
-    // 0x00513AD0 (registered by RegisterComponentTypes): a new one (0 if out of memory).
-    static CObjectModule* __cdecl Fabricate();
+    // 0x00513AD0 (registered by register_component_types): a new one (0 if out of memory).
+    static ObjectModule* __cdecl fabricate();
     // 0x00513860 (registered with Create): its script member functions (the table at 0x00684A68) registered.
-    static void __cdecl PublishMethodTable();
+    static void __cdecl publish_method_table();
     // 0x005138E0: the base, its vtable and type; on, the sound to be chosen (changed), in the air, volume_mult 1.
     // Returns this.
-    CRiderRollingAudio* MakeNew();
+    RiderRollingAudio* make_new();
     // 0x00513B30: the sound stopped, then the base's.
-    void DestroyBody();
+    void destroy_body();
     // 0x00513FA0 (vtable slot 0)
-    CRiderRollingAudio* Teardown(unsigned int flags);
+    RiderRollingAudio* teardown(unsigned int flags);
     // 0x00513880 (vtable +0x08): the air sound's pitch fall (45 and 18.33 a second) and volume_mult.
-    void ConfigureFromData(Scripts::CStruct* params);
+    void configure_from_data(script::Struct* params);
     // 0x00513970 (vtable +0x0C): the physics control component found.
-    void Seal();
+    void seal();
     // 0x00513F60 (vtable +0x1C): the base's; suspended, the sound stops; resumed, the sound is chosen again.
-    void HoldOff(bool suspend);
+    void hold_off(bool suspend);
     // 0x005139E0 (vtable +0x30): SkaterLoopingSound_TurnOn / _TurnOff (resumed / suspended) - 1; PlayAnim turns it on
     // when the skater (skating, not walking or driving) has animTags with WalkToSkateTransition in its tags - and,
     // like any other name, returns 2.
-    int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
     // 0x00513BB0 (vtable +0x04): off: suspended. Otherwise the sound for the state (chosen again when it changed),
     // stopped when it changes or the skater hasn't moved; its volume from where the skater is and the speed (the air
     // sound's pitch falling while it lasts), played or its volume and pitch updated when they changed enough.
-    void TickFrame();
+    void tick_frame();
 
     // 0x005138B0: the speed as a fraction of the top speed (at most 1).
-    void SetPaceRatio(float fraction);
+    void set_pace_ratio(float fraction);
     // 0x00513AB0: the sound stopped (called by the skater).
-    void StopSound();
+    void stop_sound();
 
-    uint32_t m_soundId;            // +0x18 the playing sound's unique id (0: none)
-    uint32_t m_playingChecksum;    // +0x1C
-    float m_leanPitchAngle;                 // +0x20 the pitch worked out
-    float m_prevPitchValue;             // +0x24 the pitch last given
-    SoundFx::volumeRef m_prevLevels;     // +0x28 the volume last given
-    float m_airPitchFloor;         // +0x54 the air sound's pitch falls down to this (45)
-    float m_airPitchFall;          // +0x58 by this much a second (18.33)
-    uint8_t* m_physicsControl;     // +0x5C SkaterPhysicsControl (0xD9151D4D)
-    uint8_t m_surfaceType;             // +0x60 (the finalize physics component's: the state's +0xE1)
+    uint32_t sound_id_;            // +0x18 the playing sound's unique id (0: none)
+    uint32_t playing_checksum_;    // +0x1C
+    float lean_pitch_angle_;                 // +0x20 the pitch worked out
+    float prev_pitch_value_;             // +0x24 the pitch last given
+    sound::VolumeRef prev_levels_;     // +0x28 the volume last given
+    float air_pitch_floor_;         // +0x54 the air sound's pitch falls down to this (45)
+    float air_pitch_fall_;          // +0x58 by this much a second (18.33)
+    uint8_t* physics_control_;     // +0x5C SkaterPhysicsControl (0xD9151D4D)
+    uint8_t surface_type_;             // +0x60 (the finalize physics component's: the state's +0xE1)
     uint8_t pad61[3];
-    Maths::Vec4 m_lastPos;         // +0x64 the skater's position last frame
-    int m_curPhase;                   // +0x74 the skater's state (0 ground, 1 air, 4 rail)
-    uint8_t m_sound[0x84];         // +0x78 the terrain sound entry chosen (0x00444B10's; the air one at 0x0067F018)
-    // (in m_sound: +0xE0 the sound's checksum, +0xE4 / +0xE8 its pitch at full / no speed)
-    uint8_t m_haveSound;           // +0xFC
-    uint8_t m_soundChanged;        // +0xFD choose the sound again
-    uint8_t m_forceUpdate;         // +0xFE (never set here)
-    uint8_t m_noRailSound;         // +0xFF (the state's +0x70)
-    uint8_t m_sliding;             // +0x100 on a rail: slide, not grind (the state's +0x58)
+    maths::Vec4 last_pos_;         // +0x64 the skater's position last frame
+    int cur_phase_;                   // +0x74 the skater's state (0 ground, 1 air, 4 rail)
+    uint8_t sound_[0x84];         // +0x78 the terrain sound entry chosen (0x00444B10's; the air one at 0x0067F018)
+    // (in sound_: +0xE0 the sound's checksum, +0xE4 / +0xE8 its pitch at full / no speed)
+    uint8_t have_sound_;           // +0xFC
+    uint8_t sound_changed_;        // +0xFD choose the sound again
+    uint8_t force_update_;         // +0xFE (never set here)
+    uint8_t no_rail_sound_;         // +0xFF (the state's +0x70)
+    uint8_t sliding_;             // +0x100 on a rail: slide, not grind (the state's +0x58)
     uint8_t pad101[3];
-    float m_speedRatio;         // +0x104
-    float m_volumeMult;            // +0x108 volume_mult
-    uint8_t m_on;                  // +0x10C
-    uint8_t pad10D[3];
+    float speed_ratio_;         // +0x104
+    float volume_mult_;            // +0x108 volume_mult
+    uint8_t on_;                  // +0x10C
+    uint8_t pad10d_[3];
 };
-static_assert(offsetof(CRiderRollingAudio, m_soundId) == 0x18 &&
-                  offsetof(CRiderRollingAudio, m_prevLevels) == 0x28 &&
-                  offsetof(CRiderRollingAudio, m_airPitchFloor) == 0x54 &&
-                  offsetof(CRiderRollingAudio, m_physicsControl) == 0x5C &&
-                  offsetof(CRiderRollingAudio, m_lastPos) == 0x64 &&
-                  offsetof(CRiderRollingAudio, m_curPhase) == 0x74 &&
-                  offsetof(CRiderRollingAudio, m_sound) == 0x78 &&
-                  offsetof(CRiderRollingAudio, m_haveSound) == 0xFC &&
-                  offsetof(CRiderRollingAudio, m_speedRatio) == 0x104 &&
-                  offsetof(CRiderRollingAudio, m_on) == 0x10C &&
-                  sizeof(CRiderRollingAudio) == 0x110,
+static_assert(offsetof(RiderRollingAudio, sound_id_) == 0x18 &&
+                  offsetof(RiderRollingAudio, prev_levels_) == 0x28 &&
+                  offsetof(RiderRollingAudio, air_pitch_floor_) == 0x54 &&
+                  offsetof(RiderRollingAudio, physics_control_) == 0x5C &&
+                  offsetof(RiderRollingAudio, last_pos_) == 0x64 &&
+                  offsetof(RiderRollingAudio, cur_phase_) == 0x74 &&
+                  offsetof(RiderRollingAudio, sound_) == 0x78 &&
+                  offsetof(RiderRollingAudio, have_sound_) == 0xFC &&
+                  offsetof(RiderRollingAudio, speed_ratio_) == 0x104 &&
+                  offsetof(RiderRollingAudio, on_) == 0x10C &&
+                  sizeof(RiderRollingAudio) == 0x110,
               "layout must match the original (0x00513AD0 allocates 0x110 bytes)");
 
-// An volumeRef with its compiler-made assignment, which was placed here.
-struct LoopingSoundVolume : SoundFx::volumeRef {
+// An VolumeRef with its compiler-made assignment, which was placed here.
+struct LoopingSoundVolume : sound::VolumeRef {
     // 0x00513990: `other` copied word for word. Returns this.
-    LoopingSoundVolume* Assign(const SoundFx::volumeRef* other);
+    LoopingSoundVolume* get_assign(const sound::VolumeRef* other);
 };
 
 } // namespace Obj

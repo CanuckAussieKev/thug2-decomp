@@ -1,4 +1,4 @@
-// The network manager's members after its tasks (OnlinePlay::Hub, 0x00533F20-0x00534FC0): the network mode flags,
+// The network manager's members after its tasks (online::Hub, 0x00533F20-0x00534FC0): the network mode flags,
 // the team flags, the player / observer counts and password among the network preferences, the server's end and the
 // custom tag texture a client sends.
 
@@ -47,23 +47,23 @@
 #include "engine/net/server_list.h"
 #include "engine/net/score_list.h"
 
-namespace OnlinePlay {
+namespace online {
 
-using namespace Detail;
+using namespace detail;
 
 namespace {
 
-constexpr uint32_t kFlagsServer = 1;   // m_flagBits bit 0
+constexpr uint32_t kFlagsServer = 1;   // flag_bits_ bit 0
 constexpr uint32_t kFlagsClient = 2;   // bit 1
 constexpr uint32_t kFlagsInternet = 4; // bit 2
 constexpr uint32_t kFlagsLan = 8;      // bit 3
 
-constexpr uint32_t kServerTask2 = 0xE8; // Scheduling::SchedulerTask* (removed with the server)
+constexpr uint32_t kServerTask2 = 0xE8; // tasks::SchedulerTask* (removed with the server)
 constexpr uint32_t kInitialScores = 0x48; // int[8]: the starting points
 constexpr uint32_t kCrownStart = 0x68;  // int: the crown's
 constexpr uint32_t kShowMetrics = 0x45; // bool
 constexpr uint32_t kShowScores = 0x46;  // bool
-constexpr uint32_t kMetricsTask = 0xC4; // Scheduling::SchedulerTask*
+constexpr uint32_t kMetricsTask = 0xC4; // tasks::SchedulerTask*
 
 // Checksums.
 constexpr uint32_t kKillTeamFlags = 0xEBB3642E;     // Kill_Team_Flags
@@ -112,261 +112,261 @@ const char* const kTagTextureDesc = "CAG Texture"; // "CAG Texture"
 
 // The game mode's members (not rewritten): its max_players, the flags accumulate_score / track_best_combo /
 // is_elimiskate, a property set (IsTrue).
-int ModeMaxPlayers() { return Call<int>(CodeAddress(&GoalSystem::CMatchRules::GetRiderCeiling), GameMode()); }
-bool AccumulatesScore() { return Call<bool>(CodeAddress(&GoalSystem::CMatchRules::KeepsRunningTotal), GameMode()); }
-bool TracksBestCombo() { return Call<bool>(CodeAddress(&GoalSystem::CMatchRules::KeepsBestChain), GameMode()); }
-bool IsElimiskate() { return Call<bool>(CodeAddress(&GoalSystem::CMatchRules::FinishRulesReached), GameMode()); }
-bool ModeIsTrue(uint32_t property) { return Call<bool>(CodeAddress(&GoalSystem::CMatchRules::IsTrue), GameMode(), property); }
+int mode_max_players() { return get_call<int>(code_address(&goals::MatchRules::get_rider_ceiling), get_game_mode()); }
+bool accumulates_score() { return get_call<bool>(code_address(&goals::MatchRules::keeps_running_total), get_game_mode()); }
+bool tracks_best_combo() { return get_call<bool>(code_address(&goals::MatchRules::keeps_best_chain), get_game_mode()); }
+bool is_elimiskate() { return get_call<bool>(code_address(&goals::MatchRules::finish_rules_reached), get_game_mode()); }
+bool mode_is_true(uint32_t property) { return get_call<bool>(code_address(&goals::MatchRules::is_true), get_game_mode(), property); }
 
-Scheduling::PileUp* LogicTasks() { return reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4); }
+tasks::PileUp* get_logic_tasks() { return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 4); }
 
-// The CFunction InSplitScreenGame (0x005A1180), called with no parameters.
-bool InSplitScreenGame() { return ScriptCommands::CFunc_InSplitScreenGame(nullptr, nullptr) != 0; }
+// The Function InSplitScreenGame (0x005A1180), called with no parameters.
+bool in_split_screen_game() { return commands::cfunc_in_split_screen_game(nullptr, nullptr) != 0; }
 
 // 0x00485CB0: whether the skater profile's appearance has the CAS part `part` set.
-bool ProfileHasPart(void* profile, uint32_t part)
+bool profile_has_part(void* profile, uint32_t part)
 {
-    return GameObjects::PartIsCreatedGraphic(profile, part);
+    return objects::part_is_created_graphic(profile, part);
 }
 
-// The custom tag texture's parts (Engine3D::CBitmapTexture's virtual slots 25-28).
-void* TexturePixels(void* texture) { return (*reinterpret_cast<void* (__thiscall***)(void*)>(texture))[25](texture); }
-uint16_t TextureSize(void* texture)
+// The custom tag texture's parts (render::BitmapTexture's virtual slots 25-28).
+void* texture_pixels(void* texture) { return (*reinterpret_cast<void* (__thiscall***)(void*)>(texture))[25](texture); }
+uint16_t get_texture_size(void* texture)
 {
     return static_cast<uint16_t>((*reinterpret_cast<int(__thiscall***)(void*)>(texture))[26](texture));
 }
-void* TexturePalette(void* texture) { return (*reinterpret_cast<void* (__thiscall***)(void*)>(texture))[27](texture); }
-uint16_t TexturePaletteSize(void* texture)
+void* texture_palette(void* texture) { return (*reinterpret_cast<void* (__thiscall***)(void*)>(texture))[27](texture); }
+uint16_t texture_palette_size(void* texture)
 {
     return static_cast<uint16_t>((*reinterpret_cast<int(__thiscall***)(void*)>(texture))[28](texture));
 }
 
 // A network preference set from `values` (the original's new CStruct, never freed).
-void SetCountPreference(Hub* manager, uint32_t preference, const char* uiString, uint32_t checksum)
+void set_count_preference(Hub* manager, uint32_t preference, const char* ui_string, uint32_t checksum)
 {
-    Scripts::CStruct* values = NewParams();
-    values->AppendWord(kUiString, Scripts::QBVAL_STRING, uiString);
-    values->AddComponentOfType(kChecksum, Scripts::QBVAL_NAME, checksum);
-    manager->GetOnlineSettings()->ChangeSetting(preference, values);
+    script::Struct* values = new_params();
+    values->append_word(kUiString, script::kQbvalString, ui_string);
+    values->add_component_of_type(kChecksum, script::kQbvalName, checksum);
+    manager->get_online_settings()->change_setting(preference, values);
 }
 
 } // namespace
 
 // 0x00533F20
-void Hub::SetNetworkMode(int mode)
+void Hub::set_network_mode(int mode)
 {
-    m_flagBits &= ~(kFlagsInternet | kFlagsLan);
+    flag_bits_ &= ~(kFlagsInternet | kFlagsLan);
     if (mode == 1)
-        m_flagBits |= kFlagsLan;
+        flag_bits_ |= kFlagsLan;
     else if (mode == 2)
-        m_flagBits |= kFlagsInternet;
+        flag_bits_ |= kFlagsInternet;
 }
 
 // 0x00533F50
-void Hub::SetServerMode(bool on)
+void Hub::set_server_mode(bool on)
 {
     if (on)
-        m_flagBits |= kFlagsServer;
+        flag_bits_ |= kFlagsServer;
     else
-        m_flagBits &= ~kFlagsServer;
+        flag_bits_ &= ~kFlagsServer;
 }
 
 // 0x00533F70
-int Hub::IsLocalNetworkPlay() { return (m_flagBits >> 3) & 1; }
+int Hub::is_local_network_play() { return (flag_bits_ >> 3) & 1; }
 
 // 0x00533FA0
-int Hub::IsClientSide() { return (m_flagBits >> 1) & 1; }
+int Hub::is_client_side() { return (flag_bits_ >> 1) & 1; }
 
 // 0x00533FB0
-void Hub::BuildTeamFlagSet(int numTeams)
+void Hub::build_team_flag_set(int num_teams)
 {
-    Run(kKillTeamFlags);
-    if (!numTeams)
+    get_run(kKillTeamFlags);
+    if (!num_teams)
         return;
-    Scripts::CStruct* params = NewParams();
-    params->PutInt(kNumTeams, numTeams);
-    Run(kCreateTeamFlags, params);
-    DeleteParams(params);
+    script::Struct* params = new_params();
+    params->put_int(kNumTeams, num_teams);
+    get_run(kCreateTeamFlags, params);
+    delete_params(params);
 }
 
 // 0x00534090
-void Hub::SetMaxPlayersPreference(int count)
+void Hub::set_max_players_preference(int count)
 {
-    char numName[32];
-    char uiString[32];
-    std::sprintf(numName, "num_%d", count);
-    uint32_t checksum = Checksums::HashFromText(numName);
-    std::sprintf(uiString, "%d %s", count, Scripts::FetchText(kStrPlayers));
-    SetCountPreference(this, kNumPlayers, uiString, checksum);
+    char num_name[32];
+    char ui_string[32];
+    std::sprintf(num_name, "num_%d", count);
+    uint32_t checksum = checksums::hash_from_text(num_name);
+    std::sprintf(ui_string, "%d %s", count, script::fetch_text(kStrPlayers));
+    set_count_preference(this, kNumPlayers, ui_string, checksum);
 }
 
 // 0x005341B0
-void Hub::SetMaxObserversPreference(int count)
+void Hub::set_max_observers_preference(int count)
 {
-    char numName[32];
-    char uiString[32];
-    std::sprintf(numName, "num_%d", count);
-    uint32_t checksum = Checksums::HashFromText(numName);
+    char num_name[32];
+    char ui_string[32];
+    std::sprintf(num_name, "num_%d", count);
+    uint32_t checksum = checksums::hash_from_text(num_name);
     if (count == 0)
-        std::sprintf(uiString, Scripts::FetchText(kStrNoObservers)); // (the text is the format, as in the original)
+        std::sprintf(ui_string, script::fetch_text(kStrNoObservers)); // (the text is the format, as in the original)
     else if (count == 1)
-        std::sprintf(uiString, "1 %s", Scripts::FetchText(kStrObserver));
+        std::sprintf(ui_string, "1 %s", script::fetch_text(kStrObserver));
     else
-        std::sprintf(uiString, "%d %s", count, Scripts::FetchText(kStrObservers));
-    SetCountPreference(this, kNumObservers, uiString, checksum);
+        std::sprintf(ui_string, "%d %s", count, script::fetch_text(kStrObservers));
+    set_count_preference(this, kNumObservers, ui_string, checksum);
 }
 
 // 0x00534310
-const char* Hub::FetchSecret()
+const char* Hub::fetch_secret()
 {
-    Scripts::CStruct* preference = GetOnlineSettings()->FetchSetting(kPassword);
+    script::Struct* preference = get_online_settings()->fetch_setting(kPassword);
     // On a miss the original returns its uninitialised local: the slot ECX was pushed into - the manager.
     auto password = reinterpret_cast<const char*>(this);
-    preference->FetchText(kUiString, &password, 1);
+    preference->fetch_text(kUiString, &password, 1);
     return password;
 }
 
 // 0x00534340
-bool Hub::PlayersCanCollide()
+bool Hub::players_can_collide()
 {
-    if ((m_matchEnded || GameType() == kFreeskate || GameType() == kHorse) && GameType() != kNetLobby)
+    if ((match_ended_ || get_game_type() == kFreeskate || get_game_type() == kHorse) && get_game_type() != kNetLobby)
         return false;
-    if (InSplitScreenGame())
+    if (in_split_screen_game())
         return true;
-    if (GetOnlineSettings()->GetPreferenceChecksum(kPlayerCollision, kChecksum) == kBooleanTrue)
+    if (get_online_settings()->get_preference_checksum(kPlayerCollision, kChecksum) == kBooleanTrue)
         return true;
-    return GameType() == kNetSlap || GameType() == kSlap;
+    return get_game_type() == kNetSlap || get_game_type() == kSlap;
 }
 
 // 0x005343E0
-bool Hub::ShowTeamScores()
+bool Hub::show_team_scores()
 {
-    if (GameType() == kNetLobby || !IsSquadMatch())
+    if (get_game_type() == kNetLobby || !is_squad_match())
         return false;
-    return GetOnlineSettings()->GetPreferenceChecksum(kScoreDisplay, kChecksum) == kScoreTeams;
+    return get_online_settings()->get_preference_checksum(kScoreDisplay, kChecksum) == kScoreTeams;
 }
 
 // 0x00534CF0
-void Hub::DestroyServer()
+void Hub::destroy_server()
 {
-    NetLink::Hub* net = NetLink::Hub::Sole();
-    if (m_host) {
-        if (!m_host->IsHostLocal() && (m_flagBits & kFlagsInternet)) {
-            static_cast<RoomManager*>(m_lobbyService)->StopHosting(); // the lobby's reporting stopped
-            GameSpy::NatFreeNegotiations();    // (GameSpy)
+    net::Hub* net = net::Hub::sole();
+    if (host_) {
+        if (!host_->is_host_local() && (flag_bits_ & kFlagsInternet)) {
+            static_cast<RoomManager*>(lobby_service_)->stop_hosting(); // the lobby's reporting stopped
+            game_spy::nat_free_negotiations();    // (GameSpy)
         }
-        net->ReleaseApp(m_host);
-        m_hostAdmitJob->DropOut();
-        Prop<Scheduling::SchedulerTask*>(this, kServerTask2)->DropOut();
-        m_host = nullptr;
+        net->release_app(host_);
+        host_admit_job_->drop_out();
+        prop<tasks::SchedulerTask*>(this, kServerTask2)->drop_out();
+        host_ = nullptr;
     }
-    m_flagBits &= ~kFlagsServer;
+    flag_bits_ &= ~kFlagsServer;
 }
 
 // 0x00534D50
-void Hub::DestroyMatchClient()
+void Hub::destroy_match_client()
 {
-    if (m_browserClient) {
-        NetLink::Hub::Sole()->ReleaseApp(m_browserClient);
-        m_browserClient = nullptr;
+    if (browser_client_) {
+        net::Hub::sole()->release_app(browser_client_);
+        browser_client_ = nullptr;
     }
 }
 
 // 0x00534D70
-bool Hub::SendCustomTagTexture()
+bool Hub::send_custom_tag_texture()
 {
-    NetLink::ConnSearch search;
-    search.m_vtable = NetLink::kConnSearchVtable;
-    search.m_listLink = nullptr;
-    bool onServer = (m_flagBits & kFlagsServer) != 0;
-    uint8_t* skate = Detail::Skate();
-    if (NetLink::Hub::Sole()->GetNetLinkKind() == NetLink::Hub::kConnectionModem || onServer)
+    net::ConnSearch search;
+    search.vtable_ = net::kConnSearchVtable;
+    search.list_link_ = nullptr;
+    bool on_server = (flag_bits_ & kFlagsServer) != 0;
+    uint8_t* skate = detail::get_skate();
+    if (net::Hub::sole()->get_net_link_kind() == net::Hub::kConnectionModem || on_server)
         return false;
-    auto* skater = Call<GameObjects::CGameEntity*>(CodeAddress(GameModules::Skate::GetLocalSkaterStub), skate); // the local skater
+    auto* skater = get_call<objects::GameEntity*>(code_address(modules::Skate::get_local_skater_stub), skate); // the local skater
     if (!skater)
         return false;
-    auto* tagging = static_cast<GameObjects::CTaggingComponent*>(skater->FetchModule(GameObjects::CTaggingComponent::kType));
-    if (!tagging || !tagging->HasCustomTagTexture())
+    auto* tagging = static_cast<objects::TaggingComponent*>(skater->fetch_module(objects::TaggingComponent::kType));
+    if (!tagging || !tagging->has_custom_tag_texture())
         return false;
 
-    NetLink::Conn* server = m_clientApp->BeginConnWalk(&search);
-    if (server->GetLinkSpeedClass() == 0) {
-        void* profile = Call<void*>(CodeAddress(static_cast<GameObjects::CRiderIdentity* (GameModules::Skate::*)(int)>(&GameModules::Skate::FetchAccount)), Detail::Skate(), 0);
-        uint32_t logos = ProfileHasPart(profile, kHatLogo) ? 1 : 0;
-        if (ProfileHasPart(profile, kFrontLogo))
+    net::Conn* server = client_app_->begin_conn_walk(&search);
+    if (server->get_link_speed_class() == 0) {
+        void* profile = get_call<void*>(code_address(static_cast<objects::RiderIdentity* (modules::Skate::*)(int)>(&modules::Skate::fetch_account)), detail::get_skate(), 0);
+        uint32_t logos = profile_has_part(profile, kHatLogo) ? 1 : 0;
+        if (profile_has_part(profile, kFrontLogo))
             logos |= 2;
-        if (ProfileHasPart(profile, kBackLogo))
+        if (profile_has_part(profile, kBackLogo))
             logos |= 4;
-        if (ProfileHasPart(profile, kDeckGraphic))
+        if (profile_has_part(profile, kDeckGraphic))
             logos |= 8;
-        void* texture = Call<void*>(CodeAddress(&GoalSystem::CObjective::FetchArgs), tagging); // the custom tag texture
+        void* texture = get_call<void*>(code_address(&goals::Objective::fetch_args), tagging); // the custom tag texture
         if (texture) {
-            NetLink::NetMessageInfo desc;
-            desc.MakeNew();
-            desc.m_ident = kMsgTagLogos;
-            desc.m_content = &logos;
-            desc.m_byteCount = 4;
-            desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
-            desc.m_groupId = kGroupTag;
-            void* palette = TexturePalette(texture);
-            m_clientApp->SendBulkToConn(server, kMsgTagPalette, TexturePaletteSize(texture), palette,
+            net::NetMessageInfo desc;
+            desc.make_new();
+            desc.ident_ = kMsgTagLogos;
+            desc.content_ = &logos;
+            desc.byte_count_ = 4;
+            desc.queue_ = net::NetMessageInfo::kLaneOrdered;
+            desc.group_id_ = kGroupTag;
+            void* palette = texture_palette(texture);
+            client_app_->send_bulk_to_conn(server, kMsgTagPalette, texture_palette_size(texture), palette,
                                           kTagPaletteDesc, kGroupTag, false, true);
-            void* pixels = TexturePixels(texture);
-            m_clientApp->SendBulkToConn(server, kMsgTagTexture, TextureSize(texture), pixels, kTagTextureDesc,
+            void* pixels = texture_pixels(texture);
+            client_app_->send_bulk_to_conn(server, kMsgTagTexture, get_texture_size(texture), pixels, kTagTextureDesc,
                                           kGroupTag, false, true);
-            SendToServer(m_clientApp, &desc);
+            send_to_server(client_app_, &desc);
         }
     }
     return true;
 }
 
 // 0x00534F40
-uint32_t Hub::FetchStage() { return m_level; }
+uint32_t Hub::fetch_stage() { return level_; }
 
 // 0x00534F50
-const char* Hub::GetChoiceName(uint32_t list, uint32_t choice)
+const char* Hub::get_choice_name(uint32_t list, uint32_t choice)
 {
-    Scripts::CArray* choices = Scripts::FetchList(list);
+    script::Array* choices = script::fetch_list(list);
     const char* name = nullptr;
     // The checksum is read into the argument's slot: an entry without one compares what the slot last held (at
     // first the list's own name).
     uint32_t checksum = list;
-    for (int i = 0; i < static_cast<int>(choices->m_extent); ++i) {
-        auto* entry = reinterpret_cast<Scripts::CStruct*>(choices->FetchPart(i));
-        entry->ReadHashValue(kChecksum, &checksum, 1);
+    for (int i = 0; i < static_cast<int>(choices->extent_); ++i) {
+        auto* entry = reinterpret_cast<script::Struct*>(choices->fetch_part(i));
+        entry->read_hash_value(kChecksum, &checksum, 1);
         if (checksum == choice)
-            entry->FetchText(kName, &name, 1);
+            entry->fetch_text(kName, &name, 1);
     }
     return name;
 }
 
 // 0x00534FC0
-int Hub::GetChoiceInteger(uint32_t list, uint32_t choice, uint32_t field)
+int Hub::get_choice_integer(uint32_t list, uint32_t choice, uint32_t field)
 {
-    Scripts::CArray* choices = Scripts::FetchList(list);
+    script::Array* choices = script::fetch_list(list);
     int value = 0;
     // (as above, the checksum goes into `choice`'s slot: an entry without one matches)
     uint32_t checksum = choice;
-    for (int i = 0; i < static_cast<int>(choices->m_extent); ++i) {
-        auto* entry = reinterpret_cast<Scripts::CStruct*>(choices->FetchPart(i));
-        entry->ReadHashValue(kChecksum, &checksum, 1);
+    for (int i = 0; i < static_cast<int>(choices->extent_); ++i) {
+        auto* entry = reinterpret_cast<script::Struct*>(choices->fetch_part(i));
+        entry->read_hash_value(kChecksum, &checksum, 1);
         if (checksum == choice)
-            entry->FetchIntValue(field, &value, 1);
+            entry->fetch_int_value(field, &value, 1);
     }
     return value;
 }
 
 // 0x005359F0
-void Hub::ChooseStartPoints()
+void Hub::choose_start_points()
 {
-    int* points = &Prop<int>(this, kInitialScores);
-    int offset = Maths::Rnd(256);
+    int* points = &prop<int>(this, kInitialScores);
+    int offset = maths::rnd(256);
     int count;
-    if (InNetGame()) {
+    if (in_net_game()) {
         count = 8;
     } else {
-        count = ModeMaxPlayers();
-        if (Prop<uint32_t>(reinterpret_cast<uint8_t*>(ParkEditing::g_parkEditor), 0x40) != kOff && !ModeIsTrue(kIsHorse)) {
+        count = mode_max_players();
+        if (prop<uint32_t>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor), 0x40) != kOff && !mode_is_true(kIsHorse)) {
             count = 2;
             offset = 0;
         }
@@ -378,7 +378,7 @@ void Hub::ChooseStartPoints()
         // Drawn again until it's one no other slot has.
         bool taken;
         do {
-            points[i] = Maths::Rnd(count);
+            points[i] = maths::rnd(count);
             taken = false;
             for (int j = 0; j < count && !taken; ++j)
                 taken = i != j && points[i] == points[j];
@@ -386,49 +386,49 @@ void Hub::ChooseStartPoints()
     }
     for (int i = 0; i < count; ++i)
         points[i] += offset;
-    Prop<int>(this, kCrownStart) = Maths::Rnd(10);
+    prop<int>(this, kCrownStart) = maths::rnd(10);
 }
 
 // 0x00535BC0
-void Hub::ToggleNetMetrics()
+void Hub::toggle_net_metrics()
 {
-    Scheduling::PileUp* tasks = LogicTasks();
-    uint8_t& show = Prop<uint8_t>(this, kShowMetrics); // (a byte flipped by its bit 0, as in the original)
+    tasks::PileUp* tasks = get_logic_tasks();
+    uint8_t& show = prop<uint8_t>(this, kShowMetrics); // (a byte flipped by its bit 0, as in the original)
     show ^= 1;
     if (show)
-        tasks->QueueJob(Prop<Scheduling::SchedulerTask*>(this, kMetricsTask));
+        tasks->queue_job(prop<tasks::SchedulerTask*>(this, kMetricsTask));
     else
-        Prop<Scheduling::SchedulerTask*>(this, kMetricsTask)->DropOut();
+        prop<tasks::SchedulerTask*>(this, kMetricsTask)->drop_out();
 }
 
 // 0x00535BF0
-void Hub::ToggleScores()
+void Hub::toggle_scores()
 {
-    AccumulatesScore(); // (asked and not used)
-    Prop<uint8_t>(this, kShowScores) ^= 1;
+    accumulates_score(); // (asked and not used)
+    prop<uint8_t>(this, kShowScores) ^= 1;
 }
 
 // 0x00535D00
-bool Hub::KeepsScore()
+bool Hub::keeps_score()
 {
-    if (!AccumulatesScore() && !TracksBestCombo() && GameType() != kNetFirefight && GameType() != kNetGoalAttack &&
-        GameType() != kNetCtf && GameType() != kNetScavengerHunt)
+    if (!accumulates_score() && !tracks_best_combo() && get_game_type() != kNetFirefight && get_game_type() != kNetGoalAttack &&
+        get_game_type() != kNetCtf && get_game_type() != kNetScavengerHunt)
         return false;
-    return !IsElimiskate() || GameType() == kNetFirefight || GameType() == kNetElimiskate;
+    return !is_elimiskate() || get_game_type() == kNetFirefight || get_game_type() == kNetElimiskate;
 }
 
 // 0x00535D90
-void Hub::SetPresetOptionBits(char flags) { m_scriptFlagBits = static_cast<uint32_t>(static_cast<int>(flags)); }
+void Hub::set_preset_option_bits(char flags) { script_flag_bits_ = static_cast<uint32_t>(static_cast<int>(flags)); }
 
 // (no address: the list code folded at 0x00588B70 - see the header; the first node's data read before the null check,
 // as there)
-void __fastcall Hub::UnlinkAllNodes(MemSys::ListNode* head)
+void __fastcall Hub::unlink_all_nodes(memory::ListNode* head)
 {
-    MemSys::ListNode* node = head->next;
+    memory::ListNode* node = head->next;
     if (node->data == reinterpret_cast<void*>(-1) || !node)
         return;
     while (node) {
-        MemSys::ListNode* following = node->next;
+        memory::ListNode* following = node->next;
         node->prev->next = following;
         following->prev = node->prev;
         node->next = node;
@@ -437,50 +437,50 @@ void __fastcall Hub::UnlinkAllNodes(MemSys::ListNode* head)
     }
 }
 
-bool g_queryReporting;
+bool g_query_reporting;
 
 // 0x00536D70
-void Hub::DestroyBody()
+void Hub::destroy_body()
 {
     // GameSpy shut down (the SDK's), its reporting if it's up.
-    GameSpy::CdKeyDisconnectAll(1003);
-    GameSpy::CdKeyShutdown();
-    if (g_queryReporting) {
-        GameSpy::Qr2Shutdown(nullptr);
-        g_queryReporting = false;
+    game_spy::cd_key_disconnect_all(1003);
+    game_spy::cd_key_shutdown();
+    if (g_query_reporting) {
+        game_spy::get_qr2_shutdown(nullptr);
+        g_query_reporting = false;
     }
     // The lobby, the vault, the presence and the stats: each one's destructor, then freed.
-    if (auto* lobby = static_cast<RoomManager*>(m_lobbyService)) {
-        lobby->DestroyBody();
-        MemSys::Hub::Pull()->Dealloc(lobby);
+    if (auto* lobby = static_cast<RoomManager*>(lobby_service_)) {
+        lobby->destroy_body();
+        memory::Hub::get_pull()->dealloc(lobby);
     }
-    if (auto* vault = static_cast<VaultMan*>(m_vaultMan)) {
-        vault->DestroyBody();
-        MemSys::Hub::Pull()->Dealloc(vault);
+    if (auto* vault = static_cast<VaultMan*>(vault_man_)) {
+        vault->destroy_body();
+        memory::Hub::get_pull()->dealloc(vault);
     }
-    if (auto* buddies = static_cast<FriendsManager*>(m_presenceService)) {
-        buddies->DestroyBody();
-        MemSys::Hub::Pull()->Dealloc(buddies);
+    if (auto* buddies = static_cast<FriendsManager*>(presence_service_)) {
+        buddies->destroy_body();
+        memory::Hub::get_pull()->dealloc(buddies);
     }
-    if (auto* stats = static_cast<RankingsManager*>(m_ratingService)) {
-        stats->DestroyBody();
-        MemSys::Hub::Pull()->Dealloc(stats);
+    if (auto* stats = static_cast<RankingsManager*>(rating_service_)) {
+        stats->destroy_body();
+        memory::Hub::get_pull()->dealloc(stats);
     }
     // The tasks, deleted through their vtables (slot 2), in the original's order.
     for (uint32_t offset : {0xD0u, 0xCCu, 0xC0u, 0xC4u, 0xD4u, 0xE0u, 0xE4u, 0xE8u, 0xECu, 0xF0u}) {
-        void* task = Prop<void*>(this, offset);
+        void* task = prop<void*>(this, offset);
         if (task)
             reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(task))[2])(task, 1);
     }
     // The lists: the players' nodes unlinked, then each head's destructor.
-    UnlinkAllNodes(&Prop<MemSys::ListNode>(this, 0x11C));
-    Prop<ServerNode>(this, 0x16C).DestroyBody();
-    Prop<ServerNode>(this, 0x158).DestroyBody();
-    Prop<QueuedScriptNode>(this, 0x144).DestroyBody();
-    Prop<NewPlayerNode>(this, 0x130).DestroyBody();
-    Prop<PlayerNode>(this, 0x11C).DestroyBody();
-    GetTauntSettings()->TearDownState();
-    GetOnlineSettings()->TearDownState();
+    unlink_all_nodes(&prop<memory::ListNode>(this, 0x11C));
+    prop<ServerNode>(this, 0x16C).destroy_body();
+    prop<ServerNode>(this, 0x158).destroy_body();
+    prop<QueuedScriptNode>(this, 0x144).destroy_body();
+    prop<NewPlayerNode>(this, 0x130).destroy_body();
+    prop<PlayerNode>(this, 0x11C).destroy_body();
+    get_taunt_settings()->tear_down_state();
+    get_online_settings()->tear_down_state();
 }
 
-} // namespace OnlinePlay
+} // namespace online

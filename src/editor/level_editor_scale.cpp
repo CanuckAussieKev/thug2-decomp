@@ -29,22 +29,22 @@
 #include "engine/gfx/viewport.h"
 #include "engine/core/stubs.h"
 
-namespace MenuSystem::LevelEditor::StretchBy {
+namespace frontend::level_editor::scale_tool {
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
-void ScaleAbout(Placement* placement, V3 pivot, V3 factor)
+void scale_about(Placement* placement, V3 pivot, V3 factor)
 {
     // x'' = F (x' - pivot) + pivot, x' = Q S x + offset: x'' = Q (F' S) x + F (offset - pivot) + pivot, F' = F as seen
     // through Q (F Q = Q F': odd turns swap its x and z).
-    placement->scale = PerAxis(TurnedScale(factor, placement->quarters), placement->scale);
-    placement->offset = PerAxis(placement->offset - pivot, factor) + pivot;
+    placement->scale = per_axis(turned_scale(factor, placement->quarters), placement->scale);
+    placement->offset = per_axis(placement->offset - pivot, factor) + pivot;
 }
 
 namespace {
 
-// One axis of AllowedFactor.
-double AllowedOnAxis(double factor, double low, double high)
+// One axis of allowed_factor.
+double allowed_on_axis(double factor, double low, double high)
 {
     if (factor > 1.0 && high < factor)
         factor = std::max(1.0, high); // (already past the limit: no further)
@@ -53,31 +53,31 @@ double AllowedOnAxis(double factor, double low, double high)
     return factor;
 }
 
-float Axis(V3 v, int axis) { return axis == 0 ? v.x : axis == 1 ? v.y : v.z; }
+float get_axis(V3 v, int axis) { return axis == 0 ? v.x : axis == 1 ? v.y : v.z; }
 
 } // namespace
 
-V3 AllowedFactor(V3 factor, const std::vector<V3>& scales, const std::vector<V3>& limits, bool uniform)
+V3 allowed_factor(V3 factor, const std::vector<V3>& scales, const std::vector<V3>& limits, bool uniform)
 {
     double out[3];
     for (int a = 0; a < 3; ++a) {
-        double f = Axis(factor, a);
+        double f = get_axis(factor, a);
         if (!(f > 0.0) || !std::isfinite(f)) {
             out[a] = 1.0;
             continue;
         }
         double low = 0.0, high = 1e30;
         for (size_t i = 0; i < scales.size(); ++i) {
-            double scale = Axis(scales[i], a) > 0.0f ? Axis(scales[i], a) : 1.0;
-            double limit = i < limits.size() ? std::min<double>(Axis(limits[i], a), kMax) : kMax;
+            double scale = get_axis(scales[i], a) > 0.0f ? get_axis(scales[i], a) : 1.0;
+            double limit = i < limits.size() ? std::min<double>(get_axis(limits[i], a), kMax) : kMax;
             low = std::max(low, kMin / scale);
             high = std::min(high, limit / scale);
         }
-        out[a] = AllowedOnAxis(f, low, high);
+        out[a] = allowed_on_axis(f, low, high);
     }
     if (uniform) {
         // (the factor asked for is the same on every axis: the one nearest 1 is what all of them allow)
-        double f = Axis(factor, 0);
+        double f = get_axis(factor, 0);
         double common = out[0];
         for (int a = 1; a < 3; ++a)
             common = f >= 1.0 ? std::min(common, out[a]) : std::max(common, out[a]);
@@ -86,21 +86,21 @@ V3 AllowedFactor(V3 factor, const std::vector<V3>& scales, const std::vector<V3>
     return {static_cast<float>(out[0]), static_cast<float>(out[1]), static_cast<float>(out[2])};
 }
 
-float CompressedLimit(float extent)
+float compressed_limit(float extent)
 {
     if (!(extent > 0.0f))
         return kMax;
     return std::min(kMax, kCompressedExtent / extent);
 }
 
-float Confine(float scale)
+float confine(float scale)
 {
     if (!(scale == scale))
         return 1.0f;
     return std::max(kMin, std::min(kMax, scale));
 }
 
-int MainAxis(V3 d)
+int main_axis(V3 d)
 {
     float x = std::fabs(d.x), y = std::fabs(d.y), z = std::fabs(d.z);
     if (y >= x && y >= z)
@@ -108,51 +108,51 @@ int MainAxis(V3 d)
     return x >= z ? 0 : 2;
 }
 
-V3 AlongAxis(int axis, float f) { return {axis == 0 ? f : 1.0f, axis == 1 ? f : 1.0f, axis == 2 ? f : 1.0f}; }
+V3 along_axis(int axis, float f) { return {axis == 0 ? f : 1.0f, axis == 1 ? f : 1.0f, axis == 2 ? f : 1.0f}; }
 
-int NearestAxis(const V3 axes[3], int worldAxis)
+int nearest_axis(const V3 axes[3], int world_axis)
 {
-    int best = worldAxis;
-    float bestDot = -1.0f;
+    int best = world_axis;
+    float best_dot = -1.0f;
     for (int i = 0; i < 3; ++i) {
-        float length = std::sqrt(Dot(axes[i], axes[i]));
-        float d = length > 0.0f ? std::fabs(Axis(axes[i], worldAxis)) / length : 0.0f;
-        if (d > bestDot) {
-            bestDot = d;
+        float length = std::sqrt(get_dot(axes[i], axes[i]));
+        float d = length > 0.0f ? std::fabs(get_axis(axes[i], world_axis)) / length : 0.0f;
+        if (d > best_dot) {
+            best_dot = d;
             best = i;
         }
     }
     return best;
 }
 
-std::string Describe(V3 scale)
+std::string describe(V3 scale)
 {
     char text[48];
-    if (IsUniformScale(scale))
+    if (is_uniform_scale(scale))
         std::snprintf(text, sizeof(text), "%.2fx", scale.x);
     else
         std::snprintf(text, sizeof(text), "%.2f x %.2f x %.2f", scale.x, scale.y, scale.z);
     return text;
 }
 
-RebuildFrame FrameFor(int copiedQuarters, V3 copiedPosition, int quarters0, int quarters, V3 position, V3 scale)
+RebuildFrame frame_for(int copied_quarters, V3 copied_position, int quarters0, int quarters, V3 position, V3 scale)
 {
     // The copy was taken after `copied` quarter turns of the piece (scale 1): copy - from = Q_c (x - x0); now
     // x' - to = Q S (x - x0) = Q_t (Q_c S Q_c^-1) (copy - from), Q_t the turns since, Q_c S Q_c^-1 S seen through Q_c.
-    int copied = (copiedQuarters - quarters0) & 3;
-    return {copiedPosition, position, (quarters - copiedQuarters) & 3, TurnedScale(scale, copied), (quarters - quarters0) & 3};
+    int copied = (copied_quarters - quarters0) & 3;
+    return {copied_position, position, (quarters - copied_quarters) & 3, turned_scale(scale, copied), (quarters - quarters0) & 3};
 }
 
-V3 Rebuilt(V3 p, V3 from, V3 to, int quarters, V3 scale)
+V3 get_rebuilt(V3 p, V3 from, V3 to, int quarters, V3 scale)
 {
-    return to + QuarterTurn(PerAxis(p - from, scale), quarters);
+    return to + get_quarter_turn(per_axis(p - from, scale), quarters);
 }
 
-void RewritePositions(uint8_t* data, uint32_t stride, uint32_t count, const float* original, V3 from, V3 to,
+void rewrite_positions(uint8_t* data, uint32_t stride, uint32_t count, const float* original, V3 from, V3 to,
                       int quarters, V3 scale)
 {
     for (uint32_t v = 0; v < count; ++v, data += stride, original += 3) {
-        V3 p = Rebuilt({original[0], original[1], original[2]}, from, to, quarters, scale);
+        V3 p = get_rebuilt({original[0], original[1], original[2]}, from, to, quarters, scale);
         auto* out = reinterpret_cast<float*>(data);
         out[0] = p.x;
         out[1] = p.y;
@@ -160,21 +160,21 @@ void RewritePositions(uint8_t* data, uint32_t stride, uint32_t count, const floa
     }
 }
 
-V3 ScaledNormal(V3 n, V3 scale, int quarters)
+V3 scaled_normal(V3 n, V3 scale, int quarters)
 {
-    if (!IsUnitScale(scale)) {
+    if (!is_unit_scale(scale)) {
         V3 m = {n.x / scale.x, n.y / scale.y, n.z / scale.z};
-        float length = std::sqrt(Dot(m, m));
+        float length = std::sqrt(get_dot(m, m));
         n = length > 0.0f ? m * (1.0f / length) : m;
     }
-    return QuarterTurn(n, quarters);
+    return get_quarter_turn(n, quarters);
 }
 
-void RewriteNormals(uint8_t* data, uint32_t stride, uint32_t count, uint32_t offset, const float* original, V3 scale,
+void rewrite_normals(uint8_t* data, uint32_t stride, uint32_t count, uint32_t offset, const float* original, V3 scale,
                     int quarters)
 {
     for (uint32_t v = 0; v < count; ++v, data += stride, original += 3) {
-        V3 n = ScaledNormal({original[0], original[1], original[2]}, scale, quarters);
+        V3 n = scaled_normal({original[0], original[1], original[2]}, scale, quarters);
         auto* out = reinterpret_cast<float*>(data + offset);
         out[0] = n.x;
         out[1] = n.y;
@@ -182,7 +182,7 @@ void RewriteNormals(uint8_t* data, uint32_t stride, uint32_t count, uint32_t off
     }
 }
 
-int SurfaceNudge(uint32_t fvf, uint32_t stride)
+int surface_nudge(uint32_t fvf, uint32_t stride)
 {
     constexpr uint32_t kPositionMask = 0x400E, kXyz = 0x002, kNormal = 0x010;
     // (an FVF's texture coordinate size bits are 0 for the scene's 2D coordinates: a larger value is a shader handle)
@@ -191,19 +191,19 @@ int SurfaceNudge(uint32_t fvf, uint32_t stride)
     return 12;
 }
 
-std::string Token(V3 scale)
+std::string get_token(V3 scale)
 {
-    if (IsUnitScale(scale))
+    if (is_unit_scale(scale))
         return "";
     char text[64];
-    if (IsUniformScale(scale))
+    if (is_uniform_scale(scale))
         std::snprintf(text, sizeof(text), " scale=%.9g", scale.x);
     else
         std::snprintf(text, sizeof(text), " scale=%.9g,%.9g,%.9g", scale.x, scale.y, scale.z);
     return text;
 }
 
-bool ReadToken(const std::string& field, V3* scale)
+bool read_token(const std::string& field, V3* scale)
 {
     if (field.compare(0, 6, "scale=") != 0 || field.size() == 6)
         return false;
@@ -218,7 +218,7 @@ bool ReadToken(const std::string& field, V3* scale)
         values[count++] = value;
         if (*end == '\0') {
             if (count == 1)
-                *scale = Uniform(values[0]);
+                *scale = get_uniform(values[0]);
             else if (count == 3)
                 *scale = {values[0], values[1], values[2]};
             return count == 1 || count == 3;
@@ -233,86 +233,86 @@ bool ReadToken(const std::string& field, V3* scale)
 
 namespace {
 
-void SplitNodes(Engine3D::CHitTreeNode* node, std::vector<CollisionCopy::Elem>* out, int depth)
+void split_nodes(render::HitTreeNode* node, std::vector<CollisionCopy::Elem>* out, int depth)
 {
     // (iterative down the greater side, as the game's own walks; a guard against a broken tree)
-    while (node && !node->IsEndNode() && depth < 256) {
-        out->push_back({node, node->m_axisTag, node->m_chainLink});
-        SplitNodes(node->LessChild(), out, depth + 1);
-        node = node->GreaterChild();
+    while (node && !node->is_end_node() && depth < 256) {
+        out->push_back({node, node->axis_tag_, node->chain_link_});
+        split_nodes(node->less_child(), out, depth + 1);
+        node = node->greater_child();
         ++depth;
     }
 }
 
-uint32_t VertexBytes(const Engine3D::CTriMeshSource* data) { return data->m_numVertices * (data->m_compressed ? 6u : 12u); }
+uint32_t get_vertex_bytes(const render::TriMeshSource* data) { return data->num_vertices_ * (data->compressed_ ? 6u : 12u); }
 
 } // namespace
 
-CollisionCopy CopyCollision(Engine3D::CTriMeshSource* data)
+CollisionCopy copy_collision(render::TriMeshSource* data)
 {
     CollisionCopy copy;
     copy.data = data;
     if (!data)
         return copy;
-    copy.numVertices = data->m_numVertices;
-    copy.compressed = data->m_compressed;
-    copy.vertexArray = data->m_vertices;
-    if (data->m_vertices) {
-        const auto* bytes = static_cast<const uint8_t*>(data->m_vertices);
-        copy.vertices.assign(bytes, bytes + VertexBytes(data));
+    copy.num_vertices_ = data->num_vertices_;
+    copy.compressed = data->compressed_;
+    copy.vertex_array_ = data->vertices_;
+    if (data->vertices_) {
+        const auto* bytes = static_cast<const uint8_t*>(data->vertices_);
+        copy.vertices.assign(bytes, bytes + get_vertex_bytes(data));
     }
-    copy.min = data->m_lowerLimit;
-    copy.max = data->m_upperLimit;
-    copy.rejection = data->m_unknown3C;
-    SplitNodes(data->m_bsp, &copy.nodes, 0);
+    copy.min = data->lower_limit_;
+    copy.max = data->upper_limit_;
+    copy.rejection = data->unknown3c_;
+    split_nodes(data->bsp_, &copy.nodes, 0);
     return copy;
 }
 
-bool SameCollision(const CollisionCopy& copy)
+bool same_collision(const CollisionCopy& copy)
 {
-    const Engine3D::CTriMeshSource* data = copy.data;
-    return data && data->m_vertices == copy.vertexArray && data->m_numVertices == copy.numVertices &&
-           data->m_compressed == copy.compressed && copy.vertices.size() == VertexBytes(data);
+    const render::TriMeshSource* data = copy.data;
+    return data && data->vertices_ == copy.vertex_array_ && data->num_vertices_ == copy.num_vertices_ &&
+           data->compressed_ == copy.compressed && copy.vertices.size() == get_vertex_bytes(data);
 }
 
-void RebuildCollision(const CollisionCopy& copy, int quarters, V3 from, V3 to, V3 scale)
+void rebuild_collision(const CollisionCopy& copy, int quarters, V3 from, V3 to, V3 scale)
 {
-    Engine3D::CTriMeshSource* data = copy.data;
-    if (!data || !data->m_vertices)
+    render::TriMeshSource* data = copy.data;
+    if (!data || !data->vertices_)
         return;
-    std::memcpy(data->m_vertices, copy.vertices.data(), copy.vertices.size());
-    data->m_lowerLimit = copy.min;
-    data->m_upperLimit = copy.max;
-    data->m_unknown3C = copy.rejection;
+    std::memcpy(data->vertices_, copy.vertices.data(), copy.vertices.size());
+    data->lower_limit_ = copy.min;
+    data->upper_limit_ = copy.max;
+    data->unknown3c_ = copy.rejection;
     for (const CollisionCopy::Elem& n : copy.nodes) {
-        n.node->m_axisTag = n.split;
-        n.node->m_chainLink = n.link;
+        n.node->axis_tag_ = n.split;
+        n.node->chain_link_ = n.link;
     }
-    Maths::Vec4 centre = {from.x, from.y, from.z, 0.0f};
-    if (!IsUnitScale(scale)) {
-        Maths::Vec4 factor = {scale.x, scale.y, scale.z, 1.0f};
-        data->StretchBy(&centre, &factor);
+    maths::Vec4 centre = {from.x, from.y, from.z, 0.0f};
+    if (!is_unit_scale(scale)) {
+        maths::Vec4 factor = {scale.x, scale.y, scale.z, 1.0f};
+        data->scale_tool(&centre, &factor);
     }
     if (quarters & 3)
-        data->RotateY(&centre, quarters & 3);
+        data->rotate_y(&centre, quarters & 3);
     V3 delta = to - from;
     if (delta.x != 0.0f || delta.y != 0.0f || delta.z != 0.0f) {
-        Maths::Vec4 by = {delta.x, delta.y, delta.z, 0.0f};
-        data->Slide(&by);
+        maths::Vec4 by = {delta.x, delta.y, delta.z, 0.0f};
+        data->get_slide(&by);
     }
 }
 
-V3 CollisionLimit(const Engine3D::CTriMeshSource* data, V3 scale)
+V3 collision_limit(const render::TriMeshSource* data, V3 scale)
 {
-    V3 limit = Uniform(kMax);
-    if (!data || !data->m_compressed)
+    V3 limit = get_uniform(kMax);
+    if (!data || !data->compressed_)
         return limit;
     if (scale.x > 0.0f)
-        limit.x = CompressedLimit((data->m_upperLimit.x - data->m_lowerLimit.x) / scale.x);
+        limit.x = compressed_limit((data->upper_limit_.x - data->lower_limit_.x) / scale.x);
     if (scale.y > 0.0f)
-        limit.y = CompressedLimit((data->m_upperLimit.y - data->m_lowerLimit.y) / scale.y);
+        limit.y = compressed_limit((data->upper_limit_.y - data->lower_limit_.y) / scale.y);
     if (scale.z > 0.0f)
-        limit.z = CompressedLimit((data->m_upperLimit.z - data->m_lowerLimit.z) / scale.z);
+        limit.z = compressed_limit((data->upper_limit_.z - data->lower_limit_.z) / scale.z);
     return limit;
 }
 
@@ -321,159 +321,159 @@ V3 CollisionLimit(const Engine3D::CTriMeshSource* data, V3 scale)
 namespace {
 
 // A mesh's copy: each vertex buffer's positions (and normals, when its format has them), its bounding sphere and its
-// position list (+0xAC / +0xB0 - moved with the mesh by meshRef::MoveTo, not turned by TurnY: rewritten the same way,
+// position list (+0xAC / +0xB0 - moved with the mesh by MeshRef::move_to, not turned by turn_y: rewritten the same way,
 // scaled).
 struct MeshCopy {
-    Engine3D::meshRef* mesh;
-    uint16_t vertexCount;
+    render::MeshRef* mesh;
+    uint16_t vertex_count_;
     uint8_t stride;
-    int normalOffset;
-    std::vector<Engine3D::sVertexBuffer*> buffers;
+    int normal_offset_;
+    std::vector<render::VertexBuffer*> buffers;
     std::vector<uint8_t*> data;
     std::vector<std::vector<float>> positions; // (per buffer: x, y, z a vertex)
     std::vector<std::vector<float>> normals;   // (per buffer, when normalOffset >= 0)
     V3 centre;
     float radius;
-    uint32_t listCount;
+    uint32_t list_count_;
     float* list;
-    std::vector<float> listCopy;
+    std::vector<float> list_copy_;
 };
 
-uint8_t* CollOf(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x18); }
-Engine3D::CTriMeshSource* CollisionData(uint8_t* sector)
+uint8_t* coll_of(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x18); }
+render::TriMeshSource* collision_data(uint8_t* sector)
 {
-    auto* coll = reinterpret_cast<Engine3D::CHitMesh*>(CollOf(sector));
-    return coll ? coll->m_geometry : nullptr;
+    auto* coll = reinterpret_cast<render::HitMesh*>(coll_of(sector));
+    return coll ? coll->geometry_ : nullptr;
 }
 
 // The mesh's vertex format (+0x38: a Direct3D FVF, or a built-in vertex shader's handle).
-uint32_t VertexFormat(const Engine3D::meshRef* mesh) { return *reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(mesh) + 0x38); }
+uint32_t vertex_format(const render::MeshRef* mesh) { return *reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(mesh) + 0x38); }
 
-// The vertex buffer written back to the card (0x004D40E0 after the inlined lock of the whole buffer, as meshRef::MoveTo).
-void Upload(Engine3D::sVertexBuffer* buffer)
+// The vertex buffer written back to the card (0x004D40E0 after the inlined lock of the whole buffer, as MeshRef::move_to).
+void upload(render::VertexBuffer* buffer)
 {
-    buffer->lockOffset = 0;
-    buffer->lockSize = buffer->size;
-    buffer->lockFlags = 0;
-    buffer->Unlock();
+    buffer->lock_offset_ = 0;
+    buffer->lock_size_ = buffer->size;
+    buffer->lock_flags_ = 0;
+    buffer->get_unlock();
 }
 
 // The largest of a per-axis scale (a sphere's radius grows by it).
-float Largest(V3 s) { return std::max({s.x, s.y, s.z}); }
+float get_largest(V3 s) { return std::max({s.x, s.y, s.z}); }
 
 } // namespace
 
 struct Original {
     uint8_t* geom;
-    Engine3D::meshRef** meshList;
-    uint32_t meshCount;
+    render::MeshRef** mesh_list_;
+    uint32_t mesh_count_;
     int quarters;
     V3 position;
     std::vector<MeshCopy> meshes;
-    bool haveCollision;
+    bool have_collision_;
     CollisionCopy collision;
 };
 
-std::shared_ptr<Original> Capture(uint8_t* sector, uint8_t* geom, int quarters, V3 position)
+std::shared_ptr<Original> get_capture(uint8_t* sector, uint8_t* geom, int quarters, V3 position)
 {
     auto original = std::make_shared<Original>();
     original->geom = geom;
-    original->meshList = *reinterpret_cast<Engine3D::meshRef***>(geom + 0x3C);
-    original->meshCount = *reinterpret_cast<uint32_t*>(geom + 0x40);
+    original->mesh_list_ = *reinterpret_cast<render::MeshRef***>(geom + 0x3C);
+    original->mesh_count_ = *reinterpret_cast<uint32_t*>(geom + 0x40);
     original->quarters = quarters;
     original->position = position;
-    if (!original->meshList || original->meshCount == 0 || original->meshCount > 4096)
+    if (!original->mesh_list_ || original->mesh_count_ == 0 || original->mesh_count_ > 4096)
         return nullptr;
-    for (uint32_t i = 0; i < original->meshCount; ++i) {
-        Engine3D::meshRef* mesh = original->meshList[i];
-        if (!mesh || mesh->stride < 12 || mesh->vertexBufferCount > 3)
+    for (uint32_t i = 0; i < original->mesh_count_; ++i) {
+        render::MeshRef* mesh = original->mesh_list_[i];
+        if (!mesh || mesh->stride < 12 || mesh->vertex_buffer_count_ > 3)
             return nullptr;
-        MeshCopy copy = {mesh, mesh->vertexCount, mesh->stride, SurfaceNudge(VertexFormat(mesh), mesh->stride),
+        MeshCopy copy = {mesh, mesh->vertex_count_, mesh->stride, surface_nudge(vertex_format(mesh), mesh->stride),
                          {}, {}, {}, {}, {mesh->centre[0], mesh->centre[1], mesh->centre[2]}, mesh->radius,
-                         mesh->positionCount, mesh->positions, {}};
-        for (int b = 0; b < mesh->vertexBufferCount; ++b) {
-            Engine3D::sVertexBuffer* buffer = mesh->vertexBuffers[b];
-            if (!buffer || !buffer->data || buffer->size < static_cast<uint32_t>(mesh->vertexCount) * mesh->stride)
+                         mesh->position_count_, mesh->positions, {}};
+        for (int b = 0; b < mesh->vertex_buffer_count_; ++b) {
+            render::VertexBuffer* buffer = mesh->vertex_buffers_[b];
+            if (!buffer || !buffer->data || buffer->size < static_cast<uint32_t>(mesh->vertex_count_) * mesh->stride)
                 return nullptr;
-            std::vector<float> positions(3u * mesh->vertexCount);
-            std::vector<float> normals(copy.normalOffset >= 0 ? 3u * mesh->vertexCount : 0u);
+            std::vector<float> positions(3u * mesh->vertex_count_);
+            std::vector<float> normals(copy.normal_offset_ >= 0 ? 3u * mesh->vertex_count_ : 0u);
             const uint8_t* vertex = buffer->data;
-            for (uint32_t v = 0; v < mesh->vertexCount; ++v, vertex += mesh->stride) {
+            for (uint32_t v = 0; v < mesh->vertex_count_; ++v, vertex += mesh->stride) {
                 std::memcpy(&positions[3u * v], vertex, 12);
-                if (copy.normalOffset >= 0)
-                    std::memcpy(&normals[3u * v], vertex + copy.normalOffset, 12);
+                if (copy.normal_offset_ >= 0)
+                    std::memcpy(&normals[3u * v], vertex + copy.normal_offset_, 12);
             }
             copy.buffers.push_back(buffer);
             copy.data.push_back(buffer->data);
             copy.positions.push_back(std::move(positions));
             copy.normals.push_back(std::move(normals));
         }
-        if (mesh->positions && mesh->positionCount)
-            copy.listCopy.assign(mesh->positions, mesh->positions + 3u * mesh->positionCount);
+        if (mesh->positions && mesh->position_count_)
+            copy.list_copy_.assign(mesh->positions, mesh->positions + 3u * mesh->position_count_);
         original->meshes.push_back(std::move(copy));
     }
-    Engine3D::CTriMeshSource* data = CollisionData(sector);
-    original->haveCollision = data && data->m_vertices;
-    if (original->haveCollision)
-        original->collision = CopyCollision(data);
+    render::TriMeshSource* data = collision_data(sector);
+    original->have_collision_ = data && data->vertices_;
+    if (original->have_collision_)
+        original->collision = copy_collision(data);
     return original;
 }
 
-bool Reassemble(const Original& original, uint8_t* sector, uint8_t* geom, int quarters, V3 position, V3 scale,
+bool reassemble(const Original& original, uint8_t* sector, uint8_t* geom, int quarters, V3 position, V3 scale,
              int quarters0)
 {
     // (still the sector copied: its meshes, buffers and collision where and as they were)
-    if (geom != original.geom || *reinterpret_cast<Engine3D::meshRef***>(geom + 0x3C) != original.meshList ||
-        *reinterpret_cast<uint32_t*>(geom + 0x40) != original.meshCount)
+    if (geom != original.geom || *reinterpret_cast<render::MeshRef***>(geom + 0x3C) != original.mesh_list_ ||
+        *reinterpret_cast<uint32_t*>(geom + 0x40) != original.mesh_count_)
         return false;
-    for (uint32_t i = 0; i < original.meshCount; ++i) {
+    for (uint32_t i = 0; i < original.mesh_count_; ++i) {
         const MeshCopy& copy = original.meshes[i];
-        Engine3D::meshRef* mesh = original.meshList[i];
-        if (mesh != copy.mesh || mesh->vertexCount != copy.vertexCount || mesh->stride != copy.stride ||
-            mesh->vertexBufferCount != copy.buffers.size() || mesh->positions != copy.list ||
-            mesh->positionCount != copy.listCount)
+        render::MeshRef* mesh = original.mesh_list_[i];
+        if (mesh != copy.mesh || mesh->vertex_count_ != copy.vertex_count_ || mesh->stride != copy.stride ||
+            mesh->vertex_buffer_count_ != copy.buffers.size() || mesh->positions != copy.list ||
+            mesh->position_count_ != copy.list_count_)
             return false;
         for (size_t b = 0; b < copy.buffers.size(); ++b) {
-            if (mesh->vertexBuffers[b] != copy.buffers[b] || copy.buffers[b]->data != copy.data[b])
+            if (mesh->vertex_buffers_[b] != copy.buffers[b] || copy.buffers[b]->data != copy.data[b])
                 return false;
         }
     }
-    Engine3D::CTriMeshSource* data = CollisionData(sector);
-    if (original.haveCollision && (data != original.collision.data || !SameCollision(original.collision)))
+    render::TriMeshSource* data = collision_data(sector);
+    if (original.have_collision_ && (data != original.collision.data || !same_collision(original.collision)))
         return false;
 
-    RebuildFrame f = FrameFor(original.quarters, original.position, quarters0, quarters, position, scale);
+    RebuildFrame f = frame_for(original.quarters, original.position, quarters0, quarters, position, scale);
     for (const MeshCopy& copy : original.meshes) {
-        Engine3D::meshRef* mesh = copy.mesh;
+        render::MeshRef* mesh = copy.mesh;
         for (size_t b = 0; b < copy.buffers.size(); ++b) {
-            RewritePositions(copy.buffers[b]->data, copy.stride, copy.vertexCount, copy.positions[b].data(), f.from,
-                             f.to, f.turns, f.copyScale);
-            if (copy.normalOffset >= 0)
-                RewriteNormals(copy.buffers[b]->data, copy.stride, copy.vertexCount,
-                               static_cast<uint32_t>(copy.normalOffset), copy.normals[b].data(), scale, f.normalTurns);
-            Upload(copy.buffers[b]);
+            rewrite_positions(copy.buffers[b]->data, copy.stride, copy.vertex_count_, copy.positions[b].data(), f.from,
+                             f.to, f.turns, f.copy_scale_);
+            if (copy.normal_offset_ >= 0)
+                rewrite_normals(copy.buffers[b]->data, copy.stride, copy.vertex_count_,
+                               static_cast<uint32_t>(copy.normal_offset_), copy.normals[b].data(), scale, f.normal_turns_);
+            upload(copy.buffers[b]);
         }
-        V3 centre = Rebuilt(copy.centre, f.from, f.to, f.turns, f.copyScale);
+        V3 centre = get_rebuilt(copy.centre, f.from, f.to, f.turns, f.copy_scale_);
         mesh->centre[0] = centre.x;
         mesh->centre[1] = centre.y;
         mesh->centre[2] = centre.z;
-        mesh->radius = copy.radius * Largest(scale);
-        for (uint32_t k = 0; k < copy.listCount && !copy.listCopy.empty(); ++k) {
-            V3 p = Rebuilt({copy.listCopy[3 * k], copy.listCopy[3 * k + 1], copy.listCopy[3 * k + 2]}, f.from, f.to,
-                           0, f.copyScale);
+        mesh->radius = copy.radius * get_largest(scale);
+        for (uint32_t k = 0; k < copy.list_count_ && !copy.list_copy_.empty(); ++k) {
+            V3 p = get_rebuilt({copy.list_copy_[3 * k], copy.list_copy_[3 * k + 1], copy.list_copy_[3 * k + 2]}, f.from, f.to,
+                           0, f.copy_scale_);
             mesh->positions[3 * k + 0] = p.x;
             mesh->positions[3 * k + 1] = p.y;
             mesh->positions[3 * k + 2] = p.z;
         }
     }
-    if (original.haveCollision)
-        RebuildCollision(original.collision, f.turns, f.from, f.to, f.copyScale);
+    if (original.have_collision_)
+        rebuild_collision(original.collision, f.turns, f.from, f.to, f.copy_scale_);
     return true;
 }
 
-V3 Limit(uint8_t* sector, V3 worldScale)
+V3 get_limit(uint8_t* sector, V3 world_scale)
 {
-    return sector ? CollisionLimit(CollisionData(sector), worldScale) : Uniform(kMax);
+    return sector ? collision_limit(collision_data(sector), world_scale) : get_uniform(kMax);
 }
 
 // --- the game side: objects -------------------------------------------------------------------------------------
@@ -481,60 +481,60 @@ V3 Limit(uint8_t* sector, V3 worldScale)
 namespace {
 
 constexpr uint32_t kModelModuleName = 0x286A8D26;
-void** const& kMovTriVtable = Vt::kVtblMovingMeshColl;
-void** const& kMovBBoxVtable = Vt::kVtblMovingBoxColl;
-void** const& kMultiVtable = Vt::kVtblCompoundColl;
+void** const& g_mov_tri_vtable = vt::kVtblMovingMeshColl;
+void** const& g_mov_b_box_vtable = vt::kVtblMovingBoxColl;
+void** const& g_multi_vtable = vt::kVtblCompoundColl;
 void* const kListHeadData = reinterpret_cast<void*>(-1);
 
 // A scaled object: its collision object then, its triangle objects' own geometries (copied, as they were unscaled)
 // and its boxes as they were, and the scale.
 struct ObjectEntry {
     uint32_t id;
-    GameObjects::CGameEntity* object;
-    Engine3D::CHitMesh* collision;
+    objects::GameEntity* object;
+    render::HitMesh* collision;
     V3 scale;
     struct Tri {
-        Engine3D::CHitMovingTriangles* tri;
+        render::HitMovingTriangles* tri;
         CollisionCopy copy;
         uint32_t rejection; // (the triangle object's own copy of the face-rejection scale, +0xD0)
     };
     std::vector<Tri> tris;
     struct Cuboid {
-        Engine3D::CHitMovingBox* box;
-        Maths::BBox original;
+        render::HitMovingBox* box;
+        maths::BBox original;
     };
     std::vector<Cuboid> boxes;
 };
 std::vector<ObjectEntry> g_objects;
 
-uint8_t* ModelOf(GameObjects::CGameEntity* object)
+uint8_t* model_of(objects::GameEntity* object)
 {
-    GameObjects::CObjectModule* component = object->FetchModule(kModelModuleName);
+    objects::ObjectModule* component = object->fetch_module(kModelModuleName);
     return component ? *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208) : nullptr;
 }
 
-Engine3D::CHitMesh* CollisionOf(GameObjects::CGameEntity* object)
+render::HitMesh* collision_of(objects::GameEntity* object)
 {
-    auto* component = static_cast<GameObjects::CContactShapeModule*>(object->FetchModule(GameObjects::CContactShapeModule::kType));
-    return component ? component->m_hitShape : nullptr;
+    auto* component = static_cast<objects::ContactShapeModule*>(object->fetch_module(objects::ContactShapeModule::kType));
+    return component ? component->hit_shape_ : nullptr;
 }
 
-bool Alive(GameObjects::CGameEntity* object)
+bool get_alive(objects::GameEntity* object)
 {
-    return object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) &&
-           !(object->m_compositeFlags & GameObjects::COMPOSITE_FLAG_DESTROYING);
+    return object && !(object->object_flags_ & objects::kObjectFlagDead) &&
+           !(object->composite_flags_ & objects::kCompositeFlagDestroying);
 }
 
 // The entry of an object, if it's still the object (and the collision) it was made for.
-ObjectEntry* EntryOf(GameObjects::CGameEntity* object)
+ObjectEntry* entry_of(objects::GameEntity* object)
 {
     for (size_t i = 0; i < g_objects.size(); ++i) {
         ObjectEntry& entry = g_objects[i];
-        if (entry.id != object->m_ident)
+        if (entry.id != object->ident_)
             continue;
-        bool same = entry.object == object && Alive(object) && CollisionOf(object) == entry.collision;
+        bool same = entry.object == object && get_alive(object) && collision_of(object) == entry.collision;
         for (const ObjectEntry::Tri& t : entry.tris)
-            same = same && t.tri->m_geometry == t.copy.data && SameCollision(t.copy);
+            same = same && t.tri->geometry_ == t.copy.data && same_collision(t.copy);
         if (same)
             return &entry;
         g_objects.erase(g_objects.begin() + static_cast<std::ptrdiff_t>(i)); // (another object of that name now)
@@ -544,83 +544,83 @@ ObjectEntry* EntryOf(GameObjects::CGameEntity* object)
 }
 
 // A triangle object given a geometry of its own (unless it owns one already) and kept as copied.
-bool TakeTri(Engine3D::CHitMovingTriangles* tri, ObjectEntry* entry)
+bool take_tri(render::HitMovingTriangles* tri, ObjectEntry* entry)
 {
-    Engine3D::CTriMeshSource* geometry = tri->m_geometry;
+    render::TriMeshSource* geometry = tri->geometry_;
     if (!geometry)
         return true;
-    bool owns = (tri->m_flagBits & Engine3D::CHitMesh::kOwnsGeometry) && !(tri->m_flagBits & Engine3D::CHitMesh::kSharedGeometry);
+    bool owns = (tri->flag_bits_ & render::HitMesh::kOwnsGeometry) && !(tri->flag_bits_ & render::HitMesh::kSharedGeometry);
     if (!owns) {
-        Engine3D::CTriMeshSource* own = geometry->Replicate(0, false);
+        render::TriMeshSource* own = geometry->replicate(0, false);
         if (!own)
             return false;
-        tri->m_flagBits = static_cast<uint16_t>((tri->m_flagBits | Engine3D::CHitMesh::kOwnsGeometry) & ~Engine3D::CHitMesh::kSharedGeometry);
-        tri->AssignShapeData(own);
+        tri->flag_bits_ = static_cast<uint16_t>((tri->flag_bits_ | render::HitMesh::kOwnsGeometry) & ~render::HitMesh::kSharedGeometry);
+        tri->assign_shape_data(own);
         geometry = own;
     }
-    entry->tris.push_back({tri, CopyCollision(geometry), tri->m_unknownD0});
+    entry->tris.push_back({tri, copy_collision(geometry), tri->unknownd0_});
     return true;
 }
 
-bool TakeCollision(Engine3D::CHitMesh* collision, ObjectEntry* entry)
+bool take_collision(render::HitMesh* collision, ObjectEntry* entry)
 {
     if (!collision)
         return true;
-    if (collision->m_vtable == kMovTriVtable)
-        return TakeTri(static_cast<Engine3D::CHitMovingTriangles*>(collision), entry);
-    if (collision->m_vtable == kMovBBoxVtable) {
-        auto* box = static_cast<Engine3D::CHitMovingBox*>(collision);
-        entry->boxes.push_back({box, box->m_box});
+    if (collision->vtable_ == g_mov_tri_vtable)
+        return take_tri(static_cast<render::HitMovingTriangles*>(collision), entry);
+    if (collision->vtable_ == g_mov_b_box_vtable) {
+        auto* box = static_cast<render::HitMovingBox*>(collision);
+        entry->boxes.push_back({box, box->box_});
         return true;
     }
-    if (collision->m_vtable == kMultiVtable) {
-        MemSys::ListNode* head = static_cast<Engine3D::CHitMeshGroup*>(collision)->m_subNodes;
-        for (MemSys::ListNode* node = head ? head->next : nullptr; node && node != head && node->data != kListHeadData;
+    if (collision->vtable_ == g_multi_vtable) {
+        memory::ListNode* head = static_cast<render::HitMeshGroup*>(collision)->sub_nodes_;
+        for (memory::ListNode* node = head ? head->next : nullptr; node && node != head && node->data != kListHeadData;
              node = node->next) {
-            if (!TakeCollision(static_cast<Engine3D::CHitMesh*>(node->data), entry))
+            if (!take_collision(static_cast<render::HitMesh*>(node->data), entry))
                 return false;
         }
         return true;
     }
-    Log("level editor: an object's collision of an unknown kind (vtable %p) isn't scaled", static_cast<void*>(collision->m_vtable));
+    get_log("level editor: an object's collision of an unknown kind (vtable %p) isn't scaled", static_cast<void*>(collision->vtable_));
     return true;
 }
 
-void ApplyCollision(ObjectEntry& entry)
+void apply_collision(ObjectEntry& entry)
 {
     for (ObjectEntry::Tri& t : entry.tris) {
-        RebuildCollision(t.copy, 0, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, entry.scale);
-        t.tri->AssignShapeData(t.copy.data); // (its radius from the vertices; its box made again)
-        t.tri->m_unknownD0 = IsUnitScale(entry.scale) ? t.rejection : t.copy.data->m_unknown3C;
+        rebuild_collision(t.copy, 0, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, entry.scale);
+        t.tri->assign_shape_data(t.copy.data); // (its radius from the vertices; its box made again)
+        t.tri->unknownd0_ = is_unit_scale(entry.scale) ? t.rejection : t.copy.data->unknown3c_;
     }
     for (ObjectEntry::Cuboid& b : entry.boxes) {
-        const Maths::Vec4& lo = b.original.min;
-        const Maths::Vec4& hi = b.original.max;
-        b.box->m_box.min = {lo.x * entry.scale.x, lo.y * entry.scale.y, lo.z * entry.scale.z, lo.w};
-        b.box->m_box.max = {hi.x * entry.scale.x, hi.y * entry.scale.y, hi.z * entry.scale.z, hi.w};
+        const maths::Vec4& lo = b.original.min;
+        const maths::Vec4& hi = b.original.max;
+        b.box->box_.min = {lo.x * entry.scale.x, lo.y * entry.scale.y, lo.z * entry.scale.z, lo.w};
+        b.box->box_.max = {hi.x * entry.scale.x, hi.y * entry.scale.y, hi.z * entry.scale.z, hi.w};
     }
-    if (entry.collision && entry.collision->m_vtable == kMultiVtable)
-        static_cast<Engine3D::CHitMeshGroup*>(entry.collision)->m_dirty = true;
+    if (entry.collision && entry.collision->vtable_ == g_multi_vtable)
+        static_cast<render::HitMeshGroup*>(entry.collision)->dirty_ = true;
 }
 
 } // namespace
 
-V3 ObjectScale(GameObjects::CGameEntity* object)
+V3 get_object_scale(objects::GameEntity* object)
 {
-    ObjectEntry* entry = object ? EntryOf(object) : nullptr;
-    return entry ? entry->scale : Uniform(1.0f);
+    ObjectEntry* entry = object ? entry_of(object) : nullptr;
+    return entry ? entry->scale : get_uniform(1.0f);
 }
 
-bool ObjectScalable(GameObjects::CGameEntity* object) { return object && Alive(object) && ModelOf(object); }
+bool object_scalable(objects::GameEntity* object) { return object && get_alive(object) && model_of(object); }
 
-V3 ObjectLimit(GameObjects::CGameEntity* object)
+V3 object_limit(objects::GameEntity* object)
 {
-    V3 limit = Uniform(kMax);
+    V3 limit = get_uniform(kMax);
     if (!object)
         return limit;
-    ObjectEntry* entry = EntryOf(object);
-    auto narrow = [&limit](const Engine3D::CTriMeshSource* data, V3 scale) {
-        V3 l = CollisionLimit(data, scale);
+    ObjectEntry* entry = entry_of(object);
+    auto narrow = [&limit](const render::TriMeshSource* data, V3 scale) {
+        V3 l = collision_limit(data, scale);
         limit = {std::min(limit.x, l.x), std::min(limit.y, l.y), std::min(limit.z, l.z)};
     };
     if (entry) {
@@ -628,82 +628,82 @@ V3 ObjectLimit(GameObjects::CGameEntity* object)
             narrow(t.copy.data, entry->scale);
         return limit;
     }
-    std::vector<Engine3D::CHitMesh*> pending = {CollisionOf(object)};
+    std::vector<render::HitMesh*> pending = {collision_of(object)};
     while (!pending.empty()) {
-        Engine3D::CHitMesh* c = pending.back();
+        render::HitMesh* c = pending.back();
         pending.pop_back();
         if (!c)
             continue;
-        if (c->m_vtable == kMovTriVtable && c->m_geometry)
-            narrow(c->m_geometry, Uniform(1.0f));
-        if (c->m_vtable == kMultiVtable) {
-            MemSys::ListNode* head = static_cast<Engine3D::CHitMeshGroup*>(c)->m_subNodes;
-            for (MemSys::ListNode* node = head ? head->next : nullptr; node && node != head && node->data != kListHeadData;
+        if (c->vtable_ == g_mov_tri_vtable && c->geometry_)
+            narrow(c->geometry_, get_uniform(1.0f));
+        if (c->vtable_ == g_multi_vtable) {
+            memory::ListNode* head = static_cast<render::HitMeshGroup*>(c)->sub_nodes_;
+            for (memory::ListNode* node = head ? head->next : nullptr; node && node != head && node->data != kListHeadData;
                  node = node->next)
-                pending.push_back(static_cast<Engine3D::CHitMesh*>(node->data));
+                pending.push_back(static_cast<render::HitMesh*>(node->data));
         }
     }
     return limit;
 }
 
-bool SetObjectScale(GameObjects::CGameEntity* object, V3 scale)
+bool set_object_scale(objects::GameEntity* object, V3 scale)
 {
-    if (!ObjectScalable(object))
+    if (!object_scalable(object))
         return false;
-    ObjectEntry* entry = EntryOf(object);
-    if (!entry && IsUnitScale(scale))
+    ObjectEntry* entry = entry_of(object);
+    if (!entry && is_unit_scale(scale))
         return true; // (never scaled: nothing to put back)
     if (!entry) {
-        ObjectEntry made = {object->m_ident, object, CollisionOf(object), Uniform(1.0f), {}, {}};
-        if (!TakeCollision(made.collision, &made)) {
-            Log("level editor: %08X's collision couldn't be copied - not scaled", object->m_ident);
+        ObjectEntry made = {object->ident_, object, collision_of(object), get_uniform(1.0f), {}, {}};
+        if (!take_collision(made.collision, &made)) {
+            get_log("level editor: %08X's collision couldn't be copied - not scaled", object->ident_);
             return false;
         }
         g_objects.push_back(std::move(made));
         entry = &g_objects.back();
     }
-    V3 limit = ObjectLimit(object);
-    scale = {std::max(kMin, std::min(limit.x, Confine(scale.x))), std::max(kMin, std::min(limit.y, Confine(scale.y))),
-             std::max(kMin, std::min(limit.z, Confine(scale.z)))};
+    V3 limit = object_limit(object);
+    scale = {std::max(kMin, std::min(limit.x, confine(scale.x))), std::max(kMin, std::min(limit.y, confine(scale.y))),
+             std::max(kMin, std::min(limit.z, confine(scale.z)))};
     entry->scale = scale;
-    // The model drawn scaled (CRenderModel::ChangeScale: the scale at +0x1C, flag 8 of +0x44 unless 1, 1, 1).
-    Maths::Vec4 factor = {scale.x, scale.y, scale.z, 1.0f};
-    reinterpret_cast<Engine3D::CRenderModel*>(ModelOf(object))->ChangeScale(&factor);
-    ApplyCollision(*entry);
-    object->MarkJumpedAhead(true); // (its components placed again at once)
+    // The model drawn scaled (RenderModel::change_scale: the scale at +0x1C, flag 8 of +0x44 unless 1, 1, 1).
+    maths::Vec4 factor = {scale.x, scale.y, scale.z, 1.0f};
+    reinterpret_cast<render::RenderModel*>(model_of(object))->change_scale(&factor);
+    apply_collision(*entry);
+    object->mark_jumped_ahead(true); // (its components placed again at once)
     return true;
 }
 
-void ForgetObjects() { g_objects.clear(); }
+void forget_objects() { g_objects.clear(); }
 
-} // namespace MenuSystem::LevelEditor::StretchBy
+} // namespace MenuSystem::level_editor::scale_tool
 
-namespace Vt {
-static VtableSlot kCollMulti_slots[] = {&Engine3D::CHitMeshGroup::ScalarDelete, &Engine3D::CHitMeshGroup::IsTriangleHit,
-                Stubs::ReturnZero1, &Engine3D::CollObjStubs::NoTerrain, &Engine3D::CHitMeshGroup::SetGeometryAll,
-                &Engine3D::CHitMeshGroup::PlaceAtAbsolutePoint, &Engine3D::CHitMeshGroup::ChangeFacing, &Engine3D::CHitMeshGroup::GetAbsolutePoint,
-                &Engine3D::CHitMeshGroup::FetchFacing, &Engine3D::CHitMeshGroup::ReadVertexPoint, &Engine3D::CHitMeshGroup::GetValue38,
-                &Engine3D::CHitMeshGroup::SetValue38, &Engine3D::CHitMeshGroup::Replicate, &Engine3D::CHitMeshGroup::InsideBounds,
-                &Engine3D::CHitMeshGroup::CollideWithLine, &Engine3D::CViewRegion::QueryPoint, &Engine3D::CViewRegion::QueryPoint,
-                &Engine3D::CViewRegion::QueryPoint, &Engine3D::CollGeometryForwarders::IsPointBehindFaces, &Engine3D::CHitMeshGroup::PassDown,
-                &Engine3D::CHitMeshGroup::GetLocalBounds};
-void** const kVtblCompoundColl = reinterpret_cast<void**>(kCollMulti_slots);
-static VtableSlot kCollMovBBox_slots[] = {&Engine3D::CHitMovingBox::ScalarDelete, Stubs::ReturnFalse,
-                &Engine3D::CHitMovingBox::GetTriangleAttrs, &Engine3D::CHitMovingBox::GetFaceTerrain, &Engine3D::CHitMovingBox::AssignShapeData,
-                &Engine3D::CProbeRay::ChangeFinish, &Engine3D::CHitMovingMesh::ChangeFacing, &Engine3D::CHitMovingMesh::GetAbsolutePoint,
-                &Engine3D::CHitMovingMesh::FetchFacing, &Engine3D::CHitMovingMesh::ReadVertexPoint, &Engine3D::CHitMovingMesh::GetValueA0,
-                &Engine3D::CHitMovingMesh::SetValueA0, &Engine3D::CHitMovingBox::Replicate, &MemCard::SaveCard::AlwaysTrue,
-                &Engine3D::CHitMovingBox::CollideWithLine, &Engine3D::CViewRegion::QueryPoint, &Engine3D::CViewRegion::QueryPoint,
-                &Engine3D::CViewRegion::QueryPoint, &Engine3D::CollGeometryForwarders::IsPointBehindFaces,
-                &Engine3D::CHitMovingBox::DrawDiagnostic, Stubs::ReturnZero};
-void** const kVtblMovingBoxColl = reinterpret_cast<void**>(kCollMovBBox_slots);
-static VtableSlot kCollMovTri_slots[] = {&Engine3D::CHitMovingTriangles::ScalarDelete, Stubs::ReturnTrue,
-                &Engine3D::CollFaceAccess::GetTriangleAttrs, &Engine3D::CollFaceAccess::GetFaceTerrain, &Engine3D::CHitMovingTriangles::AssignShapeData,
-                &Engine3D::CHitMovingTriangles::PlaceAtAbsolutePoint, &Engine3D::CHitMovingMesh::ChangeFacing,
-                &Engine3D::CHitMovingMesh::GetAbsolutePoint, &Engine3D::CHitMovingMesh::FetchFacing, &Engine3D::CHitMovingMesh::ReadVertexPoint,
-                &Engine3D::CHitMovingMesh::GetValueA0, &Engine3D::CHitMovingMesh::SetValueA0, &Engine3D::CHitMovingTriangles::Replicate,
-                &Engine3D::CHitMovingTriangles::InsideBounds, &Engine3D::CHitMovingTriangles::CollideWithLine, &Engine3D::CViewRegion::QueryPoint,
-                &Engine3D::CViewRegion::QueryPoint, &Engine3D::CViewRegion::QueryPoint, &Engine3D::CollGeometryForwarders::IsPointBehindFaces,
-                &Engine3D::CHitMovingTriangles::DrawDiagnostic, &Engine3D::CHitMovingTriangles::GetLocalBounds};
-void** const kVtblMovingMeshColl = reinterpret_cast<void**>(kCollMovTri_slots);
+namespace vt {
+static VtableSlot g_coll_multi_slots[] = {&render::HitMeshGroup::scalar_delete, &render::HitMeshGroup::is_triangle_hit,
+                stubs::return_zero1, &render::CollObjStubs::no_terrain, &render::HitMeshGroup::set_geometry_all,
+                &render::HitMeshGroup::place_at_absolute_point, &render::HitMeshGroup::change_facing, &render::HitMeshGroup::get_absolute_point,
+                &render::HitMeshGroup::fetch_facing, &render::HitMeshGroup::read_vertex_point, &render::HitMeshGroup::get_value38,
+                &render::HitMeshGroup::set_value38, &render::HitMeshGroup::replicate, &render::HitMeshGroup::inside_bounds,
+                &render::HitMeshGroup::collide_with_line, &render::ViewRegion::query_point, &render::ViewRegion::query_point,
+                &render::ViewRegion::query_point, &render::CollGeometryForwarders::is_point_behind_faces, &render::HitMeshGroup::pass_down,
+                &render::HitMeshGroup::get_local_bounds};
+void** const kVtblCompoundColl = reinterpret_cast<void**>(g_coll_multi_slots);
+static VtableSlot g_coll_mov_b_box_slots[] = {&render::HitMovingBox::scalar_delete, stubs::return_false,
+                &render::HitMovingBox::get_triangle_attrs, &render::HitMovingBox::get_face_terrain, &render::HitMovingBox::assign_shape_data,
+                &render::ProbeRay::change_finish, &render::HitMovingMesh::change_facing, &render::HitMovingMesh::get_absolute_point,
+                &render::HitMovingMesh::fetch_facing, &render::HitMovingMesh::read_vertex_point, &render::HitMovingMesh::get_value_a0,
+                &render::HitMovingMesh::set_value_a0, &render::HitMovingBox::replicate, &save_cards::SaveCard::always_true,
+                &render::HitMovingBox::collide_with_line, &render::ViewRegion::query_point, &render::ViewRegion::query_point,
+                &render::ViewRegion::query_point, &render::CollGeometryForwarders::is_point_behind_faces,
+                &render::HitMovingBox::draw_diagnostic, stubs::return_zero};
+void** const kVtblMovingBoxColl = reinterpret_cast<void**>(g_coll_mov_b_box_slots);
+static VtableSlot g_coll_mov_tri_slots[] = {&render::HitMovingTriangles::scalar_delete, stubs::return_true,
+                &render::CollFaceAccess::get_triangle_attrs, &render::CollFaceAccess::get_face_terrain, &render::HitMovingTriangles::assign_shape_data,
+                &render::HitMovingTriangles::place_at_absolute_point, &render::HitMovingMesh::change_facing,
+                &render::HitMovingMesh::get_absolute_point, &render::HitMovingMesh::fetch_facing, &render::HitMovingMesh::read_vertex_point,
+                &render::HitMovingMesh::get_value_a0, &render::HitMovingMesh::set_value_a0, &render::HitMovingTriangles::replicate,
+                &render::HitMovingTriangles::inside_bounds, &render::HitMovingTriangles::collide_with_line, &render::ViewRegion::query_point,
+                &render::ViewRegion::query_point, &render::ViewRegion::query_point, &render::CollGeometryForwarders::is_point_behind_faces,
+                &render::HitMovingTriangles::draw_diagnostic, &render::HitMovingTriangles::get_local_bounds};
+void** const kVtblMovingMeshColl = reinterpret_cast<void**>(g_coll_mov_tri_slots);
 } // namespace Vt

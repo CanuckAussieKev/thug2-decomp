@@ -12,7 +12,7 @@
 #include "engine/core/stubs.h"
 #include "engine/gfx/viewport.h"
 
-namespace Engine3D {
+namespace render {
 
 namespace {
 
@@ -21,31 +21,31 @@ extern void** const kTextureVtable;
 } // namespace
 
 // 0x0049F200
-CBitmapTexture* CBitmapTexture::MakeNew()
+BitmapTexture* BitmapTexture::make_new()
 {
     vtable = reinterpret_cast<void**>(kTextureVtable);
-    m_flagBits &= 0xFFFF; // (the original clears the upper word alone)
+    flag_bits_ &= 0xFFFF; // (the original clears the upper word alone)
     return this;
 }
 
 // 0x0049F210
-void CBitmapTexture::DestroyBody() { vtable = reinterpret_cast<void**>(kTextureVtable); }
+void BitmapTexture::destroy_body() { vtable = reinterpret_cast<void**>(kTextureVtable); }
 
 // 0x0049F4D0
-CBitmapTexture* CBitmapTexture::Teardown(unsigned int freeFlags)
+BitmapTexture* BitmapTexture::teardown(unsigned int free_flags)
 {
-    DestroyBody();
-    if (freeFlags & 1)
-        MemSys::Dealloc(this);
+    destroy_body();
+    if (free_flags & 1)
+        memory::dealloc(this);
     return this;
 }
 
 // 0x0049F220 (the original sprintfs into its 512 bytes unbounded)
-bool CBitmapTexture::LoadByName(const char* name, int inImages, int argument)
+bool BitmapTexture::load_by_name(const char* name, int in_images, int argument)
 {
     char path[0x200];
     std::snprintf(path, sizeof(path), "%s", name);
-    if (static_cast<uint8_t>(inImages)) {
+    if (static_cast<uint8_t>(in_images)) {
         if (name[0] == '.' && name[1] == '.' && name[2] == '/')
             std::snprintf(path, sizeof(path), "%s", name + 3);
         else
@@ -54,42 +54,42 @@ bool CBitmapTexture::LoadByName(const char* name, int inImages, int argument)
     int start = static_cast<int>(std::strlen(path));
     while (start > 0 && path[start - 1] != '\\' && path[start - 1] != '/')
         --start;
-    m_checksum = Checksums::HashFromText(path + start);
-    return reinterpret_cast<bool(__thiscall*)(CBitmapTexture*, const char*, int, int)>(vtable[1])(this, path, inImages,
+    checksum_ = checksums::hash_from_text(path + start);
+    return reinterpret_cast<bool(__thiscall*)(BitmapTexture*, const char*, int, int)>(vtable[1])(this, path, in_images,
                                                                                          argument);
 }
 
 // 0x0049F300
-bool CBitmapTexture::ReadFromRamBlock(const uint8_t* data, uint32_t size, uint32_t checksum, uint32_t a3, uint32_t a4,
+bool BitmapTexture::read_from_ram_block(const uint8_t* data, uint32_t size, uint32_t checksum, uint32_t a3, uint32_t a4,
                               uint32_t a5)
 {
-    m_checksum = checksum;
-    return reinterpret_cast<bool(__thiscall*)(CBitmapTexture*, const uint8_t*, uint32_t, uint32_t, uint32_t, uint32_t)>(
+    checksum_ = checksum;
+    return reinterpret_cast<bool(__thiscall*)(BitmapTexture*, const uint8_t*, uint32_t, uint32_t, uint32_t, uint32_t)>(
         vtable[2])(this, data, size, a3, a4, a5);
 }
 
 // 0x0049F330
-bool CBitmapTexture::Fabricate(uint32_t checksum, uint32_t width, uint32_t height, uint32_t bitsPerPixel, uint32_t a4,
+bool BitmapTexture::fabricate(uint32_t checksum, uint32_t width, uint32_t height, uint32_t bits_per_pixel, uint32_t a4,
                       uint32_t a5)
 {
-    m_checksum = checksum;
-    return reinterpret_cast<bool(__thiscall*)(CBitmapTexture*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(
-        vtable[3])(this, checksum, width, height, bitsPerPixel, a4, a5);
+    checksum_ = checksum;
+    return reinterpret_cast<bool(__thiscall*)(BitmapTexture*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(
+        vtable[3])(this, checksum, width, height, bits_per_pixel, a4, a5);
 }
 
 // 0x0049F3F0
-void CBitmapTexture::PinResident(bool permanent)
+void BitmapTexture::pin_resident(bool permanent)
 {
     if (permanent)
-        m_flagBits |= kTexturePermanent;
+        flag_bits_ |= kTexturePermanent;
     else
-        m_flagBits &= ~kTexturePermanent;
+        flag_bits_ &= ~kTexturePermanent;
 }
 
 // --- the dispatchers --------------------------------------------------------------------------------------------
 
 // 0x0049F360
-__declspec(naked) void VirtualSlot17Jump()
+__declspec(naked) void virtual_slot17_jump()
 {
     __asm {
         mov eax, dword ptr [ecx]
@@ -98,7 +98,7 @@ __declspec(naked) void VirtualSlot17Jump()
 }
 
 // 0x0049F370
-__declspec(naked) void VirtualSlot21Jump()
+__declspec(naked) void virtual_slot21_jump()
 {
     __asm {
         mov eax, dword ptr [ecx]
@@ -107,7 +107,7 @@ __declspec(naked) void VirtualSlot21Jump()
 }
 
 // 0x0049F380
-__declspec(naked) void VirtualSlot23Jump()
+__declspec(naked) void virtual_slot23_jump()
 {
     __asm {
         mov eax, dword ptr [ecx]
@@ -116,7 +116,7 @@ __declspec(naked) void VirtualSlot23Jump()
 }
 
 // 0x0049F390
-__declspec(naked) void VirtualSlot24Jump()
+__declspec(naked) void virtual_slot24_jump()
 {
     __asm {
         mov eax, dword ptr [ecx]
@@ -125,7 +125,7 @@ __declspec(naked) void VirtualSlot24Jump()
 }
 
 // 0x0049F3A0
-__declspec(naked) void VirtualSlot26Jump()
+__declspec(naked) void virtual_slot26_jump()
 {
     __asm {
         mov eax, dword ptr [ecx]
@@ -134,7 +134,7 @@ __declspec(naked) void VirtualSlot26Jump()
 }
 
 // 0x0049F3B0
-__declspec(naked) void VirtualSlot32Jump()
+__declspec(naked) void virtual_slot32_jump()
 {
     __asm {
         mov eax, dword ptr [ecx]
@@ -143,7 +143,7 @@ __declspec(naked) void VirtualSlot32Jump()
 }
 
 // 0x0049F3C0
-__declspec(naked) void VirtualSlot33Jump()
+__declspec(naked) void virtual_slot33_jump()
 {
     __asm {
         mov eax, dword ptr [ecx]
@@ -152,7 +152,7 @@ __declspec(naked) void VirtualSlot33Jump()
 }
 
 // 0x0049F3D0
-__declspec(naked) void VirtualSlot34Jump()
+__declspec(naked) void virtual_slot34_jump()
 {
     __asm {
         mov eax, dword ptr [ecx]
@@ -161,7 +161,7 @@ __declspec(naked) void VirtualSlot34Jump()
 }
 
 // 0x0049F3E0
-__declspec(naked) void VirtualSlot38Jump()
+__declspec(naked) void virtual_slot38_jump()
 {
     __asm {
         mov eax, dword ptr [ecx]
@@ -170,7 +170,7 @@ __declspec(naked) void VirtualSlot38Jump()
 }
 
 // 0x0049F420
-__declspec(naked) void VirtualSlot41Jump()
+__declspec(naked) void virtual_slot41_jump()
 {
     __asm {
         mov eax, dword ptr [ecx]
@@ -179,17 +179,17 @@ __declspec(naked) void VirtualSlot41Jump()
 }
 
 namespace {
-static VtableSlot kTextureVtable_slots[] = {&Engine3D::CBitmapTexture::Teardown, &Engine3D::CViewRegion::QueryPoint, Stubs::ReturnFalse5,
-                &Engine3D::CViewRegion::QueryRect, Stubs::ReturnFalse1, Stubs::ReturnFalse4, Stubs::ReturnFalse1,
-                Stubs::ReturnFalse1, Stubs::ReturnFalse2, Stubs::ReturnFalse2, Stubs::ReturnFalse, Stubs::ReturnFalse5,
-                Stubs::ReturnFalse2, Stubs::ReturnFalse, Stubs::ReturnFalse, Stubs::ReturnFalse2, Stubs::ReturnFalse2,
-                &Engine3D::CViewRegion::QueryPoint, Stubs::ReturnFalse4, Stubs::ReturnFalse1, Stubs::ReturnFalse7,
-                &Engine3D::CViewRegion::QueryPoint, Stubs::ReturnFalse5, Stubs::ReturnFalse2, Stubs::ReturnFalse4,
-                Stubs::ReturnZero, Stubs::ReturnZero, Stubs::ReturnZero, Stubs::ReturnZero, Stubs::IgnoreArguments2,
-                Stubs::ReturnFalse1, Stubs::ReturnFalse, Stubs::ReturnFalse, Stubs::ReturnZeroWord,
-                Stubs::ReturnZeroWord, Stubs::ReturnFalse, Stubs::ReturnZero, Stubs::IgnoreArgument, Stubs::ReturnFalse,
-                Stubs::ReturnFalse, Stubs::ReturnFalse, Stubs::ReturnFalse2};
-void** const kTextureVtable = reinterpret_cast<void**>(kTextureVtable_slots);
+static VtableSlot g_texture_vtable_slots[] = {&render::BitmapTexture::teardown, &render::ViewRegion::query_point, stubs::return_false5,
+                &render::ViewRegion::query_rect, stubs::return_false1, stubs::return_false4, stubs::return_false1,
+                stubs::return_false1, stubs::return_false2, stubs::return_false2, stubs::return_false, stubs::return_false5,
+                stubs::return_false2, stubs::return_false, stubs::return_false, stubs::return_false2, stubs::return_false2,
+                &render::ViewRegion::query_point, stubs::return_false4, stubs::return_false1, stubs::return_false7,
+                &render::ViewRegion::query_point, stubs::return_false5, stubs::return_false2, stubs::return_false4,
+                stubs::return_zero, stubs::return_zero, stubs::return_zero, stubs::return_zero, stubs::ignore_arguments2,
+                stubs::return_false1, stubs::return_false, stubs::return_false, stubs::return_zero_word,
+                stubs::return_zero_word, stubs::return_false, stubs::return_zero, stubs::ignore_argument, stubs::return_false,
+                stubs::return_false, stubs::return_false, stubs::return_false2};
+void** const kTextureVtable = reinterpret_cast<void**>(g_texture_vtable_slots);
 } // namespace
 
 } // namespace Nx

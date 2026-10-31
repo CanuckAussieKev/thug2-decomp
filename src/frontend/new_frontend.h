@@ -3,7 +3,7 @@
 #include <string>
 
 union SDL_Event;
-namespace GameModules {
+namespace modules {
 struct FrontEnd;
 }
 
@@ -25,7 +25,7 @@ struct FrontEnd;
 // level select and the settings (Options: new_frontend_options.h, the ini's settings in five groups, written at once;
 // its Game options row runs the game's GAME OPTIONS) -, when a menu's item asks for it (NewFrontend_Open), on a root
 // (Main / Pause) it leaves at once on Back. The level select's Skate starts the level in free skate
-// (MenuSystem::BeginLevel::ReadIn) or changes level from the pause menu; Free Skate shows every level ([frontend]
+// (MenuSystem::begin_level::ReadIn) or changes level from the pause menu; Free Skate shows every level ([frontend]
 // respect_locks=1: the game's own level select rules - seen flags outside a career, all_levels_unlocked); Career keeps
 // the game's own rules. The automation channel's `fe` commands (frontend/automation.h) drive ours.
 // The levels are data: <overlay>\frontend\levels.json (tools/pipeline/menu_level/frontend_levels.ts, written by
@@ -44,7 +44,7 @@ struct FrontEnd;
 //
 // Input: the keyboard, controllers and the mouse (hover selects, click confirms, wheel moves, right click backs) are
 // read from SDL's events; while the new front end is up the game's own pad and keyboard polling gives the game
-// nothing (Sio::ProcessSdlDevice), the mouse doesn't drive the original menus (MouseMenus::TickFrame) and Enter isn't
+// nothing (sio::process_sdl_device), the mouse doesn't drive the original menus (mouse_menus::tick_frame) and Enter isn't
 // passed on as the game's special key - and that lasts until the keys that chose are let go.
 //
 // The game's screens restyled (new_frontend_mirror.h), read from the screen tree each frame: the front end's roundbar
@@ -58,51 +58,51 @@ struct FrontEnd;
 // [frontend] restyle_online=0 (on by default - online is tested by the user by hand, never by a tool).
 // [frontend] restyle_dialogs= / restyle_skater_select= / restyle_menus= (1 each) switch them off one by one;
 // debug_restyle=1 logs the element tree of each screen left as it is. The game keeps the keyboard and the controllers
-// (its scripts, its selection - ours reads them each frame); the mouse is ours there (OwnsMouse). Whenever ours hides
+// (its scripts, its selection - ours reads them each frame); the mouse is ours there (owns_mouse). Whenever ours hides
 // the game's elements, a script scaling root_window back is undone the same frame: the game's is never drawn under ours.
-namespace MenuSystem::NewFrontend {
+namespace frontend::new_frontend {
 
 // [features] new_frontend (read once).
-bool& IsSwitchedOn();
+bool& is_switched_on();
 
-// Sio::InitSdlInput: listens to SDL's events (nothing when off).
-void PrepareAll();
+// sio::init_sdl_input: listens to SDL's events (nothing when off).
+void prepare_all();
 // Its script commands for the overlay's pause menu items (NewFrontend_PauseItem, NewFrontend_Open), registered after
-// the game's own (SystemCore::Main).
-void RegisterScriptFunctions();
-// Once a frame, from the front end's input logic (MouseMenus::TickFrame): decides whether it's up, runs the menus'
+// the game's own (sys::Main).
+void register_script_functions();
+// Once a frame, from the front end's input logic (mouse_menus::tick_frame): decides whether it's up, runs the menus'
 // input and time, does what they ask.
-void TickFrame(GameModules::FrontEnd* frontEnd);
-// After the game's 2D pass (Engine3D::DrawWorld): the frame, when it's up.
-void Blit();
-// FrameLoop::ResetDeviceIfLost, before the device is reset: its device objects dropped (made again when next drawn).
-void DeviceLost();
+void tick_frame(modules::FrontEnd* front_end);
+// After the game's 2D pass (render::draw_world): the frame, when it's up.
+void blit();
+// frame_loop::reset_device_if_lost, before the device is reset: its device objects dropped (made again when next drawn).
+void device_lost();
 
 // Whether the game's own input is held back now: the new front end is up, or the keys that chose for it are
 // still down.
-bool BlocksGameInput();
+bool blocks_game_input();
 // Whether it is drawn now (for the screenshot sidecar and the log).
-bool Showing();
-// Whether an original screen is restyled now (phase 3): the mouse is ours (MouseMenus leaves the hidden menus alone),
+bool showing();
+// Whether an original screen is restyled now (phase 3): the mouse is ours (mouse_menus leaves the hidden menus alone),
 // the keys and buttons the original's.
-bool OwnsMouse();
+bool owns_mouse();
 // The screen element manager's Update, before its layout pass (frontend/screen_element_manager.cpp): the original's
 // elements hidden (or given back) for this frame - so a menu the scripts made since the last frame is never drawn as
 // the game made it when ours draws it restyled (the pause menu, a dialog, the main menu), the restyled screen and the
 // cover kept, and the front end's first frames covered until its first menu is up.
-void BeforeScreenLayout();
+void before_screen_layout();
 
 // --- the automation channel's `fe` commands (frontend/automation.h) ---
 // `args` after "fe": select <screen>/<item> (waits for the screen - shown, not moving - then selects and chooses the
 // item), focus <screen>/<item> (selects only), back, press <up|down|left|right|confirm|back|resume|prevtab|nexttab>.
 // The result ("ok", "error: ...", "refused: ...") with *done true; "" and *done false while select / focus waits
-// (then AutomationResult until it isn't ""). The Online screen's Play online is refused (never online).
-std::string AutomationCommand(const std::string& args, bool* done);
-std::string AutomationResult();
-void AutomationCancel();
+// (then automation_result until it isn't ""). The Online screen's Play online is refused (never online).
+std::string automation_command(const std::string& args, bool* done);
+std::string automation_result();
+void automation_cancel();
 // Whether the screen `name` (Screen names: main, career, story, ... pause) is shown and not moving.
-bool AutomationScreenUp(const std::string& name);
+bool automation_screen_up(const std::string& name);
 // For the status file: "<state> <screen>/<selected item> over the <anchor>" ("" when off).
-std::string AutomationStatus();
+std::string automation_status();
 
 } // namespace MenuSystem::NewFrontend

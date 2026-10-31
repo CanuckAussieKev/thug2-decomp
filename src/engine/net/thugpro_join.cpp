@@ -11,16 +11,16 @@
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
 
-namespace OnlinePlay::Thugpro {
+namespace online::thugpro {
 
 namespace {
 
-uint32_t g_hashOverride = 0;
+uint32_t g_hash_override = 0;
 
-uint32_t ReadScriptsHash()
+uint32_t read_scripts_hash()
 {
     char text[32];
-    BuildInfo::FetchText("online", "thugpro_scripts_hash", "", text, sizeof(text));
+    build_info::fetch_text("online", "thugpro_scripts_hash", "", text, sizeof(text));
     uint32_t hash = static_cast<uint32_t>(std::strtoul(text, nullptr, 16));
     return hash ? hash : kReleaseScriptsHash;
 }
@@ -28,7 +28,7 @@ uint32_t ReadScriptsHash()
 // THUGPRO's refusal texts: its names (their checksums are what its own client sets), our words.
 struct ReasonText {
     uint32_t name;
-    const char* nameText;
+    const char* name_text_;
     const char* words;
 };
 constexpr ReasonText kReasons[] = {
@@ -43,31 +43,31 @@ constexpr ReasonText kReasons[] = {
 
 } // namespace
 
-uint32_t ScriptsHash()
+uint32_t scripts_hash()
 {
-    if (g_hashOverride)
-        return g_hashOverride;
-    static uint32_t hash = ReadScriptsHash();
+    if (g_hash_override)
+        return g_hash_override;
+    static uint32_t hash = read_scripts_hash();
     return hash;
 }
 
-void SetScriptsHashOverride(uint32_t hash) { g_hashOverride = hash; }
+void set_scripts_hash_override(uint32_t hash) { g_hash_override = hash; }
 
-uint16_t MakeConnectRequest(const ConnectInfo& thug2, ConnectRequest* out)
+uint16_t make_connect_request(const ConnectInfo& thug2, ConnectRequest* out)
 {
     std::memset(out, 0, sizeof(*out));
     out->thug2 = thug2;
     std::memcpy(out->thugpro.magic, kMagic, sizeof(kMagic));
     out->thugpro.version = kProtocolVersion;
     out->thugpro.release = kReleaseThug2Decomp;
-    out->thugpro.scriptsHash = ScriptsHash();
-    out->thugpro.machineId = MachineId();
+    out->thugpro.scripts_hash_ = scripts_hash();
+    out->thugpro.machine_id_ = get_machine_id();
     // (THUGPRO's host checks this flag, not the hash: the two say the same - see the register, TP-R12)
-    out->thugpro.modifiedScripts = out->thugpro.scriptsHash != kReleaseScriptsHash;
+    out->thugpro.modified_scripts_ = out->thugpro.scripts_hash_ != kReleaseScriptsHash;
     return static_cast<uint16_t>(sizeof(ConnectRequest));
 }
 
-bool ReadConnectTrailer(const void* message, uint32_t length, ConnectTrailer* out)
+bool read_connect_trailer(const void* message, uint32_t length, ConnectTrailer* out)
 {
     if (!message || length < sizeof(ConnectRequest))
         return false;
@@ -78,25 +78,25 @@ bool ReadConnectTrailer(const void* message, uint32_t length, ConnectTrailer* ou
     return true;
 }
 
-const char* RefusedReasonWords(int reason)
+const char* refused_reason_words(int reason)
 {
     if (reason < kRefusedVersionLow || reason > kRefusedTest)
         return nullptr;
     return kReasons[reason - kRefusedVersionLow].words;
 }
 
-uint32_t RefusedReasonText(int reason)
+uint32_t refused_reason_text(int reason)
 {
     if (reason < kRefusedVersionLow || reason > kRefusedTest)
         return 0;
     const ReasonText& text = kReasons[reason - kRefusedVersionLow];
-    if (!Scripts::FindSymbol(text.name)) {
-        Scripts::CSymbolTableEntry* symbol = Scripts::CreateSymbol(text.name);
-        symbol->type = Scripts::QBVAL_STRING;
-        symbol->raw = reinterpret_cast<uint32_t>(Scripts::SpawnText(text.words));
+    if (!script::find_symbol(text.name)) {
+        script::SymbolTableEntry* symbol = script::create_symbol(text.name);
+        symbol->type = script::kQbvalString;
+        symbol->raw = reinterpret_cast<uint32_t>(script::spawn_text(text.words));
     }
-    Log("THUGPRO join refused (TP-R13): reason %d - %s", reason, text.words);
+    get_log("THUGPRO join refused (TP-R13): reason %d - %s", reason, text.words);
     return text.name;
 }
 
-} // namespace OnlinePlay::Thugpro
+} // namespace online::Thugpro

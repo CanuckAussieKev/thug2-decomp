@@ -21,16 +21,16 @@
 #include "engine/gfx/cag_cfuncs.h"
 #include "engine/gfx/weather.h"
 
-namespace ScriptCommands {
+namespace commands {
 
 namespace {
 
 constexpr uint32_t kNode = 0x7A8017BA;          // "node"
 constexpr uint32_t kParams = 0x7031F10C;        // "params"
 constexpr uint32_t kSize = 0x083FDB95;          // "size"
-constexpr uint32_t kCoimB0847D54 = 0xB0847D54;  // (name unknown) InitCOIM's second integer
-constexpr uint32_t kCoimBB9A31B5 = 0xBB9A31B5;  // (name unknown) InitCOIM's first integer
-constexpr uint32_t kCoim03D6DE47 = 0x03D6DE47;  // (name unknown) InitCOIM's float (squared)
+constexpr uint32_t kCoimB0847d54 = 0xB0847D54;  // (name unknown) InitCOIM's second integer
+constexpr uint32_t kCoimBb9a31b5 = 0xBB9A31B5;  // (name unknown) InitCOIM's first integer
+constexpr uint32_t kCoim03d6dE47 = 0x03D6DE47;  // (name unknown) InitCOIM's float (squared)
 constexpr uint32_t kCoimNewSize = 0x7C554E79;   // "newsize"
 constexpr uint32_t kComponents = 0x11B70A02;    // "Components"
 constexpr uint32_t kPreferredId = 0x392649D7;   // "PreferredId"
@@ -58,237 +58,237 @@ constexpr uint32_t kGroup = 0x923FBB3A;         // "Group"
 constexpr uint32_t kDefaultGroup = 0x1CA1FF20;  // "default"
 constexpr uint32_t kException = 0x80367192;     // "Exception"
 
-GameObjects::CGameEntity* EntityForId(uint32_t id)
+objects::GameEntity* entity_for_id(uint32_t id)
 {
-    return static_cast<GameObjects::CGameEntity*>(GameObjects::ObjectHubSlot()->LookUpEntity(id));
+    return static_cast<objects::GameEntity*>(objects::object_hub_slot()->look_up_entity(id));
 }
 
 // The camera of viewport `index` (0x004A06D0), and its projection of a world position to the screen (0x004A1090,
 // vtable slot 1 of the camera: x, y and depth out; returns a scale, unused here).
-void* ViewportCamera(int index) { return Engine3D::FetchCurrentView(index); }
-float ProjectToScreen(void* camera, const Maths::Vec4* position, float* x, float* y, float* depth)
+void* viewport_camera(int index) { return render::fetch_current_view(index); }
+float project_to_screen(void* camera, const maths::Vec4* position, float* x, float* y, float* depth)
 {
-    return reinterpret_cast<float(__thiscall*)(void*, const Maths::Vec4*, float*, float*, float*)>(&Engine3D::VirtualSlot1Jump)(
+    return reinterpret_cast<float(__thiscall*)(void*, const maths::Vec4*, float*, float*, float*)>(&render::virtual_slot1_jump)(
         camera, position, x, y, depth);
 }
 
 // The renderer's particle manager (0x006FA7C0) and its "destroy the particle systems of this group" (0x0049ADE0).
-void* ParticleHubHandle() { return Engine3D::g_flexibleParticleManager; }
-void DestroyParticleGroup(void* manager, uint32_t group)
+void* particle_hub_handle() { return render::g_flexible_particle_manager; }
+void destroy_particle_group(void* manager, uint32_t group)
 {
-    static_cast<Engine3D::CFlexibleParticleManager*>(manager)->DestroyGroup(group);
+    static_cast<render::FlexibleParticleManager*>(manager)->destroy_group(group);
 }
 
 // A particle component's group id: its +0x1C points at its particle system, whose +0x0C is the group.
-uint32_t ParticleGroup(GameObjects::CObjectModule* component)
+uint32_t particle_group(objects::ObjectModule* component)
 {
     auto* system = *reinterpret_cast<uint8_t* const*>(reinterpret_cast<uint8_t*>(component) + 0x1C);
     return *reinterpret_cast<const uint32_t*>(system + 0x0C);
 }
 
 // The rotation of `angles` (radians) as a matrix (0x0041A730: the identity times RotationX, RotationY, RotationZ).
-void AnglesToMatrix(Maths::Mat4* matrix, const Scripts::VectorValue* angles)
+void angles_to_matrix(maths::Mat4* matrix, const script::VectorValue* angles)
 {
-    matrix->InitFromAngles(*reinterpret_cast<const Maths::Vec4*>(angles));
+    matrix->init_from_angles(*reinterpret_cast<const maths::Vec4*>(angles));
 }
 
 // D3DX's matrix product (linked library code; stdcall): out = a * b.
-void MatrixMultiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
+void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
 {
-    D3dx::MatrixMultiply(out, a, b);
+    d3dx::matrix_multiply(out, a, b);
 }
 
 // A skeleton component's skeleton (0x005480F0: its +0x18) and that skeleton's matrix of `bone` (0x004A36E0; false -
 // `out` untouched - if it has no such bone).
-void* SkeletonOf(GameObjects::CObjectModule* component)
+void* skeleton_of(objects::ObjectModule* component)
 {
     // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
-    return reinterpret_cast<void*>(reinterpret_cast<OnlinePlay::FoldedGetters*>(component)->Word18());
+    return reinterpret_cast<void*>(reinterpret_cast<online::FoldedGetters*>(component)->word18());
 }
-bool ReadJointMatrix(void* skeleton, uint32_t bone, Maths::Mat4* out)
+bool read_joint_matrix(void* skeleton, uint32_t bone, maths::Mat4* out)
 {
-    return static_cast<Gfx2D::CRig*>(skeleton)->ReadJointMatrix(bone, out);
+    return static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(bone, out);
 }
 
-// The object's FlagAsDead (vtable slot 6).
-void FlagAsDead(GameObjects::CEntity* object) { reinterpret_cast<void(__thiscall*)(GameObjects::CEntity*)>(object->m_vtable[6])(object); }
+// The object's flag_as_dead (vtable slot 6).
+void flag_as_dead(objects::Entity* object) { reinterpret_cast<void(__thiscall*)(objects::Entity*)>(object->vtable_[6])(object); }
 
 } // namespace
 
 // 0x00449280: AppendNodeParams node=<name> params={...}: the parameters added to the node's own structure.
-bool __cdecl CFunc_AppendNodeParams(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_append_node_params(script::Struct* params, script::Script*)
 {
     uint32_t name = 0;
-    params->ReadHashValue(kNode, &name, 1);
-    Scripts::CStruct* node = LevelNodes::FetchVertex(name, true);
-    Scripts::CStruct* extra = nullptr;
-    params->ReadSubStruct(kParams, &extra, 1);
-    node->AppendStructureIfAny(extra);
+    params->read_hash_value(kNode, &name, 1);
+    script::Struct* node = level_nodes::fetch_vertex(name, true);
+    script::Struct* extra = nullptr;
+    params->read_sub_struct(kParams, &extra, 1);
+    node->append_structure_if_any(extra);
     return true;
 }
 
 // 0x004492E0: InitCOIM size=<bytes> ...: the COIM heap set up (GameObjects::InitCoim) with the three integers and the
 // float squared, truncated.
-bool __cdecl CFunc_InitCOIM(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_init_coim(script::Struct* params, script::Script*)
 {
     float factor = 0.0f;
     int size = 0, b = 0, a = 0;
-    params->FetchIntValue(kSize, &size, 1);
-    params->FetchIntValue(kCoimB0847D54, &b, 1);
-    params->FetchIntValue(kCoimBB9A31B5, &a, 1);
-    params->FetchFloat(kCoim03D6DE47, &factor, 1);
+    params->fetch_int_value(kSize, &size, 1);
+    params->fetch_int_value(kCoimB0847d54, &b, 1);
+    params->fetch_int_value(kCoimBb9a31b5, &a, 1);
+    params->fetch_float(kCoim03d6dE47, &factor, 1);
     // (x87: the square unrounded, _ftol's truncation)
     int squared = static_cast<int>(static_cast<int64_t>(static_cast<double>(factor) * factor));
-    GameObjects::InitCoim(a, static_cast<uint32_t>(size), b, squared);
+    objects::init_coim(a, static_cast<uint32_t>(size), b, squared);
     return true;
 }
 
 // 0x00449380: ResizeCOIMHeap newsize=<bytes>.
-bool __cdecl CFunc_ResizeCOIMHeap(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_resize_coim_heap(script::Struct* params, script::Script*)
 {
     int size = 0;
-    params->FetchIntValue(kCoimNewSize, &size, 1);
-    GameObjects::ResizeCoimHeap(static_cast<uint32_t>(size));
+    params->fetch_int_value(kCoimNewSize, &size, 1);
+    objects::resize_coim_heap(static_cast<uint32_t>(size));
     return true;
 }
 
 // 0x00449540: CreateCompositeObject Components=[...] [params={...}]: a composite object made from them (finalized).
-bool __cdecl CFunc_CreateCompositeObject(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_create_composite_object(script::Struct* params, script::Script*)
 {
-    Scripts::CArray* components = nullptr;
-    params->FetchList(kComponents, &components, 1);
-    Scripts::CStruct* nodeData = nullptr;
-    params->ReadSubStruct(kParams, &nodeData, 0);
-    GameObjects::ObjectHubSlot()->SpawnEntityFromNode(components, nodeData, true);
+    script::Array* components = nullptr;
+    params->fetch_list(kComponents, &components, 1);
+    script::Struct* node_data = nullptr;
+    params->read_sub_struct(kParams, &node_data, 0);
+    objects::object_hub_slot()->spawn_entity_from_node(components, node_data, true);
     return true;
 }
 
 // 0x004495A0: GetUniqueCompositeObjectID [PreferredId=<id> (8)]: UniqueID = the first id from there no object has.
-bool __cdecl CFunc_GetUniqueCompositeObjectID(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_get_unique_composite_object_id(script::Struct* params, script::Script* script)
 {
     uint32_t id = 8;
-    params->ReadHashValue(kPreferredId, &id, 0);
-    while (EntityForId(id))
+    params->read_hash_value(kPreferredId, &id, 0);
+    while (entity_for_id(id))
         ++id;
-    script->m_args->PutNameKey(kUniqueId, id);
+    script->args_->put_name_key(kUniqueId, id);
     return true;
 }
 
 // 0x00449610: GetObjScreenCoords object=<id>: screen_x / screen_y = where the object's position is on the screen
 // through the first viewport's camera. False if there is no such object.
-bool __cdecl CFunc_GetObjScreenCoords(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_get_obj_screen_coords(script::Struct* params, script::Script* script)
 {
-    void* camera = ViewportCamera(0);
+    void* camera = viewport_camera(0);
     uint32_t id = 0;
-    params->ReadHashValue(kObject, &id, 1);
-    GameObjects::CGameEntity* object = EntityForId(id);
+    params->read_hash_value(kObject, &id, 1);
+    objects::GameEntity* object = entity_for_id(id);
     if (!object)
         return false;
     float x, y, depth;
-    ProjectToScreen(camera, &object->m_atPoint, &x, &y, &depth);
-    script->m_args->PushFloat(kScreenX, x);
-    script->m_args->PushFloat(kScreenY, y);
+    project_to_screen(camera, &object->at_point_, &x, &y, &depth);
+    script->args_->push_float(kScreenX, x);
+    script->args_->push_float(kScreenY, y);
     return true;
 }
 
 // 0x004496B0: RunScriptOnComponentType component=<type> target=<member function> [params={...}]: the member
 // function called on every component of that type.
-bool __cdecl CFunc_RunScriptOnComponentType(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_run_script_on_component_type(script::Struct* params, script::Script* script)
 {
     uint32_t type = 0, target = 0;
-    params->ReadHashValue(kComponent, &type, 1);
-    params->ReadHashValue(kTarget, &target, 1);
-    Scripts::CStruct* targetParams = nullptr;
-    params->ReadSubStruct(kParams, &targetParams, 0);
-    for (GameObjects::CObjectModule* component = GameObjects::ObjectHubSlot()->FindFirstModuleOfKind(type); component;
-         component = component->m_nextOfType)
-        component->InvokeMethodByName(target, targetParams, script);
+    params->read_hash_value(kComponent, &type, 1);
+    params->read_hash_value(kTarget, &target, 1);
+    script::Struct* target_params = nullptr;
+    params->read_sub_struct(kParams, &target_params, 0);
+    for (objects::ObjectModule* component = objects::object_hub_slot()->find_first_module_of_kind(type); component;
+         component = component->next_of_type_)
+        component->invoke_method_by_name(target, target_params, script);
     return true;
 }
 
 // 0x00449740: TransformLocalToWorld local_offset=<vector> object=<id>: world_offset = the offset through the
 // object's display matrix. (No check that the object exists; missing arguments leave the original's values
 // undefined - here zero.)
-bool __cdecl CFunc_TransformLocalToWorld(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_transform_local_to_world(script::Struct* params, script::Script* script)
 {
-    Scripts::VectorValue offset = {};
-    params->FetchVec(kLocalOffset, &offset, 0);
+    script::VectorValue offset = {};
+    params->fetch_vec(kLocalOffset, &offset, 0);
     uint32_t id = 0;
-    params->ReadHashValue(kObject, &id, 0);
-    GameObjects::CGameEntity* object = EntityForId(id);
-    Maths::Vec4 local = {offset.x, offset.y, offset.z, offset.w};
-    Maths::Vec4 world;
-    object->m_displayMatrix.Xform(world, local);
-    script->m_args->PutVec3(kWorldOffset, world.x, world.y, world.z);
+    params->read_hash_value(kObject, &id, 0);
+    objects::GameEntity* object = entity_for_id(id);
+    maths::Vec4 local = {offset.x, offset.y, offset.z, offset.w};
+    maths::Vec4 world;
+    object->display_matrix_.xform(world, local);
+    script->args_->put_vec3(kWorldOffset, world.x, world.y, world.z);
     return true;
 }
 
 // 0x004497D0: DestroyParticlesByGroupID groupID=<id>: the renderer's particle systems of that group destroyed (if
 // there is a particle manager), and every live object with a particle component of that group marked dead.
-bool __cdecl CFunc_DestroyParticlesByGroupID(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_destroy_particles_by_group_id(script::Struct* params, script::Script*)
 {
     uint32_t group = 0;
-    params->ReadHashValue(kGroupId, &group, 1);
-    if (void* manager = ParticleHubHandle())
-        DestroyParticleGroup(manager, group);
-    for (GameObjects::CObjectModule* component = GameObjects::ObjectHubSlot()->FindFirstModuleOfKind(kParticle); component;
-         component = component->m_nextOfType) {
-        GameObjects::CGameEntity* object = component->m_entity;
-        if (!(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) && ParticleGroup(component) == group)
-            FlagAsDead(object);
+    params->read_hash_value(kGroupId, &group, 1);
+    if (void* manager = particle_hub_handle())
+        destroy_particle_group(manager, group);
+    for (objects::ObjectModule* component = objects::object_hub_slot()->find_first_module_of_kind(kParticle); component;
+         component = component->next_of_type_) {
+        objects::GameEntity* object = component->entity_;
+        if (!(object->object_flags_ & objects::kObjectFlagDead) && particle_group(component) == group)
+            flag_as_dead(object);
     }
     return true;
 }
 
-// 0x00449850: FetchVertex <name>: node = the node's structure. False if there is none.
-bool __cdecl CFunc_GetNode(Scripts::CStruct* params, Scripts::CScript* script)
+// 0x00449850: fetch_vertex <name>: node = the node's structure. False if there is none.
+bool __cdecl cfunc_get_node(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0;
-    params->ReadHashValue(0u, &name, 1);
-    Scripts::CStruct* node = LevelNodes::FetchVertex(name, false);
+    params->read_hash_value(0u, &name, 1);
+    script::Struct* node = level_nodes::fetch_vertex(name, false);
     if (!node)
         return false;
-    script->m_args->PutSubStruct(kNode, node);
+    script->args_->put_sub_struct(kNode, node);
     return true;
 }
 
 // 0x00449890: GetNodeName: nodename = the id of the object the script runs on. False with no object or id 0.
-bool __cdecl CFunc_GetNodeName(Scripts::CStruct*, Scripts::CScript* script)
+bool __cdecl cfunc_get_node_name(script::Struct*, script::Script* script)
 {
-    GameObjects::CEntity* object = script->m_entity.Pull();
-    if (!object || !object->m_ident)
+    objects::Entity* object = script->entity_.get_pull();
+    if (!object || !object->ident_)
         return false;
-    script->m_args->PutNameKey(kNodeName, object->m_ident);
+    script->args_->put_name_key(kNodeName, object->ident_);
     return true;
 }
 
 // 0x004498C0: GetTriggerNodeName: nodename = the node the script was spawned for. False if none.
-bool __cdecl CFunc_GetTriggerNodeName(Scripts::CStruct*, Scripts::CScript* script)
+bool __cdecl cfunc_get_trigger_node_name(script::Struct*, script::Script* script)
 {
-    if (!script->m_listLink)
+    if (!script->list_link_)
         return false;
-    script->m_args->PutNameKey(kNodeName, static_cast<uint32_t>(script->m_listLink));
+    script->args_->put_name_key(kNodeName, static_cast<uint32_t>(script->list_link_));
     return true;
 }
 
 // 0x00449A10: RunScriptOnObject id=<object> <script> [params={...}]: UniqueID is taken out of the calling script's
 // parameters; the object (found through the tracker) runs the script now as an interrupt of its own script (which,
 // if it has no object yet, is given this one). False if there is no such object.
-bool __cdecl CFunc_RunScriptOnObject(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_run_script_on_object(script::Struct* params, script::Script* script)
 {
     uint32_t id = 0, name = 0;
-    params->ReadHashValue(kId, &id, 1);
-    params->ReadHashValue(0u, &name, 1);
-    Scripts::CStruct* scriptParams = nullptr;
-    params->ReadSubStruct(kParams, &scriptParams, 0);
-    script->m_args->EraseModule(kUniqueId);
-    GameObjects::CEntity* object = GameObjects::FindObject(id);
+    params->read_hash_value(kId, &id, 1);
+    params->read_hash_value(0u, &name, 1);
+    script::Struct* script_params = nullptr;
+    params->read_sub_struct(kParams, &script_params, 0);
+    script->args_->erase_module(kUniqueId);
+    objects::Entity* object = objects::find_object(id);
     if (!object)
         return false;
-    Scripts::CScript* own = object->m_ownScript;
-    if (own && !own->m_entity.Pull())
-        own->m_entity.AssignValue(object);
-    object->RunSubScript(name, scriptParams);
+    script::Script* own = object->own_script_;
+    if (own && !own->entity_.get_pull())
+        own->entity_.assign_value(object);
+    object->run_sub_script(name, script_params);
     return true;
 }
 
@@ -297,72 +297,72 @@ bool __cdecl CFunc_RunScriptOnObject(Scripts::CStruct* params, Scripts::CScript*
 // times that bone's matrix in the relative object's skeleton (no RelativeTo: a crash, as in the original), and
 // with RelativeTo, times that object's display matrix at its position. The result becomes the object's position,
 // matrix (position row reset) and display matrix. (No check that the object exists.)
-bool __cdecl CFunc_Orient(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_orient(script::Struct* params, script::Script*)
 {
     uint32_t id = 0;
-    params->ReadHashValue(kObject, &id, 1);
-    GameObjects::CGameEntity* object = EntityForId(id);
-    GameObjects::CGameEntity* relativeTo = nullptr;
-    uint32_t relativeId = 0;
-    if (params->ReadHashValue(kRelativeTo, &relativeId, 0))
-        relativeTo = EntityForId(relativeId);
+    params->read_hash_value(kObject, &id, 1);
+    objects::GameEntity* object = entity_for_id(id);
+    objects::GameEntity* relative_to = nullptr;
+    uint32_t relative_id = 0;
+    if (params->read_hash_value(kRelativeTo, &relative_id, 0))
+        relative_to = entity_for_id(relative_id);
     uint32_t bone = 0;
-    params->ReadHashValue(kBone, &bone, 0);
-    Scripts::VectorValue offset;
-    if (!params->FetchVec(kOffset, &offset, 0))
+    params->read_hash_value(kBone, &bone, 0);
+    script::VectorValue offset;
+    if (!params->fetch_vec(kOffset, &offset, 0))
         offset = {0.0f, 0.0f, 0.0f, 1.0f};
-    Scripts::VectorValue angles;
-    if (!params->FetchVec(kAngles, &angles, 0))
+    script::VectorValue angles;
+    if (!params->fetch_vec(kAngles, &angles, 0))
         angles = {0.0f, 0.0f, 0.0f, 1.0f};
-    if (params->HasBareFlag(kDegrees)) {
-        float degrees = g_degreeToRadianRatio; // pi / 180
+    if (params->has_bare_flag(kDegrees)) {
+        float degrees = g_degree_to_radian_ratio; // pi / 180
         angles.x *= degrees;
         angles.y *= degrees;
         angles.z *= degrees;
         angles.w *= degrees;
     }
 
-    Maths::Mat4& matrix = object->m_basisFrame;
-    AnglesToMatrix(&matrix, &angles);
+    maths::Mat4& matrix = object->basis_frame_;
+    angles_to_matrix(&matrix, &angles);
     matrix.row[3] = {offset.x, offset.y, offset.z, offset.w};
     if (bone) {
-        Maths::Mat4 jointMat;
-        ReadJointMatrix(SkeletonOf(relativeTo->FetchModule(kSkeleton)), bone, &jointMat);
-        MatrixMultiply(&matrix, &matrix, &jointMat);
+        maths::Mat4 joint_mat;
+        read_joint_matrix(skeleton_of(relative_to->fetch_module(kSkeleton)), bone, &joint_mat);
+        matrix_multiply(&matrix, &matrix, &joint_mat);
     }
-    if (relativeTo) {
-        Maths::Mat4 relative;
-        relative = relativeTo->m_displayMatrix;
-        relative.row[3] = relativeTo->m_atPoint;
-        MatrixMultiply(&matrix, &matrix, &relative);
+    if (relative_to) {
+        maths::Mat4 relative;
+        relative = relative_to->display_matrix_;
+        relative.row[3] = relative_to->at_point_;
+        matrix_multiply(&matrix, &matrix, &relative);
     }
-    object->m_atPoint = matrix.row[3];
+    object->at_point_ = matrix.row[3];
     matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    object->m_displayMatrix = matrix;
+    object->display_matrix_ = matrix;
     return true;
 }
 
 // 0x00449F80: SetEventHandlerOnObject object=<id> ex=<event> scr=<script> [Group=<name> (default)] [Exception]
 // [params={...}]: the event handler set on the object's script (made - on the script pool - if it has none). (No
 // check that the object exists.)
-bool __cdecl CFunc_SetEventHandlerOnObject(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_set_event_handler_on_object(script::Struct* params, script::Script*)
 {
-    uint32_t eventType = 0, handler = 0, group = kDefaultGroup;
-    params->ReadHashValue(kEx, &eventType, 1);
-    params->ReadHashValue(kScr, &handler, 1);
-    params->ReadHashValue(kGroup, &group, 0);
-    bool exception = params->HasBareFlag(kException);
-    Scripts::CStruct* handlerParams = nullptr;
-    params->ReadSubStruct(kParams, &handlerParams, 0);
+    uint32_t event_type = 0, handler = 0, group = kDefaultGroup;
+    params->read_hash_value(kEx, &event_type, 1);
+    params->read_hash_value(kScr, &handler, 1);
+    params->read_hash_value(kGroup, &group, 0);
+    bool exception = params->has_bare_flag(kException);
+    script::Struct* handler_params = nullptr;
+    params->read_sub_struct(kParams, &handler_params, 0);
     uint32_t id = 0;
-    params->ReadHashValue(kObject, &id, 1);
-    GameObjects::CGameEntity* object = EntityForId(id);
-    if (!object->m_ownScript) {
-        void* memory = Scripts::CScript::operator new(sizeof(Scripts::CScript));
-        object->m_ownScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
+    params->read_hash_value(kObject, &id, 1);
+    objects::GameEntity* object = entity_for_id(id);
+    if (!object->own_script_) {
+        void* memory = script::Script::operator new(sizeof(script::Script));
+        object->own_script_ = memory ? static_cast<script::Script*>(memory)->make_new() : nullptr;
     }
-    object->m_ownScript->SetEventHandler(eventType, handler, group, exception, handlerParams);
+    object->own_script_->set_event_handler(event_type, handler, group, exception, handler_params);
     return true;
 }
 
-} // namespace ScriptCommands
+} // namespace commands

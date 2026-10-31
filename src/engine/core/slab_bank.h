@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace MemSys {
+namespace memory {
 
 // A pool of fixed-size items carved out of one allocation, with the free items kept in a linked list (each
 // free item's first 4 bytes point to the next free item).
@@ -13,44 +13,44 @@ public:
     SlabBank(int item_size, int count, const char* name);
 
     // The next free item, or null if the pool is full.
-    void* Carve();
+    void* carve();
     // Return an item to the pool.
-    void Dealloc(void* item);
+    void dealloc(void* item);
     // True if `pointer` lies inside the pool's block.
-    bool Holds(const void* pointer) const;
+    bool get_holds(const void* pointer) const;
 
-    uint8_t* m_outset;
-    uint8_t* m_finish;
-    int m_num;
-    int m_slotBytes;
-    int m_takenCount;
-    void* m_freeList;
-    char m_label[64];
-    int m_peakUsed;
+    uint8_t* outset_;
+    uint8_t* finish_;
+    int num_;
+    int slot_bytes_;
+    int taken_count_;
+    void* free_list_;
+    char label_[64];
+    int peak_used_;
 };
 
 } // namespace Mem
 
-namespace MemSys {
+namespace memory {
 
 // Item pools shared by the engine's container classes, by index. Pool 0 holds hash table items (12 bytes
 // each); the other slots are unused in this game.
-namespace SlotPoolSetup {
+namespace slot_pool_setup {
 
 // Create pool `index` with room for `count` items. Only index 0 is set up (as "HashItem").
-void SetUp(int index, int count);
+void set_up(int index, int count);
 // Take an item from pool `index`; without that pool, allocate it from the default heap instead.
-void* CreateItem(int index);
-// Give an item back to wherever CreateItem got it.
-void ReturnEntry(int index, void* item);
+void* create_item(int index);
+// Give an item back to wherever create_item got it.
+void return_entry(int index, void* item);
 // Pool `index` (null if there isn't one).
-SlabBank* GetPool(int index);
+SlabBank* get_pool(int index);
 
-} // namespace SlotPoolSetup
+} // namespace slot_pool_setup
 
 } // namespace Mem
 
-namespace MemSys {
+namespace memory {
 
 // A class's pair of item pools (the engine's CPoolable): new items come from the current pool, or from the
 // default heap when it doesn't exist; freed items go back to whichever pool holds them.
@@ -59,8 +59,8 @@ struct PoolPair {
     int unknown4;
     SlabBank* pools[2];
 
-    void* Carve(unsigned int size);
-    void Dealloc(void* item);
+    void* carve(unsigned int size);
+    void dealloc(void* item);
 };
 
 } // namespace Mem

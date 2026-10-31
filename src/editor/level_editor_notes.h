@@ -21,7 +21,7 @@ struct ImFont;
 //   note <name> pos=x,y,z color=RRGGBB text="..."
 // The text is percent-encoded where the line needs it: % " # (the layout's comment mark), control characters (a new
 // line is %0A) - everything else as typed (UTF-8). At most kMaxText bytes; text= comes last.
-namespace MenuSystem::LevelEditor::Notes {
+namespace frontend::level_editor::notes {
 
 // --- the pure parts --------------------------------------------------------------------------------------------------
 
@@ -37,37 +37,37 @@ struct Note {
     uint32_t colour = kColours[0]; // RGB
     std::string text;
 };
-bool Same(const Note& a, const Note& b);
+bool get_same(const Note& a, const Note& b);
 // The text as the record keeps it, and back (false: a bad escape).
-std::string PackUp(const std::string& text);
-bool Decode(const std::string& encoded, std::string* text);
+std::string pack_up(const std::string& text);
+bool decode(const std::string& encoded, std::string* text);
 // The record's text ("note ..."), and one read (after the word "note"; false: malformed - no pos, a bad name, colour,
 // number or escape, a key twice, text= not last / not quoted).
-std::string WriteRecord(const Note& note);
-bool ReadRecord(std::istringstream& in, Note* out);
+std::string write_record(const Note& note);
+bool read_record(std::istringstream& in, Note* out);
 // A fresh name: the stem and the lowest two-digit number no note in `notes` has.
-std::string FreshName(const std::vector<Note>& notes);
+std::string fresh_name(const std::vector<Note>& notes);
 // The pin's label: the text's first line, cut to `most` characters ("..." added); "(empty note)" for none.
-std::string Caption(const std::string& text, size_t most);
+std::string caption(const std::string& text, size_t most);
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
-const std::vector<Note>& All();
+const std::vector<Note>& get_all();
 // Layouts: the notes now; put in place (replacing the current - how many); all removed; a new level (forgotten).
-std::vector<Note> Capture();
-int Apply(const std::vector<Note>& notes);
-void ResetAll();
-void ForgetLevel();
+std::vector<Note> get_capture();
+int get_apply(const std::vector<Note>& notes);
+void reset_all();
+void forget_level();
 // "+ Note here" from elsewhere (the command search - level_editor_ux3.h): queued as the Outliner's button does.
-void AddHereQueued();
+void add_here_queued();
 // Once a frame while the editor runs: what the UI asked for (queued).
-void TickFrame();
+void tick_frame();
 // The pins over the view (the selected one brighter): a stem from the point up, a head, the text beside it.
-void AddOverlay(V3 cameraPos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
-                std::vector<Ui::Seg>* lines, std::vector<Ui::Overlay::Circle>* circles,
-                std::vector<Ui::Overlay::Text>* texts);
+void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+                std::vector<ui::Seg>* lines, std::vector<ui::Overlay::Circle>* circles,
+                std::vector<ui::Overlay::text_tools>* texts);
 // The Outliner's Notes section (`search`: the Outliner's search text - rows matching it) and the selected note's window.
-void OutlinerSection(ImFont* mono, const char* search);
-void Pane(float viewX, float viewY, float viewWidth, float viewHeight, float scale);
+void outliner_section(ImFont* mono, const char* search);
+void pane(float view_x, float view_y, float view_width, float view_height, float scale);
 
-} // namespace MenuSystem::LevelEditor::Notes
+} // namespace MenuSystem::level_editor::Notes

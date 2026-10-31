@@ -25,9 +25,9 @@
 #include "game/skate/skate_module.h"
 #include "engine/objects/trigger_events.h"
 
-namespace Skater {
+namespace skater {
 
-using namespace CoreFields;
+using namespace core_fields;
 
 namespace {
 
@@ -58,271 +58,271 @@ constexpr float kFeelerBehind = -36.0f; // 0x0064BD68
 constexpr float kSteepUp = -0.1f;      // 0x0064BD44: the up's y below this: a ramp too steep to jump straight off
 constexpr float kSteepDrop = 1.5f;     // 0x00646744
 
-float ScaledPhysics(void* object, uint32_t name) { return static_cast<GameObjects::CRider*>(object)->GetScaledPhysics(name); }
+float scaled_physics(void* object, uint32_t name) { return static_cast<objects::Rider*>(object)->get_scaled_physics(name); }
 
 // 0x00518EE0: the jump sound, by how fast the skater goes (a fraction of the max max speed) and a terrain.
-void PlayJumpSound(void* component, uint8_t terrain)
+void play_jump_sound(void* component, uint8_t terrain)
 {
-    void* object = ObjectOf(component);
-    const Maths::Vec4& v = VectorAt(object, kVelocity);
+    void* object = object_of(component);
+    const maths::Vec4& v = vector_at(object, kVelocity);
     float speed = static_cast<float>(std::sqrt(static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y +
                                                static_cast<double>(v.z) * v.z));
-    float fraction = speed / ScaledPhysics(object, kSpeedCapStat);
-    static_cast<GameObjects::CRiderSfxPlayer*>(At<void*>(component, kSfxModuleSlot))->PlayJumpInState(fraction, terrain);
+    float fraction = speed / scaled_physics(object, kSpeedCapStat);
+    static_cast<objects::RiderSfxPlayer*>(get_at<void*>(component, kSfxModuleSlot))->play_jump_in_state(fraction, terrain);
 }
 
 } // namespace
 
 // 0x005092E0
-void SkaterPhysicsModule::TriggerRailScript(const int* events)
+void SkaterPhysicsModule::trigger_rail_script(const int* events)
 {
-    auto* node = At<GameObjects::CGrindPoint*>(this, kRailNode);
+    auto* node = get_at<objects::GrindPoint*>(this, kRailNode);
     if (!node)
         return;
-    if (!At<void*>(this, kRailManager))
-        At<void*>(this, kRailManager) = At<void*>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule), 0x24); // (the skate module's)
-    Scripts::CStruct* script = LevelNodes::FetchVertex(node->m_label, false);
+    if (!get_at<void*>(this, kRailManager))
+        get_at<void*>(this, kRailManager) = get_at<void*>(reinterpret_cast<uint8_t*>(modules::g_skate_module), 0x24); // (the skate module's)
+    script::Struct* script = level_nodes::fetch_vertex(node->label_, false);
     if (!script)
         return;
     // The node's TriggerScript, else the first one back along the rail (the walk stops at a loop: a second
     // pointer going half as fast).
-    uint32_t triggerScript = 0;
-    if (!script->ReadHashValue(kTriggerScript, &triggerScript, 0)) {
-        GameObjects::CGrindPoint* slow = node;
+    uint32_t trigger_script = 0;
+    if (!script->read_hash_value(kTriggerScript, &trigger_script, 0)) {
+        objects::GrindPoint* slow = node;
         bool step = false;
-        for (GameObjects::CGrindPoint* p = node->m_lastValue; p && p != node && p != slow;) {
-            script = LevelNodes::FetchVertex(p->m_label, true);
-            if (script->ReadHashValue(kTriggerScript, &triggerScript, 0)) // (a node without a script: a crash)
+        for (objects::GrindPoint* p = node->last_value_; p && p != node && p != slow;) {
+            script = level_nodes::fetch_vertex(p->label_, true);
+            if (script->read_hash_value(kTriggerScript, &trigger_script, 0)) // (a node without a script: a crash)
                 break;
-            p = p->m_lastValue;
+            p = p->last_value_;
             if (step)
-                slow = slow->m_lastValue;
+                slow = slow->last_value_;
             step = !step;
         }
     }
-    if (!triggerScript)
+    if (!trigger_script)
         return;
     uint32_t name = 0; // (the original's is a stale stack word - a node pointer - if a node had no Name)
-    script->ReadHashValue(kName, &name, 1);
-    SetFlag(this, 0xC8, name != At<uint32_t>(this, kLastRailScript));
-    At<uint32_t>(this, kRailScriptNode) = name;
-    At<uint32_t>(this, kLastRailScript) = name;
-    const uint8_t* rideObject = nullptr;
-    if (GameObjects::CRideTracker* tracker = Tracker(this)) {
-        if (tracker->m_entity.m_ownerObject)
-            rideObject = reinterpret_cast<const uint8_t*>(tracker->m_entity.m_ownerObject);
+    script->read_hash_value(kName, &name, 1);
+    set_flag(this, 0xC8, name != get_at<uint32_t>(this, kLastRailScript));
+    get_at<uint32_t>(this, kRailScriptNode) = name;
+    get_at<uint32_t>(this, kLastRailScript) = name;
+    const uint8_t* ride_object = nullptr;
+    if (objects::RideTracker* tracker = get_tracker(this)) {
+        if (tracker->entity_.owner_object_)
+            ride_object = reinterpret_cast<const uint8_t*>(tracker->entity_.owner_object_);
         else
-            StopRiding(this);
+            stop_riding(this);
     }
-    static_cast<GameObjects::CActivationZoneModule*>(At<void*>(this, kActivationZoneSlot))
-        ->TriggerNode(events, At<uint32_t>(this, kRailScriptNode), nullptr, rideObject);
+    static_cast<objects::ActivationZoneModule*>(get_at<void*>(this, kActivationZoneSlot))
+        ->get_trigger_node(events, get_at<uint32_t>(this, kRailScriptNode), nullptr, ride_object);
 }
 
 // 0x00509450
-void SkaterPhysicsModule::PerformLeap(Scripts::CStruct* params)
+void SkaterPhysicsModule::perform_leap(script::Struct* params)
 {
-    bool sound = !params->HasBareFlag(kNoSound);
-    switch (StateOf(this)) {
+    bool sound = !params->has_bare_flag(kNoSound);
+    switch (state_of(this)) {
     case kGround:
-        TriggerFeeler(this, g_jumpTriggerEvents, kOtherFeeler);
-        if (TriggerTookOver(this))
+        trigger_feeler(this, kJumpTriggerEvents, kOtherFeeler);
+        if (trigger_took_over(this))
             return;
-        std::memcpy(&At<Maths::Vec4>(this, 0x338), &VectorAt(ObjectOf(this), kPosition), 16); // (where it jumped)
+        std::memcpy(&get_at<maths::Vec4>(this, 0x338), &vector_at(object_of(this), kPosition), 16); // (where it jumped)
         if (sound)
-            PlayJumpSound(this, At<uint8_t>(this, 0x1AA));
-        StartVertAir();
-        SetFlag(this, 0x48, 1);
+            play_jump_sound(this, get_at<uint8_t>(this, 0x1AA));
+        start_vert_air();
+        set_flag(this, 0x48, 1);
         break;
     case kAir:
         if (sound)
-            PlayJumpSound(this, At<uint8_t>(this, 0x1AA));
+            play_jump_sound(this, get_at<uint8_t>(this, 0x1AA));
         break;
     case kRail:
         if (sound)
-            PlayJumpSound(this, BitMark(this, 0xE1));
+            play_jump_sound(this, bit_mark(this, 0xE1));
         break;
     default:
         break;
     }
 
     // The speed: between the min and the max by how long the jump was held.
-    int maxTense = Scripts::FetchIntValue(kChargeCapMs);
-    int& tense = At<int>(this, kJumpChargeMs);
-    if (tense >= maxTense)
-        tense = maxTense;
-    bool fromVert = BitMark(this, 0x30) || (StateOf(this) == kGround && BitMark(this, 0x40));
-    const uint32_t* names = kJumpSpeed[params->HasBareFlag(kBonelessHeight)][fromVert];
-    void* object = ObjectOf(this);
-    float most = ScaledPhysics(object, names[0]);
-    float least = ScaledPhysics(ObjectOf(this), names[1]);
-    double held = static_cast<double>(tense) / static_cast<double>(maxTense);
+    int max_tense = script::fetch_int_value(kChargeCapMs);
+    int& tense = get_at<int>(this, kJumpChargeMs);
+    if (tense >= max_tense)
+        tense = max_tense;
+    bool from_vert = bit_mark(this, 0x30) || (state_of(this) == kGround && bit_mark(this, 0x40));
+    const uint32_t* names = kJumpSpeed[params->has_bare_flag(kBonelessHeight)][from_vert];
+    void* object = object_of(this);
+    float most = scaled_physics(object, names[0]);
+    float least = scaled_physics(object_of(this), names[1]);
+    double held = static_cast<double>(tense) / static_cast<double>(max_tense);
     float speed = static_cast<float>((static_cast<double>(most) - least) * held + least);
-    params->FetchFloat(kSpeed, &speed, 0);
+    params->fetch_float(kSpeed, &speed, 0);
 
-    SetFlag(this, 0x20, 0);
-    Maths::Vec4& velocity = VectorAt(ObjectOf(this), kVelocity);
-    if (BitMark(this, 0x30) && velocity.y < 0.0f) {
+    set_flag(this, 0x20, 0);
+    maths::Vec4& velocity = vector_at(object_of(this), kVelocity);
+    if (bit_mark(this, 0x30) && velocity.y < 0.0f) {
         // Off vert, going down: pushed off the ramp (along +0x58) instead; no longer on vert.
-        const Maths::Vec4& away = VectorAt(this, 0x58);
+        const maths::Vec4& away = vector_at(this, 0x58);
         float z = speed * away.z, w = speed * away.w;
         velocity.x = static_cast<float>(static_cast<double>(speed) * away.x + velocity.x);
         velocity.y = static_cast<float>(static_cast<double>(speed) * away.y + velocity.y);
         velocity.z += z;
         velocity.w += w;
         speed = 0.0f;
-        SetFlag(this, 0x30, 0);
-        At<uint8_t>(this, 0x2D0) = 0;
+        set_flag(this, 0x30, 0);
+        get_at<uint8_t>(this, 0x2D0) = 0;
     } else if (velocity.y < 0.0f) {
         velocity.y = 0.0f;
     }
-    VectorAt(ObjectOf(this), kVelocity).y += speed;
-    bool bike = ThawBmx::LiveNow(this); // (not original: THAW 0x005DDDC0's bike branches, thaw_bmx_physics.cpp)
+    vector_at(object_of(this), kVelocity).y += speed;
+    bool bike = thaw_bmx::live_now(this); // (not original: THAW 0x005DDDC0's bike branches, thaw_bmx_physics.cpp)
     if (bike)
-        ThawBmx::JumpBoost(this);
-    object = ObjectOf(this);
-    if (VectorAt(object, kUp).y < kSteepUp) {
+        thaw_bmx::jump_boost(this);
+    object = object_of(this);
+    if (vector_at(object, kUp).y < kSteepUp) {
         // A ramp too steep (upside down): less up, and lifted off it along the up.
-        Maths::Vec4& v = VectorAt(object, kVelocity);
+        maths::Vec4& v = vector_at(object, kVelocity);
         v.y = static_cast<float>(v.y - static_cast<double>(speed) * kSteepDrop);
-        const Maths::Vec4& up = VectorAt(object, kUp);
-        Maths::Vec4& position = VectorAt(object, kPosition);
+        const maths::Vec4& up = vector_at(object, kUp);
+        maths::Vec4& position = vector_at(object, kPosition);
         float z = up.z * kFeelerAhead, w = up.w * kFeelerAhead;
         position.x = static_cast<float>(static_cast<double>(up.x) * kFeelerAhead + position.x);
         position.y = static_cast<float>(static_cast<double>(up.y) * kFeelerAhead + position.y);
         position.z += z;
         position.w += w;
     }
-    int state = StateOf(this);
-    if (state == kRail || (state == kAir && At<int>(this, 0x94) == kRail))
-        TurnForRailJump();
-    if (At<uint8_t>(this, 0x2EC))
-        TriggerRailScript(g_jumpEvents);
+    int state = state_of(this);
+    if (state == kRail || (state == kAir && get_at<int>(this, 0x94) == kRail))
+        turn_for_rail_jump();
+    if (get_at<uint8_t>(this, 0x2EC))
+        trigger_rail_script(kJumpEvents);
     if (bike)
-        ThawBmx::JumpPitch(this);
-    SetPhysicsState(kAir);
-    At<int>(this, kLeapDuration) = Now();
-    static_cast<GameObjects::CEntity*>(ObjectOf(this))->Announce(kSkaterJump, nullptr, 0.0f);
+        thaw_bmx::jump_pitch(this);
+    set_physics_state(kAir);
+    get_at<int>(this, kLeapDuration) = get_now();
+    static_cast<objects::Entity*>(object_of(this))->announce(kSkaterJump, nullptr, 0.0f);
 }
 
 // 0x00509920
-void SkaterPhysicsModule::BeginSkitch()
+void SkaterPhysicsModule::begin_skitch()
 {
-    auto* object = At<GameObjects::CGameEntity*>(this, kSkitched);
+    auto* object = get_at<objects::GameEntity*>(this, kSkitched);
     if (!object)
         return;
-    At<Walk::MovableContact*>(this, kRide)->StartRiding(object);
-    SetFlag(this, 0x88, 1);
-    At<uint8_t>(this, 0x24A) = 1;
-    Skitch();
-    if (auto* skitched = At<GameObjects::CEntity*>(this, kSkitched))
-        skitched->PostOwnEvent(0x35224F25, nullptr);
+    get_at<walk::MovableContact*>(this, kRide)->start_riding(object);
+    set_flag(this, 0x88, 1);
+    get_at<uint8_t>(this, 0x24A) = 1;
+    get_skitch();
+    if (auto* skitched = get_at<objects::Entity*>(this, kSkitched))
+        skitched->post_own_event(0x35224F25, nullptr);
 }
 
 // 0x00509990
-void SkaterPhysicsModule::EndSkitch()
+void SkaterPhysicsModule::end_skitch()
 {
-    if (!BitMark(this, 0x88))
+    if (!bit_mark(this, 0x88))
         return;
-    SetFlag(this, 0x88, 0);
-    auto& skitched = At<GameObjects::CSharedRef<GameObjects::CGameEntity>>(this, kSkitched);
-    if (skitched.m_ownerObject) {
-        static_cast<GameObjects::CEntity*>(skitched.m_ownerObject)->PostOwnEvent(0x2739B86D, nullptr);
-        skitched.Release();
-        skitched.m_ownerObject = nullptr;
+    set_flag(this, 0x88, 0);
+    auto& skitched = get_at<objects::SharedRef<objects::GameEntity>>(this, kSkitched);
+    if (skitched.owner_object_) {
+        static_cast<objects::Entity*>(skitched.owner_object_)->post_own_event(0x2739B86D, nullptr);
+        skitched.get_release();
+        skitched.owner_object_ = nullptr;
     }
-    void* ride = At<void*>(this, kRide);
-    if (GameObjects::CRideTracker* tracker = At<GameObjects::CRideTracker*>(ride, 0x18)) {
-        At<void*>(ride, 0x6C) = tracker->m_entity.m_ownerObject; // (what it rode last)
-        reinterpret_cast<GameObjects::CSharedRef<GameObjects::CSharedBase>*>(&tracker->m_entity)->Release();
-        MemSys::Hub::Pull()->Dealloc(tracker);
-        At<GameObjects::CRideTracker*>(ride, 0x18) = nullptr;
-        At<int>(ride, 0x70) = Now();
+    void* ride = get_at<void*>(this, kRide);
+    if (objects::RideTracker* tracker = get_at<objects::RideTracker*>(ride, 0x18)) {
+        get_at<void*>(ride, 0x6C) = tracker->entity_.owner_object_; // (what it rode last)
+        reinterpret_cast<objects::SharedRef<objects::SharedBase>*>(&tracker->entity_)->get_release();
+        memory::Hub::get_pull()->dealloc(tracker);
+        get_at<objects::RideTracker*>(ride, 0x18) = nullptr;
+        get_at<int>(ride, 0x70) = get_now();
     }
 }
 
 // 0x00509050
-void SkaterPhysicsModule::StepWallplant()
+void SkaterPhysicsModule::step_wallplant()
 {
-    int planted = At<int>(this, 0x90);
-    At<uint8_t>(this, 0x2E4) = 0;
-    uint32_t elapsed = Since(static_cast<uint32_t>(planted));
-    if (static_cast<float>(elapsed) > Scripts::FetchFloat(kWallplantDuration)) {
+    int planted = get_at<int>(this, 0x90);
+    get_at<uint8_t>(this, 0x2E4) = 0;
+    uint32_t elapsed = get_since(static_cast<uint32_t>(planted));
+    if (static_cast<float>(elapsed) > script::fetch_float(kWallplantDuration)) {
         // Over: into the air, with a feeler along the facing (12 ahead to 36 behind) for a trigger.
-        SetPhysicsState(kAir);
-        Maths::Vec4& start = VectorAt(this, kProbeOrigin);
-        Maths::Vec4& end = VectorAt(this, kProbeTip);
-        start = VectorAt(ObjectOf(this), kFacing) * kFeelerAhead;
-        end = VectorAt(ObjectOf(this), kFacing) * kFeelerBehind;
-        start += VectorAt(ObjectOf(this), kPosition);
-        end += VectorAt(ObjectOf(this), kPosition);
-        if (Feel(this, 0x10, 0))
-            TriggerFeeler(this, g_wallplantEvents, kFeeler);
+        set_physics_state(kAir);
+        maths::Vec4& start = vector_at(this, kProbeOrigin);
+        maths::Vec4& end = vector_at(this, kProbeTip);
+        start = vector_at(object_of(this), kFacing) * kFeelerAhead;
+        end = vector_at(object_of(this), kFacing) * kFeelerBehind;
+        start += vector_at(object_of(this), kPosition);
+        end += vector_at(object_of(this), kPosition);
+        if (get_feel(this, 0x10, 0))
+            trigger_feeler(this, kWallplantEvents, kFeeler);
         return;
     }
     // Still on the wall: no rail; carried along by what the skater rides on (its turn too, when it turned).
-    At<void*>(this, kRailNode) = nullptr;
-    At<uint32_t>(this, kLastRailScript) = 0;
-    GameObjects::CRideTracker* tracker = Tracker(this);
+    get_at<void*>(this, kRailNode) = nullptr;
+    get_at<uint32_t>(this, kLastRailScript) = 0;
+    objects::RideTracker* tracker = get_tracker(this);
     if (!tracker)
         return;
-    if (!tracker->m_entity.m_ownerObject || !tracker->TickFrame(&VectorAt(ObjectOf(this), kPosition))) {
-        StopRiding(this);
+    if (!tracker->entity_.owner_object_ || !tracker->tick_frame(&vector_at(object_of(this), kPosition))) {
+        stop_riding(this);
         return;
     }
-    VectorAt(ObjectOf(this), kPosition) += Tracker(this)->m_carried;
-    tracker = Tracker(this);
-    if (tracker->m_turned) {
-        auto multiply = D3dx::MatrixMultiply;
-        Maths::Mat4& matrix = MatrixAt(ObjectOf(this), kMatrix);
-        multiply(&matrix, &matrix, &tracker->m_turn);
-        multiply(&MatrixAt(this, kDisplayMatrix), &MatrixAt(this, kDisplayMatrix), &Tracker(this)->m_turn);
+    vector_at(object_of(this), kPosition) += get_tracker(this)->carried_;
+    tracker = get_tracker(this);
+    if (tracker->turned_) {
+        auto multiply = d3dx::matrix_multiply;
+        maths::Mat4& matrix = matrix_at(object_of(this), kMatrix);
+        multiply(&matrix, &matrix, &tracker->turn_);
+        multiply(&matrix_at(this, kDisplayMatrix), &matrix_at(this, kDisplayMatrix), &get_tracker(this)->turn_);
     }
 }
 
 // 0x00509A40
-int SkaterPhysicsModule::Jump(Scripts::CStruct* params, Scripts::CScript*)
+int SkaterPhysicsModule::get_jump(script::Struct* params, script::Script*)
 {
-    PerformLeap(params);
+    perform_leap(params);
     return 1;
 }
 
 // 0x00509A60
-int SkaterPhysicsModule::StartSkitch(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::start_skitch(script::Struct*, script::Script*)
 {
-    BeginSkitch();
+    begin_skitch();
     return 1;
 }
 
 // 0x00509A70
-int SkaterPhysicsModule::EndTowRide(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::end_tow_ride(script::Struct*, script::Script*)
 {
-    EndSkitch();
+    end_skitch();
     return 1;
 }
 
 // 0x00509A80
-int SkaterPhysicsModule::ChangePhase(Scripts::CStruct* params, Scripts::CScript*)
+int SkaterPhysicsModule::change_phase(script::Struct* params, script::Script*)
 {
     uint32_t state = 0;
-    params->ReadHashValue(0u, &state, 0);
-    if (StateOf(this) == kLip && state != kLipName)
-        TriggerRailScript(g_offLipEvents);
-    if (StateOf(this) != kLip && state == kLipName)
-        At<void*>(this, kRailNode) = nullptr;
-    if (StateOf(this) == kWallRide) {
-        TurnToNormal(Maths::Vec4{0.0f, 1.0f, 0.0f, 1.0f});
-        MatrixAt(this, kDisplayMatrix) = MatrixAt(ObjectOf(this), kMatrix);
+    params->read_hash_value(0u, &state, 0);
+    if (state_of(this) == kLip && state != kLipName)
+        trigger_rail_script(kOffLipEvents);
+    if (state_of(this) != kLip && state == kLipName)
+        get_at<void*>(this, kRailNode) = nullptr;
+    if (state_of(this) == kWallRide) {
+        turn_to_normal(maths::Vec4{0.0f, 1.0f, 0.0f, 1.0f});
+        matrix_at(this, kDisplayMatrix) = matrix_at(object_of(this), kMatrix);
     }
     switch (state) {
     case kAirName:
-        SetPhysicsState(kAir);
+        set_physics_state(kAir);
         break;
     case kGroundName:
-        At<uint8_t>(this, 0x1C5) = 0;
-        SetPhysicsState(kGround);
+        get_at<uint8_t>(this, 0x1C5) = 0;
+        set_physics_state(kGround);
         break;
     case kLipName:
-        SetPhysicsState(kLip);
+        set_physics_state(kLip);
         break;
     default:
         break;
@@ -331,24 +331,24 @@ int SkaterPhysicsModule::ChangePhase(Scripts::CStruct* params, Scripts::CScript*
 }
 
 // 0x00509B70
-int SkaterPhysicsModule::TriggerGrindOff(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::trigger_grind_off(script::Struct*, script::Script*)
 {
-    TriggerRailScript(g_grindOffEvents);
+    trigger_rail_script(kGrindOffEvents);
     return 1;
 }
 
 // 0x00509B90
-int SkaterPhysicsModule::ForceBreakVert(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::force_break_vert(script::Struct*, script::Script*)
 {
-    BreakVert(true);
-    KeepUpright();
+    break_vert(true);
+    keep_upright();
     return 1;
 }
 
 // 0x00509BB0
-int SkaterPhysicsModule::WalkingWallplant(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::walking_wallplant(script::Struct*, script::Script*)
 {
-    WallPlant(false, false, true);
+    wall_plant(false, false, true);
     return 1;
 }
 

@@ -11,16 +11,16 @@
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
 
-namespace ScriptCommands {
+namespace commands {
 
-bool g_textureFlagCe441;
-char g_parkName[128];
+bool g_texture_flag_ce441;
+char g_park_name[128];
 
 namespace {
 
-using Scripts::CComponent;
-using Scripts::CScript;
-using Scripts::CStruct;
+using script::Component;
+using script::Script;
+using script::Struct;
 
 // The names of the texture commands' parameters.
 constexpr uint32_t kWidth = 0x73E5BAD0;  // "width"
@@ -30,64 +30,64 @@ constexpr uint32_t kNew = 0x941CBBBA;    // "new"
 constexpr uint32_t kSetsPaletteFlag = 0xC164842A; // (name unknown) brightness / HSV: an integer, 1 = the flag on
 
 // The texture dictionaries (Nx): the level's / scripts' (0x00700F1C) and the particles' (0x00700F20).
-void* Textures() { return reinterpret_cast<void*>(Engine3D::g_gameTextureDict); }
-void* ParticleTextures() { return reinterpret_cast<void*>(Engine3D::g_particleTextureDict); }
+void* get_textures() { return reinterpret_cast<void*>(render::g_game_texture_dict); }
+void* particle_textures() { return reinterpret_cast<void*>(render::g_particle_texture_dict); }
 
 // A dictionary's calls (no source yet).
-void* ReadTextureFile(void* dictionary, const char* file, bool flag1, bool allocateVram, bool flag3)
+void* read_texture_file(void* dictionary, const char* file, bool flag1, bool allocate_vram, bool flag3)
 {
-    return static_cast<Engine3D::CTextureSet*>(dictionary)->IngestSkin(file, flag1, allocateVram, flag3);
+    return static_cast<render::TextureSet*>(dictionary)->ingest_skin(file, flag1, allocate_vram, flag3);
 }
-void* FetchSkin(void* dictionary, uint32_t checksum)
+void* fetch_skin(void* dictionary, uint32_t checksum)
 {
-    return static_cast<Engine3D::CTextureSet*>(dictionary)->FetchSkin(checksum);
+    return static_cast<render::TextureSet*>(dictionary)->fetch_skin(checksum);
 }
-void* GetTextureByName(void* dictionary, const char* file)
+void* get_texture_by_name(void* dictionary, const char* file)
 {
-    return static_cast<Engine3D::CTextureSet*>(dictionary)->GetTextureByName(file);
+    return static_cast<render::TextureSet*>(dictionary)->get_texture_by_name(file);
 }
-void UnloadTextureFrom(void* dictionary, void* texture)
+void unload_texture_from(void* dictionary, void* texture)
 {
-    static_cast<Engine3D::CTextureSet*>(dictionary)->UnloadTexture(static_cast<Engine3D::CBitmapTexture*>(texture));
+    static_cast<render::TextureSet*>(dictionary)->unload_texture(static_cast<render::BitmapTexture*>(texture));
 }
 
 // A texture's own calls (thunks into its vtable).
 template <typename Fn, typename... Args>
-void TextureCall(uint32_t slot, void* texture, Args... args)
+void texture_call(uint32_t slot, void* texture, Args... args)
 {
     // (the texture's virtual slot `slot`: the original goes through a jump stub for each)
     reinterpret_cast<Fn>((*static_cast<void***>(texture))[slot])(texture, args...);
 }
 
 // A component's raw value.
-uint32_t RawValue(const CComponent* component) { return component->raw; }
+uint32_t raw_value(const Component* component) { return component->raw; }
 
 } // namespace
 
 // 0x005A9D80
-bool __cdecl CFunc_SceAltPt(CStruct*, CScript*)
+bool __cdecl cfunc_sce_alt_pt(Struct*, Script*)
 {
-    g_textureFlagCe441 = true;
+    g_texture_flag_ce441 = true;
     return true;
 }
 
 // 0x005A9D90
-uint32_t __cdecl FindNameOfValue(CStruct* structure, uint32_t value, int depth)
+uint32_t __cdecl find_name_of_value(Struct* structure, uint32_t value, int depth)
 {
     if (depth > 10)
         return 0;
     uint32_t found = 0;
-    for (CComponent* component = structure->StepToEntry(nullptr); component;) {
+    for (Component* component = structure->step_to_entry(nullptr); component;) {
         // (the global structure the component's value names, looked up for every component)
-        CStruct* named = Scripts::ReadSubStruct(RawValue(component));
-        CComponent* next = structure->StepToEntry(component);
+        Struct* named = script::read_sub_struct(raw_value(component));
+        Component* next = structure->step_to_entry(component);
         if (!found) {
-            if (component->KindTag() == Scripts::QBVAL_STRUCT)
-                found = FindNameOfValue(component->structure, value, depth + 1);
+            if (component->kind_tag() == script::kQbvalStruct)
+                found = find_name_of_value(component->structure, value, depth + 1);
             else if (named)
-                found = FindNameOfValue(named, value, depth + 1);
+                found = find_name_of_value(named, value, depth + 1);
         }
-        if (component->KindTag() == Scripts::QBVAL_NAME && component->checksum == value)
+        if (component->kind_tag() == script::kQbvalName && component->checksum == value)
             found = component->name;
         component = next;
     }
@@ -95,13 +95,13 @@ uint32_t __cdecl FindNameOfValue(CStruct* structure, uint32_t value, int depth)
 }
 
 // 0x005A9E30
-uint32_t FindNameOfInteger(CStruct* structure, uint32_t value)
+uint32_t find_name_of_integer(Struct* structure, uint32_t value)
 {
     uint32_t found = 0;
-    for (CComponent* component = structure->StepToEntry(nullptr); component;) {
-        CComponent* next = structure->StepToEntry(component);
-        if (component->KindTag() == Scripts::QBVAL_INTEGER && component->raw == value) {
-            DebugOut::Printf("s_find_cat_in_mapping found %i\n", value); // "s_find_cat_in_mapping found %i"
+    for (Component* component = structure->step_to_entry(nullptr); component;) {
+        Component* next = structure->step_to_entry(component);
+        if (component->kind_tag() == script::kQbvalInteger && component->raw == value) {
+            debug::printf("s_find_cat_in_mapping found %i\n", value); // "s_find_cat_in_mapping found %i"
             found = component->name;
         }
         component = next;
@@ -110,26 +110,26 @@ uint32_t FindNameOfInteger(CStruct* structure, uint32_t value)
 }
 
 namespace {
-uint32_t __cdecl FindNameOfIntegerRegisters(CStruct* structure, uint32_t value)
+uint32_t __cdecl find_name_of_integer_registers(Struct* structure, uint32_t value)
 {
-    return FindNameOfInteger(structure, value);
+    return find_name_of_integer(structure, value);
 }
 } // namespace
 
 // 0x005A9E30: the structure in EBX, the value on the stack (the caller pops it).
-__declspec(naked) void FindNameOfIntegerStub()
+__declspec(naked) void find_name_of_integer_stub()
 {
     __asm {
         push dword ptr [esp + 4]
         push ebx
-        call FindNameOfIntegerRegisters
+        call find_name_of_integer_registers
         add esp, 8
         ret
     }
 }
 
 // 0x005A9E80
-float __cdecl WrapAngle(float degrees)
+float __cdecl wrap_angle(float degrees)
 {
     double angle = degrees; // (kept in an x87 register, double precision)
     while (angle < 0.0)
@@ -140,150 +140,150 @@ float __cdecl WrapAngle(float degrees)
 }
 
 // 0x005A9ED0
-bool __cdecl CFunc_CompositeObjectExists(CStruct* params, CScript*)
+bool __cdecl cfunc_composite_object_exists(Struct* params, Script*)
 {
     uint32_t id;
-    params->ReadHashValue(0xA1DC81F9u, &id, 1); // name (asserted: the id is used as it is)
-    return GameObjects::FindObject(id) != nullptr;
+    params->read_hash_value(0xA1DC81F9u, &id, 1); // name (asserted: the id is used as it is)
+    return objects::find_object(id) != nullptr;
 }
 
 // 0x005A9F00
-bool __cdecl CFunc_LoadTexture(CStruct* params, CScript*)
+bool __cdecl cfunc_load_texture(Struct* params, Script*)
 {
     const char* file;
-    params->FetchText(0u, &file, 0);
-    bool allocateVram = !params->HasBareFlag(0x3955FF2Eu); // no_vram_alloc
-    return ReadTextureFile(Textures(), file, true, allocateVram, true) != nullptr;
+    params->fetch_text(0u, &file, 0);
+    bool allocate_vram = !params->has_bare_flag(0x3955FF2Eu); // no_vram_alloc
+    return read_texture_file(get_textures(), file, true, allocate_vram, true) != nullptr;
 }
 
-bool TextureLoaded(const char* file) { return GetTextureByName(Textures(), file) != nullptr; }
+bool texture_loaded(const char* file) { return get_texture_by_name(get_textures(), file) != nullptr; }
 
 // 0x005A9F60
-bool __cdecl CFunc_CreateTexture(CStruct* params, CScript*)
+bool __cdecl cfunc_create_texture(Struct* params, Script*)
 {
     uint32_t name;
-    params->ReadHashValue(0u, &name, 0);
+    params->read_hash_value(0u, &name, 0);
     int width;
     int height;
-    int bitDepth;
-    int clutBits = 0; // (not initialised in the original: only read when needed)
-    bool valid = params->FetchIntValue(kWidth, &width, 0);
-    valid = params->FetchIntValue(kHeight, &height, 0) && valid;
-    valid = params->FetchIntValue(0xBA0F2AC5u, &bitDepth, 0) && valid; // bitdepth
-    if (bitDepth <= 8 && !params->FetchIntValue(0x51533ECBu, &clutBits, 0)) // palette_bitdepth
+    int bit_depth;
+    int clut_bits = 0; // (not initialised in the original: only read when needed)
+    bool valid = params->fetch_int_value(kWidth, &width, 0);
+    valid = params->fetch_int_value(kHeight, &height, 0) && valid;
+    valid = params->fetch_int_value(0xBA0F2AC5u, &bit_depth, 0) && valid; // bitdepth
+    if (bit_depth <= 8 && !params->fetch_int_value(0x51533ECBu, &clut_bits, 0)) // palette_bitdepth
         return false;
     if (!valid)
         return false;
-    return static_cast<Engine3D::CTextureSet*>(Textures())->CreateTexture(name, width, height, bitDepth, clutBits, 1, true) !=
+    return static_cast<render::TextureSet*>(get_textures())->create_texture(name, width, height, bit_depth, clut_bits, 1, true) !=
            nullptr;
 }
 
 // 0x005AA040
-bool __cdecl CFunc_UnloadTexture(CStruct* params, CScript*)
+bool __cdecl cfunc_unload_texture(Struct* params, Script*)
 {
     void* texture = nullptr;
     const char* file;
     uint32_t checksum;
-    if (params->FetchText(0u, &file, 0))
-        texture = GetTextureByName(Textures(), file);
-    else if (params->ReadHashValue(0u, &checksum, 0))
-        texture = FetchSkin(Textures(), checksum);
+    if (params->fetch_text(0u, &file, 0))
+        texture = get_texture_by_name(get_textures(), file);
+    else if (params->read_hash_value(0u, &checksum, 0))
+        texture = fetch_skin(get_textures(), checksum);
     if (texture) {
-        UnloadTextureFrom(Textures(), texture);
+        unload_texture_from(get_textures(), texture);
         return true;
     }
-    params->HasBareFlag(0x3D92465Eu); // dont_assert (the assert is compiled out)
+    params->has_bare_flag(0x3D92465Eu); // dont_assert (the assert is compiled out)
     return true;
 }
 
 // 0x005AA0C0
-bool __cdecl CFunc_Generate32BitImage(CStruct* params, CScript*)
+bool __cdecl cfunc_generate32_bit_image(Struct* params, Script*)
 {
     uint32_t id;
-    params->ReadHashValue(0u, &id, 0);
-    void* texture = FetchSkin(Textures(), id);
+    params->read_hash_value(0u, &id, 0);
+    void* texture = fetch_skin(get_textures(), id);
     if (texture) {
         bool renderable = false;
-        bool storeOriginal = false;
+        bool store_original = false;
         int value;
-        if (params->FetchIntValue(0xA5D7CFAAu, &value, 0) && value == 1) // renderable
+        if (params->fetch_int_value(0xA5D7CFAAu, &value, 0) && value == 1) // renderable
             renderable = true;
-        if (params->FetchIntValue(0xEEFAF080u, &value, 0) && value == 1) // store_original
-            storeOriginal = true;
-        TextureCall<void(__thiscall*)(void*, bool, bool)>(8, texture, renderable, storeOriginal);
+        if (params->fetch_int_value(0xEEFAF080u, &value, 0) && value == 1) // store_original
+            store_original = true;
+        texture_call<void(__thiscall*)(void*, bool, bool)>(8, texture, renderable, store_original);
     }
     return true;
 }
 
 // 0x005AA160
-bool __cdecl CFunc_Put32BitImageIntoTexture(CStruct* params, CScript*)
+bool __cdecl cfunc_put32_bit_image_into_texture(Struct* params, Script*)
 {
     uint32_t id;
-    params->ReadHashValue(0u, &id, 0);
-    void* texture = FetchSkin(Textures(), id);
+    params->read_hash_value(0u, &id, 0);
+    void* texture = fetch_skin(get_textures(), id);
     if (texture) {
-        bool paletteGen = false;
+        bool palette_gen = false;
         int value = 0;
-        params->FetchIntValue(0xC313FDFFu, &value, 0); // palette_gen
+        params->fetch_int_value(0xC313FDFFu, &value, 0); // palette_gen
         if (value == 1)
-            paletteGen = true;
-        TextureCall<void(__thiscall*)(void*, bool, bool)>(9, texture, paletteGen, false);
+            palette_gen = true;
+        texture_call<void(__thiscall*)(void*, bool, bool)>(9, texture, palette_gen, false);
     }
     return true;
 }
 
 // 0x005AA1E0
-bool __cdecl CFunc_FlipTexture(CStruct* params, CScript*)
+bool __cdecl cfunc_flip_texture(Struct* params, Script*)
 {
     uint32_t id;
-    params->ReadHashValue(0u, &id, 0);
+    params->read_hash_value(0u, &id, 0);
     int horizontal = 0;
     int vertical = 0;
-    void* texture = FetchSkin(Textures(), id);
+    void* texture = fetch_skin(get_textures(), id);
     if (texture) {
-        params->FetchIntValue(0xA04027C9u, &horizontal, 0); // horiz
-        params->FetchIntValue(0x94927839u, &vertical, 0);   // vert
+        params->fetch_int_value(0xA04027C9u, &horizontal, 0); // horiz
+        params->fetch_int_value(0x94927839u, &vertical, 0);   // vert
         if (horizontal)
-            TextureCall<void(__thiscall*)(void*)>(13, texture);
+            texture_call<void(__thiscall*)(void*)>(13, texture);
         if (vertical)
-            TextureCall<void(__thiscall*)(void*)>(14, texture);
+            texture_call<void(__thiscall*)(void*)>(14, texture);
     }
     return true;
 }
 
 // 0x005AA270
-bool __cdecl CFunc_ResizeTextureInto(CStruct* params, CScript*)
+bool __cdecl cfunc_resize_texture_into(Struct* params, Script*)
 {
     uint32_t id;
-    params->ReadHashValue(0u, &id, 0);
+    params->read_hash_value(0u, &id, 0);
     uint32_t source; // (not initialised without src=, as in the original)
-    params->ReadHashValue(kSrc, &source, 0);
-    void* texture = FetchSkin(Textures(), id);
+    params->read_hash_value(kSrc, &source, 0);
+    void* texture = fetch_skin(get_textures(), id);
     if (texture) {
-        if (void* sourceTexture = FetchSkin(Textures(), source))
-            TextureCall<void(__thiscall*)(void*, void*, int)>(15, texture, sourceTexture, 0);
+        if (void* source_texture = fetch_skin(get_textures(), source))
+            texture_call<void(__thiscall*)(void*, void*, int)>(15, texture, source_texture, 0);
     }
     return true;
 }
 
 // 0x005AA2E0
-bool __cdecl CFunc_ScaleTexture(CStruct* params, CScript*)
+bool __cdecl cfunc_scale_texture(Struct* params, Script*)
 {
     uint32_t id;
-    params->ReadHashValue(0u, &id, 0);
+    params->read_hash_value(0u, &id, 0);
     float scale; // (not initialised without scale=, as in the original)
-    params->FetchFloat(0x13B9DA7Bu, &scale, 0);
-    if (void* texture = FetchSkin(Textures(), id))
-        TextureCall<void(__thiscall*)(void*, float, float)>(16, texture, scale, scale);
+    params->fetch_float(0x13B9DA7Bu, &scale, 0);
+    if (void* texture = fetch_skin(get_textures(), id))
+        texture_call<void(__thiscall*)(void*, float, float)>(16, texture, scale, scale);
     return true;
 }
 
 // 0x005AA340
-bool __cdecl CFunc_AdjustTextureRegion(CStruct* params, CScript*)
+bool __cdecl cfunc_adjust_texture_region(Struct* params, Script*)
 {
     uint32_t id;
-    params->ReadHashValue(0u, &id, 0);
-    void* texture = FetchSkin(Textures(), id);
+    params->read_hash_value(0u, &id, 0);
+    void* texture = fetch_skin(get_textures(), id);
     if (texture) {
         int x = 0;
         int y = 0;
@@ -294,174 +294,174 @@ bool __cdecl CFunc_AdjustTextureRegion(CStruct* params, CScript*)
         int value5 = 0;
         int value6 = 0;
         int value7 = 0;
-        params->FetchIntValue(0x0FA8972Eu, &x, 0); // xpos
-        params->FetchIntValue(0xB714F04Bu, &y, 0); // ypos
-        params->FetchIntValue(kWidth, &width, 0);
-        params->FetchIntValue(kHeight, &height, 0);
-        params->FetchIntValue(0xE679982Eu, &value5, 0); // (names unknown)
-        params->FetchIntValue(0x3D0F162Au, &value6, 0);
-        params->FetchIntValue(0x39C54BDEu, &value7, 0);
-        TextureCall<void(__thiscall*)(void*, int, int, int, int, int, int, int)>(20, texture, x, y, width,
+        params->fetch_int_value(0x0FA8972Eu, &x, 0); // xpos
+        params->fetch_int_value(0xB714F04Bu, &y, 0); // ypos
+        params->fetch_int_value(kWidth, &width, 0);
+        params->fetch_int_value(kHeight, &height, 0);
+        params->fetch_int_value(0xE679982Eu, &value5, 0); // (names unknown)
+        params->fetch_int_value(0x3D0F162Au, &value6, 0);
+        params->fetch_int_value(0x39C54BDEu, &value7, 0);
+        texture_call<void(__thiscall*)(void*, int, int, int, int, int, int, int)>(20, texture, x, y, width,
                                                                                  height, value5, value6, value7);
     }
     return true;
 }
 
 // 0x005AA460
-bool __cdecl CFunc_PullTextureToEdge(CStruct* params, CScript*)
+bool __cdecl cfunc_pull_texture_to_edge(Struct* params, Script*)
 {
     uint32_t id;
-    params->ReadHashValue(0u, &id, 0);
-    void* texture = FetchSkin(Textures(), id);
+    params->read_hash_value(0u, &id, 0);
+    void* texture = fetch_skin(get_textures(), id);
     if (texture) {
         int edge = 0;
         int axis = 0;
         int pixels = 0;
-        params->FetchIntValue(0x485A0CDBu, &edge, 0);   // (name unknown)
-        params->FetchIntValue(0x7AF07905u, &axis, 0);   // Axis
-        params->FetchIntValue(0x88CF948Cu, &pixels, 0); // num_pixels
-        TextureCall<void(__thiscall*)(void*, int, int, int)>(21, texture, edge, axis, pixels);
+        params->fetch_int_value(0x485A0CDBu, &edge, 0);   // (name unknown)
+        params->fetch_int_value(0x7AF07905u, &axis, 0);   // Axis
+        params->fetch_int_value(0x88CF948Cu, &pixels, 0); // num_pixels
+        texture_call<void(__thiscall*)(void*, int, int, int)>(21, texture, edge, axis, pixels);
     }
     return true;
 }
 
 // 0x005AA500
-bool __cdecl CFunc_AdjustTextureBrightness(CStruct* params, CScript*)
+bool __cdecl cfunc_adjust_texture_brightness(Struct* params, Script*)
 {
     uint32_t id;
-    params->ReadHashValue(0u, &id, 0);
-    void* texture = FetchSkin(Textures(), id);
+    params->read_hash_value(0u, &id, 0);
+    void* texture = fetch_skin(get_textures(), id);
     if (texture) {
         float brightness = 1.0f;
         int value = 0;
         bool flag = false;
-        params->FetchFloat(0x2689291Cu, &brightness, 1); // Brightness
-        params->FetchIntValue(kSetsPaletteFlag, &value, 0);
+        params->fetch_float(0x2689291Cu, &brightness, 1); // Brightness
+        params->fetch_int_value(kSetsPaletteFlag, &value, 0);
         if (value == 1)
             flag = true;
-        TextureCall<void(__thiscall*)(void*, float, bool)>(23, texture, brightness, flag);
+        texture_call<void(__thiscall*)(void*, float, bool)>(23, texture, brightness, flag);
     }
     return true;
 }
 
 // 0x005AA590
-bool __cdecl CFunc_AdjustTextureHSV(CStruct* params, CScript*)
+bool __cdecl cfunc_adjust_texture_hsv(Struct* params, Script*)
 {
     uint32_t id;
-    params->ReadHashValue(0u, &id, 0);
-    void* texture = FetchSkin(Textures(), id);
+    params->read_hash_value(0u, &id, 0);
+    void* texture = fetch_skin(get_textures(), id);
     if (texture) {
         float hue = 0.0f;
         float saturation = 1.0f;
         float value = 1.0f;
-        int bitValue = 0;
+        int bit_value = 0;
         bool flag = false;
-        params->FetchFloat(0x6E94F918u, &hue, 0);        // h
-        params->FetchFloat(0xE4F130F4u, &saturation, 0); // s
-        params->FetchFloat(0x949BC47Bu, &value, 0);      // v
-        params->FetchIntValue(kSetsPaletteFlag, &bitValue, 0);
-        if (bitValue == 1)
+        params->fetch_float(0x6E94F918u, &hue, 0);        // h
+        params->fetch_float(0xE4F130F4u, &saturation, 0); // s
+        params->fetch_float(0x949BC47Bu, &value, 0);      // v
+        params->fetch_int_value(kSetsPaletteFlag, &bit_value, 0);
+        if (bit_value == 1)
             flag = true;
-        TextureCall<void(__thiscall*)(void*, float, float, float, bool)>(24, texture, hue, saturation, value,
+        texture_call<void(__thiscall*)(void*, float, float, float, bool)>(24, texture, hue, saturation, value,
                                                                          flag);
-        TextureCall<void(__thiscall*)(void*, bool, bool)>(9, texture, false, false);
+        texture_call<void(__thiscall*)(void*, bool, bool)>(9, texture, false, false);
     }
     return true;
 }
 
 // 0x005AA670
-bool __cdecl CFunc_CopyTexture(CStruct* params, CScript*)
+bool __cdecl cfunc_copy_texture(Struct* params, Script*)
 {
     uint32_t source;
-    params->ReadHashValue(kSrc, &source, 0);
-    void* texture = FetchSkin(Textures(), source);
+    params->read_hash_value(kSrc, &source, 0);
+    void* texture = fetch_skin(get_textures(), source);
     uint32_t copy;
-    if (texture && params->ReadHashValue(kNew, &copy, 0))
-        static_cast<Engine3D::CTextureSet*>(Textures())->CopyTexture(copy, static_cast<Engine3D::CBitmapTexture*>(texture));
+    if (texture && params->read_hash_value(kNew, &copy, 0))
+        static_cast<render::TextureSet*>(get_textures())->copy_texture(copy, static_cast<render::BitmapTexture*>(texture));
     return true;
 }
 
 // 0x005AA6E0
-bool __cdecl CFunc_CombineTextures(CStruct* params, CScript*)
+bool __cdecl cfunc_combine_textures(Struct* params, Script*)
 {
     uint32_t source; // (src and top are not initialised when missing, as in the original)
     uint32_t top;
     uint32_t combined = 0;
-    bool paletteGen = true;
-    params->ReadHashValue(kSrc, &source, 0);
-    params->ReadHashValue(0xE126E035u, &top, 0); // top
-    params->ReadHashValue(kNew, &combined, 0);
-    if (params->HasBareFlag(0x5905256Bu)) // no_palette_gen
-        paletteGen = false;
-    void* sourceTexture = FetchSkin(Textures(), source);
-    if (!sourceTexture)
+    bool palette_gen = true;
+    params->read_hash_value(kSrc, &source, 0);
+    params->read_hash_value(0xE126E035u, &top, 0); // top
+    params->read_hash_value(kNew, &combined, 0);
+    if (params->has_bare_flag(0x5905256Bu)) // no_palette_gen
+        palette_gen = false;
+    void* source_texture = fetch_skin(get_textures(), source);
+    if (!source_texture)
         return true;
-    void* topTexture = FetchSkin(Textures(), top);
-    if (!topTexture)
+    void* top_texture = fetch_skin(get_textures(), top);
+    if (!top_texture)
         return true;
     if (combined) {
         // a new texture of the two
-        static_cast<Engine3D::CTextureSet*>(Textures())->CopyTextureWithOverlay(
-            combined, static_cast<Engine3D::CBitmapTexture*>(sourceTexture), static_cast<Engine3D::CBitmapTexture*>(topTexture), paletteGen);
+        static_cast<render::TextureSet*>(get_textures())->copy_texture_with_overlay(
+            combined, static_cast<render::BitmapTexture*>(source_texture), static_cast<render::BitmapTexture*>(top_texture), palette_gen);
         return true;
     }
-    TextureCall<void(__thiscall*)(void*, void*, bool)>(41, sourceTexture, topTexture, paletteGen);
+    texture_call<void(__thiscall*)(void*, void*, bool)>(41, source_texture, top_texture, palette_gen);
     return true;
 }
 
 // 0x005AA7B0
-bool __cdecl CFunc_LoadParticleTexture(CStruct* params, CScript*)
+bool __cdecl cfunc_load_particle_texture(Struct* params, Script*)
 {
     const char* file;
-    params->FetchText(0u, &file, 0);
+    params->fetch_text(0u, &file, 0);
     if (file[0] == '\0')
         return false;
-    void* texture = GetTextureByName(ParticleTextures(), file);
-    bool permanent = params->HasBareFlag(0xD5928F25u); // perm
+    void* texture = get_texture_by_name(particle_textures(), file);
+    bool permanent = params->has_bare_flag(0xD5928F25u); // perm
     if (!texture)
-        texture = ReadTextureFile(ParticleTextures(), file, true, true, permanent);
+        texture = read_texture_file(particle_textures(), file, true, true, permanent);
     return texture != nullptr;
 }
 
 // 0x005AA830
-bool __cdecl CFunc_UnloadParticleTexture(CStruct* params, CScript*)
+bool __cdecl cfunc_unload_particle_texture(Struct* params, Script*)
 {
     const char* file;
-    params->FetchText(0u, &file, 0);
-    if (void* texture = GetTextureByName(ParticleTextures(), file)) {
-        TextureCall<void(__thiscall*)(void*)>(32, texture); // (its vtable +0x80 first)
-        UnloadTextureFrom(ParticleTextures(), texture);
+    params->fetch_text(0u, &file, 0);
+    if (void* texture = get_texture_by_name(particle_textures(), file)) {
+        texture_call<void(__thiscall*)(void*)>(32, texture); // (its vtable +0x80 first)
+        unload_texture_from(particle_textures(), texture);
     }
     return true;
 }
 
 // 0x005AA880
-bool __cdecl CFunc_LoadSFPTexture(CStruct* params, CScript*)
+bool __cdecl cfunc_load_sfp_texture(Struct* params, Script*)
 {
     const char* file;
-    params->FetchText(0u, &file, 0);
-    return ReadTextureFile(ParticleTextures(), file, false, true, true) != nullptr;
+    params->fetch_text(0u, &file, 0);
+    return read_texture_file(particle_textures(), file, false, true, true) != nullptr;
 }
 
 // 0x005AA8B0
-bool __cdecl CFunc_UnloadSFPTexture(CStruct* params, CScript*)
+bool __cdecl cfunc_unload_sfp_texture(Struct* params, Script*)
 {
     const char* file;
-    params->FetchText(0u, &file, 0);
-    if (void* texture = GetTextureByName(ParticleTextures(), file))
-        UnloadTextureFrom(ParticleTextures(), texture);
+    params->fetch_text(0u, &file, 0);
+    if (void* texture = get_texture_by_name(particle_textures(), file))
+        unload_texture_from(particle_textures(), texture);
     return true;
 }
 
 // 0x005AA8F0
-bool __cdecl CFunc_SetParkName(CStruct* params, CScript*)
+bool __cdecl cfunc_set_park_name(Struct* params, Script*)
 {
     const char* name = ""; // ""
-    params->FetchText(0u, &name, 0);
-    char* parkName = g_parkName;
-    while ((*parkName++ = *name++) != '\0') { // (no length limit, as in the original)
+    params->fetch_text(0u, &name, 0);
+    char* park_name = g_park_name;
+    while ((*park_name++ = *name++) != '\0') { // (no length limit, as in the original)
     }
     return false;
 }
 
-} // namespace ScriptCommands
+} // namespace commands

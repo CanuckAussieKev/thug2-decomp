@@ -12,39 +12,39 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 
-namespace ParkEditing {
+namespace park_editing {
 
-MemSys::PoolPair g_parkStringPools;
-MemSys::PoolPair g_parkPointPools;
+memory::PoolPair g_park_string_pools;
+memory::PoolPair g_park_point_pools;
 
 namespace {
 
 // The classes' pool pairs (CPoolable): a set's pool is lent to them while one of its items is made or freed.
-MemSys::PoolPair& StringPools() { return g_parkStringPools; }
-MemSys::PoolPair& PointPools() { return g_parkPointPools; }
+memory::PoolPair& string_pools() { return g_park_string_pools; }
+memory::PoolPair& point_pools() { return g_park_point_pools; }
 
 // Whether the pair's current pool was made by it (and so is deleted when it's taken away): a byte per pool at +4.
-uint8_t& PoolOwned(MemSys::PoolPair& pair) { return reinterpret_cast<uint8_t*>(&pair.unknown4)[pair.current]; }
+uint8_t& pool_owned(memory::PoolPair& pair) { return reinterpret_cast<uint8_t*>(&pair.unknown4)[pair.current]; }
 
 // A pool deleted: its block (0x005BA4E0, ~Pool), then the pool.
-void DeletePool(MemSys::SlabBank* pool)
+void delete_pool(memory::SlabBank* pool)
 {
-    MemSys::Dealloc(pool->m_outset);
-    MemSys::Hub::Pull()->Dealloc(pool);
+    memory::dealloc(pool->outset_);
+    memory::Hub::get_pull()->dealloc(pool);
 }
 
 // `pool` lent to `pair` as its current pool (not owned).
-void LendPool(MemSys::PoolPair& pair, MemSys::SlabBank* pool)
+void lend_pool(memory::PoolPair& pair, memory::SlabBank* pool)
 {
     pair.pools[pair.current] = pool;
-    PoolOwned(pair) = 0;
+    pool_owned(pair) = 0;
 }
 // The current pool taken away again (deleted if the pair made it).
-void TakeBackPool(MemSys::PoolPair& pair)
+void take_back_pool(memory::PoolPair& pair)
 {
-    if (MemSys::SlabBank* pool = pair.pools[pair.current]) {
-        if (PoolOwned(pair))
-            DeletePool(pool);
+    if (memory::SlabBank* pool = pair.pools[pair.current]) {
+        if (pool_owned(pair))
+            delete_pool(pool);
         pair.pools[pair.current] = nullptr;
     }
 }
@@ -57,136 +57,136 @@ const float kThreeQuarterTurn = std::bit_cast<float>(0x4096CBE4u);
 } // namespace
 
 // 0x0058AFC0
-void CParkRailString::AppendSpot(CParkRailPoint* point)
+void ParkRailString::append_spot(ParkRailPoint* point)
 {
-    if (!m_pointChain) {
-        ++m_vertexTotal;
-        m_pointChain = point;
-        m_tailNode = point;
+    if (!point_chain_) {
+        ++vertex_total_;
+        point_chain_ = point;
+        tail_node_ = point;
         return;
     }
-    m_tailNode->m_following = point;
-    ++m_vertexTotal;
-    m_tailNode = point;
+    tail_node_->following_ = point;
+    ++vertex_total_;
+    tail_node_ = point;
 }
 
 // 0x0058B040
-int CParkRailString::CountSegments() const
+int ParkRailString::count_segments() const
 {
-    if (m_flagBits & kLoop)
-        return m_vertexTotal;
+    if (flag_bits_ & kLoop)
+        return vertex_total_;
     int points = 0;
-    for (const CParkRailPoint* point = m_pointChain; point; point = point->m_following)
+    for (const ParkRailPoint* point = point_chain_; point; point = point->following_)
         ++points;
     return points > 1 ? points - 1 : 0;
 }
 
 // 0x0058B220
-void __cdecl CParkRailString::Dealloc(void* item) { StringPools().Dealloc(item); }
+void __cdecl ParkRailString::dealloc(void* item) { string_pools().dealloc(item); }
 
 // 0x0058B420
-void CParkRailString::CopyFrom(const CParkRailString* source, const Maths::Vec4* offset, int rot, uint32_t cluster,
+void ParkRailString::copy_from(const ParkRailString* source, const maths::Vec4* offset, int rot, uint32_t cluster,
                                float angle)
 {
-    const bool climbing = source->m_class == kClimbingNode;
-    for (const CParkRailPoint* from = source->m_pointChain; from; from = from->m_following) {
-        CParkRailPoint* point = m_pointGroup->AppendRailVertex(); // (not null-checked: as the original)
-        std::memcpy(point, from, offsetof(CParkRailPoint, m_following));
+    const bool climbing = source->class_ == kClimbingNode;
+    for (const ParkRailPoint* from = source->point_chain_; from; from = from->following_) {
+        ParkRailPoint* point = point_group_->append_rail_vertex(); // (not null-checked: as the original)
+        std::memcpy(point, from, offsetof(ParkRailPoint, following_));
         // Turned about y: what's added to the offset's x and z.
         float x, z;
         switch (rot) {
         case 1:
-            x = from->m_atPoint.z;
-            z = -from->m_atPoint.x;
+            x = from->at_point_.z;
+            z = -from->at_point_.x;
             if (climbing)
-                point->m_headings.y = angle + kQuarterTurn;
+                point->headings_.y = angle + kQuarterTurn;
             break;
         case 2:
-            x = -from->m_atPoint.x;
-            z = -from->m_atPoint.z;
+            x = -from->at_point_.x;
+            z = -from->at_point_.z;
             if (climbing)
-                point->m_headings.y = angle + kHalfTurn;
+                point->headings_.y = angle + kHalfTurn;
             break;
         case 3:
-            x = -from->m_atPoint.z;
-            z = from->m_atPoint.x;
+            x = -from->at_point_.z;
+            z = from->at_point_.x;
             if (climbing)
-                point->m_headings.y = angle + kThreeQuarterTurn;
+                point->headings_.y = angle + kThreeQuarterTurn;
             break;
         default:
-            x = from->m_atPoint.x;
-            z = from->m_atPoint.z;
+            x = from->at_point_.x;
+            z = from->at_point_.z;
             if (climbing)
-                point->m_headings.y = angle;
+                point->headings_.y = angle;
             break;
         }
-        point->m_atPoint.w = 1.0f;
-        point->m_atPoint.x = x + offset->x;
-        point->m_atPoint.y = offset->y + from->m_atPoint.y;
-        point->m_atPoint.z = offset->z + z;
-        point->m_cluster = cluster;
-        AppendSpot(point);
+        point->at_point_.w = 1.0f;
+        point->at_point_.x = x + offset->x;
+        point->at_point_.y = offset->y + from->at_point_.y;
+        point->at_point_.z = offset->z + z;
+        point->cluster_ = cluster;
+        append_spot(point);
     }
-    m_class = source->m_class;
-    m_label = source->m_label;
-    m_flagBits = static_cast<uint8_t>((m_flagBits & ~(kLoop | kClimbable)) | (source->m_flagBits & (kLoop | kClimbable)));
+    class_ = source->class_;
+    label_ = source->label_;
+    flag_bits_ = static_cast<uint8_t>((flag_bits_ & ~(kLoop | kClimbable)) | (source->flag_bits_ & (kLoop | kClimbable)));
 }
 
 // 0x0058B620
-void CParkRailString::DeletePoints()
+void ParkRailString::delete_points()
 {
-    MemSys::PoolPair& pair = PointPools();
-    for (CParkRailPoint* point = m_pointChain; point;) {
-        CParkRailPoint* next = point->m_following;
-        LendPool(pair, m_pointGroup->m_pointPool);
-        pair.Dealloc(point);
-        TakeBackPool(pair);
+    memory::PoolPair& pair = point_pools();
+    for (ParkRailPoint* point = point_chain_; point;) {
+        ParkRailPoint* next = point->following_;
+        lend_pool(pair, point_group_->point_pool_);
+        pair.dealloc(point);
+        take_back_pool(pair);
         point = next;
     }
-    m_pointChain = nullptr;
-    m_tailNode = nullptr;
-    m_vertexTotal = 0;
+    point_chain_ = nullptr;
+    tail_node_ = nullptr;
+    vertex_total_ = 0;
 }
 
 // 0x0058AFF0
-CParkRailSet* CParkRailSet::MakeNew()
+ParkRailSet* ParkRailSet::make_new()
 {
-    m_railGroups = nullptr;
-    m_railTotal = 0;
-    m_pointPool = nullptr;
-    m_railPool = nullptr;
+    rail_groups_ = nullptr;
+    rail_total_ = 0;
+    point_pool_ = nullptr;
+    rail_pool_ = nullptr;
     return this;
 }
 
 // 0x0058B010
-void CParkRailSet::AddRail(CParkRailString* string)
+void ParkRailSet::add_rail(ParkRailString* string)
 {
-    if (!m_railGroups) {
-        ++m_railTotal;
-        m_railGroups = string;
-        m_tailNode = string;
+    if (!rail_groups_) {
+        ++rail_total_;
+        rail_groups_ = string;
+        tail_node_ = string;
         return;
     }
-    m_tailNode->m_following = string;
-    ++m_railTotal;
-    m_tailNode = string;
+    tail_node_->following_ = string;
+    ++rail_total_;
+    tail_node_ = string;
 }
 
 // 0x0058B070
-int CParkRailSet::RailPointTotal() const
+int ParkRailSet::rail_point_total() const
 {
     int points = 0;
-    for (const CParkRailString* string = m_railGroups; string; string = string->m_following)
-        points += string->m_vertexTotal;
+    for (const ParkRailString* string = rail_groups_; string; string = string->following_)
+        points += string->vertex_total_;
     return points;
 }
 
 // 0x0058B090
-CParkRailString* CParkRailSet::FindRail(uint32_t name, int index)
+ParkRailString* ParkRailSet::find_rail(uint32_t name, int index)
 {
     int found = 0;
-    for (CParkRailString* string = m_railGroups; string; string = string->m_following) {
-        if (string->m_label == name) {
+    for (ParkRailString* string = rail_groups_; string; string = string->following_) {
+        if (string->label_ == name) {
             if (found == index)
                 return string;
             ++found;
@@ -196,90 +196,90 @@ CParkRailString* CParkRailSet::FindRail(uint32_t name, int index)
 }
 
 // 0x0058B0C0
-void CParkRailSet::PrepareAll(int points, int strings, bool in)
+void ParkRailSet::prepare_all(int points, int strings, bool in)
 {
     if (in)
-        std::memcpy(m_label, "In set", sizeof("In set"));
+        std::memcpy(label_, "In set", sizeof("In set"));
     else
-        std::memcpy(m_label, "Out set", sizeof("Out set"));
-    char pointName[64], stringName[64];
-    std::snprintf(pointName, sizeof(pointName), "%s RailPoint", m_label);
-    std::snprintf(stringName, sizeof(stringName), "%s RailString", m_label);
-    void* memory = MemSys::Alloc(sizeof(MemSys::SlabBank));
-    m_pointPool = memory ? new (memory) MemSys::SlabBank(sizeof(CParkRailPoint), points, pointName) : nullptr;
-    memory = MemSys::Alloc(sizeof(MemSys::SlabBank));
-    m_railPool = memory ? new (memory) MemSys::SlabBank(sizeof(CParkRailString), strings, stringName) : nullptr;
+        std::memcpy(label_, "Out set", sizeof("Out set"));
+    char point_name[64], string_name[64];
+    std::snprintf(point_name, sizeof(point_name), "%s RailPoint", label_);
+    std::snprintf(string_name, sizeof(string_name), "%s RailString", label_);
+    void* memory = memory::alloc(sizeof(memory::SlabBank));
+    point_pool_ = memory ? new (memory) memory::SlabBank(sizeof(ParkRailPoint), points, point_name) : nullptr;
+    memory = memory::alloc(sizeof(memory::SlabBank));
+    rail_pool_ = memory ? new (memory) memory::SlabBank(sizeof(ParkRailString), strings, string_name) : nullptr;
 }
 
 // 0x0058B280
-void CParkRailSet::FreePools()
+void ParkRailSet::free_pools()
 {
-    if (m_railPool) {
-        DeletePool(m_railPool);
-        m_railPool = nullptr;
+    if (rail_pool_) {
+        delete_pool(rail_pool_);
+        rail_pool_ = nullptr;
     }
-    if (m_pointPool) {
-        DeletePool(m_pointPool);
-        m_pointPool = nullptr;
+    if (point_pool_) {
+        delete_pool(point_pool_);
+        point_pool_ = nullptr;
     }
 }
 
 // 0x0058B2D0
-CParkRailPoint* CParkRailSet::AppendRailVertex()
+ParkRailPoint* ParkRailSet::append_rail_vertex()
 {
-    MemSys::PoolPair& pair = PointPools();
-    LendPool(pair, m_pointPool);
-    auto* point = static_cast<CParkRailPoint*>(pair.Carve(sizeof(CParkRailPoint)));
+    memory::PoolPair& pair = point_pools();
+    lend_pool(pair, point_pool_);
+    auto* point = static_cast<ParkRailPoint*>(pair.carve(sizeof(ParkRailPoint)));
     if (point) {
-        point->m_atPoint = {0.0f, 0.0f, 0.0f, 0.0f};
-        point->m_following = nullptr;
+        point->at_point_ = {0.0f, 0.0f, 0.0f, 0.0f};
+        point->following_ = nullptr;
     }
-    TakeBackPool(pair);
+    take_back_pool(pair);
     return point;
 }
 
 // 0x0058B370
-CParkRailString* CParkRailSet::NewRail()
+ParkRailString* ParkRailSet::get_new_rail()
 {
-    MemSys::PoolPair& pair = StringPools();
-    LendPool(pair, m_railPool);
-    auto* string = static_cast<CParkRailString*>(pair.Carve(sizeof(CParkRailString)));
+    memory::PoolPair& pair = string_pools();
+    lend_pool(pair, rail_pool_);
+    auto* string = static_cast<ParkRailString*>(pair.carve(sizeof(ParkRailString)));
     if (string) {
-        string->m_flagBits = static_cast<uint8_t>((string->m_flagBits & ~CParkRailString::kLoop) | CParkRailString::kClimbable);
-        string->m_pointChain = nullptr;
-        string->m_vertexTotal = 0;
-        string->m_following = nullptr;
+        string->flag_bits_ = static_cast<uint8_t>((string->flag_bits_ & ~ParkRailString::kLoop) | ParkRailString::kClimbable);
+        string->point_chain_ = nullptr;
+        string->vertex_total_ = 0;
+        string->following_ = nullptr;
     }
-    TakeBackPool(pair);
-    string->m_pointGroup = this; // (not null-checked: as the original)
+    take_back_pool(pair);
+    string->point_group_ = this; // (not null-checked: as the original)
     return string;
 }
 
 // 0x0058B5B0
-void CParkRailSet::FreeRail(CParkRailString* string)
+void ParkRailSet::free_rail(ParkRailString* string)
 {
-    MemSys::PoolPair& pair = StringPools();
-    LendPool(pair, m_railPool);
+    memory::PoolPair& pair = string_pools();
+    lend_pool(pair, rail_pool_);
     if (string)
-        CParkRailString::Dealloc(string);
-    TakeBackPool(pair);
+        ParkRailString::dealloc(string);
+    take_back_pool(pair);
 }
 
 // 0x0058B700
-void CParkRailSet::Clear()
+void ParkRailSet::get_clear()
 {
-    MemSys::PoolPair& pair = StringPools();
-    for (CParkRailString* string = m_railGroups; string;) {
-        CParkRailString* next = string->m_following;
-        string->DeletePoints();
-        LendPool(pair, m_railPool);
-        pair.Dealloc(string);
-        TakeBackPool(pair);
+    memory::PoolPair& pair = string_pools();
+    for (ParkRailString* string = rail_groups_; string;) {
+        ParkRailString* next = string->following_;
+        string->delete_points();
+        lend_pool(pair, rail_pool_);
+        pair.dealloc(string);
+        take_back_pool(pair);
         string = next;
     }
-    m_railGroups = nullptr;
-    m_tailNode = nullptr;
-    m_railTotal = 0;
+    rail_groups_ = nullptr;
+    tail_node_ = nullptr;
+    rail_total_ = 0;
 }
 
 } // namespace Ed

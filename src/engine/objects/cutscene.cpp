@@ -1,4 +1,4 @@
-// Cutscenes: the first pieces of CCinematicTable and CCinematicEntry (0x004638B0-0x004644A0). See cutscene.h.
+// Cutscenes: the first pieces of CinematicTable and CinematicEntry (0x004638B0-0x004644A0). See cutscene.h.
 
 #include "engine/objects/cutscene.h"
 
@@ -13,9 +13,9 @@
 #include "engine/pad_input/device.h"
 #include "platform/stopwatch.h"
 
-namespace GameObjects {
+namespace objects {
 
-char g_cutsceneNameBuffer[256];
+char g_cutscene_name_buffer[256];
 
 namespace {
 
@@ -23,20 +23,20 @@ constexpr uint32_t kSubtitleScript = 0x625985F9;  // run with each subtitle's st
 constexpr uint32_t kTime = 0x906B67BA;            // a subtitle's start (name unknown)
 constexpr uint32_t kDuration = 0x79A07F3F;        // and how long it shows (name unknown)
 constexpr uint32_t kNoSkipping = 0xA2107A0E;      // a global integer: cutscenes can't be skipped (name unknown)
-constexpr uint32_t kSlot12Global = 0xA2A4F02F;    // CCinematicEntry::UpdateSlot12's global (name unknown)
+constexpr uint32_t kSlot12Global = 0xA2A4F02F;    // CinematicEntry::update_slot12's global (name unknown)
 
 // The skip buttons (the controller's makes).
 constexpr uint32_t kButtonX = 0x40;
 constexpr uint32_t kButtonStart = 0x800;
 
-char* NameBuffer() { return g_cutsceneNameBuffer; }
+char* name_buffer() { return g_cutscene_name_buffer; }
 
 } // namespace
 
 // 0x004638B0
-const char* CutsceneNameFromPath(const char* path)
+const char* cutscene_name_from_path(const char* path)
 {
-    char* name = NameBuffer();
+    char* name = name_buffer();
     for (int i = static_cast<int>(std::strlen(path)); i >= 0; --i) {
         if (path[i] == '\\' || path[i] == '/') {
             // (copied forwards a byte at a time, as the original)
@@ -53,110 +53,110 @@ const char* CutsceneNameFromPath(const char* path)
 }
 
 // The path in EDX; the result in EAX.
-__declspec(naked) void CutsceneNameFromPathStub()
+__declspec(naked) void cutscene_name_from_path_stub()
 {
     __asm {
         push edx
-        call CutsceneNameFromPath
+        call cutscene_name_from_path
         add esp, 4
         ret
     }
 }
 
 // 0x00463910
-uint32_t CCinematicTable::HashOfName(const char* suffix, int number)
+uint32_t CinematicTable::hash_of_name(const char* suffix, int number)
 {
     if (number == -1)
-        return Checksums::FoldTextIntoChecksum(m_label, suffix);
+        return checksums::fold_text_into_checksum(label_, suffix);
     char text[0x200];
     std::snprintf(text, sizeof(text), "%s%d\n", suffix, number);
-    return Checksums::FoldTextIntoChecksum(m_label, text);
+    return checksums::fold_text_into_checksum(label_, text);
 }
 
 // 0x004639A0
-int CCinematicTable::IsFinished()
+int CinematicTable::is_finished()
 {
-    return m_clock >= m_endTime ? 1 : 0;
+    return clock_ >= end_time_ ? 1 : 0;
 }
 
 // 0x004639C0
-void CCinematicTable::UpdateVblanks()
+void CinematicTable::update_vblanks()
 {
-    m_vblanks += FrameClock::FetchRetraceCount() - m_prevRetraces;
-    m_prevRetraces = FrameClock::FetchRetraceCount();
+    vblanks_ += frame_clock::fetch_retrace_count() - prev_retraces_;
+    prev_retraces_ = frame_clock::fetch_retrace_count();
 }
 
 // 0x00463A10
-void CCinematicTable::SetSubtitles(Scripts::CArray* subtitles)
+void CinematicTable::set_subtitles(script::Array* subtitles)
 {
-    m_subtitles = subtitles;
-    m_nextSubtitle = 0;
-    auto* first = reinterpret_cast<Scripts::CStruct*>(subtitles->FetchPart(0));
-    first->FetchFloat(kTime, &m_nextSubtitleTime, 1);
+    subtitles_ = subtitles;
+    next_subtitle_ = 0;
+    auto* first = reinterpret_cast<script::Struct*>(subtitles->fetch_part(0));
+    first->fetch_float(kTime, &next_subtitle_time_, 1);
 }
 
 // 0x00464120
-void CCinematicTable::CheckSkip()
+void CinematicTable::check_skip()
 {
-    if (Scripts::FetchIntValue(kNoSkipping) != 0 || !m_canSkip || m_clock == 0.0f)
+    if (script::fetch_int_value(kNoSkipping) != 0 || !can_skip_ || clock_ == 0.0f)
         return;
-    GameModules::FrontEndInputHandler* handler = GameModules::FrontEndInstance()->m_padListeners[0];
-    auto* device = reinterpret_cast<Sio::InputPort*>(handler->m_dev);
-    if (!device->IsAttached() || !device->m_isUsable)
+    modules::FrontEndInputHandler* handler = modules::front_end_instance()->pad_listeners_[0];
+    auto* device = reinterpret_cast<sio::InputPort*>(handler->dev_);
+    if (!device->is_attached() || !device->is_usable_)
         return;
-    if (handler->m_controlData->m_makes & (kButtonX | kButtonStart)) {
-        m_clock = m_endTime;
-        m_skipped = true;
+    if (handler->control_data_->makes_ & (kButtonX | kButtonStart)) {
+        clock_ = end_time_;
+        skipped_ = true;
     }
 }
 
 // 0x004644A0
-void CCinematicTable::UpdateSubtitles()
+void CinematicTable::update_subtitles()
 {
     // (comparisons as the original's: a NaN time never shows a subtitle)
-    if (!m_subtitles || !(m_nextSubtitleTime >= 0.0f) || !(m_clock >= m_nextSubtitleTime))
+    if (!subtitles_ || !(next_subtitle_time_ >= 0.0f) || !(clock_ >= next_subtitle_time_))
         return;
-    auto* subtitle = reinterpret_cast<Scripts::CStruct*>(m_subtitles->FetchPart(m_nextSubtitle));
-    m_subtitleDuration = 0.0f;
-    subtitle->FetchFloat(kDuration, &m_subtitleDuration, 0);
-    Scripts::LaunchScript(kSubtitleScript, subtitle, nullptr, false, nullptr);
-    m_subtitleTime = m_nextSubtitleTime;
-    ++m_nextSubtitle;
-    m_nextSubtitleTime = -1.0f;
-    if (m_nextSubtitle < m_subtitles->m_extent) {
-        auto* next = reinterpret_cast<Scripts::CStruct*>(m_subtitles->FetchPart(m_nextSubtitle));
+    auto* subtitle = reinterpret_cast<script::Struct*>(subtitles_->fetch_part(next_subtitle_));
+    subtitle_duration_ = 0.0f;
+    subtitle->fetch_float(kDuration, &subtitle_duration_, 0);
+    script::launch_script(kSubtitleScript, subtitle, nullptr, false, nullptr);
+    subtitle_time_ = next_subtitle_time_;
+    ++next_subtitle_;
+    next_subtitle_time_ = -1.0f;
+    if (next_subtitle_ < subtitles_->extent_) {
+        auto* next = reinterpret_cast<script::Struct*>(subtitles_->fetch_part(next_subtitle_));
         // (a subtitle without a time leaves the local as it was: the original's holds this object's address)
         float time;
-        const CCinematicTable* self = this;
+        const CinematicTable* self = this;
         std::memcpy(&time, &self, sizeof(time));
-        next->FetchFloat(kTime, &time, 1);
-        m_nextSubtitleTime = time;
+        next->fetch_float(kTime, &time, 1);
+        next_subtitle_time_ = time;
     }
 }
 
 // 0x00463A50
-void CCinematicEntry::CallSlot12WithNotFlag5D()
+void CinematicEntry::call_slot12_with_not_flag_5d()
 {
-    reinterpret_cast<void(__thiscall*)(CCinematicEntry*, bool)>(m_vtable[12])(this, !m_flag5D);
+    reinterpret_cast<void(__thiscall*)(CinematicEntry*, bool)>(vtable_[12])(this, !flag_5d_);
 }
 
 // 0x00463A60
-void CCinematicEntry::UpdateSlot12()
+void CinematicEntry::update_slot12()
 {
-    auto slot12 = reinterpret_cast<void(__thiscall*)(CCinematicEntry*, bool)>(m_vtable[12]);
-    if (m_flag5D) {
-        if (m_unknown60 == -1)
+    auto slot12 = reinterpret_cast<void(__thiscall*)(CinematicEntry*, bool)>(vtable_[12]);
+    if (flag_5d_) {
+        if (unknown60_ == -1)
             slot12(this, false);
-    } else if (m_unknown60 == -1) {
+    } else if (unknown60_ == -1) {
         slot12(this, true);
-        m_unknown60 = Scripts::FetchIntValue(kSlot12Global);
+        unknown60_ = script::fetch_int_value(kSlot12Global);
     }
 }
 
 // 0x00464580
-bool CCinematicEntry::CanBeSkipped()
+bool CinematicEntry::can_be_skipped()
 {
-    return m_content ? m_content->m_canSkip : false;
+    return content_ ? content_->can_skip_ : false;
 }
 
 } // namespace Obj

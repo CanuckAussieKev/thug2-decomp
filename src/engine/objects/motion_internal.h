@@ -8,7 +8,7 @@
 
 #include "engine/objects/motion.h"
 
-namespace GameObjects::MotionDetail {
+namespace objects::motion_detail {
 
 // --- checksums ---
 constexpr uint32_t kName = 0xA1DC81F9;        // Name
@@ -31,10 +31,10 @@ constexpr uint32_t kObjMoveToNode = 0x8819DD8B; // Obj_MoveToNode
 constexpr uint32_t kLockObj = 0x5CB5CB7E;     // the lockobj component
 
 // --- the original's arithmetic ---
-constexpr float Bits(uint32_t bits) { return std::bit_cast<float>(bits); }
+constexpr float get_bits(uint32_t bits) { return std::bit_cast<float>(bits); }
 
 // x87 FSIN, as the original takes its sines.
-inline double X87Sin(double angle)
+inline double x87_sin(double angle)
 {
     double result;
     __asm {
@@ -46,6 +46,6 @@ inline double X87Sin(double angle)
 }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
-inline int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
+inline int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-} // namespace GameObjects::MotionDetail
+} // namespace GameObjects::motion_detail

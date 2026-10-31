@@ -8,12 +8,12 @@
 //
 // TP-R6 - big levels: a skater's position travels as three 16-bit integers (the skater updates, message 0x23: the
 // client's own, 0x00512EA0 / 0x005131A0; the server's relay, 0x005696C0 / 0x005698F0; their readers 0x0056BE60 and
-// HandleObjectUpdates 0x0056E470). THUG2 sends x and z in half units and y in quarter units: +-16384 / +-8192 units.
+// handle_object_updates 0x0056E470). THUG2 sends x and z in half units and y in quarter units: +-16384 / +-8192 units.
 // THUGPRO's THUGPRO_SetBigLevel (run from its load_level in network games) sends whole units instead in a level with
 // IsBigLevel (x and z: its The Mall, z_ma) or IsTallLevel (y). Ours: the same, decided by the level select's entry for
 // the current level (tools/pipeline/menu_level/level_select.ts marks the levels named in tools/pipeline/compat/thugpro/thaw_levels.json
 // "net_position_scale"); off outside network games.
-namespace OnlinePlay::Thugpro {
+namespace online::thugpro {
 
 struct PositionScale {
     bool big = false;  // x and z in whole units (else halves)
@@ -21,18 +21,18 @@ struct PositionScale {
 };
 
 // What the network code uses now.
-const PositionScale& CurrentPositionScale();
-// Set it (the self-tests; RefreshPositionScale sets it in the game).
-void SetPositionScale(const PositionScale& scale);
+const PositionScale& current_position_scale();
+// Set it (the self-tests; refresh_position_scale sets it in the game).
+void set_position_scale(const PositionScale& scale);
 // Once a frame (the main loop): the current level's scale while a network game is on, none otherwise. Logs a change.
-void RefreshPositionScale();
+void refresh_position_scale();
 // The level select entry flags for a level (its load script): IsBigLevel / IsTallLevel.
-PositionScale LevelPositionScale(uint32_t level);
+PositionScale level_position_scale(uint32_t level);
 
 // A position coordinate as sent (the original's _ftol: truncated toward zero, kept to 16 bits) and as read.
-int16_t PackHorizontal(float value); // x, z
-int16_t PackHeight(float value);     // y
-float UnpackHorizontal(int value);
-float UnpackHeight(int value);
+int16_t pack_horizontal(float value); // x, z
+int16_t pack_height(float value);     // y
+float unpack_horizontal(int value);
+float unpack_height(int value);
 
-} // namespace OnlinePlay::Thugpro
+} // namespace online::Thugpro

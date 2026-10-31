@@ -8,59 +8,59 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 
-namespace ParkEditing {
+namespace park_editing {
 
 namespace {
 
-void RunMenuScript(uint32_t script, Scripts::CStruct* params = nullptr)
+void run_menu_script(uint32_t script, script::Struct* params = nullptr)
 {
-    Scripts::LaunchScript(script, params, nullptr, false, nullptr);
+    script::launch_script(script, params, nullptr, false, nullptr);
 }
 
 } // namespace
 
-CTopBarMenus* CTopBarMenus::sSingleton() { return Sole(); }
+TopBarMenus* TopBarMenus::singleton() { return sole(); }
 
-void CTopBarMenus::Fabricate()
+void TopBarMenus::fabricate()
 {
-    if (CTopBarMenus::Sole())
+    if (TopBarMenus::sole())
         return;
-    MemSys::EnterHeapScope(MemSys::BottomUpHeap());
-    auto* menu = static_cast<CTopBarMenus*>(MemSys::Alloc(sizeof(CTopBarMenus)));
+    memory::enter_heap_scope(memory::bottom_up_heap());
+    auto* menu = static_cast<TopBarMenus*>(memory::alloc(sizeof(TopBarMenus)));
     if (menu) {
-        menu->m_pointGroup = nullptr;
-        menu->m_selected = 0;
-        menu->m_setNumber = 0;
-        menu->m_parkOwner = CParkLayout::sSingleton();
+        menu->point_group_ = nullptr;
+        menu->selected_ = 0;
+        menu->set_number_ = 0;
+        menu->park_owner_ = ParkLayout::singleton();
     }
-    CTopBarMenus::Sole() = menu;
-    MemSys::LeaveHeapScope();
+    TopBarMenus::sole() = menu;
+    memory::leave_heap_scope();
 }
 
-void CTopBarMenus::TurnOn()
+void TopBarMenus::turn_on()
 {
-    RunMenuScript(0x4693636A); // parked_make_piece_menu
-    RunMenuScript(0xED885B50); // parked_make_set_menu
-    for (int i = 0; i < m_parkOwner->m_numSets; ++i) {
-        CPieceFamily& set = m_parkOwner->m_sets[i];
-        if (!set.m_isDisplayed)
+    run_menu_script(0x4693636A); // parked_make_piece_menu
+    run_menu_script(0xED885B50); // parked_make_set_menu
+    for (int i = 0; i < park_owner_->num_sets_; ++i) {
+        PieceFamily& set = park_owner_->sets_[i];
+        if (!set.is_displayed_)
             continue;
-        Scripts::CStruct params;
-        params.PrepareAll();
-        params.AppendWord(0x341B6370, set.m_label); // set_name
-        RunMenuScript(0xA4F522E9, &params);       // parked_make_set_menu_item
-        params.Clear();
+        script::Struct params;
+        params.prepare_all();
+        params.append_word(0x341B6370, set.label_); // set_name
+        run_menu_script(0xA4F522E9, &params);       // parked_make_set_menu_item
+        params.get_clear();
     }
-    m_pointGroup = nullptr;
+    point_group_ = nullptr;
 }
 
-void CTopBarMenus::TurnOffNow()
+void TopBarMenus::turn_off_now()
 {
-    RunMenuScript(0x5C7A3276); // parked_destroy_piece_menu
-    RunMenuScript(0x6BF4AA3D); // parked_destroy_set_menu
-    m_pointGroup = nullptr;
+    run_menu_script(0x5C7A3276); // parked_destroy_piece_menu
+    run_menu_script(0x6BF4AA3D); // parked_destroy_set_menu
+    point_group_ = nullptr;
 }
 
 } // namespace Ed
 
-using ParkEditing::CTopBarMenus;
+using park_editing::TopBarMenus;

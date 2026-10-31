@@ -7,8 +7,8 @@
 
 // Serial I/O: the controller ports. A Device per port polls its pad (on PC: a DirectInput joystick, or the
 // keyboard bindings) into PS2-format control data, and drives its two vibration motors ("actuators").
-// PartyMod replaces the polling (InputPort::WorkOn) with SDL game controllers and its own keyboard handling.
-namespace Sio {
+// PartyMod replaces the polling (InputPort::work_on) with SDL game controllers and its own keyboard handling.
+namespace sio {
 
 class InputPort {
 public:
@@ -17,77 +17,77 @@ public:
     // Capability bits.
     enum : uint32_t { kHasActuators = 2, kAnalog = 4 };
 
-    // 0x005BD920. Leaves m_bufferRaw unset and reads it (the PS2 version's DMA buffer, aligned to 64 bytes).
+    // 0x005BD920. Leaves buffer_raw_ unset and reads it (the PS2 version's DMA buffer, aligned to 64 bytes).
     InputPort(int index, int port, int slot);
     // 0x005BCD00: the scalar deleting destructor (deletes the list node; frees the device if flags & 1).
-    InputPort* Teardown(unsigned int flags);
+    InputPort* teardown(unsigned int flags);
 
     // 0x005BDCC0: once a frame. PartyMod's (see device.cpp).
-    void WorkOn(int unused);
+    void work_on(int unused);
     // 0x005BCC60
-    bool IsAttached() const { return m_isConnected; }
+    bool is_attached() const { return is_connected_; }
     // 0x005BCC70: start looking for a pad, if idle and one is there.
-    void Acquire();
+    void acquire();
     // 0x005BD8B0: a pad is there: an analogue pad with two motors (type 7); settle, then ready.
-    void Detect();
+    void detect();
     // 0x005BCCC0: one frame's wait, then the state after it.
-    void Settle();
+    void get_settle();
 
     // 0x005BD200: the original's pad read (Process, state kReady): the platform layer's pad state for this
     // port into PS2-format control data, with the menus deciding which port and keys count. PartyMod's
     // Process does its own reading, so this isn't run in the game.
-    void PullData(int unused);
+    void pull_data(int unused);
 
     // 0x005BDA20: run motor `actuator` at `percent` of its maximum. PartyMod removes the original's first
     // step, reading the pad (see device.cpp).
-    void FireActuator(int actuator, int percent);
+    void fire_actuator(int actuator, int percent);
     // 0x005BCCB0: allow vibration again (the motors stay as they are).
-    void EnableActuators() { m_rumbleOff = 0; }
+    void enable_actuators() { rumble_off_ = 0; }
     // 0x005BDAD0: stop the motors and refuse further vibration.
-    void StopRumble();
+    void stop_rumble();
     // 0x005BDB30: stop the motors. Ends disabled if it was disabled, else enabled (see device.cpp).
-    void ClearRumble();
+    void clear_rumble();
     // 0x005BDB60 / 0x005BDBD0: stop the motors, remembering their levels / restore them (counted: pauses
     // nest).
-    void PauseActuators();
-    void UnpauseActuators();
+    void pause_actuators();
+    void unpause_actuators();
     // 0x005BDC60: stop the motors and forget the remembered levels.
-    void StopActuators();
+    void stop_actuators();
 
-    void** m_vtable;
-    MemSys::ListNode* m_listLink; // in the manager's device list
-    int m_kindTag;
-    int m_portNo;
-    int m_seat;
-    uint8_t m_isUsable;
-    uint8_t m_pad15[3];
-    uint32_t m_octets; // m_bufferRaw rounded up to 64
-    uint8_t m_controlData[32]; // PS2 format: buttons (inverted bits), sticks, pressures
-    uint8_t m_alignData[32];
-    uint8_t m_rumbleRaw[32]; // each motor's level
-    uint8_t m_rumbleCap[32];
-    uint8_t m_actuatorSaved[32]; // levels while paused
-    int m_pauseCount;
-    uint8_t m_rumbleOff;
-    uint8_t m_padC1[3];
-    uint32_t m_capabilities;
-    uint32_t m_unknownC8;
-    int m_rumbleMotorCount;
-    uint32_t m_bufferRaw;
-    int m_curPhase;
-    int m_nextState; // after kSettle
-    int m_ordinal;
-    bool m_isConnected;
-    uint8_t m_padE1[3];
-    int m_disconnectedTicks;
-    int m_reconnectDelay; // rand() & 63
-    uint8_t m_heldDown; // any button down
-    uint8_t m_keyboardControl; // set by the original read (start, the keyboard's char 0x19...)
-    uint8_t m_padEE[2];
+    void** vtable_;
+    memory::ListNode* list_link_; // in the manager's device list
+    int kind_tag_;
+    int port_no_;
+    int seat_;
+    uint8_t is_usable_;
+    uint8_t pad15_[3];
+    uint32_t octets_; // buffer_raw_ rounded up to 64
+    uint8_t control_data_[32]; // PS2 format: buttons (inverted bits), sticks, pressures
+    uint8_t align_data_[32];
+    uint8_t rumble_raw_[32]; // each motor's level
+    uint8_t rumble_cap_[32];
+    uint8_t actuator_saved_[32]; // levels while paused
+    int pause_count_;
+    uint8_t rumble_off_;
+    uint8_t padc1_[3];
+    uint32_t capabilities_;
+    uint32_t unknownc8_;
+    int rumble_motor_count_;
+    uint32_t buffer_raw_;
+    int cur_phase_;
+    int next_state_; // after kSettle
+    int ordinal_;
+    bool is_connected_;
+    uint8_t pade1_[3];
+    int disconnected_ticks_;
+    int reconnect_delay_; // rand() & 63
+    uint8_t held_down_; // any button down
+    uint8_t keyboard_control_; // set by the original read (start, the keyboard's char 0x19...)
+    uint8_t padee_[2];
 };
-static_assert(offsetof(InputPort, m_controlData) == 0x1C && offsetof(InputPort, m_rumbleRaw) == 0x5C &&
-                  offsetof(InputPort, m_pauseCount) == 0xBC && offsetof(InputPort, m_curPhase) == 0xD4 &&
-                  offsetof(InputPort, m_isConnected) == 0xE0 && sizeof(InputPort) == 0xF0,
+static_assert(offsetof(InputPort, control_data_) == 0x1C && offsetof(InputPort, rumble_raw_) == 0x5C &&
+                  offsetof(InputPort, pause_count_) == 0xBC && offsetof(InputPort, cur_phase_) == 0xD4 &&
+                  offsetof(InputPort, is_connected_) == 0xE0 && sizeof(InputPort) == 0xF0,
               "layout must match the original");
 
 // The platform layer's pad state for a port (0x005F5BC0 fills it).
@@ -100,30 +100,30 @@ struct PadSnapshot {
 };
 static_assert(offsetof(PadSnapshot, sticks) == 0x0E && sizeof(PadSnapshot) == 0x18, "layout must match the original");
 
-// The platform layer's motor control (OsLayer::SetActuators, 0x005F3A50: PartyMod's): levels 0-65535.
-void SetActuators(int port, int left, int right);
+// The platform layer's motor control (os_layer::set_actuators, 0x005F3A50: PartyMod's): levels 0-65535.
+void set_actuators(int port, int left, int right);
 
 // The keyboard (DirectInput): 0x005BDD60 reads its state once a frame into one of two 256-byte buffers;
-// typed characters are queued elsewhere (KeyInput).
-void ReadKeyboard();
+// typed characters are queued elsewhere (key_input).
+void read_keyboard();
 // 0x005BDD30 (also reached by a jump at 0x005BCC40): the typed characters, one byte each; returns how many.
-int GetKeyboardChars(char* out);
+int get_keyboard_chars(char* out);
 // 0x005BDE20 (also through 0x005BCC50): forget them.
-void ClearKeyboardChars();
+void clear_keyboard_chars();
 
 // 0x005BDE70: a typed key (a character, or a control key: Enter, Backspace, Escape...) from the window's
-// messages, queued for GetKeyboardChars while the keyboard is in use for typing. `flags` is the message's
-// lParam (bit 30: auto-repeat; negative: a key release). PartyMod calls it for SDL's text input.
-void KeyInput(int key, int flags);
+// messages, queued for get_keyboard_chars while the keyboard is in use for typing. `flags` is the message's
+// l_param (bit 30: auto-repeat; negative: a key release). PartyMod calls it for SDL's text input.
+void key_input(int key, int flags);
 
 // 0x005BDF30: a key press from the window's messages (virtual key codes): F5 refreshes the network server
 // list while it's shown; otherwise, with typed keys wanted, the arrow keys (in a menu) or F1-F4 are queued
 // as 0x14-0x17 / 0x1B-0x1E.
-void SpecialKeyInput(int key, int flags);
+void special_key_input(int key, int flags);
 // 0x005BCD50: the name of the key for a pad button (0-29) on port 0, for the menus' hints - from the key
 // bindings or fixed keys, depending on whether a menu is up or the keyboard is being typed on. A static
 // buffer.
-const char* GetButtonKeyName(int button);
+const char* get_button_key_name(int button);
 
 // The device manager (0x1C bytes, vtable 0x00658AD4): a device per controller port, processed by a task
 // once a frame. One, shared (reference counted).
@@ -132,37 +132,37 @@ public:
     // 0x005BE1F0: the task (not started here) and a device for ports 0 and 1, each acquiring.
     Hub();
     // 0x005BE300: deletes the devices and the task.
-    void DestroyBody();
+    void destroy_body();
     // 0x005BE6C0: the scalar deleting destructor.
-    Hub* Teardown(unsigned int flags);
+    Hub* teardown(unsigned int flags);
 
     // 0x005BE3F0: process each device (the first is told so).
-    void PollPads();
+    void poll_pads();
     // 0x005BE490 / 0x005BE4F0: the device on that port and slot / with that index (null if none).
-    InputPort* FetchGadget(int port, int slot);
-    InputPort* GetPadAtSlot(int index);
+    InputPort* fetch_gadget(int port, int slot);
+    InputPort* get_pad_at_slot(int index);
     // 0x005BE550 / 0x005BE5E0: pause / unpause every device's motors.
-    void PauseDevices();
-    void UnpauseDevices();
+    void pause_devices();
+    void unpause_devices();
 
-    void** m_vtable;
-    MemSys::ListNode m_devs; // the list's head
-    void* m_task;            // Scheduling::Task running ProcessTask with the list as its data
+    void** vtable_;
+    memory::ListNode devs_; // the list's head
+    void* task_;            // tasks::Task running process_task with the list as its data
 };
-static_assert(offsetof(Hub, m_task) == 0x18 && sizeof(Hub) == 0x1C, "layout must match the original");
+static_assert(offsetof(Hub, task_) == 0x18 && sizeof(Hub) == 0x1C, "layout must match the original");
 
-// 0x005BE110: the scalar deleting destructor of a device's list node (ListKit::Elem<Device>, vtable 0x00658A70).
-MemSys::ListNode* DestroyDeviceNode(MemSys::ListNode* node, unsigned int flags);
+// 0x005BE110: the scalar deleting destructor of a device's list node (lists::Elem<Device>, vtable 0x00658A70).
+memory::ListNode* destroy_device_node(memory::ListNode* node, unsigned int flags);
 
 // 0x005BE140: the manager's task - processes each device in the list it was given.
-void __cdecl ProcessTask(void* task);
+void __cdecl process_task(void* task);
 
 // 0x005BE670: the manager, made on first use when `create` (counts a reference either way); returns it
 // (null if there is none).
-Hub* CreateManager(bool create);
+Hub* create_manager(bool create);
 // 0x005BDCF0: drop a reference; the last one deletes it.
-void ReleaseManager();
-Hub*& ManagerInstance();
+void release_manager();
+Hub*& manager_instance();
 
 extern Hub* g_manager;
 

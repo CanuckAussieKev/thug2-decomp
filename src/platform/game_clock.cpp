@@ -7,58 +7,58 @@
 #include "platform/stopwatch.h"
 #include "engine/objects/control_pad.h"
 
-namespace FrameClock {
+namespace frame_clock {
 
 namespace {
 
-// The game time up to the last change of speed (callers add GameClockElapsed to it), the real time of that
+// The game time up to the last change of speed (callers add game_clock_elapsed to it), the real time of that
 // change, and the speed since.
-int& Offset() { return GameObjects::g_clockOffset; }
+int& get_offset() { return objects::g_clock_offset; }
 
 float g_speed{1.0f};
-uint32_t g_lastChange;
+uint32_t g_last_change;
 
-uint32_t& LastChange() { return g_lastChange; }
-float& Pace() { return g_speed; }
+uint32_t& last_change() { return g_last_change; }
+float& get_pace() { return g_speed; }
 
 // The original's x87 code: the unsigned difference times the speed, truncated (_ftol: through 64 bits).
-int Elapsed()
+int get_elapsed()
 {
-    int difference = static_cast<int>(GetTime() - LastChange());
+    int difference = static_cast<int>(get_time() - last_change());
     double scaled = static_cast<double>(difference);
     if (difference < 0)
         scaled += 4294967296.0; // (0x006453B4)
-    scaled *= Pace();
+    scaled *= get_pace();
     return static_cast<int>(static_cast<int64_t>(scaled));
 }
 
-void CatchUp()
+void catch_up()
 {
-    Offset() += Elapsed();
-    LastChange() = GetTime();
+    get_offset() += get_elapsed();
+    last_change() = get_time();
 }
 
 } // namespace
 
 // 0x0044ECE0
-int GameClockElapsed() { return Elapsed(); }
+int game_clock_elapsed() { return get_elapsed(); }
 
 // 0x0041C200
-int GameClockTime() { return GameClockElapsed() + Offset(); }
+int game_clock_time() { return game_clock_elapsed() + get_offset(); }
 
 // 0x0044ED10
-void PauseGameClock(bool pause)
+void pause_game_clock(bool pause)
 {
-    CatchUp();
-    Pace() = pause ? 0.0f : GetTimeScale();
+    catch_up();
+    get_pace() = pause ? 0.0f : get_time_scale();
 }
 
 // 0x0044ED70
-void SetGameClockSpeed(float speed)
+void set_game_clock_speed(float speed)
 {
-    CatchUp();
-    Pace() = speed;
-    SetSlomo(speed);
+    catch_up();
+    get_pace() = speed;
+    set_slomo(speed);
 }
 
 } // namespace Tmr

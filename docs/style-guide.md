@@ -3,22 +3,27 @@
 The code follows the [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines), with the
 house rules below for what they leave open. `.clang-format` and `.clang-tidy` at the root enforce what tools can.
 
-## Naming (standard-library style)
+## Naming
 
 | What | Style | Example |
 |---|---|---|
-| Types: class, struct, enum, alias | snake_case | `rider_physics`, `script_value` |
+| Types: class, struct, enum, alias | PascalCase | `RiderPhysics`, `ScriptValue` |
 | Functions and methods | snake_case | `tick_frame()`, `find_entity()` |
 | Variables, parameters | snake_case | `frame_time`, `target_pos` |
 | Non-static data members | snake_case + `_` | `speed_`, `frame_count_` |
-| Constants (`constexpr` / `const`) | snake_case | `max_players` |
-| Enumerators (`enum class`) | snake_case | `wait_reason::timer` |
+| Namespace-scope variables | `g_` + snake_case (`s_` for a file's alias of one) | `g_frame_count` |
+| Constants (`constexpr` / `const`) and enumerators | `k` + PascalCase | `kMaxPlayers`, `kTimer` |
 | Namespaces | snake_case, = the folder | `maths::`, `script::` |
 | Template parameters | PascalCase | `template <typename Value>` |
 | Macros (rare) | ALL_CAPS, `THUG2_` prefix | `THUG2_ASSERT` |
 | Files | snake_case, `.h` / `.cpp` | `rider_physics.cpp` |
 
-- No type prefixes (C, S, E, I) and no Hungarian prefixes (m_, p_, g_, s_, k).
+- No type prefixes (C, S, E, I) and no type-encoding (Hungarian) prefixes; the only markers are scope ones: a
+  member's trailing `_`, a global's `g_`, a constant's `k`.
+- Types are PascalCase so that `Rider* rider` reads naturally; everything else is snake_case like the standard library.
+- An accessor that returns a thing is `get_<thing>()` when locals holding its result are called `<thing>`.
+- The game's own versions of C runtime functions are `game_<name>` (`game_rand`, `game_qsort`) so they never hide the
+  C runtime's.
 - Names say what a thing is or does; abbreviate only the usual (pos, dir, min, max, num, id).
 - The game's own names - script commands, checksum names, strings - stay as the game spells them in strings and
   tables. External APIs (Direct3D, Win32, SDL, ImGui, GameSpy) keep theirs.

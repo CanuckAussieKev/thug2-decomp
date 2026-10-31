@@ -12,46 +12,46 @@
 #include "engine/core/dbg.h"
 #include "engine/script/cfuncs_scene.h"
 
-namespace GameConfig {
+namespace game_config {
 
-bool g_fromCD{true};
-int g_frameRate{60};
+bool g_from_cd{true};
+int g_frame_rate{60};
 int g_language;
 int g_territory;
 int g_platform;
-bool g_configBootstrap;
-bool g_ntscFlag;
+bool g_config_bootstrap;
+bool g_ntsc_flag;
 
-int& Language() { return g_language; }
-int& Territory() { return g_territory; }
-int& Hardware() { return g_platform; }
-int& DisplayType() { return ScriptCommands::g_configNtsc; }
-int& FrameRate() { return g_frameRate; }
-bool& FromCD() { return g_fromCD; }
-bool& ExtraMemory() { return ScriptCommands::g_gotExtraMemory; }
-bool& Bootstrap() { return g_configBootstrap; }
-bool& NtscFlag() { return g_ntscFlag; }
+int& get_language() { return g_language; }
+int& territory() { return g_territory; }
+int& hardware() { return g_platform; }
+int& display_type() { return commands::g_config_ntsc; }
+int& frame_rate() { return g_frame_rate; }
+bool& from_cd() { return g_from_cd; }
+bool& get_extra_memory() { return commands::g_got_extra_memory; }
+bool& bootstrap() { return g_config_bootstrap; }
+bool& ntsc_flag() { return g_ntsc_flag; }
 
 namespace {
 
-char g_pathPrefix[128];
-char g_bootstrapArgument[128];
-char g_bootstrapReturn[128];
+char g_path_prefix[128];
+char g_bootstrap_argument[128];
+char g_bootstrap_return[128];
 
-char* PathPrefix() { return g_pathPrefix; }       // (0x80 bytes)
-char* BootstrapReturn() { return g_bootstrapReturn; }  // where a bootstrap demo returns to
-char* BootstrapArgument() { return g_bootstrapArgument; } // what it passes back
+char* path_prefix() { return g_path_prefix; }       // (0x80 bytes)
+char* bootstrap_return() { return g_bootstrap_return; }  // where a bootstrap demo returns to
+char* bootstrap_argument() { return g_bootstrap_argument; } // what it passes back
 const char* const kEmpty = ""; // ""
 
 // strcpy (unbounded, as the original's).
-void CopyString(char* to, const char* from) { std::memcpy(to, from, std::strlen(from) + 1); }
+void copy_string(char* to, const char* from) { std::memcpy(to, from, std::strlen(from) + 1); }
 // The C runtime's tolower (C locale).
-char Lower(char c) { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); }
+char get_lower(char c) { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); }
 
 } // namespace
 
 // 0x005B5C90
-bool ArgumentStartsWith(const char* argument, const char* option)
+bool argument_starts_with(const char* argument, const char* option)
 {
     char copy[100];
     if (!argument || !option)
@@ -59,27 +59,27 @@ bool ArgumentStartsWith(const char* argument, const char* option)
     size_t length = std::strlen(option);
     if (std::strlen(argument) < length)
         return false;
-    CopyString(copy, argument);
+    copy_string(copy, argument);
     copy[length] = '\0';
     return std::strcmp(copy, option) == 0;
 }
 
 namespace {
-bool __cdecl ArgumentStartsWithRegisters(const char* argument, const char* option)
+bool __cdecl argument_starts_with_registers(const char* argument, const char* option)
 {
-    return ArgumentStartsWith(argument, option);
+    return argument_starts_with(argument, option);
 }
 } // namespace
 
 // 0x005B5C90: the argument in ECX, the option in EBX; the result in AL.
-__declspec(naked) void ArgumentStartsWithStub()
+__declspec(naked) void argument_starts_with_stub()
 {
     __asm {
         push ecx
         push edx
         push ebx
         push ecx
-        call ArgumentStartsWithRegisters
+        call argument_starts_with_registers
         add esp, 8
         pop edx
         pop ecx
@@ -88,11 +88,11 @@ __declspec(naked) void ArgumentStartsWithStub()
 }
 
 // 0x005B5D30
-const char* __cdecl GetArgumentValue(const char* option, int argc, char** argv)
+const char* __cdecl get_argument_value(const char* option, int argc, char** argv)
 {
     const char* value = nullptr;
     for (int i = 0; i < argc; ++i) {
-        if (!ArgumentStartsWith(argv[i], option))
+        if (!argument_starts_with(argv[i], option))
             continue;
         const char* after = argv[i] + std::strlen(option);
         if (*after == '=') {
@@ -114,17 +114,17 @@ const char* __cdecl GetArgumentValue(const char* option, int argc, char** argv)
 }
 
 // 0x005B5DD0
-bool __cdecl GotArgument(const char* option, int argc, char** argv)
+bool __cdecl got_argument(const char* option, int argc, char** argv)
 {
     char wanted[256];
     char argument[256];
     if (!option)
         return false;
     for (size_t i = 0; i < std::strlen(option) + 1; ++i)
-        wanted[i] = Lower(option[i]);
+        wanted[i] = get_lower(option[i]);
     for (int i = 0; i < argc; ++i) {
         for (size_t j = 0; j < std::strlen(argv[i]) + 1; ++j)
-            argument[j] = Lower(argv[i][j]);
+            argument[j] = get_lower(argv[i][j]);
         if (std::strcmp(argument, wanted) == 0)
             return true;
     }
@@ -132,12 +132,12 @@ bool __cdecl GotArgument(const char* option, int argc, char** argv)
 }
 
 // 0x005B5F10
-const char* __cdecl GetPathPrefix() { return PathPrefix(); }
+const char* __cdecl get_path_prefix() { return path_prefix(); }
 
 // 0x005B5F20
-const char* __cdecl GetLocaleLabel()
+const char* __cdecl get_locale_label()
 {
-    switch (Language()) {
+    switch (get_language()) {
     case 1: return "Japanese"; // "Japanese"
     case 2: return "English"; // "English"
     case 3: return "French"; // "French"
@@ -151,9 +151,9 @@ const char* __cdecl GetLocaleLabel()
 }
 
 // 0x005B5F90
-const char* __cdecl GetRegionLabel()
+const char* __cdecl get_region_label()
 {
-    switch (Territory()) {
+    switch (territory()) {
     case 1: return "Europe"; // "Europe"
     case 2: return "US"; // "US"
     case 3: return "Asia"; // "Asia"
@@ -162,9 +162,9 @@ const char* __cdecl GetRegionLabel()
 }
 
 // 0x005B5FC0
-const char* __cdecl GetPlatformLabel()
+const char* __cdecl get_platform_label()
 {
-    switch (Hardware()) {
+    switch (hardware()) {
     case 1: return "PS2"; // "PS2"
     case 2: return "PS2 ProView"; // "PS2 ProView"
     case 3: return "PS2 Dev System"; // "PS2 Dev System"
@@ -176,9 +176,9 @@ const char* __cdecl GetPlatformLabel()
 }
 
 // 0x005B6020
-const char* __cdecl GetScreenModeLabel()
+const char* __cdecl get_screen_mode_label()
 {
-    switch (DisplayType()) {
+    switch (display_type()) {
     case 0: return "PAL"; // "PAL"
     case 1: return "NTSC"; // "NTSC"
     default: return "Unknown display type"; // "Unknown display type"
@@ -186,9 +186,9 @@ const char* __cdecl GetScreenModeLabel()
 }
 
 // 0x005B6040
-const char* __cdecl FetchPlatformSuffix()
+const char* __cdecl fetch_platform_suffix()
 {
-    switch (Hardware()) {
+    switch (hardware()) {
     case 1:
     case 2:
     case 3: return "ps2"; // "ps2"
@@ -200,59 +200,59 @@ const char* __cdecl FetchPlatformSuffix()
 }
 
 // 0x005B6090
-void __cdecl SetNtscFlag(bool on)
+void __cdecl set_ntsc_flag(bool on)
 {
-    if (DisplayType() == 1)
-        NtscFlag() = on;
+    if (display_type() == 1)
+        ntsc_flag() = on;
 }
 
 // 0x005B60B0
-void __cdecl PrepareAll(int argc, char** argv)
+void __cdecl prepare_all(int argc, char** argv)
 {
-    CopyString(PathPrefix(), kEmpty);
-    ReadRegistry(argc, argv);
-    if (GotArgument("CD", argc, argv)) // "CD"
-        FromCD() = true;
-    if (GotArgument("NotCD", argc, argv)) // "NotCD"
-        FromCD() = false;
-    if (GotArgument("NoExtraMem", argc, argv)) // "NoExtraMem"
-        ExtraMemory() = false;
-    if (GotArgument("Bootstrap", argc, argv)) { // "Bootstrap"
-        Bootstrap() = true;
+    copy_string(path_prefix(), kEmpty);
+    read_registry(argc, argv);
+    if (got_argument("CD", argc, argv)) // "CD"
+        from_cd() = true;
+    if (got_argument("NotCD", argc, argv)) // "NotCD"
+        from_cd() = false;
+    if (got_argument("NoExtraMem", argc, argv)) // "NoExtraMem"
+        get_extra_memory() = false;
+    if (got_argument("Bootstrap", argc, argv)) { // "Bootstrap"
+        bootstrap() = true;
         if (argc > 2) {
-            CopyString(BootstrapReturn(), argv[2]);
+            copy_string(bootstrap_return(), argv[2]);
             if (argc > 3)
-                CopyString(BootstrapArgument(), argv[3]);
+                copy_string(bootstrap_argument(), argv[3]);
             else
-                CopyString(BootstrapArgument(), "THUG2"); // "THUG2" (the original's sprintf)
+                copy_string(bootstrap_argument(), "THUG2"); // "THUG2" (the original's sprintf)
             // "This bootstrap demo will return to %s passing back: %s\n"
-            DebugOut::Printf("This bootstrap demo will return to %s passing back: %s\n", BootstrapReturn(), BootstrapArgument());
+            debug::printf("This bootstrap demo will return to %s passing back: %s\n", bootstrap_return(), bootstrap_argument());
         }
     }
-    if (GotArgument("NotBootstrap", argc, argv)) // "NotBootstrap"
-        Bootstrap() = false;
-    if (GotArgument("Pal", argc, argv)) // "Pal"
-        DisplayType() = 0;
-    if (GotArgument("NTSC", argc, argv)) // "NTSC"
-        DisplayType() = 1;
-    if (const char* rate = GetArgumentValue("FrameRate", argc, argv)) { // "FrameRate"
+    if (got_argument("NotBootstrap", argc, argv)) // "NotBootstrap"
+        bootstrap() = false;
+    if (got_argument("Pal", argc, argv)) // "Pal"
+        display_type() = 0;
+    if (got_argument("NTSC", argc, argv)) // "NTSC"
+        display_type() = 1;
+    if (const char* rate = get_argument_value("FrameRate", argc, argv)) { // "FrameRate"
         if (std::memcmp(rate, "50", 3) == 0)
-            FrameRate() = 50;
+            frame_rate() = 50;
         if (std::memcmp(rate, "60", 3) == 0)
-            FrameRate() = 60;
+            frame_rate() = 60;
     }
 }
 
 // 0x005B6250
-const char* __cdecl GetBootstrapPrefix() { return Bootstrap() ? "THUG2\\" : kEmpty; } // "THUG2\"
+const char* __cdecl get_bootstrap_prefix() { return bootstrap() ? "THUG2\\" : kEmpty; } // "THUG2\"
 
 // 0x005B6270
-void __cdecl ReadRegistry(int, char**)
+void __cdecl read_registry(int, char**)
 {
     const char* path = "Software\\Activision\\Tony Hawk's Underground 2\\Install"; // "Software\Activision\Tony Hawk's Underground 2\Install"
-    Hardware() = 7;
-    Language() = 2;
-    ExtraMemory() = false;
+    hardware() = 7;
+    get_language() = 2;
+    get_extra_memory() = false;
     DWORD language = 0;
     HKEY key;
     DWORD type;
@@ -268,10 +268,10 @@ void __cdecl ReadRegistry(int, char**)
         RegCloseKey(key);
     }
     switch (language) {
-    case 2: Language() = 3; break; // French
-    case 3: Language() = 5; break; // German
-    default: Language() = 2; break;
+    case 2: get_language() = 3; break; // French
+    case 3: get_language() = 5; break; // German
+    default: get_language() = 2; break;
     }
 }
 
-} // namespace GameConfig
+} // namespace game_config

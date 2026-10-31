@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace Gfx2D {
+namespace gfx {
 class ViewCam;
 }
 
@@ -10,13 +10,13 @@ class ViewCam;
 // given position, while standing (not skating) so you don't move, then you can screenshot every frame from that
 // position"; not the game's and not PartyMod's). Used by the test-automation channel's `teleport` and `camera`
 // commands (frontend/automation.h) and the script command below; the frame series that goes with them is the
-// screenshot code's (platform/screenshot.h, StartSeries).
+// screenshot code's (platform/screenshot.h, start_series).
 //
 // - Teleport: the local skater put at a point STANDING (walking, no momentum), on the ground below it (the game's
 //   collision ray from 12 units above the point to 4000 below; the point as given if nothing is hit), facing a
 //   heading (degrees, 0 = +z, 90 = +x - as the screenshot sidecar gives it) or the way it faced. The game's own way:
-//   the skater's custom restart (SetCustomRestart / SkipToCustomRestart walking: CRider::SkipToCustomRestart -
-//   JumpToSpawn walking puts it in the walk state, momentum gone, the camera reset behind it), with the skater's own
+//   the skater's custom restart (SetCustomRestart / SkipToCustomRestart walking: Rider::SkipToCustomRestart -
+//   jump_to_spawn walking puts it in the walk state, momentum gone, the camera reset behind it), with the skater's own
 //   custom restart put back afterwards. Nobody presses anything in a test, so it stands still.
 // - Camera lock: viewport 0's camera drawn at an exact pose (a position and a view direction, level horizon) every
 //   frame until unlocked - the game's camera keeps running underneath. Frames from the same pose are comparable
@@ -25,7 +25,7 @@ class ViewCam;
 //   z-fighting ones flip (tools/pipeline/game/frame_diff.ts).
 // - Script command (for level scripts and the console): TeleportSkaterStanding pos=(x, y, z) [heading=<degrees>] -
 //   false when there's no local skater.
-namespace MenuSystem::TestView {
+namespace frontend::test_view {
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
@@ -34,24 +34,24 @@ struct Vec3 {
 };
 // A camera's rows for a view direction (game convention: forward is -back; right = up(0,1,0) x back, up = back x
 // right). False for a zero direction or one straight up / down (no horizon).
-bool CameraRows(Vec3 direction, Vec3* right, Vec3* up, Vec3* back);
+bool camera_rows(Vec3 direction, Vec3* right, Vec3* up, Vec3* back);
 // A standing skater's rows for a heading in degrees (0 = +z, 90 = +x): right, up (0, 1, 0), at.
-void StandingRows(float headingDegrees, Vec3* right, Vec3* up, Vec3* at);
+void standing_rows(float heading_degrees, Vec3* right, Vec3* up, Vec3* at);
 
 // --- the game ---------------------------------------------------------------------------------------------------
 
-// The local skater to `position` standing; `outPosition` where it ended (after the ground snap). "" or why not.
-// `onBoard`: on its board instead (the custom restart's skating form - still, no momentum; a test that skates on from
+// The local skater to `position` standing; `out_position` where it ended (after the ground snap). "" or why not.
+// `on_board`: on its board instead (the custom restart's skating form - still, no momentum; a test that skates on from
 // there: automation's `teleport ... board`).
-std::string JumpTo(Vec3 position, bool hasHeading, float headingDegrees, Vec3* outPosition, bool onBoard = false);
+std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3* out_position, bool on_board = false);
 // Viewport 0's camera held at `position` looking along `direction`, moved by `drift` a game frame (false: a direction
-// CameraRows refuses).
-bool LockCamera(Vec3 position, Vec3 direction, Vec3 drift = {0.0f, 0.0f, 0.0f});
-void UnlockCamera();
-bool CameraLocked();
+// camera_rows refuses).
+bool lock_camera(Vec3 position, Vec3 direction, Vec3 drift = {0.0f, 0.0f, 0.0f});
+void unlock_camera();
+bool camera_locked();
 // The renderer, a viewport's camera before it's drawn (engine/gfx/draw_frame.cpp): placed while locked.
-void PlaceCamera(Gfx2D::ViewCam* camera, int viewport);
+void place_camera(gfx::ViewCam* camera, int viewport);
 // TeleportSkaterStanding (sys/main.cpp, after the game's own commands).
-void RegisterScriptFunctions();
+void register_script_functions();
 
-} // namespace MenuSystem::TestView
+} // namespace MenuSystem::test_view

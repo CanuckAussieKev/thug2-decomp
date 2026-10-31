@@ -33,42 +33,42 @@
 // Installs everything: the vectored exception logger, the unhandled-exception filter, the CRT's invalid-parameter /
 // purecall / abort handlers, the Debug CRT's report and run-time check hooks, no error boxes. `console`: reports to
 // stdout.
-void InstallCrashHandling(bool console);
+void install_crash_handling(bool console);
 
-// Whether the vectored logger reports this exception code (the fatal ones). `anyModule`: also when it's raised outside
+// Whether the vectored logger reports this exception code (the fatal ones). `any_module`: also when it's raised outside
 // the game (heap corruption, a raised buffer overrun, an invalid CRT parameter - they come from ntdll /
 // the CRT); else only from the game (system DLLs probe memory under their own handlers).
-bool IsFatalException(uint32_t code, bool* anyModule);
+bool is_fatal_exception(uint32_t code, bool* any_module);
 
 // Deliberate faults, to check that all of the above works: the automation channel's `crash <kind>` (workspaces only -
 // src/frontend/automation.h).
 enum class TestFault {
-    Access,           // a write to address 0: EXCEPTION, then unhandled
-    RunTimeCheck,     // a call that leaves ESP wrong (Debug /RTC builds): RUN-TIME CHECK FAILURE
-    CrtError,         // _RPT0(_CRT_ERROR, ...) (Debug CRT): DEBUG CRT REPORT (type 1)
-    InvalidParameter, // _invalid_parameter_noinfo: INVALID PARAMETER
-    PureCall,         // _purecall: PURE VIRTUAL CALL
-    CancelNow,            // abort(): ABORT
-    GameOverrun,      // the game's __security_error_handler(1, 0): BUFFER OVERRUN DETECTED
-    GameCrtMessage,   // the game's __crtMessageBoxA: GAME CRT MESSAGE
-    FastFail,         // __fastfail(FAST_FAIL_STACK_COOKIE_CHECK_FAILURE): ends at once, nothing logged (our /GS)
-    Hang,             // the calling thread sleeps for ever (tools' not-responding detection)
+    kAccess,           // a write to address 0: EXCEPTION, then unhandled
+    kRunTimeCheck,     // a call that leaves ESP wrong (Debug /RTC builds): RUN-TIME CHECK FAILURE
+    kCrtError,         // _RPT0(_CRT_ERROR, ...) (Debug CRT): DEBUG CRT REPORT (type 1)
+    kInvalidParameter, // _invalid_parameter_noinfo: INVALID PARAMETER
+    kPureCall,         // _purecall: PURE VIRTUAL CALL
+    kCancelNow,            // abort(): ABORT
+    kGameOverrun,      // the game's __security_error_handler(1, 0): BUFFER OVERRUN DETECTED
+    kGameCrtMessage,   // the game's __crtMessageBoxA: GAME CRT MESSAGE
+    kFastFail,         // __fastfail(FAST_FAIL_STACK_COOKIE_CHECK_FAILURE): ends at once, nothing logged (our /GS)
+    kHang,             // the calling thread sleeps for ever (tools' not-responding detection)
 };
 // "access", "rtc", "crterror", "invalidparam", "purecall", "abort", "overrun", "crtbox", "fastfail", "hang".
-bool ParseTestFault(const std::string& name, TestFault* out);
-const char* TestFaultName(TestFault fault);
+bool parse_test_fault(const std::string& name, TestFault* out);
+const char* test_fault_name(TestFault fault);
 // The kinds, space-separated (for messages).
-const char* TestFaultNames();
-// Logs "crash test: <kind>" and causes it. Returns false for a kind this build can't cause (RunTimeCheck and CrtError
+const char* test_fault_names();
+// Logs "crash test: <kind>" and causes it. Returns false for a kind this build can't cause (kRunTimeCheck and kCrtError
 // in a Release build), true if it was caused and the process still runs (a handler that didn't end it: a bug).
-bool CauseTestFault(TestFault fault);
+bool cause_test_fault(TestFault fault);
 
 // The end of every fatal report: the crash hook, the exit code logged, the
 // process ended.
-[[noreturn]] void CrashEndProcess(unsigned exitCode);
+[[noreturn]] void crash_end_process(unsigned exit_code);
 // The return addresses found on the stack from `esp` up, logged.
-void CrashLogStackScan(uintptr_t esp);
+void crash_log_stack_scan(uintptr_t esp);
 
-// The two faults that went through the original's C runtime (GameOverrun, GameCrtMessage): there is no such runtime
+// The two faults that went through the original's C runtime (kGameOverrun, kGameCrtMessage): there is no such runtime
 // here, so they return false (not caused).
-bool CauseGameCrtFault(TestFault fault);
+bool cause_game_crt_fault(TestFault fault);

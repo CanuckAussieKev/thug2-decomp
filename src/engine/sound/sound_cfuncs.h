@@ -2,30 +2,30 @@
 
 #include <cstdint>
 
-namespace Scripts {
-class CStruct;
-class CScript;
+namespace script {
+class Struct;
+class Script;
 } // namespace Script
 
 // The script commands (CFunctions) of the sound effects, 0x0044D7D0-0x0044E2BE: loading, playing, stopping and
-// changing sounds through the sound effects manager (SoundFx::CAudioMixer at 0x006F85A8, sfx.h), its volume, pitch,
+// changing sounds through the sound effects manager (sound::AudioMixer at 0x006F85A8, sfx.h), its volume, pitch,
 // dropoff and banks. All are cdecl (params, script) and return whether the script's `if` should be taken.
-namespace ScriptCommands {
+namespace commands {
 
-bool __cdecl CFunc_LoadSound(Scripts::CStruct* params, Scripts::CScript* script);           // 0x0044D7D0
-bool __cdecl CFunc_PlaySound(Scripts::CStruct* params, Scripts::CScript* script);           // 0x0044DC10
-bool __cdecl CFunc_StopSound(Scripts::CStruct* params, Scripts::CScript* script);           // 0x0044DD50
-bool __cdecl CFunc_StopAllSounds(Scripts::CStruct* params, Scripts::CScript* script);       // 0x0044DDA0
-bool __cdecl CFunc_SetSoundParams(Scripts::CStruct* params, Scripts::CScript* script);      // 0x0044DDB0
-bool __cdecl CFunc_IsSoundPlaying(Scripts::CStruct* params, Scripts::CScript* script);      // 0x0044DED0
-bool __cdecl CFunc_AddSoundBanks(Scripts::CStruct* params, Scripts::CScript* script);       // 0x0044DF10
-bool __cdecl CFunc_ClearSoundBank(Scripts::CStruct* params, Scripts::CScript* script);      // 0x0044DF70
-bool __cdecl CFunc_RemoveAllSoundBanks(Scripts::CStruct* params, Scripts::CScript* script); // 0x0044DFA0
-bool __cdecl CFunc_SetSfxReverb(Scripts::CStruct* params, Scripts::CScript* script);        // 0x0044DFB0
-bool __cdecl CFunc_SetSfxDropoff(Scripts::CStruct* params, Scripts::CScript* script);       // 0x0044E040
-bool __cdecl CFunc_SetSfxVolume(Scripts::CStruct* params, Scripts::CScript* script);        // 0x0044E090
-bool __cdecl CFunc_SetGlobalPitchModulation(Scripts::CStruct* params, Scripts::CScript* script); // 0x0044E0C0
-bool __cdecl CFunc_GetValueFromVolume(Scripts::CStruct* params, Scripts::CScript* script);  // 0x0044E200
-bool __cdecl CFunc_SetPositionalSoundSilenceOverrideMode(Scripts::CStruct* params, Scripts::CScript* script); // 0x0044E290
+bool __cdecl cfunc_load_sound(script::Struct* params, script::Script* script);           // 0x0044D7D0
+bool __cdecl cfunc_play_sound(script::Struct* params, script::Script* script);           // 0x0044DC10
+bool __cdecl cfunc_stop_sound(script::Struct* params, script::Script* script);           // 0x0044DD50
+bool __cdecl cfunc_stop_all_sounds(script::Struct* params, script::Script* script);       // 0x0044DDA0
+bool __cdecl cfunc_set_sound_params(script::Struct* params, script::Script* script);      // 0x0044DDB0
+bool __cdecl cfunc_is_sound_playing(script::Struct* params, script::Script* script);      // 0x0044DED0
+bool __cdecl cfunc_add_sound_banks(script::Struct* params, script::Script* script);       // 0x0044DF10
+bool __cdecl cfunc_clear_sound_bank(script::Struct* params, script::Script* script);      // 0x0044DF70
+bool __cdecl cfunc_remove_all_sound_banks(script::Struct* params, script::Script* script); // 0x0044DFA0
+bool __cdecl cfunc_set_sfx_reverb(script::Struct* params, script::Script* script);        // 0x0044DFB0
+bool __cdecl cfunc_set_sfx_dropoff(script::Struct* params, script::Script* script);       // 0x0044E040
+bool __cdecl cfunc_set_sfx_volume(script::Struct* params, script::Script* script);        // 0x0044E090
+bool __cdecl cfunc_set_global_pitch_modulation(script::Struct* params, script::Script* script); // 0x0044E0C0
+bool __cdecl cfunc_get_value_from_volume(script::Struct* params, script::Script* script);  // 0x0044E200
+bool __cdecl cfunc_set_positional_sound_silence_override_mode(script::Struct* params, script::Script* script); // 0x0044E290
 
-} // namespace ScriptCommands
+} // namespace commands

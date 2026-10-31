@@ -1,4 +1,4 @@
-// The skater's score component (GameObjects::CRiderPointKeeper): see skater_score.h.
+// The skater's score component (GameObjects::RiderPointKeeper): see skater_score.h.
 
 #include "game/rider/skater_score.h"
 
@@ -20,7 +20,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
@@ -39,178 +39,178 @@ constexpr uint32_t kValue = 0xE288A7CB, kKeycombo = 0x95E16467, kSpin = 0xEDF5DB
                    kTrickText = 0x3EAFA520, kTotalScore = 0xEE5B2B48, kNumberOfNonGapTricks = 0xFFE7E02C;
 
 template <typename T>
-T& Prop(void* object, uint32_t offset)
+T& prop(void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
 
-// The score (GameModules::PointTally).
-GameModules::PointTally* ScoreOf(uint8_t* score) { return reinterpret_cast<GameModules::PointTally*>(score); }
-int TotalScore(uint8_t* score) { return ScoreOf(score)->GetTotalScore(); }
+// The score (modules::PointTally).
+modules::PointTally* get_score_of(uint8_t* score) { return reinterpret_cast<modules::PointTally*>(score); }
+int total_score(uint8_t* score) { return get_score_of(score)->get_total_score(); }
 // The score so far times the multiplier (+0x14 * +0x60), truncated as the original's _ftol.
-int ScorePot(uint8_t* score)
+int score_pot(uint8_t* score)
 {
-    double pot = static_cast<double>(Prop<int>(score, 0x14)) * Prop<float>(score, 0x60);
+    double pot = static_cast<double>(prop<int>(score, 0x14)) * prop<float>(score, 0x60);
     return static_cast<int>(static_cast<int64_t>(pot));
 }
-int LastScoreLanded(uint8_t* score) { return Prop<int>(score, 0x20); }
+int last_score_landed(uint8_t* score) { return prop<int>(score, 0x20); }
 
 // The career (the skate module 0x007CE478's +0x20; not rewritten here).
-uint8_t* Career() { return Prop<uint8_t*>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule), 0x20); }
+uint8_t* get_career() { return prop<uint8_t*>(reinterpret_cast<uint8_t*>(modules::g_skate_module), 0x20); }
 
 // The unnamed integer (asserted). Without one the original's variable keeps what was in its stack slot - the
 // `params` argument it reuses - so that's the value then.
-int NumberParameter(Scripts::CStruct* params)
+int number_parameter(script::Struct* params)
 {
     int value = static_cast<int>(reinterpret_cast<uintptr_t>(params));
-    params->FetchIntValue(uint32_t{0}, &value, 1);
+    params->fetch_int_value(uint32_t{0}, &value, 1);
     return value;
 }
 
 } // namespace
 
 // 0x00518B60
-CObjectModule* __cdecl CRiderPointKeeper::Fabricate()
+ObjectModule* __cdecl RiderPointKeeper::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CRiderPointKeeper));
+    void* memory = memory::alloc_zeroed(sizeof(RiderPointKeeper));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CRiderPointKeeper*>(memory);
-    component->CObjectModule::MakeNew();
-    component->m_vtable = kVtable;
-    component->m_kindTag = kSkaterScore;
-    component->m_pointsHeld = nullptr;
+    auto* component = static_cast<RiderPointKeeper*>(memory);
+    component->ObjectModule::make_new();
+    component->vtable_ = kVtable;
+    component->kind_tag_ = kSkaterScore;
+    component->points_held_ = nullptr;
     return component;
 }
 
 // 0x00518BE0
-void CRiderPointKeeper::DestroyBody()
+void RiderPointKeeper::destroy_body()
 {
-    m_vtable = kVtable;
-    if (uint8_t* score = m_pointsHeld) {
-        ScoreOf(score)->DestroyBody(); // (its destructor)
-        MemSys::Hub::Pull()->Dealloc(score);
+    vtable_ = kVtable;
+    if (uint8_t* score = points_held_) {
+        get_score_of(score)->destroy_body(); // (its destructor)
+        memory::Hub::get_pull()->dealloc(score);
     }
-    CObjectModule::DestroyBody();
+    ObjectModule::destroy_body();
 }
 
 // 0x00518C50
-CRiderPointKeeper* CRiderPointKeeper::Teardown(unsigned int flags)
+RiderPointKeeper* RiderPointKeeper::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00518660
-void CRiderPointKeeper::ConfigureFromData(Scripts::CStruct* /*params*/)
+void RiderPointKeeper::configure_from_data(script::Struct* /*params*/)
 {
-    if (m_pointsHeld)
+    if (points_held_)
         return;
-    void* memory = MemSys::AllocZeroed(0x1550);
-    m_pointsHeld = memory ? reinterpret_cast<uint8_t*>(static_cast<GameModules::PointTally*>(memory)->MakeNew()) : nullptr; // (its constructor)
-    ScoreOf(m_pointsHeld)->SetRiderNumber(static_cast<int16_t>(m_entity->m_ident));
+    void* memory = memory::alloc_zeroed(0x1550);
+    points_held_ = memory ? reinterpret_cast<uint8_t*>(static_cast<modules::PointTally*>(memory)->make_new()) : nullptr; // (its constructor)
+    get_score_of(points_held_)->set_rider_number(static_cast<int16_t>(entity_->ident_));
 }
 
 // 0x005186E0
-void CRiderPointKeeper::TickFrame()
+void RiderPointKeeper::tick_frame()
 {
-    if (!m_entity->m_unknownBC) {
-        VirtualSuspend(true);
+    if (!entity_->unknownbc_) {
+        virtual_suspend(true);
         return;
     }
-    ScoreOf(m_pointsHeld)->TickFrame();
-    bool alwaysSpecial = Prop<uint8_t>(m_entity, 0x168) != 0 ||
-                         reinterpret_cast<CRiderStoryProgress*>(Career())->IsCodeOn(kCheatAlwaysSpecial);
-    if (alwaysSpecial) {
-        uint8_t* career = Career();
-        reinterpret_cast<CRiderStoryProgress*>(career)->SetGlobalFlag(Scripts::FetchIntValue(kCheatAlwaysSpecial));
-        ScoreOf(m_pointsHeld)->FillSpecial();
-        reinterpret_cast<uint8_t&>(OnlinePlay::g_cheatFlag) = 1;
+    get_score_of(points_held_)->tick_frame();
+    bool always_special = prop<uint8_t>(entity_, 0x168) != 0 ||
+                         reinterpret_cast<RiderStoryProgress*>(get_career())->is_code_on(kCheatAlwaysSpecial);
+    if (always_special) {
+        uint8_t* career = get_career();
+        reinterpret_cast<RiderStoryProgress*>(career)->set_global_flag(script::fetch_int_value(kCheatAlwaysSpecial));
+        get_score_of(points_held_)->fill_special();
+        reinterpret_cast<uint8_t&>(online::g_cheat_flag) = 1;
     }
 }
 
 // 0x00518630
-void CRiderPointKeeper::ResetScore()
+void RiderPointKeeper::reset_score()
 {
-    ScoreOf(m_pointsHeld)->Reset();
-    ScoreOf(m_pointsHeld)->SetTeeterGauge(false, 0.0f);
-    ScoreOf(m_pointsHeld)->SetWheelieGauge(false, 0.0f);
+    get_score_of(points_held_)->get_reset();
+    get_score_of(points_held_)->set_teeter_gauge(false, 0.0f);
+    get_score_of(points_held_)->set_wheelie_gauge(false, 0.0f);
 }
 
 // 0x00518760
-int CRiderPointKeeper::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script)
+int RiderPointKeeper::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
 {
     switch (name) {
     case kLastScoreLandedLessThan: {
-        int value = NumberParameter(params);
-        return LastScoreLanded(m_pointsHeld) < value ? 1 : 0;
+        int value = number_parameter(params);
+        return last_score_landed(points_held_) < value ? 1 : 0;
     }
     case kLastScoreLandedGreaterThan: {
-        int value = NumberParameter(params);
-        return LastScoreLanded(m_pointsHeld) > value ? 1 : 0;
+        int value = number_parameter(params);
+        return last_score_landed(points_held_) > value ? 1 : 0;
     }
     case kTotalScoreLessThan: {
-        int value = NumberParameter(params);
-        return TotalScore(m_pointsHeld) < value ? 1 : 0;
+        int value = number_parameter(params);
+        return total_score(points_held_) < value ? 1 : 0;
     }
     case kTotalScoreGreaterThan: {
-        int value = NumberParameter(params);
-        return TotalScore(m_pointsHeld) > value ? 1 : 0;
+        int value = number_parameter(params);
+        return total_score(points_held_) > value ? 1 : 0;
     }
     case kCurrentScorePotLessThan: {
-        int value = NumberParameter(params);
-        return ScorePot(m_pointsHeld) < value ? 1 : 0;
+        int value = number_parameter(params);
+        return score_pot(points_held_) < value ? 1 : 0;
     }
     case kCurrentScorePotGreaterThan: {
-        int value = NumberParameter(params);
-        return ScorePot(m_pointsHeld) > value ? 1 : 0;
+        int value = number_parameter(params);
+        return score_pot(points_held_) > value ? 1 : 0;
     }
     case kGetSpecialValue:
-        script->m_args->PutInt(kValue, Prop<int>(m_pointsHeld, 0x70));
+        script->args_->put_int(kValue, prop<int>(points_held_, 0x70));
         return 1;
     case kSetSpecialValue: {
-        // (no value: the params pointer, as NumberParameter's)
+        // (no value: the params pointer, as number_parameter's)
         int value = static_cast<int>(reinterpret_cast<uintptr_t>(params));
-        params->FetchIntValue(kValue, &value, 0);
-        Prop<int>(m_pointsHeld, 0x70) = value;
+        params->fetch_int_value(kValue, &value, 0);
+        prop<int>(points_held_, 0x70) = value;
         return 1;
     }
     case kGotSpecial:
-        return Prop<uint8_t>(m_pointsHeld, 0x74) ? 1 : 0;
+        return prop<uint8_t>(points_held_, 0x74) ? 1 : 0;
     case kForceSpecial:
-        ScoreOf(m_pointsHeld)->FillSpecial();
+        get_score_of(points_held_)->fill_special();
         return 1;
     case kGetTotalScore:
-        script->m_args->PutInt(kTotalScore, TotalScore(m_pointsHeld));
+        script->args_->put_int(kTotalScore, total_score(points_held_));
         return 1;
     case kGetNumberOfNonGapTricks:
-        script->m_args->PutInt(kNumberOfNonGapTricks, ScoreOf(m_pointsHeld)->CountNonGapTricks());
+        script->args_->put_int(kNumberOfNonGapTricks, get_score_of(points_held_)->count_non_gap_tricks());
         return 1;
     case kTweakTrick: {
         int tweak = 0;
-        params->FetchIntValue(uint32_t{0}, &tweak, 0);
-        ScoreOf(m_pointsHeld)->TweakTrick(tweak);
+        params->fetch_int_value(uint32_t{0}, &tweak, 0);
+        get_score_of(points_held_)->tweak_trick(tweak);
         return 1;
     }
     case kIncrementScore:
-        ScoreOf(m_pointsHeld)->SetGrandTotal(TotalScore(m_pointsHeld) + 1);
+        get_score_of(points_held_)->set_grand_total(total_score(points_held_) + 1);
         return 1;
     case kIsLatestTrick: {
         // A trick by key combo or by name, with its spin (half turns) and taps (1 by default).
-        uint32_t keyCombo;
+        uint32_t key_combo;
         const char* text = nullptr;
-        bool byKeyCombo = params->ReadHashValue(kKeycombo, &keyCombo, 0);
-        if (!byKeyCombo && !params->FetchText(kTrickText, &text, 0))
+        bool by_key_combo = params->read_hash_value(kKeycombo, &key_combo, 0);
+        if (!by_key_combo && !params->fetch_text(kTrickText, &text, 0))
             return 2;
         int spin = 0;
-        if (params->FetchIntValue(kSpin, &spin, 0))
+        if (params->fetch_int_value(kSpin, &spin, 0))
             spin /= 180;
         int taps = 1;
-        params->FetchIntValue(kNumTaps, &taps, 0);
-        bool latest = byKeyCombo ? ScoreOf(m_pointsHeld)->LastTrickIsKeyCombo(keyCombo, spin, false, taps)
-                                 : ScoreOf(m_pointsHeld)->LastTrickIs(Checksums::HashFromText(text), spin, false, taps);
+        params->fetch_int_value(kNumTaps, &taps, 0);
+        bool latest = by_key_combo ? get_score_of(points_held_)->last_trick_is_key_combo(key_combo, spin, false, taps)
+                                 : get_score_of(points_held_)->last_trick_is(checksums::hash_from_text(text), spin, false, taps);
         return latest ? 1 : 0;
     }
     default:
@@ -220,23 +220,23 @@ int CRiderPointKeeper::InvokeMethodByName(uint32_t name, Scripts::CStruct* param
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CRiderPointKeeper::Teardown,
-         &GameObjects::CRiderPointKeeper::TickFrame,
-         &GameObjects::CRiderPointKeeper::ConfigureFromData,
-         Stubs::DoNothing,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
-         &GameObjects::CRiderPointKeeper::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::RiderPointKeeper::teardown,
+         &objects::RiderPointKeeper::tick_frame,
+         &objects::RiderPointKeeper::configure_from_data,
+         stubs::do_nothing,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
+         &objects::RiderPointKeeper::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

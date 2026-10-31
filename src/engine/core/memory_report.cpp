@@ -14,14 +14,14 @@
 #include "engine/core/memory_sizes.h"
 #include "platform/run_log.h"
 
-namespace MemSys {
+namespace memory {
 
 namespace {
 
-int Kb(int64_t bytes) { return static_cast<int>(bytes / 1024); }
+int kb(int64_t bytes) { return static_cast<int>(bytes / 1024); }
 
 // The process's free address space: the total and the largest free block.
-void AddressSpace(uint64_t& total, uint64_t& largest)
+void address_space(uint64_t& total, uint64_t& largest)
 {
     total = 0;
     largest = 0;
@@ -41,28 +41,28 @@ void AddressSpace(uint64_t& total, uint64_t& largest)
 
 } // namespace
 
-void LogMemoryUse(const char* when)
+void log_memory_use(const char* when)
 {
-    Hub* manager = Hub::Pull();
-    if (!manager || !manager->m_primaryZone)
+    Hub* manager = Hub::get_pull();
+    if (!manager || !manager->primary_zone_)
         return;
-    Zone* main = manager->m_primaryZone;
+    Zone* main = manager->primary_zone_;
     std::string line;
     char part[160];
-    std::snprintf(part, sizeof(part), "main block %d KB, free %d KB (least %d KB); heaps:", Kb(Sizes::MainBlockSize()),
-                  Kb(main->FreeByteCount()), Kb(main->m_minAvailable));
+    std::snprintf(part, sizeof(part), "main block %d KB, free %d KB (least %d KB); heaps:", kb(sizes::main_block_size()),
+                  kb(main->free_byte_count()), kb(main->min_available_));
     line += part;
-    for (MemSource* heap = manager->FirstZone(); heap; heap = manager->FollowingZone(heap)) {
-        if (heap->m_maxUsedSize < 64 * 1024)
+    for (MemSource* heap = manager->first_zone(); heap; heap = manager->following_zone(heap)) {
+        if (heap->max_used_size_ < 64 * 1024)
             continue; // (the small ones: themes, skater info...)
-        std::snprintf(part, sizeof(part), " %s %d KB (peak %d KB)", heap->m_label ? heap->m_label : "?",
-                      Kb(heap->m_usedSize), Kb(heap->m_maxUsedSize));
+        std::snprintf(part, sizeof(part), " %s %d KB (peak %d KB)", heap->label_ ? heap->label_ : "?",
+                      kb(heap->used_size_), kb(heap->max_used_size_));
         line += part;
     }
     PROCESS_MEMORY_COUNTERS counters = {};
     counters.cb = sizeof(counters);
     uint64_t total = 0, largest = 0;
-    AddressSpace(total, largest);
+    address_space(total, largest);
     if (K32GetProcessMemoryInfo(GetCurrentProcess(), &counters, sizeof(counters))) {
         std::snprintf(part, sizeof(part), "; process: private %d MB (peak %d MB)",
                       static_cast<int>(counters.PagefileUsage >> 20), static_cast<int>(counters.PeakPagefileUsage >> 20));
@@ -71,7 +71,7 @@ void LogMemoryUse(const char* when)
     std::snprintf(part, sizeof(part), ", address space free %d MB (largest %d MB)", static_cast<int>(total >> 20),
                   static_cast<int>(largest >> 20));
     line += part;
-    Log("memory %s: %s", when, line.c_str());
+    get_log("memory %s: %s", when, line.c_str());
 }
 
 } // namespace Mem

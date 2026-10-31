@@ -10,7 +10,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/crt.h"
 
-namespace ParkEditing {
+namespace park_editing {
 
 namespace {
 
@@ -18,15 +18,15 @@ constexpr uint32_t kSkate = 0x54166ACD, kCombo = 0x4EC3CFB5, kCone = 0x25904450;
 
 // The game's sprintf (its C runtime; 0x006234FE).
 template <typename... Args>
-int Sprintf(char* out, const char* format, Args... args)
+int get_sprintf(char* out, const char* format, Args... args)
 {
-    return Crt::Sprintf(out, format, args...);
+    return crt::get_sprintf(out, format, args...);
 }
 
 } // namespace
 
 // 0x004E6600
-const char* __fastcall GoalObjectModel(uint32_t type, int index)
+const char* __fastcall goal_object_model(uint32_t type, int index)
 {
     if (type == kCone)
         return "Mdl_Cone/mdl_cone.mdl";
@@ -54,7 +54,7 @@ const char* __fastcall GoalObjectModel(uint32_t type, int index)
 }
 
 // 0x004E66A0
-uint32_t __fastcall GoalObjectName(uint32_t type, int index)
+uint32_t __fastcall goal_object_name(uint32_t type, int index)
 {
     if (type == kCombo) {
         switch (index) {
@@ -80,67 +80,67 @@ uint32_t __fastcall GoalObjectName(uint32_t type, int index)
 }
 
 // 0x004E6730
-uint32_t __fastcall EditedGoalNodeName(int which, int goal)
+uint32_t __fastcall edited_goal_node_name(int which, int goal)
 {
     char name[100];
     name[0] = '\0';
     if (which == 0)
-        Sprintf(name, "TRG_EditedGoal%d_Pro", goal);
+        get_sprintf(name, "TRG_EditedGoal%d_Pro", goal);
     else if (which == 1)
-        Sprintf(name, "TRG_EditedGoal%d_Restart", goal);
+        get_sprintf(name, "TRG_EditedGoal%d_Restart", goal);
     else
-        Sprintf(name, "TRG_EditedGoal%d_Object_%d", goal, which - 2);
-    return Checksums::HashFromText(name);
+        get_sprintf(name, "TRG_EditedGoal%d_Object_%d", goal, which - 2);
+    return checksums::hash_from_text(name);
 }
 
 // 0x004E67A0
-Scripts::CStruct* __fastcall GoalTypeStructure(uint32_t type)
+script::Struct* __fastcall goal_type_structure(uint32_t type)
 {
     switch (type) {
-    case 0x6FE44C6D: return Scripts::ReadSubStruct(0xEF8F345F);
-    case kCombo: return Scripts::ReadSubStruct(0xB4F5801D);
+    case 0x6FE44C6D: return script::read_sub_struct(0xEF8F345F);
+    case kCombo: return script::read_sub_struct(0xB4F5801D);
     case 0x0FC6F698:
     case 0x7FE2238A:
-    case 0xEA7BA666: return Scripts::ReadSubStruct(0x675816B5);
-    case kCone: return Scripts::ReadSubStruct(0x34785A5B);
-    case kSkate: return Scripts::ReadSubStruct(0x3328976A);
-    case 0x61C5D092: return Scripts::ReadSubStruct(0x5756A675);
-    case 0xD0DD047B: return Scripts::ReadSubStruct(0xD3828793);
-    case 0xEC414B76: return Scripts::ReadSubStruct(0xB520A510);
+    case 0xEA7BA666: return script::read_sub_struct(0x675816B5);
+    case kCone: return script::read_sub_struct(0x34785A5B);
+    case kSkate: return script::read_sub_struct(0x3328976A);
+    case 0x61C5D092: return script::read_sub_struct(0x5756A675);
+    case 0xD0DD047B: return script::read_sub_struct(0xD3828793);
+    case 0xEC414B76: return script::read_sub_struct(0xB520A510);
     default: return nullptr;
     }
 }
 
 // 0x004E6890
-Scripts::CStruct* GoalTypeDefaults(uint32_t type)
+script::Struct* goal_type_defaults(uint32_t type)
 {
     switch (type) {
-    case 0x6FE44C6D: return Scripts::ReadSubStruct(0x28C7B799);
-    case kCombo: return Scripts::ReadSubStruct(0xFECBAB7C);
-    case 0x0FC6F698: return Scripts::ReadSubStruct(0x6626B0D8);
-    case kCone: return Scripts::ReadSubStruct(0xFD6CAF2A);
-    case kSkate: return Scripts::ReadSubStruct(0xE41E0E04);
-    case 0x61C5D092: return Scripts::ReadSubStruct(0x9005703A);
-    case 0xEA7BA666: return Scripts::ReadSubStruct(0xAD585D92);
-    case 0x7FE2238A: return Scripts::ReadSubStruct(0x38C1D87E);
+    case 0x6FE44C6D: return script::read_sub_struct(0x28C7B799);
+    case kCombo: return script::read_sub_struct(0xFECBAB7C);
+    case 0x0FC6F698: return script::read_sub_struct(0x6626B0D8);
+    case kCone: return script::read_sub_struct(0xFD6CAF2A);
+    case kSkate: return script::read_sub_struct(0xE41E0E04);
+    case 0x61C5D092: return script::read_sub_struct(0x9005703A);
+    case 0xEA7BA666: return script::read_sub_struct(0xAD585D92);
+    case 0x7FE2238A: return script::read_sub_struct(0x38C1D87E);
     case 0xD0DD047B: {
-        Scripts::CStruct* defaults = Scripts::ReadSubStruct(0x97FEFF8F);
-        Scripts::RunScriptOnce(0xFA54B475, nullptr, nullptr, defaults);
+        script::Struct* defaults = script::read_sub_struct(0x97FEFF8F);
+        script::run_script_once(0xFA54B475, nullptr, nullptr, defaults);
         return defaults;
     }
-    case 0xEC414B76: return Scripts::ReadSubStruct(0xAB62B082);
+    case 0xEC414B76: return script::read_sub_struct(0xAB62B082);
     default: return nullptr;
     }
 }
 
 // 0x004E69C0
-int __cdecl GoalEditorConstant82()
+int __cdecl goal_editor_constant82()
 {
     return 0x82;
 }
 
 // 0x004E69D0
-void __fastcall InitEditedGoal(uint8_t* goal)
+void __fastcall init_edited_goal(uint8_t* goal)
 {
     auto u32 = [goal](uint32_t offset) -> uint32_t& { return *reinterpret_cast<uint32_t*>(goal + offset); };
     u32(0x2A4) = 5;
@@ -182,36 +182,36 @@ void __fastcall InitEditedGoal(uint8_t* goal)
 }
 
 // 0x004E6AE0
-void __stdcall RunMarkerObjectScript(int index)
+void __stdcall run_marker_object_script(int index)
 {
-    Scripts::CStruct params;
-    params.PrepareAll();
-    char* name = g_goalNameBuffer;
-    Sprintf(name, "GoalEditorMarkerObject%d", index);
-    params.PutNameKey(0xA1DC81F9, Checksums::HashFromText(name));
-    Scripts::LaunchScript(0xDCF3A25E, &params, nullptr, false, nullptr);
-    params.Clear();
+    script::Struct params;
+    params.prepare_all();
+    char* name = g_goal_name_buffer;
+    get_sprintf(name, "GoalEditorMarkerObject%d", index);
+    params.put_name_key(0xA1DC81F9, checksums::hash_from_text(name));
+    script::launch_script(0xDCF3A25E, &params, nullptr, false, nullptr);
+    params.get_clear();
 }
 
 namespace {
 
 // 0x004E6890: the type in EAX; EAX back (ECX and EDX as the call leaves them).
-__declspec(naked) void GoalTypeDefaultsStub()
+__declspec(naked) void goal_type_defaults_stub()
 {
     __asm {
         push eax
-        call GoalTypeDefaults
+        call goal_type_defaults
         add esp, 4
         ret
     }
 }
 
 // 0x004E69D0: its callers keep using ECX (the goal) after the call: kept (EAX 0 as the original leaves it).
-__declspec(naked) void InitEditedGoalStub()
+__declspec(naked) void init_edited_goal_stub()
 {
     __asm {
         push ecx
-        call InitEditedGoal
+        call init_edited_goal
         pop ecx
         xor eax, eax
         ret

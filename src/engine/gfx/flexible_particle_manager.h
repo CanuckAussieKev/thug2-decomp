@@ -8,72 +8,72 @@
 // The engine's flexible particle manager (Nx; the one at 0x006FA7C0 - the flexible particle component's systems are
 // made, found and destroyed through it): its systems in a list, on a heap of their own (or a temporary one a
 // cutscene sets up), drawn far to near; the level's colour passed on to the systems that take it.
-namespace Engine3D {
+namespace render {
 
-struct CEmitterInstance;
+struct EmitterInstance;
 
 // (0x28 bytes, vtable 0x006494B0: 0 the scalar deleting destructor.)
-struct CFlexibleParticleManager {
-    void** m_vtable;
-    MemSys::Zone* m_zone;     // +0x04: its own memory (the script integer 0x91CB7552 bytes, else 0x5000)
-    MemSys::Arena* m_arena;         // +0x08 "FlxParticles"
-    MemSys::Zone* m_tempRegion; // +0x0C
-    MemSys::Arena* m_tempHeap;     // +0x10 "TEMPFlxPrtcl": systems are made on it while it's there
-    MemSys::ListNode* m_systemsPtr;  // +0x14: the list's head (ListKit::Foremost<CEmitterInstance>, vtable 0x006494C4)
-    float m_colourScale[4];     // +0x18: the level's colour (given to the systems with flag 0x10000)
+struct FlexibleParticleManager {
+    void** vtable_;
+    memory::Zone* zone_;     // +0x04: its own memory (the script integer 0x91CB7552 bytes, else 0x5000)
+    memory::Arena* arena_;         // +0x08 "FlxParticles"
+    memory::Zone* temp_region_; // +0x0C
+    memory::Arena* temp_heap_;     // +0x10 "TEMPFlxPrtcl": systems are made on it while it's there
+    memory::ListNode* systems_ptr_;  // +0x14: the list's head (lists::Foremost<EmitterInstance>, vtable 0x006494C4)
+    float colour_scale_[4];     // +0x18: the level's colour (given to the systems with flag 0x10000)
 
     // 0x0049AF20: its memory, the list, the colour white; the frame time scale (0x00700EF4) 60 / the script float
     // 0x3214C818 - 60 when that's 0. Returns this.
-    CFlexibleParticleManager* MakeNew();
+    FlexibleParticleManager* make_new();
     // 0x0049AA10: the list's head deleted, the temporary heap, the heap and the region.
-    void DestroyBody();
+    void destroy_body();
     // 0x0049B040 (vtable slot 0): destroyed, and freed with flags & 1. Returns this.
-    CFlexibleParticleManager* Teardown(unsigned int flags);
+    FlexibleParticleManager* teardown(unsigned int flags);
     // 0x0049A9D0: the temporary heap (and its region) gone, if there is one.
-    void DeleteTempHeap();
+    void delete_temp_heap();
     // 0x0049AA80: a temporary heap of `size` bytes (any old one gone first). Whether it was made.
-    bool CreateTempHeap(uint32_t size);
+    bool create_temp_heap(uint32_t size);
     // 0x0049A8E0 (not a Ghidra function): whether there's a temporary heap.
-    bool HasTempHeap();
+    bool has_temp_heap();
     // 0x0049AB50: the systems that want drawing (+0x12A) drawn far to near (no more than 256 - the original doesn't
-    // check), each with RenderIfVisible(`force` or the game paused).
-    void RenderSystems(bool force);
+    // check), each with render_if_visible(`force` or the game paused).
+    void render_systems(bool force);
     // 0x0049AC20: the system named `name` (the first), or null.
-    CEmitterInstance* FindSystem(uint32_t name);
-    // 0x0049AC60: a new system (CreateFlexibleParticles' arguments, on the temporary heap if there is one, else its
+    EmitterInstance* find_system(uint32_t name);
+    // 0x0049AC60: a new system (create_flexible_particles' arguments, on the temporary heap if there is one, else its
     // own), unless it couldn't allocate everything (then destroyed: null): `perm` (not 0) kept by
-    // DestroyNonPersistent, `useLevelColour` given the level's colour; updating, not emitting, added at the list's end.
-    CEmitterInstance* StartSubsystem(uint32_t name, uint32_t type, int particleCap, int maxStreams, uint32_t texture,
-                                  uint32_t blendMode, int fixedAlpha, int segments, float unknown, int history, int perm,
-                                  bool useLevelColour, const char* model);
+    // destroy_non_persistent, `use_level_colour` given the level's colour; updating, not emitting, added at the list's end.
+    EmitterInstance* start_subsystem(uint32_t name, uint32_t type, int particle_cap, int max_streams, uint32_t texture,
+                                  uint32_t blend_mode, int fixed_alpha, int segments, float unknown, int history, int perm,
+                                  bool use_level_colour, const char* model);
     // 0x0049AD60: `system` taken out of the list (null: nothing).
-    void RemoveSystem(CEmitterInstance* system);
+    void remove_system(EmitterInstance* system);
     // 0x0049AD90: the system named `name` destroyed (if there's one).
-    void DestroySystemNow(uint32_t name);
+    void destroy_system_now(uint32_t name);
     // 0x0049ADB0: the system named `name` left to die (no more emission; destroyed once empty).
-    void DestroySystemWhenEmpty(uint32_t name);
+    void destroy_system_when_empty(uint32_t name);
     // 0x0049ADE0: every system of group `group` destroyed.
-    void DestroyGroup(uint32_t group);
+    void destroy_group(uint32_t group);
     // 0x0049AE30: every system not made persistent destroyed.
-    void DestroyNonPersistent();
+    void destroy_non_persistent();
     // 0x0049AE80: the level's colour: given to every system that takes it, and kept.
-    void SetColourScale(const float* rgba);
+    void set_colour_scale(const float* rgba);
 
     // 0x0049A8F0 (cdecl; qsort's): the order of two systems (pointers to them) - the farther from viewport 0x006FA7B8's
     // camera first (the difference of the squared distances, truncated), else the higher priority (+0x124) first.
-    static int __cdecl CompareDistance(const void* a, const void* b);
+    static int __cdecl compare_distance(const void* a, const void* b);
 };
-static_assert(offsetof(CFlexibleParticleManager, m_systemsPtr) == 0x14 &&
-                  offsetof(CFlexibleParticleManager, m_colourScale) == 0x18 &&
-                  sizeof(CFlexibleParticleManager) == 0x28,
+static_assert(offsetof(FlexibleParticleManager, systems_ptr_) == 0x14 &&
+                  offsetof(FlexibleParticleManager, colour_scale_) == 0x18 &&
+                  sizeof(FlexibleParticleManager) == 0x28,
               "layout must match the original");
 
-// 0x0049AEF0 (the head's vtable 0x006494C4, slot 0): the list's head (ListKit::Foremost<CEmitterInstance>) destroyed - the
+// 0x0049AEF0 (the head's vtable 0x006494C4, slot 0): the list's head (lists::Foremost<EmitterInstance>) destroyed - the
 // node's body 0x00496D10 -, freed with flags & 1. Returns it.
-struct CParticleSystemListHead {
-    MemSys::ListNode* Teardown(unsigned int flags);
+struct ParticleSystemListHead {
+    memory::ListNode* teardown(unsigned int flags);
 };
 
-extern float g_frameTimeScale;
-extern int g_drawnViewport;
+extern float g_frame_time_scale;
+extern int g_drawn_viewport;
 } // namespace Nx

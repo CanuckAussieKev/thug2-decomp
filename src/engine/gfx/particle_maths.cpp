@@ -6,14 +6,14 @@
 #include <bit>
 #include <cstdint>
 
-namespace Engine3D {
+namespace render {
 
 namespace {
 
-float Store(double value) { return static_cast<float>(value); }
+float get_store(double value) { return static_cast<float>(value); }
 
 // A float passed through the x87 (FLD / FSTP): a signalling NaN comes out quiet.
-float ThroughX87(float value)
+float through_x87(float value)
 {
     uint32_t bits = std::bit_cast<uint32_t>(value);
     if ((bits & 0x7F800000u) == 0x7F800000u && (bits & 0x007FFFFFu))
@@ -23,7 +23,7 @@ float ThroughX87(float value)
 
 // A component's value at the quadratic's turning point (t^2 coefficient `square`, t coefficient `linear`) - at 0
 // unless `square` is positive.
-double Lowest(float square, float linear, float start)
+double get_lowest(float square, float linear, float start)
 {
     double t = 0.0;
     if (square > 0.0f)
@@ -34,59 +34,59 @@ double Lowest(float square, float linear, float start)
 } // namespace
 
 // 0x00494F10
-Maths::Vec4* __cdecl QuadraticLowest(Maths::Vec4* out, const sQuadraticPoints* points)
+maths::Vec4* __cdecl quadratic_lowest(maths::Vec4* out, const QuadraticPoints* points)
 {
-    const Maths::Vec4& a = points->start;
-    const Maths::Vec4& b = points->p1;
-    const Maths::Vec4& c = points->p2;
+    const maths::Vec4& a = points->start;
+    const maths::Vec4& b = points->p1;
+    const maths::Vec4& c = points->p2;
     double t1 = points->t1;
     double t2 = points->t2;
     // The end's offset scaled by t1, the mid's by t2 (z through a float each time, x through one, y kept).
     double cx = static_cast<double>(c.x) - a.x;
     double cy = static_cast<double>(c.y) - a.y;
-    float cz = Store(static_cast<double>(c.z) - a.z);
-    float cxT = Store(cx * t1);
-    double cyT = cy * t1;
-    double czT = static_cast<double>(cz) * t1;
+    float cz = get_store(static_cast<double>(c.z) - a.z);
+    float cx_t = get_store(cx * t1);
+    double cy_t = cy * t1;
+    double cz_t = static_cast<double>(cz) * t1;
     double bx = static_cast<double>(b.x) - a.x;
     double by = static_cast<double>(b.y) - a.y;
-    float bz = Store(static_cast<double>(b.z) - a.z);
-    float bxT = Store(bx * t2);
-    double byT = by * t2;
-    float bzT = Store(static_cast<double>(bz) * t2);
-    float scale = Store(1.0 / ((t2 - t1) * t1 * t2));
+    float bz = get_store(static_cast<double>(b.z) - a.z);
+    float bx_t = get_store(bx * t2);
+    double by_t = by * t2;
+    float bz_t = get_store(static_cast<double>(bz) * t2);
+    float scale = get_store(1.0 / ((t2 - t1) * t1 * t2));
     // The t^1 coefficients: the offsets scaled again (t1 / t2) and differenced.
-    double cxTT = static_cast<double>(cxT) * t1;
-    double cyTT = cyT * t1;
-    float czTT = Store(czT * t1);
-    double bxTT = static_cast<double>(bxT) * t2;
-    float byTT = Store(byT * t2);
-    float bzTT = Store(static_cast<double>(bzT) * t2);
-    float dx = Store(bxTT - cxTT);
-    double dy = static_cast<double>(byTT) - cyTT;
-    double dz = static_cast<double>(bzTT) - czTT;
-    float linearX = Store(static_cast<double>(dx) * scale);
-    float linearY = Store(dy * scale);
-    float linearZ = Store(dz * scale);
+    double cx_tt = static_cast<double>(cx_t) * t1;
+    double cy_tt = cy_t * t1;
+    float cz_tt = get_store(cz_t * t1);
+    double bx_tt = static_cast<double>(bx_t) * t2;
+    float by_tt = get_store(by_t * t2);
+    float bz_tt = get_store(static_cast<double>(bz_t) * t2);
+    float dx = get_store(bx_tt - cx_tt);
+    double dy = static_cast<double>(by_tt) - cy_tt;
+    double dz = static_cast<double>(bz_tt) - cz_tt;
+    float linear_x = get_store(static_cast<double>(dx) * scale);
+    float linear_y = get_store(dy * scale);
+    float linear_z = get_store(dz * scale);
     // The t^2 coefficients: the once-scaled offsets differenced.
-    float ex = Store(static_cast<double>(cxT) - bxT);
-    float ey = Store(cyT - byT);
-    double ez = czT - bzT;
-    float squareX = Store(static_cast<double>(ex) * scale);
-    float squareY = Store(static_cast<double>(ey) * scale);
-    float squareZ = Store(ez * scale);
+    float ex = get_store(static_cast<double>(cx_t) - bx_t);
+    float ey = get_store(cy_t - by_t);
+    double ez = cz_t - bz_t;
+    float square_x = get_store(static_cast<double>(ex) * scale);
+    float square_y = get_store(static_cast<double>(ey) * scale);
+    float square_z = get_store(ez * scale);
     out->w = 0.0f;
-    double x = Lowest(squareX, linearX, a.x);
-    double y = Lowest(squareY, linearY, a.y);
-    double z = Lowest(squareZ, linearZ, a.z);
-    out->x = Store(x);
-    out->y = Store(y);
-    out->z = Store(z);
+    double x = get_lowest(square_x, linear_x, a.x);
+    double y = get_lowest(square_y, linear_y, a.y);
+    double z = get_lowest(square_z, linear_z, a.z);
+    out->x = get_store(x);
+    out->y = get_store(y);
+    out->z = get_store(z);
     return out;
 }
 
 // The register adapter: out in ECX (kept, and EDX), the points on the stack (the caller pops them).
-__declspec(naked) void QuadraticLowestStub()
+__declspec(naked) void quadratic_lowest_stub()
 {
     __asm {
         push ecx
@@ -94,7 +94,7 @@ __declspec(naked) void QuadraticLowestStub()
         lea eax, [esp + 12]
         push eax
         push ecx
-        call QuadraticLowest
+        call quadratic_lowest
         add esp, 8
         pop edx
         pop ecx
@@ -103,54 +103,54 @@ __declspec(naked) void QuadraticLowestStub()
 }
 
 // 0x00495130
-Maths::Vec4* __cdecl MinVector(Maths::Vec4* out, const Maths::Vec4* a, const Maths::Vec4* b)
+maths::Vec4* __cdecl min_vector(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b)
 {
-    Maths::Vec4 result = *a;
+    maths::Vec4 result = *a;
     if (b->x < a->x)
         result.x = b->x;
     if (b->y < a->y)
         result.y = b->y;
     if (b->z < a->z)
         result.z = b->z;
-    result.w = ThroughX87(b->w < a->w ? b->w : a->w);
+    result.w = through_x87(b->w < a->w ? b->w : a->w);
     *out = result;
     return out;
 }
 
 // 0x004951B0
-Maths::Vec4* __cdecl MaxVector(Maths::Vec4* out, const Maths::Vec4* a, const Maths::Vec4* b)
+maths::Vec4* __cdecl max_vector(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b)
 {
-    Maths::Vec4 result = *a;
+    maths::Vec4 result = *a;
     if (b->x > a->x)
         result.x = b->x;
     if (b->y > a->y)
         result.y = b->y;
     if (b->z > a->z)
         result.z = b->z;
-    result.w = ThroughX87(b->w > a->w ? b->w : a->w);
+    result.w = through_x87(b->w > a->w ? b->w : a->w);
     *out = result;
     return out;
 }
 
 // The register adapters: a in ECX, b in EDX, out in ESI.
-__declspec(naked) void MinVectorStub()
+__declspec(naked) void min_vector_stub()
 {
     __asm {
         push edx
         push ecx
         push esi
-        call MinVector
+        call min_vector
         add esp, 12
         ret
     }
 }
-__declspec(naked) void MaxVectorStub()
+__declspec(naked) void max_vector_stub()
 {
     __asm {
         push edx
         push ecx
         push esi
-        call MaxVector
+        call max_vector
         add esp, 12
         ret
     }

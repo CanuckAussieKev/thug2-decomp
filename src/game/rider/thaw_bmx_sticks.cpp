@@ -1,7 +1,7 @@
 // NOT ORIGINAL - THAW's BMX ridden in THUG2 (game/rider/thaw_bmx.h): THAW's stick buttons - its pad's and its trick
 // component's -, BikePress's re-arm rule and the look-around's d-pad inputs. Our addition at the user's request - not
 // THUG2's code and not PartyMod's. Read from THAW's reference build (game/rider/thaw_bmx.h): the input
-// server's 0x435530 / 0x4355B0, the pad update 0x596CA0, the trick component's 0x471D20 / 0x4723D0 / CheckTrigger
+// server's 0x435530 / 0x4355B0, the pad update 0x596CA0, the trick component's 0x471D20 / 0x4723D0 / check_trigger
 // 0x470EAB, the look-around's update 0x5B08F0. THUG2's own code calls these only while the feature is on.
 
 #include <cstdint>
@@ -12,12 +12,12 @@
 #include "game/rider/thaw_bmx.h"
 #include "game/rider/trick_component.h"
 
-namespace Skater::ThawBmx {
+namespace skater::thaw_bmx {
 
 namespace {
 
 // THAW's pad button names (by StickButtonIndex) and its trick component's (by stick, by direction 1-8: up, down,
-// left, right, up-left, up-right, down-left, down-right - DPadDirection's numbers).
+// left, right, up-left, up-right, down-left, down-right - d_pad_direction's numbers).
 const char* const kPadNames[8] = {"leftup", "leftdown", "leftleft", "leftright",
                                   "rightup", "rightdown", "rightleft", "rightright"};
 const char* const kStickTrickTable[2][8] = {
@@ -26,7 +26,7 @@ const char* const kStickTrickTable[2][8] = {
      "rightdownright"},
 };
 
-uint32_t Name(const char* text) { return Checksums::HashFromText(text); }
+uint32_t get_name(const char* text) { return checksums::hash_from_text(text); }
 
 constexpr uint8_t kMiddle = 0x80;
 // THAW 0x435530: the right stick's direction past these (about 60% over; the left stick's: any way off the middle).
@@ -34,185 +34,185 @@ constexpr uint8_t kRightOver = 0xCB, kRightUnder = 0x35;
 
 // A pad's eight stick buttons (THAW's pad +0x200..+0x2E0), beside it.
 struct PadSticks {
-    GameObjects::CControlButton buttons[8] = {};
+    objects::ControlButton buttons[8] = {};
 };
-std::unordered_map<const void*, PadSticks>& Pads()
+std::unordered_map<const void*, PadSticks>& get_pads()
 {
     static std::unordered_map<const void*, PadSticks> pads;
     return pads;
 }
-PadSticks& SticksOf(const void* pad)
+PadSticks& sticks_of(const void* pad)
 {
-    PadSticks& sticks = Pads()[pad];
+    PadSticks& sticks = get_pads()[pad];
     for (int i = 0; i < 8; ++i)
-        if (!sticks.buttons[i].m_label)
-            sticks.buttons[i].m_label = StickButtonName(i);
+        if (!sticks.buttons[i].label_)
+            sticks.buttons[i].label_ = stick_button_name(i);
     return sticks;
 }
 
 // The trick component's pad (the input component's, at its +0x20).
-const void* TrickPad(const GameObjects::CMoveExecutor* trick) { return trick->m_input + 0x20; }
+const void* trick_pad(const objects::MoveExecutor* trick) { return trick->input_ + 0x20; }
 
 // The bike state of `trick`'s skater while it rides the bike, else null.
-BikeState* RidingState(const GameObjects::CMoveExecutor* trick)
+BikeState* riding_state(const objects::MoveExecutor* trick)
 {
-    const void* core = trick->m_corePhysics;
-    if (!core || !LiveNow(core))
+    const void* core = trick->core_physics_;
+    if (!core || !live_now(core))
         return nullptr;
-    return StateOf(core, false);
+    return state_of(core, false);
 }
 
-// A press / release of a stick direction, as CMoveExecutor::UpdateButton (0x0051F8F0) makes one for THUG2's
+// A press / release of a stick direction, as MoveExecutor::update_button (0x0051F8F0) makes one for THUG2's
 // buttons: not for an ignored button.
-void AddStickEvent(GameObjects::CMoveExecutor* trick, uint32_t name, bool pressed)
+void add_stick_event(objects::MoveExecutor* trick, uint32_t name, bool pressed)
 {
-    for (int i = 0; i < trick->m_ignoredCount; ++i)
-        if (trick->m_ignored[i] == name)
+    for (int i = 0; i < trick->ignored_count_; ++i)
+        if (trick->ignored_[i] == name)
             return;
-    trick->AppendIncident(pressed ? 1 : 2)->button = name;
+    trick->append_incident(pressed ? 1 : 2)->button = name;
 }
 
 } // namespace
 
-uint32_t StickDirections(const uint8_t* data)
+uint32_t stick_directions(const uint8_t* data)
 {
     uint32_t bits = 0;
-    const uint8_t rightX = data[0], rightY = data[1], leftX = data[2], leftY = data[3];
+    const uint8_t right_x = data[0], right_y = data[1], left_x = data[2], left_y = data[3];
     // the right stick (THAW 0x435530): x past 0xCB right, under 0x35 left; y under 0x35 up, past 0xCB down
-    if (rightX > kRightOver)
+    if (right_x > kRightOver)
         bits |= 1u << kRightRight;
-    else if (rightX < kRightUnder)
+    else if (right_x < kRightUnder)
         bits |= 1u << kRightLeft;
-    if (rightY < kRightUnder)
+    if (right_y < kRightUnder)
         bits |= 1u << kRightUp;
-    else if (rightY > kRightOver)
+    else if (right_y > kRightOver)
         bits |= 1u << kRightDown;
     // the movement stick (0x4355B0): any way off the middle (the bytes come centred within the dead band)
-    if (leftX > kMiddle)
+    if (left_x > kMiddle)
         bits |= 1u << kLeftRight;
-    else if (leftX < kMiddle)
+    else if (left_x < kMiddle)
         bits |= 1u << kLeftLeft;
-    if (leftY < kMiddle)
+    if (left_y < kMiddle)
         bits |= 1u << kLeftUp;
-    else if (leftY > kMiddle)
+    else if (left_y > kMiddle)
         bits |= 1u << kLeftDown;
     return bits;
 }
 
-uint32_t StickButtonName(int index)
+uint32_t stick_button_name(int index)
 {
     static uint32_t names[8] = {};
     if (!names[index])
-        names[index] = Name(kPadNames[index]);
+        names[index] = get_name(kPadNames[index]);
     return names[index];
 }
 
-void UpdatePadSticks(const void* pad, const uint8_t* data)
+void update_pad_sticks(const void* pad, const uint8_t* data)
 {
-    if (!data && !Pads().count(pad))
+    if (!data && !get_pads().count(pad))
         return;
-    PadSticks& sticks = SticksOf(pad);
-    uint32_t bits = data ? StickDirections(data) : 0;
+    PadSticks& sticks = sticks_of(pad);
+    uint32_t bits = data ? stick_directions(data) : 0;
     // (THAW 0x596CA0: each a button down while its byte is set - full pressure)
     for (int i = 0; i < 8; ++i)
-        sticks.buttons[i].TickFrame((bits >> i) & 1 ? 0xFF : 0);
+        sticks.buttons[i].tick_frame((bits >> i) & 1 ? 0xFF : 0);
 }
 
-void* PadStickButton(const void* pad, uint32_t name)
+void* pad_stick_button(const void* pad, uint32_t name)
 {
     for (int i = 0; i < 8; ++i)
-        if (StickButtonName(i) == name)
-            return &SticksOf(pad).buttons[i];
+        if (stick_button_name(i) == name)
+            return &sticks_of(pad).buttons[i];
     return nullptr;
 }
 
-int StickDirection(uint32_t directions, bool right)
+int stick_direction(uint32_t directions, bool right)
 {
     int base = right ? kRightUp : kLeftUp;
     auto bit = [&](int k) -> uint8_t { return (directions >> (base + k)) & 1; };
-    return GameObjects::DPadDirection(bit(0), bit(1), bit(2), bit(3));
+    return objects::d_pad_direction(bit(0), bit(1), bit(2), bit(3));
 }
 
-uint32_t TrickStickName(bool right, int direction)
+uint32_t trick_stick_name(bool right, int direction)
 {
     static uint32_t names[2][8] = {};
     if (direction < 1 || direction > 8)
         return 0;
     uint32_t& name = names[right ? 1 : 0][direction - 1];
     if (!name)
-        name = Name(kStickTrickTable[right ? 1 : 0][direction - 1]);
+        name = get_name(kStickTrickTable[right ? 1 : 0][direction - 1]);
     return name;
 }
 
-void UpdateTrickSticks(void* trickComponent)
+void update_trick_sticks(void* trick_component)
 {
-    auto* trick = static_cast<GameObjects::CMoveExecutor*>(trickComponent);
-    const void* core = trick->m_corePhysics;
-    BikeState* state = core ? StateOf(core, false) : nullptr;
+    auto* trick = static_cast<objects::MoveExecutor*>(trick_component);
+    const void* core = trick->core_physics_;
+    BikeState* state = core ? state_of(core, false) : nullptr;
     if (!state)
         return;
-    bool riding = LiveNow(core);
+    bool riding = live_now(core);
     uint32_t bits = 0;
     if (riding) {
-        PadSticks& sticks = SticksOf(TrickPad(trick));
+        PadSticks& sticks = sticks_of(trick_pad(trick));
         for (int i = 0; i < 8; ++i)
-            if (sticks.buttons[i].m_heldDown)
+            if (sticks.buttons[i].held_down_)
                 bits |= 1u << i;
     }
     for (int s = 0; s < 2; ++s) {
-        int was = state->trickStick[s];
-        int now = StickDirection(bits, s == 1);
+        int was = state->trick_stick_[s];
+        int now = stick_direction(bits, s == 1);
         if (now == was)
             continue;
-        state->trickStick[s] = now;
+        state->trick_stick_[s] = now;
         // (off the bike: forgotten, no events - THUG2's buffer as before)
         if (!riding)
             continue;
         // (THAW 0x471D20 sets the eight in order, as THUG2's d-pad: the lower-numbered change first)
         if (was && (!now || was < now))
-            AddStickEvent(trick, TrickStickName(s == 1, was), false);
+            add_stick_event(trick, trick_stick_name(s == 1, was), false);
         if (now)
-            AddStickEvent(trick, TrickStickName(s == 1, now), true);
+            add_stick_event(trick, trick_stick_name(s == 1, now), true);
         if (was && now && was > now)
-            AddStickEvent(trick, TrickStickName(s == 1, was), false);
+            add_stick_event(trick, trick_stick_name(s == 1, was), false);
     }
 }
 
-int TrickStickHeld(const void* trickComponent, uint32_t name)
+int trick_stick_held(const void* trick_component, uint32_t name)
 {
     for (int s = 0; s < 2; ++s) {
         for (int d = 1; d <= 8; ++d) {
-            if (TrickStickName(s == 1, d) != name)
+            if (trick_stick_name(s == 1, d) != name)
                 continue;
-            const BikeState* state = RidingState(static_cast<const GameObjects::CMoveExecutor*>(trickComponent));
+            const BikeState* state = riding_state(static_cast<const objects::MoveExecutor*>(trick_component));
             if (!state)
                 return -1;
-            return state->trickStick[s] == d ? 1 : 0;
+            return state->trick_stick_[s] == d ? 1 : 0;
         }
     }
     return -1;
 }
 
-void EndTrickUpdate(void* trickComponent)
+void end_trick_update(void* trick_component)
 {
     // THAW 0x4723D0 (the end of the trick component's update): centred while none of the right stick's eight is down
-    BikeState* state = RidingState(static_cast<const GameObjects::CMoveExecutor*>(trickComponent));
+    BikeState* state = riding_state(static_cast<const objects::MoveExecutor*>(trick_component));
     if (state)
-        state->rightStickCentred = state->trickStick[1] == 0;
+        state->right_stick_centred_ = state->trick_stick_[1] == 0;
 }
 
-bool BikePressMayCount(uint32_t lastButton, uint32_t button, bool rightStickCentred)
+bool bike_press_may_count(uint32_t last_button, uint32_t button, bool right_stick_centred)
 {
-    return lastButton != button || rightStickCentred;
+    return last_button != button || right_stick_centred;
 }
 
-bool RightStickCentred(const void* trickComponent)
+bool get_right_stick_centred(const void* trick_component)
 {
-    const BikeState* state = RidingState(static_cast<const GameObjects::CMoveExecutor*>(trickComponent));
-    return !state || state->rightStickCentred;
+    const BikeState* state = riding_state(static_cast<const objects::MoveExecutor*>(trick_component));
+    return !state || state->right_stick_centred_;
 }
 
-LookInputs DPadLookInputs(bool up, bool down, bool left, bool right, bool invert)
+LookInputs d_pad_look_inputs(bool up, bool down, bool left, bool right, bool invert)
 {
     // THAW 0x5B08F0 (its constants 0x6DD0A0 1.5, 0x6DB3DC -1.0, 0x6ED5F4 -1.5): up before down, left before right
     LookInputs in{up ? 1.5f : (down ? -1.0f : 0.0f), left ? -1.5f : (right ? 1.5f : 0.0f)};
@@ -224,10 +224,10 @@ LookInputs DPadLookInputs(bool up, bool down, bool left, bool right, bool invert
 }
 
 namespace {
-bool g_dpadCamera = false;
+bool g_dpad_camera = false;
 } // namespace
 
-void NoteDPadCamera(bool on) { g_dpadCamera = on; }
-bool DPadCameraNoted() { return g_dpadCamera; }
+void note_d_pad_camera(bool on) { g_dpad_camera = on; }
+bool d_pad_camera_noted() { return g_dpad_camera; }
 
 } // namespace Skater::ThawBmx

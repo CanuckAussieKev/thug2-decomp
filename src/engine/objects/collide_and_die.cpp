@@ -1,4 +1,4 @@
-// The collide-and-die component (GameObjects::CImpactDestructModule): see collide_and_die.h. From the disassembly of
+// The collide-and-die component (GameObjects::ImpactDestructModule): see collide_and_die.h. From the disassembly of
 // 0x0041C1F0-0x0041C707. The x87 roundings are kept: values the original stores are rounded to float, the ones it keeps
 // on the FPU stack are worked in double.
 
@@ -21,9 +21,9 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 
-namespace GameObjects {
+namespace objects {
 
-OnlinePlay::Hub* g_onlineHub;
+online::Hub* g_online_hub;
 
 namespace {
 
@@ -41,145 +41,145 @@ constexpr uint32_t kLifetime = 10000;  // milliseconds
 constexpr uint32_t kDyingTime = 1000;  // milliseconds after the hit
 constexpr float kAbove = 24.0f;        // 0x00645EE8
 
-// The object dies (its vtable slot 6, FlagAsDead).
-void Kill(CGameEntity* object) { reinterpret_cast<void(__thiscall*)(CGameEntity*)>(object->m_vtable[6])(object); }
+// The object dies (its vtable slot 6, flag_as_dead).
+void get_kill(GameEntity* object) { reinterpret_cast<void(__thiscall*)(GameEntity*)>(object->vtable_[6])(object); }
 
 // The projectile collision component's 0x004F2F40 (no source yet): told of the hit.
-void ProjectileHit(CObjectModule* projectile)
+void projectile_hit(ObjectModule* projectile)
 {
-    static_cast<CShotImpactModule*>(projectile)->MarkHit();
+    static_cast<ShotImpactModule*>(projectile)->mark_hit();
 }
 
 } // namespace
 
 // 0x0041C370
-CObjectModule* __cdecl CImpactDestructModule::Fabricate()
+ObjectModule* __cdecl ImpactDestructModule::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CImpactDestructModule));
-    return memory ? static_cast<CImpactDestructModule*>(memory)->MakeNew() : nullptr;
+    void* memory = memory::alloc_zeroed(sizeof(ImpactDestructModule));
+    return memory ? static_cast<ImpactDestructModule*>(memory)->make_new() : nullptr;
 }
 
 // 0x0041C210
-CImpactDestructModule* CImpactDestructModule::MakeNew()
+ImpactDestructModule* ImpactDestructModule::make_new()
 {
-    CObjectModule::MakeNew();
-    m_vtable = kVtable;
-    m_kindTag = kType;
-    m_radius = 0.0f;
-    m_sizeFactor = 0.0f;
-    m_madeTime = static_cast<uint32_t>(FrameClock::GameClockElapsed() + g_clockOffset);
-    m_onCollideScript = 0;
-    m_fadingOut = false;
-    m_firstUpdate = true;
+    ObjectModule::make_new();
+    vtable_ = kVtable;
+    kind_tag_ = kType;
+    radius_ = 0.0f;
+    size_factor_ = 0.0f;
+    made_time_ = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + g_clock_offset);
+    on_collide_script_ = 0;
+    fading_out_ = false;
+    first_update_ = true;
     return this;
 }
 
 // 0x0041C1F0
-void CImpactDestructModule::DestroyBody()
+void ImpactDestructModule::destroy_body()
 {
-    m_vtable = kVtable;
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    ObjectModule::destroy_body();
 }
 
 // 0x0041C280
-CImpactDestructModule* CImpactDestructModule::Teardown(unsigned int flags)
+ImpactDestructModule* ImpactDestructModule::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x0041C2B0
-void CImpactDestructModule::ConfigureFromData(Scripts::CStruct* params)
+void ImpactDestructModule::configure_from_data(script::Struct* params)
 {
-    params->FetchFloat(kRadius, &m_radius, 1);
-    params->FetchFloat(kScale, &m_sizeFactor, 1);
-    params->ReadHashValue(kOnDestroyScript, &m_onCollideScript, 1);
-    m_vel = {0.0f, 0.0f, 1.0f, 1.0f};
-    params->FetchVec(kVel, reinterpret_cast<Scripts::VectorValue*>(&m_vel), 1);
-    m_vel.MakeUnit();
+    params->fetch_float(kRadius, &radius_, 1);
+    params->fetch_float(kScale, &size_factor_, 1);
+    params->read_hash_value(kOnDestroyScript, &on_collide_script_, 1);
+    vel_ = {0.0f, 0.0f, 1.0f, 1.0f};
+    params->fetch_vec(kVel, reinterpret_cast<script::VectorValue*>(&vel_), 1);
+    vel_.make_unit();
 }
 
 // 0x0041C330
-void CImpactDestructModule::Seal() { m_suspend = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSuspend)); }
+void ImpactDestructModule::seal() { suspend_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSuspend)); }
 
 // 0x0041C3D0
-void CImpactDestructModule::TickFrame()
+void ImpactDestructModule::tick_frame()
 {
-    if (!g_onlineHub->InNetGame() && m_suspend[0x30])
+    if (!g_online_hub->in_net_game() && suspend_[0x30])
         return;
-    int& offset = g_clockOffset;
-    if (static_cast<uint32_t>(FrameClock::GameClockElapsed()) + (static_cast<uint32_t>(offset) - m_madeTime) > kLifetime) {
-        Kill(m_entity);
-    } else if (m_fadingOut) {
-        if (static_cast<uint32_t>(FrameClock::GameClockElapsed() + offset) > m_deathTime)
-            Kill(m_entity);
+    int& offset = g_clock_offset;
+    if (static_cast<uint32_t>(frame_clock::game_clock_elapsed()) + (static_cast<uint32_t>(offset) - made_time_) > kLifetime) {
+        get_kill(entity_);
+    } else if (fading_out_) {
+        if (static_cast<uint32_t>(frame_clock::game_clock_elapsed() + offset) > death_time_)
+            get_kill(entity_);
     } else {
-        Engine3D::CProbeRay feeler;
-        feeler.MakeNew();
-        CGameEntity* object = m_entity;
-        Maths::Vec4 direction = object->m_vel;
-        direction.MakeUnit();
+        render::ProbeRay feeler;
+        feeler.make_new();
+        GameEntity* object = entity_;
+        maths::Vec4 direction = object->vel_;
+        direction.make_unit();
         // From where it was (24 up)...
-        Maths::Vec4 start = m_firstUpdate ? object->m_atPoint : m_lastPos;
+        maths::Vec4 start = first_update_ ? object->at_point_ : last_pos_;
         start.y = start.y + kAbove;
         // ...to where it is (24 up), `radius` on along its velocity.
-        double up = static_cast<double>(object->m_atPoint.y) + kAbove;
-        float alongW = m_radius * direction.w;
-        float alongZ = m_radius * direction.z;
-        float alongY = m_radius * direction.y;
-        Maths::Vec4 end;
-        end.x = static_cast<float>(static_cast<double>(m_radius) * direction.x + object->m_atPoint.x);
-        end.y = static_cast<float>(up + alongY);
-        end.z = object->m_atPoint.z + alongZ;
-        end.w = object->m_atPoint.w + alongW;
-        feeler.ChangeOrigin(&start);
-        feeler.ChangeFinish(&end);
-        if (feeler.GetHitShape(true, false) && !m_fadingOut) {
-            if (CObjectModule* projectile = m_entity->FetchModule(kProjectileCollision))
-                ProjectileHit(projectile);
-            m_fadingOut = true;
-            m_deathTime = static_cast<uint32_t>(FrameClock::GameClockElapsed() + offset + static_cast<int>(kDyingTime));
-            if (m_onCollideScript) {
-                Maths::Vec4 point = feeler.m_contactPos;
-                Scripts::CStruct* params = Scripts::SpawnParamBag();
+        double up = static_cast<double>(object->at_point_.y) + kAbove;
+        float along_w = radius_ * direction.w;
+        float along_z = radius_ * direction.z;
+        float along_y = radius_ * direction.y;
+        maths::Vec4 end;
+        end.x = static_cast<float>(static_cast<double>(radius_) * direction.x + object->at_point_.x);
+        end.y = static_cast<float>(up + along_y);
+        end.z = object->at_point_.z + along_z;
+        end.w = object->at_point_.w + along_w;
+        feeler.change_origin(&start);
+        feeler.change_finish(&end);
+        if (feeler.get_hit_shape(true, false) && !fading_out_) {
+            if (ObjectModule* projectile = entity_->fetch_module(kProjectileCollision))
+                projectile_hit(projectile);
+            fading_out_ = true;
+            death_time_ = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + offset + static_cast<int>(kDyingTime));
+            if (on_collide_script_) {
+                maths::Vec4 point = feeler.contact_pos_;
+                script::Struct* params = script::spawn_param_bag();
                 if (params)
-                    params->PrepareAll();
-                params->PutVec3(kPos, *reinterpret_cast<Scripts::VectorValue*>(&point));
-                params->PutVec3(kVel, *reinterpret_cast<Scripts::VectorValue*>(&m_vel));
-                params->PushFloat(kScale, m_sizeFactor);
-                Scripts::LaunchScript(m_onCollideScript, params, nullptr, false, nullptr);
+                    params->prepare_all();
+                params->put_vec3(kPos, *reinterpret_cast<script::VectorValue*>(&point));
+                params->put_vec3(kVel, *reinterpret_cast<script::VectorValue*>(&vel_));
+                params->push_float(kScale, size_factor_);
+                script::launch_script(on_collide_script_, params, nullptr, false, nullptr);
                 if (params) {
-                    params->Clear(); // (the destructor)
-                    Scripts::DeleteStruct(params);
+                    params->get_clear(); // (the destructor)
+                    script::delete_struct(params);
                 }
             }
         }
     } // (the feeler's destructor lets go of the object it hit)
-    m_lastPos = m_entity->m_atPoint;
-    m_firstUpdate = false;
+    last_pos_ = entity_->at_point_;
+    first_update_ = false;
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CImpactDestructModule::Teardown,
-         &GameObjects::CImpactDestructModule::TickFrame,
-         &GameObjects::CImpactDestructModule::ConfigureFromData,
-         &GameObjects::CImpactDestructModule::Seal,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
-         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::ImpactDestructModule::teardown,
+         &objects::ImpactDestructModule::tick_frame,
+         &objects::ImpactDestructModule::configure_from_data,
+         &objects::ImpactDestructModule::seal,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
+         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

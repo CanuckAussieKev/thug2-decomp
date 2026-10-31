@@ -22,9 +22,9 @@
 #include "engine/objects/cutscene_list_cfuncs.h"
 #include "engine/sys/startup_init.h"
 
-namespace GameObjects {
+namespace objects {
 
-uint32_t g_compositeObjectMemberFunctions[186]{
+uint32_t g_composite_object_member_functions[186]{
     0xE90AAD2D, 0x0ADA4E74, 0, 0, 0, 0,
     0xC2404947, 0x0ADA4E74, 0, 0, 0, 0,
     0x406998A5, 0x0ADA4E74, 0, 0, 0, 0,
@@ -57,7 +57,7 @@ uint32_t g_compositeObjectMemberFunctions[186]{
     0x33CAC5FF, 0x0ADA4E74, 0, 0, 0, 0,
     0, 0x0ADA4E74, 0, 0, 0, 0};
 
-uint32_t g_objectMemberFunctions[102]{
+uint32_t g_object_member_functions[102]{
     0x3611C136, 0x57525413, 0, 0, 0, 0,
     0x62C11CB9, 0x57525413, 0, 0, 0, 0,
     0xEEEB7220, 0x57525413, 0, 0, 0, 0,
@@ -76,211 +76,211 @@ uint32_t g_objectMemberFunctions[102]{
     0x3578E5A9, 0x57525413, 0, 0, 0, 0,
     0, 0x57525413, 0, 0, 0, 0};
 
-int g_compositeMgrBlockHeaderSize{16};
-int g_coimInteger0{4};
-int g_coimInteger1{2};
-int g_coimA;
-int g_coimB;
-int g_coimC;
-MemSys::Zone* g_coimRegion;
-MemSys::Arena* g_coimHeap;
-uint32_t g_instanceCount;
+int g_composite_mgr_block_header_size{16};
+int g_coim_integer0{4};
+int g_coim_integer1{2};
+int g_coim_a;
+int g_coim_b;
+int g_coim_c;
+memory::Zone* g_coim_region;
+memory::Arena* g_coim_heap;
+uint32_t g_instance_count;
 // (one list per registered type: up to kMaxComponentTypes, the manager pointer follows at 0x006F0FB8)
-CObjectModule* g_componentList[GameObjects::CEntityHub::kMaxComponentTypes];
-GameObjects::CEntityHub* g_compositeRegistry;
-uint32_t g_compositeMgrReferences;
+ObjectModule* g_component_list[objects::EntityHub::kMaxComponentTypes];
+objects::EntityHub* g_composite_registry;
+uint32_t g_composite_mgr_references;
 
 namespace {
 
 extern void** const kManagerVtable;
 constexpr uint32_t kCompositeObjectType = 0xCDEB9229;
-constexpr uint32_t kObjectMemberFunctionType = 0x57525413;    // the table at 0x00683550 (CEntity's)
-constexpr uint32_t kCompositeMemberFunctionType = 0x0ADA4E74; // the table at 0x00683268 (CGameEntity's)
+constexpr uint32_t kObjectMemberFunctionType = 0x57525413;    // the table at 0x00683550 (Entity's)
+constexpr uint32_t kCompositeMemberFunctionType = 0x0ADA4E74; // the table at 0x00683268 (GameEntity's)
 
-uint32_t& RefTally() { return g_compositeMgrReferences; }
+uint32_t& ref_tally() { return g_composite_mgr_references; }
 
-// The components of each type (index = the type's index in m_components), linked through their +0x14.
-CObjectModule*& ComponentList(uint32_t index) { return g_componentList[index]; }
+// The components of each type (index = the type's index in components_), linked through their +0x14.
+ObjectModule*& component_list(uint32_t index) { return g_component_list[index]; }
 // A component's type and its link to the next of its type.
-uint32_t TypeOf(CObjectModule* component) { return component->m_kindTag; }
-CObjectModule*& NextOfType(CObjectModule* component) { return component->m_nextOfType; }
+uint32_t type_of(ObjectModule* component) { return component->kind_tag_; }
+ObjectModule*& next_of_type(ObjectModule* component) { return component->next_of_type_; }
 
 // A composite object's flags.
-uint32_t& CompositeFlags(CGameEntity* object) { return object->m_compositeFlags; }
+uint32_t& composite_flags(GameEntity* object) { return object->composite_flags_; }
 
-// CGameEntity's code (composite.cpp).
-CGameEntity* ConstructCompositeObject(void* memory)
+// GameEntity's code (composite.cpp).
+GameEntity* construct_composite_object(void* memory)
 {
-    return static_cast<CGameEntity*>(memory)->MakeNew();
+    return static_cast<GameEntity*>(memory)->make_new();
 }
-void UpdateCompositeObject(CGameEntity* object) { object->TickFrame(); }
-void ConfigureFromData(CGameEntity* object, Scripts::CStruct* nodeData) { object->ConfigureFromData(nodeData); }
-void BuildModulesFromList(CGameEntity* object, Scripts::CArray* components, Scripts::CStruct* nodeData)
+void update_composite_object(GameEntity* object) { object->tick_frame(); }
+void configure_from_data(GameEntity* object, script::Struct* node_data) { object->configure_from_data(node_data); }
+void build_modules_from_list(GameEntity* object, script::Array* components, script::Struct* node_data)
 {
-    object->BuildModulesFromList(components, nodeData);
+    object->build_modules_from_list(components, node_data);
 }
-void Seal(CGameEntity* object) // its vtable +0x20
+void seal(GameEntity* object) // its vtable +0x20
 {
-    reinterpret_cast<void(__thiscall*)(CGameEntity*)>(object->m_vtable[0x20 / 4])(object);
+    reinterpret_cast<void(__thiscall*)(GameEntity*)>(object->vtable_[0x20 / 4])(object);
 }
 
 // The task system (Tsk): a task's constructor (priority), its removal from its list, and the main loop's logic task
 // list's add.
-void ConstructTask(void* task, int priority) { static_cast<Scheduling::SchedulerTask*>(task)->MakeNew(priority); }
-void RemoveTask(void* task) { static_cast<Scheduling::SchedulerTask*>(task)->DropOut(); }
-void RegisterLogicTask(void* task)
+void construct_task(void* task, int priority) { static_cast<tasks::SchedulerTask*>(task)->make_new(priority); }
+void get_remove_task(void* task) { static_cast<tasks::SchedulerTask*>(task)->drop_out(); }
+void register_logic_task(void* task)
 {
-    AssetStore::g_mainLoopManager->m_logicTasks.QueueJob(static_cast<Scheduling::SchedulerTask*>(task));
+    assets::g_main_loop_manager->logic_tasks_.queue_job(static_cast<tasks::SchedulerTask*>(task));
 }
 
 // The node after `node`, or null at the head; a node's object (null for none).
-MemSys::ListNode* NextNode(MemSys::ListNode* node)
+memory::ListNode* get_next_node(memory::ListNode* node)
 {
-    MemSys::ListNode* next = node->next;
+    memory::ListNode* next = node->next;
     return next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
 }
-CGameEntity* ObjectOf(MemSys::ListNode* node) { return node ? static_cast<CGameEntity*>(node->data) : nullptr; }
+GameEntity* object_of(memory::ListNode* node) { return node ? static_cast<GameEntity*>(node->data) : nullptr; }
 
-// The walk Update and Pause share (CObjectHubBase::ForEach's, with the work inline): `visit` once for each object,
+// The walk Update and Pause share (ObjectHubBase::for_each's, with the work inline): `visit` once for each object,
 // starting again from the front (past the objects done) whenever the list changes.
 template <typename Visit>
-void WalkObjects(CObjectHubBase* manager, Visit visit)
+void walk_objects(ObjectHubBase* manager, Visit visit)
 {
     uint32_t bit = 1;
-    while (manager->m_walking & bit)
+    while (manager->walking_ & bit)
         bit <<= 1;
-    manager->m_walking |= bit;
-    for (MemSys::ListNode* node = NextNode(&manager->m_entities); node && node->data; node = NextNode(node))
-        static_cast<CEntity*>(node->data)->m_visitedMask &= ~bit;
+    manager->walking_ |= bit;
+    for (memory::ListNode* node = get_next_node(&manager->entities_); node && node->data; node = get_next_node(node))
+        static_cast<Entity*>(node->data)->visited_mask_ &= ~bit;
     do {
-        manager->m_restartWalks &= ~bit;
-        MemSys::ListNode* node = NextNode(&manager->m_entities);
-        CGameEntity* object = ObjectOf(node);
+        manager->restart_walks_ &= ~bit;
+        memory::ListNode* node = get_next_node(&manager->entities_);
+        GameEntity* object = object_of(node);
         while (object) {
-            MemSys::ListNode* nextNode = NextNode(node);
-            CGameEntity* next = ObjectOf(nextNode);
-            if (!(object->m_visitedMask & bit)) {
-                object->m_visitedMask |= bit;
+            memory::ListNode* next_node = get_next_node(node);
+            GameEntity* next = object_of(next_node);
+            if (!(object->visited_mask_ & bit)) {
+                object->visited_mask_ |= bit;
                 visit(object);
-                if (manager->m_restartWalks & bit)
+                if (manager->restart_walks_ & bit)
                     break;
             }
-            node = nextNode;
+            node = next_node;
             object = next;
         }
-    } while (manager->m_restartWalks & bit);
-    manager->m_walking &= ~bit;
+    } while (manager->restart_walks_ & bit);
+    manager->walking_ &= ~bit;
 }
 
 } // namespace
 
-CEntityHub*& ObjectHubSlot() { return g_compositeRegistry; }
+EntityHub*& object_hub_slot() { return g_composite_registry; }
 
 // 0x0045F6E0
-CEntityHub* CEntityHub::MakeNew()
+EntityHub* EntityHub::make_new()
 {
-    CMiscHub::MakeNew();
-    m_vtable = kManagerVtable;
-    auto* task = static_cast<uint32_t*>(MemSys::AllocZeroed(0x20));
+    MiscHub::make_new();
+    vtable_ = kManagerVtable;
+    auto* task = static_cast<uint32_t*>(memory::alloc_zeroed(0x20));
     if (task) {
-        ConstructTask(task, kLogicTaskPriority);
-        task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);
-        task[6] = reinterpret_cast<uint32_t>(&CompositeObjectManagerTask);
+        construct_task(task, kLogicTaskPriority);
+        task[0] = reinterpret_cast<uint32_t>(game_code::kTaskVtable);
+        task[6] = reinterpret_cast<uint32_t>(&composite_object_manager_task);
         task[7] = reinterpret_cast<uint32_t>(this);
     }
-    m_updateJob = task;
-    RegisterLogicTask(task);
-    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kObjectMemberFunctionType),
-                                        g_objectMemberFunctions, 0x18);
-    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kCompositeMemberFunctionType),
-                                        g_compositeObjectMemberFunctions, 0x18);
+    update_job_ = task;
+    register_logic_task(task);
+    script::register_member_function_table(reinterpret_cast<void*>(kObjectMemberFunctionType),
+                                        g_object_member_functions, 0x18);
+    script::register_member_function_table(reinterpret_cast<void*>(kCompositeMemberFunctionType),
+                                        g_composite_object_member_functions, 0x18);
     return this;
 }
 
 // 0x0045F200
-void CEntityHub::DestroyBody()
+void EntityHub::destroy_body()
 {
-    m_vtable = kManagerVtable;
-    if (m_updateJob) {
-        RemoveTask(m_updateJob);
-        if (m_updateJob) { // (its deleting destructor, through the vtable)
-            auto* task = static_cast<void***>(m_updateJob);
+    vtable_ = kManagerVtable;
+    if (update_job_) {
+        get_remove_task(update_job_);
+        if (update_job_) { // (its deleting destructor, through the vtable)
+            auto* task = static_cast<void***>(update_job_);
             reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*task)[2])(task, 1);
         }
     }
-    CMiscHub::DestroyBody();
+    MiscHub::destroy_body();
 }
 
 // 0x0045F300
-CEntityHub* CEntityHub::Teardown(unsigned int flags)
+EntityHub* EntityHub::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x0045F270
-void CEntityHub::EnrolModule(uint32_t type, ComponentCreateFunction create,
-                                                ComponentRegisterFunction registerFunction)
+void EntityHub::enrol_module(uint32_t type, ComponentCreateFunction create,
+                                                ComponentRegisterFunction register_function)
 {
-    m_components[m_componentTypes].type = type;
-    m_components[m_componentTypes].create = create;
-    ++m_componentTypes;
-    if (registerFunction)
-        registerFunction();
+    components_[component_types_].type = type;
+    components_[component_types_].create = create;
+    ++component_types_;
+    if (register_function)
+        register_function();
 }
 
 // 0x0045F2A0
-CObjectModule* CEntityHub::SpawnModule(uint32_t type)
+ObjectModule* EntityHub::spawn_module(uint32_t type)
 {
-    for (uint32_t i = 0; i < m_componentTypes; ++i) {
-        if (m_components[i].type == type)
-            return m_components[i].create();
+    for (uint32_t i = 0; i < component_types_; ++i) {
+        if (components_[i].type == type)
+            return components_[i].create();
     }
     return nullptr;
 }
 
 // 0x0045F2D0
-CObjectModule* CEntityHub::FindFirstModuleOfKind(uint32_t type)
+ObjectModule* EntityHub::find_first_module_of_kind(uint32_t type)
 {
-    for (uint32_t i = 0; i < m_componentTypes; ++i) {
-        if (m_components[i].type == type)
-            return ComponentList(i);
+    for (uint32_t i = 0; i < component_types_; ++i) {
+        if (components_[i].type == type)
+            return component_list(i);
     }
     return nullptr;
 }
 
 // 0x0045F3E0
-void CEntityHub::AttachModuleOfKind(CObjectModule* component)
+void EntityHub::attach_module_of_kind(ObjectModule* component)
 {
-    uint32_t type = TypeOf(component);
-    for (uint32_t i = 0; i < m_componentTypes; ++i) {
-        if (m_components[i].type == type) {
-            NextOfType(component) = ComponentList(i);
-            ComponentList(i) = component;
+    uint32_t type = type_of(component);
+    for (uint32_t i = 0; i < component_types_; ++i) {
+        if (components_[i].type == type) {
+            next_of_type(component) = component_list(i);
+            component_list(i) = component;
             return;
         }
     }
 }
 
 // 0x0045F420. (A type registered twice: the lists of each of its entries are searched, in order.)
-void CEntityHub::DetachModuleOfKind(CObjectModule* component)
+void EntityHub::detach_module_of_kind(ObjectModule* component)
 {
-    uint32_t type = TypeOf(component);
-    for (uint32_t i = 0; i < m_componentTypes; ++i) {
-        if (m_components[i].type != type)
+    uint32_t type = type_of(component);
+    for (uint32_t i = 0; i < component_types_; ++i) {
+        if (components_[i].type != type)
             continue;
-        CObjectModule* previous = ComponentList(i);
+        ObjectModule* previous = component_list(i);
         if (previous == component) {
-            ComponentList(i) = NextOfType(component);
-            NextOfType(component) = nullptr;
+            component_list(i) = next_of_type(component);
+            next_of_type(component) = nullptr;
             return;
         }
-        for (; previous; previous = NextOfType(previous)) {
-            if (NextOfType(previous) == component) {
-                NextOfType(previous) = NextOfType(component);
-                NextOfType(component) = nullptr;
+        for (; previous; previous = next_of_type(previous)) {
+            if (next_of_type(previous) == component) {
+                next_of_type(previous) = next_of_type(component);
+                next_of_type(component) = nullptr;
                 return;
             }
         }
@@ -288,70 +288,70 @@ void CEntityHub::DetachModuleOfKind(CObjectModule* component)
 }
 
 // 0x0045F330
-CGameEntity* CEntityHub::CreateCompositeObject()
+GameEntity* EntityHub::create_composite_object()
 {
-    void* memory = MemSys::AllocZeroed(0x108);
-    CGameEntity* object = memory ? ConstructCompositeObject(memory) : nullptr;
-    object->ChangeSpecies(kCompositeObjectType);
-    VirtualRegisterObject(object);
+    void* memory = memory::alloc_zeroed(0x108);
+    GameEntity* object = memory ? construct_composite_object(memory) : nullptr;
+    object->change_species(kCompositeObjectType);
+    virtual_register_object(object);
     return object;
 }
 
 // 0x0045F3A0
-CGameEntity* CEntityHub::SpawnEntityFromNode(Scripts::CArray* components,
-                                                                         Scripts::CStruct* nodeData, bool finalize)
+GameEntity* EntityHub::spawn_entity_from_node(script::Array* components,
+                                                                         script::Struct* node_data, bool finalize)
 {
-    CGameEntity* object = CreateCompositeObject();
-    ConfigureFromData(object, nodeData);
-    BuildModulesFromList(object, components, nodeData);
+    GameEntity* object = create_composite_object();
+    configure_from_data(object, node_data);
+    build_modules_from_list(object, components, node_data);
     if (finalize)
-        Seal(object);
+        seal(object);
     return object;
 }
 
 // 0x0045F4A0
-void CEntityHub::TickFrame()
+void EntityHub::tick_frame()
 {
-    WalkObjects(this, [](CGameEntity* object) { UpdateCompositeObject(object); });
+    walk_objects(this, [](GameEntity* object) { update_composite_object(object); });
 }
 
 // 0x0045F5D0
-void CEntityHub::Freeze(bool pause)
+void EntityHub::get_freeze(bool pause)
 {
-    WalkObjects(this, [pause](CGameEntity* object) {
+    walk_objects(this, [pause](GameEntity* object) {
         if (pause)
-            CompositeFlags(object) |= COMPOSITE_FLAG_PAUSED;
+            composite_flags(object) |= kCompositeFlagPaused;
         else
-            CompositeFlags(object) &= ~COMPOSITE_FLAG_PAUSED;
+            composite_flags(object) &= ~kCompositeFlagPaused;
     });
 }
 
 // 0x0045F6D0
-void __cdecl CompositeObjectManagerTask(void* task)
+void __cdecl composite_object_manager_task(void* task)
 {
-    static_cast<CEntityHub*>(static_cast<void**>(task)[7])->TickFrame();
+    static_cast<EntityHub*>(static_cast<void**>(task)[7])->tick_frame();
 }
 
 // 0x0045F7A0
-CEntityHub* CreateCompositeObjectManager(bool create)
+EntityHub* create_composite_object_manager(bool create)
 {
-    if (!ObjectHubSlot() && create) {
-        void* memory = MemSys::AllocZeroed(sizeof(CEntityHub), 1);
-        ObjectHubSlot() = memory ? static_cast<CEntityHub*>(memory)->MakeNew() : nullptr;
+    if (!object_hub_slot() && create) {
+        void* memory = memory::alloc_zeroed(sizeof(EntityHub), 1);
+        object_hub_slot() = memory ? static_cast<EntityHub*>(memory)->make_new() : nullptr;
     }
-    ++RefTally();
-    return ObjectHubSlot();
+    ++ref_tally();
+    return object_hub_slot();
 }
 
 // 0x0045F1E0
-void ReleaseCompositeObjectManager()
+void release_composite_object_manager()
 {
-    uint32_t& references = RefTally();
+    uint32_t& references = ref_tally();
     if (references > 1) {
         --references;
         return;
     }
-    ObjectHubSlot() = nullptr; // (not deleted)
+    object_hub_slot() = nullptr; // (not deleted)
     references = 0;
 }
 
@@ -365,33 +365,33 @@ struct MaterializeNode {
     MaterializeNode* next;
     MaterializeNode* prev;
 };
-MaterializeNode* g_instanceListHead;
-MaterializeNode*& InstanceListHead() { return g_instanceListHead; }
-uint32_t& InstanceCount() { return g_instanceCount; }
+MaterializeNode* g_instance_list_head;
+MaterializeNode*& instance_list_head() { return g_instance_list_head; }
+uint32_t& instance_count() { return g_instance_count; }
 // std::list::erase(first, last) (0x004ECC30; the result iterator in `result`).
-void EraseInstances(MaterializeNode** result, MaterializeNode* first, MaterializeNode* last)
+void erase_instances(MaterializeNode** result, MaterializeNode* first, MaterializeNode* last)
 {
-    reinterpret_cast<PointerList*>(&g_instanceListHead)->Erase(reinterpret_cast<PointerListNode**>(result),
+    reinterpret_cast<PointerList*>(&g_instance_list_head)->get_erase(reinterpret_cast<PointerListNode**>(result),
                                                            reinterpret_cast<PointerListNode*>(first),
                                                            reinterpret_cast<PointerListNode*>(last));
 }
 
-MemSys::Zone*& CoimRegion() { return g_coimRegion; }
-MemSys::Arena*& CoimHeap() { return g_coimHeap; }
-int& CoimA() { return g_coimA; }
-int& CoimB() { return g_coimB; }
-int& CoimC() { return g_coimC; }
-int& CoimInteger0() { return g_coimInteger0; } // (4 until InitCOIM)
-int& CoimInteger1() { return g_coimInteger1; } // (2 until InitCOIM)
+memory::Zone*& coim_region() { return g_coim_region; }
+memory::Arena*& coim_heap() { return g_coim_heap; }
+int& coim_a() { return g_coim_a; }
+int& coim_b() { return g_coim_b; }
+int& coim_c() { return g_coim_c; }
+int& coim_integer0() { return g_coim_integer0; } // (4 until InitCOIM)
+int& coim_integer1() { return g_coim_integer1; } // (2 until InitCOIM)
 
 } // namespace
 
 // 0x0045EFD0
-void DestroyCoimHeap()
+void destroy_coim_heap()
 {
-    DebugOut::Printf("Destroying COIM heap\n");
-    if (InstanceCount()) {
-        MaterializeNode* head = InstanceListHead();
+    debug::printf("Destroying COIM heap\n");
+    if (instance_count()) {
+        MaterializeNode* head = instance_list_head();
         MaterializeNode* node = head ? head->next : nullptr;
         if (node != head) {
             do {
@@ -401,94 +401,94 @@ void DestroyCoimHeap()
                     node->object = nullptr;
                 }
                 MaterializeNode* next = node->next;
-                if (node != InstanceListHead()) {
+                if (node != instance_list_head()) {
                     node->prev->next = node->next;
                     node->next->prev = node->prev;
-                    MemSys::Hub::Pull()->Dealloc(node);
-                    --InstanceCount();
+                    memory::Hub::get_pull()->dealloc(node);
+                    --instance_count();
                 }
                 node = next;
-            } while (node != InstanceListHead());
+            } while (node != instance_list_head());
         }
-        head = InstanceListHead();
+        head = instance_list_head();
         MaterializeNode* result;
-        EraseInstances(&result, head ? head->next : nullptr, head);
+        erase_instances(&result, head ? head->next : nullptr, head);
     }
-    if (CoimHeap()) {
-        MemSys::Hub::Pull()->DeleteHeap(CoimHeap());
-        if (CoimRegion()) // (its scalar deleting destructor, through the vtable)
-            reinterpret_cast<void*(__thiscall*)(MemSys::Zone*, unsigned int)>(CoimRegion()->m_vtable[0])(CoimRegion(), 1);
-        CoimHeap() = nullptr;
-        CoimRegion() = nullptr;
+    if (coim_heap()) {
+        memory::Hub::get_pull()->delete_heap(coim_heap());
+        if (coim_region()) // (its scalar deleting destructor, through the vtable)
+            reinterpret_cast<void*(__thiscall*)(memory::Zone*, unsigned int)>(coim_region()->vtable_[0])(coim_region(), 1);
+        coim_heap() = nullptr;
+        coim_region() = nullptr;
     }
 }
 
 // 0x0045F0B0
-bool CreateCoimHeap(uint32_t size)
+bool create_coim_heap(uint32_t size)
 {
-    DestroyCoimHeap();
+    destroy_coim_heap();
     if (size) {
-        void* memory = MemSys::AllocZeroed(sizeof(MemSys::MemoryArena));
-        CoimRegion() = memory ? new (memory) MemSys::MemoryArena(size) : nullptr;
-        CoimHeap() = MemSys::Hub::Pull()->AddHeap(CoimRegion(), 1, "COIMHeap");
-        CoimHeap()->m_unknown64 = true;
-        CoimHeap()->m_unknown68 = CoimB() - g_compositeMgrBlockHeaderSize; // (16: a block header)
-        Scripts::FetchIntValue(0xBA2C7CCB); // (the result isn't used)
+        void* memory = memory::alloc_zeroed(sizeof(memory::MemoryArena));
+        coim_region() = memory ? new (memory) memory::MemoryArena(size) : nullptr;
+        coim_heap() = memory::Hub::get_pull()->add_heap(coim_region(), 1, "COIMHeap");
+        coim_heap()->unknown64_ = true;
+        coim_heap()->unknown68_ = coim_b() - g_composite_mgr_block_header_size; // (16: a block header)
+        script::fetch_int_value(0xBA2C7CCB); // (the result isn't used)
     }
     return false;
 }
 
 // 0x0045F160
-void InitCoim(int a, uint32_t heapSize, int b, int c)
+void init_coim(int a, uint32_t heap_size, int b, int c)
 {
-    CoimA() = a;
-    CoimB() = b;
-    CoimInteger0() = Scripts::FetchIntValue(0xB5527B89);
-    CoimInteger1() = Scripts::FetchIntValue(0xD84C26CF);
-    CoimC() = c;
-    CreateCoimHeap(heapSize);
-    DebugOut::Printf("Initializing CCompositeObjectInstanceMgr at %dk\n", heapSize >> 10);
+    coim_a() = a;
+    coim_b() = b;
+    coim_integer0() = script::fetch_int_value(0xB5527B89);
+    coim_integer1() = script::fetch_int_value(0xD84C26CF);
+    coim_c() = c;
+    create_coim_heap(heap_size);
+    debug::printf("Initializing CCompositeObjectInstanceMgr at %dk\n", heap_size >> 10);
 }
 
 // 0x0045F1C0
-void ResizeCoimHeap(uint32_t size)
+void resize_coim_heap(uint32_t size)
 {
     if (size)
-        CreateCoimHeap(size);
+        create_coim_heap(size);
     else
-        DestroyCoimHeap();
+        destroy_coim_heap();
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kManagerVtable_slots[] = {&GameObjects::CEntityHub::Teardown,
-         &GameObjects::CObjectHubBase::EnrolSubject,
-         &GameObjects::CObjectHubBase::DropEntityRegistration,
-         &GameObjects::CObjectHubBase::ReassignObjectId,
-         &GameObjects::CObjectHubBase::SetEntityRank,
-         &GameObjects::CMiscHub::RemoveEntity,
-         &MenuSystem::CUiTree::FetchObjectSet};
-void** const kManagerVtable = reinterpret_cast<void**>(kManagerVtable_slots);
+static VtableSlot g_manager_vtable_slots[] = {&objects::EntityHub::teardown,
+         &objects::ObjectHubBase::enrol_subject,
+         &objects::ObjectHubBase::drop_entity_registration,
+         &objects::ObjectHubBase::reassign_object_id,
+         &objects::ObjectHubBase::set_entity_rank,
+         &objects::MiscHub::remove_entity,
+         &frontend::UiTree::fetch_object_set};
+void** const kManagerVtable = reinterpret_cast<void**>(g_manager_vtable_slots);
 
 } // namespace
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
 // A list (std::list<T*>) nothing uses but its static initialiser and exit function: an empty head node.
-ScriptCommands::PointerList g_spareObjectList;
+commands::PointerList g_spare_object_list;
 
 } // namespace
 
 // 0x006409F0 (a static initialiser)
-void ConstructSpareObjectList() { g_spareObjectList.MakeNew(); }
+void construct_spare_object_list() { g_spare_object_list.make_new(); }
 
 // 0x00640A10 (a static initialiser): the instance list (its head and the count after it), empty.
-void ConstructInstanceList() { reinterpret_cast<ScriptCommands::PointerList*>(&g_instanceListHead)->MakeNew(); }
+void construct_instance_list() { reinterpret_cast<commands::PointerList*>(&g_instance_list_head)->make_new(); }
 
 } // namespace Obj

@@ -18,16 +18,16 @@ namespace {
 FILE* g_log = nullptr;
 bool g_console = false;
 
-// The last lines logged, kept for LogTail (the screenshot sidecar - platform/screenshot.h): fixed slots, no
+// The last lines logged, kept for get_log_tail (the screenshot sidecar - platform/screenshot.h): fixed slots, no
 // allocation or lock (Log runs in the crash logger too); a line written while another thread reads may come out torn.
 constexpr unsigned kTailLines = 32;
 constexpr size_t kTailWidth = 320;
 char g_tail[kTailLines][kTailWidth];
-std::atomic<unsigned> g_tailCount{0};
+std::atomic<unsigned> g_tail_count{0};
 
-const char* KeepTail(const char* fmt, va_list args)
+const char* keep_tail(const char* fmt, va_list args)
 {
-    unsigned slot = g_tailCount.fetch_add(1) % kTailLines;
+    unsigned slot = g_tail_count.fetch_add(1) % kTailLines;
     vsnprintf(g_tail[slot], kTailWidth, fmt, args);
     return g_tail[slot];
 }
@@ -36,7 +36,7 @@ const char* KeepTail(const char* fmt, va_list args)
 std::atomic<void (*)(const char*)> g_listener{nullptr};
 }
 
-std::string GameFolderPath(const char* file_name)
+std::string game_folder_path(const char* file_name)
 {
     char path[MAX_PATH];
     GetModuleFileNameA(nullptr, path, MAX_PATH);
@@ -45,45 +45,45 @@ std::string GameFolderPath(const char* file_name)
     return std::string(path) + file_name;
 }
 
-int ConfigInt(const char* section, const char* key, int fallback)
+int config_int(const char* section, const char* key, int fallback)
 {
     return static_cast<int>(
-        GetPrivateProfileIntA(section, key, fallback, GameFolderPath("thug2-decomp.ini").c_str()));
+        GetPrivateProfileIntA(section, key, fallback, game_folder_path("thug2-decomp.ini").c_str()));
 }
 
-bool ConfigSetInt(const char* section, const char* key, int value)
+bool config_set_int(const char* section, const char* key, int value)
 {
     char text[16];
     std::snprintf(text, sizeof(text), "%d", value);
-    return WritePrivateProfileStringA(section, key, text, GameFolderPath("thug2-decomp.ini").c_str()) != 0;
+    return WritePrivateProfileStringA(section, key, text, game_folder_path("thug2-decomp.ini").c_str()) != 0;
 }
 
-void LogOpen()
+void log_open()
 {
     // (fopen_s doesn't share a file open for writing: when another copy of the game has the log - [features]
     // allow_multiple_instances - this one writes thug2-decomp-2.log, -3, ...)
-    if (fopen_s(&g_log, GameFolderPath("thug2-decomp.log").c_str(), "w") != 0) {
+    if (fopen_s(&g_log, game_folder_path("thug2-decomp.log").c_str(), "w") != 0) {
         for (int copy = 2; copy <= 9 && !g_log; ++copy) {
             std::string name = "thug2-decomp-" + std::to_string(copy) + ".log";
-            if (fopen_s(&g_log, GameFolderPath(name.c_str()).c_str(), "w") != 0)
+            if (fopen_s(&g_log, game_folder_path(name.c_str()).c_str(), "w") != 0)
                 g_log = nullptr;
         }
     }
     // (crashes, CRT reports, run-time check failures... logged, the process ended, never a dialog - platform/crash.h)
-    InstallCrashHandling(false);
+    install_crash_handling(false);
 }
 
-void* LogFileHandle()
+void* log_file_handle()
 {
     return g_log ? reinterpret_cast<void*>(_get_osfhandle(_fileno(g_log))) : INVALID_HANDLE_VALUE;
 }
 
-void Log(const char* fmt, ...)
+void get_log(const char* fmt, ...)
 {
     {
         va_list args;
         va_start(args, fmt);
-        const char* line = KeepTail(fmt, args);
+        const char* line = keep_tail(fmt, args);
         va_end(args);
         if (void (*listener)(const char*) = g_listener.load())
             listener(line);
@@ -106,11 +106,11 @@ void Log(const char* fmt, ...)
     fflush(g_log);
 }
 
-void SetLogListener(void (*listener)(const char* line)) { g_listener = listener; }
+void set_log_listener(void (*listener)(const char* line)) { g_listener = listener; }
 
-std::vector<std::string> LogTail(size_t lines)
+std::vector<std::string> get_log_tail(size_t lines)
 {
-    unsigned count = g_tailCount.load();
+    unsigned count = g_tail_count.load();
     size_t n = std::min<size_t>({lines, count, kTailLines});
     std::vector<std::string> out;
     out.reserve(n);

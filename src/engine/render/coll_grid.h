@@ -10,68 +10,68 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/maths/shape_tests.h"
 
-namespace Engine3D {
+namespace render {
 
-class CHitMesh;
-class CStaticCollider;
+class HitMesh;
+class StaticCollider;
 
 // A cell (0x30 bytes).
 struct CollGridCell {
     // 0x004183B0: an empty box, nothing listed. Returns this.
-    CollGridCell* MakeNew();
+    CollGridCell* make_new();
     // 0x00418410: the two blocks freed.
-    void Destruct();
+    void destruct();
 
-    Maths::BBox box;          // +0x00
+    maths::BBox box;          // +0x00
     uint32_t unknown20;     // +0x20
     int count;              // +0x24
     void* unknown28;        // +0x28 (freed through the memory manager)
-    CHitMesh** objects;     // +0x2C a Malloc block of `count`
+    HitMesh** objects;     // +0x2C a Malloc block of `count`
 };
 static_assert(sizeof(CollGridCell) == 0x30 && offsetof(CollGridCell, objects) == 0x2C, "layout must match the original");
 
-class CCollGrid {
+class CollGrid {
 public:
     static constexpr int kSize = 20;
 
     // 0x00418440: the box taken and cut into cells (their corners added up from the minimum in double precision).
-    void PrepareAll(const Maths::BBox* bounds);
+    void prepare_all(const maths::BBox* bounds);
     // 0x004183D0: every cell's list freed and emptied.
-    void Clear();
+    void get_clear();
     // 0x00418BD0: the cells filled from `count` static objects (those whose geometry has faces), each listed in
     // the cells its box (slot 21) covers. A cell index below 0 isn't clamped (as in the original).
-    void Fill(CStaticCollider* statics, int count);
+    void get_fill(StaticCollider* statics, int count);
     // 0x00418F60: the lists brought up to date, cell by cell: the objects of `removed` taken out where their boxes
     // touch the cell, those of `added` put in where they touch it, those of `moved` taken out or put in as they
     // now do or don't; each list's block resized once and, at the end, every list moved to a fresh block. (Lists
-    // of ListKit::Foremost<CHitMesh>.)
-    void TickFrame(MemSys::ListNode* added, MemSys::ListNode* removed, MemSys::ListNode* moved);
+    // of lists::Foremost<HitMesh>.)
+    void tick_frame(memory::ListNode* added, memory::ListNode* removed, memory::ListNode* moved);
 
     // 0x00418710: the objects (neither flag 2 nor 4) of the cells `box` (grown by 0.5 on x and z) covers, each
     // once; null-terminated, in the shared list 0x00691998.
-    CHitMesh** ObjectsInBox(const Maths::BBox* box);
+    HitMesh** objects_in_box(const maths::BBox* box);
     // 0x004188C0: the same for the cells the line (made half a unit longer at each end) spans; one cell: its
     // objects as they are; more: each once, 2047 at most. The number found goes to `count` if it's given.
-    CHitMesh** ObjectsAlongLine(const Maths::Seg* line, int* count);
+    HitMesh** objects_along_line(const maths::Seg* line, int* count);
 
-    CollGridCell* Cell(int x, int z) { return &m_cells[x][z]; }
+    CollGridCell* get_cell(int x, int z) { return &cells_[x][z]; }
 
-    Maths::BBox m_box;                       // +0x00
-    float m_cellSpanX;                     // +0x20 on x
-    float m_cellDepth;                     // +0x24 on z
-    int m_columns;                         // +0x28 on x (20)
-    int m_rows;                            // +0x2C on z (20)
-    CollGridCell m_cells[kSize][kSize];    // +0x30 [x][z]
+    maths::BBox box_;                       // +0x00
+    float cell_span_x_;                     // +0x20 on x
+    float cell_depth_;                     // +0x24 on z
+    int columns_;                         // +0x28 on x (20)
+    int rows_;                            // +0x2C on z (20)
+    CollGridCell cells_[kSize][kSize];    // +0x30 [x][z]
 };
-static_assert(offsetof(CCollGrid, m_cells) == 0x30 && sizeof(CCollGrid) == 0x4B30, "layout must match the original");
+static_assert(offsetof(CollGrid, cells_) == 0x30 && sizeof(CollGrid) == 0x4B30, "layout must match the original");
 
 // The node and head of the list Update keeps the objects waiting to be put in a cell on (vtables 0x00645D7C /
 // 0x00645D80): 0x00418ED0 the node's destructor body (unlinked), 0x00418EF0 its scalar deleting destructor,
 // 0x00418F30 the head's.
 struct CollGridListNodes {
-    void DestroyNodeBody();
-    MemSys::ListNode* DestroyNode(uint8_t flags);
-    MemSys::ListNode* DestroyHead(uint8_t flags);
+    void destroy_node_body();
+    memory::ListNode* destroy_node(uint8_t flags);
+    memory::ListNode* destroy_head(uint8_t flags);
 };
 
 } // namespace Nx

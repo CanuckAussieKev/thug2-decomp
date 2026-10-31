@@ -11,35 +11,35 @@
 #include "platform/game_clock.h"
 #include "platform/stopwatch.h"
 
-namespace GameObjects {
+namespace objects {
 
-int g_clockOffset;
+int g_clock_offset;
 
 namespace {
 
 constexpr int kPressedAbove = 0x40;
 
 // The game clock with its offset (0x00696D60).
-int Clock() { return FrameClock::GameClockElapsed() + g_clockOffset; }
+int get_clock() { return frame_clock::game_clock_elapsed() + g_clock_offset; }
 
-// FrameClock::GetTime as the original compares it: unsigned, as a float would hold it.
-double Now() { return static_cast<double>(FrameClock::GetTime()); }
+// frame_clock::GetTime as the original compares it: unsigned, as a float would hold it.
+double get_now() { return static_cast<double>(frame_clock::get_time()); }
 
-float FloatFromBits(uint32_t bits)
+float float_from_bits(uint32_t bits)
 {
     float f;
     std::memcpy(&f, &bits, sizeof(f));
     return f;
 }
 
-const float kPi = FloatFromBits(0x40490FDB);
-const float kHalfPi = FloatFromBits(0x3FC90FDB);
-const float kQuarterPi = FloatFromBits(0x3F490FDB);
-const float kThreeQuarterPi = FloatFromBits(0x4016CBE4);
+const float kPi = float_from_bits(0x40490FDB);
+const float kHalfPi = float_from_bits(0x3FC90FDB);
+const float kQuarterPi = float_from_bits(0x3F490FDB);
+const float kThreeQuarterPi = float_from_bits(0x4016CBE4);
 
 // The FPU's own cosine and arctangent (as the original's FCOS / FPATAN).
 // `factor` x |cos(angle)|, the cosine kept at the FPU's full precision (only the product is rounded).
-double TimesAbsCos(double factor, double angle)
+double times_abs_cos(double factor, double angle)
 {
     double result;
     __asm {
@@ -52,7 +52,7 @@ double TimesAbsCos(double factor, double angle)
     }
     return result;
 }
-double X87Atan2(double y, double x)
+double x87_atan2(double y, double x)
 {
     double result;
     __asm {
@@ -66,7 +66,7 @@ double X87Atan2(double y, double x)
 
 // A stick's data byte with 0x80 as the centre, moved 50 towards 0 (crossing it: there's no dead band) and / 77;
 // exactly centred is 0. (-0x80 counts as -0x7F.)
-void ScaleStick(uint8_t byte, float* out)
+void scale_stick(uint8_t byte, float* out)
 {
     int value = byte - 0x80;
     if (value == 0) {
@@ -76,19 +76,19 @@ void ScaleStick(uint8_t byte, float* out)
     if (value == -0x80)
         value = -0x7F;
     int moved = value + (value > 0 ? -50 : 50);
-    *out = static_cast<float>(moved * static_cast<double>(FloatFromBits(0x3C54C77B)));
+    *out = static_cast<float>(moved * static_cast<double>(float_from_bits(0x3C54C77B)));
 }
 
 // The button value of a pressure byte: any pressure counts as full.
-int Full(bool down) { return down ? 0xFF : 0; }
+int get_full(bool down) { return down ? 0xFF : 0; }
 
 // A lock of the second stick stays while it is set, the stick isn't centred, the stick is in the lock's
 // quarter and the time hasn't passed.
-void UpdateLock(uint32_t& lock, float length, bool inQuarter)
+void update_lock(uint32_t& lock, float length, bool in_quarter)
 {
     if (lock == 0)
         return;
-    if (length != 0.0f && inQuarter && Now() <= static_cast<double>(lock))
+    if (length != 0.0f && in_quarter && get_now() <= static_cast<double>(lock))
         return;
     lock = 0;
 }
@@ -96,217 +96,217 @@ void UpdateLock(uint32_t& lock, float length, bool inQuarter)
 } // namespace
 
 // 0x0046B7E0
-void CControlButton::ResetActivation()
+void ControlButton::reset_activation()
 {
-    m_fired = 0;
+    fired_ = 0;
 }
 
 // 0x0046B7F0
-void CControlButton::ForgetLetGo()
+void ControlButton::forget_let_go()
 {
-    m_letGo = 0;
+    let_go_ = 0;
 }
 
 // 0x0046B800
-void CControlButton::ChangeTitle(const char* name)
+void ControlButton::change_title(const char* name)
 {
-    m_label = Checksums::HashFromText(name);
+    label_ = checksums::hash_from_text(name);
 }
 
 // 0x0046B820
-void CControlButton::TickFrame(int pressure)
+void ControlButton::tick_frame(int pressure)
 {
-    if (m_lockedUntil != 0.0f) {
+    if (locked_until_ != 0.0f) {
         // (compared as the original: a NaN lock keeps holding presses off)
-        if (pressure > kPressedAbove && !(Now() > static_cast<double>(m_lockedUntil)))
+        if (pressure > kPressedAbove && !(get_now() > static_cast<double>(locked_until_)))
             return;
-        m_lockedUntil = 0.0f;
+        locked_until_ = 0.0f;
     }
-    m_pressAmount = pressure;
+    press_amount_ = pressure;
     if (pressure > kPressedAbove) {
-        if (!m_heldDown) {
-            m_pressTime = Clock();
-            m_fired = 1;
+        if (!held_down_) {
+            press_time_ = get_clock();
+            fired_ = 1;
         }
-        m_heldDown = 1;
+        held_down_ = 1;
     } else {
-        if (m_heldDown) {
-            m_releaseTime = Clock();
-            m_letGo = 1;
+        if (held_down_) {
+            release_time_ = get_clock();
+            let_go_ = 1;
         }
-        m_heldDown = 0;
+        held_down_ = 0;
     }
 }
 
 // 0x0046B8B0
-void CControlButton::SetHeldDown(uint8_t down)
+void ControlButton::set_held_down(uint8_t down)
 {
     if (down) {
-        if (!m_heldDown) {
-            m_pressTime = Clock();
-            m_fired = 1;
+        if (!held_down_) {
+            press_time_ = get_clock();
+            fired_ = 1;
         }
-    } else if (m_heldDown) {
-        m_letGo = 1;
+    } else if (held_down_) {
+        let_go_ = 1;
     }
-    m_heldDown = down;
+    held_down_ = down;
 }
 
 // 0x0046B900
-int CControlButton::ReadLetGoTime()
+int ControlButton::read_let_go_time()
 {
-    int released = m_releaseTime;
-    return FrameClock::GameClockElapsed() + (g_clockOffset - released);
+    int released = release_time_;
+    return frame_clock::game_clock_elapsed() + (g_clock_offset - released);
 }
 
 // 0x0046B920
-int CControlButton::GetHeldMillis()
+int ControlButton::get_held_millis()
 {
-    int pressed = m_pressTime;
-    return FrameClock::GameClockElapsed() + (g_clockOffset - pressed);
+    int pressed = press_time_;
+    return frame_clock::game_clock_elapsed() + (g_clock_offset - pressed);
 }
 
 namespace {
 
-// Every button of the pad with the name scripts ask for it by (each name's checksum is what ReadButton matches).
+// Every button of the pad with the name scripts ask for it by (each name's checksum is what read_button matches).
 struct PadButtonName {
-    CControlButton CPadSnapshot::*button;
+    ControlButton PadSnapshot::*button;
     const char* name;
 };
 constexpr PadButtonName kPadButtons[] = {
-    {&CPadSnapshot::m_upDir, "UP"},          {&CPadSnapshot::m_btnDown, "DOWN"},     {&CPadSnapshot::m_leftSide, "LEFT"},
-    {&CPadSnapshot::m_rightSide, "RIGHT"},    {&CPadSnapshot::m_buttonBox, "SQUARE"}, {&CPadSnapshot::m_buttonRound, "CIRCLE"},
-    {&CPadSnapshot::m_buttonWedge, "TRIANGLE"}, {&CPadSnapshot::m_posX, "X"},       {&CPadSnapshot::m_shoulderLeftA, "L1"},
-    {&CPadSnapshot::m_shoulderLeftB, "L2"},          {&CPadSnapshot::m_stickClickLeft, "L3"},         {&CPadSnapshot::m_shoulderRightA, "R1"},
-    {&CPadSnapshot::m_shoulderRightB, "R2"},          {&CPadSnapshot::m_stickClickRight, "R3"},         {&CPadSnapshot::m_outset, "START"},
-    {&CPadSnapshot::m_buttonChoose, "SELECT"},
+    {&PadSnapshot::up_dir_, "UP"},          {&PadSnapshot::btn_down_, "DOWN"},     {&PadSnapshot::left_side_, "LEFT"},
+    {&PadSnapshot::right_side_, "RIGHT"},    {&PadSnapshot::button_box_, "SQUARE"}, {&PadSnapshot::button_round_, "CIRCLE"},
+    {&PadSnapshot::button_wedge_, "TRIANGLE"}, {&PadSnapshot::pos_x_, "X"},       {&PadSnapshot::shoulder_left_a_, "L1"},
+    {&PadSnapshot::shoulder_left_b_, "L2"},          {&PadSnapshot::stick_click_left_, "L3"},         {&PadSnapshot::shoulder_right_a_, "R1"},
+    {&PadSnapshot::shoulder_right_b_, "R2"},          {&PadSnapshot::stick_click_right_, "R3"},         {&PadSnapshot::outset_, "START"},
+    {&PadSnapshot::button_choose_, "SELECT"},
 };
 
 } // namespace
 
 // 0x0046B940
-CPadSnapshot* CPadSnapshot::PrepareAll()
+PadSnapshot* PadSnapshot::prepare_all()
 {
     for (const PadButtonName& entry : kPadButtons)
-        (this->*entry.button).ChangeTitle(entry.name);
-    m_lock[0] = m_lock[1] = 0;
+        (this->*entry.button).change_title(entry.name);
+    lock_[0] = lock_[1] = 0;
     return this;
 }
 
 // 0x0046BB50: every button let go (a held one records its release), the sticks centred.
-void CPadSnapshot::Reset()
+void PadSnapshot::get_reset()
 {
     for (const PadButtonName& entry : kPadButtons)
-        (this->*entry.button).TickFrame(0);
-    for (float& f : m_stick)
+        (this->*entry.button).tick_frame(0);
+    for (float& f : stick_)
         f = 0.0f;
-    for (float& f : m_scaledStick)
+    for (float& f : scaled_stick_)
         f = 0.0f;
-    m_polar[0] = {0.0f, 0.0f};
-    m_polar[1] = {0.0f, 0.0f};
+    polar_[0] = {0.0f, 0.0f};
+    polar_[1] = {0.0f, 0.0f};
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's stick buttons beside the pad up too.
-    if (Skater::ThawBmx::IsSwitchedOn())
-        Skater::ThawBmx::UpdatePadSticks(this, nullptr);
+    if (skater::thaw_bmx::is_switched_on())
+        skater::thaw_bmx::update_pad_sticks(this, nullptr);
 }
 
 // 0x0046BC60
-void CPadSnapshot::Clear()
+void PadSnapshot::get_clear()
 {
-    Reset();
-    CControlButton* both[] = {&m_upDir, &m_btnDown, &m_leftSide, &m_rightSide, &m_shoulderLeftA, &m_shoulderLeftB, &m_stickClickLeft, &m_shoulderRightA};
-    for (CControlButton* button : both) {
-        button->ResetActivation();
-        button->ForgetLetGo();
+    get_reset();
+    ControlButton* both[] = {&up_dir_, &btn_down_, &left_side_, &right_side_, &shoulder_left_a_, &shoulder_left_b_, &stick_click_left_, &shoulder_right_a_};
+    for (ControlButton* button : both) {
+        button->reset_activation();
+        button->forget_let_go();
     }
     // (the original's slip: R2's press is taken twice and its release kept, R3's release twice and its press kept)
-    m_shoulderRightB.ResetActivation();
-    m_shoulderRightB.ResetActivation();
-    m_stickClickRight.ForgetLetGo();
-    m_stickClickRight.ForgetLetGo();
-    CControlButton* rest[] = {&m_buttonBox, &m_buttonRound, &m_posX, &m_buttonWedge, &m_outset, &m_buttonChoose};
-    for (CControlButton* button : rest) {
-        button->ResetActivation();
-        button->ForgetLetGo();
+    shoulder_right_b_.reset_activation();
+    shoulder_right_b_.reset_activation();
+    stick_click_right_.forget_let_go();
+    stick_click_right_.forget_let_go();
+    ControlButton* rest[] = {&button_box_, &button_round_, &pos_x_, &button_wedge_, &outset_, &button_choose_};
+    for (ControlButton* button : rest) {
+        button->reset_activation();
+        button->forget_let_go();
     }
 }
 
 // 0x0046BDA0
-void CPadSnapshot::TickFrame(const uint8_t* data)
+void PadSnapshot::tick_frame(const uint8_t* data)
 {
-    m_upDir.TickFrame(Full(data[6] != 0));
-    m_btnDown.TickFrame(Full(data[7] != 0));
-    m_leftSide.TickFrame(Full(data[5] != 0));
-    m_rightSide.TickFrame(Full(data[4] != 0));
-    m_buttonBox.TickFrame(Full(data[0xB] != 0));
-    m_buttonRound.TickFrame(Full(data[9] != 0));
-    m_posX.TickFrame(Full(data[0xA] != 0));
-    m_buttonWedge.TickFrame(Full(data[8] != 0));
-    m_shoulderLeftA.TickFrame(Full(data[0xC] != 0));
-    m_shoulderRightA.TickFrame(Full(data[0xD] != 0));
-    m_shoulderLeftB.TickFrame(Full(data[0xE] != 0));
-    m_shoulderRightB.TickFrame(Full(data[0xF] != 0));
+    up_dir_.tick_frame(get_full(data[6] != 0));
+    btn_down_.tick_frame(get_full(data[7] != 0));
+    left_side_.tick_frame(get_full(data[5] != 0));
+    right_side_.tick_frame(get_full(data[4] != 0));
+    button_box_.tick_frame(get_full(data[0xB] != 0));
+    button_round_.tick_frame(get_full(data[9] != 0));
+    pos_x_.tick_frame(get_full(data[0xA] != 0));
+    button_wedge_.tick_frame(get_full(data[8] != 0));
+    shoulder_left_a_.tick_frame(get_full(data[0xC] != 0));
+    shoulder_right_a_.tick_frame(get_full(data[0xD] != 0));
+    shoulder_left_b_.tick_frame(get_full(data[0xE] != 0));
+    shoulder_right_b_.tick_frame(get_full(data[0xF] != 0));
     uint32_t bits = *reinterpret_cast<const uint32_t*>(data + 0x1C);
-    m_stickClickLeft.TickFrame(Full((bits & 0x200) != 0));
-    m_stickClickRight.TickFrame(Full((bits & 0x400) != 0));
-    m_buttonChoose.TickFrame(Full((bits & 0x100) != 0));
+    stick_click_left_.tick_frame(get_full((bits & 0x200) != 0));
+    stick_click_right_.tick_frame(get_full((bits & 0x400) != 0));
+    button_choose_.tick_frame(get_full((bits & 0x100) != 0));
     // (START isn't read here)
 
     for (int i = 0; i < 4; ++i)
-        ScaleStick(data[i], &m_scaledStick[i]);
+        scale_stick(data[i], &scaled_stick_[i]);
     for (int i = 0; i < 4; ++i)
-        m_stick[i] = static_cast<float>(data[0x12 + i] - 0x80);
+        stick_[i] = static_cast<float>(data[0x12 + i] - 0x80);
 
-    double x = m_stick[0], y = m_stick[1];
-    m_polar[0].length = static_cast<float>(std::sqrt(x * x + y * y));
-    m_polar[0].angle = static_cast<float>(X87Atan2(m_stick[0], -static_cast<double>(m_stick[1])));
+    double x = stick_[0], y = stick_[1];
+    polar_[0].length = static_cast<float>(std::sqrt(x * x + y * y));
+    polar_[0].angle = static_cast<float>(x87_atan2(stick_[0], -static_cast<double>(stick_[1])));
 
-    x = m_stick[2];
-    y = m_stick[3];
+    x = stick_[2];
+    y = stick_[3];
     double length = std::sqrt(y * y + x * x);
-    m_polar[1].length = static_cast<float>(length);
+    polar_[1].length = static_cast<float>(length);
     // (compared unrounded, as the original's)
-    if (length > FloatFromBits(0x3A83126F)) {
-        m_polar[1].angle = static_cast<float>(X87Atan2(m_stick[2], -static_cast<double>(m_stick[3])));
+    if (length > float_from_bits(0x3A83126F)) {
+        polar_[1].angle = static_cast<float>(x87_atan2(stick_[2], -static_cast<double>(stick_[3])));
     } else {
         // the d-pad stands in for a centred stick
         uint8_t up = data[6] != 0, down = data[7] != 0, left = data[5] != 0, right = data[4] != 0;
         if (up || down || left || right) {
-            m_polar[1].angle = DPadAngle(up, down, left, right);
-            m_polar[1].length = 127.0f;
+            polar_[1].angle = d_pad_angle(up, down, left, right);
+            polar_[1].length = 127.0f;
         } else {
-            m_polar[1].angle = 0.0f;
-            m_polar[1].length = 0.0f;
+            polar_[1].angle = 0.0f;
+            polar_[1].length = 0.0f;
         }
     }
 
-    double angle = std::fabs(static_cast<double>(m_polar[1].angle));
-    UpdateLock(m_lock[0], m_polar[1].length, angle < kQuarterPi);
-    UpdateLock(m_lock[1], m_polar[1].length, static_cast<double>(kPi) - angle < kQuarterPi);
+    double angle = std::fabs(static_cast<double>(polar_[1].angle));
+    update_lock(lock_[0], polar_[1].length, angle < kQuarterPi);
+    update_lock(lock_[1], polar_[1].length, static_cast<double>(kPi) - angle < kQuarterPi);
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's pad's eight stick buttons (its 0x596CA0), beside the pad -
     // game/rider/thaw_bmx.h. Original behaviour: none.
-    if (Skater::ThawBmx::IsSwitchedOn())
-        Skater::ThawBmx::UpdatePadSticks(this, data);
+    if (skater::thaw_bmx::is_switched_on())
+        skater::thaw_bmx::update_pad_sticks(this, data);
 }
 
 // 0x0046C270
-CControlButton* CPadSnapshot::ReadButton(uint32_t name)
+ControlButton* PadSnapshot::read_button(uint32_t name)
 {
     // (the original's order)
-    CControlButton* buttons[] = {&m_upDir, &m_btnDown, &m_leftSide, &m_rightSide, &m_buttonBox, &m_buttonRound, &m_buttonWedge, &m_posX,
-                                 &m_shoulderLeftA, &m_shoulderLeftB, &m_stickClickLeft, &m_shoulderRightA, &m_shoulderRightB, &m_stickClickRight, &m_outset, &m_buttonChoose};
-    for (CControlButton* button : buttons) {
-        if (button->m_label == name)
+    ControlButton* buttons[] = {&up_dir_, &btn_down_, &left_side_, &right_side_, &button_box_, &button_round_, &button_wedge_, &pos_x_,
+                                 &shoulder_left_a_, &shoulder_left_b_, &stick_click_left_, &shoulder_right_a_, &shoulder_right_b_, &stick_click_right_, &outset_, &button_choose_};
+    for (ControlButton* button : buttons) {
+        if (button->label_ == name)
             return button;
     }
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's stick buttons by name (leftup ... rightright - its bike
     // scripts' DoBalanceTrick ButtonA=leftright, HeldLongerThan button=leftdown). Original behaviour: null.
-    if (Skater::ThawBmx::IsSwitchedOn())
-        return static_cast<CControlButton*>(Skater::ThawBmx::PadStickButton(this, name));
+    if (skater::thaw_bmx::is_switched_on())
+        return static_cast<ControlButton*>(skater::thaw_bmx::pad_stick_button(this, name));
     return nullptr;
 }
 
 // 0x0046BA50
-int DPadDirection(uint8_t up, uint8_t down, uint8_t left, uint8_t right)
+int d_pad_direction(uint8_t up, uint8_t down, uint8_t left, uint8_t right)
 {
     // (0x0067D8C8)
     static constexpr int kDirections[16] = {0, 1, 2, 2, 3, 5, 7, 7, 4, 6, 8, 8, 4, 6, 8, 8};
@@ -314,7 +314,7 @@ int DPadDirection(uint8_t up, uint8_t down, uint8_t left, uint8_t right)
 }
 
 // 0x0046BA80
-float DPadAngle(uint8_t up, uint8_t down, uint8_t left, uint8_t right)
+float d_pad_angle(uint8_t up, uint8_t down, uint8_t left, uint8_t right)
 {
     // (the original's static table 0x006F2270, filled on the first call; up and down together count as down,
     // left and right together as right)
@@ -328,22 +328,22 @@ float DPadAngle(uint8_t up, uint8_t down, uint8_t left, uint8_t right)
 }
 
 // 0x0046C370
-double __stdcall StickLength(float x, float y, float angle)
+double __stdcall stick_length(float x, float y, float angle)
 {
     double nx = x / static_cast<double>(x > 0.0f ? 127.0f : 128.0f);
     double ny = y / static_cast<double>(y > 0.0f ? 127.0f : 128.0f);
     // the angle brought into the quarter around up / down, then around left / right
     double a = angle;
-    double toGate;
+    double to_gate;
     if (a > -static_cast<double>(kQuarterPi) && a < kQuarterPi)
-        toGate = a;
+        to_gate = a;
     else if (a > kQuarterPi && a < kThreeQuarterPi)
-        toGate = a - kHalfPi;
+        to_gate = a - kHalfPi;
     else if (std::fabs(a) > kThreeQuarterPi)
-        toGate = std::fabs(a) - kPi;
+        to_gate = std::fabs(a) - kPi;
     else
-        toGate = a + kHalfPi;
-    double length = TimesAbsCos(std::sqrt(ny * ny + nx * nx), toGate) * static_cast<double>(FloatFromBits(0x3F969696));
+        to_gate = a + kHalfPi;
+    double length = times_abs_cos(std::sqrt(ny * ny + nx * nx), to_gate) * static_cast<double>(float_from_bits(0x3F969696));
     return length > 1.0 ? 1.0 : length; // (unrounded: the original leaves it in ST0)
 }
 

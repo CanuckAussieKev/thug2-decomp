@@ -5,10 +5,10 @@
 
 #include "engine/sys/game_config.h"
 
-namespace TextUtil {
+namespace text {
 
 // 0x00402080
-void ToLowerText(char* string)
+void to_lower_text(char* string)
 {
     for (; *string; ++string) {
         if (*string >= 'A' && *string <= 'Z')
@@ -17,7 +17,7 @@ void ToLowerText(char* string)
 }
 
 // 0x004020B0
-void ToCapitals(char* string)
+void to_capitals(char* string)
 {
     for (; *string; ++string) {
         if (*string >= 'a' && *string <= 'z')
@@ -27,7 +27,7 @@ void ToCapitals(char* string)
 
 namespace {
 
-char Lower(char c)
+char get_lower(char c)
 {
     return (c >= 'A' && c <= 'Z') ? static_cast<char>(c + ('a' - 'A')) : c;
 }
@@ -35,16 +35,16 @@ char Lower(char c)
 } // namespace
 
 // 0x00401FF0
-const char* FindCaseless(const char* haystack, const char* needle)
+const char* find_caseless(const char* haystack, const char* needle)
 {
     if (*needle == '\0')
         return nullptr;
-    char first = Lower(*needle);
+    char first = get_lower(*needle);
     for (; *haystack; ++haystack) {
-        if (Lower(*haystack) != first)
+        if (get_lower(*haystack) != first)
             continue;
         int i = 1;
-        while (needle[i] != '\0' && Lower(needle[i]) == Lower(haystack[i]))
+        while (needle[i] != '\0' && get_lower(needle[i]) == get_lower(haystack[i]))
             ++i;
         if (needle[i] == '\0')
             return haystack;
@@ -52,12 +52,12 @@ const char* FindCaseless(const char* haystack, const char* needle)
     return nullptr;
 }
 
-char g_separatedNumber[16];
+char g_separated_number[16];
 
 // 0x00402200
-const char* FormatWithSeparators(int value)
+const char* format_with_separators(int value)
 {
-    char* const buffer = g_separatedNumber; // shared with the original code
+    char* const buffer = g_separated_number; // shared with the original code
     char* out = buffer;
     if (value < 0) {
         *out++ = '-';
@@ -68,7 +68,7 @@ const char* FormatWithSeparators(int value)
     snprintf(digits, sizeof(digits), "%d", value);
 
     char separator;
-    switch (GameConfig::g_language) { // the game's language setting
+    switch (game_config::g_language) { // the game's language setting
     case 3:
         separator = ' ';
         break;
@@ -95,10 +95,10 @@ const char* FormatWithSeparators(int value)
 }
 
 // 0x00402120
-int CompareCaseless(const char* a, const char* b)
+int compare_caseless(const char* a, const char* b)
 {
     for (;; ++a, ++b) {
-        char ca = Lower(*a), cb = Lower(*b);
+        char ca = get_lower(*a), cb = get_lower(*b);
         if (ca != cb)
             return ca < cb ? -1 : 1;
         if (ca == '\0')
@@ -107,7 +107,7 @@ int CompareCaseless(const char* a, const char* b)
 }
 
 // 0x004020E0
-int HexDigitValue(const char* digit)
+int hex_digit_value(const char* digit)
 {
     char c = *digit;
     if (c >= '0' && c <= '9')
@@ -120,7 +120,7 @@ int HexDigitValue(const char* digit)
 }
 
 // 0x00402170
-int NextWord(char* out, const char*& cursor)
+int next_word(char* out, const char*& cursor)
 {
     for (;;) {
         char c = *cursor;

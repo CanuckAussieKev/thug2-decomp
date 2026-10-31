@@ -14,47 +14,47 @@
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/device.h"
 
-namespace Engine3D {
+namespace render {
 
 namespace {
 
-IDirect3DDevice9* InputPort() { return g_d3dDevice; }
-IDirect3DTexture9* D3d(const textureRef* t) { return static_cast<IDirect3DTexture9*>(t->texture); }
+IDirect3DDevice9* input_port() { return g_d3d_device; }
+IDirect3DTexture9* get_d3d(const TextureRef* t) { return static_cast<IDirect3DTexture9*>(t->texture); }
 
 // The list (0x007CC254): doubly linked nodes.
 struct Elem {
-    textureRef* texture;
+    TextureRef* texture;
     Elem* previous;
     Elem* next;
 };
-Elem* g_textureListHead;
-Elem*& Foremost() { return g_textureListHead; }
+Elem* g_texture_list_head;
+Elem*& foremost() { return g_texture_list_head; }
 
 // What the textures being drawn with are (the render state cache's).
-void* CachedTexture(int stage) { return g_textures[stage]; }
+void* cached_texture(int stage) { return g_textures[stage]; }
 
 } // namespace
 
 // 0x004E04B0
-textureRef* textureRef::MakeNew()
+TextureRef* TextureRef::make_new()
 {
     texture = nullptr;
     palette = nullptr;
     surface = nullptr;
-    renderTarget = false;
-    auto* node = static_cast<Elem*>(MemSys::Alloc(sizeof(Elem)));
-    Elem* head = Foremost();
+    render_target_ = false;
+    auto* node = static_cast<Elem*>(memory::alloc(sizeof(Elem)));
+    Elem* head = foremost();
     node->texture = this;
     node->previous = nullptr;
     node->next = head;
-    Foremost() = node;
+    foremost() = node;
     if (head)
         head->previous = node;
     return this;
 }
 
 // 0x004E0500
-textureRef* textureRef::ConstructCopy(const textureRef* source)
+TextureRef* TextureRef::construct_copy(const TextureRef* source)
 {
     texture = nullptr;
     palette = nullptr;
@@ -62,50 +62,50 @@ textureRef* textureRef::ConstructCopy(const textureRef* source)
     checksum = source->checksum;
     width = source->width;
     height = source->height;
-    imageWidth = source->imageWidth;
-    imageHeight = source->imageHeight;
+    image_width_ = source->image_width_;
+    image_height_ = source->image_height_;
     levels = source->levels;
     depth = source->depth;
-    unknownE = source->unknownE;
-    unknownF = source->unknownF;
-    IDirect3DTexture9* from = D3d(source);
-    DWORD levelCount = from->GetLevelCount();
+    unknowne_ = source->unknowne_;
+    unknownf_ = source->unknownf_;
+    IDirect3DTexture9* from = get_d3d(source);
+    DWORD level_count = from->GetLevelCount();
     D3DSURFACE_DESC desc;
     from->GetLevelDesc(0, &desc);
-    InputPort()->CreateTexture(desc.Width, desc.Height, levelCount, 0, desc.Format, D3DPOOL_MANAGED,
+    input_port()->CreateTexture(desc.Width, desc.Height, level_count, 0, desc.Format, D3DPOOL_MANAGED,
                             reinterpret_cast<IDirect3DTexture9**>(&texture), nullptr);
     for (uint32_t level = 0; level < levels; ++level) {
-        D3DSURFACE_DESC levelDesc;
-        D3d(source)->GetLevelDesc(level, &levelDesc);
+        D3DSURFACE_DESC level_desc;
+        get_d3d(source)->GetLevelDesc(level, &level_desc);
         // Rows of texels (or of 4x4 blocks for compressed formats: 8 bytes a block for DXT1, 16 for the others).
-        uint32_t rows = levelDesc.Height;
-        uint32_t rowBytes;
-        if (levelDesc.Format == D3DFMT_A8R8G8B8) {
-            rowBytes = levelDesc.Width * 4;
+        uint32_t rows = level_desc.Height;
+        uint32_t row_bytes;
+        if (level_desc.Format == D3DFMT_A8R8G8B8) {
+            row_bytes = level_desc.Width * 4;
         } else {
             rows = (rows + 3) >> 2;
-            rowBytes = levelDesc.Format == D3DFMT_DXT1 ? levelDesc.Width * 8 : levelDesc.Width << 4;
+            row_bytes = level_desc.Format == D3DFMT_DXT1 ? level_desc.Width * 8 : level_desc.Width << 4;
         }
-        D3DLOCKED_RECT sourceRect, targetRect;
-        D3d(source)->LockRect(level, &sourceRect, nullptr, 0);
-        D3d(this)->LockRect(level, &targetRect, nullptr, 0);
-        const uint8_t* from8 = static_cast<const uint8_t*>(sourceRect.pBits);
-        uint8_t* to = static_cast<uint8_t*>(targetRect.pBits);
+        D3DLOCKED_RECT source_rect, target_rect;
+        get_d3d(source)->LockRect(level, &source_rect, nullptr, 0);
+        get_d3d(this)->LockRect(level, &target_rect, nullptr, 0);
+        const uint8_t* from8 = static_cast<const uint8_t*>(source_rect.pBits);
+        uint8_t* to = static_cast<uint8_t*>(target_rect.pBits);
         for (uint32_t row = 0; row < rows; ++row) {
-            std::memcpy(to, from8, rowBytes);
-            from8 += sourceRect.Pitch;
-            to += targetRect.Pitch;
+            std::memcpy(to, from8, row_bytes);
+            from8 += source_rect.Pitch;
+            to += target_rect.Pitch;
         }
-        D3d(source)->UnlockRect(level);
-        D3d(this)->UnlockRect(level);
+        get_d3d(source)->UnlockRect(level);
+        get_d3d(this)->UnlockRect(level);
     }
     return this;
 }
 
 // 0x004E03F0
-void textureRef::Unlist()
+void TextureRef::unlist()
 {
-    Elem* node = Foremost();
+    Elem* node = foremost();
     for (; node; node = node->next) {
         if (node->texture == this)
             break;
@@ -115,87 +115,87 @@ void textureRef::Unlist()
     if (node->previous)
         node->previous->next = node->next;
     else
-        Foremost() = node->next;
+        foremost() = node->next;
     if (node->next)
         node->next->previous = node->previous;
-    MemSys::Hub::Sole()->Dealloc(node);
+    memory::Hub::sole()->dealloc(node);
 }
 
 // 0x004E06A0
-void textureRef::DestroyBody()
+void TextureRef::destroy_body()
 {
-    Unlist();
+    unlist();
     if (surface)
         static_cast<IDirect3DSurface9*>(surface)->Release();
     if (texture) {
-        D3d(this)->Release();
+        get_d3d(this)->Release();
         for (int stage = 0; stage < 4; ++stage) {
-            if (CachedTexture(stage) == texture)
-                SetTexture(stage, nullptr);
+            if (cached_texture(stage) == texture)
+                set_texture(stage, nullptr);
         }
     }
 }
 
 // 0x004E0380
-void textureRef::AssignValue(int stage)
+void TextureRef::assign_value(int stage)
 {
-    SetTexture(stage, texture); // (the original also passes the second texture, unused)
+    set_texture(stage, texture); // (the original also passes the second texture, unused)
 }
 
 // 0x004E03A0
-void* textureRef::Lock()
+void* TextureRef::get_lock()
 {
     D3DLOCKED_RECT rect;
-    if (D3d(this)->LockRect(0, &rect, nullptr, 0) != D3D_OK)
+    if (get_d3d(this)->LockRect(0, &rect, nullptr, 0) != D3D_OK)
         return nullptr;
     return rect.pBits;
 }
 
 // 0x004E03D0
-void textureRef::Unlock()
+void TextureRef::get_unlock()
 {
-    D3d(this)->UnlockRect(0);
+    get_d3d(this)->UnlockRect(0);
 }
 
 // 0x004E03E0
-textureRef* textureRef::PaletteOwner()
+TextureRef* TextureRef::palette_owner()
 {
     return palette ? this : nullptr;
 }
 
 // 0x004E0700
-bool textureRef::CreateRenderTarget(int newWidth, int newHeight, uint8_t newDepth, int /*unused*/)
+bool TextureRef::create_render_target(int new_width, int new_height, uint8_t new_depth, int /*unused*/)
 {
     if (texture)
-        D3d(this)->Release();
-    HRESULT result = InputPort()->CreateTexture(newWidth, newHeight, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8,
+        get_d3d(this)->Release();
+    HRESULT result = input_port()->CreateTexture(new_width, new_height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8,
                                              D3DPOOL_DEFAULT, reinterpret_cast<IDirect3DTexture9**>(&texture), nullptr);
-    D3d(this)->GetSurfaceLevel(0, reinterpret_cast<IDirect3DSurface9**>(&surface));
-    renderTarget = true;
+    get_d3d(this)->GetSurfaceLevel(0, reinterpret_cast<IDirect3DSurface9**>(&surface));
+    render_target_ = true;
     if (result != D3D_OK)
         return false;
-    imageWidth = static_cast<uint16_t>(newWidth);
-    width = static_cast<uint16_t>(newWidth);
-    imageHeight = static_cast<uint16_t>(newHeight);
-    height = static_cast<uint16_t>(newHeight);
-    depth = newDepth;
+    image_width_ = static_cast<uint16_t>(new_width);
+    width = static_cast<uint16_t>(new_width);
+    image_height_ = static_cast<uint16_t>(new_height);
+    height = static_cast<uint16_t>(new_height);
+    depth = new_depth;
     checksum = 0;
     levels = 1;
-    unknownE = 0;
-    unknownF = 0;
+    unknowne_ = 0;
+    unknownf_ = 0;
     return true;
 }
 
 // 0x004E0320
-void __cdecl ReleaseRenderTargetTextures()
+void __cdecl release_render_target_textures()
 {
     for (DWORD stage = 0; stage < 8; ++stage)
-        InputPort()->SetTexture(stage, nullptr); // (the cache isn't told)
-    for (Elem* node = Foremost(); node; node = node->next) {
-        textureRef* t = node->texture;
-        if (!t->texture || !t->renderTarget)
+        input_port()->SetTexture(stage, nullptr); // (the cache isn't told)
+    for (Elem* node = foremost(); node; node = node->next) {
+        TextureRef* t = node->texture;
+        if (!t->texture || !t->render_target_)
             continue;
-        D3d(t)->Release();
+        get_d3d(t)->Release();
         t->texture = nullptr;
         if (t->surface)
             static_cast<IDirect3DSurface9*>(t->surface)->Release();
@@ -204,16 +204,16 @@ void __cdecl ReleaseRenderTargetTextures()
 }
 
 // 0x004E0440
-void __cdecl RestoreRenderTargetTextures()
+void __cdecl restore_render_target_textures()
 {
-    for (Elem* node = Foremost(); node; node = node->next) {
-        textureRef* t = node->texture;
-        if (t->texture || !t->renderTarget)
+    for (Elem* node = foremost(); node; node = node->next) {
+        TextureRef* t = node->texture;
+        if (t->texture || !t->render_target_)
             continue;
-        InputPort()->CreateTexture(t->width, t->height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT,
+        input_port()->CreateTexture(t->width, t->height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT,
                                 reinterpret_cast<IDirect3DTexture9**>(&t->texture), nullptr);
         if (t->texture)
-            D3d(t)->GetSurfaceLevel(0, reinterpret_cast<IDirect3DSurface9**>(&t->surface));
+            get_d3d(t)->GetSurfaceLevel(0, reinterpret_cast<IDirect3DSurface9**>(&t->surface));
     }
 }
 

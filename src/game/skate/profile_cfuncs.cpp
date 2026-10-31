@@ -18,56 +18,56 @@
 #include "engine/gfx/model.h"
 #include "engine/gfx/model_appearance.h"
 
-namespace ScriptCommands {
+namespace commands {
 
-SwapSlot g_swapTable[5];
+SwapSlot g_swap_table[5];
 
 namespace {
 
-using Scripts::CScript;
-using Scripts::CStruct;
+using script::Script;
+using script::Struct;
 
 constexpr int kSwapSlots = 5;
-SwapSlot* SwapTable() { return g_swapTable; }
+SwapSlot* swap_table() { return g_swap_table; }
 
-GameObjects::CProfileRoster* Profiles() { return GameObjects::g_profileRoster; }
-GameObjects::CRiderStoryProgress* Career()
+objects::ProfileRoster* get_profiles() { return objects::g_profile_roster; }
+objects::RiderStoryProgress* get_career()
 {
-    return *reinterpret_cast<GameObjects::CRiderStoryProgress**>(reinterpret_cast<uint8_t*>(GameModules::Skate::Sole()) + 0x20);
+    return *reinterpret_cast<objects::RiderStoryProgress**>(reinterpret_cast<uint8_t*>(modules::Skate::sole()) + 0x20);
 }
-CStruct* ResultParams(CScript* script) { return *reinterpret_cast<CStruct**>(reinterpret_cast<uint8_t*>(script) + 0x14); }
+Struct* result_params(Script* script) { return *reinterpret_cast<Struct**>(reinterpret_cast<uint8_t*>(script) + 0x14); }
 
 // The skate module's profile `params`' skater names (0x00564F80).
-GameObjects::CRiderIdentity* SkateProfile(CStruct* params) { return GameModules::Skate::Sole()->FetchAccount(params); }
+objects::RiderIdentity* skate_profile(Struct* params) { return modules::Skate::sole()->fetch_account(params); }
 
 const char* const kNoText = "---"; // "---"
 
 } // namespace
 
 // 0x005AA930
-void __cdecl SwapMapping(uint32_t a, uint32_t b)
+void __cdecl swap_mapping(uint32_t a, uint32_t b)
 {
-    SwapSlot* table = SwapTable();
-    int slotA = -1;
-    int slotB = -1;
+    SwapSlot* table = swap_table();
+    int slot_a = -1;
+    int slot_b = -1;
     for (int i = 0; i < kSwapSlots; ++i) {
         if (!table[i].used)
             continue;
         if (table[i].key == a)
-            slotA = i;
+            slot_a = i;
         else if (table[i].key == b)
-            slotB = i;
+            slot_b = i;
     }
-    if (slotA == -1 || slotB == -1) {
+    if (slot_a == -1 || slot_b == -1) {
         for (int i = 0; i < kSwapSlots; ++i) {
             if (table[i].used)
                 continue;
-            if (slotA == -1) {
-                slotA = i;
+            if (slot_a == -1) {
+                slot_a = i;
                 table[i].key = a;
                 table[i].value = a;
-            } else if (slotB == -1) {
-                slotB = i;
+            } else if (slot_b == -1) {
+                slot_b = i;
                 table[i].key = b;
                 table[i].value = b;
             } else {
@@ -77,163 +77,163 @@ void __cdecl SwapMapping(uint32_t a, uint32_t b)
         }
     }
     // (with the table full, a slot of -1: the entry before the table, as in the original)
-    SwapSlot& first = table[slotA];
-    SwapSlot& second = table[slotB];
-    uint32_t firstValue = first.value;
-    uint32_t secondValue = second.value;
-    if (first.key == secondValue)
+    SwapSlot& first = table[slot_a];
+    SwapSlot& second = table[slot_b];
+    uint32_t first_value = first.value;
+    uint32_t second_value = second.value;
+    if (first.key == second_value)
         first.used = false;
     else
-        first.value = secondValue;
-    if (second.key == firstValue)
+        first.value = second_value;
+    if (second.key == first_value)
         second.used = false;
     else
-        second.value = firstValue;
+        second.value = first_value;
 }
 
 // 0x005AAAA0
-void PreloadMeshes(uint32_t arrayName)
+void preload_meshes(uint32_t array_name)
 {
-    Scripts::CArray* list = Scripts::FetchList(arrayName);
-    for (uint32_t i = 0; i < list->m_extent; ++i) {
-        auto* entry = reinterpret_cast<CStruct*>(list->FetchPart(i));
-        int allowRandom = 0;
-        entry->FetchIntValue(0xF1E3CD22u, &allowRandom, 0); // allow_random
-        if (!allowRandom)
+    script::Array* list = script::fetch_list(array_name);
+    for (uint32_t i = 0; i < list->extent_; ++i) {
+        auto* entry = reinterpret_cast<Struct*>(list->fetch_part(i));
+        int allow_random = 0;
+        entry->fetch_int_value(0xF1E3CD22u, &allow_random, 0); // allow_random
+        if (!allow_random)
             continue;
         const char* mesh;
-        if (!entry->FetchText(0x1E90C5A9u, &mesh, 0)) // mesh
+        if (!entry->fetch_text(0x1E90C5A9u, &mesh, 0)) // mesh
             continue;
         // a model made (0x0048BFA0), the mesh added to it (0x004935E0), the model deleted (0x0048C3C0)
-        void* model = Engine3D::SpawnModel();
-        static_cast<Engine3D::CRenderModel*>(model)->AddFileGeom(mesh, 0, true, 0, false, false, true, false);
-        Engine3D::Engine::DeleteGeomObject(model);
+        void* model = render::spawn_model();
+        static_cast<render::RenderModel*>(model)->add_file_geom(mesh, 0, true, 0, false, false, true, false);
+        render::engine::delete_geom_object(model);
     }
 }
 
 namespace {
-void __cdecl PreloadMeshesRegisters(uint32_t arrayName) { PreloadMeshes(arrayName); }
+void __cdecl preload_meshes_registers(uint32_t array_name) { preload_meshes(array_name); }
 } // namespace
 
 // 0x005AAAA0: the array's name in EAX.
-__declspec(naked) void PreloadMeshesStub()
+__declspec(naked) void preload_meshes_stub()
 {
     __asm {
         push eax
-        call PreloadMeshesRegisters
+        call preload_meshes_registers
         add esp, 4
         ret
     }
 }
 
 // 0x005AAA80
-bool __cdecl CFunc_AddGoalEditorNodesToLevelNodeArray(CStruct*, CScript*)
+bool __cdecl cfunc_add_goal_editor_nodes_to_level_node_array(Struct*, Script*)
 {
     // the goal editor's nodes added (0x004E8F50, no source yet)
-    ParkEditing::AddGoalEditorNodes(nullptr, nullptr, MemSys::Hub::Pull()->m_bottomUpHeap);
+    park_editing::add_goal_editor_nodes(nullptr, nullptr, memory::Hub::get_pull()->bottom_up_heap_);
     return true;
 }
 
 // 0x005AAB50
-bool __cdecl CFunc_CurrentSkaterIsPro(CStruct* params, CScript*)
+bool __cdecl cfunc_current_skater_is_pro(Struct* params, Script*)
 {
-    GameObjects::CRiderIdentity* profile = SkateProfile(params);
-    return profile && profile->IsPro();
+    objects::RiderIdentity* profile = skate_profile(params);
+    return profile && profile->is_pro();
 }
 
 // 0x005AAB80
-bool __cdecl CFunc_GetGoalsCompleted(CStruct* params, CScript* script)
+bool __cdecl cfunc_get_goals_completed(Struct* params, Script* script)
 {
     int level = 0;
-    params->FetchIntValue(0u, &level, 0);
-    int goals = Career()->CountGoals(level);
+    params->fetch_int_value(0u, &level, 0);
+    int goals = get_career()->count_goals(level);
     char text[100];
     std::snprintf(text, sizeof(text), "%d/9", goals);
-    ResultParams(script)->AppendWord(0xC661FE79u, Scripts::QBVAL_STRING, text);  // (name unknown)
-    ResultParams(script)->AppendWord(0xA43DC969u, Scripts::QBVAL_STRING, kNoText); // (name unknown)
+    result_params(script)->append_word(0xC661FE79u, script::kQbvalString, text);  // (name unknown)
+    result_params(script)->append_word(0xA43DC969u, script::kQbvalString, kNoText); // (name unknown)
     return true;
 }
 
 // 0x005AAC10
-bool __cdecl CFunc_GetNextLevelRequirements(CStruct*, CScript* script)
+bool __cdecl cfunc_get_next_level_requirements(Struct*, Script* script)
 {
     char text[100];
     std::snprintf(text, sizeof(text), "%s", kNoText);
-    GameObjects::CRiderStoryProgress* career = Career();
-    int goals = career->CountTotalGoals();
-    int medals = career->CountLevelsWithGoals();
-    Scripts::CArray* steps = Scripts::FetchList(0x1D8F1A7Eu); // (name unknown) the level steps
-    for (uint32_t i = 0; i < steps->m_extent; ++i) {
-        auto* step = reinterpret_cast<CStruct*>(steps->FetchPart(i));
-        int goalsNeeded = 0;
-        int medalsNeeded = 0;
-        if (step->HasBareFlag(0x38DBE1D0u) || step->HasBareFlag(0x032314D1u)) // goals / goal
-            step->FetchIntValue(0u, &goalsNeeded, 0);
-        if (step->HasBareFlag(0x56907F8Bu) || step->HasBareFlag(0x23BBA846u)) // (names unknown) medals
-            step->FetchIntValue(0u, &medalsNeeded, 0);
-        if (goals < goalsNeeded) {
-            std::snprintf(text, sizeof(text), Scripts::FetchText(0x407BFD24u), goalsNeeded - goals); // cfuncs_str_goalsfornextlevel
+    objects::RiderStoryProgress* career = get_career();
+    int goals = career->count_total_goals();
+    int medals = career->count_levels_with_goals();
+    script::Array* steps = script::fetch_list(0x1D8F1A7Eu); // (name unknown) the level steps
+    for (uint32_t i = 0; i < steps->extent_; ++i) {
+        auto* step = reinterpret_cast<Struct*>(steps->fetch_part(i));
+        int goals_needed = 0;
+        int medals_needed = 0;
+        if (step->has_bare_flag(0x38DBE1D0u) || step->has_bare_flag(0x032314D1u)) // goals / goal
+            step->fetch_int_value(0u, &goals_needed, 0);
+        if (step->has_bare_flag(0x56907F8Bu) || step->has_bare_flag(0x23BBA846u)) // (names unknown) medals
+            step->fetch_int_value(0u, &medals_needed, 0);
+        if (goals < goals_needed) {
+            std::snprintf(text, sizeof(text), script::fetch_text(0x407BFD24u), goals_needed - goals); // cfuncs_str_goalsfornextlevel
             break;
         }
-        if (medals < medalsNeeded) {
-            std::snprintf(text, sizeof(text), Scripts::FetchText(0x4F3E243Eu), medalsNeeded - medals); // cfuncs_str_medalsfornextlevel
+        if (medals < medals_needed) {
+            std::snprintf(text, sizeof(text), script::fetch_text(0x4F3E243Eu), medals_needed - medals); // cfuncs_str_medalsfornextlevel
             break;
         }
     }
-    ResultParams(script)->AppendWord(0xAF2305A6u, Scripts::QBVAL_STRING, text); // (name unknown)
+    result_params(script)->append_word(0xAF2305A6u, script::kQbvalString, text); // (name unknown)
     return true;
 }
 
 // 0x005AAD70
-bool __cdecl CFunc_SetCurrentSkaterProfile(CStruct* params, CScript*)
+bool __cdecl cfunc_set_current_skater_profile(Struct* params, Script*)
 {
     int index = 0;
-    params->FetchIntValue(0u, &index, 0);
-    Profiles()->SetCurrentIndex(index);
+    params->fetch_int_value(0u, &index, 0);
+    get_profiles()->set_current_index(index);
     return true;
 }
 
 // 0x005AADA0
-bool __cdecl CFunc_AddSkaterProfile(CStruct* params, CScript*) { return Profiles()->AddTemplate(params); }
+bool __cdecl cfunc_add_skater_profile(Struct* params, Script*) { return get_profiles()->add_template(params); }
 
 // 0x005AADC0
-bool __cdecl CFunc_AddTemporaryProfile(CStruct* params, CScript*)
+bool __cdecl cfunc_add_temporary_profile(Struct* params, Script*)
 {
     uint32_t name;
-    params->ReadHashValue(0xA1DC81F9u, &name, 1); // name (asserted: used as it is)
-    return Profiles()->AddExtraProfile(name);
+    params->read_hash_value(0xA1DC81F9u, &name, 1); // name (asserted: used as it is)
+    return get_profiles()->add_extra_profile(name);
 }
 
 // 0x005AADF0
-bool __cdecl CFunc_RememberTemporaryAppearance(CStruct* params, CScript*)
+bool __cdecl cfunc_remember_temporary_appearance(Struct* params, Script*)
 {
     uint32_t name;
-    params->ReadHashValue(0xA1DC81F9u, &name, 1); // name
-    // a model appearance (Gfx2D::CModelLook, 0x5C bytes: constructor 0x00488EA0, destructor body 0x004890F0)
+    params->read_hash_value(0xA1DC81F9u, &name, 1); // name
+    // a model appearance (gfx::ModelLook, 0x5C bytes: constructor 0x00488EA0, destructor body 0x004890F0)
     alignas(4) uint8_t appearance[0x5C];
-    reinterpret_cast<Gfx2D::CModelLook*>(appearance)->MakeNew();
-    GameObjects::CProfileRoster* profiles = Profiles();
+    reinterpret_cast<gfx::ModelLook*>(appearance)->make_new();
+    objects::ProfileRoster* profiles = get_profiles();
     uint8_t* source;
-    CStruct* structure = nullptr;
-    if (params->ReadSubStruct(0xEFC8944Cu, &structure, 0)) { // appearance_structure
-        reinterpret_cast<Gfx2D::CModelLook*>(appearance)->ReadIn(structure, true);
+    Struct* structure = nullptr;
+    if (params->read_sub_struct(0xEFC8944Cu, &structure, 0)) { // appearance_structure
+        reinterpret_cast<gfx::ModelLook*>(appearance)->read_in(structure, true);
         source = appearance;
     } else {
         int player; // (asserted: used as it is)
-        params->FetchIntValue(0x67E6859Au, &player, 1); // player
-        source = reinterpret_cast<uint8_t*>(profiles->FetchAccount(player));
+        params->fetch_int_value(0x67E6859Au, &player, 1); // player
+        source = reinterpret_cast<uint8_t*>(profiles->fetch_account(player));
     }
-    auto* temporary = reinterpret_cast<uint8_t*>(profiles->GetExtraProfile(name));
-    if (params->HasBareFlag(0x3AF36E6Du)) { // NoFaceTexture: only the appearance's structure (+0x4C)
-        auto* own = reinterpret_cast<CStruct*>(temporary + 0x4C);
-        own->Clear();
-        own->AppendStructureIfAny(reinterpret_cast<CStruct*>(source + 0x4C));
+    auto* temporary = reinterpret_cast<uint8_t*>(profiles->get_extra_profile(name));
+    if (params->has_bare_flag(0x3AF36E6Du)) { // NoFaceTexture: only the appearance's structure (+0x4C)
+        auto* own = reinterpret_cast<Struct*>(temporary + 0x4C);
+        own->get_clear();
+        own->append_structure_if_any(reinterpret_cast<Struct*>(source + 0x4C));
     } else {
-        reinterpret_cast<Gfx2D::CModelLook*>(temporary)->CopyFrom(
-            reinterpret_cast<Gfx2D::CModelLook*>(source)); // the appearance copied
+        reinterpret_cast<gfx::ModelLook*>(temporary)->copy_from(
+            reinterpret_cast<gfx::ModelLook*>(source)); // the appearance copied
     }
-    reinterpret_cast<Gfx2D::CModelLook*>(appearance)->DestroyBody();
+    reinterpret_cast<gfx::ModelLook*>(appearance)->destroy_body();
     return true;
 }
 
-} // namespace ScriptCommands
+} // namespace commands

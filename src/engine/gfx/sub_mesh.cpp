@@ -15,35 +15,35 @@
 #include "engine/core/mem.h"
 #include "platform/crt.h"
 
-namespace Engine3D {
+namespace render {
 
 namespace {
 
 // The vertex buffers (not rewritten yet): a new one of `size` bytes, and Unlock (thiscall).
-sVertexBuffer* NewVertexBuffer(uint32_t size)
+VertexBuffer* new_vertex_buffer(uint32_t size)
 {
-    return Engine3D::NewVertexBuffer(size, 0, 0);
+    return render::new_vertex_buffer(size, 0, 0);
 }
-void Unlock(sVertexBuffer* buffer) { buffer->Unlock(); }
+void get_unlock(VertexBuffer* buffer) { buffer->get_unlock(); }
 // The inlined lock: the whole buffer (flags 0x10: read only).
-uint8_t* Lock(sVertexBuffer* buffer, uint32_t flags)
+uint8_t* get_lock(VertexBuffer* buffer, uint32_t flags)
 {
     uint8_t* data = buffer->data;
-    buffer->lockOffset = 0;
-    buffer->lockSize = buffer->size;
-    buffer->lockFlags = flags;
+    buffer->lock_offset_ = 0;
+    buffer->lock_size_ = buffer->size;
+    buffer->lock_flags_ = flags;
     return data;
 }
 // An index buffer of `bytes` (constructor not rewritten yet; thiscall), from the C runtime's malloc.
-sIdxStore* NewIndexBuffer(uint32_t bytes)
+IdxStore* new_index_buffer(uint32_t bytes)
 {
-    void* memory = Crt::AllocBlock(0x18);
+    void* memory = crt::alloc_block(0x18);
     if (!memory)
         return nullptr;
-    return static_cast<sIdxStore*>(memory)->MakeNew(bytes, 0, 0x65);
+    return static_cast<IdxStore*>(memory)->make_new(bytes, 0, 0x65);
 }
 // The index buffer's Direct3D copy written again from the one in memory.
-void UploadIndices(sIdxStore* buffer)
+void upload_indices(IdxStore* buffer)
 {
     auto* d3d = static_cast<IDirect3DIndexBuffer9*>(buffer->buffer);
     void* locked;
@@ -52,12 +52,12 @@ void UploadIndices(sIdxStore* buffer)
     std::memcpy(locked, buffer->indices, buffer->size);
     d3d->Unlock();
 }
-void* AllocBlock(size_t size) { return Crt::AllocBlock(size); } // the game's C runtime
+void* alloc_block(size_t size) { return crt::alloc_block(size); } // the game's C runtime
 
-// 0x00402550's maths (Maths::CrossVec as the original computes it: each component in double precision).
-Maths::Vec4 Perpendicular(const Maths::Vec4& a, const Maths::Vec4& b)
+// 0x00402550's maths (maths::cross_vec as the original computes it: each component in double precision).
+maths::Vec4 perpendicular(const maths::Vec4& a, const maths::Vec4& b)
 {
-    Maths::Vec4 out;
+    maths::Vec4 out;
     out.x = static_cast<float>(static_cast<double>(a.y) * b.z - static_cast<double>(a.z) * b.y);
     out.y = static_cast<float>(static_cast<double>(a.z) * b.x - static_cast<double>(a.x) * b.z);
     out.z = static_cast<float>(static_cast<double>(a.x) * b.y - static_cast<double>(a.y) * b.x);
@@ -65,7 +65,7 @@ Maths::Vec4 Perpendicular(const Maths::Vec4& a, const Maths::Vec4& b)
     return out;
 }
 
-void Identity(float* m)
+void get_identity(float* m)
 {
     for (int i = 0; i < 16; ++i)
         m[i] = (i % 5 == 0) ? 1.0f : 0.0f;
@@ -74,27 +74,27 @@ void Identity(float* m)
 } // namespace
 
 // 0x004D6D40
-void meshRef::AddVertexBuffers(int count)
+void MeshRef::add_vertex_buffers(int count)
 {
-    sVertexBuffer* first = vertexBuffers[0];
-    const uint8_t* source = Lock(first, 0x10);
+    VertexBuffer* first = vertex_buffers_[0];
+    const uint8_t* source = get_lock(first, 0x10);
     for (int i = 0; i < count; ++i) {
-        sVertexBuffer* buffer = NewVertexBuffer(vertexCount * stride);
-        vertexBuffers[1 + i] = buffer;
-        uint8_t* data = Lock(buffer, 0);
-        std::memcpy(data, source, vertexCount * stride);
-        Unlock(buffer);
+        VertexBuffer* buffer = new_vertex_buffer(vertex_count_ * stride);
+        vertex_buffers_[1 + i] = buffer;
+        uint8_t* data = get_lock(buffer, 0);
+        std::memcpy(data, source, vertex_count_ * stride);
+        get_unlock(buffer);
     }
-    Unlock(vertexBuffers[0]);
-    vertexBufferCount = static_cast<uint8_t>(count + 1);
+    get_unlock(vertex_buffers_[0]);
+    vertex_buffer_count_ = static_cast<uint8_t>(count + 1);
 }
 
 // 0x004D6E00
-void meshRef::MoveTo(const Maths::Vec4* position)
+void MeshRef::move_to(const maths::Vec4* position)
 {
     if (!transform) {
-        transform = static_cast<float*>(MemSys::Alloc(0x40));
-        Identity(transform);
+        transform = static_cast<float*>(memory::alloc(0x40));
+        get_identity(transform);
     }
     float dx = static_cast<float>(static_cast<double>(position->x) - transform[12]);
     float dy = static_cast<float>(static_cast<double>(position->y) - transform[13]);
@@ -103,17 +103,17 @@ void meshRef::MoveTo(const Maths::Vec4* position)
     transform[13] = position->y;
     transform[14] = position->z;
     transform[15] = position->w;
-    for (int b = 0; b < vertexBufferCount; ++b) {
-        uint8_t* vertex = Lock(vertexBuffers[b], 0);
-        for (uint32_t v = 0; v < vertexCount; ++v, vertex += stride) {
+    for (int b = 0; b < vertex_buffer_count_; ++b) {
+        uint8_t* vertex = get_lock(vertex_buffers_[b], 0);
+        for (uint32_t v = 0; v < vertex_count_; ++v, vertex += stride) {
             auto* p = reinterpret_cast<float*>(vertex);
             p[0] = dx + p[0];
             p[1] = dy + p[1];
             p[2] = dz + p[2];
         }
-        Unlock(vertexBuffers[b]);
+        get_unlock(vertex_buffers_[b]);
     }
-    for (uint32_t k = 0; k < positionCount; ++k) {
+    for (uint32_t k = 0; k < position_count_; ++k) {
         positions[3 * k + 0] = dx + positions[3 * k + 0];
         positions[3 * k + 1] = dy + positions[3 * k + 1];
         positions[3 * k + 2] = dz + positions[3 * k + 2];
@@ -124,20 +124,20 @@ void meshRef::MoveTo(const Maths::Vec4* position)
 }
 
 // 0x004D6FB0
-void meshRef::TurnY(int turns)
+void MeshRef::turn_y(int turns)
 {
     if (turns <= 0)
         return;
     if (!transform) {
-        transform = static_cast<float*>(MemSys::Alloc(0x40));
-        Identity(transform);
+        transform = static_cast<float*>(memory::alloc(0x40));
+        get_identity(transform);
     }
-    for (int b = 0; b < vertexBufferCount; ++b) {
-        uint8_t* vertex = Lock(vertexBuffers[b], 0);
+    for (int b = 0; b < vertex_buffer_count_; ++b) {
+        uint8_t* vertex = get_lock(vertex_buffers_[b], 0);
         // (the transform's position re-read for every vertex, as the original does)
         switch (turns) {
         case 1:
-            for (uint32_t v = 0; v < vertexCount; ++v, vertex += stride) {
+            for (uint32_t v = 0; v < vertex_count_; ++v, vertex += stride) {
                 auto* p = reinterpret_cast<float*>(vertex);
                 double x = static_cast<double>(p[0]) - transform[12];
                 double z = static_cast<double>(p[2]) - transform[14];
@@ -154,7 +154,7 @@ void meshRef::TurnY(int turns)
             }
             break;
         case 2:
-            for (uint32_t v = 0; v < vertexCount; ++v, vertex += stride) {
+            for (uint32_t v = 0; v < vertex_count_; ++v, vertex += stride) {
                 auto* p = reinterpret_cast<float*>(vertex);
                 double z = static_cast<double>(p[2]) - transform[14];
                 p[0] = static_cast<float>(transform[12] - (static_cast<double>(p[0]) - transform[12]));
@@ -166,7 +166,7 @@ void meshRef::TurnY(int turns)
             centre[2] = static_cast<float>(static_cast<double>(transform[14]) - centre[2]);
             break;
         case 3:
-            for (uint32_t v = 0; v < vertexCount; ++v, vertex += stride) {
+            for (uint32_t v = 0; v < vertex_count_; ++v, vertex += stride) {
                 auto* p = reinterpret_cast<float*>(vertex);
                 double x = static_cast<double>(p[0]) - transform[12];
                 double z = static_cast<double>(p[2]) - transform[14];
@@ -185,63 +185,63 @@ void meshRef::TurnY(int turns)
         default:
             break;
         }
-        Unlock(vertexBuffers[b]);
+        get_unlock(vertex_buffers_[b]);
     }
 }
 
 // 0x004D71F0
-meshRef* meshRef::Replicate(bool share)
+MeshRef* MeshRef::replicate(bool share)
 {
-    void* memory = MemSys::Alloc(sizeof(meshRef));
-    auto* copy = memory ? static_cast<meshRef*>(memory)->MakeNew() : nullptr; // (constructor)
-    std::memcpy(copy, this, sizeof(meshRef));
+    void* memory = memory::alloc(sizeof(MeshRef));
+    auto* copy = memory ? static_cast<MeshRef*>(memory)->make_new() : nullptr; // (constructor)
+    std::memcpy(copy, this, sizeof(MeshRef));
     if (share) {
         copy->flags |= 1;
     } else {
-        copy->vertexBuffers[0] = NewVertexBuffer(copy->vertexCount * copy->stride);
-        const uint8_t* source = Lock(vertexBuffers[0], 0x10);
-        uint8_t* data = Lock(copy->vertexBuffers[0], 0);
-        std::memcpy(data, source, copy->vertexCount * copy->stride);
-        Unlock(vertexBuffers[0]);
-        Unlock(copy->vertexBuffers[0]);
+        copy->vertex_buffers_[0] = new_vertex_buffer(copy->vertex_count_ * copy->stride);
+        const uint8_t* source = get_lock(vertex_buffers_[0], 0x10);
+        uint8_t* data = get_lock(copy->vertex_buffers_[0], 0);
+        std::memcpy(data, source, copy->vertex_count_ * copy->stride);
+        get_unlock(vertex_buffers_[0]);
+        get_unlock(copy->vertex_buffers_[0]);
         for (int k = 0; k < 8; ++k) {
-            if (!copy->indexCounts[k])
+            if (!copy->index_counts_[k])
                 continue;
-            sIdxStore* buffer = NewIndexBuffer(copy->indexCounts[k] * 2);
-            copy->indexBuffers[k] = buffer;
-            std::memcpy(buffer->indices, indexBuffers[k]->indices, copy->indexCounts[k] * 2);
-            UploadIndices(indexBuffers[k]); // (the original's too)
-            UploadIndices(copy->indexBuffers[k]);
+            IdxStore* buffer = new_index_buffer(copy->index_counts_[k] * 2);
+            copy->index_buffers_[k] = buffer;
+            std::memcpy(buffer->indices, index_buffers_[k]->indices, copy->index_counts_[k] * 2);
+            upload_indices(index_buffers_[k]); // (the original's too)
+            upload_indices(copy->index_buffers_[k]);
         }
-        copy->unknownA4 = unknownA4;
-        copy->unknownA8 = unknownA8;
-        if (perVertexData) {
-            copy->perVertexData = static_cast<uint8_t*>(AllocBlock(vertexCount * 0x4C));
-            std::memcpy(copy->perVertexData, perVertexData, vertexCount * 0x4C);
-            copy->unknown9C = -1;
+        copy->unknowna4_ = unknowna4_;
+        copy->unknowna8_ = unknowna8_;
+        if (per_vertex_data_) {
+            copy->per_vertex_data_ = static_cast<uint8_t*>(alloc_block(vertex_count_ * 0x4C));
+            std::memcpy(copy->per_vertex_data_, per_vertex_data_, vertex_count_ * 0x4C);
+            copy->unknown9c_ = -1;
         }
-        if (vertexBufferCount > 1) {
-            copy->vertexBuffers[1] = nullptr;
-            copy->AddVertexBuffers(vertexBufferCount - 1);
+        if (vertex_buffer_count_ > 1) {
+            copy->vertex_buffers_[1] = nullptr;
+            copy->add_vertex_buffers(vertex_buffer_count_ - 1);
         }
-        if (perVertexBytes) {
-            copy->perVertexBytes = static_cast<uint8_t*>(MemSys::Alloc(copy->vertexCount));
-            std::memcpy(copy->perVertexBytes, perVertexBytes, vertexCount);
+        if (per_vertex_bytes_) {
+            copy->per_vertex_bytes_ = static_cast<uint8_t*>(memory::alloc(copy->vertex_count_));
+            std::memcpy(copy->per_vertex_bytes_, per_vertex_bytes_, vertex_count_);
         }
     }
-    if (positionCount) {
-        copy->triangles = static_cast<uint16_t*>(AllocBlock(triangleCount * 6));
-        std::memcpy(copy->triangles, triangles, triangleCount * 6);
-        copy->positions = static_cast<float*>(AllocBlock(positionCount * 12));
-        std::memcpy(copy->positions, positions, positionCount * 12);
+    if (position_count_) {
+        copy->triangles = static_cast<uint16_t*>(alloc_block(triangle_count_ * 6));
+        std::memcpy(copy->triangles, triangles, triangle_count_ * 6);
+        copy->positions = static_cast<float*>(alloc_block(position_count_ * 12));
+        std::memcpy(copy->positions, positions, position_count_ * 12);
     }
     return copy;
 }
 
 // 0x004D7580
-void meshRef::MakeBillboard(int type, const Maths::Vec4* pivot, const Maths::Vec4* axis)
+void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Vec4* axis)
 {
-    auto* info = static_cast<sBillboard*>(MemSys::Alloc(sizeof(sBillboard)));
+    auto* info = static_cast<Billboard*>(memory::alloc(sizeof(Billboard)));
     billboard = info;
     if (type == 1) {
         info->type = 0;
@@ -257,9 +257,9 @@ void meshRef::MakeBillboard(int type, const Maths::Vec4* pivot, const Maths::Vec
         std::memcpy(info->axis, axis, 16);
 
     // The quad's plane from its first triangle.
-    sVertexBuffer* buffer = vertexBuffers[0];
-    uint8_t* data = Lock(buffer, 0x10);
-    sIdxStore* indices = indexBuffers[0];
+    VertexBuffer* buffer = vertex_buffers_[0];
+    uint8_t* data = get_lock(buffer, 0x10);
+    IdxStore* indices = index_buffers_[0];
     const float* p0 = reinterpret_cast<const float*>(data + indices->indices[0] * stride);
     const float* p1 = reinterpret_cast<const float*>(data + indices->indices[1] * stride);
     const float* p2 = reinterpret_cast<const float*>(data + indices->indices[2] * stride);
@@ -271,21 +271,21 @@ void meshRef::MakeBillboard(int type, const Maths::Vec4* pivot, const Maths::Vec
     double e1z = static_cast<double>(p1[2]) - p0[2];
     float nx = static_cast<float>(e1y * e2z - e1z * e2y);
     float ny = static_cast<float>(e1z * e2x - static_cast<double>(e2z) * e1x);
-    double nzExact = static_cast<double>(e2y) * e1x - e1y * e2x;
-    float nz = static_cast<float>(nzExact);
-    double length = std::sqrt((static_cast<double>(nx) * nx + nzExact * nzExact) + static_cast<double>(ny) * ny);
+    double nz_exact = static_cast<double>(e2y) * e1x - e1y * e2x;
+    float nz = static_cast<float>(nz_exact);
+    double length = std::sqrt((static_cast<double>(nx) * nx + nz_exact * nz_exact) + static_cast<double>(ny) * ny);
     if (length > 0.0) {
         double inverse = 1.0 / length;
         nx = static_cast<float>(nx * inverse);
         ny = static_cast<float>(ny * inverse);
-        nz = static_cast<float>(nzExact * inverse);
+        nz = static_cast<float>(nz_exact * inverse);
     }
-    Maths::Vec4 normal;
+    maths::Vec4 normal;
     normal.x = nx;
     normal.y = ny;
     normal.z = nz;
     normal.w = 0.0f;
-    UploadIndices(indices);
+    upload_indices(indices);
 
     // The billboard's axes: row 0 across, row 1 up, the normal.
     float r0[3] = {e1x, 0.0f, p2[2]}; // (another type: the original reads what's on its stack - row 0's y unknown)
@@ -294,34 +294,34 @@ void meshRef::MakeBillboard(int type, const Maths::Vec4* pivot, const Maths::Vec
     case 0:
     case 1:
     case 3: {
-        Maths::Vec4 across;
+        maths::Vec4 across;
         across.x = static_cast<float>(static_cast<double>(ny) * 0.0f - nz);
         across.y = static_cast<float>(static_cast<double>(nz) * 0.0f - static_cast<double>(nx) * 0.0f);
         across.z = static_cast<float>(nx - static_cast<double>(ny) * 0.0f);
         across.w = 0.0f;
-        across.MakeUnit();
+        across.make_unit();
         r0[0] = across.x;
         r0[1] = across.y;
         r0[2] = across.z;
-        Maths::Vec4 up;
+        maths::Vec4 up;
         up.x = static_cast<float>(static_cast<double>(r0[1]) * nz - static_cast<double>(r0[2]) * ny);
         up.y = static_cast<float>(static_cast<double>(r0[2]) * nx - static_cast<double>(nz) * r0[0]);
         up.z = static_cast<float>(static_cast<double>(ny) * r0[0] - static_cast<double>(r0[1]) * nx);
         up.w = 0.0f;
-        up.MakeUnit();
+        up.make_unit();
         r1x = up.x;
         r1y = up.y;
         r1z = up.z;
         break;
     }
     case 2: {
-        Maths::Vec4 across = Perpendicular(normal, *axis);
-        across.MakeUnit();
+        maths::Vec4 across = perpendicular(normal, *axis);
+        across.make_unit();
         r0[0] = across.x;
         r0[1] = across.y;
         r0[2] = across.z;
-        Maths::Vec4 up = Perpendicular(across, normal);
-        up.MakeUnit();
+        maths::Vec4 up = perpendicular(across, normal);
+        up.make_unit();
         r1x = up.x;
         r1y = up.y;
         r1z = up.z;
@@ -341,7 +341,7 @@ void meshRef::MakeBillboard(int type, const Maths::Vec4* pivot, const Maths::Vec
         p[2] = static_cast<float>((dx * nx + dz * nz) + dy * ny);
     }
     flags |= 0x10;
-    Unlock(buffer);
+    get_unlock(buffer);
 }
 
 } // namespace Nx

@@ -24,7 +24,7 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
@@ -43,12 +43,12 @@ constexpr float kFeelerReach = 30.0f; // 0x00646240
 constexpr float kBrightnessAbove = 12.0f; // 0x0064546C
 
 template <typename T>
-T& At(const void* base, uint32_t offset)
+T& get_at(const void* base, uint32_t offset)
 {
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(base) + offset);
 }
 
-void ChangePhase(void* core, int state) { static_cast<Skater::SkaterPhysicsModule*>(core)->SetPhysicsState(state); }
+void change_phase(void* core, int state) { static_cast<skater::SkaterPhysicsModule*>(core)->set_physics_state(state); }
 
 // The debug message's strings as the original passes them ("M:%s:%i: %s\n", the source file, "found to be inside a
 // moving object").
@@ -56,129 +56,129 @@ void ChangePhase(void* core, int state) { static_cast<Skater::SkaterPhysicsModul
 } // namespace
 
 // 0x004F80E0
-CObjectModule* __cdecl CRiderPhysicsTweaks::Fabricate()
+ObjectModule* __cdecl RiderPhysicsTweaks::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CRiderPhysicsTweaks));
+    void* memory = memory::alloc_zeroed(sizeof(RiderPhysicsTweaks));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CRiderPhysicsTweaks*>(memory);
-    component->CObjectModule::MakeNew();
-    component->m_corePtr = nullptr;
-    component->m_meshInstance = nullptr;
-    component->m_shadowHandle = nullptr;
-    component->m_ride = nullptr;
-    component->m_uberFrigged = 0;
-    component->m_vtable = kVtable;
-    component->m_kindTag = kType;
+    auto* component = static_cast<RiderPhysicsTweaks*>(memory);
+    component->ObjectModule::make_new();
+    component->core_ptr_ = nullptr;
+    component->mesh_instance_ = nullptr;
+    component->shadow_handle_ = nullptr;
+    component->ride_ = nullptr;
+    component->uber_frigged_ = 0;
+    component->vtable_ = kVtable;
+    component->kind_tag_ = kType;
     return component;
 }
 
 // 0x004F8040
-void CRiderPhysicsTweaks::DestroyBody()
+void RiderPhysicsTweaks::destroy_body()
 {
-    m_vtable = kVtable;
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    ObjectModule::destroy_body();
 }
 
 // 0x004F8050
-CRiderPhysicsTweaks* CRiderPhysicsTweaks::Teardown(unsigned int flags)
+RiderPhysicsTweaks* RiderPhysicsTweaks::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x004F8080
-void CRiderPhysicsTweaks::Seal()
+void RiderPhysicsTweaks::seal()
 {
-    m_corePtr = m_entity->FetchModule(kSkaterCorePhysics);
-    m_meshInstance = reinterpret_cast<CMeshInstanceModule*>(m_entity->FetchModule(kModel));
-    m_shadowHandle = reinterpret_cast<CGroundShadowModule*>(m_entity->FetchModule(kShadow));
-    m_ride = reinterpret_cast<CMovingSurfaceModule*>(m_entity->FetchModule(kMovableContact));
-    m_stateRef = reinterpret_cast<CRiderPoseState*>(m_entity->FetchModule(kSkaterState));
+    core_ptr_ = entity_->fetch_module(kSkaterCorePhysics);
+    mesh_instance_ = reinterpret_cast<MeshInstanceModule*>(entity_->fetch_module(kModel));
+    shadow_handle_ = reinterpret_cast<GroundShadowModule*>(entity_->fetch_module(kShadow));
+    ride_ = reinterpret_cast<MovingSurfaceModule*>(entity_->fetch_module(kMovableContact));
+    state_ref_ = reinterpret_cast<RiderPoseState*>(entity_->fetch_module(kSkaterState));
 }
 
 // 0x004F8C40
-void CRiderPhysicsTweaks::FrameUpdate()
+void RiderPhysicsTweaks::frame_update()
 {
-    uint8_t* flags = At<uint8_t*>(m_corePtr, kTimedFlags);
-    if (At<int>(flags, 0x18) == 0 || m_entity->m_vel.y < 0.0f) {
+    uint8_t* flags = get_at<uint8_t*>(core_ptr_, kTimedFlags);
+    if (get_at<int>(flags, 0x18) == 0 || entity_->vel_.y < 0.0f) {
         if (flags[0x60] != 1) {
             flags[0x60] = 1;
-            At<int>(flags, 0x64) = FrameClock::GameClockElapsed() + g_clockOffset;
+            get_at<int>(flags, 0x64) = frame_clock::game_clock_elapsed() + g_clock_offset;
         }
     }
-    if (!At<uint8_t*>(m_corePtr, kTimedFlags)[0x88])
-        CheckInsideMovingObject();
-    TickFrame();
-    m_entity->m_oldPos = m_entity->m_atPoint;
+    if (!get_at<uint8_t*>(core_ptr_, kTimedFlags)[0x88])
+        check_inside_moving_object();
+    tick_frame();
+    entity_->old_pos_ = entity_->at_point_;
 }
 
 // 0x004F8AA0
-void CRiderPhysicsTweaks::CheckInsideMovingObject()
+void RiderPhysicsTweaks::check_inside_moving_object()
 {
-    Maths::Vec4& frameStart = At<Maths::Vec4>(m_corePtr, kFirstTick);
-    if (!m_ride->FindContactAhead(&m_entity->m_atPoint, &frameStart))
+    maths::Vec4& frame_start = get_at<maths::Vec4>(core_ptr_, kFirstTick);
+    if (!ride_->find_contact_ahead(&entity_->at_point_, &frame_start))
         return;
-    DebugOut::Printf("M:%s:%i: %s\n", "mponents\\SkaterAdjustPhysicsComponent.cpp", 0x182, "found to be inside a moving object");
-    Engine3D::CProbeRay feeler;
-    feeler.MakeNew();
-    const Maths::Vec4& pos = m_entity->m_atPoint;
-    Maths::Vec4 start = {pos.x, static_cast<float>(static_cast<double>(pos.y) + kFeelerReach), pos.z, pos.w};
-    feeler.ChangeOrigin(&start);
-    Maths::Vec4 end = {pos.x, static_cast<float>(static_cast<double>(pos.y) - kFeelerReach), pos.z, pos.w};
-    feeler.ChangeFinish(&end);
-    if (feeler.GetHitShape(true, false) && feeler.HitObjectAlive())
-        reinterpret_cast<Walk::MovableContact*>(m_ride)->StartRiding(feeler.GetHitObject());
-    if (At<int>(At<uint8_t*>(m_corePtr, kTimedFlags), 0x18) == 4) {
-        ChangePhase(m_corePtr, 1);
-        m_entity->PostOwnEvent(kUnderTheFloor, nullptr);
-    } else if (m_entity->m_atPoint == frameStart) {
-        m_entity->m_vel = {0.0f, 0.0f, 0.0f, 1.0f};
+    debug::printf("M:%s:%i: %s\n", "mponents\\SkaterAdjustPhysicsComponent.cpp", 0x182, "found to be inside a moving object");
+    render::ProbeRay feeler;
+    feeler.make_new();
+    const maths::Vec4& pos = entity_->at_point_;
+    maths::Vec4 start = {pos.x, static_cast<float>(static_cast<double>(pos.y) + kFeelerReach), pos.z, pos.w};
+    feeler.change_origin(&start);
+    maths::Vec4 end = {pos.x, static_cast<float>(static_cast<double>(pos.y) - kFeelerReach), pos.z, pos.w};
+    feeler.change_finish(&end);
+    if (feeler.get_hit_shape(true, false) && feeler.hit_object_alive())
+        reinterpret_cast<walk::MovableContact*>(ride_)->start_riding(feeler.get_hit_object());
+    if (get_at<int>(get_at<uint8_t*>(core_ptr_, kTimedFlags), 0x18) == 4) {
+        change_phase(core_ptr_, 1);
+        entity_->post_own_event(kUnderTheFloor, nullptr);
+    } else if (entity_->at_point_ == frame_start) {
+        entity_->vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
     }
-    feeler.m_entity.Release();
+    feeler.entity_.get_release();
 }
 
 // 0x004F82F0
-void CRiderPhysicsTweaks::UpdateBrightness(Engine3D::CProbeRay* ground)
+void RiderPhysicsTweaks::get_update_brightness(render::ProbeRay* ground)
 {
-    bool hit = ground->GetHitShape(false, false) != 0;
-    Engine3D::CProbeRay feeler;
-    feeler.CopyConstruct(*ground);
-    feeler.SetExcluded(0, 0x20);
-    feeler.m_line.start.y = static_cast<float>(static_cast<double>(feeler.m_line.start.y) + kBrightnessAbove);
+    bool hit = ground->get_hit_shape(false, false) != 0;
+    render::ProbeRay feeler;
+    feeler.copy_construct(*ground);
+    feeler.set_excluded(0, 0x20);
+    feeler.line_.start.y = static_cast<float>(static_cast<double>(feeler.line_.start.y) + kBrightnessAbove);
     if (hit)
-        feeler.m_line.end = {ground->m_contactPos.x, static_cast<float>(static_cast<double>(ground->m_contactPos.y) - 1.0f),
-                             ground->m_contactPos.z, ground->m_contactPos.w};
+        feeler.line_.end = {ground->contact_pos_.x, static_cast<float>(static_cast<double>(ground->contact_pos_.y) - 1.0f),
+                             ground->contact_pos_.z, ground->contact_pos_.w};
     else
-        feeler.m_line.end = feeler.m_line.start;
-    if (feeler.GetHitShape(false, false))
-        m_meshInstance->ApplyBrightness(&feeler, true, 1.0f);
+        feeler.line_.end = feeler.line_.start;
+    if (feeler.get_hit_shape(false, false))
+        mesh_instance_->apply_brightness(&feeler, true, 1.0f);
     else if (hit)
-        m_meshInstance->ApplyBrightness(ground, true, 1.0f);
-    feeler.m_entity.Release();
+        mesh_instance_->apply_brightness(ground, true, 1.0f);
+    feeler.entity_.get_release();
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CRiderPhysicsTweaks::Teardown,
-         &GameObjects::CRiderPhysicsTweaks::FrameUpdate,
-         Stubs::IgnoreArgument,
-         &GameObjects::CRiderPhysicsTweaks::Seal,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
-         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::RiderPhysicsTweaks::teardown,
+         &objects::RiderPhysicsTweaks::frame_update,
+         stubs::ignore_argument,
+         &objects::RiderPhysicsTweaks::seal,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
+         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

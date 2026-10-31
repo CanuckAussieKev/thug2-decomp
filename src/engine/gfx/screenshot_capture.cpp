@@ -12,29 +12,29 @@
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine_glue.h"
 
-namespace Gfx2D::ScreenshotCapture {
+namespace gfx::screenshot_capture {
 
 namespace {
 
-IDirect3DDevice9* InputPort() { return Engine3D::g_d3dDevice; }
-// The renderer's "device lost" flag (Engine3D::BeginFrameDraw doesn't begin a scene while it's set).
-bool DeviceLostFlag() { return static_cast<uint8_t>(Engine3D::g_loadingScreenUp) != 0; }
+IDirect3DDevice9* input_port() { return render::g_d3d_device; }
+// The renderer's "device lost" flag (render::begin_frame_draw doesn't begin a scene while it's set).
+bool device_lost_flag() { return static_cast<uint8_t>(render::g_loading_screen_up) != 0; }
 
-SystemCore::Screenshot::PixelFormat Map(D3DFORMAT format)
+sys::screenshot::PixelFormat get_map(D3DFORMAT format)
 {
-    using SystemCore::Screenshot::PixelFormat;
+    using sys::screenshot::PixelFormat;
     switch (format) {
-    case D3DFMT_X8R8G8B8: return PixelFormat::X8R8G8B8;
-    case D3DFMT_A8R8G8B8: return PixelFormat::A8R8G8B8;
-    case D3DFMT_R5G6B5: return PixelFormat::R5G6B5;
+    case D3DFMT_X8R8G8B8: return PixelFormat::kX8r8g8b8;
+    case D3DFMT_A8R8G8B8: return PixelFormat::kA8r8g8b8;
+    case D3DFMT_R5G6B5: return PixelFormat::kR5g6b5;
     case D3DFMT_X1R5G5B5:
-    case D3DFMT_A1R5G5B5: return PixelFormat::X1R5G5B5;
-    default: return PixelFormat::Unknown;
+    case D3DFMT_A1R5G5B5: return PixelFormat::kX1r5g5b5;
+    default: return PixelFormat::kUnknown;
     }
 }
 
 template <typename T>
-void Release(T*& p)
+void get_release(T*& p)
 {
     if (p) {
         p->Release();
@@ -43,16 +43,16 @@ void Release(T*& p)
 }
 
 // The copy, with the scene ended around it (StretchRect / GetRenderTargetData outside a scene, as Direct3D wants).
-bool DupFrom(IDirect3DDevice9* device, SystemCore::Screenshot::TickCycle* out, std::string* error)
+bool dup_from(IDirect3DDevice9* device, sys::screenshot::TickCycle* out, std::string* error)
 {
     IDirect3DSurface9 *back = nullptr, *resolved = nullptr, *system = nullptr;
     auto fail = [&](const char* why, HRESULT hr) {
         char text[128];
         std::snprintf(text, sizeof(text), "%s (0x%08lX)", why, static_cast<unsigned long>(hr));
         *error = text;
-        Release(system);
-        Release(resolved);
-        Release(back);
+        get_release(system);
+        get_release(resolved);
+        get_release(back);
         return false;
     };
     HRESULT hr = device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &back);
@@ -60,8 +60,8 @@ bool DupFrom(IDirect3DDevice9* device, SystemCore::Screenshot::TickCycle* out, s
         return fail("no back buffer", hr);
     D3DSURFACE_DESC desc = {};
     back->GetDesc(&desc);
-    SystemCore::Screenshot::PixelFormat format = Map(desc.Format);
-    if (format == SystemCore::Screenshot::PixelFormat::Unknown)
+    sys::screenshot::PixelFormat format = get_map(desc.Format);
+    if (format == sys::screenshot::PixelFormat::kUnknown)
         return fail("the back buffer's format isn't one we read", static_cast<HRESULT>(desc.Format));
     IDirect3DSurface9* source = back;
     if (desc.MultiSampleType != D3DMULTISAMPLE_NONE) {
@@ -85,40 +85,40 @@ bool DupFrom(IDirect3DDevice9* device, SystemCore::Screenshot::TickCycle* out, s
     hr = system->LockRect(&locked, nullptr, D3DLOCK_READONLY);
     if (FAILED(hr))
         return fail("LockRect failed", hr);
-    int rowBytes = static_cast<int>(desc.Width) * SystemCore::Screenshot::BytesPerPixel(format);
+    int row_bytes = static_cast<int>(desc.Width) * sys::screenshot::get_bytes_per_pixel(format);
     out->width = static_cast<int>(desc.Width);
     out->height = static_cast<int>(desc.Height);
-    out->pitch = rowBytes;
+    out->pitch = row_bytes;
     out->format = format;
-    out->bytes.resize(static_cast<size_t>(rowBytes) * desc.Height);
+    out->bytes.resize(static_cast<size_t>(row_bytes) * desc.Height);
     for (UINT y = 0; y < desc.Height; ++y)
-        std::memcpy(out->bytes.data() + static_cast<size_t>(rowBytes) * y,
-                    static_cast<const uint8_t*>(locked.pBits) + static_cast<size_t>(locked.Pitch) * y, rowBytes);
+        std::memcpy(out->bytes.data() + static_cast<size_t>(row_bytes) * y,
+                    static_cast<const uint8_t*>(locked.pBits) + static_cast<size_t>(locked.Pitch) * y, row_bytes);
     system->UnlockRect();
-    Release(system);
-    Release(resolved);
-    Release(back);
+    get_release(system);
+    get_release(resolved);
+    get_release(back);
     return true;
 }
 
 } // namespace
 
-bool CaptureBackBuffer(SystemCore::Screenshot::TickCycle* out, std::string* error)
+bool capture_back_buffer(sys::screenshot::TickCycle* out, std::string* error)
 {
-    IDirect3DDevice9* device = InputPort();
+    IDirect3DDevice9* device = input_port();
     if (!device) {
         *error = "no device yet";
         return false;
     }
-    if (DeviceLostFlag() || device->TestCooperativeLevel() != D3D_OK) {
+    if (device_lost_flag() || device->TestCooperativeLevel() != D3D_OK) {
         *error = "the device is lost";
         return false;
     }
-    // (the main loop's scene is open here: Engine3D::BeginFrameDraw began it, the end of the frame - 0x004B2750 - ends it)
+    // (the main loop's scene is open here: render::begin_frame_draw began it, the end of the frame - 0x004B2750 - ends it)
     device->EndScene();
-    bool ok = DupFrom(device, out, error);
+    bool ok = dup_from(device, out, error);
     device->BeginScene();
     return ok;
 }
 
-} // namespace Gfx2D::ScreenshotCapture
+} // namespace gfx::screenshot_capture

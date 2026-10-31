@@ -16,22 +16,22 @@
 #include "engine/core/code_address.h"
 #include "engine/net/task_vtable.h"
 
-namespace AssetStore {
+namespace assets {
 
-AssetStore::CResourceRegistry* g_assetManager;
-int g_assManReferences;
-FrameLoop::Hub* g_mainLoopManager;
+assets::ResourceRegistry* g_asset_manager;
+int g_ass_man_references;
+frame_loop::Hub* g_main_loop_manager;
 
 namespace {
 
-static VtableSlot kAssManVtable_slots[] = {&AssetStore::CResourceRegistry::ScalarDelete, &AssetStore::CResourceRegistry::StartCallback,
-        &AssetStore::CResourceRegistry::StopCallback};
-void** const kAssManVtable = reinterpret_cast<void**>(kAssManVtable_slots);
+static VtableSlot g_ass_man_vtable_slots[] = {&assets::ResourceRegistry::scalar_delete, &assets::ResourceRegistry::start_callback,
+        &assets::ResourceRegistry::stop_callback};
+void** const kAssManVtable = reinterpret_cast<void**>(g_ass_man_vtable_slots);
 
-int& RefTally() { return g_assManReferences; }
+int& ref_tally() { return g_ass_man_references; }
 
 // The script integer the loads look up (a debug leftover: set, a failed asset isn't deleted).
-int KeepFailedAssets() { return Scripts::FetchIntValue(0x25DC7904u); }
+int keep_failed_assets() { return script::fetch_int_value(0x25DC7904u); }
 
 // The file name extensions and their types (0x0067C650, ended by a null name).
 struct ExtensionType {
@@ -46,77 +46,77 @@ ExtensionType g_extensions[13]{
                       {"FAM", 5}, {"SKE", 6},
                       {"SKIN", 7}, {"TEX", 3},
                       {"CUT", 9}, {"QB", 10}};
-const ExtensionType* Extensions() { return g_extensions; }
+const ExtensionType* get_extensions() { return g_extensions; }
 
 // The hash table lookup inlined in the original: the first item with the key and a value.
-CResource* Find(ListKit::KeyMap* table, uint32_t checksum)
+Resource* get_find(lists::KeyMap* table, uint32_t checksum)
 {
-    for (ListKit::KeyMap::Item* item = &table->m_buckets[((1u << table->m_bits) - 1) & checksum]; item;
+    for (lists::KeyMap::Item* item = &table->buckets_[((1u << table->bits_) - 1) & checksum]; item;
          item = item->next) {
         if (item->key == checksum && item->value)
-            return static_cast<CResource*>(item->value);
+            return static_cast<Resource*>(item->value);
     }
     return nullptr;
 }
-void WaitUntilLoaded(CResource* asset)
+void wait_until_loaded(Resource* asset)
 {
-    while (!asset->VIsLoaded())
-        FileLoad::AsyncWaitForIO(false);
+    while (!asset->v_is_loaded())
+        file::async_wait_for_io(false);
 }
 // `asset` onto the end of the circular list `*head`.
-void Append(CResource** head, CResource* asset)
+void get_append(Resource** head, Resource* asset)
 {
     if (*head) {
-        asset->m_succ = *head;
-        asset->m_lastValue = (*head)->m_lastValue;
-        (*head)->m_lastValue->m_succ = asset;
-        (*head)->m_lastValue = asset;
+        asset->succ_ = *head;
+        asset->last_value_ = (*head)->last_value_;
+        (*head)->last_value_->succ_ = asset;
+        (*head)->last_value_ = asset;
     } else {
         *head = asset;
-        asset->m_succ = asset;
-        asset->m_lastValue = asset;
+        asset->succ_ = asset;
+        asset->last_value_ = asset;
     }
 }
 
 // A new asset of `type` (null for a type that isn't one, or if the allocation fails).
-CResource* MakeAsset(int type, bool withCutscene)
+Resource* make_asset(int type, bool with_cutscene)
 {
     void* memory;
     switch (type) {
     case kScene:
-        memory = MemSys::AllocZeroed(0x50);
-        return memory ? static_cast<AssetConstructors*>(memory)->Scene() : nullptr;
+        memory = memory::alloc_zeroed(0x50);
+        return memory ? static_cast<AssetConstructors*>(memory)->get_scene() : nullptr;
     case kResTexDict:
-        memory = MemSys::AllocZeroed(0x50);
-        return memory ? static_cast<AssetConstructors*>(memory)->TextureBank() : nullptr;
+        memory = memory::alloc_zeroed(0x50);
+        return memory ? static_cast<AssetConstructors*>(memory)->texture_bank() : nullptr;
     case kSceneCollision:
-        memory = MemSys::AllocZeroed(0x50);
-        return memory ? static_cast<AssetConstructors*>(memory)->SceneCollision() : nullptr;
+        memory = memory::alloc_zeroed(0x50);
+        return memory ? static_cast<AssetConstructors*>(memory)->scene_collision() : nullptr;
     case kAnimation:
-        memory = MemSys::AllocZeroed(0x50);
-        return memory ? static_cast<AssetConstructors*>(memory)->Animation() : nullptr;
+        memory = memory::alloc_zeroed(0x50);
+        return memory ? static_cast<AssetConstructors*>(memory)->get_animation() : nullptr;
     case kSkeleton:
-        memory = MemSys::AllocZeroed(0x4C);
-        return memory ? static_cast<AssetConstructors*>(memory)->Skeleton() : nullptr;
+        memory = memory::alloc_zeroed(0x4C);
+        return memory ? static_cast<AssetConstructors*>(memory)->get_skeleton() : nullptr;
     case kSkinnedModel:
-        memory = MemSys::AllocZeroed(0x60);
-        return memory ? static_cast<AssetConstructors*>(memory)->SkinnedModel() : nullptr;
+        memory = memory::alloc_zeroed(0x60);
+        return memory ? static_cast<AssetConstructors*>(memory)->skinned_model() : nullptr;
     case kSkinCollision:
-        memory = MemSys::AllocZeroed(0x50);
-        return memory ? static_cast<AssetConstructors*>(memory)->SkinCollision() : nullptr;
+        memory = memory::alloc_zeroed(0x50);
+        return memory ? static_cast<AssetConstructors*>(memory)->skin_collision() : nullptr;
     case kCutscene:
-        // (ReadResourceFromStream has no case for cutscenes)
-        if (!withCutscene)
+        // (read_resource_from_stream has no case for cutscenes)
+        if (!with_cutscene)
             return nullptr;
-        memory = MemSys::AllocZeroed(0x4C);
-        return memory ? static_cast<AssetConstructors*>(memory)->Cutscene() : nullptr;
+        memory = memory::alloc_zeroed(0x4C);
+        return memory ? static_cast<AssetConstructors*>(memory)->get_cutscene() : nullptr;
     case kNodeArray:
-        memory = MemSys::AllocZeroed(0x64);
-        return memory ? static_cast<AssetConstructors*>(memory)->NodeArray() : nullptr;
+        memory = memory::alloc_zeroed(0x64);
+        return memory ? static_cast<AssetConstructors*>(memory)->get_node_array() : nullptr;
     case kOwnedNodeArray: {
-        memory = MemSys::AllocZeroed(0x64);
-        CResource* asset = memory ? static_cast<AssetConstructors*>(memory)->NodeArray() : nullptr;
-        static_cast<AssetConstructors*>(asset)->MakeNodeArrayOwner(); // (null if the allocation failed: a crash)
+        memory = memory::alloc_zeroed(0x64);
+        Resource* asset = memory ? static_cast<AssetConstructors*>(memory)->get_node_array() : nullptr;
+        static_cast<AssetConstructors*>(asset)->make_node_array_owner(); // (null if the allocation failed: a crash)
         return asset;
     }
     default:
@@ -125,214 +125,214 @@ CResource* MakeAsset(int type, bool withCutscene)
 }
 
 // The manager's callback given to a new asset (cleared after one asset if it's a one-shot).
-void GiveCallback(CResourceRegistry* manager, CResource* asset)
+void give_callback(ResourceRegistry* manager, Resource* asset)
 {
-    asset->ChangeHook(manager->m_callback, manager->m_callbackData0, manager->m_callbackData1);
-    if (manager->m_callbackOnce) {
-        manager->m_callback = nullptr;
-        manager->m_callbackOnce = false;
+    asset->change_hook(manager->callback_, manager->callback_data0_, manager->callback_data1_);
+    if (manager->callback_once_) {
+        manager->callback_ = nullptr;
+        manager->callback_once_ = false;
     }
 }
 // `asset` depends on the asset `group` (if given): each knows the other.
-void JoinGroup(CResourceRegistry* manager, CResource* asset, uint32_t group)
+void join_group(ResourceRegistry* manager, Resource* asset, uint32_t group)
 {
     if (!group)
         return;
-    CResource* owner = manager->ObtainLoadedItem(group, 1);
-    asset->ChangeCluster(owner);
-    owner->AddDependent(asset);
+    Resource* owner = manager->obtain_loaded_item(group, 1);
+    asset->change_cluster(owner);
+    owner->add_dependent(asset);
 }
 
 } // namespace
 
 // 0x00407F80
-CResourceRegistry* CResourceRegistry::MakeNew()
+ResourceRegistry* ResourceRegistry::make_new()
 {
-    GameModules::PartUnit::MakeNew();
-    m_vtable = kAssManVtable;
-    void* memory = MemSys::Alloc(sizeof(ListKit::KeyMap));
-    m_assets = memory ? new (memory) ListKit::KeyMap(10) : nullptr;
-    m_callback = nullptr;
-    m_callbackOnce = false;
-    m_pending = nullptr;
-    m_readyFlag = nullptr;
-    m_unknown15 = false;
-    auto* task = static_cast<Scheduling::SchedulerTask*>(MemSys::AllocZeroed(0x20));
+    modules::PartUnit::make_new();
+    vtable_ = kAssManVtable;
+    void* memory = memory::alloc(sizeof(lists::KeyMap));
+    assets_ = memory ? new (memory) lists::KeyMap(10) : nullptr;
+    callback_ = nullptr;
+    callback_once_ = false;
+    pending_ = nullptr;
+    ready_flag_ = nullptr;
+    unknown15_ = false;
+    auto* task = static_cast<tasks::SchedulerTask*>(memory::alloc_zeroed(0x20));
     if (task) {
-        task->MakeNew(0);
+        task->make_new(0);
         reinterpret_cast<void**>(task)[7] = this;                                  // +0x1C the data
-        task->m_vtable = GameCode::kTaskVtable;
-        reinterpret_cast<void**>(task)[6] = reinterpret_cast<void*>(&ProcessTask); // +0x18 the callback
+        task->vtable_ = game_code::kTaskVtable;
+        reinterpret_cast<void**>(task)[6] = reinterpret_cast<void*>(&process_task); // +0x18 the callback
     }
-    m_task = task;
+    task_ = task;
     return this;
 }
 
 // 0x00408930
-void CResourceRegistry::Destruct()
+void ResourceRegistry::destruct()
 {
-    m_vtable = kAssManVtable;
-    UnloadAssetsInList(m_readyFlag, true);  // (inlined)
-    UnloadAssetsInList(m_pending, true);
-    if (ListKit::KeyMap* table = m_assets) {
-        if (table->m_buckets) {
-            table->EmptyTable();
-            MemSys::Hub::Pull()->Dealloc(table->m_buckets);
-            table->m_buckets = nullptr;
+    vtable_ = kAssManVtable;
+    unload_assets_in_list(ready_flag_, true);  // (inlined)
+    unload_assets_in_list(pending_, true);
+    if (lists::KeyMap* table = assets_) {
+        if (table->buckets_) {
+            table->empty_table();
+            memory::Hub::get_pull()->dealloc(table->buckets_);
+            table->buckets_ = nullptr;
         }
-        MemSys::Hub::Pull()->Dealloc(table);
+        memory::Hub::get_pull()->dealloc(table);
     }
-    if (m_task)
-        reinterpret_cast<void(__thiscall*)(Scheduling::SchedulerTask*, int)>(m_task->m_vtable[2])(m_task, 1);
-    GameModules::PartUnit::DestroyBody();
+    if (task_)
+        reinterpret_cast<void(__thiscall*)(tasks::SchedulerTask*, int)>(task_->vtable_[2])(task_, 1);
+    modules::PartUnit::destroy_body();
 }
 
 // 0x00408A10
-CResourceRegistry* CResourceRegistry::ScalarDelete(uint8_t flags)
+ResourceRegistry* ResourceRegistry::scalar_delete(uint8_t flags)
 {
-    Destruct();
+    destruct();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00407E90
-void CResourceRegistry::StartCallback()
+void ResourceRegistry::start_callback()
 {
-    reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(g_mainLoopManager) + 0x04)->QueueJob(m_task); // the logic tasks
+    reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(g_main_loop_manager) + 0x04)->queue_job(task_); // the logic tasks
 }
 
 // 0x00407AE0
-void CResourceRegistry::StopCallback()
+void ResourceRegistry::stop_callback()
 {
-    m_task->DropOut();
+    task_->drop_out();
 }
 
 // 0x00408060
-void* CResourceRegistry::ReadResourceFromStream(uint32_t checksum, int type, uint32_t group, void* data, uint32_t size,
+void* ResourceRegistry::read_resource_from_stream(uint32_t checksum, int type, uint32_t group, void* data, uint32_t size,
                                    bool permanent, bool copy, void* params, int extra)
 {
-    MemSys::PushMemProfile("Asset Overhead");
-    CResource* asset = MakeAsset(type, false);
+    memory::push_mem_profile("Asset Overhead");
+    Resource* asset = make_asset(type, false);
     // (a type that isn't one leaves a null asset: the original crashes here)
-    asset->m_pinned = permanent;
-    asset->m_curPhase = kUnloaded;
-    asset->SetChecksum(checksum);
-    GiveCallback(this, asset);
+    asset->pinned_ = permanent;
+    asset->cur_phase_ = kUnloaded;
+    asset->set_checksum(checksum);
+    give_callback(this, asset);
     // (the original formats "%08x from data stream" with the checksum for the memory profile, unused)
-    JoinGroup(this, asset, group);
-    MemSys::PopMemProfile();
-    int failed = reinterpret_cast<int(__thiscall*)(CResource*, void*, uint32_t, bool, void*, int)>(asset->m_vtable[4])(
+    join_group(this, asset, group);
+    memory::pop_mem_profile();
+    int failed = reinterpret_cast<int(__thiscall*)(Resource*, void*, uint32_t, bool, void*, int)>(asset->vtable_[4])(
         asset, data, size, copy, params, extra);
-    MemSys::PushMemProfile("Asset Overhead");
+    memory::push_mem_profile("Asset Overhead");
     if (failed) {
-        if (!KeepFailedAssets())
-            asset->VDelete();
-        MemSys::PopMemProfile();
+        if (!keep_failed_assets())
+            asset->v_delete();
+        memory::pop_mem_profile();
         return nullptr;
     }
-    m_assets->StoreEntry(checksum, asset);
-    Append(&m_readyFlag, asset);
-    MemSys::PopMemProfile();
-    return asset->VData();
+    assets_->store_entry(checksum, asset);
+    get_append(&ready_flag_, asset);
+    memory::pop_mem_profile();
+    return asset->v_data();
 }
 
 // 0x00408440
-void* CResourceRegistry::LoadAsset(const char* name, int type, uint32_t checksum, uint32_t group, bool async, bool useArchive,
+void* ResourceRegistry::load_asset(const char* name, int type, uint32_t checksum, uint32_t group, bool async, bool use_archive,
                          bool permanent, void* params, int extra)
 {
     if (!checksum)
-        checksum = Checksums::HashFromText(name);
+        checksum = checksums::hash_from_text(name);
     if (!type)
-        type = GetTypeFromExtension(name);
-    CResource* asset = MakeAsset(type, true);
+        type = get_type_from_extension(name);
+    Resource* asset = make_asset(type, true);
     // (a type that isn't one leaves a null asset: the original crashes here)
-    asset->m_pinned = permanent;
-    asset->m_curPhase = kUnloaded;
-    GiveCallback(this, asset);
-    asset->SetChecksum(checksum);
-    JoinGroup(this, asset, group);
-    int failed = reinterpret_cast<int(__thiscall*)(CResource*, const char*, bool, bool, void*, int)>(asset->m_vtable[5])(
-        asset, name, async, useArchive, params, extra);
+    asset->pinned_ = permanent;
+    asset->cur_phase_ = kUnloaded;
+    give_callback(this, asset);
+    asset->set_checksum(checksum);
+    join_group(this, asset, group);
+    int failed = reinterpret_cast<int(__thiscall*)(Resource*, const char*, bool, bool, void*, int)>(asset->vtable_[5])(
+        asset, name, async, use_archive, params, extra);
     if (failed) {
-        if (!KeepFailedAssets())
-            asset->VDelete();
+        if (!keep_failed_assets())
+            asset->v_delete();
         return nullptr;
     }
-    m_assets->StoreEntry(checksum, asset);
-    Append(async ? &m_pending : &m_readyFlag, asset);
-    return asset->VData();
+    assets_->store_entry(checksum, asset);
+    get_append(async ? &pending_ : &ready_flag_, asset);
+    return asset->v_data();
 }
 
 // 0x004087B0
-void* CResourceRegistry::FetchOrLoadResource(const char* name, int type, uint32_t checksum, uint32_t group, bool async,
-                              bool useArchive, bool permanent, void* params, int extra)
+void* ResourceRegistry::fetch_or_load_resource(const char* name, int type, uint32_t checksum, uint32_t group, bool async,
+                              bool use_archive, bool permanent, void* params, int extra)
 {
     if (!checksum)
-        checksum = Checksums::HashFromText(name);
+        checksum = checksums::hash_from_text(name);
     void* data;
-    if (CResource* asset = Find(m_assets, checksum)) {
-        data = asset->VData();
-        WaitUntilLoaded(asset);
+    if (Resource* asset = get_find(assets_, checksum)) {
+        data = asset->v_data();
+        wait_until_loaded(asset);
     } else {
-        data = LoadAsset(name, type, checksum, group, async, useArchive, permanent, params, extra);
+        data = load_asset(name, type, checksum, group, async, use_archive, permanent, params, extra);
     }
-    KeepFailedAssets(); // (looked up and not used)
+    keep_failed_assets(); // (looked up and not used)
     return data;
 }
 
 // 0x00408870
-bool CResourceRegistry::LoadAnim(const char* name, uint32_t base, uint32_t offset, bool async, bool useArchive)
+bool ResourceRegistry::load_anim(const char* name, uint32_t base, uint32_t offset, bool async, bool use_archive)
 {
-    uint32_t checksum = Checksums::HashFromText(name);
+    uint32_t checksum = checksums::hash_from_text(name);
     if (base)
         checksum = base + offset;
-    if (AssetExists(checksum))
+    if (asset_exists(checksum))
         return false;
-    return FetchOrLoadResource(name, kAnimation, checksum, 0, async, useArchive, m_permanentByDefault, nullptr, 0) != nullptr;
+    return fetch_or_load_resource(name, kAnimation, checksum, 0, async, use_archive, permanent_by_default_, nullptr, 0) != nullptr;
 }
 
 // 0x00407EC0
-bool CResourceRegistry::RefreshResource(uint32_t checksum, const char* name, int unused)
+bool ResourceRegistry::refresh_resource(uint32_t checksum, const char* name, int unused)
 {
-    CResource* asset = ObtainLoadedItem(checksum, unused);
+    Resource* asset = obtain_loaded_item(checksum, unused);
     if (!asset)
         return false;
-    GiveCallback(this, asset);
-    return reinterpret_cast<int(__thiscall*)(CResource*, const char*)>(asset->m_vtable[7])(asset, name) != 0;
+    give_callback(this, asset);
+    return reinterpret_cast<int(__thiscall*)(Resource*, const char*)>(asset->vtable_[7])(asset, name) != 0;
 }
 
 // 0x00407B20
-void CResourceRegistry::DiscardLoadedItem(CResource* asset)
+void ResourceRegistry::discard_loaded_item(Resource* asset)
 {
-    uint32_t checksum = asset->m_checksum;
-    if (CResource* group = asset->m_bundle)
-        group->RemoveDependent(asset);
-    CResource** list;
-    if (asset->VIsLoaded()) {
-        list = &m_readyFlag;
+    uint32_t checksum = asset->checksum_;
+    if (Resource* group = asset->bundle_)
+        group->remove_dependent(asset);
+    Resource** list;
+    if (asset->v_is_loaded()) {
+        list = &ready_flag_;
     } else {
-        asset->VAbort();
-        list = &m_pending;
+        asset->v_abort();
+        list = &pending_;
     }
-    RemoveFromList(list, asset);
-    asset->VUnload();
-    asset->VDelete();
-    m_assets->EraseEntry(checksum);
+    remove_from_list(list, asset);
+    asset->v_unload();
+    asset->v_delete();
+    assets_->erase_entry(checksum);
 }
 
 // 0x00407CF0
-void CResourceRegistry::UnloadAssetsInList(CResource* head, bool all)
+void ResourceRegistry::unload_assets_in_list(Resource* head, bool all)
 {
     if (!head)
         return;
-    CResource* asset = head->m_lastValue;
+    Resource* asset = head->last_value_;
     for (;;) {
         if (!asset)
             return;
-        CResource* previous = asset->m_lastValue;
-        if (all || !asset->m_pinned)
-            DiscardLoadedItem(asset);
+        Resource* previous = asset->last_value_;
+        if (all || !asset->pinned_)
+            discard_loaded_item(asset);
         if (asset == head)
             return;
         asset = previous;
@@ -340,111 +340,111 @@ void CResourceRegistry::UnloadAssetsInList(CResource* head, bool all)
 }
 
 // 0x00407D40
-void CResourceRegistry::UnloadAssetsOfType(CResource* head, bool all, int type)
+void ResourceRegistry::unload_assets_of_type(Resource* head, bool all, int type)
 {
     if (!head)
         return;
-    CResource* found[100];
+    Resource* found[100];
     int count = 0;
-    CResource* asset = head->m_lastValue;
+    Resource* asset = head->last_value_;
     for (;;) {
         if (!asset)
             break;
-        CResource* previous = asset->m_lastValue;
-        if ((all || !asset->m_pinned) && type == asset->VType())
+        Resource* previous = asset->last_value_;
+        if ((all || !asset->pinned_) && type == asset->v_type())
             found[count++] = asset;
         if (asset == head)
             break;
         asset = previous;
     }
     for (int i = 0; i < count; ++i)
-        DiscardLoadedItem(found[i]);
+        discard_loaded_item(found[i]);
 }
 
 // 0x00407F20
-void CResourceRegistry::UnloadAllAssets(bool all)
+void ResourceRegistry::unload_all_assets(bool all)
 {
-    UnloadAssetsInList(m_readyFlag, all);
-    UnloadAssetsInList(m_pending, all);
+    unload_assets_in_list(ready_flag_, all);
+    unload_assets_in_list(pending_, all);
 }
 
 // 0x00407F50
-void CResourceRegistry::UnloadAllAssetsOfType(bool all, int type)
+void ResourceRegistry::unload_all_assets_of_type(bool all, int type)
 {
-    UnloadAssetsOfType(m_readyFlag, all, type);
-    UnloadAssetsOfType(m_pending, all, type);
+    unload_assets_of_type(ready_flag_, all, type);
+    unload_assets_of_type(pending_, all, type);
 }
 
 // 0x00407B90
-CResource* CResourceRegistry::ObtainLoadedItem(uint32_t checksum, int /*unused*/)
+Resource* ResourceRegistry::obtain_loaded_item(uint32_t checksum, int /*unused*/)
 {
-    CResource* asset = Find(m_assets, checksum);
-    if (asset && !asset->VIsLoaded() && !asset->VIsLoaded()) { // (asked twice in the original)
+    Resource* asset = get_find(assets_, checksum);
+    if (asset && !asset->v_is_loaded() && !asset->v_is_loaded()) { // (asked twice in the original)
         do
-            FileLoad::AsyncWaitForIO(false);
-        while (!asset->VIsLoaded());
+            file::async_wait_for_io(false);
+        while (!asset->v_is_loaded());
     }
     return asset;
 }
 
 // 0x00407C00
-void* CResourceRegistry::GetAssetData(uint32_t checksum, int /*unused*/)
+void* ResourceRegistry::get_asset_data(uint32_t checksum, int /*unused*/)
 {
-    CResource* asset = Find(m_assets, checksum);
+    Resource* asset = get_find(assets_, checksum);
     if (!asset)
         return nullptr;
-    WaitUntilLoaded(asset);
-    return asset->VData();
+    wait_until_loaded(asset);
+    return asset->v_data();
 }
 
 // 0x00407C70
-void* CResourceRegistry::GetAssetDataByName(const char* name, int unused)
+void* ResourceRegistry::get_asset_data_by_name(const char* name, int unused)
 {
-    return GetAssetData(Checksums::HashFromText(name), unused);
+    return get_asset_data(checksums::hash_from_text(name), unused);
 }
 
 // 0x00407CA0
-bool CResourceRegistry::AssetExists(uint32_t checksum)
+bool ResourceRegistry::asset_exists(uint32_t checksum)
 {
-    return Find(m_assets, checksum) != nullptr;
+    return get_find(assets_, checksum) != nullptr;
 }
 
 // 0x00407A50
-void CResourceRegistry::SetPermanentByDefault(bool permanent)
+void ResourceRegistry::set_permanent_by_default(bool permanent)
 {
-    m_permanentByDefault = permanent;
+    permanent_by_default_ = permanent;
 }
 
 // 0x00407A60
-bool CResourceRegistry::GetPermanentByDefault() const
+bool ResourceRegistry::get_permanent_by_default() const
 {
-    return m_permanentByDefault;
+    return permanent_by_default_;
 }
 
 // 0x00407A70
-void CResourceRegistry::SetUnknown18(int value)
+void ResourceRegistry::set_unknown18(int value)
 {
-    m_unknown18 = value;
+    unknown18_ = value;
 }
 
 // 0x00407DD0
-void CResourceRegistry::ProcessPendingAssets()
+void ResourceRegistry::process_pending_assets()
 {
-    CResource* asset = m_pending;
+    Resource* asset = pending_;
     while (asset) {
-        CResource* next = asset->m_succ;
+        Resource* next = asset->succ_;
         bool finished = false;
-        switch (asset->m_curPhase) {
+        switch (asset->cur_phase_) {
         case kRead:
             // (a group that isn't loaded yet holds it back)
-            if (asset->m_bundle && !asset->m_bundle->VIsLoaded())
+            if (asset->bundle_ && !asset->bundle_->v_is_loaded())
                 break;
             [[fallthrough]];
         case kProcessing:
-            if (!asset->VProcessBuffer())
+            if (!asset->v_process_buffer())
                 break;
-            if (asset->m_callback)
-                asset->m_callback(asset, asset->m_extent, asset->m_callbackData0, asset->m_callbackData1);
+            if (asset->callback_)
+                asset->callback_(asset, asset->extent_, asset->callback_data0_, asset->callback_data1_);
             finished = true;
             break;
         case kLoaded:
@@ -454,37 +454,37 @@ void CResourceRegistry::ProcessPendingAssets()
             break;
         }
         if (finished) {
-            RemoveFromList(&m_pending, asset);
-            Append(&m_readyFlag, asset);
+            remove_from_list(&pending_, asset);
+            get_append(&ready_flag_, asset);
         }
         asset = next;
     }
 }
 
 // 0x00407EB0
-void __cdecl CResourceRegistry::ProcessTask(Scheduling::SchedulerTask* task)
+void __cdecl ResourceRegistry::process_task(tasks::SchedulerTask* task)
 {
-    reinterpret_cast<CResourceRegistry**>(task)[7]->ProcessPendingAssets();
+    reinterpret_cast<ResourceRegistry**>(task)[7]->process_pending_assets();
 }
 
 // 0x00407A80
-bool CResourceRegistry::RemoveFromList(CResource** head, CResource* asset)
+bool ResourceRegistry::remove_from_list(Resource** head, Resource* asset)
 {
-    if (asset->m_succ == asset) {
+    if (asset->succ_ == asset) {
         // (the only one: the list emptied without checking it's this list)
         *head = nullptr;
-        asset->m_lastValue = nullptr;
-        asset->m_succ = nullptr;
+        asset->last_value_ = nullptr;
+        asset->succ_ = nullptr;
         return true;
     }
     if (*head == asset)
-        *head = asset->m_succ;
-    for (CResource* item = *head; item; item = item->m_succ) {
+        *head = asset->succ_;
+    for (Resource* item = *head; item; item = item->succ_) {
         if (item == asset) {
-            asset->m_succ->m_lastValue = asset->m_lastValue;
-            asset->m_lastValue->m_succ = asset->m_succ;
-            asset->m_lastValue = nullptr;
-            asset->m_succ = nullptr;
+            asset->succ_->last_value_ = asset->last_value_;
+            asset->last_value_->succ_ = asset->succ_;
+            asset->last_value_ = nullptr;
+            asset->succ_ = nullptr;
             return true;
         }
     }
@@ -492,14 +492,14 @@ bool CResourceRegistry::RemoveFromList(CResource** head, CResource* asset)
 }
 
 // 0x004079C0
-int CResourceRegistry::GetTypeFromExtension(const char* name)
+int ResourceRegistry::get_type_from_extension(const char* name)
 {
     const char* dot = name + std::strlen(name);
     while (dot > name && *dot != '.')
         --dot;
     if (*dot != '.')
         return 0;
-    for (const ExtensionType* entry = Extensions(); entry->extension; ++entry) {
+    for (const ExtensionType* entry = get_extensions(); entry->extension; ++entry) {
         if (_stricmp(entry->extension, dot + 1) == 0)
             return entry->type;
     }
@@ -507,35 +507,35 @@ int CResourceRegistry::GetTypeFromExtension(const char* name)
 }
 
 // 0x004088E0
-CResourceRegistry* CreateAssetManager(bool create)
+ResourceRegistry* create_asset_manager(bool create)
 {
-    CResourceRegistry* manager = AssetManager();
+    ResourceRegistry* manager = asset_manager();
     if (!manager && create) {
-        void* memory = MemSys::AllocZeroed(sizeof(CResourceRegistry), nullptr, 1);
+        void* memory = memory::alloc_zeroed(sizeof(ResourceRegistry), nullptr, 1);
         if (memory) {
-            manager = static_cast<CResourceRegistry*>(memory)->MakeNew();
-            AssetManager() = manager;
-            ++RefTally();
+            manager = static_cast<ResourceRegistry*>(memory)->make_new();
+            asset_manager() = manager;
+            ++ref_tally();
             return manager;
         }
-        AssetManager() = nullptr;
+        asset_manager() = nullptr;
         manager = nullptr;
     }
-    ++RefTally();
+    ++ref_tally();
     return manager;
 }
 
 // 0x00407980
-void ReleaseAssetManager()
+void release_asset_manager()
 {
-    if (static_cast<unsigned int>(RefTally()) > 1) {
-        --RefTally();
+    if (static_cast<unsigned int>(ref_tally()) > 1) {
+        --ref_tally();
         return;
     }
-    if (CResourceRegistry* manager = AssetManager())
-        reinterpret_cast<void(__thiscall*)(CResourceRegistry*, int)>(manager->m_vtable[0])(manager, 1);
-    AssetManager() = nullptr;
-    RefTally() = 0;
+    if (ResourceRegistry* manager = asset_manager())
+        reinterpret_cast<void(__thiscall*)(ResourceRegistry*, int)>(manager->vtable_[0])(manager, 1);
+    asset_manager() = nullptr;
+    ref_tally() = 0;
 }
 
 } // namespace Ass

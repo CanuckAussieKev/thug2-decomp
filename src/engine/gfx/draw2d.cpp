@@ -8,36 +8,36 @@
 #include "engine/gfx/render_state.h"
 #include "engine/core/code_address.h"
 
-namespace Engine3D {
+namespace render {
 
 namespace {
-extern void** const kSDraw2DVtable;
+extern void** const kSDraw2dVtable;
 } // namespace
 
 namespace {
 
-SOverlayDraw* g_draw2dHead;
-uint32_t g_draw2dZTestNextFrame;
+OverlayDraw* g_draw2d_head;
+uint32_t g_draw2d_z_test_next_frame;
 
-SOverlayDraw*& Foremost() { return g_draw2dHead; }
-uint32_t& ZTestNextFrame() { return g_draw2dZTestNextFrame; }
-void** BaseVtable() { return kSDraw2DVtable; }
+OverlayDraw*& foremost() { return g_draw2d_head; }
+uint32_t& z_test_next_frame() { return g_draw2d_z_test_next_frame; }
+void** base_vtable() { return kSDraw2dVtable; }
 
-void Call(SOverlayDraw* item, int slot) { reinterpret_cast<void(__thiscall*)(SOverlayDraw*)>(item->vtable[slot])(item); }
+void get_call(OverlayDraw* item, int slot) { reinterpret_cast<void(__thiscall*)(OverlayDraw*)>(item->vtable[slot])(item); }
 
 } // namespace
 
 // 0x004DF900
-void SOverlayDraw::Splice()
+void OverlayDraw::splice()
 {
-    SOverlayDraw* head = Foremost();
+    OverlayDraw* head = foremost();
     // (a priority that isn't a number goes on past every item)
     if (!head || priority <= head->priority) {
         next = head;
-        Foremost() = this;
+        foremost() = this;
         return;
     }
-    SOverlayDraw* at = head;
+    OverlayDraw* at = head;
     while (at->next && !(priority <= at->next->priority))
         at = at->next;
     next = at->next;
@@ -45,11 +45,11 @@ void SOverlayDraw::Splice()
 }
 
 // 0x004DF950
-void SOverlayDraw::DropOut()
+void OverlayDraw::drop_out()
 {
-    SOverlayDraw* at = Foremost();
+    OverlayDraw* at = foremost();
     if (at == this) {
-        Foremost() = next;
+        foremost() = next;
         return;
     }
     if (!at)
@@ -63,102 +63,102 @@ void SOverlayDraw::DropOut()
 }
 
 // 0x004DFA70
-SOverlayDraw* SOverlayDraw::MakeNew(float newPriority, bool newHidden)
+OverlayDraw* OverlayDraw::make_new(float new_priority, bool new_hidden)
 {
-    priority = newPriority;
-    vtable = BaseVtable();
-    hidden = newHidden;
+    priority = new_priority;
+    vtable = base_vtable();
+    hidden = new_hidden;
     z = 0.0f;
     next = nullptr;
-    if (!newHidden)
-        Splice();
+    if (!new_hidden)
+        splice();
     return this;
 }
 
 // 0x004DFAA0
-void SOverlayDraw::DestroyBody()
+void OverlayDraw::destroy_body()
 {
-    vtable = BaseVtable();
-    DropOut();
+    vtable = base_vtable();
+    drop_out();
 }
 
 // 0x004DFC90
-SOverlayDraw* SOverlayDraw::Teardown(unsigned int flags)
+OverlayDraw* OverlayDraw::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Sole()->Dealloc(this);
+        memory::Hub::sole()->dealloc(this);
     return this;
 }
 
 // 0x004DFAE0
-void SOverlayDraw::ChangeRank(float newPriority)
+void OverlayDraw::change_rank(float new_priority)
 {
-    if (priority == newPriority)
+    if (priority == new_priority)
         return;
-    priority = newPriority;
+    priority = new_priority;
     if (!hidden) {
-        DropOut();
-        Splice();
+        drop_out();
+        splice();
     }
 }
 
 // 0x004DFB20
-void SOverlayDraw::SetZ(float newZ)
+void OverlayDraw::set_z(float new_z)
 {
-    z = newZ;
-    if (!(newZ > 0.0f))
+    z = new_z;
+    if (!(new_z > 0.0f))
         return;
     if (priority == 0.0f)
         return;
     priority = 0.0f;
     if (!hidden) {
-        DropOut();
-        Splice();
+        drop_out();
+        splice();
     }
 }
 
 // 0x004DFB70
-void SOverlayDraw::ChangeConcealed(uint8_t newHidden)
+void OverlayDraw::change_concealed(uint8_t new_hidden)
 {
-    if (hidden == newHidden)
+    if (hidden == new_hidden)
         return;
-    hidden = newHidden;
-    if (newHidden)
-        DropOut();
+    hidden = new_hidden;
+    if (new_hidden)
+        drop_out();
     else
-        Splice();
+        splice();
 }
 
 // 0x004DFB90
-void __cdecl Draw2D()
+void __cdecl draw_2d()
 {
-    ChooseBlendMode(5);
-    ChangePhase(kAddressMode0, 0x10001);
-    ChangePhase(kDepthBias, 0);
-    ChangePhase(kPhaseAlphaTest, 1);
-    ChangePhase(kZWrite, 0);
-    SetTexture(1, nullptr);
-    SetTexture(2, nullptr);
-    SetTexture(3, nullptr);
-    ChangePhase(kZTest, ZTestNextFrame());
-    uint32_t zTest = 0;
-    for (SOverlayDraw* item = Foremost(); item; item = item->next) {
+    choose_blend_mode(5);
+    change_phase(kAddressMode0, 0x10001);
+    change_phase(kDepthBias, 0);
+    change_phase(kPhaseAlphaTest, 1);
+    change_phase(kZWrite, 0);
+    set_texture(1, nullptr);
+    set_texture(2, nullptr);
+    set_texture(3, nullptr);
+    change_phase(kZTest, z_test_next_frame());
+    uint32_t z_test = 0;
+    for (OverlayDraw* item = foremost(); item; item = item->next) {
         if (item->hidden)
             continue;
-        Call(item, 1); // OpenSketch
-        Call(item, 2); // Draw
-        Call(item, 3); // CloseSketch
-        if (!zTest && item->z > 0.0f)
-            zTest = 1;
+        get_call(item, 1); // open_sketch
+        get_call(item, 2); // Draw
+        get_call(item, 3); // close_sketch
+        if (!z_test && item->z > 0.0f)
+            z_test = 1;
     }
-    ZTestNextFrame() = zTest;
+    z_test_next_frame() = z_test;
 }
 
 namespace {
-static VtableSlot kSDraw2DVtable_slots[] = {&Engine3D::SOverlayDraw::Teardown, &_purecall,
+static VtableSlot g_s_draw_2d_vtable_slots[] = {&render::OverlayDraw::teardown, &_purecall,
                 &_purecall, &_purecall};
-void** const kSDraw2DVtable = reinterpret_cast<void**>(kSDraw2DVtable_slots);
+void** const kSDraw2dVtable = reinterpret_cast<void**>(g_s_draw_2d_vtable_slots);
 } // namespace
 
 } // namespace Nx

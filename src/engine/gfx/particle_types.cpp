@@ -12,7 +12,7 @@
 #include "engine/net/gamenet_handlers.h"
 #include "engine/gfx/weather.h"
 
-namespace Engine3D {
+namespace render {
 
 namespace {
 extern void** const kCRibbonParticlesNodeVtable;
@@ -31,7 +31,7 @@ extern void** const kCStarParticlesNodeVtable;
 extern void** const kCStarParticlesVtable;
 } // namespace
 
-using namespace ParticleParts;
+using namespace particle_parts;
 
 namespace {
 
@@ -39,11 +39,11 @@ constexpr unsigned int kPosition = 12; // three floats
 
 // The scalar deleting destructors: the body, freed with flags & 1. Returns the system.
 template <typename T>
-T* DestroyAndFree(T* system, unsigned int flags)
+T* destroy_and_free(T* system, unsigned int flags)
 {
-    system->DestroyBody();
+    system->destroy_body();
     if (flags & 1)
-        MemSys::Dealloc(system);
+        memory::dealloc(system);
     return system;
 }
 
@@ -52,196 +52,196 @@ T* DestroyAndFree(T* system, unsigned int flags)
 // --- ribbon ---
 
 // 0x0049B0D0
-CRibbonParticles* CRibbonParticles::MakeNew(uint32_t name, int particleCap, uint32_t, uint32_t, int, int, float,
+RibbonParticles* RibbonParticles::make_new(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float,
                                               int history)
 {
-    CEmitterInstance::MakeNew();
-    SetVtables(this, kCRibbonParticlesVtable, kCRibbonParticlesNodeVtable);
-    m_steps = history + 1;
-    if (ConstructParts(this, name, particleCap, static_cast<unsigned int>(particleCap * m_steps) * kPosition, true,
+    EmitterInstance::make_new();
+    set_vtables(this, kCRibbonParticlesVtable, kCRibbonParticlesNodeVtable);
+    steps_ = history + 1;
+    if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap * steps_) * kPosition, true,
                        2)) {
-        m_colourMid = -1.0f;
-        m_flagBits |= 4u;
+        colour_mid_ = -1.0f;
+        flag_bits_ |= 4u;
     }
     return this;
 }
 
 // 0x0049B070
-void CRibbonParticles::DestroyBody()
+void RibbonParticles::destroy_body()
 {
-    SetVtables(this, kCRibbonParticlesVtable, kCRibbonParticlesNodeVtable);
-    CEmitterInstance::DestroyBody();
+    set_vtables(this, kCRibbonParticlesVtable, kCRibbonParticlesNodeVtable);
+    EmitterInstance::destroy_body();
 }
 
 // 0x0049B0A0
-CRibbonParticles* CRibbonParticles::Teardown(unsigned int flags) { return DestroyAndFree(this, flags); }
+RibbonParticles* RibbonParticles::teardown(unsigned int flags) { return destroy_and_free(this, flags); }
 
 // --- ribbontrail ---
 
 // 0x0049B380
-CRibbonTrailParticles* CRibbonTrailParticles::MakeNew(uint32_t name, int particleCap, uint32_t, uint32_t, int, int,
+RibbonTrailParticles* RibbonTrailParticles::make_new(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int,
                                                         float, int history)
 {
-    CEmitterInstance::MakeNew();
-    SetVtables(this, kCRibbonTrailParticlesVtable, kCRibbonTrailParticlesNodeVtable);
-    m_steps = history + 1;
-    // (the colours' count read again from m_steps for each array and each step of the loop)
-    if (ConstructParts(this, name, particleCap, static_cast<unsigned int>(particleCap * m_steps) * kPosition, true,
-                       m_steps)) {
-        m_colourMid = -1.0f;
-        m_flagBits |= 4u;
+    EmitterInstance::make_new();
+    set_vtables(this, kCRibbonTrailParticlesVtable, kCRibbonTrailParticlesNodeVtable);
+    steps_ = history + 1;
+    // (the colours' count read again from steps_ for each array and each step of the loop)
+    if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap * steps_) * kPosition, true,
+                       steps_)) {
+        colour_mid_ = -1.0f;
+        flag_bits_ |= 4u;
     }
     return this;
 }
 
 // 0x0049B320
-void CRibbonTrailParticles::DestroyBody()
+void RibbonTrailParticles::destroy_body()
 {
-    SetVtables(this, kCRibbonTrailParticlesVtable, kCRibbonTrailParticlesNodeVtable);
-    CEmitterInstance::DestroyBody();
+    set_vtables(this, kCRibbonTrailParticlesVtable, kCRibbonTrailParticlesNodeVtable);
+    EmitterInstance::destroy_body();
 }
 
 // 0x0049B350
-CRibbonTrailParticles* CRibbonTrailParticles::Teardown(unsigned int flags) { return DestroyAndFree(this, flags); }
+RibbonTrailParticles* RibbonTrailParticles::teardown(unsigned int flags) { return destroy_and_free(this, flags); }
 
 // --- shaded ---
 
 // 0x0049B660
-CShadedParticles* CShadedParticles::MakeNew(uint32_t name, int particleCap, uint32_t, uint32_t, int, int, float,
+ShadedParticles* ShadedParticles::make_new(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float,
                                               int)
 {
-    CEmitterInstance::MakeNew();
-    SetVtables(this, kCShadedParticlesVtable, kCShadedParticlesNodeVtable);
-    if (ConstructParts(this, name, particleCap, static_cast<unsigned int>(particleCap) * kPosition, false, 4)) {
-        m_colourMid = -1.0f;
-        m_flagBits |= 4u;
+    EmitterInstance::make_new();
+    set_vtables(this, kCShadedParticlesVtable, kCShadedParticlesNodeVtable);
+    if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap) * kPosition, false, 4)) {
+        colour_mid_ = -1.0f;
+        flag_bits_ |= 4u;
     }
     return this;
 }
 
 // 0x0049B600
-void CShadedParticles::DestroyBody()
+void ShadedParticles::destroy_body()
 {
-    SetVtables(this, kCShadedParticlesVtable, kCShadedParticlesNodeVtable);
-    CEmitterInstance::DestroyBody();
+    set_vtables(this, kCShadedParticlesVtable, kCShadedParticlesNodeVtable);
+    EmitterInstance::destroy_body();
 }
 
 // 0x0049B630
-CShadedParticles* CShadedParticles::Teardown(unsigned int flags) { return DestroyAndFree(this, flags); }
+ShadedParticles* ShadedParticles::teardown(unsigned int flags) { return destroy_and_free(this, flags); }
 
 // --- smooth ---
 
 // 0x0049B910
-CSmoothParticles* CSmoothParticles::MakeNew(uint32_t name, int particleCap, uint32_t, uint32_t, int, int, float,
+SmoothParticles* SmoothParticles::make_new(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float,
                                               int)
 {
-    CEmitterInstance::MakeNew();
-    SetVtables(this, kCSmoothParticlesVtable, kCSmoothParticlesNodeVtable);
-    if (ConstructParts(this, name, particleCap, static_cast<unsigned int>(particleCap) * kPosition, false, 2)) {
-        m_colourMid = -1.0f;
-        m_flagBits |= 4u;
+    EmitterInstance::make_new();
+    set_vtables(this, kCSmoothParticlesVtable, kCSmoothParticlesNodeVtable);
+    if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap) * kPosition, false, 2)) {
+        colour_mid_ = -1.0f;
+        flag_bits_ |= 4u;
     }
     return this;
 }
 
 // 0x0049B8A0
-void CSmoothParticles::DestroyBody()
+void SmoothParticles::destroy_body()
 {
-    SetVtables(this, kCSmoothParticlesVtable, kCSmoothParticlesNodeVtable);
-    CEmitterInstance::DestroyBody();
+    set_vtables(this, kCSmoothParticlesVtable, kCSmoothParticlesNodeVtable);
+    EmitterInstance::destroy_body();
 }
 
 // 0x0049B8E0
-CSmoothParticles* CSmoothParticles::Teardown(unsigned int flags) { return DestroyAndFree(this, flags); }
+SmoothParticles* SmoothParticles::teardown(unsigned int flags) { return destroy_and_free(this, flags); }
 
 // --- smoothribbon ---
 
 // 0x0049BBD0
-CSmoothRibbonParticles* CSmoothRibbonParticles::MakeNew(uint32_t name, int particleCap, uint32_t, uint32_t, int,
+SmoothRibbonParticles* SmoothRibbonParticles::make_new(uint32_t name, int particle_cap, uint32_t, uint32_t, int,
                                                           int, float, int history)
 {
-    CEmitterInstance::MakeNew();
-    SetVtables(this, kCSmoothRibbonParticlesVtable, kCSmoothRibbonParticlesNodeVtable);
-    if (ConstructParts(this, name, particleCap, static_cast<unsigned int>(particleCap * (history + 1)) * kPosition,
+    EmitterInstance::make_new();
+    set_vtables(this, kCSmoothRibbonParticlesVtable, kCSmoothRibbonParticlesNodeVtable);
+    if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap * (history + 1)) * kPosition,
                        true, 4)) {
-        m_steps = history + 1;
-        m_colourMid = -1.0f;
-        m_flagBits |= 4u;
+        steps_ = history + 1;
+        colour_mid_ = -1.0f;
+        flag_bits_ |= 4u;
     }
     return this;
 }
 
 // 0x0049BB50
-void CSmoothRibbonParticles::DestroyBody()
+void SmoothRibbonParticles::destroy_body()
 {
-    SetVtables(this, kCSmoothRibbonParticlesVtable, kCSmoothRibbonParticlesNodeVtable);
-    CEmitterInstance::DestroyBody();
+    set_vtables(this, kCSmoothRibbonParticlesVtable, kCSmoothRibbonParticlesNodeVtable);
+    EmitterInstance::destroy_body();
 }
 
 // 0x0049BBA0
-CSmoothRibbonParticles* CSmoothRibbonParticles::Teardown(unsigned int flags) { return DestroyAndFree(this, flags); }
+SmoothRibbonParticles* SmoothRibbonParticles::teardown(unsigned int flags) { return destroy_and_free(this, flags); }
 
 // --- smoothstar ---
 
 // 0x0049BE80
-CSmoothStarParticles* CSmoothStarParticles::MakeNew(uint32_t name, int particleCap, uint32_t, uint32_t, int,
+SmoothStarParticles* SmoothStarParticles::make_new(uint32_t name, int particle_cap, uint32_t, uint32_t, int,
                                                       int segments, float size, int)
 {
-    CEmitterInstance::MakeNew();
-    SetVtables(this, kCSmoothStarParticlesVtable, kCSmoothStarParticlesNodeVtable);
-    if (ConstructParts(this, name, particleCap, static_cast<unsigned int>(particleCap) * kPosition, false, 3)) {
-        m_segments = segments;
-        m_colourMid = -1.0f;
-        m_extent = size;
-        m_flagBits |= 4u;
+    EmitterInstance::make_new();
+    set_vtables(this, kCSmoothStarParticlesVtable, kCSmoothStarParticlesNodeVtable);
+    if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap) * kPosition, false, 3)) {
+        segments_ = segments;
+        colour_mid_ = -1.0f;
+        extent_ = size;
+        flag_bits_ |= 4u;
     }
     return this;
 }
 
 // 0x0049BE20
-void CSmoothStarParticles::DestroyBody()
+void SmoothStarParticles::destroy_body()
 {
-    SetVtables(this, kCSmoothStarParticlesVtable, kCSmoothStarParticlesNodeVtable);
-    CEmitterInstance::DestroyBody();
+    set_vtables(this, kCSmoothStarParticlesVtable, kCSmoothStarParticlesNodeVtable);
+    EmitterInstance::destroy_body();
 }
 
 // 0x0049BE50
-CSmoothStarParticles* CSmoothStarParticles::Teardown(unsigned int flags) { return DestroyAndFree(this, flags); }
+SmoothStarParticles* SmoothStarParticles::teardown(unsigned int flags) { return destroy_and_free(this, flags); }
 
 // --- star ---
 
 // 0x0049C140
-CStarParticles* CStarParticles::MakeNew(uint32_t name, int particleCap, uint32_t, uint32_t, int, int segments,
+StarParticles* StarParticles::make_new(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int segments,
                                           float size, int)
 {
-    CEmitterInstance::MakeNew();
-    SetVtables(this, kCStarParticlesVtable, kCStarParticlesNodeVtable);
-    if (ConstructParts(this, name, particleCap, static_cast<unsigned int>(particleCap) * kPosition, false, 3)) {
-        m_segments = segments;
-        m_colourMid = -1.0f;
-        m_extent = size;
-        m_flagBits |= 4u;
+    EmitterInstance::make_new();
+    set_vtables(this, kCStarParticlesVtable, kCStarParticlesNodeVtable);
+    if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap) * kPosition, false, 3)) {
+        segments_ = segments;
+        colour_mid_ = -1.0f;
+        extent_ = size;
+        flag_bits_ |= 4u;
     }
     return this;
 }
 
 // 0x0049C0D0
-void CStarParticles::DestroyBody()
+void StarParticles::destroy_body()
 {
-    SetVtables(this, kCStarParticlesVtable, kCStarParticlesNodeVtable);
-    CEmitterInstance::DestroyBody();
+    set_vtables(this, kCStarParticlesVtable, kCStarParticlesNodeVtable);
+    EmitterInstance::destroy_body();
 }
 
 // 0x0049C110
-CStarParticles* CStarParticles::Teardown(unsigned int flags) { return DestroyAndFree(this, flags); }
+StarParticles* StarParticles::teardown(unsigned int flags) { return destroy_and_free(this, flags); }
 
 // --- the counts ---
 
 // 0x0049B8C0 / 0x0049BB70 / 0x0049C0F0 / 0x0049BB80
-int CParticleCounts::TwoColours() { return 2; }
-int CParticleCounts::FourColours() { return 4; }
-int CParticleCounts::ThreeColours() { return 3; }
-int CParticleCounts::Field134() { return *reinterpret_cast<const int*>(reinterpret_cast<const uint8_t*>(this) + 0x134); }
+int ParticleCounts::two_colours() { return 2; }
+int ParticleCounts::four_colours() { return 4; }
+int ParticleCounts::three_colours() { return 3; }
+int ParticleCounts::field134() { return *reinterpret_cast<const int*>(reinterpret_cast<const uint8_t*>(this) + 0x134); }
 
 } // namespace Nx
 
@@ -250,66 +250,66 @@ namespace {
 // The destructors reached through the node's vtable (`this` the node at +0x0C): each a jump to the type's.
 struct TypeNodeAdapters {
     template <typename T>
-    T* System()
+    T* get_system()
     {
-        return reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(this) - offsetof(Engine3D::CEmitterInstance, m_listLink));
+        return reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(this) - offsetof(render::EmitterInstance, list_link_));
     }
-    Engine3D::CRibbonParticles* DestroyRibbon(unsigned int flags) { return System<Engine3D::CRibbonParticles>()->Teardown(flags); }
-    Engine3D::CRibbonTrailParticles* DestroyRibbonTrail(unsigned int flags)
+    render::RibbonParticles* destroy_ribbon(unsigned int flags) { return get_system<render::RibbonParticles>()->teardown(flags); }
+    render::RibbonTrailParticles* destroy_ribbon_trail(unsigned int flags)
     {
-        return System<Engine3D::CRibbonTrailParticles>()->Teardown(flags);
+        return get_system<render::RibbonTrailParticles>()->teardown(flags);
     }
-    Engine3D::CShadedParticles* DestroyShaded(unsigned int flags) { return System<Engine3D::CShadedParticles>()->Teardown(flags); }
-    Engine3D::CSmoothParticles* DestroySmooth(unsigned int flags) { return System<Engine3D::CSmoothParticles>()->Teardown(flags); }
-    Engine3D::CSmoothRibbonParticles* DestroySmoothRibbon(unsigned int flags)
+    render::ShadedParticles* destroy_shaded(unsigned int flags) { return get_system<render::ShadedParticles>()->teardown(flags); }
+    render::SmoothParticles* destroy_smooth(unsigned int flags) { return get_system<render::SmoothParticles>()->teardown(flags); }
+    render::SmoothRibbonParticles* destroy_smooth_ribbon(unsigned int flags)
     {
-        return System<Engine3D::CSmoothRibbonParticles>()->Teardown(flags);
+        return get_system<render::SmoothRibbonParticles>()->teardown(flags);
     }
-    Engine3D::CSmoothStarParticles* DestroySmoothStar(unsigned int flags)
+    render::SmoothStarParticles* destroy_smooth_star(unsigned int flags)
     {
-        return System<Engine3D::CSmoothStarParticles>()->Teardown(flags);
+        return get_system<render::SmoothStarParticles>()->teardown(flags);
     }
-    Engine3D::CStarParticles* DestroyStar(unsigned int flags) { return System<Engine3D::CStarParticles>()->Teardown(flags); }
+    render::StarParticles* destroy_star(unsigned int flags) { return get_system<render::StarParticles>()->teardown(flags); }
 };
 
 } // namespace
 
-namespace Engine3D {
+namespace render {
 namespace {
-static VtableSlot kCRibbonParticlesNodeVtable_slots[] = {&TypeNodeAdapters::DestroyRibbon};
-void** const kCRibbonParticlesNodeVtable = reinterpret_cast<void**>(kCRibbonParticlesNodeVtable_slots);
-static VtableSlot kCRibbonParticlesVtable_slots[] = {&Engine3D::CRibbonParticles::Teardown, &Engine3D::CWeatherSystem::Render,
-                &Engine3D::CParticleCounts::Field134, &Engine3D::CParticleCounts::TwoColours};
-void** const kCRibbonParticlesVtable = reinterpret_cast<void**>(kCRibbonParticlesVtable_slots);
-static VtableSlot kCRibbonTrailParticlesNodeVtable_slots[] = {&TypeNodeAdapters::DestroyRibbonTrail};
-void** const kCRibbonTrailParticlesNodeVtable = reinterpret_cast<void**>(kCRibbonTrailParticlesNodeVtable_slots);
-static VtableSlot kCRibbonTrailParticlesVtable_slots[] = {&Engine3D::CRibbonTrailParticles::Teardown, &Engine3D::CWeatherSystem::Render,
-                &Engine3D::CParticleCounts::Field134, &Engine3D::CParticleCounts::Field134};
-void** const kCRibbonTrailParticlesVtable = reinterpret_cast<void**>(kCRibbonTrailParticlesVtable_slots);
-static VtableSlot kCShadedParticlesNodeVtable_slots[] = {&TypeNodeAdapters::DestroyShaded};
-void** const kCShadedParticlesNodeVtable = reinterpret_cast<void**>(kCShadedParticlesNodeVtable_slots);
-static VtableSlot kCShadedParticlesVtable_slots[] = {&Engine3D::CShadedParticles::Teardown, &Engine3D::CWeatherSystem::Render,
-                OnlinePlay::HandleNothing, &Engine3D::CParticleCounts::FourColours};
-void** const kCShadedParticlesVtable = reinterpret_cast<void**>(kCShadedParticlesVtable_slots);
-static VtableSlot kCSmoothParticlesNodeVtable_slots[] = {&TypeNodeAdapters::DestroySmooth};
-void** const kCSmoothParticlesNodeVtable = reinterpret_cast<void**>(kCSmoothParticlesNodeVtable_slots);
-static VtableSlot kCSmoothParticlesVtable_slots[] = {&Engine3D::CSmoothParticles::Teardown, &Engine3D::CWeatherSystem::Render,
-                OnlinePlay::HandleNothing, &Engine3D::CParticleCounts::TwoColours};
-void** const kCSmoothParticlesVtable = reinterpret_cast<void**>(kCSmoothParticlesVtable_slots);
-static VtableSlot kCSmoothRibbonParticlesNodeVtable_slots[] = {&TypeNodeAdapters::DestroySmoothRibbon};
-void** const kCSmoothRibbonParticlesNodeVtable = reinterpret_cast<void**>(kCSmoothRibbonParticlesNodeVtable_slots);
-static VtableSlot kCSmoothRibbonParticlesVtable_slots[] = {&Engine3D::CSmoothRibbonParticles::Teardown, &Engine3D::CWeatherSystem::Render,
-                &Engine3D::CParticleCounts::Field134, &Engine3D::CParticleCounts::FourColours};
-void** const kCSmoothRibbonParticlesVtable = reinterpret_cast<void**>(kCSmoothRibbonParticlesVtable_slots);
-static VtableSlot kCSmoothStarParticlesNodeVtable_slots[] = {&TypeNodeAdapters::DestroySmoothStar};
-void** const kCSmoothStarParticlesNodeVtable = reinterpret_cast<void**>(kCSmoothStarParticlesNodeVtable_slots);
-static VtableSlot kCSmoothStarParticlesVtable_slots[] = {&Engine3D::CSmoothStarParticles::Teardown, &Engine3D::CWeatherSystem::Render,
-                OnlinePlay::HandleNothing, &Engine3D::CParticleCounts::ThreeColours};
-void** const kCSmoothStarParticlesVtable = reinterpret_cast<void**>(kCSmoothStarParticlesVtable_slots);
-static VtableSlot kCStarParticlesNodeVtable_slots[] = {&TypeNodeAdapters::DestroyStar};
-void** const kCStarParticlesNodeVtable = reinterpret_cast<void**>(kCStarParticlesNodeVtable_slots);
-static VtableSlot kCStarParticlesVtable_slots[] = {&Engine3D::CStarParticles::Teardown, &Engine3D::CWeatherSystem::Render,
-                OnlinePlay::HandleNothing, &Engine3D::CParticleCounts::ThreeColours};
-void** const kCStarParticlesVtable = reinterpret_cast<void**>(kCStarParticlesVtable_slots);
+static VtableSlot g_c_ribbon_particles_node_vtable_slots[] = {&TypeNodeAdapters::destroy_ribbon};
+void** const kCRibbonParticlesNodeVtable = reinterpret_cast<void**>(g_c_ribbon_particles_node_vtable_slots);
+static VtableSlot g_c_ribbon_particles_vtable_slots[] = {&render::RibbonParticles::teardown, &render::WeatherSystem::render,
+                &render::ParticleCounts::field134, &render::ParticleCounts::two_colours};
+void** const kCRibbonParticlesVtable = reinterpret_cast<void**>(g_c_ribbon_particles_vtable_slots);
+static VtableSlot g_c_ribbon_trail_particles_node_vtable_slots[] = {&TypeNodeAdapters::destroy_ribbon_trail};
+void** const kCRibbonTrailParticlesNodeVtable = reinterpret_cast<void**>(g_c_ribbon_trail_particles_node_vtable_slots);
+static VtableSlot g_c_ribbon_trail_particles_vtable_slots[] = {&render::RibbonTrailParticles::teardown, &render::WeatherSystem::render,
+                &render::ParticleCounts::field134, &render::ParticleCounts::field134};
+void** const kCRibbonTrailParticlesVtable = reinterpret_cast<void**>(g_c_ribbon_trail_particles_vtable_slots);
+static VtableSlot g_c_shaded_particles_node_vtable_slots[] = {&TypeNodeAdapters::destroy_shaded};
+void** const kCShadedParticlesNodeVtable = reinterpret_cast<void**>(g_c_shaded_particles_node_vtable_slots);
+static VtableSlot g_c_shaded_particles_vtable_slots[] = {&render::ShadedParticles::teardown, &render::WeatherSystem::render,
+                online::handle_nothing, &render::ParticleCounts::four_colours};
+void** const kCShadedParticlesVtable = reinterpret_cast<void**>(g_c_shaded_particles_vtable_slots);
+static VtableSlot g_c_smooth_particles_node_vtable_slots[] = {&TypeNodeAdapters::destroy_smooth};
+void** const kCSmoothParticlesNodeVtable = reinterpret_cast<void**>(g_c_smooth_particles_node_vtable_slots);
+static VtableSlot g_c_smooth_particles_vtable_slots[] = {&render::SmoothParticles::teardown, &render::WeatherSystem::render,
+                online::handle_nothing, &render::ParticleCounts::two_colours};
+void** const kCSmoothParticlesVtable = reinterpret_cast<void**>(g_c_smooth_particles_vtable_slots);
+static VtableSlot g_c_smooth_ribbon_particles_node_vtable_slots[] = {&TypeNodeAdapters::destroy_smooth_ribbon};
+void** const kCSmoothRibbonParticlesNodeVtable = reinterpret_cast<void**>(g_c_smooth_ribbon_particles_node_vtable_slots);
+static VtableSlot g_c_smooth_ribbon_particles_vtable_slots[] = {&render::SmoothRibbonParticles::teardown, &render::WeatherSystem::render,
+                &render::ParticleCounts::field134, &render::ParticleCounts::four_colours};
+void** const kCSmoothRibbonParticlesVtable = reinterpret_cast<void**>(g_c_smooth_ribbon_particles_vtable_slots);
+static VtableSlot g_c_smooth_star_particles_node_vtable_slots[] = {&TypeNodeAdapters::destroy_smooth_star};
+void** const kCSmoothStarParticlesNodeVtable = reinterpret_cast<void**>(g_c_smooth_star_particles_node_vtable_slots);
+static VtableSlot g_c_smooth_star_particles_vtable_slots[] = {&render::SmoothStarParticles::teardown, &render::WeatherSystem::render,
+                online::handle_nothing, &render::ParticleCounts::three_colours};
+void** const kCSmoothStarParticlesVtable = reinterpret_cast<void**>(g_c_smooth_star_particles_vtable_slots);
+static VtableSlot g_c_star_particles_node_vtable_slots[] = {&TypeNodeAdapters::destroy_star};
+void** const kCStarParticlesNodeVtable = reinterpret_cast<void**>(g_c_star_particles_node_vtable_slots);
+static VtableSlot g_c_star_particles_vtable_slots[] = {&render::StarParticles::teardown, &render::WeatherSystem::render,
+                online::handle_nothing, &render::ParticleCounts::three_colours};
+void** const kCStarParticlesVtable = reinterpret_cast<void**>(g_c_star_particles_vtable_slots);
 } // namespace
 } // namespace Nx

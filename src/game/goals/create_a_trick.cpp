@@ -14,7 +14,7 @@
 #include "game/rider/rider.h"
 #include "engine/core/code_address.h"
 
-namespace GoalSystem {
+namespace goals {
 
 namespace {
 
@@ -34,203 +34,203 @@ const char* const kTotalY = "total_Y_angle";          // "total_Y_angle"
 const char* const kTotalX = "total_X_angle";          // "total_X_angle"
 const char* const kTotalZ = "total_Z_angle";          // "total_Z_angle"
 
-static VtableSlot kCreateATrickVtable_slots[] = {&GoalSystem::CCreateATrick::Teardown};
-void** const kCreateATrickVtable = reinterpret_cast<void**>(kCreateATrickVtable_slots);
+static VtableSlot g_create_a_trick_vtable_slots[] = {&goals::CreateATrick::teardown};
+void** const kCreateATrickVtable = reinterpret_cast<void**>(g_create_a_trick_vtable_slots);
 
-GameObjects::CRider* LocalSkater() { return static_cast<GameObjects::CRider*>(SkateCalls::GetHomeRider()); }
-CCreateATrick* CreatedTrick(GameObjects::CRider* skater, int index)
+objects::Rider* local_skater() { return static_cast<objects::Rider*>(skate_calls::get_home_rider()); }
+CreateATrick* created_trick(objects::Rider* skater, int index)
 {
-    return reinterpret_cast<CCreateATrick*>(skater->m_trickSlots[index]);
+    return reinterpret_cast<CreateATrick*>(skater->trick_slots_[index]);
 }
 // The editor's state on the skater.
 template <typename T>
-T& Prop(GameObjects::CRider* skater, uint32_t offset)
+T& prop(objects::Rider* skater, uint32_t offset)
 {
     return *reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(skater) + offset);
 }
-Scripts::CStruct* Results(Scripts::CScript* script) { return script->m_args; }
+script::Struct* get_results(script::Script* script) { return script->args_; }
 
-Scripts::CArray* AllocScriptArray()
+script::Array* alloc_script_array()
 {
-    Scripts::CArray* array = Scripts::AllocScriptArray();
-    return array ? array->PrepareAll() : nullptr;
+    script::Array* array = script::alloc_script_array();
+    return array ? array->prepare_all() : nullptr;
 }
 
 } // namespace
 
 // 0x00552560
-CCreateATrick* CCreateATrick::MakeNew()
+CreateATrick* CreateATrick::make_new()
 {
-    m_vtable = kCreateATrickVtable;
-    DebugOut::Printf("creating a CCreateATrick\n"); // "creating a CCreateATrick\n"
-    Scripts::CStruct* other = Scripts::ReadSubStruct("Default_CAT_other_info"); // "Default_CAT_other_info"
-    Scripts::CStruct* params = Scripts::SpawnParamBag();
-    m_otherParams = params ? params->PrepareAll() : nullptr;
-    m_otherParams->AppendStructureIfAny(other);
-    Scripts::CArray* rotations = Scripts::FetchList("Default_CAT_rotation_info"); // "Default_CAT_rotation_info"
-    m_spinList = AllocScriptArray();
-    m_spinList->ConfigureSizeKind(6, Scripts::QBVAL_STRUCT);
-    Scripts::DuplicateArray(m_spinList, rotations);
-    Scripts::CArray* animations = Scripts::FetchList("Default_CAT_animation_info"); // "Default_CAT_animation_info"
-    m_animations = AllocScriptArray();
-    m_animations->ConfigureSizeKind(6, Scripts::QBVAL_STRUCT);
-    Scripts::DuplicateArray(m_animations, animations);
+    vtable_ = kCreateATrickVtable;
+    debug::printf("creating a CCreateATrick\n"); // "creating a CCreateATrick\n"
+    script::Struct* other = script::read_sub_struct("Default_CAT_other_info"); // "Default_CAT_other_info"
+    script::Struct* params = script::spawn_param_bag();
+    other_params_ = params ? params->prepare_all() : nullptr;
+    other_params_->append_structure_if_any(other);
+    script::Array* rotations = script::fetch_list("Default_CAT_rotation_info"); // "Default_CAT_rotation_info"
+    spin_list_ = alloc_script_array();
+    spin_list_->configure_size_kind(6, script::kQbvalStruct);
+    script::duplicate_array(spin_list_, rotations);
+    script::Array* animations = script::fetch_list("Default_CAT_animation_info"); // "Default_CAT_animation_info"
+    animations_ = alloc_script_array();
+    animations_->configure_size_kind(6, script::kQbvalStruct);
+    script::duplicate_array(animations_, animations);
     return this;
 }
 
 // 0x00552720
-void CCreateATrick::DestroyBody()
+void CreateATrick::destroy_body()
 {
-    m_vtable = kCreateATrickVtable;
-    if (Scripts::CStruct* other = m_otherParams) {
-        other->Clear();
-        Scripts::DeleteStruct(other);
+    vtable_ = kCreateATrickVtable;
+    if (script::Struct* other = other_params_) {
+        other->get_clear();
+        script::delete_struct(other);
     }
-    for (Scripts::CArray** array : {&m_spinList, &m_animations}) {
+    for (script::Array** array : {&spin_list_, &animations_}) {
         if (!*array)
             continue;
-        Scripts::ReleaseArrayStorage(*array);
-        if (Scripts::CArray* own = *array) {
-            own->Clear();
-            Scripts::DeleteArray(own);
+        script::release_array_storage(*array);
+        if (script::Array* own = *array) {
+            own->get_clear();
+            script::delete_array(own);
         }
     }
 }
 
 // 0x005527A0
-CCreateATrick* CCreateATrick::Teardown(uint8_t flags)
+CreateATrick* CreateATrick::teardown(uint8_t flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
 // 0x00551CA0
-bool __cdecl CFunc_GetCreateATrickParams(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_get_create_a_trick_params(script::Struct* params, script::Script* script)
 {
-    GameObjects::CRider* skater = LocalSkater();
+    objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     int index;
-    params->FetchIntValue(kTrickIndex, &index, 1);
-    CCreateATrick* trick = CreatedTrick(skater, index);
-    Results(script)->PutSubStruct(kOtherParams, trick->m_otherParams);
-    Results(script)->AppendArrayValue(kRotationInfo, trick->m_spinList);
-    Results(script)->AppendArrayValue(kAnimationInfo, trick->m_animations);
+    params->fetch_int_value(kTrickIndex, &index, 1);
+    CreateATrick* trick = created_trick(skater, index);
+    get_results(script)->put_sub_struct(kOtherParams, trick->other_params_);
+    get_results(script)->append_array_value(kRotationInfo, trick->spin_list_);
+    get_results(script)->append_array_value(kAnimationInfo, trick->animations_);
     return true;
 }
 
 // 0x00551D20
-bool __cdecl CFunc_GetCreateATrickOtherParams(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_get_create_a_trick_other_params(script::Struct* params, script::Script* script)
 {
-    GameObjects::CRider* skater = LocalSkater();
+    objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     int index;
-    params->FetchIntValue(kTrickIndex, &index, 1);
-    Results(script)->PutSubStruct(kOtherParams, CreatedTrick(skater, index)->m_otherParams);
+    params->fetch_int_value(kTrickIndex, &index, 1);
+    get_results(script)->put_sub_struct(kOtherParams, created_trick(skater, index)->other_params_);
     return true;
 }
 
 // 0x00551D80
-bool __cdecl CFunc_GetCreateATrickRotations(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_get_create_a_trick_rotations(script::Struct* params, script::Script* script)
 {
-    GameObjects::CRider* skater = LocalSkater();
+    objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     int index;
-    params->FetchIntValue(kTrickIndex, &index, 1);
-    Results(script)->AppendArrayValue(kRotationInfo, CreatedTrick(skater, index)->m_spinList);
+    params->fetch_int_value(kTrickIndex, &index, 1);
+    get_results(script)->append_array_value(kRotationInfo, created_trick(skater, index)->spin_list_);
     return true;
 }
 
 // 0x00551DE0
-bool __cdecl CFunc_GetCreateATrickAnimations(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_get_create_a_trick_animations(script::Struct* params, script::Script* script)
 {
-    GameObjects::CRider* skater = LocalSkater();
+    objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     int index;
-    params->FetchIntValue(kTrickIndex, &index, 1);
-    Results(script)->AppendArrayValue(kAnimationInfo, CreatedTrick(skater, index)->m_animations);
+    params->fetch_int_value(kTrickIndex, &index, 1);
+    get_results(script)->append_array_value(kAnimationInfo, created_trick(skater, index)->animations_);
     return true;
 }
 
 // 0x00551E40
-bool __cdecl CFunc_SetCreateATrickParams(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_set_create_a_trick_params(script::Struct* params, script::Script*)
 {
-    GameObjects::CRider* skater = LocalSkater();
+    objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     int index;
-    params->FetchIntValue(kTrickIndex, &index, 1);
-    if (!skater->m_trickSlots[1]) {
-        DebugOut::Printf("Skater has no created tricks!!\n"); // "Skater has no created tricks!!\n"
+    params->fetch_int_value(kTrickIndex, &index, 1);
+    if (!skater->trick_slots_[1]) {
+        debug::printf("Skater has no created tricks!!\n"); // "Skater has no created tricks!!\n"
         return false;
     }
-    Scripts::CStruct* other;
-    if (params->ReadSubStruct(kOtherParams, &other, 1)) {
-        DebugOut::Printf("Storing param info %i\n", index); // "Storing param info %i\n"
-        CreatedTrick(skater, index)->m_otherParams->AppendStructureIfAny(other);
+    script::Struct* other;
+    if (params->read_sub_struct(kOtherParams, &other, 1)) {
+        debug::printf("Storing param info %i\n", index); // "Storing param info %i\n"
+        created_trick(skater, index)->other_params_->append_structure_if_any(other);
     }
-    Scripts::CArray* rotations;
-    if (params->FetchList(kRotationInfo, &rotations, 1)) {
-        DebugOut::Printf("Storing rotation info %i\n", index); // "Storing rotation info %i\n"
-        Scripts::DuplicateArray(CreatedTrick(skater, index)->m_spinList, rotations);
+    script::Array* rotations;
+    if (params->fetch_list(kRotationInfo, &rotations, 1)) {
+        debug::printf("Storing rotation info %i\n", index); // "Storing rotation info %i\n"
+        script::duplicate_array(created_trick(skater, index)->spin_list_, rotations);
     }
-    Scripts::CArray* animations;
-    if (params->FetchList(kAnimationInfo, &animations, 1)) {
-        DebugOut::Printf("Storing animation info %i\n", index); // "Storing animation info %i\n"
-        Scripts::DuplicateArray(CreatedTrick(skater, index)->m_animations, animations);
+    script::Array* animations;
+    if (params->fetch_list(kAnimationInfo, &animations, 1)) {
+        debug::printf("Storing animation info %i\n", index); // "Storing animation info %i\n"
+        script::duplicate_array(created_trick(skater, index)->animations_, animations);
     }
     return true;
 }
 
 // 0x00551F70
-bool __cdecl CFunc_SetCreateATrickOtherParams(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_set_create_a_trick_other_params(script::Struct* params, script::Script*)
 {
-    GameObjects::CRider* skater = LocalSkater();
+    objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     int index;
-    params->FetchIntValue(kTrickIndex, &index, 1);
-    Scripts::CStruct* other;
-    if (params->ReadSubStruct(kOtherParams, &other, 1)) {
-        DebugOut::Printf("Storing param info %i\n", index);
-        CreatedTrick(skater, index)->m_otherParams->AppendStructureIfAny(other);
+    params->fetch_int_value(kTrickIndex, &index, 1);
+    script::Struct* other;
+    if (params->read_sub_struct(kOtherParams, &other, 1)) {
+        debug::printf("Storing param info %i\n", index);
+        created_trick(skater, index)->other_params_->append_structure_if_any(other);
     }
     return true;
 }
 
 // 0x00551FF0
-bool __cdecl CFunc_SetCreateATrickRotations(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_set_create_a_trick_rotations(script::Struct* params, script::Script*)
 {
-    GameObjects::CRider* skater = LocalSkater();
+    objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     int index;
-    params->FetchIntValue(kTrickIndex, &index, 1);
-    Scripts::CArray* rotations;
-    if (params->FetchList(kRotationInfo, &rotations, 1)) {
-        DebugOut::Printf("Storing rotation info %i\n", index);
-        Scripts::DuplicateArray(CreatedTrick(skater, index)->m_spinList, rotations);
+    params->fetch_int_value(kTrickIndex, &index, 1);
+    script::Array* rotations;
+    if (params->fetch_list(kRotationInfo, &rotations, 1)) {
+        debug::printf("Storing rotation info %i\n", index);
+        script::duplicate_array(created_trick(skater, index)->spin_list_, rotations);
     }
     return true;
 }
 
 // 0x00552070
-bool __cdecl CFunc_SetCreateATrickAnimations(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_set_create_a_trick_animations(script::Struct* params, script::Script*)
 {
-    GameObjects::CRider* skater = LocalSkater();
+    objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     int index;
-    params->FetchIntValue(kTrickIndex, &index, 1);
-    Scripts::CArray* animations;
-    if (params->FetchList(kAnimationInfo, &animations, 1)) {
-        DebugOut::Printf("Storing animation info %i\n", index);
-        Scripts::DuplicateArray(CreatedTrick(skater, index)->m_animations, animations);
+    params->fetch_int_value(kTrickIndex, &index, 1);
+    script::Array* animations;
+    if (params->fetch_list(kAnimationInfo, &animations, 1)) {
+        debug::printf("Storing animation info %i\n", index);
+        script::duplicate_array(created_trick(skater, index)->animations_, animations);
     }
     return true;
 }
@@ -239,112 +239,112 @@ namespace {
 
 // A CAT_Set... of an integer field (the command's unnamed integer) / a flag (non-zero), and its CAT_Get... into the
 // script's parameters.
-bool StoreIntField(Scripts::CStruct* params, uint32_t offset)
+bool store_int_field(script::Struct* params, uint32_t offset)
 {
-    GameObjects::CRider* skater = LocalSkater();
+    objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     int value;
-    params->FetchIntValue(kNoName, &value, 1);
-    Prop<int>(skater, offset) = value;
+    params->fetch_int_value(kNoName, &value, 1);
+    prop<int>(skater, offset) = value;
     return true;
 }
-bool FetchIntValue(Scripts::CScript* script, uint32_t offset, const char* name)
+bool fetch_int_value(script::Script* script, uint32_t offset, const char* name)
 {
-    GameObjects::CRider* skater = LocalSkater();
+    objects::Rider* skater = local_skater();
     if (!skater)
         return false;
-    Results(script)->PutInt(name, Prop<int>(skater, offset));
+    get_results(script)->put_int(name, prop<int>(skater, offset));
     return true;
 }
-bool SetFlag(Scripts::CStruct* params, uint32_t offset)
+bool set_flag(script::Struct* params, uint32_t offset)
 {
-    GameObjects::CRider* skater = LocalSkater();
+    objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     int value;
-    params->FetchIntValue(kNoName, &value, 1);
-    Prop<bool>(skater, offset) = value != 0;
+    params->fetch_int_value(kNoName, &value, 1);
+    prop<bool>(skater, offset) = value != 0;
     return true;
 }
-bool FetchMarker(Scripts::CScript* script, uint32_t offset, const char* name)
+bool fetch_marker(script::Script* script, uint32_t offset, const char* name)
 {
-    GameObjects::CRider* skater = LocalSkater();
+    objects::Rider* skater = local_skater();
     if (!skater)
         return false;
-    Results(script)->PutInt(name, Prop<bool>(skater, offset) ? 1 : 0);
+    get_results(script)->put_int(name, prop<bool>(skater, offset) ? 1 : 0);
     return true;
 }
 
 } // namespace
 
 // 0x005520F0
-bool __cdecl CFunc_CAT_SetNumAnims(Scripts::CStruct* params, Scripts::CScript*) { return StoreIntField(params, 0x1A8); }
+bool __cdecl cfunc_cat_set_num_anims(script::Struct* params, script::Script*) { return store_int_field(params, 0x1A8); }
 // 0x00552130
-bool __cdecl CFunc_CAT_GetNumAnims(Scripts::CStruct*, Scripts::CScript* script)
+bool __cdecl cfunc_cat_get_num_anims(script::Struct*, script::Script* script)
 {
-    return FetchIntValue(script, 0x1A8, kNumAnimationsOn);
+    return fetch_int_value(script, 0x1A8, kNumAnimationsOn);
 }
 // 0x00552160
-bool __cdecl CFunc_CAT_SetAnimsDone(Scripts::CStruct* params, Scripts::CScript*) { return SetFlag(params, 0x1AE); }
+bool __cdecl cfunc_cat_set_anims_done(script::Struct* params, script::Script*) { return set_flag(params, 0x1AE); }
 // 0x005521A0
-bool __cdecl CFunc_CAT_GetAnimsDone(Scripts::CStruct*, Scripts::CScript* script)
+bool __cdecl cfunc_cat_get_anims_done(script::Struct*, script::Script* script)
 {
-    return FetchMarker(script, 0x1AE, kAnimationsDone);
+    return fetch_marker(script, 0x1AE, kAnimationsDone);
 }
 // 0x005521F0
-bool __cdecl CFunc_CAT_SetRotsDone(Scripts::CStruct* params, Scripts::CScript*) { return SetFlag(params, 0x1AF); }
+bool __cdecl cfunc_cat_set_rots_done(script::Struct* params, script::Script*) { return set_flag(params, 0x1AF); }
 // 0x00552230
-bool __cdecl CFunc_CAT_GetRotsDone(Scripts::CStruct*, Scripts::CScript* script)
+bool __cdecl cfunc_cat_get_rots_done(script::Struct*, script::Script* script)
 {
-    return FetchMarker(script, 0x1AF, kRotationsDone);
+    return fetch_marker(script, 0x1AF, kRotationsDone);
 }
 // 0x00552280
-bool __cdecl CFunc_CAT_SetBailDone(Scripts::CStruct* params, Scripts::CScript*) { return SetFlag(params, 0x1AC); }
+bool __cdecl cfunc_cat_set_bail_done(script::Struct* params, script::Script*) { return set_flag(params, 0x1AC); }
 // 0x005522C0
-bool __cdecl CFunc_CAT_GetBailDone(Scripts::CStruct*, Scripts::CScript* script) { return FetchMarker(script, 0x1AC, kBailDone); }
+bool __cdecl cfunc_cat_get_bail_done(script::Struct*, script::Script* script) { return fetch_marker(script, 0x1AC, kBailDone); }
 // 0x00552310
-bool __cdecl CFunc_CAT_SetFlipSkater(Scripts::CStruct* params, Scripts::CScript*) { return SetFlag(params, 0x1AD); }
+bool __cdecl cfunc_cat_set_flip_skater(script::Struct* params, script::Script*) { return set_flag(params, 0x1AD); }
 // 0x00552350
-bool __cdecl CFunc_CAT_GetFlipSkater(Scripts::CStruct*, Scripts::CScript* script)
+bool __cdecl cfunc_cat_get_flip_skater(script::Struct*, script::Script* script)
 {
-    GameObjects::CRider* skater = LocalSkater();
+    objects::Rider* skater = local_skater();
     if (!skater)
         return false;
-    Results(script)->PutInt(kFlipSkater180, Prop<bool>(skater, 0x1AD) ? 1 : 0);
+    get_results(script)->put_int(kFlipSkater180, prop<bool>(skater, 0x1AD) ? 1 : 0);
     return true;
 }
 // 0x005523A0
-bool __cdecl CFunc_CAT_SetHoldTime(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_cat_set_hold_time(script::Struct* params, script::Script*)
 {
-    GameObjects::CRider* skater = LocalSkater();
+    objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     float time;
-    params->FetchFloat(kNoName, &time, 1);
-    Prop<float>(skater, 0x1B0) = time;
+    params->fetch_float(kNoName, &time, 1);
+    prop<float>(skater, 0x1B0) = time;
     return true;
 }
 // 0x005523E0
-bool __cdecl CFunc_CAT_GetHoldTime(Scripts::CStruct*, Scripts::CScript* script)
+bool __cdecl cfunc_cat_get_hold_time(script::Struct*, script::Script* script)
 {
-    GameObjects::CRider* skater = LocalSkater();
+    objects::Rider* skater = local_skater();
     if (!skater)
         return false;
-    Results(script)->PushFloat(kHoldTime, Prop<float>(skater, 0x1B0));
+    get_results(script)->push_float(kHoldTime, prop<float>(skater, 0x1B0));
     return true;
 }
 // 0x00552410
-bool __cdecl CFunc_CAT_SetTotalY(Scripts::CStruct* params, Scripts::CScript*) { return StoreIntField(params, 0x1B8); }
+bool __cdecl cfunc_cat_set_total_y(script::Struct* params, script::Script*) { return store_int_field(params, 0x1B8); }
 // 0x00552450
-bool __cdecl CFunc_CAT_GetTotalY(Scripts::CStruct*, Scripts::CScript* script) { return FetchIntValue(script, 0x1B8, kTotalY); }
+bool __cdecl cfunc_cat_get_total_y(script::Struct*, script::Script* script) { return fetch_int_value(script, 0x1B8, kTotalY); }
 // 0x00552480
-bool __cdecl CFunc_CAT_SetTotalX(Scripts::CStruct* params, Scripts::CScript*) { return StoreIntField(params, 0x1B4); }
+bool __cdecl cfunc_cat_set_total_x(script::Struct* params, script::Script*) { return store_int_field(params, 0x1B4); }
 // 0x005524C0
-bool __cdecl CFunc_CAT_GetTotalX(Scripts::CStruct*, Scripts::CScript* script) { return FetchIntValue(script, 0x1B4, kTotalX); }
+bool __cdecl cfunc_cat_get_total_x(script::Struct*, script::Script* script) { return fetch_int_value(script, 0x1B4, kTotalX); }
 // 0x005524F0
-bool __cdecl CFunc_CAT_SetTotalZ(Scripts::CStruct* params, Scripts::CScript*) { return StoreIntField(params, 0x1BC); }
+bool __cdecl cfunc_cat_set_total_z(script::Struct* params, script::Script*) { return store_int_field(params, 0x1BC); }
 // 0x00552530
-bool __cdecl CFunc_CAT_GetTotalZ(Scripts::CStruct*, Scripts::CScript* script) { return FetchIntValue(script, 0x1BC, kTotalZ); }
+bool __cdecl cfunc_cat_get_total_z(script::Struct*, script::Script* script) { return fetch_int_value(script, 0x1BC, kTotalZ); }
 
 } // namespace Game

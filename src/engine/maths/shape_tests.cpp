@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <new>
 
-namespace Maths {
+namespace maths {
 
 namespace {
 
@@ -20,7 +20,7 @@ BBox::BBox() : min{kHuge, kHuge, kHuge, 1.0f}, max{-kHuge, -kHuge, -kHuge, 1.0f}
 BBox::BBox(const Vec4& point) : min(point), max(point) {}
 
 // 0x00403450
-void BBox::AppendSpot(const Vec4& point)
+void BBox::append_spot(const Vec4& point)
 {
     if (point.x < min.x)
         min.x = point.x;
@@ -45,7 +45,7 @@ BBox& BBox::operator=(const BBox& other)
 }
 
 // 0x0040B170 (x, then z, then y; each failing only when strictly beyond)
-bool BBox::Intersects(const BBox& other) const
+bool BBox::intersects(const BBox& other) const
 {
     if (min.x > other.max.x || other.min.x > max.x)
         return false;
@@ -57,7 +57,7 @@ bool BBox::Intersects(const BBox& other) const
 }
 
 // 0x0040B1D0
-bool BBox::Holds(const BBox& other) const
+bool BBox::get_holds(const BBox& other) const
 {
     if (!(other.min.x >= min.x) || !(other.max.x <= max.x))
         return false;
@@ -72,14 +72,14 @@ bool BBox::Holds(const BBox& other) const
 Rect2::Rect2(int l, int t, int r, int b) : left(l), top(t), right(r), bottom(b) {}
 
 // 0x00403BB0
-Vec4& BBox::GetCenter(Vec4& out) const
+Vec4& BBox::get_center(Vec4& out) const
 {
     out = {(max.x - min.x) * 0.5f + min.x, (max.y - min.y) * 0.5f + min.y, (max.z - min.z) * 0.5f + min.z, 1.0f};
     return out;
 }
 
 // 0x004025A0
-int BBox::ContainsPoint(const Vec4& point) const
+int BBox::contains_point(const Vec4& point) const
 {
     // Written as "not outside" so NaN coordinates count as outside, as in the original.
     if (!(point.x >= min.x) || !(point.y >= min.y) || !(point.z >= min.z))
@@ -90,7 +90,7 @@ int BBox::ContainsPoint(const Vec4& point) const
 }
 
 // 0x004034D0
-int BBox::CountAxesContaining(const Vec4& point, uint32_t& axes) const
+int BBox::count_axes_containing(const Vec4& point, uint32_t& axes) const
 {
     axes = 0;
     int count = 0;
@@ -110,11 +110,11 @@ int BBox::CountAxesContaining(const Vec4& point, uint32_t& axes) const
 }
 
 // 0x00403550
-bool BBox::SegmentCrossing(const Seg& line, Vec4& hit, Vec4& normal) const
+bool BBox::segment_crossing(const Seg& line, Vec4& hit, Vec4& normal) const
 {
     const Vec4& s = line.start;
     const Vec4& e = line.end;
-    if (ContainsPoint(s) && ContainsPoint(e))
+    if (contains_point(s) && contains_point(e))
         return false;
 
     // Both ends beyond the same face: no hit.
@@ -203,13 +203,13 @@ bool BBox::SegmentCrossing(const Seg& line, Vec4& hit, Vec4& normal) const
 }
 
 // 0x00403C00
-void BBox::GetClosestSurfacePoint(const Vec4& point, Vec4& out) const
+void BBox::get_closest_surface_point(const Vec4& point, Vec4& out) const
 {
     uint32_t axes;
-    if (CountAxesContaining(point, axes) == 3) {
+    if (count_axes_containing(point, axes) == 3) {
         // Inside: move along whichever axis reaches a face soonest.
         float best_value = 0.0f, best_distance = 0.0f; // always set on the first pass (axis 0)
-        int winningAxis = 0;
+        int winning_axis = 0;
         for (int axis = 0; axis < 3; ++axis) {
             float p = (&point.x)[axis], lo = (&min.x)[axis], hi = (&max.x)[axis];
             float value = hi, distance = hi - p;
@@ -218,13 +218,13 @@ void BBox::GetClosestSurfacePoint(const Vec4& point, Vec4& out) const
                 distance = p - lo;
             }
             if (axis == 0 || distance < best_distance) {
-                winningAxis = axis;
+                winning_axis = axis;
                 best_value = value;
                 best_distance = distance;
             }
         }
         out = point;
-        (&out.x)[winningAxis] = best_value;
+        (&out.x)[winning_axis] = best_value;
         return;
     }
 
@@ -250,18 +250,18 @@ Capsule::Capsule(const Vec4& start, const Vec4& offset, float r) : line(start, s
 Capsule::Capsule(const Seg& segment, float r) : line(segment), radius(r) {}
 
 // 0x00403390
-float Capsule::Loudness() const
+float Capsule::get_loudness() const
 {
-    float length = (line.end - line.start).LenOf();
+    float length = (line.end - line.start).len_of();
     return radius * radius * radius * (4.0f / 3.0f * kPi) + length * radius * radius * kPi;
 }
 
 // 0x00403330
-bool Capsule::ContainsPoint(const Vec4& point, Vec4* offset) const
+bool Capsule::contains_point(const Vec4& point, Vec4* offset) const
 {
     Vec4 local_offset;
-    float squaredGap = line.DistanceSqrToPoint(point, &local_offset);
-    if (!(radius * radius >= squaredGap))
+    float squared_gap = line.distance_sqr_to_point(point, &local_offset);
+    if (!(radius * radius >= squared_gap))
         return false;
     if (offset)
         *offset = local_offset;
@@ -269,7 +269,7 @@ bool Capsule::ContainsPoint(const Vec4& point, Vec4* offset) const
 }
 
 // 0x00402D60
-float Seg::DistanceSqrToPoint(const Vec4& point, Vec4* offset) const
+float Seg::distance_sqr_to_point(const Vec4& point, Vec4* offset) const
 {
     float dx = end.x - start.x, dy = end.y - start.y, dz = end.z - start.z;
     float dw = end.w - start.w;
@@ -277,14 +277,14 @@ float Seg::DistanceSqrToPoint(const Vec4& point, Vec4* offset) const
 
     // Project onto the segment: before the start, past the end, or in between.
     float along = vx * dx + vy * dy + vz * dz;
-    float squaredLen = dx * dx + dy * dy + dz * dz;
+    float squared_len = dx * dx + dy * dy + dz * dz;
     Vec4 result;
     if (along <= 0.0f) {
         result = point - start;
-    } else if (squaredLen <= along) {
+    } else if (squared_len <= along) {
         result = point - end;
     } else {
-        float t = along / squaredLen;
+        float t = along / squared_len;
         result = {point.x - (dx * t + start.x), point.y - (dy * t + start.y), point.z - (dz * t + start.z),
                   point.w - (dw * t + start.w)};
     }
@@ -298,7 +298,7 @@ float Seg::DistanceSqrToPoint(const Vec4& point, Vec4* offset) const
 // distance is a quadratic in (s, t):  a00 s^2 + 2 a01 s t + a11 t^2 + 2 b0 s + 2 b1 t + c.  Its unconstrained
 // minimum is checked against the unit square, and the edge or corner it falls outside of is minimised instead.
 // The branch order follows the original exactly (it matters for which edge wins at region boundaries).
-double Seg::DistanceSqrToLine(const Seg& other, float* s_out, float* t_out) const
+double Seg::distance_sqr_to_line(const Seg& other, float* s_out, float* t_out) const
 {
     const float dx = start.x - other.start.x, dy = start.y - other.start.y, dz = start.z - other.start.z;
     const float d0x = end.x - start.x, d0y = end.y - start.y, d0z = end.z - start.z;
@@ -473,11 +473,11 @@ double Seg::DistanceSqrToLine(const Seg& other, float* s_out, float* t_out) cons
 }
 
 // 0x004032E0
-int Capsule::IntersectsSegment(const Seg& segment, float* s, float* t, float* squaredGap) const
+int Capsule::intersects_segment(const Seg& segment, float* s, float* t, float* squared_gap) const
 {
-    float distance = static_cast<float>(line.DistanceSqrToLine(segment, s, t));
-    if (squaredGap)
-        *squaredGap = distance;
+    float distance = static_cast<float>(line.distance_sqr_to_line(segment, s, t));
+    if (squared_gap)
+        *squared_gap = distance;
     return distance <= radius * radius ? 1 : 0;
 }
 
@@ -485,13 +485,13 @@ namespace {
 
 constexpr float kEpsilon = 1e-5f;
 
-bool LongEnough(float x, float y, float z)
+bool long_enough(float x, float y, float z)
 {
     return kEpsilon <= std::fabs(x) || kEpsilon <= std::fabs(y) || kEpsilon <= std::fabs(z);
 }
 
 // Limit to [0, 1]; NaN becomes 1, as in the original.
-float Clamp01(float value)
+float clamp01(float value)
 {
     if (!(value <= 1.0f))
         return 1.0f;
@@ -501,14 +501,14 @@ float Clamp01(float value)
 } // namespace
 
 // 0x00402F00
-bool ClosestPointsBetweenLines(const Seg& a, const Seg& b, Vec4& point_a, Vec4& point_b, float& s,
+bool closest_points_between_lines(const Seg& a, const Seg& b, Vec4& point_a, Vec4& point_b, float& s,
                                float& t, bool clamp)
 {
     float vx = b.end.x - b.start.x, vy = b.end.y - b.start.y, vz = b.end.z - b.start.z;
-    if (!LongEnough(vx, vy, vz))
+    if (!long_enough(vx, vy, vz))
         return false;
     float ux = a.end.x - a.start.x, uy = a.end.y - a.start.y, uz = a.end.z - a.start.z;
-    if (!LongEnough(ux, uy, uz))
+    if (!long_enough(ux, uy, uz))
         return false;
 
     float wx = a.start.x - b.start.x, wy = a.start.y - b.start.y, wz = a.start.z - b.start.z;
@@ -521,10 +521,10 @@ bool ClosestPointsBetweenLines(const Seg& a, const Seg& b, Vec4& point_a, Vec4& 
 
     s = (uv * e - (ux * wx + uy * wy + uz * wz) * vv) / denominator;
     if (clamp)
-        s = Clamp01(s);
+        s = clamp01(s);
     t = (uv * s + e) / vv;
     if (clamp)
-        t = Clamp01(t);
+        t = clamp01(t);
 
     point_a = {ux * s + a.start.x, uy * s + a.start.y, uz * s + a.start.z, (a.end.w - a.start.w) * s + a.start.w};
     point_b = {vx * t + b.start.x, vy * t + b.start.y, vz * t + b.start.z, (b.end.w - b.start.w) * t + b.start.w};
@@ -532,7 +532,7 @@ bool ClosestPointsBetweenLines(const Seg& a, const Seg& b, Vec4& point_a, Vec4& 
 }
 
 // 0x004817D0
-bool __cdecl PointInBox(const Vec4* point, const Vec4* max, const Vec4* min)
+bool __cdecl point_in_box(const Vec4* point, const Vec4* max, const Vec4* min)
 {
     return !(point->x > max->x) && !(point->y > max->y) && !(point->z > max->z) && !(point->x < min->x) &&
            !(point->y < min->y) && !(point->z < min->z);
@@ -543,25 +543,25 @@ bool __cdecl PointInBox(const Vec4* point, const Vec4* max, const Vec4* min)
 // --- replacements -------------------------------------------------------------------------------------
 namespace {
 
-using Maths::BBox;
-using Maths::Capsule;
-using Maths::Seg;
-using Maths::Vec4;
+using maths::BBox;
+using maths::Capsule;
+using maths::Seg;
+using maths::Vec4;
 
 // Constructors keep the original __thiscall shape (object in ECX, returned in EAX).
 struct GeometryAdapter {
-    BBox* ConstructBBox() { return new (this) BBox(); }
-    Capsule* ConstructEmptyCapsule() { return new (this) Capsule(); }
-    Maths::Sphere* ConstructSphere() { return new (this) Maths::Sphere(); }
-    BBox* ConstructBBoxAt(const Vec4& point) { return new (this) BBox(point); }
-    Capsule* ConstructCapsule(const Vec4& start, const Vec4& offset, float radius)
+    BBox* construct_b_box() { return new (this) BBox(); }
+    Capsule* construct_empty_capsule() { return new (this) Capsule(); }
+    maths::Sphere* construct_sphere() { return new (this) maths::Sphere(); }
+    BBox* construct_b_box_at(const Vec4& point) { return new (this) BBox(point); }
+    Capsule* construct_capsule(const Vec4& start, const Vec4& offset, float radius)
     {
         return new (this) Capsule(start, offset, radius);
     }
-    Capsule* ConstructCapsuleFromLine(const Seg& line, float radius) { return new (this) Capsule(line, radius); }
-    Maths::Rect2* ConstructRect(int left, int top, int right, int bottom)
+    Capsule* construct_capsule_from_line(const Seg& line, float radius) { return new (this) Capsule(line, radius); }
+    maths::Rect2* construct_rect(int left, int top, int right, int bottom)
     {
-        return new (this) Maths::Rect2(left, top, right, bottom);
+        return new (this) maths::Rect2(left, top, right, bottom);
     }
 };
 

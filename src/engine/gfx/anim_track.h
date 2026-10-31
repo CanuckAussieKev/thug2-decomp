@@ -1,12 +1,12 @@
 #pragma once
 
 // An animation track: one animation playing on an object's blend channel (the channel keeps a list of them - the
-// newest plays, the ones it replaced fade out). A timeline (Gfx2D::CAnimTimeline) with the controllers that fill in
+// newest plays, the ones it replaced fade out). A timeline (gfx::AnimTimeline) with the controllers that fill in
 // the pose from it (up to six, by priority), the animation's events (from the anim set's event table) and a
 // fading weight.
 //
 // Vtable 0x00648794: 0 Destroy (0x00482340), 1 Reset (0x00481960), 2 Update (0x00481AC0), 3 the timeline's
-// 0x00481430, 4 0x005BAB90 (nothing), 5 InvokeMethodByName (0x00482200), 6 PlayAnim (0x004823C0).
+// 0x00481430, 4 0x005BAB90 (nothing), 5 invoke_method_by_name (0x00482200), 6 PlayAnim (0x004823C0).
 // (Its members 0x00481830-0x004819D0 are in anim_timeline.cpp.)
 
 #include <cstddef>
@@ -14,53 +14,53 @@
 
 #include "engine/gfx/anim_controller.h"
 
-namespace MemSys {
+namespace memory {
 struct PoolPair;
 }
-namespace GameObjects {
-class CGameEntity;
+namespace objects {
+class GameEntity;
 }
-namespace Scripts {
-class CScript;
-class CStruct;
+namespace script {
+class Script;
+class Struct;
 } // namespace Script
 
-namespace Gfx2D {
+namespace gfx {
 
 // An animation event (0x14 bytes; vtable 0x006487BC, its base's 0x006487B0): at a frame of the animation, an event
 // type with parameters, sent to the object once the timeline passes it while armed. 0x00481A20 constructs one;
 // 0x004865D0 sets it up (frame, type, a copy of the parameters), 0x00486150 arms / disarms it, 0x00486160 fires it
 // (if armed: disarmed, then its slot 2 with the object), 0x00486560 is its destructor body; slot 1 (0x004860C0)
 // says whether it lies between two times.
-class CTimedClipEvent {
+class TimedClipEvent {
 public:
     // 0x00481A20: the event's vtable, no parameters. Returns this.
-    CTimedClipEvent* MakeNew();
+    TimedClipEvent* make_new();
     // 0x00481DB0 (slot 0): the vector deleting destructor - `flags` 2: the whole array this starts (its count in
     // the word before it) destroyed last to first, 1: freed.
-    CTimedClipEvent* Teardown(uint8_t flags);
+    TimedClipEvent* teardown(uint8_t flags);
 
-    void** m_vtable;
-    int m_tick;              // +0x04
-    bool m_armed;             // +0x08
-    uint8_t m_pad09[3];
-    uint32_t m_kindTag;          // +0x0C
-    Scripts::CStruct* m_callArgs; // +0x10
+    void** vtable_;
+    int tick_;              // +0x04
+    bool armed_;             // +0x08
+    uint8_t pad09_[3];
+    uint32_t kind_tag_;          // +0x0C
+    script::Struct* call_args_; // +0x10
 };
-static_assert(sizeof(CTimedClipEvent) == 0x14 && offsetof(CTimedClipEvent, m_callArgs) == 0x10, "layout must match the original");
+static_assert(sizeof(TimedClipEvent) == 0x14 && offsetof(TimedClipEvent, call_args_) == 0x10, "layout must match the original");
 
 // The events' base (vtable 0x006487B0: slot 2 pure).
-class CAnimEventBase {
+class AnimEventBase {
 public:
     // 0x004819F0 (slot 0): the base's vtable; freed with `flags` 1. Returns this.
-    CAnimEventBase* Teardown(uint8_t flags);
-    // 0x004819E0: the base's vtable back (its destructor body; CUserClipKey's and CTimedClipEvent's call it).
-    void DestroyBody();
+    AnimEventBase* teardown(uint8_t flags);
+    // 0x004819E0: the base's vtable back (its destructor body; UserClipKey's and TimedClipEvent's call it).
+    void destroy_body();
 
-    void** m_vtable;
+    void** vtable_;
 };
 
-class CAnimTrack : public CAnimTimeline {
+class AnimTrack : public AnimTimeline {
 public:
     enum State { kOff = 0, kFading = 1, kPlaying = 2 };
 
@@ -70,79 +70,79 @@ public:
 
     // 0x00481830: the timeline's constructor, then no controllers and no events, `object`, events on, playing.
     // Returns this.
-    CAnimTrack* MakeNew(GameObjects::CGameEntity* object);
+    AnimTrack* make_new(objects::GameEntity* object);
     // 0x00481960 (slot 1): the timeline's Reset, then off with no fade.
-    void Reset();
+    void get_reset();
     // 0x00481870: each controller deleted (its slot 0 with 1; null ones skipped), none left.
-    void DeleteControllers();
+    void delete_controllers();
     // 0x004818B0: `controller` (if it's one of them) deleted and the rest moved down.
-    void DetachAnimDriver(CAnimDriver* controller);
+    void detach_anim_driver(AnimDriver* controller);
     // 0x00481920: each controller's pose (slot 1) into `pose` (no null check). True.
-    bool GetPoses(void* pose);
+    bool get_poses(void* pose);
     // 0x00481980 / 0x00481990: whether it isn't off / is fading.
-    bool IsOperative();
-    bool IsFading();
+    bool is_operative();
+    bool is_fading();
     // 0x004819A0: each event armed again (0x00486150 with true).
-    void ArmEvents();
+    void arm_events();
     // 0x004819D0
-    GameObjects::CGameEntity* FetchSubject();
+    objects::GameEntity* fetch_subject();
 
     // 0x00481F20: its controllers and events deleted, then the timeline's destructor body (0x00481690).
-    void DestroyBody();
+    void destroy_body();
     // 0x00482340 (slot 0)
-    CAnimTrack* Teardown(uint8_t flags);
+    AnimTrack* teardown(uint8_t flags);
     // 0x00481AC0 (slot 2): not complete; fading, the weight drops by the frame's share of the fade rate (off at
     // nothing left, or once the fade times its scale goes below 0); playing or fading, each controller's Update.
-    void TickFrame();
+    void tick_frame();
     // 0x00482200 (slot 5): AddAnimController (1), RemoveAnimController (the one with `id`), 0xC68365EB (a new
     // animation and duration - Sync keeps the timeline's place in proportion); anything else to the controllers in
     // turn until one doesn't answer 2 (not its own).
-    int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
     // 0x004823C0 (slot 6): the animation played - its events, the standard (or with RepeatMode 3 the wobble)
     // controller, a weighted one (`params` with 0xD697A799 or flag 0x1B92121C), one for the structure 0xAEEEC12E,
     // the FlipRotate one; then each controller told 0xD0209498 (fraction 0) and PlayAnim with all of it.
-    void PlayAnim(uint32_t anim, float start, float end, int loopType, float blendPeriod, float speed, bool flipped,
-                  Scripts::CStruct* params);
+    void play_anim(uint32_t anim, float start, float end, int loop_type, float blend_period, float speed, bool flipped,
+                  script::Struct* params);
 
     // 0x00481B40: starts fading out over `period` if playing (true); a period of 0 stops it at once.
-    bool StartFade(float period);
+    bool start_fade(float period);
     // 0x00481B80: its weight - 1 playing, the fade times its scale fading, 0 off (ST0, unrounded).
-    double GetWeight();
+    double get_weight();
     // 0x00481FB0: a controller made from `params` (its "type"; null for an unknown one) and added by its
     // "priority" (500, FlipRotate 100).
-    CAnimDriver* AttachController(Scripts::CStruct* params);
+    AnimDriver* attach_controller(script::Struct* params);
     // 0x00481A30: `controller` inserted before the first one of lower priority.
-    void InsertController(CAnimDriver* controller, int priority);
+    void insert_controller(AnimDriver* controller, int priority);
     // 0x00481A80: the controller with `id`, or null.
-    CAnimDriver* FindController(uint32_t id);
+    AnimDriver* find_controller(uint32_t id);
     // 0x00481C00 (not a Ghidra function): the events of `anim` from the object's anim set's event table (frame,
     // or time in seconds; event; params), armed.
-    void LoadEvents(uint32_t anim);
+    void load_events(uint32_t anim);
     // 0x00481BB0: the events deleted.
-    void DeleteEvents();
+    void delete_events();
     // 0x00481E10 (not a Ghidra function): playing with events on, each event armed and fired at the object if it
     // lies between two times (in seconds, as frames); when the times run the wrong way for the direction (it
     // looped), the events are re-armed first and the first time becomes the timeline's start.
-    void FireEvents(float from, float to);
+    void fire_events(float from, float to);
 
-    static MemSys::PoolPair& Pools();
+    static memory::PoolPair& get_pools();
 
-    uint32_t m_unknown34;
-    int m_curPhase;                          // +0x38 State
-    CAnimDriver* m_controllerList[6];   // +0x3C (by priority, highest first)
-    int m_controllerCount;                // +0x54
-    float m_fadeRate;                     // +0x58 (1/60 when played)
-    float m_fadeLeft;                     // +0x5C
-    float m_fadeScale;                    // +0x60
-    GameObjects::CGameEntity* m_ownerObject;     // +0x64
-    CTimedClipEvent* m_eventsPtr;                // +0x68 (an array of m_eventCount)
-    uint32_t m_eventCount;                // +0x6C
-    bool m_eventsOn;                      // +0x70
-    uint8_t m_pad71[3];
+    uint32_t unknown34_;
+    int cur_phase_;                          // +0x38 State
+    AnimDriver* controller_list_[6];   // +0x3C (by priority, highest first)
+    int controller_count_;                // +0x54
+    float fade_rate_;                     // +0x58 (1/60 when played)
+    float fade_left_;                     // +0x5C
+    float fade_scale_;                    // +0x60
+    objects::GameEntity* owner_object_;     // +0x64
+    TimedClipEvent* events_ptr_;                // +0x68 (an array of event_count_)
+    uint32_t event_count_;                // +0x6C
+    bool events_on_;                      // +0x70
+    uint8_t pad71_[3];
 };
-static_assert(offsetof(CAnimTrack, m_curPhase) == 0x38 && offsetof(CAnimTrack, m_controllerList) == 0x3C &&
-                  offsetof(CAnimTrack, m_controllerCount) == 0x54 && offsetof(CAnimTrack, m_ownerObject) == 0x64 &&
-                  offsetof(CAnimTrack, m_eventsOn) == 0x70 && sizeof(CAnimTrack) == 0x74,
+static_assert(offsetof(AnimTrack, cur_phase_) == 0x38 && offsetof(AnimTrack, controller_list_) == 0x3C &&
+                  offsetof(AnimTrack, controller_count_) == 0x54 && offsetof(AnimTrack, owner_object_) == 0x64 &&
+                  offsetof(AnimTrack, events_on_) == 0x70 && sizeof(AnimTrack) == 0x74,
               "layout must match the original");
 
 } // namespace Gfx

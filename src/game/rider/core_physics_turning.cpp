@@ -25,9 +25,9 @@
 #include "engine/core/code_address.h"
 #include "engine/net/gamenet_manager.h"
 
-namespace Skater {
+namespace skater {
 
-using namespace Physics;
+using namespace physics;
 
 namespace {
 
@@ -77,58 +77,58 @@ constexpr float kUprightRight = 1.2f;               // 0x0064BD40
 constexpr float kUprightLeft = -1.2f;               // 0x0064BD3C
 
 // The velocity turned by `angle` about the y axis, as the original's inline x87 code.
-void TurnVelocity(Maths::Vec4& velocity, double angle)
+void turn_velocity(maths::Vec4& velocity, double angle)
 {
-    double s = X87Sin(angle), c = X87Cos(angle);
+    double s = x87_sin(angle), c = x87_cos(angle);
     double x = velocity.x, z = velocity.z;
     velocity.x = static_cast<float>(c * x + s * z);
     velocity.z = static_cast<float>(c * z + -(x * s));
 }
 
-// The skater's matrix and its display matrix turned by `angle` about their own y axes (each a MakeYawMatrix and
+// The skater's matrix and its display matrix turned by `angle` about their own y axes (each a make_yaw_matrix and
 // a D3DXMatrixMultiply in the original).
-void TurnMatrices(void* component, float angle)
+void turn_matrices(void* component, float angle)
 {
-    At<Maths::Mat4>(ObjectOf(component), kMatrix).YawLocally(angle);
-    At<Maths::Mat4>(component, kDisplayMatrix).YawLocally(angle);
+    get_at<maths::Mat4>(object_of(component), kMatrix).yaw_locally(angle);
+    get_at<maths::Mat4>(component, kDisplayMatrix).yaw_locally(angle);
 }
 
 } // namespace
 
 // 0x005002D0
-void SkaterPhysicsModule::TurnForRailJump()
+void SkaterPhysicsModule::turn_for_rail_jump()
 {
-    uint8_t* input = InputOf(this);
+    uint8_t* input = input_of(this);
     float angle;
-    if (ThawBmx::LiveNow(this)) {
+    if (thaw_bmx::live_now(this)) {
         // Not original: THAW 0x005CF010 - on the bike the stick's left / right (THAW's LEFTLEFT / LEFTRIGHT).
-        const ThawBmx::BikeState* bike = ThawBmx::StateOf(this, false);
-        if (bike && bike->stickLeft.down)
-            angle = static_cast<float>(static_cast<double>(Scripts::FetchFloat(kRailJumpAngle)) * kRadiansPerDegree);
-        else if (bike && bike->stickRight.down)
-            angle = static_cast<float>(static_cast<double>(Scripts::FetchFloat(kRailJumpAngle)) * kMinusDegreesToRadians);
+        const thaw_bmx::BikeState* bike = thaw_bmx::state_of(this, false);
+        if (bike && bike->stick_left_.down)
+            angle = static_cast<float>(static_cast<double>(script::fetch_float(kRailJumpAngle)) * kRadiansPerDegree);
+        else if (bike && bike->stick_right_.down)
+            angle = static_cast<float>(static_cast<double>(script::fetch_float(kRailJumpAngle)) * kMinusDegreesToRadians);
         else
             return;
     } else if (input[0x60])
-        angle = static_cast<float>(static_cast<double>(Scripts::FetchFloat(kRailJumpAngle)) * kRadiansPerDegree);
+        angle = static_cast<float>(static_cast<double>(script::fetch_float(kRailJumpAngle)) * kRadiansPerDegree);
     else if (input[0x80])
-        angle = static_cast<float>(static_cast<double>(Scripts::FetchFloat(kRailJumpAngle)) * kMinusDegreesToRadians);
+        angle = static_cast<float>(static_cast<double>(script::fetch_float(kRailJumpAngle)) * kMinusDegreesToRadians);
     else
         return;
-    TurnVelocity(VectorAt(ObjectOf(this), kVelocity), angle);
-    TurnMatrices(this, angle);
+    turn_velocity(vector_at(object_of(this), kVelocity), angle);
+    turn_matrices(this, angle);
 }
 
 // 0x00503560
-void SkaterPhysicsModule::TurnOnGround()
+void SkaterPhysicsModule::turn_on_ground()
 {
-    if (ThawBmx::LiveNow(this)) { // (not original: the bike's own turning, THAW 0x005D61F0)
-        ThawBmx::TurnOnGround(this);
+    if (thaw_bmx::live_now(this)) { // (not original: the bike's own turning, THAW 0x005D61F0)
+        thaw_bmx::turn_on_ground(this);
         return;
     }
-    uint8_t* pad = InputOf(this) + 0x20;
-    float speed = static_cast<float>(LengthUnrounded(VectorAt(ObjectOf(this), kVelocity)));
-    void* object = ObjectOf(this);
+    uint8_t* pad = input_of(this) + 0x20;
+    float speed = static_cast<float>(length_unrounded(vector_at(object_of(this), kVelocity)));
+    void* object = object_of(this);
     // Left / right (pad +0x40 / +0x60); with the sharp turn button (+0x20) harder - and, slower than 10, the turn
     // ramps up over the first 600 ms the button is held.
     uint8_t* button;
@@ -137,41 +137,41 @@ void SkaterPhysicsModule::TurnOnGround()
     if (pad[0x40]) {
         button = pad + 0x40;
         sharp = pad[0x20] != 0;
-        rate = TuningFloatLookup(sharp ? kGroundSharpRotation : kGroundRotation, object);
+        rate = tuning_float_lookup(sharp ? kGroundSharpRotation : kGroundRotation, object);
     } else if (pad[0x60]) {
         button = pad + 0x60;
         sharp = pad[0x20] != 0;
-        rate = -static_cast<double>(TuningFloatLookup(sharp ? kGroundSharpRotation : kGroundRotation, object));
+        rate = -static_cast<double>(tuning_float_lookup(sharp ? kGroundSharpRotation : kGroundRotation, object));
     } else {
         return;
     }
     if (sharp) {
         float full = static_cast<float>(rate);
         if (speed < kSlowGroundTurnSpeed) {
-            int held = TimeSincePress(button);
+            int held = time_since_press(button);
             rate = held < 600 ? static_cast<double>(held) * full * kSlowGroundTurnRate : full;
         }
     }
     if (rate == 0.0)
         return;
-    double step = rate * At<float>(this, kFrameLength);
+    double step = rate * get_at<float>(this, kFrameLength);
     float angle = static_cast<float>(step);
-    At<uint8_t>(this, kSpinningLeft) = step > 0.0 ? 1 : 0;
-    if (!At<uint8_t>(this, kTurnVelocityToo))
-        TurnVelocity(VectorAt(ObjectOf(this), kVelocity), angle);
-    TurnMatrices(this, angle);
+    get_at<uint8_t>(this, kSpinningLeft) = step > 0.0 ? 1 : 0;
+    if (!get_at<uint8_t>(this, kTurnVelocityToo))
+        turn_velocity(vector_at(object_of(this), kVelocity), angle);
+    turn_matrices(this, angle);
 }
 
 // 0x005039F0
-float SkaterPhysicsModule::DeflectFromWall(const Maths::Vec4* normal, float* turn, float scale)
+float SkaterPhysicsModule::deflect_from_wall(const maths::Vec4* normal, float* turn, float scale)
 {
     // Not original: THAW 0x005CCBF0 (the on-bike flag tested first, 0x005CCBF6) - on the bike rolling backwards into a
     // wall: stopped, no bounce (`turn` left as it is).
-    if (ThawBmx::LiveNow(this) && ThawBmx::RollingBackwards(this)) {
-        VectorAt(ObjectOf(this), kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
+    if (thaw_bmx::live_now(this) && thaw_bmx::rolling_backwards(this)) {
+        vector_at(object_of(this), kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
         return 0.0f;
     }
-    const Maths::Vec4& side = VectorAt(ObjectOf(this), kMatrix);
+    const maths::Vec4& side = vector_at(object_of(this), kMatrix);
     float cosine = static_cast<float>(static_cast<double>(side.z) * normal->z + static_cast<double>(side.y) * normal->y +
                                       static_cast<double>(normal->x) * side.x);
     if (cosine > 1.0f)
@@ -182,194 +182,194 @@ float SkaterPhysicsModule::DeflectFromWall(const Maths::Vec4* normal, float* tur
     float angle = static_cast<float>(unrounded);
     if (unrounded > kHalfPi)
         angle = angle - kPi;
-    double amount = static_cast<double>(Scripts::FetchFloat(kWallBounceMultiplier)) * angle * scale;
+    double amount = static_cast<double>(script::fetch_float(kWallBounceMultiplier)) * angle * scale;
     *turn = static_cast<float>(amount);
-    TurnVelocity(VectorAt(ObjectOf(this), kVelocity), amount); // (by the unrounded turn)
-    TurnMatrices(this, *turn);
+    turn_velocity(vector_at(object_of(this), kVelocity), amount); // (by the unrounded turn)
+    turn_matrices(this, *turn);
     return angle;
 }
 
 // 0x00501B00
-bool SkaterPhysicsModule::TurnDownSlope()
+bool SkaterPhysicsModule::turn_down_slope()
 {
-    if (!MayTurnOnSlope())
+    if (!may_turn_on_slope())
         return false;
-    void* object = ObjectOf(this);
+    void* object = object_of(this);
     // Along the velocity, or the facing when hardly moving: turned towards straight down the slope.
-    Maths::Vec4 heading = LengthUnrounded(VectorAt(object, kVelocity)) < kSlopeTurnSpeed ? VectorAt(object, kForward)
-                                                                                       : VectorAt(object, kVelocity);
-    Maths::Vec4 down = {0.0f, -1.0f, 0.0f, 1.0f};
-    down.FlattenOntoPlane(VectorAt(this, kFloorUpVector));
-    object = ObjectOf(this);
-    double off = Maths::GetTurnAroundAxis(heading, down, VectorAt(object, kUp));
+    maths::Vec4 heading = length_unrounded(vector_at(object, kVelocity)) < kSlopeTurnSpeed ? vector_at(object, kForward)
+                                                                                       : vector_at(object, kVelocity);
+    maths::Vec4 down = {0.0f, -1.0f, 0.0f, 1.0f};
+    down.flatten_onto_plane(vector_at(this, kFloorUpVector));
+    object = object_of(this);
+    double off = maths::get_turn_around_axis(heading, down, vector_at(object, kUp));
     float angle = static_cast<float>(off);
     float sign = off < 0.0 ? -1.0f : 1.0f;
-    double turn = static_cast<double>(TuningFloatLookup(kSlowTurnOnSlopes, object)) * At<float>(this, kFrameLength) * sign;
+    double turn = static_cast<double>(tuning_float_lookup(kSlowTurnOnSlopes, object)) * get_at<float>(this, kFrameLength) * sign;
     float step = static_cast<float>(turn);
     if (std::fabs(static_cast<double>(angle)) < std::fabs(turn))
         step = angle;
-    TurnMatrices(this, step);
+    turn_matrices(this, step);
     return true;
 }
 
 // 0x00504730
-void SkaterPhysicsModule::NatasSpin()
+void SkaterPhysicsModule::natas_spin()
 {
-    auto* career = At<GameObjects::CRiderStoryProgress*>(static_cast<void*>(GameModules::g_skateModule), 0x20);
-    if (career->IsCodeOn(kPerfectRail)) {
+    auto* career = get_at<objects::RiderStoryProgress*>(static_cast<void*>(modules::g_skate_module), 0x20);
+    if (career->is_code_on(kPerfectRail)) {
         // (the perfect rail cheat: the balance held)
-        career = At<GameObjects::CRiderStoryProgress*>(static_cast<void*>(GameModules::g_skateModule), 0x20);
-        career->SetGlobalFlag(Scripts::FetchIntValue(kPerfectRail));
-        At<uint32_t>(At<void*>(this, kBalance), 0x104) = 0;
-        At<uint32_t>(At<void*>(this, kBalance), 0x108) = 0;
-        reinterpret_cast<uint8_t&>(OnlinePlay::g_cheatFlag) = 1;
+        career = get_at<objects::RiderStoryProgress*>(static_cast<void*>(modules::g_skate_module), 0x20);
+        career->set_global_flag(script::fetch_int_value(kPerfectRail));
+        get_at<uint32_t>(get_at<void*>(this, kBalance), 0x104) = 0;
+        get_at<uint32_t>(get_at<void*>(this, kBalance), 0x108) = 0;
+        reinterpret_cast<uint8_t&>(online::g_cheat_flag) = 1;
     }
-    At<GameObjects::CBalance>(At<void*>(this, kBalance), 0xD4).TickFrame();
-    float factor = Scripts::FetchFloat(kNatasSpinFactor);
-    // (read as a double - the unrounded x87 result: GetLean 0x004F8F20 isn't called as a float function)
-    double balance = std::fabs(reinterpret_cast<double(__thiscall*)(void*)>(CodeAddress(&GameObjects::CRiderTeeterMoves::GetLean))(At<void*>(this, kBalance)));
+    get_at<objects::Balance>(get_at<void*>(this, kBalance), 0xD4).tick_frame();
+    float factor = script::fetch_float(kNatasSpinFactor);
+    // (read as a double - the unrounded x87 result: get_lean 0x004F8F20 isn't called as a float function)
+    double balance = std::fabs(reinterpret_cast<double(__thiscall*)(void*)>(code_address(&objects::RiderTeeterMoves::get_lean))(get_at<void*>(this, kBalance)));
     // The spin slows the further off balance.
     double rate = factor - balance / (kNatasSpinScale / static_cast<double>(factor)) + kNatasSpinBase;
-    if (At<uint8_t>(this, kNatasCounterClockwise))
+    if (get_at<uint8_t>(this, kNatasCounterClockwise))
         rate = -rate;
-    At<uint8_t>(this, kSpinningLeft) = rate > 0.0 ? 1 : 0;
-    float step = static_cast<float>(rate * At<float>(this, kFrameLength));
-    TurnMatrices(this, step);
-    float& total = At<float>(At<void*>(this, kSkaterComponent), kTrickRotation);
+    get_at<uint8_t>(this, kSpinningLeft) = rate > 0.0 ? 1 : 0;
+    float step = static_cast<float>(rate * get_at<float>(this, kFrameLength));
+    turn_matrices(this, step);
+    float& total = get_at<float>(get_at<void*>(this, kSkaterComponent), kTrickRotation);
     total = static_cast<float>(static_cast<double>(step) * kDegreesPerRadian + total);
     // Shown as an integer - but (as Spin) not while short of a whole turn by more than the slop.
-    uint8_t* flags = FlagsOf(this);
+    uint8_t* flags = flags_of(this);
     bool show = true;
     if (flags[0x30] && !flags[0x78]) {
         float size = std::fabs(total);
-        double snap = 360.0f - static_cast<double>(TuningFloatLookup(kSpinCountSlop, ObjectOf(this))) + 0.1f;
+        double snap = 360.0f - static_cast<double>(tuning_float_lookup(kSpinCountSlop, object_of(this))) + 0.1f;
         show = snap <= size;
     }
     if (show) {
-        int shown = static_cast<int>(Ftol(At<float>(At<void*>(this, kSkaterComponent), kTrickRotation)));
-        void* display = At<void*>(At<void*>(this, kRotationDisplay), 0x18);
-        static_cast<GameModules::PointTally*>(display)->AdvanceTurn(shown);
+        int shown = static_cast<int>(ftol(get_at<float>(get_at<void*>(this, kSkaterComponent), kTrickRotation)));
+        void* display = get_at<void*>(get_at<void*>(this, kRotationDisplay), 0x18);
+        static_cast<modules::PointTally*>(display)->advance_turn(shown);
     }
-    At<int>(this, kNatasSpinTime) = Now();
+    get_at<int>(this, kNatasSpinTime) = get_now();
 }
 
 // 0x00504910
-void SkaterPhysicsModule::LeanInAir()
+void SkaterPhysicsModule::lean_in_air()
 {
-    uint8_t* flags = FlagsOf(this);
+    uint8_t* flags = flags_of(this);
     if (flags[0x78] || flags[0xC0] || flags[0x30])
         return;
-    uint8_t* pad = InputOf(this) + 0x20;
+    uint8_t* pad = input_of(this) + 0x20;
     if (pad[0x140] || pad[0x160])
         return;
     float lean = 0.0f;
     int held = 0;
     if (pad[0]) {
-        lean = static_cast<float>(StatValue(ObjectOf(this), kAirLeanStat));
-        held = TimeSincePress(pad);
+        lean = static_cast<float>(stat_value(object_of(this), kAirLeanStat));
+        held = time_since_press(pad);
     }
     if (pad[0x20]) {
-        lean = static_cast<float>(-StatValue(ObjectOf(this), kAirLeanStat));
-        held = TimeSincePress(pad + 0x20);
+        lean = static_cast<float>(-stat_value(object_of(this), kAirLeanStat));
+        held = time_since_press(pad + 0x20);
     }
     // None for a while after the button is pressed, then ramping up to full.
-    float start = Scripts::FetchFloat(kAirNoLeanTime);
-    float end = Scripts::FetchFloat(kAirRampLeanTime);
+    float start = script::fetch_float(kAirNoLeanTime);
+    float end = script::fetch_float(kAirRampLeanTime);
     float time = static_cast<float>(held);
     if (static_cast<double>(held) < start || static_cast<double>(held) == start)
         return;
     if (time < end)
         lean = static_cast<float>((static_cast<double>(time) - start) * lean / (static_cast<double>(end) - start));
-    At<Maths::Mat4>(ObjectOf(this), kMatrix).PitchLocally(lean * At<float>(this, kFrameLength));
-    At<Maths::Mat4>(this, kDisplayMatrix).PitchLocally(lean * At<float>(this, kFrameLength));
+    get_at<maths::Mat4>(object_of(this), kMatrix).pitch_locally(lean * get_at<float>(this, kFrameLength));
+    get_at<maths::Mat4>(this, kDisplayMatrix).pitch_locally(lean * get_at<float>(this, kFrameLength));
 }
 
 // 0x00504A60
-void SkaterPhysicsModule::RotateInAcidDrop()
+void SkaterPhysicsModule::rotate_in_acid_drop()
 {
-    if (!FlagsOf(this)[0x78])
+    if (!flags_of(this)[0x78])
         return;
-    double elapsed = static_cast<double>(At<float>(this, kFrameLength)) + At<float>(this, kAcidDropTime);
-    At<float>(this, kAcidDropTime) = static_cast<float>(elapsed);
-    double t = elapsed / At<float>(this, kAcidDropDuration);
+    double elapsed = static_cast<double>(get_at<float>(this, kFrameLength)) + get_at<float>(this, kAcidDropTime);
+    get_at<float>(this, kAcidDropTime) = static_cast<float>(elapsed);
+    double t = elapsed / get_at<float>(this, kAcidDropDuration);
     if (t > 1.0)
         t = 1.0f;
     // Eased: 3t^2 - 2t^3.
     float eased = static_cast<float>((t - kAcidDropEase) * t * t * kAcidDropEaseScale);
-    Maths::Mat4 slerped;
-    At<Maths::ArcRotationBlender>(this, kAcidDropSlerp).FetchMat(slerped, eased);
+    maths::Mat4 slerped;
+    get_at<maths::ArcRotationBlender>(this, kAcidDropSlerp).fetch_mat(slerped, eased);
     // The change since the last frame's matrix applied to the skater's.
-    Maths::Mat4 last = At<Maths::Mat4>(this, kAcidDropMatrix);
-    last.InvertOrthonormal();
-    Maths::Mat4 change;
-    Maths::Multiply(change, last, slerped);
-    Maths::Mat4& matrix = At<Maths::Mat4>(ObjectOf(this), kMatrix);
-    Maths::Multiply(matrix, matrix, change);
-    At<Maths::Mat4>(this, kDisplayMatrix) = At<Maths::Mat4>(ObjectOf(this), kMatrix);
-    At<Maths::Mat4>(this, kAcidDropMatrix) = slerped;
+    maths::Mat4 last = get_at<maths::Mat4>(this, kAcidDropMatrix);
+    last.invert_orthonormal();
+    maths::Mat4 change;
+    maths::get_multiply(change, last, slerped);
+    maths::Mat4& matrix = get_at<maths::Mat4>(object_of(this), kMatrix);
+    maths::get_multiply(matrix, matrix, change);
+    get_at<maths::Mat4>(this, kDisplayMatrix) = get_at<maths::Mat4>(object_of(this), kMatrix);
+    get_at<maths::Mat4>(this, kAcidDropMatrix) = slerped;
 }
 
 // 0x00504B40
-void SkaterPhysicsModule::RecoverInAir()
+void SkaterPhysicsModule::recover_in_air()
 {
-    if (FlagsOf(this)[0x78])
+    if (flags_of(this)[0x78])
         return;
-    if (VectorAt(ObjectOf(this), kVelocity).y > 0.0f && At<void*>(At<void*>(this, kRide), 0x18))
+    if (vector_at(object_of(this), kVelocity).y > 0.0f && get_at<void*>(get_at<void*>(this, kRide), 0x18))
         return;
     // Ground (not vert, not too steep) within 500 below.
-    Engine3D::CProbeRay feeler;
-    feeler.MakeNew();
-    feeler.m_line.start = VectorAt(ObjectOf(this), kPosition);
-    feeler.m_line.end = VectorAt(ObjectOf(this), kPosition);
-    feeler.m_line.end.y = feeler.m_line.end.y - kRecoverFeelerLength;
-    if (!feeler.GetHitShape(true, false))
+    render::ProbeRay feeler;
+    feeler.make_new();
+    feeler.line_.start = vector_at(object_of(this), kPosition);
+    feeler.line_.end = vector_at(object_of(this), kPosition);
+    feeler.line_.end.y = feeler.line_.end.y - kRecoverFeelerLength;
+    if (!feeler.get_hit_shape(true, false))
         return;
-    if (feeler.m_hit.faceFlags & 8)
+    if (feeler.hit_.face_flags_ & 8)
         return;
-    if (feeler.m_surfaceDir.y < kRecoverSteepest)
+    if (feeler.surface_dir_.y < kRecoverSteepest)
         return;
-    if (FlagsOf(this)[0x30]) {
-        SetTimedFlag(this, 0x30, 0);
-        At<uint8_t>(this, 0x2D0) = 0;
+    if (flags_of(this)[0x30]) {
+        set_timed_flag(this, 0x30, 0);
+        get_at<uint8_t>(this, 0x2D0) = 0;
     }
-    SetTimedFlag(this, 0x80, 1);
-    void* object = ObjectOf(this);
-    if (VectorAt(object, kUp).y > kRecoverUpright)
+    set_timed_flag(this, 0x80, 1);
+    void* object = object_of(this);
+    if (vector_at(object, kUp).y > kRecoverUpright)
         return;
     // Tipped over: turned back upright about the horizontal axis across the up vector.
-    float rate = static_cast<float>(StatValue(object, kRecoverRateStat));
-    object = ObjectOf(this);
-    const Maths::Vec4& up = VectorAt(object, kUp);
-    Maths::Vec4 flat = {up.x, 0.0f, up.z, up.w};
-    flat.MakeUnit();
-    Maths::Vec4 axis = {-flat.z, 0.0f, flat.x, 0.0f};
-    At<Maths::Mat4>(object, kMatrix).SpinBy(axis, rate * At<float>(this, kFrameLength));
-    At<Maths::Mat4>(this, kDisplayMatrix) = At<Maths::Mat4>(ObjectOf(this), kMatrix);
+    float rate = static_cast<float>(stat_value(object, kRecoverRateStat));
+    object = object_of(this);
+    const maths::Vec4& up = vector_at(object, kUp);
+    maths::Vec4 flat = {up.x, 0.0f, up.z, up.w};
+    flat.make_unit();
+    maths::Vec4 axis = {-flat.z, 0.0f, flat.x, 0.0f};
+    get_at<maths::Mat4>(object, kMatrix).spin_by(axis, rate * get_at<float>(this, kFrameLength));
+    get_at<maths::Mat4>(this, kDisplayMatrix) = get_at<maths::Mat4>(object_of(this), kMatrix);
 }
 
 // 0x00504DF0
-void SkaterPhysicsModule::KeepUpright()
+void SkaterPhysicsModule::keep_upright()
 {
-    void* object = ObjectOf(this);
-    const Maths::Vec4& forward = VectorAt(object, kForward);
-    const Maths::Vec4& up = VectorAt(object, kUp);
+    void* object = object_of(this);
+    const maths::Vec4& forward = vector_at(object, kForward);
+    const maths::Vec4& up = vector_at(object, kUp);
     if (std::fabs(forward.y) > kUprightMaxTilt)
         return;
     // Leaning sideways (the up vector across the facing): rolled back at skater_upright_sideways_speed.
     double sideways = static_cast<double>(forward.x) * up.z + -static_cast<double>(forward.z) * up.x +
                       static_cast<double>(up.y) * 0.0f;
     double angle;
-    if (sideways > static_cast<double>(At<float>(this, kFrameLength)) * kUprightRight) {
-        angle = static_cast<double>(Scripts::FetchFloat(kUprightSidewaysSpeed)) * kRadiansPerDegree *
-                At<float>(this, kFrameLength);
-    } else if (sideways < static_cast<double>(At<float>(this, kFrameLength)) * kUprightLeft) {
-        angle = -(static_cast<double>(Scripts::FetchFloat(kUprightSidewaysSpeed)) * kRadiansPerDegree *
-                  At<float>(this, kFrameLength));
+    if (sideways > static_cast<double>(get_at<float>(this, kFrameLength)) * kUprightRight) {
+        angle = static_cast<double>(script::fetch_float(kUprightSidewaysSpeed)) * kRadiansPerDegree *
+                get_at<float>(this, kFrameLength);
+    } else if (sideways < static_cast<double>(get_at<float>(this, kFrameLength)) * kUprightLeft) {
+        angle = -(static_cast<double>(script::fetch_float(kUprightSidewaysSpeed)) * kRadiansPerDegree *
+                  get_at<float>(this, kFrameLength));
     } else {
         return;
     }
-    At<Maths::Mat4>(ObjectOf(this), kMatrix).RollInOwnFrame(static_cast<float>(angle));
-    At<Maths::Mat4>(this, kDisplayMatrix) = At<Maths::Mat4>(ObjectOf(this), kMatrix);
+    get_at<maths::Mat4>(object_of(this), kMatrix).roll_in_own_frame(static_cast<float>(angle));
+    get_at<maths::Mat4>(this, kDisplayMatrix) = get_at<maths::Mat4>(object_of(this), kMatrix);
 }
 
 } // namespace Skater

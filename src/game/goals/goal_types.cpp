@@ -26,12 +26,12 @@
 #include "engine/core/stubs.h"
 #include "engine/gfx/weather.h"
 
-namespace GoalSystem {
+namespace goals {
 
 namespace {
 
-using namespace GoalCalls;
-using namespace GoalNames;
+using namespace goal_calls;
+using namespace goal_names;
 
 constexpr uint32_t kJustWonGoal = 0xC309CAD1;          // just_won_goal
 constexpr uint32_t kDeactivateScript = 0x01C92CAC;     // deactivate
@@ -55,220 +55,220 @@ const char* const kRewardGiven = "reward_given";  // "reward_given"
 const char* const kWinRecordName = "win_record"; // "win_record"
 const char* const kRewardParams = "reward_params"; // "reward_params"
 
-static VtableSlot kCompetitionGoalVtable_slots[] = {&GoalSystem::CContestObjective::Teardown, &GoalSystem::CObjective::WantsToEnd, &GoalSystem::CObjective::HasRunOut,
-                 &GoalSystem::CObjective::IsOperative, Engine3D::VirtualSlot3Jump, &GoalSystem::CContestObjective::Expire,
-                 &GoalSystem::CContestObjective::RestoreSaveBlock, &GoalSystem::CContestObjective::CaptureSaveBlock,
-                 &GoalSystem::CObjective::HasTimeLimit, Stubs::ReturnTrue, &GoalSystem::CObjective::HasComponentA302D7CD,
-                 &GoalSystem::CObjective::Activate, &GoalSystem::CContestObjective::ChangeLive, &GoalSystem::CObjective::Disengage,
-                 &GoalSystem::CContestObjective::ClearEngagedBit, &GoalSystem::CContestObjective::Win, &GoalSystem::CObjective::Lose,
-                 &GoalSystem::CObjective::TickFrame, &GoalSystem::CContestObjective::IsFrozen, &GoalSystem::CObjective::SetFlag,
-                 &GoalSystem::CObjective::StageFlagSet, &GoalSystem::CContestObjective::HasWon, &GoalSystem::CObjective::NetStageFlagSet,
-                 &GoalSystem::CObjective::HasWonGoalOrChild, &GoalSystem::CObjective::IsPrepared, &GoalSystem::CObjective::MayTryAgain,
-                 &GoalSystem::CContestObjective::MarkWon, &GoalSystem::CObjective::SetStageFlag, &GoalSystem::CObjective::SetNetStageFlag,
-                 &GoalSystem::CContestObjective::UnBeat};
-void** const kCompetitionGoalVtable = reinterpret_cast<void**>(kCompetitionGoalVtable_slots);
-static VtableSlot kFilmGoalVtable_slots[] = {&GoalSystem::CShootVideoObjective::Teardown, &GoalSystem::CObjective::WantsToEnd, &GoalSystem::CObjective::HasRunOut,
-                 &GoalSystem::CObjective::IsOperative, Engine3D::VirtualSlot3Jump, &GoalSystem::CObjective::Expire, &GoalSystem::CObjective::RestoreSaveBlock,
-                 &GoalSystem::CObjective::CaptureSaveBlock, &GoalSystem::CObjective::HasTimeLimit, Stubs::ReturnTrue,
-                 &GoalSystem::CObjective::HasComponentA302D7CD, &GoalSystem::CShootVideoObjective::Activate, &GoalSystem::CObjective::ChangeLive,
-                 &GoalSystem::CObjective::Disengage, &GoalSystem::CObjective::ClearEngagedBit, &GoalSystem::CObjective::Win, &GoalSystem::CObjective::Lose,
-                 &GoalSystem::CShootVideoObjective::TickFrame, &GoalSystem::CObjective::IsFrozen, &GoalSystem::CObjective::SetFlag, &GoalSystem::CObjective::StageFlagSet,
-                 &GoalSystem::CObjective::HasWon, &GoalSystem::CObjective::NetStageFlagSet, &GoalSystem::CObjective::HasWonGoalOrChild,
-                 &GoalSystem::CObjective::IsPrepared, &GoalSystem::CObjective::MayTryAgain, &GoalSystem::CObjective::MarkWon,
-                 &GoalSystem::CObjective::SetStageFlag, &GoalSystem::CObjective::SetNetStageFlag, &GoalSystem::CObjective::UnBeat};
-void** const kFilmGoalVtable = reinterpret_cast<void**>(kFilmGoalVtable_slots);
-static VtableSlot kFindGapsGoalVtable_slots[] = {&GoalSystem::CHuntGapsObjective::Teardown, &GoalSystem::CObjective::WantsToEnd, &GoalSystem::CObjective::HasRunOut,
-                 &GoalSystem::CObjective::IsOperative, Engine3D::VirtualSlot3Jump, &GoalSystem::CObjective::Expire, &GoalSystem::CObjective::RestoreSaveBlock,
-                 &GoalSystem::CObjective::CaptureSaveBlock, &GoalSystem::CObjective::HasTimeLimit, Stubs::ReturnTrue,
-                 &GoalSystem::CObjective::HasComponentA302D7CD, &GoalSystem::CHuntGapsObjective::Activate, &GoalSystem::CObjective::ChangeLive,
-                 &GoalSystem::CObjective::Disengage, &GoalSystem::CObjective::ClearEngagedBit, &GoalSystem::CObjective::Win, &GoalSystem::CObjective::Lose,
-                 &GoalSystem::CObjective::TickFrame, &GoalSystem::CObjective::IsFrozen, &GoalSystem::CObjective::SetFlag, &GoalSystem::CObjective::StageFlagSet,
-                 &GoalSystem::CObjective::HasWon, &GoalSystem::CObjective::NetStageFlagSet, &GoalSystem::CObjective::HasWonGoalOrChild,
-                 &GoalSystem::CObjective::IsPrepared, &GoalSystem::CObjective::MayTryAgain, &GoalSystem::CObjective::MarkWon,
-                 &GoalSystem::CObjective::SetStageFlag, &GoalSystem::CObjective::SetNetStageFlag, &GoalSystem::CObjective::UnBeat};
-void** const kFindGapsGoalVtable = reinterpret_cast<void**>(kFindGapsGoalVtable_slots);
+static VtableSlot g_competition_goal_vtable_slots[] = {&goals::ContestObjective::teardown, &goals::Objective::wants_to_end, &goals::Objective::has_run_out,
+                 &goals::Objective::is_operative, render::virtual_slot3_jump, &goals::ContestObjective::expire,
+                 &goals::ContestObjective::restore_save_block, &goals::ContestObjective::capture_save_block,
+                 &goals::Objective::has_time_limit, stubs::return_true, &goals::Objective::has_component_a_302d_7c_d,
+                 &goals::Objective::activate, &goals::ContestObjective::change_live, &goals::Objective::disengage,
+                 &goals::ContestObjective::clear_engaged_bit, &goals::ContestObjective::get_win, &goals::Objective::lose,
+                 &goals::Objective::tick_frame, &goals::ContestObjective::is_frozen, &goals::Objective::set_flag,
+                 &goals::Objective::stage_flag_set, &goals::ContestObjective::has_won, &goals::Objective::net_stage_flag_set,
+                 &goals::Objective::has_won_goal_or_child, &goals::Objective::is_prepared, &goals::Objective::may_try_again,
+                 &goals::ContestObjective::mark_won, &goals::Objective::set_stage_flag, &goals::Objective::set_net_stage_flag,
+                 &goals::ContestObjective::un_beat};
+void** const kCompetitionGoalVtable = reinterpret_cast<void**>(g_competition_goal_vtable_slots);
+static VtableSlot g_film_goal_vtable_slots[] = {&goals::ShootVideoObjective::teardown, &goals::Objective::wants_to_end, &goals::Objective::has_run_out,
+                 &goals::Objective::is_operative, render::virtual_slot3_jump, &goals::Objective::expire, &goals::Objective::restore_save_block,
+                 &goals::Objective::capture_save_block, &goals::Objective::has_time_limit, stubs::return_true,
+                 &goals::Objective::has_component_a_302d_7c_d, &goals::ShootVideoObjective::activate, &goals::Objective::change_live,
+                 &goals::Objective::disengage, &goals::Objective::clear_engaged_bit, &goals::Objective::get_win, &goals::Objective::lose,
+                 &goals::ShootVideoObjective::tick_frame, &goals::Objective::is_frozen, &goals::Objective::set_flag, &goals::Objective::stage_flag_set,
+                 &goals::Objective::has_won, &goals::Objective::net_stage_flag_set, &goals::Objective::has_won_goal_or_child,
+                 &goals::Objective::is_prepared, &goals::Objective::may_try_again, &goals::Objective::mark_won,
+                 &goals::Objective::set_stage_flag, &goals::Objective::set_net_stage_flag, &goals::Objective::un_beat};
+void** const kFilmGoalVtable = reinterpret_cast<void**>(g_film_goal_vtable_slots);
+static VtableSlot g_find_gaps_goal_vtable_slots[] = {&goals::HuntGapsObjective::teardown, &goals::Objective::wants_to_end, &goals::Objective::has_run_out,
+                 &goals::Objective::is_operative, render::virtual_slot3_jump, &goals::Objective::expire, &goals::Objective::restore_save_block,
+                 &goals::Objective::capture_save_block, &goals::Objective::has_time_limit, stubs::return_true,
+                 &goals::Objective::has_component_a_302d_7c_d, &goals::HuntGapsObjective::activate, &goals::Objective::change_live,
+                 &goals::Objective::disengage, &goals::Objective::clear_engaged_bit, &goals::Objective::get_win, &goals::Objective::lose,
+                 &goals::Objective::tick_frame, &goals::Objective::is_frozen, &goals::Objective::set_flag, &goals::Objective::stage_flag_set,
+                 &goals::Objective::has_won, &goals::Objective::net_stage_flag_set, &goals::Objective::has_won_goal_or_child,
+                 &goals::Objective::is_prepared, &goals::Objective::may_try_again, &goals::Objective::mark_won,
+                 &goals::Objective::set_stage_flag, &goals::Objective::set_net_stage_flag, &goals::Objective::un_beat};
+void** const kFindGapsGoalVtable = reinterpret_cast<void**>(g_find_gaps_goal_vtable_slots);
 
-int Truncate(double value) { return static_cast<int>(value); }
+int truncate(double value) { return static_cast<int>(value); }
 
-Scripts::CStruct* SpawnParamTable()
+script::Struct* spawn_param_table()
 {
-    Scripts::CStruct* structure = Scripts::SpawnParamBag();
-    return structure ? structure->PrepareAll() : nullptr;
+    script::Struct* structure = script::spawn_param_bag();
+    return structure ? structure->prepare_all() : nullptr;
 }
-void DeleteStructure(Scripts::CStruct* structure)
+void delete_structure(script::Struct* structure)
 {
     if (structure) {
-        structure->Clear();
-        Scripts::DeleteStruct(structure);
+        structure->get_clear();
+        script::delete_struct(structure);
     }
 }
-GameModules::CContest* TheCompetition() { return SkateCalls::SkateField<GameModules::CContest*>(0x360); }
+modules::Contest* the_competition() { return skate_calls::skate_field<modules::Contest*>(0x360); }
 
 } // namespace
 
 // --- The competition ---------------------------------------------------------------------------------------------
 
 // 0x005517C0
-CContestObjective* CContestObjective::MakeNew(Scripts::CStruct* params)
+ContestObjective* ContestObjective::make_new(script::Struct* params)
 {
-    CObjective::MakeNew(params);
-    m_isHalted = false;
-    m_hasThirdPlace = false;
-    m_hasSecondPlace = false;
-    m_hasTopPrize = false;
-    m_prizePaid = 0;
-    m_listLink.vtable = kCompetitionGoalVtable;
-    m_recordPoints = 0x7FFFFFFF;
-    m_runEnding = 1;
+    Objective::make_new(params);
+    is_halted_ = false;
+    has_third_place_ = false;
+    has_second_place_ = false;
+    has_top_prize_ = false;
+    prize_paid_ = 0;
+    list_link_.vtable = kCompetitionGoalVtable;
+    record_points_ = 0x7FFFFFFF;
+    run_ending_ = 1;
     return this;
 }
 
 // 0x00551800
-void CContestObjective::DestroyBody()
+void ContestObjective::destroy_body()
 {
-    m_listLink.vtable = kCompetitionGoalVtable;
-    CObjective::DestroyBody();
+    list_link_.vtable = kCompetitionGoalVtable;
+    Objective::destroy_body();
 }
 
 // 0x00551A00
-CContestObjective* CContestObjective::Teardown(uint8_t flags)
+ContestObjective* ContestObjective::teardown(uint8_t flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
 // 0x00551810
-bool CContestObjective::Expire() { return InvokeHookScript(kExpireScript); }
+bool ContestObjective::expire() { return invoke_hook_script(kExpireScript); }
 
 // 0x00551820
-void CContestObjective::ChangeLive()
+void ContestObjective::change_live()
 {
-    m_isHalted = false;
-    m_curPhase = static_cast<uint8_t>((m_curPhase & ~kStatePaused) | kStateActive);
+    is_halted_ = false;
+    cur_phase_ = static_cast<uint8_t>((cur_phase_ & ~kStatePaused) | kStateActive);
 }
 
 // 0x00551830
-void CContestObjective::ClearEngagedBit()
+void ContestObjective::clear_engaged_bit()
 {
-    m_isHalted = false;
-    m_curPhase &= ~(kStateActive | kStatePaused);
+    is_halted_ = false;
+    cur_phase_ &= ~(kStateActive | kStatePaused);
 }
 
 // 0x00551840
-bool CContestObjective::HasWon() { return (m_flagBits & kFlagWon) != 0; }
+bool ContestObjective::has_won() { return (flag_bits_ & kFlagWon) != 0; }
 
 // 0x00551850
-bool CContestObjective::UnBeat()
+bool ContestObjective::un_beat()
 {
-    m_flagBits &= ~kFlagWon;
-    m_hasThirdPlace = false;
-    m_hasSecondPlace = false;
+    flag_bits_ &= ~kFlagWon;
+    has_third_place_ = false;
+    has_second_place_ = false;
     if (!Virtual<bool>(this, kVtHasWon))
         return false;
-    m_hasTopPrize = false;
+    has_top_prize_ = false;
     return true;
 }
 
 // 0x00551880
-void CContestObjective::FreezeContest() { m_isHalted = true; }
+void ContestObjective::freeze_contest() { is_halted_ = true; }
 
 // 0x00551890
-void CContestObjective::ThawContest()
+void ContestObjective::thaw_contest()
 {
-    m_isHalted = false;
-    m_flagBits &= ~kFlagEndOfRunStarted;
+    is_halted_ = false;
+    flag_bits_ &= ~kFlagEndOfRunStarted;
 }
 
 // 0x005518A0
-int CContestObjective::IsFrozen() { return (m_curPhase & kStatePaused) || m_isHalted ? 1 : 0; }
+int ContestObjective::is_frozen() { return (cur_phase_ & kStatePaused) || is_halted_ ? 1 : 0; }
 
 // 0x005518C0
-void CContestObjective::RestoreSaveBlock(Scripts::CStruct* data)
+void ContestObjective::restore_save_block(script::Struct* data)
 {
     // (the first value's local is the argument's slot: a missing gotBronze leaves the pointer - set)
     int got = static_cast<int>(reinterpret_cast<uintptr_t>(data));
-    data->FetchIntValue(kGotBronze, &got, 0);
+    data->fetch_int_value(kGotBronze, &got, 0);
     if (got)
-        m_hasThirdPlace = true;
-    data->FetchIntValue(kGotSilver, &got, 0);
+        has_third_place_ = true;
+    data->fetch_int_value(kGotSilver, &got, 0);
     if (got)
-        m_hasThirdPlace = true; // (the original sets gotBronze for each medal)
-    data->FetchIntValue(kGotGold, &got, 0);
+        has_third_place_ = true; // (the original sets gotBronze for each medal)
+    data->fetch_int_value(kGotGold, &got, 0);
     if (got)
-        m_hasThirdPlace = true;
+        has_third_place_ = true;
     int given = 0; // (the original's local is left as it was when reward_given is missing)
-    data->FetchIntValue(kRewardGiven, &given, 0);
-    m_prizePaid = given;
+    data->fetch_int_value(kRewardGiven, &given, 0);
+    prize_paid_ = given;
     int record;
-    if (data->FetchIntValue(kWinRecordName, &record, 0))
-        m_recordPoints = record;
-    CObjective::RestoreSaveBlock(data);
+    if (data->fetch_int_value(kWinRecordName, &record, 0))
+        record_points_ = record;
+    Objective::restore_save_block(data);
 }
 
 // 0x00551970
-void CContestObjective::CaptureSaveBlock(Scripts::CStruct* data)
+void ContestObjective::capture_save_block(script::Struct* data)
 {
-    CObjective::CaptureSaveBlock(data);
-    data->PutInt(kGotBronze, m_hasThirdPlace ? 1 : 0);
-    data->PutNameKey(kGotSilver, m_hasSecondPlace ? 1 : 0); // (the silver and gold medals saved as checksums)
-    data->PutNameKey(kGotGold, m_hasTopPrize ? 1 : 0);
-    data->PutInt(kWinRecordName, m_recordPoints);
-    data->PutInt(kRewardGiven, m_prizePaid);
+    Objective::capture_save_block(data);
+    data->put_int(kGotBronze, has_third_place_ ? 1 : 0);
+    data->put_name_key(kGotSilver, has_second_place_ ? 1 : 0); // (the silver and gold medals saved as checksums)
+    data->put_name_key(kGotGold, has_top_prize_ ? 1 : 0);
+    data->put_int(kWinRecordName, record_points_);
+    data->put_int(kRewardGiven, prize_paid_);
 }
 
 // 0x00551A30
-void CContestObjective::MarkWon()
+void ContestObjective::mark_won()
 {
-    GameModules::CContest* competition = TheCompetition();
-    if (competition->PlaceIs(1)) {
-        m_hasTopPrize = true;
-        m_hasSecondPlace = true;
-        m_hasThirdPlace = true;
-    } else if (competition->PlaceIs(2)) {
-        m_hasSecondPlace = true;
-        m_hasThirdPlace = true;
-    } else if (competition->PlaceIs(3)) {
-        m_hasThirdPlace = true;
+    modules::Contest* competition = the_competition();
+    if (competition->place_is(1)) {
+        has_top_prize_ = true;
+        has_second_place_ = true;
+        has_third_place_ = true;
+    } else if (competition->place_is(2)) {
+        has_second_place_ = true;
+        has_third_place_ = true;
+    } else if (competition->place_is(3)) {
+        has_third_place_ = true;
     }
-    m_flagBits |= kFlagWon;
+    flag_bits_ |= kFlagWon;
 }
 
 // 0x00551A90
-bool CContestObjective::Win()
+bool ContestObjective::get_win()
 {
-    m_args->PutNameKey(kNoName, kJustWonGoal);
-    InvokeHookScript(kDeactivateScript);
-    m_args->RemoveFlag(kJustWonGoal);
+    args_->put_name_key(kNoName, kJustWonGoal);
+    invoke_hook_script(kDeactivateScript);
+    args_->remove_flag(kJustWonGoal);
     Virtual<void>(this, kVtSetInactive);
-    if (!OnlinePlay::g_onlineHub->InNetGame()) {
-        GameModules::CContest* competition = TheCompetition();
+    if (!online::g_online_hub->in_net_game()) {
+        modules::Contest* competition = the_competition();
         int place = 999;
-        if (competition->PlaceIs(1))
+        if (competition->place_is(1))
             place = 1;
-        else if (competition->PlaceIs(2))
+        else if (competition->place_is(2))
             place = 2;
-        else if (competition->PlaceIs(3))
+        else if (competition->place_is(3))
             place = 3;
-        if (place < m_recordPoints) {
-            m_args->PutInt(kWinRecordName, place);
-            m_recordPoints = place;
+        if (place < record_points_) {
+            args_->put_int(kWinRecordName, place);
+            record_points_ = place;
         }
     }
-    Scripts::CStruct* rewards = SpawnParamTable();
+    script::Struct* rewards = spawn_param_table();
     if (!Virtual<bool>(this, kVtHasWon)) {
-        Scripts::CStruct* own = SpawnParamTable();
-        GetPrizeStruct(own);
-        rewards->AppendStructureIfAny(own);
-        DeleteStructure(own);
-        OpenUpPrizeObjectives();
+        script::Struct* own = spawn_param_table();
+        get_prize_struct(own);
+        rewards->append_structure_if_any(own);
+        delete_structure(own);
+        open_up_prize_objectives();
     } else {
-        m_args->EraseModule(kRewardParams);
+        args_->erase_module(kRewardParams);
     }
-    m_args->PutSubStruct(kRewardParams, rewards);
-    InvokeHookScript(kSuccessScript);
-    DeleteStructure(rewards);
+    args_->put_sub_struct(kRewardParams, rewards);
+    invoke_hook_script(kSuccessScript);
+    delete_structure(rewards);
     if (!Virtual<bool>(this, kVtHasWon))
         Virtual<void>(this, kVtMarkWon);
     return true;
@@ -277,197 +277,197 @@ bool CContestObjective::Win()
 // --- Film --------------------------------------------------------------------------------------------------------
 
 // 0x005527D0
-CShootVideoObjective* CShootVideoObjective::MakeNew(Scripts::CStruct* params)
+ShootVideoObjective* ShootVideoObjective::make_new(script::Struct* params)
 {
-    CObjective::MakeNew(params);
-    m_listLink.vtable = kFilmGoalVtable;
+    Objective::make_new(params);
+    list_link_.vtable = kFilmGoalVtable;
     return this;
 }
 
 // 0x005527F0
-void CShootVideoObjective::DestroyBody()
+void ShootVideoObjective::destroy_body()
 {
-    m_listLink.vtable = kFilmGoalVtable;
-    CObjective::DestroyBody();
+    list_link_.vtable = kFilmGoalVtable;
+    Objective::destroy_body();
 }
 
 // 0x005528A0
-CShootVideoObjective* CShootVideoObjective::Teardown(uint8_t flags)
+ShootVideoObjective* ShootVideoObjective::teardown(uint8_t flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
 // 0x00552800
-bool CShootVideoObjective::Activate()
+bool ShootVideoObjective::activate()
 {
-    m_shotHoldTime = 0;
-    m_unknown7C = 0;
-    m_timeNeeded = 0;
-    m_checkpoints = 0;
-    m_recordingShot = false;
-    m_args->PutInt(kTimeOnCamera, 0);
+    shot_hold_time_ = 0;
+    unknown7c_ = 0;
+    time_needed_ = 0;
+    checkpoints_ = 0;
+    recording_shot_ = false;
+    args_->put_int(kTimeOnCamera, 0);
     int seconds;
-    if (m_args->FetchIntValue(kTotalTimeRequired, &seconds, 0)) {
-        m_timeNeeded = static_cast<uint32_t>(seconds * 1000);
+    if (args_->fetch_int_value(kTotalTimeRequired, &seconds, 0)) {
+        time_needed_ = static_cast<uint32_t>(seconds * 1000);
         int time;
-        m_args->FetchIntValue(kTime, &time, 1);
-        m_unknown7C = m_unknown7C * static_cast<uint32_t>(time) * 1000;
-        return CObjective::Activate();
+        args_->fetch_int_value(kTime, &time, 1);
+        unknown7c_ = unknown7c_ * static_cast<uint32_t>(time) * 1000;
+        return Objective::activate();
     }
-    m_args->FetchIntValue(kCheckpoints, &m_checkpoints, 0);
-    return CObjective::Activate();
+    args_->fetch_int_value(kCheckpoints, &checkpoints_, 0);
+    return Objective::activate();
 }
 
 // 0x005528D0
-bool CShootVideoObjective::TargetInView()
+bool ShootVideoObjective::target_in_view()
 {
     uint32_t id;
-    m_args->ReadHashValue(kFilmTarget, &id, 1);
-    GameObjects::CEntity* target = GameObjects::FindObject(id);
+    args_->read_hash_value(kFilmTarget, &id, 1);
+    objects::Entity* target = objects::find_object(id);
     if (!target)
         return false;
-    auto* object = static_cast<GameObjects::CGameEntity*>(target);
-    void* model = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(object->FetchModule(kModel)) + 0x208);
+    auto* object = static_cast<objects::GameEntity*>(target);
+    void* model = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(object->fetch_module(kModel)) + 0x208);
     // The model's bounding sphere (0x00492F30) in the world.
-    Maths::Vec4 sphere;
-    const Maths::Vec4* bounds = static_cast<Engine3D::CRenderModel*>(model)->FetchBoundSphere(&sphere);
-    Maths::Vec4 centre;
+    maths::Vec4 sphere;
+    const maths::Vec4* bounds = static_cast<render::RenderModel*>(model)->fetch_bound_sphere(&sphere);
+    maths::Vec4 centre;
     centre[0] = sphere[0];
     centre[1] = sphere[1];
     centre[2] = sphere[2];
     centre[3] = 1.0f;
     (void)bounds;
-    centre.MultiplyBy(object->m_basisFrame);
+    centre.multiply_by(object->basis_frame_);
     for (int i = 0; i < 4; ++i)
-        centre[i] = centre[i] + object->m_atPoint[i];
+        centre[i] = centre[i] + object->at_point_[i];
     // (0x0048C490: the sphere hidden from the camera)
-    if (Engine3D::Engine::SphereVisibleInOneViewport(&centre, 6.0f))
+    if (render::engine::sphere_visible_in_one_viewport(&centre, 6.0f))
         return false;
-    auto* skater = static_cast<GameObjects::CRider*>(SkateCalls::GetHomeRider());
-    Maths::Vec4* camera = static_cast<Gfx2D::ViewCam*>(skater->ObtainActiveLens())->FetchLocation();
-    float dx = (*camera)[0] - object->m_atPoint[0];
-    float dy = (*camera)[1] - object->m_atPoint[1];
-    float dz = (*camera)[2] - object->m_atPoint[2];
+    auto* skater = static_cast<objects::Rider*>(skate_calls::get_home_rider());
+    maths::Vec4* camera = static_cast<gfx::ViewCam*>(skater->obtain_active_lens())->fetch_location();
+    float dx = (*camera)[0] - object->at_point_[0];
+    float dy = (*camera)[1] - object->at_point_[1];
+    float dz = (*camera)[2] - object->at_point_[2];
     int maximum;
-    m_args->FetchIntValue(kMaxDistanceToTarget, &maximum, 1);
+    args_->fetch_int_value(kMaxDistanceToTarget, &maximum, 1);
     double distance = std::sqrt(static_cast<double>(dz) * dz + static_cast<double>(dy) * dy +
                                 static_cast<double>(dx) * dx);
     return static_cast<double>(maximum) > distance;
 }
 
 // 0x00552A10
-bool CShootVideoObjective::TickFrame()
+bool ShootVideoObjective::tick_frame()
 {
-    m_args->PutInt(kLastTimeOnCamera, static_cast<int>(m_shotHoldTime));
+    args_->put_int(kLastTimeOnCamera, static_cast<int>(shot_hold_time_));
     if (!Virtual<bool>(this, kVtIsActive) || Virtual<bool>(this, kVtIsPaused))
-        return CObjective::TickFrame();
-    if (m_recordingShot) {
-        if (TargetInView()) {
-            m_shotHoldTime += Truncate(FrameClock::GetSlomoFrameSeconds() * Gfx2D::g_thousand); // (1000)
-            m_args->PutInt(kTimeOnCamera, static_cast<int>(m_shotHoldTime));
+        return Objective::tick_frame();
+    if (recording_shot_) {
+        if (target_in_view()) {
+            shot_hold_time_ += truncate(frame_clock::get_slomo_frame_seconds() * gfx::g_thousand); // (1000)
+            args_->put_int(kTimeOnCamera, static_cast<int>(shot_hold_time_));
         }
-        if (m_shotHoldTime >= m_timeNeeded) {
-            void* manager = ObjectiveBoard();
-            return CompleteObjective(manager, GetObjectiveKey());
+        if (shot_hold_time_ >= time_needed_) {
+            void* manager = objective_board();
+            return complete_objective(manager, get_objective_key());
         }
         // (no time left to film enough in)
-        if (m_timeNeeded - m_shotHoldTime > static_cast<uint32_t>(m_secondsRemaining)) {
-            void* manager = ObjectiveBoard();
-            return FailObjective(manager, GetObjectiveKey());
+        if (time_needed_ - shot_hold_time_ > static_cast<uint32_t>(seconds_remaining_)) {
+            void* manager = objective_board();
+            return fail_objective(manager, get_objective_key());
         }
-        return CObjective::TickFrame();
+        return Objective::tick_frame();
     }
-    if (m_checkpoints && m_checkpointsPassed >= m_checkpoints) {
-        void* manager = ObjectiveBoard();
-        return CompleteObjective(manager, GetObjectiveKey());
+    if (checkpoints_ && checkpoints_passed_ >= checkpoints_) {
+        void* manager = objective_board();
+        return complete_objective(manager, get_objective_key());
     }
-    return CObjective::TickFrame();
+    return Objective::tick_frame();
 }
 
 // 0x00552AF0
-void CShootVideoObjective::Checkpoint()
+void ShootVideoObjective::checkpoint()
 {
-    if (!TargetInView())
+    if (!target_in_view())
         return;
-    if (++m_checkpointsPassed > m_checkpoints) {
-        void* manager = ObjectiveBoard();
-        CompleteObjective(manager, GetObjectiveKey());
+    if (++checkpoints_passed_ > checkpoints_) {
+        void* manager = objective_board();
+        complete_objective(manager, get_objective_key());
     }
 }
 
 // --- Find gaps ---------------------------------------------------------------------------------------------------
 
 // 0x00552B30
-CHuntGapsObjective* CHuntGapsObjective::MakeNew(Scripts::CStruct* params)
+HuntGapsObjective* HuntGapsObjective::make_new(script::Struct* params)
 {
-    CObjective::MakeNew(params);
-    m_listLink.vtable = kFindGapsGoalVtable;
+    Objective::make_new(params);
+    list_link_.vtable = kFindGapsGoalVtable;
     return this;
 }
 
 // 0x00552B50
-void CHuntGapsObjective::DestroyBody()
+void HuntGapsObjective::destroy_body()
 {
-    m_listLink.vtable = kFindGapsGoalVtable;
-    CObjective::DestroyBody();
+    list_link_.vtable = kFindGapsGoalVtable;
+    Objective::destroy_body();
 }
 
 // 0x00552B60
-CHuntGapsObjective* CHuntGapsObjective::Teardown(uint8_t flags)
+HuntGapsObjective* HuntGapsObjective::teardown(uint8_t flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
 // 0x00552B90
-void CHuntGapsObjective::ScanForGaps()
+void HuntGapsObjective::scan_for_gaps()
 {
-    auto* skater = static_cast<GameObjects::CRider*>(SkateCalls::GetHomeRider());
-    Scripts::CStruct* found;
-    m_args->ReadSubStruct(kGapsFound, &found, 1);
+    auto* skater = static_cast<objects::Rider*>(skate_calls::get_home_rider());
+    script::Struct* found;
+    args_->read_sub_struct(kGapsFound, &found, 1);
     int count;
-    m_args->FetchIntValue(kNumGapsFound, &count, 1);
-    auto* score = static_cast<uint8_t*>(skater->GetPointsTotal());
+    args_->fetch_int_value(kNumGapsFound, &count, 1);
+    auto* score = static_cast<uint8_t*>(skater->get_points_total());
     int gaps = *reinterpret_cast<int*>(score + 0x5C);
-    bool foundNew = false;
+    bool found_new = false;
     for (int i = 0; i < gaps; ++i) {
-        // (GameModules::PointTally: 0x00562740 the gap `i` is one of the run's, 0x00561660 its name)
-        if (!static_cast<GameModules::PointTally*>(static_cast<void*>(score))->IsGap(i))
+        // (modules::PointTally: 0x00562740 the gap `i` is one of the run's, 0x00561660 its name)
+        if (!static_cast<modules::PointTally*>(static_cast<void*>(score))->is_gap(i))
             continue;
-        uint32_t gap = reinterpret_cast<GameModules::PointTally*>(score)->GetTrickName(i);
-        if (found->HasEntryNamed(gap))
+        uint32_t gap = reinterpret_cast<modules::PointTally*>(score)->get_trick_name(i);
+        if (found->has_entry_named(gap))
             continue;
-        found->PutInt(gap, 1);
+        found->put_int(gap, 1);
         ++count;
-        foundNew = true;
+        found_new = true;
     }
-    m_args->PutInt(kNumGapsFound, count);
-    m_args->PutInt(kNumberCollected, count);
-    if (!foundNew)
+    args_->put_int(kNumGapsFound, count);
+    args_->put_int(kNumberCollected, count);
+    if (!found_new)
         return;
-    Scripts::CStruct* params = SpawnParamTable();
-    params->PutNameKey(kGoalIdChecksum, GetObjectiveKey());
-    Scripts::LaunchScript(kFindGapsFoundGap, params, nullptr, false, nullptr);
-    DeleteStructure(params);
+    script::Struct* params = spawn_param_table();
+    params->put_name_key(kGoalIdChecksum, get_objective_key());
+    script::launch_script(kFindGapsFoundGap, params, nullptr, false, nullptr);
+    delete_structure(params);
 }
 
 // 0x00552D20
-bool CHuntGapsObjective::Activate()
+bool HuntGapsObjective::activate()
 {
-    m_args->EraseModule(kGapsFound);
-    Scripts::CStruct* found = SpawnParamTable();
-    m_args->PutSubStruct(kGapsFound, found);
-    DeleteStructure(found);
-    m_args->PutInt(kNumGapsFound, 0);
-    m_args->PutInt(kNumberCollected, 0);
-    int toFind;
-    m_args->FetchIntValue(kNumGapsToFind, &toFind, 1); // (read and not used)
-    return CObjective::Activate();
+    args_->erase_module(kGapsFound);
+    script::Struct* found = spawn_param_table();
+    args_->put_sub_struct(kGapsFound, found);
+    delete_structure(found);
+    args_->put_int(kNumGapsFound, 0);
+    args_->put_int(kNumberCollected, 0);
+    int to_find;
+    args_->fetch_int_value(kNumGapsToFind, &to_find, 1); // (read and not used)
+    return Objective::activate();
 }
 
 } // namespace Game

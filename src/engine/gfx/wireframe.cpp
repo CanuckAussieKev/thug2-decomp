@@ -7,7 +7,7 @@
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine.h"
 
-namespace Engine3D::Wireframe {
+namespace render::wireframe {
 
 namespace {
 
@@ -15,20 +15,20 @@ bool s_wire; // the fill set to wireframe for this frame's 3D
 
 } // namespace
 
-int RenderMode() { return g_renderMode; }
+int render_mode() { return g_render_mode; }
 
-void BeginWorld()
+void begin_world()
 {
-    s_wire = RenderMode() != 0;
+    s_wire = render_mode() != 0;
     if (s_wire)
-        SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
+        set_render_state(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
 }
 
-void EndWorld()
+void end_world()
 {
     if (s_wire)
-        SetRenderState(D3DRS_FILLMODE, D3DFILL_SOLID);
+        set_render_state(D3DRS_FILLMODE, D3DFILL_SOLID);
     s_wire = false;
 }
 
-} // namespace Engine3D::Wireframe
+} // namespace render::Wireframe

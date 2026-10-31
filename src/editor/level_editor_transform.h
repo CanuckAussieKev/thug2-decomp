@@ -27,73 +27,73 @@
 // While dragging (or in that modal transform): X / Y / Z constrain it to an axis (again: free), digits with - and .
 // type an exact amount (Move: units along the axis - X when none; Rotate: degrees of heading; Scale: a factor - on the
 // axis, else all three), Backspace erases, Enter applies, Escape cancels. The status bar shows what's typed.
-namespace MenuSystem::LevelEditor::Xform {
+namespace frontend::level_editor::xform {
 
-enum class Mode : uint8_t { ShiftBy, SpinBy, StretchBy };
-enum class Space : uint8_t { World, Local };
+enum class Mode : uint8_t { kShiftBy, kSpinBy, scale_tool };
+enum class Space : uint8_t { kWorld, kLocal };
 // Base: as the editor always did (objects turn about the first one's position, scenery about its pivot; scenery scales
 // about the middle of its bottom, objects each about its position). Centre: about the middle of the selection's box.
 // Own: each object about its own position (scenery's group keeps its pivot - one group moves as one).
-enum class Pivot : uint8_t { Base, Centre, Own };
+enum class Pivot : uint8_t { kBase, kCentre, kOwn };
 // What snapping snaps to (the toolbar's Snap to - used while Snap is on; the held keys pick one for a drag).
-enum class SnapTarget : uint8_t { Grid, WorldGrid, Surface, Vertex };
+enum class SnapTarget : uint8_t { kGrid, kWorldGrid, kSurface, kVertex };
 
 struct Settings {
-    Mode mode = Mode::ShiftBy;
-    Space space = Space::World;
-    Pivot pivot = Pivot::Base;
-    SnapTarget target = SnapTarget::Grid;
-    bool alignToSlope = false; // (surface snapping: an object stands square to the surface)
+    Mode mode = Mode::kShiftBy;
+    Space space = Space::kWorld;
+    Pivot pivot = Pivot::kBase;
+    SnapTarget target = SnapTarget::kGrid;
+    bool align_to_slope_ = false; // (surface snapping: an object stands square to the surface)
 };
-Settings& AtHand();
+Settings& at_hand();
 // UX1's preferences (level_editor_prefs.h) keep these: wasd_flies (1 - W A S D fly or nudge whatever the mouse does,
 // as the editor was; 0, the default - only while the right mouse button is held), snap_move (the grid, units) and
 // snap_turn (the rotation snap, degrees - Z / X turn objects and nodes by it too). Set: written to the ini.
-bool FlyAlways();
-void SetFlyAlways(bool always);
-float Grid();
-void SetGrid(float grid);
-float AngleStep();
-void SetAngleStep(float degrees);
+bool fly_always();
+void set_fly_always(bool always);
+float get_grid();
+void set_grid(float grid);
+float angle_step();
+void set_angle_step(float degrees);
 
 // The choices offered (the toolbar's lists).
-const std::vector<float>& GridSizes();  // 1, 5, 10, 25, 50, 100
-const std::vector<float>& AngleSteps(); // 5, 10, 15, 30, 45, 90
-const char* ModeName(Mode mode);        // "Move", "Rotate", "Scale"
-const char* PivotName(Pivot pivot);     // "Base", "Centre", "Own"
-const char* TargetName(SnapTarget target);
-Mode NextMode(Mode mode); // (Space: Move -> Rotate -> Scale -> Move)
+const std::vector<float>& grid_sizes();  // 1, 5, 10, 25, 50, 100
+const std::vector<float>& angle_steps(); // 5, 10, 15, 30, 45, 90
+const char* mode_name(Mode mode);        // "Move", "Rotate", "Scale"
+const char* pivot_name(Pivot pivot);     // "Base", "Centre", "Own"
+const char* target_name(SnapTarget target);
+Mode next_mode(Mode mode); // (Space: Move -> Rotate -> Scale -> Move)
 
 // --- the pure parts ---------------------------------------------------------------------------------------------
 
-// The axes of a frame turned by `yaw` about up (heading; positive +z towards +x, as TurnAboutUp): x (cos, 0, -sin), y
+// The axes of a frame turned by `yaw` about up (heading; positive +z towards +x, as turn_about_up): x (cos, 0, -sin), y
 // up, z (sin, 0, cos) - a node's local axes, an object's when upright.
-void HeadingAxes(float yaw, V3 out[3]);
+void heading_axes(float yaw, V3 out[3]);
 // The heading of a direction (its x / z): atan2(x, z) - an object's from its at row.
-float HeadingOf(V3 at);
+float get_heading_of(V3 at);
 // Rows made unit (an object's matrix: its local axes; a zero row becomes the world's).
-void UnitAxes(const V3 rows[3], V3 out[3]);
-// The angle of `point` about the vertical line through `pivot` (as HeadingOf).
-float TurnAroundAxis(V3 pivot, V3 point);
+void unit_axes(const V3 rows[3], V3 out[3]);
+// The angle of `point` about the vertical line through `pivot` (as get_heading_of).
+float turn_around_axis(V3 pivot, V3 point);
 // An angle brought into (-pi, pi].
-float Wrap(float radians);
-// On a step of `stepDegrees` (0: as it is).
-float SnapAngle(float radians, float stepDegrees);
+float get_wrap(float radians);
+// On a step of `step_degrees` (0: as it is).
+float snap_angle(float radians, float step_degrees);
 // The nearest whole number of quarter turns.
-int Quarters(float radians);
+int get_quarters(float radians);
 // A distance on a grid relative to where a drag started: the nearest multiple (0: as it is). Absolute snapping is
-// LevelEditor::SnapToGrid on the coordinate.
-float SnapRelative(float distance, float grid);
+// level_editor::snap_to_grid on the coordinate.
+float snap_relative(float distance, float grid);
 // A scale factor from a drag along a handle: the distance from the pivot now over the distance when grabbed (`s0`), kept
 // within 0.05..20 (1 when grabbed at the pivot); and from the cursor's distance in pixels from the pivot's (the centre
 // handle, the modal transform). On steps of a tenth with snapping.
-float FactorAlong(float s0, float s);
-float FactorFromPixels(float d0, float d);
-float SnapFactor(float factor);
+float factor_along(float s0, float s);
+float factor_from_pixels(float d0, float d);
+float snap_factor(float factor);
 
 // The gizmo: where (`pivot`), its axes (World: the world's; Local: the selection's) and its size in world units.
 struct Gizmo {
-    Mode mode = Mode::ShiftBy;
+    Mode mode = Mode::kShiftBy;
     V3 pivot = {};
     V3 axes[3] = {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}};
     float length = 100.0f;
@@ -110,36 +110,36 @@ struct Segment {
     int handle;
     bool arrow;
 };
-std::vector<Segment> GizmoSegments(const Gizmo& gizmo);
+std::vector<Segment> gizmo_segments(const Gizmo& gizmo);
 // The ring's points (Rotate): `count` around the pivot, at the gizmo's length, in the horizontal plane.
-std::vector<V3> Ring(V3 pivot, float radius, int count);
+std::vector<V3> get_ring(V3 pivot, float radius, int count);
 // The handle within `grab` pixels of (x, y) (the nearest), -1 for none.
-int HandleAt(const Gizmo& gizmo, const Projector& project, float x, float y, float grab);
+int handle_at(const Gizmo& gizmo, const Projector& project, float x, float y, float grab);
 // A handle's colour: x red, y green, z blue, the centre white; lit (hovered or dragged) yellow.
-uint32_t HandleColour(int handle, bool lit);
+uint32_t handle_colour(int handle, bool lit);
 
 // Typed values while dragging (Blender): an axis and the text typed.
 struct Typed {
     int axis = -1;     // 0 / 1 / 2: X / Y / Z typed; -1: none
     std::string text;  // digits, '.', a leading '-'
-    bool axisChanged = false; // (the axis was typed since the drag code last looked: TakeAxisChange)
+    bool axis_changed_ = false; // (the axis was typed since the drag code last looked: TakeAxisChange)
 };
 // A key typed (a character: '0'-'9', '.', '-', 'x' / 'y' / 'z', '\b' for Backspace): whether it was taken. '-' turns the
 // sign over, the same axis again drops it, a second '.' is refused.
-bool TypeKey(Typed* typed, char c);
+bool type_key(Typed* typed, char c);
 // The number typed (false: none yet - nothing, "-", ".").
-bool TypedValue(const Typed& typed, float* value);
-// "Move along X: 12.5" for the status bar (`defaultAxis`: the arrow dragged, else -1).
-std::string Describe(Mode mode, const Typed& typed, int defaultAxis);
+bool typed_value(const Typed& typed, float* value);
+// "Move along X: 12.5" for the status bar (`default_axis`: the arrow dragged, else -1).
+std::string describe(Mode mode, const Typed& typed, int default_axis);
 
 // The repeat of the last duplicate (Ctrl+Shift+D, Blender's Shift+R): what the last Ctrl+D (or repeat) copied from and
 // made - so the copies' move and turn since can be done again from them.
-enum class Kind : uint8_t { None, Objects, Scenery, Elem };
+enum class Kind : uint8_t { kNone, object_edit, kScenery, kElem };
 struct Repeat {
-    Kind kind = Kind::None;
+    Kind kind = Kind::kNone;
     std::vector<uint32_t> made; // (object ids, sector checksums, a node's name)
-    V3 sourcePos = {};
-    float sourceHeading = 0.0f;
+    V3 source_pos_ = {};
+    float source_heading_ = 0.0f;
 };
 struct RepeatStep {
     V3 offset = {};
@@ -147,18 +147,18 @@ struct RepeatStep {
     int quarters = 0;
 };
 // After a duplicate: the source's place and heading, and the copies made.
-void NoteDuplicate(Repeat* memory, Kind kind, const std::vector<uint32_t>& made, V3 sourcePos, float sourceHeading);
+void note_duplicate(Repeat* memory, Kind kind, const std::vector<uint32_t>& made, V3 source_pos, float source_heading);
 // The step to repeat when the selection (`kind`, `selected`) is still those copies: their move and turn since they were
 // made (`pos`, `heading`: the selection's now). False: nothing to repeat (another selection).
-bool RepeatFor(const Repeat& memory, Kind kind, const std::vector<uint32_t>& selected, V3 pos, float heading,
+bool repeat_for(const Repeat& memory, Kind kind, const std::vector<uint32_t>& selected, V3 pos, float heading,
                RepeatStep* step);
 // Where the next copy goes from a copy at `from` (the offset turned by the turn: a turned row makes an arc).
-V3 RepeatTarget(V3 from, const RepeatStep& step);
-Repeat& LastDuplicate();
+V3 repeat_target(V3 from, const RepeatStep& step);
+Repeat& last_duplicate();
 
 // The Tools menu's transform options (level_editor_transform_ui.cpp, in level_editor_ui_menus.cpp's menu bar): the
 // pivot, the rotation snap, what Snap snaps to, Align to slope, the fly keys. (The tool, World / Local, Snap and the
 // grid are on the tool strip: level_editor_ui_strip.h.)
-void OptionsMenuItems();
+void options_menu_items();
 
-} // namespace MenuSystem::LevelEditor::Xform
+} // namespace MenuSystem::level_editor::xform

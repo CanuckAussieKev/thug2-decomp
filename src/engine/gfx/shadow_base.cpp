@@ -28,28 +28,28 @@
 #include "engine/gfx/engine.h"
 #include "engine/gfx/glow.h"
 
-namespace Engine3D {
+namespace render {
 
 constexpr uint32_t kShadowTriangleBytes = 20480; // the original's triangle buffer (0x00796640)
-bool g_twoSidedStencil;
-float g_shadowViewport[4]{256.0f, 256.0f, 256.0f, 256.0f};
+bool g_two_sided_stencil;
+float g_shadow_viewport[4]{256.0f, 256.0f, 256.0f, 256.0f};
 
 namespace {
 
-IDirect3DDevice9* InputPort() { return g_d3dDevice; }
-ListKit::KeyMap* Casters() { return g_shadowCasters; }
-float* ViewMatrix() { return reinterpret_cast<float*>(&g_viewMatrix); }
-float* ProjectionMatrix() { return reinterpret_cast<float*>(&g_projectionMatrix); }
-const float* WorldMatrix() { return reinterpret_cast<float*>(&g_worldMatrix); }
-uint8_t& CustomTransforms() { return g_camera.customTransforms; } // the view / projection aren't the camera's
-bool OmitFromDraw() { return g_suppressDraw; }
-uint32_t& Fog() { return g_fogActive; }
-uint32_t& DepthBias() { return g_depthBias; }
-uint32_t& CullMode() { return g_cullMode; }
-uint32_t& PixelShaderLocked() { return g_pixelShaderLocked; }
-bool TwoSidedStencil() { return g_twoSidedStencil; }
+IDirect3DDevice9* input_port() { return g_d3d_device; }
+lists::KeyMap* get_casters() { return g_shadow_casters; }
+float* view_matrix() { return reinterpret_cast<float*>(&g_view_matrix); }
+float* projection_matrix() { return reinterpret_cast<float*>(&g_projection_matrix); }
+const float* world_matrix() { return reinterpret_cast<float*>(&g_world_matrix); }
+uint8_t& custom_transforms() { return g_camera.custom_transforms_; } // the view / projection aren't the camera's
+bool omit_from_draw() { return g_suppress_draw; }
+uint32_t& get_fog() { return g_fog_active; }
+uint32_t& depth_bias() { return g_depth_bias; }
+uint32_t& cull_mode() { return g_cull_mode; }
+uint32_t& pixel_shader_locked() { return g_pixel_shader_locked; }
+bool two_sided_stencil() { return g_two_sided_stencil; }
 
-// The projection buffer (ProjectShadowVertices) and the triangle buffer (ClipShadowTriangles).
+// The projection buffer (project_shadow_vertices) and the triangle buffer (clip_shadow_triangles).
 struct ProjectedVertex {
     float position[3];
     float projected[3];
@@ -64,67 +64,67 @@ static_assert(sizeof(ShadowCornerPoint) == 0x14, "the draw's stride");
 // NOT ORIGINAL - both buffers grow to fit. The original's are fixed (4096 projected vertices at 0x0079B640, 20480
 // bytes - 1024 vertices - of triangles at 0x00796640) and unchecked: enough for THUG2's own scene meshes, but a
 // ported level's mesh under a shadow (Proving Ground's: more than 4096 vertices) ran past them into the globals
-// after them (a call through g_shadowCompanion holding a vertex's float). Their first sizes are the original's.
-std::vector<ProjectedVertex> g_projectedVertices(4096);
-std::vector<ShadowCornerPoint> g_shadowVertices(kShadowTriangleBytes / sizeof(ShadowCornerPoint));
-ProjectedVertex* Projected(uint32_t count)
+// after them (a call through g_shadow_companion holding a vertex's float). Their first sizes are the original's.
+std::vector<ProjectedVertex> g_projected_vertices(4096);
+std::vector<ShadowCornerPoint> g_shadow_vertices(kShadowTriangleBytes / sizeof(ShadowCornerPoint));
+ProjectedVertex* get_projected(uint32_t count)
 {
-    if (g_projectedVertices.size() < count)
-        g_projectedVertices.resize(count);
-    return g_projectedVertices.data();
+    if (g_projected_vertices.size() < count)
+        g_projected_vertices.resize(count);
+    return g_projected_vertices.data();
 }
-ProjectedVertex* Projected() { return g_projectedVertices.data(); }
-ShadowCornerPoint* ShadowTriangles(uint32_t vertices)
+ProjectedVertex* get_projected() { return g_projected_vertices.data(); }
+ShadowCornerPoint* shadow_triangles(uint32_t vertices)
 {
-    if (g_shadowVertices.size() < vertices)
-        g_shadowVertices.resize(vertices);
-    return g_shadowVertices.data();
+    if (g_shadow_vertices.size() < vertices)
+        g_shadow_vertices.resize(vertices);
+    return g_shadow_vertices.data();
 }
-ShadowCornerPoint* ShadowTriangles() { return g_shadowVertices.data(); }
+ShadowCornerPoint* shadow_triangles() { return g_shadow_vertices.data(); }
 constexpr float kFacingLimit = std::bit_cast<float>(0xB8D1B717u); // 0x0064AAA0, -1e-4
 
-ShadowCompanionFn g_shadowCompanion = nullptr; // NOT ORIGINAL (SetShadowCompanion)
+ShadowCompanionFn g_shadow_companion = nullptr; // NOT ORIGINAL (set_shadow_companion)
 
 // D3DX (linked library code; stdcall).
-void MatrixMultiply(float* out, const float* a, const float* b)
+void matrix_multiply(float* out, const float* a, const float* b)
 {
-    D3dx::MatrixMultiply(out, a, b);
+    d3dx::matrix_multiply(out, a, b);
 }
-void MatrixInverse(float* out, float* determinant, const float* m)
+void matrix_inverse(float* out, float* determinant, const float* m)
 {
-    D3dx::MatrixInverse(out, determinant, m);
+    d3dx::matrix_inverse(out, determinant, m);
 }
-void TransformCoord(float* out, const float* v, const void* m)
+void transform_coord(float* out, const float* v, const void* m)
 {
-    D3dx::Vec3TransformCoord(out, v, m);
+    d3dx::vec3_transform_coord(out, v, m);
 }
-void MatrixLookAt(float* out, const float* eye, const float* at, const float* up)
+void matrix_look_at(float* out, const float* eye, const float* at, const float* up)
 {
-    D3dx::MatrixLookAtRH(out, eye, at, up);
+    d3dx::matrix_look_at_rh(out, eye, at, up);
 }
-void MatrixOrtho(float* out, float width, float height, float nearZ, float farZ)
+void matrix_ortho(float* out, float width, float height, float near_z, float far_z)
 {
-    D3dx::MatrixOrthoRH(out, width, height, nearZ, farZ);
+    d3dx::matrix_ortho_rh(out, width, height, near_z, far_z);
 }
 
 // The models' meshes (not rewritten yet; thiscall).
-int MeshCount(void* model) { return static_cast<CRenderModel*>(model)->FetchGeomTotal(); }
-void* Mesh(void* model, int index) { return static_cast<CRenderModel*>(model)->FetchGeom(index); }
-void DrawMesh(void* mesh, int flags) { DrawOneInstance(static_cast<sSingleton*>(mesh), static_cast<uint32_t>(flags)); }
+int get_mesh_count(void* model) { return static_cast<RenderModel*>(model)->fetch_geom_total(); }
+void* get_mesh(void* model, int index) { return static_cast<RenderModel*>(model)->fetch_geom(index); }
+void draw_mesh(void* mesh, int flags) { draw_one_instance(static_cast<Singleton*>(mesh), static_cast<uint32_t>(flags)); }
 // A scene mesh's draw (thiscall).
-void DrawSceneMesh(void* mesh) { static_cast<meshRef*>(mesh)->Render(); }
+void draw_scene_mesh(void* mesh) { static_cast<MeshRef*>(mesh)->render(); }
 
-void Identity(float* m)
+void get_identity(float* m)
 {
     for (int i = 0; i < 16; ++i)
         m[i] = (i % 5 == 0) ? 1.0f : 0.0f;
 }
 
 // The caster with this key (the table's own inlined lookup: the first item with the key and a value).
-ShadowCaster* FindCaster(uint32_t key)
+ShadowCaster* find_caster(uint32_t key)
 {
-    ListKit::KeyMap* table = Casters();
-    ListKit::KeyMap::Item* item = table->m_buckets + (key & ((1u << table->m_bits) - 1));
+    lists::KeyMap* table = get_casters();
+    lists::KeyMap::Item* item = table->buckets_ + (key & ((1u << table->bits_) - 1));
     for (; item; item = item->next) {
         if (item->key == key && item->value)
             return static_cast<ShadowCaster*>(item->value);
@@ -133,29 +133,29 @@ ShadowCaster* FindCaster(uint32_t key)
 }
 
 // Iterate the casters: the first (or next) one, or null at the end (an empty slot's null ends it too).
-ShadowCaster* NextCaster()
+ShadowCaster* next_caster()
 {
-    ListKit::KeyMap* table = Casters();
-    if (!table->StepIterator() || !table->m_iterItem)
+    lists::KeyMap* table = get_casters();
+    if (!table->step_iterator() || !table->iter_item_)
         return nullptr;
-    return static_cast<ShadowCaster*>(table->m_iterItem->value);
+    return static_cast<ShadowCaster*>(table->iter_item_->value);
 }
-ShadowCaster* FirstCaster()
+ShadowCaster* first_caster()
 {
-    ListKit::KeyMap* table = Casters();
-    table->m_iterBucket = -1;
-    table->m_iterItem = nullptr;
-    return NextCaster();
+    lists::KeyMap* table = get_casters();
+    table->iter_bucket_ = -1;
+    table->iter_item_ = nullptr;
+    return next_caster();
 }
 
 } // namespace
 
 // 0x004DA0F0
-void __cdecl ProjectShadowVertices(const float* positions, uint32_t count, const void* matrix)
+void __cdecl project_shadow_vertices(const float* positions, uint32_t count, const void* matrix)
 {
-    ProjectedVertex* vertex = Projected(count);
+    ProjectedVertex* vertex = get_projected(count);
     for (uint32_t i = 0; i < count; ++i, ++vertex, positions += 3) {
-        TransformCoord(vertex->projected, positions, matrix);
+        transform_coord(vertex->projected, positions, matrix);
         // The clip flags from the float bits: a bit for each of x < 0, x > 1, y < 0, y > 1, z (on the sign and
         // the exponent's top bit after adding 1 to the exponent).
         uint32_t x = std::bit_cast<uint32_t>(vertex->projected[0]) + 0x800000;
@@ -170,13 +170,13 @@ void __cdecl ProjectShadowVertices(const float* positions, uint32_t count, const
 }
 
 // 0x004DA190
-int __cdecl ClipShadowTriangles(const uint16_t* indices, uint32_t count)
+int __cdecl clip_shadow_triangles(const uint16_t* indices, uint32_t count)
 {
-    ShadowCornerPoint* out = ShadowTriangles(3 * count); // (at most every triangle kept)
+    ShadowCornerPoint* out = shadow_triangles(3 * count); // (at most every triangle kept)
     for (uint32_t i = 0; i < count; ++i, indices += 3) {
-        const ProjectedVertex& v0 = Projected()[indices[0]];
-        const ProjectedVertex& v1 = Projected()[indices[1]];
-        const ProjectedVertex& v2 = Projected()[indices[2]];
+        const ProjectedVertex& v0 = get_projected()[indices[0]];
+        const ProjectedVertex& v1 = get_projected()[indices[1]];
+        const ProjectedVertex& v2 = get_projected()[indices[2]];
         if (v0.clip & v1.clip & v2.clip)
             continue; // all outside the same side
         double facing = (static_cast<double>(v2.projected[1]) - v1.projected[1]) *
@@ -192,47 +192,47 @@ int __cdecl ClipShadowTriangles(const uint16_t* indices, uint32_t count)
             ++out;
         }
     }
-    return static_cast<int>(out - ShadowTriangles()) / 3;
+    return static_cast<int>(out - shadow_triangles()) / 3;
 }
 
 // 0x004DB880
-void __cdecl ShadowTextureMatrix(const float* a, const float* b, float* out, const float* first)
+void __cdecl shadow_texture_matrix(const float* a, const float* b, float* out, const float* first)
 {
     float view[16];
-    InputPort()->GetTransform(D3DTS_VIEW, reinterpret_cast<D3DMATRIX*>(view));
+    input_port()->GetTransform(D3DTS_VIEW, reinterpret_cast<D3DMATRIX*>(view));
     float inverse[16];
-    MatrixInverse(inverse, nullptr, view); // (not used)
+    matrix_inverse(inverse, nullptr, view); // (not used)
     // The shadow viewport (0x0067EF4C: x, y, width, height) as a scale and offset of the -1..1 range; depth 0..2^24.
-    float scaleBias[16] = {};
-    scaleBias[0] = static_cast<float>(static_cast<double>(g_shadowViewport[3]) * 0.5);
-    scaleBias[5] = static_cast<float>(static_cast<double>(g_shadowViewport[2]) * -0.5);
-    scaleBias[10] = std::bit_cast<float>(0x4B7FFFFFu); // 16777215
-    scaleBias[12] = static_cast<float>((static_cast<double>(g_shadowViewport[1]) + 1.0) * 0.5);
-    scaleBias[13] = static_cast<float>((static_cast<double>(g_shadowViewport[0]) + 1.0) * 0.5);
-    scaleBias[15] = 1.0f;
+    float scale_bias[16] = {};
+    scale_bias[0] = static_cast<float>(static_cast<double>(g_shadow_viewport[3]) * 0.5);
+    scale_bias[5] = static_cast<float>(static_cast<double>(g_shadow_viewport[2]) * -0.5);
+    scale_bias[10] = std::bit_cast<float>(0x4B7FFFFFu); // 16777215
+    scale_bias[12] = static_cast<float>((static_cast<double>(g_shadow_viewport[1]) + 1.0) * 0.5);
+    scale_bias[13] = static_cast<float>((static_cast<double>(g_shadow_viewport[0]) + 1.0) * 0.5);
+    scale_bias[15] = 1.0f;
     float m[16];
     if (first) {
         std::memcpy(m, first, sizeof(m));
-        MatrixMultiply(m, m, a);
+        matrix_multiply(m, m, a);
     } else {
         std::memcpy(m, a, sizeof(m));
     }
-    MatrixMultiply(m, m, b);
-    MatrixMultiply(out, m, scaleBias);
+    matrix_multiply(m, m, b);
+    matrix_multiply(out, m, scale_bias);
 }
 
 // 0x004DB9D0
-void __cdecl DrawShadowVolumes(const void* scene, int /*viewport*/)
+void __cdecl draw_shadow_volumes(const void* scene, int /*viewport*/)
 {
-    void* vertexColour = g_pixelShaders[kPixelShader94C];
-    SetPixelShader(vertexColour, nullptr);
-    PixelShaderLocked() = reinterpret_cast<uint32_t>(vertexColour);
-    SetTexture(0, nullptr);
-    ChangePhase(kZWrite, 0);
-    ChangePhase(kZTest, 1);
-    ChangePhase(kPhaseAlphaTest, 0);
-    if (!TwoSidedStencil())
-        InputPort()->SetRenderState(D3DRS_ZFUNC, D3DCMP_GREATEREQUAL);
+    void* vertex_colour = g_pixel_shaders[kPixelShader94c];
+    set_pixel_shader(vertex_colour, nullptr);
+    pixel_shader_locked() = reinterpret_cast<uint32_t>(vertex_colour);
+    set_texture(0, nullptr);
+    change_phase(kZWrite, 0);
+    change_phase(kZTest, 1);
+    change_phase(kPhaseAlphaTest, 0);
+    if (!two_sided_stencil())
+        input_port()->SetRenderState(D3DRS_ZFUNC, D3DCMP_GREATEREQUAL);
     const auto* bytes = static_cast<const uint8_t*>(scene);
     void* const* meshes = *reinterpret_cast<void* const* const*>(bytes + 0x1C);
     for (int i = 0; i < *reinterpret_cast<const int*>(bytes + 0x20); ++i) {
@@ -240,211 +240,211 @@ void __cdecl DrawShadowVolumes(const void* scene, int /*viewport*/)
         uint32_t flags = *reinterpret_cast<uint32_t*>(mesh);
         if (!(flags & 0x40) || !(flags & 0x200))
             continue;
-        if (!SphereInView(reinterpret_cast<const Maths::Vec4*>(mesh + 4), *reinterpret_cast<float*>(mesh + 0x10)))
+        if (!sphere_in_view(reinterpret_cast<const maths::Vec4*>(mesh + 4), *reinterpret_cast<float*>(mesh + 0x10)))
             continue;
-        if (!TwoSidedStencil()) {
+        if (!two_sided_stencil()) {
             // One side's faces, then the other's.
-            ChangePhase(kCullMode, D3DCULL_CW);
-            ChooseBlendMode(0x10000002);
-            DrawSceneMesh(mesh);
-            ChangePhase(kCullMode, D3DCULL_CCW);
-            ChooseBlendMode(0x10000004);
+            change_phase(kCullMode, D3DCULL_CW);
+            choose_blend_mode(0x10000002);
+            draw_scene_mesh(mesh);
+            change_phase(kCullMode, D3DCULL_CCW);
+            choose_blend_mode(0x10000004);
         } else {
-            ChangePhase(kCullMode, D3DCULL_NONE);
-            ChooseBlendMode(0x30000006);
+            change_phase(kCullMode, D3DCULL_NONE);
+            choose_blend_mode(0x30000006);
         }
-        DrawSceneMesh(mesh);
+        draw_scene_mesh(mesh);
     }
-    PixelShaderLocked() = 0;
-    ChangePhase(kZWrite, 1);
-    ChangePhase(kCullMode, D3DCULL_CW);
-    InputPort()->SetRenderState(D3DRS_ZFUNC, D3DCMP_LESSEQUAL);
+    pixel_shader_locked() = 0;
+    change_phase(kZWrite, 1);
+    change_phase(kCullMode, D3DCULL_CW);
+    input_port()->SetRenderState(D3DRS_ZFUNC, D3DCMP_LESSEQUAL);
 }
 
 // 0x004DBBD0
-void __cdecl RenderShadowTextures()
+void __cdecl render_shadow_textures()
 {
-    if (OmitFromDraw())
+    if (omit_from_draw())
         return;
-    float savedView[16], savedProjection[16];
-    std::memcpy(savedView, ViewMatrix(), sizeof(savedView));
-    std::memcpy(savedProjection, ProjectionMatrix(), sizeof(savedProjection));
-    IDirect3DSurface9* renderTarget = nullptr;
+    float saved_view[16], saved_projection[16];
+    std::memcpy(saved_view, view_matrix(), sizeof(saved_view));
+    std::memcpy(saved_projection, projection_matrix(), sizeof(saved_projection));
+    IDirect3DSurface9* render_target = nullptr;
     IDirect3DSurface9* depth = nullptr;
-    uint32_t savedFog = Fog();
-    InputPort()->GetRenderTarget(0, &renderTarget);
-    InputPort()->GetDepthStencilSurface(&depth);
-    if (Fog()) {
-        Fog() = 0;
-        Engine3D::SetRenderState(D3DRS_FOGENABLE, FALSE);
+    uint32_t saved_fog = get_fog();
+    input_port()->GetRenderTarget(0, &render_target);
+    input_port()->GetDepthStencilSurface(&depth);
+    if (get_fog()) {
+        get_fog() = 0;
+        render::set_render_state(D3DRS_FOGENABLE, FALSE);
     }
-    for (ShadowCaster* caster = FirstCaster(); caster; caster = NextCaster()) {
+    for (ShadowCaster* caster = first_caster(); caster; caster = next_caster()) {
         if (!caster->model)
             continue;
-        InputPort()->SetRenderTarget(0, *reinterpret_cast<IDirect3DSurface9**>(caster->target + 0x18));
-        InputPort()->SetDepthStencilSurface(nullptr);
-        InputPort()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0);
-        std::memcpy(ViewMatrix(), caster->view, sizeof(caster->view));
-        std::memcpy(ProjectionMatrix(), caster->projection, sizeof(caster->projection));
-        CustomTransforms() = 1;
-        InputPort()->SetTransform(D3DTS_VIEW, reinterpret_cast<const D3DMATRIX*>(caster->view));
-        InputPort()->SetTransform(D3DTS_PROJECTION, reinterpret_cast<const D3DMATRIX*>(caster->projection));
+        input_port()->SetRenderTarget(0, *reinterpret_cast<IDirect3DSurface9**>(caster->target + 0x18));
+        input_port()->SetDepthStencilSurface(nullptr);
+        input_port()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0);
+        std::memcpy(view_matrix(), caster->view, sizeof(caster->view));
+        std::memcpy(projection_matrix(), caster->projection, sizeof(caster->projection));
+        custom_transforms() = 1;
+        input_port()->SetTransform(D3DTS_VIEW, reinterpret_cast<const D3DMATRIX*>(caster->view));
+        input_port()->SetTransform(D3DTS_PROJECTION, reinterpret_cast<const D3DMATRIX*>(caster->projection));
         float identity[16];
-        Identity(identity);
-        InputPort()->SetTransform(D3DTS_WORLD, reinterpret_cast<const D3DMATRIX*>(identity));
-        auto drawModel = [](void* model) {
-            int count = MeshCount(model);
+        get_identity(identity);
+        input_port()->SetTransform(D3DTS_WORLD, reinterpret_cast<const D3DMATRIX*>(identity));
+        auto draw_model = [](void* model) {
+            int count = get_mesh_count(model);
             for (int i = 0; i < count; ++i) {
-                auto* mesh = *reinterpret_cast<uint8_t**>(static_cast<uint8_t*>(Mesh(model, i)) + 0x4C);
+                auto* mesh = *reinterpret_cast<uint8_t**>(static_cast<uint8_t*>(get_mesh(model, i)) + 0x4C);
                 if (!mesh[0x4C])
                     continue;
                 uint32_t* flags = *reinterpret_cast<uint32_t**>(mesh + 0x58);
                 *flags |= 0x80; // (drawn as a shadow)
-                DrawMesh(mesh, 8);
+                draw_mesh(mesh, 8);
                 flags = *reinterpret_cast<uint32_t**>(mesh + 0x58);
                 *flags &= ~0x80u;
                 flags = *reinterpret_cast<uint32_t**>(mesh + 0x58);
                 *flags |= 0x200;
             }
         };
-        drawModel(caster->model);
-        // NOT ORIGINAL (ours: SetShadowCompanion) - a model drawn into this caster's shadow as well.
-        if (g_shadowCompanion) {
-            if (void* companion = g_shadowCompanion(caster->model))
-                drawModel(companion);
+        draw_model(caster->model);
+        // NOT ORIGINAL (ours: set_shadow_companion) - a model drawn into this caster's shadow as well.
+        if (g_shadow_companion) {
+            if (void* companion = g_shadow_companion(caster->model))
+                draw_model(companion);
         }
     }
-    InputPort()->SetRenderState(D3DRS_COLORWRITEENABLE, 0xF);
-    if (savedFog != Fog()) {
-        Fog() = savedFog;
-        InputPort()->SetRenderState(D3DRS_FOGENABLE, savedFog != 0);
+    input_port()->SetRenderState(D3DRS_COLORWRITEENABLE, 0xF);
+    if (saved_fog != get_fog()) {
+        get_fog() = saved_fog;
+        input_port()->SetRenderState(D3DRS_FOGENABLE, saved_fog != 0);
     }
-    PixelShaderLocked() = 0;
-    std::memcpy(ViewMatrix(), savedView, sizeof(savedView));
-    std::memcpy(ProjectionMatrix(), savedProjection, sizeof(savedProjection));
-    CustomTransforms() = 0;
-    InputPort()->SetTransform(D3DTS_WORLD, reinterpret_cast<const D3DMATRIX*>(WorldMatrix()));
-    InputPort()->SetTransform(D3DTS_VIEW, reinterpret_cast<const D3DMATRIX*>(ViewMatrix()));
-    InputPort()->SetRenderState(D3DRS_TEXTUREFACTOR, 0xFFFFFFFF);
-    InputPort()->SetRenderTarget(0, renderTarget);
-    InputPort()->SetDepthStencilSurface(depth);
-    if (renderTarget)
-        renderTarget->Release();
+    pixel_shader_locked() = 0;
+    std::memcpy(view_matrix(), saved_view, sizeof(saved_view));
+    std::memcpy(projection_matrix(), saved_projection, sizeof(saved_projection));
+    custom_transforms() = 0;
+    input_port()->SetTransform(D3DTS_WORLD, reinterpret_cast<const D3DMATRIX*>(world_matrix()));
+    input_port()->SetTransform(D3DTS_VIEW, reinterpret_cast<const D3DMATRIX*>(view_matrix()));
+    input_port()->SetRenderState(D3DRS_TEXTUREFACTOR, 0xFFFFFFFF);
+    input_port()->SetRenderTarget(0, render_target);
+    input_port()->SetDepthStencilSurface(depth);
+    if (render_target)
+        render_target->Release();
     if (depth)
         depth->Release();
 }
 
 // 0x004DBF50
-void __cdecl DrawShadows(const void* /*unused*/, void* const* meshes, int count)
+void __cdecl draw_shadows(const void* /*unused*/, void* const* meshes, int count)
 {
-    if (OmitFromDraw())
+    if (omit_from_draw())
         return;
-    DWORD savedMinFilter;
-    InputPort()->GetSamplerState(0, D3DSAMP_MINFILTER, &savedMinFilter);
-    InputPort()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-    InputPort()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
-    InputPort()->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
-    uint32_t savedFog = Fog();
-    if (Fog()) {
-        Fog() = 0;
-        Engine3D::SetRenderState(D3DRS_FOGENABLE, FALSE);
+    DWORD saved_min_filter;
+    input_port()->GetSamplerState(0, D3DSAMP_MINFILTER, &saved_min_filter);
+    input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+    input_port()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
+    input_port()->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
+    uint32_t saved_fog = get_fog();
+    if (get_fog()) {
+        get_fog() = 0;
+        render::set_render_state(D3DRS_FOGENABLE, FALSE);
     }
-    for (ShadowCaster* caster = FirstCaster(); caster; caster = NextCaster()) {
-        float savedView[16], savedProjection[16];
-        std::memcpy(savedView, ViewMatrix(), sizeof(savedView));
-        std::memcpy(savedProjection, ProjectionMatrix(), sizeof(savedProjection));
+    for (ShadowCaster* caster = first_caster(); caster; caster = next_caster()) {
+        float saved_view[16], saved_projection[16];
+        std::memcpy(saved_view, view_matrix(), sizeof(saved_view));
+        std::memcpy(saved_projection, projection_matrix(), sizeof(saved_projection));
         // The receivers' vertices -> shadow texture coordinates.
-        float textureBias[16] = {0.5f, 0, 0, 0, 0, -0.5f, 0, 0, 0, 0, 1.0f, 0, 0.5f, 0.5f, 0, 1.0f};
-        float viewProjection[16], toTexture[16];
-        MatrixMultiply(viewProjection, caster->view, caster->nearProjection);
-        MatrixMultiply(toTexture, viewProjection, textureBias);
-        ShadowTextureMatrix(caster->view, caster->projection, caster->textureMatrix, nullptr);
-        SetPixelShader(nullptr, nullptr);
-        InputPort()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
-        InputPort()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
-        InputPort()->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TFACTOR);
-        InputPort()->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
-        InputPort()->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
-        InputPort()->SetRenderState(D3DRS_TEXTUREFACTOR, 0xFFA0A0A0); // the shadow's colour
-        ChangePhase(kPhaseAlphaTest, 1);
-        SetTexture(0, nullptr);
-        SetTexture(2, nullptr);
-        SetTexture(3, nullptr);
-        SetTexture(1, nullptr);
-        SetTexture(0, *reinterpret_cast<void**>(caster->target + 0x10));
-        ChangePhase(kAddressMode0, 0x20002); // border
-        if (g_borderAddressingSupported)
-            InputPort()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
-        InputPort()->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-        InputPort()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-        InputPort()->SetTransform(D3DTS_PROJECTION, reinterpret_cast<const D3DMATRIX*>(ProjectionMatrix()));
-        InputPort()->SetTransform(D3DTS_VIEW, reinterpret_cast<const D3DMATRIX*>(ViewMatrix()));
+        float texture_bias[16] = {0.5f, 0, 0, 0, 0, -0.5f, 0, 0, 0, 0, 1.0f, 0, 0.5f, 0.5f, 0, 1.0f};
+        float view_projection[16], to_texture[16];
+        matrix_multiply(view_projection, caster->view, caster->near_projection_);
+        matrix_multiply(to_texture, view_projection, texture_bias);
+        shadow_texture_matrix(caster->view, caster->projection, caster->texture_matrix_, nullptr);
+        set_pixel_shader(nullptr, nullptr);
+        input_port()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
+        input_port()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
+        input_port()->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TFACTOR);
+        input_port()->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
+        input_port()->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
+        input_port()->SetRenderState(D3DRS_TEXTUREFACTOR, 0xFFA0A0A0); // the shadow's colour
+        change_phase(kPhaseAlphaTest, 1);
+        set_texture(0, nullptr);
+        set_texture(2, nullptr);
+        set_texture(3, nullptr);
+        set_texture(1, nullptr);
+        set_texture(0, *reinterpret_cast<void**>(caster->target + 0x10));
+        change_phase(kAddressMode0, 0x20002); // border
+        if (g_border_addressing_supported)
+            input_port()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
+        input_port()->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+        input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+        input_port()->SetTransform(D3DTS_PROJECTION, reinterpret_cast<const D3DMATRIX*>(projection_matrix()));
+        input_port()->SetTransform(D3DTS_VIEW, reinterpret_cast<const D3DMATRIX*>(view_matrix()));
         float identity[16];
-        Identity(identity);
-        InputPort()->SetTransform(D3DTS_WORLD, reinterpret_cast<const D3DMATRIX*>(identity));
-        ChooseBlendMode(0xF);
-        std::memcpy(ViewMatrix(), caster->view, sizeof(caster->view));
-        std::memcpy(ProjectionMatrix(), caster->projection, sizeof(caster->projection));
-        CustomTransforms() = 1;
-        if (DepthBias() != 0xD) { // (the cache's depth bias 13, its float sent directly)
-            DepthBias() = 0xD;
-            InputPort()->SetRenderState(D3DRS_DEPTHBIAS, 0xB7DA1A93);
+        get_identity(identity);
+        input_port()->SetTransform(D3DTS_WORLD, reinterpret_cast<const D3DMATRIX*>(identity));
+        choose_blend_mode(0xF);
+        std::memcpy(view_matrix(), caster->view, sizeof(caster->view));
+        std::memcpy(projection_matrix(), caster->projection, sizeof(caster->projection));
+        custom_transforms() = 1;
+        if (depth_bias() != 0xD) { // (the cache's depth bias 13, its float sent directly)
+            depth_bias() = 0xD;
+            input_port()->SetRenderState(D3DRS_DEPTHBIAS, 0xB7DA1A93);
         }
         for (int i = 0; i < count; ++i) {
             auto* mesh = static_cast<uint8_t*>(meshes[i]);
             if (mesh[0] & 2)
                 continue;
-            if (!SphereInView(reinterpret_cast<const Maths::Vec4*>(mesh + 4), *reinterpret_cast<float*>(mesh + 0x10)))
+            if (!sphere_in_view(reinterpret_cast<const maths::Vec4*>(mesh + 4), *reinterpret_cast<float*>(mesh + 0x10)))
                 continue;
-            SetVertexFormat(D3DFVF_XYZ | D3DFVF_TEX1);
-            ProjectShadowVertices(*reinterpret_cast<const float**>(mesh + 0xB0), *reinterpret_cast<uint32_t*>(mesh + 0xAC),
-                                  toTexture);
-            int triangles = ClipShadowTriangles(*reinterpret_cast<const uint16_t**>(mesh + 0xB8),
+            set_vertex_format(D3DFVF_XYZ | D3DFVF_TEX1);
+            project_shadow_vertices(*reinterpret_cast<const float**>(mesh + 0xB0), *reinterpret_cast<uint32_t*>(mesh + 0xAC),
+                                  to_texture);
+            int triangles = clip_shadow_triangles(*reinterpret_cast<const uint16_t**>(mesh + 0xB8),
                                                 *reinterpret_cast<uint32_t*>(mesh + 0xB4));
             if (triangles) {
-                InputPort()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, ShadowTriangles(), sizeof(ShadowCornerPoint));
-                ++g_drawCalls; // draws
-                g_drawnTriangles += triangles;
+                input_port()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, shadow_triangles(), sizeof(ShadowCornerPoint));
+                ++g_draw_calls; // draws
+                g_drawn_triangles += triangles;
             }
         }
-        std::memcpy(ViewMatrix(), savedView, sizeof(savedView));
-        std::memcpy(ProjectionMatrix(), savedProjection, sizeof(savedProjection));
-        CustomTransforms() = 0;
+        std::memcpy(view_matrix(), saved_view, sizeof(saved_view));
+        std::memcpy(projection_matrix(), saved_projection, sizeof(saved_projection));
+        custom_transforms() = 0;
     }
-    SetPixelShader(nullptr, nullptr);
-    InputPort()->SetSamplerState(0, D3DSAMP_MINFILTER, savedMinFilter);
-    if (savedFog != Fog()) {
-        Fog() = savedFog;
-        InputPort()->SetRenderState(D3DRS_FOGENABLE, savedFog != 0);
+    set_pixel_shader(nullptr, nullptr);
+    input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, saved_min_filter);
+    if (saved_fog != get_fog()) {
+        get_fog() = saved_fog;
+        input_port()->SetRenderState(D3DRS_FOGENABLE, saved_fog != 0);
     }
-    if (DepthBias() != 0) {
-        DepthBias() = 0;
-        InputPort()->SetRenderState(D3DRS_DEPTHBIAS, 0x80000000); // -0
+    if (depth_bias() != 0) {
+        depth_bias() = 0;
+        input_port()->SetRenderState(D3DRS_DEPTHBIAS, 0x80000000); // -0
     }
-    InputPort()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
-    InputPort()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
-    InputPort()->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
-    InputPort()->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
-    InputPort()->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
-    InputPort()->SetRenderState(D3DRS_TEXTUREFACTOR, 0xFFFFFFFF);
-    InputPort()->SetRenderState(D3DRS_ZENABLE, TRUE);
-    SetTexture(0, nullptr);
+    input_port()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
+    input_port()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
+    input_port()->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
+    input_port()->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
+    input_port()->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
+    input_port()->SetRenderState(D3DRS_TEXTUREFACTOR, 0xFFFFFFFF);
+    input_port()->SetRenderState(D3DRS_ZENABLE, TRUE);
+    set_texture(0, nullptr);
 }
 
 // 0x004DB0A0
-void __cdecl RemoveShadowCaster(uint32_t key)
+void __cdecl remove_shadow_caster(uint32_t key)
 {
-    ShadowCaster* caster = FindCaster(key);
+    ShadowCaster* caster = find_caster(key);
     if (!caster)
         return;
-    Casters()->EraseEntry(key);
-    MemSys::Hub::Sole()->Dealloc(caster);
+    get_casters()->erase_entry(key);
+    memory::Hub::sole()->dealloc(caster);
 }
 
 // 0x004DB100
-void __cdecl AimShadowCaster(uint32_t key, const float* position, const float* target)
+void __cdecl aim_shadow_caster(uint32_t key, const float* position, const float* target)
 {
-    ShadowCaster* caster = FindCaster(key);
+    ShadowCaster* caster = find_caster(key);
     if (!caster)
         return;
     // Up is y, or z when looking straight up or down.
@@ -453,25 +453,25 @@ void __cdecl AimShadowCaster(uint32_t key, const float* position, const float* t
         up[1] = 0.0f;
         up[2] = 1.0f;
     }
-    MatrixLookAt(caster->view, position, target, up);
-    MatrixOrtho(caster->projection, 120.0f, 120.0f, 5.0f, 500.0f);
-    MatrixOrtho(caster->nearProjection, 120.0f, 120.0f, 80.0f, 500.0f);
+    matrix_look_at(caster->view, position, target, up);
+    matrix_ortho(caster->projection, 120.0f, 120.0f, 5.0f, 500.0f);
+    matrix_ortho(caster->near_projection_, 120.0f, 120.0f, 80.0f, 500.0f);
 }
 
 // 0x004DDC90
-void __cdecl AddShadowCaster(uint8_t* target, void* model, uint32_t unknown)
+void __cdecl add_shadow_caster(uint8_t* target, void* model, uint32_t unknown)
 {
-    auto* caster = static_cast<ShadowCaster*>(MemSys::Alloc(sizeof(ShadowCaster)));
+    auto* caster = static_cast<ShadowCaster*>(memory::alloc(sizeof(ShadowCaster)));
     caster->unknown8 = unknown;
     caster->model = model;
     caster->target = target;
-    Identity(caster->view);
-    Identity(caster->projection);
+    get_identity(caster->view);
+    get_identity(caster->projection);
     uint32_t key = reinterpret_cast<uint32_t>(target);
-    Casters()->StoreEntry(key, caster);
+    get_casters()->store_entry(key, caster);
 }
 
 // NOT ORIGINAL
-void SetShadowCompanion(ShadowCompanionFn fn) { g_shadowCompanion = fn; }
+void set_shadow_companion(ShadowCompanionFn fn) { g_shadow_companion = fn; }
 
 } // namespace Nx

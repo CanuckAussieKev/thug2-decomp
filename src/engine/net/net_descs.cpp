@@ -9,58 +9,58 @@
 #include "engine/net/net_app.h"
 #include "engine/net/net_dispatcher.h"
 
-namespace NetLink {
+namespace net {
 
 // 0x004549F0
-NetMessageInfo* NetMessageInfo::MakeNew()
+NetMessageInfo* NetMessageInfo::make_new()
 {
-    m_ident = 0;
-    m_feed = 0;
-    m_byteCount = 0;
-    m_content = nullptr;
-    m_rank = 0x80;
-    m_queue = kLaneNormal;
-    m_groupId = 0;
-    m_singular = false;
-    m_delay = 0;
-    m_fixedSeqNo = 0;
-    m_compression = 0;
+    ident_ = 0;
+    feed_ = 0;
+    byte_count_ = 0;
+    content_ = nullptr;
+    rank_ = 0x80;
+    queue_ = kLaneNormal;
+    group_id_ = 0;
+    singular_ = false;
+    delay_ = 0;
+    fixed_seq_no_ = 0;
+    compression_ = 0;
     return this;
 }
 
 // 0x004549D0
-StreamDesc* StreamDesc::MakeNew()
+StreamDesc* StreamDesc::make_new()
 {
-    m_extent = 0;
-    m_content = nullptr;
-    m_succ = nullptr;
-    m_groupId = 0;
-    m_borrowedPayload = false;
+    extent_ = 0;
+    content_ = nullptr;
+    succ_ = nullptr;
+    group_id_ = 0;
+    borrowed_payload_ = false;
     return this;
 }
 
 // 0x00454E00
-void StreamDesc::DestroyBody()
+void StreamDesc::destroy_body()
 {
-    if (m_content && !m_borrowedPayload) {
-        DebugOut::Printf("Destroying StreamDesc's Data\n");
-        MemSys::Dealloc(m_content);
+    if (content_ && !borrowed_payload_) {
+        debug::printf("Destroying StreamDesc's Data\n");
+        memory::dealloc(content_);
     }
 }
 
 // 0x00454A20
-InboundMsgCtx* InboundMsgCtx::MakeNew()
+InboundMsgCtx* InboundMsgCtx::make_new()
 {
-    m_body = nullptr;
-    m_typeCode = 0;
-    m_bodySize = 0;
-    m_receiverApp = nullptr;
-    m_senderConn = nullptr;
-    m_wireOptions = 0;
-    m_content = nullptr;
-    m_NumSequencesToAck = 0;
-    m_Acknowledge = false;
-    for (uint32_t& sequence : m_SequencesToAck)
+    body_ = nullptr;
+    type_code_ = 0;
+    body_size_ = 0;
+    receiver_app_ = nullptr;
+    sender_conn_ = nullptr;
+    wire_options_ = 0;
+    content_ = nullptr;
+    num_sequences_to_ack_ = 0;
+    acknowledge_ = false;
+    for (uint32_t& sequence : sequences_to_ack_)
         sequence = 0;
     return this;
 }

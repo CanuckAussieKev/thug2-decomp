@@ -15,28 +15,28 @@
 #include "engine/gfx/mesh_list.h"
 #include "engine/core/code_address.h"
 
-namespace Engine3D {
+namespace render {
 
 namespace {
 
 extern void** const kPcMeshVtable;
 
-void ConstructBase(CPcMesh* mesh) { reinterpret_cast<CSubMesh*>(mesh)->CSubMesh::MakeNew(); }
+void construct_base(PcMesh* mesh) { reinterpret_cast<SubMesh*>(mesh)->SubMesh::make_new(); }
 
-sStripBreak* NewBreaks(uint32_t count) { return static_cast<sStripBreak*>(MemSys::Alloc(count * sizeof(sStripBreak))); }
+StripBreak* new_breaks(uint32_t count) { return static_cast<StripBreak*>(memory::alloc(count * sizeof(StripBreak))); }
 // (the C runtime's qsort; the original's is the game's, 0x006242A0)
-void SortBreaks(sStripBreak* breaks, uint32_t count)
+void sort_breaks(StripBreak* breaks, uint32_t count)
 {
-    std::qsort(breaks, count, sizeof(sStripBreak), &CompareStripBreaks);
+    std::qsort(breaks, count, sizeof(StripBreak), &compare_strip_breaks);
 }
 
 } // namespace
 
 // 0x004B7AF0
-int __cdecl CompareStripBreaks(const void* a, const void* b)
+int __cdecl compare_strip_breaks(const void* a, const void* b)
 {
-    uint32_t x = static_cast<const sStripBreak*>(a)->meshAndIndex;
-    uint32_t y = static_cast<const sStripBreak*>(b)->meshAndIndex;
+    uint32_t x = static_cast<const StripBreak*>(a)->mesh_and_index_;
+    uint32_t y = static_cast<const StripBreak*>(b)->mesh_and_index_;
     if ((x >> 16) != (y >> 16))
         return (x >> 16) > (y >> 16) ? 1 : -1;
     if ((x & 0xFFFF) > (y & 0xFFFF))
@@ -45,111 +45,111 @@ int __cdecl CompareStripBreaks(const void* a, const void* b)
 }
 
 // 0x004B7B30
-CPcMesh* CPcMesh::MakeNew()
+PcMesh* PcMesh::make_new()
 {
-    ConstructBase(this);
+    construct_base(this);
     vtable = reinterpret_cast<void**>(kPcMeshVtable);
     return this;
 }
 
 // 0x004B7D50
-CPcMesh* CPcMesh::ConstructFromFile(const char* name)
+PcMesh* PcMesh::construct_from_file(const char* name)
 {
-    ConstructBase(this);
+    construct_base(this);
     vtable = reinterpret_cast<void**>(kPcMeshVtable);
     if (std::strstr(name, "skin")) {
         char file[0x100];
         std::memcpy(file, name, std::strlen(name) + 1); // (unchecked, as the original)
-        TextUtil::ToLowerText(file);
+        text::to_lower_text(file);
         if (char* extension = std::strstr(file, "skin.xbx")) {
             std::memcpy(extension, "cas.xbx", 8);
-            LoadSkinFile(file);
+            load_skin_file(file);
         }
     }
     return this;
 }
 
 // 0x004B7E30
-void CPcMesh::DestroyBody()
+void PcMesh::destroy_body()
 {
     vtable = reinterpret_cast<void**>(kPcMeshVtable);
     if (breaks)
-        MemSys::Hub::Pull()->Dealloc(breaks);
+        memory::Hub::get_pull()->dealloc(breaks);
     if (scene)
-        Engine::UnloadScene(reinterpret_cast<CWorldScene*>(scene), 1); // (the engine's UnloadScene)
-    reinterpret_cast<CSubMesh*>(this)->CSubMesh::DestroyBody();
+        engine::unload_scene(reinterpret_cast<WorldScene*>(scene), 1); // (the engine's UnloadScene)
+    reinterpret_cast<SubMesh*>(this)->SubMesh::destroy_body();
 }
 
 // 0x004B7F00
-CPcMesh* CPcMesh::Teardown(unsigned int flags)
+PcMesh* PcMesh::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x004B7B50
-bool CPcMesh::LoadSkinFile(const char* name)
+bool PcMesh::load_skin_file(const char* name)
 {
-    FileLoad::Hdl file = FileLoad::Unseal(name, "rb");
+    file::Hdl file = file::unseal(name, "rb");
     uint32_t version;
-    FileLoad::TakeIn(&version, 4, 1, file);
+    file::get_take_in(&version, 4, 1, file);
     if (version >= 2)
-        FileLoad::TakeIn(&boneCount, 4, 1, file);
-    FileLoad::TakeIn(&breakCount, 4, 1, file);
-    if (breakCount) {
-        breaks = NewBreaks(breakCount);
-        for (uint32_t i = 0; i < breakCount; ++i) {
-            FileLoad::TakeIn(&breaks[i], 12, 1, file);
-            breaks[i].stripIndex = 0;
+        file::get_take_in(&bone_count_, 4, 1, file);
+    file::get_take_in(&break_count_, 4, 1, file);
+    if (break_count_) {
+        breaks = new_breaks(break_count_);
+        for (uint32_t i = 0; i < break_count_; ++i) {
+            file::get_take_in(&breaks[i], 12, 1, file);
+            breaks[i].strip_index_ = 0;
         }
-        SortBreaks(breaks, breakCount);
+        sort_breaks(breaks, break_count_);
     }
-    FileLoad::Shut(file);
-    return breakCount != 0;
+    file::shut(file);
+    return break_count_ != 0;
 }
 
 // 0x004B7C60
-bool CPcMesh::LoadSkinFromMemory(const uint8_t** data)
+bool PcMesh::load_skin_from_memory(const uint8_t** data)
 {
     const uint32_t* p = reinterpret_cast<const uint32_t*>(*data);
     uint32_t version = *p++;
     if (version >= 2)
-        boneCount = *p++;
-    breakCount = *p++;
-    if (breakCount) {
-        breaks = NewBreaks(breakCount);
-        for (uint32_t i = 0; i < breakCount; ++i) {
+        bone_count_ = *p++;
+    break_count_ = *p++;
+    if (break_count_) {
+        breaks = new_breaks(break_count_);
+        for (uint32_t i = 0; i < break_count_; ++i) {
             std::memcpy(&breaks[i], p, 12);
             p += 3;
-            breaks[i].stripIndex = 0;
+            breaks[i].strip_index_ = 0;
         }
-        SortBreaks(breaks, breakCount);
+        sort_breaks(breaks, break_count_);
     }
     *data = reinterpret_cast<const uint8_t*>(p);
-    return breakCount != 0;
+    return break_count_ != 0;
 }
 
 // 0x004B7EB0
-void CPcMesh::LoadSkin(const uint8_t* data)
+void PcMesh::load_skin(const uint8_t* data)
 {
     if (data)
-        LoadSkinFromMemory(&data);
+        load_skin_from_memory(&data);
 }
 
 // 0x004B7ED0
-void CPcMesh::ChooseScene(uint8_t* newScene)
+void PcMesh::choose_scene(uint8_t* new_scene)
 {
-    scene = newScene;
-    auto* list = *reinterpret_cast<sceneRef**>(newScene + 0x280);
+    scene = new_scene;
+    auto* list = *reinterpret_cast<SceneRef**>(new_scene + 0x280);
     hierarchy = list->extra;
-    hierarchyCount = list->unknown78;
+    hierarchy_count_ = list->unknown78;
 }
 
 namespace {
-static VtableSlot kPcMeshVtable_slots[] = {&Engine3D::CPcMesh::Teardown};
-void** const kPcMeshVtable = reinterpret_cast<void**>(kPcMeshVtable_slots);
+static VtableSlot g_pc_mesh_vtable_slots[] = {&render::PcMesh::teardown};
+void** const kPcMeshVtable = reinterpret_cast<void**>(g_pc_mesh_vtable_slots);
 } // namespace
 
 } // namespace Nx

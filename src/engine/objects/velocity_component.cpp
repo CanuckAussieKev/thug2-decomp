@@ -17,7 +17,7 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
@@ -26,90 +26,90 @@ constexpr uint32_t kVel = 0x0C4C809E;
 const float kHalf = 0.5f; // 0x006453BC
 
 // The Suspend component's flag at +0x30 (0x00433E90; not rewritten yet).
-bool SuspendFlag(CObjectModule* suspend) { return static_cast<CDormancyModule*>(suspend)->IsFar(); }
+bool suspend_flag(ObjectModule* suspend) { return static_cast<DormancyModule*>(suspend)->is_far(); }
 
 } // namespace
 
 // 0x0043D430
-CObjectModule* __cdecl CVelocityTrackerModule::Fabricate()
+ObjectModule* __cdecl VelocityTrackerModule::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CVelocityTrackerModule));
+    void* memory = memory::alloc_zeroed(sizeof(VelocityTrackerModule));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CVelocityTrackerModule*>(memory);
-    component->CObjectModule::MakeNew();
-    component->m_vtable = kVtable;
-    component->m_kindTag = kType;
+    auto* component = static_cast<VelocityTrackerModule*>(memory);
+    component->ObjectModule::make_new();
+    component->vtable_ = kVtable;
+    component->kind_tag_ = kType;
     return component;
 }
 
 // 0x0043D2B0
-void CVelocityTrackerModule::DestroyBody()
+void VelocityTrackerModule::destroy_body()
 {
-    m_vtable = kVtable;
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    ObjectModule::destroy_body();
 }
 
 // 0x0043D2C0
-CVelocityTrackerModule* CVelocityTrackerModule::Teardown(unsigned int flags)
+VelocityTrackerModule* VelocityTrackerModule::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x0043D2F0
-void CVelocityTrackerModule::ConfigureFromData(Scripts::CStruct* params)
+void VelocityTrackerModule::configure_from_data(script::Struct* params)
 {
-    Scripts::VectorValue vel;
-    params->FetchVec(kVel, &vel, 1);
-    m_entity->m_vel.x = vel.x;
-    m_entity->m_vel.y = vel.y;
-    m_entity->m_vel.z = vel.z;
-    m_entity->m_vel.w = vel.w;
+    script::VectorValue vel;
+    params->fetch_vec(kVel, &vel, 1);
+    entity_->vel_.x = vel.x;
+    entity_->vel_.y = vel.y;
+    entity_->vel_.z = vel.z;
+    entity_->vel_.w = vel.w;
 }
 
 // 0x0043D340
-void CVelocityTrackerModule::TickFrame()
+void VelocityTrackerModule::tick_frame()
 {
-    if (!g_onlineHub->InNetGame() && SuspendFlag(m_suspend))
+    if (!g_online_hub->in_net_game() && suspend_flag(suspend_))
         return;
-    const Maths::Vec4& vel = m_entity->m_vel;
+    const maths::Vec4& vel = entity_->vel_;
     // Half the velocity (each rounded), the position as it was.
-    float halfX = vel.x * kHalf, halfY = vel.y * kHalf, halfZ = vel.z * kHalf, halfW = vel.w * kHalf;
-    Maths::Vec4 pos = m_entity->m_atPoint;
-    double frame = FrameClock::GetSlomoFrameSeconds();
+    float half_x = vel.x * kHalf, half_y = vel.y * kHalf, half_z = vel.z * kHalf, half_w = vel.w * kHalf;
+    maths::Vec4 pos = entity_->at_point_;
+    double frame = frame_clock::get_slomo_frame_seconds();
     // Each step rounded, then added - but w's step isn't rounded.
-    float stepX = static_cast<float>(halfX * frame);
-    float stepY = static_cast<float>(halfY * frame);
-    float stepZ = static_cast<float>(halfZ * frame);
-    Maths::Vec4& out = m_entity->m_atPoint;
-    out.z = static_cast<float>(static_cast<double>(stepZ) + pos.z);
-    out.w = static_cast<float>(frame * halfW + pos.w);
-    out.x = static_cast<float>(static_cast<double>(stepX) + pos.x);
-    out.y = static_cast<float>(static_cast<double>(stepY) + pos.y);
+    float step_x = static_cast<float>(half_x * frame);
+    float step_y = static_cast<float>(half_y * frame);
+    float step_z = static_cast<float>(half_z * frame);
+    maths::Vec4& out = entity_->at_point_;
+    out.z = static_cast<float>(static_cast<double>(step_z) + pos.z);
+    out.w = static_cast<float>(frame * half_w + pos.w);
+    out.x = static_cast<float>(static_cast<double>(step_x) + pos.x);
+    out.y = static_cast<float>(static_cast<double>(step_y) + pos.y);
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CVelocityTrackerModule::Teardown,
-         &GameObjects::CVelocityTrackerModule::TickFrame,
-         &GameObjects::CVelocityTrackerModule::ConfigureFromData,
-         &GameObjects::CImpactDestructModule::Seal,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
-         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::VelocityTrackerModule::teardown,
+         &objects::VelocityTrackerModule::tick_frame,
+         &objects::VelocityTrackerModule::configure_from_data,
+         &objects::ImpactDestructModule::seal,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
+         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

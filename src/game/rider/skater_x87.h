@@ -3,9 +3,9 @@
 // The x87's own FSIN / FCOS / FPTAN / FSQRT, which the skater's original code uses (the C runtime's sin and cos round
 // differently). The game runs the x87 at 53 bits, so a double holds the result exactly; callers round to float where
 // the original stores one.
-namespace Skater {
+namespace skater {
 
-inline double X87Cos(double angle)
+inline double x87_cos(double angle)
 {
     double result;
     __asm {
@@ -16,7 +16,7 @@ inline double X87Cos(double angle)
     return result;
 }
 
-inline double X87Sin(double angle)
+inline double x87_sin(double angle)
 {
     double result;
     __asm {
@@ -27,7 +27,7 @@ inline double X87Sin(double angle)
     return result;
 }
 
-inline double X87Tan(double angle)
+inline double x87_tan(double angle)
 {
     double result;
     __asm {

@@ -5,67 +5,67 @@
 // detection, stdio, the multibyte tables, the C++ unhandled-exception filter) and the C++ ones - after the security
 // cookie, 77 game initialisers that construct globals (hash tables, list heads, lights, textures, the expression
 // evaluator...), fill the script member-function tables' code pointers and create two mutexes. Here every global starts
-// with its start value, before any initialiser, so RunStartupInitialisers does each one's work in the original's order.
+// with its start value, before any initialiser, so run_startup_initialisers does each one's work in the original's order.
 //
 // The pieces are defined next to the globals they make (the owners' files), each named after what it does, with the
 // original initialiser's address.
-namespace SystemCore {
+namespace sys {
 
 // Every effect of the original's start-up initialisers, in their order (the table at 0x0067C000):
 // called first thing in WinMain (by then the compiler's own dynamic initialisers have all run, as the original's CRT had
 // run its own). Once: it constructs, it doesn't reset.
-void RunStartupInitialisers();
+void run_startup_initialisers();
 
 } // namespace Sys
 
-namespace Engine3D {
-void ConstructSharedOrientation(); // 0x00640860
-void ConstructMovables();          // 0x00640880
-void ConstructSceneList();         // 0x00640B00
-void ConstructFontTable();         // 0x00640B40
-void SetWorldLightsAmbient();      // 0x00640B60
-void ConstructWorldLightStack();   // 0x00640B90
-void ConstructSceneLights();       // 0x00640BC0
-void ConstructLoadedTexDicts();    // 0x00640BF0
-void SetUpGameTextureDict();       // 0x00640C10
-void SetUpParticleTextureDict();   // 0x00640C60
-void ConstructSpareTexDictTable(); // 0x00640CB0
-void ConstructShadowEdgeTable();   // 0x00640CD0
-void CreateScreenMutex();          // 0x00640D10
-void ConstructProjectionBatches(); // 0x00640D30
-void ConstructSpareMaterial();     // 0x00640D70
-void ConstructGrassTextures();     // 0x00640D90
-void ConstructGrassTextureAnimation(); // 0x00640DC0
-void ConstructShaderCache();       // 0x00640DF0
-void ConstructGlowTable();         // 0x00640E10
+namespace render {
+void construct_shared_orientation(); // 0x00640860
+void construct_movables();          // 0x00640880
+void construct_scene_list();         // 0x00640B00
+void construct_font_table();         // 0x00640B40
+void set_world_lights_ambient();      // 0x00640B60
+void construct_world_light_stack();   // 0x00640B90
+void construct_scene_lights();       // 0x00640BC0
+void construct_loaded_tex_dicts();    // 0x00640BF0
+void set_up_game_texture_dict();       // 0x00640C10
+void set_up_particle_texture_dict();   // 0x00640C60
+void construct_spare_tex_dict_table(); // 0x00640CB0
+void construct_shadow_edge_table();   // 0x00640CD0
+void create_screen_mutex();          // 0x00640D10
+void construct_projection_batches(); // 0x00640D30
+void construct_spare_material();     // 0x00640D70
+void construct_grass_textures();     // 0x00640D90
+void construct_grass_texture_animation(); // 0x00640DC0
+void construct_shader_cache();       // 0x00640DF0
+void construct_glow_table();         // 0x00640E10
 } // namespace Nx
 
-namespace GameObjects {
-void ConstructRigidBodyCache();     // 0x00640900
-void ConstructSpareObjectList();    // 0x006409F0
-void ConstructInstanceList();       // 0x00640A10
-void ConstructCutsceneRotations();  // 0x00640A30
-void FillProximityMemberFunctions(); // 0x00644910
+namespace objects {
+void construct_rigid_body_cache();     // 0x00640900
+void construct_spare_object_list();    // 0x006409F0
+void construct_instance_list();       // 0x00640A10
+void construct_cutscene_rotations();  // 0x00640A30
+void fill_proximity_member_functions(); // 0x00644910
 } // namespace Obj
 
-namespace SurfaceKind {
-void ConstructTerrainTypes();   // 0x00640950
-void ConstructTerrainActions(); // 0x00640970
+namespace surface_kind {
+void construct_terrain_types();   // 0x00640950
+void construct_terrain_actions(); // 0x00640970
 } // namespace Terrain
 
-namespace AudioStream {
-void CreateStreamLock(); // 0x006409D0
+namespace audio {
+void create_stream_lock(); // 0x006409D0
 } // namespace Pcm
 
-namespace Scripts {
-void ConstructEvaluator(); // 0x00640A70
+namespace script {
+void construct_evaluator(); // 0x00640A70
 } // namespace Script
 
-namespace Gfx2D {
-void ConstructSpareRotations();    // 0x00640AA0
-void ConstructBoneVolumeTable();   // 0x00640AE0
+namespace gfx {
+void construct_spare_rotations();    // 0x00640AA0
+void construct_bone_volume_table();   // 0x00640AE0
 } // namespace Gfx
 
-namespace ScriptCommands {
-void ConstructCutsceneDestroyList(); // 0x00644A00
-} // namespace ScriptCommands
+namespace commands {
+void construct_cutscene_destroy_list(); // 0x00644A00
+} // namespace commands

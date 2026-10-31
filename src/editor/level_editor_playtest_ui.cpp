@@ -10,23 +10,23 @@
 #include "editor/level_editor_playtest.h"
 #include "imgui.h"
 
-namespace MenuSystem::LevelEditor::PlayTest {
+namespace frontend::level_editor::play_test {
 
 namespace {
 
-ImVec4 Colour(uint32_t argb)
+ImVec4 get_colour(uint32_t argb)
 {
     return ImVec4(((argb >> 16) & 0xFF) / 255.0f, ((argb >> 8) & 0xFF) / 255.0f, (argb & 0xFF) / 255.0f,
                   ((argb >> 24) & 0xFF) / 255.0f);
 }
 
-void Tip(const char* text)
+void get_tip(const char* text)
 {
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
         ImGui::SetTooltip("%s", text);
 }
 
-void Heading(const char* title, ImFont* heading)
+void current_heading(const char* title, ImFont* heading)
 {
     ImGui::Spacing();
     if (heading)
@@ -39,24 +39,24 @@ void Heading(const char* title, ImFont* heading)
 
 } // namespace
 
-void RestartSection(int nodeIndex)
+void restart_section(int node_index)
 {
-    const std::vector<Nodes::Elem>& all = Nodes::All();
-    if (nodeIndex < 0 || nodeIndex >= static_cast<int>(all.size()))
+    const std::vector<nodes::Elem>& all = nodes::get_all();
+    if (node_index < 0 || node_index >= static_cast<int>(all.size()))
         return;
-    const Nodes::Elem& node = all[nodeIndex];
-    if (node.family != Nodes::Family::Spawn || node.hidden)
+    const nodes::Elem& node = all[node_index];
+    if (node.family != nodes::Family::kSpawn || node.hidden)
         return;
     uint32_t name = node.name;
     if (ImGui::Button("Play from Here"))
-        PlayFromRestart(name);
-    Tip("Play from this restart  (F5 returns)");
+        play_from_restart(name);
+    get_tip("Play from this restart  (F5 returns)");
     ImGui::SameLine();
 }
 
-void Pane(float scale, ImFont* heading, ImFont* small)
+void pane(float scale, ImFont* heading, ImFont* small)
 {
-    if (!WindowOpen())
+    if (!window_open())
         return;
     ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.30f, io.DisplaySize.y * 0.18f), ImGuiCond_FirstUseEver);
@@ -65,28 +65,28 @@ void Pane(float scale, ImFont* heading, ImFont* small)
     if (!ImGui::Begin("Trails###editortrail", &open, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::End();
         if (!open)
-            WindowOpen() = false;
+            window_open() = false;
         return;
     }
-    const LevelTrails* trails = CurrentTrails();
-    Heading("Test runs", heading);
-    ImGui::Checkbox("Record Runs", &Recording());
-    Tip("Record a trail of each test run");
+    const LevelTrails* trails = current_trails();
+    current_heading("Test runs", heading);
+    ImGui::Checkbox("Record Runs", &recording());
+    get_tip("Record a trail of each test run");
     ImGui::SameLine();
-    ImGui::Checkbox("Show", &ShowTrails());
+    ImGui::Checkbox("Show", &show_trails());
     // The legend.
     for (int m = 0; m < kMotions; ++m) {
         if (m % 5)
             ImGui::SameLine();
-        ImGui::TextColored(Colour(MotionColour(static_cast<Motion>(m))), "%s", MotionName(static_cast<Motion>(m)));
+        ImGui::TextColored(get_colour(motion_colour(static_cast<Motion>(m))), "%s", motion_name(static_cast<Motion>(m)));
     }
-    ImGui::TextColored(Colour(0xFF40FF60), "o gap landed");
+    ImGui::TextColored(get_colour(0xFF40FF60), "o gap landed");
     ImGui::SameLine();
-    ImGui::TextColored(Colour(0xFFFF4040), "o gap lost");
+    ImGui::TextColored(get_colour(0xFFFF4040), "o gap lost");
     ImGui::SameLine();
-    ImGui::TextColored(Colour(0xFFFFE040), "o pending");
+    ImGui::TextColored(get_colour(0xFFFFE040), "o pending");
     ImGui::SameLine();
-    ImGui::TextColored(Colour(0xFFFF3030), "x bail");
+    ImGui::TextColored(get_colour(0xFFFF3030), "x bail");
     if (!trails || trails->runs.empty()) {
         ImGui::TextDisabled("No runs recorded");
     } else if (ImGui::BeginTable("##runs", 6, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit)) {
@@ -105,16 +105,16 @@ void Pane(float scale, ImFont* heading, ImFont* small)
             ImGui::TableNextColumn();
             bool visible = run.visible;
             if (ImGui::Checkbox("##v", &visible))
-                SetRunVisible(run.number, visible);
+                set_run_visible(run.number, visible);
             ImGui::TableNextColumn();
             ImGui::Text("%d%s", run.number, run.full ? "+" : "");
             if (ImGui::IsItemHovered()) {
                 std::string text;
                 char part[64];
                 for (int m = 0; m < kMotions; ++m) {
-                    if (run.motionSeconds[m] < 0.05f)
+                    if (run.motion_seconds_[m] < 0.05f)
                         continue;
-                    std::snprintf(part, sizeof(part), "%s %.1f s\n", MotionName(static_cast<Motion>(m)), run.motionSeconds[m]);
+                    std::snprintf(part, sizeof(part), "%s %.1f s\n", motion_name(static_cast<Motion>(m)), run.motion_seconds_[m]);
                     text += part;
                 }
                 ImGui::SetTooltip("%s%u points%s", text.c_str(), static_cast<unsigned>(run.samples.size()),
@@ -123,53 +123,53 @@ void Pane(float scale, ImFont* heading, ImFont* small)
             ImGui::TableNextColumn();
             ImGui::Text("%.1f s", run.seconds);
             ImGui::TableNextColumn();
-            ImGui::Text("%d", run.GapsLanded());
+            ImGui::Text("%d", run.gaps_landed());
             ImGui::TableNextColumn();
-            ImGui::Text("%d", run.Bails());
+            ImGui::Text("%d", run.bails());
             ImGui::TableNextColumn();
-            ImGui::Text("%d", run.TopComboValue());
+            ImGui::Text("%d", run.top_combo_value());
             ImGui::SameLine();
             if (ImGui::SmallButton("x"))
                 remove = run.number;
-            Tip("Delete this run");
+            get_tip("Delete this run");
             ImGui::PopID();
         }
         ImGui::EndTable();
         if (remove)
-            DeleteRun(remove);
+            delete_run(remove);
     }
     if (ImGui::Button("Clear"))
-        Request(Ask::Clear);
-    Tip("Clear all runs and landed gaps");
+        get_request(Ask::kClear);
+    get_tip("Clear all runs and landed gaps");
     ImGui::SameLine();
     if (ImGui::Button("Save"))
-        Request(Ask::StoreAway);
-    Tip("Save trails to disk");
+        get_request(Ask::kStoreAway);
+    get_tip("Save trails to disk");
     ImGui::SameLine();
     if (ImGui::Button("Load"))
-        Request(Ask::ReadIn);
-    Tip("Reload trails from disk");
+        get_request(Ask::kReadIn);
+    get_tip("Reload trails from disk");
 
     // The gaps validated by skating.
-    std::vector<GapRead> gaps = LevelGaps();
+    std::vector<GapRead> gaps = get_level_gaps();
     int landed = 0;
     for (const GapRead& g : gaps)
-        landed += GapLanded(g.name) ? 1 : 0;
+        landed += gap_landed(g.name) ? 1 : 0;
     char title[96];
     std::snprintf(title, sizeof(title), "Gaps Landed: %d / %u", landed, static_cast<unsigned>(gaps.size()));
-    Heading(title, heading);
-    static bool untestedOnly;
-    ImGui::Checkbox("Untested Only", &untestedOnly);
+    current_heading(title, heading);
+    static bool g_untested_only;
+    ImGui::Checkbox("Untested Only", &g_untested_only);
     if (gaps.empty()) {
         ImGui::TextDisabled("No gaps");
     } else if (ImGui::BeginChild("##gaps", ImVec2(0.0f, 150.0f * scale), ImGuiChildFlags_Borders)) {
         if (small)
             ImGui::PushFont(small);
         for (const GapRead& g : gaps) {
-            bool ok = GapLanded(g.name);
-            if (untestedOnly && ok)
+            bool ok = gap_landed(g.name);
+            if (g_untested_only && ok)
                 continue;
-            ImGui::TextColored(ok ? Colour(0xFF40FF60) : Colour(0xFFFFB040), "%s", ok ? "landed  " : "untested");
+            ImGui::TextColored(ok ? get_colour(0xFF40FF60) : get_colour(0xFFFFB040), "%s", ok ? "landed  " : "untested");
             ImGui::SameLine();
             ImGui::Text("%s  (%d)", g.name.c_str(), g.score);
         }
@@ -179,19 +179,19 @@ void Pane(float scale, ImFont* heading, ImFont* small)
     if (!gaps.empty())
         ImGui::EndChild();
 
-    Heading("Simulate", heading);
-    bool simulating = Simulating();
+    current_heading("Simulate", heading);
+    bool simulating = get_simulating();
     if (ImGui::Button(simulating ? "Stop" : "Simulate"))
-        Request(Ask::ToggleSimulate);
+        get_request(Ask::kToggleSimulate);
     ImGui::SameLine();
-    bool keep = KeepSimulation();
+    bool keep = keep_simulation();
     if (ImGui::Checkbox("Keep Positions", &keep))
-        Request(Ask::ToggleKeepSimulation);
-    Tip("Keep objects where they are when stopping");
-    ImGui::TextDisabled("%s", Standing().c_str());
+        get_request(Ask::kToggleKeepSimulation);
+    get_tip("Keep objects where they are when stopping");
+    ImGui::TextDisabled("%s", get_standing().c_str());
     ImGui::End();
     if (!open)
-        WindowOpen() = false;
+        window_open() = false;
 }
 
-} // namespace MenuSystem::LevelEditor::PlayTest
+} // namespace MenuSystem::level_editor::play_test

@@ -5,113 +5,113 @@
 #include "engine/core/manager.h"
 #include "engine/core/code_address.h"
 
-namespace OnlinePlay {
+namespace online {
 
-static VtableSlot kPlayerNodeVtable_slots[] = {&PlayerNode::Teardown};
-void** const kPlayerNodeVtable = reinterpret_cast<void**>(kPlayerNodeVtable_slots);
-static VtableSlot kNewPlayerNodeVtable_slots[] = {&NewPlayerNode::Teardown};
-void** const kNewPlayerNodeVtable = reinterpret_cast<void**>(kNewPlayerNodeVtable_slots);
-static VtableSlot kServerNodeVtable_slots[] = {&ServerNode::Teardown};
-void** const kServerNodeVtable = reinterpret_cast<void**>(kServerNodeVtable_slots);
-static VtableSlot kQueuedScriptNodeVtable_slots[] = {&QueuedScriptNode::Teardown};
-void** const kQueuedScriptNodeVtable = reinterpret_cast<void**>(kQueuedScriptNodeVtable_slots);
-static VtableSlot kQueuedScriptVtable_slots[] = {&PendingScriptItem::DestroyRecord};
-void** const kQueuedScriptVtable = reinterpret_cast<void**>(kQueuedScriptVtable_slots);
-static VtableSlot kPlayerHeadVtable_slots[] = {&PlayerNode::DestroyHead};
-void** const kPlayerHeadVtable = reinterpret_cast<void**>(kPlayerHeadVtable_slots);
-static VtableSlot kNewPlayerHeadVtable_slots[] = {&NewPlayerNode::DestroyHead};
-void** const kNewPlayerHeadVtable = reinterpret_cast<void**>(kNewPlayerHeadVtable_slots);
-static VtableSlot kServerHeadVtable_slots[] = {&ServerNode::DestroyHead};
-void** const kServerHeadVtable = reinterpret_cast<void**>(kServerHeadVtable_slots);
+static VtableSlot g_player_node_vtable_slots[] = {&PlayerNode::teardown};
+void** const kPlayerNodeVtable = reinterpret_cast<void**>(g_player_node_vtable_slots);
+static VtableSlot g_new_player_node_vtable_slots[] = {&NewPlayerNode::teardown};
+void** const kNewPlayerNodeVtable = reinterpret_cast<void**>(g_new_player_node_vtable_slots);
+static VtableSlot g_server_node_vtable_slots[] = {&ServerNode::teardown};
+void** const kServerNodeVtable = reinterpret_cast<void**>(g_server_node_vtable_slots);
+static VtableSlot g_queued_script_node_vtable_slots[] = {&QueuedScriptNode::teardown};
+void** const kQueuedScriptNodeVtable = reinterpret_cast<void**>(g_queued_script_node_vtable_slots);
+static VtableSlot g_queued_script_vtable_slots[] = {&PendingScriptItem::destroy_record};
+void** const kQueuedScriptVtable = reinterpret_cast<void**>(g_queued_script_vtable_slots);
+static VtableSlot g_player_head_vtable_slots[] = {&PlayerNode::destroy_head};
+void** const kPlayerHeadVtable = reinterpret_cast<void**>(g_player_head_vtable_slots);
+static VtableSlot g_new_player_head_vtable_slots[] = {&NewPlayerNode::destroy_head};
+void** const kNewPlayerHeadVtable = reinterpret_cast<void**>(g_new_player_head_vtable_slots);
+static VtableSlot g_server_head_vtable_slots[] = {&ServerNode::destroy_head};
+void** const kServerHeadVtable = reinterpret_cast<void**>(g_server_head_vtable_slots);
 
 namespace {
 
-void Dealloc(void* memory) { MemSys::Hub::Pull()->Dealloc(memory); }
+void dealloc(void* memory) { memory::Hub::get_pull()->dealloc(memory); }
 
 } // namespace
 
 // 0x005366A0
-void PlayerNode::DestroyBody() { UnlinkAs(kPlayerNodeVtable); }
+void PlayerNode::destroy_body() { unlink_as(kPlayerNodeVtable); }
 
 // 0x00536760
-PlayerNode* PlayerNode::Teardown(unsigned int flags)
+PlayerNode* PlayerNode::teardown(unsigned int flags)
 {
-    UnlinkAs(kPlayerNodeVtable);
+    unlink_as(kPlayerNodeVtable);
     if (flags & 1)
-        Dealloc(this);
+        dealloc(this);
     return this;
 }
 
 // 0x00536CE0
-PlayerNode* PlayerNode::DestroyHead(unsigned int flags)
+PlayerNode* PlayerNode::destroy_head(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        Dealloc(this);
+        dealloc(this);
     return this;
 }
 
 // 0x005366E0
-void NewPlayerNode::DestroyBody() { UnlinkAs(kNewPlayerNodeVtable); }
+void NewPlayerNode::destroy_body() { unlink_as(kNewPlayerNodeVtable); }
 
 // 0x005367E0
-NewPlayerNode* NewPlayerNode::Teardown(unsigned int flags)
+NewPlayerNode* NewPlayerNode::teardown(unsigned int flags)
 {
-    UnlinkAs(kNewPlayerNodeVtable);
+    unlink_as(kNewPlayerNodeVtable);
     if (flags & 1)
-        Dealloc(this);
+        dealloc(this);
     return this;
 }
 
 // 0x00536D10
-NewPlayerNode* NewPlayerNode::DestroyHead(unsigned int flags)
+NewPlayerNode* NewPlayerNode::destroy_head(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        Dealloc(this);
+        dealloc(this);
     return this;
 }
 
 // 0x005366C0
-void ServerNode::DestroyBody() { UnlinkAs(kServerNodeVtable); }
+void ServerNode::destroy_body() { unlink_as(kServerNodeVtable); }
 
 // 0x005367A0
-ServerNode* ServerNode::Teardown(unsigned int flags)
+ServerNode* ServerNode::teardown(unsigned int flags)
 {
-    UnlinkAs(kServerNodeVtable);
+    unlink_as(kServerNodeVtable);
     if (flags & 1)
-        Dealloc(this);
+        dealloc(this);
     return this;
 }
 
 // 0x00536D40
-ServerNode* ServerNode::DestroyHead(unsigned int flags)
+ServerNode* ServerNode::destroy_head(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        Dealloc(this);
+        dealloc(this);
     return this;
 }
 
 // 0x00536700
-void QueuedScriptNode::DestroyBody() { UnlinkAs(kQueuedScriptNodeVtable); }
+void QueuedScriptNode::destroy_body() { unlink_as(kQueuedScriptNodeVtable); }
 
 // 0x00536720
-QueuedScriptNode* QueuedScriptNode::Teardown(unsigned int flags)
+QueuedScriptNode* QueuedScriptNode::teardown(unsigned int flags)
 {
-    UnlinkAs(kQueuedScriptNodeVtable);
+    unlink_as(kQueuedScriptNodeVtable);
     if (flags & 1)
-        Dealloc(this);
+        dealloc(this);
     return this;
 }
 
 // 0x005371F0
-PendingScriptItem* PendingScriptItem::DestroyRecord(unsigned int flags)
+PendingScriptItem* PendingScriptItem::destroy_record(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        Dealloc(this);
+        dealloc(this);
     return this;
 }
 
-} // namespace OnlinePlay
+} // namespace online

@@ -5,9 +5,9 @@
 
 #include "engine/objects/entity.h"
 
-namespace Scripts {
-class CScript;
-class CStruct;
+namespace script {
+class Script;
+class Struct;
 } // namespace Script
 
 // The skater's run timer component (SkaterRunTimer, type 0x8BCE7E66, vtable 0x0064C04C, 0x28 bytes): the timer of a
@@ -18,54 +18,54 @@ class CStruct;
 // skater's index). From the disassembly of 0x00518240-0x00518626 (0x00518240, 0x005184A0-0x005185C6 aren't Ghidra
 // functions).
 //
-// Vtable: 0 Destroy, 1 Update, 2 the shared 0x004FBDA0, 3 Finalize, 10 FetchDiagnostics, 11 the shared 0x0042BB20, 12
-// the shared InvokeMethodByName 0x0051ADC0.
-namespace GameObjects {
+// Vtable: 0 Destroy, 1 Update, 2 the shared 0x004FBDA0, 3 Finalize, 10 fetch_diagnostics, 11 the shared 0x0042BB20, 12
+// the shared invoke_method_by_name 0x0051ADC0.
+namespace objects {
 
-class CRiderRunClock : public CObjectModule {
+class RiderRunClock : public ObjectModule {
 public:
-    enum State : int { CLOCK_IDLE = 0, CLOCK_TICKING = 1, ACTIVE_PAUSED = 2, ACTIVE_TIME_UP = 3 };
+    enum State : int { kClockIdle = 0, kClockTicking = 1, kActivePaused = 2, kActiveTimeUp = 3 };
 
-    // 0x005185D0 (registered by RegisterComponentTypes): a new one (0 if out of memory). Nothing else is set.
-    static CObjectModule* __cdecl Fabricate();
+    // 0x005185D0 (registered by register_component_types): a new one (0 if out of memory). Nothing else is set.
+    static ObjectModule* __cdecl fabricate();
     // 0x00518240 (registered with Create): its script member functions (the table at 0x006849C0) registered.
-    static void __cdecl PublishMethodTable();
+    static void __cdecl publish_method_table();
     // 0x00518260: the destructor body (the base's).
-    void DestroyBody();
+    void destroy_body();
     // 0x005182B0 (vtable slot 0)
-    CRiderRunClock* Teardown(unsigned int flags);
+    RiderRunClock* teardown(unsigned int flags);
     // 0x005182E0 (vtable +0x0C): the walk component found.
-    void Seal();
+    void seal();
     // 0x00518300 (vtable +0x04): running, the time left goes down by the frame's time (scaled while the walk's state
     // is 2-4); below 0 it's up: RunTimerUp to the skater - and again every frame while it's up.
-    void TickFrame();
-    // 0x00518270 (vtable +0x28): m_curPhase (the state's name) and m_stopwatch added to `params`, then the base's (empty).
-    void FetchDiagnostics(Scripts::CStruct* params);
+    void tick_frame();
+    // 0x00518270 (vtable +0x28): cur_phase_ (the state's name) and stopwatch_ added to `params`, then the base's (empty).
+    void fetch_diagnostics(script::Struct* params);
 
     // 0x00518390: stopped (inactive); HideRunTimer to the run timer's script if it's running.
-    void Halt();
+    void halt();
     // 0x005183F0: resumed: running if there's time left, else up; the first 8 resumes cap the time left at the
     // duration times (8 - resumes) / 8; ShowRunTimer.
-    void Resume();
+    void get_resume();
 
     // --- script member functions (the table at 0x006849C0; params, script; all true) ---
-    bool Freeze(Scripts::CStruct* params, Scripts::CScript* script);                       // 0x005184A0 RunTimer_Pause
-    bool Unpause(Scripts::CStruct* params, Scripts::CScript* script);                     // 0x005184F0 RunTimer_unpause
-    bool GetFactorComplete(Scripts::CStruct* params, Scripts::CScript* script);           // 0x00518500 (FactorComplete)
-    bool FetchRunClockPadId(Scripts::CStruct* params, Scripts::CScript* script);     // 0x00518540
-    bool GetRunTimerId(Scripts::CStruct* params, Scripts::CScript* script);               // 0x00518570
-    bool ChainBegan(Scripts::CStruct* params, Scripts::CScript* script);                // 0x005185A0
+    bool get_freeze(script::Struct* params, script::Script* script);                       // 0x005184A0 RunTimer_Pause
+    bool unpause(script::Struct* params, script::Script* script);                     // 0x005184F0 RunTimer_unpause
+    bool get_factor_complete(script::Struct* params, script::Script* script);           // 0x00518500 (FactorComplete)
+    bool fetch_run_clock_pad_id(script::Struct* params, script::Script* script);     // 0x00518540
+    bool get_run_timer_id(script::Struct* params, script::Script* script);               // 0x00518570
+    bool chain_began(script::Struct* params, script::Script* script);                // 0x005185A0
 
-    int m_curPhase;           // +0x18 State
-    float m_secondsRemaining;      // +0x1C seconds
-    int16_t m_resumes;     // +0x20
+    int cur_phase_;           // +0x18 State
+    float seconds_remaining_;      // +0x1C seconds
+    int16_t resumes_;     // +0x20
     uint8_t pad22[2];
-    uint8_t* m_walk;       // +0x24 Walk (0x726E85AA)
+    uint8_t* walk_;       // +0x24 Walk (0x726E85AA)
 };
-static_assert(offsetof(CRiderRunClock, m_curPhase) == 0x18 &&
-                  offsetof(CRiderRunClock, m_secondsRemaining) == 0x1C &&
-                  offsetof(CRiderRunClock, m_resumes) == 0x20 &&
-                  offsetof(CRiderRunClock, m_walk) == 0x24 && sizeof(CRiderRunClock) == 0x28,
+static_assert(offsetof(RiderRunClock, cur_phase_) == 0x18 &&
+                  offsetof(RiderRunClock, seconds_remaining_) == 0x1C &&
+                  offsetof(RiderRunClock, resumes_) == 0x20 &&
+                  offsetof(RiderRunClock, walk_) == 0x24 && sizeof(RiderRunClock) == 0x28,
               "layout must match the original (0x005185D0 allocates 0x28 bytes)");
 
 } // namespace Obj

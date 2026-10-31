@@ -1,53 +1,53 @@
 #pragma once
 
-namespace MemSys {
+namespace memory {
 
 class Arena;
 
 // Fill `size` bytes at `dest` with zero and return `dest`. Does nothing for a null pointer.
 // Note the argument order: size first.
-void* Clear(unsigned int size, void* dest);
+void* get_clear(unsigned int size, void* dest);
 
 // General allocation from the default heap (the engine's operator new). Makes sure the memory system is
 // set up first.
-void* Alloc(unsigned int size);
+void* alloc(unsigned int size);
 // Release memory from any of the allocation functions.
-void Dealloc(void* memory);
+void dealloc(void* memory);
 
 // Allocate and zero. `mode` is passed straight to the heap; nearly every caller uses 1 (meaning not yet
 // known). A null heap means the default heap.
-void* AllocZeroed(unsigned int size);
-void* AllocZeroed(unsigned int size, int mode);
-void* AllocZeroed(unsigned int size, Arena* heap, int mode);
+void* alloc_zeroed(unsigned int size);
+void* alloc_zeroed(unsigned int size, int mode);
+void* alloc_zeroed(unsigned int size, Arena* heap, int mode);
 
 // Memory profiling: the game brackets allocations with these, naming what is allocated. Compiled out of this
-// build - both calls go to the empty function at 0x005480A0 (see Stubs::DoNothing) - so they do nothing here
+// build - both calls go to the empty function at 0x005480A0 (see stubs::do_nothing) - so they do nothing here
 // either; they're kept to show where the original profiles.
-inline void PushMemProfile(const char* /*name*/) {}
-inline void PopMemProfile() {}
+inline void push_mem_profile(const char* /*name*/) {}
+inline void pop_mem_profile() {}
 
 // The memory manager's allocate: `size` bytes from `heap` (null = the current heap).
 // Doesn't set the system up first - use New for that.
-void* Carve(unsigned int size, int mode, Arena* heap);
+void* carve(unsigned int size, int mode, Arena* heap);
 
 // The current-heap allocator file loading uses, its matching free, and giving back the
 // unused end of such a block.
-void* AllocBlock(unsigned int size);
-void FreeMalloc(void* memory);
-void* TrimBlockEnd(unsigned int size, void* memory);
+void* alloc_block(unsigned int size);
+void free_malloc(void* memory);
+void* trim_block_end(unsigned int size, void* memory);
 // The size of a Malloc block (0 for null).
-unsigned int MallocSize(void* memory);
+unsigned int malloc_size(void* memory);
 // The current heap's largest possible allocation.
-unsigned int MallocAvailable();
+unsigned int malloc_available();
 // A new block of `size` bytes holding the old block's contents (copies `size` bytes); the old one is freed.
-void* Regrow(void* memory, unsigned int size);
+void* regrow(void* memory, unsigned int size);
 
 // The manager's two main heaps (at +0x110 and +0x114).
-Arena* TopDownHeap();
-Arena* BottomUpHeap();
+Arena* top_down_heap();
+Arena* bottom_up_heap();
 
-// Until LeaveHeapScope, allocations come from `heap`.
-void EnterHeapScope(Arena* heap);
-void LeaveHeapScope();
+// Until leave_heap_scope, allocations come from `heap`.
+void enter_heap_scope(Arena* heap);
+void leave_heap_scope();
 
 } // namespace Mem

@@ -5,7 +5,7 @@
 
 #include "editor/level_editor.h"
 
-namespace GameModules {
+namespace modules {
 struct FrontEnd;
 }
 
@@ -19,7 +19,7 @@ struct FrontEnd;
 //   - The editor's own guards hold: never in a network session or a career-type mode (LevelEditor_Available /
 //     Layout::Refused) - the key does nothing there; not while paused in a menu (the pause menu's LEVEL EDITOR is there).
 // The play key in play is the editor's only key outside it; [features] level_editor=0 turns it off with the editor.
-namespace MenuSystem::LevelEditor::Perform {
+namespace frontend::level_editor::perform {
 
 // What the editor was showing when play from here left it (the editor fills it in: level_editor.cpp).
 struct Resume {
@@ -32,24 +32,24 @@ struct Resume {
 };
 
 // The play key's press, in the editor (F5, Ctrl+P): asks for play from here.
-void Request();
-// The editor's input logic (InputLogic, while it runs): a request taken - true once, then `resume` is kept (with the
+void get_request();
+// The editor's input logic (input_logic, while it runs): a request taken - true once, then `resume` is kept (with the
 // level load it belongs to) and the editor runs level_editor_exit.
-bool TakeRequest();
-void Keep(const Resume& resume, int levelLoad);
+bool take_request();
+void get_keep(const Resume& resume, int level_load);
 // The editor starting, once its camera is known: the state to put back - true only after play from here in the same
 // level load, and only once.
-bool TakeResume(Resume* resume, int levelLoad);
+bool take_resume(Resume* resume, int level_load);
 
-// Once a frame from the front end's input logic while the editor isn't running (MouseMenus::TickFrame): the pause menu
+// Once a frame from the front end's input logic while the editor isn't running (mouse_menus::tick_frame): the pause menu
 // closed after leaving, the play key in play.
-void TickFrame(GameModules::FrontEnd* frontEnd);
+void tick_frame(modules::FrontEnd* front_end);
 
 // What the key does in play (pure): the play key pressed, and whether it's allowed (in a level, the skater there, not
 // paused, the editor offered here).
-enum class Step { None, PauseThenEnter };
-Step OnKey(bool pressed, bool inLevel, bool paused, bool offered);
+enum class Step { kNone, kPauseThenEnter };
+Step on_key(bool pressed, bool in_level, bool paused, bool offered);
 // Whether the play key is down: F5, or Ctrl+P (pure, from SDL's keyboard state).
-bool KeyDown(const uint8_t* keys);
+bool get_key_down(const uint8_t* keys);
 
-} // namespace MenuSystem::LevelEditor::Perform
+} // namespace MenuSystem::level_editor::Perform

@@ -6,16 +6,16 @@
 
 #include <cstdint>
 
-namespace AudioStream {
+namespace audio {
 
 struct CachedStreamFile {
     uint32_t key;
     void* data;
-    uint32_t lastUse;
+    uint32_t last_use_;
     int users;
 };
 static_assert(sizeof(CachedStreamFile) == 16, "layout must match the original");
 
-extern CachedStreamFile g_streamFiles[12];
+extern CachedStreamFile g_stream_files[12];
 
 } // namespace Pcm

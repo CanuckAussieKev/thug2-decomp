@@ -1,4 +1,4 @@
-// The model builder (Gfx2D::CModelAssembler): see model_builder.h. From the disassembly of 0x004897D0-0x0048B32D.
+// The model builder (gfx::ModelAssembler): see model_builder.h. From the disassembly of 0x004897D0-0x0048B32D.
 
 #include <cstdint>
 #include <new>
@@ -22,23 +22,23 @@
 #include "engine/core/stubs.h"
 #include "engine/objects/entity.h"
 
-namespace Gfx2D {
+namespace gfx {
 
 namespace {
 
 extern void** const kVtable;
 
-Engine3D::CRenderModel* g_builtModel;
-CRig* g_builtSkeleton;
-CModelLook* g_builtAppearance;
+render::RenderModel* g_built_model;
+Rig* g_built_skeleton;
+ModelLook* g_built_appearance;
 
 // While Build runs: the model, its skeleton and the appearance's copy.
-Engine3D::CRenderModel*& BuiltModel() { return g_builtModel; }
-CRig*& BuiltSkeleton() { return g_builtSkeleton; }
-CModelLook*& BuiltAppearance() { return g_builtAppearance; }
+render::RenderModel*& built_model() { return g_built_model; }
+Rig*& built_skeleton() { return g_built_skeleton; }
+ModelLook*& built_appearance() { return g_built_appearance; }
 // The texture dictionaries: the game's and the skater's (its cag_workspace).
-Engine3D::CTextureSet* GameTextures() { return Engine3D::g_gameTextureDict; }
-Engine3D::CTextureSet* SkaterTextures() { return Engine3D::g_particleTextureDict; }
+render::TextureSet* game_textures() { return render::g_game_texture_dict; }
+render::TextureSet* skater_textures() { return render::g_particle_texture_dict; }
 
 constexpr float kPercent = 0.01f;            // 0x0064544C
 constexpr float kDegrees = 0.0174532924f;    // 0x00645464 (pi / 180)
@@ -46,11 +46,11 @@ constexpr float kHalf = 0.5f;                // 0x006453BC
 constexpr float kQuarterTurn = 1.57079637f;  // 0x3FC90FDB
 
 // The build script's member functions.
-constexpr uint32_t kGeomSetUVOffset = 0x18924DA1;            // GeomSetUVOffset
+constexpr uint32_t kGeomSetUvOffset = 0x18924DA1;            // GeomSetUVOffset
 constexpr uint32_t kModelClearAllGeoms = 0x0ECF0248;         // ModelClearAllGeoms
 constexpr uint32_t kModelApplyBoneScale = 0x21AEC583;        // ModelApplyBoneScale
-constexpr uint32_t kAppearanceUnused30E2951D = 0x30E2951D;   // (name unknown: an empty call on the appearance)
-constexpr uint32_t kGeomAllocateUVMatrixParams = 0x3BF41299; // GeomAllocateUVMatrixParams
+constexpr uint32_t kAppearanceUnused30e2951d = 0x30E2951D;   // (name unknown: an empty call on the appearance)
+constexpr uint32_t kGeomAllocateUvMatrixParams = 0x3BF41299; // GeomAllocateUVMatrixParams
 constexpr uint32_t kModelApplyObjectScale = 0x50F1285B;      // ModelApplyObjectScale
 constexpr uint32_t kModelAddGeom = 0x53DA94F1;               // ModelAddGeom
 constexpr uint32_t kAppearanceAllowScalingCheat = 0x6516B484; // AppearanceAllowScalingCheat
@@ -139,623 +139,623 @@ const uint32_t kReplacements[][3] = {
 };
 
 // Whether a face texture holds one (0x00487510, called through the game: the tests script it).
-bool FaceTextureIsValid(CFaceSkin* face) { return face->IsSound(); }
+bool face_texture_is_valid(FaceSkin* face) { return face->is_sound(); }
 
 // The scale a structure gives (not rewritten yet, cdecl: its scale - one value or a vector - or its x / y / z),
 // into `scale`. Whether it had one.
-bool FetchMagnification(Maths::Vec4* scale, Scripts::CStruct* from)
+bool fetch_magnification(maths::Vec4* scale, script::Struct* from)
 {
-    return ScaleFromArgs(scale, from);
+    return scale_from_args(scale, from);
 }
-bool FetchScript(Scripts::CStruct* s, uint32_t name, Scripts::SParamScript* out, int assert)
+bool fetch_script(script::Struct* s, uint32_t name, script::ParamScript* out, int assert)
 {
-    return s->FetchScript(name, out, assert);
+    return s->fetch_script(name, out, assert);
 }
 
 // The texture's virtual slots the created graphic uses (the jumps 0x0048D060 [8], 0x0048DE30 [9], 0x0048E4C0 [10],
 // 0x0048DE80 [15], 0x0048DEB0 [16], 0x0048DED0 [19]; the texture's 0x0049F360 [17] and 0x0049F420 [41]).
 template <typename... A>
-void TextureSlot(Engine3D::CBitmapTexture* texture, int slot, A... args)
+void texture_slot(render::BitmapTexture* texture, int slot, A... args)
 {
-    reinterpret_cast<void(__thiscall*)(Engine3D::CBitmapTexture*, A...)>(texture->vtable[slot])(texture, args...);
+    reinterpret_cast<void(__thiscall*)(render::BitmapTexture*, A...)>(texture->vtable[slot])(texture, args...);
 }
 
 // The compiled-out call on the appearance 0x30E2951D makes (the empty 0x005BAB90, one argument).
-inline void UnusedAppearanceCall(CModelLook*, int) {}
+inline void unused_appearance_call(ModelLook*, int) {}
 
 // The colour's three parts as the model takes them: h as it is, s and v as fractions of their percentages.
-float Percent(int value) { return static_cast<float>(static_cast<double>(value) * kPercent); }
-float PercentOf(float value) { return static_cast<float>(static_cast<double>(value) * kPercent); }
+float get_percent(int value) { return static_cast<float>(static_cast<double>(value) * kPercent); }
+float percent_of(float value) { return static_cast<float>(static_cast<double>(value) * kPercent); }
 // A colour added to a slot: h, s, v and use_default_hsv = 0.
-void AddColour(Scripts::CStruct* slot, int h, int s, int v)
+void add_colour(script::Struct* slot, int h, int s, int v)
 {
-    slot->PutInt(kH, h);
-    slot->PutInt(kS, s);
-    slot->PutInt(kV, v);
-    slot->PutInt(kUseDefaultHsv, 0);
+    slot->put_int(kH, h);
+    slot->put_int(kS, s);
+    slot->put_int(kV, v);
+    slot->put_int(kUseDefaultHsv, 0);
 }
 
-uint32_t SlotOf(const void* argument) { return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(argument)); }
+uint32_t get_slot_of(const void* argument) { return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(argument)); }
 
 } // namespace
 
 // 0x004897D0
-CModelAssembler* CModelAssembler::MakeNew(bool viaResourceStore, int texDictOffset)
+ModelAssembler* ModelAssembler::make_new(bool via_resource_store, int tex_dict_offset)
 {
-    CEntity::MakeNew();
-    m_viaAssetStore = viaResourceStore;
-    m_vtable = kVtable;
-    m_dictShift = texDictOffset;
+    Entity::make_new();
+    via_asset_store_ = via_resource_store;
+    vtable_ = kVtable;
+    dict_shift_ = tex_dict_offset;
     return this;
 }
 
 // 0x0048A2C0
-CModelAssembler* CModelAssembler::Teardown(unsigned int flags)
+ModelAssembler* ModelAssembler::teardown(unsigned int flags)
 {
-    CEntity::DestroyBody();
+    Entity::destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x0048A2F0
-void CModelAssembler::Build(CModelLook* appearance, Engine3D::CRenderModel* model, CRig* skeleton, uint32_t script)
+void ModelAssembler::get_build(ModelLook* appearance, render::RenderModel* model, Rig* skeleton, uint32_t script)
 {
-    BuiltModel() = model;
-    BuiltSkeleton() = skeleton;
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    void* memory = MemSys::AllocZeroed(sizeof(CModelLook), manager->m_topDownHeap, 1);
-    BuiltAppearance() = memory ? static_cast<CModelLook*>(memory)->MakeNew() : nullptr;
-    BuiltAppearance()->Reset(); // (no memory: a crash, as the original)
-    MemSys::Hub::Pull()->EnterHeapScope(MemSys::Hub::Pull()->m_topDownHeap);
-    BuiltAppearance()->CopyFrom(appearance);
-    MemSys::Hub::Pull()->LeaveHeapScope();
-    Scripts::LaunchScript(script, nullptr, this, false, nullptr);
-    BuiltModel() = nullptr;
-    BuiltSkeleton() = nullptr;
-    if (CModelLook* copy = BuiltAppearance())
-        reinterpret_cast<void*(__thiscall*)(CModelLook*, unsigned int)>(copy->m_vtable[0])(copy, 1);
-    BuiltAppearance() = nullptr;
+    built_model() = model;
+    built_skeleton() = skeleton;
+    memory::Hub* manager = memory::Hub::get_pull();
+    void* memory = memory::alloc_zeroed(sizeof(ModelLook), manager->top_down_heap_, 1);
+    built_appearance() = memory ? static_cast<ModelLook*>(memory)->make_new() : nullptr;
+    built_appearance()->get_reset(); // (no memory: a crash, as the original)
+    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->top_down_heap_);
+    built_appearance()->copy_from(appearance);
+    memory::Hub::get_pull()->leave_heap_scope();
+    script::launch_script(script, nullptr, this, false, nullptr);
+    built_model() = nullptr;
+    built_skeleton() = nullptr;
+    if (ModelLook* copy = built_appearance())
+        reinterpret_cast<void*(__thiscall*)(ModelLook*, unsigned int)>(copy->vtable_[0])(copy, 1);
+    built_appearance() = nullptr;
 }
 
 // 0x0048A3B0. The names are asserted; a missing one is what the original's stack slot held (an argument's: the
 // member function's name, `params` or `script`).
-bool CModelAssembler::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script)
+bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
 {
     switch (name) {
-    case kGeomSetUVOffset: {
-        uint32_t part = SlotOf(script), material = name;
-        int pass = static_cast<int>(SlotOf(params));
-        params->ReadHashValue(kPart, &part, 1);
-        params->ReadHashValue(kMaterial, &material, 1);
-        params->FetchIntValue(kPass, &pass, 1);
-        Step<bool>(13, part, material, pass);
+    case kGeomSetUvOffset: {
+        uint32_t part = get_slot_of(script), material = name;
+        int pass = static_cast<int>(get_slot_of(params));
+        params->read_hash_value(kPart, &part, 1);
+        params->read_hash_value(kMaterial, &material, 1);
+        params->fetch_int_value(kPass, &pass, 1);
+        get_step<bool>(13, part, material, pass);
         return true;
     }
     case kModelClearAllGeoms:
-        Step<bool>(17);
+        get_step<bool>(17);
         return true;
     case kModelApplyBoneScale: {
-        if (!params->HasEntryNamed(kBoneScaling))
+        if (!params->has_entry_named(kBoneScaling))
             return true;
-        uint32_t castPart = 0;
-        if (BuiltAppearance()->GetPart(kSkaterMHead))
-            params->ReadHashValue(kMaleCasPart, &castPart, 0);
-        else if (BuiltAppearance()->GetPart(kSkaterFHead))
-            params->ReadHashValue(kFemaleCasPart, &castPart, 0);
+        uint32_t cast_part = 0;
+        if (built_appearance()->get_part(kSkaterMHead))
+            params->read_hash_value(kMaleCasPart, &cast_part, 0);
+        else if (built_appearance()->get_part(kSkaterFHead))
+            params->read_hash_value(kFemaleCasPart, &cast_part, 0);
         uint32_t part = name;
-        params->ReadHashValue(kPart, &part, 1);
-        Step<bool>(21, part, castPart);
+        params->read_hash_value(kPart, &part, 1);
+        get_step<bool>(21, part, cast_part);
         return true;
     }
-    case kAppearanceUnused30E2951D:
-        UnusedAppearanceCall(BuiltAppearance(), 0);
+    case kAppearanceUnused30e2951d:
+        unused_appearance_call(built_appearance(), 0);
         return true;
-    case kGeomAllocateUVMatrixParams: {
+    case kGeomAllocateUvMatrixParams: {
         uint32_t material = name;
-        int pass = static_cast<int>(SlotOf(params));
-        params->ReadHashValue(kMaterial, &material, 1);
-        params->FetchIntValue(kPass, &pass, 1);
-        Step<bool>(14, material, pass);
+        int pass = static_cast<int>(get_slot_of(params));
+        params->read_hash_value(kMaterial, &material, 1);
+        params->fetch_int_value(kPass, &pass, 1);
+        get_step<bool>(14, material, pass);
         return true;
     }
     case kModelApplyObjectScale: {
-        Scripts::CStruct* bodyShape = nullptr;
-        if (!params->ReadSubStruct(kBodyShape, &bodyShape, 0)) {
-            Step<bool>(22);
+        script::Struct* body_shape = nullptr;
+        if (!params->read_sub_struct(kBodyShape, &body_shape, 0)) {
+            get_step<bool>(22);
             return true;
         }
-        Maths::Vec4 scale = BuiltModel()->m_sizeFactor;
-        Maths::Vec4 factor = {1.0f, 1.0f, 1.0f, 1.0f};
-        if (!FetchMagnification(&factor, bodyShape))
+        maths::Vec4 scale = built_model()->size_factor_;
+        maths::Vec4 factor = {1.0f, 1.0f, 1.0f, 1.0f};
+        if (!fetch_magnification(&factor, body_shape))
             return true;
         scale.x = factor.x * scale.x;
         scale.y = factor.y * scale.y;
         scale.z = factor.z * scale.z;
         scale.w = factor.w * scale.w;
-        BuiltModel()->ChangeScale(&scale);
+        built_model()->change_scale(&scale);
         return true;
     }
     case kModelAddGeom: {
-        uint32_t part = SlotOf(params);
-        params->ReadHashValue(kPart, &part, 1);
-        Step<bool>(9, part);
+        uint32_t part = get_slot_of(params);
+        params->read_hash_value(kPart, &part, 1);
+        get_step<bool>(9, part);
         return true;
     }
     case kAppearanceAllowScalingCheat: {
-        Scripts::CStruct* body = BuiltAppearance()->GetPartOption(kBody);
+        script::Struct* body = built_appearance()->get_part_option(kBody);
         if (!body)
             return true;
-        return !body->HasBareFlag(kAllowsScalingCheat);
+        return !body->has_bare_flag(kAllowsScalingCheat);
     }
     case kModelHideGeom: {
         uint32_t geom = name;
-        int hide = static_cast<int>(SlotOf(params));
-        params->ReadHashValue(kPart, &geom, 1);
-        params->FetchIntValue(0u, &hide, 1); // (the unnamed integer)
-        Step<bool>(11, geom, hide != 0);
+        int hide = static_cast<int>(get_slot_of(params));
+        params->read_hash_value(kPart, &geom, 1);
+        params->fetch_int_value(0u, &hide, 1); // (the unnamed integer)
+        get_step<bool>(11, geom, hide != 0);
         return true;
     }
     case kModelPropagateHeadColor:
-        Step<bool>(24);
+        get_step<bool>(24);
         return true;
     case kModelApplyFaceTexture: {
-        CFaceSkin* face = BuiltAppearance()->m_faceSkin;
-        if (!face || !FaceTextureIsValid(face) || !BuiltModel())
+        FaceSkin* face = built_appearance()->face_skin_;
+        if (!face || !face_texture_is_valid(face) || !built_model())
             return true;
         const char* source = reinterpret_cast<const char*>(static_cast<uintptr_t>(name));
-        params->FetchText(kSrc, &source, 1);
+        params->fetch_text(kSrc, &source, 1);
         uint32_t in = kAll;
-        params->ReadHashValue(kIn, &in, 0);
-        return BuiltModel()->ReplaceFaceTexture(face, source, in);
+        params->read_hash_value(kIn, &in, 0);
+        return built_model()->replace_face_texture(face, source, in);
     }
     case kModelRemovePart: {
-        uint32_t part = SlotOf(params);
-        params->ReadHashValue(kPart, &part, 1);
-        Step<bool>(10, part);
+        uint32_t part = get_slot_of(params);
+        params->read_hash_value(kPart, &part, 1);
+        get_step<bool>(10, part);
         return true;
     }
     case kGeomModulateColor:
-        Step<bool>(12, params);
+        get_step<bool>(12, params);
         return true;
     case kModelRemovePolys:
-        Step<bool>(18);
+        get_step<bool>(18);
         return true;
     case kGeomReplaceTexture: {
-        uint32_t part = SlotOf(params);
-        params->ReadHashValue(kPart, &part, 1);
-        Step<bool>(15, part);
+        uint32_t part = get_slot_of(params);
+        params->read_hash_value(kPart, &part, 1);
+        get_step<bool>(15, part);
         return true;
     }
     case kModelRunScript: {
-        uint32_t part = name, target = SlotOf(params);
-        params->ReadHashValue(kPart, &part, 1);
-        params->ReadHashValue(kTarget, &target, 1);
-        Step<bool>(25, part, target);
+        uint32_t part = name, target = get_slot_of(params);
+        params->read_hash_value(kPart, &part, 1);
+        params->read_hash_value(kTarget, &target, 1);
+        get_step<bool>(25, part, target);
         return true;
     }
     case kModelFinalize:
-        Step<bool>(23);
+        get_step<bool>(23);
         return true;
     case kModelApplyBodyShape: {
-        Scripts::CStruct* bodyShape = nullptr;
-        if (!params->ReadSubStruct(kBodyShape, &bodyShape, 0)) {
-            Step<bool>(20);
+        script::Struct* body_shape = nullptr;
+        if (!params->read_sub_struct(kBodyShape, &body_shape, 0)) {
+            get_step<bool>(20);
             return true;
         }
-        Scripts::CStruct* head = BuiltAppearance()->GetPartOption(kSkaterMHead);
-        if (head && params->HasBareFlag(kIsBigheadCheat))
-            head->ReadSubStruct(kBigheadScaleInfo, &bodyShape, 0);
-        if (!BuiltSkeleton())
+        script::Struct* head = built_appearance()->get_part_option(kSkaterMHead);
+        if (head && params->has_bare_flag(kIsBigheadCheat))
+            head->read_sub_struct(kBigheadScaleInfo, &body_shape, 0);
+        if (!built_skeleton())
             return true;
-        return BuiltSkeleton()->ApplyBoneScales(bodyShape);
+        return built_skeleton()->apply_bone_scales(body_shape);
     }
     case kModelResetScale:
-        Step<bool>(19);
+        get_step<bool>(19);
         return true;
     case kGeomSetCreatedTexture: {
-        uint32_t part = SlotOf(params);
-        params->ReadHashValue(kPart, &part, 1);
-        Step<bool>(16, part);
-        Step<bool>(18);
+        uint32_t part = get_slot_of(params);
+        params->read_hash_value(kPart, &part, 1);
+        get_step<bool>(16, part);
+        get_step<bool>(18);
         return true;
     }
     default:
-        return CEntity::InvokeMethodByName(name, params, script);
+        return Entity::invoke_method_by_name(name, params, script);
     }
 }
 
 // 0x00489820
-bool CModelAssembler::AddGeom(uint32_t part)
+bool ModelAssembler::add_geom(uint32_t part)
 {
-    Scripts::CStruct* option = BuiltAppearance()->GetPartOption(part);
+    script::Struct* option = built_appearance()->get_part_option(part);
     if (!option)
         return true;
     int multicolor = 0;
-    option->FetchIntValue(kMulticolor, &multicolor, 0);
+    option->fetch_int_value(kMulticolor, &multicolor, 0);
     auto add = [&](const char* mesh) {
-        BuiltModel()->AddFileGeom(mesh, part, m_viaAssetStore, m_dictShift, false, multicolor != 0, true, false);
+        built_model()->add_file_geom(mesh, part, via_asset_store_, dict_shift_, false, multicolor != 0, true, false);
     };
     const char* mesh;
-    CFaceSkin* face = BuiltAppearance()->m_faceSkin;
-    if ((face && FaceTextureIsValid(face)) || BuiltAppearance()->HasFaceTexture()) {
-        if (option->FetchText(kMeshIfFacemapped, &mesh, 0)) {
+    FaceSkin* face = built_appearance()->face_skin_;
+    if ((face && face_texture_is_valid(face)) || built_appearance()->has_face_texture()) {
+        if (option->fetch_text(kMeshIfFacemapped, &mesh, 0)) {
             add(mesh);
             return true;
         }
     }
     for (uint32_t name : kMeshes) {
-        if (option->FetchText(name, &mesh, 0))
+        if (option->fetch_text(name, &mesh, 0))
             add(mesh);
     }
     return true;
 }
 
 // 0x0048A9C0
-bool CModelAssembler::RemovePart(uint32_t part)
+bool ModelAssembler::remove_part(uint32_t part)
 {
-    BuiltAppearance()->m_structure.EraseModule(part);
+    built_appearance()->structure_.erase_module(part);
     return true;
 }
 
 // 0x00489800
-bool CModelAssembler::ConcealMesh(uint32_t geom, bool hide)
+bool ModelAssembler::conceal_mesh(uint32_t geom, bool hide)
 {
-    BuiltModel()->ConcealMesh(geom, hide);
+    built_model()->conceal_mesh(geom, hide);
     return true;
 }
 
 // 0x00489A50. (The part is asserted: missing, the original reads stack garbage - here 0.)
-bool CModelAssembler::BlendTintOver(Scripts::CStruct* params)
+bool ModelAssembler::blend_tint_over(script::Struct* params)
 {
     uint32_t part = 0;
-    params->ReadHashValue(kPart, &part, 1);
-    Scripts::CStruct* slot = BuiltAppearance()->GetPart(part);
+    params->read_hash_value(kPart, &part, 1);
+    script::Struct* slot = built_appearance()->get_part(part);
     if (!slot)
         return true;
-    uint32_t descriptorId = 0;
-    slot->ReadHashValue(kDescId, &descriptorId, 0);
-    if (descriptorId == kPaperBag || descriptorId == kBigfoot)
+    uint32_t descriptor_id = 0;
+    slot->read_hash_value(kDescId, &descriptor_id, 0);
+    if (descriptor_id == kPaperBag || descriptor_id == kBigfoot)
         return false;
-    int useDefault = 0;
-    if (!slot->HasEntryNamed(kUseDefaultHsv))
-        useDefault = 1;
+    int use_default = 0;
+    if (!slot->has_entry_named(kUseDefaultHsv))
+        use_default = 1;
     else
-        slot->FetchIntValue(kUseDefaultHsv, &useDefault, 0);
-    if (useDefault) {
+        slot->fetch_int_value(kUseDefaultHsv, &use_default, 0);
+    if (use_default) {
         int h, s, v;
-        Scripts::CStruct* option = BuiltAppearance()->GetPartOption(part);
-        if (option && option->FetchIntValue(kDefaultH, &h, 0) && option->FetchIntValue(kDefaultS, &s, 0) &&
-            option->FetchIntValue(kDefaultV, &v, 0)) {
-            BuiltModel()->SetColorFromScript(params, static_cast<float>(h), Percent(s), Percent(v));
+        script::Struct* option = built_appearance()->get_part_option(part);
+        if (option && option->fetch_int_value(kDefaultH, &h, 0) && option->fetch_int_value(kDefaultS, &s, 0) &&
+            option->fetch_int_value(kDefaultV, &v, 0)) {
+            built_model()->set_color_from_script(params, static_cast<float>(h), get_percent(s), get_percent(v));
         } else {
-            BuiltModel()->ClearColorFromScript(params);
+            built_model()->clear_color_from_script(params);
         }
         return false;
     }
     int h, s, v;
-    if (!slot->FetchIntValue(kH, &h, 0) || !slot->FetchIntValue(kS, &s, 0) || !slot->FetchIntValue(kV, &v, 0))
+    if (!slot->fetch_int_value(kH, &h, 0) || !slot->fetch_int_value(kS, &s, 0) || !slot->fetch_int_value(kV, &v, 0))
         return true;
-    BuiltModel()->SetColorFromScript(params, static_cast<float>(h), Percent(s), Percent(v));
+    built_model()->set_color_from_script(params, static_cast<float>(h), get_percent(s), get_percent(v));
     return true;
 }
 
 // 0x00489C30
-bool CModelAssembler::CreateUvAnimParams(uint32_t material, int pass)
+bool ModelAssembler::create_uv_anim_params(uint32_t material, int pass)
 {
-    BuiltModel()->CreateUvAnimParams(material, pass);
+    built_model()->create_uv_anim_params(material, pass);
     return true;
 }
 
 // 0x00489C50. (A missing `with` is the previous one - the first time, the part's checksum: the original's stack slot.)
-bool CModelAssembler::SwapTexture(uint32_t part)
+bool ModelAssembler::swap_texture(uint32_t part)
 {
     bool result = false;
-    Scripts::CStruct* option = BuiltAppearance()->GetPartOption(part);
+    script::Struct* option = built_appearance()->get_part_option(part);
     if (!option)
         return false;
     const char* with = reinterpret_cast<const char*>(static_cast<uintptr_t>(part));
     for (const uint32_t* names : kReplacements) {
         const char* source;
-        if (!option->FetchText(names[0], &source, 0))
+        if (!option->fetch_text(names[0], &source, 0))
             continue;
-        option->FetchText(names[1], &with, 1);
+        option->fetch_text(names[1], &with, 1);
         uint32_t in = part;
-        option->ReadHashValue(names[2], &in, 0);
-        result = BuiltModel()->SwapTexture(in, source, with);
+        option->read_hash_value(names[2], &in, 0);
+        result = built_model()->swap_texture(in, source, with);
     }
     return result;
 }
 
 // 0x00489A30
-bool CModelAssembler::ClearAllGeoms()
+bool ModelAssembler::clear_all_geoms()
 {
-    BuiltModel()->DropGeoms();
+    built_model()->drop_geoms();
     return true;
 }
 
 // 0x00489A40
-bool CModelAssembler::DetachPolys()
+bool ModelAssembler::detach_polys()
 {
-    BuiltModel()->BreakOwnStrips();
+    built_model()->break_own_strips();
     return true;
 }
 
 // 0x00489F10. (A head with h but no s / v, or with neither and no part: the original's stack garbage - here 0.)
-bool CModelAssembler::PropagateHeadColor()
+bool ModelAssembler::propagate_head_color()
 {
     bool male = true;
-    uint32_t headPart = kSkaterMHead, handsPart = kSkaterMHands, lowerLegsPart = kSkaterMLowerLegs;
-    Scripts::CStruct* head = BuiltAppearance()->GetPart(headPart);
+    uint32_t head_part = kSkaterMHead, hands_part = kSkaterMHands, lower_legs_part = kSkaterMLowerLegs;
+    script::Struct* head = built_appearance()->get_part(head_part);
     if (!head) {
-        headPart = kSkaterFHead;
+        head_part = kSkaterFHead;
         male = false;
-        handsPart = kSkaterFHands;
-        lowerLegsPart = kSkaterFLowerLegs;
-        head = BuiltAppearance()->GetPart(headPart);
+        hands_part = kSkaterFHands;
+        lower_legs_part = kSkaterFLowerLegs;
+        head = built_appearance()->get_part(head_part);
         if (!head)
             return false;
     }
     int h = 0, s = 0, v = 0;
-    if (head->FetchIntValue(kH, &h, 0)) {
-        head->FetchIntValue(kS, &s, 0);
-        head->FetchIntValue(kV, &v, 0);
-    } else if (Scripts::CStruct* option = BuiltAppearance()->GetPartOption(headPart)) {
-        option->FetchIntValue(kDefaultH, &h, 1);
-        option->FetchIntValue(kDefaultS, &s, 1);
-        option->FetchIntValue(kDefaultV, &v, 1);
+    if (head->fetch_int_value(kH, &h, 0)) {
+        head->fetch_int_value(kS, &s, 0);
+        head->fetch_int_value(kV, &v, 0);
+    } else if (script::Struct* option = built_appearance()->get_part_option(head_part)) {
+        option->fetch_int_value(kDefaultH, &h, 1);
+        option->fetch_int_value(kDefaultS, &s, 1);
+        option->fetch_int_value(kDefaultV, &v, 1);
     }
-    uint32_t descriptorId = 0;
+    uint32_t descriptor_id = 0;
     if (male) {
-        if (Scripts::CStruct* torso = BuiltAppearance()->GetPart(kBareTorso)) {
-            torso->ReadHashValue(kDescId, &descriptorId, 1);
-            if (descriptorId != kNone)
-                AddColour(torso, h, s, v);
+        if (script::Struct* torso = built_appearance()->get_part(kBareTorso)) {
+            torso->read_hash_value(kDescId, &descriptor_id, 1);
+            if (descriptor_id != kNone)
+                add_colour(torso, h, s, v);
         }
     }
-    if (Scripts::CStruct* hands = BuiltAppearance()->GetPart(handsPart)) {
-        hands->ReadHashValue(kDescId, &descriptorId, 1);
-        if (descriptorId == kHands)
-            AddColour(hands, h, s, v);
+    if (script::Struct* hands = built_appearance()->get_part(hands_part)) {
+        hands->read_hash_value(kDescId, &descriptor_id, 1);
+        if (descriptor_id == kHands)
+            add_colour(hands, h, s, v);
     }
-    if (Scripts::CStruct* lowerLegs = BuiltAppearance()->GetPart(lowerLegsPart))
-        AddColour(lowerLegs, h, s, v);
-    Scripts::CStruct* shoes = BuiltAppearance()->GetPartOption(kShoes);
-    if (shoes && shoes->HasBareFlag(kBareFeet)) {
-        if (Scripts::CStruct* slot = BuiltAppearance()->GetPart(kShoes))
-            AddColour(slot, h, s, v);
+    if (script::Struct* lower_legs = built_appearance()->get_part(lower_legs_part))
+        add_colour(lower_legs, h, s, v);
+    script::Struct* shoes = built_appearance()->get_part_option(kShoes);
+    if (shoes && shoes->has_bare_flag(kBareFeet)) {
+        if (script::Struct* slot = built_appearance()->get_part(kShoes))
+            add_colour(slot, h, s, v);
     }
-    if (Scripts::CStruct* body = BuiltAppearance()->GetPart(kBody))
-        AddColour(body, h, s, v);
+    if (script::Struct* body = built_appearance()->get_part(kBody))
+        add_colour(body, h, s, v);
     return true;
 }
 
 // 0x0048A220
-bool CModelAssembler::Seal()
+bool ModelAssembler::seal()
 {
-    BuiltModel()->CleanInstanceStrips();
+    built_model()->clean_instance_strips();
     return true;
 }
 
 // 0x0048A9E0
-bool CModelAssembler::RestoreScale()
+bool ModelAssembler::restore_scale()
 {
-    Maths::Vec4 one = {1.0f, 1.0f, 1.0f, 1.0f};
-    BuiltModel()->ChangeScale(&one);
-    if (!BuiltSkeleton())
+    maths::Vec4 one = {1.0f, 1.0f, 1.0f, 1.0f};
+    built_model()->change_scale(&one);
+    if (!built_skeleton())
         return false;
-    BuiltSkeleton()->ResetBoneScales();
+    built_skeleton()->reset_bone_scales();
     return true;
 }
 
 // 0x0048AA30 (no skeleton: a crash, as the original)
-bool CModelAssembler::ApplyBodyShape()
+bool ModelAssembler::apply_body_shape()
 {
-    Scripts::CStruct* bodyShape = nullptr;
-    if (!BuiltAppearance()->m_structure.ReadSubStruct(kBodyShape, &bodyShape, 0))
+    script::Struct* body_shape = nullptr;
+    if (!built_appearance()->structure_.read_sub_struct(kBodyShape, &body_shape, 0))
         return false;
-    return BuiltSkeleton()->ApplyBoneScales(bodyShape);
+    return built_skeleton()->apply_bone_scales(body_shape);
 }
 
 // 0x0048AA70
-bool CModelAssembler::ApplyBoneSizing(uint32_t part, uint32_t castPart)
+bool ModelAssembler::apply_bone_sizing(uint32_t part, uint32_t cast_part)
 {
-    Scripts::CStruct* slot = BuiltAppearance()->GetPart(part);
+    script::Struct* slot = built_appearance()->get_part(part);
     if (!slot) {
-        if (!castPart)
+        if (!cast_part)
             return false;
         // (no option: a crash, as the original)
-        BuiltAppearance()->GetPartOption(castPart)->ReadSubStruct(part, &slot, 0);
+        built_appearance()->get_part_option(cast_part)->read_sub_struct(part, &slot, 0);
         if (!slot)
             return false;
     }
-    if (!slot->HasEntryNamed(kKeepStockScale))
+    if (!slot->has_entry_named(kKeepStockScale))
         return false;
-    int useDefault = 0;
-    slot->FetchIntValue(kKeepStockScale, &useDefault, 0);
-    if (useDefault)
+    int use_default = 0;
+    slot->fetch_int_value(kKeepStockScale, &use_default, 0);
+    if (use_default)
         return false;
     int x, y, z;
-    if (!slot->FetchIntValue(kX, &x, 0) || !slot->FetchIntValue(kY, &y, 0) || !slot->FetchIntValue(kZ, &z, 0))
+    if (!slot->fetch_int_value(kX, &x, 0) || !slot->fetch_int_value(kY, &y, 0) || !slot->fetch_int_value(kZ, &z, 0))
         return false;
-    Scripts::CArray* bones = Scripts::FetchList(part);
+    script::Array* bones = script::fetch_list(part);
     if (!bones)
         return false;
-    Maths::Vec4 scale;
+    maths::Vec4 scale;
     scale.w = 1.0f;
-    for (uint32_t i = 0; i < bones->m_extent; ++i) {
-        uint32_t bone = bones->FetchPart(i);
-        BuiltSkeleton()->FetchBoneSizing(bone, &scale);
+    for (uint32_t i = 0; i < bones->extent_; ++i) {
+        uint32_t bone = bones->fetch_part(i);
+        built_skeleton()->fetch_bone_sizing(bone, &scale);
         bool local = true;
         scale.x = static_cast<float>(static_cast<double>(x) * kPercent * scale.x);
         scale.y = static_cast<float>(static_cast<double>(y) * kPercent * scale.y);
         scale.z = static_cast<float>(static_cast<double>(z) * kPercent * scale.z);
-        if (Scripts::CArray* nonlocal = Scripts::FetchList(kNonlocalBones)) {
-            for (uint32_t j = 0; j < nonlocal->m_extent; ++j) {
-                if (nonlocal->FetchPart(j) == bone)
+        if (script::Array* nonlocal = script::fetch_list(kNonlocalBones)) {
+            for (uint32_t j = 0; j < nonlocal->extent_; ++j) {
+                if (nonlocal->fetch_part(j) == bone)
                     local = false;
             }
         }
-        BuiltSkeleton()->ChangeBoneSizing(bone, &scale, local);
+        built_skeleton()->change_bone_sizing(bone, &scale, local);
     }
     return false;
 }
 
 // 0x0048AC40
-bool CModelAssembler::ApplyObjectScale()
+bool ModelAssembler::apply_object_scale()
 {
-    Maths::Vec4 scale = {1.0f, 1.0f, 1.0f, 1.0f};
-    if (FetchMagnification(&scale, &BuiltAppearance()->m_structure)) {
-        BuiltModel()->ChangeScale(&scale);
+    maths::Vec4 scale = {1.0f, 1.0f, 1.0f, 1.0f};
+    if (fetch_magnification(&scale, &built_appearance()->structure_)) {
+        built_model()->change_scale(&scale);
         return true;
     }
-    Scripts::CStruct* bodyShape = nullptr;
-    if (BuiltAppearance()->m_structure.ReadSubStruct(kBodyShape, &bodyShape, 0) && FetchMagnification(&scale, bodyShape)) {
-        BuiltModel()->ChangeScale(&scale);
+    script::Struct* body_shape = nullptr;
+    if (built_appearance()->structure_.read_sub_struct(kBodyShape, &body_shape, 0) && fetch_magnification(&scale, body_shape)) {
+        built_model()->change_scale(&scale);
         return true;
     }
-    Scripts::CStruct* slot = BuiltAppearance()->GetPart(kObjectScaling);
-    if (!slot || !slot->HasEntryNamed(kKeepStockScale))
+    script::Struct* slot = built_appearance()->get_part(kObjectScaling);
+    if (!slot || !slot->has_entry_named(kKeepStockScale))
         return false;
-    int useDefault = 0;
-    slot->FetchIntValue(kKeepStockScale, &useDefault, 0);
-    if (useDefault)
+    int use_default = 0;
+    slot->fetch_int_value(kKeepStockScale, &use_default, 0);
+    if (use_default)
         return false;
     int x, y, z;
-    if (slot->FetchIntValue(kX, &x, 0) && slot->FetchIntValue(kY, &y, 0) && slot->FetchIntValue(kZ, &z, 0)) {
-        Maths::Vec4 objectScale = {Percent(x), Percent(y), Percent(z), 1.0f};
-        BuiltModel()->ChangeScale(&objectScale);
+    if (slot->fetch_int_value(kX, &x, 0) && slot->fetch_int_value(kY, &y, 0) && slot->fetch_int_value(kZ, &z, 0)) {
+        maths::Vec4 object_scale = {get_percent(x), get_percent(y), get_percent(z), 1.0f};
+        built_model()->change_scale(&object_scale);
     }
     return true;
 }
 
 // 0x0048ADD0
-bool CModelAssembler::SetCreatedTexture(uint32_t part)
+bool ModelAssembler::set_created_texture(uint32_t part)
 {
-    Scripts::CStruct* option = BuiltAppearance()->GetPartOption(part);
+    script::Struct* option = built_appearance()->get_part_option(part);
     if (!option)
         return false;
-    uint32_t descriptorId = 0; // (asserted: the original's is garbage when missing)
-    option->ReadHashValue(kDescId, &descriptorId, 1);
-    if (descriptorId != kCreatedGraphic)
+    uint32_t descriptor_id = 0; // (asserted: the original's is garbage when missing)
+    option->read_hash_value(kDescId, &descriptor_id, 1);
+    if (descriptor_id != kCreatedGraphic)
         return false;
-    MemSys::Hub::Pull()->EnterHeapScope(MemSys::Hub::Pull()->m_topDownHeap);
+    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->top_down_heap_);
     uint32_t in = 0, with = 0;
-    float xScale = 0.0f, yScale = 0.0f;
+    float x_scale = 0.0f, y_scale = 0.0f;
     const char* temporary = nullptr;
-    option->ReadHashValue(kIn, &in, 1);
-    option->FetchFloat(kXScale, &xScale, 1);
-    option->FetchFloat(kYScale, &yScale, 1);
-    option->ReadHashValue(kWith, &with, 0);
-    option->FetchText(kTempTexture, &temporary, 1);
-    Engine3D::CBitmapTexture* texture = GameTextures()->IngestSkin(temporary, 0, 0, true);
-    TextureSlot(texture, 8, 0, 0);
-    Engine3D::CBitmapTexture* workspace = SkaterTextures()->FetchSkin(kCagWorkspace);
-    TextureSlot(workspace, 8, 0, 0);
-    TextureSlot(texture, 15, workspace, 1);
+    option->read_hash_value(kIn, &in, 1);
+    option->fetch_float(kXScale, &x_scale, 1);
+    option->fetch_float(kYScale, &y_scale, 1);
+    option->read_hash_value(kWith, &with, 0);
+    option->fetch_text(kTempTexture, &temporary, 1);
+    render::BitmapTexture* texture = game_textures()->ingest_skin(temporary, 0, 0, true);
+    texture_slot(texture, 8, 0, 0);
+    render::BitmapTexture* workspace = skater_textures()->fetch_skin(kCagWorkspace);
+    texture_slot(workspace, 8, 0, 0);
+    texture_slot(texture, 15, workspace, 1);
     uint32_t black = 0; // (four zero bytes)
-    TextureSlot(texture, 19, black);
-    TextureSlot(texture, 16, xScale, yScale);
+    texture_slot(texture, 19, black);
+    texture_slot(texture, 16, x_scale, y_scale);
     int rotate;
-    if (option->FetchIntValue(kRotate, &rotate, 0))
-        TextureSlot(texture, 17, kQuarterTurn, -1.0f, -1.0f);
-    Engine3D::CBitmapTexture* base = nullptr;
+    if (option->fetch_int_value(kRotate, &rotate, 0))
+        texture_slot(texture, 17, kQuarterTurn, -1.0f, -1.0f);
+    render::BitmapTexture* base = nullptr;
     bool deck = false;
-    int isDeck;
-    if (option->FetchIntValue(kIsDeck, &isDeck, 0)) {
+    int is_deck;
+    if (option->fetch_int_value(kIsDeck, &is_deck, 0)) {
         deck = true;
-        const char* baseName = nullptr; // (asserted; missing: the stack slot the colour above zeroed)
-        option->FetchText(kBaseTexture, &baseName, 1);
-        base = GameTextures()->IngestSkin(baseName, 0, 0, true);
-        TextureSlot(base, 8, 0, 0);
-        TextureSlot(texture, 9, 1, 0);
-        TextureSlot(base, 41, texture, 1);
-        TextureSlot(base, 9, 1, 0);
+        const char* base_name = nullptr; // (asserted; missing: the stack slot the colour above zeroed)
+        option->fetch_text(kBaseTexture, &base_name, 1);
+        base = game_textures()->ingest_skin(base_name, 0, 0, true);
+        texture_slot(base, 8, 0, 0);
+        texture_slot(texture, 9, 1, 0);
+        texture_slot(base, 41, texture, 1);
+        texture_slot(base, 9, 1, 0);
     }
-    TextureSlot(texture, 9, 1, 0);
+    texture_slot(texture, 9, 1, 0);
     const char* logo = nullptr;
-    option->FetchText(kLogoTexture, &logo, 1);
-    bool result = BuiltModel()->ReplaceTextureWith(in, logo, with);
+    option->fetch_text(kLogoTexture, &logo, 1);
+    bool result = built_model()->replace_texture_with(in, logo, with);
     if (deck)
-        GameTextures()->UnloadTexture(base);
-    GameTextures()->UnloadTexture(texture);
-    TextureSlot(workspace, 10);
-    MemSys::Hub::Pull()->LeaveHeapScope();
+        game_textures()->unload_texture(base);
+    game_textures()->unload_texture(texture);
+    texture_slot(workspace, 10);
+    memory::Hub::get_pull()->leave_heap_scope();
     return result;
 }
 
 // 0x0048B030
-bool CModelAssembler::ChooseUvShift(uint32_t part, uint32_t material, int pass)
+bool ModelAssembler::choose_uv_shift(uint32_t part, uint32_t material, int pass)
 {
-    Scripts::CStruct* slot = BuiltAppearance()->GetPart(part);
+    script::Struct* slot = built_appearance()->get_part(part);
     if (!slot)
         return true;
-    if (!slot->HasEntryNamed(kUseDefaultUv))
+    if (!slot->has_entry_named(kUseDefaultUv))
         return false;
-    int useDefault = static_cast<int>(part); // (the original's stack slot: the part)
-    slot->FetchIntValue(kUseDefaultUv, &useDefault, 0);
-    if (useDefault)
+    int use_default = static_cast<int>(part); // (the original's stack slot: the part)
+    slot->fetch_int_value(kUseDefaultUv, &use_default, 0);
+    if (use_default)
         return false;
     float u = 0.0f, v = 0.0f, scale = 0.0f, rotation = 0.0f;
-    slot->FetchFloat(kUvU, &u, 1);
-    slot->FetchFloat(kUvV, &v, 1);
-    slot->FetchFloat(kUvScale, &scale, 1);
-    slot->FetchFloat(kUvRot, &rotation, 1);
-    Maths::Mat4 uv;
-    uv.ResetToIdentity();
+    slot->fetch_float(kUvU, &u, 1);
+    slot->fetch_float(kUvV, &v, 1);
+    slot->fetch_float(kUvScale, &scale, 1);
+    slot->fetch_float(kUvRot, &rotation, 1);
+    maths::Mat4 uv;
+    uv.reset_to_identity();
     // about the texture's middle: moved there, scaled, turned, moved back
     uv.row[3].x = static_cast<float>(static_cast<double>(uv.row[3].x) - kHalf);
     uv.row[3].y = static_cast<float>(static_cast<double>(uv.row[3].y) - kHalf);
-    float size = PercentOf(scale);
-    uv.StretchBy(Maths::Vec4{size, size, size, 1.0f});
-    uv.SpinBy(Maths::Vec4{0.0f, 0.0f, 1.0f, 1.0f}, static_cast<float>(static_cast<double>(rotation) * kDegrees));
+    float size = percent_of(scale);
+    uv.scale_tool(maths::Vec4{size, size, size, 1.0f});
+    uv.spin_by(maths::Vec4{0.0f, 0.0f, 1.0f, 1.0f}, static_cast<float>(static_cast<double>(rotation) * kDegrees));
     uv.row[3].x = static_cast<float>(static_cast<double>(uv.row[3].x) + kHalf);
     uv.row[3].y = static_cast<float>(static_cast<double>(uv.row[3].y) + kHalf);
-    uv.OffsetLocal(Maths::Vec4{static_cast<float>(static_cast<double>(u) * kPercent),
+    uv.offset_local(maths::Vec4{static_cast<float>(static_cast<double>(u) * kPercent),
                                   static_cast<float>(static_cast<double>(v) * kPercent), 0.0f, 0.0f});
-    BuiltModel()->ChooseUvMatrix(material, pass, &uv);
+    built_model()->choose_uv_matrix(material, pass, &uv);
     return true;
 }
 
 // 0x0048B200
-bool CModelAssembler::LaunchScript(uint32_t part, uint32_t target)
+bool ModelAssembler::launch_script(uint32_t part, uint32_t target)
 {
-    Scripts::CStruct* option = BuiltAppearance()->GetPartOption(part);
+    script::Struct* option = built_appearance()->get_part_option(part);
     if (!option)
         return true;
-    auto* held = static_cast<Scripts::SParamScript*>(MemSys::Alloc(sizeof(Scripts::SParamScript)));
+    auto* held = static_cast<script::ParamScript*>(memory::alloc(sizeof(script::ParamScript)));
     if (held) {
-        held->m_ownNameHash = 0;
-        held->m_codeStream = nullptr;
+        held->own_name_hash_ = 0;
+        held->code_stream_ = nullptr;
     }
-    if (FetchScript(option, target, held, 0)) {
-        void* memory = Scripts::CScript::operator new(sizeof(Scripts::CScript));
-        Scripts::CScript* script = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
-        script->SetScriptCopy(held, nullptr, BuiltAppearance()); // (no memory: a crash, as the original)
-        while (script->TickFrame()) {
+    if (fetch_script(option, target, held, 0)) {
+        void* memory = script::Script::operator new(sizeof(script::Script));
+        script::Script* script = memory ? static_cast<script::Script*>(memory)->make_new() : nullptr;
+        script->set_script_copy(held, nullptr, built_appearance()); // (no memory: a crash, as the original)
+        while (script->tick_frame()) {
         }
         if (script) {
-            script->Teardown();
-            Scripts::CScript::operator delete(script);
+            script->teardown();
+            script::Script::operator delete(script);
         }
     }
-    MemSys::Hub::Pull()->Dealloc(held);
+    memory::Hub::get_pull()->dealloc(held);
     return true;
 }
 
 namespace {
-static VtableSlot kVtable_slots[] = {&Gfx2D::CModelAssembler::Teardown, &GameObjects::CEntity::ChangeTraits,
-                static_cast<bool (GameObjects::CEntity::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CEntity::InvokeMethodByName),
-                &Gfx2D::CModelAssembler::InvokeMethodByName, Stubs::IgnoreArgument, &GameObjects::CEntity::PassEventToScript,
-                &GameObjects::CEntity::FlagAsDead, Stubs::ReturnTrue, &Gfx2D::CModelAssembler::Build, &Gfx2D::CModelAssembler::AddGeom,
-                &Gfx2D::CModelAssembler::RemovePart, &Gfx2D::CModelAssembler::ConcealMesh, &Gfx2D::CModelAssembler::BlendTintOver,
-                &Gfx2D::CModelAssembler::ChooseUvShift, &Gfx2D::CModelAssembler::CreateUvAnimParams,
-                &Gfx2D::CModelAssembler::SwapTexture, &Gfx2D::CModelAssembler::SetCreatedTexture,
-                &Gfx2D::CModelAssembler::ClearAllGeoms, &Gfx2D::CModelAssembler::DetachPolys, &Gfx2D::CModelAssembler::RestoreScale,
-                &Gfx2D::CModelAssembler::ApplyBodyShape, &Gfx2D::CModelAssembler::ApplyBoneSizing,
-                &Gfx2D::CModelAssembler::ApplyObjectScale, &Gfx2D::CModelAssembler::Seal,
-                &Gfx2D::CModelAssembler::PropagateHeadColor, &Gfx2D::CModelAssembler::LaunchScript};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&gfx::ModelAssembler::teardown, &objects::Entity::change_traits,
+                static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
+                &gfx::ModelAssembler::invoke_method_by_name, stubs::ignore_argument, &objects::Entity::pass_event_to_script,
+                &objects::Entity::flag_as_dead, stubs::return_true, &gfx::ModelAssembler::get_build, &gfx::ModelAssembler::add_geom,
+                &gfx::ModelAssembler::remove_part, &gfx::ModelAssembler::conceal_mesh, &gfx::ModelAssembler::blend_tint_over,
+                &gfx::ModelAssembler::choose_uv_shift, &gfx::ModelAssembler::create_uv_anim_params,
+                &gfx::ModelAssembler::swap_texture, &gfx::ModelAssembler::set_created_texture,
+                &gfx::ModelAssembler::clear_all_geoms, &gfx::ModelAssembler::detach_polys, &gfx::ModelAssembler::restore_scale,
+                &gfx::ModelAssembler::apply_body_shape, &gfx::ModelAssembler::apply_bone_sizing,
+                &gfx::ModelAssembler::apply_object_scale, &gfx::ModelAssembler::seal,
+                &gfx::ModelAssembler::propagate_head_color, &gfx::ModelAssembler::launch_script};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 } // namespace
 
 } // namespace Gfx

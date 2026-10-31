@@ -15,9 +15,9 @@
 #include "engine/net/net_client.h"
 #include "engine/net/net_server.h"
 
-namespace NetLink {
+namespace net {
 
-Hub* g_netCore;
+Hub* g_net_core;
 
 namespace {
 
@@ -32,13 +32,13 @@ constexpr int kClientMaxConnections = 1;
 constexpr uint32_t kServerSize = 0x2308;
 constexpr uint32_t kClientSize = 0x1F18;
 
-Hub*& Sole() { return g_netCore; }
+Hub*& sole() { return g_net_core; }
 
-uint32_t g_netManagerReferences;
+uint32_t g_net_manager_references;
 
-uint32_t& RefTally() { return g_netManagerReferences; }
+uint32_t& ref_tally() { return g_net_manager_references; }
 
-void SetupListSentinel(MemSys::ListNode* head)
+void setup_list_sentinel(memory::ListNode* head)
 {
     head->data = reinterpret_cast<void*>(-1);
     head->priority = 0;
@@ -48,7 +48,7 @@ void SetupListSentinel(MemSys::ListNode* head)
 }
 
 // `node` at the end of the list.
-void AppendLast(MemSys::ListNode* head, MemSys::ListNode* node)
+void append_last(memory::ListNode* head, memory::ListNode* node)
 {
     node->prev = head->prev;
     node->next = head;
@@ -56,150 +56,150 @@ void AppendLast(MemSys::ListNode* head, MemSys::ListNode* node)
     head->prev = node;
 }
 
-void CopyString(char* out, const char* text) { std::memcpy(out, text, std::strlen(text) + 1); }
+void copy_string(char* out, const char* text) { std::memcpy(out, text, std::strlen(text) + 1); }
 
 // (strncpy: zero-padded, unterminated if `text` is longer)
-void CopyName(char* out, const char* text)
+void copy_name(char* out, const char* text)
 {
 #pragma warning(suppress : 4996)
     std::strncpy(out, text, 0x40);
 }
 
-bool InitApp(AppHost* app) { return reinterpret_cast<bool(__thiscall*)(AppHost*)>(app->m_vtable[4])(app); }
+bool init_app(AppHost* app) { return reinterpret_cast<bool(__thiscall*)(AppHost*)>(app->vtable_[4])(app); }
 
 } // namespace
 
 // 0x004556E0
-Hub* Hub::MakeNew()
+Hub* Hub::make_new()
 {
-    SetupListSentinel(&m_hosts);
-    SetupListSentinel(&m_clients);
+    setup_list_sentinel(&hosts_);
+    setup_list_sentinel(&clients_);
     for (int id = 0; id < kMsgIdSpace; ++id)
-        m_messageFlags[id] = 0;
-    m_messageFlags[kMsgClockStamp] = kMsgNoLength;
-    m_messageFlags[kMsgAck] = kMsgNoLength;
-    CopyString(m_localIP, "<Unknown>");
-    CopyString(m_routerAddr, "192.168.55.99");
-    CopyString(m_subnetMask, "255.255.0.0");
-    m_numApps = 0;
-    m_connectionType = 0;
-    m_useDHCP = false;
-    m_isNetworked = false;
-    m_flag2E6 = false;
-    m_lastError = 0;
-    m_dialupPhase = 5;
-    m_unknown2EC = 0;
-    for (char* server : m_resolverIps)
+        message_flags_[id] = 0;
+    message_flags_[kMsgClockStamp] = kMsgNoLength;
+    message_flags_[kMsgAck] = kMsgNoLength;
+    copy_string(local_ip_, "<Unknown>");
+    copy_string(router_addr_, "192.168.55.99");
+    copy_string(subnet_mask_, "255.255.0.0");
+    num_apps_ = 0;
+    connection_type_ = 0;
+    use_dhcp_ = false;
+    is_networked_ = false;
+    flag_2e_6_ = false;
+    last_error_ = 0;
+    dialup_phase_ = 5;
+    unknown2ec_ = 0;
+    for (char* server : resolver_ips_)
         server[0] = '\0';
-    m_dialupNumberIndex = 0;
-    m_linkSpeed = 400000;
+    dialup_number_index_ = 0;
+    link_speed_ = 400000;
     return this;
 }
 
 // 0x004555A0
-void Hub::DestroyBody()
+void Hub::destroy_body()
 {
-    m_clients.DestroyBody();
-    m_hosts.DestroyBody();
+    clients_.destroy_body();
+    hosts_.destroy_body();
 }
 
 // 0x00455270
-HostEnd* Hub::MakeServerApp(int id, const char* name, int maxClients, uint16_t port, int address,
+HostEnd* Hub::make_server_app(int id, const char* name, int max_clients, uint16_t port, int address,
                                         int flags)
 {
-    MemSys::Hub::Pull()->EnterHeapScope(MemSys::Hub::Pull()->m_networkHeap);
-    if (m_connectionType != kConnectionType3 && m_connectionType != kConnectionTypeNone && m_useDHCP)
-        address = static_cast<int>(inet_addr(m_localIP));
-    void* memory = MemSys::Alloc(kServerSize);
-    HostEnd* server = memory ? static_cast<HostEnd*>(memory)->MakeNew(flags) : nullptr;
-    server->m_supervisor = this;
-    InitApp(server);
-    server->m_unknown1EB4 = static_cast<uint32_t>(id);
-    CopyName(server->m_label, name);
-    server->m_peerCap = maxClients;
-    AppendLast(&m_hosts, &server->m_list1414);
-    if (server->IsHostLocal()) {
-        server->m_linkedUp = true;
+    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->network_heap_);
+    if (connection_type_ != kConnectionType3 && connection_type_ != kConnectionTypeNone && use_dhcp_)
+        address = static_cast<int>(inet_addr(local_ip_));
+    void* memory = memory::alloc(kServerSize);
+    HostEnd* server = memory ? static_cast<HostEnd*>(memory)->make_new(flags) : nullptr;
+    server->supervisor_ = this;
+    init_app(server);
+    server->unknown1eb4_ = static_cast<uint32_t>(id);
+    copy_name(server->label_, name);
+    server->peer_cap_ = max_clients;
+    append_last(&hosts_, &server->list1414_);
+    if (server->is_host_local()) {
+        server->linked_up_ = true;
     } else {
-        server->Bind(static_cast<uint32_t>(address), port);
+        server->get_bind(static_cast<uint32_t>(address), port);
         if (flags & 1)
-            server->m_linkedUp = true;
+            server->linked_up_ = true;
     }
-    AddAppTasks(server);
+    add_app_tasks(server);
     in_addr ip;
     ip.s_addr = static_cast<ULONG>(address);
-    DebugOut::Printf("Created new: %s server %p, Max Clients: %d, IP: %s, Port: %d", name, server, maxClients,
+    debug::printf("Created new: %s server %p, Max Clients: %d, IP: %s, Port: %d", name, server, max_clients,
                 inet_ntoa(ip), port);
-    ++m_numApps;
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    ++num_apps_;
+    memory::Hub::get_pull()->leave_heap_scope();
     return server;
 }
 
 // 0x004553F0
-Guest* Hub::MakeClientApp(int id, const char* name, uint16_t port, int address, int flags)
+Guest* Hub::make_client_app(int id, const char* name, uint16_t port, int address, int flags)
 {
-    MemSys::Hub::Pull()->EnterHeapScope(MemSys::Hub::Pull()->m_networkHeap);
-    if (m_connectionType != kConnectionType3 && m_connectionType != kConnectionTypeNone && m_useDHCP)
-        address = static_cast<int>(inet_addr(m_localIP));
-    void* memory = MemSys::Alloc(kClientSize);
-    Guest* client = memory ? static_cast<Guest*>(memory)->MakeNew(flags) : nullptr;
-    CopyName(client->m_label, name);
-    client->m_supervisor = this;
-    InitApp(client);
-    client->m_unknown1EB4 = static_cast<uint32_t>(id);
-    client->m_peerCap = kClientMaxConnections;
-    AppendLast(&m_clients, &client->m_list1414);
-    if (!client->IsHostLocal())
-        client->Bind(static_cast<uint32_t>(address), port);
-    AddAppTasks(client);
-    DebugOut::Printf("Created new: %s client %p on port %d\n", name, client, port);
-    ++m_numApps;
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->network_heap_);
+    if (connection_type_ != kConnectionType3 && connection_type_ != kConnectionTypeNone && use_dhcp_)
+        address = static_cast<int>(inet_addr(local_ip_));
+    void* memory = memory::alloc(kClientSize);
+    Guest* client = memory ? static_cast<Guest*>(memory)->make_new(flags) : nullptr;
+    copy_name(client->label_, name);
+    client->supervisor_ = this;
+    init_app(client);
+    client->unknown1eb4_ = static_cast<uint32_t>(id);
+    client->peer_cap_ = kClientMaxConnections;
+    append_last(&clients_, &client->list1414_);
+    if (!client->is_host_local())
+        client->get_bind(static_cast<uint32_t>(address), port);
+    add_app_tasks(client);
+    debug::printf("Created new: %s client %p on port %d\n", name, client, port);
+    ++num_apps_;
+    memory::Hub::get_pull()->leave_heap_scope();
     return client;
 }
 
 // 0x00455550
-void Hub::ReleaseApp(AppHost* app)
+void Hub::release_app(AppHost* app)
 {
-    MemSys::ListNode& node = app->m_list1414;
+    memory::ListNode& node = app->list1414_;
     node.prev->next = node.next;
     node.next->prev = node.prev;
     node.next = &node;
     node.prev = &node;
-    reinterpret_cast<void(__thiscall*)(AppHost*)>(app->m_vtable[5])(app); // Deinit (through 0x00456B30)
+    reinterpret_cast<void(__thiscall*)(AppHost*)>(app->vtable_[5])(app); // Deinit (through 0x00456B30)
     if (app) // (checked only now)
-        reinterpret_cast<void*(__thiscall*)(AppHost*, unsigned int)>(app->m_vtable[0])(app, 1);
-    --m_numApps;
+        reinterpret_cast<void*(__thiscall*)(AppHost*, unsigned int)>(app->vtable_[0])(app, 1);
+    --num_apps_;
 }
 
 // 0x00455880
-Hub* CreateManager(bool create)
+Hub* create_manager(bool create)
 {
-    if (!Sole() && create) {
-        if (void* memory = MemSys::AllocZeroed(sizeof(Hub), nullptr, 1)) {
-            Sole() = static_cast<Hub*>(memory)->MakeNew();
-            ++RefTally();
-            return Sole();
+    if (!sole() && create) {
+        if (void* memory = memory::alloc_zeroed(sizeof(Hub), nullptr, 1)) {
+            sole() = static_cast<Hub*>(memory)->make_new();
+            ++ref_tally();
+            return sole();
         }
-        Sole() = nullptr;
+        sole() = nullptr;
     }
-    ++RefTally();
-    return Sole();
+    ++ref_tally();
+    return sole();
 }
 
 // 0x004558D0
-void ReleaseManager()
+void release_manager()
 {
-    if (RefTally() > 1) {
-        --RefTally();
+    if (ref_tally() > 1) {
+        --ref_tally();
         return;
     }
-    if (Hub* manager = Sole()) {
-        manager->DestroyBody();
-        MemSys::Hub::Pull()->Dealloc(manager);
+    if (Hub* manager = sole()) {
+        manager->destroy_body();
+        memory::Hub::get_pull()->dealloc(manager);
     }
-    Sole() = nullptr;
-    RefTally() = 0;
+    sole() = nullptr;
+    ref_tally() = 0;
 }
 
 } // namespace Net

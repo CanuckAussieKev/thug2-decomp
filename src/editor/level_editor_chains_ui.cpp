@@ -9,11 +9,11 @@
 #include "editor/level_editor_ui.h"
 #include "imgui.h"
 
-namespace MenuSystem::LevelEditor::Ui {
+namespace frontend::level_editor::ui {
 
 namespace {
 
-void Ask(std::vector<Request>* requests, int op, uint32_t arg = 0)
+void get_ask(std::vector<Request>* requests, int op, uint32_t arg = 0)
 {
     Request request = {Request::kChainOp};
     request.value = op;
@@ -22,18 +22,18 @@ void Ask(std::vector<Request>* requests, int op, uint32_t arg = 0)
 }
 
 // A button that can be off (its tooltip says what it does, or why not).
-void OpButton(const char* label, bool can, const char* what, const char* whyNot, std::vector<Request>* requests, int op)
+void op_button(const char* label, bool can, const char* what, const char* why_not, std::vector<Request>* requests, int op)
 {
     ImGui::BeginDisabled(!can);
     if (ImGui::Button(label))
-        Ask(requests, op);
+        get_ask(requests, op);
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-        ImGui::SetTooltip("%s", can ? what : whyNot);
+        ImGui::SetTooltip("%s", can ? what : why_not);
 }
 
 // "TERRAIN_GRINDMETAL" -> "Metal" (the list's labels).
-std::string TerrainLabel(const std::string& name)
+std::string terrain_label(const std::string& name)
 {
     const std::string prefix = "TERRAIN_GRIND";
     std::string label = name.compare(0, prefix.size(), prefix) == 0 ? name.substr(prefix.size()) : name;
@@ -44,24 +44,24 @@ std::string TerrainLabel(const std::string& name)
 
 } // namespace
 
-void ChainSection(const Chains::View& chain, std::vector<Request>* requests)
+void chain_section(const chains::View& chain, std::vector<Request>* requests)
 {
     if (!chain.show)
         return;
     if (chain.object) {
         ImGui::SeparatorText("Path");
-        if (chain.pathStart.empty())
+        if (chain.path_start_.empty())
             ImGui::TextDisabled("No path");
         else
-            ImGui::Text("Starts at %s", chain.pathStart.c_str());
+            ImGui::Text("Starts at %s", chain.path_start_.c_str());
         if (ImGui::Button("Assign Path..."))
-            Ask(requests, Chains::kOpAssignArm);
+            get_ask(requests, chains::kOpAssignArm);
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Click the first waypoint in the view");
         ImGui::SameLine();
-        ImGui::BeginDisabled(chain.pathStart.empty());
+        ImGui::BeginDisabled(chain.path_start_.empty());
         if (ImGui::Button("No path"))
-            Ask(requests, Chains::kOpUnassign);
+            get_ask(requests, chains::kOpUnassign);
         ImGui::EndDisabled();
         if (chain.waiting)
             ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", chain.waiting);
@@ -80,42 +80,42 @@ void ChainSection(const Chains::View& chain, std::vector<Request>* requests)
     }
     if (chain.ladder) {
         // (phase 4b: turned and deleted whole; its foot / top moved as points - L off)
-        ImGui::Text("Facing %.0f\xC2\xB0%s", static_cast<double>(chain.facingDegrees),
+        ImGui::Text("Facing %.0f\xC2\xB0%s", static_cast<double>(chain.facing_degrees_),
                     chain.turned ? " (turned)" : "");
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Direction the skater faces when climbing");
         if (ImGui::Button("Turn Left"))
-            Ask(requests, Chains::kOpTurn, static_cast<uint32_t>(-1));
+            get_ask(requests, chains::kOpTurn, static_cast<uint32_t>(-1));
         ImGui::SameLine();
         if (ImGui::Button("Turn Right"))
-            Ask(requests, Chains::kOpTurn, 1u);
+            get_ask(requests, chains::kOpTurn, 1u);
         ImGui::SameLine();
-        OpButton("Revert Facing", chain.turned, "Restore original facing", "Already original", requests, Chains::kOpFacingHome);
-        OpButton("Delete Ladder", chain.canDelete, "Delete the ladder  (Del)", "",
-                 requests, Chains::kOpDelete);
+        op_button("Revert Facing", chain.turned, "Restore original facing", "Already original", requests, chains::kOpFacingHome);
+        op_button("Delete Ladder", chain.can_delete_, "Delete the ladder  (Del)", "",
+                 requests, chains::kOpDelete);
         ImGui::TextDisabled("Turn off Whole Ladder to move the foot or top");
         if (chain.waiting)
             ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", chain.waiting);
         return;
     }
-    OpButton("Insert", chain.canInsert, "Insert a point after this one  (Insert)", "Last point: use Extend", requests, Chains::kOpInsert);
+    op_button("Insert", chain.can_insert_, "Insert a point after this one  (Insert)", "Last point: use Extend", requests, chains::kOpInsert);
     ImGui::SameLine();
-    OpButton("Delete", chain.canDelete, "Delete this point  (Del)", "", requests,
-             Chains::kOpDelete);
+    op_button("Delete", chain.can_delete_, "Delete this point  (Del)", "", requests,
+             chains::kOpDelete);
     ImGui::SameLine();
-    OpButton("Extend", chain.canExtend, "Draw more points from this end  (End)", "Select an end point", requests, Chains::kOpExtend);
-    OpButton("Link To...", chain.canLink, "Link to another chain's end  (J)", "Select an end point", requests, Chains::kOpLinkArm);
+    op_button("Extend", chain.can_extend_, "Draw more points from this end  (End)", "Select an end point", requests, chains::kOpExtend);
+    op_button("Link To...", chain.can_link_, "Link to another chain's end  (J)", "Select an end point", requests, chains::kOpLinkArm);
     ImGui::SameLine();
-    OpButton("Unlink", chain.canUnlink, "Split the chain after this point  (U)", "No next point", requests, Chains::kOpUnlink);
+    op_button("Unlink", chain.can_unlink_, "Split the chain after this point  (U)", "No next point", requests, chains::kOpUnlink);
     if (chain.rail && !chain.terrains.empty()) {
         std::string current = chain.terrain >= 0 && chain.terrain < static_cast<int>(chain.terrains.size())
-                                  ? TerrainLabel(chain.terrains[chain.terrain])
+                                  ? terrain_label(chain.terrains[chain.terrain])
                                   : std::string("(other)");
         ImGui::SetNextItemWidth(-1.0f);
         if (ImGui::BeginCombo("##terrain", ("Terrain: " + current).c_str())) {
             for (int i = 0; i < static_cast<int>(chain.terrains.size()); ++i) {
-                if (ImGui::Selectable(TerrainLabel(chain.terrains[i]).c_str(), i == chain.terrain))
-                    Ask(requests, Chains::kOpTerrain, Checksums::HashFromText(chain.terrains[i].c_str()));
+                if (ImGui::Selectable(terrain_label(chain.terrains[i]).c_str(), i == chain.terrain))
+                    get_ask(requests, chains::kOpTerrain, checksums::hash_from_text(chain.terrains[i].c_str()));
             }
             ImGui::EndCombo();
         }
@@ -124,22 +124,22 @@ void ChainSection(const Chains::View& chain, std::vector<Request>* requests)
     }
     if (chain.rail) {
         // (phase 4b: trick objects, grinding on flat ground - level_editor_chains.h)
-        bool trick = chain.trickObject;
-        ImGui::BeginDisabled(!chain.canTrickObject);
+        bool trick = chain.trick_object_;
+        ImGui::BeginDisabled(!chain.can_trick_object_);
         if (ImGui::Checkbox("Trick Object", &trick))
-            Ask(requests, Chains::kOpTrickObject, trick ? 1u : 0u);
+            get_ask(requests, chains::kOpTrickObject, trick ? 1u : 0u);
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-            ImGui::SetTooltip("%s", chain.canTrickObject
+            ImGui::SetTooltip("%s", chain.can_trick_object_
                                         ? "Counts as a trick object for scoring and graffiti"
                                   : "Original rails keep their setting");
-        if (chain.trickObject && !chain.cluster.empty()) {
+        if (chain.trick_object_ && !chain.cluster.empty()) {
             ImGui::SameLine();
             ImGui::TextDisabled("cluster %s", chain.cluster.c_str());
         }
-        bool flat = chain.grindFlat;
+        bool flat = chain.grind_flat_;
         if (ImGui::Checkbox("Grind on Flat Ground", &flat))
-            Ask(requests, Chains::kOpGrindFlat, flat ? 1u : 0u);
+            get_ask(requests, chains::kOpGrindFlat, flat ? 1u : 0u);
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Allow grinding where ground is level with the rail (this game only)");
     }
@@ -149,7 +149,7 @@ void ChainSection(const Chains::View& chain, std::vector<Request>* requests)
         int side = chain.hang >= 0 && chain.hang <= 2 ? chain.hang : 0;
         ImGui::BeginDisabled(!chain.added);
         if (ImGui::Combo("Hang from", &side, kSides, 3) && side != chain.hang)
-            Ask(requests, Chains::kOpHang, static_cast<uint32_t>(side));
+            get_ask(requests, chains::kOpHang, static_cast<uint32_t>(side));
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
             ImGui::SetTooltip("%s", chain.added ? "Side the skater hangs from" : "Original ledges keep their setting");
@@ -157,12 +157,12 @@ void ChainSection(const Chains::View& chain, std::vector<Request>* requests)
     }
     if (chain.rail) {
         // (the feature map: a speed-up - THAW's RailAccelerate - on this point's segment, or the whole rail)
-        if (chain.levelSpeed)
+        if (chain.level_speed_)
             ImGui::TextDisabled("Original speed-up: +%.1f%% per frame",
-                                static_cast<double>(chain.levelRate * 100.0f));
+                                static_cast<double>(chain.level_rate_ * 100.0f));
         bool on = chain.speed > 0.0f;
         if (ImGui::Checkbox("Speed-up", &on))
-            Ask(requests, Chains::kOpSpeed, on ? static_cast<uint32_t>(Chains::kSpeedDefault * 10000.0f + 0.5f) : 0u);
+            get_ask(requests, chains::kOpSpeed, on ? static_cast<uint32_t>(chains::kSpeedDefault * 10000.0f + 0.5f) : 0u);
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Speed up the skater while grinding uphill");
         if (on) {
@@ -170,11 +170,11 @@ void ChainSection(const Chains::View& chain, std::vector<Request>* requests)
             float percent = s_percent >= 0.0f ? s_percent : chain.speed * 100.0f;
             ImGui::SameLine();
             ImGui::SetNextItemWidth(110.0f);
-            if (ImGui::DragFloat("##speed", &percent, 0.05f, Chains::kSpeedMin * 100.0f, Chains::kSpeedMax * 100.0f,
+            if (ImGui::DragFloat("##speed", &percent, 0.05f, chains::kSpeedMin * 100.0f, chains::kSpeedMax * 100.0f,
                                  "+%.1f%% / frame", ImGuiSliderFlags_AlwaysClamp))
                 s_percent = percent;
             if (ImGui::IsItemDeactivatedAfterEdit() && s_percent >= 0.0f) {
-                Ask(requests, Chains::kOpSpeed, static_cast<uint32_t>(s_percent * 100.0f + 0.5f));
+                get_ask(requests, chains::kOpSpeed, static_cast<uint32_t>(s_percent * 100.0f + 0.5f));
                 s_percent = -1.0f;
             } else if (!ImGui::IsItemActive()) {
                 s_percent = -1.0f;
@@ -183,17 +183,17 @@ void ChainSection(const Chains::View& chain, std::vector<Request>* requests)
                 ImGui::SetTooltip("Speed gain per frame (typical: 2-10%%)");
             ImGui::SameLine();
             if (ImGui::SmallButton("Whole rail"))
-                Ask(requests, Chains::kOpSpeedRail, static_cast<uint32_t>(chain.speed * 10000.0f + 0.5f));
+                get_ask(requests, chains::kOpSpeedRail, static_cast<uint32_t>(chain.speed * 10000.0f + 0.5f));
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("Apply to the whole rail");
         } else if (chain.points > 1) {
             ImGui::SameLine();
             if (ImGui::SmallButton("Clear Whole Rail"))
-                Ask(requests, Chains::kOpSpeedRail, 0u);
+                get_ask(requests, chains::kOpSpeedRail, 0u);
         }
     }
     if (chain.waiting)
         ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", chain.waiting);
 }
 
-} // namespace MenuSystem::LevelEditor::Ui
+} // namespace MenuSystem::level_editor::Ui

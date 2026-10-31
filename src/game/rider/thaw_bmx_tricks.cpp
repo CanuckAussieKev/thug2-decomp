@@ -3,7 +3,7 @@
 // wallrides on square too, skitching on R2, no vert wallplants, no lip tricks, the bike's wallplant -, the tire tap,
 // the manual's pose on the rider and the bike, the bike's sounds and the THAW-only members its bike scripts ask. Our
 // addition at the user's request - not THUG2's code and not PartyMod's. Read from THAW's reference build
-// (game/rider/thaw_bmx.h - no tracing); our THUG2 functions call these only while ThawBmx::LiveNow(core).
+// (game/rider/thaw_bmx.h - no tracing); our THUG2 functions call these only while ThawBmx::live_now(core).
 
 #include <cmath>
 #include <cstdint>
@@ -30,16 +30,16 @@
 #include "game/skate/skate_module.h"
 #include "platform/run_log.h"
 
-namespace Skater::ThawBmx {
+namespace skater::thaw_bmx {
 
 namespace {
 
 template <typename T>
-T& At(const void* object, uint32_t offset)
+T& get_at(const void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
 }
-Maths::Vec4& VectorAt(const void* object, uint32_t offset) { return At<Maths::Vec4>(object, offset); }
+maths::Vec4& vector_at(const void* object, uint32_t offset) { return get_at<maths::Vec4>(object, offset); }
 
 // The core physics component's fields (THUG2's; THAW's in the comment).
 constexpr uint32_t kObject = 0x0C;
@@ -70,7 +70,7 @@ constexpr uint32_t kFacing = 0x8C;         // THAW +0xA8
 constexpr uint32_t kVelocity = 0xAC;       // THAW +0xC8
 // The pad's buttons (offsets in THUG2's pad = THAW's).
 constexpr uint32_t kR1 = 0xE0, kR2 = 0x100, kSquare = 0x160;
-// THAW's stall state (CoreFields::kBikeStall).
+// THAW's stall state (core_fields::kBikeStall).
 constexpr int kStateBikeStall = 6;
 // Components.
 constexpr uint32_t kSpecialItem = 0xF27A294D;
@@ -116,72 +116,72 @@ const char* const kSoundTables[] = {
     "thaw_bmx_terrain_bonk", "thaw_bmx_terrain_roll",      "thaw_bmx_terrain_grind",
 };
 
-uint32_t NameHash(const char* name) { return Checksums::HashFromText(name); }
-void* ObjectOf(const void* core) { return At<void*>(core, kObject); }
-uint8_t* FlagsOf(const void* core) { return At<uint8_t*>(core, kFlags); }
-uint8_t* PadOf(const void* core) { return At<uint8_t*>(core, kInput) + 0x20; }
-float FrameLength(const void* core) { return At<float>(core, kFrameLength); }
-int Now() { return FrameClock::GameClockElapsed() + GameObjects::g_clockOffset; }
+uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
+void* object_of(const void* core) { return get_at<void*>(core, kObject); }
+uint8_t* flags_of(const void* core) { return get_at<uint8_t*>(core, kFlags); }
+uint8_t* pad_of(const void* core) { return get_at<uint8_t*>(core, kInput) + 0x20; }
+float get_frame_length(const void* core) { return get_at<float>(core, kFrameLength); }
+int get_now() { return frame_clock::game_clock_elapsed() + objects::g_clock_offset; }
 
-void SetTimedFlag(const void* core, uint32_t flag, bool on)
+void set_timed_flag(const void* core, uint32_t flag, bool on)
 {
-    uint8_t* f = FlagsOf(core) + flag;
+    uint8_t* f = flags_of(core) + flag;
     if ((*f != 0) == on)
         return;
     *f = on ? 1 : 0;
-    At<int>(f, 4) = Now();
+    get_at<int>(f, 4) = get_now();
 }
 
-double Dot3(const Maths::Vec4& a, const Maths::Vec4& b)
+double dot3(const maths::Vec4& a, const maths::Vec4& b)
 {
     return static_cast<double>(a.x) * b.x + static_cast<double>(a.y) * b.y + static_cast<double>(a.z) * b.z;
 }
 
 // The level's rails (the skate module's rail manager: 0x007CE478's +0x24 - THAW's 0x008A3B5C's +0x24).
-GameObjects::CGrindRailHub* LevelRails()
+objects::GrindRailHub* get_level_rails()
 {
-    uint8_t* module = reinterpret_cast<uint8_t*>(GameModules::g_skateModule);
-    return module ? At<GameObjects::CGrindRailHub*>(module, 0x24) : nullptr;
+    uint8_t* module = reinterpret_cast<uint8_t*>(modules::g_skate_module);
+    return module ? get_at<objects::GrindRailHub*>(module, 0x24) : nullptr;
 }
 
 // The tire tap's ledge: THAW 0x0058C850 on the level's rails (the rails its 0x0058C856.. walks, flags read as THAW's:
 // a ladder never, switched on, with a next node; a rail that can't be climbed on is fine on the bike). Phase 7, read
-// whole: it is THUG2's CGrindRailHub::FindRail (0x0057DDA0) with that one bike exception,
-// and its checker is the walk component's hang check (THAW 0x0060AC40 - THUG2's CFootMovement::CheckRail): in the
+// whole: it is THUG2's GrindRailHub::find_rail (0x0057DDA0) with that one bike exception,
+// and its checker is the walk component's hang check (THAW 0x0060AC40 - THUG2's FootMovement::check_rail): in the
 // air a rail not above the line and within 12 below it, not steeper than hang_max_rail_ascent, room to hang. Ours
 // takes the first two (the hang's room is for a hanging skater, not a wheel) and the rail's own point - THAW's is the
-// hang point CheckRail makes, which its ledge state (7, not ported) then works from.
-float RailAscentSine()
+// hang point check_rail makes, which its ledge state (7, not ported) then works from.
+float rail_ascent_sine()
 {
     float degrees = 0.0f;
-    if (Scripts::CStruct* walk = Scripts::ReadSubStruct(kWalkParameters))
-        walk->FetchFloat(kHangMaxRailAscent, &degrees, 0);
+    if (script::Struct* walk = script::read_sub_struct(kWalkParameters))
+        walk->fetch_float(kHangMaxRailAscent, &degrees, 0);
     return static_cast<float>(std::sin(static_cast<double>(degrees) * kRadiansPerDegree));
 }
 
-bool FindLedge(const Maths::Vec4& start, const Maths::Vec4& end, const Maths::Vec4& direction, Maths::Vec4* point)
+bool find_ledge(const maths::Vec4& start, const maths::Vec4& end, const maths::Vec4& direction, maths::Vec4* point)
 {
-    GameObjects::CGrindRailHub* rails = LevelRails();
+    objects::GrindRailHub* rails = get_level_rails();
     if (!rails)
         return false;
     bool found = false;
     float best = 1e14f;
-    const float steepest = RailAscentSine();
-    for (int index = 0; index < rails->m_num; ++index) {
-        const GameObjects::CGrindPoint* node = &rails->m_nodes[index];
-        if ((node->m_flagBits & GameObjects::RAIL_FLAG_LADDER) || !(node->m_flagBits & GameObjects::RAIL_FLAG_ACTIVE) || !node->m_succ)
+    const float steepest = rail_ascent_sine();
+    for (int index = 0; index < rails->num_; ++index) {
+        const objects::GrindPoint* node = &rails->nodes_[index];
+        if ((node->flag_bits_ & objects::kRailFlagLadder) || !(node->flag_bits_ & objects::kRailFlagActive) || !node->succ_)
             continue;
-        Maths::Vec4 a, b, at;
-        rails->GetAbsolutePos(&a, node);
-        rails->GetAbsolutePos(&b, node->m_succ);
+        maths::Vec4 a, b, at;
+        rails->get_absolute_pos(&a, node);
+        rails->get_absolute_pos(&b, node->succ_);
         float score = 0.0f;
-        if (!Bike::LedgePoint(start, end, direction, a, b, kTapMargin, &at, &score) || score > best)
+        if (!bike::ledge_point(start, end, direction, a, b, kTapMargin, &at, &score) || score > best)
             continue;
-        Maths::Vec4 along = b - a;
-        along.MakeUnit();
+        maths::Vec4 along = b - a;
+        along.make_unit();
         if (std::fabs(along.y) > steepest)
             continue;
-        if (!GameObjects::RailClear(a, b))
+        if (!objects::rail_clear(a, b))
             continue;
         best = score;
         *point = at;
@@ -191,37 +191,37 @@ bool FindLedge(const Maths::Vec4& start, const Maths::Vec4& end, const Maths::Ve
 }
 
 // The bike (the skater's special item named ThawBmx), or null.
-GameObjects::CGameEntity* BikeOf(void* skater)
+objects::GameEntity* bike_of(void* skater)
 {
-    auto* items = static_cast<GameObjects::CPickupItemHandler*>(
-        static_cast<GameObjects::CGameEntity*>(skater)->FetchModule(kSpecialItem));
+    auto* items = static_cast<objects::PickupItemHandler*>(
+        static_cast<objects::GameEntity*>(skater)->fetch_module(kSpecialItem));
     if (!items)
         return nullptr;
-    const uint32_t id = NameHash(kBikeObject);
-    for (GameObjects::CGameEntity* item : items->m_items) {
-        if (item && (item->m_ident == id || item->m_ident == id + static_cast<GameObjects::CEntity*>(skater)->m_ident))
+    const uint32_t id = name_hash(kBikeObject);
+    for (objects::GameEntity* item : items->items_) {
+        if (item && (item->ident_ == id || item->ident_ == id + static_cast<objects::Entity*>(skater)->ident_))
             return item;
     }
     return nullptr;
 }
 
-void SetWobble(GameObjects::CGameEntity* object, float fraction)
+void set_wobble(objects::GameEntity* object, float fraction)
 {
-    if (auto* blender = static_cast<GameObjects::CAnimBlenderComponent*>(object->FetchModule(kAnimBlender)))
-        blender->FirstChannel47E280(fraction, 1);
+    if (auto* blender = static_cast<objects::AnimBlenderComponent*>(object->fetch_module(kAnimBlender)))
+        blender->first_channel_47e_280(fraction, 1);
 }
 
 } // namespace
 
-GameObjects::CGameEntity* BikeObjectOf(void* skater) { return BikeOf(skater); }
+objects::GameEntity* bike_object_of(void* skater) { return bike_of(skater); }
 
 // --- the maths ---------------------------------------------------------------------------------------------------
 
-namespace Bike {
+namespace bike {
 
-Maths::Vec4 TireTapVelocity(const Maths::Vec4& velocity)
+maths::Vec4 tire_tap_velocity(const maths::Vec4& velocity)
 {
-    Maths::Vec4 v = velocity;
+    maths::Vec4 v = velocity;
     double flat = std::sqrt(static_cast<double>(v.x) * v.x + static_cast<double>(v.z) * v.z);
     if (flat > 0.0) {
         double keep = flat > kTapSlowing ? (flat - kTapSlowing) / flat : 0.0;
@@ -233,11 +233,11 @@ Maths::Vec4 TireTapVelocity(const Maths::Vec4& velocity)
     return v;
 }
 
-TapStep TireTapStep(const Maths::Vec4& position, const Maths::Vec4& tap)
+TapStep tire_tap_step(const maths::Vec4& position, const maths::Vec4& tap)
 {
     TapStep step = {position, false, false};
-    Maths::Vec4 toward = {tap.x - position.x, 0.0f, tap.z - position.z, 0.0f};
-    double distance = std::sqrt(Dot3(toward, toward));
+    maths::Vec4 toward = {tap.x - position.x, 0.0f, tap.z - position.z, 0.0f};
+    double distance = std::sqrt(dot3(toward, toward));
     if (distance < kTapReach) {
         if (tap.y > position.y) {
             step.position = {tap.x, tap.y, tap.z, position.w};
@@ -258,9 +258,9 @@ TapStep TireTapStep(const Maths::Vec4& position, const Maths::Vec4& tap)
     return step;
 }
 
-float ManualWobble(float manualAngle) { return static_cast<float>(manualAngle * kManualWobble); }
+float manual_wobble(float manual_angle) { return static_cast<float>(manual_angle * kManualWobble); }
 
-uint32_t BalanceOffset(uint32_t kind)
+uint32_t balance_offset(uint32_t kind)
 {
     // THAW 0x006207A8: the balance trick component's balance for its kind (THUG2's layout is the same).
     switch (kind) {
@@ -279,38 +279,38 @@ uint32_t BalanceOffset(uint32_t kind)
     }
 }
 
-float BalanceWobble(float lean, bool flip) { return (flip ? kBalanceMiddle - lean : lean + kBalanceMiddle) * kBalanceScale; }
+float balance_wobble(float lean, bool flip) { return (flip ? kBalanceMiddle - lean : lean + kBalanceMiddle) * kBalanceScale; }
 
-bool DisplayPitchBeyond(const Maths::Vec4& up, const Maths::Vec4& normal, float degrees)
+bool display_pitch_beyond(const maths::Vec4& up, const maths::Vec4& normal, float degrees)
 {
-    return std::cos(static_cast<double>(degrees) * kRadiansPerDegree) > Dot3(up, normal);
+    return std::cos(static_cast<double>(degrees) * kRadiansPerDegree) > dot3(up, normal);
 }
 
-bool LedgePoint(const Maths::Vec4& start, const Maths::Vec4& end, const Maths::Vec4& direction, const Maths::Vec4& a,
-                const Maths::Vec4& b, float margin, Maths::Vec4* point, float* score)
+bool ledge_point(const maths::Vec4& start, const maths::Vec4& end, const maths::Vec4& direction, const maths::Vec4& a,
+                const maths::Vec4& b, float margin, maths::Vec4* point, float* score)
 {
-    Maths::Seg line(start, end), rail(a, b);
-    Maths::Vec4 onLine, onRail;
+    maths::Seg line(start, end), rail(a, b);
+    maths::Vec4 on_line, on_rail;
     float s = 0.0f, t = 0.0f;
-    if (!Maths::ClosestPointsBetweenLines(line, rail, onLine, onRail, s, t, true)) {
+    if (!maths::closest_points_between_lines(line, rail, on_line, on_rail, s, t, true)) {
         // (along the line, or a rail of no length: the rail's point nearest the line's start)
-        Maths::Vec4 along = b - a;
-        double length = Dot3(along, along);
-        double k = length > 0.0 ? Dot3(start - a, along) / length : 0.0;
+        maths::Vec4 along = b - a;
+        double length = dot3(along, along);
+        double k = length > 0.0 ? dot3(start - a, along) / length : 0.0;
         k = k < 0.0 ? 0.0 : (k > 1.0 ? 1.0 : k);
-        onRail = a + static_cast<float>(k) * along;
-        onLine = start;
+        on_rail = a + static_cast<float>(k) * along;
+        on_line = start;
     }
-    if (onRail.y > onLine.y || onLine.y - onRail.y > kLedgeHeight)
+    if (on_rail.y > on_line.y || on_line.y - on_rail.y > kLedgeHeight)
         return false;
-    Maths::Vec4 apart = onRail - onLine;
-    if (Dot3(apart, apart) > static_cast<double>(margin) * margin)
+    maths::Vec4 apart = on_rail - on_line;
+    if (dot3(apart, apart) > static_cast<double>(margin) * margin)
         return false;
-    double forward = Dot3(apart, direction);
+    double forward = dot3(apart, direction);
     if (forward > 0.0)
         apart -= static_cast<float>(forward * 0.6666667f) * direction;
-    *score = static_cast<float>(Dot3(apart, apart));
-    *point = onRail;
+    *score = static_cast<float>(dot3(apart, apart));
+    *point = on_rail;
     return true;
 }
 
@@ -318,24 +318,24 @@ bool LedgePoint(const Maths::Vec4& start, const Maths::Vec4& end, const Maths::V
 
 // --- the gates ---------------------------------------------------------------------------------------------------
 
-bool WallrideButton(void* core) { return PadOf(core)[kSquare] != 0; }
+bool wallride_button(void* core) { return pad_of(core)[kSquare] != 0; }
 
-bool WallplantBySquare(void* core) { return PadOf(core)[kSquare] != 0; }
+bool wallplant_by_square(void* core) { return pad_of(core)[kSquare] != 0; }
 
-uint32_t WallplantTrickList()
+uint32_t wallplant_trick_list()
 {
-    uint32_t bike = NameHash(kWallplantTrick);
-    return Scripts::FetchList(bike) ? bike : kThugWallplantTrick;
+    uint32_t bike = name_hash(kWallplantTrick);
+    return script::fetch_list(bike) ? bike : kThugWallplantTrick;
 }
 
-uint8_t* TowButton(void* core) { return PadOf(core) + kR2; }
+uint8_t* tow_button(void* core) { return pad_of(core) + kR2; }
 
 // --- the tire tap ------------------------------------------------------------------------------------------------
 
-bool TireTapping(const void* core)
+bool tire_tapping(const void* core)
 {
-    const BikeState* state = StateOf(core, false);
-    return state && state->tireTap;
+    const BikeState* state = state_of(core, false);
+    return state && state->tire_tap_;
 }
 
 namespace {
@@ -343,115 +343,115 @@ namespace {
 // THAW 0x005DC290: in the air, R1 and up or down held: a point to tap the wheel on - in vert the surface below (not
 // within 30 under the bike already; feelers 1000 down from points along the bike's down, from 100 by 3), else a ledge
 // (a rail) on the way ahead (100 along the flattened velocity; THAW's ledge search through the walk component's hang
-// check, here FindLedge). Found: the tire tap on, the bike turned 45 degrees over (up held: onto the front wheel),
+// check, here find_ledge). Found: the tire tap on, the bike turned 45 degrees over (up held: onto the front wheel),
 // THAW's vert flags off. In vert, once asked, it goes on looking every frame without the buttons (THAW's +0x54C) -
 // for the coping still to come; out of vert only while they're held.
-void StartTireTap(void* core, BikeState& state)
+void start_tire_tap(void* core, BikeState& state)
 {
-    uint8_t* flags = FlagsOf(core);
+    uint8_t* flags = flags_of(core);
     if (flags[kFlagAcidDrop]) {
-        state.tapArmed = false;
+        state.tap_armed_ = false;
         return;
     }
-    bool notVert = !flags[kFlagVert];
-    if (notVert)
-        state.tapArmed = false;
-    uint8_t* pad = PadOf(core);
-    bool held = pad[kR1] && (state.stickUp.down || state.stickDown.down);
-    if (!state.tapArmed && !held)
+    bool not_vert = !flags[kFlagVert];
+    if (not_vert)
+        state.tap_armed_ = false;
+    uint8_t* pad = pad_of(core);
+    bool held = pad[kR1] && (state.stick_up_.down || state.stick_down_.down);
+    if (!state.tap_armed_ && !held)
         return;
-    void* object = ObjectOf(core);
+    void* object = object_of(core);
     auto* physics = static_cast<SkaterPhysicsModule*>(core);
-    const Maths::Vec4 position = VectorAt(object, kPosition);
-    const Maths::Vec4 up = VectorAt(object, kUp);
+    const maths::Vec4 position = vector_at(object, kPosition);
+    const maths::Vec4 up = vector_at(object, kUp);
     bool found = false;
     float best = kTapFar;
-    if (!notVert) {
-        VectorAt(core, kProbeOrigin) = position;
-        VectorAt(core, kProbeTip) = position + kTapAbove * up;
-        if (physics->ProbeTouchesZone(0x10, 0)) {
-            state.tapArmed = true;
+    if (!not_vert) {
+        vector_at(core, kProbeOrigin) = position;
+        vector_at(core, kProbeTip) = position + kTapAbove * up;
+        if (physics->probe_touches_zone(0x10, 0)) {
+            state.tap_armed_ = true;
             return;
         }
         // (phase 7: THAW's search direction is the bike's down flattened - THAW 0x005DC290 zeroes its y - out
         // over the deck; phase 4 took the down itself)
-        Maths::Vec4 down = {-up.x, 0.0f, -up.z, -up.w};
-        down.MakeUnit();
+        maths::Vec4 down = {-up.x, 0.0f, -up.z, -up.w};
+        down.make_unit();
         for (float depth = kTapSearchStart; depth > kTapSearchEnd; depth -= kTapSearchStep) {
-            Maths::Vec4 from = position + depth * down;
-            Maths::Vec4 to = {from.x, from.y - kTapDrop, from.z, from.w};
-            VectorAt(core, kProbeOrigin) = from;
-            VectorAt(core, kProbeTip) = to;
-            if (!physics->ProbeTouchesZone(0x10, 0) || (At<uint16_t>(core, kHitFlags) & 8))
+            maths::Vec4 from = position + depth * down;
+            maths::Vec4 to = {from.x, from.y - kTapDrop, from.z, from.w};
+            vector_at(core, kProbeOrigin) = from;
+            vector_at(core, kProbeTip) = to;
+            if (!physics->probe_touches_zone(0x10, 0) || (get_at<uint16_t>(core, kHitFlags) & 8))
                 continue;
-            float distance = from.y - VectorAt(core, kHitPoint).y;
+            float distance = from.y - vector_at(core, kHitPoint).y;
             if (distance > best + kTapNearer)
                 continue;
             best = distance;
-            state.tapPoint = VectorAt(core, kHitPoint);
-            state.tapStart = position;
-            state.tapLedge = false;
+            state.tap_point_ = vector_at(core, kHitPoint);
+            state.tap_start_ = position;
+            state.tap_ledge_ = false;
             found = true;
         }
     }
-    Maths::Vec4 direction = VectorAt(object, kVelocity);
+    maths::Vec4 direction = vector_at(object, kVelocity);
     direction.y = 0.0f;
     direction.w = 0.0f;
-    if (Dot3(direction, direction) > 0.0)
-        direction.MakeUnit();
-    Maths::Vec4 end = {position.x, position.y - kTapDrop, position.z, 1.0f};
-    if (notVert)
+    if (dot3(direction, direction) > 0.0)
+        direction.make_unit();
+    maths::Vec4 end = {position.x, position.y - kTapDrop, position.z, 1.0f};
+    if (not_vert)
         end = position + kTapAhead * direction;
     // A ledge (phase 7, THAW 0x005DC290: looked for in vert too, and taken over a surface found below unless it's
     // a thousand times further away).
-    Maths::Vec4 ledge;
-    if (FindLedge(position, end, direction, &ledge)) {
-        Maths::Vec4 apart = ledge - position;
-        double distance = std::sqrt(Dot3(apart, apart)) * kTapLedgeWeight;
+    maths::Vec4 ledge;
+    if (find_ledge(position, end, direction, &ledge)) {
+        maths::Vec4 apart = ledge - position;
+        double distance = std::sqrt(dot3(apart, apart)) * kTapLedgeWeight;
         if (!found || distance <= static_cast<double>(best) + kTapNearer) {
-            state.tapPoint = ledge;
-            state.tapStart = position;
-            state.tapLedge = true;
+            state.tap_point_ = ledge;
+            state.tap_start_ = position;
+            state.tap_ledge_ = true;
             found = true;
         }
     }
     if (!found) {
-        state.tapArmed = true;
+        state.tap_armed_ = true;
         return;
     }
     // On.
-    state.tireTap = true;
-    state.tireTapNose = state.stickUp.down;
-    state.tapPitch = 0.0f;
-    SetTimedFlag(core, kFlagVert, false);
-    SetTimedFlag(core, kFlag38, false);
-    SetTimedFlag(core, kFlag48, false);
+    state.tire_tap_ = true;
+    state.tire_tap_nose_ = state.stick_up_.down;
+    state.tap_pitch_ = 0.0f;
+    set_timed_flag(core, kFlagVert, false);
+    set_timed_flag(core, kFlag38, false);
+    set_timed_flag(core, kFlag48, false);
 }
 
 // THAW 0x005CE920: the tire tap going on - over when an acid drop starts; while R1 and up / down stay held (or the point
 // is a ledge's) the bike slows and goes towards the point (reaching it above: put on it - a ledge's: landed from the
 // tire tap), the point above it while still far off: over; let go, the bike is pulled the way the point lies. Rising, it
 // slows (THAW's fixed amounts a frame).
-void CarryTireTap(void* core, BikeState& state)
+void carry_tire_tap(void* core, BikeState& state)
 {
-    uint8_t* flags = FlagsOf(core);
+    uint8_t* flags = flags_of(core);
     if (flags[kFlag70]) {
-        state.tireTap = false;
-        state.tapLedge = false;
+        state.tire_tap_ = false;
+        state.tap_ledge_ = false;
         return;
     }
-    state.tapArmed = false;
-    void* object = ObjectOf(core);
-    Maths::Vec4& velocity = VectorAt(object, kVelocity);
-    Maths::Vec4& position = VectorAt(object, kPosition);
-    uint8_t* pad = PadOf(core);
-    bool held = pad[kR1] && (state.stickUp.down || state.stickDown.down);
-    if (held || state.tapLedge) {
-        velocity = Bike::TireTapVelocity(velocity);
-        Bike::TapStep step = Bike::TireTapStep(position, state.tapPoint);
+    state.tap_armed_ = false;
+    void* object = object_of(core);
+    maths::Vec4& velocity = vector_at(object, kVelocity);
+    maths::Vec4& position = vector_at(object, kPosition);
+    uint8_t* pad = pad_of(core);
+    bool held = pad[kR1] && (state.stick_up_.down || state.stick_down_.down);
+    if (held || state.tap_ledge_) {
+        velocity = bike::tire_tap_velocity(velocity);
+        bike::TapStep step = bike::tire_tap_step(position, state.tap_point_);
         if (step.ends) {
-            state.tireTap = false;
-            state.tapLedge = false;
+            state.tire_tap_ = false;
+            state.tap_ledge_ = false;
             return;
         }
         position = step.position;
@@ -460,12 +460,12 @@ void CarryTireTap(void* core, BikeState& state)
             // the bike on it next.)
             if (velocity.y > 0.0f)
                 velocity.y = 0.0f;
-            state.landedFromTireTap = state.tapLedge;
+            state.landed_from_tire_tap_ = state.tap_ledge_;
         }
     } else {
-        Maths::Vec4 pull = {state.tapPoint.x - state.tapStart.x, 0.0f, state.tapPoint.z - state.tapStart.z, 0.0f};
-        if (Dot3(pull, pull) > 0.0)
-            pull.MakeUnit();
+        maths::Vec4 pull = {state.tap_point_.x - state.tap_start_.x, 0.0f, state.tap_point_.z - state.tap_start_.z, 0.0f};
+        if (dot3(pull, pull) > 0.0)
+            pull.make_unit();
         velocity.x += pull.x * kTapPull;
         velocity.z += pull.z * kTapPull;
         if (velocity.y > 0.0f)
@@ -474,201 +474,201 @@ void CarryTireTap(void* core, BikeState& state)
     }
     // THAW 0x005DC9E9..: the bike turned over to 45 degrees in half a second (THAW slerps its display there; here the
     // skater's matrix and the display's, a step a frame).
-    float target = state.tireTapNose ? kTapPitch : -kTapPitch;
-    float remaining = target - state.tapPitch;
+    float target = state.tire_tap_nose_ ? kTapPitch : -kTapPitch;
+    float remaining = target - state.tap_pitch_;
     if (remaining != 0.0f) {
-        float most = kTapPitch / kTapPitchTime * FrameLength(core);
+        float most = kTapPitch / kTapPitchTime * get_frame_length(core);
         float step = std::fabs(remaining) < most ? remaining : (remaining > 0.0f ? most : -most);
-        state.tapPitch += step;
-        At<Maths::Mat4>(object, kMatrix).PitchLocally(step);
-        At<Maths::Mat4>(core, kDisplayMatrix).PitchLocally(step);
+        state.tap_pitch_ += step;
+        get_at<maths::Mat4>(object, kMatrix).pitch_locally(step);
+        get_at<maths::Mat4>(core, kDisplayMatrix).pitch_locally(step);
     }
 }
 
 } // namespace
 
-void TireTap(void* core)
+void tire_tap(void* core)
 {
-    BikeState& state = *StateOf(core, true);
-    state.landedFromTireTap = false;
-    if (state.tireTap)
-        CarryTireTap(core, state);
+    BikeState& state = *state_of(core, true);
+    state.landed_from_tire_tap_ = false;
+    if (state.tire_tap_)
+        carry_tire_tap(core, state);
     else
-        StartTireTap(core, state);
+        start_tire_tap(core, state);
 }
 
 // --- the manual's pose -------------------------------------------------------------------------------------------
 
-void ManualPose(void* core)
+void manual_pose(void* core)
 {
-    auto* skater = static_cast<GameObjects::CGameEntity*>(ObjectOf(core));
-    GameObjects::CGameEntity* bike = BikeOf(skater);
-    const BikeState* state = StateOf(core, false);
+    auto* skater = static_cast<objects::GameEntity*>(object_of(core));
+    objects::GameEntity* bike = bike_of(skater);
+    const BikeState* state = state_of(core, false);
     if (!state)
         return;
     float fraction;
     if (state->manual) {
-        fraction = Bike::ManualWobble(state->manualAngle);
+        fraction = bike::manual_wobble(state->manual_angle_);
     } else {
         // THAW 0x006207A8: else the running balance trick's balance (the grind's and the stall's range animations
         // among them) - THAW keeps one wobble fraction, which its animation trees play on the rider and the bike alike.
-        // THUG2's balance (CBalance::TickFrame) moves only the rider's animation: the bike stayed on its range
+        // THUG2's balance (Balance::tick_frame) moves only the rider's animation: the bike stayed on its range
         // animation's first or last frame - in a stall (played from its end) beside the rail, twisted. The flip as
         // THUG2's balance takes it for the rider (THAW asks its own stance there), so the two agree.
-        uint8_t* tricks = At<uint8_t*>(core, kBalanceTricks);
-        uint32_t at = tricks ? Bike::BalanceOffset(At<uint32_t>(tricks, 0x18)) : 0;
+        uint8_t* tricks = get_at<uint8_t*>(core, kBalanceTricks);
+        uint32_t at = tricks ? bike::balance_offset(get_at<uint32_t>(tricks, 0x18)) : 0;
         if (!at)
             return;
-        const auto* balance = reinterpret_cast<const GameObjects::CBalance*>(tricks + at);
-        bool flip = balance->m_flip;
-        if (balance->m_mirrored && At<uint8_t*>(core, kFlags)[0x28])
+        const auto* balance = reinterpret_cast<const objects::Balance*>(tricks + at);
+        bool flip = balance->flip_;
+        if (balance->mirrored_ && get_at<uint8_t*>(core, kFlags)[0x28])
             flip = !flip;
-        fraction = Bike::BalanceWobble(balance->m_lean, flip);
+        fraction = bike::balance_wobble(balance->lean_, flip);
     }
-    SetWobble(skater, fraction);
+    set_wobble(skater, fraction);
     if (bike)
-        SetWobble(bike, fraction);
+        set_wobble(bike, fraction);
 }
 
 // --- the shadow ----------------------------------------------------------------------------------------------------
 
-namespace Bike {
+namespace bike {
 
-void* ShadowCompanionOf(const void* casterModel, const void* riderModel, void* bikeModel, uint8_t bikeModelFlags)
+void* shadow_companion_of(const void* caster_model, const void* rider_model, void* bike_model, uint8_t bike_model_flags)
 {
-    if (!casterModel || casterModel != riderModel || !bikeModel)
+    if (!caster_model || caster_model != rider_model || !bike_model)
         return nullptr;
-    return (bikeModelFlags & 0x2) && !(bikeModelFlags & 0x4) ? bikeModel : nullptr;
+    return (bike_model_flags & 0x2) && !(bike_model_flags & 0x4) ? bike_model : nullptr;
 }
 
 } // namespace Bike
 
-void* ShadowCompanion(void* casterModel)
+void* shadow_companion(void* caster_model)
 {
     // THAW's bike casts a volume shadow of its own (bike_details: Volume_BMX_Shadow.shd - THUG2 can't read it); here
     // the bike is drawn into the rider's detailed shadow, so the two are one shadow along the rider's light (phase 4's
     // detailed shadow of the bike's own was cast straight down, apart from his). [features] thaw_bmx_shadow=0: none.
-    static const bool shadow = ConfigInt("features", "thaw_bmx_shadow", 1) != 0;
-    if (!IsSwitchedOn() || !shadow || !GameModules::Skate::Sole())
+    static const bool kShadow = config_int("features", "thaw_bmx_shadow", 1) != 0;
+    if (!is_switched_on() || !kShadow || !modules::Skate::sole())
         return nullptr;
-    auto* skater = static_cast<GameObjects::CRider*>(SkateCalls::GetHomeRider());
-    if (!skater || !skater->m_corePhysics || !OnBike(skater->m_corePhysics))
+    auto* skater = static_cast<objects::Rider*>(skate_calls::get_home_rider());
+    if (!skater || !skater->core_physics_ || !on_bike(skater->core_physics_))
         return nullptr;
-    GameObjects::CObjectModule* riderModel = skater->FetchModule(kModel);
-    GameObjects::CGameEntity* bike = BikeOf(skater);
-    GameObjects::CObjectModule* bikeModel = bike ? bike->FetchModule(kModel) : nullptr;
-    if (!riderModel || !bikeModel)
+    objects::ObjectModule* rider_model = skater->fetch_module(kModel);
+    objects::GameEntity* bike = bike_of(skater);
+    objects::ObjectModule* bike_model = bike ? bike->fetch_module(kModel) : nullptr;
+    if (!rider_model || !bike_model)
         return nullptr;
-    uint8_t* bikeRenderer = At<uint8_t*>(bikeModel, kModelOfComponent);
-    return Bike::ShadowCompanionOf(casterModel, At<void*>(riderModel, kModelOfComponent), bikeRenderer,
-                                   bikeRenderer ? bikeRenderer[kModelFlags] : 0);
+    uint8_t* bike_renderer = get_at<uint8_t*>(bike_model, kModelOfComponent);
+    return bike::shadow_companion_of(caster_model, get_at<void*>(rider_model, kModelOfComponent), bike_renderer,
+                                   bike_renderer ? bike_renderer[kModelFlags] : 0);
 }
 
 // --- the flip ----------------------------------------------------------------------------------------------------
 
-int PlayFlip(void* object)
+int play_flip(void* object)
 {
-    if (!IsSwitchedOn() || !object || !GameModules::Skate::Sole())
+    if (!is_switched_on() || !object || !modules::Skate::sole())
         return -1;
-    auto* skater = static_cast<GameObjects::CRider*>(SkateCalls::GetHomeRider());
-    if (!skater || !skater->m_corePhysics || !OnBike(skater->m_corePhysics))
+    auto* skater = static_cast<objects::Rider*>(skate_calls::get_home_rider());
+    if (!skater || !skater->core_physics_ || !on_bike(skater->core_physics_))
         return -1;
     if (object == skater) {
         // (THAW's Skater_Playanim: HandleFlipOrBoardRotateAfter before the branch - the component's own PlayAnim
         // answer does it too, after this or before: done once, the flags cleared)
-        if (auto* flipAndRotate =
-                static_cast<GameObjects::CRiderSpinAndFlip*>(skater->FetchModule(kSkaterFlipAndRotate)))
-            flipAndRotate->DoAfterAnim();
-    } else if (object != BikeOf(skater)) {
+        if (auto* flip_and_rotate =
+                static_cast<objects::RiderSpinAndFlip*>(skater->fetch_module(kSkaterFlipAndRotate)))
+            flip_and_rotate->do_after_anim();
+    } else if (object != bike_of(skater)) {
         return -1;
     }
-    return At<uint8_t*>(skater->m_corePhysics, kFlags)[0x28] ? 1 : 0;
+    return get_at<uint8_t*>(skater->core_physics_, kFlags)[0x28] ? 1 : 0;
 }
 
-void FlipAnimsToFlag(void* core)
+void flip_anims_to_flag(void* core)
 {
     // (off the bike THUG2's way again: the rider's animations as his flag says - on the bike a Flip after the last
     // animation played left them as they were)
-    auto* skater = static_cast<GameObjects::CGameEntity*>(ObjectOf(core));
-    if (auto* flipAndRotate =
-            skater ? static_cast<GameObjects::CRiderSpinAndFlip*>(skater->FetchModule(kSkaterFlipAndRotate))
+    auto* skater = static_cast<objects::GameEntity*>(object_of(core));
+    if (auto* flip_and_rotate =
+            skater ? static_cast<objects::RiderSpinAndFlip*>(skater->fetch_module(kSkaterFlipAndRotate))
                    : nullptr)
-        flipAndRotate->ApplyFlipToAnims();
+        flip_and_rotate->apply_flip_to_anims();
 }
 
 // --- the sounds --------------------------------------------------------------------------------------------------
 
-int BikeSoundOf(const void* skater, BikeSound kind, void* info)
+int bike_sound_of(const void* skater, BikeSound kind, void* info)
 {
-    if (!IsSwitchedOn() || !skater)
+    if (!is_switched_on() || !skater)
         return -1;
-    const void* core = static_cast<const GameObjects::CRider*>(skater)->m_corePhysics;
-    if (!core || !OnBike(core))
+    const void* core = static_cast<const objects::Rider*>(skater)->core_physics_;
+    if (!core || !on_bike(core))
         return -1;
-    if (kind == BikeSound::Air)
+    if (kind == BikeSound::kAir)
         return 0;
-    Scripts::CArray* table = Scripts::FetchList(NameHash(kSoundTables[static_cast<int>(kind)]));
-    if (!table || table->m_extent == 0)
+    script::Array* table = script::fetch_list(name_hash(kSoundTables[static_cast<int>(kind)]));
+    if (!table || table->extent_ == 0)
         return -1;
-    auto* entry = reinterpret_cast<Scripts::CStruct*>(table->FetchPart(0));
-    if (!SurfaceKind::GetSoundInfo(entry, static_cast<SurfaceKind::SoundInfo*>(info)))
+    auto* entry = reinterpret_cast<script::Struct*>(table->fetch_part(0));
+    if (!surface_kind::get_sound_info(entry, static_cast<surface_kind::SoundInfo*>(info)))
         return 0;
     // (the first of each kind logged: the bike's sounds can be checked from the log)
     static bool s_logged[8] = {};
     int k = static_cast<int>(kind);
     if (!s_logged[k]) {
         s_logged[k] = true;
-        Log("thaw_bmx: bike sound %s -> %s", kSoundTables[k], static_cast<SurfaceKind::SoundInfo*>(info)->name);
+        get_log("thaw_bmx: bike sound %s -> %s", kSoundTables[k], static_cast<surface_kind::SoundInfo*>(info)->name);
     }
     return 1;
 }
 
 // --- the members -------------------------------------------------------------------------------------------------
 
-int CallTrickMember(void* core, uint32_t name, Scripts::CStruct* params, Scripts::CScript*)
+int call_trick_member(void* core, uint32_t name, script::Struct* params, script::Script*)
 {
-    static const uint32_t kDisplayPitch = NameHash("DisplayPitchGreaterThan"),
-                          kLandedFromTap = NameHash("LandedFromTireTap"), kInTireTap = NameHash("InTireTap"),
-                          kPitchingForward = NameHash("PitchingForward"),
-                          kPitchingBackward = NameHash("PitchingBackward"),
-                          kShouldStall = NameHash("ShouldRunStallScript"),
-                          kClearStall = NameHash("ClearStallScriptFlag"), kExitStallBoost = NameHash("ExitStallBoost"),
-                          kOnStall = NameHash("OnStall");
+    static const uint32_t kDisplayPitch = name_hash("DisplayPitchGreaterThan"),
+                          kLandedFromTap = name_hash("LandedFromTireTap"), kInTireTap = name_hash("InTireTap"),
+                          kPitchingForward = name_hash("PitchingForward"),
+                          kPitchingBackward = name_hash("PitchingBackward"),
+                          kShouldStall = name_hash("ShouldRunStallScript"),
+                          kClearStall = name_hash("ClearStallScriptFlag"), kExitStallBoost = name_hash("ExitStallBoost"),
+                          kOnStall = name_hash("OnStall");
     if (name == kDisplayPitch) {
         // 0x005CA490: the model's display up (the model component's matrix: THUG2's model draws
         // with the display matrix) against the GROUND normal (+0x68 - phase 4 took THAW's +0x68 for the display
         // normal; THAW's 0x005D0BD0 shows it's the ground's, as THUG2's).
         float degrees = 0.0f;
         if (params)
-            params->FetchFloat(static_cast<uint32_t>(0), &degrees, 0);
-        return Bike::DisplayPitchBeyond(VectorAt(core, kDisplayUp), VectorAt(core, kFloorUpVector), degrees) ? 1 : 0;
+            params->fetch_float(static_cast<uint32_t>(0), &degrees, 0);
+        return bike::display_pitch_beyond(vector_at(core, kDisplayUp), vector_at(core, kFloorUpVector), degrees) ? 1 : 0;
     }
     if (name == kLandedFromTap) { // 0x005C7AF0
-        const BikeState* state = StateOf(core, false);
-        return state && state->landedFromTireTap ? 1 : 0;
+        const BikeState* state = state_of(core, false);
+        return state && state->landed_from_tire_tap_ ? 1 : 0;
     }
     if (name == kInTireTap)
-        return TireTapping(core) ? 1 : 0;
+        return tire_tapping(core) ? 1 : 0;
     if (name == kPitchingForward || name == kPitchingBackward) {
         // THAW's matrix queries (THAW 0x005EBBC0 / 0x005EBBF0): the air pitch so far as the last frame in the air
         // began (+0x18C0) - above 0 forward (nose down), below 0 backward (nose up). bike_land2 starts the wheelie
         // from the air on it (with the stick held back / forward as it lands).
-        const BikeState* state = StateOf(core, false);
-        float pitch = state ? state->lastAirPitch : 0.0f;
+        const BikeState* state = state_of(core, false);
+        float pitch = state ? state->last_air_pitch_ : 0.0f;
         return (name == kPitchingForward ? pitch > 0.0f : pitch < 0.0f) ? 1 : 0;
     }
     if (name == kShouldStall) { // 0x005C8410: +0x49D
-        const BikeState* state = StateOf(core, false);
-        return state && state->stallScript ? 1 : 0;
+        const BikeState* state = state_of(core, false);
+        return state && state->stall_script_ ? 1 : 0;
     }
     if (name == kClearStall) { // 0x005C8420: cleared only once in the stall state
-        BikeState* state = StateOf(core, false);
-        if (state && At<int>(FlagsOf(core), 0x18) == kStateBikeStall)
-            state->stallScript = false;
+        BikeState* state = state_of(core, false);
+        if (state && get_at<int>(flags_of(core), 0x18) == kStateBikeStall)
+            state->stall_script_ = false;
         return 1;
     }
     if (name == kOnStall) // (its state component's: the physics state the stall's)
-        return At<int>(FlagsOf(core), 0x18) == kStateBikeStall ? 1 : 0;
+        return get_at<int>(flags_of(core), 0x18) == kStateBikeStall ? 1 : 0;
     if (name == kExitStallBoost) {
         // 0x005C83D0: the velocity's x / z from THAW's +0x714 / +0x71C, which nothing of THAW's
         // writes that a search finds (the skater's stall boost) - left out; only BIKE_OLLIE's Boost asks, which no bike

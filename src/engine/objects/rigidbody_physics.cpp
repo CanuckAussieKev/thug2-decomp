@@ -18,10 +18,10 @@
 #include "engine/sound/sfx.h"
 #include "platform/stopwatch.h"
 
-namespace GameObjects {
+namespace objects {
 
-bool g_rigidBodyDrawShape;
-bool g_rigidBodyDrawDetails;
+bool g_rigid_body_draw_shape;
+bool g_rigid_body_draw_details;
 
 namespace {
 
@@ -36,506 +36,506 @@ constexpr float kDebugImpulseScale = 60.0f;       // 0x00645EA0
 constexpr int kMaxRounds = 20;
 constexpr int kMaxSteps = 5;
 
-double Wide(float value) { return value; }
-float Narrow(double value) { return static_cast<float>(value); }
+double get_wide(float value) { return value; }
+float get_narrow(double value) { return static_cast<float>(value); }
 // Two floats added / subtracted on the x87 (at double precision, then stored: rounded twice).
-float AppendOne(float a, float b) { return Narrow(Wide(a) + b); }
-float Sub(float a, float b) { return Narrow(Wide(a) - b); }
+float append_one(float a, float b) { return get_narrow(get_wide(a) + b); }
+float get_sub(float a, float b) { return get_narrow(get_wide(a) - b); }
 
 // Debug drawing switches (0x006939D4: the shape each frame; 0x006939D5: the centre, the contacts' pushes).
-bool DrawShape() { return g_rigidBodyDrawShape; }
-bool DrawDetails() { return g_rigidBodyDrawDetails; }
+bool draw_shape() { return g_rigid_body_draw_shape; }
+bool draw_details() { return g_rigid_body_draw_details; }
 
 // Quaternions: `quat` times `other`, in place (0x00420140); the matrix of one.
-void QuatMultiply(Maths::QuatRotation* quat, const Maths::QuatRotation* other) { *quat *= *other; }
-void QuatToMatrix(const Maths::QuatRotation* quat, Maths::Mat4* matrix) { quat->FetchMat(matrix); }
+void quat_multiply(maths::QuatRotation* quat, const maths::QuatRotation* other) { *quat *= *other; }
+void quat_to_matrix(const maths::QuatRotation* quat, maths::Mat4* matrix) { quat->fetch_mat(matrix); }
 
-void FlagAsDead(CGameEntity* object)
+void flag_as_dead(GameEntity* object)
 {
-    reinterpret_cast<void(__thiscall*)(CGameEntity*)>(object->m_vtable[6])(object);
+    reinterpret_cast<void(__thiscall*)(GameEntity*)>(object->vtable_[6])(object);
 }
 
 // The matrix's element at row `r`, column `c`.
-double At(const Maths::Mat4& m, int r, int c) { return reinterpret_cast<const float*>(&m.row[r])[c]; }
+double get_at(const maths::Mat4& m, int r, int c) { return reinterpret_cast<const float*>(&m.row[r])[c]; }
 
 } // namespace
 
 // 0x0042CEE0: 1 / (n . (n + (m (r x n)) x r)) - m the mass over the moment.
-double CBodyDynamicsModule::ImpulseScale(const Maths::Vec4* normal, const Maths::Vec4* offset) const
+double BodyDynamicsModule::impulse_scale(const maths::Vec4* normal, const maths::Vec4* offset) const
 {
-    const Maths::Vec4& n = *normal;
-    const Maths::Vec4& r = *offset;
-    const double m = m_massOverMoment;
+    const maths::Vec4& n = *normal;
+    const maths::Vec4& r = *offset;
+    const double m = mass_over_moment_;
     // a = m (r x n): x rounded, y and z not (z from its rounded cross product)
-    float ax = Narrow((Wide(r.y) * n.z - Wide(r.z) * n.y) * m);
-    double ay = (Wide(n.x) * r.z - Wide(r.x) * n.z) * m;
-    double az = Narrow(Wide(r.x) * n.y - Wide(n.x) * r.y) * m;
+    float ax = get_narrow((get_wide(r.y) * n.z - get_wide(r.z) * n.y) * m);
+    double ay = (get_wide(n.x) * r.z - get_wide(r.x) * n.z) * m;
+    double az = get_narrow(get_wide(r.x) * n.y - get_wide(n.x) * r.y) * m;
     // b = a x r, plus n
-    float sx = Narrow(Narrow(ay * r.z - az * r.y) + Wide(n.x));
-    double sy = (az * r.x - ax * Wide(r.z)) + n.y;
-    double sz = Wide(Narrow(ax * Wide(r.y) - ay * r.x)) + n.z;
-    return 1.0 / ((sx * Wide(n.x) + sz * n.z) + sy * n.y);
+    float sx = get_narrow(get_narrow(ay * r.z - az * r.y) + get_wide(n.x));
+    double sy = (az * r.x - ax * get_wide(r.z)) + n.y;
+    double sz = get_wide(get_narrow(ax * get_wide(r.y) - ay * r.x)) + n.z;
+    return 1.0 / ((sx * get_wide(n.x) + sz * n.z) + sy * n.y);
 }
 
 // 0x0042CF90
-void CBodyDynamicsModule::ApplySprings()
+void BodyDynamicsModule::apply_springs()
 {
-    const Maths::Vec4* world = WorldSpringPoints();
+    const maths::Vec4* world = world_spring_points();
     // The springs' points held still: each moving point's velocity taken out by an impulse, round after round.
     int round = 0;
     bool settled;
     do {
         settled = true;
-        for (int i = m_springCount; i != 0;) {
+        for (int i = spring_count_; i != 0;) {
             --i;
-            if (!m_springs[i].active)
+            if (!springs_[i].active)
                 continue;
-            const Maths::Vec4& r = world[i];
+            const maths::Vec4& r = world[i];
             // its velocity: vel + rotvel x r
-            double cx = Wide(r.z) * m_rotVel.y - Wide(r.y) * m_rotVel.z;
-            double cy = Wide(m_rotVel.z) * r.x - Wide(r.z) * m_rotVel.x;
-            float cz = Narrow(Wide(r.y) * m_rotVel.x - Wide(m_rotVel.y) * r.x);
-            Maths::Vec4 v = {Narrow(cx + m_vel.x), Narrow(cy + m_vel.y), Narrow(Wide(cz) + m_vel.z), m_vel.w};
-            double length = std::sqrt((Wide(v.z) * v.z + Wide(v.y) * v.y) + Wide(v.x) * v.x);
-            float lengthF = Narrow(length);
+            double cx = get_wide(r.z) * rot_vel_.y - get_wide(r.y) * rot_vel_.z;
+            double cy = get_wide(rot_vel_.z) * r.x - get_wide(r.z) * rot_vel_.x;
+            float cz = get_narrow(get_wide(r.y) * rot_vel_.x - get_wide(rot_vel_.y) * r.x);
+            maths::Vec4 v = {get_narrow(cx + vel_.x), get_narrow(cy + vel_.y), get_narrow(get_wide(cz) + vel_.z), vel_.w};
+            double length = std::sqrt((get_wide(v.z) * v.z + get_wide(v.y) * v.y) + get_wide(v.x) * v.x);
+            float length_f = get_narrow(length);
             if (length < kSpringMinSpeed)
                 continue;
             settled = false;
-            const double m = m_massOverMoment;
-            double inverse = 1.0 / lengthF;
+            const double m = mass_over_moment_;
+            double inverse = 1.0 / length_f;
             double nx = v.x * inverse;
-            float ny = Narrow(v.y * inverse), nz = Narrow(v.z * inverse), nw = Narrow(v.w * inverse);
-            // the impulse that stops it (as ImpulseScale, inlined with the normal's x unrounded)
-            float ax = Narrow((Wide(nz) * r.y - Wide(ny) * r.z) * m);
-            double ay = (nx * r.z - Wide(nz) * r.x) * m;
-            double az = Narrow(Wide(ny) * r.x - nx * r.y) * m;
-            float sx = Narrow(Wide(Narrow(ay * r.z - az * r.y)) + nx);
-            double sy = (az * r.x - ax * Wide(r.z)) + ny;
-            double sz = Wide(Narrow(ax * Wide(r.y) - ay * r.x)) + nz;
+            float ny = get_narrow(v.y * inverse), nz = get_narrow(v.z * inverse), nw = get_narrow(v.w * inverse);
+            // the impulse that stops it (as impulse_scale, inlined with the normal's x unrounded)
+            float ax = get_narrow((get_wide(nz) * r.y - get_wide(ny) * r.z) * m);
+            double ay = (nx * r.z - get_wide(nz) * r.x) * m;
+            double az = get_narrow(get_wide(ny) * r.x - nx * r.y) * m;
+            float sx = get_narrow(get_wide(get_narrow(ay * r.z - az * r.y)) + nx);
+            double sy = (az * r.x - ax * get_wide(r.z)) + ny;
+            double sz = get_wide(get_narrow(ax * get_wide(r.y) - ay * r.x)) + nz;
             double scale = 1.0 / ((sx * nx + sz * nz) + sy * ny);
-            float j = Narrow(-(scale * lengthF));
-            double jx = nx * j, jy = Wide(ny) * j, jz = Wide(nz) * j, jw = Wide(nw) * j;
-            m_vel = {Narrow(jx + m_vel.x), Narrow(jy + m_vel.y), Narrow(jz + m_vel.z), Narrow(jw + m_vel.w)};
-            float tx = Narrow(jz * r.y - jy * r.z), ty = Narrow(jx * r.z - jz * r.x);
+            float j = get_narrow(-(scale * length_f));
+            double jx = nx * j, jy = get_wide(ny) * j, jz = get_wide(nz) * j, jw = get_wide(nw) * j;
+            vel_ = {get_narrow(jx + vel_.x), get_narrow(jy + vel_.y), get_narrow(jz + vel_.z), get_narrow(jw + vel_.w)};
+            float tx = get_narrow(jz * r.y - jy * r.z), ty = get_narrow(jx * r.z - jz * r.x);
             double tz = jy * r.x - jx * r.y;
-            m_rotVel = {Narrow(Wide(Narrow(tx * m)) + m_rotVel.x), Narrow(Wide(Narrow(ty * m)) + m_rotVel.y),
-                        Narrow(Wide(Narrow(tz * m)) + m_rotVel.z), Narrow(m * kZero + m_rotVel.w)};
+            rot_vel_ = {get_narrow(get_wide(get_narrow(tx * m)) + rot_vel_.x), get_narrow(get_wide(get_narrow(ty * m)) + rot_vel_.y),
+                        get_narrow(get_wide(get_narrow(tz * m)) + rot_vel_.z), get_narrow(m * kZero + rot_vel_.w)};
         }
-    } while (++round != kMaxRounds && m_springCount != 1 && !settled);
+    } while (++round != kMaxRounds && spring_count_ != 1 && !settled);
 
     // Each point pulled towards its anchor.
-    float dt = Narrow(FrameClock::GetSlomoFrameSeconds());
-    for (int i = m_springCount; i != 0;) {
+    float dt = get_narrow(frame_clock::get_slomo_frame_seconds());
+    for (int i = spring_count_; i != 0;) {
         --i;
-        const Spring& spring = m_springs[i];
+        const Spring& spring = springs_[i];
         if (!spring.active)
             continue;
-        const Maths::Vec4& r = world[i];
-        float px = Narrow(Wide(m_atPoint.x) + r.x);
-        double py = Wide(m_atPoint.y) + r.y, pz = Wide(m_atPoint.z) + r.z;
-        float pw = Narrow(Wide(m_atPoint.w) + r.w);
-        float dx = Narrow(px - Wide(spring.anchor.x)), dy = Narrow(py - spring.anchor.y);
+        const maths::Vec4& r = world[i];
+        float px = get_narrow(get_wide(at_point_.x) + r.x);
+        double py = get_wide(at_point_.y) + r.y, pz = get_wide(at_point_.z) + r.z;
+        float pw = get_narrow(get_wide(at_point_.w) + r.w);
+        float dx = get_narrow(px - get_wide(spring.anchor.x)), dy = get_narrow(py - spring.anchor.y);
         double dz = pz - spring.anchor.z;
-        float dw = Narrow(pw - Wide(spring.anchor.w));
-        float length = Narrow(std::sqrt((Wide(dx) * dx + dz * dz) + Wide(dy) * dy));
+        float dw = get_narrow(pw - get_wide(spring.anchor.w));
+        float length = get_narrow(std::sqrt((get_wide(dx) * dx + dz * dz) + get_wide(dy) * dy));
         if (length == kZero)
             continue;
-        const double m = m_massOverMoment;
+        const double m = mass_over_moment_;
         double inverse = 1.0 / length;
         double nx = dx * inverse;
-        float ny = Narrow(dy * inverse), nz = Narrow(dz * inverse), nw = Narrow(dw * inverse);
-        double force = ((Wide(length) * m_springConst) * dt) * kSpringScale;
-        float forceF = Narrow(force);
-        double fx = nx * force, fy = Wide(ny) * forceF;
-        float fz = Narrow(Wide(nz) * forceF), fw = Narrow(Wide(nw) * forceF);
-        double tx = Wide(fz) * r.y - fy * r.z, ty = fx * r.z - Wide(fz) * r.x;
-        float tz = Narrow(fy * r.x - fx * r.y);
-        Maths::Vec4 turn = {Narrow(tx * m), Narrow(ty * m), Narrow(tz * m), Narrow(m * kZero)};
-        m_vel = {Narrow(fx + m_vel.x), Narrow(fy + m_vel.y), Narrow(Wide(fz) + m_vel.z), Narrow(Wide(fw) + m_vel.w)};
-        m_rotVel = {AppendOne(turn.x, m_rotVel.x), AppendOne(turn.y, m_rotVel.y), AppendOne(turn.z, m_rotVel.z), AppendOne(turn.w, m_rotVel.w)};
+        float ny = get_narrow(dy * inverse), nz = get_narrow(dz * inverse), nw = get_narrow(dw * inverse);
+        double force = ((get_wide(length) * spring_const_) * dt) * kSpringScale;
+        float force_f = get_narrow(force);
+        double fx = nx * force, fy = get_wide(ny) * force_f;
+        float fz = get_narrow(get_wide(nz) * force_f), fw = get_narrow(get_wide(nw) * force_f);
+        double tx = get_wide(fz) * r.y - fy * r.z, ty = fx * r.z - get_wide(fz) * r.x;
+        float tz = get_narrow(fy * r.x - fx * r.y);
+        maths::Vec4 turn = {get_narrow(tx * m), get_narrow(ty * m), get_narrow(tz * m), get_narrow(m * kZero)};
+        vel_ = {get_narrow(fx + vel_.x), get_narrow(fy + vel_.y), get_narrow(get_wide(fz) + vel_.z), get_narrow(get_wide(fw) + vel_.w)};
+        rot_vel_ = {append_one(turn.x, rot_vel_.x), append_one(turn.y, rot_vel_.y), append_one(turn.z, rot_vel_.z), append_one(turn.w, rot_vel_.w)};
     }
 }
 
 // 0x0042D9D0
-void CBodyDynamicsModule::DebugDraw()
+void BodyDynamicsModule::debug_draw()
 {
     uint32_t colour = 0;
-    switch (m_curPhase) {
-    case STATE_ASLEEP: colour = 0xFFC80000; break;
-    case STATE_AWAKE: colour = m_pushCooldown > kZero ? 0xFF00C800 : 0xFF0000C8; break;
-    case STATE_DISABLED: colour = 0xFF640064; break;
+    switch (cur_phase_) {
+    case kStateAsleep: colour = 0xFFC80000; break;
+    case kStateAwake: colour = push_cooldown_ > kZero ? 0xFF00C800 : 0xFF0000C8; break;
+    case kStateDisabled: colour = 0xFF640064; break;
     }
-    auto at = [this](const Maths::Vec4& p) {
-        return Maths::Vec4{p.x + m_atPoint.x, p.y + m_atPoint.y, p.z + m_atPoint.z, p.w + m_atPoint.w};
+    auto at = [this](const maths::Vec4& p) {
+        return maths::Vec4{p.x + at_point_.x, p.y + at_point_.y, p.z + at_point_.z, p.w + at_point_.w};
     };
     // Every pair of contact points.
-    const Maths::Vec4* points = WorldContactPoints();
-    for (int i = m_contactCount - 1; i > 0; --i)
+    const maths::Vec4* points = world_contact_points();
+    for (int i = contact_count_ - 1; i > 0; --i)
         for (int j = 0; j < i; ++j) {
-            Maths::Vec4 from = at(points[i]), to = at(points[j]);
-            Gfx2D::PushDiagLine(&from, &to, colour, 0, 1);
+            maths::Vec4 from = at(points[i]), to = at(points[j]);
+            gfx::push_diag_line(&from, &to, colour, 0, 1);
         }
-    const Maths::Vec4* centers = WorldSphereCenters();
-    for (int i = m_sphereCount; i != 0;) {
+    const maths::Vec4* centers = world_sphere_centers();
+    for (int i = sphere_count_; i != 0;) {
         --i;
-        Maths::Vec4 center = at(centers[i]);
-        Gfx2D::AddDebugSphere(&center, m_spheres[i].radius, &m_basisFrame, 12, colour, 1);
+        maths::Vec4 center = at(centers[i]);
+        gfx::add_debug_sphere(&center, spheres_[i].radius, &basis_frame_, 12, colour, 1);
     }
-    if (DrawDetails())
-        Gfx2D::PushDiagMarker(m_atPoint, 36.0f, 0xFFC800C8, 1);
-    const Maths::Vec4* springs = WorldSpringPoints();
-    for (int i = m_springCount; i != 0;) {
+    if (draw_details())
+        gfx::push_diag_marker(at_point_, 36.0f, 0xFFC800C8, 1);
+    const maths::Vec4* springs = world_spring_points();
+    for (int i = spring_count_; i != 0;) {
         --i;
-        if (!m_springs[i].active)
+        if (!springs_[i].active)
             continue;
-        Gfx2D::PushDiagMarker(at(springs[i]), 24.0f, 0xFFC86400, 1);
-        Gfx2D::PushDiagMarker(m_springs[i].anchor, 24.0f, 0xFFC80064, 1);
+        gfx::push_diag_marker(at(springs[i]), 24.0f, 0xFFC86400, 1);
+        gfx::push_diag_marker(springs_[i].anchor, 24.0f, 0xFFC80064, 1);
     }
 }
 
 // 0x0042E540
-void CBodyDynamicsModule::Integrate(float dt)
+void BodyDynamicsModule::integrate(float dt)
 {
-    if (m_unknown191 < 3) {
+    if (unknown191_ < 3) {
         // Moved by its velocity and half a step of acceleration, then accelerated.
-        double half = Wide(dt) * kHalf;
-        double ax = half * m_steadyAccel.x;
-        float ay = Narrow(half * m_steadyAccel.y), az = Narrow(half * m_steadyAccel.z), aw = Narrow(half * m_steadyAccel.w);
-        float mx = Narrow(ax + m_vel.x);
-        double my = Wide(ay) + m_vel.y, mz = Wide(az) + m_vel.z;
-        float mw = Narrow(Wide(aw) + m_vel.w);
-        float px = Narrow(Wide(mx) * dt), py = Narrow(my * dt);
-        double pz = mz * dt, pw = Wide(mw) * dt;
-        m_atPoint = {Narrow(Wide(px) + m_atPoint.x), Narrow(Wide(py) + m_atPoint.y), Narrow(pz + m_atPoint.z), Narrow(pw + m_atPoint.w)};
-        double vx = Wide(dt) * m_steadyAccel.x, vy = Wide(dt) * m_steadyAccel.y;
-        float vz = Narrow(Wide(dt) * m_steadyAccel.z), vw = Narrow(Wide(dt) * m_steadyAccel.w);
-        m_vel = {Narrow(vx + m_vel.x), Narrow(vy + m_vel.y), Narrow(Wide(vz) + m_vel.z), Narrow(Wide(vw) + m_vel.w)};
+        double half = get_wide(dt) * kHalf;
+        double ax = half * steady_accel_.x;
+        float ay = get_narrow(half * steady_accel_.y), az = get_narrow(half * steady_accel_.z), aw = get_narrow(half * steady_accel_.w);
+        float mx = get_narrow(ax + vel_.x);
+        double my = get_wide(ay) + vel_.y, mz = get_wide(az) + vel_.z;
+        float mw = get_narrow(get_wide(aw) + vel_.w);
+        float px = get_narrow(get_wide(mx) * dt), py = get_narrow(my * dt);
+        double pz = mz * dt, pw = get_wide(mw) * dt;
+        at_point_ = {get_narrow(get_wide(px) + at_point_.x), get_narrow(get_wide(py) + at_point_.y), get_narrow(pz + at_point_.z), get_narrow(pw + at_point_.w)};
+        double vx = get_wide(dt) * steady_accel_.x, vy = get_wide(dt) * steady_accel_.y;
+        float vz = get_narrow(get_wide(dt) * steady_accel_.z), vw = get_narrow(get_wide(dt) * steady_accel_.w);
+        vel_ = {get_narrow(vx + vel_.x), get_narrow(vy + vel_.y), get_narrow(get_wide(vz) + vel_.z), get_narrow(get_wide(vw) + vel_.w)};
     } else {
-        double px = Wide(dt) * m_vel.x, py = Wide(dt) * m_vel.y;
-        float pz = Narrow(Wide(dt) * m_vel.z), pw = Narrow(Wide(dt) * m_vel.w);
-        m_atPoint = {Narrow(px + m_atPoint.x), Narrow(py + m_atPoint.y), Narrow(Wide(pz) + m_atPoint.z), Narrow(Wide(pw) + m_atPoint.w)};
+        double px = get_wide(dt) * vel_.x, py = get_wide(dt) * vel_.y;
+        float pz = get_narrow(get_wide(dt) * vel_.z), pw = get_narrow(get_wide(dt) * vel_.w);
+        at_point_ = {get_narrow(px + at_point_.x), get_narrow(py + at_point_.y), get_narrow(get_wide(pz) + at_point_.z), get_narrow(get_wide(pw) + at_point_.w)};
     }
 
     // Turned: q += (q * (-rotvel / 2, 0)) dt, normalised.
-    Maths::QuatRotation spin = {Narrow(Wide(m_rotVel.x) * kTurnRate), Narrow(Wide(m_rotVel.y) * kTurnRate),
-                      Narrow(Wide(m_rotVel.z) * kTurnRate), 0.0f};
-    Maths::QuatRotation change = m_orientation;
-    QuatMultiply(&change, &spin);
-    float cz = Narrow(Wide(change.z) * dt), cw = Narrow(Wide(change.w) * dt);
-    m_orientation = {Narrow(Wide(change.x) * dt + m_orientation.x), Narrow(Wide(change.y) * dt + m_orientation.y),
-                     AppendOne(cz, m_orientation.z), AppendOne(cw, m_orientation.w)};
-    m_orientation.MakeUnit(1.0f);
-    QuatToMatrix(&m_orientation, &m_basisFrame);
+    maths::QuatRotation spin = {get_narrow(get_wide(rot_vel_.x) * kTurnRate), get_narrow(get_wide(rot_vel_.y) * kTurnRate),
+                      get_narrow(get_wide(rot_vel_.z) * kTurnRate), 0.0f};
+    maths::QuatRotation change = orientation_;
+    quat_multiply(&change, &spin);
+    float cz = get_narrow(get_wide(change.z) * dt), cw = get_narrow(get_wide(change.w) * dt);
+    orientation_ = {get_narrow(get_wide(change.x) * dt + orientation_.x), get_narrow(get_wide(change.y) * dt + orientation_.y),
+                     append_one(cz, orientation_.z), append_one(cw, orientation_.w)};
+    orientation_.make_unit(1.0f);
+    quat_to_matrix(&orientation_, &basis_frame_);
 
     // The shape turned to the world (each set of points adds its terms in its own order).
-    const Maths::Mat4& t = m_basisFrame;
-    for (int i = m_contactCount; i != 0;) {
+    const maths::Mat4& t = basis_frame_;
+    for (int i = contact_count_; i != 0;) {
         --i;
-        const Maths::Vec4& c = m_contacts[i];
+        const maths::Vec4& c = contacts_[i];
         const double x = c.x, y = c.y, z = c.z;
-        WorldContactPoints()[i] = {Narrow((y * At(t, 1, 0) + At(t, 2, 0) * z) + At(t, 0, 0) * x),
-                                   Narrow((At(t, 0, 1) * x + At(t, 2, 1) * z) + y * At(t, 1, 1)),
-                                   Narrow((At(t, 2, 2) * z + y * At(t, 1, 2)) + At(t, 0, 2) * x), c.w};
+        world_contact_points()[i] = {get_narrow((y * get_at(t, 1, 0) + get_at(t, 2, 0) * z) + get_at(t, 0, 0) * x),
+                                   get_narrow((get_at(t, 0, 1) * x + get_at(t, 2, 1) * z) + y * get_at(t, 1, 1)),
+                                   get_narrow((get_at(t, 2, 2) * z + y * get_at(t, 1, 2)) + get_at(t, 0, 2) * x), c.w};
     }
-    for (int i = m_sphereCount; i != 0;) {
+    for (int i = sphere_count_; i != 0;) {
         --i;
-        const Maths::Vec4& c = m_spheres[i].center;
+        const maths::Vec4& c = spheres_[i].center;
         const double x = c.x, y = c.y, z = c.z;
-        WorldSphereCenters()[i] = {Narrow((y * At(t, 1, 0) + At(t, 2, 0) * z) + x * At(t, 0, 0)),
-                                   Narrow((x * At(t, 0, 1) + At(t, 2, 1) * z) + y * At(t, 1, 1)),
-                                   Narrow((At(t, 2, 2) * z + x * At(t, 0, 2)) + y * At(t, 1, 2)), c.w};
+        world_sphere_centers()[i] = {get_narrow((y * get_at(t, 1, 0) + get_at(t, 2, 0) * z) + x * get_at(t, 0, 0)),
+                                   get_narrow((x * get_at(t, 0, 1) + get_at(t, 2, 1) * z) + y * get_at(t, 1, 1)),
+                                   get_narrow((get_at(t, 2, 2) * z + x * get_at(t, 0, 2)) + y * get_at(t, 1, 2)), c.w};
     }
-    for (int i = m_springCount; i != 0;) {
+    for (int i = spring_count_; i != 0;) {
         --i;
-        if (!m_springs[i].active)
+        if (!springs_[i].active)
             continue;
-        const Maths::Vec4& c = m_springs[i].point;
+        const maths::Vec4& c = springs_[i].point;
         const double x = c.x, y = c.y, z = c.z;
-        WorldSpringPoints()[i] = {Narrow((At(t, 2, 0) * z + At(t, 1, 0) * y) + x * At(t, 0, 0)),
-                                  Narrow((At(t, 2, 1) * z + At(t, 1, 1) * y) + At(t, 0, 1) * x),
-                                  Narrow((At(t, 2, 2) * z + At(t, 1, 2) * y) + At(t, 0, 2) * x), c.w};
+        world_spring_points()[i] = {get_narrow((get_at(t, 2, 0) * z + get_at(t, 1, 0) * y) + x * get_at(t, 0, 0)),
+                                  get_narrow((get_at(t, 2, 1) * z + get_at(t, 1, 1) * y) + get_at(t, 0, 1) * x),
+                                  get_narrow((get_at(t, 2, 2) * z + get_at(t, 1, 2) * y) + get_at(t, 0, 2) * x), c.w};
     }
 }
 
 // 0x0042E980
-void CBodyDynamicsModule::OnBounce(float speed, const Maths::Vec4* point)
+void BodyDynamicsModule::on_bounce(float speed, const maths::Vec4* point)
 {
-    if (!(speed > m_bounceCallbackThreshold))
+    if (!(speed > bounce_callback_threshold_))
         return;
-    if (m_bounceScript) {
-        Scripts::CStruct* params = Scripts::SpawnParamBag();
+    if (bounce_script_) {
+        script::Struct* params = script::spawn_param_bag();
         if (params)
-            params = params->PrepareAll();
-        if (m_callbackParamsPtr)
-            params->MergeStructure(m_callbackParamsPtr); // (out of memory: through null, as the original)
-        params->PutVec3(0x43F454D0, Scripts::VectorValue{point->x, point->y, point->z, point->w});
-        m_entity->SpawnScript(m_bounceScript, params, 0, false)->TickFrame();
+            params = params->prepare_all();
+        if (callback_params_ptr_)
+            params->merge_structure(callback_params_ptr_); // (out of memory: through null, as the original)
+        params->put_vec3(0x43F454D0, script::VectorValue{point->x, point->y, point->z, point->w});
+        entity_->spawn_script(bounce_script_, params, 0, false)->tick_frame();
         if (params) {
-            params->Clear();
-            Scripts::DeleteStruct(params);
+            params->get_clear();
+            script::delete_struct(params);
         }
     }
-    if (m_audioModule && m_bounceSfx && 48 - SoundFx::CountPlayingVoices() > 12) {
-        float percent = Maths::Confine(Narrow(Wide(speed) / m_bounceFullSpeed * 100.0f), 0.0f, 100.0f);
-        m_bounceSfx->PushFloat(0x9E497FC6, percent); // Percent
-        m_audioModule->EmitSound(m_bounceSfx);
+    if (audio_module_ && bounce_sfx_ && 48 - sound::count_playing_voices() > 12) {
+        float percent = maths::confine(get_narrow(get_wide(speed) / bounce_full_speed_ * 100.0f), 0.0f, 100.0f);
+        bounce_sfx_->push_float(0x9E497FC6, percent); // Percent
+        audio_module_->emit_sound(bounce_sfx_);
     }
 }
 
 // 0x00430140
-void CBodyDynamicsModule::ResolveContacts()
+void BodyDynamicsModule::resolve_contacts()
 {
-    Contact* contacts = Contacts();
+    Contact* contacts = get_contacts();
     // The velocities before the impulses (friction works from these).
-    Maths::Vec4 vel0 = m_vel, firstTurn = m_rotVel;
+    maths::Vec4 vel0 = vel_, first_turn = rot_vel_;
     float fastest = 0.0f; // the fastest approach
 
     // Impulses along the normals until nothing approaches.
     for (int round = 0;;) {
         bool done = true;
-        for (int i = m_contactsHit; i != 0;) {
+        for (int i = contacts_hit_; i != 0;) {
             Contact& c = contacts[--i];
             if (!c.active)
                 continue;
-            const Maths::Vec4& r = c.offset;
-            const Maths::Vec4& n = c.normal;
-            double cx = Wide(m_rotVel.y) * r.z - Wide(m_rotVel.z) * r.y;
-            float cy = Narrow(Wide(m_rotVel.z) * r.x - Wide(m_rotVel.x) * r.z);
-            float cz = Narrow(Wide(m_rotVel.x) * r.y - Wide(m_rotVel.y) * r.x);
-            float vx = Narrow(cx + m_vel.x);
-            double vy = Wide(cy) + m_vel.y, vz = Wide(cz) + m_vel.z;
-            double along = (vz * n.z + Wide(vx) * n.x) + vy * n.y;
+            const maths::Vec4& r = c.offset;
+            const maths::Vec4& n = c.normal;
+            double cx = get_wide(rot_vel_.y) * r.z - get_wide(rot_vel_.z) * r.y;
+            float cy = get_narrow(get_wide(rot_vel_.z) * r.x - get_wide(rot_vel_.x) * r.z);
+            float cz = get_narrow(get_wide(rot_vel_.x) * r.y - get_wide(rot_vel_.y) * r.x);
+            float vx = get_narrow(cx + vel_.x);
+            double vy = get_wide(cy) + vel_.y, vz = get_wide(cz) + vel_.z;
+            double along = (vz * n.z + get_wide(vx) * n.x) + vy * n.y;
             if (along > 0.0)
                 continue;
-            float alongF = Narrow(along);
+            float along_f = get_narrow(along);
             done = false;
-            if (-alongF > fastest)
-                fastest = -alongF;
-            float target = Narrow(-(Wide(alongF) * m_restitution));
+            if (-along_f > fastest)
+                fastest = -along_f;
+            float target = get_narrow(-(get_wide(along_f) * restitution_));
             if (!c.scaled) {
-                c.impulseScale = Narrow(ImpulseScale(&c.normal, &c.offset));
+                c.impulse_scale_ = get_narrow(impulse_scale(&c.normal, &c.offset));
                 c.scaled = true;
             }
-            double j = (Wide(target) - alongF) * c.impulseScale;
-            float jx = Narrow(Wide(n.x) * j);
-            double jy = Wide(n.y) * j, jz = Wide(n.z) * j, jw = Wide(n.w) * j;
-            c.impulse = Narrow(j + c.impulse);
-            m_vel = {AppendOne(jx, m_vel.x), Narrow(jy + m_vel.y), Narrow(jz + m_vel.z), Narrow(jw + m_vel.w)};
-            float tx = Narrow(jz * r.y - jy * r.z), ty = Narrow(Wide(jx) * r.z - jz * r.x);
-            double tz = jy * r.x - Wide(jx) * r.y;
-            const double m = m_massOverMoment;
-            m_rotVel = {AppendOne(Narrow(tx * m), m_rotVel.x), AppendOne(Narrow(ty * m), m_rotVel.y), AppendOne(Narrow(tz * m), m_rotVel.z),
-                        Narrow(m * kZero + m_rotVel.w)};
+            double j = (get_wide(target) - along_f) * c.impulse_scale_;
+            float jx = get_narrow(get_wide(n.x) * j);
+            double jy = get_wide(n.y) * j, jz = get_wide(n.z) * j, jw = get_wide(n.w) * j;
+            c.impulse = get_narrow(j + c.impulse);
+            vel_ = {append_one(jx, vel_.x), get_narrow(jy + vel_.y), get_narrow(jz + vel_.z), get_narrow(jw + vel_.w)};
+            float tx = get_narrow(jz * r.y - jy * r.z), ty = get_narrow(get_wide(jx) * r.z - jz * r.x);
+            double tz = jy * r.x - get_wide(jx) * r.y;
+            const double m = mass_over_moment_;
+            rot_vel_ = {append_one(get_narrow(tx * m), rot_vel_.x), append_one(get_narrow(ty * m), rot_vel_.y), append_one(get_narrow(tz * m), rot_vel_.z),
+                        get_narrow(m * kZero + rot_vel_.w)};
         }
         if (++round == kMaxRounds) {
             // Stuck: the script, or no velocity at all.
-            if (m_scriptD0) {
-                m_entity->SpawnScript(m_scriptD0, m_callbackParamsPtr, 0, false)->TickFrame();
+            if (script_d0_) {
+                entity_->spawn_script(script_d0_, callback_params_ptr_, 0, false)->tick_frame();
                 return;
             }
-            m_vel = {0.0f, 0.0f, 0.0f, 1.0f};
-            m_rotVel = {0.0f, 0.0f, 0.0f, 1.0f};
+            vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
+            rot_vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
             return;
         }
-        if (m_contactCount == 1 || done)
+        if (contact_count_ == 1 || done)
             break;
     }
 
     // Friction: across the normal (along the directed friction where there is one), at most the normal impulse
     // times the friction.
-    for (int i = m_contactsHit; i != 0;) {
+    for (int i = contacts_hit_; i != 0;) {
         Contact& c = contacts[--i];
         if (!c.active)
             continue;
-        const Maths::Vec4& r = c.offset;
-        const Maths::Vec4& n = c.normal;
-        double cx = Wide(firstTurn.y) * r.z - Wide(firstTurn.z) * r.y;
-        double cy = Wide(firstTurn.z) * r.x - Wide(firstTurn.x) * r.z;
-        float cz = Narrow(Wide(firstTurn.x) * r.y - Wide(firstTurn.y) * r.x);
-        float vx = Narrow(cx + vel0.x);
-        double vy = cy + vel0.y, vz = Wide(cz) + vel0.z;
-        double back = -((vz * n.z + Wide(vx) * n.x) + vy * n.y);
-        Maths::Vec4 across = {Narrow(back * n.x + vx), Narrow(Wide(Narrow(back * n.y)) + vy),
-                              Narrow(Wide(Narrow(back * n.z)) + vz), Narrow(Wide(Narrow(back * n.w)) + vel0.w)};
-        if (m_steerFriction) {
-            const DirectedFriction& friction = m_steerFriction[c.friction];
+        const maths::Vec4& r = c.offset;
+        const maths::Vec4& n = c.normal;
+        double cx = get_wide(first_turn.y) * r.z - get_wide(first_turn.z) * r.y;
+        double cy = get_wide(first_turn.z) * r.x - get_wide(first_turn.x) * r.z;
+        float cz = get_narrow(get_wide(first_turn.x) * r.y - get_wide(first_turn.y) * r.x);
+        float vx = get_narrow(cx + vel0.x);
+        double vy = cy + vel0.y, vz = get_wide(cz) + vel0.z;
+        double back = -((vz * n.z + get_wide(vx) * n.x) + vy * n.y);
+        maths::Vec4 across = {get_narrow(back * n.x + vx), get_narrow(get_wide(get_narrow(back * n.y)) + vy),
+                              get_narrow(get_wide(get_narrow(back * n.z)) + vz), get_narrow(get_wide(get_narrow(back * n.w)) + vel0.w)};
+        if (steer_friction_) {
+            const DirectedFriction& friction = steer_friction_[c.friction];
             if (friction.active) {
-                Maths::Vec4 d;
-                m_basisFrame.RotateVector(d, friction.direction);
-                double dn = (Wide(d.x) * n.x + Wide(d.z) * n.z) + Wide(d.y) * n.y;
-                float dny = Narrow(dn * n.y), dnz = Narrow(dn * n.z), dnw = Narrow(dn * n.w);
-                d = {Narrow(d.x - dn * n.x), Sub(d.y, dny), Sub(d.z, dnz), Sub(d.w, dnw)};
-                double length = std::sqrt((Wide(d.z) * d.z + Wide(d.y) * d.y) + Wide(d.x) * d.x);
+                maths::Vec4 d;
+                basis_frame_.rotate_vector(d, friction.direction);
+                double dn = (get_wide(d.x) * n.x + get_wide(d.z) * n.z) + get_wide(d.y) * n.y;
+                float dny = get_narrow(dn * n.y), dnz = get_narrow(dn * n.z), dnw = get_narrow(dn * n.w);
+                d = {get_narrow(d.x - dn * n.x), get_sub(d.y, dny), get_sub(d.z, dnz), get_sub(d.w, dnw)};
+                double length = std::sqrt((get_wide(d.z) * d.z + get_wide(d.y) * d.y) + get_wide(d.x) * d.x);
                 if (length > kMinLength) {
                     double inverse = 1.0 / length;
-                    d = {Narrow(d.x * inverse), Narrow(d.y * inverse), Narrow(d.z * inverse), Narrow(d.w * inverse)};
-                    across.ProjectOnto(d);
+                    d = {get_narrow(d.x * inverse), get_narrow(d.y * inverse), get_narrow(d.z * inverse), get_narrow(d.w * inverse)};
+                    across.project_onto(d);
                 }
             }
         }
-        double length = std::sqrt((Wide(across.z) * across.z + Wide(across.y) * across.y) + Wide(across.x) * across.x);
+        double length = std::sqrt((get_wide(across.z) * across.z + get_wide(across.y) * across.y) + get_wide(across.x) * across.x);
         if (length < kMinLength)
             continue;
-        float lengthF = Narrow(length);
-        double inverse = 1.0 / lengthF;
-        across = {Narrow(across.x * inverse), Narrow(across.y * inverse), Narrow(across.z * inverse),
-                  Narrow(across.w * inverse)};
-        double stop = ImpulseScale(&across, &c.offset) * lengthF;
-        float most = Narrow(Wide(c.impulse) * m_dragFactor);
+        float length_f = get_narrow(length);
+        double inverse = 1.0 / length_f;
+        across = {get_narrow(across.x * inverse), get_narrow(across.y * inverse), get_narrow(across.z * inverse),
+                  get_narrow(across.w * inverse)};
+        double stop = impulse_scale(&across, &c.offset) * length_f;
+        float most = get_narrow(get_wide(c.impulse) * drag_factor_);
         double f = -(stop > most ? most : stop);
         double jx = across.x * f;
-        float jy = Narrow(across.y * f), jz = Narrow(across.z * f), jw = Narrow(across.w * f);
-        double tx = Wide(jz) * r.y - Wide(jy) * r.z, ty = jx * r.z - Wide(jz) * r.x;
-        float tz = Narrow(Wide(jy) * r.x - jx * r.y);
-        const double m = m_massOverMoment;
-        Maths::Vec4 turn = {Narrow(tx * m), Narrow(ty * m), Narrow(tz * m), Narrow(m * kZero)};
-        m_vel = {Narrow(jx + m_vel.x), AppendOne(jy, m_vel.y), AppendOne(jz, m_vel.z), AppendOne(jw, m_vel.w)};
-        m_rotVel = {AppendOne(turn.x, m_rotVel.x), AppendOne(turn.y, m_rotVel.y), AppendOne(turn.z, m_rotVel.z), AppendOne(turn.w, m_rotVel.w)};
-        vel0 = {Narrow(jx + vel0.x), AppendOne(jy, vel0.y), AppendOne(jz, vel0.z), AppendOne(jw, vel0.w)};
-        firstTurn = {AppendOne(turn.x, firstTurn.x), AppendOne(turn.y, firstTurn.y), AppendOne(turn.z, firstTurn.z), AppendOne(turn.w, firstTurn.w)};
+        float jy = get_narrow(across.y * f), jz = get_narrow(across.z * f), jw = get_narrow(across.w * f);
+        double tx = get_wide(jz) * r.y - get_wide(jy) * r.z, ty = jx * r.z - get_wide(jz) * r.x;
+        float tz = get_narrow(get_wide(jy) * r.x - jx * r.y);
+        const double m = mass_over_moment_;
+        maths::Vec4 turn = {get_narrow(tx * m), get_narrow(ty * m), get_narrow(tz * m), get_narrow(m * kZero)};
+        vel_ = {get_narrow(jx + vel_.x), append_one(jy, vel_.y), append_one(jz, vel_.z), append_one(jw, vel_.w)};
+        rot_vel_ = {append_one(turn.x, rot_vel_.x), append_one(turn.y, rot_vel_.y), append_one(turn.z, rot_vel_.z), append_one(turn.w, rot_vel_.w)};
+        vel0 = {get_narrow(jx + vel0.x), append_one(jy, vel0.y), append_one(jz, vel0.z), append_one(jw, vel0.w)};
+        first_turn = {append_one(turn.x, first_turn.x), append_one(turn.y, first_turn.y), append_one(turn.z, first_turn.z), append_one(turn.w, first_turn.w)};
     }
 
     // Pushed out of the world by each contact's depth.
-    float dt = Narrow(FrameClock::GetSlomoFrameSeconds());
-    for (int i = m_contactsHit; i != 0;) {
+    float dt = get_narrow(frame_clock::get_slomo_frame_seconds());
+    for (int i = contacts_hit_; i != 0;) {
         Contact& c = contacts[--i];
         if (!c.active)
             continue;
-        const Maths::Vec4& r = c.offset;
-        const Maths::Vec4& n = c.normal;
-        double k = -((Wide(c.depth) * m_springConst) * dt);
-        Maths::Vec4 push = {Narrow(k * n.x), Narrow(k * n.y), Narrow(k * n.z), Narrow(k * n.w)};
-        double tx = Wide(push.z) * r.y - Wide(push.y) * r.z, ty = Wide(push.x) * r.z - Wide(push.z) * r.x;
-        float tz = Narrow(Wide(push.y) * r.x - Wide(push.x) * r.y);
-        const double m = m_massOverMoment;
-        m_vel = {AppendOne(push.x, m_vel.x), AppendOne(push.y, m_vel.y), AppendOne(push.z, m_vel.z), AppendOne(push.w, m_vel.w)};
-        m_rotVel = {AppendOne(Narrow(tx * m), m_rotVel.x), Narrow(ty * m + m_rotVel.y), Narrow(Wide(tz) * m + m_rotVel.z),
-                    AppendOne(Narrow(m * kZero), m_rotVel.w)};
-        if (DrawDetails()) {
-            Maths::Vec4 from = {r.x + m_atPoint.x, m_atPoint.y + r.y, m_atPoint.z + r.z, m_atPoint.w + r.w};
-            Maths::Vec4 to = {from.x + push.x * kDebugImpulseScale, from.y + push.y * kDebugImpulseScale,
+        const maths::Vec4& r = c.offset;
+        const maths::Vec4& n = c.normal;
+        double k = -((get_wide(c.depth) * spring_const_) * dt);
+        maths::Vec4 push = {get_narrow(k * n.x), get_narrow(k * n.y), get_narrow(k * n.z), get_narrow(k * n.w)};
+        double tx = get_wide(push.z) * r.y - get_wide(push.y) * r.z, ty = get_wide(push.x) * r.z - get_wide(push.z) * r.x;
+        float tz = get_narrow(get_wide(push.y) * r.x - get_wide(push.x) * r.y);
+        const double m = mass_over_moment_;
+        vel_ = {append_one(push.x, vel_.x), append_one(push.y, vel_.y), append_one(push.z, vel_.z), append_one(push.w, vel_.w)};
+        rot_vel_ = {append_one(get_narrow(tx * m), rot_vel_.x), get_narrow(ty * m + rot_vel_.y), get_narrow(get_wide(tz) * m + rot_vel_.z),
+                    append_one(get_narrow(m * kZero), rot_vel_.w)};
+        if (draw_details()) {
+            maths::Vec4 from = {r.x + at_point_.x, at_point_.y + r.y, at_point_.z + r.z, at_point_.w + r.w};
+            maths::Vec4 to = {from.x + push.x * kDebugImpulseScale, from.y + push.y * kDebugImpulseScale,
                               from.z + push.z * kDebugImpulseScale, from.w + push.w * kDebugImpulseScale};
-            Gfx2D::PushDiagLine(&to, &from, 0xFF00FFFF, 0, 1);
+            gfx::push_diag_line(&to, &from, 0xFF00FFFF, 0, 1);
         }
     }
 
     // The bounce, at the last active contact.
-    for (int i = m_contactsHit; i != 0;) {
+    for (int i = contacts_hit_; i != 0;) {
         const Contact& c = contacts[--i];
         if (c.active) {
-            Maths::Vec4 point = {AppendOne(c.offset.x, m_atPoint.x), AppendOne(c.offset.y, m_atPoint.y), AppendOne(c.offset.z, m_atPoint.z),
-                                 AppendOne(c.offset.w, m_atPoint.w)};
-            OnBounce(fastest, &point);
+            maths::Vec4 point = {append_one(c.offset.x, at_point_.x), append_one(c.offset.y, at_point_.y), append_one(c.offset.z, at_point_.z),
+                                 append_one(c.offset.w, at_point_.w)};
+            on_bounce(fastest, &point);
             return;
         }
     }
 }
 
 // 0x00430BE0
-void CBodyDynamicsModule::Collide(Engine3D::CProbeRay* feeler)
+void BodyDynamicsModule::collide(render::ProbeRay* feeler)
 {
-    const Maths::Vec4& n = feeler->m_surfaceDir;
-    double along = (Wide(m_vel.z) * n.z + Wide(m_vel.y) * n.y) + Wide(m_vel.x) * n.x;
+    const maths::Vec4& n = feeler->surface_dir_;
+    double along = (get_wide(vel_.z) * n.z + get_wide(vel_.y) * n.y) + get_wide(vel_.x) * n.x;
     // The bounce: -(1 + restitution) of the speed along the normal.
-    double k = -((Wide(m_restitution) + 1.0f) * along);
-    Maths::Vec4 bounce = {Narrow(k * n.x), Narrow(k * n.y), Narrow(k * n.z), 0.0f};
-    double bounceW = k * n.w;
+    double k = -((get_wide(restitution_) + 1.0f) * along);
+    maths::Vec4 bounce = {get_narrow(k * n.x), get_narrow(k * n.y), get_narrow(k * n.z), 0.0f};
+    double bounce_w = k * n.w;
     // Friction against what's across the normal.
-    float tx = Narrow(m_vel.x - along * n.x);
-    double ty = m_vel.y - along * n.y;
-    float tz = Narrow(m_vel.z - Wide(Narrow(along * n.z)));
-    double tw = m_vel.w - Wide(Narrow(along * n.w));
-    double length = std::sqrt((Wide(tz) * tz + ty * ty) + Wide(tx) * tx);
-    float lengthF = Narrow(length);
+    float tx = get_narrow(vel_.x - along * n.x);
+    double ty = vel_.y - along * n.y;
+    float tz = get_narrow(vel_.z - get_wide(get_narrow(along * n.z)));
+    double tw = vel_.w - get_wide(get_narrow(along * n.w));
+    double length = std::sqrt((get_wide(tz) * tz + ty * ty) + get_wide(tx) * tx);
+    float length_f = get_narrow(length);
     if (length > kMinLength) {
-        double inverse = 1.0 / lengthF;
-        float ux = Narrow(tx * inverse), uy = Narrow(ty * inverse), uz = Narrow(tz * inverse);
+        double inverse = 1.0 / length_f;
+        float ux = get_narrow(tx * inverse), uy = get_narrow(ty * inverse), uz = get_narrow(tz * inverse);
         double uw = tw * inverse;
-        float most = Narrow(std::sqrt((Wide(bounce.z) * bounce.z + Wide(bounce.y) * bounce.y) +
-                                      Wide(bounce.x) * bounce.x) *
-                            m_dragFactor);
-        double f = -(lengthF > most ? most : lengthF);
-        m_vel = {Narrow(ux * f + m_vel.x), AppendOne(Narrow(uy * f), m_vel.y), AppendOne(Narrow(uz * f), m_vel.z),
-                 AppendOne(Narrow(uw * f), m_vel.w)};
+        float most = get_narrow(std::sqrt((get_wide(bounce.z) * bounce.z + get_wide(bounce.y) * bounce.y) +
+                                      get_wide(bounce.x) * bounce.x) *
+                            drag_factor_);
+        double f = -(length_f > most ? most : length_f);
+        vel_ = {get_narrow(ux * f + vel_.x), append_one(get_narrow(uy * f), vel_.y), append_one(get_narrow(uz * f), vel_.z),
+                 append_one(get_narrow(uw * f), vel_.w)};
     }
-    m_vel = {AppendOne(bounce.x, m_vel.x), AppendOne(bounce.y, m_vel.y), AppendOne(bounce.z, m_vel.z), Narrow(bounceW + m_vel.w)};
-    OnBounce(Narrow(-along), &feeler->m_contactPos);
+    vel_ = {append_one(bounce.x, vel_.x), append_one(bounce.y, vel_.y), append_one(bounce.z, vel_.z), get_narrow(bounce_w + vel_.w)};
+    on_bounce(get_narrow(-along), &feeler->contact_pos_);
 }
 
 // 0x00430E20
-void CBodyDynamicsModule::TickFrame()
+void BodyDynamicsModule::tick_frame()
 {
-    if (m_curPhase == STATE_DISABLED)
+    if (cur_phase_ == kStateDisabled)
         return;
-    float frame = Narrow(FrameClock::GetSlomoFrameSeconds());
-    if (m_pushCooldown > kZero)
-        m_pushCooldown = Sub(m_pushCooldown, frame);
-    else if (!(m_flagBits & FLAG_NO_PLAYER_COLLISION))
-        FeelPushers();
-    if (m_dieTimer >= kZero) {
-        if (m_dieTimer <= frame)
-            FlagAsDead(m_entity);
+    float frame = get_narrow(frame_clock::get_slomo_frame_seconds());
+    if (push_cooldown_ > kZero)
+        push_cooldown_ = get_sub(push_cooldown_, frame);
+    else if (!(flag_bits_ & kFlagNoPlayerCollision))
+        feel_pushers();
+    if (die_timer_ >= kZero) {
+        if (die_timer_ <= frame)
+            flag_as_dead(entity_);
         else
-            m_dieTimer = Sub(m_dieTimer, frame);
+            die_timer_ = get_sub(die_timer_, frame);
     }
-    if (m_curPhase == STATE_ASLEEP) {
-        m_entity->m_displayMatrix = m_basisFrame;
+    if (cur_phase_ == kStateAsleep) {
+        entity_->display_matrix_ = basis_frame_;
         return;
     }
 
-    UpdateWorldPoints();
+    update_world_points();
     // The frame in steps: each to the frame's end, or to just before what the path hits.
     float remaining = frame;
     for (int step = 0;;) {
         float length = remaining;
-        Engine3D::CProbeRay feeler;
-        feeler.MakeNew();
-        double vx = Wide(remaining) * m_vel.x, vy = Wide(remaining) * m_vel.y, vz = Wide(remaining) * m_vel.z,
-               vw = Wide(remaining) * m_vel.w;
-        double half = (Wide(remaining) * remaining) * kHalf;
-        feeler.m_line.start = m_atPoint;
-        feeler.m_line.end = {Narrow(half * m_steadyAccel.x + (Wide(Narrow(vx)) + m_atPoint.x)),
-                             Narrow(Wide(Narrow(half * m_steadyAccel.y)) + (Wide(Narrow(vy)) + m_atPoint.y)),
-                             Narrow(Wide(Narrow(half * m_steadyAccel.z)) + (vz + m_atPoint.z)),
-                             Narrow(Wide(Narrow(half * m_steadyAccel.w)) + Narrow(vw + m_atPoint.w))};
-        bool hit = feeler.GetHitShape(false, false) != 0;
+        render::ProbeRay feeler;
+        feeler.make_new();
+        double vx = get_wide(remaining) * vel_.x, vy = get_wide(remaining) * vel_.y, vz = get_wide(remaining) * vel_.z,
+               vw = get_wide(remaining) * vel_.w;
+        double half = (get_wide(remaining) * remaining) * kHalf;
+        feeler.line_.start = at_point_;
+        feeler.line_.end = {get_narrow(half * steady_accel_.x + (get_wide(get_narrow(vx)) + at_point_.x)),
+                             get_narrow(get_wide(get_narrow(half * steady_accel_.y)) + (get_wide(get_narrow(vy)) + at_point_.y)),
+                             get_narrow(get_wide(get_narrow(half * steady_accel_.z)) + (vz + at_point_.z)),
+                             get_narrow(get_wide(get_narrow(half * steady_accel_.w)) + get_narrow(vw + at_point_.w))};
+        bool hit = feeler.get_hit_shape(false, false) != 0;
         if (hit) {
-            const Maths::Seg& line = feeler.m_line;
-            double dx = Wide(line.end.x) - line.start.x, dy = Wide(line.end.y) - line.start.y,
-                   dz = Wide(line.end.z) - line.start.z;
+            const maths::Seg& line = feeler.line_;
+            double dx = get_wide(line.end.x) - line.start.x, dy = get_wide(line.end.y) - line.start.y,
+                   dz = get_wide(line.end.z) - line.start.z;
             double path = std::sqrt((dx * dx + dy * dy) + dz * dz);
-            double speed = std::sqrt((Wide(m_vel.x) * m_vel.x + Wide(m_vel.y) * m_vel.y) + Wide(m_vel.z) * m_vel.z);
-            length = Narrow((path * feeler.m_reach - kHitBackOff) / speed);
+            double speed = std::sqrt((get_wide(vel_.x) * vel_.x + get_wide(vel_.y) * vel_.y) + get_wide(vel_.z) * vel_.z);
+            length = get_narrow((path * feeler.reach_ - kHitBackOff) / speed);
             if (length < kZero)
                 length = 0.0f;
         }
-        Integrate(length);
+        integrate(length);
         if (hit)
-            Collide(&feeler);
-        remaining = Sub(remaining, length);
+            collide(&feeler);
+        remaining = get_sub(remaining, length);
         if (++step == kMaxSteps) {
-            Sleep();
+            sleep();
             break;
         }
         if (!hit)
             break;
     }
 
-    if (FindContacts())
-        ResolveContacts();
-    if (m_springCount)
-        ApplySprings();
-    Damp();
-    CheckSleep();
+    if (find_contacts())
+        resolve_contacts();
+    if (spring_count_)
+        apply_springs();
+    damp();
+    check_sleep();
 
-    Maths::Vec4 offset;
-    m_basisFrame.RotateVector(offset, m_modelOffset);
-    m_entity->m_atPoint = {AppendOne(m_atPoint.x, offset.x), AppendOne(m_atPoint.y, offset.y), AppendOne(m_atPoint.z, offset.z), AppendOne(m_atPoint.w, offset.w)};
-    m_entity->m_basisFrame = m_basisFrame;
-    m_entity->m_displayMatrix = m_basisFrame;
-    m_entity->m_vel = m_vel;
-    if (DrawShape())
-        DebugDraw();
+    maths::Vec4 offset;
+    basis_frame_.rotate_vector(offset, model_offset_);
+    entity_->at_point_ = {append_one(at_point_.x, offset.x), append_one(at_point_.y, offset.y), append_one(at_point_.z, offset.z), append_one(at_point_.w, offset.w)};
+    entity_->basis_frame_ = basis_frame_;
+    entity_->display_matrix_ = basis_frame_;
+    entity_->vel_ = vel_;
+    if (draw_shape())
+        debug_draw();
 }
 
 } // namespace Obj

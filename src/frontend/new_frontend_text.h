@@ -6,7 +6,7 @@
 // parentheses, no explanations of how things work, no file names or ini keys (those only behind [frontend]
 // show_ini_keys=1). The original game's own words that ours repeats (the difficulty lines, the career warning) are
 // THUG2's text as it ships. Log lines, automation replies and ids are not here (nobody playing sees them).
-namespace MenuSystem::NewFrontend::Text {
+namespace frontend::new_frontend::text_tools {
 
 // --- headers (the mono line at the top of the column) and screen titles ------------------------------------------
 inline constexpr const char* kTitleMain = "THUG2 / Decomp edition";

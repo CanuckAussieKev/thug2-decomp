@@ -6,23 +6,23 @@
 #include "engine/net/net_conn.h"
 #include "platform/stopwatch.h"
 
-namespace NetLink {
+namespace net {
 
 // 0x00455920
-void Conn::StampLastHeard(uint32_t extra)
+void Conn::stamp_last_heard(uint32_t extra)
 {
-    uint32_t time = FrameClock::GetTime() + extra;
-    if (time > m_lastHeardFrom)
-        m_lastHeardFrom = time;
+    uint32_t time = frame_clock::get_time() + extra;
+    if (time > last_heard_from_)
+        last_heard_from_ = time;
 }
 
 // 0x00455940
-uint32_t Conn::GetSilenceDuration()
+uint32_t Conn::get_silence_duration()
 {
-    uint32_t now = FrameClock::GetTime();
-    if (now < m_lastHeardFrom)
+    uint32_t now = frame_clock::get_time();
+    if (now < last_heard_from_)
         return 0;
-    return now - m_lastHeardFrom;
+    return now - last_heard_from_;
 }
 
 } // namespace Net

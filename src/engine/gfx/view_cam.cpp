@@ -13,21 +13,21 @@
 #include "engine/core/stubs.h"
 #include "engine/objects/entity.h"
 
-namespace Gfx2D {
+namespace gfx {
 
-static_assert(offsetof(ViewCam, m_oldPos) == 0x4C && offsetof(ViewCam, m_atPoint) == 0x5C &&
-                  offsetof(ViewCam, m_basisFrame) == 0x6C && offsetof(ViewCam, m_hFov) == 0xAC &&
-                  offsetof(ViewCam, m_correctedHorizFov) == 0xB0 && offsetof(ViewCam, m_unknownB4) == 0xB4 &&
-                  offsetof(ViewCam, m_nearDist) == 0xB8 && offsetof(ViewCam, m_farClip) == 0xBC &&
-                  offsetof(ViewCam, m_unknownC0) == 0xC0 && sizeof(ViewCam) == 0xC4,
+static_assert(offsetof(ViewCam, old_pos_) == 0x4C && offsetof(ViewCam, at_point_) == 0x5C &&
+                  offsetof(ViewCam, basis_frame_) == 0x6C && offsetof(ViewCam, h_fov_) == 0xAC &&
+                  offsetof(ViewCam, corrected_horiz_fov_) == 0xB0 && offsetof(ViewCam, unknownb4_) == 0xB4 &&
+                  offsetof(ViewCam, near_dist_) == 0xB8 && offsetof(ViewCam, far_clip_) == 0xBC &&
+                  offsetof(ViewCam, unknownc0_) == 0xC0 && sizeof(ViewCam) == 0xC4,
               "the original's layout");
 
 namespace {
 
 extern void** const kVtable;
-constexpr uint32_t kSetHFOVRadians = 0x44EA2B6D; // the member function (name unknown): the angle in radians
+constexpr uint32_t kSetHfovRadians = 0x44EA2B6D; // the member function (name unknown): the angle in radians
 
-float FloatFromBits(uint32_t bits)
+float float_from_bits(uint32_t bits)
 {
     float f;
     std::memcpy(&f, &bits, 4);
@@ -35,161 +35,161 @@ float FloatFromBits(uint32_t bits)
 }
 // The original's constants (0x00648800 pi / 360, 0x00648804 360 / pi, 0x006453BC 0.5, 0x00645464 pi / 180,
 // 0x00645468 180 / pi).
-const float kDegreesToHalfRadians = FloatFromBits(0x3C0EFA35);
-const float kHalfRadiansToDegrees = FloatFromBits(0x42E52EE0);
+const float kDegreesToHalfRadians = float_from_bits(0x3C0EFA35);
+const float kHalfRadiansToDegrees = float_from_bits(0x42E52EE0);
 const float kHalf = 0.5f;
-const float kRadiansPerDegree = FloatFromBits(0x3C8EFA35);
-const float kDegreesPerRadian = FloatFromBits(0x42652EE0);
+const float kRadiansPerDegree = float_from_bits(0x3C8EFA35);
+const float kDegreesPerRadian = float_from_bits(0x42652EE0);
 
 } // namespace
 
-int g_drawDistanceSetting;
+int g_draw_distance_setting;
 
 // 0x00485BA0
-ViewCam* ViewCam::MakeNew()
+ViewCam* ViewCam::make_new()
 {
-    GameObjects::CEntity::MakeNew();
+    objects::Entity::make_new();
     *reinterpret_cast<void***>(this) = kVtable;
-    m_unknownC0 = 1.0f;
-    m_hFov = Engine3D::GetScreenAngle();
-    RefreshEffectiveHFov();
-    m_basisFrame.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
-    m_basisFrame.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
-    m_basisFrame.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
-    m_basisFrame.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    m_nearDist = 12.0f;
-    m_farClip = 12000.0f;
-    if (Engine3D::g_distanceClipping) { // distance clipping (setting 0x007D6444)
+    unknownc0_ = 1.0f;
+    h_fov_ = render::get_screen_angle();
+    refresh_effective_h_fov();
+    basis_frame_.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
+    basis_frame_.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
+    basis_frame_.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
+    basis_frame_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    near_dist_ = 12.0f;
+    far_clip_ = 12000.0f;
+    if (render::g_distance_clipping) { // distance clipping (setting 0x007D6444)
         // (the setting as an unsigned number: FILD of a signed one, 2^32 added when negative)
-        double distance = static_cast<double>(g_drawDistanceSetting);
-        if (g_drawDistanceSetting < 0)
+        double distance = static_cast<double>(g_draw_distance_setting);
+        if (g_draw_distance_setting < 0)
             distance += 4294967296.0;
-        m_farClip = static_cast<float>(distance * 30.0);
+        far_clip_ = static_cast<float>(distance * 30.0);
     }
     // NOT ORIGINAL - [Graphics] draw_distance_scale (engine/gfx/graphics_options.h).
-    m_farClip = Engine3D::GraphicsOptions::Scaled(m_farClip, Engine3D::GraphicsOptions::Pull().drawDistanceScale);
-    m_atPoint = {0.0f, 0.0f, 0.0f, 1.0f};
-    m_oldPos = {0.0f, 0.0f, 0.0f, 1.0f};
+    far_clip_ = render::graphics_options::get_scaled(far_clip_, render::graphics_options::get_pull().draw_distance_scale_);
+    at_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    old_pos_ = {0.0f, 0.0f, 0.0f, 1.0f};
     return this;
 }
 
 // 0x004859F0
-void ViewCam::DestroyBody()
+void ViewCam::destroy_body()
 {
     *reinterpret_cast<void***>(this) = kVtable;
-    GameObjects::CEntity::DestroyBody();
+    objects::Entity::destroy_body();
 }
 
 // 0x00485A20 (vtable slot 0)
-ViewCam* ViewCam::ScalarDelete(uint8_t flags)
+ViewCam* ViewCam::scalar_delete(uint8_t flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
 // 0x00485AA0 (x87 as the original, so results round the same): the angle as drawn is the 4:3 one widened by the
-// screen's angle factor (and divided by m_unknownC0); m_unknownB4 is tan(half that) over tan(half the cameras'
+// screen's angle factor (and divided by unknownc0_); unknownb4_ is tan(half that) over tan(half the cameras'
 // default angle).
-void ViewCam::RefreshEffectiveHFov()
+void ViewCam::refresh_effective_h_fov()
 {
-    const float toHalfRadians = kDegreesToHalfRadians, toDegrees = kHalfRadiansToDegrees, half = kHalf,
-                toRadians = kRadiansPerDegree;
-    float halfAngle;
-    float hFov = m_hFov;
+    const float to_half_radians = kDegreesToHalfRadians, to_degrees = kHalfRadiansToDegrees, half = kHalf,
+                to_radians = kRadiansPerDegree;
+    float half_angle;
+    float h_fov = h_fov_;
     __asm {
-        fld hFov
-        fmul toHalfRadians
-        fstp halfAngle
+        fld h_fov
+        fmul to_half_radians
+        fstp half_angle
     }
-    float factor = Engine3D::FetchFovRatio();
-    float divisor = m_unknownC0;
-    float adjusted, tanAdjusted;
+    float factor = render::fetch_fov_ratio();
+    float divisor = unknownc0_;
+    float adjusted, tan_adjusted;
     __asm {
         fld factor
-        fld halfAngle
+        fld half_angle
         fptan
         fstp st(0)
         fdiv divisor
         fmulp st(1), st(0)
         fld1
         fpatan
-        fmul toDegrees
+        fmul to_degrees
         fst adjusted
-        fmul toHalfRadians
+        fmul to_half_radians
         fptan
         fstp st(0)
-        fstp tanAdjusted
+        fstp tan_adjusted
     }
-    m_correctedHorizFov = adjusted;
-    float defaultAngle = Engine3D::GetScreenAngle();
+    corrected_horiz_fov_ = adjusted;
+    float default_angle = render::get_screen_angle();
     float ratio;
     __asm {
-        fld defaultAngle
+        fld default_angle
         fmul half
-        fmul toRadians
+        fmul to_radians
         fptan
         fstp st(0)
-        fdivr tanAdjusted
+        fdivr tan_adjusted
         fstp ratio
     }
-    m_unknownB4 = ratio;
+    unknownb4_ = ratio;
 }
 
 // 0x00485B40
-bool ViewCam::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script)
+bool ViewCam::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
 {
-    if (name != kSetHFOVRadians)
-        return GameObjects::CEntity::InvokeMethodByName(name, params, script);
+    if (name != kSetHfovRadians)
+        return objects::Entity::invoke_method_by_name(name, params, script);
     // (the original reads the float into the stack slot of `params`: without one, the pointer's bits are the angle)
     float radians;
     std::memcpy(&radians, &params, 4);
-    params->FetchFloat(0u, &radians, 1);
-    m_hFov = radians * kDegreesPerRadian;
-    RefreshEffectiveHFov();
+    params->fetch_float(0u, &radians, 1);
+    h_fov_ = radians * kDegreesPerRadian;
+    refresh_effective_h_fov();
     return true;
 }
 
 // 0x00485A50
-void ViewCam::RememberPrevPos()
+void ViewCam::remember_prev_pos()
 {
-    std::memcpy(&m_oldPos, &m_atPoint, sizeof(m_atPoint)); // (copied as words)
+    std::memcpy(&old_pos_, &at_point_, sizeof(at_point_)); // (copied as words)
 }
 
 // 0x00485A70
-void ViewCam::ChangeLocation(const Maths::Vec4& pos)
+void ViewCam::change_location(const maths::Vec4& pos)
 {
-    std::memcpy(&m_atPoint, &pos, sizeof(m_atPoint)); // (copied as words)
+    std::memcpy(&at_point_, &pos, sizeof(at_point_)); // (copied as words)
 }
 
 // 0x00485A90
-Maths::Mat4& ViewCam::ChangeMat(const Maths::Mat4& matrix)
+maths::Mat4& ViewCam::change_mat(const maths::Mat4& matrix)
 {
-    m_basisFrame = matrix;
-    return m_basisFrame;
+    basis_frame_ = matrix;
+    return basis_frame_;
 }
 
 // 0x00485B10
-float ViewCam::FetchEffectiveHFov()
+float ViewCam::fetch_effective_h_fov()
 {
-    RefreshEffectiveHFov();
-    return m_correctedHorizFov;
+    refresh_effective_h_fov();
+    return corrected_horiz_fov_;
 }
 
 // 0x00485B20
-void ViewCam::ChangeHFov(float degrees)
+void ViewCam::change_h_fov(float degrees)
 {
-    m_hFov = degrees;
-    RefreshEffectiveHFov();
+    h_fov_ = degrees;
+    refresh_effective_h_fov();
 }
 
 namespace {
-static VtableSlot kVtable_slots[] = {&Gfx2D::ViewCam::ScalarDelete, &GameObjects::CEntity::ChangeTraits,
-                static_cast<bool (GameObjects::CEntity::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CEntity::InvokeMethodByName),
-                &Gfx2D::ViewCam::InvokeMethodByName, Stubs::IgnoreArgument, &GameObjects::CEntity::PassEventToScript,
-                &GameObjects::CEntity::FlagAsDead, Stubs::ReturnTrue};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&gfx::ViewCam::scalar_delete, &objects::Entity::change_traits,
+                static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
+                &gfx::ViewCam::invoke_method_by_name, stubs::ignore_argument, &objects::Entity::pass_event_to_script,
+                &objects::Entity::flag_as_dead, stubs::return_true};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 } // namespace
 
 } // namespace Gfx

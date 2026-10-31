@@ -12,7 +12,7 @@
 #include "engine/core/code_address.h"
 #include "engine/script/world_cfuncs.h"
 
-namespace GameModules {
+namespace modules {
 
 namespace {
 
@@ -21,17 +21,17 @@ extern void** const kNodeVtable;
 extern void** const kHeadVtable;
 extern void** const kSearchVtable;
 
-Hub*& Sole() { return ScriptCommands::g_moduleManager; }
+Hub*& sole() { return commands::g_module_manager; }
 
-unsigned int g_moduleReferences;
+unsigned int g_module_references;
 
-unsigned int& RefTally() { return g_moduleReferences; }
+unsigned int& ref_tally() { return g_module_references; }
 
-void FreeMemory(void* memory) { MemSys::Hub::Pull()->Dealloc(memory); }
+void free_memory(void* memory) { memory::Hub::get_pull()->dealloc(memory); }
 
 // A list node's or task's scalar deleting destructor (vtable slot 0 / slot 2), deleting it.
-void UnlinkListNode(MemSys::ListNode* node) { reinterpret_cast<void(__thiscall*)(void*, unsigned int)>(node->vtable[0])(node, 1); }
-void DeleteTask(void* task)
+void unlink_list_node(memory::ListNode* node) { reinterpret_cast<void(__thiscall*)(void*, unsigned int)>(node->vtable[0])(node, 1); }
+void delete_task(void* task)
 {
     reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*static_cast<void***>(task))[2])(task, 1);
 }
@@ -39,12 +39,12 @@ void DeleteTask(void* task)
 } // namespace
 
 // 0x0044F7E0
-PartUnit* PartUnit::MakeNew()
+PartUnit* PartUnit::make_new()
 {
-    m_vtable = kModuleVtable;
-    m_curPhase = kStopped;
-    m_locked = false;
-    auto* node = static_cast<MemSys::ListNode*>(MemSys::AllocZeroed(sizeof(MemSys::ListNode)));
+    vtable_ = kModuleVtable;
+    cur_phase_ = kStopped;
+    locked_ = false;
+    auto* node = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
     if (node) {
         node->data = this;
         node->vtable = kNodeVtable;
@@ -52,70 +52,70 @@ PartUnit* PartUnit::MakeNew()
         node->next = node;
         node->prev = node;
     }
-    m_listLink = node;
+    list_link_ = node;
     return this;
 }
 
 // 0x0044F790
-void PartUnit::DestroyBody()
+void PartUnit::destroy_body()
 {
-    m_vtable = kModuleVtable;
-    if (m_listLink)
-        UnlinkListNode(m_listLink);
+    vtable_ = kModuleVtable;
+    if (list_link_)
+        unlink_list_node(list_link_);
 }
 
 // 0x0044F7B0
-PartUnit* PartUnit::Teardown(unsigned int flags)
+PartUnit* PartUnit::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        FreeMemory(this);
+        free_memory(this);
     return this;
 }
 
 // 0x0044F5E0
-Hub* Hub::MakeNew()
+Hub* Hub::make_new()
 {
-    m_modules.data = reinterpret_cast<void*>(-1);
-    m_modules.priority = 0;
-    m_modules.next = &m_modules;
-    m_modules.prev = &m_modules;
-    m_modules.vtable = kHeadVtable;
-    auto* task = static_cast<uint32_t*>(MemSys::AllocZeroed(0x20));
+    modules_.data = reinterpret_cast<void*>(-1);
+    modules_.priority = 0;
+    modules_.next = &modules_;
+    modules_.prev = &modules_;
+    modules_.vtable = kHeadVtable;
+    auto* task = static_cast<uint32_t*>(memory::alloc_zeroed(0x20));
     if (task) {
-        reinterpret_cast<Scheduling::SchedulerTask*>(task)->MakeNew(-1000);             // Scheduling::SchedulerTask
-        task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);                                                // Scheduling::Task<Manager>
-        task[6] = reinterpret_cast<uint32_t>(&TickModules);
+        reinterpret_cast<tasks::SchedulerTask*>(task)->make_new(-1000);             // tasks::SchedulerTask
+        task[0] = reinterpret_cast<uint32_t>(game_code::kTaskVtable);                                                // tasks::Task<Manager>
+        task[6] = reinterpret_cast<uint32_t>(&tick_modules);
         task[7] = reinterpret_cast<uint32_t>(this);
     }
-    m_task = task;
-    m_commandPending = false;
+    task_ = task;
+    command_pending_ = false;
     return this;
 }
 
 // 0x0044F680
-void Hub::DestroyBody()
+void Hub::destroy_body()
 {
-    HaltEveryModule();
-    if (m_task)
-        DeleteTask(m_task);
-    m_modules.UnlinkAs(kNodeVtable); // (the head's destructor is the node's)
+    halt_every_module();
+    if (task_)
+        delete_task(task_);
+    modules_.unlink_as(kNodeVtable); // (the head's destructor is the node's)
 }
 
 // 0x0044F3C0
-void Hub::EnrolUnit(PartUnit* module)
+void Hub::enrol_unit(PartUnit* module)
 {
-    MemSys::ListNode* node = module->m_listLink;
-    node->prev = m_modules.prev;
-    node->next = &m_modules;
-    m_modules.prev->next = node;
-    m_modules.prev = node;
+    memory::ListNode* node = module->list_link_;
+    node->prev = modules_.prev;
+    node->next = &modules_;
+    modules_.prev->next = node;
+    modules_.prev = node;
 }
 
 // 0x0044F3E0
-void Hub::RemoveModule(PartUnit* module)
+void Hub::remove_module(PartUnit* module)
 {
-    MemSys::ListNode* node = module->m_listLink;
+    memory::ListNode* node = module->list_link_;
     node->prev->next = node->next;
     node->next->prev = node->prev;
     node->next = node;
@@ -123,57 +123,57 @@ void Hub::RemoveModule(PartUnit* module)
 }
 
 // 0x0044F310
-void Hub::LaunchModule(PartUnit* module)
+void Hub::launch_module(PartUnit* module)
 {
-    if (module->m_locked)
+    if (module->locked_)
         return;
-    module->m_queuedOp = PartUnit::kStart;
-    m_commandPending = true;
+    module->queued_op_ = PartUnit::kStart;
+    command_pending_ = true;
 }
 
 // 0x0044F530
-void Hub::HaltEveryModule()
+void Hub::halt_every_module()
 {
-    ListKit::Hunt<PartUnit> search;
-    PartUnit* next = search.HeadElement(&m_modules);
+    lists::Hunt<PartUnit> search;
+    PartUnit* next = search.head_element(&modules_);
     while (PartUnit* module = next) {
-        next = search.FollowingItem();
-        if (!module->m_locked && module->m_curPhase == PartUnit::kRunning) {
-            module->StopCallback();
-            module->m_queuedOp = PartUnit::kNone;
-            module->m_curPhase = PartUnit::kStopped;
+        next = search.following_item();
+        if (!module->locked_ && module->cur_phase_ == PartUnit::kRunning) {
+            module->stop_callback();
+            module->queued_op_ = PartUnit::kNone;
+            module->cur_phase_ = PartUnit::kStopped;
         }
     }
 }
 
 // 0x0044F440
-void __cdecl Hub::TickModules(void* task)
+void __cdecl Hub::tick_modules(void* task)
 {
     auto* manager = static_cast<Hub*>(static_cast<void**>(task)[7]);
-    if (!manager->m_commandPending)
+    if (!manager->command_pending_)
         return;
-    manager->m_commandPending = false;
-    ListKit::Hunt<PartUnit> search;
-    PartUnit* next = search.HeadElement(&manager->m_modules);
+    manager->command_pending_ = false;
+    lists::Hunt<PartUnit> search;
+    PartUnit* next = search.head_element(&manager->modules_);
     while (PartUnit* module = next) {
-        next = search.FollowingItem();
-        switch (module->m_curPhase) {
+        next = search.following_item();
+        switch (module->cur_phase_) {
         case PartUnit::kStopped:
-            if (module->m_queuedOp == PartUnit::kStart || module->m_queuedOp == PartUnit::kRestart) {
-                module->StartCallback();
-                module->m_curPhase = PartUnit::kRunning;
-                module->m_queuedOp = PartUnit::kNone;
+            if (module->queued_op_ == PartUnit::kStart || module->queued_op_ == PartUnit::kRestart) {
+                module->start_callback();
+                module->cur_phase_ = PartUnit::kRunning;
+                module->queued_op_ = PartUnit::kNone;
             }
             break;
         case PartUnit::kRunning:
-            if (module->m_queuedOp == PartUnit::kStop) {
-                module->StopCallback();
-                module->m_curPhase = PartUnit::kStopped;
-                module->m_queuedOp = PartUnit::kNone;
-            } else if (module->m_queuedOp == PartUnit::kRestart) {
-                module->StopCallback();
-                module->StartCallback();
-                module->m_queuedOp = PartUnit::kNone;
+            if (module->queued_op_ == PartUnit::kStop) {
+                module->stop_callback();
+                module->cur_phase_ = PartUnit::kStopped;
+                module->queued_op_ = PartUnit::kNone;
+            } else if (module->queued_op_ == PartUnit::kRestart) {
+                module->stop_callback();
+                module->start_callback();
+                module->queued_op_ = PartUnit::kNone;
             }
             break;
         }
@@ -181,79 +181,79 @@ void __cdecl Hub::TickModules(void* task)
 }
 
 // 0x0044F6F0
-Hub* CreateManager(bool create)
+Hub* create_manager(bool create)
 {
-    if (!Sole() && create) {
-        if (void* memory = MemSys::AllocZeroed(sizeof(Hub), nullptr, 1)) {
-            Sole() = static_cast<Hub*>(memory)->MakeNew();
-            ++RefTally();
-            return Sole();
+    if (!sole() && create) {
+        if (void* memory = memory::alloc_zeroed(sizeof(Hub), nullptr, 1)) {
+            sole() = static_cast<Hub*>(memory)->make_new();
+            ++ref_tally();
+            return sole();
         }
-        Sole() = nullptr;
+        sole() = nullptr;
     }
-    ++RefTally();
-    return Sole();
+    ++ref_tally();
+    return sole();
 }
 
 // 0x0044F740
-void ReleaseManager()
+void release_manager()
 {
-    if (RefTally() > 1) {
-        --RefTally();
+    if (ref_tally() > 1) {
+        --ref_tally();
         return;
     }
-    if (Hub* manager = Sole()) {
-        manager->DestroyBody();
-        FreeMemory(manager);
+    if (Hub* manager = sole()) {
+        manager->destroy_body();
+        free_memory(manager);
     }
-    Sole() = nullptr;
-    RefTally() = 0;
+    sole() = nullptr;
+    ref_tally() = 0;
 }
 
 // 0x0044F360
-void ModuleListDestructors::NodeDestroyBody() { reinterpret_cast<MemSys::ListNode*>(this)->UnlinkAs(kNodeVtable); }
+void ModuleListDestructors::node_destroy_body() { reinterpret_cast<memory::ListNode*>(this)->unlink_as(kNodeVtable); }
 
 // 0x0044F380
-MemSys::ListNode* ModuleListDestructors::NodeDestroy(unsigned int flags)
+memory::ListNode* ModuleListDestructors::node_destroy(unsigned int flags)
 {
-    auto* node = reinterpret_cast<MemSys::ListNode*>(this);
-    node->UnlinkAs(kNodeVtable);
+    auto* node = reinterpret_cast<memory::ListNode*>(this);
+    node->unlink_as(kNodeVtable);
     if (flags & 1)
-        FreeMemory(node);
+        free_memory(node);
     return node;
 }
 
 // 0x0044F410
-MemSys::ListNode* ModuleListDestructors::HeadDestroy(unsigned int flags)
+memory::ListNode* ModuleListDestructors::head_destroy(unsigned int flags)
 {
-    NodeDestroyBody();
+    node_destroy_body();
     if (flags & 1)
-        FreeMemory(this);
-    return reinterpret_cast<MemSys::ListNode*>(this);
+        free_memory(this);
+    return reinterpret_cast<memory::ListNode*>(this);
 }
 
 // 0x0044F300
-void ModuleListDestructors::SearchDestroyBody() { *reinterpret_cast<void***>(this) = kSearchVtable; }
+void ModuleListDestructors::search_destroy_body() { *reinterpret_cast<void***>(this) = kSearchVtable; }
 
 // 0x0044F330
-ModuleListDestructors* ModuleListDestructors::SearchDestroy(unsigned int flags)
+ModuleListDestructors* ModuleListDestructors::search_destroy(unsigned int flags)
 {
     *reinterpret_cast<void***>(this) = kSearchVtable;
     if (flags & 1)
-        FreeMemory(this);
+        free_memory(this);
     return this;
 }
 
 namespace {
-static VtableSlot kModuleVtable_slots[] = {&GameModules::PartUnit::Teardown, &_purecall,
+static VtableSlot g_module_vtable_slots[] = {&modules::PartUnit::teardown, &_purecall,
                 &_purecall};
-void** const kModuleVtable = reinterpret_cast<void**>(kModuleVtable_slots);
-static VtableSlot kNodeVtable_slots[] = {&GameModules::ModuleListDestructors::NodeDestroy};
-void** const kNodeVtable = reinterpret_cast<void**>(kNodeVtable_slots);
-static VtableSlot kHeadVtable_slots[] = {&GameModules::ModuleListDestructors::HeadDestroy};
-void** const kHeadVtable = reinterpret_cast<void**>(kHeadVtable_slots);
-static VtableSlot kSearchVtable_slots[] = {&GameModules::ModuleListDestructors::SearchDestroy};
-void** const kSearchVtable = reinterpret_cast<void**>(kSearchVtable_slots);
+void** const kModuleVtable = reinterpret_cast<void**>(g_module_vtable_slots);
+static VtableSlot g_node_vtable_slots[] = {&modules::ModuleListDestructors::node_destroy};
+void** const kNodeVtable = reinterpret_cast<void**>(g_node_vtable_slots);
+static VtableSlot g_head_vtable_slots[] = {&modules::ModuleListDestructors::head_destroy};
+void** const kHeadVtable = reinterpret_cast<void**>(g_head_vtable_slots);
+static VtableSlot g_search_vtable_slots[] = {&modules::ModuleListDestructors::search_destroy};
+void** const kSearchVtable = reinterpret_cast<void**>(g_search_vtable_slots);
 } // namespace
 
 } // namespace Mdl

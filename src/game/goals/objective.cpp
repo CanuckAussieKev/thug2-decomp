@@ -1,4 +1,4 @@
-// GoalSystem::CObjective, the goal base class: 0x00553E00-0x00557ABF (see objective.h).
+// goals::Objective, the goal base class: 0x00553E00-0x00557ABF (see objective.h).
 
 #include "game/goals/objective.h"
 
@@ -13,119 +13,119 @@
 #include "platform/stopwatch.h"
 #include "engine/gfx/tod_manager.h"
 
-namespace GoalSystem {
+namespace goals {
 
 namespace {
 
-using namespace GoalCalls;
+using namespace goal_calls;
 
-using namespace GoalNames;
+using namespace goal_names;
 
 // The x87 code's float to int conversion (_ftol): truncation.
-int Truncate(double value) { return static_cast<int>(value); }
+int truncate(double value) { return static_cast<int>(value); }
 
 } // namespace
 
 // 0x00553E00
-void CObjective::PassInheritedFlags(int depth)
+void Objective::pass_inherited_flags(int depth)
 {
-    void* manager = ObjectiveBoard();
-    for (GoalEdge* link = m_subNodes; link && link->m_objectiveKey; link = link->m_succ) {
-        CObjective* child = GetGoal(manager, link->m_objectiveKey, 1);
+    void* manager = objective_board();
+    for (GoalEdge* link = sub_nodes_; link && link->objective_key_; link = link->succ_) {
+        Objective* child = get_goal(manager, link->objective_key_, 1);
         if (child) {
-            child->m_inherited |= m_inherited;
-            child->PassInheritedFlags(depth + 1);
+            child->inherited_ |= inherited_;
+            child->pass_inherited_flags(depth + 1);
         }
     }
 }
 
 // 0x00553E50
-void CObjective::ClearChildWins()
+void Objective::clear_child_wins()
 {
-    void* manager = ObjectiveBoard();
-    for (GoalEdge* link = m_subNodes; link && link->m_objectiveKey; link = link->m_succ) {
-        link->m_won = false;
-        CObjective* child = GetGoal(manager, link->m_objectiveKey, 1);
+    void* manager = objective_board();
+    for (GoalEdge* link = sub_nodes_; link && link->objective_key_; link = link->succ_) {
+        link->won_ = false;
+        Objective* child = get_goal(manager, link->objective_key_, 1);
         if (child)
-            child->ClearChildWins();
+            child->clear_child_wins();
     }
 }
 
 // 0x00553E90
-Scripts::CStruct* CObjective::FetchArgs() { return m_args; }
+script::Struct* Objective::fetch_args() { return args_; }
 
 // 0x00553EA0
-void CObjective::ResetTimer()
+void Objective::reset_timer()
 {
     int unlimited = 0;
-    m_args->FetchIntValue(kUnlimitedTime, &unlimited, 0);
+    args_->fetch_int_value(kUnlimitedTime, &unlimited, 0);
     if (unlimited == 1)
         return;
-    m_secondsRemaining = 120;
+    seconds_remaining_ = 120;
     int seconds;
-    if (m_args->FetchIntValue(kTime, &seconds, 0))
-        m_secondsRemaining = seconds;
-    m_secondsRemaining = m_secondsRemaining * 1000 + 20;
-    m_curPhase &= ~kStateNoTimeLimit;
+    if (args_->fetch_int_value(kTime, &seconds, 0))
+        seconds_remaining_ = seconds;
+    seconds_remaining_ = seconds_remaining_ * 1000 + 20;
+    cur_phase_ &= ~kStateNoTimeLimit;
 }
 
 // 0x00553F10
-void CObjective::SetSecondsRemaining(int seconds) { m_secondsRemaining = seconds * 1000; }
+void Objective::set_seconds_remaining(int seconds) { seconds_remaining_ = seconds * 1000; }
 
 // 0x00553F20
-int CObjective::GetSecondsRemaining() { return m_secondsRemaining; }
+int Objective::get_seconds_remaining() { return seconds_remaining_; }
 
 // 0x00553F30
-void CObjective::AdvanceClock(int seconds) { m_secondsRemaining += seconds * 1000 + 20; }
+void Objective::advance_clock(int seconds) { seconds_remaining_ += seconds * 1000 + 20; }
 
 // 0x00553F50
-void CObjective::ChangeLive() { m_curPhase |= kStateActive; }
+void Objective::change_live() { cur_phase_ |= kStateActive; }
 
 // 0x00553F60
-void CObjective::ClearEngagedBit() { m_curPhase &= ~kStateActive; }
+void Objective::clear_engaged_bit() { cur_phase_ &= ~kStateActive; }
 
 // 0x00553F70
-bool CObjective::RewriteArgs(Scripts::CStruct* params)
+bool Objective::rewrite_args(script::Struct* params)
 {
-    m_args->AppendStructureIfAny(params);
+    args_->append_structure_if_any(params);
     return false;
 }
 
 // 0x00553F90
-bool CObjective::IsOperative() { return (m_curPhase & kStateActive) != 0; }
+bool Objective::is_operative() { return (cur_phase_ & kStateActive) != 0; }
 
 // 0x00553FA0
-bool CObjective::HasSeen() { return (m_flagBits & kFlagSeen) != 0; }
+bool Objective::has_seen() { return (flag_bits_ & kFlagSeen) != 0; }
 
 // 0x00553FB0
-void CObjective::Freeze() { m_curPhase |= kStatePaused; }
+void Objective::get_freeze() { cur_phase_ |= kStatePaused; }
 
 // 0x00553FC0
-void CObjective::UnPause() { m_curPhase &= ~kStatePaused; }
+void Objective::un_pause() { cur_phase_ &= ~kStatePaused; }
 
 // 0x00553FD0
-bool CObjective::BitMatches(uint32_t flag, int value, uint32_t sub)
+bool Objective::bit_matches(uint32_t flag, int value, uint32_t sub)
 {
-    Scripts::CStruct* flags = m_goalFlags;
+    script::Struct* flags = goal_flags_;
     if (sub) {
         // (a sub-structure that isn't there leaves the name itself as the pointer, as the original)
-        flags = reinterpret_cast<Scripts::CStruct*>(sub);
-        m_goalFlags->ReadSubStruct(sub, &flags, 1);
+        flags = reinterpret_cast<script::Struct*>(sub);
+        goal_flags_->read_sub_struct(sub, &flags, 1);
     }
-    if (!flags->HasEntryNamed(flag))
+    if (!flags->has_entry_named(flag))
         return false;
     // (the original's local is the sub-structure argument's slot: what the lookup left there, or 0)
     int set = sub ? static_cast<int>(reinterpret_cast<uintptr_t>(flags)) : 0;
-    flags->FetchIntValue(flag, &set, 1);
+    flags->fetch_int_value(flag, &set, 1);
     return value == set;
 }
 
 // 0x00554030
-void CObjective::ClearFlagValues(Scripts::CStruct* flags)
+void Objective::clear_flag_values(script::Struct* flags)
 {
-    Scripts::CComponent* component = flags->StepToEntry(nullptr);
+    script::Component* component = flags->step_to_entry(nullptr);
     while (component) {
-        Scripts::CComponent* next = flags->StepToEntry(component);
+        script::Component* next = flags->step_to_entry(component);
         // (num_flags isn't stepped over: a structure with it loops here for ever, as in the original)
         if (component->name != kNumFlags) {
             component->raw = 0;
@@ -135,18 +135,18 @@ void CObjective::ClearFlagValues(Scripts::CStruct* flags)
 }
 
 // 0x00554070
-void CObjective::ZeroObjectiveBits()
+void Objective::zero_objective_bits()
 {
-    if (m_goalFlags->HasBareFlag(kSkaterTraits)) {
-        Scripts::CComponent* component = m_goalFlags->StepToEntry(nullptr);
+    if (goal_flags_->has_bare_flag(kSkaterTraits)) {
+        script::Component* component = goal_flags_->step_to_entry(nullptr);
         while (component) {
-            Scripts::CComponent* next = m_goalFlags->StepToEntry(component);
-            if ((component->typeAndFlag & 0xFE) == (Scripts::QBVAL_STRUCT << 1)) {
-                Scripts::CStruct* skater = component->structure;
-                Scripts::CComponent* flag = skater->StepToEntry(nullptr);
+            script::Component* next = goal_flags_->step_to_entry(component);
+            if ((component->type_and_flag_ & 0xFE) == (script::kQbvalStruct << 1)) {
+                script::Struct* skater = component->structure;
+                script::Component* flag = skater->step_to_entry(nullptr);
                 while (flag) {
-                    Scripts::CComponent* following = skater->StepToEntry(flag);
-                    // (the same endless loop at num_flags as ClearFlagValues)
+                    script::Component* following = skater->step_to_entry(flag);
+                    // (the same endless loop at num_flags as clear_flag_values)
                     if (flag->name != kNumFlags) {
                         flag->raw = 0;
                         flag = following;
@@ -156,26 +156,26 @@ void CObjective::ZeroObjectiveBits()
             component = next;
         }
     } else {
-        ClearFlagValues(m_goalFlags);
+        clear_flag_values(goal_flags_);
     }
-    m_numFlagsSet = 0;
-    m_args->PutInt(kNumFlagsSet, 0);
+    num_flags_set_ = 0;
+    args_->put_int(kNumFlagsSet, 0);
 }
 
 // 0x00554110
-bool CObjective::HasEveryBit()
+bool Objective::has_every_bit()
 {
-    int toWin = m_numFlags;
-    m_args->FetchIntValue(kNumFlagsToWin, &toWin, 0);
-    if (m_goalFlags->HasBareFlag(kSkaterTraits)) {
-        for (Scripts::CComponent* component = m_goalFlags->StepToEntry(nullptr); component;) {
-            Scripts::CComponent* next = m_goalFlags->StepToEntry(component);
-            if ((component->typeAndFlag & 0xFE) == (Scripts::QBVAL_STRUCT << 1)) {
-                Scripts::CStruct* skater = component->structure;
+    int to_win = num_flags_;
+    args_->fetch_int_value(kNumFlagsToWin, &to_win, 0);
+    if (goal_flags_->has_bare_flag(kSkaterTraits)) {
+        for (script::Component* component = goal_flags_->step_to_entry(nullptr); component;) {
+            script::Component* next = goal_flags_->step_to_entry(component);
+            if ((component->type_and_flag_ & 0xFE) == (script::kQbvalStruct << 1)) {
+                script::Struct* skater = component->structure;
                 int set;
                 int count;
-                skater->FetchIntValue(kNumFlagsSet, &set, 1);
-                skater->FetchIntValue(kNumFlags, &count, 1);
+                skater->fetch_int_value(kNumFlagsSet, &set, 1);
+                skater->fetch_int_value(kNumFlags, &count, 1);
                 if (set < count)
                     return false;
             }
@@ -183,240 +183,240 @@ bool CObjective::HasEveryBit()
         }
         return true;
     }
-    if (!toWin)
+    if (!to_win)
         return false;
-    return m_numFlagsSet >= toWin;
+    return num_flags_set_ >= to_win;
 }
 
 // 0x005541E0
-bool CObjective::BitIsOn(uint32_t flag, uint32_t sub)
+bool Objective::bit_is_on(uint32_t flag, uint32_t sub)
 {
-    Scripts::CStruct* flags = m_goalFlags;
+    script::Struct* flags = goal_flags_;
     if (sub) {
-        Scripts::CStruct* found = reinterpret_cast<Scripts::CStruct*>(sub); // (as BitMatches)
-        flags->ReadSubStruct(sub, &found, 1);
+        script::Struct* found = reinterpret_cast<script::Struct*>(sub); // (as bit_matches)
+        flags->read_sub_struct(sub, &found, 1);
         flags = found;
     }
     // (an integer that isn't there leaves the goal's address in the original's local: true)
     int set = static_cast<int>(reinterpret_cast<uintptr_t>(this));
-    flags->FetchIntValue(flag, &set, 1);
+    flags->fetch_int_value(flag, &set, 1);
     return set != 0;
 }
 
 // 0x00554220
-bool CObjective::IsLatched()
+bool Objective::is_latched()
 {
-    void* manager = ObjectiveBoard();
-    return (m_flagBits & kFlagLocked) || IsGroupLocked(manager, m_bundle, m_level);
+    void* manager = objective_board();
+    return (flag_bits_ & kFlagLocked) || is_group_locked(manager, bundle_, level_);
 }
 
 // 0x00554250
-bool CObjective::IsGraffiti() { return m_args->HasBareFlag(kGraffiti); }
+bool Objective::is_graffiti() { return args_->has_bare_flag(kGraffiti); }
 
 // 0x00554260
-bool CObjective::IsSpecial() { return m_args->HasBareFlag(kSpecial); }
+bool Objective::is_special() { return args_->has_bare_flag(kSpecial); }
 
 // 0x00554270
-bool CObjective::IsTetris() { return m_args->HasBareFlag(kTetris); }
+bool Objective::is_tetris() { return args_->has_bare_flag(kTetris); }
 
 // 0x00554280
-uint32_t CObjective::GetObjectiveKey()
+uint32_t Objective::get_objective_key()
 {
     uint32_t id = 0;
-    m_args->ReadHashValue(kGoalIdName, &id, 1);
+    args_->read_hash_value(kGoalIdName, &id, 1);
     return id;
 }
 
 // 0x005542B0
-bool CObjective::IsUserMadeObjective() { return m_args->HasBareFlag(kEditedGoal); }
+bool Objective::is_user_made_objective() { return args_->has_bare_flag(kEditedGoal); }
 
 // 0x00554300
-bool CObjective::IsEditedGoal2() { return m_args->HasBareFlag(kEditedGoal); }
+bool Objective::is_edited_goal2() { return args_->has_bare_flag(kEditedGoal); }
 
 // 0x005542C0
-bool CObjective::HasWonGoalOrChild()
+bool Objective::has_won_goal_or_child()
 {
     if (Virtual<bool>(this, kVtHasWon))
         return true;
-    for (GoalEdge* link = m_subNodes; link; link = link->m_succ) {
-        if (link->m_won)
+    for (GoalEdge* link = sub_nodes_; link; link = link->succ_) {
+        if (link->won_)
             return true;
     }
     return false;
 }
 
 // 0x005542F0
-bool CObjective::IsPicked() { return (m_flagBits & kFlagSelected) != 0; }
+bool Objective::is_picked() { return (flag_bits_ & kFlagSelected) != 0; }
 // 0x005519F0
-bool CObjective::IsPrepared() { return (m_flagBits & kFlagInitialized) != 0; }
+bool Objective::is_prepared() { return (flag_bits_ & kFlagInitialized) != 0; }
 
 // 0x00554320
-void CObjective::PickedUpCountable()
+void Objective::picked_up_countable()
 {
     int collected = 0;
-    m_args->FetchIntValue(kNumberCollected, &collected, 0);
+    args_->fetch_int_value(kNumberCollected, &collected, 0);
     ++collected;
-    m_args->PutInt(kNumberCollected, collected);
-    if (m_args->HasBareFlag(kUseHudCounter))
-        Scripts::LaunchScript(kGoalUpdateCounter, m_args, nullptr, false, nullptr);
+    args_->put_int(kNumberCollected, collected);
+    if (args_->has_bare_flag(kUseHudCounter))
+        script::launch_script(kGoalUpdateCounter, args_, nullptr, false, nullptr);
 }
 
 // 0x00554390
-bool CObjective::TallyObjectiveFinished()
+bool Objective::tally_objective_finished()
 {
     int collected = 0;
-    m_args->FetchIntValue(kNumberCollected, &collected, 0);
+    args_->fetch_int_value(kNumberCollected, &collected, 0);
     int number;
-    m_args->FetchIntValue(kNumber, &number, 1);
+    args_->fetch_int_value(kNumber, &number, 1);
     return collected >= number;
 }
 
 // 0x005543E0
-bool CObjective::State02() { return (m_curPhase & kState02) != 0; }
+bool Objective::state02() { return (cur_phase_ & kState02) != 0; }
 
 // 0x005543F0
-bool CObjective::HasProsetPrefix(const char* prefix)
+bool Objective::has_proset_prefix(const char* prefix)
 {
     const char* own;
-    if (!m_args->FetchText(kProsetPrefix, &own, 0))
+    if (!args_->fetch_text(kProsetPrefix, &own, 0))
         return false;
     return _stricmp(own, prefix) == 0;
 }
 
 // 0x00554430
-void CObjective::MarkViewed() { m_flagBits |= kFlagSeen; }
+void Objective::mark_viewed() { flag_bits_ |= kFlagSeen; }
 
 // 0x00554440
-void CObjective::ChooseOne() { m_flagBits |= kFlagSelected; }
+void Objective::choose_one() { flag_bits_ |= kFlagSelected; }
 
 // 0x00554450
-void CObjective::Unpick() { m_flagBits &= ~kFlagSelected; }
+void Objective::unpick() { flag_bits_ &= ~kFlagSelected; }
 
 // 0x00554460
-bool CObjective::MayTryAgain() { return m_args->HasBareFlag(kCanRetryGoal); }
+bool Objective::may_try_again() { return args_->has_bare_flag(kCanRetryGoal); }
 
 // 0x00554470
-void CObjective::ResetCurrentTime() { m_args->PutInt(kCurrentTime, 0); }
+void Objective::reset_current_time() { args_->put_int(kCurrentTime, 0); }
 
 // 0x00554480
-void CObjective::UpdateCurrentTime()
+void Objective::update_current_time()
 {
     if (Virtual<bool>(this, kVtIsPaused))
         return;
     // (a current_time that isn't there leaves the goal's address in the original's local)
     int time = static_cast<int>(reinterpret_cast<uintptr_t>(this));
-    m_args->FetchIntValue(kCurrentTime, &time, 0);
-    time += Truncate(FrameClock::GetSlomoFrameSeconds() * Gfx2D::g_thousand); // (1000)
-    m_args->PutInt(kCurrentTime, time);
+    args_->fetch_int_value(kCurrentTime, &time, 0);
+    time += truncate(frame_clock::get_slomo_frame_seconds() * gfx::g_thousand); // (1000)
+    args_->put_int(kCurrentTime, time);
     uint32_t ms = static_cast<uint32_t>(time);
-    m_args->PutInt(kCurrentTimeSeconds, static_cast<int>(ms / 1000));
-    m_args->PutInt(kCurrentTimeFraction, static_cast<int>(ms / 10 % 100));
+    args_->put_int(kCurrentTimeSeconds, static_cast<int>(ms / 1000));
+    args_->put_int(kCurrentTimeFraction, static_cast<int>(ms / 10 % 100));
 }
 
 // 0x00554510
-void CObjective::SetQuickStart() { m_args->PutNameKey(kNoName, kQuickStart); }
+void Objective::set_quick_start() { args_->put_name_key(kNoName, kQuickStart); }
 
 // 0x00554520
-void CObjective::UnsetQuickStart() { m_args->RemoveFlag(kQuickStart); }
+void Objective::unset_quick_start() { args_->remove_flag(kQuickStart); }
 
 // 0x00554530
-bool CObjective::IsProChallenge() { return m_args->HasEntryNamed(kProGoal); }
+bool Objective::is_pro_challenge() { return args_->has_entry_named(kProGoal); }
 
 // 0x00554540
-bool CObjective::IsOnlineObjective() { return m_args->HasEntryNamed(kNet); }
+bool Objective::is_online_objective() { return args_->has_entry_named(kNet); }
 
 // 0x00554550
-bool CObjective::IsContestObjective() { return m_args->HasBareFlag(kCompetition); }
+bool Objective::is_contest_objective() { return args_->has_bare_flag(kCompetition); }
 
 // 0x00554560
-bool CObjective::IsFrozen() { return (m_curPhase & kStatePaused) != 0; }
+bool Objective::is_frozen() { return (cur_phase_ & kStatePaused) != 0; }
 
 // 0x00554570
-bool CObjective::GetObjectiveListCaption(const char** text) { return m_args->FetchText(kViewGoalsTextName, text, 0); }
+bool Objective::get_objective_list_caption(const char** text) { return args_->fetch_text(kViewGoalsTextName, text, 0); }
 
 // 0x00554590
-bool CObjective::EndOfRunStarted() { return (m_flagBits & kFlagEndOfRunStarted) != 0; }
+bool Objective::end_of_run_started() { return (flag_bits_ & kFlagEndOfRunStarted) != 0; }
 
 // 0x005545A0
-bool CObjective::HasTimeLimit()
+bool Objective::has_time_limit()
 {
     int unlimited = 0;
-    m_args->FetchIntValue(kUnlimitedTime, &unlimited, 0);
-    if (m_args->HasBareFlag(kUnlimitedTime))
+    args_->fetch_int_value(kUnlimitedTime, &unlimited, 0);
+    if (args_->has_bare_flag(kUnlimitedTime))
         unlimited = 1;
     return unlimited == 0;
 }
 
 // 0x005545F0
-bool CObjective::HasComponentA302D7CD() { return m_args->HasEntryNamed(kComponentA302D7CD); }
+bool Objective::has_component_a_302d_7c_d() { return args_->has_entry_named(kComponentA302d7cD); }
 
 // 0x00554610
-void CObjective::RestoreSaveBlock(Scripts::CStruct* data)
+void Objective::restore_save_block(script::Struct* data)
 {
     int beaten = 0;
-    data->FetchIntValue(kAlreadyWon, &beaten, 1);
+    data->fetch_int_value(kAlreadyWon, &beaten, 1);
     if (beaten)
         Virtual<void>(this, kVtMarkWon);
     int locked = 1;
-    data->FetchIntValue(kIsLocked, &locked, 1);
+    data->fetch_int_value(kIsLocked, &locked, 1);
     if (!locked)
-        m_flagBits &= ~kFlagLocked;
+        flag_bits_ &= ~kFlagLocked;
     int seen = 0;
-    data->FetchIntValue(kHasSeen, &seen, 1);
+    data->fetch_int_value(kHasSeen, &seen, 1);
     if (seen)
-        m_flagBits |= kFlagSeen;
+        flag_bits_ |= kFlagSeen;
     int record = 0;
-    data->FetchIntValue(kWinRecord, &record, 1);
-    m_args->PutInt(kWinRecord, record);
+    data->fetch_int_value(kWinRecord, &record, 1);
+    args_->put_int(kWinRecord, record);
     uint32_t type;
-    if (m_args->ReadHashValue(kRecordType, &type, 0)) {
+    if (args_->read_hash_value(kRecordType, &type, 0)) {
         if (type == kTime)
-            m_bestTime = record;
+            best_time_ = record;
         else if (type == kScore)
-            m_recordPoints = record;
+            record_points_ = record;
     }
-    if (data->HasEntryNamed(kGoalFlags)) {
-        m_goalFlags->Clear();
-        Scripts::CStruct* flags = nullptr;
-        data->ReadSubStruct(kGoalFlags, &flags, 1);
-        m_goalFlags->AppendStructureIfAny(flags);
-        m_numFlags = 0;
-        m_numFlagsSet = 0;
-        for (Scripts::CComponent* component = m_goalFlags->StepToEntry(nullptr); component;) {
-            Scripts::CComponent* next = m_goalFlags->StepToEntry(component);
-            ++m_numFlags;
+    if (data->has_entry_named(kGoalFlags)) {
+        goal_flags_->get_clear();
+        script::Struct* flags = nullptr;
+        data->read_sub_struct(kGoalFlags, &flags, 1);
+        goal_flags_->append_structure_if_any(flags);
+        num_flags_ = 0;
+        num_flags_set_ = 0;
+        for (script::Component* component = goal_flags_->step_to_entry(nullptr); component;) {
+            script::Component* next = goal_flags_->step_to_entry(component);
+            ++num_flags_;
             if (component->raw)
-                ++m_numFlagsSet;
+                ++num_flags_set_;
             component = next;
         }
     }
 }
 
 // 0x00554770
-void CObjective::CaptureSaveBlock(Scripts::CStruct* data)
+void Objective::capture_save_block(script::Struct* data)
 {
-    data->PutInt(kLevelNum, m_level);
-    void* manager = ObjectiveBoard();
-    bool locked = (m_flagBits & kFlagLocked) || IsGroupLocked(manager, m_bundle, m_level);
-    data->PutInt(kIsLocked, locked);
-    data->PutInt(kHasSeen, (m_flagBits & kFlagSeen) ? 1 : 0);
-    data->PutInt(kAlreadyWon, Virtual<bool>(this, kVtHasWon));
+    data->put_int(kLevelNum, level_);
+    void* manager = objective_board();
+    bool locked = (flag_bits_ & kFlagLocked) || is_group_locked(manager, bundle_, level_);
+    data->put_int(kIsLocked, locked);
+    data->put_int(kHasSeen, (flag_bits_ & kFlagSeen) ? 1 : 0);
+    data->put_int(kAlreadyWon, Virtual<bool>(this, kVtHasWon));
     int record = 0;
     uint32_t type;
-    if (m_args->ReadHashValue(kRecordType, &type, 0)) {
+    if (args_->read_hash_value(kRecordType, &type, 0)) {
         if (type == kTime)
-            record = m_bestTime;
+            record = best_time_;
         else if (type == kScore)
-            record = m_recordPoints;
+            record = record_points_;
     }
-    data->PutInt(kWinRecord, record);
-    data->PutNameKey(kNoName, m_args->HasEntryNamed(kClassicModeGoal) ? kClassic : kCareer);
-    if (m_args->HasBareFlag(kSaveGoalFlags) && !m_goalFlags->IsVacant())
-        data->PutSubStruct(kGoalFlags, m_goalFlags);
+    data->put_int(kWinRecord, record);
+    data->put_name_key(kNoName, args_->has_entry_named(kClassicModeGoal) ? kClassic : kCareer);
+    if (args_->has_bare_flag(kSaveGoalFlags) && !goal_flags_->is_vacant())
+        data->put_sub_struct(kGoalFlags, goal_flags_);
 }
 
 // 0x00554890
-void CObjective::ReplaceTrickTokens(const char* text, char* out, Scripts::CArray* keyCombos, Scripts::CArray* tricks, int)
+void Objective::replace_trick_tokens(const char* text, char* out, script::Array* key_combos, script::Array* tricks, int)
 {
     if (!*text) {
         *out = 0;
@@ -424,11 +424,11 @@ void CObjective::ReplaceTrickTokens(const char* text, char* out, Scripts::CArray
     }
     while (*text) {
         char c = text[0];
-        Scripts::CArray* source = nullptr;
+        script::Array* source = nullptr;
         if (c == '\\' && text[1] == 't' && text[2] <= '9' && text[2] >= '0')
             source = tricks;
         else if (c == '\\' && text[1] == 'k' && text[2] <= '9' && text[2] >= '0')
-            source = keyCombos;
+            source = key_combos;
         if (!source) {
             *out++ = c;
             ++text;
@@ -439,7 +439,7 @@ void CObjective::ReplaceTrickTokens(const char* text, char* out, Scripts::CArray
             number = number * 10 + (text[3] - '0');
             ++text;
         }
-        const char* replacement = source->FindInlineText(static_cast<uint32_t>(number - 1));
+        const char* replacement = source->find_inline_text(static_cast<uint32_t>(number - 1));
         std::snprintf(out, 0x7FFFFFFF, replacement); // (the original: sprintf, unbounded, the text as the format)
         int length = static_cast<int>(std::strlen(replacement));
         if (length > 0)
@@ -450,44 +450,44 @@ void CObjective::ReplaceTrickTokens(const char* text, char* out, Scripts::CArray
 }
 
 // 0x005549A0
-int CObjective::CountPickedUp()
+int Objective::count_picked_up()
 {
     int collected = 0;
-    if (!m_args->FetchIntValue(kNumberCollected, &collected, 0))
-        collected = m_numFlagsSet;
+    if (!args_->fetch_int_value(kNumberCollected, &collected, 0))
+        collected = num_flags_set_;
     return collected;
 }
 
 // 0x005549D0
-int CObjective::GetNumFlagsToWin()
+int Objective::get_num_flags_to_win()
 {
-    int toWin = m_numFlags;
-    m_args->FetchIntValue(kNumFlagsToWin, &toWin, 0);
-    return toWin ? toWin : -1;
+    int to_win = num_flags_;
+    args_->fetch_int_value(kNumFlagsToWin, &to_win, 0);
+    return to_win ? to_win : -1;
 }
 
 // 0x00554A00
-int CObjective::GetTimesStarted() { return m_timesStarted; }
+int Objective::get_times_started() { return times_started_; }
 
 // 0x00554A10
-void CObjective::ChooseRunEnding(int type) { m_runEnding = type; }
+void Objective::choose_run_ending(int type) { run_ending_ = type; }
 
 // 0x00554A20
-void CObjective::ChangeEndsOnTimeout(bool deactivate)
+void Objective::change_ends_on_timeout(bool deactivate)
 {
-    m_flagBits = static_cast<uint8_t>((m_flagBits & ~kFlagDeactivateOnExpire) | ((deactivate << 6) & kFlagDeactivateOnExpire));
+    flag_bits_ = static_cast<uint8_t>((flag_bits_ & ~kFlagDeactivateOnExpire) | ((deactivate << 6) & kFlagDeactivateOnExpire));
 }
 
 // 0x00554A40
-bool CObjective::IsHorse() { return m_args->HasBareFlag(kHorse); }
+bool Objective::is_horse() { return args_->has_bare_flag(kHorse); }
 
 // 0x00554A50
-bool CObjective::IsFindGaps() { return m_args->HasBareFlag(kFindGaps); }
+bool Objective::is_find_gaps() { return args_->has_bare_flag(kFindGaps); }
 
 // 0x00554A60
-bool CObjective::HasNoTimeLimit() { return (m_curPhase & kStateNoTimeLimit) != 0; }
+bool Objective::has_no_time_limit() { return (cur_phase_ & kStateNoTimeLimit) != 0; }
 
 // 0x00554A70
-bool CObjective::RequiresCombo() { return m_args->HasBareFlag(kRequireCombo); }
+bool Objective::requires_combo() { return args_->has_bare_flag(kRequireCombo); }
 
 } // namespace Game

@@ -1,4 +1,4 @@
-// The engine's primitive (Engine3D::CPrimitive) and its lists: see engine_primitive.h. From the disassembly of
+// The engine's primitive (render::Primitive) and its lists: see engine_primitive.h. From the disassembly of
 // 0x0049C390-0x0049C906.
 
 #include <cstdint>
@@ -10,7 +10,7 @@
 #include "engine/gfx/pc_primitive.h"
 #include "engine/core/code_address.h"
 
-namespace Engine3D {
+namespace render {
 
 namespace {
 
@@ -18,155 +18,155 @@ extern void** const kVtable;
 constexpr uint32_t kDefaultBlendMode = 0x54628ED7;
 constexpr uint32_t kNewFlag = 0x100;
 
-uint32_t g_primitiveStates;
-CPrimitive* g_drawnPrimitives;
-CPrimitive* g_newPrimitives;
+uint32_t g_primitive_states;
+Primitive* g_drawn_primitives;
+Primitive* g_new_primitives;
 
-CPrimitive*& NewPrimitives() { return g_newPrimitives; }
-CPrimitive*& DrawnPrimitives() { return g_drawnPrimitives; }
-uint32_t& PrimitiveStates() { return g_primitiveStates; }
+Primitive*& new_primitives() { return g_new_primitives; }
+Primitive*& drawn_primitives() { return g_drawn_primitives; }
+uint32_t& primitive_states() { return g_primitive_states; }
 
-void** Vtable(CPrimitive* primitive) { return primitive->m_vtable; }
+void** get_vtable(Primitive* primitive) { return primitive->vtable_; }
 
 } // namespace
 
 // 0x0049C660
-CPrimitive* CPrimitive::MakeNew(int own)
+Primitive* Primitive::make_new(int own)
 {
-    unknown1C = 0;
-    m_ready = false;
-    m_following = nullptr;
+    unknown1c_ = 0;
+    ready_ = false;
+    following_ = nullptr;
     unknown14 = 0;
-    m_flagBits = 0;
-    m_vtable = reinterpret_cast<void**>(kVtable);
-    m_blendMode = kDefaultBlendMode;
-    m_ownsVertices = own;
+    flag_bits_ = 0;
+    vtable_ = reinterpret_cast<void**>(kVtable);
+    blend_mode_ = kDefaultBlendMode;
+    owns_vertices_ = own;
     if (own == 1)
-        LinkPrimitive(this);
+        link_primitive(this);
     return this;
 }
 
 // 0x0049C6A0
-void CPrimitive::DestroyBody()
+void Primitive::destroy_body()
 {
-    m_vtable = reinterpret_cast<void**>(kVtable);
-    if (m_ownsVertices == 1)
-        UnlinkPrimitive(this);
+    vtable_ = reinterpret_cast<void**>(kVtable);
+    if (owns_vertices_ == 1)
+        unlink_primitive(this);
 }
 
 // 0x0049C790
-CPrimitive* CPrimitive::Teardown(unsigned int flags)
+Primitive* Primitive::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
 // 0x0049C6C0
-void CPrimitive::Ready()
+void Primitive::get_ready()
 {
-    reinterpret_cast<void(__thiscall*)(CPrimitive*)>(Vtable(this)[4])(this);
-    m_ready = true;
+    reinterpret_cast<void(__thiscall*)(Primitive*)>(get_vtable(this)[4])(this);
+    ready_ = true;
 }
 
 // 0x0049C6D0
-void CPrimitive::RenderIfReady()
+void Primitive::render_if_ready()
 {
-    if (m_ready)
-        reinterpret_cast<void(__thiscall*)(CPrimitive*)>(Vtable(this)[5])(this);
+    if (ready_)
+        reinterpret_cast<void(__thiscall*)(Primitive*)>(get_vtable(this)[5])(this);
 }
 
 // 0x0049C6E0
-void CPrimitive::DrawIfReady(const float* positions, const uint32_t* colours, const float* uvs, const float* normals)
+void Primitive::draw_if_ready(const float* positions, const uint32_t* colours, const float* uvs, const float* normals)
 {
-    if (m_ready)
-        reinterpret_cast<void(__thiscall*)(CPrimitive*, const float*, const uint32_t*, const float*, const float*)>(
-            Vtable(this)[6])(this, positions, colours, uvs, normals);
+    if (ready_)
+        reinterpret_cast<void(__thiscall*)(Primitive*, const float*, const uint32_t*, const float*, const float*)>(
+            get_vtable(this)[6])(this, positions, colours, uvs, normals);
 }
 
 // --- the virtuals' bodies (0x0049C390-0x0049C640) ---
 
-void CPrimitive::SetTexture(const uint8_t*, int, int) { DebugOut::Printf("STUB: plat_set_texture\n"); }
-void CPrimitive::ChangeColour(uint32_t) { DebugOut::Printf("STUB: plat_set_base_color\n"); }
-void CPrimitive::PrepareAll(uint32_t, int, int) { DebugOut::Printf("STUB: plat_begin\n"); }
-void CPrimitive::End() { DebugOut::Printf("STUB: plat_end\n"); }
-void CPrimitive::Render() { DebugOut::Printf("STUB: plat_draw\n"); }
-void CPrimitive::Blit(const float*, const uint32_t*, const float*, const float*) { DebugOut::Printf("STUB: plat_render\n"); }
-void CPrimitive::ChangePlace(int, float, float, float) { DebugOut::Printf("STUB: plat_set_pos\n"); }
-void CPrimitive::SetX(int, float) { DebugOut::Printf("STUB: plat_set_pos_x\n"); }
-void CPrimitive::SetY(int, float) { DebugOut::Printf("STUB: plat_set_pos_y\n"); }
-void CPrimitive::SetZ(int, float) { DebugOut::Printf("STUB: plat_set_pos_z\n"); }
-void CPrimitive::SetNormal(int, float, float, float) { DebugOut::Printf("STUB: plat_set_normal\n"); }
-void CPrimitive::SetNormalX(int, float) { DebugOut::Printf("STUB: plat_set_normal_x\n"); }
-void CPrimitive::SetNormalY(int, float) { DebugOut::Printf("STUB: plat_set_normal_y\n"); }
-void CPrimitive::SetNormalZ(int, float) { DebugOut::Printf("STUB: plat_set_normal_z\n"); }
-void CPrimitive::SetVertexColour(int, uint32_t) { DebugOut::Printf("STUB: plat_set_color\n"); }
-void CPrimitive::SetUV(int, float, float) { DebugOut::Printf("STUB: plat_set_uv\n"); }
-void CPrimitive::ChooseU(int, float) { DebugOut::Printf("STUB: plat_set_u\n"); }
-void CPrimitive::ChooseV(int, float) { DebugOut::Printf("STUB: plat_set_v\n"); }
-float CPrimitive::FetchPosX(int)
+void Primitive::set_texture(const uint8_t*, int, int) { debug::printf("STUB: plat_set_texture\n"); }
+void Primitive::change_colour(uint32_t) { debug::printf("STUB: plat_set_base_color\n"); }
+void Primitive::prepare_all(uint32_t, int, int) { debug::printf("STUB: plat_begin\n"); }
+void Primitive::get_end() { debug::printf("STUB: plat_end\n"); }
+void Primitive::render() { debug::printf("STUB: plat_draw\n"); }
+void Primitive::blit(const float*, const uint32_t*, const float*, const float*) { debug::printf("STUB: plat_render\n"); }
+void Primitive::change_place(int, float, float, float) { debug::printf("STUB: plat_set_pos\n"); }
+void Primitive::set_x(int, float) { debug::printf("STUB: plat_set_pos_x\n"); }
+void Primitive::set_y(int, float) { debug::printf("STUB: plat_set_pos_y\n"); }
+void Primitive::set_z(int, float) { debug::printf("STUB: plat_set_pos_z\n"); }
+void Primitive::set_normal(int, float, float, float) { debug::printf("STUB: plat_set_normal\n"); }
+void Primitive::set_normal_x(int, float) { debug::printf("STUB: plat_set_normal_x\n"); }
+void Primitive::set_normal_y(int, float) { debug::printf("STUB: plat_set_normal_y\n"); }
+void Primitive::set_normal_z(int, float) { debug::printf("STUB: plat_set_normal_z\n"); }
+void Primitive::set_vertex_colour(int, uint32_t) { debug::printf("STUB: plat_set_color\n"); }
+void Primitive::set_uv(int, float, float) { debug::printf("STUB: plat_set_uv\n"); }
+void Primitive::choose_u(int, float) { debug::printf("STUB: plat_set_u\n"); }
+void Primitive::choose_v(int, float) { debug::printf("STUB: plat_set_v\n"); }
+float Primitive::fetch_pos_x(int)
 {
-    DebugOut::Printf("STUB: plat_get_pos_x\n");
+    debug::printf("STUB: plat_get_pos_x\n");
     return 0.0f;
 }
-float CPrimitive::FetchPosY(int)
+float Primitive::fetch_pos_y(int)
 {
-    DebugOut::Printf("STUB: plat_get_pos_y\n");
+    debug::printf("STUB: plat_get_pos_y\n");
     return 0.0f;
 }
-float CPrimitive::FetchPosZ(int)
+float Primitive::fetch_pos_z(int)
 {
-    DebugOut::Printf("STUB: plat_get_pos_z\n");
+    debug::printf("STUB: plat_get_pos_z\n");
     return 0.0f;
 }
-float CPrimitive::GetNormalX(int)
+float Primitive::get_normal_x(int)
 {
-    DebugOut::Printf("STUB: plat_get_normal_x\n");
+    debug::printf("STUB: plat_get_normal_x\n");
     return 0.0f;
 }
-float CPrimitive::GetNormalY(int)
+float Primitive::get_normal_y(int)
 {
-    DebugOut::Printf("STUB: plat_get_normal_y\n");
+    debug::printf("STUB: plat_get_normal_y\n");
     return 0.0f;
 }
-float CPrimitive::GetNormalZ(int)
+float Primitive::get_normal_z(int)
 {
-    DebugOut::Printf("STUB: plat_get_normal_z\n");
+    debug::printf("STUB: plat_get_normal_z\n");
     return 0.0f;
 }
-uint32_t CPrimitive::GetVertexColour(int)
+uint32_t Primitive::get_vertex_colour(int)
 {
-    DebugOut::Printf("STUB: plat_get_color\n");
+    debug::printf("STUB: plat_get_color\n");
     return 0;
 }
-float CPrimitive::GetU(int)
+float Primitive::get_u(int)
 {
-    DebugOut::Printf("STUB: plat_get_u\n");
+    debug::printf("STUB: plat_get_u\n");
     return 0.0f;
 }
-float CPrimitive::GetV(int)
+float Primitive::get_v(int)
 {
-    DebugOut::Printf("STUB: plat_get_v\n");
+    debug::printf("STUB: plat_get_v\n");
     return 0.0f;
 }
-void CPrimitive::Slide(float, float, float) { DebugOut::Printf("STUB: plat_add_pos\n"); }
-void CPrimitive::TranslateX(float) { DebugOut::Printf("STUB: plat_add_pos_x\n"); }
-void CPrimitive::TranslateY(float) { DebugOut::Printf("STUB: plat_add_pos_y\n"); }
-void CPrimitive::TranslateZ(float) { DebugOut::Printf("STUB: plat_add_pos_z\n"); }
-void CPrimitive::ScrollUV(float, float) { DebugOut::Printf("STUB: plat_add_uv\n"); }
-void CPrimitive::ScrollU(float) { DebugOut::Printf("STUB: plat_add_u\n"); }
-void CPrimitive::ScrollV(float) { DebugOut::Printf("STUB: plat_add_v\n"); }
-int CPrimitive::Weigh(const CPrimitive*)
+void Primitive::get_slide(float, float, float) { debug::printf("STUB: plat_add_pos\n"); }
+void Primitive::translate_x(float) { debug::printf("STUB: plat_add_pos_x\n"); }
+void Primitive::translate_y(float) { debug::printf("STUB: plat_add_pos_y\n"); }
+void Primitive::translate_z(float) { debug::printf("STUB: plat_add_pos_z\n"); }
+void Primitive::scroll_uv(float, float) { debug::printf("STUB: plat_add_uv\n"); }
+void Primitive::scroll_u(float) { debug::printf("STUB: plat_add_u\n"); }
+void Primitive::scroll_v(float) { debug::printf("STUB: plat_add_v\n"); }
+int Primitive::weigh(const Primitive*)
 {
-    DebugOut::Printf("STUB: plat_sort\n");
+    debug::printf("STUB: plat_sort\n");
     return 0;
 }
 
 // --- the lists ---
 
 // 0x0049C6F0
-__declspec(naked) void CallVirtual35Stub()
+__declspec(naked) void call_virtual35_stub()
 {
     __asm {
         mov eax, [ecx]
@@ -175,59 +175,59 @@ __declspec(naked) void CallVirtual35Stub()
 }
 
 // 0x0049C7D0
-void __cdecl LinkPrimitive(CPrimitive* primitive)
+void __cdecl link_primitive(Primitive* primitive)
 {
-    primitive->m_following = NewPrimitives();
-    NewPrimitives() = primitive;
-    primitive->m_flagBits |= kNewFlag;
+    primitive->following_ = new_primitives();
+    new_primitives() = primitive;
+    primitive->flag_bits_ |= kNewFlag;
 }
 
 // 0x0049C7F0
-void __cdecl UnlinkPrimitive(CPrimitive* primitive)
+void __cdecl unlink_primitive(Primitive* primitive)
 {
-    CPrimitive** list = (primitive->m_flagBits & kNewFlag) ? &NewPrimitives() : &DrawnPrimitives();
-    CPrimitive* before = *list;
+    Primitive** list = (primitive->flag_bits_ & kNewFlag) ? &new_primitives() : &drawn_primitives();
+    Primitive* before = *list;
     if (before == primitive) {
-        *list = before->m_following;
+        *list = before->following_;
         return;
     }
-    while (before && before->m_following && before->m_following != primitive)
-        before = before->m_following;
-    before->m_following = before->m_following->m_following; // (not found: through null, as the original)
+    while (before && before->following_ && before->following_ != primitive)
+        before = before->following_;
+    before->following_ = before->following_->following_; // (not found: through null, as the original)
 }
 
 // 0x0049C840
-void __cdecl RenderPrimitives()
+void __cdecl render_primitives()
 {
-    while (CPrimitive* primitive = NewPrimitives()) {
-        UnlinkPrimitive(primitive);
-        primitive->m_flagBits &= ~kNewFlag;
-        CPrimitive** at = &DrawnPrimitives();
+    while (Primitive* primitive = new_primitives()) {
+        unlink_primitive(primitive);
+        primitive->flag_bits_ &= ~kNewFlag;
+        Primitive** at = &drawn_primitives();
         if (*at) {
             for (;;) {
                 // (the primitive's Compare - vtable slot 35 - with the one there)
-                int order = reinterpret_cast<int(__thiscall*)(CPrimitive*, CPrimitive*)>(Vtable(primitive)[35])(
+                int order = reinterpret_cast<int(__thiscall*)(Primitive*, Primitive*)>(get_vtable(primitive)[35])(
                     primitive, *at);
                 if (order < 0)
                     break;
-                at = &(*at)->m_following;
+                at = &(*at)->following_;
                 if (!*at)
                     break;
             }
         }
-        primitive->m_following = *at;
+        primitive->following_ = *at;
         *at = primitive;
     }
-    for (CPrimitive* primitive = DrawnPrimitives(); primitive; primitive = primitive->m_following) {
-        if (primitive->m_ready)
-            primitive->RenderIfReady();
+    for (Primitive* primitive = drawn_primitives(); primitive; primitive = primitive->following_) {
+        if (primitive->ready_)
+            primitive->render_if_ready();
     }
 }
 
 // 0x0049C700
-void __cdecl SetPrimitiveState(int state, int value)
+void __cdecl set_primitive_state(int state, int value)
 {
-    uint32_t& states = PrimitiveStates();
+    uint32_t& states = primitive_states();
     switch (state) {
     case 1:
         states = (states & ~0x7u) | (static_cast<uint32_t>(value) & 0x7u);
@@ -241,22 +241,22 @@ void __cdecl SetPrimitiveState(int state, int value)
     default:
         break;
     }
-    SetPrimitiveDepthTest(state, value);
+    set_primitive_depth_test(state, value);
 }
 
 namespace {
-static VtableSlot kVtable_slots[] = {&Engine3D::CPrimitive::Teardown, &Engine3D::CPrimitive::SetTexture, &Engine3D::CPrimitive::ChangeColour,
-                &Engine3D::CPrimitive::PrepareAll, &Engine3D::CPrimitive::End, &Engine3D::CPrimitive::Render, &Engine3D::CPrimitive::Blit,
-                &Engine3D::CPrimitive::ChangePlace, &Engine3D::CPrimitive::SetX, &Engine3D::CPrimitive::SetY, &Engine3D::CPrimitive::SetZ,
-                &Engine3D::CPrimitive::SetNormal, &Engine3D::CPrimitive::SetNormalX, &Engine3D::CPrimitive::SetNormalY,
-                &Engine3D::CPrimitive::SetNormalZ, &Engine3D::CPrimitive::SetVertexColour, &Engine3D::CPrimitive::SetUV,
-                &Engine3D::CPrimitive::ChooseU, &Engine3D::CPrimitive::ChooseV, &Engine3D::CPrimitive::FetchPosX, &Engine3D::CPrimitive::FetchPosY,
-                &Engine3D::CPrimitive::FetchPosZ, &Engine3D::CPrimitive::GetNormalX, &Engine3D::CPrimitive::GetNormalY,
-                &Engine3D::CPrimitive::GetNormalZ, &Engine3D::CPrimitive::GetVertexColour, &Engine3D::CPrimitive::GetU,
-                &Engine3D::CPrimitive::GetV, &Engine3D::CPrimitive::Slide, &Engine3D::CPrimitive::TranslateX,
-                &Engine3D::CPrimitive::TranslateY, &Engine3D::CPrimitive::TranslateZ, &Engine3D::CPrimitive::ScrollUV,
-                &Engine3D::CPrimitive::ScrollU, &Engine3D::CPrimitive::ScrollV, &Engine3D::CPrimitive::Weigh};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&render::Primitive::teardown, &render::Primitive::set_texture, &render::Primitive::change_colour,
+                &render::Primitive::prepare_all, &render::Primitive::get_end, &render::Primitive::render, &render::Primitive::blit,
+                &render::Primitive::change_place, &render::Primitive::set_x, &render::Primitive::set_y, &render::Primitive::set_z,
+                &render::Primitive::set_normal, &render::Primitive::set_normal_x, &render::Primitive::set_normal_y,
+                &render::Primitive::set_normal_z, &render::Primitive::set_vertex_colour, &render::Primitive::set_uv,
+                &render::Primitive::choose_u, &render::Primitive::choose_v, &render::Primitive::fetch_pos_x, &render::Primitive::fetch_pos_y,
+                &render::Primitive::fetch_pos_z, &render::Primitive::get_normal_x, &render::Primitive::get_normal_y,
+                &render::Primitive::get_normal_z, &render::Primitive::get_vertex_colour, &render::Primitive::get_u,
+                &render::Primitive::get_v, &render::Primitive::get_slide, &render::Primitive::translate_x,
+                &render::Primitive::translate_y, &render::Primitive::translate_z, &render::Primitive::scroll_uv,
+                &render::Primitive::scroll_u, &render::Primitive::scroll_v, &render::Primitive::weigh};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 } // namespace
 
 } // namespace Nx

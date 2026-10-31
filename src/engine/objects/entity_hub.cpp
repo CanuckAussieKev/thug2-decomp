@@ -1,4 +1,4 @@
-// The object managers (entity_hub.h): CObjectHubBase's sorted list of objects and its re-entrant walk, CMiscHub's
+// The object managers (entity_hub.h): ObjectHubBase's sorted list of objects and its re-entrant walk, MiscHub's
 // dead list, the search by type, and two pieces of the object tracker.
 
 #include "engine/objects/entity_hub.h"
@@ -16,9 +16,9 @@
 #include "frontend/screen_element_manager.h"
 #include "engine/objects/entity.h"
 
-namespace GameObjects {
+namespace objects {
 
-uint32_t g_trackerReferences;
+uint32_t g_tracker_references;
 
 namespace {
 
@@ -29,26 +29,26 @@ extern void** const kObjectSearchBaseVtable;
 constexpr int kFlushTaskPriority = 1000;
 
 // The tracker's reference count.
-uint32_t& TrackerReferences() { return g_trackerReferences; }
+uint32_t& tracker_references() { return g_tracker_references; }
 
-// ListKit::Foremost<CEntity>'s insert by priority (the highest first, equal ones newest first).
-void AddNodeByPriority(MemSys::ListNode* head, MemSys::ListNode* node) { reinterpret_cast<ListKit::Foremost*>(head)->AppendVertex(node); }
-// Scheduling::Task's constructor and the main loop's system task list's add.
-void ConstructTask(void* task, int priority) { static_cast<Scheduling::SchedulerTask*>(task)->MakeNew(priority); }
-void QueueEngineJob(void* task)
+// lists::Foremost<Entity>'s insert by priority (the highest first, equal ones newest first).
+void add_node_by_priority(memory::ListNode* head, memory::ListNode* node) { reinterpret_cast<lists::Foremost*>(head)->append_vertex(node); }
+// tasks::Task's constructor and the main loop's system task list's add.
+void construct_task(void* task, int priority) { static_cast<tasks::SchedulerTask*>(task)->make_new(priority); }
+void queue_engine_job(void* task)
 {
-    AssetStore::g_mainLoopManager->m_systemTasks.QueueJob(static_cast<Scheduling::SchedulerTask*>(task));
+    assets::g_main_loop_manager->system_tasks_.queue_job(static_cast<tasks::SchedulerTask*>(task));
 }
 
 // The node after `node`, or null at the head.
-MemSys::ListNode* NextNode(MemSys::ListNode* node)
+memory::ListNode* get_next_node(memory::ListNode* node)
 {
-    MemSys::ListNode* next = node->next;
+    memory::ListNode* next = node->next;
     return next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
 }
-CEntity* ObjectOf(MemSys::ListNode* node) { return node ? static_cast<CEntity*>(node->data) : nullptr; }
+Entity* object_of(memory::ListNode* node) { return node ? static_cast<Entity*>(node->data) : nullptr; }
 
-void SetupListSentinel(MemSys::ListNode* head)
+void setup_list_sentinel(memory::ListNode* head)
 {
     head->data = reinterpret_cast<void*>(-1);
     head->priority = 0;
@@ -60,184 +60,184 @@ void SetupListSentinel(MemSys::ListNode* head)
 } // namespace
 
 // 0x00461B20
-CObjectListHead* CObjectListHead::Teardown(unsigned int flags)
+ObjectListHead* ObjectListHead::teardown(unsigned int flags)
 {
-    static_cast<CEntityListEntry*>(static_cast<MemSys::ListNode*>(this))->DestroyBody();
+    static_cast<EntityListEntry*>(static_cast<memory::ListNode*>(this))->destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00461BC0
-CObjectHubBase* CObjectHubBase::MakeNew()
+ObjectHubBase* ObjectHubBase::make_new()
 {
-    m_vtable = kManagerVtable;
-    SetupListSentinel(&m_entities);
-    m_walking = 0;
-    m_restartWalks = 0;
-    m_reassigning = false;
+    vtable_ = kManagerVtable;
+    setup_list_sentinel(&entities_);
+    walking_ = 0;
+    restart_walks_ = 0;
+    reassigning_ = false;
     return this;
 }
 
 // 0x00461B50
-void CObjectHubBase::DestroyBody()
+void ObjectHubBase::destroy_body()
 {
-    m_vtable = kManagerVtable;
-    m_entities.UnlinkAs(g_objectNodeVtable);
+    vtable_ = kManagerVtable;
+    entities_.unlink_as(kObjectNodeVtable);
 }
 
 // 0x00461B80
-CObjectHubBase* CObjectHubBase::Teardown(unsigned int flags)
+ObjectHubBase* ObjectHubBase::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
-void CObjectHubBase::VirtualRegisterObject(CEntity* object)
+void ObjectHubBase::virtual_register_object(Entity* object)
 {
-    reinterpret_cast<void(__thiscall*)(CObjectHubBase*, CEntity*)>(m_vtable[1])(this, object);
+    reinterpret_cast<void(__thiscall*)(ObjectHubBase*, Entity*)>(vtable_[1])(this, object);
 }
-void CObjectHubBase::VirtualUnregisterObject(CEntity* object)
+void ObjectHubBase::virtual_unregister_object(Entity* object)
 {
-    reinterpret_cast<void(__thiscall*)(CObjectHubBase*, CEntity*)>(m_vtable[2])(this, object);
+    reinterpret_cast<void(__thiscall*)(ObjectHubBase*, Entity*)>(vtable_[2])(this, object);
 }
-void CObjectHubBase::VirtualReassignObjectId(CEntity* object, uint32_t id)
+void ObjectHubBase::virtual_reassign_object_id(Entity* object, uint32_t id)
 {
-    reinterpret_cast<void(__thiscall*)(CObjectHubBase*, CEntity*, uint32_t)>(m_vtable[3])(this, object, id);
+    reinterpret_cast<void(__thiscall*)(ObjectHubBase*, Entity*, uint32_t)>(vtable_[3])(this, object, id);
 }
-void CObjectHubBase::VirtualKillObject(CEntity* object)
+void ObjectHubBase::virtual_kill_object(Entity* object)
 {
-    reinterpret_cast<void(__thiscall*)(CObjectHubBase*, CEntity*)>(m_vtable[5])(this, object);
+    reinterpret_cast<void(__thiscall*)(ObjectHubBase*, Entity*)>(vtable_[5])(this, object);
 }
 
 // 0x00461A00
-void CObjectHubBase::EnrolSubject(CEntity* object)
+void ObjectHubBase::enrol_subject(Entity* object)
 {
-    CEventWaitBoard* tracker = Tracker();
-    object->m_parkOwner = this;
-    AddNodeByPriority(&m_entities, &object->m_listLink);
-    m_restartWalks = 0xFFFFFFFF;
-    if (object->m_ident == kUnassignedId)
-        object->ChangeSerial(tracker->FetchDistinctId());
-    tracker->AddObject(object);
+    EventWaitBoard* tracker = get_tracker();
+    object->park_owner_ = this;
+    add_node_by_priority(&entities_, &object->list_link_);
+    restart_walks_ = 0xFFFFFFFF;
+    if (object->ident_ == kUnassignedId)
+        object->change_serial(tracker->fetch_distinct_id());
+    tracker->add_object(object);
 }
 
 // 0x00461A50
-void CObjectHubBase::DropEntityRegistration(CEntity* object)
+void ObjectHubBase::drop_entity_registration(Entity* object)
 {
-    Tracker()->RemoveObject(object, m_newId, m_reassigning);
-    MemSys::ListNode* node = &object->m_listLink;
+    get_tracker()->remove_object(object, new_id_, reassigning_);
+    memory::ListNode* node = &object->list_link_;
     if (node->prev != node) {
         node->prev->next = node->next;
         node->next->prev = node->prev;
         node->next = node;
         node->prev = node;
-        object->m_parkOwner = nullptr;
-        m_restartWalks = 0xFFFFFFFF;
+        object->park_owner_ = nullptr;
+        restart_walks_ = 0xFFFFFFFF;
     }
 }
 
 // 0x004619A0
-void CObjectHubBase::ReassignObjectId(CEntity* object, uint32_t id)
+void ObjectHubBase::reassign_object_id(Entity* object, uint32_t id)
 {
-    m_newId = id;
-    m_reassigning = true;
-    VirtualUnregisterObject(object);
-    object->m_ident = id;
-    VirtualRegisterObject(object);
-    m_reassigning = false;
+    new_id_ = id;
+    reassigning_ = true;
+    virtual_unregister_object(object);
+    object->ident_ = id;
+    virtual_register_object(object);
+    reassigning_ = false;
 }
 
 // 0x004619D0
-void CObjectHubBase::SetEntityRank(CEntity* object, int priority)
+void ObjectHubBase::set_entity_rank(Entity* object, int priority)
 {
-    uint32_t id = object->m_ident;
-    object->m_listLink.priority = priority;
-    VirtualReassignObjectId(object, id);
+    uint32_t id = object->ident_;
+    object->list_link_.priority = priority;
+    virtual_reassign_object_id(object, id);
 }
 
 // 0x004619F0
-CEntity* CObjectHubBase::LookUpEntity(uint32_t id) { return Tracker()->LookUpObject(id); }
+Entity* ObjectHubBase::look_up_entity(uint32_t id) { return get_tracker()->look_up_object(id); }
 
 // 0x00461CC0. The next object is looked at before the callback runs; a callback that changes the list (register
 // or unregister) makes the walk start again from the front, past the objects already done.
-void CObjectHubBase::ForEach(ObjectCallback callback, void* data)
+void ObjectHubBase::for_each(ObjectCallback callback, void* data)
 {
     uint32_t bit = 1;
-    while (m_walking & bit)
+    while (walking_ & bit)
         bit <<= 1;
-    m_walking |= bit;
-    for (MemSys::ListNode* node = NextNode(&m_entities); node && node->data; node = NextNode(node))
-        static_cast<CEntity*>(node->data)->m_visitedMask &= ~bit;
+    walking_ |= bit;
+    for (memory::ListNode* node = get_next_node(&entities_); node && node->data; node = get_next_node(node))
+        static_cast<Entity*>(node->data)->visited_mask_ &= ~bit;
     do {
-        m_restartWalks &= ~bit;
-        MemSys::ListNode* node = NextNode(&m_entities);
-        CEntity* object = ObjectOf(node);
+        restart_walks_ &= ~bit;
+        memory::ListNode* node = get_next_node(&entities_);
+        Entity* object = object_of(node);
         while (object) {
-            MemSys::ListNode* nextNode = NextNode(node);
-            CEntity* next = ObjectOf(nextNode);
-            if (!(object->m_visitedMask & bit)) {
-                object->m_visitedMask |= bit;
+            memory::ListNode* next_node = get_next_node(node);
+            Entity* next = object_of(next_node);
+            if (!(object->visited_mask_ & bit)) {
+                object->visited_mask_ |= bit;
                 callback(object, data);
-                if (m_restartWalks & bit)
+                if (restart_walks_ & bit)
                     break;
             }
-            node = nextNode;
+            node = next_node;
             object = next;
         }
-    } while (m_restartWalks & bit);
-    m_walking &= ~bit;
+    } while (restart_walks_ & bit);
+    walking_ &= ~bit;
 }
 
 // 0x00461BF0
-CMiscHub* CMiscHub::MakeNew()
+MiscHub* MiscHub::make_new()
 {
-    CObjectHubBase::MakeNew();
-    m_vtable = kGeneralManagerVtable;
-    SetupListSentinel(&m_deadObjects);
-    auto* task = static_cast<uint32_t*>(MemSys::AllocZeroed(0x20));
+    ObjectHubBase::make_new();
+    vtable_ = kGeneralManagerVtable;
+    setup_list_sentinel(&dead_objects_);
+    auto* task = static_cast<uint32_t*>(memory::alloc_zeroed(0x20));
     if (task) {
-        ConstructTask(task, kFlushTaskPriority);
-        task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);
-        task[6] = reinterpret_cast<uint32_t>(&FlushDeadObjectsTask);
+        construct_task(task, kFlushTaskPriority);
+        task[0] = reinterpret_cast<uint32_t>(game_code::kTaskVtable);
+        task[6] = reinterpret_cast<uint32_t>(&flush_dead_objects_task);
         task[7] = reinterpret_cast<uint32_t>(this);
     }
-    m_flushTask = task;
-    QueueEngineJob(task);
+    flush_task_ = task;
+    queue_engine_job(task);
     return this;
 }
 
 // 0x00461DF0
-void CMiscHub::DestroyBody()
+void MiscHub::destroy_body()
 {
-    m_vtable = kGeneralManagerVtable;
-    ForEach(&Unlock, nullptr);
-    ForEach(&DisposeWhenFree, nullptr);
-    if (m_flushTask) {
-        auto* task = static_cast<void***>(m_flushTask);
+    vtable_ = kGeneralManagerVtable;
+    for_each(&get_unlock, nullptr);
+    for_each(&dispose_when_free, nullptr);
+    if (flush_task_) {
+        auto* task = static_cast<void***>(flush_task_);
         reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*task)[2])(task, 1); // its deleting destructor
     }
-    m_deadObjects.UnlinkAs(g_objectNodeVtable);
-    m_vtable = kManagerVtable;
-    m_entities.UnlinkAs(g_objectNodeVtable);
+    dead_objects_.unlink_as(kObjectNodeVtable);
+    vtable_ = kManagerVtable;
+    entities_.unlink_as(kObjectNodeVtable);
 }
 
 // 0x00461EA0
-CMiscHub* CMiscHub::Teardown(unsigned int flags)
+MiscHub* MiscHub::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00461B00
-void CMiscHub::RemoveEntity(CEntity* object)
+void MiscHub::remove_entity(Entity* object)
 {
-    MemSys::ListNode* node = &object->m_listLink;
-    MemSys::ListNode* head = &m_deadObjects;
+    memory::ListNode* node = &object->list_link_;
+    memory::ListNode* head = &dead_objects_;
     node->prev = head;
     node->next = head->next;
     head->next->prev = node;
@@ -245,43 +245,43 @@ void CMiscHub::RemoveEntity(CEntity* object)
 }
 
 // 0x00461AB0
-void CMiscHub::FlushDeadObjects()
+void MiscHub::flush_dead_objects()
 {
-    MemSys::ListNode* node = m_deadObjects.next;
+    memory::ListNode* node = dead_objects_.next;
     if (node->data == reinterpret_cast<void*>(-1) || !node)
         return;
     do {
-        MemSys::ListNode* next = NextNode(node);
+        memory::ListNode* next = get_next_node(node);
         node->prev->next = node->next;
         node->next->prev = node->prev;
         node->next = node;
         node->prev = node;
-        if (auto* object = static_cast<CEntity*>(node->data))
-            object->VirtualDestroy(1);
+        if (auto* object = static_cast<Entity*>(node->data))
+            object->virtual_destroy(1);
         node = next;
     } while (node);
 }
 
 // 0x00461BB0
-void __cdecl FlushDeadObjectsTask(void* task)
+void __cdecl flush_dead_objects_task(void* task)
 {
-    static_cast<CMiscHub*>(static_cast<void**>(task)[7])->FlushDeadObjects();
+    static_cast<MiscHub*>(static_cast<void**>(task)[7])->flush_dead_objects();
 }
 
 // 0x00461F30
-CEntity* CObjectSearch::FirstItemOfType(MemSys::ListNode* head, uint32_t type)
+Entity* ObjectSearch::first_item_of_type(memory::ListNode* head, uint32_t type)
 {
-    m_listLink = head;
-    m_listLink = NextNode(head);
-    CEntity* object = ObjectOf(m_listLink);
-    m_kindTag = type;
+    list_link_ = head;
+    list_link_ = get_next_node(head);
+    Entity* object = object_of(list_link_);
+    kind_tag_ = type;
     if (!object)
         return nullptr;
-    while (object->m_kindTag != type) {
-        m_listLink = NextNode(m_listLink);
-        if (!m_listLink)
+    while (object->kind_tag_ != type) {
+        list_link_ = get_next_node(list_link_);
+        if (!list_link_)
             return nullptr;
-        object = ObjectOf(m_listLink);
+        object = object_of(list_link_);
         if (!object)
             return nullptr;
     }
@@ -289,19 +289,19 @@ CEntity* CObjectSearch::FirstItemOfType(MemSys::ListNode* head, uint32_t type)
 }
 
 // 0x00461ED0
-CEntity* CObjectSearch::NextItemOfType()
+Entity* ObjectSearch::next_item_of_type()
 {
-    m_listLink = NextNode(m_listLink);
-    if (!m_listLink)
+    list_link_ = get_next_node(list_link_);
+    if (!list_link_)
         return nullptr;
-    CEntity* object = ObjectOf(m_listLink);
+    Entity* object = object_of(list_link_);
     if (!object)
         return nullptr;
-    while (object->m_kindTag != m_kindTag) {
-        m_listLink = NextNode(m_listLink);
-        if (!m_listLink)
+    while (object->kind_tag_ != kind_tag_) {
+        list_link_ = get_next_node(list_link_);
+        if (!list_link_)
             return nullptr;
-        object = ObjectOf(m_listLink);
+        object = object_of(list_link_);
         if (!object)
             return nullptr;
     }
@@ -309,80 +309,80 @@ CEntity* CObjectSearch::NextItemOfType()
 }
 
 // 0x0041AA90
-void CObjectSearch::DestroyBody() { m_vtable = kObjectSearchBaseVtable; }
+void ObjectSearch::destroy_body() { vtable_ = kObjectSearchBaseVtable; }
 
 // 0x0041AAA0
-CObjectSearch* CObjectSearch::Teardown(unsigned int flags)
+ObjectSearch* ObjectSearch::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x0041A850
-CObjectSearch* CObjectSearch::DestroyAsBase(unsigned int flags)
+ObjectSearch* ObjectSearch::destroy_as_base(unsigned int flags)
 {
-    m_vtable = kObjectSearchBaseVtable;
+    vtable_ = kObjectSearchBaseVtable;
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00461FA0
-void ReleaseTracker()
+void release_tracker()
 {
-    uint32_t& references = TrackerReferences();
+    uint32_t& references = tracker_references();
     if (references > 1) {
         --references;
         return;
     }
-    if (CEventWaitBoard* tracker = Tracker()) // (its scalar deleting destructor, through the vtable)
-        reinterpret_cast<void*(__thiscall*)(CEventWaitBoard*, unsigned int)>(tracker->m_vtable[0])(tracker, 1);
-    Tracker() = nullptr;
+    if (EventWaitBoard* tracker = get_tracker()) // (its scalar deleting destructor, through the vtable)
+        reinterpret_cast<void*(__thiscall*)(EventWaitBoard*, unsigned int)>(tracker->vtable_[0])(tracker, 1);
+    get_tracker() = nullptr;
     references = 0;
 }
 
 // 0x00461FE0
-void CEventWaitBoard::SubscribeReceiver(CSignalReceiver* listener)
+void EventWaitBoard::subscribe_receiver(SignalReceiver* listener)
 {
-    listener->m_nextSubscriber = m_eventListeners;
-    m_eventListeners = listener;
-    listener->m_onBoard = true;
+    listener->next_subscriber_ = event_listeners_;
+    event_listeners_ = listener;
+    listener->on_board_ = true;
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kListHeadVtable_slots[] = {&GameObjects::CObjectListHead::Teardown};
-void** const kListHeadVtable = reinterpret_cast<void**>(kListHeadVtable_slots);
-static VtableSlot kManagerVtable_slots[] = {&GameObjects::CObjectHubBase::Teardown,
-         &GameObjects::CObjectHubBase::EnrolSubject,
-         &GameObjects::CObjectHubBase::DropEntityRegistration,
-         &GameObjects::CObjectHubBase::ReassignObjectId,
-         &GameObjects::CObjectHubBase::SetEntityRank,
+static VtableSlot g_list_head_vtable_slots[] = {&objects::ObjectListHead::teardown};
+void** const kListHeadVtable = reinterpret_cast<void**>(g_list_head_vtable_slots);
+static VtableSlot g_manager_vtable_slots[] = {&objects::ObjectHubBase::teardown,
+         &objects::ObjectHubBase::enrol_subject,
+         &objects::ObjectHubBase::drop_entity_registration,
+         &objects::ObjectHubBase::reassign_object_id,
+         &objects::ObjectHubBase::set_entity_rank,
          &_purecall,
          &_purecall};
-void** const kManagerVtable = reinterpret_cast<void**>(kManagerVtable_slots);
-static VtableSlot kGeneralManagerVtable_slots[] = {&GameObjects::CMiscHub::Teardown,
-         &GameObjects::CObjectHubBase::EnrolSubject,
-         &GameObjects::CObjectHubBase::DropEntityRegistration,
-         &GameObjects::CObjectHubBase::ReassignObjectId,
-         &GameObjects::CObjectHubBase::SetEntityRank,
-         &GameObjects::CMiscHub::RemoveEntity,
-         &MenuSystem::CUiTree::FetchObjectSet};
-void** const kGeneralManagerVtable = reinterpret_cast<void**>(kGeneralManagerVtable_slots);
+void** const kManagerVtable = reinterpret_cast<void**>(g_manager_vtable_slots);
+static VtableSlot g_general_manager_vtable_slots[] = {&objects::MiscHub::teardown,
+         &objects::ObjectHubBase::enrol_subject,
+         &objects::ObjectHubBase::drop_entity_registration,
+         &objects::ObjectHubBase::reassign_object_id,
+         &objects::ObjectHubBase::set_entity_rank,
+         &objects::MiscHub::remove_entity,
+         &frontend::UiTree::fetch_object_set};
+void** const kGeneralManagerVtable = reinterpret_cast<void**>(g_general_manager_vtable_slots);
 
 } // namespace
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kObjectSearchBaseVtable_slots[] = {&GameObjects::CObjectSearch::DestroyAsBase};
-void** const kObjectSearchBaseVtable = reinterpret_cast<void**>(kObjectSearchBaseVtable_slots);
+static VtableSlot g_object_search_base_vtable_slots[] = {&objects::ObjectSearch::destroy_as_base};
+void** const kObjectSearchBaseVtable = reinterpret_cast<void**>(g_object_search_base_vtable_slots);
 
 } // namespace
 } // namespace Obj

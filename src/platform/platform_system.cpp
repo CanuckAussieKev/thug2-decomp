@@ -12,27 +12,27 @@
 #include "engine/gfx/device.h"
 #include "engine/audio/music_player.h"
 
-namespace OsLayer {
+namespace os_layer {
 
 namespace {
 
-int g_frameTop{1};
-char g_cdDriveSlash;
-char g_cdDriveColon;
-int g_frameLeft;
-char g_cdDriveLetter;
+int g_frame_top{1};
+char g_cd_drive_slash;
+char g_cd_drive_colon;
+int g_frame_left;
+char g_cd_drive_letter;
 
 // The CD's drive letter and the ':' / '\' kept with it.
-char& CdDriveLetter() { return g_cdDriveLetter; }
-char& CdDriveColon() { return g_cdDriveColon; }
-char& CdDriveSlash() { return g_cdDriveSlash; }
+char& cd_drive_letter() { return g_cd_drive_letter; }
+char& cd_drive_colon() { return g_cd_drive_colon; }
+char& cd_drive_slash() { return g_cd_drive_slash; }
 
-HWND& GameWindow() { return Engine3D::g_gameWindow; }
+HWND& game_window() { return render::g_game_window; }
 // How far the window's frame reaches left of / above its inside (negated AdjustWindowRect's left / top).
-int& FrameLeft() { return g_frameLeft; }
-int& FrameTop() { return g_frameTop; }
+int& get_frame_left() { return g_frame_left; }
+int& frame_top() { return g_frame_top; }
 
-IDirectSound8*& DirectSound() { return reinterpret_cast<IDirectSound8*&>(AudioStream::g_soundDevice); }
+IDirectSound8*& direct_sound() { return reinterpret_cast<IDirectSound8*&>(audio::g_sound_device); }
 
 // IMA ADPCM's tables (0x0068E0C0, 0x0068E0E0).
 const int kIndexSteps[8] = {-1, -1, -1, -1, 2, 4, 6, 8};
@@ -47,9 +47,9 @@ const int kSteps[89] = {
 } // namespace
 
 // 0x005F5740
-char FindCdDrive(const char* volume)
+char find_cd_drive(const char* volume)
 {
-    CdDriveColon() = ':';
+    cd_drive_colon() = ':';
     char root[4] = {'A', ':', '\\', 0};
     // (Drives left over when the letters run out count as found: the letter kept from before is given back.)
     DWORD drives = GetLogicalDrives();
@@ -62,7 +62,7 @@ char FindCdDrive(const char* volume)
                 if (GetDriveTypeA(root) == DRIVE_CDROM &&
                     GetVolumeInformationA(root, name, sizeof(name), &serial, nullptr, nullptr, nullptr, 0) &&
                     std::strcmp(name, volume) == 0) {
-                    CdDriveLetter() = letter;
+                    cd_drive_letter() = letter;
                     break;
                 }
             }
@@ -71,79 +71,79 @@ char FindCdDrive(const char* volume)
                 break;
         }
     }
-    CdDriveSlash() = '\\';
+    cd_drive_slash() = '\\';
     if (!drives)
-        CdDriveLetter() = 0;
-    return CdDriveLetter();
+        cd_drive_letter() = 0;
+    return cd_drive_letter();
 }
 
 // 0x005F5860
-HWND CreateGameWindow(const char* className, const char* title, int x, int y, int width, int height,
-                      WNDPROC windowProc, HINSTANCE instance, int icon, bool fullScreen)
+HWND create_game_window(const char* class_name, const char* title, int x, int y, int width, int height,
+                      WNDPROC window_proc, HINSTANCE instance, int icon, bool full_screen)
 {
-    WNDCLASSEXA windowClass{};
-    windowClass.cbSize = sizeof(windowClass);
-    windowClass.style = CS_CLASSDC;
-    windowClass.lpfnWndProc = windowProc;
-    windowClass.hInstance = instance;
+    WNDCLASSEXA window_class{};
+    window_class.cbSize = sizeof(window_class);
+    window_class.style = CS_CLASSDC;
+    window_class.lpfnWndProc = window_proc;
+    window_class.hInstance = instance;
     if (icon)
-        windowClass.hIcon = LoadIconA(instance, MAKEINTRESOURCEA(icon & 0xFFFF));
-    windowClass.lpszClassName = className;
-    RegisterClassExA(&windowClass);
-    DWORD exStyle = 0, style;
-    int frameWidth, frameHeight;
-    if (!fullScreen) {
+        window_class.hIcon = LoadIconA(instance, MAKEINTRESOURCEA(icon & 0xFFFF));
+    window_class.lpszClassName = class_name;
+    RegisterClassExA(&window_class);
+    DWORD ex_style = 0, style;
+    int frame_width, frame_height;
+    if (!full_screen) {
         // The frame around a width x height inside; centred when x / y are -1.
         style = WS_POPUP | WS_CAPTION | WS_SYSMENU;
         RECT rect = {0, 0, width, height};
         AdjustWindowRect(&rect, style, FALSE);
-        frameWidth = rect.right - rect.left;
-        frameHeight = rect.bottom - rect.top;
-        FrameLeft() = -rect.left;
-        FrameTop() = -rect.top;
+        frame_width = rect.right - rect.left;
+        frame_height = rect.bottom - rect.top;
+        get_frame_left() = -rect.left;
+        frame_top() = -rect.top;
         if (x == -1)
-            x = (GetSystemMetrics(SM_CXSCREEN) - frameWidth) / 2;
+            x = (GetSystemMetrics(SM_CXSCREEN) - frame_width) / 2;
         if (y == -1)
-            y = (GetSystemMetrics(SM_CYSCREEN) - frameHeight) / 2;
+            y = (GetSystemMetrics(SM_CYSCREEN) - frame_height) / 2;
     } else {
         style = WS_POPUP;
-        exStyle = WS_EX_TOPMOST;
+        ex_style = WS_EX_TOPMOST;
         x = y = 0;
-        frameWidth = GetSystemMetrics(SM_CXSCREEN);
-        frameHeight = GetSystemMetrics(SM_CYSCREEN);
+        frame_width = GetSystemMetrics(SM_CXSCREEN);
+        frame_height = GetSystemMetrics(SM_CYSCREEN);
     }
     SetLastError(0);
-    GameWindow() = CreateWindowExA(exStyle, className, title, style, x, y, frameWidth, frameHeight, nullptr, nullptr,
+    game_window() = CreateWindowExA(ex_style, class_name, title, style, x, y, frame_width, frame_height, nullptr, nullptr,
                                    instance, nullptr);
-    return GameWindow();
+    return game_window();
 }
 
 // 0x005F59D0
-void InitDirectSound(HWND window)
+void init_direct_sound(HWND window)
 {
-    DirectSoundCreate8(nullptr, &DirectSound(), nullptr);
-    if (DirectSound())
-        DirectSound()->SetCooperativeLevel(window, DSSCL_PRIORITY);
+    DirectSoundCreate8(nullptr, &direct_sound(), nullptr);
+    if (direct_sound())
+        direct_sound()->SetCooperativeLevel(window, DSSCL_PRIORITY);
     // NOT ORIGINAL: [features] mute_audio=1 - the process's audio session muted before anything plays
     // (engine/sound/mute_audio.h)
-    if (SoundFx::AudioMuted())
-        SoundFx::SetAudioSessionMuted(true);
+    if (sound::audio_muted())
+        sound::set_audio_session_muted(true);
 }
 
 // 0x005F5A00
-void ReleaseDirectSound()
+void release_direct_sound()
 {
-    if (DirectSound()) {
-        DirectSound()->Release();
-        DirectSound() = nullptr;
+    if (direct_sound()) {
+        direct_sound()->Release();
+        direct_sound() = nullptr;
     }
     // NOT ORIGINAL: unmuted again, or Windows would keep the session muted for the exe's next run
-    if (SoundFx::AudioMuted())
-        SoundFx::SetAudioSessionMuted(false);
+    if (sound::audio_muted())
+        sound::set_audio_session_muted(false);
 }
 
 // 0x005F5A20
-void DecodeAdpcm(int16_t* out, const uint8_t* in, int count)
+void decode_adpcm(int16_t* out, const uint8_t* in, int count)
 {
     int sample = 0, index = 0;
     for (int i = 0; i < count; ++i) {
@@ -168,33 +168,33 @@ void DecodeAdpcm(int16_t* out, const uint8_t* in, int count)
 }
 
 // 0x005F5AF0
-void* Unswizzle(void* out, const void* in, int width, int height, uint32_t bytesPerTexel)
+void* unswizzle(void* out, const void* in, int width, int height, uint32_t bytes_per_texel)
 {
     uint32_t count = static_cast<uint32_t>(width * height);
     auto* from = static_cast<const uint8_t*>(in);
     for (uint32_t i = 0; i < count; ++i) {
         // The index's bits dealt out to x and y in turn (x first) while each has bits left.
-        auto xBits = static_cast<uint32_t>(width >> 1), yBits = static_cast<uint32_t>(height >> 1);
-        uint32_t bit = 1, xBit = 1, yBit = 1, x = 0, y = 0;
-        while (xBits || yBits) {
-            if (xBits) {
-                xBits >>= 1;
+        auto x_bits = static_cast<uint32_t>(width >> 1), y_bits = static_cast<uint32_t>(height >> 1);
+        uint32_t bit = 1, x_bit = 1, y_bit = 1, x = 0, y = 0;
+        while (x_bits || y_bits) {
+            if (x_bits) {
+                x_bits >>= 1;
                 if (i & bit)
-                    x |= xBit;
-                xBit <<= 1;
+                    x |= x_bit;
+                x_bit <<= 1;
                 bit <<= 1;
             }
-            if (yBits) {
-                yBits >>= 1;
+            if (y_bits) {
+                y_bits >>= 1;
                 if (i & bit)
-                    y |= yBit;
-                yBit <<= 1;
+                    y |= y_bit;
+                y_bit <<= 1;
                 bit <<= 1;
             }
         }
-        std::memcpy(static_cast<uint8_t*>(out) + (y * static_cast<uint32_t>(width) + x) * bytesPerTexel, from,
-                    bytesPerTexel);
-        from += bytesPerTexel;
+        std::memcpy(static_cast<uint8_t*>(out) + (y * static_cast<uint32_t>(width) + x) * bytes_per_texel, from,
+                    bytes_per_texel);
+        from += bytes_per_texel;
     }
     return out;
 }

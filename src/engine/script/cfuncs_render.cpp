@@ -30,14 +30,14 @@
 #include "engine/gfx/settings.h"
 #include "engine/gfx/device.h"
 
-namespace ScriptCommands {
+namespace commands {
 
-using Scripts::CScript;
-using Scripts::CStruct;
+using script::Script;
+using script::Struct;
 
-float g_renderDefaultFarPlane{12.0f};
-float g_renderDefaultNearPlane{12000.0f};
-int g_renderMode;
+float g_render_default_far_plane{12.0f};
+float g_render_default_near_plane{12000.0f};
+int g_render_mode;
 
 namespace {
 
@@ -103,21 +103,21 @@ constexpr uint32_t kX = 0x7323E97C;               // "x"
 constexpr uint32_t kY = 0x0424D9EA;               // "y"
 constexpr uint32_t kZ = 0x9D2D8850;               // "z"
 
-bool DistanceClipping() { return Engine3D::g_distanceClipping; }
+bool distance_clipping() { return render::g_distance_clipping; }
 
 // Compiled out of this build - jumps to the empty function 0x005480A0 (0x0048C1B0) or calls of it.
-inline void FinishRendering() {}
-inline void AllowBoneLOD(bool /*allow*/) {}
-inline void PrintAnimCacheInfo(void* /*cache*/) {}
+inline void finish_rendering() {}
+inline void allow_bone_lod(bool /*allow*/) {}
+inline void print_anim_cache_info(void* /*cache*/) {}
 
 // The animation cache manager (0x006F92B0 through its getter 0x00480660).
-Gfx2D::CClipStore* ClipStoreRef() { return Gfx2D::CClipStore::Pull(); }
+gfx::ClipStore* clip_store_ref() { return gfx::ClipStore::get_pull(); }
 
 // The viewport's camera `index` (0x004A0950: null if the viewport has none).
-uint8_t* ViewportCamera(int index) { return reinterpret_cast<uint8_t*>(Engine3D::ObtainActiveLens(index)); }
+uint8_t* viewport_camera(int index) { return reinterpret_cast<uint8_t*>(render::obtain_active_lens(index)); }
 
 // A colour of four bytes (r, g, b, a in memory order).
-uint32_t PackBytes(int r, int g, int b, int a)
+uint32_t pack_bytes(int r, int g, int b, int a)
 {
     return static_cast<uint8_t>(r) | static_cast<uint8_t>(g) << 8 | static_cast<uint8_t>(b) << 16 |
            static_cast<uint32_t>(static_cast<uint8_t>(a)) << 24;
@@ -126,262 +126,262 @@ uint32_t PackBytes(int r, int g, int b, int a)
 } // namespace
 
 // 0x00446460: DebugRenderIgnore ignore_0=<n> ignore_1=<n> (0x0048C110). Always true.
-bool __cdecl CFunc_DebugRenderIgnore(CStruct* params, CScript*)
+bool __cdecl cfunc_debug_render_ignore(Struct* params, Script*)
 {
     int ignore1 = 0;
     int ignore0 = 0;
-    params->FetchIntValue(kIgnore1, &ignore1, 0);
-    params->FetchIntValue(kIgnore0, &ignore0, 0);
-    Engine3D::Engine::SetRenderIgnore(ignore1, ignore0);
+    params->fetch_int_value(kIgnore1, &ignore1, 0);
+    params->fetch_int_value(kIgnore0, &ignore0, 0);
+    render::engine::set_render_ignore(ignore1, ignore0);
     return true;
 }
 
 // 0x004464C0: InitAnimCompressTable "<file>" t48 | q48: the animation compression table loaded from the file
 // (0x00482A30 for t48, 0x004829F0 for q48; nothing for another type). Always true.
-bool __cdecl CFunc_InitAnimCompressTable(CStruct* params, CScript*)
+bool __cdecl cfunc_init_anim_compress_table(Struct* params, Script*)
 {
     const char* file = nullptr; // (both asserted; uninitialised in the original)
     uint32_t type = 0;
-    params->FetchText(0u, &file, 1);
-    params->ReadHashValue(0u, &type, 1);
+    params->fetch_text(0u, &file, 1);
+    params->read_hash_value(0u, &type, 1);
     char name[256];
     std::snprintf(name, sizeof(name), "%s", file); // (the original's sprintf isn't bounded)
     if (type == kT48)
-        Gfx2D::LoadTransTable(name);
+        gfx::load_trans_table(name);
     else if (type == kQ48)
-        Gfx2D::LoadQuatTable(name);
+        gfx::load_quat_table(name);
     return true;
 }
 
 // 0x00446570: InitAnimSystem AnimHeapSize <size 2> DefCacheType <counts>: the animation cache (0x00480D10: the
 // sizes and the type - 2 standard, 3 / 4 two others, 0 anything else) and the blend system (0x0047EB30). Always true.
-bool __cdecl CFunc_InitAnimSystem(CStruct* params, CScript*)
+bool __cdecl cfunc_init_anim_system(Struct* params, Script*)
 {
-    int heapSize = 0;
-    int cacheSize = 0;
-    uint32_t cacheType = 0;
-    params->FetchIntValue(kAnimHeapSize, &heapSize, 1);
-    params->FetchIntValue(kAnimCacheSize, &cacheSize, 1);
-    params->ReadHashValue(kDefCacheType, &cacheType, 1);
+    int heap_size = 0;
+    int cache_size = 0;
+    uint32_t cache_type = 0;
+    params->fetch_int_value(kAnimHeapSize, &heap_size, 1);
+    params->fetch_int_value(kAnimCacheSize, &cache_size, 1);
+    params->read_hash_value(kDefCacheType, &cache_type, 1);
     int type;
-    if (cacheType == kCacheType3)
+    if (cache_type == kCacheType3)
         type = 3;
-    else if (cacheType == kCacheType4)
+    else if (cache_type == kCacheType4)
         type = 4;
     else
-        type = cacheType == kStandard ? 2 : 0;
-    Gfx2D::CClipStore::Fabricate(heapSize, cacheSize, type);
+        type = cache_type == kStandard ? 2 : 0;
+    gfx::ClipStore::fabricate(heap_size, cache_size, type);
     int blends = 0;
     int subsets = 0;
-    params->FetchIntValue(kMaxAnimBlends, &blends, 1);
-    params->FetchIntValue(kMaxAnimSubsets, &subsets, 1);
-    Gfx2D::CBlendChannel::InitBuffers(blends, subsets);
+    params->fetch_int_value(kMaxAnimBlends, &blends, 1);
+    params->fetch_int_value(kMaxAnimSubsets, &subsets, 1);
+    gfx::BlendChannel::init_buffers(blends, subsets);
     return true;
 }
 
 // 0x00446650: UpdateAnimCache clear | defrag (0x00480DB0(0) / 0x00480F20 on the cache); with neither, the cache's
 // information (compiled out). With enable or disable it does nothing (their code is compiled out). Always true.
-bool __cdecl CFunc_UpdateAnimCache(CStruct* params, CScript*)
+bool __cdecl cfunc_update_anim_cache(Struct* params, Script*)
 {
-    bool disable = params->HasEntryNamed(kDisable);
-    bool enable = params->HasEntryNamed(kEnable);
-    bool defrag = params->HasEntryNamed(kDefrag);
-    bool clear = params->HasEntryNamed(kClear);
+    bool disable = params->has_entry_named(kDisable);
+    bool enable = params->has_entry_named(kEnable);
+    bool defrag = params->has_entry_named(kDefrag);
+    bool clear = params->has_entry_named(kClear);
     if (disable || enable)
         return true;
     if (clear)
-        ClipStoreRef()->Drain(false);
+        clip_store_ref()->drain(false);
     else if (defrag)
-        ClipStoreRef()->Defragment();
+        clip_store_ref()->defragment();
     else
-        PrintAnimCacheInfo(ClipStoreRef());
+        print_anim_cache_info(clip_store_ref());
     return true;
 }
 
 // 0x004466F0: FinishRendering (does nothing in this build). Always true.
-bool __cdecl CFunc_FinishRendering(CStruct*, CScript*)
+bool __cdecl cfunc_finish_rendering(Struct*, Script*)
 {
-    FinishRendering();
+    finish_rendering();
     return true;
 }
 
 // 0x00446700: InitLightManager max_lights=<n> <n> (0x0048EB70). Always true.
-bool __cdecl CFunc_InitLightManager(CStruct* params, CScript*)
+bool __cdecl cfunc_init_light_manager(Struct* params, Script*)
 {
-    int maxLights = 0;
-    int maxModelLights = 0;
-    params->FetchIntValue(kLightCapacity, &maxLights, 1);
-    params->FetchIntValue(kMaxModelLights, &maxModelLights, 1);
-    Engine3D::InitLightManager(static_cast<uint32_t>(maxLights), static_cast<uint32_t>(maxModelLights));
+    int max_lights = 0;
+    int max_model_lights = 0;
+    params->fetch_int_value(kLightCapacity, &max_lights, 1);
+    params->fetch_int_value(kMaxModelLights, &max_model_lights, 1);
+    render::init_light_manager(static_cast<uint32_t>(max_lights), static_cast<uint32_t>(max_model_lights));
     return true;
 }
 
 // 0x00446760: UninitLightManager (0x0048FB60). Always true.
-bool __cdecl CFunc_UninitLightManager(CStruct*, CScript*)
+bool __cdecl cfunc_uninit_light_manager(Struct*, Script*)
 {
-    Engine3D::UninitLightManager();
+    render::uninit_light_manager();
     return true;
 }
 
 // 0x00446770: PushWorldLights: the world lights saved on their stack (0x0048EA00). Always true.
-bool __cdecl CFunc_PushWorldLights(CStruct*, CScript*)
+bool __cdecl cfunc_push_world_lights(Struct*, Script*)
 {
-    Engine3D::PushWorldLights();
+    render::push_world_lights();
     return true;
 }
 
 // 0x00446780 (a jump to 0x0048EA40): PopWorldLights: the world lights taken back from their stack; false if it's
 // empty.
-bool __cdecl CFunc_PopWorldLights(CStruct*, CScript*)
+bool __cdecl cfunc_pop_world_lights(Struct*, Script*)
 {
-    return Engine3D::PopWorldLights();
+    return render::pop_world_lights();
 }
 
 // 0x00446790: SetScreen [aspect=<f>] [angle=<f>] [letterbox=<n>]: those given are set. Always true.
-bool __cdecl CFunc_SetScreen(CStruct* params, CScript*)
+bool __cdecl cfunc_set_screen(Struct* params, Script*)
 {
     float aspect;
-    if (params->FetchFloat(kAspect, &aspect, 0))
-        Engine3D::SetScreenAspectRatio(aspect);
+    if (params->fetch_float(kAspect, &aspect, 0))
+        render::set_screen_aspect_ratio(aspect);
     float angle;
-    if (params->FetchFloat(kAngle, &angle, 0))
-        Engine3D::SetScreenFieldOfView(angle);
+    if (params->fetch_float(kAngle, &angle, 0))
+        render::set_screen_field_of_view(angle);
     int letterbox;
-    if (params->FetchIntValue(kLetterbox, &letterbox, 0))
-        Engine3D::SetLetterbox(letterbox != 0);
+    if (params->fetch_int_value(kLetterbox, &letterbox, 0))
+        render::set_letterbox(letterbox != 0);
     return true;
 }
 
 // 0x00446810: AllowBoneLOD allow=<n> (does nothing in this build). Always true.
-bool __cdecl CFunc_AllowBoneLOD(CStruct* params, CScript*)
+bool __cdecl cfunc_allow_bone_lod(Struct* params, Script*)
 {
     int allow = 1;
-    params->FetchIntValue(kAllow, &allow, 0);
-    AllowBoneLOD(allow > 0);
+    params->fetch_int_value(kAllow, &allow, 0);
+    allow_bone_lod(allow > 0);
     return true;
 }
 
 // 0x00446850: DebugLine start=<vector> end=<vector> [color=<n> (0xFF0000FF)] [frames=<n>] (drawn by compiled-out
 // code). Always true.
-bool __cdecl CFunc_DebugLine(CStruct* params, CScript*)
+bool __cdecl cfunc_debug_line(Struct* params, Script*)
 {
-    Scripts::VectorValue start{};
-    Scripts::VectorValue end{};
+    script::VectorValue start{};
+    script::VectorValue end{};
     int colour = static_cast<int>(0xFF0000FF);
     int frames = 0;
-    params->FetchVec(kStart, &start, 1);
-    params->FetchVec(kEnd, &end, 1);
-    params->FetchIntValue(kColor, &colour, 0);
-    params->FetchIntValue(kFrames, &frames, 0);
-    Gfx2D::PushDiagLine(reinterpret_cast<const Maths::Vec4*>(&start), reinterpret_cast<const Maths::Vec4*>(&end),
+    params->fetch_vec(kStart, &start, 1);
+    params->fetch_vec(kEnd, &end, 1);
+    params->fetch_int_value(kColor, &colour, 0);
+    params->fetch_int_value(kFrames, &frames, 0);
+    gfx::push_diag_line(reinterpret_cast<const maths::Vec4*>(&start), reinterpret_cast<const maths::Vec4*>(&end),
                       static_cast<uint32_t>(colour), 0, frames);
     return true;
 }
 
 // 0x004468E0: GetPausePosByResolution: pos=(50, 240) at a 640-pixel-wide back buffer, (20, 240) otherwise, into
 // the script's params. Always true.
-bool __cdecl CFunc_GetPausePosByResolution(CStruct*, CScript* script)
+bool __cdecl cfunc_get_pause_pos_by_resolution(Struct*, Script* script)
 {
-    float x = Engine3D::g_presentParameters.BackBufferWidth == 640 ? 50.0f : 20.0f; // the back buffer's width
-    script->m_args->InsertPair(Checksums::HashFromText("pos"), x, 240.0f);
+    float x = render::g_present_parameters.BackBufferWidth == 640 ? 50.0f : 20.0f; // the back buffer's width
+    script->args_->insert_pair(checksums::hash_from_text("pos"), x, 240.0f);
     return true;
 }
 
 // 0x00446930: KillAllTextureSplats [box={height dist width [offset=<vector>]}] | [texture=<name>]: the splats in
 // the box (feet; the box around the offset: width along x, height along y, dist along z, each centred - 0x00491630),
 // those of a texture (0x004916F0), or all of them (0x004915A0). Always true.
-bool __cdecl CFunc_KillAllTextureSplats(CStruct* params, CScript*)
+bool __cdecl cfunc_kill_all_texture_splats(Struct* params, Script*)
 {
-    Maths::BBox box;
-    CStruct* boxParams = nullptr;
+    maths::BBox box;
+    Struct* box_params = nullptr;
     uint32_t texture = 0;
-    if (!params->ReadSubStruct(kBox, &boxParams, 0)) {
-        if (params->ReadHashValue(kTexture, &texture, 0))
-            Engine3D::Engine::KillTextureSplatsOfTexture(texture);
+    if (!params->read_sub_struct(kBox, &box_params, 0)) {
+        if (params->read_hash_value(kTexture, &texture, 0))
+            render::engine::kill_texture_splats_of_texture(texture);
         else
-            Engine3D::Engine::KillAllTextureSplats();
+            render::engine::kill_all_texture_splats();
         return true;
     }
     float height = 0.0f;
     float dist = 0.0f;
     float width = 0.0f;
-    Maths::Vec4 low = {0.0f, 0.0f, 0.0f, 0.0f};  // the box's corners around the offset (w unused)
-    Maths::Vec4 high = {0.0f, 0.0f, 0.0f, 0.0f};
-    Maths::Vec4 offset = {0.0f, 0.0f, 0.0f, 0.0f}; // (x, y, z uninitialised in the original when not given)
+    maths::Vec4 low = {0.0f, 0.0f, 0.0f, 0.0f};  // the box's corners around the offset (w unused)
+    maths::Vec4 high = {0.0f, 0.0f, 0.0f, 0.0f};
+    maths::Vec4 offset = {0.0f, 0.0f, 0.0f, 0.0f}; // (x, y, z uninitialised in the original when not given)
     // Each size in feet to inches; the corners at minus / plus half of it (the low one not above 0, the high one not
     // below 0 - NaN goes through). x87: the low half from the unrounded product, the high one from it rounded to a
     // float.
-    auto extent = [](float size, float& lowSide, float& highSide) {
+    auto extent = [](float size, float& low_side, float& high_side) {
         double inches = static_cast<double>(size) * 12.0;
         double half = inches * -0.5;
-        lowSide = 0.0 < half ? 0.0f : static_cast<float>(half);
+        low_side = 0.0 < half ? 0.0f : static_cast<float>(half);
         half = static_cast<double>(static_cast<float>(inches)) * 0.5;
-        highSide = half < 0.0 ? 0.0f : static_cast<float>(half);
+        high_side = half < 0.0 ? 0.0f : static_cast<float>(half);
     };
-    if (boxParams->FetchFloat(kHeight, &height, 1))
+    if (box_params->fetch_float(kHeight, &height, 1))
         extent(height, low.y, high.y);
-    if (boxParams->FetchFloat(kDist, &dist, 1))
+    if (box_params->fetch_float(kDist, &dist, 1))
         extent(dist, low.z, high.z);
-    if (boxParams->FetchFloat(kWidth, &width, 1))
+    if (box_params->fetch_float(kWidth, &width, 1))
         extent(width, low.x, high.x);
-    if (boxParams->FetchVec(kOffset, reinterpret_cast<Scripts::VectorValue*>(&offset), 1))
-        offset.FeetAsInches();
+    if (box_params->fetch_vec(kOffset, reinterpret_cast<script::VectorValue*>(&offset), 1))
+        offset.feet_as_inches();
     box.min = {offset.x + low.x, offset.y + low.y, offset.z + low.z, offset.w + 1.0f};
     box.max = {offset.x + high.x, offset.y + high.y, offset.z + high.z, offset.w + 1.0f};
-    Engine3D::Engine::KillTextureSplatsInBox(reinterpret_cast<const float*>(&box));
+    render::engine::kill_texture_splats_in_box(reinterpret_cast<const float*>(&box));
     return true;
 }
 
 // 0x00446C20: GetGammaValues: the gamma's red, green and blue as percentages (truncated) into the script's params.
 // Always true.
-bool __cdecl CFunc_GetGammaValues(CStruct*, CScript* script)
+bool __cdecl cfunc_get_gamma_values(Struct*, Script* script)
 {
     float red, green, blue;
-    Engine3D::GetGamma(&red, &green, &blue);
-    CStruct* out = script->m_args;
-    out->EraseModule(kRed);
-    out->EraseModule(kGreen);
-    out->EraseModule(kBlue);
+    render::get_gamma(&red, &green, &blue);
+    Struct* out = script->args_;
+    out->erase_module(kRed);
+    out->erase_module(kGreen);
+    out->erase_module(kBlue);
     // x87: the product isn't rounded to a float before it's truncated
-    out->PutInt(kRed, static_cast<int>(static_cast<double>(red) * 100.0));
-    out->PutInt(kGreen, static_cast<int>(static_cast<double>(green) * 100.0));
-    out->PutInt(kBlue, static_cast<int>(static_cast<double>(blue) * 100.0));
+    out->put_int(kRed, static_cast<int>(static_cast<double>(red) * 100.0));
+    out->put_int(kGreen, static_cast<int>(static_cast<double>(green) * 100.0));
+    out->put_int(kBlue, static_cast<int>(static_cast<double>(blue) * 100.0));
     return true;
 }
 
 // 0x00446CD0: GetDynamicLightModulationFactor ambient | directional=<index>: the two modulation factors
 // (0x0048E9B0 / 0x0048E9D0, the second first) into the script's params as mod_value_lo and mod_value_hi. Always
 // true.
-bool __cdecl CFunc_GetDynamicLightModulationFactor(CStruct* params, CScript* script)
+bool __cdecl cfunc_get_dynamic_light_modulation_factor(Struct* params, Script* script)
 {
     int directional = 0;
     float low, high;
-    if (params->HasBareFlag(kAmbient)) {
-        low = Engine3D::FetchAmbientScale(true);
-        high = Engine3D::FetchAmbientScale(false);
+    if (params->has_bare_flag(kAmbient)) {
+        low = render::fetch_ambient_scale(true);
+        high = render::fetch_ambient_scale(false);
     } else {
-        params->FetchIntValue(kDirectional, &directional, 0);
-        low = Engine3D::FetchDiffuseScale(directional, true);
-        high = Engine3D::FetchDiffuseScale(directional, false);
+        params->fetch_int_value(kDirectional, &directional, 0);
+        low = render::fetch_diffuse_scale(directional, true);
+        high = render::fetch_diffuse_scale(directional, false);
     }
-    script->m_args->PushFloat(kModValueLo, low);
-    script->m_args->PushFloat(kModValueHi, high);
+    script->args_->push_float(kModValueLo, low);
+    script->args_->push_float(kModValueHi, high);
     return true;
 }
 
 // 0x00446D70: SetClippingDistances Near=<f> Far=<f>: both viewport cameras' near and far planes (+0xB8 / +0xBC).
 // The defaults are the globals 0x006487D4 for Near and 0x006487D0 for Far - 12000 and 12, the wrong way round (as
 // in the original). Always true.
-bool __cdecl CFunc_SetClippingDistances(CStruct* params, CScript*)
+bool __cdecl cfunc_set_clipping_distances(Struct* params, Script*)
 {
-    float nearPlane = g_renderDefaultNearPlane;
-    float farPlane = g_renderDefaultFarPlane;
-    params->FetchFloat("Near", &nearPlane, 0);
-    params->FetchFloat("Far", &farPlane, 0);
+    float near_plane = g_render_default_near_plane;
+    float far_plane = g_render_default_far_plane;
+    params->fetch_float("Near", &near_plane, 0);
+    params->fetch_float("Far", &far_plane, 0);
     for (int i = 0; i < 2; ++i) {
-        if (uint8_t* camera = ViewportCamera(i)) {
-            *reinterpret_cast<float*>(camera + 0xB8) = nearPlane;
-            *reinterpret_cast<float*>(camera + 0xBC) = farPlane;
+        if (uint8_t* camera = viewport_camera(i)) {
+            *reinterpret_cast<float*>(camera + 0xB8) = near_plane;
+            *reinterpret_cast<float*>(camera + 0xBC) = far_plane;
         }
     }
     return true;
@@ -389,105 +389,105 @@ bool __cdecl CFunc_SetClippingDistances(CStruct* params, CScript*)
 
 // 0x00446DF0: SetFogDistance distance=<f> (0x00490E00); both viewport cameras are looked up and left alone (their
 // use is compiled out). False (and nothing) while distance clipping is on.
-bool __cdecl CFunc_SetFogDistance(CStruct* params, CScript*)
+bool __cdecl cfunc_set_fog_distance(Struct* params, Script*)
 {
-    if (DistanceClipping())
+    if (distance_clipping())
         return false;
     float distance = 0.0f;
-    params->FetchFloat("distance", &distance, 0);
-    Engine3D::Engine::SetFogDistance(distance);
+    params->fetch_float("distance", &distance, 0);
+    render::engine::set_fog_distance(distance);
     for (int i = 0; i < 2; ++i)
-        ViewportCamera(i);
+        viewport_camera(i);
     return true;
 }
 
 // 0x00446E50: SetFogColor r g b a (255, 255, 255, 128): the fog colour (0x00490E20, bytes r g b a). While distance
 // clipping is on, the clear colour used with it (0x0078733C, 0xAARRGGBB) instead - and false.
-bool __cdecl CFunc_SetFogColor(CStruct* params, CScript*)
+bool __cdecl cfunc_set_fog_color(Struct* params, Script*)
 {
     int r = 0xFF, g = 0xFF, b = 0xFF, a = 0x80;
-    params->FetchIntValue("r", &r, 0);
-    params->FetchIntValue("g", &g, 0);
-    params->FetchIntValue("b", &b, 0);
-    params->FetchIntValue("a", &a, 0);
-    if (DistanceClipping()) {
-        Engine3D::g_fogColour = static_cast<uint32_t>(a) << 24 | (r & 0xFF) << 16 | (g & 0xFF) << 8 |
+    params->fetch_int_value("r", &r, 0);
+    params->fetch_int_value("g", &g, 0);
+    params->fetch_int_value("b", &b, 0);
+    params->fetch_int_value("a", &a, 0);
+    if (distance_clipping()) {
+        render::g_fog_colour = static_cast<uint32_t>(a) << 24 | (r & 0xFF) << 16 | (g & 0xFF) << 8 |
                                              (b & 0xFF);
         return false;
     }
-    Engine3D::Engine::SetFogColor(PackBytes(r, g, b, a));
+    render::engine::set_fog_color(pack_bytes(r, g, b, a));
     return true;
 }
 
 // 0x00446F40: SetRenderMode mode=<n> (0x006FA734). Always true.
-bool __cdecl CFunc_SetRenderMode(CStruct* params, CScript*)
+bool __cdecl cfunc_set_render_mode(Struct* params, Script*)
 {
     int mode = 0;
-    params->FetchIntValue(kMode, &mode, 0);
-    Engine3D::g_renderMode = mode;
+    params->fetch_int_value(kMode, &mode, 0);
+    render::g_render_mode = mode;
     return true;
 }
 
 // 0x00446F70: SetWireframeMode mode=<n> (0x006FA730). Always true.
-bool __cdecl CFunc_SetWireframeMode(CStruct* params, CScript*)
+bool __cdecl cfunc_set_wireframe_mode(Struct* params, Script*)
 {
     int mode = 0;
-    params->FetchIntValue(kMode, &mode, 0);
-    g_renderMode = mode;
+    params->fetch_int_value(kMode, &mode, 0);
+    g_render_mode = mode;
     return true;
 }
 
 // 0x00446FA0: SetLightAmbientColor r g b (alpha 128, 0x0048E8F0). Returns what that returns (its AL).
-bool __cdecl CFunc_SetLightAmbientColor(CStruct* params, CScript*)
+bool __cdecl cfunc_set_light_ambient_color(Struct* params, Script*)
 {
     int r = 0, g = 0, b = 0; // (uninitialised in the original)
-    params->FetchIntValue("r", &r, 0);
-    params->FetchIntValue("g", &g, 0);
-    params->FetchIntValue("b", &b, 0);
-    return Engine3D::SetLightAmbientColor(PackBytes(r, g, b, 0x80));
+    params->fetch_int_value("r", &r, 0);
+    params->fetch_int_value("g", &g, 0);
+    params->fetch_int_value("b", &b, 0);
+    return render::set_light_ambient_color(pack_bytes(r, g, b, 0x80));
 }
 
 // 0x00447010: GetLightDirection index=<n>: the light's direction (0x0048E920) in degrees into the script's params:
 // heading (its y) and pitch (its x). Always true.
-bool __cdecl CFunc_GetLightDirection(CStruct* params, CScript* script)
+bool __cdecl cfunc_get_light_direction(Struct* params, Script* script)
 {
     int index = 0; // (uninitialised in the original)
-    params->FetchIntValue(kIndex, &index, 0);
-    Maths::Vec4 direction = *Engine3D::GetLightDirection(index);
-    direction.ConvertToDegrees();
-    script->m_args->PushFloat(kHeading, direction.y);
-    script->m_args->PushFloat(kPitch, direction.x);
+    params->fetch_int_value(kIndex, &index, 0);
+    maths::Vec4 direction = *render::get_light_direction(index);
+    direction.convert_to_degrees();
+    script->args_->push_float(kHeading, direction.y);
+    script->args_->push_float(kPitch, direction.x);
     return true;
 }
 
 // 0x004470A0: SetLightDiffuseColor index=<n> R G B (alpha 128, 0x0048E930). Returns what that returns (its AL).
-bool __cdecl CFunc_SetLightDiffuseColor(CStruct* params, CScript*)
+bool __cdecl cfunc_set_light_diffuse_color(Struct* params, Script*)
 {
     int index = 0, r = 0, g = 0, b = 0; // (uninitialised in the original)
-    params->FetchIntValue(kIndex, &index, 0);
-    params->FetchIntValue(kUpperR, &r, 0);
-    params->FetchIntValue(kUpperG, &g, 0);
-    params->FetchIntValue(kUpperB, &b, 0);
-    return Engine3D::SetLightDiffuseColor(index, PackBytes(r, g, b, 0x80));
+    params->fetch_int_value(kIndex, &index, 0);
+    params->fetch_int_value(kUpperR, &r, 0);
+    params->fetch_int_value(kUpperG, &g, 0);
+    params->fetch_int_value(kUpperB, &b, 0);
+    return render::set_light_diffuse_color(index, pack_bytes(r, g, b, 0x80));
 }
 
 // 0x00447130: GetLightCurrentColor: the current ambient colour (0x0048E900) and the two directional lights'
 // (0x0048E950) into the script's params as ambient_red .. blue_1. Always true.
-bool __cdecl CFunc_GetLightCurrentColor(CStruct*, CScript* script)
+bool __cdecl cfunc_get_light_current_color(Struct*, Script* script)
 {
-    CStruct* out = script->m_args;
+    Struct* out = script->args_;
     uint32_t colour;
     auto add = [&](uint32_t red, uint32_t green, uint32_t blue) {
-        out->PutInt(red, static_cast<int>(colour & 0xFF));
-        out->PutInt(green, static_cast<int>(colour >> 8 & 0xFF));
-        out->PutInt(blue, static_cast<int>(colour >> 16 & 0xFF));
+        out->put_int(red, static_cast<int>(colour & 0xFF));
+        out->put_int(green, static_cast<int>(colour >> 8 & 0xFF));
+        out->put_int(blue, static_cast<int>(colour >> 16 & 0xFF));
     };
     uint32_t buffer;
-    colour = *Engine3D::GetLightAmbientColor(&buffer);
+    colour = *render::get_light_ambient_color(&buffer);
     add(kAmbientRed, kAmbientGreen, kAmbientBlue);
-    colour = *Engine3D::GetLightDiffuseColor(&buffer, 0);
+    colour = *render::get_light_diffuse_color(&buffer, 0);
     add(kRed0, kGreen0, kBlue0);
-    colour = *Engine3D::GetLightDiffuseColor(&buffer, 1);
+    colour = *render::get_light_diffuse_color(&buffer, 1);
     add(kRed1, kGreen1, kBlue1);
     return true;
 }
@@ -495,23 +495,23 @@ bool __cdecl CFunc_GetLightCurrentColor(CStruct*, CScript* script)
 // 0x00447220: GetBonePosition id=<object> bone=<name>: the bone's position (the skeleton component's 0x00432050)
 // into the script's params as x, y, z; whether the bone was found. Without the object, x / y / z are added anyway
 // (uninitialised in the original; zero here).
-bool __cdecl CFunc_GetBonePosition(CStruct* params, CScript* script)
+bool __cdecl cfunc_get_bone_position(Struct* params, Script* script)
 {
     uint32_t id = 0;
-    params->ReadHashValue(kId, &id, 1);
+    params->read_hash_value(kId, &id, 1);
     bool found = false;
-    Maths::Vec4 position = {0.0f, 0.0f, 0.0f, 0.0f};
-    auto* manager = reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::ObjectHubSlot());
-    if (GameObjects::CEntity* object = manager->LookUpEntity(id)) {
+    maths::Vec4 position = {0.0f, 0.0f, 0.0f, 0.0f};
+    auto* manager = reinterpret_cast<objects::ObjectHubBase*>(objects::object_hub_slot());
+    if (objects::Entity* object = manager->look_up_entity(id)) {
         uint32_t bone = 0;
-        params->ReadHashValue(kBone, &bone, 1);
-        GameObjects::CObjectModule* skeleton = static_cast<GameObjects::CGameEntity*>(object)->FetchModule(kSkeleton);
-        found = static_cast<GameObjects::CBoneRigModule*>(skeleton)->GetBonePosition(bone, &position);
+        params->read_hash_value(kBone, &bone, 1);
+        objects::ObjectModule* skeleton = static_cast<objects::GameEntity*>(object)->fetch_module(kSkeleton);
+        found = static_cast<objects::BoneRigModule*>(skeleton)->get_bone_position(bone, &position);
     }
-    script->m_args->PushFloat(kX, position.x);
-    script->m_args->PushFloat(kY, position.y);
-    script->m_args->PushFloat(kZ, position.z);
+    script->args_->push_float(kX, position.x);
+    script->args_->push_float(kY, position.y);
+    script->args_->push_float(kZ, position.z);
     return found;
 }
 
-} // namespace ScriptCommands
+} // namespace commands

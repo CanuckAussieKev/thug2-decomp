@@ -2,16 +2,16 @@
 
 #include <cstdint>
 
-namespace Scripts {
-class CStruct;
-class CScript;
+namespace script {
+class Struct;
+class Script;
 } // namespace Script
 
-// The cutscene destroy list (0x007CEDD8: a std::list of ScriptCommands::CutsceneDestroyEntry, movie_cfuncs.h): what a
+// The cutscene destroy list (0x007CEDD8: a std::list of commands::CutsceneDestroyEntry, movie_cfuncs.h): what a
 // cutscene made and how to get rid of it - each entry's destroy script run with its parameters when the list is
 // flushed. Its commands (0x005B5320-0x005B5770, 0x005B5BE0) and the std::list constructor (0x005B4650) the game's
 // static lists share. The commands are cdecl (params, script) and return whether the script's `if` should be taken.
-namespace ScriptCommands {
+namespace commands {
 
 // A std::list<T*> as MSVC 7.1 lays it out: the head node (allocated, linked to itself when empty) and the size.
 struct PointerList {
@@ -20,18 +20,18 @@ struct PointerList {
         Elem* next;
         Elem* prev;
     };
-    Elem* m_head;
-    uint32_t m_extent;
+    Elem* head_;
+    uint32_t extent_;
 
     // 0x005B4650: the constructor (no elements: a new head node linked to itself, null if out of memory). Returns
     // this. (Used for 0x006F0DA8, the COIM instance list 0x006F0DB0 and the cutscene destroy list.)
-    PointerList* MakeNew();
+    PointerList* make_new();
 };
 static_assert(sizeof(PointerList) == 8, "layout must match the original");
 
-bool __cdecl CFunc_AddToCutsceneDestroyList(Scripts::CStruct* params, Scripts::CScript* script);
-bool __cdecl CFunc_RemoveFromCutsceneDestroyList(Scripts::CStruct* params, Scripts::CScript* script);
-bool __cdecl CFunc_Cutscene_SpawnScript(Scripts::CStruct* params, Scripts::CScript* script);
-bool __cdecl CFunc_FlushCutsceneDestroyList(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl cfunc_add_to_cutscene_destroy_list(script::Struct* params, script::Script* script);
+bool __cdecl cfunc_remove_from_cutscene_destroy_list(script::Struct* params, script::Script* script);
+bool __cdecl cfunc_cutscene_spawn_script(script::Struct* params, script::Script* script);
+bool __cdecl cfunc_flush_cutscene_destroy_list(script::Struct* params, script::Script* script);
 
-} // namespace ScriptCommands
+} // namespace commands

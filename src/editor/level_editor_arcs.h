@@ -7,7 +7,7 @@
 
 #include "editor/level_editor.h"
 
-namespace MenuSystem::LevelEditor::Overlays {
+namespace frontend::level_editor::overlays {
 struct Painter;
 }
 
@@ -15,7 +15,7 @@ struct Painter;
 // level_editor_overlays.h), each lip of the selection is found in its collision and the flight a skater takes off it
 // drawn at three speeds, with where it lands - so a gap can be judged makeable while the pieces are placed.
 //
-// The flight is the game's air physics (Skater::SkaterPhysicsModule::DoAirPhysics 0x0050CA00, rewritten in
+// The flight is the game's air physics (Skater::SkaterPhysicsModule::do_air_physics 0x0050CA00, rewritten in
 // game/rider/core_physics.cpp): each frame position += velocity t + (0, g, 0) t^2 / 2, velocity.y += g t, with
 //   g = Physics_Air_Gravity / Physics_Air_hang_Stat  (-1350 / 1.0 in skater_physics) - off a kicker or ramp;
 //   g = Physics_Air_Gravity / Physics_Vert_hang_Stat (-1350 / 1.1) - in vert air (off a quarter pipe's vert lip)
@@ -24,14 +24,14 @@ struct Painter;
 // The launch: the skater leaves the lip at its speed along the surface there (the lip's tangent, up the slope) and
 // ollies on it: 0x00509450 (the jump) clamps a falling velocity.y to 0 and adds the jump speed to velocity.y - the
 // full charge's Physics_Jump_Speed_Stat (414 - 450 by the ollie stat). The speeds, each by the skater's speed stat
-// (CRider::FetchTally 3; Skater_Default_Stats without a skater) on its (low, high) pair as GetScaledValue 0x005805B0
+// (Rider::fetch_tally 3; Skater_Default_Stats without a skater) on its (low, high) pair as get_scaled_value 0x005805B0
 // scales it (low + (high - low) stat / 10, then its limit=) - the switch and difficulty factors left out:
 //   push: Skater_Max_Crouched_Kick_Speed_Stat (532 - 675, limit 900): what pushing reaches on the flat;
 //   top:  Skater_Max_Speed_Stat (757 - 900): the most rolling downhill reaches;
 //   max:  Skater_Max_Max_Speed_Stat (957 - 1100): the cap (speed boosts, transfers).
-// The values are read from the game's own script structures (skater_physics or the ridden vehicle's - ReadTuningFloat
-// 0x00580400) each time the selection changes; ArcsFallback below when there is no level.
-namespace MenuSystem::LevelEditor::Arcs {
+// The values are read from the game's own script structures (skater_physics or the ridden vehicle's - read_tuning_float
+// 0x00580400) each time the selection changes; arcs_fallback below when there is no level.
+namespace frontend::level_editor::arcs {
 
 // --- the pieces (pure) -------------------------------------------------------------------------------------------
 
@@ -54,37 +54,37 @@ struct Lip {
 // (within kHeadingTolerance); near-vertical faces join the group they face the front of. The outward side: the winding's
 // normal, or its reverse when most of the sloped area's normals point down (one convention for the piece) - so a kicker's
 // back wall faces away from its slope and isn't taken for a vert lip. Each group's lip is at its highest vertices; its
-// tangent the top faces' (by area). At most `maxLips`, the largest groups (by area) first; groups rising less than
+// tangent the top faces' (by area). At most `max_lips`, the largest groups (by area) first; groups rising less than
 // kMinLipHeight aren't lips.
 constexpr float kFlatNormalY = 0.996f;      // (flatter than ~5 degrees: ground, a deck)
 constexpr float kSteepNormalY = 0.1f;       // (steeper than ~84 degrees: near vertical)
 constexpr float kHeadingTolerance = 0.94f;  // (cosine: within ~20 degrees)
 constexpr float kMinLipHeight = 6.0f;
 constexpr float kVertTangentY = 0.97f;      // (a tangent this steep launches straight up)
-std::vector<Lip> FindLips(const std::vector<Face>& faces, int maxLips);
+std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips);
 
-// A stat-scaled physics value: (low, high) by `stat` (0..10) as GetScaledValue scales it - low + (high - low) stat / 10
-// - then held to `limit` (a maximum for a rising pair, a minimum for a falling one) when `hasLimit`.
-float ScaledStat(float low, float high, float stat, bool hasLimit, float limit);
+// A stat-scaled physics value: (low, high) by `stat` (0..10) as get_scaled_value scales it - low + (high - low) stat / 10
+// - then held to `limit` (a maximum for a rising pair, a minimum for a falling one) when `has_limit`.
+float scaled_stat(float low, float high, float stat, bool has_limit, float limit);
 
 struct Physics {
-    float airGravity = -1350.0f;  // (Physics_Air_Gravity / Physics_Air_hang_Stat)
-    float vertGravity = -1227.3f; // (/ Physics_Vert_hang_Stat)
+    float air_gravity_ = -1350.0f;  // (Physics_Air_Gravity / Physics_Air_hang_Stat)
+    float vert_gravity_ = -1227.3f; // (/ Physics_Vert_hang_Stat)
     float jump = 432.0f;          // (Physics_Jump_Speed_Stat at the ollie stat)
     float speeds[3] = {603.5f, 828.5f, 1028.5f}; // push, top, max
-    float speedStat = 5.0f, ollieStat = 5.0f;
+    float speed_stat_ = 5.0f, ollie_stat_ = 5.0f;
     std::string source = "the defaults (no level)";
 };
 // What skater_physics gives at stat 5 (Skater_Default_Stats) - used when the scripts can't be read.
-Physics ArcsFallback();
+Physics arcs_fallback();
 constexpr int kSpeeds = 3;
-const char* SpeedName(int index);
-uint32_t SpeedColour(int index); // (ARGB)
+const char* speed_name(int index);
+uint32_t speed_colour(int index); // (ARGB)
 
 // The velocity leaving the lip at `speed`, with the ollie's `jump` (a falling y clamped to 0 first, as 0x00509450).
-V3 LaunchVelocity(const Lip& lip, float speed, float jump);
+V3 launch_velocity(const Lip& lip, float speed, float jump);
 
-// A flight from `start` at `velocity` under `gravity` (y, negative), frame by frame (`dt` seconds) for at most `maxTime`
+// A flight from `start` at `velocity` under `gravity` (y, negative), frame by frame (`dt` seconds) for at most `max_time`
 // seconds, each step's segment given to `cast` (from, to -> the hit and its normal; true on a hit) once past the first
 // `skip` seconds (the lip itself). `points` the positions (the start first, the landing last when it landed).
 struct Flight {
@@ -95,20 +95,20 @@ struct Flight {
     V3 apex = {};
 };
 using Cast = std::function<bool(V3 from, V3 to, V3* hit, V3* normal)>;
-Flight Fly(V3 start, V3 velocity, float gravity, float dt, float maxTime, float skip, const Cast& cast);
+Flight get_fly(V3 start, V3 velocity, float gravity, float dt, float max_time, float skip, const Cast& cast);
 // The highest a vertical launch at `speed` (+ the jump) rises: v^2 / 2|g|.
-float RiseHeight(float verticalSpeed, float gravity);
+float rise_height(float vertical_speed, float gravity);
 // A distance in units with feet ("812 (67.7 ft)": the game's units are inches).
-std::string SpanTo(float units);
+std::string span_to(float units);
 
 // --- the game side ----------------------------------------------------------------------------------------------
 
 // The physics values for the current skater (read again when `refresh`).
-const Physics& CurrentPhysics(bool refresh);
+const Physics& current_physics(bool refresh);
 // The arcs over the view for the scenery selected (the sectors' checksums) - nothing when the overlay is off or
 // nothing is selected. The lips' and flights' sums are made again only when the selection or its place changes.
-void AddOverlay(const Overlays::Painter& painter, const std::vector<uint32_t>& sectors);
+void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& sectors);
 // For the status bar / help: what the arcs show now ("2 lips, lands 812 (67.7 ft) at top speed").
-std::string Describe();
+std::string describe();
 
-} // namespace MenuSystem::LevelEditor::Arcs
+} // namespace MenuSystem::level_editor::Arcs

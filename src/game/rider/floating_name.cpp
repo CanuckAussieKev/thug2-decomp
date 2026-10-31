@@ -1,4 +1,4 @@
-// The skater's floating name component (GameObjects::CRiderOverheadTag): see floating_name.h.
+// The skater's floating name component (GameObjects::RiderOverheadTag): see floating_name.h.
 
 #include "game/rider/floating_name.h"
 
@@ -22,13 +22,13 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
 extern void** const kVtable;
 constexpr uint32_t kSkaterFloatingName = 0x125044E2;
-constexpr uint32_t kId = 0x40C698AF, kText = 0xC4745838, kPos3D = 0x4B491900;
+constexpr uint32_t kId = 0x40C698AF, kText = 0xC4745838, kPos3d = 0x4B491900;
 constexpr uint32_t kCreateObjectLabel = 0x6A060CF0, kDestroyObjectLabel = 0x2575B406;
 
 // skater_name_0 ... skater_name_7
@@ -39,130 +39,130 @@ constexpr float kLocalHeight = 96.0f;  // above this machine's player's skater
 constexpr float kOtherHeight = 120.0f; // above the others'
 
 // The network manager (0x007CCE14): a network game on, its show_names preference on, the player with an object id,
-// this machine's player (FetchViewedPlayer: its +0x1CC).
-OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
-bool InNetGame() { return NetSessionSlot()->InNetGame(); }
-bool ShowNames() { return NetSessionSlot()->WantsNameTags(); }
-uint8_t* FindPlayerSlotByObj(uint32_t id) { return NetSessionSlot()->FindPlayerSlotByObj(static_cast<uint16_t>(id)); }
-uint8_t* FindOwnPlayerRecord() { return static_cast<uint8_t*>(NetSessionSlot()->FetchViewedPlayer()); }
+// this machine's player (fetch_viewed_player: its +0x1CC).
+online::Hub* net_session_slot() { return online::g_online_hub; }
+bool in_net_game() { return net_session_slot()->in_net_game(); }
+bool show_names() { return net_session_slot()->wants_name_tags(); }
+uint8_t* find_player_slot_by_obj(uint32_t id) { return net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id)); }
+uint8_t* find_own_player_record() { return static_cast<uint8_t*>(net_session_slot()->fetch_viewed_player()); }
 // The game mode (0x007CE470)'s 0x005535F0: a team game. Not rewritten yet.
-bool IsSquadMatch() { return static_cast<GoalSystem::CMatchRules*>(static_cast<void*>(GoalSystem::g_gameMode))->IsSquadMatch() != 0; }
+bool is_squad_match() { return static_cast<goals::MatchRules*>(static_cast<void*>(goals::g_game_mode))->is_squad_match() != 0; }
 
-// `name` run with a structure holding only id = `labelId`.
-void RunWithLabelId(uint32_t name, uint32_t labelId)
+// `name` run with a structure holding only id = `label_id`.
+void run_with_label_id(uint32_t name, uint32_t label_id)
 {
-    Scripts::CStruct* params = Scripts::SpawnParamBag();
+    script::Struct* params = script::spawn_param_bag();
     if (params)
-        params->PrepareAll();
-    params->PutNameKey(kId, labelId);
-    Scripts::LaunchScript(name, params, nullptr, false, nullptr);
+        params->prepare_all();
+    params->put_name_key(kId, label_id);
+    script::launch_script(name, params, nullptr, false, nullptr);
     if (params) {
-        params->Clear();
-        Scripts::DeleteStruct(params);
+        params->get_clear();
+        script::delete_struct(params);
     }
 }
 
 } // namespace
 
 // 0x00511810
-CObjectModule* __cdecl CRiderOverheadTag::Fabricate()
+ObjectModule* __cdecl RiderOverheadTag::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CRiderOverheadTag));
+    void* memory = memory::alloc_zeroed(sizeof(RiderOverheadTag));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CRiderOverheadTag*>(memory);
-    component->CObjectModule::MakeNew();
-    component->m_vtable = kVtable;
-    component->m_kindTag = kSkaterFloatingName;
+    auto* component = static_cast<RiderOverheadTag*>(memory);
+    component->ObjectModule::make_new();
+    component->vtable_ = kVtable;
+    component->kind_tag_ = kSkaterFloatingName;
     return component;
 }
 
 // 0x00511AA0
-void CRiderOverheadTag::DestroyBody()
+void RiderOverheadTag::destroy_body()
 {
-    m_vtable = kVtable;
-    RunWithLabelId(kDestroyObjectLabel, m_labelId);
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    run_with_label_id(kDestroyObjectLabel, label_id_);
+    ObjectModule::destroy_body();
 }
 
 // 0x00511B80
-CRiderOverheadTag* CRiderOverheadTag::Teardown(unsigned int flags)
+RiderOverheadTag* RiderOverheadTag::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00511780
-void CRiderOverheadTag::ConfigureFromData(Scripts::CStruct* /*params*/)
+void RiderOverheadTag::configure_from_data(script::Struct* /*params*/)
 {
-    uint32_t id = m_entity->m_ident;
+    uint32_t id = entity_->ident_;
     if (id < 8)
-        m_labelId = kLabelIds[id];
+        label_id_ = kLabelIds[id];
 }
 
 // 0x00511870
-void CRiderOverheadTag::TickFrame()
+void RiderOverheadTag::tick_frame()
 {
-    if (!InNetGame() || !ShowNames()) {
-        VirtualSuspend(true);
+    if (!in_net_game() || !show_names()) {
+        virtual_suspend(true);
         return;
     }
-    MenuSystem::CUiWidget* label;
+    frontend::UiWidget* label;
     {
-        MenuSystem::ElementPtr found;
-        MenuSystem::CUiTree::Sole()->FetchPart(&found, m_labelId, 0);
-        label = found.Pull();
+        frontend::ElementPtr found;
+        frontend::UiTree::sole()->fetch_part(&found, label_id_, 0);
+        label = found.get_pull();
     }
-    uint8_t* player = FindPlayerSlotByObj(m_entity->m_ident);
-    auto* skater = static_cast<CRider*>(m_entity);
-    if (!skater->GetFlag2C4() || (m_entity->m_compositeFlags & COMPOSITE_FLAG_HIDDEN)) {
+    uint8_t* player = find_player_slot_by_obj(entity_->ident_);
+    auto* skater = static_cast<Rider*>(entity_);
+    if (!skater->get_flag_2c_4() || (entity_->composite_flags_ & kCompositeFlagHidden)) {
         if (label)
-            RunWithLabelId(kDestroyObjectLabel, m_labelId);
+            run_with_label_id(kDestroyObjectLabel, label_id_);
         return;
     }
-    float height = FindOwnPlayerRecord() == player ? kLocalHeight : kOtherHeight;
-    Scripts::CStruct* params = Scripts::SpawnParamBag();
+    float height = find_own_player_record() == player ? kLocalHeight : kOtherHeight;
+    script::Struct* params = script::spawn_param_bag();
     if (params)
-        params->PrepareAll();
-    params->PutNameKey(kId, m_labelId);
+        params->prepare_all();
+    params->put_name_key(kId, label_id_);
     // The text's colour: the team's (+0x30 of the player) in a team game, else the skater's own.
-    uint32_t colour = IsSquadMatch() ? *reinterpret_cast<uint32_t*>(player + 0x30) : m_entity->m_ident;
+    uint32_t colour = is_squad_match() ? *reinterpret_cast<uint32_t*>(player + 0x30) : entity_->ident_;
     char text[64];
-    std::snprintf(text, sizeof(text), "\\c%d%s", static_cast<int>(colour + 2), skater->FetchShownName());
-    params->AppendWord(kText, text);
-    const Maths::Vec4& pos = m_entity->m_atPoint;
-    params->PutVec3(kPos3D, pos.x, height + pos.y, pos.z);
-    if (label) // (its vtable's ChangeTraits: whatever object has the id)
-        reinterpret_cast<void(__thiscall*)(MenuSystem::CUiWidget*, Scripts::CStruct*)>(label->m_vtable[1])(label, params);
+    std::snprintf(text, sizeof(text), "\\c%d%s", static_cast<int>(colour + 2), skater->fetch_shown_name());
+    params->append_word(kText, text);
+    const maths::Vec4& pos = entity_->at_point_;
+    params->put_vec3(kPos3d, pos.x, height + pos.y, pos.z);
+    if (label) // (its vtable's change_traits: whatever object has the id)
+        reinterpret_cast<void(__thiscall*)(frontend::UiWidget*, script::Struct*)>(label->vtable_[1])(label, params);
     else
-        Scripts::LaunchScript(kCreateObjectLabel, params, nullptr, false, nullptr);
+        script::launch_script(kCreateObjectLabel, params, nullptr, false, nullptr);
     if (params) {
-        params->Clear();
-        Scripts::DeleteStruct(params);
+        params->get_clear();
+        script::delete_struct(params);
     }
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CRiderOverheadTag::Teardown,
-         &GameObjects::CRiderOverheadTag::TickFrame,
-         &GameObjects::CRiderOverheadTag::ConfigureFromData,
-         Stubs::DoNothing,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
-         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::RiderOverheadTag::teardown,
+         &objects::RiderOverheadTag::tick_frame,
+         &objects::RiderOverheadTag::configure_from_data,
+         stubs::do_nothing,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
+         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

@@ -22,12 +22,12 @@
 #include "game/rider/rider.h"
 #include "engine/core/code_address.h"
 
-namespace ScriptCommands {
+namespace commands {
 
 namespace {
 
-using GameObjects::CGameEntity;
-using Scripts::CStruct;
+using objects::GameEntity;
+using script::Struct;
 
 constexpr uint32_t kObj1 = 0x9A2DD8A1;              // "obj_1"
 constexpr uint32_t kObj2 = 0x0324891B;              // "obj_2"
@@ -47,51 +47,51 @@ struct SwapEntry {
     uint32_t current;
 };
 static_assert(sizeof(SwapEntry) == 12, "layout must match the original");
-static_assert(sizeof(ScriptCommands::SwapSlot) == sizeof(SwapEntry), "one table, two views");
-SwapEntry* Swaps() { return reinterpret_cast<SwapEntry*>(ScriptCommands::g_swapTable); } // (profile_cfuncs.cpp owns it)
+static_assert(sizeof(commands::SwapSlot) == sizeof(SwapEntry), "one table, two views");
+SwapEntry* get_swaps() { return reinterpret_cast<SwapEntry*>(commands::g_swap_table); } // (profile_cfuncs.cpp owns it)
 constexpr int kSwapCount = 5;
 
-// 0x005AA930 (ScriptCommands::SwapMapping, profile_cfuncs.cpp): the swap of the objects `a` and `b` recorded in the table.
-void RecordSwap(uint32_t a, uint32_t b) { ScriptCommands::SwapMapping(a, b); }
+// 0x005AA930 (commands::swap_mapping, profile_cfuncs.cpp): the swap of the objects `a` and `b` recorded in the table.
+void record_swap(uint32_t a, uint32_t b) { commands::swap_mapping(a, b); }
 
 // A skeleton (the skeleton component's +0x18): 0x004A3D30 constructs one in `memory` from the asset at another's +8,
 // 0x004A2E20 copies one into another, 0x004A2CB0 is its destructor body.
-uint8_t* SkeletonOf(GameObjects::CObjectModule* component) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x18); }
-void CopySkeleton(uint8_t* to, uint8_t* from)
+uint8_t* skeleton_of(objects::ObjectModule* component) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x18); }
+void copy_skeleton(uint8_t* to, uint8_t* from)
 {
-    reinterpret_cast<Gfx2D::CRig*>(to)->CopyBoneScales(reinterpret_cast<Gfx2D::CRig*>(from), true);
+    reinterpret_cast<gfx::Rig*>(to)->copy_bone_scales(reinterpret_cast<gfx::Rig*>(from), true);
 }
 
 // A model's +0xC (0x00492E50 / 0x00493460: the setter tells the model's parts) and its lights (+0x2C), whose
 // position follows a pointer (0x0048E4D0).
-uint32_t ModelGet(Engine3D::CRenderModel* model) { return reinterpret_cast<uint32_t(__thiscall*)(Engine3D::CRenderModel*)>(CodeAddress(&Engine3D::CRenderModel::FetchSkinningPalette))(model); }
-void ModelSet(Engine3D::CRenderModel* model, uint32_t value)
+uint32_t model_get(render::RenderModel* model) { return reinterpret_cast<uint32_t(__thiscall*)(render::RenderModel*)>(code_address(&render::RenderModel::fetch_skinning_palette))(model); }
+void model_set(render::RenderModel* model, uint32_t value)
 {
-    model->UploadSkinningPalette(reinterpret_cast<uint8_t*>(value));
+    model->upload_skinning_palette(reinterpret_cast<uint8_t*>(value));
 }
-void FollowPosition(Engine3D::CRenderModel* model, Maths::Vec4* position)
+void follow_position(render::RenderModel* model, maths::Vec4* position)
 {
     void* lights = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(model) + 0x2C);
-    static_cast<Engine3D::CModelLights*>(lights)->BindPositionSource(position);
+    static_cast<render::ModelLights*>(lights)->bind_position_source(position);
 }
 
-// The model component's ChangeMesh through its vtable (slot 14).
-void SetModelVirtual(GameObjects::CMeshInstanceModule* component, Engine3D::CRenderModel* model)
+// The model component's change_mesh through its vtable (slot 14).
+void set_model_virtual(objects::MeshInstanceModule* component, render::RenderModel* model)
 {
     auto** vtable = *reinterpret_cast<void***>(component);
-    reinterpret_cast<void(__thiscall*)(GameObjects::CMeshInstanceModule*, Engine3D::CRenderModel*)>(vtable[14])(component, model);
+    reinterpret_cast<void(__thiscall*)(objects::MeshInstanceModule*, render::RenderModel*)>(vtable[14])(component, model);
 }
 
 // An object's shadow made again: a skater's in its skater heap (type 1), anything else's type 2.
-void RemakeShadow(CGameEntity* object, GameObjects::CGroundShadowModule* shadow, GameObjects::CRider* skater)
+void remake_shadow(GameEntity* object, objects::GroundShadowModule* shadow, objects::Rider* skater)
 {
-    if (object->FetchModule(kSkaterCorePhysics)) {
-        MemSys::Hub* manager = MemSys::Hub::Pull();
-        manager->EnterHeapScope(manager->m_skaterHeaps[skater->GetSkaterNumber()]);
-        shadow->BuildBlobShadow(1, kPedShadow);
-        MemSys::Hub::Pull()->LeaveHeapScope();
+    if (object->fetch_module(kSkaterCorePhysics)) {
+        memory::Hub* manager = memory::Hub::get_pull();
+        manager->enter_heap_scope(manager->skater_heaps_[skater->get_skater_number()]);
+        shadow->build_blob_shadow(1, kPedShadow);
+        memory::Hub::get_pull()->leave_heap_scope();
     } else {
-        shadow->BuildBlobShadow(2, kPedShadow);
+        shadow->build_blob_shadow(2, kPedShadow);
     }
 }
 
@@ -102,112 +102,112 @@ void RemakeShadow(CGameEntity* object, GameObjects::CGroundShadowModule* shadow,
 // heap) and shadows; the swap is recorded; a skater's model-swapped value (+0x31C) is the id of an entry whose object
 // wears no other model now (0 if none). The objects are asked for core physics before they're checked for null, as in
 // the original. False if either is missing, they're the same object or either has no model.
-bool __cdecl CFunc_SwapObjectModels(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_swap_object_models(script::Struct* params, script::Script*)
 {
-    GameObjects::CRider* skater = nullptr;
+    objects::Rider* skater = nullptr;
     uint32_t id1;
-    params->ReadHashValue(kObj1, &id1, 1);
+    params->read_hash_value(kObj1, &id1, 1);
     uint32_t id2;
-    params->ReadHashValue(kObj2, &id2, 1);
-    auto* a = static_cast<CGameEntity*>(GameObjects::ObjectHubSlot()->LookUpEntity(id1));
-    auto* b = static_cast<CGameEntity*>(GameObjects::ObjectHubSlot()->LookUpEntity(id2));
-    if (a->FetchModule(kSkaterCorePhysics))
-        skater = static_cast<GameObjects::CRider*>(a);
-    if (b->FetchModule(kSkaterCorePhysics))
-        skater = static_cast<GameObjects::CRider*>(b);
+    params->read_hash_value(kObj2, &id2, 1);
+    auto* a = static_cast<GameEntity*>(objects::object_hub_slot()->look_up_entity(id1));
+    auto* b = static_cast<GameEntity*>(objects::object_hub_slot()->look_up_entity(id2));
+    if (a->fetch_module(kSkaterCorePhysics))
+        skater = static_cast<objects::Rider*>(a);
+    if (b->fetch_module(kSkaterCorePhysics))
+        skater = static_cast<objects::Rider*>(b);
     if (!a || !b || a == b)
         return false;
-    RecordSwap(a->m_ident, b->m_ident);
+    record_swap(a->ident_, b->ident_);
 
-    auto* modelA = static_cast<GameObjects::CMeshInstanceModule*>(a->FetchModule(kModel));
-    auto* modelB = static_cast<GameObjects::CMeshInstanceModule*>(b->FetchModule(kModel));
-    auto* shadowA = static_cast<GameObjects::CGroundShadowModule*>(a->FetchModule(kShadow));
-    auto* shadowB = static_cast<GameObjects::CGroundShadowModule*>(b->FetchModule(kShadow));
-    if (!modelA || !modelB)
+    auto* model_a = static_cast<objects::MeshInstanceModule*>(a->fetch_module(kModel));
+    auto* model_b = static_cast<objects::MeshInstanceModule*>(b->fetch_module(kModel));
+    auto* shadow_a = static_cast<objects::GroundShadowModule*>(a->fetch_module(kShadow));
+    auto* shadow_b = static_cast<objects::GroundShadowModule*>(b->fetch_module(kShadow));
+    if (!model_a || !model_b)
         return false;
-    shadowA->DestroyShadow();
-    shadowB->DestroyShadow();
+    shadow_a->destroy_shadow();
+    shadow_b->destroy_shadow();
 
     // the skeletons swapped through a copy
-    uint8_t* skeletonA = SkeletonOf(a->FetchModule(kSkeleton));
-    uint8_t* skeletonB = SkeletonOf(b->FetchModule(kSkeleton));
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(manager->m_topDownHeap);
-    void* memory = MemSys::Alloc(0x1C);
-    uint8_t* temp = memory ? reinterpret_cast<uint8_t*>(static_cast<Gfx2D::CRig*>(memory)->MakeNew(
-                                 *reinterpret_cast<Gfx2D::CRigData**>(skeletonA + 8)))
+    uint8_t* skeleton_a = skeleton_of(a->fetch_module(kSkeleton));
+    uint8_t* skeleton_b = skeleton_of(b->fetch_module(kSkeleton));
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(manager->top_down_heap_);
+    void* memory = memory::alloc(0x1C);
+    uint8_t* temp = memory ? reinterpret_cast<uint8_t*>(static_cast<gfx::Rig*>(memory)->make_new(
+                                 *reinterpret_cast<gfx::RigData**>(skeleton_a + 8)))
                            : nullptr;
-    MemSys::Hub::Pull()->LeaveHeapScope();
-    CopySkeleton(temp, skeletonA);
-    CopySkeleton(skeletonA, skeletonB);
-    CopySkeleton(skeletonB, temp);
+    memory::Hub::get_pull()->leave_heap_scope();
+    copy_skeleton(temp, skeleton_a);
+    copy_skeleton(skeleton_a, skeleton_b);
+    copy_skeleton(skeleton_b, temp);
     if (temp) {
-        reinterpret_cast<Gfx2D::CRig*>(temp)->DestroyBody();
-        MemSys::Hub::Pull()->Dealloc(temp);
+        reinterpret_cast<gfx::Rig*>(temp)->destroy_body();
+        memory::Hub::get_pull()->dealloc(temp);
     }
 
     // the renderable models swapped
-    Engine3D::CRenderModel* nxA = modelA->m_meshInstance;
-    Engine3D::CRenderModel* nxB = modelB->m_meshInstance;
-    uint32_t valueA = ModelGet(nxA);
-    ModelSet(nxA, ModelGet(nxB));
-    ModelSet(nxB, valueA);
-    SetModelVirtual(modelA, nxB);
-    SetModelVirtual(modelB, nxA);
+    render::RenderModel* nx_a = model_a->mesh_instance_;
+    render::RenderModel* nx_b = model_b->mesh_instance_;
+    uint32_t value_a = model_get(nx_a);
+    model_set(nx_a, model_get(nx_b));
+    model_set(nx_b, value_a);
+    set_model_virtual(model_a, nx_b);
+    set_model_virtual(model_b, nx_a);
 
-    auto* suspendA = static_cast<GameObjects::CDormancyModule*>(a->FetchModule(kSuspend));
-    auto* suspendB = static_cast<GameObjects::CDormancyModule*>(b->FetchModule(kSuspend));
-    suspendA->ResetCounts();
-    suspendB->ResetCounts();
-    a->HoldOff(false);
-    b->HoldOff(false);
+    auto* suspend_a = static_cast<objects::DormancyModule*>(a->fetch_module(kSuspend));
+    auto* suspend_b = static_cast<objects::DormancyModule*>(b->fetch_module(kSuspend));
+    suspend_a->reset_counts();
+    suspend_b->reset_counts();
+    a->hold_off(false);
+    b->hold_off(false);
 
     if (skater) {
         // (each component's model as it is now)
-        FollowPosition(modelA->m_meshInstance, &a->m_atPoint);
-        FollowPosition(modelB->m_meshInstance, &b->m_atPoint);
+        follow_position(model_a->mesh_instance_, &a->at_point_);
+        follow_position(model_b->mesh_instance_, &b->at_point_);
         bool found = false;
         for (int i = 0; i < kSwapCount; ++i) {
-            if (Swaps()[i].used && Swaps()[i].current == 0) {
-                skater->m_unknown31C = Swaps()[i].id;
+            if (get_swaps()[i].used && get_swaps()[i].current == 0) {
+                skater->unknown31c_ = get_swaps()[i].id;
                 found = true;
             }
         }
         if (!found)
-            skater->m_unknown31C = 0;
+            skater->unknown31c_ = 0;
     }
-    RemakeShadow(a, shadowA, skater);
-    RemakeShadow(b, shadowB, skater);
+    remake_shadow(a, shadow_a, skater);
+    remake_shadow(b, shadow_b, skater);
     return true;
 }
 
 // 0x005B3890: RestoreAllSwappedObjectModels: each recorded swap undone (SwapObjectModels on the entry's object and the
 // one whose model it wears), the table gone over again while it still holds swaps - at most as many times as there
 // were. Always true.
-bool __cdecl CFunc_RestoreAllSwappedObjectModels(Scripts::CStruct*, Scripts::CScript* script)
+bool __cdecl cfunc_restore_all_swapped_object_models(script::Struct*, script::Script* script)
 {
     int remaining = 0;
     for (int i = 0; i < kSwapCount; ++i)
-        if (Swaps()[i].used)
+        if (get_swaps()[i].used)
             ++remaining;
     if (!remaining)
         return true;
     for (;;) {
         bool any = false;
         for (int i = 0; i < kSwapCount; ++i) {
-            SwapEntry& entry = Swaps()[i];
+            SwapEntry& entry = get_swaps()[i];
             if (!entry.used)
                 continue;
             any = true;
-            CStruct* memory = Scripts::SpawnParamBag();
-            CStruct* swap = memory ? memory->PrepareAll() : nullptr;
-            swap->PutNameKey(kObj1, entry.id);
-            swap->PutNameKey(kObj2, entry.current);
-            CFunc_SwapObjectModels(swap, script);
+            Struct* memory = script::spawn_param_bag();
+            Struct* swap = memory ? memory->prepare_all() : nullptr;
+            swap->put_name_key(kObj1, entry.id);
+            swap->put_name_key(kObj2, entry.current);
+            cfunc_swap_object_models(swap, script);
             if (swap) {
                 // (delete inlined: the structure pool pair's Free)
-                swap->Clear();
-                Scripts::g_structPools.Dealloc(swap);
+                swap->get_clear();
+                script::g_struct_pools.dealloc(swap);
             }
         }
         if (!any || --remaining == 0)
@@ -217,15 +217,15 @@ bool __cdecl CFunc_RestoreAllSwappedObjectModels(Scripts::CStruct*, Scripts::CSc
 }
 
 // 0x005B3A30: GetSkaterModelIsSwapped [Skater=n]: whether skater n (or the local skater) wears another model.
-bool __cdecl CFunc_GetSkaterModelIsSwapped(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_get_skater_model_is_swapped(script::Struct* params, script::Script*)
 {
     int index;
-    GameObjects::CRider* skater;
-    if (params->FetchIntValue(kSkater, &index, 0))
-        skater = static_cast<GameObjects::CRider*>(GameModules::Skate::Sole()->GetRiderAt(index));
+    objects::Rider* skater;
+    if (params->fetch_int_value(kSkater, &index, 0))
+        skater = static_cast<objects::Rider*>(modules::Skate::sole()->get_rider_at(index));
     else
-        skater = GameModules::Skate::Sole()->GetHomeRider();
-    return skater->m_unknown31C != 0;
+        skater = modules::Skate::sole()->get_home_rider();
+    return skater->unknown31c_ != 0;
 }
 
-} // namespace ScriptCommands
+} // namespace commands

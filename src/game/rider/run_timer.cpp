@@ -1,4 +1,4 @@
-// The skater's run timer component (GameObjects::CRiderRunClock): see run_timer.h.
+// The skater's run timer component (GameObjects::RiderRunClock): see run_timer.h.
 
 #include "game/rider/run_timer.h"
 
@@ -18,10 +18,10 @@
 #include "game/rider/vehicle_sound.h"
 #include "game/rider/skater_camera_component.h"
 
-namespace GameObjects {
+namespace objects {
 
-uint32_t g_runTimerStateNames[4]{0x742CF11F, 0x5392CA8E, 0x26776873, 0xDEF417FA};
-uint32_t g_runTimerMemberFunctions[42]{
+uint32_t g_run_timer_state_names[4]{0x742CF11F, 0x5392CA8E, 0x26776873, 0xDEF417FA};
+uint32_t g_run_timer_member_functions[42]{
             0x82445966, 0x8BCE7E66, 0, 0, 0, 0,
             0x956236B1, 0x8BCE7E66, 0, 0, 0, 0,
             0xAB04CBF9, 0x8BCE7E66, 0, 0, 0, 0,
@@ -44,181 +44,181 @@ constexpr uint32_t kRunTimerScriptId = 0x83321DEA, kRunTimerIdBase = 0x7D42821C;
 constexpr int kMaxResumes = 8;
 constexpr float kResumeShare = 0.125f; // 0x0064B960 (1 / kMaxResumes)
 
-// The state names m_curPhase shows as (0x0064C080).
-const uint32_t* ModeLabelKeys() { return g_runTimerStateNames; }
+// The state names cur_phase_ shows as (0x0064C080).
+const uint32_t* mode_label_keys() { return g_run_timer_state_names; }
 
-uint32_t SkaterIndex(CGameEntity* skater) { return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(skater) + 0x2BC); }
-uint32_t TimerScriptId(CGameEntity* skater) { return SkaterIndex(skater) + kRunTimerScriptId; }
+uint32_t get_skater_index(GameEntity* skater) { return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(skater) + 0x2BC); }
+uint32_t timer_script_id(GameEntity* skater) { return get_skater_index(skater) + kRunTimerScriptId; }
 
 // The skater's physics value `name`.
-double PhysicsValue(CGameEntity* skater, uint32_t name)
+double physics_value(GameEntity* skater, uint32_t name)
 {
-    return static_cast<CRider*>(skater)->GetScaledPhysics(name);
+    return static_cast<Rider*>(skater)->get_scaled_physics(name);
 }
 
 // An event of `type` to the run timer's script (no data, not broadcast).
-void TellTimerScript(CGameEntity* skater, uint32_t type)
+void tell_timer_script(GameEntity* skater, uint32_t type)
 {
-    Tracker()->LaunchEvent(type, TimerScriptId(skater), skater->m_ident, nullptr, false, -1.0f);
+    get_tracker()->launch_event(type, timer_script_id(skater), skater->ident_, nullptr, false, -1.0f);
 }
 
 } // namespace
 
 // 0x005185D0
-CObjectModule* __cdecl CRiderRunClock::Fabricate()
+ObjectModule* __cdecl RiderRunClock::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CRiderRunClock));
+    void* memory = memory::alloc_zeroed(sizeof(RiderRunClock));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CRiderRunClock*>(memory);
-    component->CObjectModule::MakeNew();
-    component->m_vtable = kVtable;
-    component->m_kindTag = kSkaterRunTimer;
+    auto* component = static_cast<RiderRunClock*>(memory);
+    component->ObjectModule::make_new();
+    component->vtable_ = kVtable;
+    component->kind_tag_ = kSkaterRunTimer;
     return component;
 }
 
 // 0x00518240
-void __cdecl CRiderRunClock::PublishMethodTable()
+void __cdecl RiderRunClock::publish_method_table()
 {
-    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kSkaterRunTimer), g_runTimerMemberFunctions,
+    script::register_member_function_table(reinterpret_cast<void*>(kSkaterRunTimer), g_run_timer_member_functions,
                                         0x18);
 }
 
 // 0x00518260
-void CRiderRunClock::DestroyBody()
+void RiderRunClock::destroy_body()
 {
-    m_vtable = kVtable;
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    ObjectModule::destroy_body();
 }
 
 // 0x005182B0
-CRiderRunClock* CRiderRunClock::Teardown(unsigned int flags)
+RiderRunClock* RiderRunClock::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x005182E0
-void CRiderRunClock::Seal() { m_walk = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kWalk)); }
+void RiderRunClock::seal() { walk_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kWalk)); }
 
 // 0x00518270
-void CRiderRunClock::FetchDiagnostics(Scripts::CStruct* params)
+void RiderRunClock::fetch_diagnostics(script::Struct* params)
 {
-    params->PutNameKey(kMState, ModeLabelKeys()[m_curPhase]);
-    params->PushFloat(kMTimer, m_secondsRemaining);
-    // (then the base's FetchDiagnostics, which is empty: 0x005BAB90)
+    params->put_name_key(kMState, mode_label_keys()[cur_phase_]);
+    params->push_float(kMTimer, seconds_remaining_);
+    // (then the base's fetch_diagnostics, which is empty: 0x005BAB90)
 }
 
 // 0x00518300
-void CRiderRunClock::TickFrame()
+void RiderRunClock::tick_frame()
 {
-    if (m_curPhase == CLOCK_TICKING) {
-        int walkState = *reinterpret_cast<int*>(m_walk + 0x18);
+    if (cur_phase_ == kClockTicking) {
+        int walk_state = *reinterpret_cast<int*>(walk_ + 0x18);
         double elapsed;
-        if (walkState >= 2 && walkState <= 4) {
-            float adjustment = Scripts::FetchFloat(kHangSpeedAdjustment);
-            elapsed = FrameClock::GetSlomoFrameSeconds() * adjustment;
+        if (walk_state >= 2 && walk_state <= 4) {
+            float adjustment = script::fetch_float(kHangSpeedAdjustment);
+            elapsed = frame_clock::get_slomo_frame_seconds() * adjustment;
         } else {
-            elapsed = FrameClock::GetSlomoFrameSeconds();
+            elapsed = frame_clock::get_slomo_frame_seconds();
         }
-        m_secondsRemaining = static_cast<float>(m_secondsRemaining - elapsed);
-        if (m_secondsRemaining < 0.0f) {
-            m_curPhase = ACTIVE_TIME_UP;
-            m_entity->PostOwnEvent(kRunTimerUp, nullptr);
+        seconds_remaining_ = static_cast<float>(seconds_remaining_ - elapsed);
+        if (seconds_remaining_ < 0.0f) {
+            cur_phase_ = kActiveTimeUp;
+            entity_->post_own_event(kRunTimerUp, nullptr);
         }
-    } else if (m_curPhase == ACTIVE_TIME_UP) {
-        m_entity->PostOwnEvent(kRunTimerUp, nullptr);
+    } else if (cur_phase_ == kActiveTimeUp) {
+        entity_->post_own_event(kRunTimerUp, nullptr);
     }
 }
 
 // 0x00518390
-void CRiderRunClock::Halt()
+void RiderRunClock::halt()
 {
-    if (Scripts::LookUpSpawnedScript(TimerScriptId(m_entity)))
-        TellTimerScript(m_entity, kHideRunTimer);
-    m_curPhase = CLOCK_IDLE;
+    if (script::look_up_spawned_script(timer_script_id(entity_)))
+        tell_timer_script(entity_, kHideRunTimer);
+    cur_phase_ = kClockIdle;
 }
 
 // 0x005183F0
-void CRiderRunClock::Resume()
+void RiderRunClock::get_resume()
 {
-    if (m_curPhase == CLOCK_IDLE)
+    if (cur_phase_ == kClockIdle)
         return;
-    m_curPhase = m_secondsRemaining > 0.0f ? CLOCK_TICKING : ACTIVE_TIME_UP;
-    int16_t resumes = m_resumes;
+    cur_phase_ = seconds_remaining_ > 0.0f ? kClockTicking : kActiveTimeUp;
+    int16_t resumes = resumes_;
     if (resumes < kMaxResumes) {
-        double cap = PhysicsValue(m_entity, kDuration) * (kMaxResumes - resumes) * kResumeShare;
-        if (!(m_secondsRemaining < cap))
-            m_secondsRemaining = static_cast<float>(cap);
+        double cap = physics_value(entity_, kDuration) * (kMaxResumes - resumes) * kResumeShare;
+        if (!(seconds_remaining_ < cap))
+            seconds_remaining_ = static_cast<float>(cap);
     }
-    m_resumes = static_cast<int16_t>(resumes + 1);
-    TellTimerScript(m_entity, kShowRunTimer);
+    resumes_ = static_cast<int16_t>(resumes + 1);
+    tell_timer_script(entity_, kShowRunTimer);
 }
 
 // 0x005184A0
-bool CRiderRunClock::Freeze(Scripts::CStruct*, Scripts::CScript*)
+bool RiderRunClock::get_freeze(script::Struct*, script::Script*)
 {
-    if (m_curPhase != CLOCK_IDLE) {
-        m_curPhase = ACTIVE_PAUSED;
-        TellTimerScript(m_entity, kHideRunTimer);
+    if (cur_phase_ != kClockIdle) {
+        cur_phase_ = kActivePaused;
+        tell_timer_script(entity_, kHideRunTimer);
     }
     return true;
 }
 // 0x005184F0
-bool CRiderRunClock::Unpause(Scripts::CStruct*, Scripts::CScript*)
+bool RiderRunClock::unpause(script::Struct*, script::Script*)
 {
-    Resume();
+    get_resume();
     return true;
 }
 // 0x00518500
-bool CRiderRunClock::GetFactorComplete(Scripts::CStruct*, Scripts::CScript* script)
+bool RiderRunClock::get_factor_complete(script::Struct*, script::Script* script)
 {
-    script->m_args->PushFloat(kFactorComplete,
-                               static_cast<float>(m_secondsRemaining / PhysicsValue(m_entity, kDuration)));
+    script->args_->push_float(kFactorComplete,
+                               static_cast<float>(seconds_remaining_ / physics_value(entity_, kDuration)));
     return true;
 }
 // 0x00518540
-bool CRiderRunClock::FetchRunClockPadId(Scripts::CStruct*, Scripts::CScript* script)
+bool RiderRunClock::fetch_run_clock_pad_id(script::Struct*, script::Script* script)
 {
-    script->m_args->PutNameKey(kClockCtlKey, TimerScriptId(m_entity));
+    script->args_->put_name_key(kClockCtlKey, timer_script_id(entity_));
     return true;
 }
 // 0x00518570
-bool CRiderRunClock::GetRunTimerId(Scripts::CStruct*, Scripts::CScript* script)
+bool RiderRunClock::get_run_timer_id(script::Struct*, script::Script* script)
 {
-    script->m_args->PutNameKey(kRunTimerId, SkaterIndex(m_entity) + kRunTimerIdBase);
+    script->args_->put_name_key(kRunTimerId, get_skater_index(entity_) + kRunTimerIdBase);
     return true;
 }
 // 0x005185A0
-bool CRiderRunClock::ChainBegan(Scripts::CStruct*, Scripts::CScript*)
+bool RiderRunClock::chain_began(script::Struct*, script::Script*)
 {
-    m_secondsRemaining = static_cast<float>(PhysicsValue(m_entity, kDuration));
-    m_resumes = 0;
-    m_curPhase = ACTIVE_PAUSED;
+    seconds_remaining_ = static_cast<float>(physics_value(entity_, kDuration));
+    resumes_ = 0;
+    cur_phase_ = kActivePaused;
     return true;
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CRiderRunClock::Teardown,
-         &GameObjects::CRiderRunClock::TickFrame,
-         &CRiderStateReset::ConfigureFromData,
-         &GameObjects::CRiderRunClock::Seal,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         &GameObjects::CRiderRunClock::FetchDiagnostics,
-         &GameObjects::CObjectModule::DispatchScriptMethod,
-         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::RiderRunClock::teardown,
+         &objects::RiderRunClock::tick_frame,
+         &RiderStateReset::configure_from_data,
+         &objects::RiderRunClock::seal,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         &objects::RiderRunClock::fetch_diagnostics,
+         &objects::ObjectModule::dispatch_script_method,
+         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

@@ -5,9 +5,9 @@
 
 #include "engine/objects/entity.h"
 
-namespace Scripts {
-class CScript;
-class CStruct;
+namespace script {
+class Script;
+class Struct;
 } // namespace Script
 
 // The skater's flip-and-rotate component (SkaterFlipAndRotate, type 0x488AF07A, vtable 0x0064BE20, 0x28 bytes): the
@@ -15,55 +15,55 @@ class CStruct;
 // board rotated (shown back to front, told to the server) - at once or after the current animation (FlipAfter,
 // RotateAfter, BoardRotateAfter: done when the next PlayAnim comes). From the disassembly of 0x00511300-0x00511778.
 //
-// Vtable: 0 Destroy, 3 Finalize, 12 InvokeMethodByName; Update is the shared empty 0x0051B970.
-namespace GameObjects {
+// Vtable: 0 Destroy, 3 Finalize, 12 invoke_method_by_name; Update is the shared empty 0x0051B970.
+namespace objects {
 
-class CRiderSpinAndFlip : public CObjectModule {
+class RiderSpinAndFlip : public ObjectModule {
 public:
-    // 0x00511470 (registered by RegisterComponentTypes): a new one (0 if out of memory): the board not rotated, no
+    // 0x00511470 (registered by register_component_types): a new one (0 if out of memory): the board not rotated, no
     // components yet. The "after" flags aren't initialised.
-    static CObjectModule* __cdecl Fabricate();
+    static ObjectModule* __cdecl fabricate();
     // 0x00511300: the destructor body (the base's).
-    void DestroyBody();
+    void destroy_body();
     // 0x00511320 (vtable slot 0)
-    CRiderSpinAndFlip* Teardown(unsigned int flags);
+    RiderSpinAndFlip* teardown(unsigned int flags);
     // 0x00511350 (vtable +0x0C): the core physics, model and animation blender components found.
-    void Seal();
+    void seal();
     // 0x00511600 (vtable +0x30): BoardIsRotated, BoardRotate (to `Normal` - not rotated - or the other way; told to
     // the server), BoardRotateAfter, flip, FlipAndRotate, RotateNoFlip, FlipAfter, IsFlipAfterSet, RotateAfter, the
     // flip only if the core physics says so (0x72289A28, name unknown) - 1, or the flag; PlayAnim does what was
     // left for after the animation and returns 2 (not handled: the animation components play it).
-    int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
 
     // 0x00511390: the board rotated or not (returns what it was); with `send`, if `objectId`'s player is local, the
     // server is sent message 0x2A (the id and the value, a byte each). `unused` isn't read.
-    bool ApplyBoardTurned(uint32_t objectId, bool rotated, uint32_t unused, bool send);
+    bool apply_board_turned(uint32_t object_id, bool rotated, uint32_t unused, bool send);
     // 0x00511310: the flip and rotate left for after the animation dropped (the board's isn't).
-    void ClearAfterFlags();
+    void clear_after_flags();
     // 0x00511420: the animation blender mirrored as the state component's flip says (0x00419C10, with the skater's
     // client connection).
-    void ApplyFlipToAnims();
+    void apply_flip_to_anims();
     // 0x005114F0: flipped the other way (the state component's +0x28, the time it changed at +0x2C), then the
-    // animations as ApplyFlipToAnims.
-    void Flip();
+    // animations as apply_flip_to_anims.
+    void get_flip();
     // 0x00511570: what was left for after the animation: the flip, the turn around (the core physics' 0x004FE120),
     // the board's rotation (the other way, told to the server); the model's +0x1F4 cleared.
-    void DoAfterAnim();
+    void do_after_anim();
 
-    bool m_deckTurned;     // +0x18
-    bool m_flipAfter;        // +0x19
-    bool m_rotateAfter;      // +0x1A
-    bool m_boardRotateAfter; // +0x1B
-    CObjectModule* m_animBlender; // +0x1C (0x7149B753)
-    uint8_t* m_meshSet;        // +0x20 Model (0x286A8D26)
-    uint8_t* m_corePhysics;  // +0x24 SkaterCorePhysics (0x5BD63B29)
+    bool deck_turned_;     // +0x18
+    bool flip_after_;        // +0x19
+    bool rotate_after_;      // +0x1A
+    bool board_rotate_after_; // +0x1B
+    ObjectModule* anim_blender_; // +0x1C (0x7149B753)
+    uint8_t* mesh_set_;        // +0x20 Model (0x286A8D26)
+    uint8_t* core_physics_;  // +0x24 SkaterCorePhysics (0x5BD63B29)
 };
-static_assert(offsetof(CRiderSpinAndFlip, m_deckTurned) == 0x18 &&
-                  offsetof(CRiderSpinAndFlip, m_boardRotateAfter) == 0x1B &&
-                  offsetof(CRiderSpinAndFlip, m_animBlender) == 0x1C &&
-                  offsetof(CRiderSpinAndFlip, m_meshSet) == 0x20 &&
-                  offsetof(CRiderSpinAndFlip, m_corePhysics) == 0x24 &&
-                  sizeof(CRiderSpinAndFlip) == 0x28,
+static_assert(offsetof(RiderSpinAndFlip, deck_turned_) == 0x18 &&
+                  offsetof(RiderSpinAndFlip, board_rotate_after_) == 0x1B &&
+                  offsetof(RiderSpinAndFlip, anim_blender_) == 0x1C &&
+                  offsetof(RiderSpinAndFlip, mesh_set_) == 0x20 &&
+                  offsetof(RiderSpinAndFlip, core_physics_) == 0x24 &&
+                  sizeof(RiderSpinAndFlip) == 0x28,
               "layout must match the original (0x00511470 allocates 0x28 bytes)");
 
 } // namespace Obj

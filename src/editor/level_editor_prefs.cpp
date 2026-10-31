@@ -10,23 +10,23 @@
 #include "platform/run_log.h"
 #include "imgui.h"
 
-namespace MenuSystem::LevelEditor::OptionStore {
+namespace frontend::level_editor::prefs {
 
-Values Clamped(Values v)
+Values get_clamped(Values v)
 {
-    v.flySpeed = std::clamp(v.flySpeed, 50, 20000);
-    v.flyAccelMs = std::clamp(v.flyAccelMs, 0, 3000);
-    v.lookPct = std::clamp(v.lookPct, 10, 500);
-    v.gizmoPct = std::clamp(v.gizmoPct, 25, 400);
-    v.uiScalePct = v.uiScalePct <= 0 ? 0 : std::clamp(v.uiScalePct, 75, 400);
-    v.autosaveSeconds = std::clamp(v.autosaveSeconds, 10, 3600);
-    v.snapMove = std::clamp(v.snapMove, 1, 1000);
-    v.snapTurn = std::clamp(v.snapTurn, 1, 90);
+    v.fly_speed_ = std::clamp(v.fly_speed_, 50, 20000);
+    v.fly_accel_ms_ = std::clamp(v.fly_accel_ms_, 0, 3000);
+    v.look_pct_ = std::clamp(v.look_pct_, 10, 500);
+    v.gizmo_pct_ = std::clamp(v.gizmo_pct_, 25, 400);
+    v.ui_scale_pct_ = v.ui_scale_pct_ <= 0 ? 0 : std::clamp(v.ui_scale_pct_, 75, 400);
+    v.autosave_seconds_ = std::clamp(v.autosave_seconds_, 10, 3600);
+    v.snap_move_ = std::clamp(v.snap_move_, 1, 1000);
+    v.snap_turn_ = std::clamp(v.snap_turn_, 1, 90);
     v.accent = std::clamp(v.accent, 0, kAccentCount - 1);
     return v;
 }
 
-void AccentRgb(int accent, float rgb[3])
+void get_accent_rgb(int accent, float rgb[3])
 {
     static const float kRgb[kAccentCount][3] = {
         {0.82f, 0.34f, 0.11f}, // orange (the plan's mockup: the editor's own until now)
@@ -42,7 +42,7 @@ void AccentRgb(int accent, float rgb[3])
     rgb[2] = c[2];
 }
 
-const char* AccentName(int accent)
+const char* accent_name(int accent)
 {
     static const char* const kNames[kAccentCount] = {"Orange", "Blue", "Green", "Purple", "Red", "Teal"};
     return kNames[std::clamp(accent, 0, kAccentCount - 1)];
@@ -52,10 +52,10 @@ namespace {
 
 bool g_loaded;
 Values g_values;
-int g_styleGeneration;
+int g_style_generation;
 bool g_open;
 bool g_tips;     // (the tips window is up)
-bool g_tipsShownThisRun;
+bool g_tips_shown_this_run;
 
 // One [editor] key per value: its name, and the value as an int.
 struct Key {
@@ -63,53 +63,53 @@ struct Key {
     int Values::*field;
 };
 const Key kIntKeys[] = {
-    {"fly_speed", &Values::flySpeed},       {"fly_accel_ms", &Values::flyAccelMs}, {"look_pct", &Values::lookPct},
-    {"gizmo_pct", &Values::gizmoPct},       {"ui_scale_pct", &Values::uiScalePct}, {"autosave_s", &Values::autosaveSeconds},
-    {"snap_move", &Values::snapMove},       {"snap_turn", &Values::snapTurn},      {"accent", &Values::accent},
+    {"fly_speed", &Values::fly_speed_},       {"fly_accel_ms", &Values::fly_accel_ms_}, {"look_pct", &Values::look_pct_},
+    {"gizmo_pct", &Values::gizmo_pct_},       {"ui_scale_pct", &Values::ui_scale_pct_}, {"autosave_s", &Values::autosave_seconds_},
+    {"snap_move", &Values::snap_move_},       {"snap_turn", &Values::snap_turn_},      {"accent", &Values::accent},
 };
 struct BitMark {
     const char* name;
     bool Values::*field;
 };
 const BitMark kFlags[] = {
-    {"invert_y", &Values::invertY},
-    {"wasd_flies", &Values::wasdFlies},
-    {"speed_by_selection", &Values::speedBySelection},
-    {"tips_seen", &Values::tipsSeen},
+    {"invert_y", &Values::invert_y_},
+    {"wasd_flies", &Values::wasd_flies_},
+    {"speed_by_selection", &Values::speed_by_selection_},
+    {"tips_seen", &Values::tips_seen_},
 };
 
-void ReadIn()
+void read_in()
 {
     Values v;
     for (const Key& k : kIntKeys)
-        v.*k.field = ConfigInt("editor", k.name, v.*k.field);
+        v.*k.field = config_int("editor", k.name, v.*k.field);
     for (const BitMark& f : kFlags)
-        v.*f.field = ConfigInt("editor", f.name, v.*f.field ? 1 : 0) != 0;
-    g_values = Clamped(v);
+        v.*f.field = config_int("editor", f.name, v.*f.field ? 1 : 0) != 0;
+    g_values = get_clamped(v);
     g_loaded = true;
 }
 
-void StoreAway(const Values& before, const Values& after)
+void store_away(const Values& before, const Values& after)
 {
     for (const Key& k : kIntKeys) {
         if (before.*k.field != after.*k.field)
-            ConfigSetInt("editor", k.name, after.*k.field);
+            config_set_int("editor", k.name, after.*k.field);
     }
     for (const BitMark& f : kFlags) {
         if (before.*f.field != after.*f.field)
-            ConfigSetInt("editor", f.name, after.*f.field ? 1 : 0);
+            config_set_int("editor", f.name, after.*f.field ? 1 : 0);
     }
 }
 
-void SaveAll()
+void save_all()
 {
     for (const Key& k : kIntKeys)
-        ConfigSetInt("editor", k.name, g_values.*k.field);
+        config_set_int("editor", k.name, g_values.*k.field);
     for (const BitMark& f : kFlags)
-        ConfigSetInt("editor", f.name, g_values.*f.field ? 1 : 0);
+        config_set_int("editor", f.name, g_values.*f.field ? 1 : 0);
 }
 
-void Tip(const char* text)
+void get_tip(const char* text)
 {
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
@@ -119,29 +119,29 @@ void Tip(const char* text)
 
 } // namespace
 
-const Values& Pull()
+const Values& get_pull()
 {
     if (!g_loaded)
-        ReadIn();
+        read_in();
     return g_values;
 }
 
-void AssignValue(const Values& values, bool save)
+void assign_value(const Values& values, bool save)
 {
-    Values before = Pull();
-    Values after = Clamped(values);
-    if (after.uiScalePct != before.uiScalePct || after.accent != before.accent)
-        ++g_styleGeneration;
+    Values before = get_pull();
+    Values after = get_clamped(values);
+    if (after.ui_scale_pct_ != before.ui_scale_pct_ || after.accent != before.accent)
+        ++g_style_generation;
     g_values = after;
     if (save)
-        StoreAway(before, after);
+        store_away(before, after);
 }
 
-int StyleGeneration() { return g_styleGeneration; }
+int style_generation() { return g_style_generation; }
 
-bool& Unseal() { return g_open; }
+bool& unseal() { return g_open; }
 
-void Pane(float scale, ImFont* heading, ImFont* small)
+void pane(float scale, ImFont* heading, ImFont* small)
 {
     if (!g_open)
         return;
@@ -153,10 +153,10 @@ void Pane(float scale, ImFont* heading, ImFont* small)
         ImGui::End();
         return;
     }
-    Values v = Pull();
+    Values v = get_pull();
     bool changed = false;
     // (changes apply at once; the ini is written when a slider is let go, or at a click)
-    static bool s_prevFocused;
+    static bool s_prev_focused;
     bool active = false;
     auto section = [&](const char* title) {
         ImGui::Spacing();
@@ -173,57 +173,57 @@ void Pane(float scale, ImFont* heading, ImFont* small)
             changed = true;
         active |= ImGui::IsItemActive();
         if (tip)
-            Tip(tip);
+            get_tip(tip);
     };
     auto check = [&](const char* label, bool* value, const char* tip) {
         if (ImGui::Checkbox(label, value))
             changed = true;
         if (tip)
-            Tip(tip);
+            get_tip(tip);
     };
     section("Camera");
-    slider("Fly Speed", &v.flySpeed, 50, 20000, "%d units/s", "Initial fly speed");
-    slider("Acceleration", &v.flyAccelMs, 0, 3000, "%d ms", "Time to reach full speed");
-    slider("Mouse Sensitivity", &v.lookPct, 10, 500, "%d%%", "Look and orbit sensitivity");
-    check("Invert Mouse Y", &v.invertY, nullptr);
-    check("WASD Always Flies", &v.wasdFlies, "Fly without holding the right mouse button");
-    check("Fly Speed from Selection Size", &v.speedBySelection, "Frame Selection sets fly speed from its size");
+    slider("Fly Speed", &v.fly_speed_, 50, 20000, "%d units/s", "Initial fly speed");
+    slider("Acceleration", &v.fly_accel_ms_, 0, 3000, "%d ms", "Time to reach full speed");
+    slider("Mouse Sensitivity", &v.look_pct_, 10, 500, "%d%%", "Look and orbit sensitivity");
+    check("Invert Mouse Y", &v.invert_y_, nullptr);
+    check("WASD Always Flies", &v.wasd_flies_, "Fly without holding the right mouse button");
+    check("Fly Speed from Selection Size", &v.speed_by_selection_, "Frame Selection sets fly speed from its size");
     section("Editing");
-    slider("Gizmo Size", &v.gizmoPct, 25, 400, "%d%%", nullptr);
-    slider("Grid Size", &v.snapMove, 1, 1000, "%d units", nullptr);
-    slider("Rotation Snap", &v.snapTurn, 1, 90, "%d degrees", nullptr);
-    slider("Autosave Interval", &v.autosaveSeconds, 10, 3600, "%d s", nullptr);
+    slider("Gizmo Size", &v.gizmo_pct_, 25, 400, "%d%%", nullptr);
+    slider("Grid Size", &v.snap_move_, 1, 1000, "%d units", nullptr);
+    slider("Rotation Snap", &v.snap_turn_, 1, 90, "%d degrees", nullptr);
+    slider("Autosave Interval", &v.autosave_seconds_, 10, 3600, "%d s", nullptr);
     section("Look");
-    bool autoScale = v.uiScalePct == 0;
-    if (ImGui::Checkbox("Automatic UI Scale", &autoScale)) {
-        v.uiScalePct = autoScale ? 0 : 100;
+    bool auto_scale = v.ui_scale_pct_ == 0;
+    if (ImGui::Checkbox("Automatic UI Scale", &auto_scale)) {
+        v.ui_scale_pct_ = auto_scale ? 0 : 100;
         changed = true;
     }
-    Tip("Based on window size (1080p: 100%, 1440p: 125%, 4K: 200%)");
-    if (!autoScale)
-        slider("UI Scale", &v.uiScalePct, 75, 400, "%d%%", nullptr);
+    get_tip("Based on window size (1080p: 100%, 1440p: 125%, 4K: 200%)");
+    if (!auto_scale)
+        slider("UI Scale", &v.ui_scale_pct_, 75, 400, "%d%%", nullptr);
     ImGui::TextUnformatted("Accent");
     for (int i = 0; i < kAccentCount; ++i) {
         float rgb[3];
-        AccentRgb(i, rgb);
+        get_accent_rgb(i, rgb);
         ImGui::SameLine(0.0f, 6.0f * scale);
         ImGui::PushID(i);
         ImVec4 colour(rgb[0], rgb[1], rgb[2], 1.0f);
-        if (ImGui::ColorButton(AccentName(i), colour, ImGuiColorEditFlags_NoTooltip,
+        if (ImGui::ColorButton(accent_name(i), colour, ImGuiColorEditFlags_NoTooltip,
                                ImVec2((i == v.accent ? 22.0f : 16.0f) * scale, 16.0f * scale))) {
             v.accent = i;
             changed = true;
         }
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("%s", AccentName(i));
+            ImGui::SetTooltip("%s", accent_name(i));
         ImGui::PopID();
     }
-    Ux8::PrefsSection(); // (UX8: controller mode - level_editor_ux8.h)
+    ux8::prefs_section(); // (UX8: controller mode - level_editor_ux8.h)
     // The keymap (level_editor_actions.h - UX3's Keys section, [editor_keys] in the ini).
     ImGui::Spacing();
     if (ImGui::CollapsingHeader("Keys###prefskeys")) {
         ImGui::BeginChild("##prefskeys", ImVec2(0.0f, 380.0f * scale), ImGuiChildFlags_Borders);
-        Ux3::KeysSection();
+        ux3::keys_section();
         ImGui::EndChild();
     }
     ImGui::Spacing();
@@ -235,36 +235,36 @@ void Pane(float scale, ImFont* heading, ImFont* small)
         ImGui::PopFont();
     if (ImGui::Button("Defaults")) {
         Values d;
-        d.tipsSeen = v.tipsSeen;
+        d.tips_seen_ = v.tips_seen_;
         v = d;
         changed = true;
     }
     ImGui::SameLine();
     if (ImGui::Button("Show tips"))
-        ShowTips();
+        show_tips();
     ImGui::SameLine();
     if (ImGui::Button("Close"))
         g_open = false;
     if (changed || active)
-        AssignValue(v, false);
-    if ((changed && !active) || (s_prevFocused && !active))
-        SaveAll();
-    s_prevFocused = active;
+        assign_value(v, false);
+    if ((changed && !active) || (s_prev_focused && !active))
+        save_all();
+    s_prev_focused = active;
     ImGui::End();
 }
 
-void ShowTips()
+void show_tips()
 {
     g_tips = true;
-    g_tipsShownThisRun = true;
+    g_tips_shown_this_run = true;
 }
 
-void TipsWindow(float scale, ImFont* heading, ImFont* mono)
+void tips_window(float scale, ImFont* heading, ImFont* mono)
 {
     // (the first time the editor opens: once a run until dismissed for good)
-    if (!g_tips && !g_tipsShownThisRun && !Pull().tipsSeen) {
+    if (!g_tips && !g_tips_shown_this_run && !get_pull().tips_seen_) {
         g_tips = true;
-        g_tipsShownThisRun = true;
+        g_tips_shown_this_run = true;
     }
     if (!g_tips)
         return;
@@ -311,12 +311,12 @@ void TipsWindow(float scale, ImFont* heading, ImFont* mono)
     ImGui::End();
     if (dismiss || !open) {
         g_tips = false;
-        if (!Pull().tipsSeen) {
-            Values v = Pull();
-            v.tipsSeen = true;
-            AssignValue(v);
+        if (!get_pull().tips_seen_) {
+            Values v = get_pull();
+            v.tips_seen_ = true;
+            assign_value(v);
         }
     }
 }
 
-} // namespace MenuSystem::LevelEditor::OptionStore
+} // namespace MenuSystem::level_editor::prefs

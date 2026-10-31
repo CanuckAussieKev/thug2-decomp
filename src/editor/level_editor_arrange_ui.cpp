@@ -1,6 +1,6 @@
 // NOT ORIGINAL - the level editor's arrange tools and adjust-last panel on the UI (ours; see level_editor_arrange.h and
 // level_editor_adjust.h). Dear ImGui only (the renderer-independence rules: level_editor_ui_backend.h); what the
-// buttons ask for is queued and done in the editor's next Update (Arrange::TickFrame runs the queue).
+// buttons ask for is queued and done in the editor's next Update (Arrange::tick_frame runs the queue).
 
 #include <cstdio>
 #include <functional>
@@ -13,14 +13,14 @@
 #include "editor/level_editor_transform.h"
 #include "imgui.h"
 
-namespace MenuSystem::LevelEditor::Arrange {
+namespace frontend::level_editor::arrange {
 
 namespace {
 
 std::vector<std::function<void()>> g_queue;
-void Later(std::function<void()> action) { g_queue.push_back(std::move(action)); }
+void get_later(std::function<void()> action) { g_queue.push_back(std::move(action)); }
 
-void Tip(const char* text)
+void get_tip(const char* text)
 {
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("%s", text);
@@ -29,7 +29,7 @@ void Tip(const char* text)
 } // namespace
 
 // (called from Update: what the window asked for)
-void RunQueued()
+void run_queued()
 {
     std::vector<std::function<void()>> queue;
     queue.swap(g_queue);
@@ -37,13 +37,13 @@ void RunQueued()
         action();
 }
 
-void Pane(float uiScale)
+void pane(float ui_scale)
 {
-    Settings& s = AtHand();
+    Settings& s = at_hand();
     if (!s.window)
         return;
-    ImGui::SetNextWindowSize(ImVec2(330.0f * uiScale, 0.0f), ImGuiCond_Appearing);
-    ImGui::SetNextWindowPos(ImVec2(420.0f * uiScale, 120.0f * uiScale), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(330.0f * ui_scale, 0.0f), ImGuiCond_Appearing);
+    ImGui::SetNextWindowPos(ImVec2(420.0f * ui_scale, 120.0f * ui_scale), ImGuiCond_FirstUseEver);
     if (!ImGui::Begin("Arrange###arrange", &s.window, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::End();
         return;
@@ -55,9 +55,9 @@ void Pane(float uiScale)
             ImGui::SameLine();
         ImGui::RadioButton(kAxes[axis], &s.axis, axis);
     }
-    ImGui::SameLine(0.0f, 14.0f * uiScale);
+    ImGui::SameLine(0.0f, 14.0f * ui_scale);
     ImGui::Checkbox("Local", &s.local);
-    Tip("Use the first item's axes");
+    get_tip("Use the first item's axes");
     int reference = static_cast<int>(s.reference);
     ImGui::RadioButton("Selection Bounds", &reference, 0);
     ImGui::SameLine();
@@ -71,79 +71,79 @@ void Pane(float uiScale)
         std::snprintf(label, sizeof(label), "Align %s", kEdges[edge]);
         if (ImGui::Button(label)) {
             int axis = s.axis;
-            Later([axis, edge] {
-                Justify(axis, static_cast<Edge>(edge), AtHand().reference, AtHand().local);
+            get_later([axis, edge] {
+                justify(axis, static_cast<Edge>(edge), at_hand().reference, at_hand().local);
             });
         }
     }
     if (ImGui::Button("Distribute")) {
         int axis = s.axis;
-        Later([axis] { Distribute(axis, AtHand().gaps, AtHand().local); });
+        get_later([axis] { distribute(axis, at_hand().gaps, at_hand().local); });
     }
-    Tip("Space 3 or more evenly; ends stay");
+    get_tip("Space 3 or more evenly; ends stay");
     ImGui::SameLine();
     ImGui::Checkbox("Equal gaps", &s.gaps);
-    Tip("Equal gaps instead of equal centre spacing");
+    get_tip("Equal gaps instead of equal centre spacing");
 
     ImGui::SeparatorText("Replace");
     if (ImGui::Button("Replace Selection"))
-        Later([] { Replace(); });
-    Tip("Replace with the item highlighted in Add Piece (B)");
+        get_later([] { get_replace(); });
+    get_tip("Replace with the item highlighted in Add Piece (B)");
 
     ImGui::SeparatorText("Linked Copies");
     if (ImGui::Button("Duplicate Linked"))
-        Later([] { Links::LinkedDuplicate(); });
+        get_later([] { links::linked_duplicate(); });
     ImGui::SameLine();
     if (ImGui::Button("Unlink"))
-        Later([] { Links::UnlinkSelection(); });
-    std::string linked = Links::Describe();
+        get_later([] { links::unlink_selection(); });
+    std::string linked = links::describe();
     ImGui::TextDisabled("%s", linked.empty() ? "(not linked)" : linked.c_str());
 
     ImGui::SeparatorText("Rail Along Edge");
-    bool picking = EdgePicking();
+    bool picking = edge_picking();
     if (ImGui::Checkbox("Pick Edge", &picking))
-        Later([picking] { SetEdgePicking(picking); });
-    Tip("Click a top edge of the selected scenery to add a rail  (Alt+R)");
+        get_later([picking] { set_edge_picking(picking); });
+    get_tip("Click a top edge of the selected scenery to add a rail  (Alt+R)");
 
     ImGui::SeparatorText("Options");
-    ImGui::Checkbox("Edge Snapping", &s.edgeSnap);
-    Tip("Snap scenery flush to neighbours");
+    ImGui::Checkbox("Edge Snapping", &s.edge_snap_);
+    get_tip("Snap scenery flush to neighbours");
     ImGui::Checkbox("Drag Measurements", &s.measure);
     ImGui::Checkbox("Placement Preview", &s.ghost);
-    ImGui::Checkbox("Click to Place", &s.clickPlaces);
-    ImGui::Checkbox("Align to Slope", &s.ghostSlope);
+    ImGui::Checkbox("Click to Place", &s.click_places_);
+    ImGui::Checkbox("Align to Slope", &s.ghost_slope_);
     ImGui::End();
 }
 
-void BrowserExtras(float uiScale)
+void browser_extras(float ui_scale)
 {
-    (void)uiScale;
+    (void)ui_scale;
     if (ImGui::SmallButton("Replace Selection"))
-        Later([] { Replace(); });
-    Tip("Replace the selection with this item");
+        get_later([] { get_replace(); });
+    get_tip("Replace the selection with this item");
     ImGui::SameLine();
-    ImGui::Checkbox("Click to Place", &AtHand().clickPlaces);
-    Tip("Click in the view to place (Shift: more)");
+    ImGui::Checkbox("Click to Place", &at_hand().click_places_);
+    get_tip("Click in the view to place (Shift: more)");
 }
 
-} // namespace MenuSystem::LevelEditor::Arrange
+} // namespace MenuSystem::level_editor::Arrange
 
-namespace MenuSystem::LevelEditor::Adjust {
+namespace frontend::level_editor::adjust {
 
-void Panel(float x, float y, float uiScale)
+void get_panel(float x, float y, float ui_scale)
 {
-    const ActStep& last = FinalOne();
-    if (!Shown() || last.kind == Kind::None)
+    const ActStep& last = final_one();
+    if (!get_shown() || last.kind == Kind::kNone)
         return;
     static ActStep edit;
     static bool editing;
     if (!editing)
         edit = last;
-    bool adjustable = Adjustable();
-    ImGui::SetNextWindowPos(ImVec2(x + 8.0f * uiScale, y - 8.0f * uiScale), ImGuiCond_Always, ImVec2(0.0f, 1.0f));
-    ImGui::SetNextWindowSize(ImVec2(280.0f * uiScale, 0.0f));
+    bool adjustable = get_adjustable();
+    ImGui::SetNextWindowPos(ImVec2(x + 8.0f * ui_scale, y - 8.0f * ui_scale), ImGuiCond_Always, ImVec2(0.0f, 1.0f));
+    ImGui::SetNextWindowSize(ImVec2(280.0f * ui_scale, 0.0f));
     char title[64];
-    std::snprintf(title, sizeof(title), "Adjust: %s (F4)###adjust_last", Title(last.kind));
+    std::snprintf(title, sizeof(title), "Adjust: %s (F4)###adjust_last", get_title(last.kind));
     if (!ImGui::Begin(title, nullptr,
                       ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
                           ImGuiWindowFlags_AlwaysAutoResize)) {
@@ -159,21 +159,21 @@ void Panel(float x, float y, float uiScale)
     };
     float speed = 1.0f;
     switch (edit.kind) {
-    case Kind::ShiftBy:
+    case Kind::kShiftBy:
         track(ImGui::DragFloat3("Offset", &edit.offset.x, speed, -100000.0f, 100000.0f, "%.1f"));
         track(ImGui::Checkbox("On the grid", &edit.grid));
         break;
-    case Kind::Turn:
+    case Kind::kTurn:
         track(ImGui::DragFloat("Angle", &edit.degrees, edit.quarters ? 3.0f : 0.5f, -3600.0f, 3600.0f,
                                edit.quarters ? "%.0f (quarters)" : "%.1f"));
         break;
-    case Kind::StretchBy:
+    case Kind::scale_tool:
         if (edit.uniform)
             track(ImGui::DragFloat("Factor", &edit.factor.x, 0.01f, 0.05f, 20.0f, "%.3f"));
         else
             track(ImGui::DragFloat3("Factor", &edit.factor.x, 0.01f, 0.05f, 20.0f, "%.3f"));
         break;
-    case Kind::Duplicate:
+    case Kind::kDuplicate:
         // (copies are made only when a field is let go: dozens of copies each frame would be slow)
         ImGui::DragInt("Copies", &edit.count, 0.2f, 1, kMaxCopies);
         done = done || ImGui::IsItemDeactivatedAfterEdit();
@@ -185,15 +185,15 @@ void Panel(float x, float y, float uiScale)
         if (ImGui::Checkbox("On the grid", &edit.grid))
             done = true;
         break;
-    case Kind::Justify:
-    case Kind::Distribute: {
+    case Kind::kJustify:
+    case Kind::kDistribute: {
         static const char* const kAxes[] = {"X", "Y", "Z"};
         for (int axis = 0; axis < 3; ++axis) {
             if (axis)
                 ImGui::SameLine();
             track(ImGui::RadioButton(kAxes[axis], &edit.axis, axis));
         }
-        if (edit.kind == Kind::Justify) {
+        if (edit.kind == Kind::kJustify) {
             static const char* const kEdges[] = {"Min", "Centre", "Max"};
             for (int e = 0; e < 3; ++e) {
                 if (e)
@@ -209,23 +209,23 @@ void Panel(float x, float y, float uiScale)
         track(ImGui::Checkbox("Local", &edit.local));
         break;
     }
-    case Kind::Place:
+    case Kind::kPlace:
         track(ImGui::DragFloat3("Position", &edit.pos.x, 1.0f, -100000.0f, 100000.0f, "%.1f"));
         track(ImGui::DragFloat("Turn", &edit.degrees, edit.quarters ? 3.0f : 0.5f, -360.0f, 360.0f,
                                edit.quarters ? "%.0f (quarters)" : "%.1f"));
         break;
-    case Kind::None:
+    case Kind::kNone:
         break;
     }
     ImGui::EndDisabled();
     editing = ImGui::IsAnyItemActive() && ImGui::IsWindowFocused();
     if (!adjustable)
         ImGui::TextDisabled("Only the last operation can be adjusted");
-    else if (edit.kind == Kind::Duplicate)
+    else if (edit.kind == Kind::kDuplicate)
         ImGui::TextDisabled("Release to apply");
     ImGui::End();
     if (adjustable && (live || done))
-        Request(edit, done);
+        get_request(edit, done);
 }
 
-} // namespace MenuSystem::LevelEditor::Adjust
+} // namespace MenuSystem::level_editor::Adjust

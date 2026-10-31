@@ -27,9 +27,9 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace GameObjects {
+namespace objects {
 
-uint32_t g_statsManagerMemberFunctions[60]{
+uint32_t g_stats_manager_member_functions[60]{
             0x82CE30CE, 0x4FF8DAC6, 0, 0, 0, 0,
             0x57879C96, 0x4FF8DAC6, 0, 0, 0, 0,
             0xEE59073C, 0x4FF8DAC6, 0, 0, 0, 0,
@@ -48,7 +48,7 @@ extern void** const kVtable;
 constexpr uint32_t kSkaterState = 0x43686585;
 constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D;
 
-// This frame's state (m_curPhase).
+// This frame's state (cur_phase_).
 constexpr uint32_t kStateOther = 0x26A7CADF;
 constexpr uint32_t kStateLaunched = 0xB39B4F1B; // the skater state's +0x30
 constexpr uint32_t kStateAir = 0x439F4704;      // in the air (physics state 1) without +0x30
@@ -81,264 +81,264 @@ constexpr uint32_t kLip = 0xA549B57B;
 constexpr float kFeet = 12.0f; // 0x0064546C
 
 template <typename T>
-T& Prop(const void* object, uint32_t offset)
+T& prop(const void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
 }
 
-void LaunchScript(uint32_t name, Scripts::CStruct* params = nullptr) { Scripts::LaunchScript(name, params, nullptr, false, nullptr); }
+void launch_script(uint32_t name, script::Struct* params = nullptr) { script::launch_script(name, params, nullptr, false, nullptr); }
 
-Scripts::CStruct* NewParams()
+script::Struct* new_params()
 {
-    Scripts::CStruct* memory = Scripts::SpawnParamBag();
-    return memory ? memory->PrepareAll() : nullptr;
+    script::Struct* memory = script::spawn_param_bag();
+    return memory ? memory->prepare_all() : nullptr;
 }
-void DeleteParams(Scripts::CStruct* params)
+void delete_params(script::Struct* params)
 {
     if (params) {
-        params->Clear();
-        Scripts::DeleteStruct(params);
+        params->get_clear();
+        script::delete_struct(params);
     }
 }
 
-void* SkateModule() { return static_cast<void*>(GameModules::g_skateModule); }
-CRiderIdentity* FirstProfile() { return static_cast<GameModules::Skate*>(SkateModule())->FetchAccount(static_cast<int>(0)); }
-void* GameFlow() { return GoalSystem::GetObjectiveBoard(); }
+void* skate_module() { return static_cast<void*>(modules::g_skate_module); }
+RiderIdentity* first_profile() { return static_cast<modules::Skate*>(skate_module())->fetch_account(static_cast<int>(0)); }
+void* game_flow() { return goals::get_objective_board(); }
 
 // The skater's score component and its counts.
-void* PointTally(CGameEntity* skater) { return reinterpret_cast<CRider*>(skater)->GetPointsTotal(); }
-int CountTricks(void* score, uint32_t trick, int a, int b, int c)
+void* point_tally(GameEntity* skater) { return reinterpret_cast<Rider*>(skater)->get_points_total(); }
+int count_tricks(void* score, uint32_t trick, int a, int b, int c)
 {
-    return static_cast<GameModules::PointTally*>(score)->CountTrickAfterTaps(trick, a, reinterpret_cast<bool&>(b), c);
+    return static_cast<modules::PointTally*>(score)->count_trick_after_taps(trick, a, reinterpret_cast<bool&>(b), c);
 }
 
 // 0x00423680: the distance between two points (z, x, then y; unrounded).
-double SpanTo(const Maths::Vec4& a, const Maths::Vec4& b)
+double span_to(const maths::Vec4& a, const maths::Vec4& b)
 {
     double dx = static_cast<double>(a.x) - b.x, dy = static_cast<double>(a.y) - b.y, dz = static_cast<double>(a.z) - b.z;
     return std::sqrt((dz * dz + dx * dx) + dy * dy);
 }
 
 // a - b, wrapping as the original's 32-bit subtraction.
-int Minus(int a, int b) { return static_cast<int>(static_cast<uint32_t>(a) - static_cast<uint32_t>(b)); }
+int get_minus(int a, int b) { return static_cast<int>(static_cast<uint32_t>(a) - static_cast<uint32_t>(b)); }
 
 // The original's float-to-int (_ftol: towards zero).
-int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); } // (the low 32 bits)
+int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); } // (the low 32 bits)
 
 } // namespace
 
 // 0x0051CB90
-CObjectModule* __cdecl CAttributeTracker::Fabricate()
+ObjectModule* __cdecl AttributeTracker::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CAttributeTracker));
-    return memory ? static_cast<CAttributeTracker*>(memory)->MakeNew() : nullptr;
+    void* memory = memory::alloc_zeroed(sizeof(AttributeTracker));
+    return memory ? static_cast<AttributeTracker*>(memory)->make_new() : nullptr;
 }
 
 // 0x0051C440
-void __cdecl CAttributeTracker::PublishMethodTable()
+void __cdecl AttributeTracker::publish_method_table()
 {
-    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_statsManagerMemberFunctions, 0x18);
+    script::register_member_function_table(reinterpret_cast<void*>(kType), g_stats_manager_member_functions, 0x18);
 }
 
 // 0x0051C5A0
-CAttributeTracker* CAttributeTracker::MakeNew()
+AttributeTracker* AttributeTracker::make_new()
 {
-    CObjectModule::MakeNew();
-    m_skater = nullptr;
-    m_skaterState = nullptr;
-    m_physicsControl = nullptr;
-    m_unknownA9C = 0;
-    m_vtable = kVtable;
-    m_kindTag = kType;
-    m_airStart = {0.0f, 0.0f, 0.0f, 0.0f};
-    m_airEnd = {0.0f, 0.0f, 0.0f, 0.0f};
-    m_jumpStart = {0.0f, 0.0f, 0.0f, 0.0f};
-    m_jumpEnd = {0.0f, 0.0f, 0.0f, 0.0f};
-    m_lastAirComboScore = 0;
+    ObjectModule::make_new();
+    skater_ = nullptr;
+    skater_state_ = nullptr;
+    physics_control_ = nullptr;
+    unknowna9c_ = 0;
+    vtable_ = kVtable;
+    kind_tag_ = kType;
+    air_start_ = {0.0f, 0.0f, 0.0f, 0.0f};
+    air_end_ = {0.0f, 0.0f, 0.0f, 0.0f};
+    jump_start_ = {0.0f, 0.0f, 0.0f, 0.0f};
+    jump_end_ = {0.0f, 0.0f, 0.0f, 0.0f};
+    last_air_combo_score_ = 0;
     return this;
 }
 
 // 0x0051C460
-void CAttributeTracker::DestroyBody()
+void AttributeTracker::destroy_body()
 {
-    m_vtable = kVtable;
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    ObjectModule::destroy_body();
 }
 
 // 0x0051C640
-CAttributeTracker* CAttributeTracker::Teardown(unsigned int flags)
+AttributeTracker* AttributeTracker::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x0051C470
-int CAttributeTracker::GetGoalStatus(int index) { return m_goals[index].m_curStanding; }
+int AttributeTracker::get_goal_status(int index) { return goals_[index].cur_standing_; }
 
 // 0x0051C480
-void CAttributeTracker::SetGoalStatus(int index, int status)
+void AttributeTracker::set_goal_status(int index, int status)
 {
-    m_goals[index].m_curStanding = status;
+    goals_[index].cur_standing_ = status;
     if (status == 1)
-        m_goalDone = true;
+        goal_done_ = true;
 }
 
 // 0x0051C670
-void CAttributeTracker::ConfigureFromData(Scripts::CStruct*)
+void AttributeTracker::configure_from_data(script::Struct*)
 {
-    m_goalDone = false;
-    m_activated = false;
-    m_curPhase = 0;
-    m_lastState = 0;
-    m_airPhase = 0;
-    m_airHeight = 0.0f;
-    m_airBest = 0;
-    m_airStartPoints = 0;
-    m_airStartMultiplier = 0.0f;
-    m_jumpPhase = 0;
-    m_countA80 = 0;
-    m_countA84 = 0;
-    m_airScore = 0;
-    m_firstUpdate = true;
-    m_skater = static_cast<CGameEntity*>(ObjectHubSlot()->LookUpEntity(m_entity->m_ident));
-    if (!m_skater) {
-        m_skaterState = nullptr;
-        m_physicsControl = nullptr;
+    goal_done_ = false;
+    activated_ = false;
+    cur_phase_ = 0;
+    last_state_ = 0;
+    air_phase_ = 0;
+    air_height_ = 0.0f;
+    air_best_ = 0;
+    air_start_points_ = 0;
+    air_start_multiplier_ = 0.0f;
+    jump_phase_ = 0;
+    count_a80_ = 0;
+    count_a84_ = 0;
+    air_score_ = 0;
+    first_update_ = true;
+    skater_ = static_cast<GameEntity*>(object_hub_slot()->look_up_entity(entity_->ident_));
+    if (!skater_) {
+        skater_state_ = nullptr;
+        physics_control_ = nullptr;
     } else {
-        m_skaterState = m_skater->FetchModule(kSkaterState);
-        m_physicsControl = m_skater->FetchModule(kSkaterPhysicsControl);
+        skater_state_ = skater_->fetch_module(kSkaterState);
+        physics_control_ = skater_->fetch_module(kSkaterPhysicsControl);
     }
-    m_difficulty = static_cast<GoalSystem::CGoalManager*>(GameFlow())->GetSkillTier(true);
-    DebugOut::Printf("STATSManager: difficulty ====================== %i\n", m_difficulty); // "STATSManager: difficulty ... %i"
-    if (Scripts::FetchIntValue(0xB8688A8Au) == 1)
-        m_raiseStats = true;
+    difficulty_ = static_cast<goals::GoalManager*>(game_flow())->get_skill_tier(true);
+    debug::printf("STATSManager: difficulty ====================== %i\n", difficulty_); // "STATSManager: difficulty ... %i"
+    if (script::fetch_int_value(0xB8688A8Au) == 1)
+        raise_stats_ = true;
 
-    Scripts::CArray* goals = Scripts::FetchList(0x4E46CC28u);
-    int count = static_cast<int>(goals->m_extent);
+    script::Array* goals = script::fetch_list(0x4E46CC28u);
+    int count = static_cast<int>(goals->extent_);
     for (int i = 0; i < count; ++i) {
-        auto* source = reinterpret_cast<Scripts::CStruct*>(goals->FetchPart(static_cast<uint32_t>(i)));
-        Goal& goal = m_goals[i];
+        auto* source = reinterpret_cast<script::Struct*>(goals->fetch_part(static_cast<uint32_t>(i)));
+        Goal& goal = goals_[i];
         uint32_t checksum;
-        if (source->HasEntryNamed(0x0FFD7BBEu)) {
-            source->ReadHashValue(0x0FFD7BBEu, &checksum, 1);
-            goal.m_kind = checksum;
+        if (source->has_entry_named(0x0FFD7BBEu)) {
+            source->read_hash_value(0x0FFD7BBEu, &checksum, 1);
+            goal.kind_ = checksum;
         }
-        if (source->HasEntryNamed(0xC2455018u)) {
-            source->ReadHashValue(0xC2455018u, &checksum, 1);
-            goal.m_attrKey = checksum;
+        if (source->has_entry_named(0xC2455018u)) {
+            source->read_hash_value(0xC2455018u, &checksum, 1);
+            goal.attr_key_ = checksum;
         }
-        Scripts::CArray* byDifficulty;
-        if (source->HasEntryNamed(0xE288A7CBu)) {
-            byDifficulty = nullptr;
-            source->FetchList(0xE288A7CBu, &byDifficulty, 1);
-            goal.m_aimPoint = static_cast<int>(byDifficulty->FetchPart(static_cast<uint32_t>(m_difficulty)));
+        script::Array* by_difficulty;
+        if (source->has_entry_named(0xE288A7CBu)) {
+            by_difficulty = nullptr;
+            source->fetch_list(0xE288A7CBu, &by_difficulty, 1);
+            goal.aim_point_ = static_cast<int>(by_difficulty->fetch_part(static_cast<uint32_t>(difficulty_)));
         }
-        if (source->HasEntryNamed(0xCD021293u)) {
-            byDifficulty = nullptr;
-            source->FetchList(0xCD021293u, &byDifficulty, 1);
-            goal.m_text = byDifficulty->FindInlineText(static_cast<uint32_t>(m_difficulty));
+        if (source->has_entry_named(0xCD021293u)) {
+            by_difficulty = nullptr;
+            source->fetch_list(0xCD021293u, &by_difficulty, 1);
+            goal.text_ = by_difficulty->find_inline_text(static_cast<uint32_t>(difficulty_));
         }
-        if (source->HasEntryNamed(0xC4745838u)) {
+        if (source->has_entry_named(0xC4745838u)) {
             const char* name = ""; // ""
-            source->FetchText(0xC4745838u, &name, 1);
-            goal.m_label = name;
+            source->fetch_text(0xC4745838u, &name, 1);
+            goal.label_ = name;
         }
-        if (source->HasEntryNamed(0xBD982FDCu)) {
+        if (source->has_entry_named(0xBD982FDCu)) {
             int ignored;
-            source->FetchIntValue(0xBD982FDCu, &ignored, 1);
-            goal.m_curStanding = 0;
+            source->fetch_int_value(0xBD982FDCu, &ignored, 1);
+            goal.cur_standing_ = 0;
         }
-        if (source->HasEntryNamed(0xD8A9D3CAu)) {
-            byDifficulty = nullptr;
-            source->FetchList(0xD8A9D3CAu, &byDifficulty, 1);
-            goal.m_trick = byDifficulty->FetchPart(static_cast<uint32_t>(m_difficulty));
+        if (source->has_entry_named(0xD8A9D3CAu)) {
+            by_difficulty = nullptr;
+            source->fetch_list(0xD8A9D3CAu, &by_difficulty, 1);
+            goal.trick_ = by_difficulty->fetch_part(static_cast<uint32_t>(difficulty_));
         }
-        if (source->HasEntryNamed(0x3C2FB496u)) {
-            byDifficulty = nullptr;
-            source->FetchList(0x3C2FB496u, &byDifficulty, 1);
-            goal.m_value20 = byDifficulty->FetchPart(static_cast<uint32_t>(m_difficulty));
+        if (source->has_entry_named(0x3C2FB496u)) {
+            by_difficulty = nullptr;
+            source->fetch_list(0x3C2FB496u, &by_difficulty, 1);
+            goal.value20_ = by_difficulty->fetch_part(static_cast<uint32_t>(difficulty_));
         }
-        goal.m_met = false;
+        goal.met_ = false;
     }
 }
 
 // 0x0051C950
-bool CAttributeTracker::IsOperative()
+bool AttributeTracker::is_operative()
 {
-    if (!m_skater)
+    if (!skater_)
         return false;
-    void* skate = SkateModule();
-    if (!static_cast<GoalSystem::CMatchRules*>(static_cast<void*>(GoalSystem::g_gameMode))->IsTrue(0x1DED1EA4))
+    void* skate = skate_module();
+    if (!static_cast<goals::MatchRules*>(static_cast<void*>(goals::g_game_mode))->is_true(0x1DED1EA4))
         return false;
-    if (!m_activated || Prop<uint32_t>(skate, 0x378) == 0xE92ECAFE)
+    if (!activated_ || prop<uint32_t>(skate, 0x378) == 0xE92ECAFE)
         return false;
     // (Without a name the original compares what its slot held: this.)
     uint32_t name = reinterpret_cast<uint32_t>(this);
-    reinterpret_cast<Scripts::CStruct*>(FirstProfile()->m_details)->ReadHashValue(0xA1DC81F9u, &name, 1);
+    reinterpret_cast<script::Struct*>(first_profile()->details_)->read_hash_value(0xA1DC81F9u, &name, 1);
     return name == 0x0A7BE964;
 }
 
 // 0x0051C9D0
-void CAttributeTracker::Set10(int a, int b, int)
+void AttributeTracker::set10(int a, int b, int)
 {
-    if (IsOperative() && b != m_value14)
-        m_value10 = a;
+    if (is_operative() && b != value14_)
+        value10_ = a;
 }
 
 // 0x0051CA00
-void CAttributeTracker::Reset()
+void AttributeTracker::get_reset()
 {
-    if (!IsOperative())
+    if (!is_operative())
         return;
-    LaunchScript(0xD44EA68F);
-    for (Goal& goal : m_goals)
-        if (goal.m_curStanding == 0 && goal.m_met)
-            goal.m_met = false;
-    m_airPhase = 0;
-    m_jumpPhase = 0;
-    m_countA80 = 0;
-    m_countA84 = 0;
-    m_jumpStart = m_jumpEnd;
-    m_airStart = m_airEnd;
+    launch_script(0xD44EA68F);
+    for (Goal& goal : goals_)
+        if (goal.cur_standing_ == 0 && goal.met_)
+            goal.met_ = false;
+    air_phase_ = 0;
+    jump_phase_ = 0;
+    count_a80_ = 0;
+    count_a84_ = 0;
+    jump_start_ = jump_end_;
+    air_start_ = air_end_;
 }
 
 // 0x0051CAC0
-void CAttributeTracker::SetValue58(float value)
+void AttributeTracker::set_value58(float value)
 {
-    if (IsOperative())
-        m_value58 = value;
+    if (is_operative())
+        value58_ = value;
 }
 
 // 0x0051CAE0
-void CAttributeTracker::TotalOf(uint32_t name)
+void AttributeTracker::total_of(uint32_t name)
 {
-    if (!IsOperative())
+    if (!is_operative())
         return;
     if (name == 0xB9AE26D2)
-        ++m_countA84;
+        ++count_a84_;
     else if (name == 0xBA15FC7F)
-        ++m_countA80;
+        ++count_a80_;
 }
 
 // 0x0051CBF0
-void CAttributeTracker::AnnounceMetGoals()
+void AttributeTracker::announce_met_goals()
 {
-    if (!IsOperative())
+    if (!is_operative())
         return;
-    CRiderIdentity* profile = FirstProfile();
-    Scripts::CStruct* params = NewParams();
+    RiderIdentity* profile = first_profile();
+    script::Struct* params = new_params();
     bool announced = false;
-    for (Goal& goal : m_goals) {
-        if (goal.m_curStanding != 0 || !goal.m_met)
+    for (Goal& goal : goals_) {
+        if (goal.cur_standing_ != 0 || !goal.met_)
             continue;
         if (!announced) {
-            LaunchScript(0x750BCF49);
+            launch_script(0x750BCF49);
             announced = true;
         }
-        uint32_t stat = goal.m_attrKey;
-        goal.m_curStanding = 1;
+        uint32_t stat = goal.attr_key_;
+        goal.cur_standing_ = 1;
         // The stat's name (a global string per stat).
         uint32_t text;
         switch (stat) {
@@ -355,332 +355,332 @@ void CAttributeTracker::AnnounceMetGoals()
         default: text = 0; break;
         }
         if (text)
-            params->AppendWord(0xC4745838u, Scripts::FetchText(text));
-        params->PutInt(0x2044BAAFu, 1);
-        LaunchScript(0x55E516C8, params);
-        if (m_raiseStats)
-            profile->SetAbilityLevel(stat, profile->FetchTally(stat) + 1);
+            params->append_word(0xC4745838u, script::fetch_text(text));
+        params->put_int(0x2044BAAFu, 1);
+        launch_script(0x55E516C8, params);
+        if (raise_stats_)
+            profile->set_ability_level(stat, profile->fetch_tally(stat) + 1);
     }
     if (announced) {
-        DebugOut::Printf("updating skater stats\n"); // "updating skater stats"
-        reinterpret_cast<CRider*>(m_skater)->SetStatsFromProfile(profile);
-        if (!m_goalDone && static_cast<GoalSystem::CGoalManager*>(GameFlow())->MayBeginObjective()) {
-            LaunchScript(0xEF3A4EE5);
-            m_goalDone = true;
+        debug::printf("updating skater stats\n"); // "updating skater stats"
+        reinterpret_cast<Rider*>(skater_)->set_stats_from_profile(profile);
+        if (!goal_done_ && static_cast<goals::GoalManager*>(game_flow())->may_begin_objective()) {
+            launch_script(0xEF3A4EE5);
+            goal_done_ = true;
         }
-        LaunchScript(0x5A90FB86);
+        launch_script(0x5A90FB86);
     }
-    DeleteParams(params);
-    m_countA80 = 0;
-    m_countA84 = 0;
+    delete_params(params);
+    count_a80_ = 0;
+    count_a84_ = 0;
 }
 
 // 0x0051CE80
-void CAttributeTracker::MeetGoal(int index)
+void AttributeTracker::meet_goal(int index)
 {
-    if (!IsOperative())
+    if (!is_operative())
         return;
-    Scripts::CStruct* params = NewParams();
-    Goal& goal = m_goals[index];
-    params->AppendWord(0x61414D56u, goal.m_label);
-    params->PutInt(0xE288A7CBu, goal.m_aimPoint);
-    if (goal.m_text)
-        params->AppendWord(0xC257D69Au, goal.m_text);
-    params->PutInt(0x7F8C98FEu, index);
-    LaunchScript(0x55E516C8, params);
-    goal.m_met = true;
-    DeleteParams(params);
+    script::Struct* params = new_params();
+    Goal& goal = goals_[index];
+    params->append_word(0x61414D56u, goal.label_);
+    params->put_int(0xE288A7CBu, goal.aim_point_);
+    if (goal.text_)
+        params->append_word(0xC257D69Au, goal.text_);
+    params->put_int(0x7F8C98FEu, index);
+    launch_script(0x55E516C8, params);
+    goal.met_ = true;
+    delete_params(params);
 }
 
 // 0x0051CF90
-void CAttributeTracker::TickFrame()
+void AttributeTracker::tick_frame()
 {
-    if (!IsOperative())
+    if (!is_operative())
         return;
-    if (m_firstUpdate) {
-        m_airPhase = 0;
-        m_jumpPhase = 0;
-        m_firstUpdate = false;
+    if (first_update_) {
+        air_phase_ = 0;
+        jump_phase_ = 0;
+        first_update_ = false;
         return;
     }
-    void* score = PointTally(m_skater);
-    m_pointsHeld = Truncate(Prop<int>(score, 0x14) * static_cast<double>(Prop<float>(score, 0x60)));
-    float multiplier = Prop<float>(score, 0x60);
-    m_multiplier = multiplier;
-    m_pathVertices = multiplier == 0.0f ? 0 : Truncate(m_pointsHeld / static_cast<double>(multiplier));
+    void* score = point_tally(skater_);
+    points_held_ = truncate(prop<int>(score, 0x14) * static_cast<double>(prop<float>(score, 0x60)));
+    float multiplier = prop<float>(score, 0x60);
+    multiplier_ = multiplier;
+    path_vertices_ = multiplier == 0.0f ? 0 : truncate(points_held_ / static_cast<double>(multiplier));
 
-    int physicsState = Prop<int>(m_skaterState, 0x18);
-    m_curPhase = kStateOther;
-    uint8_t* controlState = Prop<uint8_t*>(m_physicsControl, 0x2C);
-    const Maths::Vec4& pos = m_entity->m_atPoint;
-    if (!Prop<bool>(controlState, 0x118) && Prop<int>(controlState, 0x1C) == 0) {
-        if (Prop<bool>(m_skaterState, 0x30)) {
-            m_curPhase = kStateLaunched;
-            if (m_lastState != kStateLaunched) {
-                m_airPhase = 1;
-                m_airHeight = 0.0f;
-                m_airStart = pos;
-                m_airStartPoints = m_pathVertices;
-                m_airStartMultiplier = m_multiplier;
-                DebugOut::Printf("vert_start_score = %i\n", m_pointsHeld); // "vert_start_score = %i"
-                m_airBest = 0;
+    int physics_state = prop<int>(skater_state_, 0x18);
+    cur_phase_ = kStateOther;
+    uint8_t* control_state = prop<uint8_t*>(physics_control_, 0x2C);
+    const maths::Vec4& pos = entity_->at_point_;
+    if (!prop<bool>(control_state, 0x118) && prop<int>(control_state, 0x1C) == 0) {
+        if (prop<bool>(skater_state_, 0x30)) {
+            cur_phase_ = kStateLaunched;
+            if (last_state_ != kStateLaunched) {
+                air_phase_ = 1;
+                air_height_ = 0.0f;
+                air_start_ = pos;
+                air_start_points_ = path_vertices_;
+                air_start_multiplier_ = multiplier_;
+                debug::printf("vert_start_score = %i\n", points_held_); // "vert_start_score = %i"
+                air_best_ = 0;
             } else {
-                double height = static_cast<double>(pos.y) - m_airStart.y;
-                if (height > m_airHeight)
-                    m_airHeight = static_cast<float>(height);
-                m_airScore = Truncate((static_cast<double>(multiplier) - m_airStartMultiplier) * Minus(m_pathVertices, m_airStartPoints));
-                if (m_airScore >= m_airBest)
-                    m_airBest = m_airScore;
+                double height = static_cast<double>(pos.y) - air_start_.y;
+                if (height > air_height_)
+                    air_height_ = static_cast<float>(height);
+                air_score_ = truncate((static_cast<double>(multiplier) - air_start_multiplier_) * get_minus(path_vertices_, air_start_points_));
+                if (air_score_ >= air_best_)
+                    air_best_ = air_score_;
             }
-        } else if (m_lastState == kStateLaunched) {
-            if (m_airPhase == 1) {
-                m_airEnd = pos;
-                double gained = static_cast<double>(m_multiplier) - m_airStartMultiplier;
-                int airScore = Truncate(Minus(m_pathVertices, m_airStartPoints) * gained);
-                m_airScore = airScore;
-                m_airPhase = 2;
-                if (gained > 1.0f && airScore != 0)
-                    m_lastAirComboScore = airScore;
+        } else if (last_state_ == kStateLaunched) {
+            if (air_phase_ == 1) {
+                air_end_ = pos;
+                double gained = static_cast<double>(multiplier_) - air_start_multiplier_;
+                int air_score = truncate(get_minus(path_vertices_, air_start_points_) * gained);
+                air_score_ = air_score;
+                air_phase_ = 2;
+                if (gained > 1.0f && air_score != 0)
+                    last_air_combo_score_ = air_score;
             }
-            m_airScore = 0;
+            air_score_ = 0;
         } else {
-            m_airPhase = 0;
-            m_airHeight = 0.0f;
-            m_airBest = 0;
+            air_phase_ = 0;
+            air_height_ = 0.0f;
+            air_best_ = 0;
         }
 
-        if (physicsState == 1 && !Prop<bool>(m_skaterState, 0x30)) {
-            m_curPhase = kStateAir;
-            if (m_lastState != kStateAir && !Prop<bool>(m_skaterState, 0x70)) {
-                m_jumpPhase = 1;
-                m_jumpStart = pos;
+        if (physics_state == 1 && !prop<bool>(skater_state_, 0x30)) {
+            cur_phase_ = kStateAir;
+            if (last_state_ != kStateAir && !prop<bool>(skater_state_, 0x70)) {
+                jump_phase_ = 1;
+                jump_start_ = pos;
             }
-        } else if (m_lastState == kStateAir) {
-            if (m_jumpPhase == 1) {
-                m_jumpEnd = pos;
-                m_jumpPhase = 2;
+        } else if (last_state_ == kStateAir) {
+            if (jump_phase_ == 1) {
+                jump_end_ = pos;
+                jump_phase_ = 2;
             }
         } else {
-            m_jumpPhase = 0;
+            jump_phase_ = 0;
         }
     } else {
-        m_jumpPhase = 0;
+        jump_phase_ = 0;
     }
 
     // The open goals.
     bool met = false;
     for (int i = 0; i < kGoals; ++i) {
-        Goal& goal = m_goals[i];
-        if (goal.m_curStanding != 0 || goal.m_met)
+        Goal& goal = goals_[i];
+        if (goal.cur_standing_ != 0 || goal.met_)
             continue;
         bool meets = false;
-        switch (goal.m_kind) {
+        switch (goal.kind_) {
         case kRise:
-            meets = m_jumpPhase == 2 &&
-                    goal.m_aimPoint * static_cast<double>(kFeet) <= static_cast<double>(m_jumpEnd.y) - m_jumpStart.y;
+            meets = jump_phase_ == 2 &&
+                    goal.aim_point_ * static_cast<double>(kFeet) <= static_cast<double>(jump_end_.y) - jump_start_.y;
             break;
         case kDrop:
-            meets = m_jumpPhase == 2 &&
-                    goal.m_aimPoint * static_cast<double>(kFeet) <= static_cast<double>(m_jumpStart.y) - m_jumpEnd.y;
+            meets = jump_phase_ == 2 &&
+                    goal.aim_point_ * static_cast<double>(kFeet) <= static_cast<double>(jump_start_.y) - jump_end_.y;
             break;
         case kAirCombo:
-            if (m_airPhase == 2 && m_airBest >= goal.m_aimPoint) {
-                Scripts::CStruct* params = NewParams();
-                params->PutInt(0xCD66C8AEu, m_airBest);
-                LaunchScript(0x7C9C7232, params);
-                DeleteParams(params);
+            if (air_phase_ == 2 && air_best_ >= goal.aim_point_) {
+                script::Struct* params = new_params();
+                params->put_int(0xCD66C8AEu, air_best_);
+                launch_script(0x7C9C7232, params);
+                delete_params(params);
                 meets = true;
             }
             break;
         case kAirHeight:
-            meets = m_airPhase != 0 && goal.m_aimPoint * static_cast<double>(kFeet) <= m_airHeight;
+            meets = air_phase_ != 0 && goal.aim_point_ * static_cast<double>(kFeet) <= air_height_;
             break;
         case kAirValue58:
-            meets = m_airPhase != 0 && goal.m_aimPoint <= static_cast<double>(m_value58);
+            meets = air_phase_ != 0 && goal.aim_point_ <= static_cast<double>(value58_);
             break;
         case kComboScore:
-            meets = m_pointsHeld >= goal.m_aimPoint;
+            meets = points_held_ >= goal.aim_point_;
             break;
         case kMultiplier:
-            meets = goal.m_aimPoint <= static_cast<double>(m_multiplier);
+            meets = goal.aim_point_ <= static_cast<double>(multiplier_);
             break;
         case kCountA80:
-            meets = m_countA80 >= goal.m_aimPoint;
+            meets = count_a80_ >= goal.aim_point_;
             break;
         case kCountA84:
-            meets = m_countA84 >= goal.m_aimPoint;
+            meets = count_a84_ >= goal.aim_point_;
             break;
         case kTrickCount: {
-            int target = goal.m_aimPoint;
-            uint32_t trick = goal.m_trick;
-            if (CountTricks(score, trick, 0, 0, static_cast<int>(goal.m_value20)) >= target) {
+            int target = goal.aim_point_;
+            uint32_t trick = goal.trick_;
+            if (count_tricks(score, trick, 0, 0, static_cast<int>(goal.value20_)) >= target) {
                 meets = true;
             } else if (trick == kManual) {
-                int manuals = CountTricks(score, trick, 0, 0, 1);
-                meets = manuals + CountTricks(score, 0x89B7DBE4, 0, 0, 1) >= target;
+                int manuals = count_tricks(score, trick, 0, 0, 1);
+                meets = manuals + count_tricks(score, 0x89B7DBE4, 0, 0, 1) >= target;
             }
             break;
         }
         case kLeapReach:
-            if (m_jumpPhase == 2) {
-                Maths::Vec4 start = {m_jumpStart.x, 0.0f, m_jumpStart.z, 1.0f};
-                Maths::Vec4 end = {m_jumpEnd.x, 0.0f, m_jumpEnd.z, 1.0f};
-                double distance = SpanTo(end, start);
-                meets = goal.m_aimPoint * static_cast<double>(kFeet) <= distance;
+            if (jump_phase_ == 2) {
+                maths::Vec4 start = {jump_start_.x, 0.0f, jump_start_.z, 1.0f};
+                maths::Vec4 end = {jump_end_.x, 0.0f, jump_end_.z, 1.0f};
+                double distance = span_to(end, start);
+                meets = goal.aim_point_ * static_cast<double>(kFeet) <= distance;
             }
             break;
         case kAirDistance:
-            if (m_airPhase == 2) {
-                float target = static_cast<float>(goal.m_aimPoint);
-                m_airEnd.y = 0.0f;
-                m_airStart.y = 0.0f;
-                double distance = SpanTo(m_airEnd, m_airStart);
+            if (air_phase_ == 2) {
+                float target = static_cast<float>(goal.aim_point_);
+                air_end_.y = 0.0f;
+                air_start_.y = 0.0f;
+                double distance = span_to(air_end_, air_start_);
                 meets = target * static_cast<double>(kFeet) <= distance;
             }
             break;
         case kScore562370:
             // (it reads the goal's +0x18, the 0xCD021293 entry)
-            meets = static_cast<GameModules::PointTally*>(score)->CountTricksNamed(goal.m_text) >=
-                    goal.m_aimPoint;
+            meets = static_cast<modules::PointTally*>(score)->count_tricks_named(goal.text_) >=
+                    goal.aim_point_;
             break;
         default:
             break;
         }
         if (meets) {
-            MeetGoal(i);
+            meet_goal(i);
             met = true;
         }
     }
     if (met)
-        LaunchScript(0x41B03551);
-    m_lastState = m_curPhase;
-    m_value58 = 0.0f;
-    m_scoreBeforeCombo = m_pointsHeld;
-    m_lastPoints = m_pathVertices;
-    m_lastMultiplier = m_multiplier;
+        launch_script(0x41B03551);
+    last_state_ = cur_phase_;
+    value58_ = 0.0f;
+    score_before_combo_ = points_held_;
+    last_points_ = path_vertices_;
+    last_multiplier_ = multiplier_;
 }
 
 // 0x0051D6A0
-void CAttributeTracker::CheckBalanceTime(uint32_t trickType, float time, int)
+void AttributeTracker::check_balance_time(uint32_t trick_type, float time, int)
 {
-    if (!IsOperative())
+    if (!is_operative())
         return;
     bool met = false;
     for (int i = 0; i < kGoals; ++i) {
-        Goal& goal = m_goals[i];
-        if (goal.m_curStanding != 0 || goal.m_met)
+        Goal& goal = goals_[i];
+        if (goal.cur_standing_ != 0 || goal.met_)
             continue;
-        int target = goal.m_aimPoint;
+        int target = goal.aim_point_;
         uint32_t kind;
-        if (trickType == kSlide || trickType == kGrind)
+        if (trick_type == kSlide || trick_type == kGrind)
             kind = kGrindTime;
-        else if (trickType == kNoseManual || trickType == kManual)
+        else if (trick_type == kNoseManual || trick_type == kManual)
             kind = kManualTime;
-        else if (trickType == kLip)
+        else if (trick_type == kLip)
             kind = kLipTime;
         else
             continue;
-        if (goal.m_kind != kind || !(target <= time))
+        if (goal.kind_ != kind || !(target <= time))
             continue;
-        MeetGoal(i);
+        meet_goal(i);
         met = true;
     }
     if (met)
-        LaunchScript(0x41B03551);
+        launch_script(0x41B03551);
 }
 
 // --- member functions ---
 
 // 0x0051C4A0
-bool CAttributeTracker::ReInit(Scripts::CStruct* params, Scripts::CScript*)
+bool AttributeTracker::re_init(script::Struct* params, script::Script*)
 {
-    reinterpret_cast<void(__thiscall*)(CAttributeTracker*, Scripts::CStruct*)>(m_vtable[5])(this, params);
+    reinterpret_cast<void(__thiscall*)(AttributeTracker*, script::Struct*)>(vtable_[5])(this, params);
     return true;
 }
 
 // 0x0051CB20
-bool CAttributeTracker::ResetGoals(Scripts::CStruct*, Scripts::CScript*)
+bool AttributeTracker::reset_goals(script::Struct*, script::Script*)
 {
-    Reset();
+    get_reset();
     return true;
 }
 
 // 0x0051C4C0
-bool CAttributeTracker::ActivateGoals(Scripts::CStruct*, Scripts::CScript*)
+bool AttributeTracker::activate_goals(script::Struct*, script::Script*)
 {
-    m_activated = true;
-    LaunchScript(0x7EC5F3E0);
+    activated_ = true;
+    launch_script(0x7EC5F3E0);
     return true;
 }
 
 // 0x0051C4F0
-bool CAttributeTracker::DeactivateGoals(Scripts::CStruct*, Scripts::CScript*)
+bool AttributeTracker::deactivate_goals(script::Struct*, script::Script*)
 {
-    m_activated = false;
-    LaunchScript(0x3CB06807);
+    activated_ = false;
+    launch_script(0x3CB06807);
     return true;
 }
 
 // 0x0051CB30
-bool CAttributeTracker::GetGoalStatusMember(Scripts::CStruct* params, Scripts::CScript* script)
+bool AttributeTracker::get_goal_status_member(script::Struct* params, script::Script* script)
 {
     int index;
-    params->FetchIntValue(0u, &index, 1);
-    Prop<Scripts::CStruct*>(script, 0x14)->PutInt(0x84FF9AE3u, m_goals[index].m_curStanding);
+    params->fetch_int_value(0u, &index, 1);
+    prop<script::Struct*>(script, 0x14)->put_int(0x84FF9AE3u, goals_[index].cur_standing_);
     return true;
 }
 
 // 0x0051C520
-bool CAttributeTracker::UnlockAmGoals(Scripts::CStruct*, Scripts::CScript*)
+bool AttributeTracker::unlock_am_goals(script::Struct*, script::Script*)
 {
-    for (Goal& goal : m_goals)
-        if (goal.m_curStanding == 2)
-            goal.m_curStanding = 0;
+    for (Goal& goal : goals_)
+        if (goal.cur_standing_ == 2)
+            goal.cur_standing_ = 0;
     return true;
 }
 
 // 0x0051C550
-bool CAttributeTracker::UnlockProGoals(Scripts::CStruct*, Scripts::CScript*)
+bool AttributeTracker::unlock_pro_goals(script::Struct*, script::Script*)
 {
-    for (Goal& goal : m_goals)
-        if (goal.m_curStanding == 3)
-            goal.m_curStanding = 0;
+    for (Goal& goal : goals_)
+        if (goal.cur_standing_ == 3)
+            goal.cur_standing_ = 0;
     return true;
 }
 
 // 0x0051CB70
-bool CAttributeTracker::GetLastAirComboScore(Scripts::CStruct*, Scripts::CScript* script)
+bool AttributeTracker::get_last_air_combo_score(script::Struct*, script::Script* script)
 {
-    Prop<Scripts::CStruct*>(script, 0x14)->PutInt(0x2D3B766Bu, m_lastAirComboScore);
+    prop<script::Struct*>(script, 0x14)->put_int(0x2D3B766Bu, last_air_combo_score_);
     return true;
 }
 
 // 0x0051C580
-bool CAttributeTracker::ClearLastAirComboScore(Scripts::CStruct*, Scripts::CScript*)
+bool AttributeTracker::clear_last_air_combo_score(script::Struct*, script::Script*)
 {
-    m_lastAirComboScore = 0;
+    last_air_combo_score_ = 0;
     return true;
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CAttributeTracker::Teardown,
-         &GameObjects::CAttributeTracker::TickFrame,
-         &GameObjects::CAttributeTracker::ConfigureFromData,
-         Stubs::DoNothing,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::DispatchScriptMethod,
-         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::AttributeTracker::teardown,
+         &objects::AttributeTracker::tick_frame,
+         &objects::AttributeTracker::configure_from_data,
+         stubs::do_nothing,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         &objects::ObjectModule::dispatch_script_method,
+         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

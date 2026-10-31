@@ -20,30 +20,30 @@
 // thug2-decomp.ini: [features] screenshots=0 turns it off (default 1); [features] screenshot_dir= another folder
 // (relative: to the game folder); [Keybinds] Screenshot= the key - an SDL scan code (70 Print Screen, 69 F12) or a
 // key's name. Not set: Print Screen, or F12 when Windows' Snipping Tool takes Print Screen (logged at start-up).
-namespace SystemCore::Screenshot {
+namespace sys::screenshot {
 
 // [features] screenshots (read once).
-bool IsSwitchedOn();
+bool is_switched_on();
 // The key's SDL scan code (0 while off).
-int Key();
-// Start listening for the key (Sio::InitSdlInput, after the input settings are read).
-void PrepareAll();
+int get_key();
+// Start listening for the key (sio::init_sdl_input, after the input settings are read).
+void prepare_all();
 // Once a frame from the main loop, just before the frame is ended and presented (`rendering`: this frame is drawn).
 // Takes a requested picture (the frame's scene open, everything drawn), hands it to the writer and, when the writer
 // is done, logs and shows the result.
-void BeforePresent(bool rendering);
+void before_present(bool rendering);
 // The renderer, a viewport's camera as it's drawn (for the sidecar): its position and view direction.
-void NoteView(int viewport, const float position[3], const float forward[3]);
+void note_view(int viewport, const float position[3], const float forward[3]);
 
 // A picture asked for by our own debugging code (works with the key off too; [debug] collision_event_screenshots -
 // game/rider/collision_events.h): the frame being drawn, taken as the key's, `note` added to the sidecar and the
 // log's "saved" line; no message on screen. Dropped while another is being written.
-bool RequestEventShot(const std::string& note); // (false: dropped)
+bool request_event_shot(const std::string& note); // (false: dropped)
 // A short message on screen for 2 s (the "Screenshot saved" one's panel: a newer one replaces it; no sound, the game
 // carries on) - our debugging aids' notices (collision_events.h). Works with the key off too.
-void ShowNotice(const std::string& text);
-// Viewport 0's camera as last drawn (NoteView), if drawn within the last 10 frames.
-bool LastView(float position[3], float forward[3]);
+void show_notice(const std::string& text);
+// Viewport 0's camera as last drawn (note_view), if drawn within the last 10 frames.
+bool last_view(float position[3], float forward[3]);
 
 // A frame series (the test-automation channel's `capture` - frontend/automation.h; works with the key off too):
 // the next `frames` rendered frames (at most kMaxSeriesFrames), every one, as frame_0001.png ... in `folder`
@@ -51,15 +51,15 @@ bool LastView(float position[3], float forward[3]);
 // sidecar's state at the first frame, the series' count, and a line a frame: the game's frame, its vblank count and
 // clock) - no cursor mark, no messages. The pictures are encoded on worker threads; while kSeriesInFlight are waiting,
 // the frame waits for one. The game slows down while it captures, but every logic frame is drawn and taken: the
-// main loop doesn't count the capture's time (SeriesRunning - no frames skipped to catch up), so the series is the
+// main loop doesn't count the capture's time (series_running - no frames skipped to catch up), so the series is the
 // game's frames one after another, a vblank (1/60 s of game time) apart. "" if started, else why not (one series at
 // a time).
 constexpr int kMaxSeriesFrames = 600;
 constexpr int kSeriesInFlight = 6;
-std::string StartSeries(int frames, const std::string& folder);
+std::string start_series(int frames, const std::string& folder);
 // Whether a series is still being captured or written.
-bool SeriesRunning();
+bool series_running();
 // The last series' result: "ok: <n> frames in <folder>" or "error: ...".
-std::string SeriesResult();
+std::string series_result();
 
-} // namespace SystemCore::Screenshot
+} // namespace sys::Screenshot

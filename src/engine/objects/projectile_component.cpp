@@ -1,4 +1,4 @@
-// The projectile component (GameObjects::CProjectileComponent): see projectile_component.h.
+// The projectile component (GameObjects::ProjectileComponent): see projectile_component.h.
 
 #include "engine/objects/projectile_component.h"
 
@@ -19,41 +19,41 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/trigger_events.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
 extern void** const kVtable;
 
-// The local skater's projectile slots (CRider +0x1C0, five of 0x18 bytes: +0 the name, +4 taken, +8 the position).
+// The local skater's projectile slots (Rider +0x1C0, five of 0x18 bytes: +0 the name, +4 taken, +8 the position).
 constexpr uint32_t kSlots = 0x1C0;
 constexpr uint32_t kSlotSize = 0x18;
 constexpr int kSlotCount = 5;
 
 // The trigger component's events for a projectile's touch (0x0064B89C: 14, none, none).
-const int* TouchEvents() { return g_projectileTouchEvents; }
+const int* touch_events() { return kProjectileTouchEvents; }
 
 constexpr float kReach = 12.0f;          // 0x0064546C (also added to the feeler's end w)
 constexpr float kStep = 0.8975979f;      // 0x00646968 (2pi / 7)
 constexpr int kFeelers = 8;
 constexpr int kRestFrames = 10;
 
-uint8_t& SlotTaken(uint8_t* skater, int slot) { return skater[kSlots + 4 + slot * static_cast<int>(kSlotSize)]; }
+uint8_t& slot_taken(uint8_t* skater, int slot) { return skater[kSlots + 4 + slot * static_cast<int>(kSlotSize)]; }
 
 // One feeler's end x / z, as the original's x87 code: the cosine of the angle as computed (53 bits), the sine of it
 // rounded to float; z adds (sin + float(cos)) * 12 rounded to float first.
-void ProbeTip(int index, float x, float z, float* lastColumn, float* endZ)
+void probe_tip(int index, float x, float z, float* last_column, float* end_z)
 {
-    float angleF;
+    float angle_f;
     float slot;
     float step = kStep;
     float reach = kReach;
     __asm {
         fild index
         fmul step
-        fst angleF
+        fst angle_f
         fcos
-        fld angleF
+        fld angle_f
         fsin
         fxch st(1)
         fst slot
@@ -67,9 +67,9 @@ void ProbeTip(int index, float x, float z, float* lastColumn, float* endZ)
         fadd slot
         fxch st(1)
         fadd x
-        mov eax, lastColumn
+        mov eax, last_column
         fstp dword ptr [eax]
-        mov eax, endZ
+        mov eax, end_z
         fstp dword ptr [eax]
     }
 }
@@ -77,108 +77,108 @@ void ProbeTip(int index, float x, float z, float* lastColumn, float* endZ)
 } // namespace
 
 // 0x004F3890
-CObjectModule* __cdecl CProjectileComponent::Fabricate()
+ObjectModule* __cdecl ProjectileComponent::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CProjectileComponent));
+    void* memory = memory::alloc_zeroed(sizeof(ProjectileComponent));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CProjectileComponent*>(memory);
-    component->CObjectModule::MakeNew();
-    component->m_vtable = kVtable;
-    component->m_kindTag = kType;
-    component->m_rest = 0;
+    auto* component = static_cast<ProjectileComponent*>(memory);
+    component->ObjectModule::make_new();
+    component->vtable_ = kVtable;
+    component->kind_tag_ = kType;
+    component->rest_ = 0;
     return component;
 }
 
 // 0x004F37B0
-void CProjectileComponent::DestroyBody()
+void ProjectileComponent::destroy_body()
 {
-    m_vtable = kVtable;
-    SlotTaken(m_riderRef, m_seat) = 0;
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    slot_taken(rider_ref_, seat_) = 0;
+    ObjectModule::destroy_body();
 }
 
 // 0x004F37D0
-CProjectileComponent* CProjectileComponent::Teardown(unsigned int flags)
+ProjectileComponent* ProjectileComponent::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x004F3800
-void CProjectileComponent::ConfigureFromData(Scripts::CStruct* /*params*/)
+void ProjectileComponent::configure_from_data(script::Struct* /*params*/)
 {
-    auto* skater = reinterpret_cast<uint8_t*>(SkateCalls::GetHomeRider());
-    m_riderRef = skater;
-    uint32_t name = m_entity->m_ident;
-    m_seat = -1;
+    auto* skater = reinterpret_cast<uint8_t*>(skate_calls::get_home_rider());
+    rider_ref_ = skater;
+    uint32_t name = entity_->ident_;
+    seat_ = -1;
     for (int i = 0; i < kSlotCount; ++i) {
         if (name == *reinterpret_cast<uint32_t*>(skater + kSlots + i * kSlotSize)) {
-            m_seat = i;
+            seat_ = i;
             break;
         }
     }
-    SlotTaken(skater, m_seat) = 1;
+    slot_taken(skater, seat_) = 1;
 }
 
 // 0x004F3860
-void CProjectileComponent::Seal()
+void ProjectileComponent::seal()
 {
-    auto* skater = SkateCalls::GetHomeRider();
+    auto* skater = skate_calls::get_home_rider();
     if (skater)
-        m_triggerPtr = static_cast<CActivationZoneModule*>(skater->FetchModule(CActivationZoneModule::kType));
+        trigger_ptr_ = static_cast<ActivationZoneModule*>(skater->fetch_module(ActivationZoneModule::kType));
 }
 
 // 0x004F3A90
-void CProjectileComponent::TickFrame()
+void ProjectileComponent::tick_frame()
 {
-    *reinterpret_cast<Maths::Vec4*>(m_riderRef + kSlots + 8 + m_seat * static_cast<int>(kSlotSize)) = m_entity->m_atPoint;
-    CheckTriggers();
+    *reinterpret_cast<maths::Vec4*>(rider_ref_ + kSlots + 8 + seat_ * static_cast<int>(kSlotSize)) = entity_->at_point_;
+    check_triggers();
 }
 
 // 0x004F3910
-void CProjectileComponent::CheckTriggers()
+void ProjectileComponent::check_triggers()
 {
-    if (m_rest > 0) {
-        --m_rest;
+    if (rest_ > 0) {
+        --rest_;
         return;
     }
-    Engine3D::CProbeRay feeler;
-    feeler.MakeNew();
-    const Maths::Vec4 pos = m_entity->m_atPoint;
-    float endW = static_cast<float>(static_cast<double>(pos.w) + kReach);
+    render::ProbeRay feeler;
+    feeler.make_new();
+    const maths::Vec4 pos = entity_->at_point_;
+    float end_w = static_cast<float>(static_cast<double>(pos.w) + kReach);
     for (int i = 0; i < kFeelers; ++i) {
-        feeler.m_line.start = pos;
-        feeler.m_line.end.y = pos.y;
-        feeler.m_line.end.w = endW;
-        ProbeTip(i, pos.x, pos.z, &feeler.m_line.end.x, &feeler.m_line.end.z);
-        if (feeler.GetHitShape(true, false) && m_triggerPtr->ProbeTouchesZone(TouchEvents(), &feeler))
-            m_rest = kRestFrames;
+        feeler.line_.start = pos;
+        feeler.line_.end.y = pos.y;
+        feeler.line_.end.w = end_w;
+        probe_tip(i, pos.x, pos.z, &feeler.line_.end.x, &feeler.line_.end.z);
+        if (feeler.get_hit_shape(true, false) && trigger_ptr_->probe_touches_zone(touch_events(), &feeler))
+            rest_ = kRestFrames;
     }
-    feeler.m_entity.Release();
+    feeler.entity_.get_release();
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CProjectileComponent::Teardown,
-         &GameObjects::CProjectileComponent::TickFrame,
-         &GameObjects::CProjectileComponent::ConfigureFromData,
-         &GameObjects::CProjectileComponent::Seal,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
-         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::ProjectileComponent::teardown,
+         &objects::ProjectileComponent::tick_frame,
+         &objects::ProjectileComponent::configure_from_data,
+         &objects::ProjectileComponent::seal,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
+         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

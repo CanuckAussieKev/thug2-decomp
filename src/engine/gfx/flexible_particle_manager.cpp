@@ -19,15 +19,15 @@
 #include "engine/objects/movie_manager.h"
 #include "platform/crt.h"
 
-namespace Engine3D {
+namespace render {
 
-float g_frameTimeScale;
-int g_drawnViewport;
+float g_frame_time_scale;
+int g_drawn_viewport;
 namespace {
 
 extern void** const kManagerVtable;
 extern void** const kHeadVtable;
-void** const& kNodeVtable = Vt::kParticleNode; // (ListKit::Elem<CEmitterInstance>'s own)
+void** const& g_node_vtable = vt::kParticleNode; // (lists::Elem<EmitterInstance>'s own)
 const char* const kHeapName = "FlxParticles";     // "FlxParticles"
 const char* const kTempHeapName = "TEMPFlxPrtcl"; // "TEMPFlxPrtcl"
 constexpr uint32_t kHeapSizeSymbol = 0x91CB7552;
@@ -35,45 +35,45 @@ constexpr uint32_t kFrameRateSymbol = 0x3214C818;
 constexpr int kDefaultHeapSize = 0x5000;
 constexpr float kFramesPerSecond = 60.0f; // 0x00645EA0
 
-float& FrameTimeScale() { return g_frameTimeScale; }
-bool IsGameHalted() { return GameObjects::g_simulationHalted; }
-int DrawnViewport() { return g_drawnViewport; }
+float& frame_time_scale() { return g_frame_time_scale; }
+bool is_game_halted() { return objects::g_simulation_halted; }
+int drawn_viewport() { return g_drawn_viewport; }
 
 // A virtual scalar deleting destructor (slot 0) with flags 1.
-void DeleteVirtual(void* object)
+void delete_virtual(void* object)
 {
     void** vtable = *static_cast<void***>(object);
     reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(vtable[0])(object, 1);
 }
 
 // The list's systems: the first after the head, the one after `system` - null at the head (its data -1) or a null link.
-CEmitterInstance* SystemOf(MemSys::ListNode* node)
+EmitterInstance* system_of(memory::ListNode* node)
 {
     if (node->data == reinterpret_cast<void*>(-1) || !node)
         return nullptr;
-    return reinterpret_cast<CEmitterInstance*>(reinterpret_cast<uint8_t*>(node) - offsetof(CEmitterInstance, m_listLink));
+    return reinterpret_cast<EmitterInstance*>(reinterpret_cast<uint8_t*>(node) - offsetof(EmitterInstance, list_link_));
 }
-CEmitterInstance* FirstSystem(MemSys::ListNode* head) { return head ? SystemOf(head->next) : nullptr; }
-CEmitterInstance* NextSystem(CEmitterInstance* system) { return SystemOf(system->m_listLink.next); }
+EmitterInstance* first_system(memory::ListNode* head) { return head ? system_of(head->next) : nullptr; }
+EmitterInstance* next_system(EmitterInstance* system) { return system_of(system->list_link_.next); }
 
 // _ftol: truncated to a 64-bit integer, its low half.
-int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
+int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 } // namespace
 
 // 0x0049AF20
-CFlexibleParticleManager* CFlexibleParticleManager::MakeNew()
+FlexibleParticleManager* FlexibleParticleManager::make_new()
 {
-    m_vtable = reinterpret_cast<void**>(kManagerVtable);
-    int size = Scripts::FetchIntValue(kHeapSizeSymbol);
+    vtable_ = reinterpret_cast<void**>(kManagerVtable);
+    int size = script::fetch_int_value(kHeapSizeSymbol);
     if (!size)
         size = kDefaultHeapSize;
-    void* memory = MemSys::AllocZeroed(sizeof(MemSys::MemoryArena));
-    m_zone = memory ? new (memory) MemSys::MemoryArena(static_cast<uint32_t>(size)) : nullptr;
-    m_arena = MemSys::Hub::Pull()->AddHeap(m_zone, 1, kHeapName);
-    m_tempRegion = nullptr;
-    m_tempHeap = nullptr;
-    auto* head = static_cast<MemSys::ListNode*>(MemSys::AllocZeroed(sizeof(MemSys::ListNode)));
+    void* memory = memory::alloc_zeroed(sizeof(memory::MemoryArena));
+    zone_ = memory ? new (memory) memory::MemoryArena(static_cast<uint32_t>(size)) : nullptr;
+    arena_ = memory::Hub::get_pull()->add_heap(zone_, 1, kHeapName);
+    temp_region_ = nullptr;
+    temp_heap_ = nullptr;
+    auto* head = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
     if (head) {
         head->data = reinterpret_cast<void*>(-1);
         head->priority = 0;
@@ -81,151 +81,151 @@ CFlexibleParticleManager* CFlexibleParticleManager::MakeNew()
         head->prev = head;
         head->vtable = kHeadVtable;
     }
-    m_systemsPtr = head;
-    m_colourScale[0] = m_colourScale[1] = m_colourScale[2] = m_colourScale[3] = 1.0f;
-    float rate = Scripts::FetchFloat(kFrameRateSymbol);
+    systems_ptr_ = head;
+    colour_scale_[0] = colour_scale_[1] = colour_scale_[2] = colour_scale_[3] = 1.0f;
+    float rate = script::fetch_float(kFrameRateSymbol);
     // (0 gives 60; anything else, NaN too, 60 / it)
-    FrameTimeScale() = rate == 0.0f ? kFramesPerSecond : static_cast<float>(kFramesPerSecond / static_cast<double>(rate));
+    frame_time_scale() = rate == 0.0f ? kFramesPerSecond : static_cast<float>(kFramesPerSecond / static_cast<double>(rate));
     return this;
 }
 
 // 0x0049AA10
-void CFlexibleParticleManager::DestroyBody()
+void FlexibleParticleManager::destroy_body()
 {
-    m_vtable = reinterpret_cast<void**>(kManagerVtable);
-    if (m_systemsPtr)
-        DeleteVirtual(m_systemsPtr);
-    DeleteTempHeap();
-    MemSys::Hub::Pull()->DeleteHeap(reinterpret_cast<MemSys::MemSource*>(m_arena));
-    if (m_zone)
-        DeleteVirtual(m_zone);
+    vtable_ = reinterpret_cast<void**>(kManagerVtable);
+    if (systems_ptr_)
+        delete_virtual(systems_ptr_);
+    delete_temp_heap();
+    memory::Hub::get_pull()->delete_heap(reinterpret_cast<memory::MemSource*>(arena_));
+    if (zone_)
+        delete_virtual(zone_);
 }
 
 // 0x0049B040
-CFlexibleParticleManager* CFlexibleParticleManager::Teardown(unsigned int flags)
+FlexibleParticleManager* FlexibleParticleManager::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
 // 0x0049A9D0
-void CFlexibleParticleManager::DeleteTempHeap()
+void FlexibleParticleManager::delete_temp_heap()
 {
-    if (!m_tempHeap)
+    if (!temp_heap_)
         return;
-    MemSys::Hub::Pull()->DeleteHeap(reinterpret_cast<MemSys::MemSource*>(m_tempHeap));
-    if (m_tempRegion)
-        DeleteVirtual(m_tempRegion);
-    m_tempHeap = nullptr;
-    m_tempRegion = nullptr;
+    memory::Hub::get_pull()->delete_heap(reinterpret_cast<memory::MemSource*>(temp_heap_));
+    if (temp_region_)
+        delete_virtual(temp_region_);
+    temp_heap_ = nullptr;
+    temp_region_ = nullptr;
 }
 
 // 0x0049AA80
-bool CFlexibleParticleManager::CreateTempHeap(uint32_t size)
+bool FlexibleParticleManager::create_temp_heap(uint32_t size)
 {
-    DeleteTempHeap();
-    void* memory = MemSys::AllocZeroed(sizeof(MemSys::MemoryArena));
-    m_tempRegion = memory ? new (memory) MemSys::MemoryArena(size) : nullptr;
-    if (!m_tempRegion)
+    delete_temp_heap();
+    void* memory = memory::alloc_zeroed(sizeof(memory::MemoryArena));
+    temp_region_ = memory ? new (memory) memory::MemoryArena(size) : nullptr;
+    if (!temp_region_)
         return false;
-    m_tempHeap = MemSys::Hub::Pull()->AddHeap(m_tempRegion, 1, kTempHeapName);
-    return m_tempHeap != nullptr;
+    temp_heap_ = memory::Hub::get_pull()->add_heap(temp_region_, 1, kTempHeapName);
+    return temp_heap_ != nullptr;
 }
 
 // 0x0049A8E0
-bool CFlexibleParticleManager::HasTempHeap() { return m_tempHeap != nullptr; }
+bool FlexibleParticleManager::has_temp_heap() { return temp_heap_ != nullptr; }
 
 // 0x0049A8F0
-int __cdecl CFlexibleParticleManager::CompareDistance(const void* a, const void* b)
+int __cdecl FlexibleParticleManager::compare_distance(const void* a, const void* b)
 {
-    auto* camera = FetchLiveCamera(DrawnViewport());
-    const Maths::Vec4& at = *camera->FetchLocation();
-    const CEmitterInstance* first = *static_cast<CEmitterInstance* const*>(a);
-    const CEmitterInstance* second = *static_cast<CEmitterInstance* const*>(b);
+    auto* camera = fetch_live_camera(drawn_viewport());
+    const maths::Vec4& at = *camera->fetch_location();
+    const EmitterInstance* first = *static_cast<EmitterInstance* const*>(a);
+    const EmitterInstance* second = *static_cast<EmitterInstance* const*>(b);
     // (the original keeps some differences as floats and others at 53 bits)
-    float x1 = static_cast<float>(static_cast<double>(first->m_atPoint.x) - at.x);
-    float y1 = static_cast<float>(static_cast<double>(first->m_atPoint.y) - at.y);
-    float z1 = static_cast<float>(static_cast<double>(first->m_atPoint.z) - at.z);
-    float x2 = static_cast<float>(static_cast<double>(second->m_atPoint.x) - at.x);
-    double y2 = static_cast<double>(second->m_atPoint.y) - at.y;
-    double z2 = static_cast<double>(second->m_atPoint.z) - at.z;
+    float x1 = static_cast<float>(static_cast<double>(first->at_point_.x) - at.x);
+    float y1 = static_cast<float>(static_cast<double>(first->at_point_.y) - at.y);
+    float z1 = static_cast<float>(static_cast<double>(first->at_point_.z) - at.z);
+    float x2 = static_cast<float>(static_cast<double>(second->at_point_.x) - at.x);
+    double y2 = static_cast<double>(second->at_point_.y) - at.y;
+    double z2 = static_cast<double>(second->at_point_.z) - at.z;
     double distance2 = (z2 * z2 + y2 * y2) + static_cast<double>(x2) * x2;
     double distance1 = (static_cast<double>(z1) * z1 + static_cast<double>(y1) * y1) + static_cast<double>(x1) * x1;
-    int order = Truncate(distance2 - distance1);
+    int order = truncate(distance2 - distance1);
     if (order)
         return order;
-    return static_cast<int>(second->m_rank) - static_cast<int>(first->m_rank);
+    return static_cast<int>(second->rank_) - static_cast<int>(first->rank_);
 }
 
 // 0x0049AB50
-void CFlexibleParticleManager::RenderSystems(bool force)
+void FlexibleParticleManager::render_systems(bool force)
 {
-    CEmitterInstance* systems[256] = {};
+    EmitterInstance* systems[256] = {};
     int count = 0;
-    for (CEmitterInstance* system = FirstSystem(m_systemsPtr); system; system = NextSystem(system)) {
-        if (system->m_wantsTime)
+    for (EmitterInstance* system = first_system(systems_ptr_); system; system = next_system(system)) {
+        if (system->wants_time_)
             systems[count++] = system; // (no bound, as the original)
     }
     if (!count)
         return;
-    Crt::Qsort(
-        systems, static_cast<size_t>(count), sizeof(systems[0]), &CompareDistance); // (the game's qsort)
-    bool always = force || IsGameHalted();
+    crt::get_qsort(
+        systems, static_cast<size_t>(count), sizeof(systems[0]), &compare_distance); // (the game's qsort)
+    bool always = force || is_game_halted();
     for (int i = 0; i < count; ++i)
-        systems[i]->RenderIfVisible(always);
+        systems[i]->render_if_visible(always);
 }
 
 // 0x0049AC20
-CEmitterInstance* CFlexibleParticleManager::FindSystem(uint32_t name)
+EmitterInstance* FlexibleParticleManager::find_system(uint32_t name)
 {
-    for (CEmitterInstance* system = FirstSystem(m_systemsPtr); system; system = NextSystem(system)) {
-        if (system->m_label == name)
+    for (EmitterInstance* system = first_system(systems_ptr_); system; system = next_system(system)) {
+        if (system->label_ == name)
             return system;
     }
     return nullptr;
 }
 
 // 0x0049AC60
-CEmitterInstance* CFlexibleParticleManager::StartSubsystem(uint32_t name, uint32_t type, int particleCap, int maxStreams,
-                                                        uint32_t texture, uint32_t blendMode, int fixedAlpha,
+EmitterInstance* FlexibleParticleManager::start_subsystem(uint32_t name, uint32_t type, int particle_cap, int max_streams,
+                                                        uint32_t texture, uint32_t blend_mode, int fixed_alpha,
                                                         int segments, float unknown, int history, int perm,
-                                                        bool useLevelColour, const char* model)
+                                                        bool use_level_colour, const char* model)
 {
-    MemSys::Hub::Pull()->EnterHeapScope(reinterpret_cast<MemSys::MemSource*>(m_tempHeap ? m_tempHeap : m_arena));
-    auto* system = static_cast<CEmitterInstance*>(CreateFlexibleParticles(
-        name, type, particleCap, maxStreams, texture, blendMode, fixedAlpha, segments, unknown, history, model));
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    memory::Hub::get_pull()->enter_heap_scope(reinterpret_cast<memory::MemSource*>(temp_heap_ ? temp_heap_ : arena_));
+    auto* system = static_cast<EmitterInstance*>(create_flexible_particles(
+        name, type, particle_cap, max_streams, texture, blend_mode, fixed_alpha, segments, unknown, history, model));
+    memory::Hub::get_pull()->leave_heap_scope();
     if (!system)
         return nullptr;
-    if (!(system->m_flagBits & 4u)) { // (not everything allocated)
-        DeleteVirtual(system);
+    if (!(system->flag_bits_ & 4u)) { // (not everything allocated)
+        delete_virtual(system);
         return nullptr;
     }
-    system->unknown12E = perm != 0;
-    system->m_flagBits |= 1u;
-    system->SetWantsTime(1);
-    system->m_flagBits |= 0x10000u;
-    system->m_spewing = false;
-    if (useLevelColour) {
-        system->m_flagBits |= 0x10000u;
-        system->SetColourScale(m_colourScale);
+    system->unknown12e_ = perm != 0;
+    system->flag_bits_ |= 1u;
+    system->set_wants_time(1);
+    system->flag_bits_ |= 0x10000u;
+    system->spewing_ = false;
+    if (use_level_colour) {
+        system->flag_bits_ |= 0x10000u;
+        system->set_colour_scale(colour_scale_);
     }
-    MemSys::ListNode* node = &system->m_listLink;
-    node->prev = m_systemsPtr->prev;
-    node->next = m_systemsPtr;
-    m_systemsPtr->prev->next = node;
-    m_systemsPtr->prev = node;
+    memory::ListNode* node = &system->list_link_;
+    node->prev = systems_ptr_->prev;
+    node->next = systems_ptr_;
+    systems_ptr_->prev->next = node;
+    systems_ptr_->prev = node;
     return system;
 }
 
 // 0x0049AD60
-void CFlexibleParticleManager::RemoveSystem(CEmitterInstance* system)
+void FlexibleParticleManager::remove_system(EmitterInstance* system)
 {
     if (!system)
         return;
-    MemSys::ListNode* node = &system->m_listLink;
+    memory::ListNode* node = &system->list_link_;
     node->prev->next = node->next;
     node->next->prev = node->prev;
     node->next = node;
@@ -233,73 +233,73 @@ void CFlexibleParticleManager::RemoveSystem(CEmitterInstance* system)
 }
 
 // 0x0049AD90
-void CFlexibleParticleManager::DestroySystemNow(uint32_t name)
+void FlexibleParticleManager::destroy_system_now(uint32_t name)
 {
-    if (CEmitterInstance* system = FindSystem(name))
-        DeleteVirtual(system);
+    if (EmitterInstance* system = find_system(name))
+        delete_virtual(system);
 }
 
 // 0x0049ADB0
-void CFlexibleParticleManager::DestroySystemWhenEmpty(uint32_t name)
+void FlexibleParticleManager::destroy_system_when_empty(uint32_t name)
 {
-    if (CEmitterInstance* system = FindSystem(name)) {
-        system->m_fadingOut = true;
-        system->m_flagBits |= 1u;
+    if (EmitterInstance* system = find_system(name)) {
+        system->fading_out_ = true;
+        system->flag_bits_ |= 1u;
     }
 }
 
 // 0x0049ADE0
-void CFlexibleParticleManager::DestroyGroup(uint32_t group)
+void FlexibleParticleManager::destroy_group(uint32_t group)
 {
-    CEmitterInstance* system = FirstSystem(m_systemsPtr);
+    EmitterInstance* system = first_system(systems_ptr_);
     while (system) {
-        CEmitterInstance* next = NextSystem(system);
-        if (system->m_groupId == group)
-            DeleteVirtual(system);
+        EmitterInstance* next = next_system(system);
+        if (system->group_id_ == group)
+            delete_virtual(system);
         system = next;
     }
 }
 
 // 0x0049AE30
-void CFlexibleParticleManager::DestroyNonPersistent()
+void FlexibleParticleManager::destroy_non_persistent()
 {
-    CEmitterInstance* system = FirstSystem(m_systemsPtr);
+    EmitterInstance* system = first_system(systems_ptr_);
     while (system) {
-        CEmitterInstance* next = NextSystem(system);
-        if (!system->unknown12E)
-            DeleteVirtual(system);
+        EmitterInstance* next = next_system(system);
+        if (!system->unknown12e_)
+            delete_virtual(system);
         system = next;
     }
 }
 
 // 0x0049AE80
-void CFlexibleParticleManager::SetColourScale(const float* rgba)
+void FlexibleParticleManager::set_colour_scale(const float* rgba)
 {
-    if (!m_systemsPtr)
+    if (!systems_ptr_)
         return;
-    for (CEmitterInstance* system = FirstSystem(m_systemsPtr); system; system = NextSystem(system)) {
-        if (system->m_flagBits & 0x10000u)
-            system->SetColourScale(rgba);
+    for (EmitterInstance* system = first_system(systems_ptr_); system; system = next_system(system)) {
+        if (system->flag_bits_ & 0x10000u)
+            system->set_colour_scale(rgba);
     }
     for (int i = 0; i < 4; ++i)
-        m_colourScale[i] = rgba[i];
+        colour_scale_[i] = rgba[i];
 }
 
 // 0x0049AEF0
-MemSys::ListNode* CParticleSystemListHead::Teardown(unsigned int flags)
+memory::ListNode* ParticleSystemListHead::teardown(unsigned int flags)
 {
-    auto* head = reinterpret_cast<MemSys::ListNode*>(this);
-    head->UnlinkAs(kNodeVtable); // (the node's body, 0x00496D10)
+    auto* head = reinterpret_cast<memory::ListNode*>(this);
+    head->unlink_as(g_node_vtable); // (the node's body, 0x00496D10)
     if (flags & 1)
-        MemSys::Dealloc(head);
+        memory::dealloc(head);
     return head;
 }
 
 namespace {
-static VtableSlot kManagerVtable_slots[] = {&Engine3D::CFlexibleParticleManager::Teardown};
-void** const kManagerVtable = reinterpret_cast<void**>(kManagerVtable_slots);
-static VtableSlot kHeadVtable_slots[] = {&Engine3D::CParticleSystemListHead::Teardown};
-void** const kHeadVtable = reinterpret_cast<void**>(kHeadVtable_slots);
+static VtableSlot g_manager_vtable_slots[] = {&render::FlexibleParticleManager::teardown};
+void** const kManagerVtable = reinterpret_cast<void**>(g_manager_vtable_slots);
+static VtableSlot g_head_vtable_slots[] = {&render::ParticleSystemListHead::teardown};
+void** const kHeadVtable = reinterpret_cast<void**>(g_head_vtable_slots);
 } // namespace
 
 } // namespace Nx

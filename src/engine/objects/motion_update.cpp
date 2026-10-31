@@ -1,4 +1,4 @@
-// The motion component (GameObjects::CKinematicsModule, motion.h): its update, moving to points, following paths of nodes and
+// The motion component (GameObjects::KinematicsModule, motion.h): its update, moving to points, following paths of nodes and
 // following a leader's trail.
 
 #include <cmath>
@@ -19,9 +19,9 @@
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 
-namespace GameObjects {
+namespace objects {
 
-using namespace MotionDetail;
+using namespace motion_detail;
 
 namespace {
 
@@ -37,20 +37,20 @@ constexpr uint32_t kOrientY = 0xE19E310A;         // OrientY
 constexpr uint32_t kPedLogic = 0x6EFDDFB8;        // the pedlogic component
 
 // The speed along a path (motion_path.h).
-void UpdatePathSpeed(CKinematicsModule* motion) { reinterpret_cast<CMotionPathMembers*>(motion)->UpdatePathSpeed(); }
+void update_path_speed(KinematicsModule* motion) { reinterpret_cast<MotionPathMembers*>(motion)->update_path_speed(); }
 
 // The velocity of a step from where the object was (`back`: minus that position) to where it is now: x from the
 // unrounded difference and reciprocal, the others from the rounded ones (as the original's x87 code).
-void SetStepVelocity(CGameEntity* object, const float back[4], float frameTime)
+void set_step_velocity(GameEntity* object, const float back[4], float frame_time)
 {
-    const Maths::Vec4& pos = object->m_atPoint;
+    const maths::Vec4& pos = object->at_point_;
     double x = static_cast<double>(back[0]) + pos.x;
     float y = static_cast<float>(static_cast<double>(back[1]) + pos.y);
     float z = static_cast<float>(static_cast<double>(back[2]) + pos.z);
     float w = static_cast<float>(static_cast<double>(back[3]) + pos.w);
-    double inverse = 1.0 / static_cast<double>(frameTime);
+    double inverse = 1.0 / static_cast<double>(frame_time);
     float rounded = static_cast<float>(inverse);
-    Maths::Vec4& vel = object->m_vel;
+    maths::Vec4& vel = object->vel_;
     vel.z = static_cast<float>(static_cast<double>(z) * rounded);
     vel.w = static_cast<float>(static_cast<double>(w) * rounded);
     vel.x = static_cast<float>(x * inverse);
@@ -58,26 +58,26 @@ void SetStepVelocity(CGameEntity* object, const float back[4], float frameTime)
 }
 
 // Minus the object's position (the start of a step).
-void Back(const CGameEntity* object, float back[4])
+void get_back(const GameEntity* object, float back[4])
 {
-    back[0] = -object->m_atPoint.x;
-    back[1] = -object->m_atPoint.y;
-    back[2] = -object->m_atPoint.z;
-    back[3] = -object->m_atPoint.w;
+    back[0] = -object->at_point_.x;
+    back[1] = -object->at_point_.y;
+    back[2] = -object->at_point_.z;
+    back[3] = -object->at_point_.w;
 }
 
-// The node a path follower is headed for (MOTION_FOLLOWING_PATH and a follower), or 0; and its last node.
-uint32_t PathNode(const CKinematicsModule* motion)
+// The node a path follower is headed for (kMotionFollowingPath and a follower), or 0; and its last node.
+uint32_t path_node(const KinematicsModule* motion)
 {
-    if (!(motion->m_motionFlags & MOTION_FOLLOWING_PATH) || !motion->m_pathFollower)
+    if (!(motion->motion_flags_ & kMotionFollowingPath) || !motion->path_follower_)
         return 0;
-    return motion->m_pathFollower->m_listLink;
+    return motion->path_follower_->list_link_;
 }
-uint32_t PathLastNode(const CKinematicsModule* motion)
+uint32_t path_last_node(const KinematicsModule* motion)
 {
-    if (!(motion->m_motionFlags & MOTION_FOLLOWING_PATH) || !motion->m_pathFollower)
+    if (!(motion->motion_flags_ & kMotionFollowingPath) || !motion->path_follower_)
         return 0;
-    return motion->m_pathFollower->m_lastNode;
+    return motion->path_follower_->last_node_;
 }
 
 } // namespace
@@ -85,329 +85,329 @@ uint32_t PathLastNode(const CKinematicsModule* motion)
 // --- the update ---
 
 // 0x004270E0
-void CKinematicsModule::TickFrame()
+void KinematicsModule::tick_frame()
 {
-    m_stepSeconds = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
-    if (m_motionFlags) {
-        if (m_motionFlags & MOTION_HOVERING) {
-            m_entity->m_atPoint.y = m_hoverBase;
-            UpdateHover();
+    step_seconds_ = static_cast<float>(frame_clock::get_slomo_frame_seconds());
+    if (motion_flags_) {
+        if (motion_flags_ & kMotionHovering) {
+            entity_->at_point_.y = hover_base_;
+            update_hover();
         }
-        if (m_motionFlags & MOTION_ROTATE_AXES)
-            UpdateRotations();
-        if (m_motionFlags & MOTION_TURNING)
-            UpdateTurn();
-        if (m_motionFlags & MOTION_MOVING) {
-            if (UpdateMoveTo())
-                m_motionFlags &= ~MOTION_MOVING;
-        } else if (m_motionFlags & MOTION_FOLLOWING_PATH) {
-            UpdatePath();
-        } else if (m_motionFlags & MOTION_FOLLOWING_LEADER) {
-            UpdateFollowLeader();
+        if (motion_flags_ & kMotionRotateAxes)
+            update_rotations();
+        if (motion_flags_ & kMotionTurning)
+            update_turn();
+        if (motion_flags_ & kMotionMoving) {
+            if (update_move_to())
+                motion_flags_ &= ~kMotionMoving;
+        } else if (motion_flags_ & kMotionFollowingPath) {
+            update_path();
+        } else if (motion_flags_ & kMotionFollowingLeader) {
+            update_follow_leader();
         }
-        if (m_motionFlags & MOTION_JUMPING) {
-            UpdateJump();
-            m_entity->m_atPoint = m_jumpPos;
+        if (motion_flags_ & kMotionJumping) {
+            update_jump();
+            entity_->at_point_ = jump_pos_;
         }
     }
     // The ground offset (Obj_StickToGround's height to make up), eased in.
-    if (!(std::fabs(m_groundOffset) > 0.0f)) {
-        m_groundSpeed = 0.0f;
+    if (!(std::fabs(ground_offset_) > 0.0f)) {
+        ground_speed_ = 0.0f;
     } else {
-        bool up = m_groundOffset > 0.0f;
+        bool up = ground_offset_ > 0.0f;
         float acceleration = up ? 384.0f : -384.0f;
-        if (up != (m_groundSpeed > 0.0f))
-            m_groundSpeed = 0.0f;
-        double change = static_cast<double>(acceleration) * m_stepSeconds;
-        float step = static_cast<float>((0.5 * change + m_groundSpeed) * m_stepSeconds);
-        m_groundSpeed = static_cast<float>(change + m_groundSpeed);
+        if (up != (ground_speed_ > 0.0f))
+            ground_speed_ = 0.0f;
+        double change = static_cast<double>(acceleration) * step_seconds_;
+        float step = static_cast<float>((0.5 * change + ground_speed_) * step_seconds_);
+        ground_speed_ = static_cast<float>(change + ground_speed_);
         // (past the offset: the rest of it, and no more speed; a NaN step goes as it is)
-        if (up ? step > m_groundOffset : step < m_groundOffset) {
-            m_groundSpeed = 0.0f;
-            step = m_groundOffset;
+        if (up ? step > ground_offset_ : step < ground_offset_) {
+            ground_speed_ = 0.0f;
+            step = ground_offset_;
         }
-        m_entity->m_atPoint.y = static_cast<float>(static_cast<double>(step) + m_entity->m_atPoint.y);
-        m_groundOffset = static_cast<float>(static_cast<double>(m_groundOffset) - step);
+        entity_->at_point_.y = static_cast<float>(static_cast<double>(step) + entity_->at_point_.y);
+        ground_offset_ = static_cast<float>(static_cast<double>(ground_offset_) - step);
     }
-    if (m_entity->m_ident > 15)
-        m_entity->m_displayMatrix = m_entity->m_basisFrame;
+    if (entity_->ident_ > 15)
+        entity_->display_matrix_ = entity_->basis_frame_;
 }
 
 // 0x00424200
-bool CKinematicsModule::UpdateMoveTo()
+bool KinematicsModule::update_move_to()
 {
     float back[4];
-    Back(m_entity, back);
-    if (!(m_moveAcceleration == 0.0f)) {
-        double speed = FrameClock::GetSlomoFrameSeconds() * 60.0 * m_moveAcceleration + m_moveSpeed;
-        m_moveSpeed = static_cast<float>(speed);
-        if (speed >= m_moveMaxSpeed) { // (not with a NaN)
-            m_moveSpeed = m_moveMaxSpeed;
-            m_moveAcceleration = 0.0f;
+    get_back(entity_, back);
+    if (!(move_acceleration_ == 0.0f)) {
+        double speed = frame_clock::get_slomo_frame_seconds() * 60.0 * move_acceleration_ + move_speed_;
+        move_speed_ = static_cast<float>(speed);
+        if (speed >= move_max_speed_) { // (not with a NaN)
+            move_speed_ = move_max_speed_;
+            move_acceleration_ = 0.0f;
         }
     }
-    double done = static_cast<double>(m_moveSpeed) * m_stepSeconds + m_moveDone;
-    m_moveDone = static_cast<float>(done);
-    Maths::Vec4& pos = m_entity->m_atPoint;
-    if (done >= m_moveDistance) {
-        pos = m_moveTarget;
-        if (m_moveArriveNode)
-            ArriveAtNode(m_moveArriveNode);
-        m_entity->m_vel = {0.0f, 0.0f, 0.0f, 1.0f};
+    double done = static_cast<double>(move_speed_) * step_seconds_ + move_done_;
+    move_done_ = static_cast<float>(done);
+    maths::Vec4& pos = entity_->at_point_;
+    if (done >= move_distance_) {
+        pos = move_target_;
+        if (move_arrive_node_)
+            arrive_at_node(move_arrive_node_);
+        entity_->vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
         return true;
     }
     // (the fraction of the way rounded to a float; x and y through rounded products, z through an unrounded one)
-    double dx = static_cast<double>(m_moveTarget.x) - m_moveStart.x;
-    double dy = static_cast<double>(m_moveTarget.y) - m_moveStart.y;
-    float dz = static_cast<float>(static_cast<double>(m_moveTarget.z) - m_moveStart.z);
-    float dw = static_cast<float>(static_cast<double>(m_moveTarget.w) - m_moveStart.w);
-    float t = static_cast<float>(done / m_moveDistance);
+    double dx = static_cast<double>(move_target_.x) - move_start_.x;
+    double dy = static_cast<double>(move_target_.y) - move_start_.y;
+    float dz = static_cast<float>(static_cast<double>(move_target_.z) - move_start_.z);
+    float dw = static_cast<float>(static_cast<double>(move_target_.w) - move_start_.w);
+    float t = static_cast<float>(done / move_distance_);
     float x = static_cast<float>(dx * t);
     float y = static_cast<float>(dy * t);
     float w = static_cast<float>(static_cast<double>(dw) * t);
-    pos.z = static_cast<float>(static_cast<double>(dz) * t + m_moveStart.z);
-    pos.w = static_cast<float>(static_cast<double>(w) + m_moveStart.w);
-    pos.x = static_cast<float>(static_cast<double>(x) + m_moveStart.x);
-    pos.y = static_cast<float>(static_cast<double>(y) + m_moveStart.y);
-    SetStepVelocity(m_entity, back, m_stepSeconds);
+    pos.z = static_cast<float>(static_cast<double>(dz) * t + move_start_.z);
+    pos.w = static_cast<float>(static_cast<double>(w) + move_start_.w);
+    pos.x = static_cast<float>(static_cast<double>(x) + move_start_.x);
+    pos.y = static_cast<float>(static_cast<double>(y) + move_start_.y);
+    set_step_velocity(entity_, back, step_seconds_);
     return false;
 }
 
 // 0x00426E70
-void CKinematicsModule::UpdatePath()
+void KinematicsModule::update_path()
 {
-    if (m_entity->FetchModule(kPedLogic))
+    if (entity_->fetch_module(kPedLogic))
         return;
     float back[4];
-    Back(m_entity, back);
-    UpdatePathSpeed(this);
-    if (!(m_pathSpeed == 0.0f)) {
-        Maths::Mat4& matrix = m_entity->m_basisFrame;
-        const Maths::Vec4* along = (m_motionFlags2 & MOTION2_NO_PATH_HEADING) ? nullptr : &matrix.row[2];
-        if (m_pathFollower->TickFrame(static_cast<float>(static_cast<double>(m_stepSeconds) * m_pathSpeed), along)) {
-            m_motionFlags &= ~MOTION_FOLLOWING_PATH;
-            m_pathSpeed = 0.0f;
+    get_back(entity_, back);
+    update_path_speed(this);
+    if (!(path_speed_ == 0.0f)) {
+        maths::Mat4& matrix = entity_->basis_frame_;
+        const maths::Vec4* along = (motion_flags2_ & kMotion2NoPathHeading) ? nullptr : &matrix.row[2];
+        if (path_follower_->tick_frame(static_cast<float>(static_cast<double>(step_seconds_) * path_speed_), along)) {
+            motion_flags_ &= ~kMotionFollowingPath;
+            path_speed_ = 0.0f;
         }
-        if (!(m_motionFlags2 & MOTION2_NO_PATH_HEADING)) {
-            m_pathFollower->GetHeading(&matrix.row[2]);
-            if ((m_motionFlags2 & MOTION2_LEVEL_HEADING) && !(matrix.row[2].y == 0.0f)) {
+        if (!(motion_flags2_ & kMotion2NoPathHeading)) {
+            path_follower_->get_heading(&matrix.row[2]);
+            if ((motion_flags2_ & kMotion2LevelHeading) && !(matrix.row[2].y == 0.0f)) {
                 matrix.row[2].y = 0.0f;
-                matrix.row[2].MakeUnit();
+                matrix.row[2].make_unit();
             }
-            if (!(m_motionFlags2 & MOTION2_STICK_TO_GROUND)) {
-                matrix.row[0] = Maths::CrossVec(matrix.row[1], matrix.row[2]);
-                matrix.row[0].MakeUnit();
-                matrix.row[2] = Maths::CrossVec(matrix.row[0], matrix.row[1]);
-                matrix.row[2].MakeUnit();
+            if (!(motion_flags2_ & kMotion2StickToGround)) {
+                matrix.row[0] = maths::cross_vec(matrix.row[1], matrix.row[2]);
+                matrix.row[0].make_unit();
+                matrix.row[2] = maths::cross_vec(matrix.row[0], matrix.row[1]);
+                matrix.row[2].make_unit();
             }
         }
-        float height = m_entity->m_atPoint.y;
-        m_entity->m_atPoint = m_pathFollower->m_atPoint;
-        if (m_motionFlags2 & MOTION2_STICK_TO_GROUND) {
-            m_entity->m_atPoint.y = height;
-            StickToGround();
-        } else if (m_motionFlags2 & MOTION2_CONSTANT_HEIGHT) {
-            m_entity->m_atPoint.y = height;
+        float height = entity_->at_point_.y;
+        entity_->at_point_ = path_follower_->at_point_;
+        if (motion_flags2_ & kMotion2StickToGround) {
+            entity_->at_point_.y = height;
+            stick_to_ground();
+        } else if (motion_flags2_ & kMotion2ConstantHeight) {
+            entity_->at_point_.y = height;
         }
     }
-    SetStepVelocity(m_entity, back, m_stepSeconds);
+    set_step_velocity(entity_, back, step_seconds_);
 }
 
 // 0x004246A0
-void CKinematicsModule::UpdateFollowLeader()
+void KinematicsModule::update_follow_leader()
 {
-    m_trail->TickFrame();
-    float height = m_entity->m_atPoint.y;
-    m_trail->FetchPlace(&m_entity->m_atPoint, &m_entity->m_basisFrame);
-    if (m_leaveYUnaffected)
-        m_entity->m_atPoint.y = height;
+    trail_->tick_frame();
+    float height = entity_->at_point_.y;
+    trail_->fetch_place(&entity_->at_point_, &entity_->basis_frame_);
+    if (leave_y_unaffected_)
+        entity_->at_point_.y = height;
 }
 
 // --- paths ---
 
 // 0x00423FC0
-void CKinematicsModule::StartPath(uint32_t node)
+void KinematicsModule::start_path(uint32_t node)
 {
-    if (m_pathGroup)
-        m_pathGroup->DropOut(m_entity);
-    m_pathGroup = CPathManager::Sole()->AddToPath(m_entity, node);
-    InitPathFollower(m_entity);
-    m_pathFollower->Kickoff(node, &m_entity->m_atPoint);
+    if (path_group_)
+        path_group_->drop_out(entity_);
+    path_group_ = PathManager::sole()->add_to_path(entity_, node);
+    init_path_follower(entity_);
+    path_follower_->kickoff(node, &entity_->at_point_);
 }
 
 // 0x00424020
-void CKinematicsModule::ArriveAtNode(uint32_t node)
+void KinematicsModule::arrive_at_node(uint32_t node)
 {
-    Scripts::CStruct* nodeStruct = LevelNodes::FetchVertex(node, false);
-    m_listLink = node;
+    script::Struct* node_struct = level_nodes::fetch_vertex(node, false);
+    list_link_ = node;
     uint32_t script;
-    if (nodeStruct->ReadHashValue(kSpawnObjScript, &script, 0)) {
-        Scripts::CStruct* params = nullptr;
-        nodeStruct->ReadSubStruct(kParamsName, &params, 0);
-        m_entity->SpawnScript(script, params, 0, false);
+    if (node_struct->read_hash_value(kSpawnObjScript, &script, 0)) {
+        script::Struct* params = nullptr;
+        node_struct->read_sub_struct(kParamsName, &params, 0);
+        entity_->spawn_script(script, params, 0, false);
         return;
     }
-    if (nodeStruct->ReadHashValue(kSwitchObjScript, &script, 0)) {
-        Scripts::CStruct* params = nullptr;
-        nodeStruct->ReadSubStruct(kParamsName, &params, 0);
-        m_entity->ReplaceScript(script, params);
+    if (node_struct->read_hash_value(kSwitchObjScript, &script, 0)) {
+        script::Struct* params = nullptr;
+        node_struct->read_sub_struct(kParamsName, &params, 0);
+        entity_->replace_script(script, params);
     }
 }
 
 // 0x00424180
-void CKinematicsModule::FollowPathLinked(Scripts::CStruct* params, Scripts::CScript*)
+void KinematicsModule::follow_path_linked(script::Struct* params, script::Script*)
 {
-    uint32_t node = params->HasBareFlag(kOriginalNode) ? m_ownNodeName : m_listLink;
-    uint32_t links = LevelNodes::GetLinkCount(node);
+    uint32_t node = params->has_bare_flag(kOriginalNode) ? own_node_name_ : list_link_;
+    uint32_t links = level_nodes::get_link_count(node);
     if (!links)
         return;
     uint32_t next;
-    if (static_cast<int>(links) > 1 && (m_motionFlags2 & MOTION2_RANDOM_LINKS))
-        next = LevelNodes::FetchLink(node, Maths::Rnd(static_cast<int>(links)));
+    if (static_cast<int>(links) > 1 && (motion_flags2_ & kMotion2RandomLinks))
+        next = level_nodes::fetch_link(node, maths::rnd(static_cast<int>(links)));
     else
-        next = LevelNodes::FetchLink(node, 0);
-    StartPath(next);
-    m_motionFlags = (m_motionFlags & ~MOTION_MOVING) | MOTION_FOLLOWING_PATH;
+        next = level_nodes::fetch_link(node, 0);
+    start_path(next);
+    motion_flags_ = (motion_flags_ & ~kMotionMoving) | kMotionFollowingPath;
 }
 
 // 0x004244C0
-CGameEntity* CKinematicsModule::GetNextObjOnPath(float range)
+GameEntity* KinematicsModule::get_next_obj_on_path(float range)
 {
-    if (!m_pathGroup)
+    if (!path_group_)
         return nullptr;
-    CSharedRef<CEntity>* slot = m_pathGroup->m_slots;
-    int count = m_pathGroup->m_extent;
-    CGameEntity* nearest = nullptr;
-    float nearestDistance = 0.0f; // (only read once there is a nearest)
+    SharedRef<Entity>* slot = path_group_->slots_;
+    int count = path_group_->extent_;
+    GameEntity* nearest = nullptr;
+    float nearest_distance = 0.0f; // (only read once there is a nearest)
     for (; count > 0; --count, ++slot) {
-        auto* other = static_cast<CGameEntity*>(slot->m_ownerObject);
-        if (!other || other == m_entity)
+        auto* other = static_cast<GameEntity*>(slot->owner_object_);
+        if (!other || other == entity_)
             continue;
-        const Maths::Vec4& at = m_entity->m_basisFrame.row[2];
-        const Maths::Vec4& otherAt = other->m_basisFrame.row[2];
+        const maths::Vec4& at = entity_->basis_frame_.row[2];
+        const maths::Vec4& other_at = other->basis_frame_.row[2];
         // (facing the same way, and ahead)
-        double facing = (static_cast<double>(at.z) * otherAt.z + static_cast<double>(at.y) * otherAt.y) +
-                        static_cast<double>(at.x) * otherAt.x;
+        double facing = (static_cast<double>(at.z) * other_at.z + static_cast<double>(at.y) * other_at.y) +
+                        static_cast<double>(at.x) * other_at.x;
         if (!(facing >= 0.0))
             continue;
-        double ahead = ((static_cast<double>(other->m_atPoint.z) - m_entity->m_atPoint.z) * at.z +
-                        (static_cast<double>(other->m_atPoint.y) - m_entity->m_atPoint.y) * at.y) +
-                       (static_cast<double>(other->m_atPoint.x) - m_entity->m_atPoint.x) * at.x;
+        double ahead = ((static_cast<double>(other->at_point_.z) - entity_->at_point_.z) * at.z +
+                        (static_cast<double>(other->at_point_.y) - entity_->at_point_.y) * at.y) +
+                       (static_cast<double>(other->at_point_.x) - entity_->at_point_.x) * at.x;
         if (!(ahead >= 0.0))
             continue;
         // (both on the same segment: headed for the same node - and if that's the same, from the same one)
-        auto* otherMotion = static_cast<CKinematicsModule*>(other->FetchModule(kType));
-        if (PathNode(otherMotion) == PathNode(this)) {
-            otherMotion = static_cast<CKinematicsModule*>(other->FetchModule(kType));
-            if (PathLastNode(otherMotion) != PathLastNode(this))
+        auto* other_motion = static_cast<KinematicsModule*>(other->fetch_module(kType));
+        if (path_node(other_motion) == path_node(this)) {
+            other_motion = static_cast<KinematicsModule*>(other->fetch_module(kType));
+            if (path_last_node(other_motion) != path_last_node(this))
                 continue;
         }
-        double dx = static_cast<double>(m_entity->m_atPoint.x) - other->m_atPoint.x;
-        double dy = static_cast<double>(m_entity->m_atPoint.y) - other->m_atPoint.y;
-        double dz = static_cast<double>(m_entity->m_atPoint.z) - other->m_atPoint.z;
+        double dx = static_cast<double>(entity_->at_point_.x) - other->at_point_.x;
+        double dy = static_cast<double>(entity_->at_point_.y) - other->at_point_.y;
+        double dz = static_cast<double>(entity_->at_point_.z) - other->at_point_.z;
         double distance = std::sqrt((dz * dz + dy * dy) + dx * dx);
         if (!(distance <= range))
             continue;
-        if (nearest && !(distance < nearestDistance))
+        if (nearest && !(distance < nearest_distance))
             continue;
-        nearestDistance = static_cast<float>(distance);
+        nearest_distance = static_cast<float>(distance);
         nearest = other;
     }
     return nearest;
 }
 
 // 0x004246F0
-void CKinematicsModule::TrailBehindLead(Scripts::CStruct* params)
+void KinematicsModule::trail_behind_lead(script::Struct* params)
 {
-    if (params->HasBareFlag(kOff)) {
-        m_motionFlags &= ~MOTION_FOLLOWING_LEADER;
-        if (CFollowTrail* trail = m_trail) {
+    if (params->has_bare_flag(kOff)) {
+        motion_flags_ &= ~kMotionFollowingLeader;
+        if (FollowTrail* trail = trail_) {
             // (its destructor: the empty 0x005480A0)
-            MemSys::Hub::Pull()->Dealloc(trail);
-            m_trail = nullptr;
+            memory::Hub::get_pull()->dealloc(trail);
+            trail_ = nullptr;
         }
         return;
     }
-    m_leaveYUnaffected = params->HasBareFlag("LeaveYUnaffected");
-    m_motionFlags = (m_motionFlags & ~MOTION_MOVING) | MOTION_FOLLOWING_LEADER;
-    static_cast<CPinnedObjectModule*>(m_entity->FetchModule(kLockObj))->m_lockFlags &= ~LOCK_FLAG_LOCKED;
-    if (!m_trail) {
-        void* memory = MemSys::AllocZeroed(sizeof(CFollowTrail));
-        m_trail = memory ? static_cast<CFollowTrail*>(memory)->PrepareAll() : nullptr;
+    leave_y_unaffected_ = params->has_bare_flag("LeaveYUnaffected");
+    motion_flags_ = (motion_flags_ & ~kMotionMoving) | kMotionFollowingLeader;
+    static_cast<PinnedObjectModule*>(entity_->fetch_module(kLockObj))->lock_flags_ &= ~kLockFlagLocked;
+    if (!trail_) {
+        void* memory = memory::alloc_zeroed(sizeof(FollowTrail));
+        trail_ = memory ? static_cast<FollowTrail*>(memory)->prepare_all() : nullptr;
     }
-    m_trail->Reset();
+    trail_->get_reset();
     float distance = 0.0f;
-    params->FetchFloat(kDistance, &distance, 0);
-    m_trail->m_reach = distance;
+    params->fetch_float(kDistance, &distance, 0);
+    trail_->reach_ = distance;
     uint32_t leader = 0;
-    params->ReadHashValue(kName, &leader, 0);
-    m_trail->m_entityKey = leader;
-    if (params->HasBareFlag(kOrientY))
-        m_trail->m_freeFacing = true;
+    params->read_hash_value(kName, &leader, 0);
+    trail_->entity_key_ = leader;
+    if (params->has_bare_flag(kOrientY))
+        trail_->free_facing_ = true;
 }
 
 // --- script member functions ---
 
 // 0x00425150
-bool CKinematicsModule::Obj_GetNextObjOnPath(Scripts::CStruct* params, Scripts::CScript* script)
+bool KinematicsModule::obj_get_next_obj_on_path(script::Struct* params, script::Script* script)
 {
     float range = 100.0f;
-    params->FetchFloat(kRange, &range, 0);
+    params->fetch_float(kRange, &range, 0);
     range = static_cast<float>(static_cast<double>(range) * 12.0f); // (feet)
-    script->m_args->EraseModule(kOb);
-    if (CGameEntity* next = GetNextObjOnPath(range))
-        script->m_args->PutNameKey(kOb, next->m_ident);
+    script->args_->erase_module(kOb);
+    if (GameEntity* next = get_next_obj_on_path(range))
+        script->args_->put_name_key(kOb, next->ident_);
     return true;
 }
 
 // 0x004251C0
-bool CKinematicsModule::Obj_SetPathTurnDist(Scripts::CStruct* params, Scripts::CScript*)
+bool KinematicsModule::obj_set_path_turn_dist(script::Struct* params, script::Script*)
 {
     float distance = 0.0f; // (the original's is whatever its stack slot held: only read once found)
-    if (params->FetchFloat(0u, &distance, 0)) {
-        if (!params->HasBareFlag(kInches))
+    if (params->fetch_float(0u, &distance, 0)) {
+        if (!params->has_bare_flag(kInches))
             distance = static_cast<float>(static_cast<double>(distance) * 12.0f);
-        InitPathFollower(m_entity);
-        m_pathFollower->m_cornerDistance = distance;
+        init_path_follower(entity_);
+        path_follower_->corner_distance_ = distance;
     }
     return true;
 }
 
 // 0x00425220
-bool CKinematicsModule::Obj_FollowPath(Scripts::CStruct* params, Scripts::CScript*)
+bool KinematicsModule::obj_follow_path(script::Struct* params, script::Script*)
 {
-    m_motionFlags2 &= ~MOTION2_STOPPED_ON_PATH;
+    motion_flags2_ &= ~kMotion2StoppedOnPath;
     uint32_t node;
-    if (params->ReadHashValue(kName, &node, 0)) {
-        StartPath(node);
-        m_motionFlags = (m_motionFlags & ~MOTION_MOVING) | MOTION_FOLLOWING_PATH;
+    if (params->read_hash_value(kName, &node, 0)) {
+        start_path(node);
+        motion_flags_ = (motion_flags_ & ~kMotionMoving) | kMotionFollowingPath;
     }
     return true;
 }
 
 // 0x00425270
-bool CKinematicsModule::Obj_FollowPathLinked(Scripts::CStruct* params, Scripts::CScript* script)
+bool KinematicsModule::obj_follow_path_linked(script::Struct* params, script::Script* script)
 {
-    m_motionFlags2 &= ~MOTION2_STOPPED_ON_PATH;
-    FollowPathLinked(params, script);
+    motion_flags2_ &= ~kMotion2StoppedOnPath;
+    follow_path_linked(params, script);
     return true;
 }
 
 // 0x00425290
-bool CKinematicsModule::Obj_FollowPathStored(Scripts::CStruct*, Scripts::CScript*)
+bool KinematicsModule::obj_follow_path_stored(script::Struct*, script::Script*)
 {
-    StartPath(m_savedNodeId);
-    m_motionFlags = (m_motionFlags & ~MOTION_MOVING) | MOTION_FOLLOWING_PATH;
+    start_path(saved_node_id_);
+    motion_flags_ = (motion_flags_ & ~kMotionMoving) | kMotionFollowingPath;
     return true;
 }
 
 // 0x004252C0
-bool CKinematicsModule::Obj_FollowLeader(Scripts::CStruct* params, Scripts::CScript*)
+bool KinematicsModule::obj_follow_leader(script::Struct* params, script::Script*)
 {
-    TrailBehindLead(params);
+    trail_behind_lead(params);
     return true;
 }
 
 } // namespace Obj
 
-using GameObjects::CKinematicsModule;
+using objects::KinematicsModule;

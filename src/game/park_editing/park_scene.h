@@ -1,6 +1,6 @@
 #pragma once
 
-// The park generator's types (ParkEditing::CParkAssembler, park.h: 0x4A4 bytes; 0x00593460 constructs it): the scene side of the
+// The park generator's types (park_editing::ParkAssembler, park.h: 0x4A4 bytes; 0x00593460 constructs it): the scene side of the
 // park editor. The piece types are the sectors of the "sk5ed" scene (source pieces); a placed piece is a clone of
 // one in the "cloned" scene, lit by the park's lights. The generator also keeps the restart points, the rails
 // the pieces carry (from the pieces' node array) and the node array the park's level runs on (pieces, rails,
@@ -15,39 +15,39 @@
 #include "game/park_editing/park_rails.h"
 #include "engine/maths/vec4.h"
 
-namespace Scripts {
-class CArray;
+namespace script {
+class Array;
 } // namespace Script
 
-namespace ParkEditing {
+namespace park_editing {
 
-// The pieces (park.h): a piece type is a CTileTemplate, a placed piece a CParkTile (a clone of its source's sector).
-using TemplateTile = CTileTemplate;
-using DuplicatedTile = CParkTile;
-inline DuplicatedTile* Cloned(CParkTile* piece) { return piece; }
+// The pieces (park.h): a piece type is a TileTemplate, a placed piece a ParkTile (a clone of its source's sector).
+using TemplateTile = TileTemplate;
+using DuplicatedTile = ParkTile;
+inline DuplicatedTile* get_cloned(ParkTile* piece) { return piece; }
 
 // The rail sets, their rails and points (park_rails.h, 0x0058AFC0-0x0058B700).
-using RailPoint = CParkRailPoint;
-using Rail = CParkRailString;
-using SRailGroup = CParkRailSet;
+using RailPoint = ParkRailPoint;
+using Rail = ParkRailString;
+using RailGroup = ParkRailSet;
 
-// What BuildSourceRails keeps of each node of the pieces' node array (12 bytes).
+// What build_source_rails keeps of each node of the pieces' node array (12 bytes).
 struct PieceNodeInfo {
-    uint32_t m_class;
-    uint32_t m_cluster;
-    Scripts::CArray* m_linkSet;
+    uint32_t class_;
+    uint32_t cluster_;
+    script::Array* link_set_;
 };
-// A rail node read by FindFollowingRailNode (0x30 bytes).
+// A rail node read by find_following_rail_node (0x30 bytes).
 struct RailNodeInfo {
-    uint32_t m_class;
-    uint32_t m_kindTag;
-    uint32_t m_surfaceType;
-    Maths::Vec4 m_atPoint;        // +0x0C
-    Maths::Vec4 m_headings;     // +0x1C
-    bool m_climbable;         // +0x2C: no NoClimbing
-    uint8_t pad2D[3];
+    uint32_t class_;
+    uint32_t kind_tag_;
+    uint32_t surface_type_;
+    maths::Vec4 at_point_;        // +0x0C
+    maths::Vec4 headings_;     // +0x1C
+    bool climbable_;         // +0x2C: no NoClimbing
+    uint8_t pad2d_[3];
 };
-static_assert(offsetof(RailNodeInfo, m_atPoint) == 0x0C && sizeof(RailNodeInfo) == 0x30, "the original's local");
+static_assert(offsetof(RailNodeInfo, at_point_) == 0x0C && sizeof(RailNodeInfo) == 0x30, "the original's local");
 
 // The node array the park's level runs on (its symbol and node manager name).
 constexpr uint32_t kParkNodeArray = 0xC472ECC5; // "nodearray"

@@ -1,4 +1,4 @@
-// The input component (GameObjects::CPadInputModule): see input_component.h. From the disassembly of 0x0041E6F0-0x0041F3FB.
+// The input component (GameObjects::PadInputModule): see input_component.h. From the disassembly of 0x0041E6F0-0x0041F3FB.
 
 #include "engine/objects/input_component.h"
 #include "engine/net/task_vtable.h"
@@ -29,9 +29,9 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace GameObjects {
+namespace objects {
 
-uint32_t g_inputComponentMemberFunctions[90]{
+uint32_t g_input_component_member_functions[90]{
             0xBF7D6C46, 0x27D7CD28, 0, 0, 0, 0,
             0x6E24F5FD, 0x27D7CD28, 0, 0, 0, 0,
             0x56C6C0CD, 0x27D7CD28, 0, 0, 0, 0,
@@ -54,7 +54,7 @@ extern void** const kVtable;
 
 constexpr uint32_t kPlayer = 0x67E6859A;      // Player
 constexpr uint32_t kController = 0xB30D9965;  // controller
-constexpr uint32_t kUnknownB9B1E3B6 = 0xB9B1E3B6;
+constexpr uint32_t kUnknownB9b1e3b6 = 0xB9B1E3B6;
 constexpr uint32_t kVibration = 0x404EB936;   // vibration
 constexpr uint32_t kTime = 0x906B67BA;        // time
 constexpr uint32_t kClear = 0x1A4E0EF9;       // clear
@@ -93,377 +93,377 @@ const EventButton kEventButtons[] = {
 };
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
-int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
+int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // The input manager (0x00696D40): its controller servers (0x84 bytes each from +4: the device, then the handler list
-// - a Scheduling::PileUp - at +4, the data at +0x40), and a player's controller (0x0044E630).
-uint8_t* InputManager() { return reinterpret_cast<uint8_t*>(PadInput::g_inputManager); }
-Scheduling::PileUp* ServerHandlers(uint8_t* manager, int server)
+// - a tasks::PileUp - at +4, the data at +0x40), and a player's controller (0x0044E630).
+uint8_t* input_manager() { return reinterpret_cast<uint8_t*>(pad_input::g_input_manager); }
+tasks::PileUp* server_handlers(uint8_t* manager, int server)
 {
-    return reinterpret_cast<Scheduling::PileUp*>(manager + server * 0x84 + 8);
+    return reinterpret_cast<tasks::PileUp*>(manager + server * 0x84 + 8);
 }
-void PlaceHandler(CPadInputModule::Responder* handler, uint8_t* manager, int server)
+void place_handler(PadInputModule::Responder* handler, uint8_t* manager, int server)
 {
-    handler->m_controlData = manager + server * 0x84 + 0x44;
-    handler->m_dev = *reinterpret_cast<void**>(manager + server * 0x84 + 4);
+    handler->control_data_ = manager + server * 0x84 + 0x44;
+    handler->dev_ = *reinterpret_cast<void**>(manager + server * 0x84 + 4);
 }
-int PlayerController(int player)
+int player_controller(int player)
 {
-    return reinterpret_cast<PadInput::Hub*>(InputManager())->GetPlayerController(player);
+    return reinterpret_cast<pad_input::Hub*>(input_manager())->get_player_controller(player);
 }
 
 // A new handler (on the current heap).
-CPadInputModule::Responder* NewHandler(int index, void(__cdecl* code)(CPadInputModule::Responder*), CPadInputModule* component)
+PadInputModule::Responder* new_handler(int index, void(__cdecl* code)(PadInputModule::Responder*), PadInputModule* component)
 {
-    auto* handler = static_cast<CPadInputModule::Responder*>(MemSys::AllocZeroed(sizeof(CPadInputModule::Responder)));
+    auto* handler = static_cast<PadInputModule::Responder*>(memory::alloc_zeroed(sizeof(PadInputModule::Responder)));
     if (!handler)
         return nullptr;
-    handler->MakeNew(-1);
-    handler->m_ordinal = index;
-    handler->m_vtable = GameCode::kInputHandlerVtable;
-    handler->m_codeValue = code;
-    handler->m_component = component;
+    handler->make_new(-1);
+    handler->ordinal_ = index;
+    handler->vtable_ = game_code::kInputHandlerVtable;
+    handler->code_value_ = code;
+    handler->component_ = component;
     return handler;
 }
 
 // The screen element `id`, if there's one (the smart pointer let go at once, as the original does).
-MenuSystem::CUiWidget* FindElement(uint32_t id)
+frontend::UiWidget* find_element(uint32_t id)
 {
-    MenuSystem::ElementPtr found;
-    MenuSystem::CUiTree::Sole()->FetchPart(&found, id, 0);
-    MenuSystem::CUiWidget* element = found.Pull();
-    found.Release();
+    frontend::ElementPtr found;
+    frontend::UiTree::sole()->fetch_part(&found, id, 0);
+    frontend::UiWidget* element = found.get_pull();
+    found.get_release();
     return element;
 }
 
 } // namespace
 
 // 0x0041EEC0
-CObjectModule* __cdecl CPadInputModule::Fabricate()
+ObjectModule* __cdecl PadInputModule::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CPadInputModule));
-    return memory ? static_cast<CPadInputModule*>(memory)->MakeNew() : nullptr;
+    void* memory = memory::alloc_zeroed(sizeof(PadInputModule));
+    return memory ? static_cast<PadInputModule*>(memory)->make_new() : nullptr;
 }
 
 // 0x0041E6F0
-void __cdecl CPadInputModule::PublishMethodTable()
+void __cdecl PadInputModule::publish_method_table()
 {
-    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_inputComponentMemberFunctions, 0x18);
+    script::register_member_function_table(reinterpret_cast<void*>(kType), g_input_component_member_functions, 0x18);
 }
 
 // 0x0041E850
-CPadInputModule* CPadInputModule::MakeNew()
+PadInputModule* PadInputModule::make_new()
 {
-    CObjectModule::MakeNew();
-    m_vtable = kVtable;
-    m_padPrimary.PrepareAll();
-    m_padSecondary.PrepareAll();
-    m_kindTag = kType;
-    m_handler = nullptr;
-    m_unknown49C = 0;
+    ObjectModule::make_new();
+    vtable_ = kVtable;
+    pad_primary_.prepare_all();
+    pad_secondary_.prepare_all();
+    kind_tag_ = kType;
+    handler_ = nullptr;
+    unknown49c_ = 0;
     return this;
 }
 
 // 0x0041E710
-void CPadInputModule::DestroyBody()
+void PadInputModule::destroy_body()
 {
-    m_vtable = kVtable;
-    for (Responder* handler : {m_handler, m_handler2}) {
+    vtable_ = kVtable;
+    for (Responder* handler : {handler_, handler2_}) {
         if (!handler)
             continue;
-        if (handler->IsOnTaskList())
-            handler->DropOut();
-        reinterpret_cast<void*(__thiscall*)(Responder*, unsigned int)>(handler->m_vtable[2])(handler, 1);
+        if (handler->is_on_task_list())
+            handler->drop_out();
+        reinterpret_cast<void*(__thiscall*)(Responder*, unsigned int)>(handler->vtable_[2])(handler, 1);
     }
-    CObjectModule::DestroyBody();
+    ObjectModule::destroy_body();
 }
 
 // 0x0041E8C0
-CPadInputModule* CPadInputModule::Teardown(unsigned int flags)
+PadInputModule* PadInputModule::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x0041F390
-void CPadInputModule::ConfigureFromData(Scripts::CStruct* params)
+void PadInputModule::configure_from_data(script::Struct* params)
 {
     int value;
-    if (params->FetchIntValue(kPlayer, &value, 0))
-        LinkToPad(PlayerController(value));
-    else if (params->FetchIntValue(kController, &value, 0))
-        LinkToPad(value);
-    params->ReadHashValue(kUnknownB9B1E3B6, &m_unknown49C, 0);
+    if (params->fetch_int_value(kPlayer, &value, 0))
+        link_to_pad(player_controller(value));
+    else if (params->fetch_int_value(kController, &value, 0))
+        link_to_pad(value);
+    params->read_hash_value(kUnknownB9b1e3b6, &unknown49c_, 0);
 }
 
 // 0x0041F1B0
-void CPadInputModule::LinkToPad(int controller)
+void PadInputModule::link_to_pad(int controller)
 {
-    if (!m_handler) {
-        MemSys::Hub* memory = MemSys::Hub::Pull();
-        memory->EnterHeapScope(memory->m_skaterInfoHeap);
-        m_handler = NewHandler(0, HandlerCode, this);
-        uint8_t* manager = InputManager();
-        ServerHandlers(manager, m_handler->m_ordinal)->QueueJob(m_handler);
-        PlaceHandler(m_handler, manager, m_handler->m_ordinal);
-        m_handler2 = NewHandler(1, HandlerCode2, this);
-        manager = InputManager();
-        ServerHandlers(manager, m_handler2->m_ordinal)->QueueJob(m_handler2);
-        PlaceHandler(m_handler2, manager, m_handler2->m_ordinal);
-        MemSys::Hub::Pull()->LeaveHeapScope();
+    if (!handler_) {
+        memory::Hub* memory = memory::Hub::get_pull();
+        memory->enter_heap_scope(memory->skater_info_heap_);
+        handler_ = new_handler(0, handler_code, this);
+        uint8_t* manager = input_manager();
+        server_handlers(manager, handler_->ordinal_)->queue_job(handler_);
+        place_handler(handler_, manager, handler_->ordinal_);
+        handler2_ = new_handler(1, handler_code2, this);
+        manager = input_manager();
+        server_handlers(manager, handler2_->ordinal_)->queue_job(handler2_);
+        place_handler(handler2_, manager, handler2_->ordinal_);
+        memory::Hub::get_pull()->leave_heap_scope();
     }
-    Responder* handler = m_handler;
-    uint8_t* manager = InputManager();
-    handler->DropOut();
-    ServerHandlers(manager, controller)->QueueJob(handler);
-    PlaceHandler(handler, manager, controller);
-    Responder* handler2 = m_handler2;
-    manager = InputManager();
-    handler2->DropOut();
-    ServerHandlers(manager, 1)->QueueJob(handler2);
-    PlaceHandler(handler2, manager, 1);
-    if (CObjectModule* vibration = m_entity->FetchModule(kVibration))
-        static_cast<CPadRumbleModule*>(vibration)->ChangeGadget(reinterpret_cast<Sio::InputPort*>(m_handler->m_dev));
+    Responder* handler = handler_;
+    uint8_t* manager = input_manager();
+    handler->drop_out();
+    server_handlers(manager, controller)->queue_job(handler);
+    place_handler(handler, manager, controller);
+    Responder* handler2 = handler2_;
+    manager = input_manager();
+    handler2->drop_out();
+    server_handlers(manager, 1)->queue_job(handler2);
+    place_handler(handler2, manager, 1);
+    if (ObjectModule* vibration = entity_->fetch_module(kVibration))
+        static_cast<PadRumbleModule*>(vibration)->change_gadget(reinterpret_cast<sio::InputPort*>(handler_->dev_));
 }
 
 // 0x0041F170
-void __cdecl CPadInputModule::HandlerCode(Responder* handler) { handler->m_component->UpdatePad(handler->m_controlData); }
+void __cdecl PadInputModule::handler_code(Responder* handler) { handler->component_->update_pad(handler->control_data_); }
 
 // 0x0041F190
-void __cdecl CPadInputModule::HandlerCode2(Responder* handler) { handler->m_component->UpdatePad2(handler->m_controlData); }
+void __cdecl PadInputModule::handler_code2(Responder* handler) { handler->component_->update_pad2(handler->control_data_); }
 
 // 0x0041F090
-void CPadInputModule::UpdatePad(const uint8_t* data)
+void PadInputModule::update_pad(const uint8_t* data)
 {
-    if (m_entity->m_compositeFlags & COMPOSITE_FLAG_PAUSED)
+    if (entity_->composite_flags_ & kCompositeFlagPaused)
         return;
-    UpdateEvents(data);
-    bool blocked = IsInputBlocked();
-    if (!m_disabled && !m_netDisabled && !blocked) {
-        m_padPrimary.TickFrame(data);
+    update_events(data);
+    bool blocked = is_input_blocked();
+    if (!disabled_ && !net_disabled_ && !blocked) {
+        pad_primary_.tick_frame(data);
         return;
     }
-    m_padPrimary.Reset();
+    pad_primary_.get_reset();
     if (blocked)
-        m_events = 0;
+        events_ = 0;
 }
 
 // 0x0041F100
-void CPadInputModule::UpdatePad2(const uint8_t* data)
+void PadInputModule::update_pad2(const uint8_t* data)
 {
-    if (m_entity->m_compositeFlags & COMPOSITE_FLAG_PAUSED)
+    if (entity_->composite_flags_ & kCompositeFlagPaused)
         return;
-    bool blocked = IsInputBlocked();
-    if (!m_disabled && !m_netDisabled && !blocked) {
-        m_padSecondary.TickFrame(data);
+    bool blocked = is_input_blocked();
+    if (!disabled_ && !net_disabled_ && !blocked) {
+        pad_secondary_.tick_frame(data);
         return;
     }
-    m_padSecondary.Reset();
+    pad_secondary_.get_reset();
     if (blocked)
-        m_events = 0;
+        events_ = 0;
 }
 
 // 0x0041EF20
-bool CPadInputModule::IsInputBlocked()
+bool PadInputModule::is_input_blocked()
 {
-    if (!g_onlineHub->InNetGame())
+    if (!g_online_hub->in_net_game())
         return false;
-    if (FindElement(kControllerUnpluggedDialog))
+    if (find_element(kControllerUnpluggedDialog))
         return true;
-    if (MenuSystem::CUiWidget* root = FindElement(kRootWindow)) {
-        Scripts::CStruct* tags = Scripts::SpawnParamBag();
+    if (frontend::UiWidget* root = find_element(kRootWindow)) {
+        script::Struct* tags = script::spawn_param_bag();
         if (tags)
-            tags = tags->PrepareAll();
-        root->CopyTagsTo(tags);
+            tags = tags->prepare_all();
+        root->copy_tags_to(tags);
         uint32_t state = 0; // (uninitialised in the original: what was on the stack)
-        tags->ReadHashValue(kMenuState, &state, 0);
+        tags->read_hash_value(kMenuState, &state, 0);
         if (tags) {
-            tags->Clear(); // (the destructor)
-            Scripts::DeleteStruct(tags);
+            tags->get_clear(); // (the destructor)
+            script::delete_struct(tags);
         }
         if (state == kOn)
             return true;
     }
-    return FindElement(kKeyboardAnchor) != nullptr;
+    return find_element(kKeyboardAnchor) != nullptr;
 }
 
 // 0x0041ECA0
-void CPadInputModule::UpdateEvents(const uint8_t* data)
+void PadInputModule::update_events(const uint8_t* data)
 {
-    m_lastEvents = m_events;
-    m_events = 0;
+    last_events_ = events_;
+    events_ = 0;
     for (const EventButton& event : kEventButtons) {
-        CControlButton* button =
+        ControlButton* button =
             event.button < 0 ? nullptr
-                             : reinterpret_cast<CControlButton*>(reinterpret_cast<uint8_t*>(&m_padPrimary) + event.button);
-        ReadButtonState(data, event.index, event.bit, event.down, event.up, button);
+                             : reinterpret_cast<ControlButton*>(reinterpret_cast<uint8_t*>(&pad_primary_) + event.button);
+        read_button_state(data, event.index, event.bit, event.down, event.up, button);
     }
 }
 
 // 0x0041EBF0
-void CPadInputModule::ReadButtonState(const uint8_t* data, int index, uint32_t bit, uint32_t down, uint32_t up,
-                                  CControlButton* button)
+void PadInputModule::read_button_state(const uint8_t* data, int index, uint32_t bit, uint32_t down, uint32_t up,
+                                  ControlButton* button)
 {
     if (button) {
-        uint32_t lockedUntil = static_cast<uint32_t>(Truncated(button->m_lockedUntil));
-        if (FrameClock::GetTime() < lockedUntil)
+        uint32_t locked_until = static_cast<uint32_t>(get_truncated(button->locked_until_));
+        if (frame_clock::get_time() < locked_until)
             return;
     }
-    bool eventsOn = m_inputEvents && !m_disabled && !m_netDisabled;
+    bool events_on = input_events_ && !disabled_ && !net_disabled_;
     if (data[index]) {
-        if (!(m_lastEvents & bit) && eventsOn)
-            m_entity->PostOwnEvent(down, nullptr);
-        m_events |= bit;
-    } else if ((m_lastEvents & bit) && eventsOn) {
-        m_entity->PostOwnEvent(up, nullptr);
+        if (!(last_events_ & bit) && events_on)
+            entity_->post_own_event(down, nullptr);
+        events_ |= bit;
+    } else if ((last_events_ & bit) && events_on) {
+        entity_->post_own_event(up, nullptr);
     }
 }
 
 // 0x0041E7E0
-void CPadInputModule::LockButton(uint32_t name, float seconds, bool release)
+void PadInputModule::lock_button(uint32_t name, float seconds, bool release)
 {
-    CControlButton* button = m_padPrimary.ReadButton(name);
-    uint32_t now = FrameClock::GetTime();
+    ControlButton* button = pad_primary_.read_button(name);
+    uint32_t now = frame_clock::get_time();
     double time = static_cast<double>(static_cast<int32_t>(now));
     if (static_cast<int32_t>(now) < 0)
         time += kTwoTo32;
-    button->m_lockedUntil = static_cast<float>(Truncated(time + static_cast<double>(seconds) * kMilliseconds));
+    button->locked_until_ = static_cast<float>(get_truncated(time + static_cast<double>(seconds) * kMilliseconds));
     if (release) {
-        button->SetHeldDown(0);
-        button->ResetActivation();
-        button->ForgetLetGo();
+        button->set_held_down(0);
+        button->reset_activation();
+        button->forget_let_go();
     }
 }
 
 // 0x0041E8F0
-int CPadInputModule::LockButtonFromScript(Scripts::CStruct* params, Scripts::CScript*)
+int PadInputModule::lock_button_from_script(script::Struct* params, script::Script*)
 {
     uint32_t name = 0;
-    if (params->ReadHashValue(0u, &name, 0)) {
+    if (params->read_hash_value(0u, &name, 0)) {
         float time = 1.0f;
-        params->FetchFloat(kTime, &time, 0);
+        params->fetch_float(kTime, &time, 0);
         // (the original's file name: its __FILE__ from 12 characters in)
-        DebugOut::Printf("D:%s:%i: time = %g\n", "omponents\\InputComponent.cpp", 0x94, static_cast<double>(time));
+        debug::printf("D:%s:%i: time = %g\n", "omponents\\InputComponent.cpp", 0x94, static_cast<double>(time));
         int clear = 0;
-        params->FetchIntValue(kClear, &clear, 0);
-        LockButton(name, time, clear != 0);
+        params->fetch_int_value(kClear, &clear, 0);
+        lock_button(name, time, clear != 0);
     }
     return 1;
 }
 
 // 0x0041E9A0
-int CPadInputModule::DisablePlayerInput(Scripts::CStruct*, Scripts::CScript*)
+int PadInputModule::disable_player_input(script::Struct*, script::Script*)
 {
-    m_disabled = true;
+    disabled_ = true;
     return 1;
 }
 
 // 0x0041E9B0
-int CPadInputModule::EnablePlayerInput(Scripts::CStruct*, Scripts::CScript*)
+int PadInputModule::enable_player_input(script::Struct*, script::Script*)
 {
-    m_disabled = false;
+    disabled_ = false;
     return 1;
 }
 
 // 0x0041E9C0
-int CPadInputModule::NetDisablePlayerInput(Scripts::CStruct*, Scripts::CScript*)
+int PadInputModule::net_disable_player_input(script::Struct*, script::Script*)
 {
-    m_netDisabled = true;
+    net_disabled_ = true;
     return 1;
 }
 
 // 0x0041E9D0
-int CPadInputModule::NetEnablePlayerInput(Scripts::CStruct*, Scripts::CScript*)
+int PadInputModule::net_enable_player_input(script::Struct*, script::Script*)
 {
-    m_netDisabled = false;
+    net_disabled_ = false;
     return 1;
 }
 
 // 0x0041E7C0
-int CPadInputModule::EnableInputEvents(Scripts::CStruct*, Scripts::CScript*)
+int PadInputModule::enable_input_events(script::Struct*, script::Script*)
 {
-    m_inputEvents = true;
+    input_events_ = true;
     return 1;
 }
 
 // 0x0041E7D0
-int CPadInputModule::DisableInputEvents(Scripts::CStruct*, Scripts::CScript*)
+int PadInputModule::disable_input_events(script::Struct*, script::Script*)
 {
-    m_inputEvents = false;
+    input_events_ = false;
     return 1;
 }
 
 // 0x0041E9E0
-int CPadInputModule::PlayerInputIsDisabled(Scripts::CStruct*, Scripts::CScript*)
+int PadInputModule::player_input_is_disabled(script::Struct*, script::Script*)
 {
-    return m_disabled || m_netDisabled ? 1 : 0;
+    return disabled_ || net_disabled_ ? 1 : 0;
 }
 
 // 0x0041EA20
-int CPadInputModule::LeftPressed(Scripts::CStruct*, Scripts::CScript*) { return m_padPrimary.m_leftSide.m_heldDown != 0 ? 1 : 0; }
+int PadInputModule::left_pressed(script::Struct*, script::Script*) { return pad_primary_.left_side_.held_down_ != 0 ? 1 : 0; }
 
 // 0x0041EA30
-int CPadInputModule::RightPressed(Scripts::CStruct*, Scripts::CScript*) { return m_padPrimary.m_rightSide.m_heldDown != 0 ? 1 : 0; }
+int PadInputModule::right_pressed(script::Struct*, script::Script*) { return pad_primary_.right_side_.held_down_ != 0 ? 1 : 0; }
 
 // 0x0041EA40
-int CPadInputModule::UpPressed(Scripts::CStruct*, Scripts::CScript*) { return m_padPrimary.m_upDir.m_heldDown != 0 ? 1 : 0; }
+int PadInputModule::up_pressed(script::Struct*, script::Script*) { return pad_primary_.up_dir_.held_down_ != 0 ? 1 : 0; }
 
 // 0x0041EA50
-int CPadInputModule::DownPressed(Scripts::CStruct*, Scripts::CScript*) { return m_padPrimary.m_btnDown.m_heldDown != 0 ? 1 : 0; }
+int PadInputModule::down_pressed(script::Struct*, script::Script*) { return pad_primary_.btn_down_.held_down_ != 0 ? 1 : 0; }
 
 // 0x0041EA60
-int CPadInputModule::GetSticks(Scripts::CStruct*, Scripts::CScript* script)
+int PadInputModule::get_sticks(script::Struct*, script::Script* script)
 {
-    script->m_args->PushFloat(0x737F15CF, m_padPrimary.m_polar[1].angle * kDegreesPerRadian);
-    script->m_args->PushFloat(0x686AD1C2,
-                               static_cast<float>(StickLength(m_padPrimary.m_stick[2], m_padPrimary.m_stick[3], m_padPrimary.m_polar[1].angle)));
-    script->m_args->PushFloat(0xD6030CEA, m_padPrimary.m_polar[0].angle * kDegreesPerRadian);
-    script->m_args->PushFloat(0xC94777AC,
-                               static_cast<float>(StickLength(m_padPrimary.m_stick[0], m_padPrimary.m_stick[1], m_padPrimary.m_polar[0].angle)));
+    script->args_->push_float(0x737F15CF, pad_primary_.polar_[1].angle * kDegreesPerRadian);
+    script->args_->push_float(0x686AD1C2,
+                               static_cast<float>(stick_length(pad_primary_.stick_[2], pad_primary_.stick_[3], pad_primary_.polar_[1].angle)));
+    script->args_->push_float(0xD6030CEA, pad_primary_.polar_[0].angle * kDegreesPerRadian);
+    script->args_->push_float(0xC94777AC,
+                               static_cast<float>(stick_length(pad_primary_.stick_[0], pad_primary_.stick_[1], pad_primary_.polar_[0].angle)));
     return 1;
 }
 
 // 0x0041EB20
-int CPadInputModule::HeldLongerThan(Scripts::CStruct* params, Scripts::CScript*)
+int PadInputModule::held_longer_than(script::Struct* params, script::Script*)
 {
     uint32_t name;
-    params->ReadHashValue(kButton, &name, 1);
+    params->read_hash_value(kButton, &name, 1);
     float time;
     std::memcpy(&time, &params, sizeof(time)); // (the original's slot for it: the params argument)
-    params->FetchFloat(0u, &time, 1);
+    params->fetch_float(0u, &time, 1);
     double scaled = time;
-    if (params->HasBareFlag(kSeconds) || params->HasBareFlag(kSecond))
+    if (params->has_bare_flag(kSeconds) || params->has_bare_flag(kSecond))
         scaled = static_cast<double>(time) * kMilliseconds;
-    else if (params->HasBareFlag(kFrames) || params->HasBareFlag(kFrame))
+    else if (params->has_bare_flag(kFrames) || params->has_bare_flag(kFrame))
         scaled = static_cast<double>(time) * kFrameMilliseconds;
-    uint32_t milliseconds = static_cast<uint32_t>(Truncated(scaled));
-    CControlButton* button = m_padPrimary.ReadButton(name);
-    if (button && button->m_heldDown && static_cast<uint32_t>(button->GetHeldMillis()) > milliseconds)
+    uint32_t milliseconds = static_cast<uint32_t>(get_truncated(scaled));
+    ControlButton* button = pad_primary_.read_button(name);
+    if (button && button->held_down_ && static_cast<uint32_t>(button->get_held_millis()) > milliseconds)
         return 1;
     return 0;
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CPadInputModule::Teardown,
-         &GameObjects::ComponentWithoutUpdate::TickFrame,
-         &GameObjects::CPadInputModule::ConfigureFromData,
-         Stubs::DoNothing,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::DispatchScriptMethod,
-         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::PadInputModule::teardown,
+         &objects::ComponentWithoutUpdate::tick_frame,
+         &objects::PadInputModule::configure_from_data,
+         stubs::do_nothing,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         &objects::ObjectModule::dispatch_script_method,
+         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

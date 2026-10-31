@@ -21,7 +21,7 @@ export function expressionResultFixture() {
             ...assign("absent", expr(param("saved"), [8], name("late"))),
         ]),
         ...script("completionGrouping", [
-            // IsSubsetOf compares nested owning containers by identity. An
+            // is_subset_of compares nested owning containers by identity. An
             // erroneous GetResult at grouping would copy that child and fail.
             ...assign("grouped", expr(expr(param("tree")), [18], param("tree"))),
             ...assign(
@@ -29,7 +29,7 @@ export function expressionResultFixture() {
                 expr(randomChoice(0x2f, [expr(param("tree")), expr(param("missing"))], [1, 0]), [18], param("tree")),
             ),
             // Outside an active expression the selected '(' calls its own
-            // ParseExpression/GetResult, so it must materialize an owning copy.
+            // parse_expression/GetResult, so it must materialize an owning copy.
             ...assign("saved", randomChoice(0x37, [expr(param("tree"))])),
             ...assign("detached", expr(param("saved"), [18], param("tree"))),
         ]),

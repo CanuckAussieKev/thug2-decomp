@@ -9,7 +9,7 @@
 // key press, a key held, a setting to switch, or a hint (a mouse gesture, a key of a mode) - in one registry, with its
 // name, its category, its keys and, for the command search (Ctrl+Space / F3 - level_editor_ux3_ui.cpp), what running
 // it does and whether it can run now. The editor's key handling reads its keys from here (Pressed / Held), so the keys
-// can be rebound: the Keys section (a window of its own, or hosted by the preferences window - Ui::KeysSection) keeps
+// can be rebound: the Keys section (a window of its own, or hosted by the preferences window - Ui::keys_section) keeps
 // them in thug2-decomp.ini [editor_keys] as `<id>=<keys>` ("Ctrl+Z", "Ctrl+Y, Ctrl+Shift+Z", "none"); only keys that
 // differ from the defaults are written. F1's help lists from the registry too.
 //
@@ -25,7 +25,7 @@
 //
 // Other agents' and later work's keys: appended to the built-in table (kBuiltins) and to Id below; the order is the
 // registry's and the help's.
-namespace MenuSystem::LevelEditor::Actions {
+namespace frontend::level_editor::actions {
 
 // --- the pure parts --------------------------------------------------------------------------------------------------
 
@@ -37,41 +37,41 @@ struct Chord {
 };
 inline bool operator==(Chord a, Chord b) { return a.scancode == b.scancode && a.mods == b.mods; }
 // The key's name as the keymap writes it ("Z", "F1", "Space", "Delete", "[", "PageUp"); "" for a key it doesn't name.
-const char* KeyName(int scancode);
+const char* get_key_name(int scancode);
 // A key's scan code from its name (any case); 0 if none.
-int KeyFromName(const std::string& name);
+int key_from_name(const std::string& name);
 // "Ctrl+Shift+Z" and back (modifiers in any order, any case; "Control" and "Option" too). False: no key, an unknown key,
 // a modifier alone.
-std::string FormatChord(Chord chord);
-bool ParseChord(const std::string& text, Chord* chord);
+std::string format_chord(Chord chord);
+bool parse_chord(const std::string& text, Chord* chord);
 // A list: "Ctrl+Y, Ctrl+Shift+Z" / "none" (the empty list) and back (false: any chord unreadable).
-std::string FormatKeys(const std::vector<Chord>& keys);
-bool ParseKeys(const std::string& text, std::vector<Chord>* keys);
+std::string format_keys(const std::vector<Chord>& keys);
+bool parse_keys(const std::string& text, std::vector<Chord>* keys);
 
 // Whether a chord matches a key pressed with `held` modifiers (see the top), and how specific it is.
-bool ChordMatches(Chord chord, int scancode, uint8_t held);
-int Specificity(Chord chord);
+bool chord_matches(Chord chord, int scancode, uint8_t held);
+int get_specificity(Chord chord);
 // The actions a key press fires: of `bound` (each action's keys), the indices of those matching that are most specific
 // (several when several are bound alike - a conflict).
-std::vector<int> SettleUp(const std::vector<std::vector<Chord>>& bound, int scancode, uint8_t held);
+std::vector<int> settle_up(const std::vector<std::vector<Chord>>& bound, int scancode, uint8_t held);
 // A key held counts for a chord: the key down, Ctrl as bound (held only when bound with it), Shift / Alt held when bound.
-bool HoldMatches(Chord chord, bool keyDown, uint8_t held);
+bool hold_matches(Chord chord, bool key_down, uint8_t held);
 // Whether two chords can fire on the same press (the same key, Ctrl alike, and neither needs a Shift / Alt the other's
 // press would lack - a press of the more specific fires only it): the Keys section's conflicts are exact duplicates.
-bool SameBinding(Chord a, Chord b);
+bool same_binding(Chord a, Chord b);
 
 // The command search's fuzzy match: 0 when `query`'s characters (spaces ignored, any case) don't appear in `text` in
 // order; else a score, higher for a match at the start, at the start of words, and for runs of consecutive characters.
 // An empty query scores 1.
-int FuzzyScore(const std::string& query, const std::string& text);
+int fuzzy_score(const std::string& query, const std::string& text);
 
 // --- the registry ------------------------------------------------------------------------------------------------
 
 enum class Kind : uint8_t {
-    Press,  // a key press does it
-    Hold,   // while its key is held (flying, nudging)
-    FlipOver, // a setting switched (checked: on / off)
-    DetailsOf,   // a hint: a mouse gesture, a mode's own key - listed, not rebindable
+    kPress,  // a key press does it
+    kHold,   // while its key is held (flying, nudging)
+    kFlipOver, // a setting switched (checked: on / off)
+    kDetailsOf,   // a hint: a mouse gesture, a mode's own key - listed, not rebindable
 };
 
 struct ActStep {
@@ -79,9 +79,9 @@ struct ActStep {
     std::string name;     // "Undo"
     std::string category; // "Edit"
     std::string tip;      // what it does, more fully (the search's second line, the help)
-    Kind kind = Kind::Press;
+    Kind kind = Kind::kPress;
     std::vector<Chord> defaults, keys;
-    std::string keysText; // Info: what to show for its keys ("Right mouse", "Shift while dragging")
+    std::string keys_text_; // Info: what to show for its keys ("Right mouse", "Shift while dragging")
     bool rebindable = true;
     std::function<void()> run;     // the search runs it (none: Trigger)
     std::function<bool()> enabled; // can it run now (none: yes)
@@ -114,47 +114,47 @@ enum IdentNo : int {
     kBuiltinCount
 };
 
-// The registry, built-ins first (made on first use; their keys read from the ini once - LoadKeys).
-const std::vector<ActStep>& All();
-ActStep* Pull(int index);
-int Find(const std::string& id);
+// The registry, built-ins first (made on first use; their keys read from the ini once - load_keys).
+const std::vector<ActStep>& get_all();
+ActStep* get_pull(int index);
+int get_find(const std::string& id);
 // An action added (or, its id already there, its name / tip / callbacks replaced - its keys kept). Its index.
-int Enrol(const ActStep& action);
+int enrol(const ActStep& action);
 // Callbacks set on a built-in (or any) action.
-void SetRun(int index, std::function<void()> run);
-void SetEnabled(int index, std::function<bool()> enabled);
-void SetChecked(int index, std::function<int()> checked);
-bool IsSwitchedOn(int index);
-int Checked(int index);
+void set_run(int index, std::function<void()> run);
+void set_enabled(int index, std::function<bool()> enabled);
+void set_checked(int index, std::function<int()> checked);
+bool is_switched_on(int index);
+int get_checked(int index);
 // Its keys as text ("Ctrl+Z", "Ctrl+Y / Ctrl+Shift+Z", an Info's keysText; "" none).
-std::string KeysText(int index);
+std::string get_keys_text(int index);
 // The other actions bound to the same chord as one of `index`'s keys (the Keys section's warning).
-std::vector<int> Conflicts(int index);
+std::vector<int> conflicts(int index);
 
 // --- the keymap, a frame at a time (the editor's Update) ------------------------------------------------------------
 
 // The keyboard this frame (SDL_GetKeyboardState; all up while the UI types): which actions' keys were pressed.
 // `suspended`: none fire (a key being captured for rebinding).
-void BeginFrame(const uint8_t* keys);
+void begin_frame(const uint8_t* keys);
 // The editor starting: the keys down now count as already down (the key that opened it doesn't act at once).
-void SeedKeys(const uint8_t* keys);
-bool Squeezed(int index);
-bool Held(const uint8_t* keys, int index);
+void seed_keys(const uint8_t* keys);
+bool squeezed(int index);
+bool get_held(const uint8_t* keys, int index);
 // As if its key had been pressed: Pressed is true next frame (the command search, menus).
-void FireOff(int index);
+void fire_off(int index);
 // The search / a menu: `run`, else Trigger (nothing when not Enabled).
-void Run(int index);
+void get_run(int index);
 
 // Rebinding: the keys set (written to the ini - the defaults' entry taken out), put back to the defaults, or read
 // (all, once - All() does it).
-void SetKeys(int index, const std::vector<Chord>& keys);
-void ResetKeys(int index);
-void LoadKeys();
+void set_keys(int index, const std::vector<Chord>& keys);
+void reset_keys(int index);
+void load_keys();
 // The Keys section: the next key pressed (with its modifiers) becomes the action's key `slot` (0: the first; past the
 // end: added); Escape cancels. While capturing no action fires (and Escape doesn't leave the editor).
-void BeginCapture(int index, int slot);
-void CancelCapture();
-bool Capturing();
-int CapturingIndex();
+void begin_capture(int index, int slot);
+void cancel_capture();
+bool get_capturing();
+int capturing_index();
 
-} // namespace MenuSystem::LevelEditor::Actions
+} // namespace MenuSystem::level_editor::Actions

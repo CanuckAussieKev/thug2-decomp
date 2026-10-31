@@ -34,24 +34,24 @@
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/device.h"
 
-namespace MouseMenus {
+namespace mouse_menus {
 
-using MenuSystem::CUiWidget;
+using frontend::UiWidget;
 
 namespace {
 
-// Element types (CEntity::m_kindTag) and names.
+// Element types (Entity::kind_tag_) and names.
 constexpr uint32_t kVMenu = 0x130EF802;          // "vmenu"
 constexpr uint32_t kHMenu = 0xCCDED1E1;          // "hmenu"
 constexpr uint32_t kWindowElement = 0xA13ADBB7;  // "windowelement" (a clipping viewport, 0x004B2060)
 constexpr uint32_t kVScrollingMenu = 0x84298A3C; // "vscrollingmenu"
 constexpr uint32_t kHScrollingMenu = 0x2900E3D0; // "hscrollingmenu"
 constexpr uint32_t kTagNotFocusable = 0xF33A3321; // "tag_not_focusable" (set by not_focusable)
-constexpr uint32_t kParkEditorElement = 0x5999551E; // (the park editor's element - as Sio's InParkEditor)
+constexpr uint32_t kParkEditorElement = 0x5999551E; // (the park editor's element - as Sio's in_park_editor)
 constexpr uint32_t kTagBlank = 0xC3D43B9A;  // "blank" (make_spin_menu_item's filler items)
 constexpr uint32_t kTagActive = 0xB4E103FD; // "active" (make_spin_menu_item: 0 = disabled)
 
-// The menus' pad events and how InputLogic launches them (front_end.cpp).
+// The menus' pad events and how input_logic launches them (front_end.cpp).
 constexpr uint32_t kPadUp = 0x30A4F836;     // "pad_up"
 constexpr uint32_t kPadDown = 0x0FD1AC26;   // "pad_down"
 constexpr uint32_t kPadLeft = 0x6949DB75;   // "pad_left"
@@ -62,7 +62,7 @@ constexpr uint32_t kDeviceNum = 0xC9428A08; // "device_num"
 constexpr uint32_t kController = 0xB30D9965; // "controller"
 constexpr uint32_t kMenuEvent = 0x36B2EE74; // the pad events' target and source
 
-// CUiWidget's flags (+0x08).
+// UiWidget's flags (+0x08).
 constexpr uint32_t kFlagBlockEvents = 0x200000;  // block_events
 constexpr uint32_t kFlagHidden = 0x400000;       // hide
 constexpr uint32_t kFlagPriority = 0x10000000;   // priority > 0 (pad events with priorities: 0x004A8F20)
@@ -71,37 +71,37 @@ constexpr uint32_t kFlagPriority = 0x10000000;   // priority > 0 (pad events wit
 constexpr float kMinAlpha = 0.01f;
 
 template <typename T>
-T Prop(const CUiWidget* element, uint32_t offset)
+T prop(const UiWidget* element, uint32_t offset)
 {
     return *reinterpret_cast<const T*>(reinterpret_cast<const uint8_t*>(element) + offset);
 }
 
-const GameObjects::CEntity* AsObject(const CUiWidget* element) { return reinterpret_cast<const GameObjects::CEntity*>(element); }
-uint32_t Flags(const CUiWidget* element) { return Prop<uint32_t>(element, 0x08); }
-uint32_t KindTag(const CUiWidget* element) { return AsObject(element)->m_kindTag; }
-uint32_t IdentNo(const CUiWidget* element) { return AsObject(element)->m_ident; }
-CUiWidget* Parent(const CUiWidget* element) { return Prop<CUiWidget*>(element, 0x4C); }
-CUiWidget* FirstChild(const CUiWidget* element) { return Prop<CUiWidget*>(element, 0x58); }
-CUiWidget* NextSibling(const CUiWidget* element) { return Prop<CUiWidget*>(element, 0x64); }
-float Alpha(const CUiWidget* element) { return Prop<float>(element, 0x114); }
-float Bearing(const CUiWidget* element) { return Prop<float>(element, 0x14C); }
+const objects::Entity* as_object(const UiWidget* element) { return reinterpret_cast<const objects::Entity*>(element); }
+uint32_t current_flags(const UiWidget* element) { return prop<uint32_t>(element, 0x08); }
+uint32_t kind_tag(const UiWidget* element) { return as_object(element)->kind_tag_; }
+uint32_t ident_no(const UiWidget* element) { return as_object(element)->ident_; }
+UiWidget* current_parent(const UiWidget* element) { return prop<UiWidget*>(element, 0x4C); }
+UiWidget* first_child(const UiWidget* element) { return prop<UiWidget*>(element, 0x58); }
+UiWidget* next_sibling(const UiWidget* element) { return prop<UiWidget*>(element, 0x64); }
+float get_alpha(const UiWidget* element) { return prop<float>(element, 0x114); }
+float bearing(const UiWidget* element) { return prop<float>(element, 0x14C); }
 
 // The flag on the element or a parent.
-bool FlagInChain(const CUiWidget* element, uint32_t flag)
+bool flag_in_chain(const UiWidget* element, uint32_t flag)
 {
-    for (; element; element = Parent(element))
-        if (Flags(element) & flag)
+    for (; element; element = current_parent(element))
+        if (current_flags(element) & flag)
             return true;
     return false;
 }
 
-bool ClipsChildren(const CUiWidget* element)
+bool clips_children(const UiWidget* element)
 {
-    uint32_t type = KindTag(element);
+    uint32_t type = kind_tag(element);
     return type == kWindowElement || type == kVScrollingMenu || type == kHScrollingMenu;
 }
 
-Rect2 Intersect(const Rect2& a, const Rect2& b)
+Rect2 intersect(const Rect2& a, const Rect2& b)
 {
     return {std::max(a.left, b.left), std::max(a.top, b.top), std::min(a.right, b.right), std::min(a.bottom, b.bottom)};
 }
@@ -112,7 +112,7 @@ Rect2 Union(const Rect2& a, const Rect2& b)
 }
 
 // The rectangle of an unturned box (right / bottom past left / top).
-Rect2 BoxRect(const Cuboid& box)
+Rect2 box_rect(const Cuboid& box)
 {
     Rect2 rect = {box.x, box.y, box.x + box.width, box.y + box.height};
     if (rect.right < rect.left)
@@ -123,7 +123,7 @@ Rect2 BoxRect(const Cuboid& box)
 }
 
 // The rectangle around a turned box's corners.
-Rect2 TurnedBoxRect(const Cuboid& box)
+Rect2 turned_box_rect(const Cuboid& box)
 {
     double c = std::cos(box.angle), s = std::sin(box.angle);
     Rect2 rect = {box.x, box.y, box.x, box.y};
@@ -138,49 +138,49 @@ Rect2 TurnedBoxRect(const Cuboid& box)
 
 // Each part of an item: itself, then everything below it that isn't hidden (nor below a hidden one).
 template <typename F>
-void ForEachPart(const CUiWidget* element, F& visit, bool item)
+void for_each_part(const UiWidget* element, F& visit, bool item)
 {
-    if (!item && (Flags(element) & kFlagHidden))
+    if (!item && (current_flags(element) & kFlagHidden))
         return;
     visit(element, item);
-    for (CUiWidget* child = FirstChild(element); child; child = NextSibling(child))
-        ForEachPart(child, visit, false);
+    for (UiWidget* child = first_child(element); child; child = next_sibling(child))
+        for_each_part(child, visit, false);
 }
 
-// The rectangle around the item's unturned parts (false: none - with `turnedInBounds` the turned ones' too), and
+// The rectangle around the item's unturned parts (false: none - with `turned_in_bounds` the turned ones' too), and
 // whether a turned part contains (x, y).
-bool ItemShape(const CUiWidget* item, float x, float y, bool turnedInBounds, Rect2* bounds, bool* turnedHit)
+bool item_shape(const UiWidget* item, float x, float y, bool turned_in_bounds, Rect2* bounds, bool* turned_hit)
 {
     bool any = false;
-    *turnedHit = false;
-    auto visit = [&](const CUiWidget* part, bool isItem) {
-        Cuboid box = ElementBox(part);
-        if (!isItem && (box.width == 0.0f || box.height == 0.0f))
+    *turned_hit = false;
+    auto visit = [&](const UiWidget* part, bool is_item) {
+        Cuboid box = element_box(part);
+        if (!is_item && (box.width == 0.0f || box.height == 0.0f))
             return; // (an empty container somewhere: nothing to point at)
         Rect2 rect;
-        if (Rotated(box.angle)) {
-            if (BoxContains(box, x, y))
-                *turnedHit = true;
-            if (!turnedInBounds)
+        if (get_rotated(box.angle)) {
+            if (box_contains(box, x, y))
+                *turned_hit = true;
+            if (!turned_in_bounds)
                 return;
-            rect = TurnedBoxRect(box);
+            rect = turned_box_rect(box);
         } else {
-            rect = BoxRect(box);
+            rect = box_rect(box);
         }
         *bounds = any ? Union(*bounds, rect) : rect;
         any = true;
     };
-    ForEachPart(item, visit, true);
+    for_each_part(item, visit, true);
     return any;
 }
 
 // Across its menu (a vertical menu's width, a horizontal one's height) - unless the menu is turned.
-Rect2 Widen(Rect2 area, const CUiWidget* menu)
+Rect2 widen(Rect2 area, const UiWidget* menu)
 {
-    if (Rotated(Bearing(menu)))
+    if (get_rotated(bearing(menu)))
         return area;
-    Rect2 span = ElementRect(menu);
-    if (MenuRunsTopToBottom(menu)) {
+    Rect2 span = element_rect(menu);
+    if (menu_runs_top_to_bottom(menu)) {
         if (span.right > span.left) {
             area.left = std::min(area.left, span.left);
             area.right = std::max(area.right, span.right);
@@ -195,48 +195,48 @@ Rect2 Widen(Rect2 area, const CUiWidget* menu)
 struct Hunt {
     float x, y;
     MenuFilter accepts;
-    bool verticalOnly; // (AnyMenu)
+    bool vertical_only_; // (any_menu)
     bool found;
     Hit hit;
 };
 
 // Pre-order: a later find (deeper, or later in the tree) replaces an earlier one.
-void Visit(Hunt& search, CUiWidget* element, bool parentAccepts, int index, const Rect2& clip, bool clipped)
+void get_visit(Hunt& search, UiWidget* element, bool parent_accepts, int index, const Rect2& clip, bool clipped)
 {
-    if (Flags(element) & kFlagHidden)
+    if (current_flags(element) & kFlagHidden)
         return;
-    if (Alpha(element) < kMinAlpha)
+    if (get_alpha(element) < kMinAlpha)
         return;
-    CUiWidget* parent = Parent(element);
-    if (parentAccepts && !ItemPassedOver(element) && ItemFocusable(element)) {
-        if (ItemContains(element, parent, search.x, search.y) && (!clipped || clip.Holds(search.x, search.y))) {
+    UiWidget* parent = current_parent(element);
+    if (parent_accepts && !item_passed_over(element) && item_focusable(element)) {
+        if (item_contains(element, parent, search.x, search.y) && (!clipped || clip.get_holds(search.x, search.y))) {
             search.found = true;
             search.hit = {parent, element, index};
         }
     }
-    Rect2 childClip = clip;
-    bool childClipped = clipped;
-    if (ClipsChildren(element)) {
-        Rect2 own = ElementRect(element);
+    Rect2 child_clip = clip;
+    bool child_clipped = clipped;
+    if (clips_children(element)) {
+        Rect2 own = element_rect(element);
         if (own.right > own.left && own.bottom > own.top) {
-            childClip = clipped ? Intersect(clip, own) : own;
-            childClipped = true;
+            child_clip = clipped ? intersect(clip, own) : own;
+            child_clipped = true;
         }
     }
-    bool accepts = IsMenu(element) && search.accepts(element);
-    int childIndex = 0;
-    for (CUiWidget* child = FirstChild(element); child; child = NextSibling(child), ++childIndex)
-        Visit(search, child, accepts, childIndex, childClip, childClipped);
+    bool accepts = is_menu(element) && search.accepts(element);
+    int child_index = 0;
+    for (UiWidget* child = first_child(element); child; child = next_sibling(child), ++child_index)
+        get_visit(search, child, accepts, child_index, child_clip, child_clipped);
 }
 
-bool FindMenu(CUiWidget* element, MenuFilter accepts, bool verticalOnly)
+bool find_menu(UiWidget* element, MenuFilter accepts, bool vertical_only)
 {
-    if (Flags(element) & kFlagHidden)
+    if (current_flags(element) & kFlagHidden)
         return false;
-    if (IsMenu(element) && (!verticalOnly || MenuRunsTopToBottom(element)) && accepts(element))
+    if (is_menu(element) && (!vertical_only || menu_runs_top_to_bottom(element)) && accepts(element))
         return true;
-    for (CUiWidget* child = FirstChild(element); child; child = NextSibling(child))
-        if (FindMenu(child, accepts, verticalOnly))
+    for (UiWidget* child = first_child(element); child; child = next_sibling(child))
+        if (find_menu(child, accepts, vertical_only))
             return true;
     return false;
 }
@@ -245,44 +245,44 @@ bool FindMenu(CUiWidget* element, MenuFilter accepts, bool verticalOnly)
 
 // --- the pieces ---------------------------------------------------------------------------------------------------
 
-ScreenMapping CurrentMapping(int windowWidth, int windowHeight)
+ScreenMapping current_mapping(int window_width, int window_height)
 {
     ScreenMapping mapping;
-    mapping.windowWidth = windowWidth;
-    mapping.windowHeight = windowHeight;
-    mapping.backBufferWidth = static_cast<uint32_t>(Engine3D::g_backBufferWidth);
-    mapping.backBufferHeight = static_cast<uint32_t>(Engine3D::g_backBufferHeight);
-    mapping.scaleX = Engine3D::g_displayFactorX;
-    mapping.scaleY = Engine3D::g_displayFactorY;
-    mapping.offsetX = static_cast<int32_t>(Engine3D::g_screenOffsetX);
-    mapping.offsetY = static_cast<int32_t>(Engine3D::g_screenOffsetY);
+    mapping.window_width_ = window_width;
+    mapping.window_height_ = window_height;
+    mapping.back_buffer_width_ = static_cast<uint32_t>(render::g_back_buffer_width);
+    mapping.back_buffer_height_ = static_cast<uint32_t>(render::g_back_buffer_height);
+    mapping.scale_x_ = render::g_display_factor_x;
+    mapping.scale_y_ = render::g_display_factor_y;
+    mapping.offset_x_ = static_cast<int32_t>(render::g_screen_offset_x);
+    mapping.offset_y_ = static_cast<int32_t>(render::g_screen_offset_y);
     return mapping;
 }
 
-bool WindowToLayout(const ScreenMapping& mapping, float windowX, float windowY, float* layoutX, float* layoutY)
+bool window_to_layout(const ScreenMapping& mapping, float window_x, float window_y, float* layout_x, float* layout_y)
 {
-    if (mapping.windowWidth <= 0 || mapping.windowHeight <= 0 || mapping.backBufferWidth == 0 ||
-        mapping.backBufferHeight == 0 || mapping.scaleX == 0.0f || mapping.scaleY == 0.0f)
+    if (mapping.window_width_ <= 0 || mapping.window_height_ <= 0 || mapping.back_buffer_width_ == 0 ||
+        mapping.back_buffer_height_ == 0 || mapping.scale_x_ == 0.0f || mapping.scale_y_ == 0.0f)
         return false;
     // Window -> back buffer (the window may be scaled to show it), then back buffer -> layout (the inverse of
     // back buffer = layout * scale + offset).
-    double backX = static_cast<double>(windowX) * mapping.backBufferWidth / mapping.windowWidth;
-    double backY = static_cast<double>(windowY) * mapping.backBufferHeight / mapping.windowHeight;
-    *layoutX = static_cast<float>((backX - mapping.offsetX) / mapping.scaleX);
-    *layoutY = static_cast<float>((backY - mapping.offsetY) / mapping.scaleY);
+    double back_x = static_cast<double>(window_x) * mapping.back_buffer_width_ / mapping.window_width_;
+    double back_y = static_cast<double>(window_y) * mapping.back_buffer_height_ / mapping.window_height_;
+    *layout_x = static_cast<float>((back_x - mapping.offset_x_) / mapping.scale_x_);
+    *layout_y = static_cast<float>((back_y - mapping.offset_y_) / mapping.scale_y_);
     return true;
 }
 
-Cuboid ElementBox(const CUiWidget* element)
+Cuboid element_box(const UiWidget* element)
 {
-    return {Prop<float>(element, 0x134), Prop<float>(element, 0x138),
-            Prop<float>(element, 0x160) * Prop<float>(element, 0x13C),
-            Prop<float>(element, 0x164) * Prop<float>(element, 0x140), Bearing(element)};
+    return {prop<float>(element, 0x134), prop<float>(element, 0x138),
+            prop<float>(element, 0x160) * prop<float>(element, 0x13C),
+            prop<float>(element, 0x164) * prop<float>(element, 0x140), bearing(element)};
 }
 
-Rect2 ElementRect(const CUiWidget* element) { return BoxRect(ElementBox(element)); }
+Rect2 element_rect(const UiWidget* element) { return box_rect(element_box(element)); }
 
-bool BoxContains(const Cuboid& box, float x, float y)
+bool box_contains(const Cuboid& box, float x, float y)
 {
     // Back along the angle: the point's offset from the top left in the box's own axes.
     double c = std::cos(box.angle), s = std::sin(box.angle);
@@ -293,97 +293,97 @@ bool BoxContains(const Cuboid& box, float x, float y)
            v < std::max(0.0f, box.height);
 }
 
-bool Rotated(float angle)
+bool get_rotated(float angle)
 {
     constexpr double kTurn = 6.283185307179586;
     return std::fabs(std::remainder(static_cast<double>(angle), kTurn)) > 0.001;
 }
 
-bool IsMenu(const CUiWidget* element)
+bool is_menu(const UiWidget* element)
 {
-    uint32_t type = KindTag(element);
+    uint32_t type = kind_tag(element);
     return type == kVMenu || type == kHMenu;
 }
 
-bool MenuRunsTopToBottom(const CUiWidget* menu) { return Prop<uint8_t>(menu, 0x190) != 0; }
-int SelectedIndex(const CUiWidget* menu) { return Prop<int>(menu, 0x178); }
-bool MenuHasFocus(const CUiWidget* menu) { return Prop<uint8_t>(menu, 0x180) != 0; }
-bool MenuWraps(const CUiWidget* menu) { return Prop<uint8_t>(menu, 0x1A1) != 0; }
+bool menu_runs_top_to_bottom(const UiWidget* menu) { return prop<uint8_t>(menu, 0x190) != 0; }
+int selected_index(const UiWidget* menu) { return prop<int>(menu, 0x178); }
+bool menu_has_focus(const UiWidget* menu) { return prop<uint8_t>(menu, 0x180) != 0; }
+bool menu_wraps(const UiWidget* menu) { return prop<uint8_t>(menu, 0x1A1) != 0; }
 
-int ChildCount(const CUiWidget* element)
+int child_count(const UiWidget* element)
 {
     int count = 0;
-    for (CUiWidget* child = FirstChild(element); child; child = NextSibling(child))
+    for (UiWidget* child = first_child(element); child; child = next_sibling(child))
         ++count;
     return count;
 }
 
-bool ItemFocusable(const CUiWidget* item)
+bool item_focusable(const UiWidget* item)
 {
-    if (const_cast<GameObjects::CEntity*>(AsObject(item))->ContainsTagFlag(kTagNotFocusable))
+    if (const_cast<objects::Entity*>(as_object(item))->contains_tag_flag(kTagNotFocusable))
         return false;
-    return !FlagInChain(item, kFlagBlockEvents);
+    return !flag_in_chain(item, kFlagBlockEvents);
 }
 
-bool ItemPassedOver(const CUiWidget* item)
+bool item_passed_over(const UiWidget* item)
 {
     // The tags' own components (SetTags stores them there; no global names or included structures to follow).
-    Scripts::CStruct* tags = AsObject(item)->m_tagTable;
-    for (Scripts::CComponent* c = tags ? tags->m_head : nullptr; c; c = c->next) {
-        if (c->name == 0 && c->KindTag() == Scripts::QBVAL_NAME && c->checksum == kTagBlank)
+    script::Struct* tags = as_object(item)->tag_table_;
+    for (script::Component* c = tags ? tags->head_ : nullptr; c; c = c->next) {
+        if (c->name == 0 && c->kind_tag() == script::kQbvalName && c->checksum == kTagBlank)
             return true;
-        if (c->name == kTagActive && c->KindTag() == Scripts::QBVAL_INTEGER && c->integer == 0)
+        if (c->name == kTagActive && c->kind_tag() == script::kQbvalInteger && c->integer == 0)
             return true;
     }
     return false;
 }
 
-bool ItemContains(const CUiWidget* item, const CUiWidget* menu, float x, float y)
+bool item_contains(const UiWidget* item, const UiWidget* menu, float x, float y)
 {
     Rect2 bounds;
-    bool turnedHit;
-    bool any = ItemShape(item, x, y, false, &bounds, &turnedHit);
-    if (turnedHit)
+    bool turned_hit;
+    bool any = item_shape(item, x, y, false, &bounds, &turned_hit);
+    if (turned_hit)
         return true;
-    return any && Widen(bounds, menu).Holds(x, y);
+    return any && widen(bounds, menu).get_holds(x, y);
 }
 
-Rect2 ItemBounds(const CUiWidget* item, const CUiWidget* menu)
+Rect2 item_bounds(const UiWidget* item, const UiWidget* menu)
 {
     Rect2 bounds = {};
-    bool turnedHit;
-    if (!ItemShape(item, 0.0f, 0.0f, true, &bounds, &turnedHit))
+    bool turned_hit;
+    if (!item_shape(item, 0.0f, 0.0f, true, &bounds, &turned_hit))
         return bounds;
-    return Widen(bounds, menu);
+    return widen(bounds, menu);
 }
 
-bool IsRotatingMenu(const CUiWidget* menu)
+bool is_rotating_menu(const UiWidget* menu)
 {
-    if (Rotated(Bearing(menu)))
+    if (get_rotated(bearing(menu)))
         return true;
-    for (CUiWidget* child = FirstChild(menu); child; child = NextSibling(child))
-        if (Rotated(Bearing(child)))
+    for (UiWidget* child = first_child(menu); child; child = next_sibling(child))
+        if (get_rotated(bearing(child)))
             return true;
     return false;
 }
 
-bool FindItemAt(CUiWidget* root, float x, float y, MenuFilter accepts, Hit* out)
+bool find_item_at(UiWidget* root, float x, float y, MenuFilter accepts, Hit* out)
 {
     if (!root)
         return false;
     Hunt search = {x, y, accepts, false, false, {}};
-    Visit(search, root, false, 0, Rect2{}, false);
+    get_visit(search, root, false, 0, Rect2{}, false);
     if (search.found)
         *out = search.hit;
     return search.found;
 }
 
-bool AnyMenu(CUiWidget* root, MenuFilter accepts, bool verticalOnly)
+bool any_menu(UiWidget* root, MenuFilter accepts, bool vertical_only)
 {
-    return root && FindMenu(root, accepts, verticalOnly);
+    return root && find_menu(root, accepts, vertical_only);
 }
 
-int StepSelection(int target, int count, bool wraps, int (*read)(void* context), void (*send)(void* context, int direction),
+int step_selection(int target, int count, bool wraps, int (*read)(void* context), void (*send)(void* context, int direction),
                   void* context)
 {
     int current = read(context);
@@ -413,35 +413,35 @@ int StepSelection(int target, int count, bool wraps, int (*read)(void* context),
     return sent;
 }
 
-Target StartTarget(int index, int count, bool wraps) { return {index, count, wraps, kTargetFrames, 0, -2}; }
+Target start_target(int index, int count, bool wraps) { return {index, count, wraps, kTargetFrames, 0, -2}; }
 
-TargetState AdvanceTarget(Target& target, bool wait, int (*read)(void* context),
+TargetState advance_target(Target& target, bool wait, int (*read)(void* context),
                           void (*send)(void* context, int direction), void* context)
 {
     int current = read(context);
     if (current == target.index)
-        return TargetState::Reached;
-    if (current < 0 || target.framesLeft <= 0)
-        return TargetState::GaveUp;
-    --target.framesLeft;
+        return TargetState::kReached;
+    if (current < 0 || target.frames_left_ <= 0)
+        return TargetState::kGaveUp;
+    --target.frames_left_;
     if (!wait)
-        StepSelection(target.index, target.count, target.wraps, read, send, context);
+        step_selection(target.index, target.count, target.wraps, read, send, context);
     int now = read(context);
     if (now == target.index)
-        return TargetState::Reached;
+        return TargetState::kReached;
     if (now < 0)
-        return TargetState::GaveUp;
-    if (now == target.lastSeen) {
-        if (++target.stuckFrames > kMaxStuckFrames)
-            return TargetState::GaveUp;
+        return TargetState::kGaveUp;
+    if (now == target.last_seen_) {
+        if (++target.stuck_frames_ > kMaxStuckFrames)
+            return TargetState::kGaveUp;
     } else {
-        target.stuckFrames = 0;
-        target.lastSeen = now;
+        target.stuck_frames_ = 0;
+        target.last_seen_ = now;
     }
-    return TargetState::Moving;
+    return TargetState::kMoving;
 }
 
-int OptionSide(const Rect2& item, float x)
+int option_side(const Rect2& item, float x)
 {
     float width = item.right - item.left;
     if (x < item.left + width * 0.3f)
@@ -457,25 +457,25 @@ namespace {
 
 struct MouseState {
     float x = 0.0f, y = 0.0f;   // window pixels
-    int windowWidth = 0, windowHeight = 0;
+    int window_width_ = 0, window_height_ = 0;
     bool used = false;          // it has moved, clicked or turned its wheel since the game started
     bool moved = false;         // this frame
-    int leftClicks = 0, rightClicks = 0;
+    int left_clicks_ = 0, right_clicks_ = 0;
     int wheel = 0;              // notches, away from the user positive
 };
 MouseState s_mouse;
-bool s_cursorShown = false; // (the window starts with it hidden: SystemCore::CreateSdlWindow)
+bool s_cursor_shown = false; // (the window starts with it hidden: sys::create_sdl_window)
 // The item last under the cursor (only compared, never followed).
-const CUiWidget* s_hoverItem = nullptr;
-uint32_t s_hoverId = 0;
+const UiWidget* s_hover_item = nullptr;
+uint32_t s_hover_id = 0;
 
-void ReadWindowSize(uint32_t windowId)
+void read_window_size(uint32_t window_id)
 {
-    if (SDL_Window* window = SDL_GetWindowFromID(windowId))
-        SDL_GetWindowSize(window, &s_mouse.windowWidth, &s_mouse.windowHeight);
+    if (SDL_Window* window = SDL_GetWindowFromID(window_id))
+        SDL_GetWindowSize(window, &s_mouse.window_width_, &s_mouse.window_height_);
 }
 
-void HandleMouseEvent(SDL_Event* event)
+void handle_mouse_event(SDL_Event* event)
 {
     switch (event->type) {
     case SDL_MOUSEMOTION:
@@ -483,18 +483,18 @@ void HandleMouseEvent(SDL_Event* event)
             break;
         s_mouse.x = static_cast<float>(event->motion.x);
         s_mouse.y = static_cast<float>(event->motion.y);
-        ReadWindowSize(event->motion.windowID);
+        read_window_size(event->motion.windowID);
         s_mouse.moved = true;
         s_mouse.used = true;
         break;
     case SDL_MOUSEBUTTONDOWN:
         s_mouse.x = static_cast<float>(event->button.x);
         s_mouse.y = static_cast<float>(event->button.y);
-        ReadWindowSize(event->button.windowID);
+        read_window_size(event->button.windowID);
         if (event->button.button == SDL_BUTTON_LEFT)
-            ++s_mouse.leftClicks;
+            ++s_mouse.left_clicks_;
         else if (event->button.button == SDL_BUTTON_RIGHT)
-            ++s_mouse.rightClicks;
+            ++s_mouse.right_clicks_;
         s_mouse.used = true;
         break;
     case SDL_MOUSEWHEEL:
@@ -506,29 +506,29 @@ void HandleMouseEvent(SDL_Event* event)
     }
 }
 
-void* UiTreeHandle() { return MenuSystem::g_uiElementHub; }
-CUiWidget* RootElement(void* manager)
+void* ui_tree_handle() { return frontend::g_ui_element_hub; }
+UiWidget* root_element(void* manager)
 {
-    return *reinterpret_cast<CUiWidget**>(static_cast<uint8_t*>(manager) + 0x44);
+    return *reinterpret_cast<UiWidget**>(static_cast<uint8_t*>(manager) + 0x44);
 }
-void* Tracker() { return reinterpret_cast<void*>(GameObjects::g_tracker); }
+void* get_tracker() { return reinterpret_cast<void*>(objects::g_tracker); }
 
-bool InParkEditor()
+bool in_park_editor()
 {
-    MenuSystem::ElementPtr element;
-    MenuSystem::FetchPart(&element, kParkEditorElement);
-    return element.Pull() != nullptr;
+    frontend::ElementPtr element;
+    frontend::fetch_part(&element, kParkEditorElement);
+    return element.get_pull() != nullptr;
 }
 
 // Whether a menu gets the pad events now: it has the focus, and - while the element manager gives pad events
 // only to the elements of the highest priority (+0x4E8 > 0, for the pad events listed at +0x5DC, +0x69C of them) -
 // it is one of those (the start of the menu's event handler 0x004A8100: 0x004A86B0, 0x004AAD50, 0x004A8F20,
 // 0x004AB7C0).
-bool MenuTakesPadEvents(CUiWidget* menu)
+bool menu_takes_pad_events(UiWidget* menu)
 {
-    if (!MenuHasFocus(menu))
+    if (!menu_has_focus(menu))
         return false;
-    auto* manager = reinterpret_cast<uint8_t*>(AsObject(menu)->m_parkOwner);
+    auto* manager = reinterpret_cast<uint8_t*>(as_object(menu)->park_owner_);
     if (!manager)
         return false;
     if (*reinterpret_cast<int*>(manager + 0x4E8) > 0) {
@@ -538,9 +538,9 @@ bool MenuTakesPadEvents(CUiWidget* menu)
             if (reinterpret_cast<uint32_t*>(manager + 0x5DC)[i] == kPadChoose)
                 listed = true;
         if (listed) {
-            if (!FlagInChain(menu, kFlagPriority))
+            if (!flag_in_chain(menu, kFlagPriority))
                 return false;
-            if (!reinterpret_cast<MenuSystem::CUiTree*>(manager)->HasTopPrecedence(IdentNo(menu)))
+            if (!reinterpret_cast<frontend::UiTree*>(manager)->has_top_precedence(ident_no(menu)))
                 return false;
         }
     }
@@ -549,9 +549,9 @@ bool MenuTakesPadEvents(CUiWidget* menu)
 
 // --- the debug log ([features] debug_mouse) ---
 
-bool s_logEvents = false; // (while handling a click: the events sent are logged)
+bool s_log_events = false; // (while handling a click: the events sent are logged)
 
-const char* TypeName(uint32_t type)
+const char* current_type_name(uint32_t type)
 {
     switch (type) {
     case kVMenu: return "vmenu";
@@ -568,7 +568,7 @@ const char* TypeName(uint32_t type)
     }
 }
 
-const char* EventName(uint32_t event)
+const char* event_name(uint32_t event)
 {
     switch (event) {
     case kPadUp: return "pad_up";
@@ -581,403 +581,403 @@ const char* EventName(uint32_t event)
     }
 }
 
-void LogElement(const char* what, const CUiWidget* element)
+void log_element(const char* what, const UiWidget* element)
 {
-    Rect2 r = ElementRect(element);
-    Log("  %s %08X (%s %08X): rect (%.1f, %.1f)-(%.1f, %.1f), angle %.3f, alpha %.2f, flags %08X", what, IdentNo(element),
-        TypeName(KindTag(element)), KindTag(element), r.left, r.top, r.right, r.bottom, Bearing(element), Alpha(element),
-        Flags(element));
+    Rect2 r = element_rect(element);
+    get_log("  %s %08X (%s %08X): rect (%.1f, %.1f)-(%.1f, %.1f), angle %.3f, alpha %.2f, flags %08X", what, ident_no(element),
+        current_type_name(kind_tag(element)), kind_tag(element), r.left, r.top, r.right, r.bottom, bearing(element), get_alpha(element),
+        current_flags(element));
 }
 
 // --- the menus ---
 
-// As InputLogic launches a pad event: for the first controller's device, unless its mapping is inactive or menu
+// As input_logic launches a pad event: for the first controller's device, unless its mapping is inactive or menu
 // input is blocked.
-void SendPadEvent(GameModules::FrontEnd* frontEnd, uint32_t event)
+void send_pad_event(modules::FrontEnd* front_end, uint32_t event)
 {
-    const char* notSent = nullptr;
-    GameModules::FrontEndInputHandler* handler = frontEnd->m_padListeners[0];
-    if (frontEnd->m_padMappings[0].m_mapping == 0)
-        notSent = "the first controller's pad mapping is inactive";
-    else if (frontEnd->m_blockMenuInput)
-        notSent = "menu input is blocked (SetButtonEventMappings block_menu_input)";
-    else if (!handler || !handler->m_dev)
-        notSent = "no input device";
-    if (s_logEvents && DebugEnabled())
-        Log("  %s %s%s%s", notSent ? "NOT sent:" : "sent", EventName(event), notSent ? " - " : "",
-            notSent ? notSent : "");
-    if (notSent)
+    const char* not_sent = nullptr;
+    modules::FrontEndInputHandler* handler = front_end->pad_listeners_[0];
+    if (front_end->pad_mappings_[0].mapping_ == 0)
+        not_sent = "the first controller's pad mapping is inactive";
+    else if (front_end->block_menu_input_)
+        not_sent = "menu input is blocked (SetButtonEventMappings block_menu_input)";
+    else if (!handler || !handler->dev_)
+        not_sent = "no input device";
+    if (s_log_events && debug_enabled())
+        get_log("  %s %s%s%s", not_sent ? "NOT sent:" : "sent", event_name(event), not_sent ? " - " : "",
+            not_sent ? not_sent : "");
+    if (not_sent)
         return;
-    Scripts::CStruct params;
-    params.PrepareAll();
-    params.PutInt(kDeviceNum, *reinterpret_cast<int*>(handler->m_dev + 0xC));
-    params.PutInt(kController, 0);
-    static_cast<GameObjects::CEventWaitBoard*>(Tracker())->LaunchEvent(event, kMenuEvent, kMenuEvent, &params, false, -1.0f);
-    params.Clear();
+    script::Struct params;
+    params.prepare_all();
+    params.put_int(kDeviceNum, *reinterpret_cast<int*>(handler->dev_ + 0xC));
+    params.put_int(kController, 0);
+    static_cast<objects::EventWaitBoard*>(get_tracker())->launch_event(event, kMenuEvent, kMenuEvent, &params, false, -1.0f);
+    params.get_clear();
 }
 
 // The item's own handler for `type` (its script's event handler table).
-bool HandlesEvent(const CUiWidget* item, uint32_t type)
+bool handles_event(const UiWidget* item, uint32_t type)
 {
-    Scripts::CScript* script = AsObject(item)->m_ownScript;
-    if (!script || !script->m_signalRoutes)
+    script::Script* script = as_object(item)->own_script_;
+    if (!script || !script->signal_routes_)
         return false;
-    const GameObjects::CSignalRouteTable* table = script->m_signalRoutes;
-    for (int i = 0; i < table->m_num; ++i)
-        if (table->m_entries[i].type == type && table->m_entries[i].script != GameObjects::kNullScript)
+    const objects::SignalRouteTable* table = script->signal_routes_;
+    for (int i = 0; i < table->num_; ++i)
+        if (table->entries_[i].type == type && table->entries_[i].script != objects::kNullScript)
             return true;
     return false;
 }
 
 // The child at `index` (null if none).
-CUiWidget* ChildAt(const CUiWidget* menu, int index)
+UiWidget* child_at(const UiWidget* menu, int index)
 {
     if (index < 0)
         return nullptr;
-    CUiWidget* child = FirstChild(menu);
+    UiWidget* child = first_child(menu);
     for (; child && index > 0; --index)
-        child = NextSibling(child);
+        child = next_sibling(child);
     return child;
 }
 
-void LogMenu(CUiWidget* menu)
+void log_menu(UiWidget* menu)
 {
-    Log("  menu %08X (%s): selected %d of %d, focus %d, takes pad events %d, movement %d, wraps %d%s", IdentNo(menu),
-        TypeName(KindTag(menu)), SelectedIndex(menu), ChildCount(menu), MenuHasFocus(menu), MenuTakesPadEvents(menu),
-        Prop<uint8_t>(menu, 0x1A0), MenuWraps(menu), IsRotatingMenu(menu) ? ", turned (a spin menu)" : "");
+    get_log("  menu %08X (%s): selected %d of %d, focus %d, takes pad events %d, movement %d, wraps %d%s", ident_no(menu),
+        current_type_name(kind_tag(menu)), selected_index(menu), child_count(menu), menu_has_focus(menu), menu_takes_pad_events(menu),
+        prop<uint8_t>(menu, 0x1A0), menu_wraps(menu), is_rotating_menu(menu) ? ", turned (a spin menu)" : "");
 }
 
 // What is under the cursor when no item is: every element (not hidden) whose own box holds the point, with the
 // nearest menu above it. At most a dozen.
-void LogElementsAt(CUiWidget* element, float x, float y, int& lines)
+void log_elements_at(UiWidget* element, float x, float y, int& lines)
 {
-    if (Flags(element) & kFlagHidden)
+    if (current_flags(element) & kFlagHidden)
         return;
-    Cuboid box = ElementBox(element);
-    if (lines < 12 && box.width != 0.0f && box.height != 0.0f && BoxContains(box, x, y)) {
+    Cuboid box = element_box(element);
+    if (lines < 12 && box.width != 0.0f && box.height != 0.0f && box_contains(box, x, y)) {
         ++lines;
-        LogElement("under the cursor:", element);
-        for (CUiWidget* parent = Parent(element); parent; parent = Parent(parent)) {
-            if (IsMenu(parent)) {
-                LogMenu(parent);
+        log_element("under the cursor:", element);
+        for (UiWidget* parent = current_parent(element); parent; parent = current_parent(parent)) {
+            if (is_menu(parent)) {
+                log_menu(parent);
                 break;
             }
         }
     }
-    for (CUiWidget* child = FirstChild(element); child; child = NextSibling(child))
-        LogElementsAt(child, x, y, lines);
+    for (UiWidget* child = first_child(element); child; child = next_sibling(child))
+        log_elements_at(child, x, y, lines);
 }
 
 struct Stepper {
-    GameModules::FrontEnd* frontEnd;
-    MenuSystem::ElementPtr menu; // (cleared if a handler destroys it)
+    modules::FrontEnd* front_end_;
+    frontend::ElementPtr menu; // (cleared if a handler destroys it)
     bool vertical;
 };
 
-int ReadStepper(void* context)
+int read_stepper(void* context)
 {
     auto* stepper = static_cast<Stepper*>(context);
-    return stepper->menu ? SelectedIndex(stepper->menu.Pull()) : -1;
+    return stepper->menu ? selected_index(stepper->menu.get_pull()) : -1;
 }
 
-void SendStep(void* context, int direction)
+void send_step(void* context, int direction)
 {
     auto* stepper = static_cast<Stepper*>(context);
     uint32_t event = stepper->vertical ? (direction < 0 ? kPadUp : kPadDown) : (direction < 0 ? kPadLeft : kPadRight);
-    SendPadEvent(stepper->frontEnd, event);
+    send_pad_event(stepper->front_end_, event);
 }
 
-// The item the mouse is moving a menu's selection to, over as many frames as the menu needs (AdvanceTarget), and
+// The item the mouse is moving a menu's selection to, over as many frames as the menu needs (advance_target), and
 // what to send when it gets there (a click's pad_choose / pad_left / pad_right; 0 for a hover).
 struct Awaiting {
     bool active = false;
-    const CUiWidget* item = nullptr; // (only compared, never followed)
-    uint32_t itemId = 0;
+    const UiWidget* item = nullptr; // (only compared, never followed)
+    uint32_t item_id_ = 0;
     Target target = {};
-    uint32_t chooseEvent = 0;
+    uint32_t choose_event_ = 0;
 };
 Awaiting s_pending;
 
 // Its menu: a smart pointer (cleared if the menu dies), allocated once and never freed - no destructor running
 // on the game's memory at exit.
-MenuSystem::ElementPtr& PendingMenu()
+frontend::ElementPtr& pending_menu()
 {
-    static MenuSystem::ElementPtr* menu = new MenuSystem::ElementPtr;
+    static frontend::ElementPtr* menu = new frontend::ElementPtr;
     return *menu;
 }
 
-void ClearPending(const char* why)
+void clear_pending(const char* why)
 {
-    if (s_pending.active && s_pending.chooseEvent && DebugEnabled())
-        Log("mouse: not choosing item %08X: %s", s_pending.itemId, why);
+    if (s_pending.active && s_pending.choose_event_ && debug_enabled())
+        get_log("mouse: not choosing item %08X: %s", s_pending.item_id_, why);
     s_pending.active = false;
-    PendingMenu().Release();
+    pending_menu().get_release();
 }
 
-TargetState AdvancePending(GameModules::FrontEnd* frontEnd)
+TargetState advance_pending(modules::FrontEnd* front_end)
 {
-    CUiWidget* menu = PendingMenu().Pull();
+    UiWidget* menu = pending_menu().get_pull();
     // The menu still there, with the item still at its place (compared by address, then id).
-    CUiWidget* item = menu ? ChildAt(menu, s_pending.target.index) : nullptr;
-    if (!item || item != s_pending.item || IdentNo(item) != s_pending.itemId)
-        return TargetState::GaveUp;
-    s_pending.target.count = ChildCount(menu);
+    UiWidget* item = menu ? child_at(menu, s_pending.target.index) : nullptr;
+    if (!item || item != s_pending.item || ident_no(item) != s_pending.item_id_)
+        return TargetState::kGaveUp;
+    s_pending.target.count = child_count(menu);
     Stepper stepper;
-    stepper.frontEnd = frontEnd;
-    stepper.menu.AssignValue(menu);
-    stepper.vertical = MenuRunsTopToBottom(menu);
+    stepper.front_end_ = front_end;
+    stepper.menu.assign_value(menu);
+    stepper.vertical = menu_runs_top_to_bottom(menu);
     // Nothing to send while the menu doesn't take pad events, or while it is on an item it passes over (its own
     // focus script moves on).
-    CUiWidget* current = ChildAt(menu, SelectedIndex(menu));
-    bool wait = !MenuTakesPadEvents(menu) || (current && ItemPassedOver(current));
-    return AdvanceTarget(s_pending.target, wait, ReadStepper, SendStep, &stepper);
+    UiWidget* current = child_at(menu, selected_index(menu));
+    bool wait = !menu_takes_pad_events(menu) || (current && item_passed_over(current));
+    return advance_target(s_pending.target, wait, read_stepper, send_step, &stepper);
 }
 
 // Settle the pending item: there - send its event (a click's); given up - forget it. True if it got there.
-bool SettlePending(GameModules::FrontEnd* frontEnd, TargetState state)
+bool settle_pending(modules::FrontEnd* front_end, TargetState state)
 {
-    if (state == TargetState::Moving)
+    if (state == TargetState::kMoving)
         return false;
-    uint32_t event = s_pending.chooseEvent;
-    if (state == TargetState::GaveUp) {
-        ClearPending("its menu's selection didn't get there (or the menu / item is gone)");
+    uint32_t event = s_pending.choose_event_;
+    if (state == TargetState::kGaveUp) {
+        clear_pending("its menu's selection didn't get there (or the menu / item is gone)");
         return false;
     }
-    if (event && DebugEnabled())
-        Log("mouse: item %08X selected", s_pending.itemId);
+    if (event && debug_enabled())
+        get_log("mouse: item %08X selected", s_pending.item_id_);
     s_pending.active = false;
-    PendingMenu().Release();
+    pending_menu().get_release();
     if (event) {
-        bool logging = s_logEvents;
-        s_logEvents = true;
-        SendPadEvent(frontEnd, event);
-        s_logEvents = logging;
+        bool logging = s_log_events;
+        s_log_events = true;
+        send_pad_event(front_end, event);
+        s_log_events = logging;
     }
     return true;
 }
 
 // Aim at an item: start moving its menu's selection there - and, with `event`, send it once there. True if it is
 // selected already.
-bool AimAt(GameModules::FrontEnd* frontEnd, const Hit& hit, uint32_t event)
+bool aim_at(modules::FrontEnd* front_end, const Hit& hit, uint32_t event)
 {
     s_pending.active = true;
-    PendingMenu().AssignValue(hit.menu);
+    pending_menu().assign_value(hit.menu);
     s_pending.item = hit.item;
-    s_pending.itemId = IdentNo(hit.item);
-    s_pending.target = StartTarget(hit.index, ChildCount(hit.menu), MenuWraps(hit.menu));
-    s_pending.chooseEvent = event;
-    return SettlePending(frontEnd, AdvancePending(frontEnd));
+    s_pending.item_id_ = ident_no(hit.item);
+    s_pending.target = start_target(hit.index, child_count(hit.menu), menu_wraps(hit.menu));
+    s_pending.choose_event_ = event;
+    return settle_pending(front_end, advance_pending(front_end));
 }
 
 // Select the item under the cursor - when it isn't the one that was (or on a `click`). Moving an outer menu can
 // focus an inner one (an option row's hmenu), so a few passes. A turned (spin) menu isn't moved by hovering.
-void SelectUnderCursor(GameModules::FrontEnd* frontEnd, float x, float y, bool click)
+void select_under_cursor(modules::FrontEnd* front_end, float x, float y, bool click)
 {
     for (int pass = 0; pass < 4; ++pass) {
         Hit hit;
-        if (!FindItemAt(RootElement(UiTreeHandle()), x, y, MenuTakesPadEvents, &hit)) {
-            s_hoverItem = nullptr;
-            s_hoverId = 0;
+        if (!find_item_at(root_element(ui_tree_handle()), x, y, menu_takes_pad_events, &hit)) {
+            s_hover_item = nullptr;
+            s_hover_id = 0;
             return;
         }
-        bool changed = hit.item != s_hoverItem || IdentNo(hit.item) != s_hoverId;
-        s_hoverItem = hit.item;
-        s_hoverId = IdentNo(hit.item);
+        bool changed = hit.item != s_hover_item || ident_no(hit.item) != s_hover_id;
+        s_hover_item = hit.item;
+        s_hover_id = ident_no(hit.item);
         if (!changed && !(click && pass == 0))
             return;
-        if (!click && IsRotatingMenu(hit.menu))
+        if (!click && is_rotating_menu(hit.menu))
             return;
-        if (!AimAt(frontEnd, hit, 0))
+        if (!aim_at(front_end, hit, 0))
             return; // (on its way: the rest in the next frames)
     }
 }
 
-void Click(GameModules::FrontEnd* frontEnd, float x, float y)
+void get_click(modules::FrontEnd* front_end, float x, float y)
 {
-    bool debug = DebugEnabled();
-    s_logEvents = debug;
+    bool debug = debug_enabled();
+    s_log_events = debug;
     if (debug)
-        Log("mouse: left click at layout (%.1f, %.1f)", x, y);
-    SelectUnderCursor(frontEnd, x, y, true);
+        get_log("mouse: left click at layout (%.1f, %.1f)", x, y);
+    select_under_cursor(front_end, x, y, true);
     Hit hit;
-    if (!FindItemAt(RootElement(UiTreeHandle()), x, y, MenuTakesPadEvents, &hit)) {
+    if (!find_item_at(root_element(ui_tree_handle()), x, y, menu_takes_pad_events, &hit)) {
         if (debug) {
-            Log("  no item of a menu that takes pad events under the cursor - nothing sent");
+            get_log("  no item of a menu that takes pad events under the cursor - nothing sent");
             int lines = 0;
-            if (CUiWidget* root = RootElement(UiTreeHandle()))
-                LogElementsAt(root, x, y, lines);
+            if (UiWidget* root = root_element(ui_tree_handle()))
+                log_elements_at(root, x, y, lines);
         }
-        s_logEvents = false;
+        s_log_events = false;
         return;
     }
     uint32_t event = kPadChoose;
-    if (MenuRunsTopToBottom(hit.menu) && (HandlesEvent(hit.item, kPadLeft) || HandlesEvent(hit.item, kPadRight))) {
-        int side = OptionSide(ElementRect(hit.item), x);
+    if (menu_runs_top_to_bottom(hit.menu) && (handles_event(hit.item, kPadLeft) || handles_event(hit.item, kPadRight))) {
+        int side = option_side(element_rect(hit.item), x);
         if (side < 0)
             event = kPadLeft;
         else if (side > 0)
             event = kPadRight;
     }
     if (debug) {
-        LogElement("item", hit.item);
-        Rect2 area = ItemBounds(hit.item, hit.menu);
-        Log("    index %d, area (%.1f, %.1f)-(%.1f, %.1f)", hit.index, area.left, area.top, area.right, area.bottom);
-        LogMenu(hit.menu);
+        log_element("item", hit.item);
+        Rect2 area = item_bounds(hit.item, hit.menu);
+        get_log("    index %d, area (%.1f, %.1f)-(%.1f, %.1f)", hit.index, area.left, area.top, area.right, area.bottom);
+        log_menu(hit.menu);
     }
-    if (s_pending.active && s_pending.item == hit.item && PendingMenu().Pull() == hit.menu) {
-        s_pending.chooseEvent = event;
+    if (s_pending.active && s_pending.item == hit.item && pending_menu().get_pull() == hit.menu) {
+        s_pending.choose_event_ = event;
         if (debug)
-            Log("  the menu is on its way to the item (selected %d): %s once it gets there", SelectedIndex(hit.menu),
-                EventName(event));
-    } else if (SelectedIndex(hit.menu) == hit.index) {
-        ClearPending("another item was clicked");
-        SendPadEvent(frontEnd, event);
-    } else if (!AimAt(frontEnd, hit, event) && s_pending.active && debug) {
-        Log("  the menu is on its way to the item (selected %d): %s once it gets there", SelectedIndex(hit.menu),
-            EventName(event));
+            get_log("  the menu is on its way to the item (selected %d): %s once it gets there", selected_index(hit.menu),
+                event_name(event));
+    } else if (selected_index(hit.menu) == hit.index) {
+        clear_pending("another item was clicked");
+        send_pad_event(front_end, event);
+    } else if (!aim_at(front_end, hit, event) && s_pending.active && debug) {
+        get_log("  the menu is on its way to the item (selected %d): %s once it gets there", selected_index(hit.menu),
+            event_name(event));
     }
-    s_logEvents = false;
+    s_log_events = false;
 }
 
-void ShowCursor(bool show)
+void show_cursor(bool show)
 {
-    if (show == s_cursorShown)
+    if (show == s_cursor_shown)
         return;
     SDL_ShowCursor(show ? SDL_ENABLE : SDL_DISABLE);
-    s_cursorShown = show;
+    s_cursor_shown = show;
 }
 
 } // namespace
 
-bool& IsSwitchedOn()
+bool& is_switched_on()
 {
-    static bool on = ConfigInt("features", "mouse_menus", 1) != 0;
+    static bool on = config_int("features", "mouse_menus", 1) != 0;
     return on;
 }
 
-bool& DebugEnabled()
+bool& debug_enabled()
 {
-    static bool on = ConfigInt("features", "debug_mouse", 0) != 0;
+    static bool on = config_int("features", "debug_mouse", 0) != 0;
     return on;
 }
 
-void PrepareAll()
+void prepare_all()
 {
-    if (!IsSwitchedOn())
+    if (!is_switched_on())
         return;
-    OsLayer::RegisterEventHandler(HandleMouseEvent);
+    os_layer::register_event_handler(handle_mouse_event);
 }
 
-void TickFrame(GameModules::FrontEnd* frontEnd)
+void tick_frame(modules::FrontEnd* front_end)
 {
     // (not original either: the THUGPRO peer mode's host options applied once a level is up -
     // engine/net/thugpro_peer.h)
-    OnlinePlay::Thugpro::TickFrame();
+    online::thugpro::tick_frame();
     // Not original either - the level editor (editor/level_editor.h) has the mouse while it runs: no menu
     // events (the clicks and wheel meanwhile are dropped), the cursor left as the editor sets it; its own input logic
     // runs here instead.
     // Original behaviour (of the mouse_menus feature): the mouse drives the menus.
-    if (MenuSystem::LevelEditor::LiveNow()) {
+    if (frontend::level_editor::live_now()) {
         s_mouse.moved = false;
-        s_mouse.leftClicks = 0;
-        s_mouse.rightClicks = 0;
+        s_mouse.left_clicks_ = 0;
+        s_mouse.right_clicks_ = 0;
         s_mouse.wheel = 0;
-        ClearPending("the level editor runs");
-        MenuSystem::LevelEditor::InputLogic();
+        clear_pending("the level editor runs");
+        frontend::level_editor::input_logic();
         // (not original either: the new front end steps aside while the editor is up - frontend/new_frontend.h)
-        MenuSystem::NewFrontend::TickFrame(frontEnd);
+        frontend::new_frontend::tick_frame(front_end);
         return;
     }
     // (not original either: the restart tester's key, F8 - frontend/restart_tester.h)
-    MenuSystem::RestartTester::TickFrame(frontEnd);
+    frontend::restart_tester::tick_frame(front_end);
     // (and THAW's BMX's key, F7 - game/rider/thaw_bmx.h)
-    Skater::ThawBmx::TickFrame(frontEnd);
+    skater::thaw_bmx::tick_frame(front_end);
     // (and play from here's way back to the level editor, F5 / Ctrl+P - editor/level_editor_play.h)
-    MenuSystem::LevelEditor::Perform::TickFrame(frontEnd);
+    frontend::level_editor::perform::tick_frame(front_end);
     // (and play testing: the skater's trail recorded, a restart's play from here - editor/level_editor_playtest.h)
-    MenuSystem::LevelEditor::PlayTest::TickFrame(frontEnd);
+    frontend::level_editor::play_test::tick_frame(front_end);
     // (and debug mode's viewer and F keys - engine/sys/debug_mode.h)
-    SystemCore::DebugMode::TickFrame(frontEnd);
+    sys::debug_mode::tick_frame(front_end);
     // (and the start level: -level <name> - frontend/start_level.h)
-    MenuSystem::BeginLevel::TickFrame(frontEnd);
+    frontend::begin_level::tick_frame(front_end);
     // (and the test-automation channel: commands from a file - frontend/automation.h)
-    MenuSystem::Automation::TickFrame(frontEnd);
+    frontend::automation::tick_frame(front_end);
     // (and the new front end - frontend/new_frontend.h: while it's up it has the mouse; the original menus under it
     // get no mouse events, the cursor stays shown)
-    MenuSystem::NewFrontend::TickFrame(frontEnd);
-    if (MenuSystem::NewFrontend::BlocksGameInput() || MenuSystem::NewFrontend::OwnsMouse()) {
+    frontend::new_frontend::tick_frame(front_end);
+    if (frontend::new_frontend::blocks_game_input() || frontend::new_frontend::owns_mouse()) {
         s_mouse.moved = false;
-        s_mouse.leftClicks = 0;
-        s_mouse.rightClicks = 0;
+        s_mouse.left_clicks_ = 0;
+        s_mouse.right_clicks_ = 0;
         s_mouse.wheel = 0;
-        ClearPending("the new front end has the mouse");
-        ShowCursor(true);
+        clear_pending("the new front end has the mouse");
+        show_cursor(true);
         return;
     }
-    if (!IsSwitchedOn())
+    if (!is_switched_on())
         return;
     MouseState input = s_mouse;
     s_mouse.moved = false;
-    s_mouse.leftClicks = 0;
-    s_mouse.rightClicks = 0;
+    s_mouse.left_clicks_ = 0;
+    s_mouse.right_clicks_ = 0;
     s_mouse.wheel = 0;
 
     // The front end, or a level's pause menu; never the park editor's own cursor.
-    void* manager = UiTreeHandle();
-    bool menus = manager && RootElement(manager) && (Engine3D::CurrentLevel() == 0 || frontEnd->m_isHalted);
-    if (menus && InParkEditor() && !frontEnd->m_isHalted)
+    void* manager = ui_tree_handle();
+    bool menus = manager && root_element(manager) && (render::current_level() == 0 || front_end->is_halted_);
+    if (menus && in_park_editor() && !front_end->is_halted_)
         menus = false;
-    if (DebugEnabled()) {
+    if (debug_enabled()) {
         // (debug_mouse: each change of whether the mouse drives the menus, with what decided it)
-        static int s_lastMenus = -1, s_lastPaused = -1;
-        if (static_cast<int>(menus) != s_lastMenus || static_cast<int>(frontEnd->m_isHalted) != s_lastPaused) {
-            s_lastMenus = menus;
-            s_lastPaused = frontEnd->m_isHalted;
-            Log("mouse: menus %s (level %u, front end paused %d, element manager %d, root %d, park editor %d)",
-                menus ? "active" : "inactive", Engine3D::CurrentLevel(), frontEnd->m_isHalted, manager != nullptr,
-                manager && RootElement(manager) != nullptr, InParkEditor());
+        static int s_last_menus = -1, s_last_paused = -1;
+        if (static_cast<int>(menus) != s_last_menus || static_cast<int>(front_end->is_halted_) != s_last_paused) {
+            s_last_menus = menus;
+            s_last_paused = front_end->is_halted_;
+            get_log("mouse: menus %s (level %u, front end paused %d, element manager %d, root %d, park editor %d)",
+                menus ? "active" : "inactive", render::current_level(), front_end->is_halted_, manager != nullptr,
+                manager && root_element(manager) != nullptr, in_park_editor());
         }
     }
-    ShowCursor(menus);
+    show_cursor(menus);
     if (!menus) {
-        ClearPending("the menus are gone");
+        clear_pending("the menus are gone");
         return;
     }
     // A selection on its way to an item from earlier frames.
     if (s_pending.active) {
-        s_logEvents = s_pending.chooseEvent != 0;
-        SettlePending(frontEnd, AdvancePending(frontEnd));
-        s_logEvents = false;
+        s_log_events = s_pending.choose_event_ != 0;
+        settle_pending(front_end, advance_pending(front_end));
+        s_log_events = false;
     }
     if (!input.used)
         return;
 
     float x, y;
-    if (!WindowToLayout(CurrentMapping(input.windowWidth, input.windowHeight), input.x, input.y, &x, &y))
+    if (!window_to_layout(current_mapping(input.window_width_, input.window_height_), input.x, input.y, &x, &y))
         return;
     if (input.moved)
-        SelectUnderCursor(frontEnd, x, y, false);
-    for (int i = 0; i < input.leftClicks; ++i)
-        Click(frontEnd, x, y);
-    if (input.rightClicks || input.wheel)
-        ClearPending("a right click or the wheel");
-    for (int i = 0; i < input.rightClicks; ++i) {
-        bool any = AnyMenu(RootElement(UiTreeHandle()), MenuTakesPadEvents, false);
-        if (DebugEnabled())
-            Log("mouse: right click at layout (%.1f, %.1f)%s", x, y, any ? "" : ": no menu takes pad events - nothing sent");
-        s_logEvents = true;
+        select_under_cursor(front_end, x, y, false);
+    for (int i = 0; i < input.left_clicks_; ++i)
+        get_click(front_end, x, y);
+    if (input.right_clicks_ || input.wheel)
+        clear_pending("a right click or the wheel");
+    for (int i = 0; i < input.right_clicks_; ++i) {
+        bool any = any_menu(root_element(ui_tree_handle()), menu_takes_pad_events, false);
+        if (debug_enabled())
+            get_log("mouse: right click at layout (%.1f, %.1f)%s", x, y, any ? "" : ": no menu takes pad events - nothing sent");
+        s_log_events = true;
         if (any)
-            SendPadEvent(frontEnd, kPadBack);
-        s_logEvents = false;
+            send_pad_event(front_end, kPadBack);
+        s_log_events = false;
     }
     int notches = std::max(-5, std::min(5, input.wheel));
     for (; notches != 0; notches += notches > 0 ? -1 : 1)
-        if (AnyMenu(RootElement(UiTreeHandle()), MenuTakesPadEvents, true))
-            SendPadEvent(frontEnd, notches > 0 ? kPadUp : kPadDown);
+        if (any_menu(root_element(ui_tree_handle()), menu_takes_pad_events, true))
+            send_pad_event(front_end, notches > 0 ? kPadUp : kPadDown);
 }
 
-bool MenuGetsPadEvents(CUiWidget* menu) { return MenuTakesPadEvents(menu); }
+bool menu_gets_pad_events(UiWidget* menu) { return menu_takes_pad_events(menu); }
 
-void SendMenuPadEvent(GameModules::FrontEnd* frontEnd, uint32_t event) { SendPadEvent(frontEnd, event); }
+void send_menu_pad_event(modules::FrontEnd* front_end, uint32_t event) { send_pad_event(front_end, event); }
 
-} // namespace MouseMenus
+} // namespace mouse_menus

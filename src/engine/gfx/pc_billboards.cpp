@@ -26,13 +26,13 @@
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
 
-namespace Engine3D {
+namespace render {
 
-bool g_billboardsReady;
-billboardSet g_billboardPool;
-uint8_t g_billboardFlag;
+bool g_billboards_ready;
+BillboardSet g_billboard_pool;
+uint8_t g_billboard_flag;
 
-float g_billboardConstants[12]{
+float g_billboard_constants[12]{
     0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
 
 namespace {
@@ -41,28 +41,28 @@ extern void** const kNodeVtable;
 extern void** const kHeadVtable;
 extern void** const kWindowVtable;
 
-IDirect3DDevice9* InputPort() { return g_d3dDevice; }
-bool VertexShaders() { return g_shadersAvailable; }
-void ToggleFog(bool on) { Engine::EnableFog(on); }
-sVertexBuffer* VertexBuffer(meshRef* mesh, int index)
+IDirect3DDevice9* input_port() { return g_d3d_device; }
+bool vertex_shaders() { return g_shaders_available; }
+void toggle_fog(bool on) { engine::enable_fog(on); }
+VertexBuffer* get_vertex_buffer(MeshRef* mesh, int index)
 {
-    return mesh->FetchVertexStore(index);
+    return mesh->fetch_vertex_store(index);
 }
 template <typename T>
-T& At(void* base, uint32_t offset)
+T& get_at(void* base, uint32_t offset)
 {
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(base) + offset);
 }
 
-bool IsHead(const MemSys::ListNode* node) { return node->data == reinterpret_cast<void*>(-1); }
+bool is_head(const memory::ListNode* node) { return node->data == reinterpret_cast<void*>(-1); }
 // The node after `node` (null at the head).
-MemSys::ListNode* NextNode(const MemSys::ListNode* node) { return IsHead(node->next) ? nullptr : node->next; }
+memory::ListNode* get_next_node(const memory::ListNode* node) { return is_head(node->next) ? nullptr : node->next; }
 // A list's first node (null when empty).
-MemSys::ListNode* HeadOfSceneList(const MemSys::ListNode* head) { return IsHead(head->next) ? nullptr : head->next; }
+memory::ListNode* head_of_scene_list(const memory::ListNode* head) { return is_head(head->next) ? nullptr : head->next; }
 
-MemSys::ListNode* NewHead()
+memory::ListNode* new_head()
 {
-    auto* head = static_cast<MemSys::ListNode*>(MemSys::AllocZeroed(sizeof(MemSys::ListNode)));
+    auto* head = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
     if (head) {
         head->data = reinterpret_cast<void*>(-1);
         head->priority = 0;
@@ -73,24 +73,24 @@ MemSys::ListNode* NewHead()
     return head;
 }
 
-void OrderBatches(billboardSet* manager)
+void order_batches(BillboardSet* manager)
 {
-    Crt::Qsort(
-        manager->batches, static_cast<uint32_t>(manager->count), 4, CompareBatches); // (the C runtime's qsort)
+    crt::get_qsort(
+        manager->batches, static_cast<uint32_t>(manager->count), 4, compare_batches); // (the C runtime's qsort)
 }
 
-float SortDepthOfBatch(const sBillboardBatch* batch)
+float sort_depth_of_batch(const BillboardBatch* batch)
 {
     return batch->material ? *reinterpret_cast<const float*>(batch->material + 0x1C) : 0.0f;
 }
 
-void DrawList(const MemSys::ListNode* head, const float* yAxis, const float* xAxis, const float* zAxis)
+void draw_list(const memory::ListNode* head, const float* y_axis, const float* x_axis, const float* z_axis)
 {
-    for (MemSys::ListNode* node = HeadOfSceneList(head); node;) {
-        MemSys::ListNode* next = NextNode(node);
-        meshRef* mesh = static_cast<billboardRec*>(node->data)->mesh;
+    for (memory::ListNode* node = head_of_scene_list(head); node;) {
+        memory::ListNode* next = get_next_node(node);
+        MeshRef* mesh = static_cast<BillboardRec*>(node->data)->mesh;
         if (mesh->flags & 0x40)
-            DrawBillboardMesh(mesh, yAxis, xAxis, zAxis);
+            draw_billboard_mesh(mesh, y_axis, x_axis, z_axis);
         node = next;
     }
 }
@@ -98,21 +98,21 @@ void DrawList(const MemSys::ListNode* head, const float* yAxis, const float* xAx
 } // namespace
 
 // 0x004CD9D0
-int __cdecl CompareBatches(const void* a, const void* b)
+int __cdecl compare_batches(const void* a, const void* b)
 {
-    const auto* first = *static_cast<sBillboardBatch* const*>(a);
-    const auto* second = *static_cast<sBillboardBatch* const*>(b);
+    const auto* first = *static_cast<BillboardBatch* const*>(a);
+    const auto* second = *static_cast<BillboardBatch* const*>(b);
     if (!first)
         return second != nullptr;
     if (!second)
         return -1;
-    if (SortDepthOfBatch(first) < SortDepthOfBatch(second))
+    if (sort_depth_of_batch(first) < sort_depth_of_batch(second))
         return -1;
-    return SortDepthOfBatch(first) > SortDepthOfBatch(second) ? 1 : 0;
+    return sort_depth_of_batch(first) > sort_depth_of_batch(second) ? 1 : 0;
 }
 
 // 0x004CD980
-uint32_t PrimitiveCount(uint32_t type, uint32_t count)
+uint32_t primitive_count(uint32_t type, uint32_t count)
 {
     switch (type) {
     case 1: return count;
@@ -125,85 +125,85 @@ uint32_t PrimitiveCount(uint32_t type, uint32_t count)
     }
 }
 
-__declspec(naked) void PrimitiveCountStub()
+__declspec(naked) void primitive_count_stub()
 {
     __asm {
         push ecx
         push eax
-        call PrimitiveCount
+        call primitive_count
         add esp, 8
         ret
     }
 }
 
 // 0x004CDD00
-void DrawBillboardMesh(meshRef* mesh, const float* yAxis, const float* xAxis, const float* zAxis)
+void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis, const float* z_axis)
 {
     if (mesh->stride < 0x10 || mesh->stride > 0x30)
         return;
-    if (g_distanceClipping && g_fogSetting) { // (fog: its start a quarter back)
-        float end = g_camera.farZ;
-        reinterpret_cast<uint32_t&>(g_fogBeginDistance) = 0;
-        reinterpret_cast<uint32_t&>(g_fogEnd) = 0;
-        float start = static_cast<float>(end - (static_cast<double>(end) - g_camera.nearZ) * 0.25f);
-        ToggleFog(true);
-        InputPort()->SetRenderState(D3DRS_FOGSTART, *reinterpret_cast<DWORD*>(&start));
-        InputPort()->SetRenderState(D3DRS_FOGEND, *reinterpret_cast<DWORD*>(&end));
+    if (g_distance_clipping && g_fog_setting) { // (fog: its start a quarter back)
+        float end = g_camera.far_z_;
+        reinterpret_cast<uint32_t&>(g_fog_begin_distance) = 0;
+        reinterpret_cast<uint32_t&>(g_fog_end) = 0;
+        float start = static_cast<float>(end - (static_cast<double>(end) - g_camera.near_z_) * 0.25f);
+        toggle_fog(true);
+        input_port()->SetRenderState(D3DRS_FOGSTART, *reinterpret_cast<DWORD*>(&start));
+        input_port()->SetRenderState(D3DRS_FOGEND, *reinterpret_cast<DWORD*>(&end));
     } else {
-        ToggleFog(false);
+        toggle_fog(false);
     }
-    if (VertexShaders()) {
+    if (vertex_shaders()) {
         if (mesh->flags & 4)
-            mesh->SetPixelShaderColored();
+            mesh->set_pixel_shader_colored();
         else
-            SetPixelShader(At<void*>(mesh, 0x44), nullptr);
+            set_pixel_shader(get_at<void*>(mesh, 0x44), nullptr);
     }
     D3DVIEWPORT9 viewport;
-    InputPort()->GetViewport(&viewport);
+    input_port()->GetViewport(&viewport);
     IDirect3DVertexBuffer9* stream;
-    UINT offset, streamStride;
-    InputPort()->GetStreamSource(0, &stream, &offset, &streamStride);
-    IDirect3DPixelShader9* pixelShader;
-    InputPort()->GetPixelShader(&pixelShader);
-    IDirect3DVertexShader9* vertexShader;
-    InputPort()->GetVertexShader(&vertexShader);
+    UINT offset, stream_stride;
+    input_port()->GetStreamSource(0, &stream, &offset, &stream_stride);
+    IDirect3DPixelShader9* pixel_shader;
+    input_port()->GetPixelShader(&pixel_shader);
+    IDirect3DVertexShader9* vertex_shader;
+    input_port()->GetVertexShader(&vertex_shader);
     IDirect3DIndexBuffer9* indices;
-    InputPort()->GetIndices(&indices);
-    uint32_t primitives = PrimitiveCount(At<uint32_t>(mesh, 0x50), mesh->indexCounts[0]);
+    input_port()->GetIndices(&indices);
+    uint32_t primitives = primitive_count(get_at<uint32_t>(mesh, 0x50), mesh->index_counts_[0]);
     uint8_t* into;
-    VertexBuffer(mesh, 0)->Lock(0, 0, &into, D3DLOCK_DISCARD);
-    const uint8_t* from = VertexBuffer(mesh, 0)->data;
+    get_vertex_buffer(mesh, 0)->get_lock(0, 0, &into, D3DLOCK_DISCARD);
+    const uint8_t* from = get_vertex_buffer(mesh, 0)->data;
     const float* pivot = mesh->billboard->pivot;
     float px = pivot[0], py = pivot[1], pz = pivot[2];
     uint32_t rest = mesh->stride - 0xC;
     const uint32_t* table = nullptr;
-    if (mesh->perVertexBytes) { // (a value per vertex from the material's table)
+    if (mesh->per_vertex_bytes_) { // (a value per vertex from the material's table)
         table = *reinterpret_cast<const uint32_t* const*>(mesh->material + 0xF8);
         rest -= 4;
     }
-    for (uint32_t i = 0; i < mesh->vertexCount; ++i) {
+    for (uint32_t i = 0; i < mesh->vertex_count_; ++i) {
         float x, y, z;
         std::memcpy(&x, from, 4);
         std::memcpy(&y, from + 4, 4);
         std::memcpy(&z, from + 8, 4);
         from += 0xC;
-        float a = static_cast<float>(static_cast<double>(x) * xAxis[0]);
-        float b = static_cast<float>(static_cast<double>(x) * xAxis[1]);
-        float c = static_cast<float>(static_cast<double>(x) * xAxis[2]);
-        float t2 = static_cast<float>(static_cast<double>(y) * yAxis[2]);
-        a = static_cast<float>(static_cast<double>(y) * yAxis[0] + a);
-        double sumY = static_cast<double>(y) * yAxis[1] + b;
-        double sumZ = static_cast<double>(c) + t2;
-        float t3 = static_cast<float>(static_cast<double>(z) * zAxis[2]);
-        a = static_cast<float>(static_cast<double>(z) * zAxis[0] + a);
-        float b2 = static_cast<float>(static_cast<double>(z) * zAxis[1] + sumY);
-        double c2 = t3 + sumZ;
+        float a = static_cast<float>(static_cast<double>(x) * x_axis[0]);
+        float b = static_cast<float>(static_cast<double>(x) * x_axis[1]);
+        float c = static_cast<float>(static_cast<double>(x) * x_axis[2]);
+        float t2 = static_cast<float>(static_cast<double>(y) * y_axis[2]);
+        a = static_cast<float>(static_cast<double>(y) * y_axis[0] + a);
+        double sum_y = static_cast<double>(y) * y_axis[1] + b;
+        double sum_z = static_cast<double>(c) + t2;
+        float t3 = static_cast<float>(static_cast<double>(z) * z_axis[2]);
+        a = static_cast<float>(static_cast<double>(z) * z_axis[0] + a);
+        float b2 = static_cast<float>(static_cast<double>(z) * z_axis[1] + sum_y);
+        double c2 = t3 + sum_z;
         float out[3] = {static_cast<float>(static_cast<double>(px) + a), static_cast<float>(static_cast<double>(py) + b2),
                         static_cast<float>(pz + c2)};
         std::memcpy(into, out, 0xC);
         into += 0xC;
         if (table) {
-            auto index = static_cast<uint32_t>(static_cast<int8_t>(mesh->perVertexBytes[i]));
+            auto index = static_cast<uint32_t>(static_cast<int8_t>(mesh->per_vertex_bytes_[i]));
             uint32_t value;
             if (index)
                 value = table[index - 1];
@@ -217,53 +217,53 @@ void DrawBillboardMesh(meshRef* mesh, const float* yAxis, const float* xAxis, co
         into += rest;
         from += rest;
     }
-    VertexBuffer(mesh, 0)->Unlock();
-    InputPort()->SetStreamSource(0, *reinterpret_cast<IDirect3DVertexBuffer9**>(reinterpret_cast<uint8_t*>(VertexBuffer(mesh, 0)) + 8),
+    get_vertex_buffer(mesh, 0)->get_unlock();
+    input_port()->SetStreamSource(0, *reinterpret_cast<IDirect3DVertexBuffer9**>(reinterpret_cast<uint8_t*>(get_vertex_buffer(mesh, 0)) + 8),
                               0, mesh->stride);
     // (the index buffer's Direct3D buffer, +0xC: through the getter 0x00492E50 folded with others)
-    InputPort()->SetIndices(static_cast<IDirect3DIndexBuffer9*>(mesh->indexBuffers[0]->buffer));
+    input_port()->SetIndices(static_cast<IDirect3DIndexBuffer9*>(mesh->index_buffers_[0]->buffer));
     DWORD format;
-    InputPort()->GetFVF(&format);
-    InputPort()->SetFVF(At<uint32_t>(mesh, 0x38));
-    D3DPRIMITIVETYPE type = static_cast<D3DPRIMITIVETYPE>(At<uint32_t>(mesh, 0x50));
-    if (VertexShaders()) {
-        InputPort()->DrawIndexedPrimitive(type, 0, 0, mesh->vertexCount, 0, primitives);
+    input_port()->GetFVF(&format);
+    input_port()->SetFVF(get_at<uint32_t>(mesh, 0x38));
+    D3DPRIMITIVETYPE type = static_cast<D3DPRIMITIVETYPE>(get_at<uint32_t>(mesh, 0x50));
+    if (vertex_shaders()) {
+        input_port()->DrawIndexedPrimitive(type, 0, 0, mesh->vertex_count_, 0, primitives);
     } else {
         for (uint32_t pass = 0; pass < *reinterpret_cast<uint32_t*>(mesh->material + 8); ++pass) {
-            reinterpret_cast<materialRef*>(mesh->material)
-                ->SubmitPass(pass, mesh->flags & 4 ? reinterpret_cast<const float*>(reinterpret_cast<uint8_t*>(mesh) + 0x80)
+            reinterpret_cast<MaterialRef*>(mesh->material)
+                ->submit_pass(pass, mesh->flags & 4 ? reinterpret_cast<const float*>(reinterpret_cast<uint8_t*>(mesh) + 0x80)
                                                    : nullptr);
-            InputPort()->DrawIndexedPrimitive(type, 0, 0, mesh->vertexCount, 0, primitives);
+            input_port()->DrawIndexedPrimitive(type, 0, 0, mesh->vertex_count_, 0, primitives);
         }
     }
-    InputPort()->SetFVF(format);
-    InputPort()->SetStreamSource(0, stream, 0, streamStride); // (the offset not put back, as the original)
+    input_port()->SetFVF(format);
+    input_port()->SetStreamSource(0, stream, 0, stream_stride); // (the offset not put back, as the original)
     if (stream)
         stream->Release();
-    InputPort()->SetPixelShader(pixelShader); // (the shaders not released, as the original)
-    InputPort()->SetVertexShader(vertexShader);
-    InputPort()->SetIndices(indices);
+    input_port()->SetPixelShader(pixel_shader); // (the shaders not released, as the original)
+    input_port()->SetVertexShader(vertex_shader);
+    input_port()->SetIndices(indices);
     if (indices)
         indices->Release();
-    ToggleFog(false);
+    toggle_fog(false);
     (void)viewport;
 }
 
-__declspec(naked) void DrawBillboardMeshStub()
+__declspec(naked) void draw_billboard_mesh_stub()
 {
     __asm {
         push dword ptr [esp + 12]
         push dword ptr [esp + 12]
         push dword ptr [esp + 12]
         push ebx
-        call DrawBillboardMesh
+        call draw_billboard_mesh
         add esp, 16
         ret
     }
 }
 
 // 0x004CDA60
-sBillboardBatch* billboardSet::Find(const uint8_t* material)
+BillboardBatch* BillboardSet::get_find(const uint8_t* material)
 {
     for (int i = 0; i < count; ++i) {
         if (batches[i]->material == material)
@@ -273,9 +273,9 @@ sBillboardBatch* billboardSet::Find(const uint8_t* material)
 }
 
 // 0x004CDAA0
-void billboardSet::SetupAxes()
+void BillboardSet::setup_axes()
 {
-    const auto* m = reinterpret_cast<float*>(&g_viewMatrix);
+    const auto* m = reinterpret_cast<float*>(&g_view_matrix);
     float vz = m[10];
     view[0] = m[2];
     view[1] = m[6];
@@ -302,10 +302,10 @@ void billboardSet::SetupAxes()
     // up = forward x right... as the original orders it
     double ux = static_cast<double>(view[2]) * right[1] - static_cast<double>(view[1]) * right[2];
     double uy = static_cast<double>(right[2]) * view[0] - static_cast<double>(view[2]) * right[0];
-    double uzWide = static_cast<double>(view[1]) * right[0] - static_cast<double>(right[1]) * view[0];
-    float uz = static_cast<float>(uzWide);
+    double uz_wide = static_cast<double>(view[1]) * right[0] - static_cast<double>(right[1]) * view[0];
+    float uz = static_cast<float>(uz_wide);
     {
-        double length = std::sqrt(uzWide * uz + uy * uy + ux * ux); // (the unrounded one times the stored one)
+        double length = std::sqrt(uz_wide * uz + uy * uy + ux * ux); // (the unrounded one times the stored one)
         if (length > 0.0f) {
             double inverse = 1.0f / length;
             ux *= inverse;
@@ -333,31 +333,31 @@ void billboardSet::SetupAxes()
         out[3] = 1.0f;
         out[2] = static_cast<float>(fz);
     };
-    flatten(view[0], view[2], flatForward);
-    flatten(right[0], right[2], flatRight);
+    flatten(view[0], view[2], flat_forward_);
+    flatten(right[0], right[2], flat_right_);
 }
 
 // 0x004CEB30
-sBillboardBatch* sBillboardBatch::MakeNew(uint8_t* newMaterial)
+BillboardBatch* BillboardBatch::make_new(uint8_t* new_material)
 {
-    material = newMaterial;
-    lists[0] = NewHead();
-    lists[1] = NewHead();
-    lists[2] = NewHead();
-    vertexBytes = 0x40;
-    vertexBytes = (*reinterpret_cast<uint32_t*>(newMaterial + 8) + 2) * 0x20;
+    material = new_material;
+    lists[0] = new_head();
+    lists[1] = new_head();
+    lists[2] = new_head();
+    vertex_bytes_ = 0x40;
+    vertex_bytes_ = (*reinterpret_cast<uint32_t*>(new_material + 8) + 2) * 0x20;
     return this;
 }
 
 // 0x004CE1D0
-void sBillboardBatch::AddRow(meshRef* mesh)
+void BillboardBatch::add_row(MeshRef* mesh)
 {
-    auto* entry = static_cast<billboardRec*>(MemSys::Alloc(sizeof(billboardRec)));
+    auto* entry = static_cast<BillboardRec*>(memory::alloc(sizeof(BillboardRec)));
     if (entry) {
         entry->mesh = mesh;
         entry->type = mesh->billboard->type;
     }
-    auto* node = static_cast<MemSys::ListNode*>(MemSys::AllocZeroed(sizeof(MemSys::ListNode)));
+    auto* node = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
     if (node) {
         node->vtable = reinterpret_cast<void**>(kNodeVtable);
         node->data = entry;
@@ -366,7 +366,7 @@ void sBillboardBatch::AddRow(meshRef* mesh)
         node->prev = node;
     }
     // at the end of its list (no checks: written through null, as the original)
-    MemSys::ListNode* head = lists[entry->type];
+    memory::ListNode* head = lists[entry->type];
     node->prev = head->prev;
     node->next = head;
     head->prev->next = node;
@@ -374,18 +374,18 @@ void sBillboardBatch::AddRow(meshRef* mesh)
 }
 
 // 0x004CE250
-void sBillboardBatch::EraseRecord(meshRef* mesh)
+void BillboardBatch::erase_record(MeshRef* mesh)
 {
-    for (MemSys::ListNode* head : lists) {
-        MemSys::ListNode* node = head->next;
-        if (IsHead(node))
+    for (memory::ListNode* head : lists) {
+        memory::ListNode* node = head->next;
+        if (is_head(node))
             continue;
         while (node) {
-            auto* entry = static_cast<billboardRec*>(node->data);
-            MemSys::ListNode* next = NextNode(node);
+            auto* entry = static_cast<BillboardRec*>(node->data);
+            memory::ListNode* next = get_next_node(node);
             if (entry->mesh == mesh) {
-                reinterpret_cast<MemSys::ListNode*(__thiscall*)(MemSys::ListNode*, unsigned int)>(node->vtable[0])(node, 1);
-                MemSys::Hub::Pull()->Dealloc(entry);
+                reinterpret_cast<memory::ListNode*(__thiscall*)(memory::ListNode*, unsigned int)>(node->vtable[0])(node, 1);
+                memory::Hub::get_pull()->dealloc(entry);
                 return;
             }
             node = next;
@@ -394,62 +394,62 @@ void sBillboardBatch::EraseRecord(meshRef* mesh)
 }
 
 // 0x004CE2D0
-void sBillboardBatch::Render()
+void BillboardBatch::render()
 {
     if (!material)
         return;
-    if (VertexShaders())
-        reinterpret_cast<materialRef*>(material)->HandIn();
+    if (vertex_shaders())
+        reinterpret_cast<MaterialRef*>(material)->hand_in();
     else
-        reinterpret_cast<materialRef*>(material)->SubmitStates();
+        reinterpret_cast<MaterialRef*>(material)->submit_states();
     for (int i = 0; i < 3; ++i) { // (the first shown list's first mesh's pixel shader)
-        MemSys::ListNode* first = lists[i]->next;
-        if (IsHead(first) || !first)
+        memory::ListNode* first = lists[i]->next;
+        if (is_head(first) || !first)
             continue;
-        MemSys::ListNode* node = HeadOfSceneList(lists[i]);
-        if (VertexShaders())
-            SetPixelShader(At<void*>(static_cast<billboardRec*>(node->data)->mesh, 0x44), nullptr);
+        memory::ListNode* node = head_of_scene_list(lists[i]);
+        if (vertex_shaders())
+            set_pixel_shader(get_at<void*>(static_cast<BillboardRec*>(node->data)->mesh, 0x44), nullptr);
         break;
     }
-    auto transpose = D3dx::MatrixTranspose; // (D3DX)
-    auto multiply = D3dx::MatrixMultiply;
+    auto transpose = d3dx::matrix_transpose; // (D3DX)
+    auto multiply = d3dx::matrix_multiply;
     float projection[16], view[16], identity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-    float viewWorld[16], all[16];
-    transpose(projection, reinterpret_cast<float*>(&g_projectionMatrix));
-    transpose(view, reinterpret_cast<float*>(&g_viewMatrix));
+    float view_world[16], all[16];
+    transpose(projection, reinterpret_cast<float*>(&g_projection_matrix));
+    transpose(view, reinterpret_cast<float*>(&g_view_matrix));
     view[12] = view[13] = view[14] = 0.0f; // (its last row cleared)
     view[15] = 1.0f;
-    multiply(viewWorld, view, identity);
-    multiply(all, projection, viewWorld);
-    InputPort()->SetVertexShaderConstantF(0, all, 4);
-    auto* manager = &g_billboardPool;
-    float* constants = g_billboardConstants; // c4-c6
-    auto setAxes = [&](const float* x, const float* y, const float* z) {
+    multiply(view_world, view, identity);
+    multiply(all, projection, view_world);
+    input_port()->SetVertexShaderConstantF(0, all, 4);
+    auto* manager = &g_billboard_pool;
+    float* constants = g_billboard_constants; // c4-c6
+    auto set_axes = [&](const float* x, const float* y, const float* z) {
         std::memcpy(constants, x, 12);
         std::memcpy(constants + 4, y, 12);
         std::memcpy(constants + 8, z, 12);
     };
-    setAxes(manager->right, manager->up, manager->view);
-    InputPort()->SetVertexShaderConstantF(4, constants, 3);
+    set_axes(manager->right, manager->up, manager->view);
+    input_port()->SetVertexShaderConstantF(4, constants, 3);
     {
-        float xAxis[3], yAxis[3], zAxis[3];
-        std::memcpy(xAxis, constants, 12);
-        std::memcpy(yAxis, constants + 4, 12);
-        std::memcpy(zAxis, constants + 8, 12);
-        DrawList(lists[0], yAxis, xAxis, zAxis);
+        float x_axis[3], y_axis[3], z_axis[3];
+        std::memcpy(x_axis, constants, 12);
+        std::memcpy(y_axis, constants + 4, 12);
+        std::memcpy(z_axis, constants + 8, 12);
+        draw_list(lists[0], y_axis, x_axis, z_axis);
     }
     {
-        const float flatUp[3] = {0.0f, 1.0f, 0.0f};
-        setAxes(manager->flatRight, flatUp, manager->flatForward);
-        float xAxis[3], yAxis[3] = {0.0f, 1.0f, 0.0f}, zAxis[3];
-        std::memcpy(xAxis, manager->flatRight, 12);
-        std::memcpy(zAxis, manager->flatForward, 12);
-        DrawList(lists[1], yAxis, xAxis, zAxis);
+        const float flat_up[3] = {0.0f, 1.0f, 0.0f};
+        set_axes(manager->flat_right_, flat_up, manager->flat_forward_);
+        float x_axis[3], y_axis[3] = {0.0f, 1.0f, 0.0f}, z_axis[3];
+        std::memcpy(x_axis, manager->flat_right_, 12);
+        std::memcpy(z_axis, manager->flat_forward_, 12);
+        draw_list(lists[1], y_axis, x_axis, z_axis);
     }
     // About each mesh's own axis: across = forward x axis, out = across x axis, both normalised.
-    for (MemSys::ListNode* node = HeadOfSceneList(lists[2]); node;) {
-        MemSys::ListNode* next = NextNode(node);
-        meshRef* mesh = static_cast<billboardRec*>(node->data)->mesh;
+    for (memory::ListNode* node = head_of_scene_list(lists[2]); node;) {
+        memory::ListNode* next = get_next_node(node);
+        MeshRef* mesh = static_cast<BillboardRec*>(node->data)->mesh;
         if (mesh->flags & 0x40) {
             const float* axis = mesh->billboard->axis;
             const float* d = manager->view;
@@ -466,89 +466,89 @@ void sBillboardBatch::Render()
             double ux = static_cast<double>(rz) * axis[1] - static_cast<double>(ry) * axis[2];
             double uy = rx * axis[2] - static_cast<double>(rz) * axis[0];
             double uz = static_cast<double>(ry) * axis[0] - rx * axis[1];
-            float uzStored = static_cast<float>(uz);
+            float uz_stored = static_cast<float>(uz);
             double length2 = std::sqrt(ux * ux + uz * uz + uy * uy);
             if (length2 > 0.0f) {
                 double inverse = 1.0f / length2;
                 ux *= inverse;
                 uy *= inverse;
                 uz *= inverse;
-                uzStored = static_cast<float>(uz);
+                uz_stored = static_cast<float>(uz);
             }
             float across[3] = {static_cast<float>(rx), ry, rz};
-            float out[3] = {static_cast<float>(ux), static_cast<float>(uy), uzStored};
+            float out[3] = {static_cast<float>(ux), static_cast<float>(uy), uz_stored};
             float along[3] = {axis[0], axis[1], axis[2]};
-            setAxes(across, along, out);
-            DrawBillboardMesh(mesh, along, across, out);
+            set_axes(across, along, out);
+            draw_billboard_mesh(mesh, along, across, out);
         }
         node = next;
     }
-    g_vertexFormatLocked = 0; // (the vertex format unlocked)
+    g_vertex_format_locked = 0; // (the vertex format unlocked)
 }
 
 // 0x004CEBE0
-void billboardSet::AppendMesh(meshRef* mesh)
+void BillboardSet::append_mesh(MeshRef* mesh)
 {
     if (!mesh->material || !*reinterpret_cast<uint32_t*>(mesh->material + 0x30))
         return;
-    sBillboardBatch* batch = Find(mesh->material);
+    BillboardBatch* batch = get_find(mesh->material);
     if (!batch) {
-        void* memory = MemSys::Alloc(sizeof(sBillboardBatch));
-        batch = memory ? static_cast<sBillboardBatch*>(memory)->MakeNew(mesh->material) : nullptr;
+        void* memory = memory::alloc(sizeof(BillboardBatch));
+        batch = memory ? static_cast<BillboardBatch*>(memory)->make_new(mesh->material) : nullptr;
         batches[count] = batch;
         ++count;
-        OrderBatches(this);
+        order_batches(this);
     }
-    batch->AddRow(mesh);
+    batch->add_row(mesh);
 }
 
 // 0x004CE9F0
-void billboardSet::RemoveMesh(meshRef* mesh)
+void BillboardSet::remove_mesh(MeshRef* mesh)
 {
     if (!mesh->material)
         return;
-    sBillboardBatch* batch = Find(mesh->material);
+    BillboardBatch* batch = get_find(mesh->material);
     if (!batch)
         return;
-    batch->EraseRecord(mesh);
-    for (MemSys::ListNode* head : batch->lists) {
+    batch->erase_record(mesh);
+    for (memory::ListNode* head : batch->lists) {
         if (head->prev != head)
             return;
     }
     for (int i = 0; i < count; ++i) {
         if (batches[i] != batch)
             continue;
-        for (MemSys::ListNode* head : batch->lists) {
+        for (memory::ListNode* head : batch->lists) {
             if (head) // (through its vtable)
-                reinterpret_cast<MemSys::ListNode*(__thiscall*)(MemSys::ListNode*, unsigned int)>(head->vtable[0])(head, 1);
+                reinterpret_cast<memory::ListNode*(__thiscall*)(memory::ListNode*, unsigned int)>(head->vtable[0])(head, 1);
         }
-        MemSys::Hub::Pull()->Dealloc(batch);
+        memory::Hub::get_pull()->dealloc(batch);
         batches[i] = nullptr;
         break;
     }
-    OrderBatches(this);
+    order_batches(this);
     --count;
 }
 
 // 0x004CEAB0
-void billboardSet::Render(unsigned int which)
+void BillboardSet::render(unsigned int which)
 {
     if (which & 1) {
         for (int i = 0; i < count; ++i) {
             if (!(batches[i]->material[0x20] & 0x40))
-                batches[i]->Render();
+                batches[i]->render();
         }
     }
     if (which & 2) {
         for (int i = 0; i < count; ++i) {
             if (batches[i]->material[0x20] & 0x40)
-                batches[i]->Render();
+                batches[i]->render();
         }
     }
 }
 
 // 0x004CE9D0
-void sBillboardNode::Uncouple()
+void BillboardNode::uncouple()
 {
     vtable = reinterpret_cast<void**>(kNodeVtable);
     prev->next = next;
@@ -558,74 +558,74 @@ void sBillboardNode::Uncouple()
 }
 
 // 0x004CE960
-sBillboardNode* sBillboardNode::Teardown(unsigned int freeFlags)
+BillboardNode* BillboardNode::teardown(unsigned int free_flags)
 {
-    Uncouple();
-    if (freeFlags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+    uncouple();
+    if (free_flags & 1)
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x004CE9A0
-sBillboardNode* sBillboardNode::DestroyHead(unsigned int freeFlags)
+BillboardNode* BillboardNode::destroy_head(unsigned int free_flags)
 {
-    Uncouple();
-    if (freeFlags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+    uncouple();
+    if (free_flags & 1)
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x004CD860
-void CPcWindow::DestroyBody()
+void PcWindow::destroy_body()
 {
     vtable = reinterpret_cast<void**>(kWindowVtable);
-    reinterpret_cast<CScreenWindow*>(this)->DestroyBody();
+    reinterpret_cast<ScreenWindow*>(this)->destroy_body();
 }
 
 // 0x004CD870
-CPcWindow* CPcWindow::Teardown(unsigned int freeFlags)
+PcWindow* PcWindow::teardown(unsigned int free_flags)
 {
-    DestroyBody();
-    if (freeFlags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+    destroy_body();
+    if (free_flags & 1)
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x004CD8A0
-void __cdecl CreateWindowPool()
+void __cdecl create_window_pool()
 {
     for (int i = 0; i < 10; ++i) {
-        void* memory = MemSys::Alloc(sizeof(CPcWindow));
-        CPcWindow* window = nullptr;
+        void* memory = memory::alloc(sizeof(PcWindow));
+        PcWindow* window = nullptr;
         if (memory) {
-            window = reinterpret_cast<CPcWindow*>(static_cast<CScreenWindow*>(memory)->MakeNew(0, 0, 640, 480));
+            window = reinterpret_cast<PcWindow*>(static_cast<ScreenWindow*>(memory)->make_new(0, 0, 640, 480));
             window->vtable = reinterpret_cast<void**>(kWindowVtable);
         }
-        window->next = reinterpret_cast<CPcWindow*&>(g_freeWindows); // (no check, as the original)
-        reinterpret_cast<CPcWindow*&>(g_freeWindows) = window;
+        window->next = reinterpret_cast<PcWindow*&>(g_free_windows); // (no check, as the original)
+        reinterpret_cast<PcWindow*&>(g_free_windows) = window;
     }
 }
 
 // 0x004CD940
-void __cdecl MarkBillboardsReady()
+void __cdecl mark_billboards_ready()
 {
-    if (!g_billboardsReady)
-        g_billboardsReady = true;
+    if (!g_billboards_ready)
+        g_billboards_ready = true;
 }
 
 // 0x004CD960
-void __cdecl SetFlag786EB4() { g_billboardFlag = 1; }
+void __cdecl set_flag_786e_b4() { g_billboard_flag = 1; }
 
 // 0x004CD970
-void __cdecl ClearFlag786EB4() { g_billboardFlag = 0; }
+void __cdecl clear_flag_786e_b4() { g_billboard_flag = 0; }
 
 namespace {
-static VtableSlot kNodeVtable_slots[] = {&Engine3D::sBillboardNode::Teardown};
-void** const kNodeVtable = reinterpret_cast<void**>(kNodeVtable_slots);
-static VtableSlot kHeadVtable_slots[] = {&Engine3D::sBillboardNode::DestroyHead};
-void** const kHeadVtable = reinterpret_cast<void**>(kHeadVtable_slots);
-static VtableSlot kWindowVtable_slots[] = {&Engine3D::CPcWindow::Teardown, Stubs::DoNothing};
-void** const kWindowVtable = reinterpret_cast<void**>(kWindowVtable_slots);
+static VtableSlot g_node_vtable_slots[] = {&render::BillboardNode::teardown};
+void** const kNodeVtable = reinterpret_cast<void**>(g_node_vtable_slots);
+static VtableSlot g_head_vtable_slots[] = {&render::BillboardNode::destroy_head};
+void** const kHeadVtable = reinterpret_cast<void**>(g_head_vtable_slots);
+static VtableSlot g_window_vtable_slots[] = {&render::PcWindow::teardown, stubs::do_nothing};
+void** const kWindowVtable = reinterpret_cast<void**>(g_window_vtable_slots);
 } // namespace
 
 } // namespace Nx

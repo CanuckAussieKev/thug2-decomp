@@ -3,128 +3,128 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace Scripts {
-class CStruct;
-class CScript;
+namespace script {
+class Struct;
+class Script;
 } // namespace Script
 
-namespace Engine3D {
-class CBitmapTexture;
+namespace render {
+class BitmapTexture;
 }
 
 // The custom skater's face: where its features are on the face image (the face points), the face texture a profile
-// keeps (Gfx2D::CFaceSkin - the image, its points and the overlay drawn over it), and "massaging" a face image onto
+// keeps (gfx::FaceSkin - the image, its points and the overlay drawn over it), and "massaging" a face image onto
 // the head model's texture: stretched so its features land where the model's are, coloured, and the overlay drawn
 // over it. From the disassembly of 0x00486980-0x00487680.
-namespace Gfx2D {
+namespace gfx {
 
 // Where a face's features are on its image (0x38 bytes; script structures hold them as left_eye / right_eye / nose /
 // lips = [x y], h / s / v (all three or none), width / height).
-struct SFaceAnchors {
-    int m_leftEye[2];  // +0x00
-    int m_rightEye[2]; // +0x08
-    int m_noseSlot[2];     // +0x10
-    int m_mouthPart[2];     // +0x18
-    bool m_hasHSV;     // +0x20: h, s and v were all given
+struct FaceAnchors {
+    int left_eye_[2];  // +0x00
+    int right_eye_[2]; // +0x08
+    int nose_slot_[2];     // +0x10
+    int mouth_part_[2];     // +0x18
+    bool has_hsv_;     // +0x20: h, s and v were all given
     uint8_t pad21[3];
-    float m_h;      // +0x24
-    float m_s;      // +0x28
-    float m_v;      // +0x2C
-    int m_span;    // +0x30 (0x80 by default)
-    int m_levelY;   // +0x34
+    float h_;      // +0x24
+    float s_;      // +0x28
+    float v_;      // +0x2C
+    int span_;    // +0x30 (0x80 by default)
+    int level_y_;   // +0x34
 };
-static_assert(offsetof(SFaceAnchors, m_h) == 0x24 && sizeof(SFaceAnchors) == 0x38, "layout must match the original");
+static_assert(offsetof(FaceAnchors, h_) == 0x24 && sizeof(FaceAnchors) == 0x38, "layout must match the original");
 
 // The face points of the head model's texture (0x0067DC14: the default ones - CS_NSN_Head's) and the current ones
 // massaged images are fitted to (0x0067DC4C), and the overlay drawn over them (0x006FA2EC).
 // 0x00486980: a copy of the default points.
-void __cdecl FetchStockFaceAnchors(SFaceAnchors* out);
+void __cdecl fetch_stock_face_anchors(FaceAnchors* out);
 // 0x004869A0: the current points set.
-void __cdecl ChangeFaceAnchors(const SFaceAnchors* points);
+void __cdecl change_face_anchors(const FaceAnchors* points);
 // 0x004869C0: the overlay set (null: none).
-void __cdecl SetFaceOverlay(Engine3D::CBitmapTexture* overlay);
+void __cdecl set_face_overlay(render::BitmapTexture* overlay);
 // 0x004869D0: the points read from a structure: left_eye, right_eye, nose and lips (in that order - false at the first
-// missing one, the ones before it set), then h, s and v (m_hasHSV only when all three are there; each read either
+// missing one, the ones before it set), then h, s and v (has_hsv_ only when all three are there; each read either
 // way), width and height (0 when missing). True when all four points were there.
-bool __cdecl ReadFacePoints(SFaceAnchors* points, Scripts::CStruct* params);
-// 0x00487000: the points written to a structure: the four as integer arrays of two, h / s / v when m_hasHSV,
+bool __cdecl read_face_points(FaceAnchors* points, script::Struct* params);
+// 0x00487000: the points written to a structure: the four as integer arrays of two, h / s / v when has_hsv_,
 // width and height. True.
-bool __cdecl WriteFacePoints(const SFaceAnchors* points, Scripts::CStruct* params);
+bool __cdecl write_face_points(const FaceAnchors* points, script::Struct* params);
 // 0x00486C40: `texture` (a face image) stretched so that `points` land on the current model points: moved by the
 // noses' difference (Offset - texture slot 18 - with no colour), then pushed out or in along x on both sides of the
-// nose and along y above and below it (slot 22 with `useColour` / `colour` when pushing out, slot 21 when pulling
+// nose and along y above and below it (slot 22 with `use_colour` / `colour` when pushing out, slot 21 when pulling
 // in). The eyes' x are put in order and the eyes / lips kept off the nose's y first. True.
-bool __cdecl FitFaceTexture(Engine3D::CBitmapTexture* texture, const SFaceAnchors* points, bool useColour, uint32_t colour);
+bool __cdecl fit_face_texture(render::BitmapTexture* texture, const FaceAnchors* points, bool use_colour, uint32_t colour);
 // 0x00486F70: the whole massage - the texture's image opened for editing (slot 8, on the bottom-up heap), fitted,
 // recoloured with the points' h / s / v when there are some (slot 24), the overlay drawn over it (slot 41 with
-// `generatePalette`) and closed again (slot 9). True. (`generatePalette` is a byte: ReplaceFaceTexture passes a
+// `generate_palette`) and closed again (slot 9). True. (`generate_palette` is a byte: replace_face_texture passes a
 // parameter byte as it is, not made 0 / 1; the PC texture's slots ignore it.)
-bool __cdecl MassageFaceTexture(Engine3D::CBitmapTexture* texture, const SFaceAnchors* points, uint8_t generatePalette, bool useColour,
+bool __cdecl massage_face_texture(render::BitmapTexture* texture, const FaceAnchors* points, uint8_t generate_palette, bool use_colour,
                                 uint32_t colour);
 
-// The face texture a skater profile keeps (0x449C bytes; made by MemSys::AllocZeroed + Construct): a 128 x 128 8-bit image
+// The face texture a skater profile keeps (0x449C bytes; made by memory::alloc_zeroed + Construct): a 128 x 128 8-bit image
 // in the image file's layout (a 0x20-byte header, the 256-colour palette, the pixels), where its features are, and
 // the overlay texture's file name.
-class CFaceSkin {
+class FaceSkin {
 public:
     static constexpr int kTexelEdge = 0x4420;
 
     // 0x004875C0: not valid, the default points, the overlay "faces\CS_NSN_Head_wht_alpha". Returns this.
-    CFaceSkin* MakeNew();
-    // 0x00487380: the image loaded from "images\<name>.img.xbx" (with `fullPath`: "<name>.img.xbx") - all the file's
+    FaceSkin* make_new();
+    // 0x00487380: the image loaded from "images\<name>.img.xbx" (with `full_path`: "<name>.img.xbx") - all the file's
     // bytes copied in, however many - and valid.
-    void LoadImageFile(const char* name, bool fullPath);
+    void load_image_file(const char* name, bool full_path);
     // 0x00487420: the image copied from `data` (always kTexelEdge bytes; `size` isn't used). Returns the data after it.
-    const uint8_t* SetImage(const uint8_t* data, int size);
+    const uint8_t* set_image(const uint8_t* data, int size);
     // 0x00487440: the image, the points and the overlay's name (with its terminator) written to `buffer` (`size`
     // isn't checked). Returns how many bytes.
-    int WriteTo(uint8_t* buffer, int size);
+    int write_to(uint8_t* buffer, int size);
     // 0x004874B0: the same read back. Returns the buffer after it.
-    const uint8_t* ReadFrom(const uint8_t* buffer, int size);
+    const uint8_t* read_from(const uint8_t* buffer, int size);
     // 0x00487510: whether there is an image.
-    bool IsSound();
+    bool is_sound();
     // 0x00487520
-    void MarkUsable(bool valid);
+    void mark_usable(bool valid);
     // 0x00487530
-    uint8_t* GetImage();
+    uint8_t* get_image();
     // 0x00487540: kTexelEdge.
-    int FetchSkinResolution();
+    int fetch_skin_resolution();
     // 0x00487550: a copy of the points in `out`. Returns out.
-    SFaceAnchors* GetPoints(SFaceAnchors* out);
+    FaceAnchors* get_points(FaceAnchors* out);
     // 0x00487570
-    void SetPoints(const SFaceAnchors* points);
+    void set_points(const FaceAnchors* points);
     // 0x00487590: the overlay's file name (copied, unbounded).
-    void SetOverlayName(const char* name);
+    void set_overlay_name(const char* name);
     // 0x004875B0
-    char* GetOverlayName();
+    char* get_overlay_name();
     // 0x004875F0: the image from the structure's 0x99790D96 array (each element a dword of it - as many as there are),
-    // the overlay's name from its 0xA7E7A264 string, the points from it (ReadFacePoints).
-    void LoadFromStructure(Scripts::CStruct* params);
+    // the overlay's name from its 0xA7E7A264 string, the points from it (read_face_points).
+    void load_from_structure(script::Struct* params);
     // 0x00487680: the same written to a structure (the image as an array of 0x1108 checksums).
-    void SaveToStructure(Scripts::CStruct* params);
+    void save_to_structure(script::Struct* params);
 
-    bool m_isUsable;          // +0x00
+    bool is_usable_;          // +0x00
     uint8_t pad1[3];
-    SFaceAnchors m_pathVertices;  // +0x04
-    uint8_t m_image[kTexelEdge]; // +0x3C
-    char m_overlayName[0x40];    // +0x445C
+    FaceAnchors path_vertices_;  // +0x04
+    uint8_t image_[kTexelEdge]; // +0x3C
+    char overlay_name_[0x40];    // +0x445C
 };
-static_assert(offsetof(CFaceSkin, m_image) == 0x3C && offsetof(CFaceSkin, m_overlayName) == 0x445C &&
-                  sizeof(CFaceSkin) == 0x449C,
+static_assert(offsetof(FaceSkin, image_) == 0x3C && offsetof(FaceSkin, overlay_name_) == 0x445C &&
+                  sizeof(FaceSkin) == 0x449C,
               "layout must match the original");
 
 } // namespace Gfx
 
 // Script commands (CFunctions) of the face massage. cdecl (params, script); all return true.
-namespace ScriptCommands {
+namespace commands {
 // 0x00486B70: SetModelFaceTexturePoints face_points={...}: the current model points (read even when some are missing).
-bool __cdecl CFunc_SetModelFaceTexturePoints(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl cfunc_set_model_face_texture_points(script::Struct* params, script::Script* script);
 // 0x00486BC0: SetFaceMassageTextureOverlay <texture>: the overlay (unchanged if there's no such texture).
-bool __cdecl CFunc_SetFaceMassageTextureOverlay(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl cfunc_set_face_massage_texture_overlay(script::Struct* params, script::Script* script);
 // 0x00486BF0: CombineFaceTextureWithOverlay texture=<name>: the overlay drawn over the texture (slot 41).
-bool __cdecl CFunc_CombineFaceTextureWithOverlay(Scripts::CStruct* params, Scripts::CScript* script);
-// 0x00486EE0: AdjustFaceTextureToModel texture=<name> face_points={...}: the texture fitted (FitFaceTexture).
-bool __cdecl CFunc_AdjustFaceTextureToModel(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl cfunc_combine_face_texture_with_overlay(script::Struct* params, script::Script* script);
+// 0x00486EE0: AdjustFaceTextureToModel texture=<name> face_points={...}: the texture fitted (fit_face_texture).
+bool __cdecl cfunc_adjust_face_texture_to_model(script::Struct* params, script::Script* script);
 // 0x004872D0: MassageFaceTexture texture=<name> face_points={...} [no_palette_gen]: the whole massage.
-bool __cdecl CFunc_MassageFaceTexture(Scripts::CStruct* params, Scripts::CScript* script);
-} // namespace ScriptCommands
+bool __cdecl cfunc_massage_face_texture(script::Struct* params, script::Script* script);
+} // namespace commands

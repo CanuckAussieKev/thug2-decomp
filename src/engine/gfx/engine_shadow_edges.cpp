@@ -1,4 +1,4 @@
-// The shadow volume's silhouette edges (CShadowVolume::ChangeMesh, 0x004A22F0): see engine_shadows.h.
+// The shadow volume's silhouette edges (ShadowVolume::change_mesh, 0x004A22F0): see engine_shadows.h.
 
 #include <cstdint>
 #include <cstring>
@@ -12,10 +12,10 @@
 #include "engine/render/coll_tri.h"
 #include "engine/sys/startup_init.h"
 
-namespace Engine3D {
+namespace render {
 
-CShadowVolume* g_shadowVolumes[16];
-ListKit::KeyMap g_shadowEdgeTable{ListKit::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
+ShadowVolume* g_shadow_volumes[16];
+lists::KeyMap g_shadow_edge_table{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
 
 namespace {
 
@@ -24,36 +24,36 @@ namespace {
 struct EdgeCorner {
     uint16_t vertex;
     uint16_t pad; // (stack garbage in the original's records: zeroed here)
-    Maths::Vec4 normal;
+    maths::Vec4 normal;
 };
 struct ShadowSilhouetteEdge {
     EdgeCorner corners[4];
 };
 static_assert(sizeof(ShadowSilhouetteEdge) == 0x50, "layout must match the original");
 
-CShadowVolume** ShadowVolumes() { return g_shadowVolumes; }
-ListKit::KeyMap& EdgeTable() { return g_shadowEdgeTable; }
+ShadowVolume** shadow_volumes() { return g_shadow_volumes; }
+lists::KeyMap& edge_table() { return g_shadow_edge_table; }
 
 // Into the first free slot of the volumes drawn (none: not drawn).
-void AddShadowVolume(CShadowVolume* volume)
+void add_shadow_volume(ShadowVolume* volume)
 {
     for (int i = 0; i < 16; ++i) {
-        if (!ShadowVolumes()[i]) {
-            ShadowVolumes()[i] = volume;
+        if (!shadow_volumes()[i]) {
+            shadow_volumes()[i] = volume;
             return;
         }
     }
 }
 
 // The meshes of the model's collision scene: +0x88 their count, +0x8C the array (the volumes' key).
-int MeshCount(const uint8_t* assetData) { return *reinterpret_cast<const int*>(assetData + 0x88); }
+int get_mesh_count(const uint8_t* asset_data) { return *reinterpret_cast<const int*>(asset_data + 0x88); }
 
-bool Skipped(const CTriMeshSource& mesh) { return (reinterpret_cast<const uint16_t*>(mesh.m_faces)[0] & 0x40) != 0; }
+bool get_skipped(const TriMeshSource& mesh) { return (reinterpret_cast<const uint16_t*>(mesh.faces_)[0] & 0x40) != 0; }
 
 // The edge from `from` to `to` of a face with `normal`: an existing edge the other way round, or the same way, gets
 // its second face's corners; otherwise a new edge is added (past the end of the array if the estimate was short,
 // as the original).
-void AddEdge(ShadowEdges* edges, int& count, uint16_t from, uint16_t to, const Maths::Vec4& normal)
+void add_edge(ShadowEdges* edges, int& count, uint16_t from, uint16_t to, const maths::Vec4& normal)
 {
     ShadowSilhouetteEdge* all = reinterpret_cast<ShadowSilhouetteEdge*>(edges->edges);
     int i = 0;
@@ -85,85 +85,85 @@ void AddEdge(ShadowEdges* edges, int& count, uint16_t from, uint16_t to, const M
 } // namespace
 
 // 0x004A22F0
-void CShadowVolume::ChangeMesh(CRenderModel*, uint8_t* assetData)
+void ShadowVolume::change_mesh(RenderModel*, uint8_t* asset_data)
 {
-    if (assetData)
-        m_modelKey = *reinterpret_cast<uint32_t*>(assetData + 0x8C);
-    m_edges = FindShadowEdges(m_modelKey);
-    if (m_edges) {
-        ++m_edges->users;
-        AddShadowVolume(this);
+    if (asset_data)
+        model_key_ = *reinterpret_cast<uint32_t*>(asset_data + 0x8C);
+    edges_ = find_shadow_edges(model_key_);
+    if (edges_) {
+        ++edges_->users;
+        add_shadow_volume(this);
         return;
     }
-    m_edges = static_cast<ShadowEdges*>(MemSys::AllocZeroed(0x10)); // (not checked, as the original)
-    auto* meshes = reinterpret_cast<CTriMeshSource*>(m_modelKey);
+    edges_ = static_cast<ShadowEdges*>(memory::alloc_zeroed(0x10)); // (not checked, as the original)
+    auto* meshes = reinterpret_cast<TriMeshSource*>(model_key_);
     // (with a key but no asset data, read through null - as the original)
     int faces = 0, vertices = 0;
-    if (m_modelKey) {
-        for (int i = 0; i < MeshCount(assetData); ++i) {
-            if (!Skipped(meshes[i])) {
-                faces += meshes[i].m_triCount;
-                vertices += meshes[i].m_numVertices;
+    if (model_key_) {
+        for (int i = 0; i < get_mesh_count(asset_data); ++i) {
+            if (!get_skipped(meshes[i])) {
+                faces += meshes[i].tri_count_;
+                vertices += meshes[i].num_vertices_;
             }
         }
     }
     int estimate = vertices + faces - 2; // (Euler's formula for a closed convex mesh)
     if (estimate >= 1) {
         uint32_t size = static_cast<uint32_t>(estimate) * sizeof(ShadowSilhouetteEdge);
-        m_edges->edges = static_cast<uint8_t*>(MemSys::Alloc(size));
-        std::memset(m_edges->edges, 0, size);
+        edges_->edges = static_cast<uint8_t*>(memory::alloc(size));
+        std::memset(edges_->edges, 0, size);
     }
     int count = 0;
-    if (m_modelKey) {
-        for (int m = 0; m < MeshCount(assetData); ++m) {
-            const CTriMeshSource& mesh = meshes[m];
-            if (Skipped(mesh))
+    if (model_key_) {
+        for (int m = 0; m < get_mesh_count(asset_data); ++m) {
+            const TriMeshSource& mesh = meshes[m];
+            if (get_skipped(mesh))
                 continue;
             count = 0; // (each mesh starts the edges again: only the last one's are kept)
-            for (int f = 0; f < mesh.m_triCount; ++f) {
+            for (int f = 0; f < mesh.tri_count_; ++f) {
                 uint16_t a, b, c;
-                if (mesh.m_smallFaces) {
-                    const uint8_t* face = mesh.m_faces + f * 8;
+                if (mesh.small_faces_) {
+                    const uint8_t* face = mesh.faces_ + f * 8;
                     a = face[4];
                     b = face[5];
                     c = face[6];
                 } else {
-                    const auto* face = reinterpret_cast<const uint16_t*>(mesh.m_faces + f * 10);
+                    const auto* face = reinterpret_cast<const uint16_t*>(mesh.faces_ + f * 10);
                     a = face[2];
                     b = face[3];
                     c = face[4];
                 }
-                Maths::Vec4 normal = mesh.GetTriangleNormal(f);
-                m_edges->lastMesh = m;
-                AddEdge(m_edges, count, a, b, normal);
-                AddEdge(m_edges, count, b, c, normal);
-                AddEdge(m_edges, count, c, a, normal);
+                maths::Vec4 normal = mesh.get_triangle_normal(f);
+                edges_->last_mesh_ = m;
+                add_edge(edges_, count, a, b, normal);
+                add_edge(edges_, count, b, c, normal);
+                add_edge(edges_, count, c, a, normal);
             }
         }
     }
     if (count <= estimate && count > 0) {
-        m_edges->count = count;
-        ++m_edges->users;
-        uint32_t key = m_modelKey;
-        EdgeTable().StoreEntry(key, m_edges);
-        AddShadowVolume(this);
+        edges_->count = count;
+        ++edges_->users;
+        uint32_t key = model_key_;
+        edge_table().store_entry(key, edges_);
+        add_shadow_volume(this);
         return;
     }
-    DebugOut::Printf("Breaking Euler's formula: %df + %dv - 2 != %d!  Make sure the model is convex.", faces, vertices,
+    debug::printf("Breaking Euler's formula: %df + %dv - 2 != %d!  Make sure the model is convex.", faces, vertices,
                 count);
-    if (m_edges->edges) {
-        MemSys::Hub::Pull()->Dealloc(m_edges->edges);
-        m_edges->edges = nullptr;
+    if (edges_->edges) {
+        memory::Hub::get_pull()->dealloc(edges_->edges);
+        edges_->edges = nullptr;
     }
-    MemSys::Hub::Pull()->Dealloc(m_edges);
-    m_edges = nullptr;
+    memory::Hub::get_pull()->dealloc(edges_);
+    edges_ = nullptr;
 }
 
 } // namespace Nx
 
-namespace Engine3D {
+namespace render {
 
 // 0x00640CD0 (a static initialiser): the shadow edges' table, 256 buckets.
-void ConstructShadowEdgeTable() { new (&g_shadowEdgeTable) ListKit::KeyMap(8); }
+void construct_shadow_edge_table() { new (&g_shadow_edge_table) lists::KeyMap(8); }
 
 } // namespace Nx

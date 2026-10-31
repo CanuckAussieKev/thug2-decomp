@@ -19,11 +19,11 @@
 #include "engine/core/stubs.h"
 #include "engine/objects/anim_movies.h"
 
-namespace Gfx2D {
+namespace gfx {
 
 namespace {
 
-using Scripts::CStruct;
+using script::Struct;
 
 extern void** const kVtable;
 constexpr uint32_t kNoBone = 0xFFFFFFFF;
@@ -53,14 +53,14 @@ constexpr float kQuarterTurn = 1.57079637f;  // 0x00645484
 constexpr float kEaseBelow = 0.923879027f;   // 0x006488F8: a turn this close to the last one isn't eased
 constexpr float kEaseFactor = 0.216478556f;  // 0x006488F4
 
-float Epsilon() { return GameObjects::g_floatZero; }
+float epsilon() { return objects::g_float_zero; }
 
 // x, y and z of a vector scaled to length 1 when longer than the epsilon (from the sum (x x + z z) + y y, the
 // reciprocal unrounded).
-void NormalizeXZY(float& x, float& y, float& z)
+void normalize_xzy(float& x, float& y, float& z)
 {
     double length = std::sqrt((static_cast<double>(x) * x + static_cast<double>(z) * z) + static_cast<double>(y) * y);
-    if (length > Epsilon()) {
+    if (length > epsilon()) {
         double inverse = 1.0 / length;
         x = static_cast<float>(x * inverse);
         y = static_cast<float>(y * inverse);
@@ -69,20 +69,20 @@ void NormalizeXZY(float& x, float& y, float& z)
 }
 
 // The bone's index from the parameters: index=n, else id=<bone> (its index), else bone 0 - or all.
-int BoneFromParams(CBoneLookAt* lookAt, CStruct* params, bool* all, bool* byId)
+int bone_from_params(BoneLookAt* look_at, Struct* params, bool* all, bool* by_id)
 {
     int index = 0;
     *all = false;
-    *byId = false;
-    if (params->FetchIntValue(kIndex, &index, 0))
+    *by_id = false;
+    if (params->fetch_int_value(kIndex, &index, 0))
         return index;
     index = 0;
     uint32_t id = 0;
-    if (params->ReadHashValue(kId, &id, 0)) {
-        *byId = true;
-        return lookAt->FindBone(id);
+    if (params->read_hash_value(kId, &id, 0)) {
+        *by_id = true;
+        return look_at->find_bone(id);
     }
-    if (params->HasEntryNamed(kAll))
+    if (params->has_entry_named(kAll))
         *all = true;
     return 0;
 }
@@ -90,7 +90,7 @@ int BoneFromParams(CBoneLookAt* lookAt, CStruct* params, bool* all, bool* byId)
 } // namespace
 
 // 0x00487E00
-Maths::Vec4* SClampVector::Confine(const Maths::Vec4* min, const Maths::Vec4* max)
+maths::Vec4* ClampVector::confine(const maths::Vec4* min, const maths::Vec4* max)
 {
     float* values = &x;
     const float* low = &min->x;
@@ -103,36 +103,36 @@ Maths::Vec4* SClampVector::Confine(const Maths::Vec4* min, const Maths::Vec4* ma
 }
 
 // 0x00487EE0
-Maths::Vec4* __cdecl ClampedVector(Maths::Vec4* out, const Maths::Vec4* v, const Maths::Vec4* min,
-                                   const Maths::Vec4* max)
+maths::Vec4* __cdecl clamped_vector(maths::Vec4* out, const maths::Vec4* v, const maths::Vec4* min,
+                                   const maths::Vec4* max)
 {
-    SClampVector clamped;
-    static_cast<Maths::Vec4&>(clamped) = *v;
-    clamped.Confine(min, max);
+    ClampVector clamped;
+    static_cast<maths::Vec4&>(clamped) = *v;
+    clamped.confine(min, max);
     *out = clamped;
     return out;
 }
 
 // 0x00487F40 (each sine and cosine rounded to a float where the original stores it; sin(y) kept at the x87's
 // precision into its two products)
-Maths::QuatRotation* __cdecl AnglesToQuat(Maths::QuatRotation* out, const Maths::Vec4* angles)
+maths::QuatRotation* __cdecl angles_to_quat(maths::QuatRotation* out, const maths::Vec4* angles)
 {
-    double halfZ = angles->z * 0.5;
-    double halfY = angles->y * 0.5;
-    double halfX = angles->x * 0.5;
-    float cosZ = X87::CosF(halfZ);
-    float cosY = X87::CosF(halfY);
-    float cosX = X87::CosF(halfX);
-    float sinZ = X87::SinF(static_cast<float>(halfZ));
-    float sinX = X87::SinF(static_cast<float>(halfX));
-    float cycz = static_cast<float>(static_cast<double>(cosY) * cosZ);
-    float szsy = static_cast<float>(X87::SinTimes(halfY, sinZ));
-    float sycz = static_cast<float>(X87::SinTimes(halfY, cosZ));
-    float szcy = static_cast<float>(static_cast<double>(sinZ) * cosY);
-    double w = static_cast<double>(szsy) * sinX + static_cast<double>(cycz) * cosX;
-    double x = static_cast<double>(cycz) * sinX - static_cast<double>(szsy) * cosX;
-    double y = static_cast<double>(szcy) * sinX + static_cast<double>(sycz) * cosX;
-    double z = static_cast<double>(szcy) * cosX - static_cast<double>(sycz) * sinX;
+    double half_z = angles->z * 0.5;
+    double half_y = angles->y * 0.5;
+    double half_x = angles->x * 0.5;
+    float cos_z = x87::cos_f(half_z);
+    float cos_y = x87::cos_f(half_y);
+    float cos_x = x87::cos_f(half_x);
+    float sin_z = x87::get_sin_f(static_cast<float>(half_z));
+    float sin_x = x87::get_sin_f(static_cast<float>(half_x));
+    float cycz = static_cast<float>(static_cast<double>(cos_y) * cos_z);
+    float szsy = static_cast<float>(x87::sin_times(half_y, sin_z));
+    float sycz = static_cast<float>(x87::sin_times(half_y, cos_z));
+    float szcy = static_cast<float>(static_cast<double>(sin_z) * cos_y);
+    double w = static_cast<double>(szsy) * sin_x + static_cast<double>(cycz) * cos_x;
+    double x = static_cast<double>(cycz) * sin_x - static_cast<double>(szsy) * cos_x;
+    double y = static_cast<double>(szcy) * sin_x + static_cast<double>(sycz) * cos_x;
+    double z = static_cast<double>(szcy) * cos_x - static_cast<double>(sycz) * sin_x;
     out->x = static_cast<float>(x);
     out->y = static_cast<float>(y);
     out->z = static_cast<float>(z);
@@ -141,21 +141,21 @@ Maths::QuatRotation* __cdecl AnglesToQuat(Maths::QuatRotation* out, const Maths:
 }
 
 // 0x00488020
-Maths::Vec4* __cdecl QuatToEuler(Maths::Vec4* out, const Maths::QuatRotation* q)
+maths::Vec4* __cdecl quat_to_euler(maths::Vec4* out, const maths::QuatRotation* q)
 {
-    double asinArgument = -((static_cast<double>(q->x) * q->z - static_cast<double>(q->w) * q->y) * 2.0);
-    double y = X87::Asin(asinArgument);
+    double asin_argument = -((static_cast<double>(q->x) * q->z - static_cast<double>(q->w) * q->y) * 2.0);
+    double y = x87::get_asin(asin_argument);
     float ww = q->w * q->w;
     float xx = q->x * q->x;
     float yy = q->y * q->y;
     float zz = q->z * q->z;
-    double zNum = (static_cast<double>(q->w) * q->z + static_cast<double>(q->y) * q->x) * 2.0;
-    double zDen = ((static_cast<double>(xx) + ww) - yy) - zz;
-    float z = X87::Atan2F(zNum, zDen);
+    double z_num = (static_cast<double>(q->w) * q->z + static_cast<double>(q->y) * q->x) * 2.0;
+    double z_den = ((static_cast<double>(xx) + ww) - yy) - zz;
+    float z = x87::atan_2f(z_num, z_den);
     out->w = 1.0f;
-    double xNum = (static_cast<double>(q->w) * q->x + static_cast<double>(q->y) * q->z) * 2.0;
-    double xDen = ((static_cast<double>(ww) - xx) - yy) + zz;
-    out->x = X87::Atan2F(xNum, xDen);
+    double x_num = (static_cast<double>(q->w) * q->x + static_cast<double>(q->y) * q->z) * 2.0;
+    double x_den = ((static_cast<double>(ww) - xx) - yy) + zz;
+    out->x = x87::atan_2f(x_num, x_den);
     out->y = static_cast<float>(y);
     out->z = z;
     return out;
@@ -164,155 +164,155 @@ Maths::Vec4* __cdecl QuatToEuler(Maths::Vec4* out, const Maths::QuatRotation* q)
 // --- the bones' look-at ------------------------------------------------------------------------------------------
 
 // 0x00488300
-CBoneLookAt* CBoneLookAt::MakeNew(void* owner, void* object)
+BoneLookAt* BoneLookAt::make_new(void* owner, void* object)
 {
-    CAnimDriver* base = reinterpret_cast<CAnimDriver*>(this);
-    base->CAnimDriver::MakeNew(static_cast<CAnimTimeline*>(owner));
+    AnimDriver* base = reinterpret_cast<AnimDriver*>(this);
+    base->AnimDriver::make_new(static_cast<AnimTimeline*>(owner));
     vtable = reinterpret_cast<void**>(kVtable);
-    m_ownerObject = static_cast<uint8_t*>(owner ? static_cast<void*>(base->CAnimDriver::FetchSubject()) : object);
-    for (SBone& bone : m_bones) {
-        bone.m_active = false;
-        bone.m_clamp = true;
-        bone.m_bone = kNoBone;
-        bone.m_lowerLimit = {0.0f, 0.0f, 0.0f, 1.0f};
-        bone.m_upperLimit = {0.0f, 0.0f, 0.0f, 1.0f};
-        bone.m_lookGoal = {0.0f, 0.0f, 0.0f, 1.0f};
-        bone.m_weight = 1.0f;
-        bone.m_fixedPos = true;
-        bone.m_aimPoint = 0;
-        bone.m_pivotDir = 0;
-        bone.m_orientationTurn = {0.0f, 0.0f, 0.0f, 1.0f};
+    owner_object_ = static_cast<uint8_t*>(owner ? static_cast<void*>(base->AnimDriver::fetch_subject()) : object);
+    for (Bone& bone : bones_) {
+        bone.active_ = false;
+        bone.clamp_ = true;
+        bone.bone_ = kNoBone;
+        bone.lower_limit_ = {0.0f, 0.0f, 0.0f, 1.0f};
+        bone.upper_limit_ = {0.0f, 0.0f, 0.0f, 1.0f};
+        bone.look_goal_ = {0.0f, 0.0f, 0.0f, 1.0f};
+        bone.weight_ = 1.0f;
+        bone.fixed_pos_ = true;
+        bone.aim_point_ = 0;
+        bone.pivot_dir_ = 0;
+        bone.orientation_turn_ = {0.0f, 0.0f, 0.0f, 1.0f};
     }
     return this;
 }
 
 // 0x00487D40
-void CBoneLookAt::DestroyBody()
+void BoneLookAt::destroy_body()
 {
     vtable = reinterpret_cast<void**>(kVtable);
-    reinterpret_cast<CAnimDriver*>(this)->CAnimDriver::DestroyBody(); // (the base's)
+    reinterpret_cast<AnimDriver*>(this)->AnimDriver::destroy_body(); // (the base's)
 }
 
 // 0x004880D0
-CBoneLookAt* CBoneLookAt::Teardown(unsigned int flags)
+BoneLookAt* BoneLookAt::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
 // 0x00488100
-void CBoneLookAt::TickFrame()
+void BoneLookAt::tick_frame()
 {
-    for (SBone& bone : m_bones) {
-        if (bone.m_fixedPos)
+    for (Bone& bone : bones_) {
+        if (bone.fixed_pos_)
             continue;
-        auto* object = reinterpret_cast<GameObjects::CGameEntity*>(
-            GameObjects::ObjectHubSlot()->LookUpEntity(bone.m_aimPoint));
+        auto* object = reinterpret_cast<objects::GameEntity*>(
+            objects::object_hub_slot()->look_up_entity(bone.aim_point_));
         if (!object)
             continue;
-        bone.m_lookGoal.z = bone.m_shift.z + object->m_atPoint.z;
-        bone.m_lookGoal.w = bone.m_shift.w + object->m_atPoint.w;
-        bone.m_lookGoal.x = bone.m_shift.x + object->m_atPoint.x;
-        bone.m_lookGoal.y = bone.m_shift.y + object->m_atPoint.y;
+        bone.look_goal_.z = bone.shift_.z + object->at_point_.z;
+        bone.look_goal_.w = bone.shift_.w + object->at_point_.w;
+        bone.look_goal_.x = bone.shift_.x + object->at_point_.x;
+        bone.look_goal_.y = bone.shift_.y + object->at_point_.y;
     }
 }
 
 // 0x00488410
-bool CBoneLookAt::Apply(Maths::QuatRotation* rotations)
+bool BoneLookAt::get_apply(maths::QuatRotation* rotations)
 {
-    reinterpret_cast<void(__thiscall*)(CBoneLookAt*)>(vtable[5])(this);
-    auto* object = reinterpret_cast<GameObjects::CGameEntity*>(m_ownerObject);
-    GameObjects::CObjectModule* component = object->FetchModule(kSkeletonModuleName);
-    auto* skeleton = component ? *reinterpret_cast<CRig**>(reinterpret_cast<uint8_t*>(component) + 0x18) : nullptr;
-    for (SBone& bone : m_bones) {
-        if (bone.m_bone == kNoBone)
+    reinterpret_cast<void(__thiscall*)(BoneLookAt*)>(vtable[5])(this);
+    auto* object = reinterpret_cast<objects::GameEntity*>(owner_object_);
+    objects::ObjectModule* component = object->fetch_module(kSkeletonModuleName);
+    auto* skeleton = component ? *reinterpret_cast<Rig**>(reinterpret_cast<uint8_t*>(component) + 0x18) : nullptr;
+    for (Bone& bone : bones_) {
+        if (bone.bone_ == kNoBone)
             continue;
-        int index = skeleton->FetchBoneSlot(bone.m_bone);
+        int index = skeleton->fetch_bone_slot(bone.bone_);
         if (index == -1)
             continue;
-        const Maths::Vec4& pos = object->m_atPoint;
-        const Maths::Vec4& at = object->m_basisFrame.row[2];
+        const maths::Vec4& pos = object->at_point_;
+        const maths::Vec4& at = object->basis_frame_.row[2];
         // The direction to the target, and the turn from the object's own
-        float dx = bone.m_lookGoal.x - pos.x;
-        float dy = bone.m_lookGoal.y - pos.y;
-        float dz = bone.m_lookGoal.z - pos.z;
-        NormalizeXZY(dx, dy, dz);
-        Maths::QuatRotation& pose = rotations[index];
+        float dx = bone.look_goal_.x - pos.x;
+        float dy = bone.look_goal_.y - pos.y;
+        float dz = bone.look_goal_.z - pos.z;
+        normalize_xzy(dx, dy, dz);
+        maths::QuatRotation& pose = rotations[index];
         double dot = (static_cast<double>(dx) * at.x + static_cast<double>(dz) * at.z) + static_cast<double>(dy) * at.y;
-        float angle = static_cast<float>(X87::Acos(dot));
-        Maths::Vec4 axis;
+        float angle = static_cast<float>(x87::get_acos(dot));
+        maths::Vec4 axis;
         axis.x = static_cast<float>(static_cast<double>(dy) * at.z - static_cast<double>(dz) * at.y);
         axis.y = static_cast<float>(static_cast<double>(dz) * at.x - static_cast<double>(at.z) * dx);
         axis.z = static_cast<float>(static_cast<double>(at.y) * dx - static_cast<double>(dy) * at.x);
         axis.w = 0.0f;
-        NormalizeXZY(axis.x, axis.y, axis.z);
+        normalize_xzy(axis.x, axis.y, axis.z);
         // The axis turned to the bone's own way of looking
-        Maths::QuatRotation turn = {0.0f, 0.0f, 0.0f, 1.0f};
-        int axisCode = bone.m_pivotDir;
-        unsigned int which = static_cast<unsigned int>(axisCode < 0 ? -axisCode : axisCode);
+        maths::QuatRotation turn = {0.0f, 0.0f, 0.0f, 1.0f};
+        int axis_code = bone.pivot_dir_;
+        unsigned int which = static_cast<unsigned int>(axis_code < 0 ? -axis_code : axis_code);
         if (which <= 3) {
             if (which <= 2) {
-                volatile int divisor = axisCode; // (0 divides by zero: the original's)
-                int sign = axisCode / divisor;
-                if (axisCode < 0)
+                volatile int divisor = axis_code; // (0 divides by zero: the original's)
+                int sign = axis_code / divisor;
+                if (axis_code < 0)
                     sign = -sign;
                 double quarter = sign * static_cast<double>(kQuarterTurn);
-                double s = X87::Sin(quarter);
-                double c = X87::Cos(quarter);
+                double s = x87::get_sin(quarter);
+                double c = x87::get_cos(quarter);
                 if (which <= 1) {
-                    double oldY = axis.y;
-                    axis.y = static_cast<float>(oldY * c - axis.z * s);
-                    axis.z = static_cast<float>(oldY * s + axis.z * c);
+                    double old_y = axis.y;
+                    axis.y = static_cast<float>(old_y * c - axis.z * s);
+                    axis.z = static_cast<float>(old_y * s + axis.z * c);
                 } else {
-                    float sinF = static_cast<float>(s);
-                    double oldX = axis.x;
-                    axis.x = static_cast<float>(c * oldX - static_cast<double>(axis.y) * sinF);
-                    axis.y = static_cast<float>(sinF * oldX + axis.y * c);
+                    float sin_f = static_cast<float>(s);
+                    double old_x = axis.x;
+                    axis.x = static_cast<float>(c * old_x - static_cast<double>(axis.y) * sin_f);
+                    axis.y = static_cast<float>(sin_f * old_x + axis.y * c);
                 }
             }
-            Maths::QuatRotation made;
-            turn = *made.InitFromAxisAngle(axis, angle);
+            maths::QuatRotation made;
+            turn = *made.init_from_axis_angle(axis, angle);
         }
         // Its angles: clamped and scaled, or each one past its limits dropped
-        Maths::Vec4 angles;
-        QuatToEuler(&angles, &turn);
-        if (bone.m_clamp) {
-            Maths::Vec4 clamped;
-            ClampedVector(&clamped, &angles, &bone.m_lowerLimit, &bone.m_upperLimit);
-            angles.x = bone.m_weight * clamped.x;
-            angles.y = bone.m_weight * clamped.y;
-            angles.z = bone.m_weight * clamped.z;
-            angles.w = bone.m_weight * clamped.w;
+        maths::Vec4 angles;
+        quat_to_euler(&angles, &turn);
+        if (bone.clamp_) {
+            maths::Vec4 clamped;
+            clamped_vector(&clamped, &angles, &bone.lower_limit_, &bone.upper_limit_);
+            angles.x = bone.weight_ * clamped.x;
+            angles.y = bone.weight_ * clamped.y;
+            angles.z = bone.weight_ * clamped.z;
+            angles.w = bone.weight_ * clamped.w;
         } else {
-            if (angles.x < bone.m_lowerLimit.x)
+            if (angles.x < bone.lower_limit_.x)
                 angles.x = 0.0f;
-            if (angles.y < bone.m_lowerLimit.y)
+            if (angles.y < bone.lower_limit_.y)
                 angles.y = 0.0f;
-            if (angles.z < bone.m_lowerLimit.z)
+            if (angles.z < bone.lower_limit_.z)
                 angles.z = 0.0f;
-            if (angles.x > bone.m_upperLimit.x)
+            if (angles.x > bone.upper_limit_.x)
                 angles.x = 0.0f;
-            if (angles.y > bone.m_upperLimit.y)
+            if (angles.y > bone.upper_limit_.y)
                 angles.y = 0.0f;
-            if (angles.z > bone.m_upperLimit.z)
+            if (angles.z > bone.upper_limit_.z)
                 angles.z = 0.0f;
         }
         // Applied to the pose's rotation, eased from the last turn when it's far from it
-        Maths::QuatRotation rotation;
-        AnglesToQuat(&rotation, &angles);
+        maths::QuatRotation rotation;
+        angles_to_quat(&rotation, &angles);
         rotation *= pose;
         pose = rotation;
-        pose.MakeUnit(1.0f);
-        Maths::QuatRotation& last = bone.m_orientationTurn;
+        pose.make_unit(1.0f);
+        maths::QuatRotation& last = bone.orientation_turn_;
         double closeness = ((static_cast<double>(pose.z) * last.z + static_cast<double>(last.x) * pose.x) +
                             static_cast<double>(pose.w) * last.w) +
                            static_cast<double>(pose.y) * last.y;
         if (closeness < kEaseBelow) {
             float t = static_cast<float>(std::fabs(closeness) * kEaseFactor);
             float eased[4];
-            float* result = InterpolateRotation(eased, &last.x, &pose.x, t);
+            float* result = interpolate_rotation(eased, &last.x, &pose.x, t);
             pose = {result[0], result[1], result[2], result[3]};
         }
         last = pose;
@@ -321,145 +321,145 @@ bool CBoneLookAt::Apply(Maths::QuatRotation* rotations)
 }
 
 // 0x00488950
-void CBoneLookAt::Configure(bool all, int index, CStruct* params)
+void BoneLookAt::configure(bool all, int index, Struct* params)
 {
-    if (params->HasEntryNamed(kOnFlag)) {
+    if (params->has_entry_named(kOnFlag)) {
         if (all)
-            ActivateAll();
+            activate_all();
         else
-            m_bones[index].m_active = true;
-    } else if (params->HasEntryNamed(kOffFlag)) {
+            bones_[index].active_ = true;
+    } else if (params->has_entry_named(kOffFlag)) {
         if (all)
-            DeactivateAll();
+            deactivate_all();
         else
-            m_bones[index].m_active = false;
+            bones_[index].active_ = false;
     }
-    SBone& bone = m_bones[index];
-    params->ReadHashValue(kBone, &bone.m_bone, 0);
-    if (params->ReadHashValue(kTargetObject, &bone.m_aimPoint, 0)) {
-        bone.m_fixedPos = false;
-        bone.m_shift = {0.0f, 0.0f, 0.0f, 1.0f};
+    Bone& bone = bones_[index];
+    params->read_hash_value(kBone, &bone.bone_, 0);
+    if (params->read_hash_value(kTargetObject, &bone.aim_point_, 0)) {
+        bone.fixed_pos_ = false;
+        bone.shift_ = {0.0f, 0.0f, 0.0f, 1.0f};
     }
-    if (params->FetchVec(kAimPointHash, reinterpret_cast<Scripts::VectorValue*>(&bone.m_lookGoal), 0))
-        bone.m_fixedPos = true;
-    if (params->FetchVec(kOffset, reinterpret_cast<Scripts::VectorValue*>(&bone.m_shift), 0))
-        bone.m_fixedPos = false;
-    params->FetchIntValue(kAxis, &bone.m_pivotDir, 0);
-    params->FetchFloat(kWeight, &bone.m_weight, 0);
-    Maths::Vec4 limit;
-    if (params->FetchVec(kMinAngles, reinterpret_cast<Scripts::VectorValue*>(&limit), 0)) {
-        limit.DegreeToRadianConv();
+    if (params->fetch_vec(kAimPointHash, reinterpret_cast<script::VectorValue*>(&bone.look_goal_), 0))
+        bone.fixed_pos_ = true;
+    if (params->fetch_vec(kOffset, reinterpret_cast<script::VectorValue*>(&bone.shift_), 0))
+        bone.fixed_pos_ = false;
+    params->fetch_int_value(kAxis, &bone.pivot_dir_, 0);
+    params->fetch_float(kWeight, &bone.weight_, 0);
+    maths::Vec4 limit;
+    if (params->fetch_vec(kMinAngles, reinterpret_cast<script::VectorValue*>(&limit), 0)) {
+        limit.degree_to_radian_conv();
         if (all)
-            SetAllMin(&limit);
+            set_all_min(&limit);
         else
-            bone.m_lowerLimit = limit;
+            bone.lower_limit_ = limit;
     }
-    if (params->FetchVec(kMaxAngles, reinterpret_cast<Scripts::VectorValue*>(&limit), 0)) {
-        limit.DegreeToRadianConv();
+    if (params->fetch_vec(kMaxAngles, reinterpret_cast<script::VectorValue*>(&limit), 0)) {
+        limit.degree_to_radian_conv();
         if (all)
-            SetAllMax(&limit);
+            set_all_max(&limit);
         else
-            bone.m_upperLimit = limit;
+            bone.upper_limit_ = limit;
     }
-    bone.m_clamp = !params->HasBareFlag(kNoClamp);
+    bone.clamp_ = !params->has_bare_flag(kNoClamp);
 }
 
 // 0x00488B20
-void CBoneLookAt::ConfigureFromData(CStruct* params)
+void BoneLookAt::configure_from_data(Struct* params)
 {
-    reinterpret_cast<CAnimDriver*>(this)->CAnimDriver::ConfigureFromData(params); // (the base's: its id)
-    Configure(false, 0, params);
+    reinterpret_cast<AnimDriver*>(this)->AnimDriver::configure_from_data(params); // (the base's: its id)
+    configure(false, 0, params);
 }
 
 // 0x00488B40
-int CBoneLookAt::InvokeMethodByName(uint32_t name, CStruct* params, Scripts::CScript*)
+int BoneLookAt::invoke_method_by_name(uint32_t name, Struct* params, script::Script*)
 {
     if (name != kOn && name != kIsOn && name != kOff && name != kSettings)
         return 2;
     bool all;
-    bool byId;
-    int index = BoneFromParams(this, params, &all, &byId);
+    bool by_id;
+    int index = bone_from_params(this, params, &all, &by_id);
     if (name == kOn) {
         if (all)
-            ActivateAll();
+            activate_all();
         else
-            m_bones[index].m_active = true;
+            bones_[index].active_ = true;
         return 1;
     }
     if (name == kOff) {
         if (all)
-            DeactivateAll();
+            deactivate_all();
         else
-            m_bones[index].m_active = false;
+            bones_[index].active_ = false;
         return 1;
     }
     if (name == kIsOn)
-        return all ? (AllActive() ? 1 : 0) : (m_bones[index].m_active ? 1 : 0);
-    Configure(all, index, params);
+        return all ? (all_active() ? 1 : 0) : (bones_[index].active_ ? 1 : 0);
+    configure(all, index, params);
     return 1;
 }
 
 // 0x00487D60
-int CBoneLookAt::FindBone(uint32_t bone)
+int BoneLookAt::find_bone(uint32_t bone)
 {
     for (int i = 0; i < 4; ++i) {
-        if (m_bones[i].m_bone == bone)
+        if (bones_[i].bone_ == bone)
             return i;
     }
     return -1;
 }
 
 // 0x00487D90
-bool CBoneLookAt::AllActive()
+bool BoneLookAt::all_active()
 {
-    for (SBone& bone : m_bones) {
-        if (bone.m_bone != kNoBone && !bone.m_active)
+    for (Bone& bone : bones_) {
+        if (bone.bone_ != kNoBone && !bone.active_)
             return false;
     }
     return true;
 }
 
 // 0x00487DC0
-void CBoneLookAt::ActivateAll()
+void BoneLookAt::activate_all()
 {
-    for (SBone& bone : m_bones) {
-        if (bone.m_bone != kNoBone)
-            bone.m_active = true;
+    for (Bone& bone : bones_) {
+        if (bone.bone_ != kNoBone)
+            bone.active_ = true;
     }
 }
 
 // 0x00487DE0
-void CBoneLookAt::DeactivateAll()
+void BoneLookAt::deactivate_all()
 {
-    for (SBone& bone : m_bones) {
-        if (bone.m_bone != kNoBone)
-            bone.m_active = false;
+    for (Bone& bone : bones_) {
+        if (bone.bone_ != kNoBone)
+            bone.active_ = false;
     }
 }
 
 // 0x00488170
-void CBoneLookAt::SetAllMin(const Maths::Vec4* min)
+void BoneLookAt::set_all_min(const maths::Vec4* min)
 {
-    for (SBone& bone : m_bones) {
-        if (bone.m_bone != kNoBone)
-            bone.m_lowerLimit = *min;
+    for (Bone& bone : bones_) {
+        if (bone.bone_ != kNoBone)
+            bone.lower_limit_ = *min;
     }
 }
 
 // 0x00488220
-void CBoneLookAt::SetAllMax(const Maths::Vec4* max)
+void BoneLookAt::set_all_max(const maths::Vec4* max)
 {
-    for (SBone& bone : m_bones) {
-        if (bone.m_bone != kNoBone)
-            bone.m_upperLimit = *max;
+    for (Bone& bone : bones_) {
+        if (bone.bone_ != kNoBone)
+            bone.upper_limit_ = *max;
     }
 }
 
 namespace {
-static VtableSlot kVtable_slots[] = {&Gfx2D::CBoneLookAt::Teardown, &Gfx2D::CBoneLookAt::Apply, Stubs::IgnoreArgument,
-                &Gfx2D::CBoneLookAt::InvokeMethodByName, &Gfx2D::CBoneLookAt::ConfigureFromData, &Gfx2D::CBoneLookAt::TickFrame,
-                Gfx2D::VirtualSlot4Jump};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&gfx::BoneLookAt::teardown, &gfx::BoneLookAt::get_apply, stubs::ignore_argument,
+                &gfx::BoneLookAt::invoke_method_by_name, &gfx::BoneLookAt::configure_from_data, &gfx::BoneLookAt::tick_frame,
+                gfx::virtual_slot4_jump};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 } // namespace
 
 } // namespace Gfx

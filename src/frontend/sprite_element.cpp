@@ -20,7 +20,7 @@
 #include "frontend/screen_constants.h"
 #include "engine/gfx/engine_texture.h"
 
-namespace MenuSystem {
+namespace frontend {
 
 namespace {
 extern void** const kCTextureElementVtable;
@@ -30,343 +30,343 @@ extern void** const kCWindowElementVtable;
 
 namespace {
 
-using Scripts::CStruct;
+using script::Struct;
 
 // Names (checksums).
 constexpr uint32_t kTextureElement = 0x118F6383, kSpriteElement = 0xB12B510A, kWindowElement = 0xA13ADBB7;
 constexpr uint32_t kTexture = 0x7D99F28D, kRotAngle = 0xED344E1B, kBlend = 0x54628ED7, kNoZWrite = 0x40F139CB;
 constexpr uint32_t kRgba = 0x3F6BCDBA;
 
-float Degrees() { return ::ScriptCommands::g_degreeToRadianRatio; }        // pi / 180
-float RotationOffset() { return ::GoalSystem::g_goalLifeSecondsPerMillisecond; }  // 0.001 (added to a rotation in radians)
-float MinimumAlpha() { return ::GameModules::g_competitionTiny; }    // 0.0001: below it, transparent
-float LayoutTop() { return MenuSystem::g_layoutTop; }       // -200: a sprite whose top is above it is hidden
-float LayoutBottom() { return MenuSystem::g_layoutBottom; }    // 648: ... or below it
-float One() { return ::GameObjects::g_animMoviesOne; }
-float Half() { return ::Gfx2D::g_half; }
+float get_degrees() { return ::commands::g_degree_to_radian_ratio; }        // pi / 180
+float rotation_offset() { return ::goals::g_goal_life_seconds_per_millisecond; }  // 0.001 (added to a rotation in radians)
+float minimum_alpha() { return ::modules::g_competition_tiny; }    // 0.0001: below it, transparent
+float layout_top() { return frontend::g_layout_top; }       // -200: a sprite whose top is above it is hidden
+float layout_bottom() { return frontend::g_layout_bottom; }    // 648: ... or below it
+float get_one() { return ::objects::g_anim_movies_one; }
+float get_half() { return ::gfx::g_half; }
 
 // The original's _ftol (0x006236FC): truncated towards zero.
-int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
+int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // The shown colour with its alpha the shown alpha times the summed alpha (none below 0.0001).
-uint32_t ShownColour(const CUiWidget* e)
+uint32_t shown_colour(const UiWidget* e)
 {
     uint32_t rgba;
-    std::memcpy(&rgba, e->m_shown.rgba, 4);
+    std::memcpy(&rgba, e->shown_.rgba, 4);
     uint8_t alpha = 0;
-    if (e->m_summed.alpha >= MinimumAlpha()) // (NaN: transparent)
-        alpha = static_cast<uint8_t>(Truncated(static_cast<double>(static_cast<int>(rgba >> 24)) * e->m_summed.alpha));
+    if (e->summed_.alpha >= minimum_alpha()) // (NaN: transparent)
+        alpha = static_cast<uint8_t>(get_truncated(static_cast<double>(static_cast<int>(rgba >> 24)) * e->summed_.alpha));
     return (rgba & 0x00FFFFFFu) | (static_cast<uint32_t>(alpha) << 24);
 }
 
 // The texture with this checksum (the texture dictionary 0x00700F1C's lookup, 0x0049F540) and its size
 // (vtable slots 0x84 / 0x88).
-void* FindTexture(uint32_t checksum)
+void* find_texture(uint32_t checksum)
 {
-    return Engine3D::g_gameTextureDict->FetchSkin(checksum);
+    return render::g_game_texture_dict->fetch_skin(checksum);
 }
-uint16_t TexelsAcross(void* texture) { return reinterpret_cast<uint16_t(__thiscall*)(void*)>(&Engine3D::VirtualSlot33Jump)(texture); }
-uint16_t TexelsDown(void* texture) { return reinterpret_cast<uint16_t(__thiscall*)(void*)>(&Engine3D::VirtualSlot34Jump)(texture); }
+uint16_t texels_across(void* texture) { return reinterpret_cast<uint16_t(__thiscall*)(void*)>(&render::virtual_slot33_jump)(texture); }
+uint16_t texels_down(void* texture) { return reinterpret_cast<uint16_t(__thiscall*)(void*)>(&render::virtual_slot34_jump)(texture); }
 
 // The drawing pieces: made (cdecl), freed (cdecl), and their setters (thiscall).
-void* NewTexturedPiece() { return Engine3D::CreateTexturedQuad(); }
-void* NewSprite(int unused) { return (void)unused, Engine3D::BuildSpriteQuad(); }
-void FreePiece(void* piece) { Engine3D::DeleteModelLights(static_cast<Engine3D::CPcModelLights*>(piece)); }
+void* new_textured_piece() { return render::create_textured_quad(); }
+void* new_sprite(int unused) { return (void)unused, render::build_sprite_quad(); }
+void free_piece(void* piece) { render::delete_model_lights(static_cast<render::PcModelLights*>(piece)); }
 
 // The 2D windows (a free list, 0x004A1620 / 0x004A1670; cdecl) and their position / size (thiscall).
-void* NewWindow2d(int x, int y, int w, int h)
+void* new_window2d(int x, int y, int w, int h)
 {
-    return Engine3D::AllocateWindow2D(x, y, w, h);
+    return render::allocate_window_2d(x, y, w, h);
 }
-void FreeWindow2d(void* window) { Engine3D::FreeWindow2D(static_cast<Engine3D::CScreenWindow*>(window)); }
+void free_window2d(void* window) { render::free_window_2d(static_cast<render::ScreenWindow*>(window)); }
 
 } // namespace
 
 // --- TextureElement -------------------------------------------------------------------------------------------
 
 // 0x004AED90
-CTextureElement* CTextureElement::MakeNew()
+TextureElement* TextureElement::make_new()
 {
-    CUiWidget::MakeNew();
-    m_vtable = kCTextureElementVtable;
-    m_texture = 0;
-    m_piece = NewTexturedPiece();
-    ChangeSpecies(kTextureElement);
+    UiWidget::make_new();
+    vtable_ = kCTextureElementVtable;
+    texture_ = 0;
+    piece_ = new_textured_piece();
+    change_species(kTextureElement);
     return this;
 }
 
 // 0x004AEDF0
-void CTextureElement::DestroyBody()
+void TextureElement::destroy_body()
 {
-    m_vtable = kCTextureElementVtable;
-    if (m_piece)
-        FreePiece(m_piece);
-    CUiWidget::DestroyBody();
+    vtable_ = kCTextureElementVtable;
+    if (piece_)
+        free_piece(piece_);
+    UiWidget::destroy_body();
 }
 
 // 0x004AEE60
-CTextureElement* CTextureElement::Teardown(uint8_t flags)
+TextureElement* TextureElement::teardown(uint8_t flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
 // 0x004AEE90
-void CTextureElement::ChangeTraits(CStruct* params)
+void TextureElement::change_traits(Struct* params)
 {
-    CUiWidget::ChangeTraits(params);
+    UiWidget::change_traits(params);
     uint32_t texture;
-    if (params->ReadHashValue(kTexture, &texture, 0)) {
-        m_texture = texture;
-        reinterpret_cast<Engine3D::CTexturedQuad*>(m_piece)->SetTexture(static_cast<uint8_t*>(FindTexture(texture)));
-        m_objectFlags |= kVisibleNow;
+    if (params->read_hash_value(kTexture, &texture, 0)) {
+        texture_ = texture;
+        reinterpret_cast<render::TexturedQuad*>(piece_)->set_texture(static_cast<uint8_t*>(find_texture(texture)));
+        object_flags_ |= kVisibleNow;
     }
     float angle;
-    if (params->FetchFloat(kRotAngle, &angle, 0))
-        ChangeSpin(angle, 1);
+    if (params->fetch_float(kRotAngle, &angle, 0))
+        change_spin(angle, 1);
     uint32_t blend;
-    if (params->ReadHashValue(kBlend, &blend, 0))
-        reinterpret_cast<Engine3D::CTexturedQuad*>(m_piece)->ChooseBlendMode(blend);
+    if (params->read_hash_value(kBlend, &blend, 0))
+        reinterpret_cast<render::TexturedQuad*>(piece_)->choose_blend_mode(blend);
 }
 
 // 0x004AEFD0
-void CTextureElement::GetProperties(CStruct* out)
+void TextureElement::get_properties(Struct* out)
 {
     uint8_t rgba[4];
-    std::memcpy(rgba, m_summed.rgba, 4);
-    Scripts::CArray* array = Scripts::AllocScriptArray();
+    std::memcpy(rgba, summed_.rgba, 4);
+    script::Array* array = script::alloc_script_array();
     if (array)
-        array = array->PrepareAll();
-    array->ConfigureSizeKind(4, Scripts::QBVAL_INTEGER);
+        array = array->prepare_all();
+    array->configure_size_kind(4, script::kQbvalInteger);
     for (int i = 0; i < 4; ++i)
-        array->SetElement(i, rgba[i]);
-    out->AppendArrayValue(kRgba, array);
+        array->set_element(i, rgba[i]);
+    out->append_array_value(kRgba, array);
     if (array) {
-        array->Clear();
-        Scripts::DeleteArray(array);
+        array->get_clear();
+        script::delete_array(array);
     }
 }
 
 // 0x004AEF40
-void CTextureElement::TickFrame()
+void TextureElement::tick_frame()
 {
-    reinterpret_cast<Engine3D::CTexturedQuad*>(m_piece)->ChangeConcealed(false);
-    reinterpret_cast<Engine3D::CTexturedQuad*>(m_piece)->ChangeRank(m_zPriority);
-    reinterpret_cast<Engine3D::CTexturedQuad*>(m_piece)->ChangeRgba(ShownColour(this));
+    reinterpret_cast<render::TexturedQuad*>(piece_)->change_concealed(false);
+    reinterpret_cast<render::TexturedQuad*>(piece_)->change_rank(z_priority_);
+    reinterpret_cast<render::TexturedQuad*>(piece_)->change_rgba(shown_colour(this));
 }
 
 // --- SpriteElement --------------------------------------------------------------------------------------------
 
 // 0x004AF1A0
-CImageWidget* CImageWidget::MakeNew()
+ImageWidget* ImageWidget::make_new()
 {
-    CUiWidget::MakeNew();
-    m_vtable = kCSpriteElementVtable;
-    m_texture = 0;
-    m_quad = NewSprite(0);
-    m_zWrite = true;
-    ChangeSpecies(kSpriteElement);
+    UiWidget::make_new();
+    vtable_ = kCSpriteElementVtable;
+    texture_ = 0;
+    quad_ = new_sprite(0);
+    z_write_ = true;
+    change_species(kSpriteElement);
     return this;
 }
 
 // 0x004AF0D0
-void CImageWidget::DestroyBody()
+void ImageWidget::destroy_body()
 {
-    m_vtable = kCSpriteElementVtable;
-    if (m_quad)
-        FreePiece(m_quad);
-    CUiWidget::DestroyBody();
+    vtable_ = kCSpriteElementVtable;
+    if (quad_)
+        free_piece(quad_);
+    UiWidget::destroy_body();
 }
 
 // 0x004AF210
-CImageWidget* CImageWidget::Teardown(uint8_t flags)
+ImageWidget* ImageWidget::teardown(uint8_t flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
 // 0x004AF130 (no texture of that name: the original reads through null)
-void CImageWidget::SetTexture(uint32_t texture)
+void ImageWidget::set_texture(uint32_t texture)
 {
-    m_texture = texture;
-    void* found = FindTexture(texture);
-    reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->SetTexture(static_cast<uint8_t*>(found));
-    float height = static_cast<float>(TexelsDown(found));
-    float width = static_cast<float>(TexelsAcross(found));
-    FitToSize(width, height, 0);
-    m_objectFlags |= kVisibleNow;
+    texture_ = texture;
+    void* found = find_texture(texture);
+    reinterpret_cast<render::BillboardQuad*>(quad_)->set_texture(static_cast<uint8_t*>(found));
+    float height = static_cast<float>(texels_down(found));
+    float width = static_cast<float>(texels_across(found));
+    fit_to_size(width, height, 0);
+    object_flags_ |= kVisibleNow;
 }
 
 // 0x004AF240 (the target compared unrounded, the shown one with the float)
-void CImageWidget::SetSpriteRotation(float degrees, int now)
+void ImageWidget::set_sprite_rotation(float degrees, int now)
 {
-    double radians = static_cast<double>(degrees) * Degrees() + RotationOffset();
+    double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();
     float angle = static_cast<float>(radians);
-    if (radians != m_aimPoint.angle) {
-        m_aimPoint.angle = angle;
-        m_objectFlags |= kDirty;
+    if (radians != aim_point_.angle) {
+        aim_point_.angle = angle;
+        object_flags_ |= kDirty;
     }
-    if (now && angle != m_shown.angle) {
-        reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->ChangeSpin(angle);
-        m_objectFlags |= kDirty;
-        m_shown.angle = angle;
+    if (now && angle != shown_.angle) {
+        reinterpret_cast<render::BillboardQuad*>(quad_)->change_spin(angle);
+        object_flags_ |= kDirty;
+        shown_.angle = angle;
     }
 }
 
 // 0x004AF520
-void CImageWidget::ChangeTraits(CStruct* params)
+void ImageWidget::change_traits(Struct* params)
 {
-    CUiWidget::ChangeTraits(params);
+    UiWidget::change_traits(params);
     uint32_t texture;
-    if (params->ReadHashValue(kTexture, &texture, 0))
-        SetTexture(texture);
+    if (params->read_hash_value(kTexture, &texture, 0))
+        set_texture(texture);
     float angle;
-    if (params->FetchFloat(kRotAngle, &angle, 0))
-        SetSpriteRotation(angle, 1);
+    if (params->fetch_float(kRotAngle, &angle, 0))
+        set_sprite_rotation(angle, 1);
     uint32_t blend;
-    if (params->ReadHashValue(kBlend, &blend, 0))
-        reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->ChooseBlendMode(blend);
-    if (params->HasBareFlag(kNoZWrite))
-        m_zWrite = false;
+    if (params->read_hash_value(kBlend, &blend, 0))
+        reinterpret_cast<render::BillboardQuad*>(quad_)->choose_blend_mode(blend);
+    if (params->has_bare_flag(kNoZWrite))
+        z_write_ = false;
     // (no window above it: the original reads through null)
-    auto* window = static_cast<CPanelWidget*>(FetchPane());
-    reinterpret_cast<Engine3D::CGlyphString*>(m_quad)->ChangePane(window->FetchScreenRect());
+    auto* window = static_cast<PanelWidget*>(fetch_pane());
+    reinterpret_cast<render::GlyphString*>(quad_)->change_pane(window->fetch_screen_rect());
 }
 
 // 0x004AF4E0
-void CImageWidget::GetProperties(CStruct* out)
+void ImageWidget::get_properties(Struct* out)
 {
-    CUiWidget::GetProperties(out);
-    out->PushFloat(kRotAngle, m_shown.angle);
-    out->PutNameKey(kTexture, m_texture);
+    UiWidget::get_properties(out);
+    out->push_float(kRotAngle, shown_.angle);
+    out->put_name_key(kTexture, texture_);
 }
 
 // 0x004AF5E0
-void CImageWidget::BlendTowards(CStruct* params)
+void ImageWidget::blend_towards(Struct* params)
 {
-    CUiWidget::BlendTowards(params);
+    UiWidget::blend_towards(params);
     float degrees;
-    if (params->FetchFloat(kRotAngle, &degrees, 0)) {
-        double radians = static_cast<double>(degrees) * Degrees() + RotationOffset();
-        if (radians != m_aimPoint.angle) {
-            m_aimPoint.angle = static_cast<float>(radians);
-            m_objectFlags |= kDirty;
+    if (params->fetch_float(kRotAngle, &degrees, 0)) {
+        double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();
+        if (radians != aim_point_.angle) {
+            aim_point_.angle = static_cast<float>(radians);
+            object_flags_ |= kDirty;
         }
     }
 }
 
 // 0x004AF2C0
-void CImageWidget::TickFrame()
+void ImageWidget::tick_frame()
 {
-    float top = m_summed.top;
-    bool outside = top < LayoutTop() || top > LayoutBottom();
-    bool hidden = IsConcealed();
-    reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->ChangeConcealed(outside || hidden);
-    if (!(m_objectFlags & (kChildrenDirty | kVisibleNow)))
+    float top = summed_.top;
+    bool outside = top < layout_top() || top > layout_bottom();
+    bool hidden = is_concealed();
+    reinterpret_cast<render::BillboardQuad*>(quad_)->change_concealed(outside || hidden);
+    if (!(object_flags_ & (kChildrenDirty | kVisibleNow)))
         return;
-    uint32_t rgba = ShownColour(this);
-    reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->ChangeLocation(m_summed.x, m_summed.y);
+    uint32_t rgba = shown_colour(this);
+    reinterpret_cast<render::BillboardQuad*>(quad_)->change_location(summed_.x, summed_.y);
     // (the size truncated: the height first)
-    int height = Truncated(m_levelY);
-    int width = Truncated(m_span);
-    reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->ChangeExtent(static_cast<uint16_t>(width), static_cast<uint16_t>(height));
-    reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->SetFlip(static_cast<bool>((m_objectFlags >> 25) & 1), static_cast<bool>((m_objectFlags >> 26) & 1));
-    reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->ChangeSpin((m_objectFlags & kFlag1000000) ? m_shown.angle : m_summed.angle);
-    reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->SetHotSpot(m_justX, m_justY);
-    reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->ChangeScale(m_summed.scaleX, m_summed.scaleY);
-    if (m_objectFlags & kPos3d) {
+    int height = get_truncated(level_y_);
+    int width = get_truncated(span_);
+    reinterpret_cast<render::BillboardQuad*>(quad_)->change_extent(static_cast<uint16_t>(width), static_cast<uint16_t>(height));
+    reinterpret_cast<render::BillboardQuad*>(quad_)->set_flip(static_cast<bool>((object_flags_ >> 25) & 1), static_cast<bool>((object_flags_ >> 26) & 1));
+    reinterpret_cast<render::BillboardQuad*>(quad_)->change_spin((object_flags_ & kFlag1000000) ? shown_.angle : summed_.angle);
+    reinterpret_cast<render::BillboardQuad*>(quad_)->set_hot_spot(just_x_, just_y_);
+    reinterpret_cast<render::BillboardQuad*>(quad_)->change_scale(summed_.scale_x_, summed_.scale_y_);
+    if (object_flags_ & kPos3d) {
         // the depth's bits, 5000 more with kKeepScale (an integer added to the float's bits, as the original)
         uint32_t depth;
-        std::memcpy(&depth, &m_summed.z, 4);
-        depth += (m_objectFlags & kKeepScale) ? 5000u : 0u;
-        reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->SetDepth(depth);
-        reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->ChangeConcealed((m_objectFlags & kOffScreen) != 0 || hidden);
+        std::memcpy(&depth, &summed_.z, 4);
+        depth += (object_flags_ & kKeepScale) ? 5000u : 0u;
+        reinterpret_cast<render::BillboardQuad*>(quad_)->set_depth(depth);
+        reinterpret_cast<render::BillboardQuad*>(quad_)->change_concealed((object_flags_ & kOffScreen) != 0 || hidden);
     } else {
-        reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->ChangeRank(m_zPriority);
-        reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->ChangeConcealed(outside || hidden);
+        reinterpret_cast<render::BillboardQuad*>(quad_)->change_rank(z_priority_);
+        reinterpret_cast<render::BillboardQuad*>(quad_)->change_concealed(outside || hidden);
     }
-    reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->SetZWrite(m_zWrite);
-    reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->ChangeRgba(rgba);
+    reinterpret_cast<render::BillboardQuad*>(quad_)->set_z_write(z_write_);
+    reinterpret_cast<render::BillboardQuad*>(quad_)->change_rgba(rgba);
 }
 
 // --- WindowElement --------------------------------------------------------------------------------------------
 
 // 0x004B2060
-CPanelWidget* CPanelWidget::MakeNew()
+PanelWidget* PanelWidget::make_new()
 {
-    CUiWidget::MakeNew();
-    m_vtable = kCWindowElementVtable;
-    ChangeSpecies(kWindowElement);
-    m_screenRegion = NewWindow2d(0, 0, 640, 448);
-    ChangeAlignment(-1.0f, -1.0f);
-    ChangeLocation(0.0f, 0.0f, 1);
-    FitToSize(640.0f, 448.0f, 0);
+    UiWidget::make_new();
+    vtable_ = kCWindowElementVtable;
+    change_species(kWindowElement);
+    screen_region_ = new_window2d(0, 0, 640, 448);
+    change_alignment(-1.0f, -1.0f);
+    change_location(0.0f, 0.0f, 1);
+    fit_to_size(640.0f, 448.0f, 0);
     return this;
 }
 
 // 0x004B2100
-void CPanelWidget::DestroyBody()
+void PanelWidget::destroy_body()
 {
-    m_vtable = kCWindowElementVtable;
-    FreeWindow2d(m_screenRegion);
-    CUiWidget::DestroyBody();
+    vtable_ = kCWindowElementVtable;
+    free_window2d(screen_region_);
+    UiWidget::destroy_body();
 }
 
 // 0x004B2170
-CPanelWidget* CPanelWidget::Teardown(uint8_t flags)
+PanelWidget* PanelWidget::teardown(uint8_t flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
 // 0x004B2160
-void* CPanelWidget::FetchScreenRect() const
+void* PanelWidget::fetch_screen_rect() const
 {
-    return m_screenRegion;
+    return screen_region_;
 }
 
 // 0x004B21A0
-void CPanelWidget::TickFrame()
+void PanelWidget::tick_frame()
 {
-    if (!(m_objectFlags & (kChildrenDirty | kVisibleNow)))
+    if (!(object_flags_ & (kChildrenDirty | kVisibleNow)))
         return;
-    int top = Truncated(m_summed.y - (static_cast<double>(m_justY) + One()) * Half() * m_levelY);
-    int left = Truncated(m_summed.x - (static_cast<double>(m_justX) + One()) * Half() * m_span);
-    reinterpret_cast<Engine3D::CScreenWindow*>(m_screenRegion)->ChangeLocation(left, top);
-    int height = Truncated(m_levelY);
-    int width = Truncated(m_span);
-    reinterpret_cast<Engine3D::CScreenWindow*>(m_screenRegion)->ChangeExtent(width, height);
+    int top = get_truncated(summed_.y - (static_cast<double>(just_y_) + get_one()) * get_half() * level_y_);
+    int left = get_truncated(summed_.x - (static_cast<double>(just_x_) + get_one()) * get_half() * span_);
+    reinterpret_cast<render::ScreenWindow*>(screen_region_)->change_location(left, top);
+    int height = get_truncated(level_y_);
+    int width = get_truncated(span_);
+    reinterpret_cast<render::ScreenWindow*>(screen_region_)->change_extent(width, height);
 }
 
 namespace {
-static VtableSlot kCTextureElementVtable_slots[] = {&CTextureElement::Teardown, &CTextureElement::ChangeTraits,
-                static_cast<bool (GameObjects::CEntity::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CEntity::InvokeMethodByName),
-                &CUiWidget::InvokeMethodByName, Stubs::IgnoreArgument, &GameObjects::CEntity::PassEventToScript,
-                &GameObjects::CEntity::FlagAsDead, Stubs::ReturnTrue, &CTextureElement::GetProperties,
-                &CUiWidget::BlendTowards, &CTextureElement::TickFrame};
-void** const kCTextureElementVtable = reinterpret_cast<void**>(kCTextureElementVtable_slots);
-static VtableSlot kCSpriteElementVtable_slots[] = {&CImageWidget::Teardown, &CImageWidget::ChangeTraits,
-                static_cast<bool (GameObjects::CEntity::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CEntity::InvokeMethodByName),
-                &CUiWidget::InvokeMethodByName, Stubs::IgnoreArgument, &GameObjects::CEntity::PassEventToScript,
-                &GameObjects::CEntity::FlagAsDead, Stubs::ReturnTrue, &CImageWidget::GetProperties, &CImageWidget::BlendTowards,
-                &CImageWidget::TickFrame};
-void** const kCSpriteElementVtable = reinterpret_cast<void**>(kCSpriteElementVtable_slots);
-static VtableSlot kCWindowElementVtable_slots[] = {&CPanelWidget::Teardown, &CUiWidget::ChangeTraits,
-                static_cast<bool (GameObjects::CEntity::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CEntity::InvokeMethodByName),
-                &CUiWidget::InvokeMethodByName, Stubs::IgnoreArgument, &GameObjects::CEntity::PassEventToScript,
-                &GameObjects::CEntity::FlagAsDead, Stubs::ReturnTrue, &CUiWidget::GetProperties, &CUiWidget::BlendTowards,
-                &CPanelWidget::TickFrame};
-void** const kCWindowElementVtable = reinterpret_cast<void**>(kCWindowElementVtable_slots);
+static VtableSlot g_c_texture_element_vtable_slots[] = {&TextureElement::teardown, &TextureElement::change_traits,
+                static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
+                &UiWidget::invoke_method_by_name, stubs::ignore_argument, &objects::Entity::pass_event_to_script,
+                &objects::Entity::flag_as_dead, stubs::return_true, &TextureElement::get_properties,
+                &UiWidget::blend_towards, &TextureElement::tick_frame};
+void** const kCTextureElementVtable = reinterpret_cast<void**>(g_c_texture_element_vtable_slots);
+static VtableSlot g_c_sprite_element_vtable_slots[] = {&ImageWidget::teardown, &ImageWidget::change_traits,
+                static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
+                &UiWidget::invoke_method_by_name, stubs::ignore_argument, &objects::Entity::pass_event_to_script,
+                &objects::Entity::flag_as_dead, stubs::return_true, &ImageWidget::get_properties, &ImageWidget::blend_towards,
+                &ImageWidget::tick_frame};
+void** const kCSpriteElementVtable = reinterpret_cast<void**>(g_c_sprite_element_vtable_slots);
+static VtableSlot g_c_window_element_vtable_slots[] = {&PanelWidget::teardown, &UiWidget::change_traits,
+                static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
+                &UiWidget::invoke_method_by_name, stubs::ignore_argument, &objects::Entity::pass_event_to_script,
+                &objects::Entity::flag_as_dead, stubs::return_true, &UiWidget::get_properties, &UiWidget::blend_towards,
+                &PanelWidget::tick_frame};
+void** const kCWindowElementVtable = reinterpret_cast<void**>(g_c_window_element_vtable_slots);
 } // namespace
 
 } // namespace Front
 
-using MenuSystem::CImageWidget;
-using MenuSystem::CTextureElement;
-using MenuSystem::CPanelWidget;
+using frontend::ImageWidget;
+using frontend::TextureElement;
+using frontend::PanelWidget;

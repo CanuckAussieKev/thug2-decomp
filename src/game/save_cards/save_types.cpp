@@ -27,21 +27,21 @@
 #include "game/goals/objective.h"
 #include "engine/gfx/rig.h"
 
-namespace MemCard {
+namespace save_cards {
 
 namespace {
 
-using Scripts::CStruct;
+using script::Struct;
 
 constexpr uint32_t kGoalManagerParams = 0xAC7C2B62; // "GoalManagerParams"
 
 // The game's platform (0x007CEFA8: 4 is the PC).
-int OsLayer() { return GameConfig::g_platform; }
+int os_layer() { return game_config::g_platform; }
 
 // The card block of the platform.
-int CardBlock()
+int card_block()
 {
-    switch (OsLayer()) {
+    switch (os_layer()) {
     case 1:
     case 2:
     case 3:
@@ -57,17 +57,17 @@ int CardBlock()
 }
 
 // The goal manager (0x005591B0) and its calls used here (no source yet).
-GoalSystem::CGoalManager* ObjectiveBoard() { return GoalSystem::GetObjectiveBoard(); }
+goals::GoalManager* objective_board() { return goals::get_objective_board(); }
 
 // The loaded contents kept for later (0x007CECD4) and their type (0x007CECD8).
-CStruct*& KeptContents() { return g_keptParams; }
-uint32_t& KeptType() { return g_keptType; }
+Struct*& kept_contents() { return g_kept_params; }
+uint32_t& kept_type() { return g_kept_type; }
 
 // A summary's date: year, month, day, hour, minutes, seconds (missing ones 0).
 struct SaveDate {
     int fields[6];
 };
-SaveDate ReadStampedDate(CStruct* summary)
+SaveDate read_stamped_date(Struct* summary)
 {
     static const uint32_t kNames[6] = {
         0x447D8CC8, // "year"
@@ -79,16 +79,16 @@ SaveDate ReadStampedDate(CStruct* summary)
     };
     SaveDate date = {};
     for (int i = 0; i < 6; ++i)
-        summary->FetchIntValue(kNames[i], &date.fields[i], 0);
+        summary->fetch_int_value(kNames[i], &date.fields[i], 0);
     return date;
 }
 
 } // namespace
 
 // 0x005A5F70
-char* MakeFileName(const char* name, char* buffer, uint32_t type)
+char* make_file_name(const char* name, char* buffer, uint32_t type)
 {
-    uint32_t value = Checksums::HashFromText(name);
+    uint32_t value = checksums::hash_from_text(name);
     for (int i = 0; i < 8; ++i) {
         buffer[i] = static_cast<char>('a' + value % 26);
         value /= 26;
@@ -107,7 +107,7 @@ char* MakeFileName(const char* name, char* buffer, uint32_t type)
 }
 
 // 0x005A60C0
-uint32_t TypeFromLetter(char letter)
+uint32_t type_from_letter(char letter)
 {
     switch (letter) {
     case 'a': return kSaveOptionsAndPros;
@@ -122,39 +122,39 @@ uint32_t TypeFromLetter(char letter)
 }
 
 // 0x005A6180
-int IconSpaceRequired(uint32_t type)
+int icon_space_required(uint32_t type)
 {
     switch (type) {
-    case kSaveCreatedGoals: return Scripts::FetchIntValue(0x3205BC07u);    // CreatedGoalsIconSpaceRequired
-    case kSaveCat: return Scripts::FetchIntValue(0x46B0EF40u);             // CATIconSpaceRequired
-    case kSavePark: return Scripts::FetchIntValue(0x82AAF8DCu);            // ParkIconSpaceRequired
-    case kSaveCreatedGraphic: return Scripts::FetchIntValue(0xD85D78F9u);  // CreatedGraphicIconSpaceRequired
-    case kSaveNetworkSettings: return Scripts::FetchIntValue(0xF3431F63u); // NetworkSettingsIconSpaceRequired
-    case kSaveOptionsAndPros: return Scripts::FetchIntValue(0x4925ED9Eu);  // OptionsProsIconSpaceRequired
+    case kSaveCreatedGoals: return script::fetch_int_value(0x3205BC07u);    // CreatedGoalsIconSpaceRequired
+    case kSaveCat: return script::fetch_int_value(0x46B0EF40u);             // CATIconSpaceRequired
+    case kSavePark: return script::fetch_int_value(0x82AAF8DCu);            // ParkIconSpaceRequired
+    case kSaveCreatedGraphic: return script::fetch_int_value(0xD85D78F9u);  // CreatedGraphicIconSpaceRequired
+    case kSaveNetworkSettings: return script::fetch_int_value(0xF3431F63u); // NetworkSettingsIconSpaceRequired
+    case kSaveOptionsAndPros: return script::fetch_int_value(0x4925ED9Eu);  // OptionsProsIconSpaceRequired
     default: return 0;
     }
 }
 
 // 0x005A6210
-int TypeVersion(uint32_t type)
+int type_version(uint32_t type)
 {
     switch (type) {
-    case kSaveCreatedGoals: return Scripts::FetchIntValue("VERSION_CREATEDGOALS");
-    case kSaveCat: return Scripts::FetchIntValue("VERSION_CAT");
-    case kSavePark: return Scripts::FetchIntValue("VERSION_PARK");
-    case kSaveCreatedGraphic: return Scripts::FetchIntValue("VERSION_CREATEDGRAPHIC");
-    case kSaveNetworkSettings: return Scripts::FetchIntValue("VERSION_NETWORKSETTINGS");
-    case kSaveOptionsAndPros: return Scripts::FetchIntValue("VERSION_OPTIONSANDPROS");
+    case kSaveCreatedGoals: return script::fetch_int_value("VERSION_CREATEDGOALS");
+    case kSaveCat: return script::fetch_int_value("VERSION_CAT");
+    case kSavePark: return script::fetch_int_value("VERSION_PARK");
+    case kSaveCreatedGraphic: return script::fetch_int_value("VERSION_CREATEDGRAPHIC");
+    case kSaveNetworkSettings: return script::fetch_int_value("VERSION_NETWORKSETTINGS");
+    case kSaveOptionsAndPros: return script::fetch_int_value("VERSION_OPTIONSANDPROS");
     default: return -1;
     }
 }
 
-char g_saveFileName[0x68]; // (the cutscene list's flag follows)
+char g_save_file_name[0x68]; // (the cutscene list's flag follows)
 
 // 0x005A62A0
-const char* TypeFileName(uint32_t type, const char* name)
+const char* get_type_file_name(uint32_t type, const char* name)
 {
-    char* buffer = g_saveFileName;
+    char* buffer = g_save_file_name;
     const char* pattern = nullptr;
     switch (type) {
     case kSaveCat: pattern = "Save/%s.CAT"; break;
@@ -172,19 +172,19 @@ const char* TypeFileName(uint32_t type, const char* name)
 }
 
 // 0x005A6390
-int MakeFolderFileName(uint32_t type, const char* name, char* buffer)
+int make_folder_file_name(uint32_t type, const char* name, char* buffer)
 {
     char file[20];
-    MakeFileName(name, file, type);
-    const char* folder = GameConfig::GetPathPrefix();
+    make_file_name(name, file, type);
+    const char* folder = game_config::get_path_prefix();
     return std::snprintf(buffer, 0x100, "/%s%s", folder, file); // (no limit in the original)
 }
 
 // 0x005A63E0
-bool IsLater(CStruct* first, CStruct* second)
+bool is_later(Struct* first, Struct* second)
 {
-    SaveDate a = ReadStampedDate(first);
-    SaveDate b = ReadStampedDate(second);
+    SaveDate a = read_stamped_date(first);
+    SaveDate b = read_stamped_date(second);
     for (int i = 0; i < 6; ++i) {
         if (a.fields[i] != b.fields[i])
             return a.fields[i] > b.fields[i];
@@ -193,47 +193,47 @@ bool IsLater(CStruct* first, CStruct* second)
 }
 
 // 0x005A6CD0
-int RoundUpToCardBlock(int size)
+int round_up_to_card_block(int size)
 {
-    int block = CardBlock();
+    int block = card_block();
     if (size % block == 0)
         return size;
     return (size / block + 1) * block;
 }
 
 // 0x005A7340
-int TypeFileSize(uint32_t type)
+int type_file_size(uint32_t type)
 {
     int size = 0;
     switch (type) {
-    case kSaveCreatedGoals: size = Scripts::FetchIntValue(0x3308EFC0u); break;    // SaveSize_CreatedGoals
-    case kSaveCat: size = Scripts::FetchIntValue(0x9EECDEC9u); break;             // SaveSize_Cat
-    case kSavePark: size = Scripts::FetchIntValue(0x2CB071EDu); break;            // SaveSize_Park
-    case kSaveCreatedGraphic: size = Scripts::FetchIntValue(0x2E3F4E50u); break;  // SaveSize_CreatedGraphic
-    case kSaveNetworkSettings: size = Scripts::FetchIntValue(0x651C978Du); break; // SaveSize_NetworkSettings
-    case kSaveOptionsAndPros: size = Scripts::FetchIntValue(0xE7F51FFEu); break;  // SaveSize_OptionsAndPros
+    case kSaveCreatedGoals: size = script::fetch_int_value(0x3308EFC0u); break;    // SaveSize_CreatedGoals
+    case kSaveCat: size = script::fetch_int_value(0x9EECDEC9u); break;             // SaveSize_Cat
+    case kSavePark: size = script::fetch_int_value(0x2CB071EDu); break;            // SaveSize_Park
+    case kSaveCreatedGraphic: size = script::fetch_int_value(0x2E3F4E50u); break;  // SaveSize_CreatedGraphic
+    case kSaveNetworkSettings: size = script::fetch_int_value(0x651C978Du); break; // SaveSize_NetworkSettings
+    case kSaveOptionsAndPros: size = script::fetch_int_value(0xE7F51FFEu); break;  // SaveSize_OptionsAndPros
     default: break;
     }
-    return RoundUpToCardBlock(size + 0x14);
+    return round_up_to_card_block(size + 0x14);
 }
 
 // 0x005A8470
-int SaveBlocks(uint32_t type, int size)
+int save_blocks(uint32_t type, int size)
 {
-    int platform = OsLayer();
-    int block = CardBlock();
-    int blocks = RoundUpToCardBlock(size) / block;
+    int platform = os_layer();
+    int block = card_block();
+    int blocks = round_up_to_card_block(size) / block;
     if (platform <= 0)
         return blocks;
     if (platform <= 3)
-        return blocks + IconSpaceRequired(type) + 4;
+        return blocks + icon_space_required(type) + 4;
     if (platform == 4)
         return blocks + 3;
     return blocks;
 }
 
 // 0x005A6610
-void WriteSummary(CStruct* saved, CStruct* summary, uint32_t type)
+void write_summary(Struct* saved, Struct* summary, uint32_t type)
 {
     constexpr uint32_t kGoals = 0x38DBE1D0;          // "goals"
     constexpr uint32_t kNumEditedGoals = 0xE1EC606F; // "num_edited_goals"
@@ -242,100 +242,100 @@ void WriteSummary(CStruct* saved, CStruct* summary, uint32_t type)
     constexpr uint32_t kTotalGoalsComplete = 0x959DCF6E, kTotalGoalsPossible = 0xA95F9E73;
     constexpr uint32_t kTotalScore = 0x0E145E9C, kTotalScorePotential = 0x851B0904;
     constexpr uint32_t kIsMale = 0x3F813177;         // "is_male"
-    const char* const kEmpty = ""; // ""
-    ParkEditing::CParkBuilderMode* editor = ParkEditing::CParkBuilderMode::Sole();
-    // The park map's numbers, in GetMapInfo's order: num_gaps, num_pieces, theme (16 bits), tod_script, width,
+    const char* const empty = ""; // ""
+    park_editing::ParkBuilderMode* editor = park_editing::ParkBuilderMode::sole();
+    // The park map's numbers, in get_map_info's order: num_gaps, num_pieces, theme (16 bits), tod_script, width,
     // length.
-    auto addMapInfo = [&](const ParkEditing::CompressedMap* map) {
+    auto add_map_info = [&](const park_editing::CompressedMap* map) {
         int gaps = 0;
         int pieces = 0;
         uint16_t theme = 0;
-        uint32_t todScript = 0;
+        uint32_t tod_script = 0;
         int width = 0;
         int length = 0;
-        editor->GetMapInfo(map, &gaps, &pieces, &theme, &todScript, &width, &length);
-        summary->PutInt(0xE6121ED0u, gaps);   // num_gaps
-        summary->PutInt(0xFFF3DC35u, pieces); // num_pieces
-        summary->PutInt(0x688A18F7u, theme);  // theme
-        summary->PutNameKey(0x4C72ED98u, todScript); // tod_script
-        summary->PutInt(0x73E5BAD0u, width);  // width
-        summary->PutInt(0xFE82614Du, length); // length
+        editor->get_map_info(map, &gaps, &pieces, &theme, &tod_script, &width, &length);
+        summary->put_int(0xE6121ED0u, gaps);   // num_gaps
+        summary->put_int(0xFFF3DC35u, pieces); // num_pieces
+        summary->put_int(0x688A18F7u, theme);  // theme
+        summary->put_name_key(0x4C72ED98u, tod_script); // tod_script
+        summary->put_int(0x73E5BAD0u, width);  // width
+        summary->put_int(0xFE82614Du, length); // length
     };
 
     if (saved) {
         switch (type) {
         case kSaveCat: {
-            CStruct* other = nullptr;
-            saved->ReadSubStruct(0x4137CB14u, &other, 1); // other_params
-            const char* name = kEmpty;
-            other->FetchText(kName, &name, 1);
-            summary->AppendWord(kName, name);
+            Struct* other = nullptr;
+            saved->read_sub_struct(0x4137CB14u, &other, 1); // other_params
+            const char* name = empty;
+            other->fetch_text(kName, &name, 1);
+            summary->append_word(kName, name);
             break;
         }
         case kSavePark: {
-            CStruct* goals = nullptr;
-            saved->ReadSubStruct(0xD8EB825Eu, &goals, 0); // Park_editor_goals
+            Struct* goals = nullptr;
+            saved->read_sub_struct(0xD8EB825Eu, &goals, 0); // Park_editor_goals
             int count = 0;
             if (goals) {
-                Scripts::CArray* array = nullptr;
-                goals->FetchList(kGoals, &array, 0);
+                script::Array* array = nullptr;
+                goals->fetch_list(kGoals, &array, 0);
                 if (array)
-                    count = static_cast<int>(array->m_extent);
+                    count = static_cast<int>(array->extent_);
             }
-            summary->PutInt(kNumEditedGoals, count);
-            int maxPlayers = 1;
-            saved->FetchIntValue(kMaxPlayers, &maxPlayers, 0);
-            summary->PutInt(kMaxPlayers, maxPlayers);
-            Scripts::CArray* map = nullptr;
-            saved->FetchList(0x337C5289u, &map, 1); // Park_editor_map
-            addMapInfo(reinterpret_cast<const ParkEditing::CompressedMap*>(map->FindArrayValue()));
+            summary->put_int(kNumEditedGoals, count);
+            int max_players = 1;
+            saved->fetch_int_value(kMaxPlayers, &max_players, 0);
+            summary->put_int(kMaxPlayers, max_players);
+            script::Array* map = nullptr;
+            saved->fetch_list(0x337C5289u, &map, 1); // Park_editor_map
+            add_map_info(reinterpret_cast<const park_editing::CompressedMap*>(map->find_array_value()));
             break;
         }
         case kSaveCreatedGoals: {
-            Scripts::CArray* goals = nullptr;
-            saved->FetchList(kGoals, &goals, 0);
-            summary->PutInt(kNumEditedGoals, goals ? static_cast<int>(goals->m_extent) : 0);
+            script::Array* goals = nullptr;
+            saved->fetch_list(kGoals, &goals, 0);
+            summary->put_int(kNumEditedGoals, goals ? static_cast<int>(goals->extent_) : 0);
             break;
         }
         case kSaveOptionsAndPros: {
-            CStruct* story = nullptr;
-            saved->ReadSubStruct(0x14A9FBC7u, &story, 1); // Story
-            CStruct* goalManager = nullptr;
-            story->ReadSubStruct(kGoalManagerParams, &goalManager, 1);
-            CStruct* goalManagerParams = nullptr; // (read, not used)
-            goalManager->ReadSubStruct(0x23D4170Au, &goalManagerParams, 1); // GoalManager_Params
-            CStruct* global = nullptr;
-            saved->ReadSubStruct(0xF55CBD13u, &global, 0); // GlobalInfo
+            Struct* story = nullptr;
+            saved->read_sub_struct(0x14A9FBC7u, &story, 1); // Story
+            Struct* goal_manager = nullptr;
+            story->read_sub_struct(kGoalManagerParams, &goal_manager, 1);
+            Struct* goal_manager_params = nullptr; // (read, not used)
+            goal_manager->read_sub_struct(0x23D4170Au, &goal_manager_params, 1); // GoalManager_Params
+            Struct* global = nullptr;
+            saved->read_sub_struct(0xF55CBD13u, &global, 0); // GlobalInfo
             if (global) {
-                CStruct* career = nullptr;
-                global->ReadSubStruct(0x4DA4937Bu, &career, 0); // career
+                Struct* career = nullptr;
+                global->read_sub_struct(0x4DA4937Bu, &career, 0); // career
                 int value; // (not initialised: a missing field after the first repeats the one before)
-                if (career && career->FetchIntValue(0x6C1A5E39u, &value, 0)) {
-                    summary->PutInt(kTotalGoalsComplete, value);
-                    career->FetchIntValue(0x7A6BF912u, &value, 0);
-                    summary->PutInt(kTotalGoalsPossible, value);
-                    career->FetchIntValue(0x0444419Au, &value, 0);
-                    summary->PutInt(kTotalScore, value);
-                    career->FetchIntValue(0x95947B61u, &value, 0);
-                    summary->PutInt(kTotalScorePotential, value);
+                if (career && career->fetch_int_value(0x6C1A5E39u, &value, 0)) {
+                    summary->put_int(kTotalGoalsComplete, value);
+                    career->fetch_int_value(0x7A6BF912u, &value, 0);
+                    summary->put_int(kTotalGoalsPossible, value);
+                    career->fetch_int_value(0x0444419Au, &value, 0);
+                    summary->put_int(kTotalScore, value);
+                    career->fetch_int_value(0x95947B61u, &value, 0);
+                    summary->put_int(kTotalScorePotential, value);
                 }
             }
-            CStruct* customSkater = nullptr;
-            saved->ReadSubStruct(0x12BFAC82u, &customSkater, 1); // CustomSkater
-            CStruct* custom = nullptr;
-            customSkater->ReadSubStruct(0x0A7BE964u, &custom, 1); // custom
-            CStruct* info = nullptr;
-            custom->ReadSubStruct(0x3476CEA8u, &info, 1); // info
+            Struct* custom_skater = nullptr;
+            saved->read_sub_struct(0x12BFAC82u, &custom_skater, 1); // CustomSkater
+            Struct* custom = nullptr;
+            custom_skater->read_sub_struct(0x0A7BE964u, &custom, 1); // custom
+            Struct* info = nullptr;
+            custom->read_sub_struct(0x3476CEA8u, &info, 1); // info
             int male = 0;
-            info->FetchIntValue(kIsMale, &male, 0);
-            summary->PutInt(kIsMale, male);
-            const char* name = kEmpty;
-            info->FetchText(0x2AB66CB8u, &name, 0); // display_name
-            summary->AppendWord(kName, name);
+            info->fetch_int_value(kIsMale, &male, 0);
+            summary->put_int(kIsMale, male);
+            const char* name = empty;
+            info->fetch_text(0x2AB66CB8u, &name, 0); // display_name
+            summary->append_word(kName, name);
             break;
         }
         case kSaveNetworkSettings:
-            summary->AppendWord("network_id", kEmpty);
+            summary->append_word("network_id", empty);
             break;
         default:
             break;
@@ -345,50 +345,50 @@ void WriteSummary(CStruct* saved, CStruct* summary, uint32_t type)
 
     switch (type) {
     case kSaveCat: {
-        auto* skater = static_cast<GameObjects::CRider*>(GameModules::Skate::Sole()->GetRiderAt(0));
-        CStruct* trickRecord = *reinterpret_cast<CStruct**>(skater->m_trickSlots[0] + 4);
-        const char* name = kEmpty;
-        trickRecord->FetchText(kName, &name, 1);
-        summary->AppendWord(kName, name);
+        auto* skater = static_cast<objects::Rider*>(modules::Skate::sole()->get_rider_at(0));
+        Struct* trick_record = *reinterpret_cast<Struct**>(skater->trick_slots_[0] + 4);
+        const char* name = empty;
+        trick_record->fetch_text(kName, &name, 1);
+        summary->append_word(kName, name);
         break;
     }
     case kSavePark:
     case kSaveCreatedGoals: {
         constexpr uint32_t kGoalEditor = 0x81F01058; // "GoalEditor": the object and its component
-        GameObjects::CEntity* object = GameObjects::g_tracker->LookUpObject(kGoalEditor);
-        GameObjects::CObjectModule* component = static_cast<GameObjects::CGameEntity*>(object)->FetchModule(kGoalEditor);
+        objects::Entity* object = objects::g_tracker->look_up_object(kGoalEditor);
+        objects::ObjectModule* component = static_cast<objects::GameEntity*>(object)->fetch_module(kGoalEditor);
         // its number of edited goals (0x004E7E00, no source yet)
-        int edited = static_cast<ParkEditing::CObjectiveAuthoring*>(component)->CountUsedGoals();
-        summary->PutInt(kNumEditedGoals, edited);
+        int edited = static_cast<park_editing::ObjectiveAuthoring*>(component)->count_used_goals();
+        summary->put_int(kNumEditedGoals, edited);
         if (type != kSavePark)
             break;
-        summary->PutInt(kMaxPlayers, ParkEditing::CParkBuilderMode::GetPlayerLimit());
-        ParkEditing::CParkBuilderMode::Sole()->WriteCompressedMapIfBuilt();
-        editor = ParkEditing::CParkBuilderMode::Sole();
-        addMapInfo(editor->GetPackedParkData(false));
+        summary->put_int(kMaxPlayers, park_editing::ParkBuilderMode::get_player_limit());
+        park_editing::ParkBuilderMode::sole()->write_compressed_map_if_built();
+        editor = park_editing::ParkBuilderMode::sole();
+        add_map_info(editor->get_packed_park_data(false));
         break;
     }
     case kSaveNetworkSettings: {
         auto* preferences = reinterpret_cast<uint8_t*>(
-            OnlinePlay::g_onlineHub->GetOnlineSettings());
-        auto* settings = reinterpret_cast<CStruct*>(preferences + 4);
-        CStruct* networkId = nullptr;
-        settings->ReadSubStruct(0xCBED746Eu, &networkId, 0); // network_id
-        const char* text = kEmpty;
-        networkId->FetchText(0x96875C0Fu, &text, 0); // ui_string
-        summary->AppendWord(0xCBED746Eu, text);
+            online::g_online_hub->get_online_settings());
+        auto* settings = reinterpret_cast<Struct*>(preferences + 4);
+        Struct* network_id = nullptr;
+        settings->read_sub_struct(0xCBED746Eu, &network_id, 0); // network_id
+        const char* text = empty;
+        network_id->fetch_text(0x96875C0Fu, &text, 0); // ui_string
+        summary->append_word(0xCBED746Eu, text);
         break;
     }
     case kSaveOptionsAndPros: {
-        auto* own = reinterpret_cast<CStruct*(__thiscall*)(void*)>(CodeAddress(&Gfx2D::CRig::GetNumBones))(ObjectiveBoard());
-        CStruct* goalManagerParams = nullptr; // (read, not used)
-        own->ReadSubStruct(0x23D4170Au, &goalManagerParams, 0);
-        GameObjects::CRiderStoryProgress* career = *reinterpret_cast<GameObjects::CRiderStoryProgress**>(
-            reinterpret_cast<uint8_t*>(GameModules::Skate::Sole()) + 0x20);
-        summary->PutInt(kTotalScore, career->m_lifetimeFunds);
-        summary->PutInt(kTotalScorePotential, career->m_totalAmount);
-        summary->PutInt(kTotalGoalsComplete, career->m_totalCounter);
-        summary->PutInt(kTotalGoalsPossible, career->m_flag5EF);
+        auto* own = reinterpret_cast<Struct*(__thiscall*)(void*)>(code_address(&gfx::Rig::get_num_bones))(objective_board());
+        Struct* goal_manager_params = nullptr; // (read, not used)
+        own->read_sub_struct(0x23D4170Au, &goal_manager_params, 0);
+        objects::RiderStoryProgress* career = *reinterpret_cast<objects::RiderStoryProgress**>(
+            reinterpret_cast<uint8_t*>(modules::Skate::sole()) + 0x20);
+        summary->put_int(kTotalScore, career->lifetime_funds_);
+        summary->put_int(kTotalScorePotential, career->total_amount_);
+        summary->put_int(kTotalGoalsComplete, career->total_counter_);
+        summary->put_int(kTotalGoalsPossible, career->flag_5e_f_);
         break;
     }
     default:
@@ -397,69 +397,69 @@ void WriteSummary(CStruct* saved, CStruct* summary, uint32_t type)
 }
 
 // 0x005A6120
-void __fastcall ApplyGoalManagerParams(CStruct* saved)
+void __fastcall apply_goal_manager_params(Struct* saved)
 {
-    CStruct* params = nullptr;
-    saved->ReadSubStruct(kGoalManagerParams, &params, 0);
-    GoalSystem::CGoalManager* goalManager = ObjectiveBoard();
-    goalManager->ResetGoalData(0); // reset the career (mode 0)
+    Struct* params = nullptr;
+    saved->read_sub_struct(kGoalManagerParams, &params, 0);
+    goals::GoalManager* goal_manager = objective_board();
+    goal_manager->reset_goal_data(0); // reset the career (mode 0)
     // its parameters (a folded getter, +0x14)
-    auto* own = reinterpret_cast<CStruct*(__thiscall*)(void*)>(CodeAddress(&Gfx2D::CRig::GetNumBones))(goalManager);
-    own->Clear();
-    own->AppendStructureIfAny(params);
-    goalManager->RestoreGoalData(); // the level's goals loaded
+    auto* own = reinterpret_cast<Struct*(__thiscall*)(void*)>(code_address(&gfx::Rig::get_num_bones))(goal_manager);
+    own->get_clear();
+    own->append_structure_if_any(params);
+    goal_manager->restore_goal_data(); // the level's goals loaded
 }
 
 // 0x005A6C80
-bool ApplyCatAndCustomSkater(CStruct* loaded, CStruct* customSkater)
+bool apply_cat_and_custom_skater(Struct* loaded, Struct* custom_skater)
 {
-    GameObjects::CProfileRoster* profiles = GameObjects::g_profileRoster;
-    GameModules::Skate* skate = GameModules::Skate::Sole();
+    objects::ProfileRoster* profiles = objects::g_profile_roster;
+    modules::Skate* skate = modules::Skate::sole();
     // the current skater (the manager's +0x1C, through the folded getter 0x00553E90)
-    int index = reinterpret_cast<int(__thiscall*)(void*)>(CodeAddress(&GoalSystem::CObjective::FetchArgs))(profiles);
-    auto* skater = static_cast<GameObjects::CRider*>(skate->GetRiderAt(index));
-    skater->LoadCATInfo(loaded);
-    skater->LoadList44B66A9F(loaded);
-    skater->ReadChapterInfo(loaded);
-    return profiles->ReadCustomSkater(customSkater, true);
+    int index = reinterpret_cast<int(__thiscall*)(void*)>(code_address(&goals::Objective::fetch_args))(profiles);
+    auto* skater = static_cast<objects::Rider*>(skate->get_rider_at(index));
+    skater->load_cat_info(loaded);
+    skater->load_list_44b_66a_9f(loaded);
+    skater->read_chapter_info(loaded);
+    return profiles->read_custom_skater(custom_skater, true);
 }
 
 // 0x005A8EB0
-const uint8_t* KeepLoadedContents(const uint8_t* data, uint32_t type)
+const uint8_t* keep_loaded_contents(const uint8_t* data, uint32_t type)
 {
-    if (CStruct* kept = KeptContents()) {
-        kept->Clear();
-        Scripts::DeleteStruct(kept);
-        KeptContents() = nullptr;
+    if (Struct* kept = kept_contents()) {
+        kept->get_clear();
+        script::delete_struct(kept);
+        kept_contents() = nullptr;
     }
-    CStruct* contents = Scripts::SpawnParamBag();
+    Struct* contents = script::spawn_param_bag();
     if (contents)
-        contents = contents->PrepareAll();
-    KeptContents() = contents;
-    const uint8_t* end = Scripts::DecodeFromBytes(contents, data);
-    KeptType() = type;
+        contents = contents->prepare_all();
+    kept_contents() = contents;
+    const uint8_t* end = script::decode_from_bytes(contents, data);
+    kept_type() = type;
     return end;
 }
 
 // --- the destructors of two list types of the memory card code ---
 
 // 0x005A7520
-MemSys::ListNode* ListDestructors::NodeDestroy(unsigned int flags)
+memory::ListNode* ListDestructors::node_destroy(unsigned int flags)
 {
-    auto* node = reinterpret_cast<MemSys::ListNode*>(this);
-    node->UnlinkAs(Vt::kSaveNode);
+    auto* node = reinterpret_cast<memory::ListNode*>(this);
+    node->unlink_as(vt::kSaveNode);
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(node);
+        memory::Hub::get_pull()->dealloc(node);
     return node;
 }
 
 // 0x005A8E80
-MemSys::ListNode* ListDestructors::OtherDestroy(unsigned int flags)
+memory::ListNode* ListDestructors::other_destroy(unsigned int flags)
 {
-    auto* node = reinterpret_cast<MemSys::ListNode*>(this);
-    node->UnlinkAs(Vt::kSaveNode); // (the body 0x005BC990)
+    auto* node = reinterpret_cast<memory::ListNode*>(this);
+    node->unlink_as(vt::kSaveNode); // (the body 0x005BC990)
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(node);
+        memory::Hub::get_pull()->dealloc(node);
     return node;
 }
 
@@ -467,51 +467,51 @@ MemSys::ListNode* ListDestructors::OtherDestroy(unsigned int flags)
 
 namespace {
 
-int __cdecl TypeFileSizeRegisters(uint32_t type) { return TypeFileSize(type); }
-int __cdecl RoundUpRegisters(int size) { return RoundUpToCardBlock(size); }
-bool __cdecl IsLaterRegisters(CStruct* first, CStruct* second) { return IsLater(first, second); }
-int __cdecl IconSpaceRegisters(uint32_t type) { return IconSpaceRequired(type); }
-int __cdecl TypeVersionRegisters(uint32_t type) { return TypeVersion(type); }
-const char* __cdecl TypeFileNameRegisters(uint32_t type, const char* name) { return TypeFileName(type, name); }
-uint32_t __cdecl TypeFromLetterRegisters(int letter) { return TypeFromLetter(static_cast<char>(letter)); }
-char* __cdecl MakeFileNameRegisters(const char* name, char* buffer, uint32_t type)
+int __cdecl type_file_size_registers(uint32_t type) { return type_file_size(type); }
+int __cdecl round_up_registers(int size) { return round_up_to_card_block(size); }
+bool __cdecl is_later_registers(Struct* first, Struct* second) { return is_later(first, second); }
+int __cdecl icon_space_registers(uint32_t type) { return icon_space_required(type); }
+int __cdecl type_version_registers(uint32_t type) { return type_version(type); }
+const char* __cdecl type_file_name_registers(uint32_t type, const char* name) { return get_type_file_name(type, name); }
+uint32_t __cdecl type_from_letter_registers(int letter) { return type_from_letter(static_cast<char>(letter)); }
+char* __cdecl make_file_name_registers(const char* name, char* buffer, uint32_t type)
 {
-    return MakeFileName(name, buffer, type);
+    return make_file_name(name, buffer, type);
 }
-int __cdecl MakeFolderFileNameRegisters(uint32_t type, const char* name, char* buffer)
+int __cdecl make_folder_file_name_registers(uint32_t type, const char* name, char* buffer)
 {
-    return MakeFolderFileName(type, name, buffer);
+    return make_folder_file_name(type, name, buffer);
 }
-void __cdecl WriteSummaryRegisters(CStruct* saved, CStruct* summary, uint32_t type) { WriteSummary(saved, summary, type); }
-bool __cdecl ApplyCatRegisters(CStruct* loaded, CStruct* customSkater)
+void __cdecl write_summary_registers(Struct* saved, Struct* summary, uint32_t type) { write_summary(saved, summary, type); }
+bool __cdecl apply_cat_registers(Struct* loaded, Struct* custom_skater)
 {
-    return ApplyCatAndCustomSkater(loaded, customSkater);
+    return apply_cat_and_custom_skater(loaded, custom_skater);
 }
 
 } // namespace
 
 // 0x005A5F70: the name in EAX, the buffer in ESI, the type in EDI.
-__declspec(naked) void MakeFileNameStub()
+__declspec(naked) void make_file_name_stub()
 {
     __asm {
         push edi
         push esi
         push eax
-        call MakeFileNameRegisters
+        call make_file_name_registers
         add esp, 12
         ret
     }
 }
 
 // 0x005A60C0: the letter in AL (ECX and EDX kept, as the original does - DeleteMemCardFile relies on EDX).
-__declspec(naked) void TypeFromLetterStub()
+__declspec(naked) void type_from_letter_stub()
 {
     __asm {
         push ecx
         push edx
         movsx eax, al
         push eax
-        call TypeFromLetterRegisters
+        call type_from_letter_registers
         add esp, 4
         pop edx
         pop ecx
@@ -520,106 +520,106 @@ __declspec(naked) void TypeFromLetterStub()
 }
 
 // 0x005A6180: the type in EAX.
-__declspec(naked) void IconSpaceRequiredStub()
+__declspec(naked) void icon_space_required_stub()
 {
     __asm {
         push eax
-        call IconSpaceRegisters
+        call icon_space_registers
         add esp, 4
         ret
     }
 }
 
 // 0x005A6210: the type in EAX.
-__declspec(naked) void TypeVersionStub()
+__declspec(naked) void type_version_stub()
 {
     __asm {
         push eax
-        call TypeVersionRegisters
+        call type_version_registers
         add esp, 4
         ret
     }
 }
 
 // 0x005A62A0: the type in EAX, the name in ECX.
-__declspec(naked) void TypeFileNameStub()
+__declspec(naked) void type_file_name_stub()
 {
     __asm {
         push ecx
         push eax
-        call TypeFileNameRegisters
+        call type_file_name_registers
         add esp, 8
         ret
     }
 }
 
 // 0x005A6390: the type in EDI, the name and buffer on the stack (the caller pops them).
-__declspec(naked) void MakeFolderFileNameStub()
+__declspec(naked) void make_folder_file_name_stub()
 {
     __asm {
         push dword ptr [esp + 8]
         push dword ptr [esp + 8]
         push edi
-        call MakeFolderFileNameRegisters
+        call make_folder_file_name_registers
         add esp, 12
         ret
     }
 }
 
 // 0x005A63E0: the first summary in EDI, the second in ESI.
-__declspec(naked) void IsLaterStub()
+__declspec(naked) void is_later_stub()
 {
     __asm {
         push esi
         push edi
-        call IsLaterRegisters
+        call is_later_registers
         add esp, 8
         ret
     }
 }
 
 // 0x005A6610: the saved contents in EAX, the summary in ESI, the type on the stack (the caller pops it).
-__declspec(naked) void WriteSummaryStub()
+__declspec(naked) void write_summary_stub()
 {
     __asm {
         push dword ptr [esp + 4]
         push esi
         push eax
-        call WriteSummaryRegisters
+        call write_summary_registers
         add esp, 12
         ret
     }
 }
 
 // 0x005A6CD0: the size in ESI.
-__declspec(naked) void RoundUpToCardBlockStub()
+__declspec(naked) void round_up_to_card_block_stub()
 {
     __asm {
         push esi
-        call RoundUpRegisters
+        call round_up_registers
         add esp, 4
         ret
     }
 }
 
 // 0x005A7340: the type in ECX.
-__declspec(naked) void TypeFileSizeStub()
+__declspec(naked) void type_file_size_stub()
 {
     __asm {
         push ecx
-        call TypeFileSizeRegisters
+        call type_file_size_registers
         add esp, 4
         ret
     }
 }
 
 // 0x005A6C80: the loaded structure in EDI, the custom skater on the stack (the caller pops it).
-__declspec(naked) void ApplyCatAndCustomSkaterStub()
+__declspec(naked) void apply_cat_and_custom_skater_stub()
 {
     __asm {
         push dword ptr [esp + 4]
         push edi
-        call ApplyCatRegisters
+        call apply_cat_registers
         add esp, 8
         ret
     }

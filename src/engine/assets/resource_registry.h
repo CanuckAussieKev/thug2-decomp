@@ -6,113 +6,113 @@
 #include "engine/assets/resource_entry.h"
 #include "engine/sys/game_module.h"
 
-namespace FrameLoop {
+namespace frame_loop {
 struct Hub;
 }
 
-namespace ListKit {
+namespace lists {
 class KeyMap;
 }
-namespace Scheduling {
+namespace tasks {
 class SchedulerTask;
 }
 
-namespace AssetStore {
+namespace assets {
 
 // The asset manager (0x3C bytes, vtable 0x00645658; a module): every asset by checksum in a hash table, and in one
 // of two circular lists - loaded, or still being read (an async load). The singleton is 0x006918DC (references
 // 0x006918E0).
-class CResourceRegistry : public GameModules::PartUnit {
+class ResourceRegistry : public modules::PartUnit {
 public:
-    // 0x00407F80: the hash table (10 bits) and the task running ProcessPendingAssets (returns this).
-    CResourceRegistry* MakeNew();
+    // 0x00407F80: the hash table (10 bits) and the task running process_pending_assets (returns this).
+    ResourceRegistry* make_new();
     // 0x00408930: every asset unloaded, the hash table and the task deleted.
-    void Destruct();
+    void destruct();
     // 0x00408A10 (scalar deleting)
-    CResourceRegistry* ScalarDelete(uint8_t flags);
+    ResourceRegistry* scalar_delete(uint8_t flags);
     // 0x00407E90 / 0x00407AE0: the module's start and stop: the task into / out of the main loop's logic tasks.
-    void StartCallback();
-    void StopCallback();
+    void start_callback();
+    void stop_callback();
 
-    // 0x00408060: an asset of `type` from data in memory (LoadFromBuffer with `data`, `size`, `copy`, `params`,
+    // 0x00408060: an asset of `type` from data in memory (load_from_buffer with `data`, `size`, `copy`, `params`,
     // `extra`); `group` is the checksum of an asset it depends on. Returns the asset's data, or null if it failed
     // (the asset deleted - unless the script integer 0x25DC7904 is set, a debug leftover).
-    void* ReadResourceFromStream(uint32_t checksum, int type, uint32_t group, void* data, uint32_t size, bool permanent,
+    void* read_resource_from_stream(uint32_t checksum, int type, uint32_t group, void* data, uint32_t size, bool permanent,
                               bool copy, void* params, int extra);
-    // 0x00408440: an asset loaded from a file (Load with `name`, `async`, `useArchive`, `params`, `extra`). A zero
+    // 0x00408440: an asset loaded from a file (Load with `name`, `async`, `use_archive`, `params`, `extra`). A zero
     // checksum is the name's, a zero type the extension's. An async one goes on the pending list.
-    void* LoadAsset(const char* name, int type, uint32_t checksum, uint32_t group, bool async, bool useArchive,
+    void* load_asset(const char* name, int type, uint32_t checksum, uint32_t group, bool async, bool use_archive,
                     bool permanent, void* params, int extra);
     // 0x004087B0: the asset's data if it's there (waiting for it to load), else LoadAsset.
-    void* FetchOrLoadResource(const char* name, int type, uint32_t checksum, uint32_t group, bool async, bool useArchive,
+    void* fetch_or_load_resource(const char* name, int type, uint32_t checksum, uint32_t group, bool async, bool use_archive,
                          bool permanent, void* params, int extra);
     // 0x00408870: an animation by name (its checksum `base` + `offset` if `base` isn't zero); false if one with
     // that checksum is there already or loading failed.
-    bool LoadAnim(const char* name, uint32_t base, uint32_t offset, bool async, bool useArchive);
+    bool load_anim(const char* name, uint32_t base, uint32_t offset, bool async, bool use_archive);
     // 0x00407EC0: Reload with `name` (false if there's no such asset).
-    bool RefreshResource(uint32_t checksum, const char* name, int unused);
+    bool refresh_resource(uint32_t checksum, const char* name, int unused);
 
     // 0x00407B20: out of its group's dependents and its list (an unfinished one aborted), unloaded, deleted, out
     // of the hash table.
-    void DiscardLoadedItem(CResource* asset);
+    void discard_loaded_item(Resource* asset);
     // 0x00407F20: every asset (or only those not permanent) unloaded, both lists from the tail.
-    void UnloadAllAssets(bool all);
+    void unload_all_assets(bool all);
     // 0x00407F50: the same for one type.
-    void UnloadAllAssetsOfType(bool all, int type);
+    void unload_all_assets_of_type(bool all, int type);
     // 0x00407CF0 / 0x00407D40: one list's (from its tail round to `head`). The second gathers first (at most 100:
     // more would overrun the original's array).
-    void UnloadAssetsInList(CResource* head, bool all);
-    void UnloadAssetsOfType(CResource* head, bool all, int type);
+    void unload_assets_in_list(Resource* head, bool all);
+    void unload_assets_of_type(Resource* head, bool all, int type);
 
     // 0x00407B90: the asset, waiting for it to finish loading (null if there's none).
-    CResource* ObtainLoadedItem(uint32_t checksum, int unused);
+    Resource* obtain_loaded_item(uint32_t checksum, int unused);
     // 0x00407C00: its data, waiting the same way. 0x00407C70: by name.
-    void* GetAssetData(uint32_t checksum, int unused);
-    void* GetAssetDataByName(const char* name, int unused);
+    void* get_asset_data(uint32_t checksum, int unused);
+    void* get_asset_data_by_name(const char* name, int unused);
     // 0x00407CA0
-    bool AssetExists(uint32_t checksum);
+    bool asset_exists(uint32_t checksum);
 
     // 0x00407A50 / 0x00407A60 / 0x00407A70
-    void SetPermanentByDefault(bool permanent);
-    bool GetPermanentByDefault() const;
-    void SetUnknown18(int value);
+    void set_permanent_by_default(bool permanent);
+    bool get_permanent_by_default() const;
+    void set_unknown18(int value);
 
     // 0x00407DD0 (the task's work, each frame): each pending asset that's read (and whose group is loaded) or being
     // processed is processed; finished, its callback runs and it moves to the loaded list. (The list is circular and
     // the walk only ends at a null link: with an asset pending it wouldn't end - async loading looks unused.)
-    void ProcessPendingAssets();
+    void process_pending_assets();
     // 0x00407EB0: the task's callback (the manager its data).
-    static void __cdecl ProcessTask(Scheduling::SchedulerTask* task);
+    static void __cdecl process_task(tasks::SchedulerTask* task);
 
     // 0x00407A80: `asset` out of the circular list `*head` (false if it isn't in it).
-    static bool RemoveFromList(CResource** head, CResource* asset);
+    static bool remove_from_list(Resource** head, Resource* asset);
     // 0x004079C0: the type of a file name's extension (0 if none matches; thiscall, the manager unused).
-    int GetTypeFromExtension(const char* name);
+    int get_type_from_extension(const char* name);
 
-    bool m_permanentByDefault;    // +0x14 what LoadAnim loads with
-    bool m_unknown15;             // +0x15 cleared by the constructor
+    bool permanent_by_default_;    // +0x14 what LoadAnim loads with
+    bool unknown15_;             // +0x15 cleared by the constructor
     uint8_t pad16[2];
-    int m_unknown18;              // +0x18 set by 0x00407A70 (not read here)
-    ListKit::KeyMap* m_assets;     // +0x1C
-    CResource* m_readyFlag;             // +0x20 the head of the loaded list
-    CResource* m_pending;            // +0x24 the head of the pending list
-    LoadCallback m_callback;      // +0x28 given to the next assets loaded
-    void* m_callbackData0;        // +0x2C
-    void* m_callbackData1;        // +0x30
-    bool m_callbackOnce;          // +0x34 the callback cleared after one asset
+    int unknown18_;              // +0x18 set by 0x00407A70 (not read here)
+    lists::KeyMap* assets_;     // +0x1C
+    Resource* ready_flag_;             // +0x20 the head of the loaded list
+    Resource* pending_;            // +0x24 the head of the pending list
+    LoadCallback callback_;      // +0x28 given to the next assets loaded
+    void* callback_data0_;        // +0x2C
+    void* callback_data1_;        // +0x30
+    bool callback_once_;          // +0x34 the callback cleared after one asset
     uint8_t pad35[3];
-    Scheduling::SchedulerTask* m_task;        // +0x38 a Scheduling::Task<CResourceRegistry> running ProcessTask
+    tasks::SchedulerTask* task_;        // +0x38 a tasks::Task<ResourceRegistry> running process_task
 };
-static_assert(sizeof(CResourceRegistry) == 0x3C && offsetof(CResourceRegistry, m_assets) == 0x1C && offsetof(CResourceRegistry, m_task) == 0x38,
+static_assert(sizeof(ResourceRegistry) == 0x3C && offsetof(ResourceRegistry, assets_) == 0x1C && offsetof(ResourceRegistry, task_) == 0x38,
               "layout must match the original");
 
 // 0x004088E0: the first call with `create` makes the manager; every call takes a reference. Returns the manager.
-CResourceRegistry* CreateAssetManager(bool create);
+ResourceRegistry* create_asset_manager(bool create);
 // 0x00407980: drops a reference; the last deletes it.
-void ReleaseAssetManager();
-extern CResourceRegistry* g_assetManager;
-inline CResourceRegistry*& AssetManager() { return g_assetManager; }
+void release_asset_manager();
+extern ResourceRegistry* g_asset_manager;
+inline ResourceRegistry*& asset_manager() { return g_asset_manager; }
 
-extern FrameLoop::Hub* g_mainLoopManager;
+extern frame_loop::Hub* g_main_loop_manager;
 
 } // namespace Ass

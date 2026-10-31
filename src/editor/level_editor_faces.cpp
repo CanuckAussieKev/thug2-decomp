@@ -21,7 +21,7 @@
 #include "engine/core/game_vtables.h"
 #include "imgui.h"
 
-namespace MenuSystem::LevelEditor::Faces {
+namespace frontend::level_editor::faces {
 
 // --- the pure parts -------------------------------------------------------------------------------------------------
 
@@ -38,7 +38,7 @@ const FlagInfo kFlags[kFlagCount] = {
     {0x2000, "Not Taggable", "Can't be tagged with graffiti"},
 };
 
-int HexDigit(char c)
+int hex_digit(char c)
 {
     if (c >= '0' && c <= '9')
         return c - '0';
@@ -51,14 +51,14 @@ int HexDigit(char c)
 
 } // namespace
 
-const FlagInfo& BitMark(int index) { return kFlags[std::clamp(index, 0, kFlagCount - 1)]; }
+const FlagInfo& bit_mark(int index) { return kFlags[std::clamp(index, 0, kFlagCount - 1)]; }
 
-uint16_t Applied(uint16_t flags, uint16_t set, uint16_t clear)
+uint16_t get_applied(uint16_t flags, uint16_t set, uint16_t clear)
 {
     return static_cast<uint16_t>((flags | set) & ~clear);
 }
 
-int Combined(const std::vector<uint16_t>& flags, uint16_t bit)
+int get_combined(const std::vector<uint16_t>& flags, uint16_t bit)
 {
     if (flags.empty())
         return -1;
@@ -68,7 +68,7 @@ int Combined(const std::vector<uint16_t>& flags, uint16_t bit)
     return on == 0 ? 0 : on == flags.size() ? 1 : 2;
 }
 
-bool Click(std::vector<FaceKey>* selection, FaceKey key, bool add)
+bool get_click(std::vector<FaceKey>* selection, FaceKey key, bool add)
 {
     auto it = std::find(selection->begin(), selection->end(), key);
     if (!add) {
@@ -83,7 +83,7 @@ bool Click(std::vector<FaceKey>* selection, FaceKey key, bool add)
     return true;
 }
 
-std::string WriteRecords(const std::vector<SectorFaces>& sectors)
+std::string write_records(const std::vector<SectorFaces>& sectors)
 {
     std::string out;
     char text[32];
@@ -102,7 +102,7 @@ std::string WriteRecords(const std::vector<SectorFaces>& sectors)
     return out;
 }
 
-bool ReadRecord(std::istringstream& in, SectorFaces* out)
+bool read_record(std::istringstream& in, SectorFaces* out)
 {
     SectorFaces s;
     std::string checksum, list;
@@ -110,7 +110,7 @@ bool ReadRecord(std::istringstream& in, SectorFaces* out)
         return false;
     uint32_t value = 0;
     for (char c : checksum) {
-        int d = HexDigit(c);
+        int d = hex_digit(c);
         if (d < 0)
             return false;
         value = value << 4 | static_cast<uint32_t>(d);
@@ -133,7 +133,7 @@ bool ReadRecord(std::istringstream& in, SectorFaces* out)
             return false;
         uint32_t flags = 0;
         for (size_t i = colon + 1; i < item.size(); ++i) {
-            int d = HexDigit(item[i]);
+            int d = hex_digit(item[i]);
             if (d < 0)
                 return false;
             flags = flags << 4 | static_cast<uint32_t>(d);
@@ -154,15 +154,15 @@ bool ReadRecord(std::istringstream& in, SectorFaces* out)
     return true;
 }
 
-std::vector<SectorFaces> GroupSet(const std::vector<Change>& changes)
+std::vector<SectorFaces> group_set(const std::vector<Change>& changes)
 {
-    std::map<uint32_t, std::vector<std::pair<uint16_t, uint16_t>>> bySector;
+    std::map<uint32_t, std::vector<std::pair<uint16_t, uint16_t>>> by_sector;
     for (const Change& c : changes) {
         if (c.now != c.origin)
-            bySector[c.key.checksum].push_back({c.key.face, c.now});
+            by_sector[c.key.checksum].push_back({c.key.face, c.now});
     }
     std::vector<SectorFaces> out;
-    for (auto& entry : bySector) {
+    for (auto& entry : by_sector) {
         std::sort(entry.second.begin(), entry.second.end());
         out.push_back({entry.first, entry.second});
     }
@@ -173,75 +173,75 @@ std::vector<SectorFaces> GroupSet(const std::vector<Change>& changes)
 
 namespace {
 
-void** const& kCollStaticVtable = Vt::kVtblStaticColl;
+void** const& g_coll_static_vtable = vt::kVtblStaticColl;
 constexpr size_t kMostSelected = 8192;
 
 bool g_picking;
 std::vector<FaceKey> g_selection;
-bool g_haveHover;
+bool g_have_hover;
 FaceKey g_hover;
 std::map<FaceKey, uint16_t> g_origins; // (each face the editor changed: its flags as the level has them)
 std::vector<std::function<void()>> g_queue;
 
-// The sector's collision geometry (its CStaticCollider's), null for none.
-Engine3D::CTriMeshSource* Geometry(uint32_t checksum)
+// The sector's collision geometry (its StaticCollider's), null for none.
+render::TriMeshSource* get_geometry(uint32_t checksum)
 {
-    uint8_t* sector = Scenery::SectorOf(checksum);
+    uint8_t* sector = scenery::sector_of(checksum);
     uint8_t* coll = sector ? *reinterpret_cast<uint8_t**>(sector + 0x18) : nullptr;
-    if (!coll || *reinterpret_cast<void***>(coll) != kCollStaticVtable)
+    if (!coll || *reinterpret_cast<void***>(coll) != g_coll_static_vtable)
         return nullptr;
-    auto* tri = *reinterpret_cast<Engine3D::CTriMeshSource**>(coll + 0x0C);
-    return tri && tri->m_faces ? tri : nullptr;
+    auto* tri = *reinterpret_cast<render::TriMeshSource**>(coll + 0x0C);
+    return tri && tri->faces_ ? tri : nullptr;
 }
 
-uint16_t* Raw(Engine3D::CTriMeshSource* tri, int face)
+uint16_t* get_raw(render::TriMeshSource* tri, int face)
 {
-    return reinterpret_cast<uint16_t*>(tri->m_faces + face * (tri->m_smallFaces ? 8 : 10));
+    return reinterpret_cast<uint16_t*>(tri->faces_ + face * (tri->small_faces_ ? 8 : 10));
 }
 
 // The face's flags written (a taken face: in its companion - the original keeps 0x10); its level's flags noted first.
-bool EmitOut(FaceKey key, uint16_t flags)
+bool emit_out(FaceKey key, uint16_t flags)
 {
-    Engine3D::CTriMeshSource* tri = Geometry(key.checksum);
-    if (!tri || key.face >= tri->m_triCount)
+    render::TriMeshSource* tri = get_geometry(key.checksum);
+    if (!tri || key.face >= tri->tri_count_)
         return false;
     if (!g_origins.count(key)) {
         uint16_t origin = 0;
-        if (!TakeIn(key, &origin))
+        if (!get_take_in(key, &origin))
             return false;
         g_origins[key] = origin;
     }
-    if (!SharedCollision::SetTakenFlags(tri, key.face, flags))
-        *Raw(tri, key.face) = flags;
+    if (!shared_collision::set_taken_flags(tri, key.face, flags))
+        *get_raw(tri, key.face) = flags;
     return true;
 }
 
 // The face's corners where the skater meets it (a taken face: its companion's).
-bool Corners(FaceKey key, V3 out[3])
+bool get_corners(FaceKey key, V3 out[3])
 {
-    Engine3D::CTriMeshSource* tri = Geometry(key.checksum);
-    if (!tri || key.face >= tri->m_triCount || !tri->m_vertices)
+    render::TriMeshSource* tri = get_geometry(key.checksum);
+    if (!tri || key.face >= tri->tri_count_ || !tri->vertices_)
         return false;
     uint32_t piece = 0;
     int index = -1;
-    if (SharedCollision::TakenFace(tri, key.face, &piece, &index, nullptr)) {
-        const SharedCollision::Companion* companion = SharedCollision::CompanionOf(piece);
-        if (!companion || index >= companion->FaceCount())
+    if (shared_collision::taken_face(tri, key.face, &piece, &index, nullptr)) {
+        const shared_collision::Companion* companion = shared_collision::companion_of(piece);
+        if (!companion || index >= companion->face_count())
             return false;
         for (int k = 0; k < 3; ++k) {
-            uint32_t v = companion->Geometry().FaceVertex(index, k);
-            if (v >= static_cast<uint32_t>(companion->VertexCount()))
+            uint32_t v = companion->get_geometry().face_vertex(index, k);
+            if (v >= static_cast<uint32_t>(companion->get_vertex_count()))
                 return false;
-            out[k] = companion->Vertex(static_cast<int>(v));
+            out[k] = companion->get_vertex(static_cast<int>(v));
         }
         return true;
     }
     for (int k = 0; k < 3; ++k) {
-        uint32_t v = tri->FaceVertex(key.face, k);
-        if (v >= tri->m_numVertices)
+        uint32_t v = tri->face_vertex(key.face, k);
+        if (v >= tri->num_vertices_)
             return false;
-        Maths::Vec4 p;
-        tri->ReadStoredVertex(static_cast<int>(v), &p);
+        maths::Vec4 p;
+        tri->read_stored_vertex(static_cast<int>(v), &p);
         out[k] = {p.x, p.y, p.z};
     }
     return true;
@@ -249,23 +249,23 @@ bool Corners(FaceKey key, V3 out[3])
 
 // A face the ray hit, as a level face (a companion's: the face it was taken from). False: a copy's face (nothing to
 // save), or gone.
-bool KeyOf(const View::FaceHit& hit, FaceKey* key, std::string* why)
+bool get_key_of(const view::FaceHit& hit, FaceKey* key, std::string* why)
 {
     uint32_t checksum = hit.checksum;
     int face = hit.face;
     if (hit.companion) {
-        Engine3D::CTriMeshSource* geometry = nullptr;
-        if (!SharedCollision::OriginOf(hit.checksum, hit.face, &geometry, &face) || !geometry) {
+        render::TriMeshSource* geometry = nullptr;
+        if (!shared_collision::origin_of(hit.checksum, hit.face, &geometry, &face) || !geometry) {
             *why = "Face belongs to a copy; edit the source";
             return false;
         }
-        checksum = geometry->m_checksum;
+        checksum = geometry->checksum_;
     }
-    if (Scenery::IsClone(checksum)) {
+    if (scenery::is_clone(checksum)) {
         *why = "Face belongs to a copy; edit the source";
         return false;
     }
-    if (!Geometry(checksum) || face < 0 || face > 0xFFFF) {
+    if (!get_geometry(checksum) || face < 0 || face > 0xFFFF) {
         *why = "Not a level collision face";
         return false;
     }
@@ -276,19 +276,19 @@ bool KeyOf(const View::FaceHit& hit, FaceKey* key, std::string* why)
 struct Step : ModuleStep {
     std::vector<std::pair<FaceKey, uint16_t>> flags;
     std::vector<FaceKey> selection;
-    void Restore() override
+    void get_restore() override
     {
         for (const auto& f : flags)
-            EmitOut(f.first, f.second);
+            emit_out(f.first, f.second);
         g_selection = selection;
-        View::StaleCache();
+        view::stale_cache();
     }
-    std::shared_ptr<ModuleStep> Now() const override
+    std::shared_ptr<ModuleStep> get_now() const override
     {
         auto now = std::make_shared<Step>();
         for (const auto& f : flags) {
             uint16_t value = f.second;
-            TakeIn(f.first, &value);
+            get_take_in(f.first, &value);
             now->flags.push_back({f.first, value});
         }
         now->selection = g_selection;
@@ -296,119 +296,119 @@ struct Step : ModuleStep {
     }
 };
 
-std::shared_ptr<Step> Capture(const std::vector<FaceKey>& keys)
+std::shared_ptr<Step> get_capture(const std::vector<FaceKey>& keys)
 {
     auto step = std::make_shared<Step>();
     for (const FaceKey& key : keys) {
         uint16_t value = 0;
-        if (TakeIn(key, &value))
+        if (get_take_in(key, &value))
             step->flags.push_back({key, value});
     }
     step->selection = g_selection;
     return step;
 }
 
-std::string PieceLabel(uint32_t checksum) { return Objects::Caption(checksum); }
+std::string piece_label(uint32_t checksum) { return object_edit::caption(checksum); }
 
 } // namespace
 
-bool Picking() { return g_picking; }
+bool get_picking() { return g_picking; }
 
-void SetPicking(bool on)
+void set_picking(bool on)
 {
     // The collision view comes on with Face Select and goes off with it again if Face Select turned it on.
-    static bool s_turnedCollisionOn;
+    static bool s_turned_collision_on;
     if (on && !g_picking) {
-        s_turnedCollisionOn = !View::ShowCollision();
-        if (s_turnedCollisionOn)
-            View::SetShowCollision(true);
+        s_turned_collision_on = !view::show_collision();
+        if (s_turned_collision_on)
+            view::set_show_collision(true);
     } else if (!on && g_picking) {
-        if (s_turnedCollisionOn && View::ShowCollision())
-            View::SetShowCollision(false);
-        s_turnedCollisionOn = false;
+        if (s_turned_collision_on && view::show_collision())
+            view::set_show_collision(false);
+        s_turned_collision_on = false;
     }
     g_picking = on;
     if (!on)
-        g_haveHover = false;
+        g_have_hover = false;
 }
 
-void Kickoff()
+void kickoff()
 {
-    Actions::SetChecked(Actions::kFaces, [] { return g_picking ? 1 : 0; }); // (its check in the View menu)
+    actions::set_checked(actions::kFaces, [] { return g_picking ? 1 : 0; }); // (its check in the View menu)
     g_picking = false;
     g_selection.clear();
-    g_haveHover = false;
+    g_have_hover = false;
 }
 
-void Halt()
+void halt()
 {
     g_picking = false;
     g_selection.clear();
-    g_haveHover = false;
+    g_have_hover = false;
     g_queue.clear();
 }
 
-const std::vector<FaceKey>& Selection() { return g_selection; }
-bool HasSelection() { return !g_selection.empty(); }
-void ClearSelection() { g_selection.clear(); }
+const std::vector<FaceKey>& get_selection() { return g_selection; }
+bool has_selection() { return !g_selection.empty(); }
+void clear_selection() { g_selection.clear(); }
 
-bool ClickAt(V3 origin, V3 unitDir, bool add)
+bool click_at(V3 origin, V3 unit_dir, bool add)
 {
-    View::FaceHit hit;
-    if (!View::PickFace(origin, unitDir, &hit)) {
+    view::FaceHit hit;
+    if (!view::pick_face(origin, unit_dir, &hit)) {
         if (!add)
             g_selection.clear();
-        Hud::Message("No collision face under cursor");
+        hud::get_message("No collision face under cursor");
         return false;
     }
     FaceKey key;
     std::string why;
-    if (!KeyOf(hit, &key, &why)) {
-        Hud::Message(why, 4.0);
+    if (!get_key_of(hit, &key, &why)) {
+        hud::get_message(why, 4.0);
         return false;
     }
     if (add && g_selection.size() >= kMostSelected && std::find(g_selection.begin(), g_selection.end(), key) == g_selection.end()) {
-        Hud::Message("Limit: 8192 faces");
+        hud::get_message("Limit: 8192 faces");
         return false;
     }
-    bool selected = Click(&g_selection, key, add);
+    bool selected = get_click(&g_selection, key, add);
     uint16_t flags = 0;
-    TakeIn(key, &flags);
+    get_take_in(key, &flags);
     char text[160];
     std::snprintf(text, sizeof(text), "Face %u of %s %s - flags 0x%04X (%u selected)", static_cast<unsigned>(key.face),
-                  PieceLabel(key.checksum).c_str(), selected ? "selected" : "dropped", flags,
+                  piece_label(key.checksum).c_str(), selected ? "selected" : "dropped", flags,
                   static_cast<unsigned>(g_selection.size()));
-    Hud::Message(text);
-    if (DebugEnabled())
-        Log("level editor: %s", text);
+    hud::get_message(text);
+    if (debug_enabled())
+        get_log("level editor: %s", text);
     return true;
 }
 
-void Hover(V3 origin, V3 unitDir, bool haveRay)
+void get_hover(V3 origin, V3 unit_dir, bool have_ray)
 {
-    g_haveHover = false;
-    View::FaceHit hit;
+    g_have_hover = false;
+    view::FaceHit hit;
     std::string why;
-    if (g_picking && haveRay && View::PickFace(origin, unitDir, &hit) && KeyOf(hit, &g_hover, &why))
-        g_haveHover = true;
+    if (g_picking && have_ray && view::pick_face(origin, unit_dir, &hit) && get_key_of(hit, &g_hover, &why))
+        g_have_hover = true;
 }
 
-bool SelectPiece(uint32_t checksum, bool add)
+bool select_piece(uint32_t checksum, bool add)
 {
     std::vector<FaceKey> faces;
-    if (Scenery::IsClone(checksum))
+    if (scenery::is_clone(checksum))
         return false;
-    if (Engine3D::CTriMeshSource* tri = Geometry(checksum)) {
-        for (int f = 0; f < tri->m_triCount && faces.size() < kMostSelected; ++f)
+    if (render::TriMeshSource* tri = get_geometry(checksum)) {
+        for (int f = 0; f < tri->tri_count_ && faces.size() < kMostSelected; ++f)
             faces.push_back({checksum, static_cast<uint16_t>(f)});
     }
     // (the faces its shared collision took along: theirs to edit too)
-    if (const SharedCollision::Companion* companion = SharedCollision::CompanionOf(checksum)) {
-        for (int i = 0; i < companion->FaceCount() && faces.size() < kMostSelected; ++i) {
-            Engine3D::CTriMeshSource* geometry = nullptr;
+    if (const shared_collision::Companion* companion = shared_collision::companion_of(checksum)) {
+        for (int i = 0; i < companion->face_count() && faces.size() < kMostSelected; ++i) {
+            render::TriMeshSource* geometry = nullptr;
             int face = -1;
-            if (SharedCollision::OriginOf(checksum, i, &geometry, &face) && geometry && face >= 0)
-                faces.push_back({geometry->m_checksum, static_cast<uint16_t>(face)});
+            if (shared_collision::origin_of(checksum, i, &geometry, &face) && geometry && face >= 0)
+                faces.push_back({geometry->checksum_, static_cast<uint16_t>(face)});
         }
     }
     if (faces.empty())
@@ -424,114 +424,114 @@ bool SelectPiece(uint32_t checksum, bool add)
     return true;
 }
 
-bool TakeIn(FaceKey key, uint16_t* flags)
+bool get_take_in(FaceKey key, uint16_t* flags)
 {
-    Engine3D::CTriMeshSource* tri = Geometry(key.checksum);
-    if (!tri || key.face >= tri->m_triCount)
+    render::TriMeshSource* tri = get_geometry(key.checksum);
+    if (!tri || key.face >= tri->tri_count_)
         return false;
-    if (!SharedCollision::TakenFace(tri, key.face, nullptr, nullptr, flags))
-        *flags = *Raw(tri, key.face);
+    if (!shared_collision::taken_face(tri, key.face, nullptr, nullptr, flags))
+        *flags = *get_raw(tri, key.face);
     return true;
 }
 
-bool SetFlag(uint16_t bit, bool on)
+bool set_flag(uint16_t bit, bool on)
 {
     if (g_selection.empty())
         return false;
-    std::shared_ptr<Step> before = Capture(g_selection);
+    std::shared_ptr<Step> before = get_capture(g_selection);
     bool changed = false;
     int faces = 0;
     for (const FaceKey& key : g_selection) {
         uint16_t flags = 0;
-        if (!TakeIn(key, &flags))
+        if (!get_take_in(key, &flags))
             continue;
-        uint16_t now = on ? Applied(flags, bit, 0) : Applied(flags, 0, bit);
-        if (now != flags && EmitOut(key, now)) {
+        uint16_t now = on ? get_applied(flags, bit, 0) : get_applied(flags, 0, bit);
+        if (now != flags && emit_out(key, now)) {
             changed = true;
             ++faces;
         }
     }
     if (!changed)
         return false;
-    PushModuleUndo(before);
-    View::StaleCache();
+    push_module_undo(before);
+    view::stale_cache();
     char text[128];
     std::snprintf(text, sizeof(text), "Face flag 0x%04X %s on %d face%s", bit,
                   on ? "set" : "cleared", faces, faces == 1 ? "" : "s");
-    Hud::Message(text);
-    Log("level editor: %s", text);
+    hud::get_message(text);
+    get_log("level editor: %s", text);
     return true;
 }
 
-bool HomeSelection()
+bool home_selection()
 {
     if (g_selection.empty())
         return false;
-    std::shared_ptr<Step> before = Capture(g_selection);
+    std::shared_ptr<Step> before = get_capture(g_selection);
     int faces = 0;
     for (const FaceKey& key : g_selection) {
         auto origin = g_origins.find(key);
         uint16_t now = 0;
-        if (origin != g_origins.end() && TakeIn(key, &now) && now != origin->second && EmitOut(key, origin->second))
+        if (origin != g_origins.end() && get_take_in(key, &now) && now != origin->second && emit_out(key, origin->second))
             ++faces;
     }
     if (faces) {
-        PushModuleUndo(before);
-        View::StaleCache();
+        push_module_undo(before);
+        view::stale_cache();
     }
-    Hud::Message(faces ? "Face flags reverted" : "Face flags already original");
+    hud::get_message(faces ? "Face flags reverted" : "Face flags already original");
     return true;
 }
 
-std::vector<SectorFaces> Changed()
+std::vector<SectorFaces> get_changed()
 {
     std::vector<Change> changes;
     for (const auto& origin : g_origins) {
         uint16_t now = 0;
-        if (TakeIn(origin.first, &now))
+        if (get_take_in(origin.first, &now))
             changes.push_back({origin.first, origin.second, now});
     }
-    return GroupSet(changes);
+    return group_set(changes);
 }
 
-int Apply(const std::vector<SectorFaces>& sectors)
+int get_apply(const std::vector<SectorFaces>& sectors)
 {
     int count = 0, missing = 0;
     for (const SectorFaces& s : sectors) {
         for (const auto& face : s.faces) {
-            if (EmitOut({s.checksum, face.first}, face.second))
+            if (emit_out({s.checksum, face.first}, face.second))
                 ++count;
             else
                 ++missing;
         }
     }
     if (count)
-        View::StaleCache();
+        view::stale_cache();
     if (missing)
-        Log("level editor: %d edited collision faces aren't in this level's collision - skipped", missing);
+        get_log("level editor: %d edited collision faces aren't in this level's collision - skipped", missing);
     return count;
 }
 
-void ResetAll()
+void reset_all()
 {
     for (const auto& origin : g_origins) {
         uint16_t now = 0;
-        if (TakeIn(origin.first, &now) && now != origin.second)
-            EmitOut(origin.first, origin.second);
+        if (get_take_in(origin.first, &now) && now != origin.second)
+            emit_out(origin.first, origin.second);
     }
     g_selection.clear();
-    View::StaleCache();
+    view::stale_cache();
 }
 
-void ForgetLevel()
+void forget_level()
 {
     g_origins.clear();
     g_selection.clear();
-    g_haveHover = false;
+    g_have_hover = false;
     g_queue.clear();
 }
 
-void TickFrame()
+void tick_frame()
 {
     std::vector<std::function<void()>> queue;
     queue.swap(g_queue);
@@ -541,29 +541,29 @@ void TickFrame()
     g_selection.erase(std::remove_if(g_selection.begin(), g_selection.end(),
                                      [](const FaceKey& key) {
                                          uint16_t flags;
-                                         return !TakeIn(key, &flags);
+                                         return !get_take_in(key, &flags);
                                      }),
                       g_selection.end());
 }
 
-void AddOverlay(V3 cameraPos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
-                std::vector<Ui::Seg>* lines)
+void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+                std::vector<ui::Seg>* lines)
 {
     auto outline = [&](FaceKey key, uint32_t argb, float thickness) {
         V3 p[3];
-        if (!Corners(key, p))
+        if (!get_corners(key, p))
             return;
         for (int k = 0; k < 3; ++k) {
             V3 a = p[k], b = p[(k + 1) % 3];
-            if (!ClipToNear(cameraPos, frame, nearZ + 0.01f, &a, &b))
+            if (!clip_to_near(camera_pos, frame, near_z + 0.01f, &a, &b))
                 continue;
             float ax, ay, bx, by, nx, ny;
-            if (!CastOnto(cameraPos, frame, lens, a, nearZ, &nx, &ny))
+            if (!cast_onto(camera_pos, frame, lens, a, near_z, &nx, &ny))
                 continue;
-            NdcToPixel(viewport, nx, ny, &ax, &ay);
-            if (!CastOnto(cameraPos, frame, lens, b, nearZ, &nx, &ny))
+            ndc_to_pixel(viewport, nx, ny, &ax, &ay);
+            if (!cast_onto(camera_pos, frame, lens, b, near_z, &nx, &ny))
                 continue;
-            NdcToPixel(viewport, nx, ny, &bx, &by);
+            ndc_to_pixel(viewport, nx, ny, &bx, &by);
             lines->push_back({ax, ay, bx, by, argb, thickness});
         }
     };
@@ -573,11 +573,11 @@ void AddOverlay(V3 cameraPos, const TickCycle& frame, const Lens& lens, const ui
             break;
         outline(key, 0xFF40F0FF, 2.0f);
     }
-    if (g_picking && g_haveHover)
+    if (g_picking && g_have_hover)
         outline(g_hover, 0xFFFFF040, 2.5f);
 }
 
-std::string Describe()
+std::string describe()
 {
     char text[96];
     std::snprintf(text, sizeof(text), "Faces mode%s: %u selected", g_picking ? "" : " off",
@@ -585,7 +585,7 @@ std::string Describe()
     return text;
 }
 
-void InspectorSection(ImFont* mono, ImFont* smallFont)
+void inspector_section(ImFont* mono, ImFont* small_font)
 {
     if (!g_picking && g_selection.empty())
         return;
@@ -593,12 +593,12 @@ void InspectorSection(ImFont* mono, ImFont* smallFont)
     ImGui::Separator();
     if (!ImGui::CollapsingHeader("Collision faces###faceflags", ImGuiTreeNodeFlags_DefaultOpen))
         return;
-    ImGui::PushFont(smallFont);
+    ImGui::PushFont(small_font);
     ImGui::TextDisabled("%s", g_picking ? "Click a face to select, Shift+click to add" : "Face Select is off");
     ImGui::PopFont();
     bool picking = g_picking;
     if (ImGui::Checkbox("Face Select Mode", &picking))
-        g_queue.push_back([picking] { SetPicking(picking); });
+        g_queue.push_back([picking] { set_picking(picking); });
     if (g_selection.empty()) {
         ImGui::TextDisabled("No faces selected");
         return;
@@ -607,7 +607,7 @@ void InspectorSection(ImFont* mono, ImFont* smallFont)
     std::vector<uint32_t> pieces;
     for (const FaceKey& key : g_selection) {
         uint16_t f = 0;
-        if (TakeIn(key, &f))
+        if (get_take_in(key, &f))
             flags.push_back(f);
         if (std::find(pieces.begin(), pieces.end(), key.checksum) == pieces.end())
             pieces.push_back(key.checksum);
@@ -615,50 +615,50 @@ void InspectorSection(ImFont* mono, ImFont* smallFont)
     ImGui::PushFont(mono);
     if (g_selection.size() == 1 && !flags.empty())
         ImGui::Text("face %u of %s: 0x%04X", static_cast<unsigned>(g_selection[0].face),
-                    PieceLabel(g_selection[0].checksum).c_str(), flags[0]);
+                    piece_label(g_selection[0].checksum).c_str(), flags[0]);
     else
         ImGui::Text("%u faces in %u piece%s", static_cast<unsigned>(g_selection.size()),
                     static_cast<unsigned>(pieces.size()), pieces.size() == 1 ? "" : "s");
     ImGui::PopFont();
     for (int i = 0; i < kFlagCount; ++i) {
         const FlagInfo& info = kFlags[i];
-        int state = Combined(flags, info.bit);
+        int state = get_combined(flags, info.bit);
         bool on = state == 1;
         char label[64];
         std::snprintf(label, sizeof(label), "%s%s##face%d", info.name, state == 2 ? " (some)" : "", i);
         if (ImGui::Checkbox(label, &on)) {
             uint16_t bit = info.bit;
             bool set = state != 1; // (mixed or clear: set on all; all set: clear)
-            g_queue.push_back([bit, set] { SetFlag(bit, set); });
+            g_queue.push_back([bit, set] { set_flag(bit, set); });
         }
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("%s", info.what);
     }
     if (ImGui::Button("Home (the level's flags)##faces"))
-        g_queue.push_back([] { HomeSelection(); });
+        g_queue.push_back([] { home_selection(); });
     ImGui::SameLine();
     if (ImGui::Button("Drop selection##faces"))
-        g_queue.push_back([] { ClearSelection(); });
+        g_queue.push_back([] { clear_selection(); });
     uint32_t piece = g_selection.back().checksum;
-    std::string allLabel = "All faces of " + PieceLabel(piece);
-    if (ImGui::Button(allLabel.c_str()))
+    std::string all_label = "All faces of " + piece_label(piece);
+    if (ImGui::Button(all_label.c_str()))
         g_queue.push_back([piece] {
-            if (SelectPiece(piece, false))
-                Hud::Message("Selected all faces of " + PieceLabel(piece));
+            if (select_piece(piece, false))
+                hud::get_message("Selected all faces of " + piece_label(piece));
         });
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Select all faces of this piece");
-    if (Scenery::HasSelection()) {
+    if (scenery::has_selection()) {
         ImGui::SameLine();
         if (ImGui::Button("Select All Faces"))
             g_queue.push_back([] {
-                std::vector<uint32_t> sectors = Scenery::Selection();
+                std::vector<uint32_t> sectors = scenery::get_selection();
                 bool any = false;
                 for (size_t i = 0; i < sectors.size(); ++i)
-                    any = SelectPiece(sectors[i], any) || any;
-                Hud::Message(any ? "Selected all faces" : "Selection has no collision");
+                    any = select_piece(sectors[i], any) || any;
+                hud::get_message(any ? "Selected all faces" : "Selection has no collision");
             });
     }
 }
 
-} // namespace MenuSystem::LevelEditor::Faces
+} // namespace MenuSystem::level_editor::Faces

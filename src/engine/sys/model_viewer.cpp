@@ -41,7 +41,7 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/script/cfuncs_scene.h"
 
-namespace GameModules {
+namespace modules {
 
 namespace {
 
@@ -54,29 +54,29 @@ constexpr uint32_t kUserViewerTriangle = 0xC09789E2;   // UserViewerTriangle
 constexpr uint32_t kUserViewerX = 0xF440EC15;          // UserViewerX
 
 extern void** const kVtable;
-extern void** const kBaseHandlerVtable; // PadInput::BaseHandler
+extern void** const kBaseHandlerVtable; // pad_input::BaseHandler
 
-int& ViewModeValue() { return GameObjects::g_viewMode; }
+int& view_mode_value() { return objects::g_view_mode; }
 
-float g_rotateVelocity;
-float g_movementVelocity;
+float g_rotate_velocity;
+float g_movement_velocity;
 Viewer* g_viewer;
-uint32_t g_lastTime;
+uint32_t g_last_time;
 
-Viewer*& Sole() { return g_viewer; }
-bool& RunNowLoaded() { return g_pendingScript; }
+Viewer*& sole() { return g_viewer; }
+bool& run_now_loaded() { return g_pending_script; }
 
-// A task or input handler (a Scheduling::SchedulerTask) off its list (0x004068F0), and its destructor (0x00406930).
-void RemoveNode(void* node) { static_cast<Scheduling::SchedulerTask*>(node)->DropOut(); }
-void DestroyListNode(void* node) { static_cast<Scheduling::SchedulerTask*>(node)->Destruct(); }
+// A task or input handler (a tasks::SchedulerTask) off its list (0x004068F0), and its destructor (0x00406930).
+void remove_node(void* node) { static_cast<tasks::SchedulerTask*>(node)->drop_out(); }
+void destroy_list_node(void* node) { static_cast<tasks::SchedulerTask*>(node)->destruct(); }
 // An object's scalar deleting destructor, through its vtable slot `slot`.
-void EraseOne(void* object, int slot)
+void erase_one(void* object, int slot)
 {
     reinterpret_cast<void*(__thiscall*)(void*, int)>((*static_cast<void***>(object))[slot])(object, 1);
 }
-void ShutDownObject(void* object) { static_cast<GameObjects::CPreviewEntity*>(object)->PowerDown(); }
+void shut_down_object(void* object) { static_cast<objects::PreviewEntity*>(object)->power_down(); }
 
-void LaunchScript(uint32_t name) { Scripts::LaunchScript(name, nullptr, nullptr, false, nullptr); }
+void launch_script(uint32_t name) { script::launch_script(name, nullptr, nullptr, false, nullptr); }
 
 // More names.
 constexpr uint32_t kViewerPadKey = 0x702247A5;       // the controller the handlers read (a script integer)
@@ -90,31 +90,31 @@ constexpr uint32_t kReloadScene = 0x179BB868;            // ReloadScene (a scrip
 constexpr uint32_t kModelName = 0xB974F2FC;              // modelname
 constexpr uint32_t kSkeletonName = 0x09794932;           // skeletonName
 
-float& MovementVelocity() { return g_movementVelocity; }
-float& RotateVelocity() { return g_rotateVelocity; }
-uint32_t& LastTime() { return g_lastTime; }
-bool DebugChecks() { return GameConfig::g_fromCD; }
-uint8_t* InputManager() { return reinterpret_cast<uint8_t*>(PadInput::g_inputManager); }    // PadInput::Hub
-FrameLoop::Hub* MainLoopManager() { return AssetStore::g_mainLoopManager; }
+float& movement_velocity() { return g_movement_velocity; }
+float& rotate_velocity() { return g_rotate_velocity; }
+uint32_t& last_time() { return g_last_time; }
+bool debug_checks() { return game_config::g_from_cd; }
+uint8_t* input_manager() { return reinterpret_cast<uint8_t*>(pad_input::g_input_manager); }    // pad_input::Hub
+frame_loop::Hub* main_loop_manager() { return assets::g_main_loop_manager; }
 
-void ConstructNode(void* node, int priority) { static_cast<Scheduling::SchedulerTask*>(node)->MakeNew(priority); }
-void AppendVertex(Scheduling::PileUp& list, void* node) { list.QueueJob(static_cast<Scheduling::SchedulerTask*>(node)); }
+void construct_node(void* node, int priority) { static_cast<tasks::SchedulerTask*>(node)->make_new(priority); }
+void append_vertex(tasks::PileUp& list, void* node) { list.queue_job(static_cast<tasks::SchedulerTask*>(node)); }
 
-Scripts::CStruct* SpawnParamTable()
+script::Struct* spawn_param_table()
 {
-    Scripts::CStruct* memory = Scripts::SpawnParamBag();
-    return memory ? memory->PrepareAll() : nullptr;
+    script::Struct* memory = script::spawn_param_bag();
+    return memory ? memory->prepare_all() : nullptr;
 }
-void DeleteStructure(Scripts::CStruct* structure)
+void delete_structure(script::Struct* structure)
 {
     if (structure) {
-        structure->Clear();
-        Scripts::DeleteStruct(structure);
+        structure->get_clear();
+        script::delete_struct(structure);
     }
 }
 
 // A raw stick value through the dead zone: 0 within +-50, else scaled from there.
-float DeadZone(float value)
+float dead_zone(float value)
 {
     constexpr float kScale = 0.012820513f; // 0x0064EBEC (1 / 78)
     if (value > 50.0f)
@@ -125,259 +125,259 @@ float DeadZone(float value)
 }
 
 // `object` rolled by `angle` about the world's z axis (the rotation before its matrix).
-void Roll(GameObjects::CGameEntity* object, float angle)
+void get_roll(objects::GameEntity* object, float angle)
 {
-    Maths::Vec4 axis = {0.0f, 0.0f, 1.0f, 1.0f};
-    Maths::Mat4 rotation;
-    Maths::BuildAxisAngleMatrix(rotation, axis, angle);
-    Maths::Multiply(object->m_basisFrame, rotation, object->m_basisFrame);
+    maths::Vec4 axis = {0.0f, 0.0f, 1.0f, 1.0f};
+    maths::Mat4 rotation;
+    maths::build_axis_angle_matrix(rotation, axis, angle);
+    maths::get_multiply(object->basis_frame_, rotation, object->basis_frame_);
 }
 
-void AddInputHandler(ViewerInputHandler* handler)
+void add_input_handler(ViewerInputHandler* handler)
 {
-    uint8_t* server = InputManager() + handler->m_ordinal * 0x84;
-    AppendVertex(*reinterpret_cast<Scheduling::PileUp*>(server + 8), handler); // (the server's handler list)
-    handler->m_controlData = reinterpret_cast<PadInput::Payload*>(server + 0x44);
-    handler->m_dev = *reinterpret_cast<uint8_t**>(server + 4);
+    uint8_t* server = input_manager() + handler->ordinal_ * 0x84;
+    append_vertex(*reinterpret_cast<tasks::PileUp*>(server + 8), handler); // (the server's handler list)
+    handler->control_data_ = reinterpret_cast<pad_input::Payload*>(server + 0x44);
+    handler->dev_ = *reinterpret_cast<uint8_t**>(server + 4);
 }
 
 } // namespace
 
 // 0x00577270
-void ViewerInputHandler::Hdl() { m_codeValue(this); }
+void ViewerInputHandler::hdl() { code_value_(this); }
 
 // 0x00577280
-void ViewerInputHandler::DestroyBody()
+void ViewerInputHandler::destroy_body()
 {
     *reinterpret_cast<void***>(this) = kBaseHandlerVtable;
-    DestroyListNode(this);
+    destroy_list_node(this);
 }
 
 // 0x00577290
-void ViewerInputHandler::DestroyNode() { DestroyListNode(this); }
+void ViewerInputHandler::destroy_node() { destroy_list_node(this); }
 
 // 0x00536670
-ViewerInputHandler* ViewerInputHandler::Teardown(unsigned int flags)
+ViewerInputHandler* ViewerInputHandler::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00576CB0
-Scripts::CScript* SpawnScriptIfExists(uint32_t name)
+script::Script* spawn_script_if_exists(uint32_t name)
 {
-    if (!Scripts::ScriptExists(name)) // (a script of that name)
+    if (!script::script_exists(name)) // (a script of that name)
         return nullptr;
-    return Scripts::SpawnScript(name, nullptr, 0, nullptr, 0, 0, false, false, false, false);
+    return script::spawn_script(name, nullptr, 0, nullptr, 0, 0, false, false, false, false);
 }
 
 // 0x00576CF0
-int __cdecl ReloadScriptFile(const char** name)
+int __cdecl reload_script_file(const char** name)
 {
     const char* file = *name;
     if (std::strcmp(file, "..\\runnow.qb") == 0 || std::strcmp(file, "runnow.qb") == 0)
-        RunNowLoaded() = true;
-    Scripts::LoadQBFile(file, 0);
+        run_now_loaded() = true;
+    script::load_qb_file(file, 0);
     return 1;
 }
 
 // 0x00576D40
-void Viewer::DropViewerEntity()
+void Viewer::drop_viewer_entity()
 {
-    if (!m_entity)
+    if (!entity_)
         return;
-    ShutDownObject(m_entity);
-    if (m_entity)
-        EraseOne(m_entity, 0);
-    m_entity = nullptr;
+    shut_down_object(entity_);
+    if (entity_)
+        erase_one(entity_, 0);
+    entity_ = nullptr;
 }
 
 // 0x00576D70
-void Viewer::StopCallback()
+void Viewer::stop_callback()
 {
-    if (m_entity) {
-        EraseOne(m_entity, 0);
-        m_entity = nullptr;
+    if (entity_) {
+        erase_one(entity_, 0);
+        entity_ = nullptr;
     }
-    RemoveNode(m_padListener);
-    RemoveNode(m_task1C);
-    RemoveNode(m_task20);
-    RemoveNode(m_shiftHandler);
-    static_cast<NetLink::AppHost*>(m_netHandler)->m_dispatcher.TearDownState();
+    remove_node(pad_listener_);
+    remove_node(task_1c_);
+    remove_node(task20_);
+    remove_node(shift_handler_);
+    static_cast<net::AppHost*>(net_handler_)->dispatcher_.tear_down_state();
 }
 
 // 0x00576DC0
-void Viewer::DestroyBody()
+void Viewer::destroy_body()
 {
-    m_vtable = kVtable;
-    if (m_netHandler)
-        EraseOne(m_netHandler, 0);
+    vtable_ = kVtable;
+    if (net_handler_)
+        erase_one(net_handler_, 0);
     // (the handlers' and tasks' scalar deleting destructors are their vtables' slot 2)
-    if (m_padListener)
-        EraseOne(m_padListener, 2);
-    if (m_task1C)
-        EraseOne(m_task1C, 2);
-    if (m_task20)
-        EraseOne(m_task20, 2);
-    if (m_shiftHandler)
-        EraseOne(m_shiftHandler, 2);
-    Sole() = nullptr;
-    PartUnit::DestroyBody();
+    if (pad_listener_)
+        erase_one(pad_listener_, 2);
+    if (task_1c_)
+        erase_one(task_1c_, 2);
+    if (task20_)
+        erase_one(task20_, 2);
+    if (shift_handler_)
+        erase_one(shift_handler_, 2);
+    sole() = nullptr;
+    PartUnit::destroy_body();
 }
 
 // 0x00577230
-Viewer* Viewer::Teardown(uint8_t flags)
+Viewer* Viewer::teardown(uint8_t flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00576E60
-void* Viewer::GetViewerEntity() { return m_entity; }
+void* Viewer::get_viewer_entity() { return entity_; }
 
 // 0x00576E70
-void ChangeViewMode(int mode) { ViewModeValue() = mode; }
+void change_view_mode(int mode) { view_mode_value() = mode; }
 // 0x00576E80
-void SetMovementVelocity(float velocity) { g_movementVelocity = velocity; }
+void set_movement_velocity(float velocity) { g_movement_velocity = velocity; }
 // 0x00576E90
-void SetRotateVelocity(float velocity) { g_rotateVelocity = velocity; }
+void set_rotate_velocity(float velocity) { g_rotate_velocity = velocity; }
 // 0x00576EA0
-Viewer* GetLiveViewer() { return Sole(); }
+Viewer* get_live_viewer() { return sole(); }
 
 // 0x00576EB0
-void __cdecl HandleViewerShift(ViewerInputHandler* handler)
+void __cdecl handle_viewer_shift(ViewerInputHandler* handler)
 {
-    Viewer* viewer = handler->m_content;
-    viewer->m_shiftMakes = 0;
-    PadInput::Payload* data = handler->m_controlData;
-    if (!(data->m_buttons & 0x100)) // select
+    Viewer* viewer = handler->content_;
+    viewer->shift_makes_ = 0;
+    pad_input::Payload* data = handler->control_data_;
+    if (!(data->buttons_ & 0x100)) // select
         return;
-    viewer->m_shiftMakes |= data->m_makes;
-    if (Scripts::FetchIntValue(kSelectShift)) {
-        handler->m_controlData->BlockButtonInput(1);
-        handler->m_controlData->BlockStickInput(1);
+    viewer->shift_makes_ |= data->makes_;
+    if (script::fetch_int_value(kSelectShift)) {
+        handler->control_data_->block_button_input(1);
+        handler->control_data_->block_stick_input(1);
     }
 }
 
 // 0x00576F00
-void __cdecl HandleViewerInput(ViewerInputHandler* handler)
+void __cdecl handle_viewer_input(ViewerInputHandler* handler)
 {
-    Viewer* viewer = handler->m_content;
-    if (!ViewModeValue())
+    Viewer* viewer = handler->content_;
+    if (!view_mode_value())
         return;
     auto stick = [handler](int event) {
-        return static_cast<float>(static_cast<int>(handler->m_controlData->m_incident[event]) - 0x80);
+        return static_cast<float>(static_cast<int>(handler->control_data_->incident_[event]) - 0x80);
     };
-    viewer->m_padRX = stick(PadInput::Payload::kRawRightX);
-    viewer->m_padRY = stick(PadInput::Payload::kRawRightY);
-    viewer->m_padLX = stick(PadInput::Payload::kRawLeftX);
-    viewer->m_padLY = stick(PadInput::Payload::kRawLeftY);
+    viewer->pad_rx_ = stick(pad_input::Payload::kRawRightX);
+    viewer->pad_ry_ = stick(pad_input::Payload::kRawRightY);
+    viewer->pad_lx_ = stick(pad_input::Payload::kRawLeftX);
+    viewer->pad_ly_ = stick(pad_input::Payload::kRawLeftY);
     // Not original - debug mode's keyboard flying (engine/sys/debug_mode.h): held keys over the sticks, and up / down.
-    SystemCore::DebugMode::KeyboardViewer(&viewer->m_padLX, &viewer->m_padLY, &viewer->m_padRX, &viewer->m_padRY,
-                                   &viewer->m_actions);
-    if (!Scripts::FetchIntValue(kViewerButtonsEnabled))
+    sys::debug_mode::keyboard_viewer(&viewer->pad_lx_, &viewer->pad_ly_, &viewer->pad_rx_, &viewer->pad_ry_,
+                                   &viewer->actions_);
+    if (!script::fetch_int_value(kViewerButtonsEnabled))
         return;
-    auto held = [handler]() { return handler->m_controlData->m_buttons; };
-    auto made = [handler]() { return handler->m_controlData->m_makes; };
+    auto held = [handler]() { return handler->control_data_->buttons_; };
+    auto made = [handler]() { return handler->control_data_->makes_; };
     if (held() & 0x8) {
         if (!(made() & 0x2) && !(held() & 0x2))
-            viewer->m_actions |= 0x2;
+            viewer->actions_ |= 0x2;
     } else if (held() & 0x2) {
-        viewer->m_actions |= 0x4;
+        viewer->actions_ |= 0x4;
     }
     if (made() & 0x800)
-        viewer->m_actions |= 0x800;
-    if (viewer->m_modeSel == 0) {
+        viewer->actions_ |= 0x800;
+    if (viewer->mode_sel_ == 0) {
         if (made() & 0x10)
-            viewer->m_actions |= 0x400;
+            viewer->actions_ |= 0x400;
         if (made() & 0x80)
-            viewer->m_actions |= 0x100;
+            viewer->actions_ |= 0x100;
         if (made() & 0x20)
-            viewer->m_actions |= 0x200;
+            viewer->actions_ |= 0x200;
         if (made() & 0x40)
-            viewer->m_actions |= 0x80;
-    } else if (viewer->m_modeSel == 1) {
+            viewer->actions_ |= 0x80;
+    } else if (viewer->mode_sel_ == 1) {
         if (made() & 0x40)
-            viewer->m_actions |= 0x8000;
+            viewer->actions_ |= 0x8000;
     }
     if ((held() & 0x1000) && (made() & 0x1000))
-        viewer->m_actions |= 0x10;
+        viewer->actions_ |= 0x10;
     if ((held() & 0x4000) && (made() & 0x4000))
-        viewer->m_actions |= 0x8;
+        viewer->actions_ |= 0x8;
     if (held() & 0x2000)
-        viewer->m_actions |= 0x40;
+        viewer->actions_ |= 0x40;
     if (held() & 0x8000)
-        viewer->m_actions |= 0x20;
+        viewer->actions_ |= 0x20;
     if (made() & 0x200)
-        viewer->m_actions |= 0x4000;
+        viewer->actions_ |= 0x4000;
     if (held() & 0x4) {
         if (!(held() & 0x1))
-            viewer->m_actions |= 0x10000;
+            viewer->actions_ |= 0x10000;
     } else if (held() & 0x1) {
-        viewer->m_actions |= 0x20000;
+        viewer->actions_ |= 0x20000;
     }
     if (held() & 0x100) // (select: the shift handler's)
         return;
     if (made() & 0x80)
-        LaunchScript(kUserViewerSquare);
+        launch_script(kUserViewerSquare);
     if (made() & 0x20)
-        LaunchScript(kUserViewerCircle);
+        launch_script(kUserViewerCircle);
     if (made() & 0x10)
-        LaunchScript(kUserViewerTriangle);
+        launch_script(kUserViewerTriangle);
     if (made() & 0x40)
-        LaunchScript(kUserViewerX);
+        launch_script(kUserViewerX);
 }
 
 // 0x00577140
-int __cdecl HandleRemoveViewerObject(void** context)
+int __cdecl handle_remove_viewer_object(void** context)
 {
-    static_cast<Viewer*>(*context)->DropViewerEntity();
+    static_cast<Viewer*>(*context)->drop_viewer_entity();
     return 1;
 }
 
 // 0x00577170
-void Viewer::CreateViewerObject(void* data)
+void Viewer::create_viewer_object(void* data)
 {
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(ScriptCommands::g_gotExtraMemory ? static_cast<MemSys::MemSource*>(manager->m_debugHeap)
-                                                         : static_cast<MemSys::MemSource*>(manager->m_bottomUpHeap));
-    DropViewerEntity();
-    void* memory = MemSys::AllocZeroed(0x128);
-    m_entity = memory ? static_cast<GameObjects::CPreviewEntity*>(memory)->MakeNew(static_cast<NetLink::AppHost*>(m_netHandler)) : nullptr;
-    static_cast<GameObjects::CPreviewEntity*>(m_entity)->ReadIn(static_cast<Scripts::CStruct*>(data));
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(commands::g_got_extra_memory ? static_cast<memory::MemSource*>(manager->debug_heap_)
+                                                         : static_cast<memory::MemSource*>(manager->bottom_up_heap_));
+    drop_viewer_entity();
+    void* memory = memory::alloc_zeroed(0x128);
+    entity_ = memory ? static_cast<objects::PreviewEntity*>(memory)->make_new(static_cast<net::AppHost*>(net_handler_)) : nullptr;
+    static_cast<objects::PreviewEntity*>(entity_)->read_in(static_cast<script::Struct*>(data));
+    memory::Hub::get_pull()->leave_heap_scope();
 }
 
 // 0x00577260
-void Viewer::AddCommands(uint32_t commands) { m_actions |= commands; }
+void Viewer::add_commands(uint32_t commands) { actions_ |= commands; }
 
 // 0x005772E0
-void MoveObjectLocal(GameObjects::CGameEntity* object, const Maths::Vec4* offset)
+void move_object_local(objects::GameEntity* object, const maths::Vec4* offset)
 {
-    Maths::Mat4 m;
-    m = object->m_basisFrame;
-    const Maths::Vec4& v = *offset;
+    maths::Mat4 m;
+    m = object->basis_frame_;
+    const maths::Vec4& v = *offset;
     auto along = [&](int c) {
         return static_cast<double>(m.row[2][c]) * v.z + static_cast<double>(m.row[0][c]) * v.x +
                static_cast<double>(m.row[1][c]) * v.y;
     };
-    double x = along(0) + object->m_atPoint.x;
-    double y = along(1) + object->m_atPoint.y;
-    double z = along(2) + object->m_atPoint.z;
-    object->m_atPoint.z = static_cast<float>(z);
-    object->m_atPoint.x = static_cast<float>(x);
-    object->m_atPoint.y = static_cast<float>(y);
+    double x = along(0) + object->at_point_.x;
+    double y = along(1) + object->at_point_.y;
+    double z = along(2) + object->at_point_.z;
+    object->at_point_.z = static_cast<float>(z);
+    object->at_point_.x = static_cast<float>(x);
+    object->at_point_.y = static_cast<float>(y);
 }
 
 // 0x00577380
-void __cdecl SelectComboTask(ViewerTask* task)
+void __cdecl select_combo_task(ViewerTask* task)
 {
-    Viewer* viewer = task->m_content;
-    if (!Scripts::FetchIntValue(kSelectShift))
+    Viewer* viewer = task->content_;
+    if (!script::fetch_int_value(kSelectShift))
         return;
     // The buttons pressed with Select held, and their scripts - the first one in this order.
     static const struct {
@@ -398,69 +398,69 @@ void __cdecl SelectComboTask(ViewerTask* task)
         {0x8000, 0xDD589439}, // UserSelectLeft
         {0x2000, 0x7A03C488}, // UserSelectRight
     };
-    uint32_t makes = viewer->m_shiftMakes;
+    uint32_t makes = viewer->shift_makes_;
     for (const auto& combo : kCombos) {
         if (makes & combo.button) {
-            SpawnScriptIfExists(combo.script);
+            spawn_script_if_exists(combo.script);
             return;
         }
     }
 }
 
 // 0x005774C0
-int __cdecl HandleAddToScene(NetLink::InboundMsgCtx* context)
+int __cdecl handle_add_to_scene(net::InboundMsgCtx* context)
 {
-    const char* message = context->m_body;
-    Scripts::CStruct* params = SpawnParamTable();
-    params->AppendWord(kScene, Scripts::QBVAL_STRING, message);
-    params->AppendWord(kAdd, Scripts::QBVAL_STRING, message + 0x80);
-    Scripts::LaunchScript(kAddToScene, params, nullptr, false, nullptr);
-    DeleteStructure(params);
+    const char* message = context->body_;
+    script::Struct* params = spawn_param_table();
+    params->append_word(kScene, script::kQbvalString, message);
+    params->append_word(kAdd, script::kQbvalString, message + 0x80);
+    script::launch_script(kAddToScene, params, nullptr, false, nullptr);
+    delete_structure(params);
     return 1;
 }
 
 // 0x005775A0
-int __cdecl HandleCreateViewerObject(NetLink::InboundMsgCtx* context)
+int __cdecl handle_create_viewer_object(net::InboundMsgCtx* context)
 {
-    auto* viewer = reinterpret_cast<Viewer*>(context->m_body); // (sic: see model_viewer.h)
-    Scripts::CStruct* params = SpawnParamTable();
-    const char* message = context->m_body;
-    params->AppendWord(kModelName, message);
-    params->PutNameKey(kSkeletonName, *reinterpret_cast<const uint32_t*>(message + 0x84));
-    viewer->CreateViewerObject(params);
-    DeleteStructure(params);
+    auto* viewer = reinterpret_cast<Viewer*>(context->body_); // (sic: see model_viewer.h)
+    script::Struct* params = spawn_param_table();
+    const char* message = context->body_;
+    params->append_word(kModelName, message);
+    params->put_name_key(kSkeletonName, *reinterpret_cast<const uint32_t*>(message + 0x84));
+    viewer->create_viewer_object(params);
+    delete_structure(params);
     return 1;
 }
 
 // 0x00577670
-int __cdecl OnRemoteScriptMsg(NetLink::InboundMsgCtx* context)
+int __cdecl on_remote_script_msg(net::InboundMsgCtx* context)
 {
-    const char* message = context->m_body;
+    const char* message = context->body_;
     uint32_t name = *reinterpret_cast<const uint32_t*>(message);
-    Scripts::CStruct* params = SpawnParamTable();
-    Scripts::DecodeFromBytes(params, reinterpret_cast<const uint8_t*>(message + 4)); // the script reader
-    Scripts::LaunchScript(name, params, nullptr, false, nullptr);
-    DeleteStructure(params);
+    script::Struct* params = spawn_param_table();
+    script::decode_from_bytes(params, reinterpret_cast<const uint8_t*>(message + 4)); // the script reader
+    script::launch_script(name, params, nullptr, false, nullptr);
+    delete_structure(params);
     return 1;
 }
 
 // 0x00577740
-bool Viewer::PlaceCamera(Scripts::CStruct* params)
+bool Viewer::place_camera(script::Struct* params)
 {
-    if (!Scripts::FetchIntValue(kResetCameraToViewerObject))
+    if (!script::fetch_int_value(kResetCameraToViewerObject))
         return true;
-    auto* camera = static_cast<GameObjects::CGameEntity*>(GameObjects::ObjectHubSlot()->LookUpEntity(kViewerCam));
+    auto* camera = static_cast<objects::GameEntity*>(objects::object_hub_slot()->look_up_entity(kViewerCam));
     if (!camera)
         return true;
-    Maths::Mat4 identity;
+    maths::Mat4 identity;
     identity.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     identity.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     identity.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
     identity.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    camera->m_basisFrame = identity;
-    Scripts::VectorValue at;
+    camera->basis_frame_ = identity;
+    script::VectorValue at;
     float x, y, z;
-    if (params->FetchVec("ViewerObjPos", &at, 0)) {
+    if (params->fetch_vec("ViewerObjPos", &at, 0)) {
         x = at.x;
         y = static_cast<float>(static_cast<double>(at.y) + 35.0);
         z = static_cast<float>(static_cast<double>(at.z) + 100.0);
@@ -469,177 +469,177 @@ bool Viewer::PlaceCamera(Scripts::CStruct* params)
         y = 35.0f;
         z = 100.0f;
     }
-    camera->m_atPoint.y = y;
-    camera->m_atPoint.x = x;
-    camera->m_atPoint.w = 1.0f;
-    camera->m_atPoint.z = z;
+    camera->at_point_.y = y;
+    camera->at_point_.x = x;
+    camera->at_point_.w = 1.0f;
+    camera->at_point_.z = z;
     return true;
 }
 
 // 0x00577870
-void __cdecl FreeCameraTask(ViewerTask* task)
+void __cdecl free_camera_task(ViewerTask* task)
 {
-    Viewer* viewer = task->m_content;
-    uint32_t last = LastTime();
-    uint32_t elapsed = FrameClock::GetTime() - last;
-    LastTime() += elapsed;
+    Viewer* viewer = task->content_;
+    uint32_t last = last_time();
+    uint32_t elapsed = frame_clock::get_time() - last;
+    last_time() += elapsed;
     float seconds = static_cast<float>(static_cast<double>(static_cast<int>(elapsed)) * 0.001f);
-    if (viewer->m_actions & 0x4000)
-        viewer->m_modeSel = viewer->m_entity && viewer->m_modeSel == 0 ? 1 : 0;
-    viewer->m_padRY = DeadZone(viewer->m_padRY);
-    viewer->m_padRX = DeadZone(viewer->m_padRX);
-    viewer->m_padLY = DeadZone(viewer->m_padLY);
-    viewer->m_padLX = DeadZone(viewer->m_padLX);
+    if (viewer->actions_ & 0x4000)
+        viewer->mode_sel_ = viewer->entity_ && viewer->mode_sel_ == 0 ? 1 : 0;
+    viewer->pad_ry_ = dead_zone(viewer->pad_ry_);
+    viewer->pad_rx_ = dead_zone(viewer->pad_rx_);
+    viewer->pad_ly_ = dead_zone(viewer->pad_ly_);
+    viewer->pad_lx_ = dead_zone(viewer->pad_lx_);
 
-    auto* camera = static_cast<GameObjects::CGameEntity*>(GameObjects::ObjectHubSlot()->LookUpEntity(kViewerCam));
+    auto* camera = static_cast<objects::GameEntity*>(objects::object_hub_slot()->look_up_entity(kViewerCam));
     constexpr float kDegrees = 0.017453292f; // 0x00645464 (pi / 180)
     if (camera) {
-        if (viewer->m_modeSel == 0) {
-            if (viewer->m_padLY != 0.0f) {
+        if (viewer->mode_sel_ == 0) {
+            if (viewer->pad_ly_ != 0.0f) {
                 // Up / down: about its own x axis.
-                Maths::Vec4 axis = {1.0f, 0.0f, 0.0f, 1.0f};
-                float angle = static_cast<float>(static_cast<double>(RotateVelocity()) * viewer->m_padLY * seconds * kDegrees);
-                camera->m_basisFrame.TurnInOwnFrame(axis, angle);
+                maths::Vec4 axis = {1.0f, 0.0f, 0.0f, 1.0f};
+                float angle = static_cast<float>(static_cast<double>(rotate_velocity()) * viewer->pad_ly_ * seconds * kDegrees);
+                camera->basis_frame_.turn_in_own_frame(axis, angle);
             }
-            if (viewer->m_padLX != 0.0f) {
+            if (viewer->pad_lx_ != 0.0f) {
                 // Left / right: about the world's y axis.
-                Maths::Mat4 matrix;
-                matrix = camera->m_basisFrame;
-                float angle = static_cast<float>(static_cast<double>(RotateVelocity()) * viewer->m_padLX * seconds * -kDegrees);
-                Maths::Mat4 rotation;
-                Maths::Multiply(matrix, matrix, Maths::MakeYawMatrix(rotation, angle));
-                camera->m_basisFrame = matrix;
+                maths::Mat4 matrix;
+                matrix = camera->basis_frame_;
+                float angle = static_cast<float>(static_cast<double>(rotate_velocity()) * viewer->pad_lx_ * seconds * -kDegrees);
+                maths::Mat4 rotation;
+                maths::get_multiply(matrix, matrix, maths::make_yaw_matrix(rotation, angle));
+                camera->basis_frame_ = matrix;
             }
-        } else if (viewer->m_modeSel == 1) {
-            static_cast<GameObjects::CPreviewEntity*>(viewer->m_entity)->ChangeSpin(viewer->m_padLX, viewer->m_padLY);
+        } else if (viewer->mode_sel_ == 1) {
+            static_cast<objects::PreviewEntity*>(viewer->entity_)->change_spin(viewer->pad_lx_, viewer->pad_ly_);
         }
-        if (viewer->m_padRX != 0.0f || viewer->m_padRY != 0.0f) {
-            double step = static_cast<double>(MovementVelocity()) * seconds;
-            Maths::Vec4 offset = {static_cast<float>(step * viewer->m_padRX), 0.0f,
-                                  static_cast<float>(step * viewer->m_padRY), 1.0f};
-            MoveObjectLocal(camera, &offset);
+        if (viewer->pad_rx_ != 0.0f || viewer->pad_ry_ != 0.0f) {
+            double step = static_cast<double>(movement_velocity()) * seconds;
+            maths::Vec4 offset = {static_cast<float>(step * viewer->pad_rx_), 0.0f,
+                                  static_cast<float>(step * viewer->pad_ry_), 1.0f};
+            move_object_local(camera, &offset);
         }
     }
     // (from here on the original doesn't check for the camera object)
-    if (viewer->m_actions & Viewer::kCommandShoulderA) {
-        Maths::Vec4 offset = {0.0f, static_cast<float>(static_cast<double>(MovementVelocity()) * seconds), 0.0f, 1.0f};
-        MoveObjectLocal(camera, &offset);
+    if (viewer->actions_ & Viewer::kCommandShoulderA) {
+        maths::Vec4 offset = {0.0f, static_cast<float>(static_cast<double>(movement_velocity()) * seconds), 0.0f, 1.0f};
+        move_object_local(camera, &offset);
     }
-    if (viewer->m_actions & Viewer::kCommandShoulderB) {
-        Maths::Vec4 offset = {0.0f, static_cast<float>(-(static_cast<double>(MovementVelocity()) * seconds)), 0.0f, 1.0f};
-        MoveObjectLocal(camera, &offset);
+    if (viewer->actions_ & Viewer::kCommandShoulderB) {
+        maths::Vec4 offset = {0.0f, static_cast<float>(-(static_cast<double>(movement_velocity()) * seconds)), 0.0f, 1.0f};
+        move_object_local(camera, &offset);
     }
-    if (!Scripts::FetchIntValue(kNoRoll)) {
+    if (!script::fetch_int_value(kNoRoll)) {
         constexpr float kHalfDegrees = 0.008726646f; // 0x00648800 (pi / 360)
-        if (viewer->m_actions & 0x10000)
-            Roll(camera, static_cast<float>(static_cast<double>(RotateVelocity()) * seconds * -kHalfDegrees));
-        if (viewer->m_actions & 0x20000)
-            Roll(camera, static_cast<float>(static_cast<double>(RotateVelocity()) * seconds * kHalfDegrees));
+        if (viewer->actions_ & 0x10000)
+            get_roll(camera, static_cast<float>(static_cast<double>(rotate_velocity()) * seconds * -kHalfDegrees));
+        if (viewer->actions_ & 0x20000)
+            get_roll(camera, static_cast<float>(static_cast<double>(rotate_velocity()) * seconds * kHalfDegrees));
     }
-    camera->m_compositeFlags &= ~GameObjects::COMPOSITE_FLAG_PAUSED;
-    if (viewer->m_actions & 0x1000) {
-        int next = (Engine3D::GetViewLayout() + 1) % 6;
-        Engine3D::SetScreenMode(next);
+    camera->composite_flags_ &= ~objects::kCompositeFlagPaused;
+    if (viewer->actions_ & 0x1000) {
+        int next = (render::get_view_layout() + 1) % 6;
+        render::set_screen_mode(next);
     }
-    viewer->m_actions = 0;
+    viewer->actions_ = 0;
 }
 
 // 0x00577CD0
-int __cdecl HandleReloadScene(NetLink::InboundMsgCtx* context)
+int __cdecl handle_reload_scene(net::InboundMsgCtx* context)
 {
-    const char* message = context->m_body;
-    Scripts::CStruct* params = SpawnParamTable();
-    params->AppendWord(kScene, Scripts::QBVAL_STRING, message);
-    Scripts::LaunchScript(kReloadScene, params, nullptr, false, nullptr);
-    DeleteStructure(params);
+    const char* message = context->body_;
+    script::Struct* params = spawn_param_table();
+    params->append_word(kScene, script::kQbvalString, message);
+    script::launch_script(kReloadScene, params, nullptr, false, nullptr);
+    delete_structure(params);
     return 1;
 }
 
 // 0x00577DA0
-void Viewer::StartCallback()
+void Viewer::start_callback()
 {
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(manager->m_frontEndHeap);
-    if (!DebugChecks()) {
-        NetLink::Router& dispatcher = static_cast<NetLink::AppHost*>(m_netHandler)->m_dispatcher;
-        dispatcher.AppendListener(0x20, &HandleReloadScene, 3, nullptr, 0x80);
-        dispatcher.AppendListener(0x21, &OnlinePlay::HandleNothing, 3, nullptr, 0x80);
-        dispatcher.AppendListener(0x22, reinterpret_cast<NetLink::HandlerSlotValue>(&ReloadScriptFile), 3, nullptr, 0x80);
-        dispatcher.AppendListener(0x2A, &HandleAddToScene, 3, nullptr, 0x80);
-        dispatcher.AppendListener(0x23, &HandleCreateViewerObject, 3, this, 0x80);
-        dispatcher.AppendListener(0x24, reinterpret_cast<NetLink::HandlerSlotValue>(&HandleRemoveViewerObject), 3, this, 0x80);
-        dispatcher.AppendListener(0x2B, &OnRemoteScriptMsg, 3, this, 0x80);
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(manager->front_end_heap_);
+    if (!debug_checks()) {
+        net::Router& dispatcher = static_cast<net::AppHost*>(net_handler_)->dispatcher_;
+        dispatcher.append_listener(0x20, &handle_reload_scene, 3, nullptr, 0x80);
+        dispatcher.append_listener(0x21, &online::handle_nothing, 3, nullptr, 0x80);
+        dispatcher.append_listener(0x22, reinterpret_cast<net::HandlerSlotValue>(&reload_script_file), 3, nullptr, 0x80);
+        dispatcher.append_listener(0x2A, &handle_add_to_scene, 3, nullptr, 0x80);
+        dispatcher.append_listener(0x23, &handle_create_viewer_object, 3, this, 0x80);
+        dispatcher.append_listener(0x24, reinterpret_cast<net::HandlerSlotValue>(&handle_remove_viewer_object), 3, this, 0x80);
+        dispatcher.append_listener(0x2B, &on_remote_script_msg, 3, this, 0x80);
     }
-    AppendVertex(MainLoopManager()->m_logicTasks, m_task1C);
-    AddInputHandler(m_padListener);
-    DebugOut::Printf("Adding shift input handlers\n)");
-    AddInputHandler(m_shiftHandler);
-    AppendVertex(MainLoopManager()->m_logicTasks, m_task20);
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    append_vertex(main_loop_manager()->logic_tasks_, task_1c_);
+    add_input_handler(pad_listener_);
+    debug::printf("Adding shift input handlers\n)");
+    add_input_handler(shift_handler_);
+    append_vertex(main_loop_manager()->logic_tasks_, task20_);
+    memory::Hub::get_pull()->leave_heap_scope();
 }
 
 // 0x00577F20
-Viewer* Viewer::MakeNew()
+Viewer* Viewer::make_new()
 {
-    PartUnit::MakeNew();
-    m_vtable = kVtable;
-    m_actions = 0;
-    m_shiftMakes = 0;
-    if (!DebugChecks()) {
-        NetLink::Hub* net = NetLink::Hub::Sole();
-        inet_addr(net->FetchOwnAddress()); // (unused)
-        Stubs::ReturnTrue();          // (0x005B9760 on the net manager: a check compiled to "true")
-        int address = static_cast<int>(inet_addr(net->FetchOwnAddress()));
-        m_netHandler = net->MakeServerApp(0, "THUG2 Viewer", 4, 10000, address, 0x10);
+    PartUnit::make_new();
+    vtable_ = kVtable;
+    actions_ = 0;
+    shift_makes_ = 0;
+    if (!debug_checks()) {
+        net::Hub* net = net::Hub::sole();
+        inet_addr(net->fetch_own_address()); // (unused)
+        stubs::return_true();          // (0x005B9760 on the net manager: a check compiled to "true")
+        int address = static_cast<int>(inet_addr(net->fetch_own_address()));
+        net_handler_ = net->make_server_app(0, "THUG2 Viewer", 4, 10000, address, 0x10);
     }
-    int controller = Scripts::FetchIntValue(kViewerPadKey);
+    int controller = script::fetch_int_value(kViewerPadKey);
 
-    auto* freeCamera = static_cast<ViewerTask*>(MemSys::AllocZeroed(sizeof(ViewerTask)));
-    if (freeCamera) {
-        ConstructNode(freeCamera, 0);
-        *reinterpret_cast<void***>(freeCamera) = GameCode::kTaskVtable;
-        freeCamera->m_codeValue = &FreeCameraTask;
-        freeCamera->m_content = this;
+    auto* free_camera = static_cast<ViewerTask*>(memory::alloc_zeroed(sizeof(ViewerTask)));
+    if (free_camera) {
+        construct_node(free_camera, 0);
+        *reinterpret_cast<void***>(free_camera) = game_code::kTaskVtable;
+        free_camera->code_value_ = &free_camera_task;
+        free_camera->content_ = this;
     }
-    m_task1C = freeCamera;
-    auto* input = static_cast<ViewerInputHandler*>(MemSys::AllocZeroed(sizeof(ViewerInputHandler)));
+    task_1c_ = free_camera;
+    auto* input = static_cast<ViewerInputHandler*>(memory::alloc_zeroed(sizeof(ViewerInputHandler)));
     if (input) {
-        ConstructNode(input, 0);
-        input->m_ordinal = controller;
-        *reinterpret_cast<void***>(input) = GameCode::kInputHandlerVtable;
-        input->m_codeValue = &HandleViewerInput;
-        input->m_content = this;
+        construct_node(input, 0);
+        input->ordinal_ = controller;
+        *reinterpret_cast<void***>(input) = game_code::kInputHandlerVtable;
+        input->code_value_ = &handle_viewer_input;
+        input->content_ = this;
     }
-    m_padListener = input;
-    SetMovementVelocity(400.0f);
-    SetRotateVelocity(120.0f);
-    DebugOut::Printf("Creating shift input handlers\n)");
-    auto* combos = static_cast<ViewerTask*>(MemSys::AllocZeroed(sizeof(ViewerTask)));
+    pad_listener_ = input;
+    set_movement_velocity(400.0f);
+    set_rotate_velocity(120.0f);
+    debug::printf("Creating shift input handlers\n)");
+    auto* combos = static_cast<ViewerTask*>(memory::alloc_zeroed(sizeof(ViewerTask)));
     if (combos) {
-        ConstructNode(combos, 0);
-        *reinterpret_cast<void***>(combos) = GameCode::kTaskVtable;
-        combos->m_codeValue = &SelectComboTask;
-        combos->m_content = this;
+        construct_node(combos, 0);
+        *reinterpret_cast<void***>(combos) = game_code::kTaskVtable;
+        combos->code_value_ = &select_combo_task;
+        combos->content_ = this;
     }
-    m_task20 = combos;
-    auto* shift = static_cast<ViewerInputHandler*>(MemSys::AllocZeroed(sizeof(ViewerInputHandler)));
+    task20_ = combos;
+    auto* shift = static_cast<ViewerInputHandler*>(memory::alloc_zeroed(sizeof(ViewerInputHandler)));
     if (shift) {
-        ConstructNode(shift, 1000);
-        shift->m_ordinal = controller;
-        *reinterpret_cast<void***>(shift) = GameCode::kInputHandlerVtable;
-        shift->m_codeValue = &HandleViewerShift;
-        shift->m_content = this;
+        construct_node(shift, 1000);
+        shift->ordinal_ = controller;
+        *reinterpret_cast<void***>(shift) = game_code::kInputHandlerVtable;
+        shift->code_value_ = &handle_viewer_shift;
+        shift->content_ = this;
     }
-    m_shiftHandler = shift;
-    Sole() = this;
+    shift_handler_ = shift;
+    sole() = this;
     return this;
 }
 
 namespace {
-static VtableSlot kVtable_slots[] = {&GameModules::Viewer::Teardown, &GameModules::Viewer::StartCallback, &GameModules::Viewer::StopCallback};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
-static VtableSlot kBaseHandlerVtable_slots[] = {&_purecall, &_purecall, &GameModules::ViewerInputHandler::Teardown};
-void** const kBaseHandlerVtable = reinterpret_cast<void**>(kBaseHandlerVtable_slots);
+static VtableSlot g_vtable_slots[] = {&modules::Viewer::teardown, &modules::Viewer::start_callback, &modules::Viewer::stop_callback};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
+static VtableSlot g_base_handler_vtable_slots[] = {&_purecall, &_purecall, &modules::ViewerInputHandler::teardown};
+void** const kBaseHandlerVtable = reinterpret_cast<void**>(g_base_handler_vtable_slots);
 } // namespace
 
 } // namespace Mdl

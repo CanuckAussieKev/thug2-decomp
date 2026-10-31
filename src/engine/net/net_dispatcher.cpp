@@ -13,110 +13,110 @@
 #include "engine/net/net_guards.h"
 #include "engine/core/code_address.h"
 
-namespace NetLink {
+namespace net {
 
-static VtableSlot kMsgHandlerHeadVtable_slots[] = {&NetLink::NoteHandler::Teardown};
-void** const kMsgHandlerHeadVtable = reinterpret_cast<void**>(kMsgHandlerHeadVtable_slots);
+static VtableSlot g_msg_handler_head_vtable_slots[] = {&net::NoteHandler::teardown};
+void** const kMsgHandlerHeadVtable = reinterpret_cast<void**>(g_msg_handler_head_vtable_slots);
 
 namespace {
 
-static VtableSlot kMsgHandlerSearchVtable_slots[] = {&NetLink::MsgHandlerSearch::Teardown};
-void** const kMsgHandlerSearchVtable = reinterpret_cast<void**>(kMsgHandlerSearchVtable_slots);
+static VtableSlot g_msg_handler_search_vtable_slots[] = {&net::MsgHandlerSearch::teardown};
+void** const kMsgHandlerSearchVtable = reinterpret_cast<void**>(g_msg_handler_search_vtable_slots);
 constexpr uint32_t kFixedSizeCopy = 0x514; // what a message without a length field copies
 
-void ConstructContext(InboundMsgCtx* context) { context->MakeNew(); }
+void construct_context(InboundMsgCtx* context) { context->make_new(); }
 
 } // namespace
 
 // 0x0045A590
-NoteHandler* NoteHandler::Teardown(unsigned int flags)
+NoteHandler* NoteHandler::teardown(unsigned int flags)
 {
-    static_cast<MsgHandlerNode*>(&m_listLink)->DestroyBody(); // (ListKit::Elem<NoteHandler>: unlinks it)
+    static_cast<MsgHandlerNode*>(&list_link_)->destroy_body(); // (lists::Elem<NoteHandler>: unlinks it)
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x0045A500
-void MsgHandlerSearch::DestroyBody() { m_vtable = kMsgHandlerSearchVtable; }
+void MsgHandlerSearch::destroy_body() { vtable_ = kMsgHandlerSearchVtable; }
 
 // 0x0045A510
-MsgHandlerSearch* MsgHandlerSearch::Teardown(unsigned int flags)
+MsgHandlerSearch* MsgHandlerSearch::teardown(unsigned int flags)
 {
-    m_vtable = kMsgHandlerSearchVtable;
+    vtable_ = kMsgHandlerSearchVtable;
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x0045A640
-void Router::PrepareAll()
+void Router::prepare_all()
 {
     for (int id = 0; id < kNumMessageIds; ++id) {
-        MemSys::ListNode* node = LinkChain(id).m_listLink.next;
+        memory::ListNode* node = link_chain(id).list_link_.next;
         // (the head check comes before the null check)
         if (node->data == reinterpret_cast<void*>(-1) || !node)
             continue;
         do {
-            MemSys::ListNode* next = node->next;
+            memory::ListNode* next = node->next;
             if (next->data == reinterpret_cast<void*>(-1))
                 next = nullptr;
-            UnlinkListNode(node);
+            unlink_list_node(node);
             node = next;
         } while (node);
     }
 }
 
 // 0x0045A690
-void Router::TearDownState()
+void Router::tear_down_state()
 {
     for (int id = 0; id < kNumMessageIds; ++id) {
-        ListKit::Hunt<NoteHandler> search;
-        for (NoteHandler* handler = search.HeadElement(&LinkChain(id).m_listLink); handler;) {
-            NoteHandler* next = search.FollowingItem();
-            UnlinkListNode(handler);
+        lists::Hunt<NoteHandler> search;
+        for (NoteHandler* handler = search.head_element(&link_chain(id).list_link_); handler;) {
+            NoteHandler* next = search.following_item();
+            unlink_list_node(handler);
             handler = next;
         }
     }
 }
 
 // 0x0045A5C0
-NoteHandler* Router::AppendListener(uint8_t id, HandlerSlotValue code, uint32_t flags, void* data, int priority)
+NoteHandler* Router::append_listener(uint8_t id, HandlerSlotValue code, uint32_t flags, void* data, int priority)
 {
-    MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(manager->m_networkHeap);
-    auto* handler = static_cast<NoteHandler*>(MemSys::AllocZeroed(sizeof(NoteHandler)));
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(manager->network_heap_);
+    auto* handler = static_cast<NoteHandler*>(memory::alloc_zeroed(sizeof(NoteHandler)));
     if (handler) {
-        handler->m_listLink.vtable = kMsgHandlerHeadVtable;
-        handler->m_listLink.data = handler;
-        handler->m_listLink.priority = priority;
-        handler->m_listLink.next = &handler->m_listLink;
-        handler->m_listLink.prev = &handler->m_listLink;
-        handler->m_Code = code;
-        handler->m_content = data;
-        handler->m_modeBits = flags;
+        handler->list_link_.vtable = kMsgHandlerHeadVtable;
+        handler->list_link_.data = handler;
+        handler->list_link_.priority = priority;
+        handler->list_link_.next = &handler->list_link_;
+        handler->list_link_.prev = &handler->list_link_;
+        handler->code_ = code;
+        handler->content_ = data;
+        handler->mode_bits_ = flags;
     }
-    // (a failed allocation reaches AppendVertex as null and crashes there, as in the original)
-    LinkChain(id).AppendVertex(reinterpret_cast<MemSys::ListNode*>(handler));
-    MemSys::Hub::Pull()->LeaveHeapScope();
+    // (a failed allocation reaches append_vertex as null and crashes there, as in the original)
+    link_chain(id).append_vertex(reinterpret_cast<memory::ListNode*>(handler));
+    memory::Hub::get_pull()->leave_heap_scope();
     return handler;
 }
 
 // 0x0045A750
-int Router::DispatchMsg(InboundMsgCtx* context)
+int Router::dispatch_msg(InboundMsgCtx* context)
 {
     // Not original - what THUGPRO players send that THUG2 hasn't, checked first (TP-R8, net_guards.h).
-    int guarded = OnlinePlay::Guards::CheckReceivedMessage(context);
+    int guarded = online::guards::check_received_message(context);
     if (guarded >= 0)
         return guarded;
-    ListKit::Hunt<NoteHandler> search;
+    lists::Hunt<NoteHandler> search;
     NoteHandler* next;
-    for (NoteHandler* handler = search.HeadElement(&LinkChain(context->m_typeCode).m_listLink); handler; handler = next) {
-        next = search.FollowingItem();
-        if ((handler->m_modeBits & context->m_wireOptions) != context->m_wireOptions)
+    for (NoteHandler* handler = search.head_element(&link_chain(context->type_code_).list_link_); handler; handler = next) {
+        next = search.following_item();
+        if ((handler->mode_bits_ & context->wire_options_) != context->wire_options_)
             continue;
-        context->m_content = handler->m_content;
-        int result = handler->m_Code(context);
+        context->content_ = handler->content_;
+        int result = handler->code_(context);
         switch (result) {
         case kResultFailed:
         case kResultStop:
@@ -133,62 +133,62 @@ int Router::DispatchMsg(InboundMsgCtx* context)
 }
 
 // 0x0045A830
-int Router::InvokeHandlersForMsg(Conn* conn, uint32_t flags)
+int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
 {
     InboundMsgCtx context;
     char buffer[kConnReceiveBufferSize];
-    ConstructContext(&context);
-    context.m_receiverApp = conn->m_ownerApp;
-    context.m_senderConn = conn;
-    context.m_wireOptions = flags;
-    context.m_body = buffer;
-    context.m_bodySize = 0;
-    char*& readBuffer = conn->m_readBuffer;
-    char*& readPtr = conn->m_readPtr;
-    void* metrics = &conn->m_receiveMetrics;
+    construct_context(&context);
+    context.receiver_app_ = conn->owner_app_;
+    context.sender_conn_ = conn;
+    context.wire_options_ = flags;
+    context.body_ = buffer;
+    context.body_size_ = 0;
+    char*& read_buffer = conn->read_buffer_;
+    char*& read_ptr = conn->read_ptr_;
+    void* metrics = &conn->receive_metrics_;
 
-    for (char* p = readBuffer; p < readPtr; p += context.m_bodySize) {
-        context.m_typeCode = static_cast<uint8_t>(*p++);
-        uint8_t* table = FetchHub(conn->m_ownerApp);
-        bool hasLength = !(MessageFlags(table, context.m_typeCode) & kMsgNoLength);
-        if (hasLength) {
-            context.m_bodySize = *reinterpret_cast<uint16_t*>(p);
+    for (char* p = read_buffer; p < read_ptr; p += context.body_size_) {
+        context.type_code_ = static_cast<uint8_t>(*p++);
+        uint8_t* table = fetch_hub(conn->owner_app_);
+        bool has_length = !(message_flags(table, context.type_code_) & kMsgNoLength);
+        if (has_length) {
+            context.body_size_ = *reinterpret_cast<uint16_t*>(p);
             p += 2;
         } // (else the length stays what the previous message had)
-        if (context.m_typeCode == kMsgSequenced) // counted by the message inside
-            AddMessageMetric(metrics, static_cast<uint8_t>(p[5]), context.m_bodySize);
-        if (hasLength) {
-            if (context.m_bodySize)
-                std::memcpy(buffer, p, context.m_bodySize);
+        if (context.type_code_ == kMsgSequenced) // counted by the message inside
+            add_message_metric(metrics, static_cast<uint8_t>(p[5]), context.body_size_);
+        if (has_length) {
+            if (context.body_size_)
+                std::memcpy(buffer, p, context.body_size_);
         } else {
             std::memcpy(buffer, p, kFixedSizeCopy); // a whole buffer's worth, whatever the message's size
         }
-        if (IsOutsider(conn))
-            context.m_wireOptions |= kPacketForeign;
-        int result = DispatchMsg(&context);
+        if (is_outsider(conn))
+            context.wire_options_ |= kPacketForeign;
+        int result = dispatch_msg(&context);
         if (result == kResultFailed || result == kResultStop) {
-            readPtr = readBuffer;
+            read_ptr = read_buffer;
             return kResultStop;
         }
         if (result == kResultMsgFreed)
             return kResultMsgFreed; // (the connection is gone)
-        if (context.m_typeCode != kMsgSequenced)
-            AddMessageMetric(metrics, context.m_typeCode, context.m_bodySize);
+        if (context.type_code_ != kMsgSequenced)
+            add_message_metric(metrics, context.type_code_, context.body_size_);
         // (handlers may have changed the length: the timestamp and ack handlers set it)
     }
 
-    if (context.m_Acknowledge) {
-        for (int i = 0; i < context.m_NumSequencesToAck; ++i) {
+    if (context.acknowledge_) {
+        for (int i = 0; i < context.num_sequences_to_ack_; ++i) {
             NetMessageInfo desc;
-            ConstructMsgDesc(&desc);
-            uint16_t sequence = static_cast<uint16_t>(context.m_SequencesToAck[i]);
-            desc.m_content = &sequence;
-            desc.m_byteCount = sizeof(sequence);
-            desc.m_ident = kMsgAck;
-            PutOnOutbox(context.m_receiverApp, context.m_senderConn->m_hdl, &desc);
+            construct_msg_desc(&desc);
+            uint16_t sequence = static_cast<uint16_t>(context.sequences_to_ack_[i]);
+            desc.content_ = &sequence;
+            desc.byte_count_ = sizeof(sequence);
+            desc.ident_ = kMsgAck;
+            put_on_outbox(context.receiver_app_, context.sender_conn_->hdl_, &desc);
         }
     }
-    readPtr = readBuffer;
+    read_ptr = read_buffer;
     return kResultPassOn;
 }
 

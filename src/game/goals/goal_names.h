@@ -5,7 +5,7 @@
 
 #include <cstdint>
 
-namespace GoalSystem::GoalNames {
+namespace goals::goal_names {
 
 constexpr uint32_t kNoName = 0;                         // (an unnamed component: a flag)
 constexpr uint32_t kUnlimitedTime = 0xF0E712D2;         // unlimited_Time
@@ -32,7 +32,7 @@ constexpr uint32_t kQuickStart = 0x38221DF4;            // quick_start
 constexpr uint32_t kProGoal = 0xD303A1A3;               // pro_goal
 constexpr uint32_t kNet = 0x0D15EA00;                   // net
 constexpr uint32_t kCompetition = 0x4AF5D34E;           // competition
-constexpr uint32_t kComponentA302D7CD = 0xA302D7CD;     // (name unknown)
+constexpr uint32_t kComponentA302d7cD = 0xA302D7CD;     // (name unknown)
 constexpr uint32_t kAlreadyWon = 0x49807745;             // hasBeaten
 constexpr uint32_t kIsLocked = 0xD3E93882;              // isLocked
 constexpr uint32_t kHasSeen = 0x2206B1E7;               // hasSeen
@@ -94,4 +94,4 @@ inline const char* const kIdName = "id";            // "id"
 inline const char* const kEmptyString = "";       // ""
 inline const char* const kGotFormat = "got_%d";         // "got_%d"
 
-} // namespace GoalSystem::GoalNames
+} // namespace goals::goal_names

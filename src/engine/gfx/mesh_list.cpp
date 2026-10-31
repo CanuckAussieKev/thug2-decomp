@@ -14,212 +14,212 @@
 #include "engine/lists/key_map.h"
 #include "platform/crt.h"
 
-namespace Engine3D {
+namespace render {
 
 namespace {
 
 // A mesh's material (+0x14) and what the list looks at.
-uint8_t* MaterialOf(const uint8_t* mesh) { return *reinterpret_cast<uint8_t* const*>(mesh + 0x14); }
-bool Transparent(const uint8_t* material) { return material && (material[0x20] & 0x40); }
-uint16_t& LoadIndex(uint8_t* mesh) { return *reinterpret_cast<uint16_t*>(mesh + 0x20); }
-uint16_t& IndexCount(uint8_t* mesh) { return *reinterpret_cast<uint16_t*>(mesh + 0x24); }
-void*& IndexBufferOf(uint8_t* mesh) { return *reinterpret_cast<void**>(mesh + 0x54); }
+uint8_t* material_of(const uint8_t* mesh) { return *reinterpret_cast<uint8_t* const*>(mesh + 0x14); }
+bool get_transparent(const uint8_t* material) { return material && (material[0x20] & 0x40); }
+uint16_t& load_index(uint8_t* mesh) { return *reinterpret_cast<uint16_t*>(mesh + 0x20); }
+uint16_t& get_index_count(uint8_t* mesh) { return *reinterpret_cast<uint16_t*>(mesh + 0x24); }
+void*& index_buffer_of(uint8_t* mesh) { return *reinterpret_cast<void**>(mesh + 0x54); }
 
 // The index buffers (not rewritten yet; thiscall): Lock gives the indices (a copy kept in memory).
-uint16_t* LockIndices(void* buffer)
+uint16_t* lock_indices(void* buffer)
 {
     uint16_t* indices = nullptr;
-    static_cast<sIdxStore*>(buffer)->Lock(0, 0, &indices, 0);
+    static_cast<IdxStore*>(buffer)->get_lock(0, 0, &indices, 0);
     return indices;
 }
-void UnlockIndices(void* buffer) { static_cast<sIdxStore*>(buffer)->Unlock(); }
-void ReleaseIndexBuffer(void* buffer) { static_cast<sIdxStore*>(buffer)->Teardown(); }
-void* NewIndexBuffer(uint32_t bytes)
+void unlock_indices(void* buffer) { static_cast<IdxStore*>(buffer)->get_unlock(); }
+void release_index_buffer(void* buffer) { static_cast<IdxStore*>(buffer)->teardown(); }
+void* new_index_buffer(uint32_t bytes)
 {
-    void* memory = Crt::AllocBlock(0x18); // (the renderer's operator new: a jump to the C runtime's malloc)
+    void* memory = crt::alloc_block(0x18); // (the renderer's operator new: a jump to the C runtime's malloc)
     if (!memory)
         return nullptr;
-    return static_cast<sIdxStore*>(memory)->MakeNew(bytes, 0, 0x65);
+    return static_cast<IdxStore*>(memory)->make_new(bytes, 0, 0x65);
 }
 // A mesh's vertex buffers (+0xCC) and their release.
-void* VertexBuffer(uint8_t* mesh, int index) { return reinterpret_cast<meshRef*>(mesh)->FetchVertexStore(index); }
-void SetVertexBuffer(uint8_t* mesh, int index, void* buffer)
+void* get_vertex_buffer(uint8_t* mesh, int index) { return reinterpret_cast<MeshRef*>(mesh)->fetch_vertex_store(index); }
+void set_vertex_buffer(uint8_t* mesh, int index, void* buffer)
 {
-    reinterpret_cast<meshRef*>(mesh)->SetVertexBuffer(index, static_cast<sVertexBuffer*>(buffer));
+    reinterpret_cast<MeshRef*>(mesh)->set_vertex_buffer(index, static_cast<VertexBuffer*>(buffer));
 }
-void ReleaseVertexBuffer(void* buffer) { static_cast<sVertexBuffer*>(buffer)->Teardown(); }
+void release_vertex_buffer(void* buffer) { static_cast<VertexBuffer*>(buffer)->teardown(); }
 // A material's destructor body (not rewritten yet; thiscall).
-void DestroyMaterial(void* material) { static_cast<materialRef*>(material)->DestroyBody(); }
+void destroy_material(void* material) { static_cast<MaterialRef*>(material)->destroy_body(); }
 
 // the rebuilt strip (0x1800 bytes: nothing of the original's refers to the bytes up to 0x007CC244)
-uint16_t g_indexScratch[3072];
+uint16_t g_index_scratch[3072];
 
 // The rebuilt strip (0x007CAA40).
-uint16_t* TriStripScratch() { return g_indexScratch; }
+uint16_t* tri_strip_scratch() { return g_index_scratch; }
 
 // The C runtime's qsort (the game's, so equal meshes stay in the same order).
-void Qsort(void* base, uint32_t count, uint32_t size, int(__cdecl* compare)(const void*, const void*))
+void get_qsort(void* base, uint32_t count, uint32_t size, int(__cdecl* compare)(const void*, const void*))
 {
-    Crt::Qsort(
+    crt::get_qsort(
         base, count, size, compare);
 }
 
 // Iterate a hash table's values: the first (or next), null at the end.
-void* NextValue(ListKit::KeyMap* table)
+void* next_value(lists::KeyMap* table)
 {
-    if (!table->StepIterator() || !table->m_iterItem)
+    if (!table->step_iterator() || !table->iter_item_)
         return nullptr;
-    return table->m_iterItem->value;
+    return table->iter_item_->value;
 }
-void* FirstValue(ListKit::KeyMap* table)
+void* get_first_value(lists::KeyMap* table)
 {
-    table->m_iterBucket = -1;
-    table->m_iterItem = nullptr;
-    return NextValue(table);
+    table->iter_bucket_ = -1;
+    table->iter_item_ = nullptr;
+    return next_value(table);
 }
 
 } // namespace
 
 // 0x004DDD50
-int __cdecl CompareMeshes(const void* a, const void* b)
+int __cdecl compare_meshes(const void* a, const void* b)
 {
-    const uint8_t* meshA = *static_cast<uint8_t* const*>(a);
-    const uint8_t* meshB = *static_cast<uint8_t* const*>(b);
-    const uint8_t* materialA = MaterialOf(meshA);
-    const uint8_t* materialB = MaterialOf(meshB);
-    float keyA = *reinterpret_cast<const float*>(materialA + 0x1C);
-    float keyB = *reinterpret_cast<const float*>(materialB + 0x1C);
-    if (!(keyA == keyB)) // (also not a number)
-        return keyA > keyB ? 1 : -1;
-    if (materialA[0xC] != materialB[0xC])
-        return materialA[0xC] != 0 ? 1 : -1;
-    if (materialA == materialB)
+    const uint8_t* mesh_a = *static_cast<uint8_t* const*>(a);
+    const uint8_t* mesh_b = *static_cast<uint8_t* const*>(b);
+    const uint8_t* material_a = material_of(mesh_a);
+    const uint8_t* material_b = material_of(mesh_b);
+    float key_a = *reinterpret_cast<const float*>(material_a + 0x1C);
+    float key_b = *reinterpret_cast<const float*>(material_b + 0x1C);
+    if (!(key_a == key_b)) // (also not a number)
+        return key_a > key_b ? 1 : -1;
+    if (material_a[0xC] != material_b[0xC])
+        return material_a[0xC] != 0 ? 1 : -1;
+    if (material_a == material_b)
         return 0;
-    bool flagA = (materialA[0x20] & 0x10) != 0, flagB = (materialB[0x20] & 0x10) != 0;
-    if (flagA != flagB)
-        return flagA ? 1 : -1;
-    uint32_t orderA = *reinterpret_cast<const uint32_t*>(meshA + 0x44);
-    uint32_t orderB = *reinterpret_cast<const uint32_t*>(meshB + 0x44);
-    if (orderA != orderB)
-        return orderB < orderA ? 1 : -1;
-    return reinterpret_cast<uintptr_t>(materialB) < reinterpret_cast<uintptr_t>(materialA) ? 1 : -1;
+    bool flag_a = (material_a[0x20] & 0x10) != 0, flag_b = (material_b[0x20] & 0x10) != 0;
+    if (flag_a != flag_b)
+        return flag_a ? 1 : -1;
+    uint32_t order_a = *reinterpret_cast<const uint32_t*>(mesh_a + 0x44);
+    uint32_t order_b = *reinterpret_cast<const uint32_t*>(mesh_b + 0x44);
+    if (order_a != order_b)
+        return order_b < order_a ? 1 : -1;
+    return reinterpret_cast<uintptr_t>(material_b) < reinterpret_cast<uintptr_t>(material_a) ? 1 : -1;
 }
 
 // 0x004DE300
-sceneRef* sceneRef::MakeNew()
+SceneRef* SceneRef::make_new()
 {
-    new (&bounds) Maths::BBox();
+    new (&bounds) maths::BBox();
     flags = 0;
-    meshCount = 0;
-    transparentCount = 0;
+    mesh_count_ = 0;
+    transparent_count_ = 0;
     filled = 0;
-    flaggedCount = 0;
+    flagged_count_ = 0;
     unknown40 = 0;
     meshes = nullptr;
     materials = nullptr;
     extra = nullptr;
     unknown78 = 0;
-    comObject = nullptr;
+    com_object_ = nullptr;
     unknown80 = 0;
-    firstFlagged = -1;
-    firstTransparent = -1;
+    first_flagged_ = -1;
+    first_transparent_ = -1;
     return this;
 }
 
 // 0x004DE490
-void sceneRef::DestroyBody()
+void SceneRef::destroy_body()
 {
-    if (ListKit::KeyMap* table = materials) {
-        if (table->m_buckets) {
-            table->EmptyTable();
-            MemSys::Hub::Sole()->Dealloc(table->m_buckets);
-            table->m_buckets = nullptr;
+    if (lists::KeyMap* table = materials) {
+        if (table->buckets_) {
+            table->empty_table();
+            memory::Hub::sole()->dealloc(table->buckets_);
+            table->buckets_ = nullptr;
         }
-        MemSys::Hub::Sole()->Dealloc(table);
+        memory::Hub::sole()->dealloc(table);
     }
-    for (int i = 0; i < meshCount; ++i) {
+    for (int i = 0; i < mesh_count_; ++i) {
         uint8_t* mesh = meshes[i];
         if (!mesh)
             continue;
-        if (void* buffer = VertexBuffer(mesh, 0)) {
-            ReleaseVertexBuffer(buffer);
-            SetVertexBuffer(meshes[i], 0, nullptr);
+        if (void* buffer = get_vertex_buffer(mesh, 0)) {
+            release_vertex_buffer(buffer);
+            set_vertex_buffer(meshes[i], 0, nullptr);
         }
     }
     if (meshes)
-        MemSys::Hub::Sole()->Dealloc(meshes);
+        memory::Hub::sole()->dealloc(meshes);
     if (extra) // (delete[]: the records' destructor is empty)
-        MemSys::Hub::Sole()->Dealloc(extra - 4);
-    if (comObject)
-        reinterpret_cast<unsigned long(__stdcall*)(void*)>((*static_cast<void***>(comObject))[2])(comObject);
+        memory::Hub::sole()->dealloc(extra - 4);
+    if (com_object_)
+        reinterpret_cast<unsigned long(__stdcall*)(void*)>((*static_cast<void***>(com_object_))[2])(com_object_);
 }
 
 // 0x004DE340
-void sceneRef::UpdateSphere()
+void SceneRef::update_sphere()
 {
-    double halfX = (static_cast<double>(bounds.max.x) - bounds.min.x) * 0.5;
-    double halfY = (static_cast<double>(bounds.max.y) - bounds.min.y) * 0.5; // (kept in double precision)
-    float sizeZ = static_cast<float>(static_cast<double>(bounds.max.z) - bounds.min.z);
-    float halfXFloat = static_cast<float>(halfX);
-    double halfZ = static_cast<double>(sizeZ) * 0.5;
-    centre[0] = static_cast<float>(static_cast<double>(halfXFloat) + bounds.min.x);
-    centre[1] = static_cast<float>(halfY + bounds.min.y);
-    centre[2] = static_cast<float>(halfZ + bounds.min.z);
+    double half_x = (static_cast<double>(bounds.max.x) - bounds.min.x) * 0.5;
+    double half_y = (static_cast<double>(bounds.max.y) - bounds.min.y) * 0.5; // (kept in double precision)
+    float size_z = static_cast<float>(static_cast<double>(bounds.max.z) - bounds.min.z);
+    float half_x_float = static_cast<float>(half_x);
+    double half_z = static_cast<double>(size_z) * 0.5;
+    centre[0] = static_cast<float>(static_cast<double>(half_x_float) + bounds.min.x);
+    centre[1] = static_cast<float>(half_y + bounds.min.y);
+    centre[2] = static_cast<float>(half_z + bounds.min.z);
     radius = static_cast<float>(
-        std::sqrt((halfZ * halfZ + halfY * halfY) + static_cast<double>(halfXFloat) * halfXFloat));
+        std::sqrt((half_z * half_z + half_y * half_y) + static_cast<double>(half_x_float) * half_x_float));
 }
 
 // 0x004DE3E0
-void sceneRef::AllocateMeshList()
+void SceneRef::allocate_mesh_list()
 {
-    if (meshCount > 0)
-        meshes = static_cast<uint8_t**>(MemSys::Alloc(meshCount * 4));
+    if (mesh_count_ > 0)
+        meshes = static_cast<uint8_t**>(memory::alloc(mesh_count_ * 4));
 }
 
 // 0x004DDDF0
-void sceneRef::MeshTotal(int count, uint8_t* const* list)
+void SceneRef::mesh_total(int count, uint8_t* const* list)
 {
     for (int i = 0; i < count; ++i) {
-        ++meshCount;
-        if (Transparent(MaterialOf(list[i])))
-            ++transparentCount;
+        ++mesh_count_;
+        if (get_transparent(material_of(list[i])))
+            ++transparent_count_;
     }
 }
 
 // 0x004DDE20
-void sceneRef::AppendMeshes(int count, uint8_t* const* list)
+void SceneRef::append_meshes(int count, uint8_t* const* list)
 {
     for (int i = 0; i < count; ++i)
         meshes[filled++] = list[i];
 }
 
-void sceneRef::Recount()
+void SceneRef::recount()
 {
-    transparentCount = 0;
-    firstTransparent = meshCount;
-    firstFlagged = meshCount;
-    flaggedCount = 0;
-    for (int i = 0; i < meshCount; ++i) {
-        const uint8_t* material = MaterialOf(meshes[i]);
-        if (!Transparent(material))
+    transparent_count_ = 0;
+    first_transparent_ = mesh_count_;
+    first_flagged_ = mesh_count_;
+    flagged_count_ = 0;
+    for (int i = 0; i < mesh_count_; ++i) {
+        const uint8_t* material = material_of(meshes[i]);
+        if (!get_transparent(material))
             continue;
-        ++transparentCount;
-        if (i < firstTransparent)
-            firstTransparent = i;
-        if (MaterialOf(meshes[i])[0xC]) {
-            ++flaggedCount;
-            if (i < firstFlagged)
-                firstFlagged = i;
+        ++transparent_count_;
+        if (i < first_transparent_)
+            first_transparent_ = i;
+        if (material_of(meshes[i])[0xC]) {
+            ++flagged_count_;
+            if (i < first_flagged_)
+                first_flagged_ = i;
         }
     }
 }
 
 // 0x004DDE60
-void sceneRef::DetachMeshes(int count, uint8_t* const* list)
+void SceneRef::detach_meshes(int count, uint8_t* const* list)
 {
     int removed = 0;
     for (int k = 0; k < count; ++k) {
-        for (int j = 0; j < meshCount; ++j) {
+        for (int j = 0; j < mesh_count_; ++j) {
             if (meshes[j] == list[k]) {
                 meshes[j] = nullptr;
                 ++removed;
@@ -229,44 +229,44 @@ void sceneRef::DetachMeshes(int count, uint8_t* const* list)
     }
     // Close each gap. (A null left in the list before is taken as one; if none is found it never ends.)
     while (removed > 0) {
-        int n = meshCount;
+        int n = mesh_count_;
         int j = 0;
-        while (j < meshCount && meshes[j])
+        while (j < mesh_count_ && meshes[j])
             ++j;
-        if (j >= meshCount)
+        if (j >= mesh_count_)
             continue;
         if (j < n - 1)
             std::memmove(&meshes[j], &meshes[j + 1], (n - j - 1) * sizeof(meshes[0]));
         --removed;
-        --meshCount;
+        --mesh_count_;
         --filled;
     }
-    Recount();
+    recount();
 }
 
 // 0x004DDFA0
-void sceneRef::OrderMeshes()
+void SceneRef::order_meshes()
 {
-    Qsort(meshes, meshCount, sizeof(meshes[0]), &CompareMeshes);
-    Recount();
+    get_qsort(meshes, mesh_count_, sizeof(meshes[0]), &compare_meshes);
+    recount();
 }
 
 // 0x004DE020
-uint8_t* sceneRef::FindMesh(uint32_t index) const
+uint8_t* SceneRef::find_mesh(uint32_t index) const
 {
-    for (int i = 0; i < meshCount; ++i) {
-        if (LoadIndex(meshes[i]) == index)
+    for (int i = 0; i < mesh_count_; ++i) {
+        if (load_index(meshes[i]) == index)
             return meshes[i];
     }
     return nullptr;
 }
 
 // 0x004DE420
-void* sceneRef::FindMaterial(uint32_t checksum) const
+void* SceneRef::find_material(uint32_t checksum) const
 {
     if (!materials)
         return nullptr;
-    for (void* material = FirstValue(materials); material; material = NextValue(materials)) {
+    for (void* material = get_first_value(materials); material; material = next_value(materials)) {
         if (*static_cast<uint32_t*>(material) == checksum)
             return material;
     }
@@ -274,7 +274,7 @@ void* sceneRef::FindMaterial(uint32_t checksum) const
 }
 
 // 0x004DE060
-void sceneRef::BreakStrips(uint32_t mask, const uint32_t* records, uint32_t count)
+void SceneRef::break_strips(uint32_t mask, const uint32_t* records, uint32_t count)
 {
     if (count == 0 || mask == 0)
         return;
@@ -283,63 +283,63 @@ void sceneRef::BreakStrips(uint32_t mask, const uint32_t* records, uint32_t coun
     for (uint32_t r = 0; r < count; ++r, records += 4) {
         if (!(records[0] & mask))
             continue;
-        uint32_t meshIndex = records[1] >> 16;
-        uint8_t* mesh = FindMesh(meshIndex);
+        uint32_t mesh_index = records[1] >> 16;
+        uint8_t* mesh = find_mesh(mesh_index);
         if (!mesh)
             continue;
         uint32_t a = records[1] & 0xFFFF, b = records[2] & 0xFFFF, c = records[2] >> 16;
-        uint16_t* indices = LockIndices(IndexBufferOf(mesh));
+        uint16_t* indices = lock_indices(index_buffer_of(mesh));
         uint32_t i = records[3];
         uint32_t first = indices[i] & 0x7FFF, second = indices[i + 1] & 0x7FFF;
-        for (i += 2; i < IndexCount(mesh); ++i) {
+        for (i += 2; i < get_index_count(mesh); ++i) {
             uint32_t third = indices[i] & 0x7FFF;
             if (first == a && second == c && third == b) {
-                if (meshIndex < 64)
-                    ++breaks[meshIndex];
+                if (mesh_index < 64)
+                    ++breaks[mesh_index];
                 indices[i - 1] |= 0x8000;
                 break;
             }
             first = second;
             second = third;
         }
-        UnlockIndices(IndexBufferOf(mesh));
+        unlock_indices(index_buffer_of(mesh));
     }
-    for (int m = 0; m < meshCount; ++m) {
+    for (int m = 0; m < mesh_count_; ++m) {
         uint8_t* mesh = meshes[m];
-        uint32_t index = LoadIndex(mesh);
+        uint32_t index = load_index(mesh);
         if (index >= 64 || breaks[index] <= 0)
             continue;
-        uint16_t* indices = LockIndices(IndexBufferOf(mesh));
+        uint16_t* indices = lock_indices(index_buffer_of(mesh));
         uint32_t n = 0;
-        for (uint32_t i = 0; i < IndexCount(mesh); ++i) {
+        for (uint32_t i = 0; i < get_index_count(mesh); ++i) {
             uint16_t value = indices[i] & 0x7FFF;
-            TriStripScratch()[n++] = value;
+            tri_strip_scratch()[n++] = value;
             if (indices[i] & 0x8000) { // repeated: a strip break
-                TriStripScratch()[n++] = value;
-                TriStripScratch()[n++] = value;
+                tri_strip_scratch()[n++] = value;
+                tri_strip_scratch()[n++] = value;
             }
         }
-        ReleaseIndexBuffer(IndexBufferOf(mesh));
-        IndexCount(mesh) = static_cast<uint16_t>(n);
-        void* buffer = NewIndexBuffer(n * 2);
-        IndexBufferOf(mesh) = buffer;
-        uint16_t* rebuilt = LockIndices(buffer);
-        std::memcpy(rebuilt, TriStripScratch(), IndexCount(mesh) * 2);
-        UnlockIndices(IndexBufferOf(mesh));
+        release_index_buffer(index_buffer_of(mesh));
+        get_index_count(mesh) = static_cast<uint16_t>(n);
+        void* buffer = new_index_buffer(n * 2);
+        index_buffer_of(mesh) = buffer;
+        uint16_t* rebuilt = lock_indices(buffer);
+        std::memcpy(rebuilt, tri_strip_scratch(), get_index_count(mesh) * 2);
+        unlock_indices(index_buffer_of(mesh));
     }
 }
 
 // 0x004DE560
-void __cdecl DiscardScene(sceneRef* scene)
+void __cdecl discard_scene(SceneRef* scene)
 {
-    if (ListKit::KeyMap* table = scene->materials) {
-        for (void* material = FirstValue(table); material; material = NextValue(scene->materials)) {
-            DestroyMaterial(material);
-            MemSys::Hub::Sole()->Dealloc(material);
+    if (lists::KeyMap* table = scene->materials) {
+        for (void* material = get_first_value(table); material; material = next_value(scene->materials)) {
+            destroy_material(material);
+            memory::Hub::sole()->dealloc(material);
         }
     }
-    scene->DestroyBody();
-    MemSys::Hub::Sole()->Dealloc(scene);
+    scene->destroy_body();
+    memory::Hub::sole()->dealloc(scene);
 }
 
 } // namespace Nx

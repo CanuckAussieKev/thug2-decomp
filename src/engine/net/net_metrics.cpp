@@ -4,48 +4,48 @@
 
 #include "engine/net/net_metrics.h"
 
-namespace NetLink {
+namespace net {
 
 // 0x004544E0
-Gauges* Gauges::MakeNew()
+Gauges* Gauges::make_new()
 {
-    m_packetsSeen = 0;
-    m_byteSum = 0;
-    m_throughput = 0;
-    for (int& count : m_perKindCounts)
+    packets_seen_ = 0;
+    byte_sum_ = 0;
+    throughput_ = 0;
+    for (int& count : per_kind_counts_)
         count = 0;
-    for (int& bytes : m_messageData)
+    for (int& bytes : message_data_)
         bytes = 0;
     return this;
 }
 
 // 0x00454550
-void Gauges::AppendNote(int msgId, int size)
+void Gauges::append_note(int msg_id, int size)
 {
-    ++m_perKindCounts[msgId];
-    m_messageData[msgId] += size;
+    ++per_kind_counts_[msg_id];
+    message_data_[msg_id] += size;
 }
 
 // 0x00454D90
-void Gauges::CountPacket(int size, int time)
+void Gauges::count_packet(int size, int time)
 {
-    Packet& packet = m_packetTally[m_packetsSeen % kTallyWindow]; // (a signed remainder, like the original's)
-    packet.m_clock = time;
-    packet.m_extent = size;
-    m_byteSum += size;
-    ++m_packetsSeen;
+    Packet& packet = packet_tally_[packets_seen_ % kTallyWindow]; // (a signed remainder, like the original's)
+    packet.clock_ = time;
+    packet.extent_ = size;
+    byte_sum_ += size;
+    ++packets_seen_;
 }
 
 // 0x00454D00
-void Gauges::CalculateUsage(int time)
+void Gauges::calculate_usage(int time)
 {
     int total = 0;
-    for (int i = 0; i < kTallyWindow && i < m_packetsSeen; ++i) {
-        int age = static_cast<int>(static_cast<uint32_t>(time) - static_cast<uint32_t>(m_packetTally[i].m_clock));
+    for (int i = 0; i < kTallyWindow && i < packets_seen_; ++i) {
+        int age = static_cast<int>(static_cast<uint32_t>(time) - static_cast<uint32_t>(packet_tally_[i].clock_));
         if (age < kUsagePeriod) // (a packet "from the future" counts too)
-            total += m_packetTally[i].m_extent;
+            total += packet_tally_[i].extent_;
     }
-    m_throughput = total;
+    throughput_ = total;
 }
 
 } // namespace Net

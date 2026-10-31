@@ -7,11 +7,11 @@
 #include <cmath>
 #include <cstring>
 
-namespace MenuSystem::LevelEditor::Shadows {
+namespace frontend::level_editor::shadows {
 
 namespace {
 
-std::string Lower(const char* name)
+std::string get_lower(const char* name)
 {
     std::string text = name ? name : "";
     for (char& c : text)
@@ -19,18 +19,18 @@ std::string Lower(const char* name)
     return text;
 }
 
-bool Letter(char c) { return c >= 'a' && c <= 'z'; }
-bool Digit(char c) { return c >= '0' && c <= '9'; }
+bool get_letter(char c) { return c >= 'a' && c <= 'z'; }
+bool get_digit(char c) { return c >= '0' && c <= '9'; }
 
 // How far a point (x, z) is from a footprint (0: on it).
-float FootprintDistance(float x, float z, V3 min, V3 max)
+float footprint_distance(float x, float z, V3 min, V3 max)
 {
     float dx = x < min.x ? min.x - x : (x > max.x ? x - max.x : 0.0f);
     float dz = z < min.z ? min.z - z : (z > max.z ? z - max.z : 0.0f);
     return std::sqrt(dx * dx + dz * dz);
 }
 
-float CentreDistance(float x, float z, V3 min, V3 max)
+float centre_distance(float x, float z, V3 min, V3 max)
 {
     float dx = x - (min.x + max.x) * 0.5f, dz = z - (min.z + max.z) * 0.5f;
     return std::sqrt(dx * dx + dz * dz);
@@ -38,27 +38,27 @@ float CentreDistance(float x, float z, V3 min, V3 max)
 
 } // namespace
 
-bool ShadowName(const char* name) { return Lower(name).find("shad") != std::string::npos; }
+bool shadow_name(const char* name) { return get_lower(name).find("shad") != std::string::npos; }
 
-std::vector<std::string> OwnerNames(const char* name)
+std::vector<std::string> owner_names(const char* name)
 {
     std::vector<std::string> owners;
-    std::string text = Lower(name);
+    std::string text = get_lower(name);
     // The last "shad", its tail a suffix: letters, then optionally "_" and a number, then optionally a letter (an earlier
     // "shad" has this one in its tail: it can't be the suffix if this isn't).
     size_t at = text.rfind("shad");
     if (at == std::string::npos || at == 0)
         return owners;
     size_t i = at + 4;
-    while (i < text.size() && Letter(text[i]))
+    while (i < text.size() && get_letter(text[i]))
         ++i;
-    size_t numberAt = i;
-    if (i < text.size() && text[i] == '_' && i + 1 < text.size() && Digit(text[i + 1]))
-        numberAt = ++i;
-    while (i < text.size() && Digit(text[i]))
+    size_t number_at = i;
+    if (i < text.size() && text[i] == '_' && i + 1 < text.size() && get_digit(text[i + 1]))
+        number_at = ++i;
+    while (i < text.size() && get_digit(text[i]))
         ++i;
-    std::string number = text.substr(numberAt, i - numberAt);
-    if (!number.empty() && i < text.size() && Letter(text[i]))
+    std::string number = text.substr(number_at, i - number_at);
+    if (!number.empty() && i < text.size() && get_letter(text[i]))
         number += text[i++];
     if (i != text.size())
         return owners; // (not at the end: "Shadow" is part of the name)
@@ -75,23 +75,23 @@ std::vector<std::string> OwnerNames(const char* name)
     return owners;
 }
 
-bool FallsUnder(V3 shadowMin, V3 shadowMax, V3 groupMin, V3 groupMax)
+bool falls_under(V3 shadow_min, V3 shadow_max, V3 group_min, V3 group_max)
 {
-    if (!(shadowMin.x <= shadowMax.x && shadowMin.y <= shadowMax.y && shadowMin.z <= shadowMax.z) ||
-        !(groupMin.x <= groupMax.x && groupMin.y <= groupMax.y && groupMin.z <= groupMax.z))
+    if (!(shadow_min.x <= shadow_max.x && shadow_min.y <= shadow_max.y && shadow_min.z <= shadow_max.z) ||
+        !(group_min.x <= group_max.x && group_min.y <= group_max.y && group_min.z <= group_max.z))
         return false;
-    if (shadowMax.y - shadowMin.y > kFlat || std::fabs(shadowMax.y - groupMin.y) > kGap ||
-        groupMax.y - groupMin.y <= kFlat)
+    if (shadow_max.y - shadow_min.y > kFlat || std::fabs(shadow_max.y - group_min.y) > kGap ||
+        group_max.y - group_min.y <= kFlat)
         return false;
-    float width = shadowMax.x - shadowMin.x, depth = shadowMax.z - shadowMin.z;
+    float width = shadow_max.x - shadow_min.x, depth = shadow_max.z - shadow_min.z;
     if (std::max(width, depth) > kMaxSpan)
         return false;
-    float casterArea = std::max(groupMax.x - groupMin.x, 1.0f) * std::max(groupMax.z - groupMin.z, 1.0f);
-    if (std::max(width, 1.0f) * std::max(depth, 1.0f) < kMinCover * casterArea)
+    float caster_area = std::max(group_max.x - group_min.x, 1.0f) * std::max(group_max.z - group_min.z, 1.0f);
+    if (std::max(width, 1.0f) * std::max(depth, 1.0f) < kMinCover * caster_area)
         return false;
-    float margin = kMarginBase + kMarginPerHeight * (groupMax.y - groupMin.y);
-    float x0 = std::max(shadowMin.x, groupMin.x - margin), x1 = std::min(shadowMax.x, groupMax.x + margin);
-    float z0 = std::max(shadowMin.z, groupMin.z - margin), z1 = std::min(shadowMax.z, groupMax.z + margin);
+    float margin = kMarginBase + kMarginPerHeight * (group_max.y - group_min.y);
+    float x0 = std::max(shadow_min.x, group_min.x - margin), x1 = std::min(shadow_max.x, group_max.x + margin);
+    float z0 = std::max(shadow_min.z, group_min.z - margin), z1 = std::min(shadow_max.z, group_max.z + margin);
     if (x1 < x0 || z1 < z0)
         return false;
     // (a thin shadow - a rail's line - counted as at least a unit wide, so its share is measured along it)
@@ -100,39 +100,39 @@ bool FallsUnder(V3 shadowMin, V3 shadowMax, V3 groupMin, V3 groupMax)
     return inside >= kInside * area;
 }
 
-bool NearestToGroup(V3 shadowMin, V3 shadowMax, V3 groupMin, V3 groupMax, const std::vector<std::pair<V3, V3>>& others)
+bool nearest_to_group(V3 shadow_min, V3 shadow_max, V3 group_min, V3 group_max, const std::vector<std::pair<V3, V3>>& others)
 {
-    float x = (shadowMin.x + shadowMax.x) * 0.5f, z = (shadowMin.z + shadowMax.z) * 0.5f;
-    float mine = FootprintDistance(x, z, groupMin, groupMax);
-    float mineCentre = CentreDistance(x, z, groupMin, groupMax);
+    float x = (shadow_min.x + shadow_max.x) * 0.5f, z = (shadow_min.z + shadow_max.z) * 0.5f;
+    float mine = footprint_distance(x, z, group_min, group_max);
+    float mine_centre = centre_distance(x, z, group_min, group_max);
     for (const auto& other : others) {
-        float theirs = FootprintDistance(x, z, other.first, other.second);
+        float theirs = footprint_distance(x, z, other.first, other.second);
         if (theirs < mine)
             return false;
-        if (theirs == mine && CentreDistance(x, z, other.first, other.second) < mineCentre)
+        if (theirs == mine && centre_distance(x, z, other.first, other.second) < mine_centre)
             return false;
     }
     return true;
 }
 
-bool Beside(V3 shadowMin, V3 shadowMax, V3 casterMin, V3 casterMax)
+bool get_beside(V3 shadow_min, V3 shadow_max, V3 caster_min, V3 caster_max)
 {
-    float margin = kMarginBase + kMarginPerHeight * (casterMax.y - casterMin.y);
-    return shadowMin.x <= casterMax.x + margin && shadowMax.x >= casterMin.x - margin &&
-           shadowMin.z <= casterMax.z + margin && shadowMax.z >= casterMin.z - margin &&
-           shadowMin.y <= casterMax.y + margin && shadowMax.y >= casterMin.y - margin;
+    float margin = kMarginBase + kMarginPerHeight * (caster_max.y - caster_min.y);
+    return shadow_min.x <= caster_max.x + margin && shadow_max.x >= caster_min.x - margin &&
+           shadow_min.z <= caster_max.z + margin && shadow_max.z >= caster_min.z - margin &&
+           shadow_min.y <= caster_max.y + margin && shadow_max.y >= caster_min.y - margin;
 }
 
-bool StandsBy(V3 pieceMin, V3 shadowMax)
+bool stands_by(V3 piece_min, V3 shadow_max)
 {
-    return std::fabs(pieceMin.y - shadowMax.y) <= kGap;
+    return std::fabs(piece_min.y - shadow_max.y) <= kGap;
 }
 
-} // namespace MenuSystem::LevelEditor::Shadows
+} // namespace MenuSystem::level_editor::shadows
 
-namespace MenuSystem::LevelEditor::Members {
+namespace frontend::level_editor::members {
 
-int DropTarget(const std::vector<bool>& passed, const std::vector<bool>& selected)
+int drop_target(const std::vector<bool>& passed, const std::vector<bool>& selected)
 {
     size_t count = std::min(passed.size(), selected.size());
     for (size_t i = 0; i < count; ++i) {
@@ -144,4 +144,4 @@ int DropTarget(const std::vector<bool>& passed, const std::vector<bool>& selecte
     return -1;
 }
 
-} // namespace MenuSystem::LevelEditor::Members
+} // namespace MenuSystem::level_editor::Members

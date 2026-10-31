@@ -3,18 +3,18 @@
 // Where the game passes them (THUG2 PC, the same in the reference build and THUG2.exe):
 //   - the game name "thps6pc" (plain text at 0x0064B1CC) is pushed as an address by: WinMain's availability check,
 //     qr2_init (0x0053BE86), the qr2 / peer server key callbacks' "gamename" key (0x0053BA1F, 0x0053F936) and the
-//     stats SDK's copy into 0x007D7A78 (RankingsManager::LogInThread) and peerSetTitle's title and server-browsing name
-//     (CFunc_LobbyConnect, rooms.cpp: once pushed at 0x00542F8B / 0x00542FA0) - all source now, using GameName()
+//     stats SDK's copy into 0x007D7A78 (RankingsManager::log_in_thread) and peerSetTitle's title and server-browsing name
+//     (cfunc_lobby_connect, rooms.cpp: once pushed at 0x00542F8B / 0x00542FA0) - all source now, using GameName()
 //     itself: nothing of the name is written into the exe any more.
 //   - the secret key "AdLWaZ" is stored twice bitwise-NOT (6 bytes each, decoded onto the stack at the call): at
 //     0x0067F120 for qr2_init, at 0x0067F154 for peerSetTitle (both keys); and once plain at 0x0064D58C for the
-//     stats SDK (copied into 0x007D7B78 by RankingsManager::LogInThread from there).
+//     stats SDK (copied into 0x007D7B78 by RankingsManager::log_in_thread from there).
 // Not changed here (THUGPRO doesn't either): the online service task's own availability check with "mototrax"
-// (0x0064CDF0, NetLink::ServiceTask - the SDK keeps the last checked name for NAT negotiation, GP logins and the
+// (0x0064CDF0, NetLink::service_task - the SDK keeps the last checked name for NAT negotiation, GP logins and the
 // MOTD URL), the product id 10368 (the MOTD), the CD key game id 1003, GP's "10thug211" location strings and the
 // stats path "thug2pc/%s".
 //
-// The SDK is linked (src/engine/net/gamespy.h): its callers pass GameKey() to it.
+// The SDK is linked (src/engine/net/gamespy.h): its callers pass game_key() to it.
 
 #include "engine/net/online_identity.h"
 
@@ -26,7 +26,7 @@
 #include "platform/platform_config.h"
 #include "platform/debug_log.h"
 
-namespace NetLink {
+namespace net {
 
 namespace {
 
@@ -36,7 +36,7 @@ constexpr size_t kMaxName = 31;
 constexpr size_t kKeyLength = 6;
 
 
-bool ValidName(const char* name)
+bool valid_name(const char* name)
 {
     size_t length = std::strlen(name);
     if (length == 0 || length > kMaxName)
@@ -47,7 +47,7 @@ bool ValidName(const char* name)
     return true;
 }
 
-bool ValidKey(const char* key)
+bool valid_key(const char* key)
 {
     if (std::strlen(key) != kKeyLength)
         return false;
@@ -57,61 +57,61 @@ bool ValidKey(const char* key)
     return true;
 }
 
-char s_nameSetting[64];
+char s_name_setting[64];
 
-// OnlineGameName, or the game's own (an invalid one too: SetUpOnlineIdentity reports it); never freed.
-const char* ReadGameName()
+// OnlineGameName, or the game's own (an invalid one too: set_up_online_identity reports it); never freed.
+const char* read_game_name()
 {
-    BuildInfo::PrepareAll(); // (WinMain needs the name before the PC set-up has read the settings)
-    BuildInfo::FetchText(BuildInfo::kMiscellaneous, "OnlineGameName", "", s_nameSetting, sizeof(s_nameSetting));
-    return s_nameSetting[0] != '\0' && ValidName(s_nameSetting) ? s_nameSetting : kOwnName;
+    build_info::prepare_all(); // (WinMain needs the name before the PC set-up has read the settings)
+    build_info::fetch_text(build_info::kMiscellaneous, "OnlineGameName", "", s_name_setting, sizeof(s_name_setting));
+    return s_name_setting[0] != '\0' && valid_name(s_name_setting) ? s_name_setting : kOwnName;
 }
 
-char s_keySetting[64];
+char s_key_setting[64];
 
 // OnlineGameKey, or the game's own (an invalid one too); never freed.
-const char* ReadGameKey()
+const char* read_game_key()
 {
-    BuildInfo::PrepareAll();
-    BuildInfo::FetchText(BuildInfo::kMiscellaneous, "OnlineGameKey", "", s_keySetting, sizeof(s_keySetting));
-    return s_keySetting[0] != '\0' && ValidKey(s_keySetting) ? s_keySetting : kOwnKey;
+    build_info::prepare_all();
+    build_info::fetch_text(build_info::kMiscellaneous, "OnlineGameKey", "", s_key_setting, sizeof(s_key_setting));
+    return s_key_setting[0] != '\0' && valid_key(s_key_setting) ? s_key_setting : kOwnKey;
 }
 
 } // namespace
 
-const char* GameName()
+const char* get_game_name()
 {
-    static const char* name = ReadGameName();
+    static const char* name = read_game_name();
     return name;
 }
 
-const char* GameKey()
+const char* game_key()
 {
-    static const char* key = ReadGameKey();
+    static const char* key = read_game_key();
     return key;
 }
 
 
-void SetUpOnlineIdentity()
+void set_up_online_identity()
 {
-    const char* name = GameName();
-    if (s_nameSetting[0] != '\0' && name != s_nameSetting)
-        DebugLog::Printf(DebugLog::StageMap::kWarn, "OnlineGameName \"%s\" ignored (1-31 letters or digits)\n",
-                         s_nameSetting);
+    const char* name = get_game_name();
+    if (s_name_setting[0] != '\0' && name != s_name_setting)
+        debug_log::printf(debug_log::StageMap::kWarn, "OnlineGameName \"%s\" ignored (1-31 letters or digits)\n",
+                         s_name_setting);
     char key[64];
-    BuildInfo::FetchText(BuildInfo::kMiscellaneous, "OnlineGameKey", "", key, sizeof(key));
-    const char* useKey = nullptr;
+    build_info::fetch_text(build_info::kMiscellaneous, "OnlineGameKey", "", key, sizeof(key));
+    const char* use_key = nullptr;
     if (key[0] != '\0') {
-        if (ValidKey(key))
-            useKey = key;
+        if (valid_key(key))
+            use_key = key;
         else
-            DebugLog::Printf(DebugLog::StageMap::kWarn, "OnlineGameKey \"%s\" ignored (6 characters)\n", key);
+            debug_log::printf(debug_log::StageMap::kWarn, "OnlineGameKey \"%s\" ignored (6 characters)\n", key);
     }
-    if (useKey && std::strcmp(useKey, kOwnKey) == 0)
-        useKey = nullptr;
-    DebugLog::Printf(DebugLog::StageMap::kInfo, "ONLINE IDENTITY: game name %s%s, key %s\n", name,
+    if (use_key && std::strcmp(use_key, kOwnKey) == 0)
+        use_key = nullptr;
+    debug_log::printf(debug_log::StageMap::kInfo, "ONLINE IDENTITY: game name %s%s, key %s\n", name,
                      std::strcmp(name, kOwnName) == 0 ? "" : " (OnlineGameName)",
-                     useKey ? "OnlineGameKey" : "the game's own");
+                     use_key ? "OnlineGameKey" : "the game's own");
 }
 
 } // namespace Net

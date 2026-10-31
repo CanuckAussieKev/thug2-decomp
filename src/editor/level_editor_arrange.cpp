@@ -37,15 +37,15 @@
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
 
-namespace MenuSystem::LevelEditor::Arrange {
+namespace frontend::level_editor::arrange {
 
 // --- the pure parts ---------------------------------------------------------------------------------------------
 
-Span SpanAlong(const std::vector<V3>& points, V3 axis)
+Span span_along(const std::vector<V3>& points, V3 axis)
 {
     Span span;
     for (size_t i = 0; i < points.size(); ++i) {
-        float d = Dot(points[i], axis);
+        float d = get_dot(points[i], axis);
         if (i == 0 || d < span.lo)
             span.lo = d;
         if (i == 0 || d > span.hi)
@@ -56,35 +56,35 @@ Span SpanAlong(const std::vector<V3>& points, V3 axis)
 
 namespace {
 
-float EdgeOf(const Span& span, Edge edge)
+float edge_of(const Span& span, Edge edge)
 {
-    return edge == Edge::Min ? span.lo : edge == Edge::Max ? span.hi : (span.lo + span.hi) * 0.5f;
+    return edge == Edge::kMin ? span.lo : edge == Edge::kMax ? span.hi : (span.lo + span.hi) * 0.5f;
 }
 
-float Component(V3 v, int axis) { return axis == 0 ? v.x : axis == 1 ? v.y : v.z; }
-float& ComponentRef(V3& v, int axis) { return axis == 0 ? v.x : axis == 1 ? v.y : v.z; }
+float get_component(V3 v, int axis) { return axis == 0 ? v.x : axis == 1 ? v.y : v.z; }
+float& component_ref(V3& v, int axis) { return axis == 0 ? v.x : axis == 1 ? v.y : v.z; }
 
 } // namespace
 
-std::vector<float> AlignMoves(const std::vector<Span>& spans, Edge edge, Reference reference)
+std::vector<float> align_moves(const std::vector<Span>& spans, Edge edge, Reference reference)
 {
     std::vector<float> moves(spans.size(), 0.0f);
     if (spans.empty())
         return moves;
     Span bounds = spans.front();
-    if (reference == Reference::Bounds) {
+    if (reference == Reference::kBounds) {
         for (const Span& s : spans) {
             bounds.lo = std::min(bounds.lo, s.lo);
             bounds.hi = std::max(bounds.hi, s.hi);
         }
     }
-    float target = EdgeOf(bounds, edge);
+    float target = edge_of(bounds, edge);
     for (size_t i = 0; i < spans.size(); ++i)
-        moves[i] = target - EdgeOf(spans[i], edge);
+        moves[i] = target - edge_of(spans[i], edge);
     return moves;
 }
 
-std::vector<float> DistributeMoves(const std::vector<Span>& spans, bool gaps)
+std::vector<float> distribute_moves(const std::vector<Span>& spans, bool gaps)
 {
     std::vector<float> moves(spans.size(), 0.0f);
     size_t n = spans.size();
@@ -94,15 +94,15 @@ std::vector<float> DistributeMoves(const std::vector<Span>& spans, bool gaps)
     for (size_t i = 0; i < n; ++i)
         order[i] = i;
     std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
-        return EdgeOf(spans[a], Edge::Centre) < EdgeOf(spans[b], Edge::Centre);
+        return edge_of(spans[a], Edge::kCentre) < edge_of(spans[b], Edge::kCentre);
     });
     const Span& first = spans[order.front()];
     const Span& last = spans[order.back()];
     if (!gaps) {
-        float c0 = EdgeOf(first, Edge::Centre), c1 = EdgeOf(last, Edge::Centre);
+        float c0 = edge_of(first, Edge::kCentre), c1 = edge_of(last, Edge::kCentre);
         for (size_t k = 1; k + 1 < n; ++k) {
             float target = c0 + (c1 - c0) * static_cast<float>(k) / static_cast<float>(n - 1);
-            moves[order[k]] = target - EdgeOf(spans[order[k]], Edge::Centre);
+            moves[order[k]] = target - edge_of(spans[order[k]], Edge::kCentre);
         }
         return moves;
     }
@@ -119,15 +119,15 @@ std::vector<float> DistributeMoves(const std::vector<Span>& spans, bool gaps)
     return moves;
 }
 
-V3 EdgeSnap(const Aabb& moving, V3 delta, const std::vector<Aabb>& others, float reach, int axes,
+V3 edge_snap(const Aabb& moving, V3 delta, const std::vector<Aabb>& others, float reach, int axes,
             std::vector<Contact>* contacts)
 {
     V3 out = delta;
     Aabb m = {moving.min + delta, moving.max + delta};
     constexpr float kEps = 0.5f; // (boxes that only touch don't overlap)
     auto overlaps = [&](const Aabb& o, int axis, float slack) {
-        return Component(m.min, axis) < Component(o.max, axis) + slack - kEps &&
-               Component(m.max, axis) > Component(o.min, axis) - slack + kEps;
+        return get_component(m.min, axis) < get_component(o.max, axis) + slack - kEps &&
+               get_component(m.max, axis) > get_component(o.min, axis) - slack + kEps;
     };
     for (int axis = 0; axis < 3; ++axis) {
         if (!(axes & (1 << axis)))
@@ -151,8 +151,8 @@ V3 EdgeSnap(const Aabb& moving, V3 delta, const std::vector<Aabb>& others, float
                 int across = axis == 0 ? 2 : 0;
                 if (!overlaps(o, 1, 0.0f) || !overlaps(o, across, reach))
                     continue;
-                consider(Component(o.max, axis) - Component(m.min, axis), Component(o.max, axis), index);
-                consider(Component(o.min, axis) - Component(m.max, axis), Component(o.min, axis), index);
+                consider(get_component(o.max, axis) - get_component(m.min, axis), get_component(o.max, axis), index);
+                consider(get_component(o.min, axis) - get_component(m.max, axis), get_component(o.min, axis), index);
             } else {
                 // (stacked on it: over it; level with its top: beside it, within reach)
                 if (overlaps(o, 0, 0.0f) && overlaps(o, 2, 0.0f))
@@ -162,7 +162,7 @@ V3 EdgeSnap(const Aabb& moving, V3 delta, const std::vector<Aabb>& others, float
             }
         }
         if (found >= 0) {
-            ComponentRef(out, axis) += correction;
+            component_ref(out, axis) += correction;
             if (contacts)
                 contacts->push_back({axis, at, found});
         }
@@ -170,9 +170,9 @@ V3 EdgeSnap(const Aabb& moving, V3 delta, const std::vector<Aabb>& others, float
     return out;
 }
 
-float SnapReach(float distance) { return std::clamp(distance * 0.01f, 6.0f, 24.0f); }
+float snap_reach(float distance) { return std::clamp(distance * 0.01f, 6.0f, 24.0f); }
 
-float BoxSegmentDistance(const Aabb& box, V3 a, V3 b, V3* nearest)
+float box_segment_distance(const Aabb& box, V3 a, V3 b, V3* nearest)
 {
     auto at = [&](float t) { return a + (b - a) * t; };
     auto distance = [&](float t) {
@@ -180,7 +180,7 @@ float BoxSegmentDistance(const Aabb& box, V3 a, V3 b, V3* nearest)
         V3 q = {std::clamp(p.x, box.min.x, box.max.x), std::clamp(p.y, box.min.y, box.max.y),
                 std::clamp(p.z, box.min.z, box.max.z)};
         V3 d = p - q;
-        return std::sqrt(Dot(d, d));
+        return std::sqrt(get_dot(d, d));
     };
     // (the distance from a convex box along a line is convex: a ternary search finds its least)
     float lo = 0.0f, hi = 1.0f;
@@ -197,7 +197,7 @@ float BoxSegmentDistance(const Aabb& box, V3 a, V3 b, V3* nearest)
     return distance(t);
 }
 
-std::vector<std::string> ReadoutLines(const Readout& r)
+std::vector<std::string> readout_lines(const Readout& r)
 {
     std::vector<std::string> lines;
     char text[96];
@@ -207,18 +207,18 @@ std::vector<std::string> ReadoutLines(const Readout& r)
         std::snprintf(text, sizeof(text), "moved %.0f", r.moved);
         lines.push_back(text);
     }
-    if (r.haveGround) {
+    if (r.have_ground_) {
         std::snprintf(text, sizeof(text), "above ground %.0f", r.above);
         lines.push_back(text);
     }
-    if (r.haveRail) {
+    if (r.have_rail_) {
         std::snprintf(text, sizeof(text), "%s %.0f", r.ledge ? "ledge" : "rail", r.rail);
         lines.push_back(text);
     }
     return lines;
 }
 
-std::vector<Run> TopEdges(const std::vector<V3>& triangles, float weld, float minLength)
+std::vector<Run> top_edges(const std::vector<V3>& triangles, float weld, float min_length)
 {
     std::vector<Run> runs;
     if (weld <= 0.0f)
@@ -244,8 +244,8 @@ std::vector<Run> TopEdges(const std::vector<V3>& triangles, float weld, float mi
         int v[3] = {id(triangles[t]), id(triangles[t + 1]), id(triangles[t + 2])};
         if (v[0] == v[1] || v[1] == v[2] || v[0] == v[2])
             continue;
-        V3 n = Perpendicular(points[v[1]] - points[v[0]], points[v[2]] - points[v[0]]);
-        float length = std::sqrt(Dot(n, n));
+        V3 n = perpendicular(points[v[1]] - points[v[0]], points[v[2]] - points[v[0]]);
+        float length = std::sqrt(get_dot(n, n));
         if (length < 1e-6f)
             continue;
         bool top = std::fabs(n.y / length) >= kTopNormalY;
@@ -277,9 +277,9 @@ std::vector<Run> TopEdges(const std::vector<V3>& triangles, float weld, float mi
         at[entry.first.first].push_back(index);
         at[entry.first.second].push_back(index);
     }
-    auto direction = [&](int from, int to) { return MakeUnit(points[to] - points[from]); };
+    auto direction = [&](int from, int to) { return make_unit(points[to] - points[from]); };
     auto joins = [&](int prev, int mid, int next) {
-        float c = Dot(direction(prev, mid), direction(mid, next));
+        float c = get_dot(direction(prev, mid), direction(mid, next));
         return c >= std::cos(kJoinDegrees * 3.14159265f / 180.0f);
     };
     std::vector<bool> used(lips.size(), false);
@@ -324,17 +324,17 @@ std::vector<Run> TopEdges(const std::vector<V3>& triangles, float weld, float mi
         Run run;
         run.points.push_back(points[chain.front()]);
         for (size_t i = 1; i + 1 < chain.size(); ++i) {
-            V3 a = MakeUnit(points[chain[i]] - run.points.back());
-            V3 b = MakeUnit(points[chain[i + 1]] - points[chain[i]]);
-            if (Dot(a, b) < std::cos(2.0f * 3.14159265f / 180.0f))
+            V3 a = make_unit(points[chain[i]] - run.points.back());
+            V3 b = make_unit(points[chain[i + 1]] - points[chain[i]]);
+            if (get_dot(a, b) < std::cos(2.0f * 3.14159265f / 180.0f))
                 run.points.push_back(points[chain[i]]);
         }
         run.points.push_back(points[chain.back()]);
         for (size_t i = 1; i < run.points.size(); ++i) {
             V3 d = run.points[i] - run.points[i - 1];
-            run.length += std::sqrt(Dot(d, d));
+            run.length += std::sqrt(get_dot(d, d));
         }
-        if (run.length >= minLength)
+        if (run.length >= min_length)
             runs.push_back(std::move(run));
     }
     // (the longest first: they're the ones wanted most)
@@ -342,19 +342,19 @@ std::vector<Run> TopEdges(const std::vector<V3>& triangles, float weld, float mi
     return runs;
 }
 
-int RunAt(const std::vector<Run>& runs, const std::function<bool(V3, float*, float*)>& project, float x, float y,
+int run_at(const std::vector<Run>& runs, const std::function<bool(V3, float*, float*)>& project, float x, float y,
           float grab)
 {
     int best = -1;
-    float bestD = grab;
+    float best_d = grab;
     for (size_t r = 0; r < runs.size(); ++r) {
         for (size_t i = 1; i < runs[r].points.size(); ++i) {
             float ax, ay, bx, by;
             if (!project(runs[r].points[i - 1], &ax, &ay) || !project(runs[r].points[i], &bx, &by))
                 continue;
-            float d = DistanceToSegment(x, y, ax, ay, bx, by);
-            if (d <= bestD) {
-                bestD = d;
+            float d = distance_to_segment(x, y, ax, ay, bx, by);
+            if (d <= best_d) {
+                best_d = d;
                 best = static_cast<int>(r);
             }
         }
@@ -362,7 +362,7 @@ int RunAt(const std::vector<Run>& runs, const std::function<bool(V3, float*, flo
     return best;
 }
 
-Settings& AtHand()
+Settings& at_hand()
 {
     static Settings settings;
     return settings;
@@ -374,51 +374,51 @@ namespace {
 
 const V3 kWorld[3] = {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}};
 
-GameObjects::CGameEntity* LiveObject(uint32_t id)
+objects::GameEntity* live_object(uint32_t id)
 {
-    auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
-    return object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) ? object : nullptr;
+    auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
+    return object && !(object->object_flags_ & objects::kObjectFlagDead) ? object : nullptr;
 }
 
-void Corners(const OrientedBox& box, std::vector<V3>* out)
+void get_corners(const OrientedBox& box, std::vector<V3>* out)
 {
     V3 c[8];
-    BoxCorners(box.origin, box.axes, box.min, box.max, c);
+    box_corners(box.origin, box.axes, box.min, box.max, c);
     out->insert(out->end(), c, c + 8);
 }
 
 // A piece the tools move as one: an object, or a scenery piece with the shadows cast by it.
 struct Unit {
-    GameObjects::CGameEntity* object = nullptr;
+    objects::GameEntity* object = nullptr;
     std::vector<uint32_t> sectors;
     std::vector<V3> corners;
 };
 
-std::vector<Unit> UnitsOf(const Edit::Selected& selection)
+std::vector<Unit> units_of(const edit::Selected& selection)
 {
     std::vector<Unit> units;
     OrientedBox box;
-    if (selection.kind == Edit::Kind::Objects) {
+    if (selection.kind == edit::Kind::object_edit) {
         for (uint32_t id : selection.ids) {
-            GameObjects::CGameEntity* object = LiveObject(id);
+            objects::GameEntity* object = live_object(id);
             if (!object)
                 continue;
             Unit unit;
             unit.object = object;
-            if (Objects::ModelBox(object, &box))
-                Corners(box, &unit.corners);
+            if (object_edit::model_box(object, &box))
+                get_corners(box, &unit.corners);
             else
-                unit.corners.push_back(Objects::PosOf(object));
+                unit.corners.push_back(object_edit::pos_of(object));
             units.push_back(std::move(unit));
         }
         return units;
     }
-    if (selection.kind != Edit::Kind::Scenery)
+    if (selection.kind != edit::Kind::kScenery)
         return units;
     std::vector<uint32_t> shadows;
     for (uint32_t s : selection.ids) {
         uint32_t caster = 0;
-        if (Scenery::IsShadow(s, &caster) &&
+        if (scenery::is_shadow(s, &caster) &&
             std::find(selection.ids.begin(), selection.ids.end(), caster) != selection.ids.end() && caster != s) {
             shadows.push_back(s);
             continue;
@@ -429,7 +429,7 @@ std::vector<Unit> UnitsOf(const Edit::Selected& selection)
     }
     for (uint32_t s : shadows) {
         uint32_t caster = 0;
-        Scenery::IsShadow(s, &caster);
+        scenery::is_shadow(s, &caster);
         for (Unit& unit : units) {
             if (unit.sectors.front() == caster)
                 unit.sectors.push_back(s);
@@ -437,8 +437,8 @@ std::vector<Unit> UnitsOf(const Edit::Selected& selection)
     }
     for (Unit& unit : units) {
         for (uint32_t s : unit.sectors) {
-            if (Scenery::Cuboid(s, &box))
-                Corners(box, &unit.corners);
+            if (scenery::cuboid(s, &box))
+                get_corners(box, &unit.corners);
         }
     }
     units.erase(std::remove_if(units.begin(), units.end(), [](const Unit& u) { return u.corners.empty(); }),
@@ -448,106 +448,106 @@ std::vector<Unit> UnitsOf(const Edit::Selected& selection)
 
 // The axes the tools go along: the world's, or (Local) the first piece's own - an object's rows, a sector's quarter
 // turns.
-void AxesOf(const std::vector<Unit>& units, bool local, V3 out[3])
+void axes_of(const std::vector<Unit>& units, bool local, V3 out[3])
 {
     for (int i = 0; i < 3; ++i)
         out[i] = kWorld[i];
     if (!local || units.empty())
         return;
-    if (GameObjects::CGameEntity* object = units.front().object) {
+    if (objects::GameEntity* object = units.front().object) {
         for (int i = 0; i < 3; ++i)
-            out[i] = MakeUnit({object->m_basisFrame.row[i].x, object->m_basisFrame.row[i].y, object->m_basisFrame.row[i].z});
+            out[i] = make_unit({object->basis_frame_.row[i].x, object->basis_frame_.row[i].y, object->basis_frame_.row[i].z});
         return;
     }
     Placement placement = {0, {0.0f, 0.0f, 0.0f}};
-    Scenery::PlacementNow(units.front().sectors.front(), &placement);
+    scenery::placement_now(units.front().sectors.front(), &placement);
     for (int i = 0; i < 3; ++i)
-        out[i] = QuarterTurn(kWorld[i], placement.quarters);
+        out[i] = get_quarter_turn(kWorld[i], placement.quarters);
 }
 
 // Each unit moved by its own amount along `axis` (one undo step).
-void MoveUnits(const Edit::Selected& selection, const std::vector<Unit>& units, V3 axis,
+void move_units(const edit::Selected& selection, const std::vector<Unit>& units, V3 axis,
                const std::vector<float>& moves)
 {
-    Edit::Begin();
-    if (selection.kind == Edit::Kind::Scenery) {
-        Carry::Disarm(); // (each piece moves by its own amount: nothing is carried along)
+    edit::get_begin();
+    if (selection.kind == edit::Kind::kScenery) {
+        carry::disarm(); // (each piece moves by its own amount: nothing is carried along)
         for (size_t i = 0; i < units.size(); ++i) {
             if (std::fabs(moves[i]) < 1e-4f)
                 continue;
-            Scenery::SetSelection(units[i].sectors);
-            Scenery::MoveTo(Scenery::Pivot() + axis * moves[i]);
+            scenery::set_selection(units[i].sectors);
+            scenery::move_to(scenery::get_pivot() + axis * moves[i]);
         }
-        Scenery::SetSelection(selection.ids);
+        scenery::set_selection(selection.ids);
     } else {
         for (size_t i = 0; i < units.size(); ++i) {
             if (units[i].object && std::fabs(moves[i]) >= 1e-4f)
-                Objects::Place(units[i].object, Objects::PosOf(units[i].object) + axis * moves[i]);
+                object_edit::get_place(units[i].object, object_edit::pos_of(units[i].object) + axis * moves[i]);
         }
     }
-    Edit::End();
+    edit::get_end();
 }
 
-const char* AxisName(int axis) { return axis == 0 ? "X" : axis == 1 ? "Y" : "Z"; }
+const char* get_axis_name(int axis) { return axis == 0 ? "X" : axis == 1 ? "Y" : "Z"; }
 
 } // namespace
 
-bool Justify(int axis, Edge edge, Reference reference, bool local)
+bool justify(int axis, Edge edge, Reference reference, bool local)
 {
-    Edit::Selected selection = Edit::Selection();
-    std::vector<Unit> units = UnitsOf(selection);
+    edit::Selected selection = edit::get_selection();
+    std::vector<Unit> units = units_of(selection);
     if (units.size() < 2) {
-        Hud::Message("Align: select 2 or more items", 4.0);
+        hud::get_message("Align: select 2 or more items", 4.0);
         return false;
     }
     axis = std::clamp(axis, 0, 2);
     V3 axes[3];
-    AxesOf(units, local, axes);
+    axes_of(units, local, axes);
     std::vector<Span> spans;
     for (const Unit& unit : units)
-        spans.push_back(SpanAlong(unit.corners, axes[axis]));
-    std::vector<float> moves = AlignMoves(spans, edge, reference);
-    MoveUnits(selection, units, axes[axis], moves);
+        spans.push_back(span_along(unit.corners, axes[axis]));
+    std::vector<float> moves = align_moves(spans, edge, reference);
+    move_units(selection, units, axes[axis], moves);
     char text[128];
     std::snprintf(text, sizeof(text), "Aligned %d pieces: %s on %s (%s, %s)",
-                  static_cast<int>(units.size()), edge == Edge::Min ? "min" : edge == Edge::Max ? "max" : "centre",
-                  AxisName(axis), local ? "local" : "world", reference == Reference::First ? "the first" : "the bounds");
-    Hud::Message(text, 4.0);
-    Adjust::ActStep action;
-    action.kind = Adjust::Kind::Justify;
+                  static_cast<int>(units.size()), edge == Edge::kMin ? "min" : edge == Edge::kMax ? "max" : "centre",
+                  get_axis_name(axis), local ? "local" : "world", reference == Reference::kFirst ? "the first" : "the bounds");
+    hud::get_message(text, 4.0);
+    adjust::ActStep action;
+    action.kind = adjust::Kind::kJustify;
     action.axis = axis;
     action.edge = static_cast<int>(edge);
     action.reference = static_cast<int>(reference);
     action.local = local;
-    Adjust::Note(action);
+    adjust::get_note(action);
     return true;
 }
 
-bool Distribute(int axis, bool gaps, bool local)
+bool distribute(int axis, bool gaps, bool local)
 {
-    Edit::Selected selection = Edit::Selection();
-    std::vector<Unit> units = UnitsOf(selection);
+    edit::Selected selection = edit::get_selection();
+    std::vector<Unit> units = units_of(selection);
     if (units.size() < 3) {
-        Hud::Message("Distribute: select 3 or more items", 4.0);
+        hud::get_message("Distribute: select 3 or more items", 4.0);
         return false;
     }
     axis = std::clamp(axis, 0, 2);
     V3 axes[3];
-    AxesOf(units, local, axes);
+    axes_of(units, local, axes);
     std::vector<Span> spans;
     for (const Unit& unit : units)
-        spans.push_back(SpanAlong(unit.corners, axes[axis]));
-    MoveUnits(selection, units, axes[axis], DistributeMoves(spans, gaps));
+        spans.push_back(span_along(unit.corners, axes[axis]));
+    move_units(selection, units, axes[axis], distribute_moves(spans, gaps));
     char text[128];
     std::snprintf(text, sizeof(text), "Distributed %d pieces along %s (%s)",
-                  static_cast<int>(units.size()), AxisName(axis), gaps ? "equal gaps" : "evenly spaced centres");
-    Hud::Message(text, 4.0);
-    Adjust::ActStep action;
-    action.kind = Adjust::Kind::Distribute;
+                  static_cast<int>(units.size()), get_axis_name(axis), gaps ? "equal gaps" : "evenly spaced centres");
+    hud::get_message(text, 4.0);
+    adjust::ActStep action;
+    action.kind = adjust::Kind::kDistribute;
     action.axis = axis;
     action.gaps = gaps;
     action.local = local;
-    Adjust::Note(action);
+    adjust::get_note(action);
     return true;
 }
 
@@ -556,171 +556,171 @@ bool Distribute(int axis, bool gaps, bool local)
 namespace {
 
 // The axis-aligned bounds of sectors (false: none has a box).
-bool SectorsBounds(const std::vector<uint32_t>& sectors, Aabb* out)
+bool sectors_bounds(const std::vector<uint32_t>& sectors, Aabb* out)
 {
     bool have = false;
     OrientedBox box;
     for (uint32_t s : sectors) {
         V3 a, b;
-        if (!Scenery::Cuboid(s, &box))
+        if (!scenery::cuboid(s, &box))
             continue;
-        BoundsOf(box, &a, &b);
-        GrowBox(&out->min, &out->max, have, a, b);
+        bounds_of(box, &a, &b);
+        grow_box(&out->min, &out->max, have, a, b);
         have = true;
     }
     return have;
 }
 
-V3 BottomCentre(const Aabb& box) { return {(box.min.x + box.max.x) * 0.5f, box.min.y, (box.min.z + box.max.z) * 0.5f}; }
+V3 bottom_centre(const Aabb& box) { return {(box.min.x + box.max.x) * 0.5f, box.min.y, (box.min.z + box.max.z) * 0.5f}; }
 
-uint32_t KeyModel() { return Checksums::HashFromText("model"); }
+uint32_t key_model() { return checksums::hash_from_text("model"); }
 
 // A node's model= (empty: none).
-std::string ModelOf(uint32_t name)
+std::string model_of(uint32_t name)
 {
-    int index = Nodes::Find(name);
-    Scripts::CStruct* s = index >= 0 ? Nodes::StructOf(Nodes::All()[index]) : nullptr;
+    int index = nodes::get_find(name);
+    script::Struct* s = index >= 0 ? nodes::struct_of(nodes::get_all()[index]) : nullptr;
     const char* model = nullptr;
-    if (!s || !s->FetchText(KeyModel(), &model, 0) || !model)
+    if (!s || !s->fetch_text(key_model(), &model, 0) || !model)
         return {};
     return model;
 }
 
-bool ReplaceScenery(const Edit::Selected& selection, uint32_t source)
+bool replace_scenery(const edit::Selected& selection, uint32_t source)
 {
     if (std::find(selection.ids.begin(), selection.ids.end(), source) != selection.ids.end()) {
-        Hud::Message("Replace: the replacement is part of the selection", 4.0);
+        hud::get_message("Replace: the replacement is part of the selection", 4.0);
         return false;
     }
-    std::vector<Unit> units = UnitsOf(selection);
+    std::vector<Unit> units = units_of(selection);
     if (units.empty())
         return false;
-    Placement sourceAt = {0, {0.0f, 0.0f, 0.0f}};
-    Scenery::PlacementNow(source, &sourceAt);
-    size_t depth = Edit::Deepness();
+    Placement source_at = {0, {0.0f, 0.0f, 0.0f}};
+    scenery::placement_now(source, &source_at);
+    size_t depth = edit::deepness();
     // (the pieces hidden first: undone last, they come back selected)
-    Edit::PushSnapshot();
-    Carry::Disarm(); // (nothing follows: what stood on the pieces stays where it is)
-    Scenery::HideSelection();
+    edit::push_snapshot();
+    carry::disarm(); // (nothing follows: what stood on the pieces stays where it is)
+    scenery::hide_selection();
     std::vector<uint32_t> made;
     for (const Unit& unit : units) {
         Aabb was;
-        if (!SectorsBounds(unit.sectors, &was))
+        if (!sectors_bounds(unit.sectors, &was))
             continue;
         Placement placement = {0, {0.0f, 0.0f, 0.0f}};
-        Scenery::PlacementNow(unit.sectors.front(), &placement);
-        uint32_t copy = Scenery::Duplicate(source);
+        scenery::placement_now(unit.sectors.front(), &placement);
+        uint32_t copy = scenery::get_duplicate(source);
         if (!copy)
             continue;
-        Scenery::SetSelection({copy});
+        scenery::set_selection({copy});
         // (its turns and scale as the piece's own: the copy is the source as it is now)
-        int quarters = ((placement.quarters - sourceAt.quarters) % 4 + 4) % 4;
+        int quarters = ((placement.quarters - source_at.quarters) % 4 + 4) % 4;
         if (quarters)
-            Scenery::Turn(quarters);
-        V3 ratio = {placement.scale.x / sourceAt.scale.x, placement.scale.y / sourceAt.scale.y,
-                    placement.scale.z / sourceAt.scale.z};
+            scenery::get_turn(quarters);
+        V3 ratio = {placement.scale.x / source_at.scale.x, placement.scale.y / source_at.scale.y,
+                    placement.scale.z / source_at.scale.z};
         if (std::fabs(ratio.x - 1.0f) > 1e-4f || std::fabs(ratio.y - 1.0f) > 1e-4f || std::fabs(ratio.z - 1.0f) > 1e-4f)
-            Scenery::ScaleSelection(TurnedScale(ratio, placement.quarters), IsUniformScale(ratio));
+            scenery::scale_selection(turned_scale(ratio, placement.quarters), is_uniform_scale(ratio));
         Aabb now;
-        if (SectorsBounds({copy}, &now))
-            Scenery::MoveTo(Scenery::Pivot() + (BottomCentre(was) - BottomCentre(now)));
-        Scenery::Finalise();
+        if (sectors_bounds({copy}, &now))
+            scenery::move_to(scenery::get_pivot() + (bottom_centre(was) - bottom_centre(now)));
+        scenery::finalise();
         made.push_back(copy);
     }
     if (made.empty()) {
-        Edit::TakeBack();
-        Hud::Message("Replace: that piece couldn't be copied", 4.0);
+        edit::take_back();
+        hud::get_message("Replace: that piece couldn't be copied", 4.0);
         return false;
     }
-    Edit::PushMade({}, made);
-    Edit::Fold(depth);
-    Edit::ChooseOne({Edit::Kind::Scenery, made});
-    Hud::Message("Replaced " + std::to_string(made.size()) + " piece(s) with " + Objects::Caption(source) +
+    edit::push_made({}, made);
+    edit::fold(depth);
+    edit::choose_one({edit::Kind::kScenery, made});
+    hud::get_message("Replaced " + std::to_string(made.size()) + " piece(s) with " + object_edit::caption(source) +
                      " - Ctrl+Z puts them back",
                  4.0);
-    Log("level editor: replaced %u scenery piece(s) with %s", static_cast<unsigned>(made.size()),
-        Objects::Caption(source).c_str());
+    get_log("level editor: replaced %u scenery piece(s) with %s", static_cast<unsigned>(made.size()),
+        object_edit::caption(source).c_str());
     return true;
 }
 
-bool ReplaceObjects(const Edit::Selected& selection, uint32_t source)
+bool replace_objects(const edit::Selected& selection, uint32_t source)
 {
-    std::string model = ModelOf(source);
-    std::vector<Objects::State> copies;  // (object copies: replaced by copies of the source where they were)
-    std::vector<uint32_t> copyIds, swapped;
+    std::string model = model_of(source);
+    std::vector<object_edit::State> copies;  // (object copies: replaced by copies of the source where they were)
+    std::vector<uint32_t> copy_ids, swapped;
     for (uint32_t id : selection.ids) {
-        GameObjects::CGameEntity* object = LiveObject(id);
+        objects::GameEntity* object = live_object(id);
         if (!object || id == source)
             continue;
-        if (Objects::IsCopy(id)) {
-            copies.push_back(Objects::StoreAway(object));
-            copyIds.push_back(id);
+        if (object_edit::is_copy(id)) {
+            copies.push_back(object_edit::store_away(object));
+            copy_ids.push_back(id);
         } else {
             swapped.push_back(id);
         }
     }
     if (copies.empty() && (swapped.empty() || model.empty())) {
-        Hud::Message(model.empty() ? "Replace: original object has no model to swap"
+        hud::get_message(model.empty() ? "Replace: original object has no model to swap"
                                    : "Replace: nothing selected",
                      5.0);
         return false;
     }
-    size_t depth = Edit::Deepness();
+    size_t depth = edit::deepness();
     std::vector<uint32_t> made;
     if (!copies.empty()) {
-        Edit::RemoveCopies(copyIds);
-        for (const Objects::State& was : copies) {
+        edit::remove_copies(copy_ids);
+        for (const object_edit::State& was : copies) {
             V3 pos = {was.pos.x, was.pos.y, was.pos.z};
-            GameObjects::CGameEntity* copy = Objects::MakeCopy(source, pos);
+            objects::GameEntity* copy = object_edit::make_copy(source, pos);
             if (!copy)
                 continue;
-            Objects::State state = was;
-            state.id = copy->m_ident;
-            Objects::Restore(state);
-            made.push_back(copy->m_ident);
+            object_edit::State state = was;
+            state.id = copy->ident_;
+            object_edit::get_restore(state);
+            made.push_back(copy->ident_);
         }
         if (!made.empty())
-            Edit::PushMade(made, {});
+            edit::push_made(made, {});
     }
     // (a level's own object: the source's model given to it - the Inspector's model swap)
     int swaps = 0;
     for (uint32_t id : model.empty() ? std::vector<uint32_t>{} : swapped) {
-        std::string now = ModelOf(id);
+        std::string now = model_of(id);
         if (now.empty() || _stricmp(now.c_str(), model.c_str()) == 0)
             continue;
-        Entities::Queue([id, now] { Entities::Detail::WatchModel(id, now); });
-        if (Edit::SetField(id, KeyModel(), static_cast<int>(Fields::Kind::Chars), model))
+        entities::get_queue([id, now] { entities::detail::watch_model(id, now); });
+        if (edit::set_field(id, key_model(), static_cast<int>(fields::Kind::kChars), model))
             ++swaps;
     }
-    Edit::Fold(depth);
+    edit::fold(depth);
     if (!made.empty())
-        Edit::ChooseOne({Edit::Kind::Objects, made});
+        edit::choose_one({edit::Kind::object_edit, made});
     char text[160];
     std::snprintf(text, sizeof(text), "Replaced %d copies; %d level objects re-modelled",
                   static_cast<int>(made.size()), swaps);
-    Hud::Message(text, 5.0);
-    Log("level editor: replace with %s: %d copies made again, %d model swaps", Objects::Caption(source).c_str(),
+    hud::get_message(text, 5.0);
+    get_log("level editor: replace with %s: %d copies made again, %d model swaps", object_edit::caption(source).c_str(),
         static_cast<int>(made.size()), swaps);
     return !made.empty() || swaps > 0;
 }
 
 } // namespace
 
-bool Replace()
+bool get_replace()
 {
     int tab = 0;
     uint32_t source = 0;
-    if (!Edit::BrowserItem(&tab, &source)) {
-        Hud::Message("Replace: highlight an item in Add Piece (B)", 5.0);
+    if (!edit::browser_item(&tab, &source)) {
+        hud::get_message("Replace: highlight an item in Add Piece (B)", 5.0);
         return false;
     }
-    Edit::Selected selection = Edit::Selection();
-    if (selection.kind == Edit::Kind::Scenery && tab == 0)
-        return ReplaceScenery(selection, source);
-    if (selection.kind == Edit::Kind::Objects && tab == 1)
-        return ReplaceObjects(selection, source);
-    Hud::Message(selection.kind == Edit::Kind::Scenery   ? "Replace: choose a scenery piece"
-                 : selection.kind == Edit::Kind::Objects ? "Replace: choose an object"
+    edit::Selected selection = edit::get_selection();
+    if (selection.kind == edit::Kind::kScenery && tab == 0)
+        return replace_scenery(selection, source);
+    if (selection.kind == edit::Kind::object_edit && tab == 1)
+        return replace_objects(selection, source);
+    hud::get_message(selection.kind == edit::Kind::kScenery   ? "Replace: choose a scenery piece"
+                 : selection.kind == edit::Kind::object_edit ? "Replace: choose an object"
                                                          : "Replace: nothing selected",
                  5.0);
     return false;
@@ -732,11 +732,11 @@ namespace {
 
 struct SnapCache {
     std::vector<uint32_t> selection;
-    uint32_t lastUsed = 0;
+    uint32_t last_used_ = 0;
     std::vector<Aabb> boxes;
     std::vector<Contact> contacts;
     Aabb moving;
-    uint32_t contactsAt = 0;
+    uint32_t contacts_at_ = 0;
 };
 SnapCache g_snap;
 
@@ -746,18 +746,18 @@ struct GatherContext {
     std::vector<Aabb>* out;
 };
 
-void GatherSector(void* context, uint32_t checksum, uint8_t*)
+void gather_sector(void* context, uint32_t checksum, uint8_t*)
 {
     auto* c = static_cast<GatherContext*>(context);
-    if (std::find(c->skip->begin(), c->skip->end(), checksum) != c->skip->end() || Scenery::Hidden(checksum))
+    if (std::find(c->skip->begin(), c->skip->end(), checksum) != c->skip->end() || scenery::get_hidden(checksum))
         return;
     OrientedBox box;
-    if (!Scenery::Cuboid(checksum, &box))
+    if (!scenery::cuboid(checksum, &box))
         return;
     Aabb a;
-    BoundsOf(box, &a.min, &a.max);
+    bounds_of(box, &a.min, &a.max);
     // (not the ground or a whole street; only near the piece)
-    if (!SectorSizeMovable(a.min, a.max, 2500.0f))
+    if (!sector_size_movable(a.min, a.max, 2500.0f))
         return;
     if (a.max.x < c->near.min.x || a.min.x > c->near.max.x || a.max.y < c->near.min.y || a.min.y > c->near.max.y ||
         a.max.z < c->near.min.z || a.min.z > c->near.max.z)
@@ -767,36 +767,36 @@ void GatherSector(void* context, uint32_t checksum, uint8_t*)
 
 } // namespace
 
-V3 EdgeSnapped(V3 pos, V3 wanted, int axes)
+V3 edge_snapped(V3 pos, V3 wanted, int axes)
 {
-    if (!AtHand().edgeSnap)
+    if (!at_hand().edge_snap_)
         return wanted;
-    Edit::Selected selection = Edit::Selection();
-    if (selection.kind != Edit::Kind::Scenery)
+    edit::Selected selection = edit::get_selection();
+    if (selection.kind != edit::Kind::kScenery)
         return wanted;
     Aabb moving;
-    if (!SectorsBounds(selection.ids, &moving))
+    if (!sectors_bounds(selection.ids, &moving))
         return wanted;
     uint32_t now = SDL_GetTicks();
-    if (g_snap.selection != selection.ids || now - g_snap.lastUsed > 300) {
+    if (g_snap.selection != selection.ids || now - g_snap.last_used_ > 300) {
         // (the neighbours, once a drag: within 1500 of where the piece is - they don't move meanwhile)
         g_snap.selection = selection.ids;
         g_snap.boxes.clear();
         GatherContext context = {&selection.ids, {moving.min - V3{1500, 1500, 1500}, moving.max + V3{1500, 1500, 1500}},
                                  &g_snap.boxes};
-        Scenery::ForEachLevelSector(GatherSector, &context);
+        scenery::for_each_level_sector(gather_sector, &context);
     }
-    g_snap.lastUsed = now;
+    g_snap.last_used_ = now;
     float distance = 0.0f;
     ViewNow view;
-    if (CurrentView(&view)) {
+    if (current_view(&view)) {
         V3 d = pos - view.pos;
-        distance = std::sqrt(Dot(d, d));
+        distance = std::sqrt(get_dot(d, d));
     }
     g_snap.contacts.clear();
-    V3 delta = EdgeSnap(moving, wanted - pos, g_snap.boxes, SnapReach(distance), axes, &g_snap.contacts);
+    V3 delta = edge_snap(moving, wanted - pos, g_snap.boxes, snap_reach(distance), axes, &g_snap.contacts);
     g_snap.moving = {moving.min + delta, moving.max + delta};
-    g_snap.contactsAt = now;
+    g_snap.contacts_at_ = now;
     return pos + delta;
 }
 
@@ -804,29 +804,29 @@ V3 EdgeSnapped(V3 pos, V3 wanted, int axes)
 
 namespace {
 
-bool g_edgePicking;
+bool g_edge_picking;
 struct EdgeCache {
     std::vector<uint32_t> selection;
     V3 pivot = {};
     std::vector<Run> runs;
 };
 EdgeCache g_edges;
-int g_edgeHover = -1;
+int g_edge_hover = -1;
 
 // A sector's drawn triangles where it is now (its meshes' first index buffers as strips - as picking reads them).
-void SectorTriangles(uint32_t checksum, std::vector<V3>* out)
+void sector_triangles(uint32_t checksum, std::vector<V3>* out)
 {
-    uint8_t* geom = Scenery::SectorGeometry(checksum);
+    uint8_t* geom = scenery::sector_geometry(checksum);
     if (!geom)
         return;
-    auto** meshes = *reinterpret_cast<Engine3D::meshRef***>(geom + 0x3C);
+    auto** meshes = *reinterpret_cast<render::MeshRef***>(geom + 0x3C);
     uint32_t count = *reinterpret_cast<uint32_t*>(geom + 0x40);
     for (uint32_t i = 0; meshes && i < count && i < 4096 && out->size() < 600000; ++i) {
-        Engine3D::meshRef* mesh = meshes[i];
+        render::MeshRef* mesh = meshes[i];
         if (!mesh || mesh->billboard || (mesh->flags & 0x10))
             continue;
-        Engine3D::sVertexBuffer* vertices = mesh->vertexBufferCount ? mesh->vertexBuffers[0] : nullptr;
-        Engine3D::sIdxStore* indices = mesh->indexBuffers[0];
+        render::VertexBuffer* vertices = mesh->vertex_buffer_count_ ? mesh->vertex_buffers_[0] : nullptr;
+        render::IdxStore* indices = mesh->index_buffers_[0];
         if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
             continue;
         auto at = [&](uint16_t k) {
@@ -834,9 +834,9 @@ void SectorTriangles(uint32_t checksum, std::vector<V3>* out)
             return V3{f[0], f[1], f[2]};
         };
         const uint16_t* index = indices->indices;
-        for (uint32_t k = 2; k < mesh->indexCounts[0]; ++k) {
+        for (uint32_t k = 2; k < mesh->index_counts_[0]; ++k) {
             uint16_t a = index[k - 2], b = index[k - 1], c = index[k];
-            if (a == b || b == c || a == c || a >= mesh->vertexCount || b >= mesh->vertexCount || c >= mesh->vertexCount)
+            if (a == b || b == c || a == c || a >= mesh->vertex_count_ || b >= mesh->vertex_count_ || c >= mesh->vertex_count_)
                 continue;
             out->push_back(at(a));
             out->push_back(at(b));
@@ -845,22 +845,22 @@ void SectorTriangles(uint32_t checksum, std::vector<V3>* out)
     }
 }
 
-const std::vector<Run>& EdgeRuns()
+const std::vector<Run>& edge_runs()
 {
-    Edit::Selected selection = Edit::Selection();
-    V3 pivot = selection.kind == Edit::Kind::Scenery ? Scenery::Pivot() : V3{};
+    edit::Selected selection = edit::get_selection();
+    V3 pivot = selection.kind == edit::Kind::kScenery ? scenery::get_pivot() : V3{};
     if (selection.ids != g_edges.selection || pivot.x != g_edges.pivot.x || pivot.y != g_edges.pivot.y ||
         pivot.z != g_edges.pivot.z) {
         g_edges.selection = selection.ids;
         g_edges.pivot = pivot;
         g_edges.runs.clear();
-        if (selection.kind == Edit::Kind::Scenery) {
+        if (selection.kind == edit::Kind::kScenery) {
             std::vector<V3> triangles;
             for (uint32_t s : selection.ids) {
-                if (!Scenery::IsShadow(s))
-                    SectorTriangles(s, &triangles);
+                if (!scenery::is_shadow(s))
+                    sector_triangles(s, &triangles);
             }
-            g_edges.runs = TopEdges(triangles, 0.5f, 16.0f);
+            g_edges.runs = top_edges(triangles, 0.5f, 16.0f);
             if (g_edges.runs.size() > 256)
                 g_edges.runs.resize(256);
         }
@@ -868,60 +868,60 @@ const std::vector<Run>& EdgeRuns()
     return g_edges.runs;
 }
 
-bool PixelOf(const ViewNow& view, V3 p, float* x, float* y)
+bool pixel_of(const ViewNow& view, V3 p, float* x, float* y)
 {
-    TickCycle frame = FrameFromYawPitch(view.yaw, view.pitch);
+    TickCycle frame = frame_from_yaw_pitch(view.yaw, view.pitch);
     float nx, ny;
-    if (!CastOnto(view.pos, frame, view.lens, p, view.nearZ, &nx, &ny))
+    if (!cast_onto(view.pos, frame, view.lens, p, view.near_z_, &nx, &ny))
         return false;
-    NdcToPixel(view.viewport, nx, ny, x, y);
+    ndc_to_pixel(view.viewport, nx, ny, x, y);
     return true;
 }
 
 } // namespace
 
-bool EdgePicking() { return g_edgePicking; }
+bool edge_picking() { return g_edge_picking; }
 
-void SetEdgePicking(bool on)
+void set_edge_picking(bool on)
 {
-    if (on && Edit::Selection().kind != Edit::Kind::Scenery) {
-        Hud::Message("Rail Along Edge: select a scenery piece", 4.0);
+    if (on && edit::get_selection().kind != edit::Kind::kScenery) {
+        hud::get_message("Rail Along Edge: select a scenery piece", 4.0);
         on = false;
     }
-    g_edgePicking = on;
-    g_edgeHover = -1;
+    g_edge_picking = on;
+    g_edge_hover = -1;
     if (on) {
-        size_t runs = EdgeRuns().size();
-        Hud::Message(runs ? "Rail Along Edge: click a top edge (Shift: more)"
+        size_t runs = edge_runs().size();
+        hud::get_message(runs ? "Rail Along Edge: click a top edge (Shift: more)"
                           : "Rail Along Edge: no top edges found",
                      5.0);
         if (!runs)
-            g_edgePicking = false;
+            g_edge_picking = false;
     }
 }
 
-bool EdgeClick(float x, float y)
+bool edge_click(float x, float y)
 {
-    if (!g_edgePicking)
+    if (!g_edge_picking)
         return false;
     ViewNow view;
-    if (!CurrentView(&view))
+    if (!current_view(&view))
         return false;
-    const std::vector<Run>& runs = EdgeRuns();
-    int pick = RunAt(runs, [&](V3 p, float* px, float* py) { return PixelOf(view, p, px, py); }, x, y,
+    const std::vector<Run>& runs = edge_runs();
+    int pick = run_at(runs, [&](V3 p, float* px, float* py) { return pixel_of(view, p, px, py); }, x, y,
                      12.0f * static_cast<float>(view.viewport[3]) / 720.0f);
     if (pick < 0) {
-        Hud::Message("Rail Along Edge: click a highlighted edge");
+        hud::get_message("Rail Along Edge: click a highlighted edge");
         return true;
     }
     Run run = runs[pick];
-    Chains::State before = Chains::AtHand();
+    chains::State before = chains::at_hand();
     std::string message;
     uint32_t select = 0;
-    Edit::Selected selection = Edit::Selection();
+    edit::Selected selection = edit::get_selection();
     uint32_t cluster = selection.ids.empty() ? 0 : selection.ids.front();
-    if (!Chains::AddRail(run.points, cluster, &message, &select)) {
-        Hud::Message(message.empty() ? std::string("Rail along an edge: couldn't add the rail") : message, 4.0);
+    if (!chains::add_rail(run.points, cluster, &message, &select)) {
+        hud::get_message(message.empty() ? std::string("Rail along an edge: couldn't add the rail") : message, 4.0);
         return true;
     }
     const uint8_t* keys = SDL_GetKeyboardState(nullptr);
@@ -930,12 +930,12 @@ bool EdgeClick(float x, float y)
     std::snprintf(text, sizeof(text), "Rail added: %d points, %.0f long",
                   static_cast<int>(run.points.size()), run.length);
     // (Shift: the piece stays selected for the next edge; else the rail's first point is selected)
-    Edit::ChainChanged(&before, more ? 0 : select, text);
+    edit::chain_changed(&before, more ? 0 : select, text);
     if (more)
-        Edit::ChooseOne(selection);
+        edit::choose_one(selection);
     else
-        g_edgePicking = false;
-    Log("level editor: auto-rail along an edge of %s: %d points, %.0f long", Objects::Caption(cluster).c_str(),
+        g_edge_picking = false;
+    get_log("level editor: auto-rail along an edge of %s: %d points, %.0f long", object_edit::caption(cluster).c_str(),
         static_cast<int>(run.points.size()), run.length);
     return true;
 }
@@ -951,25 +951,25 @@ struct Segment {
     bool ledge;
 };
 std::vector<Segment> g_segments;
-uint32_t g_segmentsNodes = ~0u, g_segmentsRails = ~0u;
+uint32_t g_segments_nodes = ~0u, g_segments_rails = ~0u;
 
-const std::vector<Segment>& Segments()
+const std::vector<Segment>& current_segments()
 {
-    if (g_segmentsNodes == Nodes::Generation() && g_segmentsRails == Scenery::RailGeneration())
+    if (g_segments_nodes == nodes::get_generation() && g_segments_rails == scenery::rail_generation())
         return g_segments;
-    g_segmentsNodes = Nodes::Generation();
-    g_segmentsRails = Scenery::RailGeneration();
+    g_segments_nodes = nodes::get_generation();
+    g_segments_rails = scenery::rail_generation();
     g_segments.clear();
-    const std::vector<Nodes::Elem>& nodes = Nodes::All();
-    auto place = [&](const Nodes::Elem& n, V3* p) {
-        if (Scenery::RailPoint(n.name, p, true))
+    const std::vector<nodes::Elem>& nodes = nodes::get_all();
+    auto place = [&](const nodes::Elem& n, V3* p) {
+        if (scenery::get_rail_point(n.name, p, true))
             return true;
         *p = n.pos;
-        return n.hasPos;
+        return n.has_pos_;
     };
-    for (const Nodes::Elem& n : nodes) {
-        bool ledge = n.family == Nodes::Family::Ladder && Chains::IsLedgeNode(n.name);
-        if (n.hidden || (n.family != Nodes::Family::Rail && !ledge))
+    for (const nodes::Elem& n : nodes) {
+        bool ledge = n.family == nodes::Family::kLadder && chains::is_ledge_node(n.name);
+        if (n.hidden || (n.family != nodes::Family::kRail && !ledge))
             continue;
         V3 a;
         if (!place(n, &a))
@@ -986,27 +986,27 @@ const std::vector<Segment>& Segments()
 }
 
 // The selection's axis-aligned box and its size (an object's own: its model box's).
-bool SelectionBox(const Edit::Selected& selection, Aabb* box, V3* size)
+bool selection_box(const edit::Selected& selection, Aabb* box, V3* size)
 {
     OrientedBox oriented;
     bool have = false;
-    if (selection.kind == Edit::Kind::Objects) {
+    if (selection.kind == edit::Kind::object_edit) {
         for (uint32_t id : selection.ids) {
-            GameObjects::CGameEntity* object = LiveObject(id);
-            if (!object || !Objects::ModelBox(object, &oriented))
+            objects::GameEntity* object = live_object(id);
+            if (!object || !object_edit::model_box(object, &oriented))
                 continue;
             V3 a, b;
-            BoundsOf(oriented, &a, &b);
+            bounds_of(oriented, &a, &b);
             if (!have && selection.ids.size() == 1)
-                *size = BoxSize(oriented);
-            GrowBox(&box->min, &box->max, have, a, b);
+                *size = box_size(oriented);
+            grow_box(&box->min, &box->max, have, a, b);
             have = true;
         }
         if (have && selection.ids.size() != 1)
             *size = box->max - box->min;
         return have;
     }
-    if (selection.kind == Edit::Kind::Scenery && SectorsBounds(selection.ids, box)) {
+    if (selection.kind == edit::Kind::kScenery && sectors_bounds(selection.ids, box)) {
         *size = box->max - box->min;
         return true;
     }
@@ -1018,96 +1018,96 @@ bool SelectionBox(const Edit::Selected& selection, Aabb* box, V3* size)
 namespace {
 
 // The registry's entries (level_editor_actions.h): their indices, once registered.
-int g_actWindow = -1, g_actAdjust = -1, g_actEdgeRail = -1, g_actLinked = -1;
+int g_act_window = -1, g_act_adjust = -1, g_act_edge_rail = -1, g_act_linked = -1;
 
-int AddAction(const char* id, const char* name, const char* category, const char* tip, std::vector<Actions::Chord> keys,
+int add_action(const char* id, const char* name, const char* category, const char* tip, std::vector<actions::Chord> keys,
               std::function<void()> run, std::function<int()> checked = nullptr)
 {
-    Actions::ActStep a;
+    actions::ActStep a;
     a.id = id;
     a.name = name;
     a.category = category;
     a.tip = tip;
-    a.kind = checked ? Actions::Kind::FlipOver : Actions::Kind::Press;
+    a.kind = checked ? actions::Kind::kFlipOver : actions::Kind::kPress;
     a.defaults = a.keys = std::move(keys);
     a.run = std::move(run);
     a.checked = std::move(checked);
-    return Actions::Enrol(a);
+    return actions::enrol(a);
 }
 
-void FlipOver(bool* setting) { *setting = !*setting; }
+void flip_over(bool* setting) { *setting = !*setting; }
 
-void RegisterActions()
+void register_actions()
 {
-    if (g_actWindow >= 0)
+    if (g_act_window >= 0)
         return;
-    using Actions::Chord;
-    const uint8_t ctrlAlt = Actions::kCtrl | Actions::kAlt;
-    g_actWindow = AddAction("arrange_window", "Arrange", "Panels", "Align, distribute and replace",
-                            {Chord{SDL_SCANCODE_F2, 0}}, [] { FlipOver(&AtHand().window); });
-    g_actAdjust = AddAction("adjust_last", "Adjust Last Operation", "Panels", "Edit the parameters of the last operation",
-                            {Chord{SDL_SCANCODE_F4, 0}}, [] { FlipOver(&Adjust::Shown()); });
-    g_actEdgeRail = AddAction("edge_rail", "Rail Along Edge", "Edit", "Click a scenery edge to add a rail along it",
-                              {Chord{SDL_SCANCODE_R, Actions::kAlt}}, [] { SetEdgePicking(!g_edgePicking); });
-    g_actLinked = AddAction("linked_duplicate", "Duplicate Linked", "Edit", "Duplicate; copies follow the source's changes",
-                            {Chord{SDL_SCANCODE_D, ctrlAlt}}, [] { Links::LinkedDuplicate(); });
+    using actions::Chord;
+    const uint8_t ctrl_alt = actions::kCtrl | actions::kAlt;
+    g_act_window = add_action("arrange_window", "Arrange", "Panels", "Align, distribute and replace",
+                            {Chord{SDL_SCANCODE_F2, 0}}, [] { flip_over(&at_hand().window); });
+    g_act_adjust = add_action("adjust_last", "Adjust Last Operation", "Panels", "Edit the parameters of the last operation",
+                            {Chord{SDL_SCANCODE_F4, 0}}, [] { flip_over(&adjust::get_shown()); });
+    g_act_edge_rail = add_action("edge_rail", "Rail Along Edge", "Edit", "Click a scenery edge to add a rail along it",
+                              {Chord{SDL_SCANCODE_R, actions::kAlt}}, [] { set_edge_picking(!g_edge_picking); });
+    g_act_linked = add_action("linked_duplicate", "Duplicate Linked", "Edit", "Duplicate; copies follow the source's changes",
+                            {Chord{SDL_SCANCODE_D, ctrl_alt}}, [] { links::linked_duplicate(); });
     static const char* const kEdges[] = {"min", "centre", "max"};
     static const char* const kAxes = "xyz";
     for (int axis = 0; axis < 3; ++axis) {
         for (int edge = 0; edge < 3; ++edge) {
             std::string key = std::string("align_") + kAxes[axis] + "_" + kEdges[edge];
-            std::string name = std::string("Align ") + AxisName(axis) + " " + kEdges[edge];
-            AddAction(key.c_str(), name.c_str(), "Arrange",
+            std::string name = std::string("Align ") + get_axis_name(axis) + " " + kEdges[edge];
+            add_action(key.c_str(), name.c_str(), "Arrange",
                       "Align the selection", {}, [axis, edge] {
-                          Justify(axis, static_cast<Edge>(edge), AtHand().reference, AtHand().local);
+                          justify(axis, static_cast<Edge>(edge), at_hand().reference, at_hand().local);
                       });
         }
         std::string key = std::string("distribute_") + kAxes[axis];
-        std::string name = std::string("Distribute along ") + AxisName(axis);
-        AddAction(key.c_str(), name.c_str(), "Arrange", "Space the selection evenly (3 or more)", {},
-                  [axis] { Distribute(axis, AtHand().gaps, AtHand().local); });
+        std::string name = std::string("Distribute along ") + get_axis_name(axis);
+        add_action(key.c_str(), name.c_str(), "Arrange", "Space the selection evenly (3 or more)", {},
+                  [axis] { distribute(axis, at_hand().gaps, at_hand().local); });
     }
-    AddAction("replace_selection", "Replace Selection", "Arrange", "Replace with the item highlighted in Add Piece",
-              {}, [] { Replace(); });
-    AddAction("unlink", "Unlink Copies", "Arrange", "Make linked copies independent",
-              {}, [] { Links::UnlinkSelection(); });
-    AddAction("edge_snap", "Edge Snapping", "Settings", "Snap scenery flush to neighbours",
-              {}, [] { FlipOver(&AtHand().edgeSnap); }, [] { return AtHand().edgeSnap ? 1 : 0; });
-    AddAction("drag_readout", "Drag Measurements", "Settings", "Show distances while dragging", {},
-              [] { FlipOver(&AtHand().measure); }, [] { return AtHand().measure ? 1 : 0; });
-    AddAction("placement_ghost", "Placement Preview", "Settings", "Preview what a click places", {},
-              [] { FlipOver(&AtHand().ghost); }, [] { return AtHand().ghost ? 1 : 0; });
-    AddAction("click_places", "Click to Place", "Settings", "Place the Add Piece item with a click", {},
-              [] { FlipOver(&AtHand().clickPlaces); }, [] { return AtHand().clickPlaces ? 1 : 0; });
+    add_action("replace_selection", "Replace Selection", "Arrange", "Replace with the item highlighted in Add Piece",
+              {}, [] { get_replace(); });
+    add_action("unlink", "Unlink Copies", "Arrange", "Make linked copies independent",
+              {}, [] { links::unlink_selection(); });
+    add_action("edge_snap", "Edge Snapping", "Settings", "Snap scenery flush to neighbours",
+              {}, [] { flip_over(&at_hand().edge_snap_); }, [] { return at_hand().edge_snap_ ? 1 : 0; });
+    add_action("drag_readout", "Drag Measurements", "Settings", "Show distances while dragging", {},
+              [] { flip_over(&at_hand().measure); }, [] { return at_hand().measure ? 1 : 0; });
+    add_action("placement_ghost", "Placement Preview", "Settings", "Preview what a click places", {},
+              [] { flip_over(&at_hand().ghost); }, [] { return at_hand().ghost ? 1 : 0; });
+    add_action("click_places", "Click to Place", "Settings", "Place the Add Piece item with a click", {},
+              [] { flip_over(&at_hand().click_places_); }, [] { return at_hand().click_places_ ? 1 : 0; });
 }
 
-V3 g_dragFrom;
-bool g_wasDragging;
+V3 g_drag_from;
+bool g_was_dragging;
 
 } // namespace
 
-void TickFrame()
+void tick_frame()
 {
-    RegisterActions();
-    RunQueued();
-    if (!Edit::Dragging()) {
-        if (Actions::Squeezed(g_actWindow) && !Ui::Underway())
-            Hud::Message("Requires the editor UI (editor_ui=1)");
-        else if (Actions::Squeezed(g_actWindow))
-            FlipOver(&AtHand().window);
-        if (Actions::Squeezed(g_actAdjust))
-            FlipOver(&Adjust::Shown());
-        if (Actions::Squeezed(g_actEdgeRail))
-            SetEdgePicking(!g_edgePicking);
-        if (Actions::Squeezed(g_actLinked))
-            Links::LinkedDuplicate();
+    register_actions();
+    run_queued();
+    if (!edit::get_dragging()) {
+        if (actions::squeezed(g_act_window) && !ui::underway())
+            hud::get_message("Requires the editor UI (editor_ui=1)");
+        else if (actions::squeezed(g_act_window))
+            flip_over(&at_hand().window);
+        if (actions::squeezed(g_act_adjust))
+            flip_over(&adjust::get_shown());
+        if (actions::squeezed(g_act_edge_rail))
+            set_edge_picking(!g_edge_picking);
+        if (actions::squeezed(g_act_linked))
+            links::linked_duplicate();
     }
-    if (g_edgePicking && Edit::Selection().kind != Edit::Kind::Scenery)
-        g_edgePicking = false; // (deselected: Esc stops it)
-    bool dragging = Edit::Dragging();
-    if (dragging && !g_wasDragging)
-        g_dragFrom = Edit::Pos();
-    g_wasDragging = dragging;
+    if (g_edge_picking && edit::get_selection().kind != edit::Kind::kScenery)
+        g_edge_picking = false; // (deselected: Esc stops it)
+    bool dragging = edit::get_dragging();
+    if (dragging && !g_was_dragging)
+        g_drag_from = edit::get_pos();
+    g_was_dragging = dragging;
 }
 
 namespace {
@@ -1117,32 +1117,32 @@ struct Painter {
     TickCycle frame;
     Lens lens;
     const uint32_t* viewport;
-    float nearZ;
-    Ui::Overlay* overlay;
-    bool Pixel(V3 p, float* x, float* y) const
+    float near_z_;
+    ui::Overlay* overlay;
+    bool get_pixel(V3 p, float* x, float* y) const
     {
         float nx, ny;
-        if (!CastOnto(camera, frame, lens, p, nearZ, &nx, &ny))
+        if (!cast_onto(camera, frame, lens, p, near_z_, &nx, &ny))
             return false;
-        NdcToPixel(viewport, nx, ny, x, y);
+        ndc_to_pixel(viewport, nx, ny, x, y);
         return true;
     }
-    void Seg(V3 a, V3 b, uint32_t argb, float thickness = 1.0f) const
+    void get_seg(V3 a, V3 b, uint32_t argb, float thickness = 1.0f) const
     {
-        if (!ClipToNear(camera, frame, nearZ + 0.01f, &a, &b))
+        if (!clip_to_near(camera, frame, near_z_ + 0.01f, &a, &b))
             return;
         float ax, ay, bx, by;
-        if (Pixel(a, &ax, &ay) && Pixel(b, &bx, &by))
+        if (get_pixel(a, &ax, &ay) && get_pixel(b, &bx, &by))
             overlay->lines.push_back({ax, ay, bx, by, argb, thickness});
     }
-    void Cuboid(const OrientedBox& box, uint32_t argb, uint32_t fill) const
+    void cuboid(const OrientedBox& box, uint32_t argb, uint32_t fill) const
     {
         V3 c[8];
-        BoxCorners(box.origin, box.axes, box.min, box.max, c);
+        box_corners(box.origin, box.axes, box.min, box.max, c);
         for (int i = 0; i < 8; ++i) {
             for (int bit = 1; bit < 8; bit <<= 1) {
                 if (!(i & bit))
-                    Seg(c[i], c[i | bit], argb, 1.5f);
+                    get_seg(c[i], c[i | bit], argb, 1.5f);
             }
         }
         if (!fill)
@@ -1153,123 +1153,123 @@ struct Painter {
             float x[4], y[4];
             bool ok = true;
             for (int k = 0; k < 4 && ok; ++k)
-                ok = Pixel(c[f[k]], &x[k], &y[k]);
+                ok = get_pixel(c[f[k]], &x[k], &y[k]);
             if (!ok)
                 continue;
             overlay->triangles.push_back({x[0], y[0], x[1], y[1], x[2], y[2], fill});
             overlay->triangles.push_back({x[0], y[0], x[2], y[2], x[3], y[3], fill});
         }
     }
-    void Text(float x, float y, uint32_t argb, const std::string& text) const { overlay->texts.push_back({x, y, argb, text}); }
+    void text_tools(float x, float y, uint32_t argb, const std::string& text) const { overlay->texts.push_back({x, y, argb, text}); }
 };
 
 // A node's marker for the ghost: a post, a ring and the heading it will face.
-void Marker(const Painter& p, V3 at, float yaw, uint32_t colour)
+void get_marker(const Painter& p, V3 at, float yaw, uint32_t colour)
 {
     uint32_t c = (colour & 0x00FFFFFF) | 0xC0000000;
-    p.Seg(at, at + V3{0.0f, 72.0f, 0.0f}, c, 2.0f);
+    p.get_seg(at, at + V3{0.0f, 72.0f, 0.0f}, c, 2.0f);
     constexpr int kSegments = 24;
     for (int i = 0; i < kSegments; ++i) {
         float a0 = 6.2831853f * static_cast<float>(i) / kSegments, a1 = 6.2831853f * static_cast<float>(i + 1) / kSegments;
-        p.Seg(at + V3{std::sin(a0) * 30.0f, 1.0f, std::cos(a0) * 30.0f}, at + V3{std::sin(a1) * 30.0f, 1.0f, std::cos(a1) * 30.0f},
+        p.get_seg(at + V3{std::sin(a0) * 30.0f, 1.0f, std::cos(a0) * 30.0f}, at + V3{std::sin(a1) * 30.0f, 1.0f, std::cos(a1) * 30.0f},
                c, 1.5f);
     }
     V3 heading = {std::sin(yaw) * 50.0f, 1.0f, std::cos(yaw) * 50.0f};
-    p.Seg(at + V3{0.0f, 1.0f, 0.0f}, at + heading, c, 2.0f);
+    p.get_seg(at + V3{0.0f, 1.0f, 0.0f}, at + heading, c, 2.0f);
 }
 
 // The surface's normal under the cursor (false: none).
-bool SurfaceNormal(V3* normal)
+bool surface_normal(V3* normal)
 {
     V3 origin, dir;
-    if (!Edit::Ray(&origin, &dir))
+    if (!edit::get_ray(&origin, &dir))
         return false;
-    Snap::SurfaceHit hit;
-    if (!Snap::Surface(origin, MakeUnit(dir), 30000.0f, {}, &hit))
+    snap::SurfaceHit hit;
+    if (!snap::get_surface(origin, make_unit(dir), 30000.0f, {}, &hit))
         return false;
     *normal = hit.normal;
     return true;
 }
 
 // The box turned so its up axis lies along `normal` (its heading kept) about the bottom-centre point `at`.
-void TiltBox(OrientedBox* box, V3 at, V3 normal)
+void tilt_box(OrientedBox* box, V3 at, V3 normal)
 {
     V3 rows[3] = {box->axes[0], box->axes[1], box->axes[2]};
-    if (!Snap::AlignRows(rows, normal))
+    if (!snap::align_rows(rows, normal))
         return;
     // (each corner's offset from `at`, in the box's frame, put back along the new rows)
     V3 origin = box->origin - at;
     float lengths[3];
     for (int i = 0; i < 3; ++i)
-        lengths[i] = std::max(1e-6f, Dot(box->axes[i], box->axes[i]));
-    V3 local = {Dot(origin, box->axes[0]) / lengths[0], Dot(origin, box->axes[1]) / lengths[1],
-                Dot(origin, box->axes[2]) / lengths[2]};
+        lengths[i] = std::max(1e-6f, get_dot(box->axes[i], box->axes[i]));
+    V3 local = {get_dot(origin, box->axes[0]) / lengths[0], get_dot(origin, box->axes[1]) / lengths[1],
+                get_dot(origin, box->axes[2]) / lengths[2]};
     for (int i = 0; i < 3; ++i)
         box->axes[i] = rows[i];
     box->origin = at + rows[0] * local.x + rows[1] * local.y + rows[2] * local.z;
 }
 
-void AddGhost(const Painter& p)
+void add_ghost(const Painter& p)
 {
-    if (!AtHand().ghost || Edit::Dragging())
+    if (!at_hand().ghost || edit::get_dragging())
         return;
     V3 origin, dir;
-    if (!Edit::Ray(&origin, &dir))
+    if (!edit::get_ray(&origin, &dir))
         return;
     int tab = 0;
     uint32_t id = 0;
     uint32_t colour = 0;
-    int armed = Edit::PlaceArmed(&colour);
-    V3 at = Edit::CursorPoint();
+    int armed = edit::place_armed(&colour);
+    V3 at = edit::cursor_point();
     constexpr uint32_t kLine = 0xD080E0FF, kFill = 0x2880E0FF;
     if (armed >= 0) {
-        Marker(p, at, Edit::Yaw(), colour ? colour : 0xFF80E0FF);
+        get_marker(p, at, edit::get_yaw(), colour ? colour : 0xFF80E0FF);
         return;
     }
-    if (!Edit::BrowserItem(&tab, &id))
+    if (!edit::browser_item(&tab, &id))
         return;
     OrientedBox box;
     if (tab == 0) {
-        if (!Scenery::Cuboid(id, &box))
+        if (!scenery::cuboid(id, &box))
             return;
         Aabb bounds;
-        BoundsOf(box, &bounds.min, &bounds.max);
-        box.origin = box.origin + (at - BottomCentre(bounds));
-        p.Cuboid(box, kLine, kFill);
+        bounds_of(box, &bounds.min, &bounds.max);
+        box.origin = box.origin + (at - bottom_centre(bounds));
+        p.cuboid(box, kLine, kFill);
         return;
     }
-    GameObjects::CGameEntity* object = LiveObject(id);
-    if (!object || !Objects::ModelBox(object, &box)) {
-        Marker(p, at, Edit::Yaw(), 0xFF80E0FF);
+    objects::GameEntity* object = live_object(id);
+    if (!object || !object_edit::model_box(object, &box)) {
+        get_marker(p, at, edit::get_yaw(), 0xFF80E0FF);
         return;
     }
-    box.origin = box.origin + (at - Objects::PosOf(object));
+    box.origin = box.origin + (at - object_edit::pos_of(object));
     V3 normal;
-    if (AtHand().ghostSlope && SurfaceNormal(&normal))
-        TiltBox(&box, at, normal);
-    p.Cuboid(box, kLine, kFill);
+    if (at_hand().ghost_slope_ && surface_normal(&normal))
+        tilt_box(&box, at, normal);
+    p.cuboid(box, kLine, kFill);
 }
 
-void AddReadout(const Painter& p)
+void add_readout(const Painter& p)
 {
-    if (!AtHand().measure || !Edit::Dragging())
+    if (!at_hand().measure || !edit::get_dragging())
         return;
-    Edit::Selected selection = Edit::Selection();
+    edit::Selected selection = edit::get_selection();
     Readout r;
     Aabb box;
-    bool haveBox = SelectionBox(selection, &box, &r.size);
-    V3 moved = Edit::Pos() - g_dragFrom;
-    r.moved = std::sqrt(Dot(moved, moved));
+    bool have_box = selection_box(selection, &box, &r.size);
+    V3 moved = edit::get_pos() - g_drag_from;
+    r.moved = std::sqrt(get_dot(moved, moved));
     V3 base, ground;
-    if (Edit::GroundMark(&base, &ground)) {
-        r.haveGround = true;
+    if (edit::ground_mark(&base, &ground)) {
+        r.have_ground_ = true;
         r.above = base.y - ground.y;
     }
     V3 nearest = {}, from = {};
-    if (haveBox) {
+    if (have_box) {
         float best = 3000.0f;
-        for (const Segment& s : Segments()) {
-            if (selection.kind == Edit::Kind::Scenery && Scenery::CarriesRail(s.from) && Scenery::CarriesRail(s.to))
+        for (const Segment& s : current_segments()) {
+            if (selection.kind == edit::Kind::kScenery && scenery::carries_rail(s.from) && scenery::carries_rail(s.to))
                 continue; // (its own rails move with it)
             // (quickly: a segment far off its box passed)
             Aabb grown = {box.min - V3{best, best, best}, box.max + V3{best, best, best}};
@@ -1279,34 +1279,34 @@ void AddReadout(const Painter& p)
                 hi.z < grown.min.z || lo.z > grown.max.z)
                 continue;
             V3 on;
-            float d = BoxSegmentDistance(box, s.a, s.b, &on);
+            float d = box_segment_distance(box, s.a, s.b, &on);
             if (d < best) {
                 best = d;
                 nearest = on;
-                r.haveRail = true;
+                r.have_rail_ = true;
                 r.rail = d;
                 r.ledge = s.ledge;
             }
         }
-        if (r.haveRail) {
+        if (r.have_rail_) {
             from = {std::clamp(nearest.x, box.min.x, box.max.x), std::clamp(nearest.y, box.min.y, box.max.y),
                     std::clamp(nearest.z, box.min.z, box.max.z)};
-            p.Seg(from, nearest, 0xC0FF60D0, 1.0f);
+            p.get_seg(from, nearest, 0xC0FF60D0, 1.0f);
         }
     }
     float x, y;
-    Edit::Cursor(&x, &y);
+    edit::get_cursor(&x, &y);
     float line = 17.0f * static_cast<float>(p.viewport[3]) / 720.0f;
-    std::vector<std::string> lines = ReadoutLines(r);
-    if (!haveBox)
+    std::vector<std::string> lines = readout_lines(r);
+    if (!have_box)
         lines.erase(lines.begin()); // (a node: no size)
     for (size_t i = 0; i < lines.size(); ++i)
-        p.Text(x + 22.0f * line / 17.0f, y + 18.0f * line / 17.0f + line * static_cast<float>(i), 0xFFE8F0FF, lines[i]);
+        p.text_tools(x + 22.0f * line / 17.0f, y + 18.0f * line / 17.0f + line * static_cast<float>(i), 0xFFE8F0FF, lines[i]);
 }
 
-void AddContacts(const Painter& p)
+void add_contacts(const Painter& p)
 {
-    if (!Edit::Dragging() || SDL_GetTicks() - g_snap.contactsAt > 150)
+    if (!edit::get_dragging() || SDL_GetTicks() - g_snap.contacts_at_ > 150)
         return;
     for (const Contact& c : g_snap.contacts) {
         if (c.other < 0 || c.other >= static_cast<int>(g_snap.boxes.size()))
@@ -1315,80 +1315,80 @@ void AddContacts(const Painter& p)
         const Aabb& o = g_snap.boxes[c.other];
         const Aabb& m = g_snap.moving;
         int u = c.axis == 0 ? 1 : 0, v = c.axis == 2 ? 1 : 2;
-        float u0 = std::max(Component(o.min, u), Component(m.min, u)), u1 = std::min(Component(o.max, u), Component(m.max, u));
-        float v0 = std::max(Component(o.min, v), Component(m.min, v)), v1 = std::min(Component(o.max, v), Component(m.max, v));
+        float u0 = std::max(get_component(o.min, u), get_component(m.min, u)), u1 = std::min(get_component(o.max, u), get_component(m.max, u));
+        float v0 = std::max(get_component(o.min, v), get_component(m.min, v)), v1 = std::min(get_component(o.max, v), get_component(m.max, v));
         if (u1 < u0) // (beside it, not over it: the neighbour's whole face)
-            u0 = Component(o.min, u), u1 = Component(o.max, u);
+            u0 = get_component(o.min, u), u1 = get_component(o.max, u);
         if (v1 < v0)
-            v0 = Component(o.min, v), v1 = Component(o.max, v);
+            v0 = get_component(o.min, v), v1 = get_component(o.max, v);
         V3 corner[4];
         const float us[4] = {u0, u1, u1, u0}, vs[4] = {v0, v0, v1, v1};
         for (int k = 0; k < 4; ++k) {
-            ComponentRef(corner[k], c.axis) = c.at;
-            ComponentRef(corner[k], u) = us[k];
-            ComponentRef(corner[k], v) = vs[k];
+            component_ref(corner[k], c.axis) = c.at;
+            component_ref(corner[k], u) = us[k];
+            component_ref(corner[k], v) = vs[k];
         }
         for (int k = 0; k < 4; ++k)
-            p.Seg(corner[k], corner[(k + 1) % 4], 0xFF40FF70, 2.5f);
+            p.get_seg(corner[k], corner[(k + 1) % 4], 0xFF40FF70, 2.5f);
     }
 }
 
-void AddEdges(const Painter& p)
+void add_edges(const Painter& p)
 {
-    if (!g_edgePicking)
+    if (!g_edge_picking)
         return;
-    const std::vector<Run>& runs = EdgeRuns();
+    const std::vector<Run>& runs = edge_runs();
     float x, y;
-    Edit::Cursor(&x, &y);
-    g_edgeHover = RunAt(runs, [&](V3 q, float* px, float* py) { return p.Pixel(q, px, py); }, x, y,
+    edit::get_cursor(&x, &y);
+    g_edge_hover = run_at(runs, [&](V3 q, float* px, float* py) { return p.get_pixel(q, px, py); }, x, y,
                         12.0f * static_cast<float>(p.viewport[3]) / 720.0f);
     for (size_t r = 0; r < runs.size(); ++r) {
-        bool lit = static_cast<int>(r) == g_edgeHover;
+        bool lit = static_cast<int>(r) == g_edge_hover;
         for (size_t i = 1; i < runs[r].points.size(); ++i)
-            p.Seg(runs[r].points[i - 1], runs[r].points[i], lit ? 0xFFFFE040 : 0xD040E0F0, lit ? 3.5f : 2.0f);
+            p.get_seg(runs[r].points[i - 1], runs[r].points[i], lit ? 0xFFFFE040 : 0xD040E0F0, lit ? 3.5f : 2.0f);
         if (lit) {
             char text[48];
             std::snprintf(text, sizeof(text), "rail here: %.0f long", runs[r].length);
             float px, py;
-            if (p.Pixel(runs[r].points.front(), &px, &py))
-                p.Text(px + 8.0f, py - 20.0f, 0xFFFFE040, text);
+            if (p.get_pixel(runs[r].points.front(), &px, &py))
+                p.text_tools(px + 8.0f, py - 20.0f, 0xFFFFE040, text);
         }
     }
 }
 
 } // namespace
 
-void AddOverlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
-                Ui::Overlay* overlay)
+void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+                ui::Overlay* overlay)
 {
-    Painter p = {camera, frame, lens, viewport, nearZ, overlay};
-    AddGhost(p);
-    AddContacts(p);
-    AddReadout(p);
-    AddEdges(p);
+    Painter p = {camera, frame, lens, viewport, near_z, overlay};
+    add_ghost(p);
+    add_contacts(p);
+    add_readout(p);
+    add_edges(p);
 }
 
-bool PlaceClick(bool more)
+bool place_click(bool more)
 {
     int tab = 0;
     uint32_t id = 0;
-    if (!AtHand().clickPlaces || !Edit::BrowserItem(&tab, &id))
+    if (!at_hand().click_places_ || !edit::browser_item(&tab, &id))
         return false;
-    V3 at = Edit::CursorPoint();
-    Edit::PlaceBrowserItem(at, more);
+    V3 at = edit::cursor_point();
+    edit::place_browser_item(at, more);
     // (an object stood square to the surface's slope - the ghost showed it so)
     V3 normal;
-    Edit::Selected placed = Edit::Selection();
-    if (tab == 1 && AtHand().ghostSlope && placed.kind == Edit::Kind::Objects && SurfaceNormal(&normal)) {
+    edit::Selected placed = edit::get_selection();
+    if (tab == 1 && at_hand().ghost_slope_ && placed.kind == edit::Kind::object_edit && surface_normal(&normal)) {
         for (uint32_t pid : placed.ids) {
-            GameObjects::CGameEntity* object = LiveObject(pid);
+            objects::GameEntity* object = live_object(pid);
             if (!object)
                 continue;
-            for (Maths::Mat4* m : {&object->m_basisFrame, &object->m_displayMatrix}) {
+            for (maths::Mat4* m : {&object->basis_frame_, &object->display_matrix_}) {
                 V3 rows[3];
                 for (int i = 0; i < 3; ++i)
                     rows[i] = {m->row[i].x, m->row[i].y, m->row[i].z};
-                if (!Snap::AlignRows(rows, normal))
+                if (!snap::align_rows(rows, normal))
                     continue;
                 for (int i = 0; i < 3; ++i) {
                     m->row[i].x = rows[i].x;
@@ -1401,13 +1401,13 @@ bool PlaceClick(bool more)
     return true;
 }
 
-void Forget()
+void get_forget()
 {
     g_snap = SnapCache{};
     g_edges = EdgeCache{};
-    g_edgePicking = false;
-    g_segmentsNodes = g_segmentsRails = ~0u;
+    g_edge_picking = false;
+    g_segments_nodes = g_segments_rails = ~0u;
     g_segments.clear();
 }
 
-} // namespace MenuSystem::LevelEditor::Arrange
+} // namespace MenuSystem::level_editor::Arrange

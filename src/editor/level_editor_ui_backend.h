@@ -10,66 +10,66 @@ union SDL_Event;
 // 0x007D69E0). Renderer-independence rules (the user's requirement - OpenGL or Vulkan later only swap this file):
 //   - only level_editor_ui_backend.cpp includes Direct3D or an ImGui backend header;
 //   - every gizmo and line is drawn through ImGui draw lists (level_editor_ui.cpp), projected to the screen;
-//   - a texture handed to ImGui goes through TextureId.
+//   - a texture handed to ImGui goes through get_texture_id.
 // ImGui's coordinates are the window's pixels (what SDL's mouse events are in); Render scales its draw data to the
 // back buffer when the two differ.
-namespace MenuSystem::LevelEditor::UiBackend {
+namespace frontend::level_editor::ui_backend {
 
 // The backends started on the game's window and device (once; false - logged - while either is missing or a
 // backend refuses). An ImGui context must be current.
-bool PrepareAll();
-bool Ready();
+bool prepare_all();
+bool get_ready();
 // An SDL event for ImGui (true: ImGui used it).
-bool ProcessEvent(const SDL_Event* event);
+bool process_event(const SDL_Event* event);
 // The frame's start (before ImGui::NewFrame): the platform backend (window size, time, cursor) and the renderer
 // backend (its device objects made again if a reset dropped them).
-void NewFrame();
+void new_frame();
 // ImGui's draw data (after ImGui::Render) drawn on the device, scaled from the window's pixels to the back buffer's.
-void Render();
-// Before the device is reset (FrameLoop::ResetDeviceIfLost: alt-tab, a lost device): ImGui's default-pool objects dropped;
+void render();
+// Before the device is reset (frame_loop::reset_device_if_lost: alt-tab, a lost device): ImGui's default-pool objects dropped;
 // NewFrame makes them again. Also after the fonts change (the font texture is made again).
-void InvalidateDeviceObjects();
+void invalidate_device_objects();
 // The window's size in pixels (ImGui's display size) and the back buffer's.
-void WindowSize(int* width, int* height);
-void BackBufferSize(int* width, int* height);
+void window_size(int* width, int* height);
+void back_buffer_size(int* width, int* height);
 // The one place a renderer texture becomes an ImGui texture id.
-uint64_t TextureId(void* rendererTexture);
+uint64_t get_texture_id(void* renderer_texture);
 
 // Several ImGui contexts may use these backends (the editor's and the new front end's - frontend/new_frontend.h):
-// Init / Ready / ProcessEvent / NewFrame / Render act on the CURRENT context (each keeps its own backend data).
-// InvalidateContextObjects drops only the current context's device objects (its font texture), not the editor's
+// Init / Ready / process_event / NewFrame / Render act on the CURRENT context (each keeps its own backend data).
+// invalidate_context_objects drops only the current context's device objects (its font texture), not the editor's
 // pictures below.
-void InvalidateContextObjects();
+void invalidate_context_objects();
 
-// A picture for ImGui made from texels in memory (the new front end's loading screens): `rows` rows of `rowBytes`
+// A picture for ImGui made from texels in memory (the new front end's loading screens): `rows` rows of `row_bytes`
 // bytes - 32-bit BGRA texels (A8R8G8B8), or rows of 4x4 DXT1 blocks. A managed texture (it survives a device reset);
-// 0 when it can't be made. ReleaseTexture frees it.
-enum class PixelLayout { Bgra32, Dxt1 };
-uint64_t CreateTexture(int width, int height, PixelLayout format, const void* data, int rowBytes, int rows);
-void ReleaseTexture(uint64_t id);
+// 0 when it can't be made. release_texture frees it.
+enum class PixelLayout { kBgra32, kDxt1 };
+uint64_t create_texture(int width, int height, PixelLayout format, const void* data, int row_bytes, int rows);
+void release_texture(uint64_t id);
 
 // An off-screen picture (the Add palette's preview, level_editor_preview.h): a square colour target of `size` pixels
-// with its own depth surface, made on first use (again when the size changes) and freed by FreeOffscreen and with the
-// device objects (InvalidateDeviceObjects: before a reset). BeginOffscreen makes it the device's target (the target,
+// with its own depth surface, made on first use (again when the size changes) and freed by free_offscreen and with the
+// device objects (invalidate_device_objects: before a reset). begin_offscreen makes it the device's target (the target,
 // depth surface, viewport and the world / view / projection transforms saved first), cleared to `argb`; the game's
-// renderer then draws into it; EndOffscreen puts back what was saved. False (nothing switched): no device or the
+// renderer then draws into it; end_offscreen puts back what was saved. False (nothing switched): no device or the
 // target couldn't be made (logged once).
-bool BeginOffscreen(int size, uint32_t argb);
-void EndOffscreen();
+bool begin_offscreen(int size, uint32_t argb);
+void end_offscreen();
 // The picture's ImGui texture id (0: none made).
-uint64_t OffscreenTexture();
-void FreeOffscreen();
+uint64_t offscreen_texture();
+void free_offscreen();
 
-// The Add palette's thumbnails (level_editor_thumbs.h): one square atlas of `atlasSize` pixels with its own depth
-// surface, made on first use and kept (freed by FreeAtlas and with the device objects, as the picture above).
-// BeginAtlasCell makes it the device's target with the viewport on one cell (x, y, size in pixels) - the target, depth
-// surface, viewport and transforms saved first as BeginOffscreen does - and clears that cell to `argb` (colour and
-// depth); EndAtlasCell puts back what was saved. AtlasGeneration changes whenever the atlas is freed (its cells are
+// The Add palette's thumbnails (level_editor_thumbs.h): one square atlas of `atlas_size` pixels with its own depth
+// surface, made on first use and kept (freed by free_atlas and with the device objects, as the picture above).
+// begin_atlas_cell makes it the device's target with the viewport on one cell (x, y, size in pixels) - the target, depth
+// surface, viewport and transforms saved first as begin_offscreen does - and clears that cell to `argb` (colour and
+// depth); end_atlas_cell puts back what was saved. atlas_generation changes whenever the atlas is freed (its cells are
 // then empty: what they held is drawn again).
-bool BeginAtlasCell(int atlasSize, int x, int y, int size, uint32_t argb);
-void EndAtlasCell();
-uint64_t AtlasTexture();
-uint32_t AtlasGeneration();
-void FreeAtlas();
+bool begin_atlas_cell(int atlas_size, int x, int y, int size, uint32_t argb);
+void end_atlas_cell();
+uint64_t atlas_texture();
+uint32_t atlas_generation();
+void free_atlas();
 
-} // namespace MenuSystem::LevelEditor::UiBackend
+} // namespace MenuSystem::level_editor::ui_backend

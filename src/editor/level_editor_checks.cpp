@@ -42,41 +42,41 @@
 #include "platform/run_log.h"
 #include "imgui.h"
 
-namespace MenuSystem::LevelEditor::Checks {
+namespace frontend::level_editor::checks {
 
 // --- the pure parts -------------------------------------------------------------------------------------------------
 
-const char* SeverityName(Severity severity)
+const char* severity_name(Severity severity)
 {
     switch (severity) {
-    case Severity::Error: return "Error";
-    case Severity::Warning: return "Warning";
+    case Severity::kError: return "Error";
+    case Severity::kWarning: return "Warning";
     default: return "Info";
     }
 }
 
-const char* RuleName(Rule rule)
+const char* rule_name(Rule rule)
 {
     switch (rule) {
-    case Rule::InsideSolid: return "Inside solid";
-    case Rule::BelowGround: return "Below the ground";
-    case Rule::NoGround: return "Nothing below";
-    case Rule::FloatingRail: return "Floating rail point";
-    case Rule::LonelyRail: return "Rail of one point";
-    case Rule::CollisionLeft: return "Collision left behind";
-    case Rule::HiddenCollision: return "Hidden, collision on";
-    case Rule::Limit: return "Limit";
-    case Rule::TriggerIdle: return "Trigger never fires";
-    case Rule::TriggerScript: return "Trigger script";
-    case Rule::GapUnpaired: return "Gap unpaired";
-    case Rule::OnlineParity: return "Online parity";
-    case Rule::Multiplayer: return "Multiplayer";
-    case Rule::LayoutRecord: return "Layout record";
+    case Rule::kInsideSolid: return "Inside solid";
+    case Rule::kBelowGround: return "Below the ground";
+    case Rule::kNoGround: return "Nothing below";
+    case Rule::kFloatingRail: return "Floating rail point";
+    case Rule::kLonelyRail: return "Rail of one point";
+    case Rule::kCollisionLeft: return "Collision left behind";
+    case Rule::kHiddenCollision: return "Hidden, collision on";
+    case Rule::kLimit: return "Limit";
+    case Rule::kTriggerIdle: return "Trigger never fires";
+    case Rule::kTriggerScript: return "Trigger script";
+    case Rule::kGapUnpaired: return "Gap unpaired";
+    case Rule::kOnlineParity: return "Online parity";
+    case Rule::kMultiplayer: return "Multiplayer";
+    case Rule::kLayoutRecord: return "Layout record";
     }
     return "?";
 }
 
-uint32_t IssueKey(Rule rule, uint32_t subject, const std::string& detail)
+uint32_t issue_key(Rule rule, uint32_t subject, const std::string& detail)
 {
     // (FNV-1a over the rule, the subject's bytes and the detail)
     uint32_t hash = 2166136261u;
@@ -89,31 +89,31 @@ uint32_t IssueKey(Rule rule, uint32_t subject, const std::string& detail)
     return hash;
 }
 
-void Sort(std::vector<Issue>* issues)
+void get_sort(std::vector<Issue>* issues)
 {
     std::stable_sort(issues->begin(), issues->end(), [](const Issue& a, const Issue& b) {
         if (a.severity != b.severity)
             return a.severity < b.severity;
-        if (a.levelOwn != b.levelOwn)
-            return !a.levelOwn;
+        if (a.level_own_ != b.level_own_)
+            return !a.level_own_;
         if (a.rule != b.rule)
             return a.rule < b.rule;
         return a.text < b.text;
     });
 }
 
-bool Behind(const Probe& probe) { return probe.in >= 0.0f && (probe.out < 0.0f || probe.in < probe.out); }
+bool get_behind(const Probe& probe) { return probe.in >= 0.0f && (probe.out < 0.0f || probe.in < probe.out); }
 
-Place Judge(const Probe probes[6])
+Place get_judge(const Probe probes[6])
 {
     for (int axis = 0; axis < 3; ++axis) {
-        if (Behind(probes[2 * axis]) && Behind(probes[2 * axis + 1]))
-            return Place::InsideSolid;
+        if (get_behind(probes[2 * axis]) && get_behind(probes[2 * axis + 1]))
+            return Place::kInsideSolid;
     }
-    return Behind(probes[2]) ? Place::BelowGround : Place::Clear;
+    return get_behind(probes[2]) ? Place::kBelowGround : Place::kClear;
 }
 
-bool Floating(const Probe probes[6], float near)
+bool floating(const Probe probes[6], float near)
 {
     for (int i = 0; i < 6; ++i) {
         if ((probes[i].out >= 0.0f && probes[i].out <= near) || (probes[i].in >= 0.0f && probes[i].in <= near))
@@ -122,7 +122,7 @@ bool Floating(const Probe probes[6], float near)
     return true;
 }
 
-std::vector<int> LonelyPoints(const std::vector<std::vector<int>>& links)
+std::vector<int> lonely_points(const std::vector<std::vector<int>>& links)
 {
     std::vector<int> incoming(links.size(), 0);
     for (const std::vector<int>& out : links) {
@@ -133,9 +133,9 @@ std::vector<int> LonelyPoints(const std::vector<std::vector<int>>& links)
     }
     std::vector<int> lonely;
     for (size_t i = 0; i < links.size(); ++i) {
-        bool linksOut = std::any_of(links[i].begin(), links[i].end(),
+        bool links_out = std::any_of(links[i].begin(), links[i].end(),
                                     [&](int to) { return to >= 0 && to < static_cast<int>(links.size()); });
-        if (!linksOut && incoming[i] == 0)
+        if (!links_out && incoming[i] == 0)
             lonely.push_back(static_cast<int>(i));
     }
     return lonely;
@@ -147,24 +147,24 @@ const char* const kTeamNames[4] = {"Red", "Blue", "Green", "Yellow"};
 
 } // namespace
 
-std::vector<MpProblem> MultiplayerProblems(const MpCounts& counts)
+std::vector<MpProblem> multiplayer_problems(const MpCounts& counts)
 {
     std::vector<MpProblem> out;
     if (counts.player1 == 0)
-        out.push_back({Severity::Error, "No Player1 restart", -1});
+        out.push_back({Severity::kError, "No Player1 restart", -1});
     if (counts.multiplayer == 0)
-        out.push_back({Severity::Warning, "No Multiplayer restart", -1});
+        out.push_back({Severity::kWarning, "No Multiplayer restart", -1});
     else if (counts.multiplayer == 1)
-        out.push_back({Severity::DetailsOf, "Only one Multiplayer restart", -1});
+        out.push_back({Severity::kDetailsOf, "Only one Multiplayer restart", -1});
     if (counts.horse == 0)
-        out.push_back({Severity::Warning, "No HORSE restart", -1});
+        out.push_back({Severity::kWarning, "No HORSE restart", -1});
     if (counts.crowns == 0)
-        out.push_back({Severity::Warning, "King of the Hill: no crowns", -1});
-    bool anyTeam = false;
+        out.push_back({Severity::kWarning, "King of the Hill: no crowns", -1});
+    bool any_team = false;
     for (const TeamNodes& t : counts.teams)
-        anyTeam = anyTeam || t.flag || t.base || t.restart;
-    if (!anyTeam) {
-        out.push_back({Severity::Warning, "No Capture the Flag flags, bases or team restarts",
+        any_team = any_team || t.flag || t.base || t.restart;
+    if (!any_team) {
+        out.push_back({Severity::kWarning, "No Capture the Flag flags, bases or team restarts",
                        -1});
         return out;
     }
@@ -185,12 +185,12 @@ std::vector<MpProblem> MultiplayerProblems(const MpCounts& counts)
         add(t.flag, "its flag (TRG_CTF_" + colour + ")");
         add(t.base, "its base (TRG_CTF_" + colour + "_Base)");
         add(t.restart, "its team restart (TRG_CTF_Restart_" + colour + ")");
-        out.push_back({Severity::Warning, "Capture the Flag, team " + colour + ": missing " + missing, team});
+        out.push_back({Severity::kWarning, "Capture the Flag, team " + colour + ": missing " + missing, team});
     }
     return out;
 }
 
-std::string RecordKey(const std::string& line)
+std::string record_key(const std::string& line)
 {
     std::string text = line.substr(0, line.find('#'));
     std::istringstream in(text);
@@ -209,19 +209,19 @@ std::string RecordKey(const std::string& line)
     return key;
 }
 
-std::vector<std::string> CarriedLines(const std::vector<std::string>& unresolved, const std::string& captured)
+std::vector<std::string> carried_lines(const std::vector<std::string>& unresolved, const std::string& captured)
 {
     std::set<std::string> keys;
     std::istringstream in(captured);
     std::string line;
     while (std::getline(in, line)) {
-        std::string key = RecordKey(line);
+        std::string key = record_key(line);
         if (!key.empty())
             keys.insert(key);
     }
     std::vector<std::string> out;
     for (const std::string& u : unresolved) {
-        if (keys.count(RecordKey(u)) || std::find(out.begin(), out.end(), u) != out.end())
+        if (keys.count(record_key(u)) || std::find(out.begin(), out.end(), u) != out.end())
             continue;
         out.push_back(u);
     }
@@ -230,15 +230,15 @@ std::vector<std::string> CarriedLines(const std::vector<std::string>& unresolved
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
-bool Cast(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector)
+bool get_cast(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector)
 {
-    // (a CProbeRay: constructor 0x00417760; 0x00417710 casts it - thiscall, true on a hit; the hit's normal at +0x24, its
+    // (a ProbeRay: constructor 0x00417760; 0x00417710 casts it - thiscall, true on a hit; the hit's normal at +0x24, its
     // point at +0x34, the collision object at +0x54 and its checksum at +0x58 - as the editor's other modules read it)
     alignas(16) uint8_t feeler[0x100] = {};
-    auto* ray = reinterpret_cast<Engine3D::CProbeRay*>(feeler);
-    ray->MakeNew();
-    Maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
-    if (!ray->GetCollisionAlong(&start, &end, false))
+    auto* ray = reinterpret_cast<render::ProbeRay*>(feeler);
+    ray->make_new();
+    maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    if (!ray->get_collision_along(&start, &end, false))
         return false;
     const float* n = reinterpret_cast<const float*>(feeler + 0x24);
     const float* p = reinterpret_cast<const float*>(feeler + 0x34);
@@ -252,37 +252,37 @@ bool Cast(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector)
 
 namespace {
 
-float SpanTo(V3 a, V3 b) { return std::sqrt(Dot(a - b, a - b)); }
+float span_to(V3 a, V3 b) { return std::sqrt(get_dot(a - b, a - b)); }
 
 const V3 kDirections[6] = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
 
 } // namespace
 
-void ProbeEach(V3 point, const float reach[6], Probe probes[6])
+void probe_each(V3 point, const float reach[6], Probe probes[6])
 {
     for (int i = 0; i < 6; ++i) {
         V3 far = point + kDirections[i] * reach[i];
         V3 hit;
         probes[i] = {};
-        if (Cast(point, far, &hit))
-            probes[i].out = SpanTo(hit, point);
+        if (get_cast(point, far, &hit))
+            probes[i].out = span_to(hit, point);
         // Coming back in: the face facing away nearest to the point - the last met on the way in (cast again from just
         // past each hit; a few at most).
         V3 from = far;
-        for (int step = 0; step < 6 && Cast(from, point, &hit); ++step) {
-            probes[i].in = SpanTo(hit, point);
+        for (int step = 0; step < 6 && get_cast(from, point, &hit); ++step) {
+            probes[i].in = span_to(hit, point);
             V3 on = hit + (point - far) * (0.5f / reach[i]); // (half a unit on, towards the point)
-            if (SpanTo(on, point) < 0.5f)
+            if (span_to(on, point) < 0.5f)
                 break;
             from = on;
         }
     }
 }
 
-void ProbeAround(V3 point, float reach, Probe probes[6])
+void probe_around(V3 point, float reach, Probe probes[6])
 {
     const float reaches[6] = {reach, reach, reach, reach, reach, reach};
-    ProbeEach(point, reaches, probes);
+    probe_each(point, reaches, probes);
 }
 
 namespace {
@@ -290,47 +290,47 @@ namespace {
 // --- the state ----------------------------------------------------------------------------------------------------
 
 std::vector<Issue> g_issues;         // the last check's
-std::vector<Issue> g_layoutIssues;   // the loaded layout's unresolved records
+std::vector<Issue> g_layout_issues;   // the loaded layout's unresolved records
 std::unordered_set<uint32_t> g_ignored;
 std::unordered_map<uint32_t, uint8_t> g_marks;
 int g_changes = -1;
 uint32_t g_generation = 0;
 int g_loads = -1;
 double g_due = -1.0;      // (seconds: when to check again; -1 none due)
-bool g_checkedOnce = false;
-double g_lastSeconds = 0.0; // (how long the last check took)
+bool g_checked_once = false;
+double g_last_seconds = 0.0; // (how long the last check took)
 bool g_open = false;
 int g_tab = kProblemsTab;
-bool g_tabPending = false;
-bool g_showOwn = false, g_showIgnored = false;
+bool g_tab_pending = false;
+bool g_show_own = false, g_show_ignored = false;
 std::vector<std::function<void()>> g_queue;
 
-double Seconds() { return static_cast<double>(SDL_GetTicks()) / 1000.0; }
+double get_seconds() { return static_cast<double>(SDL_GetTicks()) / 1000.0; }
 
-uint32_t Checksums(const std::string& text) { return Checksums::HashFromText(text.c_str()); }
+uint32_t get_checksums(const std::string& text) { return checksums::hash_from_text(text.c_str()); }
 
-std::string Name(uint32_t checksum) { return Nodes::Caption(checksum); }
+std::string get_name(uint32_t checksum) { return nodes::caption(checksum); }
 
-bool Marked(uint32_t name, uint8_t bits)
+bool get_marked(uint32_t name, uint8_t bits)
 {
     auto it = g_marks.find(name);
     return it != g_marks.end() && (it->second & bits);
 }
 
 // Whether the editor changed scenery near a point (moved pieces, copies): then a problem there isn't the level's own.
-bool SceneryChangedNear(V3 point, float margin)
+bool scenery_changed_near(V3 point, float margin)
 {
     std::vector<uint32_t> pieces;
-    for (const Scenery::SectorState& s : Scenery::ChangedSectors())
+    for (const scenery::SectorState& s : scenery::changed_sectors())
         pieces.push_back(s.checksum);
-    for (const Scenery::Replicate& c : Scenery::Clones())
+    for (const scenery::Replicate& c : scenery::get_clones())
         pieces.push_back(c.checksum);
     for (uint32_t piece : pieces) {
         OrientedBox box;
-        if (!Scenery::Cuboid(piece, &box))
+        if (!scenery::cuboid(piece, &box))
             continue;
         V3 min, max;
-        BoundsOf(box, &min, &max);
+        bounds_of(box, &min, &max);
         if (point.x >= min.x - margin && point.x <= max.x + margin && point.y >= min.y - margin &&
             point.y <= max.y + margin && point.z >= min.z - margin && point.z <= max.z + margin)
             return true;
@@ -338,9 +338,9 @@ bool SceneryChangedNear(V3 point, float margin)
     return false;
 }
 
-void AppendOne(std::vector<Issue>* out, Issue issue, const std::string& detail = "")
+void append_one(std::vector<Issue>* out, Issue issue, const std::string& detail = "")
 {
-    issue.key = IssueKey(issue.rule, issue.node ? issue.node : issue.sector, detail.empty() ? issue.text : detail);
+    issue.key = issue_key(issue.rule, issue.node ? issue.node : issue.sector, detail.empty() ? issue.text : detail);
     out->push_back(std::move(issue));
 }
 
@@ -350,15 +350,15 @@ void AppendOne(std::vector<Issue>* out, Issue issue, const std::string& detail =
 struct Placed {
     V3 point = {};
     uint32_t world = 0;
-    Place place = Place::Clear;
-    float upIn = -1.0f; // (the surface above, from the point - BelowGround's Fix)
+    Place place = Place::kClear;
+    float up_in_ = -1.0f; // (the surface above, from the point - kBelowGround's Fix)
     bool ground = true; // (a face within kGroundReach below)
 };
 std::unordered_map<uint32_t, Placed> g_placed;
 
 // A number that changes when the static collision the probes meet may have: scenery moved / hidden / copied, walls
 // switched or moved, faces taken along or their flags edited.
-uint32_t WorldSignature()
+uint32_t world_signature()
 {
     uint32_t hash = 2166136261u;
     auto mix = [&](const void* data, size_t size) {
@@ -366,28 +366,28 @@ uint32_t WorldSignature()
         for (size_t i = 0; i < size; ++i)
             hash = (hash ^ bytes[i]) * 16777619u;
     };
-    for (const Scenery::SectorState& s : Scenery::ChangedSectors()) {
+    for (const scenery::SectorState& s : scenery::changed_sectors()) {
         mix(&s.checksum, sizeof(s.checksum));
         mix(&s.placement.quarters, sizeof(s.placement.quarters));
         mix(&s.placement.offset, sizeof(s.placement.offset));
         mix(&s.placement.scale, sizeof(s.placement.scale));
         mix(&s.hidden, sizeof(s.hidden));
     }
-    for (const Walls::WallState& w : Walls::Changed()) {
+    for (const walls::WallState& w : walls::get_changed()) {
         mix(&w.checksum, sizeof(w.checksum));
         mix(&w.placement.quarters, sizeof(w.placement.quarters));
         mix(&w.placement.offset, sizeof(w.placement.offset));
         mix(&w.off, sizeof(w.off));
     }
-    size_t clones = Scenery::Clones().size(), faces = Faces::Changed().size();
-    uint32_t shared = SharedCollision::Generation();
+    size_t clones = scenery::get_clones().size(), faces = faces::get_changed().size();
+    uint32_t shared = shared_collision::get_generation();
     mix(&clones, sizeof(clones));
     mix(&faces, sizeof(faces));
     mix(&shared, sizeof(shared));
     return hash | 1u; // (never 0: 0 is "not probed")
 }
 
-const Placed& PlacedAt(uint32_t name, V3 point, uint32_t world)
+const Placed& placed_at(uint32_t name, V3 point, uint32_t world)
 {
     Placed& placed = g_placed[name];
     if (placed.world == world && placed.point.x == point.x && placed.point.y == point.y && placed.point.z == point.z)
@@ -395,66 +395,66 @@ const Placed& PlacedAt(uint32_t name, V3 point, uint32_t world)
     // (the sides only kSideReach: a wall's thickness - farther faces belong to other things; up and down kReach)
     const float reaches[6] = {kSideReach, kSideReach, kReach, kReach, kSideReach, kSideReach};
     Probe probes[6];
-    ProbeEach(point, reaches, probes);
+    probe_each(point, reaches, probes);
     placed.point = point;
     placed.world = world;
-    placed.place = Judge(probes);
-    placed.upIn = probes[2].in;
+    placed.place = get_judge(probes);
+    placed.up_in_ = probes[2].in;
     V3 hit;
-    placed.ground = probes[3].out >= 0.0f || Cast(point, point - V3{0.0f, kGroundReach, 0.0f}, &hit);
+    placed.ground = probes[3].out >= 0.0f || get_cast(point, point - V3{0.0f, kGroundReach, 0.0f}, &hit);
     return placed;
 }
 
-void CheckPlacement(std::vector<Issue>* out, uint32_t world)
+void check_placement(std::vector<Issue>* out, uint32_t world)
 {
-    for (const Nodes::Elem& n : Nodes::All()) {
-        if (n.hidden || !n.hasPos)
+    for (const nodes::Elem& n : nodes::get_all()) {
+        if (n.hidden || !n.has_pos_)
             continue;
-        if (n.family != Nodes::Family::Spawn && n.family != Nodes::Family::Crown && n.family != Nodes::Family::BitMark)
+        if (n.family != nodes::Family::kSpawn && n.family != nodes::Family::kCrown && n.family != nodes::Family::kBitMark)
             continue;
         V3 point = n.pos + V3{0.0f, kLift, 0.0f};
-        const Placed& placed = PlacedAt(n.name, point, world);
+        const Placed& placed = placed_at(n.name, point, world);
         Place place = placed.place;
-        bool own = !Marked(n.name, Ui::kMarkMoved | Ui::kMarkAdded) && !n.added && !SceneryChangedNear(n.pos, 300.0f);
-        std::string what = std::string(Nodes::FamilyName(n.family));
+        bool own = !get_marked(n.name, ui::kMarkMoved | ui::kMarkAdded) && !n.added && !scenery_changed_near(n.pos, 300.0f);
+        std::string what = std::string(nodes::family_name(n.family));
         what = what.substr(0, what.size() - 1); // ("Spawns" -> "Spawn")
         Issue issue;
         issue.node = n.name;
-        issue.hasPos = true;
+        issue.has_pos_ = true;
         issue.pos = n.pos;
-        issue.levelOwn = own;
-        if (place == Place::InsideSolid) {
-            issue.rule = Rule::InsideSolid;
-            issue.severity = Severity::Error;
-            issue.text = what + " " + Name(n.name) + " is inside solid collision";
-            AppendOne(out, issue);
-        } else if (place == Place::BelowGround) {
-            issue.rule = Rule::BelowGround;
-            issue.severity = Severity::Error;
-            issue.text = what + " " + Name(n.name) + " is under a surface (" +
-                         std::to_string(static_cast<int>(placed.upIn - kLift)) + " units below the surface)";
-            issue.fixable = NodeEdit::Movable(n);
-            issue.fixPos = point + V3{0.0f, placed.upIn, 0.0f};
-            AppendOne(out, issue, "below"); // (the key without the depth: Ignore holds while it's moved about)
+        issue.level_own_ = own;
+        if (place == Place::kInsideSolid) {
+            issue.rule = Rule::kInsideSolid;
+            issue.severity = Severity::kError;
+            issue.text = what + " " + get_name(n.name) + " is inside solid collision";
+            append_one(out, issue);
+        } else if (place == Place::kBelowGround) {
+            issue.rule = Rule::kBelowGround;
+            issue.severity = Severity::kError;
+            issue.text = what + " " + get_name(n.name) + " is under a surface (" +
+                         std::to_string(static_cast<int>(placed.up_in_ - kLift)) + " units below the surface)";
+            issue.fixable = node_edit::get_movable(n);
+            issue.fix_pos_ = point + V3{0.0f, placed.up_in_, 0.0f};
+            append_one(out, issue, "below"); // (the key without the depth: Ignore holds while it's moved about)
         } else {
             if (!placed.ground) {
-                issue.rule = Rule::NoGround;
-                issue.severity = Severity::Warning;
-                issue.text = what + " " + Name(n.name) + ": nothing below it within " +
+                issue.rule = Rule::kNoGround;
+                issue.severity = Severity::kWarning;
+                issue.text = what + " " + get_name(n.name) + ": nothing below it within " +
                              std::to_string(static_cast<int>(kGroundReach)) + " units";
-                AppendOne(out, issue);
+                append_one(out, issue);
             }
         }
     }
 }
 
-void CheckRails(std::vector<Issue>* out)
+void check_rails(std::vector<Issue>* out)
 {
-    const std::vector<Nodes::Elem>& nodes = Nodes::All();
+    const std::vector<nodes::Elem>& nodes = nodes::get_all();
     std::vector<int> rails;
     std::vector<int> index(nodes.size(), -1);
     for (size_t i = 0; i < nodes.size(); ++i) {
-        if (nodes[i].family == Nodes::Family::Rail && !nodes[i].hidden) {
+        if (nodes[i].family == nodes::Family::kRail && !nodes[i].hidden) {
             index[i] = static_cast<int>(rails.size());
             rails.push_back(static_cast<int>(i));
         }
@@ -466,340 +466,340 @@ void CheckRails(std::vector<Issue>* out)
                 links[r].push_back(index[to]);
         }
     }
-    for (int r : LonelyPoints(links)) {
-        const Nodes::Elem& n = nodes[rails[r]];
+    for (int r : lonely_points(links)) {
+        const nodes::Elem& n = nodes[rails[r]];
         Issue issue;
-        issue.rule = Rule::LonelyRail;
-        issue.severity = Severity::Warning;
+        issue.rule = Rule::kLonelyRail;
+        issue.severity = Severity::kWarning;
         issue.node = n.name;
-        issue.hasPos = n.hasPos;
+        issue.has_pos_ = n.has_pos_;
         issue.pos = n.pos;
-        issue.levelOwn = !n.added && !Marked(n.name, Ui::kMarkAdded);
-        issue.text = "Rail point " + Name(n.name) + " is not linked";
-        AppendOne(out, issue);
+        issue.level_own_ = !n.added && !get_marked(n.name, ui::kMarkAdded);
+        issue.text = "Rail point " + get_name(n.name) + " is not linked";
+        append_one(out, issue);
     }
     // Floating: the rail points the editor moved or added.
     for (int i : rails) {
-        const Nodes::Elem& n = nodes[i];
-        if (!n.added && !Marked(n.name, Ui::kMarkMoved | Ui::kMarkAdded))
+        const nodes::Elem& n = nodes[i];
+        if (!n.added && !get_marked(n.name, ui::kMarkMoved | ui::kMarkAdded))
             continue;
         V3 pos = n.pos;
-        Scenery::RailPoint(n.name, &pos);
+        scenery::get_rail_point(n.name, &pos);
         Probe probes[6];
-        ProbeAround(pos, kRailNear, probes);
-        if (!Floating(probes, kRailNear))
+        probe_around(pos, kRailNear, probes);
+        if (!floating(probes, kRailNear))
             continue;
         Issue issue;
-        issue.rule = Rule::FloatingRail;
-        issue.severity = Severity::Warning;
+        issue.rule = Rule::kFloatingRail;
+        issue.severity = Severity::kWarning;
         issue.node = n.name;
-        issue.hasPos = true;
+        issue.has_pos_ = true;
         issue.pos = pos;
-        issue.text = "Rail point " + Name(n.name) + " has no surface within " +
+        issue.text = "Rail point " + get_name(n.name) + " has no surface within " +
                      std::to_string(static_cast<int>(kRailNear)) + " units";
-        AppendOne(out, issue);
+        append_one(out, issue);
     }
 }
 
-void CheckCollision(std::vector<Issue>* out)
+void check_collision(std::vector<Issue>* out)
 {
-    for (const Scenery::SectorState& s : Scenery::ChangedSectors()) {
-        uint8_t* sector = Scenery::SectorOf(s.checksum);
+    for (const scenery::SectorState& s : scenery::changed_sectors()) {
+        uint8_t* sector = scenery::sector_of(s.checksum);
         if (!sector)
             continue;
-        const SharedCollision::Companion* companion = SharedCollision::CompanionOf(s.checksum);
+        const shared_collision::Companion* companion = shared_collision::companion_of(s.checksum);
         Issue issue;
         issue.sector = s.checksum;
         OrientedBox box;
-        if (Scenery::Cuboid(s.checksum, &box)) {
+        if (scenery::cuboid(s.checksum, &box)) {
             V3 min, max;
-            BoundsOf(box, &min, &max);
-            issue.hasPos = true;
+            bounds_of(box, &min, &max);
+            issue.has_pos_ = true;
             issue.pos = (min + max) * 0.5f;
         }
         if (s.hidden) {
-            if (companion && companion->LiveNow()) {
-                issue.rule = Rule::HiddenCollision;
-                issue.severity = Severity::Error;
-                issue.text = "Scenery " + Name(s.checksum) + " is hidden but its collision is still on";
+            if (companion && companion->live_now()) {
+                issue.rule = Rule::kHiddenCollision;
+                issue.severity = Severity::kError;
+                issue.text = "Scenery " + get_name(s.checksum) + " is hidden but its collision is still on";
                 issue.fixable = true;
-                AppendOne(out, issue);
+                append_one(out, issue);
             }
             continue;
         }
-        bool moved = s.placement.quarters != 0 || !IsUnitScale(s.placement.scale) || s.placement.offset.x != 0.0f ||
+        bool moved = s.placement.quarters != 0 || !is_unit_scale(s.placement.scale) || s.placement.offset.x != 0.0f ||
                      s.placement.offset.y != 0.0f || s.placement.offset.z != 0.0f;
-        bool own = *reinterpret_cast<uint8_t**>(sector + 0x18) != nullptr; // (its collision object - CWorldCell +0x18)
-        if (moved && !own && !companion && Scenery::SectorGeometry(s.checksum)) {
-            issue.rule = Rule::CollisionLeft;
-            issue.severity = Severity::DetailsOf;
-            issue.text = "Scenery " + Name(s.checksum) + " was moved but its collision may not have moved";
-            AppendOne(out, issue);
+        bool own = *reinterpret_cast<uint8_t**>(sector + 0x18) != nullptr; // (its collision object - WorldCell +0x18)
+        if (moved && !own && !companion && scenery::sector_geometry(s.checksum)) {
+            issue.rule = Rule::kCollisionLeft;
+            issue.severity = Severity::kDetailsOf;
+            issue.text = "Scenery " + get_name(s.checksum) + " was moved but its collision may not have moved";
+            append_one(out, issue);
         }
     }
 }
 
-void CheckLimits(std::vector<Issue>* out)
+void check_limits(std::vector<Issue>* out)
 {
-    for (const Budget::Meter& m : Budget::Meters()) {
+    for (const budget::Meter& m : budget::get_meters()) {
         if (m.limit <= 0.0 || m.bytes)
             continue;
         Severity severity;
         if (m.used > m.limit)
-            severity = Severity::Error;
+            severity = Severity::kError;
         else if (m.used >= 0.9 * m.limit)
-            severity = Severity::Warning;
+            severity = Severity::kWarning;
         else
             continue;
         double before = m.used - m.added;
         Issue issue;
-        issue.rule = Rule::Limit;
+        issue.rule = Rule::kLimit;
         issue.severity = severity;
-        issue.levelOwn = severity == Severity::Error ? before > m.limit : before >= 0.9 * m.limit;
-        issue.text = std::string(m.name) + ": " + Budget::UsedText(m) +
-                     (severity == Severity::Error ? " - over the engine's limit (" : " - near the engine's limit (") +
+        issue.level_own_ = severity == Severity::kError ? before > m.limit : before >= 0.9 * m.limit;
+        issue.text = std::string(m.name) + ": " + budget::used_text(m) +
+                     (severity == Severity::kError ? " - over the engine's limit (" : " - near the engine's limit (") +
                      m.where + ")";
-        AppendOne(out, issue, m.name);
+        append_one(out, issue, m.name);
     }
 }
 
-void CheckTriggers(std::vector<Issue>* out, uint32_t world)
+void check_triggers(std::vector<Issue>* out, uint32_t world)
 {
-    static const uint32_t kTriggerScript = Checksums("TriggerScript"), kProximNode = Checksums("ProximNode");
+    static const uint32_t kTriggerScript = get_checksums("TriggerScript"), kProximNode = get_checksums("ProximNode");
     // The editor's trigger volumes.
-    const std::vector<Triggers::Added>& added = Triggers::AddedTriggers();
-    std::vector<Triggers::Spec> specs;
-    for (const Triggers::Added& a : added)
+    const std::vector<triggers::Added>& added = triggers::added_triggers();
+    std::vector<triggers::Spec> specs;
+    for (const triggers::Added& a : added)
         specs.push_back(a.spec);
-    const std::vector<Triggers::LevelTrigger>& level = Triggers::LevelTriggers();
+    const std::vector<triggers::LevelTrigger>& level = triggers::level_triggers();
     for (size_t i = 0; i < added.size(); ++i) {
-        const Triggers::Added& a = added[i];
+        const triggers::Added& a = added[i];
         Issue issue;
-        issue.node = Triggers::ChecksumOf(a.spec.name);
-        issue.hasPos = a.alive;
+        issue.node = triggers::checksum_of(a.spec.name);
+        issue.has_pos_ = a.alive;
         issue.pos = a.pos;
         if (a.problem) {
-            issue.rule = Rule::TriggerIdle;
-            issue.severity = Severity::Warning;
-            issue.text = std::string(Triggers::KindName(a.spec.kind)) + " " + a.spec.name + " does nothing yet: " +
+            issue.rule = Rule::kTriggerIdle;
+            issue.severity = Severity::kWarning;
+            issue.text = std::string(triggers::kind_name(a.spec.kind)) + " " + a.spec.name + " does nothing yet: " +
                          a.problem;
-            AppendOne(out, issue);
+            append_one(out, issue);
         }
         if (a.alive) {
-            Place place = PlacedAt(issue.node, a.pos, world).place;
-            if (place != Place::Clear) {
-                issue.rule = Rule::TriggerIdle;
-                issue.severity = Severity::DetailsOf;
-                issue.text = std::string(Triggers::KindName(a.spec.kind)) + " " + a.spec.name + ": its middle is " +
-                             (place == Place::InsideSolid ? "inside solid collision" : "under a surface") +
+            Place place = placed_at(issue.node, a.pos, world).place;
+            if (place != Place::kClear) {
+                issue.rule = Rule::kTriggerIdle;
+                issue.severity = Severity::kDetailsOf;
+                issue.text = std::string(triggers::kind_name(a.spec.kind)) + " " + a.spec.name + ": its middle is " +
+                             (place == Place::kInsideSolid ? "inside solid collision" : "under a surface") +
                              "";
-                AppendOne(out, issue, "reach");
+                append_one(out, issue, "reach");
             }
         }
         // Gaps: an end for each start, a start for each end (the editor's or a level trigger's with the GapID).
-        bool start = a.spec.kind == Triggers::Kind::GapStart, end = a.spec.kind == Triggers::Kind::GapEnd;
-        if ((start || end) && Triggers::Partner(specs, static_cast<int>(i)) < 0) {
-            uint32_t gap = Triggers::ChecksumOf(a.spec.gap);
-            bool found = std::any_of(level.begin(), level.end(), [&](const Triggers::LevelTrigger& t) {
-                return t.calls.gapId == gap && (start ? t.calls.endGap : t.calls.startGap);
+        bool start = a.spec.kind == triggers::Kind::kGapStart, end = a.spec.kind == triggers::Kind::kGapEnd;
+        if ((start || end) && triggers::partner(specs, static_cast<int>(i)) < 0) {
+            uint32_t gap = triggers::checksum_of(a.spec.gap);
+            bool found = std::any_of(level.begin(), level.end(), [&](const triggers::LevelTrigger& t) {
+                return t.calls.gap_id_ == gap && (start ? t.calls.end_gap_ : t.calls.start_gap_);
             });
             if (!found) {
-                issue.rule = Rule::GapUnpaired;
-                issue.severity = Severity::Warning;
+                issue.rule = Rule::kGapUnpaired;
+                issue.severity = Severity::kWarning;
                 issue.text = start ? "Gap start " + a.spec.name + " (" + a.spec.gap + "): no end"
                                    : "Gap end " + a.spec.name + " (" + a.spec.gap + "): no start";
-                AppendOne(out, issue);
+                append_one(out, issue);
             }
         }
     }
     // The level's trigger volumes.
-    for (const Triggers::LevelTrigger& t : level) {
+    for (const triggers::LevelTrigger& t : level) {
         if (t.off)
             continue;
         Issue issue;
         issue.sector = t.sector;
-        issue.hasPos = true;
+        issue.has_pos_ = true;
         issue.pos = (t.min + t.max) * 0.5f;
-        issue.levelOwn = true;
-        if (!t.hasNode) {
-            issue.rule = Rule::TriggerIdle;
-            issue.severity = Severity::DetailsOf;
-            issue.text = "Trigger faces of " + Name(t.sector) + " have no node";
-            AppendOne(out, issue);
+        issue.level_own_ = true;
+        if (!t.has_node_) {
+            issue.rule = Rule::kTriggerIdle;
+            issue.severity = Severity::kDetailsOf;
+            issue.text = "Trigger faces of " + get_name(t.sector) + " have no node";
+            append_one(out, issue);
         } else if (!t.script) {
             issue.node = t.sector;
-            issue.rule = Rule::TriggerScript;
-            issue.severity = Severity::DetailsOf;
-            issue.text = "Trigger " + Name(t.sector) + " has no TriggerScript";
-            AppendOne(out, issue);
-        } else if (!Scripts::ScriptExists(t.script)) {
+            issue.rule = Rule::kTriggerScript;
+            issue.severity = Severity::kDetailsOf;
+            issue.text = "Trigger " + get_name(t.sector) + " has no TriggerScript";
+            append_one(out, issue);
+        } else if (!script::script_exists(t.script)) {
             issue.node = t.sector;
-            issue.rule = Rule::TriggerScript;
-            issue.severity = Severity::Error;
-            issue.text = "Trigger " + Name(t.sector) + ": its TriggerScript " + Name(t.script) + " isn't a script";
-            AppendOne(out, issue);
+            issue.rule = Rule::kTriggerScript;
+            issue.severity = Severity::kError;
+            issue.text = "Trigger " + get_name(t.sector) + ": its TriggerScript " + get_name(t.script) + " isn't a script";
+            append_one(out, issue);
         }
     }
     // Proximity nodes (not the editor's trigger volumes, which are GenericNodes of the same family).
-    for (const Nodes::Elem& n : Nodes::All()) {
-        if (n.family != Nodes::Family::FireOff || n.hidden || n.cls != kProximNode || Triggers::IsTrigger(n.name))
+    for (const nodes::Elem& n : nodes::get_all()) {
+        if (n.family != nodes::Family::kFireOff || n.hidden || n.cls != kProximNode || triggers::is_trigger(n.name))
             continue;
-        bool own = !n.added && !Marked(n.name, Ui::kMarkMoved | Ui::kMarkAdded);
+        bool own = !n.added && !get_marked(n.name, ui::kMarkMoved | ui::kMarkAdded);
         Issue issue;
         issue.node = n.name;
-        issue.hasPos = n.hasPos;
+        issue.has_pos_ = n.has_pos_;
         issue.pos = n.pos;
         uint32_t script = 0;
-        Scripts::CStruct* s = Nodes::StructOf(n);
+        script::Struct* s = nodes::struct_of(n);
         if (s)
-            s->ReadHashValue(kTriggerScript, &script, 0);
-        const Triggers::ProximEdit* edit = Triggers::ProximOf(n.name);
+            s->read_hash_value(kTriggerScript, &script, 0);
+        const triggers::ProximEdit* edit = triggers::proxim_of(n.name);
         bool edited = edit && (!edit->enter.empty() || !edit->exit.empty());
         if (!script && !edited) {
-            issue.rule = Rule::TriggerScript;
-            issue.severity = own ? Severity::DetailsOf : Severity::Warning;
-            issue.levelOwn = own;
-            issue.text = "Proximity node " + Name(n.name) + " has no TriggerScript";
-            AppendOne(out, issue);
-        } else if (script && !Scripts::ScriptExists(script)) {
-            issue.rule = Rule::TriggerScript;
-            issue.severity = Severity::Error;
-            issue.levelOwn = own;
-            issue.text = "Proximity node " + Name(n.name) + ": its TriggerScript " + Name(script) + " isn't a script";
-            AppendOne(out, issue);
+            issue.rule = Rule::kTriggerScript;
+            issue.severity = own ? Severity::kDetailsOf : Severity::kWarning;
+            issue.level_own_ = own;
+            issue.text = "Proximity node " + get_name(n.name) + " has no TriggerScript";
+            append_one(out, issue);
+        } else if (script && !script::script_exists(script)) {
+            issue.rule = Rule::kTriggerScript;
+            issue.severity = Severity::kError;
+            issue.level_own_ = own;
+            issue.text = "Proximity node " + get_name(n.name) + ": its TriggerScript " + get_name(script) + " isn't a script";
+            append_one(out, issue);
         }
         if (edit) {
             for (const std::string* name : {&edit->enter, &edit->exit}) {
-                if (name->empty() || Scripts::ScriptExists(Checksums(*name)))
+                if (name->empty() || script::script_exists(get_checksums(*name)))
                     continue;
-                issue.rule = Rule::TriggerScript;
-                issue.severity = Severity::Error;
-                issue.levelOwn = false;
-                issue.text = "Proximity node " + Name(n.name) + ": its " + (name == &edit->enter ? "enter" : "exit") +
+                issue.rule = Rule::kTriggerScript;
+                issue.severity = Severity::kError;
+                issue.level_own_ = false;
+                issue.text = "Proximity node " + get_name(n.name) + ": its " + (name == &edit->enter ? "enter" : "exit") +
                              " script " + *name + " isn't a script";
-                AppendOne(out, issue, *name);
+                append_one(out, issue, *name);
             }
         }
     }
 }
 
-void CheckOnline(std::vector<Issue>* out)
+void check_online(std::vector<Issue>* out)
 {
     const char* game = "";
-    if (!Nodes::LevelIsShared(&game))
+    if (!nodes::level_is_shared(&game))
         return;
-    for (const Nodes::Elem& n : Nodes::All()) {
-        if (!Nodes::Online(n.family))
+    for (const nodes::Elem& n : nodes::get_all()) {
+        if (!nodes::get_online(n.family))
             continue;
         bool hidden = n.hidden && !n.added, added = n.added && !n.hidden;
-        bool moved = Marked(n.name, Ui::kMarkMoved);
+        bool moved = get_marked(n.name, ui::kMarkMoved);
         if (!hidden && !added && !moved)
             continue;
         Issue issue;
-        issue.rule = Rule::OnlineParity;
-        issue.severity = Severity::DetailsOf;
+        issue.rule = Rule::kOnlineParity;
+        issue.severity = Severity::kDetailsOf;
         issue.node = n.name;
-        issue.hasPos = n.hasPos;
+        issue.has_pos_ = n.has_pos_;
         issue.pos = n.pos;
-        issue.text = Name(n.name) + (added ? " added" : hidden ? " hidden" : " moved") + " in a level shared with " +
+        issue.text = get_name(n.name) + (added ? " added" : hidden ? " hidden" : " moved") + " in a level shared with " +
                      "THUGPRO (" + game + ")";
-        AppendOne(out, issue);
+        append_one(out, issue);
     }
 }
 
-MpCounts CountMultiplayer(bool shipped)
+MpCounts count_multiplayer(bool shipped)
 {
-    static uint32_t kNames[4][3];
+    static uint32_t g_names[4][3];
     static bool made = false;
     if (!made) {
         for (int t = 0; t < 4; ++t) {
             std::string colour = kTeamNames[t];
-            kNames[t][0] = Checksums("TRG_CTF_" + colour);
-            kNames[t][1] = Checksums("TRG_CTF_" + colour + "_Base");
-            kNames[t][2] = Checksums("TRG_CTF_Restart_" + colour);
+            g_names[t][0] = get_checksums("TRG_CTF_" + colour);
+            g_names[t][1] = get_checksums("TRG_CTF_" + colour + "_Base");
+            g_names[t][2] = get_checksums("TRG_CTF_Restart_" + colour);
         }
         made = true;
     }
-    static const uint32_t kCrown = Checksums("Crown");
+    static const uint32_t kCrown = get_checksums("Crown");
     MpCounts counts;
-    for (const Nodes::Elem& n : Nodes::All()) {
+    for (const nodes::Elem& n : nodes::get_all()) {
         // (now: what the game sees - hidden ones not; as shipped: the level's own, hidden ones too)
         if (shipped ? n.added : n.hidden)
             continue;
-        if (n.family == Nodes::Family::Spawn) {
-            counts.player1 += (n.restartTypes & Nodes::kPlayer1) != 0;
-            counts.multiplayer += (n.restartTypes & Nodes::kMultiplayer) != 0;
-            counts.horse += (n.restartTypes & Nodes::kHorse) != 0;
+        if (n.family == nodes::Family::kSpawn) {
+            counts.player1 += (n.restart_types_ & nodes::kPlayer1) != 0;
+            counts.multiplayer += (n.restart_types_ & nodes::kMultiplayer) != 0;
+            counts.horse += (n.restart_types_ & nodes::kHorse) != 0;
         }
         if (n.type == kCrown)
             ++counts.crowns;
         for (int t = 0; t < 4; ++t) {
-            counts.teams[t].flag = counts.teams[t].flag || n.name == kNames[t][0];
-            counts.teams[t].base = counts.teams[t].base || n.name == kNames[t][1];
-            counts.teams[t].restart = counts.teams[t].restart || n.name == kNames[t][2];
+            counts.teams[t].flag = counts.teams[t].flag || n.name == g_names[t][0];
+            counts.teams[t].base = counts.teams[t].base || n.name == g_names[t][1];
+            counts.teams[t].restart = counts.teams[t].restart || n.name == g_names[t][2];
         }
     }
     return counts;
 }
 
-void CheckMultiplayer(std::vector<Issue>* out)
+void check_multiplayer(std::vector<Issue>* out)
 {
-    if (Nodes::All().empty())
+    if (nodes::get_all().empty())
         return;
-    std::vector<MpProblem> now = MultiplayerProblems(CountMultiplayer(false));
-    std::vector<MpProblem> shipped = MultiplayerProblems(CountMultiplayer(true));
+    std::vector<MpProblem> now = multiplayer_problems(count_multiplayer(false));
+    std::vector<MpProblem> shipped = multiplayer_problems(count_multiplayer(true));
     for (const MpProblem& p : now) {
         Issue issue;
-        issue.rule = Rule::Multiplayer;
+        issue.rule = Rule::kMultiplayer;
         issue.severity = p.severity;
         issue.text = p.text;
-        issue.levelOwn = std::any_of(shipped.begin(), shipped.end(), [&](const MpProblem& s) { return s.text == p.text; });
-        AppendOne(out, issue);
+        issue.level_own_ = std::any_of(shipped.begin(), shipped.end(), [&](const MpProblem& s) { return s.text == p.text; });
+        append_one(out, issue);
     }
 }
 
-void Run()
+void get_run()
 {
     auto started = std::chrono::steady_clock::now();
     std::vector<Issue> issues;
-    if (!Nodes::All().empty()) {
-        uint32_t world = WorldSignature();
-        CheckPlacement(&issues, world);
-        CheckRails(&issues);
-        CheckCollision(&issues);
-        CheckLimits(&issues);
-        CheckTriggers(&issues, world);
-        CheckOnline(&issues);
-        CheckMultiplayer(&issues);
-        for (const Issue& u : g_layoutIssues)
+    if (!nodes::get_all().empty()) {
+        uint32_t world = world_signature();
+        check_placement(&issues, world);
+        check_rails(&issues);
+        check_collision(&issues);
+        check_limits(&issues);
+        check_triggers(&issues, world);
+        check_online(&issues);
+        check_multiplayer(&issues);
+        for (const Issue& u : g_layout_issues)
             issues.push_back(u);
     }
-    Sort(&issues);
+    get_sort(&issues);
     g_issues = std::move(issues);
-    g_checkedOnce = true;
-    g_lastSeconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
-    if (DebugEnabled())
-        Log("level editor: problems checked - %u issues in %.1f ms", static_cast<unsigned>(g_issues.size()),
-            g_lastSeconds * 1000.0);
+    g_checked_once = true;
+    g_last_seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
+    if (debug_enabled())
+        get_log("level editor: problems checked - %u issues in %.1f ms", static_cast<unsigned>(g_issues.size()),
+            g_last_seconds * 1000.0);
 }
 
 // --- fixes (undoable) -------------------------------------------------------------------------------------------
 
 struct NodePlace : ModuleStep {
     uint32_t name;
-    NodeEdit::Values values;
-    NodePlace(uint32_t n, const NodeEdit::Values& v) : name(n), values(v) {}
-    void Restore() override
+    node_edit::Values values;
+    NodePlace(uint32_t n, const node_edit::Values& v) : name(n), values(v) {}
+    void get_restore() override
     {
-        NodeEdit::AssignValue(name, values);
-        if (int index = Nodes::Find(name); index >= 0)
-            Nodes::Reread(index);
-        g_due = Seconds();
+        node_edit::assign_value(name, values);
+        if (int index = nodes::get_find(name); index >= 0)
+            nodes::reread(index);
+        g_due = get_seconds();
     }
-    std::shared_ptr<ModuleStep> Now() const override
+    std::shared_ptr<ModuleStep> get_now() const override
     {
-        NodeEdit::Values v = values;
-        NodeEdit::TakeIn(name, &v);
+        node_edit::Values v = values;
+        node_edit::get_take_in(name, &v);
         return std::make_shared<NodePlace>(name, v);
     }
 };
@@ -807,47 +807,47 @@ struct NodePlace : ModuleStep {
 struct LayoutRecords : ModuleStep {
     std::vector<Issue> issues;
     explicit LayoutRecords(std::vector<Issue> list) : issues(std::move(list)) {}
-    void Restore() override
+    void get_restore() override
     {
-        g_layoutIssues = issues;
-        g_due = Seconds();
+        g_layout_issues = issues;
+        g_due = get_seconds();
     }
-    std::shared_ptr<ModuleStep> Now() const override { return std::make_shared<LayoutRecords>(g_layoutIssues); }
+    std::shared_ptr<ModuleStep> get_now() const override { return std::make_shared<LayoutRecords>(g_layout_issues); }
 };
 
-void Fix(const Issue& issue)
+void fix(const Issue& issue)
 {
     switch (issue.rule) {
-    case Rule::BelowGround: {
-        NodeEdit::Values values;
-        if (!issue.node || !NodeEdit::TakeIn(issue.node, &values))
+    case Rule::kBelowGround: {
+        node_edit::Values values;
+        if (!issue.node || !node_edit::get_take_in(issue.node, &values))
             return;
-        PushModuleUndo(std::make_shared<NodePlace>(issue.node, values));
-        values.pos = issue.fixPos;
-        NodeEdit::AssignValue(issue.node, values);
-        if (int index = Nodes::Find(issue.node); index >= 0)
-            Nodes::Reread(index);
-        Hud::Message(("Moved to surface: " + Name(issue.node)).c_str());
-        Log("level editor: problems - %s put on the surface above it (%.0f, %.0f, %.0f)", Name(issue.node).c_str(),
-            issue.fixPos.x, issue.fixPos.y, issue.fixPos.z);
+        push_module_undo(std::make_shared<NodePlace>(issue.node, values));
+        values.pos = issue.fix_pos_;
+        node_edit::assign_value(issue.node, values);
+        if (int index = nodes::get_find(issue.node); index >= 0)
+            nodes::reread(index);
+        hud::get_message(("Moved to surface: " + get_name(issue.node)).c_str());
+        get_log("level editor: problems - %s put on the surface above it (%.0f, %.0f, %.0f)", get_name(issue.node).c_str(),
+            issue.fix_pos_.x, issue.fix_pos_.y, issue.fix_pos_.z);
         break;
     }
-    case Rule::HiddenCollision:
-        SharedCollision::ChangeLive(issue.sector, false);
-        Hud::Message(("The collision taken along by " + Name(issue.sector) + " turned off").c_str());
+    case Rule::kHiddenCollision:
+        shared_collision::change_live(issue.sector, false);
+        hud::get_message(("The collision taken along by " + get_name(issue.sector) + " turned off").c_str());
         break;
-    case Rule::LayoutRecord: {
-        PushModuleUndo(std::make_shared<LayoutRecords>(g_layoutIssues));
-        g_layoutIssues.erase(std::remove_if(g_layoutIssues.begin(), g_layoutIssues.end(),
+    case Rule::kLayoutRecord: {
+        push_module_undo(std::make_shared<LayoutRecords>(g_layout_issues));
+        g_layout_issues.erase(std::remove_if(g_layout_issues.begin(), g_layout_issues.end(),
                                             [&](const Issue& i) { return i.key == issue.key; }),
-                             g_layoutIssues.end());
-        Hud::Message("Record removed");
-        Log("level editor: problems - layout record dropped: %s", issue.record.c_str());
+                             g_layout_issues.end());
+        hud::get_message("Record removed");
+        get_log("level editor: problems - layout record dropped: %s", issue.record.c_str());
         break;
     }
     default: break;
     }
-    g_due = Seconds();
+    g_due = get_seconds();
 }
 
 } // namespace
@@ -857,9 +857,9 @@ void Fix(const Issue& issue)
 namespace {
 
 // One record's line: a file of that record alone, written (its header and scene lines left out).
-std::string LineOf(const Layout::FileLoad& one)
+std::string line_of(const layout::FileLoad& one)
 {
-    std::istringstream in(Layout::EmitOut(one));
+    std::istringstream in(layout::emit_out(one));
     std::string line, out;
     int number = 0;
     while (std::getline(in, line)) {
@@ -872,190 +872,190 @@ std::string LineOf(const Layout::FileLoad& one)
 
 } // namespace
 
-void NoteLayoutApplied(const Layout::FileLoad& file)
+void note_layout_applied(const layout::FileLoad& file)
 {
-    g_layoutIssues.clear();
-    auto node = [](uint32_t name) { return name && Nodes::Find(name) >= 0; };
-    auto sector = [](uint32_t checksum) { return checksum && Scenery::SectorOf(checksum) != nullptr; };
-    auto object = [&](uint32_t id) { return GameObjects::FindObject(id) != nullptr || node(id); };
-    auto report = [&](uint32_t subject, const std::string& what, Layout::FileLoad one) {
+    g_layout_issues.clear();
+    auto node = [](uint32_t name) { return name && nodes::get_find(name) >= 0; };
+    auto sector = [](uint32_t checksum) { return checksum && scenery::sector_of(checksum) != nullptr; };
+    auto object = [&](uint32_t id) { return objects::find_object(id) != nullptr || node(id); };
+    auto report = [&](uint32_t subject, const std::string& what, layout::FileLoad one) {
         one.scene = file.scene;
         Issue issue;
-        issue.rule = Rule::LayoutRecord;
-        issue.severity = Severity::Error;
-        issue.record = LineOf(one);
+        issue.rule = Rule::kLayoutRecord;
+        issue.severity = Severity::kError;
+        issue.record = line_of(one);
         issue.fixable = !issue.record.empty();
         issue.text = what + " not found in the level: " + issue.record;
-        issue.key = IssueKey(Rule::LayoutRecord, subject, issue.record);
-        if (std::none_of(g_layoutIssues.begin(), g_layoutIssues.end(), [&](const Issue& i) { return i.key == issue.key; }))
-            g_layoutIssues.push_back(issue);
+        issue.key = issue_key(Rule::kLayoutRecord, subject, issue.record);
+        if (std::none_of(g_layout_issues.begin(), g_layout_issues.end(), [&](const Issue& i) { return i.key == issue.key; }))
+            g_layout_issues.push_back(issue);
     };
-    for (const Scenery::SectorState& s : file.sectors) {
+    for (const scenery::SectorState& s : file.sectors) {
         if (!sector(s.checksum)) {
-            Layout::FileLoad one;
+            layout::FileLoad one;
             one.sectors.push_back(s);
-            report(s.checksum, "Scenery piece " + Name(s.checksum), one);
+            report(s.checksum, "Scenery piece " + get_name(s.checksum), one);
         }
     }
-    for (const Scenery::RailState& r : file.rails) {
+    for (const scenery::RailState& r : file.rails) {
         if (!node(r.name)) {
-            Layout::FileLoad one;
+            layout::FileLoad one;
             one.rails.push_back(r);
-            report(r.name, "Rail point " + Name(r.name), one);
+            report(r.name, "Rail point " + get_name(r.name), one);
         }
     }
-    for (const Layout::CloneRecord& c : file.clones) {
+    for (const layout::CloneRecord& c : file.clones) {
         if (!sector(c.source)) {
-            Layout::FileLoad one;
+            layout::FileLoad one;
             one.clones.push_back(c);
-            report(c.source, "The source of a scenery copy, " + Name(c.source), one);
+            report(c.source, "The source of a scenery copy, " + get_name(c.source), one);
         }
     }
-    for (const Layout::ObjectRecord& o : file.objects) {
+    for (const layout::ObjectRecord& o : file.objects) {
         if (!object(o.id)) {
-            Layout::FileLoad one;
+            layout::FileLoad one;
             one.objects.push_back(o);
-            report(o.id, "Object " + Name(o.id), one);
+            report(o.id, "Object " + get_name(o.id), one);
         }
     }
-    for (const Layout::CopyRecord& c : file.copies) {
-        if (!GameObjects::FindObject(c.name) && !object(c.source)) {
-            Layout::FileLoad one;
+    for (const layout::CopyRecord& c : file.copies) {
+        if (!objects::find_object(c.name) && !object(c.source)) {
+            layout::FileLoad one;
             one.copies.push_back(c);
-            report(c.name, "The source of object copy " + Name(c.name) + ", " + Name(c.source), one);
+            report(c.name, "The source of object copy " + get_name(c.name) + ", " + get_name(c.source), one);
         }
     }
-    for (const Layout::SetRecord& s : file.nodes) {
+    for (const layout::SetRecord& s : file.nodes) {
         if (!node(s.name)) {
-            Layout::FileLoad one;
+            layout::FileLoad one;
             one.nodes.push_back(s);
-            report(s.name, "Node " + Name(s.name) + " (moved / edited)", one);
+            report(s.name, "Node " + get_name(s.name) + " (moved / edited)", one);
         }
     }
     for (uint32_t name : file.hidden) {
         if (!node(name)) {
-            Layout::FileLoad one;
+            layout::FileLoad one;
             one.hidden.push_back(name);
-            report(name, "Node " + Name(name) + " (hidden)", one);
+            report(name, "Node " + get_name(name) + " (hidden)", one);
         }
     }
-    for (const Picking::Lock& lock : file.locks) {
-        bool there = lock.kind == Picking::kObjects ? object(lock.id) : sector(lock.id);
+    for (const picking::Lock& lock : file.locks) {
+        bool there = lock.kind == picking::kObjects ? object(lock.id) : sector(lock.id);
         if (!there) {
-            Layout::FileLoad one;
+            layout::FileLoad one;
             one.locks.push_back(lock);
-            report(lock.id, "Locked " + std::string(lock.kind == Picking::kObjects ? "object " : "piece ") +
-                                Name(lock.id), one);
+            report(lock.id, "Locked " + std::string(lock.kind == picking::kObjects ? "object " : "piece ") +
+                                get_name(lock.id), one);
         }
     }
-    for (const Triggers::ProximEdit& p : file.proxims) {
+    for (const triggers::ProximEdit& p : file.proxims) {
         if (!node(p.node)) {
-            Layout::FileLoad one;
+            layout::FileLoad one;
             one.proxims.push_back(p);
-            report(p.node, "Proximity node " + Name(p.node), one);
+            report(p.node, "Proximity node " + get_name(p.node), one);
         }
     }
-    for (const Walls::WallState& w : file.walls) {
+    for (const walls::WallState& w : file.walls) {
         if (!sector(w.checksum)) {
-            Layout::FileLoad one;
+            layout::FileLoad one;
             one.walls.push_back(w);
-            report(w.checksum, "Collision " + Name(w.checksum), one);
+            report(w.checksum, "Collision " + get_name(w.checksum), one);
         }
     }
-    for (const Faces::SectorFaces& f : file.faces) {
+    for (const faces::SectorFaces& f : file.faces) {
         if (!sector(f.checksum)) {
-            Layout::FileLoad one;
+            layout::FileLoad one;
             one.faces.push_back(f);
-            report(f.checksum, "Collision faces of " + Name(f.checksum), one);
+            report(f.checksum, "Collision faces of " + get_name(f.checksum), one);
         }
     }
-    for (const Clusters::Membership& m : file.clusters) {
+    for (const clusters::Membership& m : file.clusters) {
         if (!sector(m.sector)) {
-            Layout::FileLoad one;
+            layout::FileLoad one;
             one.clusters.push_back(m);
-            report(m.sector, "Trick-object cluster of " + Name(m.sector), one);
+            report(m.sector, "Trick-object cluster of " + get_name(m.sector), one);
         }
     }
     // The chains' edits of level nodes (links, dropped points, terrains, facings, flat grinds, speed-ups).
-    const Chains::State& chains = file.chains;
-    for (const Chains::LinkEdit& l : chains.links) {
+    const chains::State& chains = file.chains;
+    for (const chains::LinkEdit& l : chains.links) {
         if (!node(l.name)) {
-            Layout::FileLoad one;
+            layout::FileLoad one;
             one.chains.links.push_back(l);
-            report(l.name, "Links of " + Name(l.name), one);
+            report(l.name, "Links of " + get_name(l.name), one);
         }
     }
     for (uint32_t name : chains.dropped) {
         if (!node(name)) {
-            Layout::FileLoad one;
+            layout::FileLoad one;
             one.chains.dropped.push_back(name);
-            report(name, "Dropped point " + Name(name), one);
+            report(name, "Dropped point " + get_name(name), one);
         }
     }
-    for (const Chains::TerrainEdit& t : chains.terrains) {
+    for (const chains::TerrainEdit& t : chains.terrains) {
         if (!node(t.name)) {
-            Layout::FileLoad one;
+            layout::FileLoad one;
             one.chains.terrains.push_back(t);
-            report(t.name, "Terrain of " + Name(t.name), one);
+            report(t.name, "Terrain of " + get_name(t.name), one);
         }
     }
-    for (const Chains::FacingEdit& f : chains.facings) {
+    for (const chains::FacingEdit& f : chains.facings) {
         if (!node(f.name)) {
-            Layout::FileLoad one;
+            layout::FileLoad one;
             one.chains.facings.push_back(f);
-            report(f.name, "Facing of " + Name(f.name), one);
+            report(f.name, "Facing of " + get_name(f.name), one);
         }
     }
-    for (uint32_t name : chains.grindFlat) {
+    for (uint32_t name : chains.grind_flat_) {
         if (!node(name)) {
-            Layout::FileLoad one;
-            one.chains.grindFlat.push_back(name);
-            report(name, "Flat grind of " + Name(name), one);
+            layout::FileLoad one;
+            one.chains.grind_flat_.push_back(name);
+            report(name, "Flat grind of " + get_name(name), one);
         }
     }
-    for (const Chains::SpeedEdit& s : chains.speeds) {
+    for (const chains::SpeedEdit& s : chains.speeds) {
         if (!node(s.name)) {
-            Layout::FileLoad one;
+            layout::FileLoad one;
             one.chains.speeds.push_back(s);
-            report(s.name, "Rail speed-up of " + Name(s.name), one);
+            report(s.name, "Rail speed-up of " + get_name(s.name), one);
         }
     }
-    for (const Entities::Pace& s : file.entities.speeds) {
+    for (const entities::Pace& s : file.entities.speeds) {
         if (!node(s.name)) {
-            Layout::FileLoad one;
+            layout::FileLoad one;
             one.entities.speeds.push_back(s);
-            report(s.name, "Path speed of " + Name(s.name), one);
+            report(s.name, "Path speed of " + get_name(s.name), one);
         }
     }
-    for (const Entities::EmitterSound& e : file.entities.emitters) {
+    for (const entities::EmitterSound& e : file.entities.emitters) {
         if (!node(e.name)) {
-            Layout::FileLoad one;
+            layout::FileLoad one;
             one.entities.emitters.push_back(e);
-            report(e.name, "Sound emitter " + Name(e.name), one);
+            report(e.name, "Sound emitter " + get_name(e.name), one);
         }
     }
     if (file.level.start && !node(file.level.start)) {
-        Layout::FileLoad one;
+        layout::FileLoad one;
         one.level = file.level;
-        report(file.level.start, "The level's start, restart " + Name(file.level.start), one);
+        report(file.level.start, "The level's start, restart " + get_name(file.level.start), one);
     }
-    for (const Issue& i : g_layoutIssues)
-        Log("level editor: layout record not found in the level - kept for the next save (the Problems window, "
+    for (const Issue& i : g_layout_issues)
+        get_log("level editor: layout record not found in the level - kept for the next save (the Problems window, "
             "Alt+P, drops it): %s",
             i.record.c_str());
-    g_due = Seconds();
+    g_due = get_seconds();
 }
 
-void ForgetLayoutRecords()
+void forget_layout_records()
 {
-    g_layoutIssues.clear();
-    g_due = Seconds();
+    g_layout_issues.clear();
+    g_due = get_seconds();
 }
 
-std::vector<std::string> CarriedRecords(const std::string& captured)
+std::vector<std::string> carried_records(const std::string& captured)
 {
     std::vector<std::string> lines;
-    for (const Issue& i : g_layoutIssues) {
+    for (const Issue& i : g_layout_issues) {
         if (i.record.empty())
             continue;
         std::istringstream in(i.record);
@@ -1063,20 +1063,20 @@ std::vector<std::string> CarriedRecords(const std::string& captured)
         while (std::getline(in, line))
             lines.push_back(line);
     }
-    return lines.empty() ? lines : CarriedLines(lines, captured);
+    return lines.empty() ? lines : carried_lines(lines, captured);
 }
 
-const std::vector<Issue>& LayoutIssues() { return g_layoutIssues; }
+const std::vector<Issue>& layout_issues() { return g_layout_issues; }
 
 // --- the frame ----------------------------------------------------------------------------------------------------
 
-void NoteModel(int changes, const std::unordered_map<uint32_t, uint8_t>& marks)
+void note_model(int changes, const std::unordered_map<uint32_t, uint8_t>& marks)
 {
-    uint32_t generation = Nodes::Generation();
-    int loads = Layout::LevelLoads();
-    double now = Seconds();
-    if (changes != g_changes || generation != g_generation || loads != g_loads || !g_checkedOnce) {
-        bool first = !g_checkedOnce || loads != g_loads;
+    uint32_t generation = nodes::get_generation();
+    int loads = layout::level_loads();
+    double now = get_seconds();
+    if (changes != g_changes || generation != g_generation || loads != g_loads || !g_checked_once) {
+        bool first = !g_checked_once || loads != g_loads;
         g_changes = changes;
         g_generation = generation;
         g_loads = loads;
@@ -1087,11 +1087,11 @@ void NoteModel(int changes, const std::unordered_map<uint32_t, uint8_t>& marks)
     if (g_due >= 0.0 && now >= g_due) {
         g_marks = marks;
         g_due = -1.0;
-        Run();
+        get_run();
     }
 }
 
-void TickFrame()
+void tick_frame()
 {
     std::vector<std::function<void()>> queue;
     queue.swap(g_queue);
@@ -1099,103 +1099,103 @@ void TickFrame()
         action();
 }
 
-void ForgetLevel()
+void forget_level()
 {
     g_placed.clear();
     g_issues.clear();
-    g_layoutIssues.clear();
+    g_layout_issues.clear();
     g_ignored.clear();
     g_marks.clear();
-    g_checkedOnce = false;
+    g_checked_once = false;
     g_due = -1.0;
 }
 
-const std::vector<Issue>& Issues() { return g_issues; }
+const std::vector<Issue>& get_issues() { return g_issues; }
 
 namespace {
 
-bool Shown(const Issue& issue)
+bool get_shown(const Issue& issue)
 {
-    return (g_showOwn || !issue.levelOwn) && (g_showIgnored || !g_ignored.count(issue.key));
+    return (g_show_own || !issue.level_own_) && (g_show_ignored || !g_ignored.count(issue.key));
 }
 
 } // namespace
 
-void ShownCounts(int* errors, int* warnings, int* infos)
+void shown_counts(int* errors, int* warnings, int* infos)
 {
     *errors = *warnings = *infos = 0;
     for (const Issue& issue : g_issues) {
-        if (issue.levelOwn || g_ignored.count(issue.key))
+        if (issue.level_own_ || g_ignored.count(issue.key))
             continue;
-        (issue.severity == Severity::Error ? *errors : issue.severity == Severity::Warning ? *warnings : *infos) += 1;
+        (issue.severity == Severity::kError ? *errors : issue.severity == Severity::kWarning ? *warnings : *infos) += 1;
     }
 }
 
-void OpenWindow(int tab)
+void open_window(int tab)
 {
     g_open = true;
     g_tab = tab;
-    g_tabPending = true;
-    g_due = Seconds(); // (opened: checked again now)
+    g_tab_pending = true;
+    g_due = get_seconds(); // (opened: checked again now)
 }
 
-void ToggleWindow()
+void toggle_window()
 {
     if (g_open)
         g_open = false;
     else
-        OpenWindow(kProblemsTab);
+        open_window(kProblemsTab);
 }
 
 // --- the UI -------------------------------------------------------------------------------------------------------
 
 namespace {
 
-ImVec4 SeverityColour(Severity severity)
+ImVec4 severity_colour(Severity severity)
 {
     switch (severity) {
-    case Severity::Error: return ImVec4(0.90f, 0.28f, 0.30f, 1.0f);
-    case Severity::Warning: return ImVec4(0.96f, 0.65f, 0.14f, 1.0f);
+    case Severity::kError: return ImVec4(0.90f, 0.28f, 0.30f, 1.0f);
+    case Severity::kWarning: return ImVec4(0.96f, 0.65f, 0.14f, 1.0f);
     default: return ImVec4(0.45f, 0.70f, 0.95f, 1.0f);
     }
 }
 
-void GoTo(const Issue& issue)
+void go_to(const Issue& issue)
 {
     bool done = false;
     if (issue.node)
-        done = GoToNodeNamed(issue.node);
+        done = go_to_node_named(issue.node);
     if (!done && issue.sector)
-        done = GoToScenery(issue.sector);
-    if (!done && issue.hasPos)
-        GoToPoint(issue.pos, 400.0f);
+        done = go_to_scenery(issue.sector);
+    if (!done && issue.has_pos_)
+        go_to_point(issue.pos, 400.0f);
 }
 
-void ProblemsTab(float scale, ImFont* mono)
+void problems_tab(float scale, ImFont* mono)
 {
     (void)mono;
     if (ImGui::Button("Check now"))
-        g_queue.push_back([] { g_due = Seconds(); });
+        g_queue.push_back([] { g_due = get_seconds(); });
     ImGui::SameLine();
     int own = 0, ignored = 0;
     for (const Issue& issue : g_issues) {
-        own += issue.levelOwn;
+        own += issue.level_own_;
         ignored += g_ignored.count(issue.key) != 0;
     }
     char label[64];
     std::snprintf(label, sizeof(label), "Original Level (%d)", own);
-    ImGui::Checkbox(label, &g_showOwn);
+    ImGui::Checkbox(label, &g_show_own);
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Problems present in the original level");
     ImGui::SameLine();
     std::snprintf(label, sizeof(label), "Ignored (%d)", ignored);
-    ImGui::Checkbox(label, &g_showIgnored);
+    ImGui::Checkbox(label, &g_show_ignored);
     ImGui::SameLine();
-    ImGui::TextDisabled(g_checkedOnce ? "%.0f ms" : "not checked", g_lastSeconds * 1000.0);
+    ImGui::TextDisabled(g_checked_once ? "%.0f ms" : "not checked", g_last_seconds * 1000.0);
     ImGui::Separator();
     int shown = 0;
     for (const Issue& issue : g_issues)
-        shown += Shown(issue);
+        shown += get_shown(issue);
     if (!shown) {
         ImGui::TextColored(ImVec4(0.45f, 0.80f, 0.50f, 1.0f), "No problems");
         if (own)
@@ -1212,44 +1212,44 @@ void ProblemsTab(float scale, ImFont* mono)
     ImGui::TableHeadersRow();
     for (size_t i = 0; i < g_issues.size(); ++i) {
         const Issue& issue = g_issues[i];
-        if (!Shown(issue))
+        if (!get_shown(issue))
             continue;
-        bool isIgnored = g_ignored.count(issue.key) != 0;
+        bool is_ignored = g_ignored.count(issue.key) != 0;
         ImGui::PushID(static_cast<int>(i));
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
-        ImGui::TextColored(SeverityColour(issue.severity), "%s", SeverityName(issue.severity));
+        ImGui::TextColored(severity_colour(issue.severity), "%s", severity_name(issue.severity));
         ImGui::TableNextColumn();
-        if (isIgnored || issue.levelOwn)
+        if (is_ignored || issue.level_own_)
             ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
-        ImGui::TextDisabled("%s%s", RuleName(issue.rule), issue.levelOwn ? " (original)" : "");
+        ImGui::TextDisabled("%s%s", rule_name(issue.rule), issue.level_own_ ? " (original)" : "");
         ImGui::TextWrapped("%s", issue.text.c_str());
-        if (isIgnored || issue.levelOwn)
+        if (is_ignored || issue.level_own_)
             ImGui::PopStyleColor();
         ImGui::TableNextColumn();
-        bool canGo = issue.node || issue.sector || issue.hasPos;
-        ImGui::BeginDisabled(!canGo);
+        bool can_go = issue.node || issue.sector || issue.has_pos_;
+        ImGui::BeginDisabled(!can_go);
         if (ImGui::SmallButton("Go to")) {
             Issue copy = issue;
-            g_queue.push_back([copy] { GoTo(copy); });
+            g_queue.push_back([copy] { go_to(copy); });
         }
         ImGui::EndDisabled();
         if (issue.fixable) {
             ImGui::SameLine();
             if (ImGui::SmallButton("Fix")) {
                 Issue copy = issue;
-                g_queue.push_back([copy] { Fix(copy); });
+                g_queue.push_back([copy] { fix(copy); });
             }
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("%s", issue.rule == Rule::BelowGround       ? "Move to the surface above"
-                                        : issue.rule == Rule::HiddenCollision ? "Turn the collision off"
-                                        : issue.rule == Rule::LayoutRecord    ? "Drop the record: the next save leaves it out "
+                ImGui::SetTooltip("%s", issue.rule == Rule::kBelowGround       ? "Move to the surface above"
+                                        : issue.rule == Rule::kHiddenCollision ? "Turn the collision off"
+                                        : issue.rule == Rule::kLayoutRecord    ? "Drop the record: the next save leaves it out "
                                                                                 "(undoable)"
                                                                               : "");
         }
         ImGui::SameLine();
-        if (ImGui::SmallButton(isIgnored ? "Unignore" : "Ignore")) {
-            if (isIgnored)
+        if (ImGui::SmallButton(is_ignored ? "Unignore" : "Ignore")) {
+            if (is_ignored)
                 g_ignored.erase(issue.key);
             else
                 g_ignored.insert(issue.key);
@@ -1263,12 +1263,12 @@ void ProblemsTab(float scale, ImFont* mono)
 
 } // namespace
 
-void Pane(float viewX, float viewY, float viewWidth, float viewHeight, float scale, ImFont* mono)
+void pane(float view_x, float view_y, float view_width, float view_height, float scale, ImFont* mono)
 {
-    (void)viewHeight;
+    (void)view_height;
     if (!g_open)
         return;
-    ImGui::SetNextWindowPos(ImVec2(viewX + viewWidth * 0.5f, viewY + 48.0f * scale), ImGuiCond_FirstUseEver,
+    ImGui::SetNextWindowPos(ImVec2(view_x + view_width * 0.5f, view_y + 48.0f * scale), ImGuiCond_FirstUseEver,
                             ImVec2(0.5f, 0.0f));
     ImGui::SetNextWindowSize(ImVec2(620.0f * scale, 0.0f), ImGuiCond_FirstUseEver);
     bool open = true;
@@ -1279,20 +1279,20 @@ void Pane(float viewX, float viewY, float viewWidth, float viewHeight, float sca
     }
     if (ImGui::BeginTabBar("##problemTabs")) {
         int errors = 0, warnings = 0, infos = 0;
-        ShownCounts(&errors, &warnings, &infos);
+        shown_counts(&errors, &warnings, &infos);
         char label[64];
         std::snprintf(label, sizeof(label), "Problems (%d)###problemsTab", errors + warnings + infos);
-        ImGuiTabItemFlags problemsFlags = g_tabPending && g_tab == kProblemsTab ? ImGuiTabItemFlags_SetSelected : 0;
-        ImGuiTabItemFlags budgetFlags = g_tabPending && g_tab == kBudgetTab ? ImGuiTabItemFlags_SetSelected : 0;
-        g_tabPending = false;
-        if (ImGui::BeginTabItem(label, nullptr, problemsFlags)) {
+        ImGuiTabItemFlags problems_flags = g_tab_pending && g_tab == kProblemsTab ? ImGuiTabItemFlags_SetSelected : 0;
+        ImGuiTabItemFlags budget_flags = g_tab_pending && g_tab == kBudgetTab ? ImGuiTabItemFlags_SetSelected : 0;
+        g_tab_pending = false;
+        if (ImGui::BeginTabItem(label, nullptr, problems_flags)) {
             g_tab = kProblemsTab;
-            ProblemsTab(scale, mono);
+            problems_tab(scale, mono);
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem("Budget###budgetTab", nullptr, budgetFlags)) {
+        if (ImGui::BeginTabItem("Budget###budgetTab", nullptr, budget_flags)) {
             g_tab = kBudgetTab;
-            Budget::Table();
+            budget::get_table();
             ImGui::EndTabItem();
         }
         ImGui::EndTabBar();
@@ -1301,4 +1301,4 @@ void Pane(float viewX, float viewY, float viewWidth, float viewHeight, float sca
     g_open = open;
 }
 
-} // namespace MenuSystem::LevelEditor::Checks
+} // namespace MenuSystem::level_editor::Checks

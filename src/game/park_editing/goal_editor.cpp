@@ -1,4 +1,4 @@
-// The goal editor component (ParkEditing::CObjectiveAuthoring): see goal_editor.h. From the disassembly of 0x004E6FB0-
+// The goal editor component (park_editing::ObjectiveAuthoring): see goal_editor.h. From the disassembly of 0x004E6FB0-
 // 0x004EBC3D (the component's own code; the edited goals' is in edited_goal.cpp / edited_goal_io.cpp).
 
 #include <cmath>
@@ -26,9 +26,9 @@
 #include "game/skate/skate_module.h"
 #include "platform/crt.h"
 
-namespace ParkEditing {
+namespace park_editing {
 
-uint32_t g_goalEditorMemberFunctions[216]{
+uint32_t g_goal_editor_member_functions[216]{
             0x0AB710F3, 0x81F01058, 0, 0, 0, 0,
             0x5C155A29, 0x81F01058, 0, 0, 0, 0,
             0xFB279560, 0x81F01058, 0, 0, 0, 0,
@@ -68,70 +68,70 @@ uint32_t g_goalEditorMemberFunctions[216]{
 
 namespace {
 
-static VtableSlot kVtable_slots[] = {&ParkEditing::CObjectiveAuthoring::Teardown,
-         &ParkEditing::CObjectiveAuthoring::TickFrame,
-         Stubs::IgnoreArgument,
-         &ParkEditing::CObjectiveAuthoring::Seal,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         &ParkEditing::CObjectiveAuthoring::Conceal,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::DispatchScriptMethod,
-         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&park_editing::ObjectiveAuthoring::teardown,
+         &park_editing::ObjectiveAuthoring::tick_frame,
+         stubs::ignore_argument,
+         &park_editing::ObjectiveAuthoring::seal,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         &park_editing::ObjectiveAuthoring::conceal,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         &objects::ObjectModule::dispatch_script_method,
+         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 constexpr uint32_t kGoalEditor = 0x81F01058;
 constexpr uint32_t kInput = 0x27D7CD28, kEditorCamera = 0xAC8946E2;
 constexpr uint32_t kGoalListName = 0x38DBE1D0;
 constexpr uint32_t kParkEditorGameplayLevel = 0xB664035D; // Load_Sk5Ed_gameplay
 
 template <typename... Args>
-int Sprintf(char* out, const char* format, Args... args)
+int get_sprintf(char* out, const char* format, Args... args)
 {
-    return Crt::Sprintf(out, format, args...);
+    return crt::get_sprintf(out, format, args...);
 }
 // The game's _stricmp (0x00626EFB).
-int CompareNoCase(const char* a, const char* b)
+int compare_no_case(const char* a, const char* b)
 {
-    return Crt::Stricmp(a, b);
+    return crt::stricmp(a, b);
 }
 
-char* CreatedGoalName() { return g_createdGoalName; }
-uint32_t CreatedGoalId(int index)
+char* created_goal_name() { return g_created_goal_name; }
+uint32_t created_goal_id(int index)
 {
-    Sprintf(CreatedGoalName(), "CreatedGoal%d", index);
-    return Checksums::HashFromText(CreatedGoalName());
+    get_sprintf(created_goal_name(), "CreatedGoal%d", index);
+    return checksums::hash_from_text(created_goal_name());
 }
 
 // The current level, the park editor's gameplay level counting as the park editor's.
-uint32_t CurrentLevel()
+uint32_t current_level()
 {
-    uint32_t level = GameModules::Skate::Sole()->m_level;
+    uint32_t level = modules::Skate::sole()->level_;
     return level == kParkEditorGameplayLevel ? kParkEditorLevel : level;
 }
 
-GameObjects::CEditorViewModule* ViewCam(GameObjects::CObjectModule* camera)
+objects::EditorViewModule* view_cam(objects::ObjectModule* camera)
 {
-    return static_cast<GameObjects::CEditorViewModule*>(camera);
+    return static_cast<objects::EditorViewModule*>(camera);
 }
 
-Scripts::CStruct* SpawnParamTable()
+script::Struct* spawn_param_table()
 {
-    Scripts::CStruct* structure = Scripts::SpawnParamBag();
-    return structure ? structure->PrepareAll() : nullptr;
+    script::Struct* structure = script::spawn_param_bag();
+    return structure ? structure->prepare_all() : nullptr;
 }
-void DeleteStructure(Scripts::CStruct* structure)
+void delete_structure(script::Struct* structure)
 {
     if (structure) {
-        structure->Clear();
-        Scripts::DeleteStruct(structure);
+        structure->get_clear();
+        script::delete_struct(structure);
     }
 }
 
 // Whether `x`, `z` lies outside x0..x1, z0..z1 (not a number: inside, as the original's comparisons).
-bool Outside(float x, float z, float x0, float z0, float x1, float z1)
+bool get_outside(float x, float z, float x0, float z0, float x1, float z1)
 {
     return x < x0 || x > x1 || z < z0 || z > z1;
 }
@@ -139,140 +139,140 @@ bool Outside(float x, float z, float x0, float z0, float x1, float z1)
 } // namespace
 
 // 0x004EB7F0
-GameObjects::CObjectModule* __cdecl CObjectiveAuthoring::Fabricate()
+objects::ObjectModule* __cdecl ObjectiveAuthoring::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CObjectiveAuthoring));
-    return memory ? static_cast<CObjectiveAuthoring*>(memory)->MakeNew() : nullptr;
+    void* memory = memory::alloc_zeroed(sizeof(ObjectiveAuthoring));
+    return memory ? static_cast<ObjectiveAuthoring*>(memory)->make_new() : nullptr;
 }
 
 // 0x004E6FB0
-void __cdecl CObjectiveAuthoring::PublishMethodTable()
+void __cdecl ObjectiveAuthoring::publish_method_table()
 {
-    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kGoalEditor), g_goalEditorMemberFunctions, 0x18);
+    script::register_member_function_table(reinterpret_cast<void*>(kGoalEditor), g_goal_editor_member_functions, 0x18);
 }
 
 // 0x004EA230
-CObjectiveAuthoring* CObjectiveAuthoring::MakeNew()
+ObjectiveAuthoring* ObjectiveAuthoring::make_new()
 {
-    CObjectModule::MakeNew();
-    m_vtable = kVtable;
-    for (CEditedGoal& goal : m_goals)
-        goal.MakeNew();
-    m_kindTag = kGoalEditor;
-    ClearLevelGoals();
-    ClearParkGoals();
-    m_inputPtr = nullptr;
-    m_viewCamera = nullptr;
+    ObjectModule::make_new();
+    vtable_ = kVtable;
+    for (EditedGoal& goal : goals_)
+        goal.make_new();
+    kind_tag_ = kGoalEditor;
+    clear_level_goals();
+    clear_park_goals();
+    input_ptr_ = nullptr;
+    view_camera_ = nullptr;
     return this;
 }
 
 // 0x004E6FD0
-void CObjectiveAuthoring::DestroyBody()
+void ObjectiveAuthoring::destroy_body()
 {
-    m_vtable = kVtable;
-    Scripts::LaunchScript(0xFCC60D8B, nullptr, nullptr, false, nullptr);
+    vtable_ = kVtable;
+    script::launch_script(0xFCC60D8B, nullptr, nullptr, false, nullptr);
     // (the goals' destructors are empty)
-    CObjectModule::DestroyBody();
+    ObjectModule::destroy_body();
 }
 
 // 0x004E7B20
-CObjectiveAuthoring* CObjectiveAuthoring::Teardown(unsigned int flags)
+ObjectiveAuthoring* ObjectiveAuthoring::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x004E8210
-void CObjectiveAuthoring::Seal()
+void ObjectiveAuthoring::seal()
 {
-    m_inputPtr = m_entity->FetchModule(kInput);
-    m_viewCamera = m_entity->FetchModule(kEditorCamera);
+    input_ptr_ = entity_->fetch_module(kInput);
+    view_camera_ = entity_->fetch_module(kEditorCamera);
 }
 
 // 0x004E8470
-CObjectiveAuthoring* __cdecl CObjectiveAuthoring::Pull()
+ObjectiveAuthoring* __cdecl ObjectiveAuthoring::get_pull()
 {
-    auto* manager = reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::ObjectHubSlot());
-    auto* object = reinterpret_cast<GameObjects::CGameEntity*>(manager->LookUpEntity(kGoalEditor));
-    return static_cast<CObjectiveAuthoring*>(object->FetchModule(kGoalEditor));
+    auto* manager = reinterpret_cast<objects::ObjectHubBase*>(objects::object_hub_slot());
+    auto* object = reinterpret_cast<objects::GameEntity*>(manager->look_up_entity(kGoalEditor));
+    return static_cast<ObjectiveAuthoring*>(object->fetch_module(kGoalEditor));
 }
 
 // 0x004E7BE0
-CEditedGoal* CObjectiveAuthoring::FindGoalByName(const char* name)
+EditedGoal* ObjectiveAuthoring::find_goal_by_name(const char* name)
 {
-    uint32_t level = CurrentLevel();
-    for (CEditedGoal& goal : m_goals) {
-        if (goal.m_takenCount && goal.m_level == level && CompareNoCase(goal.m_label, name) == 0)
+    uint32_t level = current_level();
+    for (EditedGoal& goal : goals_) {
+        if (goal.taken_count_ && goal.level_ == level && compare_no_case(goal.label_, name) == 0)
             return &goal;
     }
     return nullptr;
 }
 
 // 0x004E7C60
-CEditedGoal* CObjectiveAuthoring::FindGoalById(uint32_t id)
+EditedGoal* ObjectiveAuthoring::find_goal_by_id(uint32_t id)
 {
-    uint32_t level = CurrentLevel();
-    for (CEditedGoal& goal : m_goals) {
-        if (goal.m_takenCount && goal.m_level == level && CreatedGoalId(goal.m_levelGoalNumber) == id)
+    uint32_t level = current_level();
+    for (EditedGoal& goal : goals_) {
+        if (goal.taken_count_ && goal.level_ == level && created_goal_id(goal.level_goal_number_) == id)
             return &goal;
     }
     return nullptr;
 }
 
 // 0x004E7D00
-CEditedGoal* CObjectiveAuthoring::GetGoalFromParams(Scripts::CStruct* params)
+EditedGoal* ObjectiveAuthoring::get_goal_from_params(script::Struct* params)
 {
     uint32_t id = 0;
-    if (params->ReadHashValue(0x9982E501, &id, 0))
-        return FindGoalById(id);
+    if (params->read_hash_value(0x9982E501, &id, 0))
+        return find_goal_by_id(id);
     const char* name = nullptr;
-    if (params->FetchText(0xBFECC45B, &name, 0))
-        return FindGoalByName(name);
+    if (params->fetch_text(0xBFECC45B, &name, 0))
+        return find_goal_by_name(name);
     int index = 0;
-    if (params->FetchIntValue(0x474A6A7F, &index, 0)) {
-        uint32_t level = CurrentLevel();
-        for (CEditedGoal& goal : m_goals) {
-            if (goal.m_takenCount && goal.m_level == level && goal.m_levelGoalNumber == index)
+    if (params->fetch_int_value(0x474A6A7F, &index, 0)) {
+        uint32_t level = current_level();
+        for (EditedGoal& goal : goals_) {
+            if (goal.taken_count_ && goal.level_ == level && goal.level_goal_number_ == index)
                 return &goal;
         }
         return nullptr;
     }
-    return m_activeNode;
+    return active_node_;
 }
 
 // 0x004E7E00
-int CObjectiveAuthoring::CountUsedGoals()
+int ObjectiveAuthoring::count_used_goals()
 {
     int count = 0;
-    for (CEditedGoal& goal : m_goals) {
-        if (goal.m_takenCount)
+    for (EditedGoal& goal : goals_) {
+        if (goal.taken_count_)
             ++count;
     }
     return count;
 }
 
 // 0x004E7E50
-int CObjectiveAuthoring::CountCompleteGoals(uint32_t level)
+int ObjectiveAuthoring::count_complete_goals(uint32_t level)
 {
     int count = 0;
-    for (CEditedGoal& goal : m_goals) {
-        if (goal.m_takenCount && (!level || goal.m_level == level) && goal.m_vertexTotal >= goal.m_minPoints)
+    for (EditedGoal& goal : goals_) {
+        if (goal.taken_count_ && (!level || goal.level_ == level) && goal.vertex_total_ >= goal.min_points_)
             ++count;
     }
     return count;
 }
 
 // 0x004E8130
-bool CObjectiveAuthoring::PointNearAnyGoal(const Maths::Vec4& pos, float height, uint32_t level, int index)
+bool ObjectiveAuthoring::point_near_any_goal(const maths::Vec4& pos, float height, uint32_t level, int index)
 {
     float x = pos.x, y = pos.y + height, z = pos.z;
-    float radius = Scripts::FetchFloat(0x71B20276);
-    for (CEditedGoal& goal : m_goals) {
-        if (!goal.m_takenCount || goal.m_level != level || goal.m_vertexTotal <= index)
+    float radius = script::fetch_float(0x71B20276);
+    for (EditedGoal& goal : goals_) {
+        if (!goal.taken_count_ || goal.level_ != level || goal.vertex_total_ <= index)
             continue;
-        const EditedGoalPoint& point = goal.m_pathVertices[index];
+        const EditedGoalPoint& point = goal.path_vertices_[index];
         // (x's difference rounded to a float; y's and z's not, as the original's x87 sums)
         float dx = static_cast<float>(static_cast<double>(point.pos.x) - x);
         double dy = (static_cast<double>(point.pos.y) + point.height) - y;
@@ -284,301 +284,301 @@ bool CObjectiveAuthoring::PointNearAnyGoal(const Maths::Vec4& pos, float height,
 }
 
 // 0x004E8240
-void CObjectiveAuthoring::ClearLevelGoals()
+void ObjectiveAuthoring::clear_level_goals()
 {
-    for (CEditedGoal& goal : m_goals) {
-        if (goal.m_takenCount && goal.m_level != kParkEditorLevel)
-            InitEditedGoal(reinterpret_cast<uint8_t*>(&goal));
+    for (EditedGoal& goal : goals_) {
+        if (goal.taken_count_ && goal.level_ != kParkEditorLevel)
+            init_edited_goal(reinterpret_cast<uint8_t*>(&goal));
     }
-    m_activeNode = nullptr;
+    active_node_ = nullptr;
 }
 
 // 0x004E8280
-void CObjectiveAuthoring::ClearParkGoals()
+void ObjectiveAuthoring::clear_park_goals()
 {
-    for (CEditedGoal& goal : m_goals) {
-        if (goal.m_takenCount && goal.m_level == kParkEditorLevel)
-            InitEditedGoal(reinterpret_cast<uint8_t*>(&goal));
+    for (EditedGoal& goal : goals_) {
+        if (goal.taken_count_ && goal.level_ == kParkEditorLevel)
+            init_edited_goal(reinterpret_cast<uint8_t*>(&goal));
     }
-    m_activeNode = nullptr;
+    active_node_ = nullptr;
 }
 
 // 0x004E82C0
-void CObjectiveAuthoring::ClearIncompleteGoals()
+void ObjectiveAuthoring::clear_incomplete_goals()
 {
-    for (CEditedGoal& goal : m_goals) {
-        if (goal.m_takenCount && goal.m_vertexTotal < goal.m_minPoints)
-            InitEditedGoal(reinterpret_cast<uint8_t*>(&goal));
+    for (EditedGoal& goal : goals_) {
+        if (goal.taken_count_ && goal.vertex_total_ < goal.min_points_)
+            init_edited_goal(reinterpret_cast<uint8_t*>(&goal));
     }
 }
 
 // 0x004E8300
-bool CObjectiveAuthoring::AnyParkGoalOutside(float x0, float z0, float x1, float z1)
+bool ObjectiveAuthoring::any_park_goal_outside(float x0, float z0, float x1, float z1)
 {
-    for (CEditedGoal& goal : m_goals) {
-        if (goal.m_takenCount && goal.m_level == kParkEditorLevel && goal.m_vertexTotal > 1 &&
-            Outside(goal.m_pathVertices[1].pos.x, goal.m_pathVertices[1].pos.z, x0, z0, x1, z1))
+    for (EditedGoal& goal : goals_) {
+        if (goal.taken_count_ && goal.level_ == kParkEditorLevel && goal.vertex_total_ > 1 &&
+            get_outside(goal.path_vertices_[1].pos.x, goal.path_vertices_[1].pos.z, x0, z0, x1, z1))
             return true;
     }
     return false;
 }
 
 // 0x004E8390
-void CObjectiveAuthoring::RemoveParkGoalsOutside(float x0, float z0, float x1, float z1)
+void ObjectiveAuthoring::remove_park_goals_outside(float x0, float z0, float x1, float z1)
 {
-    for (CEditedGoal& goal : m_goals) {
-        if (goal.m_takenCount && goal.m_level == kParkEditorLevel && goal.m_vertexTotal > 1 &&
-            Outside(goal.m_pathVertices[1].pos.x, goal.m_pathVertices[1].pos.z, x0, z0, x1, z1))
-            DropObjective(&goal);
+    for (EditedGoal& goal : goals_) {
+        if (goal.taken_count_ && goal.level_ == kParkEditorLevel && goal.vertex_total_ > 1 &&
+            get_outside(goal.path_vertices_[1].pos.x, goal.path_vertices_[1].pos.z, x0, z0, x1, z1))
+            drop_objective(&goal);
     }
 }
 
 // 0x004E8420
-void CObjectiveAuthoring::RemoveGapFromParkGoals(int gap)
+void ObjectiveAuthoring::remove_gap_from_park_goals(int gap)
 {
-    for (CEditedGoal& goal : m_goals) {
-        if (goal.m_takenCount && goal.m_level == kParkEditorLevel && goal.m_kindTag == kGoalTypeGap)
-            goal.RemoveGapAndRenumber(static_cast<uint8_t>(gap));
+    for (EditedGoal& goal : goals_) {
+        if (goal.taken_count_ && goal.level_ == kParkEditorLevel && goal.kind_tag_ == kGoalTypeGap)
+            goal.remove_gap_and_renumber(static_cast<uint8_t>(gap));
     }
 }
 
 // 0x004E8090
-void CObjectiveAuthoring::DropObjective(CEditedGoal* goal)
+void ObjectiveAuthoring::drop_objective(EditedGoal* goal)
 {
-    if (goal->m_takenCount) {
-        GoalSystem::CGoalManager* manager = GoalSystem::GetObjectiveBoard();
-        if (manager->GoalExists(CreatedGoalId(goal->m_levelGoalNumber)))
-            manager->DropObjective(CreatedGoalId(goal->m_levelGoalNumber));
+    if (goal->taken_count_) {
+        goals::GoalManager* manager = goals::get_objective_board();
+        if (manager->goal_exists(created_goal_id(goal->level_goal_number_)))
+            manager->drop_objective(created_goal_id(goal->level_goal_number_));
     }
-    InitEditedGoal(reinterpret_cast<uint8_t*>(goal));
-    if (m_activeNode == goal)
-        m_activeNode = nullptr;
+    init_edited_goal(reinterpret_cast<uint8_t*>(goal));
+    if (active_node_ == goal)
+        active_node_ = nullptr;
 }
 
 // 0x004E7B50
-void CObjectiveAuthoring::UpdateCameraCollision()
+void ObjectiveAuthoring::update_camera_collision()
 {
-    CEditedGoal* goal = m_activeNode;
-    int kind = goal->m_vertexTotal ? goal->m_pathVertices[goal->m_currentPoint].kind : kPointPro;
+    EditedGoal* goal = active_node_;
+    int kind = goal->vertex_total_ ? goal->path_vertices_[goal->current_point_].kind : kPointPro;
     if (kind != kPointPro && kind != kPointStart) {
-        ViewCam(m_viewCamera)->m_simpleCollision = true;
+        view_cam(view_camera_)->simple_collision_ = true;
         return;
     }
-    ViewCam(m_viewCamera)->m_simpleCollision = GameModules::Skate::Sole()->m_level == kParkEditorLevel;
+    view_cam(view_camera_)->simple_collision_ = modules::Skate::sole()->level_ == kParkEditorLevel;
 }
 
 // 0x004E7F30
-void CObjectiveAuthoring::MoveCursorToCurrentPoint()
+void ObjectiveAuthoring::move_cursor_to_current_point()
 {
-    const EditedGoalPoint& point = m_activeNode->m_pathVertices[m_activeNode->m_currentPoint];
-    GameObjects::CEditorViewModule* camera = ViewCam(m_viewCamera);
-    camera->m_levelY = point.height;
-    camera->m_heading = point.angle;
-    camera->m_cursor = point.pos;
+    const EditedGoalPoint& point = active_node_->path_vertices_[active_node_->current_point_];
+    objects::EditorViewModule* camera = view_cam(view_camera_);
+    camera->level_y_ = point.height;
+    camera->heading_ = point.angle;
+    camera->cursor_ = point.pos;
 }
 
 // 0x004E7FC0
-void CObjectiveAuthoring::RunCursorScript()
+void ObjectiveAuthoring::run_cursor_script()
 {
-    Scripts::CStruct params;
-    params.PrepareAll();
-    GameObjects::CEditorViewModule* camera = ViewCam(m_viewCamera);
-    const Maths::Vec4& cursor = camera->m_cursor;
-    params.PutVec3(0x7F261953, cursor.x, cursor.y + camera->m_levelY, cursor.z);
-    params.PushFloat(0xFF7EBAF6, camera->m_heading);
-    Scripts::LaunchScript(0xDEA7FE56, &params, nullptr, false, nullptr);
-    params.Clear();
+    script::Struct params;
+    params.prepare_all();
+    objects::EditorViewModule* camera = view_cam(view_camera_);
+    const maths::Vec4& cursor = camera->cursor_;
+    params.put_vec3(0x7F261953, cursor.x, cursor.y + camera->level_y_, cursor.z);
+    params.push_float(0xFF7EBAF6, camera->heading_);
+    script::launch_script(0xDEA7FE56, &params, nullptr, false, nullptr);
+    params.get_clear();
 }
 
 // 0x004EA580
-void CObjectiveAuthoring::RefreshCursor()
+void ObjectiveAuthoring::refresh_cursor()
 {
-    CEditedGoal* goal = m_activeNode;
-    int kind = goal->m_vertexTotal ? goal->m_pathVertices[goal->m_currentPoint].kind : kPointPro;
+    EditedGoal* goal = active_node_;
+    int kind = goal->vertex_total_ ? goal->path_vertices_[goal->current_point_].kind : kPointPro;
     const char* model;
     if (kind == kPointStart) {
         model = "gameobjects\\p1_cursor\\p1_cursor.mdl";
     } else if (kind == kPointObject) {
         int letter = 0;
-        if (goal->m_kindTag == kGoalTypeCombo || goal->m_kindTag == kGoalTypeSkate)
-            letter = goal->m_currentPoint - 2;
-        model = GoalObjectModel(goal->m_kindTag, letter);
+        if (goal->kind_tag_ == kGoalTypeCombo || goal->kind_tag_ == kGoalTypeSkate)
+            letter = goal->current_point_ - 2;
+        model = goal_object_model(goal->kind_tag_, letter);
     } else {
         model = "gameobjects\\goal_cursor\\goal_cursor.mdl";
     }
-    Scripts::CStruct params;
-    params.PrepareAll();
-    goal = m_activeNode;
-    kind = goal->m_vertexTotal ? goal->m_pathVertices[goal->m_currentPoint].kind : kPointPro;
+    script::Struct params;
+    params.prepare_all();
+    goal = active_node_;
+    kind = goal->vertex_total_ ? goal->path_vertices_[goal->current_point_].kind : kPointPro;
     if (kind == kPointPro)
-        params.PutNameKey(0x7321A8D6, 0x061A741E);
+        params.put_name_key(0x7321A8D6, 0x061A741E);
     else if (kind == kPointCheckpoint)
-        params.PutNameKey(0x7321A8D6, 0xF0FF0841);
-    params.AppendWord(0x286A8D26, model);
-    Scripts::LaunchScript(0x36791E3C, &params, m_entity, false, nullptr);
-    UpdateCameraCollision();
-    params.Clear();
+        params.put_name_key(0x7321A8D6, 0xF0FF0841);
+    params.append_word(0x286A8D26, model);
+    script::launch_script(0x36791E3C, &params, entity_, false, nullptr);
+    update_camera_collision();
+    params.get_clear();
 }
 
 // 0x004EA6C0
-void CObjectiveAuthoring::BeginFreshObjective()
+void ObjectiveAuthoring::begin_fresh_objective()
 {
-    ClearIncompleteGoals();
-    uint32_t level = CurrentLevel();
+    clear_incomplete_goals();
+    uint32_t level = current_level();
     // The lowest number no complete goal of the level has.
     int index = 0;
     for (bool taken = true; taken;) {
         taken = false;
-        for (CEditedGoal& goal : m_goals) {
-            if (goal.m_takenCount && goal.m_vertexTotal >= goal.m_minPoints && goal.m_level == level &&
-                goal.m_levelGoalNumber == index) {
+        for (EditedGoal& goal : goals_) {
+            if (goal.taken_count_ && goal.vertex_total_ >= goal.min_points_ && goal.level_ == level &&
+                goal.level_goal_number_ == index) {
                 ++index;
                 taken = true;
                 break;
             }
         }
     }
-    for (CEditedGoal& goal : m_goals) {
-        if (goal.m_takenCount)
+    for (EditedGoal& goal : goals_) {
+        if (goal.taken_count_)
             continue;
-        m_activeNode = &goal;
-        InitEditedGoal(reinterpret_cast<uint8_t*>(&goal));
-        m_activeNode->m_takenCount = true;
-        m_activeNode->m_level = level;
-        m_activeNode->m_levelGoalNumber = index;
-        RefreshCursor();
+        active_node_ = &goal;
+        init_edited_goal(reinterpret_cast<uint8_t*>(&goal));
+        active_node_->taken_count_ = true;
+        active_node_->level_ = level;
+        active_node_->level_goal_number_ = index;
+        refresh_cursor();
         return;
     }
 }
 
 // 0x004EA780
-void CObjectiveAuthoring::PlaceParkGoalsOnGround()
+void ObjectiveAuthoring::place_park_goals_on_ground()
 {
-    for (CEditedGoal& goal : m_goals) {
-        if (goal.m_takenCount && goal.m_level == kParkEditorLevel)
-            goal.PlacePointsOnGround();
+    for (EditedGoal& goal : goals_) {
+        if (goal.taken_count_ && goal.level_ == kParkEditorLevel)
+            goal.place_points_on_ground();
     }
 }
 
 // 0x004EA470
-void CObjectiveAuthoring::ReadGoals(Scripts::CStruct* params, int parkOnly)
+void ObjectiveAuthoring::read_goals(script::Struct* params, int park_only)
 {
-    if (parkOnly)
-        ClearParkGoals();
+    if (park_only)
+        clear_park_goals();
     else
-        ClearLevelGoals();
-    Scripts::CArray* goals = nullptr;
-    params->FetchList(kGoalListName, &goals, 0);
+        clear_level_goals();
+    script::Array* goals = nullptr;
+    params->fetch_list(kGoalListName, &goals, 0);
     if (!goals)
         return;
-    uint32_t count = goals->m_extent;
+    uint32_t count = goals->extent_;
     for (uint32_t i = 0; i < count; ++i) {
-        auto* entry = reinterpret_cast<Scripts::CStruct*>(goals->FetchPart(i));
+        auto* entry = reinterpret_cast<script::Struct*>(goals->fetch_part(i));
         uint32_t level = 0;
-        entry->ReadHashValue(0x651533EC, &level, 0);
+        entry->read_hash_value(0x651533EC, &level, 0);
         bool park = level == kParkEditorGameplayLevel || level == kParkEditorLevel;
-        if (park != (parkOnly != 0))
+        if (park != (park_only != 0))
             continue;
-        for (CEditedGoal& goal : m_goals) {
-            if (!goal.m_takenCount) {
-                goal.DecodeFromStruct(entry);
+        for (EditedGoal& goal : goals_) {
+            if (!goal.taken_count_) {
+                goal.decode_from_struct(entry);
                 break;
             }
         }
     }
-    m_activeNode = nullptr;
+    active_node_ = nullptr;
 }
 
 // 0x004EA2C0
-const uint8_t* CObjectiveAuthoring::ReadLevelGoalsFromBuffer(uint32_t level, const uint8_t* buffer)
+const uint8_t* ObjectiveAuthoring::read_level_goals_from_buffer(uint32_t level, const uint8_t* buffer)
 {
     if (level == kParkEditorGameplayLevel)
         level = kParkEditorLevel;
-    Scripts::CStruct* params = SpawnParamTable();
-    const uint8_t* end = Scripts::DecodeFromBytes(params, buffer);
-    for (CEditedGoal& goal : m_goals) {
-        if (goal.m_takenCount && goal.m_level == level)
-            InitEditedGoal(reinterpret_cast<uint8_t*>(&goal));
+    script::Struct* params = spawn_param_table();
+    const uint8_t* end = script::decode_from_bytes(params, buffer);
+    for (EditedGoal& goal : goals_) {
+        if (goal.taken_count_ && goal.level_ == level)
+            init_edited_goal(reinterpret_cast<uint8_t*>(&goal));
     }
-    m_activeNode = nullptr;
-    Scripts::CArray* goals = nullptr;
-    params->FetchList(kGoalListName, &goals, 1);
-    uint32_t left = goals->m_extent;
+    active_node_ = nullptr;
+    script::Array* goals = nullptr;
+    params->fetch_list(kGoalListName, &goals, 1);
+    uint32_t left = goals->extent_;
     uint32_t next = 0;
-    for (CEditedGoal& goal : m_goals) {
+    for (EditedGoal& goal : goals_) {
         if (!left)
             break;
-        if (goal.m_takenCount)
+        if (goal.taken_count_)
             continue;
-        goal.DecodeFromStruct(reinterpret_cast<Scripts::CStruct*>(goals->FetchPart(next++)));
-        goal.m_level = level;
+        goal.decode_from_struct(reinterpret_cast<script::Struct*>(goals->fetch_part(next++)));
+        goal.level_ = level;
         --left;
     }
-    DeleteStructure(params);
+    delete_structure(params);
     return end;
 }
 
 // 0x004EB850
-void CObjectiveAuthoring::WriteGoals(Scripts::CStruct* out)
+void ObjectiveAuthoring::write_goals(script::Struct* out)
 {
     uint32_t count = 0;
-    for (CEditedGoal& goal : m_goals) {
-        if (goal.m_takenCount && goal.m_level != kParkEditorLevel)
+    for (EditedGoal& goal : goals_) {
+        if (goal.taken_count_ && goal.level_ != kParkEditorLevel)
             ++count;
     }
     if (!count)
         return;
-    Scripts::CArray* goals = Scripts::AllocScriptArray();
-    goals = goals ? goals->PrepareAll() : nullptr;
-    goals->ConfigureSizeKind(count, Scripts::QBVAL_STRUCT);
+    script::Array* goals = script::alloc_script_array();
+    goals = goals ? goals->prepare_all() : nullptr;
+    goals->configure_size_kind(count, script::kQbvalStruct);
     uint32_t index = 0;
-    for (CEditedGoal& goal : m_goals) {
-        if (!goal.m_takenCount || goal.m_level == kParkEditorLevel)
+    for (EditedGoal& goal : goals_) {
+        if (!goal.taken_count_ || goal.level_ == kParkEditorLevel)
             continue;
-        Scripts::CStruct* entry = SpawnParamTable();
-        goal.ExportToStruct(entry);
-        goals->SetElement(index++, reinterpret_cast<uint32_t>(entry));
+        script::Struct* entry = spawn_param_table();
+        goal.export_to_struct(entry);
+        goals->set_element(index++, reinterpret_cast<uint32_t>(entry));
     }
-    out->AppendArrayRef(kGoalListName, goals);
+    out->append_array_ref(kGoalListName, goals);
 }
 
 // 0x004EBA10
-void CObjectiveAuthoring::WriteLevelGoals(uint32_t level, Scripts::CStruct* out)
+void ObjectiveAuthoring::write_level_goals(uint32_t level, script::Struct* out)
 {
     // (sized by the complete goals, filled with every used one: as the original)
-    uint32_t count = static_cast<uint32_t>(CountCompleteGoals(level));
-    Scripts::CArray* goals = Scripts::AllocScriptArray();
-    goals = goals ? goals->PrepareAll() : nullptr;
-    goals->ConfigureSizeKind(count, Scripts::QBVAL_STRUCT);
+    uint32_t count = static_cast<uint32_t>(count_complete_goals(level));
+    script::Array* goals = script::alloc_script_array();
+    goals = goals ? goals->prepare_all() : nullptr;
+    goals->configure_size_kind(count, script::kQbvalStruct);
     uint32_t index = 0;
-    for (CEditedGoal& goal : m_goals) {
-        if (!goal.m_takenCount || goal.m_level != level)
+    for (EditedGoal& goal : goals_) {
+        if (!goal.taken_count_ || goal.level_ != level)
             continue;
-        Scripts::CStruct* entry = SpawnParamTable();
-        goal.ExportToStruct(entry);
-        goals->SetElement(index++, reinterpret_cast<uint32_t>(entry));
+        script::Struct* entry = spawn_param_table();
+        goal.export_to_struct(entry);
+        goals->set_element(index++, reinterpret_cast<uint32_t>(entry));
     }
-    out->AppendArrayRef(kGoalListName, goals);
+    out->append_array_ref(kGoalListName, goals);
 }
 
 // 0x004EBB70
-uint32_t CObjectiveAuthoring::WriteLevelGoalsToBuffer(uint32_t level, uint8_t* buffer, uint32_t size)
+uint32_t ObjectiveAuthoring::write_level_goals_to_buffer(uint32_t level, uint8_t* buffer, uint32_t size)
 {
-    Scripts::CStruct* params = SpawnParamTable();
+    script::Struct* params = spawn_param_table();
     if (level == kParkEditorGameplayLevel)
         level = kParkEditorLevel;
-    WriteLevelGoals(level, params);
-    uint32_t written = Scripts::EmitIntoBuffer(params, buffer, size, 1, nullptr);
-    DeleteStructure(params);
+    write_level_goals(level, params);
+    uint32_t written = script::emit_into_buffer(params, buffer, size, 1, nullptr);
+    delete_structure(params);
     return written;
 }
 
 // 0x004EA7C0
-bool CObjectiveAuthoring::NewEditorGoal(Scripts::CStruct* /*params*/, Scripts::CScript* script)
+bool ObjectiveAuthoring::new_editor_goal(script::Struct* /*params*/, script::Script* script)
 {
-    BeginFreshObjective();
-    Sprintf(CreatedGoalName(), "CreatedGoal%d", m_activeNode->m_levelGoalNumber);
-    script->m_args->PutNameKey("goal_id", Checksums::HashFromText(CreatedGoalName()));
+    begin_fresh_objective();
+    get_sprintf(created_goal_name(), "CreatedGoal%d", active_node_->level_goal_number_);
+    script->args_->put_name_key("goal_id", checksums::hash_from_text(created_goal_name()));
     return true;
 }
 
@@ -586,106 +586,106 @@ namespace {
 
 // Whether a point can't go at the cursor: the start too near another goal's pro, or the pro too near another
 // goal's start.
-bool NearOtherGoals(CObjectiveAuthoring* editor, const Maths::Vec4& pos, float height)
+bool near_other_goals(ObjectiveAuthoring* editor, const maths::Vec4& pos, float height)
 {
-    CEditedGoal* goal = editor->m_activeNode;
-    if (goal->m_vertexTotal && goal->m_pathVertices[goal->m_currentPoint].kind == kPointStart &&
-        editor->PointNearAnyGoal(pos, height, goal->m_level, 0))
+    EditedGoal* goal = editor->active_node_;
+    if (goal->vertex_total_ && goal->path_vertices_[goal->current_point_].kind == kPointStart &&
+        editor->point_near_any_goal(pos, height, goal->level_, 0))
         return true;
-    goal = editor->m_activeNode;
-    if (!goal->m_vertexTotal || goal->m_pathVertices[goal->m_currentPoint].kind == kPointPro)
-        return editor->PointNearAnyGoal(pos, height, goal->m_level, 1);
+    goal = editor->active_node_;
+    if (!goal->vertex_total_ || goal->path_vertices_[goal->current_point_].kind == kPointPro)
+        return editor->point_near_any_goal(pos, height, goal->level_, 1);
     return false;
 }
 
-GameObjects::CControlButton* Button(GameObjects::CObjectModule* input, uint32_t offset)
+objects::ControlButton* get_button(objects::ObjectModule* input, uint32_t offset)
 {
-    return reinterpret_cast<GameObjects::CControlButton*>(reinterpret_cast<uint8_t*>(input) + offset);
+    return reinterpret_cast<objects::ControlButton*>(reinterpret_cast<uint8_t*>(input) + offset);
 }
 
 } // namespace
 
 // 0x004EBD30
-void CObjectiveAuthoring::TickFrame()
+void ObjectiveAuthoring::tick_frame()
 {
-    if (!m_activeNode) {
-        RunCursorScript();
+    if (!active_node_) {
+        run_cursor_script();
         return;
     }
-    GameObjects::CControlButton* place = Button(m_inputPtr, 0x1C0);
-    if (place->m_fired) {
-        place->ResetActivation();
-        GameObjects::CEditorViewModule* camera = ViewCam(m_viewCamera);
-        Maths::Vec4 pos = camera->m_cursor;
-        float height = camera->m_levelY, angle = camera->m_heading;
-        if (NearOtherGoals(this, pos, height)) {
-            Scripts::LaunchScript(0xAEBC7020, nullptr, m_entity, false, nullptr);
-        } else if (m_activeNode->PlacePoint(pos, height, angle)) {
-            Scripts::LaunchScript(0x718B071B, nullptr, m_entity, false, nullptr);
-            RefreshCursor();
-            MoveCursorToCurrentPoint();
+    objects::ControlButton* place = get_button(input_ptr_, 0x1C0);
+    if (place->fired_) {
+        place->reset_activation();
+        objects::EditorViewModule* camera = view_cam(view_camera_);
+        maths::Vec4 pos = camera->cursor_;
+        float height = camera->level_y_, angle = camera->heading_;
+        if (near_other_goals(this, pos, height)) {
+            script::launch_script(0xAEBC7020, nullptr, entity_, false, nullptr);
+        } else if (active_node_->place_point(pos, height, angle)) {
+            script::launch_script(0x718B071B, nullptr, entity_, false, nullptr);
+            refresh_cursor();
+            move_cursor_to_current_point();
         } else {
-            Scripts::LaunchScript(0xAEBC7020, nullptr, m_entity, false, nullptr);
+            script::launch_script(0xAEBC7020, nullptr, entity_, false, nullptr);
         }
-        if (m_activeNode->m_lastPointPlaced)
-            Scripts::LaunchScript(0xC05E7E20, nullptr, m_entity, false, nullptr);
+        if (active_node_->last_point_placed_)
+            script::launch_script(0xC05E7E20, nullptr, entity_, false, nullptr);
     }
-    GameObjects::CControlButton* back = Button(m_inputPtr, 0x1A0);
-    if (back->m_fired) {
-        back->ResetActivation();
-        GameObjects::CEditorViewModule* camera = ViewCam(m_viewCamera);
-        Maths::Vec4 pos = camera->m_cursor;
-        float height = camera->m_levelY, angle = camera->m_heading;
-        if (!NearOtherGoals(this, pos, height) && m_activeNode->PlacePointAndStepBack(pos, height, angle)) {
-            Scripts::LaunchScript(0xFA275CC5, nullptr, m_entity, false, nullptr);
-            RefreshCursor();
-            MoveCursorToCurrentPoint();
+    objects::ControlButton* back = get_button(input_ptr_, 0x1A0);
+    if (back->fired_) {
+        back->reset_activation();
+        objects::EditorViewModule* camera = view_cam(view_camera_);
+        maths::Vec4 pos = camera->cursor_;
+        float height = camera->level_y_, angle = camera->heading_;
+        if (!near_other_goals(this, pos, height) && active_node_->place_point_and_step_back(pos, height, angle)) {
+            script::launch_script(0xFA275CC5, nullptr, entity_, false, nullptr);
+            refresh_cursor();
+            move_cursor_to_current_point();
         } else {
-            Scripts::LaunchScript(0xADE100D6, nullptr, m_entity, false, nullptr);
+            script::launch_script(0xADE100D6, nullptr, entity_, false, nullptr);
         }
     }
-    RunCursorScript();
+    run_cursor_script();
 }
 
 // 0x004EBC40
-void CObjectiveAuthoring::Conceal(bool hide)
+void ObjectiveAuthoring::conceal(bool hide)
 {
     if (hide) {
-        Scripts::LaunchScript(0xFCC60D8B, nullptr, nullptr, false, nullptr);
+        script::launch_script(0xFCC60D8B, nullptr, nullptr, false, nullptr);
         return;
     }
-    Scripts::CStruct* params = SpawnParamTable();
-    params->PutInt(0x67E6859A, 0);
-    m_inputPtr->ConfigureFromData(params);
+    script::Struct* params = spawn_param_table();
+    params->put_int(0x67E6859A, 0);
+    input_ptr_->configure_from_data(params);
     if (params) {
-        params->Clear();
-        Scripts::DeleteStruct(params);
+        params->get_clear();
+        script::delete_struct(params);
     }
-    RefreshCursor();
+    refresh_cursor();
 }
 
 // 0x004EC010
-bool CObjectiveAuthoring::GetEditedGoalsInfo(Scripts::CStruct* params, Scripts::CScript* script)
+bool ObjectiveAuthoring::get_edited_goals_info(script::Struct* params, script::Script* script)
 {
     uint32_t level = 0;
-    params->ReadHashValue(0x651533EC, &level, 0);
+    params->read_hash_value(0x651533EC, &level, 0);
     if (level == kParkEditorGameplayLevel)
         level = kParkEditorLevel;
-    int count = CountCompleteGoals(level);
+    int count = count_complete_goals(level);
     if (!count)
         return true;
-    Scripts::CArray* goals = Scripts::AllocScriptArray();
-    goals = goals ? goals->PrepareAll() : nullptr;
-    goals->ConfigureSizeKind(static_cast<uint32_t>(count), Scripts::QBVAL_STRUCT);
+    script::Array* goals = script::alloc_script_array();
+    goals = goals ? goals->prepare_all() : nullptr;
+    goals->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalStruct);
     uint32_t index = 0;
-    for (CEditedGoal& goal : m_goals) {
-        if (!goal.m_takenCount || (level && goal.m_level != level) || goal.m_vertexTotal < goal.m_minPoints)
+    for (EditedGoal& goal : goals_) {
+        if (!goal.taken_count_ || (level && goal.level_ != level) || goal.vertex_total_ < goal.min_points_)
             continue;
-        Scripts::CStruct* entry = SpawnParamTable();
-        goal.ExportToStruct(entry);
-        goals->SetElement(index++, reinterpret_cast<uint32_t>(entry));
+        script::Struct* entry = spawn_param_table();
+        goal.export_to_struct(entry);
+        goals->set_element(index++, reinterpret_cast<uint32_t>(entry));
     }
-    script->m_args->AppendArrayRef("EditedGoalsInfo", goals);
+    script->args_->append_array_ref("EditedGoalsInfo", goals);
     return true;
 }
 

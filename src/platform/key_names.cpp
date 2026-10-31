@@ -7,18 +7,18 @@
 
 #include "platform/platform_input.h"
 
-namespace SystemCore {
+namespace sys {
 
 namespace {
 
 // A key's name (at most 14 characters).
-void SetKeyName(unsigned scanCode, const wchar_t* name)
+void set_key_name(unsigned scan_code, const wchar_t* name)
 {
-    OsLayer::SetKeyName(static_cast<int>(scanCode), name);
+    os_layer::set_key_name(static_cast<int>(scan_code), name);
 }
 
 struct KeyName {
-    uint8_t scanCode;
+    uint8_t scan_code_;
     const wchar_t* name;
 };
 
@@ -43,28 +43,28 @@ const KeyName kAfter[] = {
 };
 
 template <size_t N>
-void AssignValue(const KeyName (&names)[N])
+void assign_value(const KeyName (&names)[N])
 {
     for (const KeyName& key : names)
-        SetKeyName(key.scanCode, key.name);
+        set_key_name(key.scan_code_, key.name);
 }
 
 } // namespace
 
 // 0x004E0DA0
-void __cdecl SetKeyNames()
+void __cdecl set_key_names()
 {
-    AssignValue(kBefore);
-    AssignValue(kKeypad);
-    AssignValue(kAfter);
+    assign_value(kBefore);
+    assign_value(kKeypad);
+    assign_value(kAfter);
 }
 
 // 0x004E0FE0
-void __cdecl SetGermanKeyNames()
+void __cdecl set_german_key_names()
 {
-    AssignValue(kBefore);
-    AssignValue(kGermanKeypad);
-    AssignValue(kAfter);
+    assign_value(kBefore);
+    assign_value(kGermanKeypad);
+    assign_value(kAfter);
 }
 
 } // namespace Sys

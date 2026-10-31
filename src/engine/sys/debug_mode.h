@@ -2,18 +2,18 @@
 
 #include <cstdint>
 
-namespace GameModules {
+namespace modules {
 struct FrontEnd;
 }
-namespace Scripts {
-class CStruct;
-class CScript;
+namespace script {
+class Struct;
+class Script;
 } // namespace Script
 
 // NOT ORIGINAL - debug mode (ours, added at the user's request; not the game's and not PartyMod's): Neversoft's
 // in-house build again, as far as the scripts go.
 //
-// The script command CD ("is this the disc build") is true in the retail exe - its CFunction table entry is the
+// The script command CD ("is this the disc build") is true in the retail exe - its Function table entry is the
 // shared "return true" stub 0x005B9760 (68 commands use it) - and NotCD false (the "return false" stub 0x005B9E50).
 // The scripts keep their developers' parts behind them: the pause menu's DEBUG OPTIONS hub (create_debug_options_menu:
 // Cheats: Debug, Goto Restart, Debug Menu, Test Menu, the cutscene viewer), BACK TO CAS, the park editor's PARK-ED
@@ -26,7 +26,7 @@ class CScript;
 // start-up scripts (default_system_startup, autolaunch, startup_loading_screen): with CD false they'd take the
 // developers' start-up (their loose files instead of the retail data's archives, the viewer instead of the main
 // menu). Once the front end runs, debug mode does what that start-up did that still works: select_shift on (the
-// Select combos) and LaunchViewer (the viewer module, GameModules::Viewer - engine/sys/model_viewer.h - and its free camera
+// Select combos) and LaunchViewer (the viewer module, modules::Viewer - engine/sys/model_viewer.h - and its free camera
 // viewer_cam). The data overlay's pause menu (tools/pipeline/menu_level/make_menu_level.ts) gets a DEBUG OPTIONS item while CD
 // is false. What else CD false changes: Game Options gets "Cheats: DO NOT TEST"; leaving the pause menu enables the
 // viewer camera's buttons; the cutscene viewer shows its debug text; the credits movie isn't played.
@@ -41,21 +41,21 @@ class CScript;
 //   in the free camera: W / S forward / back, A / D left / right, E or Page Up / Q or Page Down up / down, the arrow
 //   keys turn (left / right) and look (up / down), Tab the speed (medium, fast, super slow - UserViewerCircle), T the
 //   next time of day (UserViewerTriangle).
-namespace SystemCore::DebugMode {
+namespace sys::debug_mode {
 
-bool& IsSwitchedOn();
+bool& is_switched_on();
 // CD: false in debug mode (but for the start-up scripts), else true (the original's stub).
-bool __cdecl CFunc_CD(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl cfunc_cd(script::Struct* params, script::Script* script);
 // NotCD: CD's opposite (the original: false).
-bool __cdecl CFunc_NotCD(Scripts::CStruct* params, Scripts::CScript* script);
-// Point the CFunction table's CD and NotCD entries (0x0067FF38, 0x0067FF40) at ours when debug mode is on. Until that
-// table is the game's own source, this stands in for its entries (done by Sio::InitSdlInput, before the script
+bool __cdecl cfunc_not_cd(script::Struct* params, script::Script* script);
+// Point the Function table's CD and NotCD entries (0x0067FF38, 0x0067FF40) at ours when debug mode is on. Until that
+// table is the game's own source, this stands in for its entries (done by sio::init_sdl_input, before the script
 // functions are registered).
-void Install();
-// Once a frame from the front end's input logic (MouseMenus::TickFrame): the viewer launched once, the F keys.
-void TickFrame(GameModules::FrontEnd* frontEnd);
-// For the viewer's input handler (GameModules::HandleViewerInput, in the free camera): the movement keys as the sticks (raw,
+void install();
+// Once a frame from the front end's input logic (mouse_menus::tick_frame): the viewer launched once, the F keys.
+void tick_frame(modules::FrontEnd* front_end);
+// For the viewer's input handler (modules::handle_viewer_input, in the free camera): the movement keys as the sticks (raw,
 // -127..127) and the up / down commands (0x2 / 0x4). False when no key is held (the controller's values stand).
-bool KeyboardViewer(float* leftX, float* leftY, float* rightX, float* rightY, uint32_t* commands);
+bool keyboard_viewer(float* left_x, float* left_y, float* right_x, float* right_y, uint32_t* commands);
 
-} // namespace SystemCore::DebugMode
+} // namespace sys::debug_mode

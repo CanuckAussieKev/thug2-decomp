@@ -7,20 +7,20 @@
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 
-namespace GameObjects {
-class CGameEntity;
+namespace objects {
+class GameEntity;
 }
-namespace Scripts {
-class CStruct;
+namespace script {
+class Struct;
 }
 
-// The engine's texture projection (Engine3D::CTextureProjection; the PC's CPcTextureProjection - pc_texture_projection.h -
+// The engine's texture projection (render::TextureProjection; the PC's PcTextureProjection - pc_texture_projection.h -
 // extends it): a texture projected from an object, along a direction from a point offset from it, through an
 // orthographic or perspective matrix onto the sectors whose collision it reaches - set up from a structure, followed
 // each frame (the texture projection component's).
-namespace Engine3D {
+namespace render {
 
-// CTextureProjection::m_flagBits
+// TextureProjection::flag_bits_
 enum : uint32_t {
     kProjectionFlag1 = 0x01,       // the structure's 0xAF06447B
     kProjectionOrthographic = 0x02, // a size given (0x083FDB95)
@@ -28,59 +28,59 @@ enum : uint32_t {
 };
 
 // The projection (0xC8 bytes; vtable 0x00649C14 - PC 0x0064A764: [0] destroy, [1] projected onto the sectors). It's a
-// node of its component's list too (ListKit::Elem<CTextureProjection>, its own data).
-class CTextureProjection {
+// node of its component's list too (lists::Elem<TextureProjection>, its own data).
+class TextureProjection {
 public:
     // 0x0049FE20: construct - its own list node, no texture, the identity, unit direction w, nothing else set.
     // Returns this.
-    CTextureProjection* MakeNew();
+    TextureProjection* make_new();
     // 0x004A04A0: the destructor's body (the node unlinked: vtable 0x00646600).
-    void DestroyBody();
+    void destroy_body();
     // 0x0049FE10 (virtual [1], the engine's stub: "STUB: plat_update..."): the platform's projection.
-    void PlatProject(void** sectors, void** collision);
+    void plat_project(void** sectors, void** collision);
 
     // 0x004A04C0: set up from a structure: the direction (0xB1DE1E91, normalised), the range (0xDF61A4BD), a size
     // (orthographic) or a field of view and aspect (perspective), 0xDC46BA66, the offset from the object (0xA6F5352F),
     // an angle in degrees (0xFF7EBAF6), the texture (from the particle dictionary), the blend mode (0xDD6BB3D5,
     // "blend"), the fineness (0x12602598), flag 1 (0xAF06447B), two distances (0xE979B3D3 - 100000 -, 0x7FCAEAB1 -
     // 15000); then the matrix made.
-    void ConfigureFromData(Scripts::CStruct* params);
+    void configure_from_data(script::Struct* params);
     // 0x0049FEF0: the projection matrix - a look-at from the position along the world direction (up y), times an
     // orthographic (size x size) or perspective one (0.1 to the range); unchanged if it's neither.
-    void UpdateMatrix();
+    void update_matrix();
     // 0x0049FFE0: moved with `object` (its position plus the offset through its display matrix, the direction through
     // it); with one viewport, nothing more when further than 0x7FCAEAB1's distance from the camera or out of its view
     // (a sphere half the range ahead); else the matrix made and the texture projected (slot 1) onto the sectors whose
     // collision - in the grids the line from it along the range reaches - touches that line's box grown by 2.5 sizes.
-    void TickFrame(GameObjects::CGameEntity* object);
+    void tick_frame(objects::GameEntity* object);
 
     void** vtable;
-    MemSys::ListNode* m_selfLink;       // +0x04: itself
-    int m_nodePriority;              // +0x08
-    MemSys::ListNode* m_succ;           // +0x0C
-    MemSys::ListNode* m_lastValue;           // +0x10
-    uint32_t m_label;                 // +0x14: the structure's 0x1EE8B7B9 (the component sets it)
-    uint8_t* m_bitmap;             // +0x18: an engine CBitmapTexture
-    uint32_t m_blendMode;            // +0x1C
-    Maths::Mat4 m_projection;        // +0x20
-    float m_extent;                    // +0x60
-    float m_fieldOfView;                     // +0x64
-    float m_aspect;                  // +0x68
-    uint32_t m_fineness;             // +0x6C
-    Maths::Vec4 m_direction;         // +0x70: the object's (normalised)
-    Maths::Vec4 m_worldDirection;    // +0x80
-    Maths::Vec4 m_anchorPoint;          // +0x90: in the world
-    float m_range;                   // +0xA0
-    uint32_t m_unknownA4;            // +0xA4: the structure's 0xDC46BA66
-    Maths::Vec4 m_shift;            // +0xA8: from the object, in its space
-    float m_angle;                   // +0xB8: radians
-    float m_unknownBC;               // +0xBC: 0xE979B3D3 (100000)
-    float m_viewDistance;            // +0xC0: 0x7FCAEAB1 (15000)
-    uint32_t m_flagBits;                // +0xC4
+    memory::ListNode* self_link_;       // +0x04: itself
+    int node_priority_;              // +0x08
+    memory::ListNode* succ_;           // +0x0C
+    memory::ListNode* last_value_;           // +0x10
+    uint32_t label_;                 // +0x14: the structure's 0x1EE8B7B9 (the component sets it)
+    uint8_t* bitmap_;             // +0x18: an engine BitmapTexture
+    uint32_t blend_mode_;            // +0x1C
+    maths::Mat4 projection_;        // +0x20
+    float extent_;                    // +0x60
+    float field_of_view_;                     // +0x64
+    float aspect_;                  // +0x68
+    uint32_t fineness_;             // +0x6C
+    maths::Vec4 direction_;         // +0x70: the object's (normalised)
+    maths::Vec4 world_direction_;    // +0x80
+    maths::Vec4 anchor_point_;          // +0x90: in the world
+    float range_;                   // +0xA0
+    uint32_t unknowna4_;            // +0xA4: the structure's 0xDC46BA66
+    maths::Vec4 shift_;            // +0xA8: from the object, in its space
+    float angle_;                   // +0xB8: radians
+    float unknownbc_;               // +0xBC: 0xE979B3D3 (100000)
+    float view_distance_;            // +0xC0: 0x7FCAEAB1 (15000)
+    uint32_t flag_bits_;                // +0xC4
 };
-static_assert(offsetof(CTextureProjection, m_projection) == 0x20 && offsetof(CTextureProjection, m_fineness) == 0x6C &&
-                  offsetof(CTextureProjection, m_anchorPoint) == 0x90 && offsetof(CTextureProjection, m_shift) == 0xA8 &&
-                  offsetof(CTextureProjection, m_flagBits) == 0xC4 && sizeof(CTextureProjection) == 0xC8,
+static_assert(offsetof(TextureProjection, projection_) == 0x20 && offsetof(TextureProjection, fineness_) == 0x6C &&
+                  offsetof(TextureProjection, anchor_point_) == 0x90 && offsetof(TextureProjection, shift_) == 0xA8 &&
+                  offsetof(TextureProjection, flag_bits_) == 0xC4 && sizeof(TextureProjection) == 0xC8,
               "layout must match the original");
 
 } // namespace Nx

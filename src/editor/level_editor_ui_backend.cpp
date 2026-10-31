@@ -19,37 +19,37 @@
 #include "engine/gfx/device.h"
 #include "engine/gfx/draw_frame.h"
 
-namespace MenuSystem::LevelEditor::UiBackend {
+namespace frontend::level_editor::ui_backend {
 
 namespace {
 
-IDirect3DDevice9* InputPort() { return Engine3D::g_d3dDevice; }
+IDirect3DDevice9* input_port() { return render::g_d3d_device; }
 
 // Whether the backends are started for the current ImGui context: each context (the editor's, the new front end's -
 // frontend/new_frontend.h) has its own backend data, which the backends keep in its IO.
-bool ContextReady() { return ImGui::GetCurrentContext() && ImGui::GetIO().BackendRendererUserData != nullptr; }
-bool g_failedLogged;
+bool context_ready() { return ImGui::GetCurrentContext() && ImGui::GetIO().BackendRendererUserData != nullptr; }
+bool g_failed_logged;
 
 // The off-screen picture: its colour target (X8R8G8B8: what the game's blending leaves in alpha doesn't show through
 // ImGui's), its depth surface (the format of the game's own; no multisampling: the target has none), and what
-// BeginOffscreen switched from.
+// begin_offscreen switched from.
 struct Offscreen {
     IDirect3DTexture9* texture = nullptr;
     IDirect3DSurface9* depth = nullptr;
     int size = 0;
     bool stencil = false; // (the depth format has one: cleared with it)
-    bool failedLogged = false;
+    bool failed_logged_ = false;
     // (between Begin and End)
     bool active = false;
-    IDirect3DSurface9* savedTarget = nullptr;
-    IDirect3DSurface9* savedDepth = nullptr;
-    D3DVIEWPORT9 savedViewport = {};
-    D3DMATRIX savedTransforms[3] = {};
+    IDirect3DSurface9* saved_target_ = nullptr;
+    IDirect3DSurface9* saved_depth_ = nullptr;
+    D3DVIEWPORT9 saved_viewport_ = {};
+    D3DMATRIX saved_transforms_[3] = {};
 };
 Offscreen g_offscreen;
 constexpr D3DTRANSFORMSTATETYPE kSavedTransforms[3] = {D3DTS_WORLD, D3DTS_VIEW, D3DTS_PROJECTION};
 
-void ReleaseOffscreen()
+void release_offscreen()
 {
     if (g_offscreen.texture)
         g_offscreen.texture->Release();
@@ -60,87 +60,87 @@ void ReleaseOffscreen()
     g_offscreen.size = 0;
 }
 
-bool MakeOffscreen(IDirect3DDevice9* device, int size)
+bool make_offscreen(IDirect3DDevice9* device, int size)
 {
     if (g_offscreen.texture && g_offscreen.size == size)
         return true;
-    ReleaseOffscreen();
-    D3DFORMAT depthFormat = D3DFMT_D24S8;
-    IDirect3DSurface9* gameDepth = nullptr;
-    if (SUCCEEDED(device->GetDepthStencilSurface(&gameDepth)) && gameDepth) {
+    release_offscreen();
+    D3DFORMAT depth_format = D3DFMT_D24S8;
+    IDirect3DSurface9* game_depth = nullptr;
+    if (SUCCEEDED(device->GetDepthStencilSurface(&game_depth)) && game_depth) {
         D3DSURFACE_DESC desc;
-        if (SUCCEEDED(gameDepth->GetDesc(&desc)))
-            depthFormat = desc.Format;
-        gameDepth->Release();
+        if (SUCCEEDED(game_depth->GetDesc(&desc)))
+            depth_format = desc.Format;
+        game_depth->Release();
     }
     HRESULT made = device->CreateTexture(size, size, 1, D3DUSAGE_RENDERTARGET, D3DFMT_X8R8G8B8, D3DPOOL_DEFAULT,
                                          &g_offscreen.texture, nullptr);
     if (SUCCEEDED(made))
-        made = device->CreateDepthStencilSurface(size, size, depthFormat, D3DMULTISAMPLE_NONE, 0, TRUE,
+        made = device->CreateDepthStencilSurface(size, size, depth_format, D3DMULTISAMPLE_NONE, 0, TRUE,
                                                  &g_offscreen.depth, nullptr);
     if (FAILED(made)) {
-        if (!g_offscreen.failedLogged)
-            Log("level editor UI: no off-screen target of %d pixels (%08X)", size, static_cast<unsigned>(made));
-        g_offscreen.failedLogged = true;
-        ReleaseOffscreen();
+        if (!g_offscreen.failed_logged_)
+            get_log("level editor UI: no off-screen target of %d pixels (%08X)", size, static_cast<unsigned>(made));
+        g_offscreen.failed_logged_ = true;
+        release_offscreen();
         return false;
     }
     g_offscreen.size = size;
-    g_offscreen.stencil = depthFormat == D3DFMT_D24S8 || depthFormat == D3DFMT_D24X4S4 ||
-                          depthFormat == D3DFMT_D15S1 || depthFormat == D3DFMT_D24FS8;
+    g_offscreen.stencil = depth_format == D3DFMT_D24S8 || depth_format == D3DFMT_D24X4S4 ||
+                          depth_format == D3DFMT_D15S1 || depth_format == D3DFMT_D24FS8;
     return true;
 }
 
 } // namespace
 
-bool PrepareAll()
+bool prepare_all()
 {
-    if (ContextReady())
+    if (context_ready())
         return true;
-    SDL_Window* window = SystemCore::SdlWindow();
-    IDirect3DDevice9* device = InputPort();
+    SDL_Window* window = sys::sdl_window();
+    IDirect3DDevice9* device = input_port();
     if (!window || !device) {
-        if (!g_failedLogged)
-            Log("level editor UI: no %s yet", window ? "device" : "window");
-        g_failedLogged = true;
+        if (!g_failed_logged)
+            get_log("level editor UI: no %s yet", window ? "device" : "window");
+        g_failed_logged = true;
         return false;
     }
     if (!ImGui_ImplSDL2_InitForD3D(window)) {
-        Log("level editor UI: ImGui's SDL2 backend refused the window");
+        get_log("level editor UI: ImGui's SDL2 backend refused the window");
         return false;
     }
     // (no controllers: the game has them; the UI is mouse and keyboard)
     ImGui_ImplSDL2_SetGamepadMode(ImGui_ImplSDL2_GamepadMode_Manual, nullptr, 0);
     if (!ImGui_ImplDX9_Init(device)) {
         ImGui_ImplSDL2_Shutdown();
-        Log("level editor UI: ImGui's Direct3D 9 backend refused the device");
+        get_log("level editor UI: ImGui's Direct3D 9 backend refused the device");
         return false;
     }
-    Log("level editor UI: Dear ImGui %s on SDL2 and Direct3D 9", ImGui::GetVersion());
+    get_log("level editor UI: Dear ImGui %s on SDL2 and Direct3D 9", ImGui::GetVersion());
     return true;
 }
 
-bool Ready() { return ContextReady(); }
+bool get_ready() { return context_ready(); }
 
-bool ProcessEvent(const SDL_Event* event) { return ContextReady() && ImGui_ImplSDL2_ProcessEvent(event); }
+bool process_event(const SDL_Event* event) { return context_ready() && ImGui_ImplSDL2_ProcessEvent(event); }
 
-void NewFrame()
+void new_frame()
 {
     ImGui_ImplDX9_NewFrame();
     ImGui_ImplSDL2_NewFrame();
 }
 
-void Render()
+void render()
 {
     ImDrawData* data = ImGui::GetDrawData();
-    if (!ContextReady() || !data || !data->Valid)
+    if (!context_ready() || !data || !data->Valid)
         return;
     // Window pixels -> back buffer pixels (the same unless the window shows a back buffer of another size).
-    int backWidth = 0, backHeight = 0;
-    BackBufferSize(&backWidth, &backHeight);
-    if (backWidth <= 0 || backHeight <= 0 || data->DisplaySize.x <= 0.0f || data->DisplaySize.y <= 0.0f)
+    int back_width = 0, back_height = 0;
+    back_buffer_size(&back_width, &back_height);
+    if (back_width <= 0 || back_height <= 0 || data->DisplaySize.x <= 0.0f || data->DisplaySize.y <= 0.0f)
         return;
-    float sx = static_cast<float>(backWidth) / data->DisplaySize.x, sy = static_cast<float>(backHeight) / data->DisplaySize.y;
+    float sx = static_cast<float>(back_width) / data->DisplaySize.x, sy = static_cast<float>(back_height) / data->DisplaySize.y;
     if (sx != 1.0f || sy != 1.0f) {
         for (ImDrawList* list : data->CmdLists) {
             for (ImDrawVert& vertex : list->VtxBuffer) {
@@ -151,37 +151,37 @@ void Render()
                 command.ClipRect = ImVec4(command.ClipRect.x * sx, command.ClipRect.y * sy, command.ClipRect.z * sx,
                                           command.ClipRect.w * sy);
         }
-        data->DisplaySize = ImVec2(static_cast<float>(backWidth), static_cast<float>(backHeight));
+        data->DisplaySize = ImVec2(static_cast<float>(back_width), static_cast<float>(back_height));
     }
     // (the backend saves the device's whole state in a state block and puts it back after: the renderer's cached
     // state stays true)
     ImGui_ImplDX9_RenderDrawData(data);
 }
 
-void InvalidateDeviceObjects()
+void invalidate_device_objects()
 {
-    if (ContextReady())
+    if (context_ready())
         ImGui_ImplDX9_InvalidateDeviceObjects();
     // (the picture is in the default pool: it must go before a reset; made again when next drawn)
-    FreeOffscreen();
-    FreeAtlas(); // (the thumbnails' atlas too: its cells drawn again - level_editor_thumbs.h)
+    free_offscreen();
+    free_atlas(); // (the thumbnails' atlas too: its cells drawn again - level_editor_thumbs.h)
 }
 
-void InvalidateContextObjects()
+void invalidate_context_objects()
 {
-    if (ContextReady())
+    if (context_ready())
         ImGui_ImplDX9_InvalidateDeviceObjects();
 }
 
-uint64_t CreateTexture(int width, int height, PixelLayout format, const void* data, int rowBytes, int rows)
+uint64_t create_texture(int width, int height, PixelLayout format, const void* data, int row_bytes, int rows)
 {
-    IDirect3DDevice9* device = InputPort();
+    IDirect3DDevice9* device = input_port();
     if (!device || width <= 0 || height <= 0 || !data)
         return 0;
     IDirect3DTexture9* texture = nullptr;
     // (managed: Direct3D keeps a copy, so a device reset doesn't lose it)
-    D3DFORMAT d3dFormat = format == PixelLayout::Dxt1 ? D3DFMT_DXT1 : D3DFMT_A8R8G8B8;
-    if (FAILED(device->CreateTexture(width, height, 1, 0, d3dFormat, D3DPOOL_MANAGED, &texture, nullptr)) || !texture)
+    D3DFORMAT d3d_format = format == PixelLayout::kDxt1 ? D3DFMT_DXT1 : D3DFMT_A8R8G8B8;
+    if (FAILED(device->CreateTexture(width, height, 1, 0, d3d_format, D3DPOOL_MANAGED, &texture, nullptr)) || !texture)
         return 0;
     D3DLOCKED_RECT locked;
     if (FAILED(texture->LockRect(0, &locked, nullptr, 0))) {
@@ -191,50 +191,50 @@ uint64_t CreateTexture(int width, int height, PixelLayout format, const void* da
     const uint8_t* from = static_cast<const uint8_t*>(data);
     uint8_t* to = static_cast<uint8_t*>(locked.pBits);
     for (int row = 0; row < rows; ++row)
-        std::memcpy(to + row * locked.Pitch, from + row * rowBytes, static_cast<size_t>(rowBytes));
+        std::memcpy(to + row * locked.Pitch, from + row * row_bytes, static_cast<size_t>(row_bytes));
     texture->UnlockRect(0);
-    return TextureId(texture);
+    return get_texture_id(texture);
 }
 
-void ReleaseTexture(uint64_t id)
+void release_texture(uint64_t id)
 {
     if (id)
         reinterpret_cast<IDirect3DTexture9*>(static_cast<uintptr_t>(id))->Release();
 }
 
-void WindowSize(int* width, int* height)
+void window_size(int* width, int* height)
 {
     *width = *height = 0;
-    if (SDL_Window* window = SystemCore::SdlWindow())
+    if (SDL_Window* window = sys::sdl_window())
         SDL_GetWindowSize(window, width, height);
 }
 
-void BackBufferSize(int* width, int* height)
+void back_buffer_size(int* width, int* height)
 {
-    *width = Engine3D::g_backBufferWidth;
-    *height = Engine3D::g_backBufferHeight;
+    *width = render::g_back_buffer_width;
+    *height = render::g_back_buffer_height;
 }
 
-uint64_t TextureId(void* rendererTexture)
+uint64_t get_texture_id(void* renderer_texture)
 {
     // (the Direct3D 9 backend takes an IDirect3DTexture9*)
-    return static_cast<uint64_t>(reinterpret_cast<uintptr_t>(static_cast<IDirect3DTexture9*>(rendererTexture)));
+    return static_cast<uint64_t>(reinterpret_cast<uintptr_t>(static_cast<IDirect3DTexture9*>(renderer_texture)));
 }
 
-bool BeginOffscreen(int size, uint32_t argb)
+bool begin_offscreen(int size, uint32_t argb)
 {
-    IDirect3DDevice9* device = InputPort();
-    if (!device || g_offscreen.active || size <= 0 || !MakeOffscreen(device, size))
+    IDirect3DDevice9* device = input_port();
+    if (!device || g_offscreen.active || size <= 0 || !make_offscreen(device, size))
         return false;
     IDirect3DSurface9* surface = nullptr;
     if (FAILED(g_offscreen.texture->GetSurfaceLevel(0, &surface)))
         return false;
     Offscreen& o = g_offscreen;
-    device->GetRenderTarget(0, &o.savedTarget);
-    device->GetDepthStencilSurface(&o.savedDepth);
-    device->GetViewport(&o.savedViewport);
+    device->GetRenderTarget(0, &o.saved_target_);
+    device->GetDepthStencilSurface(&o.saved_depth_);
+    device->GetViewport(&o.saved_viewport_);
     for (int i = 0; i < 3; ++i)
-        device->GetTransform(kSavedTransforms[i], &o.savedTransforms[i]);
+        device->GetTransform(kSavedTransforms[i], &o.saved_transforms_[i]);
     device->SetRenderTarget(0, surface);
     surface->Release();
     device->SetDepthStencilSurface(o.depth);
@@ -245,31 +245,31 @@ bool BeginOffscreen(int size, uint32_t argb)
     return true;
 }
 
-void EndOffscreen()
+void end_offscreen()
 {
     Offscreen& o = g_offscreen;
-    IDirect3DDevice9* device = InputPort();
+    IDirect3DDevice9* device = input_port();
     if (!o.active || !device)
         return;
-    device->SetRenderTarget(0, o.savedTarget);
-    device->SetDepthStencilSurface(o.savedDepth);
-    device->SetViewport(&o.savedViewport); // (after the target: setting one resets the viewport)
+    device->SetRenderTarget(0, o.saved_target_);
+    device->SetDepthStencilSurface(o.saved_depth_);
+    device->SetViewport(&o.saved_viewport_); // (after the target: setting one resets the viewport)
     for (int i = 0; i < 3; ++i)
-        device->SetTransform(kSavedTransforms[i], &o.savedTransforms[i]);
-    if (o.savedTarget)
-        o.savedTarget->Release();
-    if (o.savedDepth)
-        o.savedDepth->Release();
-    o.savedTarget = o.savedDepth = nullptr;
+        device->SetTransform(kSavedTransforms[i], &o.saved_transforms_[i]);
+    if (o.saved_target_)
+        o.saved_target_->Release();
+    if (o.saved_depth_)
+        o.saved_depth_->Release();
+    o.saved_target_ = o.saved_depth_ = nullptr;
     o.active = false;
 }
 
-uint64_t OffscreenTexture() { return g_offscreen.texture ? TextureId(g_offscreen.texture) : 0; }
+uint64_t offscreen_texture() { return g_offscreen.texture ? get_texture_id(g_offscreen.texture) : 0; }
 
-void FreeOffscreen()
+void free_offscreen()
 {
-    EndOffscreen();
-    ReleaseOffscreen();
+    end_offscreen();
+    release_offscreen();
 }
 
 // --- the thumbnails' atlas ----------------------------------------------------------------------------------------
@@ -281,17 +281,17 @@ struct Atlas {
     IDirect3DSurface9* depth = nullptr;
     int size = 0;
     bool stencil = false;
-    bool failedLogged = false;
+    bool failed_logged_ = false;
     uint32_t generation = 1;
     bool active = false;
-    IDirect3DSurface9* savedTarget = nullptr;
-    IDirect3DSurface9* savedDepth = nullptr;
-    D3DVIEWPORT9 savedViewport = {};
-    D3DMATRIX savedTransforms[3] = {};
+    IDirect3DSurface9* saved_target_ = nullptr;
+    IDirect3DSurface9* saved_depth_ = nullptr;
+    D3DVIEWPORT9 saved_viewport_ = {};
+    D3DMATRIX saved_transforms_[3] = {};
 };
 Atlas g_atlas;
 
-void ReleaseAtlas()
+void release_atlas()
 {
     if (g_atlas.texture || g_atlas.depth)
         ++g_atlas.generation;
@@ -304,34 +304,34 @@ void ReleaseAtlas()
     g_atlas.size = 0;
 }
 
-bool MakeAtlas(IDirect3DDevice9* device, int size)
+bool make_atlas(IDirect3DDevice9* device, int size)
 {
     if (g_atlas.texture && g_atlas.size == size)
         return true;
-    ReleaseAtlas();
-    D3DFORMAT depthFormat = D3DFMT_D24S8;
-    IDirect3DSurface9* gameDepth = nullptr;
-    if (SUCCEEDED(device->GetDepthStencilSurface(&gameDepth)) && gameDepth) {
+    release_atlas();
+    D3DFORMAT depth_format = D3DFMT_D24S8;
+    IDirect3DSurface9* game_depth = nullptr;
+    if (SUCCEEDED(device->GetDepthStencilSurface(&game_depth)) && game_depth) {
         D3DSURFACE_DESC desc;
-        if (SUCCEEDED(gameDepth->GetDesc(&desc)))
-            depthFormat = desc.Format;
-        gameDepth->Release();
+        if (SUCCEEDED(game_depth->GetDesc(&desc)))
+            depth_format = desc.Format;
+        game_depth->Release();
     }
     HRESULT made = device->CreateTexture(size, size, 1, D3DUSAGE_RENDERTARGET, D3DFMT_X8R8G8B8, D3DPOOL_DEFAULT,
                                          &g_atlas.texture, nullptr);
     if (SUCCEEDED(made))
-        made = device->CreateDepthStencilSurface(size, size, depthFormat, D3DMULTISAMPLE_NONE, 0, TRUE, &g_atlas.depth,
+        made = device->CreateDepthStencilSurface(size, size, depth_format, D3DMULTISAMPLE_NONE, 0, TRUE, &g_atlas.depth,
                                                  nullptr);
     if (FAILED(made)) {
-        if (!g_atlas.failedLogged)
-            Log("level editor UI: no thumbnail atlas of %d pixels (%08X)", size, static_cast<unsigned>(made));
-        g_atlas.failedLogged = true;
-        ReleaseAtlas();
+        if (!g_atlas.failed_logged_)
+            get_log("level editor UI: no thumbnail atlas of %d pixels (%08X)", size, static_cast<unsigned>(made));
+        g_atlas.failed_logged_ = true;
+        release_atlas();
         return false;
     }
     g_atlas.size = size;
-    g_atlas.stencil = depthFormat == D3DFMT_D24S8 || depthFormat == D3DFMT_D24X4S4 || depthFormat == D3DFMT_D15S1 ||
-                      depthFormat == D3DFMT_D24FS8;
+    g_atlas.stencil = depth_format == D3DFMT_D24S8 || depth_format == D3DFMT_D24X4S4 || depth_format == D3DFMT_D15S1 ||
+                      depth_format == D3DFMT_D24FS8;
     // (a new atlas: every cell cleared once, so an unfilled one isn't garbage)
     IDirect3DSurface9* surface = nullptr;
     if (SUCCEEDED(g_atlas.texture->GetSurfaceLevel(0, &surface))) {
@@ -343,21 +343,21 @@ bool MakeAtlas(IDirect3DDevice9* device, int size)
 
 } // namespace
 
-bool BeginAtlasCell(int atlasSize, int x, int y, int size, uint32_t argb)
+bool begin_atlas_cell(int atlas_size, int x, int y, int size, uint32_t argb)
 {
-    IDirect3DDevice9* device = InputPort();
-    if (!device || g_atlas.active || g_offscreen.active || atlasSize <= 0 || size <= 0 || x < 0 || y < 0 ||
-        x + size > atlasSize || y + size > atlasSize || !MakeAtlas(device, atlasSize))
+    IDirect3DDevice9* device = input_port();
+    if (!device || g_atlas.active || g_offscreen.active || atlas_size <= 0 || size <= 0 || x < 0 || y < 0 ||
+        x + size > atlas_size || y + size > atlas_size || !make_atlas(device, atlas_size))
         return false;
     IDirect3DSurface9* surface = nullptr;
     if (FAILED(g_atlas.texture->GetSurfaceLevel(0, &surface)))
         return false;
     Atlas& a = g_atlas;
-    device->GetRenderTarget(0, &a.savedTarget);
-    device->GetDepthStencilSurface(&a.savedDepth);
-    device->GetViewport(&a.savedViewport);
+    device->GetRenderTarget(0, &a.saved_target_);
+    device->GetDepthStencilSurface(&a.saved_depth_);
+    device->GetViewport(&a.saved_viewport_);
     for (int i = 0; i < 3; ++i)
-        device->GetTransform(kSavedTransforms[i], &a.savedTransforms[i]);
+        device->GetTransform(kSavedTransforms[i], &a.saved_transforms_[i]);
     device->SetRenderTarget(0, surface);
     surface->Release();
     device->SetDepthStencilSurface(a.depth);
@@ -370,33 +370,33 @@ bool BeginAtlasCell(int atlasSize, int x, int y, int size, uint32_t argb)
     return true;
 }
 
-void EndAtlasCell()
+void end_atlas_cell()
 {
     Atlas& a = g_atlas;
-    IDirect3DDevice9* device = InputPort();
+    IDirect3DDevice9* device = input_port();
     if (!a.active || !device)
         return;
-    device->SetRenderTarget(0, a.savedTarget);
-    device->SetDepthStencilSurface(a.savedDepth);
-    device->SetViewport(&a.savedViewport);
+    device->SetRenderTarget(0, a.saved_target_);
+    device->SetDepthStencilSurface(a.saved_depth_);
+    device->SetViewport(&a.saved_viewport_);
     for (int i = 0; i < 3; ++i)
-        device->SetTransform(kSavedTransforms[i], &a.savedTransforms[i]);
-    if (a.savedTarget)
-        a.savedTarget->Release();
-    if (a.savedDepth)
-        a.savedDepth->Release();
-    a.savedTarget = a.savedDepth = nullptr;
+        device->SetTransform(kSavedTransforms[i], &a.saved_transforms_[i]);
+    if (a.saved_target_)
+        a.saved_target_->Release();
+    if (a.saved_depth_)
+        a.saved_depth_->Release();
+    a.saved_target_ = a.saved_depth_ = nullptr;
     a.active = false;
 }
 
-uint64_t AtlasTexture() { return g_atlas.texture ? TextureId(g_atlas.texture) : 0; }
+uint64_t atlas_texture() { return g_atlas.texture ? get_texture_id(g_atlas.texture) : 0; }
 
-uint32_t AtlasGeneration() { return g_atlas.generation; }
+uint32_t atlas_generation() { return g_atlas.generation; }
 
-void FreeAtlas()
+void free_atlas()
 {
-    EndAtlasCell();
-    ReleaseAtlas();
+    end_atlas_cell();
+    release_atlas();
 }
 
-} // namespace MenuSystem::LevelEditor::UiBackend
+} // namespace MenuSystem::level_editor::ui_backend

@@ -21,47 +21,47 @@
 #include "engine/objects/camera_lookaround.h"
 
 // The event lists (trigger_events.h).
-const int g_wheelLeavesEvents[3]{1, 4, 0};
-const int g_wheelLandsEvents[3]{1, 3, 0};
-const int g_crossingEvents[3]{9, 0, 0};
-const int g_pullUpEvents[3]{1, 3, 0};
-const int g_hangEvents[3]{10, 3, 0};
-const int g_exitHangEvents[3]{10, 4, 0};
-const int g_ladderOffBottomEvents[3]{1, 3, 0};
-const int g_ladderOffTopEvents[3]{14, 3, 0};
-const int g_ontoLadderEvents[3]{10, 3, 0};
-const int g_exitLadderEvents[3]{10, 4, 0};
-const int g_projectileTouchEvents[3]{14, 0, 0};
-const int g_otherFeelerLeaveEvents[3]{1, 5, 0};
-const int g_jumpTriggerEvents[3]{2, 4, 0};
-const int g_skaterEvents0064BB98[3]{8, 3, 0};
-const int g_kickEvents[3]{1, 4, 0};
-const int g_skaterEvents0064BBB0[3]{1, 3, 0};
-const int g_bonkEvents[3]{9, 0, 0};
-const int g_lipEvents[3]{7, 3, 0};
-const int g_offLipEvents[3]{7, 4, 0};
-const int g_lipOffEvents[3]{7, 2, 0};
-const int g_skaterEvents0064BBEC[3]{6, 3, 0};
-const int g_wallplantEvents[3]{6, 4, 0};
-const int g_spinEvents[3]{12, 3, 0};
-const int g_jumpEvents[3]{12, 2, 0};
-const int g_grindOffEvents[3]{13, 4, 0};
-const int g_grindEvents[3]{13, 3, 0};
-const int g_taggingEvents[3]{11, 3, 0};
-const int g_walkEvents0064C630[3]{1, 5, 0};
-const int g_walkEvents0064C63C[3]{2, 4, 0};
-const int g_walkEvents0064C648[3]{8, 3, 0};
-const int g_walkEvents0064C654[3]{14, 3, 0};
-const int g_walkEvents0064C660[3]{14, 4, 0};
+const int kWheelLeavesEvents[3]{1, 4, 0};
+const int kWheelLandsEvents[3]{1, 3, 0};
+const int kCrossingEvents[3]{9, 0, 0};
+const int kPullUpEvents[3]{1, 3, 0};
+const int kHangEvents[3]{10, 3, 0};
+const int kExitHangEvents[3]{10, 4, 0};
+const int kLadderOffBottomEvents[3]{1, 3, 0};
+const int kLadderOffTopEvents[3]{14, 3, 0};
+const int kOntoLadderEvents[3]{10, 3, 0};
+const int kExitLadderEvents[3]{10, 4, 0};
+const int kProjectileTouchEvents[3]{14, 0, 0};
+const int kOtherFeelerLeaveEvents[3]{1, 5, 0};
+const int kJumpTriggerEvents[3]{2, 4, 0};
+const int kSkaterEvents0064bB98[3]{8, 3, 0};
+const int kKickEvents[3]{1, 4, 0};
+const int kSkaterEvents0064bBb0[3]{1, 3, 0};
+const int kBonkEvents[3]{9, 0, 0};
+const int kLipEvents[3]{7, 3, 0};
+const int kOffLipEvents[3]{7, 4, 0};
+const int kLipOffEvents[3]{7, 2, 0};
+const int kSkaterEvents0064bBec[3]{6, 3, 0};
+const int kWallplantEvents[3]{6, 4, 0};
+const int kSpinEvents[3]{12, 3, 0};
+const int kJumpEvents[3]{12, 2, 0};
+const int kGrindOffEvents[3]{13, 4, 0};
+const int kGrindEvents[3]{13, 3, 0};
+const int kTaggingEvents[3]{11, 3, 0};
+const int kWalkEvents0064c630[3]{1, 5, 0};
+const int kWalkEvents0064c63c[3]{2, 4, 0};
+const int kWalkEvents0064c648[3]{8, 3, 0};
+const int kWalkEvents0064c654[3]{14, 3, 0};
+const int kWalkEvents0064c660[3]{14, 4, 0};
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
 extern void** const kVtable;
 
 constexpr uint32_t kTriggerScript = 0x2CA8A299; // TriggerScript
-constexpr uint32_t kOnlineFlag = 0x20209C31;    // OnlineModeFlag
+constexpr uint32_t kOnlineFlag = 0x20209C31;    // online_mode_flag
 constexpr uint32_t kPermanent = 0x23627FD7;     // Permanent
 constexpr uint32_t kParams = 0x5180A4DB;        // (a parameters structure on the other object's node)
 constexpr uint32_t kTriggerType = 0x3A717382;   // TriggerType
@@ -74,126 +74,126 @@ constexpr uint16_t kTriggerFaces = 0x50;
 const int kNoEvents[3] = {0, 0, 0};
 
 template <typename T>
-T& At(void* object, uint32_t offset)
+T& get_at(void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
 
 // The node array of `object`'s nodearray component (its vtable slot 13), or null without one.
-Scripts::CArray* NodeArrayOf(CGameEntity* object)
+script::Array* node_array_of(GameEntity* object)
 {
-    CObjectModule* nodes = object->FetchModule(kNodeArray);
+    ObjectModule* nodes = object->fetch_module(kNodeArray);
     if (!nodes)
         return nullptr;
-    return reinterpret_cast<Scripts::CArray*(__thiscall*)(CObjectModule*)>(nodes->m_vtable[13])(nodes);
+    return reinterpret_cast<script::Array*(__thiscall*)(ObjectModule*)>(nodes->vtable_[13])(nodes);
 }
 
 } // namespace
 
 // 0x00434B90
-CObjectModule* __cdecl CActivationZoneModule::Fabricate()
+ObjectModule* __cdecl ActivationZoneModule::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CActivationZoneModule));
+    void* memory = memory::alloc_zeroed(sizeof(ActivationZoneModule));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CActivationZoneModule*>(memory);
-    component->CObjectModule::MakeNew();
-    component->m_vtable = kVtable;
-    component->m_kindTag = kType;
+    auto* component = static_cast<ActivationZoneModule*>(memory);
+    component->ObjectModule::make_new();
+    component->vtable_ = kVtable;
+    component->kind_tag_ = kType;
     return component;
 }
 
 // 0x00434900
-void CActivationZoneModule::DestroyBody()
+void ActivationZoneModule::destroy_body()
 {
-    m_vtable = kVtable;
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    ObjectModule::destroy_body();
 }
 
 // 0x00434910
-CActivationZoneModule* CActivationZoneModule::Teardown(unsigned int flags)
+ActivationZoneModule* ActivationZoneModule::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00434940
-void CActivationZoneModule::ConfigureFromData(Scripts::CStruct* /*params*/) { m_lastPos = m_entity->m_atPoint; }
+void ActivationZoneModule::configure_from_data(script::Struct* /*params*/) { last_pos_ = entity_->at_point_; }
 
 // 0x00434D90
-void CActivationZoneModule::TickFrame()
+void ActivationZoneModule::tick_frame()
 {
-    CGameEntity* object = m_entity;
-    const Maths::Vec4& pos = object->m_atPoint;
+    GameEntity* object = entity_;
+    const maths::Vec4& pos = object->at_point_;
     // (not a number counts as moved, as the original's FUCOMPP)
-    if (m_lastPos.x == pos.x && m_lastPos.y == pos.y && m_lastPos.z == pos.z && m_lastPos.w == pos.w)
+    if (last_pos_.x == pos.x && last_pos_.y == pos.y && last_pos_.z == pos.z && last_pos_.w == pos.w)
         return;
-    if (object->m_compositeFlags & COMPOSITE_FLAG_TELEPORTED) {
-        m_lastPos = pos;
+    if (object->composite_flags_ & kCompositeFlagTeleported) {
+        last_pos_ = pos;
         return;
     }
-    Engine3D::CProbeRay feeler;
-    feeler.MakeNew();
-    feeler.m_line.start = m_lastPos;
-    feeler.m_line.end = m_entity->m_atPoint;
-    feeler.SetExcluded(0, kTriggerFaces);
-    feeler.m_callback = reinterpret_cast<Engine3D::FeelerCallback>(&FeelerHit);
-    feeler.m_unknownA8 = reinterpret_cast<uint32_t>(this);
-    feeler.GetHitShape(true, false);
-    m_lastPos = m_entity->m_atPoint;
+    render::ProbeRay feeler;
+    feeler.make_new();
+    feeler.line_.start = last_pos_;
+    feeler.line_.end = entity_->at_point_;
+    feeler.set_excluded(0, kTriggerFaces);
+    feeler.callback_ = reinterpret_cast<render::FeelerCallback>(&feeler_hit);
+    feeler.unknowna8_ = reinterpret_cast<uint32_t>(this);
+    feeler.get_hit_shape(true, false);
+    last_pos_ = entity_->at_point_;
 }
 
 // 0x00434970
-int CActivationZoneModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* /*script*/)
+int ActivationZoneModule::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
     if (name != kTriggerType)
         return 2;
     // (the array is read into the name's own slot, cleared first)
-    Scripts::CArray* array = nullptr;
-    params->FetchList(0u, &array, 0);
+    script::Array* array = nullptr;
+    params->fetch_list(0u, &array, 0);
     // One integer array, or an array of them - any one of which may match.
-    Scripts::CArray* arrays = nullptr;
+    script::Array* arrays = nullptr;
     uint32_t count = 1;
-    if (array->m_kindTag == Scripts::QBVAL_ARRAY) {
-        count = array->m_extent;
+    if (array->kind_tag_ == script::kQbvalArray) {
+        count = array->extent_;
         arrays = array;
     }
     for (uint32_t i = 0; i < count; ++i) {
         if (arrays)
-            array = reinterpret_cast<Scripts::CArray*>(arrays->FetchPart(i));
-        if (array->m_kindTag != Scripts::QBVAL_INTEGER)
+            array = reinterpret_cast<script::Array*>(arrays->fetch_part(i));
+        if (array->kind_tag_ != script::kQbvalInteger)
             return 0;
         uint32_t wanted = 0;
-        for (int k = 0; k < static_cast<int>(array->m_extent); ++k) {
-            if (static_cast<int>(array->FetchPart(static_cast<uint32_t>(k))) >= 0)
-                wanted += 1u << (array->FetchPart(static_cast<uint32_t>(k)) & 31);
+        for (int k = 0; k < static_cast<int>(array->extent_); ++k) {
+            if (static_cast<int>(array->fetch_part(static_cast<uint32_t>(k))) >= 0)
+                wanted += 1u << (array->fetch_part(static_cast<uint32_t>(k)) & 31);
         }
-        if ((m_events | wanted) == m_events)
+        if ((events_ | wanted) == events_)
             return 1;
     }
     return 0;
 }
 
 // 0x00434A60
-bool CActivationZoneModule::TriggerNode(const int* events, uint32_t name, Scripts::CArray* nodes, const uint8_t* other)
+bool ActivationZoneModule::get_trigger_node(const int* events, uint32_t name, script::Array* nodes, const uint8_t* other)
 {
-    Scripts::CStruct* node = nullptr;
+    script::Struct* node = nullptr;
     if (!nodes) {
-        node = LevelNodes::FetchVertex(name, false);
+        node = level_nodes::fetch_vertex(name, false);
     } else {
         // (from the last; none named so leaves the first one checked - element 0 -, as the original)
-        for (uint32_t i = nodes->m_extent; i > 0;) {
-            node = reinterpret_cast<Scripts::CStruct*>(nodes->FetchPart(--i));
-            if (LevelNodes::GetNodeName(node) == name)
+        for (uint32_t i = nodes->extent_; i > 0;) {
+            node = reinterpret_cast<script::Struct*>(nodes->fetch_part(--i));
+            if (level_nodes::get_node_name(node) == name)
                 break;
         }
     }
-    Scripts::CStruct* params = nullptr;
+    script::Struct* params = nullptr;
     if (other) {
-        if (Scripts::CStruct* otherNode = LevelNodes::FetchVertex(*reinterpret_cast<const uint32_t*>(other + 0x14), false))
-            otherNode->ReadSubStruct(kParams, &params, 0);
+        if (script::Struct* other_node = level_nodes::fetch_vertex(*reinterpret_cast<const uint32_t*>(other + 0x14), false))
+            other_node->read_sub_struct(kParams, &params, 0);
     }
     // Not original - a trigger face whose object has no node (a level's collision with another level's node array:
     // the front end's SKATE NOW in THPS4's shop had its halfpipe's gap triggers - the user, 2026-10-19) is no
@@ -201,20 +201,20 @@ bool CActivationZoneModule::TriggerNode(const int* events, uint32_t name, Script
     // Original behaviour: the node's TriggerScript read at once, through the null when there's no node (a crash
     // reading address 4):
     //     uint32_t script = 0;
-    //     node->ReadHashValue(kTriggerScript, &script, 0);
+    //     node->read_hash_value(kTriggerScript, &script, 0);
     if (!node) {
         static std::set<uint32_t> s_logged;
         if (s_logged.insert(name).second)
-            Log("trigger: no node named %08X for a trigger face (its collision object) - nothing run", name);
+            get_log("trigger: no node named %08X for a trigger face (its collision object) - nothing run", name);
         return false;
     }
     uint32_t script = 0;
-    node->ReadHashValue(kTriggerScript, &script, 0);
+    node->read_hash_value(kTriggerScript, &script, 0);
     if (!script)
         return false;
-    if (GameModules::Skate::ShouldBeAbsent(node))
+    if (modules::Skate::should_be_absent(node))
         return false;
-    uint32_t& recorded = m_events;
+    uint32_t& recorded = events_;
     recorded = 0;
     if (events[0])
         recorded = 1u << (events[0] & 31);
@@ -222,36 +222,36 @@ bool CActivationZoneModule::TriggerNode(const int* events, uint32_t name, Script
         recorded += 1u << (events[1] & 31);
     if (events[2])
         recorded += 1u << (events[2] & 31);
-    CEntity* object = At<CEntity*>(this, 0x0C);
-    bool permanent = node->HasBareFlag(kPermanent);
-    bool replicateFlag = node->HasBareFlag(kOnlineFlag);
-    object->StartScriptTask(script, static_cast<int>(name), replicateFlag, permanent, params);
+    Entity* object = get_at<Entity*>(this, 0x0C);
+    bool permanent = node->has_bare_flag(kPermanent);
+    bool replicate_flag = node->has_bare_flag(kOnlineFlag);
+    object->start_script_task(script, static_cast<int>(name), replicate_flag, permanent, params);
     return true;
 }
 
 // 0x00434BF0
-bool CActivationZoneModule::ProbeTouchesZone(const int* events, Engine3D::CProbeRay* feeler)
+bool ActivationZoneModule::probe_touches_zone(const int* events, render::ProbeRay* feeler)
 {
-    if (!feeler->m_hit.faceFlag40 || !feeler->m_hit.objectChecksum)
+    if (!feeler->hit_.face_flag40_ || !feeler->hit_.object_checksum_)
         return false;
-    if (feeler->GetTestedOwner()) {
+    if (feeler->get_tested_owner()) {
         // A movable object's face, while it's being tested: through its own nodes.
-        auto* owner = reinterpret_cast<CGameEntity*>(feeler->GetTestedOwner());
-        Scripts::CArray* nodes = NodeArrayOf(owner);
-        uint32_t name = feeler->m_hit.objectChecksum;
-        return TriggerNode(events, name, nodes, reinterpret_cast<const uint8_t*>(feeler->GetTestedOwner()));
+        auto* owner = reinterpret_cast<GameEntity*>(feeler->get_tested_owner());
+        script::Array* nodes = node_array_of(owner);
+        uint32_t name = feeler->hit_.object_checksum_;
+        return get_trigger_node(events, name, nodes, reinterpret_cast<const uint8_t*>(feeler->get_tested_owner()));
     }
-    if (!feeler->HitObjectAlive()) // (which clears the name when the object is gone)
-        return TriggerNode(events, feeler->m_hit.objectChecksum, nullptr, nullptr);
-    if (!feeler->GetHitObject())
+    if (!feeler->hit_object_alive()) // (which clears the name when the object is gone)
+        return get_trigger_node(events, feeler->hit_.object_checksum_, nullptr, nullptr);
+    if (!feeler->get_hit_object())
         return false;
-    Scripts::CArray* nodes = NodeArrayOf(feeler->GetHitObject());
-    uint32_t name = feeler->m_hit.objectChecksum;
-    return TriggerNode(events, name, nodes, reinterpret_cast<const uint8_t*>(feeler->GetHitObject()));
+    script::Array* nodes = node_array_of(feeler->get_hit_object());
+    uint32_t name = feeler->hit_.object_checksum_;
+    return get_trigger_node(events, name, nodes, reinterpret_cast<const uint8_t*>(feeler->get_hit_object()));
 }
 
 // 0x00434CE0
-void CActivationZoneModule::TriggerHits(const int* events, const uint8_t* hits)
+void ActivationZoneModule::trigger_hits(const int* events, const uint8_t* hits)
 {
     const int count = *reinterpret_cast<const int*>(hits + 0xC30);
     auto entry = [hits](int i) { return hits + 0x88 + 0x60 * i; };
@@ -259,42 +259,42 @@ void CActivationZoneModule::TriggerHits(const int* events, const uint8_t* hits)
         if (!entry(i)[4])
             continue;
         uint32_t name = *reinterpret_cast<const uint32_t*>(entry(i));
-        // (the count is read again: TriggerNode may run scripts)
+        // (the count is read again: get_trigger_node may run scripts)
         int total = *reinterpret_cast<const int*>(hits + 0xC30);
         int later = i + 1;
         while (later < total && name != *reinterpret_cast<const uint32_t*>(entry(later)))
             ++later;
         if (later == total)
-            TriggerNode(events, name, nullptr, nullptr);
+            get_trigger_node(events, name, nullptr, nullptr);
     }
 }
 
 // 0x00434D70
-bool __cdecl CActivationZoneModule::FeelerHit(Engine3D::CProbeRay* feeler)
+bool __cdecl ActivationZoneModule::feeler_hit(render::ProbeRay* feeler)
 {
-    auto* component = reinterpret_cast<CActivationZoneModule*>(feeler->m_unknownA8);
-    return component->ProbeTouchesZone(kNoEvents, feeler);
+    auto* component = reinterpret_cast<ActivationZoneModule*>(feeler->unknowna8_);
+    return component->probe_touches_zone(kNoEvents, feeler);
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CActivationZoneModule::Teardown,
-         &GameObjects::CActivationZoneModule::TickFrame,
-         &GameObjects::CActivationZoneModule::ConfigureFromData,
-         Stubs::DoNothing,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
-         &GameObjects::CActivationZoneModule::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::ActivationZoneModule::teardown,
+         &objects::ActivationZoneModule::tick_frame,
+         &objects::ActivationZoneModule::configure_from_data,
+         stubs::do_nothing,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
+         &objects::ActivationZoneModule::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

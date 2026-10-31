@@ -19,39 +19,39 @@
 #include "engine/gfx/shader_slots.h"
 #include "engine/sys/startup_init.h"
 
-namespace Engine3D {
+namespace render {
 
 namespace {
 
-IDirect3DDevice9* InputPort() { return g_d3dDevice; }
-ListKit::KeyMap g_glowTable{ListKit::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
-ListKit::KeyMap& Glows() { return g_glowTable; }
-uint8_t g_glowQueriesInUse[0x400]; // (a byte per query: DrawGlows looks through 0x400)
-float g_glowQuad[16];
+IDirect3DDevice9* input_port() { return g_d3d_device; }
+lists::KeyMap g_glow_table{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
+lists::KeyMap& glows() { return g_glow_table; }
+uint8_t g_glow_queries_in_use[0x400]; // (a byte per query: DrawGlows looks through 0x400)
+float g_glow_quad[16];
 
 // The occlusion queries in use (a byte each).
-uint8_t* QueriesInUse() { return g_glowQueriesInUse; }
+uint8_t* queries_in_use() { return g_glow_queries_in_use; }
 // The quad worked out for the last glow (four positions and colours; nothing draws it).
-float* GlowQuad() { return g_glowQuad; }
+float* glow_quad() { return g_glow_quad; }
 
 // The number of pixels a query saw: 0 when it has the answer, 1 when not yet.
-int QueryResult(uint32_t query, uint32_t* pixels)
+int query_result(uint32_t query, uint32_t* pixels)
 {
-    return OsLayer::GetOcclusionResult(query, reinterpret_cast<DWORD*>(pixels));
+    return os_layer::get_occlusion_result(query, reinterpret_cast<DWORD*>(pixels));
 }
 
-sGlow* NextGlow()
+Glow* next_glow()
 {
-    ListKit::KeyMap& table = Glows();
-    if (!table.StepIterator() || !table.m_iterItem)
+    lists::KeyMap& table = glows();
+    if (!table.step_iterator() || !table.iter_item_)
         return nullptr;
-    return static_cast<sGlow*>(table.m_iterItem->value);
+    return static_cast<Glow*>(table.iter_item_->value);
 }
 
 // The glow's quad of half-size `size` facing the camera (across `u`, up `v`).
-void SetQuad(const sGlow* glow, const float* u, const float* v, float size, uint32_t colour)
+void set_quad(const Glow* glow, const float* u, const float* v, float size, uint32_t colour)
 {
-    float* q = GlowQuad();
+    float* q = glow_quad();
     auto* colours = reinterpret_cast<uint32_t*>(q);
     for (int i = 0; i < 3; ++i) {
         double across = static_cast<double>(u[i]) * size;
@@ -70,13 +70,13 @@ void SetQuad(const sGlow* glow, const float* u, const float* v, float size, uint
 } // namespace
 
 // 0x004DCC70
-void __cdecl UpdateGlows(bool queries)
+void __cdecl update_glows(bool queries)
 {
     // The camera's across and up directions from the view matrix's third column (a, b, c): u = (b*0 - c, c*0 - a*0,
     // a - b*0) and v = u x (a, b, c), each then normalised.
-    double a = g_viewMatrix.row[0].z;
-    double b = g_viewMatrix.row[1].z;
-    double c = g_viewMatrix.row[2].z;
+    double a = g_view_matrix.row[0].z;
+    double b = g_view_matrix.row[1].z;
+    double c = g_view_matrix.row[2].z;
     float u[3], v[3];
     u[0] = static_cast<float>(b * 0.0f - c);
     u[1] = static_cast<float>(c * 0.0f - a * 0.0f);
@@ -93,57 +93,57 @@ void __cdecl UpdateGlows(bool queries)
                 w[i] = static_cast<float>(w[i] * inverse);
         }
     }
-    ListKit::KeyMap& table = Glows();
-    table.m_iterBucket = -1;
-    table.m_iterItem = nullptr;
-    sGlow* glow = NextGlow();
+    lists::KeyMap& table = glows();
+    table.iter_bucket_ = -1;
+    table.iter_item_ = nullptr;
+    Glow* glow = next_glow();
 
     if (queries) {
         // Each glow gets an occlusion query (up to three outstanding).
-        InputPort()->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
-        ChooseBlendMode(0);
-        SetTexture(0, nullptr);
-        SetPixelShader(nullptr, nullptr);
-        InputPort()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG2);
-        InputPort()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
-        InputPort()->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
-        SetVertexFormat(D3DFVF_XYZ | D3DFVF_DIFFUSE);
-        for (; glow; glow = NextGlow()) {
-            if (glow->queryCount >= 3)
+        input_port()->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
+        choose_blend_mode(0);
+        set_texture(0, nullptr);
+        set_pixel_shader(nullptr, nullptr);
+        input_port()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG2);
+        input_port()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
+        input_port()->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
+        set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
+        for (; glow; glow = next_glow()) {
+            if (glow->query_count_ >= 3)
                 continue;
             uint32_t query = 0;
             for (; query < 0x400; ++query) {
-                if (!QueriesInUse()[query]) {
-                    QueriesInUse()[query] = 1;
+                if (!queries_in_use()[query]) {
+                    queries_in_use()[query] = 1;
                     break;
                 }
             }
             if (query == 0x400)
                 query = 0x3FF; // (none free: the last, not marked)
-            glow->queries[glow->queryCount++] = query;
+            glow->queries[glow->query_count_++] = query;
             if (query > 0)
-                SetQuad(glow, u, v, glow->querySize, 0xFFFFFFFF);
+                set_quad(glow, u, v, glow->query_size_, 0xFFFFFFFF);
         }
-        InputPort()->SetRenderState(D3DRS_COLORWRITEENABLE, 0xF);
-        InputPort()->SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
+        input_port()->SetRenderState(D3DRS_COLORWRITEENABLE, 0xF);
+        input_port()->SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
         return;
     }
 
     // Each glow grows towards its size while its queries see it, and fades otherwise.
-    ChooseBlendMode(5);
-    SetPixelShader(g_pixelShaders[kPixelShader94C], nullptr);
-    SetVertexFormat(D3DFVF_XYZ | D3DFVF_DIFFUSE);
-    for (; glow; glow = NextGlow()) {
+    choose_blend_mode(5);
+    set_pixel_shader(g_pixel_shaders[kPixelShader94c], nullptr);
+    set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
+    for (; glow; glow = next_glow()) {
         bool seen = false;
         if (!g_radeon8500) { // (not on a Radeon 8500)
             uint32_t pixels;
-            int result = QueryResult(glow->queries[0], &pixels);
+            int result = query_result(glow->queries[0], &pixels);
             if (result == 0) {
-                QueriesInUse()[glow->queries[0]] = 0;
+                queries_in_use()[glow->queries[0]] = 0;
                 glow->queries[0] = glow->queries[1];
                 glow->queries[1] = glow->queries[2];
                 glow->queries[2] = glow->queries[3];
-                --glow->queryCount;
+                --glow->query_count_;
                 glow->queries[3] = 0;
                 glow->pixels = pixels;
                 seen = pixels != 0;
@@ -153,21 +153,21 @@ void __cdecl UpdateGlows(bool queries)
         }
         if (seen)
             glow->size = static_cast<float>(
-                (static_cast<double>(glow->maxSize) - glow->size) * glow->rate + glow->size);
+                (static_cast<double>(glow->max_size_) - glow->size) * glow->rate + glow->size);
         else
             glow->size = static_cast<float>(glow->size - static_cast<double>(glow->rate) * glow->size);
         if (glow->size > 0.0f)
-            SetQuad(glow, u, v, glow->size, 0x40FFFFFF);
+            set_quad(glow, u, v, glow->size, 0x40FFFFFF);
     }
-    InputPort()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
-    InputPort()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
+    input_port()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
+    input_port()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
 }
 
 } // namespace Nx
 
-namespace Engine3D {
+namespace render {
 
 // 0x00640E10 (a static initialiser): the glows' table, 256 buckets.
-void ConstructGlowTable() { new (&g_glowTable) ListKit::KeyMap(8); }
+void construct_glow_table() { new (&g_glow_table) lists::KeyMap(8); }
 
 } // namespace Nx

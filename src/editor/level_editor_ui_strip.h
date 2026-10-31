@@ -16,7 +16,7 @@
 //
 // Only ImGui's own API and plain state here: the UI fills a State from the editor and its modules and applies the
 // Events; both can be laid out headless at any window size and scale.
-namespace MenuSystem::LevelEditor::UiStrip {
+namespace frontend::level_editor::ui_strip {
 
 // --- the pure placement ----------------------------------------------------------------------------------------------
 
@@ -31,14 +31,14 @@ struct Plan {
     std::vector<bool> shown;
     std::vector<float> x; // (each shown slot's left edge)
     bool overflow = false;
-    float overflowX = 0.0f;
+    float overflow_x_ = 0.0f;
 };
 // The slots placed between `left` and `right`: left-hand ones from the left, right-hand ones against the right end (the
 // overflow button, when anything is hidden, at the very end). Nothing overlaps; whatever doesn't fit is hidden.
-Plan Fit(const std::vector<Bay>& slots, float left, float right, float overflowWidth, float overflowGap);
+Plan get_fit(const std::vector<Bay>& slots, float left, float right, float overflow_width, float overflow_gap);
 
-// `text` cut to fit `maxWidth` pixels in the current font, ending in "…" when cut ("" when not even that fits).
-std::string Elide(const std::string& text, float maxWidth);
+// `text` cut to fit `max_width` pixels in the current font, ending in "…" when cut ("" when not even that fits).
+std::string elide(const std::string& text, float max_width);
 
 // --- the self-test's view of what was drawn -------------------------------------------------------------------------
 
@@ -47,9 +47,9 @@ struct Cuboid {
     std::string what;
 };
 // While set, every strip control, menu bar title and status bar part drawn is noted here (its item rectangle).
-void SetRecorder(std::vector<Cuboid>* boxes);
-void Note(const char* what); // (the last item's rectangle)
-void NoteRect(float x0, float y0, float x1, float y1, const char* what);
+void set_recorder(std::vector<Cuboid>* boxes);
+void get_note(const char* what); // (the last item's rectangle)
+void note_rect(float x0, float y0, float x1, float y1, const char* what);
 
 // --- the tool strip -------------------------------------------------------------------------------------------------
 
@@ -60,17 +60,17 @@ struct State {
     bool snap = false;            // Snap on
     float grid = 25.0f;           // the grid's size
     std::vector<float> grids;     // the sizes offered
-    uint32_t pickFilter = 7;      // Picking::kNodes | kObjects | kScenery
+    uint32_t pick_filter_ = 7;      // Picking::kNodes | kObjects | kScenery
     std::string level;            // the edited copy's title
     bool saved = false;           // its layout saved
     bool unsaved = false;         // unsaved changes
     bool budget = false;          // the meter shown (a level up)
-    float budgetFill = 0.0f;      // 0..1
-    uint32_t budgetArgb = 0;      // its level's colour
+    float budget_fill_ = 0.0f;      // 0..1
+    uint32_t budget_argb_ = 0;      // its level's colour
     int errors = 0, warnings = 0; // the Problems button's count
     int hidden = 0;               // pieces hidden while editing (Show All)
     bool simulating = false;      // Simulate running (Stop)
-    std::function<std::string(const char* id)> keyOf; // an action's keys as bound ("" none)
+    std::function<std::string(const char* id)> key_of_; // an action's keys as bound ("" none)
 };
 
 struct Occurrence {
@@ -90,19 +90,19 @@ struct Occurrence {
 };
 struct Output {
     std::vector<Occurrence> events;
-    bool budgetHovered = false; // (the UI draws the meter's tooltip)
-    bool levelHovered = false;
+    bool budget_hovered_ = false; // (the UI draws the meter's tooltip)
+    bool level_hovered_ = false;
 };
 
 // The strip's controls placed and drawn in the current window, across [x, x + width] at y (screen pixels). `scale`: the
 // UI's. Returns what was clicked.
-void Blit(const State& state, float x, float y, float width, float scale, Output* out);
+void blit(const State& state, float x, float y, float width, float scale, Output* out);
 
 // --- the status bar ---------------------------------------------------------------------------------------------------
 
 // One row across [x, x + width] at y: the message (or else the key hints - level_editor_hints.h) on the left, `right`
 // against the right end; both elided, never overlapping.
-void StatusRow(const std::string& message, const std::vector<std::pair<std::string, std::string>>& hints,
-               const std::string& right, float x, float y, float width, const Ux8::Fonts& fonts);
+void status_row(const std::string& message, const std::vector<std::pair<std::string, std::string>>& hints,
+               const std::string& right, float x, float y, float width, const ux8::Fonts& fonts);
 
-} // namespace MenuSystem::LevelEditor::UiStrip
+} // namespace MenuSystem::level_editor::ui_strip

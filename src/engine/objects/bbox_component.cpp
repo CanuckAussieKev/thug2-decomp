@@ -1,4 +1,4 @@
-// The bounding box component (GameObjects::CBBoxComponent): Obj_ObjectInRadius, Obj_ObjectInRadiusOfNode and
+// The bounding box component (GameObjects::CbBoxComponent): Obj_ObjectInRadius, Obj_ObjectInRadiusOfNode and
 // Obj_ObjectInRect. From the disassembly of 0x0041A810-0x0041B274. The x87 roundings are kept: values the original
 // stores are rounded to float, the ones it keeps on the FPU stack are worked in double.
 
@@ -24,7 +24,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/entity_hub.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
@@ -55,195 +55,195 @@ constexpr float kRadiansPerDegree = 0.0174532924f;   // 0x00645464
 constexpr float kHalf = 0.5f;                        // 0x006453BC
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
-void MatrixMultiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
+void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
 {
-    D3dx::MatrixMultiply(out, a, b);
+    d3dx::matrix_multiply(out, a, b);
 }
 
 // A manager's object list (its vtable +0x18).
-MemSys::ListNode* ManagerObjectList(CObjectHubBase* manager)
+memory::ListNode* manager_object_list(ObjectHubBase* manager)
 {
-    return reinterpret_cast<MemSys::ListNode*(__thiscall*)(CObjectHubBase*)>(manager->m_vtable[6])(manager);
+    return reinterpret_cast<memory::ListNode*(__thiscall*)(ObjectHubBase*)>(manager->vtable_[6])(manager);
 }
 
-// Whether `object` is nearer than the square root of `reachSquared` to `point` (or to the position of `self`'s object).
+// Whether `object` is nearer than the square root of `reach_squared` to `point` (or to the position of `self`'s object).
 // The squares summed z, y, then x on the FPU stack, compared unrounded.
-bool IsNear(const CGameEntity* object, const CGameEntity* self, float reachSquared, const Maths::Vec4* point)
+bool is_near(const GameEntity* object, const GameEntity* self, float reach_squared, const maths::Vec4* point)
 {
-    float x = self->m_atPoint.x;
-    float y = self->m_atPoint.y;
-    float z = self->m_atPoint.z;
+    float x = self->at_point_.x;
+    float y = self->at_point_.y;
+    float z = self->at_point_.z;
     if (point) {
         x = point->x;
         y = point->y;
         z = point->z;
     }
-    double dx = static_cast<double>(object->m_atPoint.x) - x;
-    double dy = static_cast<double>(object->m_atPoint.y) - y;
-    double dz = static_cast<double>(object->m_atPoint.z) - z;
-    return dz * dz + dy * dy + dx * dx < reachSquared;
+    double dx = static_cast<double>(object->at_point_.x) - x;
+    double dy = static_cast<double>(object->at_point_.y) - y;
+    double dz = static_cast<double>(object->at_point_.z) - z;
+    return dz * dz + dy * dy + dx * dx < reach_squared;
 }
 
 } // namespace
 
 // 0x0041ADC0
-CObjectModule* __cdecl CBBoxComponent::Fabricate()
+ObjectModule* __cdecl CbBoxComponent::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CBBoxComponent));
-    return memory ? static_cast<CBBoxComponent*>(memory)->MakeNew() : nullptr;
+    void* memory = memory::alloc_zeroed(sizeof(CbBoxComponent));
+    return memory ? static_cast<CbBoxComponent*>(memory)->make_new() : nullptr;
 }
 
 // 0x0041AAD0
-CBBoxComponent* CBBoxComponent::MakeNew()
+CbBoxComponent* CbBoxComponent::make_new()
 {
-    CObjectModule::MakeNew();
-    m_vtable = kVtable;
-    m_kindTag = kType;
-    m_boxMax = {10.0f, 10.0f, 10.0f, 1.0f};
-    m_boxMin = {-10.0f, -10.0f, -10.0f, 1.0f};
-    m_shift = {0.0f, 0.0f, 0.0f, 1.0f};
+    ObjectModule::make_new();
+    vtable_ = kVtable;
+    kind_tag_ = kType;
+    box_max_ = {10.0f, 10.0f, 10.0f, 1.0f};
+    box_min_ = {-10.0f, -10.0f, -10.0f, 1.0f};
+    shift_ = {0.0f, 0.0f, 0.0f, 1.0f};
     return this;
 }
 
 // 0x0041A810
-void CBBoxComponent::DestroyBody()
+void CbBoxComponent::destroy_body()
 {
-    m_vtable = kVtable;
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    ObjectModule::destroy_body();
 }
 
 // 0x0041A880
-CBBoxComponent* CBBoxComponent::Teardown(unsigned int flags)
+CbBoxComponent* CbBoxComponent::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x0041A950
-void CBBoxComponent::InitRect(Rect2* rect, Scripts::CStruct* params)
+void CbBoxComponent::init_rect(Rect2* rect, script::Struct* params)
 {
-    rect->m_computed = false;
-    rect->m_angle = 0.0f;
-    rect->m_radiusComputed = false;
-    rect->m_shift = m_shift;
-    rect->m_separation = 0.0f;
-    rect->m_span = 0.0f;
-    rect->m_levelY = 0.0f;
-    Maths::Vec4 offset;
+    rect->computed_ = false;
+    rect->angle_ = 0.0f;
+    rect->radius_computed_ = false;
+    rect->shift_ = shift_;
+    rect->separation_ = 0.0f;
+    rect->span_ = 0.0f;
+    rect->level_y_ = 0.0f;
+    maths::Vec4 offset;
     offset.w = 0.0f; // (x, y and z uninitialised in the original until found)
-    if (params->FetchVec(kOffset, reinterpret_cast<Scripts::VectorValue*>(&offset), 0)) {
-        offset.FeetAsInches();
-        rect->m_shift.x = offset.x + rect->m_shift.x;
-        rect->m_shift.y = offset.y + rect->m_shift.y;
-        rect->m_shift.z = offset.z + rect->m_shift.z;
-        rect->m_shift.w = offset.w + rect->m_shift.w;
+    if (params->fetch_vec(kOffset, reinterpret_cast<script::VectorValue*>(&offset), 0)) {
+        offset.feet_as_inches();
+        rect->shift_.x = offset.x + rect->shift_.x;
+        rect->shift_.y = offset.y + rect->shift_.y;
+        rect->shift_.z = offset.z + rect->shift_.z;
+        rect->shift_.w = offset.w + rect->shift_.w;
     }
-    if (params->FetchFloat(kAngle, &rect->m_angle, 0))
-        rect->m_angle = rect->m_angle * kRadiansPerDegree;
-    if (params->FetchFloat(kHeight, &rect->m_levelY, 0))
-        rect->m_levelY = rect->m_levelY * kTwelveInchScale;
-    if (params->FetchFloat(kDist, &rect->m_separation, 0))
-        rect->m_separation = rect->m_separation * kTwelveInchScale;
-    if (params->FetchFloat(kWidth, &rect->m_span, 0))
-        rect->m_span = rect->m_span * kTwelveInchScale;
+    if (params->fetch_float(kAngle, &rect->angle_, 0))
+        rect->angle_ = rect->angle_ * kRadiansPerDegree;
+    if (params->fetch_float(kHeight, &rect->level_y_, 0))
+        rect->level_y_ = rect->level_y_ * kTwelveInchScale;
+    if (params->fetch_float(kDist, &rect->separation_, 0))
+        rect->separation_ = rect->separation_ * kTwelveInchScale;
+    if (params->fetch_float(kWidth, &rect->span_, 0))
+        rect->span_ = rect->span_ * kTwelveInchScale;
 }
 
 // 0x0041AB20
-void CBBoxComponent::ComputeRect(Rect2* rect)
+void CbBoxComponent::compute_rect(Rect2* rect)
 {
-    if (rect->m_computed)
+    if (rect->computed_)
         return;
-    rect->m_basisFrame = m_entity->m_basisFrame;
-    if (rect->m_angle != 0.0f) {
-        Maths::Mat4 rotation;
-        MatrixMultiply(&rect->m_basisFrame, &Maths::MakeYawMatrix(rotation, rect->m_angle), &rect->m_basisFrame);
-        rect->m_basisFrame = rect->m_basisFrame; // (the original copies it onto itself)
+    rect->basis_frame_ = entity_->basis_frame_;
+    if (rect->angle_ != 0.0f) {
+        maths::Mat4 rotation;
+        matrix_multiply(&rect->basis_frame_, &maths::make_yaw_matrix(rotation, rect->angle_), &rect->basis_frame_);
+        rect->basis_frame_ = rect->basis_frame_; // (the original copies it onto itself)
     }
-    rect->m_basisFrame.Upend();
-    rect->m_upperLimit.w = 1.0f;
-    rect->m_upperLimit.x = rect->m_span * kHalf;
-    rect->m_upperLimit.y = rect->m_levelY * kHalf;
-    rect->m_upperLimit.z = rect->m_separation;
-    rect->m_lowerLimit.x = -rect->m_upperLimit.x;
-    rect->m_lowerLimit.y = -rect->m_upperLimit.y;
-    rect->m_lowerLimit.w = -rect->m_upperLimit.w;
-    rect->m_lowerLimit.z = 0.0f; // (the original first stores -m_upperLimit.z there)
-    rect->m_upperLimit.x = rect->m_upperLimit.x + rect->m_shift.x;
-    rect->m_upperLimit.y = rect->m_shift.y + rect->m_upperLimit.y;
-    rect->m_upperLimit.z = rect->m_shift.z + rect->m_upperLimit.z;
-    rect->m_upperLimit.w = rect->m_shift.w + rect->m_upperLimit.w;
-    rect->m_lowerLimit.x = rect->m_lowerLimit.x + rect->m_shift.x;
-    rect->m_lowerLimit.y = rect->m_shift.y + rect->m_lowerLimit.y;
-    rect->m_lowerLimit.z = rect->m_shift.z + rect->m_lowerLimit.z;
-    rect->m_lowerLimit.w = rect->m_shift.w + rect->m_lowerLimit.w;
-    rect->m_computed = true;
+    rect->basis_frame_.upend();
+    rect->upper_limit_.w = 1.0f;
+    rect->upper_limit_.x = rect->span_ * kHalf;
+    rect->upper_limit_.y = rect->level_y_ * kHalf;
+    rect->upper_limit_.z = rect->separation_;
+    rect->lower_limit_.x = -rect->upper_limit_.x;
+    rect->lower_limit_.y = -rect->upper_limit_.y;
+    rect->lower_limit_.w = -rect->upper_limit_.w;
+    rect->lower_limit_.z = 0.0f; // (the original first stores -upper_limit_.z there)
+    rect->upper_limit_.x = rect->upper_limit_.x + rect->shift_.x;
+    rect->upper_limit_.y = rect->shift_.y + rect->upper_limit_.y;
+    rect->upper_limit_.z = rect->shift_.z + rect->upper_limit_.z;
+    rect->upper_limit_.w = rect->shift_.w + rect->upper_limit_.w;
+    rect->lower_limit_.x = rect->lower_limit_.x + rect->shift_.x;
+    rect->lower_limit_.y = rect->shift_.y + rect->lower_limit_.y;
+    rect->lower_limit_.z = rect->shift_.z + rect->lower_limit_.z;
+    rect->lower_limit_.w = rect->shift_.w + rect->lower_limit_.w;
+    rect->computed_ = true;
 }
 
 // 0x0041A8B0
-double RectRadiusSqr(CBBoxComponent::Rect2* rect)
+double rect_radius_sqr(CbBoxComponent::Rect2* rect)
 {
-    if (rect->m_radiusComputed)
-        return rect->m_reachSquared;
-    float size = std::fabs(rect->m_separation);
-    if (std::fabs(rect->m_levelY) > size)
-        size = std::fabs(rect->m_levelY);
-    if (std::fabs(rect->m_span) > size)
-        size = std::fabs(rect->m_span);
-    float offset = std::fabs(rect->m_shift.z);
-    if (std::fabs(rect->m_shift.y) > offset)
-        offset = std::fabs(rect->m_shift.y);
-    if (std::fabs(rect->m_shift.x) > offset)
-        offset = std::fabs(rect->m_shift.x);
-    rect->m_radiusComputed = true;
+    if (rect->radius_computed_)
+        return rect->reach_squared_;
+    float size = std::fabs(rect->separation_);
+    if (std::fabs(rect->level_y_) > size)
+        size = std::fabs(rect->level_y_);
+    if (std::fabs(rect->span_) > size)
+        size = std::fabs(rect->span_);
+    float offset = std::fabs(rect->shift_.z);
+    if (std::fabs(rect->shift_.y) > offset)
+        offset = std::fabs(rect->shift_.y);
+    if (std::fabs(rect->shift_.x) > offset)
+        offset = std::fabs(rect->shift_.x);
+    rect->radius_computed_ = true;
     double sum = static_cast<double>(size) + offset;
     double square = sum * sum;
-    rect->m_reachSquared = static_cast<float>(square);
+    rect->reach_squared_ = static_cast<float>(square);
     return square;
 }
 
 // 0x0041AC40
-bool CBBoxComponent::IsInRect(CGameEntity* object, Rect2* rect)
+bool CbBoxComponent::is_in_rect(GameEntity* object, Rect2* rect)
 {
-    float offsetX = rect->m_shift.x;
-    float offsetY = rect->m_shift.y;
-    float offsetZ = rect->m_shift.z;
-    ComputeRect(rect);
+    float offset_x = rect->shift_.x;
+    float offset_y = rect->shift_.y;
+    float offset_z = rect->shift_.z;
+    compute_rect(rect);
     // From the box's middle (rounded where the original stores: x, the middle's z, the sum).
-    const Maths::Vec4& self = m_entity->m_atPoint;
-    float dx = static_cast<float>((static_cast<double>(offsetX) + object->m_atPoint.x) - self.x);
-    double dy = (static_cast<double>(offsetY) + object->m_atPoint.y) - self.y;
-    float middleZ = static_cast<float>(static_cast<double>(offsetZ) + object->m_atPoint.z);
-    double dz = static_cast<double>(middleZ) - self.z;
-    float distanceSqr = static_cast<float>(dz * dz + dy * dy + static_cast<double>(dx) * dx);
-    if (RectRadiusSqr(rect) < distanceSqr)
+    const maths::Vec4& self = entity_->at_point_;
+    float dx = static_cast<float>((static_cast<double>(offset_x) + object->at_point_.x) - self.x);
+    double dy = (static_cast<double>(offset_y) + object->at_point_.y) - self.y;
+    float middle_z = static_cast<float>(static_cast<double>(offset_z) + object->at_point_.z);
+    double dz = static_cast<double>(middle_z) - self.z;
+    float distance_sqr = static_cast<float>(dz * dz + dy * dy + static_cast<double>(dx) * dx);
+    if (rect_radius_sqr(rect) < distance_sqr)
         return false;
     // The middle of its box in the box's frame.
-    Maths::Vec4 point = object->m_atPoint;
-    auto* query = static_cast<CBBoxComponent*>(object->FetchModule(kType));
-    point.y = static_cast<float>((static_cast<double>(query->m_boxMax.y) - query->m_boxMin.y) * kHalf + point.y);
+    maths::Vec4 point = object->at_point_;
+    auto* query = static_cast<CbBoxComponent*>(object->fetch_module(kType));
+    point.y = static_cast<float>((static_cast<double>(query->box_max_.y) - query->box_min_.y) * kHalf + point.y);
     point.x = point.x - self.x;
     point.y = point.y - self.y;
     point.z = point.z - self.z;
     point.w = point.w - self.w;
-    Maths::Vec4 local;
-    point = rect->m_basisFrame.Xform(local, point);
-    return Maths::PointInBox(&point, &rect->m_upperLimit, &rect->m_lowerLimit);
+    maths::Vec4 local;
+    point = rect->basis_frame_.xform(local, point);
+    return maths::point_in_box(&point, &rect->upper_limit_, &rect->lower_limit_);
 }
 
 // 0x0041AE20
-bool CBBoxComponent::AnySkaterNear(Rect2* rect, float reachSquared, const Maths::Vec4* point)
+bool CbBoxComponent::any_skater_near(Rect2* rect, float reach_squared, const maths::Vec4* point)
 {
-    int count = GameModules::Skate::Sole()->CountRiders();
+    int count = modules::Skate::sole()->count_riders();
     for (int i = 0; i < count; ++i) {
-        CGameEntity* skater = GameModules::Skate::Sole()->GetRiderAt(i);
-        if (skater == m_entity)
+        GameEntity* skater = modules::Skate::sole()->get_rider_at(i);
+        if (skater == entity_)
             continue;
         if (rect) {
-            if (IsInRect(skater, rect))
+            if (is_in_rect(skater, rect))
                 return true;
-        } else if (IsNear(skater, m_entity, reachSquared, point)) {
+        } else if (is_near(skater, entity_, reach_squared, point)) {
             return true;
         }
     }
@@ -251,39 +251,39 @@ bool CBBoxComponent::AnySkaterNear(Rect2* rect, float reachSquared, const Maths:
 }
 
 // 0x0041AF10
-bool CBBoxComponent::AnyObjectNear(Scripts::CStruct* params, Scripts::CScript* script, float reachSquared, Rect2* rect,
-                                          uint32_t type, const Maths::Vec4* point)
+bool CbBoxComponent::any_object_near(script::Struct* params, script::Script* script, float reach_squared, Rect2* rect,
+                                          uint32_t type, const maths::Vec4* point)
 {
     (void)params;
     (void)script;
-    uint32_t objectType;
+    uint32_t object_type;
     switch (type) {
     case kSkater:
-        return AnySkaterNear(rect, reachSquared, point);
+        return any_skater_near(rect, reach_squared, point);
     case kPed:
-        objectType = kObjectTypePed;
+        object_type = kObjectTypePed;
         break;
     case kGameObj:
-        objectType = kObjectTypeGameObj;
+        object_type = kObjectTypeGameObj;
         break;
     case kCar:
-        objectType = kObjectTypeCar;
+        object_type = kObjectTypeCar;
         break;
     default:
         return false;
     }
-    CObjectSearch search;
-    search.m_vtable = g_objectSearchVtable;
-    search.m_listLink = nullptr;
-    for (auto* object = static_cast<CGameEntity*>(
-             search.FirstItemOfType(ManagerObjectList(m_entity->m_parkOwner), objectType));
-         object; object = static_cast<CGameEntity*>(search.NextItemOfType())) {
-        if (object == m_entity)
+    ObjectSearch search;
+    search.vtable_ = kObjectSearchVtable;
+    search.list_link_ = nullptr;
+    for (auto* object = static_cast<GameEntity*>(
+             search.first_item_of_type(manager_object_list(entity_->park_owner_), object_type));
+         object; object = static_cast<GameEntity*>(search.next_item_of_type())) {
+        if (object == entity_)
             continue;
         if (rect) {
-            if (IsInRect(object, rect))
+            if (is_in_rect(object, rect))
                 return true;
-        } else if (IsNear(object, m_entity, reachSquared, point)) {
+        } else if (is_near(object, entity_, reach_squared, point)) {
             return true;
         }
     }
@@ -291,23 +291,23 @@ bool CBBoxComponent::AnyObjectNear(Scripts::CStruct* params, Scripts::CScript* s
 }
 
 // 0x0041B0A0
-bool CBBoxComponent::QueryObjects(Scripts::CStruct* params, Scripts::CScript* script, Rect2* rect,
-                                         const Maths::Vec4* point)
+bool CbBoxComponent::query_objects(script::Struct* params, script::Script* script, Rect2* rect,
+                                         const maths::Vec4* point)
 {
-    float reachSquared = 0.0f;
+    float reach_squared = 0.0f;
     if (!rect) {
-        if (!params->FetchFloat(kRadius, &reachSquared, 0))
+        if (!params->fetch_float(kRadius, &reach_squared, 0))
             return false;
-        double radius = static_cast<double>(reachSquared) * kTwelveInchScale;
-        reachSquared = static_cast<float>(radius * radius);
+        double radius = static_cast<double>(reach_squared) * kTwelveInchScale;
+        reach_squared = static_cast<float>(radius * radius);
     }
     uint32_t type;
-    if (params->ReadHashValue(kTypeParam, &type, 0))
-        return AnyObjectNear(params, script, reachSquared, rect, type, point);
-    Scripts::CArray* types = nullptr;
-    if (params->FetchList(kTypeParam, &types, 1)) {
-        for (uint32_t i = 0; i < types->m_extent; ++i) {
-            if (AnyObjectNear(params, script, reachSquared, rect, types->FetchPart(i), point))
+    if (params->read_hash_value(kTypeParam, &type, 0))
+        return any_object_near(params, script, reach_squared, rect, type, point);
+    script::Array* types = nullptr;
+    if (params->fetch_list(kTypeParam, &types, 1)) {
+        for (uint32_t i = 0; i < types->extent_; ++i) {
+            if (any_object_near(params, script, reach_squared, rect, types->fetch_part(i), point))
                 return true;
         }
     }
@@ -315,22 +315,22 @@ bool CBBoxComponent::QueryObjects(Scripts::CStruct* params, Scripts::CScript* sc
 }
 
 // 0x0041B1A0
-int CBBoxComponent::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script)
+int CbBoxComponent::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
 {
     Rect2 rect;
-    Maths::Vec4 position;
+    maths::Vec4 position;
     switch (name) {
     case kObjObjectInRect:
-        InitRect(&rect, params);
-        return QueryObjects(params, script, &rect, nullptr) ? 1 : 0;
+        init_rect(&rect, params);
+        return query_objects(params, script, &rect, nullptr) ? 1 : 0;
     case kObjObjectInRadius:
-        return QueryObjects(params, script, nullptr, nullptr) ? 1 : 0;
+        return query_objects(params, script, nullptr, nullptr) ? 1 : 0;
     case kObjObjectInRadiusOfNode: {
         uint32_t node;
-        if (!params->ReadHashValue(kNode, &node, 0))
+        if (!params->read_hash_value(kNode, &node, 0))
             return 0;
-        LevelNodes::FetchPlace(node, &position);
-        return QueryObjects(params, script, nullptr, &position) ? 1 : 0;
+        level_nodes::fetch_place(node, &position);
+        return query_objects(params, script, nullptr, &position) ? 1 : 0;
     }
     default:
         return 2;
@@ -339,30 +339,30 @@ int CBBoxComponent::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, 
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CBBoxComponent::Teardown,
-         &GameObjects::ComponentWithoutUpdate::TickFrame,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
-         &GameObjects::CBBoxComponent::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::CbBoxComponent::teardown,
+         &objects::ComponentWithoutUpdate::tick_frame,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
+         &objects::CbBoxComponent::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 
-static VtableSlot g_objectSearchVtable_slots[] = {&GameObjects::CObjectSearch::Teardown};
-void** const g_objectSearchVtable = reinterpret_cast<void**>(g_objectSearchVtable_slots);
+static VtableSlot g_object_search_vtable_slots[] = {&objects::ObjectSearch::teardown};
+void** const kObjectSearchVtable = reinterpret_cast<void**>(g_object_search_vtable_slots);
 
 } // namespace Obj

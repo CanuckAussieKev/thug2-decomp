@@ -1,4 +1,4 @@
-// An edited goal to and from script structures, and its points dropped to the ground (ParkEditing::CEditedGoal): see
+// An edited goal to and from script structures, and its points dropped to the ground (park_editing::EditedGoal): see
 // goal_editor.h. From the disassembly of 0x004E93D0-0x004EB7E2.
 
 #include <cstdint>
@@ -17,10 +17,10 @@
 
 #pragma warning(disable : 4996) // (strcpy: the original's inline copies of the texts)
 
-namespace ParkEditing {
+namespace park_editing {
 
-char g_createdGoalName[24];
-char g_goalIoNameBuffer[100];
+char g_created_goal_name[24];
+char g_goal_io_name_buffer[100];
 
 namespace {
 
@@ -28,288 +28,288 @@ constexpr float kDropHeight = 10000.0f; // 0x0064B308
 constexpr uint32_t kStructureArray = 10, kChecksumArray = 13, kIntegerArray = 1;
 
 template <typename... Args>
-int Sprintf(char* out, const char* format, Args... args)
+int get_sprintf(char* out, const char* format, Args... args)
 {
-    return Crt::Sprintf(out, format, args...);
+    return crt::get_sprintf(out, format, args...);
 }
 
-char* CreatedGoalName() { return g_createdGoalName; } // the shared CreatedGoal<n> buffer
+char* created_goal_name() { return g_created_goal_name; } // the shared CreatedGoal<n> buffer
 
-Scripts::CStruct* SpawnParamTable()
+script::Struct* spawn_param_table()
 {
-    Scripts::CStruct* structure = Scripts::SpawnParamBag();
-    return structure ? structure->PrepareAll() : nullptr;
+    script::Struct* structure = script::spawn_param_bag();
+    return structure ? structure->prepare_all() : nullptr;
 }
-Scripts::CArray* NewArrayOf(uint32_t size, uint32_t type)
+script::Array* new_array_of(uint32_t size, uint32_t type)
 {
-    Scripts::CArray* array = Scripts::AllocScriptArray();
-    array = array ? array->PrepareAll() : nullptr;
-    array->ConfigureSizeKind(size, static_cast<Scripts::EQbValueKind>(type));
+    script::Array* array = script::alloc_script_array();
+    array = array ? array->prepare_all() : nullptr;
+    array->configure_size_kind(size, static_cast<script::QbValueKind>(type));
     return array;
 }
-Scripts::CStruct* StructureElement(Scripts::CArray* array, uint32_t index)
+script::Struct* structure_element(script::Array* array, uint32_t index)
 {
-    return reinterpret_cast<Scripts::CStruct*>(array->FetchPart(index));
+    return reinterpret_cast<script::Struct*>(array->fetch_part(index));
 }
 
 } // namespace
 
 // 0x004E93D0
-void CEditedGoal::DropPointToGround(int index)
+void EditedGoal::drop_point_to_ground(int index)
 {
-    Maths::Vec4& pos = m_pathVertices[index].pos;
-    Maths::Vec4 start = {pos.x, pos.y + kDropHeight, pos.z, pos.w};
-    Maths::Vec4 end = {pos.x, pos.y - kDropHeight, pos.z, pos.w};
-    Engine3D::CProbeRay feeler;
-    feeler.MakeNew();
-    feeler.ChangeOrigin(&start);
-    feeler.ChangeFinish(&end);
-    if (!feeler.GetHitShape(true, false)) {
+    maths::Vec4& pos = path_vertices_[index].pos;
+    maths::Vec4 start = {pos.x, pos.y + kDropHeight, pos.z, pos.w};
+    maths::Vec4 end = {pos.x, pos.y - kDropHeight, pos.z, pos.w};
+    render::ProbeRay feeler;
+    feeler.make_new();
+    feeler.change_origin(&start);
+    feeler.change_finish(&end);
+    if (!feeler.get_hit_shape(true, false)) {
         // Missed: again from higher up.
         start.y = start.y + kDropHeight;
-        feeler.ChangeOrigin(&start);
-        feeler.ChangeFinish(&end);
-        if (!feeler.GetHitShape(true, false))
+        feeler.change_origin(&start);
+        feeler.change_finish(&end);
+        if (!feeler.get_hit_shape(true, false))
             return;
     }
-    pos = feeler.m_contactPos;
+    pos = feeler.contact_pos_;
 }
 
 // 0x004E9590
-void CEditedGoal::PlacePointsOnGround()
+void EditedGoal::place_points_on_ground()
 {
-    char* name = g_goalIoNameBuffer;
-    for (int i = 0; i < m_vertexTotal; ++i) {
-        DropPointToGround(i);
-        Scripts::CStruct params;
-        params.PrepareAll();
+    char* name = g_goal_io_name_buffer;
+    for (int i = 0; i < vertex_total_; ++i) {
+        drop_point_to_ground(i);
+        script::Struct params;
+        params.prepare_all();
         uint32_t node = 0;
         if (i == 0) {
-            Sprintf(name, "TRG_EditedGoal%d_Pro", m_levelGoalNumber);
-            node = Checksums::HashFromText(name);
+            get_sprintf(name, "TRG_EditedGoal%d_Pro", level_goal_number_);
+            node = checksums::hash_from_text(name);
         } else if (i > 1) {
-            Sprintf(name, "TRG_EditedGoal%d_Object_%d", m_levelGoalNumber, i - 2);
-            node = Checksums::HashFromText(name);
+            get_sprintf(name, "TRG_EditedGoal%d_Object_%d", level_goal_number_, i - 2);
+            node = checksums::hash_from_text(name);
         }
-        params.PutNameKey("Name", node);
-        const EditedGoalPoint& point = m_pathVertices[i];
-        params.PutVec3("Pos", point.pos.x, point.height + point.pos.y, point.pos.z);
-        Scripts::LaunchScript(0x79582240, &params, nullptr, false, nullptr);
-        params.Clear();
+        params.put_name_key("Name", node);
+        const EditedGoalPoint& point = path_vertices_[i];
+        params.put_vec3("Pos", point.pos.x, point.height + point.pos.y, point.pos.z);
+        script::launch_script(0x79582240, &params, nullptr, false, nullptr);
+        params.get_clear();
     }
 }
 
 // 0x004EB550
-bool CEditedGoal::PlacePointAndStepBack(const Maths::Vec4& pos, float height, float angle)
+bool EditedGoal::place_point_and_step_back(const maths::Vec4& pos, float height, float angle)
 {
-    if (m_currentPoint == 0 || !CanPlacePoint(pos, height))
+    if (current_point_ == 0 || !can_place_point(pos, height))
         return false;
-    m_pathVertices[m_currentPoint].pos = pos;
-    m_pathVertices[m_currentPoint].height = height;
-    m_pathVertices[m_currentPoint].angle = angle;
-    PlaceGoalMarker(m_currentPoint);
-    if (m_currentPoint == m_vertexTotal)
-        ++m_vertexTotal;
-    --m_currentPoint;
-    RunMarkerObjectScript(m_currentPoint);
-    if (m_currentPoint == 0) {
-        Scripts::CStruct* params = Scripts::SpawnParamBag();
-        params = params ? params->PrepareAll() : nullptr;
-        params->PutNameKey(0u, 0x7F1538E0u);
-        Scripts::LaunchScript(0xD066A889, params, nullptr, false, nullptr);
+    path_vertices_[current_point_].pos = pos;
+    path_vertices_[current_point_].height = height;
+    path_vertices_[current_point_].angle = angle;
+    place_goal_marker(current_point_);
+    if (current_point_ == vertex_total_)
+        ++vertex_total_;
+    --current_point_;
+    run_marker_object_script(current_point_);
+    if (current_point_ == 0) {
+        script::Struct* params = script::spawn_param_bag();
+        params = params ? params->prepare_all() : nullptr;
+        params->put_name_key(0u, 0x7F1538E0u);
+        script::launch_script(0xD066A889, params, nullptr, false, nullptr);
         if (params) {
-            params->Clear();
-            Scripts::DeleteStruct(params);
+            params->get_clear();
+            script::delete_struct(params);
         }
     }
     return true;
 }
 
 // 0x004E96D0
-void CEditedGoal::DecodeFromStruct(Scripts::CStruct* params)
+void EditedGoal::decode_from_struct(script::Struct* params)
 {
-    InitEditedGoal(reinterpret_cast<uint8_t*>(this));
-    m_takenCount = true;
-    m_won = false;
+    init_edited_goal(reinterpret_cast<uint8_t*>(this));
+    taken_count_ = true;
+    won_ = false;
     uint32_t level = 0;
-    params->ReadHashValue(0x651533EC, &level, 0);
+    params->read_hash_value(0x651533EC, &level, 0);
     if (level == 0xB664035D) // (Load_Sk5Ed_gameplay counts as the park editor's)
         level = kParkEditorLevel;
-    m_level = level;
-    params->FetchIntValue(0x60CE75AE, &m_levelGoalNumber, 0);
-    params->ReadHashValue(0x6D11ED74, &m_kindTag, 0);
-    ChangeSpecies(m_kindTag);
-    params->FetchIntValue(0xCD66C8AE, &m_pointsHeld, 0);
-    params->FetchIntValue(0xC51BF6E3, &m_timeLimit, 0);
-    params->ReadHashValue(0x81CFF663, &m_controlType, 0);
+    level_ = level;
+    params->fetch_int_value(0x60CE75AE, &level_goal_number_, 0);
+    params->read_hash_value(0x6D11ED74, &kind_tag_, 0);
+    change_species(kind_tag_);
+    params->fetch_int_value(0xCD66C8AE, &points_held_, 0);
+    params->fetch_int_value(0xC51BF6E3, &time_limit_, 0);
+    params->read_hash_value(0x81CFF663, &control_type_, 0);
     const char* empty = ""; // ""
     const char* text = empty;
-    params->FetchText(0x4BC5229D, &text, 0);
-    std::strcpy(m_label, text);
+    params->fetch_text(0x4BC5229D, &text, 0);
+    std::strcpy(label_, text);
     text = empty;
-    params->FetchText(0x0C5D7E6B, &text, 0);
-    std::strcpy(m_summaryText, text);
+    params->fetch_text(0x0C5D7E6B, &text, 0);
+    std::strcpy(summary_text_, text);
     text = empty;
-    params->FetchText(0x5DE57284, &text, 0);
-    std::strcpy(m_winMessage, text);
+    params->fetch_text(0x5DE57284, &text, 0);
+    std::strcpy(win_message_, text);
     text = empty;
-    params->FetchText(0xB9426608, &text, 0);
-    std::strcpy(m_pedName, text);
-    Scripts::CArray* points = nullptr;
-    if (params->FetchList(0x32DF12E0, &points, 0)) {
-        m_vertexTotal = static_cast<uint8_t>(points->m_extent);
-        for (uint32_t i = 0; i < m_vertexTotal; ++i) {
-            Scripts::CStruct* point = StructureElement(points, i);
-            point->FetchVec(0x7F261953, reinterpret_cast<Scripts::VectorValue*>(&m_pathVertices[i].pos), 0);
-            point->FetchFloat(0x0AB21AF0, &m_pathVertices[i].height, 0);
-            point->FetchFloat(0xFF7EBAF6, &m_pathVertices[i].angle, 0);
+    params->fetch_text(0xB9426608, &text, 0);
+    std::strcpy(ped_name_, text);
+    script::Array* points = nullptr;
+    if (params->fetch_list(0x32DF12E0, &points, 0)) {
+        vertex_total_ = static_cast<uint8_t>(points->extent_);
+        for (uint32_t i = 0; i < vertex_total_; ++i) {
+            script::Struct* point = structure_element(points, i);
+            point->fetch_vec(0x7F261953, reinterpret_cast<script::VectorValue*>(&path_vertices_[i].pos), 0);
+            point->fetch_float(0x0AB21AF0, &path_vertices_[i].height, 0);
+            point->fetch_float(0xFF7EBAF6, &path_vertices_[i].angle, 0);
         }
     }
-    ReadSpecificParams(params);
+    read_specific_params(params);
 }
 
 // 0x004E9BC0
-void CEditedGoal::WriteKeyComboSets(Scripts::CStruct* out)
+void EditedGoal::write_key_combo_sets(script::Struct* out)
 {
-    if (m_numKeyComboSets == 0)
+    if (num_key_combo_sets_ == 0)
         return;
-    Scripts::CArray* sets = NewArrayOf(static_cast<uint32_t>(m_numKeyComboSets), kStructureArray);
-    for (int i = 0; i < m_numKeyComboSets; ++i) {
-        const KeyComboSet& set = m_keyComboSets[i];
-        Scripts::CStruct* entry = SpawnParamTable();
-        entry->PutInt(0xEB7D6498, set.set);
-        if (set.mustBeFlawless)
-            entry->PutNameKey(0u, 0x687E2C25u);
-        entry->PutInt(0xEDF5DB70, set.spin * 180);
-        entry->PutInt(0xA4BEE6A1, set.tapTotal);
-        sets->SetElement(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(entry));
+    script::Array* sets = new_array_of(static_cast<uint32_t>(num_key_combo_sets_), kStructureArray);
+    for (int i = 0; i < num_key_combo_sets_; ++i) {
+        const KeyComboSet& set = key_combo_sets_[i];
+        script::Struct* entry = spawn_param_table();
+        entry->put_int(0xEB7D6498, set.set);
+        if (set.must_be_flawless_)
+            entry->put_name_key(0u, 0x687E2C25u);
+        entry->put_int(0xEDF5DB70, set.spin * 180);
+        entry->put_int(0xA4BEE6A1, set.tap_total_);
+        sets->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(entry));
     }
-    out->AppendArrayRef(0x0490F171, sets);
+    out->append_array_ref(0x0490F171, sets);
 }
 
 // 0x004E98F0
-void CEditedGoal::WriteGoalKeyCombos(Scripts::CStruct* out)
+void EditedGoal::write_goal_key_combos(script::Struct* out)
 {
-    if (m_numKeyComboSets == 0) {
-        DebugOut::Printf("!!!!!!!! Warning! No combo sets specified, using emergency_key_combos\n");
-        out->PutNameKey(0x7BE1E689, 0x6D641BCB);
+    if (num_key_combo_sets_ == 0) {
+        debug::printf("!!!!!!!! Warning! No combo sets specified, using emergency_key_combos\n");
+        out->put_name_key(0x7BE1E689, 0x6D641BCB);
         return;
     }
-    Scripts::CArray* allSets = Scripts::FetchList(0xDF1451EB);
+    script::Array* all_sets = script::fetch_list(0xDF1451EB);
     // How many key combos the sets hold (a set without its array: a null read, as the original).
     uint32_t total = 0;
-    for (int i = 0; i < m_numKeyComboSets; ++i) {
-        Scripts::CArray* combos = nullptr;
-        StructureElement(allSets, m_keyComboSets[i].set)->FetchList(0x79704516, &combos, 0);
-        total += combos->m_extent;
+    for (int i = 0; i < num_key_combo_sets_; ++i) {
+        script::Array* combos = nullptr;
+        structure_element(all_sets, key_combo_sets_[i].set)->fetch_list(0x79704516, &combos, 0);
+        total += combos->extent_;
     }
-    Scripts::CArray* result = NewArrayOf(total, kStructureArray);
+    script::Array* result = new_array_of(total, kStructureArray);
     uint32_t index = 0;
-    for (int i = 0; i < m_numKeyComboSets; ++i) {
-        const KeyComboSet& set = m_keyComboSets[i];
-        Scripts::CArray* combos = nullptr;
-        StructureElement(allSets, set.set)->FetchList(0x79704516, &combos, 0);
-        for (uint32_t j = 0; j < combos->m_extent; ++j) {
-            Scripts::CStruct* entry = SpawnParamTable();
-            if (combos->m_kindTag == kChecksumArray)
-                entry->PutNameKey(0xACFDB27A, combos->FetchPart(j));
+    for (int i = 0; i < num_key_combo_sets_; ++i) {
+        const KeyComboSet& set = key_combo_sets_[i];
+        script::Array* combos = nullptr;
+        structure_element(all_sets, set.set)->fetch_list(0x79704516, &combos, 0);
+        for (uint32_t j = 0; j < combos->extent_; ++j) {
+            script::Struct* entry = spawn_param_table();
+            if (combos->kind_tag_ == kChecksumArray)
+                entry->put_name_key(0xACFDB27A, combos->fetch_part(j));
             else
-                entry->AppendStructureIfAny(StructureElement(combos, j));
-            if (set.tapTotal)
-                entry->PutInt(0xA4BEE6A1, set.tapTotal);
-            if (set.mustBeFlawless)
-                entry->PutNameKey(0u, 0x687E2C25u);
-            if (m_twistRate)
-                entry->PutInt(0x8C8ABD19, m_twistRate);
-            result->SetElement(index++, reinterpret_cast<uint32_t>(entry));
+                entry->append_structure_if_any(structure_element(combos, j));
+            if (set.tap_total_)
+                entry->put_int(0xA4BEE6A1, set.tap_total_);
+            if (set.must_be_flawless_)
+                entry->put_name_key(0u, 0x687E2C25u);
+            if (twist_rate_)
+                entry->put_int(0x8C8ABD19, twist_rate_);
+            result->set_element(index++, reinterpret_cast<uint32_t>(entry));
         }
     }
-    out->AppendArrayRef(m_kindTag == kGoalTypeKeyCombo ? 0x548B4A38 : 0x7BE1E689, result);
+    out->append_array_ref(kind_tag_ == kGoalTypeKeyCombo ? 0x548B4A38 : 0x7BE1E689, result);
 }
 
 // 0x004E9D60
-void CEditedGoal::WriteTrickSettings(Scripts::CStruct* out, int forGoalManager)
+void EditedGoal::write_trick_settings(script::Struct* out, int for_goal_manager)
 {
-    out->PutInt(0x01181B29, m_accelerationInterval);
-    out->PushFloat(0x076F65C8, m_accelerationPercent);
-    out->PutInt(0xDED8540A, m_trickTime);
-    out->PutInt(0xA6D96603, m_timeToStopAddingTricks);
-    out->PutInt(0x89473DB7, m_maxTricks);
-    if (forGoalManager == 1) {
-        WriteGoalKeyCombos(out);
+    out->put_int(0x01181B29, acceleration_interval_);
+    out->push_float(0x076F65C8, acceleration_percent_);
+    out->put_int(0xDED8540A, trick_time_);
+    out->put_int(0xA6D96603, time_to_stop_adding_tricks_);
+    out->put_int(0x89473DB7, max_tricks_);
+    if (for_goal_manager == 1) {
+        write_goal_key_combos(out);
         return;
     }
-    out->PutInt(0xEDF5DB70, m_twistRate);
-    WriteKeyComboSets(out);
+    out->put_int(0xEDF5DB70, twist_rate_);
+    write_key_combo_sets(out);
 }
 
 // 0x004E9E00
-void CEditedGoal::WriteSpecificParams(Scripts::CStruct* out, int forGoalManager)
+void EditedGoal::write_specific_params(script::Struct* out, int for_goal_manager)
 {
     char text[0x80];
-    switch (m_kindTag) {
+    switch (kind_tag_) {
     case kGoalTypeRace:
-        if (forGoalManager == 1) {
-            if (m_racePerCheckpointTime > 0)
-                out->PutInt(0xA4038EC9, m_racePerCheckpointTime);
+        if (for_goal_manager == 1) {
+            if (race_per_checkpoint_time_ > 0)
+                out->put_int(0xA4038EC9, race_per_checkpoint_time_);
         } else {
-            out->PutInt(0xD9426372, m_racePerCheckpointTime);
+            out->put_int(0xD9426372, race_per_checkpoint_time_);
         }
-        out->PutInt(0x1DAAE95B, m_raceTotalLaps);
+        out->put_int(0x1DAAE95B, race_total_laps_);
         break;
     case kGoalTypeComboTricks:
-        out->PutNameKey(0u, static_cast<uint32_t>(kGoalTypeCombo));
-        out->PutInt(0x67DD90CA, m_chainLength);
-        if (m_singleCombo) {
-            out->PutNameKey(0u, 0xDF47B144u);
-            m_maxTricks = m_chainLength;
+        out->put_name_key(0u, static_cast<uint32_t>(kGoalTypeCombo));
+        out->put_int(0x67DD90CA, chain_length_);
+        if (single_combo_) {
+            out->put_name_key(0u, 0xDF47B144u);
+            max_tricks_ = chain_length_;
         }
-        WriteTrickSettings(out, forGoalManager);
+        write_trick_settings(out, for_goal_manager);
         break;
     case kGoalTypeGap:
-        out->AppendWord(0x730844A3, m_requiredTrick);
-        if (forGoalManager == 1) {
-            Scripts::CArray* flags = NewArrayOf(m_numGaps, kChecksumArray);
-            for (int i = 0; i < m_numGaps; ++i) {
-                Sprintf(text, "got_%d", i + 1);
-                flags->SetElement(static_cast<uint32_t>(i), Checksums::HashFromText(text));
+        out->append_word(0x730844A3, required_trick_);
+        if (for_goal_manager == 1) {
+            script::Array* flags = new_array_of(num_gaps_, kChecksumArray);
+            for (int i = 0; i < num_gaps_; ++i) {
+                get_sprintf(text, "got_%d", i + 1);
+                flags->set_element(static_cast<uint32_t>(i), checksums::hash_from_text(text));
             }
-            out->AppendArrayRef(0xCC3C4CC4, flags);
-            Scripts::CArray* gaps = NewArrayOf(m_numGaps, kIntegerArray);
-            for (int i = 0; i < m_numGaps; ++i)
-                gaps->SetElement(static_cast<uint32_t>(i), m_gaps[i]);
-            out->AppendArrayRef(0x52D4489E, gaps);
-        } else if (m_numGaps) {
-            Scripts::CArray* gaps = NewArrayOf(m_numGaps, kIntegerArray);
-            for (int i = 0; i < m_numGaps; ++i)
-                gaps->SetElement(static_cast<uint32_t>(i), m_gaps[i]);
-            out->AppendArrayRef(0xD76C173E, gaps);
+            out->append_array_ref(0xCC3C4CC4, flags);
+            script::Array* gaps = new_array_of(num_gaps_, kIntegerArray);
+            for (int i = 0; i < num_gaps_; ++i)
+                gaps->set_element(static_cast<uint32_t>(i), gaps_[i]);
+            out->append_array_ref(0x52D4489E, gaps);
+        } else if (num_gaps_) {
+            script::Array* gaps = new_array_of(num_gaps_, kIntegerArray);
+            for (int i = 0; i < num_gaps_; ++i)
+                gaps->set_element(static_cast<uint32_t>(i), gaps_[i]);
+            out->append_array_ref(0xD76C173E, gaps);
         }
         break;
     case kGoalTypeScore:
     case kGoalTypeHighCombo:
-        out->PutInt(0xCD66C8AE, m_pointsHeld);
-        if (forGoalManager == 1) {
-            const char* format = Scripts::FetchText(m_kindTag == kGoalTypeHighCombo ? 0x3693BFE4 : 0xD6EFB1B5);
-            Sprintf(text, format, m_pointsHeld);
-            out->AppendWord(0xDA441D9A, text);
+        out->put_int(0xCD66C8AE, points_held_);
+        if (for_goal_manager == 1) {
+            const char* format = script::fetch_text(kind_tag_ == kGoalTypeHighCombo ? 0x3693BFE4 : 0xD6EFB1B5);
+            get_sprintf(text, format, points_held_);
+            out->append_word(0xDA441D9A, text);
         }
         break;
     case kGoalTypeTrickAttack:
-        WriteTrickSettings(out, forGoalManager);
+        write_trick_settings(out, for_goal_manager);
         break;
     case kGoalTypeKeyCombo:
-        if (forGoalManager == 1)
-            WriteGoalKeyCombos(out);
+        if (for_goal_manager == 1)
+            write_goal_key_combos(out);
         else
-            WriteKeyComboSets(out);
+            write_key_combo_sets(out);
         break;
     case kGoalTypeTricktris:
-        out->PutNameKey(0u, static_cast<uint32_t>(kGoalTypeTricktris));
-        out->PutInt(0x45A375C9, m_stackBlockSpan);
-        out->PutInt(0xBFD3A831, m_tricktrisTotalToWin);
-        m_maxTricks = m_stackBlockSpan;
-        WriteTrickSettings(out, forGoalManager);
+        out->put_name_key(0u, static_cast<uint32_t>(kGoalTypeTricktris));
+        out->put_int(0x45A375C9, stack_block_span_);
+        out->put_int(0xBFD3A831, tricktris_total_to_win_);
+        max_tricks_ = stack_block_span_;
+        write_trick_settings(out, for_goal_manager);
         break;
     default:
         break;
@@ -317,146 +317,146 @@ void CEditedGoal::WriteSpecificParams(Scripts::CStruct* out, int forGoalManager)
 }
 
 // 0x004EA850
-void CEditedGoal::WriteGoalManagerParams(Scripts::CStruct* out)
+void EditedGoal::write_goal_manager_params(script::Struct* out)
 {
     char name[0x64];
-    out->AppendStructureIfAny(GoalTypeStructure(m_kindTag));
-    out->AppendStructureIfAny(GoalTypeDefaults(m_kindTag));
+    out->append_structure_if_any(goal_type_structure(kind_tag_));
+    out->append_structure_if_any(goal_type_defaults(kind_tag_));
     name[0] = '\0';
-    Sprintf(name, "TRG_EditedGoal%d_Pro", m_levelGoalNumber);
-    out->PutNameKey(0x02D7E03D, Checksums::HashFromText(name));
+    get_sprintf(name, "TRG_EditedGoal%d_Pro", level_goal_number_);
+    out->put_name_key(0x02D7E03D, checksums::hash_from_text(name));
     name[0] = '\0';
-    Sprintf(name, "TRG_EditedGoal%d_Restart", m_levelGoalNumber);
-    out->PutNameKey(0x3494F170, Checksums::HashFromText(name));
-    out->PutNameKey(0xA302D7CD, 1u);
-    out->PutNameKey(0u, 0xDBEB46E2u);
-    switch (m_kindTag) {
+    get_sprintf(name, "TRG_EditedGoal%d_Restart", level_goal_number_);
+    out->put_name_key(0x3494F170, checksums::hash_from_text(name));
+    out->put_name_key(0xA302D7CD, 1u);
+    out->put_name_key(0u, 0xDBEB46E2u);
+    switch (kind_tag_) {
     case kGoalTypeSkate: {
         static const uint32_t kLetters[5] = {0xBA54BD5C, 0x150A97C2, 0x84CA8B0A, 0xB091B445, 0x008085F0};
         for (int i = 0; i < 5; ++i) {
             name[0] = '\0';
-            Sprintf(name, "TRG_EditedGoal%d_Object_%d", m_levelGoalNumber, i);
-            out->PutNameKey(kLetters[i], Checksums::HashFromText(name));
+            get_sprintf(name, "TRG_EditedGoal%d_Object_%d", level_goal_number_, i);
+            out->put_name_key(kLetters[i], checksums::hash_from_text(name));
         }
         break;
     }
     case kGoalTypeCombo: {
         static const char* const kLetters[5] = {"C", "O", "M", "B", "O"};
-        Scripts::CArray* letters = NewArrayOf(5, kStructureArray);
+        script::Array* letters = new_array_of(5, kStructureArray);
         for (int i = 0; i < 5; ++i) {
-            Scripts::CStruct* letter = SpawnParamTable();
+            script::Struct* letter = spawn_param_table();
             name[0] = '\0';
-            Sprintf(name, "TRG_EditedGoal%d_Object_%d", m_levelGoalNumber, i);
-            letter->PutNameKey(0x99F6CCBB, Checksums::HashFromText(name));
-            letter->AppendWord(0xC4745838, kLetters[i]);
-            letters->SetElement(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(letter));
+            get_sprintf(name, "TRG_EditedGoal%d_Object_%d", level_goal_number_, i);
+            letter->put_name_key(0x99F6CCBB, checksums::hash_from_text(name));
+            letter->append_word(0xC4745838, kLetters[i]);
+            letters->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(letter));
         }
-        out->AppendArrayRef(0xB3C7F1B2, letters);
+        out->append_array_ref(0xB3C7F1B2, letters);
         break;
     }
     case kGoalTypeRace: {
-        int count = m_vertexTotal - 2;
-        Scripts::CArray* waypoints = NewArrayOf(static_cast<uint32_t>(count), kStructureArray);
-        Scripts::CArray* flags = NewArrayOf(static_cast<uint32_t>(count), kChecksumArray);
+        int count = vertex_total_ - 2;
+        script::Array* waypoints = new_array_of(static_cast<uint32_t>(count), kStructureArray);
+        script::Array* flags = new_array_of(static_cast<uint32_t>(count), kChecksumArray);
         char flag[0x64];
         for (int i = 0; i < count; ++i) {
-            Scripts::CStruct* waypoint = SpawnParamTable();
-            waypoint->PutNameKey(0x40C698AF, EditedGoalNodeName(i + 2, m_levelGoalNumber));
-            Sprintf(flag, "got_%d", i + 1);
-            flags->SetElement(static_cast<uint32_t>(i), Checksums::HashFromText(flag));
-            waypoint->PutNameKey(0x2E0B1465, Checksums::HashFromText(flag));
-            if (m_racePerCheckpointTime > 0)
-                waypoint->PutInt(0x906B67BA, m_racePerCheckpointTime);
-            waypoint->PutInt(0xC48391A5, 5);
-            waypoints->SetElement(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(waypoint));
+            script::Struct* waypoint = spawn_param_table();
+            waypoint->put_name_key(0x40C698AF, edited_goal_node_name(i + 2, level_goal_number_));
+            get_sprintf(flag, "got_%d", i + 1);
+            flags->set_element(static_cast<uint32_t>(i), checksums::hash_from_text(flag));
+            waypoint->put_name_key(0x2E0B1465, checksums::hash_from_text(flag));
+            if (race_per_checkpoint_time_ > 0)
+                waypoint->put_int(0x906B67BA, race_per_checkpoint_time_);
+            waypoint->put_int(0xC48391A5, 5);
+            waypoints->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(waypoint));
         }
-        out->AppendArrayRef(0xA77B1F07, waypoints);
-        out->AppendArrayRef(0xCC3C4CC4, flags);
+        out->append_array_ref(0xA77B1F07, waypoints);
+        out->append_array_ref(0xCC3C4CC4, flags);
         break;
     }
     default:
         break;
     }
-    WriteSpecificParams(out, 1);
-    if (m_summaryText[0])
-        out->AppendWord(0x0C5D7E6B, m_summaryText);
-    if (m_winMessage[0]) {
+    write_specific_params(out, 1);
+    if (summary_text_[0])
+        out->append_word(0x0C5D7E6B, summary_text_);
+    if (win_message_[0]) {
         // The win message's dialog: a copy of the global template array with the text and the pro's node.
-        Scripts::CArray* source = Scripts::FetchList(0x8070C110);
-        Scripts::CArray* dialog = Scripts::AllocScriptArray();
-        dialog = dialog ? dialog->PrepareAll() : nullptr;
-        Scripts::DuplicateArray(dialog, source);
-        StructureElement(dialog, 0)->AppendWord(0xA7AB3B6D, m_winMessage);
+        script::Array* source = script::fetch_list(0x8070C110);
+        script::Array* dialog = script::alloc_script_array();
+        dialog = dialog ? dialog->prepare_all() : nullptr;
+        script::duplicate_array(dialog, source);
+        structure_element(dialog, 0)->append_word(0xA7AB3B6D, win_message_);
         name[0] = '\0';
-        Sprintf(name, "TRG_EditedGoal%d_Pro", m_levelGoalNumber);
-        uint32_t pro = Checksums::HashFromText(name);
-        StructureElement(dialog, 0)->PutNameKey(0x531E4D28, pro);
-        out->AppendArrayRef(0x27CD32E1, dialog);
+        get_sprintf(name, "TRG_EditedGoal%d_Pro", level_goal_number_);
+        uint32_t pro = checksums::hash_from_text(name);
+        structure_element(dialog, 0)->put_name_key(0x531E4D28, pro);
+        out->append_array_ref(0x27CD32E1, dialog);
     }
-    Sprintf(CreatedGoalName(), "CreatedGoal%d", m_levelGoalNumber);
-    out->AppendWord(0xBFECC45B, CreatedGoalName());
-    if (m_label[0])
-        out->AppendWord(0x4BC5229D, m_label);
-    if (m_pedName[0])
-        out->AppendWord(0x243B9C3B, m_pedName);
-    out->PutInt(0x906B67BA, m_timeLimit);
-    out->PutNameKey(0x81CFF663, m_controlType);
-    out->PutNameKey(0u, 0x981D3AD0u);
+    get_sprintf(created_goal_name(), "CreatedGoal%d", level_goal_number_);
+    out->append_word(0xBFECC45B, created_goal_name());
+    if (label_[0])
+        out->append_word(0x4BC5229D, label_);
+    if (ped_name_[0])
+        out->append_word(0x243B9C3B, ped_name_);
+    out->put_int(0x906B67BA, time_limit_);
+    out->put_name_key(0x81CFF663, control_type_);
+    out->put_name_key(0u, 0x981D3AD0u);
 }
 
 // 0x004EB260
-void CEditedGoal::ExportToStruct(Scripts::CStruct* out)
+void EditedGoal::export_to_struct(script::Struct* out)
 {
     char name[0x64];
-    out->PutNameKey(0u, 0x981D3AD0u);
-    out->PutNameKey(0x651533EC, m_level);
-    out->PutInt(0x60CE75AE, m_levelGoalNumber);
-    Sprintf(CreatedGoalName(), "CreatedGoal%d", m_levelGoalNumber);
-    out->PutNameKey(0x9982E501, Checksums::HashFromText(CreatedGoalName()));
-    out->PutInt(0xC51BF6E3, m_timeLimit);
-    out->PutInt(0x14938611, m_won);
-    out->PutNameKey(0x81CFF663, m_controlType);
-    out->AppendWord(0x4BC5229D, m_label);
-    out->AppendWord(0x0C5D7E6B, m_summaryText);
-    out->AppendWord(0x5DE57284, m_winMessage);
-    out->AppendWord(0xB9426608, m_pedName);
-    out->PutNameKey(0x6D11ED74, m_kindTag);
+    out->put_name_key(0u, 0x981D3AD0u);
+    out->put_name_key(0x651533EC, level_);
+    out->put_int(0x60CE75AE, level_goal_number_);
+    get_sprintf(created_goal_name(), "CreatedGoal%d", level_goal_number_);
+    out->put_name_key(0x9982E501, checksums::hash_from_text(created_goal_name()));
+    out->put_int(0xC51BF6E3, time_limit_);
+    out->put_int(0x14938611, won_);
+    out->put_name_key(0x81CFF663, control_type_);
+    out->append_word(0x4BC5229D, label_);
+    out->append_word(0x0C5D7E6B, summary_text_);
+    out->append_word(0x5DE57284, win_message_);
+    out->append_word(0xB9426608, ped_name_);
+    out->put_name_key(0x6D11ED74, kind_tag_);
     name[0] = '\0';
-    Sprintf(name, "TRG_EditedGoal%d_Pro", m_levelGoalNumber);
-    out->PutNameKey(0x71FC348B, Checksums::HashFromText(name));
-    WriteSpecificParams(out, 0);
-    if (!m_vertexTotal)
+    get_sprintf(name, "TRG_EditedGoal%d_Pro", level_goal_number_);
+    out->put_name_key(0x71FC348B, checksums::hash_from_text(name));
+    write_specific_params(out, 0);
+    if (!vertex_total_)
         return;
-    Scripts::CArray* points = NewArrayOf(m_vertexTotal, kStructureArray);
-    for (uint32_t i = 0; i < m_vertexTotal; ++i) {
-        const EditedGoalPoint& point = m_pathVertices[i];
-        Scripts::CStruct* entry = SpawnParamTable();
-        entry->PutVec3(0x7F261953, point.pos.x, point.pos.y, point.pos.z);
-        entry->PushFloat(0x0AB21AF0, point.height);
-        entry->PushFloat(0xFF7EBAF6, point.angle);
-        points->SetElement(i, reinterpret_cast<uint32_t>(entry));
+    script::Array* points = new_array_of(vertex_total_, kStructureArray);
+    for (uint32_t i = 0; i < vertex_total_; ++i) {
+        const EditedGoalPoint& point = path_vertices_[i];
+        script::Struct* entry = spawn_param_table();
+        entry->put_vec3(0x7F261953, point.pos.x, point.pos.y, point.pos.z);
+        entry->push_float(0x0AB21AF0, point.height);
+        entry->push_float(0xFF7EBAF6, point.angle);
+        points->set_element(i, reinterpret_cast<uint32_t>(entry));
     }
-    out->AppendArrayRef(0x32DF12E0, points);
+    out->append_array_ref(0x32DF12E0, points);
 }
 
 // 0x004EB6B0
-void CEditedGoal::AddToGoalManager(bool unwin)
+void EditedGoal::add_to_goal_manager(bool unwin)
 {
-    Scripts::CStruct* params = SpawnParamTable();
-    WriteGoalManagerParams(params);
-    GoalSystem::CGoalManager* manager = GoalSystem::GetObjectiveBoard();
-    Sprintf(CreatedGoalName(), "CreatedGoal%d", m_levelGoalNumber);
-    manager->EnrolObjective(Checksums::HashFromText(CreatedGoalName()), params);
-    Sprintf(CreatedGoalName(), "CreatedGoal%d", m_levelGoalNumber);
-    GoalSystem::CObjective* goal = manager->GetGoal(Checksums::HashFromText(CreatedGoalName()), 1);
-    goal->MarkViewed();
+    script::Struct* params = spawn_param_table();
+    write_goal_manager_params(params);
+    goals::GoalManager* manager = goals::get_objective_board();
+    get_sprintf(created_goal_name(), "CreatedGoal%d", level_goal_number_);
+    manager->enrol_objective(checksums::hash_from_text(created_goal_name()), params);
+    get_sprintf(created_goal_name(), "CreatedGoal%d", level_goal_number_);
+    goals::Objective* goal = manager->get_goal(checksums::hash_from_text(created_goal_name()), 1);
+    goal->mark_viewed();
     if (unwin)
-        m_won = false;
-    if (m_won)
-        GoalSystem::Virtual<void>(goal, 0x68); // MarkWon
+        won_ = false;
+    if (won_)
+        goals::Virtual<void>(goal, 0x68); // mark_won
     if (params) {
-        params->Clear();
-        Scripts::DeleteStruct(params);
+        params->get_clear();
+        script::delete_struct(params);
     }
 }
 

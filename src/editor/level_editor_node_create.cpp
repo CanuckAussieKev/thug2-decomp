@@ -27,11 +27,11 @@
 #include "platform/run_log.h"
 #include "engine/gfx/light_manager.h"
 
-namespace MenuSystem::LevelEditor::NodeCreate {
+namespace frontend::level_editor::node_create {
 
 namespace {
 
-bool SameText(const std::string& a, const char* b)
+bool same_text(const std::string& a, const char* b)
 {
     if (a.size() != std::strlen(b))
         return false;
@@ -46,34 +46,34 @@ bool SameText(const std::string& a, const char* b)
     }
     return true;
 }
-bool StartsWith(const std::string& text, const char* prefix)
+bool starts_with(const std::string& text, const char* prefix)
 {
     size_t n = std::strlen(prefix);
-    return text.size() >= n && SameText(text.substr(0, n), prefix);
+    return text.size() >= n && same_text(text.substr(0, n), prefix);
 }
-bool EndsWith(const std::string& text, const char* suffix)
+bool ends_with(const std::string& text, const char* suffix)
 {
     size_t n = std::strlen(suffix);
-    return text.size() >= n && SameText(text.substr(text.size() - n), suffix);
+    return text.size() >= n && same_text(text.substr(text.size() - n), suffix);
 }
 
 const char* const kTeamNames[kTeams] = {"Red", "Blue", "Green", "Yellow"};
 
 // The team a name-driven node's name or type ends in ("Red"...; -1: none).
-int TeamOf(const std::string& text)
+int team_of(const std::string& text)
 {
     std::string t = text;
-    if (EndsWith(t, "_Base"))
+    if (ends_with(t, "_Base"))
         t.resize(t.size() - 5);
     for (int i = 0; i < kTeams; ++i) {
         std::string suffix = std::string("_") + kTeamNames[i];
-        if (EndsWith(t, suffix.c_str()))
+        if (ends_with(t, suffix.c_str()))
             return i;
     }
     return -1;
 }
 
-std::string Lower(std::string text)
+std::string get_lower(std::string text)
 {
     for (char& c : text) {
         if (c >= 'A' && c <= 'Z')
@@ -84,7 +84,7 @@ std::string Lower(std::string text)
 
 constexpr float kTwoPi = 6.28318531f;
 
-float Wrapped(float yaw)
+float wrapped(float yaw)
 {
     while (yaw > 3.14159265f)
         yaw -= kTwoPi;
@@ -95,27 +95,27 @@ float Wrapped(float yaw)
 
 } // namespace
 
-const char* KindName(Kind kind)
+const char* kind_name(Kind kind)
 {
     switch (kind) {
-    case Kind::Spawn: return "Multiplayer spawn";
-    case Kind::TeamSpawn: return "Team spawn";
-    case Kind::Crown: return "Crown";
-    case Kind::FlagSet: return "CTF flag set";
-    case Kind::Light: return "Level light";
-    case Kind::Sound: return "Sound emitter";
-    case Kind::ProximityNode: return "Proximity node (sphere)";
+    case Kind::kSpawn: return "Multiplayer spawn";
+    case Kind::kTeamSpawn: return "Team spawn";
+    case Kind::kCrown: return "Crown";
+    case Kind::kFlagSet: return "CTF flag set";
+    case Kind::kLight: return "Level light";
+    case Kind::kSound: return "Sound emitter";
+    case Kind::kProximityNode: return "Proximity node (sphere)";
     }
     return "?";
 }
 
-const char* TeamName(Team team)
+const char* get_team_name(Team team)
 {
     int i = static_cast<int>(team);
     return i >= 0 && i < kTeams ? kTeamNames[i] : "?";
 }
 
-bool SameSpec(const Spec& a, const Spec& b)
+bool same_spec(const Spec& a, const Spec& b)
 {
     return a.name == b.name && a.cls == b.cls && a.type == b.type && a.pos.x == b.pos.x && a.pos.y == b.pos.y &&
            a.pos.z == b.pos.z && a.angles.x == b.angles.x && a.angles.y == b.angles.y && a.angles.z == b.angles.z &&
@@ -130,22 +130,22 @@ bool SameSpec(const Spec& a, const Spec& b)
            });
 }
 
-bool KindOf(const Spec& spec, Kind* kind)
+bool kind_of(const Spec& spec, Kind* kind)
 {
     if (spec.owned)
         return false; // (another module's node, its fields its own: e.g. a goal's restart - level_editor_goals.h)
-    if (SameText(spec.cls, "Restart"))
-        *kind = StartsWith(spec.name, "TRG_CTF_Restart_") ? Kind::TeamSpawn : Kind::Spawn;
-    else if (SameText(spec.cls, "GenericNode") && SameText(spec.type, "Crown"))
-        *kind = Kind::Crown;
-    else if (SameText(spec.cls, "GameObject") && StartsWith(spec.type, "Flag_") && TeamOf(spec.type) >= 0)
-        *kind = Kind::FlagSet;
-    else if (SameText(spec.cls, "LevelLight"))
-        *kind = Kind::Light;
-    else if (SameText(spec.cls, "EmitterObject"))
-        *kind = Kind::Sound;
-    else if (SameText(spec.cls, "ProximNode"))
-        *kind = Kind::ProximityNode;
+    if (same_text(spec.cls, "Restart"))
+        *kind = starts_with(spec.name, "TRG_CTF_Restart_") ? Kind::kTeamSpawn : Kind::kSpawn;
+    else if (same_text(spec.cls, "GenericNode") && same_text(spec.type, "Crown"))
+        *kind = Kind::kCrown;
+    else if (same_text(spec.cls, "GameObject") && starts_with(spec.type, "Flag_") && team_of(spec.type) >= 0)
+        *kind = Kind::kFlagSet;
+    else if (same_text(spec.cls, "LevelLight"))
+        *kind = Kind::kLight;
+    else if (same_text(spec.cls, "EmitterObject"))
+        *kind = Kind::kSound;
+    else if (same_text(spec.cls, "ProximNode"))
+        *kind = Kind::kProximityNode;
     else
         return false;
     return true;
@@ -156,28 +156,28 @@ Spec Default(Kind kind, Team team, V3 pos, float yaw, const std::string& name)
     Spec s;
     s.name = name;
     s.pos = pos;
-    s.angles = {0.0f, Wrapped(yaw), 0.0f};
-    std::string colour = TeamName(team);
+    s.angles = {0.0f, wrapped(yaw), 0.0f};
+    std::string colour = get_team_name(team);
     switch (kind) {
-    case Kind::Spawn:
+    case Kind::kSpawn:
         s.cls = "Restart";
         s.type = "MultiPlayer";
         s.types = {"MultiPlayer", "Horse"};
         break;
-    case Kind::TeamSpawn:
+    case Kind::kTeamSpawn:
         s.cls = "Restart";
         s.type = "CTF";
         s.types = {"CTF", "MultiPlayer", "Horse"};
         break;
-    case Kind::Crown:
+    case Kind::kCrown:
         s.cls = "GenericNode";
         s.type = "Crown";
         break;
-    case Kind::FlagSet:
+    case Kind::kFlagSet:
         s.cls = "GameObject";
         s.type = "Flag_" + colour;
         break;
-    case Kind::Light:
+    case Kind::kLight:
         s.cls = "LevelLight";
         s.colour[0] = 255;
         s.colour[1] = 214;
@@ -186,11 +186,11 @@ Spec Default(Kind kind, Team team, V3 pos, float yaw, const std::string& name)
         s.inner = 150.0f;
         s.outer = 400.0f;
         break;
-    case Kind::Sound:
+    case Kind::kSound:
         s.cls = "EmitterObject";
         s.radius = 300.0f;
         break;
-    case Kind::ProximityNode:
+    case Kind::kProximityNode:
         s.cls = "ProximNode";
         s.radius = 200.0f;
         break;
@@ -198,7 +198,7 @@ Spec Default(Kind kind, Team team, V3 pos, float yaw, const std::string& name)
     return s;
 }
 
-Spec Base(const Spec& flag)
+Spec current_base(const Spec& flag)
 {
     Spec base = flag;
     base.name = flag.name + "_Base";
@@ -206,34 +206,34 @@ Spec Base(const Spec& flag)
     return base;
 }
 
-std::string PinnedNodeName(Kind kind, Team team)
+std::string pinned_node_name(Kind kind, Team team)
 {
-    if (kind == Kind::TeamSpawn)
-        return std::string("TRG_CTF_Restart_") + TeamName(team);
-    if (kind == Kind::FlagSet)
-        return std::string("TRG_CTF_") + TeamName(team);
+    if (kind == Kind::kTeamSpawn)
+        return std::string("TRG_CTF_Restart_") + get_team_name(team);
+    if (kind == Kind::kFlagSet)
+        return std::string("TRG_CTF_") + get_team_name(team);
     return "";
 }
 
-std::string LobbyFlagName(Team team) { return std::string("TRG_Flag_") + TeamName(team); }
+std::string lobby_flag_name(Team team) { return std::string("TRG_Flag_") + get_team_name(team); }
 
-bool IsLobbyFlag(const std::string& name) { return StartsWith(name, "TRG_Flag_"); }
+bool is_lobby_flag(const std::string& name) { return starts_with(name, "TRG_Flag_"); }
 
-const char* NameStem(Kind kind)
+const char* name_stem(Kind kind)
 {
     switch (kind) {
-    case Kind::Spawn:
-    case Kind::TeamSpawn: return "ed_restart";
-    case Kind::Crown: return "ed_crown";
-    case Kind::FlagSet: return "ed_flag";
-    case Kind::Light: return "ed_light";
-    case Kind::Sound: return "ed_sound";
-    case Kind::ProximityNode: return "ed_proxim";
+    case Kind::kSpawn:
+    case Kind::kTeamSpawn: return "ed_restart";
+    case Kind::kCrown: return "ed_crown";
+    case Kind::kFlagSet: return "ed_flag";
+    case Kind::kLight: return "ed_light";
+    case Kind::kSound: return "ed_sound";
+    case Kind::kProximityNode: return "ed_proxim";
     }
     return "ed_node";
 }
 
-std::string FreshName(const std::string& stem, const std::function<bool(const std::string&)>& taken)
+std::string fresh_name(const std::string& stem, const std::function<bool(const std::string&)>& taken)
 {
     for (int n = 1; n < 100000; ++n) {
         char number[16];
@@ -245,7 +245,7 @@ std::string FreshName(const std::string& stem, const std::function<bool(const st
     return "";
 }
 
-bool ValidName(const std::string& name)
+bool valid_name(const std::string& name)
 {
     if (name.empty() || name.size() > 63)
         return false;
@@ -257,7 +257,7 @@ bool ValidName(const std::string& name)
     return true;
 }
 
-std::vector<Prop> Fields(const Spec& spec)
+std::vector<Prop> get_fields(const Spec& spec)
 {
     std::vector<Prop> fields;
     auto name = [&](const char* key, const std::string& value) {
@@ -300,40 +300,40 @@ std::vector<Prop> Fields(const Spec& spec)
         name("Type", spec.type);
     // Chain points (level_editor_chains.h): made at the start; a rail's terrain (the rail manager reads it - an
     // unknown one would crash 0x004442C0, so a known one always: the editor's default, a grind metal).
-    if (SameText(spec.cls, "RailNode") || SameText(spec.cls, "Waypoint")) {
+    if (same_text(spec.cls, "RailNode") || same_text(spec.cls, "Waypoint")) {
         flag("CreatedAtStart");
-        if (SameText(spec.cls, "RailNode"))
+        if (same_text(spec.cls, "RailNode"))
             name("TerrainType", spec.terrain.empty() ? std::string("TERRAIN_GRINDMETAL") : spec.terrain);
         return fields;
     }
-    if (SameText(spec.cls, "ClimbingNode")) {
+    if (same_text(spec.cls, "ClimbingNode")) {
         flag("CreatedAtStart"); // (a ladder's point - its Type Ladder above: as the levels' ladders)
         fields.insert(fields.end(), spec.extra.begin(), spec.extra.end()); // (a ledge's HangLeft / HangRight)
         return fields;
     }
     Kind kind;
-    if (!KindOf(spec, &kind)) {
+    if (!kind_of(spec, &kind)) {
         fields.insert(fields.end(), spec.extra.begin(), spec.extra.end()); // (another module's node)
         return fields;
     }
-    int team = TeamOf(kind == Kind::FlagSet ? spec.type : spec.name);
+    int team = team_of(kind == Kind::kFlagSet ? spec.type : spec.name);
     std::string colour = team >= 0 ? kTeamNames[team] : "";
     switch (kind) {
-    case Kind::Spawn:
-    case Kind::TeamSpawn: {
+    case Kind::kSpawn:
+    case Kind::kTeamSpawn: {
         flag("CreatedAtStart");
-        string("RestartName", kind == Kind::TeamSpawn ? "Team: CTF " + colour : std::string("Multi: Restart"));
+        string("RestartName", kind == Kind::kTeamSpawn ? "Team: CTF " + colour : std::string("Multi: Restart"));
         Prop types = {Prop::kNames, "restart_types"};
         types.list = spec.types;
         fields.push_back(types);
         break;
     }
-    case Kind::Crown:
+    case Kind::kCrown:
         flag("CreatedAtStart");
         break;
-    case Kind::FlagSet: {
-        bool base = EndsWith(spec.type, "_Base");
-        std::string model = "flag_" + Lower(colour) + (base ? "_base" : "");
+    case Kind::kFlagSet: {
+        bool base = ends_with(spec.type, "_Base");
+        std::string model = "flag_" + get_lower(colour) + (base ? "_base" : "");
         flag("NeverSuspend");
         string("Model", "gameobjects\\flags\\" + model + "\\" + model + ".mdl");
         integer("lod_dist1", 800);
@@ -341,10 +341,10 @@ std::vector<Prop> Fields(const Spec& spec)
         // (a team lobby flag, TRG_Flag_<Colour>: its level's TRG_Flag_<Colour>Script - SK4_Scripts' Create_Team_Flags
         // makes it by name in a lobby; a CTF flag's TRG_CTF_<Colour>Script)
         if (!base)
-            name("TriggerScript", (IsLobbyFlag(spec.name) ? "TRG_Flag_" : "TRG_CTF_") + colour + "Script");
+            name("TriggerScript", (is_lobby_flag(spec.name) ? "TRG_Flag_" : "TRG_CTF_") + colour + "Script");
         break;
     }
-    case Kind::Light: {
+    case Kind::kLight: {
         flag("CreatedAtStart");
         number("Brightness", spec.brightness);
         number("InnerRadius", spec.inner);
@@ -354,8 +354,8 @@ std::vector<Prop> Fields(const Spec& spec)
         fields.push_back(c);
         break;
     }
-    case Kind::Sound:
-    case Kind::ProximityNode:
+    case Kind::kSound:
+    case Kind::kProximityNode:
         flag("CreatedAtStart");
         name("Shape", "Sphere");
         number("Radius", spec.radius);
@@ -365,52 +365,52 @@ std::vector<Prop> Fields(const Spec& spec)
     return fields;
 }
 
-const char* LimitMessage(Kind kind, const Counts& counts)
+const char* limit_message(Kind kind, const Counts& counts)
 {
     switch (kind) {
-    case Kind::Spawn:
-    case Kind::TeamSpawn:
+    case Kind::kSpawn:
+    case Kind::kTeamSpawn:
         return counts.restarts >= kMaxRestarts ? "Restart limit reached (256)"
                                                : nullptr;
-    case Kind::Crown:
+    case Kind::kCrown:
         return counts.crowns >= kMaxCrowns ? "Crown limit reached (10)"
                                            : nullptr;
-    case Kind::Light:
-        if (counts.dynamicLights >= kMaxDynamicLights)
+    case Kind::kLight:
+        if (counts.dynamic_lights_ >= kMaxDynamicLights)
             return "The game's 256 dynamic lights are all in use";
-        return counts.levelLights >= kMaxLevelLights ? "The game's 150 level lights are all in use" : nullptr;
+        return counts.level_lights_ >= kMaxLevelLights ? "The game's 150 level lights are all in use" : nullptr;
     default:
         return nullptr;
     }
 }
 
-bool HideLeavesNoRestart(uint32_t types, uint32_t others)
+bool hide_leaves_no_restart(uint32_t types, uint32_t others)
 {
-    for (uint32_t bit : {static_cast<uint32_t>(Nodes::kPlayer1), static_cast<uint32_t>(Nodes::kMultiplayer)}) {
+    for (uint32_t bit : {static_cast<uint32_t>(nodes::kPlayer1), static_cast<uint32_t>(nodes::kMultiplayer)}) {
         if ((types & bit) && !(others & bit))
             return true;
     }
     return false;
 }
 
-int IndexOf(const LinkChain& list, const std::string& name)
+int get_index_of(const LinkChain& list, const std::string& name)
 {
     for (size_t i = 0; i < list.size(); ++i) {
-        if (SameText(list[i].name, name.c_str()))
+        if (same_text(list[i].name, name.c_str()))
             return static_cast<int>(i);
     }
     return -1;
 }
 
-int AppendOne(LinkChain* list, const Spec& spec)
+int append_one(LinkChain* list, const Spec& spec)
 {
     list->push_back(spec);
     return static_cast<int>(list->size()) - 1;
 }
 
-bool Take(LinkChain* list, const std::string& name, Spec* spec, int* index)
+bool get_take(LinkChain* list, const std::string& name, Spec* spec, int* index)
 {
-    int i = IndexOf(*list, name);
+    int i = get_index_of(*list, name);
     if (i < 0)
         return false;
     *spec = (*list)[i];
@@ -419,37 +419,37 @@ bool Take(LinkChain* list, const std::string& name, Spec* spec, int* index)
     return true;
 }
 
-void PutBack(LinkChain* list, const Spec& spec, int index)
+void put_back(LinkChain* list, const Spec& spec, int index)
 {
     index = std::max(0, std::min(index, static_cast<int>(list->size())));
     list->insert(list->begin() + index, spec);
 }
 
 namespace {
-bool IsCrown(const Spec& s)
+bool is_crown(const Spec& s)
 {
     Kind kind;
-    return KindOf(s, &kind) && kind == Kind::Crown;
+    return kind_of(s, &kind) && kind == Kind::kCrown;
 }
 } // namespace
 
-std::vector<std::string> CrownOrder(const LinkChain& list)
+std::vector<std::string> crown_order(const LinkChain& list)
 {
     std::vector<std::string> order;
     for (const Spec& s : list) {
-        if (IsCrown(s))
+        if (is_crown(s))
             order.push_back(s.name);
     }
     return order;
 }
 
-bool MoveCrown(LinkChain* list, const std::string& name, int delta)
+bool move_crown(LinkChain* list, const std::string& name, int delta)
 {
-    int at = IndexOf(*list, name);
-    if (at < 0 || !IsCrown((*list)[at]) || (delta != -1 && delta != 1))
+    int at = get_index_of(*list, name);
+    if (at < 0 || !is_crown((*list)[at]) || (delta != -1 && delta != 1))
         return false;
     for (int i = at + delta; i >= 0 && i < static_cast<int>(list->size()); i += delta) {
-        if (IsCrown((*list)[i])) {
+        if (is_crown((*list)[i])) {
             std::swap((*list)[at], (*list)[i]);
             return true;
         }
@@ -457,12 +457,12 @@ bool MoveCrown(LinkChain* list, const std::string& name, int delta)
     return false;
 }
 
-void ApplyCrownOrder(LinkChain* list, const std::vector<std::string>& order)
+void apply_crown_order(LinkChain* list, const std::vector<std::string>& order)
 {
     std::vector<int> slots;
     std::vector<Spec> crowns;
     for (size_t i = 0; i < list->size(); ++i) {
-        if (IsCrown((*list)[i])) {
+        if (is_crown((*list)[i])) {
             slots.push_back(static_cast<int>(i));
             crowns.push_back((*list)[i]);
         }
@@ -471,7 +471,7 @@ void ApplyCrownOrder(LinkChain* list, const std::vector<std::string>& order)
     std::vector<bool> used(crowns.size(), false);
     for (const std::string& name : order) {
         for (size_t c = 0; c < crowns.size(); ++c) {
-            if (!used[c] && SameText(crowns[c].name, name.c_str())) {
+            if (!used[c] && same_text(crowns[c].name, name.c_str())) {
                 used[c] = true;
                 ordered.push_back(crowns[c]);
                 break;
@@ -488,7 +488,7 @@ void ApplyCrownOrder(LinkChain* list, const std::vector<std::string>& order)
 
 // --- the game side ----------------------------------------------------------------------------------------------
 
-uint32_t NameHash(const std::string& name) { return Checksums::HashFromText(name.c_str()); }
+uint32_t name_hash(const std::string& name) { return checksums::hash_from_text(name.c_str()); }
 
 
 namespace {
@@ -500,100 +500,100 @@ constexpr uint32_t kAngles = 0x9D2D0915; // angles
 
 // The overlay: its specs (names, classes...; places are the structures') and structures, in array order.
 LinkChain g_list;
-std::vector<Scripts::CStruct*> g_structs;
-Scripts::CArray* g_array;
+std::vector<script::Struct*> g_structs;
+script::Array* g_array;
 bool g_registered;
-uint32_t g_levelArray; // (the array the overlay was added after: it leaves with it)
+uint32_t g_level_array; // (the array the overlay was added after: it leaves with it)
 
 // Hidden nodes: the structure (the level's array still the one loaded) and what was active.
 struct HiddenNode {
     uint32_t name;
-    Scripts::CStruct* node;
-    bool proximActive, emitterActive;
+    script::Struct* node;
+    bool proxim_active_, emitter_active_;
 };
 std::vector<HiddenNode> g_hidden;
 
-LevelNodes::CNodeManager* Hub() { return LevelNodes::NodeManagerInstance(); }
+level_nodes::NodeManager* hub() { return level_nodes::node_manager_instance(); }
 
 // The game's managers made at the level's load (null outside a level).
-bool HaveProxim() { return GameObjects::g_proximityHub != nullptr; }
-bool HaveEmitters() { return GameObjects::g_emitterTable != nullptr; }
+bool have_proxim() { return objects::g_proximity_hub != nullptr; }
+bool have_emitters() { return objects::g_emitter_table != nullptr; }
 
-void AddLight(Scripts::CStruct* node) { Engine3D::CreateLightFromNode(node); }
-void RemoveLight(uint32_t name) { Engine3D::DeleteSceneLight(name); }
+void add_light(script::Struct* node) { render::create_light_from_node(node); }
+void remove_light(uint32_t name) { render::delete_scene_light(name); }
 
-void Forget();
+void get_forget();
 
-void (*g_arrayRemovedListener)(uint32_t name); // (SetArrayRemovedListener)
+void (*g_array_removed_listener)(uint32_t name); // (set_array_removed_listener)
 
 // The node manager's hook: the level's array going takes the overlay with it.
-void OnArrayRemoved(uint32_t name)
+void on_array_removed(uint32_t name)
 {
-    if (g_arrayRemovedListener)
-        g_arrayRemovedListener(name);
-    if (name == Nodes::OverlayArray() || !g_registered || name != g_levelArray)
+    if (g_array_removed_listener)
+        g_array_removed_listener(name);
+    if (name == nodes::overlay_array() || !g_registered || name != g_level_array)
         return;
-    Log("level editor: the level's node array left - its %u added nodes go with it",
+    get_log("level editor: the level's node array left - its %u added nodes go with it",
         static_cast<unsigned>(g_structs.size()));
-    Forget();
+    get_forget();
 }
 
-Scripts::CStruct* Build(const Spec& spec)
+script::Struct* get_build(const Spec& spec)
 {
-    Scripts::CStruct* node = Scripts::SpawnParamBag();
+    script::Struct* node = script::spawn_param_bag();
     if (!node)
         return nullptr;
-    node->PrepareAll();
+    node->prepare_all();
     // A chain point drawn on from another copies that one's fields (its own name, place and links aside; not a trick
     // object of the other's cluster) - level_editor_chains.h.
-    Scripts::CStruct* like = spec.like && Hub() ? LevelNodes::FetchVertex(spec.like, false) : nullptr;
+    script::Struct* like = spec.like && hub() ? level_nodes::fetch_vertex(spec.like, false) : nullptr;
     if (like) {
-        node->MergeStructure(like);
+        node->merge_structure(like);
         for (const char* key : {"Name", "Pos", "Angles", "Links", "Cluster", "ed_hidden_class", "ed_hidden_type"})
-            node->EraseModule(NameHash(key));
-        node->RemoveFlag(NameHash("TrickObject"));
-        node->RemoveFlag(NameHash("ed_grind_flat")); // (its own choice: level_editor_chains.h)
+            node->erase_module(name_hash(key));
+        node->remove_flag(name_hash("TrickObject"));
+        node->remove_flag(name_hash("ed_grind_flat")); // (its own choice: level_editor_chains.h)
     }
-    for (const Prop& f : Fields(spec)) {
-        uint32_t key = f.key.empty() ? 0u : NameHash(f.key);
-        if (like && f.type == Prop::kFlag && node->HasBareFlag(NameHash(f.text)))
+    for (const Prop& f : get_fields(spec)) {
+        uint32_t key = f.key.empty() ? 0u : name_hash(f.key);
+        if (like && f.type == Prop::kFlag && node->has_bare_flag(name_hash(f.text)))
             continue;
         if (like && f.key == "TerrainType" && spec.terrain.empty())
             continue; // (the copied one)
         if (like && key)
-            node->EraseModule(key);
+            node->erase_module(key);
         switch (f.type) {
         case Prop::kFlag:
-            node->PutNameKey(0u, NameHash(f.text));
+            node->put_name_key(0u, name_hash(f.text));
             break;
         case Prop::kName:
-            node->PutNameKey(key, NameHash(f.text));
-            Scripts::NoteQbName(NameHash(f.text), f.text.c_str());
+            node->put_name_key(key, name_hash(f.text));
+            script::note_qb_name(name_hash(f.text), f.text.c_str());
             break;
         case Prop::kString:
-            node->AppendWord(key, f.text.c_str());
+            node->append_word(key, f.text.c_str());
             break;
         case Prop::kInteger:
-            node->PutInt(key, f.integer);
+            node->put_int(key, f.integer);
             break;
         case Prop::kFloat:
-            node->PushFloat(key, f.value[0]);
+            node->push_float(key, f.value[0]);
             break;
         case Prop::kVector:
-            node->PutVec3(key, f.value[0], f.value[1], f.value[2]);
+            node->put_vec3(key, f.value[0], f.value[1], f.value[2]);
             break;
         case Prop::kNames:
         case Prop::kIntegers: {
-            Scripts::CArray* array = Scripts::AllocScriptArray();
+            script::Array* array = script::alloc_script_array();
             if (!array)
                 break;
-            array->PrepareAll();
+            array->prepare_all();
             bool names = f.type == Prop::kNames;
             uint32_t count = static_cast<uint32_t>(names ? f.list.size() : f.integers.size());
-            array->ConfigureSizeKind(count, names ? Scripts::QBVAL_NAME : Scripts::QBVAL_INTEGER);
+            array->configure_size_kind(count, names ? script::kQbvalName : script::kQbvalInteger);
             for (uint32_t i = 0; i < count; ++i)
-                array->SetElement(i, names ? NameHash(f.list[i]) : static_cast<uint32_t>(f.integers[i]));
-            node->AppendArrayRef(key, array);
+                array->set_element(i, names ? name_hash(f.list[i]) : static_cast<uint32_t>(f.integers[i]));
+            node->append_array_ref(key, array);
             break;
         }
         }
@@ -601,202 +601,202 @@ Scripts::CStruct* Build(const Spec& spec)
     return node;
 }
 
-void Dealloc(Scripts::CStruct* node)
+void dealloc(script::Struct* node)
 {
     if (!node)
         return;
-    node->Clear();
-    Scripts::DeleteStruct(node);
+    node->get_clear();
+    script::delete_struct(node);
 }
 
 constexpr uint32_t kLinks = 0x2E7D5EE7; // links
 
 // A structure's links= set to these names (none: removed).
-void WriteLinks(Scripts::CStruct* node, const std::vector<uint32_t>& links)
+void write_links(script::Struct* node, const std::vector<uint32_t>& links)
 {
-    node->EraseModule(kLinks);
+    node->erase_module(kLinks);
     if (links.empty())
         return;
-    Scripts::CArray* array = Scripts::AllocScriptArray();
+    script::Array* array = script::alloc_script_array();
     if (!array)
         return;
-    array->PrepareAll();
-    array->ConfigureSizeKind(static_cast<uint32_t>(links.size()), Scripts::QBVAL_NAME);
+    array->prepare_all();
+    array->configure_size_kind(static_cast<uint32_t>(links.size()), script::kQbvalName);
     for (size_t i = 0; i < links.size(); ++i)
-        array->SetElement(static_cast<uint32_t>(i), links[i]);
-    node->AppendArrayRef(kLinks, array);
+        array->set_element(static_cast<uint32_t>(i), links[i]);
+    node->append_array_ref(kLinks, array);
 }
 
 // The overlay registered again with its structures as they are now (none: not registered).
-bool Sync()
+bool get_sync()
 {
-    LevelNodes::CNodeManager* manager = Hub();
+    level_nodes::NodeManager* manager = hub();
     if (!manager)
         return false;
-    LevelNodes::SetNodeArrayRemovedHook(&OnArrayRemoved);
-    LevelNodes::SetEditorNodeArray(Nodes::OverlayArray());
+    level_nodes::set_node_array_removed_hook(&on_array_removed);
+    level_nodes::set_editor_node_array(nodes::overlay_array());
     if (g_registered) {
         g_registered = false;
-        manager->RemoveNodeArray(Nodes::OverlayArray());
+        manager->remove_node_array(nodes::overlay_array());
     }
-    Nodes::MarkStale();
+    nodes::mark_stale();
     if (g_structs.empty())
         return true;
     if (!g_array) {
-        uint32_t name = Nodes::OverlayArray();
-        Scripts::NoteQbName(name, Nodes::kOverlayArrayName);
-        if (Scripts::CSymbolTableEntry* old = Scripts::FindSymbol(name))
-            Scripts::CleanUpAndRemoveSymbol(old);
-        g_array = Scripts::AllocScriptArray();
+        uint32_t name = nodes::overlay_array();
+        script::note_qb_name(name, nodes::kOverlayArrayName);
+        if (script::SymbolTableEntry* old = script::find_symbol(name))
+            script::clean_up_and_remove_symbol(old);
+        g_array = script::alloc_script_array();
         if (!g_array)
             return false;
-        g_array->PrepareAll();
-        Scripts::CSymbolTableEntry* symbol = Scripts::CreateSymbol(name);
-        symbol->type = Scripts::QBVAL_ARRAY;
+        g_array->prepare_all();
+        script::SymbolTableEntry* symbol = script::create_symbol(name);
+        symbol->type = script::kQbvalArray;
         symbol->raw = reinterpret_cast<uint32_t>(g_array);
     }
-    if (manager->m_num >= static_cast<uint32_t>(LevelNodes::CNodeManager::kMaxArrays)) {
-        Log("level editor: the node manager's 20 node arrays are in use - added nodes not registered");
+    if (manager->num_ >= static_cast<uint32_t>(level_nodes::NodeManager::kMaxArrays)) {
+        get_log("level editor: the node manager's 20 node arrays are in use - added nodes not registered");
         return false;
     }
-    g_levelArray = manager->GetLastNodeArrayName(); // (the overlay passed over: the level's)
-    g_array->ConfigureSizeKind(static_cast<uint32_t>(g_structs.size()), Scripts::QBVAL_STRUCT);
+    g_level_array = manager->get_last_node_array_name(); // (the overlay passed over: the level's)
+    g_array->configure_size_kind(static_cast<uint32_t>(g_structs.size()), script::kQbvalStruct);
     for (size_t i = 0; i < g_structs.size(); ++i) {
-        g_array->SetElement(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(g_structs[i]));
-        // (links= are names already: kept out of AddNodeArray's ResolveLinks, which reads indices - put on after)
-        g_structs[i]->EraseModule(kLinks);
+        g_array->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(g_structs[i]));
+        // (links= are names already: kept out of AddNodeArray's resolve_links, which reads indices - put on after)
+        g_structs[i]->erase_module(kLinks);
     }
-    g_registered = manager->AddNodeArray(Nodes::OverlayArray(), false);
+    g_registered = manager->add_node_array(nodes::overlay_array(), false);
     for (size_t i = 0; i < g_structs.size(); ++i)
-        WriteLinks(g_structs[i], g_list[i].links);
-    Nodes::MarkStale();
+        write_links(g_structs[i], g_list[i].links);
+    nodes::mark_stale();
     return g_registered;
 }
 
-// What the game would have made for the node at the level's load (CFunc_ParseNodeArray), made now.
-void MakeLive(const Spec& spec, Scripts::CStruct* node)
+// What the game would have made for the node at the level's load (cfunc_parse_node_array), made now.
+void make_live(const Spec& spec, script::Struct* node)
 {
     Kind kind;
-    if (!KindOf(spec, &kind))
+    if (!kind_of(spec, &kind))
         return;
-    uint32_t name = NameHash(spec.name);
-    Maths::Vec4 pos = {spec.pos.x, spec.pos.y, spec.pos.z, 1.0f};
-    if (kind == Kind::ProximityNode && HaveProxim()) {
-        if (GameObjects::ProximNode* proxim = GameObjects::Proxim_GetNode(name)) {
+    uint32_t name = name_hash(spec.name);
+    maths::Vec4 pos = {spec.pos.x, spec.pos.y, spec.pos.z, 1.0f};
+    if (kind == Kind::kProximityNode && have_proxim()) {
+        if (objects::ProximNode* proxim = objects::proxim_get_node(name)) {
             // (made before and removed: the game can't free one - used again)
-            proxim->m_atPoint = pos;
-            proxim->m_radius = spec.radius;
-            proxim->m_reachSq = spec.radius * spec.radius;
-            GameObjects::ProximityNode_Enable(name, 1);
+            proxim->at_point_ = pos;
+            proxim->radius_ = spec.radius;
+            proxim->reach_sq_ = spec.radius * spec.radius;
+            objects::proximity_node_enable(name, 1);
         } else {
-            GameObjects::NearbyZone_AddNode(name, true);
+            objects::nearby_zone_add_node(name, true);
         }
-    } else if (kind == Kind::Sound && HaveEmitters()) {
-        if (GameObjects::EmitterNode* emitter = GameObjects::Emitter_GetNode(name)) {
-            emitter->m_atPoint = pos;
-            emitter->m_radius = spec.radius;
-            emitter->m_reachSq = spec.radius * spec.radius;
-            emitter->m_active = true;
+    } else if (kind == Kind::kSound && have_emitters()) {
+        if (objects::EmitterNode* emitter = objects::emitter_get_node(name)) {
+            emitter->at_point_ = pos;
+            emitter->radius_ = spec.radius;
+            emitter->reach_sq_ = spec.radius * spec.radius;
+            emitter->active_ = true;
         } else {
-            GameObjects::Emitter_AddNode(name, true);
+            objects::emitter_add_node(name, true);
         }
-    } else if (kind == Kind::Light) {
-        AddLight(node);
+    } else if (kind == Kind::kLight) {
+        add_light(node);
     }
 }
 
-void KillLive(const Spec& spec)
+void kill_live(const Spec& spec)
 {
     Kind kind;
-    if (!KindOf(spec, &kind))
+    if (!kind_of(spec, &kind))
         return;
-    uint32_t name = NameHash(spec.name);
-    if (kind == Kind::ProximityNode && HaveProxim())
-        GameObjects::ProximityNode_Enable(name, 0);
-    else if (kind == Kind::Sound && HaveEmitters())
-        GameObjects::Emitter_SetActive(name, 0);
-    else if (kind == Kind::Light)
-        RemoveLight(name);
+    uint32_t name = name_hash(spec.name);
+    if (kind == Kind::kProximityNode && have_proxim())
+        objects::proximity_node_enable(name, 0);
+    else if (kind == Kind::kSound && have_emitters())
+        objects::emitter_set_active(name, 0);
+    else if (kind == Kind::kLight)
+        remove_light(name);
 }
 
 // A spec's place as its structure has it now.
-Spec WithPlace(const Spec& spec, Scripts::CStruct* node)
+Spec with_place(const Spec& spec, script::Struct* node)
 {
     Spec s = spec;
-    Maths::Vec4 pos, angles;
-    LevelNodes::FetchPlace(node, &pos);
-    LevelNodes::ReadTurnAngles(node, &angles);
+    maths::Vec4 pos, angles;
+    level_nodes::fetch_place(node, &pos);
+    level_nodes::read_turn_angles(node, &angles);
     s.pos = {pos.x, pos.y, pos.z};
     s.angles = {angles.x, angles.y, angles.z};
     return s;
 }
 
-void Forget()
+void get_forget()
 {
-    LevelNodes::CNodeManager* manager = Hub();
+    level_nodes::NodeManager* manager = hub();
     if (g_registered && manager) {
         g_registered = false;
-        manager->RemoveNodeArray(Nodes::OverlayArray());
+        manager->remove_node_array(nodes::overlay_array());
     }
     g_registered = false;
     for (const Spec& spec : g_list)
-        NodeEdit::Forget(NameHash(spec.name));
-    for (Scripts::CStruct* node : g_structs)
-        Dealloc(node);
+        node_edit::get_forget(name_hash(spec.name));
+    for (script::Struct* node : g_structs)
+        dealloc(node);
     g_structs.clear();
     g_list.clear();
     if (g_array)
-        g_array->ConfigureSizeKind(0, Scripts::QBVAL_STRUCT);
+        g_array->configure_size_kind(0, script::kQbvalStruct);
     g_hidden.clear();
-    Nodes::MarkStale();
+    nodes::mark_stale();
 }
 
-bool InLevel()
+bool in_level()
 {
-    LevelNodes::CNodeManager* manager = Hub();
-    return manager && manager->m_num > (g_registered ? 1u : 0u) && Engine3D::CurrentLevel() != 0;
+    level_nodes::NodeManager* manager = hub();
+    return manager && manager->num_ > (g_registered ? 1u : 0u) && render::current_level() != 0;
 }
 
 } // namespace
 
-void SetArrayRemovedListener(void (*listener)(uint32_t name))
+void set_array_removed_listener(void (*listener)(uint32_t name))
 {
-    g_arrayRemovedListener = listener;
-    LevelNodes::SetNodeArrayRemovedHook(&OnArrayRemoved);
+    g_array_removed_listener = listener;
+    level_nodes::set_node_array_removed_hook(&on_array_removed);
 }
 
-LinkChain AtHand()
+LinkChain at_hand()
 {
     LinkChain list;
     for (size_t i = 0; i < g_list.size(); ++i)
-        list.push_back(WithPlace(g_list[i], g_structs[i]));
+        list.push_back(with_place(g_list[i], g_structs[i]));
     return list;
 }
 
-bool IsAdded(uint32_t name)
+bool is_added(uint32_t name)
 {
     for (const Spec& spec : g_list) {
-        if (NameHash(spec.name) == name)
+        if (name_hash(spec.name) == name)
             return true;
     }
     return false;
 }
 
-bool NameTaken(const std::string& name)
+bool name_taken(const std::string& name)
 {
-    uint32_t checksum = NameHash(name);
-    if (IndexOf(g_list, name) >= 0)
+    uint32_t checksum = name_hash(name);
+    if (get_index_of(g_list, name) >= 0)
         return true;
-    if (Hub() && LevelNodes::FetchVertex(checksum, false))
+    if (hub() && level_nodes::fetch_vertex(checksum, false))
         return true;
-    return GameObjects::FindObject(checksum) != nullptr;
+    return objects::find_object(checksum) != nullptr;
 }
 
-Counts CountsNow()
+Counts counts_now()
 {
     Counts counts;
-    static const uint32_t kRestart = NameHash("Restart"), kCrown = NameHash("Crown");
-    for (const Nodes::Elem& node : Nodes::All()) {
+    static const uint32_t kRestart = name_hash("Restart"), kCrown = name_hash("Crown");
+    for (const nodes::Elem& node : nodes::get_all()) {
         if (node.hidden)
             continue;
         if (node.type == kCrown)
@@ -804,45 +804,45 @@ Counts CountsNow()
         if (node.cls == kRestart)
             ++counts.restarts;
     }
-    counts.dynamicLights = Engine3D::g_dynamicLightCount;
-    counts.levelLights = Engine3D::g_sceneLightCount;
+    counts.dynamic_lights_ = render::g_dynamic_light_count;
+    counts.level_lights_ = render::g_scene_light_count;
     return counts;
 }
 
-const char* WhyNot(Kind kind, Team team)
+const char* get_why_not(Kind kind, Team team)
 {
-    if (!InLevel())
+    if (!in_level())
         return "Not in a level";
-    if (const char* limit = LimitMessage(kind, CountsNow()))
+    if (const char* limit = limit_message(kind, counts_now()))
         return limit;
-    std::string fixed = PinnedNodeName(kind, team);
-    if (!fixed.empty() && (NameTaken(fixed) || (kind == Kind::FlagSet && NameTaken(fixed + "_Base"))))
-        return kind == Kind::FlagSet ? "This team flag already exists"
+    std::string fixed = pinned_node_name(kind, team);
+    if (!fixed.empty() && (name_taken(fixed) || (kind == Kind::kFlagSet && name_taken(fixed + "_Base"))))
+        return kind == Kind::kFlagSet ? "This team flag already exists"
                                      : "This team spawn already exists";
     return nullptr;
 }
 
-const char* WhyNotLobbyFlag(Team team)
+const char* why_not_lobby_flag(Team team)
 {
-    if (!InLevel())
+    if (!in_level())
         return "Not in a level";
-    if (NameTaken(LobbyFlagName(team)))
+    if (name_taken(lobby_flag_name(team)))
         return "This team flag already exists";
     return nullptr;
 }
 
-bool Fabricate(const Spec& spec, int index, std::string* message)
+bool fabricate(const Spec& spec, int index, std::string* message)
 {
     LinkChain one = {spec};
-    if (!InLevel()) {
+    if (!in_level()) {
         *message = "Not in a level";
         return false;
     }
-    if (!ValidName(spec.name) || NameTaken(spec.name)) {
+    if (!valid_name(spec.name) || name_taken(spec.name)) {
         *message = "A node named " + spec.name + " is there already";
         return false;
     }
-    Scripts::CStruct* node = Build(spec);
+    script::Struct* node = get_build(spec);
     if (!node) {
         *message = "Couldn't make the node";
         return false;
@@ -851,36 +851,36 @@ bool Fabricate(const Spec& spec, int index, std::string* message)
         index = static_cast<int>(g_list.size());
     g_list.insert(g_list.begin() + index, spec);
     g_structs.insert(g_structs.begin() + index, node);
-    if (!Sync()) {
+    if (!get_sync()) {
         g_list.erase(g_list.begin() + index);
         g_structs.erase(g_structs.begin() + index);
-        Dealloc(node);
-        Sync();
+        dealloc(node);
+        get_sync();
         *message = "Couldn't add it to the node manager";
         return false;
     }
-    MakeLive(spec, node);
-    Log("level editor: added %s (%s %s) at (%.1f, %.1f, %.1f)", spec.name.c_str(), spec.cls.c_str(), spec.type.c_str(),
+    make_live(spec, node);
+    get_log("level editor: added %s (%s %s) at (%.1f, %.1f, %.1f)", spec.name.c_str(), spec.cls.c_str(), spec.type.c_str(),
         spec.pos.x, spec.pos.y, spec.pos.z);
     return true;
 }
 
-int CreateAll(const LinkChain& specs, std::string* message)
+int create_all(const LinkChain& specs, std::string* message)
 {
-    if (!InLevel()) {
+    if (!in_level()) {
         *message = "Not in a level";
         return 0;
     }
-    std::vector<std::pair<Spec, Scripts::CStruct*>> made;
+    std::vector<std::pair<Spec, script::Struct*>> made;
     for (const Spec& spec : specs) {
         bool duplicate = false;
         for (const auto& m : made)
-            duplicate = duplicate || SameText(m.first.name, spec.name.c_str());
-        if (!ValidName(spec.name) || duplicate || NameTaken(spec.name)) {
-            Log("level editor: the layout's node %s is there already - skipped", spec.name.c_str());
+            duplicate = duplicate || same_text(m.first.name, spec.name.c_str());
+        if (!valid_name(spec.name) || duplicate || name_taken(spec.name)) {
+            get_log("level editor: the layout's node %s is there already - skipped", spec.name.c_str());
             continue;
         }
-        if (Scripts::CStruct* node = Build(spec)) {
+        if (script::Struct* node = get_build(spec)) {
             g_list.push_back(spec);
             g_structs.push_back(node);
             made.push_back({spec, node});
@@ -888,55 +888,55 @@ int CreateAll(const LinkChain& specs, std::string* message)
     }
     if (made.empty())
         return 0;
-    if (!Sync()) {
+    if (!get_sync()) {
         for (size_t i = 0; i < made.size(); ++i) {
             g_list.pop_back();
-            Dealloc(g_structs.back());
+            dealloc(g_structs.back());
             g_structs.pop_back();
         }
-        Sync();
+        get_sync();
         *message = "Couldn't add the layout's nodes to the node manager";
         return 0;
     }
     for (const auto& m : made)
-        MakeLive(m.first, m.second);
+        make_live(m.first, m.second);
     return static_cast<int>(made.size());
 }
 
-bool DropOut(uint32_t name, Spec* spec, int* index)
+bool drop_out(uint32_t name, Spec* spec, int* index)
 {
     for (size_t i = 0; i < g_list.size(); ++i) {
-        if (NameHash(g_list[i].name) != name)
+        if (name_hash(g_list[i].name) != name)
             continue;
-        *spec = WithPlace(g_list[i], g_structs[i]);
+        *spec = with_place(g_list[i], g_structs[i]);
         *index = static_cast<int>(i);
-        Scripts::CStruct* node = g_structs[i];
-        KillLive(*spec); // (the light lists by name - before the node goes)
+        script::Struct* node = g_structs[i];
+        kill_live(*spec); // (the light lists by name - before the node goes)
         g_list.erase(g_list.begin() + static_cast<std::ptrdiff_t>(i));
         g_structs.erase(g_structs.begin() + static_cast<std::ptrdiff_t>(i));
-        Sync();
-        NodeEdit::Forget(name);
-        Dealloc(node);
-        Log("level editor: removed the added node %s", spec->name.c_str());
+        get_sync();
+        node_edit::get_forget(name);
+        dealloc(node);
+        get_log("level editor: removed the added node %s", spec->name.c_str());
         return true;
     }
     return false;
 }
 
-bool SetLinks(uint32_t name, const std::vector<uint32_t>& links)
+bool set_links(uint32_t name, const std::vector<uint32_t>& links)
 {
     for (size_t i = 0; i < g_list.size(); ++i) {
-        if (NameHash(g_list[i].name) != name)
+        if (name_hash(g_list[i].name) != name)
             continue;
         g_list[i].links = links;
-        WriteLinks(g_structs[i], links);
-        Nodes::MarkStale();
+        write_links(g_structs[i], links);
+        nodes::mark_stale();
         return true;
     }
     return false;
 }
 
-std::vector<std::string> Order()
+std::vector<std::string> get_order()
 {
     std::vector<std::string> names;
     for (const Spec& spec : g_list)
@@ -944,13 +944,13 @@ std::vector<std::string> Order()
     return names;
 }
 
-void SetOrder(const std::vector<std::string>& names)
+void set_order(const std::vector<std::string>& names)
 {
     LinkChain list;
-    std::vector<Scripts::CStruct*> structs;
+    std::vector<script::Struct*> structs;
     std::vector<bool> used(g_list.size(), false);
     for (const std::string& name : names) {
-        int i = IndexOf(g_list, name);
+        int i = get_index_of(g_list, name);
         if (i >= 0 && !used[i]) {
             used[i] = true;
             list.push_back(g_list[i]);
@@ -965,16 +965,16 @@ void SetOrder(const std::vector<std::string>& names)
     }
     g_list.swap(list);
     g_structs.swap(structs);
-    Sync();
+    get_sync();
 }
 
-bool MoveCrown(uint32_t name, int delta, std::string* message)
+bool move_crown(uint32_t name, int delta, std::string* message)
 {
     for (const Spec& spec : g_list) {
-        if (NameHash(spec.name) != name)
+        if (name_hash(spec.name) != name)
             continue;
         LinkChain list = g_list;
-        if (!NodeCreate::MoveCrown(&list, spec.name, delta)) {
+        if (!node_create::move_crown(&list, spec.name, delta)) {
             *message = delta < 0 ? "Already the first added crown"
                                  : "Already the last crown";
             return false;
@@ -982,24 +982,24 @@ bool MoveCrown(uint32_t name, int delta, std::string* message)
         std::vector<std::string> order;
         for (const Spec& s : list)
             order.push_back(s.name);
-        SetOrder(order);
+        set_order(order);
         return true;
     }
     *message = "Only added crowns can be reordered";
     return false;
 }
 
-void ApplyCrownOrder(const std::vector<std::string>& order)
+void apply_crown_order(const std::vector<std::string>& order)
 {
     LinkChain list = g_list;
-    NodeCreate::ApplyCrownOrder(&list, order);
+    node_create::apply_crown_order(&list, order);
     std::vector<std::string> names;
     for (const Spec& s : list)
         names.push_back(s.name);
-    SetOrder(names);
+    set_order(names);
 }
 
-bool CanHide(const Nodes::Elem& node, const char** why)
+bool can_hide(const nodes::Elem& node, const char** why)
 {
     *why = nullptr;
     if (node.added) {
@@ -1011,12 +1011,12 @@ bool CanHide(const Nodes::Elem& node, const char** why)
         return false;
     }
     switch (node.family) {
-    case Nodes::Family::Spawn:
-    case Nodes::Family::Crown:
-    case Nodes::Family::BitMark:
-    case Nodes::Family::Light:
-    case Nodes::Family::Sound:
-    case Nodes::Family::FireOff:
+    case nodes::Family::kSpawn:
+    case nodes::Family::kCrown:
+    case nodes::Family::kBitMark:
+    case nodes::Family::kLight:
+    case nodes::Family::kSound:
+    case nodes::Family::kFireOff:
         break;
     default:
         *why = "This node type can't be hidden";
@@ -1024,17 +1024,17 @@ bool CanHide(const Nodes::Elem& node, const char** why)
     }
     if (node.hidden)
         return true;
-    if (node.family == Nodes::Family::Crown && Nodes::Walked(Nodes::Family::Crown) <= 1) {
+    if (node.family == nodes::Family::kCrown && nodes::walked(nodes::Family::kCrown) <= 1) {
         *why = "Can't hide the last crown";
         return false;
     }
-    if (node.family == Nodes::Family::Spawn) {
+    if (node.family == nodes::Family::kSpawn) {
         uint32_t others = 0;
-        for (const Nodes::Elem& n : Nodes::All()) {
-            if (n.family == Nodes::Family::Spawn && !n.hidden && n.name != node.name)
-                others |= n.restartTypes;
+        for (const nodes::Elem& n : nodes::get_all()) {
+            if (n.family == nodes::Family::kSpawn && !n.hidden && n.name != node.name)
+                others |= n.restart_types_;
         }
-        if (HideLeavesNoRestart(node.restartTypes, others)) {
+        if (hide_leaves_no_restart(node.restart_types_, others)) {
             *why = "Can't hide the last start point";
             return false;
         }
@@ -1042,12 +1042,12 @@ bool CanHide(const Nodes::Elem& node, const char** why)
     return true;
 }
 
-bool Hidden(uint32_t name)
+bool get_hidden(uint32_t name)
 {
     return std::any_of(g_hidden.begin(), g_hidden.end(), [&](const HiddenNode& h) { return h.name == name; });
 }
 
-std::vector<uint32_t> HiddenNames()
+std::vector<uint32_t> hidden_names()
 {
     std::vector<uint32_t> names;
     for (const HiddenNode& h : g_hidden)
@@ -1055,100 +1055,100 @@ std::vector<uint32_t> HiddenNames()
     return names;
 }
 
-bool Conceal(uint32_t name, bool hide)
+bool conceal(uint32_t name, bool hide)
 {
-    if (!Hub() || IsAdded(name))
+    if (!hub() || is_added(name))
         return false;
-    Scripts::CStruct* node = LevelNodes::FetchVertex(name, false);
+    script::Struct* node = level_nodes::fetch_vertex(name, false);
     if (!node)
         return false;
     auto it = std::find_if(g_hidden.begin(), g_hidden.end(), [&](const HiddenNode& h) { return h.name == name; });
-    static const uint32_t kLight = NameHash("LevelLight"), kProxim = NameHash("ProximNode"),
-                          kEmitter = NameHash("EmitterObject");
+    static const uint32_t kLight = name_hash("LevelLight"), kProxim = name_hash("ProximNode"),
+                          kEmitter = name_hash("EmitterObject");
     if (hide) {
         if (it != g_hidden.end())
             return true;
         HiddenNode h = {name, node, false, false};
         uint32_t cls = 0, type = 0;
-        node->ReadHashValue(kClass, &cls, 0);
-        node->ReadHashValue(kType, &type, 0);
-        if (cls == Nodes::HiddenMarker())
+        node->read_hash_value(kClass, &cls, 0);
+        node->read_hash_value(kType, &type, 0);
+        if (cls == nodes::hidden_marker())
             return false;
-        node->PutNameKey(Nodes::HiddenClassKey(), cls);
-        node->PutNameKey(Nodes::HiddenTypeKey(), type);
-        node->PutNameKey(kClass, Nodes::HiddenMarker());
-        node->PutNameKey(kType, Nodes::HiddenMarker());
-        if (cls == kProxim && HaveProxim()) {
-            if (GameObjects::ProximNode* proxim = GameObjects::Proxim_GetNode(name)) {
-                h.proximActive = proxim->m_active;
-                GameObjects::ProximityNode_Enable(name, 0);
+        node->put_name_key(nodes::hidden_class_key(), cls);
+        node->put_name_key(nodes::hidden_type_key(), type);
+        node->put_name_key(kClass, nodes::hidden_marker());
+        node->put_name_key(kType, nodes::hidden_marker());
+        if (cls == kProxim && have_proxim()) {
+            if (objects::ProximNode* proxim = objects::proxim_get_node(name)) {
+                h.proxim_active_ = proxim->active_;
+                objects::proximity_node_enable(name, 0);
             }
         }
-        if (cls == kEmitter && HaveEmitters()) {
-            if (GameObjects::EmitterNode* emitter = GameObjects::Emitter_GetNode(name)) {
-                h.emitterActive = emitter->m_active;
-                GameObjects::Emitter_SetActive(name, 0);
+        if (cls == kEmitter && have_emitters()) {
+            if (objects::EmitterNode* emitter = objects::emitter_get_node(name)) {
+                h.emitter_active_ = emitter->active_;
+                objects::emitter_set_active(name, 0);
             }
         }
         if (cls == kLight)
-            RemoveLight(name);
+            remove_light(name);
         // (a flag a CTF game made: killed - it comes back when the game makes it again)
-        auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(name));
-        if (object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) && cls != kProxim && cls != kEmitter &&
+        auto* object = static_cast<objects::GameEntity*>(objects::find_object(name));
+        if (object && !(object->object_flags_ & objects::kObjectFlagDead) && cls != kProxim && cls != kEmitter &&
             cls != kLight)
-            object->FlagAsDead();
+            object->flag_as_dead();
         g_hidden.push_back(h);
-        Log("level editor: hid the level's node %s", Objects::Caption(name).c_str());
+        get_log("level editor: hid the level's node %s", object_edit::caption(name).c_str());
     } else {
         if (it == g_hidden.end())
             return true;
         HiddenNode h = *it;
         g_hidden.erase(it);
         uint32_t cls = 0, type = 0;
-        node->ReadHashValue(Nodes::HiddenClassKey(), &cls, 0);
-        node->ReadHashValue(Nodes::HiddenTypeKey(), &type, 0);
-        node->EraseModule(Nodes::HiddenClassKey());
-        node->EraseModule(Nodes::HiddenTypeKey());
-        node->EraseModule(kClass);
-        node->EraseModule(kType);
-        node->PutNameKey(kClass, cls);
+        node->read_hash_value(nodes::hidden_class_key(), &cls, 0);
+        node->read_hash_value(nodes::hidden_type_key(), &type, 0);
+        node->erase_module(nodes::hidden_class_key());
+        node->erase_module(nodes::hidden_type_key());
+        node->erase_module(kClass);
+        node->erase_module(kType);
+        node->put_name_key(kClass, cls);
         if (type)
-            node->PutNameKey(kType, type);
-        if (cls == kProxim && HaveProxim() && h.proximActive)
-            GameObjects::ProximityNode_Enable(name, 1);
-        if (cls == kEmitter && HaveEmitters() && h.emitterActive)
-            GameObjects::Emitter_SetActive(name, 1);
+            node->put_name_key(kType, type);
+        if (cls == kProxim && have_proxim() && h.proxim_active_)
+            objects::proximity_node_enable(name, 1);
+        if (cls == kEmitter && have_emitters() && h.emitter_active_)
+            objects::emitter_set_active(name, 1);
         if (cls == kLight)
-            AddLight(node);
-        Log("level editor: showed the level's node %s again", Objects::Caption(name).c_str());
+            add_light(node);
+        get_log("level editor: showed the level's node %s again", object_edit::caption(name).c_str());
     }
-    Nodes::MarkStale();
+    nodes::mark_stale();
     return true;
 }
 
-void ResetAll()
+void reset_all()
 {
-    std::vector<uint32_t> hidden = HiddenNames();
+    std::vector<uint32_t> hidden = hidden_names();
     for (uint32_t name : hidden)
-        Conceal(name, false);
-    std::vector<std::string> names = Order();
+        conceal(name, false);
+    std::vector<std::string> names = get_order();
     for (const std::string& name : names) {
         Spec spec;
         int index;
-        DropOut(NameHash(name), &spec, &index);
+        drop_out(name_hash(name), &spec, &index);
     }
 }
 
-void ForgetLevel()
+void forget_level()
 {
     // (a level whose node array stays loaded: hidden nodes shown, added ones removed; another level's: forgotten)
-    if (Hub()) {
+    if (hub()) {
         for (const HiddenNode& h : std::vector<HiddenNode>(g_hidden)) {
-            if (LevelNodes::FetchVertex(h.name, false) == h.node)
-                Conceal(h.name, false);
+            if (level_nodes::fetch_vertex(h.name, false) == h.node)
+                conceal(h.name, false);
         }
     }
-    Forget();
+    get_forget();
 }
 
-} // namespace MenuSystem::LevelEditor::NodeCreate
+} // namespace MenuSystem::level_editor::node_create

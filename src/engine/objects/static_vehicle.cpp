@@ -20,7 +20,7 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
@@ -30,66 +30,66 @@ constexpr uint32_t kSkeleton = 0x222756D5;
 
 // The model component's model (+0x208) and that model's hierarchy (0x00493040, not rewritten yet): objects of 0x50
 // bytes from +0x50, each with its matrix at +0x10.
-const uint8_t* HierarchyOf(CObjectModule* model)
+const uint8_t* hierarchy_of(ObjectModule* model)
 {
     uint8_t* m = *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(model) + 0x208);
-    return reinterpret_cast<const uint8_t*>(reinterpret_cast<Engine3D::CRenderModel*>(m)->GetAssetHierarchy());
+    return reinterpret_cast<const uint8_t*>(reinterpret_cast<render::RenderModel*>(m)->get_asset_hierarchy());
 }
 
 // The skeleton component's skeleton (+0x18), its bone matrices (+0x04) and bone count (0x004A2BA0, not rewritten).
-uint8_t* SkeletonOf(CObjectModule* skeleton) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(skeleton) + 0x18); }
-Maths::Mat4* SkeletonPalette(uint8_t* skeleton) { return *reinterpret_cast<Maths::Mat4**>(skeleton + 0x04); }
-int BoneCount(uint8_t* skeleton) { return reinterpret_cast<int(__thiscall*)(uint8_t*)>(CodeAddress(&Gfx2D::CRig::GetNumBones))(skeleton); }
+uint8_t* skeleton_of(ObjectModule* skeleton) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(skeleton) + 0x18); }
+maths::Mat4* skeleton_palette(uint8_t* skeleton) { return *reinterpret_cast<maths::Mat4**>(skeleton + 0x04); }
+int get_bone_count(uint8_t* skeleton) { return reinterpret_cast<int(__thiscall*)(uint8_t*)>(code_address(&gfx::Rig::get_num_bones))(skeleton); }
 
 // A model position in the game's axes: x and the model's y negated, y and z swapped.
-Maths::Vec4 FromModel(const float* p) { return {-p[0], p[2], -p[1], 1.0f}; }
+maths::Vec4 from_model(const float* p) { return {-p[0], p[2], -p[1], 1.0f}; }
 
 } // namespace
 
 // 0x00433690
-CObjectModule* __cdecl CParkedVehicleModule::Fabricate()
+ObjectModule* __cdecl ParkedVehicleModule::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CParkedVehicleModule));
+    void* memory = memory::alloc_zeroed(sizeof(ParkedVehicleModule));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CParkedVehicleModule*>(memory);
-    component->CObjectModule::MakeNew();
-    component->m_vtable = kVtable;
-    component->m_kindTag = kType;
+    auto* component = static_cast<ParkedVehicleModule*>(memory);
+    component->ObjectModule::make_new();
+    component->vtable_ = kVtable;
+    component->kind_tag_ = kType;
     return component;
 }
 
 // 0x00433650
-void CParkedVehicleModule::DestroyBody()
+void ParkedVehicleModule::destroy_body()
 {
-    m_vtable = kVtable;
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    ObjectModule::destroy_body();
 }
 
 // 0x00433660
-CParkedVehicleModule* CParkedVehicleModule::Teardown(unsigned int flags)
+ParkedVehicleModule* ParkedVehicleModule::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x004336F0
-void CParkedVehicleModule::Seal()
+void ParkedVehicleModule::seal()
 {
-    const uint8_t* hierarchy = HierarchyOf(m_entity->FetchModule(kModel));
+    const uint8_t* hierarchy = hierarchy_of(entity_->fetch_module(kModel));
     // The wheels: the hierarchy's objects 1-4 (their matrices' translations).
-    Maths::Vec4 wheels[4];
+    maths::Vec4 wheels[4];
     for (int k = 0; k < 4; ++k)
-        wheels[k] = FromModel(reinterpret_cast<const float*>(hierarchy + 0xE0 + 0x50 * k));
+        wheels[k] = from_model(reinterpret_cast<const float*>(hierarchy + 0xE0 + 0x50 * k));
     // The body: the root's (object 0's) translation.
-    Maths::Vec4 body = FromModel(reinterpret_cast<const float*>(hierarchy + 0x90));
+    maths::Vec4 body = from_model(reinterpret_cast<const float*>(hierarchy + 0x90));
 
-    CObjectModule* skeletonComponent = m_entity->FetchModule(kSkeleton);
-    Maths::Mat4* bones = SkeletonPalette(SkeletonOf(skeletonComponent));
-    for (int i = 0; i < BoneCount(SkeletonOf(skeletonComponent)); ++i) {
-        Maths::Mat4& bone = bones[i];
+    ObjectModule* skeleton_component = entity_->fetch_module(kSkeleton);
+    maths::Mat4* bones = skeleton_palette(skeleton_of(skeleton_component));
+    for (int i = 0; i < get_bone_count(skeleton_of(skeleton_component)); ++i) {
+        maths::Mat4& bone = bones[i];
         std::memset(&bone, 0, sizeof(bone));
         if (i == 0)
             continue;
@@ -104,30 +104,30 @@ void CParkedVehicleModule::Seal()
             bone.row[2].y = 1.0f;
             // Not original - a seventh bone or more would be a fifth wheel: the original reads it from past the end of
             // its four (its own stack - garbage); ours stands it at the origin.
-            bone.row[3] = i - 2 < 4 ? wheels[i - 2] : Maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f};
+            bone.row[3] = i - 2 < 4 ? wheels[i - 2] : maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f};
         }
     }
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CParkedVehicleModule::Teardown,
-         &GameObjects::ComponentWithoutUpdate::TickFrame,
-         Stubs::IgnoreArgument,
-         &GameObjects::CParkedVehicleModule::Seal,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
-         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::ParkedVehicleModule::teardown,
+         &objects::ComponentWithoutUpdate::tick_frame,
+         stubs::ignore_argument,
+         &objects::ParkedVehicleModule::seal,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
+         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

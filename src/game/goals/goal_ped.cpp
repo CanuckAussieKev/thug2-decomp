@@ -1,4 +1,4 @@
-// GoalSystem::CObjectiveNpc: a goal's pro, 0x0055EB40-0x005600CF (see goal_ped.h).
+// goals::ObjectiveNpc: a goal's pro, 0x0055EB40-0x005600CF (see goal_ped.h).
 
 #include "game/goals/goal_ped.h"
 
@@ -25,11 +25,11 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module_calls.h"
 
-namespace GoalSystem {
+namespace goals {
 
 namespace {
 
-using namespace GoalNames;
+using namespace goal_names;
 
 constexpr uint32_t kPro = 0x944B2900;            // pro
 constexpr uint32_t kProAlternative = 0x878CCC12; // (name unknown: the pro's name when the skater is that pro)
@@ -60,7 +60,7 @@ constexpr uint32_t kLastAnim = 0x0E7F5FF8;       // last_anim
 constexpr uint32_t kSpeakerObjId = 0xF0C598FA;   // speaker_obj_id
 constexpr uint32_t kPlayRandom = 0x2BE2056A;     // play_random
 constexpr uint32_t kCallPlayerByName = 0x9F38B332; // call_player_by_name
-constexpr uint32_t kVO = 0x1A4E4FB9;             // VO
+constexpr uint32_t kVo = 0x1A4E4FB9;             // VO
 constexpr uint32_t kMidgoal = 0x1623B689;        // (the midgoal type)
 constexpr uint32_t kWait = 0x82117C1A;           // wait
 
@@ -72,12 +72,12 @@ const char* const kCamAnimSuffix = "%s_camAnim%02i_%s"; // "%s_camAnim%02i_%s"
 const char* const kLip = "%s_lip";        // "%s_lip"
 const char* const kFar = "Far";        // "Far"
 
-CGoalManager* Hub() { return GetObjectiveBoard(); }
-Scripts::CStruct* GoalParams(uint32_t id) { return Hub()->GetObjectiveArgs(id); }
-GameObjects::CRiderIdentity* CurrentProfile() { return SkateCalls::GetProfileFromParams(nullptr); }
+GoalManager* hub() { return get_objective_board(); }
+script::Struct* get_goal_params(uint32_t id) { return hub()->get_objective_args(id); }
+objects::RiderIdentity* current_profile() { return skate_calls::get_profile_from_params(nullptr); }
 
 // `text` with `format` applied to itself (sprintf onto its own buffer: _f, _success).
-void AppendFormat(char* text, size_t size, const char* format)
+void append_format(char* text, size_t size, const char* format)
 {
     char copy[0x100];
     std::snprintf(copy, sizeof(copy), "%s", text);
@@ -85,51 +85,51 @@ void AppendFormat(char* text, size_t size, const char* format)
 }
 
 // The object `id` names: the skater, or the composite object with that id.
-GameObjects::CGameEntity* ObjectNamed(uint32_t id)
+objects::GameEntity* object_named(uint32_t id)
 {
     if (id == kSkater)
-        return SkateCalls::GetHomeRider();
-    return static_cast<GameObjects::CGameEntity*>(GameObjects::ObjectHubSlot()->LookUpEntity(id));
+        return skate_calls::get_home_rider();
+    return static_cast<objects::GameEntity*>(objects::object_hub_slot()->look_up_entity(id));
 }
 
-Scripts::CStruct* SpawnParamTable()
+script::Struct* spawn_param_table()
 {
-    Scripts::CStruct* made = Scripts::SpawnParamBag();
-    return made ? made->PrepareAll() : nullptr;
+    script::Struct* made = script::spawn_param_bag();
+    return made ? made->prepare_all() : nullptr;
 }
-void DeleteStructure(Scripts::CStruct* structure)
+void delete_structure(script::Struct* structure)
 {
     if (structure) {
-        structure->Clear();
-        Scripts::DeleteStruct(structure);
+        structure->get_clear();
+        script::delete_struct(structure);
     }
 }
-Scripts::CArray* AllocScriptArray()
+script::Array* alloc_script_array()
 {
-    Scripts::CArray* made = Scripts::AllocScriptArray();
-    return made ? made->PrepareAll() : nullptr;
+    script::Array* made = script::alloc_script_array();
+    return made ? made->prepare_all() : nullptr;
 }
-void FreeArray(Scripts::CArray* array)
+void free_array(script::Array* array)
 {
-    Scripts::ReleaseArrayStorage(array);
+    script::release_array_storage(array);
     if (array) {
-        array->Clear();
-        Scripts::DeleteArray(array);
+        array->get_clear();
+        script::delete_array(array);
     }
 }
 
 // The numbers 1..count shuffled (each slot swapped with a random one).
-Scripts::CArray* ShuffledNumbers(int count)
+script::Array* shuffled_numbers(int count)
 {
-    Scripts::CArray* numbers = AllocScriptArray();
-    numbers->ConfigureSizeKind(static_cast<uint32_t>(count), Scripts::QBVAL_INTEGER);
+    script::Array* numbers = alloc_script_array();
+    numbers->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalInteger);
     for (int i = 0; i < count; ++i)
-        numbers->SetElement(static_cast<uint32_t>(i), static_cast<uint32_t>(i + 1));
+        numbers->set_element(static_cast<uint32_t>(i), static_cast<uint32_t>(i + 1));
     for (int i = 0; i < count; ++i) {
-        int other = Maths::Rnd(count);
-        uint32_t value = numbers->FetchPart(static_cast<uint32_t>(other));
-        numbers->SetElement(static_cast<uint32_t>(other), numbers->FetchPart(static_cast<uint32_t>(i)));
-        numbers->SetElement(static_cast<uint32_t>(i), value);
+        int other = maths::rnd(count);
+        uint32_t value = numbers->fetch_part(static_cast<uint32_t>(other));
+        numbers->set_element(static_cast<uint32_t>(other), numbers->fetch_part(static_cast<uint32_t>(i)));
+        numbers->set_element(static_cast<uint32_t>(i), value);
     }
     return numbers;
 }
@@ -137,18 +137,18 @@ Scripts::CArray* ShuffledNumbers(int count)
 } // namespace
 
 // 0x0055EB40
-CObjectiveNpc* CObjectiveNpc::MakeNew(Scripts::CStruct* params)
+ObjectiveNpc* ObjectiveNpc::make_new(script::Struct* params)
 {
-    params->ReadHashValue(kGoalIdChecksum, &m_objectiveKey, 1);
-    m_suspended = false;
-    m_fam = 0;
-    m_animObject = 0;
-    m_feed = 0;
+    params->read_hash_value(kGoalIdChecksum, &objective_key_, 1);
+    suspended_ = false;
+    fam_ = 0;
+    anim_object_ = 0;
+    feed_ = 0;
     return this;
 }
 
 // 0x0055EB70
-void CObjectiveNpc::ReadLeadingName(char* out, const char** name, int)
+void ObjectiveNpc::read_leading_name(char* out, const char** name, int)
 {
     if (!std::strstr(*name, " ")) { // " "
         for (const char* from = *name; (*out++ = *from++) != 0;) {
@@ -161,116 +161,116 @@ void CObjectiveNpc::ReadLeadingName(char* out, const char** name, int)
 }
 
 // 0x0055EBC0
-void CObjectiveNpc::AddSuccessSuffix(bool add, char* text, int)
+void ObjectiveNpc::add_success_suffix(bool add, char* text, int)
 {
     if (add)
-        AppendFormat(text, 0x100, kSuccess);
+        append_format(text, 0x100, kSuccess);
 }
 
 // 0x0055EBF0
-const char* CObjectiveNpc::GetProGivenName()
+const char* ObjectiveNpc::get_pro_given_name()
 {
-    Scripts::CStruct* params = GoalParams(m_objectiveKey);
+    script::Struct* params = get_goal_params(objective_key_);
     const char* pro;
-    if (!params->FetchText(kPro, &pro, false))
+    if (!params->fetch_text(kPro, &pro, false))
         return nullptr;
-    GameObjects::CRiderIdentity* profile = CurrentProfile();
-    const char* display = profile->FetchShownName();
-    if (profile->IsPro()) {
+    objects::RiderIdentity* profile = current_profile();
+    const char* display = profile->fetch_shown_name();
+    if (profile->is_pro()) {
         char first[0x80];
-        ReadLeadingName(first, &display, sizeof(first));
-        if (profile->IsPro() && Checksums::HashFromText(pro) == Checksums::HashFromText(first)) {
+        read_leading_name(first, &display, sizeof(first));
+        if (profile->is_pro() && checksums::hash_from_text(pro) == checksums::hash_from_text(first)) {
             const char* alternative;
-            return params->FetchText(kProAlternative, &alternative, false) ? alternative : nullptr;
+            return params->fetch_text(kProAlternative, &alternative, false) ? alternative : nullptr;
         }
     }
     return pro;
 }
 
 // 0x0055ED00
-bool CObjectiveNpc::GetVoiceClipKey(uint32_t* out, int index, bool success, const char* suffix, bool noCamAnim)
+bool ObjectiveNpc::get_voice_clip_key(uint32_t* out, int index, bool success, const char* suffix, bool no_cam_anim)
 {
-    Scripts::CStruct* params = GoalParams(m_objectiveKey);
-    const char* pro = GetProGivenName();
+    script::Struct* params = get_goal_params(objective_key_);
+    const char* pro = get_pro_given_name();
     if (!pro)
         return false;
-    const char* goalName;
-    params->FetchText(kGoalName, &goalName, true);
+    const char* goal_name;
+    params->fetch_text(kGoalName, &goal_name, true);
     char base[0x200];
-    std::snprintf(base, sizeof(base), kFormatTwo, pro, goalName);
+    std::snprintf(base, sizeof(base), kFormatTwo, pro, goal_name);
     const char* difficulty;
-    switch (Hub()->GetSkillTier(false)) {
+    switch (hub()->get_skill_tier(false)) {
     case 0: difficulty = "easy"; break; // "easy"
     case 1: difficulty = "medium"; break; // "medium"
     case 2: difficulty = "hard"; break; // "hard"
     default: return false;
     }
     bool female = false;
-    if (suffix && Checksums::HashFromText(suffix) == kSkater) {
+    if (suffix && checksums::hash_from_text(suffix) == kSkater) {
         int male;
-        reinterpret_cast<Scripts::CStruct*>(CurrentProfile()->m_details)->FetchIntValue(kIsMale, &male, 1);
+        reinterpret_cast<script::Struct*>(current_profile()->details_)->fetch_int_value(kIsMale, &male, 1);
         if (!male)
             female = true;
     }
-    char baseDifficulty[0x100], baseSuffix[0x100], baseDifficultySuffix[0x100];
-    char camDifficulty[0x100], camBase[0x100], camSuffix[0x100], camDifficultySuffix[0x100];
-    std::snprintf(baseDifficulty, sizeof(baseDifficulty), kFormatTwo, base, difficulty);
-    camDifficulty[0] = camBase[0] = camSuffix[0] = camDifficultySuffix[0] = 0;
-    if (index >= 0 && !noCamAnim) {
-        std::snprintf(camDifficulty, sizeof(camDifficulty), kCamAnim, baseDifficulty, index);
+    char base_difficulty[0x100], base_suffix[0x100], base_difficulty_suffix[0x100];
+    char cam_difficulty[0x100], cam_base[0x100], cam_suffix[0x100], cam_difficulty_suffix[0x100];
+    std::snprintf(base_difficulty, sizeof(base_difficulty), kFormatTwo, base, difficulty);
+    cam_difficulty[0] = cam_base[0] = cam_suffix[0] = cam_difficulty_suffix[0] = 0;
+    if (index >= 0 && !no_cam_anim) {
+        std::snprintf(cam_difficulty, sizeof(cam_difficulty), kCamAnim, base_difficulty, index);
         if (success)
-            AppendFormat(camDifficulty, sizeof(camDifficulty), kSuccess);
-        std::snprintf(camBase, sizeof(camBase), kCamAnim, base, index);
+            append_format(cam_difficulty, sizeof(cam_difficulty), kSuccess);
+        std::snprintf(cam_base, sizeof(cam_base), kCamAnim, base, index);
         if (success)
-            AppendFormat(camBase, sizeof(camBase), kSuccess);
+            append_format(cam_base, sizeof(cam_base), kSuccess);
         if (suffix) {
-            std::snprintf(camSuffix, sizeof(camSuffix), kCamAnimSuffix, base, index, suffix);
+            std::snprintf(cam_suffix, sizeof(cam_suffix), kCamAnimSuffix, base, index, suffix);
             if (female)
-                AppendFormat(camSuffix, sizeof(camSuffix), kFemale);
-            AddSuccessSuffix(success, camSuffix, 0x100);
-            std::snprintf(camDifficultySuffix, sizeof(camDifficultySuffix), kCamAnimSuffix, baseDifficulty, index,
+                append_format(cam_suffix, sizeof(cam_suffix), kFemale);
+            add_success_suffix(success, cam_suffix, 0x100);
+            std::snprintf(cam_difficulty_suffix, sizeof(cam_difficulty_suffix), kCamAnimSuffix, base_difficulty, index,
                           suffix);
             if (female)
-                AppendFormat(camDifficultySuffix, sizeof(camDifficultySuffix), kFemale);
-            AddSuccessSuffix(success, camDifficultySuffix, 0x100);
+                append_format(cam_difficulty_suffix, sizeof(cam_difficulty_suffix), kFemale);
+            add_success_suffix(success, cam_difficulty_suffix, 0x100);
         }
     }
-    baseDifficultySuffix[0] = baseSuffix[0] = 0;
+    base_difficulty_suffix[0] = base_suffix[0] = 0;
     if (suffix) {
-        std::snprintf(baseDifficultySuffix, sizeof(baseDifficultySuffix), kFormatTwo, baseDifficulty, suffix);
+        std::snprintf(base_difficulty_suffix, sizeof(base_difficulty_suffix), kFormatTwo, base_difficulty, suffix);
         if (female)
-            AppendFormat(baseDifficultySuffix, sizeof(baseDifficultySuffix), kFemale);
+            append_format(base_difficulty_suffix, sizeof(base_difficulty_suffix), kFemale);
         if (success)
-            AppendFormat(baseDifficultySuffix, sizeof(baseDifficultySuffix), kSuccess);
-        std::snprintf(baseSuffix, sizeof(baseSuffix), kFormatTwo, base, suffix);
+            append_format(base_difficulty_suffix, sizeof(base_difficulty_suffix), kSuccess);
+        std::snprintf(base_suffix, sizeof(base_suffix), kFormatTwo, base, suffix);
         if (female)
-            AppendFormat(baseSuffix, sizeof(baseSuffix), kFemale);
+            append_format(base_suffix, sizeof(base_suffix), kFemale);
         if (success)
-            AppendFormat(baseSuffix, sizeof(baseSuffix), kSuccess);
+            append_format(base_suffix, sizeof(base_suffix), kSuccess);
     }
     if (success) {
-        AppendFormat(baseDifficulty, sizeof(baseDifficulty), kSuccess);
-        AppendFormat(base, sizeof(base), kSuccess);
+        append_format(base_difficulty, sizeof(base_difficulty), kSuccess);
+        append_format(base, sizeof(base), kSuccess);
     }
     // The candidates in order (the camera animation's first when there's one); for each its _lip version first.
-    const char* candidates[8] = {base,   baseDifficulty, baseSuffix,  baseDifficultySuffix,
-                                 camDifficulty, camBase, camSuffix, camDifficultySuffix};
+    const char* candidates[8] = {base,   base_difficulty, base_suffix,  base_difficulty_suffix,
+                                 cam_difficulty, cam_base, cam_suffix, cam_difficulty_suffix};
     uint32_t found = 0;
     bool lip = false;
     for (int i = index >= 0 ? 4 : 0; i < 8; ++i) {
         const char* name = candidates[i];
         if (!std::strlen(name))
             continue;
-        char lipName[0x100];
-        std::snprintf(lipName, sizeof(lipName), kLip, name);
-        uint32_t lipStream = Checksums::HashFromText(lipName);
-        if (AudioStream::StreamExists(lipStream)) {
-            found = lipStream;
+        char lip_name[0x100];
+        std::snprintf(lip_name, sizeof(lip_name), kLip, name);
+        uint32_t lip_stream = checksums::hash_from_text(lip_name);
+        if (audio::stream_exists(lip_stream)) {
+            found = lip_stream;
             lip = true;
             break;
         }
-        uint32_t stream = Checksums::HashFromText(name);
-        if (AudioStream::StreamExists(stream)) {
+        uint32_t stream = checksums::hash_from_text(name);
+        if (audio::stream_exists(stream)) {
             found = stream;
             break;
         }
@@ -280,288 +280,288 @@ bool CObjectiveNpc::GetVoiceClipKey(uint32_t* out, int index, bool success, cons
 }
 
 // 0x0055F170
-void CObjectiveNpc::GetSkaterGivenName(char* out, int size)
+void ObjectiveNpc::get_skater_given_name(char* out, int size)
 {
-    const char* display = CurrentProfile()->FetchShownName();
+    const char* display = current_profile()->fetch_shown_name();
     out[0] = 0;
-    ReadLeadingName(out, &display, size);
+    read_leading_name(out, &display, size);
 }
 
 // 0x0055F1B0
-void CObjectiveNpc::CutPreviousVoiceLine()
+void ObjectiveNpc::cut_previous_voice_line()
 {
-    if (!m_feed)
+    if (!feed_)
         return;
-    if (m_animObject)
-        Scripts::StopScriptsUsingObjectThatReferTo(ObjectNamed(m_animObject), kGoalPlayStream);
-    AudioStream::HaltStream(m_feed);
-    m_feed = 0;
+    if (anim_object_)
+        script::stop_scripts_using_object_that_refer_to(object_named(anim_object_), kGoalPlayStream);
+    audio::halt_stream(feed_);
+    feed_ = 0;
 }
 
 // 0x0055F210
-void CObjectiveNpc::CutVoiceLine()
+void ObjectiveNpc::cut_voice_line()
 {
-    Scripts::CStruct* params = GoalParams(m_objectiveKey);
+    script::Struct* params = get_goal_params(objective_key_);
     uint32_t stream = 0;
-    if (!params->ReadHashValue(kCurrentStream, &stream, 0))
+    if (!params->read_hash_value(kCurrentStream, &stream, 0))
         return;
-    params->EraseModule(kCurrentStream);
+    params->erase_module(kCurrentStream);
     if (stream)
-        AudioStream::HaltStream(stream);
+        audio::halt_stream(stream);
 }
 
 // 0x0055F270
-uint32_t CObjectiveNpc::GetObjectiveAnimSets(const char* type)
+uint32_t ObjectiveNpc::get_objective_anim_sets(const char* type)
 {
-    const char* goalName;
-    GoalParams(m_objectiveKey)->FetchText(kGoalName, &goalName, 1);
+    const char* goal_name;
+    get_goal_params(objective_key_)->fetch_text(kGoalName, &goal_name, 1);
     char name[0x80];
-    std::snprintf(name, sizeof(name), kFormatTwo, goalName, type);
-    if (Scripts::FetchList(name))
-        return Checksums::HashFromText(name);
+    std::snprintf(name, sizeof(name), kFormatTwo, goal_name, type);
+    if (script::fetch_list(name))
+        return checksums::hash_from_text(name);
     if (!type)
         return 0;
-    char proName[0x80];
-    std::snprintf(proName, sizeof(proName), "%s_goal_%s", GetProGivenName(), type); // "%s_goal_%s"
-    if (Scripts::FetchList(proName))
-        return Checksums::HashFromText(proName);
+    char pro_name[0x80];
+    std::snprintf(pro_name, sizeof(pro_name), "%s_goal_%s", get_pro_given_name(), type); // "%s_goal_%s"
+    if (script::fetch_list(pro_name))
+        return checksums::hash_from_text(pro_name);
     char generic[0x80];
     std::snprintf(generic, sizeof(generic), "generic_pro_anims_%s", type); // "generic_pro_anims_%s"
-    Scripts::FetchList(generic);
-    return Checksums::HashFromText(generic);
+    script::fetch_list(generic);
+    return checksums::hash_from_text(generic);
 }
 
 // 0x0055F3D0
-void CObjectiveNpc::RemoveObjectiveNpc()
+void ObjectiveNpc::remove_objective_npc()
 {
     uint32_t trigger = 0;
-    GoalParams(m_objectiveKey)->ReadHashValue(kTriggerObjId, &trigger, 0);
+    get_goal_params(objective_key_)->read_hash_value(kTriggerObjId, &trigger, 0);
     if (!trigger)
         return;
-    if (GameObjects::CEntity* object = GameObjects::ObjectHubSlot()->LookUpEntity(trigger))
-        reinterpret_cast<void(__thiscall*)(GameObjects::CEntity*)>(object->m_vtable[6])(object); // (FlagAsDead)
+    if (objects::Entity* object = objects::object_hub_slot()->look_up_entity(trigger))
+        reinterpret_cast<void(__thiscall*)(objects::Entity*)>(object->vtable_[6])(object); // (flag_as_dead)
 }
 
 // 0x0055F420
-void CObjectiveNpc::HaltObjectiveUpdates(bool suspend)
+void ObjectiveNpc::halt_objective_updates(bool suspend)
 {
-    m_suspended = suspend;
+    suspended_ = suspend;
     if (!suspend)
         return;
-    Scripts::LaunchScript(kGoalProStopAnimScripts, GoalParams(m_objectiveKey), nullptr, false, nullptr);
-    CutVoiceLine();
+    script::launch_script(kGoalProStopAnimScripts, get_goal_params(objective_key_), nullptr, false, nullptr);
+    cut_voice_line();
 }
 
 // 0x0055F460
-void CObjectiveNpc::UnloadAnimBank()
+void ObjectiveNpc::unload_anim_bank()
 {
-    if (!m_fam)
+    if (!fam_)
         return;
-    if (m_animObject) {
-        GameObjects::CGameEntity* object = ObjectNamed(m_animObject);
-        Scripts::StopScriptsUsingObjectThatReferTo(object, kGoalPlayStream);
-        Scripts::CStruct* params = SpawnParamTable();
-        params->PutNameKey(kType, kPartialAnim);
-        params->PutNameKey(kId, kJawRotation);
+    if (anim_object_) {
+        objects::GameEntity* object = object_named(anim_object_);
+        script::stop_scripts_using_object_that_refer_to(object, kGoalPlayStream);
+        script::Struct* params = spawn_param_table();
+        params->put_name_key(kType, kPartialAnim);
+        params->put_name_key(kId, kJawRotation);
         if (object)
-            object->FetchModule(kAnimBlender)->InvokeMethodByName(kRemoveAnimController, params, nullptr);
-        DeleteStructure(params);
-        m_animObject = 0;
+            object->fetch_module(kAnimBlender)->invoke_method_by_name(kRemoveAnimController, params, nullptr);
+        delete_structure(params);
+        anim_object_ = 0;
     }
-    AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
-    if (AssetStore::CResource* asset = assets->ObtainLoadedItem(m_fam, 0))
-        assets->DiscardLoadedItem(asset);
-    m_fam = 0;
+    assets::ResourceRegistry* assets = assets::asset_manager();
+    if (assets::Resource* asset = assets->obtain_loaded_item(fam_, 0))
+        assets->discard_loaded_item(asset);
+    fam_ = 0;
 }
 
 // 0x0055F5B0
-void CObjectiveNpc::Conceal(bool hide)
+void ObjectiveNpc::conceal(bool hide)
 {
-    Scripts::CStruct* params = GoalParams(m_objectiveKey);
-    if (params->HasBareFlag(kNullGoal))
+    script::Struct* params = get_goal_params(objective_key_);
+    if (params->has_bare_flag(kNullGoal))
         return;
     uint32_t trigger = 0;
-    params->ReadHashValue(kTriggerObjId, &trigger, 0);
+    params->read_hash_value(kTriggerObjId, &trigger, 0);
     if (!trigger)
         return;
-    if (auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::ObjectHubSlot()->LookUpEntity(trigger)))
-        object->Conceal(hide);
-    Scripts::CStruct* arrow = SpawnParamTable();
-    arrow->PutNameKey(kGoalIdChecksum, m_objectiveKey);
+    if (auto* object = static_cast<objects::GameEntity*>(objects::object_hub_slot()->look_up_entity(trigger)))
+        object->conceal(hide);
+    script::Struct* arrow = spawn_param_table();
+    arrow->put_name_key(kGoalIdChecksum, objective_key_);
     if (hide) {
-        Scripts::LaunchScript(kGoalPedKillArrow, arrow, nullptr, false, nullptr);
+        script::launch_script(kGoalPedKillArrow, arrow, nullptr, false, nullptr);
     } else {
-        CObjective* goal = Hub()->GetGoal(m_objectiveKey, 0);
-        if (!goal || !Virtual<bool>(goal, CObjective::kVtHasWon))
-            Scripts::LaunchScript(kGoalAddPedArrow, arrow, nullptr, false, nullptr);
+        Objective* goal = hub()->get_goal(objective_key_, 0);
+        if (!goal || !Virtual<bool>(goal, Objective::kVtHasWon))
+            script::launch_script(kGoalAddPedArrow, arrow, nullptr, false, nullptr);
     }
-    DeleteStructure(arrow);
+    delete_structure(arrow);
 }
 
 // 0x0055F710
-void CObjectiveNpc::LoadAnimBank(uint32_t stream, uint32_t animSet)
+void ObjectiveNpc::load_anim_bank(uint32_t stream, uint32_t anim_set)
 {
-    UnloadAnimBank();
+    unload_anim_bank();
     char path[0x20];
     std::snprintf(path, sizeof(path), "fam\\%08x.fam", stream); // "fam\%08x.fam"
-    AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
-    int previous = static_cast<int>(reinterpret_cast<OnlinePlay::FoldedGetters*>(assets)->Word18());
-    if (assets->LoadAnim(path, stream, animSet, false, false))
-        m_fam = Checksums::HashFromText(path);
-    assets->SetUnknown18(previous);
+    assets::ResourceRegistry* assets = assets::asset_manager();
+    int previous = static_cast<int>(reinterpret_cast<online::FoldedGetters*>(assets)->word18());
+    if (assets->load_anim(path, stream, anim_set, false, false))
+        fam_ = checksums::hash_from_text(path);
+    assets->set_unknown18(previous);
 }
 
 // 0x0055F7A0
-void CObjectiveNpc::PlayStream(uint32_t stream, bool noAnim, uint32_t objectId, bool loadFam)
+void ObjectiveNpc::play_stream(uint32_t stream, bool no_anim, uint32_t object_id, bool load_fam)
 {
-    if (m_suspended || !AudioStream::StreamExists(stream))
+    if (suspended_ || !audio::stream_exists(stream))
         return;
-    Scripts::CStruct* params = GoalParams(m_objectiveKey);
-    uint32_t id = objectId;
+    script::Struct* params = get_goal_params(objective_key_);
+    uint32_t id = object_id;
     if (!id)
-        params->ReadHashValue(kTriggerObjId, &id, 1);
-    GameObjects::CGameEntity* object = ObjectNamed(id);
+        params->read_hash_value(kTriggerObjId, &id, 1);
+    objects::GameEntity* object = object_named(id);
     if (!object)
         return;
-    Scripts::CStruct* playParams = SpawnParamTable();
-    playParams->PutNameKey(kStreamChecksum, stream);
-    if (!noAnim) {
-        playParams->PutInt(kUsePosInfo, 0);
-        uint32_t animSet = static_cast<GameObjects::CAnimBlenderComponent*>(object->FetchModule(kAnimBlender))->GetAnimSet();
-        if (loadFam)
-            LoadAnimBank(stream, animSet);
-        uint32_t handle = AudioStream::PrimeStream(stream, 0x66);
-        playParams->PutNameKey(kStreamId, handle);
-        m_feed = handle;
-        if (AssetStore::AssetManager()->GetAssetData(animSet + stream, 0)) {
-            playParams->PutNameKey(0u, kPlayAnim);
-            m_animObject = id;
+    script::Struct* play_params = spawn_param_table();
+    play_params->put_name_key(kStreamChecksum, stream);
+    if (!no_anim) {
+        play_params->put_int(kUsePosInfo, 0);
+        uint32_t anim_set = static_cast<objects::AnimBlenderComponent*>(object->fetch_module(kAnimBlender))->get_anim_set();
+        if (load_fam)
+            load_anim_bank(stream, anim_set);
+        uint32_t handle = audio::prime_stream(stream, 0x66);
+        play_params->put_name_key(kStreamId, handle);
+        feed_ = handle;
+        if (assets::asset_manager()->get_asset_data(anim_set + stream, 0)) {
+            play_params->put_name_key(0u, kPlayAnim);
+            anim_object_ = id;
         }
     }
-    Scripts::CScript* script = Scripts::SpawnScript(kGoalPlayStream, playParams, 0, nullptr, 0, 0, false, false, false, false);
-    script->m_entity.AssignObject(object);
-    DeleteStructure(playParams);
+    script::Script* script = script::spawn_script(kGoalPlayStream, play_params, 0, nullptr, 0, 0, false, false, false, false);
+    script->entity_.assign_object(object);
+    delete_structure(play_params);
 }
 
 // 0x0055F960
-void CObjectiveNpc::PlayOpeningVoiceLine(Scripts::CStruct* params)
+void ObjectiveNpc::play_opening_voice_line(script::Struct* params)
 {
-    if (m_suspended || GoalParams(m_objectiveKey)->HasBareFlag(kNoStream))
+    if (suspended_ || get_goal_params(objective_key_)->has_bare_flag(kNoStream))
         return;
     int index = -1;
-    params->FetchIntValue(kCamClipIndex, &index, 0);
+    params->fetch_int_value(kCamClipIndex, &index, 0);
     const char* speaker = nullptr;
-    params->FetchText(kSpeakerName, &speaker, 0);
-    bool lastAnim = params->HasBareFlag(kLastAnim);
+    params->fetch_text(kSpeakerName, &speaker, 0);
+    bool last_anim = params->has_bare_flag(kLastAnim);
     // (without a stream found the slot keeps what was there: the original's held last_anim's byte)
-    uint32_t stream = lastAnim ? 1u : 0u;
-    bool lip = GetVoiceClipKey(&stream, index, false, speaker, lastAnim);
+    uint32_t stream = last_anim ? 1u : 0u;
+    bool lip = get_voice_clip_key(&stream, index, false, speaker, last_anim);
     if (!stream)
         return;
-    CutVoiceLine();
-    uint32_t speakerObject = 0;
-    params->ReadHashValue(kSpeakerObjId, &speakerObject, 0);
-    PlayStream(stream, false, speakerObject, lip);
+    cut_voice_line();
+    uint32_t speaker_object = 0;
+    params->read_hash_value(kSpeakerObjId, &speaker_object, 0);
+    play_stream(stream, false, speaker_object, lip);
 }
 
 // 0x0055FA60
-void CObjectiveNpc::PlayVictoryVoiceLine(Scripts::CStruct* params)
+void ObjectiveNpc::play_victory_voice_line(script::Struct* params)
 {
-    if (m_suspended)
+    if (suspended_)
         return;
     const char* speaker = nullptr;
-    params->FetchText(kSpeakerName, &speaker, 0);
+    params->fetch_text(kSpeakerName, &speaker, 0);
     uint32_t stream = 0;
-    bool lip = GetVoiceClipKey(&stream, -1, true, speaker, true);
-    uint32_t speakerObject = 0;
-    params->ReadHashValue(kSpeakerObjId, &speakerObject, 0);
+    bool lip = get_voice_clip_key(&stream, -1, true, speaker, true);
+    uint32_t speaker_object = 0;
+    params->read_hash_value(kSpeakerObjId, &speaker_object, 0);
     if (stream)
-        PlayStream(stream, false, speakerObject, lip);
+        play_stream(stream, false, speaker_object, lip);
 }
 
 // 0x0055FB00
-void CObjectiveNpc::PlayProVoiceLine(const char* kind, int count, bool callByName, bool noAnim)
+void ObjectiveNpc::play_pro_voice_line(const char* kind, int count, bool call_by_name, bool no_anim)
 {
-    if (m_suspended)
+    if (suspended_)
         return;
-    CutVoiceLine();
-    const char* pro = GetProGivenName();
+    cut_voice_line();
+    const char* pro = get_pro_given_name();
     if (!pro)
         return;
-    GameObjects::CRiderIdentity* profile = CurrentProfile();
-    const char* display = profile->FetchShownName();
+    objects::RiderIdentity* profile = current_profile();
+    const char* display = profile->fetch_shown_name();
     char player[0x80];
-    ReadLeadingName(player, &display, sizeof(player));
-    int total = callByName ? count + 20 : count;
-    Scripts::CArray* order = ShuffledNumbers(total);
+    read_leading_name(player, &display, sizeof(player));
+    int total = call_by_name ? count + 20 : count;
+    script::Array* order = shuffled_numbers(total);
     for (int i = 0; i < total; ++i) {
-        int n = static_cast<int>(order->FetchPart(static_cast<uint32_t>(i)));
+        int n = static_cast<int>(order->fetch_part(static_cast<uint32_t>(i)));
         char name[0x80];
         if (n > count) {
-            if (!profile->IsPro())
+            if (!profile->is_pro())
                 continue;
             std::snprintf(name, sizeof(name), "%s_%s%s%02i", pro, kind, player, n - count); // "%s_%s%s%02i"
         } else {
             std::snprintf(name, sizeof(name), "%s_%s%02i", pro, kind, n); // "%s_%s%02i"
         }
-        if (AudioStream::StreamExists(Checksums::HashFromText(name))) {
-            PlayStream(Checksums::HashFromText(name), noAnim, 0, false);
+        if (audio::stream_exists(checksums::hash_from_text(name))) {
+            play_stream(checksums::hash_from_text(name), no_anim, 0, false);
             break;
         }
     }
-    FreeArray(order);
+    free_array(order);
 }
 
 // 0x0055FDF0
-void CObjectiveNpc::PlayIdleVoiceLine()
+void ObjectiveNpc::play_idle_voice_line()
 {
-    if (!m_suspended)
-        PlayProVoiceLine(kFar, 10, true, true);
+    if (!suspended_)
+        play_pro_voice_line(kFar, 10, true, true);
 }
 
 // 0x0055FE10
-void CObjectiveNpc::PlayObjectiveVoiceLine(const char* type, Scripts::CStruct* params)
+void ObjectiveNpc::play_objective_voice_line(const char* type, script::Struct* params)
 {
-    if (m_suspended)
+    if (suspended_)
         return;
-    bool random = params->HasBareFlag(kPlayRandom);
-    bool byName = params->HasBareFlag(kCallPlayerByName);
+    bool random = params->has_bare_flag(kPlayRandom);
+    bool by_name = params->has_bare_flag(kCallPlayerByName);
     uint32_t vo;
-    if (params->ReadHashValue(kVO, &vo, 0)) {
-        PlayStream(vo, true, 0, false);
+    if (params->read_hash_value(kVo, &vo, 0)) {
+        play_stream(vo, true, 0, false);
         return;
     }
-    if (!random && !byName)
+    if (!random && !by_name)
         return;
-    if (CurrentProfile()->IsPro()) {
-        const char* pro = GetProGivenName();
+    if (current_profile()->is_pro()) {
+        const char* pro = get_pro_given_name();
         char player[0x80];
-        GetSkaterGivenName(player, sizeof(player));
-        Scripts::CArray* order = ShuffledNumbers(5); // (shuffled, and not used: the names go in order)
+        get_skater_given_name(player, sizeof(player));
+        script::Array* order = shuffled_numbers(5); // (shuffled, and not used: the names go in order)
         bool played = false;
         for (int n = 1; n <= 5; ++n) {
             char name[0x80];
             std::snprintf(name, sizeof(name), "%s_Far%s%02i", pro, player, n); // "%s_Far%s%02i"
-            if (AudioStream::StreamExists(Checksums::HashFromText(name))) {
+            if (audio::stream_exists(checksums::hash_from_text(name))) {
                 played = true;
-                PlayStream(Checksums::HashFromText(name), true, 0, false);
+                play_stream(checksums::hash_from_text(name), true, 0, false);
                 break;
             }
         }
-        FreeArray(order);
+        free_array(order);
         if (played)
             return;
     }
-    switch (Checksums::HashFromText(type)) {
+    switch (checksums::hash_from_text(type)) {
     case kMidgoal:
-        if (!m_suspended)
-            PlayProVoiceLine("Midgoal", 10, false, true); // "Midgoal"
+        if (!suspended_)
+            play_pro_voice_line("Midgoal", 10, false, true); // "Midgoal"
         break;
     case kWait:
-        if (!m_suspended)
-            PlayProVoiceLine(kFar, 10, true, true);
+        if (!suspended_)
+            play_pro_voice_line(kFar, 10, true, true);
         break;
-    default: PlayProVoiceLine(type, 10, false, true); break;
+    default: play_pro_voice_line(type, 10, false, true); break;
     }
 }
 

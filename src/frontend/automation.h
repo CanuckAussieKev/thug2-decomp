@@ -4,14 +4,14 @@
 #include <string>
 #include <vector>
 
-namespace MenuSystem {
-class CUiWidget;
+namespace frontend {
+class UiWidget;
 }
-namespace GameModules {
+namespace modules {
 struct FrontEnd;
 }
-namespace Scripts {
-class CStruct;
+namespace script {
+class Struct;
 }
 
 // NOT ORIGINAL - the test-automation channel (ours, added at the user's request; not the game's and not PartyMod's):
@@ -58,7 +58,7 @@ class CStruct;
 //                                         slow exact move: z-fighting shows); `camera off` lets it go
 //   capture <frames> [folder]             the next <frames> rendered frames (1-600), every one, as frame_0001.png ...
 //                                         in the screenshot folder's <folder> (default series_<time>), with one
-//                                         series.txt (platform/screenshot.h StartSeries); done once all are written
+//                                         series.txt (platform/screenshot.h start_series); done once all are written
 //   trace <frames>                        the local skater traced for the next <frames> game frames (1-36000) into
 //                                         thug2-decomp-trace.txt (rewritten): a line a frame - frame, position,
 //                                         velocity, the up row's y, the SkaterState state (0 ground, 1 air, 2 wall,
@@ -113,24 +113,24 @@ class CStruct;
 //   is refused.
 // - a refusal is logged ("automation: REFUSED ...") and ends the batch.
 // - keys and controllers keep working as ever: commands only add to them.
-namespace MenuSystem::Automation {
+namespace frontend::automation {
 
 // [features] automation (read once).
-bool& IsSwitchedOn();
-// Once a frame from the front end's input logic (MouseMenus::TickFrame): the command file, the running command, the
+bool& is_switched_on();
+// Once a frame from the front end's input logic (mouse_menus::tick_frame): the command file, the running command, the
 // status file; and the -run script.
-void TickFrame(GameModules::FrontEnd* frontEnd);
-// The buttons a `press` holds, added to port 0's PS2-format control data (Sio's ProcessSdlDevice, before the bits
+void tick_frame(modules::FrontEnd* front_end);
+// The buttons a `press` holds, added to port 0's PS2-format control data (Sio's process_sdl_device, before the bits
 // are inverted: a set bit is a button down).
-void AddPadButtons(int port, uint8_t* data);
+void add_pad_buttons(int port, uint8_t* data);
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
-enum class Op { Run, Choose, Focus, Press, Hold, Stall, WaitFor, StageMap, Echo, Quit, JumpTo, ViewCam, Capture, LogTricks, Crash, Trace, Frontend };
-enum class Condition { None, Ready, FrontEnd, InGame, StageMap, Menu, Focus, NewFrontend };
+enum class Op { kRun, kChoose, kFocus, kPress, kHold, kStall, kWaitFor, kStageMap, kEcho, kQuit, kJumpTo, kViewCam, kCapture, kLogTricks, kCrash, kTrace, kFrontend };
+enum class Condition { kNone, kReady, kFrontEnd, kInGame, kStageMap, kMenu, kFocus, kNewFrontend };
 
 struct Param {
-    enum Kind { BitMark, Integer, Float, Chars, Name } kind;
+    enum Kind { kBitMark, kInteger, kFloat, kChars, kName } kind;
     std::string name;  // "" for a flag (its name is `text`)
     std::string text;  // a string's / name's text
     int integer;
@@ -149,9 +149,9 @@ struct OrderCode {
     std::vector<float> numbers; // teleport: x y z [heading]; camera: x y z dx dy dz
 };
 
-enum class CommandLineOutcome { OrderCode, Vacant, Error };
+enum class CommandLineOutcome { kOrderCode, kVacant, kError };
 // One line of the command file. Empty: a blank line or a comment.
-CommandLineOutcome ParseCommand(const std::string& line, OrderCode* out, std::string* error);
+CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::string* error);
 
 // A pad button: its bit in the control data's button bytes (2 or 3) and its pressure byte (0: none).
 struct Button {
@@ -161,43 +161,43 @@ struct Button {
     uint8_t pressure;
 };
 // By name or alias (any case); null if none.
-const Button* FindButton(const std::string& name);
+const Button* find_button(const std::string& name);
 // Whether pressing it can choose something (not a direction).
-bool ButtonChooses(const Button& button);
+bool button_chooses(const Button& button);
 
 // An online-looking name: one of the online words between underscores, or internet / lobby / gamespy / network /
 // login anywhere (any case; tools/pipeline/game/make_automation_tables.ts has the same rule).
-bool NameLooksOnline(const std::string& name);
+bool name_looks_online(const std::string& name);
 // A script `run` refuses: online-looking, or one of the denied scripts.
-bool ScriptDenied(const std::string& name);
+bool script_denied(const std::string& name);
 // A checksum naming a denied script or a denied id.
-bool ChecksumDenied(uint32_t checksum);
+bool checksum_denied(uint32_t checksum);
 // An id `choose` / `focus` refuses (its checksum; `name` too if known, "" if not).
-bool IdDenied(uint32_t id, const std::string& name);
+bool id_denied(uint32_t id, const std::string& name);
 // Whether a script's parameters name a denied script or id anywhere (names, structures, arrays).
-bool ParamsDenied(Scripts::CStruct* params);
+bool params_denied(script::Struct* params);
 // Why choosing the element is refused ("" if it isn't): a denied id, its event handlers running or naming a denied
 // script, or its menus' (parents') pad_choose / pad_start handlers doing so.
-std::string ElementRefusal(const MenuSystem::CUiWidget* element);
+std::string element_refusal(const frontend::UiWidget* element);
 // Why the command is refused by its words alone (a script, a parameter, an id), or "" - before any game state.
-std::string RefusalByName(const OrderCode& command);
+std::string refusal_by_name(const OrderCode& command);
 // The name of a checksum if known (the tables and the names commands used), else 0x<hex>.
-std::string NameOf(uint32_t checksum);
+std::string get_name_of(uint32_t checksum);
 // A command as text (for the log and the status).
-std::string Describe(const OrderCode& command);
+std::string describe(const OrderCode& command);
 
 // The status file's contents.
 struct Standing {
     uint32_t frames;
-    bool ready, mainMenu, paused, loading;
-    std::string where, level, gameMode;
+    bool ready, main_menu_, paused, loading;
+    std::string where, level, game_mode_;
     std::vector<std::string> focus, selected;
-    int linesRead, linesDone, queued;
+    int lines_read_, lines_done_, queued;
     std::string current, last, result;
     int errors, refusals;
     std::string frontend; // the new front end's state ("" when off: not written)
 };
-std::string StatusJson(const Standing& status);
+std::string status_json(const Standing& status);
 
 
-} // namespace MenuSystem::Automation
+} // namespace MenuSystem::automation

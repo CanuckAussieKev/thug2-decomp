@@ -23,7 +23,7 @@ namespace {
 // whose registration names the system's DLL by its path), but anything that did - an import, a delay-load, a
 // LoadLibrary("dinput8.dll") - would get that one. Loaded from the system directory by its full path first, the
 // system's is the dinput8.dll of this process: a later load by name finds it already loaded.
-void LoadSystemDirectInput()
+void load_system_direct_input()
 {
     char path[MAX_PATH];
     UINT length = GetSystemDirectoryA(path, MAX_PATH);
@@ -35,13 +35,13 @@ void LoadSystemDirectInput()
 
 } // namespace
 
-int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, char* commandLine, int show)
+int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, char* command_line, int show)
 {
     // NOT ORIGINAL: thug2-decomp.log next to the exe and the crash handling (a crash logged with its call stack, never
     // a dialog).
-    LogOpen();
-    Log("thug2-decomp standalone");
-    LoadSystemDirectInput();
-    SystemCore::RunStartupInitialisers();
-    return SystemCore::WinMain(instance, previous, commandLine, show);
+    log_open();
+    get_log("thug2-decomp standalone");
+    load_system_direct_input();
+    sys::run_startup_initialisers();
+    return sys::win_main(instance, previous, command_line, show);
 }

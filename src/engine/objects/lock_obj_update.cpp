@@ -1,4 +1,4 @@
-// The lockobj component's construction, destruction and the lock's update (GameObjects::CPinnedObjectModule; lock_obj.cpp has its
+// The lockobj component's construction, destruction and the lock's update (GameObjects::PinnedObjectModule; lock_obj.cpp has its
 // parameters and the update that calls this one). From the disassembly of 0x0041F400-0x0041F51F, 0x0041F760-0x0041FF14
 // and 0x0041FF20. The x87 roundings are kept: values the original stores are rounded to float, the ones it keeps on the
 // FPU stack are worked in double.
@@ -24,9 +24,9 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace GameObjects {
+namespace objects {
 
-float g_lockObjUpdateWobbleStep{0.0061359233f};
+float g_lock_obj_update_wobble_step{0.0061359233f};
 
 namespace {
 
@@ -35,12 +35,12 @@ constexpr uint32_t kSkeleton = 0x222756D5;
 constexpr uint32_t kModel = 0x286A8D26;
 constexpr uint32_t kFirstNonSkaterId = 8; // (objects with smaller ids are the skaters)
 
-// The wobble's step: 2 pi / 1024 as the update's own float (0x0064611C; ConfigureFromData's, 0x00646118, is one bit
+// The wobble's step: 2 pi / 1024 as the update's own float (0x0064611C; configure_from_data's, 0x00646118, is one bit
 // smaller).
-float UpdateWobbleStep() { return g_lockObjUpdateWobbleStep; }
+float update_wobble_step() { return g_lock_obj_update_wobble_step; }
 
 // x87 FSIN, as the original takes the wobble's sines.
-double X87Sin(double angle)
+double x87_sin(double angle)
 {
     double result;
     __asm {
@@ -52,203 +52,203 @@ double X87Sin(double angle)
 }
 
 // A skeleton component's skeleton (0x005480F0: its +0x18).
-void* SkeletonOf(CObjectModule* component) { return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x18); }
+void* skeleton_of(ObjectModule* component) { return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x18); }
 // The skeleton's matrix of `bone` (0x004A36E0; false if it hasn't the bone), its bone index (0x004A2B60) and, from its
 // data (+0x08), a bone's parent (0x004A2C50).
-bool SkinMatrixPtr(void* skeleton, uint32_t bone, Maths::Mat4* out)
+bool skin_matrix_ptr(void* skeleton, uint32_t bone, maths::Mat4* out)
 {
-    return static_cast<Gfx2D::CRig*>(skeleton)->ReadJointMatrix(bone, out);
+    return static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(bone, out);
 }
-int BoneIndex(void* skeleton, uint32_t bone) { return static_cast<Gfx2D::CRig*>(skeleton)->FetchBoneSlot(bone); }
-uint32_t ParentBone(void* skeleton, int index)
+int bone_index(void* skeleton, uint32_t bone) { return static_cast<gfx::Rig*>(skeleton)->fetch_bone_slot(bone); }
+uint32_t parent_bone(void* skeleton, int index)
 {
     void* data = *reinterpret_cast<void**>(static_cast<uint8_t*>(skeleton) + 8);
-    return static_cast<Gfx2D::CRigData*>(data)->FetchParentHash(index);
+    return static_cast<gfx::RigData*>(data)->fetch_parent_hash(index);
 }
 // The model component's 0x004215F0: its matrix into `out`.
-void ComposeObjectTransform(CObjectModule* model, Maths::Mat4* out)
+void compose_object_transform(ObjectModule* model, maths::Mat4* out)
 {
-    static_cast<CMeshInstanceModule*>(model)->GetDrawMatrix(out);
+    static_cast<MeshInstanceModule*>(model)->get_draw_matrix(out);
 }
 // Whether the target's model is to be followed: a model with its +0x234 set, or a skater.
-bool FollowModel(CObjectModule* model, CGameEntity* target)
+bool follow_model(ObjectModule* model, GameEntity* target)
 {
-    return (model && reinterpret_cast<uint8_t*>(model)[0x234]) || target->m_ident < kFirstNonSkaterId;
+    return (model && reinterpret_cast<uint8_t*>(model)[0x234]) || target->ident_ < kFirstNonSkaterId;
 }
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
-void MatrixMultiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
+void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
 {
-    D3dx::MatrixMultiply(out, a, b);
+    d3dx::matrix_multiply(out, a, b);
 }
 
-void SetProduct(Maths::Mat4& out, const Maths::Mat4& a, const Maths::Mat4& b)
+void set_product(maths::Mat4& out, const maths::Mat4& a, const maths::Mat4& b)
 {
-    Maths::MatrixProduct product = {&a, &b};
+    maths::MatrixProduct product = {&a, &b};
     out = product;
 }
 
 } // namespace
 
 // 0x0041FF20
-CObjectModule* __cdecl CPinnedObjectModule::Fabricate()
+ObjectModule* __cdecl PinnedObjectModule::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CPinnedObjectModule));
-    return memory ? static_cast<CPinnedObjectModule*>(memory)->MakeNew() : nullptr;
+    void* memory = memory::alloc_zeroed(sizeof(PinnedObjectModule));
+    return memory ? static_cast<PinnedObjectModule*>(memory)->make_new() : nullptr;
 }
 
 // 0x0041F500
-CPinnedObjectModule* CPinnedObjectModule::MakeNew()
+PinnedObjectModule* PinnedObjectModule::make_new()
 {
-    CObjectModule::MakeNew();
-    m_lockFlags &= ~LOCK_FLAG_LOCKED;
-    m_vtable = kVtable;
-    m_kindTag = kType;
+    ObjectModule::make_new();
+    lock_flags_ &= ~kLockFlagLocked;
+    vtable_ = kVtable;
+    kind_tag_ = kType;
     return this;
 }
 
 // 0x0041F400
-void CPinnedObjectModule::DestroyBody()
+void PinnedObjectModule::destroy_body()
 {
-    m_vtable = kVtable;
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    ObjectModule::destroy_body();
 }
 
 // 0x0041F440
-CPinnedObjectModule* CPinnedObjectModule::Teardown(unsigned int flags)
+PinnedObjectModule* PinnedObjectModule::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x0041F760
-void CPinnedObjectModule::UpdateLock()
+void PinnedObjectModule::update_lock()
 {
-    CEntityHub* manager = ObjectHubSlot();
-    auto* target = static_cast<CGameEntity*>(manager->LookUpEntity(m_targetId));
+    EntityHub* manager = object_hub_slot();
+    auto* target = static_cast<GameEntity*>(manager->look_up_entity(target_id_));
     if (!target) {
-        target = static_cast<CGameEntity*>(ObjectHubSlot()->LookUpEntity(m_entityLabel));
+        target = static_cast<GameEntity*>(object_hub_slot()->look_up_entity(entity_label_));
         if (!target)
             return;
     }
-    Maths::Vec4 pos = m_entity->m_atPoint;     // where it goes
-    Maths::Vec4 extra = {0.0f, 0.0f, 0.0f, 1.0f}; // added to it when there's no lag
-    Maths::Vec4 local;
-    if (m_bone) {
+    maths::Vec4 pos = entity_->at_point_;     // where it goes
+    maths::Vec4 extra = {0.0f, 0.0f, 0.0f, 1.0f}; // added to it when there's no lag
+    maths::Vec4 local;
+    if (bone_) {
         // On a bone: its orientation, and its "at" towards its parent.
-        CObjectModule* skeletonComponent = target->FetchModule(kSkeleton);
-        void* skeleton = skeletonComponent ? SkeletonOf(target->FetchModule(kSkeleton)) : nullptr;
-        if (skeleton && SkinMatrixPtr(skeleton, m_bone, &m_entity->m_basisFrame)) {
-            Maths::Mat4 parent;
-            SkinMatrixPtr(skeleton, ParentBone(skeleton, BoneIndex(skeleton, m_bone)), &parent);
-            CGameEntity* object = m_entity;
-            Maths::Vec4 jointWorld = object->m_basisFrame.row[3];
-            Maths::Vec4 ownerPos = parent.row[3];
-            object->m_basisFrame.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+        ObjectModule* skeleton_component = target->fetch_module(kSkeleton);
+        void* skeleton = skeleton_component ? skeleton_of(target->fetch_module(kSkeleton)) : nullptr;
+        if (skeleton && skin_matrix_ptr(skeleton, bone_, &entity_->basis_frame_)) {
+            maths::Mat4 parent;
+            skin_matrix_ptr(skeleton, parent_bone(skeleton, bone_index(skeleton, bone_)), &parent);
+            GameEntity* object = entity_;
+            maths::Vec4 joint_world = object->basis_frame_.row[3];
+            maths::Vec4 owner_pos = parent.row[3];
+            object->basis_frame_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
             parent.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-            CObjectModule* model = target->FetchModule(kModel);
-            if (model && FollowModel(model, target)) {
-                Maths::Mat4 frame;
-                ComposeObjectTransform(model, &frame);
-                extra = frame.row[3] - target->m_atPoint;
+            ObjectModule* model = target->fetch_module(kModel);
+            if (model && follow_model(model, target)) {
+                maths::Mat4 frame;
+                compose_object_transform(model, &frame);
+                extra = frame.row[3] - target->at_point_;
                 frame.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-                SetProduct(m_entity->m_basisFrame, m_entity->m_basisFrame, frame);
-                SetProduct(parent, parent, frame);
-                pos = frame.Xform(local, jointWorld);
-                pos += target->m_atPoint + m_shift * m_entity->m_basisFrame;
-                ownerPos = frame.Xform(local, ownerPos);
-                ownerPos += target->m_atPoint + m_shift * parent;
+                set_product(entity_->basis_frame_, entity_->basis_frame_, frame);
+                set_product(parent, parent, frame);
+                pos = frame.xform(local, joint_world);
+                pos += target->at_point_ + shift_ * entity_->basis_frame_;
+                owner_pos = frame.xform(local, owner_pos);
+                owner_pos += target->at_point_ + shift_ * parent;
             } else {
-                const Maths::Mat4& frame = target->m_displayMatrix;
-                SetProduct(m_entity->m_basisFrame, m_entity->m_basisFrame, frame);
-                SetProduct(parent, parent, frame);
-                pos = frame.Xform(local, jointWorld);
-                pos += target->m_atPoint + m_shift * m_entity->m_basisFrame;
-                ownerPos = frame.Xform(local, ownerPos);
-                ownerPos += target->m_atPoint + m_shift * parent;
+                const maths::Mat4& frame = target->display_matrix_;
+                set_product(entity_->basis_frame_, entity_->basis_frame_, frame);
+                set_product(parent, parent, frame);
+                pos = frame.xform(local, joint_world);
+                pos += target->at_point_ + shift_ * entity_->basis_frame_;
+                owner_pos = frame.xform(local, owner_pos);
+                owner_pos += target->at_point_ + shift_ * parent;
             }
-            object = m_entity;
-            Maths::Vec4& at = object->m_basisFrame.row[2];
-            at = {ownerPos.x - pos.x, ownerPos.y - pos.y, ownerPos.z - pos.z, ownerPos.w - pos.w};
-            m_entity->m_basisFrame.row[2].MakeUnit();
-            Maths::Vec4 up = target->m_displayMatrix.row[1];
-            object = m_entity;
-            object->m_basisFrame.row[0] = Maths::CrossVec(object->m_basisFrame.row[2], up);
-            object = m_entity;
-            object->m_basisFrame.row[1] = Maths::CrossVec(object->m_basisFrame.row[2], object->m_basisFrame.row[0]);
-            m_entity->m_displayMatrix = m_entity->m_basisFrame;
+            object = entity_;
+            maths::Vec4& at = object->basis_frame_.row[2];
+            at = {owner_pos.x - pos.x, owner_pos.y - pos.y, owner_pos.z - pos.z, owner_pos.w - pos.w};
+            entity_->basis_frame_.row[2].make_unit();
+            maths::Vec4 up = target->display_matrix_.row[1];
+            object = entity_;
+            object->basis_frame_.row[0] = maths::cross_vec(object->basis_frame_.row[2], up);
+            object = entity_;
+            object->basis_frame_.row[1] = maths::cross_vec(object->basis_frame_.row[2], object->basis_frame_.row[0]);
+            entity_->display_matrix_ = entity_->basis_frame_;
         }
     } else {
         // At the target (or its model): its orientation, and the offset turned by it.
-        CObjectModule* model = target->FetchModule(kModel);
-        if (model && FollowModel(model, target)) {
-            Maths::Mat4 frame;
-            ComposeObjectTransform(model, &frame);
-            pos = m_shift * frame;
+        ObjectModule* model = target->fetch_module(kModel);
+        if (model && follow_model(model, target)) {
+            maths::Mat4 frame;
+            compose_object_transform(model, &frame);
+            pos = shift_ * frame;
             frame.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-            m_entity->m_basisFrame = frame;
+            entity_->basis_frame_ = frame;
         } else {
-            m_entity->m_basisFrame = target->m_displayMatrix;
-            Maths::Vec4 turned = m_shift * m_entity->m_basisFrame;
-            pos = {turned.x + target->m_atPoint.x, target->m_atPoint.y + turned.y, target->m_atPoint.z + turned.z,
-                   target->m_atPoint.w + turned.w};
+            entity_->basis_frame_ = target->display_matrix_;
+            maths::Vec4 turned = shift_ * entity_->basis_frame_;
+            pos = {turned.x + target->at_point_.x, target->at_point_.y + turned.y, target->at_point_.z + turned.z,
+                   target->at_point_.w + turned.w};
         }
     }
-    CGameEntity* object = m_entity;
-    if (m_lockFlags & LOCK_FLAG_LAG) {
+    GameEntity* object = entity_;
+    if (lock_flags_ & kLockFlagLag) {
         // Part of the way there (the roundings where the original stores).
-        float lag = m_lag;
-        double dx = static_cast<double>(pos.x) - object->m_atPoint.x;
-        double dy = static_cast<double>(pos.y) - object->m_atPoint.y;
-        float dz = pos.z - object->m_atPoint.z;
-        float dw = pos.w - object->m_atPoint.w;
-        float stepX = static_cast<float>(dx * lag);
-        float stepY = static_cast<float>(dy * lag);
-        double stepZ = static_cast<double>(dz) * lag;
-        float stepW = dw * lag;
-        float x = stepX + object->m_atPoint.x;
-        float y = stepY + object->m_atPoint.y;
-        object->m_atPoint.z = static_cast<float>(stepZ + object->m_atPoint.z);
-        object->m_atPoint.w = stepW + object->m_atPoint.w;
-        object->m_atPoint.x = x;
-        object->m_atPoint.y = y;
-        // The lag for the next update: as ConfigureFromData's, with the update's step.
-        int t = static_cast<int>((FrameClock::GetTime() + static_cast<uint32_t>(m_wobbleSeed)) & 0x3FF);
+        float lag = lag_;
+        double dx = static_cast<double>(pos.x) - object->at_point_.x;
+        double dy = static_cast<double>(pos.y) - object->at_point_.y;
+        float dz = pos.z - object->at_point_.z;
+        float dw = pos.w - object->at_point_.w;
+        float step_x = static_cast<float>(dx * lag);
+        float step_y = static_cast<float>(dy * lag);
+        double step_z = static_cast<double>(dz) * lag;
+        float step_w = dw * lag;
+        float x = step_x + object->at_point_.x;
+        float y = step_y + object->at_point_.y;
+        object->at_point_.z = static_cast<float>(step_z + object->at_point_.z);
+        object->at_point_.w = step_w + object->at_point_.w;
+        object->at_point_.x = x;
+        object->at_point_.y = y;
+        // The lag for the next update: as configure_from_data's, with the update's step.
+        int t = static_cast<int>((frame_clock::get_time() + static_cast<uint32_t>(wobble_seed_)) & 0x3FF);
         double time = static_cast<double>(t);
-        double step = UpdateWobbleStep();
-        double wobble = X87Sin(time * static_cast<double>(m_wobble[1]) * step) *
-                        X87Sin(time * static_cast<double>(m_wobble[0]) * step);
-        m_lag = static_cast<float>((wobble + 1.0) * (static_cast<double>(m_lagMax) - m_lagMin) * 0.5 + m_lagMin);
+        double step = update_wobble_step();
+        double wobble = x87_sin(time * static_cast<double>(wobble_[1]) * step) *
+                        x87_sin(time * static_cast<double>(wobble_[0]) * step);
+        lag_ = static_cast<float>((wobble + 1.0) * (static_cast<double>(lag_max_) - lag_min_) * 0.5 + lag_min_);
     } else {
-        object->m_atPoint = {extra.x + pos.x, extra.y + pos.y, extra.z + pos.z, extra.w + pos.w};
+        object->at_point_ = {extra.x + pos.x, extra.y + pos.y, extra.z + pos.z, extra.w + pos.w};
     }
-    m_entity->m_vel = target->m_vel;
-    if (m_lockFlags & LOCK_FLAG_ANGLES)
-        MatrixMultiply(&m_entity->m_basisFrame, &m_entity->m_basisFrame, &m_orientationTurn);
-    m_entity->m_displayMatrix = m_entity->m_basisFrame;
+    entity_->vel_ = target->vel_;
+    if (lock_flags_ & kLockFlagAngles)
+        matrix_multiply(&entity_->basis_frame_, &entity_->basis_frame_, &orientation_turn_);
+    entity_->display_matrix_ = entity_->basis_frame_;
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CPinnedObjectModule::Teardown,
-         &GameObjects::CPinnedObjectModule::TickFrame,
-         &GameObjects::CPinnedObjectModule::ConfigureFromData,
-         Stubs::DoNothing,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         Stubs::IgnoreArgument,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
-         &GameObjects::CPinnedObjectModule::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::PinnedObjectModule::teardown,
+         &objects::PinnedObjectModule::tick_frame,
+         &objects::PinnedObjectModule::configure_from_data,
+         stubs::do_nothing,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         stubs::ignore_argument,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
+         &objects::PinnedObjectModule::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

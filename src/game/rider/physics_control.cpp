@@ -1,4 +1,4 @@
-// The skater's physics control component (GameObjects::CRiderBoardPhysics): see physics_control.h.
+// The skater's physics control component (GameObjects::RiderBoardPhysics): see physics_control.h.
 
 #include "game/rider/physics_control.h"
 
@@ -25,9 +25,9 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace GameObjects {
+namespace objects {
 
-uint32_t g_physicsControlMemberFunctions[66]{
+uint32_t g_physics_control_member_functions[66]{
             0x3522D612, 0xD9151D4D, 0, 0, 0, 0,
             0x0595627C, 0xD9151D4D, 0, 0, 0, 0,
             0x9569D5B1, 0xD9151D4D, 0, 0, 0, 0,
@@ -54,117 +54,117 @@ constexpr int kSkating = 0, kWalking = 1; // the state component's physics mode 
 constexpr float kSecondsPerMs = 0.001f;   // 0x006461D8
 
 template <typename T>
-T& Prop(void* object, uint32_t offset)
+T& prop(void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
 
-int Clock() { return FrameClock::GameClockElapsed() + g_clockOffset; }
+int get_clock() { return frame_clock::game_clock_elapsed() + g_clock_offset; }
 
 // Milliseconds as unsigned seconds (the original's unsigned conversion through the x87), rounded once to float.
-float Seconds(int ms) { return static_cast<float>(static_cast<double>(static_cast<uint32_t>(ms)) * kSecondsPerMs); }
+float get_seconds(int ms) { return static_cast<float>(static_cast<double>(static_cast<uint32_t>(ms)) * kSecondsPerMs); }
 
-void FreezeModule(CObjectModule* component, bool suspend) { component->VirtualSuspend(suspend); }
+void freeze_module(ObjectModule* component, bool suspend) { component->virtual_suspend(suspend); }
 
 // Calls into the other components: the core physics told it's leaving (0x004FDD50, not rewritten yet) / given the
-// walk's state on coming back (ResumeSkating), the state component's physics mode (1: walking), the walk component
+// walk's state on coming back (resume_skating), the state component's physics mode (1: walking), the walk component
 // told it's starting (Begin) / leaving (its model offset cleared), the cameras' state handed over (the skater
 // camera's 0x004FA420 / 0x004F9A40, the walk camera's 0x00524FF0 / 0x00525060).
-void CoreLeaving(uint8_t* core) { reinterpret_cast<Skater::SkaterPhysicsModule*>(core)->LeaveSkating(); }
-void CoreReturning(uint8_t* core, bool onGround, void* hold1, void* hold2)
+void core_leaving(uint8_t* core) { reinterpret_cast<skater::SkaterPhysicsModule*>(core)->leave_skating(); }
+void core_returning(uint8_t* core, bool on_ground, void* hold1, void* hold2)
 {
-    reinterpret_cast<Skater::SkaterPhysicsModule*>(core)->ResumeSkating(onGround, static_cast<const uint8_t*>(hold1),
+    reinterpret_cast<skater::SkaterPhysicsModule*>(core)->resume_skating(on_ground, static_cast<const uint8_t*>(hold1),
                                                                          hold2);
 }
-void SetWalking(uint8_t* state, bool walking)
+void set_walking(uint8_t* state, bool walking)
 {
-    reinterpret_cast<CRiderPoseState*>(state)->SetPhysicsMode(walking ? 1 : 0);
+    reinterpret_cast<RiderPoseState*>(state)->set_physics_mode(walking ? 1 : 0);
 }
-void WalkStarting(CObjectModule* walk, bool fromGround) { static_cast<CFootMovement*>(walk)->Begin(fromGround); }
-void WalkLeaving(CObjectModule* walk) { static_cast<CFootMovement*>(walk)->ClearModelOffset(); }
+void walk_starting(ObjectModule* walk, bool from_ground) { static_cast<FootMovement*>(walk)->get_begin(from_ground); }
+void walk_leaving(ObjectModule* walk) { static_cast<FootMovement*>(walk)->clear_model_offset(); }
 // The skater camera's 0x004FA420 (save) / 0x004F9A40 (set), the walk camera's 0x00525060 (save) / 0x00524FF0 (restore).
-void SkaterCameraSave(CObjectModule* camera, void* state)
+void skater_camera_save(ObjectModule* camera, void* state)
 {
-    static_cast<CRiderChaseView*>(camera)->SaveState(static_cast<WalkCameraState*>(state));
+    static_cast<RiderChaseView*>(camera)->save_state(static_cast<WalkCameraState*>(state));
 }
-void SkaterCameraSet(CObjectModule* camera, void* state)
+void skater_camera_set(ObjectModule* camera, void* state)
 {
-    static_cast<CRiderChaseView*>(camera)->ChangePhase(static_cast<const WalkCameraState*>(state));
+    static_cast<RiderChaseView*>(camera)->change_phase(static_cast<const WalkCameraState*>(state));
 }
-void WalkCameraSave(CObjectModule* camera, void* state)
+void walk_camera_save(ObjectModule* camera, void* state)
 {
-    static_cast<CFootView*>(camera)->SaveState(static_cast<WalkCameraState*>(state));
+    static_cast<FootView*>(camera)->save_state(static_cast<WalkCameraState*>(state));
 }
-void WalkCameraRestore(CObjectModule* camera, void* state)
+void walk_camera_restore(ObjectModule* camera, void* state)
 {
-    static_cast<CFootView*>(camera)->RestoreState(static_cast<const WalkCameraState*>(state));
+    static_cast<FootView*>(camera)->restore_state(static_cast<const WalkCameraState*>(state));
 }
 
 } // namespace
 
 // 0x00517830
-CObjectModule* __cdecl CRiderBoardPhysics::Fabricate()
+ObjectModule* __cdecl RiderBoardPhysics::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CRiderBoardPhysics));
+    void* memory = memory::alloc_zeroed(sizeof(RiderBoardPhysics));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CRiderBoardPhysics*>(memory);
-    component->CObjectModule::MakeNew();
-    component->m_vtable = kVtable;
-    component->m_kindTag = kSkaterPhysicsControl;
-    component->m_corePhysics = nullptr;
+    auto* component = static_cast<RiderBoardPhysics*>(memory);
+    component->ObjectModule::make_new();
+    component->vtable_ = kVtable;
+    component->kind_tag_ = kSkaterPhysicsControl;
+    component->core_physics_ = nullptr;
     return component;
 }
 
 // 0x005176A0
-void __cdecl CRiderBoardPhysics::PublishMethodTable()
+void __cdecl RiderBoardPhysics::publish_method_table()
 {
-    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kSkaterPhysicsControl),
-                                        g_physicsControlMemberFunctions, 0x18);
+    script::register_member_function_table(reinterpret_cast<void*>(kSkaterPhysicsControl),
+                                        g_physics_control_member_functions, 0x18);
 }
 
 // 0x005176C0
-void CRiderBoardPhysics::DestroyBody()
+void RiderBoardPhysics::destroy_body()
 {
-    m_vtable = kVtable;
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    ObjectModule::destroy_body();
 }
 
 // 0x00517740
-CRiderBoardPhysics* CRiderBoardPhysics::Teardown(unsigned int flags)
+RiderBoardPhysics* RiderBoardPhysics::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x005176D0
-void CRiderBoardPhysics::ConfigureFromData(Scripts::CStruct* /*params*/) { m_isHalted = false; }
+void RiderBoardPhysics::configure_from_data(script::Struct* /*params*/) { is_halted_ = false; }
 
 // 0x00517770
-void CRiderBoardPhysics::Seal()
+void RiderBoardPhysics::seal()
 {
-    m_corePhysics = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSkaterCorePhysics));
-    m_curPhase = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSkaterState));
-    Prop<int>(m_curPhase, 0x1C) = -1;
+    core_physics_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterCorePhysics));
+    cur_phase_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterState));
+    prop<int>(cur_phase_, 0x1C) = -1;
 }
 
 // 0x005178B0
-void CRiderBoardPhysics::SetFrozen(bool paused)
+void RiderBoardPhysics::set_frozen(bool paused)
 {
-    m_isHalted = paused;
-    if (!paused && (m_entity->m_compositeFlags & COMPOSITE_FLAG_SUSPENDED))
+    is_halted_ = paused;
+    if (!paused && (entity_->composite_flags_ & kCompositeFlagSuspended))
         return;
-    switch (Prop<int>(m_curPhase, 0x1C)) {
+    switch (prop<int>(cur_phase_, 0x1C)) {
     case kSkating:
-        FreezeModule(reinterpret_cast<CObjectModule*>(m_corePhysics), paused);
-        FreezeModule(m_entity->FetchModule(kSkaterRotate), paused);
-        FreezeModule(m_entity->FetchModule(kSkaterAdjustPhysics), paused);
-        FreezeModule(m_entity->FetchModule(kSkaterFinalizePhysics), paused);
+        freeze_module(reinterpret_cast<ObjectModule*>(core_physics_), paused);
+        freeze_module(entity_->fetch_module(kSkaterRotate), paused);
+        freeze_module(entity_->fetch_module(kSkaterAdjustPhysics), paused);
+        freeze_module(entity_->fetch_module(kSkaterFinalizePhysics), paused);
         break;
     case kWalking:
-        FreezeModule(m_entity->FetchModule(kWalk), paused);
+        freeze_module(entity_->fetch_module(kWalk), paused);
         break;
     default:
         break;
@@ -172,168 +172,168 @@ void CRiderBoardPhysics::SetFrozen(bool paused)
 }
 
 // 0x00517940
-void CRiderBoardPhysics::DismountToWalk()
+void RiderBoardPhysics::dismount_to_walk()
 {
-    if (Prop<int>(m_curPhase, 0x1C) == kWalking)
+    if (prop<int>(cur_phase_, 0x1C) == kWalking)
         return;
-    m_previousDuration = Clock() - m_switchTime;
-    m_switchTime = Clock();
-    CObjectModule* walk = m_entity->FetchModule(kWalk);
-    auto* camera = static_cast<CGameEntity*>(static_cast<CRider*>(m_entity)->GetSkaterCamera());
-    CObjectModule* skaterCamera = camera->FetchModule(kSkaterCamera);
-    CObjectModule* walkCamera = camera->FetchModule(kWalkCamera);
-    int skaterState = Prop<int>(Prop<uint8_t*>(m_corePhysics, 0x1528), 0x18);
-    CoreLeaving(m_corePhysics);
-    FreezeModule(reinterpret_cast<CObjectModule*>(m_corePhysics), true);
-    FreezeModule(m_entity->FetchModule(kSkaterRotate), true);
-    FreezeModule(m_entity->FetchModule(kSkaterAdjustPhysics), true);
-    FreezeModule(m_entity->FetchModule(kSkaterFinalizePhysics), true);
-    FreezeModule(skaterCamera, true);
-    SetWalking(m_curPhase, true);
-    FreezeModule(walk, false);
-    WalkStarting(walk, skaterState == 0);
-    FreezeModule(walkCamera, false);
-    alignas(16) uint8_t cameraState[0x60];
-    SkaterCameraSave(skaterCamera, cameraState);
-    WalkCameraRestore(walkCamera, cameraState);
-    if (m_isHalted)
-        SetFrozen(m_isHalted);
+    previous_duration_ = get_clock() - switch_time_;
+    switch_time_ = get_clock();
+    ObjectModule* walk = entity_->fetch_module(kWalk);
+    auto* camera = static_cast<GameEntity*>(static_cast<Rider*>(entity_)->get_skater_camera());
+    ObjectModule* skater_camera = camera->fetch_module(kSkaterCamera);
+    ObjectModule* walk_camera = camera->fetch_module(kWalkCamera);
+    int skater_state = prop<int>(prop<uint8_t*>(core_physics_, 0x1528), 0x18);
+    core_leaving(core_physics_);
+    freeze_module(reinterpret_cast<ObjectModule*>(core_physics_), true);
+    freeze_module(entity_->fetch_module(kSkaterRotate), true);
+    freeze_module(entity_->fetch_module(kSkaterAdjustPhysics), true);
+    freeze_module(entity_->fetch_module(kSkaterFinalizePhysics), true);
+    freeze_module(skater_camera, true);
+    set_walking(cur_phase_, true);
+    freeze_module(walk, false);
+    walk_starting(walk, skater_state == 0);
+    freeze_module(walk_camera, false);
+    alignas(16) uint8_t camera_state[0x60];
+    skater_camera_save(skater_camera, camera_state);
+    walk_camera_restore(walk_camera, camera_state);
+    if (is_halted_)
+        set_frozen(is_halted_);
 }
 
 // 0x00517B20
-void CRiderBoardPhysics::RemountBoard()
+void RiderBoardPhysics::remount_board()
 {
-    if (Prop<int>(m_curPhase, 0x1C) == kSkating)
+    if (prop<int>(cur_phase_, 0x1C) == kSkating)
         return;
-    m_previousDuration = Clock() - m_switchTime;
-    m_switchTime = Clock();
-    CObjectModule* walk = m_entity->FetchModule(kWalk);
-    auto* camera = static_cast<CGameEntity*>(static_cast<CRider*>(m_entity)->GetSkaterCamera());
-    CObjectModule* skaterCamera = camera->FetchModule(kSkaterCamera);
-    CObjectModule* walkCamera = camera->FetchModule(kWalkCamera);
-    WalkLeaving(walk);
-    FreezeModule(walk, true);
-    FreezeModule(walkCamera, true);
-    SetWalking(m_curPhase, false);
-    FreezeModule(reinterpret_cast<CObjectModule*>(m_corePhysics), false);
+    previous_duration_ = get_clock() - switch_time_;
+    switch_time_ = get_clock();
+    ObjectModule* walk = entity_->fetch_module(kWalk);
+    auto* camera = static_cast<GameEntity*>(static_cast<Rider*>(entity_)->get_skater_camera());
+    ObjectModule* skater_camera = camera->fetch_module(kSkaterCamera);
+    ObjectModule* walk_camera = camera->fetch_module(kWalkCamera);
+    walk_leaving(walk);
+    freeze_module(walk, true);
+    freeze_module(walk_camera, true);
+    set_walking(cur_phase_, false);
+    freeze_module(reinterpret_cast<ObjectModule*>(core_physics_), false);
     // The walk's ground state (+0x18 0) and what it holds (+0x748: 1 - its +0x74C -, or 2 - its +0x768).
-    int hold = Prop<int>(walk, 0x748);
+    int hold = prop<int>(walk, 0x748);
     void* hold2 = hold == 2 ? reinterpret_cast<uint8_t*>(walk) + 0x768 : nullptr;
     void* hold1 = hold == 1 ? reinterpret_cast<uint8_t*>(walk) + 0x74C : nullptr;
-    CoreReturning(m_corePhysics, Prop<int>(walk, 0x18) == 0, hold1, hold2);
-    FreezeModule(m_entity->FetchModule(kSkaterRotate), false);
-    FreezeModule(m_entity->FetchModule(kSkaterAdjustPhysics), false);
-    FreezeModule(m_entity->FetchModule(kSkaterFinalizePhysics), false);
-    FreezeModule(skaterCamera, false);
-    alignas(16) uint8_t cameraState[0x60];
-    WalkCameraSave(walkCamera, cameraState);
-    SkaterCameraSet(skaterCamera, cameraState);
-    if (m_isHalted)
-        SetFrozen(m_isHalted);
+    core_returning(core_physics_, prop<int>(walk, 0x18) == 0, hold1, hold2);
+    freeze_module(entity_->fetch_module(kSkaterRotate), false);
+    freeze_module(entity_->fetch_module(kSkaterAdjustPhysics), false);
+    freeze_module(entity_->fetch_module(kSkaterFinalizePhysics), false);
+    freeze_module(skater_camera, false);
+    alignas(16) uint8_t camera_state[0x60];
+    walk_camera_save(walk_camera, camera_state);
+    skater_camera_set(skater_camera, camera_state);
+    if (is_halted_)
+        set_frozen(is_halted_);
 }
 
 // 0x00517AC0
-void CRiderBoardPhysics::TickFrame()
+void RiderBoardPhysics::tick_frame()
 {
-    m_flag26 = 0;
-    if (!m_isHalted)
+    flag26_ = 0;
+    if (!is_halted_)
         return;
-    switch (Prop<int>(m_curPhase, 0x1C)) {
-    case kSkating: m_entity->m_displayMatrix = Prop<Maths::Mat4>(m_corePhysics, 0x18); break;
-    case kWalking: m_entity->m_displayMatrix = m_entity->m_basisFrame; break;
+    switch (prop<int>(cur_phase_, 0x1C)) {
+    case kSkating: entity_->display_matrix_ = prop<maths::Mat4>(core_physics_, 0x18); break;
+    case kWalking: entity_->display_matrix_ = entity_->basis_frame_; break;
     default: break;
     }
-    if (!(reinterpret_cast<CObjectModule*>(m_corePhysics)->m_flagBits & COMPONENT_FLAG_SUSPENDED))
-        SetFrozen(true);
+    if (!(reinterpret_cast<ObjectModule*>(core_physics_)->flag_bits_ & kComponentFlagSuspended))
+        set_frozen(true);
 }
 
 // 0x00517C80
-int CRiderBoardPhysics::InvokeMethodByName(uint32_t name, Scripts::CStruct* /*params*/,
-                                                       Scripts::CScript* /*script*/)
+int RiderBoardPhysics::invoke_method_by_name(uint32_t name, script::Struct* /*params*/,
+                                                       script::Script* /*script*/)
 {
     switch (name) {
-    case kCmdWalkToSkate: RemountBoard(); return 1;
-    case kCmdSkateToWalk: DismountToWalk(); return 1;
+    case kCmdWalkToSkate: remount_board(); return 1;
+    case kCmdSkateToWalk: dismount_to_walk(); return 1;
     default: return 2;
     }
 }
 
 // 0x00517A80
-bool CRiderBoardPhysics::PausePhysics(Scripts::CStruct*, Scripts::CScript*)
+bool RiderBoardPhysics::pause_physics(script::Struct*, script::Script*)
 {
-    if (!m_isHalted)
-        SetFrozen(true);
+    if (!is_halted_)
+        set_frozen(true);
     return true;
 }
 // 0x00517AA0
-bool CRiderBoardPhysics::UnPausePhysics(Scripts::CStruct*, Scripts::CScript*)
+bool RiderBoardPhysics::un_pause_physics(script::Struct*, script::Script*)
 {
-    if (m_isHalted)
-        SetFrozen(false);
+    if (is_halted_)
+        set_frozen(false);
     return true;
 }
 // 0x005177A0
-bool CRiderBoardPhysics::GetTimeSincePhysicsSwitch(Scripts::CStruct*, Scripts::CScript* script)
+bool RiderBoardPhysics::get_time_since_physics_switch(script::Struct*, script::Script* script)
 {
-    script->m_args->PushFloat(kTimeSincePhysicsSwitch, Seconds(Clock() - m_switchTime));
+    script->args_->push_float(kTimeSincePhysicsSwitch, get_seconds(get_clock() - switch_time_));
     return true;
 }
 // 0x005177F0
-bool CRiderBoardPhysics::GetPreviousPhysicsStateDuration(Scripts::CStruct*, Scripts::CScript* script)
+bool RiderBoardPhysics::get_previous_physics_state_duration(script::Struct*, script::Script* script)
 {
-    script->m_args->PushFloat(kPreviousPhysicsStateDuration, Seconds(m_previousDuration));
+    script->args_->push_float(kPreviousPhysicsStateDuration, get_seconds(previous_duration_));
     return true;
 }
 // 0x005176E0
-bool CRiderBoardPhysics::SetBoardMissing(Scripts::CStruct*, Scripts::CScript*)
+bool RiderBoardPhysics::set_board_missing(script::Struct*, script::Script*)
 {
-    m_boardMissing = true;
+    board_missing_ = true;
     return true;
 }
 // 0x005176F0
-bool CRiderBoardPhysics::UnsetBoardMissing(Scripts::CStruct*, Scripts::CScript*)
+bool RiderBoardPhysics::unset_board_missing(script::Struct*, script::Script*)
 {
-    m_boardMissing = false;
+    board_missing_ = false;
     return true;
 }
 // 0x00517700
-bool CRiderBoardPhysics::IsBoardMissing(Scripts::CStruct*, Scripts::CScript*) { return m_boardMissing; }
+bool RiderBoardPhysics::is_board_missing(script::Struct*, script::Script*) { return board_missing_; }
 // 0x00517710
-bool CRiderBoardPhysics::SetForceWalk(Scripts::CStruct*, Scripts::CScript*)
+bool RiderBoardPhysics::set_force_walk(script::Struct*, script::Script*)
 {
-    m_boardMissing = true;
-    m_forceWalk = true;
+    board_missing_ = true;
+    force_walk_ = true;
     return true;
 }
 // 0x00517720
-bool CRiderBoardPhysics::UnSetForceWalk(Scripts::CStruct*, Scripts::CScript*)
+bool RiderBoardPhysics::un_set_force_walk(script::Struct*, script::Script*)
 {
-    m_boardMissing = false;
-    m_forceWalk = false;
+    board_missing_ = false;
+    force_walk_ = false;
     return true;
 }
 // 0x00517730
-bool CRiderBoardPhysics::IsForceWalkOn(Scripts::CStruct*, Scripts::CScript*) { return m_forceWalk; }
+bool RiderBoardPhysics::is_force_walk_on(script::Struct*, script::Script*) { return force_walk_; }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CRiderBoardPhysics::Teardown,
-         &GameObjects::CRiderBoardPhysics::TickFrame,
-         &GameObjects::CRiderBoardPhysics::ConfigureFromData,
-         &GameObjects::CRiderBoardPhysics::Seal,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::DispatchScriptMethod,
-         &GameObjects::CRiderBoardPhysics::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::RiderBoardPhysics::teardown,
+         &objects::RiderBoardPhysics::tick_frame,
+         &objects::RiderBoardPhysics::configure_from_data,
+         &objects::RiderBoardPhysics::seal,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         &objects::ObjectModule::dispatch_script_method,
+         &objects::RiderBoardPhysics::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

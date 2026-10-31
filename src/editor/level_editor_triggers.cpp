@@ -47,13 +47,13 @@
 #include "platform/run_log.h"
 #include "engine/core/game_vtables.h"
 
-namespace MenuSystem::LevelEditor::Triggers {
+namespace frontend::level_editor::triggers {
 
 // --- the pure parts ---------------------------------------------------------------------------------------------
 
 namespace {
 
-bool SameText(const std::string& a, const std::string& b)
+bool same_text(const std::string& a, const std::string& b)
 {
     if (a.size() != b.size())
         return false;
@@ -69,40 +69,40 @@ bool SameText(const std::string& a, const std::string& b)
     return true;
 }
 
-uint32_t Checksums(const char* text) { return Checksums::HashFromText(text); }
+uint32_t get_checksums(const char* text) { return checksums::hash_from_text(text); }
 
 // The names the scripts use.
-uint32_t kStartGap() { static const uint32_t c = Checksums("StartGap"); return c; }
-uint32_t kEndGap() { static const uint32_t c = Checksums("EndGap"); return c; }
-uint32_t kGapId() { static const uint32_t c = Checksums("GapID"); return c; }
-uint32_t kFlags() { static const uint32_t c = Checksums("flags"); return c; }
-uint32_t kScore() { static const uint32_t c = Checksums("score"); return c; }
-uint32_t kText() { static const uint32_t c = Checksums("text"); return c; }
-uint32_t kNodeName() { static const uint32_t c = Checksums("nodename"); return c; }
-uint32_t kKillSkater() { static const uint32_t c = Checksums("SK3_KillSkater"); return c; }
-uint32_t kKillSkaterWater() { static const uint32_t c = Checksums("SK3_KillSkater_Water"); return c; }
-uint32_t kTeleport() { static const uint32_t c = Checksums("TeleportSkaterToNode"); return c; }
+uint32_t start_gap() { static const uint32_t kC = get_checksums("StartGap"); return kC; }
+uint32_t end_gap() { static const uint32_t kC = get_checksums("EndGap"); return kC; }
+uint32_t get_gap_id() { static const uint32_t kC = get_checksums("GapID"); return kC; }
+uint32_t current_flags() { static const uint32_t kC = get_checksums("flags"); return kC; }
+uint32_t get_score() { static const uint32_t kC = get_checksums("score"); return kC; }
+uint32_t get_text() { static const uint32_t kC = get_checksums("text"); return kC; }
+uint32_t current_node_name() { static const uint32_t kC = get_checksums("nodename"); return kC; }
+uint32_t kill_skater() { static const uint32_t kC = get_checksums("SK3_KillSkater"); return kC; }
+uint32_t kill_skater_water() { static const uint32_t kC = get_checksums("SK3_KillSkater_Water"); return kC; }
+uint32_t get_teleport() { static const uint32_t kC = get_checksums("TeleportSkaterToNode"); return kC; }
 
-void Put4(std::vector<uint8_t>* out, uint32_t value)
+void get_put4(std::vector<uint8_t>* out, uint32_t value)
 {
     for (int i = 0; i < 4; ++i)
         out->push_back(static_cast<uint8_t>(value >> (8 * i)));
 }
-void PutName(std::vector<uint8_t>* out, uint32_t checksum)
+void put_name(std::vector<uint8_t>* out, uint32_t checksum)
 {
     out->push_back(0x16);
-    Put4(out, checksum);
+    get_put4(out, checksum);
 }
 // name=value (a name)
-void PutNameValue(std::vector<uint8_t>* out, uint32_t key, uint32_t value)
+void put_name_value(std::vector<uint8_t>* out, uint32_t key, uint32_t value)
 {
-    PutName(out, key);
+    put_name(out, key);
     out->push_back(0x07);
-    PutName(out, value);
+    put_name(out, value);
 }
 
 // "0x" and 8 hex digits.
-bool IsHexForm(const std::string& name, uint32_t* value)
+bool is_hex_form(const std::string& name, uint32_t* value)
 {
     if (name.size() != 10 || name[0] != '0' || (name[1] != 'x' && name[1] != 'X'))
         return false;
@@ -118,16 +118,16 @@ bool IsHexForm(const std::string& name, uint32_t* value)
     return true;
 }
 
-bool ValidName(const std::string& name) { return NodeCreate::ValidName(name); }
+bool valid_name(const std::string& name) { return node_create::valid_name(name); }
 
-bool ReadNumber(const std::string& text, float* out)
+bool read_number(const std::string& text, float* out)
 {
     char* end = nullptr;
     *out = std::strtof(text.c_str(), &end);
     return !text.empty() && end && *end == '\0' && std::isfinite(*out);
 }
 
-bool ReadTriple(const std::string& text, V3* out)
+bool read_triple(const std::string& text, V3* out)
 {
     float v[3];
     size_t at = 0;
@@ -135,7 +135,7 @@ bool ReadTriple(const std::string& text, V3* out)
         size_t comma = i < 2 ? text.find(',', at) : text.size();
         if (comma == std::string::npos)
             return false;
-        if (!ReadNumber(text.substr(at, comma - at), &v[i]))
+        if (!read_number(text.substr(at, comma - at), &v[i]))
             return false;
         at = comma + 1;
     }
@@ -143,7 +143,7 @@ bool ReadTriple(const std::string& text, V3* out)
     return true;
 }
 
-std::string Triple(V3 v)
+std::string triple(V3 v)
 {
     char text[96];
     std::snprintf(text, sizeof(text), "%.9g,%.9g,%.9g", v.x, v.y, v.z);
@@ -152,42 +152,42 @@ std::string Triple(V3 v)
 
 } // namespace
 
-const char* KindName(Kind kind)
+const char* kind_name(Kind kind)
 {
     switch (kind) {
-    case Kind::Kill: return "Kill zone";
-    case Kind::JumpTo: return "Teleport";
-    case Kind::Scripts: return "Runs a script";
-    case Kind::GapStart: return "Gap start";
-    case Kind::GapEnd: return "Gap end";
-    case Kind::Other: return "Trigger (no script)";
-    case Kind::Boost: return "Jump boost";
-    case Kind::Break: return "Breakable";
-    case Kind::ViewCam: return "Camera";
+    case Kind::kKill: return "Kill zone";
+    case Kind::kJumpTo: return "Teleport";
+    case Kind::kScripts: return "Runs a script";
+    case Kind::kGapStart: return "Gap start";
+    case Kind::kGapEnd: return "Gap end";
+    case Kind::kOther: return "Trigger (no script)";
+    case Kind::kBoost: return "Jump boost";
+    case Kind::kBreak: return "Breakable";
+    case Kind::kViewCam: return "Camera";
     }
     return "?";
 }
 
-const char* KindWord(Kind kind)
+const char* kind_word(Kind kind)
 {
     switch (kind) {
-    case Kind::Kill: return "kill";
-    case Kind::JumpTo: return "teleport";
-    case Kind::Scripts: return "script";
-    case Kind::GapStart: return "gapstart";
-    case Kind::GapEnd: return "gapend";
-    case Kind::Other: return "other";
-    case Kind::Boost: return "boost";
-    case Kind::Break: return "break";
-    case Kind::ViewCam: return "camera";
+    case Kind::kKill: return "kill";
+    case Kind::kJumpTo: return "teleport";
+    case Kind::kScripts: return "script";
+    case Kind::kGapStart: return "gapstart";
+    case Kind::kGapEnd: return "gapend";
+    case Kind::kOther: return "other";
+    case Kind::kBoost: return "boost";
+    case Kind::kBreak: return "break";
+    case Kind::kViewCam: return "camera";
     }
     return "other";
 }
 
-bool KindFromWord(const std::string& word, Kind* kind)
+bool kind_from_word(const std::string& word, Kind* kind)
 {
     for (int i = 0; i < kKinds; ++i) {
-        if (word == KindWord(static_cast<Kind>(i))) {
+        if (word == kind_word(static_cast<Kind>(i))) {
             *kind = static_cast<Kind>(i);
             return true;
         }
@@ -195,58 +195,58 @@ bool KindFromWord(const std::string& word, Kind* kind)
     return false;
 }
 
-uint32_t KindColour(Kind kind)
+uint32_t kind_colour(Kind kind)
 {
     switch (kind) {
-    case Kind::Kill: return 0xFFFF4848;
-    case Kind::JumpTo: return 0xFFB27CFF;
-    case Kind::Scripts: return 0xFF3FD4E6;
-    case Kind::GapStart: return 0xFF62E26A;
-    case Kind::GapEnd: return 0xFFF2D24A;
-    case Kind::Other: return 0xFF8C9AAA;
-    case Kind::Boost: return 0xFF3F9BFF;
-    case Kind::Break: return 0xFFD8EEFF;
-    case Kind::ViewCam: return 0xFFFFA040;
+    case Kind::kKill: return 0xFFFF4848;
+    case Kind::kJumpTo: return 0xFFB27CFF;
+    case Kind::kScripts: return 0xFF3FD4E6;
+    case Kind::kGapStart: return 0xFF62E26A;
+    case Kind::kGapEnd: return 0xFFF2D24A;
+    case Kind::kOther: return 0xFF8C9AAA;
+    case Kind::kBoost: return 0xFF3F9BFF;
+    case Kind::kBreak: return 0xFFD8EEFF;
+    case Kind::kViewCam: return 0xFFFFA040;
     }
     return 0xFF8C9AAA;
 }
 
-Kind KindOfCalls(const Calls& calls, bool hasScript)
+Kind kind_of_calls(const Calls& calls, bool has_script)
 {
     if (calls.kill)
-        return Kind::Kill;
+        return Kind::kKill;
     if (calls.teleport)
-        return Kind::JumpTo;
-    if (calls.endGap)
-        return Kind::GapEnd;
-    if (calls.startGap)
-        return Kind::GapStart;
+        return Kind::kJumpTo;
+    if (calls.end_gap_)
+        return Kind::kGapEnd;
+    if (calls.start_gap_)
+        return Kind::kGapStart;
     if (calls.boost)
-        return Kind::Boost;
+        return Kind::kBoost;
     if (calls.shatter)
-        return Kind::Break;
+        return Kind::kBreak;
     if (calls.camera)
-        return Kind::ViewCam;
-    return hasScript ? Kind::Scripts : Kind::Other;
+        return Kind::kViewCam;
+    return has_script ? Kind::kScripts : Kind::kOther;
 }
 
-const std::vector<const char*>& BreakSounds()
+const std::vector<const char*>& break_sounds()
 {
-    static const std::vector<const char*> sounds = {"HitGlassPane2x", "HitMetalCan", "HitTrafficBarrier", "BonkBush"};
-    return sounds;
+    static const std::vector<const char*> kSounds = {"HitGlassPane2x", "HitMetalCan", "HitTrafficBarrier", "BonkBush"};
+    return kSounds;
 }
 
-const std::vector<const char*>& GapOptionLabels()
+const std::vector<const char*>& gap_option_labels()
 {
-    static const std::vector<const char*> flags = {
+    static const std::vector<const char*> kFlags = {
         "PURE_AIR",       "PURE_GRIND",     "PURE_RAIL",       "PURE_MANUAL",    "CANCEL_GROUND", "CANCEL_AIR",
         "CANCEL_RAIL",    "CANCEL_GRIND",   "CANCEL_MANUAL",   "CANCEL_WALL",    "CANCEL_WALLRIDE",
         "CANCEL_LIP",     "CANCEL_HANG",    "CANCEL_WALK",     "REQUIRE_AIR",    "REQUIRE_RAIL",  "REQUIRE_GRIND",
         "REQUIRE_MANUAL", "REQUIRE_LIP",    "REQUIRE_WALL",    "REQUIRE_WALLRIDE", "REQUIRE_WALK"};
-    return flags;
+    return kFlags;
 }
 
-bool SameSpec(const Spec& a, const Spec& b)
+bool same_spec(const Spec& a, const Spec& b)
 {
     return a.name == b.name && a.kind == b.kind && a.size.x == b.size.x && a.size.y == b.size.y &&
            a.size.z == b.size.z && a.water == b.water && a.target == b.target && a.script == b.script &&
@@ -254,62 +254,62 @@ bool SameSpec(const Spec& a, const Spec& b)
            a.exit == b.exit && a.strength == b.strength && a.sound == b.sound && a.seconds == b.seconds;
 }
 
-uint32_t ChecksumOf(const std::string& name)
+uint32_t checksum_of(const std::string& name)
 {
     uint32_t value = 0;
-    if (IsHexForm(name, &value))
+    if (is_hex_form(name, &value))
         return value;
-    return name.empty() ? 0u : Checksums(name.c_str());
+    return name.empty() ? 0u : get_checksums(name.c_str());
 }
 
-std::string NameFor(uint32_t checksum, const char* known)
+std::string name_for(uint32_t checksum, const char* known)
 {
-    if (known && *known && ValidName(known) && Checksums(known) == checksum)
+    if (known && *known && valid_name(known) && get_checksums(known) == checksum)
         return known;
     char text[16];
     std::snprintf(text, sizeof(text), "0x%08X", checksum);
     return text;
 }
 
-std::string ScriptName(const Spec& spec) { return spec.name + "Script"; }
+std::string get_script_name(const Spec& spec) { return spec.name + "Script"; }
 
-float ClampSeconds(float seconds)
+float clamp_seconds(float seconds)
 {
     if (!std::isfinite(seconds))
         return 3.0f;
     return std::max(kCameraMinSeconds, std::min(kCameraMaxSeconds, seconds));
 }
 
-const char* Problem(const Spec& spec)
+const char* get_problem(const Spec& spec)
 {
     switch (spec.kind) {
-    case Kind::Kill:
+    case Kind::kKill:
         return spec.target.empty() ? "Choose the restart the skater goes back to" : nullptr;
-    case Kind::JumpTo:
+    case Kind::kJumpTo:
         return spec.target.empty() ? "Choose where it sends the skater" : nullptr;
-    case Kind::Scripts:
+    case Kind::kScripts:
         return spec.script.empty() ? "Choose the script it runs" : nullptr;
-    case Kind::GapStart:
+    case Kind::kGapStart:
         return spec.gap.empty() ? "It has no gap" : nullptr;
-    case Kind::GapEnd:
+    case Kind::kGapEnd:
         if (spec.gap.empty())
             return "It has no gap";
         if (spec.text.empty() || spec.score <= 0)
             return "A gap needs a name and a score";
         return nullptr;
-    case Kind::Other:
+    case Kind::kOther:
         return "It has no script";
-    case Kind::Boost:
+    case Kind::kBoost:
         return nullptr;
-    case Kind::Break:
+    case Kind::kBreak:
         return spec.target.empty() ? "Choose the piece it breaks" : nullptr;
-    case Kind::ViewCam:
+    case Kind::kViewCam:
         return spec.target.empty() ? "Choose the camera it plays" : nullptr;
     }
     return "?";
 }
 
-std::string CleanText(const std::string& text)
+std::string clean_text(const std::string& text)
 {
     std::string out;
     for (char c : text) {
@@ -332,149 +332,149 @@ std::string CleanText(const std::string& text)
     return out.substr(first, last - first + 1);
 }
 
-V3 ClampSize(V3 size)
+V3 clamp_size(V3 size)
 {
     auto clamp = [](float v) { return std::isfinite(v) ? std::max(10.0f, std::min(50000.0f, v)) : 10.0f; };
     return {clamp(size.x), clamp(size.y), clamp(size.z)};
 }
 
-OrientedBox BoxOf(V3 pos, float yaw, V3 size)
+OrientedBox box_of(V3 pos, float yaw, V3 size)
 {
     OrientedBox box;
     box.origin = pos;
-    box.axes[0] = TurnAboutUp({1.0f, 0.0f, 0.0f}, yaw);
+    box.axes[0] = turn_about_up({1.0f, 0.0f, 0.0f}, yaw);
     box.axes[1] = {0.0f, 1.0f, 0.0f};
-    box.axes[2] = TurnAboutUp({0.0f, 0.0f, 1.0f}, yaw);
+    box.axes[2] = turn_about_up({0.0f, 0.0f, 1.0f}, yaw);
     box.min = size * -0.5f;
     box.max = size * 0.5f;
     return box;
 }
 
-bool Inside(const OrientedBox& box, V3 p)
+bool get_inside(const OrientedBox& box, V3 p)
 {
     V3 d = p - box.origin;
-    float x = Dot(d, box.axes[0]), y = Dot(d, box.axes[1]), z = Dot(d, box.axes[2]);
+    float x = get_dot(d, box.axes[0]), y = get_dot(d, box.axes[1]), z = get_dot(d, box.axes[2]);
     return x >= box.min.x && x <= box.max.x && y >= box.min.y && y <= box.max.y && z >= box.min.z && z <= box.max.z;
 }
 
-V3 HandleDirection(float yaw, int handle)
+V3 handle_direction(float yaw, int handle)
 {
     int axis = (handle >> 1) % 3;
     float sign = (handle & 1) ? 1.0f : -1.0f;
     V3 unit = axis == 0 ? V3{1.0f, 0.0f, 0.0f} : axis == 1 ? V3{0.0f, 1.0f, 0.0f} : V3{0.0f, 0.0f, 1.0f};
-    return TurnAboutUp(unit, yaw) * sign;
+    return turn_about_up(unit, yaw) * sign;
 }
 
-V3 HandlePoint(V3 pos, float yaw, V3 size, int handle)
+V3 handle_point(V3 pos, float yaw, V3 size, int handle)
 {
     int axis = (handle >> 1) % 3;
     float half = (axis == 0 ? size.x : axis == 1 ? size.y : size.z) * 0.5f;
-    return pos + HandleDirection(yaw, handle) * half;
+    return pos + handle_direction(yaw, handle) * half;
 }
 
-void ResizeFace(V3 pos, float yaw, V3 size, int handle, float along, V3* newPos, V3* newSize)
+void resize_face(V3 pos, float yaw, V3 size, int handle, float along, V3* new_pos, V3* new_size)
 {
     int axis = (handle >> 1) % 3;
     V3 grown = size;
     float* side = axis == 0 ? &grown.x : axis == 1 ? &grown.y : &grown.z;
     float before = *side;
     *side = before + (std::isfinite(along) ? along : 0.0f);
-    grown = ClampSize(grown);
+    grown = clamp_size(grown);
     float change = (axis == 0 ? grown.x : axis == 1 ? grown.y : grown.z) - before;
-    *newSize = grown;
-    *newPos = pos + HandleDirection(yaw, handle) * (change * 0.5f);
+    *new_size = grown;
+    *new_pos = pos + handle_direction(yaw, handle) * (change * 0.5f);
 }
 
-std::vector<uint8_t> Body(const Spec& spec)
+std::vector<uint8_t> get_body(const Spec& spec)
 {
     std::vector<uint8_t> out;
-    if (Problem(spec))
+    if (get_problem(spec))
         return out;
     switch (spec.kind) {
-    case Kind::Kill:
-        PutName(&out, spec.water ? kKillSkaterWater() : kKillSkater());
-        PutNameValue(&out, kNodeName(), ChecksumOf(spec.target));
+    case Kind::kKill:
+        put_name(&out, spec.water ? kill_skater_water() : kill_skater());
+        put_name_value(&out, current_node_name(), checksum_of(spec.target));
         out.push_back(0x01);
         break;
-    case Kind::JumpTo:
-        PutName(&out, kTeleport());
-        PutNameValue(&out, kNodeName(), ChecksumOf(spec.target));
+    case Kind::kJumpTo:
+        put_name(&out, get_teleport());
+        put_name_value(&out, current_node_name(), checksum_of(spec.target));
         out.push_back(0x01);
         break;
-    case Kind::Scripts:
-        PutName(&out, ChecksumOf(spec.script));
+    case Kind::kScripts:
+        put_name(&out, checksum_of(spec.script));
         out.push_back(0x01);
         break;
-    case Kind::GapStart:
-        PutName(&out, kStartGap());
-        PutNameValue(&out, kGapId(), ChecksumOf(spec.gap));
+    case Kind::kGapStart:
+        put_name(&out, start_gap());
+        put_name_value(&out, get_gap_id(), checksum_of(spec.gap));
         if (!spec.flags.empty()) {
-            PutName(&out, kFlags());
+            put_name(&out, current_flags());
             out.push_back(0x07);
             out.push_back(0x05);
             for (size_t i = 0; i < spec.flags.size(); ++i) {
                 if (i)
                     out.push_back(0x09);
-                PutName(&out, ChecksumOf(spec.flags[i]));
+                put_name(&out, checksum_of(spec.flags[i]));
             }
             out.push_back(0x06);
         }
         out.push_back(0x01);
         break;
-    case Kind::GapEnd: {
-        PutName(&out, kEndGap());
-        PutNameValue(&out, kGapId(), ChecksumOf(spec.gap));
-        PutName(&out, kScore());
+    case Kind::kGapEnd: {
+        put_name(&out, end_gap());
+        put_name_value(&out, get_gap_id(), checksum_of(spec.gap));
+        put_name(&out, get_score());
         out.push_back(0x07);
         out.push_back(0x17);
-        Put4(&out, static_cast<uint32_t>(spec.score));
-        PutName(&out, kText());
+        get_put4(&out, static_cast<uint32_t>(spec.score));
+        put_name(&out, get_text());
         out.push_back(0x07);
         out.push_back(0x1B);
-        std::string text = CleanText(spec.text);
-        Put4(&out, static_cast<uint32_t>(text.size() + 1));
+        std::string text = clean_text(spec.text);
+        get_put4(&out, static_cast<uint32_t>(text.size() + 1));
         out.insert(out.end(), text.begin(), text.end());
         out.push_back(0x00);
         out.push_back(0x01);
         break;
     }
-    case Kind::Other:
+    case Kind::kOther:
         break;
-    case Kind::Boost:
+    case Kind::kBoost:
         // trigger_jump_boost speed=<n> (skutils.qb: the skater's upward velocity set to n)
-        PutName(&out, Checksums("trigger_jump_boost"));
-        PutName(&out, Checksums("speed"));
+        put_name(&out, get_checksums("trigger_jump_boost"));
+        put_name(&out, get_checksums("speed"));
         out.push_back(0x07);
         out.push_back(0x17);
-        Put4(&out, static_cast<uint32_t>(std::max(kBoostMin, std::min(kBoostMax, spec.strength))));
+        get_put4(&out, static_cast<uint32_t>(std::max(kBoostMin, std::min(kBoostMax, spec.strength))));
         out.push_back(0x01);
         break;
-    case Kind::Break: {
-        // [EmitSound <sound>] Shatter name=<piece> area=5000 variance=1.0 spread=1.5 life=3 bounce=0 scale=0.4
+    case Kind::kBreak: {
+        // [emit_sound <sound>] Shatter name=<piece> area=5000 variance=1.0 spread=1.5 life=3 bounce=0 scale=0.4
         // vel_x=0 vel_y=60 vel_z=0, Kill name=<piece> - BO_ShatteringGlass's (without its texture swap - the piece's
         // own textures shatter)
-        uint32_t piece = ChecksumOf(spec.target);
+        uint32_t piece = checksum_of(spec.target);
         if (!spec.sound.empty()) {
-            PutName(&out, Checksums("PlaySound"));
-            PutName(&out, ChecksumOf(spec.sound));
+            put_name(&out, get_checksums("PlaySound"));
+            put_name(&out, checksum_of(spec.sound));
             out.push_back(0x01);
         }
         auto integer = [&](const char* key, int32_t value) {
-            PutName(&out, Checksums(key));
+            put_name(&out, get_checksums(key));
             out.push_back(0x07);
             out.push_back(0x17);
-            Put4(&out, static_cast<uint32_t>(value));
+            get_put4(&out, static_cast<uint32_t>(value));
         };
         auto real = [&](const char* key, float value) {
-            PutName(&out, Checksums(key));
+            put_name(&out, get_checksums(key));
             out.push_back(0x07);
             out.push_back(0x1A);
             uint32_t bits;
             std::memcpy(&bits, &value, 4);
-            Put4(&out, bits);
+            get_put4(&out, bits);
         };
-        PutName(&out, Checksums("Shatter"));
-        PutNameValue(&out, Checksums("name"), piece);
+        put_name(&out, get_checksums("Shatter"));
+        put_name_value(&out, get_checksums("name"), piece);
         integer("area", 5000);
         real("variance", 1.0f);
         real("spread", 1.5f);
@@ -485,22 +485,22 @@ std::vector<uint8_t> Body(const Spec& spec)
         integer("vel_y", 60);
         integer("vel_z", 0);
         out.push_back(0x01);
-        PutName(&out, Checksums("Kill"));
-        PutNameValue(&out, Checksums("name"), piece);
+        put_name(&out, get_checksums("Kill"));
+        put_name_value(&out, get_checksums("name"), piece);
         out.push_back(0x01);
         break;
     }
-    case Kind::ViewCam: {
+    case Kind::kViewCam: {
         // LevelEditor_PlayCamera camera=<node> time=<seconds> (level_editor_cameras.h: the game's virtual_cam)
-        PutName(&out, Checksums("LevelEditor_PlayCamera"));
-        PutNameValue(&out, Checksums("camera"), ChecksumOf(spec.target));
-        PutName(&out, Checksums("time"));
+        put_name(&out, get_checksums("LevelEditor_PlayCamera"));
+        put_name_value(&out, get_checksums("camera"), checksum_of(spec.target));
+        put_name(&out, get_checksums("time"));
         out.push_back(0x07);
         out.push_back(0x1A);
-        float seconds = ClampSeconds(spec.seconds);
+        float seconds = clamp_seconds(spec.seconds);
         uint32_t bits;
         std::memcpy(&bits, &seconds, 4);
-        Put4(&out, bits);
+        get_put4(&out, bits);
         out.push_back(0x01);
         break;
     }
@@ -508,15 +508,15 @@ std::vector<uint8_t> Body(const Spec& spec)
     return out;
 }
 
-std::vector<uint8_t> QbFile(const std::vector<Spec>& specs)
+std::vector<uint8_t> qb_file(const std::vector<Spec>& specs)
 {
     std::vector<uint8_t> out;
     std::vector<std::pair<uint32_t, std::string>> names;
     auto note = [&](const std::string& name) {
         uint32_t value;
-        if (name.empty() || IsHexForm(name, &value))
+        if (name.empty() || is_hex_form(name, &value))
             return;
-        uint32_t checksum = Checksums(name.c_str());
+        uint32_t checksum = get_checksums(name.c_str());
         for (const auto& n : names) {
             if (n.first == checksum)
                 return;
@@ -525,26 +525,26 @@ std::vector<uint8_t> QbFile(const std::vector<Spec>& specs)
     };
     for (const Spec& spec : specs) {
         out.push_back(0x23);
-        std::string script = ScriptName(spec);
-        PutName(&out, Checksums(script.c_str()));
+        std::string script = get_script_name(spec);
+        put_name(&out, get_checksums(script.c_str()));
         out.push_back(0x01);
-        std::vector<uint8_t> body = Body(spec);
+        std::vector<uint8_t> body = get_body(spec);
         out.insert(out.end(), body.begin(), body.end());
         out.push_back(0x24);
         out.push_back(0x01);
         note(script);
         if (!body.empty()) {
-            if (spec.kind == Kind::Kill || spec.kind == Kind::JumpTo)
+            if (spec.kind == Kind::kKill || spec.kind == Kind::kJumpTo)
                 note(spec.target);
-            if (spec.kind == Kind::Scripts)
+            if (spec.kind == Kind::kScripts)
                 note(spec.script);
-            if (spec.kind == Kind::GapStart || spec.kind == Kind::GapEnd)
+            if (spec.kind == Kind::kGapStart || spec.kind == Kind::kGapEnd)
                 note(spec.gap);
-            if (spec.kind == Kind::Break) {
+            if (spec.kind == Kind::kBreak) {
                 note(spec.target);
                 note(spec.sound);
             }
-            if (spec.kind == Kind::ViewCam) {
+            if (spec.kind == Kind::kViewCam) {
                 note("LevelEditor_PlayCamera");
                 note(spec.target);
             }
@@ -552,7 +552,7 @@ std::vector<uint8_t> QbFile(const std::vector<Spec>& specs)
     }
     for (const auto& n : names) {
         out.push_back(0x2B);
-        Put4(&out, n.first);
+        get_put4(&out, n.first);
         out.insert(out.end(), n.second.begin(), n.second.end());
         out.push_back(0x00);
     }
@@ -560,14 +560,14 @@ std::vector<uint8_t> QbFile(const std::vector<Spec>& specs)
     return out;
 }
 
-std::string LinkRecord(const Placed& placed)
+std::string link_record(const Placed& placed)
 {
     const Spec& s = placed.spec;
     std::ostringstream out;
-    out << s.name << ' ' << KindWord(s.kind) << " pos=" << Triple(placed.pos);
+    out << s.name << ' ' << kind_word(s.kind) << " pos=" << triple(placed.pos);
     char number[48];
     std::snprintf(number, sizeof(number), " yaw=%.9g", placed.yaw);
-    out << number << " size=" << Triple(s.size);
+    out << number << " size=" << triple(s.size);
     if (!s.target.empty())
         out << " target=" << s.target;
     if (s.water)
@@ -581,7 +581,7 @@ std::string LinkRecord(const Placed& placed)
         for (size_t i = 0; i < s.flags.size(); ++i)
             out << (i ? "," : "") << s.flags[i];
     }
-    if (s.kind == Kind::GapStart || s.kind == Kind::GapEnd)
+    if (s.kind == Kind::kGapStart || s.kind == Kind::kGapEnd)
         out << " score=" << s.score;
     if (s.replaces) {
         std::snprintf(number, sizeof(number), " replaces=%08X", s.replaces);
@@ -589,21 +589,21 @@ std::string LinkRecord(const Placed& placed)
     }
     if (s.exit)
         out << " exit=1";
-    if (s.kind == Kind::Boost)
+    if (s.kind == Kind::kBoost)
         out << " strength=" << s.strength;
     if (!s.sound.empty())
         out << " sound=" << s.sound;
-    if (s.kind == Kind::ViewCam) {
-        std::snprintf(number, sizeof(number), " seconds=%.9g", ClampSeconds(s.seconds));
+    if (s.kind == Kind::kViewCam) {
+        std::snprintf(number, sizeof(number), " seconds=%.9g", clamp_seconds(s.seconds));
         out << number;
     }
-    std::string text = CleanText(s.text);
+    std::string text = clean_text(s.text);
     if (!text.empty())
         out << " text=\"" << text << '"';
     return out.str();
 }
 
-bool ReadRecord(const std::string& line, Placed* placed)
+bool read_record(const std::string& line, Placed* placed)
 {
     *placed = Placed{};
     Spec& s = placed->spec;
@@ -615,16 +615,16 @@ bool ReadRecord(const std::string& line, Placed* placed)
         size_t end = text.find('"', start);
         if (end == std::string::npos || text.find_first_not_of(" \t\r", end + 1) != std::string::npos)
             return false;
-        s.text = CleanText(text.substr(start, end - start));
+        s.text = clean_text(text.substr(start, end - start));
         text.resize(quote);
     }
     std::istringstream in(text);
     std::string word;
-    if (!(in >> s.name >> word) || !ValidName(s.name) || !KindFromWord(word, &s.kind) || s.kind == Kind::Other)
+    if (!(in >> s.name >> word) || !valid_name(s.name) || !kind_from_word(word, &s.kind) || s.kind == Kind::kOther)
         return false;
-    bool havePos = false, haveYaw = false, haveSize = false, haveTarget = false, haveWater = false, haveScript = false,
-         haveGap = false, haveFlags = false, haveScore = false, haveReplaces = false, haveExit = false,
-         haveStrength = false, haveSound = false, haveSeconds = false;
+    bool have_pos = false, have_yaw = false, have_size = false, have_target = false, have_water = false, have_script = false,
+         have_gap = false, have_flags = false, have_score = false, have_replaces = false, have_exit = false,
+         have_strength = false, have_sound = false, have_seconds = false;
     s.score = 100;
     auto once = [](bool* seen) {
         if (*seen)
@@ -640,84 +640,84 @@ bool ReadRecord(const std::string& line, Placed* placed)
         std::string key = field.substr(0, equals), value = field.substr(equals + 1);
         bool ok = true;
         if (key == "pos") {
-            ok = once(&havePos) && ReadTriple(value, &placed->pos);
+            ok = once(&have_pos) && read_triple(value, &placed->pos);
         } else if (key == "yaw") {
-            ok = once(&haveYaw) && ReadNumber(value, &placed->yaw);
+            ok = once(&have_yaw) && read_number(value, &placed->yaw);
         } else if (key == "size") {
-            ok = once(&haveSize) && ReadTriple(value, &s.size);
-            s.size = ClampSize(s.size);
+            ok = once(&have_size) && read_triple(value, &s.size);
+            s.size = clamp_size(s.size);
         } else if (key == "target") {
-            ok = once(&haveTarget) && ValidName(value);
+            ok = once(&have_target) && valid_name(value);
             s.target = value;
         } else if (key == "water") {
-            ok = once(&haveWater) && (value == "0" || value == "1");
+            ok = once(&have_water) && (value == "0" || value == "1");
             s.water = value == "1";
         } else if (key == "script") {
-            ok = once(&haveScript) && ValidName(value);
+            ok = once(&have_script) && valid_name(value);
             s.script = value;
         } else if (key == "gap") {
-            ok = once(&haveGap) && ValidName(value);
+            ok = once(&have_gap) && valid_name(value);
             s.gap = value;
         } else if (key == "flags") {
-            ok = once(&haveFlags);
+            ok = once(&have_flags);
             size_t at = 0;
             while (ok && at <= value.size()) {
                 size_t comma = value.find(',', at);
                 if (comma == std::string::npos)
                     comma = value.size();
                 std::string flag = value.substr(at, comma - at);
-                ok = ValidName(flag);
+                ok = valid_name(flag);
                 s.flags.push_back(flag);
                 at = comma + 1;
             }
         } else if (key == "score") {
             char* end = nullptr;
             long score = std::strtol(value.c_str(), &end, 10);
-            ok = once(&haveScore) && !value.empty() && end && *end == '\0' && score >= 0 && score <= 1000000;
+            ok = once(&have_score) && !value.empty() && end && *end == '\0' && score >= 0 && score <= 1000000;
             s.score = static_cast<int>(score);
         } else if (key == "replaces") {
             char* end = nullptr;
             unsigned long checksum = std::strtoul(value.c_str(), &end, 16);
-            ok = once(&haveReplaces) && !value.empty() && value.size() <= 8 && end && *end == '\0';
+            ok = once(&have_replaces) && !value.empty() && value.size() <= 8 && end && *end == '\0';
             s.replaces = static_cast<uint32_t>(checksum);
         } else if (key == "exit") {
-            ok = once(&haveExit) && (value == "0" || value == "1");
+            ok = once(&have_exit) && (value == "0" || value == "1");
             s.exit = value == "1";
         } else if (key == "strength") {
             char* end = nullptr;
             long strength = std::strtol(value.c_str(), &end, 10);
-            ok = once(&haveStrength) && !value.empty() && end && *end == '\0' && strength >= kBoostMin &&
+            ok = once(&have_strength) && !value.empty() && end && *end == '\0' && strength >= kBoostMin &&
                  strength <= kBoostMax;
             s.strength = static_cast<int>(strength);
         } else if (key == "sound") {
-            ok = once(&haveSound) && ValidName(value);
+            ok = once(&have_sound) && valid_name(value);
             s.sound = value;
         } else if (key == "seconds") {
             float seconds = 0.0f;
-            ok = once(&haveSeconds) && ReadNumber(value, &seconds) && seconds >= kCameraMinSeconds &&
+            ok = once(&have_seconds) && read_number(value, &seconds) && seconds >= kCameraMinSeconds &&
                  seconds <= kCameraMaxSeconds;
             s.seconds = seconds;
         } // (another key: a later version's - skipped)
         if (!ok)
             return false;
     }
-    return havePos;
+    return have_pos;
 }
 
-int Partner(const std::vector<Spec>& specs, int index)
+int partner(const std::vector<Spec>& specs, int index)
 {
     if (index < 0 || index >= static_cast<int>(specs.size()))
         return -1;
     const Spec& s = specs[index];
     Kind other;
-    if (s.kind == Kind::GapStart)
-        other = Kind::GapEnd;
-    else if (s.kind == Kind::GapEnd)
-        other = Kind::GapStart;
+    if (s.kind == Kind::kGapStart)
+        other = Kind::kGapEnd;
+    else if (s.kind == Kind::kGapEnd)
+        other = Kind::kGapStart;
     else
         return -1;
     for (size_t i = 0; i < specs.size(); ++i) {
-        if (static_cast<int>(i) != index && specs[i].kind == other && !s.gap.empty() && SameText(specs[i].gap, s.gap))
+        if (static_cast<int>(i) != index && specs[i].kind == other && !s.gap.empty() && same_text(specs[i].gap, s.gap))
             return static_cast<int>(i);
     }
     return -1;
@@ -725,16 +725,16 @@ int Partner(const std::vector<Spec>& specs, int index)
 
 // --- proximity nodes ---
 
-bool SameProxim(const ProximEdit& a, const ProximEdit& b)
+bool same_proxim(const ProximEdit& a, const ProximEdit& b)
 {
     return a.node == b.node && a.enter == b.enter && a.exit == b.exit && a.shape == b.shape && a.box == b.box &&
            a.radius == b.radius && a.size.x == b.size.x && a.size.y == b.size.y && a.size.z == b.size.z &&
            a.offset.x == b.offset.x && a.offset.y == b.offset.y && a.offset.z == b.offset.z;
 }
 
-bool ProximEdited(const ProximEdit& edit) { return !edit.enter.empty() || !edit.exit.empty() || edit.shape; }
+bool proxim_edited(const ProximEdit& edit) { return !edit.enter.empty() || !edit.exit.empty() || edit.shape; }
 
-std::string ProximRecord(const ProximEdit& e, const char* known)
+std::string proxim_record(const ProximEdit& e, const char* known)
 {
     std::ostringstream out;
     char hex[16];
@@ -747,7 +747,7 @@ std::string ProximRecord(const ProximEdit& e, const char* known)
     if (e.shape) {
         out << " shape=" << (e.box ? "box" : "sphere");
         if (e.box) {
-            out << " size=" << Triple(e.size) << " offset=" << Triple(e.offset);
+            out << " size=" << triple(e.size) << " offset=" << triple(e.offset);
         } else {
             char radius[48];
             std::snprintf(radius, sizeof(radius), " radius=%.9g", e.radius);
@@ -759,7 +759,7 @@ std::string ProximRecord(const ProximEdit& e, const char* known)
     return out.str();
 }
 
-bool ReadProximRecord(const std::string& line, ProximEdit* edit)
+bool read_proxim_record(const std::string& line, ProximEdit* edit)
 {
     *edit = ProximEdit{};
     std::string text = line.substr(0, line.find('#'));
@@ -768,8 +768,8 @@ bool ReadProximRecord(const std::string& line, ProximEdit* edit)
     if (!(in >> word) || word.size() != 8 || word.find_first_not_of("0123456789abcdefABCDEF") != std::string::npos)
         return false;
     edit->node = static_cast<uint32_t>(std::strtoul(word.c_str(), nullptr, 16));
-    bool haveEnter = false, haveExit = false, haveShape = false, haveRadius = false, haveSize = false,
-         haveOffset = false;
+    bool have_enter = false, have_exit = false, have_shape = false, have_radius = false, have_size = false,
+         have_offset = false;
     auto once = [](bool* seen) {
         if (*seen)
             return false;
@@ -784,52 +784,52 @@ bool ReadProximRecord(const std::string& line, ProximEdit* edit)
         std::string key = field.substr(0, equals), value = field.substr(equals + 1);
         bool ok = true;
         if (key == "enter") {
-            ok = once(&haveEnter) && ValidName(value);
+            ok = once(&have_enter) && valid_name(value);
             edit->enter = value;
         } else if (key == "exit") {
-            ok = once(&haveExit) && ValidName(value);
+            ok = once(&have_exit) && valid_name(value);
             edit->exit = value;
         } else if (key == "shape") {
-            ok = once(&haveShape) && (value == "sphere" || value == "box");
+            ok = once(&have_shape) && (value == "sphere" || value == "box");
             edit->shape = true;
             edit->box = value == "box";
         } else if (key == "radius") {
-            ok = once(&haveRadius) && ReadNumber(value, &edit->radius) && edit->radius >= kProximMin &&
+            ok = once(&have_radius) && read_number(value, &edit->radius) && edit->radius >= kProximMin &&
                  edit->radius <= kProximMax;
         } else if (key == "size") {
-            ok = once(&haveSize) && ReadTriple(value, &edit->size) && edit->size.x >= kProximMin &&
+            ok = once(&have_size) && read_triple(value, &edit->size) && edit->size.x >= kProximMin &&
                  edit->size.y >= kProximMin && edit->size.z >= kProximMin && edit->size.x <= kProximMax &&
                  edit->size.y <= kProximMax && edit->size.z <= kProximMax;
         } else if (key == "offset") {
-            ok = once(&haveOffset) && ReadTriple(value, &edit->offset);
+            ok = once(&have_offset) && read_triple(value, &edit->offset);
         } // (another key: a later version's - skipped)
         if (!ok)
             return false;
     }
     // (a shape needs its measure: a sphere its radius, a box its size)
-    if (haveShape && (edit->box ? !haveSize : !haveRadius))
+    if (have_shape && (edit->box ? !have_size : !have_radius))
         return false;
     return true;
 }
 
-std::string ProximScriptName(uint32_t node)
+std::string proxim_script_name(uint32_t node)
 {
     char text[32];
     std::snprintf(text, sizeof(text), "ed_proxim_%08X", node);
     return text;
 }
 
-std::vector<uint8_t> ProximBody(uint32_t enter, uint32_t exit, uint32_t own)
+std::vector<uint8_t> proxim_body(uint32_t enter, uint32_t exit, uint32_t own)
 {
     std::vector<uint8_t> out;
     if (!enter && !exit)
         return out;
     auto branch = [&](uint32_t script) {
         if (script) {
-            PutName(&out, script);
+            put_name(&out, script);
             out.push_back(0x01);
         } else if (own) {
-            PutName(&out, own);
+            put_name(&out, own);
             out.push_back(0x2C); // (<...>: its arguments passed on)
             out.push_back(0x01);
         }
@@ -837,45 +837,45 @@ std::vector<uint8_t> ProximBody(uint32_t enter, uint32_t exit, uint32_t own)
     // if Inside {enter} else {exit}: 47 <offset> ... 48 <offset> 01 ... 28 01; each offset counted from its own first
     // byte - the if's to the else's body, the else's to the end of line after endif.
     out.push_back(0x47);
-    size_t ifOffset = out.size();
+    size_t if_offset = out.size();
     out.push_back(0);
     out.push_back(0);
-    PutName(&out, Checksums("Inside"));
+    put_name(&out, get_checksums("Inside"));
     out.push_back(0x01);
     branch(enter);
     out.push_back(0x48);
-    size_t elseOffset = out.size();
+    size_t else_offset = out.size();
     out.push_back(0);
     out.push_back(0);
     out.push_back(0x01);
-    uint16_t toElse = static_cast<uint16_t>(elseOffset + 2 - ifOffset);
-    out[ifOffset] = static_cast<uint8_t>(toElse);
-    out[ifOffset + 1] = static_cast<uint8_t>(toElse >> 8);
+    uint16_t to_else = static_cast<uint16_t>(else_offset + 2 - if_offset);
+    out[if_offset] = static_cast<uint8_t>(to_else);
+    out[if_offset + 1] = static_cast<uint8_t>(to_else >> 8);
     branch(exit);
     out.push_back(0x28);
-    uint16_t toEnd = static_cast<uint16_t>(out.size() - elseOffset);
-    out[elseOffset] = static_cast<uint8_t>(toEnd);
-    out[elseOffset + 1] = static_cast<uint8_t>(toEnd >> 8);
+    uint16_t to_end = static_cast<uint16_t>(out.size() - else_offset);
+    out[else_offset] = static_cast<uint8_t>(to_end);
+    out[else_offset + 1] = static_cast<uint8_t>(to_end >> 8);
     out.push_back(0x01);
     return out;
 }
 
-std::vector<uint8_t> ProximQbFile(const std::vector<ProximScript>& scripts)
+std::vector<uint8_t> proxim_qb_file(const std::vector<ProximScript>& scripts)
 {
     std::vector<uint8_t> out;
     for (const ProximScript& s : scripts) {
         out.push_back(0x23);
-        PutName(&out, Checksums(ProximScriptName(s.node).c_str()));
+        put_name(&out, get_checksums(proxim_script_name(s.node).c_str()));
         out.push_back(0x01);
-        std::vector<uint8_t> body = ProximBody(s.enter, s.exit, s.own);
+        std::vector<uint8_t> body = proxim_body(s.enter, s.exit, s.own);
         out.insert(out.end(), body.begin(), body.end());
         out.push_back(0x24);
         out.push_back(0x01);
     }
     for (const ProximScript& s : scripts) {
-        std::string name = ProximScriptName(s.node);
+        std::string name = proxim_script_name(s.node);
         out.push_back(0x2B);
-        Put4(&out, Checksums(name.c_str()));
+        get_put4(&out, get_checksums(name.c_str()));
         out.insert(out.end(), name.begin(), name.end());
         out.push_back(0x00);
     }
@@ -887,7 +887,7 @@ std::vector<uint8_t> ProximQbFile(const std::vector<ProximScript>& scripts)
 
 namespace {
 
-void** const& kCollStaticVtable = Vt::kVtblStaticColl;
+void** const& g_coll_static_vtable = vt::kVtblStaticColl;
 constexpr uint32_t kTriggerScript = 0x2CA8A299; // TriggerScript
 constexpr uint16_t kVolumeFlags = 0x50;         // a trigger face the skater passes through
 constexpr char kFileName[] = "editor\\thug2_decomp_triggers.qb";
@@ -903,48 +903,48 @@ std::vector<Added> g_added;
 std::vector<LevelTrigger> g_level;
 bool g_scanned;
 std::vector<uint32_t> g_switched;
-std::vector<uint32_t> g_turnedOff;
-uint32_t g_selectWall;
-uint32_t g_levelArray;
+std::vector<uint32_t> g_turned_off;
+uint32_t g_select_wall;
+uint32_t g_level_array;
 uint32_t g_inspected;
 // The collision boxes.
 struct Cuboid {
     uint32_t name;
-    Engine3D::CHitMovingBox* coll;
+    render::HitMovingBox* coll;
     V3 pos, size;
     float yaw;
 };
 std::vector<Cuboid> g_boxes;
 // The scripts last defined, the gaps the editor put in the checklist (their names and scores) and the checklist.
 std::vector<uint8_t> g_defined;
-std::vector<std::pair<std::string, int>> g_gapsAdded;
-GoalSystem::CGapTally* g_checklist;
-std::vector<std::string> g_levelGapNames;
-bool g_levelGapsRead;
+std::vector<std::pair<std::string, int>> g_gaps_added;
+goals::GapTally* g_checklist;
+std::vector<std::string> g_level_gap_names;
+bool g_level_gaps_read;
 // Undo, selection, the UI's actions.
-bool g_hasUndo;
-State g_undoBefore;
+bool g_has_undo;
+State g_undo_before;
 int g_select = -1;
 std::vector<std::function<void()>> g_actions;
-bool g_shown, g_settingRead;
+bool g_shown, g_setting_read;
 V3 g_camera = {}, g_forward = {0.0f, 0.0f, 1.0f};
 float g_yaw;
 
-uint32_t HashOfName(const std::string& name) { return NodeCreate::NameHash(name); }
+uint32_t hash_of_name(const std::string& name) { return node_create::name_hash(name); }
 
-std::string LabelOf(uint32_t checksum) { return Nodes::Caption(checksum); }
+std::string get_label_of(uint32_t checksum) { return nodes::caption(checksum); }
 
 // The overlay's trigger nodes now.
-bool NodeAlive(const std::string& name) { return NodeCreate::IsAdded(HashOfName(name)); }
+bool node_alive(const std::string& name) { return node_create::is_added(hash_of_name(name)); }
 
-bool NodePlace(const std::string& name, V3* pos, float* yaw)
+bool node_place(const std::string& name, V3* pos, float* yaw)
 {
-    Scripts::CStruct* node = LevelNodes::NodeManagerInstance() ? LevelNodes::FetchVertex(HashOfName(name), false) : nullptr;
+    script::Struct* node = level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(hash_of_name(name), false) : nullptr;
     if (!node)
         return false;
-    Maths::Vec4 p = {0.0f, 0.0f, 0.0f, 1.0f}, a = {0.0f, 0.0f, 0.0f, 0.0f};
-    LevelNodes::FetchPlace(node, &p);
-    LevelNodes::ReadTurnAngles(node, &a);
+    maths::Vec4 p = {0.0f, 0.0f, 0.0f, 1.0f}, a = {0.0f, 0.0f, 0.0f, 0.0f};
+    level_nodes::fetch_place(node, &p);
+    level_nodes::read_turn_angles(node, &a);
     *pos = {p.x, p.y, p.z};
     *yaw = a.y;
     return true;
@@ -953,356 +953,356 @@ bool NodePlace(const std::string& name, V3* pos, float* yaw)
 // --- what a script calls ---
 
 Calls* g_calls;
-void __cdecl OnKill(Scripts::CStruct* params, const uint8_t*)
+void __cdecl on_kill(script::Struct* params, const uint8_t*)
 {
     g_calls->kill = true;
     uint32_t target = 0;
-    if (params && params->ReadHashValue(kNodeName(), &target, 0) && target)
+    if (params && params->read_hash_value(current_node_name(), &target, 0) && target)
         g_calls->target = target;
 }
-void __cdecl OnWater(Scripts::CStruct* params, const uint8_t* call)
+void __cdecl on_water(script::Struct* params, const uint8_t* call)
 {
-    OnKill(params, call);
+    on_kill(params, call);
     g_calls->water = true;
 }
-void __cdecl OnTeleport(Scripts::CStruct* params, const uint8_t*)
+void __cdecl on_teleport(script::Struct* params, const uint8_t*)
 {
     g_calls->teleport = true;
     uint32_t target = 0;
-    if (params && params->ReadHashValue(kNodeName(), &target, 0) && target)
+    if (params && params->read_hash_value(current_node_name(), &target, 0) && target)
         g_calls->target = target;
 }
-void __cdecl OnStartGap(Scripts::CStruct* params, const uint8_t*)
+void __cdecl on_start_gap(script::Struct* params, const uint8_t*)
 {
-    g_calls->startGap = true;
+    g_calls->start_gap_ = true;
     uint32_t id = 0;
-    if (params && params->ReadHashValue(kGapId(), &id, 0) && !g_calls->gapId)
-        g_calls->gapId = id;
+    if (params && params->read_hash_value(get_gap_id(), &id, 0) && !g_calls->gap_id_)
+        g_calls->gap_id_ = id;
 }
-void __cdecl OnEndGap(Scripts::CStruct* params, const uint8_t*)
+void __cdecl on_end_gap(script::Struct* params, const uint8_t*)
 {
-    g_calls->endGap = true;
+    g_calls->end_gap_ = true;
     uint32_t id = 0;
-    if (params && params->ReadHashValue(kGapId(), &id, 0))
-        g_calls->gapId = id;
+    if (params && params->read_hash_value(get_gap_id(), &id, 0))
+        g_calls->gap_id_ = id;
     const char* text = nullptr;
-    if (params && params->FetchText(kText(), &text, 0) && text)
-        g_calls->gapText = text;
+    if (params && params->fetch_text(get_text(), &text, 0) && text)
+        g_calls->gap_text_ = text;
     int score = 0;
-    if (params && params->FetchIntValue(kScore(), &score, 0))
-        g_calls->gapScore = score;
+    if (params && params->fetch_int_value(get_score(), &score, 0))
+        g_calls->gap_score_ = score;
 }
 
-void __cdecl OnBoost(Scripts::CStruct* params, const uint8_t*)
+void __cdecl on_boost(script::Struct* params, const uint8_t*)
 {
     g_calls->boost = true;
     int speed = 0;
     float value = 0.0f;
-    if (params && params->FetchIntValue(Checksums("speed"), &speed, 0))
-        g_calls->boostSpeed = static_cast<float>(speed);
-    else if (params && params->FetchFloat(Checksums("speed"), &value, 0))
-        g_calls->boostSpeed = value;
-    if (params && params->FetchFloat(Checksums("multi"), &value, 0))
-        g_calls->boostMulti = value;
+    if (params && params->fetch_int_value(get_checksums("speed"), &speed, 0))
+        g_calls->boost_speed_ = static_cast<float>(speed);
+    else if (params && params->fetch_float(get_checksums("speed"), &value, 0))
+        g_calls->boost_speed_ = value;
+    if (params && params->fetch_float(get_checksums("multi"), &value, 0))
+        g_calls->boost_multi_ = value;
 }
-void __cdecl OnShatter(Scripts::CStruct*, const uint8_t*) { g_calls->shatter = true; }
-void __cdecl OnCamera(Scripts::CStruct* params, const uint8_t*)
+void __cdecl on_shatter(script::Struct*, const uint8_t*) { g_calls->shatter = true; }
+void __cdecl on_camera(script::Struct* params, const uint8_t*)
 {
     g_calls->camera = true;
     uint32_t node = 0;
-    if (params && params->ReadHashValue(Checksums("camera"), &node, 0))
-        g_calls->cameraNode = node;
+    if (params && params->read_hash_value(get_checksums("camera"), &node, 0))
+        g_calls->camera_node_ = node;
 }
-void __cdecl OnRailAccelerate(Scripts::CStruct* params, const uint8_t*)
+void __cdecl on_rail_accelerate(script::Struct* params, const uint8_t*)
 {
-    g_calls->railSpeed = true;
-    g_calls->railRate = 0.05f; // (THAW's default)
+    g_calls->rail_speed_ = true;
+    g_calls->rail_rate_ = 0.05f; // (THAW's default)
     float rate = 0.0f;
-    if (params && params->FetchFloat(Checksums("rate"), &rate, 0))
-        g_calls->railRate = rate;
+    if (params && params->fetch_float(get_checksums("rate"), &rate, 0))
+        g_calls->rail_rate_ = rate;
 }
 
-Calls Walk(uint32_t script);
+Calls get_walk(uint32_t script);
 
 // What a script calls, walked once a level (a trigger that runs a script: shown every frame).
-std::vector<std::pair<uint32_t, Calls>> g_callsCache;
-const Calls& CallsOf(uint32_t script)
+std::vector<std::pair<uint32_t, Calls>> g_calls_cache;
+const Calls& calls_of(uint32_t script)
 {
-    for (const auto& c : g_callsCache) {
+    for (const auto& c : g_calls_cache) {
         if (c.first == script)
             return c.second;
     }
-    g_callsCache.push_back({script, Walk(script)});
-    return g_callsCache.back().second;
+    g_calls_cache.push_back({script, get_walk(script)});
+    return g_calls_cache.back().second;
 }
 
-bool IsScript(uint32_t name)
+bool is_script(uint32_t name)
 {
-    Scripts::CSymbolTableEntry* symbol = name ? Scripts::ResolveSymbol(name) : nullptr;
-    return symbol && symbol->type == Scripts::QBVAL_SCRIPT_BODY;
+    script::SymbolTableEntry* symbol = name ? script::resolve_symbol(name) : nullptr;
+    return symbol && symbol->type == script::kQbvalScriptBody;
 }
 
-Calls Walk(uint32_t script)
+Calls get_walk(uint32_t script)
 {
     Calls calls;
-    if (!IsScript(script))
+    if (!is_script(script))
         return calls;
     g_calls = &calls;
-    static const uint32_t kills[] = {kKillSkater(), Checksums("SK3_KillSkater_Pungee"), Checksums("SK3_Killskater_Finish"),
-                                     Checksums("KillSkater")};
-    Scripts::ClearScriptFlag6F2564(); // (as ForEachNodeScriptCall walks them)
-    for (uint32_t target : kills)
-        LevelNodes::ForEachScriptCall(script, target, &OnKill, nullptr, 0);
-    LevelNodes::ForEachScriptCall(script, kKillSkaterWater(), &OnWater, nullptr, 0);
-    LevelNodes::ForEachScriptCall(script, kTeleport(), &OnTeleport, nullptr, 0);
-    LevelNodes::ForEachScriptCall(script, kStartGap(), &OnStartGap, nullptr, 0);
-    LevelNodes::ForEachScriptCall(script, kEndGap(), &OnEndGap, nullptr, 0);
+    static const uint32_t kKills[] = {kill_skater(), get_checksums("SK3_KillSkater_Pungee"), get_checksums("SK3_Killskater_Finish"),
+                                     get_checksums("KillSkater")};
+    script::clear_script_flag_6f_2564(); // (as for_each_node_script_call walks them)
+    for (uint32_t target : kKills)
+        level_nodes::for_each_script_call(script, target, &on_kill, nullptr, 0);
+    level_nodes::for_each_script_call(script, kill_skater_water(), &on_water, nullptr, 0);
+    level_nodes::for_each_script_call(script, get_teleport(), &on_teleport, nullptr, 0);
+    level_nodes::for_each_script_call(script, start_gap(), &on_start_gap, nullptr, 0);
+    level_nodes::for_each_script_call(script, end_gap(), &on_end_gap, nullptr, 0);
     // (the feature map: jump boosts, breakables, THAW's rail speed-ups - and the editor's own)
-    LevelNodes::ForEachScriptCall(script, Checksums("trigger_jump_boost"), &OnBoost, nullptr, 0);
-    LevelNodes::ForEachScriptCall(script, Checksums("Shatter"), &OnShatter, nullptr, 0);
-    LevelNodes::ForEachScriptCall(script, Checksums("ShatterAndDie"), &OnShatter, nullptr, 0);
-    LevelNodes::ForEachScriptCall(script, Checksums("RailAccelerate"), &OnRailAccelerate, nullptr, 0);
-    LevelNodes::ForEachScriptCall(script, Checksums("ed_RailSpeed"), &OnRailAccelerate, nullptr, 0);
-    LevelNodes::ForEachScriptCall(script, Checksums("LevelEditor_PlayCamera"), &OnCamera, nullptr, 0); // (map4)
-    Scripts::SetScriptFlag6F2564();
+    level_nodes::for_each_script_call(script, get_checksums("trigger_jump_boost"), &on_boost, nullptr, 0);
+    level_nodes::for_each_script_call(script, get_checksums("Shatter"), &on_shatter, nullptr, 0);
+    level_nodes::for_each_script_call(script, get_checksums("ShatterAndDie"), &on_shatter, nullptr, 0);
+    level_nodes::for_each_script_call(script, get_checksums("RailAccelerate"), &on_rail_accelerate, nullptr, 0);
+    level_nodes::for_each_script_call(script, get_checksums("ed_RailSpeed"), &on_rail_accelerate, nullptr, 0);
+    level_nodes::for_each_script_call(script, get_checksums("LevelEditor_PlayCamera"), &on_camera, nullptr, 0); // (map4)
+    script::set_script_flag_6f_2564();
     g_calls = nullptr;
     return calls;
 }
 
 // --- the level's triggers ---
 
-uint8_t* CollOf(uint8_t* sector)
+uint8_t* coll_of(uint8_t* sector)
 {
     uint8_t* coll = sector ? *reinterpret_cast<uint8_t**>(sector + 0x18) : nullptr;
-    return coll && *reinterpret_cast<void***>(coll) == kCollStaticVtable ? coll : nullptr;
+    return coll && *reinterpret_cast<void***>(coll) == g_coll_static_vtable ? coll : nullptr;
 }
-bool TurnedOffByUs(uint32_t sector)
+bool turned_off_by_us(uint32_t sector)
 {
-    return std::find(g_turnedOff.begin(), g_turnedOff.end(), sector) != g_turnedOff.end();
+    return std::find(g_turned_off.begin(), g_turned_off.end(), sector) != g_turned_off.end();
 }
 
-V3 ToV3(const Maths::Vec4& v) { return {v.x, v.y, v.z}; }
+V3 to_v3(const maths::Vec4& v) { return {v.x, v.y, v.z}; }
 
 // A sector's trigger faces read into `t` (false: none) - its faces' box, the first ones' corners, whether every face is
 // a trigger's; where its collision is now (a wall moved: read again - RefreshMoved).
-bool ReadFaces(uint8_t* sector, LevelTrigger* t)
+bool read_faces(uint8_t* sector, LevelTrigger* t)
 {
-    uint8_t* coll = CollOf(sector);
-    auto* tri = coll ? *reinterpret_cast<Engine3D::CTriMeshSource**>(coll + 0x0C) : nullptr;
-    if (!tri || !tri->m_faces || !tri->m_vertices || tri->m_triCount == 0)
+    uint8_t* coll = coll_of(sector);
+    auto* tri = coll ? *reinterpret_cast<render::TriMeshSource**>(coll + 0x0C) : nullptr;
+    if (!tri || !tri->faces_ || !tri->vertices_ || tri->tri_count_ == 0)
         return false;
     t->faces.clear();
-    t->faceCount = 0;
-    t->allTrigger = true;
+    t->face_count_ = 0;
+    t->all_trigger_ = true;
     t->wall = *reinterpret_cast<uint8_t**>(sector + 0x14) == nullptr; // (no geometry: collision only)
-    t->boundsLow = {tri->m_lowerLimit.x, tri->m_lowerLimit.y, tri->m_lowerLimit.z};
-    t->boundsHigh = {tri->m_upperLimit.x, tri->m_upperLimit.y, tri->m_upperLimit.z};
+    t->bounds_low_ = {tri->lower_limit_.x, tri->lower_limit_.y, tri->lower_limit_.z};
+    t->bounds_high_ = {tri->upper_limit_.x, tri->upper_limit_.y, tri->upper_limit_.z};
     bool any = false;
-    for (int f = 0; f < tri->m_triCount; ++f) {
-        uint16_t flags = *reinterpret_cast<const uint16_t*>(tri->m_faces + f * (tri->m_smallFaces ? 8 : 10));
+    for (int f = 0; f < tri->tri_count_; ++f) {
+        uint16_t flags = *reinterpret_cast<const uint16_t*>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10));
         if (!(flags & 0x40)) {
-            t->allTrigger = false;
+            t->all_trigger_ = false;
             continue;
         }
         V3 p[3];
         bool ok = true;
         for (int k = 0; k < 3 && ok; ++k) {
-            uint32_t index = tri->FaceVertex(f, k);
-            ok = index < tri->m_numVertices;
+            uint32_t index = tri->face_vertex(f, k);
+            ok = index < tri->num_vertices_;
             if (ok)
-                p[k] = ToV3(tri->ReadStoredVertex(static_cast<int>(index)));
+                p[k] = to_v3(tri->read_stored_vertex(static_cast<int>(index)));
         }
         if (!ok)
             continue;
         for (const V3& q : p) {
-            GrowBox(&t->min, &t->max, any, q, q);
+            grow_box(&t->min, &t->max, any, q, q);
             any = true;
         }
-        if (t->faceCount < kMaxFacesKept)
+        if (t->face_count_ < kMaxFacesKept)
             t->faces.insert(t->faces.end(), p, p + 3);
-        ++t->faceCount;
+        ++t->face_count_;
     }
     return any;
 }
 
-void ScanSector(void*, uint32_t checksum, uint8_t* sector)
+void scan_sector(void*, uint32_t checksum, uint8_t* sector)
 {
     LevelTrigger t;
-    if (!ReadFaces(sector, &t))
+    if (!read_faces(sector, &t))
         return;
     t.sector = checksum;
-    if (Scripts::CStruct* node = LevelNodes::FetchVertex(checksum, false)) {
-        t.hasNode = true;
-        node->ReadHashValue(kTriggerScript, &t.script, 0);
+    if (script::Struct* node = level_nodes::fetch_vertex(checksum, false)) {
+        t.has_node_ = true;
+        node->read_hash_value(kTriggerScript, &t.script, 0);
     }
     g_level.push_back(std::move(t));
 }
 
-void ScanLevel()
+void scan_level()
 {
     g_level.clear();
     g_scanned = true;
-    if (!LevelNodes::NodeManagerInstance() || !Scenery::MainScene())
+    if (!level_nodes::node_manager_instance() || !scenery::main_scene())
         return;
-    Scenery::ForEachLevelSector(&ScanSector, nullptr);
+    scenery::for_each_level_sector(&scan_sector, nullptr);
     for (LevelTrigger& t : g_level) {
-        t.calls = Walk(t.script);
-        t.kind = KindOfCalls(t.calls, t.script != 0);
+        t.calls = get_walk(t.script);
+        t.kind = kind_of_calls(t.calls, t.script != 0);
     }
-    Log("level editor: %u trigger volumes in the level", static_cast<unsigned>(g_level.size()));
+    get_log("level editor: %u trigger volumes in the level", static_cast<unsigned>(g_level.size()));
 }
 
 // The level's own gaps' names (every EndGap its nodes' TriggerScripts reach - not the editor's): the gaps the editor
 // never takes out of the checklist.
 std::vector<std::string>* g_names;
-void __cdecl OnLevelGap(Scripts::CStruct* params, const uint8_t*)
+void __cdecl on_level_gap(script::Struct* params, const uint8_t*)
 {
     const char* text = nullptr;
-    if (params && params->FetchText(kText(), &text, 0) && text)
+    if (params && params->fetch_text(get_text(), &text, 0) && text)
         g_names->push_back(text);
 }
-void ReadLevelGaps()
+void read_level_gaps()
 {
-    g_levelGapNames.clear();
-    g_levelGapsRead = true;
+    g_level_gap_names.clear();
+    g_level_gaps_read = true;
     std::vector<uint32_t> scripts;
-    for (const Nodes::Elem& node : Nodes::All()) {
-        if (node.added || !node.triggerScript)
+    for (const nodes::Elem& node : nodes::get_all()) {
+        if (node.added || !node.trigger_script_)
             continue;
-        Scripts::CStruct* s = Nodes::StructOf(node);
+        script::Struct* s = nodes::struct_of(node);
         uint32_t script = 0;
-        if (s && s->ReadHashValue(kTriggerScript, &script, 0) && script &&
+        if (s && s->read_hash_value(kTriggerScript, &script, 0) && script &&
             std::find(scripts.begin(), scripts.end(), script) == scripts.end())
             scripts.push_back(script);
     }
-    g_names = &g_levelGapNames;
-    Scripts::ClearScriptFlag6F2564();
+    g_names = &g_level_gap_names;
+    script::clear_script_flag_6f_2564();
     for (uint32_t script : scripts) {
-        if (IsScript(script))
-            LevelNodes::ForEachScriptCall(script, kEndGap(), &OnLevelGap, nullptr, 0);
+        if (is_script(script))
+            level_nodes::for_each_script_call(script, end_gap(), &on_level_gap, nullptr, 0);
     }
-    Scripts::SetScriptFlag6F2564();
+    script::set_script_flag_6f_2564();
     g_names = nullptr;
 }
 
 // --- the boxes ---
 
-Engine3D::CHitMovingBox* MakeBox(uint32_t name)
+render::HitMovingBox* make_box(uint32_t name)
 {
-    void* memory = ::operator new(sizeof(Engine3D::CHitMovingBox), std::nothrow);
+    void* memory = ::operator new(sizeof(render::HitMovingBox), std::nothrow);
     if (!memory)
         return nullptr;
-    Engine3D::CHitMovingBox* box = static_cast<Engine3D::CHitMovingBox*>(memory)->MakeNew();
-    box->m_checksum = name;
-    box->m_polyAttrBits = kVolumeFlags;
-    box->m_surfaceType = 0;
-    Engine3D::RegisterMovable(box);
+    render::HitMovingBox* box = static_cast<render::HitMovingBox*>(memory)->make_new();
+    box->checksum_ = name;
+    box->poly_attr_bits_ = kVolumeFlags;
+    box->surface_type_ = 0;
+    render::register_movable(box);
     return box;
 }
 
-void FreeBox(Engine3D::CHitMovingBox* box)
+void free_box(render::HitMovingBox* box)
 {
-    Engine3D::UnregisterMovable(box);
-    box->Destruct(); // (out of the collision caches too)
+    render::unregister_movable(box);
+    box->destruct(); // (out of the collision caches too)
     ::operator delete(box);
 }
 
-void PlaceBox(Cuboid* b, V3 pos, float yaw, V3 size)
+void place_box(Cuboid* b, V3 pos, float yaw, V3 size)
 {
-    OrientedBox placed = BoxOf(pos, yaw, size);
-    b->coll->m_box.min = {placed.min.x, placed.min.y, placed.min.z, 1.0f};
-    b->coll->m_box.max = {placed.max.x, placed.max.y, placed.max.z, 1.0f};
-    b->coll->m_anchorPoint = {pos.x, pos.y, pos.z, 1.0f};
-    Maths::Mat4 m;
+    OrientedBox placed = box_of(pos, yaw, size);
+    b->coll->box_.min = {placed.min.x, placed.min.y, placed.min.z, 1.0f};
+    b->coll->box_.max = {placed.max.x, placed.max.y, placed.max.z, 1.0f};
+    b->coll->anchor_point_ = {pos.x, pos.y, pos.z, 1.0f};
+    maths::Mat4 m;
     for (int r = 0; r < 3; ++r)
         m.row[r] = {placed.axes[r].x, placed.axes[r].y, placed.axes[r].z, 0.0f};
     m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    b->coll->ChangeFacing(&m);
+    b->coll->change_facing(&m);
     b->pos = pos;
     b->yaw = yaw;
     b->size = size;
 }
 
-void DropBoxes()
+void drop_boxes()
 {
     for (Cuboid& b : g_boxes)
-        FreeBox(b.coll);
+        free_box(b.coll);
     g_boxes.clear();
 }
 
 // --- the gap checklist ---
 
-GoalSystem::CGapTally* Checklist()
+goals::GapTally* get_checklist()
 {
-    void* skate = reinterpret_cast<void*>(GameModules::g_skateModule);
-    return skate ? static_cast<GoalSystem::CGapTally*>(reinterpret_cast<GameModules::Skate*>(skate)->FetchGapList()) : nullptr;
+    void* skate = reinterpret_cast<void*>(modules::g_skate_module);
+    return skate ? static_cast<goals::GapTally*>(reinterpret_cast<modules::Skate*>(skate)->fetch_gap_list()) : nullptr;
 }
 
-bool LevelGap(const std::string& name)
+bool level_gap(const std::string& name)
 {
-    return std::find(g_levelGapNames.begin(), g_levelGapNames.end(), name) != g_levelGapNames.end();
+    return std::find(g_level_gap_names.begin(), g_level_gap_names.end(), name) != g_level_gap_names.end();
 }
 
 // The editor's gaps that are no longer wanted out of `checklist` (a level's own gap of that name stays).
-void TakeOutGaps(GoalSystem::CGapTally* checklist, const std::vector<std::pair<std::string, int>>& wanted)
+void take_out_gaps(goals::GapTally* checklist, const std::vector<std::pair<std::string, int>>& wanted)
 {
     if (!checklist)
         return;
-    for (const auto& gap : g_gapsAdded) {
-        if (std::find(wanted.begin(), wanted.end(), gap) != wanted.end() || LevelGap(gap.first))
+    for (const auto& gap : g_gaps_added) {
+        if (std::find(wanted.begin(), wanted.end(), gap) != wanted.end() || level_gap(gap.first))
             continue;
-        int index = checklist->FindGap(gap.first.c_str());
-        GoalSystem::CGapEntry* check = index >= 0 ? checklist->GetGap(index) : nullptr;
-        if (check && check->m_pointsHeld == gap.second) {
-            check->Teardown(1);
-            Log("level editor: gap \"%s\" taken out of the gap list", gap.first.c_str());
+        int index = checklist->find_gap(gap.first.c_str());
+        goals::GapEntry* check = index >= 0 ? checklist->get_gap(index) : nullptr;
+        if (check && check->points_held_ == gap.second) {
+            check->teardown(1);
+            get_log("level editor: gap \"%s\" taken out of the gap list", gap.first.c_str());
         }
     }
 }
 
 // --- syncing what the specs say with the game ---
 
-const char* GameProblem(const Spec& spec)
+const char* game_problem(const Spec& spec)
 {
-    if (const char* problem = Problem(spec))
+    if (const char* problem = get_problem(spec))
         return problem;
-    if ((spec.kind == Kind::Kill || spec.kind == Kind::JumpTo) &&
-        !LevelNodes::FetchVertex(ChecksumOf(spec.target), false))
+    if ((spec.kind == Kind::kKill || spec.kind == Kind::kJumpTo) &&
+        !level_nodes::fetch_vertex(checksum_of(spec.target), false))
         return "That node isn't in this level";
-    if (spec.kind == Kind::Scripts && !IsScript(ChecksumOf(spec.script)))
+    if (spec.kind == Kind::kScripts && !is_script(checksum_of(spec.script)))
         return "Script not found";
     return nullptr;
 }
 
 // The level's triggers as they are now: switched off or on (Walls::Disengaged - the editor's switch, or a level script's Kill),
 // and moved (an invisible wall moved by level_editor_walls.h: its faces read again when its collision's box changed).
-void RefreshLevel()
+void refresh_level()
 {
     for (LevelTrigger& t : g_level) {
-        uint8_t* sector = Scenery::SectorOf(t.sector);
-        uint8_t* coll = sector ? CollOf(sector) : nullptr;
-        auto* tri = coll ? *reinterpret_cast<Engine3D::CTriMeshSource**>(coll + 0x0C) : nullptr;
+        uint8_t* sector = scenery::sector_of(t.sector);
+        uint8_t* coll = sector ? coll_of(sector) : nullptr;
+        auto* tri = coll ? *reinterpret_cast<render::TriMeshSource**>(coll + 0x0C) : nullptr;
         if (!tri)
             continue;
-        t.off = Walls::Disengaged(t.sector) || (*reinterpret_cast<uint16_t*>(coll + 0x08) & 4) != 0;
-        if (tri->m_lowerLimit.x != t.boundsLow.x || tri->m_lowerLimit.y != t.boundsLow.y || tri->m_lowerLimit.z != t.boundsLow.z ||
-            tri->m_upperLimit.x != t.boundsHigh.x || tri->m_upperLimit.y != t.boundsHigh.y || tri->m_upperLimit.z != t.boundsHigh.z) {
+        t.off = walls::disengaged(t.sector) || (*reinterpret_cast<uint16_t*>(coll + 0x08) & 4) != 0;
+        if (tri->lower_limit_.x != t.bounds_low_.x || tri->lower_limit_.y != t.bounds_low_.y || tri->lower_limit_.z != t.bounds_low_.z ||
+            tri->upper_limit_.x != t.bounds_high_.x || tri->upper_limit_.y != t.bounds_high_.y || tri->upper_limit_.z != t.bounds_high_.z) {
             LevelTrigger now = t;
-            if (ReadFaces(sector, &now)) {
+            if (read_faces(sector, &now)) {
                 t.faces = now.faces;
                 t.min = now.min;
                 t.max = now.max;
             }
-            t.boundsLow = now.boundsLow;
-            t.boundsHigh = now.boundsHigh;
+            t.bounds_low_ = now.bounds_low_;
+            t.bounds_high_ = now.bounds_high_;
         }
     }
 }
 
-int SpecIndex(const std::string& name)
+int spec_index(const std::string& name)
 {
     for (size_t i = 0; i < g_specs.size(); ++i) {
-        if (SameText(g_specs[i].name, name))
+        if (same_text(g_specs[i].name, name))
             return static_cast<int>(i);
     }
     return -1;
@@ -1310,26 +1310,26 @@ int SpecIndex(const std::string& name)
 
 // --- the feature map: breakables, proximity nodes ---
 
-// A scenery piece's sector, and whether it's there (CWorldCell::IsOperative 0x0049E9E0: its geometry's active flag - a Kill,
+// A scenery piece's sector, and whether it's there (WorldCell::is_operative 0x0049E9E0: its geometry's active flag - a Kill,
 // the editor's hiding - else its collision's).
-bool IsSectorEnabled(uint32_t checksum)
+bool is_sector_enabled(uint32_t checksum)
 {
-    uint8_t* sector = Scenery::SectorOf(checksum);
-    return sector && reinterpret_cast<Engine3D::CWorldCell*>(sector)->IsOperative();
+    uint8_t* sector = scenery::sector_of(checksum);
+    return sector && reinterpret_cast<render::WorldCell*>(sector)->is_operative();
 }
 
 // A breakable's box: the piece's box where it is now (axis-aligned), grown 6 each way so the skater meets it before
 // the piece (false: the piece isn't there).
-bool BreakPlace(const Spec& spec, V3* pos, V3* size)
+bool break_place(const Spec& spec, V3* pos, V3* size)
 {
-    uint32_t piece = ChecksumOf(spec.target);
+    uint32_t piece = checksum_of(spec.target);
     OrientedBox box;
-    if (!piece || !Scenery::Cuboid(piece, &box))
+    if (!piece || !scenery::cuboid(piece, &box))
         return false;
     V3 min, max;
-    BoundsOf(box, &min, &max);
+    bounds_of(box, &min, &max);
     *pos = (min + max) * 0.5f;
-    *size = ClampSize((max - min) + V3{12.0f, 12.0f, 12.0f});
+    *size = clamp_size((max - min) + V3{12.0f, 12.0f, 12.0f});
     return true;
 }
 
@@ -1341,12 +1341,12 @@ struct ProximOriginal {
     float radius;
     V3 min, max;
 };
-std::map<uint32_t, ProximOriginal> g_proximOriginals;
-std::vector<uint8_t> g_proximDefined;
+std::map<uint32_t, ProximOriginal> g_proxim_originals;
+std::vector<uint8_t> g_proxim_defined;
 
-bool HaveProximManager() { return GameObjects::g_proximityHub != nullptr; }
+bool have_proxim_manager() { return objects::g_proximity_hub != nullptr; }
 
-int ProximIndex(uint32_t node)
+int proxim_index(uint32_t node)
 {
     for (size_t i = 0; i < g_proxims.size(); ++i) {
         if (g_proxims[i].node == node)
@@ -1355,103 +1355,103 @@ int ProximIndex(uint32_t node)
     return -1;
 }
 
-void PutProximBack(GameObjects::ProximNode* p, const ProximOriginal& o)
+void put_proxim_back(objects::ProximNode* p, const ProximOriginal& o)
 {
-    p->m_ownScript = o.script;
-    p->m_form = o.shape;
-    p->m_radius = o.radius;
-    p->m_reachSq = o.radius * o.radius;
-    p->m_box.min = {o.min.x, o.min.y, o.min.z, 1.0f};
-    p->m_box.max = {o.max.x, o.max.y, o.max.z, 1.0f};
+    p->own_script_ = o.script;
+    p->form_ = o.shape;
+    p->radius_ = o.radius;
+    p->reach_sq_ = o.radius * o.radius;
+    p->box_.min = {o.min.x, o.min.y, o.min.z, 1.0f};
+    p->box_.max = {o.max.x, o.max.y, o.max.z, 1.0f};
 }
 
 // Every frame (Guard): each edited node's ProximNode as its edit says - its script (defined here), its shape - and those
 // no longer edited (or in a network session) put back.
-void SyncProxims()
+void sync_proxims()
 {
-    if (!HaveProximManager() || (g_proxims.empty() && g_proximOriginals.empty()))
+    if (!have_proxim_manager() || (g_proxims.empty() && g_proxim_originals.empty()))
         return;
-    bool refused = Layout::Refused();
+    bool refused = layout::get_refused();
     std::vector<ProximScript> scripts;
-    std::vector<std::pair<const ProximEdit*, GameObjects::ProximNode*>> live;
+    std::vector<std::pair<const ProximEdit*, objects::ProximNode*>> live;
     for (const ProximEdit& e : g_proxims) {
-        GameObjects::ProximNode* p = refused || !ProximEdited(e) ? nullptr : GameObjects::Proxim_GetNode(e.node);
+        objects::ProximNode* p = refused || !proxim_edited(e) ? nullptr : objects::proxim_get_node(e.node);
         if (!p)
             continue;
-        auto o = g_proximOriginals.find(e.node);
-        if (o == g_proximOriginals.end()) {
-            ProximOriginal original = {p->m_ownScript, p->m_form, p->m_radius,
-                                       {p->m_box.min.x, p->m_box.min.y, p->m_box.min.z},
-                                       {p->m_box.max.x, p->m_box.max.y, p->m_box.max.z}};
-            o = g_proximOriginals.emplace(e.node, original).first;
+        auto o = g_proxim_originals.find(e.node);
+        if (o == g_proxim_originals.end()) {
+            ProximOriginal original = {p->own_script_, p->form_, p->radius_,
+                                       {p->box_.min.x, p->box_.min.y, p->box_.min.z},
+                                       {p->box_.max.x, p->box_.max.y, p->box_.max.z}};
+            o = g_proxim_originals.emplace(e.node, original).first;
         }
         if (!e.enter.empty() || !e.exit.empty())
-            scripts.push_back({e.node, ChecksumOf(e.enter), ChecksumOf(e.exit), o->second.script});
+            scripts.push_back({e.node, checksum_of(e.enter), checksum_of(e.exit), o->second.script});
         live.push_back({&e, p});
     }
     // (put back: those not edited now)
-    for (auto it = g_proximOriginals.begin(); it != g_proximOriginals.end();) {
+    for (auto it = g_proxim_originals.begin(); it != g_proxim_originals.end();) {
         bool kept = std::any_of(live.begin(), live.end(), [&](const auto& l) { return l.first->node == it->first; });
         if (!kept) {
-            if (GameObjects::ProximNode* p = GameObjects::Proxim_GetNode(it->first))
-                PutProximBack(p, it->second);
-            it = g_proximOriginals.erase(it);
+            if (objects::ProximNode* p = objects::proxim_get_node(it->first))
+                put_proxim_back(p, it->second);
+            it = g_proxim_originals.erase(it);
         } else {
             ++it;
         }
     }
-    std::vector<uint8_t> file = ProximQbFile(scripts);
-    if (!scripts.empty() && file != g_proximDefined) {
-        Scripts::LoadQBData("editor\\thug2_decomp_proxim.qb", file.data(), 0, 0, 0);
-        g_proximDefined = file;
+    std::vector<uint8_t> file = proxim_qb_file(scripts);
+    if (!scripts.empty() && file != g_proxim_defined) {
+        script::load_qb_data("editor\\thug2_decomp_proxim.qb", file.data(), 0, 0, 0);
+        g_proxim_defined = file;
     }
     for (const auto& l : live) {
         const ProximEdit& e = *l.first;
-        GameObjects::ProximNode* p = l.second;
-        const ProximOriginal& o = g_proximOriginals[e.node];
-        uint32_t script = !e.enter.empty() || !e.exit.empty() ? Checksums(ProximScriptName(e.node).c_str()) : o.script;
-        if (p->m_ownScript != script)
-            p->m_ownScript = script;
+        objects::ProximNode* p = l.second;
+        const ProximOriginal& o = g_proxim_originals[e.node];
+        uint32_t script = !e.enter.empty() || !e.exit.empty() ? get_checksums(proxim_script_name(e.node).c_str()) : o.script;
+        if (p->own_script_ != script)
+            p->own_script_ = script;
         if (!e.shape) {
-            p->m_form = o.shape;
-            p->m_radius = o.radius;
-            p->m_reachSq = o.radius * o.radius;
-            p->m_box.min = {o.min.x, o.min.y, o.min.z, 1.0f};
-            p->m_box.max = {o.max.x, o.max.y, o.max.z, 1.0f};
+            p->form_ = o.shape;
+            p->radius_ = o.radius;
+            p->reach_sq_ = o.radius * o.radius;
+            p->box_.min = {o.min.x, o.min.y, o.min.z, 1.0f};
+            p->box_.max = {o.max.x, o.max.y, o.max.z, 1.0f};
         } else if (e.box) {
-            // (PROXIM_SHAPE_BOX: the world's axes; its middle kept at the node's place plus the offset)
-            V3 centre = V3{p->m_atPoint.x, p->m_atPoint.y, p->m_atPoint.z} + e.offset, half = e.size * 0.5f;
-            p->m_form = GameObjects::PROXIM_SHAPE_BOX;
-            p->m_box.min = {centre.x - half.x, centre.y - half.y, centre.z - half.z, 1.0f};
-            p->m_box.max = {centre.x + half.x, centre.y + half.y, centre.z + half.z, 1.0f};
+            // (kProximShapeBox: the world's axes; its middle kept at the node's place plus the offset)
+            V3 centre = V3{p->at_point_.x, p->at_point_.y, p->at_point_.z} + e.offset, half = e.size * 0.5f;
+            p->form_ = objects::kProximShapeBox;
+            p->box_.min = {centre.x - half.x, centre.y - half.y, centre.z - half.z, 1.0f};
+            p->box_.max = {centre.x + half.x, centre.y + half.y, centre.z + half.z, 1.0f};
         } else {
-            p->m_form = GameObjects::PROXIM_SHAPE_SPHERE;
-            p->m_radius = e.radius;
-            p->m_reachSq = e.radius * e.radius;
+            p->form_ = objects::kProximShapeSphere;
+            p->radius_ = e.radius;
+            p->reach_sq_ = e.radius * e.radius;
         }
     }
 }
 
-void Sync()
+void get_sync()
 {
     // What each spec is now.
     g_added.clear();
     for (const Spec& spec : g_specs) {
         Added a;
         a.spec = spec;
-        a.alive = NodeAlive(spec.name) && NodePlace(spec.name, &a.pos, &a.yaw);
-        a.problem = GameProblem(spec);
-        if (spec.kind == Kind::Scripts && !a.problem)
-            a.calls = CallsOf(ChecksumOf(spec.script));
-        if (spec.kind == Kind::Break && a.alive) {
+        a.alive = node_alive(spec.name) && node_place(spec.name, &a.pos, &a.yaw);
+        a.problem = game_problem(spec);
+        if (spec.kind == Kind::kScripts && !a.problem)
+            a.calls = calls_of(checksum_of(spec.script));
+        if (spec.kind == Kind::kBreak && a.alive) {
             // (its box is its piece's, wherever the piece is now; none while the piece is gone)
             V3 pos, size;
-            if (BreakPlace(spec, &pos, &size)) {
+            if (break_place(spec, &pos, &size)) {
                 a.pos = pos;
                 a.yaw = 0.0f;
                 a.spec.size = size;
             }
-            a.broken = !IsSectorEnabled(ChecksumOf(spec.target));
+            a.broken = !is_sector_enabled(checksum_of(spec.target));
         }
         g_added.push_back(a);
     }
@@ -1461,27 +1461,27 @@ void Sync()
     for (const Added& a : g_added) {
         Spec s = a.spec;
         if (a.problem)
-            s.kind = Kind::Other; // (an empty script: it does nothing yet)
+            s.kind = Kind::kOther; // (an empty script: it does nothing yet)
         scripted.push_back(s);
     }
-    std::vector<uint8_t> file = scripted.empty() ? std::vector<uint8_t>() : QbFile(scripted);
+    std::vector<uint8_t> file = scripted.empty() ? std::vector<uint8_t>() : qb_file(scripted);
     bool redefined = false;
     if (file != g_defined && !file.empty()) {
-        Scripts::LoadQBData(kFileName, file.data(), 0, 0, 0);
+        script::load_qb_data(kFileName, file.data(), 0, 0, 0);
         g_defined = file;
         redefined = true;
     }
     // The boxes: one for each alive trigger, where its node is (none in a network session or a career-type mode -
     // Guard).
-    bool network = Layout::Refused();
+    bool network = layout::get_refused();
     for (size_t i = 0; i < g_boxes.size();) {
         int at = -1;
         for (size_t k = 0; k < g_added.size(); ++k) {
-            if (g_added[k].alive && !g_added[k].broken && HashOfName(g_added[k].spec.name) == g_boxes[i].name)
+            if (g_added[k].alive && !g_added[k].broken && hash_of_name(g_added[k].spec.name) == g_boxes[i].name)
                 at = static_cast<int>(k);
         }
         if (at < 0 || network) {
-            FreeBox(g_boxes[i].coll);
+            free_box(g_boxes[i].coll);
             g_boxes.erase(g_boxes.begin() + static_cast<std::ptrdiff_t>(i));
         } else {
             ++i;
@@ -1490,130 +1490,130 @@ void Sync()
     for (const Added& a : g_added) {
         if (!a.alive || a.broken || network)
             continue;
-        uint32_t name = HashOfName(a.spec.name);
+        uint32_t name = hash_of_name(a.spec.name);
         auto it = std::find_if(g_boxes.begin(), g_boxes.end(), [&](const Cuboid& b) { return b.name == name; });
         if (it == g_boxes.end()) {
-            Cuboid b = {name, MakeBox(name), {}, {}, 0.0f};
+            Cuboid b = {name, make_box(name), {}, {}, 0.0f};
             if (!b.coll)
                 continue;
-            PlaceBox(&b, a.pos, a.yaw, a.spec.size);
+            place_box(&b, a.pos, a.yaw, a.spec.size);
             g_boxes.push_back(b);
-            Log("level editor: trigger %s (%s) in place", a.spec.name.c_str(), KindName(a.spec.kind));
+            get_log("level editor: trigger %s (%s) in place", a.spec.name.c_str(), kind_name(a.spec.kind));
         } else if (it->pos.x != a.pos.x || it->pos.y != a.pos.y || it->pos.z != a.pos.z || it->yaw != a.yaw ||
                    it->size.x != a.spec.size.x || it->size.y != a.spec.size.y || it->size.z != a.spec.size.z) {
-            PlaceBox(&*it, a.pos, a.yaw, a.spec.size);
+            place_box(&*it, a.pos, a.yaw, a.spec.size);
         }
     }
     // The level's triggers an alive editable copy stands in for: switched off (through level_editor_walls.h - the
-    // collision switch's one owner: CWorldCell::ChangeLive for a wall), on again once no copy stands in for them.
+    // collision switch's one owner: WorldCell::change_live for a wall), on again once no copy stands in for them.
     std::vector<uint32_t> replaced;
     for (const Added& a : g_added) {
-        if (a.alive && a.spec.replaces && Scenery::SectorOf(a.spec.replaces))
+        if (a.alive && a.spec.replaces && scenery::sector_of(a.spec.replaces))
             replaced.push_back(a.spec.replaces);
     }
-    for (size_t i = 0; i < g_turnedOff.size();) {
-        if (std::find(replaced.begin(), replaced.end(), g_turnedOff[i]) == replaced.end()) {
-            Walls::SetOff(g_turnedOff[i], false);
-            g_turnedOff.erase(g_turnedOff.begin() + static_cast<std::ptrdiff_t>(i));
+    for (size_t i = 0; i < g_turned_off.size();) {
+        if (std::find(replaced.begin(), replaced.end(), g_turned_off[i]) == replaced.end()) {
+            walls::set_off(g_turned_off[i], false);
+            g_turned_off.erase(g_turned_off.begin() + static_cast<std::ptrdiff_t>(i));
         } else {
             ++i;
         }
     }
     for (uint32_t sector : replaced) {
-        if (TurnedOffByUs(sector))
+        if (turned_off_by_us(sector))
             continue;
-        if (!Walls::Disengaged(sector))
-            Walls::SetOff(sector, true);
-        g_turnedOff.push_back(sector);
+        if (!walls::disengaged(sector))
+            walls::set_off(sector, true);
+        g_turned_off.push_back(sector);
     }
-    RefreshLevel();
+    refresh_level();
     // The gap list: built again as the level's load builds it; the editor's gaps no longer there taken out.
     std::vector<std::pair<std::string, int>> wanted;
     for (const Added& a : g_added) {
-        if (a.alive && !a.problem && a.spec.kind == Kind::GapEnd)
-            wanted.push_back({CleanText(a.spec.text), a.spec.score});
+        if (a.alive && !a.problem && a.spec.kind == Kind::kGapEnd)
+            wanted.push_back({clean_text(a.spec.text), a.spec.score});
     }
     std::sort(wanted.begin(), wanted.end());
-    if (redefined || wanted != g_gapsAdded) {
-        GoalSystem::CGapTally* checklist = Checklist();
-        if (checklist && !Scripts::FetchIntValue(0xF7ECD937u)) {
-            if (!g_levelGapsRead)
-                ReadLevelGaps();
-            checklist->Build();
-            TakeOutGaps(checklist, wanted);
+    if (redefined || wanted != g_gaps_added) {
+        goals::GapTally* checklist = get_checklist();
+        if (checklist && !script::fetch_int_value(0xF7ECD937u)) {
+            if (!g_level_gaps_read)
+                read_level_gaps();
+            checklist->get_build();
+            take_out_gaps(checklist, wanted);
             g_checklist = checklist;
-            if (wanted != g_gapsAdded)
-                Log("level editor: gap list built again - %u of the editor's gaps", static_cast<unsigned>(wanted.size()));
-            g_gapsAdded = wanted;
+            if (wanted != g_gaps_added)
+                get_log("level editor: gap list built again - %u of the editor's gaps", static_cast<unsigned>(wanted.size()));
+            g_gaps_added = wanted;
         }
     }
-    SyncProxims();
+    sync_proxims();
 }
 
 } // namespace
 
-bool EditorGaps(const GoalSystem::CGapTally* checklist, std::vector<std::string>* names,
-                std::vector<std::string>* levelNames)
+bool get_editor_gaps(const goals::GapTally* checklist, std::vector<std::string>* names,
+                std::vector<std::string>* level_names)
 {
     names->clear();
-    levelNames->clear();
-    if (!checklist || checklist != g_checklist || g_gapsAdded.empty())
+    level_names->clear();
+    if (!checklist || checklist != g_checklist || g_gaps_added.empty())
         return false;
-    for (const auto& gap : g_gapsAdded)
+    for (const auto& gap : g_gaps_added)
         names->push_back(gap.first);
-    *levelNames = g_levelGapNames;
+    *level_names = g_level_gap_names;
     return true;
 }
 
 namespace {
 
-// The level's array going (NodeCreate's listener): everything of this level forgotten - its boxes unregistered, the
+// The level's array going (node_create's listener): everything of this level forgotten - its boxes unregistered, the
 // editor's gaps out of its checklist (kept by the career for the level).
-void Forget()
+void get_forget()
 {
-    DropBoxes();
-    TakeOutGaps(g_checklist, {});
-    g_gapsAdded.clear();
+    drop_boxes();
+    take_out_gaps(g_checklist, {});
+    g_gaps_added.clear();
     g_checklist = nullptr;
     g_specs.clear();
     g_added.clear();
     g_switched.clear();
-    g_turnedOff.clear(); // (their collision goes with the level)
-    g_selectWall = 0;
+    g_turned_off.clear(); // (their collision goes with the level)
+    g_select_wall = 0;
     g_level.clear();
     g_scanned = false;
-    g_levelGapNames.clear();
-    g_levelGapsRead = false;
-    g_callsCache.clear();
+    g_level_gap_names.clear();
+    g_level_gaps_read = false;
+    g_calls_cache.clear();
     g_inspected = 0;
-    g_hasUndo = false;
+    g_has_undo = false;
     g_select = -1;
     g_actions.clear();
-    g_levelArray = 0;
-    // (proximity nodes: put back while the level's are still there - none once NearbyZone_Shutdown has run)
-    if (HaveProximManager()) {
-        for (const auto& o : g_proximOriginals) {
-            if (GameObjects::ProximNode* p = GameObjects::Proxim_GetNode(o.first))
-                PutProximBack(p, o.second);
+    g_level_array = 0;
+    // (proximity nodes: put back while the level's are still there - none once nearby_zone_shutdown has run)
+    if (have_proxim_manager()) {
+        for (const auto& o : g_proxim_originals) {
+            if (objects::ProximNode* p = objects::proxim_get_node(o.first))
+                put_proxim_back(p, o.second);
         }
     }
     g_proxims.clear();
-    g_proximOriginals.clear();
+    g_proxim_originals.clear();
 }
 
-void OnArrayRemoved(uint32_t name)
+void on_array_removed(uint32_t name)
 {
-    if (!name || name != g_levelArray)
+    if (!name || name != g_level_array)
         return;
     if (!g_specs.empty())
-        Log("level editor: the level's node array left - its %u triggers go with it", static_cast<unsigned>(g_specs.size()));
-    Forget();
+        get_log("level editor: the level's node array left - its %u triggers go with it", static_cast<unsigned>(g_specs.size()));
+    get_forget();
 }
 
-bool ArrayLoaded(LevelNodes::CNodeManager* manager, uint32_t name)
+bool array_loaded(level_nodes::NodeManager* manager, uint32_t name)
 {
-    for (uint32_t i = 0; i < manager->m_num && i < static_cast<uint32_t>(LevelNodes::CNodeManager::kMaxArrays); ++i) {
-        if (manager->m_arrays[i].m_label == name)
+    for (uint32_t i = 0; i < manager->num_ && i < static_cast<uint32_t>(level_nodes::NodeManager::kMaxArrays); ++i) {
+        if (manager->arrays_[i].label_ == name)
             return true;
     }
     return false;
@@ -1621,265 +1621,265 @@ bool ArrayLoaded(LevelNodes::CNodeManager* manager, uint32_t name)
 
 // The level's node array noted (the triggers belong to it): another array added after it (a cutscene's) doesn't
 // change it; the level's gone and another there forgets them.
-void NoteLevel()
+void note_level()
 {
-    NodeCreate::SetArrayRemovedListener(&OnArrayRemoved);
-    if (LevelNodes::CNodeManager* manager = LevelNodes::NodeManagerInstance()) {
-        if (g_levelArray && ArrayLoaded(manager, g_levelArray))
+    node_create::set_array_removed_listener(&on_array_removed);
+    if (level_nodes::NodeManager* manager = level_nodes::node_manager_instance()) {
+        if (g_level_array && array_loaded(manager, g_level_array))
             return;
-        uint32_t level = manager->GetLastNodeArrayName();
-        if (level && level != g_levelArray) {
-            if (g_levelArray)
-                Forget();
-            g_levelArray = level;
+        uint32_t level = manager->get_last_node_array_name();
+        if (level && level != g_level_array) {
+            if (g_level_array)
+                get_forget();
+            g_level_array = level;
         }
     }
 }
 
-void NoteUndo()
+void note_undo()
 {
-    if (!g_hasUndo) {
-        g_undoBefore = StoreAway();
-        g_hasUndo = true;
+    if (!g_has_undo) {
+        g_undo_before = store_away();
+        g_has_undo = true;
     }
 }
 
 // A node for a spec at `pos` / `yaw` in the overlay (false: `message`).
-NodeCreate::Spec NodeSpec(const Spec& spec, V3 pos, float yaw)
+node_create::Spec node_spec(const Spec& spec, V3 pos, float yaw)
 {
-    NodeCreate::Spec n;
+    node_create::Spec n;
     n.name = spec.name;
     n.cls = "GenericNode";
     n.type = "ed_trigger";
     n.pos = pos;
     n.angles = {0.0f, yaw, 0.0f};
-    NodeCreate::Prop script = {NodeCreate::Prop::kName, "TriggerScript"};
-    script.text = ScriptName(spec);
+    node_create::Prop script = {node_create::Prop::kName, "TriggerScript"};
+    script.text = get_script_name(spec);
     n.extra.push_back(script);
     n.owned = true;
     return n;
 }
 
-bool NameTaken(const std::string& name) { return SpecIndex(name) >= 0 || NodeCreate::NameTaken(name); }
+bool name_taken(const std::string& name) { return spec_index(name) >= 0 || node_create::name_taken(name); }
 
-std::string FreshGap()
+std::string fresh_gap()
 {
-    return NodeCreate::FreshName("ed_gap", [](const std::string& id) {
-        return std::any_of(g_specs.begin(), g_specs.end(), [&](const Spec& s) { return SameText(s.gap, id); });
+    return node_create::fresh_name("ed_gap", [](const std::string& id) {
+        return std::any_of(g_specs.begin(), g_specs.end(), [&](const Spec& s) { return same_text(s.gap, id); });
     });
 }
 
 // The nearest restart (a player or multiplayer one) to `pos` ("" none).
-std::string NearestRestart(V3 pos)
+std::string nearest_restart(V3 pos)
 {
     float best = 0.0f;
     std::string name;
-    for (const Nodes::Elem& node : Nodes::All()) {
-        if (node.family != Nodes::Family::Spawn || node.hidden || !node.hasPos ||
-            !(node.restartTypes & (Nodes::kPlayer1 | Nodes::kMultiplayer)))
+    for (const nodes::Elem& node : nodes::get_all()) {
+        if (node.family != nodes::Family::kSpawn || node.hidden || !node.has_pos_ ||
+            !(node.restart_types_ & (nodes::kPlayer1 | nodes::kMultiplayer)))
             continue;
         V3 d = node.pos - pos;
-        float distance = Dot(d, d);
+        float distance = get_dot(d, d);
         if (name.empty() || distance < best) {
             best = distance;
-            name = NameFor(node.name, Scripts::KeptQbName(node.name));
+            name = name_for(node.name, script::kept_qb_name(node.name));
         }
     }
     return name;
 }
 
-// The game's collision ray (a CProbeRay: constructor 0x00417760; 0x00417710 casts it from `from` to `to` - thiscall, true
+// The game's collision ray (a ProbeRay: constructor 0x00417760; 0x00417710 casts it from `from` to `to` - thiscall, true
 // on a hit, its point at +0x34), static collision only (as the editor's G): trigger faces (0x10) are passed.
-bool Cast(V3 from, V3 to, V3* hit)
+bool get_cast(V3 from, V3 to, V3* hit)
 {
     alignas(16) uint8_t feeler[0x100] = {};
-    auto* ray = reinterpret_cast<Engine3D::CProbeRay*>(feeler);
-    ray->MakeNew();
-    Maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
-    if (!ray->GetCollisionAlong(&start, &end, false))
+    auto* ray = reinterpret_cast<render::ProbeRay*>(feeler);
+    ray->make_new();
+    maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    if (!ray->get_collision_along(&start, &end, false))
         return false;
     const float* point = reinterpret_cast<const float*>(feeler + 0x34);
     *hit = {point[0], point[1], point[2]};
     return true;
 }
-bool GroundBelow(V3 from, V3* hit) { return Cast(from, {from.x, from.y - 5000.0f, from.z}, hit); }
+bool ground_below(V3 from, V3* hit) { return get_cast(from, {from.x, from.y - 5000.0f, from.z}, hit); }
 
 // Where a new trigger goes: the ground where the view looks (else 600 units ahead), its box standing on it.
-V3 PlaceAhead(V3 size, float ahead)
+V3 place_ahead(V3 size, float ahead)
 {
-    V3 forward = MakeUnit(g_forward);
+    V3 forward = make_unit(g_forward);
     V3 at;
-    if (!Cast(g_camera, g_camera + forward * 4000.0f, &at))
+    if (!get_cast(g_camera, g_camera + forward * 4000.0f, &at))
         at = g_camera + forward * 600.0f;
-    V3 flat = MakeUnit({forward.x, 0.0f, forward.z});
+    V3 flat = make_unit({forward.x, 0.0f, forward.z});
     at = at + flat * ahead;
     V3 ground;
-    if (GroundBelow(at + V3{0.0f, 200.0f, 0.0f}, &ground))
+    if (ground_below(at + V3{0.0f, 200.0f, 0.0f}, &ground))
         at.y = ground.y;
     at.y += size.y * 0.5f;
     return at;
 }
 
 // New triggers made (their nodes in the overlay); the first selected. One undo step.
-void Fabricate(std::vector<Placed> made, const char* what)
+void fabricate(std::vector<Placed> made, const char* what)
 {
-    NoteUndo();
+    note_undo();
     std::string message;
     int first = -1;
     for (Placed& p : made) {
-        if (!NodeCreate::Fabricate(NodeSpec(p.spec, p.pos, p.yaw), -1, &message)) {
-            Hud::Message(message, 5.0);
+        if (!node_create::fabricate(node_spec(p.spec, p.pos, p.yaw), -1, &message)) {
+            hud::get_message(message, 5.0);
             break;
         }
         g_specs.push_back(p.spec);
         if (first < 0)
             first = static_cast<int>(g_specs.size()) - 1;
-        Log("level editor: added trigger %s (%s) at (%.1f, %.1f, %.1f)", p.spec.name.c_str(), KindName(p.spec.kind),
+        get_log("level editor: added trigger %s (%s) at (%.1f, %.1f, %.1f)", p.spec.name.c_str(), kind_name(p.spec.kind),
             p.pos.x, p.pos.y, p.pos.z);
     }
-    Sync();
+    get_sync();
     if (first >= 0) {
-        g_select = Nodes::Find(HashOfName(g_specs[first].name));
-        Hud::Message(std::string("Added ") + what, 4.0);
+        g_select = nodes::get_find(hash_of_name(g_specs[first].name));
+        hud::get_message(std::string("Added ") + what, 4.0);
     }
 }
 
 } // namespace
 
-void Guard()
+void get_guard()
 {
-    SyncProxims(); // (proximity nodes as their edits say - put back in a network session)
+    sync_proxims(); // (proximity nodes as their edits say - put back in a network session)
     // A breakable broken in play (its piece killed by its own script): its box goes, so it isn't shattered again.
     for (size_t i = 0; i < g_boxes.size();) {
         int at = -1;
         for (size_t k = 0; k < g_specs.size(); ++k) {
-            if (g_specs[k].kind == Kind::Break && HashOfName(g_specs[k].name) == g_boxes[i].name)
+            if (g_specs[k].kind == Kind::kBreak && hash_of_name(g_specs[k].name) == g_boxes[i].name)
                 at = static_cast<int>(k);
         }
-        if (at >= 0 && !IsSectorEnabled(ChecksumOf(g_specs[at].target))) {
-            FreeBox(g_boxes[i].coll);
+        if (at >= 0 && !is_sector_enabled(checksum_of(g_specs[at].target))) {
+            free_box(g_boxes[i].coll);
             g_boxes.erase(g_boxes.begin() + static_cast<std::ptrdiff_t>(i));
-            Log("level editor: breakable %s broken - its box taken out until the piece is back",
+            get_log("level editor: breakable %s broken - its box taken out until the piece is back",
                 g_specs[at].name.c_str());
         } else {
             ++i;
         }
     }
     std::string why;
-    if (g_boxes.empty() || !Layout::Refused(&why))
+    if (g_boxes.empty() || !layout::get_refused(&why))
         return;
-    Log("level editor: the editor's %u trigger volumes taken out (%s)", static_cast<unsigned>(g_boxes.size()),
+    get_log("level editor: the editor's %u trigger volumes taken out (%s)", static_cast<unsigned>(g_boxes.size()),
         why.c_str());
-    DropBoxes();
+    drop_boxes();
 }
 
-const std::vector<LevelTrigger>& LevelTriggers() { return g_level; }
-const std::vector<Added>& AddedTriggers() { return g_added; }
+const std::vector<LevelTrigger>& level_triggers() { return g_level; }
+const std::vector<Added>& added_triggers() { return g_added; }
 
-bool IsTrigger(uint32_t name)
+bool is_trigger(uint32_t name)
 {
-    return std::any_of(g_specs.begin(), g_specs.end(), [&](const Spec& s) { return HashOfName(s.name) == name; });
+    return std::any_of(g_specs.begin(), g_specs.end(), [&](const Spec& s) { return hash_of_name(s.name) == name; });
 }
 
-bool Shown()
+bool get_shown()
 {
-    if (!g_settingRead) {
-        g_settingRead = true;
-        g_shown = ConfigInt("editor", "triggers", 1) != 0;
+    if (!g_setting_read) {
+        g_setting_read = true;
+        g_shown = config_int("editor", "triggers", 1) != 0;
     }
     return g_shown;
 }
 
-void SetShown(bool shown)
+void set_shown(bool shown)
 {
-    Shown();
+    get_shown();
     g_shown = shown;
-    ConfigSetInt("editor", "triggers", shown ? 1 : 0);
+    config_set_int("editor", "triggers", shown ? 1 : 0);
 }
 
-uint32_t InspectedSector() { return g_inspected; }
-void Inspect(uint32_t sector) { g_inspected = sector; }
+uint32_t inspected_sector() { return g_inspected; }
+void inspect(uint32_t sector) { g_inspected = sector; }
 
-void Queue(std::function<void()> action) { g_actions.push_back(std::move(action)); }
+void get_queue(std::function<void()> action) { g_actions.push_back(std::move(action)); }
 
-void Kickoff()
+void kickoff()
 {
-    NoteLevel();
-    ScanLevel();
-    g_levelGapsRead = false;
+    note_level();
+    scan_level();
+    g_level_gaps_read = false;
     // (breakables broken while playing: their pieces back to edit - and to break again)
     for (const Spec& spec : g_specs) {
-        uint32_t piece = spec.kind == Kind::Break ? ChecksumOf(spec.target) : 0;
-        uint8_t* sector = piece ? Scenery::SectorOf(piece) : nullptr;
-        if (sector && NodeAlive(spec.name) && !IsSectorEnabled(piece) && !Scenery::Hidden(piece)) {
-            reinterpret_cast<Engine3D::CWorldCell*>(sector)->ChangeLive(true);
-            Log("level editor: breakable %s's piece back (broken while playing)", spec.name.c_str());
+        uint32_t piece = spec.kind == Kind::kBreak ? checksum_of(spec.target) : 0;
+        uint8_t* sector = piece ? scenery::sector_of(piece) : nullptr;
+        if (sector && node_alive(spec.name) && !is_sector_enabled(piece) && !scenery::get_hidden(piece)) {
+            reinterpret_cast<render::WorldCell*>(sector)->change_live(true);
+            get_log("level editor: breakable %s's piece back (broken while playing)", spec.name.c_str());
         }
     }
-    Sync();
+    get_sync();
 }
 
-void Halt() { g_actions.clear(); }
+void halt() { g_actions.clear(); }
 
-void Tick(V3 camera, V3 forward, float yaw)
+void tick(V3 camera, V3 forward, float yaw)
 {
     g_camera = camera;
     g_forward = forward;
     g_yaw = yaw;
-    NoteLevel();
+    note_level();
     if (!g_scanned)
-        ScanLevel();
+        scan_level();
     std::vector<std::function<void()>> actions;
     actions.swap(g_actions);
     for (auto& action : actions)
         action();
-    Sync();
+    get_sync();
 }
 
 // --- the UI's actions (level_editor_triggers_ui.cpp queues them) ---
 
-void AddKill(bool water)
+void add_kill(bool water)
 {
     Placed p;
-    p.spec.name = NodeCreate::FreshName("ed_trigger", NameTaken);
-    p.spec.kind = Kind::Kill;
+    p.spec.name = node_create::fresh_name("ed_trigger", name_taken);
+    p.spec.kind = Kind::kKill;
     p.spec.water = water;
     p.spec.size = water ? V3{800.0f, 100.0f, 800.0f} : V3{400.0f, 200.0f, 400.0f};
-    p.pos = PlaceAhead(p.spec.size, 0.0f);
+    p.pos = place_ahead(p.spec.size, 0.0f);
     p.yaw = g_yaw;
-    p.spec.target = NearestRestart(p.pos);
-    Fabricate({p}, water ? "a water kill zone" : "a kill zone");
+    p.spec.target = nearest_restart(p.pos);
+    fabricate({p}, water ? "a water kill zone" : "a kill zone");
 }
 
-void AddTeleport()
+void add_teleport()
 {
     Placed p;
-    p.spec.name = NodeCreate::FreshName("ed_trigger", NameTaken);
-    p.spec.kind = Kind::JumpTo;
+    p.spec.name = node_create::fresh_name("ed_trigger", name_taken);
+    p.spec.kind = Kind::kJumpTo;
     p.spec.size = {200.0f, 200.0f, 200.0f};
-    p.pos = PlaceAhead(p.spec.size, 0.0f);
+    p.pos = place_ahead(p.spec.size, 0.0f);
     p.yaw = g_yaw;
-    p.spec.target = NearestRestart(p.pos);
-    Fabricate({p}, "a teleport");
+    p.spec.target = nearest_restart(p.pos);
+    fabricate({p}, "a teleport");
 }
 
-void AppendScript()
+void append_script()
 {
     Placed p;
-    p.spec.name = NodeCreate::FreshName("ed_trigger", NameTaken);
-    p.spec.kind = Kind::Scripts;
+    p.spec.name = node_create::fresh_name("ed_trigger", name_taken);
+    p.spec.kind = Kind::kScripts;
     p.spec.size = {300.0f, 200.0f, 300.0f};
-    p.pos = PlaceAhead(p.spec.size, 0.0f);
+    p.pos = place_ahead(p.spec.size, 0.0f);
     p.yaw = g_yaw;
-    Fabricate({p}, "a script trigger");
+    fabricate({p}, "a script trigger");
 }
 
-void RegisterGapEntry()
+void register_gap_entry()
 {
     Placed start, end;
-    std::string gap = FreshGap();
-    start.spec.name = NodeCreate::FreshName("ed_trigger", NameTaken);
-    start.spec.kind = Kind::GapStart;
+    std::string gap = fresh_gap();
+    start.spec.name = node_create::fresh_name("ed_trigger", name_taken);
+    start.spec.kind = Kind::kGapStart;
     start.spec.size = {300.0f, 300.0f, 60.0f};
     start.spec.gap = gap;
     start.spec.flags = {"CANCEL_GROUND"};
@@ -1888,56 +1888,56 @@ void RegisterGapEntry()
     std::snprintf(text, sizeof(text), "Editor Gap %d", number > 0 ? number : 1);
     start.spec.text = text;
     start.spec.score = 100;
-    start.pos = PlaceAhead(start.spec.size, 0.0f);
+    start.pos = place_ahead(start.spec.size, 0.0f);
     start.yaw = g_yaw;
     end = start;
     end.spec.name = "";
-    end.spec.kind = Kind::GapEnd;
+    end.spec.kind = Kind::kGapEnd;
     // (the end 600 units further along the view, on the ground there)
-    end.pos = PlaceAhead(end.spec.size, 600.0f);
+    end.pos = place_ahead(end.spec.size, 600.0f);
     // (two fresh names: the first isn't taken until it's made)
     std::string first = start.spec.name;
-    end.spec.name = NodeCreate::FreshName("ed_trigger", [&](const std::string& n) { return SameText(n, first) || NameTaken(n); });
-    Fabricate({start, end}, "a gap");
+    end.spec.name = node_create::fresh_name("ed_trigger", [&](const std::string& n) { return same_text(n, first) || name_taken(n); });
+    fabricate({start, end}, "a gap");
 }
 
 // (UX9: the gap wizard - level_editor_gap_wizard.h) A gap's two ends as given, their names and GapID fresh.
-void AddGapPair(Placed start, Placed end)
+void add_gap_pair(Placed start, Placed end)
 {
-    std::string gap = FreshGap();
-    start.spec.name = NodeCreate::FreshName("ed_trigger", NameTaken);
+    std::string gap = fresh_gap();
+    start.spec.name = node_create::fresh_name("ed_trigger", name_taken);
     std::string first = start.spec.name;
     end.spec.name =
-        NodeCreate::FreshName("ed_trigger", [&](const std::string& n) { return SameText(n, first) || NameTaken(n); });
-    start.spec.kind = Kind::GapStart;
-    end.spec.kind = Kind::GapEnd;
+        node_create::fresh_name("ed_trigger", [&](const std::string& n) { return same_text(n, first) || name_taken(n); });
+    start.spec.kind = Kind::kGapStart;
+    end.spec.kind = Kind::kGapEnd;
     for (Placed* p : {&start, &end}) {
         p->spec.gap = gap;
-        p->spec.size = ClampSize(p->spec.size);
-        p->spec.text = CleanText(p->spec.text);
+        p->spec.size = clamp_size(p->spec.size);
+        p->spec.text = clean_text(p->spec.text);
     }
     end.spec.flags = start.spec.flags;
     end.spec.text = start.spec.text;
     end.spec.score = start.spec.score;
-    Fabricate({start, end}, "a gap");
+    fabricate({start, end}, "a gap");
 }
 
-void SetSpec(const std::string& name, const Spec& spec, bool undo)
+void set_spec(const std::string& name, const Spec& spec, bool undo)
 {
-    int i = SpecIndex(name);
+    int i = spec_index(name);
     if (i < 0)
         return;
     if (undo)
-        NoteUndo();
+        note_undo();
     Spec s = spec;
     s.name = g_specs[i].name;
-    s.size = ClampSize(s.size);
-    s.text = CleanText(s.text);
+    s.size = clamp_size(s.size);
+    s.text = clean_text(s.text);
     // (a gap's name, score and flags are the same at both ends)
-    if (s.kind == Kind::GapStart || s.kind == Kind::GapEnd) {
+    if (s.kind == Kind::kGapStart || s.kind == Kind::kGapEnd) {
         for (Spec& other : g_specs) {
-            if (&other != &g_specs[i] && !s.gap.empty() && SameText(other.gap, g_specs[i].gap) &&
-                (other.kind == Kind::GapStart || other.kind == Kind::GapEnd)) {
+            if (&other != &g_specs[i] && !s.gap.empty() && same_text(other.gap, g_specs[i].gap) &&
+                (other.kind == Kind::kGapStart || other.kind == Kind::kGapEnd)) {
                 other.gap = s.gap;
                 other.text = s.text;
                 other.score = s.score;
@@ -1948,36 +1948,36 @@ void SetSpec(const std::string& name, const Spec& spec, bool undo)
     g_specs[i] = s;
 }
 
-void BeginEdit() { NoteUndo(); }
+void begin_edit() { note_undo(); }
 
-void TurnOff(uint32_t sector, bool off)
+void turn_off(uint32_t sector, bool off)
 {
     const LevelTrigger* t = nullptr;
     for (const LevelTrigger& l : g_level) {
         if (l.sector == sector)
             t = &l;
     }
-    if (!t || !(t->wall || t->allTrigger)) {
-        Hud::Message("Has non-trigger faces; can't be disabled", 5.0);
+    if (!t || !(t->wall || t->all_trigger_)) {
+        hud::get_message("Has non-trigger faces; can't be disabled", 5.0);
         return;
     }
     if (std::find(g_switched.begin(), g_switched.end(), sector) == g_switched.end())
         g_switched.push_back(sector); // (its wall state in the undo steps from now on)
-    NoteUndo();
-    if (!Walls::SetOff(sector, off)) {
-        Hud::Message("Couldn't change the trigger", 4.0);
+    note_undo();
+    if (!walls::set_off(sector, off)) {
+        hud::get_message("Couldn't change the trigger", 4.0);
         return;
     }
-    Hud::Message(off ? "Trigger " + LabelOf(sector) + " disabled"
-                     : "Trigger " + LabelOf(sector) + " enabled");
+    hud::get_message(off ? "Trigger " + get_label_of(sector) + " disabled"
+                     : "Trigger " + get_label_of(sector) + " enabled");
 }
 
-void SelectWall(uint32_t sector)
+void select_wall(uint32_t sector)
 {
-    g_selectWall = sector;
+    g_select_wall = sector;
 }
 
-void MakeEditable(uint32_t sector)
+void make_editable(uint32_t sector)
 {
     const LevelTrigger* t = nullptr;
     for (const LevelTrigger& l : g_level) {
@@ -1987,64 +1987,64 @@ void MakeEditable(uint32_t sector)
     if (!t)
         return;
     if (!t->script) {
-        Hud::Message("No TriggerScript to copy", 4.0);
+        hud::get_message("No TriggerScript to copy", 4.0);
         return;
     }
-    if (!t->wall && !t->allTrigger) {
-        Hud::Message("Has non-trigger faces; can't be replaced", 5.0);
+    if (!t->wall && !t->all_trigger_) {
+        hud::get_message("Has non-trigger faces; can't be replaced", 5.0);
         return;
     }
     for (const Spec& s : g_specs) {
-        if (s.replaces == sector && NodeAlive(s.name)) {
-            Hud::Message("Already has an editable copy: " + s.name, 4.0);
+        if (s.replaces == sector && node_alive(s.name)) {
+            hud::get_message("Already has an editable copy: " + s.name, 4.0);
             return;
         }
     }
     Placed p;
-    p.spec.name = NodeCreate::FreshName("ed_trigger", NameTaken);
-    p.spec.kind = Kind::Scripts;
-    p.spec.script = NameFor(t->script, Scripts::KeptQbName(t->script));
+    p.spec.name = node_create::fresh_name("ed_trigger", name_taken);
+    p.spec.kind = Kind::kScripts;
+    p.spec.script = name_for(t->script, script::kept_qb_name(t->script));
     p.spec.replaces = sector;
-    p.spec.size = ClampSize({std::max(20.0f, t->max.x - t->min.x), std::max(20.0f, t->max.y - t->min.y),
+    p.spec.size = clamp_size({std::max(20.0f, t->max.x - t->min.x), std::max(20.0f, t->max.y - t->min.y),
                              std::max(20.0f, t->max.z - t->min.z)});
     p.pos = (t->min + t->max) * 0.5f;
     p.yaw = 0.0f;
-    Fabricate({p}, ("an editable copy of " + LabelOf(sector)).c_str());
+    fabricate({p}, ("an editable copy of " + get_label_of(sector)).c_str());
 }
 
-void SelectPartner(const std::string& name)
+void select_partner(const std::string& name)
 {
-    int i = SpecIndex(name);
-    int other = Partner(g_specs, i);
+    int i = spec_index(name);
+    int other = partner(g_specs, i);
     if (other >= 0)
-        g_select = Nodes::Find(HashOfName(g_specs[other].name));
+        g_select = nodes::get_find(hash_of_name(g_specs[other].name));
 }
 
-void SelectNodeNamed(uint32_t name)
+void select_node_named(uint32_t name)
 {
-    int index = Nodes::Find(name);
+    int index = nodes::get_find(name);
     if (index >= 0)
         g_select = index;
 }
 
 // --- picking and drawing ---
 
-bool Pick(V3 origin, V3 unitDir, int* node, uint32_t* sector, float maxT)
+bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t)
 {
     *node = -1;
     *sector = 0;
-    if (!Shown())
+    if (!get_shown())
         return false;
-    float best = maxT;
+    float best = max_t;
     bool any = false;
     for (const Added& a : g_added) {
         if (!a.alive)
             continue;
-        OrientedBox box = BoxOf(a.pos, a.yaw, a.spec.size);
+        OrientedBox box = box_of(a.pos, a.yaw, a.spec.size);
         float t;
-        if (RayBox(origin, unitDir, box.origin, box.axes, box.min, box.max, &t) && t < best) {
+        if (ray_box(origin, unit_dir, box.origin, box.axes, box.min, box.max, &t) && t < best) {
             best = t;
-            *node = Nodes::Find(HashOfName(a.spec.name));
+            *node = nodes::get_find(hash_of_name(a.spec.name));
             *sector = 0;
             any = *node >= 0;
         }
@@ -2053,14 +2053,14 @@ bool Pick(V3 origin, V3 unitDir, int* node, uint32_t* sector, float maxT)
         V3 axes[3] = {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}};
         V3 grow = {2.0f, 2.0f, 2.0f};
         float t;
-        if (!RayBox(origin, unitDir, {0.0f, 0.0f, 0.0f}, axes, l.min - grow, l.max + grow, &t) || t >= best)
+        if (!ray_box(origin, unit_dir, {0.0f, 0.0f, 0.0f}, axes, l.min - grow, l.max + grow, &t) || t >= best)
             continue;
         // (the faces themselves when there are few; a big water plane by its box)
         float hit = t;
-        bool found = l.faceCount > kMaxFacesKept;
+        bool found = l.face_count_ > kMaxFacesKept;
         for (size_t f = 0; !found && f + 2 < l.faces.size(); f += 3) {
             float ft;
-            if (Picking::RayTriangle(origin, unitDir, l.faces[f], l.faces[f + 1], l.faces[f + 2], &ft) && ft < best) {
+            if (picking::ray_triangle(origin, unit_dir, l.faces[f], l.faces[f + 1], l.faces[f + 2], &ft) && ft < best) {
                 hit = ft;
                 found = true;
             }
@@ -2068,7 +2068,7 @@ bool Pick(V3 origin, V3 unitDir, int* node, uint32_t* sector, float maxT)
         if (!found || hit >= best)
             continue;
         best = hit;
-        *node = l.hasNode ? Nodes::Find(l.sector) : -1;
+        *node = l.has_node_ ? nodes::get_find(l.sector) : -1;
         *sector = l.sector;
         any = true;
     }
@@ -2084,42 +2084,42 @@ struct Painter {
     const TickCycle* frame;
     const Lens* lens;
     const uint32_t* viewport;
-    float nearZ;
-    std::vector<Ui::Seg>* lines;
+    float near_z_;
+    std::vector<ui::Seg>* lines;
 
-    bool ToPixel(V3 p, float* x, float* y) const
+    bool get_to_pixel(V3 p, float* x, float* y) const
     {
         float nx, ny;
-        if (!CastOnto(camera, *frame, *lens, p, nearZ, &nx, &ny))
+        if (!cast_onto(camera, *frame, *lens, p, near_z_, &nx, &ny))
             return false;
-        NdcToPixel(viewport, nx, ny, x, y);
+        ndc_to_pixel(viewport, nx, ny, x, y);
         return true;
     }
-    void Seg(V3 a, V3 b, uint32_t argb, float thickness = 1.5f) const
+    void get_seg(V3 a, V3 b, uint32_t argb, float thickness = 1.5f) const
     {
-        if (!ClipToNear(camera, *frame, nearZ + 0.01f, &a, &b))
+        if (!clip_to_near(camera, *frame, near_z_ + 0.01f, &a, &b))
             return;
         float ax, ay, bx, by;
-        if (ToPixel(a, &ax, &ay) && ToPixel(b, &bx, &by))
+        if (get_to_pixel(a, &ax, &ay) && get_to_pixel(b, &bx, &by))
             lines->push_back({ax, ay, bx, by, argb, thickness});
     }
-    void Cuboid(const OrientedBox& box, uint32_t argb, float thickness) const
+    void cuboid(const OrientedBox& box, uint32_t argb, float thickness) const
     {
         V3 c[8];
-        BoxCorners(box.origin, box.axes, box.min, box.max, c);
+        box_corners(box.origin, box.axes, box.min, box.max, c);
         for (int i = 0; i < 8; ++i) {
             for (int bit : {1, 2, 4}) {
                 if (!(i & bit))
-                    Seg(c[i], c[i | bit], argb, thickness);
+                    get_seg(c[i], c[i | bit], argb, thickness);
             }
         }
     }
     // An arrow from a to b, its head drawn on the screen.
-    void Arrow(V3 a, V3 b, uint32_t argb) const
+    void get_arrow(V3 a, V3 b, uint32_t argb) const
     {
-        Seg(a, b, argb, 2.0f);
+        get_seg(a, b, argb, 2.0f);
         float ax, ay, bx, by;
-        if (!ToPixel(a, &ax, &ay) || !ToPixel(b, &bx, &by))
+        if (!get_to_pixel(a, &ax, &ay) || !get_to_pixel(b, &bx, &by))
             return;
         float dx = bx - ax, dy = by - ay, length = std::sqrt(dx * dx + dy * dy);
         if (length < 4.0f)
@@ -2134,50 +2134,50 @@ struct Painter {
     }
 };
 
-uint32_t Dim(uint32_t argb, uint32_t alpha) { return (argb & 0x00FFFFFFu) | (alpha << 24); }
+uint32_t get_dim(uint32_t argb, uint32_t alpha) { return (argb & 0x00FFFFFFu) | (alpha << 24); }
 
-float DistanceTo(V3 p, V3 min, V3 max)
+float distance_to(V3 p, V3 min, V3 max)
 {
     float dx = std::max({min.x - p.x, 0.0f, p.x - max.x}), dy = std::max({min.y - p.y, 0.0f, p.y - max.y}),
           dz = std::max({min.z - p.z, 0.0f, p.z - max.z});
     return std::sqrt(dx * dx + dy * dy + dz * dz);
 }
 
-std::string Describe(const Calls& calls, Kind kind)
+std::string describe(const Calls& calls, Kind kind)
 {
-    std::string text = KindName(kind);
+    std::string text = kind_name(kind);
     switch (kind) {
-    case Kind::Kill:
+    case Kind::kKill:
         if (calls.water)
             text += " (water)";
         if (calls.target)
-            text += " -> " + LabelOf(calls.target);
+            text += " -> " + get_label_of(calls.target);
         break;
-    case Kind::JumpTo:
+    case Kind::kJumpTo:
         if (calls.target)
-            text += " -> " + LabelOf(calls.target);
+            text += " -> " + get_label_of(calls.target);
         break;
-    case Kind::GapEnd:
-        text += ": " + (calls.gapText.empty() ? LabelOf(calls.gapId) : calls.gapText);
-        if (calls.gapScore)
-            text += " (" + std::to_string(calls.gapScore) + ")";
+    case Kind::kGapEnd:
+        text += ": " + (calls.gap_text_.empty() ? get_label_of(calls.gap_id_) : calls.gap_text_);
+        if (calls.gap_score_)
+            text += " (" + std::to_string(calls.gap_score_) + ")";
         break;
-    case Kind::GapStart:
-        if (calls.gapId)
-            text += ": " + LabelOf(calls.gapId);
+    case Kind::kGapStart:
+        if (calls.gap_id_)
+            text += ": " + get_label_of(calls.gap_id_);
         break;
-    case Kind::Boost: {
+    case Kind::kBoost: {
         char value[48];
-        if (calls.boostSpeed > 0.0f)
-            std::snprintf(value, sizeof(value), " (speed %.0f)", calls.boostSpeed);
+        if (calls.boost_speed_ > 0.0f)
+            std::snprintf(value, sizeof(value), " (speed %.0f)", calls.boost_speed_);
         else
-            std::snprintf(value, sizeof(value), " (x%.1f)", calls.boostMulti > 0.0f ? calls.boostMulti : 7.5f);
+            std::snprintf(value, sizeof(value), " (x%.1f)", calls.boost_multi_ > 0.0f ? calls.boost_multi_ : 7.5f);
         text += value;
         break;
     }
-    case Kind::ViewCam:
-        if (calls.cameraNode)
-            text += " -> " + LabelOf(calls.cameraNode);
+    case Kind::kViewCam:
+        if (calls.camera_node_)
+            text += " -> " + get_label_of(calls.camera_node_);
         break;
     default:
         break;
@@ -2185,10 +2185,10 @@ std::string Describe(const Calls& calls, Kind kind)
     return text;
 }
 
-bool NodePos(uint32_t name, V3* pos)
+bool get_node_pos(uint32_t name, V3* pos)
 {
-    Maths::Vec4 p;
-    if (!name || !LevelNodes::FetchVertex(name, false) || !LevelNodes::FetchPlace(name, &p))
+    maths::Vec4 p;
+    if (!name || !level_nodes::fetch_vertex(name, false) || !level_nodes::fetch_place(name, &p))
         return false;
     *pos = {p.x, p.y, p.z};
     return true;
@@ -2197,22 +2197,22 @@ bool NodePos(uint32_t name, V3* pos)
 } // namespace
 
 namespace {
-void RememberView(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ);
+void remember_view(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z);
 } // namespace
 
-void AddOverlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
-                std::vector<Ui::Seg>* lines, std::vector<Ui::Overlay::Text>* texts)
+void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+                std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts)
 {
-    RememberView(camera, frame, lens, viewport, nearZ); // (the resize handles are drawn and picked with it)
-    if (!Shown())
+    remember_view(camera, frame, lens, viewport, near_z); // (the resize handles are drawn and picked with it)
+    if (!get_shown())
         return;
-    Painter paint = {camera, &frame, &lens, viewport, nearZ, lines};
+    Painter paint = {camera, &frame, &lens, viewport, near_z, lines};
     int labels = 0;
     auto label = [&](V3 at, uint32_t argb, const std::string& text) {
         if (labels >= kMaxLabels)
             return;
         float x, y;
-        if (paint.ToPixel(at, &x, &y)) {
+        if (paint.get_to_pixel(at, &x, &y)) {
             texts->push_back({x, y, argb, text});
             ++labels;
         }
@@ -2220,7 +2220,7 @@ void AddOverlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
     // The level's: nearest first.
     std::vector<std::pair<float, const LevelTrigger*>> near;
     for (const LevelTrigger& l : g_level) {
-        float d = DistanceTo(camera, l.min, l.max);
+        float d = distance_to(camera, l.min, l.max);
         if (d <= kDrawRadius)
             near.push_back({d, &l});
     }
@@ -2230,58 +2230,58 @@ void AddOverlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
     for (const auto& n : near) {
         const LevelTrigger& l = *n.second;
         bool inspected = l.sector == g_inspected;
-        uint32_t colour = l.off ? 0x70909090u : Dim(KindColour(l.kind), inspected ? 0xFFu : 0xC0u);
+        uint32_t colour = l.off ? 0x70909090u : get_dim(kind_colour(l.kind), inspected ? 0xFFu : 0xC0u);
         float thickness = inspected ? 2.5f : 1.0f;
-        if (l.faceCount <= kMaxFacesKept) {
+        if (l.face_count_ <= kMaxFacesKept) {
             for (size_t f = 0; f + 2 < l.faces.size(); f += 3) {
-                paint.Seg(l.faces[f], l.faces[f + 1], colour, thickness);
-                paint.Seg(l.faces[f + 1], l.faces[f + 2], colour, thickness);
-                paint.Seg(l.faces[f + 2], l.faces[f], colour, thickness);
+                paint.get_seg(l.faces[f], l.faces[f + 1], colour, thickness);
+                paint.get_seg(l.faces[f + 1], l.faces[f + 2], colour, thickness);
+                paint.get_seg(l.faces[f + 2], l.faces[f], colour, thickness);
             }
         } else {
             OrientedBox box = {{0.0f, 0.0f, 0.0f}, {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}, l.min, l.max};
-            paint.Cuboid(box, colour, thickness);
+            paint.cuboid(box, colour, thickness);
         }
         V3 centre = (l.min + l.max) * 0.5f;
         V3 target;
-        if (!l.off && l.kind == Kind::JumpTo && NodePos(l.calls.target, &target))
-            paint.Arrow(centre, target, Dim(KindColour(l.kind), 0xE0));
-        else if (!l.off && l.kind == Kind::ViewCam && NodePos(l.calls.cameraNode, &target)) // (map4)
-            paint.Arrow(centre, target, Dim(KindColour(l.kind), 0xE0));
+        if (!l.off && l.kind == Kind::kJumpTo && get_node_pos(l.calls.target, &target))
+            paint.get_arrow(centre, target, get_dim(kind_colour(l.kind), 0xE0));
+        else if (!l.off && l.kind == Kind::kViewCam && get_node_pos(l.calls.camera_node_, &target)) // (map4)
+            paint.get_arrow(centre, target, get_dim(kind_colour(l.kind), 0xE0));
         if (n.first <= kLabelRadius || inspected)
             label({centre.x, l.max.y, centre.z}, colour,
-                  (l.off ? "(off) " : "") + Describe(l.calls, l.kind) + "  " + LabelOf(l.sector));
+                  (l.off ? "(off) " : "") + describe(l.calls, l.kind) + "  " + get_label_of(l.sector));
     }
     // The editor's.
     for (const Added& a : g_added) {
         if (!a.alive)
             continue;
-        OrientedBox box = BoxOf(a.pos, a.yaw, a.spec.size);
-        uint32_t colour = a.problem ? 0xC0A0A0A0u : KindColour(a.spec.kind);
-        paint.Cuboid(box, colour, 2.0f);
+        OrientedBox box = box_of(a.pos, a.yaw, a.spec.size);
+        uint32_t colour = a.problem ? 0xC0A0A0A0u : kind_colour(a.spec.kind);
+        paint.cuboid(box, colour, 2.0f);
         V3 target;
-        if (!a.problem && (a.spec.kind == Kind::JumpTo || a.spec.kind == Kind::Kill || a.spec.kind == Kind::ViewCam) &&
-            NodePos(ChecksumOf(a.spec.target), &target))
-            paint.Arrow(a.pos, target, Dim(colour, a.spec.kind == Kind::Kill ? 0x80 : 0xE0));
-        if (a.spec.kind == Kind::GapStart) {
-            int other = Partner(g_specs, SpecIndex(a.spec.name));
+        if (!a.problem && (a.spec.kind == Kind::kJumpTo || a.spec.kind == Kind::kKill || a.spec.kind == Kind::kViewCam) &&
+            get_node_pos(checksum_of(a.spec.target), &target))
+            paint.get_arrow(a.pos, target, get_dim(colour, a.spec.kind == Kind::kKill ? 0x80 : 0xE0));
+        if (a.spec.kind == Kind::kGapStart) {
+            int other = partner(g_specs, spec_index(a.spec.name));
             if (other >= 0) {
                 for (const Added& b : g_added) {
-                    if (b.alive && SameText(b.spec.name, g_specs[other].name))
-                        paint.Arrow(a.pos, b.pos, Dim(KindColour(Kind::GapEnd), 0xB0));
+                    if (b.alive && same_text(b.spec.name, g_specs[other].name))
+                        paint.get_arrow(a.pos, b.pos, get_dim(kind_colour(Kind::kGapEnd), 0xB0));
                 }
             }
         }
-        std::string text = a.spec.name + ": " + KindName(a.spec.kind);
-        if (a.spec.kind == Kind::Kill || a.spec.kind == Kind::JumpTo)
+        std::string text = a.spec.name + ": " + kind_name(a.spec.kind);
+        if (a.spec.kind == Kind::kKill || a.spec.kind == Kind::kJumpTo)
             text += " -> " + a.spec.target;
-        else if (a.spec.kind == Kind::Scripts)
+        else if (a.spec.kind == Kind::kScripts)
             text += " " + a.spec.script;
-        else if (a.spec.kind == Kind::GapStart || a.spec.kind == Kind::GapEnd)
+        else if (a.spec.kind == Kind::kGapStart || a.spec.kind == Kind::kGapEnd)
             text += " \"" + a.spec.text + "\"";
-        else if (a.spec.kind == Kind::Boost)
+        else if (a.spec.kind == Kind::kBoost)
             text += " " + std::to_string(a.spec.strength);
-        else if (a.spec.kind == Kind::Break || a.spec.kind == Kind::ViewCam)
+        else if (a.spec.kind == Kind::kBreak || a.spec.kind == Kind::kViewCam)
             text += " " + a.spec.target;
         if (a.problem)
             text += " (not active)";
@@ -2289,77 +2289,77 @@ void AddOverlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
     }
 }
 
-void AddExtras(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ, int selectedNode,
-               std::vector<Ui::Seg>* lines, std::vector<Ui::Overlay::Text>* texts)
+void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z, int selected_node,
+               std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts)
 {
-    Painter paint = {camera, &frame, &lens, viewport, nearZ, lines};
+    Painter paint = {camera, &frame, &lens, viewport, near_z, lines};
     auto label = [&](V3 at, uint32_t argb, const std::string& text) {
         float x, y;
-        if (paint.ToPixel(at, &x, &y))
+        if (paint.get_to_pixel(at, &x, &y))
             texts->push_back({x, y, argb, text});
     };
     const V3 up = {0.0f, 1.0f, 0.0f};
     // Rail speed-ups: chevrons along each segment pointing uphill (where they speed the skater up), 60 apart.
-    for (const Chains::SpeedSegment& s : Chains::SpeedSegments(camera, 3000.0f)) {
+    for (const chains::SpeedSegment& s : chains::speed_segments(camera, 3000.0f)) {
         V3 a = s.a, b = s.b;
         if (b.y < a.y)
             std::swap(a, b);
         V3 d = b - a;
-        float length = std::sqrt(Dot(d, d));
+        float length = std::sqrt(get_dot(d, d));
         if (length < 1.0f)
             continue;
         V3 dir = d * (1.0f / length);
-        V3 side = Perpendicular(dir, up);
-        if (Dot(side, side) < 1e-4f)
+        V3 side = perpendicular(dir, up);
+        if (get_dot(side, side) < 1e-4f)
             side = {1.0f, 0.0f, 0.0f};
-        side = MakeUnit(side);
+        side = make_unit(side);
         uint32_t colour = s.level ? 0xC0B4B4B4u : 0xFFFF9F1Au;
         int count = std::max(1, std::min(24, static_cast<int>(length / 60.0f)));
         for (int i = 1; i <= count; ++i) {
             V3 tip = a + d * (static_cast<float>(i) / static_cast<float>(count + 1)) + up * 4.0f;
-            paint.Seg(tip - dir * 9.0f + side * 7.0f, tip, colour, 2.0f);
-            paint.Seg(tip - dir * 9.0f - side * 7.0f, tip, colour, 2.0f);
+            paint.get_seg(tip - dir * 9.0f + side * 7.0f, tip, colour, 2.0f);
+            paint.get_seg(tip - dir * 9.0f - side * 7.0f, tip, colour, 2.0f);
         }
         V3 middle = (a + b) * 0.5f;
         V3 m = middle - camera;
-        if (Dot(m, m) < 1500.0f * 1500.0f) {
+        if (get_dot(m, m) < 1500.0f * 1500.0f) {
             char text[64];
             std::snprintf(text, sizeof(text), "%s+%.1f%%", s.level ? "level speed-up " : "speed-up ", s.rate * 100.0f);
             label(middle + up * 14.0f, colour, text);
         }
     }
     // Proximity nodes: the edited ones and the selected one - a sphere's three rings, a box's edges.
-    const std::vector<Nodes::Elem>& nodes = Nodes::All();
-    uint32_t selected = selectedNode >= 0 && selectedNode < static_cast<int>(nodes.size()) ? nodes[selectedNode].name : 0;
-    auto drawProxim = [&](uint32_t node, bool isSelected) {
-        GameObjects::ProximNode* p = IsProxim(node) ? GameObjects::Proxim_GetNode(node) : nullptr;
+    const std::vector<nodes::Elem>& nodes = nodes::get_all();
+    uint32_t selected = selected_node >= 0 && selected_node < static_cast<int>(nodes.size()) ? nodes[selected_node].name : 0;
+    auto draw_proxim = [&](uint32_t node, bool is_selected) {
+        objects::ProximNode* p = is_proxim(node) ? objects::proxim_get_node(node) : nullptr;
         if (!p)
             return;
-        V3 at = {p->m_atPoint.x, p->m_atPoint.y, p->m_atPoint.z}, d = at - camera;
-        if (!isSelected && Dot(d, d) > 6000.0f * 6000.0f)
+        V3 at = {p->at_point_.x, p->at_point_.y, p->at_point_.z}, d = at - camera;
+        if (!is_selected && get_dot(d, d) > 6000.0f * 6000.0f)
             return;
-        uint32_t colour = isSelected ? 0xFFFFB060u : 0xC0F08A3Cu;
+        uint32_t colour = is_selected ? 0xFFFFB060u : 0xC0F08A3Cu;
         V3 top = at;
-        if (p->m_form == GameObjects::PROXIM_SHAPE_SPHERE && p->m_radius > 0.0f) {
+        if (p->form_ == objects::kProximShapeSphere && p->radius_ > 0.0f) {
             constexpr int kSides = 32;
             const V3 axes[3][2] = {{{1, 0, 0}, {0, 0, 1}}, {{1, 0, 0}, {0, 1, 0}}, {{0, 1, 0}, {0, 0, 1}}};
             for (const auto& plane : axes) {
-                V3 previous = at + plane[0] * p->m_radius;
+                V3 previous = at + plane[0] * p->radius_;
                 for (int i = 1; i <= kSides; ++i) {
                     float angle = 2.0f * 3.14159265f * static_cast<float>(i) / kSides;
-                    V3 next = at + plane[0] * (p->m_radius * std::cos(angle)) + plane[1] * (p->m_radius * std::sin(angle));
-                    paint.Seg(previous, next, colour, 1.0f);
+                    V3 next = at + plane[0] * (p->radius_ * std::cos(angle)) + plane[1] * (p->radius_ * std::sin(angle));
+                    paint.get_seg(previous, next, colour, 1.0f);
                     previous = next;
                 }
             }
-            top = at + up * p->m_radius;
-        } else if (p->m_form == GameObjects::PROXIM_SHAPE_BOX) {
-            V3 min = {p->m_box.min.x, p->m_box.min.y, p->m_box.min.z}, max = {p->m_box.max.x, p->m_box.max.y, p->m_box.max.z};
+            top = at + up * p->radius_;
+        } else if (p->form_ == objects::kProximShapeBox) {
+            V3 min = {p->box_.min.x, p->box_.min.y, p->box_.min.z}, max = {p->box_.max.x, p->box_.max.y, p->box_.max.z};
             OrientedBox box = {{0.0f, 0.0f, 0.0f}, {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}, min, max};
-            paint.Cuboid(box, colour, 1.5f);
+            paint.cuboid(box, colour, 1.5f);
             top = {(min.x + max.x) * 0.5f, max.y, (min.z + max.z) * 0.5f};
         }
-        if (const ProximEdit* e = ProximOf(node)) {
+        if (const ProximEdit* e = proxim_of(node)) {
             std::string text = "Proximity";
             if (!e->enter.empty())
                 text += "  in: " + e->enter;
@@ -2370,19 +2370,19 @@ void AddExtras(V3 camera, const TickCycle& frame, const Lens& lens, const uint32
     };
     for (const ProximEdit& e : g_proxims) {
         if (e.node != selected)
-            drawProxim(e.node, false);
+            draw_proxim(e.node, false);
     }
-    if (selected && IsProxim(selected))
-        drawProxim(selected, true);
+    if (selected && is_proxim(selected))
+        draw_proxim(selected, true);
     // Breakables: cracks over the piece's box (each face's middle, five jagged rays); jump boosts: an arrow up as
     // strong as they are (the level's too).
     for (const Added& a : g_added) {
         if (!a.alive)
             continue;
         V3 d = a.pos - camera;
-        if (Dot(d, d) > 4000.0f * 4000.0f)
+        if (get_dot(d, d) > 4000.0f * 4000.0f)
             continue;
-        if (a.spec.kind == Kind::Break) {
+        if (a.spec.kind == Kind::kBreak) {
             uint32_t colour = a.broken ? 0x90A0A0A0u : 0xFFE8F4FFu;
             V3 half = a.spec.size * 0.5f;
             const V3 normals[4] = {{1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}};
@@ -2398,7 +2398,7 @@ void AddExtras(V3 camera, const TickCycle& frame, const Lens& lens, const uint32
                         float jag = (step & 1) ? 0.18f : -0.12f;
                         V3 next = centre + across * (std::cos(angle + jag) * width * 0.8f * reach) +
                                   up * (std::sin(angle + jag) * half.y * 0.8f * reach);
-                        paint.Seg(previous, next, colour, 1.5f);
+                        paint.get_seg(previous, next, colour, 1.5f);
                         previous = next;
                     }
                 }
@@ -2406,20 +2406,20 @@ void AddExtras(V3 camera, const TickCycle& frame, const Lens& lens, const uint32
             label(a.pos + up * (half.y + 12.0f), colour,
                   std::string(a.broken ? "broken (back in the editor)" : "breaks when hit") +
                       (a.spec.sound.empty() ? "" : "  " + a.spec.sound));
-        } else if (a.spec.kind == Kind::Boost) {
+        } else if (a.spec.kind == Kind::kBoost) {
             V3 base = a.pos + up * (a.spec.size.y * 0.5f);
-            paint.Arrow(base, base + up * (static_cast<float>(a.spec.strength) * 0.15f), KindColour(Kind::Boost));
+            paint.get_arrow(base, base + up * (static_cast<float>(a.spec.strength) * 0.15f), kind_colour(Kind::kBoost));
         }
     }
     for (const LevelTrigger& l : g_level) {
-        if (l.kind != Kind::Boost || l.off)
+        if (l.kind != Kind::kBoost || l.off)
             continue;
         V3 centre = (l.min + l.max) * 0.5f, d = centre - camera;
-        if (Dot(d, d) > 3000.0f * 3000.0f)
+        if (get_dot(d, d) > 3000.0f * 3000.0f)
             continue;
-        float strength = l.calls.boostSpeed > 0.0f ? l.calls.boostSpeed : 600.0f;
+        float strength = l.calls.boost_speed_ > 0.0f ? l.calls.boost_speed_ : 600.0f;
         V3 base = {centre.x, l.max.y, centre.z};
-        paint.Arrow(base, base + up * (strength * 0.15f), Dim(KindColour(Kind::Boost), 0xA0));
+        paint.get_arrow(base, base + up * (strength * 0.15f), get_dim(kind_colour(Kind::kBoost), 0xA0));
     }
 }
 
@@ -2429,23 +2429,23 @@ namespace {
 
 constexpr uint32_t kHandleColours[3] = {0xFFFF4040u, 0xFF40E040u, 0xFF4080FFu}; // (x, y, z: as the move arrows)
 
-// The selected editor trigger's node, the view AddOverlay last drew with, the handles where they were drawn, the one
+// The selected editor trigger's node, the view add_overlay last drew with, the handles where they were drawn, the one
 // under the cursor, and a resize under way.
-uint32_t g_selectedNode;
+uint32_t g_selected_node;
 struct LastView {
     bool have = false;
     V3 camera = {};
     TickCycle frame = {};
     Lens lens = {};
     uint32_t viewport[4] = {};
-    float nearZ = 1.0f;
-} g_lastView;
+    float near_z_ = 1.0f;
+} g_last_view;
 struct DrawnHandle {
     int handle;
     float x, y;
 };
-std::vector<DrawnHandle> g_drawnHandles;
-int g_hoverHandle = -1;
+std::vector<DrawnHandle> g_drawn_handles;
+int g_hover_handle = -1;
 struct ResizeDrag {
     bool on = false;
     std::string name;
@@ -2456,21 +2456,21 @@ struct ResizeDrag {
     bool proxim = false, sphere = false; // (a proximity node's shape)
 } g_resize;
 
-void RememberView(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ)
+void remember_view(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z)
 {
-    g_lastView.have = true;
-    g_lastView.camera = camera;
-    g_lastView.frame = frame;
-    g_lastView.lens = lens;
+    g_last_view.have = true;
+    g_last_view.camera = camera;
+    g_last_view.frame = frame;
+    g_last_view.lens = lens;
     for (int i = 0; i < 4; ++i)
-        g_lastView.viewport[i] = viewport[i];
-    g_lastView.nearZ = nearZ;
+        g_last_view.viewport[i] = viewport[i];
+    g_last_view.near_z_ = near_z;
 }
 
-const Added* AliveNamed(uint32_t node)
+const Added* alive_named(uint32_t node)
 {
     for (const Added& a : g_added) {
-        if (a.alive && HashOfName(a.spec.name) == node)
+        if (a.alive && hash_of_name(a.spec.name) == node)
             return &a;
     }
     return nullptr;
@@ -2478,11 +2478,11 @@ const Added* AliveNamed(uint32_t node)
 
 } // namespace
 
-void SetSelected(uint32_t node)
+void set_selected(uint32_t node)
 {
-    if (node != g_selectedNode)
-        g_hoverHandle = -1;
-    g_selectedNode = node;
+    if (node != g_selected_node)
+        g_hover_handle = -1;
+    g_selected_node = node;
 }
 
 namespace {
@@ -2495,11 +2495,11 @@ struct HandleShape {
     float yaw = 0.0f;
     V3 size = {};
 };
-bool ShapeFor(uint32_t node, HandleShape* s)
+bool shape_for(uint32_t node, HandleShape* s)
 {
     *s = HandleShape{};
-    if (const Added* a = AliveNamed(node)) {
-        if (a->spec.kind == Kind::Break)
+    if (const Added* a = alive_named(node)) {
+        if (a->spec.kind == Kind::kBreak)
             return false;
         s->trigger = true;
         s->pos = a->pos;
@@ -2507,25 +2507,25 @@ bool ShapeFor(uint32_t node, HandleShape* s)
         s->size = a->spec.size;
         return true;
     }
-    GameObjects::ProximNode* p = IsProxim(node) ? GameObjects::Proxim_GetNode(node) : nullptr;
+    objects::ProximNode* p = is_proxim(node) ? objects::proxim_get_node(node) : nullptr;
     if (!p)
         return false;
-    V3 at = {p->m_atPoint.x, p->m_atPoint.y, p->m_atPoint.z};
-    const ProximEdit* e = ProximOf(node);
+    V3 at = {p->at_point_.x, p->at_point_.y, p->at_point_.z};
+    const ProximEdit* e = proxim_of(node);
     if (e && e->shape) {
         s->sphere = !e->box;
         s->pos = e->box ? at + e->offset : at;
         s->size = e->box ? e->size : V3{e->radius * 2.0f, e->radius * 2.0f, e->radius * 2.0f};
         return true;
     }
-    if (p->m_form == GameObjects::PROXIM_SHAPE_SPHERE) {
+    if (p->form_ == objects::kProximShapeSphere) {
         s->sphere = true;
         s->pos = at;
-        s->size = {p->m_radius * 2.0f, p->m_radius * 2.0f, p->m_radius * 2.0f};
-        return p->m_radius > 0.0f;
+        s->size = {p->radius_ * 2.0f, p->radius_ * 2.0f, p->radius_ * 2.0f};
+        return p->radius_ > 0.0f;
     }
-    if (p->m_form == GameObjects::PROXIM_SHAPE_BOX) {
-        V3 min = {p->m_box.min.x, p->m_box.min.y, p->m_box.min.z}, max = {p->m_box.max.x, p->m_box.max.y, p->m_box.max.z};
+    if (p->form_ == objects::kProximShapeBox) {
+        V3 min = {p->box_.min.x, p->box_.min.y, p->box_.min.z}, max = {p->box_.max.x, p->box_.max.y, p->box_.max.z};
         s->pos = (min + max) * 0.5f;
         s->size = max - min;
         return s->size.x > 0.0f && s->size.y > 0.0f && s->size.z > 0.0f;
@@ -2535,73 +2535,73 @@ bool ShapeFor(uint32_t node, HandleShape* s)
 
 } // namespace
 
-void AddHandles(std::vector<Ui::Overlay::Circle>* circles)
+void add_handles(std::vector<ui::Overlay::Circle>* circles)
 {
-    g_drawnHandles.clear();
+    g_drawn_handles.clear();
     HandleShape shape;
-    if (!g_lastView.have || !ShapeFor(g_selectedNode, &shape))
+    if (!g_last_view.have || !shape_for(g_selected_node, &shape))
         return;
     for (int h = 0; h < 6; ++h) {
-        V3 p = HandlePoint(shape.pos, shape.yaw, shape.size, h);
+        V3 p = handle_point(shape.pos, shape.yaw, shape.size, h);
         float nx, ny, x, y;
-        if (!CastOnto(g_lastView.camera, g_lastView.frame, g_lastView.lens, p, g_lastView.nearZ, &nx, &ny))
+        if (!cast_onto(g_last_view.camera, g_last_view.frame, g_last_view.lens, p, g_last_view.near_z_, &nx, &ny))
             continue;
-        NdcToPixel(g_lastView.viewport, nx, ny, &x, &y);
-        bool lit = h == g_hoverHandle || (g_resize.on && h == g_resize.handle);
+        ndc_to_pixel(g_last_view.viewport, nx, ny, &x, &y);
+        bool lit = h == g_hover_handle || (g_resize.on && h == g_resize.handle);
         uint32_t colour = lit ? 0xFFFFFF40u : kHandleColours[h >> 1];
         circles->push_back({x, y, lit ? 7.0f : 5.5f, colour, true, 1.0f});
         circles->push_back({x, y, lit ? 7.0f : 5.5f, 0xFF101010u, false, 1.0f});
-        g_drawnHandles.push_back({h, x, y});
+        g_drawn_handles.push_back({h, x, y});
     }
 }
 
-int HandleAt(float x, float y, float radius)
+int handle_at(float x, float y, float radius)
 {
     int best = -1;
-    float bestDistance = radius;
-    for (const DrawnHandle& d : g_drawnHandles) {
+    float best_distance = radius;
+    for (const DrawnHandle& d : g_drawn_handles) {
         float distance = std::sqrt((d.x - x) * (d.x - x) + (d.y - y) * (d.y - y));
-        if (distance <= bestDistance) {
-            bestDistance = distance;
+        if (distance <= best_distance) {
+            best_distance = distance;
             best = d.handle;
         }
     }
     return best;
 }
 
-void SetHoverHandle(int handle) { g_hoverHandle = handle; }
+void set_hover_handle(int handle) { g_hover_handle = handle; }
 
-bool BeginResize(int handle, V3 origin, V3 dir)
+bool begin_resize(int handle, V3 origin, V3 dir)
 {
     HandleShape shape;
-    if (!ShapeFor(g_selectedNode, &shape) || handle < 0 || handle > 5)
+    if (!shape_for(g_selected_node, &shape) || handle < 0 || handle > 5)
         return false;
-    const Added* a = shape.trigger ? AliveNamed(g_selectedNode) : nullptr;
+    const Added* a = shape.trigger ? alive_named(g_selected_node) : nullptr;
     ResizeDrag r;
     r.name = a ? a->spec.name : std::string();
-    r.node = g_selectedNode;
+    r.node = g_selected_node;
     r.handle = handle;
     r.pos0 = shape.pos;
     r.size0 = shape.size;
     r.yaw = shape.yaw;
     r.proxim = !shape.trigger;
     r.sphere = shape.sphere;
-    r.start = HandlePoint(shape.pos, shape.yaw, shape.size, handle);
-    r.direction = HandleDirection(shape.yaw, handle);
-    if (!ClosestOnAxis(r.start, r.direction, origin, dir, &r.s0))
+    r.start = handle_point(shape.pos, shape.yaw, shape.size, handle);
+    r.direction = handle_direction(shape.yaw, handle);
+    if (!closest_on_axis(r.start, r.direction, origin, dir, &r.s0))
         return false; // (looking along the axis: no grip on it)
     r.on = true;
     g_resize = r;
-    NoteUndo(); // (the state before: one undo step, taken by the editor next frame)
+    note_undo(); // (the state before: one undo step, taken by the editor next frame)
     return true;
 }
 
-void Rescale(V3 origin, V3 dir, bool snap)
+void rescale(V3 origin, V3 dir, bool snap)
 {
     if (!g_resize.on)
         return;
     float s;
-    if (!ClosestOnAxis(g_resize.start, g_resize.direction, origin, dir, &s))
+    if (!closest_on_axis(g_resize.start, g_resize.direction, origin, dir, &s))
         return;
     float along = s - g_resize.s0;
     if (!std::isfinite(along) || std::fabs(along) > 50000.0f)
@@ -2609,18 +2609,18 @@ void Rescale(V3 origin, V3 dir, bool snap)
     int axis = g_resize.handle >> 1;
     float size0 = axis == 0 ? g_resize.size0.x : axis == 1 ? g_resize.size0.y : g_resize.size0.z;
     if (snap)
-        along = SnapToGrid(size0 + along, 25.0f) - size0;
+        along = snap_to_grid(size0 + along, 25.0f) - size0;
     V3 pos, size;
-    ResizeFace(g_resize.pos0, g_resize.yaw, g_resize.size0, g_resize.handle, along, &pos, &size);
+    resize_face(g_resize.pos0, g_resize.yaw, g_resize.size0, g_resize.handle, along, &pos, &size);
     if (g_resize.proxim) {
         // (a proximity node: a sphere's radius grows by what the face moved, about its middle; a box as a trigger's -
         // its middle kept as an offset from the node)
-        GameObjects::ProximNode* p = IsProxim(g_resize.node) ? GameObjects::Proxim_GetNode(g_resize.node) : nullptr;
+        objects::ProximNode* p = is_proxim(g_resize.node) ? objects::proxim_get_node(g_resize.node) : nullptr;
         if (!p) {
             g_resize.on = false;
             return;
         }
-        ProximEdit e = ProximOf(g_resize.node) ? *ProximOf(g_resize.node) : ProximEdit{};
+        ProximEdit e = proxim_of(g_resize.node) ? *proxim_of(g_resize.node) : ProximEdit{};
         e.node = g_resize.node;
         e.shape = true;
         e.box = !g_resize.sphere;
@@ -2628,12 +2628,12 @@ void Rescale(V3 origin, V3 dir, bool snap)
             e.radius = std::max(kProximMin, std::min(kProximMax, size0 * 0.5f + along));
         } else {
             e.size = size;
-            e.offset = pos - V3{p->m_atPoint.x, p->m_atPoint.y, p->m_atPoint.z};
+            e.offset = pos - V3{p->at_point_.x, p->at_point_.y, p->at_point_.z};
         }
-        SetProxim(e, false);
+        set_proxim(e, false);
         return;
     }
-    int i = SpecIndex(g_resize.name);
+    int i = spec_index(g_resize.name);
     if (i < 0) {
         g_resize.on = false;
         return;
@@ -2641,19 +2641,19 @@ void Rescale(V3 origin, V3 dir, bool snap)
     Spec spec = g_specs[i];
     if (spec.size.x != size.x || spec.size.y != size.y || spec.size.z != size.z) {
         spec.size = size;
-        SetSpec(g_resize.name, spec, false);
+        set_spec(g_resize.name, spec, false);
     }
-    NodeEdit::Values values;
-    if (NodeEdit::TakeIn(g_resize.node, &values) &&
+    node_edit::Values values;
+    if (node_edit::get_take_in(g_resize.node, &values) &&
         (values.pos.x != pos.x || values.pos.y != pos.y || values.pos.z != pos.z)) {
         values.pos = pos;
-        NodeEdit::AssignValue(g_resize.node, values);
+        node_edit::assign_value(g_resize.node, values);
     }
 }
 
-void EndResize() { g_resize.on = false; }
+void end_resize() { g_resize.on = false; }
 
-bool Resizing() { return g_resize.on; }
+bool resizing() { return g_resize.on; }
 
 // --- leaving (exit triggers) ---
 
@@ -2666,45 +2666,45 @@ struct Seen {
 };
 std::vector<Seen> g_seen;
 
-// The trigger's TriggerScript run on the skater, as the trigger component's TriggerNode (0x00434A60) runs it: not when
-// the skate module skips the node (0x00565BB0), its OnlineModeFlag / Permanent flags, the node's name.
-void FireOnLeaving(GameObjects::CEntity* skater, uint32_t node)
+// The trigger's TriggerScript run on the skater, as the trigger component's get_trigger_node (0x00434A60) runs it: not when
+// the skate module skips the node (0x00565BB0), its online_mode_flag / Permanent flags, the node's name.
+void fire_on_leaving(objects::Entity* skater, uint32_t node)
 {
-    Scripts::CStruct* s = LevelNodes::FetchVertex(node, false);
+    script::Struct* s = level_nodes::fetch_vertex(node, false);
     uint32_t script = 0;
-    if (!s || !s->ReadHashValue(kTriggerScript, &script, 0) || !script)
+    if (!s || !s->read_hash_value(kTriggerScript, &script, 0) || !script)
         return;
-    if (GameModules::Skate::ShouldBeAbsent(s))
+    if (modules::Skate::should_be_absent(s))
         return;
-    static const uint32_t kOnlineFlag = Checksums("NetEnabled"), kPermanent = Checksums("Permanent");
-    skater->StartScriptTask(script, static_cast<int>(node), s->HasBareFlag(kOnlineFlag), s->HasBareFlag(kPermanent),
+    static const uint32_t kOnlineFlag = get_checksums("NetEnabled"), kPermanent = get_checksums("Permanent");
+    skater->start_script_task(script, static_cast<int>(node), s->has_bare_flag(kOnlineFlag), s->has_bare_flag(kPermanent),
                               nullptr);
-    if (DebugEnabled())
-        Log("level editor: trigger %s left - its script run (exit)", LabelOf(node).c_str());
+    if (debug_enabled())
+        get_log("level editor: trigger %s left - its script run (exit)", get_label_of(node).c_str());
 }
 
 } // namespace
 
-void Perform(bool editing)
+void perform(bool editing)
 {
     bool any = std::any_of(g_added.begin(), g_added.end(), [](const Added& a) { return a.alive && a.spec.exit; });
-    if (editing || !any || g_boxes.empty() || Layout::Refused()) { // (a network session or a career-type mode)
+    if (editing || !any || g_boxes.empty() || layout::get_refused()) { // (a network session or a career-type mode)
         g_seen.clear(); // (seen afresh once play goes on: a box moved while editing doesn't fire)
         return;
     }
-    auto* skater = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(kSkater));
+    auto* skater = static_cast<objects::GameEntity*>(objects::find_object(kSkater));
     if (!skater)
         return;
-    V3 at = {skater->m_atPoint.x, skater->m_atPoint.y, skater->m_atPoint.z};
+    V3 at = {skater->at_point_.x, skater->at_point_.y, skater->at_point_.z};
     for (const Added& a : g_added) {
         if (!a.alive || !a.spec.exit || a.problem)
             continue;
-        uint32_t node = HashOfName(a.spec.name);
-        bool now = Inside(BoxOf(a.pos, a.yaw, a.spec.size), at);
+        uint32_t node = hash_of_name(a.spec.name);
+        bool now = get_inside(box_of(a.pos, a.yaw, a.spec.size), at);
         auto it = std::find_if(g_seen.begin(), g_seen.end(), [&](const Seen& s) { return s.node == node; });
         bool known = it != g_seen.end();
-        if (Left(known, known && it->inside, now))
-            FireOnLeaving(skater, node);
+        if (get_left(known, known && it->inside, now))
+            fire_on_leaving(skater, node);
         if (known)
             it->inside = now;
         else
@@ -2714,92 +2714,92 @@ void Perform(bool editing)
 
 // --- undo ---
 
-State StoreAway()
+State store_away()
 {
     State state;
     state.specs = g_specs;
-    for (const NodeCreate::Spec& n : NodeCreate::AtHand()) {
-        if (n.owned && SpecIndex(n.name) >= 0)
+    for (const node_create::Spec& n : node_create::at_hand()) {
+        if (n.owned && spec_index(n.name) >= 0)
             state.nodes.push_back(n);
     }
     if (!g_switched.empty())
-        state.walls = Walls::StoreAway(g_switched);
+        state.walls = walls::store_away(g_switched);
     state.proxims = g_proxims;
     return state;
 }
 
-void Restore(const State& state)
+void get_restore(const State& state)
 {
     // The trigger nodes there now that the state hasn't: removed; those it has: made, or put where it had them.
-    for (const NodeCreate::Spec& n : NodeCreate::AtHand()) {
-        if (!n.owned || SpecIndex(n.name) < 0)
+    for (const node_create::Spec& n : node_create::at_hand()) {
+        if (!n.owned || spec_index(n.name) < 0)
             continue;
-        bool keep = std::any_of(state.nodes.begin(), state.nodes.end(), [&](const NodeCreate::Spec& s) { return SameText(s.name, n.name); });
+        bool keep = std::any_of(state.nodes.begin(), state.nodes.end(), [&](const node_create::Spec& s) { return same_text(s.name, n.name); });
         if (!keep) {
-            NodeCreate::Spec removed;
+            node_create::Spec removed;
             int at;
-            NodeCreate::DropOut(HashOfName(n.name), &removed, &at);
+            node_create::drop_out(hash_of_name(n.name), &removed, &at);
         }
     }
     g_specs = state.specs;
     std::string message;
-    for (const NodeCreate::Spec& n : state.nodes) {
-        uint32_t name = HashOfName(n.name);
-        if (!NodeCreate::IsAdded(name)) {
-            NodeCreate::Fabricate(n, -1, &message);
+    for (const node_create::Spec& n : state.nodes) {
+        uint32_t name = hash_of_name(n.name);
+        if (!node_create::is_added(name)) {
+            node_create::fabricate(n, -1, &message);
         } else {
-            NodeEdit::Values values;
-            if (NodeEdit::TakeIn(name, &values) &&
+            node_edit::Values values;
+            if (node_edit::get_take_in(name, &values) &&
                 (values.pos.x != n.pos.x || values.pos.y != n.pos.y || values.pos.z != n.pos.z || values.angles.y != n.angles.y)) {
                 values.pos = n.pos;
                 values.angles = n.angles;
-                NodeEdit::AssignValue(name, values);
+                node_edit::assign_value(name, values);
             }
         }
     }
     if (!state.walls.empty())
-        Walls::ApplyStates(state.walls);
+        walls::apply_states(state.walls);
     g_proxims = state.proxims;
-    g_hasUndo = false;
-    Sync();
+    g_has_undo = false;
+    get_sync();
 }
 
-bool TakeUndo(State* before)
+bool take_undo(State* before)
 {
-    if (!g_hasUndo)
+    if (!g_has_undo)
         return false;
-    g_hasUndo = false;
-    *before = std::move(g_undoBefore);
-    g_undoBefore = State{};
+    g_has_undo = false;
+    *before = std::move(g_undo_before);
+    g_undo_before = State{};
     return true;
 }
 
-int TakeSelect()
+int take_select()
 {
     int select = g_select;
     g_select = -1;
     return select;
 }
 
-uint32_t TakeWallSelect()
+uint32_t take_wall_select()
 {
-    uint32_t wall = g_selectWall;
-    g_selectWall = 0;
+    uint32_t wall = g_select_wall;
+    g_select_wall = 0;
     return wall;
 }
 
 // --- the layout ---
 
-std::vector<Placed> CaptureAdded()
+std::vector<Placed> capture_added()
 {
     std::vector<Placed> out;
     for (const Spec& spec : g_specs) {
         Placed p;
         p.spec = spec;
-        if (!NodeAlive(spec.name) || !NodePlace(spec.name, &p.pos, &p.yaw))
+        if (!node_alive(spec.name) || !node_place(spec.name, &p.pos, &p.yaw))
             continue;
         V3 pos, size;
-        if (spec.kind == Kind::Break && BreakPlace(spec, &pos, &size)) {
+        if (spec.kind == Kind::kBreak && break_place(spec, &pos, &size)) {
             // (a breakable's box is its piece's where it is now - what the bake makes)
             p.pos = pos;
             p.yaw = 0.0f;
@@ -2810,94 +2810,94 @@ std::vector<Placed> CaptureAdded()
     return out;
 }
 
-int Apply(const std::vector<Placed>& placed, std::string* message)
+int get_apply(const std::vector<Placed>& placed, std::string* message)
 {
-    NoteLevel();
+    note_level();
     if (!g_scanned)
-        ScanLevel();
+        scan_level();
     int made = 0;
     for (const Placed& p : placed) {
-        if (SpecIndex(p.spec.name) >= 0 || NodeCreate::NameTaken(p.spec.name)) {
-            Log("level editor: the layout's trigger %s is there already - skipped", p.spec.name.c_str());
+        if (spec_index(p.spec.name) >= 0 || node_create::name_taken(p.spec.name)) {
+            get_log("level editor: the layout's trigger %s is there already - skipped", p.spec.name.c_str());
             continue;
         }
-        if (!NodeCreate::Fabricate(NodeSpec(p.spec, p.pos, p.yaw), -1, message))
+        if (!node_create::fabricate(node_spec(p.spec, p.pos, p.yaw), -1, message))
             continue;
         g_specs.push_back(p.spec);
         ++made;
     }
-    Sync();
+    get_sync();
     return made;
 }
 
-void ResetAll()
+void reset_all()
 {
     for (const Spec& spec : std::vector<Spec>(g_specs)) {
-        NodeCreate::Spec removed;
+        node_create::Spec removed;
         int at;
-        NodeCreate::DropOut(HashOfName(spec.name), &removed, &at);
+        node_create::drop_out(hash_of_name(spec.name), &removed, &at);
     }
     g_specs.clear();
     g_switched.clear();
     g_inspected = 0;
-    g_hasUndo = false;
-    g_proxims.clear(); // (SyncProxims puts their nodes back)
-    Sync();
+    g_has_undo = false;
+    g_proxims.clear(); // (sync_proxims puts their nodes back)
+    get_sync();
 }
 
-std::vector<ProximEdit> CaptureProxims()
+std::vector<ProximEdit> capture_proxims()
 {
     std::vector<ProximEdit> out;
     for (const ProximEdit& e : g_proxims) {
-        if (ProximEdited(e))
+        if (proxim_edited(e))
             out.push_back(e);
     }
     return out;
 }
 
-int ApplyProxims(const std::vector<ProximEdit>& edits)
+int apply_proxims(const std::vector<ProximEdit>& edits)
 {
-    NoteLevel();
+    note_level();
     int found = 0;
     for (const ProximEdit& e : edits) {
-        int i = ProximIndex(e.node);
+        int i = proxim_index(e.node);
         if (i >= 0)
             g_proxims[i] = e;
         else
             g_proxims.push_back(e);
-        found += HaveProximManager() && GameObjects::Proxim_GetNode(e.node) ? 1 : 0;
+        found += have_proxim_manager() && objects::proxim_get_node(e.node) ? 1 : 0;
     }
-    SyncProxims();
+    sync_proxims();
     return found;
 }
 
 // --- the feature map's game side ---
 
-Calls ScriptCalls(uint32_t script) { return script ? CallsOf(script) : Calls{}; }
+Calls script_calls(uint32_t script) { return script ? calls_of(script) : Calls{}; }
 
-void AddBoost()
+void add_boost()
 {
     Placed p;
-    p.spec.name = NodeCreate::FreshName("ed_trigger", NameTaken);
-    p.spec.kind = Kind::Boost;
+    p.spec.name = node_create::fresh_name("ed_trigger", name_taken);
+    p.spec.kind = Kind::kBoost;
     p.spec.size = {250.0f, 60.0f, 250.0f};
     p.spec.strength = 900;
-    p.pos = PlaceAhead(p.spec.size, 0.0f);
+    p.pos = place_ahead(p.spec.size, 0.0f);
     p.yaw = g_yaw;
-    Fabricate({p}, "a jump boost");
+    fabricate({p}, "a jump boost");
 }
 
-void AddCamera()
+void add_camera()
 {
     Placed p;
-    p.spec.name = NodeCreate::FreshName("ed_trigger", NameTaken);
-    p.spec.kind = Kind::ViewCam;
+    p.spec.name = node_create::fresh_name("ed_trigger", name_taken);
+    p.spec.kind = Kind::kViewCam;
     p.spec.seconds = 3.0f;
-    p.pos = PlaceAhead(p.spec.size, 0.0f);
+    p.pos = place_ahead(p.spec.size, 0.0f);
     p.yaw = g_yaw;
     // (the nearest of the editor's cameras - another is chosen in the Inspector)
     float best = 0.0f;
-    for (const Cameras::ViewCam& camera : Cameras::All()) {
+    for (const cameras::ViewCam& camera : cameras::get_all()) {
         V3 d = camera.pos - p.pos;
         float distance = d.x * d.x + d.y * d.y + d.z * d.z;
         if (p.spec.target.empty() || distance < best) {
@@ -2908,68 +2908,68 @@ void AddCamera()
     std::string what = p.spec.target.empty()
                            ? std::string("a camera trigger")
                            : "a camera trigger (" + p.spec.target + ")";
-    Fabricate({p}, what.c_str());
+    fabricate({p}, what.c_str());
 }
 
-const Added* BreakableOf(uint32_t sector)
+const Added* breakable_of(uint32_t sector)
 {
     for (const Added& a : g_added) {
-        if (a.alive && a.spec.kind == Kind::Break && ChecksumOf(a.spec.target) == sector)
+        if (a.alive && a.spec.kind == Kind::kBreak && checksum_of(a.spec.target) == sector)
             return &a;
     }
     return nullptr;
 }
 
-void SetBreakable(uint32_t sector, bool on)
+void set_breakable(uint32_t sector, bool on)
 {
-    const Added* there = BreakableOf(sector);
+    const Added* there = breakable_of(sector);
     if (on == (there != nullptr))
         return;
     if (on) {
         Placed p;
-        p.spec.name = NodeCreate::FreshName("ed_trigger", NameTaken);
-        p.spec.kind = Kind::Break;
-        p.spec.target = NameFor(sector, Scripts::KeptQbName(sector));
-        p.spec.sound = BreakSounds().front();
+        p.spec.name = node_create::fresh_name("ed_trigger", name_taken);
+        p.spec.kind = Kind::kBreak;
+        p.spec.target = name_for(sector, script::kept_qb_name(sector));
+        p.spec.sound = break_sounds().front();
         p.spec.replaces = sector; // (its collision off while it's breakable: the skater goes into it, as into glass)
-        if (!BreakPlace(p.spec, &p.pos, &p.spec.size)) {
-            Hud::Message("Piece has no bounds", 4.0);
+        if (!break_place(p.spec, &p.pos, &p.spec.size)) {
+            hud::get_message("Piece has no bounds", 4.0);
             return;
         }
-        Fabricate({p}, "a breakable");
+        fabricate({p}, "a breakable");
         return;
     }
     // (off: its trigger removed - its collision comes back with it - and the piece shown if a test run broke it)
-    NoteUndo();
+    note_undo();
     std::string name = there->spec.name;
-    NodeCreate::Spec removed;
+    node_create::Spec removed;
     int at;
-    NodeCreate::DropOut(HashOfName(name), &removed, &at);
-    int i = SpecIndex(name);
+    node_create::drop_out(hash_of_name(name), &removed, &at);
+    int i = spec_index(name);
     if (i >= 0)
         g_specs.erase(g_specs.begin() + i);
-    if (uint8_t* piece = Scenery::SectorOf(sector); piece && !IsSectorEnabled(sector) && !Scenery::Hidden(sector))
-        reinterpret_cast<Engine3D::CWorldCell*>(piece)->ChangeLive(true);
-    Sync();
-    Hud::Message("No longer breakable", 4.0);
+    if (uint8_t* piece = scenery::sector_of(sector); piece && !is_sector_enabled(sector) && !scenery::get_hidden(sector))
+        reinterpret_cast<render::WorldCell*>(piece)->change_live(true);
+    get_sync();
+    hud::get_message("No longer breakable", 4.0);
 }
 
-const ProximEdit* ProximOf(uint32_t node)
+const ProximEdit* proxim_of(uint32_t node)
 {
-    int i = ProximIndex(node);
+    int i = proxim_index(node);
     return i >= 0 ? &g_proxims[i] : nullptr;
 }
 
-void SetProxim(const ProximEdit& edit, bool undo)
+void set_proxim(const ProximEdit& edit, bool undo)
 {
     if (undo)
-        NoteUndo();
+        note_undo();
     ProximEdit e = edit;
     e.radius = std::max(kProximMin, std::min(kProximMax, e.radius));
     e.size = {std::max(kProximMin, std::min(kProximMax, e.size.x)), std::max(kProximMin, std::min(kProximMax, e.size.y)),
               std::max(kProximMin, std::min(kProximMax, e.size.z))};
-    int i = ProximIndex(e.node);
-    if (!ProximEdited(e)) {
+    int i = proxim_index(e.node);
+    if (!proxim_edited(e)) {
         if (i >= 0)
             g_proxims.erase(g_proxims.begin() + i);
     } else if (i >= 0) {
@@ -2977,14 +2977,14 @@ void SetProxim(const ProximEdit& edit, bool undo)
     } else {
         g_proxims.push_back(e);
     }
-    SyncProxims();
+    sync_proxims();
 }
 
-bool IsProxim(uint32_t node) { return node && HaveProximManager() && GameObjects::Proxim_GetNode(node) != nullptr; }
+bool is_proxim(uint32_t node) { return node && have_proxim_manager() && objects::proxim_get_node(node) != nullptr; }
 
-bool HasHandles(uint32_t node) { return IsTrigger(node) || IsProxim(node); }
+bool has_handles(uint32_t node) { return is_trigger(node) || is_proxim(node); }
 
-std::string Describe()
+std::string describe()
 {
     int alive = 0;
     for (const Added& a : g_added)
@@ -2998,6 +2998,6 @@ std::string Describe()
     return text;
 }
 
-std::string DescribeLevelTrigger(const LevelTrigger& l) { return Describe(l.calls, l.kind); }
+std::string describe_level_trigger(const LevelTrigger& l) { return describe(l.calls, l.kind); }
 
-} // namespace MenuSystem::LevelEditor::Triggers
+} // namespace MenuSystem::level_editor::Triggers

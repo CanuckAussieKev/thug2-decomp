@@ -11,7 +11,7 @@
 
 #include "platform/run_log.h"
 
-namespace MenuSystem::LevelEditor::Actions {
+namespace frontend::level_editor::actions {
 
 // --- the pure parts --------------------------------------------------------------------------------------------------
 
@@ -48,14 +48,14 @@ const KeyEntry kKeyNames[] = {
     {SDL_SCANCODE_KP_7, "Keypad7"}, {SDL_SCANCODE_KP_8, "Keypad8"}, {SDL_SCANCODE_KP_9, "Keypad9"},
 };
 
-std::string Lower(std::string text)
+std::string get_lower(std::string text)
 {
     for (char& c : text)
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     return text;
 }
 
-std::string Trim(const std::string& text)
+std::string get_trim(const std::string& text)
 {
     size_t a = text.find_first_not_of(" \t");
     if (a == std::string::npos)
@@ -66,7 +66,7 @@ std::string Trim(const std::string& text)
 
 } // namespace
 
-const char* KeyName(int scancode)
+const char* get_key_name(int scancode)
 {
     for (const KeyEntry& k : kKeyNames) {
         if (k.scancode == scancode)
@@ -75,9 +75,9 @@ const char* KeyName(int scancode)
     return "";
 }
 
-int KeyFromName(const std::string& name)
+int key_from_name(const std::string& name)
 {
-    std::string wanted = Lower(Trim(name));
+    std::string wanted = get_lower(get_trim(name));
     if (wanted.empty())
         return 0;
     // (a few other spellings)
@@ -94,15 +94,15 @@ int KeyFromName(const std::string& name)
     else if (wanted == "pgdn" || wanted == "page down")
         wanted = "pagedown";
     for (const KeyEntry& k : kKeyNames) {
-        if (Lower(k.name) == wanted)
+        if (get_lower(k.name) == wanted)
             return k.scancode;
     }
     return 0;
 }
 
-std::string FormatChord(Chord chord)
+std::string format_chord(Chord chord)
 {
-    const char* key = KeyName(chord.scancode);
+    const char* key = get_key_name(chord.scancode);
     if (!*key)
         return "";
     std::string text;
@@ -115,16 +115,16 @@ std::string FormatChord(Chord chord)
     return text + key;
 }
 
-bool ParseChord(const std::string& text, Chord* chord)
+bool parse_chord(const std::string& text, Chord* chord)
 {
-    std::string rest = Trim(text);
+    std::string rest = get_trim(text);
     Chord c;
     // Modifiers: words before a '+' (the key itself may be "+"-less punctuation; "Keypad+" ends in one).
     for (;;) {
         size_t plus = rest.find('+');
         if (plus == std::string::npos || plus == 0 || plus + 1 >= rest.size())
             break;
-        std::string word = Lower(Trim(rest.substr(0, plus)));
+        std::string word = get_lower(get_trim(rest.substr(0, plus)));
         uint8_t bit = word == "ctrl" || word == "control" ? kCtrl
                       : word == "shift"                   ? kShift
                       : word == "alt" || word == "option" ? kAlt
@@ -132,20 +132,20 @@ bool ParseChord(const std::string& text, Chord* chord)
         if (!bit)
             break;
         c.mods |= bit;
-        rest = Trim(rest.substr(plus + 1));
+        rest = get_trim(rest.substr(plus + 1));
     }
-    c.scancode = KeyFromName(rest);
+    c.scancode = key_from_name(rest);
     if (!c.scancode)
         return false;
     *chord = c;
     return true;
 }
 
-std::string FormatKeys(const std::vector<Chord>& keys)
+std::string format_keys(const std::vector<Chord>& keys)
 {
     std::string text;
     for (const Chord& c : keys) {
-        std::string one = FormatChord(c);
+        std::string one = format_chord(c);
         if (one.empty())
             continue;
         if (!text.empty())
@@ -155,11 +155,11 @@ std::string FormatKeys(const std::vector<Chord>& keys)
     return text.empty() ? "none" : text;
 }
 
-bool ParseKeys(const std::string& text, std::vector<Chord>* keys)
+bool parse_keys(const std::string& text, std::vector<Chord>* keys)
 {
     std::vector<Chord> out;
-    std::string all = Trim(text);
-    if (Lower(all) == "none" || all.empty()) {
+    std::string all = get_trim(text);
+    if (get_lower(all) == "none" || all.empty()) {
         keys->clear();
         return true;
     }
@@ -171,7 +171,7 @@ bool ParseKeys(const std::string& text, std::vector<Chord>* keys)
             comma = all.find(',', comma + 1);
         std::string part = all.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
         Chord c;
-        if (!ParseChord(part, &c))
+        if (!parse_chord(part, &c))
             return false;
         if (std::find(out.begin(), out.end(), c) == out.end())
             out.push_back(c);
@@ -183,7 +183,7 @@ bool ParseKeys(const std::string& text, std::vector<Chord>* keys)
     return true;
 }
 
-bool ChordMatches(Chord chord, int scancode, uint8_t held)
+bool chord_matches(Chord chord, int scancode, uint8_t held)
 {
     if (!chord.scancode || chord.scancode != scancode)
         return false;
@@ -192,7 +192,7 @@ bool ChordMatches(Chord chord, int scancode, uint8_t held)
     return (held & chord.mods) == chord.mods;
 }
 
-int Specificity(Chord chord)
+int get_specificity(Chord chord)
 {
     int n = 0;
     for (uint8_t bit : {kCtrl, kShift, kAlt})
@@ -200,40 +200,40 @@ int Specificity(Chord chord)
     return n;
 }
 
-std::vector<int> SettleUp(const std::vector<std::vector<Chord>>& bound, int scancode, uint8_t held)
+std::vector<int> settle_up(const std::vector<std::vector<Chord>>& bound, int scancode, uint8_t held)
 {
     std::vector<int> best;
-    int bestSpecificity = -1;
+    int best_specificity = -1;
     for (int i = 0; i < static_cast<int>(bound.size()); ++i) {
         int specificity = -1;
         for (const Chord& c : bound[i]) {
-            if (ChordMatches(c, scancode, held))
-                specificity = std::max(specificity, Specificity(c));
+            if (chord_matches(c, scancode, held))
+                specificity = std::max(specificity, get_specificity(c));
         }
         if (specificity < 0)
             continue;
-        if (specificity > bestSpecificity) {
+        if (specificity > best_specificity) {
             best.clear();
-            bestSpecificity = specificity;
+            best_specificity = specificity;
         }
-        if (specificity == bestSpecificity)
+        if (specificity == best_specificity)
             best.push_back(i);
     }
     return best;
 }
 
-bool HoldMatches(Chord chord, bool keyDown, uint8_t held)
+bool hold_matches(Chord chord, bool key_down, uint8_t held)
 {
-    if (!chord.scancode || !keyDown)
+    if (!chord.scancode || !key_down)
         return false;
     if (((chord.mods & kCtrl) != 0) != ((held & kCtrl) != 0))
         return false;
     return (held & chord.mods) == chord.mods;
 }
 
-bool SameBinding(Chord a, Chord b) { return a.scancode && a == b; }
+bool same_binding(Chord a, Chord b) { return a.scancode && a == b; }
 
-int FuzzyScore(const std::string& query, const std::string& text)
+int fuzzy_score(const std::string& query, const std::string& text)
 {
     std::string q;
     for (char c : query) {
@@ -242,7 +242,7 @@ int FuzzyScore(const std::string& query, const std::string& text)
     }
     if (q.empty())
         return 1;
-    std::string t = Lower(text);
+    std::string t = get_lower(text);
     int score = 0;
     size_t qi = 0;
     int run = 0;
@@ -251,8 +251,8 @@ int FuzzyScore(const std::string& query, const std::string& text)
             run = 0;
             continue;
         }
-        bool wordStart = ti == 0 || !std::isalnum(static_cast<unsigned char>(t[ti - 1]));
-        score += 1 + (wordStart ? 8 : 0) + run * 4 + (ti == 0 ? 6 : 0);
+        bool word_start = ti == 0 || !std::isalnum(static_cast<unsigned char>(t[ti - 1]));
+        score += 1 + (word_start ? 8 : 0) + run * 4 + (ti == 0 ? 6 : 0);
         ++run;
         ++qi;
     }
@@ -270,11 +270,11 @@ int FuzzyScore(const std::string& query, const std::string& text)
 
 namespace {
 
-constexpr int A = SDL_SCANCODE_A; // (letters: A + n)
-Chord K(int scancode, uint8_t mods = 0) { return {scancode, mods}; }
-Chord L(char letter, uint8_t mods = 0) { return {A + (letter - 'A'), mods}; }
+constexpr int kA = SDL_SCANCODE_A; // (letters: A + n)
+Chord get_k(int scancode, uint8_t mods = 0) { return {scancode, mods}; }
+Chord get_l(char letter, uint8_t mods = 0) { return {kA + (letter - 'A'), mods}; }
 
-ActStep Make(const char* id, const char* name, const char* category, Kind kind, std::vector<Chord> keys, const char* tip)
+ActStep get_make(const char* id, const char* name, const char* category, Kind kind, std::vector<Chord> keys, const char* tip)
 {
     ActStep a;
     a.id = id;
@@ -288,107 +288,107 @@ ActStep Make(const char* id, const char* name, const char* category, Kind kind, 
 }
 
 // The built-ins, in Id order.
-std::vector<ActStep> Builtins()
+std::vector<ActStep> builtins()
 {
     std::vector<ActStep> b = {
-        Make("help", "Keyboard Shortcuts", "Panels", Kind::Press, {K(SDL_SCANCODE_F1)}, "Show all keys and mouse gestures"),
-        Make("command_search", "Command Search", "Panels", Kind::Press, {K(SDL_SCANCODE_SPACE, kCtrl), K(SDL_SCANCODE_F3)},
+        get_make("help", "Keyboard Shortcuts", "Panels", Kind::kPress, {get_k(SDL_SCANCODE_F1)}, "Show all keys and mouse gestures"),
+        get_make("command_search", "Command Search", "Panels", Kind::kPress, {get_k(SDL_SCANCODE_SPACE, kCtrl), get_k(SDL_SCANCODE_F3)},
              "Find and run any command by name"),
-        Make("browser", "Add Piece", "Panels", Kind::Press, {L('B')}, "Browse the level's scenery and objects to place copies"),
-        Make("place", "Place Node", "Panels", Kind::Press, {L('N')}, "Add spawns, crowns, flags, lights, sounds, rails and paths"),
-        Make("history", "Undo History", "Panels", Kind::Press, {L('H', kCtrl)}, "List of undo steps; click one to jump to it"),
-        Make("changes", "Changes", "Panels", Kind::Press, {L('H', kCtrl | kShift)},
+        get_make("browser", "Add Piece", "Panels", Kind::kPress, {get_l('B')}, "Browse the level's scenery and objects to place copies"),
+        get_make("place", "Place Node", "Panels", Kind::kPress, {get_l('N')}, "Add spawns, crowns, flags, lights, sounds, rails and paths"),
+        get_make("history", "Undo History", "Panels", Kind::kPress, {get_l('H', kCtrl)}, "List of undo steps; click one to jump to it"),
+        get_make("changes", "Changes", "Panels", Kind::kPress, {get_l('H', kCtrl | kShift)},
              "All changes from the original level"),
-        Make("keys", "Keymap", "Panels", Kind::Press, {}, "Rebind editor keys"),
-        Make("snapshots", "Snapshots", "Panels", Kind::Press, {}, "Save and restore named versions of the layout"),
+        get_make("keys", "Keymap", "Panels", Kind::kPress, {}, "Rebind editor keys"),
+        get_make("snapshots", "Snapshots", "Panels", Kind::kPress, {}, "Save and restore named versions of the layout"),
 
-        Make("undo", "Undo", "Edit", Kind::Press, {L('Z', kCtrl)}, "Undo the last change"),
-        Make("redo", "Redo", "Edit", Kind::Press, {L('Y', kCtrl), L('Z', kCtrl | kShift)}, "Redo the last undone change"),
-        Make("save", "Save Layout", "Edit", Kind::Press, {L('S', kCtrl)}, "Save the edited level's layout"),
-        Make("duplicate", "Duplicate", "Edit", Kind::Press, {L('D', kCtrl)}, "Duplicate the selection"),
-        Make("restore_autosave", "Restore Autosave", "Edit", Kind::Press, {L('R', kCtrl)}, "Restore unsaved changes from a previous session"),
-        Make("discard_autosave", "Discard Autosave", "Edit", Kind::Press, {L('R', kCtrl | kShift)}, "Delete unsaved changes from a previous session"),
-        Make("delete", "Delete", "Edit", Kind::Press, {K(SDL_SCANCODE_DELETE)},
+        get_make("undo", "Undo", "Edit", Kind::kPress, {get_l('Z', kCtrl)}, "Undo the last change"),
+        get_make("redo", "Redo", "Edit", Kind::kPress, {get_l('Y', kCtrl), get_l('Z', kCtrl | kShift)}, "Redo the last undone change"),
+        get_make("save", "Save Layout", "Edit", Kind::kPress, {get_l('S', kCtrl)}, "Save the edited level's layout"),
+        get_make("duplicate", "Duplicate", "Edit", Kind::kPress, {get_l('D', kCtrl)}, "Duplicate the selection"),
+        get_make("restore_autosave", "Restore Autosave", "Edit", Kind::kPress, {get_l('R', kCtrl)}, "Restore unsaved changes from a previous session"),
+        get_make("discard_autosave", "Discard Autosave", "Edit", Kind::kPress, {get_l('R', kCtrl | kShift)}, "Delete unsaved changes from a previous session"),
+        get_make("delete", "Delete", "Edit", Kind::kPress, {get_k(SDL_SCANCODE_DELETE)},
              "Delete added items; hide original ones"),
-        Make("home", "Revert to Original", "Edit", Kind::Press, {K(SDL_SCANCODE_HOME)}, "Restore the selection's original state"),
-        Make("reset_level", "Reset Level...", "Edit", Kind::Press, {K(SDL_SCANCODE_DELETE, kCtrl | kShift)},
+        get_make("home", "Revert to Original", "Edit", Kind::kPress, {get_k(SDL_SCANCODE_HOME)}, "Restore the selection's original state"),
+        get_make("reset_level", "Reset Level...", "Edit", Kind::kPress, {get_k(SDL_SCANCODE_DELETE, kCtrl | kShift)},
              "Revert all changes and delete the saved layout"),
-        Make("deselect", "Deselect", "Select", Kind::Press, {K(SDL_SCANCODE_BACKSPACE)}, "Clear the selection"),
-        Make("lock", "Lock / Unlock", "Select", Kind::Press, {L('L')},
+        get_make("deselect", "Deselect", "Select", Kind::kPress, {get_k(SDL_SCANCODE_BACKSPACE)}, "Clear the selection"),
+        get_make("lock", "Lock / Unlock", "Select", Kind::kPress, {get_l('L')},
              "Make the selection unselectable in the view"),
-        Make("copy", "Copy", "Edit", Kind::Press, {L('C', kCtrl)},
+        get_make("copy", "Copy", "Edit", Kind::kPress, {get_l('C', kCtrl)},
              "Copy the selection to the clipboard"),
-        Make("paste", "Paste", "Edit", Kind::Press, {L('V', kCtrl)},
+        get_make("paste", "Paste", "Edit", Kind::kPress, {get_l('V', kCtrl)},
              "Paste from the clipboard at the original position"),
-        Make("copy_props", "Copy Transform and Fields", "Inspector", Kind::Press, {L('C', kCtrl | kShift)},
+        get_make("copy_props", "Copy Transform and Fields", "Inspector", Kind::kPress, {get_l('C', kCtrl | kShift)},
              "Copy position, heading, scale and node fields"),
-        Make("paste_transform", "Paste Transform", "Inspector", Kind::Press, {L('V', kCtrl | kShift)},
+        get_make("paste_transform", "Paste Transform", "Inspector", Kind::kPress, {get_l('V', kCtrl | kShift)},
              "Apply the copied position, heading and scale"),
-        Make("paste_fields", "Paste Fields", "Inspector", Kind::Press, {}, "Apply the copied fields to the selected nodes"),
+        get_make("paste_fields", "Paste Fields", "Inspector", Kind::kPress, {}, "Apply the copied fields to the selected nodes"),
 
-        Make("box_select", "Box Select", "Select", Kind::Press, {L('B', kCtrl)},
+        get_make("box_select", "Box Select", "Select", Kind::kPress, {get_l('B', kCtrl)},
              "Drag a selection box"),
-        Make("select_similar", "Select Similar...", "Select", Kind::Press, {L('G', kShift)},
+        get_make("select_similar", "Select Similar...", "Select", Kind::kPress, {get_l('G', kShift)},
              "Select items matching the selection"),
-        Make("select_family", "Select Family", "Select", Kind::Press, {},
+        get_make("select_family", "Select Family", "Select", Kind::kPress, {},
              "Select all items of the selection's family"),
-        Make("invert_selection", "Invert Selection", "Select", Kind::Press, {L('I', kCtrl)},
+        get_make("invert_selection", "Invert Selection", "Select", Kind::kPress, {get_l('I', kCtrl)},
              "Select everything of the same kind that isn't selected"),
-        Make("select_all", "Select All", "Select", Kind::Press, {L('A', kCtrl)},
+        get_make("select_all", "Select All", "Select", Kind::kPress, {get_l('A', kCtrl)},
              "Select all objects, or all scenery when scenery is selected"),
-        Make("make_group", "Group Selection", "Select", Kind::Press, {L('G', kCtrl)},
+        get_make("make_group", "Group Selection", "Select", Kind::kPress, {get_l('G', kCtrl)},
              "Create a named group in the Outliner"),
 
-        Make("turn_left", "Turn Left", "Transform", Kind::Press, {L('Z')}, "Rotate left by the rotation snap"),
-        Make("turn_right", "Turn Right", "Transform", Kind::Press, {L('X')}, "Rotate right by the rotation snap"),
-        Make("scale_down", "Scale Down", "Transform", Kind::Press, {K(SDL_SCANCODE_LEFTBRACKET)}, "Scale down 10% (Shift: 1%)"),
-        Make("scale_up", "Scale Up", "Transform", Kind::Press, {K(SDL_SCANCODE_RIGHTBRACKET)}, "Scale up 10% (Shift: 1%)"),
-        Make("drop", "Drop to Ground", "Transform", Kind::Press, {L('G')}, "Move the selection down onto the ground"),
+        get_make("turn_left", "Turn Left", "Transform", Kind::kPress, {get_l('Z')}, "Rotate left by the rotation snap"),
+        get_make("turn_right", "Turn Right", "Transform", Kind::kPress, {get_l('X')}, "Rotate right by the rotation snap"),
+        get_make("scale_down", "Scale Down", "Transform", Kind::kPress, {get_k(SDL_SCANCODE_LEFTBRACKET)}, "Scale down 10% (Shift: 1%)"),
+        get_make("scale_up", "Scale Up", "Transform", Kind::kPress, {get_k(SDL_SCANCODE_RIGHTBRACKET)}, "Scale up 10% (Shift: 1%)"),
+        get_make("drop", "Drop to Ground", "Transform", Kind::kPress, {get_l('G')}, "Move the selection down onto the ground"),
 
-        Make("forward", "Fly Forward", "Camera", Kind::Hold, {L('W')},
+        get_make("forward", "Fly Forward", "Camera", Kind::kHold, {get_l('W')},
              "Hold with the right mouse button"),
-        Make("back", "Fly Back", "Camera", Kind::Hold, {L('S')}, "Hold with the right mouse button"),
-        Make("left", "Fly Left", "Camera", Kind::Hold, {L('A')}, "Hold with the right mouse button"),
-        Make("right", "Fly Right", "Camera", Kind::Hold, {L('D')}, "Hold with the right mouse button"),
-        Make("fly_up", "Fly Up", "Camera", Kind::Hold, {L('E'), K(SDL_SCANCODE_SPACE)}, "Move the camera up"),
-        Make("fly_down", "Fly Down", "Camera", Kind::Hold, {L('Q')}, "Move the camera down"),
-        Make("nudge_up", "Nudge Up", "Transform", Kind::Hold, {K(SDL_SCANCODE_PAGEUP)}, "Move the selection up"),
-        Make("nudge_down", "Nudge Down", "Transform", Kind::Hold, {K(SDL_SCANCODE_PAGEDOWN)}, "Move the selection down"),
-        Make("faster", "Increase Fly Speed", "Camera", Kind::Press, {K(SDL_SCANCODE_EQUALS)}, "Fly 1.5x faster"),
-        Make("slower", "Decrease Fly Speed", "Camera", Kind::Press, {K(SDL_SCANCODE_MINUS)}, "Fly 1.5x slower"),
+        get_make("back", "Fly Back", "Camera", Kind::kHold, {get_l('S')}, "Hold with the right mouse button"),
+        get_make("left", "Fly Left", "Camera", Kind::kHold, {get_l('A')}, "Hold with the right mouse button"),
+        get_make("right", "Fly Right", "Camera", Kind::kHold, {get_l('D')}, "Hold with the right mouse button"),
+        get_make("fly_up", "Fly Up", "Camera", Kind::kHold, {get_l('E'), get_k(SDL_SCANCODE_SPACE)}, "Move the camera up"),
+        get_make("fly_down", "Fly Down", "Camera", Kind::kHold, {get_l('Q')}, "Move the camera down"),
+        get_make("nudge_up", "Nudge Up", "Transform", Kind::kHold, {get_k(SDL_SCANCODE_PAGEUP)}, "Move the selection up"),
+        get_make("nudge_down", "Nudge Down", "Transform", Kind::kHold, {get_k(SDL_SCANCODE_PAGEDOWN)}, "Move the selection down"),
+        get_make("faster", "Increase Fly Speed", "Camera", Kind::kPress, {get_k(SDL_SCANCODE_EQUALS)}, "Fly 1.5x faster"),
+        get_make("slower", "Decrease Fly Speed", "Camera", Kind::kPress, {get_k(SDL_SCANCODE_MINUS)}, "Fly 1.5x slower"),
 
-        Make("collision", "Show Collision", "View", Kind::Press, {L('C')}, "Show collision near the camera, coloured by surface"),
-        Make("faces", "Face Select Mode", "View", Kind::Press, {L('K')}, "Select collision faces to edit their flags"),
-        Make("triggers", "Show Trigger Volumes", "View", Kind::Press, {L('T')}, "Show trigger volumes and the Triggers window"),
-        Make("occlusion", "Occlusion Culling", "View", Kind::Press, {L('O')}, "Cull hidden geometry as in play"),
-        Make("hide", "Hide Selection", "View", Kind::Press, {L('H')}, "Hide in the editor only; not saved"),
-        Make("isolate", "Isolate Selection", "View", Kind::Press, {L('I'), K(SDL_SCANCODE_SLASH)}, "Hide everything else in the editor"),
-        Make("show_all", "Show All", "View", Kind::Press, {L('H', kAlt)}, "Show everything hidden in the editor"),
-        Make("camera_node", "Camera Node from View", "View", Kind::Press, {L('V')}, "Add a camera node at the current view"),
-        Make("log_camera", "Log Camera Position", "View", Kind::Press, {L('P')}, "Write the camera position to the log"),
+        get_make("collision", "Show Collision", "View", Kind::kPress, {get_l('C')}, "Show collision near the camera, coloured by surface"),
+        get_make("faces", "Face Select Mode", "View", Kind::kPress, {get_l('K')}, "Select collision faces to edit their flags"),
+        get_make("triggers", "Show Trigger Volumes", "View", Kind::kPress, {get_l('T')}, "Show trigger volumes and the Triggers window"),
+        get_make("occlusion", "Occlusion Culling", "View", Kind::kPress, {get_l('O')}, "Cull hidden geometry as in play"),
+        get_make("hide", "Hide Selection", "View", Kind::kPress, {get_l('H')}, "Hide in the editor only; not saved"),
+        get_make("isolate", "Isolate Selection", "View", Kind::kPress, {get_l('I'), get_k(SDL_SCANCODE_SLASH)}, "Hide everything else in the editor"),
+        get_make("show_all", "Show All", "View", Kind::kPress, {get_l('H', kAlt)}, "Show everything hidden in the editor"),
+        get_make("camera_node", "Camera Node from View", "View", Kind::kPress, {get_l('V')}, "Add a camera node at the current view"),
+        get_make("log_camera", "Log Camera Position", "View", Kind::kPress, {get_l('P')}, "Write the camera position to the log"),
 
-        Make("chain_insert", "Insert Point", "Chains", Kind::Press, {K(SDL_SCANCODE_INSERT)}, "Insert a point halfway to the next"),
-        Make("chain_extend", "Extend from End", "Chains", Kind::Press, {K(SDL_SCANCODE_END)}, "Continue drawing from an end point"),
-        Make("chain_link", "Link to Point", "Chains", Kind::Press, {L('J')}, "Link this end to the next end clicked"),
-        Make("chain_unlink", "Unlink Point", "Chains", Kind::Press, {L('U')}, "Unlink this point from the next"),
-        Make("chain_finish", "Finish Drawing", "Chains", Kind::Press, {K(SDL_SCANCODE_RETURN)}, "Finish drawing the rail or path"),
+        get_make("chain_insert", "Insert Point", "Chains", Kind::kPress, {get_k(SDL_SCANCODE_INSERT)}, "Insert a point halfway to the next"),
+        get_make("chain_extend", "Extend from End", "Chains", Kind::kPress, {get_k(SDL_SCANCODE_END)}, "Continue drawing from an end point"),
+        get_make("chain_link", "Link to Point", "Chains", Kind::kPress, {get_l('J')}, "Link this end to the next end clicked"),
+        get_make("chain_unlink", "Unlink Point", "Chains", Kind::kPress, {get_l('U')}, "Unlink this point from the next"),
+        get_make("chain_finish", "Finish Drawing", "Chains", Kind::kPress, {get_k(SDL_SCANCODE_RETURN)}, "Finish drawing the rail or path"),
 
         // (UX1 - level_editor_play.h, level_editor_prefs.h, level_editor_camera.h)
-        Make("play", "Play from Here", "Play", Kind::Press, {K(SDL_SCANCODE_F5), L('P', kCtrl)},
+        get_make("play", "Play from Here", "Play", Kind::kPress, {get_k(SDL_SCANCODE_F5), get_l('P', kCtrl)},
              "Skate from the camera position; press again to return"),
-        Make("preferences", "Preferences...", "Panels", Kind::Press, {K(SDL_SCANCODE_COMMA, kCtrl)}, "Editor preferences and keymap"),
-        Make("frame_selection", "Frame Selection", "Camera", Kind::Press, {L('F')}, "Fit the selection in the view"),
+        get_make("preferences", "Preferences...", "Panels", Kind::kPress, {get_k(SDL_SCANCODE_COMMA, kCtrl)}, "Editor preferences and keymap"),
+        get_make("frame_selection", "Frame Selection", "Camera", Kind::kPress, {get_l('F')}, "Fit the selection in the view"),
     };
     for (int i = 1; i <= 9; ++i) {
         std::string n = std::to_string(i);
-        ActStep a = Make(("bookmark_" + n).c_str(), ("Go to Bookmark " + n).c_str(), "Camera", Kind::Press,
-                        {K(SDL_SCANCODE_1 + i - 1)}, "Move the camera to bookmark n");
+        ActStep a = get_make(("bookmark_" + n).c_str(), ("Go to Bookmark " + n).c_str(), "Camera", Kind::kPress,
+                        {get_k(SDL_SCANCODE_1 + i - 1)}, "Move the camera to bookmark n");
         b.push_back(a);
     }
     for (int i = 1; i <= 9; ++i) {
         std::string n = std::to_string(i);
-        ActStep a = Make(("bookmark_store_" + n).c_str(), ("Set Bookmark " + n).c_str(), "Camera", Kind::Press,
-                        {K(SDL_SCANCODE_1 + i - 1, kCtrl)}, "Store the camera as bookmark n");
+        ActStep a = get_make(("bookmark_store_" + n).c_str(), ("Set Bookmark " + n).c_str(), "Camera", Kind::kPress,
+                        {get_k(SDL_SCANCODE_1 + i - 1, kCtrl)}, "Store the camera as bookmark n");
         b.push_back(a);
     }
     for (ActStep& a : b) {
@@ -398,50 +398,50 @@ std::vector<ActStep> Builtins()
             a.tip.replace(at + 9, 1, a.id.substr(a.id.size() - 1));
     }
     std::vector<ActStep> views = {
-        Make("view_top", "Top View", "Camera", Kind::Press, {K(SDL_SCANCODE_KP_7)}, "Orthographic view from above"),
-        Make("view_bottom", "Bottom View", "Camera", Kind::Press, {K(SDL_SCANCODE_KP_7, kCtrl)}, "Orthographic view from below"),
-        Make("view_front", "Front View", "Camera", Kind::Press, {K(SDL_SCANCODE_KP_1)}, "Orthographic view from the front"),
-        Make("view_back", "Back View", "Camera", Kind::Press, {K(SDL_SCANCODE_KP_1, kCtrl)}, "Orthographic view from the back"),
-        Make("view_right", "Right View", "Camera", Kind::Press, {K(SDL_SCANCODE_KP_3)}, "Orthographic view from the right"),
-        Make("view_left", "Left View", "Camera", Kind::Press, {K(SDL_SCANCODE_KP_3, kCtrl)}, "Orthographic view from the left"),
-        Make("view_ortho", "Toggle Perspective / Ortho", "Camera", Kind::Press, {K(SDL_SCANCODE_KP_5)},
+        get_make("view_top", "Top View", "Camera", Kind::kPress, {get_k(SDL_SCANCODE_KP_7)}, "Orthographic view from above"),
+        get_make("view_bottom", "Bottom View", "Camera", Kind::kPress, {get_k(SDL_SCANCODE_KP_7, kCtrl)}, "Orthographic view from below"),
+        get_make("view_front", "Front View", "Camera", Kind::kPress, {get_k(SDL_SCANCODE_KP_1)}, "Orthographic view from the front"),
+        get_make("view_back", "Back View", "Camera", Kind::kPress, {get_k(SDL_SCANCODE_KP_1, kCtrl)}, "Orthographic view from the back"),
+        get_make("view_right", "Right View", "Camera", Kind::kPress, {get_k(SDL_SCANCODE_KP_3)}, "Orthographic view from the right"),
+        get_make("view_left", "Left View", "Camera", Kind::kPress, {get_k(SDL_SCANCODE_KP_3, kCtrl)}, "Orthographic view from the left"),
+        get_make("view_ortho", "Toggle Perspective / Ortho", "Camera", Kind::kPress, {get_k(SDL_SCANCODE_KP_5)},
              "Switch between perspective and orthographic"),
     };
     b.insert(b.end(), views.begin(), views.end());
     // (UX2 - level_editor_transform.h)
     std::vector<ActStep> tools = {
-        Make("tool_move", "Move Tool", "Transform", Kind::Press, {L('W')}, "Move the selection with the gizmo"),
-        Make("tool_rotate", "Rotate Tool", "Transform", Kind::Press, {L('E')}, "Rotate the selection with the gizmo"),
-        Make("tool_scale", "Scale Tool", "Transform", Kind::Press, {L('R')}, "Scale the selection with the gizmo"),
-        Make("tool_cycle", "Next Tool", "Transform", Kind::Press, {K(SDL_SCANCODE_SPACE)}, "Cycle Move, Rotate and Scale"),
-        Make("tool_space", "Toggle World / Local", "Transform", Kind::Press, {K(SDL_SCANCODE_GRAVE)},
+        get_make("tool_move", "Move Tool", "Transform", Kind::kPress, {get_l('W')}, "Move the selection with the gizmo"),
+        get_make("tool_rotate", "Rotate Tool", "Transform", Kind::kPress, {get_l('E')}, "Rotate the selection with the gizmo"),
+        get_make("tool_scale", "Scale Tool", "Transform", Kind::kPress, {get_l('R')}, "Scale the selection with the gizmo"),
+        get_make("tool_cycle", "Next Tool", "Transform", Kind::kPress, {get_k(SDL_SCANCODE_SPACE)}, "Cycle Move, Rotate and Scale"),
+        get_make("tool_space", "Toggle World / Local", "Transform", Kind::kPress, {get_k(SDL_SCANCODE_GRAVE)},
              "Switch the gizmo between world and local axes"),
-        Make("modal_transform", "Modal Transform", "Transform", Kind::Press, {L('G', kAlt)},
+        get_make("modal_transform", "Modal Transform", "Transform", Kind::kPress, {get_l('G', kAlt)},
              "Transform with the mouse released; X/Y/Z constrain, click or Enter applies"),
-        Make("repeat_duplicate", "Repeat Duplicate", "Edit", Kind::Press, {L('D', kCtrl | kShift)},
+        get_make("repeat_duplicate", "Repeat Duplicate", "Edit", Kind::kPress, {get_l('D', kCtrl | kShift)},
              "Duplicate again with the same offset"),
-        Make("nudge_forward", "Nudge Forward", "Transform", Kind::Hold, {K(SDL_SCANCODE_UP)}, "Move the selection forward"),
-        Make("nudge_back", "Nudge Back", "Transform", Kind::Hold, {K(SDL_SCANCODE_DOWN)}, "Move the selection back"),
-        Make("nudge_left", "Nudge Left", "Transform", Kind::Hold, {K(SDL_SCANCODE_LEFT)}, "Move the selection left"),
-        Make("nudge_right", "Nudge Right", "Transform", Kind::Hold, {K(SDL_SCANCODE_RIGHT)}, "Move the selection right"),
+        get_make("nudge_forward", "Nudge Forward", "Transform", Kind::kHold, {get_k(SDL_SCANCODE_UP)}, "Move the selection forward"),
+        get_make("nudge_back", "Nudge Back", "Transform", Kind::kHold, {get_k(SDL_SCANCODE_DOWN)}, "Move the selection back"),
+        get_make("nudge_left", "Nudge Left", "Transform", Kind::kHold, {get_k(SDL_SCANCODE_LEFT)}, "Move the selection left"),
+        get_make("nudge_right", "Nudge Right", "Transform", Kind::kHold, {get_k(SDL_SCANCODE_RIGHT)}, "Move the selection right"),
     };
     b.insert(b.end(), tools.begin(), tools.end());
     // (UX4 / UX5)
     std::vector<ActStep> views2 = {
-        Make("view_mode_lit", "Lit", "View", Kind::Press, {K(SDL_SCANCODE_1, kAlt)}, "View mode: as in play"),
-        Make("view_mode_unlit", "Unlit", "View", Kind::Press, {K(SDL_SCANCODE_2, kAlt)}, "View mode: textures without lighting"),
-        Make("view_mode_wireframe", "Wireframe", "View", Kind::Press, {K(SDL_SCANCODE_3, kAlt)}, "View mode: edges only"),
-        Make("view_mode_collision", "Collision Only", "View", Kind::Press, {K(SDL_SCANCODE_4, kAlt)},
+        get_make("view_mode_lit", "Lit", "View", Kind::kPress, {get_k(SDL_SCANCODE_1, kAlt)}, "View mode: as in play"),
+        get_make("view_mode_unlit", "Unlit", "View", Kind::kPress, {get_k(SDL_SCANCODE_2, kAlt)}, "View mode: textures without lighting"),
+        get_make("view_mode_wireframe", "Wireframe", "View", Kind::kPress, {get_k(SDL_SCANCODE_3, kAlt)}, "View mode: edges only"),
+        get_make("view_mode_collision", "Collision Only", "View", Kind::kPress, {get_k(SDL_SCANCODE_4, kAlt)},
              "View mode: collision only"),
-        Make("jump_arcs", "Jump Arcs", "View", Kind::Press, {L('Y')},
+        get_make("jump_arcs", "Jump Arcs", "View", Kind::kPress, {get_l('Y')},
              "Show launch arcs from the selected ramp"),
-        Make("ruler", "Ruler", "View", Kind::Press, {L('M')}, "Measure between two points"),
-        Make("ruler_clear", "Clear Ruler", "View", Kind::Press, {L('M', kShift)}, "Clear the measurement"),
-        Make("problems", "Problems", "Panels", Kind::Press, {L('P', kAlt)}, "Show level problems and budget"),
+        get_make("ruler", "Ruler", "View", Kind::kPress, {get_l('M')}, "Measure between two points"),
+        get_make("ruler_clear", "Clear Ruler", "View", Kind::kPress, {get_l('M', kShift)}, "Clear the measurement"),
+        get_make("problems", "Problems", "Panels", Kind::kPress, {get_l('P', kAlt)}, "Show level problems and budget"),
         // (UX6 - level_editor_playtest.h)
-        Make("simulate", "Simulate", "Play", Kind::Press, {K(SDL_SCANCODE_F6)},
+        get_make("simulate", "Simulate", "Play", Kind::kPress, {get_k(SDL_SCANCODE_F6)},
              "Run the world with the skater frozen; press again to stop"),
-        Make("trail_window", "Trails", "Panels", Kind::Press, {K(SDL_SCANCODE_F7)},
+        get_make("trail_window", "Trails", "Panels", Kind::kPress, {get_k(SDL_SCANCODE_F7)},
              "Show trails and gaps from test runs"),
     };
     b.insert(b.end(), views2.begin(), views2.end());
@@ -472,21 +472,21 @@ std::vector<ActStep> Builtins()
         {"hint_outliner", "Outliner", "Panels", "Click, double-click", "Select; double-click to focus"},
     };
     for (const Hint& h : kHints) {
-        ActStep a = Make(h.id, h.name, h.category, Kind::DetailsOf, {}, h.tip);
-        a.keysText = h.keys;
+        ActStep a = get_make(h.id, h.name, h.category, Kind::kDetailsOf, {}, h.tip);
+        a.keys_text_ = h.keys;
         a.rebindable = false;
         b.push_back(a);
     }
     return b;
 }
 
-std::vector<ActStep>& Registry()
+std::vector<ActStep>& get_registry()
 {
-    static std::vector<ActStep> registry = Builtins();
+    static std::vector<ActStep> registry = builtins();
     static bool loaded = false;
     if (!loaded) {
         loaded = true;
-        LoadKeys();
+        load_keys();
     }
     return registry;
 }
@@ -494,11 +494,11 @@ std::vector<ActStep>& Registry()
 // The keymap's frame: the keys down last frame, the actions fired this frame, those triggered for the next.
 uint8_t g_was[SDL_NUM_SCANCODES];
 std::vector<bool> g_fired, g_triggered;
-int g_capture = -1, g_captureSlot = 0;
+int g_capture = -1, g_capture_slot = 0;
 
-std::string IniPath() { return GameFolderPath("thug2-decomp.ini"); }
+std::string ini_path() { return game_folder_path("thug2-decomp.ini"); }
 
-uint8_t HeldMods(const uint8_t* keys)
+uint8_t held_mods(const uint8_t* keys)
 {
     uint8_t held = 0;
     if (keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL])
@@ -510,33 +510,33 @@ uint8_t HeldMods(const uint8_t* keys)
     return held;
 }
 
-bool IsModifier(int scancode)
+bool is_modifier(int scancode)
 {
     return scancode == SDL_SCANCODE_LCTRL || scancode == SDL_SCANCODE_RCTRL || scancode == SDL_SCANCODE_LSHIFT ||
            scancode == SDL_SCANCODE_RSHIFT || scancode == SDL_SCANCODE_LALT || scancode == SDL_SCANCODE_RALT ||
            scancode == SDL_SCANCODE_LGUI || scancode == SDL_SCANCODE_RGUI;
 }
 
-void SaveKeys(const ActStep& a)
+void save_keys(const ActStep& a)
 {
-    bool asDefault = a.keys == a.defaults;
-    WritePrivateProfileStringA("editor_keys", a.id.c_str(), asDefault ? nullptr : FormatKeys(a.keys).c_str(),
-                               IniPath().c_str());
+    bool as_default = a.keys == a.defaults;
+    WritePrivateProfileStringA("editor_keys", a.id.c_str(), as_default ? nullptr : format_keys(a.keys).c_str(),
+                               ini_path().c_str());
 }
 
 } // namespace
 
-const std::vector<ActStep>& All() { return Registry(); }
+const std::vector<ActStep>& get_all() { return get_registry(); }
 
-ActStep* Pull(int index)
+ActStep* get_pull(int index)
 {
-    std::vector<ActStep>& r = Registry();
+    std::vector<ActStep>& r = get_registry();
     return index >= 0 && index < static_cast<int>(r.size()) ? &r[index] : nullptr;
 }
 
-int Find(const std::string& id)
+int get_find(const std::string& id)
 {
-    const std::vector<ActStep>& r = Registry();
+    const std::vector<ActStep>& r = get_registry();
     for (int i = 0; i < static_cast<int>(r.size()); ++i) {
         if (r[i].id == id)
             return i;
@@ -544,10 +544,10 @@ int Find(const std::string& id)
     return -1;
 }
 
-int Enrol(const ActStep& action)
+int enrol(const ActStep& action)
 {
-    std::vector<ActStep>& r = Registry();
-    int at = Find(action.id);
+    std::vector<ActStep>& r = get_registry();
+    int at = get_find(action.id);
     if (at >= 0) {
         std::vector<Chord> keys = r[at].keys;
         r[at] = action;
@@ -557,51 +557,51 @@ int Enrol(const ActStep& action)
     r.push_back(action);
     // (its keys from the ini, as the built-ins')
     char text[160] = "";
-    GetPrivateProfileStringA("editor_keys", action.id.c_str(), "", text, sizeof(text), IniPath().c_str());
+    GetPrivateProfileStringA("editor_keys", action.id.c_str(), "", text, sizeof(text), ini_path().c_str());
     std::vector<Chord> keys;
-    if (text[0] && ParseKeys(text, &keys))
+    if (text[0] && parse_keys(text, &keys))
         r.back().keys = keys;
     return static_cast<int>(r.size()) - 1;
 }
 
-void SetRun(int index, std::function<void()> run)
+void set_run(int index, std::function<void()> run)
 {
-    if (ActStep* a = Pull(index))
+    if (ActStep* a = get_pull(index))
         a->run = std::move(run);
 }
-void SetEnabled(int index, std::function<bool()> enabled)
+void set_enabled(int index, std::function<bool()> enabled)
 {
-    if (ActStep* a = Pull(index))
+    if (ActStep* a = get_pull(index))
         a->enabled = std::move(enabled);
 }
-void SetChecked(int index, std::function<int()> checked)
+void set_checked(int index, std::function<int()> checked)
 {
-    if (ActStep* a = Pull(index))
+    if (ActStep* a = get_pull(index))
         a->checked = std::move(checked);
 }
 
-bool IsSwitchedOn(int index)
+bool is_switched_on(int index)
 {
-    const ActStep* a = Pull(index);
-    return a && a->kind != Kind::DetailsOf && (!a->enabled || a->enabled());
+    const ActStep* a = get_pull(index);
+    return a && a->kind != Kind::kDetailsOf && (!a->enabled || a->enabled());
 }
 
-int Checked(int index)
+int get_checked(int index)
 {
-    const ActStep* a = Pull(index);
+    const ActStep* a = get_pull(index);
     return a && a->checked ? a->checked() : -1;
 }
 
-std::string KeysText(int index)
+std::string get_keys_text(int index)
 {
-    const ActStep* a = Pull(index);
+    const ActStep* a = get_pull(index);
     if (!a)
         return "";
-    if (a->kind == Kind::DetailsOf)
-        return a->keysText;
+    if (a->kind == Kind::kDetailsOf)
+        return a->keys_text_;
     std::string text;
     for (const Chord& c : a->keys) {
-        std::string one = FormatChord(c);
+        std::string one = format_chord(c);
         if (one.empty())
             continue;
         if (!text.empty())
@@ -611,23 +611,23 @@ std::string KeysText(int index)
     return text;
 }
 
-std::vector<int> Conflicts(int index)
+std::vector<int> conflicts(int index)
 {
     std::vector<int> out;
-    const ActStep* a = Pull(index);
+    const ActStep* a = get_pull(index);
     if (!a)
         return out;
-    const std::vector<ActStep>& r = Registry();
+    const std::vector<ActStep>& r = get_registry();
     for (int i = 0; i < static_cast<int>(r.size()); ++i) {
-        if (i == index || r[i].kind == Kind::DetailsOf)
+        if (i == index || r[i].kind == Kind::kDetailsOf)
             continue;
         // (a key held and a key pressed may share a key: flying's E and nudging's E are one key in two modes)
-        if ((r[i].kind == Kind::Hold) != (a->kind == Kind::Hold))
+        if ((r[i].kind == Kind::kHold) != (a->kind == Kind::kHold))
             continue;
         bool clash = false;
         for (const Chord& x : a->keys) {
             for (const Chord& y : r[i].keys)
-                clash = clash || SameBinding(x, y);
+                clash = clash || same_binding(x, y);
         }
         if (clash)
             out.push_back(i);
@@ -635,9 +635,9 @@ std::vector<int> Conflicts(int index)
     return out;
 }
 
-void BeginFrame(const uint8_t* keys)
+void begin_frame(const uint8_t* keys)
 {
-    std::vector<ActStep>& r = Registry();
+    std::vector<ActStep>& r = get_registry();
     g_fired.assign(r.size(), false);
     g_triggered.resize(r.size(), false);
     for (size_t i = 0; i < r.size(); ++i) {
@@ -646,110 +646,110 @@ void BeginFrame(const uint8_t* keys)
             g_triggered[i] = false;
         }
     }
-    uint8_t held = HeldMods(keys);
+    uint8_t held = held_mods(keys);
     std::vector<std::vector<Chord>> bound(r.size());
-    bool haveBound = false;
+    bool have_bound = false;
     for (int s = 0; s < SDL_NUM_SCANCODES; ++s) {
         bool pressed = keys[s] && !g_was[s];
         g_was[s] = keys[s];
-        if (!pressed || IsModifier(s))
+        if (!pressed || is_modifier(s))
             continue;
         if (g_capture >= 0) {
             // (the key being captured: Escape cancels)
             if (s != SDL_SCANCODE_ESCAPE) {
-                if (ActStep* a = Pull(g_capture)) {
+                if (ActStep* a = get_pull(g_capture)) {
                     std::vector<Chord> next = a->keys;
                     Chord chord = {s, held};
-                    if (!*KeyName(s)) {
-                        Log("level editor: key %d can't be bound (not one the keymap names)", s);
+                    if (!*get_key_name(s)) {
+                        get_log("level editor: key %d can't be bound (not one the keymap names)", s);
                     } else {
-                        if (g_captureSlot < static_cast<int>(next.size()))
-                            next[g_captureSlot] = chord;
+                        if (g_capture_slot < static_cast<int>(next.size()))
+                            next[g_capture_slot] = chord;
                         else
                             next.push_back(chord);
-                        SetKeys(g_capture, next);
+                        set_keys(g_capture, next);
                     }
                 }
             }
             g_capture = -1;
             continue;
         }
-        if (!haveBound) {
+        if (!have_bound) {
             for (size_t i = 0; i < r.size(); ++i) {
-                if (r[i].kind == Kind::Press || r[i].kind == Kind::FlipOver)
+                if (r[i].kind == Kind::kPress || r[i].kind == Kind::kFlipOver)
                     bound[i] = r[i].keys;
             }
-            haveBound = true;
+            have_bound = true;
         }
-        for (int i : SettleUp(bound, s, held))
+        for (int i : settle_up(bound, s, held))
             g_fired[i] = true;
     }
 }
 
-void SeedKeys(const uint8_t* keys)
+void seed_keys(const uint8_t* keys)
 {
     std::memcpy(g_was, keys, sizeof(g_was));
     g_triggered.assign(g_triggered.size(), false);
 }
 
-bool Squeezed(int index) { return index >= 0 && index < static_cast<int>(g_fired.size()) && g_fired[index]; }
+bool squeezed(int index) { return index >= 0 && index < static_cast<int>(g_fired.size()) && g_fired[index]; }
 
-bool Held(const uint8_t* keys, int index)
+bool get_held(const uint8_t* keys, int index)
 {
-    const ActStep* a = Pull(index);
+    const ActStep* a = get_pull(index);
     if (!a || g_capture >= 0)
         return false;
-    uint8_t held = HeldMods(keys);
+    uint8_t held = held_mods(keys);
     for (const Chord& c : a->keys) {
-        if (c.scancode > 0 && c.scancode < SDL_NUM_SCANCODES && HoldMatches(c, keys[c.scancode] != 0, held))
+        if (c.scancode > 0 && c.scancode < SDL_NUM_SCANCODES && hold_matches(c, keys[c.scancode] != 0, held))
             return true;
     }
     return false;
 }
 
-void FireOff(int index)
+void fire_off(int index)
 {
-    std::vector<ActStep>& r = Registry();
+    std::vector<ActStep>& r = get_registry();
     if (index < 0 || index >= static_cast<int>(r.size()))
         return;
     g_triggered.resize(r.size(), false);
     g_triggered[index] = true;
 }
 
-void Run(int index)
+void get_run(int index)
 {
-    ActStep* a = Pull(index);
-    if (!a || !IsSwitchedOn(index))
+    ActStep* a = get_pull(index);
+    if (!a || !is_switched_on(index))
         return;
     if (a->run)
         a->run();
     else
-        FireOff(index);
+        fire_off(index);
 }
 
-void SetKeys(int index, const std::vector<Chord>& keys)
+void set_keys(int index, const std::vector<Chord>& keys)
 {
-    ActStep* a = Pull(index);
+    ActStep* a = get_pull(index);
     if (!a || !a->rebindable)
         return;
     a->keys = keys;
-    SaveKeys(*a);
-    Log("level editor: %s bound to %s", a->id.c_str(), FormatKeys(keys).c_str());
+    save_keys(*a);
+    get_log("level editor: %s bound to %s", a->id.c_str(), format_keys(keys).c_str());
 }
 
-void ResetKeys(int index)
+void reset_keys(int index)
 {
-    ActStep* a = Pull(index);
+    ActStep* a = get_pull(index);
     if (!a)
         return;
     a->keys = a->defaults;
-    SaveKeys(*a);
+    save_keys(*a);
 }
 
-void LoadKeys()
+void load_keys()
 {
-    std::vector<ActStep>& r = Registry();
-    std::string path = IniPath();
+    std::vector<ActStep>& r = get_registry();
+    std::string path = ini_path();
     for (ActStep& a : r) {
         if (!a.rebindable)
             continue;
@@ -758,20 +758,20 @@ void LoadKeys()
         if (!text[0])
             continue;
         std::vector<Chord> keys;
-        if (ParseKeys(text, &keys))
+        if (parse_keys(text, &keys))
             a.keys = keys;
         else
-            Log("level editor: [editor_keys] %s=%s isn't a key list - the default kept", a.id.c_str(), text);
+            get_log("level editor: [editor_keys] %s=%s isn't a key list - the default kept", a.id.c_str(), text);
     }
 }
 
-void BeginCapture(int index, int slot)
+void begin_capture(int index, int slot)
 {
-    g_capture = Pull(index) && Pull(index)->rebindable ? index : -1;
-    g_captureSlot = slot;
+    g_capture = get_pull(index) && get_pull(index)->rebindable ? index : -1;
+    g_capture_slot = slot;
 }
-void CancelCapture() { g_capture = -1; }
-bool Capturing() { return g_capture >= 0; }
-int CapturingIndex() { return g_capture; }
+void cancel_capture() { g_capture = -1; }
+bool get_capturing() { return g_capture >= 0; }
+int capturing_index() { return g_capture; }
 
-} // namespace MenuSystem::LevelEditor::Actions
+} // namespace MenuSystem::level_editor::Actions

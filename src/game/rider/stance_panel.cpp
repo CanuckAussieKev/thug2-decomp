@@ -1,4 +1,4 @@
-// The skater's stance panel component (GameObjects::CRiderStanceDisplay): see stance_panel.h.
+// The skater's stance panel component (GameObjects::RiderStanceDisplay): see stance_panel.h.
 
 #include "game/rider/stance_panel.h"
 
@@ -17,9 +17,9 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace GameObjects {
+namespace objects {
 
-uint32_t g_stanceTextures[5]{0x33A15296, 0xBE91F3B6, 0x9F9D3907, 0xB793EF40, 0x4E304FA1};
+uint32_t g_stance_textures[5]{0x33A15296, 0xBE91F3B6, 0x9F9D3907, 0xB793EF40, 0x4E304FA1};
 
 namespace {
 
@@ -33,118 +33,118 @@ constexpr uint32_t kPanelIdOffset = 0x69751A23; // the panel's element id: below
 constexpr int kHidden = 5;
 
 // The stances' textures (0x0064C12C).
-const uint32_t* StanceTextures() { return g_stanceTextures; }
+const uint32_t* stance_textures() { return g_stance_textures; }
 
 } // namespace
 
 // 0x005193B0
-CObjectModule* __cdecl CRiderStanceDisplay::Fabricate()
+ObjectModule* __cdecl RiderStanceDisplay::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CRiderStanceDisplay));
+    void* memory = memory::alloc_zeroed(sizeof(RiderStanceDisplay));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CRiderStanceDisplay*>(memory);
-    component->CObjectModule::MakeNew();
-    component->m_vtable = kVtable;
-    component->m_kindTag = kSkaterStancePanel;
-    component->m_corePhysics = nullptr;
+    auto* component = static_cast<RiderStanceDisplay*>(memory);
+    component->ObjectModule::make_new();
+    component->vtable_ = kVtable;
+    component->kind_tag_ = kSkaterStancePanel;
+    component->core_physics_ = nullptr;
     return component;
 }
 
 // 0x00519130
-void CRiderStanceDisplay::DestroyBody()
+void RiderStanceDisplay::destroy_body()
 {
-    m_vtable = kVtable;
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    ObjectModule::destroy_body();
 }
 
 // 0x005191E0
-CRiderStanceDisplay* CRiderStanceDisplay::Teardown(unsigned int flags)
+RiderStanceDisplay* RiderStanceDisplay::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00519140
-void CRiderStanceDisplay::ConfigureFromData(Scripts::CStruct* /*params*/) { m_shown = -1; }
+void RiderStanceDisplay::configure_from_data(script::Struct* /*params*/) { shown_ = -1; }
 
 // 0x00519210
-void CRiderStanceDisplay::Seal()
+void RiderStanceDisplay::seal()
 {
-    m_corePhysics = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSkaterCorePhysics));
+    core_physics_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterCorePhysics));
 }
 
 // 0x00519150
-int CRiderStanceDisplay::GetStance()
+int RiderStanceDisplay::get_stance()
 {
-    auto* core = reinterpret_cast<CObjectModule*>(m_corePhysics);
-    uint8_t flip = *(*reinterpret_cast<uint8_t**>(m_corePhysics + 0x1528) + 0x28);
-    bool reversed = reinterpret_cast<uint8_t*>(core->m_entity)[0x110] != 0;
+    auto* core = reinterpret_cast<ObjectModule*>(core_physics_);
+    uint8_t flip = *(*reinterpret_cast<uint8_t**>(core_physics_ + 0x1528) + 0x28);
+    bool reversed = reinterpret_cast<uint8_t*>(core->entity_)[0x110] != 0;
     bool flipped = reversed ? flip != 0 : flip == 0;
-    if (m_pressAmount)
+    if (press_amount_)
         return flipped ? 3 : 4;
     if (flipped)
-        return m_nollie ? 1 : 2;
-    return m_nollie ? 0 : kHidden;
+        return nollie_ ? 1 : 2;
+    return nollie_ ? 0 : kHidden;
 }
 
 // 0x00519230
-void CRiderStanceDisplay::TickFrame()
+void RiderStanceDisplay::tick_frame()
 {
-    MenuSystem::CUiWidget* panel;
+    frontend::UiWidget* panel;
     {
-        MenuSystem::ElementPtr found;
-        uint32_t id = static_cast<uint32_t>(static_cast<CRider*>(m_entity)->GetSkaterNumber()) - kPanelIdOffset;
-        MenuSystem::CUiTree::Sole()->FetchPart(&found, id, 0);
-        panel = found.Pull();
+        frontend::ElementPtr found;
+        uint32_t id = static_cast<uint32_t>(static_cast<Rider*>(entity_)->get_skater_number()) - kPanelIdOffset;
+        frontend::UiTree::sole()->fetch_part(&found, id, 0);
+        panel = found.get_pull();
     }
-    int stance = GetStance();
-    if (stance == m_shown)
+    int stance = get_stance();
+    if (stance == shown_)
         return;
-    m_shown = stance;
+    shown_ = stance;
     if (stance == kHidden) {
-        panel->ChangeOpacity(0.0f, 1);
+        panel->change_opacity(0.0f, 1);
         return;
     }
-    static_cast<MenuSystem::CImageWidget*>(panel)->SetTexture(StanceTextures()[stance]);
-    panel->ChangeOpacity(1.0f, 1);
+    static_cast<frontend::ImageWidget*>(panel)->set_texture(stance_textures()[stance]);
+    panel->change_opacity(1.0f, 1);
 }
 
 // 0x005192C0
-int CRiderStanceDisplay::InvokeMethodByName(uint32_t name, Scripts::CStruct* /*params*/,
-                                                    Scripts::CScript* /*script*/)
+int RiderStanceDisplay::invoke_method_by_name(uint32_t name, script::Struct* /*params*/,
+                                                    script::Script* /*script*/)
 {
     switch (name) {
     case kNollieOn:
-        if (!m_nollie) {
-            m_nollie = 1;
-            m_entity->Announce(kSkaterEnterNollie, nullptr, 0.0f);
+        if (!nollie_) {
+            nollie_ = 1;
+            entity_->announce(kSkaterEnterNollie, nullptr, 0.0f);
         }
         return 1;
     case kNollieOff:
-        if (m_nollie == 1) {
-            m_nollie = 0;
-            m_entity->Announce(kSkaterExitNollie, nullptr, 0.0f);
+        if (nollie_ == 1) {
+            nollie_ = 0;
+            entity_->announce(kSkaterExitNollie, nullptr, 0.0f);
         }
         return 1;
     case kInNollie:
-        return m_nollie ? 1 : 0;
+        return nollie_ ? 1 : 0;
     case kPressureOn:
-        if (!m_pressAmount) {
-            m_pressAmount = 1;
-            m_entity->Announce(kSkaterEnterPressure, nullptr, 0.0f);
+        if (!press_amount_) {
+            press_amount_ = 1;
+            entity_->announce(kSkaterEnterPressure, nullptr, 0.0f);
         }
         return 1;
     case kPressureOff:
-        if (m_pressAmount == 1) {
-            m_pressAmount = 0;
-            m_entity->Announce(kSkaterExitPressure, nullptr, 0.0f);
+        if (press_amount_ == 1) {
+            press_amount_ = 0;
+            entity_->announce(kSkaterExitPressure, nullptr, 0.0f);
         }
         return 1;
     case kInPressure:
-        return m_pressAmount ? 1 : 0;
+        return press_amount_ ? 1 : 0;
     default:
         return 2;
     }
@@ -152,23 +152,23 @@ int CRiderStanceDisplay::InvokeMethodByName(uint32_t name, Scripts::CStruct* /*p
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CRiderStanceDisplay::Teardown,
-         &GameObjects::CRiderStanceDisplay::TickFrame,
-         &GameObjects::CRiderStanceDisplay::ConfigureFromData,
-         &GameObjects::CRiderStanceDisplay::Seal,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
-         &GameObjects::CRiderStanceDisplay::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::RiderStanceDisplay::teardown,
+         &objects::RiderStanceDisplay::tick_frame,
+         &objects::RiderStanceDisplay::configure_from_data,
+         &objects::RiderStanceDisplay::seal,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
+         &objects::RiderStanceDisplay::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

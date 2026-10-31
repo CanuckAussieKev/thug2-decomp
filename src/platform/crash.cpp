@@ -25,32 +25,32 @@
 namespace {
 
 bool g_console = false;
-void (*g_crashHook)() = nullptr;
+void (*g_crash_hook)() = nullptr;
 
 // The exception the vectored logger reported last (the unhandled filter doesn't report it twice).
-const EXCEPTION_RECORD* g_reportedRecord = nullptr;
-uintptr_t g_reportedAddress = 0;
+const EXCEPTION_RECORD* g_reported_record = nullptr;
+uintptr_t g_reported_address = 0;
 
-void RunCrashHook()
+void run_crash_hook()
 {
-    if (g_crashHook)
-        g_crashHook();
+    if (g_crash_hook)
+        g_crash_hook();
 }
 
 // The end of every fatal report: the crash hook, the exit code logged, the process ended. A second thread that
 // breaks meanwhile waits for the end.
 } // namespace
 
-[[noreturn]] void CrashEndProcess(unsigned exitCode)
+[[noreturn]] void crash_end_process(unsigned exit_code)
 {
     static std::atomic<long> ending{0};
     if (ending.exchange(1))
         for (;;)
             Sleep(INFINITE);
-    RunCrashHook();
-    Log("  the process ends (exit code %u = 0x%08X)", exitCode, exitCode);
+    run_crash_hook();
+    get_log("  the process ends (exit code %u = 0x%08X)", exit_code, exit_code);
     std::fflush(stdout);
-    TerminateProcess(GetCurrentProcess(), exitCode);
+    TerminateProcess(GetCurrentProcess(), exit_code);
     for (;;)
         Sleep(INFINITE);
 }
@@ -58,7 +58,7 @@ void RunCrashHook()
 namespace {
 
 // The module an address is in (its file name only) and the address relative to it; false if in none.
-bool ModuleOf(uintptr_t address, char (&name)[MAX_PATH], uintptr_t* offset)
+bool module_of(uintptr_t address, char (&name)[MAX_PATH], uintptr_t* offset)
 {
     HMODULE module = nullptr;
     if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
@@ -72,7 +72,7 @@ bool ModuleOf(uintptr_t address, char (&name)[MAX_PATH], uintptr_t* offset)
     return true;
 }
 
-bool Readable(uintptr_t address, size_t size, bool code)
+bool readable(uintptr_t address, size_t size, bool code)
 {
     MEMORY_BASIC_INFORMATION info;
     if (!VirtualQuery(reinterpret_cast<void*>(address), &info, sizeof(info)) || info.State != MEM_COMMIT)
@@ -85,9 +85,9 @@ bool Readable(uintptr_t address, size_t size, bool code)
 }
 
 // Whether `address` follows a CALL instruction (E8 rel32, FF /2 with a 0-, 1- or 4-byte displacement or SIB).
-bool AfterCall(uintptr_t address)
+bool after_call(uintptr_t address)
 {
-    if (!Readable(address - 7, 7, true))
+    if (!readable(address - 7, 7, true))
         return false;
     const uint8_t* p = reinterpret_cast<const uint8_t*>(address);
     if (p[-5] == 0xE8)
@@ -103,19 +103,19 @@ bool AfterCall(uintptr_t address)
 // frame chain; some may be stale).
 } // namespace
 
-void CrashLogStackScan(uintptr_t esp)
+void crash_log_stack_scan(uintptr_t esp)
 {
-    Log("  return addresses on the stack (newest first):");
+    get_log("  return addresses on the stack (newest first):");
     char name[MAX_PATH] = "?";
     uintptr_t offset = 0;
     int found = 0;
     for (uintptr_t slot = esp; found < 24 && slot < esp + 0x2000; slot += 4) {
-        if (!Readable(slot, 4, false))
+        if (!readable(slot, 4, false))
             break;
         uintptr_t value = *reinterpret_cast<const uint32_t*>(slot);
-        if (!AfterCall(value) || !ModuleOf(value, name, &offset))
+        if (!after_call(value) || !module_of(value, name, &offset))
             continue;
-        Log("    [esp+0x%X] %s+0x%X (%08X)", static_cast<unsigned>(slot - esp), name, static_cast<unsigned>(offset),
+        get_log("    [esp+0x%X] %s+0x%X (%08X)", static_cast<unsigned>(slot - esp), name, static_cast<unsigned>(offset),
             static_cast<unsigned>(value));
         ++found;
     }
@@ -125,63 +125,63 @@ namespace {
 
 // The calls that led here (a frame walk: fine for our Debug build's code): addresses in our DLL relative to it, the
 // game's as they are.
-void LogBacktrace()
+void log_backtrace()
 {
     void* frames[24];
     USHORT count = CaptureStackBackTrace(2, 24, frames, nullptr);
     for (USHORT i = 0; i < count; ++i) {
         char name[MAX_PATH] = "?";
         uintptr_t offset = reinterpret_cast<uintptr_t>(frames[i]);
-        ModuleOf(reinterpret_cast<uintptr_t>(frames[i]), name, &offset);
-        Log("    at %s+0x%X (%p)", name, static_cast<unsigned>(offset), frames[i]);
+        module_of(reinterpret_cast<uintptr_t>(frames[i]), name, &offset);
+        get_log("    at %s+0x%X (%p)", name, static_cast<unsigned>(offset), frames[i]);
     }
 }
 
 // An exception's report: where, the registers, the top of the stack, the return addresses on it.
-void ReportException(const EXCEPTION_POINTERS* info, const char* note)
+void report_exception(const EXCEPTION_POINTERS* info, const char* note)
 {
     const CONTEXT* c = info->ContextRecord;
     DWORD code = info->ExceptionRecord->ExceptionCode;
     char name[MAX_PATH] = "?";
     uintptr_t offset = c->Eip;
-    ModuleOf(c->Eip, name, &offset);
-    Log("EXCEPTION 0x%08X at %s+0x%X (%08X) %s", static_cast<unsigned>(code), name, static_cast<unsigned>(offset),
+    module_of(c->Eip, name, &offset);
+    get_log("EXCEPTION 0x%08X at %s+0x%X (%08X) %s", static_cast<unsigned>(code), name, static_cast<unsigned>(offset),
         static_cast<unsigned>(c->Eip), note);
     if (code == EXCEPTION_ACCESS_VIOLATION && info->ExceptionRecord->NumberParameters >= 2)
-        Log("  %s address %08X",
+        get_log("  %s address %08X",
             info->ExceptionRecord->ExceptionInformation[0] == 8   ? "executing"
             : info->ExceptionRecord->ExceptionInformation[0] != 0 ? "writing"
                                                                   : "reading",
             static_cast<unsigned>(info->ExceptionRecord->ExceptionInformation[1]));
-    Log("  EAX %08X EBX %08X ECX %08X EDX %08X ESI %08X EDI %08X EBP %08X ESP %08X",
+    get_log("  EAX %08X EBX %08X ECX %08X EDX %08X ESI %08X EDI %08X EBP %08X ESP %08X",
         static_cast<unsigned>(c->Eax), static_cast<unsigned>(c->Ebx), static_cast<unsigned>(c->Ecx),
         static_cast<unsigned>(c->Edx), static_cast<unsigned>(c->Esi), static_cast<unsigned>(c->Edi),
         static_cast<unsigned>(c->Ebp), static_cast<unsigned>(c->Esp));
     // The top of the stack as it is (arguments, saved registers, locals).
     for (uintptr_t slot = c->Esp; slot < c->Esp + 0x80; slot += 0x20) {
-        if (!Readable(slot, 0x20, false))
+        if (!readable(slot, 0x20, false))
             break;
         const uint32_t* w = reinterpret_cast<const uint32_t*>(slot);
-        Log("  [esp+0x%02X] %08X %08X %08X %08X %08X %08X %08X %08X", static_cast<unsigned>(slot - c->Esp), w[0], w[1],
+        get_log("  [esp+0x%02X] %08X %08X %08X %08X %08X %08X %08X %08X", static_cast<unsigned>(slot - c->Esp), w[0], w[1],
             w[2], w[3], w[4], w[5], w[6], w[7]);
     }
-    CrashLogStackScan(c->Esp);
+    crash_log_stack_scan(c->Esp);
 }
 
 // Crashes (access violations and other fatal exceptions) are logged before Windows ends the game - first chance: an
 // exception the code then handles itself (self-tests' guarded runs) is logged too. At most a few.
-LONG CALLBACK CrashLogger(EXCEPTION_POINTERS* info)
+LONG CALLBACK crash_logger(EXCEPTION_POINTERS* info)
 {
     static int logged = 0;
     DWORD code = info->ExceptionRecord->ExceptionCode;
-    bool anyModule = false;
-    if (!IsFatalException(code, &anyModule))
+    bool any_module = false;
+    if (!is_fatal_exception(code, &any_module))
         return EXCEPTION_CONTINUE_SEARCH;
     // Only in the game or our DLL (system DLLs probe memory under their own handlers: IsBadReadPtr...).
-    if (!anyModule) {
+    if (!any_module) {
         HMODULE ours = nullptr;
         GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                           reinterpret_cast<LPCSTR>(&CrashLogger), &ours);
+                           reinterpret_cast<LPCSTR>(&crash_logger), &ours);
         HMODULE at = nullptr;
         GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                            reinterpret_cast<LPCSTR>(info->ContextRecord->Eip), &at);
@@ -191,74 +191,74 @@ LONG CALLBACK CrashLogger(EXCEPTION_POINTERS* info)
     if (logged >= 4) {
         // (logged enough - but the hook still runs: earlier, handled exceptions mustn't keep a real crash's autosave
         // from being written)
-        RunCrashHook();
+        run_crash_hook();
         return EXCEPTION_CONTINUE_SEARCH;
     }
     ++logged;
-    ReportException(info, "(first chance: if the code handles it, nothing more happens)");
-    g_reportedRecord = info->ExceptionRecord;
-    g_reportedAddress = info->ContextRecord->Eip;
-    // (then whoever asked: the level editor's last action and autosave - SetCrashHook)
-    RunCrashHook();
+    report_exception(info, "(first chance: if the code handles it, nothing more happens)");
+    g_reported_record = info->ExceptionRecord;
+    g_reported_address = info->ContextRecord->Eip;
+    // (then whoever asked: the level editor's last action and autosave - set_crash_hook)
+    run_crash_hook();
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
 // Nothing handled it: the process ends here, before Windows Error Reporting would show its box.
-LONG WINAPI UnhandledFilter(EXCEPTION_POINTERS* info)
+LONG WINAPI unhandled_filter(EXCEPTION_POINTERS* info)
 {
     DWORD code = info->ExceptionRecord->ExceptionCode;
-    if (info->ExceptionRecord != g_reportedRecord || info->ContextRecord->Eip != g_reportedAddress)
-        ReportException(info, "(unhandled)");
-    Log("  unhandled: nothing caught exception 0x%08X", static_cast<unsigned>(code));
-    CrashEndProcess(code);
+    if (info->ExceptionRecord != g_reported_record || info->ContextRecord->Eip != g_reported_address)
+        report_exception(info, "(unhandled)");
+    get_log("  unhandled: nothing caught exception 0x%08X", static_cast<unsigned>(code));
+    crash_end_process(code);
 }
 
-void __cdecl InvalidParameter(const wchar_t* expression, const wchar_t* function, const wchar_t* file,
+void __cdecl invalid_parameter(const wchar_t* expression, const wchar_t* function, const wchar_t* file,
                               unsigned int line, uintptr_t)
 {
     // (a Release CRT passes none of them)
-    Log("INVALID PARAMETER: %ls in %ls (%ls:%u)", expression ? expression : L"?", function ? function : L"?",
+    get_log("INVALID PARAMETER: %ls in %ls (%ls:%u)", expression ? expression : L"?", function ? function : L"?",
         file ? file : L"?", line);
-    LogBacktrace();
-    CrashEndProcess(3);
+    log_backtrace();
+    crash_end_process(3);
 }
 
-void __cdecl PureCall()
+void __cdecl pure_call()
 {
-    Log("PURE VIRTUAL CALL (a call through an object's vtable while it's constructed or after it's destroyed)");
-    LogBacktrace();
-    CrashEndProcess(3);
+    get_log("PURE VIRTUAL CALL (a call through an object's vtable while it's constructed or after it's destroyed)");
+    log_backtrace();
+    crash_end_process(3);
 }
 
-void __cdecl AbortSignal(int)
+void __cdecl abort_signal(int)
 {
-    Log("ABORT (abort() or std::terminate)");
-    LogBacktrace();
-    CrashEndProcess(3);
+    get_log("ABORT (abort() or std::terminate)");
+    log_backtrace();
+    crash_end_process(3);
 }
 
 #ifdef _DEBUG
 // Debug C runtime reports: a warning is logged; an assertion is logged and the code carries on (its dialog's Ignore -
 // on the console it ends the run); an error (heap corruption...) ends the process.
-int __cdecl CrtReportHook(int type, char* message, int* returnValue)
+int __cdecl crt_report_hook(int type, char* message, int* return_value)
 {
     char text[1024];
     strncpy_s(text, message ? message : "", _TRUNCATE);
     for (size_t n = strlen(text); n && (text[n - 1] == '\n' || text[n - 1] == '\r'); --n)
         text[n - 1] = '\0';
-    Log("DEBUG CRT REPORT (type %d): %s", type, text);
+    get_log("DEBUG CRT REPORT (type %d): %s", type, text);
     if (type == _CRT_WARN)
         return TRUE;
-    LogBacktrace();
+    log_backtrace();
     if (g_console || type == _CRT_ERROR)
-        CrashEndProcess(3);
-    if (returnValue)
-        *returnValue = 0; // (no debugger break)
+        crash_end_process(3);
+    if (return_value)
+        *return_value = 0; // (no debugger break)
     return TRUE;
 }
 
 // Run-time check failures (e.g. "ESP was not properly saved across a function call"): logged, the process ends.
-int __cdecl RtcErrorHandler(int type, const wchar_t*, int, const wchar_t*, const wchar_t* format, ...)
+int __cdecl rtc_error_handler(int type, const wchar_t*, int, const wchar_t*, const wchar_t* format, ...)
 {
     wchar_t text[512] = L"";
     va_list args;
@@ -266,19 +266,19 @@ int __cdecl RtcErrorHandler(int type, const wchar_t*, int, const wchar_t*, const
     if (format)
         vswprintf(text, 512, format, args);
     va_end(args);
-    Log("RUN-TIME CHECK FAILURE #%d: %ls", type, text);
-    LogBacktrace();
-    CrashEndProcess(3);
+    get_log("RUN-TIME CHECK FAILURE #%d: %ls", type, text);
+    log_backtrace();
+    crash_end_process(3);
 }
 #endif
 
 #ifdef _DEBUG
-void __stdcall PopsItsArgument(int) {}
+void __stdcall pops_its_argument(int) {}
 // A __stdcall function called as __cdecl: it pops its argument and so does the caller - ESP ends up 4 off, which
 // the /RTCs check after the call reports.
-__declspec(noinline) void CallWithWrongConvention()
+__declspec(noinline) void call_with_wrong_convention()
 {
-    auto call = reinterpret_cast<void(__cdecl*)(int)>(&PopsItsArgument);
+    auto call = reinterpret_cast<void(__cdecl*)(int)>(&pops_its_argument);
     call(1);
 }
 #endif
@@ -288,19 +288,19 @@ struct FaultName {
     const char* name;
 };
 constexpr FaultName kFaultNames[] = {
-    {TestFault::Access, "access"},     {TestFault::RunTimeCheck, "rtc"},     {TestFault::CrtError, "crterror"},
-    {TestFault::InvalidParameter, "invalidparam"}, {TestFault::PureCall, "purecall"}, {TestFault::CancelNow, "abort"},
-    {TestFault::GameOverrun, "overrun"}, {TestFault::GameCrtMessage, "crtbox"}, {TestFault::FastFail, "fastfail"},
-    {TestFault::Hang, "hang"},
+    {TestFault::kAccess, "access"},     {TestFault::kRunTimeCheck, "rtc"},     {TestFault::kCrtError, "crterror"},
+    {TestFault::kInvalidParameter, "invalidparam"}, {TestFault::kPureCall, "purecall"}, {TestFault::kCancelNow, "abort"},
+    {TestFault::kGameOverrun, "overrun"}, {TestFault::kGameCrtMessage, "crtbox"}, {TestFault::kFastFail, "fastfail"},
+    {TestFault::kHang, "hang"},
 };
 
 } // namespace
 
-void SetCrashHook(void (*hook)()) { g_crashHook = hook; }
+void set_crash_hook(void (*hook)()) { g_crash_hook = hook; }
 
-bool IsFatalException(uint32_t code, bool* anyModule)
+bool is_fatal_exception(uint32_t code, bool* any_module)
 {
-    *anyModule = false;
+    *any_module = false;
     switch (code) {
     case EXCEPTION_ACCESS_VIOLATION:
     case EXCEPTION_ILLEGAL_INSTRUCTION:
@@ -314,46 +314,46 @@ bool IsFatalException(uint32_t code, bool* anyModule)
     case 0xC0000374: // STATUS_HEAP_CORRUPTION (ntdll's heap)
     case 0xC0000417: // STATUS_INVALID_CRUNTIME_PARAMETER
     case EXCEPTION_NONCONTINUABLE_EXCEPTION:
-        *anyModule = true;
+        *any_module = true;
         return true;
     default:
         return false;
     }
 }
 
-void InstallCrashHandling(bool console)
+void install_crash_handling(bool console)
 {
     g_console = console;
     // No error boxes: not Windows' "stopped working" (nor "insert a disk", "can't open")...
     SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX);
     // ...nor Windows Error Reporting's UI (its reports queued, not shown).
     using WerSetFlagsFn = HRESULT(WINAPI*)(DWORD);
-    if (auto werSetFlags =
+    if (auto wer_set_flags =
             reinterpret_cast<WerSetFlagsFn>(GetProcAddress(GetModuleHandleA("kernel32.dll"), "WerSetFlags")))
-        werSetFlags(WER_FAULT_REPORTING_FLAG_QUEUE);
+        wer_set_flags(WER_FAULT_REPORTING_FLAG_QUEUE);
     // abort(): no message box, no report - our handler logs it.
     _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
-    signal(SIGABRT, AbortSignal);
-    _set_invalid_parameter_handler(InvalidParameter);
-    _set_purecall_handler(PureCall);
+    signal(SIGABRT, abort_signal);
+    _set_invalid_parameter_handler(invalid_parameter);
+    _set_purecall_handler(pure_call);
 #ifdef _DEBUG
     // Debug CRT reports: our hook decides; whatever gets past it goes to the log / the console, never a window.
     for (int type : {_CRT_WARN, _CRT_ERROR, _CRT_ASSERT}) {
         _CrtSetReportMode(type, _CRTDBG_MODE_FILE);
-        _CrtSetReportFile(type, console ? _CRTDBG_FILE_STDOUT : static_cast<_HFILE>(LogFileHandle()));
+        _CrtSetReportFile(type, console ? _CRTDBG_FILE_STDOUT : static_cast<_HFILE>(log_file_handle()));
     }
-    _CrtSetReportHook2(_CRT_RPTHOOK_INSTALL, CrtReportHook);
-    _RTC_SetErrorFuncW(RtcErrorHandler);
+    _CrtSetReportHook2(_CRT_RPTHOOK_INSTALL, crt_report_hook);
+    _RTC_SetErrorFuncW(rtc_error_handler);
 #endif
     static bool vectored = false;
     if (!vectored) {
-        AddVectoredExceptionHandler(1, CrashLogger);
+        AddVectoredExceptionHandler(1, crash_logger);
         vectored = true;
     }
-    SetUnhandledExceptionFilter(UnhandledFilter);
+    SetUnhandledExceptionFilter(unhandled_filter);
 }
 
-bool ParseTestFault(const std::string& name, TestFault* out)
+bool parse_test_fault(const std::string& name, TestFault* out)
 {
     for (const FaultName& entry : kFaultNames) {
         if (_stricmp(name.c_str(), entry.name) == 0) {
@@ -364,7 +364,7 @@ bool ParseTestFault(const std::string& name, TestFault* out)
     return false;
 }
 
-const char* TestFaultName(TestFault fault)
+const char* test_fault_name(TestFault fault)
 {
     for (const FaultName& entry : kFaultNames)
         if (entry.fault == fault)
@@ -372,52 +372,52 @@ const char* TestFaultName(TestFault fault)
     return "?";
 }
 
-const char* TestFaultNames() { return "access rtc crterror invalidparam purecall abort overrun crtbox fastfail hang"; }
+const char* test_fault_names() { return "access rtc crterror invalidparam purecall abort overrun crtbox fastfail hang"; }
 
-bool CauseTestFault(TestFault fault)
+bool cause_test_fault(TestFault fault)
 {
-    Log("crash test: %s", TestFaultName(fault));
+    get_log("crash test: %s", test_fault_name(fault));
     switch (fault) {
-    case TestFault::Access:
+    case TestFault::kAccess:
         *static_cast<volatile int*>(nullptr) = 1;
         break;
-    case TestFault::RunTimeCheck:
+    case TestFault::kRunTimeCheck:
 #ifdef _DEBUG
-        CallWithWrongConvention();
+        call_with_wrong_convention();
         break;
 #else
         return false;
 #endif
-    case TestFault::CrtError:
+    case TestFault::kCrtError:
 #ifdef _DEBUG
         _RPT0(_CRT_ERROR, "crash test: a Debug CRT error report");
         break;
 #else
         return false;
 #endif
-    case TestFault::InvalidParameter:
+    case TestFault::kInvalidParameter:
         _invalid_parameter_noinfo();
         break;
-    case TestFault::PureCall:
+    case TestFault::kPureCall:
         _purecall();
         break;
-    case TestFault::CancelNow:
+    case TestFault::kCancelNow:
         abort();
-    case TestFault::GameOverrun:
-    case TestFault::GameCrtMessage:
-        if (!CauseGameCrtFault(fault))
+    case TestFault::kGameOverrun:
+    case TestFault::kGameCrtMessage:
+        if (!cause_game_crt_fault(fault))
             return false;
         break;
-    case TestFault::FastFail:
+    case TestFault::kFastFail:
         __fastfail(2); // FAST_FAIL_STACK_COOKIE_CHECK_FAILURE
-    case TestFault::Hang:
+    case TestFault::kHang:
         for (;;)
             Sleep(1000);
     }
     // (a handler returned: nothing ended the process)
-    Log("crash test: %s - still running after it", TestFaultName(fault));
+    get_log("crash test: %s - still running after it", test_fault_name(fault));
     return true;
 }
 
 // (no original C runtime to point at ours)
-bool CauseGameCrtFault(TestFault) { return false; }
+bool cause_game_crt_fault(TestFault) { return false; }

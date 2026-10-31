@@ -1,4 +1,4 @@
-// The engine's scene (Engine3D::CWorldScene): its members of 0x0049C910-0x0049D18E (see engine_scene.h), and two destructors of
+// The engine's scene (render::WorldScene): its members of 0x0049C910-0x0049D18E (see engine_scene.h), and two destructors of
 // the collision it keeps (the grid's body, the static collision objects' deleting destructor). 0x0049CAF0 isn't a
 // Ghidra function.
 
@@ -28,7 +28,7 @@
 #include "engine/render/coll_obj.h"
 #include "engine/core/stubs.h"
 
-namespace Engine3D {
+namespace render {
 
 namespace {
 
@@ -44,28 +44,28 @@ R Virtual(void* object, int slot, A... args)
 
 // The engine's sector (not rewritten here; thiscall): its flags (+8) read / set / cleared, its name (+4 - the folded
 // getter 0x005480C0), its box, drawn and collided with or not.
-uint32_t SectorAttributeBits(void* sector) { return static_cast<CWorldCell*>(sector)->FetchBits(); }
-void ApplySectorBits(void* sector, uint32_t flags)
+uint32_t sector_attribute_bits(void* sector) { return static_cast<WorldCell*>(sector)->fetch_bits(); }
+void apply_sector_bits(void* sector, uint32_t flags)
 {
-    static_cast<CWorldCell*>(sector)->ChangeBits(flags);
+    static_cast<WorldCell*>(sector)->change_bits(flags);
 }
-void ResetSectorBits(void* sector, uint32_t flags)
+void reset_sector_bits(void* sector, uint32_t flags)
 {
-    static_cast<CWorldCell*>(sector)->ClearFlags(flags);
+    static_cast<WorldCell*>(sector)->clear_flags(flags);
 }
-uint32_t SectorKeyFromSpec(void* sector) { return static_cast<OnlinePlay::FoldedGetters*>(sector)->Word04(); }
-const Maths::BBox* SectorBox(void* sector)
+uint32_t sector_key_from_spec(void* sector) { return static_cast<online::FoldedGetters*>(sector)->word04(); }
+const maths::BBox* sector_box(void* sector)
 {
-    return static_cast<CWorldCell*>(sector)->FetchBounds();
+    return static_cast<WorldCell*>(sector)->fetch_bounds();
 }
 // (0x0049E9B0 tests the argument's low byte only)
-void EnableSector(void* sector, uint32_t on) { static_cast<CWorldCell*>(sector)->ChangeLive(static_cast<uint8_t>(on) != 0); }
+void enable_sector(void* sector, uint32_t on) { static_cast<WorldCell*>(sector)->change_live(static_cast<uint8_t>(on) != 0); }
 
 // (a static collision object's own print, compiled out: the empty 0x005480A0 with it in ECX)
-inline void PrintCollStatic(const CStaticCollider*) {}
+inline void print_coll_static(const StaticCollider*) {}
 
 // A C string copied (unbounded, as the original's inlined strcpy).
-void CopyString(char* to, const char* from)
+void copy_string(char* to, const char* from)
 {
     while ((*to++ = *from++) != 0) {
     }
@@ -73,12 +73,12 @@ void CopyString(char* to, const char* from)
 
 // The table's items in turn, as far as the first null item or value.
 template <typename Body>
-void ForEachSector(ListKit::KeyMap* table, Body body)
+void for_each_sector(lists::KeyMap* table, Body body)
 {
-    table->m_iterBucket = -1;
-    table->m_iterItem = nullptr;
-    while (table->StepIterator()) {
-        ListKit::KeyMap::Item* item = table->m_iterItem;
+    table->iter_bucket_ = -1;
+    table->iter_item_ = nullptr;
+    while (table->step_iterator()) {
+        lists::KeyMap::Item* item = table->iter_item_;
         if (!item || !item->value)
             break;
         body(item->value);
@@ -88,38 +88,38 @@ void ForEachSector(ListKit::KeyMap* table, Body body)
 } // namespace
 
 // 0x0049C910
-void CWorldScene::FinishLoad(const char* name, void* arena)
+void WorldScene::finish_load(const char* name, void* arena)
 {
-    CopyString(m_label, name);
+    copy_string(label_, name);
     Virtual(this, 1, arena);
 }
 
 // 0x0049C940
-void CWorldScene::FinishAdd(const char* name, uint32_t data)
+void WorldScene::finish_add(const char* name, uint32_t data)
 {
-    CopyString(m_addName, name);
-    m_addData = data;
-    m_added = true;
+    copy_string(add_name_, name);
+    add_data_ = data;
+    added_ = true;
     Virtual(this, 2);
 }
 
 // 0x0049C9A0
-void CWorldScene::PrintCollStatics()
+void WorldScene::print_coll_statics()
 {
-    for (int i = 0; i < m_collStaticCount; ++i) {
-        DebugOut::Printf("%4d/%d ", i, m_collStaticCount);
-        PrintCollStatic(FetchStaticCollision(i));
+    for (int i = 0; i < coll_static_count_; ++i) {
+        debug::printf("%4d/%d ", i, coll_static_count_);
+        print_coll_static(fetch_static_collision(i));
     }
 }
 
 // 0x0049C9F0
-CStaticCollider* CWorldScene::FetchStaticCollision(int index)
+StaticCollider* WorldScene::fetch_static_collision(int index)
 {
-    return reinterpret_cast<CStaticCollider*>(reinterpret_cast<uint8_t*>(m_collStatics) + index * kCollStaticSize);
+    return reinterpret_cast<StaticCollider*>(reinterpret_cast<uint8_t*>(coll_statics_) + index * kCollStaticSize);
 }
 
 // 0x0049CA10
-void* CWorldScene::SpawnSector()
+void* WorldScene::spawn_sector()
 {
     auto* sector = Virtual<uint8_t*>(this, 7);
     *reinterpret_cast<uint32_t*>(sector + 0x14) = 0;
@@ -128,17 +128,17 @@ void* CWorldScene::SpawnSector()
 }
 
 // 0x0049CA20
-int __cdecl MakeCollisionFileName(char* out, const char* level)
+int __cdecl make_collision_file_name(char* out, const char* level)
 {
-    const char* extension = PlatformSuffix();
+    const char* extension = platform_suffix();
     return std::snprintf(out, 0x7FFFFFFF, "levels\\%s\\%s%s.col.%s", level, level, "", extension);
 }
 
 // 0x0049CB00
-void* CWorldScene::LookUpSector(uint32_t name)
+void* WorldScene::look_up_sector(uint32_t name)
 {
-    ListKit::KeyMap* table = m_sectors;
-    ListKit::KeyMap::Item* item = &table->m_buckets[name & ((1u << table->m_bits) - 1)];
+    lists::KeyMap* table = sectors_;
+    lists::KeyMap::Item* item = &table->buckets_[name & ((1u << table->bits_) - 1)];
     for (; item; item = item->next) {
         if (item->key == name && item->value)
             return item->value;
@@ -147,16 +147,16 @@ void* CWorldScene::LookUpSector(uint32_t name)
 }
 
 // 0x0049CB40
-bool CWorldScene::RemoveSceneSector(void* sector)
+bool WorldScene::remove_scene_sector(void* sector)
 {
-    if (SectorAttributeBits(sector) & 0x40) {
-        ApplySectorBits(sector, 8);
-        m_sectorKept = true;
+    if (sector_attribute_bits(sector) & 0x40) {
+        apply_sector_bits(sector, 8);
+        sector_kept_ = true;
         return false;
     }
-    if (LookUpSector(SectorKeyFromSpec(sector)) == sector) {
-        uint32_t name = SectorKeyFromSpec(sector);
-        m_sectors->EraseEntry(name);
+    if (look_up_sector(sector_key_from_spec(sector)) == sector) {
+        uint32_t name = sector_key_from_spec(sector);
+        sectors_->erase_entry(name);
     }
     if (sector)
         Virtual<void*>(sector, 0, 1u);
@@ -164,15 +164,15 @@ bool CWorldScene::RemoveSceneSector(void* sector)
 }
 
 // 0x0049CF80
-bool CWorldScene::DeleteSectorNamed(uint32_t name)
+bool WorldScene::delete_sector_named(uint32_t name)
 {
-    void* sector = LookUpSector(name);
-    return sector ? RemoveSceneSector(sector) : false;
+    void* sector = look_up_sector(name);
+    return sector ? remove_scene_sector(sector) : false;
 }
 
 // 0x0049CBB0
-bool CWorldScene::LoadCollisionData(const uint8_t* data, int* count, CStaticCollider** statics, uint8_t** objects,
-                               Maths::BBox* box, int)
+bool WorldScene::load_collision_data(const uint8_t* data, int* count, StaticCollider** statics, uint8_t** objects,
+                               maths::BBox* box, int)
 {
     auto word = [data](int offset) { return *reinterpret_cast<const int*>(data + offset); };
     auto align = [](uintptr_t at, uintptr_t to) { return (at + to - 1) & ~(to - 1); };
@@ -181,156 +181,156 @@ bool CWorldScene::LoadCollisionData(const uint8_t* data, int* count, CStaticColl
     *count = word(4);
     *objects = const_cast<uint8_t*>(data) + 0x20;
     uintptr_t vertices = align(reinterpret_cast<uintptr_t>(*objects) + static_cast<uintptr_t>(*count) * kTriDataSize, 16);
-    uintptr_t vertexBytes = vertices + 6 * static_cast<uintptr_t>(word(0x18) + 2 * word(0x14));
-    uintptr_t faces = align(vertexBytes + static_cast<uintptr_t>(word(8)), 4);
-    uintptr_t nodesAt = static_cast<uintptr_t>(10 * word(0xC) + 8 * word(0x10));
-    uintptr_t buffer = faces + nodesAt;
-    uintptr_t facesSize = align(static_cast<uintptr_t>(word(0xC)) + nodesAt, 4);
-    uintptr_t nodes = faces + facesSize + 4;
-    uintptr_t faceLists = nodes + *reinterpret_cast<const uint32_t*>(faces + facesSize);
-    bool anyVertices = false;
+    uintptr_t vertex_bytes = vertices + 6 * static_cast<uintptr_t>(word(0x18) + 2 * word(0x14));
+    uintptr_t faces = align(vertex_bytes + static_cast<uintptr_t>(word(8)), 4);
+    uintptr_t nodes_at = static_cast<uintptr_t>(10 * word(0xC) + 8 * word(0x10));
+    uintptr_t buffer = faces + nodes_at;
+    uintptr_t faces_size = align(static_cast<uintptr_t>(word(0xC)) + nodes_at, 4);
+    uintptr_t nodes = faces + faces_size + 4;
+    uintptr_t face_lists = nodes + *reinterpret_cast<const uint32_t*>(faces + faces_size);
+    bool any_vertices = false;
     // the static objects: an array new (the count before them)
     int made = word(4);
-    auto* block = static_cast<int*>(MemSys::Alloc(static_cast<unsigned int>(made) * kCollStaticSize + 4));
-    CStaticCollider* array = nullptr;
+    auto* block = static_cast<int*>(memory::alloc(static_cast<unsigned int>(made) * kCollStaticSize + 4));
+    StaticCollider* array = nullptr;
     if (block) {
         *block = made;
-        array = reinterpret_cast<CStaticCollider*>(block + 1);
+        array = reinterpret_cast<StaticCollider*>(block + 1);
         for (int i = 0; i < made; ++i)
-            reinterpret_cast<CStaticCollider*>(reinterpret_cast<uint8_t*>(array) + i * kCollStaticSize)->MakeNew();
+            reinterpret_cast<StaticCollider*>(reinterpret_cast<uint8_t*>(array) + i * kCollStaticSize)->make_new();
     }
     *statics = array;
     for (int i = 0; i < word(4); ++i) {
-        auto* geometry = reinterpret_cast<CTriMeshSource*>(*objects + i * kTriDataSize);
-        geometry->Relocate(reinterpret_cast<uint32_t>(this), static_cast<uint32_t>(vertices),
-                           static_cast<uint32_t>(vertexBytes), static_cast<uint32_t>(faces),
-                           static_cast<uint32_t>(nodes), static_cast<uint32_t>(faceLists));
-        geometry->SetUpAllFaces();
-        auto* object = reinterpret_cast<CStaticCollider*>(reinterpret_cast<uint8_t*>(*statics) + i * kCollStaticSize);
-        Virtual(object, 4, geometry); // (AssignShapeData)
-        buffer = reinterpret_cast<uintptr_t>(object->TakeBuffer(reinterpret_cast<uint8_t*>(buffer), geometry));
+        auto* geometry = reinterpret_cast<TriMeshSource*>(*objects + i * kTriDataSize);
+        geometry->relocate(reinterpret_cast<uint32_t>(this), static_cast<uint32_t>(vertices),
+                           static_cast<uint32_t>(vertex_bytes), static_cast<uint32_t>(faces),
+                           static_cast<uint32_t>(nodes), static_cast<uint32_t>(face_lists));
+        geometry->set_up_all_faces();
+        auto* object = reinterpret_cast<StaticCollider*>(reinterpret_cast<uint8_t*>(*statics) + i * kCollStaticSize);
+        Virtual(object, 4, geometry); // (assign_shape_data)
+        buffer = reinterpret_cast<uintptr_t>(object->take_buffer(reinterpret_cast<uint8_t*>(buffer), geometry));
         auto* bytes = reinterpret_cast<uint8_t*>(geometry);
         if (*reinterpret_cast<uint16_t*>(bytes + 8) > 0) {
-            box->AppendSpot(*reinterpret_cast<const Maths::Vec4*>(bytes + 0x10));
-            box->AppendSpot(*reinterpret_cast<const Maths::Vec4*>(bytes + 0x20));
-            anyVertices = true;
+            box->append_spot(*reinterpret_cast<const maths::Vec4*>(bytes + 0x10));
+            box->append_spot(*reinterpret_cast<const maths::Vec4*>(bytes + 0x20));
+            any_vertices = true;
         }
     }
-    if (!anyVertices) {
-        Maths::Vec4 low = {-100.0f, -100.0f, -100.0f, 1.0f};
-        box->AppendSpot(low);
-        Maths::Vec4 high = {100.0f, 100.0f, 100.0f, 1.0f};
-        box->AppendSpot(high);
+    if (!any_vertices) {
+        maths::Vec4 low = {-100.0f, -100.0f, -100.0f, 1.0f};
+        box->append_spot(low);
+        maths::Vec4 high = {100.0f, 100.0f, 100.0f, 1.0f};
+        box->append_spot(high);
     }
     return true;
 }
 
 // 0x0049CE60
-bool CWorldScene::InitCollisionGrid(const Maths::BBox* box)
+bool WorldScene::init_collision_grid(const maths::BBox* box)
 {
-    if (!m_buildsCollisionGrid)
+    if (!builds_collision_grid_)
         return false;
-    m_collisionBox = *box;
-    auto* grid = static_cast<CCollGrid*>(MemSys::Alloc(sizeof(CCollGrid)));
+    collision_box_ = *box;
+    auto* grid = static_cast<CollGrid*>(memory::alloc(sizeof(CollGrid)));
     if (grid) {
-        new (&grid->m_box) Maths::BBox();
-        for (int x = 0; x < CCollGrid::kSize; ++x)
-            for (int z = 0; z < CCollGrid::kSize; ++z)
-                grid->m_cells[x][z].MakeNew();
+        new (&grid->box_) maths::BBox();
+        for (int x = 0; x < CollGrid::kSize; ++x)
+            for (int z = 0; z < CollGrid::kSize; ++z)
+                grid->cells_[x][z].make_new();
     }
-    m_collGrid = grid;
-    grid->PrepareAll(&m_collisionBox); // (no check, as the original)
+    coll_grid_ = grid;
+    grid->prepare_all(&collision_box_); // (no check, as the original)
     return true;
 }
 
 // 0x0049CFB0
-bool CWorldScene::UnloadCollision()
+bool WorldScene::unload_collision()
 {
-    if (CCollGrid* grid = m_collGrid) {
-        for (int i = CCollGrid::kSize * CCollGrid::kSize - 1; i >= 0; --i) // (the grid's destructor, 0x0049C980)
-            (&grid->m_cells[0][0])[i].Destruct();
-        MemSys::Dealloc(grid);
-        m_collGrid = nullptr;
+    if (CollGrid* grid = coll_grid_) {
+        for (int i = CollGrid::kSize * CollGrid::kSize - 1; i >= 0; --i) // (the grid's destructor, 0x0049C980)
+            (&grid->cells_[0][0])[i].destruct();
+        memory::dealloc(grid);
+        coll_grid_ = nullptr;
     }
-    if (m_collStatics) {
-        int* block = reinterpret_cast<int*>(m_collStatics) - 1;
+    if (coll_statics_) {
+        int* block = reinterpret_cast<int*>(coll_statics_) - 1;
         if (*block) // (the deleting destructor of the array, through the first's vtable: 0x0049CE00)
-            Virtual<void*>(m_collStatics, 0, 3u);
+            Virtual<void*>(coll_statics_, 0, 3u);
         else
-            MemSys::Dealloc(block);
-        m_collStatics = nullptr;
+            memory::dealloc(block);
+        coll_statics_ = nullptr;
     }
-    if (m_pipName[0]) {
-        Packs::Offload(m_pipName);
-        m_pipName[0] = 0;
+    if (pip_name_[0]) {
+        packs::offload(pip_name_);
+        pip_name_[0] = 0;
     }
     return true;
 }
 
 // 0x0049D030
-void CWorldScene::DeleteMarkedSectors()
+void WorldScene::delete_marked_sectors()
 {
-    if (!m_collGrid)
+    if (!coll_grid_)
         return;
-    ForEachSector(m_sectors, [](void* sector) {
-        if (SectorAttributeBits(sector) & 8) {
-            ResetSectorBits(sector, 0x40);
+    for_each_sector(sectors_, [](void* sector) {
+        if (sector_attribute_bits(sector) & 8) {
+            reset_sector_bits(sector, 0x40);
             Virtual<void*>(sector, 0, 1u);
         }
     });
-    m_collGrid->Clear();
-    m_sectors->EmptyTable();
+    coll_grid_->get_clear();
+    sectors_->empty_table();
 }
 
 // 0x0049D0B0
-void CWorldScene::SetSectorsInBox(const Maths::Vec4* box, uint32_t on, int)
+void WorldScene::set_sectors_in_box(const maths::Vec4* box, uint32_t on, int)
 {
-    float minX = box[0].x, minY = box[0].y, minZ = box[0].z;
-    float maxX = box[1].x, maxY = box[1].y, maxZ = box[1].z;
-    ForEachSector(m_sectors, [&](void* sector) {
-        const Maths::BBox* bounds = SectorBox(sector);
+    float min_x = box[0].x, min_y = box[0].y, min_z = box[0].z;
+    float max_x = box[1].x, max_y = box[1].y, max_z = box[1].z;
+    for_each_sector(sectors_, [&](void* sector) {
+        const maths::BBox* bounds = sector_box(sector);
         const auto* f = reinterpret_cast<const float*>(bounds);
         // (each "not past it": NaN counts as touching)
-        if (!(minX > f[4]) && !(f[0] > maxX) && !(minZ > f[6]) && !(f[2] > maxZ) && !(minY > f[5]) && !(f[1] > maxY))
-            EnableSector(sector, on);
+        if (!(min_x > f[4]) && !(f[0] > max_x) && !(min_z > f[6]) && !(f[2] > max_z) && !(min_y > f[5]) && !(f[1] > max_y))
+            enable_sector(sector, on);
     });
 }
 
 // --- the virtuals' base bodies ---
 
 // 0x0049CA50 / 0x0049CA60 / 0x0049CA70
-void CWorldScene::PostLoad(void*) { DebugOut::Printf("STUB: PostLoad\n"); }
-void CWorldScene::SetRendered(int) { DebugOut::Printf("STUB: plat_set_rendered\n"); }
-void CWorldScene::PostAdd() { DebugOut::Printf("STUB: PostAdd\n"); }
+void WorldScene::post_load(void*) { debug::printf("STUB: PostLoad\n"); }
+void WorldScene::set_rendered(int) { debug::printf("STUB: plat_set_rendered\n"); }
+void WorldScene::post_add() { debug::printf("STUB: PostAdd\n"); }
 // 0x0049CA80 / 0x0049CAA0 / 0x0049CAC0 / 0x0049CAE0
-bool CWorldScene::LoadTextures(const char*)
+bool WorldScene::load_textures(const char*)
 {
-    DebugOut::Printf("STUB: LoadTextures\n");
+    debug::printf("STUB: LoadTextures\n");
     return false;
 }
-bool CWorldScene::LoadCollision(const char*)
+bool WorldScene::load_collision(const char*)
 {
-    DebugOut::Printf("STUB: LoadCollision\n");
+    debug::printf("STUB: LoadCollision\n");
     return false;
 }
-bool CWorldScene::AddCollision(const char*)
+bool WorldScene::add_collision(const char*)
 {
-    DebugOut::Printf("STUB: AddCollision\n");
+    debug::printf("STUB: AddCollision\n");
     return false;
 }
-bool CWorldScene::UnloadAddScene()
+bool WorldScene::unload_add_scene()
 {
-    DebugOut::Printf("STUB: UnloadAddScene\n");
+    debug::printf("STUB: UnloadAddScene\n");
     return false;
 }
 // 0x0049CAF0
-void* CWorldScene::PlatCreateSector()
+void* WorldScene::plat_create_sector()
 {
-    DebugOut::Printf("STUB: plat_create_sector\n");
+    debug::printf("STUB: plat_create_sector\n");
     return nullptr;
 }
 // 0x0049CF60
-uint8_t* CWorldScene::GetDefaultColour(uint8_t* out)
+uint8_t* WorldScene::get_default_colour(uint8_t* out)
 {
     out[0] = out[1] = out[2] = out[3] = 0x80;
     return out;
@@ -343,44 +343,44 @@ namespace {
 // The collision's destructors (this scene's): the grid's body, and the static objects' vector deleting destructor.
 struct SceneCollisionAdapters {
     // 0x0049C980: the grid's cells destroyed, last first (the compiler's array destructor).
-    void GridDestroyBody()
+    void grid_destroy_body()
     {
-        auto* grid = reinterpret_cast<Engine3D::CCollGrid*>(this);
-        for (int i = Engine3D::CCollGrid::kSize * Engine3D::CCollGrid::kSize - 1; i >= 0; --i)
-            (&grid->m_cells[0][0])[i].Destruct();
+        auto* grid = reinterpret_cast<render::CollGrid*>(this);
+        for (int i = render::CollGrid::kSize * render::CollGrid::kSize - 1; i >= 0; --i)
+            (&grid->cells_[0][0])[i].destruct();
     }
-    // 0x0049CE00 (CStaticCollider's vtable slot 0): flags & 2 - the array this starts (its count before it) destroyed
+    // 0x0049CE00 (StaticCollider's vtable slot 0): flags & 2 - the array this starts (its count before it) destroyed
     // last first, freed with flags & 1, the block returned; else this one destroyed and freed with flags & 1.
-    void* CollStaticDelete(unsigned int flags)
+    void* coll_static_delete(unsigned int flags)
     {
-        auto* object = reinterpret_cast<Engine3D::CStaticCollider*>(this);
+        auto* object = reinterpret_cast<render::StaticCollider*>(this);
         if (flags & 2) {
             int* block = reinterpret_cast<int*>(this) - 1;
             for (int i = *block - 1; i >= 0; --i)
-                reinterpret_cast<Engine3D::CStaticCollider*>(reinterpret_cast<uint8_t*>(object) + i * 0x18)->Destruct();
+                reinterpret_cast<render::StaticCollider*>(reinterpret_cast<uint8_t*>(object) + i * 0x18)->destruct();
             if (flags & 1)
-                MemSys::Dealloc(block);
+                memory::dealloc(block);
             return block;
         }
-        object->Destruct();
+        object->destruct();
         if (flags & 1)
-            MemSys::Dealloc(object);
+            memory::dealloc(object);
         return object;
     }
 };
 
 } // namespace
 
-namespace Vt {
-static VtableSlot kCollStatic_slots[] = {&SceneCollisionAdapters::CollStaticDelete, Stubs::ReturnTrue,
-                &Engine3D::CollFaceAccess::GetTriangleAttrs, &Engine3D::CollFaceAccess::GetFaceTerrain, &Engine3D::CHitMesh::AssignShapeData,
-                &Engine3D::CStaticCollider::PlaceAtAbsolutePoint, Stubs::IgnoreArgument, &Engine3D::CStaticCollider::GetAbsolutePoint,
-                &Engine3D::CStaticCollider::FetchFacing, &Engine3D::CStaticCollider::ReadVertexPoint, Stubs::ReturnZero,
-                Stubs::IgnoreArgument, &Engine3D::CStaticCollider::Replicate, &Engine3D::CStaticCollider::InsideBounds,
-                &Engine3D::CStaticCollider::CollideWithLine, &Engine3D::CStaticCollider::CollideWithRect,
-                &Engine3D::CStaticCollider::CollideWithSphere, &Engine3D::CStaticCollider::CollideWithCapsule,
-                &Engine3D::CollGeometryForwarders::IsPointBehindFaces, &Engine3D::CollGeometryForwarders::DrawDiagnostic,
-                Stubs::ReturnZero, &Engine3D::CStaticCollider::GetGeometryBBox, &Engine3D::CollGeometryForwarders::RotateY,
-                &Engine3D::CollGeometryForwarders::StretchBy};
-void** const kVtblStaticColl = reinterpret_cast<void**>(kCollStatic_slots);
+namespace vt {
+static VtableSlot g_coll_static_slots[] = {&SceneCollisionAdapters::coll_static_delete, stubs::return_true,
+                &render::CollFaceAccess::get_triangle_attrs, &render::CollFaceAccess::get_face_terrain, &render::HitMesh::assign_shape_data,
+                &render::StaticCollider::place_at_absolute_point, stubs::ignore_argument, &render::StaticCollider::get_absolute_point,
+                &render::StaticCollider::fetch_facing, &render::StaticCollider::read_vertex_point, stubs::return_zero,
+                stubs::ignore_argument, &render::StaticCollider::replicate, &render::StaticCollider::inside_bounds,
+                &render::StaticCollider::collide_with_line, &render::StaticCollider::collide_with_rect,
+                &render::StaticCollider::collide_with_sphere, &render::StaticCollider::collide_with_capsule,
+                &render::CollGeometryForwarders::is_point_behind_faces, &render::CollGeometryForwarders::draw_diagnostic,
+                stubs::return_zero, &render::StaticCollider::get_geometry_b_box, &render::CollGeometryForwarders::rotate_y,
+                &render::CollGeometryForwarders::scale_tool};
+void** const kVtblStaticColl = reinterpret_cast<void**>(g_coll_static_slots);
 } // namespace Vt

@@ -24,10 +24,10 @@
 #include "engine/core/code_address.h"
 #include "engine/gfx/weather.h"
 
-namespace GameObjects {
+namespace objects {
 
-GameObjects::CEventWaitBoard* g_tracker;
-MemSys::PoolPair g_scriptListPools;
+objects::EventWaitBoard* g_tracker;
+memory::PoolPair g_script_list_pools;
 
 namespace {
 
@@ -52,44 +52,44 @@ constexpr uint32_t kEventNames = 0x08114F90; // the global array of event names 
 constexpr int kLogSize = 0x400;
 constexpr int kWaiters = 40;
 
-// The pool pair of the listener lists (CScriptList).
-MemSys::PoolPair& ScriptListPools() { return g_scriptListPools; }
+// The pool pair of the listener lists (ScriptList).
+memory::PoolPair& script_list_pools() { return g_script_list_pools; }
 
 // --- the objects ---
-uint32_t& ObjectId(CEntity* object) { return object->m_ident; }
+uint32_t& current_object_id(Entity* object) { return object->ident_; }
 // The tracker's aliases of it (compared as a signed count by the original).
-bool HasAliases(const CEntity* object) { return static_cast<int>(object->m_aliasCount) > 0; }
-bool HasPosition(const CEntity* object) { return (object->m_objectFlags & OBJECT_FLAG_HAS_POSITION) != 0; }
-// The position: CGameEntity's m_atPoint (+0x4C, just after CEntity's; read on any object).
-const float* Position(CEntity* object) { return &static_cast<CGameEntity*>(object)->m_atPoint.x; }
+bool has_aliases(const Entity* object) { return static_cast<int>(object->alias_count_) > 0; }
+bool has_position(const Entity* object) { return (object->object_flags_ & kObjectFlagHasPosition) != 0; }
+// The position: GameEntity's at_point_ (+0x4C, just after Entity's; read on any object).
+const float* get_position(Entity* object) { return &static_cast<GameEntity*>(object)->at_point_.x; }
 // Its vtable +0x04: take the properties in `params` (SetObjectProps). +0x14: an event targeted at it.
-void ChangeTraits(CEntity* object, Scripts::CStruct* params)
+void change_traits(Entity* object, script::Struct* params)
 {
     void** vtable = *reinterpret_cast<void***>(object);
-    reinterpret_cast<void(__thiscall*)(CEntity*, Scripts::CStruct*)>(vtable[1])(object, params);
+    reinterpret_cast<void(__thiscall*)(Entity*, script::Struct*)>(vtable[1])(object, params);
 }
-void ForwardTrigger(CEntity* object, CSignal* event)
+void forward_trigger(Entity* object, Signal* event)
 {
     void** vtable = *reinterpret_cast<void***>(object);
-    reinterpret_cast<void(__thiscall*)(CEntity*, CSignal*)>(vtable[5])(object, event);
+    reinterpret_cast<void(__thiscall*)(Entity*, Signal*)>(vtable[5])(object, event);
 }
-// The object with this id (the object manager 0x006F0FB8's LookUpEntity).
-CEntity* FindObjectById(uint32_t id) { return reinterpret_cast<CObjectHubBase*>(g_compositeRegistry)->LookUpEntity(id); }
+// The object with this id (the object manager 0x006F0FB8's look_up_entity).
+Entity* find_object_by_id(uint32_t id) { return reinterpret_cast<ObjectHubBase*>(g_composite_registry)->look_up_entity(id); }
 // 0x004AC120: the object id named by `name` in `params` (the screen element manager 0x00701440; also takes names
 // of screen elements and aliases). False if there is none.
-bool GetObjectId(Scripts::CStruct* params, uint32_t name, uint32_t* id)
+bool get_object_id(script::Struct* params, uint32_t name, uint32_t* id)
 {
-    return reinterpret_cast<MenuSystem::CUiTree*>(MenuSystem::g_uiElementHub)->ResolveId(params, name, id);
+    return reinterpret_cast<frontend::UiTree*>(frontend::g_ui_element_hub)->resolve_id(params, name, id);
 }
 
 // 0x004A1090: give an event listener the event (its vtable +0x04, the subclass's filter).
-void ListenerReceive(CSignalReceiver* listener, CSignal* event)
+void listener_receive(SignalReceiver* listener, Signal* event)
 {
-    reinterpret_cast<void(__thiscall*)(CSignalReceiver*, CSignal*)>(&Engine3D::VirtualSlot1Jump)(listener, event);
+    reinterpret_cast<void(__thiscall*)(SignalReceiver*, Signal*)>(&render::virtual_slot1_jump)(listener, event);
 }
 
 // 0x0041A820: the squared distance between two points (x87: (dx*dx + dz*dz) + dy*dy, not rounded to float).
-double DistanceSquared(const float* a, const float* b)
+double get_distance_squared(const float* a, const float* b)
 {
     double dx = static_cast<double>(a[0]) - b[0];
     double dy = static_cast<double>(a[1]) - b[1];
@@ -98,26 +98,26 @@ double DistanceSquared(const float* a, const float* b)
 }
 
 // A new hash table of 2^bits buckets (null if there's no memory).
-ListKit::KeyMap* NewHashTable(int bits)
+lists::KeyMap* new_hash_table(int bits)
 {
-    void* memory = MemSys::Alloc(sizeof(ListKit::KeyMap));
-    return memory ? new (memory) ListKit::KeyMap(bits) : nullptr;
+    void* memory = memory::alloc(sizeof(lists::KeyMap));
+    return memory ? new (memory) lists::KeyMap(bits) : nullptr;
 }
-void DeleteHashTable(ListKit::KeyMap* table)
+void delete_hash_table(lists::KeyMap* table)
 {
     if (table) {
         table->~KeyMap();
-        MemSys::Dealloc(table);
+        memory::dealloc(table);
     }
 }
 
-void PushScriptHeap() { MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_scriptHeap); }
+void push_script_heap() { memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_); }
 
 // Delete an empty listener list (its key `type` already gone from the table... or about to be).
-void DeleteScriptList(CScriptList* list)
+void delete_script_list(ScriptList* list)
 {
-    list->Uncouple(); // (the head's destructor, inlined)
-    CScriptList::operator delete(list);
+    list->uncouple(); // (the head's destructor, inlined)
+    ScriptList::operator delete(list);
 }
 
 } // namespace
@@ -125,369 +125,369 @@ void DeleteScriptList(CScriptList* list)
 // --- the list of scripts ---------------------------------------------------------------------------------
 
 // 0x00462530
-void CScriptNode::Uncouple()
+void ScriptNode::uncouple()
 {
-    m_vtable = kScriptNodeVtable;
-    m_preceding->m_following = m_following;
-    m_following->m_preceding = m_preceding;
-    m_following = this;
-    m_preceding = this;
+    vtable_ = kScriptNodeVtable;
+    preceding_->following_ = following_;
+    following_->preceding_ = preceding_;
+    following_ = this;
+    preceding_ = this;
 }
 
 // 0x00462550
-CScriptNode* CScriptNode::ScalarDelete(uint8_t flags)
+ScriptNode* ScriptNode::scalar_delete(uint8_t flags)
 {
-    Uncouple(); // (inlined in the original)
+    uncouple(); // (inlined in the original)
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
 // 0x00462710
-CScriptList* CScriptList::ScalarDelete(uint8_t flags)
+ScriptList* ScriptList::scalar_delete(uint8_t flags)
 {
-    Uncouple();
+    uncouple();
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
 // 0x00462620
-void CScriptList::AppendOne(Scripts::CScript* script)
+void ScriptList::append_one(script::Script* script)
 {
-    for (CScriptNode* node = m_following->IsHead() ? nullptr : m_following; node;) {
-        if (node->m_payload == script)
+    for (ScriptNode* node = following_->is_head() ? nullptr : following_; node;) {
+        if (node->payload_ == script)
             return;
-        node = node->m_following;
-        if (node->IsHead())
+        node = node->following_;
+        if (node->is_head())
             break;
     }
-    PushScriptHeap();
-    auto* node = static_cast<CScriptNode*>(MemSys::AllocZeroed(sizeof(CScriptNode)));
+    push_script_heap();
+    auto* node = static_cast<ScriptNode*>(memory::alloc_zeroed(sizeof(ScriptNode)));
     if (node) {
-        node->m_payload = script;
-        node->m_vtable = kScriptNodeVtable;
-        node->m_rank = 0;
-        node->m_following = node;
-        node->m_preceding = node;
+        node->payload_ = script;
+        node->vtable_ = kScriptNodeVtable;
+        node->rank_ = 0;
+        node->following_ = node;
+        node->preceding_ = node;
     }
-    MemSys::LeaveHeapScope();
+    memory::leave_heap_scope();
     // At the end (no null check).
-    node->m_preceding = m_preceding;
-    node->m_following = this;
-    m_preceding->m_following = node;
-    m_preceding = node;
+    node->preceding_ = preceding_;
+    node->following_ = this;
+    preceding_->following_ = node;
+    preceding_ = node;
 }
 
 // 0x004626B0
-void CScriptList::DropOut(Scripts::CScript* script)
+void ScriptList::drop_out(script::Script* script)
 {
-    for (CScriptNode* node = m_following->IsHead() ? nullptr : m_following; node;) {
-        if (node->m_payload == script) {
-            node->m_preceding->m_following = node->m_following;
-            node->m_following->m_preceding = node->m_preceding;
-            node->m_following = node;
-            node->m_preceding = node;
+    for (ScriptNode* node = following_->is_head() ? nullptr : following_; node;) {
+        if (node->payload_ == script) {
+            node->preceding_->following_ = node->following_;
+            node->following_->preceding_ = node->preceding_;
+            node->following_ = node;
+            node->preceding_ = node;
             // delete node (virtual)
-            reinterpret_cast<CScriptNode*(__thiscall*)(CScriptNode*, uint8_t)>(node->m_vtable[0])(node, 1);
+            reinterpret_cast<ScriptNode*(__thiscall*)(ScriptNode*, uint8_t)>(node->vtable_[0])(node, 1);
             return;
         }
-        node = node->m_following;
-        if (node->IsHead())
+        node = node->following_;
+        if (node->is_head())
             return;
     }
 }
 
-void* CScriptList::operator new(size_t size) { return ScriptListPools().Carve(static_cast<unsigned int>(size)); }
+void* ScriptList::operator new(size_t size) { return script_list_pools().carve(static_cast<unsigned int>(size)); }
 
 // 0x004624D0
-void CScriptList::operator delete(void* list) { ScriptListPools().Dealloc(list); }
+void ScriptList::operator delete(void* list) { script_list_pools().dealloc(list); }
 
 // --- the event log ---------------------------------------------------------------------------------------
 
 // 0x004627C0
-void CSignalTrace::AddRow(uint32_t type, uint32_t target, uint32_t source, uint32_t script, uint32_t how, int kind)
+void SignalTrace::add_row(uint32_t type, uint32_t target, uint32_t source, uint32_t script, uint32_t how, int kind)
 {
-    if (!m_namesPtr) {
-        m_namesPtr = NewHashTable(8);
-        Scripts::CArray* names = Scripts::FetchList(kEventNames);
-        for (int i = 0; i < static_cast<int>(names->m_extent); ++i) {
-            char* name = m_names[i];
-            const char* string = names->FindInlineText(i);
+    if (!names_ptr_) {
+        names_ptr_ = new_hash_table(8);
+        script::Array* names = script::fetch_list(kEventNames);
+        for (int i = 0; i < static_cast<int>(names->extent_); ++i) {
+            char* name = names_[i];
+            const char* string = names->find_inline_text(i);
             std::memcpy(name, string, std::strlen(string) + 1);
-            uint32_t checksum = Checksums::HashFromText(names->FindInlineText(i));
-            m_namesPtr->StoreEntry(checksum, name);
+            uint32_t checksum = checksums::hash_from_text(names->find_inline_text(i));
+            names_ptr_->store_entry(checksum, name);
         }
     }
-    int last = m_ordinal - 1;
+    int last = ordinal_ - 1;
     if (last < 0)
         last = kLogSize - 1;
-    if (kind == FRAME) {
-        if (m_entries[last].kind == FRAME) {
-            ++m_entries[last].type;
+    if (kind == kFrame) {
+        if (entries_[last].kind == kFrame) {
+            ++entries_[last].type;
             return;
         }
-    } else if (kind == HANDLED) {
-        --m_layer;
+    } else if (kind == kHandled) {
+        --layer_;
     }
-    TableRow& entry = m_entries[m_ordinal];
+    TableRow& entry = entries_[ordinal_];
     entry.kind = kind;
-    entry.type = kind == FRAME ? 0 : type;
+    entry.type = kind == kFrame ? 0 : type;
     entry.target = target;
     entry.source = source;
     entry.script = script;
     entry.how = how;
-    entry.depth = m_layer;
-    if (++m_ordinal == kLogSize) {
-        m_ordinal = 0;
-        m_hasLooped = true;
+    entry.depth = layer_;
+    if (++ordinal_ == kLogSize) {
+        ordinal_ = 0;
+        has_looped_ = true;
     }
-    if (kind == LAUNCHED)
-        ++m_layer;
-    ++m_addedSinceSweep;
+    if (kind == kLaunched)
+        ++layer_;
+    ++added_since_sweep_;
 }
 
 // 0x004620A0
-void CSignalTrace::EchoOut(bool onlyNew, int /*count*/)
+void SignalTrace::echo_out(bool only_new, int /*count*/)
 {
     const char* const line = "========================================================\n"; // "=====...\n"
     int index = 0;
-    int count = m_ordinal;
-    if (m_hasLooped) {
-        index = m_ordinal;
+    int count = ordinal_;
+    if (has_looped_) {
+        index = ordinal_;
         count = kLogSize;
     }
-    DebugOut::Printf(line);
-    DebugOut::Printf(onlyNew ? "PRINTING EVENT LOG (ONLY NEW ENTRIES)\n\n"
+    debug::printf(line);
+    debug::printf(only_new ? "PRINTING EVENT LOG (ONLY NEW ENTRIES)\n\n"
                         : "PRINTING EVENT LOG\n\n");
     // Each entry from the oldest (their printing is compiled out of this build).
     for (; count > 0; --count) {
         if (++index == kLogSize)
             index = 0;
     }
-    DebugOut::Printf(line);
-    m_addedSinceSweep = 0;
+    debug::printf(line);
+    added_since_sweep_ = 0;
 }
 
 // 0x00462CB0
-void CSignalTrace::Teardown() { DeleteHashTable(m_namesPtr); }
+void SignalTrace::teardown() { delete_hash_table(names_ptr_); }
 
 // --- the tracker -----------------------------------------------------------------------------------------
 
 // 0x00462CF0
-CEventWaitBoard* CEventWaitBoard::MakeNew()
+EventWaitBoard* EventWaitBoard::make_new()
 {
-    m_vtable = kTrackerVtable;
-    m_log.m_ordinal = 0;
-    m_log.m_hasLooped = false;
-    m_log.m_namesPtr = nullptr;
-    m_log.m_layer = 0;
-    m_log.m_addedSinceSweep = 0;
-    m_entityList = NewHashTable(8);
-    m_aliases = NewHashTable(4);
-    m_listeners = NewHashTable(8);
-    m_nextAutoId = 0;
-    m_eventListeners = nullptr;
+    vtable_ = kTrackerVtable;
+    log_.ordinal_ = 0;
+    log_.has_looped_ = false;
+    log_.names_ptr_ = nullptr;
+    log_.layer_ = 0;
+    log_.added_since_sweep_ = 0;
+    entity_list_ = new_hash_table(8);
+    aliases_ = new_hash_table(4);
+    listeners_ = new_hash_table(8);
+    next_auto_id_ = 0;
+    event_listeners_ = nullptr;
     unknown18 = false;
-    m_launchDepth = 0;
-    m_launchedFromScript = 0;
-    for (SWaiter& waiter : m_waiters)
+    launch_depth_ = 0;
+    launched_from_script_ = 0;
+    for (Waiter& waiter : waiters_)
         waiter.type = 0;
-    unknownB218 = false;
+    unknownb218_ = false;
     return this;
 }
 
 // 0x00462E40 (the listener table isn't freed - an original leak)
-void CEventWaitBoard::Destruct()
+void EventWaitBoard::destruct()
 {
-    m_vtable = kTrackerVtable;
-    DeleteHashTable(m_entityList);
-    m_log.Teardown();
+    vtable_ = kTrackerVtable;
+    delete_hash_table(entity_list_);
+    log_.teardown();
 }
 
 // 0x00463780
-CEventWaitBoard* CEventWaitBoard::ScalarDelete(uint8_t flags)
+EventWaitBoard* EventWaitBoard::scalar_delete(uint8_t flags)
 {
-    Destruct();
+    destruct();
     if (flags & 1)
-        MemSys::Dealloc(this);
+        memory::dealloc(this);
     return this;
 }
 
 // 0x00462120
-CEntity* CEventWaitBoard::LookUpObject(uint32_t id)
+Entity* EventWaitBoard::look_up_object(uint32_t id)
 {
-    if (auto* object = static_cast<CEntity*>(m_entityList->FetchEntry(id)))
+    if (auto* object = static_cast<Entity*>(entity_list_->fetch_entry(id)))
         return object;
-    return static_cast<CEntity*>(m_aliases->FetchEntry(id, true));
+    return static_cast<Entity*>(aliases_->fetch_entry(id, true));
 }
 
 // 0x00462190
-CEntity* CEventWaitBoard::LookUpByNickname(uint32_t alias) { return static_cast<CEntity*>(m_aliases->FetchEntry(alias)); }
+Entity* EventWaitBoard::look_up_by_nickname(uint32_t alias) { return static_cast<Entity*>(aliases_->fetch_entry(alias)); }
 
 // 0x004621D0
-uint32_t CEventWaitBoard::FetchDistinctId()
+uint32_t EventWaitBoard::fetch_distinct_id()
 {
     uint32_t checksum;
     do {
         char name[64];
-        std::snprintf(name, sizeof(name), "autoid%d", m_nextAutoId++); // "autoid%d"
-        if (m_nextAutoId >= 1000000)
-            m_nextAutoId = 0;
-        checksum = Checksums::HashFromText(name);
-    } while (m_entityList->FetchEntry(checksum));
+        std::snprintf(name, sizeof(name), "autoid%d", next_auto_id_++); // "autoid%d"
+        if (next_auto_id_ >= 1000000)
+            next_auto_id_ = 0;
+        checksum = checksums::hash_from_text(name);
+    } while (entity_list_->fetch_entry(checksum));
     return checksum;
 }
 
 // 0x00462980
-void CEventWaitBoard::AddObject(CEntity* object)
+void EventWaitBoard::add_object(Entity* object)
 {
-    if (auto* aliased = static_cast<CEntity*>(m_aliases->FetchEntry(ObjectId(object)))) {
-        if (HasAliases(aliased))
-            --aliased->m_aliasCount;
-        m_aliases->EraseEntry(ObjectId(object));
+    if (auto* aliased = static_cast<Entity*>(aliases_->fetch_entry(current_object_id(object)))) {
+        if (has_aliases(aliased))
+            --aliased->alias_count_;
+        aliases_->erase_entry(current_object_id(object));
     }
-    m_entityList->StoreEntry(ObjectId(object), object);
-    m_log.AddRow(0, ObjectId(object), kNoObjectId, 0, 0, CSignalTrace::OBJECT_ADDED);
+    entity_list_->store_entry(current_object_id(object), object);
+    log_.add_row(0, current_object_id(object), kNoObjectId, 0, 0, SignalTrace::kObjectAdded);
 }
 
 // 0x00462A20
-void CEventWaitBoard::RemoveObject(CEntity* object, uint32_t freshId, bool renamed)
+void EventWaitBoard::remove_object(Entity* object, uint32_t fresh_id, bool renamed)
 {
-    m_entityList->EraseEntry(ObjectId(object));
+    entity_list_->erase_entry(current_object_id(object));
     if (renamed) {
-        for (SWaiter& waiter : m_waiters) {
-            if (waiter.objectId == ObjectId(object))
-                waiter.objectId = freshId;
+        for (Waiter& waiter : waiters_) {
+            if (waiter.object_id_ == current_object_id(object))
+                waiter.object_id_ = fresh_id;
         }
     } else {
-        RemoveAliasesOf(object);
+        remove_aliases_of(object);
     }
-    m_log.AddRow(0, ObjectId(object), kNoObjectId, 0, 0, CSignalTrace::OBJECT_REMOVED);
+    log_.add_row(0, current_object_id(object), kNoObjectId, 0, 0, SignalTrace::kObjectRemoved);
 }
 
 // 0x00462590: from the start of the table again after each one removed.
-void CEventWaitBoard::RemoveAliasesOf(CEntity* object)
+void EventWaitBoard::remove_aliases_of(Entity* object)
 {
-    ListKit::KeyMap* table = m_aliases;
+    lists::KeyMap* table = aliases_;
     for (;;) {
-        table->m_iterBucket = -1;
-        table->m_iterItem = nullptr;
-        if (!table->StepIterator() || !table->m_iterItem)
+        table->iter_bucket_ = -1;
+        table->iter_item_ = nullptr;
+        if (!table->step_iterator() || !table->iter_item_)
             return;
-        uint32_t alias = table->m_iterItem->key;
-        auto* aliased = static_cast<CEntity*>(table->m_iterItem->value);
+        uint32_t alias = table->iter_item_->key;
+        auto* aliased = static_cast<Entity*>(table->iter_item_->value);
         for (;;) {
             if (!aliased)
                 return;
-            if (ObjectId(aliased) == ObjectId(object))
+            if (current_object_id(aliased) == current_object_id(object))
                 break;
-            if (!table->StepIterator() || !table->m_iterItem)
+            if (!table->step_iterator() || !table->iter_item_)
                 return;
-            alias = table->m_iterItem->key;
-            aliased = static_cast<CEntity*>(table->m_iterItem->value);
+            alias = table->iter_item_->key;
+            aliased = static_cast<Entity*>(table->iter_item_->value);
         }
-        if (HasAliases(aliased))
-            --aliased->m_aliasCount;
-        table->EraseEntry(alias);
+        if (has_aliases(aliased))
+            --aliased->alias_count_;
+        table->erase_entry(alias);
     }
 }
 
 // 0x00462A90 (`object` isn't checked for null)
-void CEventWaitBoard::RegisterNickname(uint32_t alias, CEntity* object)
+void EventWaitBoard::register_nickname(uint32_t alias, Entity* object)
 {
-    if (auto* aliased = static_cast<CEntity*>(m_aliases->FetchEntry(alias))) {
-        if (HasAliases(aliased))
-            --aliased->m_aliasCount;
-        m_aliases->EraseEntry(alias);
+    if (auto* aliased = static_cast<Entity*>(aliases_->fetch_entry(alias))) {
+        if (has_aliases(aliased))
+            --aliased->alias_count_;
+        aliases_->erase_entry(alias);
     }
-    ++object->m_aliasCount;
-    m_aliases->StoreEntry(alias, object);
+    ++object->alias_count_;
+    aliases_->store_entry(alias, object);
 }
 
 // 0x00462000
-void CEventWaitBoard::RemoveEventListener(CSignalReceiver* listener)
+void EventWaitBoard::remove_event_listener(SignalReceiver* listener)
 {
-    CSignalReceiver* previous = nullptr;
-    for (CSignalReceiver* other = m_eventListeners; other; other = other->m_nextSubscriber) {
+    SignalReceiver* previous = nullptr;
+    for (SignalReceiver* other = event_listeners_; other; other = other->next_subscriber_) {
         if (other == listener) {
             if (previous)
-                previous->m_nextSubscriber = listener->m_nextSubscriber;
+                previous->next_subscriber_ = listener->next_subscriber_;
             else
-                m_eventListeners = listener->m_nextSubscriber;
+                event_listeners_ = listener->next_subscriber_;
             break;
         }
         previous = other;
     }
-    listener->m_onBoard = false;
+    listener->on_board_ = false;
 }
 
 // 0x00463370
-void CEventWaitBoard::AddListener(uint32_t type, Scripts::CScript* script)
+void EventWaitBoard::add_listener(uint32_t type, script::Script* script)
 {
-    PushScriptHeap();
-    auto* list = static_cast<CScriptList*>(m_listeners->FetchEntry(type));
+    push_script_heap();
+    auto* list = static_cast<ScriptList*>(listeners_->fetch_entry(type));
     if (!list) {
-        list = static_cast<CScriptList*>(CScriptList::operator new(sizeof(CScriptList)));
+        list = static_cast<ScriptList*>(ScriptList::operator new(sizeof(ScriptList)));
         if (list) {
-            list->m_payload = reinterpret_cast<Scripts::CScript*>(-1);
-            list->m_rank = 0;
-            list->m_following = list;
-            list->m_preceding = list;
-            list->m_vtable = kScriptListVtable;
+            list->payload_ = reinterpret_cast<script::Script*>(-1);
+            list->rank_ = 0;
+            list->following_ = list;
+            list->preceding_ = list;
+            list->vtable_ = kScriptListVtable;
         }
-        m_listeners->StoreEntry(type, list); // (null too, if there was no memory - then Add crashes)
+        listeners_->store_entry(type, list); // (null too, if there was no memory - then Add crashes)
     }
-    list->AppendOne(script);
-    MemSys::LeaveHeapScope();
+    list->append_one(script);
+    memory::leave_heap_scope();
 }
 
 // 0x00463450
-void CEventWaitBoard::RemoveListener(uint32_t type, Scripts::CScript* script)
+void EventWaitBoard::remove_listener(uint32_t type, script::Script* script)
 {
-    auto* list = static_cast<CScriptList*>(m_listeners->FetchEntry(type));
+    auto* list = static_cast<ScriptList*>(listeners_->fetch_entry(type));
     if (!list)
         return;
-    list->DropOut(script);
-    if (list->IsVacant()) {
-        m_listeners->EraseEntry(type);
-        DeleteScriptList(list);
+    list->drop_out(script);
+    if (list->is_vacant()) {
+        listeners_->erase_entry(type);
+        delete_script_list(list);
     }
 }
 
 // 0x00462B90: walking the table, one item ahead (the current one may be removed).
-void CEventWaitBoard::ForgetScript(Scripts::CScript* script)
+void EventWaitBoard::forget_script(script::Script* script)
 {
-    ListKit::KeyMap* table = m_listeners;
-    table->m_iterBucket = -1;
-    table->m_iterItem = nullptr;
-    if (!table->StepIterator() || !table->m_iterItem)
+    lists::KeyMap* table = listeners_;
+    table->iter_bucket_ = -1;
+    table->iter_item_ = nullptr;
+    if (!table->step_iterator() || !table->iter_item_)
         return;
-    uint32_t type = table->m_iterItem->key;
-    auto* list = static_cast<CScriptList*>(table->m_iterItem->value);
-    uint32_t nextType = type;
+    uint32_t type = table->iter_item_->key;
+    auto* list = static_cast<ScriptList*>(table->iter_item_->value);
+    uint32_t next_type = type;
     while (list) {
-        CScriptList* next = nullptr;
-        if (table->StepIterator() && table->m_iterItem) {
-            nextType = table->m_iterItem->key;
-            next = static_cast<CScriptList*>(table->m_iterItem->value);
+        ScriptList* next = nullptr;
+        if (table->step_iterator() && table->iter_item_) {
+            next_type = table->iter_item_->key;
+            next = static_cast<ScriptList*>(table->iter_item_->value);
         }
-        list->DropOut(script);
-        if (list->IsVacant()) {
-            table->EraseEntry(type);
-            DeleteScriptList(list);
+        list->drop_out(script);
+        if (list->is_vacant()) {
+            table->erase_entry(type);
+            delete_script_list(list);
         }
         list = next;
-        type = nextType;
+        type = next_type;
     }
 }
 
 // 0x00462260
-void CEventWaitBoard::WaitForEvent(Scripts::CScript* script, uint32_t type)
+void EventWaitBoard::wait_for_event(script::Script* script, uint32_t type)
 {
     int slot = -1;
     for (int i = 0; i < kWaiters; ++i) {
-        if (m_waiters[i].type == 0) {
+        if (waiters_[i].type == 0) {
             slot = i;
             break;
         }
@@ -495,7 +495,7 @@ void CEventWaitBoard::WaitForEvent(Scripts::CScript* script, uint32_t type)
     if (slot < 0) {
         // A slot whose script has gone.
         for (int i = 0; i < kWaiters; ++i) {
-            if (!Scripts::FindScriptWithUniqueId(m_waiters[i].scriptId)) {
+            if (!script::find_script_with_unique_id(waiters_[i].script_id_)) {
                 slot = i;
                 break;
             }
@@ -503,273 +503,273 @@ void CEventWaitBoard::WaitForEvent(Scripts::CScript* script, uint32_t type)
         if (slot < 0)
             return;
     }
-    SWaiter& waiter = m_waiters[slot];
-    waiter.scriptId = script->m_uniqueId;
-    waiter.objectId = script->m_entity ? ObjectId(script->m_entity.Pull()) : 0;
+    Waiter& waiter = waiters_[slot];
+    waiter.script_id_ = script->unique_id_;
+    waiter.object_id_ = script->entity_ ? current_object_id(script->entity_.get_pull()) : 0;
     waiter.type = type;
-    script->GateOff(0);
+    script->gate_off(0);
 }
 
 // 0x00462F00
-bool CEventWaitBoard::LaunchEvent(uint32_t type, uint32_t target, uint32_t source, Scripts::CStruct* data, bool broadcast,
+bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t source, script::Struct* data, bool broadcast,
                            float radius)
 {
-    ++m_launchDepth;
-    m_log.AddRow(type, target, source, static_cast<uint32_t>(m_launchedFromScript), 0, CSignalTrace::LAUNCHED);
-    m_launchedFromScript = 0;
-    CSignal event;
-    event.MakeNew(type, source, target, data);
+    ++launch_depth_;
+    log_.add_row(type, target, source, static_cast<uint32_t>(launched_from_script_), 0, SignalTrace::kLaunched);
+    launched_from_script_ = 0;
+    Signal event;
+    event.make_new(type, source, target, data);
 
     if (!broadcast) {
         // Every event listener, then the target: an object, or else the spawned script with that id.
-        for (CSignalReceiver* listener = m_eventListeners; listener; listener = listener->m_nextSubscriber) {
-            ++listener->m_busy;
-            ListenerReceive(listener, &event);
-            --listener->m_busy;
+        for (SignalReceiver* listener = event_listeners_; listener; listener = listener->next_subscriber_) {
+            ++listener->busy_;
+            listener_receive(listener, &event);
+            --listener->busy_;
         }
-        uint32_t eventTarget = event.m_aimPoint;
-        if (eventTarget != kNoObjectId && !(event.m_flagBits & CSignal::FLAG_HANDLED)) {
-            if (CEntity* object = LookUpObject(eventTarget)) {
-                ForwardTrigger(object, &event);
+        uint32_t event_target = event.aim_point_;
+        if (event_target != kNoObjectId && !(event.flag_bits_ & Signal::kFlagHandled)) {
+            if (Entity* object = look_up_object(event_target)) {
+                forward_trigger(object, &event);
             } else {
-                Scripts::CScript* script = Scripts::LookUpSpawnedScript(eventTarget);
+                script::Script* script = script::look_up_spawned_script(event_target);
                 if (!script)
-                    m_log.EchoOut(true, kLogSize);
-                script->ReceiveEvent(&event); // (null when there's no such script - an original crash)
+                    log_.echo_out(true, kLogSize);
+                script->receive_event(&event); // (null when there's no such script - an original crash)
             }
         }
-    } else if (auto* list = static_cast<CScriptList*>(m_listeners->FetchEntry(type, true))) {
+    } else if (auto* list = static_cast<ScriptList*>(listeners_->fetch_entry(type, true))) {
         // Every script listening for the type, in the order they started listening; with a radius (>= 0), only
         // those whose object is nearer the source than that (scripts without an object, or whose object has no
         // position, always get it).
-        float sourcePosition[4];
+        float source_position[4];
         if (radius >= 0.0f) {
-            const float* position = Position(FindObjectById(source)); // (not checked for null)
-            std::memcpy(sourcePosition, position, sizeof(sourcePosition));
+            const float* position = get_position(find_object_by_id(source)); // (not checked for null)
+            std::memcpy(source_position, position, sizeof(source_position));
         }
-        auto inRange = [&](Scripts::CScript* script) {
+        auto in_range = [&](script::Script* script) {
             if (!(radius >= 0.0f))
                 return true;
-            CEntity* object = script->m_entity.Pull();
-            if (!object || !HasPosition(object))
+            Entity* object = script->entity_.get_pull();
+            if (!object || !has_position(object))
                 return true;
-            double distance = DistanceSquared(sourcePosition, Position(object));
+            double distance = get_distance_squared(source_position, get_position(object));
             return static_cast<double>(radius) * radius > distance;
         };
         int count = 0;
-        CScriptNode* first = list->m_following;
-        if (!first->IsHead()) {
-            for (CScriptNode* node = first; node;) {
-                node = node->m_following;
+        ScriptNode* first = list->following_;
+        if (!first->is_head()) {
+            for (ScriptNode* node = first; node;) {
+                node = node->following_;
                 ++count;
-                if (node->IsHead())
+                if (node->is_head())
                     break;
             }
         }
         if (count == 1) {
-            Scripts::CScript* script = first->m_payload;
-            if (inRange(script))
-                script->ReceiveEvent(&event);
+            script::Script* script = first->payload_;
+            if (in_range(script))
+                script->receive_event(&event);
         } else {
             // Several (or none): first a smart pointer to each, so that one deleted by an earlier one's handler
             // is skipped.
-            using Pointer = CSharedRef<CSharedBase>;
-            auto* scripts = static_cast<Scripts::CScript**>(MemSys::Alloc(static_cast<unsigned int>(count) * 4));
+            using Pointer = SharedRef<SharedBase>;
+            auto* scripts = static_cast<script::Script**>(memory::alloc(static_cast<unsigned int>(count) * 4));
             Pointer* pointers = nullptr;
-            if (auto* block = static_cast<uint32_t*>(MemSys::Alloc(static_cast<unsigned int>(count) * sizeof(Pointer) + 4))) {
+            if (auto* block = static_cast<uint32_t*>(memory::alloc(static_cast<unsigned int>(count) * sizeof(Pointer) + 4))) {
                 block[0] = static_cast<uint32_t>(count);
                 pointers = reinterpret_cast<Pointer*>(block + 1);
                 for (int i = 0; i < count; ++i)
                     new (&pointers[i]) Pointer();
             }
-            CScriptNode* node = list->m_following->IsHead() ? nullptr : list->m_following;
+            ScriptNode* node = list->following_->is_head() ? nullptr : list->following_;
             for (int i = 0; node; ++i) {
-                scripts[i] = node->m_payload;
-                pointers[i].AssignValue(&node->m_payload->m_sharedBase);
-                node = node->m_following;
-                if (node->IsHead())
+                scripts[i] = node->payload_;
+                pointers[i].assign_value(&node->payload_->shared_base_);
+                node = node->following_;
+                if (node->is_head())
                     break;
             }
             for (int i = 0; i < count; ++i) {
-                if (pointers[i] && inRange(scripts[i]))
-                    scripts[i]->ReceiveEvent(&event);
+                if (pointers[i] && in_range(scripts[i]))
+                    scripts[i]->receive_event(&event);
             }
             if (pointers) {
                 uint32_t* block = reinterpret_cast<uint32_t*>(pointers) - 1;
                 for (int i = static_cast<int>(block[0]) - 1; i >= 0; --i)
-                    pointers[i].Release(); // (the destructors, last first)
-                MemSys::Dealloc(block);
+                    pointers[i].get_release(); // (the destructors, last first)
+                memory::dealloc(block);
             }
-            MemSys::Dealloc(scripts);
+            memory::dealloc(scripts);
         }
     }
 
     // The first WaitForEvent waiter for this type whose object is the target (or that has no object, or the
     // event has no target or is broadcast) goes on; waiters whose script has gone are dropped on the way.
-    for (SWaiter& waiter : m_waiters) {
+    for (Waiter& waiter : waiters_) {
         if (waiter.type == type &&
-            (waiter.objectId == target || waiter.objectId == 0 || target == kNoObjectId || broadcast)) {
+            (waiter.object_id_ == target || waiter.object_id_ == 0 || target == kNoObjectId || broadcast)) {
             waiter.type = 0;
-            if (Scripts::CScript* script = Scripts::FindScriptWithUniqueId(waiter.scriptId)) {
-                script->StopWaiting();
-                event.SetEventHandled(2, script->m_scriptTitle);
+            if (script::Script* script = script::find_script_with_unique_id(waiter.script_id_)) {
+                script->stop_waiting();
+                event.set_event_handled(2, script->script_title_);
                 break;
             }
         }
     }
-    if (!(event.m_flagBits & CSignal::FLAG_HANDLED))
-        m_log.AddRow(event.m_kindTag, event.m_aimPoint, event.m_fromWhere, 0, 3, CSignalTrace::HANDLED);
-    --m_launchDepth;
-    bool handled = (event.m_flagBits & CSignal::FLAG_HANDLED) != 0;
-    event.Teardown();
+    if (!(event.flag_bits_ & Signal::kFlagHandled))
+        log_.add_row(event.kind_tag_, event.aim_point_, event.from_where_, 0, 3, SignalTrace::kHandled);
+    --launch_depth_;
+    bool handled = (event.flag_bits_ & Signal::kFlagHandled) != 0;
+    event.teardown();
     return handled;
 }
 
 // 0x00462B10
-void CEventWaitBoard::LogHandled(CSignal* event, uint32_t how, uint32_t script)
+void EventWaitBoard::log_handled(Signal* event, uint32_t how, uint32_t script)
 {
-    m_log.AddRow(event->m_kindTag, event->m_aimPoint, event->m_fromWhere, script, how, CSignalTrace::HANDLED);
+    log_.add_row(event->kind_tag_, event->aim_point_, event->from_where_, script, how, SignalTrace::kHandled);
 }
 
 // 0x00462B40
-void CEventWaitBoard::LogRead(CSignal* event, uint32_t how, uint32_t script)
+void EventWaitBoard::log_read(Signal* event, uint32_t how, uint32_t script)
 {
-    m_log.AddRow(event->m_kindTag, event->m_aimPoint, event->m_fromWhere, script, how, CSignalTrace::READ);
+    log_.add_row(event->kind_tag_, event->aim_point_, event->from_where_, script, how, SignalTrace::kRead);
 }
 
 // 0x00462B70
-void CEventWaitBoard::LogFrame() { m_log.AddRow(0, 0, 0, 0, 0, CSignalTrace::FRAME); }
+void EventWaitBoard::log_frame() { log_.add_row(0, 0, 0, 0, 0, SignalTrace::kFrame); }
 
 // 0x00463730
-CEventWaitBoard* CreateTracker(bool create)
+EventWaitBoard* create_tracker(bool create)
 {
-    CEventWaitBoard*& tracker = Tracker();
+    EventWaitBoard*& tracker = get_tracker();
     if (!tracker && create) {
-        void* memory = MemSys::AllocZeroed(sizeof(CEventWaitBoard), nullptr, 1);
-        tracker = memory ? static_cast<CEventWaitBoard*>(memory)->MakeNew() : nullptr;
+        void* memory = memory::alloc_zeroed(sizeof(EventWaitBoard), nullptr, 1);
+        tracker = memory ? static_cast<EventWaitBoard*>(memory)->make_new() : nullptr;
     }
-    ++g_trackerReferences;
+    ++g_tracker_references;
     return tracker;
 }
 
 // --- the script commands ---------------------------------------------------------------------------------
 
 // 0x00462310: WaitForEvent type=<type>
-bool __cdecl CFunc_WaitForEvent(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_wait_for_event(script::Struct* params, script::Script* script)
 {
     uint32_t type = 0; // (uninitialised in the original when there's no type)
-    params->ReadHashValue(kType, &type, 0);
-    Tracker()->WaitForEvent(script, type);
+    params->read_hash_value(kType, &type, 0);
+    get_tracker()->wait_for_event(script, type);
     return true;
 }
 
 // 0x00462340: ObjectExists id=<object>
-bool __cdecl CFunc_ObjectExists(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+bool __cdecl cfunc_object_exists(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t id;
-    if (!GetObjectId(params, kId, &id))
+    if (!get_object_id(params, kId, &id))
         return false;
-    return Tracker()->LookUpObject(id) != nullptr;
+    return get_tracker()->look_up_object(id) != nullptr;
 }
 
 // 0x00462380: TerminateObjectsScripts id=<object> (scripts=[names] | script_name=<name>): stop the object's
 // scripts that refer to these names (no name: 0).
-bool __cdecl CFunc_TerminateObjectsScripts(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+bool __cdecl cfunc_terminate_objects_scripts(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t id;
-    if (!GetObjectId(params, kId, &id))
+    if (!get_object_id(params, kId, &id))
         return false;
-    CEntity* object = Tracker()->LookUpObject(id);
-    Scripts::CArray* scripts;
-    if (params->FetchList(kScripts, &scripts, 0)) {
-        for (uint32_t i = 0; i < scripts->m_extent; ++i)
-            Scripts::StopScriptsUsingObjectThatReferTo(object, scripts->FetchPart(i));
+    Entity* object = get_tracker()->look_up_object(id);
+    script::Array* scripts;
+    if (params->fetch_list(kScripts, &scripts, 0)) {
+        for (uint32_t i = 0; i < scripts->extent_; ++i)
+            script::stop_scripts_using_object_that_refer_to(object, scripts->fetch_part(i));
     } else {
         uint32_t name = 0;
-        params->ReadHashValue(kScriptName, &name, 0);
-        Scripts::StopScriptsUsingObjectThatReferTo(object, name);
+        params->read_hash_value(kScriptName, &name, 0);
+        script::stop_scripts_using_object_that_refer_to(object, name);
     }
     return true;
 }
 
 // 0x00462440: SetObjectProps id=<object> ... (the object takes the rest; not checked for null)
-bool __cdecl CFunc_SetObjectProps(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+bool __cdecl cfunc_set_object_props(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t id;
-    if (!GetObjectId(params, kId, &id))
+    if (!get_object_id(params, kId, &id))
         return false;
-    ChangeTraits(Tracker()->LookUpObject(id), params);
+    change_traits(get_tracker()->look_up_object(id), params);
     return true;
 }
 
 // 0x00462480: PrintEventLog [<count>] (with a count: the whole header, not "only new entries")
-bool __cdecl CFunc_PrintEventLog(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+bool __cdecl cfunc_print_event_log(script::Struct* params, script::Script* /*script*/)
 {
-    bool onlyNew = true;
+    bool only_new = true;
     int count = kLogSize;
-    if (params->FetchIntValue(0u, &count, 0))
-        onlyNew = false;
-    Tracker()->m_log.EchoOut(onlyNew, count);
+    if (params->fetch_int_value(0u, &count, 0))
+        only_new = false;
+    get_tracker()->log_.echo_out(only_new, count);
     return true;
 }
 
 // 0x00462C40: AssignAlias id=<object> alias=<name>
-bool __cdecl CFunc_AssignAlias(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+bool __cdecl cfunc_assign_alias(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t id;
-    if (!GetObjectId(params, kId, &id))
+    if (!get_object_id(params, kId, &id))
         return false;
-    CEventWaitBoard* tracker = Tracker();
-    CEntity* object = tracker->LookUpObject(id);
+    EventWaitBoard* tracker = get_tracker();
+    Entity* object = tracker->look_up_object(id);
     uint32_t alias = 0; // (uninitialised in the original when there's no alias)
-    params->ReadHashValue(kAlias, &alias, 1);
-    tracker->RegisterNickname(alias, object);
+    params->read_hash_value(kAlias, &alias, 1);
+    tracker->register_nickname(alias, object);
     return true;
 }
 
 // 0x004634D0: LaunchEvent / FireEvent type=<type> | type=[types] | type={types} [target=<id>] [source=<id>]
 // [data={...}] [broadcast] [radius=<r>]. Target and source default to the script's object (none without one).
-bool __cdecl CFunc_LaunchEvent(Scripts::CStruct* params, Scripts::CScript* script)
+bool __cdecl cfunc_launch_event(script::Struct* params, script::Script* script)
 {
-    auto ownObject = [&]() {
-        return script && script->m_entity ? ObjectId(script->m_entity.Pull()) : kNoObjectId;
+    auto own_object = [&]() {
+        return script && script->entity_ ? current_object_id(script->entity_.get_pull()) : kNoObjectId;
     };
     uint32_t target;
-    if (!GetObjectId(params, kTarget, &target))
-        target = ownObject();
+    if (!get_object_id(params, kTarget, &target))
+        target = own_object();
     uint32_t source;
-    if (!GetObjectId(params, kSource, &source))
-        source = ownObject();
-    Scripts::CStruct* data = nullptr;
-    params->ReadSubStruct(kData, &data, 0);
-    bool broadcast = params->HasBareFlag(kBroadcast);
+    if (!get_object_id(params, kSource, &source))
+        source = own_object();
+    script::Struct* data = nullptr;
+    params->read_sub_struct(kData, &data, 0);
+    bool broadcast = params->has_bare_flag(kBroadcast);
     float radius = -1.0f;
-    params->FetchFloat(kRadius, &radius, 0);
-    CEventWaitBoard* tracker = Tracker();
+    params->fetch_float(kRadius, &radius, 0);
+    EventWaitBoard* tracker = get_tracker();
     // Whether this launch comes from a script with a name (only for the log).
-    auto fromScript = [&]() { return script && script->m_scriptTitle ? 1 : 0; };
+    auto from_script = [&]() { return script && script->script_title_ ? 1 : 0; };
 
     uint32_t type;
-    if (params->ReadHashValue(kType, &type, 0)) {
-        tracker->m_launchedFromScript = fromScript();
-        tracker->LaunchEvent(type, target, source, data, broadcast, radius);
+    if (params->read_hash_value(kType, &type, 0)) {
+        tracker->launched_from_script_ = from_script();
+        tracker->launch_event(type, target, source, data, broadcast, radius);
         return true;
     }
-    Scripts::CArray* types;
-    if (params->FetchList(kType, &types, 0)) {
-        uint32_t size = types->m_extent;
+    script::Array* types;
+    if (params->fetch_list(kType, &types, 0)) {
+        uint32_t size = types->extent_;
         for (uint32_t i = 0; i < size; ++i) {
-            tracker->m_launchedFromScript = fromScript();
-            tracker->LaunchEvent(types->FetchPart(i), target, source, data, broadcast, radius);
+            tracker->launched_from_script_ = from_script();
+            tracker->launch_event(types->fetch_part(i), target, source, data, broadcast, radius);
         }
         return true;
     }
-    Scripts::CStruct* structure;
-    if (params->ReadSubStruct(kType, &structure, 0)) {
-        for (Scripts::CComponent* component = structure->StepToEntry(nullptr); component;
-             component = structure->StepToEntry(component)) {
-            tracker->m_launchedFromScript = fromScript();
-            tracker->LaunchEvent(component->checksum, target, source, data, broadcast, radius);
+    script::Struct* structure;
+    if (params->read_sub_struct(kType, &structure, 0)) {
+        for (script::Component* component = structure->step_to_entry(nullptr); component;
+             component = structure->step_to_entry(component)) {
+            tracker->launched_from_script_ = from_script();
+            tracker->launch_event(component->checksum, target, source, data, broadcast, radius);
         }
     }
     return true;
@@ -777,15 +777,15 @@ bool __cdecl CFunc_LaunchEvent(Scripts::CStruct* params, Scripts::CScript* scrip
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kScriptNodeVtable_slots[] = {&GameObjects::CScriptNode::ScalarDelete};
-void** const kScriptNodeVtable = reinterpret_cast<void**>(kScriptNodeVtable_slots);
-static VtableSlot kScriptListVtable_slots[] = {&GameObjects::CScriptList::ScalarDelete};
-void** const kScriptListVtable = reinterpret_cast<void**>(kScriptListVtable_slots);
-static VtableSlot kTrackerVtable_slots[] = {&GameObjects::CEventWaitBoard::ScalarDelete};
-void** const kTrackerVtable = reinterpret_cast<void**>(kTrackerVtable_slots);
+static VtableSlot g_script_node_vtable_slots[] = {&objects::ScriptNode::scalar_delete};
+void** const kScriptNodeVtable = reinterpret_cast<void**>(g_script_node_vtable_slots);
+static VtableSlot g_script_list_vtable_slots[] = {&objects::ScriptList::scalar_delete};
+void** const kScriptListVtable = reinterpret_cast<void**>(g_script_list_vtable_slots);
+static VtableSlot g_tracker_vtable_slots[] = {&objects::EventWaitBoard::scalar_delete};
+void** const kTrackerVtable = reinterpret_cast<void**>(g_tracker_vtable_slots);
 
 } // namespace
 } // namespace Obj

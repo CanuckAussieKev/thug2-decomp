@@ -39,11 +39,11 @@
 #include "engine/sound/sfx.h"
 #include "platform/run_log.h"
 
-namespace MenuSystem::LevelEditor::Entities {
+namespace frontend::level_editor::entities {
 
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
-std::string SetStem(const std::string& name)
+std::string set_stem(const std::string& name)
 {
     size_t end = name.size();
     while (end > 0 && std::isdigit(static_cast<unsigned char>(name[end - 1])))
@@ -53,22 +53,22 @@ std::string SetStem(const std::string& name)
     return end == 0 ? name : name.substr(0, end);
 }
 
-V3 PinAnchorPoint(const std::vector<V3>& places)
+V3 pin_anchor_point(const std::vector<V3>& places)
 {
     if (places.empty())
         return {0.0f, 0.0f, 0.0f};
-    float minX = places[0].x, maxX = places[0].x, minZ = places[0].z, maxZ = places[0].z, minY = places[0].y;
+    float min_x = places[0].x, max_x = places[0].x, min_z = places[0].z, max_z = places[0].z, min_y = places[0].y;
     for (const V3& p : places) {
-        minX = std::min(minX, p.x);
-        maxX = std::max(maxX, p.x);
-        minZ = std::min(minZ, p.z);
-        maxZ = std::max(maxZ, p.z);
-        minY = std::min(minY, p.y);
+        min_x = std::min(min_x, p.x);
+        max_x = std::max(max_x, p.x);
+        min_z = std::min(min_z, p.z);
+        max_z = std::max(max_z, p.z);
+        min_y = std::min(min_y, p.y);
     }
-    return {(minX + maxX) * 0.5f, minY, (minZ + maxZ) * 0.5f};
+    return {(min_x + max_x) * 0.5f, min_y, (min_z + max_z) * 0.5f};
 }
 
-V3 TurnBoxExtents(V3 extents, float turn)
+V3 turn_box_extents(V3 extents, float turn)
 {
     double c = std::fabs(std::cos(static_cast<double>(turn))), s = std::fabs(std::sin(static_cast<double>(turn)));
     // (a quarter turn exactly: x and z swapped - cos(pi/2) in floats isn't 0)
@@ -80,37 +80,37 @@ V3 TurnBoxExtents(V3 extents, float turn)
             static_cast<float>(s * extents.x + c * extents.z)};
 }
 
-ParticleEmitter TurnParticle(const ParticleEmitter& origin, V3 from, V3 pos, float turn)
+ParticleEmitter turn_particle(const ParticleEmitter& origin, V3 from, V3 pos, float turn)
 {
     ParticleEmitter out = origin;
-    if (origin.hasMid)
-        out.mid = pos + TurnAboutUp(origin.mid - from, turn);
-    if (origin.hasEnd)
-        out.end = pos + TurnAboutUp(origin.end - from, turn);
+    if (origin.has_mid_)
+        out.mid = pos + turn_about_up(origin.mid - from, turn);
+    if (origin.has_end_)
+        out.end = pos + turn_about_up(origin.end - from, turn);
     for (int i = 0; i < 3; ++i) {
-        if (origin.hasBox[i])
-            out.box[i] = TurnBoxExtents(origin.box[i], turn);
+        if (origin.has_box_[i])
+            out.box[i] = turn_box_extents(origin.box[i], turn);
     }
     return out;
 }
 
 namespace {
-float LenOf(V3 v) { return std::sqrt(Dot(v, v)); }
+float len_of(V3 v) { return std::sqrt(get_dot(v, v)); }
 } // namespace
 
-float PathLength(const std::vector<V3>& points, bool closed)
+float path_length(const std::vector<V3>& points, bool closed)
 {
     float total = 0.0f;
     for (size_t i = 0; i + 1 < points.size(); ++i)
-        total += LenOf(points[i + 1] - points[i]);
+        total += len_of(points[i + 1] - points[i]);
     if (closed && points.size() > 2)
-        total += LenOf(points.front() - points.back());
+        total += len_of(points.front() - points.back());
     return total;
 }
 
-bool PathSample(const std::vector<V3>& points, bool closed, float distance, V3* pos, V3* dir)
+bool path_sample(const std::vector<V3>& points, bool closed, float distance, V3* pos, V3* dir)
 {
-    float total = PathLength(points, closed);
+    float total = path_length(points, closed);
     if (points.size() < 2 || !(total > 0.0f))
         return false;
     float d = std::fmod(distance, total);
@@ -119,7 +119,7 @@ bool PathSample(const std::vector<V3>& points, bool closed, float distance, V3* 
     size_t segments = points.size() - 1 + (closed && points.size() > 2 ? 1 : 0);
     for (size_t i = 0; i < segments; ++i) {
         V3 a = points[i], b = points[(i + 1) % points.size()];
-        float length = LenOf(b - a);
+        float length = len_of(b - a);
         if (length <= 0.0f)
             continue;
         if (d <= length || i + 1 == segments) {
@@ -133,7 +133,7 @@ bool PathSample(const std::vector<V3>& points, bool closed, float distance, V3* 
     return false;
 }
 
-std::string TypeKey(uint32_t cls, uint32_t type, uint32_t profile, const std::string& model)
+std::string type_key(uint32_t cls, uint32_t type, uint32_t profile, const std::string& model)
 {
     char text[40];
     std::snprintf(text, sizeof(text), "%08X:%08X:%08X:", cls, type, profile);
@@ -143,7 +143,7 @@ std::string TypeKey(uint32_t cls, uint32_t type, uint32_t profile, const std::st
     return key;
 }
 
-bool SameState(const State& a, const State& b)
+bool same_state(const State& a, const State& b)
 {
     if (a.speeds.size() != b.speeds.size() || a.emitters.size() != b.emitters.size())
         return false;
@@ -159,9 +159,9 @@ bool SameState(const State& a, const State& b)
     return true;
 }
 
-bool Vacant(const State& state) { return state.speeds.empty() && state.emitters.empty(); }
+bool vacant(const State& state) { return state.speeds.empty() && state.emitters.empty(); }
 
-const Pace* SpeedOf(const State& state, uint32_t name)
+const Pace* speed_of(const State& state, uint32_t name)
 {
     for (const Pace& s : state.speeds) {
         if (s.name == name)
@@ -170,7 +170,7 @@ const Pace* SpeedOf(const State& state, uint32_t name)
     return nullptr;
 }
 
-const EmitterSound* EmitterOf(const State& state, uint32_t name)
+const EmitterSound* emitter_of(const State& state, uint32_t name)
 {
     for (const EmitterSound& e : state.emitters) {
         if (e.name == name)
@@ -179,7 +179,7 @@ const EmitterSound* EmitterOf(const State& state, uint32_t name)
     return nullptr;
 }
 
-void SetSpeed(State* state, uint32_t name, float mph)
+void set_speed(State* state, uint32_t name, float mph)
 {
     auto it = std::find_if(state->speeds.begin(), state->speeds.end(), [&](const Pace& s) { return s.name == name; });
     if (!(mph > 0.0f)) {
@@ -194,7 +194,7 @@ void SetSpeed(State* state, uint32_t name, float mph)
         state->speeds.push_back({name, mph});
 }
 
-void SetEmitter(State* state, const EmitterSound& emitter)
+void set_emitter(State* state, const EmitterSound& emitter)
 {
     auto it = std::find_if(state->emitters.begin(), state->emitters.end(),
                            [&](const EmitterSound& e) { return e.name == emitter.name; });
@@ -217,21 +217,21 @@ void SetEmitter(State* state, const EmitterSound& emitter)
 
 namespace {
 
-void Number(std::ostringstream& out, float value)
+void get_number(std::ostringstream& out, float value)
 {
     char text[32];
     std::snprintf(text, sizeof(text), "%.9g", value);
     out << text;
 }
 
-void Hex(std::ostringstream& out, uint32_t value)
+void get_hex(std::ostringstream& out, uint32_t value)
 {
     char text[12];
     std::snprintf(text, sizeof(text), "%08X", value);
     out << text;
 }
 
-bool ParseHex(const std::string& text, uint32_t* out)
+bool parse_hex(const std::string& text, uint32_t* out)
 {
     if (text.size() != 8)
         return false;
@@ -243,7 +243,7 @@ bool ParseHex(const std::string& text, uint32_t* out)
     return true;
 }
 
-bool ParseNumber(const std::string& text, float* out)
+bool parse_number(const std::string& text, float* out)
 {
     if (text.empty())
         return false;
@@ -257,47 +257,47 @@ bool ParseNumber(const std::string& text, float* out)
 
 } // namespace
 
-std::string WriteRecords(const State& state)
+std::string write_records(const State& state)
 {
     std::ostringstream out;
     for (const Pace& s : state.speeds) {
         out << "speed ";
-        Hex(out, s.name);
+        get_hex(out, s.name);
         out << ' ';
-        Number(out, s.mph);
+        get_number(out, s.mph);
         out << '\n';
     }
     for (const EmitterSound& e : state.emitters) {
         out << "emitter ";
-        Hex(out, e.name);
+        get_hex(out, e.name);
         out << " sound=";
-        Hex(out, e.sound);
+        get_hex(out, e.sound);
         out << " vol=";
-        Number(out, e.volume);
+        get_number(out, e.volume);
         out << " radius=";
-        Number(out, e.radius);
+        get_number(out, e.radius);
         out << '\n';
     }
     return out.str();
 }
 
-bool IsRecord(const std::string& kind) { return kind == "speed" || kind == "emitter"; }
+bool is_record(const std::string& kind) { return kind == "speed" || kind == "emitter"; }
 
-bool ReadRecord(const std::string& kind, std::istringstream& in, State* state)
+bool read_record(const std::string& kind, std::istringstream& in, State* state)
 {
-    std::string nameText;
+    std::string name_text;
     uint32_t name = 0;
-    if (!(in >> nameText) || !ParseHex(nameText, &name) || !name)
+    if (!(in >> name_text) || !parse_hex(name_text, &name) || !name)
         return false;
     if (kind == "speed") {
         std::string value;
         float mph = 0.0f;
-        if (!(in >> value) || !ParseNumber(value, &mph) || mph < kMinMph || mph > kMaxMph || SpeedOf(*state, name))
+        if (!(in >> value) || !parse_number(value, &mph) || mph < kMinMph || mph > kMaxMph || speed_of(*state, name))
             return false;
         state->speeds.push_back({name, mph});
         return true;
     }
-    if (kind != "emitter" || EmitterOf(*state, name))
+    if (kind != "emitter" || emitter_of(*state, name))
         return false;
     EmitterSound e;
     e.name = name;
@@ -313,13 +313,13 @@ bool ReadRecord(const std::string& kind, std::istringstream& in, State* state)
         if (!seen.insert(key).second)
             return false;
         if (key == "sound") {
-            if (!ParseHex(value, &e.sound))
+            if (!parse_hex(value, &e.sound))
                 return false;
         } else if (key == "vol") {
-            if (!ParseNumber(value, &e.volume) || e.volume < kMinVolume || e.volume > kLoudest)
+            if (!parse_number(value, &e.volume) || e.volume < kMinVolume || e.volume > kLoudest)
                 return false;
         } else if (key == "radius") {
-            if (!ParseNumber(value, &e.radius) || (e.radius != 0.0f && (e.radius < kMinRadius || e.radius > kRadiusCeiling)))
+            if (!parse_number(value, &e.radius) || (e.radius != 0.0f && (e.radius < kMinRadius || e.radius > kRadiusCeiling)))
                 return false;
         } // (other keys: a later version's - skipped)
     }
@@ -332,70 +332,70 @@ bool ReadRecord(const std::string& kind, std::istringstream& in, State* state)
 
 namespace {
 
-uint32_t Key(const char* name) { return Checksums::HashFromText(name); }
+uint32_t get_key(const char* name) { return checksums::hash_from_text(name); }
 const uint32_t kClass = 0x12B4E660, kName = 0xA1DC81F9, kPos = 0x7F261953;
 const uint32_t kLevelObject = 0xB7B3BD86, kGameObject = 0xEF59C100, kPedestrian = 0xA0DFAC98, kVehicle = 0xE47F1B79,
                kParticleObject = 0x9E7D469E;
 
-uint32_t KType() { static const uint32_t k = Key("Type"); return k; }
-uint32_t KProfile() { static const uint32_t k = Key("profile"); return k; }
-uint32_t KModel() { static const uint32_t k = Key("model"); return k; }
-uint32_t KBouncy() { static const uint32_t k = Key("bouncy"); return k; }
-uint32_t KTexture() { static const uint32_t k = Key("Texture"); return k; }
-uint32_t KWaypoint() { static const uint32_t k = Key("Waypoint"); return k; }
-uint32_t KRadius() { static const uint32_t k = Key("Radius"); return k; }
-uint32_t KEdSound() { static const uint32_t k = Key("ed_sound"); return k; }
-uint32_t KEdVolume() { static const uint32_t k = Key("ed_volume"); return k; }
-uint32_t KEdPathSpeed() { static const uint32_t k = Key("ed_path_speed"); return k; }
-uint32_t KSetPathVelocity() { static const uint32_t k = Key("Obj_SetPathVelocity"); return k; }
-uint32_t KMph() { static const uint32_t k = Key("mph"); return k; }
+uint32_t k_type() { static const uint32_t kK = get_key("Type"); return kK; }
+uint32_t k_profile() { static const uint32_t kK = get_key("profile"); return kK; }
+uint32_t k_model() { static const uint32_t kK = get_key("model"); return kK; }
+uint32_t k_bouncy() { static const uint32_t kK = get_key("bouncy"); return kK; }
+uint32_t k_texture() { static const uint32_t kK = get_key("Texture"); return kK; }
+uint32_t k_waypoint() { static const uint32_t kK = get_key("Waypoint"); return kK; }
+uint32_t k_radius() { static const uint32_t kK = get_key("Radius"); return kK; }
+uint32_t k_ed_sound() { static const uint32_t kK = get_key("ed_sound"); return kK; }
+uint32_t k_ed_volume() { static const uint32_t kK = get_key("ed_volume"); return kK; }
+uint32_t k_ed_path_speed() { static const uint32_t kK = get_key("ed_path_speed"); return kK; }
+uint32_t k_set_path_velocity() { static const uint32_t kK = get_key("Obj_SetPathVelocity"); return kK; }
+uint32_t k_mph() { static const uint32_t kK = get_key("mph"); return kK; }
 
-double Now()
+double get_now()
 {
     return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
-Scripts::CStruct* LookUpNodeParams(uint32_t name)
+script::Struct* look_up_node_params(uint32_t name)
 {
-    return name && LevelNodes::NodeManagerInstance() ? LevelNodes::FetchVertex(name, false) : nullptr;
+    return name && level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(name, false) : nullptr;
 }
 
-uint32_t ClassOf(Scripts::CStruct* node)
+uint32_t class_of(script::Struct* node)
 {
     uint32_t cls = 0;
     if (node)
-        node->ReadHashValue(kClass, &cls, 0);
+        node->read_hash_value(kClass, &cls, 0);
     return cls;
 }
 
-GameObjects::CGameEntity* LiveObject(uint32_t id)
+objects::GameEntity* live_object(uint32_t id)
 {
-    auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
-    return object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) ? object : nullptr;
+    auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
+    return object && !(object->object_flags_ & objects::kObjectFlagDead) ? object : nullptr;
 }
 
-std::string ModelOf(Scripts::CStruct* node)
+std::string model_of(script::Struct* node)
 {
     const char* model = nullptr;
-    return node && node->FetchText(KModel(), &model, 0) && model ? std::string(model) : std::string();
+    return node && node->fetch_text(k_model(), &model, 0) && model ? std::string(model) : std::string();
 }
 
-bool InLevel() { return LevelNodes::NodeManagerInstance() != nullptr && !Nodes::All().empty(); }
+bool in_level() { return level_nodes::node_manager_instance() != nullptr && !nodes::get_all().empty(); }
 
 // A node of the editor's copies' array whose copy was deleted (its node stays until the level goes): not a ghost.
-bool DeletedCopy(const Nodes::Elem& node)
+bool deleted_copy(const nodes::Elem& node)
 {
-    static const uint32_t kCopies = Checksums::HashFromText("level_editor_copy_nodes");
-    return Nodes::ArrayName(node) == kCopies && !Objects::IsCopy(node.name);
+    static const uint32_t kCopies = checksums::hash_from_text("level_editor_copy_nodes");
+    return nodes::get_array_name(node) == kCopies && !object_edit::is_copy(node.name);
 }
 
 // The state the layout keeps, the baked fields' (read when a level loads; not saved), the undo step under way.
 State g_state, g_baked;
-State g_undoBefore;
-bool g_haveUndo;
-bool g_uiActive; // (one of the Inspector's fields is being dragged: the undo step waits)
+State g_undo_before;
+bool g_have_undo;
+bool g_ui_active; // (one of the Inspector's fields is being dragged: the undo step waits)
 std::vector<std::function<void()>> g_queue;
-int g_levelLoads = -1;
+int g_level_loads = -1;
 bool g_scanned;
 
 // Sounds playing on emitters.
@@ -405,14 +405,14 @@ struct Playing {
 std::vector<Playing> g_playing;
 
 // Speeds put on objects (the object each was put on, so one made again gets it again).
-std::unordered_map<uint32_t, std::pair<const void*, float>> g_speedApplied;
-double g_nextSlowTick;
+std::unordered_map<uint32_t, std::pair<const void*, float>> g_speed_applied;
+double g_next_slow_tick;
 
 // Objects made again: killed, and once the game has removed them, made from their nodes (put back where they were).
 struct Remake {
     uint32_t name;
     bool keep;
-    Objects::State state;
+    object_edit::State state;
     double due;
     bool killed;
 };
@@ -423,77 +423,77 @@ std::vector<Remake> g_remakes;
 struct ParticleOrigin {
     ParticleEmitter emitter;
     V3 from = {};
-    float fromYaw = 0.0f;
+    float from_yaw_ = 0.0f;
     V3 at = {};
-    float atYaw = 0.0f;
+    float at_yaw_ = 0.0f;
 };
-std::unordered_map<uint32_t, ParticleOrigin> g_particleAt;
+std::unordered_map<uint32_t, ParticleOrigin> g_particle_at;
 
 // Objects whose model the editor swapped: the model each was made with.
-std::unordered_map<uint32_t, std::string> g_madeWith;
+std::unordered_map<uint32_t, std::string> g_made_with;
 
 // The preview.
 struct Preview {
     uint32_t id = 0;
-    Objects::State saved;
+    object_edit::State saved;
     std::vector<V3> points;
     bool closed = false;
     float distance = 0.0f;
     bool playing = false;
 };
 Preview g_preview;
-double g_lastTick;
+double g_last_tick;
 
-bool g_showUncreated;
+bool g_show_uncreated;
 
 // The emitters' state in effect: the layout's over the baked fields.
-std::vector<EmitterSound> EffectiveEmitters()
+std::vector<EmitterSound> effective_emitters()
 {
     std::vector<EmitterSound> out = g_state.emitters;
     for (const EmitterSound& e : g_baked.emitters) {
-        if (!EmitterOf(g_state, e.name))
+        if (!emitter_of(g_state, e.name))
             out.push_back(e);
     }
     return out;
 }
-std::vector<Pace> EffectiveSpeeds()
+std::vector<Pace> effective_speeds()
 {
     std::vector<Pace> out = g_state.speeds;
     for (const Pace& s : g_baked.speeds) {
-        if (!SpeedOf(g_state, s.name))
+        if (!speed_of(g_state, s.name))
             out.push_back(s);
     }
     return out;
 }
 
-void NoteUndo()
+void note_undo()
 {
-    if (!g_haveUndo) {
-        g_undoBefore = g_state;
-        g_haveUndo = true;
+    if (!g_have_undo) {
+        g_undo_before = g_state;
+        g_have_undo = true;
     }
 }
 
-void QueueRemake(uint32_t name, bool keep, double delay)
+void queue_remake(uint32_t name, bool keep, double delay)
 {
-    GameObjects::CGameEntity* object = LiveObject(name);
+    objects::GameEntity* object = live_object(name);
     if (!object)
         return; // (nothing made of it now: its node is what a later create reads)
     for (Remake& r : g_remakes) {
         if (r.name == name && !r.killed) {
-            r.due = Now() + delay;
+            r.due = get_now() + delay;
             if (keep)
-                r.state = Objects::StoreAway(object);
+                r.state = object_edit::store_away(object);
             return;
         }
     }
-    Remake r = {name, keep, keep ? Objects::StoreAway(object) : Objects::State{}, Now() + delay, false};
+    Remake r = {name, keep, keep ? object_edit::store_away(object) : object_edit::State{}, get_now() + delay, false};
     g_remakes.push_back(r);
 }
 
-void RunRemakes()
+void run_remakes()
 {
-    double now = Now();
+    double now = get_now();
     for (auto it = g_remakes.begin(); it != g_remakes.end();) {
         Remake& r = *it;
         if (!r.killed) {
@@ -501,24 +501,24 @@ void RunRemakes()
                 ++it;
                 continue;
             }
-            if (GameObjects::CGameEntity* object = LiveObject(r.name)) {
+            if (objects::GameEntity* object = live_object(r.name)) {
                 if (r.keep)
-                    r.state = Objects::StoreAway(object);
-                object->FlagAsDead();
+                    r.state = object_edit::store_away(object);
+                object->flag_as_dead();
             }
             r.killed = true;
         }
-        if (GameObjects::FindObject(r.name)) {
+        if (objects::find_object(r.name)) {
             ++it; // (not removed yet: the game deletes dead objects in its update)
             continue;
         }
-        if (Scripts::CStruct* node = LookUpNodeParams(r.name)) {
-            ScriptCommands::CreateFromNode(node);
+        if (script::Struct* node = look_up_node_params(r.name)) {
+            commands::create_from_node(node);
             if (r.keep)
-                Objects::Restore(r.state);
-            g_speedApplied.erase(r.name); // (its speed put on it again)
-            if (DebugEnabled())
-                Log("level editor: %s made again from its node", Objects::Caption(r.name).c_str());
+                object_edit::get_restore(r.state);
+            g_speed_applied.erase(r.name); // (its speed put on it again)
+            if (debug_enabled())
+                get_log("level editor: %s made again from its node", object_edit::caption(r.name).c_str());
         }
         it = g_remakes.erase(it);
     }
@@ -526,44 +526,44 @@ void RunRemakes()
 
 // --- sounds on emitters ---
 
-SoundFx::CAudioMixer* AudioMixerHandle() { return SoundFx::g_audioMixer; }
-void* NearestCamera(const Maths::Vec4* position, float* distance)
+sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer; }
+void* nearest_camera(const maths::Vec4* position, float* distance)
 {
-    return Engine3D::FetchNearestCamera(position, distance);
+    return render::fetch_nearest_camera(position, distance);
 }
-const Maths::Vec4* ViewerLocation(void* camera)
+const maths::Vec4* viewer_location(void* camera)
 {
-    return static_cast<Gfx2D::ViewCam*>(camera)->FetchLocation();
+    return static_cast<gfx::ViewCam*>(camera)->fetch_location();
 }
-GameObjects::EmitterNode* Emitter(uint32_t name)
+objects::EmitterNode* get_emitter(uint32_t name)
 {
-    return GameObjects::g_emitterTable ? GameObjects::Emitter_GetNode(name) : nullptr;
+    return objects::g_emitter_table ? objects::emitter_get_node(name) : nullptr;
 }
 
-void StopPlaying(Playing* p)
+void stop_playing(Playing* p)
 {
-    if (SoundFx::CAudioMixer* m = AudioMixerHandle(); m && p->id && !SoundFx::NoSound())
-        m->StopSound(p->id);
+    if (sound::AudioMixer* m = audio_mixer_handle(); m && p->id && !sound::no_sound())
+        m->stop_sound(p->id);
     p->id = 0;
 }
 
-void StopAllSounds()
+void stop_all_sounds()
 {
     for (Playing& p : g_playing)
-        StopPlaying(&p);
+        stop_playing(&p);
     g_playing.clear();
 }
 
-void UpdateSounds()
+void update_sounds()
 {
-    SoundFx::CAudioMixer* m = AudioMixerHandle();
-    std::vector<EmitterSound> emitters = EffectiveEmitters();
-    bool off = !m || SoundFx::NoSound() || !InLevel() || Layout::NetworkActive();
+    sound::AudioMixer* m = audio_mixer_handle();
+    std::vector<EmitterSound> emitters = effective_emitters();
+    bool off = !m || sound::no_sound() || !in_level() || layout::network_active();
     // (those no longer wanted, or of another sound now: stopped)
     for (auto it = g_playing.begin(); it != g_playing.end();) {
         auto e = std::find_if(emitters.begin(), emitters.end(), [&](const EmitterSound& x) { return x.name == it->name; });
         if (off || e == emitters.end() || e->sound != it->sound) {
-            StopPlaying(&*it);
+            stop_playing(&*it);
             it = g_playing.erase(it);
         } else {
             ++it;
@@ -579,33 +579,33 @@ void UpdateSounds()
             g_playing.push_back({e.name, e.sound, 0});
             p = g_playing.end() - 1;
         }
-        GameObjects::EmitterNode* emitter = Emitter(e.name);
-        SoundFx::SoundWaveSlot* wave = m->FetchWaveSlot(e.sound);
-        if (!emitter || !emitter->m_active || !wave || m->IsFrozen()) {
-            StopPlaying(&*p);
+        objects::EmitterNode* emitter = get_emitter(e.name);
+        sound::SoundWaveSlot* wave = m->fetch_wave_slot(e.sound);
+        if (!emitter || !emitter->active_ || !wave || m->is_frozen()) {
+            stop_playing(&*p);
             continue;
         }
         // As a sound played from an emitter: from the shape's nearest point to the listener, the sound's own dropoff.
-        Maths::Vec4 centre = emitter->m_atPoint;
-        void* camera = NearestCamera(&centre, nullptr);
+        maths::Vec4 centre = emitter->at_point_;
+        void* camera = nearest_camera(&centre, nullptr);
         if (!camera) {
-            StopPlaying(&*p);
+            stop_playing(&*p);
             continue;
         }
-        Maths::Vec4 listener = *ViewerLocation(camera), heard = centre;
-        if (emitter->m_form != GameObjects::EMITTER_SHAPE_OTHER)
-            emitter->NearestPointOn(&heard, &listener);
-        SoundFx::volumeRef volume;
-        volume.PrepareAll();
-        if (!m->FetchLoudness(&volume, &heard, wave->dropoff, 0, camera, nullptr)) {
-            StopPlaying(&*p); // (out of range)
+        maths::Vec4 listener = *viewer_location(camera), heard = centre;
+        if (emitter->form_ != objects::kEmitterShapeOther)
+            emitter->nearest_point_on(&heard, &listener);
+        sound::VolumeRef volume;
+        volume.prepare_all();
+        if (!m->fetch_loudness(&volume, &heard, wave->dropoff, 0, camera, nullptr)) {
+            stop_playing(&*p); // (out of range)
             continue;
         }
-        volume.PercentTweak(e.volume);
-        if (p->id && m->IsSoundPlaying(p->id, nullptr)) {
-            m->SetSoundParamsScaled(p->id, &volume, 100.0f);
-        } else if (!volume.IsAudioOff()) {
-            p->id = m->EmitSound(e.sound, &volume, 100.0f, e.name, nullptr, 0); // (again when it stopped: a loop)
+        volume.percent_tweak(e.volume);
+        if (p->id && m->is_sound_playing(p->id, nullptr)) {
+            m->set_sound_params_scaled(p->id, &volume, 100.0f);
+        } else if (!volume.is_audio_off()) {
+            p->id = m->emit_sound(e.sound, &volume, 100.0f, e.name, nullptr, 0); // (again when it stopped: a loop)
         } else {
             p->id = 0;
         }
@@ -614,20 +614,20 @@ void UpdateSounds()
 
 // A sphere emitter's radius kept as the state says (its node's Radius, the emitter manager's copy - an added emitter's
 // node is made again from its spec when the overlay changes).
-void ApplyRadius(const EmitterSound& e)
+void apply_radius(const EmitterSound& e)
 {
     if (e.radius <= 0.0f)
         return;
-    if (GameObjects::EmitterNode* emitter = Emitter(e.name); emitter && emitter->m_form == GameObjects::EMITTER_SHAPE_SPHERE &&
-                                                     emitter->m_radius != e.radius) {
-        emitter->m_radius = e.radius;
-        emitter->m_reachSq = e.radius * e.radius;
+    if (objects::EmitterNode* emitter = get_emitter(e.name); emitter && emitter->form_ == objects::kEmitterShapeSphere &&
+                                                     emitter->radius_ != e.radius) {
+        emitter->radius_ = e.radius;
+        emitter->reach_sq_ = e.radius * e.radius;
     }
-    if (Scripts::CStruct* node = LookUpNodeParams(e.name); node && !NodeCreate::IsAdded(e.name)) {
+    if (script::Struct* node = look_up_node_params(e.name); node && !node_create::is_added(e.name)) {
         float now = 0.0f;
-        if (!node->FetchFloat(KRadius(), &now, 0) || now != e.radius) {
-            node->EraseModule(KRadius());
-            node->PushFloat(KRadius(), e.radius);
+        if (!node->fetch_float(k_radius(), &now, 0) || now != e.radius) {
+            node->erase_module(k_radius());
+            node->push_float(k_radius(), e.radius);
         }
     }
 }
@@ -637,11 +637,11 @@ void ApplyRadius(const EmitterSound& e)
 // Our script LevelEditor_PathSpeed - `Obj_SetPathVelocity <speed> mph` - defined (once) by the game's loader from QB
 // made here (as level_editor_triggers.cpp defines its trigger scripts), so the member function runs from a script of
 // the object's, as a level's scripts run it.
-uint32_t PathSpeedScript()
+uint32_t path_speed_script()
 {
-    static const uint32_t name = Key("LevelEditor_PathSpeed");
-    if (Scripts::FindSymbol(name))
-        return name;
+    static const uint32_t kName = get_key("LevelEditor_PathSpeed");
+    if (script::find_symbol(kName))
+        return kName;
     std::vector<uint8_t> qb;
     auto put4 = [&](uint32_t v) {
         for (int i = 0; i < 4; ++i)
@@ -652,162 +652,162 @@ uint32_t PathSpeedScript()
         put4(v);
     };
     qb.push_back(0x23); // script
-    name4(name);
+    name4(kName);
     qb.push_back(0x01);
-    name4(KSetPathVelocity());
+    name4(k_set_path_velocity());
     qb.push_back(0x2D); // <speed>
-    name4(Key("speed"));
-    name4(KMph());
+    name4(get_key("speed"));
+    name4(k_mph());
     qb.push_back(0x01);
     qb.push_back(0x24); // endscript
     qb.push_back(0x01);
     for (const char* text : {"LevelEditor_PathSpeed", "Obj_SetPathVelocity", "speed", "mph"}) {
         qb.push_back(0x2B);
-        put4(Key(text));
+        put4(get_key(text));
         qb.insert(qb.end(), text, text + std::strlen(text));
         qb.push_back(0x00);
     }
     qb.push_back(0x00);
-    Scripts::LoadQBData("level_editor_entities.qb", qb.data(), 0, 0, 0);
-    return name;
+    script::load_qb_data("level_editor_entities.qb", qb.data(), 0, 0, 0);
+    return kName;
 }
 
-void ApplySpeed(GameObjects::CGameEntity* object, float mph)
+void apply_speed(objects::GameEntity* object, float mph)
 {
-    Scripts::CStruct* params = Scripts::SpawnParamBag()->PrepareAll();
-    params->PushFloat(Key("speed"), mph);
-    Scripts::LaunchScript(PathSpeedScript(), params, object, false, nullptr);
-    params->Clear();
-    Scripts::DeleteStruct(params);
+    script::Struct* params = script::spawn_param_bag()->prepare_all();
+    params->push_float(get_key("speed"), mph);
+    script::launch_script(path_speed_script(), params, object, false, nullptr);
+    params->get_clear();
+    script::delete_struct(params);
 }
 
-void UpdateSpeeds()
+void update_speeds()
 {
-    if (!InLevel() || Layout::NetworkActive())
+    if (!in_level() || layout::network_active())
         return;
-    for (const Pace& s : EffectiveSpeeds()) {
-        GameObjects::CGameEntity* object = LiveObject(s.name);
+    for (const Pace& s : effective_speeds()) {
+        objects::GameEntity* object = live_object(s.name);
         if (!object)
             continue;
-        auto it = g_speedApplied.find(s.name);
-        if (it != g_speedApplied.end() && it->second.first == object && it->second.second == s.mph)
+        auto it = g_speed_applied.find(s.name);
+        if (it != g_speed_applied.end() && it->second.first == object && it->second.second == s.mph)
             continue;
-        ApplySpeed(object, s.mph);
-        g_speedApplied[s.name] = {object, s.mph};
-        if (DebugEnabled())
-            Log("level editor: %s's path speed %.1f mph", Objects::Caption(s.name).c_str(), s.mph);
+        apply_speed(object, s.mph);
+        g_speed_applied[s.name] = {object, s.mph};
+        if (debug_enabled())
+            get_log("level editor: %s's path speed %.1f mph", object_edit::caption(s.name).c_str(), s.mph);
     }
 }
 
 // The baked fields (tools/pipeline/game/apply_layout.ts): ed_sound / ed_volume on emitters, ed_path_speed on moving objects.
-void ScanBaked()
+void scan_baked()
 {
     g_baked = State{};
-    if (Layout::NetworkActive())
+    if (layout::network_active())
         return;
-    for (const Nodes::Elem& n : Nodes::All()) {
-        Scripts::CStruct* s = Nodes::StructOf(n);
+    for (const nodes::Elem& n : nodes::get_all()) {
+        script::Struct* s = nodes::struct_of(n);
         if (!s || !n.name)
             continue;
         uint32_t sound = 0;
-        if (n.family == Nodes::Family::Sound && s->ReadHashValue(KEdSound(), &sound, 0) && sound) {
+        if (n.family == nodes::Family::kSound && s->read_hash_value(k_ed_sound(), &sound, 0) && sound) {
             EmitterSound e;
             e.name = n.name;
             e.sound = sound;
             float volume = 100.0f;
-            if (s->FetchFloat(KEdVolume(), &volume, 0))
+            if (s->fetch_float(k_ed_volume(), &volume, 0))
                 e.volume = std::clamp(volume, kMinVolume, kLoudest);
             g_baked.emitters.push_back(e);
         }
         float mph = 0.0f;
-        if (s->FetchFloat(KEdPathSpeed(), &mph, 0) && mph >= kMinMph && mph <= kMaxMph)
+        if (s->fetch_float(k_ed_path_speed(), &mph, 0) && mph >= kMinMph && mph <= kMaxMph)
             g_baked.speeds.push_back({n.name, mph});
     }
-    if (!Vacant(g_baked))
-        Log("level editor: the level's baked fields: %u emitter sounds, %u path speeds",
+    if (!vacant(g_baked))
+        get_log("level editor: the level's baked fields: %u emitter sounds, %u path speeds",
             static_cast<unsigned>(g_baked.emitters.size()), static_cast<unsigned>(g_baked.speeds.size()));
 }
 
 // --- the preview ---
 
 // The path an object's node starts: its first link, then each waypoint's first link (a loop closes it).
-bool PathOf(uint32_t name, std::vector<V3>* points, bool* closed)
+bool path_of(uint32_t name, std::vector<V3>* points, bool* closed)
 {
     points->clear();
     *closed = false;
-    Scripts::CStruct* node = LookUpNodeParams(name);
-    if (!node || LevelNodes::GetLinkCount(node) == 0)
+    script::Struct* node = look_up_node_params(name);
+    if (!node || level_nodes::get_link_count(node) == 0)
         return false;
-    uint32_t next = LevelNodes::FetchLink(node, 0);
+    uint32_t next = level_nodes::fetch_link(node, 0);
     std::vector<uint32_t> seen;
     while (next && points->size() < 512) {
         if (std::find(seen.begin(), seen.end(), next) != seen.end()) {
             *closed = next == seen.front();
             break;
         }
-        Scripts::CStruct* point = LookUpNodeParams(next);
-        if (!point || ClassOf(point) != KWaypoint())
+        script::Struct* point = look_up_node_params(next);
+        if (!point || class_of(point) != k_waypoint())
             break;
-        Maths::Vec4 pos;
-        LevelNodes::FetchPlace(point, &pos);
+        maths::Vec4 pos;
+        level_nodes::fetch_place(point, &pos);
         points->push_back({pos.x, pos.y, pos.z});
         seen.push_back(next);
-        next = LevelNodes::GetLinkCount(point) ? LevelNodes::FetchLink(point, 0) : 0;
+        next = level_nodes::get_link_count(point) ? level_nodes::fetch_link(point, 0) : 0;
     }
     return points->size() >= 2;
 }
 
-float PreviewMph(uint32_t name)
+float preview_mph(uint32_t name)
 {
-    for (const Pace& s : EffectiveSpeeds()) {
+    for (const Pace& s : effective_speeds()) {
         if (s.name == name)
             return s.mph;
     }
-    uint32_t cls = ClassOf(LookUpNodeParams(name));
+    uint32_t cls = class_of(look_up_node_params(name));
     return cls == kVehicle ? 25.0f : cls == kPedestrian ? 3.0f : 10.0f;
 }
 
-float Heading(const GameObjects::CGameEntity* object)
+float current_heading(const objects::GameEntity* object)
 {
-    const Maths::Vec4& at = object->m_basisFrame.row[2];
+    const maths::Vec4& at = object->basis_frame_.row[2];
     return std::atan2(at.x, at.z);
 }
 
-void PreviewPlace(float distance)
+void preview_place(float distance)
 {
-    GameObjects::CGameEntity* object = LiveObject(g_preview.id);
+    objects::GameEntity* object = live_object(g_preview.id);
     V3 pos, dir;
-    if (!object || !PathSample(g_preview.points, g_preview.closed, distance, &pos, &dir))
+    if (!object || !path_sample(g_preview.points, g_preview.closed, distance, &pos, &dir))
         return;
-    Objects::Place(object, pos);
+    object_edit::get_place(object, pos);
     if (dir.x != 0.0f || dir.z != 0.0f)
-        Objects::TurnAbout(object, pos, std::atan2(dir.x, dir.z) - Heading(object));
+        object_edit::turn_about(object, pos, std::atan2(dir.x, dir.z) - current_heading(object));
 }
 
-void PreviewStart(uint32_t id)
+void preview_start(uint32_t id)
 {
-    StopPreview();
-    GameObjects::CGameEntity* object = LiveObject(id);
-    if (!object || !PathOf(id, &g_preview.points, &g_preview.closed))
+    stop_preview();
+    objects::GameEntity* object = live_object(id);
+    if (!object || !path_of(id, &g_preview.points, &g_preview.closed))
         return;
     g_preview.id = id;
-    g_preview.saved = Objects::StoreAway(object);
+    g_preview.saved = object_edit::store_away(object);
     g_preview.distance = 0.0f;
     g_preview.playing = true;
-    PreviewPlace(0.0f);
+    preview_place(0.0f);
 }
 
-void PreviewTick(double seconds)
+void preview_tick(double seconds)
 {
     if (!g_preview.id || !g_preview.playing)
         return;
-    g_preview.distance += MphToUnits(PreviewMph(g_preview.id)) * static_cast<float>(std::min(seconds, 0.1));
-    PreviewPlace(g_preview.distance);
+    g_preview.distance += mph_to_units(preview_mph(g_preview.id)) * static_cast<float>(std::min(seconds, 0.1));
+    preview_place(g_preview.distance);
 }
 
 // --- the palette ---
 
-enum class SourceKind : uint8_t { DupFrom, AssignValue, Sound };
+enum class SourceKind : uint8_t { kDupFrom, kAssignValue, kSound };
 struct Source {
     SourceKind kind;
     std::vector<uint32_t> names; // (copies: the node(s) copied)
@@ -815,11 +815,11 @@ struct Source {
 };
 std::vector<PaletteEntry> g_palette;
 std::vector<Source> g_sources;
-uint32_t g_paletteGeneration = 0xFFFFFFFF;
+uint32_t g_palette_generation = 0xFFFFFFFF;
 
 // Loaded models (the model= of every object the level has made), for the model swap.
 std::vector<std::string> g_models;
-uint32_t g_modelsGeneration = 0xFFFFFFFF;
+uint32_t g_models_generation = 0xFFFFFFFF;
 
 const char* Short(const std::string& path)
 {
@@ -828,47 +828,47 @@ const char* Short(const std::string& path)
     return base ? base + 1 : text;
 }
 
-void BuildPalette()
+void build_palette()
 {
     g_palette.clear();
     g_sources.clear();
-    if (!InLevel())
+    if (!in_level())
         return;
     std::set<std::string> types;
     std::map<std::string, std::vector<uint32_t>> sets;
     std::vector<std::pair<std::string, Source>> peds, cars, particles;
-    for (const Nodes::Elem& n : Nodes::All()) {
-        Scripts::CStruct* s = Nodes::StructOf(n);
-        if (!s || !n.name || n.hidden || NodeCreate::IsAdded(n.name) || Objects::IsCopy(n.name))
+    for (const nodes::Elem& n : nodes::get_all()) {
+        script::Struct* s = nodes::struct_of(n);
+        if (!s || !n.name || n.hidden || node_create::is_added(n.name) || object_edit::is_copy(n.name))
             continue;
-        uint32_t cls = ClassOf(s);
+        uint32_t cls = class_of(s);
         if (cls == kPedestrian || cls == kVehicle) {
-            if (!LiveObject(n.name)) // (only types the level has made: their assets are loaded)
+            if (!live_object(n.name)) // (only types the level has made: their assets are loaded)
                 continue;
             uint32_t type = 0, profile = 0;
-            s->ReadHashValue(KType(), &type, 0);
-            s->ReadHashValue(KProfile(), &profile, 0);
-            std::string model = ModelOf(s);
-            if (!types.insert(TypeKey(cls, type, profile, model)).second)
+            s->read_hash_value(k_type(), &type, 0);
+            s->read_hash_value(k_profile(), &profile, 0);
+            std::string model = model_of(s);
+            if (!types.insert(type_key(cls, type, profile, model)).second)
                 continue;
             std::string label = cls == kPedestrian ? "Ped: " : "Car: ";
-            label += Nodes::Caption(type);
+            label += nodes::caption(type);
             if (profile && profile != type)
-                label += " / " + Nodes::Caption(profile);
+                label += " / " + nodes::caption(profile);
             if (!model.empty())
                 label += std::string(" (") + Short(model) + ")";
-            label += "  like " + Nodes::Caption(n.name);
-            (cls == kPedestrian ? peds : cars).push_back({label, Source{SourceKind::DupFrom, {n.name}}});
-        } else if ((cls == kLevelObject || cls == kGameObject) && s->HasBareFlag(KBouncy()) && LiveObject(n.name)) {
-            sets[SetStem(Nodes::Caption(n.name))].push_back(n.name);
+            label += "  like " + nodes::caption(n.name);
+            (cls == kPedestrian ? peds : cars).push_back({label, Source{SourceKind::kDupFrom, {n.name}}});
+        } else if ((cls == kLevelObject || cls == kGameObject) && s->has_bare_flag(k_bouncy()) && live_object(n.name)) {
+            sets[set_stem(nodes::caption(n.name))].push_back(n.name);
         } else if (cls == kParticleObject) {
             uint32_t type = 0, texture = 0;
-            s->ReadHashValue(KType(), &type, 0);
-            s->ReadHashValue(KTexture(), &texture, 0);
-            if (!types.insert(TypeKey(cls, type, texture, "")).second)
+            s->read_hash_value(k_type(), &type, 0);
+            s->read_hash_value(k_texture(), &texture, 0);
+            if (!types.insert(type_key(cls, type, texture, "")).second)
                 continue;
-            std::string label = "Particles: " + Nodes::Caption(texture ? texture : type) + "  like " + Nodes::Caption(n.name);
-            particles.push_back({label, Source{SourceKind::DupFrom, {n.name}}});
+            std::string label = "Particles: " + nodes::caption(texture ? texture : type) + "  like " + nodes::caption(n.name);
+            particles.push_back({label, Source{SourceKind::kDupFrom, {n.name}}});
         }
     }
     auto add = [](std::vector<std::pair<std::string, Source>>& list, uint32_t colour) {
@@ -888,19 +888,19 @@ void BuildPalette()
         char label[160];
         std::snprintf(label, sizeof(label), "Bouncy set: %s (%u)", stem.c_str(), static_cast<unsigned>(names.size()));
         g_palette.push_back({label, 0xFFFFB060, ""});
-        g_sources.push_back({SourceKind::AssignValue, names});
+        g_sources.push_back({SourceKind::kAssignValue, names});
     }
     add(particles, 0xFFFF9050);
     // The level's loaded sounds (its wave table): an emitter with that sound.
-    const char* why = NodeCreate::WhyNot(NodeCreate::Kind::Sound, NodeCreate::Team::Red);
-    auto* waves = SoundFx::g_levelWaves;
-    int count = std::clamp(SoundFx::g_levelCount, 0, 256);
+    const char* why = node_create::get_why_not(node_create::Kind::kSound, node_create::Team::kRed);
+    auto* waves = sound::g_level_waves;
+    int count = std::clamp(sound::g_level_count, 0, 256);
     std::vector<std::pair<std::string, Source>> sounds;
-    for (int i = 0; i < count && !SoundFx::NoSound(); ++i) {
-        std::string label = "Sound emitter: " + Nodes::Caption(waves[i].checksum);
+    for (int i = 0; i < count && !sound::no_sound(); ++i) {
+        std::string label = "Sound emitter: " + nodes::caption(waves[i].checksum);
         if (waves[i].looping)
             label += " (loop)";
-        sounds.push_back({label, Source{SourceKind::Sound, {}, waves[i].checksum}});
+        sounds.push_back({label, Source{SourceKind::kSound, {}, waves[i].checksum}});
     }
     std::sort(sounds.begin(), sounds.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
     for (auto& e : sounds) {
@@ -909,15 +909,15 @@ void BuildPalette()
     }
 }
 
-void BuildModels()
+void build_models()
 {
     g_models.clear();
     std::set<std::string> seen;
-    for (const Nodes::Elem& n : Nodes::All()) {
-        if (n.family != Nodes::Family::Object || !LiveObject(n.name))
+    for (const nodes::Elem& n : nodes::get_all()) {
+        if (n.family != nodes::Family::kObject || !live_object(n.name))
             continue;
-        std::string model = ModelOf(Nodes::StructOf(n));
-        std::string key = TypeKey(0, 0, 0, model);
+        std::string model = model_of(nodes::struct_of(n));
+        std::string key = type_key(0, 0, 0, model);
         if (!model.empty() && seen.insert(key).second)
             g_models.push_back(model);
     }
@@ -930,223 +930,223 @@ void BuildModels()
 
 // --- the state ---
 
-State AtHand()
+State at_hand()
 {
     State out;
     for (const Pace& s : g_state.speeds) {
-        if (LookUpNodeParams(s.name))
+        if (look_up_node_params(s.name))
             out.speeds.push_back(s);
     }
     for (const EmitterSound& e : g_state.emitters) {
-        if (LookUpNodeParams(e.name))
+        if (look_up_node_params(e.name))
             out.emitters.push_back(e);
     }
     return out;
 }
 
-void ChangePhase(const State& state)
+void change_phase(const State& state)
 {
     // (radii no longer set: back to the node's own - an added emitter's spec, a level emitter's Radius as loaded is
     // what its node had; the radius written into a level node stays until the level loads again)
     g_state = state;
-    g_speedApplied.clear();
+    g_speed_applied.clear();
     for (const EmitterSound& e : g_state.emitters)
-        ApplyRadius(e);
+        apply_radius(e);
 }
 
-bool TakeUndo(State* before)
+bool take_undo(State* before)
 {
-    if (!g_haveUndo || g_uiActive)
+    if (!g_have_undo || g_ui_active)
         return false;
-    g_haveUndo = false;
-    if (SameState(g_undoBefore, g_state))
+    g_have_undo = false;
+    if (same_state(g_undo_before, g_state))
         return false;
-    *before = g_undoBefore;
+    *before = g_undo_before;
     return true;
 }
 
-void Queue(std::function<void()> action) { g_queue.push_back(std::move(action)); }
+void get_queue(std::function<void()> action) { g_queue.push_back(std::move(action)); }
 
-void Kickoff() { StopPreview(); }
+void kickoff() { stop_preview(); }
 
-void Halt() { StopPreview(); }
+void halt() { stop_preview(); }
 
-void StopPreview()
+void stop_preview()
 {
     if (!g_preview.id)
         return;
-    Objects::Restore(g_preview.saved);
+    object_edit::get_restore(g_preview.saved);
     g_preview = Preview{};
 }
 
-void PreviewSuspend()
+void preview_suspend()
 {
     if (g_preview.id)
-        Objects::Restore(g_preview.saved);
+        object_edit::get_restore(g_preview.saved);
 }
 
-void PreviewResume()
+void preview_resume()
 {
     if (g_preview.id)
-        PreviewPlace(g_preview.distance);
+        preview_place(g_preview.distance);
 }
 
-void Tick(bool editorActive, uint32_t selected, bool dragging)
+void tick(bool editor_active, uint32_t selected, bool dragging)
 {
-    double now = Now();
-    double seconds = g_lastTick > 0.0 ? now - g_lastTick : 0.0;
-    g_lastTick = now;
+    double now = get_now();
+    double seconds = g_last_tick > 0.0 ? now - g_last_tick : 0.0;
+    g_last_tick = now;
     // (a new level: read its baked fields once it is up)
-    if (g_levelLoads != Layout::LevelLoads()) {
-        g_levelLoads = Layout::LevelLoads();
+    if (g_level_loads != layout::level_loads()) {
+        g_level_loads = layout::level_loads();
         g_scanned = false;
     }
-    if (!g_scanned && InLevel()) {
+    if (!g_scanned && in_level()) {
         g_scanned = true;
-        ScanBaked();
+        scan_baked();
     }
     std::vector<std::function<void()>> queue;
     queue.swap(g_queue);
     for (auto& action : queue)
         action();
-    if (g_preview.id && (!editorActive || dragging || selected != g_preview.id))
-        StopPreview();
-    PreviewTick(seconds);
-    RunRemakes();
+    if (g_preview.id && (!editor_active || dragging || selected != g_preview.id))
+        stop_preview();
+    preview_tick(seconds);
+    run_remakes();
     // The objects whose model was swapped: made again when their node's model= isn't the one they were made with
     // (the swap, its undo, Home).
-    for (auto& [id, made] : g_madeWith) {
-        std::string model = ModelOf(LookUpNodeParams(id));
-        if (model != made && LiveObject(id)) {
+    for (auto& [id, made] : g_made_with) {
+        std::string model = model_of(look_up_node_params(id));
+        if (model != made && live_object(id)) {
             made = model;
-            QueueRemake(id, true, 0.0);
+            queue_remake(id, true, 0.0);
         }
     }
-    UpdateSounds();
-    if (now >= g_nextSlowTick) {
-        g_nextSlowTick = now + 0.5;
-        UpdateSpeeds();
+    update_sounds();
+    if (now >= g_next_slow_tick) {
+        g_next_slow_tick = now + 0.5;
+        update_speeds();
         for (const EmitterSound& e : g_state.emitters)
-            ApplyRadius(e);
+            apply_radius(e);
     }
 }
 
 // --- particles and ghosts (the node edits) ---
 
-void NodeMoved(uint32_t name, V3 pos, V3 angles)
+void node_moved(uint32_t name, V3 pos, V3 angles)
 {
-    int index = Nodes::Find(name);
-    if (index < 0 || Nodes::All()[index].family != Nodes::Family::Particle)
+    int index = nodes::get_find(name);
+    if (index < 0 || nodes::get_all()[index].family != nodes::Family::kParticle)
         return;
-    Scripts::CStruct* node = LookUpNodeParams(name);
+    script::Struct* node = look_up_node_params(name);
     if (!node)
         return;
-    static const uint32_t kMid = Key("MidPosition"), kEnd = Key("EndPosition");
-    static const uint32_t kBoxes[3] = {Key("BoxDimsStart"), Key("BoxDimsMid"), Key("BoxDimsEnd")};
-    auto it = g_particleAt.find(name);
-    if (it == g_particleAt.end()) {
+    static const uint32_t kMid = get_key("MidPosition"), kEnd = get_key("EndPosition");
+    static const uint32_t kBoxes[3] = {get_key("BoxDimsStart"), get_key("BoxDimsMid"), get_key("BoxDimsEnd")};
+    auto it = g_particle_at.find(name);
+    if (it == g_particle_at.end()) {
         // (first seen: the node's emitter now is the one its origin - the level's place, or a copy's as made - had)
-        const NodeEdit::Values* origin = NodeEdit::Origin(name);
+        const node_edit::Values* origin = node_edit::get_origin(name);
         ParticleOrigin o;
         o.from = origin ? origin->pos : pos;
-        o.fromYaw = origin ? origin->angles.y : angles.y;
-        Scripts::VectorValue v;
-        if ((o.emitter.hasMid = node->FetchVec(kMid, &v, 0)))
+        o.from_yaw_ = origin ? origin->angles.y : angles.y;
+        script::VectorValue v;
+        if ((o.emitter.has_mid_ = node->fetch_vec(kMid, &v, 0)))
             o.emitter.mid = {v.x, v.y, v.z};
-        if ((o.emitter.hasEnd = node->FetchVec(kEnd, &v, 0)))
+        if ((o.emitter.has_end_ = node->fetch_vec(kEnd, &v, 0)))
             o.emitter.end = {v.x, v.y, v.z};
         for (int i = 0; i < 3; ++i) {
-            if ((o.emitter.hasBox[i] = node->FetchVec(kBoxes[i], &v, 0)))
+            if ((o.emitter.has_box_[i] = node->fetch_vec(kBoxes[i], &v, 0)))
                 o.emitter.box[i] = {v.x, v.y, v.z};
         }
         o.at = o.from;
-        o.atYaw = o.fromYaw;
-        it = g_particleAt.emplace(name, o).first;
+        o.at_yaw_ = o.from_yaw_;
+        it = g_particle_at.emplace(name, o).first;
     }
     ParticleOrigin& o = it->second;
-    if (pos.x == o.at.x && pos.y == o.at.y && pos.z == o.at.z && angles.y == o.atYaw)
+    if (pos.x == o.at.x && pos.y == o.at.y && pos.z == o.at.z && angles.y == o.at_yaw_)
         return;
     // Its emitter's other places (world places in the node) moved and turned with it, its boxes turned - from the
     // emitter as first seen (no drift over many turns).
-    ParticleEmitter now = TurnParticle(o.emitter, o.from, pos, angles.y - o.fromYaw);
+    ParticleEmitter now = turn_particle(o.emitter, o.from, pos, angles.y - o.from_yaw_);
     auto put = [&](uint32_t key, bool has, V3 v) {
         if (!has)
             return;
-        node->EraseModule(key);
-        node->PutVec3(key, v.x, v.y, v.z);
+        node->erase_module(key);
+        node->put_vec3(key, v.x, v.y, v.z);
     };
-    put(kMid, now.hasMid, now.mid);
-    put(kEnd, now.hasEnd, now.end);
+    put(kMid, now.has_mid_, now.mid);
+    put(kEnd, now.has_end_, now.end);
     for (int i = 0; i < 3; ++i)
-        put(kBoxes[i], now.hasBox[i], now.box[i]);
+        put(kBoxes[i], now.has_box_[i], now.box[i]);
     o.at = pos;
-    o.atYaw = angles.y;
-    QueueRemake(name, false, 0.3); // (once the drag rests)
+    o.at_yaw_ = angles.y;
+    queue_remake(name, false, 0.3); // (once the drag rests)
 }
 
-bool PickedNodeIndex(uint32_t name, int family)
+bool picked_node_index(uint32_t name, int family)
 {
-    auto f = static_cast<Nodes::Family>(family);
-    int index = Nodes::Find(name);
-    if (index < 0 || DeletedCopy(Nodes::All()[index]))
+    auto f = static_cast<nodes::Family>(family);
+    int index = nodes::get_find(name);
+    if (index < 0 || deleted_copy(nodes::get_all()[index]))
         return false;
-    if (f == Nodes::Family::Particle)
+    if (f == nodes::Family::kParticle)
         return true;
-    if (f == Nodes::Family::Object)
-        return !LiveObject(name);
+    if (f == nodes::Family::kObject)
+        return !live_object(name);
     return false;
 }
 
-const char* WhenApplied(uint32_t name, int family)
+const char* when_applied(uint32_t name, int family)
 {
-    auto f = static_cast<Nodes::Family>(family);
-    if (f == Nodes::Family::Particle)
+    auto f = static_cast<nodes::Family>(family);
+    if (f == nodes::Family::kParticle)
         return "Live (rebuilt)";
-    if (f == Nodes::Family::Object && !LiveObject(name))
+    if (f == nodes::Family::kObject && !live_object(name))
         return "On script spawn";
     return "";
 }
 
 // --- the palette ---
 
-const std::vector<PaletteEntry>& Palette()
+const std::vector<PaletteEntry>& get_palette()
 {
     // (made again when the node arrays change - not on a timer: an armed entry keeps its index)
-    if (g_paletteGeneration != Nodes::Generation()) {
-        g_paletteGeneration = Nodes::Generation();
-        BuildPalette();
+    if (g_palette_generation != nodes::get_generation()) {
+        g_palette_generation = nodes::get_generation();
+        build_palette();
     }
     return g_palette;
 }
 
-void RefreshPalette()
+void refresh_palette()
 {
-    g_paletteGeneration = 0xFFFFFFFF;
-    g_modelsGeneration = 0xFFFFFFFF;
+    g_palette_generation = 0xFFFFFFFF;
+    g_models_generation = 0xFFFFFFFF;
 }
 
-Placed Place(int index, V3 at, float yaw)
+Placed get_place(int index, V3 at, float yaw)
 {
     Placed placed;
     if (index < 0 || index >= static_cast<int>(g_sources.size()))
         return placed;
     const Source& source = g_sources[index];
-    if (source.kind == SourceKind::Sound) {
+    if (source.kind == SourceKind::kSound) {
         placed.emitter = true;
         placed.sound = source.sound;
         return placed;
     }
-    if (source.kind == SourceKind::DupFrom) {
-        GameObjects::CGameEntity* copy = Objects::MakeCopy(source.names.front(), at);
+    if (source.kind == SourceKind::kDupFrom) {
+        objects::GameEntity* copy = object_edit::make_copy(source.names.front(), at);
         if (!copy) {
-            placed.message = "Couldn't copy " + Nodes::Caption(source.names.front());
+            placed.message = "Couldn't copy " + nodes::caption(source.names.front());
             return placed;
         }
-        uint32_t cls = ClassOf(LookUpNodeParams(source.names.front()));
+        uint32_t cls = class_of(look_up_node_params(source.names.front()));
         if (cls == kPedestrian || cls == kVehicle)
-            Objects::TurnAbout(copy, at, yaw - Heading(copy)); // (facing the way the camera looks)
-        placed.copies.push_back(copy->m_ident);
-        placed.message = "Placed a copy of " + Nodes::Caption(source.names.front()) +
+            object_edit::turn_about(copy, at, yaw - current_heading(copy)); // (facing the way the camera looks)
+        placed.copies.push_back(copy->ident_);
+        placed.message = "Placed a copy of " + nodes::caption(source.names.front()) +
                          (cls == kPedestrian || cls == kVehicle
                               ? ""
                               : "");
@@ -1155,14 +1155,14 @@ Placed Place(int index, V3 at, float yaw)
     // A bouncy set: each member copied, about the anchor as the level placed them.
     std::vector<V3> places;
     for (uint32_t name : source.names) {
-        Maths::Vec4 p;
-        LevelNodes::FetchPlace(LookUpNodeParams(name), &p);
+        maths::Vec4 p;
+        level_nodes::fetch_place(look_up_node_params(name), &p);
         places.push_back({p.x, p.y, p.z});
     }
-    V3 anchor = PinAnchorPoint(places);
+    V3 anchor = pin_anchor_point(places);
     for (size_t i = 0; i < source.names.size(); ++i) {
-        if (GameObjects::CGameEntity* copy = Objects::MakeCopy(source.names[i], at + (places[i] - anchor)))
-            placed.copies.push_back(copy->m_ident);
+        if (objects::GameEntity* copy = object_edit::make_copy(source.names[i], at + (places[i] - anchor)))
+            placed.copies.push_back(copy->ident_);
     }
     char text[96];
     std::snprintf(text, sizeof(text), "Placed a bouncy set: %u objects", static_cast<unsigned>(placed.copies.size()));
@@ -1170,33 +1170,33 @@ Placed Place(int index, V3 at, float yaw)
     return placed;
 }
 
-void AttachSound(uint32_t emitter, uint32_t sound)
+void attach_sound(uint32_t emitter, uint32_t sound)
 {
     EmitterSound e;
-    if (const EmitterSound* had = EmitterOf(g_state, emitter))
+    if (const EmitterSound* had = emitter_of(g_state, emitter))
         e = *had;
     e.name = emitter;
     e.sound = sound;
-    SetEmitter(&g_state, e);
+    set_emitter(&g_state, e);
 }
 
-bool& ShowUncreated() { return g_showUncreated; }
+bool& show_uncreated() { return g_show_uncreated; }
 
-void AddOverlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
-                std::vector<Ui::Seg>* lines, std::vector<Ui::Overlay::Text>* texts)
+void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+                std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts)
 {
-    auto toPixel = [&](V3 p, float* x, float* y) {
+    auto to_pixel = [&](V3 p, float* x, float* y) {
         float nx, ny;
-        if (!CastOnto(camera, frame, lens, p, nearZ, &nx, &ny))
+        if (!cast_onto(camera, frame, lens, p, near_z, &nx, &ny))
             return false;
-        NdcToPixel(viewport, nx, ny, x, y);
+        ndc_to_pixel(viewport, nx, ny, x, y);
         return true;
     };
     auto line = [&](V3 a, V3 b, uint32_t argb, float thickness) {
-        if (!ClipToNear(camera, frame, nearZ, &a, &b))
+        if (!clip_to_near(camera, frame, near_z, &a, &b))
             return;
         float ax, ay, bx, by;
-        if (toPixel(a, &ax, &ay) && toPixel(b, &bx, &by))
+        if (to_pixel(a, &ax, &ay) && to_pixel(b, &bx, &by))
             lines->push_back({ax, ay, bx, by, argb, thickness});
     };
     // The previewed path.
@@ -1206,14 +1206,14 @@ void AddOverlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
         if (g_preview.closed && g_preview.points.size() > 2)
             line(g_preview.points.back(), g_preview.points.front(), 0xFF60FF90, 2.0f);
     }
-    if (!g_showUncreated)
+    if (!g_show_uncreated)
         return;
     // Ghosts: object nodes the level hasn't made, nearest first (within 4000 units, 200 at most).
-    std::vector<std::pair<float, const Nodes::Elem*>> near;
-    for (const Nodes::Elem& n : Nodes::All()) {
-        if (n.family != Nodes::Family::Object || !n.hasPos || n.hidden || LiveObject(n.name) || DeletedCopy(n))
+    std::vector<std::pair<float, const nodes::Elem*>> near;
+    for (const nodes::Elem& n : nodes::get_all()) {
+        if (n.family != nodes::Family::kObject || !n.has_pos_ || n.hidden || live_object(n.name) || deleted_copy(n))
             continue;
-        float d = LenOf(n.pos - camera);
+        float d = len_of(n.pos - camera);
         if (d < 4000.0f)
             near.push_back({d, &n});
     }
@@ -1223,10 +1223,10 @@ void AddOverlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
     constexpr uint32_t kGhost = 0xB0B0A0FF;
     for (const auto& [d, n] : near) {
         V3 at = n->forward, up = {0.0f, 1.0f, 0.0f};
-        V3 right = MakeUnit(Perpendicular(up, at));
+        V3 right = make_unit(perpendicular(up, at));
         V3 axes[3] = {right * 20.0f, up * 40.0f, at * 20.0f};
         V3 corners[8];
-        BoxCorners(n->pos, axes, {-1.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}, corners);
+        box_corners(n->pos, axes, {-1.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}, corners);
         for (int i = 0; i < 8; ++i) {
             for (int bit = 1; bit < 8; bit <<= 1) {
                 if (!(i & bit))
@@ -1235,130 +1235,130 @@ void AddOverlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
         }
         line(n->pos, n->pos + at * 30.0f, kGhost, 1.5f);
         float x, y;
-        if (d < 1500.0f && toPixel(n->pos + up * 48.0f, &x, &y))
-            texts->push_back({x, y, kGhost, Nodes::Caption(n->name) + " (uncreated)"});
+        if (d < 1500.0f && to_pixel(n->pos + up * 48.0f, &x, &y))
+            texts->push_back({x, y, kGhost, nodes::caption(n->name) + " (uncreated)"});
     }
 }
 
-void ForgetLevel()
+void forget_level()
 {
-    StopAllSounds();
+    stop_all_sounds();
     g_preview = Preview{};
     g_state = State{};
     g_baked = State{};
-    g_haveUndo = false;
+    g_have_undo = false;
     g_queue.clear();
     g_remakes.clear();
-    g_particleAt.clear();
-    g_madeWith.clear();
-    g_speedApplied.clear();
+    g_particle_at.clear();
+    g_made_with.clear();
+    g_speed_applied.clear();
     g_scanned = false;
-    g_paletteGeneration = 0xFFFFFFFF;
-    g_modelsGeneration = 0xFFFFFFFF;
+    g_palette_generation = 0xFFFFFFFF;
+    g_models_generation = 0xFFFFFFFF;
 }
 
 // --- for the UI (level_editor_entities_ui.cpp) ---
 
-namespace Detail {
-const std::vector<std::string>& Models()
+namespace detail {
+const std::vector<std::string>& get_models()
 {
-    if (g_modelsGeneration != Nodes::Generation()) {
-        g_modelsGeneration = Nodes::Generation();
-        BuildModels();
+    if (g_models_generation != nodes::get_generation()) {
+        g_models_generation = nodes::get_generation();
+        build_models();
     }
     return g_models;
 }
-void WatchModel(uint32_t id, const std::string& made)
+void watch_model(uint32_t id, const std::string& made)
 {
-    if (!g_madeWith.count(id))
-        g_madeWith[id] = made;
+    if (!g_made_with.count(id))
+        g_made_with[id] = made;
 }
 } // namespace Detail
 
-void ModelEdited(uint32_t id)
+void model_edited(uint32_t id)
 {
     // (a copy is made from its source's node, then a layout's field edit gives it its own model: made again)
-    if (Objects::IsCopy(id))
-        g_madeWith[id] = "\x01";
+    if (object_edit::is_copy(id))
+        g_made_with[id] = "\x01";
 }
 
-namespace Detail {
-bool HasPath(uint32_t id)
+namespace detail {
+bool has_path(uint32_t id)
 {
     std::vector<V3> points;
     bool closed;
-    return PathOf(id, &points, &closed);
+    return path_of(id, &points, &closed);
 }
-float SpeedSet(uint32_t id)
+float speed_set(uint32_t id)
 {
-    const Pace* s = SpeedOf(g_state, id);
+    const Pace* s = speed_of(g_state, id);
     if (s)
         return s->mph;
-    s = SpeedOf(g_baked, id);
+    s = speed_of(g_baked, id);
     return s ? s->mph : 0.0f;
 }
-float DefaultMph(uint32_t id) { return PreviewMph(id); }
-void ChangeSpeed(uint32_t id, float mph)
+float default_mph(uint32_t id) { return preview_mph(id); }
+void change_speed(uint32_t id, float mph)
 {
-    NoteUndo();
-    SetSpeed(&g_state, id, mph);
+    note_undo();
+    set_speed(&g_state, id, mph);
 }
-EmitterSound EmitterNow(uint32_t name)
+EmitterSound emitter_now(uint32_t name)
 {
-    if (const EmitterSound* e = EmitterOf(g_state, name))
+    if (const EmitterSound* e = emitter_of(g_state, name))
         return *e;
-    if (const EmitterSound* e = EmitterOf(g_baked, name))
+    if (const EmitterSound* e = emitter_of(g_baked, name))
         return *e;
     EmitterSound e;
     e.name = name;
     return e;
 }
-void ChangeEmitter(const EmitterSound& e)
+void change_emitter(const EmitterSound& e)
 {
-    NoteUndo();
-    SetEmitter(&g_state, e);
-    ApplyRadius(e);
+    note_undo();
+    set_emitter(&g_state, e);
+    apply_radius(e);
 }
-float EmitterRadius(uint32_t name, bool* sphere)
+float emitter_radius(uint32_t name, bool* sphere)
 {
-    GameObjects::EmitterNode* emitter = Emitter(name);
-    *sphere = emitter && emitter->m_form == GameObjects::EMITTER_SHAPE_SPHERE;
-    return emitter ? emitter->m_radius : 0.0f;
+    objects::EmitterNode* emitter = get_emitter(name);
+    *sphere = emitter && emitter->form_ == objects::kEmitterShapeSphere;
+    return emitter ? emitter->radius_ : 0.0f;
 }
-std::vector<std::pair<uint32_t, std::string>> Sounds()
+std::vector<std::pair<uint32_t, std::string>> get_sounds()
 {
     std::vector<std::pair<uint32_t, std::string>> out;
-    if (SoundFx::NoSound())
+    if (sound::no_sound())
         return out;
-    auto* waves = SoundFx::g_levelWaves;
-    int count = std::clamp(SoundFx::g_levelCount, 0, 256);
+    auto* waves = sound::g_level_waves;
+    int count = std::clamp(sound::g_level_count, 0, 256);
     for (int i = 0; i < count; ++i)
-        out.push_back({waves[i].checksum, Nodes::Caption(waves[i].checksum) + (waves[i].looping ? " (loop)" : "")});
+        out.push_back({waves[i].checksum, nodes::caption(waves[i].checksum) + (waves[i].looping ? " (loop)" : "")});
     std::sort(out.begin(), out.end(), [](const auto& a, const auto& b) { return a.second < b.second; });
     return out;
 }
-void SetUiActive(bool active) { g_uiActive = active; }
-bool Previewing(uint32_t id) { return g_preview.id == id && id; }
-bool PreviewPlaying() { return g_preview.playing; }
-void PreviewPlay(uint32_t id)
+void set_ui_active(bool active) { g_ui_active = active; }
+bool get_previewing(uint32_t id) { return g_preview.id == id && id; }
+bool preview_playing() { return g_preview.playing; }
+void preview_play(uint32_t id)
 {
     if (g_preview.id == id)
         g_preview.playing = !g_preview.playing;
     else
-        PreviewStart(id);
+        preview_start(id);
 }
-void PreviewStep(uint32_t id)
+void preview_step(uint32_t id)
 {
     if (g_preview.id != id)
-        PreviewStart(id);
+        preview_start(id);
     if (!g_preview.id)
         return;
     g_preview.playing = false;
-    g_preview.distance += MphToUnits(PreviewMph(id)) * 0.5f; // (half a second along)
-    PreviewPlace(g_preview.distance);
+    g_preview.distance += mph_to_units(preview_mph(id)) * 0.5f; // (half a second along)
+    preview_place(g_preview.distance);
 }
-float PreviewDistance() { return g_preview.distance; }
-float PreviewLength() { return PathLength(g_preview.points, g_preview.closed); }
+float preview_distance() { return g_preview.distance; }
+float preview_length() { return path_length(g_preview.points, g_preview.closed); }
 } // namespace Detail
 
-} // namespace MenuSystem::LevelEditor::Entities
+} // namespace MenuSystem::level_editor::entities

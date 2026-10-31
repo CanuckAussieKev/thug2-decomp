@@ -1,4 +1,4 @@
-// The camera component (GameObjects::CViewpointModule): see camera_component.h. From the disassembly of
+// The camera component (GameObjects::ViewpointModule): see camera_component.h. From the disassembly of
 // 0x0041B6D0-0x0041B903.
 
 #include "engine/objects/camera_component.h"
@@ -18,7 +18,7 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
@@ -28,86 +28,86 @@ constexpr int kCameraPriority = -1000;
 } // namespace
 
 // 0x0041B840
-CObjectModule* __cdecl CViewpointModule::Fabricate()
+ObjectModule* __cdecl ViewpointModule::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CViewpointModule));
-    return memory ? static_cast<CViewpointModule*>(memory)->MakeNew() : nullptr;
+    void* memory = memory::alloc_zeroed(sizeof(ViewpointModule));
+    return memory ? static_cast<ViewpointModule*>(memory)->make_new() : nullptr;
 }
 
 // 0x0041B730
-CViewpointModule* CViewpointModule::MakeNew()
+ViewpointModule* ViewpointModule::make_new()
 {
-    CObjectModule::MakeNew();
-    m_vtable = kVtable;
-    m_kindTag = kType;
-    void* memory = MemSys::AllocZeroed(sizeof(Gfx2D::ViewCam));
-    m_viewCamera = memory ? static_cast<Gfx2D::ViewCam*>(memory)->MakeNew() : nullptr;
+    ObjectModule::make_new();
+    vtable_ = kVtable;
+    kind_tag_ = kType;
+    void* memory = memory::alloc_zeroed(sizeof(gfx::ViewCam));
+    view_camera_ = memory ? static_cast<gfx::ViewCam*>(memory)->make_new() : nullptr;
     return this;
 }
 
 // 0x0041B6D0
-void CViewpointModule::DestroyBody()
+void ViewpointModule::destroy_body()
 {
-    m_vtable = kVtable;
-    if (m_viewCamera)
-        reinterpret_cast<void*(__thiscall*)(Gfx2D::ViewCam*, unsigned int)>(m_viewCamera->m_vtable[0])(m_viewCamera, 1);
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    if (view_camera_)
+        reinterpret_cast<void*(__thiscall*)(gfx::ViewCam*, unsigned int)>(view_camera_->vtable_[0])(view_camera_, 1);
+    ObjectModule::destroy_body();
 }
 
 // 0x0041B7C0
-CViewpointModule* CViewpointModule::Teardown(unsigned int flags)
+ViewpointModule* ViewpointModule::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x0041B7F0
-void CViewpointModule::ConfigureFromData(Scripts::CStruct*)
+void ViewpointModule::configure_from_data(script::Struct*)
 {
-    CObjectHubBase* manager = reinterpret_cast<CObjectHubBase*>(ObjectHubSlot());
-    reinterpret_cast<void(__thiscall*)(CObjectHubBase*, CEntity*, int)>(manager->m_vtable[4])(manager, m_entity,
+    ObjectHubBase* manager = reinterpret_cast<ObjectHubBase*>(object_hub_slot());
+    reinterpret_cast<void(__thiscall*)(ObjectHubBase*, Entity*, int)>(manager->vtable_[4])(manager, entity_,
                                                                                          kCameraPriority);
 }
 
 // 0x0041B810
-void CViewpointModule::Seal()
+void ViewpointModule::seal()
 {
-    m_viewCamera->ChangeLocation(m_entity->m_atPoint);
-    m_viewCamera->ChangeMat(m_entity->m_basisFrame);
+    view_camera_->change_location(entity_->at_point_);
+    view_camera_->change_mat(entity_->basis_frame_);
 }
 
 // 0x0041B8A0
-void CViewpointModule::TickFrame()
+void ViewpointModule::tick_frame()
 {
-    Maths::Vec4 pos = m_entity->m_atPoint;
-    Maths::Mat4 matrix;
-    matrix = m_entity->m_basisFrame;
-    m_entity->m_displayMatrix = matrix;
-    m_viewCamera->ChangeLocation(pos);
-    m_viewCamera->ChangeMat(matrix);
+    maths::Vec4 pos = entity_->at_point_;
+    maths::Mat4 matrix;
+    matrix = entity_->basis_frame_;
+    entity_->display_matrix_ = matrix;
+    view_camera_->change_location(pos);
+    view_camera_->change_mat(matrix);
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CViewpointModule::Teardown,
-         &GameObjects::CViewpointModule::TickFrame,
-         &GameObjects::CViewpointModule::ConfigureFromData,
-         &GameObjects::CViewpointModule::Seal,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
-         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::ViewpointModule::teardown,
+         &objects::ViewpointModule::tick_frame,
+         &objects::ViewpointModule::configure_from_data,
+         &objects::ViewpointModule::seal,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
+         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

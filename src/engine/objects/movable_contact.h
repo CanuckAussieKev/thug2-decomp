@@ -6,13 +6,13 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 
-namespace Engine3D {
-class CProbeRay;
+namespace render {
+class ProbeRay;
 }
 
-namespace GameObjects {
+namespace objects {
 
-struct CRideTracker;
+struct RideTracker;
 
 // The movable contact component (type 0x408D2AA9 "MovableContact", vtable 0x00646250, 0x74 bytes; made by 0x00427AB0):
 // what a skater stands or rides on when it's a moving object - the ride tracker that carries it along with the
@@ -20,53 +20,53 @@ struct CRideTracker;
 //
 // Vtable: 0 Destroy, 1 0x0051B970 (shared), 2 / 8 / 10 the empty 0x005BAB90, 3 / 4 / 9 the empty 0x005480A0, 5
 // 0x004E3F90, 6 0x0048DCD0, 7 the base's Suspend, 11 the base's 0x0045D720, 12 0x0051ADC0 (shared).
-class CMovingSurfaceModule : public CObjectModule {
+class MovingSurfaceModule : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x408D2AA9;
 
-    // 0x00427AB0 (registered with the component types): a new one (MemSys::AllocZeroed; the constructor inlined: the base's,
+    // 0x00427AB0 (registered with the component types): a new one (memory::alloc_zeroed; the constructor inlined: the base's,
     // its vtable and type, no ride, no stop time).
-    static CObjectModule* __cdecl Fabricate();
+    static ObjectModule* __cdecl fabricate();
     // 0x004276C0: the destructor body (its vtable, then the base's - the ride tracker isn't freed).
-    void DestroyBody();
+    void destroy_body();
     // 0x004276D0 (vtable slot 0): the scalar deleting destructor.
-    CMovingSurfaceModule* Teardown(unsigned int flags);
+    MovingSurfaceModule* teardown(unsigned int flags);
 
     // 0x00427700 (thiscall, RET 8; `this` unused): the moving object under `point` - a feeler from 400 over the point
     // down to 6 over it hits a movable object that's still there, and nothing is in the way back up from the point
     // to just over the hit (else the feeler starts again just under that hit; 9 tries). The hit point into `hit`;
     // null when there's none.
-    CGameEntity* FindContact(const Maths::Vec4* point, Maths::Vec4* hit);
+    GameEntity* find_contact(const maths::Vec4* point, maths::Vec4* hit);
     // 0x00427B30: the object under `pos` (null: none). Nothing under `next`: `pos` = `next`. Else, nothing two
     // frames of the object's velocity ahead of `pos`: `pos` = that point; else `pos` = the hit under it, a unit
     // up.
-    CGameEntity* FindContactAhead(Maths::Vec4* pos, const Maths::Vec4* next);
+    GameEntity* find_contact_ahead(maths::Vec4* pos, const maths::Vec4* next);
     // 0x00427A00: the contact point in the world (relative to the last object ridden, by its orientation and
     // position; none: as kept); returns `out` (callers read it).
-    Maths::Vec4* GetContactPoint(Maths::Vec4* out);
+    maths::Vec4* get_contact_point(maths::Vec4* out);
     // 0x00427C70: no longer riding: the ride's object becomes the last ridden, the tracker freed, the time noted.
-    void StopRiding();
+    void stop_riding();
     // 0x004FC400 (with the skater's core physics): the time since the skater stopped riding (+0x70).
-    int TimeSinceStop();
+    int time_since_stop();
     // 0x00427CB0: whether riding an object that's still there (one that's gone: stops riding).
-    bool IsRiding();
+    bool is_riding();
     // 0x00427CD0: riding what `feeler` hit - false (no longer riding) when that's gone; false when already riding
     // it; else a new ride tracker on it (from the manager: none made still counts) and true.
-    bool StartRiding(Engine3D::CProbeRay* feeler);
+    bool start_riding(render::ProbeRay* feeler);
     // 0x00427DD0: the contact point kept relative to the object ridden (or the last one ridden): its own position
     // less the object's, through the object's inverted orientation.
-    void UpdateContactPoint();
+    void update_contact_point();
 
-    CRideTracker* m_ride;            // +0x18
-    Maths::Vec4 m_contactPoint;       // +0x1C in the object's frame
-    uint8_t m_unknown2C[0x40];        // +0x2C
-    CGameEntity* m_lastObject;  // +0x6C the object last ridden
-    int m_stopTime;                   // +0x70 the game clock when it stopped riding
+    RideTracker* ride_;            // +0x18
+    maths::Vec4 contact_point_;       // +0x1C in the object's frame
+    uint8_t unknown2c_[0x40];        // +0x2C
+    GameEntity* last_object_;  // +0x6C the object last ridden
+    int stop_time_;                   // +0x70 the game clock when it stopped riding
 };
-static_assert(offsetof(CMovingSurfaceModule, m_ride) == 0x18 &&
-                  offsetof(CMovingSurfaceModule, m_contactPoint) == 0x1C &&
-                  offsetof(CMovingSurfaceModule, m_lastObject) == 0x6C &&
-                  offsetof(CMovingSurfaceModule, m_stopTime) == 0x70 && sizeof(CMovingSurfaceModule) == 0x74,
+static_assert(offsetof(MovingSurfaceModule, ride_) == 0x18 &&
+                  offsetof(MovingSurfaceModule, contact_point_) == 0x1C &&
+                  offsetof(MovingSurfaceModule, last_object_) == 0x6C &&
+                  offsetof(MovingSurfaceModule, stop_time_) == 0x70 && sizeof(MovingSurfaceModule) == 0x74,
               "layout must match the original (0x00427AB0 allocates 0x74 bytes)");
 
 } // namespace Obj

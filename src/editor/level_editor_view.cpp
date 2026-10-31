@@ -24,30 +24,30 @@
 #include "platform/run_log.h"
 #include "engine/core/game_vtables.h"
 
-namespace MenuSystem::LevelEditor::View {
+namespace frontend::level_editor::view {
 
 // --- the pieces -------------------------------------------------------------------------------------------------
 
-Surface Classify(uint32_t faceFlags, bool collisionOnly)
+Surface get_classify(uint32_t face_flags, bool collision_only)
 {
-    if (collisionOnly)
+    if (collision_only)
         return Surface::kInvisibleWall;
-    if (faceFlags & 0x40)
+    if (face_flags & 0x40)
         return Surface::kTrigger;
-    if (faceFlags & 0x10)
+    if (face_flags & 0x10)
         return Surface::kNoCollide;
-    if (faceFlags & 0x04)
+    if (face_flags & 0x04)
         return Surface::kWallride;
-    if (faceFlags & 0x08)
+    if (face_flags & 0x08)
         return Surface::kVert;
-    if ((faceFlags & 0x02) && !(faceFlags & 0x01))
+    if ((face_flags & 0x02) && !(face_flags & 0x01))
         return Surface::kNotSkatable;
-    if (faceFlags & 0x01)
+    if (face_flags & 0x01)
         return Surface::kSkatable;
     return Surface::kPlain;
 }
 
-uint32_t SurfaceColour(Surface surface)
+uint32_t surface_colour(Surface surface)
 {
     switch (surface) {
     case Surface::kInvisibleWall: return 0xB0FF20E0;
@@ -61,7 +61,7 @@ uint32_t SurfaceColour(Surface surface)
     }
 }
 
-const char* SurfaceName(Surface surface)
+const char* surface_name(Surface surface)
 {
     switch (surface) {
     case Surface::kInvisibleWall: return "Invisible wall";
@@ -75,44 +75,44 @@ const char* SurfaceName(Surface surface)
     }
 }
 
-int ClipTriangleToNear(V3 cameraPos, const TickCycle& frame, float nearZ, const V3 in[3], V3 out[4])
+int clip_triangle_to_near(V3 camera_pos, const TickCycle& frame, float near_z, const V3 in[3], V3 out[4])
 {
     // (Sutherland-Hodgman against one plane: depth = (p - camera) . -back)
     float depth[3];
     for (int i = 0; i < 3; ++i)
-        depth[i] = -Dot(in[i] - cameraPos, frame.back);
+        depth[i] = -get_dot(in[i] - camera_pos, frame.back);
     int count = 0;
     for (int i = 0; i < 3; ++i) {
         int j = (i + 1) % 3;
-        bool inI = depth[i] >= nearZ, inJ = depth[j] >= nearZ;
-        if (inI)
+        bool in_i = depth[i] >= near_z, in_j = depth[j] >= near_z;
+        if (in_i)
             out[count++] = in[i];
-        if (inI != inJ) {
-            float s = (nearZ - depth[i]) / (depth[j] - depth[i]);
+        if (in_i != in_j) {
+            float s = (near_z - depth[i]) / (depth[j] - depth[i]);
             out[count++] = in[i] + (in[j] - in[i]) * s;
         }
     }
     return count >= 3 ? count : 0;
 }
 
-float DistanceToBox(V3 point, V3 min, V3 max)
+float distance_to_box(V3 point, V3 min, V3 max)
 {
     auto axis = [](float p, float lo, float hi) { return p < lo ? lo - p : p > hi ? p - hi : 0.0f; };
     float dx = axis(point.x, min.x, max.x), dy = axis(point.y, min.y, max.y), dz = axis(point.z, min.z, max.z);
     return std::sqrt(dx * dx + dy * dy + dz * dz);
 }
 
-bool HiddenSet::Has(uint32_t id) const { return std::find(ids.begin(), ids.end(), id) != ids.end(); }
+bool HiddenSet::get_has(uint32_t id) const { return std::find(ids.begin(), ids.end(), id) != ids.end(); }
 
-bool HiddenSet::AppendOne(uint32_t id)
+bool HiddenSet::append_one(uint32_t id)
 {
-    if (Has(id))
+    if (get_has(id))
         return false;
     ids.push_back(id);
     return true;
 }
 
-void AddDashed(std::vector<Ui::Seg>* lines, const Ui::Seg& line, float dash, float gap)
+void add_dashed(std::vector<ui::Seg>* lines, const ui::Seg& line, float dash, float gap)
 {
     float dx = line.bx - line.ax, dy = line.by - line.ay;
     float length = std::sqrt(dx * dx + dy * dy);
@@ -123,7 +123,7 @@ void AddDashed(std::vector<Ui::Seg>* lines, const Ui::Seg& line, float dash, flo
     float period = std::max(dash + gap, length / 256.0f);
     for (float at = 0.0f; at < length; at += period) {
         float end = std::min(length, at + dash);
-        Ui::Seg piece = line;
+        ui::Seg piece = line;
         piece.ax = line.ax + ux * at;
         piece.ay = line.ay + uy * at;
         piece.bx = line.ax + ux * end;
@@ -132,22 +132,22 @@ void AddDashed(std::vector<Ui::Seg>* lines, const Ui::Seg& line, float dash, flo
     }
 }
 
-uint32_t Faded(uint32_t argb) { return (argb & 0x00FFFFFF) | (std::min<uint32_t>(argb >> 24, 0x30) << 24); }
+uint32_t get_faded(uint32_t argb) { return (argb & 0x00FFFFFF) | (std::min<uint32_t>(argb >> 24, 0x30) << 24); }
 
-FaceStyle StyleOf(const FaceFacts& facts)
+FaceStyle style_of(const FaceFacts& facts)
 {
     FaceStyle style;
-    bool wall = facts.collisionOnly && !facts.companion;
-    if ((facts.flags & 0x40) && facts.triggerColour)
-        style.fill = (facts.triggerColour & 0x00FFFFFFu) | 0x78000000u;
+    bool wall = facts.collision_only_ && !facts.companion;
+    if ((facts.flags & 0x40) && facts.trigger_colour_)
+        style.fill = (facts.trigger_colour_ & 0x00FFFFFFu) | 0x78000000u;
     else
-        style.fill = SurfaceColour(Classify(facts.taken ? facts.flags & ~0x10u : facts.flags, wall));
+        style.fill = surface_colour(get_classify(facts.taken ? facts.flags & ~0x10u : facts.flags, wall));
     if (facts.selected)
         style.fill = 0xC8FFA0FFu; // (the selected wall: lighter)
     else if (facts.hovered)
         style.fill = kHoverWall;
     if (facts.off || facts.taken)
-        style.fill = Faded(style.fill); // (switched off / taken along: faded)
+        style.fill = get_faded(style.fill); // (switched off / taken along: faded)
     if (facts.companion) {
         style.edge = kCompanionEdge;
     } else if (facts.taken) {
@@ -161,7 +161,7 @@ FaceStyle StyleOf(const FaceFacts& facts)
     return style;
 }
 
-std::vector<uint32_t> IsolateOthers(const std::vector<uint32_t>& all, const std::vector<uint32_t>& keep)
+std::vector<uint32_t> isolate_others(const std::vector<uint32_t>& all, const std::vector<uint32_t>& keep)
 {
     std::vector<uint32_t> others;
     for (uint32_t id : all) {
@@ -176,54 +176,54 @@ std::vector<uint32_t> IsolateOthers(const std::vector<uint32_t>& all, const std:
 
 namespace {
 
-void** const& kCollStaticVtable = Vt::kVtblStaticColl;
+void** const& g_coll_static_vtable = vt::kVtblStaticColl;
 
 template <typename F>
-F Method(void* object, int offset)
+F get_method(void* object, int offset)
 {
     return reinterpret_cast<F>((*reinterpret_cast<void***>(object))[offset / 4]);
 }
 
-uint8_t* GeomOf(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x14); }
-uint8_t* CollOf(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x18); }
+uint8_t* geom_of(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x14); }
+uint8_t* coll_of(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x18); }
 
-// The sector's collision geometry, whether its collision is on or off (CStaticCollider; `off`: its flag 4 - the game's
+// The sector's collision geometry, whether its collision is on or off (StaticCollider; `off`: its flag 4 - the game's
 // switch, level_editor_walls.h).
-Engine3D::CTriMeshSource* AnyTriDataOf(uint8_t* sector, bool* off)
+render::TriMeshSource* any_tri_data_of(uint8_t* sector, bool* off)
 {
-    uint8_t* coll = CollOf(sector);
-    if (!coll || *reinterpret_cast<void***>(coll) != kCollStaticVtable)
+    uint8_t* coll = coll_of(sector);
+    if (!coll || *reinterpret_cast<void***>(coll) != g_coll_static_vtable)
         return nullptr;
     if (off)
         *off = (coll[0x08] & 4) != 0;
-    return *reinterpret_cast<Engine3D::CTriMeshSource**>(coll + 0x0C);
+    return *reinterpret_cast<render::TriMeshSource**>(coll + 0x0C);
 }
 
 // The collision drawn for a sector (null: none): on, or switched off by the editor's switch (an invisible wall, or a
 // drawn piece's collision by itself - shown faded so it can be switched on again). A piece hidden (its geometry off,
 // its collision with it) isn't drawn.
-Engine3D::CTriMeshSource* DrawnTriDataOf(uint32_t checksum, uint8_t* sector, bool* off)
+render::TriMeshSource* drawn_tri_data_of(uint32_t checksum, uint8_t* sector, bool* off)
 {
-    Engine3D::CTriMeshSource* tri = AnyTriDataOf(sector, off);
-    if (tri && *off && GeomOf(sector) && !Walls::Disengaged(checksum))
+    render::TriMeshSource* tri = any_tri_data_of(sector, off);
+    if (tri && *off && geom_of(sector) && !walls::disengaged(checksum))
         return nullptr;
     return tri;
 }
 
-V3 ToV3(const Maths::Vec4& v) { return {v.x, v.y, v.z}; }
+V3 to_v3(const maths::Vec4& v) { return {v.x, v.y, v.z}; }
 
-bool g_showCollision;
-bool g_settingRead;
+bool g_show_collision;
+bool g_setting_read;
 
 // The collision cache: a sector's faces in world space (3 points each) and their flags, made again when its collision
 // geometry, its box or its first and last vertices change (moved, or turned - a quarter turn can keep the box).
 struct Cached {
     uint8_t* sector = nullptr;
-    const Engine3D::CTriMeshSource* tri = nullptr;
+    const render::TriMeshSource* tri = nullptr;
     V3 min = {}, max = {}, first = {}, last = {};
     int faces = 0;
-    bool collisionOnly = false;
-    uint32_t generation = 0; // (SharedCollision::Generation when made: faces taken since - made again)
+    bool collision_only_ = false;
+    uint32_t generation = 0; // (SharedCollision::get_generation when made: faces taken since - made again)
     std::vector<V3> points;
     std::vector<uint16_t> flags;
     std::vector<uint8_t> taken; // (each face: turned off for a moved piece's shared collision)
@@ -231,33 +231,33 @@ struct Cached {
 };
 std::unordered_map<uint32_t, Cached> g_cache;
 
-const Cached* CacheOf(uint32_t checksum, uint8_t* sector, const Engine3D::CTriMeshSource* tri)
+const Cached* cache_of(uint32_t checksum, uint8_t* sector, const render::TriMeshSource* tri)
 {
-    V3 min = ToV3(tri->m_lowerLimit), max = ToV3(tri->m_upperLimit);
+    V3 min = to_v3(tri->lower_limit_), max = to_v3(tri->upper_limit_);
     V3 first = {}, last = {};
-    if (tri->m_vertices && tri->m_numVertices) {
-        first = ToV3(tri->ReadStoredVertex(0));
-        last = ToV3(tri->ReadStoredVertex(tri->m_numVertices - 1));
+    if (tri->vertices_ && tri->num_vertices_) {
+        first = to_v3(tri->read_stored_vertex(0));
+        last = to_v3(tri->read_stored_vertex(tri->num_vertices_ - 1));
     }
     auto same = [](V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; };
-    bool collisionOnly = GeomOf(sector) == nullptr;
+    bool collision_only = geom_of(sector) == nullptr;
     Cached& c = g_cache[checksum];
-    uint32_t generation = SharedCollision::Generation();
-    if (c.sector == sector && c.tri == tri && c.faces == tri->m_triCount && c.collisionOnly == collisionOnly &&
+    uint32_t generation = shared_collision::get_generation();
+    if (c.sector == sector && c.tri == tri && c.faces == tri->tri_count_ && c.collision_only_ == collision_only &&
         c.generation == generation && same(c.min, min) && same(c.max, max) && same(c.first, first) && same(c.last, last))
         return &c;
     c = Cached{};
     c.generation = generation;
-    std::vector<int> taken = SharedCollision::TakenFaces(tri);
+    std::vector<int> taken = shared_collision::taken_faces(tri);
     c.sector = sector;
     c.tri = tri;
     c.min = min;
     c.max = max;
     c.first = first;
     c.last = last;
-    c.faces = tri->m_triCount;
-    c.collisionOnly = collisionOnly;
-    if (!tri->m_faces || !tri->m_vertices)
+    c.faces = tri->tri_count_;
+    c.collision_only_ = collision_only;
+    if (!tri->faces_ || !tri->vertices_)
         return &c;
     c.points.reserve(static_cast<size_t>(c.faces) * 3);
     c.flags.reserve(c.faces);
@@ -265,24 +265,24 @@ const Cached* CacheOf(uint32_t checksum, uint8_t* sector, const Engine3D::CTriMe
         bool ok = true;
         V3 p[3];
         for (int k = 0; k < 3; ++k) {
-            uint32_t index = tri->FaceVertex(f, k);
-            if (index >= tri->m_numVertices) {
+            uint32_t index = tri->face_vertex(f, k);
+            if (index >= tri->num_vertices_) {
                 ok = false;
                 break;
             }
-            p[k] = ToV3(tri->ReadStoredVertex(static_cast<int>(index)));
+            p[k] = to_v3(tri->read_stored_vertex(static_cast<int>(index)));
         }
         if (!ok)
             continue;
         c.points.insert(c.points.end(), p, p + 3);
-        c.flags.push_back(*reinterpret_cast<const uint16_t*>(tri->m_faces + f * (tri->m_smallFaces ? 8 : 10)));
+        c.flags.push_back(*reinterpret_cast<const uint16_t*>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10)));
         c.taken.push_back(std::find(taken.begin(), taken.end(), f) != taken.end() ? 1 : 0);
         c.index.push_back(f);
     }
     return &c;
 }
 
-uint32_t g_hoverWall; // (Shift held with the collision shown: the wall a Shift+click would take)
+uint32_t g_hover_wall; // (Shift held with the collision shown: the wall a Shift+click would take)
 
 // What was drawn last frame (for Shift+click on a wall): each face's sector and points.
 struct Drawn {
@@ -307,162 +307,162 @@ struct HiddenObjectRec {
     uint32_t id;
     std::vector<std::pair<void*, bool>> geoms; // (each geometry and whether it was on)
 };
-std::vector<HiddenSectorRec> g_hiddenSectors;
-std::vector<HiddenObjectRec> g_concealedRecords;
+std::vector<HiddenSectorRec> g_hidden_sectors;
+std::vector<HiddenObjectRec> g_concealed_records;
 
-// CWorldCell::ToggleShown (0x0049E680, thiscall, RET 4) / FetchShown (0x0049E690): the viewports it shows in.
-void ToggleShown(uint8_t* sector, uint32_t mask)
+// WorldCell::toggle_shown (0x0049E680, thiscall, RET 4) / fetch_shown (0x0049E690): the viewports it shows in.
+void toggle_shown(uint8_t* sector, uint32_t mask)
 {
-    reinterpret_cast<Engine3D::CWorldCell*>(sector)->ToggleShown(mask);
+    reinterpret_cast<render::WorldCell*>(sector)->toggle_shown(mask);
 }
-uint32_t FetchShown(uint8_t* sector) { return reinterpret_cast<Engine3D::CWorldCell*>(sector)->FetchShown(); }
+uint32_t fetch_shown(uint8_t* sector) { return reinterpret_cast<render::WorldCell*>(sector)->fetch_shown(); }
 
-// A geometry's ChangeLive (vfunc +0x34) / IsOperative (vfunc +0x38).
-void SetGeomActive(void* geom, bool on) { Method<void(__thiscall*)(void*, bool)>(geom, 0x34)(geom, on); }
-bool GeomActive(void* geom) { return Method<bool(__thiscall*)(void*)>(geom, 0x38)(geom); }
+// A geometry's change_live (vfunc +0x34) / is_operative (vfunc +0x38).
+void set_geom_active(void* geom, bool on) { get_method<void(__thiscall*)(void*, bool)>(geom, 0x34)(geom, on); }
+bool geom_active(void* geom) { return get_method<bool(__thiscall*)(void*)>(geom, 0x38)(geom); }
 
-GameObjects::CGameEntity* LiveObject(uint32_t id)
+objects::GameEntity* live_object(uint32_t id)
 {
-    auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
-    return object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) ? object : nullptr;
+    auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
+    return object && !(object->object_flags_ & objects::kObjectFlagDead) ? object : nullptr;
 }
 
-bool HideSector(uint32_t checksum)
+bool hide_sector(uint32_t checksum)
 {
-    if (HiddenSector(checksum))
+    if (hidden_sector(checksum))
         return false;
-    uint8_t* sector = Scenery::SectorOf(checksum);
-    if (!sector || !GeomOf(sector))
+    uint8_t* sector = scenery::sector_of(checksum);
+    if (!sector || !geom_of(sector))
         return false; // (collision only: nothing drawn to hide)
-    g_hiddenSectors.push_back({checksum, sector, FetchShown(sector)});
-    ToggleShown(sector, 0);
+    g_hidden_sectors.push_back({checksum, sector, fetch_shown(sector)});
+    toggle_shown(sector, 0);
     return true;
 }
 
-bool HideObject(uint32_t id)
+bool hide_object(uint32_t id)
 {
-    if (HiddenObject(id))
+    if (hidden_object(id))
         return false;
-    GameObjects::CGameEntity* object = LiveObject(id);
+    objects::GameEntity* object = live_object(id);
     if (!object)
         return false;
     HiddenObjectRec rec = {id, {}};
     for (int i = 0; i < 16; ++i) {
-        void* geom = Objects::Geometry(object, i);
+        void* geom = object_edit::get_geometry(object, i);
         if (!geom)
             break;
-        rec.geoms.push_back({geom, GeomActive(geom)});
-        SetGeomActive(geom, false);
+        rec.geoms.push_back({geom, geom_active(geom)});
+        set_geom_active(geom, false);
     }
     if (rec.geoms.empty())
         return false;
-    g_concealedRecords.push_back(rec);
+    g_concealed_records.push_back(rec);
     return true;
 }
 
 struct ObjectWalk {
     std::vector<uint32_t> ids;
 };
-void __cdecl CollectObject(GameObjects::CEntity* object, void* data)
+void __cdecl collect_object(objects::Entity* object, void* data)
 {
-    auto* composite = static_cast<GameObjects::CGameEntity*>(object);
+    auto* composite = static_cast<objects::GameEntity*>(object);
     OrientedBox box;
-    if (Objects::ModelBox(composite, &box))
-        static_cast<ObjectWalk*>(data)->ids.push_back(composite->m_ident);
+    if (object_edit::model_box(composite, &box))
+        static_cast<ObjectWalk*>(data)->ids.push_back(composite->ident_);
 }
 
 } // namespace
 
-void Kickoff()
+void kickoff()
 {
-    if (!g_settingRead) {
-        g_showCollision = ConfigInt("editor", "collision", 0) != 0;
-        g_settingRead = true;
+    if (!g_setting_read) {
+        g_show_collision = config_int("editor", "collision", 0) != 0;
+        g_setting_read = true;
     }
     g_cache.clear();
     g_drawn.clear();
     g_wall = 0;
-    g_hoverWall = 0;
-    g_hiddenSectors.clear();
-    g_concealedRecords.clear();
+    g_hover_wall = 0;
+    g_hidden_sectors.clear();
+    g_concealed_records.clear();
 }
 
-void Halt()
+void halt()
 {
-    ShowAll();
+    show_all();
     g_cache.clear();
     g_drawn.clear();
     g_wall = 0;
 }
 
-void Tick()
+void tick()
 {
     // (the model's suspend pass turns its geometries on when its decision changes: off again)
-    for (size_t i = 0; i < g_concealedRecords.size();) {
-        HiddenObjectRec& rec = g_concealedRecords[i];
-        GameObjects::CGameEntity* object = LiveObject(rec.id);
+    for (size_t i = 0; i < g_concealed_records.size();) {
+        HiddenObjectRec& rec = g_concealed_records[i];
+        objects::GameEntity* object = live_object(rec.id);
         if (!object) {
-            g_concealedRecords.erase(g_concealedRecords.begin() + static_cast<long>(i));
+            g_concealed_records.erase(g_concealed_records.begin() + static_cast<long>(i));
             continue;
         }
         for (int g = 0; g < static_cast<int>(rec.geoms.size()); ++g) {
-            void* geom = Objects::Geometry(object, g);
-            if (geom && GeomActive(geom))
-                SetGeomActive(geom, false);
+            void* geom = object_edit::get_geometry(object, g);
+            if (geom && geom_active(geom))
+                set_geom_active(geom, false);
         }
         ++i;
     }
 }
 
-bool ShowCollision() { return g_showCollision; }
+bool show_collision() { return g_show_collision; }
 
-void SetShowCollision(bool on)
+void set_show_collision(bool on)
 {
-    g_showCollision = on;
-    g_settingRead = true;
-    ConfigSetInt("editor", "collision", on ? 1 : 0);
+    g_show_collision = on;
+    g_setting_read = true;
+    config_set_int("editor", "collision", on ? 1 : 0);
     if (!on)
         g_drawn.clear();
 }
 
-void AddCollision(V3 cameraPos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
-                  std::vector<Ui::Overlay::Triangle>* triangles, std::vector<Ui::Seg>* lines)
+void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+                  std::vector<ui::Overlay::Triangle>* triangles, std::vector<ui::Seg>* lines)
 {
     g_drawn.clear();
     g_stats = {};
-    if (!g_showCollision)
+    if (!g_show_collision)
         return;
     // The sectors near enough, nearest first (invisible walls before the rest: never left out by the cap).
     struct Candidate {
         uint32_t checksum;
         uint8_t* sector;
-        Engine3D::CTriMeshSource* tri;
+        render::TriMeshSource* tri;
         float order;
         bool off;
     };
     struct Walk {
         V3 camera;
         const TickCycle* frame;
-        float nearZ;
+        float near_z_;
         std::vector<Candidate> found;
-    } walk = {cameraPos, &frame, nearZ, {}};
-    Scenery::ForEachLevelSector(
+    } walk = {camera_pos, &frame, near_z, {}};
+    scenery::for_each_level_sector(
         [](void* context, uint32_t checksum, uint8_t* sector) {
             auto* w = static_cast<Walk*>(context);
             bool off = false;
-            Engine3D::CTriMeshSource* tri = DrawnTriDataOf(checksum, sector, &off);
-            if (!tri || tri->m_triCount == 0 || HiddenSector(checksum))
+            render::TriMeshSource* tri = drawn_tri_data_of(checksum, sector, &off);
+            if (!tri || tri->tri_count_ == 0 || hidden_sector(checksum))
                 return;
-            bool wall = GeomOf(sector) == nullptr;
-            V3 min = ToV3(tri->m_lowerLimit), max = ToV3(tri->m_upperLimit);
-            float distance = DistanceToBox(w->camera, min, max);
+            bool wall = geom_of(sector) == nullptr;
+            V3 min = to_v3(tri->lower_limit_), max = to_v3(tri->upper_limit_);
+            float distance = distance_to_box(w->camera, min, max);
             if (distance > (wall ? kWallRadius : kRadius) && checksum != g_wall)
                 return;
             // (wholly behind the camera: left out)
             bool front = false;
             for (int i = 0; i < 8 && !front; ++i) {
                 V3 corner = {(i & 1) ? max.x : min.x, (i & 2) ? max.y : min.y, (i & 4) ? max.z : min.z};
-                front = -Dot(corner - w->camera, w->frame->back) >= w->nearZ;
+                front = -get_dot(corner - w->camera, w->frame->back) >= w->near_z_;
             }
             if (!front)
                 return;
@@ -479,11 +479,11 @@ void AddCollision(V3 cameraPos, const TickCycle& frame, const Lens& lens, const 
         float x[4], y[4];
     };
     std::vector<Polygon> polygons;
-    const V3 light = MakeUnit({0.35f, 0.85f, 0.4f});
-    // A face projected and styled (StyleOf): its polygon added, its edges drawn; false when it isn't on the screen.
-    auto addFace = [&](const V3* p, const FaceFacts& facts) {
+    const V3 light = make_unit({0.35f, 0.85f, 0.4f});
+    // A face projected and styled (style_of): its polygon added, its edges drawn; false when it isn't on the screen.
+    auto add_face = [&](const V3* p, const FaceFacts& facts) {
         V3 clipped[4];
-        int count = ClipTriangleToNear(cameraPos, frame, nearZ, p, clipped);
+        int count = clip_triangle_to_near(camera_pos, frame, near_z, p, clipped);
         if (!count)
             return false;
         Polygon poly = {};
@@ -492,25 +492,25 @@ void AddCollision(V3 cameraPos, const TickCycle& frame, const Lens& lens, const 
         float depth = 0.0f;
         for (int k = 0; k < count; ++k) {
             float nx, ny;
-            if (!CastOnto(cameraPos, frame, lens, clipped[k], nearZ * 0.5f, &nx, &ny)) {
+            if (!cast_onto(camera_pos, frame, lens, clipped[k], near_z * 0.5f, &nx, &ny)) {
                 nx = ny = 0.0f; // (on the near plane - can't happen after clipping)
             }
             left = left && nx < -1.0f;
             right = right && nx > 1.0f;
             below = below && ny < -1.0f;
             above = above && ny > 1.0f;
-            NdcToPixel(viewport, nx, ny, &poly.x[k], &poly.y[k]);
-            depth += -Dot(clipped[k] - cameraPos, frame.back);
+            ndc_to_pixel(viewport, nx, ny, &poly.x[k], &poly.y[k]);
+            depth += -get_dot(clipped[k] - camera_pos, frame.back);
         }
         if (left || right || below || above)
             return false;
         poly.depth = depth / static_cast<float>(count);
-        FaceStyle style = StyleOf(facts);
+        FaceStyle style = style_of(facts);
         uint32_t argb = style.fill;
         // (shaded by the face's facing: the shape reads through the colour)
-        V3 normal = Perpendicular(p[1] - p[0], p[2] - p[0]);
-        float length = std::sqrt(Dot(normal, normal));
-        float shade = length > 0.0f ? 0.55f + 0.45f * std::fabs(Dot(normal, light)) / length : 1.0f;
+        V3 normal = perpendicular(p[1] - p[0], p[2] - p[0]);
+        float length = std::sqrt(get_dot(normal, normal));
+        float shade = length > 0.0f ? 0.55f + 0.45f * std::fabs(get_dot(normal, light)) / length : 1.0f;
         uint32_t r = static_cast<uint32_t>(((argb >> 16) & 0xFF) * shade);
         uint32_t g = static_cast<uint32_t>(((argb >> 8) & 0xFF) * shade);
         uint32_t b = static_cast<uint32_t>((argb & 0xFF) * shade);
@@ -519,9 +519,9 @@ void AddCollision(V3 cameraPos, const TickCycle& frame, const Lens& lens, const 
         if (style.edge && lines) {
             for (int k = 0; k < count; ++k) {
                 int n = (k + 1) % count;
-                Ui::Seg line = {poly.x[k], poly.y[k], poly.x[n], poly.y[n], style.edge, style.thickness};
+                ui::Seg line = {poly.x[k], poly.y[k], poly.x[n], poly.y[n], style.edge, style.thickness};
                 if (style.dashed)
-                    AddDashed(lines, line, 6.0f, 5.0f);
+                    add_dashed(lines, line, 6.0f, 5.0f);
                 else
                     lines->push_back(line);
             }
@@ -529,72 +529,72 @@ void AddCollision(V3 cameraPos, const TickCycle& frame, const Lens& lens, const 
         return true;
     };
     // (the level's triggers: their kinds by sector)
-    std::unordered_map<uint32_t, uint32_t> triggerColours;
-    for (const Triggers::LevelTrigger& t : Triggers::LevelTriggers())
-        triggerColours[t.sector] = Triggers::KindColour(t.kind);
+    std::unordered_map<uint32_t, uint32_t> trigger_colours;
+    for (const triggers::LevelTrigger& t : triggers::level_triggers())
+        trigger_colours[t.sector] = triggers::kind_colour(t.kind);
     for (const Candidate& candidate : walk.found) {
         if (static_cast<int>(polygons.size()) >= kMaxTriangles) {
             g_stats.capped = true;
             break;
         }
-        const Cached* cached = CacheOf(candidate.checksum, candidate.sector, candidate.tri);
+        const Cached* cached = cache_of(candidate.checksum, candidate.sector, candidate.tri);
         FaceFacts facts;
-        facts.collisionOnly = cached->collisionOnly;
+        facts.collision_only_ = cached->collision_only_;
         facts.off = candidate.off;
         facts.selected = candidate.checksum == g_wall;
-        facts.hovered = candidate.checksum == g_hoverWall;
-        auto trigger = triggerColours.find(candidate.checksum);
-        facts.triggerColour = trigger == triggerColours.end() ? 0 : trigger->second;
+        facts.hovered = candidate.checksum == g_hover_wall;
+        auto trigger = trigger_colours.find(candidate.checksum);
+        facts.trigger_colour_ = trigger == trigger_colours.end() ? 0 : trigger->second;
         bool any = false;
         for (size_t f = 0; f < cached->flags.size() && static_cast<int>(polygons.size()) < kMaxTriangles; ++f) {
             const V3* p = &cached->points[f * 3];
             facts.flags = cached->flags[f];
             facts.taken = cached->taken[f] != 0;
-            if (!addFace(p, facts))
+            if (!add_face(p, facts))
                 continue;
             // (a drawn piece's collision switched off isn't in the way of a click: the piece's own click selects it;
             // nor is a face taken along - its piece's companion is where it is now)
-            if ((cached->collisionOnly || !candidate.off) && !facts.taken)
-                g_drawn.push_back({candidate.checksum, cached->collisionOnly, p[0], p[1], p[2], cached->index[f]});
+            if ((cached->collision_only_ || !candidate.off) && !facts.taken)
+                g_drawn.push_back({candidate.checksum, cached->collision_only_, p[0], p[1], p[2], cached->index[f]});
             any = true;
             g_stats.taken += facts.taken ? 1 : 0;
-            g_stats.triggers += (facts.flags & 0x40) && facts.triggerColour ? 1 : 0;
+            g_stats.triggers += (facts.flags & 0x40) && facts.trigger_colour_ ? 1 : 0;
         }
         if (any) {
             ++g_stats.sectors;
-            g_stats.walls += cached->collisionOnly ? 1 : 0;
+            g_stats.walls += cached->collision_only_ ? 1 : 0;
             g_stats.off += candidate.off ? 1 : 0;
         }
     }
     // The moved pieces' shared collision where it is now (level_editor_shared_coll.h - not a sector's: drawn apart).
     struct CompanionWalk {
         V3 camera;
-        std::vector<std::pair<uint32_t, const SharedCollision::Companion*>> near;
-    } companions = {cameraPos, {}};
-    SharedCollision::ForEachCompanion(
-        [](void* context, uint32_t checksum, const SharedCollision::Companion& companion) {
+        std::vector<std::pair<uint32_t, const shared_collision::Companion*>> near;
+    } companions = {camera_pos, {}};
+    shared_collision::for_each_companion(
+        [](void* context, uint32_t checksum, const shared_collision::Companion& companion) {
             auto* w = static_cast<CompanionWalk*>(context);
-            const Engine3D::CTriMeshSource& tri = companion.Geometry();
-            if (DistanceToBox(w->camera, ToV3(tri.m_lowerLimit), ToV3(tri.m_upperLimit)) <= kRadius && !HiddenSector(checksum))
+            const render::TriMeshSource& tri = companion.get_geometry();
+            if (distance_to_box(w->camera, to_v3(tri.lower_limit_), to_v3(tri.upper_limit_)) <= kRadius && !hidden_sector(checksum))
                 w->near.push_back({checksum, &companion});
         },
         &companions);
     for (const auto& entry : companions.near) {
-        const Engine3D::CTriMeshSource& tri = entry.second->Geometry();
+        const render::TriMeshSource& tri = entry.second->get_geometry();
         bool any = false;
-        for (int f = 0; f < tri.m_triCount && tri.m_faces && static_cast<int>(polygons.size()) < kMaxTriangles; ++f) {
+        for (int f = 0; f < tri.tri_count_ && tri.faces_ && static_cast<int>(polygons.size()) < kMaxTriangles; ++f) {
             V3 p[3];
             bool ok = true;
             for (int k = 0; k < 3 && ok; ++k) {
-                uint32_t index = tri.FaceVertex(f, k);
-                ok = index < tri.m_numVertices;
+                uint32_t index = tri.face_vertex(f, k);
+                ok = index < tri.num_vertices_;
                 if (ok)
-                    p[k] = entry.second->Vertex(static_cast<int>(index));
+                    p[k] = entry.second->get_vertex(static_cast<int>(index));
             }
             FaceFacts facts;
-            facts.flags = *reinterpret_cast<const uint16_t*>(tri.m_faces + f * (tri.m_smallFaces ? 8 : 10));
+            facts.flags = *reinterpret_cast<const uint16_t*>(tri.faces_ + f * (tri.small_faces_ ? 8 : 10));
             facts.companion = true;
-            bool drawn = ok && addFace(p, facts);
+            bool drawn = ok && add_face(p, facts);
             if (drawn)
                 g_drawn.push_back({entry.first, false, p[0], p[1], p[2], f, true});
             any = drawn || any;
@@ -612,9 +612,9 @@ void AddCollision(V3 cameraPos, const TickCycle& frame, const Lens& lens, const 
     g_stats.triangles = static_cast<int>(polygons.size());
 }
 
-Attributes LastStats() { return g_stats; }
+Attributes last_stats() { return g_stats; }
 
-uint32_t PickWall(V3 origin, V3 unitDir)
+uint32_t pick_wall(V3 origin, V3 unit_dir)
 {
     float best = 1e30f;
     const Drawn* nearest = nullptr;
@@ -622,7 +622,7 @@ uint32_t PickWall(V3 origin, V3 unitDir)
         float t;
         if (d.companion)
             continue; // (as before the face flags: a wall's faces only compete with sectors' faces)
-        if (Picking::RayTriangle(origin, unitDir, d.a, d.b, d.c, &t) && t < best) {
+        if (picking::ray_triangle(origin, unit_dir, d.a, d.b, d.c, &t) && t < best) {
             best = t;
             nearest = &d;
         }
@@ -630,13 +630,13 @@ uint32_t PickWall(V3 origin, V3 unitDir)
     return nearest && nearest->wall ? nearest->checksum : 0;
 }
 
-bool PickFace(V3 origin, V3 unitDir, FaceHit* hit)
+bool pick_face(V3 origin, V3 unit_dir, FaceHit* hit)
 {
     float best = 1e30f;
     const Drawn* nearest = nullptr;
     for (const Drawn& d : g_drawn) {
         float t;
-        if (d.face >= 0 && Picking::RayTriangle(origin, unitDir, d.a, d.b, d.c, &t) && t < best) {
+        if (d.face >= 0 && picking::ray_triangle(origin, unit_dir, d.a, d.b, d.c, &t) && t < best) {
             best = t;
             nearest = &d;
         }
@@ -650,24 +650,24 @@ bool PickFace(V3 origin, V3 unitDir, FaceHit* hit)
     return true;
 }
 
-void StaleCache() { g_cache.clear(); }
+void stale_cache() { g_cache.clear(); }
 
-void SetHoverWall(uint32_t checksum) { g_hoverWall = g_showCollision ? checksum : 0; }
-uint32_t HoverWall() { return g_hoverWall; }
-void SelectWall(uint32_t checksum) { g_wall = checksum; }
-uint32_t SelectedWall() { return g_wall; }
-void ClearWall() { g_wall = 0; }
+void set_hover_wall(uint32_t checksum) { g_hover_wall = g_show_collision ? checksum : 0; }
+uint32_t hover_wall() { return g_hover_wall; }
+void select_wall(uint32_t checksum) { g_wall = checksum; }
+uint32_t selected_wall() { return g_wall; }
+void clear_wall() { g_wall = 0; }
 
-std::string DescribeWall(uint32_t checksum)
+std::string describe_wall(uint32_t checksum)
 {
-    uint8_t* sector = Scenery::SectorOf(checksum);
-    Engine3D::CTriMeshSource* tri = sector ? AnyTriDataOf(sector, nullptr) : nullptr;
+    uint8_t* sector = scenery::sector_of(checksum);
+    render::TriMeshSource* tri = sector ? any_tri_data_of(sector, nullptr) : nullptr;
     if (!tri)
         return "(gone)";
     // The faces' flags: each distinct value and how many faces have it.
     std::vector<std::pair<uint16_t, int>> counts;
-    for (int f = 0; f < tri->m_triCount && tri->m_faces; ++f) {
-        uint16_t flags = *reinterpret_cast<const uint16_t*>(tri->m_faces + f * (tri->m_smallFaces ? 8 : 10));
+    for (int f = 0; f < tri->tri_count_ && tri->faces_; ++f) {
+        uint16_t flags = *reinterpret_cast<const uint16_t*>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10));
         auto it = std::find_if(counts.begin(), counts.end(), [&](const auto& c) { return c.first == flags; });
         if (it == counts.end())
             counts.push_back({flags, 1});
@@ -678,9 +678,9 @@ std::string DescribeWall(uint32_t checksum)
     std::snprintf(text, sizeof(text),
                   "Collision only: nothing is drawn for it.\n%d faces, %d vertices\nbox (%.0f, %.0f, %.0f) to (%.0f, %.0f, "
                   "%.0f)\nsize %.0f x %.0f x %.0f\nface flags:",
-                  tri->m_triCount, tri->m_numVertices, tri->m_lowerLimit.x, tri->m_lowerLimit.y, tri->m_lowerLimit.z, tri->m_upperLimit.x,
-                  tri->m_upperLimit.y, tri->m_upperLimit.z, tri->m_upperLimit.x - tri->m_lowerLimit.x, tri->m_upperLimit.y - tri->m_lowerLimit.y,
-                  tri->m_upperLimit.z - tri->m_lowerLimit.z);
+                  tri->tri_count_, tri->num_vertices_, tri->lower_limit_.x, tri->lower_limit_.y, tri->lower_limit_.z, tri->upper_limit_.x,
+                  tri->upper_limit_.y, tri->upper_limit_.z, tri->upper_limit_.x - tri->lower_limit_.x, tri->upper_limit_.y - tri->lower_limit_.y,
+                  tri->upper_limit_.z - tri->lower_limit_.z);
     std::string out = text;
     for (size_t i = 0; i < counts.size() && i < 8; ++i) {
         std::snprintf(text, sizeof(text), " 0x%04X x%d", counts[i].first, counts[i].second);
@@ -691,113 +691,113 @@ std::string DescribeWall(uint32_t checksum)
     return out;
 }
 
-bool HiddenSector(uint32_t checksum)
+bool hidden_sector(uint32_t checksum)
 {
-    return std::any_of(g_hiddenSectors.begin(), g_hiddenSectors.end(),
+    return std::any_of(g_hidden_sectors.begin(), g_hidden_sectors.end(),
                        [&](const HiddenSectorRec& r) { return r.checksum == checksum; });
 }
 
-bool HiddenObject(uint32_t id)
+bool hidden_object(uint32_t id)
 {
-    return std::any_of(g_concealedRecords.begin(), g_concealedRecords.end(),
+    return std::any_of(g_concealed_records.begin(), g_concealed_records.end(),
                        [&](const HiddenObjectRec& r) { return r.id == id; });
 }
 
-int Conceal(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& objects)
+int conceal(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& objects)
 {
     int hidden = 0;
     for (uint32_t checksum : sectors)
-        hidden += HideSector(checksum) ? 1 : 0;
+        hidden += hide_sector(checksum) ? 1 : 0;
     for (uint32_t id : objects)
-        hidden += HideObject(id) ? 1 : 0;
-    if (DebugEnabled())
-        Log("level editor: view - hid %d (%d sectors, %d objects hidden in all)", hidden,
-            static_cast<int>(g_hiddenSectors.size()), static_cast<int>(g_concealedRecords.size()));
+        hidden += hide_object(id) ? 1 : 0;
+    if (debug_enabled())
+        get_log("level editor: view - hid %d (%d sectors, %d objects hidden in all)", hidden,
+            static_cast<int>(g_hidden_sectors.size()), static_cast<int>(g_concealed_records.size()));
     return hidden;
 }
 
-int Isolate(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& objects)
+int get_isolate(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& objects)
 {
     struct SectorWalk {
         std::vector<uint32_t> ids;
-    } sectorWalk;
-    Scenery::ForEachLevelSector(
+    } sector_walk;
+    scenery::for_each_level_sector(
         [](void* context, uint32_t checksum, uint8_t* sector) {
-            if (GeomOf(sector))
+            if (geom_of(sector))
                 static_cast<SectorWalk*>(context)->ids.push_back(checksum);
         },
-        &sectorWalk);
-    ObjectWalk objectWalk;
-    if (GameObjects::CEntityHub* manager = GameObjects::ObjectHubSlot())
-        manager->ForEach(CollectObject, &objectWalk);
-    return Conceal(IsolateOthers(sectorWalk.ids, sectors), IsolateOthers(objectWalk.ids, objects));
+        &sector_walk);
+    ObjectWalk object_walk;
+    if (objects::EntityHub* manager = objects::object_hub_slot())
+        manager->for_each(collect_object, &object_walk);
+    return conceal(isolate_others(sector_walk.ids, sectors), isolate_others(object_walk.ids, objects));
 }
 
-void ShowAll()
+void show_all()
 {
-    for (const HiddenSectorRec& rec : g_hiddenSectors) {
-        if (Scenery::SectorOf(rec.checksum) == rec.sector && GeomOf(rec.sector))
-            ToggleShown(rec.sector, rec.mask);
+    for (const HiddenSectorRec& rec : g_hidden_sectors) {
+        if (scenery::sector_of(rec.checksum) == rec.sector && geom_of(rec.sector))
+            toggle_shown(rec.sector, rec.mask);
     }
-    g_hiddenSectors.clear();
+    g_hidden_sectors.clear();
     // (a copy made of a hidden piece - picked in the Outliner - copied its visibility too: shown as its source is)
-    for (const Scenery::Replicate& clone : Scenery::Clones()) {
-        uint8_t* copy = Scenery::SectorOf(clone.checksum);
-        uint8_t* source = Scenery::SectorOf(clone.source);
-        if (copy && source && GeomOf(copy) && GeomOf(source) && FetchShown(copy) == 0 && FetchShown(source) != 0)
-            ToggleShown(copy, FetchShown(source));
+    for (const scenery::Replicate& clone : scenery::get_clones()) {
+        uint8_t* copy = scenery::sector_of(clone.checksum);
+        uint8_t* source = scenery::sector_of(clone.source);
+        if (copy && source && geom_of(copy) && geom_of(source) && fetch_shown(copy) == 0 && fetch_shown(source) != 0)
+            toggle_shown(copy, fetch_shown(source));
     }
-    for (const HiddenObjectRec& rec : g_concealedRecords) {
-        GameObjects::CGameEntity* object = LiveObject(rec.id);
+    for (const HiddenObjectRec& rec : g_concealed_records) {
+        objects::GameEntity* object = live_object(rec.id);
         for (int g = 0; object && g < static_cast<int>(rec.geoms.size()); ++g) {
-            void* geom = Objects::Geometry(object, g);
+            void* geom = object_edit::get_geometry(object, g);
             if (geom && geom == rec.geoms[g].first)
-                SetGeomActive(geom, rec.geoms[g].second);
+                set_geom_active(geom, rec.geoms[g].second);
         }
     }
-    g_concealedRecords.clear();
+    g_concealed_records.clear();
 }
 
-int Show(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& objects)
+int get_show(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& objects)
 {
     int shown = 0;
-    for (auto it = g_hiddenSectors.begin(); it != g_hiddenSectors.end();) {
+    for (auto it = g_hidden_sectors.begin(); it != g_hidden_sectors.end();) {
         if (std::find(sectors.begin(), sectors.end(), it->checksum) == sectors.end()) {
             ++it;
             continue;
         }
-        if (Scenery::SectorOf(it->checksum) == it->sector && GeomOf(it->sector))
-            ToggleShown(it->sector, it->mask);
-        it = g_hiddenSectors.erase(it);
+        if (scenery::sector_of(it->checksum) == it->sector && geom_of(it->sector))
+            toggle_shown(it->sector, it->mask);
+        it = g_hidden_sectors.erase(it);
         ++shown;
     }
-    for (auto it = g_concealedRecords.begin(); it != g_concealedRecords.end();) {
+    for (auto it = g_concealed_records.begin(); it != g_concealed_records.end();) {
         if (std::find(objects.begin(), objects.end(), it->id) == objects.end()) {
             ++it;
             continue;
         }
-        GameObjects::CGameEntity* object = LiveObject(it->id);
+        objects::GameEntity* object = live_object(it->id);
         for (int g = 0; object && g < static_cast<int>(it->geoms.size()); ++g) {
-            void* geom = Objects::Geometry(object, g);
+            void* geom = object_edit::get_geometry(object, g);
             if (geom && geom == it->geoms[g].first)
-                SetGeomActive(geom, it->geoms[g].second);
+                set_geom_active(geom, it->geoms[g].second);
         }
-        it = g_concealedRecords.erase(it);
+        it = g_concealed_records.erase(it);
         ++shown;
     }
     return shown;
 }
 
-int HiddenCount() { return static_cast<int>(g_hiddenSectors.size() + g_concealedRecords.size()); }
+int hidden_count() { return static_cast<int>(g_hidden_sectors.size() + g_concealed_records.size()); }
 
-std::vector<uint32_t> HiddenIds()
+std::vector<uint32_t> hidden_ids()
 {
     std::vector<uint32_t> ids;
-    for (const HiddenSectorRec& rec : g_hiddenSectors)
+    for (const HiddenSectorRec& rec : g_hidden_sectors)
         ids.push_back(rec.checksum);
-    for (const HiddenObjectRec& rec : g_concealedRecords)
+    for (const HiddenObjectRec& rec : g_concealed_records)
         ids.push_back(rec.id);
     return ids;
 }
 
-} // namespace MenuSystem::LevelEditor::View
+} // namespace MenuSystem::level_editor::View

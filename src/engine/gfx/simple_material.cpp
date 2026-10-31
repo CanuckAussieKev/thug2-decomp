@@ -13,23 +13,23 @@
 #include "engine/gfx/shader_slots.h"
 #include "platform/crt.h"
 
-namespace Engine3D {
+namespace render {
 
 namespace {
 
 // The texture dictionary's lookup (not rewritten yet; thiscall): the texture entry for a checksum, or null.
-uint8_t* FindTexture(uint32_t checksum)
+uint8_t* find_texture(uint32_t checksum)
 {
-    return reinterpret_cast<uint8_t*>(static_cast<CTextureSet*>(reinterpret_cast<void*>(g_particleTextureDict))->FetchSkin(checksum));
+    return reinterpret_cast<uint8_t*>(static_cast<TextureSet*>(reinterpret_cast<void*>(g_particle_texture_dict))->fetch_skin(checksum));
 }
 // A material's constructor and destructor body (not rewritten yet; thiscall).
-uint8_t* ConstructMaterial(void* memory) { return reinterpret_cast<uint8_t*>(static_cast<materialRef*>(memory)->MakeNew()); }
-void DestroyMaterial(void* material) { static_cast<materialRef*>(material)->DestroyBody(); }
+uint8_t* construct_material(void* memory) { return reinterpret_cast<uint8_t*>(static_cast<MaterialRef*>(memory)->make_new()); }
+void destroy_material(void* material) { static_cast<MaterialRef*>(material)->destroy_body(); }
 // The C runtime's rand (the game's: its sequence).
-int Rand() { return Crt::Rand(); }
+int get_rand() { return crt::get_rand(); }
 
 template <typename T>
-T& At(uint8_t* p, uint32_t offset)
+T& get_at(uint8_t* p, uint32_t offset)
 {
     return *reinterpret_cast<T*>(p + offset);
 }
@@ -37,7 +37,7 @@ T& At(uint8_t* p, uint32_t offset)
 } // namespace
 
 // 0x004D9CF0
-uint32_t __cdecl BlendModeFromName(uint32_t checksum)
+uint32_t __cdecl blend_mode_from_name(uint32_t checksum)
 {
     switch (checksum) {
     case 0x515E298E: // diffuse
@@ -62,57 +62,57 @@ uint32_t __cdecl BlendModeFromName(uint32_t checksum)
 }
 
 // 0x004D9B80
-sSimpleMaterial* sSimpleMaterial::MakeNew(uint32_t /*unused0*/, uint32_t /*unused1*/, uint32_t textureChecksum,
-                                            uint32_t blendChecksum, int fixedAlpha, uint32_t /*unused5*/,
+SimpleMaterial* SimpleMaterial::make_new(uint32_t /*unused0*/, uint32_t /*unused1*/, uint32_t texture_checksum,
+                                            uint32_t blend_checksum, int fixed_alpha, uint32_t /*unused5*/,
                                             uint32_t /*unused6*/)
 {
     uint32_t texture = 0;
-    if (uint8_t* entry = FindTexture(textureChecksum))
-        texture = (entry[8] & 1) ? **reinterpret_cast<uint32_t**>(entry + 0x10) : At<uint32_t>(entry, 0x10);
-    void* memory = MemSys::Alloc(0x110);
-    uint8_t* m = memory ? ConstructMaterial(memory) : nullptr; // (a failed allocation would crash below)
-    At<uint32_t>(m, 0x20) = (texture ? 4 : 0) | 0x40;
-    int first = Rand();
-    At<int>(m, 0) = first * Rand(); // the sort key
-    At<uint32_t>(m, 8) = 1;         // one pass
-    At<uint32_t>(m, 0x30) = texture;
-    At<uint32_t>(m, 0x80) = BlendModeFromName(blendChecksum) | static_cast<uint32_t>(fixedAlpha) << 24;
-    At<float>(m, 0x40) = 0.5f; // the colour
-    At<float>(m, 0x44) = 0.5f;
-    At<float>(m, 0x48) = 0.5f;
-    At<float>(m, 0x4C) = static_cast<float>(static_cast<double>(fixedAlpha) * (1.0 / 128)); // 0x0064A2FC
-    At<uint32_t>(m, 0x90) = 0;
-    At<uint32_t>(m, 0xE0) = 0;
-    At<uint8_t>(m, 0x10) = 1;
-    At<uint8_t>(m, 0xD) = 1;
-    At<uint8_t>(m, 0xE) = 0;
+    if (uint8_t* entry = find_texture(texture_checksum))
+        texture = (entry[8] & 1) ? **reinterpret_cast<uint32_t**>(entry + 0x10) : get_at<uint32_t>(entry, 0x10);
+    void* memory = memory::alloc(0x110);
+    uint8_t* m = memory ? construct_material(memory) : nullptr; // (a failed allocation would crash below)
+    get_at<uint32_t>(m, 0x20) = (texture ? 4 : 0) | 0x40;
+    int first = get_rand();
+    get_at<int>(m, 0) = first * get_rand(); // the sort key
+    get_at<uint32_t>(m, 8) = 1;         // one pass
+    get_at<uint32_t>(m, 0x30) = texture;
+    get_at<uint32_t>(m, 0x80) = blend_mode_from_name(blend_checksum) | static_cast<uint32_t>(fixed_alpha) << 24;
+    get_at<float>(m, 0x40) = 0.5f; // the colour
+    get_at<float>(m, 0x44) = 0.5f;
+    get_at<float>(m, 0x48) = 0.5f;
+    get_at<float>(m, 0x4C) = static_cast<float>(static_cast<double>(fixed_alpha) * (1.0 / 128)); // 0x0064A2FC
+    get_at<uint32_t>(m, 0x90) = 0;
+    get_at<uint32_t>(m, 0xE0) = 0;
+    get_at<uint8_t>(m, 0x10) = 1;
+    get_at<uint8_t>(m, 0xD) = 1;
+    get_at<uint8_t>(m, 0xE) = 0;
     material = m;
-    uint32_t mode = At<uint32_t>(m, 0x80) & 0xFFFFFF;
-    shader = g_pixelShaders[mode == 9 || mode == 10 ? kPixelShader944 : kPixelShader964];
+    uint32_t mode = get_at<uint32_t>(m, 0x80) & 0xFFFFFF;
+    shader = g_pixel_shaders[mode == 9 || mode == 10 ? kPixelShader944 : kPixelShader964];
     return this;
 }
 
 // 0x004D9CD0
-void sSimpleMaterial::DestroyBody()
+void SimpleMaterial::destroy_body()
 {
     if (uint8_t* m = material) {
-        DestroyMaterial(m);
-        MemSys::Hub::Sole()->Dealloc(m);
+        destroy_material(m);
+        memory::Hub::sole()->dealloc(m);
     }
 }
 
 // 0x004DA6D0
-int __cdecl SkipFileChunk(void* file)
+int __cdecl skip_file_chunk(void* file)
 {
     uint32_t id, size;
-    FileLoad::TakeIn(&id, 4, 1, file);
-    FileLoad::TakeIn(&size, 4, 1, file);
-    FileLoad::SeekTo(file, static_cast<int>(size), SEEK_CUR);
+    file::get_take_in(&id, 4, 1, file);
+    file::get_take_in(&size, 4, 1, file);
+    file::seek_to(file, static_cast<int>(size), SEEK_CUR);
     return 0;
 }
 
 // 0x004DA710
-int __cdecl SkipMemoryChunk(uint8_t** data)
+int __cdecl skip_memory_chunk(uint8_t** data)
 {
     *data = *data + *reinterpret_cast<uint32_t*>(*data + 4) + 8;
     return 0;

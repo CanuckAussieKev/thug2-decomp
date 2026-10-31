@@ -8,7 +8,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
 
-namespace OnlinePlay::Thugpro {
+namespace online::thugpro {
 
 namespace {
 
@@ -27,73 +27,73 @@ constexpr const char* kLevelLists[] = {
 };
 
 PositionScale s_factor;
-uint32_t s_scaleLevel;  // the level s_factor was found for (0: none)
-bool s_scaleNetGame;
+uint32_t s_scale_level;  // the level s_factor was found for (0: none)
+bool s_scale_net_game;
 
 } // namespace
 
-const PositionScale& CurrentPositionScale() { return s_factor; }
+const PositionScale& current_position_scale() { return s_factor; }
 
-void SetPositionScale(const PositionScale& scale) { s_factor = scale; }
+void set_position_scale(const PositionScale& scale) { s_factor = scale; }
 
-PositionScale LevelPositionScale(uint32_t level)
+PositionScale level_position_scale(uint32_t level)
 {
     PositionScale scale;
     for (const char* list : kLevelLists) {
-        Scripts::CArray* levels = Scripts::FetchList(list);
+        script::Array* levels = script::fetch_list(list);
         if (!levels)
             continue;
-        for (uint32_t i = 0; i < levels->m_extent; ++i) {
-            auto* entry = reinterpret_cast<Scripts::CStruct*>(levels->FetchPart(i));
-            uint32_t entryLevel = 0;
-            if (!entry || !entry->ReadHashValue(kLevel, &entryLevel, 0) || entryLevel != level)
+        for (uint32_t i = 0; i < levels->extent_; ++i) {
+            auto* entry = reinterpret_cast<script::Struct*>(levels->fetch_part(i));
+            uint32_t entry_level = 0;
+            if (!entry || !entry->read_hash_value(kLevel, &entry_level, 0) || entry_level != level)
                 continue;
-            scale.big = entry->HasBareFlag(kIsBigLevel);
-            scale.tall = entry->HasBareFlag(kIsTallLevel);
+            scale.big = entry->has_bare_flag(kIsBigLevel);
+            scale.tall = entry->has_bare_flag(kIsTallLevel);
             return scale;
         }
     }
     return scale;
 }
 
-void RefreshPositionScale()
+void refresh_position_scale()
 {
-    auto* manager = g_onlineHub;
-    bool netGame = manager && manager->InNetGame();
-    uint32_t level = manager ? manager->m_level : 0;
-    if (netGame == s_scaleNetGame && level == s_scaleLevel)
+    auto* manager = g_online_hub;
+    bool net_game = manager && manager->in_net_game();
+    uint32_t level = manager ? manager->level_ : 0;
+    if (net_game == s_scale_net_game && level == s_scale_level)
         return;
-    s_scaleNetGame = netGame;
-    s_scaleLevel = level;
-    PositionScale scale = netGame ? LevelPositionScale(level) : PositionScale{};
+    s_scale_net_game = net_game;
+    s_scale_level = level;
+    PositionScale scale = net_game ? level_position_scale(level) : PositionScale{};
     if (scale.big != s_factor.big || scale.tall != s_factor.tall)
-        Log("THUGPRO big level (TP-R6): network positions %s%s", scale.big ? "x/z in whole units" : "x/z in halves",
+        get_log("THUGPRO big level (TP-R6): network positions %s%s", scale.big ? "x/z in whole units" : "x/z in halves",
             scale.tall ? ", y in whole units" : "");
     s_factor = scale;
 }
 
 // (the original: FLD the float, FMUL its constant - FADD ST0,ST0 for the doubling -, _ftol, the low 16 bits kept)
-int16_t PackHorizontal(float value)
+int16_t pack_horizontal(float value)
 {
     double v = s_factor.big ? static_cast<double>(value) : static_cast<double>(value) * 2.0;
     return static_cast<int16_t>(static_cast<int>(v));
 }
 
-int16_t PackHeight(float value)
+int16_t pack_height(float value)
 {
     double v = s_factor.tall ? static_cast<double>(value) : static_cast<double>(value) * 4.0;
     return static_cast<int16_t>(static_cast<int>(v));
 }
 
 // (FILD, FMUL 0.5 / 0.25, FSTP: exact)
-float UnpackHorizontal(int value)
+float unpack_horizontal(int value)
 {
     return s_factor.big ? static_cast<float>(value) : static_cast<float>(static_cast<double>(value) * 0.5);
 }
 
-float UnpackHeight(int value)
+float unpack_height(int value)
 {
     return s_factor.tall ? static_cast<float>(value) : static_cast<float>(static_cast<double>(value) * 0.25);
 }
 
-} // namespace OnlinePlay::Thugpro
+} // namespace online::Thugpro

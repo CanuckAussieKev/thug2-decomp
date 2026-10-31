@@ -7,14 +7,14 @@
 #include <cstdint>
 #include <cstdio>
 
-namespace SystemCore {
+namespace sys {
 
 namespace {
 const char kSettingsKey[] = "Software\\Activision\\Tony Hawk's Underground 2\\Settings";
 } // namespace
 
 // 0x004E1810
-void WriteDefaultSetting(const char* name, uint32_t value)
+void write_default_setting(const char* name, uint32_t value)
 {
     HKEY key = nullptr;
     if (RegOpenKeyExA(HKEY_CURRENT_USER, kSettingsKey, 0, KEY_WRITE | KEY_QUERY_VALUE, &key) == ERROR_SUCCESS) {

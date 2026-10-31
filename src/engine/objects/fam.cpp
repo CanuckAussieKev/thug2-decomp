@@ -1,4 +1,4 @@
-// The fam component (GameObjects::CFamComponent): see fam.h. From the disassembly of 0x0041D170-0x0041D6D4.
+// The fam component (GameObjects::FamComponent): see fam.h. From the disassembly of 0x0041D170-0x0041D6D4.
 
 #include "engine/objects/fam.h"
 
@@ -25,9 +25,9 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 
-namespace GameObjects {
+namespace objects {
 
-uint32_t g_famMemberFunctions[18]{
+uint32_t g_fam_member_functions[18]{
             0xE5894C80, 0x0301D67C, 0, 0, 0, 0,
             0x48AC2139, 0x0301D67C, 0, 0, 0, 0,
             0, 0x0301D67C, 0, 0, 0, 0};
@@ -50,167 +50,167 @@ constexpr uint32_t kJawRotation = 0xC0BA0665;    // jawRotation
 constexpr uint32_t kRemoveAnimController = 0x986D274E; // RemoveAnimController
 constexpr int kDefaultPriority = 0x66;
 
-AssetStore::CResourceRegistry* AssetManager() { return AssetStore::g_assetManager; }
+assets::ResourceRegistry* asset_manager() { return assets::g_asset_manager; }
 
-Scripts::CStruct* NewParams()
+script::Struct* new_params()
 {
-    Scripts::CStruct* params = Scripts::SpawnParamBag();
-    return params ? params->PrepareAll() : nullptr;
+    script::Struct* params = script::spawn_param_bag();
+    return params ? params->prepare_all() : nullptr;
 }
-void DeleteParams(Scripts::CStruct* params)
+void delete_params(script::Struct* params)
 {
     if (params) {
-        params->Clear(); // (the destructor)
-        Scripts::DeleteStruct(params);
+        params->get_clear(); // (the destructor)
+        script::delete_struct(params);
     }
 }
 
 } // namespace
 
 // 0x0041D200
-CObjectModule* __cdecl CFamComponent::Fabricate()
+ObjectModule* __cdecl FamComponent::fabricate()
 {
-    auto* component = static_cast<CFamComponent*>(MemSys::AllocZeroed(sizeof(CFamComponent)));
+    auto* component = static_cast<FamComponent*>(memory::alloc_zeroed(sizeof(FamComponent)));
     if (!component)
         return nullptr;
-    component->CObjectModule::MakeNew();
-    component->m_vtable = kVtable;
-    component->m_kindTag = kType;
-    component->m_fam = 0;
-    component->m_feed = 0;
+    component->ObjectModule::make_new();
+    component->vtable_ = kVtable;
+    component->kind_tag_ = kType;
+    component->fam_ = 0;
+    component->feed_ = 0;
     return component;
 }
 
 // 0x0041D170
-void __cdecl CFamComponent::PublishMethodTable()
+void __cdecl FamComponent::publish_method_table()
 {
-    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_famMemberFunctions,
+    script::register_member_function_table(reinterpret_cast<void*>(kType), g_fam_member_functions,
                                         0x18);
 }
 
 // 0x0041D190
-void CFamComponent::DestroyBody()
+void FamComponent::destroy_body()
 {
-    m_vtable = kVtable;
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    ObjectModule::destroy_body();
 }
 
 // 0x0041D1A0
-CFamComponent* CFamComponent::Teardown(unsigned int flags)
+FamComponent* FamComponent::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x0041D2C0
-void CFamComponent::UnloadFam()
+void FamComponent::unload_fam()
 {
-    if (!m_fam)
+    if (!fam_)
         return;
-    Scripts::StopScriptsUsingObjectThatReferTo(m_entity, kFamScript);
-    Scripts::CStruct* params = NewParams();
-    params->PutNameKey(kTypeParam, kPartialAnim);
-    params->PutNameKey(kId, kJawRotation);
-    if (m_entity)
-        m_entity->FetchModule(CAnimBlenderComponent::kType)->InvokeMethodByName(kRemoveAnimController, params, nullptr);
-    DeleteParams(params);
-    AssetStore::CResourceRegistry* assets = AssetManager();
-    if (AssetStore::CResource* asset = assets->ObtainLoadedItem(m_fam, 0))
-        assets->DiscardLoadedItem(asset);
-    m_fam = 0;
+    script::stop_scripts_using_object_that_refer_to(entity_, kFamScript);
+    script::Struct* params = new_params();
+    params->put_name_key(kTypeParam, kPartialAnim);
+    params->put_name_key(kId, kJawRotation);
+    if (entity_)
+        entity_->fetch_module(AnimBlenderComponent::kType)->invoke_method_by_name(kRemoveAnimController, params, nullptr);
+    delete_params(params);
+    assets::ResourceRegistry* assets = asset_manager();
+    if (assets::Resource* asset = assets->obtain_loaded_item(fam_, 0))
+        assets->discard_loaded_item(asset);
+    fam_ = 0;
 }
 
 // 0x0041D3E0
-void CFamComponent::LoadAnimBank(uint32_t name, uint32_t animSet)
+void FamComponent::load_anim_bank(uint32_t name, uint32_t anim_set)
 {
-    UnloadFam();
-    char fileName[32];
-    std::snprintf(fileName, sizeof(fileName), "fam\\%08x.fam", name); // (the original: the game's sprintf, 0x006234FE)
-    DebugOut::Printf("loading %s\n", fileName);
-    AssetStore::CResourceRegistry* assets = AssetManager();
-    int saved = assets->m_unknown18;
-    if (assets->LoadAnim(fileName, name, animSet, false, false)) {
-        DebugOut::Printf("loaded\n");
-        m_fam = Checksums::HashFromText(fileName);
+    unload_fam();
+    char file_name[32];
+    std::snprintf(file_name, sizeof(file_name), "fam\\%08x.fam", name); // (the original: the game's sprintf, 0x006234FE)
+    debug::printf("loading %s\n", file_name);
+    assets::ResourceRegistry* assets = asset_manager();
+    int saved = assets->unknown18_;
+    if (assets->load_anim(file_name, name, anim_set, false, false)) {
+        debug::printf("loaded\n");
+        fam_ = checksums::hash_from_text(file_name);
     }
-    assets->SetUnknown18(saved);
+    assets->set_unknown18(saved);
 }
 
 // 0x0041D480
-bool CFamComponent::PlayFam(uint32_t name, bool streamOnly, int volume, int priority)
+bool FamComponent::play_fam(uint32_t name, bool stream_only, int volume, int priority)
 {
-    if (!AudioStream::StreamExists(name))
+    if (!audio::stream_exists(name))
         return false;
-    if (m_feed) {
-        Scripts::StopScriptsUsingObjectThatReferTo(m_entity, kFamScript);
-        AudioStream::HaltStream(m_feed);
-        m_feed = 0;
+    if (feed_) {
+        script::stop_scripts_using_object_that_refer_to(entity_, kFamScript);
+        audio::halt_stream(feed_);
+        feed_ = 0;
     }
-    Scripts::CStruct* params = NewParams();
-    params->PutNameKey(kStreamChecksum, name);
+    script::Struct* params = new_params();
+    params->put_name_key(kStreamChecksum, name);
     if (volume)
-        params->PutInt(kVol, volume);
-    if (!streamOnly) {
-        params->PutInt(kUsePosInfo, 0);
-        auto* blender = static_cast<CAnimBlenderComponent*>(m_entity->FetchModule(CAnimBlenderComponent::kType));
-        uint32_t animSet = blender->GetAnimSet();
-        LoadAnimBank(name, animSet);
-        uint32_t stream = AudioStream::PrimeStream(name, priority);
-        params->PutNameKey(kStreamId, stream);
-        m_feed = stream;
-        if (AssetManager()->GetAssetData(animSet + name, 0))
-            params->PutNameKey(0u, kPlayAnim);
+        params->put_int(kVol, volume);
+    if (!stream_only) {
+        params->put_int(kUsePosInfo, 0);
+        auto* blender = static_cast<AnimBlenderComponent*>(entity_->fetch_module(AnimBlenderComponent::kType));
+        uint32_t anim_set = blender->get_anim_set();
+        load_anim_bank(name, anim_set);
+        uint32_t stream = audio::prime_stream(name, priority);
+        params->put_name_key(kStreamId, stream);
+        feed_ = stream;
+        if (asset_manager()->get_asset_data(anim_set + name, 0))
+            params->put_name_key(0u, kPlayAnim);
     }
-    Scripts::CScript* script = Scripts::SpawnScript(kFamScript, params, 0, nullptr, 0, 0, false, false, false, false);
-    script->m_entity.AssignValue(m_entity);
-    DeleteParams(params);
+    script::Script* script = script::spawn_script(kFamScript, params, 0, nullptr, 0, 0, false, false, false, false);
+    script->entity_.assign_value(entity_);
+    delete_params(params);
     return true;
 }
 
 // 0x0041D660
-int CFamComponent::Obj_PlayFam(Scripts::CStruct* params, Scripts::CScript*)
+int FamComponent::obj_play_fam(script::Struct* params, script::Script*)
 {
     uint32_t name;
-    params->ReadHashValue(0u, &name, 1);
+    params->read_hash_value(0u, &name, 1);
     int volume = 0;
-    params->FetchIntValue(kVol, &volume, 0);
+    params->fetch_int_value(kVol, &volume, 0);
     int priority = kDefaultPriority;
-    params->FetchIntValue(kPriority, &priority, 0);
-    return PlayFam(name, false, volume, priority) ? 1 : 0;
+    params->fetch_int_value(kPriority, &priority, 0);
+    return play_fam(name, false, volume, priority) ? 1 : 0;
 }
 
 // 0x0041D280
-int CFamComponent::Obj_StopLastFam(Scripts::CStruct*, Scripts::CScript*)
+int FamComponent::obj_stop_last_fam(script::Struct*, script::Script*)
 {
-    if (m_feed) {
-        Scripts::StopScriptsUsingObjectThatReferTo(m_entity, kFamScript);
-        AudioStream::HaltStream(m_feed);
-        m_feed = 0;
+    if (feed_) {
+        script::stop_scripts_using_object_that_refer_to(entity_, kFamScript);
+        audio::halt_stream(feed_);
+        feed_ = 0;
     }
     return 1;
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CFamComponent::Teardown,
-         &GameObjects::ComponentWithoutUpdate::TickFrame,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::DispatchScriptMethod,
-         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::FamComponent::teardown,
+         &objects::ComponentWithoutUpdate::tick_frame,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         &objects::ObjectModule::dispatch_script_method,
+         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

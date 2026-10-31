@@ -29,14 +29,14 @@
 #include "engine/core/code_address.h"
 #include "engine/sys/game_config.h"
 
-namespace GameObjects {
+namespace objects {
 
-static_assert(offsetof(CTrickObjectCluster, m_label) == 0x14 && offsetof(CTrickObjectCluster, m_scores) == 0x1C &&
-                  offsetof(CTrickObjectCluster, m_owner) == 0x3C && offsetof(CTrickObjectCluster, m_owned) == 0x40,
+static_assert(offsetof(TrickObjectCluster, label_) == 0x14 && offsetof(TrickObjectCluster, scores_) == 0x1C &&
+                  offsetof(TrickObjectCluster, owner_) == 0x3C && offsetof(TrickObjectCluster, owned_) == 0x40,
               "layout must match the original");
 
-GameObjects::CTrickSpotHub* g_trickSpotHub;
-uint32_t g_trickObjectManagerReferences;
+objects::TrickSpotHub* g_trick_spot_hub;
+uint32_t g_trick_object_manager_references;
 
 namespace {
 
@@ -46,59 +46,59 @@ constexpr uint32_t kGraffitiTeamScoring = 0xAB80CC2F; // graffiti_team_scoring (
 // Which clusters of the current log changed hands (by their index in its list). THUG2's was a 128-byte global at
 // 0x007CE508; enlarged as THUGPRO's DLL enlarged it (its NetLink::InitPatches, "Fix 256 graff tag crash": idea from
 // Morten1337's thugpro_proxy, written here as our own buffer) - a list longer than the mask is cut to its size.
-uint8_t sDirtyClusters[CTrickSpotHub::kMaxLoggedClusters];
+uint8_t s_dirty_clusters[TrickSpotHub::kMaxLoggedClusters];
 
 // The game mode (0x007CE470) and the network manager's players (0x007CCE14): PlayerRecord +0x14 its skater (+0x14 the
-// skater's object id), +0x30 its team. Walked with a ListKit::Hunt<PlayerRecord> (vtable 0x0064C1A8).
-void* GameMode() { return static_cast<void*>(GoalSystem::g_gameMode); }
-void* NetSessionSlot() { return reinterpret_cast<void*>(OnlinePlay::g_onlineHub); }
+// skater's object id), +0x30 its team. Walked with a lists::Hunt<PlayerRecord> (vtable 0x0064C1A8).
+void* get_game_mode() { return static_cast<void*>(goals::g_game_mode); }
+void* net_session_slot() { return reinterpret_cast<void*>(online::g_online_hub); }
 struct PlayerSearch {
-    void* m_vtable = GameModules::kPlayerSearchVtable;
-    void* m_listLink = nullptr;
+    void* vtable_ = modules::kPlayerSearchVtable;
+    void* list_link_ = nullptr;
 };
-uint8_t* StartRosterSweep(PlayerSearch* search)
+uint8_t* start_roster_sweep(PlayerSearch* search)
 {
-    return static_cast<uint8_t*>(static_cast<OnlinePlay::Hub*>(NetSessionSlot())->BeginPlayerWalk(search, false));
+    return static_cast<uint8_t*>(static_cast<online::Hub*>(net_session_slot())->begin_player_walk(search, false));
 }
-uint8_t* StepRosterSweep(PlayerSearch* search)
+uint8_t* step_roster_sweep(PlayerSearch* search)
 {
-    return static_cast<uint8_t*>(static_cast<OnlinePlay::Hub*>(NetSessionSlot())->StepPlayerWalk(search, false));
+    return static_cast<uint8_t*>(static_cast<online::Hub*>(net_session_slot())->step_player_walk(search, false));
 }
-uint8_t* FindPlayerSlotByObj(int id)
+uint8_t* find_player_slot_by_obj(int id)
 {
-    return static_cast<OnlinePlay::Hub*>(NetSessionSlot())->FindPlayerSlotByObj(static_cast<uint16_t>(id));
+    return static_cast<online::Hub*>(net_session_slot())->find_player_slot_by_obj(static_cast<uint16_t>(id));
 }
-int Team(uint8_t* player) { return *reinterpret_cast<int*>(player + 0x30); }
-uint8_t* SkaterOf(uint8_t* player) { return *reinterpret_cast<uint8_t**>(player + 0x14); }
-int ObjectId(uint8_t* skater) { return *reinterpret_cast<int*>(skater + 0x14); }
+int get_team(uint8_t* player) { return *reinterpret_cast<int*>(player + 0x30); }
+uint8_t* skater_of(uint8_t* player) { return *reinterpret_cast<uint8_t**>(player + 0x14); }
+int current_object_id(uint8_t* skater) { return *reinterpret_cast<int*>(skater + 0x14); }
 
 // Team graffiti scored by team: the game mode netgraffiti, a team game, team_graffiti_mode graffiti_team_scoring.
-bool TeamScoring()
+bool team_scoring()
 {
-    return static_cast<GoalSystem::CMatchRules*>(GameMode())->GetNameKey() == kNetGraffiti &&
-           static_cast<GoalSystem::CMatchRules*>(GameMode())->IsSquadMatch() != 0 &&
-           static_cast<GoalSystem::CMatchRules*>(GameMode())->GetTeamGraffitiMode() == kGraffitiTeamScoring;
+    return static_cast<goals::MatchRules*>(get_game_mode())->get_name_key() == kNetGraffiti &&
+           static_cast<goals::MatchRules*>(get_game_mode())->is_squad_match() != 0 &&
+           static_cast<goals::MatchRules*>(get_game_mode())->get_team_graffiti_mode() == kGraffitiTeamScoring;
 }
 
 } // namespace
 
 // 0x005880E0
-void ReleaseTrickObjectManager()
+void release_trick_object_manager()
 {
-    uint32_t& count = g_trickObjectManagerReferences;
+    uint32_t& count = g_trick_object_manager_references;
     if (count > 1) {
         --count;
         return;
     }
-    void** instance = reinterpret_cast<void**>(g_trickSpotHub);
+    void** instance = reinterpret_cast<void**>(g_trick_spot_hub);
     if (instance)
         reinterpret_cast<void*(__thiscall*)(void*, int)>(static_cast<void**>(*instance)[0])(instance, 1);
-    g_trickSpotHub = nullptr;
+    g_trick_spot_hub = nullptr;
     count = 0;
 }
 
 // 0x00588120
-ClusterCount* __cdecl CountObjectInCluster(uint8_t* object, ClusterCount* counter)
+ClusterCount* __cdecl count_object_in_cluster(uint8_t* object, ClusterCount* counter)
 {
     if (object[0x40] && counter->cluster == *reinterpret_cast<uint32_t*>(object + 0x3C))
         counter->count += 1;
@@ -106,88 +106,88 @@ ClusterCount* __cdecl CountObjectInCluster(uint8_t* object, ClusterCount* counte
 }
 
 // 0x00588150
-void CTrickParamSet::ChangeArgs(Scripts::CStruct* params)
+void TrickParamSet::change_args(script::Struct* params)
 {
-    m_args->Clear();
+    args_->get_clear();
     if (params)
-        m_args->MergeStructure(params);
+        args_->merge_structure(params);
 }
 
 // 0x00588170
-CHitClusterLog* CHitClusterLog::MakeNew()
+HitClusterLog* HitClusterLog::make_new()
 {
-    m_num = 0;
+    num_ = 0;
     return this;
 }
 
 // 0x00588180
-bool CHitClusterLog::Clear()
+bool HitClusterLog::get_clear()
 {
-    m_num = 0;
+    num_ = 0;
     return true;
 }
 
 // 0x005886C0
-uint32_t CTrickSpotHub::LogTrickObjects(uint32_t count, uint32_t* objects, uint8_t* stolen, int player,
+uint32_t TrickSpotHub::log_trick_objects(uint32_t count, uint32_t* objects, uint8_t* stolen, int player,
                                               uint32_t score)
 {
-    DebugOut::Printf("RequestLogTrick called\n");
+    debug::printf("RequestLogTrick called\n");
     if (count > kMaxLoggedClusters) // (ours: the original's mask overran here)
         count = kMaxLoggedClusters;
     if (count)
-        std::memset(sDirtyClusters, 0, count);
+        std::memset(s_dirty_clusters, 0, count);
     for (uint32_t i = 0; i < count; ++i) {
-        auto* cluster = static_cast<CTrickObjectCluster*>(m_objectClusters.FetchEntry(objects[i]));
+        auto* cluster = static_cast<TrickObjectCluster*>(object_clusters_.fetch_entry(objects[i]));
         if (!cluster)
             continue;
-        GoalSystem::GetObjectiveBoard()->KillCluster(cluster->m_label, static_cast<int>(score));
-        if (score > cluster->m_scores[player])
-            cluster->m_scores[player] = score;
+        goals::get_objective_board()->kill_cluster(cluster->label_, static_cast<int>(score));
+        if (score > cluster->scores_[player])
+            cluster->scores_[player] = score;
         uint32_t total = score;
-        if (TeamScoring()) {
-            if (uint8_t* me = FindPlayerSlotByObj(player)) {
+        if (team_scoring()) {
+            if (uint8_t* me = find_player_slot_by_obj(player)) {
                 // The team's score: each of its players' best on this cluster.
-                int team = Team(me);
+                int team = get_team(me);
                 total = 0;
                 PlayerSearch search;
-                for (uint8_t* other = StartRosterSweep(&search); other; other = StepRosterSweep(&search)) {
-                    if (SkaterOf(other) && Team(other) == team)
-                        total += cluster->m_scores[ObjectId(SkaterOf(other))];
+                for (uint8_t* other = start_roster_sweep(&search); other; other = step_roster_sweep(&search)) {
+                    if (skater_of(other) && get_team(other) == team)
+                        total += cluster->scores_[current_object_id(skater_of(other))];
                 }
             }
         }
-        if (total <= cluster->m_recordPoints)
+        if (total <= cluster->record_points_)
             continue;
-        bool changed = cluster->m_owner != player;
-        if (changed && TeamScoring()) {
+        bool changed = cluster->owner_ != player;
+        if (changed && team_scoring()) {
             // Taken from a team mate: only if the player beat one of the team's own best scores on it.
-            uint8_t* holder = FindPlayerSlotByObj(static_cast<uint16_t>(cluster->m_owner));
-            int team = Team(FindPlayerSlotByObj(player));
-            if (Team(holder) == team) {
+            uint8_t* holder = find_player_slot_by_obj(static_cast<uint16_t>(cluster->owner_));
+            int team = get_team(find_player_slot_by_obj(player));
+            if (get_team(holder) == team) {
                 changed = false;
                 PlayerSearch search;
-                for (uint8_t* other = StartRosterSweep(&search); other; other = StepRosterSweep(&search)) {
-                    if (SkaterOf(other) && Team(other) == team &&
-                        score > cluster->m_scores[ObjectId(SkaterOf(other))]) {
+                for (uint8_t* other = start_roster_sweep(&search); other; other = step_roster_sweep(&search)) {
+                    if (skater_of(other) && get_team(other) == team &&
+                        score > cluster->scores_[current_object_id(skater_of(other))]) {
                         changed = true;
                         break;
                     }
                 }
             }
         }
-        if (!cluster->m_owned || changed)
-            sDirtyClusters[i] = 1;
-        if (cluster->m_owned && changed)
-            stolen[cluster->m_owner] = 1;
+        if (!cluster->owned_ || changed)
+            s_dirty_clusters[i] = 1;
+        if (cluster->owned_ && changed)
+            stolen[cluster->owner_] = 1;
         if (changed)
-            cluster->m_owner = player;
-        cluster->m_recordPoints = total;
-        cluster->m_owned = true;
+            cluster->owner_ = player;
+        cluster->record_points_ = total;
+        cluster->owned_ = true;
     }
     // The list compacted to the objects whose cluster changed hands.
     uint32_t kept = 0;
     for (uint32_t i = 0; i < count; ++i) {
-        if (sDirtyClusters[i])
+        if (s_dirty_clusters[i])
             objects[kept++] = objects[i];
     }
     return kept;
@@ -206,31 +206,31 @@ constexpr uint32_t kLoadCreatedPark = 0xB664035D; // load_sk5ed_gameplay (the sk
 
 // The level sector named `name` in any scene (0x0048C510) and its colour: 0x0049E670 cleared, 0x0049E980 read
 // (r, g, b, a; zero without a mesh), the mesh's (+0x14) vtable +0x18 set.
-uint8_t* FindSector(uint32_t name) { return static_cast<uint8_t*>(Engine3D::Engine::LookUpSector(name)); }
-void ClearSectorColor(uint8_t* sector) { reinterpret_cast<Engine3D::CWorldCell*>(sector)->WipeTint(); }
-uint32_t* GetSectorColor(uint8_t* sector, uint32_t* out)
+uint8_t* find_sector(uint32_t name) { return static_cast<uint8_t*>(render::engine::look_up_sector(name)); }
+void clear_sector_color(uint8_t* sector) { reinterpret_cast<render::WorldCell*>(sector)->wipe_tint(); }
+uint32_t* get_sector_color(uint8_t* sector, uint32_t* out)
 {
-    return reinterpret_cast<uint32_t*>(reinterpret_cast<Engine3D::CWorldCell*>(sector)->FetchTint(reinterpret_cast<uint8_t*>(out)));
+    return reinterpret_cast<uint32_t*>(reinterpret_cast<render::WorldCell*>(sector)->fetch_tint(reinterpret_cast<uint8_t*>(out)));
 }
 
 // Graffiti colour `index`: graffitiColors[index]'s r, g, b.
-Scripts::CArray* GraffitiColor(int index)
+script::Array* graffiti_color(int index)
 {
-    Scripts::CArray* colors = Scripts::FetchList("graffitiColors");
-    return reinterpret_cast<Scripts::CArray*>(colors->FetchPart(static_cast<uint32_t>(index)));
+    script::Array* colors = script::fetch_list("graffitiColors");
+    return reinterpret_cast<script::Array*>(colors->fetch_part(static_cast<uint32_t>(index)));
 }
 
 } // namespace
 
 // 0x00588200
-bool CTrickSpot::SetGraffitiColor(int index)
+bool TrickSpot::set_graffiti_color(int index)
 {
-    uint8_t* sector = FindSector(m_label);
-    Scripts::CArray* color = GraffitiColor(index);
+    uint8_t* sector = find_sector(label_);
+    script::Array* color = graffiti_color(index);
     uint8_t rgba[4];
-    rgba[0] = static_cast<uint8_t>(color->FetchPart(0));
-    rgba[1] = static_cast<uint8_t>(color->FetchPart(1));
-    rgba[2] = static_cast<uint8_t>(color->FetchPart(2));
+    rgba[0] = static_cast<uint8_t>(color->fetch_part(0));
+    rgba[1] = static_cast<uint8_t>(color->fetch_part(1));
+    rgba[2] = static_cast<uint8_t>(color->fetch_part(2));
     rgba[3] = 0x80;
     if (void** mesh = *reinterpret_cast<void***>(sector + 0x14)) {
         uint32_t packed;
@@ -241,202 +241,202 @@ bool CTrickSpot::SetGraffitiColor(int index)
 }
 
 // 0x00588270
-bool CTrickSpot::ClearGraffitiColor(int index)
+bool TrickSpot::clear_graffiti_color(int index)
 {
-    uint8_t* sector = FindSector(m_label);
-    Scripts::CArray* color = GraffitiColor(index);
-    uint8_t r = static_cast<uint8_t>(color->FetchPart(0));
-    uint8_t g = static_cast<uint8_t>(color->FetchPart(1));
-    uint8_t b = static_cast<uint8_t>(color->FetchPart(2));
+    uint8_t* sector = find_sector(label_);
+    script::Array* color = graffiti_color(index);
+    uint8_t r = static_cast<uint8_t>(color->fetch_part(0));
+    uint8_t g = static_cast<uint8_t>(color->fetch_part(1));
+    uint8_t b = static_cast<uint8_t>(color->fetch_part(2));
     uint32_t packed;
-    GetSectorColor(sector, &packed);
+    get_sector_color(sector, &packed);
     uint8_t current[4];
     std::memcpy(current, &packed, 4);
     if (current[0] == r && current[1] == g && current[2] == b)
-        ClearSectorColor(sector);
+        clear_sector_color(sector);
     return true;
 }
 
 // 0x00588590
-void TrickObjectNode::DestroyBody() { UnlinkAs(kTrickObjectNodeVtable); }
+void TrickObjectNode::destroy_body() { unlink_as(kTrickObjectNodeVtable); }
 
 // 0x005885F0
-TrickObjectNode* TrickObjectNode::Teardown(unsigned int flags)
+TrickObjectNode* TrickObjectNode::teardown(unsigned int flags)
 {
-    UnlinkAs(kTrickObjectNodeVtable);
+    unlink_as(kTrickObjectNodeVtable);
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x005885B0
-TrickClusterNode* TrickClusterNode::Teardown(unsigned int flags)
+TrickClusterNode* TrickClusterNode::teardown(unsigned int flags)
 {
-    UnlinkAs(kTrickClusterNodeVtable);
+    unlink_as(kTrickClusterNodeVtable);
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00588630
-bool CTrickObjectCluster::AddObject(uint32_t name)
+bool TrickObjectCluster::add_object(uint32_t name)
 {
-    auto* object = static_cast<CTrickSpot*>(MemSys::AllocZeroed(sizeof(CTrickSpot)));
+    auto* object = static_cast<TrickSpot*>(memory::alloc_zeroed(sizeof(TrickSpot)));
     if (!object)
         return false;
-    object->m_listLink.data = object;
-    object->m_listLink.priority = 0;
-    object->m_listLink.next = &object->m_listLink;
-    object->m_listLink.prev = &object->m_listLink;
-    object->m_listLink.vtable = kTrickObjectVtable;
-    object->m_label = name;
-    ClearSectorColor(FindSector(name));
-    if (!GameConfig::g_fromCD && Scripts::FetchIntValue("show_all_trick_objects"))
-        object->SetGraffitiColor(2);
+    object->list_link_.data = object;
+    object->list_link_.priority = 0;
+    object->list_link_.next = &object->list_link_;
+    object->list_link_.prev = &object->list_link_;
+    object->list_link_.vtable = kTrickObjectVtable;
+    object->label_ = name;
+    clear_sector_color(find_sector(name));
+    if (!game_config::g_from_cd && script::fetch_int_value("show_all_trick_objects"))
+        object->set_graffiti_color(2);
     // Last in the list (before the head).
-    object->m_listLink.next = &m_entities;
-    object->m_listLink.prev = m_entities.prev;
-    m_entities.prev->next = &object->m_listLink;
-    m_entities.prev = &object->m_listLink;
+    object->list_link_.next = &entities_;
+    object->list_link_.prev = entities_.prev;
+    entities_.prev->next = &object->list_link_;
+    entities_.prev = &object->list_link_;
     return true;
 }
 
 // 0x00588380
-CTrickObjectCluster* CTrickSpotHub::GetObjectCluster(uint32_t objectName)
+TrickObjectCluster* TrickSpotHub::get_object_cluster(uint32_t object_name)
 {
-    return static_cast<CTrickObjectCluster*>(m_objectClusters.FetchEntry(objectName));
+    return static_cast<TrickObjectCluster*>(object_clusters_.fetch_entry(object_name));
 }
 
 // 0x005883C0
-CTrickObjectCluster* CTrickSpotHub::GetCluster(uint32_t name)
+TrickObjectCluster* TrickSpotHub::get_cluster(uint32_t name)
 {
-    return static_cast<CTrickObjectCluster*>(m_clusters.FetchEntry(name));
+    return static_cast<TrickObjectCluster*>(clusters_.fetch_entry(name));
 }
 
 // 0x00588400
-int CTrickSpotHub::CountClustersHeldBy(int player)
+int TrickSpotHub::count_clusters_held_by(int player)
 {
     ClusterCount counter = {0, static_cast<uint32_t>(player)};
-    m_clusters.RunHook(reinterpret_cast<ListKit::KeyMap::HookFn>(&CountObjectInCluster), &counter);
+    clusters_.run_hook(reinterpret_cast<lists::KeyMap::HookFn>(&count_object_in_cluster), &counter);
     return counter.count;
 }
 
 // 0x00588430
-void __cdecl FindClusterIndex(CTrickObjectCluster* cluster, ClusterIndexSearch* search)
+void __cdecl find_cluster_index(TrickObjectCluster* cluster, ClusterIndexSearch* search)
 {
     if (search->found)
         return;
-    if (search->name == cluster->m_label)
+    if (search->name == cluster->label_)
         search->found = true;
     else
         ++search->index;
 }
 
 // 0x00588450
-void __cdecl FindClusterAtIndex(CTrickObjectCluster* cluster, ClusterAtIndex* search)
+void __cdecl find_cluster_at_index(TrickObjectCluster* cluster, ClusterAtIndex* search)
 {
     if (search->found)
         return;
     if (search->countdown == 0) {
         search->found = true;
-        search->name = cluster->m_label;
+        search->name = cluster->label_;
     } else {
         --search->countdown;
     }
 }
 
 // 0x00588480
-uint32_t CTrickSpotHub::GetClusterName(uint8_t index)
+uint32_t TrickSpotHub::get_cluster_name(uint8_t index)
 {
     ClusterAtIndex search = {0, index, false};
-    m_clusters.RunHook(reinterpret_cast<ListKit::KeyMap::HookFn>(&FindClusterAtIndex), &search);
+    clusters_.run_hook(reinterpret_cast<lists::KeyMap::HookFn>(&find_cluster_at_index), &search);
     return search.name;
 }
 
 // 0x005884B0
-void __cdecl WriteHeldCluster(CTrickObjectCluster* cluster, GraffitiStateWriter* writer)
+void __cdecl write_held_cluster(TrickObjectCluster* cluster, GraffitiStateWriter* writer)
 {
-    if (!cluster->m_owned || cluster->m_owner != writer->player)
+    if (!cluster->owned_ || cluster->owner_ != writer->player)
         return;
-    ClusterIndexSearch search = {cluster->m_label, 0, false};
-    writer->manager->m_clusters.RunHook(reinterpret_cast<ListKit::KeyMap::HookFn>(&FindClusterIndex), &search);
+    ClusterIndexSearch search = {cluster->label_, 0, false};
+    writer->manager->clusters_.run_hook(reinterpret_cast<lists::KeyMap::HookFn>(&find_cluster_index), &search);
     writer->buffer[writer->count + 8] = search.index; // (a byte: past 255 clusters it wraps, as THUG2's and THUGPRO's)
     ++writer->count;
     ++writer->buffer[writer->player];
 }
 
 // 0x00588520
-int CTrickSpotHub::WriteGraffitiState(uint8_t* buffer)
+int TrickSpotHub::write_graffiti_state(uint8_t* buffer)
 {
     GraffitiStateWriter writer = {0, 0, buffer, this};
     for (int player = 0; player < 8; ++player) {
         buffer[player] = 0;
         writer.player = player;
-        m_clusters.RunHook(reinterpret_cast<ListKit::KeyMap::HookFn>(&WriteHeldCluster), &writer);
-        DebugOut::Printf("Building graffiti state message %d\n", buffer[player]);
+        clusters_.run_hook(reinterpret_cast<lists::KeyMap::HookFn>(&write_held_cluster), &writer);
+        debug::printf("Building graffiti state message %d\n", buffer[player]);
     }
     return writer.count + 8;
 }
 
 // 0x005889F0
-bool CTrickSpotHub::RemoveAllClusters()
+bool TrickSpotHub::remove_all_clusters()
 {
-    m_clusters.RunHook(reinterpret_cast<ListKit::KeyMap::HookFn>(&Engine3D::DeleteObject), nullptr);
-    m_clusters.EmptyTable();
-    m_clusterCount = 0;
-    m_objectClusters.EmptyTable();
+    clusters_.run_hook(reinterpret_cast<lists::KeyMap::HookFn>(&render::delete_object), nullptr);
+    clusters_.empty_table();
+    cluster_count_ = 0;
+    object_clusters_.empty_table();
     return true;
 }
 
 // 0x00588A20
-bool CHitClusterLog::AppendOne(uint32_t objectName)
+bool HitClusterLog::append_one(uint32_t object_name)
 {
-    const uint32_t listed = static_cast<uint32_t>(m_num) > kCapacity ? kCapacity : static_cast<uint32_t>(m_num);
-    CTrickObjectCluster* cluster = g_trickSpotHub->GetObjectCluster(objectName);
-    if (!cluster || !cluster->m_label)
+    const uint32_t listed = static_cast<uint32_t>(num_) > kCapacity ? kCapacity : static_cast<uint32_t>(num_);
+    TrickObjectCluster* cluster = g_trick_spot_hub->get_object_cluster(object_name);
+    if (!cluster || !cluster->label_)
         return false;
     for (uint32_t i = 0; i < listed; ++i) {
-        if (m_items[i] == cluster->m_label)
+        if (items_[i] == cluster->label_)
             return false;
     }
-    GoalSystem::GetObjectiveBoard()->TrickObjectHit(cluster->m_label);
-    m_items[m_num & (kCapacity - 1)] = cluster->m_label;
-    ++m_num;
+    goals::get_objective_board()->trick_object_hit(cluster->label_);
+    items_[num_ & (kCapacity - 1)] = cluster->label_;
+    ++num_;
     return false;
 }
 
 // 0x00588AA0
-uint32_t CHitClusterLog::CopyClusterNames(uint32_t* out, uint32_t maxBytes)
+uint32_t HitClusterLog::copy_cluster_names(uint32_t* out, uint32_t max_bytes)
 {
-    const uint32_t listed = static_cast<uint32_t>(m_num) > kCapacity ? kCapacity : static_cast<uint32_t>(m_num);
-    const CTrickSpotHub* manager = g_trickSpotHub;
+    const uint32_t listed = static_cast<uint32_t>(num_) > kCapacity ? kCapacity : static_cast<uint32_t>(num_);
+    const TrickSpotHub* manager = g_trick_spot_hub;
     uint32_t bytes = 0;
     for (uint32_t i = 0; i < listed; ++i) {
-        auto* cluster = static_cast<CTrickObjectCluster*>(manager->m_objectClusters.FetchEntry(m_items[i]));
-        if (cluster && cluster->m_label) {
-            *out++ = m_items[i];
+        auto* cluster = static_cast<TrickObjectCluster*>(manager->object_clusters_.fetch_entry(items_[i]));
+        if (cluster && cluster->label_) {
+            *out++ = items_[i];
             bytes += 4;
         }
-        if (bytes >= maxBytes)
+        if (bytes >= max_bytes)
             break;
     }
     return bytes;
 }
 
 // 0x00588BB0
-void CTrickSpot::DestroyBody() { m_listLink.UnlinkAs(kTrickClusterNodeVtable); }
+void TrickSpot::destroy_body() { list_link_.unlink_as(kTrickClusterNodeVtable); }
 
 // 0x00588B40
-CTrickSpot* CTrickSpot::Teardown(unsigned int flags)
+TrickSpot* TrickSpot::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00588B70
-void TrickObjectHead::UnlinkAll()
+void TrickObjectHead::unlink_all()
 {
     // (The original reads the first node's data before checking the node for null.)
     ListNode* node = next;
@@ -453,24 +453,24 @@ void TrickObjectHead::UnlinkAll()
 }
 
 // 0x00588BD0
-CTrickObjectCluster* CTrickObjectCluster::MakeNew(uint32_t name)
+TrickObjectCluster* TrickObjectCluster::make_new(uint32_t name)
 {
-    m_listLink.data = this;
-    m_listLink.priority = 0;
-    m_listLink.next = &m_listLink;
-    m_listLink.prev = &m_listLink;
-    m_listLink.vtable = kTrickClusterVtable;
-    m_entities.vtable = kTrickObjectVtable;
-    m_entities.data = reinterpret_cast<void*>(-1); // (the head)
-    m_entities.priority = 0;
-    m_entities.next = &m_entities;
-    m_entities.prev = &m_entities;
-    m_label = name;
-    for (uint32_t& score : m_scores)
+    list_link_.data = this;
+    list_link_.priority = 0;
+    list_link_.next = &list_link_;
+    list_link_.prev = &list_link_;
+    list_link_.vtable = kTrickClusterVtable;
+    entities_.vtable = kTrickObjectVtable;
+    entities_.data = reinterpret_cast<void*>(-1); // (the head)
+    entities_.priority = 0;
+    entities_.next = &entities_;
+    entities_.prev = &entities_;
+    label_ = name;
+    for (uint32_t& score : scores_)
         score = 0;
-    m_recordPoints = 0;
-    m_owner = 0;
-    m_owned = false;
+    record_points_ = 0;
+    owner_ = 0;
+    owned_ = false;
     return this;
 }
 
@@ -478,16 +478,16 @@ namespace {
 
 // The objects in a cluster's list, and the one at `index` (null past the end). (The original reads each node's data
 // before checking it for null.)
-uint32_t CountObjects(const MemSys::ListNode& head)
+uint32_t count_objects(const memory::ListNode& head)
 {
     uint32_t count = 0;
-    for (const MemSys::ListNode* node = head.next; node->data != reinterpret_cast<void*>(-1) && node; node = node->next)
+    for (const memory::ListNode* node = head.next; node->data != reinterpret_cast<void*>(-1) && node; node = node->next)
         ++count;
     return count;
 }
-MemSys::ListNode* ObjectAt(const MemSys::ListNode& head, uint32_t index)
+memory::ListNode* object_at(const memory::ListNode& head, uint32_t index)
 {
-    for (MemSys::ListNode* node = head.next; node->data != reinterpret_cast<void*>(-1) && node; node = node->next) {
+    for (memory::ListNode* node = head.next; node->data != reinterpret_cast<void*>(-1) && node; node = node->next) {
         if (index-- == 0)
             return node;
     }
@@ -497,228 +497,228 @@ MemSys::ListNode* ObjectAt(const MemSys::ListNode& head, uint32_t index)
 } // namespace
 
 // 0x00588C30
-void CTrickObjectCluster::DestroyBody()
+void TrickObjectCluster::destroy_body()
 {
-    m_listLink.vtable = kTrickClusterVtable;
-    for (uint32_t count = CountObjects(m_entities); count != 0; --count) {
-        void* object = ObjectAt(m_entities, 0)->data;
+    list_link_.vtable = kTrickClusterVtable;
+    for (uint32_t count = count_objects(entities_); count != 0; --count) {
+        void* object = object_at(entities_, 0)->data;
         if (object)
             reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*static_cast<void***>(object))[0])(object, 1);
     }
-    static_cast<TrickObjectHead&>(m_entities).UnlinkAll();
-    m_entities.UnlinkAs(kTrickClusterNodeVtable);
-    m_listLink.UnlinkAs(kTrickObjectNodeVtable);
+    static_cast<TrickObjectHead&>(entities_).unlink_all();
+    entities_.unlink_as(kTrickClusterNodeVtable);
+    list_link_.unlink_as(kTrickObjectNodeVtable);
 }
 
 // 0x00588D20
-bool CTrickObjectCluster::SetGraffitiColor(int index)
+bool TrickObjectCluster::set_graffiti_color(int index)
 {
-    const uint32_t count = CountObjects(m_entities);
+    const uint32_t count = count_objects(entities_);
     for (uint32_t i = 0; i < count; ++i)
-        static_cast<CTrickSpot*>(ObjectAt(m_entities, i)->data)->SetGraffitiColor(index);
-    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule) + 0x378) == kLoadCreatedPark) {
-        ParkEditing::CRailAuthoring::Sole()->SetClusterColour(m_label, index);
+        static_cast<TrickSpot*>(object_at(entities_, i)->data)->set_graffiti_color(index);
+    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(modules::g_skate_module) + 0x378) == kLoadCreatedPark) {
+        park_editing::RailAuthoring::sole()->set_cluster_colour(label_, index);
     }
     return true;
 }
 
 // 0x00588DC0
-CTrickSpotHub* CTrickSpotHub::MakeNew()
+TrickSpotHub* TrickSpotHub::make_new()
 {
-    m_vtable = kTrickObjectManagerVtable;
-    new (&m_clusters) ListKit::KeyMap(8);
-    new (&m_objectClusters) ListKit::KeyMap(8);
-    MemSys::Hub* memory = MemSys::Hub::Pull();
-    memory->EnterHeapScope(memory->m_scriptHeap);
-    Scripts::CStruct* params = Scripts::SpawnParamBag();
-    m_args = params ? params->PrepareAll() : nullptr;
-    memory->LeaveHeapScope();
+    vtable_ = kTrickObjectManagerVtable;
+    new (&clusters_) lists::KeyMap(8);
+    new (&object_clusters_) lists::KeyMap(8);
+    memory::Hub* memory = memory::Hub::get_pull();
+    memory->enter_heap_scope(memory->script_heap_);
+    script::Struct* params = script::spawn_param_bag();
+    args_ = params ? params->prepare_all() : nullptr;
+    memory->leave_heap_scope();
     return this;
 }
 
 // 0x00588E90
-void CTrickSpotHub::DestroyBody()
+void TrickSpotHub::destroy_body()
 {
-    m_vtable = kTrickObjectManagerVtable;
-    RemoveAllClusters();
-    m_objectClusters.~KeyMap();
-    m_clusters.~KeyMap();
+    vtable_ = kTrickObjectManagerVtable;
+    remove_all_clusters();
+    object_clusters_.~KeyMap();
+    clusters_.~KeyMap();
 }
 
 // 0x00588F40
-bool CTrickObjectCluster::ClearGraffitiColor(int index)
+bool TrickObjectCluster::clear_graffiti_color(int index)
 {
-    const uint32_t count = CountObjects(m_entities);
+    const uint32_t count = count_objects(entities_);
     for (uint32_t i = 0; i < count; ++i) {
-        if (!static_cast<CTrickSpot*>(ObjectAt(m_entities, i)->data)->ClearGraffitiColor(index))
+        if (!static_cast<TrickSpot*>(object_at(entities_, i)->data)->clear_graffiti_color(index))
             return false;
     }
-    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule) + 0x378) == kLoadCreatedPark) {
-        ParkEditing::CRailAuthoring::Sole()->ClearClusterColours(m_label);
+    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(modules::g_skate_module) + 0x378) == kLoadCreatedPark) {
+        park_editing::RailAuthoring::sole()->clear_cluster_colours(label_);
     }
     return true;
 }
 
 // 0x00588FF0
-bool CTrickSpotHub::SetObjectGraffitiColor(uint32_t objectName, int player)
+bool TrickSpotHub::set_object_graffiti_color(uint32_t object_name, int player)
 {
-    CTrickObjectCluster* cluster = GetObjectCluster(objectName);
+    TrickObjectCluster* cluster = get_object_cluster(object_name);
     if (!cluster)
         return false;
-    cluster->SetGraffitiColor(player == -1 ? -1 : player + 1);
+    cluster->set_graffiti_color(player == -1 ? -1 : player + 1);
     return true;
 }
 
 // 0x00589030
-bool CTrickSpotHub::ClearGraffitiColor(int index)
+bool TrickSpotHub::clear_graffiti_color(int index)
 {
-    m_clusters.m_iterBucket = -1;
-    m_clusters.m_iterItem = nullptr;
-    while (m_clusters.StepIterator() && m_clusters.m_iterItem && m_clusters.m_iterItem->value) {
-        if (!static_cast<CTrickObjectCluster*>(m_clusters.m_iterItem->value)->ClearGraffitiColor(index))
+    clusters_.iter_bucket_ = -1;
+    clusters_.iter_item_ = nullptr;
+    while (clusters_.step_iterator() && clusters_.iter_item_ && clusters_.iter_item_->value) {
+        if (!static_cast<TrickObjectCluster*>(clusters_.iter_item_->value)->clear_graffiti_color(index))
             return false;
     }
     return true;
 }
 
 // 0x00589080
-bool CTrickSpotHub::AddObjectToCluster(uint32_t objectName, uint32_t clusterName)
+bool TrickSpotHub::add_object_to_cluster(uint32_t object_name, uint32_t cluster_name)
 {
-    m_objectClusters.StoreEntry(objectName, GetCluster(clusterName));
+    object_clusters_.store_entry(object_name, get_cluster(cluster_name));
     return true;
 }
 
 // 0x00588300
-void __cdecl ReleaseHeldCluster(CTrickObjectCluster* cluster, HeldClusterRelease* release)
+void __cdecl release_held_cluster(TrickObjectCluster* cluster, HeldClusterRelease* release)
 {
-    if (!cluster->m_owned || cluster->m_owner != release->player)
+    if (!cluster->owned_ || cluster->owner_ != release->player)
         return;
-    cluster->m_owned = false;
-    cluster->m_recordPoints = 0;
-    for (uint32_t& score : cluster->m_scores)
+    cluster->owned_ = false;
+    cluster->record_points_ = 0;
+    for (uint32_t& score : cluster->scores_)
         score = 0;
-    release->names[release->count++] = cluster->m_label;
+    release->names[release->count++] = cluster->label_;
 }
 
 // 0x00588350
-void __cdecl ListFreeCluster(CTrickObjectCluster* cluster, FreeClusterList* list)
+void __cdecl list_free_cluster(TrickObjectCluster* cluster, FreeClusterList* list)
 {
-    if (list->count < 32 && !cluster->m_owned)
-        list->names[list->count++] = cluster->m_label;
+    if (list->count < 32 && !cluster->owned_)
+        list->names[list->count++] = cluster->label_;
 }
 
 // 0x005890B0
-void CTrickSpotHub::ApplyPlayerGraffiti()
+void TrickSpotHub::apply_player_graffiti()
 {
     for (int player = 0; player < 8; ++player) {
         char name[32];
         std::snprintf(name, sizeof(name), "Skater%d", player);
-        Scripts::CArray* objects;
-        if (!m_args->FetchList(name, &objects, 0))
+        script::Array* objects;
+        if (!args_->fetch_list(name, &objects, 0))
             continue;
-        for (int i = 0; i < static_cast<int>(objects->m_extent); ++i) {
-            auto* cluster = static_cast<CTrickObjectCluster*>(m_objectClusters.FetchEntry(objects->FetchPart(i)));
+        for (int i = 0; i < static_cast<int>(objects->extent_); ++i) {
+            auto* cluster = static_cast<TrickObjectCluster*>(object_clusters_.fetch_entry(objects->fetch_part(i)));
             if (cluster)
-                cluster->SetGraffitiColor(player == -1 ? -1 : player + 1);
+                cluster->set_graffiti_color(player == -1 ? -1 : player + 1);
         }
     }
-    m_args->Clear();
+    args_->get_clear();
 }
 
 // 0x00589180
-CTrickSpotHub* __cdecl AcquireTrickObjectManager(bool create)
+TrickSpotHub* __cdecl acquire_trick_object_manager(bool create)
 {
-    auto*& instance = g_trickSpotHub;
+    auto*& instance = g_trick_spot_hub;
     if (!instance && create) {
-        void* memory = MemSys::AllocZeroed(sizeof(CTrickSpotHub), nullptr, 1);
-        instance = memory ? static_cast<CTrickSpotHub*>(memory)->MakeNew() : nullptr;
+        void* memory = memory::alloc_zeroed(sizeof(TrickSpotHub), nullptr, 1);
+        instance = memory ? static_cast<TrickSpotHub*>(memory)->make_new() : nullptr;
     }
-    ++g_trickObjectManagerReferences;
+    ++g_trick_object_manager_references;
     return instance;
 }
 
 // 0x005891D0
-CTrickObjectCluster* CTrickObjectCluster::Teardown(unsigned int flags)
+TrickObjectCluster* TrickObjectCluster::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00589200
-CTrickSpotHub* CTrickSpotHub::Teardown(unsigned int flags)
+TrickSpotHub* TrickSpotHub::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00589230
-bool CTrickSpotHub::ReleasePlayerClusters(int player)
+bool TrickSpotHub::release_player_clusters(int player)
 {
-    DebugOut::Printf("Clearing observer state\n");
-    m_args->Clear();
-    if (static_cast<OnlinePlay::Hub*>(NetSessionSlot())->OnServer()) {
+    debug::printf("Clearing observer state\n");
+    args_->get_clear();
+    if (static_cast<online::Hub*>(net_session_slot())->get_on_server()) {
         // (THUG2 lists the released clusters' names in a 128-entry buffer on the stack - a player holding more
         // overran it; the list itself isn't used, only its count.)
         static HeldClusterRelease release;
         release.player = player;
         release.count = 0;
-        m_clusters.RunHook(reinterpret_cast<ListKit::KeyMap::HookFn>(&ReleaseHeldCluster), &release);
+        clusters_.run_hook(reinterpret_cast<lists::KeyMap::HookFn>(&release_held_cluster), &release);
         if (release.count == 0)
             return false;
-        GameModules::g_skateModule->BroadcastPoints(false);
+        modules::g_skate_module->broadcast_points(false);
     }
-    ClearGraffitiColor(player + 1);
+    clear_graffiti_color(player + 1);
     return true;
 }
 
 namespace {
 
-OnlinePlay::PlayerRecord* AsPlayer(void* player) { return static_cast<OnlinePlay::PlayerRecord*>(player); }
+online::PlayerRecord* as_player(void* player) { return static_cast<online::PlayerRecord*>(player); }
 
 } // namespace
 
 // 0x005892C0
-void __cdecl ScoreTrickObjects(int player, uint32_t score, uint32_t count, uint32_t* objects, bool send)
+void __cdecl score_trick_objects(int player, uint32_t score, uint32_t count, uint32_t* objects, bool send)
 {
-    auto* net = static_cast<OnlinePlay::Hub*>(NetSessionSlot());
-    void* skate = static_cast<void*>(GameModules::g_skateModule);
-    NetLink::NetMessageInfo desc;
-    desc.MakeNew();
+    auto* net = static_cast<online::Hub*>(net_session_slot());
+    void* skate = static_cast<void*>(modules::g_skate_module);
+    net::NetMessageInfo desc;
+    desc.make_new();
     PlayerSearch search;
     if (send) {
-        auto* server = *reinterpret_cast<NetLink::AppHost**>(reinterpret_cast<uint8_t*>(net) + 4);
-        NetLink::Conn* conn = nullptr;
-        if (auto* skater = reinterpret_cast<uint8_t*>(reinterpret_cast<GameModules::Skate*>(skate)->GetRiderByNumber(static_cast<uint32_t>(player)))) {
-            if (uint8_t* info = net->FindPlayerSlotByObj(static_cast<uint16_t>(*reinterpret_cast<uint32_t*>(skater + 0x14))))
-                conn = *reinterpret_cast<NetLink::Conn**>(info + 0x18);
+        auto* server = *reinterpret_cast<net::AppHost**>(reinterpret_cast<uint8_t*>(net) + 4);
+        net::Conn* conn = nullptr;
+        if (auto* skater = reinterpret_cast<uint8_t*>(reinterpret_cast<modules::Skate*>(skate)->get_rider_by_number(static_cast<uint32_t>(player)))) {
+            if (uint8_t* info = net->find_player_slot_by_obj(static_cast<uint16_t>(*reinterpret_cast<uint32_t*>(skater + 0x14))))
+                conn = *reinterpret_cast<net::Conn**>(info + 0x18);
         }
         uint8_t stolen[8] = {};
-        count = g_trickSpotHub->LogTrickObjects(count, objects, stolen, player, score);
+        count = g_trick_spot_hub->log_trick_objects(count, objects, stolen, player, score);
         if (count == 0)
             return;
         for (int victim = 0; victim < 8; ++victim) {
             if (!stolen[victim])
                 continue;
-            NetLink::NetMessageInfo stolenDesc;
-            stolenDesc.MakeNew();
+            net::NetMessageInfo stolen_desc;
+            stolen_desc.make_new();
             TagStolenMessage message = {};
             message.thief = player;
             message.victim = victim;
-            message.gameId = net->GetGameId();
-            uint8_t* thief = net->FindPlayerSlotByObj(static_cast<uint16_t>(player));
-            stolenDesc.m_content = &message;
-            stolenDesc.m_byteCount = sizeof(message);
-            stolenDesc.m_ident = kMsgTagStolen;
-            server->PutOnOutbox(AsPlayer(thief)->GetLinkHandle(), &stolenDesc);
+            message.game_id_ = net->get_game_id();
+            uint8_t* thief = net->find_player_slot_by_obj(static_cast<uint16_t>(player));
+            stolen_desc.content_ = &message;
+            stolen_desc.byte_count_ = sizeof(message);
+            stolen_desc.ident_ = kMsgTagStolen;
+            server->put_on_outbox(as_player(thief)->get_link_handle(), &stolen_desc);
             message.thief = player;
             message.victim = victim;
-            message.gameId = net->GetGameId();
-            if (uint8_t* info = net->FindPlayerSlotByObj(static_cast<uint16_t>(victim)))
-                server->PutOnOutbox(AsPlayer(info)->GetLinkHandle(), &desc); // (not stolenDesc: as the original)
+            message.game_id_ = net->get_game_id();
+            if (uint8_t* info = net->find_player_slot_by_obj(static_cast<uint16_t>(victim)))
+                server->put_on_outbox(as_player(info)->get_link_handle(), &desc); // (not stolen_desc: as the original)
         }
 
         TrickObjectsMessage all = {};
@@ -726,91 +726,91 @@ void __cdecl ScoreTrickObjects(int player, uint32_t score, uint32_t count, uint3
         all.player = player;
         all.score = score;
         all.count = count;
-        all.gameId = net->GetGameId();
+        all.game_id_ = net->get_game_id();
         std::memcpy(all.objects, objects, count * 4);
-        desc.m_content = &all;
-        desc.m_byteCount = static_cast<uint16_t>(count * 4 + offsetof(TrickObjectsMessage, objects));
-        desc.m_ident = kMsgTrickObjects;
-        desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
-        desc.m_groupId = kGroupGame;
-        for (void* info = net->BeginPlayerWalk(&search, false); info; info = net->StepPlayerWalk(&search, false))
-            server->SendBulkMessage(AsPlayer(info)->GetLinkHandle(), desc.m_ident, desc.m_byteCount, desc.m_content,
+        desc.content_ = &all;
+        desc.byte_count_ = static_cast<uint16_t>(count * 4 + offsetof(TrickObjectsMessage, objects));
+        desc.ident_ = kMsgTrickObjects;
+        desc.queue_ = net::NetMessageInfo::kLaneOrdered;
+        desc.group_id_ = kGroupGame;
+        for (void* info = net->begin_player_walk(&search, false); info; info = net->step_player_walk(&search, false))
+            server->send_bulk_message(as_player(info)->get_link_handle(), desc.ident_, desc.byte_count_, desc.content_,
                                   "TrickObj Buffer", kGroupGame, true, false);
 
         ObserverTrickObjectsMessage observed = {};
         observed.count = count;
         observed.player = player;
-        observed.gameId = net->GetGameId();
+        observed.game_id_ = net->get_game_id();
         std::memcpy(observed.objects, objects, count * 4);
-        desc.m_content = &observed;
-        desc.m_byteCount = static_cast<uint16_t>(count * 4 + offsetof(ObserverTrickObjectsMessage, objects));
-        desc.m_ident = kMsgObserverTrickObjects;
-        for (void* info = net->BeginPlayerWalk(&search, true); info; info = net->StepPlayerWalk(&search, true)) {
-            if (AsPlayer(info)->IsObserver())
-                server->SendBulkMessage(AsPlayer(info)->GetLinkHandle(), desc.m_ident, desc.m_byteCount, desc.m_content,
+        desc.content_ = &observed;
+        desc.byte_count_ = static_cast<uint16_t>(count * 4 + offsetof(ObserverTrickObjectsMessage, objects));
+        desc.ident_ = kMsgObserverTrickObjects;
+        for (void* info = net->begin_player_walk(&search, true); info; info = net->step_player_walk(&search, true)) {
+            if (as_player(info)->is_observer())
+                server->send_bulk_message(as_player(info)->get_link_handle(), desc.ident_, desc.byte_count_, desc.content_,
                                       "TrickObj Buffer", kGroupGame, true, false);
         }
-        reinterpret_cast<GameModules::Skate*>(skate)->BroadcastPoints(false);
-        if (conn->IsHostLocal()) // (no null check: as the original)
+        reinterpret_cast<modules::Skate*>(skate)->broadcast_points(false);
+        if (conn->is_host_local()) // (no null check: as the original)
             return;
     }
     for (uint32_t i = 0; i < count; ++i) {
-        auto* cluster = static_cast<CTrickObjectCluster*>(
-            g_trickSpotHub->m_objectClusters.FetchEntry(objects[i]));
+        auto* cluster = static_cast<TrickObjectCluster*>(
+            g_trick_spot_hub->object_clusters_.fetch_entry(objects[i]));
         if (cluster)
-            cluster->SetGraffitiColor(player == -1 ? -1 : player + 1);
+            cluster->set_graffiti_color(player == -1 ? -1 : player + 1);
     }
 }
 
 // 0x00589670
-void CTrickSpotHub::GiveFreeClusters(int player)
+void TrickSpotHub::give_free_clusters(int player)
 {
     FreeClusterList list;
     list.count = 0;
-    m_clusters.RunHook(reinterpret_cast<ListKit::KeyMap::HookFn>(&ListFreeCluster), &list);
+    clusters_.run_hook(reinterpret_cast<lists::KeyMap::HookFn>(&list_free_cluster), &list);
     if (list.count)
-        ScoreTrickObjects(player, 1000, list.count, list.names, true);
+        score_trick_objects(player, 1000, list.count, list.names, true);
 }
 
 // 0x005896D0
-bool CTrickSpotHub::AddCluster(uint32_t name)
+bool TrickSpotHub::add_cluster(uint32_t name)
 {
-    if (GetCluster(name))
+    if (get_cluster(name))
         return false;
-    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule) + 0x378) == kLoadCreatedPark) {
-        ParkEditing::CRailAuthoring::Sole()->ClearClusterColours(name);
+    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(modules::g_skate_module) + 0x378) == kLoadCreatedPark) {
+        park_editing::RailAuthoring::sole()->clear_cluster_colours(name);
     }
-    void* memory = MemSys::AllocZeroed(sizeof(CTrickObjectCluster));
-    m_clusters.StoreEntry(name, memory ? static_cast<CTrickObjectCluster*>(memory)->MakeNew(name) : nullptr);
-    ++m_clusterCount;
-    m_objectClusters.StoreEntry(name, GetCluster(name));
+    void* memory = memory::alloc_zeroed(sizeof(TrickObjectCluster));
+    clusters_.store_entry(name, memory ? static_cast<TrickObjectCluster*>(memory)->make_new(name) : nullptr);
+    ++cluster_count_;
+    object_clusters_.store_entry(name, get_cluster(name));
     return true;
 }
 
 // 0x00589760
-bool CTrickSpotHub::AddObject(uint32_t objectName, uint32_t clusterName)
+bool TrickSpotHub::add_object(uint32_t object_name, uint32_t cluster_name)
 {
-    const bool added = GetCluster(clusterName)->AddObject(objectName);
-    if (added && objectName != clusterName)
-        m_objectClusters.StoreEntry(objectName, GetCluster(clusterName));
+    const bool added = get_cluster(cluster_name)->add_object(object_name);
+    if (added && object_name != cluster_name)
+        object_clusters_.store_entry(object_name, get_cluster(cluster_name));
     return added;
 }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kTrickClusterNodeVtable_slots[] = {&GameObjects::TrickClusterNode::Teardown};
-void** const kTrickClusterNodeVtable = reinterpret_cast<void**>(kTrickClusterNodeVtable_slots);
-static VtableSlot kTrickObjectNodeVtable_slots[] = {&GameObjects::TrickObjectNode::Teardown};
-void** const kTrickObjectNodeVtable = reinterpret_cast<void**>(kTrickObjectNodeVtable_slots);
-static VtableSlot kTrickObjectVtable_slots[] = {&GameObjects::CTrickSpot::Teardown};
-void** const kTrickObjectVtable = reinterpret_cast<void**>(kTrickObjectVtable_slots);
-static VtableSlot kTrickClusterVtable_slots[] = {&GameObjects::CTrickObjectCluster::Teardown};
-void** const kTrickClusterVtable = reinterpret_cast<void**>(kTrickClusterVtable_slots);
-static VtableSlot kTrickObjectManagerVtable_slots[] = {&GameObjects::CTrickSpotHub::Teardown};
-void** const kTrickObjectManagerVtable = reinterpret_cast<void**>(kTrickObjectManagerVtable_slots);
+static VtableSlot g_trick_cluster_node_vtable_slots[] = {&objects::TrickClusterNode::teardown};
+void** const kTrickClusterNodeVtable = reinterpret_cast<void**>(g_trick_cluster_node_vtable_slots);
+static VtableSlot g_trick_object_node_vtable_slots[] = {&objects::TrickObjectNode::teardown};
+void** const kTrickObjectNodeVtable = reinterpret_cast<void**>(g_trick_object_node_vtable_slots);
+static VtableSlot g_trick_object_vtable_slots[] = {&objects::TrickSpot::teardown};
+void** const kTrickObjectVtable = reinterpret_cast<void**>(g_trick_object_vtable_slots);
+static VtableSlot g_trick_cluster_vtable_slots[] = {&objects::TrickObjectCluster::teardown};
+void** const kTrickClusterVtable = reinterpret_cast<void**>(g_trick_cluster_vtable_slots);
+static VtableSlot g_trick_object_manager_vtable_slots[] = {&objects::TrickSpotHub::teardown};
+void** const kTrickObjectManagerVtable = reinterpret_cast<void**>(g_trick_object_manager_vtable_slots);
 
 } // namespace
 } // namespace Obj

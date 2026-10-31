@@ -9,21 +9,21 @@
 #include "engine/lists/chain_start.h"
 #include "engine/core/code_address.h"
 
-namespace Scheduling {
+namespace tasks {
 
 namespace {
 
 extern void** const kBaseTaskVtable;
-extern void** const kTaskNodeVtable;       // ListKit::Elem<SchedulerTask>
-extern void** const kTaskSearchVtable;     // ListKit::Hunt<SchedulerTask>
-extern void** const kStackListSearchVtable; // ListKit::Hunt<StackList>
-extern void** const kStackListNodeVtable;  // ListKit::Elem<StackList>
-extern void** const kStackListHeadVtable;  // ListKit::Foremost<StackList>
+extern void** const kTaskNodeVtable;       // lists::Elem<SchedulerTask>
+extern void** const kTaskSearchVtable;     // lists::Hunt<SchedulerTask>
+extern void** const kStackListSearchVtable; // lists::Hunt<StackList>
+extern void** const kStackListNodeVtable;  // lists::Elem<StackList>
+extern void** const kStackListHeadVtable;  // lists::Foremost<StackList>
 
 void* const kHeadData = reinterpret_cast<void*>(-1);
 
 // A node's links taken out of its list and pointed at itself (the vtable kept).
-void Uncouple(MemSys::ListNode* node)
+void uncouple(memory::ListNode* node)
 {
     node->prev->next = node->next;
     node->next->prev = node->prev;
@@ -31,20 +31,20 @@ void Uncouple(MemSys::ListNode* node)
     node->prev = node;
 }
 // After `head`: the first node of its list.
-void InsertFront(MemSys::ListNode* head, MemSys::ListNode* node)
+void insert_front(memory::ListNode* head, memory::ListNode* node)
 {
     node->prev = head;
     node->next = head->next;
     head->next->prev = node;
     head->next = node;
 }
-// The node after `node` (null at the head) - ListKit::Hunt's step.
-MemSys::ListNode* NextNode(MemSys::ListNode* node)
+// The node after `node` (null at the head) - lists::Hunt's step.
+memory::ListNode* get_next_node(memory::ListNode* node)
 {
-    MemSys::ListNode* next = node->next;
+    memory::ListNode* next = node->next;
     return next->data == kHeadData ? nullptr : next;
 }
-void SetupListSentinel(MemSys::ListNode* head, void** vtable)
+void setup_list_sentinel(memory::ListNode* head, void** vtable)
 {
     head->data = kHeadData;
     head->priority = 0;
@@ -53,66 +53,66 @@ void SetupListSentinel(MemSys::ListNode* head, void** vtable)
     head->vtable = vtable;
 }
 // A node's scalar deleting destructor (vtable slot 0), with 1: unlinked and freed.
-void UnlinkListNode(MemSys::ListNode* node)
+void unlink_list_node(memory::ListNode* node)
 {
-    reinterpret_cast<void(__thiscall*)(MemSys::ListNode*, int)>(node->vtable[0])(node, 1);
+    reinterpret_cast<void(__thiscall*)(memory::ListNode*, int)>(node->vtable[0])(node, 1);
 }
 
 // The destructors behind the nodes', heads' and local searches' vtables.
-struct TaskNode : MemSys::ListNode {
+struct TaskNode : memory::ListNode {
     // 0x00406A00
-    void DestroyBody() { UnlinkAs(kTaskNodeVtable); }
+    void destroy_body() { unlink_as(kTaskNodeVtable); }
     // 0x00406860 (scalar deleting)
-    TaskNode* Teardown(uint8_t flags)
+    TaskNode* teardown(uint8_t flags)
     {
-        DestroyBody();
+        destroy_body();
         if (flags & 1)
-            MemSys::Hub::Pull()->Dealloc(this);
+            memory::Hub::get_pull()->dealloc(this);
         return this;
     }
 };
-struct StackListNode : MemSys::ListNode {
+struct StackListNode : memory::ListNode {
     // 0x00406D00
-    void DestroyBody() { UnlinkAs(kStackListNodeVtable); }
+    void destroy_body() { unlink_as(kStackListNodeVtable); }
     // 0x00406D20 (scalar deleting; the body inlined)
-    StackListNode* Teardown(uint8_t flags)
+    StackListNode* teardown(uint8_t flags)
     {
-        DestroyBody();
+        destroy_body();
         if (flags & 1)
-            MemSys::Hub::Pull()->Dealloc(this);
+            memory::Hub::get_pull()->dealloc(this);
         return this;
     }
-    // 0x00406E50: ListKit::Foremost<StackList>'s scalar deleting destructor (the node's body).
-    StackListNode* DestroyHead(uint8_t flags)
+    // 0x00406E50: lists::Foremost<StackList>'s scalar deleting destructor (the node's body).
+    StackListNode* destroy_head(uint8_t flags)
     {
-        DestroyBody();
+        destroy_body();
         if (flags & 1)
-            MemSys::Hub::Pull()->Dealloc(this);
+            memory::Hub::get_pull()->dealloc(this);
         return this;
     }
 };
 struct Hunt {
-    void** m_vtable;
-    MemSys::ListNode* m_listLink;
+    void** vtable_;
+    memory::ListNode* list_link_;
 
     // 0x004069C0
-    void DestroyTaskSearchBody() { m_vtable = kTaskSearchVtable; }
+    void destroy_task_search_body() { vtable_ = kTaskSearchVtable; }
     // 0x004069D0 (scalar deleting)
-    Hunt* DestroyTaskSearch(uint8_t flags)
+    Hunt* destroy_task_search(uint8_t flags)
     {
-        m_vtable = kTaskSearchVtable;
+        vtable_ = kTaskSearchVtable;
         if (flags & 1)
-            MemSys::Hub::Pull()->Dealloc(this);
+            memory::Hub::get_pull()->dealloc(this);
         return this;
     }
     // 0x00406CA0
-    void DestroyStackListSearchBody() { m_vtable = kStackListSearchVtable; }
+    void destroy_stack_list_search_body() { vtable_ = kStackListSearchVtable; }
     // 0x00406CD0 (scalar deleting)
-    Hunt* DestroyStackListSearch(uint8_t flags)
+    Hunt* destroy_stack_list_search(uint8_t flags)
     {
-        m_vtable = kStackListSearchVtable;
+        vtable_ = kStackListSearchVtable;
         if (flags & 1)
-            MemSys::Hub::Pull()->Dealloc(this);
+            memory::Hub::get_pull()->dealloc(this);
         return this;
     }
 };
@@ -120,14 +120,14 @@ struct Hunt {
 } // namespace
 
 // 0x00406890
-SchedulerTask* SchedulerTask::MakeNew(int priority)
+SchedulerTask* SchedulerTask::make_new(int priority)
 {
-    m_disabled = 0;
-    m_vtable = kBaseTaskVtable;
-    m_sequence = nullptr;
-    m_passCount = 0;
-    m_skipBits = 0;
-    auto* node = static_cast<MemSys::ListNode*>(MemSys::AllocZeroed(sizeof(MemSys::ListNode)));
+    disabled_ = 0;
+    vtable_ = kBaseTaskVtable;
+    sequence_ = nullptr;
+    pass_count_ = 0;
+    skip_bits_ = 0;
+    auto* node = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
     if (node) {
         node->data = this;
         node->vtable = kTaskNodeVtable;
@@ -135,125 +135,125 @@ SchedulerTask* SchedulerTask::MakeNew(int priority)
         node->next = node;
         node->prev = node;
     }
-    m_listLink = node;
+    list_link_ = node;
     return this;
 }
 
 // 0x00406930
-void SchedulerTask::Destruct()
+void SchedulerTask::destruct()
 {
-    m_vtable = kBaseTaskVtable;
-    DropOut(); // (inlined)
-    if (m_listLink)
-        UnlinkListNode(m_listLink);
+    vtable_ = kBaseTaskVtable;
+    drop_out(); // (inlined)
+    if (list_link_)
+        unlink_list_node(list_link_);
 }
 
 // 0x00406980
-SchedulerTask* SchedulerTask::ScalarDelete(uint8_t flags)
+SchedulerTask* SchedulerTask::scalar_delete(uint8_t flags)
 {
-    Destruct();
+    destruct();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x004068F0
-void SchedulerTask::DropOut()
+void SchedulerTask::drop_out()
 {
-    if (!m_sequence)
+    if (!sequence_)
         return;
-    ++m_sequence->m_lock;
-    m_sequence->MarkChanged();
-    Uncouple(m_listLink);
-    --m_sequence->m_lock;
-    m_sequence = nullptr;
+    ++sequence_->lock_;
+    sequence_->mark_changed();
+    uncouple(list_link_);
+    --sequence_->lock_;
+    sequence_ = nullptr;
 }
 
 // 0x00406850
-bool SchedulerTask::IsOnTaskList() const
+bool SchedulerTask::is_on_task_list() const
 {
-    return m_listLink->prev != m_listLink;
+    return list_link_->prev != list_link_;
 }
 
 // 0x00406A50
-LinkChain* LinkChain::MakeNew()
+LinkChain* LinkChain::make_new()
 {
-    m_lock = 0;
-    SetupListSentinel(&m_head, kTaskNodeVtable);
-    m_passCount = 0;
-    m_altered = false;
+    lock_ = 0;
+    setup_list_sentinel(&head_, kTaskNodeVtable);
+    pass_count_ = 0;
+    altered_ = false;
     return this;
 }
 
 // 0x00406A20
-void LinkChain::Destruct()
+void LinkChain::destruct()
 {
-    m_head.UnlinkAs(kTaskNodeVtable);
+    head_.unlink_as(kTaskNodeVtable);
 }
 
 // 0x004069B0
-void LinkChain::MarkChanged()
+void LinkChain::mark_changed()
 {
-    m_altered = true;
+    altered_ = true;
 }
 
 // 0x00406A80
-void LinkChain::QueueJob(SchedulerTask* task)
+void LinkChain::queue_job(SchedulerTask* task)
 {
-    ++m_lock;
-    reinterpret_cast<ListKit::Foremost*>(&m_head)->AppendVertex(task->m_listLink);
-    task->m_sequence = this;
-    task->m_passCount = m_passCount - 1;
-    m_altered = true;
-    --m_lock;
+    ++lock_;
+    reinterpret_cast<lists::Foremost*>(&head_)->append_vertex(task->list_link_);
+    task->sequence_ = this;
+    task->pass_count_ = pass_count_ - 1;
+    altered_ = true;
+    --lock_;
 }
 
 // 0x00406AC0
-void LinkChain::WorkOn(void* /*unused*/, uint32_t mask)
+void LinkChain::work_on(void* /*unused*/, uint32_t mask)
 {
-    if (m_lock != 0)
+    if (lock_ != 0)
         return;
-    ++m_passCount;
+    ++pass_count_;
     do {
-        MemSys::ListNode* node = NextNode(&m_head);
+        memory::ListNode* node = get_next_node(&head_);
         SchedulerTask* task = node ? static_cast<SchedulerTask*>(node->data) : nullptr;
-        m_altered = false;
+        altered_ = false;
         while (task) {
             // (the next task is found before this one runs: it may take itself out)
-            MemSys::ListNode* nextNode = NextNode(node);
-            SchedulerTask* next = nextNode ? static_cast<SchedulerTask*>(nextNode->data) : nullptr;
-            if (task->m_disabled == 0 && task->m_passCount != m_passCount) {
-                task->m_passCount = m_passCount;
-                if ((mask & task->m_skipBits) == 0)
-                    reinterpret_cast<void(__thiscall*)(SchedulerTask*)>(task->m_vtable[0])(task);
+            memory::ListNode* next_node = get_next_node(node);
+            SchedulerTask* next = next_node ? static_cast<SchedulerTask*>(next_node->data) : nullptr;
+            if (task->disabled_ == 0 && task->pass_count_ != pass_count_) {
+                task->pass_count_ = pass_count_;
+                if ((mask & task->skip_bits_) == 0)
+                    reinterpret_cast<void(__thiscall*)(SchedulerTask*)>(task->vtable_[0])(task);
             }
-            if (m_altered)
+            if (altered_)
                 break;
-            node = nextNode;
+            node = next_node;
             task = next;
         }
-    } while (m_altered);
+    } while (altered_);
 }
 
 // 0x00406BB0
-void LinkChain::ClearJobList()
+void LinkChain::clear_job_list()
 {
-    ++m_lock;
+    ++lock_;
     for (;;) {
-        MemSys::ListNode* node = NextNode(&m_head);
+        memory::ListNode* node = get_next_node(&head_);
         if (!node || !node->data)
             break;
-        static_cast<SchedulerTask*>(node->data)->DropOut();
-        m_altered = true;
+        static_cast<SchedulerTask*>(node->data)->drop_out();
+        altered_ = true;
     }
-    --m_lock;
+    --lock_;
 }
 
 // 0x00406D60
-StackList* StackList::MakeNew()
+StackList* StackList::make_new()
 {
-    LinkChain::MakeNew();
-    auto* node = static_cast<MemSys::ListNode*>(MemSys::AllocZeroed(sizeof(MemSys::ListNode)));
+    LinkChain::make_new();
+    auto* node = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
     if (node) {
         node->data = this;
         node->vtable = kStackListNodeVtable;
@@ -261,134 +261,134 @@ StackList* StackList::MakeNew()
         node->next = node;
         node->prev = node;
     }
-    m_listLink = node;
+    list_link_ = node;
     return this;
 }
 
 // 0x00406C30
-void StackList::Destruct()
+void StackList::destruct()
 {
-    if (m_listLink)
-        UnlinkListNode(m_listLink);
-    LinkChain::Destruct();
+    if (list_link_)
+        unlink_list_node(list_link_);
+    LinkChain::destruct();
 }
 
 // 0x00406E80
-PileUp* PileUp::MakeNew()
+PileUp* PileUp::make_new()
 {
-    m_lock = 0;
-    SetupListSentinel(&m_lists, kStackListHeadVtable);
-    SetupListSentinel(&m_poppedLists, kStackListHeadVtable);
-    m_pushed = false;
-    m_justPopped = false;
-    StackOn();
-    m_ongoing = m_topSide;
-    m_pushed = false;
-    m_justPopped = false;
+    lock_ = 0;
+    setup_list_sentinel(&lists_, kStackListHeadVtable);
+    setup_list_sentinel(&popped_lists_, kStackListHeadVtable);
+    pushed_ = false;
+    just_popped_ = false;
+    stack_on();
+    ongoing_ = top_side_;
+    pushed_ = false;
+    just_popped_ = false;
     return this;
 }
 
 // 0x004070E0
-void PileUp::Destruct()
+void PileUp::destruct()
 {
     // (the original counts the lists each time round)
     for (;;) {
-        MemSys::ListNode* first = m_lists.next;
+        memory::ListNode* first = lists_.next;
         if (first->data == kHeadData || !first)
             break;
-        StackOff();
+        stack_off();
     }
-    DeletePoppedLists();
-    m_poppedLists.UnlinkAs(kStackListNodeVtable);
-    m_lists.UnlinkAs(kStackListNodeVtable);
+    delete_popped_lists();
+    popped_lists_.unlink_as(kStackListNodeVtable);
+    lists_.unlink_as(kStackListNodeVtable);
 }
 
 // 0x00406DE0
-void PileUp::StackOn()
+void PileUp::stack_on()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(StackList));
-    auto* list = memory ? static_cast<StackList*>(memory)->MakeNew() : nullptr;
-    m_topSide = list;
-    InsertFront(&m_lists, list->m_listLink); // (a failed allocation crashes here, as in the original)
-    m_pushed = true;
+    void* memory = memory::alloc_zeroed(sizeof(StackList));
+    auto* list = memory ? static_cast<StackList*>(memory)->make_new() : nullptr;
+    top_side_ = list;
+    insert_front(&lists_, list->list_link_); // (a failed allocation crashes here, as in the original)
+    pushed_ = true;
 }
 
 // 0x00406FB0
-void PileUp::StackOff()
+void PileUp::stack_off()
 {
-    StackList* old = m_topSide;
-    MemSys::ListNode* first = NextNode(&m_lists);
-    if (m_ongoing == old) {
+    StackList* old = top_side_;
+    memory::ListNode* first = get_next_node(&lists_);
+    if (ongoing_ == old) {
         // The current list becomes the one below (an empty stack would crash here, as in the original).
-        MemSys::ListNode* below = NextNode(first);
-        m_ongoing = below ? static_cast<StackList*>(below->data) : nullptr;
+        memory::ListNode* below = get_next_node(first);
+        ongoing_ = below ? static_cast<StackList*>(below->data) : nullptr;
     } else {
-        m_pushed = false;
+        pushed_ = false;
     }
-    if (m_lock == 0) {
+    if (lock_ == 0) {
         if (old) {
-            old->Destruct();
-            MemSys::Hub::Pull()->Dealloc(old);
+            old->destruct();
+            memory::Hub::get_pull()->dealloc(old);
         }
     } else {
-        Uncouple(old->m_listLink);
-        InsertFront(&m_poppedLists, old->m_listLink);
+        uncouple(old->list_link_);
+        insert_front(&popped_lists_, old->list_link_);
     }
-    m_topSide = m_ongoing;
-    m_justPopped = true;
+    top_side_ = ongoing_;
+    just_popped_ = true;
 }
 
 // 0x00406C90
-void PileUp::QueueJob(SchedulerTask* task)
+void PileUp::queue_job(SchedulerTask* task)
 {
-    m_ongoing->QueueJob(task);
+    ongoing_->queue_job(task);
 }
 
 // 0x00406CB0
-void PileUp::ClearJobList()
+void PileUp::clear_job_list()
 {
-    (m_pushed ? m_topSide : m_ongoing)->ClearJobList();
+    (pushed_ ? top_side_ : ongoing_)->clear_job_list();
 }
 
 // 0x004070A0
-void PileUp::WorkOn(void* unused)
+void PileUp::work_on(void* unused)
 {
-    ++m_lock;
-    m_ongoing = m_topSide;
-    m_topSide->WorkOn(unused, m_skipBits);
-    --m_lock;
-    DeletePoppedLists();
-    m_pushed = false;
-    m_justPopped = false;
+    ++lock_;
+    ongoing_ = top_side_;
+    top_side_->work_on(unused, skip_bits_);
+    --lock_;
+    delete_popped_lists();
+    pushed_ = false;
+    just_popped_ = false;
 }
 
 // 0x00406F10
-void PileUp::DeletePoppedLists()
+void PileUp::delete_popped_lists()
 {
     for (;;) {
-        MemSys::ListNode* node = NextNode(&m_poppedLists);
+        memory::ListNode* node = get_next_node(&popped_lists_);
         if (!node || !node->data)
             break;
         auto* list = static_cast<StackList*>(node->data);
-        list->Destruct(); // (inlined; deleting the node takes it out of the popped lists)
-        MemSys::Hub::Pull()->Dealloc(list);
+        list->destruct(); // (inlined; deleting the node takes it out of the popped lists)
+        memory::Hub::get_pull()->dealloc(list);
     }
 }
 
 namespace {
-static VtableSlot kBaseTaskVtable_slots[] = {&_purecall, &_purecall,
-                &Scheduling::SchedulerTask::ScalarDelete};
-void** const kBaseTaskVtable = reinterpret_cast<void**>(kBaseTaskVtable_slots);
-static VtableSlot kTaskNodeVtable_slots[] = {&Scheduling::TaskNode::Teardown};
-void** const kTaskNodeVtable = reinterpret_cast<void**>(kTaskNodeVtable_slots);
-static VtableSlot kTaskSearchVtable_slots[] = {&Scheduling::Hunt::DestroyTaskSearch};
-void** const kTaskSearchVtable = reinterpret_cast<void**>(kTaskSearchVtable_slots);
-static VtableSlot kStackListSearchVtable_slots[] = {&Scheduling::Hunt::DestroyStackListSearch};
-void** const kStackListSearchVtable = reinterpret_cast<void**>(kStackListSearchVtable_slots);
-static VtableSlot kStackListNodeVtable_slots[] = {&Scheduling::StackListNode::Teardown};
-void** const kStackListNodeVtable = reinterpret_cast<void**>(kStackListNodeVtable_slots);
-static VtableSlot kStackListHeadVtable_slots[] = {&Scheduling::StackListNode::DestroyHead};
-void** const kStackListHeadVtable = reinterpret_cast<void**>(kStackListHeadVtable_slots);
+static VtableSlot g_base_task_vtable_slots[] = {&_purecall, &_purecall,
+                &tasks::SchedulerTask::scalar_delete};
+void** const kBaseTaskVtable = reinterpret_cast<void**>(g_base_task_vtable_slots);
+static VtableSlot g_task_node_vtable_slots[] = {&tasks::TaskNode::teardown};
+void** const kTaskNodeVtable = reinterpret_cast<void**>(g_task_node_vtable_slots);
+static VtableSlot g_task_search_vtable_slots[] = {&tasks::Hunt::destroy_task_search};
+void** const kTaskSearchVtable = reinterpret_cast<void**>(g_task_search_vtable_slots);
+static VtableSlot g_stack_list_search_vtable_slots[] = {&tasks::Hunt::destroy_stack_list_search};
+void** const kStackListSearchVtable = reinterpret_cast<void**>(g_stack_list_search_vtable_slots);
+static VtableSlot g_stack_list_node_vtable_slots[] = {&tasks::StackListNode::teardown};
+void** const kStackListNodeVtable = reinterpret_cast<void**>(g_stack_list_node_vtable_slots);
+static VtableSlot g_stack_list_head_vtable_slots[] = {&tasks::StackListNode::destroy_head};
+void** const kStackListHeadVtable = reinterpret_cast<void**>(g_stack_list_head_vtable_slots);
 } // namespace
 
 } // namespace Tsk

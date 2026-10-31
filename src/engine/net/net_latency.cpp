@@ -4,35 +4,35 @@
 
 #include "engine/net/net_latency.h"
 
-namespace NetLink {
+namespace net {
 
 // 0x00456970
-PingProbe* PingProbe::MakeNew()
+PingProbe* PingProbe::make_new()
 {
-    for (int& time : m_times)
+    for (int& time : times_)
         time = 0;
-    m_averageLatency = 1000;
-    m_succ = 0;
-    m_probeSentAt = 0;
-    m_echoSeenAt = 0;
+    average_latency_ = 1000;
+    succ_ = 0;
+    probe_sent_at_ = 0;
+    echo_seen_at_ = 0;
     return this;
 }
 
 // 0x004569B0
-void PingProbe::InputDelayAmount(int latency)
+void PingProbe::input_delay_amount(int latency)
 {
-    m_times[m_succ] = latency;
-    m_succ = (m_succ + 1) % kNumTimes;
+    times_[succ_] = latency;
+    succ_ = (succ_ + 1) % kNumTimes;
     uint32_t total = 0; // (wraps like the original's int sum)
     int count = 0;
-    for (int time : m_times) {
+    for (int time : times_) {
         if (time) {
             total += static_cast<uint32_t>(time);
             ++count;
         }
     }
     if (count > 0)
-        m_averageLatency = static_cast<int>(total) / count;
+        average_latency_ = static_cast<int>(total) / count;
 }
 
 } // namespace Net

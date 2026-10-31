@@ -3,11 +3,11 @@
 #include <cstdint>
 
 // The renderer's cached Direct3D 9 state (Nx engine, PC): every setter compares with what it last sent and only
-// calls the device when something changes. The cache is reset to the device's own defaults (ResetRenderState)
-// when the device is created and pushed to the device again (ApplyRenderState) after a reset.
-namespace Engine3D {
+// calls the device when something changes. The cache is reset to the device's own defaults (reset_render_state)
+// when the device is created and pushed to the device again (apply_render_state) after a reset.
+namespace render {
 
-// The renderer's own render state numbering (ChangePhase's `state`).
+// The renderer's own render state numbering (change_phase's `state`).
 enum RenderStateId {
     kZWrite = 1,          // bool
     kZTest = 2,           // bool: less-equal, else always
@@ -27,65 +27,65 @@ enum RenderStateId {
 };
 
 // 0x004DAB60: set one of the renderer's states (RenderStateId) on the device, if it isn't already.
-void __cdecl ChangePhase(int state, uint32_t value);
+void __cdecl change_phase(int state, uint32_t value);
 // 0x004D9DB0: the vertex format (D3DFVF), unless the format is locked (0x00786F28).
-void __cdecl SetVertexFormat(uint32_t fvf);
+void __cdecl set_vertex_format(uint32_t fvf);
 // 0x004DA730: the texture of a stage.
-void __cdecl SetTexture(int stage, void* texture);
+void __cdecl set_texture(int stage, void* texture);
 // 0x004DA760: the blend mode - the low 24 bits pick the source / destination factors and operation (a table of
 // the game's modes), the high 8 bits the blend factor's alpha (x2, saturating). An override (0x00786F34) wins if
 // set.
-void __cdecl ChooseBlendMode(uint32_t mode);
+void __cdecl choose_blend_mode(uint32_t mode);
 // 0x004D9DE0: the texture stages that stand in for a pixel shader (the shader handles at 0x007CA944-64) when
 // the device has no pixel shaders; `factor` is the texture factor colour some of them use.
-void __cdecl SetFixedFunctionStages(void* shader, uint32_t factor);
+void __cdecl set_fixed_function_stages(void* shader, uint32_t factor);
 // 0x004DAA10: the same with the material's colour (+0x40, three floats 0-1) as the factor - opaque white
 // without a material.
-void __cdecl SetFixedFunctionStagesForMaterial(void* shader, const void* material);
+void __cdecl set_fixed_function_stages_for_material(void* shader, const void* material);
 // 0x004DAA80: the pixel shader and its five constants (0x00786ECC) - or the stand-in texture stages without
 // pixel shaders (0x00786AB8).
-void __cdecl SetPixelShader(void* shader, const void* material);
+void __cdecl set_pixel_shader(void* shader, const void* material);
 // 0x004DAAF0: the pixel shader with `count` constants, and constant 4 (0x00786F0C) again.
-void __cdecl SetPixelShaderWithConstants(void* shader, uint32_t count);
+void __cdecl set_pixel_shader_with_constants(void* shader, uint32_t count);
 // 0x004DA0E0: the value 0x007CA978 (a distance the visibility test 0x004DB790 leaves).
-float __cdecl LastSphereDistance();
+float __cdecl last_sphere_distance();
 // 0x004DB620: the object's world transform for culling and lighting (its position row kept), or none.
-void __cdecl SetWorldTransform(const float* matrix);
+void __cdecl set_world_transform(const float* matrix);
 
 // 0x004D3CA0 / 0x004D3CE0: the scaling the skinned meshes' loaders apply set (four values, 0x007865D0 - the last a
 // table of 16-byte bone scales, 0x007865DC) and on (0x007865CC) / off and cleared.
-void __cdecl SetSkinScaling(const uint32_t* settings);
-void __cdecl ClearSkinScaling();
+void __cdecl set_skin_scaling(const uint32_t* settings);
+void __cdecl clear_skin_scaling();
 // 0x004D3ED0: the pixel shader a scene file's index names (0x007CA920-64; 0 and 1: none; past 0x12: the index
 // itself).
-void* __stdcall PixelShaderFromIndex(uint32_t index);
+void* __stdcall pixel_shader_from_index(uint32_t index);
 
 // 0x004D7D70: the cache set to the state of a new device (identity transforms, the default light...).
-void __cdecl ResetRenderState();
+void __cdecl reset_render_state();
 // 0x004D80D0: the cached state sent to the device (after it is created or reset), with the fixed ones.
-void __cdecl ApplyRenderState();
+void __cdecl apply_render_state();
 
-extern uint8_t g_skinScalingOn;
-extern uint32_t g_skinSettings[5];
-extern bool g_shadersAvailable;
+extern uint8_t g_skin_scaling_on;
+extern uint32_t g_skin_settings[5];
+extern bool g_shaders_available;
 extern uint32_t g_specular;
-extern uint8_t g_zWrite;
-extern uint32_t g_depthBias;
-extern uint32_t g_cullMode;
-extern bool g_nearCamera;
+extern uint8_t g_z_write;
+extern uint32_t g_depth_bias;
+extern uint32_t g_cull_mode;
+extern bool g_near_camera;
 extern void* g_textures[4];
-extern uint32_t g_borderColours[4];
-extern uint32_t g_pixelShaderLocked;
-extern void* g_currentPixelShader;
-extern float g_psConstantBank[20];
-extern uint32_t g_instanceColourOn;
-extern uint8_t g_instanceColour[4];
-extern uint8_t g_pixelShaderChanged;
-extern uint32_t g_vertexFormatLocked;
-extern uint32_t g_skippedPasses;
-extern uint32_t g_submitLocked;
-extern uint32_t g_fogActive;
-extern const float* g_worldTransform;
-extern float g_worldTransformCopy[16];
+extern uint32_t g_border_colours[4];
+extern uint32_t g_pixel_shader_locked;
+extern void* g_current_pixel_shader;
+extern float g_ps_constant_bank[20];
+extern uint32_t g_instance_colour_on;
+extern uint8_t g_instance_colour[4];
+extern uint8_t g_pixel_shader_changed;
+extern uint32_t g_vertex_format_locked;
+extern uint32_t g_skipped_passes;
+extern uint32_t g_submit_locked;
+extern uint32_t g_fog_active;
+extern const float* g_world_transform;
+extern float g_world_transform_copy[16];
 
 } // namespace Nx

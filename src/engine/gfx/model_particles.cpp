@@ -1,4 +1,4 @@
-// The flexible particle type that draws models (Engine3D::CModelParticles, the type 0x286A8D26): its constructor and Render
+// The flexible particle type that draws models (render::ModelParticles, the type 0x286A8D26): its constructor and Render
 // (see particle_system.h). From the disassembly of 0x0049A0C0-0x0049A4B3 and 0x0049A4C0-0x0049A8DD.
 
 #include <cmath>
@@ -18,7 +18,7 @@
 #include "engine/core/game_vtables.h"
 #include "platform/crt.h"
 
-namespace Engine3D {
+namespace render {
 
 namespace {
 
@@ -27,133 +27,133 @@ constexpr float kScaleStep = 0.01f;             // 0x0064544C
 constexpr float kSizeStep = 0.25f;              // 0x006467AC
 const char* const kModelExtension = ".mdl"; // ".mdl"
 
-uint8_t AssertFlag() { return g_allocAssertFlag; }
-void* Carve(unsigned int size) { return MemSys::Hub::Pull()->Carve(size, AssertFlag(), nullptr); }
-void* AllocateZeroed(unsigned int size) { return MemSys::Hub::Pull()->AllocateZeroed(size, AssertFlag(), nullptr); }
-int Rand() { return Crt::Rand(); } // (the game's C runtime's)
-CRenderModel* SpawnRenderModel(int) { return static_cast<CRenderModel*>(Engine3D::SpawnModel()); }
+uint8_t assert_flag() { return g_alloc_assert_flag; }
+void* carve(unsigned int size) { return memory::Hub::get_pull()->carve(size, assert_flag(), nullptr); }
+void* allocate_zeroed(unsigned int size) { return memory::Hub::get_pull()->allocate_zeroed(size, assert_flag(), nullptr); }
+int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
+RenderModel* spawn_render_model(int) { return static_cast<RenderModel*>(render::spawn_model()); }
 // A model file's name with its extension (0x00487A70: name + `ext` into `out`).
-void ModelPathFor(const char* name, const char* ext, char* out)
+void model_path_for(const char* name, const char* ext, char* out)
 {
-    Gfx2D::MakeModelFileName(name, ext, out);
+    gfx::make_model_file_name(name, ext, out);
 }
 
 } // namespace
 
 // 0x0049A0C0
-CModelParticles* CModelParticles::MakeNew(uint32_t name, int particleCap, const char* model, uint32_t, int, int,
+ModelParticles* ModelParticles::make_new(uint32_t name, int particle_cap, const char* model, uint32_t, int, int,
                                             float, int)
 {
-    CEmitterInstance::MakeNew();
-    m_label = name;
-    char fileName[512] = {};
-    m_positionArray = nullptr;
-    m_modelList = nullptr;
-    m_unknown13CPtr = nullptr;
-    m_particleList = nullptr;
-    m_unknown8C = 0;
-    ParticleParts::SetVtables(this, Vt::kModelParticles, Vt::kModelParticlesNode);
-    m_maxParticles = particleCap;
-    m_modelCount = static_cast<unsigned int>(particleCap);
-    m_drawnModels = static_cast<unsigned int>(particleCap);
-    m_particleList = ParticleParts::NewParticles(particleCap);
-    if (!m_particleList)
+    EmitterInstance::make_new();
+    label_ = name;
+    char file_name[512] = {};
+    position_array_ = nullptr;
+    model_list_ = nullptr;
+    unknown_13c_ptr_ = nullptr;
+    particle_list_ = nullptr;
+    unknown8c_ = 0;
+    particle_parts::set_vtables(this, vt::kModelParticles, vt::kModelParticlesNode);
+    max_particles_ = particle_cap;
+    model_count_ = static_cast<unsigned int>(particle_cap);
+    drawn_models_ = static_cast<unsigned int>(particle_cap);
+    particle_list_ = particle_parts::new_particles(particle_cap);
+    if (!particle_list_)
         return this;
-    m_positionArray = static_cast<float*>(Carve(m_modelCount * 12));
-    if (!m_positionArray)
+    position_array_ = static_cast<float*>(carve(model_count_ * 12));
+    if (!position_array_)
         return this;
-    ModelPathFor(model, kModelExtension, fileName);
-    TextUtil::ToLowerText(fileName);
-    m_modelList = static_cast<void**>(AllocateZeroed(m_modelCount * 4));
-    if (!m_modelList)
+    model_path_for(model, kModelExtension, file_name);
+    text::to_lower_text(file_name);
+    model_list_ = static_cast<void**>(allocate_zeroed(model_count_ * 4));
+    if (!model_list_)
         return this;
-    if (MemSys::MallocAvailable() < m_modelCount * kMemoryPerModel)
+    if (memory::malloc_available() < model_count_ * kMemoryPerModel)
         return this;
-    for (unsigned int i = 0; i < m_modelCount; ++i) {
-        m_modelList[i] = SpawnRenderModel(AssertFlag());
-        auto* each = static_cast<CRenderModel*>(m_modelList[i]);
+    for (unsigned int i = 0; i < model_count_; ++i) {
+        model_list_[i] = spawn_render_model(assert_flag());
+        auto* each = static_cast<RenderModel*>(model_list_[i]);
         if (!each)
             return this;
-        each->DropGeoms();
-        int percent = Rand() % 100;
+        each->drop_geoms();
+        int percent = get_rand() % 100;
         float scale = static_cast<float>(static_cast<double>(percent) * kScaleStep * 2.0 + 1.0);
-        Maths::Vec4 scales = {scale, scale, scale, 1.0f};
-        each->ChangeScale(&scales);
-        if (!each->AddFileGeom(fileName, 0, true, 0, false, true, AssertFlag() != 0, true))
+        maths::Vec4 scales = {scale, scale, scale, 1.0f};
+        each->change_scale(&scales);
+        if (!each->add_file_geom(file_name, 0, true, 0, false, true, assert_flag() != 0, true))
             return this;
     }
-    auto* rotations = static_cast<Maths::QuatRotation*>(Carve(m_modelCount * sizeof(Maths::QuatRotation)));
+    auto* rotations = static_cast<maths::QuatRotation*>(carve(model_count_ * sizeof(maths::QuatRotation)));
     if (rotations) {
-        for (unsigned int i = 0; i < m_modelCount; ++i)
+        for (unsigned int i = 0; i < model_count_; ++i)
             rotations[i] = {0.0f, 0.0f, 0.0f, 1.0f}; // (the constructor 0x00464340)
     }
-    m_unknown13CPtr = rotations;
+    unknown_13c_ptr_ = rotations;
     if (!rotations)
         return this;
-    m_startColour = static_cast<uint8_t*>(Carve(4));
-    if (!m_startColour)
+    start_colour_ = static_cast<uint8_t*>(carve(4));
+    if (!start_colour_)
         return this;
-    m_midColour = static_cast<uint8_t*>(Carve(4));
-    if (!m_midColour)
+    mid_colour_ = static_cast<uint8_t*>(carve(4));
+    if (!mid_colour_)
         return this;
-    m_endColour = static_cast<uint8_t*>(Carve(4));
-    if (!m_endColour)
+    end_colour_ = static_cast<uint8_t*>(carve(4));
+    if (!end_colour_)
         return this;
-    for (unsigned int i = 0; i < m_modelCount; ++i) {
-        rotations[i].x = static_cast<float>(Rand() % 100);
-        rotations[i].y = static_cast<float>(Rand() % 100);
-        rotations[i].z = static_cast<float>(Rand() % 100);
-        rotations[i].w = static_cast<float>(Rand() % 100);
-        static_cast<Maths::QuatRotation*>(m_unknown13CPtr)->MakeUnit(1.0f); // (the first, each time: the original's)
+    for (unsigned int i = 0; i < model_count_; ++i) {
+        rotations[i].x = static_cast<float>(get_rand() % 100);
+        rotations[i].y = static_cast<float>(get_rand() % 100);
+        rotations[i].z = static_cast<float>(get_rand() % 100);
+        rotations[i].w = static_cast<float>(get_rand() % 100);
+        static_cast<maths::QuatRotation*>(unknown_13c_ptr_)->make_unit(1.0f); // (the first, each time: the original's)
     }
-    m_colourMid = -1.0f;
-    m_flagBits |= 4u;
+    colour_mid_ = -1.0f;
+    flag_bits_ |= 4u;
     return this;
 }
 
 // 0x0049A4C0
-void CModelParticles::Render()
+void ModelParticles::render()
 {
-    auto model = [this](unsigned int i) { return static_cast<CRenderModel*>(m_modelList[i]); };
-    int count = m_unknown8C;
+    auto model = [this](unsigned int i) { return static_cast<RenderModel*>(model_list_[i]); };
+    int count = unknown8c_;
     if (count == 0) {
-        for (unsigned int i = 0; i < m_drawnModels; ++i)
-            model(i)->ChangeLive(0);
+        for (unsigned int i = 0; i < drawn_models_; ++i)
+            model(i)->change_live(0);
         return;
     }
     // (from the last particle's model: it's shown again below)
-    for (unsigned int i = static_cast<unsigned int>(count - 1); i < m_drawnModels; ++i)
-        model(i)->ChangeLive(0);
-    auto* rotations = static_cast<Maths::QuatRotation*>(m_unknown13CPtr);
+    for (unsigned int i = static_cast<unsigned int>(count - 1); i < drawn_models_; ++i)
+        model(i)->change_live(0);
+    auto* rotations = static_cast<maths::QuatRotation*>(unknown_13c_ptr_);
     for (int p = 0; p < count; ++p) {
-        sFlexibleParticle& particle = m_particleList[p];
-        model(static_cast<unsigned int>(p))->ChangeLive(1);
+        FlexibleParticle& particle = particle_list_[p];
+        model(static_cast<unsigned int>(p))->change_live(1);
         float life = particle.age / particle.lifetime;
         const uint8_t* from;
         const uint8_t* to;
-        if (!(m_colourMid >= 0.0f)) { // (no mid colour; NaN too)
-            from = m_startColour;
-            to = m_endColour;
-        } else if (life < m_colourMid) {
-            life = static_cast<float>(static_cast<double>(life) / m_colourMid);
-            from = m_startColour;
-            to = m_midColour;
+        if (!(colour_mid_ >= 0.0f)) { // (no mid colour; NaN too)
+            from = start_colour_;
+            to = end_colour_;
+        } else if (life < colour_mid_) {
+            life = static_cast<float>(static_cast<double>(life) / colour_mid_);
+            from = start_colour_;
+            to = mid_colour_;
         } else {
-            life = static_cast<float>((static_cast<double>(life) - m_colourMid) /
-                                      (1.0 - static_cast<double>(m_colourMid)));
-            from = m_midColour;
-            to = m_endColour;
+            life = static_cast<float>((static_cast<double>(life) - colour_mid_) /
+                                      (1.0 - static_cast<double>(colour_mid_)));
+            from = mid_colour_;
+            to = end_colour_;
         }
-        uint32_t fromColour, toColour, colour;
-        std::memcpy(&fromColour, from, 4);
-        std::memcpy(&toColour, to, 4);
-        colour = *LerpColour(&colour, reinterpret_cast<const uint8_t*>(&fromColour),
-                             reinterpret_cast<const uint8_t*>(&toColour), life);
+        uint32_t from_colour, to_colour, colour;
+        std::memcpy(&from_colour, from, 4);
+        std::memcpy(&to_colour, to, 4);
+        colour = *lerp_colour(&colour, reinterpret_cast<const uint8_t*>(&from_colour),
+                             reinterpret_cast<const uint8_t*>(&to_colour), life);
         model(static_cast<unsigned int>(p))
-            ->ChangeTint(static_cast<uint8_t>(colour), static_cast<uint8_t>(colour >> 8),
+            ->change_tint(static_cast<uint8_t>(colour), static_cast<uint8_t>(colour >> 8),
                        static_cast<uint8_t>(colour >> 16), static_cast<uint8_t>(colour >> 24));
         // the rotation moved by the velocity (w by its x too), then normalised
-        Maths::QuatRotation& q = rotations[p];
+        maths::QuatRotation& q = rotations[p];
         q.x = static_cast<float>(static_cast<double>(particle.velocity[0]) + q.x);
         q.y = static_cast<float>(static_cast<double>(particle.velocity[1]) + q.y);
         q.z = static_cast<float>(static_cast<double>(particle.velocity[2]) + q.z);
@@ -167,18 +167,18 @@ void CModelParticles::Render()
             q.z = static_cast<float>(inverse * q.z);
             q.w = static_cast<float>(inverse * q.w);
         }
-        Maths::Mat4 matrix;
+        maths::Mat4 matrix;
         for (int r = 0; r < 4; ++r)
             for (int c = 0; c < 4; ++c)
                 matrix.row[r][c] = r == c ? 1.0f : 0.0f;
-        q.FetchMat(&matrix);
-        const float* position = m_positionArray + p * 3;
+        q.fetch_mat(&matrix);
+        const float* position = position_array_ + p * 3;
         matrix.row[3] = {position[0], position[1], position[2], 1.0f};
         double shrink = static_cast<double>(p % 4) * kSizeStep;
-        double size = static_cast<double>(particle.startSize[0]) - shrink;
+        double size = static_cast<double>(particle.start_size_[0]) - shrink;
         for (int k = 0; k < 3; ++k)
             matrix.row[k][k] = static_cast<float>(size * matrix.row[k][k]);
-        model(static_cast<unsigned int>(p))->Render(&matrix, true, nullptr);
+        model(static_cast<unsigned int>(p))->render(&matrix, true, nullptr);
     }
 }
 

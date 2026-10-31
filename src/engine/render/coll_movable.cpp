@@ -15,20 +15,20 @@
 #include "engine/render/coll_obj.h"
 #include "engine/render/probe_ray.h"
 
-namespace Engine3D {
+namespace render {
 
 namespace {
 
-static VtableSlot kMovableVtable_slots[] = {&Engine3D::CHitMovingMesh::ScalarDelete, Stubs::ReturnFalse,
-        &_purecall, &_purecall, &Engine3D::CHitMesh::AssignShapeData, &Engine3D::CProbeRay::ChangeFinish,
-        &Engine3D::CHitMovingMesh::ChangeFacing, &Engine3D::CHitMovingMesh::GetAbsolutePoint, &Engine3D::CHitMovingMesh::FetchFacing,
-        &Engine3D::CHitMovingMesh::ReadVertexPoint, &Engine3D::CHitMovingMesh::GetValueA0, &Engine3D::CHitMovingMesh::SetValueA0,
+static VtableSlot g_movable_vtable_slots[] = {&render::HitMovingMesh::scalar_delete, stubs::return_false,
+        &_purecall, &_purecall, &render::HitMesh::assign_shape_data, &render::ProbeRay::change_finish,
+        &render::HitMovingMesh::change_facing, &render::HitMovingMesh::get_absolute_point, &render::HitMovingMesh::fetch_facing,
+        &render::HitMovingMesh::read_vertex_point, &render::HitMovingMesh::get_value_a0, &render::HitMovingMesh::set_value_a0,
         &_purecall, &_purecall, &_purecall,
         &_purecall, &_purecall, &_purecall,
-        &_purecall, &_purecall, Stubs::ReturnZero};
-void** const kMovableVtable = reinterpret_cast<void**>(kMovableVtable_slots);
+        &_purecall, &_purecall, stubs::return_zero};
+void** const kMovableVtable = reinterpret_cast<void**>(g_movable_vtable_slots);
 
-void SetIdentity(Maths::Mat4& m)
+void set_identity(maths::Mat4& m)
 {
     m.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     m.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
@@ -37,136 +37,136 @@ void SetIdentity(Maths::Mat4& m)
 }
 
 // 0x0048D090: a box drawn with a transform (debug rendering; not rewritten yet).
-void DrawBox(const Maths::BBox* box, const Maths::Mat4* transform, uint32_t colour, int flag)
+void draw_box(const maths::BBox* box, const maths::Mat4* transform, uint32_t colour, int flag)
 {
     (void)box;
-    Stubs::IgnoreArguments3(reinterpret_cast<int>(transform), static_cast<int>(colour), flag);
+    stubs::ignore_arguments3(reinterpret_cast<int>(transform), static_cast<int>(colour), flag);
 }
 
 } // namespace
 
-static VtableSlot kScaledVtable_slots[] = {&Engine3D::CCollScaled::ScalarDelete, Stubs::ReturnFalse,
-        &_purecall, &_purecall, &Engine3D::CHitMesh::AssignShapeData,
-        &Engine3D::CCollScaled::PlaceAtAbsolutePoint, &Engine3D::CCollScaled::ChangeFacing, &Engine3D::CCollScaled::GetAbsolutePoint,
-        &Engine3D::CHitMovingMesh::FetchFacing, &Engine3D::CCollScaled::ReadVertexPoint, Stubs::ReturnZero, Stubs::IgnoreArgument,
+static VtableSlot g_scaled_vtable_slots[] = {&render::CollScaled::scalar_delete, stubs::return_false,
+        &_purecall, &_purecall, &render::HitMesh::assign_shape_data,
+        &render::CollScaled::place_at_absolute_point, &render::CollScaled::change_facing, &render::CollScaled::get_absolute_point,
+        &render::HitMovingMesh::fetch_facing, &render::CollScaled::read_vertex_point, stubs::return_zero, stubs::ignore_argument,
         &_purecall, &_purecall, &_purecall,
         &_purecall, &_purecall, &_purecall,
-        &_purecall, &_purecall, Stubs::ReturnZero, &_purecall,
-        &_purecall, &_purecall, &Engine3D::CCollScaled::ChangeScale,
-        &Engine3D::CHitMovingMesh::GetAbsolutePoint};
-void** const kScaledVtable = reinterpret_cast<void**>(kScaledVtable_slots);
+        &_purecall, &_purecall, stubs::return_zero, &_purecall,
+        &_purecall, &_purecall, &render::CollScaled::change_scale,
+        &render::HitMovingMesh::get_absolute_point};
+void** const kScaledVtable = reinterpret_cast<void**>(g_scaled_vtable_slots);
 
 // 0x00411FA0
-CHitMovingMesh* CHitMovingMesh::MakeNew()
+HitMovingMesh* HitMovingMesh::make_new()
 {
-    m_vtable = kMovableVtable;
-    m_flagBits = 0;
-    m_geometry = nullptr;
-    m_anchorPoint = {0.0f, 0.0f, 0.0f, 1.0f};
-    m_valueA0 = 0;
-    SetIdentity(m_orientation);
-    SetIdentity(m_inverse);
+    vtable_ = kMovableVtable;
+    flag_bits_ = 0;
+    geometry_ = nullptr;
+    anchor_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    value_a0_ = 0;
+    set_identity(orientation_);
+    set_identity(inverse_);
     return this;
 }
 
 // 0x00412660
-CHitMovingMesh* CHitMovingMesh::ConstructCopy(const CHitMovingMesh* other)
+HitMovingMesh* HitMovingMesh::construct_copy(const HitMovingMesh* other)
 {
-    m_vtable = kCollObjVtable;
-    m_checksum = other->m_checksum;
-    m_flagBits = other->m_flagBits;
-    m_visitStamp = other->m_visitStamp;
-    m_geometry = other->m_geometry;
-    m_vtable = kMovableVtable;
-    m_anchorPoint = other->m_anchorPoint;
-    m_orientation = other->m_orientation;
-    m_inverse = other->m_inverse;
-    m_valueA0 = other->m_valueA0;
+    vtable_ = kCollObjVtable;
+    checksum_ = other->checksum_;
+    flag_bits_ = other->flag_bits_;
+    visit_stamp_ = other->visit_stamp_;
+    geometry_ = other->geometry_;
+    vtable_ = kMovableVtable;
+    anchor_point_ = other->anchor_point_;
+    orientation_ = other->orientation_;
+    inverse_ = other->inverse_;
+    value_a0_ = other->value_a0_;
     return this;
 }
 
 // 0x004121A0
-void CHitMovingMesh::Destruct()
+void HitMovingMesh::destruct()
 {
-    m_vtable = kMovableVtable;
-    RemoveMovableFromCaches(this);
-    DestroyBase();
+    vtable_ = kMovableVtable;
+    remove_movable_from_caches(this);
+    destroy_base();
 }
 
 // 0x004135B0
-CHitMovingMesh* CHitMovingMesh::ScalarDelete(uint8_t flags)
+HitMovingMesh* HitMovingMesh::scalar_delete(uint8_t flags)
 {
-    Destruct();
+    destruct();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00412070
-void CHitMovingMesh::ChangeFacing(const Maths::Mat4* orientation)
+void HitMovingMesh::change_facing(const maths::Mat4* orientation)
 {
-    m_orientation.row[0] = orientation->row[0];
-    m_orientation.row[1] = orientation->row[1];
-    m_orientation.row[2] = orientation->row[2];
-    static_cast<MatrixTranspose*>(&m_inverse)->TransposeFrom(&m_orientation);
+    orientation_.row[0] = orientation->row[0];
+    orientation_.row[1] = orientation->row[1];
+    orientation_.row[2] = orientation->row[2];
+    static_cast<MatrixTranspose*>(&inverse_)->transpose_from(&orientation_);
 }
 
 // 0x00412050
-Maths::Vec4* CHitMovingMesh::GetAbsolutePoint()
+maths::Vec4* HitMovingMesh::get_absolute_point()
 {
-    return &m_anchorPoint;
+    return &anchor_point_;
 }
 
 // 0x00412060
-Maths::Mat4* CHitMovingMesh::FetchFacing()
+maths::Mat4* HitMovingMesh::fetch_facing()
 {
-    return &m_orientation;
+    return &orientation_;
 }
 
 // 0x00412230
-Maths::Vec4 CHitMovingMesh::ReadVertexPoint(int index) const
+maths::Vec4 HitMovingMesh::read_vertex_point(int index) const
 {
-    Maths::Vec4 raw = m_geometry->ReadStoredVertex(index);
+    maths::Vec4 raw = geometry_->read_stored_vertex(index);
     raw.w = 0.0f;
-    Maths::Vec4 turned;
-    m_orientation.RotateVector(turned, raw);
-    return {turned.x + m_anchorPoint.x, turned.y + m_anchorPoint.y, turned.z + m_anchorPoint.z, turned.w + m_anchorPoint.w};
+    maths::Vec4 turned;
+    orientation_.rotate_vector(turned, raw);
+    return {turned.x + anchor_point_.x, turned.y + anchor_point_.y, turned.z + anchor_point_.z, turned.w + anchor_point_.w};
 }
 
 // 0x004122C0
-void CHitMovingMesh::BoxToLocal(const Maths::BBox* box, Maths::BBox* out) const
+void HitMovingMesh::box_to_local(const maths::BBox* box, maths::BBox* out) const
 {
     *out = *box;
-    out->min.x -= m_anchorPoint.x;
-    out->min.y -= m_anchorPoint.y;
-    out->min.z -= m_anchorPoint.z;
-    out->min.w -= m_anchorPoint.w;
-    out->max.x -= m_anchorPoint.x;
-    out->max.y -= m_anchorPoint.y;
-    out->max.z -= m_anchorPoint.z;
-    out->max.w -= m_anchorPoint.w;
-    Maths::Vec4 turned;
-    out->min = m_inverse.RotateVector(turned, out->min);
-    out->max = m_inverse.RotateVector(turned, out->max);
+    out->min.x -= anchor_point_.x;
+    out->min.y -= anchor_point_.y;
+    out->min.z -= anchor_point_.z;
+    out->min.w -= anchor_point_.w;
+    out->max.x -= anchor_point_.x;
+    out->max.y -= anchor_point_.y;
+    out->max.z -= anchor_point_.z;
+    out->max.w -= anchor_point_.w;
+    maths::Vec4 turned;
+    out->min = inverse_.rotate_vector(turned, out->min);
+    out->max = inverse_.rotate_vector(turned, out->max);
 }
 
 // 0x0040AE50
-int CHitMovingMesh::GetValueA0() const
+int HitMovingMesh::get_value_a0() const
 {
-    return m_valueA0;
+    return value_a0_;
 }
 
 // 0x0040AE40
-void CHitMovingMesh::SetValueA0(int value)
+void HitMovingMesh::set_value_a0(int value)
 {
-    m_valueA0 = value;
+    value_a0_ = value;
 }
 
 // 0x004120D0
-Maths::Mat4* MatrixTranspose::TransposeFrom(const Maths::Mat4* source)
+maths::Mat4* MatrixTranspose::transpose_from(const maths::Mat4* source)
 {
     if (source == this) {
-        TransposeInPlace();
+        transpose_in_place();
         return this;
     }
     for (int r = 0; r < 4; ++r) {
@@ -177,7 +177,7 @@ Maths::Mat4* MatrixTranspose::TransposeFrom(const Maths::Mat4* source)
 }
 
 // 0x00412150
-void MatrixTranspose::TransposeInPlace()
+void MatrixTranspose::transpose_in_place()
 {
     for (int r = 0; r < 4; ++r) {
         for (int c = r + 1; c < 4; ++c) {
@@ -189,192 +189,192 @@ void MatrixTranspose::TransposeInPlace()
 }
 
 // 0x00412550
-CHitMovingBox* CHitMovingBox::MakeNew()
+HitMovingBox* HitMovingBox::make_new()
 {
-    CHitMovingMesh::MakeNew();
-    m_vtable = Vt::kVtblMovingBoxColl;
-    new (&m_box) Maths::BBox();
-    m_polyAttrBits = 0;
-    m_surfaceType = 0;
-    m_box.min = {-50.0f, -20.0f, -90.0f, 1.0f};
-    m_box.max = {30.0f, 36.0f, 90.0f, 1.0f};
+    HitMovingMesh::make_new();
+    vtable_ = vt::kVtblMovingBoxColl;
+    new (&box_) maths::BBox();
+    poly_attr_bits_ = 0;
+    surface_type_ = 0;
+    box_.min = {-50.0f, -20.0f, -90.0f, 1.0f};
+    box_.max = {30.0f, 36.0f, 90.0f, 1.0f};
     return this;
 }
 
 // 0x00413700
-CHitMovingBox* CHitMovingBox::ConstructCopy(const CHitMovingBox* other)
+HitMovingBox* HitMovingBox::construct_copy(const HitMovingBox* other)
 {
-    CHitMovingMesh::ConstructCopy(other);
-    m_vtable = Vt::kVtblMovingBoxColl;
-    m_box = other->m_box;
-    m_polyAttrBits = other->m_polyAttrBits;
-    m_surfaceType = other->m_surfaceType;
+    HitMovingMesh::construct_copy(other);
+    vtable_ = vt::kVtblMovingBoxColl;
+    box_ = other->box_;
+    poly_attr_bits_ = other->poly_attr_bits_;
+    surface_type_ = other->surface_type_;
     for (int i = 0; i < 4; ++i)
-        m_unknownCA[i] = other->m_unknownCA[i];
+        unknownca_[i] = other->unknownca_[i];
     return this;
 }
 
 // 0x004125F0
-void CHitMovingBox::Destruct()
+void HitMovingBox::destruct()
 {
-    m_vtable = Vt::kVtblMovingBoxColl;
-    CHitMovingMesh::Destruct();
+    vtable_ = vt::kVtblMovingBoxColl;
+    HitMovingMesh::destruct();
 }
 
 // 0x004136D0
-CHitMovingBox* CHitMovingBox::ScalarDelete(uint8_t flags)
+HitMovingBox* HitMovingBox::scalar_delete(uint8_t flags)
 {
-    Destruct();
+    destruct();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00412600
-void CHitMovingBox::AssignShapeData(CTriMeshSource* geometry)
+void HitMovingBox::assign_shape_data(TriMeshSource* geometry)
 {
-    m_geometry = geometry;
+    geometry_ = geometry;
     if (geometry)
-        m_checksum = geometry->m_checksum;
-    m_box.min = geometry->m_lowerLimit;
-    m_box.max = geometry->m_upperLimit;
+        checksum_ = geometry->checksum_;
+    box_.min = geometry->lower_limit_;
+    box_.max = geometry->upper_limit_;
 }
 
 // 0x0040AE60
-uint32_t CHitMovingBox::GetTriangleAttrs(int /*face*/) const
+uint32_t HitMovingBox::get_triangle_attrs(int /*face*/) const
 {
-    return m_polyAttrBits;
+    return poly_attr_bits_;
 }
 
 // 0x0040AE70
-uint16_t CHitMovingBox::GetFaceTerrain(int /*face*/) const
+uint16_t HitMovingBox::get_face_terrain(int /*face*/) const
 {
-    return m_surfaceType;
+    return surface_type_;
 }
 
 // 0x00414BE0
-CHitMovingBox* CHitMovingBox::Replicate(int)
+HitMovingBox* HitMovingBox::replicate(int)
 {
-    void* memory = MemSys::Alloc(sizeof(CHitMovingBox));
-    CHitMovingBox* copy = memory ? static_cast<CHitMovingBox*>(memory)->ConstructCopy(this) : nullptr;
-    copy->m_flagBits |= 0x8000;
-    copy->m_geometry = nullptr;
+    void* memory = memory::alloc(sizeof(HitMovingBox));
+    HitMovingBox* copy = memory ? static_cast<HitMovingBox*>(memory)->construct_copy(this) : nullptr;
+    copy->flag_bits_ |= 0x8000;
+    copy->geometry_ = nullptr;
     return copy;
 }
 
 // 0x004126E0
-void CHitMovingBox::DrawDiagnostic(int /*a*/, int /*b*/)
+void HitMovingBox::draw_diagnostic(int /*a*/, int /*b*/)
 {
-    Maths::Mat4 transform = m_orientation;
-    transform.row[3] = m_anchorPoint;
-    DrawBox(&m_box, &transform, 0x80808080, 1);
+    maths::Mat4 transform = orientation_;
+    transform.row[3] = anchor_point_;
+    draw_box(&box_, &transform, 0x80808080, 1);
 }
 
 // 0x004123C0
-CCollScaled* CCollScaled::MakeNew()
+CollScaled* CollScaled::make_new()
 {
-    m_vtable = kScaledVtable;
-    m_flagBits = 0;
-    m_geometry = nullptr;
-    m_sizeFactor = {1.0f, 1.0f, 1.0f, 0.0f};
-    SetIdentity(m_basisFrame);
-    SetIdentity(m_inverse);
+    vtable_ = kScaledVtable;
+    flag_bits_ = 0;
+    geometry_ = nullptr;
+    size_factor_ = {1.0f, 1.0f, 1.0f, 0.0f};
+    set_identity(basis_frame_);
+    set_identity(inverse_);
     return this;
 }
 
 // 0x00413F80
-CCollScaled* CCollScaled::ConstructCopy(const CCollScaled* other)
+CollScaled* CollScaled::construct_copy(const CollScaled* other)
 {
-    m_vtable = kCollObjVtable;
-    m_checksum = other->m_checksum;
-    m_flagBits = other->m_flagBits;
-    m_visitStamp = other->m_visitStamp;
-    m_geometry = other->m_geometry;
-    m_vtable = kScaledVtable;
-    m_sizeFactor = other->m_sizeFactor;
-    m_basisFrame = other->m_basisFrame;
-    m_inverse = other->m_inverse;
+    vtable_ = kCollObjVtable;
+    checksum_ = other->checksum_;
+    flag_bits_ = other->flag_bits_;
+    visit_stamp_ = other->visit_stamp_;
+    geometry_ = other->geometry_;
+    vtable_ = kScaledVtable;
+    size_factor_ = other->size_factor_;
+    basis_frame_ = other->basis_frame_;
+    inverse_ = other->inverse_;
     return this;
 }
 
 // 0x00412460 (only the base's body)
-void CCollScaled::Destruct()
+void CollScaled::destruct()
 {
-    DestroyBase();
+    destroy_base();
 }
 
 // 0x004135E0
-CCollScaled* CCollScaled::ScalarDelete(uint8_t flags)
+CollScaled* CollScaled::scalar_delete(uint8_t flags)
 {
-    Destruct();
+    destruct();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00413610
-void CCollScaled::PlaceAtAbsolutePoint(const Maths::Vec4* position)
+void CollScaled::place_at_absolute_point(const maths::Vec4* position)
 {
-    m_basisFrame.row[3] = *position;
-    UpdateInverse();
+    basis_frame_.row[3] = *position;
+    update_inverse();
 }
 
 // 0x00413640
-void CCollScaled::ChangeFacing(const Maths::Mat4* orientation)
+void CollScaled::change_facing(const maths::Mat4* orientation)
 {
-    m_basisFrame.row[0] = orientation->row[0];
-    m_basisFrame.row[1] = orientation->row[1];
-    m_basisFrame.row[2] = orientation->row[2];
-    UpdateInverse();
+    basis_frame_.row[0] = orientation->row[0];
+    basis_frame_.row[1] = orientation->row[1];
+    basis_frame_.row[2] = orientation->row[2];
+    update_inverse();
 }
 
 // 0x004136A0
-void CCollScaled::ChangeScale(const Maths::Vec4* scale)
+void CollScaled::change_scale(const maths::Vec4* scale)
 {
-    m_sizeFactor = *scale;
-    UpdateInverse();
+    size_factor_ = *scale;
+    update_inverse();
 }
 
 // 0x00410A30
-void CCollScaled::LineToLocal(const Maths::Seg* line, Maths::Seg* out) const
+void CollScaled::line_to_local(const maths::Seg* line, maths::Seg* out) const
 {
-    Maths::Vec4 moved;
-    m_inverse.Xform(moved, line->start);
+    maths::Vec4 moved;
+    inverse_.xform(moved, line->start);
     out->start = moved;
-    m_inverse.Xform(moved, line->end);
+    inverse_.xform(moved, line->end);
     out->end = moved;
 }
 
 // 0x00412490 (each 1 / scale kept unrounded for its row's three products)
-void CCollScaled::UpdateInverse()
+void CollScaled::update_inverse()
 {
     for (int r = 0; r < 3; ++r) {
-        double inverse = 1.0 / (&m_sizeFactor.x)[r];
-        (&m_inverse.row[0].x)[r] = static_cast<float>(inverse * m_basisFrame.row[r].x);
-        (&m_inverse.row[1].x)[r] = static_cast<float>(inverse * m_basisFrame.row[r].y);
-        (&m_inverse.row[2].x)[r] = static_cast<float>(inverse * m_basisFrame.row[r].z);
+        double inverse = 1.0 / (&size_factor_.x)[r];
+        (&inverse_.row[0].x)[r] = static_cast<float>(inverse * basis_frame_.row[r].x);
+        (&inverse_.row[1].x)[r] = static_cast<float>(inverse * basis_frame_.row[r].y);
+        (&inverse_.row[2].x)[r] = static_cast<float>(inverse * basis_frame_.row[r].z);
     }
-    Maths::Vec4& back = m_inverse.row[3];
-    back.x = -m_basisFrame.row[3].x;
-    back.y = -m_basisFrame.row[3].y;
-    back.z = -m_basisFrame.row[3].z;
-    Maths::Vec4 turned;
-    back = m_inverse.RotateVector(turned, back);
+    maths::Vec4& back = inverse_.row[3];
+    back.x = -basis_frame_.row[3].x;
+    back.y = -basis_frame_.row[3].y;
+    back.z = -basis_frame_.row[3].z;
+    maths::Vec4 turned;
+    back = inverse_.rotate_vector(turned, back);
 }
 
 // 0x004109C0
-Maths::Vec4* CCollScaled::GetAbsolutePoint()
+maths::Vec4* CollScaled::get_absolute_point()
 {
-    return &m_basisFrame.row[3];
+    return &basis_frame_.row[3];
 }
 
 // 0x004109D0
-Maths::Vec4 CCollScaled::ReadVertexPoint(int index) const
+maths::Vec4 CollScaled::read_vertex_point(int index) const
 {
-    Maths::Vec4 raw = m_geometry->ReadStoredVertex(index);
-    Maths::Vec4 scaled{raw.x * m_sizeFactor.x, raw.y * m_sizeFactor.y, raw.z * m_sizeFactor.z, m_sizeFactor.w};
-    Maths::Vec4 out;
-    m_basisFrame.Xform(out, scaled);
+    maths::Vec4 raw = geometry_->read_stored_vertex(index);
+    maths::Vec4 scaled{raw.x * size_factor_.x, raw.y * size_factor_.y, raw.z * size_factor_.z, size_factor_.w};
+    maths::Vec4 out;
+    basis_frame_.xform(out, scaled);
     return out;
 }
 

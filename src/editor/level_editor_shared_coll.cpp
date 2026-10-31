@@ -22,50 +22,50 @@
 #include "platform/run_log.h"
 #include "engine/core/game_vtables.h"
 
-namespace MenuSystem::LevelEditor::SharedCollision {
+namespace frontend::level_editor::shared_collision {
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
 namespace {
 
-float LenOf(V3 v) { return std::sqrt(Dot(v, v)); }
+float len_of(V3 v) { return std::sqrt(get_dot(v, v)); }
 
-float SegmentDistance(V3 p, V3 a, V3 b)
+float segment_distance(V3 p, V3 a, V3 b)
 {
     V3 ab = b - a;
-    float len2 = Dot(ab, ab);
-    float t = len2 > 0.0f ? std::clamp(Dot(p - a, ab) / len2, 0.0f, 1.0f) : 0.0f;
-    return LenOf(p - (a + ab * t));
+    float len2 = get_dot(ab, ab);
+    float t = len2 > 0.0f ? std::clamp(get_dot(p - a, ab) / len2, 0.0f, 1.0f) : 0.0f;
+    return len_of(p - (a + ab * t));
 }
 
 } // namespace
 
-float PointTriangleDistance(V3 p, V3 a, V3 b, V3 c)
+float point_triangle_distance(V3 p, V3 a, V3 b, V3 c)
 {
     V3 ab = b - a, ac = c - a;
-    V3 n = Perpendicular(ab, ac);
-    float n2 = Dot(n, n);
-    float scale = std::max({Dot(ab, ab), Dot(ac, ac), Dot(c - b, c - b)});
+    V3 n = perpendicular(ab, ac);
+    float n2 = get_dot(n, n);
+    float scale = std::max({get_dot(ab, ab), get_dot(ac, ac), get_dot(c - b, c - b)});
     if (!(n2 > scale * scale * 1e-12f)) // (degenerate: a line or a point)
-        return std::min({SegmentDistance(p, a, b), SegmentDistance(p, b, c), SegmentDistance(p, a, c)});
+        return std::min({segment_distance(p, a, b), segment_distance(p, b, c), segment_distance(p, a, c)});
     // Inside the triangle's prism: the distance to its plane; else to the nearest edge.
     V3 ap = p - a, bp = p - b, cp = p - c;
-    bool inside = Dot(Perpendicular(ab, ap), n) >= 0.0f && Dot(Perpendicular(c - b, bp), n) >= 0.0f && Dot(Perpendicular(a - c, cp), n) >= 0.0f;
+    bool inside = get_dot(perpendicular(ab, ap), n) >= 0.0f && get_dot(perpendicular(c - b, bp), n) >= 0.0f && get_dot(perpendicular(a - c, cp), n) >= 0.0f;
     if (inside)
-        return std::fabs(Dot(ap, n)) / std::sqrt(n2);
-    return std::min({SegmentDistance(p, a, b), SegmentDistance(p, b, c), SegmentDistance(p, c, a)});
+        return std::fabs(get_dot(ap, n)) / std::sqrt(n2);
+    return std::min({segment_distance(p, a, b), segment_distance(p, b, c), segment_distance(p, c, a)});
 }
 
-float StripDistance(V3 p, const uint8_t* positions, uint32_t stride, uint32_t vertexCount, const uint16_t* indices,
-                    uint32_t indexCount, float best)
+float strip_distance(V3 p, const uint8_t* positions, uint32_t stride, uint32_t vertex_count, const uint16_t* indices,
+                    uint32_t index_count, float best)
 {
     auto at = [&](uint16_t i) {
         const float* f = reinterpret_cast<const float*>(positions + static_cast<size_t>(i) * stride);
         return V3{f[0], f[1], f[2]};
     };
-    for (uint32_t i = 2; i < indexCount; ++i) {
+    for (uint32_t i = 2; i < index_count; ++i) {
         uint16_t a = indices[i - 2], b = indices[i - 1], c = indices[i];
-        if (a == b || b == c || a == c || a >= vertexCount || b >= vertexCount || c >= vertexCount)
+        if (a == b || b == c || a == c || a >= vertex_count || b >= vertex_count || c >= vertex_count)
             continue;
         V3 va = at(a), vb = at(b), vc = at(c);
         // (a quick reject: the triangle's box farther than the best so far)
@@ -74,25 +74,25 @@ float StripDistance(V3 p, const uint8_t* positions, uint32_t stride, uint32_t ve
         float dz = std::max({std::min({va.z, vb.z, vc.z}) - p.z, p.z - std::max({va.z, vb.z, vc.z}), 0.0f});
         if (dx * dx + dy * dy + dz * dz >= best * best)
             continue;
-        best = std::min(best, PointTriangleDistance(p, va, vb, vc));
+        best = std::min(best, point_triangle_distance(p, va, vb, vc));
     }
     return best;
 }
 
-bool Belongs(float own, float nearestOther) { return own <= kNear && own < nearestOther; }
+bool belongs(float own, float nearest_other) { return own <= kNear && own < nearest_other; }
 
-FaceCopy ReadFace(const Engine3D::CTriMeshSource* geometry, int face)
+FaceCopy read_face(const render::TriMeshSource* geometry, int face)
 {
     FaceCopy copy{};
-    const uint8_t* data = geometry->m_faces + face * (geometry->m_smallFaces ? 8 : 10);
+    const uint8_t* data = geometry->faces_ + face * (geometry->small_faces_ ? 8 : 10);
     std::memcpy(&copy.flags, data, 2);
     std::memcpy(&copy.terrain, data + 2, 2);
     for (int k = 0; k < 3; ++k) {
-        uint32_t vertex = geometry->FaceVertex(face, k);
-        Maths::Vec4 v;
-        geometry->ReadStoredVertex(static_cast<int>(vertex), &v);
+        uint32_t vertex = geometry->face_vertex(face, k);
+        maths::Vec4 v;
+        geometry->read_stored_vertex(static_cast<int>(vertex), &v);
         copy.v[k] = {v.x, v.y, v.z};
-        copy.bytes[k] = geometry->m_vertexBytes ? geometry->m_vertexBytes[vertex] : 0x80;
+        copy.bytes[k] = geometry->vertex_bytes_ ? geometry->vertex_bytes_[vertex] : 0x80;
     }
     return copy;
 }
@@ -100,123 +100,123 @@ FaceCopy ReadFace(const Engine3D::CTriMeshSource* geometry, int face)
 Companion::Companion(uint32_t checksum, const std::vector<FaceCopy>& faces)
 {
     size_t count = std::min(faces.size(), static_cast<size_t>(kMostFaces));
-    m_faces.resize(count * 10);
+    faces_.resize(count * 10);
     for (size_t f = 0; f < count; ++f) {
         const FaceCopy& face = faces[f];
-        uint8_t* out = &m_faces[f * 10];
+        uint8_t* out = &faces_[f * 10];
         std::memcpy(out, &face.flags, 2);
         std::memcpy(out + 2, &face.terrain, 2);
         for (int k = 0; k < 3; ++k) {
             // (corners shared where exactly equal, with the same byte)
-            size_t index = m_base.size();
-            for (size_t i = 0; i < m_base.size(); ++i) {
-                if (m_base[i].x == face.v[k].x && m_base[i].y == face.v[k].y && m_base[i].z == face.v[k].z &&
-                    m_bytes[i] == face.bytes[k]) {
+            size_t index = base_.size();
+            for (size_t i = 0; i < base_.size(); ++i) {
+                if (base_[i].x == face.v[k].x && base_[i].y == face.v[k].y && base_[i].z == face.v[k].z &&
+                    bytes_[i] == face.bytes[k]) {
                     index = i;
                     break;
                 }
             }
-            if (index == m_base.size()) {
-                m_base.push_back(face.v[k]);
-                m_bytes.push_back(face.bytes[k]);
+            if (index == base_.size()) {
+                base_.push_back(face.v[k]);
+                bytes_.push_back(face.bytes[k]);
             }
             uint16_t index16 = static_cast<uint16_t>(index);
             std::memcpy(out + 4 + 2 * k, &index16, 2);
         }
     }
-    m_vertices.resize(m_base.size() * 3);
-    m_rejection.assign(count ? count : 1, 0);
-    if (m_bytes.empty())
-        m_bytes.push_back(0);
+    vertices_.resize(base_.size() * 3);
+    rejection_.assign(count ? count : 1, 0);
+    if (bytes_.empty())
+        bytes_.push_back(0);
 
-    m_geometry.m_checksum = checksum;
-    m_geometry.m_unknown04 = 0;
-    m_geometry.m_numVertices = static_cast<uint16_t>(m_base.size());
-    m_geometry.m_triCount = static_cast<uint16_t>(count);
-    m_geometry.m_smallFaces = false;
-    m_geometry.m_compressed = false;
-    m_geometry.m_faces = m_faces.empty() ? nullptr : m_faces.data();
-    m_geometry.m_vertices = m_vertices.empty() ? nullptr : m_vertices.data();
-    m_geometry.m_bsp = nullptr;
-    m_geometry.m_vertexBytes = m_bytes.data();
-    m_geometry.m_unknown3C = 0; // (the rejection scale 0.0f: no face rejected by distance)
+    geometry_.checksum_ = checksum;
+    geometry_.unknown04_ = 0;
+    geometry_.num_vertices_ = static_cast<uint16_t>(base_.size());
+    geometry_.tri_count_ = static_cast<uint16_t>(count);
+    geometry_.small_faces_ = false;
+    geometry_.compressed_ = false;
+    geometry_.faces_ = faces_.empty() ? nullptr : faces_.data();
+    geometry_.vertices_ = vertices_.empty() ? nullptr : vertices_.data();
+    geometry_.bsp_ = nullptr;
+    geometry_.vertex_bytes_ = bytes_.data();
+    geometry_.unknown3c_ = 0; // (the rejection scale 0.0f: no face rejected by distance)
 
-    m_entity.MakeNew(); // (the sector collision's vtable, no flags)
-    m_entity.m_checksum = checksum;
-    m_entity.m_visitStamp = 0;
-    m_entity.m_geometry = &m_geometry;
-    m_entity.m_octets = m_rejection.data();
-    m_entity.m_unknown14 = 0;
-    Place({0, {0.0f, 0.0f, 0.0f}});
+    entity_.make_new(); // (the sector collision's vtable, no flags)
+    entity_.checksum_ = checksum;
+    entity_.visit_stamp_ = 0;
+    entity_.geometry_ = &geometry_;
+    entity_.octets_ = rejection_.data();
+    entity_.unknown14_ = 0;
+    get_place({0, {0.0f, 0.0f, 0.0f}});
 }
 
-void Companion::Place(const Placement& placement)
+void Companion::get_place(const Placement& placement)
 {
-    for (size_t i = 0; i < m_base.size(); ++i) {
-        V3 v = Apply(placement, m_base[i]);
-        m_vertices[i * 3] = v.x;
-        m_vertices[i * 3 + 1] = v.y;
-        m_vertices[i * 3 + 2] = v.z;
+    for (size_t i = 0; i < base_.size(); ++i) {
+        V3 v = get_apply(placement, base_[i]);
+        vertices_[i * 3] = v.x;
+        vertices_[i * 3 + 1] = v.y;
+        vertices_[i * 3 + 2] = v.z;
     }
-    UpdateBox();
+    update_box();
 }
 
-void Companion::Rebase()
+void Companion::rebase()
 {
-    for (size_t i = 0; i < m_base.size(); ++i)
-        m_base[i] = Vertex(static_cast<int>(i));
+    for (size_t i = 0; i < base_.size(); ++i)
+        base_[i] = get_vertex(static_cast<int>(i));
 }
 
-V3 Companion::Vertex(int i) const
+V3 Companion::get_vertex(int i) const
 {
-    return {m_vertices[i * 3], m_vertices[i * 3 + 1], m_vertices[i * 3 + 2]};
+    return {vertices_[i * 3], vertices_[i * 3 + 1], vertices_[i * 3 + 2]};
 }
 
-std::vector<FaceCopy> Companion::Faces() const
+std::vector<FaceCopy> Companion::get_faces() const
 {
-    std::vector<FaceCopy> faces(m_geometry.m_triCount);
-    for (int f = 0; f < m_geometry.m_triCount; ++f)
-        faces[f] = ReadFace(&m_geometry, f);
+    std::vector<FaceCopy> faces(geometry_.tri_count_);
+    for (int f = 0; f < geometry_.tri_count_; ++f)
+        faces[f] = read_face(&geometry_, f);
     return faces;
 }
 
-void Companion::ChangeLive(bool active)
+void Companion::change_live(bool active)
 {
-    m_entity.m_flagBits = static_cast<uint16_t>(active ? m_entity.m_flagBits & ~4u : m_entity.m_flagBits | 4u);
+    entity_.flag_bits_ = static_cast<uint16_t>(active ? entity_.flag_bits_ & ~4u : entity_.flag_bits_ | 4u);
 }
 
-bool Companion::LiveNow() const { return !(m_entity.m_flagBits & 4); }
+bool Companion::live_now() const { return !(entity_.flag_bits_ & 4); }
 
-void Companion::ChangeTriFlags(int face, uint16_t flags)
+void Companion::change_tri_flags(int face, uint16_t flags)
 {
-    if (face >= 0 && face < m_geometry.m_triCount)
-        std::memcpy(&m_faces[static_cast<size_t>(face) * 10], &flags, 2);
+    if (face >= 0 && face < geometry_.tri_count_)
+        std::memcpy(&faces_[static_cast<size_t>(face) * 10], &flags, 2);
 }
 
-void Companion::UpdateBox()
+void Companion::update_box()
 {
     // (as the loaded geometries keep it: w = 1 - Translate moves w by the delta's 0)
-    V3 lo = m_base.empty() ? V3{0, 0, 0} : Vertex(0), hi = lo;
-    for (size_t i = 1; i < m_base.size(); ++i) {
-        V3 v = Vertex(static_cast<int>(i));
+    V3 lo = base_.empty() ? V3{0, 0, 0} : get_vertex(0), hi = lo;
+    for (size_t i = 1; i < base_.size(); ++i) {
+        V3 v = get_vertex(static_cast<int>(i));
         lo = {std::min(lo.x, v.x), std::min(lo.y, v.y), std::min(lo.z, v.z)};
         hi = {std::max(hi.x, v.x), std::max(hi.y, v.y), std::max(hi.z, v.z)};
     }
-    m_geometry.m_lowerLimit = {lo.x, lo.y, lo.z, 1.0f};
-    m_geometry.m_upperLimit = {hi.x, hi.y, hi.z, 1.0f};
+    geometry_.lower_limit_ = {lo.x, lo.y, lo.z, 1.0f};
+    geometry_.upper_limit_ = {hi.x, hi.y, hi.z, 1.0f};
 }
 
 // --- the game side ----------------------------------------------------------------------------------------------
 
 namespace {
 
-uint8_t* GeomOf(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x14); }
-Engine3D::CStaticCollider* CollOf(uint8_t* sector) { return *reinterpret_cast<Engine3D::CStaticCollider**>(sector + 0x18); }
-void* GridOf(uint8_t* scene) { return *reinterpret_cast<void**>(scene + 0xD4); }
+uint8_t* geom_of(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x14); }
+render::StaticCollider* coll_of(uint8_t* sector) { return *reinterpret_cast<render::StaticCollider**>(sector + 0x18); }
+void* grid_of(uint8_t* scene) { return *reinterpret_cast<void**>(scene + 0xD4); }
 
 // A face of a collision-only sector turned off for a companion, and its flags before.
 struct Taken {
-    Engine3D::CTriMeshSource* geometry;
+    render::TriMeshSource* geometry;
     int face;
     uint16_t flags;
 };
@@ -228,53 +228,53 @@ struct TableRow {
     void* grid = nullptr;
     std::unique_ptr<Companion> companion; // (null: nothing belongs to it)
     std::vector<Taken> taken;
-    bool inGrid = false;
+    bool in_grid_ = false;
     bool moved = false;
 };
 std::map<uint32_t, TableRow> g_entries;
 uint32_t g_generation; // (faces taken or given back: the collision view's cache made again)
 
-bool IsSwitchedOn()
+bool is_switched_on()
 {
-    static const bool enabled = ConfigInt("editor", "shared_collision", 1) != 0;
-    return enabled;
+    static const bool kEnabled = config_int("editor", "shared_collision", 1) != 0;
+    return kEnabled;
 }
 
 // A piece's triangles as drawn: its meshes' first index buffer as a strip (billboards left out, as picking does).
 template <typename F>
-void ForEachStrip(uint8_t* geom, F fn)
+void for_each_strip(uint8_t* geom, F fn)
 {
-    auto** meshes = *reinterpret_cast<Engine3D::meshRef***>(geom + 0x3C);
+    auto** meshes = *reinterpret_cast<render::MeshRef***>(geom + 0x3C);
     uint32_t count = *reinterpret_cast<uint32_t*>(geom + 0x40);
     for (uint32_t i = 0; meshes && i < count && i < 4096; ++i) {
-        Engine3D::meshRef* mesh = meshes[i];
+        render::MeshRef* mesh = meshes[i];
         if (!mesh || mesh->billboard || (mesh->flags & 0x10))
             continue;
-        Engine3D::sVertexBuffer* vertices = mesh->vertexBufferCount ? mesh->vertexBuffers[0] : nullptr;
-        Engine3D::sIdxStore* indices = mesh->indexBuffers[0];
+        render::VertexBuffer* vertices = mesh->vertex_buffer_count_ ? mesh->vertex_buffers_[0] : nullptr;
+        render::IdxStore* indices = mesh->index_buffers_[0];
         if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
             continue;
-        fn(vertices->data, static_cast<uint32_t>(mesh->stride), static_cast<uint32_t>(mesh->vertexCount),
-           indices->indices, static_cast<uint32_t>(mesh->indexCounts[0]));
+        fn(vertices->data, static_cast<uint32_t>(mesh->stride), static_cast<uint32_t>(mesh->vertex_count_),
+           indices->indices, static_cast<uint32_t>(mesh->index_counts_[0]));
     }
 }
 
-float GeomDistance(uint8_t* geom, V3 p, float best)
+float geom_distance(uint8_t* geom, V3 p, float best)
 {
-    ForEachStrip(geom, [&](const uint8_t* positions, uint32_t stride, uint32_t vertexCount, const uint16_t* indices,
-                           uint32_t indexCount) {
-        best = StripDistance(p, positions, stride, vertexCount, indices, indexCount, best);
+    for_each_strip(geom, [&](const uint8_t* positions, uint32_t stride, uint32_t vertex_count, const uint16_t* indices,
+                           uint32_t index_count) {
+        best = strip_distance(p, positions, stride, vertex_count, indices, index_count, best);
     });
     return best;
 }
 
 // The farthest of a face's corners from a piece, found no farther than `limit` (past it: the limit's next float).
-float FaceDistance(uint8_t* geom, const FaceCopy& face, float limit)
+float face_distance(uint8_t* geom, const FaceCopy& face, float limit)
 {
     float worst = 0.0f;
     float over = std::nextafter(limit, std::numeric_limits<float>::infinity());
     for (const V3& v : face.v) {
-        float d = GeomDistance(geom, v, over);
+        float d = geom_distance(geom, v, over);
         if (d > limit)
             return over;
         worst = std::max(worst, d);
@@ -282,86 +282,86 @@ float FaceDistance(uint8_t* geom, const FaceCopy& face, float limit)
     return worst;
 }
 
-bool Inside(V3 p, V3 min, V3 max)
+bool get_inside(V3 p, V3 min, V3 max)
 {
     return p.x >= min.x && p.x <= max.x && p.y >= min.y && p.y <= max.y && p.z >= min.z && p.z <= max.z;
 }
-bool FaceInside(const FaceCopy& face, V3 min, V3 max)
+bool face_inside(const FaceCopy& face, V3 min, V3 max)
 {
-    return Inside(face.v[0], min, max) && Inside(face.v[1], min, max) && Inside(face.v[2], min, max);
+    return get_inside(face.v[0], min, max) && get_inside(face.v[1], min, max) && get_inside(face.v[2], min, max);
 }
 
 // Where a piece is now, grown by `grow` (false: no box).
-bool Bounds(uint32_t checksum, float grow, V3* min, V3* max)
+bool current_bounds(uint32_t checksum, float grow, V3* min, V3* max)
 {
     OrientedBox box;
-    if (!Scenery::Cuboid(checksum, &box))
+    if (!scenery::cuboid(checksum, &box))
         return false;
-    BoundsOf(box, min, max);
+    bounds_of(box, min, max);
     *min = *min - V3{grow, grow, grow};
     *max = *max + V3{grow, grow, grow};
     return true;
 }
 
 // A collision-only sector that can give faces: no geometry, collision on with geometry.
-Engine3D::CTriMeshSource* CollisionOnly(uint8_t* sector)
+render::TriMeshSource* get_collision_only(uint8_t* sector)
 {
-    if (!sector || GeomOf(sector))
+    if (!sector || geom_of(sector))
         return nullptr;
-    Engine3D::CStaticCollider* coll = CollOf(sector);
-    if (!coll || (coll->m_flagBits & 6) || !coll->m_geometry || !coll->m_geometry->m_faces)
+    render::StaticCollider* coll = coll_of(sector);
+    if (!coll || (coll->flag_bits_ & 6) || !coll->geometry_ || !coll->geometry_->faces_)
         return nullptr;
-    return coll->m_geometry;
+    return coll->geometry_;
 }
 
-const char* NameOf(uint32_t checksum)
+const char* get_name_of(uint32_t checksum)
 {
-    if (const char* name = Scripts::KeptQbName(checksum))
+    if (const char* name = script::kept_qb_name(checksum))
         return name;
-    return Scripts::LookUpHashName(checksum);
+    return script::look_up_hash_name(checksum);
 }
 
 // The collision objects named after a piece (<name>_col and the like) that exist as collision-only sectors.
-std::vector<uint32_t> NamedFor(uint32_t checksum)
+std::vector<uint32_t> named_for(uint32_t checksum)
 {
     static const char* const kSuffixes[] = {"_col", "_ic", "_col01", "_ic01"};
     std::vector<uint32_t> found;
-    const char* name = NameOf(checksum);
+    const char* name = get_name_of(checksum);
     if (!name || !*name)
         return found;
-    uint32_t base = Checksums::HashFromText(name);
+    uint32_t base = checksums::hash_from_text(name);
     if (base != checksum) // (a name that isn't the piece's own)
         return found;
     for (const char* suffix : kSuffixes) {
-        uint32_t named = Checksums::FoldTextIntoChecksum(base, suffix);
-        if (CollisionOnly(Scenery::SectorOf(named)))
+        uint32_t named = checksums::fold_text_into_checksum(base, suffix);
+        if (get_collision_only(scenery::sector_of(named)))
             found.push_back(named);
     }
     return found;
 }
 
 // Every collision object named after some piece of the level (kept per level: its main scene and sector count).
-const std::map<uint32_t, uint32_t>& NamedObjects()
+const std::map<uint32_t, uint32_t>& get_named_objects()
 {
     static std::map<uint32_t, uint32_t> named;
     static uint8_t* scene = nullptr;
     static int sectors = -1;
     int count = 0;
-    Scenery::ForEachLevelSector([](void* context, uint32_t, uint8_t*) { ++*static_cast<int*>(context); }, &count);
-    if (scene == Scenery::MainScene() && sectors == count)
+    scenery::for_each_level_sector([](void* context, uint32_t, uint8_t*) { ++*static_cast<int*>(context); }, &count);
+    if (scene == scenery::main_scene() && sectors == count)
         return named;
-    scene = Scenery::MainScene();
+    scene = scenery::main_scene();
     sectors = count;
     named.clear();
     std::vector<uint32_t> pieces;
-    Scenery::ForEachLevelSector(
+    scenery::for_each_level_sector(
         [](void* context, uint32_t checksum, uint8_t* sector) {
-            if (GeomOf(sector))
+            if (geom_of(sector))
                 static_cast<std::vector<uint32_t>*>(context)->push_back(checksum);
         },
         &pieces);
     for (uint32_t piece : pieces) {
-        for (uint32_t object : NamedFor(piece))
+        for (uint32_t object : named_for(piece))
             named.emplace(object, piece);
     }
     return named;
@@ -374,16 +374,16 @@ struct Other {
 };
 
 // The faces that belong to piece `checksum` (see the header) and, when `taken` is given, where they came from.
-std::vector<FaceCopy> Gather(uint32_t checksum, std::vector<Taken>* taken)
+std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
 {
     std::vector<FaceCopy> faces;
-    uint8_t* sector = Scenery::SectorOf(checksum);
-    uint8_t* geom = sector ? GeomOf(sector) : nullptr;
+    uint8_t* sector = scenery::sector_of(checksum);
+    uint8_t* geom = sector ? geom_of(sector) : nullptr;
     V3 min, max;
-    if (!geom || Scenery::SeeThrough(checksum) || !Bounds(checksum, kNear, &min, &max))
+    if (!geom || scenery::get_see_through(checksum) || !current_bounds(checksum, kNear, &min, &max))
         return faces;
-    const auto& namedObjects = NamedObjects();
-    std::vector<uint32_t> mine = NamedFor(checksum);
+    const auto& named_objects = get_named_objects();
+    std::vector<uint32_t> mine = named_for(checksum);
 
     // The other solid pieces near it (the editor's copies left out: they'd tie with their sources).
     struct CtxInfo {
@@ -392,18 +392,18 @@ std::vector<FaceCopy> Gather(uint32_t checksum, std::vector<Taken>* taken)
         std::vector<Other> others;
         std::vector<std::pair<uint32_t, uint8_t*>> sources;
     } context{checksum, min, max, {}, {}};
-    Scenery::ForEachLevelSector(
+    scenery::for_each_level_sector(
         [](void* raw, uint32_t other, uint8_t* sector) {
             auto* c = static_cast<CtxInfo*>(raw);
-            if (CollisionOnly(sector)) {
+            if (get_collision_only(sector)) {
                 c->sources.push_back({other, sector});
                 return;
             }
-            uint8_t* geom = GeomOf(sector);
-            if (other == c->self || !geom || Scenery::IsClone(other) || Scenery::SeeThrough(other))
+            uint8_t* geom = geom_of(sector);
+            if (other == c->self || !geom || scenery::is_clone(other) || scenery::get_see_through(other))
                 return;
             V3 lo, hi;
-            if (!Bounds(other, kNear, &lo, &hi))
+            if (!current_bounds(other, kNear, &lo, &hi))
                 return;
             if (lo.x > c->max.x || hi.x < c->min.x || lo.y > c->max.y || hi.y < c->min.y || lo.z > c->max.z ||
                 hi.z < c->min.z)
@@ -413,37 +413,37 @@ std::vector<FaceCopy> Gather(uint32_t checksum, std::vector<Taken>* taken)
         &context);
 
     for (const auto& source : context.sources) {
-        Engine3D::CTriMeshSource* geometry = CollisionOnly(source.second);
-        const Maths::Vec4& lo = geometry->m_lowerLimit;
-        const Maths::Vec4& hi = geometry->m_upperLimit;
+        render::TriMeshSource* geometry = get_collision_only(source.second);
+        const maths::Vec4& lo = geometry->lower_limit_;
+        const maths::Vec4& hi = geometry->upper_limit_;
         if (lo.x > max.x || hi.x < min.x || lo.y > max.y || hi.y < min.y || lo.z > max.z || hi.z < min.z)
             continue;
         bool named = std::find(mine.begin(), mine.end(), source.first) != mine.end();
-        if (!named && namedObjects.count(source.first))
+        if (!named && named_objects.count(source.first))
             continue; // (named after another piece: that one's)
-        V3 namedMin = min - V3{100.0f, 100.0f, 100.0f}, namedMax = max + V3{100.0f, 100.0f, 100.0f};
-        for (int f = 0; f < geometry->m_triCount && faces.size() < static_cast<size_t>(kMostFaces); ++f) {
-            FaceCopy face = ReadFace(geometry, f);
-            if (!Takeable(face.flags))
+        V3 named_min = min - V3{100.0f, 100.0f, 100.0f}, named_max = max + V3{100.0f, 100.0f, 100.0f};
+        for (int f = 0; f < geometry->tri_count_ && faces.size() < static_cast<size_t>(kMostFaces); ++f) {
+            FaceCopy face = read_face(geometry, f);
+            if (!takeable(face.flags))
                 continue;
             if (named) {
-                if (!FaceInside(face, namedMin, namedMax))
+                if (!face_inside(face, named_min, named_max))
                     continue;
             } else {
-                if (!FaceInside(face, min, max))
+                if (!face_inside(face, min, max))
                     continue;
-                float own = FaceDistance(geom, face, kNear);
+                float own = face_distance(geom, face, kNear);
                 if (!(own <= kNear))
                     continue;
                 float nearest = std::numeric_limits<float>::infinity();
                 for (const Other& other : context.others) {
-                    if (!FaceInside(face, other.min, other.max))
+                    if (!face_inside(face, other.min, other.max))
                         continue;
-                    nearest = std::min(nearest, FaceDistance(other.geom, face, own));
-                    if (!Belongs(own, nearest))
+                    nearest = std::min(nearest, face_distance(other.geom, face, own));
+                    if (!belongs(own, nearest))
                         break;
                 }
-                if (!Belongs(own, nearest))
+                if (!belongs(own, nearest))
                     continue;
             }
             faces.push_back(face);
@@ -454,21 +454,21 @@ std::vector<FaceCopy> Gather(uint32_t checksum, std::vector<Taken>* taken)
     return faces;
 }
 
-// A list of collision objects for CCollGrid::TickFrame (ListKit::Foremost / ListKit::Elem<CHitMesh>, on the stack: Update only reads
+// A list of collision objects for CollGrid::tick_frame (lists::Foremost / lists::Elem<HitMesh>, on the stack: Update only reads
 // them).
 struct GridList {
-    MemSys::ListNode head;
-    std::vector<MemSys::ListNode> nodes;
+    memory::ListNode head;
+    std::vector<memory::ListNode> nodes;
 
-    explicit GridList(const std::vector<Engine3D::CHitMesh*>& objects) : nodes(objects.size())
+    explicit GridList(const std::vector<render::HitMesh*>& objects) : nodes(objects.size())
     {
-        head.vtable = Vt::kCollGridHead;
+        head.vtable = vt::kCollGridHead;
         head.data = reinterpret_cast<void*>(-1);
         head.priority = 0;
         head.next = head.prev = &head;
         for (size_t i = 0; i < objects.size(); ++i) {
-            MemSys::ListNode& node = nodes[i];
-            node.vtable = Vt::kCollGridNode;
+            memory::ListNode& node = nodes[i];
+            node.vtable = vt::kCollGridNode;
             node.data = objects[i];
             node.priority = 0;
             node.prev = head.prev;
@@ -481,66 +481,66 @@ struct GridList {
 };
 
 // The grid brought up to date for these objects (the top-down heap current, as UpdateSuperSectors has it).
-void TickGrid(void* grid, const std::vector<Engine3D::CHitMesh*>& added, const std::vector<Engine3D::CHitMesh*>& removed,
-                const std::vector<Engine3D::CHitMesh*>& moved)
+void tick_grid(void* grid, const std::vector<render::HitMesh*>& added, const std::vector<render::HitMesh*>& removed,
+                const std::vector<render::HitMesh*>& moved)
 {
     if (!grid || (added.empty() && removed.empty() && moved.empty()))
         return;
-    GridList addedList(added), removedList(removed), movedList(moved);
-    MemSys::EnterHeapScope(MemSys::TopDownHeap());
-    static_cast<Engine3D::CCollGrid*>(grid)->TickFrame(&addedList.head, &removedList.head, &movedList.head);
-    MemSys::LeaveHeapScope();
+    GridList added_list(added), removed_list(removed), moved_list(moved);
+    memory::enter_heap_scope(memory::top_down_heap());
+    static_cast<render::CollGrid*>(grid)->tick_frame(&added_list.head, &removed_list.head, &moved_list.head);
+    memory::leave_heap_scope();
 }
 
-bool Live(const TableRow& entry, uint32_t checksum)
+bool get_live(const TableRow& entry, uint32_t checksum)
 {
-    return Scenery::SceneLive(entry.scene) && GridOf(entry.scene) == entry.grid &&
-           Scenery::SectorOf(checksum) == entry.sector && GeomOf(entry.sector) == entry.geom;
+    return scenery::scene_live(entry.scene) && grid_of(entry.scene) == entry.grid &&
+           scenery::sector_of(checksum) == entry.sector && geom_of(entry.sector) == entry.geom;
 }
 
 // An entry dropped: out of its grid and the originals back on while its piece is still there (a level gone: its grid
 // and geometries are gone with it - nothing touched); out of every collision cache.
-void Drop(std::map<uint32_t, TableRow>::iterator it)
+void get_drop(std::map<uint32_t, TableRow>::iterator it)
 {
     TableRow& entry = it->second;
     if (entry.companion) {
-        if (Live(entry, it->first)) {
-            if (entry.inGrid)
-                TickGrid(entry.grid, {}, {entry.companion->Object()}, {});
+        if (get_live(entry, it->first)) {
+            if (entry.in_grid_)
+                tick_grid(entry.grid, {}, {entry.companion->get_object()}, {});
             for (const Taken& t : entry.taken)
-                *reinterpret_cast<uint16_t*>(t.geometry->m_faces + t.face * (t.geometry->m_smallFaces ? 8 : 10)) = t.flags;
+                *reinterpret_cast<uint16_t*>(t.geometry->faces_ + t.face * (t.geometry->small_faces_ ? 8 : 10)) = t.flags;
         }
-        Engine3D::RemoveFromCaches(entry.companion->Object());
+        render::remove_from_caches(entry.companion->get_object());
         ++g_generation;
     }
     g_entries.erase(it);
 }
 
-TableRow* Find(uint32_t checksum)
+TableRow* get_find(uint32_t checksum)
 {
     auto it = g_entries.find(checksum);
     if (it == g_entries.end())
         return nullptr;
-    if (!Live(it->second, checksum)) {
-        Drop(it);
+    if (!get_live(it->second, checksum)) {
+        get_drop(it);
         return nullptr;
     }
     return &it->second;
 }
 
-void AppendOne(uint32_t checksum, uint8_t* scene, uint8_t* sector, uint8_t* geom, std::vector<FaceCopy> faces,
+void append_one(uint32_t checksum, uint8_t* scene, uint8_t* sector, uint8_t* geom, std::vector<FaceCopy> faces,
          std::vector<Taken> taken)
 {
     TableRow& entry = g_entries[checksum];
     entry.scene = scene;
     entry.sector = sector;
     entry.geom = geom;
-    entry.grid = GridOf(scene);
+    entry.grid = grid_of(scene);
     if (!faces.empty()) {
         entry.companion = std::make_unique<Companion>(checksum, faces);
-        entry.companion->Object()->m_geometry->SetUpAllFaces(); // (the shared no-tree face list, 0x0067C6B8)
+        entry.companion->get_object()->geometry_->set_up_all_faces(); // (the shared no-tree face list, 0x0067C6B8)
         for (const Taken& t : taken)
-            *reinterpret_cast<uint16_t*>(t.geometry->m_faces + t.face * (t.geometry->m_smallFaces ? 8 : 10)) =
+            *reinterpret_cast<uint16_t*>(t.geometry->faces_ + t.face * (t.geometry->small_faces_ ? 8 : 10)) =
                 static_cast<uint16_t>(t.flags | 0x10);
         entry.taken = std::move(taken);
         ++g_generation;
@@ -549,94 +549,94 @@ void AppendOne(uint32_t checksum, uint8_t* scene, uint8_t* sector, uint8_t* geom
 
 } // namespace
 
-void Ensure(uint32_t checksum, uint8_t* scene, uint8_t* sector, uint8_t* geom)
+void ensure(uint32_t checksum, uint8_t* scene, uint8_t* sector, uint8_t* geom)
 {
-    if (!IsSwitchedOn() || Find(checksum))
+    if (!is_switched_on() || get_find(checksum))
         return;
     std::vector<Taken> taken;
-    std::vector<FaceCopy> faces = Gather(checksum, &taken);
-    if (DebugEnabled() || !faces.empty())
-        Log("level editor: shared collision of %08X: %u face%s taken along", checksum, static_cast<unsigned>(faces.size()),
+    std::vector<FaceCopy> faces = gather(checksum, &taken);
+    if (debug_enabled() || !faces.empty())
+        get_log("level editor: shared collision of %08X: %u face%s taken along", checksum, static_cast<unsigned>(faces.size()),
             faces.size() == 1 ? "" : "s");
-    AppendOne(checksum, scene, sector, geom, std::move(faces), std::move(taken));
+    append_one(checksum, scene, sector, geom, std::move(faces), std::move(taken));
 }
 
-void Place(uint32_t checksum, const Placement& placement)
+void get_place(uint32_t checksum, const Placement& placement)
 {
-    TableRow* entry = Find(checksum);
+    TableRow* entry = get_find(checksum);
     if (!entry || !entry->companion)
         return;
-    entry->companion->Place(placement);
+    entry->companion->get_place(placement);
     entry->moved = true;
 }
 
-void Rebase(uint32_t checksum)
+void rebase(uint32_t checksum)
 {
-    TableRow* entry = Find(checksum);
+    TableRow* entry = get_find(checksum);
     if (entry && entry->companion)
-        entry->companion->Rebase();
+        entry->companion->rebase();
 }
 
-void ChangeLive(uint32_t checksum, bool active)
+void change_live(uint32_t checksum, bool active)
 {
-    TableRow* entry = Find(checksum);
+    TableRow* entry = get_find(checksum);
     if (entry && entry->companion)
-        entry->companion->ChangeLive(active);
+        entry->companion->change_live(active);
 }
 
-std::shared_ptr<std::vector<FaceCopy>> PrepareCopy(uint32_t source)
+std::shared_ptr<std::vector<FaceCopy>> prepare_copy(uint32_t source)
 {
-    if (!IsSwitchedOn())
+    if (!is_switched_on())
         return nullptr;
-    if (TableRow* entry = Find(source))
-        return entry->companion ? std::make_shared<std::vector<FaceCopy>>(entry->companion->Faces()) : nullptr;
-    auto faces = std::make_shared<std::vector<FaceCopy>>(Gather(source, nullptr));
+    if (TableRow* entry = get_find(source))
+        return entry->companion ? std::make_shared<std::vector<FaceCopy>>(entry->companion->get_faces()) : nullptr;
+    auto faces = std::make_shared<std::vector<FaceCopy>>(gather(source, nullptr));
     return faces->empty() ? nullptr : faces;
 }
 
-void FinishCopy(const std::shared_ptr<std::vector<FaceCopy>>& faces, uint32_t copy, uint8_t* scene, uint8_t* sector,
+void finish_copy(const std::shared_ptr<std::vector<FaceCopy>>& faces, uint32_t copy, uint8_t* scene, uint8_t* sector,
                 uint8_t* geom)
 {
     if (!faces || faces->empty() || !scene || !sector || !geom)
         return;
     auto it = g_entries.find(copy);
     if (it != g_entries.end())
-        Drop(it);
-    AppendOne(copy, scene, sector, geom, *faces, {});
-    if (DebugEnabled())
-        Log("level editor: shared collision of copy %08X: %u faces", copy, static_cast<unsigned>(faces->size()));
+        get_drop(it);
+    append_one(copy, scene, sector, geom, *faces, {});
+    if (debug_enabled())
+        get_log("level editor: shared collision of copy %08X: %u faces", copy, static_cast<unsigned>(faces->size()));
 }
 
-void Finalise(uint8_t* scene)
+void finalise(uint8_t* scene)
 {
-    std::vector<Engine3D::CHitMesh*> added, moved;
+    std::vector<render::HitMesh*> added, moved;
     void* grid = nullptr;
     for (auto it = g_entries.begin(); it != g_entries.end();) {
         auto next = std::next(it);
-        if (!Live(it->second, it->first)) {
-            Drop(it);
+        if (!get_live(it->second, it->first)) {
+            get_drop(it);
         } else if (it->second.scene == scene && it->second.companion) {
             TableRow& entry = it->second;
             grid = entry.grid;
-            if (!entry.inGrid)
-                added.push_back(entry.companion->Object());
+            if (!entry.in_grid_)
+                added.push_back(entry.companion->get_object());
             else if (entry.moved)
-                moved.push_back(entry.companion->Object());
-            entry.inGrid = true;
+                moved.push_back(entry.companion->get_object());
+            entry.in_grid_ = true;
             entry.moved = false;
         }
         it = next;
     }
-    TickGrid(grid, added, {}, moved);
+    tick_grid(grid, added, {}, moved);
 }
 
-int TotalOf(int* faces)
+int total_of(int* faces)
 {
     int pieces = 0, total = 0;
     for (const auto& entry : g_entries) {
         if (entry.second.companion) {
             ++pieces;
-            total += entry.second.companion->FaceCount();
+            total += entry.second.companion->face_count();
         }
     }
     if (faces)
@@ -644,19 +644,19 @@ int TotalOf(int* faces)
     return pieces;
 }
 
-void ForEachCompanion(void (*each)(void* context, uint32_t checksum, const Companion& companion), void* context)
+void for_each_companion(void (*each)(void* context, uint32_t checksum, const Companion& companion), void* context)
 {
     for (auto it = g_entries.begin(); it != g_entries.end();) {
         auto next = std::next(it);
-        if (!Live(it->second, it->first))
-            Drop(it); // (its level gone: forgotten, nothing touched)
-        else if (it->second.companion && it->second.companion->LiveNow())
+        if (!get_live(it->second, it->first))
+            get_drop(it); // (its level gone: forgotten, nothing touched)
+        else if (it->second.companion && it->second.companion->live_now())
             each(context, it->first, *it->second.companion);
         it = next;
     }
 }
 
-std::vector<int> TakenFaces(const Engine3D::CTriMeshSource* geometry)
+std::vector<int> taken_faces(const render::TriMeshSource* geometry)
 {
     std::vector<int> faces;
     for (const auto& entry : g_entries) {
@@ -668,9 +668,9 @@ std::vector<int> TakenFaces(const Engine3D::CTriMeshSource* geometry)
     return faces;
 }
 
-uint32_t Generation() { return g_generation; }
+uint32_t get_generation() { return g_generation; }
 
-bool TakenFace(const Engine3D::CTriMeshSource* geometry, int face, uint32_t* piece, int* index, uint16_t* flags)
+bool taken_face(const render::TriMeshSource* geometry, int face, uint32_t* piece, int* index, uint16_t* flags)
 {
     for (const auto& entry : g_entries) {
         const std::vector<Taken>& taken = entry.second.taken;
@@ -689,9 +689,9 @@ bool TakenFace(const Engine3D::CTriMeshSource* geometry, int face, uint32_t* pie
     return false;
 }
 
-bool OriginOf(uint32_t piece, int index, Engine3D::CTriMeshSource** geometry, int* face)
+bool origin_of(uint32_t piece, int index, render::TriMeshSource** geometry, int* face)
 {
-    TableRow* entry = Find(piece);
+    TableRow* entry = get_find(piece);
     // (the companion's faces are the taken ones, in order - Gather / Add; a copy's took none)
     if (!entry || !entry->companion || index < 0 || index >= static_cast<int>(entry->taken.size()))
         return false;
@@ -700,13 +700,13 @@ bool OriginOf(uint32_t piece, int index, Engine3D::CTriMeshSource** geometry, in
     return true;
 }
 
-const Companion* CompanionOf(uint32_t piece)
+const Companion* companion_of(uint32_t piece)
 {
-    TableRow* entry = Find(piece);
+    TableRow* entry = get_find(piece);
     return entry ? entry->companion.get() : nullptr;
 }
 
-bool SetTakenFlags(const Engine3D::CTriMeshSource* geometry, int face, uint16_t flags)
+bool set_taken_flags(const render::TriMeshSource* geometry, int face, uint16_t flags)
 {
     for (auto& entry : g_entries) {
         std::vector<Taken>& taken = entry.second.taken;
@@ -715,9 +715,9 @@ bool SetTakenFlags(const Engine3D::CTriMeshSource* geometry, int face, uint16_t 
                 continue;
             taken[i].flags = flags;
             if (entry.second.companion)
-                entry.second.companion->ChangeTriFlags(static_cast<int>(i), flags);
-            *reinterpret_cast<uint16_t*>(taken[i].geometry->m_faces +
-                                         taken[i].face * (taken[i].geometry->m_smallFaces ? 8 : 10)) =
+                entry.second.companion->change_tri_flags(static_cast<int>(i), flags);
+            *reinterpret_cast<uint16_t*>(taken[i].geometry->faces_ +
+                                         taken[i].face * (taken[i].geometry->small_faces_ ? 8 : 10)) =
                 static_cast<uint16_t>(flags | 0x10);
             ++g_generation;
             return true;
@@ -726,4 +726,4 @@ bool SetTakenFlags(const Engine3D::CTriMeshSource* geometry, int face, uint16_t 
     return false;
 }
 
-} // namespace MenuSystem::LevelEditor::SharedCollision
+} // namespace MenuSystem::level_editor::SharedCollision

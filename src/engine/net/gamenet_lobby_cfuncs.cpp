@@ -33,13 +33,13 @@
 #include "engine/net/stats_man.h"
 #include "platform/crt.h"
 
-namespace OnlinePlay {
+namespace online {
 
-using namespace Detail;
+using namespace detail;
 
-int g_queuedCount;
+int g_queued_count;
 
-QueuedPacket g_queuedPackets[200];
+QueuedPacket g_queued_packets[200];
 
 namespace {
 
@@ -55,123 +55,123 @@ constexpr int kClientNatIndex = 1;
 constexpr int kHostProfiles[] = {0x01A7665B, 0x01A76689, 0x01A766AB, 0x01A76701, 0x01A766CC,
                                  0x01A7672E, 0x01A7675B, 0x01A76773, 0x01A76794, 0x01A767B1};
 
-Hub* NetSessionSlot() { return g_onlineHub; }
-RoomManager* Lobby() { return static_cast<RoomManager*>(NetSessionSlot()->m_lobbyService); }
-Scheduling::PileUp* LogicTasks()
+Hub* net_session_slot() { return g_online_hub; }
+RoomManager* current_lobby() { return static_cast<RoomManager*>(net_session_slot()->lobby_service_); }
+tasks::PileUp* get_logic_tasks()
 {
-    return reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(AssetStore::g_mainLoopManager)) + 4);
+    return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(assets::g_main_loop_manager)) + 4);
 }
-void PushInternetHeap()
+void push_internet_heap()
 {
-    MemSys::Hub* memory = MemSys::Hub::Pull();
-    memory->EnterHeapScope(memory->m_internetTopDownHeap);
+    memory::Hub* memory = memory::Hub::get_pull();
+    memory->enter_heap_scope(memory->internet_top_down_heap_);
 }
-void PopHeap() { MemSys::Hub::Pull()->LeaveHeapScope(); }
-void NatCancel(int cookie) { GameSpy::NatCancel(cookie); }
-void NatThink() { GameSpy::NatThink(); }
-void NatFreeNegotiations() { GameSpy::NatFreeNegotiations(); }
-QueuedPacket* Queue() { return g_queuedPackets; }
-int& QueuedCount() { return g_queuedCount; }
+void pop_heap() { memory::Hub::get_pull()->leave_heap_scope(); }
+void nat_cancel(int cookie) { game_spy::nat_cancel(cookie); }
+void nat_think() { game_spy::nat_think(); }
+void nat_free_negotiations() { game_spy::nat_free_negotiations(); }
+QueuedPacket* get_queue() { return g_queued_packets; }
+int& queued_count() { return g_queued_count; }
 
 } // namespace
 
 // 0x00540430
-bool __cdecl CFunc_StartNatNegotiation(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_start_nat_negotiation(script::Struct* params, script::Script*)
 {
-    Scheduling::PileUp* tasks = LogicTasks();
-    Hub* manager = NetSessionSlot();
+    tasks::PileUp* tasks = get_logic_tasks();
+    Hub* manager = net_session_slot();
     const char* address = nullptr;
     int port = 0;
-    PushInternetHeap();
-    auto* lobby = static_cast<RoomManager*>(manager->m_lobbyService);
-    params->FetchText(0u, &address, 0);
-    params->FetchIntValue(0u, &port, 0);
-    params->ReadHashValue(kCookie, reinterpret_cast<uint32_t*>(&lobby->m_natCookie), 0);
-    NetLink::AppHost* client = manager->StartClientSession(false, false, true, 0);
-    GameSpy::PeerSendNatNegotiateCookie(lobby->m_remote, static_cast<uint32_t>(inet_addr(address)), port, lobby->m_natCookie); // the cookie to the host
-    int error = GameSpy::NatBeginWithSocket(client->Socket(), lobby->m_natCookie, kClientNatIndex,
-                                            CodeAddress(Stubs::DoNothing) /* no progress callback */,
-                                            &RoomManager::NatNegotiationCompleted,
-                                            reinterpret_cast<void*>(static_cast<intptr_t>(lobby->m_natCookie))); // negotiation on the client's socket
+    push_internet_heap();
+    auto* lobby = static_cast<RoomManager*>(manager->lobby_service_);
+    params->fetch_text(0u, &address, 0);
+    params->fetch_int_value(0u, &port, 0);
+    params->read_hash_value(kCookie, reinterpret_cast<uint32_t*>(&lobby->nat_cookie_), 0);
+    net::AppHost* client = manager->start_client_session(false, false, true, 0);
+    game_spy::peer_send_nat_negotiate_cookie(lobby->remote_, static_cast<uint32_t>(inet_addr(address)), port, lobby->nat_cookie_); // the cookie to the host
+    int error = game_spy::nat_begin_with_socket(client->get_socket(), lobby->nat_cookie_, kClientNatIndex,
+                                            code_address(stubs::do_nothing) /* no progress callback */,
+                                            &RoomManager::nat_negotiation_completed,
+                                            reinterpret_cast<void*>(static_cast<intptr_t>(lobby->nat_cookie_))); // negotiation on the client's socket
     if (error) {
-        NatFreeNegotiations();
-        PopHeap();
+        nat_free_negotiations();
+        pop_heap();
         return false;
     }
-    tasks->QueueJob(lobby->m_natTask);
-    client->SetOutsidePacketHook(reinterpret_cast<NetLink::UnknownPacketCallback>(&RoomManager::QueuePacket));
-    tasks->QueueJob(lobby->m_hostingTask);
-    for (int i = 0; i < QueuedCount(); ++i)
-        Crt::Dealloc(Queue()[i].data); // (the game's C runtime free)
-    QueuedCount() = 0;
-    PopHeap();
+    tasks->queue_job(lobby->nat_task_);
+    client->set_outside_packet_hook(reinterpret_cast<net::UnknownPacketCallback>(&RoomManager::queue_packet));
+    tasks->queue_job(lobby->hosting_task_);
+    for (int i = 0; i < queued_count(); ++i)
+        crt::dealloc(get_queue()[i].data); // (the game's C runtime free)
+    queued_count() = 0;
+    pop_heap();
     return true;
 }
 
 // 0x005403E0
-bool __cdecl CFunc_CancelNatNegotiation(Scripts::CStruct*, Scripts::CScript*)
+bool __cdecl cfunc_cancel_nat_negotiation(script::Struct*, script::Script*)
 {
-    RoomManager* lobby = Lobby();
-    NatCancel(lobby->m_natCookie);
-    NatThink();
-    NatFreeNegotiations();
-    Lobby()->m_natTask->DropOut();
-    Lobby()->m_hostingTask->DropOut();
+    RoomManager* lobby = current_lobby();
+    nat_cancel(lobby->nat_cookie_);
+    nat_think();
+    nat_free_negotiations();
+    current_lobby()->nat_task_->drop_out();
+    current_lobby()->hosting_task_->drop_out();
     return true;
 }
 
 // 0x00540590
-bool __cdecl CFunc_LeaveLobby(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_leave_lobby(script::Struct* params, script::Script*)
 {
-    PushInternetHeap();
-    Hub* manager = NetSessionSlot();
-    auto* lobby = static_cast<RoomManager*>(manager->m_lobbyService);
-    void* buddy = manager->m_presenceService;
-    GameSpy::PeerLeaveRoom(lobby->m_remote, kRoomGroupKind, nullptr); // the group room left
-    lobby->m_inGroupRoom = false;
-    if (Prop<bool>(buddy, 0x10) && !params->HasEntryNamed(kPreserveStatus)) {
-        const char* text = Scripts::FetchText(kHomieStatusLoggingIn);
-        const char* status = Scripts::FetchText(kHomieStatusOnline);
-        static_cast<FriendsManager*>(buddy)->ChangeStanding(kStatusOnline, status, text); // the presence's status (its text, location)
+    push_internet_heap();
+    Hub* manager = net_session_slot();
+    auto* lobby = static_cast<RoomManager*>(manager->lobby_service_);
+    void* buddy = manager->presence_service_;
+    game_spy::peer_leave_room(lobby->remote_, kRoomGroupKind, nullptr); // the group room left
+    lobby->in_group_room_ = false;
+    if (prop<bool>(buddy, 0x10) && !params->has_entry_named(kPreserveStatus)) {
+        const char* text = script::fetch_text(kHomieStatusLoggingIn);
+        const char* status = script::fetch_text(kHomieStatusOnline);
+        static_cast<FriendsManager*>(buddy)->change_standing(kStatusOnline, status, text); // the presence's status (its text, location)
     }
-    GameSpy::PeerSetGroupId(lobby->m_remote, lobby->m_groupId);
-    PopHeap();
+    game_spy::peer_set_group_id(lobby->remote_, lobby->group_id_);
+    pop_heap();
     return true;
 }
 
 // 0x00540640
-bool __cdecl CFunc_CancelLobbyConnect(Scripts::CStruct*, Scripts::CScript*)
+bool __cdecl cfunc_cancel_lobby_connect(script::Struct*, script::Script*)
 {
-    Lobby()->m_connecting = false;
-    Lobby()->m_dropIsExpected = true;
+    current_lobby()->connecting_ = false;
+    current_lobby()->drop_is_expected_ = true;
     return true;
 }
 
 // 0x00540660
-bool __cdecl CFunc_SetQuietMode(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl cfunc_set_quiet_mode(script::Struct* params, script::Script*)
 {
-    PushInternetHeap();
-    Hub* manager = NetSessionSlot();
-    int quiet = params->HasBareFlag(kOff) ? 0 : 1;
-    GameSpy::PeerSetQuietMode(static_cast<RoomManager*>(manager->m_lobbyService)->m_remote, quiet);
-    PopHeap();
+    push_internet_heap();
+    Hub* manager = net_session_slot();
+    int quiet = params->has_bare_flag(kOff) ? 0 : 1;
+    game_spy::peer_set_quiet_mode(static_cast<RoomManager*>(manager->lobby_service_)->remote_, quiet);
+    pop_heap();
     return true;
 }
 
 // 0x005406C0
-bool __cdecl CFunc_CanHostGame(Scripts::CStruct*, Scripts::CScript*)
+bool __cdecl cfunc_can_host_game(script::Struct*, script::Script*)
 {
-    Hub* manager = NetSessionSlot();
-    RoomManager* lobby = static_cast<RoomManager*>(manager->m_lobbyService);
-    if (!lobby->m_restrictedHosting)
-        return lobby->m_unknown30 < lobby->m_unknown2C;
-    if (!Prop<bool>(manager->m_presenceService, 0x10)) // (logged in to the presence)
+    Hub* manager = net_session_slot();
+    RoomManager* lobby = static_cast<RoomManager*>(manager->lobby_service_);
+    if (!lobby->restricted_hosting_)
+        return lobby->unknown30_ < lobby->unknown2c_;
+    if (!prop<bool>(manager->presence_service_, 0x10)) // (logged in to the presence)
         return false;
-    int profile = Prop<int>(manager->m_presenceService, 4);
+    int profile = prop<int>(manager->presence_service_, 4);
     for (int allowed : kHostProfiles)
         if (profile == allowed)
             return true;
     return false;
 }
 
-} // namespace OnlinePlay
+} // namespace online

@@ -13,41 +13,41 @@
 #include "engine/objects/walk_hang.h"
 #include "engine/script/param_struct.h"
 
-namespace Gfx2D {
+namespace gfx {
 
 namespace {
 
 constexpr float kMinWeight = 9.99999975e-06f; // (0x006453B8)
 
 // a + (b - a) * t (Walk::Lerp).
-void LerpVector(float* out, const float* a, const float* b, float t)
+void lerp_vector(float* out, const float* a, const float* b, float t)
 {
-    Walk::Lerp(reinterpret_cast<Maths::Vec4*>(out), reinterpret_cast<const Maths::Vec4*>(a),
-               reinterpret_cast<const Maths::Vec4*>(b), t);
+    walk::get_lerp(reinterpret_cast<maths::Vec4*>(out), reinterpret_cast<const maths::Vec4*>(a),
+               reinterpret_cast<const maths::Vec4*>(b), t);
 }
 
-void Copy4(float* to, const float* from)
+void copy4(float* to, const float* from)
 {
     std::memcpy(to, from, 16);
 }
 
 // One pose (`to`) taking in a higher one (`from`) by `t`, bone by bone: where both have the bone, blended; where
-// only `from` has it, copied (and marked valid in `to`, when `markCopied`).
-void BlendBones(CStance& to, CStance& from, int bones, float t, bool markCopied)
+// only `from` has it, copied (and marked valid in `to`, when `mark_copied`).
+void blend_bones(Stance& to, Stance& from, int bones, float t, bool mark_copied)
 {
     for (int k = 0; k < bones; ++k) {
         if (to.valid[k]) {
             if (from.valid[k]) {
                 float blended[4];
-                Copy4(to.rotations[k], InterpolateRotation(blended, to.rotations[k], from.rotations[k], t));
-                LerpVector(blended, to.translations[k], from.translations[k], t);
-                Copy4(to.translations[k], blended);
+                copy4(to.rotations[k], interpolate_rotation(blended, to.rotations[k], from.rotations[k], t));
+                lerp_vector(blended, to.translations[k], from.translations[k], t);
+                copy4(to.translations[k], blended);
             }
         } else if (from.valid[k]) {
-            Copy4(to.rotations[k], from.rotations[k]);
-            if (markCopied)
+            copy4(to.rotations[k], from.rotations[k]);
+            if (mark_copied)
                 to.valid[k] = 1;
-            Copy4(to.translations[k], from.translations[k]);
+            copy4(to.translations[k], from.translations[k]);
         }
     }
 }
@@ -55,7 +55,7 @@ void BlendBones(CStance& to, CStance& from, int bones, float t, bool markCopied)
 } // namespace
 
 // 0x0047D470 (x87: the first two components and the length unrounded)
-float* __cdecl InterpolateRotation(float* out, const float* from, float* to, float t)
+float* __cdecl interpolate_rotation(float* out, const float* from, float* to, float t)
 {
     double dot = static_cast<double>(from[0]) * to[0];
     dot += static_cast<double>(to[3]) * from[3];
@@ -68,9 +68,9 @@ float* __cdecl InterpolateRotation(float* out, const float* from, float* to, flo
     double x = (static_cast<double>(to[0]) - from[0]) * t + from[0];
     double y = (static_cast<double>(to[1]) - from[1]) * t + from[1];
     float z = static_cast<float>((static_cast<double>(to[2]) - from[2]) * t + from[2]);
-    double wUnrounded = (static_cast<double>(to[3]) - from[3]) * t + from[3];
-    float w = static_cast<float>(wUnrounded);
-    double length = wUnrounded * w + static_cast<double>(z) * z;
+    double w_unrounded = (static_cast<double>(to[3]) - from[3]) * t + from[3];
+    float w = static_cast<float>(w_unrounded);
+    double length = w_unrounded * w + static_cast<double>(z) * z;
     length += y * y;
     length += x * x;
     double inverse = 1.0f / std::sqrt(length);
@@ -79,12 +79,12 @@ float* __cdecl InterpolateRotation(float* out, const float* from, float* to, flo
     to[1] = static_cast<float>(rounded * y);
     to[2] = static_cast<float>(static_cast<double>(rounded) * z);
     to[3] = static_cast<float>(static_cast<double>(rounded) * w);
-    Copy4(out, to);
+    copy4(out, to);
     return out;
 }
 
 // 0x0047D680
-void __cdecl MixPoses(CStance* poses, float* weights, int bones, CStance* out, int count)
+void __cdecl mix_poses(Stance* poses, float* weights, int bones, Stance* out, int count)
 {
     weights[0] = 1.0f;
     double others = 0.0;
@@ -104,15 +104,15 @@ void __cdecl MixPoses(CStance* poses, float* weights, int bones, CStance* out, i
         double below = weights[j];
         taken = static_cast<float>(static_cast<double>(taken) + weights[i]);
         float t = static_cast<float>(1.0f - below / (below + above));
-        BlendBones(poses[j], poses[i], bones, t, false);
+        blend_bones(poses[j], poses[i], bones, t, false);
     }
     // (as the original: `bones` poses' worth)
     if (out != poses)
-        std::memcpy(out, poses, static_cast<size_t>(bones) * sizeof(CStance));
+        std::memcpy(out, poses, static_cast<size_t>(bones) * sizeof(Stance));
 }
 
 // 0x0047D8F0
-void __cdecl BlendPosesById(CStance* poses, float* weights, const uint32_t* ids, int bones, CStance* out, int count,
+void __cdecl blend_poses_by_id(Stance* poses, float* weights, const uint32_t* ids, int bones, Stance* out, int count,
                             uint32_t id)
 {
     double others = 0.0;
@@ -138,66 +138,66 @@ void __cdecl BlendPosesById(CStance* poses, float* weights, const uint32_t* ids,
         double below = weights[j];
         taken = static_cast<float>(static_cast<double>(taken) + weights[i]);
         float t = static_cast<float>(1.0f - below / (below + above));
-        BlendBones(poses[j], poses[i], bones, t, true);
+        blend_bones(poses[j], poses[i], bones, t, true);
     }
     if (out != poses)
-        std::memcpy(out, poses, static_cast<size_t>(bones) * sizeof(CStance));
+        std::memcpy(out, poses, static_cast<size_t>(bones) * sizeof(Stance));
 }
 
-uint32_t g_loopTypeChecksums[4]{0xE035F2F8, 0x4F792E6C, 0x3153E314, 0x6D941203}; // the loop types' checksums
+uint32_t g_loop_type_checksums[4]{0xE035F2F8, 0x4F792E6C, 0x3153E314, 0x6D941203}; // the loop types' checksums
 
 // 0x0047D580
-void __stdcall AddTimelineInfo(CAnimTimeline* timeline, Scripts::CStruct* info)
+void __stdcall add_timeline_info(AnimTimeline* timeline, script::Struct* info)
 {
     constexpr uint32_t kAnim = 0x98549BA4, kSpeed = 0xF0D90109, kRepeatMode = 0x6B888E80;
     constexpr uint32_t kStartTime = 0xD16B61E6, kCurrentTime = 0xD4FC8176, kEndTime = 0xAB81BB3D;
-    info->PutNameKey(kAnim, timeline->m_anim);
-    info->PushFloat(kSpeed, timeline->m_speed);
-    info->PutNameKey(kRepeatMode, (g_loopTypeChecksums)[timeline->m_repeatMode]);
+    info->put_name_key(kAnim, timeline->anim_);
+    info->push_float(kSpeed, timeline->speed_);
+    info->put_name_key(kRepeatMode, (g_loop_type_checksums)[timeline->repeat_mode_]);
     float start, current, end;
-    timeline->GetTimes(&start, &current, &end);
-    info->PushFloat(kStartTime, start);
-    info->PushFloat(kCurrentTime, current);
-    info->PushFloat(kEndTime, end);
+    timeline->get_times(&start, &current, &end);
+    info->push_float(kStartTime, start);
+    info->push_float(kCurrentTime, current);
+    info->push_float(kEndTime, end);
 }
 
 // 0x0047D420
-void CBlendChannel::SetFlag4C(bool value)
+void BlendChannel::set_flag_4c(bool value)
 {
-    m_flag4C = value;
+    flag_4c_ = value;
 }
 
 // 0x0047D430
-void CBlendChannel::BlendTo(uint32_t target, float period)
+void BlendChannel::blend_to(uint32_t target, float period)
 {
-    m_aimPoint = target;
-    m_periodLeft = period;
-    m_period = period;
+    aim_point_ = target;
+    period_left_ = period;
+    period_ = period;
     if (period == 0.0f) {
-        m_ongoing = target;
-        m_outset = target;
+        ongoing_ = target;
+        outset_ = target;
     } else {
-        m_outset = m_ongoing;
+        outset_ = ongoing_;
     }
 }
 
 // 0x0047D620
-float CBlendChannel::FetchValue(uint32_t offset)
+float BlendChannel::fetch_value(uint32_t offset)
 {
-    return *static_cast<float*>(Engine3D::GetAnimData(m_lookupKey + offset, 0));
+    return *static_cast<float*>(render::get_anim_data(lookup_key_ + offset, 0));
 }
 
 // 0x0047D640
-bool CBlendChannel::HasValue(uint32_t offset)
+bool BlendChannel::has_value(uint32_t offset)
 {
-    return Engine3D::GetAnimData(m_lookupKey + offset, 0) != nullptr;
+    return render::get_anim_data(lookup_key_ + offset, 0) != nullptr;
 }
 
 // 0x0047D660
-void CBlendChannel::ClearFlag()
+void BlendChannel::clear_flag()
 {
-    if (auto* params = *reinterpret_cast<Scripts::CStruct**>(m_ownerPtr + 0x20))
-        params->EraseModule(0x5DB4115F);
+    if (auto* params = *reinterpret_cast<script::Struct**>(owner_ptr_ + 0x20))
+        params->erase_module(0x5DB4115F);
 }
 
 } // namespace Gfx

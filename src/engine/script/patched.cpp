@@ -12,11 +12,11 @@
 #include "platform/debug_log.h"
 #include "engine/util/bps.h"
 
-namespace Scripts {
+namespace script {
 
 namespace {
 
-using DebugLog::StageMap;
+using debug_log::StageMap;
 
 // The patch for scripts\engine\menu\keyboard.qb (PartyMod's patches/keyboard.bps).
 const uint8_t kKeyboardPatch[] = {
@@ -49,25 +49,25 @@ const uint8_t kKeyboardPatch[] = {
 struct ScriptPatch {
     const char* filename;
     const uint8_t* patch;
-    size_t patchSize;
+    size_t patch_size_;
     // The patched script once made, and the checksum of the patch it was made with.
     bool made;
-    uint32_t madeWith;
+    uint32_t made_with_;
     uint8_t* patched;
-    size_t patchedSize;
+    size_t patched_size_;
     // The copy returned when the file is loaded again (refreshed from `patched` each time).
     uint8_t* copy;
 };
 
 std::vector<ScriptPatch>* s_patches = nullptr;
 
-void RegisterPatch(const char* filename, const uint8_t* patch, size_t size)
+void register_patch(const char* filename, const uint8_t* patch, size_t size)
 {
     s_patches->push_back({filename, patch, size, false, 0, nullptr, 0, nullptr});
-    DebugLog::Printf(StageMap::kInfo, "Registered patch for %s\n", filename);
+    debug_log::printf(StageMap::kInfo, "Registered patch for %s\n", filename);
 }
 
-uint8_t* Duplicate(const uint8_t* data, size_t size)
+uint8_t* get_duplicate(const uint8_t* data, size_t size)
 {
     auto* copy = static_cast<uint8_t*>(std::malloc(size));
     std::memcpy(copy, data, size);
@@ -76,17 +76,17 @@ uint8_t* Duplicate(const uint8_t* data, size_t size)
 
 } // namespace
 
-void InitScriptPatches()
+void init_script_patches()
 {
     s_patches = new std::vector<ScriptPatch>();
-    RegisterPatch("scripts\\engine\\menu\\keyboard.qb", kKeyboardPatch, sizeof(kKeyboardPatch));
+    register_patch("scripts\\engine\\menu\\keyboard.qb", kKeyboardPatch, sizeof(kKeyboardPatch));
 }
 
-const uint8_t* LoadPatchedScript(const char* filename)
+const uint8_t* load_patched_script(const char* filename)
 {
-    auto* data = static_cast<const uint8_t*>(Packs::ReadIn(filename, false, nullptr, nullptr, nullptr));
-    int size = Packs::GetFileSize(Checksums::HashFromText(filename));
-    if (!s_patches) // (offline, or before InitScriptPatches)
+    auto* data = static_cast<const uint8_t*>(packs::read_in(filename, false, nullptr, nullptr, nullptr));
+    int size = packs::get_file_size(checksums::hash_from_text(filename));
+    if (!s_patches) // (offline, or before init_script_patches)
         return data;
     ScriptPatch* entry = nullptr;
     for (ScriptPatch& p : *s_patches)
@@ -98,39 +98,39 @@ const uint8_t* LoadPatchedScript(const char* filename)
     // NOT ORIGINAL - a file the patch wasn't made for (the data overlay's own keyboard.qb, already made with PartyMod's
     // changes by tools/pipeline/menu_level/make_menu_level.ts) is loaded as it is, without patching it in vain (and
     // without the original's patched copy from the cache in its place).
-    if (!data || size <= 0 || !Bps::MadeFor(entry->patch, entry->patchSize, data, static_cast<size_t>(size))) {
-        DebugLog::Printf(StageMap::kInfo, "%s isn't the file its patch is for (a data overlay's own) - loaded as it is\n",
+    if (!data || size <= 0 || !bps::made_for(entry->patch, entry->patch_size_, data, static_cast<size_t>(size))) {
+        debug_log::printf(StageMap::kInfo, "%s isn't the file its patch is for (a data overlay's own) - loaded as it is\n",
                          filename);
         return data;
     }
-    uint32_t checksum = Bps::PatchChecksum(entry->patch, entry->patchSize);
-    if (entry->made && entry->madeWith == checksum) {
-        DebugLog::Printf(StageMap::kInfo, "Using cached patched script for %s\n", filename);
+    uint32_t checksum = bps::patch_checksum(entry->patch, entry->patch_size_);
+    if (entry->made && entry->made_with_ == checksum) {
+        debug_log::printf(StageMap::kInfo, "Using cached patched script for %s\n", filename);
         if (entry->copy) {
-            std::memcpy(entry->copy, entry->patched, entry->patchedSize); // (back as patched)
+            std::memcpy(entry->copy, entry->patched, entry->patched_size_); // (back as patched)
             return entry->copy;
         }
-        uint8_t* fresh = Duplicate(entry->patched, entry->patchedSize);
-        entry->copy = Duplicate(fresh, entry->patchedSize);
+        uint8_t* fresh = get_duplicate(entry->patched, entry->patched_size_);
+        entry->copy = get_duplicate(fresh, entry->patched_size_);
         return fresh;
     }
     if (entry->made)
-        DebugLog::Printf(StageMap::kInfo, "Cached script checksum %08x didn't match patch %08x\n", entry->madeWith, checksum);
-    DebugLog::Printf(StageMap::kInfo, "Applying patch for %s\n", filename);
+        debug_log::printf(StageMap::kInfo, "Cached script checksum %08x didn't match patch %08x\n", entry->made_with_, checksum);
+    debug_log::printf(StageMap::kInfo, "Applying patch for %s\n", filename);
     uint8_t* patched = nullptr;
-    size_t patchedSize = 0;
-    if (!Bps::Apply(entry->patch, entry->patchSize, data, static_cast<size_t>(size), &patched, &patchedSize)) {
-        DebugLog::Printf(StageMap::kWarn, "Patch failed! Continuing with original script\n");
+    size_t patched_size = 0;
+    if (!bps::get_apply(entry->patch, entry->patch_size_, data, static_cast<size_t>(size), &patched, &patched_size)) {
+        debug_log::printf(StageMap::kWarn, "Patch failed! Continuing with original script\n");
         return data;
     }
-    DebugLog::Printf(StageMap::kInfo, "Patch succeeded! Writing to cache...\n");
+    debug_log::printf(StageMap::kInfo, "Patch succeeded! Writing to cache...\n");
     entry->made = true;
-    entry->madeWith = checksum;
-    entry->patched = Duplicate(patched, patchedSize);
-    entry->patchedSize = patchedSize;
-    DebugLog::Printf(StageMap::kInfo, "Done!\n");
+    entry->made_with_ = checksum;
+    entry->patched = get_duplicate(patched, patched_size);
+    entry->patched_size_ = patched_size;
+    debug_log::printf(StageMap::kInfo, "Done!\n");
     std::free(entry->copy);
-    entry->copy = Duplicate(patched, patchedSize);
+    entry->copy = get_duplicate(patched, patched_size);
     return patched;
 }
 

@@ -8,26 +8,26 @@
 #include "editor/level_editor_overlays.h"
 #include "editor/level_editor_transform.h"
 
-namespace MenuSystem::LevelEditor::Ux8::Pie {
+namespace frontend::level_editor::ux8::pie {
 
 namespace {
 
 // A registry action as a slice (its own name unless `label`).
-Item ActStep(int index, const char* label, bool edits)
+Item act_step(int index, const char* label, bool edits)
 {
     Item item;
-    const Actions::ActStep* a = Actions::Pull(index);
+    const actions::ActStep* a = actions::get_pull(index);
     item.label = label ? label : a ? a->name : "?";
-    item.keys = Hints::LeadingKeyName(Actions::KeysText(index));
-    item.run = [index] { Actions::Run(index); };
-    item.enabled = [index] { return Actions::IsSwitchedOn(index); };
-    item.checked = [index] { return Actions::Checked(index); };
+    item.keys = hints::leading_key_name(actions::get_keys_text(index));
+    item.run = [index] { actions::get_run(index); };
+    item.enabled = [index] { return actions::is_switched_on(index); };
+    item.checked = [index] { return actions::get_checked(index); };
     item.edits = edits;
     return item;
 }
-Item ActionById(const char* id, const char* label, bool edits)
+Item action_by_id(const char* id, const char* label, bool edits)
 {
-    int index = Actions::Find(id);
+    int index = actions::get_find(id);
     if (index < 0) {
         Item none;
         none.label = label ? label : id;
@@ -36,75 +36,75 @@ Item ActionById(const char* id, const char* label, bool edits)
         none.checked = [] { return -1; };
         return none;
     }
-    return ActStep(index, label, edits);
+    return act_step(index, label, edits);
 }
 
-Item Tool(Xform::Mode mode, int action)
+Item get_tool(xform::Mode mode, int action)
 {
     Item item;
-    item.label = std::string("Tool: ") + Xform::ModeName(mode);
-    item.keys = Hints::LeadingKeyName(Actions::KeysText(action));
+    item.label = std::string("Tool: ") + xform::mode_name(mode);
+    item.keys = hints::leading_key_name(actions::get_keys_text(action));
     // (set directly: the keys pick a tool only with the right button up and wasd_flies=0)
-    item.run = [mode] { Xform::AtHand().mode = mode; };
+    item.run = [mode] { xform::at_hand().mode = mode; };
     item.enabled = [] { return true; };
-    item.checked = [mode] { return Xform::AtHand().mode == mode ? 1 : 0; };
+    item.checked = [mode] { return xform::at_hand().mode == mode ? 1 : 0; };
     return item;
 }
 
-Item ViewMode(int mode)
+Item view_mode(int mode)
 {
     Item item;
-    item.label = std::string("View: ") + Overlays::ViewModeName(mode);
-    item.keys = Hints::LeadingKeyName(Actions::KeysText(Actions::kViewModeLit + mode));
-    item.run = [mode] { Overlays::ChangeViewMode(mode); };
+    item.label = std::string("View: ") + overlays::view_mode_name(mode);
+    item.keys = hints::leading_key_name(actions::get_keys_text(actions::kViewModeLit + mode));
+    item.run = [mode] { overlays::change_view_mode(mode); };
     item.enabled = [] { return true; };
-    item.checked = [mode] { return Overlays::ViewMode() == mode ? 1 : 0; };
+    item.checked = [mode] { return overlays::view_mode() == mode ? 1 : 0; };
     return item;
 }
 
 } // namespace
 
-std::vector<Item> ContextItems(bool haveSelection)
+std::vector<Item> context_items(bool have_selection)
 {
-    using namespace Actions;
-    if (haveSelection) {
+    using namespace actions;
+    if (have_selection) {
         // (clockwise from the top)
-        return {Tool(Xform::Mode::ShiftBy, kToolMove),
-                Tool(Xform::Mode::SpinBy, kToolRotate),
-                ActionById("snap25", "Snap", false),
-                ActStep(kDrop, "Drop to the ground", true),
-                Tool(Xform::Mode::StretchBy, kToolScale),
-                ActStep(kDelete, "Delete / hide", true),
-                ActStep(kDuplicate, nullptr, true),
-                ActStep(kFrameSelection, nullptr, false),
-                ActionById("linked_duplicate", nullptr, true),
-                ActionById("arrange_window", nullptr, false)};
+        return {get_tool(xform::Mode::kShiftBy, kToolMove),
+                get_tool(xform::Mode::kSpinBy, kToolRotate),
+                action_by_id("snap25", "Snap", false),
+                act_step(kDrop, "Drop to the ground", true),
+                get_tool(xform::Mode::scale_tool, kToolScale),
+                act_step(kDelete, "Delete / hide", true),
+                act_step(kDuplicate, nullptr, true),
+                act_step(kFrameSelection, nullptr, false),
+                action_by_id("linked_duplicate", nullptr, true),
+                action_by_id("arrange_window", nullptr, false)};
     }
-    return {ActStep(kBrowser, "Add (browser)", false),
-            ActStep(kPlace, "Place a node", false),
-            ActStep(kBoxSelect, nullptr, false),
-            ActStep(kRuler, nullptr, false),
-            ActionById("walk_mode", nullptr, false),
-            ActStep(kSimulate, nullptr, false),
-            ActStep(kPlay, nullptr, false),
-            ActStep(kTrailWindow, nullptr, false)};
+    return {act_step(kBrowser, "Add (browser)", false),
+            act_step(kPlace, "Place a node", false),
+            act_step(kBoxSelect, nullptr, false),
+            act_step(kRuler, nullptr, false),
+            action_by_id("walk_mode", nullptr, false),
+            act_step(kSimulate, nullptr, false),
+            act_step(kPlay, nullptr, false),
+            act_step(kTrailWindow, nullptr, false)};
 }
 
-std::vector<Item> ViewItems()
+std::vector<Item> view_items()
 {
-    using namespace Actions;
+    using namespace actions;
     std::vector<Item> items;
-    for (int mode = 0; mode < Overlays::kViewModes && mode < 4; ++mode)
-        items.push_back(ViewMode(mode));
-    items.push_back(ActStep(kCollision, nullptr, false));
-    items.push_back(ActStep(kTriggers, nullptr, false));
-    items.push_back(ActStep(kJumpArcs, nullptr, false));
-    Item top = ActStep(kViewTop, nullptr, false);
-    if (ViewCam::Ortho()) {
-        top = ActStep(kViewOrtho, "Perspective", false);
+    for (int mode = 0; mode < overlays::kViewModes && mode < 4; ++mode)
+        items.push_back(view_mode(mode));
+    items.push_back(act_step(kCollision, nullptr, false));
+    items.push_back(act_step(kTriggers, nullptr, false));
+    items.push_back(act_step(kJumpArcs, nullptr, false));
+    Item top = act_step(kViewTop, nullptr, false);
+    if (view_cam::ortho()) {
+        top = act_step(kViewOrtho, "Perspective", false);
     }
     items.push_back(top);
     return items;
 }
 
-} // namespace MenuSystem::LevelEditor::Ux8::Pie
+} // namespace MenuSystem::level_editor::ux8::Pie

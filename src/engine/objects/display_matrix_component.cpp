@@ -9,7 +9,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/vehicle_sound.h"
 
-namespace GameObjects {
+namespace objects {
 
 namespace {
 
@@ -18,56 +18,56 @@ extern void** const kVtable;
 } // namespace
 
 // 0x004312A0
-CObjectModule* __cdecl CFaceHeadingModule::Fabricate()
+ObjectModule* __cdecl FaceHeadingModule::fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CFaceHeadingModule));
+    void* memory = memory::alloc_zeroed(sizeof(FaceHeadingModule));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CFaceHeadingModule*>(memory);
-    component->CObjectModule::MakeNew();
-    component->m_vtable = kVtable;
-    component->m_kindTag = kType;
+    auto* component = static_cast<FaceHeadingModule*>(memory);
+    component->ObjectModule::make_new();
+    component->vtable_ = kVtable;
+    component->kind_tag_ = kType;
     return component;
 }
 
 // 0x00431240
-void CFaceHeadingModule::DestroyBody()
+void FaceHeadingModule::destroy_body()
 {
-    m_vtable = kVtable;
-    CObjectModule::DestroyBody();
+    vtable_ = kVtable;
+    ObjectModule::destroy_body();
 }
 
 // 0x00431250
-CFaceHeadingModule* CFaceHeadingModule::Teardown(unsigned int flags)
+FaceHeadingModule* FaceHeadingModule::teardown(unsigned int flags)
 {
-    DestroyBody();
+    destroy_body();
     if (flags & 1)
-        MemSys::Hub::Pull()->Dealloc(this);
+        memory::Hub::get_pull()->dealloc(this);
     return this;
 }
 
 // 0x00431280
-void CFaceHeadingModule::TickFrame() { m_entity->m_displayMatrix = m_entity->m_basisFrame; }
+void FaceHeadingModule::tick_frame() { entity_->display_matrix_ = entity_->basis_frame_; }
 
 } // namespace Obj
 
-namespace GameObjects {
+namespace objects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CFaceHeadingModule::Teardown,
-         &GameObjects::CFaceHeadingModule::TickFrame,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::DoNothing,
-         GameObjects::ReapplyFromData,
-         Stubs::IgnoreArguments2,
-         &GameObjects::CObjectModule::HoldOff,
-         Stubs::IgnoreArgument,
-         Stubs::DoNothing,
-         Stubs::IgnoreArgument,
-         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
-         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
-void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
+static VtableSlot g_vtable_slots[] = {&objects::FaceHeadingModule::teardown,
+         &objects::FaceHeadingModule::tick_frame,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::do_nothing,
+         objects::reapply_from_data,
+         stubs::ignore_arguments2,
+         &objects::ObjectModule::hold_off,
+         stubs::ignore_argument,
+         stubs::do_nothing,
+         stubs::ignore_argument,
+         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
+         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace Obj

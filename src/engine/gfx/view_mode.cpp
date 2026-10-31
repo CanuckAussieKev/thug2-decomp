@@ -18,21 +18,21 @@
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine.h"
 
-namespace Engine3D::ViewMode {
+namespace render::view_mode {
 
 // --- the pieces -------------------------------------------------------------------------------------------------
 
-std::string UnlitShaderSource(const std::string& source)
+std::string unlit_shader_source(const std::string& source)
 {
     // The version line first ("ps.1.1"); the constant must be free.
-    size_t versionEnd = source.find('\n');
-    if (source.compare(0, 3, "ps.") != 0 || versionEnd == std::string::npos)
+    size_t version_end = source.find('\n');
+    if (source.compare(0, 3, "ps.") != 0 || version_end == std::string::npos)
         return {};
-    auto isName = [](char c) { return std::isalnum(static_cast<unsigned char>(c)) || c == '_'; };
+    auto is_name = [](char c) { return std::isalnum(static_cast<unsigned char>(c)) || c == '_'; };
     std::string constant = "c" + std::to_string(kUnlitConstant);
     for (size_t at = source.find(constant); at != std::string::npos; at = source.find(constant, at + 1)) {
-        bool before = at == 0 || !isName(source[at - 1]);
-        bool after = at + constant.size() >= source.size() || !isName(source[at + constant.size()]);
+        bool before = at == 0 || !is_name(source[at - 1]);
+        bool after = at + constant.size() >= source.size() || !is_name(source[at + constant.size()]);
         if (before && after)
             return {};
     }
@@ -46,8 +46,8 @@ std::string UnlitShaderSource(const std::string& source)
             comment = false;
         else if (c == ';')
             comment = true;
-        bool v0 = !comment && c == 'v' && i + 1 < source.size() && source[i + 1] == '0' && (i == 0 || !isName(source[i - 1])) &&
-                  (i + 2 >= source.size() || !isName(source[i + 2]));
+        bool v0 = !comment && c == 'v' && i + 1 < source.size() && source[i + 1] == '0' && (i == 0 || !is_name(source[i - 1])) &&
+                  (i + 2 >= source.size() || !is_name(source[i + 2]));
         if (v0) {
             bool alpha = i + 3 < source.size() && source[i + 2] == '.' && (source[i + 3] == 'a' || source[i + 3] == 'w');
             if (!alpha) {
@@ -62,11 +62,11 @@ std::string UnlitShaderSource(const std::string& source)
     if (!changed)
         return source;
     // The constant's definition right after the version line (ps.1.x: defs before any other instruction).
-    out.insert(versionEnd + 1, "def " + constant + ", 0.5, 0.5, 0.5, 0.5\n");
+    out.insert(version_end + 1, "def " + constant + ", 0.5, 0.5, 0.5, 0.5\n");
     return out;
 }
 
-const char* Name(Mode mode)
+const char* get_name(Mode mode)
 {
     switch (mode) {
     case Mode::kLit: return "Lit";
@@ -81,14 +81,14 @@ const char* Name(Mode mode)
 
 namespace {
 
-IDirect3DDevice9* InputPort() { return g_d3dDevice; }
-void*& CurrentPixelShader() { return g_currentPixelShader; } // (render_state.cpp's cache)
-int& RenderMode() { return g_renderMode; }              // (wireframe.h)
+IDirect3DDevice9* input_port() { return g_d3d_device; }
+void*& current_pixel_shader() { return g_current_pixel_shader; } // (render_state.cpp's cache)
+int& render_mode() { return g_render_mode; }              // (wireframe.h)
 
 Mode g_mode = Mode::kLit;
-bool g_inWorld;
-bool g_setRenderMode; // (the editor set the render mode to 1 for Wireframe)
-bool g_assembleFailedLogged;
+bool g_in_world;
+bool g_set_render_mode; // (the editor set the render mode to 1 for Wireframe)
+bool g_assemble_failed_logged;
 
 struct Twin {
     std::string source;
@@ -98,17 +98,17 @@ struct Twin {
 std::unordered_map<void*, Twin> g_twins;
 
 // D3DXAssembleShader (linked library code; stdcall), as engine/gfx/pixel_shaders.cpp calls it.
-long AssembleShader(const char* source, uint32_t length, void** shader, void** errors)
+long assemble_shader(const char* source, uint32_t length, void** shader, void** errors)
 {
-    return D3dx::AssembleShader(source, length, shader, errors);
+    return d3dx::assemble_shader(source, length, shader, errors);
 }
-void* BufferPointer(void* buffer) { return reinterpret_cast<void*(__stdcall*)(void*)>((*static_cast<void***>(buffer))[3])(buffer); }
-void Release(void* object) { reinterpret_cast<unsigned long(__stdcall*)(void*)>((*static_cast<void***>(object))[2])(object); }
+void* buffer_pointer(void* buffer) { return reinterpret_cast<void*(__stdcall*)(void*)>((*static_cast<void***>(buffer))[3])(buffer); }
+void get_release(void* object) { reinterpret_cast<unsigned long(__stdcall*)(void*)>((*static_cast<void***>(object))[2])(object); }
 
-void* MakeTwin(void* original, Twin* twin)
+void* make_twin(void* original, Twin* twin)
 {
     twin->tried = true;
-    std::string text = UnlitShaderSource(twin->source);
+    std::string text = unlit_shader_source(twin->source);
     if (text.empty() || text == twin->source) {
         twin->shader = original;
         return original;
@@ -116,74 +116,74 @@ void* MakeTwin(void* original, Twin* twin)
     void* code = nullptr;
     void* errors = nullptr;
     void* made = nullptr;
-    long result = AssembleShader(text.c_str(), static_cast<uint32_t>(text.size()), &code, &errors);
-    if (result >= 0 && code && InputPort())
-        InputPort()->CreatePixelShader(static_cast<const DWORD*>(BufferPointer(code)),
+    long result = assemble_shader(text.c_str(), static_cast<uint32_t>(text.size()), &code, &errors);
+    if (result >= 0 && code && input_port())
+        input_port()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(code)),
                                     reinterpret_cast<IDirect3DPixelShader9**>(&made));
-    if (!made && !g_assembleFailedLogged) {
-        g_assembleFailedLogged = true;
-        Log("view mode: an unlit twin of a pixel shader couldn't be made (%08lX) - drawn lit:\n%s",
+    if (!made && !g_assemble_failed_logged) {
+        g_assemble_failed_logged = true;
+        get_log("view mode: an unlit twin of a pixel shader couldn't be made (%08lX) - drawn lit:\n%s",
             static_cast<unsigned long>(result), text.c_str());
     }
     if (code)
-        Release(code);
+        get_release(code);
     if (errors)
-        Release(errors);
+        get_release(errors);
     twin->shader = made ? made : original;
     return twin->shader;
 }
 
 } // namespace
 
-Mode AtHand() { return g_mode; }
+Mode at_hand() { return g_mode; }
 
-void AssignValue(Mode mode)
+void assign_value(Mode mode)
 {
     if (mode == g_mode || mode >= Mode::kCount)
         return;
     // Wireframe: the game's render mode (wireframe.h), put back when the mode goes - unless something else set it.
-    if (mode == Mode::kWireframe && RenderMode() == 0) {
-        RenderMode() = 1;
-        g_setRenderMode = true;
-    } else if (g_mode == Mode::kWireframe && g_setRenderMode) {
-        if (RenderMode() == 1)
-            RenderMode() = 0;
-        g_setRenderMode = false;
+    if (mode == Mode::kWireframe && render_mode() == 0) {
+        render_mode() = 1;
+        g_set_render_mode = true;
+    } else if (g_mode == Mode::kWireframe && g_set_render_mode) {
+        if (render_mode() == 1)
+            render_mode() = 0;
+        g_set_render_mode = false;
     }
     g_mode = mode;
-    Log("view mode: %s", Name(mode));
+    get_log("view mode: %s", get_name(mode));
 }
 
-void BeginWorld()
+void begin_world()
 {
-    g_inWorld = true;
+    g_in_world = true;
     if (g_mode == Mode::kUnlit)
-        CurrentPixelShader() = nullptr; // (the next SetPixelShader sends the twin)
-    if (g_mode == Mode::kCollisionOnly && InputPort())
-        InputPort()->Clear(0, nullptr, D3DCLEAR_TARGET, 0xFF1E2024, 1.0f, 0);
+        current_pixel_shader() = nullptr; // (the next SetPixelShader sends the twin)
+    if (g_mode == Mode::kCollisionOnly && input_port())
+        input_port()->Clear(0, nullptr, D3DCLEAR_TARGET, 0xFF1E2024, 1.0f, 0);
 }
 
-void EndWorld()
+void end_world()
 {
-    if (g_inWorld && g_mode == Mode::kUnlit)
-        CurrentPixelShader() = nullptr; // (the 2D gets the originals again)
-    g_inWorld = false;
+    if (g_in_world && g_mode == Mode::kUnlit)
+        current_pixel_shader() = nullptr; // (the 2D gets the originals again)
+    g_in_world = false;
 }
 
-bool WorldHidden() { return g_inWorld && g_mode == Mode::kCollisionOnly; }
+bool world_hidden() { return g_in_world && g_mode == Mode::kCollisionOnly; }
 
-void* DeviceShader(void* shader)
+void* device_shader(void* shader)
 {
-    if (!g_inWorld || g_mode != Mode::kUnlit || !shader)
+    if (!g_in_world || g_mode != Mode::kUnlit || !shader)
         return shader;
     auto found = g_twins.find(shader);
     if (found == g_twins.end())
         return shader; // (its source wasn't seen: drawn lit)
     Twin& twin = found->second;
-    return twin.tried ? twin.shader : MakeTwin(shader, &twin);
+    return twin.tried ? twin.shader : make_twin(shader, &twin);
 }
 
-void NoteShaderSource(void* shader, const char* source)
+void note_shader_source(void* shader, const char* source)
 {
     if (!shader || !source)
         return;
@@ -194,7 +194,7 @@ void NoteShaderSource(void* shader, const char* source)
     twin.source = source;
 }
 
-void ForgetShaders()
+void forget_shaders()
 {
     for (auto& entry : g_twins) {
         if (entry.second.tried && entry.second.shader && entry.second.shader != entry.first)
@@ -203,4 +203,4 @@ void ForgetShaders()
     g_twins.clear();
 }
 
-} // namespace Engine3D::ViewMode
+} // namespace render::view_mode

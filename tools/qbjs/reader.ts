@@ -183,7 +183,7 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
             op = byte();
         if (inExpression && op === 0x18) fail("unsupported expression operand token 0x18");
         if (op === 0x30 || op === 0x38) {
-            // ParseExpression's operand switch contains 30, not 38.
+            // parse_expression's operand switch contains 30, not 38.
             if (inExpression && op === 0x38) fail("RandomRange2 inside expressions is unsupported by original parser");
             return { kind: "randomRange", offset, a: word(), b: word(), second: op === 0x38 };
         }
@@ -270,7 +270,7 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         }
         if (op === 0x0e) {
             const result = expression(depth + 1, rawName);
-            // Only ParseValue -> ParseExpression calls GetResult. A '(' reached
+            // Only parse_value -> parse_expression calls GetResult. A '(' reached
             // via a random branch inside an active expression is grouping in
             // that same evaluator, just like the direct grouping path above.
             return inExpression ? result : bounded({ kind: "expressionResult", offset, value: result });
@@ -308,7 +308,7 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                     } else p = start;
                 }
                 const item = value(depth);
-                // ParseArguments/ParseStructure recursively append anonymous
+                // parse_arguments/parse_structure recursively append anonymous
                 // brace blocks into the same destination, rather than store
                 // an unnamed nested Structure component.
                 if (!assigned && item.kind === "structure") {
