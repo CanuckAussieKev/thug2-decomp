@@ -95,6 +95,14 @@ const uint8_t* LoadPatchedScript(const char* filename)
     if (!entry)
         return data;
 
+    // NOT ORIGINAL - a file the patch wasn't made for (the data overlay's own keyboard.qb, already made with PartyMod's
+    // changes by tools/pipeline/menu_level/make_menu_level.ts) is loaded as it is, without patching it in vain (and
+    // without the original's patched copy from the cache in its place).
+    if (!data || size <= 0 || !Bps::MadeFor(entry->patch, entry->patchSize, data, static_cast<size_t>(size))) {
+        DebugLog::Printf(Level::kInfo, "%s isn't the file its patch is for (a data overlay's own) - loaded as it is\n",
+                         filename);
+        return data;
+    }
     uint32_t checksum = Bps::PatchChecksum(entry->patch, entry->patchSize);
     if (entry->made && entry->madeWith == checksum) {
         DebugLog::Printf(Level::kInfo, "Using cached patched script for %s\n", filename);

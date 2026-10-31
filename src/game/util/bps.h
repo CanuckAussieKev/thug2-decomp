@@ -12,6 +12,9 @@ namespace Bps {
 // The patch's own checksum (its last four bytes).
 uint32_t PatchChecksum(const uint8_t* patch, size_t size);
 
+// Whether `patch` was made for `input` (its size and CRC-32).
+bool MadeFor(const uint8_t* patch, size_t patchSize, const uint8_t* input, size_t inputSize);
+
 // Apply `patch` to `input`: true and a malloc'd `*output` of `*outputSize` bytes, or false (the wrong patch for the
 // input, or a checksum that doesn't match; logged) with `*output` null.
 bool Apply(const uint8_t* patch, size_t patchSize, const uint8_t* input, size_t inputSize, uint8_t** output,
